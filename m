@@ -1,127 +1,60 @@
-From: Maximilian Engelhardt <maxi@daemonizer.de>
-Subject: Re: BCM4313 & brcmsmac & 3.12: only semi-working?
-Date: Mon, 29 Sep 2014 21:40:42 +0200
-Message-ID: <2326963.udog5tteBt@eisbaer>
-References: <53FDACD1.8090805@msgid.tls.msk.ru> <54258459.8020803@msgid.tls.msk.ru> <54296223.6090702@broadcom.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: IPv6 FIB related crash with MACVLANs in 3.9.11+ kernel.
+Date: Mon, 29 Sep 2014 12:48:19 -0700
+Message-ID: <5429B783.20207@candelatech.com>
+References: <52EFFE20.5080500@candelatech.com>  <20140203220323.GB17999@order.stressinduktion.org>  <52F012FF.9030105@candelatech.com> <52F65EB4.1050306@candelatech.com>  <20140208172310.GF16198@order.stressinduktion.org>  <loom.20140926T001736-777@post.gmane.org>  <1411906297.2400343.172598909.66223582@webmail.messagingengine.com>  <loom.20140929T195637-887@post.gmane.org>  <5429A886.1040809@candelatech.com> <1412017399.14757.4.camel@localhost>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="nextPart2166920.l4ruzGuEIG"; micalg="pgp-sha512"; protocol="application/pgp-signature"
-Cc: Michael Tokarev <mjt@tls.msk.ru>,
-	Seth Forshee <seth.forshee@canonical.com>,
-	brcm80211-dev-list@broadcom.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Arend van Spriel <arend@broadcom.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Hongmei Li <duckcncn@gmail.com>, netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from daemonizer.de ([87.230.18.164]:54284 "EHLO daemonizer.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750860AbaI2TsF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Sep 2014 15:48:05 -0400
-In-Reply-To: <54296223.6090702@broadcom.com>
+Received: from mail2.candelatech.com ([208.74.158.173]:52340 "EHLO
+	mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753384AbaI2TsU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 15:48:20 -0400
+In-Reply-To: <1412017399.14757.4.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
---nextPart2166920.l4ruzGuEIG
-Content-Transfer-Encoding: 7Bit
-Content-Type: text/plain; charset="us-ascii"
-
-On Monday 29 September 2014 15:44:03 Arend van Spriel wrote:
-> On 09/26/14 17:20, Michael Tokarev wrote:
-> > I can send it your way, -- guess it will be quite a bit costly,
-> > but I don't have any use for it anyway (short of throwing it
-> > away), and since I already spent significantly more money due
-> > to all this (whole thinkpad plus ssds and several wifi adaptors),
-> > this additional cost is just a small noize.  But since that's
-> > 2nd card in a row, maybe there's something else in there, the
-> > prob is not in the card?
+On 09/29/2014 12:03 PM, Hannes Frederic Sowa wrote:
+> On Mo, 2014-09-29 at 11:44 -0700, Ben Greear wrote:
+>> On 09/29/2014 11:15 AM, Hongmei Li wrote:
+>>> Thanks Hannes for your prompt response!
+>>>
+>>> We just encountered this issue two times in our product stability test so far,
+>>> and my panic backtrace is the exactly same with the one reported here.
+>>> I don't know how to reproduce the issue till now. 
+>>> I tried several method, unfortunately, I can not reproduce it by myself. :(
+>>
+>> We could reproduce it easily using our user-space tool that creates 1000
+>> mac-vlans, configures them, dumps routing tables, etc.  But, we could
+>> only reproduce it when we had the ixgbe ports unplugged.  If they
+>> were properly connected to a switch, we did not see any crashes.
+>>
+>> My original email on 2/3/2014 has more details, and the thread that
+>> follows has some info on debugging we did at the time.
 > 
-> Could be. Maybe some BIOS issue. Can you make some hi-res pictures of
-> the card and email them to me? If it is identical to what I already have
-> over here there is not much sense in sending it.
+> I just tried to reproduce the problem, disabling the port on a switch
+> and setting up 1000 macvlans on a ixgbe, enabling ipv6 and dumping
+> routing tables. Unluckily I had no success. :(
 > 
-> Regards,
-> Arend
+> Any more hints?
 
-Hi Arend,
+We are going to be running up to 20 concurrent scripts that
+will be dumping routes & ips, and configuring ip addresses
+and routes during bringup.
 
-I just saw this thread on linux-wireless and wanted to answer as it might be 
-of interest to you.
+I don't have a simple stand-alone way to reproduce this,
+but at least when we reported the problem is was very easy
+for us to reproduce with our tool.
 
-I also own a BCM4313 wireless network card. About a year ago I reported some 
-problems with reception strength which were then fixed after some time, 
-debugging and testing passed. At that time I also did some throughput testing, 
-but only had a 802.11g access-point to test. The results were not ideal, but 
-also not too bad. So at that time I thought the issues were all more or less 
-fixed and mostly fine. I also don't use wireless very much, so as long as things 
-do work somehow acceptable I probably don't notice any problems immediately.
-So it comes that only about some month ago I noticed that the throughput I 
-measured with my 11g access-point (about half the rate than with an atheros 
-card on the same ap) is about the same on a 11n access-point where it should 
-be much faster. I didn't experience any stalls, but that may also be that I 
-didn't use the card enough to really notice them.
+Maybe 20 scripts running in parallel that randomly configured and dumped routes
+and ip addresses on random interfaces would do the trick?
 
-I always wanted to report a bug because of the low throughout, but never got 
-to it because of lack of time. I didn't want to provide a report saying just 
-it doesn't work or it's slow without any data about it and a description how 
-to reproduce it, as I think without this information a bug report is mostly 
-useless.
+Thanks,
+Ben
 
-I also had a look at the kernel changelog of the brcmsm driver and notices 
-there was little to no activity lately. Because of this I also wasn't sure if 
-there is still someone interesting in fixing bugs for this device.
-
-As I was annoyed by the bad support for this card I decided it would be more 
-easy and much less time consuming to simply buy another card than trying to 
-get this fixed. So I bought a BCM43228 card, because it also supports 5 GHz. 
-Only after it arrived I noticed that it was only supported by the 3.17+ kernel 
-(not so much of a problem) and that it only seems to work in 802.11g mode 
-(only slow speeds and no 5 GHz). At least I could use it in full 11g speeds, 
-so it was a improvement.
-
-So I still don't have a card that does simply work. As I hope the missing 
-support for my BCM43228 will hopefully be added some time in the future it 
-probably would still be worth fixing the BCM4313 card as other users will also 
-benefit from it.
-
-A friend of mine also has the same laptop than me and the same (or at least 
-very similar) wireless card. He has told me he has also problem with stalls 
-like Michael reported (if I remember the history of the thread correctly).
-
-So I'm not really sure where I should go from here. I can try to provide some 
-debugging information as time permits, but I don't know how much time I will 
-have for this in the future. Of course ideally I want to use the BCM43228 card 
-with full support, as it can work on 5 GHz.
-
-Currently the BCM43228 card is plugged into my laptop, but I want to avoid 
-swapping the cards more that very few times because the antenna connectors are 
-only designed for very few (un)plug cycles.
-
-If it's of any information, my card is labeled BCM-BCM94313HMGB on the 
-sticker, the laptop where it was originally is a ThinkPad Edge E135.
-
-Greetings,
-Maxi
-
---nextPart2166920.l4ruzGuEIG
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part.
-Content-Transfer-Encoding: 7Bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJUKbW9AAoJEIHqZH0kK9IV8YQQAKyj7tj7BqoSPWI5JfNj+YiM
-+714zrX1bCFKO0kF5KVgKJGp61WYsA56MiQpa6aO9c+CQ1hocqs24Gxkah+za//i
-E+v2FV/6BuFfgzS+0lbDJzjxjLYqucAwgOk+OuZCxil1mHfgsiBttJh7BQmv43lY
-fTprq6n7WwiCbwkAjDsv06c/+AIDTPZwyMPAXPQcOEVz/xEljJI6Z/toxMZo16Xw
-g0r4WqbiGuSD0ULRb5nhi2w1SnprEr/MdQfHfofsleM9th/K2pqQJEX8I8FN7Xvx
-GhdTDs78ITEj8FXYCMLrre08bvy1g+Ubw2Qch1/fd9CWt+ux0TB5j5hnnrPWk6gE
-PF14YxClfLpJ5O2yH1EDAI78bmbhAABARfkuQPxojn75DGU29iUX33W7OM60FCkB
-SD5a8wchFjqPhKfETznZ6cXY1UXJ6IDt6WVIODxGek761Z1sajTLytn0wJxzSQKY
-Z4Nn1PBVdwjFuAOLTP2TeQfBGkxreAgs2wWWwxkDV9HsT8+KN56wI9tUfd+0dplD
-+iy+mJq1xOBGZ1tc+M/bvQiAHLzaB2Ws/okxdVmwTdXt3nupi2dCoyHWFS6IdrYG
-ncXIgVnOg3BN3lqrsrHuqGnpLBVZh9TizsOGWmDT+0k+rQ7aYQg0BrRmz1/jlRsN
-39bSUTRsEZ4LCzyynRgk
-=U6Xt
------END PGP SIGNATURE-----
-
---nextPart2166920.l4ruzGuEIG--
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
