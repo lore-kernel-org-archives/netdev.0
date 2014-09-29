@@ -1,50 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv8 net-next 2/4] sunvnet: make transmit path zero-copy
- in the kernel
-Date: Mon, 29 Sep 2014 16:29:50 -0400 (EDT)
-Message-ID: <20140929.162950.1960056644564225055.davem@davemloft.net>
-References: <5429B8E2.40204@oracle.com>
+Subject: Re: [PATCH v2] net: stmmac: fix stmmac_pci_probe failed when
+ CONFIG_HAVE_CLK is selected
+Date: Mon, 29 Sep 2014 16:37:20 -0400 (EDT)
+Message-ID: <20140929.163720.1059434932375001698.davem@davemloft.net>
+References: <1411738975-20056-1-git-send-email-hock.leong.kweh@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sowmini.varadhan@oracle.com,
-	raghuram.kothakota@oracle.com
-To: david.stevens@oracle.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33822 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750970AbaI2U3x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 16:29:53 -0400
-In-Reply-To: <5429B8E2.40204@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: peppe.cavallaro@st.com, rayagond@vayavyalabs.com,
+	vbridgers2013@gmail.com, wens@csie.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, boon.leong.ong@intel.com,
+	tobias.johannes.klausmann@mni.thm.de
+To: hock.leong.kweh@intel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1411738975-20056-1-git-send-email-hock.leong.kweh@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David L Stevens <david.stevens@oracle.com>
-Date: Mon, 29 Sep 2014 15:54:10 -0400
+From: Kweh Hock Leong <hock.leong.kweh@intel.com>
+Date: Fri, 26 Sep 2014 21:42:55 +0800
 
-> This patch removes pre-allocated transmit buffers and instead directly maps
-> pending packets on demand. This saves O(n^2) maximum-sized transmit buffers,
-> for n hosts on a vswitch, as well as a copy to those buffers.
+> From: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>
 > 
-> Single-stream TCP throughput linux-solaris dropped ~5% for 1500-byte MTU,
-> but linux-linux at 1500-bytes increased ~20%.
+> When the CONFIG_HAVE_CLK is selected for the system, the stmmac_pci_probe
+> will fail with dmesg:
+> [    2.167225] stmmaceth 0000:00:14.6: enabling device (0000 -> 0002)
+> [    2.178267] stmmaceth 0000:00:14.6: enabling bus mastering
+> [    2.178436] stmmaceth 0000:00:14.6: irq 24 for MSI/MSI-X
+> [    2.178703] stmmaceth 0000:00:14.6: stmmac_dvr_probe: warning: cannot
+> get CSR clock
+> [    2.186503] stmmac_pci_probe: main driver probe failed
+> [    2.194003] stmmaceth 0000:00:14.6: disabling bus mastering
+> [    2.196473] stmmaceth: probe of 0000:00:14.6 failed with error -2
 > 
-> Signed-off-by: David L Stevens <david.stevens@oracle.com>
+> This patch fix the issue by breaking the dependency to devm_clk_get()
+> as the CSR clock can be obtained at priv->plat->clk_csr from pci driver.
+> 
+> Reported-by: Tobias Klausmann <tobias.johannes.klausmann@mni.thm.de>
+> Signed-off-by: Kweh, Hock Leong <hock.leong.kweh@intel.com>
 
-It doesn't work to liberate SKBs in the TX ring purely from the
-->ndo_start_xmit() method.
-
-All SKBs given to a device must be liberated in a finite, short,
-amount of time.
-
-This means that there must be an event which indicates TX completion
-(either precisely, or at some small finite amount of time afterwards)
-which will trigger kfree_skb().
-
-Otherwise you can get a set of TX skbs in the TX queue, then if the
-network goes quiet they are all stuck there indefinitely.
-
-These SKBS hold onto resources such as sockets, netfilter state, etc.
-
-Even if you apply a sledgehammer and skb_orphan() these packets, that
-doesn't release the netfilter and other pieces of state.
+Applied, thank you.
