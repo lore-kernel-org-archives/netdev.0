@@ -1,69 +1,66 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH] staging: r8821ae: Remove driver from staging
-Date: Mon, 29 Sep 2014 13:08:21 -0500
-Message-ID: <5429A015.1000700@lwfinger.net>
-References: <1411954791-23779-1-git-send-email-Larry.Finger@lwfinger.net>
- <20140929170519.GA19823@kroah.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 net-next] mlx4: optimize xmit path
+Date: Mon, 29 Sep 2014 11:08:06 -0700
+Message-ID: <1412014086.30721.36.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CAMEtUuw0UjJuDqSDrK9L-CUWaVdKni1p9cib+VGCOYtBbrCY4Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org
-To: Greg KH <gregkh@linuxfoundation.org>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20140929170519.GA19823@kroah.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: Or Gerlitz <gerlitz.or@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	Eric Dumazet <edumazet@google.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Amir Vadai <amirv@mellanox.com>,
+	Or Gerlitz <or.gerlitz@gmail.com>
+To: Alexei Starovoitov <ast@plumgrid.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f169.google.com ([209.85.192.169]:53050 "EHLO
+	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755179AbaI2SII (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 14:08:08 -0400
+Received: by mail-pd0-f169.google.com with SMTP id p10so5720592pdj.0
+        for <netdev@vger.kernel.org>; Mon, 29 Sep 2014 11:08:07 -0700 (PDT)
+In-Reply-To: <CAMEtUuw0UjJuDqSDrK9L-CUWaVdKni1p9cib+VGCOYtBbrCY4Q@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/29/2014 12:05 PM, Greg KH wrote:
-> On Sun, Sep 28, 2014 at 08:39:51PM -0500, Larry Finger wrote:
->> A new version of this driver has been merged into the wireless-testing tree
->> as commit 21e4b0726dc671c423e2dc9a85364716219c4502. It is both possible and
->> desirable to delete the staging version to avoid build errors in linux-next.
->>
->> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
->> ---
->>
->> Greg,
->>
->> This removal patch was generated after commit 368c75b98bdfdfad54e7f165016819ef344e3587.
->> It should apply to your tree unless further modifications have been made to
->> the staging driver.
->
-> Something is odd with this patch, it doesn't apply, even against that
-> commit id:
-> Applying: staging: r8821ae: Remove driver from staging
-> error: patch failed: drivers/staging/rtl8821ae/btcoexist/HalBtc8812a1Ant.c:1
-> error: drivers/staging/rtl8821ae/btcoexist/HalBtc8812a1Ant.c: patch does not apply
-> Patch failed at 0001 staging: r8821ae: Remove driver from staging
-> The copy of the patch that failed is found in:
->     /home/gregkh/linux/work/staging/.git/rebase-apply/patch
-> When you have resolved this problem, run "git am --continue".
-> If you prefer to skip this patch, run "git am --skip" instead.
-> To restore the original branch and stop patching, run "git am --abort".
->
-> Can you refresh against the staging-next branch of staging.git and try it
-> again?  Or I can just delete it "by hand" which is fine with me, and might be
-> easier fro you, just let me know.
-
-I was on the staging-next branch, but when I pulled after receiving this mail, I 
-got a conflict due to some change in drivers/staging/rtl8821ae/pci.c. That one 
-must have been in your local copy, but not yet pushed when I pulled.
-
-If you don't mind doing the delete there, the traffic on the Cc sites will be 
-reduced. I'm sure you know what is needed, but just in case, delete the files in 
-drivers/staging/rtl8821ae/ and the Makefile and Kconfig entries in drivers/staging/.
-
-Thanks,
-
-Larry
+On Mon, 2014-09-29 at 10:46 -0700, Alexei Starovoitov wrote:
+> On Sun, Sep 28, 2014 at 9:19 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> >         send_doorbell = !skb->xmit_more || netif_xmit_stopped(ring->tx_queue);
+> >
+> >         if (ring->bf_enabled && desc_size <= MAX_BF && !bounce &&
+> >             !vlan_tx_tag_present(skb) && send_doorbell) {
+> 
+> This patch is good,
+> 
+> but I've been thinking more about bf+xmit_more and want
+> to double check my understanding in that scenario:
+> xmit_more=true will queue descriptors normally and
+> the last xmit_more=false packet will write into BF.
+> I guess BF suppose to pick up the earlier ones from
+> the queue, otherwise the whole thing is broken.
+> So if indeed BF can pick up the whole chain, then
+> it should be the faster way than doing iowrite32(), right?
+> --
 
 
-Larry
+Right, this is what my patch is doing.
+
+Say we send a burst of 8 packets.
+
+7 first packets are queued, but no iowrite32() is performed.
+
+final packet is queued, and bf is used to send the doorbell.
+
+With our current stack (net-next), its very easy to check :
+
+Disable tso (ethtool -K eth0 tso off)
+
+Then run netperf -t TCP_RR -H ... -- -r 6000,6000
+
+GSO makes great use of skb->xmit_more right now ;)
+
+(Assuming we do not have GSO preparing hundred of segments out of a
+single TSO packet)
