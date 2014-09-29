@@ -1,34 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v5 02/10] net: pxa168_eth: add device tree support
-Date: Mon, 29 Sep 2014 16:04:36 -0400 (EDT)
-Message-ID: <20140929.160436.1932620234954504510.davem@davemloft.net>
-References: <1411742036-23520-1-git-send-email-antoine.tenart@free-electrons.com>
-	<1411742036-23520-3-git-send-email-antoine.tenart@free-electrons.com>
+From: Hannes Frederic Sowa <hannes@redhat.com>
+Subject: Re: [PATCH] tun: make sure interface usage can not overflow
+Date: Mon, 29 Sep 2014 22:04:58 +0200
+Message-ID: <1412021098.14757.6.camel@localhost>
+References: <20140928232753.GA31180@www.outflux.net>
+	 <063D6719AE5E284EB5DD2968C1650D6D1749FC70@AcuExch.aculab.com>
+	 <CAGXu5jKL13qdCBet3yqpc3vLYh_LifBACzL+NP8n-A+E8RMZXw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: sebastian.hesselbarth@gmail.com,
-	alexandre.belloni@free-electrons.com,
-	thomas.petazzoni@free-electrons.com, zmxu@marvell.com,
-	jszhang@marvell.com, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, devicetree@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: antoine.tenart@free-electrons.com
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Laight <David.Laight@aculab.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jason Wang <jasowang@redhat.com>,
+	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	Tom Herbert <therbert@google.com>,
+	Masatake YAMATO <yamato@redhat.com>, Xi Wang <xii@google.com>,
+	stephen hemminger <stephen@networkplumber.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Kees Cook <keescook@chromium.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1411742036-23520-3-git-send-email-antoine.tenart@free-electrons.com>
+In-Reply-To: <CAGXu5jKL13qdCBet3yqpc3vLYh_LifBACzL+NP8n-A+E8RMZXw@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-RnJvbTogQW50b2luZSBUZW5hcnQgPGFudG9pbmUudGVuYXJ0QGZyZWUtZWxlY3Ryb25zLmNvbT4N
-CkRhdGU6IEZyaSwgMjYgU2VwIDIwMTQgMTY6MzM6NDggKzAyMDANCg0KPiBAQCAtMTYwMyw2ICsx
-NjIwLDEyIEBAIHN0YXRpYyBpbnQgcHhhMTY4X2V0aF9zdXNwZW5kKHN0cnVjdCBwbGF0Zm9ybV9k
-ZXZpY2UgKnBkZXYsIHBtX21lc3NhZ2VfdCBzdGF0ZSkNCj4gICNkZWZpbmUgcHhhMTY4X2V0aF9z
-dXNwZW5kIE5VTEwNCj4gICNlbmRpZg0KPiAgDQo+ICtzdGF0aWMgY29uc3Qgc3RydWN0IG9mX2Rl
-dmljZV9pZCBweGExNjhfZXRoX29mX21hdGNoW10gPSB7DQo+ICsJeyAuY29tcGF0aWJsZSA9ICJt
-YXJ2ZWxsLHB4YTE2OC1ldGgiIH0sDQo+ICsJeyB9LA0KPiArfTsNCj4gK01PRFVMRV9ERVZJQ0Vf
-VEFCTEUob2YsIHB4YTE2OF9ldGhfb2ZfbWF0Y2gpDQo+ICsNCj4gIHN0YXRpYyBzdHJ1Y3QgcGxh
-dGZvcm1fZHJpdmVyIHB4YTE2OF9ldGhfZHJpdmVyID0gew0KDQpZb3UgZGlkbid0IGV2ZW4gY29t
-cGlsZSB0ZXN0IHRoaXMgY2hhbmdlIHdpdGggbW9kdWxlIHN1cHBvcnQgZW5hYmxlZC4NCg0KZHJp
-dmVycy9uZXQvZXRoZXJuZXQvbWFydmVsbC9weGExNjhfZXRoLmM6MTY3MDoxOiBlcnJvcjogZXhw
-ZWN0ZWQgoSyiIG9yIKE7oiBiZWZvcmUgoXN0YXRpY6INCg0KTU9EVUxFX0RFVklDRV9UQUJMRSgp
-IG11c3QgYmUgY29tcGxldGVkIHdpdGggYSB0cmFpbGluZyAnOycNCg==
+On Mo, 2014-09-29 at 12:41 -0700, Kees Cook wrote:
+> On Mon, Sep 29, 2014 at 4:04 AM, David Laight <David.Laight@aculab.com> wrote:
+> > From: Kees Cook
+> >> This makes the size argument a const, since it is always populated by
+> >> the caller.
+> >
+> > There is almost no point making parameters 'const.
+> > ('const foo *' makes sense).
+> >
+> >> Additionally double-checks to make sure the copy_from_user
+> >> can never overflow, keeping CONFIG_DEBUG_STRICT_USER_COPY_CHECKS happy:
+> >>
+> >>    In function 'copy_from_user',
+> >>        inlined from '__tun_chr_ioctl' at drivers/net/tun.c:1871:7:
+> >>        ... copy_from_user() buffer size is not provably correct
+> >
+> > If 'ifreq_len' could be too big then you want to error the ioctl, not panic.
+> > If it can't be too big you don't need the check.
+> 
+> The ifreq_len comes from the callers, and is the output of "sizeof"
+> which is const. Changing the function parameter to "const" means any
+> changes made in the future where the incoming value isn't const, the
+> compiler will throw a warning.
+
+Hmmm, I think you want something like BUILD_BUG_ON(!
+__builtin_constant_p(var)). const in function argument only ensures that
+the value cannot be modified in the function.
+
+Bye,
+Hannes
