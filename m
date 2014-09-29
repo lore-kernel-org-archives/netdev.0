@@ -1,258 +1,125 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net-next v3] bonding: make global bonding stats more reliable
-Date: Mon, 29 Sep 2014 11:52:33 +0800
-Message-ID: <5428D781.4040700@huawei.com>
-References: <1411693935-4191-1-git-send-email-gospo@cumulusnetworks.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH net-next 0/5] udp: Generalize GSO for UDP tunnels
+Date: Sun, 28 Sep 2014 20:59:23 -0700
+Message-ID: <CA+mtBx_QGSiY14dVVqp76sU5JNkLMayE-PX1e_dyN-mUWeeEug@mail.gmail.com>
+References: <1411748554-7346-1-git-send-email-therbert@google.com>
+	<CAJ3xEMjVx6-XK9Eb2akLHei_43pw10rnHM-zXrOD7pzoXuXaRg@mail.gmail.com>
+	<CA+mtBx-0ov5W_xVsgEJsw7o=A9CYSq6ZC_C34=MMsUxgzJWp_g@mail.gmail.com>
+	<CAJ3xEMi5V0ijSVmga0chTFF1ghUaGs7h9PGfYGb10ZdyPcs5_A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <j.vosburgh@gmail.com>, <vfalico@gmail.com>, <nikolay@redhat.com>
-To: Andy Gospodarek <gospo@cumulusnetworks.com>,
-	<netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Or Gerlitz <gerlitz.or@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:37546 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751083AbaI2DxR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Sep 2014 23:53:17 -0400
-In-Reply-To: <1411693935-4191-1-git-send-email-gospo@cumulusnetworks.com>
+Received: from mail-ig0-f177.google.com ([209.85.213.177]:45924 "EHLO
+	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751028AbaI2D7Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Sep 2014 23:59:24 -0400
+Received: by mail-ig0-f177.google.com with SMTP id h3so2623314igd.16
+        for <netdev@vger.kernel.org>; Sun, 28 Sep 2014 20:59:24 -0700 (PDT)
+In-Reply-To: <CAJ3xEMi5V0ijSVmga0chTFF1ghUaGs7h9PGfYGb10ZdyPcs5_A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2014/9/26 9:12, Andy Gospodarek wrote:
-> As the code stands today, bonding stats are based simply on the stats
-> from the member interfaces.  If a member was to be removed from a bond,
-> the stats would instantly drop.  This would be confusing to an admin
-> would would suddonly see interface stats drop while traffic is still
-> flowing.
-> 
-> In addition to preventing the stats drops mentioned above, new members
-> will now be added to the bond and only traffic received after the member
-> was added to the bond will be counted as part of bonding stats.
-> 
-> v2: Changes suggested by Nik to properly allocate/free stats memory.
-> v3: Properly destroy workqueue and fix netlink configuration path.
-> 
-> Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
-> ---
->  drivers/net/bonding/bond_main.c    | 84 +++++++++++++++++++++++++-------------
->  drivers/net/bonding/bond_netlink.c | 13 +++++-
->  drivers/net/bonding/bonding.h      |  3 ++
->  3 files changed, 71 insertions(+), 29 deletions(-)
-> 
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> index 5390475..10c2dc3 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -1147,17 +1147,26 @@ static struct slave *bond_alloc_slave(struct bonding *bond)
->  
->  	slave = kzalloc(sizeof(struct slave), GFP_KERNEL);
->  	if (!slave)
-> -		return NULL;
-> +		goto slave_fail;
-> +
-> +	slave->slave_stats = kzalloc(sizeof(struct rtnl_link_stats64),
-> +				     GFP_KERNEL);
-> +	if (!slave->slave_stats)
-> +		goto slave_stats_fail;
->  
->  	if (BOND_MODE(bond) == BOND_MODE_8023AD) {
->  		SLAVE_AD_INFO(slave) = kzalloc(sizeof(struct ad_slave_info),
->  					       GFP_KERNEL);
-> -		if (!SLAVE_AD_INFO(slave)) {
-> -			kfree(slave);
-> -			return NULL;
-> -		}
-> +		if (!SLAVE_AD_INFO(slave))
-> +			goto slave_ad_fail;
->  	}
->  	return slave;
-> +slave_ad_fail:
-> +	kfree(slave->slave_stats);
-> +slave_stats_fail:
-> +	kfree(slave);
-> +slave_fail:
-> +	return NULL;
->  }
->  
->  static void bond_free_slave(struct slave *slave)
-> @@ -1167,6 +1176,7 @@ static void bond_free_slave(struct slave *slave)
->  	if (BOND_MODE(bond) == BOND_MODE_8023AD)
->  		kfree(SLAVE_AD_INFO(slave));
->  
-> +	kfree(slave->slave_stats);
->  	kfree(slave);
->  }
->  
-> @@ -1344,6 +1354,8 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
->  	}
->  
->  	slave_dev->priv_flags |= IFF_BONDING;
-> +	/* initialize slave stats */
-> +	dev_get_stats(new_slave->dev, new_slave->slave_stats);
->  
->  	if (bond_is_lb(bond)) {
->  		/* bond_alb_init_slave() must be called before all other stages since
-> @@ -3085,38 +3097,43 @@ static struct rtnl_link_stats64 *bond_get_stats(struct net_device *bond_dev,
->  	struct list_head *iter;
->  	struct slave *slave;
->  
-> -	memset(stats, 0, sizeof(*stats));
-> +	memcpy(stats, bond->bond_stats, sizeof(*stats));
->  
->  	bond_for_each_slave(bond, slave, iter) {
->  		const struct rtnl_link_stats64 *sstats =
->  			dev_get_stats(slave->dev, &temp);
-> +		struct rtnl_link_stats64 *pstats = slave->slave_stats;
-> +
-> +		stats->rx_packets +=  sstats->rx_packets - pstats->rx_packets;
-> +		stats->rx_bytes += sstats->rx_bytes - pstats->rx_bytes;
-> +		stats->rx_errors += sstats->rx_errors - pstats->rx_errors;
-> +		stats->rx_dropped += sstats->rx_dropped - pstats->rx_dropped;
->  
-> -		stats->rx_packets += sstats->rx_packets;
-> -		stats->rx_bytes += sstats->rx_bytes;
-> -		stats->rx_errors += sstats->rx_errors;
-> -		stats->rx_dropped += sstats->rx_dropped;
-> +		stats->tx_packets += sstats->tx_packets - pstats->tx_packets;;
-> +		stats->tx_bytes += sstats->tx_bytes - pstats->tx_bytes;
-> +		stats->tx_errors += sstats->tx_errors - pstats->tx_errors;
-> +		stats->tx_dropped += sstats->tx_dropped - pstats->tx_dropped;
->  
-> -		stats->tx_packets += sstats->tx_packets;
-> -		stats->tx_bytes += sstats->tx_bytes;
-> -		stats->tx_errors += sstats->tx_errors;
-> -		stats->tx_dropped += sstats->tx_dropped;
-> +		stats->multicast += sstats->multicast - pstats->multicast;
-> +		stats->collisions += sstats->collisions - pstats->collisions;
->  
-> -		stats->multicast += sstats->multicast;
-> -		stats->collisions += sstats->collisions;
-> +		stats->rx_length_errors += sstats->rx_length_errors - pstats->rx_length_errors;
-> +		stats->rx_over_errors += sstats->rx_over_errors - pstats->rx_over_errors;
-> +		stats->rx_crc_errors += sstats->rx_crc_errors - pstats->rx_crc_errors;
-> +		stats->rx_frame_errors += sstats->rx_frame_errors - pstats->rx_frame_errors;
-> +		stats->rx_fifo_errors += sstats->rx_fifo_errors - pstats->rx_fifo_errors;
-> +		stats->rx_missed_errors += sstats->rx_missed_errors - pstats->rx_missed_errors;
->  
-> -		stats->rx_length_errors += sstats->rx_length_errors;
-> -		stats->rx_over_errors += sstats->rx_over_errors;
-> -		stats->rx_crc_errors += sstats->rx_crc_errors;
-> -		stats->rx_frame_errors += sstats->rx_frame_errors;
-> -		stats->rx_fifo_errors += sstats->rx_fifo_errors;
-> -		stats->rx_missed_errors += sstats->rx_missed_errors;
-> +		stats->tx_aborted_errors += sstats->tx_aborted_errors - pstats->tx_aborted_errors;
-> +		stats->tx_carrier_errors += sstats->tx_carrier_errors - pstats->tx_carrier_errors;
-> +		stats->tx_fifo_errors += sstats->tx_fifo_errors - pstats->tx_fifo_errors;
-> +		stats->tx_heartbeat_errors += sstats->tx_heartbeat_errors - pstats->tx_heartbeat_errors;
-> +		stats->tx_window_errors += sstats->tx_window_errors - pstats->tx_window_errors;
->  
-> -		stats->tx_aborted_errors += sstats->tx_aborted_errors;
-> -		stats->tx_carrier_errors += sstats->tx_carrier_errors;
-> -		stats->tx_fifo_errors += sstats->tx_fifo_errors;
-> -		stats->tx_heartbeat_errors += sstats->tx_heartbeat_errors;
-> -		stats->tx_window_errors += sstats->tx_window_errors;
-> +		/* save off the slave stats for the next run */
-> +		memcpy(pstats, sstats, sizeof(*sstats));
->  	}
-> +	memcpy(bond->bond_stats, stats, sizeof(*stats));
->  
->  	return stats;
->  }
-> @@ -3790,6 +3807,9 @@ static void bond_destructor(struct net_device *bond_dev)
->  	struct bonding *bond = netdev_priv(bond_dev);
->  	if (bond->wq)
->  		destroy_workqueue(bond->wq);
-> +	if (bond->bond_stats)
-> +		kfree(bond->bond_stats);
-> +
->  	free_netdev(bond_dev);
->  }
->  
-> @@ -4274,7 +4294,8 @@ unsigned int bond_get_num_tx_queues(void)
->  int bond_create(struct net *net, const char *name)
->  {
->  	struct net_device *bond_dev;
-> -	int res;
-> +	struct bonding *bond;
-> +	int res = -ENOMEM;
->  
->  	rtnl_lock();
->  
-> @@ -4286,8 +4307,15 @@ int bond_create(struct net *net, const char *name)
->  		rtnl_unlock();
->  		return -ENOMEM;
->  	}
-> +	/* alloc persistent stats for the bond */
-> +	bond = netdev_priv(bond_dev);
-> +	bond->bond_stats = kzalloc(sizeof(struct rtnl_link_stats64),
-> +				   GFP_KERNEL);
-> +	if (!bond->bond_stats)
-> +		printk(KERN_CRIT "Stats not available!\n");
->  
-hi Andy:
+On Sat, Sep 27, 2014 at 12:26 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+> On Sat, Sep 27, 2014 at 2:04 AM, Tom Herbert <therbert@google.com> wrote:
+>> On Fri, Sep 26, 2014 at 1:16 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+>>> On Fri, Sep 26, 2014 at 7:22 PM, Tom Herbert <therbert@google.com> wrote:
+>>> [...]
+>>>> Notes:
+>>>>   - GSO for GRE/UDP where GRE checksum is enabled does not work.
+>>>>     Handling this will require some special case code.
+>>>>   - Software GSO now supports many varieties of encapsulation with
+>>>>     SKB_GSO_UDP_TUNNEL{_CSUM}. We still need a mechanism to query
+>>>>     for device support of particular combinations (I intend to
+>>>>     add ndo_gso_check for that).
+>>>
+>>> Tom,
+>>>
+>>> As I wrote you earlier on another thread/s, fact is that there are
+>>> upstream drivers who advertize SKB_GSO_UDP_TUNNEL and aren't capable @
+>>> this point to issue proper HW segmentation of something which isn't
+>>> VXLAN.
+>>>
+>>> Just to make sure, this series isn't expected to introduce a
+>>> regression, right? we don't expect the stack to attempt and xmit a
+>>> large 64KB UDP packet which isn't vxlan through these devices.
+>
+>> I am planning to post ndo_gso_check shortly. These patches should not
+>> cause a regression with currently deployed functionality (VXLAN).
+>
+> Can you sum up (please) in 1-2 liner what is the trick to avoid such
+> regression? that is what/where is the knob that would prevent such
+> giant chunk to be sent down to a NIC driver which does advertize
+> SKB_GSO_UDP_TUNNEL?
+>
+I posted patch for ndo_gso_check. Please let me know if you'll be able
+to work with this. I'll also post the iproute changes soon so that the
+FOU results can be repro'd.
 
-why not return here, otherwise terrible things will happen, later other code will access this point directly.
+>
+>>>>   - MPLS seems to be the only previous user of inner_protocol. I don't
+>>>>     believe these patches can affect that. For supporting GSO with
+>>>>     MPLS over UDP, the inner_protocol should be set using the
+>>>>     helper functions in this patch.
+>>>>   - GSO for L2TP/UDP should also be straightforward now.
+>>>
+>>>> Tested GRE, IPIP, and SIT over fou as well as VLXAN. This was
+>>>> done using 200 TCP_STREAMs in netperf.
+>>> [...]
+>>>>    VXLAN
+>>>>       TCP_STREAM TSO enabled on tun interface
+>>>>         16.42% TX CPU utilization
+>>>>         23.66% RX CPU utilization
+>>>>         9081 Mbps
+>>>>       TCP_STREAM TSO disabled on tun interface
+>>>>         30.32% TX CPU utilization
+>>>>         30.55% RX CPU utilization
+>>>>         9185 Mbps
+>>>
+>>> so TSO disabled has better BW vs TSO enabled?
+>>>
+>> Yes, I've noticed that on occasion, it does seem like TSO disabled
+>> tends to get a little more throughput. I see this with plain GRE, so I
+>> don't think it's directly related to fou or these patches. I suppose
+>> there may be some subtle interactions with BQL or something like that.
+>> I'd probably want to repro this on some other devices at some point to
+>> dig deeper.
+>>
+>>>>    Baseline (no encp, TSO and LRO enabled)
+>>>>       TCP_STREAM
+>>>>         11.85% TX CPU utilization
+>>>>         15.13% RX CPU utilization
+>>>>         9452 Mbps
+>>>
+>>> I would strongly recommend to have a far better baseline when
+>>> developing and testing these changes in the stack in the form of 40Gbs
+>>> NICs.
+>>>
+>> The only point of putting the baseline was to show that encapsulation
+>> with GSO/GRO/checksum-unnec-conversion is in the ballpark of
+>> performance with native traffic which was a goal.
+>
+> under (over...) 10Gbs, in the ballpark indeed.
+>
+> We know nothing what would happen with baseline of 38Gbs (SB 40Gbs
+> NIC) 56Gbs (two bonded ports of 40Gbs NIC on PCIe gen3) or 100Gbs
+> (tomorrow's NIC HW, probably coming up next year)
+>
+>> So I'm pretty happy
+>> with this performance right now, although it probably does mean remote
+>> checksum offload won't show so impressive results with this test (TX
+>> csum with data in case isn't so expensive).
+>> Out of curiosity, why do you think using 40Gbs is far better for a baseline?
+>
+> Oh, simply b/c with 40Gbs NICs, the baseline I expect for few sessions
+> (1,2,4 or 200 as you did) of plain TCP is four times better vs. your
+> current one (38Gbs vs 9.5Gbs) and this should pose a harder challenge
+> for the GSO/encapsulating stack to catch up with, agree?
+>
+Sure, I agree that it would be nice to have this tested on different
+devices (40G, 1G, wireless, etc.)-- but right now I don't see anything
+particularly obvious why performance shouldn't scale linearly.
 
-Ding
-
->  	dev_net_set(bond_dev, net);
-> +
->  	bond_dev->rtnl_link_ops = &bond_link_ops;
->  
->  	res = register_netdevice(bond_dev);
-> diff --git a/drivers/net/bonding/bond_netlink.c b/drivers/net/bonding/bond_netlink.c
-> index c13d83e..2fdcbe2 100644
-> --- a/drivers/net/bonding/bond_netlink.c
-> +++ b/drivers/net/bonding/bond_netlink.c
-> @@ -381,10 +381,21 @@ static int bond_newlink(struct net *src_net, struct net_device *bond_dev,
->  			struct nlattr *tb[], struct nlattr *data[])
->  {
->  	int err;
-> +	struct bonding *bond = netdev_priv(bond_dev);
-> +
-> +	/* alloc persistent stats for the bond if not already allocated */
-> +	if (!bond->bond_stats) {
-> +		bond->bond_stats = kzalloc(sizeof(struct rtnl_link_stats64),
-> +					   GFP_KERNEL);
-> +		if (!bond->bond_stats)
-> +			return -ENOMEM;
-> +	}
->  
->  	err = bond_changelink(bond_dev, tb, data);
-> -	if (err < 0)
-> +	if (err < 0) {
-> +		kfree(bond->bond_stats);
->  		return err;
-> +	}
->  
->  	return register_netdevice(bond_dev);
->  }
-> diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-> index 6140bf0..fe25265 100644
-> --- a/drivers/net/bonding/bonding.h
-> +++ b/drivers/net/bonding/bonding.h
-> @@ -24,6 +24,7 @@
->  #include <linux/inetdevice.h>
->  #include <linux/etherdevice.h>
->  #include <linux/reciprocal_div.h>
-> +#include <linux/if_link.h>
->  
->  #include "bond_3ad.h"
->  #include "bond_alb.h"
-> @@ -175,6 +176,7 @@ struct slave {
->  	struct netpoll *np;
->  #endif
->  	struct kobject kobj;
-> +	struct rtnl_link_stats64 *slave_stats;
->  };
->  
->  /*
-> @@ -224,6 +226,7 @@ struct bonding {
->  	/* debugging support via debugfs */
->  	struct	 dentry *debug_dir;
->  #endif /* CONFIG_DEBUG_FS */
-> +	struct rtnl_link_stats64 *bond_stats;
->  };
->  
->  #define bond_slave_get_rcu(dev) \
-> 
+> Or.
