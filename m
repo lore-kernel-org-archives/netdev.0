@@ -1,154 +1,147 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [RFC PATCH net-next v2 0/5] netns: allow to identify peer netns
-Date: Mon, 29 Sep 2014 14:06:38 +0200
-Message-ID: <54294B4E.70501@6wind.com>
-References: <1411478430-4989-1-git-send-email-nicolas.dichtel@6wind.com>	<87ppei45ig.fsf@x220.int.ebiederm.org>	<CALCETrX5e0cp4QFCv1eAqR1hjoROU9Rh=cRos9U35DaR-py3Eg@mail.gmail.com> <87y4t61a6v.fsf@x220.int.ebiederm.org>
-Reply-To: nicolas.dichtel@6wind.com
+From: Heiko Schocher <hs@denx.de>
+Subject: Re: [PATCH] usb: gadget: f_rndis: fix usb_interface_descriptor for
+ rndis
+Date: Mon, 29 Sep 2014 14:11:36 +0200
+Message-ID: <54294C78.6050006@denx.de>
+References: <1411541339-32400-1-git-send-email-hs@denx.de> <5422B83A.8030406@gmail.com> <5422C33F.400@denx.de> <5422D39D.70006@gmail.com>
+Reply-To: hs@denx.de
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Network Development <netdev@vger.kernel.org>,
-	Linux Containers <containers@lists.linux-foundation.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Linux API <linux-api@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Cong Wang <cwang@twopensource.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Andy Lutomirski <luto@amacapital.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87y4t61a6v.fsf@x220.int.ebiederm.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-usb@vger.kernel.org, Felipe Balbi <balbi@ti.com>,
+	Greg Kroah-Hartman <gregkh@suse.de>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-api@vger.kernel.org,
+	Andrzej Pietrasiewicz <andrzej.p@samsung.com>,
+	Michal Nazarewicz <mina86@mina86.com>,
+	Kyungmin Park <kyungmin.park@samsung.com>,
+	Dan Carpenter <dan.carpenter@oracle.com>,
+	Macpaul Lin <macpaul@gmail.com>,
+	"Meier, Roger" <r.meier@siemens.com>
+To: Lars Melin <larsm17@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from submit2.sa.ew.hu ([212.108.200.72]:58394 "EHLO submit2.sa.ew.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753469AbaI2MLo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Sep 2014 08:11:44 -0400
+In-Reply-To: <5422D39D.70006@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le 26/09/2014 20:57, Eric W. Biederman a =C3=A9crit :
-> Andy Lutomirski <luto@amacapital.net> writes:
->
->> On Fri, Sep 26, 2014 at 11:10 AM, Eric W. Biederman
->> <ebiederm@xmission.com> wrote:
->>> Nicolas Dichtel <nicolas.dichtel@6wind.com> writes:
->>>
->>>> The goal of this serie is to be able to multicast netlink messages=
- with an
->>>> attribute that identify a peer netns.
->>>> This is needed by the userland to interpret some informations cont=
-ained in
->>>> netlink messages (like IFLA_LINK value, but also some other attrib=
-utes in case
->>>> of x-netns netdevice (see also
->>>> http://thread.gmane.org/gmane.linux.network/315933/focus=3D316064 =
-and
->>>> http://thread.gmane.org/gmane.linux.kernel.containers/28301/focus=3D=
-4239)).
->>>
->>> I want say that the problem addressed by patch 3/5 of this series i=
-s a
->>> fundamentally valid problem.  We have network objects spanning netw=
-ork
->>> namespaces and it would be very nice to be able to talk about them =
-in
->>> netlink, and file descriptors are too local and argubably too heavy
->>> weight for netlink quires and especially for netlink broadcast mess=
-ages.
->>>
->>> Furthermore the concept of ineternal concept of peernet2id seems va=
-lid.
->>>
->>> However what you do not address is a way for CRIU (aka process
->>> migration) to be able to restore these ids after process migration.
->>> Going farther it looks like you are actively breaking process migra=
-tion
->>> at this time, making this set of patches a no-go.
-Ok, I will look more deeply into CRIU.
+Hello Lars,
 
->>>
->>> When adding a new form of namespace id CRIU patches are just about
->>> as necessary as iproute patches.
-Noted.
+sorry for my late answer ...
 
->>>
->>>> Ids are stored in the parent user namespace. These ids are valid o=
-nly inside
->>>> this user namespace. The user can retrieve these ids via a new net=
-link messages,
->>>> but only if peer netns are in the same user namespace.
->>>
->>> That does not describe what you have actually implemented in the
->>> patches.
->>>
->>> I see two ways to go with this.
->>>
->>> - A per network namespace table to that you can store ids for ``pee=
-r''
->>>    network namespaces.  The table would need to be populated manual=
-ly by
->>>    the likes of ip netns add.
->>>
->>>    That flips the order of assignment and makes this idea solid.
-I have a preference for this solution, because it allows to have a full
-broadcast messages. When you have a lot of network interfaces (> 10k),
-it saves a lot of time to avoid another request to get all informations=
-=2E
-
->>>
->>>    Unfortunately in the case of a fully referencing mesh of N netwo=
-rk
->>>    namespaces such a mesh winds up taking O(N^2) space, which seems
->>>    undesirable.
-Memory consumption vs performances ;-)
-In fact, when you have a lot of netns, you already should have some mem=
-ory
-available (at least N lo interfaces + N interfaces (veth or a x-netns
-interface)). I'm not convinced that this is really an obstacle.
-
->>>
->>> - Add a netlink attribute that says this network element is in a pe=
-er
->>>    network namespace.
->>>
->>>    Add a unicast query message that let's you ask if the remote
->>>    end of a tunnel is in a network namespace specified by file
->>>    descriptor.
->>>
->>> I personally lean towards the second version as it is fundamentally
->>> simpler, and generally scales better, and the visibility controls a=
-re
->>> the existing visibility controls.  The only downside is it requires
->>> a query after receiving a netlink broadcast message for the times t=
-hat
->>> we care.
+Am 24.09.2014 16:22, schrieb Lars Melin:
+> On 2014-09-24 20:12, Heiko Schocher wrote:
+>> Hello Lars,
 >>
->> The downside of that approach, and all the similar kcmp stuff, is th=
-at
->> it scales poorly for applications using it.  This is probably not th=
-e
->> end of the world, but it's not ideal.
+>> Am 24.09.2014 14:25, schrieb Lars Melin:
+>>> On 2014-09-24 13:48, Heiko Schocher wrote:
+>>>> use the values for RNDIS over Ethernet as defined in
+>>>> http://www.usb.org/developers/defined_class
+>>>> (search for RDNIS):
+>>>>
+>>>> - baseclass: 0xef (miscellaneous)
+>>>> - subclass: 0x04
+>>>> - protocol: 0x01
+>>>>
+>>> That is usb class, it is not the same thing as communication device class.
+>>>> --- a/include/uapi/linux/usb/cdc.h
+>>>> +++ b/include/uapi/linux/usb/cdc.h
+>>>> @@ -12,6 +12,7 @@
+>>>> #include <linux/types.h>
+>>>> #define USB_CDC_SUBCLASS_ACM 0x02
+>>>> +#define USB_CDC_SUBCLASS_RNDIS 0x04
+>>> No, no, no.
+>>> There is no CDC_SUBCLASS_RNDIS and you can not define one over an already used cdc subclass number, 0x04 is Multi-Channel Control Model
+>>
+>> Ah, ok, so I have to define this values in a new header file, as there
+>> is no current file for the USB_CLASS_MISC defines? Or is there a proper
+>> place for them?
+>>
+>> BTW: where do I find the "cdc subclass number, 0x04 is Multi-Channel
+>> Control Model" define?
+>>
+>> bye,
+>> Heiko
 >
-> Agreed, the efficiency is not ideal and there is plenty of room for
-> optimization.  We could certainly adopt some of kcmps ordering
-> infrastructure to make it suck less, or even potentially work out how
-> to return a file descriptor to the network namespace in question.
->
-> The key insight of my second proposal is that we can get out of the
-> broadcast message business, and only care about the remote namespace =
-for
-> unicast messages.  Putting the work in an infrequently used slow path
-> instead of a comparitively common path gives us much more freedom in
-> the implementation.
-I think it's better to have a full netlink messages, instead a partial =
-one.
-There is already a lot of attributes added for each rtnl interface mess=
-ages to
-be sure to describe all parameters of these interfaces.
-And if the user don't care about ids (user has not set any id with ipro=
-ute2),
-we can just add the same attribute with id 0 (let's say it's a reserved=
- id) to
-indicate that the link part of this interface is in another netns.
+> You can still find the original specification usbcdc11.pdf on the net if you google for it, it has been pulled from usb.org where you could download it until a few years ago.
+> It is old but covers a lot of what you need to know.
 
-The great benefit of your first proposal is that the ids are set by the
-userspace and thus it allows a high flexibility.
+Hmm.. maybe I am to dummy for finding this docment...
 
-Would you accept a patch that implements this first solution?
+http://www.usb.org/results?q=usbcdc11.pdf&submit=Search
+
+does not find this document ... could you send me a direct link?
+
+I found with the above search:
+
+http://www.usb.org/developers/defined_class
+
+and this site, exactly describes the values for RNDIS over ethernet,
+as my patch changes [1]
+
+> Linux has afaik only the cdc.h definition file, everything else is coded by class/subclass in respectively drivers when needed.
+
+why not in header files? I thought, magical values are not welcome
+in source code ...
+
+As for the is_rndis() function case, this function is defined in
+2 places:
+
+- drivers/net/usb/cdc_ether.c
+- drivers/usb/core/generic.c
+
+Has this a special reason? This seems suboptimal to me ...
+
+> 02/02/ff or e0/01/03 are the most common interface attribute for rndis, both of them together with a data interface with attributes 0a/00/00.
+
+I must admit, I am not a USB nor a RNDIS expert ...
+
+> Please check the whitelisting in drivers/net/usb/rndis_host.c and also blacklistings in other net drivers under the same path, it should give you an idea how to bind an interface to a specific driver by interface attributes and/or usb vid:pid.
+> You should be able to do the same for your particular device.
+
+Hmm.. I did not understand you here ... so, one step back:
+
+I got from a customer this patch (in a similiar version) and
+he did tests with [3] and saw, that a board which runs linux,
+is seen in [3] with the values [2] ... so he changed the
+values in drivers/usb/gadget/function/f_rndis.c to the
+values [1], which are documented in [4] and with them
+the test [3] is happy ... and the file
+"Documentation/usb/linux.inf" is not longer needed on the
+windows pc!
+
+So he (and at the end I too) thought, that this is the proper
+way to make [3] happy ... (maybe [3] is incorrect ? )
+
+Is current ML code correct? And if yes, why?
+
+If the values [2] in current ML linux are correct,
+could you say me, where they are documented?
+
+(and sorry for my stupid questions ...)
+
+Thanks!
+
+bye,
+Heiko
+
+[1] values which my patch sets for RNDIS over ethernet
+- baseclass: 0xef (miscellaneous)
+- subclass: 0x04
+- protocol: 0x01
+
+[2] currently used values for RNDIS over ethernet
+- baseclass: 0x02 (USB_CLASS_COMM)
+- subclass: 0x02
+- protocol: 0xff
+
+[3] "USB Compliance test suite which runs Windows", see:
+http://www.usb.org/developers/tools/usb20_tools/#usb20cv
+
+[4] http://www.usb.org/developers/defined_class
+-- 
+DENX Software Engineering GmbH,     MD: Wolfgang Denk & Detlev Zundel
+HRB 165235 Munich, Office: Kirchenstr.5, D-82194 Groebenzell, Germany
