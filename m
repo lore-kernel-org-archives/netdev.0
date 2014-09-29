@@ -1,71 +1,71 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH v2 3/4] ptp: Add PTP_PF_PPS enumeration to
- ptp_pin_function.
-Date: Mon, 29 Sep 2014 10:56:14 +0200
-Message-ID: <20140929085613.GA9891@netboy>
-References: <1411878011-21767-1-git-send-email-b45643@freescale.com>
- <1411878011-21767-4-git-send-email-b45643@freescale.com>
+From: Michael Grzeschik <mgr@pengutronix.de>
+Subject: Re: [PATCH 0/5] ARCNET: add support for EAE multi interfac card
+Date: Mon, 29 Sep 2014 11:07:21 +0200
+Message-ID: <20140929090721.GE18174@pengutronix.de>
+References: <1411566113-15583-1-git-send-email-m.grzeschik@pengutronix.de>
+ <20140928.164421.1247481867383564525.davem@davemloft.net>
+ <20140928.170150.1279138730834841306.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, shawn.guo@linaro.org,
-	bhutchings@solarflare.com, R49496@freescale.com,
-	b38611@freescale.com, b20596@freescale.com,
-	stephen@networkplumber.org
-To: Luwei Zhou <b45643@freescale.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: m.grzeschik@pengutronix.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel@pengutronix.de
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f180.google.com ([209.85.212.180]:60078 "EHLO
-	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751343AbaI2I4T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 04:56:19 -0400
-Received: by mail-wi0-f180.google.com with SMTP id em10so461498wid.13
-        for <netdev@vger.kernel.org>; Mon, 29 Sep 2014 01:56:18 -0700 (PDT)
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:34701 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751439AbaI2JHY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 05:07:24 -0400
 Content-Disposition: inline
-In-Reply-To: <1411878011-21767-4-git-send-email-b45643@freescale.com>
+In-Reply-To: <20140928.170150.1279138730834841306.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Sep 28, 2014 at 12:20:10PM +0800, Luwei Zhou wrote:
+On Sun, Sep 28, 2014 at 05:01:50PM -0400, David Miller wrote:
+> From: David Miller <davem@davemloft.net>
+> Date: Sun, 28 Sep 2014 16:44:21 -0400 (EDT)
+>=20
+> > From: Michael Grzeschik <m.grzeschik@pengutronix.de>
+> > Date: Wed, 24 Sep 2014 15:41:48 +0200
+> >=20
+> >> this series adds support for the PLX Bridge based multi interface
+> >> pci cards and adds support to change device address on com200xx ch=
+ips
+> >> during runtime.
+> >>=20
+> >> This series is based on v3.17-rc6.
+> >=20
+> > Series applied to net-next, thanks.
+>=20
+> I had to revert, this breaks the build:
+>=20
+> drivers/net/arcnet/com20020_cs.c:115:8: error: redefinition of =E2=80=
+=98struct com20020_dev=E2=80=99
+>  struct com20020_dev {
+>         ^
+> In file included from drivers/net/arcnet/com20020_cs.c:43:0:
+> include/linux/com20020.h:66:8: note: originally defined here
+>  struct com20020_dev {
+>         ^
+> make[3]: *** [drivers/net/arcnet/com20020_cs.o] Error 1
+> make[2]: *** [drivers/net/arcnet] Error 2
+> make[2]: *** Waiting for unfinished jobs....
+> make[1]: *** [drivers/net] Error 2
+> make[1]: *** Waiting for unfinished jobs....
+> make: *** [drivers] Error 2
 
-> diff --git a/include/linux/ptp_clock_kernel.h b/include/linux/ptp_clock_kernel.h
-> index 0d8ff3f..2a5ad1c 100644
-> --- a/include/linux/ptp_clock_kernel.h
-> +++ b/include/linux/ptp_clock_kernel.h
-> @@ -49,6 +49,7 @@ struct ptp_clock_request {
->   * @n_alarm:   The number of programmable alarms.
->   * @n_ext_ts:  The number of external time stamp channels.
->   * @n_per_out: The number of programmable periodic signals.
-> + * @n_pps_chan: The number of programmable channles for pps output.
->   * @n_pins:    The number of programmable pins.
->   * @pps:       Indicates whether the clock supports a PPS callback.
->   * @pin_config: Array of length 'n_pins'. If the number of
-> @@ -99,6 +100,7 @@ struct ptp_clock_info {
->  	int n_alarm;
->  	int n_ext_ts;
->  	int n_per_out;
-> +	int n_pps_chan;
-
-We don't need this. There is only *one* PPS channel.
-
-We only want to select which of 'n_pins' will be the PPS output.
-
->  	int n_pins;
->  	int pps;
->  	struct ptp_pin_desc *pin_config;
-> diff --git a/include/uapi/linux/ptp_clock.h b/include/uapi/linux/ptp_clock.h
-> index f0b7bfe..57ba7e7 100644
-> --- a/include/uapi/linux/ptp_clock.h
-> +++ b/include/uapi/linux/ptp_clock.h
-> @@ -86,6 +86,7 @@ enum ptp_pin_function {
->  	PTP_PF_EXTTS,
->  	PTP_PF_PEROUT,
->  	PTP_PF_PHYSYNC,
-> +	PTP_PF_PPS,
->  };
->  
->  struct ptp_pin_desc {
-> -- 
-> 1.9.1
-> 
+Oh, I didn't look into the other com20020 drivers.
+I will fix it and send v2.
 
 Thanks,
-Richard
+Michael
+
+--=20
+Pengutronix e.K.                           |                           =
+  |
+Industrial Linux Solutions                 | http://www.pengutronix.de/=
+  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0  =
+  |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-555=
+5 |
