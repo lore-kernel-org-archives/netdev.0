@@ -1,33 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Add ndo_gso_check
-Date: Mon, 29 Sep 2014 16:12:18 -0400 (EDT)
-Message-ID: <20140929.161218.1571834095802997233.davem@davemloft.net>
-References: <1411962607-27878-1-git-send-email-therbert@google.com>
-	<CAJ3xEMi-TRXevenx87UM7JnKqRQQATW4MBjbz8JdnQE9gk3KZw@mail.gmail.com>
+Subject: Re: [PATCH v5 2/3] net: Add Keystone NetCP ethernet driver
+Date: Mon, 29 Sep 2014 16:12:53 -0400 (EDT)
+Message-ID: <20140929.161253.1302757975839499212.davem@davemloft.net>
+References: <1411667317-1163-3-git-send-email-santosh.shilimkar@ti.com>
+	<20140929.155200.2231132602322345812.davem@davemloft.net>
+	<5429BAD0.1050101@ti.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: therbert@google.com, jeffrey.t.kirsher@intel.com,
-	alexander.h.duyck@intel.com, netdev@vger.kernel.org, tgraf@suug.ch,
-	pshelar@nicira.com, john.r.fastabend@intel.com
-To: gerlitz.or@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33576 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751028AbaI2UMV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 16:12:21 -0400
-In-Reply-To: <CAJ3xEMi-TRXevenx87UM7JnKqRQQATW4MBjbz8JdnQE9gk3KZw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linux-kernel@vger.kernel.org, robh+dt@kernel.org,
+	grant.likely@linaro.org, devicetree@vger.kernel.org,
+	sandeep_n@ti.com, joe@perches.com
+To: santosh.shilimkar@ti.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5429BAD0.1050101@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Date: Mon, 29 Sep 2014 22:59:39 +0300
+From: Santosh Shilimkar <santosh.shilimkar@ti.com>
+Date: Mon, 29 Sep 2014 16:02:24 -0400
 
-> Saying that, while looking quickly on the fm10k driver during it's
-> super fast upstream review cycle,
+> We are badly missing mainline network driver support for the Keystone
+> and hence I request you to help here.
 
-I call bullshit.  fm10k had been posted for review starting around 10
-days before I pulled it in from Jeff's tree.
-
-If I let most patches rot that long in patchwork there'd be a crowd
-with pitchforks approaching me.
+It is absolutely not reasonable for you depend specifically upon me
+for top-level review of a given change, sorry.
