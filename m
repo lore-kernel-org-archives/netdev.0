@@ -1,40 +1,76 @@
-From: Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
-Subject: Re: [PATCH] ath: change logging functions to return void
-Date: Mon, 29 Sep 2014 14:28:42 +0300
-Message-ID: <87h9zq1x91.fsf@kamboji.qca.qualcomm.com>
-References: <1411407334.2952.46.camel@joe-AO725>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] tun: make sure interface usage can not overflow
+Date: Mon, 29 Sep 2014 14:48:49 +0300
+Message-ID: <20140929114849.GA913@redhat.com>
+References: <20140928232753.GA31180@www.outflux.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: wil6210 <wil6210-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<ath10k-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Vladimir Kondratiev <qca_vkondrat-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
-	<ath6kl-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1411407334.2952.46.camel@joe-AO725> (Joe Perches's message of
-	"Mon, 22 Sep 2014 10:35:34 -0700")
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Jason Wang <jasowang@redhat.com>,
+	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>,
+	Tom Herbert <therbert@google.com>,
+	Masatake YAMATO <yamato@redhat.com>, Xi Wang <xii@google.com>,
+	stephen hemminger <stephen@networkplumber.org>,
+	netdev@vger.kernel.org
+To: Kees Cook <keescook@chromium.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20140928232753.GA31180@www.outflux.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org> writes:
+On Sun, Sep 28, 2014 at 04:27:53PM -0700, Kees Cook wrote:
+> This makes the size argument a const, since it is always populated by
+> the caller. Additionally double-checks to make sure the copy_from_user
+> can never overflow, keeping CONFIG_DEBUG_STRICT_USER_COPY_CHECKS happy:
+> 
+>    In function 'copy_from_user',
+>        inlined from '__tun_chr_ioctl' at drivers/net/tun.c:1871:7:
+>        ... copy_from_user() buffer size is not provably correct
+> 
+> Signed-off-by: Kees Cook <keescook@chromium.org>
 
-> The return values are not used by callers of these functions
-> so change the functions to return void.
->
-> Other miscellanea:
->
-> o add __printf verification to wil6210 logging functions
->   No format/argument mismatches found
->
-> Signed-off-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+What exactly is the issue here?
+__tun_chr_ioctl is called with sizeof(struct compat_ifreq)
+or  sizeof (struct ifreq) as the last argument.
 
-Thanks, applied.
+So this looks like a false positive, but
+CONFIG_DEBUG_STRICT_USER_COPY_CHECKS machinery is supposed
+to avoid false positives.
 
--- 
-Kalle Valo
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On which architecture is this?
+
+
+> ---
+>  drivers/net/tun.c | 3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index acaaf6784179..a1f317cba206 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -1855,7 +1855,7 @@ unlock:
+>  }
+>  
+>  static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
+> -			    unsigned long arg, int ifreq_len)
+> +			    unsigned long arg, const size_t ifreq_len)
+>  {
+>  	struct tun_file *tfile = file->private_data;
+>  	struct tun_struct *tun;
+> @@ -1869,6 +1869,7 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
+>  	int ret;
+>  
+>  	if (cmd == TUNSETIFF || cmd == TUNSETQUEUE || _IOC_TYPE(cmd) == 0x89) {
+> +		BUG_ON(ifreq_len > sizeof(ifr));
+>  		if (copy_from_user(&ifr, argp, ifreq_len))
+>  			return -EFAULT;
+>  	} else {
+> -- 
+> 1.9.1
+> 
+> 
+> -- 
+> Kees Cook
+> Chrome OS Security
