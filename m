@@ -1,52 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] macvlan: add source mode
-Date: Mon, 29 Sep 2014 15:36:53 -0400 (EDT)
-Message-ID: <20140929.153653.1684891612078458544.davem@davemloft.net>
-References: <1411655468-485-1-git-send-email-michael-dev@fami-braun.de>
+From: Kees Cook <keescook@chromium.org>
+Subject: Re: [PATCH] tun: make sure interface usage can not overflow
+Date: Mon, 29 Sep 2014 12:41:12 -0700
+Message-ID: <CAGXu5jKL13qdCBet3yqpc3vLYh_LifBACzL+NP8n-A+E8RMZXw@mail.gmail.com>
+References: <20140928232753.GA31180@www.outflux.net>
+	<063D6719AE5E284EB5DD2968C1650D6D1749FC70@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, projekt-wlan@fem.tu-ilmenau.de
-To: michael-dev@fami-braun.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:32931 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751214AbaI2Tg4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 15:36:56 -0400
-In-Reply-To: <1411655468-485-1-git-send-email-michael-dev@fami-braun.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jason Wang <jasowang@redhat.com>,
+	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	Tom Herbert <therbert@google.com>,
+	Masatake YAMATO <yamato@redhat.com>, Xi Wang <xii@google.com>,
+	stephen hemminger <stephen@networkplumber.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Laight <David.Laight@aculab.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1749FC70@AcuExch.aculab.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: michael-dev@fami-braun.de
-Date: Thu, 25 Sep 2014 16:31:08 +0200
+On Mon, Sep 29, 2014 at 4:04 AM, David Laight <David.Laight@aculab.com> wrote:
+> From: Kees Cook
+>> This makes the size argument a const, since it is always populated by
+>> the caller.
+>
+> There is almost no point making parameters 'const.
+> ('const foo *' makes sense).
+>
+>> Additionally double-checks to make sure the copy_from_user
+>> can never overflow, keeping CONFIG_DEBUG_STRICT_USER_COPY_CHECKS happy:
+>>
+>>    In function 'copy_from_user',
+>>        inlined from '__tun_chr_ioctl' at drivers/net/tun.c:1871:7:
+>>        ... copy_from_user() buffer size is not provably correct
+>
+> If 'ifreq_len' could be too big then you want to error the ioctl, not panic.
+> If it can't be too big you don't need the check.
 
-> From: Michael Braun <michael-dev@fami-braun.de>
-> 
-> This patch adds a new mode of operation to macvlan, called "source".
-> It allows one to set a list of allowed mac address, which is used
-> to match against source mac address from received frames on underlying
-> interface.
-> This enables creating mac based VLAN associations, instead of standard
-> port or tag based. The feature is useful to deploy 802.1x mac based
-> behavior, where drivers of underlying interfaces doesn't allows that.
-> 
-> Configuration is done through the netlink interface using e.g.:
->  ip link add link eth0 name macvlan0 type macvlan mode source
->  ip link add link eth0 name macvlan1 type macvlan mode source
->  ip link set link dev macvlan0 type macvlan macaddr add 00:11:11:11:11:11
->  ip link set link dev macvlan0 type macvlan macaddr add 00:22:22:22:22:22
->  ip link set link dev macvlan0 type macvlan macaddr add 00:33:33:33:33:33
->  ip link set link dev macvlan1 type macvlan macaddr add 00:33:33:33:33:33
->  ip link set link dev macvlan1 type macvlan macaddr add 00:44:44:44:44:44
-> 
-> This allows clients with MAC addresses 00:11:11:11:11:11,
-> 00:22:22:22:22:22 to be part of only VLAN associated with macvlan0
-> interface. Clients with MAC addresses 00:44:44:44:44:44 with only VLAN
-> associated with macvlan1 interface. And client with MAC address
-> 00:33:33:33:33:33 to be associated with both VLANs.
-> 
-> Based on work of Stefan Gula <steweg@gmail.com>
-> 
-> Signed-off-by: Michael Braun <michael-dev@fami-braun.de>
+The ifreq_len comes from the callers, and is the output of "sizeof"
+which is const. Changing the function parameter to "const" means any
+changes made in the future where the incoming value isn't const, the
+compiler will throw a warning.
 
-Applied, thanks.
+-Kees
+
+-- 
+Kees Cook
+Chrome OS Security
