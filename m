@@ -1,66 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net-next] mlx4: optimize xmit path
-Date: Mon, 29 Sep 2014 11:08:06 -0700
-Message-ID: <1412014086.30721.36.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CAMEtUuw0UjJuDqSDrK9L-CUWaVdKni1p9cib+VGCOYtBbrCY4Q@mail.gmail.com>
+From: Hongmei Li <duckcncn@gmail.com>
+Subject: Re: IPv6 FIB related crash with MACVLANs in 3.9.11+ kernel.
+Date: Mon, 29 Sep 2014 18:15:11 +0000 (UTC)
+Message-ID: <loom.20140929T195637-887@post.gmane.org>
+References: <52EFFE20.5080500@candelatech.com> <20140203220323.GB17999@order.stressinduktion.org> <52F012FF.9030105@candelatech.com> <52F65EB4.1050306@candelatech.com> <20140208172310.GF16198@order.stressinduktion.org> <loom.20140926T001736-777@post.gmane.org> <1411906297.2400343.172598909.66223582@webmail.messagingengine.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Or Gerlitz <gerlitz.or@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	Eric Dumazet <edumazet@google.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Amir Vadai <amirv@mellanox.com>,
-	Or Gerlitz <or.gerlitz@gmail.com>
-To: Alexei Starovoitov <ast@plumgrid.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:53050 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755179AbaI2SII (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 14:08:08 -0400
-Received: by mail-pd0-f169.google.com with SMTP id p10so5720592pdj.0
-        for <netdev@vger.kernel.org>; Mon, 29 Sep 2014 11:08:07 -0700 (PDT)
-In-Reply-To: <CAMEtUuw0UjJuDqSDrK9L-CUWaVdKni1p9cib+VGCOYtBbrCY4Q@mail.gmail.com>
+Received: from plane.gmane.org ([80.91.229.3]:58106 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752481AbaI2SP1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Sep 2014 14:15:27 -0400
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1XYfTp-0007DI-CE
+	for netdev@vger.kernel.org; Mon, 29 Sep 2014 20:15:25 +0200
+Received: from 144.189.31.3 ([144.189.31.3])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Mon, 29 Sep 2014 20:15:25 +0200
+Received: from duckcncn by 144.189.31.3 with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Mon, 29 Sep 2014 20:15:25 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-09-29 at 10:46 -0700, Alexei Starovoitov wrote:
-> On Sun, Sep 28, 2014 at 9:19 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> >         send_doorbell = !skb->xmit_more || netif_xmit_stopped(ring->tx_queue);
-> >
-> >         if (ring->bf_enabled && desc_size <= MAX_BF && !bounce &&
-> >             !vlan_tx_tag_present(skb) && send_doorbell) {
-> 
-> This patch is good,
-> 
-> but I've been thinking more about bf+xmit_more and want
-> to double check my understanding in that scenario:
-> xmit_more=true will queue descriptors normally and
-> the last xmit_more=false packet will write into BF.
-> I guess BF suppose to pick up the earlier ones from
-> the queue, otherwise the whole thing is broken.
-> So if indeed BF can pick up the whole chain, then
-> it should be the faster way than doing iowrite32(), right?
-> --
+Thanks Hannes for your prompt response!
 
+We just encountered this issue two times in our product stability test so far,
+and my panic backtrace is the exactly same with the one reported here.
+I don't know how to reproduce the issue till now. 
+I tried several method, unfortunately, I can not reproduce it by myself. :(
 
-Right, this is what my patch is doing.
-
-Say we send a burst of 8 packets.
-
-7 first packets are queued, but no iowrite32() is performed.
-
-final packet is queued, and bf is used to send the doorbell.
-
-With our current stack (net-next), its very easy to check :
-
-Disable tso (ethtool -K eth0 tso off)
-
-Then run netperf -t TCP_RR -H ... -- -r 6000,6000
-
-GSO makes great use of skb->xmit_more right now ;)
-
-(Assuming we do not have GSO preparing hundred of segments out of a
-single TSO packet)
+Thanks,
+Hongmei
