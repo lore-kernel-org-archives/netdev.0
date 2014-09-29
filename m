@@ -1,87 +1,34 @@
-From: Santosh Shilimkar <santosh.shilimkar-l0cyMroinI0@public.gmane.org>
-Subject: Re: [PATCH v5 2/3] net: Add Keystone NetCP ethernet driver
-Date: Mon, 29 Sep 2014 16:02:24 -0400
-Message-ID: <5429BAD0.1050101@ti.com>
-References: <1411667317-1163-1-git-send-email-santosh.shilimkar@ti.com>	<1411667317-1163-3-git-send-email-santosh.shilimkar@ti.com> <20140929.155200.2231132602322345812.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v5 02/10] net: pxa168_eth: add device tree support
+Date: Mon, 29 Sep 2014 16:04:36 -0400 (EDT)
+Message-ID: <20140929.160436.1932620234954504510.davem@davemloft.net>
+References: <1411742036-23520-1-git-send-email-antoine.tenart@free-electrons.com>
+	<1411742036-23520-3-git-send-email-antoine.tenart@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	<grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<sandeep_n-l0cyMroinI0@public.gmane.org>, <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20140929.155200.2231132602322345812.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: sebastian.hesselbarth@gmail.com,
+	alexandre.belloni@free-electrons.com,
+	thomas.petazzoni@free-electrons.com, zmxu@marvell.com,
+	jszhang@marvell.com, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, devicetree@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: antoine.tenart@free-electrons.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1411742036-23520-3-git-send-email-antoine.tenart@free-electrons.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 29 September 2014 03:52 PM, David Miller wrote:
-> From: Santosh Shilimkar <santosh.shilimkar-l0cyMroinI0@public.gmane.org>
-> Date: Thu, 25 Sep 2014 13:48:36 -0400
-> 
->> +static inline int gbe_phy_link_status(struct gbe_slave *slave)
->> +{
->> +	if (!slave->phy)
->> +		return 1;
->> +
->> +	if (slave->phy->link)
->> +		return 1;
->> +
->> +	return 0;
->> +}
-> 
-> Please use 'bool' as the return type and return 'true' or 'false'.
-> 
-ok
-
-> Do not use 'inline' in foo.c files, let the compiler decide.  Please
-> audit this entire submission for this problem.
->
-ok.
- 
->> +static int gbe_port_reset(struct gbe_slave *slave)
->> +{
->> +	u32 i, v;
->> +
->> +	/* Set the soft reset bit */
->> +	writel_relaxed(SOFT_RESET, GBE_REG_ADDR(slave, emac_regs, soft_reset));
-> 
-> This driver seems to use relaxed readl and writel for almost everything.
-> 
-> That absolutely cannot be right.  For example, here, you depend upon the
-> ordering of this writel_relaxed() to reset the chip relative to the
-> real_relaxed() you subsequently do to check ths bits.
-> 
-> I seriously think that *_relaxed() should only be done in very special
-> circumstances where 1) the performance matters and 2) the validity of
-> the usage has been put under a microscope and fully documented with huge
-> comments above the *_relaxed() calls.
-> 
-> If you cannot reduce and properly document the really necessary *_relaxed()
-> uses, just convert them all to non-_relaxed() for now.
-> 
-We can stick to non-*relaxed() versions. No problems here.
-
-> I'm also warning you ahead of time that since nobody else seems to feel
-> like reviewing this enormous submission, you are going to have to get used
-> to me pushing back on these changes over and over for small things like
-> coding style and structural/API issues until some reviews it on a higher
-> level.
->
-> I really don't want to apply this series until someone thinks seriously
-> about the driver's design and the long term ramifications of having a
-> driver like this in the tree with so many random TX etc. hooks.
-> 
-The driver has been on the list. Jamal and you have given your comments,
-suggestion and we have incorporated that. What else we can do ?
-
-We are badly missing mainline network driver support for the Keystone
-and hence I request you to help here.
-
-regards,
-Santosh
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+RnJvbTogQW50b2luZSBUZW5hcnQgPGFudG9pbmUudGVuYXJ0QGZyZWUtZWxlY3Ryb25zLmNvbT4N
+CkRhdGU6IEZyaSwgMjYgU2VwIDIwMTQgMTY6MzM6NDggKzAyMDANCg0KPiBAQCAtMTYwMyw2ICsx
+NjIwLDEyIEBAIHN0YXRpYyBpbnQgcHhhMTY4X2V0aF9zdXNwZW5kKHN0cnVjdCBwbGF0Zm9ybV9k
+ZXZpY2UgKnBkZXYsIHBtX21lc3NhZ2VfdCBzdGF0ZSkNCj4gICNkZWZpbmUgcHhhMTY4X2V0aF9z
+dXNwZW5kIE5VTEwNCj4gICNlbmRpZg0KPiAgDQo+ICtzdGF0aWMgY29uc3Qgc3RydWN0IG9mX2Rl
+dmljZV9pZCBweGExNjhfZXRoX29mX21hdGNoW10gPSB7DQo+ICsJeyAuY29tcGF0aWJsZSA9ICJt
+YXJ2ZWxsLHB4YTE2OC1ldGgiIH0sDQo+ICsJeyB9LA0KPiArfTsNCj4gK01PRFVMRV9ERVZJQ0Vf
+VEFCTEUob2YsIHB4YTE2OF9ldGhfb2ZfbWF0Y2gpDQo+ICsNCj4gIHN0YXRpYyBzdHJ1Y3QgcGxh
+dGZvcm1fZHJpdmVyIHB4YTE2OF9ldGhfZHJpdmVyID0gew0KDQpZb3UgZGlkbid0IGV2ZW4gY29t
+cGlsZSB0ZXN0IHRoaXMgY2hhbmdlIHdpdGggbW9kdWxlIHN1cHBvcnQgZW5hYmxlZC4NCg0KZHJp
+dmVycy9uZXQvZXRoZXJuZXQvbWFydmVsbC9weGExNjhfZXRoLmM6MTY3MDoxOiBlcnJvcjogZXhw
+ZWN0ZWQgoSyiIG9yIKE7oiBiZWZvcmUgoXN0YXRpY6INCg0KTU9EVUxFX0RFVklDRV9UQUJMRSgp
+IG11c3QgYmUgY29tcGxldGVkIHdpdGggYSB0cmFpbGluZyAnOycNCg==
