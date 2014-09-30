@@ -1,56 +1,36 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] tun: make sure interface usage can not overflow
-Date: Tue, 30 Sep 2014 08:20:28 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D174A0C5C@AcuExch.aculab.com>
-References: <20140928232753.GA31180@www.outflux.net>
-	 <063D6719AE5E284EB5DD2968C1650D6D1749FC70@AcuExch.aculab.com>
-	 <CAGXu5jKL13qdCBet3yqpc3vLYh_LifBACzL+NP8n-A+E8RMZXw@mail.gmail.com>
- <1412021098.14757.6.camel@localhost>
+From: Manish Chopra <manish.chopra@qlogic.com>
+Subject: [PATCH net 0/2] netxen: Bug fixes.
+Date: Tue, 30 Sep 2014 03:56:34 -0400
+Message-ID: <1412063796-25959-1-git-send-email-manish.chopra@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jason Wang <jasowang@redhat.com>,
-	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	"Tom Herbert" <therbert@google.com>,
-	Masatake YAMATO <yamato@redhat.com>, Xi Wang <xii@google.com>,
-	stephen hemminger <stephen@networkplumber.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'Hannes Frederic Sowa' <hannes@redhat.com>,
-	Kees Cook <keescook@chromium.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1412021098.14757.6.camel@localhost>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <umgwanakikbuti@gmail.com>,
+	<Dept-GELinuxNICDev@qlogic.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:6830 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751356AbaI3Iat (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2014 04:30:49 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogSGFubmVzIEZyZWRlcmljDQo+IE9uIE1vLCAyMDE0LTA5LTI5IGF0IDEyOjQxIC0wNzAw
-LCBLZWVzIENvb2sgd3JvdGU6DQo+ID4gT24gTW9uLCBTZXAgMjksIDIwMTQgYXQgNDowNCBBTSwg
-RGF2aWQgTGFpZ2h0IDxEYXZpZC5MYWlnaHRAYWN1bGFiLmNvbT4gd3JvdGU6DQo+ID4gPiBGcm9t
-OiBLZWVzIENvb2sNCj4gPiA+PiBUaGlzIG1ha2VzIHRoZSBzaXplIGFyZ3VtZW50IGEgY29uc3Qs
-IHNpbmNlIGl0IGlzIGFsd2F5cyBwb3B1bGF0ZWQgYnkNCj4gPiA+PiB0aGUgY2FsbGVyLg0KPiA+
-ID4NCj4gPiA+IFRoZXJlIGlzIGFsbW9zdCBubyBwb2ludCBtYWtpbmcgcGFyYW1ldGVycyAnY29u
-c3QuDQo+ID4gPiAoJ2NvbnN0IGZvbyAqJyBtYWtlcyBzZW5zZSkuDQo+ID4gPg0KPiA+ID4+IEFk
-ZGl0aW9uYWxseSBkb3VibGUtY2hlY2tzIHRvIG1ha2Ugc3VyZSB0aGUgY29weV9mcm9tX3VzZXIN
-Cj4gPiA+PiBjYW4gbmV2ZXIgb3ZlcmZsb3csIGtlZXBpbmcgQ09ORklHX0RFQlVHX1NUUklDVF9V
-U0VSX0NPUFlfQ0hFQ0tTIGhhcHB5Og0KPiA+ID4+DQo+ID4gPj4gICAgSW4gZnVuY3Rpb24gJ2Nv
-cHlfZnJvbV91c2VyJywNCj4gPiA+PiAgICAgICAgaW5saW5lZCBmcm9tICdfX3R1bl9jaHJfaW9j
-dGwnIGF0IGRyaXZlcnMvbmV0L3R1bi5jOjE4NzE6NzoNCj4gPiA+PiAgICAgICAgLi4uIGNvcHlf
-ZnJvbV91c2VyKCkgYnVmZmVyIHNpemUgaXMgbm90IHByb3ZhYmx5IGNvcnJlY3QNCj4gPiA+DQo+
-ID4gPiBJZiAnaWZyZXFfbGVuJyBjb3VsZCBiZSB0b28gYmlnIHRoZW4geW91IHdhbnQgdG8gZXJy
-b3IgdGhlIGlvY3RsLCBub3QgcGFuaWMuDQo+ID4gPiBJZiBpdCBjYW4ndCBiZSB0b28gYmlnIHlv
-dSBkb24ndCBuZWVkIHRoZSBjaGVjay4NCj4gPg0KPiA+IFRoZSBpZnJlcV9sZW4gY29tZXMgZnJv
-bSB0aGUgY2FsbGVycywgYW5kIGlzIHRoZSBvdXRwdXQgb2YgInNpemVvZiINCj4gPiB3aGljaCBp
-cyBjb25zdC4gQ2hhbmdpbmcgdGhlIGZ1bmN0aW9uIHBhcmFtZXRlciB0byAiY29uc3QiIG1lYW5z
-IGFueQ0KPiA+IGNoYW5nZXMgbWFkZSBpbiB0aGUgZnV0dXJlIHdoZXJlIHRoZSBpbmNvbWluZyB2
-YWx1ZSBpc24ndCBjb25zdCwgdGhlDQo+ID4gY29tcGlsZXIgd2lsbCB0aHJvdyBhIHdhcm5pbmcu
-DQo+IA0KPiBIbW1tLCBJIHRoaW5rIHlvdSB3YW50IHNvbWV0aGluZyBsaWtlIEJVSUxEX0JVR19P
-TighDQo+IF9fYnVpbHRpbl9jb25zdGFudF9wKHZhcikpLiBjb25zdCBpbiBmdW5jdGlvbiBhcmd1
-bWVudCBvbmx5IGVuc3VyZXMgdGhhdA0KPiB0aGUgdmFsdWUgY2Fubm90IGJlIG1vZGlmaWVkIGlu
-IHRoZSBmdW5jdGlvbi4NCg0KWW91J2QgaGF2ZSB0byBkbyBzb21ldGhpbmcgaW4gdGhlIGhlYWRl
-ciBmaWxlIC0gbm90aGluZyBpbiB0aGUgZnVuY3Rpb24NCmJvZHkgY2FuIGRvIHRoYXQgY2hlY2su
-DQoNCkkndmUgbm90IGdvdCB0aGUgc291cmNlIGhhbmR5LCBidXQgaW4gdGhpcyBjYXNlIGlzIHRo
-ZXJlIGFueSBuZWVkIHRvDQphY3R1YWxseSBwYXNzIHRoZSBzaXplIGF0IGFsbD8NCklzIGl0IGFs
-d2F5cyB0aGUgc2FtZSBmaXhlZCBjb25zdGFudD8/DQoNCglEYXZpZA0KDQo=
+Hi David,
+
+This series fixes some TX specific issues.
+* Move spin_lock(tx_clean_lock) in down path to fix
+  atomic sleep bug (Reported by Mike Galbraith).
+* Fix hang in interface down while running traffic.
+
+Please consider applying this to 'net'.
+
+Thanks,
+Manish
+
+Manish Chopra (2):
+  netxen: Fix BUG "sleeping function called from invalid context"
+  netxen: Fix bug in Tx completion path
+
+ .../net/ethernet/qlogic/netxen/netxen_nic_init.c   |    6 ++++--
+ .../net/ethernet/qlogic/netxen/netxen_nic_main.c   |    2 --
+ 2 files changed, 4 insertions(+), 4 deletions(-)
