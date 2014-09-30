@@ -1,79 +1,66 @@
-From: Dmitry Torokhov <dmitry.torokhov@gmail.com>
-Subject: Re: [RFC v2 3/6] kthread: warn on kill signal if not OOM
-Date: Tue, 30 Sep 2014 14:34:44 -0700
-Message-ID: <20140930213444.GA8259@dtor-glaptop>
-References: <20140905174925.GA12991@mtj.dyndns.org>
- <20140911202354.GA2598@core.coreip.homeip.net>
- <20140922194906.GB9868@amd>
- <2306678.TJaWkZCAc8@dtor-glaptop>
- <20140930210634.GC14283@amd>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [net-next PATCH] dql: add a burst attribute
+Date: Tue, 30 Sep 2014 23:46:42 +0200
+Message-ID: <20140930234642.3c08b033@redhat.com>
+References: <20140930085114.24043.81310.stgit@dragon>
+	<1412080482.30721.68.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1412081485.30721.75.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20140930134655.GA24565@breakpoint.cc>
+	<1412086646.30721.81.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20140930143101.GB24565@breakpoint.cc>
+	<1412088936.30721.86.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: James Bottomley <James.Bottomley@hansenpartnership.com>,
-	Tejun Heo <tj@kernel.org>,
-	"Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
-	Lennart Poettering <lennart@poettering.net>,
-	Kay Sievers <kay@vrfy.org>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Wu Zhangjin <falcon@meizu.com>, Takashi Iwai <tiwai@suse.de>,
-	Arjan van de Ven <arjan@linux.intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Oleg Nesterov <oleg@redhat.com>, hare@suse.com,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-	Joseph Salisbury <joseph.salisbury@canonical.com>,
-	Benjamin Poirier <bpoirier@suse.de>,
-	Santosh Rastapur <santosh@chelsio.com>,
-	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
-	Tim Gardner <tim.gardner@canonical.com>,
-	Pierre Fersing <pierre-fersing@pierref.org>,
-	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagote
-To: Pavel Machek <pavel@ucw.cz>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140930210634.GC14283@amd>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Tom Herbert <therbert@google.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Dave Taht <dave.taht@gmail.com>, toke@toke.dk,
+	brouer@redhat.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:45945 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751170AbaI3VrC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Sep 2014 17:47:02 -0400
+In-Reply-To: <1412088936.30721.86.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 30, 2014 at 11:06:34PM +0200, Pavel Machek wrote:
-> 
-> On Mon 2014-09-22 13:23:54, Dmitry Torokhov wrote:
-> > On Monday, September 22, 2014 09:49:06 PM Pavel Machek wrote:
-> > > On Thu 2014-09-11 13:23:54, Dmitry Torokhov wrote:
-> > > > On Thu, Sep 11, 2014 at 12:59:25PM -0700, James Bottomley wrote:
-> 
-> > > > > Yes, but we mostly do this anyway.  SCSI for instance does asynchronous
-> > > > > scanning of attached devices (once the cards are probed)
-> > > > 
-> > > > What would it do it card was a bit slow to probe?
-> > > > 
-> > > > > but has a sync
-> > > > > point for ordering.
-> > > > 
-> > > > Quite often we do not really care about ordering of devices. I mean,
-> > > > does it matter if your mouse is discovered before your keyboard or
-> > > > after?
-> > > 
-> > > Actually yes, I suspect it does.
-> > > 
-> > > I do evtest /dev/input/eventX by hand, occassionaly. It would be
-> > > annoying if they moved between reboots.
+On Tue, 30 Sep 2014 07:55:36 -0700
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
+
+> On Tue, 2014-09-30 at 16:31 +0200, Florian Westphal wrote:
+> > Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > > If you feel not comfortable with "burst", rename it to whatever you
+> > > think is best.
+> > > But please, do not hard code magic 7 in your code.
 > > 
-> > I am sorry but you will have to cope with such annoyances. It' snot like we 
-> > fail to boot the box here.
-> > 
-> > The systems are now mostly hot-pluggable and userland is supposed to
-> > handle it, and it does, at least for input devices. If you want stable naming
-> > use udev facilities to rename devices as needed or add needed symlinks (by-id, 
-> > etc.).
+> > I had hoped that this 'magic' value could be removed
+> > completely, only using bql data for bulking decisions.
 > 
-> Well, it would be nice if udev was not mandatory. Do the sync points
-> for ordering actually cost us something?
+> But it is apparently not the case, since you guys decided to had it set
+> to 8, then to 7 later, based on experiments.
 
-Yes, boot time. We can save a second or two off the boot time if we probe
-several devices/drivers simultaneously.
+The "magic" limit is only a conservative save guard.  We do plan to
+remove this completely.  That is the reason for not exporting this, as
+we want free-hands to remove this completely.
 
-Thanks.
+Guess, I'll remove it completely now, so we can move on.
+
+
+I would like some off/on switch, exported to userspace, for disabling
+this bulking (then we don't need this conservative magic number).  How
+would that be done best?
 
 -- 
-Dmitry
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
