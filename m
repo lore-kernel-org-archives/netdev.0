@@ -1,31 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/2] netxen: Bug fixes.
-Date: Tue, 30 Sep 2014 16:23:15 -0400 (EDT)
-Message-ID: <20140930.162315.1445819984262897387.davem@davemloft.net>
-References: <1412063796-25959-1-git-send-email-manish.chopra@qlogic.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, umgwanakikbuti@gmail.com,
-	Dept-GELinuxNICDev@qlogic.com
-To: manish.chopra@qlogic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49458 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751959AbaI3UXR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2014 16:23:17 -0400
-In-Reply-To: <1412063796-25959-1-git-send-email-manish.chopra@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Fabian Frederick <fabf@skynet.be>
+Subject: [PATCH 1/1 linux-next] irda: add __init to irlan_open
+Date: Tue, 30 Sep 2014 22:24:04 +0200
+Message-ID: <1412108644-6547-1-git-send-email-fabf@skynet.be>
+Cc: Fabian Frederick <fabf@skynet.be>,
+	Samuel Ortiz <samuel@sortiz.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Manish Chopra <manish.chopra@qlogic.com>
-Date: Tue, 30 Sep 2014 03:56:34 -0400
+irlan_open is only called by __init irlan_init in same module.
 
-> This series fixes some TX specific issues.
-> * Move spin_lock(tx_clean_lock) in down path to fix
->   atomic sleep bug (Reported by Mike Galbraith).
-> * Fix hang in interface down while running traffic.
-> 
-> Please consider applying this to 'net'.
+Signed-off-by: Fabian Frederick <fabf@skynet.be>
+---
+ net/irda/irlan/irlan_common.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Series applied, thanks.
+diff --git a/net/irda/irlan/irlan_common.c b/net/irda/irlan/irlan_common.c
+index 1bc49ed..5a2d0a6 100644
+--- a/net/irda/irlan/irlan_common.c
++++ b/net/irda/irlan/irlan_common.c
+@@ -98,7 +98,7 @@ static const struct file_operations irlan_fops = {
+ extern struct proc_dir_entry *proc_irda;
+ #endif /* CONFIG_PROC_FS */
+ 
+-static struct irlan_cb *irlan_open(__u32 saddr, __u32 daddr);
++static struct irlan_cb __init *irlan_open(__u32 saddr, __u32 daddr);
+ static void __irlan_close(struct irlan_cb *self);
+ static int __irlan_insert_param(struct sk_buff *skb, char *param, int type,
+ 				__u8 value_byte, __u16 value_short,
+@@ -196,7 +196,7 @@ static void __exit irlan_cleanup(void)
+  *    Open new instance of a client/provider, we should only register the
+  *    network device if this instance is ment for a particular client/provider
+  */
+-static struct irlan_cb *irlan_open(__u32 saddr, __u32 daddr)
++static struct irlan_cb __init *irlan_open(__u32 saddr, __u32 daddr)
+ {
+ 	struct net_device *dev;
+ 	struct irlan_cb *self;
+-- 
+1.9.3
