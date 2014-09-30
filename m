@@ -1,51 +1,38 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH] hostap: proc: Remove unused variable
-Date: Tue, 30 Sep 2014 12:56:26 -0400
-Message-ID: <20140930165626.GD11919@tuxdriver.com>
-References: <1410909415-11661-1-git-send-email-broonie@kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] netfilter: bridge: build br_nf_core only if
+ required
+Date: Tue, 30 Sep 2014 14:10:01 -0400 (EDT)
+Message-ID: <20140930.141001.265442216668830904.davem@davemloft.net>
+References: <1412067559-28733-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jouni Malinen <j@w1.fi>, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linaro-kernel@lists.linaro.org
-To: Mark Brown <broonie@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:59483 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753290AbaI3RAM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2014 13:00:12 -0400
-Content-Disposition: inline
-In-Reply-To: <1410909415-11661-1-git-send-email-broonie@kernel.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	eric.dumazet@gmail.com, therbert@google.com, fw@strlen.de
+To: pablo@netfilter.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1412067559-28733-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 16, 2014 at 04:16:55PM -0700, Mark Brown wrote:
-> Since "hostap: proc: substitute loops by %*phN" (62c5afb8e388) the
-> variable i has been unused in prism2_bss_list_proc_show() so remove it.
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Tue, 30 Sep 2014 10:59:18 +0200
+
+> From: Florian Westphal <fw@strlen.de>
 > 
-> Signed-off-by: Mark Brown <broonie@kernel.org>
-> ---
->  drivers/net/wireless/hostap/hostap_proc.c | 1 -
->  1 file changed, 1 deletion(-)
+> Eric reports build failure with
+> CONFIG_BRIDGE_NETFILTER=n
 > 
-> diff --git a/drivers/net/wireless/hostap/hostap_proc.c b/drivers/net/wireless/hostap/hostap_proc.c
-> index 3a23a6d..dd84557 100644
-> --- a/drivers/net/wireless/hostap/hostap_proc.c
-> +++ b/drivers/net/wireless/hostap/hostap_proc.c
-> @@ -168,7 +168,6 @@ static int prism2_bss_list_proc_show(struct seq_file *m, void *v)
->  	local_info_t *local = m->private;
->  	struct list_head *ptr = v;
->  	struct hostap_bss_info *bss;
-> -	int i;
->  
->  	if (ptr == &local->bss_list) {
->  		seq_printf(m, "#BSSID\tlast_update\tcount\tcapab_info\tSSID(txt)\t"
-> -- 
-> 2.1.0
+> We insist to build br_nf_core.o unconditionally, but we must only do so
+> if br_netfilter was enabled, else it fails to build due to
+> functions being defined to empty stubs (and some structure members
+> being defined out).
+> 
+> Also, BRIDGE_NETFILTER=y|m makes no sense when BRIDGE=n.
+> 
+> Fixes: 34666d467 (netfilter: bridge: move br_netfilter out of the core)
+> Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Florian Westphal <fw@strlen.de>
+> Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 
-What tree are you using?  In wireless-next, I still see a loop in
-that function using i as an index variable.
-
-John
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+Applied, thanks.
