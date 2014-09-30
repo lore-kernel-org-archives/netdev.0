@@ -1,44 +1,47 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: Add ndo_gso_check
-Date: Tue, 30 Sep 2014 15:11:11 -0700
-Message-ID: <1412115071.16704.1.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1411962607-27878-1-git-send-email-therbert@google.com>
-	 <CAJ3xEMi-TRXevenx87UM7JnKqRQQATW4MBjbz8JdnQE9gk3KZw@mail.gmail.com>
-	 <CA+mtBx8r05=qs2J58LFq56762tFB7wF4Dsr3C5TC9w5qQP5jGw@mail.gmail.com>
-	 <CAJ3xEMhf6b75TQDFqEPMSXCpL9ToWG1q0OMPtrEuHNSm=-PSwQ@mail.gmail.com>
-	 <CA+mtBx_6HcZh5Ys1FJFBXkZ2bWX1gP6bTcjY7gbR6RG_TOy50Q@mail.gmail.com>
-	 <CAJ3xEMi0biCWTNtLOJ=0HWZYjOWi6pN2bw2=EWajp6XnpoyVRw@mail.gmail.com>
-	 <CA+mtBx-sP6g9hXAYGfHKCPYkCtjgCFM0srueh1uhoNnC2ACr1g@mail.gmail.com>
-	 <20140930143700.3dffac4d@urahara>
+Subject: Re: [net-next PATCH V5] qdisc: bulk dequeue support for qdiscs with
+ TCQ_F_ONETXQUEUE
+Date: Tue, 30 Sep 2014 15:15:10 -0700
+Message-ID: <1412115310.16704.5.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20140930085114.24043.81310.stgit@dragon>
+	 <1412077736.30721.54.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20141001000752.4e553919@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <therbert@google.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Thomas Graf <tgraf@suug.ch>,
-	Pravin Shelar <pshelar@nicira.com>,
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Tom Herbert <therbert@google.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Florian Westphal <fw@strlen.de>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
 	John Fastabend <john.r.fastabend@intel.com>,
-	Andy Zhou <azhou@nicira.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
+	Dave Taht <dave.taht@gmail.com>, toke@toke.dk
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:53465 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750717AbaI3WLO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2014 18:11:14 -0400
-Received: by mail-pa0-f46.google.com with SMTP id kq14so7085557pab.19
-        for <netdev@vger.kernel.org>; Tue, 30 Sep 2014 15:11:13 -0700 (PDT)
-In-Reply-To: <20140930143700.3dffac4d@urahara>
+Received: from mail-pd0-f176.google.com ([209.85.192.176]:49510 "EHLO
+	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752273AbaI3WPL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2014 18:15:11 -0400
+Received: by mail-pd0-f176.google.com with SMTP id fp1so6848926pdb.35
+        for <netdev@vger.kernel.org>; Tue, 30 Sep 2014 15:15:11 -0700 (PDT)
+In-Reply-To: <20141001000752.4e553919@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-09-30 at 14:37 -0700, Stephen Hemminger wrote:
+On Wed, 2014-10-01 at 00:07 +0200, Jesper Dangaard Brouer wrote:
+> On Tue, 30 Sep 2014 04:48:56 -0700
+> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>  
+> > In my opinion, you guys missed some opportunities :
+> 
+> This is a conservative first approach.  The merge window is approaching
+> fast, is is annoying you are blocking a save conservative approach.
 
-> Software GSO at driver level is sometimes better anyway because it means driver can
-> enqueue a burst of packets into Tx ring.
+I am not blocking at all.
 
-Yes, and it can save a lot of churn (allocating sk_buff, copying ~256
-bytes, bunch of atomic ops...)
+I am only disappointed V5 is no different from V4.
+
+I will shut up then since it seems I am blocking things, or so you
+believe.
