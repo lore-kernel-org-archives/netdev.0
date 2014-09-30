@@ -1,97 +1,107 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net-next] net_sched: fix another crash in cls_tcindex
-Date: Tue, 30 Sep 2014 16:07:23 -0700
-Message-ID: <1412118444-29179-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: davem@davemloft.net, Cong Wang <xiyou.wangcong@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>
-To: netdev@vger.kernel.org
+From: Ceriel Jacobs <linux-ide@crashplan.pro>
+Subject: r8168 is needed to enter P-state: Package State 6 (pc6) on Haswell
+ hardware
+Date: Wed, 01 Oct 2014 01:09:29 +0200
+Message-ID: <542B3829.3010108@crashplan.pro>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Realtek linux nic maintainers <nic_swsd@realtek.com>,
+	Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:52475 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750760AbaI3XHk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2014 19:07:40 -0400
-Received: by mail-pa0-f44.google.com with SMTP id et14so5708452pad.3
-        for <netdev@vger.kernel.org>; Tue, 30 Sep 2014 16:07:39 -0700 (PDT)
+Received: from relay3-d.mail.gandi.net ([217.70.183.195]:32883 "EHLO
+	relay3-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751105AbaI3XJh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2014 19:09:37 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes the following crash:
+With in-kernel r8169 module, only P-state package C3 (pc3) can be 
+reached when enabling ASPM.
 
-[  166.670795] BUG: unable to handle kernel NULL pointer dereference at           (null)
-[  166.674230] IP: [<ffffffff814b739f>] __list_del_entry+0x5c/0x98
-[  166.674230] PGD d0ea5067 PUD ce7fc067 PMD 0
-[  166.674230] Oops: 0000 [#1] PREEMPT SMP DEBUG_PAGEALLOC
-[  166.674230] CPU: 1 PID: 775 Comm: tc Not tainted 3.17.0-rc6+ #642
-[  166.674230] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
-[  166.674230] task: ffff8800d03c4d20 ti: ffff8800cae7c000 task.ti: ffff8800cae7c000
-[  166.674230] RIP: 0010:[<ffffffff814b739f>]  [<ffffffff814b739f>] __list_del_entry+0x5c/0x98
-[  166.674230] RSP: 0018:ffff8800cae7f7d0  EFLAGS: 00010207
-[  166.674230] RAX: 0000000000000000 RBX: ffff8800cba8d700 RCX: ffff8800cba8d700
-[  166.674230] RDX: 0000000000000000 RSI: dead000000200200 RDI: ffff8800cba8d700
-[  166.674230] RBP: ffff8800cae7f7d0 R08: 0000000000000001 R09: 0000000000000001
-[  166.674230] R10: 0000000000000000 R11: 000000000000859a R12: ffffffffffffffe8
-[  166.674230] R13: ffff8800cba8c5b8 R14: 0000000000000001 R15: ffff8800cba8d700
-[  166.674230] FS:  00007fdb5f04a740(0000) GS:ffff88011a800000(0000) knlGS:0000000000000000
-[  166.674230] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-[  166.674230] CR2: 0000000000000000 CR3: 00000000cf929000 CR4: 00000000000006e0
-[  166.674230] Stack:
-[  166.674230]  ffff8800cae7f7e8 ffffffff814b73e8 ffff8800cba8d6e8 ffff8800cae7f828
-[  166.674230]  ffffffff817caeec 0000000000000046 ffff8800cba8c5b0 ffff8800cba8c5b8
-[  166.674230]  0000000000000000 0000000000000001 ffff8800cf8e33e8 ffff8800cae7f848
-[  166.674230] Call Trace:
-[  166.674230]  [<ffffffff814b73e8>] list_del+0xd/0x2b
-[  166.674230]  [<ffffffff817caeec>] tcf_action_destroy+0x4c/0x71
-[  166.674230]  [<ffffffff817ca0ce>] tcf_exts_destroy+0x20/0x2d
-[  166.674230]  [<ffffffff817ec2b5>] tcindex_delete+0x196/0x1b7
+Only after installing r8168 driver (and enabling ASPM), a Haswell 
+Celeron G1820/G1840 processer will enter package C6 state (pc6).
 
-struct list_head can not be simply copied and we should always init it.
+Tested with Ubuntu kernel 3.13 x86_64
+and Ubuntu mainline
+Linux ubuntu14 3.17.0-999-generic #201409240305 SMP Wed Sep 24 02:07:04 
+UTC 2014 x86_64 x86_64 x86_64 GNU/Linux
 
-Cc: John Fastabend <john.r.fastabend@intel.com>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
----
- net/sched/cls_tcindex.c | 12 +++++++++---
- 1 file changed, 9 insertions(+), 3 deletions(-)
+I hope this gets fixed: Haswell processor entering pc6 with ASPM enabled 
+and r8169 in-kernel module.
 
-diff --git a/net/sched/cls_tcindex.c b/net/sched/cls_tcindex.c
-index 8d0e83d..30f10fb 100644
---- a/net/sched/cls_tcindex.c
-+++ b/net/sched/cls_tcindex.c
-@@ -254,10 +254,15 @@ tcindex_set_parms(struct net *net, struct tcf_proto *tp, unsigned long base,
- 	cp->tp = tp;
- 
- 	if (p->perfect) {
-+		int i;
-+
- 		cp->perfect = kmemdup(p->perfect,
- 				      sizeof(*r) * cp->hash, GFP_KERNEL);
- 		if (!cp->perfect)
- 			goto errout;
-+		for (i = 0; i < cp->hash; i++)
-+			tcf_exts_init(&cp->perfect[i].exts,
-+				      TCA_TCINDEX_ACT, TCA_TCINDEX_POLICE);
- 		balloc = 1;
- 	}
- 	cp->h = p->h;
-@@ -353,6 +358,9 @@ tcindex_set_parms(struct net *net, struct tcf_proto *tp, unsigned long base,
- 		f = kzalloc(sizeof(*f), GFP_KERNEL);
- 		if (!f)
- 			goto errout_alloc;
-+		f->key = handle;
-+		tcindex_filter_result_init(&f->result);
-+		f->next = NULL;
- 	}
- 
- 	if (tb[TCA_TCINDEX_CLASSID]) {
-@@ -376,9 +384,7 @@ tcindex_set_parms(struct net *net, struct tcf_proto *tp, unsigned long base,
- 		struct tcindex_filter *nfp;
- 		struct tcindex_filter __rcu **fp;
- 
--		f->key = handle;
--		f->result = new_filter_result;
--		f->next = NULL;
-+		tcf_exts_change(tp, &f->result.exts, &r->exts);
- 
- 		fp = cp->h + (handle % cp->hash);
- 		for (nfp = rtnl_dereference(*fp);
--- 
-1.8.3.1
+R8111GR hardware:
+# lspci -nnkvv -s 03:00.0
+03:00.0 Ethernet controller [0200]: Realtek Semiconductor Co., Ltd. 
+RTL8111/8168/8411 PCI Express Gigabit Ethernet Controller [10ec:8168] 
+(rev 11)
+	Subsystem: ASRock Incorporation Motherboard (one of many) [1849:8168]
+	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- 
+Stepping- SERR- FastB2B- DisINTx+
+	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- 
+<MAbort- >SERR- <PERR- INTx-
+	Latency: 0, Cache Line Size: 64 bytes
+	Interrupt: pin A routed to IRQ 27
+	Region 0: I/O ports at e000 [size=256]
+	Region 2: Memory at f0404000 (64-bit, non-prefetchable) [size=4K]
+	Region 4: Memory at f0400000 (64-bit, prefetchable) [size=16K]
+	Capabilities: [40] Power Management version 3
+		Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=375mA 
+PME(D0+,D1+,D2+,D3hot+,D3cold+)
+		Status: D0 NoSoftRst+ PME-Enable- DSel=0 DScale=0 PME-
+	Capabilities: [50] MSI: Enable+ Count=1/1 Maskable- 64bit+
+		Address: 00000000fee0100c  Data: 41e1
+	Capabilities: [70] Express (v2) Endpoint, MSI 01
+		DevCap:	MaxPayload 128 bytes, PhantFunc 0, Latency L0s <512ns, L1 <64us
+			ExtTag- AttnBtn- AttnInd- PwrInd- RBE+ FLReset-
+		DevCtl:	Report errors: Correctable- Non-Fatal- Fatal- Unsupported-
+			RlxdOrd- ExtTag- PhantFunc- AuxPwr- NoSnoop-
+			MaxPayload 128 bytes, MaxReadReq 4096 bytes
+		DevSta:	CorrErr- UncorrErr- FatalErr- UnsuppReq- AuxPwr+ TransPend-
+		LnkCap:	Port #0, Speed 2.5GT/s, Width x1, ASPM L0s L1, Exit Latency 
+L0s unlimited, L1 <64us
+			ClockPM+ Surprise- LLActRep- BwNot-
+		LnkCtl:	ASPM Disabled; RCB 64 bytes Disabled- CommClk+
+			ExtSynch- ClockPM- AutWidDis- BWInt- AutBWInt-
+		LnkSta:	Speed 2.5GT/s, Width x1, TrErr- Train- SlotClk+ DLActive- 
+BWMgmt- ABWMgmt-
+		DevCap2: Completion Timeout: Range ABCD, TimeoutDis+, LTR+, OBFF Via 
+message/WAKE#
+		DevCtl2: Completion Timeout: 50us to 50ms, TimeoutDis-, LTR+, OBFF 
+Disabled
+		LnkCtl2: Target Link Speed: 2.5GT/s, EnterCompliance- SpeedDis-
+			 Transmit Margin: Normal Operating Range, EnterModifiedCompliance- 
+ComplianceSOS-
+			 Compliance De-emphasis: -6dB
+		LnkSta2: Current De-emphasis Level: -6dB, EqualizationComplete-, 
+EqualizationPhase1-
+			 EqualizationPhase2-, EqualizationPhase3-, LinkEqualizationRequest-
+	Capabilities: [b0] MSI-X: Enable- Count=4 Masked-
+		Vector table: BAR=4 offset=00000000
+		PBA: BAR=4 offset=00000800
+	Capabilities: [d0] Vital Product Data
+		Unknown small resource type 00, will not decode more.
+	Capabilities: [100 v1] Advanced Error Reporting
+		UESta:	DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt- UnxCmplt- RxOF- 
+MalfTLP- ECRC- UnsupReq- ACSViol-
+		UEMsk:	DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt- UnxCmplt- RxOF- 
+MalfTLP- ECRC- UnsupReq- ACSViol-
+		UESvrt:	DLP+ SDES+ TLP- FCP+ CmpltTO- CmpltAbrt- UnxCmplt- RxOF+ 
+MalfTLP+ ECRC- UnsupReq- ACSViol-
+		CESta:	RxErr- BadTLP+ BadDLLP- Rollover- Timeout+ NonFatalErr-
+		CEMsk:	RxErr- BadTLP- BadDLLP- Rollover- Timeout- NonFatalErr+
+		AERCap:	First Error Pointer: 00, GenCap+ CGenEn- ChkCap+ ChkEn-
+	Capabilities: [140 v1] Virtual Channel
+		Caps:	LPEVC=0 RefClk=100ns PATEntryBits=1
+		Arb:	Fixed- WRR32- WRR64- WRR128-
+		Ctrl:	ArbSelect=Fixed
+		Status:	InProgress-
+		VC0:	Caps:	PATOffset=00 MaxTimeSlots=1 RejSnoopTrans-
+			Arb:	Fixed- WRR32- WRR64- WRR128- TWRR128- WRR256-
+			Ctrl:	Enable+ ID=0 ArbSelect=Fixed TC/VC=01
+			Status:	NegoPending- InProgress-
+	Capabilities: [160 v1] Device Serial Number <cut>
+	Capabilities: [170 v1] Latency Tolerance Reporting
+		Max snoop latency: 71680ns
+		Max no snoop latency: 71680ns
