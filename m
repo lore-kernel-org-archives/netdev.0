@@ -1,36 +1,57 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: RE: How exactly does CHECKSUM_COMPLETE works?
-Date: Tue, 30 Sep 2014 12:22:57 -0700
-Message-ID: <1412104977.30721.94.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <B5657A6538887040AD3A81F1008BEC63B41317@avmb3.qlogic.org>
-	 <CA+mtBx_17aJuK=xjnDukGJOfw-twHg=rF5rDacg6pga6ZTTRcw@mail.gmail.com>
-	 <B5657A6538887040AD3A81F1008BEC63B4152D@avmb3.qlogic.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "Tom Herbert (Partner - google)" <therbert@google.com>,
-	netdev <netdev@vger.kernel.org>
-To: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f180.google.com ([209.85.192.180]:45950 "EHLO
-	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751436AbaI3TW6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2014 15:22:58 -0400
-Received: by mail-pd0-f180.google.com with SMTP id fp1so5709789pdb.11
-        for <netdev@vger.kernel.org>; Tue, 30 Sep 2014 12:22:58 -0700 (PDT)
-In-Reply-To: <B5657A6538887040AD3A81F1008BEC63B4152D@avmb3.qlogic.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vladislav Yasevich <vyasevich@gmail.com>
+Subject: [PATCH v2 net 0/3] bridge: Add vlan filtering support for
+	default pvid
+Date: Tue, 30 Sep 2014 15:30:59 -0400
+Message-ID: <1412105462-340-1-git-send-email-vyasevic@redhat.com>
+Cc: stephen@networkplumber.org, bridge@lists.linux-foundation.org,
+	Vladislav Yasevich <vyasevic@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2014-09-30 at 19:05 +0000, Yuval Mintz wrote:
+Version 2 of the series to introduce the default pvid support to
+vlan filtering in the bridge.  VLAN 1 (as recommended by 802.1q spec)
+is used as default pvid on ports. 
+The the user can over-ride this configuration by configuring their
+own vlan information. 
+The user can additionally change the default value throught the
+sysfs interface (netlink comming shortly).
+The user can turn off default pvid functionality by setting default
+pvid to 0. 
+This series changes the default behavior of the bridge when
+vlan filtering is turned on.  Currently, ports without any vlan
+filtering configured will not recevie any traffic at all.  This patch
+changes the behavior of the above ports to receive only untagged traffic.
 
-> Can you pinpoint me to what exactly in the code corrects NAPI_GRO_CB(skb)->csum
-> by negating the ipv4 part in the ones' complete checksum?
-> 
-> E.g., for ipv6 [in ipv6_gro_receive()] I can see that skb_gro_postpull_rcsum() is
-> called after pulling the ipv6 header [and before proceeding to the next protocol],
-> but I can't seem to find anything similar to this for ipv4 [in inet_gro_receive()].
-> 
+Since v2:
+- Add ability to turn off default_pvid settings.
+- Drop the automiatic filtering support based on configured vlan devices (will
+  be its own series)
+
+Thanks
+-vlad
 
 
-IPv4 header is supposed to have a 0 checksum ;)
+Vladislav Yasevich (3):
+  bridge: Add a default_pvid sysfs attribute
+  bridge: Simplify pvid checks.
+  bridge: Add filtering support for default_pvid
+
+ net/bridge/br_device.c   |   8 ++-
+ net/bridge/br_if.c       |   2 +
+ net/bridge/br_private.h  |  17 +++++-
+ net/bridge/br_sysfs_br.c |  17 ++++++
+ net/bridge/br_vlan.c     | 143 ++++++++++++++++++++++++++++++++++++++++++++++-
+ 5 files changed, 179 insertions(+), 8 deletions(-)
+
+-- 
+1.9.3
