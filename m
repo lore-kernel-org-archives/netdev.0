@@ -1,83 +1,36 @@
-From: Chen Gang <gang.chen.5i5j@gmail.com>
-Subject: Re: [PATCH] xen/xenbus: Use 'void' instead of 'int' for the return
- of xenbus_switch_state()
-Date: Tue, 30 Sep 2014 16:04:33 +0800
-Message-ID: <542A6411.5040201@gmail.com>
-References: <5425961A.5000604@gmail.com> <20140929140229.GA28279@laptop.dumpdata.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch iproute2 1/2] add bridge_slave device support
+Date: Tue, 30 Sep 2014 10:05:18 +0200
+Message-ID: <20140930080518.GB1864@nanopsycho.orion>
+References: <1409925092-17808-1-git-send-email-jiri@resnulli.us>
+ <1409925309-17881-1-git-send-email-jiri@resnulli.us>
+ <CAJ3xEMgLaJtxuerfJ0OXGPZ7Hn0tVBJYkc5Ck6wOGvFAKyctCQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: David Vrabel <david.vrabel@citrix.com>, ian.campbell@citrix.com,
-	wei.liu2@citrix.com, boris.ostrovsky@oracle.com,
-	bhelgaas@google.com, jgross@suse.com,
-	yongjun_wei@trendmicro.com.cn, mukesh.rathor@oracle.com,
-	xen-devel@lists.xenproject.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-pci@vger.kernel.org, linux-scsi@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <20140929140229.GA28279@laptop.dumpdata.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Scott Feldman <sfeldma@cumulusnetworks.com>,
+	arvid.brodin@alten.se, sucheta.chakraborty@qlogic.com
+To: Or Gerlitz <gerlitz.or@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f180.google.com ([74.125.82.180]:38652 "EHLO
+	mail-we0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751587AbaI3IFV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2014 04:05:21 -0400
+Received: by mail-we0-f180.google.com with SMTP id x48so3680333wes.39
+        for <netdev@vger.kernel.org>; Tue, 30 Sep 2014 01:05:20 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAJ3xEMgLaJtxuerfJ0OXGPZ7Hn0tVBJYkc5Ck6wOGvFAKyctCQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 9/29/14 22:02, Konrad Rzeszutek Wilk wrote:
-> On Sat, Sep 27, 2014 at 12:36:42AM +0800, Chen Gang wrote:
->> When xenbus_switch_state() fails, it will call xenbus_switch_fatal()
-> 
-> Only on the first depth, not on the subsequent ones (as in if
-> the first xenbus_switch_fail fails, it won't try to call
-> xenbus_switch_state again and again).
-> 
+Mon, Sep 29, 2014 at 08:20:00PM CEST, gerlitz.or@gmail.com wrote:
+>On Fri, Sep 5, 2014 at 4:55 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+>> Note this depends on "iproute2: allow to change slave options via
+>> type_slave"
+>
+>OK, but how about sparing few words what this patch does?
 
-Yeah, I guess you want to give more completion for this comment, do not
-mean the original comments is incorrect.
-
-[...]
->>
->> Also need be sure that all callers which check the return value must let
->> 'err' be 0.
-> 
-> I am bit uncomfortable with that, that is due to:
-> 
-> 
-> .. snip..
->> diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
->> index 9c47b89..b5c3d47 100644
->> --- a/drivers/net/xen-netback/xenbus.c
->> +++ b/drivers/net/xen-netback/xenbus.c
->> @@ -337,10 +337,7 @@ static int netback_probe(struct xenbus_device *dev,
->>  	if (err)
->>  		pr_debug("Error writing multi-queue-max-queues\n");
->>  
->> -	err = xenbus_switch_state(dev, XenbusStateInitWait);
->> -	if (err)
->> -		goto fail;
->> -
->> +	xenbus_switch_state(dev, XenbusStateInitWait);
-> 
-> Which if it fails it won't call:
-> 
-> 354 fail:                                                                           
-> 355         pr_debug("failed\n");                                                   
-> 356         netback_remove(dev);                                                    
-> 357         return err;         
-> 
-
-Originally, I intended left 'fail' code block for the next patch (which
-I thought the next patch would need it).
-
-Hmm... but any way, originally, I really need give additional comments
-for it.
-
-[...]
-
-I skip all other contents which have already discussed by maintainers,
-if I really miss something, please let me know.
-
-
-Thanks.
--- 
-Chen Gang
-
-Open, share, and attitude like air, water, and life which God blessed
+Sorry, I thought it is obvious. It allows to use IFLA_INFO_SLAVE_DATA to
+get/set bridge port options.
