@@ -1,66 +1,62 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 2/7] netfilter: Convert print_tuple functions to return
- void
-Date: Tue, 30 Sep 2014 06:04:56 -0700
-Message-ID: <1412082296.4302.101.camel@joe-AO725>
-References: <20140929124246.3e39dac8@gandalf.local.home>
-	 <cover.1412031505.git.joe@perches.com>
-	 <f2e8cf8df433a197daa62cbaf124c900c708edc7.1412031505.git.joe@perches.com>
-	 <20140930102221.GB2707@dhcp128.suse.cz>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v5 2/3] net: Add Keystone NetCP ethernet driver
+Date: Tue, 30 Sep 2014 13:09:34 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D174A1012@AcuExch.aculab.com>
+References: <1411667317-1163-1-git-send-email-santosh.shilimkar@ti.com>
+	<1411667317-1163-3-git-send-email-santosh.shilimkar@ti.com>
+ <20140929.155200.2231132602322345812.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Steven Rostedt <rostedt@goodmis.org>,
-	Al Viro <viro@ZenIV.linux.org.uk>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Petr Mladek <pmladek@suse.cz>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20140930102221.GB2707@dhcp128.suse.cz>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"robh+dt@kernel.org" <robh+dt@kernel.org>,
+	"grant.likely@linaro.org" <grant.likely@linaro.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	"sandeep_n@ti.com" <sandeep_n@ti.com>,
+	"joe@perches.com" <joe@perches.com>
+To: 'David Miller' <davem@davemloft.net>,
+	"santosh.shilimkar@ti.com" <santosh.shilimkar@ti.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:55428 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751038AbaI3NLW convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2014 09:11:22 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 03621-08 for <netdev@vger.kernel.org>;
+ Tue, 30 Sep 2014 14:11:14 +0100 (BST)
+In-Reply-To: <20140929.155200.2231132602322345812.davem@davemloft.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-09-30 at 12:22 +0200, Petr Mladek wrote:
-> On Mon 29-09-14 16:08:22, Joe Perches wrote:
-> > Since adding a new function to seq_file (seq_is_full)
-> > there isn't any value for functions called from seq_show to
-> > return anything.   Remove the int returns of the various
-> > print_tuple/<foo>_print_tuple functions.
-
-[a bunch of quoted stuff]
-
-Please remember to cut out from your replies the unnecessary old stuff.
-It can take quite awhile to scan through looking for your comments.
-
-> > diff --git a/net/netfilter/nf_conntrack_standalone.c b/net/netfilter/nf_conntrack_standalone.c
-[]
-> > @@ -202,9 +203,8 @@ static int ct_seq_show(struct seq_file *s, void *v)
-> >  	if (l4proto->print_conntrack && l4proto->print_conntrack(s, ct))
-> >  		goto release;
-> >  
-> > -	if (print_tuple(s, &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple,
-> > -			l3proto, l4proto))
-> > -		goto release;
-> > +	print_tuple(s, &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple,
-> > +		    l3proto, l4proto);
+From: David Miller
+> From: Santosh Shilimkar <santosh.shilimkar@ti.com>
+> Date: Thu, 25 Sep 2014 13:48:36 -0400
 > 
-> To be precise, we should add:
+> > +static inline int gbe_phy_link_status(struct gbe_slave *slave)
+> > +{
+> > +	if (!slave->phy)
+> > +		return 1;
+> > +
+> > +	if (slave->phy->link)
+> > +		return 1;
+> > +
+> > +	return 0;
+> > +}
 > 
-> 	if (seq_overflow(s))
-> 		goto release;
+> Please use 'bool' as the return type and return 'true' or 'false'.
 
-Precision isn't all that useful when checking seq_<output>.
+That function body could also be just:
+	return !slave->phy && slave->phy->link;
+which might be more readable if directly coded.
 
-There really isn't much value in checking each possible
-overflow site.  A periodic check prior to or in the middle
-of a more costly/longish operation should be acceptable.
+I also wonder if slave>phy can actually be NULL?
+If it can be under unusual circumstances it might be worth
+assigning the address of a dummy 'phy' structure so that the
+tests can all be removed.
 
-The entire block that precedes any seq buffer full test will
-be redone when the buffer is expanded.
-
+	David
