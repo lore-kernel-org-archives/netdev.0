@@ -1,55 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: How exactly does CHECKSUM_COMPLETE works?
-Date: Tue, 30 Sep 2014 14:48:19 -0400 (EDT)
-Message-ID: <20140930.144819.890888642079982128.davem@davemloft.net>
-References: <B5657A6538887040AD3A81F1008BEC63B41317@avmb3.qlogic.org>
-	<CA+mtBx_17aJuK=xjnDukGJOfw-twHg=rF5rDacg6pga6ZTTRcw@mail.gmail.com>
-	<CAADnVQLxX4LGFfqd6x+krfEMB57y_o80xW_3brkPvEJueDNWVg@mail.gmail.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: [PATCH] tg3: Allow for receive of full-size 8021AD frames
+Date: Tue, 30 Sep 2014 14:53:08 -0400
+Message-ID: <542AFC14.6030304@redhat.com>
+References: <1411165389-21276-1-git-send-email-vyasevic@redhat.com>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: therbert@google.com, Yuval.Mintz@qlogic.com, netdev@vger.kernel.org
-To: alexei.starovoitov@gmail.com
+Cc: Vladislav Yasevich <vyasevic@redhat.com>,
+	Prashant Sreedharan <prashant@broadcom.com>,
+	Michael Chan <mchan@broadcom.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48269 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751408AbaI3SsY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2014 14:48:24 -0400
-In-Reply-To: <CAADnVQLxX4LGFfqd6x+krfEMB57y_o80xW_3brkPvEJueDNWVg@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:51226 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752273AbaI3SxL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Sep 2014 14:53:11 -0400
+In-Reply-To: <1411165389-21276-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Date: Tue, 30 Sep 2014 09:58:32 -0700
+When receiving a vlan-tagged frame that still contains
+a vlan header, the length of the packet will be greater
+then MTU+ETH_HLEN since it will account of the extra
+vlan header.  TG3 checks this for the case for 802.1Q,
+but not for 802.1ad.  As a result, full sized 802.1ad
+frames get dropped by the card.
 
-> On Tue, Sep 30, 2014 at 7:59 AM, Tom Herbert <therbert@google.com> wrote:
->>
->>> So, to summarize my questions -
->>> 1. What should a driver set as the SKBs csum value when passing CHECKSUM_COMPLETE?
->>
->> This ones complete checksum of the Ethernet payload (start of IP
->> header to the end of the packet).
-> 
-> I think it's confusing to describe CHECKSUM_COMPLETE this way.
-> It is such only because driver pulls eth header before passing skb to stack.
-> CHECKSUM_COMPLETE should cover the whole packet. If there are multiple
-> vlan headers in front of IP they should be part of csum, since not all
-> drivers may
-> have hw offloading for vlan. The most simplistic HW would compute csum over
-> the whole packet including eth header and driver will do
-> eth_type_trans+skb_postpull_rcsum
+Add a check for 802.1ad protocol when receiving full
+sized frames.
 
-The sungem computes the checksum over the entire frame.  Here are the relevant
-parts from the programmer's manual:
+Suggested-by: Prashant Sreedharan <prashant@broadcom.com>
+CC: Prashant Sreedharan <prashant@broadcom.com>
+CC: Michael Chan <mchan@broadcom.com>
+Acked-by: Prashant Sreedharan <prashant@broadcom.com>
+Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
+---
+This patch somehow got dropped.  Please apply and queue for stable.
 
-	RX Descriptor Fields
-  ...
-	TCP Pseudo-Checksum - Contains the 16-bit TCP checksum calculated over
-	the entire frame, starting at an offset programmable in the RX
-	Configuration Register.
+ drivers/net/ethernet/broadcom/tg3.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-In the gengem driver this is the RXDMA_CFG_CSUMOFF field of the RXDMA_CFG
-register.
-
-The driver seems to set this to the size of the ethernet header, which has
-the problems you mention.
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index 0a0938d..4f674f9 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -6918,7 +6918,8 @@ static int tg3_rx(struct tg3_napi *tnapi, int budget)
+ 		skb->protocol = eth_type_trans(skb, tp->dev);
+  		if (len > (tp->dev->mtu + ETH_HLEN) &&
+-		    skb->protocol != htons(ETH_P_8021Q)) {
++		    skb->protocol != htons(ETH_P_8021Q) &&
++		    skb->protocol != htons(ETH_P_8021AD)) {
+ 			dev_kfree_skb_any(skb);
+ 			goto drop_it_no_recycle;
+ 		}
+-- 
+1.9.3
