@@ -1,59 +1,55 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH net-next 07/10] r8169:change function name of function
- "rtl_w1w0_eri"
-Date: Wed, 1 Oct 2014 00:37:07 +0200
-Message-ID: <20140930223707.GB27610@electric-eye.fr.zoreil.com>
-References: <1412089230-10208-1-git-send-email-hau@realtek.com>
- <1412089230-10208-7-git-send-email-hau@realtek.com>
+From: Mark Brown <broonie-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH] hostap: proc: Remove unused variable
+Date: Tue, 30 Sep 2014 23:56:54 +0100
+Message-ID: <20140930225654.GP4273@sirena.org.uk>
+References: <1410909415-11661-1-git-send-email-broonie@kernel.org>
+ <20140930165626.GD11919@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
-	linux-kernel@vger.kernel.org
-To: Chun-Hao Lin <hau@realtek.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="OwXh6gFRjCd3qPCM"
+Cc: Jouni Malinen <j@w1.fi>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linaro-kernel-cunTk1MwBs8s++Sfvej+rw@public.gmane.org
+To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <1412089230-10208-7-git-send-email-hau@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20140930165626.GD11919-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Chun-Hao Lin <hau@realtek.com> :
-> Change the name of this function to "rtl_w0_w1_eri".
-> It is more suitable for this function's behavior.
 
-Afaiks it used to follow the same rule as the one I outlined in the
-comment to #6/10 for rtl_w0_w1_phy.
+--OwXh6gFRjCd3qPCM
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Could you elaborate (or say so if it should be clear for me after
-some sleep) ?
+On Tue, Sep 30, 2014 at 12:56:26PM -0400, John W. Linville wrote:
+> On Tue, Sep 16, 2014 at 04:16:55PM -0700, Mark Brown wrote:
 
-[...]
-> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-> index e68fe5e..e79def5 100644
-> --- a/drivers/net/ethernet/realtek/r8169.c
-> +++ b/drivers/net/ethernet/realtek/r8169.c
-[...]
-> @@ -1629,14 +1629,14 @@ static void __rtl8169_set_wol(struct rtl8169_private *tp, u32 wolopts)
->  	case RTL_GIGA_MAC_VER_48:
->  		tmp = ARRAY_SIZE(cfg) - 1;
->  		if (wolopts & WAKE_MAGIC)
-> -			rtl_w1w0_eri(tp,
-> +			rtl_w0w1_eri(tp,
->  				     0x0dc,
->  				     ERIAR_MASK_0100,
->  				     MagicPacket_v2,
->  				     0x0000,
->  				     ERIAR_EXGMAC);
->  		else
-> -			rtl_w1w0_eri(tp,
-> +			rtl_w0w1_eri(tp,
->  				     0x0dc,
->  				     ERIAR_MASK_0100,
->  				     0x0000,
+> > Since "hostap: proc: substitute loops by %*phN" (62c5afb8e388) the
+> > variable i has been unused in prism2_bss_list_proc_show() so remove it.
 
-Please turn these into:
+> What tree are you using?  In wireless-next, I still see a loop in
+> that function using i as an index variable.
 
-			rtl_..._eri(tp, 0x0dc, ERIAR_MASK_0100, MagicPacket_v2,
- 				    0x0000, ERIAR_EXGMAC);
+This was in -next for whatever day I sent that.
 
--- 
-Ueimor
+--OwXh6gFRjCd3qPCM
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQEcBAEBAgAGBQJUKzU1AAoJECTWi3JdVIfQV44H/RGfyC3SpG7H537cvvMztvxw
+2tpeunlU7NaU/wHoJMrTYmGSkb2sNaUoWnqHpIwMimxDhSKT9nDWza4p526SAmVH
+YItabYObmpGIuSpdd3q3DmwLq3lCEPWM9QyiFPv6HoV1eozU1lfA2185AAIRc5u4
+FR108GnKB2NI3lG3oOX4L20CeHbiM5cPiotXRDMtjvjIocuZvcDiOmQywWFkpbtD
+2FMrX4lP9LqnLokkXfRYugQkeDd4h2T8V4RiHW0vZBnZC9mswPdzKxTVDHvoNrFF
+zyzS2nOHsgCQsq0XoIWEtQtmN42kpsGsgH4RczExNyQpe0sbXkEE8iL/CXKTeK8=
+=phRU
+-----END PGP SIGNATURE-----
+
+--OwXh6gFRjCd3qPCM--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
