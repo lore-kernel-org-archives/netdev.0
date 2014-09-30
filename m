@@ -1,227 +1,66 @@
-From: Eli Cohen <eli@dev.mellanox.co.il>
-Subject: [PATCH net-next 4/4] net/mlx5_core: Identify resources by their type
-Date: Tue, 30 Sep 2014 16:02:15 +0300
-Message-ID: <1412082135-30229-6-git-send-email-eli@mellanox.com>
-References: <1412082135-30229-1-git-send-email-eli@mellanox.com>
-Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com,
-	yevgenyp@mellanox.com, Eli Cohen <eli@mellanox.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f170.google.com ([209.85.212.170]:58552 "EHLO
-	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751514AbaI3NCp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2014 09:02:45 -0400
-Received: by mail-wi0-f170.google.com with SMTP id n3so1481528wiv.3
-        for <netdev@vger.kernel.org>; Tue, 30 Sep 2014 06:02:44 -0700 (PDT)
-In-Reply-To: <1412082135-30229-1-git-send-email-eli@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 2/7] netfilter: Convert print_tuple functions to return
+ void
+Date: Tue, 30 Sep 2014 06:04:56 -0700
+Message-ID: <1412082296.4302.101.camel@joe-AO725>
+References: <20140929124246.3e39dac8@gandalf.local.home>
+	 <cover.1412031505.git.joe@perches.com>
+	 <f2e8cf8df433a197daa62cbaf124c900c708edc7.1412031505.git.joe@perches.com>
+	 <20140930102221.GB2707@dhcp128.suse.cz>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Steven Rostedt <rostedt@goodmis.org>,
+	Al Viro <viro@ZenIV.linux.org.uk>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Petr Mladek <pmladek@suse.cz>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20140930102221.GB2707@dhcp128.suse.cz>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch puts a common part as the first field of mlx5_core_qp. This field is
-used to identify which resource generated an event. This is required since upcoming
-new resource types such as DC targets are allocated for the same numerical space
-as regular QPs and may generate the same events. By searching the resource in the
-same table we can then look at the common field to identify the resource.
+On Tue, 2014-09-30 at 12:22 +0200, Petr Mladek wrote:
+> On Mon 29-09-14 16:08:22, Joe Perches wrote:
+> > Since adding a new function to seq_file (seq_is_full)
+> > there isn't any value for functions called from seq_show to
+> > return anything.   Remove the int returns of the various
+> > print_tuple/<foo>_print_tuple functions.
 
-Signed-off-by: Eli Cohen <eli@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/eq.c | 12 +++---
- drivers/net/ethernet/mellanox/mlx5/core/qp.c | 57 ++++++++++++++++++++--------
- include/linux/mlx5/driver.h                  | 13 ++++++-
- include/linux/mlx5/qp.h                      |  3 +-
- 4 files changed, 60 insertions(+), 25 deletions(-)
+[a bunch of quoted stuff]
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eq.c b/drivers/net/ethernet/mellanox/mlx5/core/eq.c
-index 11b9b840ad4d..ed53291468f3 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/eq.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/eq.c
-@@ -198,7 +198,7 @@ static int mlx5_eq_int(struct mlx5_core_dev *dev, struct mlx5_eq *eq)
- 	int eqes_found = 0;
- 	int set_ci = 0;
- 	u32 cqn;
--	u32 srqn;
-+	u32 rsn;
- 	u8 port;
- 
- 	while ((eqe = next_eqe_sw(eq))) {
-@@ -224,18 +224,18 @@ static int mlx5_eq_int(struct mlx5_core_dev *dev, struct mlx5_eq *eq)
- 		case MLX5_EVENT_TYPE_PATH_MIG_FAILED:
- 		case MLX5_EVENT_TYPE_WQ_INVAL_REQ_ERROR:
- 		case MLX5_EVENT_TYPE_WQ_ACCESS_ERROR:
-+			rsn = be32_to_cpu(eqe->data.qp_srq.qp_srq_n) & 0xffffff;
- 			mlx5_core_dbg(dev, "event %s(%d) arrived\n",
- 				      eqe_type_str(eqe->type), eqe->type);
--			mlx5_qp_event(dev, be32_to_cpu(eqe->data.qp_srq.qp_srq_n) & 0xffffff,
--				      eqe->type);
-+			mlx5_rsc_event(dev, rsn, eqe->type);
- 			break;
- 
- 		case MLX5_EVENT_TYPE_SRQ_RQ_LIMIT:
- 		case MLX5_EVENT_TYPE_SRQ_CATAS_ERROR:
--			srqn = be32_to_cpu(eqe->data.qp_srq.qp_srq_n) & 0xffffff;
-+			rsn = be32_to_cpu(eqe->data.qp_srq.qp_srq_n) & 0xffffff;
- 			mlx5_core_dbg(dev, "SRQ event %s(%d): srqn 0x%x\n",
--				      eqe_type_str(eqe->type), eqe->type, srqn);
--			mlx5_srq_event(dev, srqn, eqe->type);
-+				      eqe_type_str(eqe->type), eqe->type, rsn);
-+			mlx5_srq_event(dev, rsn, eqe->type);
- 			break;
- 
- 		case MLX5_EVENT_TYPE_CMD:
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/qp.c b/drivers/net/ethernet/mellanox/mlx5/core/qp.c
-index 415b67ce379e..5261a2b0da43 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/qp.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/qp.c
-@@ -39,28 +39,53 @@
- 
- #include "mlx5_core.h"
- 
--void mlx5_qp_event(struct mlx5_core_dev *dev, u32 qpn, int event_type)
-+static struct mlx5_core_rsc_common *mlx5_get_rsc(struct mlx5_core_dev *dev,
-+						 u32 rsn)
- {
- 	struct mlx5_qp_table *table = &dev->priv.qp_table;
--	struct mlx5_core_qp *qp;
-+	struct mlx5_core_rsc_common *common;
- 
- 	spin_lock(&table->lock);
- 
--	qp = radix_tree_lookup(&table->tree, qpn);
--	if (qp)
--		atomic_inc(&qp->refcount);
-+	common = radix_tree_lookup(&table->tree, rsn);
-+	if (common)
-+		atomic_inc(&common->refcount);
- 
- 	spin_unlock(&table->lock);
- 
--	if (!qp) {
--		mlx5_core_warn(dev, "Async event for bogus QP 0x%x\n", qpn);
--		return;
-+	if (!common) {
-+		mlx5_core_warn(dev, "Async event for bogus resource 0x%x\n",
-+			       rsn);
-+		return NULL;
- 	}
-+	return common;
-+}
- 
--	qp->event(qp, event_type);
-+void mlx5_core_put_rsc(struct mlx5_core_rsc_common *common)
-+{
-+	if (atomic_dec_and_test(&common->refcount))
-+		complete(&common->free);
-+}
-+
-+void mlx5_rsc_event(struct mlx5_core_dev *dev, u32 rsn, int event_type)
-+{
-+	struct mlx5_core_rsc_common *common = mlx5_get_rsc(dev, rsn);
-+	struct mlx5_core_qp *qp;
-+
-+	if (!common)
-+		return;
-+
-+	switch (common->res) {
-+	case MLX5_RES_QP:
-+		qp = (struct mlx5_core_qp *)common;
-+		qp->event(qp, event_type);
-+		break;
-+
-+	default:
-+		mlx5_core_warn(dev, "invalid resource type for 0x%x\n", rsn);
-+	}
- 
--	if (atomic_dec_and_test(&qp->refcount))
--		complete(&qp->free);
-+	mlx5_core_put_rsc(common);
- }
- 
- int mlx5_core_create_qp(struct mlx5_core_dev *dev,
-@@ -92,6 +117,7 @@ int mlx5_core_create_qp(struct mlx5_core_dev *dev,
- 	qp->qpn = be32_to_cpu(out.qpn) & 0xffffff;
- 	mlx5_core_dbg(dev, "qpn = 0x%x\n", qp->qpn);
- 
-+	qp->common.res = MLX5_RES_QP;
- 	spin_lock_irq(&table->lock);
- 	err = radix_tree_insert(&table->tree, qp->qpn, qp);
- 	spin_unlock_irq(&table->lock);
-@@ -106,9 +132,9 @@ int mlx5_core_create_qp(struct mlx5_core_dev *dev,
- 			      qp->qpn);
- 
- 	qp->pid = current->pid;
--	atomic_set(&qp->refcount, 1);
-+	atomic_set(&qp->common.refcount, 1);
- 	atomic_inc(&dev->num_qps);
--	init_completion(&qp->free);
-+	init_completion(&qp->common.free);
- 
- 	return 0;
- 
-@@ -138,9 +164,8 @@ int mlx5_core_destroy_qp(struct mlx5_core_dev *dev,
- 	radix_tree_delete(&table->tree, qp->qpn);
- 	spin_unlock_irqrestore(&table->lock, flags);
- 
--	if (atomic_dec_and_test(&qp->refcount))
--		complete(&qp->free);
--	wait_for_completion(&qp->free);
-+	mlx5_core_put_rsc((struct mlx5_core_rsc_common *)qp);
-+	wait_for_completion(&qp->common.free);
- 
- 	memset(&in, 0, sizeof(in));
- 	memset(&out, 0, sizeof(out));
-diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
-index c439f9c59b93..246310dc8bef 100644
---- a/include/linux/mlx5/driver.h
-+++ b/include/linux/mlx5/driver.h
-@@ -375,6 +375,16 @@ struct mlx5_core_mr {
- 	u32			pd;
- };
- 
-+enum mlx5_res_type {
-+	MLX5_RES_QP,
-+};
-+
-+struct mlx5_core_rsc_common {
-+	enum mlx5_res_type	res;
-+	atomic_t		refcount;
-+	struct completion	free;
-+};
-+
- struct mlx5_core_srq {
- 	u32		srqn;
- 	int		max;
-@@ -700,7 +710,7 @@ int mlx5_eq_init(struct mlx5_core_dev *dev);
- void mlx5_eq_cleanup(struct mlx5_core_dev *dev);
- void mlx5_fill_page_array(struct mlx5_buf *buf, __be64 *pas);
- void mlx5_cq_completion(struct mlx5_core_dev *dev, u32 cqn);
--void mlx5_qp_event(struct mlx5_core_dev *dev, u32 qpn, int event_type);
-+void mlx5_rsc_event(struct mlx5_core_dev *dev, u32 rsn, int event_type);
- void mlx5_srq_event(struct mlx5_core_dev *dev, u32 srqn, int event_type);
- struct mlx5_core_srq *mlx5_core_get_srq(struct mlx5_core_dev *dev, u32 srqn);
- void mlx5_cmd_comp_handler(struct mlx5_core_dev *dev, unsigned long vector);
-@@ -737,6 +747,7 @@ void mlx5_cmdif_debugfs_cleanup(struct mlx5_core_dev *dev);
- int mlx5_core_create_psv(struct mlx5_core_dev *dev, u32 pdn,
- 			 int npsvs, u32 *sig_index);
- int mlx5_core_destroy_psv(struct mlx5_core_dev *dev, int psv_num);
-+void mlx5_core_put_rsc(struct mlx5_core_rsc_common *common);
- 
- static inline u32 mlx5_mkey_to_idx(u32 mkey)
- {
-diff --git a/include/linux/mlx5/qp.h b/include/linux/mlx5/qp.h
-index 9709b30e2d69..7c4c0f1f5805 100644
---- a/include/linux/mlx5/qp.h
-+++ b/include/linux/mlx5/qp.h
-@@ -342,10 +342,9 @@ struct mlx5_stride_block_ctrl_seg {
- };
- 
- struct mlx5_core_qp {
-+	struct mlx5_core_rsc_common	common; /* must be first */
- 	void (*event)		(struct mlx5_core_qp *, int);
- 	int			qpn;
--	atomic_t		refcount;
--	struct completion	free;
- 	struct mlx5_rsc_debug	*dbg;
- 	int			pid;
- };
--- 
-2.1.1
+Please remember to cut out from your replies the unnecessary old stuff.
+It can take quite awhile to scan through looking for your comments.
+
+> > diff --git a/net/netfilter/nf_conntrack_standalone.c b/net/netfilter/nf_conntrack_standalone.c
+[]
+> > @@ -202,9 +203,8 @@ static int ct_seq_show(struct seq_file *s, void *v)
+> >  	if (l4proto->print_conntrack && l4proto->print_conntrack(s, ct))
+> >  		goto release;
+> >  
+> > -	if (print_tuple(s, &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple,
+> > -			l3proto, l4proto))
+> > -		goto release;
+> > +	print_tuple(s, &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple,
+> > +		    l3proto, l4proto);
+> 
+> To be precise, we should add:
+> 
+> 	if (seq_overflow(s))
+> 		goto release;
+
+Precision isn't all that useful when checking seq_<output>.
+
+There really isn't much value in checking each possible
+overflow site.  A periodic check prior to or in the middle
+of a more costly/longish operation should be acceptable.
+
+The entire block that precedes any seq buffer full test will
+be redone when the buffer is expanded.
+
