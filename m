@@ -1,145 +1,97 @@
 From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net-next] net_sched: avoid calling tcf_unbind_filter() in call_rcu callback
-Date: Tue, 30 Sep 2014 16:07:24 -0700
-Message-ID: <1412118444-29179-2-git-send-email-xiyou.wangcong@gmail.com>
-References: <1412118444-29179-1-git-send-email-xiyou.wangcong@gmail.com>
+Subject: [Patch net-next] net_sched: fix another crash in cls_tcindex
+Date: Tue, 30 Sep 2014 16:07:23 -0700
+Message-ID: <1412118444-29179-1-git-send-email-xiyou.wangcong@gmail.com>
 Cc: davem@davemloft.net, Cong Wang <xiyou.wangcong@gmail.com>,
 	John Fastabend <john.r.fastabend@intel.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:56890 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750945AbaI3XHl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2014 19:07:41 -0400
-Received: by mail-pa0-f41.google.com with SMTP id eu11so5027587pac.0
-        for <netdev@vger.kernel.org>; Tue, 30 Sep 2014 16:07:40 -0700 (PDT)
-In-Reply-To: <1412118444-29179-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:52475 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750760AbaI3XHk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2014 19:07:40 -0400
+Received: by mail-pa0-f44.google.com with SMTP id et14so5708452pad.3
+        for <netdev@vger.kernel.org>; Tue, 30 Sep 2014 16:07:39 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This fixes the following crash:
+This patch fixes the following crash:
 
-[   63.976822] general protection fault: 0000 [#1] PREEMPT SMP DEBUG_PAGEALLOC
-[   63.980094] CPU: 1 PID: 15 Comm: ksoftirqd/1 Not tainted 3.17.0-rc6+ #648
-[   63.980094] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
-[   63.980094] task: ffff880117dea690 ti: ffff880117dfc000 task.ti: ffff880117dfc000
-[   63.980094] RIP: 0010:[<ffffffff817e6d07>]  [<ffffffff817e6d07>] u32_destroy_key+0x27/0x6d
-[   63.980094] RSP: 0018:ffff880117dffcc0  EFLAGS: 00010202
-[   63.980094] RAX: ffff880117dea690 RBX: ffff8800d02e0820 RCX: 0000000000000000
-[   63.980094] RDX: 0000000000000001 RSI: 0000000000000002 RDI: 6b6b6b6b6b6b6b6b
-[   63.980094] RBP: ffff880117dffcd0 R08: 0000000000000000 R09: 0000000000000000
-[   63.980094] R10: 00006c0900006ba8 R11: 00006ba100006b9d R12: 0000000000000001
-[   63.980094] R13: ffff8800d02e0898 R14: ffffffff817e6d4d R15: ffff880117387a30
-[   63.980094] FS:  0000000000000000(0000) GS:ffff88011a800000(0000) knlGS:0000000000000000
-[   63.980094] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-[   63.980094] CR2: 00007f07e6732fed CR3: 000000011665b000 CR4: 00000000000006e0
-[   63.980094] Stack:
-[   63.980094]  ffff88011a9cd300 ffffffff82051ac0 ffff880117dffce0 ffffffff817e6d68
-[   63.980094]  ffff880117dffd70 ffffffff810cb4c7 ffffffff810cb3cd ffff880117dfffd8
-[   63.980094]  ffff880117dea690 ffff880117dea690 ffff880117dfffd8 000000000000000a
-[   63.980094] Call Trace:
-[   63.980094]  [<ffffffff817e6d68>] u32_delete_key_freepf_rcu+0x1b/0x1d
-[   63.980094]  [<ffffffff810cb4c7>] rcu_process_callbacks+0x3bb/0x691
-[   63.980094]  [<ffffffff810cb3cd>] ? rcu_process_callbacks+0x2c1/0x691
-[   63.980094]  [<ffffffff817e6d4d>] ? u32_destroy_key+0x6d/0x6d
-[   63.980094]  [<ffffffff810780a4>] __do_softirq+0x142/0x323
-[   63.980094]  [<ffffffff810782a8>] run_ksoftirqd+0x23/0x53
-[   63.980094]  [<ffffffff81092126>] smpboot_thread_fn+0x203/0x221
-[   63.980094]  [<ffffffff81091f23>] ? smpboot_unpark_thread+0x33/0x33
-[   63.980094]  [<ffffffff8108e44d>] kthread+0xc9/0xd1
-[   63.980094]  [<ffffffff819e00ea>] ? do_wait_for_common+0xf8/0x125
-[   63.980094]  [<ffffffff8108e384>] ? __kthread_parkme+0x61/0x61
-[   63.980094]  [<ffffffff819e43ec>] ret_from_fork+0x7c/0xb0
-[   63.980094]  [<ffffffff8108e384>] ? __kthread_parkme+0x61/0x61
+[  166.670795] BUG: unable to handle kernel NULL pointer dereference at           (null)
+[  166.674230] IP: [<ffffffff814b739f>] __list_del_entry+0x5c/0x98
+[  166.674230] PGD d0ea5067 PUD ce7fc067 PMD 0
+[  166.674230] Oops: 0000 [#1] PREEMPT SMP DEBUG_PAGEALLOC
+[  166.674230] CPU: 1 PID: 775 Comm: tc Not tainted 3.17.0-rc6+ #642
+[  166.674230] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
+[  166.674230] task: ffff8800d03c4d20 ti: ffff8800cae7c000 task.ti: ffff8800cae7c000
+[  166.674230] RIP: 0010:[<ffffffff814b739f>]  [<ffffffff814b739f>] __list_del_entry+0x5c/0x98
+[  166.674230] RSP: 0018:ffff8800cae7f7d0  EFLAGS: 00010207
+[  166.674230] RAX: 0000000000000000 RBX: ffff8800cba8d700 RCX: ffff8800cba8d700
+[  166.674230] RDX: 0000000000000000 RSI: dead000000200200 RDI: ffff8800cba8d700
+[  166.674230] RBP: ffff8800cae7f7d0 R08: 0000000000000001 R09: 0000000000000001
+[  166.674230] R10: 0000000000000000 R11: 000000000000859a R12: ffffffffffffffe8
+[  166.674230] R13: ffff8800cba8c5b8 R14: 0000000000000001 R15: ffff8800cba8d700
+[  166.674230] FS:  00007fdb5f04a740(0000) GS:ffff88011a800000(0000) knlGS:0000000000000000
+[  166.674230] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+[  166.674230] CR2: 0000000000000000 CR3: 00000000cf929000 CR4: 00000000000006e0
+[  166.674230] Stack:
+[  166.674230]  ffff8800cae7f7e8 ffffffff814b73e8 ffff8800cba8d6e8 ffff8800cae7f828
+[  166.674230]  ffffffff817caeec 0000000000000046 ffff8800cba8c5b0 ffff8800cba8c5b8
+[  166.674230]  0000000000000000 0000000000000001 ffff8800cf8e33e8 ffff8800cae7f848
+[  166.674230] Call Trace:
+[  166.674230]  [<ffffffff814b73e8>] list_del+0xd/0x2b
+[  166.674230]  [<ffffffff817caeec>] tcf_action_destroy+0x4c/0x71
+[  166.674230]  [<ffffffff817ca0ce>] tcf_exts_destroy+0x20/0x2d
+[  166.674230]  [<ffffffff817ec2b5>] tcindex_delete+0x196/0x1b7
 
-tp could be freed in call_rcu callback too, the order is not guaranteed.
+struct list_head can not be simply copied and we should always init it.
 
 Cc: John Fastabend <john.r.fastabend@intel.com>
 Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 ---
- include/net/pkt_cls.h |  6 +-----
- net/sched/cls_u32.c   | 10 ++++++----
- 2 files changed, 7 insertions(+), 9 deletions(-)
+ net/sched/cls_tcindex.c | 12 +++++++++---
+ 1 file changed, 9 insertions(+), 3 deletions(-)
 
-diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
-index 73f9532..ef44ad9 100644
---- a/include/net/pkt_cls.h
-+++ b/include/net/pkt_cls.h
-@@ -20,11 +20,7 @@ int unregister_tcf_proto_ops(struct tcf_proto_ops *ops);
- static inline unsigned long
- __cls_set_class(unsigned long *clp, unsigned long cl)
- {
--	unsigned long old_cl;
-- 
--	old_cl = *clp;
--	*clp = cl;
--	return old_cl;
-+	return xchg(clp, cl);
- }
+diff --git a/net/sched/cls_tcindex.c b/net/sched/cls_tcindex.c
+index 8d0e83d..30f10fb 100644
+--- a/net/sched/cls_tcindex.c
++++ b/net/sched/cls_tcindex.c
+@@ -254,10 +254,15 @@ tcindex_set_parms(struct net *net, struct tcf_proto *tp, unsigned long base,
+ 	cp->tp = tp;
  
- static inline unsigned long
-diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
-index 4be3ebf..0472909 100644
---- a/net/sched/cls_u32.c
-+++ b/net/sched/cls_u32.c
-@@ -358,7 +358,6 @@ static int u32_destroy_key(struct tcf_proto *tp,
- 			   struct tc_u_knode *n,
- 			   bool free_pf)
- {
--	tcf_unbind_filter(tp, &n->res);
- 	tcf_exts_destroy(&n->exts);
- 	if (n->ht_down)
- 		n->ht_down->refcnt--;
-@@ -416,6 +415,7 @@ static int u32_delete_key(struct tcf_proto *tp, struct tc_u_knode *key)
- 			if (pkp == key) {
- 				RCU_INIT_POINTER(*kp, key->next);
- 
-+				tcf_unbind_filter(tp, &key->res);
- 				call_rcu(&key->rcu, u32_delete_key_freepf_rcu);
- 				return 0;
- 			}
-@@ -425,7 +425,7 @@ static int u32_delete_key(struct tcf_proto *tp, struct tc_u_knode *key)
- 	return 0;
- }
- 
--static void u32_clear_hnode(struct tc_u_hnode *ht)
-+static void u32_clear_hnode(struct tcf_proto *tp, struct tc_u_hnode *ht)
- {
- 	struct tc_u_knode *n;
- 	unsigned int h;
-@@ -434,6 +434,7 @@ static void u32_clear_hnode(struct tc_u_hnode *ht)
- 		while ((n = rtnl_dereference(ht->ht[h])) != NULL) {
- 			RCU_INIT_POINTER(ht->ht[h],
- 					 rtnl_dereference(n->next));
-+			tcf_unbind_filter(tp, &n->res);
- 			call_rcu(&n->rcu, u32_delete_key_freepf_rcu);
- 		}
+ 	if (p->perfect) {
++		int i;
++
+ 		cp->perfect = kmemdup(p->perfect,
+ 				      sizeof(*r) * cp->hash, GFP_KERNEL);
+ 		if (!cp->perfect)
+ 			goto errout;
++		for (i = 0; i < cp->hash; i++)
++			tcf_exts_init(&cp->perfect[i].exts,
++				      TCA_TCINDEX_ACT, TCA_TCINDEX_POLICE);
+ 		balloc = 1;
  	}
-@@ -447,7 +448,7 @@ static int u32_destroy_hnode(struct tcf_proto *tp, struct tc_u_hnode *ht)
- 
- 	WARN_ON(ht->refcnt);
- 
--	u32_clear_hnode(ht);
-+	u32_clear_hnode(tp, ht);
- 
- 	hn = &tp_c->hlist;
- 	for (phn = rtnl_dereference(*hn);
-@@ -482,7 +483,7 @@ static void u32_destroy(struct tcf_proto *tp)
- 		     ht;
- 		     ht = rtnl_dereference(ht->next)) {
- 			ht->refcnt--;
--			u32_clear_hnode(ht);
-+			u32_clear_hnode(tp, ht);
- 		}
- 
- 		while ((ht = rtnl_dereference(tp_c->hlist)) != NULL) {
-@@ -731,6 +732,7 @@ static int u32_change(struct net *net, struct sk_buff *in_skb,
- 		}
- 
- 		u32_replace_knode(tp, tp_c, new);
-+		tcf_unbind_filter(tp, &n->res);
- 		call_rcu(&n->rcu, u32_delete_key_rcu);
- 		return 0;
+ 	cp->h = p->h;
+@@ -353,6 +358,9 @@ tcindex_set_parms(struct net *net, struct tcf_proto *tp, unsigned long base,
+ 		f = kzalloc(sizeof(*f), GFP_KERNEL);
+ 		if (!f)
+ 			goto errout_alloc;
++		f->key = handle;
++		tcindex_filter_result_init(&f->result);
++		f->next = NULL;
  	}
+ 
+ 	if (tb[TCA_TCINDEX_CLASSID]) {
+@@ -376,9 +384,7 @@ tcindex_set_parms(struct net *net, struct tcf_proto *tp, unsigned long base,
+ 		struct tcindex_filter *nfp;
+ 		struct tcindex_filter __rcu **fp;
+ 
+-		f->key = handle;
+-		f->result = new_filter_result;
+-		f->next = NULL;
++		tcf_exts_change(tp, &f->result.exts, &r->exts);
+ 
+ 		fp = cp->h + (handle % cp->hash);
+ 		for (nfp = rtnl_dereference(*fp);
 -- 
 1.8.3.1
