@@ -1,88 +1,69 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 32/34] netfilter: bridge: move br_netfilter out of the
- core
-Date: Tue, 30 Sep 2014 10:56:22 +0200
-Message-ID: <20140930085622.GA3916@salvia>
-References: <1411994363-8451-1-git-send-email-pablo@netfilter.org>
- <1411994363-8451-33-git-send-email-pablo@netfilter.org>
- <1412028266.30721.44.camel@edumazet-glaptop2.roam.corp.google.com>
- <20140929231748.GA11709@breakpoint.cc>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	netfilter-devel@vger.kernel.org, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Florian Westphal <fw@strlen.de>
+Subject: [PATCH net-next] netfilter: bridge: build br_nf_core only if required
+Date: Tue, 30 Sep 2014 10:59:18 +0200
+Message-ID: <1412067559-28733-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Tom Herbert <therbert@google.com>,
+	Florian Westphal <fw@strlen.de>
+To: netfilter-devel@vger.kernel.org
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140929231748.GA11709@breakpoint.cc>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 30, 2014 at 01:17:48AM +0200, Florian Westphal wrote:
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > On Mon, 2014-09-29 at 14:39 +0200, Pablo Neira Ayuso wrote:
-> > > Jesper reported that br_netfilter always registers the hooks sinc=
-e
-> > > this is part of the bridge core. This harms performance for peopl=
-e that
-> > > don't need this.
-> > >=20
-> > > This patch modularizes br_netfilter so it can be rmmod'ed, thus,
-> > > the hooks can be unregistered. I think the bridge netfilter shoul=
-d have
-> > > been a separated module since the beginning, Patrick agreed on th=
-at.
-> > >=20
-> > > Note that this is breaking compatibility for users that expect th=
-at
-> > > bridge netfilter is going to be available after explicitly 'modpr=
-obe
-> > > bridge' or via automatic load through brctl.
-> > >=20
-> > > However, the damage can be easily undone by modprobing br_netfilt=
-er.
-> > > The bridge core also spots a message to provide a clue to people =
-that
-> > > didn't notice that this has been deprecated.
-> > >=20
-> > > On top of that, the plan is that nftables will not rely on this s=
-oftware
-> > > layer, but integrate the connection tracking into the bridge laye=
-r to
-> > > enable stateful filtering and NAT, which is was bridge netfilter =
-users
-> > > seem to require.
-> > >=20
-> > > This patch still keeps the fake_dst_ops in the bridge core, since=
- this
-> > > is required by when the bridge port is initialized. So we can saf=
-ely
-> > > modprobe/rmmod br_netfilter anytime.
-> > >=20
-> > > Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
-> > > Acked-by: Florian Westphal <fw@strlen.de>
-> > > ---
-> >=20
-> > Hmm... What am I missing here ?
-> > # CONFIG_BRIDGE_NETFILTER is not set
->=20
-> Nothing.  Our fault.  br_nf_core.o should not be built in this case.
->=20
-> > $ make net/bridge/br_nf_core.o
-> [..]
-> >   CC [M]  net/bridge/br_nf_core.o
-> > net/bridge/br_nf_core.c:77:1: error: expected identifier or =E2=80=98=
-(=E2=80=99 before =E2=80=98{=E2=80=99 token
-> > net/bridge/br_nf_core.c:88:12: error: redefinition of =E2=80=98br_n=
-f_core_init=E2=80=99
->=20
-> This patch seems to fix it for me.  Pablo, can you double-check?
+From: Florian Westphal <fw@strlen.de>
 
-Thanks Florian, I'll pass this patch to David asap.
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Eric reports build failure with
+CONFIG_BRIDGE_NETFILTER=n
+
+We insist to build br_nf_core.o unconditionally, but we must only do so
+if br_netfilter was enabled, else it fails to build due to
+functions being defined to empty stubs (and some structure members
+being defined out).
+
+Also, BRIDGE_NETFILTER=y|m makes no sense when BRIDGE=n.
+
+Fixes: 34666d467 (netfilter: bridge: move br_netfilter out of the core)
+Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ net/Kconfig         |    2 +-
+ net/bridge/Makefile |    5 +++--
+ 2 files changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/net/Kconfig b/net/Kconfig
+index dc5d700..d6b138e 100644
+--- a/net/Kconfig
++++ b/net/Kconfig
+@@ -177,7 +177,7 @@ config NETFILTER_ADVANCED
+ 
+ config BRIDGE_NETFILTER
+ 	tristate "Bridged IP/ARP packets filtering"
+-	depends on (BRIDGE || BRIDGE=n)
++	depends on BRIDGE
+ 	depends on NETFILTER && INET
+ 	depends on NETFILTER_ADVANCED
+ 	default m
+diff --git a/net/bridge/Makefile b/net/bridge/Makefile
+index 5e3eac5..fd7ee03 100644
+--- a/net/bridge/Makefile
++++ b/net/bridge/Makefile
+@@ -6,11 +6,12 @@ obj-$(CONFIG_BRIDGE) += bridge.o
+ 
+ bridge-y	:= br.o br_device.o br_fdb.o br_forward.o br_if.o br_input.o \
+ 			br_ioctl.o br_stp.o br_stp_bpdu.o \
+-			br_stp_if.o br_stp_timer.o br_netlink.o \
+-			br_nf_core.o
++			br_stp_if.o br_stp_timer.o br_netlink.o
+ 
+ bridge-$(CONFIG_SYSFS) += br_sysfs_if.o br_sysfs_br.o
+ 
++bridge-$(subst m,y,$(CONFIG_BRIDGE_NETFILTER)) += br_nf_core.o
++
+ obj-$(CONFIG_BRIDGE_NETFILTER) += br_netfilter.o
+ 
+ bridge-$(CONFIG_BRIDGE_IGMP_SNOOPING) += br_multicast.o br_mdb.o
+-- 
+1.7.10.4
+
