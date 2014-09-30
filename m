@@ -1,36 +1,54 @@
 From: Vladislav Yasevich <vyasevich@gmail.com>
-Subject: [PATCH v2 net 0/2] Alow tg3/bnx recevie full sized 802.1ad frames
-Date: Tue, 30 Sep 2014 19:39:35 -0400
-Message-ID: <1412120377-11125-1-git-send-email-vyasevic@redhat.com>
+Subject: [PATCH v2 net 1/2] tg3: Allow for recieve of full-size 8021AD frames
+Date: Tue, 30 Sep 2014 19:39:36 -0400
+Message-ID: <1412120377-11125-2-git-send-email-vyasevic@redhat.com>
+References: <1412120377-11125-1-git-send-email-vyasevic@redhat.com>
 Cc: prashant@broadcom.com, mchan@broadcom.com, sony.chacko@qlogic.com,
 	Dept-HSGLinuxNICDev@qlogic.com,
 	Vladislav Yasevich <vyasevic@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f172.google.com ([209.85.216.172]:43019 "EHLO
-	mail-qc0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750818AbaI3Xjq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2014 19:39:46 -0400
-Received: by mail-qc0-f172.google.com with SMTP id o8so39318qcw.31
-        for <netdev@vger.kernel.org>; Tue, 30 Sep 2014 16:39:45 -0700 (PDT)
+Received: from mail-qa0-f47.google.com ([209.85.216.47]:63282 "EHLO
+	mail-qa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750818AbaI3Xjr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2014 19:39:47 -0400
+Received: by mail-qa0-f47.google.com with SMTP id cm18so10185qab.20
+        for <netdev@vger.kernel.org>; Tue, 30 Sep 2014 16:39:47 -0700 (PDT)
+In-Reply-To: <1412120377-11125-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-bnx2 and tg3 drivers drop packets that exceed device mtu and that
-do not have a vlan tag.  The idea is to catch ethernet frames
-that are too long.  This also ends up dropping 802.1ad tagged
-frames since the encapsulation protocol is different.
-We should not be dropping this packets.
+When receiving a vlan-tagged frame that still contains
+a vlan header, the length of the packet will be greater
+then MTU+ETH_HLEN since it will account of the extra
+vlan header.  TG3 checks this for the case for 802.1Q,
+but not for 802.1ad.  As a result, full sized 802.1ad
+frames get dropped by the card.
 
-v2:  rebased and consolidated tg3 and bnx patches.
+Add a check for 802.1ad protocol when receving full
+sized frames.
 
-Vladislav Yasevich (2):
-  tg3: Allow for recieve of full-size 8021AD frames
-  bnx2: Correctly receive full sized 802.1ad fragmes
+Suggested-by: Prashant Sreedharan <prashant@broadcom.com>
+CC: Prashant Sreedharan <prashant@broadcom.com>
+CC: Michael Chan <mchan@broadcom.com>
+Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
+---
+ drivers/net/ethernet/broadcom/tg3.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
- drivers/net/ethernet/broadcom/bnx2.c | 5 +++--
- drivers/net/ethernet/broadcom/tg3.c  | 3 ++-
- 2 files changed, 5 insertions(+), 3 deletions(-)
-
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index e7d3a62..ba49948 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -6918,7 +6918,8 @@ static int tg3_rx(struct tg3_napi *tnapi, int budget)
+ 		skb->protocol = eth_type_trans(skb, tp->dev);
+ 
+ 		if (len > (tp->dev->mtu + ETH_HLEN) &&
+-		    skb->protocol != htons(ETH_P_8021Q)) {
++		    skb->protocol != htons(ETH_P_8021Q) &&
++		    skb->protocol != htons(ETH_P_8021AD)) {
+ 			dev_kfree_skb_any(skb);
+ 			goto drop_it_no_recycle;
+ 		}
 -- 
 1.9.3
