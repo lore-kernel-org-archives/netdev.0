@@ -1,94 +1,73 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH] tun: make sure interface usage can not overflow
-Date: Tue, 30 Sep 2014 14:29:21 +0300
-Message-ID: <20140930112921.GD7089@redhat.com>
-References: <20140928232753.GA31180@www.outflux.net>
- <20140929114849.GA913@redhat.com>
- <CAGXu5j+x5pg6-9y72o=mE9TiNEyFqTTE=o8ETh1Ao8R20KNRwA@mail.gmail.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] netfilter: fix nf_conn_nat->masq_index visibility
+Date: Tue, 30 Sep 2014 13:27:50 +0200
+Message-ID: <2670668.vq09CjLWH3@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jason Wang <jasowang@redhat.com>,
-	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>,
-	Tom Herbert <therbert@google.com>,
-	Masatake YAMATO <yamato@redhat.com>, Xi Wang <xii@google.com>,
-	stephen hemminger <stephen@networkplumber.org>,
-	Network Development <netdev@vger.kernel.org>
-To: Kees Cook <keescook@chromium.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Arturo Borrero Gonzalez <arturo.borrero.glez@gmail.com>,
+	Pablo Neira Ayuso <pablo@netfilter.org>, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAGXu5j+x5pg6-9y72o=mE9TiNEyFqTTE=o8ETh1Ao8R20KNRwA@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 29, 2014 at 12:48:47PM -0700, Kees Cook wrote:
-> On Mon, Sep 29, 2014 at 4:48 AM, Michael S. Tsirkin <mst@redhat.com> wrote:
-> > On Sun, Sep 28, 2014 at 04:27:53PM -0700, Kees Cook wrote:
-> >> This makes the size argument a const, since it is always populated by
-> >> the caller. Additionally double-checks to make sure the copy_from_user
-> >> can never overflow, keeping CONFIG_DEBUG_STRICT_USER_COPY_CHECKS happy:
-> >>
-> >>    In function 'copy_from_user',
-> >>        inlined from '__tun_chr_ioctl' at drivers/net/tun.c:1871:7:
-> >>        ... copy_from_user() buffer size is not provably correct
-> >>
-> >> Signed-off-by: Kees Cook <keescook@chromium.org>
-> >
-> > What exactly is the issue here?
-> > __tun_chr_ioctl is called with sizeof(struct compat_ifreq)
-> > or  sizeof (struct ifreq) as the last argument.
-> 
-> Correct. There is no vulnerability here; I am attempting to both make
-> the code more defensive to future changes, and to keep
-> CONFIG_DEBUG_STRICT_USER_COPY_CHECKS happy.
-> 
-> > So this looks like a false positive, but
-> > CONFIG_DEBUG_STRICT_USER_COPY_CHECKS machinery is supposed
-> > to avoid false positives.
-> 
-> The support in GCC is currently a bit faulty, and it seems that it
-> didn't notice the two callers were static values, so instead, adding
-> an explicit test keeps it happy.
-> 
-> > On which architecture is this?
-> 
-> This is on x86, but with CONFIG_DEBUG_STRICT_USER_COPY_CHECKS
-> correctly enabled (gcc after 4.6 broke its ability to correctly
-> optimize), which I've been playing with trying to get gcc working
-> again. I sent the patch because it seems like it's a reasonable
-> defensive change to make.
+A recent change introduced the NF_NAT_MASQUERADE_IPV4/6 symbols and now
+builds the masquerading code based on this symbol rather than the
+IP_NF_TARGET_MASQUERADE symbol, however the nf_nat.h header file
+still uses the old symbol, which leads to a build error when that
+is disabled:
 
-For the BUG_ON - I guess it's reasonable but we'll just break it again
-by random code changes in the future. And when we do, I don't cherish
-the thought of using trial and error to find a way to shut up the
-warning again.
-If gcc can't be fixed, something explicit like the uninitialized_var
-is needed.
+nf_nat_masquerade_ipv4.c: In function 'nf_nat_masquerade_ipv4':
+nf_nat_masquerade_ipv4.c:59:5: error: 'struct nf_conn_nat' has no member named 'masq_index'
 
-For const as an argument - is it also about gcc bugs?
-We don't usually do this in kernel so if it's useful,
-it has to be documented.
+This changes the header file to do the respective change, and move
+to using the IS_ENABLED() macro in the process, to improve readability
+of the check
 
-Finally, why are you switching the type from int to size_t?
-Pls document the reason in the commit log.
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Fixes: 8dd33cc93ec92 ("netfilter: nf_nat: generalize IPv4 masquerading support for nf_tables")
+---
+found while doing ARM randconfig tests
 
-> If you want to look more deeply, there's some background here:
-> https://code.google.com/p/chromium/issues/detail?id=371036
-> 
-> https://git.kernel.org/cgit/linux/kernel/git/kees/linux.git/commit/?h=gcc-bug&id=92dd7154932d8775a05dfd3de5564124c05a4150
-> 
-> Thanks,
-> 
-> -Kees
-
-I think what you are trying to do is really useful, but
-I doubt making random code changes that happen to make a
-specific gcc version happy is maintainable.
-
-HTH
-Thanks!
-
-> -- 
-> Kees Cook
-> Chrome OS Security
+diff --git a/include/net/netfilter/nf_nat.h b/include/net/netfilter/nf_nat.h
+index a71dd333ac68..68f0953c86c3 100644
+--- a/include/net/netfilter/nf_nat.h
++++ b/include/net/netfilter/nf_nat.h
+@@ -32,10 +32,8 @@ struct nf_conn_nat {
+ 	struct hlist_node bysource;
+ 	struct nf_conn *ct;
+ 	union nf_conntrack_nat_help help;
+-#if defined(CONFIG_IP_NF_TARGET_MASQUERADE) || \
+-    defined(CONFIG_IP_NF_TARGET_MASQUERADE_MODULE) || \
+-    defined(CONFIG_IP6_NF_TARGET_MASQUERADE) || \
+-    defined(CONFIG_IP6_NF_TARGET_MASQUERADE_MODULE)
++#if IS_ENABLED(CONFIG_NF_NAT_MASQUERADE_IPV4) || \
++    IS_ENABLED(CONFIG_NF_NAT_MASQUERADE_IPV6)
+ 	int masq_index;
+ #endif
+ };
+@@ -56,7 +54,7 @@ int nf_nat_used_tuple(const struct nf_conntrack_tuple *tuple,
+ 
+ static inline struct nf_conn_nat *nfct_nat(const struct nf_conn *ct)
+ {
+-#if defined(CONFIG_NF_NAT) || defined(CONFIG_NF_NAT_MODULE)
++#if IS_ENABLED(CONFIG_NF_NAT)
+ 	return nf_ct_ext_find(ct, NF_CT_EXT_NAT);
+ #else
+ 	return NULL;
+@@ -68,8 +66,8 @@ static inline bool nf_nat_oif_changed(unsigned int hooknum,
+ 				      struct nf_conn_nat *nat,
+ 				      const struct net_device *out)
+ {
+-#if IS_ENABLED(CONFIG_IP_NF_TARGET_MASQUERADE) || \
+-    IS_ENABLED(CONFIG_IP6_NF_TARGET_MASQUERADE)
++#if IS_ENABLED(CONFIG_NF_NAT_MASQUERADE_IPV4) || \
++    IS_ENABLED(CONFIG_NF_NAT_MASQUERADE_IPV6)
+ 	return nat->masq_index && hooknum == NF_INET_POST_ROUTING &&
+ 	       CTINFO2DIR(ctinfo) == IP_CT_DIR_ORIGINAL &&
+ 	       nat->masq_index != out->ifindex;
