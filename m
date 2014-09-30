@@ -1,86 +1,83 @@
-From: "Luis R. Rodriguez" <mcgrof@suse.com>
-Subject: Re: [PATCH v1 5/5] driver-core: add driver asynchronous probe
-	support
-Date: Tue, 30 Sep 2014 09:47:35 +0200
-Message-ID: <20140930074735.GE14081@wotan.suse.de>
-References: <1411768637-6809-1-git-send-email-mcgrof@do-not-panic.com> <1411768637-6809-6-git-send-email-mcgrof@do-not-panic.com> <CAG-2HqWmVODJ6Q46t96mS9ALbeFjRcQ18ypwejY=ug0wCUVv-Q@mail.gmail.com> <20140930022751.GA14081@wotan.suse.de>
+From: Chen Gang <gang.chen.5i5j@gmail.com>
+Subject: Re: [PATCH] xen/xenbus: Use 'void' instead of 'int' for the return
+ of xenbus_switch_state()
+Date: Tue, 30 Sep 2014 16:04:33 +0800
+Message-ID: <542A6411.5040201@gmail.com>
+References: <5425961A.5000604@gmail.com> <20140929140229.GA28279@laptop.dumpdata.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
-	Michal Hocko <mhocko@suse.cz>,
-	Greg KH <gregkh@linuxfoundation.org>,
-	Julia Lawall <julia.lawall@lip6.fr>,
-	Dmitry Torokhov <dmitry.torokhov@gmail.com>,
-	Takashi Iwai <tiwai@suse.de>, Tejun Heo <tj@kernel.org>,
-	Arjan van de Ven <arjan@linux.intel.com>,
-	Robert Milasan <rmilasan@suse.com>, werner@suse.com,
-	Oleg Nesterov <oleg@redhat.com>, hare <hare@suse.com>,
-	Benjamin Poirier <bpoirier@suse.de>,
-	Santosh Rastapur <santosh@chelsio.com>, pmladek@suse.cz,
-	dbueso@suse.com, LKML <linux-kernel@vger.kernel.org>,
-	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-	Joseph Salisbury <joseph.salisbury@canonical.com>,
-	Kay Sievers <kay@vrfy.org>,
-	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
-	Tim Gardner <tim.gardner@canonical.com>,
-	Pierre Fersing <pierre-fersing@pierref.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Nagalakshmi Nan
-To: Tom Gundersen <teg@jklm.no>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140930022751.GA14081@wotan.suse.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: David Vrabel <david.vrabel@citrix.com>, ian.campbell@citrix.com,
+	wei.liu2@citrix.com, boris.ostrovsky@oracle.com,
+	bhelgaas@google.com, jgross@suse.com,
+	yongjun_wei@trendmicro.com.cn, mukesh.rathor@oracle.com,
+	xen-devel@lists.xenproject.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-pci@vger.kernel.org, linux-scsi@vger.kernel.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <20140929140229.GA28279@laptop.dumpdata.com>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 30, 2014 at 04:27:51AM +0200, Luis R. Rodriguez wrote:
-> On Sun, Sep 28, 2014 at 07:07:24PM +0200, Tom Gundersen wrote:
-> > On Fri, Sep 26, 2014 at 11:57 PM, Luis R. Rodriguez
-> > <mcgrof@do-not-panic.com> wrote:
-> > > From: "Luis R. Rodriguez" <mcgrof@suse.com>
-> > > 0) Not all drivers are killed, the signal is just sent and
-> > >    the kill will only be acted upoon if the driver you loaded
-> > >    happens to have some code path that either uses kthreads (which
-> > >    as of 786235ee are now killable), or uses some code which checks for
-> > >    fatal_signal_pending() on the kernel somewhere -- i.e: pci_read_vpd().
-> > 
-> > Shouldn't this be seen as something to be fixed in the kernel?
+On 9/29/14 22:02, Konrad Rzeszutek Wilk wrote:
+> On Sat, Sep 27, 2014 at 12:36:42AM +0800, Chen Gang wrote:
+>> When xenbus_switch_state() fails, it will call xenbus_switch_fatal()
 > 
-> That's a great question. In practice now after CVE-2012-4398 and its series of
-> patches added which enabled OOM to kill things followed by 786235ee to also
-> handle OOM on kthreads it seems imperative we strive towards this, in practive
-> however if you're getting OOMs on boot you have far more serious issue to be
-> concerned over than handling CVE-2012-4398. Another issue is that even if we
-> wanted to address this a critical right now on module loading driver error
-> paths tend to be pretty buggy and we'd probably end up causing more issues than
-> fixing anything if the sigkill that triggered this was an arbitrary timeout,
-> specially if the timeout is not properly justified.
+> Only on the first depth, not on the subsequent ones (as in if
+> the first xenbus_switch_fail fails, it won't try to call
+> xenbus_switch_state again and again).
+> 
 
-<-- snip -->
+Yeah, I guess you want to give more completion for this comment, do not
+mean the original comments is incorrect.
 
-> So extending the kill onto more drivers *because* of the timeout is probably
-> not a good reason as it would probably create more issue than fix anything
-> right now.
+[...]
+>>
+>> Also need be sure that all callers which check the return value must let
+>> 'err' be 0.
+> 
+> I am bit uncomfortable with that, that is due to:
+> 
+> 
+> .. snip..
+>> diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
+>> index 9c47b89..b5c3d47 100644
+>> --- a/drivers/net/xen-netback/xenbus.c
+>> +++ b/drivers/net/xen-netback/xenbus.c
+>> @@ -337,10 +337,7 @@ static int netback_probe(struct xenbus_device *dev,
+>>  	if (err)
+>>  		pr_debug("Error writing multi-queue-max-queues\n");
+>>  
+>> -	err = xenbus_switch_state(dev, XenbusStateInitWait);
+>> -	if (err)
+>> -		goto fail;
+>> -
+>> +	xenbus_switch_state(dev, XenbusStateInitWait);
+> 
+> Which if it fails it won't call:
+> 
+> 354 fail:                                                                           
+> 355         pr_debug("failed\n");                                                   
+> 356         netback_remove(dev);                                                    
+> 357         return err;         
+> 
 
-A bit more on this. Tejun had added devres while trying to convert libata to
-use iomap but in that process also help address buggy failure paths on drivers [0].
-Even with devres in place and devm functions being available they actually
-haven't been popularized until recent kernels [1]. There is even further
-research on precicely these sorts of errors, such as "Hector: Detecting
-Resource-Release Omission Faults in error-handling code for systems software" [2]
-but unfortunately there is no data over time. Another paper is "An approach to
-improving the structure of error-handling code in the Linux kernel" [3] which
-tries to address moving error handling code in the middle of the function to gotos
-to shared code at the end of the function...
+Originally, I intended left 'fail' code block for the next patch (which
+I thought the next patch would need it).
 
-So we have buggy error paths on drivers and trusting them unfortunately isn't
-a good idea at this point. They should be fixed but saying we should equally
-kill all drivers right now would likley introduce more issues than anything.
+Hmm... but any way, originally, I really need give additional comments
+for it.
 
-[0] http://lwn.net/Articles/215861/
-[1] http://www.slideshare.net/ennael/kernel-recipes-2013?qid=f0888b85-377b-4b29-95c3-f4e59822f5b3&v=default&b=&from_search=6
-    See slide 6 on graph usage of devm functions over time
-[2] http://coccinelle.lip6.fr/papers/dsn2013.pdf
-[3] http://coccinelle.lip6.fr/papers/lctes11.pdf
+[...]
 
-  Luis
+I skip all other contents which have already discussed by maintainers,
+if I really miss something, please let me know.
+
+
+Thanks.
+-- 
+Chen Gang
+
+Open, share, and attitude like air, water, and life which God blessed
