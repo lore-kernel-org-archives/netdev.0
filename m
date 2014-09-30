@@ -1,39 +1,78 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: [PATCH iproute2] tests: Check existing of /proc/config.gz before use it
-Date: Tue, 30 Sep 2014 09:15:10 +0300
-Message-ID: <1412057710-6038-1-git-send-email-vadim4j@gmail.com>
-Cc: Vadim Kochan <vadim4j@gmail.com>
-To: netdev@vger.kernel.org
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: [PATCH net-next v5 1/2] bonding: display xmit_hash_policy for non-dynamic-tlb mode
+Date: Mon, 29 Sep 2014 23:26:49 -0700
+Message-ID: <1412058409-2548-1-git-send-email-maheshb@google.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	Mahesh Bandewar <maheshb@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Maciej Zenczykowski <maze@google.com>
+To: Jay Vosburgh <j.vosburgh@gmail.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f45.google.com ([209.85.215.45]:44039 "EHLO
-	mail-la0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751063AbaI3GXl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2014 02:23:41 -0400
-Received: by mail-la0-f45.google.com with SMTP id q1so7895877lam.18
-        for <netdev@vger.kernel.org>; Mon, 29 Sep 2014 23:23:40 -0700 (PDT)
+Received: from mail-ie0-f202.google.com ([209.85.223.202]:50067 "EHLO
+	mail-ie0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751131AbaI3G0y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2014 02:26:54 -0400
+Received: by mail-ie0-f202.google.com with SMTP id tp5so791781ieb.1
+        for <netdev@vger.kernel.org>; Mon, 29 Sep 2014 23:26:54 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
----
- testsuite/Makefile | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+It's a trivial fix to display xmit_hash_policy for this new TLB mode
+since it uses transmit-hash-poilicy as part of bonding-master info
+(/proc/net/bonding/<bonding-interface).
 
-diff --git a/testsuite/Makefile b/testsuite/Makefile
-index b4ab15e..d1bf359 100644
---- a/testsuite/Makefile
-+++ b/testsuite/Makefile
-@@ -6,7 +6,10 @@ RESULTS_DIR := results
+Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+Reviewed-by: Nikolay Aleksandrov <nikolay@redhat.com>
+---
+v1
+ Rebase
+v2
+ Added bond_mode_uses_xmit_hash() inline function
+v3
+ Rebase
+v4
+ Rebase
+v5
+ Rebase
+
+ drivers/net/bonding/bond_procfs.c | 3 +--
+ drivers/net/bonding/bonding.h     | 7 +++++++
+ 2 files changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_procfs.c b/drivers/net/bonding/bond_procfs.c
+index bb09d0442aa8..a3948f8d1e53 100644
+--- a/drivers/net/bonding/bond_procfs.c
++++ b/drivers/net/bonding/bond_procfs.c
+@@ -73,8 +73,7 @@ static void bond_info_show_master(struct seq_file *seq)
  
- TESTS := $(patsubst tests/%,%,$(wildcard tests/*.t))
- IPVERS := $(filter-out iproute2/Makefile,$(wildcard iproute2/*))
--KENV := $(shell cat /proc/config.gz | gunzip | grep ^CONFIG)
+ 	seq_printf(seq, "\n");
+ 
+-	if (BOND_MODE(bond) == BOND_MODE_XOR ||
+-		BOND_MODE(bond) == BOND_MODE_8023AD) {
++	if (bond_mode_uses_xmit_hash(bond)) {
+ 		optval = bond_opt_get_val(BOND_OPT_XMIT_HASH,
+ 					  bond->params.xmit_policy);
+ 		seq_printf(seq, "Transmit Hash Policy: %s (%d)\n",
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index 57917e63b4e6..5b022da9cad2 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -274,6 +274,13 @@ static inline bool bond_is_nondyn_tlb(const struct bonding *bond)
+ 	       (bond->params.tlb_dynamic_lb == 0);
+ }
+ 
++static inline bool bond_mode_uses_xmit_hash(const struct bonding *bond)
++{
++	return (BOND_MODE(bond) == BOND_MODE_8023AD ||
++		BOND_MODE(bond) == BOND_MODE_XOR ||
++		bond_is_nondyn_tlb(bond));
++}
 +
-+ifneq (,$(wildcard /proc/config.gz))
-+	KENV := $(shell cat /proc/config.gz | gunzip | grep ^CONFIG)
-+endif
- 
- .PHONY: compile listtests alltests configure $(TESTS)
- 
+ static inline bool bond_mode_uses_arp(int mode)
+ {
+ 	return mode != BOND_MODE_8023AD && mode != BOND_MODE_TLB &&
 -- 
-2.1.0
+2.1.0.rc2.206.gedb03e5
