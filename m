@@ -1,47 +1,99 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next PATCH V5] qdisc: bulk dequeue support for qdiscs with
- TCQ_F_ONETXQUEUE
-Date: Tue, 30 Sep 2014 15:15:10 -0700
-Message-ID: <1412115310.16704.5.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20140930085114.24043.81310.stgit@dragon>
-	 <1412077736.30721.54.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20141001000752.4e553919@redhat.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH net-next 06/10] r8169:change function name and behavior
+ of function "rtl_w1w0_phy"
+Date: Wed, 1 Oct 2014 00:33:37 +0200
+Message-ID: <20140930223337.GA27610@electric-eye.fr.zoreil.com>
+References: <1412089230-10208-1-git-send-email-hau@realtek.com>
+ <1412089230-10208-6-git-send-email-hau@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Tom Herbert <therbert@google.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Florian Westphal <fw@strlen.de>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Dave Taht <dave.taht@gmail.com>, toke@toke.dk
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f176.google.com ([209.85.192.176]:49510 "EHLO
-	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752273AbaI3WPL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2014 18:15:11 -0400
-Received: by mail-pd0-f176.google.com with SMTP id fp1so6848926pdb.35
-        for <netdev@vger.kernel.org>; Tue, 30 Sep 2014 15:15:11 -0700 (PDT)
-In-Reply-To: <20141001000752.4e553919@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
+	linux-kernel@vger.kernel.org
+To: Chun-Hao Lin <hau@realtek.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1412089230-10208-6-git-send-email-hau@realtek.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2014-10-01 at 00:07 +0200, Jesper Dangaard Brouer wrote:
-> On Tue, 30 Sep 2014 04:48:56 -0700
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+Chun-Hao Lin <hau@realtek.com> :
+> Change function name from "rtl_w1w0_phy" to "rtl_w0w1_phy".
+> And its behavior from "or first then mask" to "mask first then or".
+
+- I don't mind if its changed for a reason but the commit message doesn't
+  tell why. Is it related to the overlap of the masks below ?
+
+- rtl_w1w0_phy was supposed to abbreviate "write ones then write zeros"
+  where parameters are taken in this order. You won't hit the 80 cols
+  limit if you replace it with something like "rtl_set_clear_phy" (if you
+  use something longer it won't fit for rtl_w1w0_eri).
+
+[...]
+> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+> index 1bf6696..e68fe5e 100644
+> --- a/drivers/net/ethernet/realtek/r8169.c
+> +++ b/drivers/net/ethernet/realtek/r8169.c
+[...]
+> @@ -3575,33 +3575,33 @@ static void rtl8168h_1_hw_phy_config(struct rtl8169_private *tp)
+>  	/* CHN EST parameters adjust - giga master */
+>  	rtl_writephy(tp, 0x1f, 0x0a43);
+>  	rtl_writephy(tp, 0x13, 0x809b);
+> -	rtl_w1w0_phy(tp, 0x14, 0x8000, 0xf800);
+> +	rtl_w0w1_phy(tp, 0x14, 0x8000, 0xf800);
+>  	rtl_writephy(tp, 0x13, 0x80a2);
+> -	rtl_w1w0_phy(tp, 0x14, 0x8000, 0xff00);
+> +	rtl_w0w1_phy(tp, 0x14, 0x8000, 0xff00);
+>  	rtl_writephy(tp, 0x13, 0x80a4);
+> -	rtl_w1w0_phy(tp, 0x14, 0x8500, 0xff00);
+> +	rtl_w0w1_phy(tp, 0x14, 0x8500, 0xff00);
+>  	rtl_writephy(tp, 0x13, 0x809c);
+> -	rtl_w1w0_phy(tp, 0x14, 0xbd00, 0xff00);
+> +	rtl_w0w1_phy(tp, 0x14, 0xbd00, 0xff00);
+>  	rtl_writephy(tp, 0x1f, 0x0000);
 >  
-> > In my opinion, you guys missed some opportunities :
-> 
-> This is a conservative first approach.  The merge window is approaching
-> fast, is is annoying you are blocking a save conservative approach.
+>  	/* CHN EST parameters adjust - giga slave */
+>  	rtl_writephy(tp, 0x1f, 0x0a43);
+>  	rtl_writephy(tp, 0x13, 0x80ad);
+> -	rtl_w1w0_phy(tp, 0x14, 0x7000, 0xf800);
+> +	rtl_w0w1_phy(tp, 0x14, 0x7000, 0xf800);
+>  	rtl_writephy(tp, 0x13, 0x80b4);
+> -	rtl_w1w0_phy(tp, 0x14, 0x5000, 0xff00);
+> +	rtl_w0w1_phy(tp, 0x14, 0x5000, 0xff00);
+>  	rtl_writephy(tp, 0x13, 0x80ac);
+> -	rtl_w1w0_phy(tp, 0x14, 0x4000, 0xff00);
+> +	rtl_w0w1_phy(tp, 0x14, 0x4000, 0xff00);
+>  	rtl_writephy(tp, 0x1f, 0x0000);
+>  
+>  	/* CHN EST parameters adjust - fnet */
+>  	rtl_writephy(tp, 0x1f, 0x0a43);
+>  	rtl_writephy(tp, 0x13, 0x808e);
+> -	rtl_w1w0_phy(tp, 0x14, 0x1200, 0xff00);
+> +	rtl_w0w1_phy(tp, 0x14, 0x1200, 0xff00);
+>  	rtl_writephy(tp, 0x13, 0x8090);
+> -	rtl_w1w0_phy(tp, 0x14, 0xe500, 0xff00);
+> +	rtl_w0w1_phy(tp, 0x14, 0xe500, 0xff00);
+>  	rtl_writephy(tp, 0x13, 0x8092);
+> -	rtl_w1w0_phy(tp, 0x14, 0x9f00, 0xff00);
+> +	rtl_w0w1_phy(tp, 0x14, 0x9f00, 0xff00);
+>  	rtl_writephy(tp, 0x1f, 0x0000);
+>  
+>  	/* enable R-tune & PGA-retune function */
+> @@ -3620,57 +3620,57 @@ static void rtl8168h_1_hw_phy_config(struct rtl8169_private *tp)
+>  	dout_tapbin &= 0xf000;
+>  	rtl_writephy(tp, 0x1f, 0x0a43);
+>  	rtl_writephy(tp, 0x13, 0x827a);
+> -	rtl_w1w0_phy(tp, 0x14, dout_tapbin, 0xf000);
+> +	rtl_w0w1_phy(tp, 0x14, dout_tapbin, 0xf000);
+>  	rtl_writephy(tp, 0x13, 0x827b);
+> -	rtl_w1w0_phy(tp, 0x14, dout_tapbin, 0xf000);
+> +	rtl_w0w1_phy(tp, 0x14, dout_tapbin, 0xf000);
+>  	rtl_writephy(tp, 0x13, 0x827c);
+> -	rtl_w1w0_phy(tp, 0x14, dout_tapbin, 0xf000);
+> +	rtl_w0w1_phy(tp, 0x14, dout_tapbin, 0xf000);
+>  	rtl_writephy(tp, 0x13, 0x827d);
+> -	rtl_w1w0_phy(tp, 0x14, dout_tapbin, 0xf000);
+> +	rtl_w0w1_phy(tp, 0x14, dout_tapbin, 0xf000);
+[...]
 
-I am not blocking at all.
-
-I am only disappointed V5 is no different from V4.
-
-I will shut up then since it seems I am blocking things, or so you
-believe.
+-- 
+Ueimor
