@@ -1,76 +1,57 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: VRFs and the scalability of namespaces
-Date: Mon, 29 Sep 2014 18:15:07 -0700
-Message-ID: <542A041B.3000600@candelatech.com>
-References: <5425EAA6.7040302@gmail.com> <1411824598.2136890.172383085.705271DD@webmail.messagingengine.com> <54295971.2040402@gmail.com> <54298B66.8060807@candelatech.com> <CACP96tR_c3-nVEGhswm1qt1WGXPNzyXA61FCxPutCTPNomjy+g@mail.gmail.com> <54299019.3050604@candelatech.com> <5429EEAF.9030702@gmail.com> <1412034624.2008259.173208057.03BE7CBA@webmail.messagingengine.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 net-next] net: cleanup and document skb fclone layout
+Date: Mon, 29 Sep 2014 18:30:18 -0700
+Message-ID: <1412040618.30721.49.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1411860341.15768.55.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1412022555.30721.40.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	netdev <netdev@vger.kernel.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	David Ahern <dsahern@gmail.com>,
-	Sowmini Varadhan <sowmini05@gmail.com>
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.candelatech.com ([208.74.158.173]:55332 "EHLO
-	mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754885AbaI3BPK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 21:15:10 -0400
-In-Reply-To: <1412034624.2008259.173208057.03BE7CBA@webmail.messagingengine.com>
+Received: from mail-pd0-f179.google.com ([209.85.192.179]:43665 "EHLO
+	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754199AbaI3BaW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 21:30:22 -0400
+Received: by mail-pd0-f179.google.com with SMTP id r10so3601828pdi.24
+        for <netdev@vger.kernel.org>; Mon, 29 Sep 2014 18:30:21 -0700 (PDT)
+In-Reply-To: <1412022555.30721.40.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, 2014-09-29 at 13:29 -0700, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
+> 
+
+>  struct sk_buff *skb_clone(struct sk_buff *skb, gfp_t gfp_mask)
+>  {
+> -	struct sk_buff *n;
+> +	struct sk_buff_fclones *fclones = container_of(skb,
+> +						       struct sk_buff_fclones,
+> +						       skb1);
+> +	struct sk_buff *n = &fclones->skb2;
+>  
+>  	if (skb_orphan_frags(skb, gfp_mask))
+>  		return NULL;
+>  
+> -	n = skb + 1;
+>  	if (skb->fclone == SKB_FCLONE_ORIG &&
+>  	    n->fclone == SKB_FCLONE_UNAVAILABLE) {
+> -		atomic_t *fclone_ref = (atomic_t *) (n + 1);
+>  		n->fclone = SKB_FCLONE_CLONE;
+> -		atomic_inc(fclone_ref);
+> +		atomic_inc(&fclones->fclone_ref);
+>  	} else {
+>  		if (skb_pfmemalloc(skb))
+>  			gfp_mask |= __GFP_MEMALLOC;
+
+Note : 
+
+The "atomic_inc(&fclones->fclone_ref)" here can be replaced by an
+atomic_set(&fclones->fclone_ref, 2), to avoid a locked operation.
 
 
-On 09/29/2014 04:50 PM, Hannes Frederic Sowa wrote:
-> On Tue, Sep 30, 2014, at 01:43, David Ahern wrote:
->> On 9/29/14, 11:00 AM, Ben Greear wrote:
->>> On 09/29/2014 09:50 AM, Sowmini Varadhan wrote:
->>>> On Mon, Sep 29, 2014 at 12:40 PM, Ben Greear <greearb@candelatech.com> wrote:
->>>>> On 09/29/2014 06:06 AM, David Ahern wrote:
->>>>
->>>>>
->>>>> We have implemented support for at least most of this (excepting duplicate IPs)
->>>>> using routing tables, rules, and (optionally, xorp as the router).
->>>>>
->>>>
->>>> My undertanding of multiple routing-tables/rules was that they
->>>> are closer in semantics to switch/router ACLs than to VRFs, eg.,
->>>> one big difference is that an interface can belong to exactly one
->>>> VRF at a time, which is not mandated by multiple routing-tables/rules.
->>>>
->>>> Was I mistaken?
->>>
->>> You can effectively force an interface to belong to a particular virtual
->>> router (table).  It is not trivial to do, and possibly I have still not
->>> covered every possible case.  Some rules grow somewhat exponentially as
->>> interfaces are added to virtual routers (ie, preference 10 rules).
->>
->> An interesting way of doing it; thanks for the reference point.
->>
->> Fundamentally the design should be able to assign interfaces to a single
->> VRF, support duplicate IP addresses on different interfaces in different
->> VRFs and be able to scale to 10,000+ netdevices -- devices representing
->> physical ports as well as logical interfaces built on top of them (e.g.,
->> sub-interfaces).
->
-> Duplicate IP addresses don't go well with current linux stack being a
-> soft end model by default. Current separation is done on arp level today
-> if some kind of strong end model is desired. This calls for some kind of
-> namespaces again. ;)
+I'll cook a patch for this, after you merged this cleanup
 
-arp is per interface as well if you set arp-filter properly, the main problem with duplicate IPs is that
-you can't (easily?) set up routing rules that match them properly...
-
-Thanks,
-Ben
-
->
-> Bye,
-> Hannes
->
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Thanks
