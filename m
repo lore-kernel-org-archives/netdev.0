@@ -1,58 +1,59 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCH] tg3: Allow for receive of full-size 8021AD frames
-Date: Tue, 30 Sep 2014 14:53:08 -0400
-Message-ID: <542AFC14.6030304@redhat.com>
-References: <1411165389-21276-1-git-send-email-vyasevic@redhat.com>
-Reply-To: vyasevic@redhat.com
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: RE: How exactly does CHECKSUM_COMPLETE works?
+Date: Tue, 30 Sep 2014 19:05:05 +0000
+Message-ID: <B5657A6538887040AD3A81F1008BEC63B4152D@avmb3.qlogic.org>
+References: <B5657A6538887040AD3A81F1008BEC63B41317@avmb3.qlogic.org>
+ <CA+mtBx_17aJuK=xjnDukGJOfw-twHg=rF5rDacg6pga6ZTTRcw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Vladislav Yasevich <vyasevic@redhat.com>,
-	Prashant Sreedharan <prashant@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev <netdev@vger.kernel.org>
+To: "Tom Herbert (Partner - google)" <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51226 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752273AbaI3SxL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Sep 2014 14:53:11 -0400
-In-Reply-To: <1411165389-21276-1-git-send-email-vyasevic@redhat.com>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:63507 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752075AbaI3TFI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2014 15:05:08 -0400
+In-Reply-To: <CA+mtBx_17aJuK=xjnDukGJOfw-twHg=rF5rDacg6pga6ZTTRcw@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When receiving a vlan-tagged frame that still contains
-a vlan header, the length of the packet will be greater
-then MTU+ETH_HLEN since it will account of the extra
-vlan header.  TG3 checks this for the case for 802.1Q,
-but not for 802.1ad.  As a result, full sized 802.1ad
-frames get dropped by the card.
-
-Add a check for 802.1ad protocol when receiving full
-sized frames.
-
-Suggested-by: Prashant Sreedharan <prashant@broadcom.com>
-CC: Prashant Sreedharan <prashant@broadcom.com>
-CC: Michael Chan <mchan@broadcom.com>
-Acked-by: Prashant Sreedharan <prashant@broadcom.com>
-Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
----
-This patch somehow got dropped.  Please apply and queue for stable.
-
- drivers/net/ethernet/broadcom/tg3.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index 0a0938d..4f674f9 100644
---- a/drivers/net/ethernet/broadcom/tg3.c
-+++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -6918,7 +6918,8 @@ static int tg3_rx(struct tg3_napi *tnapi, int budget)
- 		skb->protocol = eth_type_trans(skb, tp->dev);
-  		if (len > (tp->dev->mtu + ETH_HLEN) &&
--		    skb->protocol != htons(ETH_P_8021Q)) {
-+		    skb->protocol != htons(ETH_P_8021Q) &&
-+		    skb->protocol != htons(ETH_P_8021AD)) {
- 			dev_kfree_skb_any(skb);
- 			goto drop_it_no_recycle;
- 		}
--- 
-1.9.3
+PiA+IFNjZW5hcmlvIDEgLSBUQ1AvSVB2NCBwYWNrZXQuIFRoaXMgd2lsbCBldmVudHVhbGx5IHJl
+YWNoDQo+ID4gdGNwNF9ncm9fcmVjZWl2ZSgpLCBhbmQgZnJvbSB0aGVyZSBpbnRvIHNrYl9ncm9f
+Y2hlY2tzdW1fdmFsaWRhdGUoKS4NCj4gPiBTaW5jZSB0aGlzIFNLQiBpcyBtYXJrZWQgYXMgQ09N
+UExFVEUsIHRoZSBwc2V1ZG8gVENQIGNoZWNrc3VtIHdpbGwgYmUNCj4gPiBjb21wdXRlZCBhbmQg
+c2tiX2dyb19jaGVja3N1bV92YWxpZGF0ZV9jb21wbGV0ZSgpIGJlIGNhbGxlZC4NCj4gPiBOb3cs
+IGl0IHNlZW1zIHRvIG1lIGFzIGlmIHRoZSBvbmx5IHdheSBieSB3aGljaCB0aGUgZmxvdyB3b24n
+dA0KPiA+IGFjdHVhbGx5IHRyeSB0byByZS1jYWxjdWxhdGUgdGhlIGNoZWNrc3VtIG92ZXIgVENQ
+IGhlYWRlciBhbmQgcGF5bG9hZA0KPiA+IGlzIGlmIE5BUElfR1JPX0NCKHNrYiktPmNzdW0gaXMg
+YWN0dWFsbHkgdGhlIG9uZSdzIGNvbXBsZW1lbnQgdG8gdGhlDQo+ID4gVENQIHBzZXVkbyBoZWFk
+ZXIuIEJ1dCB0aGF0IHNvdW5kcy4uLi4gb2RkLCBzaW5jZSB0aGF0J3MgdGhlIGNzdW0gdGhhdA0K
+PiA+IHNob3VsZCBoYXZlIGJlZW4gbGlzdGVkIG9uIHRoZSBTS0IgLSBhbmQgaXQgZG9lc24ndCBw
+cm90ZWN0IGFueSBvZiB0aGUgZGF0YSwNCj4gb25seSB0aGUgIm1ldGFkYXRhIi4NCj4gPg0KPiBX
+aXRoIENIRUNLU1VNX0NPTVBMRVRFLCBvbiBlbnRyYW5jZSBpbnRvIEdSTyBOQVBJX0dST19DQihz
+a2IpLT5jc3VtDQo+IGlzIHNldCB0byBza2ItPmNzdW0uIEFzIHRoZSBwYWNrZXQgaXMgcGFyc2Vk
+IHRocm91Z2ggdmFyaW91cyBsZXZlbHMgb2YgR1JPIHRoZQ0KPiB2YWx1ZSBpcyBhZGp1c3RlZCBz
+byB0aGF0IGF0IGFueSBoZWFkZXIgbGV2ZWwgaXQgaXMgdGhlIGNvbXBsZXRlIGNoZWNrc3VtIHN0
+YXJ0aW5nDQo+IGZyb20gdGhhdCBoZWFkZXIgdG8gdGhlIGVuZCBvZiB0aGUgcGFja2V0Lg0KPiBT
+byB0byB2YWxpZGF0ZSBhIFRDUCBjaGVja3N1bSB3ZSBqdXN0IG5lZWQgdG8gYWRkIHRoZSB2YWx1
+ZSBvZiB0aGUgcHNldWRvDQo+IGhlYWRlciBjaGVja3N1bSAoYSBsaXR0bGUgY29tcHV0YXRpb24p
+IGFuZCBjb21wYXJlIHRvIHplcm8uDQoNCi4uLg0KDQo+PiAxLiBXaGF0IHNob3VsZCBhIGRyaXZl
+ciBzZXQgYXMgdGhlIFNLQnMgY3N1bSB2YWx1ZSB3aGVuIHBhc3NpbmcgQ0hFQ0tTVU1fQ09NUExF
+VEU/DQo+VGhpcyBvbmVzIGNvbXBsZXRlIGNoZWNrc3VtIG9mIHRoZSBFdGhlcm5ldCBwYXlsb2Fk
+IChzdGFydCBvZiBJUCBoZWFkZXIgdG8gdGhlIGVuZCBvZiB0aGUgcGFja2V0KS4NCg0KQ2FuIHlv
+dSBwaW5wb2ludCBtZSB0byB3aGF0IGV4YWN0bHkgaW4gdGhlIGNvZGUgY29ycmVjdHMgTkFQSV9H
+Uk9fQ0Ioc2tiKS0+Y3N1bQ0KYnkgbmVnYXRpbmcgdGhlIGlwdjQgcGFydCBpbiB0aGUgb25lcycg
+Y29tcGxldGUgY2hlY2tzdW0/DQoNCkUuZy4sIGZvciBpcHY2IFtpbiBpcHY2X2dyb19yZWNlaXZl
+KCldIEkgY2FuIHNlZSB0aGF0IHNrYl9ncm9fcG9zdHB1bGxfcmNzdW0oKSBpcw0KY2FsbGVkIGFm
+dGVyIHB1bGxpbmcgdGhlIGlwdjYgaGVhZGVyIFthbmQgYmVmb3JlIHByb2NlZWRpbmcgdG8gdGhl
+IG5leHQgcHJvdG9jb2xdLA0KYnV0IEkgY2FuJ3Qgc2VlbSB0byBmaW5kIGFueXRoaW5nIHNpbWls
+YXIgdG8gdGhpcyBmb3IgaXB2NCBbaW4gaW5ldF9ncm9fcmVjZWl2ZSgpXS4NCg0KX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX18NCg0KVGhpcyBtZXNzYWdlIGFuZCBhbnkgYXR0YWNoZWQg
+ZG9jdW1lbnRzIGNvbnRhaW4gaW5mb3JtYXRpb24gZnJvbSBRTG9naWMgQ29ycG9yYXRpb24gb3Ig
+aXRzIHdob2xseS1vd25lZCBzdWJzaWRpYXJpZXMgdGhhdCBtYXkgYmUgY29uZmlkZW50aWFsLiBJ
+ZiB5b3UgYXJlIG5vdCB0aGUgaW50ZW5kZWQgcmVjaXBpZW50LCB5b3UgbWF5IG5vdCByZWFkLCBj
+b3B5LCBkaXN0cmlidXRlLCBvciB1c2UgdGhpcyBpbmZvcm1hdGlvbi4gSWYgeW91IGhhdmUgcmVj
+ZWl2ZWQgdGhpcyB0cmFuc21pc3Npb24gaW4gZXJyb3IsIHBsZWFzZSBub3RpZnkgdGhlIHNlbmRl
+ciBpbW1lZGlhdGVseSBieSByZXBseSBlLW1haWwgYW5kIHRoZW4gZGVsZXRlIHRoaXMgbWVzc2Fn
+ZS4NCg==
