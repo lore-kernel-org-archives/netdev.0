@@ -1,186 +1,145 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] net: bridge: add a br_set_state helper function
-Date: Tue, 30 Sep 2014 16:00:20 -0700
-Message-ID: <542B3604.2070206@gmail.com>
-References: <1412117947-796-1-git-send-email-f.fainelli@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, bridge@lists.linux-foundation.org,
-	stephen@networkplumber.org, vyasevich@gmail.com, jiri@resnulli.us
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net-next] net_sched: avoid calling tcf_unbind_filter() in call_rcu callback
+Date: Tue, 30 Sep 2014 16:07:24 -0700
+Message-ID: <1412118444-29179-2-git-send-email-xiyou.wangcong@gmail.com>
+References: <1412118444-29179-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: davem@davemloft.net, Cong Wang <xiyou.wangcong@gmail.com>,
+	John Fastabend <john.r.fastabend@intel.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f177.google.com ([209.85.192.177]:65411 "EHLO
-	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750939AbaI3XAp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2014 19:00:45 -0400
-Received: by mail-pd0-f177.google.com with SMTP id v10so1523035pde.8
-        for <netdev@vger.kernel.org>; Tue, 30 Sep 2014 16:00:44 -0700 (PDT)
-In-Reply-To: <1412117947-796-1-git-send-email-f.fainelli@gmail.com>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:56890 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750945AbaI3XHl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2014 19:07:41 -0400
+Received: by mail-pa0-f41.google.com with SMTP id eu11so5027587pac.0
+        for <netdev@vger.kernel.org>; Tue, 30 Sep 2014 16:07:40 -0700 (PDT)
+In-Reply-To: <1412118444-29179-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/30/2014 03:59 PM, Florian Fainelli wrote:
-> In preparation for being able to propagate port states to e.g: notifiers
-> or other kernel parts, do not manipulate the port state directly, but
-> instead use a helper function which will allow us to do a bit more than
-> just setting the state.
+This fixes the following crash:
 
-I sent the wrong version of the patch, but I would still appreciate if
-you could comment on the idea. Thanks!
+[   63.976822] general protection fault: 0000 [#1] PREEMPT SMP DEBUG_PAGEALLOC
+[   63.980094] CPU: 1 PID: 15 Comm: ksoftirqd/1 Not tainted 3.17.0-rc6+ #648
+[   63.980094] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
+[   63.980094] task: ffff880117dea690 ti: ffff880117dfc000 task.ti: ffff880117dfc000
+[   63.980094] RIP: 0010:[<ffffffff817e6d07>]  [<ffffffff817e6d07>] u32_destroy_key+0x27/0x6d
+[   63.980094] RSP: 0018:ffff880117dffcc0  EFLAGS: 00010202
+[   63.980094] RAX: ffff880117dea690 RBX: ffff8800d02e0820 RCX: 0000000000000000
+[   63.980094] RDX: 0000000000000001 RSI: 0000000000000002 RDI: 6b6b6b6b6b6b6b6b
+[   63.980094] RBP: ffff880117dffcd0 R08: 0000000000000000 R09: 0000000000000000
+[   63.980094] R10: 00006c0900006ba8 R11: 00006ba100006b9d R12: 0000000000000001
+[   63.980094] R13: ffff8800d02e0898 R14: ffffffff817e6d4d R15: ffff880117387a30
+[   63.980094] FS:  0000000000000000(0000) GS:ffff88011a800000(0000) knlGS:0000000000000000
+[   63.980094] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+[   63.980094] CR2: 00007f07e6732fed CR3: 000000011665b000 CR4: 00000000000006e0
+[   63.980094] Stack:
+[   63.980094]  ffff88011a9cd300 ffffffff82051ac0 ffff880117dffce0 ffffffff817e6d68
+[   63.980094]  ffff880117dffd70 ffffffff810cb4c7 ffffffff810cb3cd ffff880117dfffd8
+[   63.980094]  ffff880117dea690 ffff880117dea690 ffff880117dfffd8 000000000000000a
+[   63.980094] Call Trace:
+[   63.980094]  [<ffffffff817e6d68>] u32_delete_key_freepf_rcu+0x1b/0x1d
+[   63.980094]  [<ffffffff810cb4c7>] rcu_process_callbacks+0x3bb/0x691
+[   63.980094]  [<ffffffff810cb3cd>] ? rcu_process_callbacks+0x2c1/0x691
+[   63.980094]  [<ffffffff817e6d4d>] ? u32_destroy_key+0x6d/0x6d
+[   63.980094]  [<ffffffff810780a4>] __do_softirq+0x142/0x323
+[   63.980094]  [<ffffffff810782a8>] run_ksoftirqd+0x23/0x53
+[   63.980094]  [<ffffffff81092126>] smpboot_thread_fn+0x203/0x221
+[   63.980094]  [<ffffffff81091f23>] ? smpboot_unpark_thread+0x33/0x33
+[   63.980094]  [<ffffffff8108e44d>] kthread+0xc9/0xd1
+[   63.980094]  [<ffffffff819e00ea>] ? do_wait_for_common+0xf8/0x125
+[   63.980094]  [<ffffffff8108e384>] ? __kthread_parkme+0x61/0x61
+[   63.980094]  [<ffffffff819e43ec>] ret_from_fork+0x7c/0xb0
+[   63.980094]  [<ffffffff8108e384>] ? __kthread_parkme+0x61/0x61
 
-> 
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-> ---
->  net/bridge/br_if.c        |  2 +-
->  net/bridge/br_multicast.c |  2 +-
->  net/bridge/br_netlink.c   |  2 +-
->  net/bridge/br_private.h   |  1 +
->  net/bridge/br_stp.c       | 15 ++++++++++-----
->  net/bridge/br_stp_if.c    |  4 ++--
->  net/bridge/br_stp_timer.c |  4 ++--
->  7 files changed, 18 insertions(+), 12 deletions(-)
-> 
-> diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-> index a9f54a9b6690..7b7289ca2992 100644
-> --- a/net/bridge/br_if.c
-> +++ b/net/bridge/br_if.c
-> @@ -332,7 +332,7 @@ static struct net_bridge_port *new_nbp(struct net_bridge *br,
->  	p->port_no = index;
->  	p->flags = BR_LEARNING | BR_FLOOD;
->  	br_init_port(p);
-> -	p->state = BR_STATE_DISABLED;
-> +	br_set_state(p, BR_STATE_DISABLED);
->  	br_stp_port_timer_init(p);
->  	br_multicast_add_port(p);
->  
-> diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-> index 648d79ccf462..1f4fd22c84fc 100644
-> --- a/net/bridge/br_multicast.c
-> +++ b/net/bridge/br_multicast.c
-> @@ -645,7 +645,7 @@ struct net_bridge_port_group *br_multicast_new_port_group(
->  
->  	p->addr = *group;
->  	p->port = port;
-> -	p->state = state;
-> +	br_set_state(p, state);
->  	rcu_assign_pointer(p->next, next);
->  	hlist_add_head(&p->mglist, &port->mglist);
->  	setup_timer(&p->timer, br_multicast_port_group_expired,
-> diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-> index 0fa66b83685f..2ff9706647f2 100644
-> --- a/net/bridge/br_netlink.c
-> +++ b/net/bridge/br_netlink.c
-> @@ -301,7 +301,7 @@ static int br_set_port_state(struct net_bridge_port *p, u8 state)
->  	    (!netif_oper_up(p->dev) && state != BR_STATE_DISABLED))
->  		return -ENETDOWN;
->  
-> -	p->state = state;
-> +	br_set_state(p, state);
->  	br_log_state(p);
->  	br_port_state_selection(p->br);
->  	return 0;
-> diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-> index f53592fc3ef9..4ff82fc0e79c 100644
-> --- a/net/bridge/br_private.h
-> +++ b/net/bridge/br_private.h
-> @@ -766,6 +766,7 @@ static inline void br_nf_core_fini(void) {}
->  
->  /* br_stp.c */
->  void br_log_state(const struct net_bridge_port *p);
-> +void br_set_stp_state(const struct net_bridge_port *p);
->  struct net_bridge_port *br_get_port(struct net_bridge *br, u16 port_no);
->  void br_init_port(struct net_bridge_port *p);
->  void br_become_designated_port(struct net_bridge_port *p);
-> diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
-> index 3c86f0538cbb..a859373b7d68 100644
-> --- a/net/bridge/br_stp.c
-> +++ b/net/bridge/br_stp.c
-> @@ -36,6 +36,11 @@ void br_log_state(const struct net_bridge_port *p)
->  		br_port_state_names[p->state]);
->  }
->  
-> +void br_set_state(const struct net_bridge_port *p, unsigned int state)
-> +{
-> +	p->state = state;
-> +}
-> +
->  /* called under bridge lock */
->  struct net_bridge_port *br_get_port(struct net_bridge *br, u16 port_no)
->  {
-> @@ -107,7 +112,7 @@ static void br_root_port_block(const struct net_bridge *br,
->  	br_notice(br, "port %u(%s) tried to become root port (blocked)",
->  		  (unsigned int) p->port_no, p->dev->name);
->  
-> -	p->state = BR_STATE_LISTENING;
-> +	br_set_state(p, BR_STATE_LISTENING);
->  	br_log_state(p);
->  	br_ifinfo_notify(RTM_NEWLINK, p);
->  
-> @@ -387,7 +392,7 @@ static void br_make_blocking(struct net_bridge_port *p)
->  		    p->state == BR_STATE_LEARNING)
->  			br_topology_change_detection(p->br);
->  
-> -		p->state = BR_STATE_BLOCKING;
-> +		br_set_state(p, BR_STATE_BLOCKING);
->  		br_log_state(p);
->  		br_ifinfo_notify(RTM_NEWLINK, p);
->  
-> @@ -404,13 +409,13 @@ static void br_make_forwarding(struct net_bridge_port *p)
->  		return;
->  
->  	if (br->stp_enabled == BR_NO_STP || br->forward_delay == 0) {
-> -		p->state = BR_STATE_FORWARDING;
-> +		br_set_state(p, BR_STATE_FORWARDING);
->  		br_topology_change_detection(br);
->  		del_timer(&p->forward_delay_timer);
->  	} else if (br->stp_enabled == BR_KERNEL_STP)
-> -		p->state = BR_STATE_LISTENING;
-> +		br_set_state(p, BR_STATE_LISTENING);
->  	else
-> -		p->state = BR_STATE_LEARNING;
-> +		br_set_state(p, BR_STATE_LEARNING);
->  
->  	br_multicast_enable_port(p);
->  	br_log_state(p);
-> diff --git a/net/bridge/br_stp_if.c b/net/bridge/br_stp_if.c
-> index 189ba1e7d851..41146872c1b4 100644
-> --- a/net/bridge/br_stp_if.c
-> +++ b/net/bridge/br_stp_if.c
-> @@ -37,7 +37,7 @@ void br_init_port(struct net_bridge_port *p)
->  {
->  	p->port_id = br_make_port_id(p->priority, p->port_no);
->  	br_become_designated_port(p);
-> -	p->state = BR_STATE_BLOCKING;
-> +	br_set_state(p, BR_STATE_BLOCKING);
->  	p->topology_change_ack = 0;
->  	p->config_pending = 0;
->  }
-> @@ -100,7 +100,7 @@ void br_stp_disable_port(struct net_bridge_port *p)
->  
->  	wasroot = br_is_root_bridge(br);
->  	br_become_designated_port(p);
-> -	p->state = BR_STATE_DISABLED;
-> +	br_set_state(p, BR_STATE_DISABLED);
->  	p->topology_change_ack = 0;
->  	p->config_pending = 0;
->  
-> diff --git a/net/bridge/br_stp_timer.c b/net/bridge/br_stp_timer.c
-> index 558c46d19e05..4fcaa67750fd 100644
-> --- a/net/bridge/br_stp_timer.c
-> +++ b/net/bridge/br_stp_timer.c
-> @@ -87,11 +87,11 @@ static void br_forward_delay_timer_expired(unsigned long arg)
->  		 (unsigned int) p->port_no, p->dev->name);
->  	spin_lock(&br->lock);
->  	if (p->state == BR_STATE_LISTENING) {
-> -		p->state = BR_STATE_LEARNING;
-> +		br_set_state(p, BR_STATE_LEARNING);
->  		mod_timer(&p->forward_delay_timer,
->  			  jiffies + br->forward_delay);
->  	} else if (p->state == BR_STATE_LEARNING) {
-> -		p->state = BR_STATE_FORWARDING;
-> +		br_set_state(p, BR_STATE_FORWARDING);
->  		if (br_is_designated_for_some_port(br))
->  			br_topology_change_detection(br);
->  		netif_carrier_on(br->dev);
-> 
+tp could be freed in call_rcu callback too, the order is not guaranteed.
+
+Cc: John Fastabend <john.r.fastabend@intel.com>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+---
+ include/net/pkt_cls.h |  6 +-----
+ net/sched/cls_u32.c   | 10 ++++++----
+ 2 files changed, 7 insertions(+), 9 deletions(-)
+
+diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
+index 73f9532..ef44ad9 100644
+--- a/include/net/pkt_cls.h
++++ b/include/net/pkt_cls.h
+@@ -20,11 +20,7 @@ int unregister_tcf_proto_ops(struct tcf_proto_ops *ops);
+ static inline unsigned long
+ __cls_set_class(unsigned long *clp, unsigned long cl)
+ {
+-	unsigned long old_cl;
+- 
+-	old_cl = *clp;
+-	*clp = cl;
+-	return old_cl;
++	return xchg(clp, cl);
+ }
+ 
+ static inline unsigned long
+diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
+index 4be3ebf..0472909 100644
+--- a/net/sched/cls_u32.c
++++ b/net/sched/cls_u32.c
+@@ -358,7 +358,6 @@ static int u32_destroy_key(struct tcf_proto *tp,
+ 			   struct tc_u_knode *n,
+ 			   bool free_pf)
+ {
+-	tcf_unbind_filter(tp, &n->res);
+ 	tcf_exts_destroy(&n->exts);
+ 	if (n->ht_down)
+ 		n->ht_down->refcnt--;
+@@ -416,6 +415,7 @@ static int u32_delete_key(struct tcf_proto *tp, struct tc_u_knode *key)
+ 			if (pkp == key) {
+ 				RCU_INIT_POINTER(*kp, key->next);
+ 
++				tcf_unbind_filter(tp, &key->res);
+ 				call_rcu(&key->rcu, u32_delete_key_freepf_rcu);
+ 				return 0;
+ 			}
+@@ -425,7 +425,7 @@ static int u32_delete_key(struct tcf_proto *tp, struct tc_u_knode *key)
+ 	return 0;
+ }
+ 
+-static void u32_clear_hnode(struct tc_u_hnode *ht)
++static void u32_clear_hnode(struct tcf_proto *tp, struct tc_u_hnode *ht)
+ {
+ 	struct tc_u_knode *n;
+ 	unsigned int h;
+@@ -434,6 +434,7 @@ static void u32_clear_hnode(struct tc_u_hnode *ht)
+ 		while ((n = rtnl_dereference(ht->ht[h])) != NULL) {
+ 			RCU_INIT_POINTER(ht->ht[h],
+ 					 rtnl_dereference(n->next));
++			tcf_unbind_filter(tp, &n->res);
+ 			call_rcu(&n->rcu, u32_delete_key_freepf_rcu);
+ 		}
+ 	}
+@@ -447,7 +448,7 @@ static int u32_destroy_hnode(struct tcf_proto *tp, struct tc_u_hnode *ht)
+ 
+ 	WARN_ON(ht->refcnt);
+ 
+-	u32_clear_hnode(ht);
++	u32_clear_hnode(tp, ht);
+ 
+ 	hn = &tp_c->hlist;
+ 	for (phn = rtnl_dereference(*hn);
+@@ -482,7 +483,7 @@ static void u32_destroy(struct tcf_proto *tp)
+ 		     ht;
+ 		     ht = rtnl_dereference(ht->next)) {
+ 			ht->refcnt--;
+-			u32_clear_hnode(ht);
++			u32_clear_hnode(tp, ht);
+ 		}
+ 
+ 		while ((ht = rtnl_dereference(tp_c->hlist)) != NULL) {
+@@ -731,6 +732,7 @@ static int u32_change(struct net *net, struct sk_buff *in_skb,
+ 		}
+ 
+ 		u32_replace_knode(tp, tp_c, new);
++		tcf_unbind_filter(tp, &n->res);
+ 		call_rcu(&n->rcu, u32_delete_key_rcu);
+ 		return 0;
+ 	}
+-- 
+1.8.3.1
