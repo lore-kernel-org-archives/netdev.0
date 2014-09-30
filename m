@@ -1,32 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv9 net-next 0/4] sunvnet: add jumbo frames support
-Date: Tue, 30 Sep 2014 17:11:29 -0400 (EDT)
-Message-ID: <20140930.171129.303142714967964225.davem@davemloft.net>
-References: <5429EFA3.9050304@oracle.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [net-next PATCH] dql: add a burst attribute
+Date: Tue, 30 Sep 2014 23:29:55 +0200
+Message-ID: <20140930232955.406a92da@redhat.com>
+References: <20140930085114.24043.81310.stgit@dragon>
+	<1412080482.30721.68.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1412081485.30721.75.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sowmini.varadhan@oracle.com,
-	raghuram.kothakota@oracle.com
-To: david.stevens@oracle.com
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Tom Herbert <therbert@google.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Florian Westphal <fw@strlen.de>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Dave Taht <dave.taht@gmail.com>, toke@toke.dk,
+	brouer@redhat.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49996 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750850AbaI3VLb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2014 17:11:31 -0400
-In-Reply-To: <5429EFA3.9050304@oracle.com>
+Received: from mx1.redhat.com ([209.132.183.28]:30429 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750850AbaI3VaX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Sep 2014 17:30:23 -0400
+In-Reply-To: <1412081485.30721.75.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David L Stevens <david.stevens@oracle.com>
-Date: Mon, 29 Sep 2014 19:47:47 -0400
+On Tue, 30 Sep 2014 05:51:25 -0700
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-> This patch set updates the sunvnet driver to version 1.6 of the VIO protocol
-> to support per-port exchange of MTU information and allow non-standard MTU
-> sizes, including jumbo frames.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Using large MTUs shows a nearly 5X throughput improvement Linux-Solaris
-> and > 10X throughput improvement Linux-Linux.
+> Add a new dql attribute, to control how much packets we are allowed to
+> burst from qdisc to device.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> ---
+> Jesper, please consider using this instead of 7 or 8 values you hard coded.
 
-Looks great, applied to net-next, and as I mentioned I'll push the
-arch/sparc bits from patch #1 into the sparc tree too.
+The hard coded budget was only a safe guard.  I didn't want to export
+it (as we can never remove it then), I plan to remove it or replace it
+with something else.
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
