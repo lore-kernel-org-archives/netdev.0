@@ -1,43 +1,26 @@
-From: Fabian Frederick <fabf@skynet.be>
-Subject: [PATCH 1/1 linux-next] irda: add __init to irlan_open
-Date: Tue, 30 Sep 2014 22:24:04 +0200
-Message-ID: <1412108644-6547-1-git-send-email-fabf@skynet.be>
-Cc: Fabian Frederick <fabf@skynet.be>,
-	Samuel Ortiz <samuel@sortiz.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] r8152: fix setting RTL8152_UNPLUG
+Date: Tue, 30 Sep 2014 16:24:13 -0400 (EDT)
+Message-ID: <20140930.162413.1928220515698421769.davem@davemloft.net>
+References: <1394712342-15778-50-Taiwan-albertk@realtek.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
+	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
+To: hayeswang@realtek.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1394712342-15778-50-Taiwan-albertk@realtek.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-irlan_open is only called by __init irlan_init in same module.
+From: Hayes Wang <hayeswang@realtek.com>
+Date: Tue, 30 Sep 2014 16:48:01 +0800
 
-Signed-off-by: Fabian Frederick <fabf@skynet.be>
----
- net/irda/irlan/irlan_common.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+> The flag of RTL8152_UNPLUG should only be set when the device is
+> unplugged, not each time the rtl8152_disconnect() is called.
+> Otherwise, the device wouldn't be stopped normally.
+> 
+> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 
-diff --git a/net/irda/irlan/irlan_common.c b/net/irda/irlan/irlan_common.c
-index 1bc49ed..5a2d0a6 100644
---- a/net/irda/irlan/irlan_common.c
-+++ b/net/irda/irlan/irlan_common.c
-@@ -98,7 +98,7 @@ static const struct file_operations irlan_fops = {
- extern struct proc_dir_entry *proc_irda;
- #endif /* CONFIG_PROC_FS */
- 
--static struct irlan_cb *irlan_open(__u32 saddr, __u32 daddr);
-+static struct irlan_cb __init *irlan_open(__u32 saddr, __u32 daddr);
- static void __irlan_close(struct irlan_cb *self);
- static int __irlan_insert_param(struct sk_buff *skb, char *param, int type,
- 				__u8 value_byte, __u16 value_short,
-@@ -196,7 +196,7 @@ static void __exit irlan_cleanup(void)
-  *    Open new instance of a client/provider, we should only register the
-  *    network device if this instance is ment for a particular client/provider
-  */
--static struct irlan_cb *irlan_open(__u32 saddr, __u32 daddr)
-+static struct irlan_cb __init *irlan_open(__u32 saddr, __u32 daddr)
- {
- 	struct net_device *dev;
- 	struct irlan_cb *self;
--- 
-1.9.3
+Applied, thanks.
