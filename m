@@ -1,57 +1,72 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net-next] net: cleanup and document skb fclone layout
-Date: Mon, 29 Sep 2014 18:30:18 -0700
-Message-ID: <1412040618.30721.49.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1411860341.15768.55.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1412022555.30721.40.camel@edumazet-glaptop2.roam.corp.google.com>
+From: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
+Subject: RE: [PATCH v2 1/1] net: fec: implement rx_copybreak to improve rx
+ performance
+Date: Tue, 30 Sep 2014 01:38:29 +0000
+Message-ID: <90749a3ae924458ab350f83d8b71c247@BLUPR03MB373.namprd03.prod.outlook.com>
+References: <1411976824-28824-1-git-send-email-b38611@freescale.com>
+	<1411992739.30721.23.camel@edumazet-glaptop2.roam.corp.google.com>
+	<323020b0c5a44235a1707dd0619deba3@BLUPR03MB373.namprd03.prod.outlook.com>
+ <CAHrpEqTL+9iv6SUM7V2Nn4SD4G-20+xAfNCfTqvLMGO0weuj1A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"Frank.Li@freescale.com" <Frank.Li@freescale.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"romieu@fr.zoreil.com" <romieu@fr.zoreil.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"shawn.guo@linaro.org" <shawn.guo@linaro.org>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>
+To: Zhi Li <lznuaa@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f179.google.com ([209.85.192.179]:43665 "EHLO
-	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754199AbaI3BaW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 21:30:22 -0400
-Received: by mail-pd0-f179.google.com with SMTP id r10so3601828pdi.24
-        for <netdev@vger.kernel.org>; Mon, 29 Sep 2014 18:30:21 -0700 (PDT)
-In-Reply-To: <1412022555.30721.40.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-by2on0104.outbound.protection.outlook.com ([207.46.100.104]:6080
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754838AbaI3Bib (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Sep 2014 21:38:31 -0400
+In-Reply-To: <CAHrpEqTL+9iv6SUM7V2Nn4SD4G-20+xAfNCfTqvLMGO0weuj1A@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-09-29 at 13:29 -0700, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
-> 
-
->  struct sk_buff *skb_clone(struct sk_buff *skb, gfp_t gfp_mask)
->  {
-> -	struct sk_buff *n;
-> +	struct sk_buff_fclones *fclones = container_of(skb,
-> +						       struct sk_buff_fclones,
-> +						       skb1);
-> +	struct sk_buff *n = &fclones->skb2;
->  
->  	if (skb_orphan_frags(skb, gfp_mask))
->  		return NULL;
->  
-> -	n = skb + 1;
->  	if (skb->fclone == SKB_FCLONE_ORIG &&
->  	    n->fclone == SKB_FCLONE_UNAVAILABLE) {
-> -		atomic_t *fclone_ref = (atomic_t *) (n + 1);
->  		n->fclone = SKB_FCLONE_CLONE;
-> -		atomic_inc(fclone_ref);
-> +		atomic_inc(&fclones->fclone_ref);
->  	} else {
->  		if (skb_pfmemalloc(skb))
->  			gfp_mask |= __GFP_MEMALLOC;
-
-Note : 
-
-The "atomic_inc(&fclones->fclone_ref)" here can be replaced by an
-atomic_set(&fclones->fclone_ref, 2), to avoid a locked operation.
-
-
-I'll cook a patch for this, after you merged this cleanup
-
-Thanks
+RnJvbTogWmhpIExpIDxsem51YWFAZ21haWwuY29tPiBTZW50OiBNb25kYXksIFNlcHRlbWJlciAy
+OSwgMjAxNCA5OjEwIFBNDQo+VG86IER1YW4gRnVnYW5nLUIzODYxMQ0KPkNjOiBFcmljIER1bWF6
+ZXQ7IExpIEZyYW5rLUIyMDU5NjsgZGF2ZW1AZGF2ZW1sb2Z0Lm5ldDsNCj5yb21pZXVAZnIuem9y
+ZWlsLmNvbTsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgc2hhd24uZ3VvQGxpbmFyby5vcmc7DQo+
+Ymh1dGNoaW5nc0Bzb2xhcmZsYXJlLmNvbQ0KPlN1YmplY3Q6IFJlOiBbUEFUQ0ggdjIgMS8xXSBu
+ZXQ6IGZlYzogaW1wbGVtZW50IHJ4X2NvcHlicmVhayB0byBpbXByb3ZlIHJ4DQo+cGVyZm9ybWFu
+Y2UNCj4NCj5PbiBNb24sIFNlcCAyOSwgMjAxNCBhdCA3OjQzIEFNLCBmdWdhbmcuZHVhbkBmcmVl
+c2NhbGUuY29tDQo+PGZ1Z2FuZy5kdWFuQGZyZWVzY2FsZS5jb20+IHdyb3RlOg0KPj4gRnJvbTog
+RXJpYyBEdW1hemV0IDxlcmljLmR1bWF6ZXRAZ21haWwuY29tPiBTZW50OiBNb25kYXksIFNlcHRl
+bWJlcg0KPj4gMjksIDIwMTQgODoxMiBQTQ0KPj4+VG86IER1YW4gRnVnYW5nLUIzODYxMQ0KPj4+
+Q2M6IExpIEZyYW5rLUIyMDU5NjsgZGF2ZW1AZGF2ZW1sb2Z0Lm5ldDsgcm9taWV1QGZyLnpvcmVp
+bC5jb207DQo+Pj5uZXRkZXZAdmdlci5rZXJuZWwub3JnOyBzaGF3bi5ndW9AbGluYXJvLm9yZzsN
+Cj4+PmJodXRjaGluZ3NAc29sYXJmbGFyZS5jb20NCj4+PlN1YmplY3Q6IFJlOiBbUEFUQ0ggdjIg
+MS8xXSBuZXQ6IGZlYzogaW1wbGVtZW50IHJ4X2NvcHlicmVhayB0bw0KPj4+aW1wcm92ZSByeCBw
+ZXJmb3JtYW5jZQ0KPj4+DQo+Pj5PbiBNb24sIDIwMTQtMDktMjkgYXQgMTU6NDcgKzA4MDAsIEZ1
+Z2FuZyBEdWFuIHdyb3RlOg0KPj4+PiAtIENvcHkgc2hvcnQgZnJhbWVzIGFuZCBrZWVwIHRoZSBi
+dWZmZXJzIG1hcHBlZCwgcmUtYWxsb2NhdGUgc2tiDQo+Pj4+IGluc3RlYWQNCj4+Pm9mDQo+Pj4+
+ICAgbWVtb3J5IGNvcHkgZm9yIGxvbmcgZnJhbWVzLg0KPj4+PiAtIEFkZCBzdXBwb3J0IGZvciBz
+ZXR0aW5nL2dldHRpbmcgcnhfY29weWJyZWFrIHVzaW5nIGdlbmVyaWMgZXRodG9vbA0KPj4+PiB0
+dW5hYmxlDQo+Pj4+DQo+Pj4+IENoYW5nZXMgVjI6DQo+Pj4+ICogSW1wbGVtZW50cyByeF9jb3B5
+YnJlYWsNCj4+Pg0KPj4+Pg0KPj4+PiArI2RlZmluZSBDT1BZQlJFQUtfREVGQVVMVCAyNTYNCj4+
+Pj4gK3N0YXRpYyB1bnNpZ25lZCBpbnQgY29weWJyZWFrIF9fcmVhZF9tb3N0bHkgPSBDT1BZQlJF
+QUtfREVGQVVMVDsNCj4+Pj4gK21vZHVsZV9wYXJhbShjb3B5YnJlYWssIHVpbnQsIDA2NDQpOyBN
+T0RVTEVfUEFSTV9ERVNDKGNvcHlicmVhaywNCj4+Pj4gKyAgICAgICAgICAgICAiTWF4aW11bSBw
+YWNrZXQgc2l6ZSB0aGF0IGlzIGNvcGllZCB0byBhIG5ldyBidWZmZXIgb24NCj4+PnJlY2VpdmUi
+KTsNCj4+Pj4gKw0KPj4+DQo+Pj5JdCBpcyBub3QgdGhlIHJpZ2h0IHdheSB0byBoYW5kbGUgdGhp
+cy4NCj4+Pg0KPj4+T2xkIGRyaXZlcnMgbWlnaHQgc3RpbGwgaGF2ZSBhIGxlZ2FjeSBtb2R1bGUg
+cGFyYW1ldGVyLg0KPj4+DQo+Pj5OZXcgaW1wbGVtZW50YXRpb25zIHNob3VsZCBwcm92aWRlIHRo
+ZSBuZXcgZXRodG9vbCBzdXBwb3J0LCBhbmQgb25seQ0KPnRoaXMuDQo+Pj5ObyBuZXcgbW9kdWxl
+IHBhcmFtZXRlciBpcyBhY2NlcHRlZC4NCj4+Pg0KPj4+Rm9yIGRldGFpbHMsIGNoZWNrIGZvbGxv
+d2luZyBjb21taXRzIDoNCj4+Pg0KPj4+ZDRhZDMwYjE4MjMwNWVjZjk3ZjE0NWE1ZDRkMWZkOWU3
+MjhjNmQwMSBlbmljOiBBZGQgdHVuYWJsZV9vcHMgc3VwcG9ydA0KPj4+Zm9yIHJ4X2NvcHlicmVh
+aw0KPj4+DQo+Pj5mMGRiOWIwNzM0MTU4NDg3MDlkZDU5YTYzOTQ5Njk4ODJmNTE3ZGE5IGV0aHRv
+b2w6IEFkZCBnZW5lcmljIG9wdGlvbnMNCj4+PmZvciB0dW5hYmxlcw0KPj4+DQo+Pj4NCj4+Pk9y
+IGNoZWNrIHRoZSBjdXJyZW50IHRyZWUgOg0KPj4+DQo+Pj5naXQgZ3JlcCAtbiByeF9jb3B5YnJl
+YWsgZHJpdmVycy9uZXQvZXRoZXJuZXQvY2lzY28vZW5pYw0KPj4+DQo+PiBUaGUgcGF0Y2ggaW1w
+bGVtZW50IGV0aHRvb2wgaW50ZXJmYWNlLCBwbHMgcmVhZCB0aGUgcGF0Y2ggY29tcGxldGVseS4N
+Cj4NCj5JIHRoaW5rIEVyaWMncyBtZWFucyBpcyB0aGF0IFJFTU9WRSBtb2R1bGUgcGFyYW1ldGVy
+IGFuZCBqdXN0IGtlZXAgZXRodG9vbA0KPkFQSS4NCj4NCj5iZXN0IHJlZ2FyZHMNCj5GcmFuayBM
+aQ0KPg0KT2ssIEkgd2lsbCBzdWJtaXQgdGhlIG5leHQgdmVyc2lvbiB0byByZW1vdmUgdGhlIG1v
+ZHVsZSBwYXJhbWV0ZXIuDQoNClJlZ2FyZHMsDQpBbmR5DQo=
