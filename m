@@ -1,77 +1,71 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [net-next PATCH] dql: add a burst attribute
-Date: Tue, 30 Sep 2014 07:26:35 -0700
-Message-ID: <CA+mtBx8HLPjSLXLH3z_j6zES8cTVpb67EBpFcVv94ANgMkYyTQ@mail.gmail.com>
-References: <20140930085114.24043.81310.stgit@dragon>
-	<1412080482.30721.68.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1412081485.30721.75.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20140930134655.GA24565@breakpoint.cc>
-	<1412086646.30721.81.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Florian Westphal <fw@strlen.de>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Dave Taht <dave.taht@gmail.com>,
-	=?UTF-8?B?VG9rZSBIw7hpbGFuZC1Kw7hyZ2Vuc2Vu?= <toke@toke.dk>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Antoine Tenart <antoine.tenart@free-electrons.com>
+Subject: [PATCH v6 00/10] ARM: Berlin: Ethernet support
+Date: Tue, 30 Sep 2014 16:28:06 +0200
+Message-ID: <1412087296-18475-1-git-send-email-antoine.tenart@free-electrons.com>
+Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
+	alexandre.belloni@free-electrons.com,
+	thomas.petazzoni@free-electrons.com, zmxu@marvell.com,
+	jszhang@marvell.com, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, devicetree@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: sebastian.hesselbarth@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f180.google.com ([209.85.213.180]:51096 "EHLO
-	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751860AbaI3O0h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2014 10:26:37 -0400
-Received: by mail-ig0-f180.google.com with SMTP id a13so5590209igq.1
-        for <netdev@vger.kernel.org>; Tue, 30 Sep 2014 07:26:36 -0700 (PDT)
-In-Reply-To: <1412086646.30721.81.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from top.free-electrons.com ([176.31.233.9]:55650 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751567AbaI3O2T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2014 10:28:19 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 30, 2014 at 7:17 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Tue, 2014-09-30 at 15:46 +0200, Florian Westphal wrote:
->> Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> > From: Eric Dumazet <edumazet@google.com>
->> >
->> > Add a new dql attribute, to control how much packets we are allowed to
->> > burst from qdisc to device.
->>
->> I understand the motivation for this, but I find it a bit out-of-place
->> to have a 'packet' type counter in bql context?
->>
->> Would it perhaps make more sense to restrict bulk dequeues by an upper
->> (possibly changeable from userspace) byte counter limit?
->
-> The byte count is already provided : its the BQL limit.
-> We already have ways to tune it (limit_min & limit_max)
-> We do not think we need something else here.
-> That was the whole point of reusing BQL in the first place : Its already
-> powerful and implemented.
->
-> This new attribute is a packet burst.
->
-Yes, this is the wrong place to put it. DQL knows nothing about
-packets or technically even bytes, it's a generic library that deal
-with "objects" on a queue. I don't see how burst relates to this.
+Hi all,
 
-I would infer from the patch that what you want is to add an attribute
-to the TX queue. Why not do this directly?
+This series introduce support for the Ethernet controller on Berlin SoCs,
+using the existing pxa168 Ethernet driver. In order to do this, DT
+support is added to the driver alongside some other modifications and
+fixes.
 
->
-> When I suggested 'pburst' attribute for pktgen to Alexei, he sent a
-> patch with "burst". Nobody complained.
->
-> Now I am reusing what apparently was OK for pktgen, you seem to object.
->
-> If you feel not comfortable with "burst", rename it to whatever you
-> think is best.
->
-> But please, do not hard code magic 7 in your code.
->
-> Thanks
->
->
+This has been tested on a Berlin BG2Q DMP board.
+
+Changes since v5:
+	- fixed the build when building the driver as a module
+
+Changes since v4:
+        - removed the phy-addr property and added a phy subnode
+        - added COMPILE_TEST for the pxa168_eth driver
+
+Changes since v3:
+        - moved the addition of pxa168_eth_get_mac_address() to the patch
+          using it first
+
+Changes since v2:
+        - reworked how the MAC address is configured
+        - made the clock anonymous
+
+Changes since v1:
+        - removed custom Berlin Ethernet driver
+        - used the pxa168 Ethernet driver instead
+        - made modifications to the pxa168 driver (DT support, fixes)
+
+Antoine Tenart (10):
+  net: pxa168_eth: clean up
+  net: pxa168_eth: add device tree support
+  Documentation: bindings: net: add the Marvell PXA168 Ethernet
+    controller
+  net: pxa168_eth: fix Ethernet flow control status
+  net: pxa168_eth: set the mac address on the Ethernet controller
+  net: pxa168_eth: rework the MAC address setup
+  net: pxa168_eth: allow Berlin SoCs to use the pxa168_eth driver
+  net: pxa168_eth: allow to compile the pxa168_eth driver for tests
+  ARM: dts: berlin: add the Ethernet node
+  ARM: dts: berlin: enable the Ethernet port on the BG2Q DMP
+
+ .../devicetree/bindings/net/marvell-pxa168.txt     |  36 ++++
+ arch/arm/boot/dts/berlin2q-marvell-dmp.dts         |   4 +
+ arch/arm/boot/dts/berlin2q.dtsi                    |  17 ++
+ drivers/net/ethernet/marvell/Kconfig               |   2 +-
+ drivers/net/ethernet/marvell/pxa168_eth.c          | 219 +++++++++++++--------
+ 5 files changed, 199 insertions(+), 79 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/net/marvell-pxa168.txt
+
+-- 
+1.9.1
