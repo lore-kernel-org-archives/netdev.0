@@ -1,87 +1,64 @@
-From: Wolfram Sang <wsa@the-dreams.de>
-Subject: Re: [PATCH v2 2/3] net: can: c_can: Add syscon/regmap RAMINIT
- mechanism
-Date: Tue, 30 Sep 2014 17:25:50 +0200
-Message-ID: <20140930152550.GR1325@katana>
-References: <1410273070-22485-1-git-send-email-rogerq@ti.com>
- <1410273070-22485-3-git-send-email-rogerq@ti.com>
- <20140930132650.GN1325@katana>
- <542AB137.30507@ti.com>
- <20140930135226.GO1325@katana>
- <542AB6E9.9000907@ti.com>
- <20140930141909.GP1325@katana>
- <542ABC90.7010900@pengutronix.de>
- <20140930144950.GQ1325@katana>
- <542AC5B2.9040406@pengutronix.de>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [net-next PATCH] dql: add a burst attribute
+Date: Tue, 30 Sep 2014 17:26:51 +0200
+Message-ID: <20140930152651.GC24565@breakpoint.cc>
+References: <20140930085114.24043.81310.stgit@dragon>
+ <1412080482.30721.68.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1412081485.30721.75.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20140930134655.GA24565@breakpoint.cc>
+ <1412086646.30721.81.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="soWJpSPh+l8Y6Fy7"
-Cc: Roger Quadros <rogerq@ti.com>, wg@grandegger.com, tony@atomide.com,
-	tglx@linutronix.de, mugunthanvnm@ti.com, george.cherian@ti.com,
-	balbi@ti.com, nsekhar@ti.com, nm@ti.com,
-	sergei.shtylyov@cogentembedded.com, linux-omap@vger.kernel.org,
-	linux-can@vger.kernel.org, netdev@vger.kernel.org
-To: Marc Kleine-Budde <mkl@pengutronix.de>
-Return-path: <linux-omap-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <542AC5B2.9040406@pengutronix.de>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-
---soWJpSPh+l8Y6Fy7
 Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw@strlen.de>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Tom Herbert <therbert@google.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Dave Taht <dave.taht@gmail.com>, toke@toke.dk
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:34846 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751091AbaI3P04 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2014 11:26:56 -0400
 Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+In-Reply-To: <1412086646.30721.81.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Tue, 2014-09-30 at 15:46 +0200, Florian Westphal wrote:
+> > Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > > From: Eric Dumazet <edumazet@google.com>
+> > > 
+> > > Add a new dql attribute, to control how much packets we are allowed to
+> > > burst from qdisc to device.
+> > 
+> > I understand the motivation for this, but I find it a bit out-of-place
+> > to have a 'packet' type counter in bql context?
+> > 
+> > Would it perhaps make more sense to restrict bulk dequeues by an upper
+> > (possibly changeable from userspace) byte counter limit?
+> 
+> The byte count is already provided : its the BQL limit.
+> We already have ways to tune it (limit_min & limit_max)
+> We do not think we need something else here.
 
-> Yes, but syscon_regmap_lookup_by_phandle() doesn't need any support for
-> additional parameters. Have a look at:
->=20
-> drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
->=20
-> First get the regmap, then the 1st argument is the offset in the regmap,
-> the 2nd and 3rd could be the bits.
+So you're saying that a bulk dequeue should just grab as many skbs
+as possible until no more available or dql_avail exhausted?
 
-So, for one driver the extra arguments are: <reg> <start_bit> <stop_bit>
-For another driver (the stmmac example): <reg_offset> <reg_shift>
+The "magic" value was just to be conservative and not induce any
+hol blocking, which is also why Jesper reduced it again in the latest
+submission.
 
-Phew... Then we should really have a "syscon-raminit" property probably,
-so that at least plain "syscon" has a consistent syntax?
+Then, we might later be able to remove the TSO restriction and switch
+to a pure byte-based limit.
 
->=20
-> > So, I'd rather drop additional arguments.
-> >=20
-> > Why would you like to have it encoded in DT?
->=20
-> Where put the information then? Into the driver, but where do you get
-> the reference which instance of the DCAN you are, so that you can look
-> up the correct bits?
+(I don't think having a packet-based count makes sense once tso/gso
+ skbs can be bulk dequeued).
 
-Agreed. I thought we had this information in the driver already, but we
-haven't...
-
-
---soWJpSPh+l8Y6Fy7
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJUKst+AAoJEBQN5MwUoCm2vGkP/jheXaSqCiV0tLnEp+ZjiX4j
-qsIurasuMyPVfC+sekM8gExkWiAuNW06uthsoBf4JuRSDsKWQZY4VvaDhRofDE8u
-d11uddMHBQaeny9crD9bTmshQKcKZ07qP68jH3vZmN++8vrtYfy6xD3YkqRapiPi
-yeRban8P931/kLx/iG8AQl3q5+najyTCpfYJOmJpPbKA5guiHSBZ/j6/FYSW0Ia0
-ZZFmAq5AbyGXfiNHIgNyS45T25cPz++X4shr3u1713t06oM5Qufphp2ikKnFbeXm
-z4znCbBUCAGo7lLJnjdY9f17YpGhs6jScS4cxvqKd4mknVxnDmZ3aRlenPPZA6iA
-HFzXoIx6EyYpaOu9qcRFot/o6oe+ua15UQZ48vuCUQ2G/jD9HyUoMfFLcgCo6fbe
-Fhqr66Pcd7jYx8wNgc0OS+mgYE96CHRVLRe3A1A9STSlbgDPjmlEyHHC6p8GH/Vo
-uJdQ08WOJq8KrhXV1sS0sw9JVdmoMM6co5YeWVLO28bDPtyNQuUu64Al2vq72Unx
-u23KXOHMekJD3iHCcODkki1Tjz0AJT/93kd4QhwcE8DlofagNNfZS9cnx+/VYId8
-5bNx+YkQz3j9I+Psj/5SeaX5Dk6JA1uvoQJTyaqrxYyPRZZIIBh8uV/rzvAICRug
-Ur3v6A/EGjQjut1S86CR
-=UAn6
------END PGP SIGNATURE-----
-
---soWJpSPh+l8Y6Fy7--
+Sorry for the confusion.
