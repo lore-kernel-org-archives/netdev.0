@@ -1,91 +1,59 @@
-From: Chun-Hao Lin <hau@realtek.com>
-Subject: [PATCH net-next 01/10] r8169:change uppercase number to lowercase nubmer
-Date: Tue, 30 Sep 2014 23:00:21 +0800
-Message-ID: <1412089230-10208-1-git-send-email-hau@realtek.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [net-next PATCH] dql: add a burst attribute
+Date: Tue, 30 Sep 2014 08:05:48 -0700
+Message-ID: <CA+mtBx-fVX33qOJewe2wS=77m-q+YtfnPStFX=2CWf7c7HrQdw@mail.gmail.com>
+References: <20140930085114.24043.81310.stgit@dragon>
+	<1412080482.30721.68.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1412081485.30721.75.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20140930134655.GA24565@breakpoint.cc>
+	<1412086646.30721.81.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CA+mtBx8HLPjSLXLH3z_j6zES8cTVpb67EBpFcVv94ANgMkYyTQ@mail.gmail.com>
+	<1412088549.30721.84.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
-	Chun-Hao Lin <hau@realtek.com>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Florian Westphal <fw@strlen.de>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Dave Taht <dave.taht@gmail.com>,
+	=?UTF-8?B?VG9rZSBIw7hpbGFuZC1Kw7hyZ2Vuc2Vu?= <toke@toke.dk>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f182.google.com ([209.85.223.182]:60074 "EHLO
+	mail-ie0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751411AbaI3PFt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2014 11:05:49 -0400
+Received: by mail-ie0-f182.google.com with SMTP id tp5so16957923ieb.27
+        for <netdev@vger.kernel.org>; Tue, 30 Sep 2014 08:05:48 -0700 (PDT)
+In-Reply-To: <1412088549.30721.84.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Chun-Hao Lin <hau@realtek.com>
----
- drivers/net/ethernet/realtek/r8169.c | 18 +++++++++---------
- 1 file changed, 9 insertions(+), 9 deletions(-)
+On Tue, Sep 30, 2014 at 7:49 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Tue, 2014-09-30 at 07:26 -0700, Tom Herbert wrote:
+>
+>
+>> Yes, this is the wrong place to put it. DQL knows nothing about
+>> packets or technically even bytes, it's a generic library that deal
+>> with "objects" on a queue. I don't see how burst relates to this.
+>
+> I wonder then why you put :
+>
+> netdev_tx_completed_queue(struct netdev_queue *dev_queue,
+>                           unsigned int pkts, unsigned int bytes)
+>
+In case we ever wanted to count by packets instead of or in addition to bytes.
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 1d81238..000bd6c 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -3692,8 +3692,8 @@ static void rtl8168h_2_hw_phy_config(struct rtl8169_private *tp)
- 	ioffset_p0 |= (data & (0x07));
- 	data = (ioffset_p3<<12)|(ioffset_p2<<8)|(ioffset_p1<<4)|(ioffset_p0);
- 
--	if ((ioffset_p3 != 0x0F) || (ioffset_p2 != 0x0F) ||
--	    (ioffset_p1 != 0x0F) || (ioffset_p0 == 0x0F)) {
-+	if ((ioffset_p3 != 0x0f) || (ioffset_p2 != 0x0f) ||
-+	    (ioffset_p1 != 0x0f) || (ioffset_p0 == 0x0f)) {
- 		rtl_writephy(tp, 0x1f, 0x0bcf);
- 		rtl_writephy(tp, 0x16, data);
- 		rtl_writephy(tp, 0x1f, 0x0000);
-@@ -4265,7 +4265,7 @@ static void r810x_pll_power_up(struct rtl8169_private *tp)
- 		break;
- 	case RTL_GIGA_MAC_VER_47:
- 	case RTL_GIGA_MAC_VER_48:
--		RTL_W8(PMCH, RTL_R8(PMCH) | 0xC0);
-+		RTL_W8(PMCH, RTL_R8(PMCH) | 0xc0);
- 		break;
- 	default:
- 		RTL_W8(PMCH, RTL_R8(PMCH) | 0x80);
-@@ -4395,7 +4395,7 @@ static void r8168_pll_power_up(struct rtl8169_private *tp)
- 		break;
- 	case RTL_GIGA_MAC_VER_45:
- 	case RTL_GIGA_MAC_VER_46:
--		RTL_W8(PMCH, RTL_R8(PMCH) | 0xC0);
-+		RTL_W8(PMCH, RTL_R8(PMCH) | 0xc0);
- 		break;
- 	case RTL_GIGA_MAC_VER_40:
- 	case RTL_GIGA_MAC_VER_41:
-@@ -4975,7 +4975,7 @@ static void rtl_hw_start_8169(struct net_device *dev)
- 
- 	if (tp->mac_version == RTL_GIGA_MAC_VER_02 ||
- 	    tp->mac_version == RTL_GIGA_MAC_VER_03) {
--		dprintk("Set MAC Reg C+CR Offset 0xE0. "
-+		dprintk("Set MAC Reg C+CR Offset 0xe0. "
- 			"Bit-3 and bit-14 MUST be 1\n");
- 		tp->cp_cmd |= (1 << 14);
- 	}
-@@ -5010,7 +5010,7 @@ static void rtl_hw_start_8169(struct net_device *dev)
- 	rtl_set_rx_mode(dev);
- 
- 	/* no early-rx interrupts */
--	RTL_W16(MultiIntr, RTL_R16(MultiIntr) & 0xF000);
-+	RTL_W16(MultiIntr, RTL_R16(MultiIntr) & 0xf000);
- }
- 
- static void rtl_csi_write(struct rtl8169_private *tp, int addr, int value)
-@@ -5858,7 +5858,7 @@ static void rtl_hw_start_8168(struct net_device *dev)
- 
- 	rtl_set_rx_mode(dev);
- 
--	RTL_W16(MultiIntr, RTL_R16(MultiIntr) & 0xF000);
-+	RTL_W16(MultiIntr, RTL_R16(MultiIntr) & 0xf000);
- }
- 
- #define R810X_CPCMD_QUIRK_MASK (\
-@@ -7706,8 +7706,8 @@ static int rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	    tp->mac_version == RTL_GIGA_MAC_VER_48) {
- 		u16 mac_addr[3];
- 
--		*(u32 *)&mac_addr[0] = rtl_eri_read(tp, 0xE0, ERIAR_EXGMAC);
--		*(u16 *)&mac_addr[2] = rtl_eri_read(tp, 0xE4, ERIAR_EXGMAC);
-+		*(u32 *)&mac_addr[0] = rtl_eri_read(tp, 0xe0, ERIAR_EXGMAC);
-+		*(u16 *)&mac_addr[2] = rtl_eri_read(tp, 0xe4, ERIAR_EXGMAC);
- 
- 		if (is_valid_ether_addr((u8 *)mac_addr))
- 			rtl_rar_set(tp, (u8 *)mac_addr);
--- 
-1.8.3.2
+> Really, I don't care _where_ the attribute is, as long we dont access
+> yet another cache line in fast path.
+
+Just put it after/before dql in netdev_queue structure.
+
+>
+>
+>
