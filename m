@@ -1,36 +1,56 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch iproute2 1/2] add bridge_slave device support
-Date: Tue, 30 Sep 2014 10:05:18 +0200
-Message-ID: <20140930080518.GB1864@nanopsycho.orion>
-References: <1409925092-17808-1-git-send-email-jiri@resnulli.us>
- <1409925309-17881-1-git-send-email-jiri@resnulli.us>
- <CAJ3xEMgLaJtxuerfJ0OXGPZ7Hn0tVBJYkc5Ck6wOGvFAKyctCQ@mail.gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] tun: make sure interface usage can not overflow
+Date: Tue, 30 Sep 2014 08:20:28 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D174A0C5C@AcuExch.aculab.com>
+References: <20140928232753.GA31180@www.outflux.net>
+	 <063D6719AE5E284EB5DD2968C1650D6D1749FC70@AcuExch.aculab.com>
+	 <CAGXu5jKL13qdCBet3yqpc3vLYh_LifBACzL+NP8n-A+E8RMZXw@mail.gmail.com>
+ <1412021098.14757.6.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Scott Feldman <sfeldma@cumulusnetworks.com>,
-	arvid.brodin@alten.se, sucheta.chakraborty@qlogic.com
-To: Or Gerlitz <gerlitz.or@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f180.google.com ([74.125.82.180]:38652 "EHLO
-	mail-we0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751587AbaI3IFV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2014 04:05:21 -0400
-Received: by mail-we0-f180.google.com with SMTP id x48so3680333wes.39
-        for <netdev@vger.kernel.org>; Tue, 30 Sep 2014 01:05:20 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAJ3xEMgLaJtxuerfJ0OXGPZ7Hn0tVBJYkc5Ck6wOGvFAKyctCQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jason Wang <jasowang@redhat.com>,
+	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	"Tom Herbert" <therbert@google.com>,
+	Masatake YAMATO <yamato@redhat.com>, Xi Wang <xii@google.com>,
+	stephen hemminger <stephen@networkplumber.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'Hannes Frederic Sowa' <hannes@redhat.com>,
+	Kees Cook <keescook@chromium.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1412021098.14757.6.camel@localhost>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Mon, Sep 29, 2014 at 08:20:00PM CEST, gerlitz.or@gmail.com wrote:
->On Fri, Sep 5, 2014 at 4:55 PM, Jiri Pirko <jiri@resnulli.us> wrote:
->> Note this depends on "iproute2: allow to change slave options via
->> type_slave"
->
->OK, but how about sparing few words what this patch does?
-
-Sorry, I thought it is obvious. It allows to use IFLA_INFO_SLAVE_DATA to
-get/set bridge port options.
+RnJvbTogSGFubmVzIEZyZWRlcmljDQo+IE9uIE1vLCAyMDE0LTA5LTI5IGF0IDEyOjQxIC0wNzAw
+LCBLZWVzIENvb2sgd3JvdGU6DQo+ID4gT24gTW9uLCBTZXAgMjksIDIwMTQgYXQgNDowNCBBTSwg
+RGF2aWQgTGFpZ2h0IDxEYXZpZC5MYWlnaHRAYWN1bGFiLmNvbT4gd3JvdGU6DQo+ID4gPiBGcm9t
+OiBLZWVzIENvb2sNCj4gPiA+PiBUaGlzIG1ha2VzIHRoZSBzaXplIGFyZ3VtZW50IGEgY29uc3Qs
+IHNpbmNlIGl0IGlzIGFsd2F5cyBwb3B1bGF0ZWQgYnkNCj4gPiA+PiB0aGUgY2FsbGVyLg0KPiA+
+ID4NCj4gPiA+IFRoZXJlIGlzIGFsbW9zdCBubyBwb2ludCBtYWtpbmcgcGFyYW1ldGVycyAnY29u
+c3QuDQo+ID4gPiAoJ2NvbnN0IGZvbyAqJyBtYWtlcyBzZW5zZSkuDQo+ID4gPg0KPiA+ID4+IEFk
+ZGl0aW9uYWxseSBkb3VibGUtY2hlY2tzIHRvIG1ha2Ugc3VyZSB0aGUgY29weV9mcm9tX3VzZXIN
+Cj4gPiA+PiBjYW4gbmV2ZXIgb3ZlcmZsb3csIGtlZXBpbmcgQ09ORklHX0RFQlVHX1NUUklDVF9V
+U0VSX0NPUFlfQ0hFQ0tTIGhhcHB5Og0KPiA+ID4+DQo+ID4gPj4gICAgSW4gZnVuY3Rpb24gJ2Nv
+cHlfZnJvbV91c2VyJywNCj4gPiA+PiAgICAgICAgaW5saW5lZCBmcm9tICdfX3R1bl9jaHJfaW9j
+dGwnIGF0IGRyaXZlcnMvbmV0L3R1bi5jOjE4NzE6NzoNCj4gPiA+PiAgICAgICAgLi4uIGNvcHlf
+ZnJvbV91c2VyKCkgYnVmZmVyIHNpemUgaXMgbm90IHByb3ZhYmx5IGNvcnJlY3QNCj4gPiA+DQo+
+ID4gPiBJZiAnaWZyZXFfbGVuJyBjb3VsZCBiZSB0b28gYmlnIHRoZW4geW91IHdhbnQgdG8gZXJy
+b3IgdGhlIGlvY3RsLCBub3QgcGFuaWMuDQo+ID4gPiBJZiBpdCBjYW4ndCBiZSB0b28gYmlnIHlv
+dSBkb24ndCBuZWVkIHRoZSBjaGVjay4NCj4gPg0KPiA+IFRoZSBpZnJlcV9sZW4gY29tZXMgZnJv
+bSB0aGUgY2FsbGVycywgYW5kIGlzIHRoZSBvdXRwdXQgb2YgInNpemVvZiINCj4gPiB3aGljaCBp
+cyBjb25zdC4gQ2hhbmdpbmcgdGhlIGZ1bmN0aW9uIHBhcmFtZXRlciB0byAiY29uc3QiIG1lYW5z
+IGFueQ0KPiA+IGNoYW5nZXMgbWFkZSBpbiB0aGUgZnV0dXJlIHdoZXJlIHRoZSBpbmNvbWluZyB2
+YWx1ZSBpc24ndCBjb25zdCwgdGhlDQo+ID4gY29tcGlsZXIgd2lsbCB0aHJvdyBhIHdhcm5pbmcu
+DQo+IA0KPiBIbW1tLCBJIHRoaW5rIHlvdSB3YW50IHNvbWV0aGluZyBsaWtlIEJVSUxEX0JVR19P
+TighDQo+IF9fYnVpbHRpbl9jb25zdGFudF9wKHZhcikpLiBjb25zdCBpbiBmdW5jdGlvbiBhcmd1
+bWVudCBvbmx5IGVuc3VyZXMgdGhhdA0KPiB0aGUgdmFsdWUgY2Fubm90IGJlIG1vZGlmaWVkIGlu
+IHRoZSBmdW5jdGlvbi4NCg0KWW91J2QgaGF2ZSB0byBkbyBzb21ldGhpbmcgaW4gdGhlIGhlYWRl
+ciBmaWxlIC0gbm90aGluZyBpbiB0aGUgZnVuY3Rpb24NCmJvZHkgY2FuIGRvIHRoYXQgY2hlY2su
+DQoNCkkndmUgbm90IGdvdCB0aGUgc291cmNlIGhhbmR5LCBidXQgaW4gdGhpcyBjYXNlIGlzIHRo
+ZXJlIGFueSBuZWVkIHRvDQphY3R1YWxseSBwYXNzIHRoZSBzaXplIGF0IGFsbD8NCklzIGl0IGFs
+d2F5cyB0aGUgc2FtZSBmaXhlZCBjb25zdGFudD8/DQoNCglEYXZpZA0KDQo=
