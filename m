@@ -1,49 +1,32 @@
-From: Tom Herbert <therbert@google.com>
-Subject: [PATCH v2 net-next 5/5] vxlan: Set inner protocol before transmit
-Date: Mon, 29 Sep 2014 20:22:33 -0700
-Message-ID: <1412047353-28502-6-git-send-email-therbert@google.com>
-References: <1412047353-28502-1-git-send-email-therbert@google.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:61531 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755326AbaI3DXH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 23:23:07 -0400
-Received: by mail-pa0-f47.google.com with SMTP id rd3so8332336pab.34
-        for <netdev@vger.kernel.org>; Mon, 29 Sep 2014 20:23:07 -0700 (PDT)
-In-Reply-To: <1412047353-28502-1-git-send-email-therbert@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Fix getsockopt(SO_PEERNAME) buffer size against
+ potential future buffer overflow
+Date: Tue, 30 Sep 2014 00:59:25 -0400 (EDT)
+Message-ID: <20140930.005925.995989898229686123.davem@davemloft.net>
+References: <20140928135545.GA23220@type.youpi.perso.aquilenet.fr>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	akpm@linux-foundation.org
+To: samuel.thibault@ens-lyon.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140928135545.GA23220@type.youpi.perso.aquilenet.fr>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Call skb_set_inner_protocol to set inner Ethernet protocol to
-ETH_P_TEB before transmit. This is needed for GSO with UDP tunnels.
+From: Samuel Thibault <samuel.thibault@ens-lyon.org>
+Date: Sun, 28 Sep 2014 15:55:45 +0200
 
-Signed-off-by: Tom Herbert <therbert@google.com>
----
- drivers/net/vxlan.c | 4 ++++
- 1 file changed, 4 insertions(+)
+> In net/core/sock.c's sock_getsockopt, the address buffer size is
+> hardcoded to 128. It happens that sizeof(struct sockaddr_storage) is
+> indeed 128, but that is just luck and would probably not get updated
+> whenever sockaddr_storage would grow. This patch makes it simply use
+> sockaddr_storage instead.
+> 
+> Signed-off-by:  Samuel Thibault <samuel.thibault@ens-lyon.org>
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 34e102e..2af795d 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1610,6 +1610,8 @@ static int vxlan6_xmit_skb(struct vxlan_sock *vs,
- 	vxh->vx_flags = htonl(VXLAN_FLAGS);
- 	vxh->vx_vni = vni;
- 
-+	skb_set_inner_protocol(skb, htons(ETH_P_TEB));
-+
- 	udp_tunnel6_xmit_skb(vs->sock, dst, skb, dev, saddr, daddr, prio,
- 			     ttl, src_port, dst_port);
- 	return 0;
-@@ -1652,6 +1654,8 @@ int vxlan_xmit_skb(struct vxlan_sock *vs,
- 	vxh->vx_flags = htonl(VXLAN_FLAGS);
- 	vxh->vx_vni = vni;
- 
-+	skb_set_inner_protocol(skb, htons(ETH_P_TEB));
-+
- 	return udp_tunnel_xmit_skb(vs->sock, rt, skb, src, dst, tos,
- 				   ttl, df, src_port, dst_port, xnet);
- }
--- 
-2.1.0.rc2.206.gedb03e5
+sockaddr_storage's size is a user exported API and therefore can
+never, ever, change.
+
+If you want to change 128 to _K_SS_MAXSIZE or similar, fine.
