@@ -1,69 +1,67 @@
-From: "Luis R. Rodriguez" <mcgrof@suse.com>
-Subject: Re: [PATCH v1 5/5] driver-core: add driver asynchronous probe
-	support
-Date: Tue, 30 Sep 2014 09:21:59 +0200
-Message-ID: <20140930072159.GC14081@wotan.suse.de>
-References: <1411768637-6809-1-git-send-email-mcgrof@do-not-panic.com> <1411768637-6809-6-git-send-email-mcgrof@do-not-panic.com> <20140928150329.GC5023@mtj.dyndns.org> <20140929212208.GV17349@wotan.suse.de> <20140929212601.GF15925@htj.dyndns.org>
+From: "Sharma, Sanjeev" <Sanjeev_Sharma@mentor.com>
+Subject: RE: [PATCH v2] zd1211rw: replace ZD_ASSERT with
+ lockdep_assert_held()
+Date: Tue, 30 Sep 2014 07:42:11 +0000
+Message-ID: <FDC088D3B5555644AE135ED28A7ABDE950E5F3DF@EU-MBX-04.mgc.mentorg.com>
+References: <1410418407.1825.0.camel@jlt4.sipsolutions.net>
+ <1410430179-19944-1-git-send-email-sanjeev_sharma@mentor.com>
+ <1410430345.22863.0.camel@jlt4.sipsolutions.net>
+ <FDC088D3B5555644AE135ED28A7ABDE94DF5256D@EU-MBX-02.mgc.mentorg.com>
+ <CAGRGNgWOkzbu7sUxOqpgK_rzw1Xzny4aVFYOO6Rqd09-CpfvJA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: gregkh@linuxfoundation.org,
-	"Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
-	dmitry.torokhov@gmail.com, tiwai@suse.de, arjan@linux.intel.com,
-	teg@jklm.no, rmilasan@suse.com, werner@suse.com, oleg@redhat.com,
-	hare@suse.com, bpoirier@suse.de, santosh@chelsio.com,
-	pmladek@suse.cz, dbueso@suse.com, linux-kernel@vger.kernel.org,
-	Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
-	Joseph Salisbury <joseph.salisbury@canonical.com>,
-	Kay Sievers <kay@vrfy.org>,
-	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
-	Tim Gardner <tim.gardner@canonical.com>,
-	Pierre Fersing <pierre-fersing@pierref.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
-	Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
-	Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
-	Abhijit Mahajan <abhijit.mahajan@avagotech.com>,
-	Casey Leedom <leedom@che
-To: Tejun Heo <tj@kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	"dsd@gentoo.org" <dsd@gentoo.org>,
+	"kune@deine-taler.de" <kune@deine-taler.de>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Julian Calaby <julian.calaby@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140929212601.GF15925@htj.dyndns.org>
+In-Reply-To: <CAGRGNgWOkzbu7sUxOqpgK_rzw1Xzny4aVFYOO6Rqd09-CpfvJA@mail.gmail.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 29, 2014 at 05:26:01PM -0400, Tejun Heo wrote:
-> Hello, Luis.
-> 
-> On Mon, Sep 29, 2014 at 11:22:08PM +0200, Luis R. Rodriguez wrote:
-> > > > +	/* For now lets avoid stupid bug reports */
-> > > > +	if (!strcmp(bus->name, "pci") ||
-> > > > +	    !strcmp(bus->name, "pci_express") ||
-> > > > +	    !strcmp(bus->name, "hid") ||
-> > > > +	    !strcmp(bus->name, "sdio") ||
-> > > > +	    !strcmp(bus->name, "gameport") ||
-> > > > +	    !strcmp(bus->name, "mmc") ||
-> > > > +	    !strcmp(bus->name, "i2c") ||
-> > > > +	    !strcmp(bus->name, "platform") ||
-> > > > +	    !strcmp(bus->name, "usb"))
-> > > > +		return true;
-> > > 
-> > > Ugh... things like this tend to become permanent.  Do we really need
-> > > this?  And how are we gonna find out what's broken why w/o bug
-> > > reports?
-> > 
-> > Yeah... well we have two options, one is have something like this to
-> > at least make it generally useful or remove this and let folks who
-> > care start fixing async for all modules. The downside to removing
-> > this is it makes async probe pretty much useless on most systems
-> > right now, it would mean systemd would have to probably consider
-> > the list above if they wanted to start using this without expecting
-> > systems to not work.
-> 
-> So, I'd much prefer blacklist approach if something like this is a
-> necessity.  That way, we'd at least know what doesn't work.
-
-For buses? Or do you mean you'd want to wait until we have a decent
-list of drivers with the sync probe flag set? If the later it may take
-a while to get that list for this to be somewhat useful.
-
-  Luis
+LS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCkZyb206IEp1bGlhbiBDYWxhYnkgW21haWx0bzpq
+dWxpYW4uY2FsYWJ5QGdtYWlsLmNvbV0gDQpTZW50OiBNb25kYXksIFNlcHRlbWJlciAxNSwgMjAx
+NCAxMTozMiBBTQ0KVG86IFNoYXJtYSwgU2FuamVldg0KQ2M6IEpvaGFubmVzIEJlcmc7IGRzZEBn
+ZW50b28ub3JnOyBrdW5lQGRlaW5lLXRhbGVyLmRlOyBsaW51eC13aXJlbGVzc0B2Z2VyLmtlcm5l
+bC5vcmc7IGxpbnV4LWtlcm5lbEB2Z2VyLmtlcm5lbC5vcmc7IG5ldGRldkB2Z2VyLmtlcm5lbC5v
+cmcNClN1YmplY3Q6IFJlOiBbUEFUQ0ggdjJdIHpkMTIxMXJ3OiByZXBsYWNlIFpEX0FTU0VSVCB3
+aXRoIGxvY2tkZXBfYXNzZXJ0X2hlbGQoKQ0KDQpIaSBTYW5qZWV2LA0KDQpPbiBUaHUsIFNlcCAx
+MSwgMjAxNCBhdCA4OjM2IFBNLCBTaGFybWEsIFNhbmplZXYgPFNhbmplZXZfU2hhcm1hQG1lbnRv
+ci5jb20+IHdyb3RlOg0KPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBKb2hh
+bm5lcyBCZXJnIFttYWlsdG86am9oYW5uZXNAc2lwc29sdXRpb25zLm5ldF0NCj4gU2VudDogVGh1
+cnNkYXksIFNlcHRlbWJlciAxMSwgMjAxNCAzOjQyIFBNDQo+IFRvOiBTaGFybWEsIFNhbmplZXYN
+Cj4gQ2M6IGRzZEBnZW50b28ub3JnOyBrdW5lQGRlaW5lLXRhbGVyLmRlOyANCj4gbGludXgtd2ly
+ZWxlc3NAdmdlci5rZXJuZWwub3JnOyBsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3JnOyANCj4g
+bmV0ZGV2QHZnZXIua2VybmVsLm9yZw0KPiBTdWJqZWN0OiBSZTogW1BBVENIIHYyXSB6ZDEyMTFy
+dzogcmVwbGFjZSBaRF9BU1NFUlQgd2l0aCANCj4gbG9ja2RlcF9hc3NlcnRfaGVsZCgpDQo+DQo+
+IE9uIFRodSwgMjAxNC0wOS0xMSBhdCAxNTozOSArMDUzMCwgU2FuamVldiBTaGFybWEgd3JvdGU6
+DQo+PiBvbiBzb21lIGFyY2hpdGVjdHVyZSBzcGluX2lzX2xvY2tlZCgpIGFsd2F5cyByZXR1cm4g
+ZmFsc2UgaW4gDQo+PiB1bmlwcm9jZXNzb3IgY29uZmlndXJhdGlvbiBhbmQgdGhlcmVmb3JlIGl0
+IHdvdWxkIGJlIGFkdmlzZSB0byANCj4+IHJlcGxhY2Ugd2l0aCBsb2NrZGVwX2Fzc2VydF9oZWxk
+KCkuDQo+Pg0KPj4gU2lnbmVkLW9mZi1ieTogU2FuamVldiBTaGFybWEgPFNhbmplZXZfU2hhcm1h
+QG1lbnRvci5jb20+DQo+PiAtLS0NCj4+IENoYW5nZXMgaW4gdjI6DQo+PiAgIC0gY29ycmVjdGVk
+IHRoZSB0eXBvDQo+DQo+PiBOb3cgaXQgY29tcGlsZXMsIGJ1dCB5b3UgZ290IHRoZSBsb2dpYyB3
+cm9uZy4NCj4NCj4+ICsrKyBiL2RyaXZlcnMvbmV0L3dpcmVsZXNzL3pkMTIxMXJ3L3pkX21hYy5j
+DQo+PiBAQCAtMjM1LDcgKzIzNSw3IEBAIHZvaWQgemRfbWFjX2NsZWFyKHN0cnVjdCB6ZF9tYWMg
+Km1hYykgIHsNCj4+ICAgICAgIGZsdXNoX3dvcmtxdWV1ZSh6ZF93b3JrcXVldWUpOw0KPj4gICAg
+ICAgemRfY2hpcF9jbGVhcigmbWFjLT5jaGlwKTsNCj4+IC0gICAgIFpEX0FTU0VSVCghc3Bpbl9p
+c19sb2NrZWQoJm1hYy0+bG9jaykpOw0KPj4gKyAgICAgbG9ja2RlcF9hc3NlcnRfaGVsZCgmbWFj
+LT5sb2NrKTsNCj4+ICAgICAgIFpEX01FTUNMRUFSKG1hYywgc2l6ZW9mKHN0cnVjdCB6ZF9tYWMp
+KTsgIH0NCj4NCj4+TG9vayBjbG9zZWx5IGF0IHRoaXMgYWdhaW4uDQo+DQo+IEkgZGlkbid0IHVu
+ZGVyc3RhbmQgd2hlcmUgSSAgcHV0IHdyb25nIGxvZ2ljICA/DQoNCkkgZmluZCBpdCBoZWxwcyB0
+byBzcGVsbCBvdXQgd2hhdCBjb2RlIGlzIGRvaW5nIGluIHdvcmRzLg0KDQpFLmcuIHRoZSBsaW5l
+IHlvdSdyZSByZW1vdmluZyBpczoNClpEX0FTU0VSVCghc3Bpbl9pc19sb2NrZWQoJm1hYy0+bG9j
+aykpOw0KDQpTbywgd2UnbGwgYXNzZXJ0IHdoZW4gc3Bpbl9pc19sb2NrZWQoJm1hYy0+bG9jaykg
+aXMgZmFsc2UsIGkuZS4gd2hlbg0KbWFjLT5sb2NrIGlzIG5vdCBzcGluIGxvY2tlZC4NCg0KVGhp
+cyBpc24ndCB0aGUgc2FtZSBhcyB3aGF0IHlvdSdyZSByZXBsYWNpbmcgaXQgd2l0aC4NCg0KIEkg
+IGZlZWwgbG9naWMgaXMgYWJzb2x1dGVseSBjb3JyZWN0IGFuZCBpZiB5b3UgZXhwYW5kIGl0IHdp
+bGwgbG9va3MgbGlrZSAuLg0KDQorI2RlZmluZSBsb2NrZGVwX2Fzc2VydF9oZWxkKGwpCWRvIHsJ
+XCANCisJV0FSTl9PTihkZWJ1Z19sb2NrcyAmJiAhbG9ja2RlcF9pc19oZWxkKGwpKTsJXCANCisJ
+fSB3aGlsZSAoMCkNCg0KUGxlYXNlIHJlZmVyIGh0dHA6Ly9sa21sLml1LmVkdS9oeXBlcm1haWwv
+bGludXgva2VybmVsLzEyMDMuMi8wMDM2OS5odG1sIGFuZCBhbHNvIHNlZSBpbmNsdWRlL2xpbnV4
+L2xvY2tkZXAuaCBmb3IgbW9yZSBkZXRhaWwuDQoNClRoYW5rcw0KU2FuamVldiBTaGFybWENCg==
