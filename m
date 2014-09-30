@@ -1,57 +1,39 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH v2 net 0/3] bridge: Add vlan filtering support
- for default pvid
-Date: Tue, 30 Sep 2014 19:16:19 -0400
-Message-ID: <542B39C3.1070808@redhat.com>
-References: <1412105462-340-1-git-send-email-vyasevic@redhat.com>
-	<20140930.170718.1417042696038383945.davem@davemloft.net>
-Reply-To: vyasevic@redhat.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Philosophical question:  Is a UDP multicast datagram for which
+ there is no socket match a drop or an ignore?
+Date: Tue, 30 Sep 2014 16:23:18 -0700
+Message-ID: <1412119398.16704.11.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <542B3831.5030701@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org
-To: David Miller <davem@davemloft.net>, vyasevich@gmail.com
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20140930.170718.1417042696038383945.davem@davemloft.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Rick Jones <rick.jones2@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f174.google.com ([209.85.192.174]:61164 "EHLO
+	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751053AbaI3XXU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2014 19:23:20 -0400
+Received: by mail-pd0-f174.google.com with SMTP id y13so3691171pdi.33
+        for <netdev@vger.kernel.org>; Tue, 30 Sep 2014 16:23:19 -0700 (PDT)
+In-Reply-To: <542B3831.5030701@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/30/2014 05:07 PM, David Miller wrote:
-> From: Vladislav Yasevich <vyasevich@gmail.com>
-> Date: Tue, 30 Sep 2014 15:30:59 -0400
+On Tue, 2014-09-30 at 16:09 -0700, Rick Jones wrote:
+> I've been looking at some additional perf <mutter> -e skb_kfree_skb 
+> results, this time with a laptop connected to a corporate network with a 
+> large number of Windows systems sending out what they are wont to 
+> send...  The laptop is just sitting there no active netperfs or anything :)
 > 
->> Version 2 of the series to introduce the default pvid support to
->> vlan filtering in the bridge.  VLAN 1 (as recommended by 802.1q spec)
->> is used as default pvid on ports. 
->> The the user can over-ride this configuration by configuring their
->> own vlan information. 
->> The user can additionally change the default value throught the
->> sysfs interface (netlink comming shortly).
->> The user can turn off default pvid functionality by setting default
->> pvid to 0. 
->> This series changes the default behavior of the bridge when
->> vlan filtering is turned on.  Currently, ports without any vlan
->> filtering configured will not recevie any traffic at all.  This patch
->> changes the behavior of the above ports to receive only untagged traffic.
->>
->> Since v2:
->> - Add ability to turn off default_pvid settings.
->> - Drop the automiatic filtering support based on configured vlan devices (will
->>   be its own series)
+> I see profile hits for __udp4_lib_mcast_deliver() which has a 
+> kfree_skb() call which will happen if either there were no sockets 
+> found, or if an integral multiple of ARRAY_SIZE(stack) sockets are 
+> found.  I'm assuming the latter is exceedingly rare.
 > 
-> Looks like a new feature to me, thus why is this being targetted at 'net'
-> instead of 'net-next'?
-> 
+> Anywho, the philosophical question - is such a situation a drop 
+> (indicating the existing kfree_skb()), or is it an ignore (indicating a 
+> consume_skb())?  Should there be a statistic incremented for either of 
+> those?
 
-goof on my part.  This should be net-next.
-
--vlad
+I guess we lack a UDP_MIB_NOPORTS increase here.
