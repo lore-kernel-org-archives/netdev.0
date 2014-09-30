@@ -1,67 +1,91 @@
-From: "Sharma, Sanjeev" <Sanjeev_Sharma@mentor.com>
-Subject: RE: [PATCH v2] zd1211rw: replace ZD_ASSERT with
- lockdep_assert_held()
-Date: Tue, 30 Sep 2014 07:42:11 +0000
-Message-ID: <FDC088D3B5555644AE135ED28A7ABDE950E5F3DF@EU-MBX-04.mgc.mentorg.com>
-References: <1410418407.1825.0.camel@jlt4.sipsolutions.net>
- <1410430179-19944-1-git-send-email-sanjeev_sharma@mentor.com>
- <1410430345.22863.0.camel@jlt4.sipsolutions.net>
- <FDC088D3B5555644AE135ED28A7ABDE94DF5256D@EU-MBX-02.mgc.mentorg.com>
- <CAGRGNgWOkzbu7sUxOqpgK_rzw1Xzny4aVFYOO6Rqd09-CpfvJA@mail.gmail.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH next] r8169: add support for Byte Queue Limits
+Date: Tue, 30 Sep 2014 09:42:59 +0200
+Message-ID: <20140930074259.GC11709@breakpoint.cc>
+References: <1412024209-25468-1-git-send-email-fw@strlen.de>
+ <CA+mtBx95KFr=3h_TZWBeM6e7EF4sKAmjRpz5vLxGwi8xC+qQuw@mail.gmail.com>
+ <20140929211158.GA11633@breakpoint.cc>
+ <CA+mtBx8rpELodiiez8LkKupKBr9ynbQhrmAq8tcD4QKXHNjyaw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	"dsd@gentoo.org" <dsd@gentoo.org>,
-	"kune@deine-taler.de" <kune@deine-taler.de>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Julian Calaby <julian.calaby@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAGRGNgWOkzbu7sUxOqpgK_rzw1Xzny4aVFYOO6Rqd09-CpfvJA@mail.gmail.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw@strlen.de>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Hayes Wang <hayeswang@realtek.com>
+To: Tom Herbert <therbert@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:33637 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751712AbaI3HnD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2014 03:43:03 -0400
+Content-Disposition: inline
+In-Reply-To: <CA+mtBx8rpELodiiez8LkKupKBr9ynbQhrmAq8tcD4QKXHNjyaw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-LS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCkZyb206IEp1bGlhbiBDYWxhYnkgW21haWx0bzpq
-dWxpYW4uY2FsYWJ5QGdtYWlsLmNvbV0gDQpTZW50OiBNb25kYXksIFNlcHRlbWJlciAxNSwgMjAx
-NCAxMTozMiBBTQ0KVG86IFNoYXJtYSwgU2FuamVldg0KQ2M6IEpvaGFubmVzIEJlcmc7IGRzZEBn
-ZW50b28ub3JnOyBrdW5lQGRlaW5lLXRhbGVyLmRlOyBsaW51eC13aXJlbGVzc0B2Z2VyLmtlcm5l
-bC5vcmc7IGxpbnV4LWtlcm5lbEB2Z2VyLmtlcm5lbC5vcmc7IG5ldGRldkB2Z2VyLmtlcm5lbC5v
-cmcNClN1YmplY3Q6IFJlOiBbUEFUQ0ggdjJdIHpkMTIxMXJ3OiByZXBsYWNlIFpEX0FTU0VSVCB3
-aXRoIGxvY2tkZXBfYXNzZXJ0X2hlbGQoKQ0KDQpIaSBTYW5qZWV2LA0KDQpPbiBUaHUsIFNlcCAx
-MSwgMjAxNCBhdCA4OjM2IFBNLCBTaGFybWEsIFNhbmplZXYgPFNhbmplZXZfU2hhcm1hQG1lbnRv
-ci5jb20+IHdyb3RlOg0KPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBKb2hh
-bm5lcyBCZXJnIFttYWlsdG86am9oYW5uZXNAc2lwc29sdXRpb25zLm5ldF0NCj4gU2VudDogVGh1
-cnNkYXksIFNlcHRlbWJlciAxMSwgMjAxNCAzOjQyIFBNDQo+IFRvOiBTaGFybWEsIFNhbmplZXYN
-Cj4gQ2M6IGRzZEBnZW50b28ub3JnOyBrdW5lQGRlaW5lLXRhbGVyLmRlOyANCj4gbGludXgtd2ly
-ZWxlc3NAdmdlci5rZXJuZWwub3JnOyBsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3JnOyANCj4g
-bmV0ZGV2QHZnZXIua2VybmVsLm9yZw0KPiBTdWJqZWN0OiBSZTogW1BBVENIIHYyXSB6ZDEyMTFy
-dzogcmVwbGFjZSBaRF9BU1NFUlQgd2l0aCANCj4gbG9ja2RlcF9hc3NlcnRfaGVsZCgpDQo+DQo+
-IE9uIFRodSwgMjAxNC0wOS0xMSBhdCAxNTozOSArMDUzMCwgU2FuamVldiBTaGFybWEgd3JvdGU6
-DQo+PiBvbiBzb21lIGFyY2hpdGVjdHVyZSBzcGluX2lzX2xvY2tlZCgpIGFsd2F5cyByZXR1cm4g
-ZmFsc2UgaW4gDQo+PiB1bmlwcm9jZXNzb3IgY29uZmlndXJhdGlvbiBhbmQgdGhlcmVmb3JlIGl0
-IHdvdWxkIGJlIGFkdmlzZSB0byANCj4+IHJlcGxhY2Ugd2l0aCBsb2NrZGVwX2Fzc2VydF9oZWxk
-KCkuDQo+Pg0KPj4gU2lnbmVkLW9mZi1ieTogU2FuamVldiBTaGFybWEgPFNhbmplZXZfU2hhcm1h
-QG1lbnRvci5jb20+DQo+PiAtLS0NCj4+IENoYW5nZXMgaW4gdjI6DQo+PiAgIC0gY29ycmVjdGVk
-IHRoZSB0eXBvDQo+DQo+PiBOb3cgaXQgY29tcGlsZXMsIGJ1dCB5b3UgZ290IHRoZSBsb2dpYyB3
-cm9uZy4NCj4NCj4+ICsrKyBiL2RyaXZlcnMvbmV0L3dpcmVsZXNzL3pkMTIxMXJ3L3pkX21hYy5j
-DQo+PiBAQCAtMjM1LDcgKzIzNSw3IEBAIHZvaWQgemRfbWFjX2NsZWFyKHN0cnVjdCB6ZF9tYWMg
-Km1hYykgIHsNCj4+ICAgICAgIGZsdXNoX3dvcmtxdWV1ZSh6ZF93b3JrcXVldWUpOw0KPj4gICAg
-ICAgemRfY2hpcF9jbGVhcigmbWFjLT5jaGlwKTsNCj4+IC0gICAgIFpEX0FTU0VSVCghc3Bpbl9p
-c19sb2NrZWQoJm1hYy0+bG9jaykpOw0KPj4gKyAgICAgbG9ja2RlcF9hc3NlcnRfaGVsZCgmbWFj
-LT5sb2NrKTsNCj4+ICAgICAgIFpEX01FTUNMRUFSKG1hYywgc2l6ZW9mKHN0cnVjdCB6ZF9tYWMp
-KTsgIH0NCj4NCj4+TG9vayBjbG9zZWx5IGF0IHRoaXMgYWdhaW4uDQo+DQo+IEkgZGlkbid0IHVu
-ZGVyc3RhbmQgd2hlcmUgSSAgcHV0IHdyb25nIGxvZ2ljICA/DQoNCkkgZmluZCBpdCBoZWxwcyB0
-byBzcGVsbCBvdXQgd2hhdCBjb2RlIGlzIGRvaW5nIGluIHdvcmRzLg0KDQpFLmcuIHRoZSBsaW5l
-IHlvdSdyZSByZW1vdmluZyBpczoNClpEX0FTU0VSVCghc3Bpbl9pc19sb2NrZWQoJm1hYy0+bG9j
-aykpOw0KDQpTbywgd2UnbGwgYXNzZXJ0IHdoZW4gc3Bpbl9pc19sb2NrZWQoJm1hYy0+bG9jaykg
-aXMgZmFsc2UsIGkuZS4gd2hlbg0KbWFjLT5sb2NrIGlzIG5vdCBzcGluIGxvY2tlZC4NCg0KVGhp
-cyBpc24ndCB0aGUgc2FtZSBhcyB3aGF0IHlvdSdyZSByZXBsYWNpbmcgaXQgd2l0aC4NCg0KIEkg
-IGZlZWwgbG9naWMgaXMgYWJzb2x1dGVseSBjb3JyZWN0IGFuZCBpZiB5b3UgZXhwYW5kIGl0IHdp
-bGwgbG9va3MgbGlrZSAuLg0KDQorI2RlZmluZSBsb2NrZGVwX2Fzc2VydF9oZWxkKGwpCWRvIHsJ
-XCANCisJV0FSTl9PTihkZWJ1Z19sb2NrcyAmJiAhbG9ja2RlcF9pc19oZWxkKGwpKTsJXCANCisJ
-fSB3aGlsZSAoMCkNCg0KUGxlYXNlIHJlZmVyIGh0dHA6Ly9sa21sLml1LmVkdS9oeXBlcm1haWwv
-bGludXgva2VybmVsLzEyMDMuMi8wMDM2OS5odG1sIGFuZCBhbHNvIHNlZSBpbmNsdWRlL2xpbnV4
-L2xvY2tkZXAuaCBmb3IgbW9yZSBkZXRhaWwuDQoNClRoYW5rcw0KU2FuamVldiBTaGFybWENCg==
+Tom Herbert <therbert@google.com> wrote:
+> Watch inflight and limit in the byte_queue_limits for the queue.
+> inflight must always go back to zero when link goes idle.
+
+Yes, inflight goes to 0 when link is idle.
+
+Output of
+while true; do
+    for n in inflight limit; do
+      echo -n $n\ ; cat $n;
+      done; sleep 1;
+done
+
+during netperf run, 100mbit peer:
+
+inflight 0
+limit 3028
+inflight 6056
+limit 4542
+[ no changes during test ]
+limit 4542
+inflight 3028
+limit 6122
+inflight 0
+limit 6122
+[ changed cable to 1gbit peer, restart netperf ]
+inflight 37850
+limit 36336
+inflight 33308
+limit 31794
+inflight 33308
+limit 31794
+inflight 27252
+limit 25738
+[ no changes during test ]
+inflight 27252
+limit 25738
+inflight 0
+limit 28766
+[ change cable to 100mbit peer, restart netperf ]
+limit 28766
+inflight 27370
+limit 28766
+inflight 4542
+limit 5990
+inflight 6056
+limit 4542
+inflight 6056
+limit 4542
+inflight 6056
+limit 4542
+inflight 6056
+limit 4542
+inflight 6056
+limit 4542
+inflight 6056
+limit 4542
+inflight 6056
+limit 4542
+inflight 6056
+limit 4542
+inflight 0
+
+[ end of test ]
+
+I think thats what its supposed to look like :-)
