@@ -1,34 +1,41 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH] staging: r8192ee: Remove staging driver
-Date: Tue, 30 Sep 2014 09:26:38 -0700
-Message-ID: <20140930162638.GA23250@kroah.com>
-References: <1412088499-23689-1-git-send-email-Larry.Finger@lwfinger.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org
-To: Larry Finger <Larry.Finger@lwfinger.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.linuxfoundation.org ([140.211.169.12]:49885 "EHLO
-	mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752777AbaI3Q0i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2014 12:26:38 -0400
-Content-Disposition: inline
-In-Reply-To: <1412088499-23689-1-git-send-email-Larry.Finger@lwfinger.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: [PATCH] next: mips: bpf: Fix build failure
+Date: Tue, 30 Sep 2014 09:39:00 -0700
+Message-ID: <1412095140-10953-1-git-send-email-linux@roeck-us.net>
+Cc: "David S. Miller" <davem@davemloft.net>, linux-mips@linux-mips.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	Guenter Roeck <linux@roeck-us.net>
+To: Ralf Baechle <ralf@linux-mips.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 30, 2014 at 09:48:19AM -0500, Larry Finger wrote:
-> A new version of this driver has been merged into the regular wireless tree.
-> The staging version is hereby removed.
-> 
-> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-> ---
-> 
-> Greg,
-> 
-> I'll see if I can get this one right. This should apply to the staging-next
-> branch.
+Fix:
 
-That worked just fine, now applied, thanks.
+arch/mips/net/bpf_jit.c: In function 'build_body':
+arch/mips/net/bpf_jit.c:762:6: error: unused variable 'tmp'
+cc1: all warnings being treated as errors
+make[2]: *** [arch/mips/net/bpf_jit.o] Error 1
 
-greg k-h
+Seen when building mips:allmodconfig in -next since next-20140924.
+
+Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+---
+ arch/mips/net/bpf_jit.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/arch/mips/net/bpf_jit.c b/arch/mips/net/bpf_jit.c
+index 7561833..9b55143 100644
+--- a/arch/mips/net/bpf_jit.c
++++ b/arch/mips/net/bpf_jit.c
+@@ -759,7 +759,6 @@ static int build_body(struct jit_ctx *ctx)
+ 	const struct sock_filter *inst;
+ 	unsigned int i, off, load_order, condt;
+ 	u32 k, b_off __maybe_unused;
+-	int tmp;
+ 
+ 	for (i = 0; i < prog->len; i++) {
+ 		u16 code;
+-- 
+1.9.1
