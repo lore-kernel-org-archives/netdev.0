@@ -1,75 +1,94 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] tun: make sure interface usage can not overflow
-Date: Tue, 30 Sep 2014 11:18:52 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D174A0ECF@AcuExch.aculab.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] tun: make sure interface usage can not overflow
+Date: Tue, 30 Sep 2014 14:29:21 +0300
+Message-ID: <20140930112921.GD7089@redhat.com>
 References: <20140928232753.GA31180@www.outflux.net>
-	 <063D6719AE5E284EB5DD2968C1650D6D1749FC70@AcuExch.aculab.com>
-	 <CAGXu5jKL13qdCBet3yqpc3vLYh_LifBACzL+NP8n-A+E8RMZXw@mail.gmail.com>
-	 <1412021098.14757.6.camel@localhost>
-	 <063D6719AE5E284EB5DD2968C1650D6D174A0C5C@AcuExch.aculab.com>
- <1412075023.7155.21.camel@localhost>
+ <20140929114849.GA913@redhat.com>
+ <CAGXu5j+x5pg6-9y72o=mE9TiNEyFqTTE=o8ETh1Ao8R20KNRwA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Kees Cook <keescook@chromium.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+Content-Type: text/plain; charset=us-ascii
+Cc: LKML <linux-kernel@vger.kernel.org>,
 	"David S. Miller" <davem@davemloft.net>,
 	Jason Wang <jasowang@redhat.com>,
 	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
 	Tom Herbert <therbert@google.com>,
 	Masatake YAMATO <yamato@redhat.com>, Xi Wang <xii@google.com>,
-	"stephen hemminger" <stephen@networkplumber.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'Hannes Frederic Sowa' <hannes@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:52937 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751105AbaI3LUl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Sep 2014 07:20:41 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 12978-07 for <netdev@vger.kernel.org>;
- Tue, 30 Sep 2014 12:20:39 +0100 (BST)
-In-Reply-To: <1412075023.7155.21.camel@localhost>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	stephen hemminger <stephen@networkplumber.org>,
+	Network Development <netdev@vger.kernel.org>
+To: Kees Cook <keescook@chromium.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAGXu5j+x5pg6-9y72o=mE9TiNEyFqTTE=o8ETh1Ao8R20KNRwA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogSGFubmVzIEZyZWRlcmljIA0KPiBPbiBEaSwgMjAxNC0wOS0zMCBhdCAwODoyMCArMDAw
-MCwgRGF2aWQgTGFpZ2h0IHdyb3RlOg0KPiA+IEZyb206IEhhbm5lcyBGcmVkZXJpYw0KPiA+ID4g
-T24gTW8sIDIwMTQtMDktMjkgYXQgMTI6NDEgLTA3MDAsIEtlZXMgQ29vayB3cm90ZToNCj4gPiA+
-ID4gT24gTW9uLCBTZXAgMjksIDIwMTQgYXQgNDowNCBBTSwgRGF2aWQgTGFpZ2h0IDxEYXZpZC5M
-YWlnaHRAYWN1bGFiLmNvbT4gd3JvdGU6DQo+ID4gPiA+ID4gRnJvbTogS2VlcyBDb29rDQo+ID4g
-PiA+ID4+IFRoaXMgbWFrZXMgdGhlIHNpemUgYXJndW1lbnQgYSBjb25zdCwgc2luY2UgaXQgaXMg
-YWx3YXlzIHBvcHVsYXRlZCBieQ0KPiA+ID4gPiA+PiB0aGUgY2FsbGVyLg0KPiA+ID4gPiA+DQo+
-ID4gPiA+ID4gVGhlcmUgaXMgYWxtb3N0IG5vIHBvaW50IG1ha2luZyBwYXJhbWV0ZXJzICdjb25z
-dC4NCj4gPiA+ID4gPiAoJ2NvbnN0IGZvbyAqJyBtYWtlcyBzZW5zZSkuDQo+ID4gPiA+ID4NCj4g
-PiA+ID4gPj4gQWRkaXRpb25hbGx5IGRvdWJsZS1jaGVja3MgdG8gbWFrZSBzdXJlIHRoZSBjb3B5
-X2Zyb21fdXNlcg0KPiA+ID4gPiA+PiBjYW4gbmV2ZXIgb3ZlcmZsb3csIGtlZXBpbmcgQ09ORklH
-X0RFQlVHX1NUUklDVF9VU0VSX0NPUFlfQ0hFQ0tTIGhhcHB5Og0KPiA+ID4gPiA+Pg0KPiA+ID4g
-PiA+PiAgICBJbiBmdW5jdGlvbiAnY29weV9mcm9tX3VzZXInLA0KPiA+ID4gPiA+PiAgICAgICAg
-aW5saW5lZCBmcm9tICdfX3R1bl9jaHJfaW9jdGwnIGF0IGRyaXZlcnMvbmV0L3R1bi5jOjE4NzE6
-NzoNCj4gPiA+ID4gPj4gICAgICAgIC4uLiBjb3B5X2Zyb21fdXNlcigpIGJ1ZmZlciBzaXplIGlz
-IG5vdCBwcm92YWJseSBjb3JyZWN0DQo+ID4gPiA+ID4NCj4gPiA+ID4gPiBJZiAnaWZyZXFfbGVu
-JyBjb3VsZCBiZSB0b28gYmlnIHRoZW4geW91IHdhbnQgdG8gZXJyb3IgdGhlIGlvY3RsLCBub3Qg
-cGFuaWMuDQo+ID4gPiA+ID4gSWYgaXQgY2FuJ3QgYmUgdG9vIGJpZyB5b3UgZG9uJ3QgbmVlZCB0
-aGUgY2hlY2suDQo+ID4gPiA+DQo+ID4gPiA+IFRoZSBpZnJlcV9sZW4gY29tZXMgZnJvbSB0aGUg
-Y2FsbGVycywgYW5kIGlzIHRoZSBvdXRwdXQgb2YgInNpemVvZiINCj4gPiA+ID4gd2hpY2ggaXMg
-Y29uc3QuIENoYW5naW5nIHRoZSBmdW5jdGlvbiBwYXJhbWV0ZXIgdG8gImNvbnN0IiBtZWFucyBh
-bnkNCj4gPiA+ID4gY2hhbmdlcyBtYWRlIGluIHRoZSBmdXR1cmUgd2hlcmUgdGhlIGluY29taW5n
-IHZhbHVlIGlzbid0IGNvbnN0LCB0aGUNCj4gPiA+ID4gY29tcGlsZXIgd2lsbCB0aHJvdyBhIHdh
-cm5pbmcuDQo+ID4gPg0KPiA+ID4gSG1tbSwgSSB0aGluayB5b3Ugd2FudCBzb21ldGhpbmcgbGlr
-ZSBCVUlMRF9CVUdfT04oIQ0KPiA+ID4gX19idWlsdGluX2NvbnN0YW50X3AodmFyKSkuIGNvbnN0
-IGluIGZ1bmN0aW9uIGFyZ3VtZW50IG9ubHkgZW5zdXJlcyB0aGF0DQo+ID4gPiB0aGUgdmFsdWUg
-Y2Fubm90IGJlIG1vZGlmaWVkIGluIHRoZSBmdW5jdGlvbi4NCj4gPg0KPiA+IFlvdSdkIGhhdmUg
-dG8gZG8gc29tZXRoaW5nIGluIHRoZSBoZWFkZXIgZmlsZSAtIG5vdGhpbmcgaW4gdGhlIGZ1bmN0
-aW9uDQo+ID4gYm9keSBjYW4gZG8gdGhhdCBjaGVjay4NCj4gDQo+IFN1cmUsIGl0IHNob3VsZCB3
-b3JrLiBZb3Ugb25seSBuZWVkIHRvIG1ha2Ugc3VyZSB0aGF0IGdjYyBpbmxpbmVzIHRoZQ0KPiBm
-dW5jdGlvbiwgc28gdGhlIHZhbHVlIGlzIGNvbnN0YW50IChpdCBpcyBub3QgZW5vdWdoIHRoYXQg
-Z2NjIGtub3dzIHRoZQ0KPiB2YWx1ZSByYW5nZSwgb25lIHNwZWNpZmljIGNvbnN0YW50IGlzIG5l
-ZWRlZCkuIFNvIHRoZSBzaW1wbGVzdCBmaXggZm9yDQo+IHRoaXMgaXMgdG8gc3BlY2lmeSBfX3R1
-bl9jaHJfaW9jdGwgYXMgX19hbHdheXNfaW5saW5lLiA7KQ0KDQpZb3UgYXJlIGpva2luZyBhcmVu
-J3QgeW91Pz8/DQoNCkxvb2sgYXQgdGhlIGNvZGUuDQoNCkknZCBzdWdnZXN0IGZpeGluZyB3aGF0
-ZXZlciBpbXBsZW1lbnRzIENPTkZJR19ERUJVR19TVFJJQ1RfVVNFUl9DT1BZX0NIRUNLUw0KdG8g
-YmUgbGVzcyBwaWNreS4NCg0KCURhdmlkDQoNCg==
+On Mon, Sep 29, 2014 at 12:48:47PM -0700, Kees Cook wrote:
+> On Mon, Sep 29, 2014 at 4:48 AM, Michael S. Tsirkin <mst@redhat.com> wrote:
+> > On Sun, Sep 28, 2014 at 04:27:53PM -0700, Kees Cook wrote:
+> >> This makes the size argument a const, since it is always populated by
+> >> the caller. Additionally double-checks to make sure the copy_from_user
+> >> can never overflow, keeping CONFIG_DEBUG_STRICT_USER_COPY_CHECKS happy:
+> >>
+> >>    In function 'copy_from_user',
+> >>        inlined from '__tun_chr_ioctl' at drivers/net/tun.c:1871:7:
+> >>        ... copy_from_user() buffer size is not provably correct
+> >>
+> >> Signed-off-by: Kees Cook <keescook@chromium.org>
+> >
+> > What exactly is the issue here?
+> > __tun_chr_ioctl is called with sizeof(struct compat_ifreq)
+> > or  sizeof (struct ifreq) as the last argument.
+> 
+> Correct. There is no vulnerability here; I am attempting to both make
+> the code more defensive to future changes, and to keep
+> CONFIG_DEBUG_STRICT_USER_COPY_CHECKS happy.
+> 
+> > So this looks like a false positive, but
+> > CONFIG_DEBUG_STRICT_USER_COPY_CHECKS machinery is supposed
+> > to avoid false positives.
+> 
+> The support in GCC is currently a bit faulty, and it seems that it
+> didn't notice the two callers were static values, so instead, adding
+> an explicit test keeps it happy.
+> 
+> > On which architecture is this?
+> 
+> This is on x86, but with CONFIG_DEBUG_STRICT_USER_COPY_CHECKS
+> correctly enabled (gcc after 4.6 broke its ability to correctly
+> optimize), which I've been playing with trying to get gcc working
+> again. I sent the patch because it seems like it's a reasonable
+> defensive change to make.
+
+For the BUG_ON - I guess it's reasonable but we'll just break it again
+by random code changes in the future. And when we do, I don't cherish
+the thought of using trial and error to find a way to shut up the
+warning again.
+If gcc can't be fixed, something explicit like the uninitialized_var
+is needed.
+
+For const as an argument - is it also about gcc bugs?
+We don't usually do this in kernel so if it's useful,
+it has to be documented.
+
+Finally, why are you switching the type from int to size_t?
+Pls document the reason in the commit log.
+
+> If you want to look more deeply, there's some background here:
+> https://code.google.com/p/chromium/issues/detail?id=371036
+> 
+> https://git.kernel.org/cgit/linux/kernel/git/kees/linux.git/commit/?h=gcc-bug&id=92dd7154932d8775a05dfd3de5564124c05a4150
+> 
+> Thanks,
+> 
+> -Kees
+
+I think what you are trying to do is really useful, but
+I doubt making random code changes that happen to make a
+specific gcc version happy is maintainable.
+
+HTH
+Thanks!
+
+> -- 
+> Kees Cook
+> Chrome OS Security
