@@ -1,69 +1,51 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH net-next] netfilter: bridge: build br_nf_core only if required
-Date: Tue, 30 Sep 2014 10:59:18 +0200
-Message-ID: <1412067559-28733-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Tom Herbert <therbert@google.com>,
-	Florian Westphal <fw@strlen.de>
-To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Subject: Re: [PATCH] bridge: Fix redefined references
+Date: Tue, 30 Sep 2014 11:05:08 +0200
+Message-ID: <20140930090508.GA12729@salvia>
+References: <1412043404-27494-1-git-send-email-therbert@google.com>
+ <20140930.010143.591375062294828360.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: therbert@google.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:53165 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751268AbaI3JD6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Sep 2014 05:03:58 -0400
+Content-Disposition: inline
+In-Reply-To: <20140930.010143.591375062294828360.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
+On Tue, Sep 30, 2014 at 01:01:43AM -0400, David Miller wrote:
+> From: Tom Herbert <therbert@google.com>
+> Date: Mon, 29 Sep 2014 19:16:44 -0700
+> 
+> > Commit 34666d467cbf1e2e3 ("netfilter: bridge: move br_netfilter out of
+> > the core") cause compiler errors when CONFIG_BRIDGE_NETFILTER is not
+> > defined.
+> > 
+> > net/bridge/br_nf_core.c:77:1: error: expected identifier or '(' before '{' token
+> > net/bridge/br_nf_core.c:88:115: error: redefinition of 'br_nf_core_init'
+> > In file included from net/bridge/br_nf_core.c:23:0:
+> > net/bridge/br_private.h:762:59: note: previous definition of 'br_nf_core_init' was here
+> > net/bridge/br_nf_core.c:93:6: error: redefinition of 'br_nf_core_fini'
+> > In file included from net/bridge/br_nf_core.c:23:0:
+> > net/bridge/br_private.h:763:60: note: previous definition of 'br_nf_core_fini' was here
+> > 
+> > Add #if IS_ENABLED(CONFIG_BRIDGE_NETFILTER) around definitions of
+> > the redefined functions.
+> > 
+> > Signed-off-by: Tom Herbert <therbert@google.com>
+> 
+> Pablo please either ACK this or provide an alternative fix ASAP.
+> 
+> This bridging build breakage is impacting a lot of people.
 
-Eric reports build failure with
-CONFIG_BRIDGE_NETFILTER=n
+Sorry for the trouble this is causing.
 
-We insist to build br_nf_core.o unconditionally, but we must only do so
-if br_netfilter was enabled, else it fails to build due to
-functions being defined to empty stubs (and some structure members
-being defined out).
+I just sent a patch from Florian to resolve the compilataion breakage
+when CONFIG_BRIDGE_NETFILTER=n.
 
-Also, BRIDGE_NETFILTER=y|m makes no sense when BRIDGE=n.
-
-Fixes: 34666d467 (netfilter: bridge: move br_netfilter out of the core)
-Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
-Signed-off-by: Florian Westphal <fw@strlen.de>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/Kconfig         |    2 +-
- net/bridge/Makefile |    5 +++--
- 2 files changed, 4 insertions(+), 3 deletions(-)
-
-diff --git a/net/Kconfig b/net/Kconfig
-index dc5d700..d6b138e 100644
---- a/net/Kconfig
-+++ b/net/Kconfig
-@@ -177,7 +177,7 @@ config NETFILTER_ADVANCED
- 
- config BRIDGE_NETFILTER
- 	tristate "Bridged IP/ARP packets filtering"
--	depends on (BRIDGE || BRIDGE=n)
-+	depends on BRIDGE
- 	depends on NETFILTER && INET
- 	depends on NETFILTER_ADVANCED
- 	default m
-diff --git a/net/bridge/Makefile b/net/bridge/Makefile
-index 5e3eac5..fd7ee03 100644
---- a/net/bridge/Makefile
-+++ b/net/bridge/Makefile
-@@ -6,11 +6,12 @@ obj-$(CONFIG_BRIDGE) += bridge.o
- 
- bridge-y	:= br.o br_device.o br_fdb.o br_forward.o br_if.o br_input.o \
- 			br_ioctl.o br_stp.o br_stp_bpdu.o \
--			br_stp_if.o br_stp_timer.o br_netlink.o \
--			br_nf_core.o
-+			br_stp_if.o br_stp_timer.o br_netlink.o
- 
- bridge-$(CONFIG_SYSFS) += br_sysfs_if.o br_sysfs_br.o
- 
-+bridge-$(subst m,y,$(CONFIG_BRIDGE_NETFILTER)) += br_nf_core.o
-+
- obj-$(CONFIG_BRIDGE_NETFILTER) += br_netfilter.o
- 
- bridge-$(CONFIG_BRIDGE_IGMP_SNOOPING) += br_multicast.o br_mdb.o
--- 
-1.7.10.4
-
+Thanks.
