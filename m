@@ -1,51 +1,54 @@
-From: Erez Shitrit <erezsh@dev.mellanox.co.il>
-Subject: Re: Re: [PATCH net] gro: fix aggregation for skb using frag_list
-Date: Tue, 30 Sep 2014 14:51:49 +0300
-Message-ID: <542A9955.9010609@dev.mellanox.co.il>
-References: <1412012069.30721.31.camel@edumazet-glaptop2.roam.corp.google.com> <20140929.151900.618302492132612563.davem@davemloft.net> <07015a18f26f49518ceeabb35f2539ee@DB3PR05MB441.eurprd05.prod.outlook.com>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: Re: [PATCH v2 net-next] mlx4: optimize xmit path
+Date: Tue, 30 Sep 2014 15:01:48 +0300
+Message-ID: <542A9BAC.6010208@mellanox.com>
+References: <1411692382-8898-1-git-send-email-ast@plumgrid.com>	 <1411694414.16953.70.camel@edumazet-glaptop2.roam.corp.google.com>	 <1411717322.16953.99.camel@edumazet-glaptop2.roam.corp.google.com>	 <1411850590.15768.6.camel@edumazet-glaptop2.roam.corp.google.com>	 <CAJ3xEMhQCf7j48Yn5sjH6jaYYdLQUgOe2hk-OZhhdZ7taOyx+Q@mail.gmail.com>	 <1411853441.15768.13.camel@edumazet-glaptop2.roam.corp.google.com>	 <1411858593.15768.51.camel@edumazet-glaptop2.roam.corp.google.com> <1411964353.30721.6.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: erezsh@mellanox.com, davem@davemloft.net, eric.dumazet@gmail.com
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: Alexei Starovoitov <ast@plumgrid.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	Eric Dumazet <edumazet@google.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Or Gerlitz <or.gerlitz@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f178.google.com ([74.125.82.178]:39026 "EHLO
-	mail-we0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751411AbaI3Lvy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2014 07:51:54 -0400
-Received: by mail-we0-f178.google.com with SMTP id k48so27782wev.9
-        for <netdev@vger.kernel.org>; Tue, 30 Sep 2014 04:51:53 -0700 (PDT)
-In-Reply-To: <07015a18f26f49518ceeabb35f2539ee@DB3PR05MB441.eurprd05.prod.outlook.com>
+Received: from eu1sys200aog132.obsmtp.com ([207.126.144.207]:54672 "EHLO
+	eu1sys200aog132.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750791AbaI3MCB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2014 08:02:01 -0400
+In-Reply-To: <1411964353.30721.6.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Monday, September 29, 2014 10:19 PM
-> To: eric.dumazet@gmail.com
-> Cc: netdev@vger.kernel.org; Erez Shitrit
-> Subject: Re: [PATCH net] gro: fix aggregation for skb using frag_list
->
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Mon, 29 Sep 2014 10:34:29 -0700
->
->> From: Eric Dumazet <edumazet@google.com>
->>
->> In commit 8a29111c7ca6 ("net: gro: allow to build full sized skb") I
->> added a regression for linear skb that traditionally force GRO to use
->> the frag_list fallback.
->>
->> Erez Shitrit found that at most two segments were aggregated and the
->> "if (skb_gro_len(p) != pinfo->gso_size)" test was failing.
->>
->> This is because pinfo at this spot still points to the last skb in the
->> chain, instead of the first one, where we find the correct gso_size
->> information.
->>
->> Signed-off-by: Eric Dumazet <edumazet@google.com>
->> Fixes: 8a29111c7ca6 ("net: gro: allow to build full sized skb")
->> Reported-by: Erez Shitrit <erezsh@mellanox.com>
-> Applied and queued up for -stable, thanks Eric.
->
-Tested. and it works for IPoIB driver. Thanks Eric.
+On 9/29/2014 7:19 AM, Eric Dumazet wrote:
+> First I implemented skb->xmit_more support, and pktgen throughput
+> went from ~5Mpps to ~10Mpps.
+> 
+> Then, looking closely at this driver I found false sharing problems that
+> should be addressed by this patch, as my pktgen now reaches 14.7 Mpps
+> on a single TX queue, with a burst factor of 8.
+> 
+> So this patch in a whole permits to improve raw performance on a single
+> TX queue from about 5 Mpps to 14.9 Mpps.
+> 
+> Note that if packets are below the inline_thold threshold (104 bytes),
+> driver copies packets content into tx descriptor, and throughput
+> is lowered to ~7.5 Mpps :
+> ->      We might reconsider inline strategy in a followup patch.
+> 
+> I could split this patch into multiple components, but I prefer not
+> spend days on this work.
 
-Erez
+Hi,
+
+Thanks for the great work Eric.
+
+I'm working to split the patch and pass it through some regression tests
+and performance benchmarking.
+Will send the split patch-set in few days.
+
+Amir
