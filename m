@@ -1,130 +1,68 @@
-From: Vladislav Yasevich <vyasevich@gmail.com>
-Subject: [PATCH v2 net 1/3] bridge: Add a default_pvid sysfs attribute
-Date: Tue, 30 Sep 2014 15:31:00 -0400
-Message-ID: <1412105462-340-2-git-send-email-vyasevic@redhat.com>
-References: <1412105462-340-1-git-send-email-vyasevic@redhat.com>
-Cc: toshiaki.makita1@gmail.com, stephen@networkplumber.org,
-	bridge@lists.linux-foundation.org,
-	Vladislav Yasevich <vyasevic@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f53.google.com ([209.85.192.53]:62556 "EHLO
-	mail-qg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752212AbaI3TbS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2014 15:31:18 -0400
-Received: by mail-qg0-f53.google.com with SMTP id a108so2889676qge.40
-        for <netdev@vger.kernel.org>; Tue, 30 Sep 2014 12:31:13 -0700 (PDT)
-In-Reply-To: <1412105462-340-1-git-send-email-vyasevic@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH] et131x: Promote staging et131x driver to drivers/net
+Date: Tue, 30 Sep 2014 12:32:01 -0700
+Message-ID: <20140930193201.GA2349@kroah.com>
+References: <1412104572-2931-1-git-send-email-mark.einon@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org, davem@davemloft.net,
+ linux-kernel@vger.kernel.org
+To: Mark Einon <mark.einon@gmail.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Disposition: inline
+In-Reply-To: <1412104572-2931-1-git-send-email-mark.einon@gmail.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-This patch allows the user to set and retrieve default_pvid
-value.  A new value can only be stored when vlan filtering
-is disabled.
+On Tue, Sep 30, 2014 at 08:16:12PM +0100, Mark Einon wrote:
+> This patch moves the et131x gigabit ethernet driver from drivers/staging
+> to drivers/net/ethernet/agere.
+> 
+> Signed-off-by: Mark Einon <mark.einon@gmail.com>
+> ---
+> 
+> This patch appiles to both staging-next and the linux-next tag next-20140930,
+> and takes into account all feedback recieved from the recent RFC for this
+> patch.
+> 
+>  MAINTAINERS                                        | 10 +++----
+>  drivers/net/ethernet/Kconfig                       |  1 +
+>  drivers/net/ethernet/Makefile                      |  1 +
+>  drivers/net/ethernet/agere/Kconfig                 | 31 ++++++++++++++++++++++
+>  .../et131x => net/ethernet/agere}/Makefile         |  0
+>  .../et131x => net/ethernet/agere}/et131x.c         |  0
+>  .../et131x => net/ethernet/agere}/et131x.h         |  0
+>  drivers/staging/Kconfig                            |  2 --
+>  drivers/staging/Makefile                           |  1 -
+>  drivers/staging/et131x/Kconfig                     | 10 -------
+>  drivers/staging/et131x/README                      | 15 -----------
+>  11 files changed, 38 insertions(+), 33 deletions(-)
+>  create mode 100644 drivers/net/ethernet/agere/Kconfig
+>  rename drivers/{staging/et131x => net/ethernet/agere}/Makefile (100%)
+>  rename drivers/{staging/et131x => net/ethernet/agere}/et131x.c (100%)
+>  rename drivers/{staging/et131x => net/ethernet/agere}/et131x.h (100%)
+>  delete mode 100644 drivers/staging/et131x/Kconfig
+>  delete mode 100644 drivers/staging/et131x/README
 
-Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
----
- net/bridge/br_private.h  |  2 ++
- net/bridge/br_sysfs_br.c | 17 +++++++++++++++++
- net/bridge/br_vlan.c     | 28 ++++++++++++++++++++++++++++
- 3 files changed, 47 insertions(+)
+This is a fine way to make a patch, but it's no way that any of the
+netdev developers could ever review it to know what the code happens to
+look like in my staging-next branch :(
 
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index b6c04cb..6fe8680 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -299,6 +299,7 @@ struct net_bridge
- #ifdef CONFIG_BRIDGE_VLAN_FILTERING
- 	u8				vlan_enabled;
- 	__be16				vlan_proto;
-+	u16				default_pvid;
- 	struct net_port_vlans __rcu	*vlan_info;
- #endif
- };
-@@ -605,6 +606,7 @@ void br_recalculate_fwd_mask(struct net_bridge *br);
- int br_vlan_filter_toggle(struct net_bridge *br, unsigned long val);
- int br_vlan_set_proto(struct net_bridge *br, unsigned long val);
- void br_vlan_init(struct net_bridge *br);
-+int br_vlan_set_default_pvid(struct net_bridge *br, unsigned long val);
- int nbp_vlan_add(struct net_bridge_port *port, u16 vid, u16 flags);
- int nbp_vlan_delete(struct net_bridge_port *port, u16 vid);
- void nbp_vlan_flush(struct net_bridge_port *port);
-diff --git a/net/bridge/br_sysfs_br.c b/net/bridge/br_sysfs_br.c
-index c9e2572..b969d9e 100644
---- a/net/bridge/br_sysfs_br.c
-+++ b/net/bridge/br_sysfs_br.c
-@@ -725,6 +725,22 @@ static ssize_t vlan_protocol_store(struct device *d,
- 	return store_bridge_parm(d, buf, len, br_vlan_set_proto);
- }
- static DEVICE_ATTR_RW(vlan_protocol);
-+
-+static ssize_t default_pvid_show(struct device *d,
-+				 struct device_attribute *attr,
-+				 char *buf)
-+{
-+	struct net_bridge *br = to_bridge(d);
-+	return sprintf(buf, "%d\n", br->default_pvid);
-+}
-+
-+static ssize_t default_pvid_store(struct device *d,
-+				  struct device_attribute *attr,
-+				  const char *buf, size_t len)
-+{
-+	return store_bridge_parm(d, buf, len, br_vlan_set_default_pvid);
-+}
-+static DEVICE_ATTR_RW(default_pvid);
- #endif
- 
- static struct attribute *bridge_attrs[] = {
-@@ -771,6 +787,7 @@ static struct attribute *bridge_attrs[] = {
- #ifdef CONFIG_BRIDGE_VLAN_FILTERING
- 	&dev_attr_vlan_filtering.attr,
- 	&dev_attr_vlan_protocol.attr,
-+	&dev_attr_default_pvid.attr,
- #endif
- 	NULL
- };
-diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
-index 3ba57fc..295ad0d 100644
---- a/net/bridge/br_vlan.c
-+++ b/net/bridge/br_vlan.c
-@@ -499,9 +499,37 @@ err_filt:
- 	goto unlock;
- }
- 
-+int br_vlan_set_default_pvid(struct net_bridge *br, unsigned long val)
-+{
-+	u16 pvid = val;
-+	int err = 0;
-+
-+	if (!pvid || pvid >= VLAN_VID_MASK)
-+		return -EINVAL;
-+
-+	if (!rtnl_trylock())
-+		return restart_syscall();
-+
-+	if (pvid == br->default_pvid)
-+		goto unlock;
-+
-+	/* Only allow default pvid change when filtering is disabled */
-+	if (br->vlan_enabled) {
-+		err = -EPERM;
-+		goto unlock;
-+	}
-+
-+	br->default_pvid = vid;
-+
-+unlock:
-+	rtnl_unlock();
-+	return err;
-+}
-+
- void br_vlan_init(struct net_bridge *br)
- {
- 	br->vlan_proto = htons(ETH_P_8021Q);
-+	br->default_pvid = 1;
- }
- 
- /* Must be protected by RTNL.
--- 
-1.9.3
+How about just sending a patch that adds the driver to drivers/net/...
+Don't worry about the staging driver at the moment.  If it gets added to
+drivers/net we can then delete the staging driver.
+
+Sound easier?  Should make the patches half as big.
+
+thanks,
+
+greg k-h
