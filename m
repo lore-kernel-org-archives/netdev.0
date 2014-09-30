@@ -1,7 +1,8 @@
 From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH v6 00/10] ARM: Berlin: Ethernet support
-Date: Tue, 30 Sep 2014 16:28:06 +0200
-Message-ID: <1412087296-18475-1-git-send-email-antoine.tenart@free-electrons.com>
+Subject: [PATCH v6 09/10] ARM: dts: berlin: add the Ethernet node
+Date: Tue, 30 Sep 2014 16:28:15 +0200
+Message-ID: <1412087296-18475-10-git-send-email-antoine.tenart@free-electrons.com>
+References: <1412087296-18475-1-git-send-email-antoine.tenart@free-electrons.com>
 Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
 	alexandre.belloni@free-electrons.com,
 	thomas.petazzoni@free-electrons.com, zmxu@marvell.com,
@@ -9,63 +10,47 @@ Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
 	linux-arm-kernel@lists.infradead.org, devicetree@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 To: sebastian.hesselbarth@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:55650 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751567AbaI3O2T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2014 10:28:19 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1412087296-18475-1-git-send-email-antoine.tenart@free-electrons.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi all,
+This patch adds the Ethernet node, enabling the network unit on Berlin
+BG2Q SoCs.
 
-This series introduce support for the Ethernet controller on Berlin SoCs,
-using the existing pxa168 Ethernet driver. In order to do this, DT
-support is added to the driver alongside some other modifications and
-fixes.
+Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
+Acked-by: Arnd Bergmann <arnd@arndb.de>
+---
+ arch/arm/boot/dts/berlin2q.dtsi | 17 +++++++++++++++++
+ 1 file changed, 17 insertions(+)
 
-This has been tested on a Berlin BG2Q DMP board.
-
-Changes since v5:
-	- fixed the build when building the driver as a module
-
-Changes since v4:
-        - removed the phy-addr property and added a phy subnode
-        - added COMPILE_TEST for the pxa168_eth driver
-
-Changes since v3:
-        - moved the addition of pxa168_eth_get_mac_address() to the patch
-          using it first
-
-Changes since v2:
-        - reworked how the MAC address is configured
-        - made the clock anonymous
-
-Changes since v1:
-        - removed custom Berlin Ethernet driver
-        - used the pxa168 Ethernet driver instead
-        - made modifications to the pxa168 driver (DT support, fixes)
-
-Antoine Tenart (10):
-  net: pxa168_eth: clean up
-  net: pxa168_eth: add device tree support
-  Documentation: bindings: net: add the Marvell PXA168 Ethernet
-    controller
-  net: pxa168_eth: fix Ethernet flow control status
-  net: pxa168_eth: set the mac address on the Ethernet controller
-  net: pxa168_eth: rework the MAC address setup
-  net: pxa168_eth: allow Berlin SoCs to use the pxa168_eth driver
-  net: pxa168_eth: allow to compile the pxa168_eth driver for tests
-  ARM: dts: berlin: add the Ethernet node
-  ARM: dts: berlin: enable the Ethernet port on the BG2Q DMP
-
- .../devicetree/bindings/net/marvell-pxa168.txt     |  36 ++++
- arch/arm/boot/dts/berlin2q-marvell-dmp.dts         |   4 +
- arch/arm/boot/dts/berlin2q.dtsi                    |  17 ++
- drivers/net/ethernet/marvell/Kconfig               |   2 +-
- drivers/net/ethernet/marvell/pxa168_eth.c          | 219 +++++++++++++--------
- 5 files changed, 199 insertions(+), 79 deletions(-)
- create mode 100644 Documentation/devicetree/bindings/net/marvell-pxa168.txt
-
+diff --git a/arch/arm/boot/dts/berlin2q.dtsi b/arch/arm/boot/dts/berlin2q.dtsi
+index 902eddb19cd8..d442b22fd1ea 100644
+--- a/arch/arm/boot/dts/berlin2q.dtsi
++++ b/arch/arm/boot/dts/berlin2q.dtsi
+@@ -114,6 +114,23 @@
+ 			#interrupt-cells = <3>;
+ 		};
+ 
++		eth0: ethernet@b90000 {
++			compatible = "marvell,pxa168-eth";
++			reg = <0xb90000 0x10000>;
++			clocks = <&chip CLKID_GETH0>;
++			interrupts = <GIC_SPI 24 IRQ_TYPE_LEVEL_HIGH>;
++			/* set by bootloader */
++			local-mac-address = [00 00 00 00 00 00];
++			#address-cells = <1>;
++			#size-cells = <0>;
++			phy-handle = <&ethphy0>;
++			status = "disabled";
++
++			ethphy0: ethernet-phy@0 {
++				reg = <0>;
++			};
++		};
++
+ 		cpu-ctrl@dd0000 {
+ 			compatible = "marvell,berlin-cpu-ctrl";
+ 			reg = <0xdd0000 0x10000>;
 -- 
 1.9.1
