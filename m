@@ -1,17 +1,19 @@
 From: Eli Cohen <eli@dev.mellanox.co.il>
 Subject: [PATCH net-next 0/4] mlx5 update for 3.18
-Date: Tue, 30 Sep 2014 16:02:10 +0300
-Message-ID: <1412082135-30229-1-git-send-email-eli@mellanox.com>
+Date: Tue, 30 Sep 2014 16:02:11 +0300
+Message-ID: <1412082135-30229-2-git-send-email-eli@mellanox.com>
+References: <1412082135-30229-1-git-send-email-eli@mellanox.com>
 Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com,
 	yevgenyp@mellanox.com, Eli Cohen <eli@mellanox.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f181.google.com ([74.125.82.181]:50839 "EHLO
-	mail-we0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751023AbaI3NC2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2014 09:02:28 -0400
-Received: by mail-we0-f181.google.com with SMTP id u57so3461936wes.12
-        for <netdev@vger.kernel.org>; Tue, 30 Sep 2014 06:02:27 -0700 (PDT)
+Received: from mail-wg0-f47.google.com ([74.125.82.47]:39561 "EHLO
+	mail-wg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751560AbaI3NCb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2014 09:02:31 -0400
+Received: by mail-wg0-f47.google.com with SMTP id x13so317494wgg.18
+        for <netdev@vger.kernel.org>; Tue, 30 Sep 2014 06:02:30 -0700 (PDT)
+In-Reply-To: <1412082135-30229-1-git-send-email-eli@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
