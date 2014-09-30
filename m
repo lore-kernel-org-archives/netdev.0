@@ -1,35 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v6 00/10] ARM: Berlin: Ethernet support
-Date: Tue, 30 Sep 2014 16:37:35 -0400 (EDT)
-Message-ID: <20140930.163735.2099691931550261883.davem@davemloft.net>
-References: <1412087296-18475-1-git-send-email-antoine.tenart@free-electrons.com>
+Subject: Re: [PATCH net-next 02/10] r8169:add disable/enable RTL8168G pll
+ function
+Date: Tue, 30 Sep 2014 16:43:32 -0400 (EDT)
+Message-ID: <20140930.164332.1854194776177723982.davem@davemloft.net>
+References: <1412089230-10208-1-git-send-email-hau@realtek.com>
+	<1412089230-10208-2-git-send-email-hau@realtek.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sebastian.hesselbarth@gmail.com,
-	alexandre.belloni@free-electrons.com,
-	thomas.petazzoni@free-electrons.com, zmxu@marvell.com,
-	jszhang@marvell.com, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, devicetree@vger.kernel.org,
+Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
 	linux-kernel@vger.kernel.org
-To: antoine.tenart@free-electrons.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49589 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751047AbaI3Uhj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2014 16:37:39 -0400
-In-Reply-To: <1412087296-18475-1-git-send-email-antoine.tenart@free-electrons.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: hau@realtek.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1412089230-10208-2-git-send-email-hau@realtek.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Date: Tue, 30 Sep 2014 16:28:06 +0200
+From: Chun-Hao Lin <hau@realtek.com>
+Date: Tue, 30 Sep 2014 23:00:22 +0800
 
-> This series introduce support for the Ethernet controller on Berlin SoCs,
-> using the existing pxa168 Ethernet driver. In order to do this, DT
-> support is added to the driver alongside some other modifications and
-> fixes.
-> 
-> This has been tested on a Berlin BG2Q DMP board.
+> @@ -4399,8 +4400,10 @@ static void r8168_pll_power_up(struct rtl8169_private *tp)
+>  		break;
+>  	case RTL_GIGA_MAC_VER_40:
+>  	case RTL_GIGA_MAC_VER_41:
+> +		RTL_W8(PMCH, RTL_R8(PMCH) | 0xc0);
+>  		rtl_w1w0_eri(tp, 0x1a8, ERIAR_MASK_1111, 0xfc000000,
+>  			     0x00000000, ERIAR_EXGMAC);
+> +
+>  		break;
 
-Applied to net-next, thanks.
+There is no reason to add an empty line before the break; statement.
