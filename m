@@ -1,82 +1,57 @@
 From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH v6 03/10] Documentation: bindings: net: add the Marvell PXA168
- Ethernet controller
-Date: Tue, 30 Sep 2014 16:28:09 +0200
-Message-ID: <1412087296-18475-4-git-send-email-antoine.tenart@free-electrons.com>
-References: <1412087296-18475-1-git-send-email-antoine.tenart@free-electrons.com>
+Subject: Re: [PATCH v5 02/10] net: pxa168_eth: add device tree support
+Date: Tue, 30 Sep 2014 16:28:50 +0200
+Message-ID: <20140930142850.GA30288@kwain>
+References: <1411742036-23520-1-git-send-email-antoine.tenart@free-electrons.com>
+ <1411742036-23520-3-git-send-email-antoine.tenart@free-electrons.com>
+ <20140929.160436.1932620234954504510.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: thomas.petazzoni@free-electrons.com, zmxu@marvell.com,
- devicetree@vger.kernel.org, netdev@vger.kernel.org,
- Antoine Tenart <antoine.tenart@free-electrons.com>,
- linux-kernel@vger.kernel.org, alexandre.belloni@free-electrons.com,
- jszhang@marvell.com, linux-arm-kernel@lists.infradead.org
-To: sebastian.hesselbarth@gmail.com
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1412087296-18475-1-git-send-email-antoine.tenart@free-electrons.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: antoine.tenart@free-electrons.com, sebastian.hesselbarth@gmail.com,
+	alexandre.belloni@free-electrons.com,
+	thomas.petazzoni@free-electrons.com, zmxu@marvell.com,
+	jszhang@marvell.com, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, devicetree@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20140929.160436.1932620234954504510.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This adds the binding documentation for the Marvell PXA168 Ethernet
-controller, following its DT support.
+David,
 
-Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
-Acked-by: Arnd Bergmann <arnd@arndb.de>
----
- .../devicetree/bindings/net/marvell-pxa168.txt     | 36 ++++++++++++++++++++++
- 1 file changed, 36 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/marvell-pxa168.txt
+On Mon, Sep 29, 2014 at 04:04:36PM -0400, David Miller wrote:
+> From: Antoine Tenart <antoine.tenart@free-electrons.com>
+> Date: Fri, 26 Sep 2014 16:33:48 +0200
+>=20
+> > @@ -1603,6 +1620,12 @@ static int pxa168_eth_suspend(struct platfor=
+m_device *pdev, pm_message_t state)
+> >  #define pxa168_eth_suspend NULL
+> >  #endif
+> > =20
+> > +static const struct of_device_id pxa168_eth_of_match[] =3D {
+> > +	{ .compatible =3D "marvell,pxa168-eth" },
+> > +	{ },
+> > +};
+> > +MODULE_DEVICE_TABLE(of, pxa168_eth_of_match)
+> > +
+> >  static struct platform_driver pxa168_eth_driver =3D {
+>=20
+> You didn't even compile test this change with module support enabled.
+>=20
+> drivers/net/ethernet/marvell/pxa168_eth.c:1670:1: error: expected =E2=
+=80=98,=E2=80=99 or =E2=80=98;=E2=80=99 before =E2=80=98static=E2=80=99
+>=20
+> MODULE_DEVICE_TABLE() must be completed with a trailing ';'
 
-diff --git a/Documentation/devicetree/bindings/net/marvell-pxa168.txt b/Documentation/devicetree/bindings/net/marvell-pxa168.txt
-new file mode 100644
-index 000000000000..845a148a346e
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/marvell-pxa168.txt
-@@ -0,0 +1,36 @@
-+* Marvell PXA168 Ethernet Controller
-+
-+Required properties:
-+- compatible: should be "marvell,pxa168-eth".
-+- reg: address and length of the register set for the device.
-+- interrupts: interrupt for the device.
-+- clocks: pointer to the clock for the device.
-+
-+Optional properties:
-+- port-id: Ethernet port number. Should be '0','1' or '2'.
-+- #address-cells: must be 1 when using sub-nodes.
-+- #size-cells: must be 0 when using sub-nodes.
-+- phy-handle: see ethernet.txt file in the same directory.
-+- local-mac-address: see ethernet.txt file in the same directory.
-+
-+Sub-nodes:
-+Each PHY can be represented as a sub-node. This is not mandatory.
-+
-+Sub-nodes required properties:
-+- reg: the MDIO address of the PHY.
-+
-+Example:
-+
-+	eth0: ethernet@f7b90000 {
-+		compatible = "marvell,pxa168-eth";
-+		reg = <0xf7b90000 0x10000>;
-+		clocks = <&chip CLKID_GETH0>;
-+		interrupts = <GIC_SPI 24 IRQ_TYPE_LEVEL_HIGH>;
-+		#address-cells = <1>;
-+		#size-cells = <0>;
-+		phy-handle = <&ethphy0>;
-+
-+		ethphy0: ethernet-phy@0 {
-+			reg = <0>;
-+		};
-+	};
--- 
-1.9.1
+Oops, thanks for spotting this!
+
+Antoine
+
+--=20
+Antoine T=C3=A9nart, Free Electrons
+Embedded Linux, Kernel and Android engineering
+http://free-electrons.com
