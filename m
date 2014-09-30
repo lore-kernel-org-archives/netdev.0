@@ -1,17 +1,17 @@
 From: "Luis R. Rodriguez" <mcgrof@suse.com>
 Subject: Re: [PATCH v1 5/5] driver-core: add driver asynchronous probe
 	support
-Date: Tue, 30 Sep 2014 09:15:55 +0200
-Message-ID: <20140930071555.GB14081@wotan.suse.de>
-References: <1411768637-6809-1-git-send-email-mcgrof@do-not-panic.com> <1411768637-6809-6-git-send-email-mcgrof@do-not-panic.com> <20140928192247.GA28033@core.coreip.homeip.net>
+Date: Tue, 30 Sep 2014 09:21:59 +0200
+Message-ID: <20140930072159.GC14081@wotan.suse.de>
+References: <1411768637-6809-1-git-send-email-mcgrof@do-not-panic.com> <1411768637-6809-6-git-send-email-mcgrof@do-not-panic.com> <20140928150329.GC5023@mtj.dyndns.org> <20140929212208.GV17349@wotan.suse.de> <20140929212601.GF15925@htj.dyndns.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
-	gregkh@linuxfoundation.org, tiwai@suse.de, tj@kernel.org,
-	arjan@linux.intel.com, teg@jklm.no, rmilasan@suse.com,
-	werner@suse.com, oleg@redhat.com, hare@suse.com, bpoirier@suse.de,
-	santosh@chelsio.com, pmladek@suse.cz, dbueso@suse.com,
-	linux-kernel@vger.kernel.org,
+Cc: gregkh@linuxfoundation.org,
+	"Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
+	dmitry.torokhov@gmail.com, tiwai@suse.de, arjan@linux.intel.com,
+	teg@jklm.no, rmilasan@suse.com, werner@suse.com, oleg@redhat.com,
+	hare@suse.com, bpoirier@suse.de, santosh@chelsio.com,
+	pmladek@suse.cz, dbueso@suse.com, linux-kernel@vger.kernel.org,
 	Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
 	Joseph Salisbury <joseph.salisbury@canonical.com>,
 	Kay Sievers <kay@vrfy.org>,
@@ -23,50 +23,47 @@ Cc: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
 	Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
 	Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
 	Abhijit Mahajan <abhijit.mahajan@avagotech.com>,
-	Casey Leedom <leedom@chelsio.com>,
-To: Dmitry Torokhov <dmitry.torokhov@gmail.com>
+	Casey Leedom <leedom@che
+To: Tejun Heo <tj@kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20140928192247.GA28033@core.coreip.homeip.net>
+In-Reply-To: <20140929212601.GF15925@htj.dyndns.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Sep 28, 2014 at 12:22:47PM -0700, Dmitry Torokhov wrote:
-> Hi Luis,
+On Mon, Sep 29, 2014 at 05:26:01PM -0400, Tejun Heo wrote:
+> Hello, Luis.
 > 
-> On Fri, Sep 26, 2014 at 02:57:17PM -0700, Luis R. Rodriguez wrote:
-> > +static bool drv_enable_async_probe(struct device_driver *drv,
-> > +				   struct bus_type *bus)
-> > +{
-> > +	struct module *mod;
-> > +
-> > +	if (!drv->owner || drv->sync_probe)
-> > +		return false;
+> On Mon, Sep 29, 2014 at 11:22:08PM +0200, Luis R. Rodriguez wrote:
+> > > > +	/* For now lets avoid stupid bug reports */
+> > > > +	if (!strcmp(bus->name, "pci") ||
+> > > > +	    !strcmp(bus->name, "pci_express") ||
+> > > > +	    !strcmp(bus->name, "hid") ||
+> > > > +	    !strcmp(bus->name, "sdio") ||
+> > > > +	    !strcmp(bus->name, "gameport") ||
+> > > > +	    !strcmp(bus->name, "mmc") ||
+> > > > +	    !strcmp(bus->name, "i2c") ||
+> > > > +	    !strcmp(bus->name, "platform") ||
+> > > > +	    !strcmp(bus->name, "usb"))
+> > > > +		return true;
+> > > 
+> > > Ugh... things like this tend to become permanent.  Do we really need
+> > > this?  And how are we gonna find out what's broken why w/o bug
+> > > reports?
+> > 
+> > Yeah... well we have two options, one is have something like this to
+> > at least make it generally useful or remove this and let folks who
+> > care start fixing async for all modules. The downside to removing
+> > this is it makes async probe pretty much useless on most systems
+> > right now, it would mean systemd would have to probably consider
+> > the list above if they wanted to start using this without expecting
+> > systems to not work.
 > 
-> This bit is one of the biggest issues I have with the patch set. Why async
-> probing is limited to modules only?
+> So, I'd much prefer blacklist approach if something like this is a
+> necessity.  That way, we'd at least know what doesn't work.
 
-Because Tejun wanted to address this separately, so its not that we will restrict
-this but we should have non-module solution added as an evolution on top of this,
-as a secondary step.
-
-> I mentioned several times that we need
-> async probing for built-in drivers and the way you are structuring the flags
-> (async by default for modules, possibly opt-out of async for modules, forcibly
-> sync for built-in) it is hard to extend the infrastructure for built-in case.
-
-I confess I haven't tried enabling built-in as a secondary step but its just
-due to lack of time right now but I don't think impossible and think actually
-think it should be fairly trivial. Are there real blockers to do this that
-you see as an evolutionary step?
-
-> Also, as far as I can see, you are only considering the case where driver is
-> being bound to already registered devices. If you have a module that creates a
-> device for a driver that is already loaded and takes long time to probe you
-> would still be probing synchronously even if driver/module requested async
-> behavior.
-
-Can you provide an example code path hit here? I'll certainly like to address
-that as well.
+For buses? Or do you mean you'd want to wait until we have a decent
+list of drivers with the sync probe flag set? If the later it may take
+a while to get that list for this to be somewhat useful.
 
   Luis
