@@ -1,54 +1,59 @@
-From: Tom Herbert <therbert@google.com>
-Subject: [PATCH] bridge: Fix redefined references
-Date: Mon, 29 Sep 2014 19:16:44 -0700
-Message-ID: <1412043404-27494-1-git-send-email-therbert@google.com>
-To: davem@davemloft.net, pablo@netfilter.org, netdev@vger.kernel.org
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH 18/34] ipvs: prevent mixing heterogeneous pools and
+ synchronization
+Date: Tue, 30 Sep 2014 11:21:44 +0900
+Message-ID: <20140930022144.GH10373@verge.net.au>
+References: <1411994363-8451-1-git-send-email-pablo@netfilter.org>
+ <1411994363-8451-19-git-send-email-pablo@netfilter.org>
+ <54298616.7080307@cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	netfilter-devel@vger.kernel.org, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:44961 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755200AbaI3CRC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 22:17:02 -0400
-Received: by mail-pd0-f169.google.com with SMTP id p10so6369988pdj.0
-        for <netdev@vger.kernel.org>; Mon, 29 Sep 2014 19:17:01 -0700 (PDT)
+Received: from kirsty.vergenet.net ([202.4.237.240]:55776 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755172AbaI3CVr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 22:21:47 -0400
+Content-Disposition: inline
+In-Reply-To: <54298616.7080307@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 34666d467cbf1e2e3 ("netfilter: bridge: move br_netfilter out of
-the core") cause compiler errors when CONFIG_BRIDGE_NETFILTER is not
-defined.
+On Mon, Sep 29, 2014 at 08:17:26PM +0400, Sergei Shtylyov wrote:
+> On 09/29/2014 04:39 PM, Pablo Neira Ayuso wrote:
+> 
+> >From: Alex Gartrell <agartrell@fb.com>
+> 
+> >The synchronization protocol is not compatible with heterogeneous pools, so
+> >we need to verify that we're not turning both on at the same time.
+> 
+> >Signed-off-by: Alex Gartrell <agartrell@fb.com>
+> >Acked-by: Julian Anastasov <ja@ssi.bg>
+> >Signed-off-by: Simon Horman <horms@verge.net.au>
+> >---
+> >  include/net/ip_vs.h            |    4 ++++
+> >  net/netfilter/ipvs/ip_vs_ctl.c |   15 +++++++++++++++
+> >  2 files changed, 19 insertions(+)
+> 
+> >diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
+> >index 7600dbe..576d7f0 100644
+> >--- a/include/net/ip_vs.h
+> >+++ b/include/net/ip_vs.h
+> >@@ -990,6 +990,10 @@ struct netns_ipvs {
+> >  	char			backup_mcast_ifn[IP_VS_IFNAME_MAXLEN];
+> >  	/* net name space ptr */
+> >  	struct net		*net;            /* Needed by timer routines */
+> >+	/* Number of heterogeneous destinations, needed because
+> >+	 * heterogeneous are not supported when synchronization is
+> >+	 * enabled */
+> 
+>    Multi-line comment style in the networking code is:
+> 
+> /* bla
+>  * bla
+>  */
 
-net/bridge/br_nf_core.c:77:1: error: expected identifier or '(' before '{' token
-net/bridge/br_nf_core.c:88:115: error: redefinition of 'br_nf_core_init'
-In file included from net/bridge/br_nf_core.c:23:0:
-net/bridge/br_private.h:762:59: note: previous definition of 'br_nf_core_init' was here
-net/bridge/br_nf_core.c:93:6: error: redefinition of 'br_nf_core_fini'
-In file included from net/bridge/br_nf_core.c:23:0:
-net/bridge/br_private.h:763:60: note: previous definition of 'br_nf_core_fini' was here
-
-Add #if IS_ENABLED(CONFIG_BRIDGE_NETFILTER) around definitions of
-the redefined functions.
-
-Signed-off-by: Tom Herbert <therbert@google.com>
----
- net/bridge/br_nf_core.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/net/bridge/br_nf_core.c b/net/bridge/br_nf_core.c
-index 387cb3b..ac4bea1 100644
---- a/net/bridge/br_nf_core.c
-+++ b/net/bridge/br_nf_core.c
-@@ -73,6 +73,7 @@ static const u32 br_dst_default_metrics[RTAX_MAX] = {
- 	[RTAX_MTU - 1] = 1500,
- };
- 
-+#if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
- void br_netfilter_rtable_init(struct net_bridge *br)
- {
- 	struct rtable *rt = &br->fake_rtable;
-@@ -94,3 +95,4 @@ void br_nf_core_fini(void)
- {
- 	dst_entries_destroy(&fake_dst_ops);
- }
-+#endif
--- 
-2.1.0.rc2.206.gedb03e5
+Thanks, I have sent a cleanup patch.
