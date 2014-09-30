@@ -1,38 +1,28 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] netfilter: bridge: build br_nf_core only if
- required
-Date: Tue, 30 Sep 2014 14:10:01 -0400 (EDT)
-Message-ID: <20140930.141001.265442216668830904.davem@davemloft.net>
-References: <1412067559-28733-1-git-send-email-pablo@netfilter.org>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Why include/net/tcp_states.h is not exported to user-space?
+Date: Tue, 30 Sep 2014 11:12:04 -0700
+Message-ID: <CAHA+R7MDGKA1Z-1ytk8-+9XaKNcW+kG7UBn8drhdbLJeQYBCyQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	eric.dumazet@gmail.com, therbert@google.com, fw@strlen.de
-To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1412067559-28733-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Arnaldo Carvalho de Melo <acme@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f181.google.com ([209.85.212.181]:47922 "EHLO
+	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751967AbaI3SMG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2014 14:12:06 -0400
+Received: by mail-wi0-f181.google.com with SMTP id hi2so579363wib.8
+        for <netdev@vger.kernel.org>; Tue, 30 Sep 2014 11:12:05 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Tue, 30 Sep 2014 10:59:18 +0200
+Hello,
 
-> From: Florian Westphal <fw@strlen.de>
-> 
-> Eric reports build failure with
-> CONFIG_BRIDGE_NETFILTER=n
-> 
-> We insist to build br_nf_core.o unconditionally, but we must only do so
-> if br_netfilter was enabled, else it fails to build due to
-> functions being defined to empty stubs (and some structure members
-> being defined out).
-> 
-> Also, BRIDGE_NETFILTER=y|m makes no sense when BRIDGE=n.
-> 
-> Fixes: 34666d467 (netfilter: bridge: move br_netfilter out of the core)
-> Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Signed-off-by: Florian Westphal <fw@strlen.de>
-> Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+These states are needed for user-space to specify ->idiag_states.
+Currently both libnl and ss make their own copy of these definitions.
+Of course, new sock diag is not just limited to TCP, so we probably
+need to rename them to SS_* before exporting them.
 
-Applied, thanks.
+I can send a patch if you agree.
+
+Thanks!
