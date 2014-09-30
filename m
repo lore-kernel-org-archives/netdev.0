@@ -1,217 +1,36 @@
-From: Mark Einon <mark.einon@gmail.com>
-Subject: [PATCH] et131x: Promote staging et131x driver to drivers/net
-Date: Tue, 30 Sep 2014 20:16:12 +0100
-Message-ID: <1412104572-2931-1-git-send-email-mark.einon@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: RE: How exactly does CHECKSUM_COMPLETE works?
+Date: Tue, 30 Sep 2014 12:22:57 -0700
+Message-ID: <1412104977.30721.94.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <B5657A6538887040AD3A81F1008BEC63B41317@avmb3.qlogic.org>
+	 <CA+mtBx_17aJuK=xjnDukGJOfw-twHg=rF5rDacg6pga6ZTTRcw@mail.gmail.com>
+	 <B5657A6538887040AD3A81F1008BEC63B4152D@avmb3.qlogic.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, Mark Einon <mark.einon@gmail.com>
-To: gregkh@linuxfoundation.org,
-	davem@davemloft.net
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: "Tom Herbert (Partner - google)" <therbert@google.com>,
+	netdev <netdev@vger.kernel.org>
+To: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f180.google.com ([209.85.192.180]:45950 "EHLO
+	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751436AbaI3TW6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2014 15:22:58 -0400
+Received: by mail-pd0-f180.google.com with SMTP id fp1so5709789pdb.11
+        for <netdev@vger.kernel.org>; Tue, 30 Sep 2014 12:22:58 -0700 (PDT)
+In-Reply-To: <B5657A6538887040AD3A81F1008BEC63B4152D@avmb3.qlogic.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch moves the et131x gigabit ethernet driver from drivers/staging
-to drivers/net/ethernet/agere.
+On Tue, 2014-09-30 at 19:05 +0000, Yuval Mintz wrote:
 
-Signed-off-by: Mark Einon <mark.einon@gmail.com>
----
+> Can you pinpoint me to what exactly in the code corrects NAPI_GRO_CB(skb)->csum
+> by negating the ipv4 part in the ones' complete checksum?
+> 
+> E.g., for ipv6 [in ipv6_gro_receive()] I can see that skb_gro_postpull_rcsum() is
+> called after pulling the ipv6 header [and before proceeding to the next protocol],
+> but I can't seem to find anything similar to this for ipv4 [in inet_gro_receive()].
+> 
 
-This patch appiles to both staging-next and the linux-next tag next-20140930,
-and takes into account all feedback recieved from the recent RFC for this
-patch.
 
- MAINTAINERS                                        | 10 +++----
- drivers/net/ethernet/Kconfig                       |  1 +
- drivers/net/ethernet/Makefile                      |  1 +
- drivers/net/ethernet/agere/Kconfig                 | 31 ++++++++++++++++++++++
- .../et131x => net/ethernet/agere}/Makefile         |  0
- .../et131x => net/ethernet/agere}/et131x.c         |  0
- .../et131x => net/ethernet/agere}/et131x.h         |  0
- drivers/staging/Kconfig                            |  2 --
- drivers/staging/Makefile                           |  1 -
- drivers/staging/et131x/Kconfig                     | 10 -------
- drivers/staging/et131x/README                      | 15 -----------
- 11 files changed, 38 insertions(+), 33 deletions(-)
- create mode 100644 drivers/net/ethernet/agere/Kconfig
- rename drivers/{staging/et131x => net/ethernet/agere}/Makefile (100%)
- rename drivers/{staging/et131x => net/ethernet/agere}/et131x.c (100%)
- rename drivers/{staging/et131x => net/ethernet/agere}/et131x.h (100%)
- delete mode 100644 drivers/staging/et131x/Kconfig
- delete mode 100644 drivers/staging/et131x/README
-
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 637112c..26b5238 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -3572,6 +3572,11 @@ T:	git git://git.kernel.org/pub/scm/linux/kernel/git/kristoffer/linux-hpc.git
- F:	drivers/video/fbdev/s1d13xxxfb.c
- F:	include/video/s1d13xxxfb.h
- 
-+ET131X NETWORK DRIVER
-+M:	Mark Einon <mark.einon@gmail.com>
-+S:	Odd Fixes
-+F:	drivers/net/ethernet/agere/
-+
- ETHERNET BRIDGE
- M:	Stephen Hemminger <stephen@networkplumber.org>
- L:	bridge@lists.linux-foundation.org
-@@ -8764,11 +8769,6 @@ M:	H Hartley Sweeten <hsweeten@visionengravers.com>
- S:	Odd Fixes
- F:	drivers/staging/comedi/
- 
--STAGING - ET131X NETWORK DRIVER
--M:	Mark Einon <mark.einon@gmail.com>
--S:	Odd Fixes
--F:	drivers/staging/et131x/
--
- STAGING - FLARION FT1000 DRIVERS
- M:	Marek Belisko <marek.belisko@gmail.com>
- S:	Odd Fixes
-diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index dc7406c..d48fc9c 100644
---- a/drivers/net/ethernet/Kconfig
-+++ b/drivers/net/ethernet/Kconfig
-@@ -20,6 +20,7 @@ config SUNGEM_PHY
- source "drivers/net/ethernet/3com/Kconfig"
- source "drivers/net/ethernet/adaptec/Kconfig"
- source "drivers/net/ethernet/aeroflex/Kconfig"
-+source "drivers/net/ethernet/agere/Kconfig"
- source "drivers/net/ethernet/allwinner/Kconfig"
- source "drivers/net/ethernet/alteon/Kconfig"
- source "drivers/net/ethernet/altera/Kconfig"
-diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index 224a018..89207ac 100644
---- a/drivers/net/ethernet/Makefile
-+++ b/drivers/net/ethernet/Makefile
-@@ -6,6 +6,7 @@ obj-$(CONFIG_NET_VENDOR_3COM) += 3com/
- obj-$(CONFIG_NET_VENDOR_8390) += 8390/
- obj-$(CONFIG_NET_VENDOR_ADAPTEC) += adaptec/
- obj-$(CONFIG_GRETH) += aeroflex/
-+obj-$(CONFIG_NET_VENDOR_AGERE) += agere/
- obj-$(CONFIG_NET_VENDOR_ALLWINNER) += allwinner/
- obj-$(CONFIG_NET_VENDOR_ALTEON) += alteon/
- obj-$(CONFIG_ALTERA_TSE) += altera/
-diff --git a/drivers/net/ethernet/agere/Kconfig b/drivers/net/ethernet/agere/Kconfig
-new file mode 100644
-index 0000000..63e805d
---- /dev/null
-+++ b/drivers/net/ethernet/agere/Kconfig
-@@ -0,0 +1,31 @@
-+#
-+# Agere device configuration
-+#
-+
-+config NET_VENDOR_AGERE
-+	bool "Agere devices"
-+	default y
-+	depends on PCI
-+	---help---
-+	  If you have a network (Ethernet) card belonging to this class, say Y
-+	  and read the Ethernet-HOWTO, available from
-+	  <http://www.tldp.org/docs.html#howto>.
-+
-+	  Note that the answer to this question doesn't directly affect the
-+	  kernel: saying N will just cause the configurator to skip all
-+	  the questions about Agere devices. If you say Y, you will be asked
-+	  for your specific card in the following questions.
-+
-+if NET_VENDOR_AGERE
-+
-+config ET131X
-+	tristate "Agere ET-1310 Gigabit Ethernet support"
-+	depends on PCI
-+	select PHYLIB
-+	---help---
-+	  This driver supports Agere ET-1310 ethernet adapters.
-+
-+	  To compile this driver as a module, choose M here. The module
-+	  will be called et131x.
-+
-+endif # NET_VENDOR_AGERE
-diff --git a/drivers/staging/et131x/Makefile b/drivers/net/ethernet/agere/Makefile
-similarity index 100%
-rename from drivers/staging/et131x/Makefile
-rename to drivers/net/ethernet/agere/Makefile
-diff --git a/drivers/staging/et131x/et131x.c b/drivers/net/ethernet/agere/et131x.c
-similarity index 100%
-rename from drivers/staging/et131x/et131x.c
-rename to drivers/net/ethernet/agere/et131x.c
-diff --git a/drivers/staging/et131x/et131x.h b/drivers/net/ethernet/agere/et131x.h
-similarity index 100%
-rename from drivers/staging/et131x/et131x.h
-rename to drivers/net/ethernet/agere/et131x.h
-diff --git a/drivers/staging/Kconfig b/drivers/staging/Kconfig
-index 6e2d6fd..9d18a1c 100644
---- a/drivers/staging/Kconfig
-+++ b/drivers/staging/Kconfig
-@@ -24,8 +24,6 @@ menuconfig STAGING
- 
- if STAGING
- 
--source "drivers/staging/et131x/Kconfig"
--
- source "drivers/staging/slicoss/Kconfig"
- 
- source "drivers/staging/wlan-ng/Kconfig"
-diff --git a/drivers/staging/Makefile b/drivers/staging/Makefile
-index 74c679e..8c56326 100644
---- a/drivers/staging/Makefile
-+++ b/drivers/staging/Makefile
-@@ -4,7 +4,6 @@
- obj-$(CONFIG_STAGING)		+= staging.o
- 
- obj-y				+= media/
--obj-$(CONFIG_ET131X)		+= et131x/
- obj-$(CONFIG_SLICOSS)		+= slicoss/
- obj-$(CONFIG_PRISM2_USB)	+= wlan-ng/
- obj-$(CONFIG_COMEDI)		+= comedi/
-diff --git a/drivers/staging/et131x/Kconfig b/drivers/staging/et131x/Kconfig
-deleted file mode 100644
-index 8190f2a..0000000
---- a/drivers/staging/et131x/Kconfig
-+++ /dev/null
-@@ -1,10 +0,0 @@
--config ET131X
--	tristate "Agere ET-1310 Gigabit Ethernet support"
--	depends on PCI && NET && NETDEVICES
--	select PHYLIB
--	default n
--	---help---
--	  This driver supports Agere ET-1310 ethernet adapters.
--
--	  To compile this driver as a module, choose M here. The module
--	  will be called et131x.
-diff --git a/drivers/staging/et131x/README b/drivers/staging/et131x/README
-deleted file mode 100644
-index 13c8168..0000000
---- a/drivers/staging/et131x/README
-+++ /dev/null
-@@ -1,15 +0,0 @@
--This is a driver for the ET1310 network device.
--
--Based on the driver found at https://sourceforge.net/projects/et131x/
--
--Cleaned up immensely by Olaf Hartman and Christoph Hellwig <hch@infradead.org>
--
--Note, the powermanagement options were removed from the vendor provided
--driver as they did not build properly at the time.
--
--TODO:
--
--Please send patches to:
--	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
--	Mark Einon <mark.einon@gmail.com>
--
--- 
-2.1.0
+IPv4 header is supposed to have a 0 checksum ;)
