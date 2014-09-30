@@ -1,507 +1,308 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH] ipvs: Clean up comment style in ip_vs.h
-Date: Tue, 30 Sep 2014 10:50:06 +0900
-Message-ID: <1412041806-9480-1-git-send-email-horms@verge.net.au>
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	David Miller <davem@davemloft.net>,
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: [PATCH net-next 1/2] bpf: add search pruning optimization to verifier
+Date: Mon, 29 Sep 2014 18:50:01 -0700
+Message-ID: <1412041802-24858-2-git-send-email-ast@plumgrid.com>
+References: <1412041802-24858-1-git-send-email-ast@plumgrid.com>
+Cc: Ingo Molnar <mingo@kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andy Lutomirski <luto@amacapital.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Chema Gonzalez <chema@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Simon Horman <horms@verge.net.au>
-To: lvs-devel@vger.kernel.org
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Kees Cook <keescook@chromium.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f169.google.com ([209.85.192.169]:36486 "EHLO
+	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755286AbaI3BuN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 21:50:13 -0400
+Received: by mail-pd0-f169.google.com with SMTP id p10so6325666pdj.14
+        for <netdev@vger.kernel.org>; Mon, 29 Sep 2014 18:50:12 -0700 (PDT)
+In-Reply-To: <1412041802-24858-1-git-send-email-ast@plumgrid.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-* Consistently use the multi-line comment style for networking code:
+consider C program represented in eBPF:
+int filter(int arg)
+{
+    int a, b, c, *ptr;
 
-  /* This
-   * That
-   * The other thing
-   */
+    if (arg == 1)
+        ptr = &a;
+    else if (arg == 2)
+        ptr = &b;
+    else
+        ptr = &c;
 
-* Use single-line comment style for comments with only one line of text.
+    *ptr = 0;
+    return 0;
+}
+eBPF verifier has to follow all possible paths through the program
+to recognize that '*ptr = 0' instruction would be safe to execute
+in all situations.
+It's doing it by picking a path towards the end and observes changes
+to registers and stack at every insn until it reaches bpf_exit.
+Then it comes back to one of the previous branches and goes towards
+the end again with potentially different values in registers.
+When program has a lot of branches, the number of possible combinations
+of branches is huge, so verifer has a hard limit of walking no more
+than 32k instructions. This limit can be reached and complex (but valid)
+programs could be rejected. Therefore it's important to recognize equivalent
+verifier states to prune this depth first search.
 
-* In general follow the leading '*' of each line of a comment with a
-  single space and then text.
+Basic idea can be illustrated by the program (where .. are some eBPF insns):
+    1: ..
+    2: if (rX == rY) goto 4
+    3: ..
+    4: ..
+    5: ..
+    6: bpf_exit
+In the first pass towards bpf_exit the verifier will walk insns: 1, 2, 3, 4, 5, 6
+Since insn#2 is a branch the verifier will remember its state in verifier stack
+to come back to it later.
+Since insn#4 is marked as 'branch target', the verifier will remember its state
+in explored_states[4] linked list.
+Once it reaches insn#6 successfully it will pop the state recorded at insn#2 and
+will continue.
+Without search pruning optimization verifier would have to walk 4, 5, 6 again,
+effectively simulating execution of insns 1, 2, 4, 5, 6
+With search pruning it will check whether state at #4 after jumping from #2
+is equivalent to one recorded in explored_states[4] during first pass.
+If there is an equivalent state, verifier can prune the search at #4 and declare
+this path to be safe as well.
+In other words two states at #4 are equivalent if execution of 1, 2, 3, 4 insns
+and 1, 2, 4 insns produces equivalent registers and stack.
 
-Reported-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
 ---
- include/net/ip_vs.h | 183 ++++++++++++++++++----------------------------------
- 1 file changed, 61 insertions(+), 122 deletions(-)
+ kernel/bpf/verifier.c |  146 +++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 146 insertions(+)
 
-diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-index 576d7f0..af69086 100644
---- a/include/net/ip_vs.h
-+++ b/include/net/ip_vs.h
-@@ -1,6 +1,5 @@
--/*
-- *      IP Virtual Server
-- *      data structure and functionality definitions
-+/* IP Virtual Server
-+ * data structure and functionality definitions
-  */
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index a086dd3210a8..801f5f3b9307 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -199,6 +199,7 @@ struct verifier_env {
+ 	struct verifier_stack_elem *head; /* stack of verifier states to be processed */
+ 	int stack_size;			/* number of states to be processed */
+ 	struct verifier_state cur_state; /* current verifier state */
++	struct verifier_state_list **explored_states; /* search pruning optimization */
+ 	struct bpf_map *used_maps[MAX_USED_MAPS]; /* array of map's used by eBPF program */
+ 	u32 used_map_cnt;		/* number of used maps */
+ };
+@@ -1219,6 +1220,8 @@ enum {
+ 	BRANCH = 2,
+ };
  
- #ifndef _NET_IP_VS_H
-@@ -30,15 +29,12 @@
- #endif
- #include <net/net_namespace.h>		/* Netw namespace */
++#define STATE_LIST_MARK ((struct verifier_state_list *) -1L)
++
+ static int *insn_stack;	/* stack of insns to process */
+ static int cur_stack;	/* current stack index */
+ static int *insn_state;
+@@ -1241,6 +1244,10 @@ static int push_insn(int t, int w, int e, struct verifier_env *env)
+ 		return -EINVAL;
+ 	}
  
--/*
-- * Generic access of ipvs struct
-- */
-+/* Generic access of ipvs struct */
- static inline struct netns_ipvs *net_ipvs(struct net* net)
- {
- 	return net->ipvs;
++	if (e == BRANCH)
++		/* mark branch target for state pruning */
++		env->explored_states[w] = STATE_LIST_MARK;
++
+ 	if (insn_state[w] == 0) {
+ 		/* tree-edge */
+ 		insn_state[t] = DISCOVERED | e;
+@@ -1314,6 +1321,10 @@ peek_stack:
+ 				goto peek_stack;
+ 			else if (ret < 0)
+ 				goto err_free;
++			/* tell verifier to check for equivalent states
++			 * after every call and jump
++			 */
++			env->explored_states[t + 1] = STATE_LIST_MARK;
+ 		} else {
+ 			/* conditional jump with two edges */
+ 			ret = push_insn(t, t + 1, FALLTHROUGH, env);
+@@ -1364,6 +1375,95 @@ err_free:
+ 	return ret;
  }
--/*
-- * Get net ptr from skb in traffic cases
-+/* Get net ptr from skb in traffic cases
-  * use skb_sknet when call is from userland (ioctl or netlink)
-  */
- static inline struct net *skb_net(const struct sk_buff *skb)
-@@ -90,8 +86,7 @@ static inline struct net *skb_sknet(const struct sk_buff *skb)
- 	return &init_net;
- #endif
- }
--/*
-- * This one needed for single_open_net since net is stored directly in
-+/* This one needed for single_open_net since net is stored directly in
-  * private not as a struct i.e. seq_file_net can't be used.
-  */
- static inline struct net *seq_file_single_net(struct seq_file *seq)
-@@ -108,7 +103,7 @@ extern int ip_vs_conn_tab_size;
  
- struct ip_vs_iphdr {
- 	__u32 len;	/* IPv4 simply where L4 starts
--			   IPv6 where L4 Transport Header starts */
-+			 * IPv6 where L4 Transport Header starts */
- 	__u16 fragoffs; /* IPv6 fragment offset, 0 if first frag (or not frag)*/
- 	__s16 protocol;
- 	__s32 flags;
-@@ -305,15 +300,11 @@ static inline const char *ip_vs_dbg_addr(int af, char *buf, size_t buf_len,
- #endif
- 
- 
--/*
-- *      The port number of FTP service (in network order).
-- */
-+/* The port number of FTP service (in network order). */
- #define FTPPORT  cpu_to_be16(21)
- #define FTPDATA  cpu_to_be16(20)
- 
--/*
-- *      TCP State Values
-- */
-+/* TCP State Values */
- enum {
- 	IP_VS_TCP_S_NONE = 0,
- 	IP_VS_TCP_S_ESTABLISHED,
-@@ -329,25 +320,19 @@ enum {
- 	IP_VS_TCP_S_LAST
- };
- 
--/*
-- *	UDP State Values
-- */
-+/* UDP State Values */
- enum {
- 	IP_VS_UDP_S_NORMAL,
- 	IP_VS_UDP_S_LAST,
- };
- 
--/*
-- *	ICMP State Values
-- */
-+/* ICMP State Values */
- enum {
- 	IP_VS_ICMP_S_NORMAL,
- 	IP_VS_ICMP_S_LAST,
- };
- 
--/*
-- *	SCTP State Values
-- */
-+/* SCTP State Values */
- enum ip_vs_sctp_states {
- 	IP_VS_SCTP_S_NONE,
- 	IP_VS_SCTP_S_INIT1,
-@@ -366,10 +351,9 @@ enum ip_vs_sctp_states {
- 	IP_VS_SCTP_S_LAST
- };
- 
--/*
-- *	Delta sequence info structure
-- *	Each ip_vs_conn has 2 (output AND input seq. changes).
-- *      Only used in the VS/NAT.
-+/* Delta sequence info structure
-+ * Each ip_vs_conn has 2 (output AND input seq. changes).
-+ * Only used in the VS/NAT.
-  */
- struct ip_vs_seq {
- 	__u32			init_seq;	/* Add delta from this seq */
-@@ -378,9 +362,7 @@ struct ip_vs_seq {
- 						   before last resized pkt */
- };
- 
--/*
-- * counters per cpu
-- */
-+/* counters per cpu */
- struct ip_vs_counters {
- 	__u32		conns;		/* connections scheduled */
- 	__u32		inpkts;		/* incoming packets */
-@@ -388,17 +370,13 @@ struct ip_vs_counters {
- 	__u64		inbytes;	/* incoming bytes */
- 	__u64		outbytes;	/* outgoing bytes */
- };
--/*
-- * Stats per cpu
-- */
-+/* Stats per cpu */
- struct ip_vs_cpu_stats {
- 	struct ip_vs_counters   ustats;
- 	struct u64_stats_sync   syncp;
- };
- 
--/*
-- *	IPVS statistics objects
-- */
-+/* IPVS statistics objects */
- struct ip_vs_estimator {
- 	struct list_head	list;
- 
-@@ -491,9 +469,7 @@ struct ip_vs_protocol {
- 	void (*timeout_change)(struct ip_vs_proto_data *pd, int flags);
- };
- 
--/*
-- * protocol data per netns
-- */
-+/* protocol data per netns */
- struct ip_vs_proto_data {
- 	struct ip_vs_proto_data	*next;
- 	struct ip_vs_protocol	*pp;
-@@ -520,9 +496,7 @@ struct ip_vs_conn_param {
- 	__u8				pe_data_len;
- };
- 
--/*
-- *	IP_VS structure allocated for each dynamically scheduled connection
-- */
-+/* IP_VS structure allocated for each dynamically scheduled connection */
- struct ip_vs_conn {
- 	struct hlist_node	c_list;         /* hashed list heads */
- 	/* Protocol, addresses and port numbers */
-@@ -570,8 +544,9 @@ struct ip_vs_conn {
- 			   struct ip_vs_protocol *pp, struct ip_vs_iphdr *iph);
- 
- 	/* Note: we can group the following members into a structure,
--	   in order to save more space, and the following members are
--	   only used in VS/NAT anyway */
-+	 * in order to save more space, and the following members are
-+	 * only used in VS/NAT anyway
++/* compare two verifier states
++ *
++ * all states stored in state_list are known to be valid, since
++ * verifier reached 'bpf_exit' instruction through them
++ *
++ * this function is called when verifier exploring different branches of
++ * execution popped from the state stack. If it sees an old state that has
++ * more strict register state and more strict stack state then this execution
++ * branch doesn't need to be explored further, since verifier already
++ * concluded that more strict state leads to valid finish.
++ *
++ * Therefore two states are equivalent if register state is more conservative
++ * and explored stack state is more conservative than the current one.
++ * Example:
++ *       explored                   current
++ * (slot1=INV slot2=MISC) == (slot1=MISC slot2=MISC)
++ * (slot1=MISC slot2=MISC) != (slot1=INV slot2=MISC)
++ *
++ * In other words if current stack state (one being explored) has more
++ * valid slots than old one that already passed validation, it means
++ * the verifier can stop exploring and conclude that current state is valid too
++ *
++ * Similarly with registers. If explored state has register type as invalid
++ * whereas register type in current state is meaningful, it means that
++ * the current state will reach 'bpf_exit' instruction safely
++ */
++static bool states_equal(struct verifier_state *old, struct verifier_state *cur)
++{
++	int i;
++
++	for (i = 0; i < MAX_BPF_REG; i++) {
++		if (memcmp(&old->regs[i], &cur->regs[i],
++			   sizeof(old->regs[0])) != 0) {
++			if (old->regs[i].type == NOT_INIT ||
++			    old->regs[i].type == UNKNOWN_VALUE)
++				continue;
++			return false;
++		}
++	}
++
++	for (i = 0; i < MAX_BPF_STACK; i++) {
++		if (memcmp(&old->stack[i], &cur->stack[i],
++			   sizeof(old->stack[0])) != 0) {
++			if (old->stack[i].stype == STACK_INVALID)
++				continue;
++			return false;
++		}
++	}
++	return true;
++}
++
++static int is_state_visited(struct verifier_env *env, int insn_idx)
++{
++	struct verifier_state_list *new_sl;
++	struct verifier_state_list *sl;
++
++	sl = env->explored_states[insn_idx];
++	if (!sl)
++		/* this 'insn_idx' instruction wasn't marked, so we will not
++		 * be doing state search here
++		 */
++		return 0;
++
++	while (sl != STATE_LIST_MARK) {
++		if (states_equal(&sl->state, &env->cur_state))
++			/* reached equivalent register/stack state,
++			 * prune the search
++			 */
++			return 1;
++		sl = sl->next;
++	}
++
++	/* there were no equivalent states, remember current one.
++	 * technically the current state is not proven to be safe yet,
++	 * but it will either reach bpf_exit (which means it's safe) or
++	 * it will be rejected. Since there are no loops, we won't be
++	 * seeing this 'insn_idx' instruction again on the way to bpf_exit
 +	 */
- 	struct ip_vs_app        *app;           /* bound ip_vs_app object */
- 	void                    *app_data;      /* Application private data */
- 	struct ip_vs_seq        in_seq;         /* incoming seq. struct */
-@@ -584,9 +559,7 @@ struct ip_vs_conn {
- 	struct rcu_head		rcu_head;
- };
- 
--/*
-- *  To save some memory in conn table when name space is disabled.
-- */
-+/* To save some memory in conn table when name space is disabled. */
- static inline struct net *ip_vs_conn_net(const struct ip_vs_conn *cp)
++	new_sl = kmalloc(sizeof(struct verifier_state_list), GFP_USER);
++	if (!new_sl)
++		return -ENOMEM;
++
++	/* add new state to the head of linked list */
++	memcpy(&new_sl->state, &env->cur_state, sizeof(env->cur_state));
++	new_sl->next = env->explored_states[insn_idx];
++	env->explored_states[insn_idx] = new_sl;
++	return 0;
++}
++
+ static int do_check(struct verifier_env *env)
  {
- #ifdef CONFIG_NET_NS
-@@ -612,13 +585,12 @@ static inline int ip_vs_conn_net_eq(const struct ip_vs_conn *cp,
- #endif
+ 	struct verifier_state *state = &env->cur_state;
+@@ -1396,6 +1496,21 @@ static int do_check(struct verifier_env *env)
+ 			return -E2BIG;
+ 		}
+ 
++		err = is_state_visited(env, insn_idx);
++		if (err < 0)
++			return err;
++		if (err == 1) {
++			/* found equivalent state, can prune the search */
++			if (log_level) {
++				if (do_print_state)
++					verbose("\nfrom %d to %d: safe\n",
++						prev_insn_idx, insn_idx);
++				else
++					verbose("%d: safe\n", insn_idx);
++			}
++			goto process_bpf_exit;
++		}
++
+ 		if (log_level && do_print_state) {
+ 			verbose("\nfrom %d to %d:", prev_insn_idx, insn_idx);
+ 			print_verifier_state(env);
+@@ -1531,6 +1646,7 @@ static int do_check(struct verifier_env *env)
+ 				if (err)
+ 					return err;
+ 
++process_bpf_exit:
+ 				insn_idx = pop_stack(env, &prev_insn_idx);
+ 				if (insn_idx < 0) {
+ 					break;
+@@ -1671,6 +1787,28 @@ static void convert_pseudo_ld_imm64(struct verifier_env *env)
+ 			insn->src_reg = 0;
  }
  
--/*
-- *	Extended internal versions of struct ip_vs_service_user and
-- *	ip_vs_dest_user for IPv6 support.
-+/* Extended internal versions of struct ip_vs_service_user and
-+ * ip_vs_dest_user for IPv6 support.
-  *
-- *	We need these to conveniently pass around service and destination
-- *	options, but unfortunately, we also need to keep the old definitions to
-- *	maintain userspace backwards compatibility for the setsockopt interface.
-+ * We need these to conveniently pass around service and destination
-+ * options, but unfortunately, we also need to keep the old definitions to
-+ * maintain userspace backwards compatibility for the setsockopt interface.
-  */
- struct ip_vs_service_user_kern {
- 	/* virtual service addresses */
-@@ -697,9 +669,8 @@ struct ip_vs_dest_dst {
- 	struct rcu_head		rcu_head;
- };
- 
--/*
-- *	The real server destination forwarding entry
-- *	with ip address, port number, and so on.
-+/* The real server destination forwarding entry
-+ * with ip address, port number, and so on.
-  */
- struct ip_vs_dest {
- 	struct list_head	n_list;   /* for the dests in the service */
-@@ -739,9 +710,7 @@ struct ip_vs_dest {
- };
- 
- 
--/*
-- *	The scheduler object
-- */
-+/* The scheduler object */
- struct ip_vs_scheduler {
- 	struct list_head	n_list;		/* d-linked list head */
- 	char			*name;		/* scheduler name */
-@@ -781,9 +750,7 @@ struct ip_vs_pe {
- 	int (*show_pe_data)(const struct ip_vs_conn *cp, char *buf);
- };
- 
--/*
-- *	The application module object (a.k.a. app incarnation)
-- */
-+/* The application module object (a.k.a. app incarnation) */
- struct ip_vs_app {
- 	struct list_head	a_list;		/* member in app list */
- 	int			type;		/* IP_VS_APP_TYPE_xxx */
-@@ -799,16 +766,14 @@ struct ip_vs_app {
- 	atomic_t		usecnt;		/* usage counter */
- 	struct rcu_head		rcu_head;
- 
--	/*
--	 * output hook: Process packet in inout direction, diff set for TCP.
-+	/* output hook: Process packet in inout direction, diff set for TCP.
- 	 * Return: 0=Error, 1=Payload Not Mangled/Mangled but checksum is ok,
- 	 *	   2=Mangled but checksum was not updated
- 	 */
- 	int (*pkt_out)(struct ip_vs_app *, struct ip_vs_conn *,
- 		       struct sk_buff *, int *diff);
- 
--	/*
--	 * input hook: Process packet in outin direction, diff set for TCP.
-+	/* input hook: Process packet in outin direction, diff set for TCP.
- 	 * Return: 0=Error, 1=Payload Not Mangled/Mangled but checksum is ok,
- 	 *	   2=Mangled but checksum was not updated
- 	 */
-@@ -867,9 +832,7 @@ struct ipvs_master_sync_state {
- struct netns_ipvs {
- 	int			gen;		/* Generation */
- 	int			enable;		/* enable like nf_hooks do */
--	/*
--	 *	Hash table: for real service lookups
--	 */
-+	/* Hash table: for real service lookups */
- 	#define IP_VS_RTAB_BITS 4
- 	#define IP_VS_RTAB_SIZE (1 << IP_VS_RTAB_BITS)
- 	#define IP_VS_RTAB_MASK (IP_VS_RTAB_SIZE - 1)
-@@ -903,7 +866,7 @@ struct netns_ipvs {
- 	struct list_head	sctp_apps[SCTP_APP_TAB_SIZE];
- #endif
- 	/* ip_vs_conn */
--	atomic_t		conn_count;      /*  connection counter */
-+	atomic_t		conn_count;      /* connection counter */
- 
- 	/* ip_vs_ctl */
- 	struct ip_vs_stats		tot_stats;  /* Statistics & est. */
-@@ -992,7 +955,8 @@ struct netns_ipvs {
- 	struct net		*net;            /* Needed by timer routines */
- 	/* Number of heterogeneous destinations, needed because
- 	 * heterogeneous are not supported when synchronization is
--	 * enabled */
-+	 * enabled
-+	 */
- 	unsigned int		mixed_address_family_dests;
- };
- 
-@@ -1147,9 +1111,8 @@ static inline int sysctl_backup_only(struct netns_ipvs *ipvs)
- 
- #endif
- 
--/*
-- *      IPVS core functions
-- *      (from ip_vs_core.c)
-+/* IPVS core functions
-+ * (from ip_vs_core.c)
-  */
- const char *ip_vs_proto_name(unsigned int proto);
- void ip_vs_init_hash_table(struct list_head *table, int rows);
-@@ -1157,11 +1120,9 @@ void ip_vs_init_hash_table(struct list_head *table, int rows);
- 
- #define IP_VS_APP_TYPE_FTP	1
- 
--/*
-- *     ip_vs_conn handling functions
-- *     (from ip_vs_conn.c)
-+/* ip_vs_conn handling functions
-+ * (from ip_vs_conn.c)
-  */
--
- enum {
- 	IP_VS_DIR_INPUT = 0,
- 	IP_VS_DIR_OUTPUT,
-@@ -1292,9 +1253,7 @@ ip_vs_control_add(struct ip_vs_conn *cp, struct ip_vs_conn *ctl_cp)
- 	atomic_inc(&ctl_cp->n_control);
- }
- 
--/*
-- * IPVS netns init & cleanup functions
-- */
-+/* IPVS netns init & cleanup functions */
- int ip_vs_estimator_net_init(struct net *net);
- int ip_vs_control_net_init(struct net *net);
- int ip_vs_protocol_net_init(struct net *net);
-@@ -1309,9 +1268,8 @@ void ip_vs_estimator_net_cleanup(struct net *net);
- void ip_vs_sync_net_cleanup(struct net *net);
- void ip_vs_service_net_cleanup(struct net *net);
- 
--/*
-- *      IPVS application functions
-- *      (from ip_vs_app.c)
-+/* IPVS application functions
-+ * (from ip_vs_app.c)
-  */
- #define IP_VS_APP_MAX_PORTS  8
- struct ip_vs_app *register_ip_vs_app(struct net *net, struct ip_vs_app *app);
-@@ -1331,9 +1289,7 @@ int unregister_ip_vs_pe(struct ip_vs_pe *pe);
- struct ip_vs_pe *ip_vs_pe_getbyname(const char *name);
- struct ip_vs_pe *__ip_vs_pe_getbyname(const char *pe_name);
- 
--/*
-- * Use a #define to avoid all of module.h just for these trivial ops
-- */
-+/* Use a #define to avoid all of module.h just for these trivial ops */
- #define ip_vs_pe_get(pe)			\
- 	if (pe && pe->module)			\
- 		__module_get(pe->module);
-@@ -1342,9 +1298,7 @@ struct ip_vs_pe *__ip_vs_pe_getbyname(const char *pe_name);
- 	if (pe && pe->module)			\
- 		module_put(pe->module);
- 
--/*
-- *	IPVS protocol functions (from ip_vs_proto.c)
-- */
-+/* IPVS protocol functions (from ip_vs_proto.c) */
- int ip_vs_protocol_init(void);
- void ip_vs_protocol_cleanup(void);
- void ip_vs_protocol_timeout_change(struct netns_ipvs *ipvs, int flags);
-@@ -1362,9 +1316,8 @@ extern struct ip_vs_protocol ip_vs_protocol_esp;
- extern struct ip_vs_protocol ip_vs_protocol_ah;
- extern struct ip_vs_protocol ip_vs_protocol_sctp;
- 
--/*
-- *      Registering/unregistering scheduler functions
-- *      (from ip_vs_sched.c)
-+/* Registering/unregistering scheduler functions
-+ * (from ip_vs_sched.c)
-  */
- int register_ip_vs_scheduler(struct ip_vs_scheduler *scheduler);
- int unregister_ip_vs_scheduler(struct ip_vs_scheduler *scheduler);
-@@ -1384,9 +1337,7 @@ int ip_vs_leave(struct ip_vs_service *svc, struct sk_buff *skb,
- void ip_vs_scheduler_err(struct ip_vs_service *svc, const char *msg);
- 
- 
--/*
-- *      IPVS control data and functions (from ip_vs_ctl.c)
-- */
-+/* IPVS control data and functions (from ip_vs_ctl.c) */
- extern struct ip_vs_stats ip_vs_stats;
- extern int sysctl_ip_vs_sync_ver;
- 
-@@ -1427,26 +1378,21 @@ static inline void ip_vs_dest_put_and_free(struct ip_vs_dest *dest)
- 		kfree(dest);
- }
- 
--/*
-- *      IPVS sync daemon data and function prototypes
-- *      (from ip_vs_sync.c)
-+/* IPVS sync daemon data and function prototypes
-+ * (from ip_vs_sync.c)
-  */
- int start_sync_thread(struct net *net, int state, char *mcast_ifn, __u8 syncid);
- int stop_sync_thread(struct net *net, int state);
- void ip_vs_sync_conn(struct net *net, struct ip_vs_conn *cp, int pkts);
- 
--/*
-- *      IPVS rate estimator prototypes (from ip_vs_est.c)
-- */
-+/* IPVS rate estimator prototypes (from ip_vs_est.c) */
- void ip_vs_start_estimator(struct net *net, struct ip_vs_stats *stats);
- void ip_vs_stop_estimator(struct net *net, struct ip_vs_stats *stats);
- void ip_vs_zero_estimator(struct ip_vs_stats *stats);
- void ip_vs_read_estimator(struct ip_vs_stats_user *dst,
- 			  struct ip_vs_stats *stats);
- 
--/*
-- *	Various IPVS packet transmitters (from ip_vs_xmit.c)
-- */
-+/* Various IPVS packet transmitters (from ip_vs_xmit.c) */
- int ip_vs_null_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
- 		    struct ip_vs_protocol *pp, struct ip_vs_iphdr *iph);
- int ip_vs_bypass_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
-@@ -1477,10 +1423,9 @@ int ip_vs_icmp_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
- #endif
- 
- #ifdef CONFIG_SYSCTL
--/*
-- *	This is a simple mechanism to ignore packets when
-- *	we are loaded. Just set ip_vs_drop_rate to 'n' and
-- *	we start to drop 1/rate of the packets
-+/* This is a simple mechanism to ignore packets when
-+ * we are loaded. Just set ip_vs_drop_rate to 'n' and
-+ * we start to drop 1/rate of the packets
-  */
- 
- static inline int ip_vs_todrop(struct netns_ipvs *ipvs)
-@@ -1496,9 +1441,7 @@ static inline int ip_vs_todrop(struct netns_ipvs *ipvs)
- static inline int ip_vs_todrop(struct netns_ipvs *ipvs) { return 0; }
- #endif
- 
--/*
-- *      ip_vs_fwd_tag returns the forwarding tag of the connection
-- */
-+/* ip_vs_fwd_tag returns the forwarding tag of the connection */
- #define IP_VS_FWD_METHOD(cp)  (cp->flags & IP_VS_CONN_F_FWD_MASK)
- 
- static inline char ip_vs_fwd_tag(struct ip_vs_conn *cp)
-@@ -1557,9 +1500,7 @@ static inline __wsum ip_vs_check_diff2(__be16 old, __be16 new, __wsum oldsum)
- 	return csum_partial(diff, sizeof(diff), oldsum);
- }
- 
--/*
-- * Forget current conntrack (unconfirmed) and attach notrack entry
-- */
-+/* Forget current conntrack (unconfirmed) and attach notrack entry */
- static inline void ip_vs_notrack(struct sk_buff *skb)
++static void free_states(struct verifier_env *env)
++{
++	struct verifier_state_list *sl, *sln;
++	int i;
++
++	if (!env->explored_states)
++		return;
++
++	for (i = 0; i < env->prog->len; i++) {
++		sl = env->explored_states[i];
++
++		if (sl)
++			while (sl != STATE_LIST_MARK) {
++				sln = sl->next;
++				kfree(sl);
++				sl = sln;
++			}
++	}
++
++	kfree(env->explored_states);
++}
++
+ int bpf_check(struct bpf_prog *prog, union bpf_attr *attr)
  {
- #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
-@@ -1576,8 +1517,7 @@ static inline void ip_vs_notrack(struct sk_buff *skb)
- }
+ 	char __user *log_ubuf = NULL;
+@@ -1719,6 +1857,13 @@ int bpf_check(struct bpf_prog *prog, union bpf_attr *attr)
+ 	if (ret < 0)
+ 		goto skip_full_check;
  
- #ifdef CONFIG_IP_VS_NFCT
--/*
-- *      Netfilter connection tracking
-+/*      Netfilter connection tracking
-  *      (from ip_vs_nfct.c)
-  */
- static inline int ip_vs_conntrack_enabled(struct netns_ipvs *ipvs)
-@@ -1623,8 +1563,7 @@ static inline void ip_vs_conn_drop_conntrack(struct ip_vs_conn *cp)
- static inline int
- ip_vs_dest_conn_overhead(struct ip_vs_dest *dest)
- {
--	/*
--	 * We think the overhead of processing active connections is 256
-+	/* We think the overhead of processing active connections is 256
- 	 * times higher than that of inactive connections in average. (This
- 	 * 256 times might not be accurate, we will change it later) We
- 	 * use the following formula to estimate the overhead now:
++	env->explored_states = kcalloc(prog->len,
++				       sizeof(struct verifier_state_list *),
++				       GFP_USER);
++	ret = -ENOMEM;
++	if (!env->explored_states)
++		goto skip_full_check;
++
+ 	ret = check_cfg(env);
+ 	if (ret < 0)
+ 		goto skip_full_check;
+@@ -1727,6 +1872,7 @@ int bpf_check(struct bpf_prog *prog, union bpf_attr *attr)
+ 
+ skip_full_check:
+ 	while (pop_stack(env, NULL) >= 0);
++	free_states(env);
+ 
+ 	if (log_level && log_len >= log_size - 1) {
+ 		BUG_ON(log_len >= log_size);
 -- 
-2.1.0
-
+1.7.9.5
