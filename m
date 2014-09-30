@@ -1,26 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1 linux-next] ieee802154: add __init to
- lowpan_frags_sysctl_register
-Date: Tue, 30 Sep 2014 17:08:38 -0400 (EDT)
-Message-ID: <20140930.170838.555234528916255681.davem@davemloft.net>
-References: <1412109249-7432-1-git-send-email-fabf@skynet.be>
+Subject: Re: [PATCH][net-next] tcp: Change tcp_slow_start function to
+ return void
+Date: Tue, 30 Sep 2014 17:09:39 -0400 (EDT)
+Message-ID: <20140930.170939.1856502943420780454.davem@davemloft.net>
+References: <1412041795-5664-1-git-send-email-roy.qing.li@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, alex.aring@gmail.com,
-	linux-wpan@vger.kernel.org, netdev@vger.kernel.org
-To: fabf@skynet.be
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1412109249-7432-1-git-send-email-fabf@skynet.be>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: roy.qing.li@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49984 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751347AbaI3VJk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2014 17:09:40 -0400
+In-Reply-To: <1412041795-5664-1-git-send-email-roy.qing.li@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Fabian Frederick <fabf@skynet.be>
-Date: Tue, 30 Sep 2014 22:34:08 +0200
+From: roy.qing.li@gmail.com
+Date: Tue, 30 Sep 2014 09:49:55 +0800
 
-> lowpan_frags_sysctl_register is only called by __init lowpan_net_frag_init
-> (part of the lowpan module).
+> From: Li RongQing <roy.qing.li@gmail.com>
 > 
-> Signed-off-by: Fabian Frederick <fabf@skynet.be>
+> No caller uses the return value, so make this function return void.
+> 
+> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
 
-Applied.
+Applied, thanks.
