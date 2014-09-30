@@ -1,32 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Fix getsockopt(SO_PEERNAME) buffer size against
- potential future buffer overflow
-Date: Tue, 30 Sep 2014 00:59:25 -0400 (EDT)
-Message-ID: <20140930.005925.995989898229686123.davem@davemloft.net>
-References: <20140928135545.GA23220@type.youpi.perso.aquilenet.fr>
+Subject: Re: [PATCH] bridge: Fix redefined references
+Date: Tue, 30 Sep 2014 01:01:43 -0400 (EDT)
+Message-ID: <20140930.010143.591375062294828360.davem@davemloft.net>
+References: <1412043404-27494-1-git-send-email-therbert@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	akpm@linux-foundation.org
-To: samuel.thibault@ens-lyon.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140928135545.GA23220@type.youpi.perso.aquilenet.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: pablo@netfilter.org, netdev@vger.kernel.org
+To: therbert@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38918 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750780AbaI3FBp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2014 01:01:45 -0400
+In-Reply-To: <1412043404-27494-1-git-send-email-therbert@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Samuel Thibault <samuel.thibault@ens-lyon.org>
-Date: Sun, 28 Sep 2014 15:55:45 +0200
+From: Tom Herbert <therbert@google.com>
+Date: Mon, 29 Sep 2014 19:16:44 -0700
 
-> In net/core/sock.c's sock_getsockopt, the address buffer size is
-> hardcoded to 128. It happens that sizeof(struct sockaddr_storage) is
-> indeed 128, but that is just luck and would probably not get updated
-> whenever sockaddr_storage would grow. This patch makes it simply use
-> sockaddr_storage instead.
+> Commit 34666d467cbf1e2e3 ("netfilter: bridge: move br_netfilter out of
+> the core") cause compiler errors when CONFIG_BRIDGE_NETFILTER is not
+> defined.
 > 
-> Signed-off-by:  Samuel Thibault <samuel.thibault@ens-lyon.org>
+> net/bridge/br_nf_core.c:77:1: error: expected identifier or '(' before '{' token
+> net/bridge/br_nf_core.c:88:115: error: redefinition of 'br_nf_core_init'
+> In file included from net/bridge/br_nf_core.c:23:0:
+> net/bridge/br_private.h:762:59: note: previous definition of 'br_nf_core_init' was here
+> net/bridge/br_nf_core.c:93:6: error: redefinition of 'br_nf_core_fini'
+> In file included from net/bridge/br_nf_core.c:23:0:
+> net/bridge/br_private.h:763:60: note: previous definition of 'br_nf_core_fini' was here
+> 
+> Add #if IS_ENABLED(CONFIG_BRIDGE_NETFILTER) around definitions of
+> the redefined functions.
+> 
+> Signed-off-by: Tom Herbert <therbert@google.com>
 
-sockaddr_storage's size is a user exported API and therefore can
-never, ever, change.
+Pablo please either ACK this or provide an alternative fix ASAP.
 
-If you want to change 128 to _K_SS_MAXSIZE or similar, fine.
+This bridging build breakage is impacting a lot of people.
