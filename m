@@ -1,29 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RESEND v6 0/7] net: cpsw: Support for am335x chip MACIDs
-Date: Tue, 30 Sep 2014 01:31:13 -0400 (EDT)
-Message-ID: <20140930.013113.1095845408759260547.davem@davemloft.net>
-References: <1411973599-18908-1-git-send-email-mpa@pengutronix.de>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: bcousson@baylibre.com, tony@atomide.com, wsa@the-dreams.de,
-	rostedt@goodmis.org, mugunthanvnm@ti.com,
-	linux-omap@vger.kernel.org, devicetree@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	kernel@pengutronix.de
-To: mpa@pengutronix.de
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <1411973599-18908-1-git-send-email-mpa@pengutronix.de>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: [PATCH iproute2] tests: Check existing of /proc/config.gz before use it
+Date: Tue, 30 Sep 2014 09:15:10 +0300
+Message-ID: <1412057710-6038-1-git-send-email-vadim4j@gmail.com>
+Cc: Vadim Kochan <vadim4j@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f45.google.com ([209.85.215.45]:44039 "EHLO
+	mail-la0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751063AbaI3GXl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2014 02:23:41 -0400
+Received: by mail-la0-f45.google.com with SMTP id q1so7895877lam.18
+        for <netdev@vger.kernel.org>; Mon, 29 Sep 2014 23:23:40 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Markus Pargmann <mpa@pengutronix.de>
-Date: Mon, 29 Sep 2014 08:53:12 +0200
+Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+---
+ testsuite/Makefile | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-> Another resend of this series to add the netdev list.
-> 
-> This series adds support to the cpsw driver to read the MACIDs of the am335x
-> chip and use them as fallback. These addresses are only used if there are no
-> mac addresses in the devicetree, for example set by a bootloader.
-
-Series applied to net-next, thanks.
+diff --git a/testsuite/Makefile b/testsuite/Makefile
+index b4ab15e..d1bf359 100644
+--- a/testsuite/Makefile
++++ b/testsuite/Makefile
+@@ -6,7 +6,10 @@ RESULTS_DIR := results
+ 
+ TESTS := $(patsubst tests/%,%,$(wildcard tests/*.t))
+ IPVERS := $(filter-out iproute2/Makefile,$(wildcard iproute2/*))
+-KENV := $(shell cat /proc/config.gz | gunzip | grep ^CONFIG)
++
++ifneq (,$(wildcard /proc/config.gz))
++	KENV := $(shell cat /proc/config.gz | gunzip | grep ^CONFIG)
++endif
+ 
+ .PHONY: compile listtests alltests configure $(TESTS)
+ 
+-- 
+2.1.0
