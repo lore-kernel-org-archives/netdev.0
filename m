@@ -1,124 +1,142 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: linux-next: build failure after merge of the net-next tree
-Date: Tue, 30 Sep 2014 13:22:13 +1000
-Message-ID: <20140930132213.0dfa99e3@canb.auug.org.au>
-References: <20140930131354.792033e7@canb.auug.org.au>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/e/JX/fF_gMe5SAgkHNp7sGg"; protocol="application/pgp-signature"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Pablo Neira Ayuso <pablo@netfilter.org>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20140930131354.792033e7@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Tom Herbert <therbert@google.com>
+Subject: [PATCH v2 net-next 0/5] udp: Generalize GSO for UDP tunnels
+Date: Mon, 29 Sep 2014 20:22:28 -0700
+Message-ID: <1412047353-28502-1-git-send-email-therbert@google.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:58911 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751165AbaI3DWq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 23:22:46 -0400
+Received: by mail-pa0-f42.google.com with SMTP id et14so956557pad.1
+        for <netdev@vger.kernel.org>; Mon, 29 Sep 2014 20:22:46 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Sig_/e/JX/fF_gMe5SAgkHNp7sGg
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+This patch set generalizes the UDP tunnel segmentation functions so
+that they can work with various protocol encapsulations. The primary
+change is to set the inner_protocol field in the skbuff when creating
+the encapsulated packet, and then in skb_udp_tunnel_segment this data
+is used to determine the function for segmenting the encapsulated
+packet. The inner_protocol field is overloaded to take either an
+Ethertype or IP protocol.
 
-Hi all,
+The inner_protocol is set on transmit using skb_set_inner_ipproto or
+skb_set_inner_protocol functions. VXLAN and IP tunnels (for fou GSO)
+were modified to call these.
 
-On Tue, 30 Sep 2014 13:13:54 +1000 Stephen Rothwell <sfr@canb.auug.org.au> =
-wrote:
->
-> Hi all,
->=20
-> After merging the net-next tree, today's linux-next build (powerpc
-> ppc64_defconfig) failed like this:
->=20
-> net/bridge/br_nf_core.c:77:1: error: expected identifier or '(' before '{=
-' token
->  {
->  ^
-> net/bridge/br_nf_core.c:88:12: error: redefinition of 'br_nf_core_init'
->  int __init br_nf_core_init(void)
->             ^
-> In file included from net/bridge/br_nf_core.c:23:0:
-> net/bridge/br_private.h:762:19: note: previous definition of 'br_nf_core_=
-init' was here
->  static inline int br_nf_core_init(void) { return 0; }
->                    ^
-> net/bridge/br_nf_core.c:93:6: error: redefinition of 'br_nf_core_fini'
->  void br_nf_core_fini(void)
->       ^
-> In file included from net/bridge/br_nf_core.c:23:0:
-> net/bridge/br_private.h:763:20: note: previous definition of 'br_nf_core_=
-fini' was here
->  static inline void br_nf_core_fini(void) {}
->                     ^
->=20
-> Caused by commit 34666d467cbf ("netfilter: bridge: move br_netfilter
-> out of the core").  This build has CONFIG_BRIDGE_NETFILTER not set ...
->=20
-> I have applied the following patch for today:
->=20
-> From: Stephen Rothwell <sfr@canb.auug.org.au>
-> Date: Tue, 30 Sep 2014 13:09:09 +1000
-> Subject: [PATCH] netfilter: bridge: don't build br_nf_core unless necessa=
-ry
->=20
-> Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
-> ---
->  net/bridge/Makefile | 5 ++---
->  1 file changed, 2 insertions(+), 3 deletions(-)
->=20
-> diff --git a/net/bridge/Makefile b/net/bridge/Makefile
-> index 5e3eac5dc8b9..eb653a225397 100644
-> --- a/net/bridge/Makefile
-> +++ b/net/bridge/Makefile
-> @@ -6,12 +6,11 @@ obj-$(CONFIG_BRIDGE) +=3D bridge.o
-> =20
->  bridge-y	:=3D br.o br_device.o br_fdb.o br_forward.o br_if.o br_input.o \
->  			br_ioctl.o br_stp.o br_stp_bpdu.o \
-> -			br_stp_if.o br_stp_timer.o br_netlink.o \
-> -			br_nf_core.o
-> +			br_stp_if.o br_stp_timer.o br_netlink.o
-> =20
->  bridge-$(CONFIG_SYSFS) +=3D br_sysfs_if.o br_sysfs_br.o
-> =20
-> -obj-$(CONFIG_BRIDGE_NETFILTER) +=3D br_netfilter.o
-> +obj-$(CONFIG_BRIDGE_NETFILTER) +=3D br_netfilter.o br_nf_core.o
-> =20
->  bridge-$(CONFIG_BRIDGE_IGMP_SNOOPING) +=3D br_multicast.o br_mdb.o
-> =20
-> --=20
-> 2.1.1
+Notes:
+  - GSO for GRE/UDP where GRE checksum is enabled does not work.
+    Handling this will require some special case code.
+  - Software GSO now supports many varieties of encapsulation with
+    SKB_GSO_UDP_TUNNEL{_CSUM}. We still need a mechanism to query
+    for device support of particular combinations (I intend to
+    add ndo_gso_check for that).
+  - MPLS seems to be the only previous user of inner_protocol. I don't
+    believe these patches can affect that. For supporting GSO with
+    MPLS over UDP, the inner_protocol should be set using the
+    helper functions in this patch.
+  - GSO for L2TP/UDP should also be straightforward now.
 
-After whish I get this from an x86_64 allmodconfig build:
+v2:
+  - Respin for Eric's restructuring of skbuff.
 
-ERROR: "br_nf_core_fini" [net/bridge/bridge.ko] undefined!
-ERROR: "br_netfilter_rtable_init" [net/bridge/bridge.ko] undefined!
-ERROR: "br_nf_core_init" [net/bridge/bridge.ko] undefined!
+Tested GRE, IPIP, and SIT over fou as well as VLXAN. This was
+done using 200 TCP_STREAMs in netperf.
 
-So I gave up :-(
+ GRE
+    IPv4, FOU, UDP checksum enabled
+      TCP_STREAM TSO enabled on tun interface
+        14.04% TX CPU utilization
+        13.17% RX CPU utilization
+        9211 Mbps
+      TCP_STREAM TSO disabled on tun interface
+        27.82% TX CPU utilization
+        25.41% RX CPU utilization
+        9336 Mbps
+    IPv4, FOU, UDP checksum disabled
+      TCP_STREAM TSO enabled on tun interface
+        13.14% TX CPU utilization
+        23.18% RX CPU utilization
+        9277 Mbps
+      TCP_STREAM TSO disabled on tun interface
+        30.00% TX CPU utilization
+        31.28% RX CPU utilization
+        9327 Mbps
 
-I have used the net-next tree from next-20140926 for today.
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+  IPIP
+    FOU, UDP checksum enabled
+      TCP_STREAM TSO enabled on tun interface
+        15.28% TX CPU utilization
+        13.92% RX CPU utilization
+        9342 Mbps
+      TCP_STREAM TSO disabled on tun interface
+        27.82% TX CPU utilization
+        25.41% RX CPU utilization
+        9336 Mbps
+    FOU, UDP checksum disabled
+      TCP_STREAM TSO enabled on tun interface
+        15.08% TX CPU utilization
+        24.64% RX CPU utilization
+        9226 Mbps
+      TCP_STREAM TSO disabled on tun interface
+        30.00% TX CPU utilization
+        31.28% RX CPU utilization
+        9327 Mbps
 
---Sig_/e/JX/fF_gMe5SAgkHNp7sGg
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Disposition: attachment; filename=signature.asc
+  SIT
+    FOU, UDP checksum enabled
+      TCP_STREAM TSO enabled on tun interface
+        14.47% TX CPU utilization
+        14.58% RX CPU utilization
+        9106 Mbps
+      TCP_STREAM TSO disabled on tun interface
+        31.82% TX CPU utilization
+        30.82% RX CPU utilization
+        9204 Mbps
+    FOU, UDP checksum disabled
+      TCP_STREAM TSO enabled on tun interface
+        15.70% TX CPU utilization
+        27.93% RX CPU utilization
+        9097 Mbps
+      TCP_STREAM TSO disabled on tun interface
+        33.48% TX CPU utilization
+        37.36% RX CPU utilization
+        9197 Mbps
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+   VXLAN
+      TCP_STREAM TSO enabled on tun interface
+        16.42% TX CPU utilization
+        23.66% RX CPU utilization
+        9081 Mbps
+      TCP_STREAM TSO disabled on tun interface
+        30.32% TX CPU utilization
+        30.55% RX CPU utilization
+        9185 Mbps
 
-iQIcBAEBCAAGBQJUKiHqAAoJEMDTa8Ir7ZwVqJEP/2CWa8brbLZxrt9S+q4o6CE6
-dxy7kXf7vnxQ7ToNAz7zTgtKYrMRryCQc7Vr86z8gRHsWIYeldI8jwV1RpuUp5K7
-+fQIYP8AMRA1MG2qIowdGIDh0aS42U8xXeQh2dtJWXeHGKsKK3hG/BIYF4yOwMK6
-Roa+m6Z+HVzfVAxgu4MFMdcReAF9esXcHh6q414X00NDWL///FCs36zI3pmMgOAM
-Npe00ytCypk/gcIBT3zRqN2ATwxqlHsUI4soxjIByf4pwcGWFjtvUHJIRzziW5Kq
-mg6L1swhdU9r//j6psDPJlwm2JiPnE/rDZ4w07UBbBiaoZF2Zy1Kf+8uRwDsRbOi
-/7VixGAxlBQ7aFooeCizlSqubTCLMEWfaUzf63oBOXS5OEznQxE6zqCoFlmdRXLz
-D7ClT/LUcBUkREmFZwZKfsHNLBQUj8An5senf+3IuvFyGC35r3bsqghzDPWDN9Rg
-lY6TwkaC+30xj7+zTM8XZBdPfHLWRmyAWKHMhAyU9OyOkBLhEqkAFFcu3QBUC86N
-GU41UQow0wD+By6x3/o5wD7+t9gBuFfE9dG69jmmgrhUnv9v+u4TARuY1RvZCKJE
-GE+mkSaJHlF7IG0Vl9aebi/UMKOsxWazQiJ7KENSaBmAIDmIVrZa+OdXmc9QF/uS
-MINsl6plGQ1SNqmC9qfW
-=bbjg
------END PGP SIGNATURE-----
+   Baseline (no encp, TSO and LRO enabled)
+      TCP_STREAM
+        11.85% TX CPU utilization
+        15.13% RX CPU utilization
+        9452 Mbps
 
---Sig_/e/JX/fF_gMe5SAgkHNp7sGg--
+Tom Herbert (5):
+  udp: Generalize skb_udp_segment
+  sit: Set inner IP protocol in sit
+  ipip: Set inner IP protocol in ipip
+  gre: Set inner protocol in v4 and v6 GRE transmit
+  vxlan: Set inner protocol before transmit
+
+ drivers/net/vxlan.c    |  4 ++++
+ include/linux/skbuff.h | 26 +++++++++++++++++++++++--
+ include/net/udp.h      |  3 ++-
+ net/ipv4/ip_gre.c      |  2 ++
+ net/ipv4/ipip.c        |  2 ++
+ net/ipv4/udp_offload.c | 51 +++++++++++++++++++++++++++++++++++++++++++++-----
+ net/ipv6/ip6_gre.c     |  8 ++++++--
+ net/ipv6/sit.c         |  4 ++++
+ net/ipv6/udp_offload.c |  2 +-
+ 9 files changed, 91 insertions(+), 11 deletions(-)
+
+-- 
+2.1.0.rc2.206.gedb03e5
