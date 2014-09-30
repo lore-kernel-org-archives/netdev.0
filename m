@@ -1,57 +1,70 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH v5 2/3] net: Add Keystone NetCP ethernet driver
-Date: Tue, 30 Sep 2014 15:28:23 +0200
-Message-ID: <CAMuHMdXe2H4qfX4X4GDzJSgoWzu-BrvRL6KoZagepY1GYEA4Ag@mail.gmail.com>
-References: <1411667317-1163-1-git-send-email-santosh.shilimkar@ti.com>
-	<1411667317-1163-3-git-send-email-santosh.shilimkar@ti.com>
-	<20140929.155200.2231132602322345812.davem@davemloft.net>
-	<063D6719AE5E284EB5DD2968C1650D6D174A1012@AcuExch.aculab.com>
+From: Roger Quadros <rogerq@ti.com>
+Subject: Re: [PATCH v2 2/3] net: can: c_can: Add syscon/regmap RAMINIT mechanism
+Date: Tue, 30 Sep 2014 16:33:43 +0300
+Message-ID: <542AB137.30507@ti.com>
+References: <1410273070-22485-1-git-send-email-rogerq@ti.com> <1410273070-22485-3-git-send-email-rogerq@ti.com> <20140930132650.GN1325@katana>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	"santosh.shilimkar@ti.com" <santosh.shilimkar@ti.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"robh+dt@kernel.org" <robh+dt@kernel.org>,
-	"grant.likely@linaro.org" <grant.likely@linaro.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"sandeep_n@ti.com" <sandeep_n@ti.com>,
-	"joe@perches.com" <joe@perches.com>
-To: David Laight <David.Laight@aculab.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D174A1012@AcuExch.aculab.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <wg@grandegger.com>, <mkl@pengutronix.de>, <tony@atomide.com>,
+	<tglx@linutronix.de>, <mugunthanvnm@ti.com>,
+	<george.cherian@ti.com>, <balbi@ti.com>, <nsekhar@ti.com>,
+	<nm@ti.com>, <sergei.shtylyov@cogentembedded.com>,
+	<linux-omap@vger.kernel.org>, <linux-can@vger.kernel.org>,
+	<netdev@vger.kernel.org>
+To: Wolfram Sang <wsa@the-dreams.de>
+Return-path: <linux-omap-owner@vger.kernel.org>
+In-Reply-To: <20140930132650.GN1325@katana>
+Sender: linux-omap-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 30, 2014 at 3:09 PM, David Laight <David.Laight@aculab.com> wrote:
->> > +static inline int gbe_phy_link_status(struct gbe_slave *slave)
->> > +{
->> > +   if (!slave->phy)
->> > +           return 1;
->> > +
->> > +   if (slave->phy->link)
->> > +           return 1;
->> > +
->> > +   return 0;
->> > +}
+On 09/30/2014 04:26 PM, Wolfram Sang wrote:
+> On Tue, Sep 09, 2014 at 05:31:09PM +0300, Roger Quadros wrote:
+>> Some TI SoCs like DRA7 have a RAMINIT register specification
+>> different from the other AMxx SoCs and as expected by the
+>> existing driver.
 >>
->> Please use 'bool' as the return type and return 'true' or 'false'.
->
-> That function body could also be just:
->         return !slave->phy && slave->phy->link;
-> which might be more readable if directly coded.
+>> To add more insanity, this register is shared with other
+>> IPs like DSS, PCIe and PWM.
+>>
+>> Provides a more generic mechanism to specify the RAMINIT
+>> register location and START/DONE bit position and use the
+>> syscon/regmap framework to access the register.
+>>
+>> Signed-off-by: Roger Quadros <rogerq@ti.com>
+>> ---
+>>  .../devicetree/bindings/net/can/c_can.txt          |   7 ++
+>>  drivers/net/can/c_can/c_can.h                      |  11 ++-
+>>  drivers/net/can/c_can/c_can_platform.c             | 109 +++++++++++++++------
+>>  3 files changed, 95 insertions(+), 32 deletions(-)
+>>
+>> diff --git a/Documentation/devicetree/bindings/net/can/c_can.txt b/Documentation/devicetree/bindings/net/can/c_can.txt
+>> index 8f1ae81..e12d1a1 100644
+>> --- a/Documentation/devicetree/bindings/net/can/c_can.txt
+>> +++ b/Documentation/devicetree/bindings/net/can/c_can.txt
+>> @@ -13,6 +13,13 @@ Optional properties:
+>>  - ti,hwmods		: Must be "d_can<n>" or "c_can<n>", n being the
+>>  			  instance number
+>>  
+>> +- ti,raminit-syscon	: Handle to system control region that contains the
+>> +			  RAMINIT register. If specified, the second memory resource
+>> +			  in the reg property must index into the RAMINIT
+>> +			  register within the syscon region
+> 
+> There seems to be a simple "syscon" property these days.
 
-return !slave->phy || slave->phy->link;
+I had used plain "syscon" in the earlier revisions but was asked to make it a TI specific
+property since only TI uses this mechanism.
 
-Gr{oetje,eeting}s,
+> 
+>> +- ti,raminit-start-bit	: Bit posistion of START bit in the RAMINIT register
+>> +- ti,raminit-done-bit	: Bit position of DONE bit in the RAMINIT register
+> 
+> This should not be encoded in DT! This is not describing hardware setup.
+> The driver should know where the bits are for the syscon phandle,
+> depending on which SoC it runs...
+> 
+OK. I'll think of matching the compatible ID with SOC specific data in the driver.
 
-                        Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+cheers,
+-roger
