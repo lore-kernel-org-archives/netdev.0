@@ -1,65 +1,66 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next PATCH] dql: add a burst attribute
-Date: Tue, 30 Sep 2014 07:17:26 -0700
-Message-ID: <1412086646.30721.81.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20140930085114.24043.81310.stgit@dragon>
-	 <1412080482.30721.68.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1412081485.30721.75.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140930134655.GA24565@breakpoint.cc>
+From: Wolfram Sang <wsa@the-dreams.de>
+Subject: Re: [PATCH v2 2/3] net: can: c_can: Add syscon/regmap RAMINIT
+ mechanism
+Date: Tue, 30 Sep 2014 16:19:10 +0200
+Message-ID: <20140930141909.GP1325@katana>
+References: <1410273070-22485-1-git-send-email-rogerq@ti.com>
+ <1410273070-22485-3-git-send-email-rogerq@ti.com>
+ <20140930132650.GN1325@katana>
+ <542AB137.30507@ti.com>
+ <20140930135226.GO1325@katana>
+ <542AB6E9.9000907@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Tom Herbert <therbert@google.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Dave Taht <dave.taht@gmail.com>, toke@toke.dk
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f171.google.com ([209.85.192.171]:59133 "EHLO
-	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750937AbaI3OR3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2014 10:17:29 -0400
-Received: by mail-pd0-f171.google.com with SMTP id ft15so3479716pdb.16
-        for <netdev@vger.kernel.org>; Tue, 30 Sep 2014 07:17:29 -0700 (PDT)
-In-Reply-To: <20140930134655.GA24565@breakpoint.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-On Tue, 2014-09-30 at 15:46 +0200, Florian Westphal wrote:
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > From: Eric Dumazet <edumazet@google.com>
-> > 
-> > Add a new dql attribute, to control how much packets we are allowed to
-> > burst from qdisc to device.
-> 
-> I understand the motivation for this, but I find it a bit out-of-place
-> to have a 'packet' type counter in bql context?
-> 
-> Would it perhaps make more sense to restrict bulk dequeues by an upper
-> (possibly changeable from userspace) byte counter limit?
-
-The byte count is already provided : its the BQL limit.
-We already have ways to tune it (limit_min & limit_max)
-We do not think we need something else here.
-That was the whole point of reusing BQL in the first place : Its already
-powerful and implemented.
-
-This new attribute is a packet burst.
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="TRkqPRiqIDKgfg/F"
+Cc: wg@grandegger.com, mkl@pengutronix.de, tony@atomide.com,
+	tglx@linutronix.de, mugunthanvnm@ti.com, george.cherian@ti.com,
+	balbi@ti.com, nsekhar@ti.com, nm@ti.com,
+	sergei.shtylyov@cogentembedded.com, linux-omap@vger.kernel.org,
+	linux-can@vger.kernel.org, netdev@vger.kernel.org
+To: Roger Quadros <rogerq@ti.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <542AB6E9.9000907@ti.com>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-When I suggested 'pburst' attribute for pktgen to Alexei, he sent a
-patch with "burst". Nobody complained.
+--TRkqPRiqIDKgfg/F
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Now I am reusing what apparently was OK for pktgen, you seem to object.
 
-If you feel not comfortable with "burst", rename it to whatever you
-think is best.
+> As just TI is using this out of band RAMINIT mechanism, should it be "ti,syscon" or just "syscon"?
 
-But please, do not hard code magic 7 in your code.
+Yes, only TI uses this out-of-band RAMINIT (currently, at least). So, we
+need an (optional) way to describe that. However, accessing syscon
+registers in general is not TI specific and a generic way to do this
+should be used. Which looks to me like the "syscon" property to allow
+access to the register. Still, we should ask DT maintainers about it,
+maybe they prefer a more precise property like "syscon-raminit" to allow
+for further syscon extensions later or something...
 
-Thanks
+
+--TRkqPRiqIDKgfg/F
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJUKrvdAAoJEBQN5MwUoCm2020P/RZ1iJ7JPO9vy7PQQF/rYAMj
+FEgjCcQw/yLQXKf7aUnZYKJKqJt2WiynhFRtflJT++iZwC15GOkW3m5pimBwPc5S
+MyWaw5za4P04WNqXriAm6R83HdxVUcgfLeq34uyEgovwBuECxOowzqInZSyH9aWN
+UdBSeinaLnIQ/hArxLz5wEUz2M71Ucest/0VFZojWKsaB3Fphr3+vAeFa8Z1uhoa
+Yz6bDiQxTaWcjmHJuvBrg/mdeYhIiVq0HmU2aK8RQgNnJ0hNpZZUD0zC0EnJPK92
++wq2c7lxLyDJTGvlf4B+Xu8rofFKOk7RfypIYScWcqxIzsGkFh+JYMNYaZKYHuxJ
+QkGH0C8GxNAW+brMOCpC5IcXnnvKlFjvAgZ1zSvHxaED3O0Eo32bAwZUpjyejiaC
+34uCslxD9oklK0H5CFB4bWmT/7q2IyJLedNBkz39rspBminWPAylPamIRdKSUGm2
+zsxOrOMhTQWLuEAceS0mkuVqRuSchTVgPeeXoQL8Zjj59p1hweAEX9+GASt12hQ3
+EOpr73ILC3BHkWLx0YLi+TwyD3Tunh0Wz2uA2bWRyJ88tmSaVTvswL0p8XarNX/N
+Rcup9fwgJGhKhRFmRa7LYFeXiuub9hxae7Rwps7vZhBge+JzfsJNP8CMm05wF0Ib
+TvloFTKDgcoLszWbuy46
+=9OuR
+-----END PGP SIGNATURE-----
+
+--TRkqPRiqIDKgfg/F--
