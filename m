@@ -1,49 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next PATCH] dql: add a burst attribute
-Date: Tue, 30 Sep 2014 07:55:36 -0700
-Message-ID: <1412088936.30721.86.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20140930085114.24043.81310.stgit@dragon>
-	 <1412080482.30721.68.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1412081485.30721.75.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140930134655.GA24565@breakpoint.cc>
-	 <1412086646.30721.81.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140930143101.GB24565@breakpoint.cc>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Tom Herbert <therbert@google.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Dave Taht <dave.taht@gmail.com>, toke@toke.dk
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:62257 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751694AbaI3Ozj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2014 10:55:39 -0400
-Received: by mail-pd0-f170.google.com with SMTP id ft15so3743362pdb.29
-        for <netdev@vger.kernel.org>; Tue, 30 Sep 2014 07:55:39 -0700 (PDT)
-In-Reply-To: <20140930143101.GB24565@breakpoint.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Chuck Lever <chuck.lever@oracle.com>
+Subject: Re: 3.17-rc1 oops during network interface configuration
+Date: Tue, 30 Sep 2014 10:56:35 -0400
+Message-ID: <D9F26997-DF54-467F-8CB4-22D840157660@oracle.com>
+References: <53F1EF18.7010909@acm.org> <53F47917.8080003@mellanox.com> <F580F466-28A5-4BDD-A338-D5C065A760C1@oracle.com> <541000F1.5000805@mellanox.com> <6C43129E-4365-4BEF-ADAD-963B8F386789@oracle.com> <1412017217.30721.38.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.6\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: Or Gerlitz <ogerlitz@mellanox.com>,
+	Govindarajulu Varadarajan <_govind@gmx.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	LKML Kernel <linux-kernel@vger.kernel.org>,
+	linux-rdma <linux-rdma@vger.kernel.org>,
+	Bart Van Assche <bvanassche@acm.org>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Tal Alon <talal@mellanox.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Roland Dreier <roland@kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1412017217.30721.38.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2014-09-30 at 16:31 +0200, Florian Westphal wrote:
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > If you feel not comfortable with "burst", rename it to whatever you
-> > think is best.
-> > But please, do not hard code magic 7 in your code.
+
+On Sep 29, 2014, at 3:00 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+
+> On Mon, 2014-09-29 at 14:52 -0400, Chuck Lever wrote:
 > 
-> I had hoped that this 'magic' value could be removed
-> completely, only using bql data for bulking decisions.
+>> Is there a bugzilla report filed for this issue? Has there been any progress
+>> towards a fix?
+> 
+> This is fixed in Linus tree.
+> 
+> http://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/?id=257117862634d89de33fec74858b1a0ba5ab444b
+> 
+> http://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/?id=b49fe36208b45f76dfbcfcd3afd952a33fa9f5ce
 
-But it is apparently not the case, since you guys decided to had it set
-to 8, then to 7 later, based on experiments.
+Tested 3.17-rc7, fix confirmed. Many thanks, Eric!
 
-This value is probably dependent on the NIC hardware, while BQL
-adj_limit is more likely tied to external factors, like latencies to
-react to TX IRQ and perform TX completion.
+-- 
+Chuck Lever
+chuck[dot]lever[at]oracle[dot]com
