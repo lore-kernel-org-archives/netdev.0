@@ -1,28 +1,28 @@
 From: Stephen Rothwell <sfr@canb.auug.org.au>
 Subject: linux-next: manual merge of the net-next tree with the net tree
-Date: Tue, 30 Sep 2014 12:51:52 +1000
-Message-ID: <20140930125152.7c005583@canb.auug.org.au>
+Date: Tue, 30 Sep 2014 12:54:22 +1000
+Message-ID: <20140930125422.6ddbf80b@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/Geg8Xt0dMPYe2yGXMSjmQOh"; protocol="application/pgp-signature"
+ boundary="Sig_/eT79GzT/TgVSx6199mZ8E7S"; protocol="application/pgp-signature"
 Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	hayeswang <hayeswang@realtek.com>
+	Pablo Neira Ayuso <pablo@netfilter.org>
 To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <linux-next-owner@vger.kernel.org>
 Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Sig_/Geg8Xt0dMPYe2yGXMSjmQOh
+--Sig_/eT79GzT/TgVSx6199mZ8E7S
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: quoted-printable
 
 Hi all,
 
 Today's linux-next merge of the net-next tree got a conflict in
-drivers/net/usb/r8152.c between commit 445f7f4d6262 ("r8152: fix the
-carrier off when autoresuming") from the net tree and commit
-b209af9981ee ("r8152: check code with checkpatch.pl") from the net-next
-tree.
+net/netfilter/nfnetlink.c between commit cbb8125eb40b ("netfilter:
+nfnetlink: deliver netlink errors on batch completion") from the net
+tree and commit fc04733a1a71 ("netfilter: nfnetlink: use original
+skbuff when committing/aborting") from the net-next tree.
 
 I fixed it up (see below) and can carry the fix as necessary (no action
 is required).
@@ -31,64 +31,55 @@ is required).
 Cheers,
 Stephen Rothwell                    sfr@canb.auug.org.au
 
-diff --cc drivers/net/usb/r8152.c
-index e0394427e372,a4d4c4a1354f..000000000000
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@@ -2067,10 -2080,11 +2097,10 @@@ static void rtl_disable(struct r8152 *t
-  	for (i =3D 0; i < 1000; i++) {
-  		if (ocp_read_word(tp, MCU_TYPE_PLA, PLA_TCR0) & TCR0_TX_EMPTY)
-  			break;
-- 		mdelay(1);
-+ 		usleep_range(1000, 2000);
+diff --cc net/netfilter/nfnetlink.c
+index f37f0716a9fc,f77d3f7f22b5..000000000000
+--- a/net/netfilter/nfnetlink.c
++++ b/net/netfilter/nfnetlink.c
+@@@ -380,8 -333,7 +380,8 @@@ replay
+  			 * original skb.
+  			 */
+  			if (err =3D=3D -EAGAIN) {
+ +				nfnl_err_reset(&err_list);
+- 				ss->abort(skb);
++ 				ss->abort(oskb);
+  				nfnl_unlock(subsys_id);
+  				kfree_skb(nskb);
+  				goto replay;
+@@@ -418,11 -357,10 +418,11 @@@ ack
   	}
+  done:
+  	if (success && done)
+- 		ss->commit(skb);
++ 		ss->commit(oskb);
+  	else
+- 		ss->abort(skb);
++ 		ss->abort(oskb);
  =20
- -	for (i =3D 0; i < RTL8152_MAX_RX; i++)
- -		usb_kill_urb(tp->rx_info[i].urb);
- +	rtl_stop_rx(tp);
- =20
-  	rtl8152_nic_reset(tp);
+ +	nfnl_err_deliver(&err_list, oskb);
+  	nfnl_unlock(subsys_id);
+  	kfree_skb(nskb);
   }
-@@@ -3131,12 -3211,13 +3229,13 @@@ static int rtl8152_resume(struct usb_in
-  		} else {
-  			tp->rtl_ops.up(tp);
-  			rtl8152_set_speed(tp, AUTONEG_ENABLE,
-- 				tp->mii.supports_gmii ? SPEED_1000 : SPEED_100,
-- 				DUPLEX_FULL);
-+ 					  tp->mii.supports_gmii ?
-+ 					  SPEED_1000 : SPEED_100,
-+ 					  DUPLEX_FULL);
- +			tp->speed =3D 0;
- +			netif_carrier_off(tp->netdev);
- +			set_bit(WORK_ENABLE, &tp->flags);
-  		}
- -		tp->speed =3D 0;
- -		netif_carrier_off(tp->netdev);
- -		set_bit(WORK_ENABLE, &tp->flags);
-  		usb_submit_urb(tp->intr_urb, GFP_KERNEL);
-  	}
- =20
 
---Sig_/Geg8Xt0dMPYe2yGXMSjmQOh
+--Sig_/eT79GzT/TgVSx6199mZ8E7S
 Content-Type: application/pgp-signature; name=signature.asc
 Content-Disposition: attachment; filename=signature.asc
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v2
 
-iQIcBAEBCAAGBQJUKhrOAAoJEMDTa8Ir7ZwVptUP/RVr+HasqmxxDaQOOd7b2mXx
-eur8suEkEjML19nq0H1pOhA41nrPoODyUuC6GAq7XdHjfAoPATKLheupO3heLEL8
-8wcn0QAu7FffSpJuocA79apRkw33I97DKHXXcY+rZ1VuUQwKCq2DJU+wdFDpV+Va
-PUNvLxbSadaMr4hwzqEiplf4u3P2D3Uh7OvPNVbU6n8Wc3bCjv+a9vf16RUpJkJD
-9SAuIMkvFdzE78RyxgxFp8zOqV6pySYykeRMIomcJ921HZnhUlGH5cBfYZjT2OQJ
-ubUFvyUek2Rf4w3iofQYNlpk5k6vYPGMLxVkGKqamqG1U/ul5xgq2HqpqCJBHEZZ
-7g+/1gQE7jouRPI56XIcBZFkJ5eiFFas/hXWwZXSac6MdT2SQhQl8dC//f4bPrJz
-juU/g1qfXO4ZEpXClH6//dvX5IUKbE1n0GseyUyViHJNckDco/A35Jr5vR3X2j0z
-cr3yHuxHvXBYe+MapZJL2zsdINoHZY56pvsudu4Jd5CgviKQVz8aX3QTMcBdn65q
-wkVjfWfsz/zawgKOZlLfoGBhY/VuNEB9XiO1Huxr4rKtrxdBrSmVCVktlfPKN2Rg
-lqkqpNk1RVLgS4NEW3cYGy3P4MU4xI2XNkdYvu1x1mTE7wnSrzOjsTxkzESvTf+K
-zRqMHa24O6/ydUn/BcPd
-=JhU5
+iQIcBAEBCAAGBQJUKhtjAAoJEMDTa8Ir7ZwV+CkQAILYTG8lLQ8HikQ81tGrX88E
+4CGq8Dal9U8HylPktqBacLYFLsp3P+6bcFVmgeWb8NwlSyPL7GEtaFhH01JuxenV
+mtLZ/Z88qiZWuvvp6sgfGhWGZBer0xmtBzwoYs3jgWNxsP73y+jQmPi6quXb9qfM
++TjaQuI04d3z55/620/ZFxidIyUi2r87wNctT4ohZA/ifXseObghenNuURF0ZE0A
+RV53Ix/BOrLB9jUy6jdL+xdlTO87k1HbjIL8xtXtAt18dmtvVxWMro8BUux04mlz
+bnCJTkDPFtO/zcqAWjBOdHIwrV/rnQkD4uapwlT5gK7eClMN8F7o0aSzP6vA2P1B
+u9SeoI4p8WWas6EGP2CoMOHyGgIFOKCduZ5xHBymcyXvEcZuTrjv+ag6DhylgLF3
+utyFK/b9QndCWkMzNXEAaR+OKx0/vjq1N+XASn/iEhmgn5T09tb2hNaNi610+3lk
+1pX9pIwccV++7y1kiUuNxPKW3sx34VWB+Xa80ZvyUCBavbppJe9ATKo8BnJoYxVS
+ThPdw6x66l86+rcDple5bomk3uK3KqBNjGoabRKeiA+RxRSOVXXe6uO+f6sdj6OU
+yHbUxFmNThfdbfcUo7Vpjbi8pqbhxHFsYURQcHFsRRdHwBvhyIsbgCzqq6jbdqU7
+sJDw3a3lnGD1Lg2ICmmW
+=YAuz
 -----END PGP SIGNATURE-----
 
---Sig_/Geg8Xt0dMPYe2yGXMSjmQOh--
+--Sig_/eT79GzT/TgVSx6199mZ8E7S--
