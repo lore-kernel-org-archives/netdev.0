@@ -1,47 +1,73 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net-next] mlx4: optimize xmit path
-Date: Tue, 30 Sep 2014 05:11:53 -0700
-Message-ID: <1412079113.30721.62.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1411692382-8898-1-git-send-email-ast@plumgrid.com>
-		 <1411694414.16953.70.camel@edumazet-glaptop2.roam.corp.google.com>
-		 <1411717322.16953.99.camel@edumazet-glaptop2.roam.corp.google.com>
-		 <1411850590.15768.6.camel@edumazet-glaptop2.roam.corp.google.com>
-		 <CAJ3xEMhQCf7j48Yn5sjH6jaYYdLQUgOe2hk-OZhhdZ7taOyx+Q@mail.gmail.com>
-		 <1411853441.15768.13.camel@edumazet-glaptop2.roam.corp.google.com>
-		 <1411858593.15768.51.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1411964353.30721.6.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <542A9BAC.6010208@mellanox.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [net-next PATCH V5] qdisc: bulk dequeue support for qdiscs with
+ TCQ_F_ONETXQUEUE
+Date: Tue, 30 Sep 2014 14:25:09 +0200
+Message-ID: <20140930122509.GF11709@breakpoint.cc>
+References: <20140930085114.24043.81310.stgit@dragon>
+ <1412077736.30721.54.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Or Gerlitz <gerlitz.or@gmail.com>,
-	Alexei Starovoitov <ast@plumgrid.com>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
 	"David S. Miller" <davem@davemloft.net>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	Eric Dumazet <edumazet@google.com>,
+	Tom Herbert <therbert@google.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Florian Westphal <fw@strlen.de>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
 	John Fastabend <john.r.fastabend@intel.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Or Gerlitz <or.gerlitz@gmail.com>
-To: Amir Vadai <amirv@mellanox.com>
+	Dave Taht <dave.taht@gmail.com>, toke@toke.dk
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:64624 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751091AbaI3ML4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2014 08:11:56 -0400
-Received: by mail-pa0-f48.google.com with SMTP id eu11so1714613pac.35
-        for <netdev@vger.kernel.org>; Tue, 30 Sep 2014 05:11:56 -0700 (PDT)
-In-Reply-To: <542A9BAC.6010208@mellanox.com>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:34351 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750935AbaI3MZR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2014 08:25:17 -0400
+Content-Disposition: inline
+In-Reply-To: <1412077736.30721.54.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-09-30 at 15:01 +0300, Amir Vadai wrote:
-
-> Hi,
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> >  	struct sk_buff *skb = q->gso_skb;
+> > @@ -70,10 +106,17 @@ static inline struct sk_buff *dequeue_skb(struct Qdisc *q)
+> >  		} else
+> >  			skb = NULL;
+> >  	} else {
+> > -		if (!(q->flags & TCQ_F_ONETXQUEUE) || !netif_xmit_frozen_or_stopped(txq)) {
+> > +		if (!(q->flags & TCQ_F_ONETXQUEUE) ||
+> > +		    !netif_xmit_frozen_or_stopped(txq)) {
+> > +			int bytelimit = qdisc_avail_bulklimit(txq);
+> > +
+> >  			skb = q->dequeue(q);
+> > -			if (skb)
+> > +			if (skb) {
+> > +				bytelimit -= skb->len;
+> >  				skb = validate_xmit_skb(skb, qdisc_dev(q));
+> > +			}
+> > +			if (skb && qdisc_may_bulk(q))
+> > +				skb = try_bulk_dequeue_skb(q, skb, bytelimit);
+> >  		}
+> >  	}
 > 
-> Thanks for the great work Eric.
+> Okay...
 > 
-> I'm working to split the patch and pass it through some regression tests
-> and performance benchmarking.
-> Will send the split patch-set in few days.
+> In my opinion, you guys missed some opportunities :
+> 
+> 1) Ideally the algo should try to call validate_xmit_skb() outside of
+> the locks (qdisc lock or device lock), because eventually doing checksum
+> computation or full segmentation should allow other cpus doing enqueues.
 
-This looks great, thanks Amir.
+You're right, but this is not related to this patch specifically.
+But sure, we can look into moving validate_xmit_skb calls outside of the
+qdisc root locked sections.
+
+> 2) TSO support. Have you ideas how to perform this ?
+
+Yes, the idea was to just remove the skb_is_gso() test and limit
+dql_avail() result to e.g. 128k to avoid a '8-fat-gso-skbs-in-a-row' scenario.
+
+Did you have any other ideas in mind?
+
+Thanks,
+Florian
