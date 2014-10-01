@@ -1,8 +1,7 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 1/2] pgtable: Add API to query if write combining is available
-Date: Wed,  1 Oct 2014 17:54:41 +0300
-Message-ID: <1412175282-25212-2-git-send-email-ogerlitz@mellanox.com>
-References: <1412175282-25212-1-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next 0/2] Add pgtable API to query if write combining is available
+Date: Wed,  1 Oct 2014 17:54:40 +0300
+Message-ID: <1412175282-25212-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
 	Jack Morgenstein <jackm@dev.mellanox.co.il>,
 	Moshe Lazer <moshel@mellanox.com>,
@@ -11,159 +10,47 @@ Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:37929 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:39551 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752247AbaJAOyr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Oct 2014 10:54:47 -0400
-In-Reply-To: <1412175282-25212-1-git-send-email-ogerlitz@mellanox.com>
+	id S1752246AbaJAOyq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Oct 2014 10:54:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
-
-From: Moshe Lazer <moshel@mellanox.com>
 
 Currently the kernel write-combining interface provides a best effort
 mechanism in which the caller simply invokes pgprot_writecombine().
 
 If write combining is available, the region is mapped for it, otherwise
-the region is (silently) mapped as non-cached.
+the region is (silently) mapped as non-cached. In some cases, however, 
+the calling driver must know if write combining is available, so a silent 
+best effort mechanism is not sufficient. Add writecombine_available(), which 
+returns 1 if the system supports write combining and 0 if it doesn't.
 
-In some cases, however, the calling driver must know if write combining
-is available, so a silent best effort mechanism is not sufficient.
+In mlx4 for better latency, we write send descriptors to a write-combining
+(WC) mapped buffer instead of ringing a doorbell and having the HW fetch
+the descriptor from system memory.
 
-Add writecombine_available(), which returns 1 if the system
-supports write combining and 0 if it doesn't.
+However, if write-combining is not supported on the host, then we
+obtain better latency by using the doorbell-ring/HW fetch mechanism.
 
-Signed-off-by: Moshe Lazer <moshel@mellanox.com>
-Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
----
- arch/arm/include/asm/pgtable.h       |    6 ++++++
- arch/arm64/include/asm/pgtable.h     |    5 +++++
- arch/ia64/include/asm/pgtable.h      |    6 ++++++
- arch/powerpc/include/asm/pgtable.h   |    6 ++++++
- arch/x86/include/asm/pgtable_types.h |    2 ++
- arch/x86/mm/pat.c                    |    9 +++++++++
- include/asm-generic/pgtable.h        |    8 ++++++++
- 7 files changed, 42 insertions(+), 0 deletions(-)
+This series from Moshe and Jack adds the API and uses in in mlx4.
 
-diff --git a/arch/arm/include/asm/pgtable.h b/arch/arm/include/asm/pgtable.h
-index 01baef0..87224dc 100644
---- a/arch/arm/include/asm/pgtable.h
-+++ b/arch/arm/include/asm/pgtable.h
-@@ -119,6 +119,12 @@ extern pgprot_t		pgprot_s2_device;
- #define pgprot_writecombine(prot) \
- 	__pgprot_modify(prot, L_PTE_MT_MASK, L_PTE_MT_BUFFERABLE)
- 
-+#define writecombine_available writecombine_available
-+static inline int writecombine_available(void)
-+{
-+	return 1;
-+}
-+
- #define pgprot_stronglyordered(prot) \
- 	__pgprot_modify(prot, L_PTE_MT_MASK, L_PTE_MT_UNCACHED)
- 
-diff --git a/arch/arm64/include/asm/pgtable.h b/arch/arm64/include/asm/pgtable.h
-index ffe1ba0..f284cb6 100644
---- a/arch/arm64/include/asm/pgtable.h
-+++ b/arch/arm64/include/asm/pgtable.h
-@@ -296,6 +296,11 @@ static inline int has_transparent_hugepage(void)
- 	__pgprot_modify(prot, PTE_ATTRINDX_MASK, PTE_ATTRINDX(MT_DEVICE_nGnRnE) | PTE_PXN | PTE_UXN)
- #define pgprot_writecombine(prot) \
- 	__pgprot_modify(prot, PTE_ATTRINDX_MASK, PTE_ATTRINDX(MT_NORMAL_NC) | PTE_PXN | PTE_UXN)
-+#define writecombine_available writecombine_available
-+static inline int writecombine_available(void)
-+{
-+	return 1;
-+}
- #define __HAVE_PHYS_MEM_ACCESS_PROT
- struct file;
- extern pgprot_t phys_mem_access_prot(struct file *file, unsigned long pfn,
-diff --git a/arch/ia64/include/asm/pgtable.h b/arch/ia64/include/asm/pgtable.h
-index 7935115..66bfd00 100644
---- a/arch/ia64/include/asm/pgtable.h
-+++ b/arch/ia64/include/asm/pgtable.h
-@@ -356,6 +356,12 @@ static inline void set_pte(pte_t *ptep, pte_t pteval)
- #define pgprot_noncached(prot)		__pgprot((pgprot_val(prot) & ~_PAGE_MA_MASK) | _PAGE_MA_UC)
- #define pgprot_writecombine(prot)	__pgprot((pgprot_val(prot) & ~_PAGE_MA_MASK) | _PAGE_MA_WC)
- 
-+#define writecombine_available writecombine_available
-+static inline int writecombine_available(void)
-+{
-+	return 1;
-+}
-+
- struct file;
- extern pgprot_t phys_mem_access_prot(struct file *file, unsigned long pfn,
- 				     unsigned long size, pgprot_t vma_prot);
-diff --git a/arch/powerpc/include/asm/pgtable.h b/arch/powerpc/include/asm/pgtable.h
-index d98c1ec..a52e035 100644
---- a/arch/powerpc/include/asm/pgtable.h
-+++ b/arch/powerpc/include/asm/pgtable.h
-@@ -267,6 +267,12 @@ extern int ptep_set_access_flags(struct vm_area_struct *vma, unsigned long addre
- 
- #define pgprot_writecombine pgprot_noncached_wc
- 
-+#define writecombine_available writecombine_available
-+static inline int writecombine_available(void)
-+{
-+	return 1;
-+}
-+
- struct file;
- extern pgprot_t phys_mem_access_prot(struct file *file, unsigned long pfn,
- 				     unsigned long size, pgprot_t vma_prot);
-diff --git a/arch/x86/include/asm/pgtable_types.h b/arch/x86/include/asm/pgtable_types.h
-index f216963..5f8d2b4 100644
---- a/arch/x86/include/asm/pgtable_types.h
-+++ b/arch/x86/include/asm/pgtable_types.h
-@@ -337,6 +337,8 @@ extern int nx_enabled;
- 
- #define pgprot_writecombine	pgprot_writecombine
- extern pgprot_t pgprot_writecombine(pgprot_t prot);
-+#define writecombine_available  writecombine_available
-+int writecombine_available(void);
- 
- /* Indicate that x86 has its own track and untrack pfn vma functions */
- #define __HAVE_PFNMAP_TRACKING
-diff --git a/arch/x86/mm/pat.c b/arch/x86/mm/pat.c
-index 6574388..c144ab3 100644
---- a/arch/x86/mm/pat.c
-+++ b/arch/x86/mm/pat.c
-@@ -797,6 +797,15 @@ pgprot_t pgprot_writecombine(pgprot_t prot)
- }
- EXPORT_SYMBOL_GPL(pgprot_writecombine);
- 
-+int writecombine_available(void)
-+{
-+	if (pat_enabled)
-+		return 1;
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(writecombine_available);
-+
- #if defined(CONFIG_DEBUG_FS) && defined(CONFIG_X86_PAT)
- 
- static struct memtype *memtype_get_idx(loff_t pos)
-diff --git a/include/asm-generic/pgtable.h b/include/asm-generic/pgtable.h
-index 53b2acc..f503e5b 100644
---- a/include/asm-generic/pgtable.h
-+++ b/include/asm-generic/pgtable.h
-@@ -249,6 +249,14 @@ static inline int pmd_same(pmd_t pmd_a, pmd_t pmd_b)
- #define pgprot_writecombine pgprot_noncached
- #endif
- 
-+#ifndef writecombine_available
-+#define writecombine_available writecombine_available
-+static inline int writecombine_available(void)
-+{
-+	return 0;
-+}
-+#endif
-+
- /*
-  * When walking page tables, get the address of the next boundary,
-  * or the end address of the range if that comes earlier.  Although no
--- 
-1.7.1
+We are sending through netdev to get feedback from the networking 
+community and extend the reviewer audience if required.
+
+Or
+
+
+Moshe Lazer (2):
+  pgtable: Add API to query if write combining is available
+  net/mlx4_core: Disable BF when write combining is not available
+
+ arch/arm/include/asm/pgtable.h          |    6 ++++++
+ arch/arm64/include/asm/pgtable.h        |    5 +++++
+ arch/ia64/include/asm/pgtable.h         |    6 ++++++
+ arch/powerpc/include/asm/pgtable.h      |    6 ++++++
+ arch/x86/include/asm/pgtable_types.h    |    2 ++
+ arch/x86/mm/pat.c                       |    9 +++++++++
+ drivers/net/ethernet/mellanox/mlx4/fw.c |    2 +-
+ include/asm-generic/pgtable.h           |    8 ++++++++
+ 8 files changed, 43 insertions(+), 1 deletions(-)
