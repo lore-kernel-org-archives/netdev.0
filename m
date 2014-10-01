@@ -1,98 +1,240 @@
-From: Sathya Perla <Sathya.Perla@Emulex.Com>
-Subject: RE: [net-next v3 20/29] fm10k: Add support for netdev offloads
-Date: Wed, 1 Oct 2014 12:22:18 +0000
-Message-ID: <CF9D1877D81D214CB0CA0669EFAE020C57B6EE4D@CMEXMB1.ad.emulex.com>
-References: <1411471017-28213-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1411471017-28213-21-git-send-email-jeffrey.t.kirsher@intel.com>
- <CAJ3xEMhv-cS+vShPjTvOuWP182wf=zubNU=_p08DSkNv9W2C-w@mail.gmail.com>
- <542BED4F.9070900@intel.com>
+From: Tobias Klauser <tklauser@distanz.ch>
+Subject: Re: [PATCH net-next] et131x: Add PCIe gigabit ethernet driver et131x
+ to drivers/net
+Date: Wed, 1 Oct 2014 14:45:00 +0200
+Message-ID: <20141001124500.GH3279@distanz.ch>
+References: <1412112586-2194-1-git-send-email-mark.einon@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"nhorman@redhat.com" <nhorman@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	"jogreene@redhat.com" <jogreene@redhat.com>,
-	Tom Herbert <therbert@google.com>
-To: Alexander Duyck <alexander.h.duyck@intel.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:12419 "EHLO
-	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750768AbaJAMWo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2014 08:22:44 -0400
-In-Reply-To: <542BED4F.9070900@intel.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, gregkh@linuxfoundation.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Mark Einon <mark.einon@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1412112586-2194-1-git-send-email-mark.einon@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-DQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IG5ldGRldi1vd25lckB2Z2Vy
-Lmtlcm5lbC5vcmcgW21haWx0bzpuZXRkZXYtDQo+IA0KPiBPbiAxMC8wMS8yMDE0IDAxOjMxIEFN
-LCBPciBHZXJsaXR6IHdyb3RlOg0KPiA+IE9uIFR1ZSwgU2VwIDIzLCAyMDE0IGF0IDI6MTYgUE0s
-IEplZmYgS2lyc2hlcg0KPiA+IDxqZWZmcmV5LnQua2lyc2hlckBpbnRlbC5jb20+IHdyb3RlOg0K
-PiA+PiBGcm9tOiBBbGV4YW5kZXIgRHV5Y2sgPGFsZXhhbmRlci5oLmR1eWNrQGludGVsLmNvbT4N
-Cj4gPj4gVGhpcyBwYXRjaCBhZGRzIHN1cHBvcnQgZm9yIGJhc2ljIG9mZmxvYWRzIGluY2x1ZGlu
-ZyBUU08sIFR4IGNoZWNrc3VtLCBSeA0KPiA+PiBjaGVja3N1bSwgUnggaGFzaCwgYW5kIHRoZSBz
-YW1lIGZlYXR1cmVzIGFwcGxpZWQgdG8gVlhMQU4vTlZHUkUNCj4gdHVubmVscy4NCj4gPg0KPiA+
-PiAtLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9mbTEway9mbTEwa19tYWluLmMNCj4g
-Pj4gKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvZm0xMGsvZm0xMGtfbWFpbi5jDQo+
-ID4gWy4uLl0NCj4gPj4gKyNkZWZpbmUgVlhMQU5fSExFTiAoc2l6ZW9mKHN0cnVjdCB1ZHBoZHIp
-ICsgOCkNCj4gPj4gK3N0YXRpYyBzdHJ1Y3QgZXRoaGRyICpmbTEwa19wb3J0X2lzX3Z4bGFuKHN0
-cnVjdCBza19idWZmICpza2IpDQo+ID4+ICt7DQo+ID4+ICsgICAgICAgc3RydWN0IGZtMTBrX2lu
-dGZjICppbnRlcmZhY2UgPSBuZXRkZXZfcHJpdihza2ItPmRldik7DQo+ID4+ICsgICAgICAgc3Ry
-dWN0IGZtMTBrX3Z4bGFuX3BvcnQgKnZ4bGFuX3BvcnQ7DQo+ID4+ICsNCj4gPj4gKyAgICAgICAv
-KiB3ZSBjYW4gb25seSBvZmZsb2FkIGEgdnhsYW4gaWYgd2UgcmVjb2duaXplIGl0IGFzIHN1Y2gg
-Ki8NCj4gPj4gKyAgICAgICB2eGxhbl9wb3J0ID0gbGlzdF9maXJzdF9lbnRyeV9vcl9udWxsKCZp
-bnRlcmZhY2UtPnZ4bGFuX3BvcnQsDQo+ID4+ICsgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICBzdHJ1Y3QgZm0xMGtfdnhsYW5fcG9ydCwgbGlzdCk7DQo+ID4+ICsN
-Cj4gPj4gKyAgICAgICBpZiAoIXZ4bGFuX3BvcnQpDQo+ID4+ICsgICAgICAgICAgICAgICByZXR1
-cm4gTlVMTDsNCj4gPj4gKyAgICAgICBpZiAodnhsYW5fcG9ydC0+cG9ydCAhPSB1ZHBfaGRyKHNr
-YiktPmRlc3QpDQo+ID4+ICsgICAgICAgICAgICAgICByZXR1cm4gTlVMTDsNCj4gPj4gKw0KPiA+
-PiArICAgICAgIC8qIHJldHVybiBvZmZzZXQgb2YgdWRwX2hkciBwbHVzIDggYnl0ZXMgZm9yIFZY
-TEFOIGhlYWRlciAqLw0KPiA+PiArICAgICAgIHJldHVybiAoc3RydWN0IGV0aGhkciAqKShza2Jf
-dHJhbnNwb3J0X2hlYWRlcihza2IpICsgVlhMQU5fSExFTik7DQo+ID4+ICt9DQo+ID4+ICsNCi4u
-Lg0KPiANCj4gPj4gK3N0YXRpYyBpbnQgZm0xMGtfdHNvKHN0cnVjdCBmbTEwa19yaW5nICp0eF9y
-aW5nLA0KPiA+PiArICAgICAgICAgICAgICAgICAgICBzdHJ1Y3QgZm0xMGtfdHhfYnVmZmVyICpm
-aXJzdCkNCj4gPj4gK3sNCj4gPj4gKyAgICAgICBzdHJ1Y3Qgc2tfYnVmZiAqc2tiID0gZmlyc3Qt
-PnNrYjsNCj4gPj4gKyAgICAgICBzdHJ1Y3QgZm0xMGtfdHhfZGVzYyAqdHhfZGVzYzsNCj4gPj4g
-KyAgICAgICB1bnNpZ25lZCBjaGFyICp0aDsNCj4gPj4gKyAgICAgICB1OCBoZHJsZW47DQo+ID4+
-ICsNCj4gPj4gKyAgICAgICBpZiAoc2tiLT5pcF9zdW1tZWQgIT0gQ0hFQ0tTVU1fUEFSVElBTCkN
-Cj4gPj4gKyAgICAgICAgICAgICAgIHJldHVybiAwOw0KPiA+PiArDQo+ID4+ICsgICAgICAgaWYg
-KCFza2JfaXNfZ3NvKHNrYikpDQo+ID4+ICsgICAgICAgICAgICAgICByZXR1cm4gMDsNCj4gPj4g
-Kw0KPiA+PiArICAgICAgIC8qIGNvbXB1dGUgaGVhZGVyIGxlbmd0aHMgKi8NCj4gPj4gKyAgICAg
-ICBpZiAoc2tiLT5lbmNhcHN1bGF0aW9uKSB7DQo+ID4+ICsgICAgICAgICAgICAgICBpZiAoIWZt
-MTBrX3R4X2VuY2FwX29mZmxvYWQoc2tiKSkNCj4gPj4gKyAgICAgICAgICAgICAgICAgICAgICAg
-Z290byBlcnJfdnhsYW47DQo+ID4+ICsgICAgICAgICAgICAgICB0aCA9IHNrYl9pbm5lcl90cmFu
-c3BvcnRfaGVhZGVyKHNrYik7DQo+ID4+ICsgICAgICAgfSBlbHNlIHsNCj4gPj4gKyAgICAgICAg
-ICAgICAgIHRoID0gc2tiX3RyYW5zcG9ydF9oZWFkZXIoc2tiKTsNCj4gPj4gKyAgICAgICB9DQo+
-ID4+ICsNCj4gPj4gKyAgICAgICAvKiBjb21wdXRlIG9mZnNldCBmcm9tIFNPRiB0byB0cmFuc3Bv
-cnQgaGVhZGVyIGFuZCBhZGQgaGVhZGVyIGxlbg0KPiAqLw0KPiA+PiArICAgICAgIGhkcmxlbiA9
-ICh0aCAtIHNrYi0+ZGF0YSkgKyAoKChzdHJ1Y3QgdGNwaGRyICopdGgpLT5kb2ZmIDw8IDIpOw0K
-PiA+PiArDQo+ID4+ICsgICAgICAgZmlyc3QtPnR4X2ZsYWdzIHw9IEZNMTBLX1RYX0ZMQUdTX0NT
-VU07DQo+ID4+ICsNCj4gPj4gKyAgICAgICAvKiB1cGRhdGUgZ3NvIHNpemUgYW5kIGJ5dGVjb3Vu
-dCB3aXRoIGhlYWRlciBzaXplICovDQo+ID4+ICsgICAgICAgZmlyc3QtPmdzb19zZWdzID0gc2ti
-X3NoaW5mbyhza2IpLT5nc29fc2VnczsNCj4gPj4gKyAgICAgICBmaXJzdC0+Ynl0ZWNvdW50ICs9
-IChmaXJzdC0+Z3NvX3NlZ3MgLSAxKSAqIGhkcmxlbjsNCj4gPj4gKw0KPiA+PiArICAgICAgIC8q
-IHBvcHVsYXRlIFR4IGRlc2NyaXB0b3IgaGVhZGVyIHNpemUgYW5kIG1zcyAqLw0KPiA+PiArICAg
-ICAgIHR4X2Rlc2MgPSBGTTEwS19UWF9ERVNDKHR4X3JpbmcsIHR4X3JpbmctPm5leHRfdG9fdXNl
-KTsNCj4gPj4gKyAgICAgICB0eF9kZXNjLT5oZHJsZW4gPSBoZHJsZW47DQo+ID4+ICsgICAgICAg
-dHhfZGVzYy0+bXNzID0gY3B1X3RvX2xlMTYoc2tiX3NoaW5mbyhza2IpLT5nc29fc2l6ZSk7DQo+
-ID4+ICsNCj4gPj4gKyAgICAgICByZXR1cm4gMTsNCj4gPj4gK2Vycl92eGxhbjoNCj4gPj4gKyAg
-ICAgICB0eF9yaW5nLT5uZXRkZXYtPmZlYXR1cmVzICY9IH5ORVRJRl9GX0dTT19VRFBfVFVOTkVM
-Ow0KPiA+PiArICAgICAgIGlmICghbmV0X3JhdGVsaW1pdCgpKQ0KPiA+PiArICAgICAgICAgICAg
-ICAgbmV0ZGV2X2Vycih0eF9yaW5nLT5uZXRkZXYsDQo+ID4+ICsgICAgICAgICAgICAgICAgICAg
-ICAgICAgICJUU08gcmVxdWVzdGVkIGZvciB1bnN1cHBvcnRlZCB0dW5uZWwsIGRpc2FibGluZw0K
-PiBvZmZsb2FkXG4iKTsNCj4gPj4gKyAgICAgICByZXR1cm4gLTE7DQo+ID4+ICt9DQo+ID4NCj4g
-PiB3aHk/IGlmIFRTTyB3YXMgcmVxdWVzdGVkIGZvciBzb21lIHBhY2tldCB0aGUgZHJpdmVyIGNh
-bid0IGRvLCB5b3UgZGlzYWJsZQ0KPiBHU08NCj4gPiBmb3IgdWRwIHR1bm5lbHMgZm9yIGFueSBm
-dXR1cmUgcGFja2V0cyB0b28/IG1heWJlIGp1c3QgZGlzYWJsZSBpdA0KPiA+IHBlcm1hbmVudGx5
-ICB0aWxsIHlvdQ0KPiA+IGZlZWwgc2FmZXIgdG8gcnVuIHVuZGVyIHRoZSBjdXJyZW50IHN0YWNr
-Pw0KPiANCj4gVGhhdCBpcyBlc3NlbnRpYWxseSB3aGF0IEkgYW0gZG9pbmcuICBJZiB0aGUgdXNl
-ciB3YW50cyB0aGV5IGNhbiB0dXJuDQo+IHRoZSBmZWF0dXJlIGJhY2sgb24gdmlhIGV0aHRvb2ws
-IGJ1dCB0aGVyZSBpcyBubyBwb2ludCBpbiBoYXZpbmcgaXQgb24NCj4gaWYgdGhlIGRldmljZSBp
-dHNlbGYgY2Fubm90IHN1cHBvcnQgdGhlIHBhY2tldHMgdGhhdCBhcmUgY29taW5nIHRocm91Z2gu
-DQo+IA0KDQpUbyB0dXJuIG9mZiB0aGUgb2ZmbG9hZCwgc2hvdWxkbid0IHlvdSBiZSB1c2luZyBu
-ZXRkZXZfdXBkYXRlX2ZlYXR1cmVzKCkNCigtPm5kb19maXhfZmVhdHVyZXMoKSkgaW5zdGVhZCBv
-ZiBkaXJlY3RseSBmbGlwcGluZyBiaXRzIGluIG5ldGRldi0+ZmVhdHVyZXM/DQo=
+On 2014-09-30 at 23:29:46 +0200, Mark Einon <mark.einon@gmail.com> wrote:
+> This adds the ethernet driver for Agere et131x devices to
+> drivers/net/ethernet.
+> 
+> The driver being added has been in the staging tree for some time, and will be
+> removed from there in a seperate patch. This one merely disables the staging
+> version to prevent two instances being built.
+> 
+> Signed-off-by: Mark Einon <mark.einon@gmail.com>
+
+> ---
+>  MAINTAINERS                         |   10 +-
+>  drivers/net/ethernet/Kconfig        |    1 +
+>  drivers/net/ethernet/Makefile       |    1 +
+>  drivers/net/ethernet/agere/Kconfig  |   31 +
+>  drivers/net/ethernet/agere/Makefile |    5 +
+>  drivers/net/ethernet/agere/et131x.c | 4121 +++++++++++++++++++++++++++++++++++
+>  drivers/net/ethernet/agere/et131x.h | 1433 ++++++++++++
+>  drivers/staging/Kconfig             |    2 -
+>  drivers/staging/Makefile            |    1 -
+>  9 files changed, 5597 insertions(+), 8 deletions(-)
+>  create mode 100644 drivers/net/ethernet/agere/Kconfig
+>  create mode 100644 drivers/net/ethernet/agere/Makefile
+>  create mode 100644 drivers/net/ethernet/agere/et131x.c
+>  create mode 100644 drivers/net/ethernet/agere/et131x.h
+
+[...]
+
+> diff --git a/drivers/net/ethernet/agere/et131x.c b/drivers/net/ethernet/agere/et131x.c
+> new file mode 100644
+> index 0000000..384dc16
+> --- /dev/null
+> +++ b/drivers/net/ethernet/agere/et131x.c
+
+[...]
+
+> +static int et131x_pci_setup(struct pci_dev *pdev,
+> +			    const struct pci_device_id *ent)
+> +{
+> +	struct net_device *netdev;
+> +	struct et131x_adapter *adapter;
+> +	int rc;
+> +	int ii;
+> +
+> +	rc = pci_enable_device(pdev);
+> +	if (rc < 0) {
+> +		dev_err(&pdev->dev, "pci_enable_device() failed\n");
+> +		goto out;
+
+Nit: Just return rc here.
+
+> +	}
+> +
+> +	/* Perform some basic PCI checks */
+> +	if (!(pci_resource_flags(pdev, 0) & IORESOURCE_MEM)) {
+> +		dev_err(&pdev->dev, "Can't find PCI device's base address\n");
+> +		rc = -ENODEV;
+> +		goto err_disable;
+> +	}
+> +
+> +	rc = pci_request_regions(pdev, DRIVER_NAME);
+> +	if (rc < 0) {
+> +		dev_err(&pdev->dev, "Can't get PCI resources\n");
+> +		goto err_disable;
+> +	}
+> +
+> +	pci_set_master(pdev);
+> +
+> +	/* Check the DMA addressing support of this device */
+> +	if (dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64)) &&
+> +	    dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32))) {
+> +		dev_err(&pdev->dev, "No usable DMA addressing method\n");
+> +		rc = -EIO;
+> +		goto err_release_res;
+> +	}
+> +
+> +	netdev = alloc_etherdev(sizeof(struct et131x_adapter));
+> +	if (!netdev) {
+> +		dev_err(&pdev->dev, "Couldn't alloc netdev struct\n");
+> +		rc = -ENOMEM;
+> +		goto err_release_res;
+> +	}
+> +
+> +	netdev->watchdog_timeo = ET131X_TX_TIMEOUT;
+> +	netdev->netdev_ops     = &et131x_netdev_ops;
+> +
+> +	SET_NETDEV_DEV(netdev, &pdev->dev);
+> +	netdev->ethtool_ops = &et131x_ethtool_ops;
+> +
+> +	adapter = et131x_adapter_init(netdev, pdev);
+> +
+> +	rc = et131x_pci_init(adapter, pdev);
+> +	if (rc < 0)
+> +		goto err_free_dev;
+> +
+> +	/* Map the bus-relative registers to system virtual memory */
+> +	adapter->regs = pci_ioremap_bar(pdev, 0);
+> +	if (!adapter->regs) {
+> +		dev_err(&pdev->dev, "Cannot map device registers\n");
+> +		rc = -ENOMEM;
+> +		goto err_free_dev;
+> +	}
+> +
+> +	/* If Phy COMA mode was enabled when we went down, disable it here. */
+> +	writel(ET_PMCSR_INIT,  &adapter->regs->global.pm_csr);
+> +
+> +	et131x_soft_reset(adapter);
+> +	et131x_disable_interrupts(adapter);
+> +
+> +	rc = et131x_adapter_memory_alloc(adapter);
+> +	if (rc < 0) {
+> +		dev_err(&pdev->dev, "Could not alloc adapter memory (DMA)\n");
+> +		goto err_iounmap;
+> +	}
+> +
+> +	et131x_init_send(adapter);
+> +
+> +	netif_napi_add(netdev, &adapter->napi, et131x_poll, 64);
+> +
+> +	ether_addr_copy(netdev->dev_addr, adapter->addr);
+> +
+> +	rc = -ENOMEM;
+> +
+> +	adapter->mii_bus = mdiobus_alloc();
+> +	if (!adapter->mii_bus) {
+> +		dev_err(&pdev->dev, "Alloc of mii_bus struct failed\n");
+> +		goto err_mem_free;
+> +	}
+> +
+> +	adapter->mii_bus->name = "et131x_eth_mii";
+> +	snprintf(adapter->mii_bus->id, MII_BUS_ID_SIZE, "%x",
+> +		 (adapter->pdev->bus->number << 8) | adapter->pdev->devfn);
+> +	adapter->mii_bus->priv = netdev;
+> +	adapter->mii_bus->read = et131x_mdio_read;
+> +	adapter->mii_bus->write = et131x_mdio_write;
+> +	adapter->mii_bus->irq = kmalloc_array(PHY_MAX_ADDR, sizeof(int),
+> +					      GFP_KERNEL);
+> +	if (!adapter->mii_bus->irq)
+> +		goto err_mdio_free;
+> +
+> +	for (ii = 0; ii < PHY_MAX_ADDR; ii++)
+> +		adapter->mii_bus->irq[ii] = PHY_POLL;
+> +
+> +	rc = mdiobus_register(adapter->mii_bus);
+> +	if (rc < 0) {
+> +		dev_err(&pdev->dev, "failed to register MII bus\n");
+> +		goto err_mdio_free_irq;
+> +	}
+> +
+> +	rc = et131x_mii_probe(netdev);
+> +	if (rc < 0) {
+> +		dev_err(&pdev->dev, "failed to probe MII bus\n");
+> +		goto err_mdio_unregister;
+> +	}
+> +
+> +	et131x_adapter_setup(adapter);
+> +
+> +	/* Init variable for counting how long we do not have link status */
+> +	adapter->boot_coma = 0;
+> +	et1310_disable_phy_coma(adapter);
+> +
+> +	/* We can enable interrupts now
+> +	 *
+> +	 *  NOTE - Because registration of interrupt handler is done in the
+> +	 *         device's open(), defer enabling device interrupts to that
+> +	 *         point
+> +	 */
+> +
+> +	rc = register_netdev(netdev);
+> +	if (rc < 0) {
+> +		dev_err(&pdev->dev, "register_netdev() failed\n");
+> +		goto err_phy_disconnect;
+> +	}
+> +
+> +	/* Register the net_device struct with the PCI subsystem. Save a copy
+> +	 * of the PCI config space for this device now that the device has
+> +	 * been initialized, just in case it needs to be quickly restored.
+> +	 */
+> +	pci_set_drvdata(pdev, netdev);
+> +out:
+> +	return rc;
+> +
+> +err_phy_disconnect:
+> +	phy_disconnect(adapter->phydev);
+> +err_mdio_unregister:
+> +	mdiobus_unregister(adapter->mii_bus);
+> +err_mdio_free_irq:
+> +	kfree(adapter->mii_bus->irq);
+> +err_mdio_free:
+> +	mdiobus_free(adapter->mii_bus);
+> +err_mem_free:
+> +	et131x_adapter_memory_free(adapter);
+> +err_iounmap:
+> +	iounmap(adapter->regs);
+> +err_free_dev:
+> +	pci_dev_put(pdev);
+> +	free_netdev(netdev);
+> +err_release_res:
+> +	pci_release_regions(pdev);
+> +err_disable:
+> +	pci_disable_device(pdev);
+> +	goto out;
+
+Same here, directly return rc. Then you can also get rid of the `out' label.
+
+> +}
+> +
+> +static const struct pci_device_id et131x_pci_table[] = {
+> +	{ PCI_VDEVICE(ATT, ET131X_PCI_DEVICE_ID_GIG), 0UL},
+> +	{ PCI_VDEVICE(ATT, ET131X_PCI_DEVICE_ID_FAST), 0UL},
+> +	{ 0,}
+> +};
+> +MODULE_DEVICE_TABLE(pci, et131x_pci_table);
+> +
+> +static struct pci_driver et131x_driver = {
+> +	.name		= DRIVER_NAME,
+> +	.id_table	= et131x_pci_table,
+> +	.probe		= et131x_pci_setup,
+> +	.remove		= et131x_pci_remove,
+> +	.driver.pm	= &et131x_pm_ops,
+> +};
+> +
+> +module_pci_driver(et131x_driver);
