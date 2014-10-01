@@ -1,92 +1,140 @@
-From: Bryan O'Donoghue <pure.logic@nexus-software.ie>
-Subject: Re: [PATCH 4/4] net: stmmac: add MSI support for Intel Quark X1000
-Date: Wed, 01 Oct 2014 12:29:04 +0100
-Message-ID: <542BE580.2000807@nexus-software.ie>
-References: <F54AEECA5E2B9541821D670476DAE19C2B7F65A6@PGSMSX102.gar.corp.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "'peppe.cavallaro@st.com'" <peppe.cavallaro@st.com>,
-	"'rayagond@vayavyalabs.com'" <rayagond@vayavyalabs.com>,
-	"'vbridgers2013@gmail.com'" <vbridgers2013@gmail.com>,
-	"'srinivas.kandagatla@st.com'" <srinivas.kandagatla@st.com>,
-	"'wens@csie.org'" <wens@csie.org>,
-	"'netdev@vger.kernel.org'" <netdev@vger.kernel.org>,
-	"'linux-kernel@vger.kernel.org'" <linux-kernel@vger.kernel.org>,
-	"Ong, Boon Leong" <boon.leong.ong@intel.com>
-To: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>,
-	'David Miller' <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <F54AEECA5E2B9541821D670476DAE19C2B7F65A6@PGSMSX102.gar.corp.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH V3 next] r8169: add support for Byte Queue Limits
+Date: Wed,  1 Oct 2014 13:38:03 +0200
+Message-ID: <1412163483-24560-1-git-send-email-fw@strlen.de>
+Cc: Florian Westphal <fw@strlen.de>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Hayes Wang <hayeswang@realtek.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:36924 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750959AbaJALiI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2014 07:38:08 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> Hi Guys,
->
-> Just gently ping for the discussion to carry on before forgetting the context.
-> Anyone have any better idea or comments or concern to this topic?
-> Hope the above explanation clear out your doubt.
->
->
-> Regards,
-> Wilson
+tested on RTL8168d/8111d model using 'super_netperf 40' with TCP/UDP_STREAM.
 
-Hi Wilson.
+Output of
+while true; do
+    for n in inflight limit; do
+          echo -n $n\ ; cat $n;
+    done;
+    sleep 1;
+done
 
-Seeing you post now on the PCI emumeration suggestion from Dave Miller I see
+during netperf run, 100mbit peer:
 
-I wasn't copied on this https://lkml.org/lkml/2014/8/27/190 thread so 
-can only respond now....
+inflight 0
+limit 3028
+inflight 6056
+limit 4542
 
-What's missing from your MSI enabling code is the PVM mask/unmask 
-required on the Quark X1000 bridge - for *all* downstream devices using MSI.
+[ trimmed output for brevity, no limit/inflight changes during
+  test steady-state ]
 
-I realise it's not an upstreaming friendly piece of code - however - 
-without the PVM mask operation all MSIs on Quark should be considered 
-unreliable.
+limit 4542
+inflight 3028
+limit 6122
+inflight 0
+limit 6122
+[ changed cable to 1gbit peer, restart netperf ]
+inflight 37850
+limit 36336
+inflight 33308
+limit 31794
+inflight 33308
+limit 31794
+inflight 27252
+limit 25738
+[ again, no changes during test ]
+inflight 27252
+limit 25738
+inflight 0
+limit 28766
+[ change cable to 100mbit peer, restart netperf ]
+limit 28766
+inflight 27370
+limit 28766
+inflight 4542
+limit 5990
+inflight 6056
+limit 4542
+[ .. ]
+inflight 6056
+limit 4542
+inflight 0
 
-Maybe you guys have submitted patches to the PCI layer on this already ? 
-If so feel free to ignore.
+[end of test]
 
-If not then please re-evaluate all MSI enabling code.
+Cc: Francois Romieu <romieu@fr.zoreil.com>
+Cc: Hayes Wang <hayeswang@realtek.com>
+Signed-off-by: Florian Westphal <fw@strlen.de>
+Acked-by: Eric Dumazet <edumazet@google.com>
+Acked-by: Tom Herbert <therbert@google.com>
+---
+ Change since v2: updated commit message.
 
- From the original
+ drivers/net/ethernet/realtek/r8169.c | 18 ++++++++++++++----
+ 1 file changed, 14 insertions(+), 4 deletions(-)
 
-http://downloadmirror.intel.com/23171/eng/Board_Support_Package_Sources_for_Intel_Quark_v1.0.0.7z
-
-+#if defined(CONFIG_INTEL_QUARK_X1000_SOC)
-+	#define mask_pvm(x) qrk_pci_pvm_mask(x)
-+	#define unmask_pvm(x) qrk_pci_pvm_unmask(x)
-+#else
-+	#define mask_pvm(x)
-+	#define unmask_pvm(x)
-+#endif
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index 1d81238..51b6dc2 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -4712,6 +4712,8 @@ static void rtl_hw_reset(struct rtl8169_private *tp)
+ 	RTL_W8(ChipCmd, CmdReset);
+ 
+ 	rtl_udelay_loop_wait_low(tp, &rtl_chipcmd_cond, 100, 100);
 +
-  static irqreturn_t stmmac_interrupt(int irq, void *dev_id)
-  {
-  	struct net_device *dev = (struct net_device *)dev_id;
-@@ -1601,10 +1686,12 @@ static irqreturn_t stmmac_interrupt(int irq, 
-void *dev_id)
-  		return IRQ_NONE;
-  	}
-
-+	mask_pvm(priv->pdev);
++	netdev_reset_queue(tp->dev);
+ }
+ 
+ static void rtl_request_uncached_firmware(struct rtl8169_private *tp)
+@@ -6592,6 +6594,8 @@ static netdev_tx_t rtl8169_start_xmit(struct sk_buff *skb,
+ 
+ 	txd->opts2 = cpu_to_le32(opts[1]);
+ 
++	netdev_sent_queue(dev, skb->len);
 +
-  	/* To handle GMAC own interrupts */
-  	if (priv->plat->has_gmac) {
--		int status = priv->hw->mac->host_irq_status((void __iomem *)
--							    dev->base_addr);
-+		int status = priv->hw->mac->host_irq_status(priv);
+ 	skb_tx_timestamp(skb);
+ 
+ 	wmb();
+@@ -6691,6 +6695,7 @@ static void rtl8169_pcierr_interrupt(struct net_device *dev)
+ static void rtl_tx(struct net_device *dev, struct rtl8169_private *tp)
+ {
+ 	unsigned int dirty_tx, tx_left;
++	unsigned int bytes_compl = 0, pkts_compl = 0;
+ 
+ 	dirty_tx = tp->dirty_tx;
+ 	smp_rmb();
+@@ -6709,10 +6714,8 @@ static void rtl_tx(struct net_device *dev, struct rtl8169_private *tp)
+ 		rtl8169_unmap_tx_skb(&tp->pci_dev->dev, tx_skb,
+ 				     tp->TxDescArray + entry);
+ 		if (status & LastFrag) {
+-			u64_stats_update_begin(&tp->tx_stats.syncp);
+-			tp->tx_stats.packets++;
+-			tp->tx_stats.bytes += tx_skb->skb->len;
+-			u64_stats_update_end(&tp->tx_stats.syncp);
++			pkts_compl++;
++			bytes_compl += tx_skb->skb->len;
+ 			dev_kfree_skb_any(tx_skb->skb);
+ 			tx_skb->skb = NULL;
+ 		}
+@@ -6721,6 +6724,13 @@ static void rtl_tx(struct net_device *dev, struct rtl8169_private *tp)
+ 	}
+ 
+ 	if (tp->dirty_tx != dirty_tx) {
++		netdev_completed_queue(tp->dev, pkts_compl, bytes_compl);
 +
-  		if (unlikely(status)) {
-  			if (status & core_mmc_tx_irq)
-  				priv->xstats.mmc_tx_irq_n++;
-@@ -1634,6 +1721,8 @@ static irqreturn_t stmmac_interrupt(int irq, void 
-*dev_id)
-  	/* To handle DMA interrupts */
-  	stmmac_dma_interrupt(priv);
-
-+	unmask_pvm(priv->pdev);
++		u64_stats_update_begin(&tp->tx_stats.syncp);
++		tp->tx_stats.packets += pkts_compl;
++		tp->tx_stats.bytes += bytes_compl;
++		u64_stats_update_end(&tp->tx_stats.syncp);
 +
-  	return IRQ_HANDLED;
-  }
+ 		tp->dirty_tx = dirty_tx;
+ 		/* Sync with rtl8169_start_xmit:
+ 		 * - publish dirty_tx ring index (write barrier)
+-- 
+1.8.1.5
