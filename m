@@ -1,71 +1,50 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH iproute2] ss: add more tcp socket diagnostics
-Date: Wed, 01 Oct 2014 04:17:18 -0700
-Message-ID: <1412162238.16704.50.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH v2 net-next] net: cleanup and document skb fclone layout
+Date: Wed, 01 Oct 2014 04:22:04 -0700
+Message-ID: <1412162524.16704.53.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1411860341.15768.55.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1412022555.30721.40.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAGK4HS8QNDmDguFtaqEoU7BGjKm46vw+2Lrmhb363gzBvYgE_g@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Vijay Subramanian <subramanian.vijay@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:47931 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751382AbaJALRN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2014 07:17:13 -0400
-Received: by mail-pa0-f53.google.com with SMTP id kq14so95906pab.12
-        for <netdev@vger.kernel.org>; Wed, 01 Oct 2014 04:17:13 -0700 (PDT)
+Received: from mail-pd0-f174.google.com ([209.85.192.174]:63821 "EHLO
+	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751141AbaJALWC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2014 07:22:02 -0400
+Received: by mail-pd0-f174.google.com with SMTP id y13so83136pdi.33
+        for <netdev@vger.kernel.org>; Wed, 01 Oct 2014 04:22:01 -0700 (PDT)
+In-Reply-To: <CAGK4HS8QNDmDguFtaqEoU7BGjKm46vw+2Lrmhb363gzBvYgE_g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Wed, 2014-10-01 at 00:38 -0700, Vijay Subramanian wrote:
+> >         case SKB_FCLONE_CLONE:
+> > -               fclone_ref = (atomic_t *) (skb + 1);
+> > -               other = skb - 1;
+> > +               fclones = container_of(skb, struct sk_buff_fclones, skb2);
+> >
+> >                 /* The clone portion is available for
+> >                  * fast-cloning again.
+> >                  */
+> >                 skb->fclone = SKB_FCLONE_UNAVAILABLE;
+> >
+> 
+> It looks like SKB_FCLONE_UNAVAILABLE has overloaded use depending on
+> whether we are referring to skb allocated from head_cache or from
+> fclone_cache. In the former case, it means this skb cannot be cloned
+> i.e.(clone is unavailable) but in latter case, it means clone is free
+> to be used.
+> This overleading is confusing as seen in the comment in snippet above.
+> 
+> Should we add  something like SKB_CLONE_FREE for the second case that
+> indicates that clone is free for use.?  I can send a patch if it makes
+> sense..
 
-Display 4 additional tcp socket info fields :
+FCLONE_UNAVAILABLE always had two meanings, one for a normal skb telling
+there is no fclone companion, one for the companion telling he is free.
 
-backoff : exponential backoff
-lastsnd : time in milli second since last send
-lastrcv : time in milli second since last receive
-lastack : time in milli second since last acknowledgement
-
-$ ss -ti dst :22
-State       Recv-Q Send-Q                  Local Address:Port
-Peer Address:Port   
-ESTAB       0      0                        172.16.5.1:58470
-172.17.131.143:ssh     
-	 cubic wscale:7,7 rto:228 rtt:30/20 ato:40 mss:1256 cwnd:6 ssthresh:4
-send 2.0Mbps lastsnd:3480 lastrcv:3464 lastack:3464 rcv_rtt:81.5
-rcv_space:87812
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- misc/ss.c |   11 +++++++++++
- 1 file changed, 11 insertions(+)
-
-diff --git a/misc/ss.c b/misc/ss.c
-index c847954..2420b51 100644
---- a/misc/ss.c
-+++ b/misc/ss.c
-@@ -1554,6 +1554,8 @@ static void tcp_show_info(const struct nlmsghdr *nlh, struct inet_diag_msg *r,
- 			       info->tcpi_rcv_wscale);
- 		if (info->tcpi_rto && info->tcpi_rto != 3000000)
- 			printf(" rto:%g", (double)info->tcpi_rto/1000);
-+		if (info->tcpi_backoff)
-+			printf(" backoff:%u", info->tcpi_backoff);
- 		if (info->tcpi_rtt)
- 			printf(" rtt:%g/%g", (double)info->tcpi_rtt/1000,
- 			       (double)info->tcpi_rttvar/1000);
-@@ -1583,6 +1585,15 @@ static void tcp_show_info(const struct nlmsghdr *nlh, struct inet_diag_msg *r,
- 					 / rtt));
- 		}
- 
-+		if (info->tcpi_last_data_sent)
-+			printf(" lastsnd:%u", info->tcpi_last_data_sent);
-+
-+		if (info->tcpi_last_data_recv)
-+			printf(" lastrcv:%u", info->tcpi_last_data_recv);
-+
-+		if (info->tcpi_last_ack_recv)
-+			printf(" lastack:%u", info->tcpi_last_ack_recv);
-+
- 		if (info->tcpi_pacing_rate &&
- 		    info->tcpi_pacing_rate != ~0ULL) {
- 			printf(" pacing_rate %sbps",
+It would be indeed clear to have SKB_CLONE_FREE for the companion.
