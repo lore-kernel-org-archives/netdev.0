@@ -1,56 +1,44 @@
-From: Pramod Gurav <pramod.gurav@smartplayin.com>
-Subject: Re: [PATCH] ssb: Fix Sparse error in main
-Date: Wed, 01 Oct 2014 13:09:31 +0530
-Message-ID: <542BAFB3.6030207@smartplayin.com>
-References: <1412147196-7466-1-git-send-email-pramod.gurav@smartplayin.com> <1412148544.21730.36.camel@x220>
+From: Vijay Subramanian <subramanian.vijay@gmail.com>
+Subject: Re: [PATCH v2 net-next] net: cleanup and document skb fclone layout
+Date: Wed, 1 Oct 2014 00:38:54 -0700
+Message-ID: <CAGK4HS8QNDmDguFtaqEoU7BGjKm46vw+2Lrmhb363gzBvYgE_g@mail.gmail.com>
+References: <1411860341.15768.55.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1412022555.30721.40.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, Michael Buesch <m@bues.ch>,
-	netdev@vger.kernel.org
-To: Paul Bolle <pebolle@tiscali.nl>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1412148544.21730.36.camel@x220>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f173.google.com ([209.85.212.173]:55824 "EHLO
+	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751004AbaJAHiz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2014 03:38:55 -0400
+Received: by mail-wi0-f173.google.com with SMTP id bs8so985217wib.6
+        for <netdev@vger.kernel.org>; Wed, 01 Oct 2014 00:38:54 -0700 (PDT)
+In-Reply-To: <1412022555.30721.40.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 01 October 2014 12:59 PM, Paul Bolle wrote:
-> On Wed, 2014-10-01 at 12:36 +0530, Pramod Gurav wrote:
->> This change fixes below sparse error:
->>
->> drivers/ssb/main.c:94:16: warning: symbol 'ssb_sdio_func_to_bus'
->> was not declared. Should it be static?
->>
->> Cc: Michael Buesch <m@bues.ch>
->> Cc: netdev@vger.kernel.org
->> Signed-off-by: Pramod Gurav <pramod.gurav@smartplayin.com>
->> ---
->>  drivers/ssb/ssb_private.h |    1 +
->>  1 file changed, 1 insertion(+)
->>
->> diff --git a/drivers/ssb/ssb_private.h b/drivers/ssb/ssb_private.h
->> index eb507a5..86bbbe3 100644
->> --- a/drivers/ssb/ssb_private.h
->> +++ b/drivers/ssb/ssb_private.h
->> @@ -193,6 +193,7 @@ extern struct ssb_bus *ssb_pci_dev_to_bus(struct pci_dev *pdev);
->>  int ssb_for_each_bus_call(unsigned long data,
->>  			  int (*func)(struct ssb_bus *bus, unsigned long data));
->>  extern struct ssb_bus *ssb_pcmcia_dev_to_bus(struct pcmcia_device *pdev);
->> +struct ssb_bus *ssb_sdio_func_to_bus(struct sdio_func *func);
->>  
->>  struct ssb_freeze_context {
->>  	/* Pointer to the bus */
-> 
-> To me this looked like an odd way to silence that warning. So I dug a
-> bit further.
-> 
-> ssb_sdio_func_to_bus() was added in commit 24ea602e183c ("ssb: Implement
-> SDIO host bus support"). So it was added in release v2.6.32. I found no
-> evidence this function was ever used. Can't it be removed?
-> 
-Thanks Paul for review. Initially I too had greped for this function in
-kernel and found noone using it. But I thought this function might be
-useful in future. About removing it, may be original author can tell.
-> 
-> Paul Bolle
-> 
+>         case SKB_FCLONE_CLONE:
+> -               fclone_ref = (atomic_t *) (skb + 1);
+> -               other = skb - 1;
+> +               fclones = container_of(skb, struct sk_buff_fclones, skb2);
+>
+>                 /* The clone portion is available for
+>                  * fast-cloning again.
+>                  */
+>                 skb->fclone = SKB_FCLONE_UNAVAILABLE;
+>
+
+It looks like SKB_FCLONE_UNAVAILABLE has overloaded use depending on
+whether we are referring to skb allocated from head_cache or from
+fclone_cache. In the former case, it means this skb cannot be cloned
+i.e.(clone is unavailable) but in latter case, it means clone is free
+to be used.
+This overleading is confusing as seen in the comment in snippet above.
+
+Should we add  something like SKB_CLONE_FREE for the second case that
+indicates that clone is free for use.?  I can send a patch if it makes
+sense..
+
+-vijay
