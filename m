@@ -1,35 +1,97 @@
-From: Fabian Frederick <fabf@skynet.be>
-Subject: [PATCH 1/1 linux-next] net/dccp/ccid.c: add __init to ccid_activate
-Date: Wed,  1 Oct 2014 06:52:06 +0200
-Message-ID: <1412139126-3794-1-git-send-email-fabf@skynet.be>
-Cc: Fabian Frederick <fabf@skynet.be>,
-	Gerrit Renker <gerrit@erg.abdn.ac.uk>,
-	"David S. Miller" <davem@davemloft.net>, dccp@vger.kernel.org,
-	netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH next] r8169: add support for Byte Queue Limits
+Date: Tue, 30 Sep 2014 21:57:01 -0700
+Message-ID: <CA+mtBx8QuNYwrGQRmnEaj80+W6S2n4VXR-Jiis9e-yAv3aHHJw@mail.gmail.com>
+References: <1412024209-25468-1-git-send-email-fw@strlen.de>
+	<CA+mtBx95KFr=3h_TZWBeM6e7EF4sKAmjRpz5vLxGwi8xC+qQuw@mail.gmail.com>
+	<20140929211158.GA11633@breakpoint.cc>
+	<CA+mtBx8rpELodiiez8LkKupKBr9ynbQhrmAq8tcD4QKXHNjyaw@mail.gmail.com>
+	<20140930074259.GC11709@breakpoint.cc>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Hayes Wang <hayeswang@realtek.com>
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f174.google.com ([209.85.223.174]:39598 "EHLO
+	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750859AbaJAE5C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2014 00:57:02 -0400
+Received: by mail-ie0-f174.google.com with SMTP id tr6so51683ieb.33
+        for <netdev@vger.kernel.org>; Tue, 30 Sep 2014 21:57:01 -0700 (PDT)
+In-Reply-To: <20140930074259.GC11709@breakpoint.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-ccid_activate is only called by __init ccid_initialize_builtins in same module.
+On Tue, Sep 30, 2014 at 12:42 AM, Florian Westphal <fw@strlen.de> wrote:
+> Tom Herbert <therbert@google.com> wrote:
+>> Watch inflight and limit in the byte_queue_limits for the queue.
+>> inflight must always go back to zero when link goes idle.
+>
+> Yes, inflight goes to 0 when link is idle.
+>
+> Output of
+> while true; do
+>     for n in inflight limit; do
+>       echo -n $n\ ; cat $n;
+>       done; sleep 1;
+> done
+>
+> during netperf run, 100mbit peer:
+>
+> inflight 0
+> limit 3028
+> inflight 6056
+> limit 4542
+> [ no changes during test ]
+> limit 4542
+> inflight 3028
+> limit 6122
+> inflight 0
+> limit 6122
+> [ changed cable to 1gbit peer, restart netperf ]
+> inflight 37850
+> limit 36336
+> inflight 33308
+> limit 31794
+> inflight 33308
+> limit 31794
+> inflight 27252
+> limit 25738
+> [ no changes during test ]
+> inflight 27252
+> limit 25738
+> inflight 0
+> limit 28766
+> [ change cable to 100mbit peer, restart netperf ]
+> limit 28766
+> inflight 27370
+> limit 28766
+> inflight 4542
+> limit 5990
+> inflight 6056
+> limit 4542
+> inflight 6056
+> limit 4542
+> inflight 6056
+> limit 4542
+> inflight 6056
+> limit 4542
+> inflight 6056
+> limit 4542
+> inflight 6056
+> limit 4542
+> inflight 6056
+> limit 4542
+> inflight 6056
+> limit 4542
+> inflight 0
+>
+> [ end of test ]
+>
+> I think thats what its supposed to look like :-)
 
-Signed-off-by: Fabian Frederick <fabf@skynet.be>
----
- net/dccp/ccid.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Looks good!
 
-diff --git a/net/dccp/ccid.c b/net/dccp/ccid.c
-index 5975572..8349897 100644
---- a/net/dccp/ccid.c
-+++ b/net/dccp/ccid.c
-@@ -99,7 +99,7 @@ static void ccid_kmem_cache_destroy(struct kmem_cache *slab)
- 		kmem_cache_destroy(slab);
- }
- 
--static int ccid_activate(struct ccid_operations *ccid_ops)
-+static int __init ccid_activate(struct ccid_operations *ccid_ops)
- {
- 	int err = -ENOBUFS;
- 
--- 
-1.9.3
+Acked-by: Tom Herbert <therbert@google.com>
