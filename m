@@ -1,52 +1,36 @@
-From: Arturo Borrero Gonzalez <arturo.borrero.glez@gmail.com>
-Subject: Re: [PATCH 33/34] netfilter: nf_tables: store and dump set policy
-Date: Wed, 1 Oct 2014 15:47:16 +0200
-Message-ID: <CAOkSjBi59RdovSXCPMYHF8crscKFYOmK9i8Fpt2kLGvOJfT_gA@mail.gmail.com>
-References: <1411994363-8451-1-git-send-email-pablo@netfilter.org>
- <1411994363-8451-34-git-send-email-pablo@netfilter.org> <54298583.3020100@cogentembedded.com>
+From: Eli Cohen <eli@mellanox.com>
+Subject: RE: [PATCH net-next 2/4] net/mlx5_core: Use hardware registers
+ description header file
+Date: Wed, 1 Oct 2014 13:47:41 +0000
+Message-ID: <CFE9BFE80FFE4D4892AA5D31387E310F014FC6D3D6@MTLDAG02.mtl.com>
+References: <1412082135-30229-4-git-send-email-eli@mellanox.com>
+	<20140930153445.GA9303@localhost.westell.com>
+	<CFE9BFE80FFE4D4892AA5D31387E310F014FC6C85B@MTLDAG02.mtl.com>
+ <20140930.161357.778280234084349300.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	Netfilter Development Mailing list
-	<netfilter-devel@vger.kernel.org>, davem@davemloft.net,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <54298583.3020100@cogentembedded.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "alexei.starovoitov@gmail.com" <alexei.starovoitov@gmail.com>,
+	"eli@dev.mellanox.co.il" <eli@dev.mellanox.co.il>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	"Yevgeny Petrilin" <yevgenyp@mellanox.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog125.obsmtp.com ([207.126.144.159]:34325 "EHLO
+	eu1sys200aog125.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750992AbaJANrr convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Oct 2014 09:47:47 -0400
+In-Reply-To: <20140930.161357.778280234084349300.davem@davemloft.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 29 September 2014 18:14, Sergei Shtylyov
-<sergei.shtylyov@cogentembedded.com> wrote:
->>
->> index a476b99..19e79f0 100644
->> --- a/net/netfilter/nf_tables_api.c
->> +++ b/net/netfilter/nf_tables_api.c
->> @@ -2344,6 +2344,11 @@ static int nf_tables_fill_set(struct sk_buff =
-*skb,
->> const struct nft_ctx *ctx,
->>                         goto nla_put_failure;
->>         }
->>
->> +       if (set->policy !=3D NFT_SET_POL_PERFORMANCE) {
->> +               if (nla_put_be32(skb, NFTA_SET_POLICY,
->> htonl(set->policy)))
->> +                       goto nla_put_failure;
+>People will try to review it only to discover that it's completely unused.
 >
+>I've been through this before with other device driver teams telling us that it's part of some automated framework etc. and that >doesn't make it acceptable.
 >
->    Why not fold these two *if* stetement into a single one?
->
+>Please trim these things down to exactly what the driver uses.
 
-I don't have any preference.
-
-Should I send a patch to change it?
-
-regards.
---=20
-Arturo Borrero Gonz=C3=A1lez
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+OK, I have sent a few minutes ago V1 series that fixes that.
