@@ -1,47 +1,71 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 2/2] sunvnet: vnet_start_xmit() must hold a
- refcnt on port.
-Date: Wed, 01 Oct 2014 12:05:24 -0700
-Message-ID: <1412190324.16704.57.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David L Stevens <david.stevens@oracle.com>
+Subject: Re: [PATCH net-next 2/2] sunvnet: vnet_start_xmit() must hold a refcnt
+ on port.
+Date: Wed, 01 Oct 2014 15:06:12 -0400
+Message-ID: <542C50A4.30304@oracle.com>
 References: <20141001185622.GI17706@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, raghuram.kothakota@oracle.com,
-	netdev@vger.kernel.org
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Cc: netdev@vger.kernel.org
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
+	davem@davemloft.net, raghuram.kothakota@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f171.google.com ([209.85.192.171]:36332 "EHLO
-	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751420AbaJATFN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2014 15:05:13 -0400
-Received: by mail-pd0-f171.google.com with SMTP id ft15so700821pdb.30
-        for <netdev@vger.kernel.org>; Wed, 01 Oct 2014 12:05:13 -0700 (PDT)
+Received: from aserp1040.oracle.com ([141.146.126.69]:50779 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751053AbaJATGS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2014 15:06:18 -0400
 In-Reply-To: <20141001185622.GI17706@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-10-01 at 14:56 -0400, Sowmini Varadhan wrote:
-> A vnet_port_remove could be triggered as a result of an ldm-unbind operation
-> by the peer, or a module unload, or other changes to the inter-vnet-link
-> configuration.  When this is concurrent with vnet_start_xmit(),
-> the following sequence could occur
-> 
->   thread 1                                    thread 2
-> vnet_start_xmit
->  -> tx_port_find
->     spin_lock_irqsave(&vp->lock..)
->     ret = __tx_port_find(..)
->     spin_lock_irqrestore(&vp->lock..)
->                                            vio_remove -> ..
->                                                ->vnet_port_remove
->                                            spin_lock_irqsave(&vp->lock..)
->                                            cleanup
->                                            spin_lock_irqrestore(&vp->lock..)
->                                            kfree(port)
->  /* attempt to use ret will bomb */
-> 
-> This patch avoids the problem by holding/releasing a refcnt on
-> the vnet_port.
 
-Hmpff... This calls for rcu protection here !
+
+On 10/01/2014 02:56 PM, Sowmini Varadhan wrote:
+
+> -	list_for_each_entry(port, &vp->port_list, list) {
+> -		if (!port->switch_port)
+> -			continue;
+> -		if (!port_is_up(port))
+> -			continue;
+> +	port = vp->switch_port;
+> +	if (port != NULL && port_is_up(port)) {
+> +		vnet_hold(port);
+>  		return port;
+>  	}
+>  	return NULL;
+
+This "vp->switch_port" addition doesn't appear to be related to the port refcnt
+change, and doesn't allow for multiple switch ports.
+
+						+-DLS
+
+
+> @@ -1581,10 +1621,12 @@ static int vnet_port_probe(struct vio_dev *vdev, const struct vio_device_id *id)
+>  	port->switch_port = switch_port;
+>  
+>  	spin_lock_irqsave(&vp->lock, flags);
+> -	if (switch_port)
+> +	if (switch_port) {
+> +		vp->switch_port = port;
+>  		list_add(&port->list, &vp->port_list);
+
+...and here.
+
+> -	else
+> +	} else {
+>  		list_add_tail(&port->list, &vp->port_list);
+> +	}
+>  	hlist_add_head(&port->hash, &vp->port_hash[vnet_hashfn(port->raddr)]);
+>  	spin_unlock_irqrestore(&vp->lock, flags);
+>  
+> @@ -1631,11 +1673,14 @@ static int vnet_port_remove(struct vio_dev *vdev)
+>  		 */
+>  		spin_lock_irqsave(&vp->lock, flags);
+>  		port->flags |= VNET_PORT_DEAD;
+> +		if (port->switch_port)
+> +			vp->switch_port = NULL;
+>  		list_del(&port->list);
+>  		hlist_del(&port->hash);
+
+..and here.
