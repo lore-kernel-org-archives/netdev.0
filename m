@@ -1,40 +1,37 @@
-From: Chuck Ebbert <cebbert.lkml@gmail.com>
-Subject: Re: [LKP] [net] 4ed2d765dfa:  ltp.recv01.4.TFAIL
-Date: Wed, 1 Oct 2014 11:20:39 -0500
-Message-ID: <20141001112039.375338a0@as>
-References: <20141001152910.GA4440@wfg-t540p.sh.intel.com>
-	<542C2460.8020208@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Fengguang Wu <fengguang.wu@intel.com>,
-	Willem de Bruijn <willemb@google.com>,
-	Dave Hansen <dave.hansen@intel.com>, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>, lkp@01.org
-To: Daniel Borkmann <dborkman@redhat.com>
+From: Fabian Frederick <fabf@skynet.be>
+Subject: [PATCH 1/1 net-next] tcp: add __init to tcp_init_mem
+Date: Wed,  1 Oct 2014 18:27:50 +0200
+Message-ID: <1412180870-7599-1-git-send-email-fabf@skynet.be>
+Cc: Fabian Frederick <fabf@skynet.be>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <542C2460.8020208@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 01 Oct 2014 17:57:20 +0200
-Daniel Borkmann <dborkman@redhat.com> wrote:
+tcp_init_mem is only called by __init tcp_init.
 
-> On 10/01/2014 05:29 PM, Fengguang Wu wrote:
-> > Hi Willem,
-> >
-> > FYI, we noticed the below LTP failures on commit
-> >
-> > 4ed2d765dfaccff5ebdac68e2064b59125033a3b ("net-timestamp: TCP timestamping")
-> 
-> I think it already was discussed here:
-> 
->    http://www.spinics.net/lists/netdev/msg297822.html
+Signed-off-by: Fabian Frederick <fabf@skynet.be>
+---
+ net/ipv4/tcp.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-
-I've fixed one of those in LTP.
-
-My proposed patch for how to fix the other three didn't get any replies
-on the LTP list:
-
-http://sourceforge.net/p/ltp/mailman/message/32866727/
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index cf5e508..5c17034 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -3172,7 +3172,7 @@ static int __init set_thash_entries(char *str)
+ }
+ __setup("thash_entries=", set_thash_entries);
+ 
+-static void tcp_init_mem(void)
++static void __init tcp_init_mem(void)
+ {
+ 	unsigned long limit = nr_free_buffer_pages() / 8;
+ 	limit = max(limit, 128UL);
+-- 
+1.9.3
