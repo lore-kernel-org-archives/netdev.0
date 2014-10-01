@@ -1,65 +1,69 @@
-From: Alexander Aring <alex.aring@gmail.com>
-Subject: Re: [PATCH 1/1 net-next] ieee802154: fix __init functions
-Date: Wed, 1 Oct 2014 08:08:14 +0200
-Message-ID: <20141001060812.GA23043@omega>
-References: <1412141266-12258-1-git-send-email-fabf@skynet.be>
- <56FE06A5-5C2A-42E4-B01A-15EB36BAADE5@holtmann.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: Add ndo_gso_check
+Date: Tue, 30 Sep 2014 23:12:14 -0700
+Message-ID: <1412143934.16704.36.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1411962607-27878-1-git-send-email-therbert@google.com>
+	 <CAJ3xEMi-TRXevenx87UM7JnKqRQQATW4MBjbz8JdnQE9gk3KZw@mail.gmail.com>
+	 <CA+mtBx8r05=qs2J58LFq56762tFB7wF4Dsr3C5TC9w5qQP5jGw@mail.gmail.com>
+	 <CAJ3xEMhf6b75TQDFqEPMSXCpL9ToWG1q0OMPtrEuHNSm=-PSwQ@mail.gmail.com>
+	 <CA+mtBx_6HcZh5Ys1FJFBXkZ2bWX1gP6bTcjY7gbR6RG_TOy50Q@mail.gmail.com>
+	 <CAJ3xEMi0biCWTNtLOJ=0HWZYjOWi6pN2bw2=EWajp6XnpoyVRw@mail.gmail.com>
+	 <CA+mtBx-sP6g9hXAYGfHKCPYkCtjgCFM0srueh1uhoNnC2ACr1g@mail.gmail.com>
+	 <20140930143700.3dffac4d@urahara>
+	 <CA+mtBx-wp5qNHGM0jG+2RjtXor3x1zJcSvZafz7kEKNEm4jYLA@mail.gmail.com>
+	 <1412122719.16704.19.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Fabian Frederick <fabf@skynet.be>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-wpan@vger.kernel.org, netdev@vger.kernel.org
-To: Marcel Holtmann <marcel@holtmann.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <56FE06A5-5C2A-42E4-B01A-15EB36BAADE5@holtmann.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	Or Gerlitz <gerlitz.or@gmail.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Thomas Graf <tgraf@suug.ch>,
+	Pravin Shelar <pshelar@nicira.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Andy Zhou <azhou@nicira.com>
+To: Tom Herbert <therbert@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f179.google.com ([209.85.192.179]:47330 "EHLO
+	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751047AbaJAGMO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2014 02:12:14 -0400
+Received: by mail-pd0-f179.google.com with SMTP id r10so183985pdi.10
+        for <netdev@vger.kernel.org>; Tue, 30 Sep 2014 23:12:14 -0700 (PDT)
+In-Reply-To: <1412122719.16704.19.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-On Wed, Oct 01, 2014 at 07:34:39AM +0200, Marcel Holtmann wrote:
-> Hi Fabian,
+On Tue, 2014-09-30 at 17:18 -0700, Eric Dumazet wrote:
+> On Tue, 2014-09-30 at 17:05 -0700, Tom Herbert wrote:
 > 
-> > Commit 3243acd37fd9
-> > ("ieee802154: add __init to lowpan_frags_sysctl_register")
 > > 
-> > added __init to lowpan_frags_ns_sysctl_register instead of
-> > lowpan_frags_sysctl_register
-> > 
-> > Suggested-by: Alexander Aring <alex.aring@gmail.com>
-> > Signed-off-by: Fabian Frederick <fabf@skynet.be>
-> > ---
-> > net/ieee802154/reassembly.c | 4 ++--
-> > 1 file changed, 2 insertions(+), 2 deletions(-)
+> > Will this still be an advantage with the burst TX implementation?
 > 
-> when trying to apply this to bluetooth-next kernel, I am getting this:
+> Segmenting a 64K packet into 45 sk_buff adds an additional 90
+> allocations (45 sk_buff, 45 sk->head) and dirtying a _lot_ of memory.
 > 
-> Applying: ieee802154: fix __init functions
-> error: patch failed: net/ieee802154/reassembly.c:498
-> error: net/ieee802154/reassembly.c: patch does not apply
-> Patch failed at 0001 ieee802154: fix __init functions
+> We now have some helpers that might be used by drivers to perform TSO
+> emulation.
 > 
+> commit e876f208af18b074f800656e4d1b99da75b2135f ("net: Add a software
+> TSO helper API")
+> 
+> Check commit 3ae8f4e0b98b640aadf410c21185ccb6b5b02351 for reference
+> ("net: mv643xx_eth: Implement software TSO")
 
-Fabian:
-thanks.
+BTW, even for NIC TSO capable, it seems TSO can be slower for small
+packets (like 2 MSS packets) on some NICs at least...
 
+In this case forcing segmentation can be a win (consumes more cpu
+cycles, but reduce the stress on the NIC)
 
-Marcel:
-this is a patch for a fix which is already in net-next. Please don't
-apply, see [0].
+(Adding an extra check in netif_skb_features() would do as well, I
+suppose)
 
-
-Marcel and David:
-Now, we have chaos who will apply now patches for ieee802154. I thought
-I apply ieee802154 patches to the wpan-next tree and then send it to
-bluetooth-next. Please don't change this patchflow.
-
-Okay, I know sometimes people change the inet_frag api, then it should
-go into net/net-next.
-
-
-- Alex
-
-[0] http://marc.info/?l=linux-netdev&m=141213852806003&w=2
++       if (skb_shinfo(skb)->gso_segs < skb->dev->gso_min_segs)
++               features &= ~NETIF_F_GSO_MASK;
+ 
