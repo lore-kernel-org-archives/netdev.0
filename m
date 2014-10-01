@@ -1,48 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 2/2] sunvnet: vnet_start_xmit() must hold a
- refcnt on port.
-Date: Wed, 01 Oct 2014 15:52:10 -0400 (EDT)
-Message-ID: <20141001.155210.882272719949254470.davem@davemloft.net>
-References: <542C50A4.30304@oracle.com>
-	<20141001192325.GK17706@oracle.com>
-	<542C56A5.4070805@oracle.com>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: Re: [PATCH net-next 0/2] sunvnet: Packet processing in non-interrupt
+ context.
+Date: Wed, 01 Oct 2014 15:55:35 -0400
+Message-ID: <542C5C37.1040409@oracle.com>
+References: <20141001185604.GG17706@oracle.com> <20141001.155009.2277009117294992988.davem@davemloft.net>
+Reply-To: sowmini.varadhan@oracle.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: sowmini.varadhan@oracle.com, raghuram.kothakota@oracle.com,
-	netdev@vger.kernel.org
-To: david.stevens@oracle.com
+Cc: raghuram.kothakota@oracle.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36013 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752806AbaJATwN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2014 15:52:13 -0400
-In-Reply-To: <542C56A5.4070805@oracle.com>
+Received: from aserp1040.oracle.com ([141.146.126.69]:43353 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751331AbaJATzj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2014 15:55:39 -0400
+In-Reply-To: <20141001.155009.2277009117294992988.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David L Stevens <david.stevens@oracle.com>
-Date: Wed, 01 Oct 2014 15:31:49 -0400
+On 10/01/2014 03:50 PM, David Miller wrote:
 
-> 
-> 
-> On 10/01/2014 03:23 PM, Sowmini Varadhan wrote:
->> On (10/01/14 15:06), David L Stevens wrote:
->>>
->>> This "vp->switch_port" addition doesn't appear to be related to the port refcnt
->>> change, and doesn't allow for multiple switch ports.
->> 
->> The switch_port is the connection to Dom0. Do you envision us having more than
->> one switch_port? How?
-> 
-> While Dom0 might only create one port with the "switch" flag, the flag just means
-> "I can reach anybody" and is not inherently unique. I don't think an attached
-> VM should assume there is always only one; it prevents multipath load balancing
-> kinds of things in the future.
-> 
-> Also, there is the broader point that this sort of change should be a separate patch.
-> It isn't required for fixing the dangling reference -- it is an independent change.
+>>
+>>     A BH Rx handler is a simpler way to  avoid the weaknesses of processing
+>>     packets in LDC interrupt context, and also provides Rx load-spreading
+>>     across multiple CPUs.
+>
+> I think you want to re-evaluate this considering napi_gro_receive() which
+> is what you should really be calling in a NAPI driver.
 
-Multiple switch ports are absolutely allowed by the protocol spec and can
-provide the suggested facilities David mentioned, don't prevent them from
-being used.
+
+Sorry I dont follow the suggestion.
+
+If I make this a NAPI driver that uses napi_gro_receive, I would
+still have to deal with a budget, right?
+
+--Sowmini
