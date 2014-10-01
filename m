@@ -1,84 +1,46 @@
-From: Michal Simek <michal.simek@xilinx.com>
-Subject: [PATCH] net: xilinx: Remove unnecessary ether_setup after alloc_etherdev
-Date: Wed,  1 Oct 2014 08:00:23 +0200
-Message-ID: <d43b465eca3e2a53c930f6e02dc4ac8b3c084693.1412143216.git.michal.simek@xilinx.com>
-Content-Type: multipart/signed;
-    boundary="=_mimegpg-monstr-desktop-6841-1412143223-0001";
-    micalg=pgp-sha1; protocol="application/pgp-signature"
-Cc: Subbaraya Sundeep Bhatta <subbaraya.sundeep.bhatta@xilinx.com>,
-	Anirudha Sarangi <anirudh@xilinx.com>,
-	John Linn <John.Linn@xilinx.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	=?UTF-8?q?Manuel=20Sch=C3=B6lling?= <manuel.schoelling@gmx.de>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	Julia Lawall <Julia.Lawall@lip6.fr>,
-	Joe Perches <joe@perches.com>,
-	Ricardo Ribalda <ricardo.ribalda@gmail.com>,
-	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org
-To: linux-kernel@vger.kernel.org, monstr@monstr.eu
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/1 net-next] ieee802154: fix __init functions
+Date: Wed, 01 Oct 2014 02:02:51 -0400 (EDT)
+Message-ID: <20141001.020251.105468714011560897.davem@davemloft.net>
+References: <1412141266-12258-1-git-send-email-fabf@skynet.be>
+	<56FE06A5-5C2A-42E4-B01A-15EB36BAADE5@holtmann.org>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: fabf@skynet.be, linux-kernel@vger.kernel.org, alex.aring@gmail.com,
+	linux-wpan@vger.kernel.org, netdev@vger.kernel.org
+To: marcel@holtmann.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <56FE06A5-5C2A-42E4-B01A-15EB36BAADE5@holtmann.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a MIME GnuPG-signed message.  If you see this text, it means that
-your E-mail or Usenet software does not support MIME signed messages.
-The Internet standard for MIME PGP messages, RFC 2015, was published in 1996.
-To open this message correctly you will need to install E-mail or Usenet
-software that supports modern Internet standards.
+From: Marcel Holtmann <marcel@holtmann.org>
+Date: Wed, 1 Oct 2014 07:34:39 +0200
 
---=_mimegpg-monstr-desktop-6841-1412143223-0001
+> Hi Fabian,
+> 
+>> Commit 3243acd37fd9
+>> ("ieee802154: add __init to lowpan_frags_sysctl_register")
+>> 
+>> added __init to lowpan_frags_ns_sysctl_register instead of
+>> lowpan_frags_sysctl_register
+>> 
+>> Suggested-by: Alexander Aring <alex.aring@gmail.com>
+>> Signed-off-by: Fabian Frederick <fabf@skynet.be>
+>> ---
+>> net/ieee802154/reassembly.c | 4 ++--
+>> 1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> when trying to apply this to bluetooth-next kernel, I am getting this:
+> 
+> Applying: ieee802154: fix __init functions
+> error: patch failed: net/ieee802154/reassembly.c:498
+> error: net/ieee802154/reassembly.c: patch does not apply
+> Patch failed at 0001 ieee802154: fix __init functions
 
-From: Subbaraya Sundeep Bhatta <subbaraya.sundeep.bhatta@xilinx.com>
+You haven't been following the conversation.
 
-Calling ether_setup is redundant since alloc_etherdev calls it.
-
-Signed-off-by: Subbaraya Sundeep Bhatta <sbhatta@xilinx.com>
-Signed-off-by: Michal Simek <michal.simek@xilinx.com>
----
-
- drivers/net/ethernet/xilinx/ll_temac_main.c       | 1 -
- drivers/net/ethernet/xilinx/xilinx_axienet_main.c | 1 -
- 2 files changed, 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/xilinx/ll_temac_main.c b/drivers/net/ethernet/xilinx/ll_temac_main.c
-index fda5891835d4..629077050fce 100644
---- a/drivers/net/ethernet/xilinx/ll_temac_main.c
-+++ b/drivers/net/ethernet/xilinx/ll_temac_main.c
-@@ -1012,7 +1012,6 @@ static int temac_of_probe(struct platform_device *op)
- 	if (!ndev)
- 		return -ENOMEM;
-
--	ether_setup(ndev);
- 	platform_set_drvdata(op, ndev);
- 	SET_NETDEV_DEV(ndev, &op->dev);
- 	ndev->flags &= ~IFF_MULTICAST;  /* clear multicast */
-diff --git a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
-index c8fd94133ecd..4ea2d4e6f1d1 100644
---- a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
-+++ b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
-@@ -1485,7 +1485,6 @@ static int axienet_of_probe(struct platform_device *op)
- 	if (!ndev)
- 		return -ENOMEM;
-
--	ether_setup(ndev);
- 	platform_set_drvdata(op, ndev);
-
- 	SET_NETDEV_DEV(ndev, &op->dev);
---
-1.8.2.3
-
-
---=_mimegpg-monstr-desktop-6841-1412143223-0001
-Content-Type: application/pgp-signature
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iEYEABECAAYFAlQrmHcACgkQykllyylKDCFAqgCdGA+FtiRSBFCmBc1s/RWHqCAC
-H5cAniMQ25suWJP5XV/TGK1O6rCWJ0C4
-=TiIR
------END PGP SIGNATURE-----
-
---=_mimegpg-monstr-desktop-6841-1412143223-0001--
+I already applied his previous patch which had errors to net-next,
+so this is a patch relative to net-next which fixes things and
+implements the change correctly.
