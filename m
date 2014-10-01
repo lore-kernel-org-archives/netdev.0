@@ -1,50 +1,78 @@
-From: Prashant <prashant@broadcom.com>
-Subject: Re: [PATCH net v6 4/4] tg3: Fix tx_pending checks for tg3_tso_bug
-Date: Wed, 1 Oct 2014 11:29:43 -0700
-Message-ID: <542C4817.60301@broadcom.com>
-References: <1409960135.18724.33.camel@prashant>		<1409961810.26422.149.camel@edumazet-glaptop2.roam.corp.google.com>		<20140905.171306.1460013939580748402.davem@davemloft.net>	 <20140905.213902.1124686922505260665.davem@davemloft.net>	 <542B71B1.4020103@broadcom.com> <1412137489.16704.26.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <bpoirier@suse.de>,
-	<mchan@broadcom.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1412137489.16704.26.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Petri Gynther <pgynther@google.com>
+Subject: [PATCH net-next] net: bcmgenet: fix bcmgenet_put_tx_csum()
+Date: Wed,  1 Oct 2014 11:30:01 -0700 (PDT)
+Message-ID: <20141001183001.C7D68100A08@puck.mtv.corp.google.com>
+Cc: davem@davemloft.net, f.fainelli@gmail.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f74.google.com ([209.85.220.74]:40557 "EHLO
+	mail-pa0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753350AbaJASaD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2014 14:30:03 -0400
+Received: by mail-pa0-f74.google.com with SMTP id kq14so101939pab.3
+        for <netdev@vger.kernel.org>; Wed, 01 Oct 2014 11:30:02 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+bcmgenet_put_tx_csum() needs to return skb pointer back to the caller
+because it reallocates a new one in case of lack of skb headroom.
 
+Signed-off-by: Petri Gynther <pgynther@google.com>
+---
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c | 13 +++++++------
+ 1 file changed, 7 insertions(+), 6 deletions(-)
 
-On 9/30/2014 9:24 PM, Eric Dumazet wrote:
-> On Tue, 2014-09-30 at 20:14 -0700, Prashant wrote:
->
->> Sorry about the late reply, out of all the HW bug conditions checked in
->> tg3_tx_frag_set() the most frequently hit condition is the short 8 byte
->> dma bug, where the chip cannot handle TX descriptors whose data buffer
->> is 8 bytes or less. Most of the LSO skb's given to the driver has their
->> fragments filled upto PAGE_SIZE (expect the last fragment depending on
->> skb->len). And if such a LSO skb's last fragment meets the 8 bytes HW
->> bug condition the above routine will not help workaround this particular
->> case.
->
-> Thats pretty easy to work around.
->
-> Say rebuilt skb has N frags (N > 1 given your description)
->
-> They are numbered 0, ... N-2, N-1
->
-> Instead of filling N-2 completely, fill it to PAGE_SIZE-8, so that last
-> frag has at least 8 bytes in it.
-
-definitely it can be tweaked to match what is needed with additional 
-workarounds.
-
->
-> Also take a look at commit 2e4e44107176d552f8bb1bb76053e850e3809841
-> ("net: add alloc_skb_with_frags() helper")
->
->
-This helper is much modular/flexible than the initial proposed one. Thanks.
->
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+index 77cb755..d51729c 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+@@ -1054,7 +1054,8 @@ static int bcmgenet_xmit_frag(struct net_device *dev,
+ /* Reallocate the SKB to put enough headroom in front of it and insert
+  * the transmit checksum offsets in the descriptors
+  */
+-static int bcmgenet_put_tx_csum(struct net_device *dev, struct sk_buff *skb)
++static struct sk_buff *bcmgenet_put_tx_csum(struct net_device *dev,
++					    struct sk_buff *skb)
+ {
+ 	struct status_64 *status = NULL;
+ 	struct sk_buff *new_skb;
+@@ -1072,7 +1073,7 @@ static int bcmgenet_put_tx_csum(struct net_device *dev, struct sk_buff *skb)
+ 		if (!new_skb) {
+ 			dev->stats.tx_errors++;
+ 			dev->stats.tx_dropped++;
+-			return -ENOMEM;
++			return NULL;
+ 		}
+ 		skb = new_skb;
+ 	}
+@@ -1090,7 +1091,7 @@ static int bcmgenet_put_tx_csum(struct net_device *dev, struct sk_buff *skb)
+ 			ip_proto = ipv6_hdr(skb)->nexthdr;
+ 			break;
+ 		default:
+-			return 0;
++			return skb;
+ 		}
+ 
+ 		offset = skb_checksum_start_offset(skb) - sizeof(*status);
+@@ -1111,7 +1112,7 @@ static int bcmgenet_put_tx_csum(struct net_device *dev, struct sk_buff *skb)
+ 		status->tx_csum_info = tx_csum_info;
+ 	}
+ 
+-	return 0;
++	return skb;
+ }
+ 
+ static netdev_tx_t bcmgenet_xmit(struct sk_buff *skb, struct net_device *dev)
+@@ -1158,8 +1159,8 @@ static netdev_tx_t bcmgenet_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	/* set the SKB transmit checksum */
+ 	if (priv->desc_64b_en) {
+-		ret = bcmgenet_put_tx_csum(dev, skb);
+-		if (ret) {
++		skb = bcmgenet_put_tx_csum(dev, skb);
++		if (!skb) {
+ 			ret = NETDEV_TX_OK;
+ 			goto out;
+ 		}
+-- 
+2.1.0.rc2.206.gedb03e5
