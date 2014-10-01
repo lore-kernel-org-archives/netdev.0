@@ -1,40 +1,37 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH V1 net-next 2/4] net/mlx5_core: Use hardware registers
- description header file
-Date: Wed, 01 Oct 2014 21:21:26 +0400
-Message-ID: <542C3816.9000407@cogentembedded.com>
-References: <1412169488-17500-1-git-send-email-eli@mellanox.com>	<1412169488-17500-3-git-send-email-eli@mellanox.com> <CAADnVQ+0q=j9soWX-ge6Re4F6sDahq=O-Ptaguca8WUaTE-qQw@mail.gmail.com>
+From: Arnaldo Carvalho de Melo <acme@kernel.org>
+Subject: Re: Why include/net/tcp_states.h is not exported to user-space?
+Date: Wed, 1 Oct 2014 14:25:00 -0300
+Message-ID: <20141001172500.GH2799@kernel.org>
+References: <CAHA+R7MDGKA1Z-1ytk8-+9XaKNcW+kG7UBn8drhdbLJeQYBCyQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Joe Perches <joe@perches.com>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Eli Cohen <eli@mellanox.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Cong Wang <cwang@twopensource.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f46.google.com ([209.85.215.46]:50050 "EHLO
-	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751411AbaJARVa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2014 13:21:30 -0400
-Received: by mail-la0-f46.google.com with SMTP id gi9so817111lab.33
-        for <netdev@vger.kernel.org>; Wed, 01 Oct 2014 10:21:28 -0700 (PDT)
-In-Reply-To: <CAADnVQ+0q=j9soWX-ge6Re4F6sDahq=O-Ptaguca8WUaTE-qQw@mail.gmail.com>
+Received: from mail.kernel.org ([198.145.19.201]:40761 "EHLO mail.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751236AbaJARZF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Oct 2014 13:25:05 -0400
+Content-Disposition: inline
+In-Reply-To: <CAHA+R7MDGKA1Z-1ytk8-+9XaKNcW+kG7UBn8drhdbLJeQYBCyQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Em Tue, Sep 30, 2014 at 11:12:04AM -0700, Cong Wang escreveu:
+> These states are needed for user-space to specify ->idiag_states.
+> Currently both libnl and ss make their own copy of these definitions.
+> Of course, new sock diag is not just limited to TCP, so we probably
+> need to rename them to SS_* before exporting them.
+> 
+> I can send a patch if you agree.
 
-On 10/01/2014 09:12 PM, Alexei Starovoitov wrote:
+One would have to check what are the current best practices for doing
+that, i.e. probably this would have to go via
+include/uapi//linux/tcp_states.h? Or take the time and create a new
+header for the inet_diag.h stuff as this is not TCP specific for quite a
+while?
 
->> Change-Id: Ieea94e4b329ec46902b1634cf66b0c3a04445a04
+If you could investigate how to properly expose this and then come back
+with a patch proposal I think that would ease reviewing :-)
 
-> checkpatch errors on gerrit tags by default,
-> but I'm not sure what's an official stance on it, since I see patches
-> with this tag slip through here and there.
-
-    It's allowed by DaveM.
-
-WBR, Sergei
+- Arnaldo
