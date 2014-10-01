@@ -1,46 +1,40 @@
-From: Fabian Frederick <fabf@skynet.be>
-Subject: [PATCH 1/1 net-next] inet: frags: add __init to ip4_frags_ctl_register
-Date: Wed,  1 Oct 2014 19:18:57 +0200
-Message-ID: <1412183937-16055-1-git-send-email-fabf@skynet.be>
-Cc: Fabian Frederick <fabf@skynet.be>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH V1 net-next 2/4] net/mlx5_core: Use hardware registers
+ description header file
+Date: Wed, 01 Oct 2014 21:21:26 +0400
+Message-ID: <542C3816.9000407@cogentembedded.com>
+References: <1412169488-17500-1-git-send-email-eli@mellanox.com>	<1412169488-17500-3-git-send-email-eli@mellanox.com> <CAADnVQ+0q=j9soWX-ge6Re4F6sDahq=O-Ptaguca8WUaTE-qQw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Joe Perches <joe@perches.com>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Eli Cohen <eli@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f46.google.com ([209.85.215.46]:50050 "EHLO
+	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751411AbaJARVa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2014 13:21:30 -0400
+Received: by mail-la0-f46.google.com with SMTP id gi9so817111lab.33
+        for <netdev@vger.kernel.org>; Wed, 01 Oct 2014 10:21:28 -0700 (PDT)
+In-Reply-To: <CAADnVQ+0q=j9soWX-ge6Re4F6sDahq=O-Ptaguca8WUaTE-qQw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-ip4_frags_ctl_register is only called by __init ipfrag_init
+Hello.
 
-Signed-off-by: Fabian Frederick <fabf@skynet.be>
----
- net/ipv4/ip_fragment.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+On 10/01/2014 09:12 PM, Alexei Starovoitov wrote:
 
-diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
-index 15f0e2b..2811cc1 100644
---- a/net/ipv4/ip_fragment.c
-+++ b/net/ipv4/ip_fragment.c
-@@ -790,7 +790,7 @@ static void __net_exit ip4_frags_ns_ctl_unregister(struct net *net)
- 	kfree(table);
- }
- 
--static void ip4_frags_ctl_register(void)
-+static void __init ip4_frags_ctl_register(void)
- {
- 	register_net_sysctl(&init_net, "net/ipv4", ip4_frags_ctl_table);
- }
-@@ -804,7 +804,7 @@ static inline void ip4_frags_ns_ctl_unregister(struct net *net)
- {
- }
- 
--static inline void ip4_frags_ctl_register(void)
-+static inline void __init ip4_frags_ctl_register(void)
- {
- }
- #endif
--- 
-1.9.3
+>> Change-Id: Ieea94e4b329ec46902b1634cf66b0c3a04445a04
+
+> checkpatch errors on gerrit tags by default,
+> but I'm not sure what's an official stance on it, since I see patches
+> with this tag slip through here and there.
+
+    It's allowed by DaveM.
+
+WBR, Sergei
