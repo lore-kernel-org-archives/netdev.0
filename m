@@ -1,7 +1,7 @@
 From: Chun-Hao Lin <hau@realtek.com>
-Subject: [PATCH v2 net-next 05/10] r8169:add more chips to support magic packet v2
-Date: Wed, 1 Oct 2014 23:17:16 +0800
-Message-ID: <1412176641-24393-5-git-send-email-hau@realtek.com>
+Subject: [PATCH v2 net-next 08/10] r8169:change the name of function "r8168dp_check_dash" to "r8168_check_dash"
+Date: Wed, 1 Oct 2014 23:17:19 +0800
+Message-ID: <1412176641-24393-8-git-send-email-hau@realtek.com>
 References: <1412176641-24393-1-git-send-email-hau@realtek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,82 +13,35 @@ In-Reply-To: <1412176641-24393-1-git-send-email-hau@realtek.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-For RTL8168F RTL8168FB RTL8168G RTL8168GU RTL8411 RTL8411B RTL8402 RTL8107E,
-the magic packet enable bit is changed to eri 0xde bit0.
-
-In this patch, change magic packet enable bit of these chips to eri 0xde bit0.
+DASH function not only RTL8168DP can support, but also RTL8168EP.
+So change the name of function "r8168dp_check_dash" to "r8168_check_dash".
 
 Signed-off-by: Chun-Hao Lin <hau@realtek.com>
 ---
- drivers/net/ethernet/realtek/r8169.c | 36 ++++++++++++++++++++++++++++++++++++
- 1 file changed, 36 insertions(+)
+ drivers/net/ethernet/realtek/r8169.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index c1e9661..070724c 100644
+index 5884b6d..d84605a 100644
 --- a/drivers/net/ethernet/realtek/r8169.c
 +++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -1546,8 +1546,20 @@ static u32 __rtl8169_get_wol(struct rtl8169_private *tp)
- 	if (options & LinkUp)
- 		wolopts |= WAKE_PHY;
- 	switch (tp->mac_version) {
-+	case RTL_GIGA_MAC_VER_34:
-+	case RTL_GIGA_MAC_VER_35:
-+	case RTL_GIGA_MAC_VER_36:
-+	case RTL_GIGA_MAC_VER_37:
-+	case RTL_GIGA_MAC_VER_38:
-+	case RTL_GIGA_MAC_VER_40:
-+	case RTL_GIGA_MAC_VER_41:
-+	case RTL_GIGA_MAC_VER_42:
-+	case RTL_GIGA_MAC_VER_43:
-+	case RTL_GIGA_MAC_VER_44:
- 	case RTL_GIGA_MAC_VER_45:
- 	case RTL_GIGA_MAC_VER_46:
-+	case RTL_GIGA_MAC_VER_47:
-+	case RTL_GIGA_MAC_VER_48:
- 		if (rtl_eri_read(tp, 0xdc, ERIAR_EXGMAC) & MagicPacket_v2)
- 			wolopts |= WAKE_MAGIC;
- 		break;
-@@ -1601,8 +1613,20 @@ static void __rtl8169_set_wol(struct rtl8169_private *tp, u32 wolopts)
- 	RTL_W8(Cfg9346, Cfg9346_Unlock);
+@@ -1015,7 +1015,7 @@ static void rtl8168_driver_stop(struct rtl8169_private *tp)
+ 	rtl_msleep_loop_wait_low(tp, &rtl_ocp_read_cond, 10, 10);
+ }
  
- 	switch (tp->mac_version) {
-+	case RTL_GIGA_MAC_VER_34:
-+	case RTL_GIGA_MAC_VER_35:
-+	case RTL_GIGA_MAC_VER_36:
-+	case RTL_GIGA_MAC_VER_37:
-+	case RTL_GIGA_MAC_VER_38:
-+	case RTL_GIGA_MAC_VER_40:
-+	case RTL_GIGA_MAC_VER_41:
-+	case RTL_GIGA_MAC_VER_42:
-+	case RTL_GIGA_MAC_VER_43:
-+	case RTL_GIGA_MAC_VER_44:
- 	case RTL_GIGA_MAC_VER_45:
- 	case RTL_GIGA_MAC_VER_46:
-+	case RTL_GIGA_MAC_VER_47:
-+	case RTL_GIGA_MAC_VER_48:
- 		tmp = ARRAY_SIZE(cfg) - 1;
- 		if (wolopts & WAKE_MAGIC)
- 			rtl_w1w0_eri(tp,
-@@ -7666,8 +7690,20 @@ static int rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	RTL_W8(Config1, RTL_R8(Config1) | PMEnable);
- 	RTL_W8(Config5, RTL_R8(Config5) & (BWF | MWF | UWF | LanWake | PMEStatus));
- 	switch (tp->mac_version) {
-+	case RTL_GIGA_MAC_VER_34:
-+	case RTL_GIGA_MAC_VER_35:
-+	case RTL_GIGA_MAC_VER_36:
-+	case RTL_GIGA_MAC_VER_37:
-+	case RTL_GIGA_MAC_VER_38:
-+	case RTL_GIGA_MAC_VER_40:
-+	case RTL_GIGA_MAC_VER_41:
-+	case RTL_GIGA_MAC_VER_42:
-+	case RTL_GIGA_MAC_VER_43:
-+	case RTL_GIGA_MAC_VER_44:
- 	case RTL_GIGA_MAC_VER_45:
- 	case RTL_GIGA_MAC_VER_46:
-+	case RTL_GIGA_MAC_VER_47:
-+	case RTL_GIGA_MAC_VER_48:
- 		if (rtl_eri_read(tp, 0xdc, ERIAR_EXGMAC) & MagicPacket_v2)
- 			tp->features |= RTL_FEATURE_WOL;
- 		if ((RTL_R8(Config3) & LinkUp) != 0)
+-static int r8168dp_check_dash(struct rtl8169_private *tp)
++static int r8168_check_dash(struct rtl8169_private *tp)
+ {
+ 	u16 reg = rtl8168_get_ocp_reg(tp);
+ 
+@@ -4364,7 +4364,7 @@ static void r8168_pll_power_down(struct rtl8169_private *tp)
+ 	if ((tp->mac_version == RTL_GIGA_MAC_VER_27 ||
+ 	     tp->mac_version == RTL_GIGA_MAC_VER_28 ||
+ 	     tp->mac_version == RTL_GIGA_MAC_VER_31) &&
+-	    r8168dp_check_dash(tp)) {
++	    r8168_check_dash(tp)) {
+ 		return;
+ 	}
+ 
 -- 
 1.8.3.2
