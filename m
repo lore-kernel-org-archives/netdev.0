@@ -1,37 +1,51 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH net-next] udp: increment UDP_NO_PORTS when dropping unmatched
- multicasts
-Date: Wed, 01 Oct 2014 09:32:43 -0700
-Message-ID: <542C2CAB.2030501@hp.com>
-References: <20141001151921.7131E29003A2@tardy> <542C23AA.6060505@oracle.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH net-next 2/2] net/mlx4_core: Disable BF when write
+ combining is not available
+Date: Wed, 1 Oct 2014 09:52:05 -0700
+Message-ID: <CAADnVQJ7uGj1TjV=Bv107TEWmVRodnff1sKFROEdpZJrZ5+R4w@mail.gmail.com>
+References: <1412175282-25212-1-git-send-email-ogerlitz@mellanox.com>
+	<1412175282-25212-3-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net
-To: David L Stevens <david.stevens@oracle.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Amir Vadai <amirv@mellanox.com>,
+	Jack Morgenstein <jackm@dev.mellanox.co.il>,
+	Moshe Lazer <moshel@mellanox.com>,
+	Tal Alon <talal@mellanox.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>
+To: Or Gerlitz <ogerlitz@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t3426.houston.hp.com ([15.201.208.54]:60684 "EHLO
-	g4t3426.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753241AbaJAQcq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2014 12:32:46 -0400
-In-Reply-To: <542C23AA.6060505@oracle.com>
+Received: from mail-qg0-f48.google.com ([209.85.192.48]:52146 "EHLO
+	mail-qg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751759AbaJAQwG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2014 12:52:06 -0400
+Received: by mail-qg0-f48.google.com with SMTP id i50so588774qgf.21
+        for <netdev@vger.kernel.org>; Wed, 01 Oct 2014 09:52:05 -0700 (PDT)
+In-Reply-To: <1412175282-25212-3-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/01/2014 08:54 AM, David L Stevens wrote:
-> I think this would have the unpleasant side-effect of incrementing a drop
-> stat when we have not joined a multicast group that has UDP traffic, but the
-> interface is in promiscuous mode. Also, false positives for the multicast
-> address filter.
+On Wed, Oct 1, 2014 at 7:54 AM, Or Gerlitz <ogerlitz@mellanox.com> wrote:
+> From: Moshe Lazer <moshel@mellanox.com>
 >
-> Multicast address filters are not perfect matches, so it is "normal" to receive
-> multicasts and broadcasts that are not addressed to our host. I'm not sure those
-> should count as "noports" any more than traffic addressed to someone else's IP
-> address if we're in promiscuous mode should.
+> In mlx4 for better latency, we write send descriptors to a write-combining
+> (WC) mapped buffer instead of ringing a doorbell and having the HW fetch
+> the descriptor from system memory.
 >
-> In the multicast case, it would really only make sense if we have actually joined
-> the group it's addressed to.
+> However, if write-combining is not supported on the host, then we
+> obtain better latency by using the doorbell-ring/HW fetch mechanism.
+>
+> The mechanism that uses WC is called Blue-Flame (BF). BF is beneficial
+> only when the system supports write combining. When the BF buffer is
+> mapped as a write-combine buffer, the HCA receives data in multi-word
+> bursts. However, if the BF buffer is mapped only as non-cached, the
+> HCA receives data in individual dword chunks, which harms performance.
+>
+> Therefore, disable blueflame when write combining is not available.
 
-Do you think an "ignored" statistic would be appropriate then?
-
-rick
+curious, what numbers you're seeing:
+- bf=on with wc
+- bf=on without wc
+- bf=off and doorbell
+they will help to justify this change.
