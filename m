@@ -1,57 +1,164 @@
 From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: [PATCH net-next 0/2] sunvnet: Packet processing in non-interrupt
- context
-Date: Wed, 1 Oct 2014 16:24:54 -0400
-Message-ID: <20141001202454.GO17706@oracle.com>
+Subject: [PATCH net-next 2/2] vnet_start_xmit() must hold a refcnt on port.
+Date: Wed, 1 Oct 2014 16:25:23 -0400
+Message-ID: <20141001202523.GQ17706@oracle.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net, raghuram.kothakota@oracle.com,
 	sowmini.varadhan@oracle.com, david.stevens@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:23383 "EHLO
+Received: from aserp1040.oracle.com ([141.146.126.69]:23629 "EHLO
 	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751801AbaJAUY7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2014 16:24:59 -0400
+	with ESMTP id S1751344AbaJAUZ2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2014 16:25:28 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-The existing sunvnet implementation does all the packet interception
-in LDC interrupt context. Patch 1 of this series moves the data
-processing to a bottom-half handler.
+A vnet_port_remove could be triggered as a result of an ldm-unbind
+operation
+by the peer, module unload, or other changes to the inter-vnet-link
+configuration.  When this is concurrent with vnet_start_xmit(),
+the following sequence could occur
 
-Some context for the reasons for choosing a BH handler over NAPI:
-   A NAPI (or simple tasklet) based implementation provides softirq
-   context, which allows the driver to safely invoke netif_receive_skb()
-   to deliver the packet to the IP stack. But in the case of sunvnet,
-   we are already receiving multiple packets for a single ldc_rx
-   interrupt, so the budget-based softirq-vs-polling infra does not
-   provide a significant optimization. Rather, it can get in the way,
-   if we constrain the vnet-rx path to a poorly chosen budget, and force
-   ourselves to send a STOPPED/START ldc exchange needlessly.
+  thread 1                                    thread 2
+vnet_start_xmit
+ -> tx_port_find
+    spin_lock_irqsave(&vp->lock..)
+    ret = __tx_port_find(..)
+    spin_lock_irqrestore(&vp->lock..)
+                                           vio_remove -> ..
+                                               ->vnet_port_remove
+                                           spin_lock_irqsave(&vp->lock..)
+                                           cleanup
+                                           spin_lock_irqrestore(&vp->lock..)
+                                           kfree(port)
+ /* attempt to use ret will bomb */
 
-   A BH Rx handler is a simpler way to  avoid the weaknesses of processing
-   packets in LDC interrupt context, and also provides Rx load-spreading
-   across multiple CPUs.
+This patch avoids the problem by holding/releasing a refcnt on
+the vnet_port.
 
-Note that PATCH 1 is dependant on the functions added as part of the
-sparc-next commit "sparc64: Add vio_set_intr() to enable/disable Rx interrupts"
-(Cf: http://www.spinics.net/lists/sparclinux/msg12647.html)
+Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Acked-by: Raghuram Kothakota <raghuram.kothakota@oracle.com>
+---
+changes since v1: reverted switch_port caching in `struct vnet'.
 
-PATCH 2 of this series fixes a race-condition between vnet_port_remove()
-and vnet_start_xmit().
+ drivers/net/ethernet/sun/sunvnet.c | 46 +++++++++++++++++++++++++++++++++++++-
+ drivers/net/ethernet/sun/sunvnet.h |  1 +
+ 2 files changed, 46 insertions(+), 1 deletion(-)
 
-changes since v1 to Patch 2: revert switch_port caching in struct vnet
-
-Sowmini Varadhan (2):
-  Process Rx data packets in a BH handler
-  vnet_start_xmit() must hold a refcnt on port.
-
- drivers/net/ethernet/sun/sunvnet.c | 187 +++++++++++++++++++++++++++----------
- drivers/net/ethernet/sun/sunvnet.h |  12 ++-
- 2 files changed, 146 insertions(+), 53 deletions(-)
-
+diff --git a/drivers/net/ethernet/sun/sunvnet.c b/drivers/net/ethernet/sun/sunvnet.c
+index e2aacf5..62264cb 100644
+--- a/drivers/net/ethernet/sun/sunvnet.c
++++ b/drivers/net/ethernet/sun/sunvnet.c
+@@ -47,6 +47,42 @@ MODULE_VERSION(DRV_MODULE_VERSION);
+ 
+ static int __vnet_tx_trigger(struct vnet_port *port, u32 start);
+ 
++static inline int vnet_refcnt_read(const struct vnet_port *port)
++{
++	return atomic_read(&port->refcnt);
++}
++
++static inline void vnet_hold(struct vnet_port *port)
++{
++	atomic_inc(&port->refcnt);
++	BUG_ON(vnet_refcnt_read(port) == 0);
++}
++
++static void vnet_put(struct vnet_port *port)
++{
++	atomic_dec(&port->refcnt);
++}
++
++static void vnet_wait_allrefs(struct vnet_port *port)
++{
++	unsigned long warning_time;
++	int refcnt = vnet_refcnt_read(port);
++
++	warning_time = jiffies;
++	while (refcnt != 0) {
++		msleep(250);
++		refcnt = vnet_refcnt_read(port);
++		if (time_after(jiffies, warning_time + 10 * HZ)) {
++			pr_emerg("vnet_wait_allrefs: waiting for port to "
++				 "%x:%x:%x:%x:%x:%x. Usage count = %d\n",
++				port->raddr[0], port->raddr[1],
++				port->raddr[2], port->raddr[3],
++				port->raddr[4], port->raddr[5], refcnt);
++			warning_time = jiffies;
++		}
++	}
++}
++
+ /* Ordered from largest major to lowest */
+ static struct vio_version vnet_versions[] = {
+ 	{ .major = 1, .minor = 6 },
+@@ -773,14 +809,17 @@ struct vnet_port *__tx_port_find(struct vnet *vp, struct sk_buff *skb)
+ 	hlist_for_each_entry(port, hp, hash) {
+ 		if (!port_is_up(port))
+ 			continue;
+-		if (ether_addr_equal(port->raddr, skb->data))
++		if (ether_addr_equal(port->raddr, skb->data)) {
++			vnet_hold(port);
+ 			return port;
++		}
+ 	}
+ 	list_for_each_entry(port, &vp->port_list, list) {
+ 		if (!port->switch_port)
+ 			continue;
+ 		if (!port_is_up(port))
+ 			continue;
++		vnet_hold(port);
+ 		return port;
+ 	}
+ 	return NULL;
+@@ -974,6 +1013,7 @@ static int vnet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 			dev->stats.tx_errors++;
+ 		}
+ 		spin_unlock_irqrestore(&port->vio.lock, flags);
++		vnet_put(port);
+ 		return NETDEV_TX_BUSY;
+ 	}
+ 
+@@ -1071,6 +1111,7 @@ ldc_start_done:
+ 	vnet_free_skbs(freeskbs);
+ 
+ 	(void)mod_timer(&port->clean_timer, jiffies + VNET_CLEAN_TIMEOUT);
++	vnet_put(port);
+ 
+ 	return NETDEV_TX_OK;
+ 
+@@ -1087,6 +1128,8 @@ out_dropped:
+ 	else
+ 		del_timer(&port->clean_timer);
+ 	dev->stats.tx_dropped++;
++	if (port)
++		vnet_put(port);
+ 	return NETDEV_TX_OK;
+ }
+ 
+@@ -1636,6 +1679,7 @@ static int vnet_port_remove(struct vio_dev *vdev)
+ 		spin_unlock_irqrestore(&vp->lock, flags);
+ 
+ 		vnet_workq_disable(port);
++		vnet_wait_allrefs(port);
+ 
+ 		vnet_port_free_tx_bufs(port);
+ 		vio_ldc_free(&port->vio);
+diff --git a/drivers/net/ethernet/sun/sunvnet.h b/drivers/net/ethernet/sun/sunvnet.h
+index 1182ec6..5c35474 100644
+--- a/drivers/net/ethernet/sun/sunvnet.h
++++ b/drivers/net/ethernet/sun/sunvnet.h
+@@ -53,6 +53,7 @@ struct vnet_port {
+ 	u32			stop_rx_idx;
+ 	bool			stop_rx;
+ 	bool			start_cons;
++	atomic_t		refcnt;
+ 
+ 	struct timer_list	clean_timer;
+ 
 -- 
 1.8.4.2
