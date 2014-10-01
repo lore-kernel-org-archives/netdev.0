@@ -1,34 +1,27 @@
-From: David L Stevens <david.stevens@oracle.com>
-Subject: Re: [PATCH net-next] udp: increment UDP_NO_PORTS when dropping unmatched
- multicasts
-Date: Wed, 01 Oct 2014 11:54:18 -0400
-Message-ID: <542C23AA.6060505@oracle.com>
-References: <20141001151921.7131E29003A2@tardy>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [LKP] [net] 4ed2d765dfa:  ltp.recv01.4.TFAIL
+Date: Wed, 01 Oct 2014 17:57:20 +0200
+Message-ID: <542C2460.8020208@redhat.com>
+References: <20141001152910.GA4440@wfg-t540p.sh.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net
-To: Rick Jones <raj@tardy.usa.hp.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:44610 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751445AbaJAPzd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2014 11:55:33 -0400
-In-Reply-To: <20141001151921.7131E29003A2@tardy>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Willem de Bruijn <willemb@google.com>,
+	Dave Hansen <dave.hansen@intel.com>, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>, lkp@01.org
+To: Fengguang Wu <fengguang.wu@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141001152910.GA4440@wfg-t540p.sh.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I think this would have the unpleasant side-effect of incrementing a drop
-stat when we have not joined a multicast group that has UDP traffic, but the
-interface is in promiscuous mode. Also, false positives for the multicast
-address filter.
+On 10/01/2014 05:29 PM, Fengguang Wu wrote:
+> Hi Willem,
+>
+> FYI, we noticed the below LTP failures on commit
+>
+> 4ed2d765dfaccff5ebdac68e2064b59125033a3b ("net-timestamp: TCP timestamping")
 
-Multicast address filters are not perfect matches, so it is "normal" to receive
-multicasts and broadcasts that are not addressed to our host. I'm not sure those
-should count as "noports" any more than traffic addressed to someone else's IP
-address if we're in promiscuous mode should.
+I think it already was discussed here:
 
-In the multicast case, it would really only make sense if we have actually joined
-the group it's addressed to.
-
-						+-DLS
+   http://www.spinics.net/lists/netdev/msg297822.html
