@@ -1,52 +1,47 @@
-From: Mark Einon <mark@einon.net>
-Subject: Re: [PATCH net-next] et131x: Add PCIe gigabit ethernet driver et131x
- to drivers/net
-Date: Wed, 1 Oct 2014 20:02:59 +0100
-Message-ID: <20141001190259.GA2697@msilap.einon.net>
-References: <1412112586-2194-1-git-send-email-mark.einon@gmail.com>
- <20141001124500.GH3279@distanz.ch>
- <1412171027.3247.6.camel@joe-AO725>
- <20141001141449.GI3279@distanz.ch>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 2/2] sunvnet: vnet_start_xmit() must hold a
+ refcnt on port.
+Date: Wed, 01 Oct 2014 12:05:24 -0700
+Message-ID: <1412190324.16704.57.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20141001185622.GI17706@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Joe Perches <joe@perches.com>, Mark Einon <mark.einon@gmail.com>,
-	davem@davemloft.net, gregkh@linuxfoundation.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Tobias Klauser <tklauser@distanz.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20141001141449.GI3279@distanz.ch>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, raghuram.kothakota@oracle.com,
+	netdev@vger.kernel.org
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f171.google.com ([209.85.192.171]:36332 "EHLO
+	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751420AbaJATFN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2014 15:05:13 -0400
+Received: by mail-pd0-f171.google.com with SMTP id ft15so700821pdb.30
+        for <netdev@vger.kernel.org>; Wed, 01 Oct 2014 12:05:13 -0700 (PDT)
+In-Reply-To: <20141001185622.GI17706@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 01, 2014 at 04:14:49PM +0200, Tobias Klauser wrote:
-> On 2014-10-01 at 15:43:47 +0200, Joe Perches <joe@perches.com> wrote:
-> > On Wed, 2014-10-01 at 14:45 +0200, Tobias Klauser wrote:
-> > > On 2014-09-30 at 23:29:46 +0200, Mark Einon <mark.einon@gmail.com> wrote:
-> > > > This adds the ethernet driver for Agere et131x devices to
-> > > > drivers/net/ethernet.
-> > []
-> > > > diff --git a/drivers/net/ethernet/agere/et131x.c b/drivers/net/ethernet/agere/et131x.c
-> > []
-> > > > +	rc = pci_enable_device(pdev);
-> > > > +	if (rc < 0) {
-> > > > +		dev_err(&pdev->dev, "pci_enable_device() failed\n");
-> > > > +		goto out;
-> > > 
-> > > Nit: Just return rc here.
-> > 
-> > I don't think it matters at all.
+On Wed, 2014-10-01 at 14:56 -0400, Sowmini Varadhan wrote:
+> A vnet_port_remove could be triggered as a result of an ldm-unbind operation
+> by the peer, or a module unload, or other changes to the inter-vnet-link
+> configuration.  When this is concurrent with vnet_start_xmit(),
+> the following sequence could occur
 > 
-> Combined with my second remark this change makes the `out' label
-> unnecessary. If Mark decides to keep the goto here, at least the
-> position of the label should be changed to the end of the function, to
-> remain predictable and avoid jumping back.
+>   thread 1                                    thread 2
+> vnet_start_xmit
+>  -> tx_port_find
+>     spin_lock_irqsave(&vp->lock..)
+>     ret = __tx_port_find(..)
+>     spin_lock_irqrestore(&vp->lock..)
+>                                            vio_remove -> ..
+>                                                ->vnet_port_remove
+>                                            spin_lock_irqsave(&vp->lock..)
+>                                            cleanup
+>                                            spin_lock_irqrestore(&vp->lock..)
+>                                            kfree(port)
+>  /* attempt to use ret will bomb */
+> 
+> This patch avoids the problem by holding/releasing a refcnt on
+> the vnet_port.
 
-Hi Tobias, Thanks for the review. Yes, I think it is a bit nit-picking, and I'd
-prefer to have just one return in the function. I don't think replacing the
-return with a goto adds much and in the interests of keeping churn down, I
-won't be making the change unless it prevents the driver moving out of staging.
-
-Cheers,
-
-Mark
+Hmpff... This calls for rcu protection here !
