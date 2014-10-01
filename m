@@ -1,151 +1,58 @@
 From: Chun-Hao Lin <hau@realtek.com>
-Subject: [PATCH v2 net-next 09/10] r8169:modify the behavior of function "rtl8168_oob_notify"
-Date: Wed, 1 Oct 2014 23:17:20 +0800
-Message-ID: <1412176641-24393-9-git-send-email-hau@realtek.com>
+Subject: [PATCH v2 net-next 10/10] r8169:call "rtl8168_driver_start" "rtl8168_driver_stop" only when hardware dash function is enabled
+Date: Wed, 1 Oct 2014 23:17:21 +0800
+Message-ID: <1412176641-24393-10-git-send-email-hau@realtek.com>
 References: <1412176641-24393-1-git-send-email-hau@realtek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
 	Chun-Hao Lin <hau@realtek.com>
 To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtits2.realtek.com ([60.250.210.242]:48795 "EHLO
-	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751719AbaJAPRw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2014 11:17:52 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1412176641-24393-1-git-send-email-hau@realtek.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In function "rtl8168_oob_notify", using function "rtl_eri_write" to access
-eri register 0xe8, instead of using MAC register "ERIDR" and "ERIAR" to
-access it.
-
-For using function "rtl_eri_write" in function "rtl8168_oob_notify", need to
-move down "rtl8168_oob_notify" related functions under the function
-"rtl_eri_write".
+These two functions are used to inform dash firmware that driver is been
+brought up or brought down. So call these two functions only when hardware dash
+function is enabled.
 
 Signed-off-by: Chun-Hao Lin <hau@realtek.com>
 ---
- drivers/net/ethernet/realtek/r8169.c | 99 +++++++++++++++++-------------------
- 1 file changed, 46 insertions(+), 53 deletions(-)
+ drivers/net/ethernet/realtek/r8169.c | 14 ++++++++------
+ 1 file changed, 8 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index d84605a..305f3b4 100644
+index 305f3b4..c03891b 100644
 --- a/drivers/net/ethernet/realtek/r8169.c
 +++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -969,59 +969,6 @@ DECLARE_RTL_COND(rtl_eriar_cond)
- 	return RTL_R32(ERIAR) & ERIAR_FLAG;
- }
+@@ -7387,9 +7387,10 @@ static void rtl_remove_one(struct pci_dev *pdev)
+ 	struct net_device *dev = pci_get_drvdata(pdev);
+ 	struct rtl8169_private *tp = netdev_priv(dev);
  
--static void rtl8168_oob_notify(struct rtl8169_private *tp, u8 cmd)
--{
--	void __iomem *ioaddr = tp->mmio_addr;
--
--	RTL_W8(ERIDR, cmd);
--	RTL_W32(ERIAR, 0x800010e8);
--	msleep(2);
--
--	if (!rtl_udelay_loop_wait_low(tp, &rtl_eriar_cond, 100, 5))
--		return;
--
--	ocp_write(tp, 0x1, 0x30, 0x00000001);
--}
--
--#define OOB_CMD_RESET		0x00
--#define OOB_CMD_DRIVER_START	0x05
--#define OOB_CMD_DRIVER_STOP	0x06
--
--static u16 rtl8168_get_ocp_reg(struct rtl8169_private *tp)
--{
--	return (tp->mac_version == RTL_GIGA_MAC_VER_31) ? 0xb8 : 0x10;
--}
--
--DECLARE_RTL_COND(rtl_ocp_read_cond)
--{
--	u16 reg;
--
--	reg = rtl8168_get_ocp_reg(tp);
--
--	return ocp_read(tp, 0x0f, reg) & 0x00000800;
--}
--
--static void rtl8168_driver_start(struct rtl8169_private *tp)
--{
--	rtl8168_oob_notify(tp, OOB_CMD_DRIVER_START);
--
--	rtl_msleep_loop_wait_high(tp, &rtl_ocp_read_cond, 10, 10);
--}
--
--static void rtl8168_driver_stop(struct rtl8169_private *tp)
--{
--	rtl8168_oob_notify(tp, OOB_CMD_DRIVER_STOP);
--
--	rtl_msleep_loop_wait_low(tp, &rtl_ocp_read_cond, 10, 10);
--}
--
--static int r8168_check_dash(struct rtl8169_private *tp)
--{
--	u16 reg = rtl8168_get_ocp_reg(tp);
--
--	return (ocp_read(tp, 0x0f, reg) & 0x00008000) ? 1 : 0;
--}
--
- static bool rtl_ocp_reg_failure(struct rtl8169_private *tp, u32 reg)
- {
- 	if (reg & 0xffff0001) {
-@@ -1329,6 +1276,52 @@ static void rtl_w0w1_eri(struct rtl8169_private *tp, int addr, u32 mask, u32 p,
- 	rtl_eri_write(tp, addr, mask, (val & ~m) | p, type);
- }
+-	if (tp->mac_version == RTL_GIGA_MAC_VER_27 ||
+-	    tp->mac_version == RTL_GIGA_MAC_VER_28 ||
+-	    tp->mac_version == RTL_GIGA_MAC_VER_31) {
++	if ((tp->mac_version == RTL_GIGA_MAC_VER_27 ||
++	     tp->mac_version == RTL_GIGA_MAC_VER_28 ||
++	     tp->mac_version == RTL_GIGA_MAC_VER_31) &&
++	    r8168_check_dash(tp)) {
+ 		rtl8168_driver_stop(tp);
+ 	}
  
-+static void rtl8168_oob_notify(struct rtl8169_private *tp, u8 cmd)
-+{
-+	rtl_eri_write(tp, 0xe8, ERIAR_MASK_0001, cmd, ERIAR_EXGMAC);
-+
-+	ocp_write(tp, 0x1, 0x30, 0x00000001);
-+}
-+
-+#define OOB_CMD_RESET		0x00
-+#define OOB_CMD_DRIVER_START	0x05
-+#define OOB_CMD_DRIVER_STOP	0x06
-+
-+static u16 rtl8168_get_ocp_reg(struct rtl8169_private *tp)
-+{
-+	return (tp->mac_version == RTL_GIGA_MAC_VER_31) ? 0xb8 : 0x10;
-+}
-+
-+DECLARE_RTL_COND(rtl_ocp_read_cond)
-+{
-+	u16 reg;
-+
-+	reg = rtl8168_get_ocp_reg(tp);
-+
-+	return ocp_read(tp, 0x0f, reg) & 0x00000800;
-+}
-+
-+static void rtl8168_driver_start(struct rtl8169_private *tp)
-+{
-+	rtl8168_oob_notify(tp, OOB_CMD_DRIVER_START);
-+
-+	rtl_msleep_loop_wait_high(tp, &rtl_ocp_read_cond, 10, 10);
-+}
-+
-+static void rtl8168_driver_stop(struct rtl8169_private *tp)
-+{
-+	rtl8168_oob_notify(tp, OOB_CMD_DRIVER_STOP);
-+
-+	rtl_msleep_loop_wait_low(tp, &rtl_ocp_read_cond, 10, 10);
-+}
-+
-+static int r8168_check_dash(struct rtl8169_private *tp)
-+{
-+	u16 reg = rtl8168_get_ocp_reg(tp);
-+
-+	return (ocp_read(tp, 0x0f, reg) & 0x00008000) ? 1 : 0;
-+}
-+
- struct exgmac_reg {
- 	u16 addr;
- 	u16 mask;
+@@ -7822,9 +7823,10 @@ static int rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 			   rtl_chip_infos[chipset].jumbo_tx_csum ? "ok" : "ko");
+ 	}
+ 
+-	if (tp->mac_version == RTL_GIGA_MAC_VER_27 ||
+-	    tp->mac_version == RTL_GIGA_MAC_VER_28 ||
+-	    tp->mac_version == RTL_GIGA_MAC_VER_31) {
++	if ((tp->mac_version == RTL_GIGA_MAC_VER_27 ||
++	     tp->mac_version == RTL_GIGA_MAC_VER_28 ||
++	     tp->mac_version == RTL_GIGA_MAC_VER_31) &&
++	    r8168_check_dash(tp)) {
+ 		rtl8168_driver_start(tp);
+ 	}
+ 
 -- 
 1.8.3.2
