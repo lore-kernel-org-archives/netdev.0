@@ -1,226 +1,616 @@
 From: Eli Cohen <eli@mellanox.com>
-Subject: [PATCH V1 net-next 4/4] net/mlx5_core: Identify resources by their type
-Date: Wed,  1 Oct 2014 16:18:08 +0300
-Message-ID: <1412169488-17500-5-git-send-email-eli@mellanox.com>
+Subject: [PATCH V1 net-next 3/4] net/mlx5_core: use set/get macros in device caps
+Date: Wed,  1 Oct 2014 16:18:07 +0300
+Message-ID: <1412169488-17500-4-git-send-email-eli@mellanox.com>
 References: <1412169488-17500-1-git-send-email-eli@mellanox.com>
 Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com,
 	yevgenyp@mellanox.com, Eli Cohen <eli@mellanox.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:37367 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:44338 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751282AbaJANSU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Oct 2014 09:18:20 -0400
+	id S1751136AbaJANSQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Oct 2014 09:18:16 -0400
 In-Reply-To: <1412169488-17500-1-git-send-email-eli@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch puts a common part as the first field of mlx5_core_qp. This field is
-used to identify which resource generated an event. This is required since upcoming
-new resource types such as DC targets are allocated for the same numerical space
-as regular QPs and may generate the same events. By searching the resource in the
-same table we can then look at the common field to identify the resource.
+Transform device capabilities related commands to use set/get macros to
+manipulate command mailboxes.
 
-Change-Id: I5b9d0d563f22ba28f284ed6227c4cda36fd7dad3
+Change-Id: Ia643ad33c9ec4df648dd9eeb0130764fca45b164
 Signed-off-by: Eli Cohen <eli@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/eq.c | 12 +++---
- drivers/net/ethernet/mellanox/mlx5/core/qp.c | 57 ++++++++++++++++++++--------
- include/linux/mlx5/driver.h                  | 13 ++++++-
- include/linux/mlx5/qp.h                      |  3 +-
- 4 files changed, 60 insertions(+), 25 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/cmd.c  |  17 ++
+ drivers/net/ethernet/mellanox/mlx5/core/main.c | 150 +++++++++---------
+ include/linux/mlx5/device.h                    |  92 -----------
+ include/linux/mlx5/driver.h                    |   1 +
+ include/linux/mlx5/mlx5_ifc.h                  | 206 +++++++++++++++++++++++++
+ 5 files changed, 298 insertions(+), 168 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eq.c b/drivers/net/ethernet/mellanox/mlx5/core/eq.c
-index 11b9b840ad4d..ed53291468f3 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/eq.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/eq.c
-@@ -198,7 +198,7 @@ static int mlx5_eq_int(struct mlx5_core_dev *dev, struct mlx5_eq *eq)
- 	int eqes_found = 0;
- 	int set_ci = 0;
- 	u32 cqn;
--	u32 srqn;
-+	u32 rsn;
- 	u8 port;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
+index 3ecef1310bae..368c6c5ea014 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
+@@ -1537,3 +1537,20 @@ int mlx5_cmd_status_to_err(struct mlx5_outbox_hdr *hdr)
  
- 	while ((eqe = next_eqe_sw(eq))) {
-@@ -224,18 +224,18 @@ static int mlx5_eq_int(struct mlx5_core_dev *dev, struct mlx5_eq *eq)
- 		case MLX5_EVENT_TYPE_PATH_MIG_FAILED:
- 		case MLX5_EVENT_TYPE_WQ_INVAL_REQ_ERROR:
- 		case MLX5_EVENT_TYPE_WQ_ACCESS_ERROR:
-+			rsn = be32_to_cpu(eqe->data.qp_srq.qp_srq_n) & 0xffffff;
- 			mlx5_core_dbg(dev, "event %s(%d) arrived\n",
- 				      eqe_type_str(eqe->type), eqe->type);
--			mlx5_qp_event(dev, be32_to_cpu(eqe->data.qp_srq.qp_srq_n) & 0xffffff,
--				      eqe->type);
-+			mlx5_rsc_event(dev, rsn, eqe->type);
- 			break;
- 
- 		case MLX5_EVENT_TYPE_SRQ_RQ_LIMIT:
- 		case MLX5_EVENT_TYPE_SRQ_CATAS_ERROR:
--			srqn = be32_to_cpu(eqe->data.qp_srq.qp_srq_n) & 0xffffff;
-+			rsn = be32_to_cpu(eqe->data.qp_srq.qp_srq_n) & 0xffffff;
- 			mlx5_core_dbg(dev, "SRQ event %s(%d): srqn 0x%x\n",
--				      eqe_type_str(eqe->type), eqe->type, srqn);
--			mlx5_srq_event(dev, srqn, eqe->type);
-+				      eqe_type_str(eqe->type), eqe->type, rsn);
-+			mlx5_srq_event(dev, rsn, eqe->type);
- 			break;
- 
- 		case MLX5_EVENT_TYPE_CMD:
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/qp.c b/drivers/net/ethernet/mellanox/mlx5/core/qp.c
-index 415b67ce379e..5261a2b0da43 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/qp.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/qp.c
-@@ -39,28 +39,53 @@
- 
+ 	return cmd_status_to_err(hdr->status);
+ }
++
++int mlx5_cmd_status_to_err_v2(void *ptr)
++{
++	u32	syndrome;
++	u8	status;
++
++	status = be32_to_cpu(*(__be32 *)ptr) >> 24;
++	if (!status)
++		return 0;
++
++	syndrome = be32_to_cpu(*(__be32 *)(ptr + 4));
++
++	pr_warn("command failed, status %s(0x%x), syndrome 0x%x\n",
++		cmd_status_str(status), status, syndrome);
++
++	return cmd_status_to_err(status);
++}
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+index d9f74618befa..b9e3259e415f 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+@@ -43,6 +43,7 @@
+ #include <linux/mlx5/qp.h>
+ #include <linux/mlx5/srq.h>
+ #include <linux/debugfs.h>
++#include <linux/mlx5/mlx5_ifc.h>
  #include "mlx5_core.h"
  
--void mlx5_qp_event(struct mlx5_core_dev *dev, u32 qpn, int event_type)
-+static struct mlx5_core_rsc_common *mlx5_get_rsc(struct mlx5_core_dev *dev,
-+						 u32 rsn)
+ #define DRIVER_NAME "mlx5_core"
+@@ -277,18 +278,20 @@ static u16 to_fw_pkey_sz(u32 size)
+ 
+ /* selectively copy writable fields clearing any reserved area
+  */
+-static void copy_rw_fields(struct mlx5_hca_cap *to, struct mlx5_general_caps *from)
++static void copy_rw_fields(void *to, struct mlx5_caps *from)
  {
- 	struct mlx5_qp_table *table = &dev->priv.qp_table;
--	struct mlx5_core_qp *qp;
-+	struct mlx5_core_rsc_common *common;
++	__be64 *flags_off = (__be64 *)MLX5_ADDR_OF(cmd_hca_cap, to, reserved_22);
+ 	u64 v64;
  
- 	spin_lock(&table->lock);
- 
--	qp = radix_tree_lookup(&table->tree, qpn);
--	if (qp)
--		atomic_inc(&qp->refcount);
-+	common = radix_tree_lookup(&table->tree, rsn);
-+	if (common)
-+		atomic_inc(&common->refcount);
- 
- 	spin_unlock(&table->lock);
- 
--	if (!qp) {
--		mlx5_core_warn(dev, "Async event for bogus QP 0x%x\n", qpn);
--		return;
-+	if (!common) {
-+		mlx5_core_warn(dev, "Async event for bogus resource 0x%x\n",
-+			       rsn);
-+		return NULL;
- 	}
-+	return common;
-+}
- 
--	qp->event(qp, event_type);
-+void mlx5_core_put_rsc(struct mlx5_core_rsc_common *common)
-+{
-+	if (atomic_dec_and_test(&common->refcount))
-+		complete(&common->free);
-+}
-+
-+void mlx5_rsc_event(struct mlx5_core_dev *dev, u32 rsn, int event_type)
-+{
-+	struct mlx5_core_rsc_common *common = mlx5_get_rsc(dev, rsn);
-+	struct mlx5_core_qp *qp;
-+
-+	if (!common)
-+		return;
-+
-+	switch (common->res) {
-+	case MLX5_RES_QP:
-+		qp = (struct mlx5_core_qp *)common;
-+		qp->event(qp, event_type);
-+		break;
-+
-+	default:
-+		mlx5_core_warn(dev, "invalid resource type for 0x%x\n", rsn);
-+	}
- 
--	if (atomic_dec_and_test(&qp->refcount))
--		complete(&qp->free);
-+	mlx5_core_put_rsc(common);
+-	to->log_max_qp = from->log_max_qp & 0x1f;
+-	to->log_max_ra_req_dc = from->log_max_ra_req_dc & 0x3f;
+-	to->log_max_ra_res_dc = from->log_max_ra_res_dc & 0x3f;
+-	to->log_max_ra_req_qp = from->log_max_ra_req_qp & 0x3f;
+-	to->log_max_ra_res_qp = from->log_max_ra_res_qp & 0x3f;
+-	to->pkey_table_size = cpu_to_be16(to_fw_pkey_sz(from->pkey_table_size));
+-	v64 = from->flags & MLX5_CAP_BITS_RW_MASK;
+-	to->flags = cpu_to_be64(v64);
++	MLX5_SET(cmd_hca_cap, to, log_max_qp, from->gen.log_max_qp);
++	MLX5_SET(cmd_hca_cap, to, log_max_ra_req_qp, from->gen.log_max_ra_req_qp);
++	MLX5_SET(cmd_hca_cap, to, log_max_ra_res_qp, from->gen.log_max_ra_res_qp);
++	MLX5_SET(cmd_hca_cap, to, pkey_table_size, from->gen.pkey_table_size);
++	MLX5_SET(cmd_hca_cap, to, log_max_ra_req_dc, from->gen.log_max_ra_req_dc);
++	MLX5_SET(cmd_hca_cap, to, log_max_ra_res_dc, from->gen.log_max_ra_res_dc);
++	MLX5_SET(cmd_hca_cap, to, pkey_table_size, to_fw_pkey_sz(from->gen.pkey_table_size));
++	v64 = from->gen.flags & MLX5_CAP_BITS_RW_MASK;
++	*flags_off = cpu_to_be64(v64);
  }
  
- int mlx5_core_create_qp(struct mlx5_core_dev *dev,
-@@ -92,6 +117,7 @@ int mlx5_core_create_qp(struct mlx5_core_dev *dev,
- 	qp->qpn = be32_to_cpu(out.qpn) & 0xffffff;
- 	mlx5_core_dbg(dev, "qpn = 0x%x\n", qp->qpn);
+ static u16 get_pkey_table_size(int pkey)
+@@ -299,55 +302,47 @@ static u16 get_pkey_table_size(int pkey)
+ 	return MLX5_MIN_PKEY_TABLE_SIZE << pkey;
+ }
  
-+	qp->common.res = MLX5_RES_QP;
- 	spin_lock_irq(&table->lock);
- 	err = radix_tree_insert(&table->tree, qp->qpn, qp);
- 	spin_unlock_irq(&table->lock);
-@@ -106,9 +132,9 @@ int mlx5_core_create_qp(struct mlx5_core_dev *dev,
- 			      qp->qpn);
+-static void fw2drv_caps(struct mlx5_caps *caps,
+-			struct mlx5_cmd_query_hca_cap_mbox_out *out)
++static void fw2drv_caps(struct mlx5_caps *caps, void *out)
+ {
+ 	struct mlx5_general_caps *gen = &caps->gen;
+-	u16 t16;
+-
+-	gen->max_srq_wqes = 1 << out->hca_cap.log_max_srq_sz;
+-	gen->max_wqes = 1 << out->hca_cap.log_max_qp_sz;
+-	gen->log_max_qp = out->hca_cap.log_max_qp & 0x1f;
+-	gen->log_max_strq = out->hca_cap.log_max_strq_sz;
+-	gen->log_max_srq = out->hca_cap.log_max_srqs & 0x1f;
+-	gen->max_cqes = 1 << out->hca_cap.log_max_cq_sz;
+-	gen->log_max_cq = out->hca_cap.log_max_cq & 0x1f;
+-	gen->max_eqes = out->hca_cap.log_max_eq_sz;
+-	gen->log_max_mkey = out->hca_cap.log_max_mkey & 0x3f;
+-	gen->log_max_eq = out->hca_cap.log_max_eq & 0xf;
+-	gen->max_indirection = out->hca_cap.max_indirection;
+-	gen->log_max_mrw_sz = out->hca_cap.log_max_mrw_sz;
+-	gen->log_max_bsf_list_size = 0;
+-	gen->log_max_klm_list_size = 0;
+-	gen->log_max_ra_req_dc = out->hca_cap.log_max_ra_req_dc;
+-	gen->log_max_ra_res_dc = out->hca_cap.log_max_ra_res_dc;
+-	gen->log_max_ra_req_qp = out->hca_cap.log_max_ra_req_qp;
+-	gen->log_max_ra_res_qp = out->hca_cap.log_max_ra_res_qp;
+-	gen->max_qp_counters = be16_to_cpu(out->hca_cap.max_qp_count);
+-	gen->pkey_table_size = get_pkey_table_size(be16_to_cpu(out->hca_cap.pkey_table_size));
+-	gen->local_ca_ack_delay = out->hca_cap.local_ca_ack_delay & 0x1f;
+-	gen->num_ports = out->hca_cap.num_ports & 0xf;
+-	gen->log_max_msg = out->hca_cap.log_max_msg & 0x1f;
+-	gen->stat_rate_support = be16_to_cpu(out->hca_cap.stat_rate_support);
+-	gen->flags = be64_to_cpu(out->hca_cap.flags);
+-	pr_debug("flags = 0x%llx\n", gen->flags);
+-	gen->uar_sz = out->hca_cap.uar_sz;
+-	gen->min_log_pg_sz = out->hca_cap.log_pg_sz;
  
- 	qp->pid = current->pid;
--	atomic_set(&qp->refcount, 1);
-+	atomic_set(&qp->common.refcount, 1);
- 	atomic_inc(&dev->num_qps);
--	init_completion(&qp->free);
-+	init_completion(&qp->common.free);
+-	t16 = be16_to_cpu(out->hca_cap.bf_log_bf_reg_size);
+-	if (t16 & 0x8000) {
+-		gen->bf_reg_size = 1 << (t16 & 0x1f);
+-		gen->bf_regs_per_page = MLX5_BF_REGS_PER_PAGE;
+-	} else {
+-		gen->bf_reg_size = 0;
+-		gen->bf_regs_per_page = 0;
+-	}
+-	gen->max_sq_desc_sz = be16_to_cpu(out->hca_cap.max_desc_sz_sq);
+-	gen->max_rq_desc_sz = be16_to_cpu(out->hca_cap.max_desc_sz_rq);
+-	gen->max_qp_mcg = be32_to_cpu(out->hca_cap.max_qp_mcg) & 0xffffff;
+-	gen->log_max_pd = out->hca_cap.log_max_pd & 0x1f;
+-	gen->log_max_xrcd = out->hca_cap.log_max_xrcd;
+-	gen->log_uar_page_sz = be16_to_cpu(out->hca_cap.log_uar_page_sz);
++	gen->max_srq_wqes = 1 << MLX5_GET_PR(cmd_hca_cap, out, log_max_srq_sz);
++	gen->max_wqes = 1 << MLX5_GET_PR(cmd_hca_cap, out, log_max_qp_sz);
++	gen->log_max_qp = MLX5_GET_PR(cmd_hca_cap, out, log_max_qp);
++	gen->log_max_strq = MLX5_GET_PR(cmd_hca_cap, out, log_max_strq_sz);
++	gen->log_max_srq = MLX5_GET_PR(cmd_hca_cap, out, log_max_srqs);
++	gen->max_cqes = 1 << MLX5_GET_PR(cmd_hca_cap, out, log_max_cq_sz);
++	gen->log_max_cq = MLX5_GET_PR(cmd_hca_cap, out, log_max_cq);
++	gen->max_eqes = 1 << MLX5_GET_PR(cmd_hca_cap, out, log_max_eq_sz);
++	gen->log_max_mkey = MLX5_GET_PR(cmd_hca_cap, out, log_max_mkey);
++	gen->log_max_eq = MLX5_GET_PR(cmd_hca_cap, out, log_max_eq);
++	gen->max_indirection = MLX5_GET_PR(cmd_hca_cap, out, max_indirection);
++	gen->log_max_mrw_sz = MLX5_GET_PR(cmd_hca_cap, out, log_max_mrw_sz);
++	gen->log_max_bsf_list_size = MLX5_GET_PR(cmd_hca_cap, out, log_max_bsf_list_size);
++	gen->log_max_klm_list_size = MLX5_GET_PR(cmd_hca_cap, out, log_max_klm_list_size);
++	gen->log_max_ra_req_dc = MLX5_GET_PR(cmd_hca_cap, out, log_max_ra_req_dc);
++	gen->log_max_ra_res_dc = MLX5_GET_PR(cmd_hca_cap, out, log_max_ra_res_dc);
++	gen->log_max_ra_req_qp = MLX5_GET_PR(cmd_hca_cap, out, log_max_ra_req_qp);
++	gen->log_max_ra_res_qp = MLX5_GET_PR(cmd_hca_cap, out, log_max_ra_res_qp);
++	gen->max_qp_counters = MLX5_GET_PR(cmd_hca_cap, out, max_qp_cnt);
++	gen->pkey_table_size = get_pkey_table_size(MLX5_GET_PR(cmd_hca_cap, out, pkey_table_size));
++	gen->local_ca_ack_delay = MLX5_GET_PR(cmd_hca_cap, out, local_ca_ack_delay);
++	gen->num_ports = MLX5_GET_PR(cmd_hca_cap, out, num_ports);
++	gen->log_max_msg = MLX5_GET_PR(cmd_hca_cap, out, log_max_msg);
++	gen->stat_rate_support = MLX5_GET_PR(cmd_hca_cap, out, stat_rate_support);
++	gen->flags = be64_to_cpu(*(__be64 *)MLX5_ADDR_OF(cmd_hca_cap, out, reserved_22));
++	pr_debug("flags = 0x%llx\n", gen->flags);
++	gen->uar_sz = MLX5_GET_PR(cmd_hca_cap, out, uar_sz);
++	gen->min_log_pg_sz = MLX5_GET_PR(cmd_hca_cap, out, log_pg_sz);
++	gen->bf_reg_size = MLX5_GET_PR(cmd_hca_cap, out, bf);
++	gen->bf_reg_size = 1 << MLX5_GET_PR(cmd_hca_cap, out, log_bf_reg_size);
++	gen->max_sq_desc_sz = MLX5_GET_PR(cmd_hca_cap, out, max_wqe_sz_sq);
++	gen->max_rq_desc_sz = MLX5_GET_PR(cmd_hca_cap, out, max_wqe_sz_rq);
++	gen->max_dc_sq_desc_sz = MLX5_GET_PR(cmd_hca_cap, out, max_wqe_sz_sq_dc);
++	gen->max_qp_mcg = MLX5_GET_PR(cmd_hca_cap, out, max_qp_mcg);
++	gen->log_max_pd = MLX5_GET_PR(cmd_hca_cap, out, log_max_pd);
++	gen->log_max_xrcd = MLX5_GET_PR(cmd_hca_cap, out, log_max_xrcd);
++	gen->log_uar_page_sz = MLX5_GET_PR(cmd_hca_cap, out, log_uar_page_sz);
+ }
  
- 	return 0;
+ static const char *caps_opmod_str(u16 opmod)
+@@ -365,59 +360,61 @@ static const char *caps_opmod_str(u16 opmod)
+ int mlx5_core_get_caps(struct mlx5_core_dev *dev, struct mlx5_caps *caps,
+ 		       u16 opmod)
+ {
+-	struct mlx5_cmd_query_hca_cap_mbox_out *out;
+-	struct mlx5_cmd_query_hca_cap_mbox_in in;
++	u8 in[MLX5_ST_SZ_BYTES(query_hca_cap_in)];
++	int out_sz = MLX5_ST_SZ_BYTES(query_hca_cap_out);
++	void *out;
+ 	int err;
  
-@@ -138,9 +164,8 @@ int mlx5_core_destroy_qp(struct mlx5_core_dev *dev,
- 	radix_tree_delete(&table->tree, qp->qpn);
- 	spin_unlock_irqrestore(&table->lock, flags);
+-	memset(&in, 0, sizeof(in));
+-	out = kzalloc(sizeof(*out), GFP_KERNEL);
++	memset(in, 0, sizeof(in));
++	out = kzalloc(out_sz, GFP_KERNEL);
+ 	if (!out)
+ 		return -ENOMEM;
++	MLX5_SET(query_hca_cap_in, in, opcode, MLX5_CMD_OP_QUERY_HCA_CAP);
++	MLX5_SET(query_hca_cap_in, in, op_mod, opmod);
++	err = mlx5_cmd_exec(dev, in, sizeof(in), out, out_sz);
++	if (err)
++		goto query_ex;
  
--	if (atomic_dec_and_test(&qp->refcount))
--		complete(&qp->free);
--	wait_for_completion(&qp->free);
-+	mlx5_core_put_rsc((struct mlx5_core_rsc_common *)qp);
-+	wait_for_completion(&qp->common.free);
+-	in.hdr.opcode = cpu_to_be16(MLX5_CMD_OP_QUERY_HCA_CAP);
+-	in.hdr.opmod  = cpu_to_be16(opmod);
+-	err = mlx5_cmd_exec(dev, &in, sizeof(in), out, sizeof(*out));
+-
+-	err = mlx5_cmd_status_to_err(&out->hdr);
++	err = mlx5_cmd_status_to_err_v2(out);
+ 	if (err) {
+ 		mlx5_core_warn(dev, "query max hca cap failed, %d\n", err);
+ 		goto query_ex;
+ 	}
+ 	mlx5_core_dbg(dev, "%s\n", caps_opmod_str(opmod));
+-	fw2drv_caps(caps, out);
++	fw2drv_caps(caps, MLX5_ADDR_OF(query_hca_cap_out, out, capability_struct));
  
- 	memset(&in, 0, sizeof(in));
- 	memset(&out, 0, sizeof(out));
+ query_ex:
+ 	kfree(out);
+ 	return err;
+ }
+ 
+-static int set_caps(struct mlx5_core_dev *dev,
+-		    struct mlx5_cmd_set_hca_cap_mbox_in *in)
++static int set_caps(struct mlx5_core_dev *dev, void *in, int in_sz)
+ {
+-	struct mlx5_cmd_set_hca_cap_mbox_out out;
++	u32 out[MLX5_ST_SZ_DW(set_hca_cap_out)];
+ 	int err;
+ 
+-	memset(&out, 0, sizeof(out));
++	memset(out, 0, sizeof(out));
+ 
+-	in->hdr.opcode = cpu_to_be16(MLX5_CMD_OP_SET_HCA_CAP);
+-	err = mlx5_cmd_exec(dev, in, sizeof(*in), &out, sizeof(out));
++	MLX5_SET(set_hca_cap_in, in, opcode, MLX5_CMD_OP_SET_HCA_CAP);
++	err = mlx5_cmd_exec(dev, in, in_sz, out, sizeof(out));
+ 	if (err)
+ 		return err;
+ 
+-	err = mlx5_cmd_status_to_err(&out.hdr);
++	err = mlx5_cmd_status_to_err_v2(out);
+ 
+ 	return err;
+ }
+ 
+ static int handle_hca_cap(struct mlx5_core_dev *dev)
+ {
+-	struct mlx5_cmd_set_hca_cap_mbox_in *set_ctx = NULL;
++	void *set_ctx = NULL;
+ 	struct mlx5_profile *prof = dev->profile;
+ 	struct mlx5_caps *cur_caps = NULL;
+ 	struct mlx5_caps *max_caps = NULL;
+ 	int err = -ENOMEM;
++	int set_sz = MLX5_ST_SZ_BYTES(set_hca_cap_in);
+ 
+-	set_ctx = kzalloc(sizeof(*set_ctx), GFP_KERNEL);
++	set_ctx = kzalloc(set_sz, GFP_KERNEL);
+ 	if (!set_ctx)
+ 		goto query_ex;
+ 
+@@ -446,8 +443,9 @@ static int handle_hca_cap(struct mlx5_core_dev *dev)
+ 	/* disable checksum */
+ 	cur_caps->gen.flags &= ~MLX5_DEV_CAP_FLAG_CMDIF_CSUM;
+ 
+-	copy_rw_fields(&set_ctx->hca_cap, &cur_caps->gen);
+-	err = set_caps(dev, set_ctx);
++	copy_rw_fields(MLX5_ADDR_OF(set_hca_cap_in, set_ctx, hca_capability_struct),
++		       cur_caps);
++	err = set_caps(dev, set_ctx, set_sz);
+ 
+ query_ex:
+ 	kfree(cur_caps);
+diff --git a/include/linux/mlx5/device.h b/include/linux/mlx5/device.h
+index 3db2d4d82ad3..08a963c894dc 100644
+--- a/include/linux/mlx5/device.h
++++ b/include/linux/mlx5/device.h
+@@ -357,98 +357,6 @@ struct mlx5_cmd_query_adapter_mbox_out {
+ 	u8			vsd_psid[16];
+ };
+ 
+-struct mlx5_hca_cap {
+-	u8	rsvd1[16];
+-	u8	log_max_srq_sz;
+-	u8	log_max_qp_sz;
+-	u8	rsvd2;
+-	u8	log_max_qp;
+-	u8	log_max_strq_sz;
+-	u8	log_max_srqs;
+-	u8	rsvd4[2];
+-	u8	rsvd5;
+-	u8	log_max_cq_sz;
+-	u8	rsvd6;
+-	u8	log_max_cq;
+-	u8	log_max_eq_sz;
+-	u8	log_max_mkey;
+-	u8	rsvd7;
+-	u8	log_max_eq;
+-	u8	max_indirection;
+-	u8	log_max_mrw_sz;
+-	u8	log_max_bsf_list_sz;
+-	u8	log_max_klm_list_sz;
+-	u8	rsvd_8_0;
+-	u8	log_max_ra_req_dc;
+-	u8	rsvd_8_1;
+-	u8	log_max_ra_res_dc;
+-	u8	rsvd9;
+-	u8	log_max_ra_req_qp;
+-	u8	rsvd10;
+-	u8	log_max_ra_res_qp;
+-	u8	pad_cap;
+-	u8	rsvd11[3];
+-	__be16	max_qp_count;
+-	__be16	pkey_table_size;
+-	u8	rsvd13;
+-	u8	local_ca_ack_delay;
+-	u8	rsvd14;
+-	u8	num_ports;
+-	u8	log_max_msg;
+-	u8	rsvd15[3];
+-	__be16	stat_rate_support;
+-	u8	rsvd16[2];
+-	__be64	flags;
+-	u8	rsvd17;
+-	u8	uar_sz;
+-	u8	rsvd18;
+-	u8	log_pg_sz;
+-	__be16	bf_log_bf_reg_size;
+-	u8	rsvd19[4];
+-	__be16	max_desc_sz_sq;
+-	u8	rsvd20[2];
+-	__be16	max_desc_sz_rq;
+-	u8	rsvd21[2];
+-	__be16	max_desc_sz_sq_dc;
+-	__be32	max_qp_mcg;
+-	u8	rsvd22[3];
+-	u8	log_max_mcg;
+-	u8	rsvd23;
+-	u8	log_max_pd;
+-	u8	rsvd24;
+-	u8	log_max_xrcd;
+-	u8	rsvd25[42];
+-	__be16  log_uar_page_sz;
+-	u8	rsvd26[108];
+-};
+-
+-
+-struct mlx5_cmd_query_hca_cap_mbox_in {
+-	struct mlx5_inbox_hdr	hdr;
+-	u8			rsvd[8];
+-};
+-
+-
+-struct mlx5_cmd_query_hca_cap_mbox_out {
+-	struct mlx5_outbox_hdr	hdr;
+-	u8			rsvd0[8];
+-	struct mlx5_hca_cap     hca_cap;
+-};
+-
+-
+-struct mlx5_cmd_set_hca_cap_mbox_in {
+-	struct mlx5_inbox_hdr	hdr;
+-	u8			rsvd[8];
+-	struct mlx5_hca_cap     hca_cap;
+-};
+-
+-
+-struct mlx5_cmd_set_hca_cap_mbox_out {
+-	struct mlx5_outbox_hdr	hdr;
+-	u8			rsvd0[8];
+-};
+-
+-
+ struct mlx5_cmd_init_hca_mbox_in {
+ 	struct mlx5_inbox_hdr	hdr;
+ 	u8			rsvd0[2];
 diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
-index c439f9c59b93..246310dc8bef 100644
+index 6f48dc793b9f..c439f9c59b93 100644
 --- a/include/linux/mlx5/driver.h
 +++ b/include/linux/mlx5/driver.h
-@@ -375,6 +375,16 @@ struct mlx5_core_mr {
- 	u32			pd;
+@@ -641,6 +641,7 @@ void mlx5_cmd_cleanup(struct mlx5_core_dev *dev);
+ void mlx5_cmd_use_events(struct mlx5_core_dev *dev);
+ void mlx5_cmd_use_polling(struct mlx5_core_dev *dev);
+ int mlx5_cmd_status_to_err(struct mlx5_outbox_hdr *hdr);
++int mlx5_cmd_status_to_err_v2(void *ptr);
+ int mlx5_core_get_caps(struct mlx5_core_dev *dev, struct mlx5_caps *caps,
+ 		       u16 opmod);
+ int mlx5_cmd_exec(struct mlx5_core_dev *dev, void *in, int in_size, void *out,
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index df3bd9b5fbcf..5f48b8f592c5 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -140,4 +140,210 @@ enum {
+ 	MLX5_CMD_OP_MAX				  = 0x911
  };
  
-+enum mlx5_res_type {
-+	MLX5_RES_QP,
++struct mlx5_ifc_cmd_hca_cap_bits {
++	u8         reserved_0[0x80];
++
++	u8         log_max_srq_sz[0x8];
++	u8         log_max_qp_sz[0x8];
++	u8         reserved_1[0xb];
++	u8         log_max_qp[0x5];
++
++	u8         log_max_strq_sz[0x8];
++	u8         reserved_2[0x3];
++	u8         log_max_srqs[0x5];
++	u8         reserved_3[0x10];
++
++	u8         reserved_4[0x8];
++	u8         log_max_cq_sz[0x8];
++	u8         reserved_5[0xb];
++	u8         log_max_cq[0x5];
++
++	u8         log_max_eq_sz[0x8];
++	u8         reserved_6[0x2];
++	u8         log_max_mkey[0x6];
++	u8         reserved_7[0xc];
++	u8         log_max_eq[0x4];
++
++	u8         max_indirection[0x8];
++	u8         reserved_8[0x1];
++	u8         log_max_mrw_sz[0x7];
++	u8         reserved_9[0x2];
++	u8         log_max_bsf_list_size[0x6];
++	u8         reserved_10[0x2];
++	u8         log_max_klm_list_size[0x6];
++
++	u8         reserved_11[0xa];
++	u8         log_max_ra_req_dc[0x6];
++	u8         reserved_12[0xa];
++	u8         log_max_ra_res_dc[0x6];
++
++	u8         reserved_13[0xa];
++	u8         log_max_ra_req_qp[0x6];
++	u8         reserved_14[0xa];
++	u8         log_max_ra_res_qp[0x6];
++
++	u8         pad_cap[0x1];
++	u8         cc_query_allowed[0x1];
++	u8         cc_modify_allowed[0x1];
++	u8         reserved_15[0x1d];
++
++	u8         reserved_16[0x6];
++	u8         max_qp_cnt[0xa];
++	u8         pkey_table_size[0x10];
++
++	u8         eswitch_owner[0x1];
++	u8         reserved_17[0xa];
++	u8         local_ca_ack_delay[0x5];
++	u8         reserved_18[0x8];
++	u8         num_ports[0x8];
++
++	u8         reserved_19[0x3];
++	u8         log_max_msg[0x5];
++	u8         reserved_20[0x18];
++
++	u8         stat_rate_support[0x10];
++	u8         reserved_21[0x10];
++
++	u8         reserved_22[0x10];
++	u8         cmdif_checksum[0x2];
++	u8         sigerr_cqe[0x1];
++	u8         reserved_23[0x1];
++	u8         wq_signature[0x1];
++	u8         sctr_data_cqe[0x1];
++	u8         reserved_24[0x1];
++	u8         sho[0x1];
++	u8         tph[0x1];
++	u8         rf[0x1];
++	u8         dc[0x1];
++	u8         reserved_25[0x2];
++	u8         roce[0x1];
++	u8         atomic[0x1];
++	u8         rsz_srq[0x1];
++
++	u8         cq_oi[0x1];
++	u8         cq_resize[0x1];
++	u8         cq_moderation[0x1];
++	u8         sniffer_rule_flow[0x1];
++	u8         sniffer_rule_vport[0x1];
++	u8         sniffer_rule_phy[0x1];
++	u8         reserved_26[0x1];
++	u8         pg[0x1];
++	u8         block_lb_mc[0x1];
++	u8         reserved_27[0x3];
++	u8         cd[0x1];
++	u8         reserved_28[0x1];
++	u8         apm[0x1];
++	u8         reserved_29[0x7];
++	u8         qkv[0x1];
++	u8         pkv[0x1];
++	u8         reserved_30[0x4];
++	u8         xrc[0x1];
++	u8         ud[0x1];
++	u8         uc[0x1];
++	u8         rc[0x1];
++
++	u8         reserved_31[0xa];
++	u8         uar_sz[0x6];
++	u8         reserved_32[0x8];
++	u8         log_pg_sz[0x8];
++
++	u8         bf[0x1];
++	u8         reserved_33[0xa];
++	u8         log_bf_reg_size[0x5];
++	u8         reserved_34[0x10];
++
++	u8         reserved_35[0x10];
++	u8         max_wqe_sz_sq[0x10];
++
++	u8         reserved_36[0x10];
++	u8         max_wqe_sz_rq[0x10];
++
++	u8         reserved_37[0x10];
++	u8         max_wqe_sz_sq_dc[0x10];
++
++	u8         reserved_38[0x7];
++	u8         max_qp_mcg[0x19];
++
++	u8         reserved_39[0x18];
++	u8         log_max_mcg[0x8];
++
++	u8         reserved_40[0xb];
++	u8         log_max_pd[0x5];
++	u8         reserved_41[0xb];
++	u8         log_max_xrcd[0x5];
++
++	u8         reserved_42[0x20];
++
++	u8         reserved_43[0x3];
++	u8         log_max_rq[0x5];
++	u8         reserved_44[0x3];
++	u8         log_max_sq[0x5];
++	u8         reserved_45[0x3];
++	u8         log_max_tir[0x5];
++	u8         reserved_46[0x3];
++	u8         log_max_tis[0x5];
++
++	u8         reserved_47[0x13];
++	u8         log_max_rq_per_tir[0x5];
++	u8         reserved_48[0x3];
++	u8         log_max_tis_per_sq[0x5];
++
++	u8         reserved_49[0xe0];
++
++	u8         reserved_50[0x10];
++	u8         log_uar_page_sz[0x10];
++
++	u8         reserved_51[0x100];
++
++	u8         reserved_52[0x1f];
++	u8         cqe_zip[0x1];
++
++	u8         cqe_zip_timeout[0x10];
++	u8         cqe_zip_max_num[0x10];
++
++	u8         reserved_53[0x220];
 +};
 +
-+struct mlx5_core_rsc_common {
-+	enum mlx5_res_type	res;
-+	atomic_t		refcount;
-+	struct completion	free;
++struct mlx5_ifc_set_hca_cap_in_bits {
++	u8         opcode[0x10];
++	u8         reserved_0[0x10];
++
++	u8         reserved_1[0x10];
++	u8         op_mod[0x10];
++
++	u8         reserved_2[0x40];
++
++	struct mlx5_ifc_cmd_hca_cap_bits hca_capability_struct;
 +};
 +
- struct mlx5_core_srq {
- 	u32		srqn;
- 	int		max;
-@@ -700,7 +710,7 @@ int mlx5_eq_init(struct mlx5_core_dev *dev);
- void mlx5_eq_cleanup(struct mlx5_core_dev *dev);
- void mlx5_fill_page_array(struct mlx5_buf *buf, __be64 *pas);
- void mlx5_cq_completion(struct mlx5_core_dev *dev, u32 cqn);
--void mlx5_qp_event(struct mlx5_core_dev *dev, u32 qpn, int event_type);
-+void mlx5_rsc_event(struct mlx5_core_dev *dev, u32 rsn, int event_type);
- void mlx5_srq_event(struct mlx5_core_dev *dev, u32 srqn, int event_type);
- struct mlx5_core_srq *mlx5_core_get_srq(struct mlx5_core_dev *dev, u32 srqn);
- void mlx5_cmd_comp_handler(struct mlx5_core_dev *dev, unsigned long vector);
-@@ -737,6 +747,7 @@ void mlx5_cmdif_debugfs_cleanup(struct mlx5_core_dev *dev);
- int mlx5_core_create_psv(struct mlx5_core_dev *dev, u32 pdn,
- 			 int npsvs, u32 *sig_index);
- int mlx5_core_destroy_psv(struct mlx5_core_dev *dev, int psv_num);
-+void mlx5_core_put_rsc(struct mlx5_core_rsc_common *common);
- 
- static inline u32 mlx5_mkey_to_idx(u32 mkey)
- {
-diff --git a/include/linux/mlx5/qp.h b/include/linux/mlx5/qp.h
-index 9709b30e2d69..7c4c0f1f5805 100644
---- a/include/linux/mlx5/qp.h
-+++ b/include/linux/mlx5/qp.h
-@@ -342,10 +342,9 @@ struct mlx5_stride_block_ctrl_seg {
- };
- 
- struct mlx5_core_qp {
-+	struct mlx5_core_rsc_common	common; /* must be first */
- 	void (*event)		(struct mlx5_core_qp *, int);
- 	int			qpn;
--	atomic_t		refcount;
--	struct completion	free;
- 	struct mlx5_rsc_debug	*dbg;
- 	int			pid;
- };
++struct mlx5_ifc_query_hca_cap_in_bits {
++	u8         opcode[0x10];
++	u8         reserved_0[0x10];
++
++	u8         reserved_1[0x10];
++	u8         op_mod[0x10];
++
++	u8         reserved_2[0x40];
++};
++
++struct mlx5_ifc_query_hca_cap_out_bits {
++	u8         status[0x8];
++	u8         reserved_0[0x18];
++
++	u8         syndrome[0x20];
++
++	u8         reserved_1[0x40];
++
++	u8         capability_struct[256][0x8];
++};
++
++struct mlx5_ifc_set_hca_cap_out_bits {
++	u8         status[0x8];
++	u8         reserved_0[0x18];
++
++	u8         syndrome[0x20];
++
++	u8         reserved_1[0x40];
++};
++
+ #endif /* MLX5_IFC_H */
 -- 
 2.1.1
