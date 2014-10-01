@@ -1,63 +1,80 @@
-From: Roger Quadros <rogerq@ti.com>
-Subject: Re: [PATCH v2 2/3] net: can: c_can: Add syscon/regmap RAMINIT mechanism
-Date: Wed, 1 Oct 2014 12:06:55 +0300
-Message-ID: <542BC42F.2010406@ti.com>
-References: <1410273070-22485-1-git-send-email-rogerq@ti.com> <1410273070-22485-3-git-send-email-rogerq@ti.com> <20140930132650.GN1325@katana> <542AB137.30507@ti.com> <20140930135226.GO1325@katana> <542AB6E9.9000907@ti.com> <20140930141909.GP1325@katana> <542ABC90.7010900@pengutronix.de> <20140930144950.GQ1325@katana> <542AC5B2.9040406@pengutronix.de> <20140930152550.GR1325@katana> <542AD483.2020808@pengutronix.de> <542BBF3F.2040803@ti.com> <542BBFBE.90406@pengutronix.de>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH RFC ipsec-next] xfrm: Add sysctl option to enforce
+ inbound policies for transport mode
+Date: Wed, 1 Oct 2014 11:58:18 +0200
+Message-ID: <20141001095818.GD6390@secunet.com>
+References: <541815C3.7080509@strongswan.org>
+ <20140919092437.GX6390@secunet.com>
+ <54296113.3080106@strongswan.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <wg@grandegger.com>, <tony@atomide.com>, <tglx@linutronix.de>,
-	<mugunthanvnm@ti.com>, <george.cherian@ti.com>, <balbi@ti.com>,
-	<nsekhar@ti.com>, <nm@ti.com>,
-	<sergei.shtylyov@cogentembedded.com>, <linux-omap@vger.kernel.org>,
-	<linux-can@vger.kernel.org>, <netdev@vger.kernel.org>
-To: Marc Kleine-Budde <mkl@pengutronix.de>,
-	Wolfram Sang <wsa@the-dreams.de>
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <542BBFBE.90406@pengutronix.de>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Tobias Brunner <tobias@strongswan.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:53703 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750944AbaJAJ6k (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Oct 2014 05:58:40 -0400
+Content-Disposition: inline
+In-Reply-To: <54296113.3080106@strongswan.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/01/2014 11:47 AM, Marc Kleine-Budde wrote:
-> On 10/01/2014 10:45 AM, Roger Quadros wrote:
->> On 09/30/2014 07:04 PM, Marc Kleine-Budde wrote:
->>> On 09/30/2014 05:25 PM, Wolfram Sang wrote:
->>>>
->>>>> Yes, but syscon_regmap_lookup_by_phandle() doesn't need any support for
->>>>> additional parameters. Have a look at:
->>>>>
->>>>> drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
->>>>>
->>>>> First get the regmap, then the 1st argument is the offset in the regmap,
->>>>> the 2nd and 3rd could be the bits.
->>>>
->>>> So, for one driver the extra arguments are: <reg> <start_bit> <stop_bit>
->>>> For another driver (the stmmac example): <reg_offset> <reg_shift>
->>>
->>> The DCAN's "reg" is a "reg_offset" as in the stmmc.
->>>
->>> Roger, can we derive both start and done bit from a common reg_shift?
->>
->> I'm sorry I didn't understand what you meant.
->>
->> <&syscon_phandl> <reg offset> <start bit> <stop bit> should work well for us.
->> Even though reg offset is the same for both the DCAN instances.
+On Mon, Sep 29, 2014 at 03:39:31PM +0200, Tobias Brunner wrote:
+> > 
+> > commit 8fe7ee2ba983fd89b2555dce5930ffd0f7f6c361
+> > Author: Herbert Xu <herbert@gondor.apana.org.au>
+> > Date:   Thu Oct 23 14:57:11 2003 -0700
+> > 
+> >     [IPSEC]: Strengthen policy checks.
+> > 
+> > Maybe Herbert remembers why this was done only for tunnel mode.
 > 
-> What's start bit and stop bit for instance 0 and 1 on that SoC that has
-> two instances??
+> Would be great to hear from Herbert about this.
 > 
+> > If I read section 5.2.1 of RFC 2401 correct, the inbound policy
+> > must be enforced regardless of the mode.
+> 
+> It looks like the wording changed with RFC 4301.  
 
-we have 3 SoCs at the moment, all have 2 DCAN instances.
+RFC 4301 did not yet exist when this code change was made,
+so I tried to find the reason for that in RFC 2401.
 
-AM33xx & AM43xx
-instance	start	stop
-1		0	8
-2		1	9	
+> The SPD and its
+> policies are not mentioned explicitly anymore in section 5.2 (like
+> they were in step 3 in section 5.2.1 of RFC 2401).  Instead, packets
+> must be matched against the "selectors identified by the SAD entry".
+> It's not entirely clear to me whether these selectors are part of the
+> SPD or properties of the SAD entries themselves, like the single
+> selector that can currently be configured on SAs in the kernel.
 
-DRA7xx
-instance	start	stop
-1		3	1
-2		5	2
+It reads like the packets must match against the selectors of the
+used SA. That's what we do at the beginning of __xfrm_policy_check().
 
-cheers,
--roger
+This was already required in RFC 2401. But there was a matching policy
+required too, seems this is not necessary anymore with RFC 4301.
+
+Instead they recommend: "Every SPD SHOULD have a nominal, final entry
+that catches anything that is otherwise unmatched, and discards it."
+
+> Also, section 4.4.2 explicitly states that manually keyed SAD entries
+> do not necessarily need to have a corresponding SPD entry.  Which might
+> make sense for simple host-host (transport mode) SAs, but this wouldn't
+> be possible anymore when enforcing inbound policies for transport mode.
+
+Well, this states just that such SAD entries can exist. But does not
+say that packets transformed by such a SA are allowed to pass without
+matching policy.
+
+> 
+> Subject: [PATCH] xfrm: Enforce inbound transport mode policies like those in other modes
+> 
+> Currently inbound policies for transport mode SAs are not enforced.
+> If no policy is found or if the templates don't match this is not
+> considered an error for transport mode SAs.
+
+If we find a policy, the templates should match. We need to fix this.
+But it seems our policy enforcement for tunnel mode is too strict if
+no policy is found. So I think we should leave transport mode as
+it is here.
