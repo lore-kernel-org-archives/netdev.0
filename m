@@ -1,48 +1,54 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH net-next] udp: increment UDP_NO_PORTS when dropping unmatched
- multicasts
-Date: Wed, 01 Oct 2014 10:51:24 -0700
-Message-ID: <542C3F1C.2080108@hp.com>
-References: <20141001151921.7131E29003A2@tardy> <542C23AA.6060505@oracle.com> <542C2CAB.2030501@hp.com> <542C32E6.7080106@oracle.com> <542C3A95.8050804@hp.com> <542C3D28.6050705@oracle.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] net: dsa: Fix build warning for !PM_SLEEP
+Date: Wed, 01 Oct 2014 11:13:54 -0700
+Message-ID: <542C4462.8060704@gmail.com>
+References: <1412164740-32452-1-git-send-email-thierry.reding@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net
-To: eric.dumazet@gmail.com, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t3427.houston.hp.com ([15.201.208.55]:59299 "EHLO
-	g4t3427.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751763AbaJARv0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2014 13:51:26 -0400
-In-Reply-To: <542C3D28.6050705@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Thierry Reding <thierry.reding@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1412164740-32452-1-git-send-email-thierry.reding@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/01/2014 10:43 AM, David L Stevens wrote:
->
->
-> On 10/01/2014 01:32 PM, Rick Jones wrote:
->
->> It would be an added statistic for "ignored" UDP multicast datagrams, incremented instead of UDP_MIB_NOPORTS.  "UDP_MIB_IGNOREDMULTI" if you will.
->>
->> Similar in concept to what HP-UX NIC drivers would increment when they received a frame for which there was no bound protocol - "inbound unknown protocols" but not a drop
->> http://ptgmedia.pearsoncmg.com/images/chap1_0130428167/elementLinks/01fig16.gif
->
-> I guess I'm ok with that.
->
-> Ideally, it wouldn't be affected by running a sniffer, so I think best would be to increment
-> NOPORTS when someone has joined the group on the interface and IGNOREDMULTI when nobody has,
-> but I'm not sure it's worth the trouble to check. So I'm good with that, or IGNOREDMULTI all
-> the time.
+On 10/01/2014 04:59 AM, Thierry Reding wrote:
+> From: Thierry Reding <treding@nvidia.com>
+> 
+> The dsa_switch_suspend() and dsa_switch_resume() functions are only used
+> when PM_SLEEP is enabled, so they need #ifdef CONFIG_PM_SLEEP protection
+> to avoid a compiler warning.
+> 
+> Signed-off-by: Thierry Reding <treding@nvidia.com>
 
+Acked-by: Florian Fainelli <f.fainelli@gmail.com>
 
-Eric -
+Thanks Thierry!
 
-What is your feeling?  I have a UDP_MIB_NOPORTS v2 with UDP lite, fixed 
-inner_flushed and IPv6 I can post now, or I can tweak it to add an 
-IGNOREDMULTI stat and use that instead of NOPORTS.  If taking the 
-IGNOREDMULTI path, I'd be inclined to go with consume_skb() 
-unconditionally since the philosophy would be that it is an ignored 
-packet rather than a drop (similar to the recent change in ARP).
-
-rick
+> ---
+>  net/dsa/dsa.c | 2 ++
+>  1 file changed, 2 insertions(+)
+> 
+> diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+> index 6905f2d84c44..22f34cf4cb27 100644
+> --- a/net/dsa/dsa.c
+> +++ b/net/dsa/dsa.c
+> @@ -238,6 +238,7 @@ static void dsa_switch_destroy(struct dsa_switch *ds)
+>  {
+>  }
+>  
+> +#ifdef CONFIG_PM_SLEEP
+>  static int dsa_switch_suspend(struct dsa_switch *ds)
+>  {
+>  	int i, ret = 0;
+> @@ -280,6 +281,7 @@ static int dsa_switch_resume(struct dsa_switch *ds)
+>  
+>  	return 0;
+>  }
+> +#endif
+>  
+>  
+>  /* link polling *************************************************************/
+> 
