@@ -1,37 +1,58 @@
-From: Arnaldo Carvalho de Melo <acme@kernel.org>
-Subject: Re: Why include/net/tcp_states.h is not exported to user-space?
-Date: Wed, 1 Oct 2014 14:25:00 -0300
-Message-ID: <20141001172500.GH2799@kernel.org>
-References: <CAHA+R7MDGKA1Z-1ytk8-+9XaKNcW+kG7UBn8drhdbLJeQYBCyQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Cong Wang <cwang@twopensource.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.19.201]:40761 "EHLO mail.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751236AbaJARZF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Oct 2014 13:25:05 -0400
-Content-Disposition: inline
-In-Reply-To: <CAHA+R7MDGKA1Z-1ytk8-+9XaKNcW+kG7UBn8drhdbLJeQYBCyQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pramod Gurav <pramod.gurav@smartplayin.com>
+Subject: [PATCH v2] ssb: Fix Sparse error in main
+Date: Wed,  1 Oct 2014 22:58:02 +0530
+Message-ID: <1412184482-2603-1-git-send-email-pramod.gurav@smartplayin.com>
+Cc: Pramod Gurav <pramod.gurav@smartplayin.com>,
+	Michael Buesch <m@bues.ch>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Em Tue, Sep 30, 2014 at 11:12:04AM -0700, Cong Wang escreveu:
-> These states are needed for user-space to specify ->idiag_states.
-> Currently both libnl and ss make their own copy of these definitions.
-> Of course, new sock diag is not just limited to TCP, so we probably
-> need to rename them to SS_* before exporting them.
-> 
-> I can send a patch if you agree.
+This change fixes below sparse error:
+drivers/ssb/main.c:94:16: warning: symbol 'ssb_sdio_func_to_bus'
+was not declared. Should it be static?
 
-One would have to check what are the current best practices for doing
-that, i.e. probably this would have to go via
-include/uapi//linux/tcp_states.h? Or take the time and create a new
-header for the inet_diag.h stuff as this is not TCP specific for quite a
-while?
+Cc: Michael Buesch <m@bues.ch>
+Cc: netdev@vger.kernel.org
+Signed-off-by: Pramod Gurav <pramod.gurav@smartplayin.com>
+---
+Changes since v1:
+Removed the function as it is not called anywhere in the kernel
+as per suggestion from Michael Buesch.
 
-If you could investigate how to properly expose this and then come back
-with a patch proposal I think that would ease reviewing :-)
+ drivers/ssb/main.c | 19 -------------------
+ 1 file changed, 19 deletions(-)
 
-- Arnaldo
+diff --git a/drivers/ssb/main.c b/drivers/ssb/main.c
+index 2fead38..1e180c4 100644
+--- a/drivers/ssb/main.c
++++ b/drivers/ssb/main.c
+@@ -90,25 +90,6 @@ found:
+ }
+ #endif /* CONFIG_SSB_PCMCIAHOST */
+ 
+-#ifdef CONFIG_SSB_SDIOHOST
+-struct ssb_bus *ssb_sdio_func_to_bus(struct sdio_func *func)
+-{
+-	struct ssb_bus *bus;
+-
+-	ssb_buses_lock();
+-	list_for_each_entry(bus, &buses, list) {
+-		if (bus->bustype == SSB_BUSTYPE_SDIO &&
+-		    bus->host_sdio == func)
+-			goto found;
+-	}
+-	bus = NULL;
+-found:
+-	ssb_buses_unlock();
+-
+-	return bus;
+-}
+-#endif /* CONFIG_SSB_SDIOHOST */
+-
+ int ssb_for_each_bus_call(unsigned long data,
+ 			  int (*func)(struct ssb_bus *bus, unsigned long data))
+ {
+-- 
+1.8.3.2
