@@ -1,53 +1,71 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] ipv4: mentions skb_gro_postpull_rcsum() in
- inet_gro_receive()
-Date: Tue, 30 Sep 2014 22:12:05 -0700
-Message-ID: <1412140325.16704.31.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <B5657A6538887040AD3A81F1008BEC63B4152D@avmb3.qlogic.org>
-	 <1412104977.30721.94.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1412105832.30721.95.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140930.161424.679705969149272577.davem@davemloft.net>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: How exactly does CHECKSUM_COMPLETE works?
+Date: Tue, 30 Sep 2014 22:15:56 -0700
+Message-ID: <CA+mtBx8mt5qez5X5tPF_3S+0p2svmLScmxBvXziBYT9XTJ+w0w@mail.gmail.com>
+References: <B5657A6538887040AD3A81F1008BEC63B41317@avmb3.qlogic.org>
+	<CA+mtBx_17aJuK=xjnDukGJOfw-twHg=rF5rDacg6pga6ZTTRcw@mail.gmail.com>
+	<B5657A6538887040AD3A81F1008BEC63B4152D@avmb3.qlogic.org>
+	<1412104977.30721.94.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1412105832.30721.95.camel@edumazet-glaptop2.roam.corp.google.com>
+	<B5657A6538887040AD3A81F1008BEC63B4159B@avmb3.qlogic.org>
+	<B5657A6538887040AD3A81F1008BEC63B415CB@avmb3.qlogic.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Yuval.Mintz@qlogic.com, therbert@google.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	netdev <netdev@vger.kernel.org>
+To: Yuval Mintz <Yuval.Mintz@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f174.google.com ([209.85.192.174]:43862 "EHLO
-	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751123AbaJAFMF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2014 01:12:05 -0400
-Received: by mail-pd0-f174.google.com with SMTP id y13so98192pdi.5
-        for <netdev@vger.kernel.org>; Tue, 30 Sep 2014 22:12:04 -0700 (PDT)
-In-Reply-To: <20140930.161424.679705969149272577.davem@davemloft.net>
+Received: from mail-ig0-f177.google.com ([209.85.213.177]:64999 "EHLO
+	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750750AbaJAFP5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2014 01:15:57 -0400
+Received: by mail-ig0-f177.google.com with SMTP id h3so364429igd.4
+        for <netdev@vger.kernel.org>; Tue, 30 Sep 2014 22:15:56 -0700 (PDT)
+In-Reply-To: <B5657A6538887040AD3A81F1008BEC63B415CB@avmb3.qlogic.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Tue, Sep 30, 2014 at 1:32 PM, Yuval Mintz <Yuval.Mintz@qlogic.com> wrote:
+>>> IPv4 header is supposed to have a 0 checksum ;)
+>>>
+>
+>>Oops. Sorry, you're right.
+>
+>>But this is a bit strange.
+>
+>>I mean, if I go back to the IP-GRE case [with GRE checksum], the IP
+>>csum negates the rest of the IP header and the GRE csum negates
+>>everything else [GRE header, inner headers and payload].
+>>So the mechanism might work as-is, but all the driver has to
+>>do in order to claim that an IP-gre packet with checksum option is
+>>CHECKSUM_COMPLETE is to write 0xffffffff on the skb's csum field.
+>
+> Or looking back on the IPv4/TCP scenario, what exactly is the csum
+> now protecting?
+> Assume the HW passes the one's complement sum of the entire data,
+> IP header and onward to driver, which sets it in SKB->csum and marks
+> the SKB as CHECKSUM_COMPLETE.
+> In practice, SKB->csum should now equal to the one's complement of
+> the TCP pseudo header; But other than the length of data in the TCP
+> header and payload that pseudo-header doesn't include any
+> information about the payload itself.
 
-Proper CHECKSUM_COMPLETE support needs to adjust skb->csum
-when we remove one header. Its done using skb_gro_postpull_rcsum()
+But it does, as you pointed out the checksum calculation was performed
+over the whole payload. The fact that the computed checksum equals the
+one's complement of pseudo header is the indication that the checksum
+is valid. If there were a bit corruption, the computed value would be
+different (summing in pseudo header checksum would result in non-zero
+value).
 
-In the case of IPv4, we know that the adjustment is not really needed,
-because the checksum over IPv4 header is 0. Lets add a comment to
-ease code comprehension and avoid copy/paste errors.
+> If we're willing to accept the payload [and the correctness of the
+> header while we're at it] based solely on this, what guarantee do we
+> have that the TCP checksum is actually correct?
+> Seems like the only thing we've guaranteed is that nothing switched in
+> IP header since packet passed the HW - but we've already got that
+> covered by the IPv4 layer.
+>
+> [I assume I'm missing something elementary here. Same as before ;-)]
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/ipv4/af_inet.c |    3 +++
- 1 file changed, 3 insertions(+)
-
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 28e589c5f32d..92db7a69f2b9 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1369,6 +1369,9 @@ static struct sk_buff **inet_gro_receive(struct sk_buff **head,
- 	 * immediately following this IP hdr.
- 	 */
- 
-+	/* Note : No need to call skb_gro_postpull_rcsum() here,
-+	 * as we already checked checksum over ipv4 header was 0
-+	 */
- 	skb_gro_pull(skb, sizeof(*iph));
- 	skb_set_transport_header(skb, skb_gro_offset(skb));
- 
+I think your assumption is correct ;-) You might want to take a look
+at some of the RFCs that describe checksum verification with pseudo
+header.
