@@ -1,97 +1,92 @@
-From: Alexander Aring <alex.aring@gmail.com>
-Subject: Re: [PATCH 1/1 linux-next] ieee802154: add __init to
- lowpan_frags_sysctl_register
-Date: Wed, 1 Oct 2014 02:25:01 +0200
-Message-ID: <20141001002459.GA1007@omega>
-References: <1412109249-7432-1-git-send-email-fabf@skynet.be>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Philosophical question:  Is a UDP multicast datagram for which
+ there is no socket match a drop or an ignore?
+Date: Tue, 30 Sep 2014 17:29:18 -0700
+Message-ID: <1412123358.16704.22.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <542B3831.5030701@hp.com>
+	 <1412119398.16704.11.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <542B4950.8050301@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-wpan@vger.kernel.org, netdev@vger.kernel.org
-To: Fabian Frederick <fabf@skynet.be>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:36944 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750850AbaJAAZJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2014 20:25:09 -0400
-Content-Disposition: inline
-In-Reply-To: <1412109249-7432-1-git-send-email-fabf@skynet.be>
+Received: from mail-pd0-f175.google.com ([209.85.192.175]:41774 "EHLO
+	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750992AbaJAA3U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Sep 2014 20:29:20 -0400
+Received: by mail-pd0-f175.google.com with SMTP id v10so24925pde.6
+        for <netdev@vger.kernel.org>; Tue, 30 Sep 2014 17:29:20 -0700 (PDT)
+In-Reply-To: <542B4950.8050301@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-On Tue, Sep 30, 2014 at 10:34:08PM +0200, Fabian Frederick wrote:
-> lowpan_frags_sysctl_register is only called by __init lowpan_net_frag_init
-> (part of the lowpan module).
+On Tue, 2014-09-30 at 17:22 -0700, Rick Jones wrote:
+> On 09/30/2014 04:23 PM, Eric Dumazet wrote:
+> > On Tue, 2014-09-30 at 16:09 -0700, Rick Jones wrote:
+> >> I've been looking at some additional perf <mutter> -e skb_kfree_skb
+> >> results, this time with a laptop connected to a corporate network with a
+> >> large number of Windows systems sending out what they are wont to
+> >> send...  The laptop is just sitting there no active netperfs or anything :)
+> >>
+> >> I see profile hits for __udp4_lib_mcast_deliver() which has a
+> >> kfree_skb() call which will happen if either there were no sockets
+> >> found, or if an integral multiple of ARRAY_SIZE(stack) sockets are
+> >> found.  I'm assuming the latter is exceedingly rare.
+> >>
+> >> Anywho, the philosophical question - is such a situation a drop
+> >> (indicating the existing kfree_skb()), or is it an ignore (indicating a
+> >> consume_skb())?  Should there be a statistic incremented for either of
+> >> those?
+> >
+> > I guess we lack a UDP_MIB_NOPORTS increase here.
 > 
-> Signed-off-by: Fabian Frederick <fabf@skynet.be>
-> ---
-> This is untested.
+> I was going back and forth on that - since it is a multicast it may not 
+> have really been directed at us in which case it would be an ignore (and 
+> perhaps a new "ignored" stat?).  But on the assumption that it should 
+> indeed remain a drop, and so a kfree_skb(), something along the lines of:
 > 
->  net/ieee802154/reassembly.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
+
 > 
-> diff --git a/net/ieee802154/reassembly.c b/net/ieee802154/reassembly.c
-> index 32755cb..30ec608 100644
-> --- a/net/ieee802154/reassembly.c
-> +++ b/net/ieee802154/reassembly.c
-> @@ -485,7 +485,7 @@ static void __net_exit lowpan_frags_ns_sysctl_unregister(struct net *net)
->  
->  static struct ctl_table_header *lowpan_ctl_header;
->  
-> -static int lowpan_frags_sysctl_register(void)
-> +static int __init lowpan_frags_sysctl_register(void)
+> ?  The idea being that in the unlikely event there were indeed enough 
+> matches to trigger the flush_stack in the for_each and only enough for 
+> that it will be a consume_skb() and no statistic rather than a 
+> kfree_skb() and a statistic increment.
 
-yes right, but there is more lacks of missing "__init". See below.
+Yes, please submit your patch formally, maybe using a more complete
+form ? ;)
 
->  {
->  	lowpan_ctl_header = register_net_sysctl(&init_net,
->  						"net/ieee802154/6lowpan",
-> @@ -498,7 +498,7 @@ static void lowpan_frags_sysctl_unregister(void)
->  	unregister_net_sysctl_table(lowpan_ctl_header);
->  }
->  #else
-> -static inline int lowpan_frags_ns_sysctl_register(struct net *net)
-> +static inline int __init lowpan_frags_ns_sysctl_register(struct net *net)
-
-This is wrong, it's callback from "struct pernet_operations lowpan_frags_ops".
-
->  {
->  	return 0;
->  }
-
-
-Your patch adds "__init" now for two different functions and we have
-two different declarations for these functions, depends if CONFIG_SYSCTL is
-enabled.
-
-Now if CONFIG_SYSCTL select we have as lowpan_frags_sysctl_register declaration:
-
-static int __init lowpan_frags_sysctl_register(void)
-
-if not:
-
-static inline int lowpan_frags_sysctl_register(void)
-
-Same for lowpan_frags_ns_sysctl_register and vice versa for CONFIG_SYSCTL.
-
-Your changes are for two different functions (Don't know if you realized that):
-
-"lowpan_frags_sysctl_register" and "lowpan_frags_ns_sysctl_register",
-which makes no sense. Also lowpan_frags_ns_sysctl_register isn't called
-by module init which is wrong.
-
-
-To make "correct" cleanup for this "__init" should be add to the functions, for
-both declarations if CONFIG_SYSCTL is set or not:
-
- - lowpan_net_frag_init
- - lowpan_frags_sysctl_register
-
-
-I see now it's already applied, David please revert this change. Are you
-fine to apply a correct version of this to wpan-next tree, next time?
-
-- Alex
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index cd0db5471bb5..be7db86046af 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1656,6 +1656,7 @@ static int __udp4_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
+ 	int dif = skb->dev->ifindex;
+ 	unsigned int count = 0, offset = offsetof(typeof(*sk), sk_nulls_node);
+ 	unsigned int hash2 = 0, hash2_any = 0, use_hash2 = (hslot->count > 10);
++	bool delivered = false;
+ 
+ 	if (use_hash2) {
+ 		hash2_any = udp4_portaddr_hash(net, htonl(INADDR_ANY), hnum) &
+@@ -1674,6 +1675,7 @@ start_lookup:
+ 					dif, hnum)) {
+ 			if (unlikely(count == ARRAY_SIZE(stack))) {
+ 				flush_stack(stack, count, skb, ~0);
++				delivered = true;
+ 				count = 0;
+ 			}
+ 			stack[count++] = sk;
+@@ -1694,8 +1696,11 @@ start_lookup:
+ 	 */
+ 	if (count) {
+ 		flush_stack(stack, count, skb, count - 1);
+-	} else {
++	} else if (!delivered) {
++		UDP_INC_STATS_BH(net, UDP_MIB_NOPORTS, proto == IPPROTO_UDPLITE);
+ 		kfree_skb(skb);
++	} else {
++		consume_skb(skb);
+ 	}
+ 	return 0;
+ }
