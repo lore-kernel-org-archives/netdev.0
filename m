@@ -1,60 +1,55 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [net-next PATCH V5] qdisc: bulk dequeue support for qdiscs with
- TCQ_F_ONETXQUEUE
-Date: Wed, 01 Oct 2014 14:55:09 -0400
-Message-ID: <542C4E0D.4050404@mojatatu.com>
-References: <20140930085114.24043.81310.stgit@dragon>	<542A8EF9.10403@mojatatu.com>	<20140930.142038.235338672810639160.davem@davemloft.net>	<542BFEF3.7020302@mojatatu.com>	<CA+mtBx8rVu9FXtnc18n22L9LP=t=3Pso7U2yvvLcnny57w8aXg@mail.gmail.com>	<542C1F1F.90404@mojatatu.com> <20141001192840.5679a671@redhat.com>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: [PATCH net-next 0/2] sunvnet: Packet processing in non-interrupt
+ context.
+Date: Wed, 1 Oct 2014 14:56:04 -0400
+Message-ID: <20141001185604.GG17706@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <therbert@google.com>,
-	David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Florian Westphal <fw@strlen.de>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Dave Taht <dave.taht@gmail.com>,
-	=?windows-1252?Q?Toke_H=F8iland-J=F8rgensen?= <toke@toke.dk>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net, raghuram.kothakota@oracle.com,
+	sowmini.varadhan@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f170.google.com ([209.85.213.170]:62126 "EHLO
-	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751453AbaJASzM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2014 14:55:12 -0400
-Received: by mail-ig0-f170.google.com with SMTP id l13so697469iga.3
-        for <netdev@vger.kernel.org>; Wed, 01 Oct 2014 11:55:11 -0700 (PDT)
-In-Reply-To: <20141001192840.5679a671@redhat.com>
+Received: from userp1040.oracle.com ([156.151.31.81]:22898 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751518AbaJAS4J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2014 14:56:09 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/01/14 13:28, Jesper Dangaard Brouer wrote:
 
-> Thus, code is activated only when q->qlen is >= 1. And I have already
-> shown that we see a win with just bulking 2 packets:
+The existing sunvnet implementation does all the packet interception
+in LDC interrupt context. Patch 1 of this series moves the data
+processing to a bottom-half handler.
 
-If you can get 2 packets, indeed you win. If you can on average get >1
-over a long period, you still win.
-You have clearly demonstrated you can do that with traffic
-generators (udp or in kernel pktgen). I was more worried about the
-common use case scenario (handwaved as 1-24 TCP streams).
+Some context for the reasons for choosing a BH handler over NAPI:
+   A NAPI (or simple tasklet) based implementation provides softirq
+   context, which allows the driver to safely invoke netif_receive_skb()
+   to deliver the packet to the IP stack. But in the case of sunvnet,
+   we are already receiving multiple packets for a single ldc_rx
+   interrupt, so the budget-based softirq-vs-polling infra does not
+   provide a significant optimization. Rather, it can get in the way,
+   if we constrain the vnet-rx path to a poorly chosen budget, and force
+   ourselves to send a STOPPED/START ldc exchange needlessly.
 
-The key here is: *if you never hit bulking* then the cost is
-_per packet_ for sch_direct_xmit bypass.
-Question is what is that cost for the common case as defined above?
-Can you hit a bulk level >1 on 1-24 TCP streams?
-I would be happy if your answer is *yes*. If your answer is no (since
-it is hard to achieve) - then how far off is it from before your
-patches (since now you have added at minimal a branch check).
-I think it is fair for you to quantify that, no?
-Feature is still useful for the other cases.
+   A BH Rx handler is a simpler way to  avoid the weaknesses of processing
+   packets in LDC interrupt context, and also provides Rx load-spreading
+   across multiple CPUs.
 
-Note:
-This is what i referred to as the "no animals were hurt during the
-making of these patches" statement. I am sorry again for raining on
-the parade.
+Note that PATCH 1 is dependant on the functions added as part of the
+sparc-next commit "sparc64: Add vio_set_intr() to enable/disable Rx interrupts"
+(Cf: http://www.spinics.net/lists/sparclinux/msg12647.html)
 
-cheers,
-jamal
+PATCH 2 of this series fixes a race-condition between vnet_port_remove()
+and vnet_start_xmit().
+
+Sowmini Varadhan (2):
+  Process Rx data packets in a BH handler
+  vnet_start_xmit() must hold a refcnt on port.
+
+ drivers/net/ethernet/sun/sunvnet.c | 187 +++++++++++++++++++++++++++----------
+ drivers/net/ethernet/sun/sunvnet.h |  12 ++-
+ 2 files changed, 146 insertions(+), 53 deletions(-)
+
+-- 
+1.8.4.2
