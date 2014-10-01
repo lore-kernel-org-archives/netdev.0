@@ -1,101 +1,76 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [net-next PATCH V5] qdisc: bulk dequeue support for qdiscs with
- TCQ_F_ONETXQUEUE
-Date: Wed, 01 Oct 2014 11:34:55 -0400
-Message-ID: <542C1F1F.90404@mojatatu.com>
-References: <20140930085114.24043.81310.stgit@dragon>	<542A8EF9.10403@mojatatu.com>	<20140930.142038.235338672810639160.davem@davemloft.net>	<542BFEF3.7020302@mojatatu.com> <CA+mtBx8rVu9FXtnc18n22L9LP=t=3Pso7U2yvvLcnny57w8aXg@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] udp: increment UDP_NO_PORTS when dropping
+ unmatched multicasts
+Date: Wed, 01 Oct 2014 08:41:23 -0700
+Message-ID: <1412178083.16704.56.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20141001151921.7131E29003A2@tardy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Florian Westphal <fw@strlen.de>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Dave Taht <dave.taht@gmail.com>,
-	=?UTF-8?B?VG9rZSBIw7hpbGFuZC1Kw7hyZ2Vuc2Vu?= <toke@toke.dk>
-To: Tom Herbert <therbert@google.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Rick Jones <raj@tardy.usa.hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f171.google.com ([209.85.223.171]:52929 "EHLO
-	mail-ie0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751424AbaJAPe5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2014 11:34:57 -0400
-Received: by mail-ie0-f171.google.com with SMTP id tr6so602063ieb.16
-        for <netdev@vger.kernel.org>; Wed, 01 Oct 2014 08:34:57 -0700 (PDT)
-In-Reply-To: <CA+mtBx8rVu9FXtnc18n22L9LP=t=3Pso7U2yvvLcnny57w8aXg@mail.gmail.com>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:50164 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751330AbaJAPlP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2014 11:41:15 -0400
+Received: by mail-pa0-f53.google.com with SMTP id kq14so483356pab.26
+        for <netdev@vger.kernel.org>; Wed, 01 Oct 2014 08:41:14 -0700 (PDT)
+In-Reply-To: <20141001151921.7131E29003A2@tardy>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/01/14 10:55, Tom Herbert wrote:
-> On Wed, Oct 1, 2014 at 6:17 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
->> On 09/30/14 14:20, David Miller wrote:
->>>
->>> From: Jamal Hadi Salim <jhs@mojatatu.com>
->>> Date: Tue, 30 Sep 2014 07:07:37 -0400
->>>
->>>> Note, there are benefits as you have shown - but i would not
->>>> consider those to be standard use cases (actully one which would
->>>> have shown clear win is the VM thing Rusty was after).
->>>
->>>
->>> I completely disagree, you will see at least decreased cpu utilization
->>> for a very common case, bulk single stream transfers.
->>>
->>
->>
->> So lets say the common use case is:
->> = modern day cpu (pick some random cpu)
->> = 1-10 Gbps ethernet (not 100mbps)
->> = 1-24 tcp or udp bulk (you said one, Jesper had 24 which sounds better)
->>
->> Run with test cases:
->> a) unchanged (no bulking code added at all)
->> vs
->> b) bulking code added and used
->> vs
->> c) bulking code added and *not* used
->>
->> Jesper's results are comparing #b and #c.
->>
->> And if #b + #c are slightly worse or equal then we have a win;->
->>
+On Wed, 2014-10-01 at 08:19 -0700, Rick Jones wrote:
+> From: Rick Jones <rick.jones2@hp.com>
+> 
+> When there is absolutely no match for an incoming UDP multicast we
+> should increment a suitable UDP statistic in addition to the kfree_skb().
+> When there were some matches, we should not and simply call consume_skb().
+> 
+> Signed-off-by: Rick Jones <rick.jones2@hp.com>
+> 
+> ---
+> 
+> Noticed __udp4_lib_mcast_deliver showing-up in a perf dropped packet
+> profile on a system sitting on a network with a bunch of Windows boxes
+> sending what they are fond of sending.
+> 
+> Verified that UDP_MIB_NOPORTS increments when it was not before and hit
+> the system with a bit of netperf multicast UDP_RR but that is the extent
+> of the testing performed.
+> 
+> diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+> index cd0db54..376e3d3 100644
+> --- a/net/ipv4/udp.c
+> +++ b/net/ipv4/udp.c
+> @@ -1656,6 +1656,7 @@ static int __udp4_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
+>  	int dif = skb->dev->ifindex;
+>  	unsigned int count = 0, offset = offsetof(typeof(*sk), sk_nulls_node);
+>  	unsigned int hash2 = 0, hash2_any = 0, use_hash2 = (hslot->count > 10);
+> +	unsigned int inner_flushed = 0;
+>  
+>  	if (use_hash2) {
+>  		hash2_any = udp4_portaddr_hash(net, htonl(INADDR_ANY), hnum) &
+> @@ -1694,8 +1695,12 @@ start_lookup:
+>  	 */
+>  	if (count) {
+>  		flush_stack(stack, count, skb, count - 1);
+> -	} else {
+> +	} else if (!inner_flushed) {
+> +		UDP_INC_STATS_BH(net, UDP_MIB_NOPORTS, 0);
+>  		kfree_skb(skb);
+> +	} else {
+> +		/* there were matches flushed in the for_each */
+> +		consume_skb(skb);
+>  	}
+>  	return 0;
+>  }
 
-BTW: meant to say if #b and #c are slightly worse than #a then we have
-a win.
+It seems you imply UDP Lite do not use multicast ?
 
->> Again, I do believe things like traffic generators or the VM io
->> or something like tuntap that crosses user space will have a clear
->> benefit (but are those common use cases?).
->>
-> You're making this much more complicated that it actually is. The
-> algorithm is simple-- queue wakes up, finds out how exactly many bytes
-> to dequeue, and performs dequeue of enough packets under one lock.
+I believe we allow them, so you need to add a 'int proto' parameter to
+__udp4_lib_mcast_deliver()
 
-It is not about bql.
-The issue is: if i am going to attempt to do a bulk transfer
-every single time (with new code) and for the common use case the
-result is "no need to do bulking" then you just added extra code that
-is unnecessary for that common case.
-Even a single extra if statement at high packet rate is still
-costly and would be easy to observe.
+Also, please take care of IPv6 in the same time/patch.
 
->The
-> should be a benefit when transmitting high rate as we know that
-> reducing locking is generally a win.
-
-You mean amortizing the cost of the lock not removing a lock?
-Yes, of course. That is if the added code ends up being hit
-meaningfully. Jesper said (and it was my experience as well)
-that it was _hard_ to achieve bulking in such a case.
-The fear here is in the common case (if we say the
-bulk transfer is a common case) infact that code is reduced to be
-a per-packet as opposed to a burst of packets, then there is
-no win.
-The tests should clarify, no?
-
-cheers,
-jamal
+Thanks
