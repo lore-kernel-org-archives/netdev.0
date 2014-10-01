@@ -1,60 +1,81 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 2/2] net/mlx4_core: Disable BF when write combining is not available
-Date: Wed,  1 Oct 2014 17:54:42 +0300
-Message-ID: <1412175282-25212-3-git-send-email-ogerlitz@mellanox.com>
-References: <1412175282-25212-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Moshe Lazer <moshel@mellanox.com>,
-	Tal Alon <talal@mellanox.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [net-next PATCH V5] qdisc: bulk dequeue support for qdiscs with TCQ_F_ONETXQUEUE
+Date: Wed, 1 Oct 2014 07:55:21 -0700
+Message-ID: <CA+mtBx8rVu9FXtnc18n22L9LP=t=3Pso7U2yvvLcnny57w8aXg@mail.gmail.com>
+References: <20140930085114.24043.81310.stgit@dragon>
+	<542A8EF9.10403@mojatatu.com>
+	<20140930.142038.235338672810639160.davem@davemloft.net>
+	<542BFEF3.7020302@mojatatu.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Florian Westphal <fw@strlen.de>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Dave Taht <dave.taht@gmail.com>,
+	=?UTF-8?B?VG9rZSBIw7hpbGFuZC1Kw7hyZ2Vuc2Vu?= <toke@toke.dk>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:39568 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751976AbaJAOyv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Oct 2014 10:54:51 -0400
-In-Reply-To: <1412175282-25212-1-git-send-email-ogerlitz@mellanox.com>
+Received: from mail-ig0-f180.google.com ([209.85.213.180]:51017 "EHLO
+	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751355AbaJAOzW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2014 10:55:22 -0400
+Received: by mail-ig0-f180.google.com with SMTP id uq10so480222igb.13
+        for <netdev@vger.kernel.org>; Wed, 01 Oct 2014 07:55:21 -0700 (PDT)
+In-Reply-To: <542BFEF3.7020302@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Moshe Lazer <moshel@mellanox.com>
+On Wed, Oct 1, 2014 at 6:17 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+> On 09/30/14 14:20, David Miller wrote:
+>>
+>> From: Jamal Hadi Salim <jhs@mojatatu.com>
+>> Date: Tue, 30 Sep 2014 07:07:37 -0400
+>>
+>>> Note, there are benefits as you have shown - but i would not
+>>> consider those to be standard use cases (actully one which would
+>>> have shown clear win is the VM thing Rusty was after).
+>>
+>>
+>> I completely disagree, you will see at least decreased cpu utilization
+>> for a very common case, bulk single stream transfers.
+>>
+>
+>
+> So lets say the common use case is:
+> = modern day cpu (pick some random cpu)
+> = 1-10 Gbps ethernet (not 100mbps)
+> = 1-24 tcp or udp bulk (you said one, Jesper had 24 which sounds better)
+>
+> Run with test cases:
+> a) unchanged (no bulking code added at all)
+> vs
+> b) bulking code added and used
+> vs
+> c) bulking code added and *not* used
+>
+> Jesper's results are comparing #b and #c.
+>
+> And if #b + #c are slightly worse or equal then we have a win;->
+>
+> Again, I do believe things like traffic generators or the VM io
+> or something like tuntap that crosses user space will have a clear
+> benefit (but are those common use cases?).
+>
+You're making this much more complicated that it actually is. The
+algorithm is simple-- queue wakes up, finds out how exactly many bytes
+to dequeue, and performs dequeue of enough packets under one lock. The
+should be a benefit when transmitting high rate as we know that
+reducing locking is generally a win. It needs to be tested, but this
+should be independent of whether application is a VM, in userspace or
+kernel, packetgen, etc.
 
-In mlx4 for better latency, we write send descriptors to a write-combining
-(WC) mapped buffer instead of ringing a doorbell and having the HW fetch
-the descriptor from system memory.
+Tom
 
-However, if write-combining is not supported on the host, then we
-obtain better latency by using the doorbell-ring/HW fetch mechanism.
-
-The mechanism that uses WC is called Blue-Flame (BF). BF is beneficial
-only when the system supports write combining. When the BF buffer is
-mapped as a write-combine buffer, the HCA receives data in multi-word
-bursts. However, if the BF buffer is mapped only as non-cached, the
-HCA receives data in individual dword chunks, which harms performance.
-
-Therefore, disable blueflame when write combining is not available.
-
-Signed-off-by: Moshe Lazer <moshel@mellanox.com>
-Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/fw.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
-index 2e88a23..f7bb548 100644
---- a/drivers/net/ethernet/mellanox/mlx4/fw.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
-@@ -671,7 +671,7 @@ int mlx4_QUERY_DEV_CAP(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
- 	dev_cap->min_page_sz = 1 << field;
- 
- 	MLX4_GET(field, outbox, QUERY_DEV_CAP_BF_OFFSET);
--	if (field & 0x80) {
-+	if ((field & 0x80) && writecombine_available()) {
- 		MLX4_GET(field, outbox, QUERY_DEV_CAP_LOG_BF_REG_SZ_OFFSET);
- 		dev_cap->bf_reg_size = 1 << (field & 0x1f);
- 		MLX4_GET(field, outbox, QUERY_DEV_CAP_LOG_MAX_BF_REGS_PER_PAGE_OFFSET);
--- 
-1.7.1
+> cheers,
+> jamal
