@@ -1,79 +1,63 @@
-From: Michal Simek <michal.simek@xilinx.com>
-Subject: [PATCH v2] net: ll_temac: Remove unnecessary ether_setup after alloc_etherdev
-Date: Wed,  1 Oct 2014 11:01:17 +0200
-Message-ID: <909ad6e2f067c956a2bb89d848a2fc38fc605a08.1412154072.git.michal.simek@xilinx.com>
-Content-Type: multipart/signed;
-    boundary="=_mimegpg-monstr-desktop-3880-1412154077-0001";
-    micalg=pgp-sha1; protocol="application/pgp-signature"
-Cc: Subbaraya Sundeep Bhatta <subbaraya.sundeep.bhatta@xilinx.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	=?UTF-8?q?Manuel=20Sch=C3=B6lling?= <manuel.schoelling@gmx.de>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	Julia Lawall <Julia.Lawall@lip6.fr>,
-	Joe Perches <joe@perches.com>,
-	Ricardo Ribalda <ricardo.ribalda@gmail.com>,
-	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org
-To: linux-kernel@vger.kernel.org, monstr@monstr.eu
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f180.google.com ([209.85.212.180]:34733 "EHLO
-	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751195AbaJAJBZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2014 05:01:25 -0400
-Received: by mail-wi0-f180.google.com with SMTP id em10so1079133wid.1
-        for <netdev@vger.kernel.org>; Wed, 01 Oct 2014 02:01:23 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-This is a MIME GnuPG-signed message.  If you see this text, it means that
-your E-mail or Usenet software does not support MIME signed messages.
-The Internet standard for MIME PGP messages, RFC 2015, was published in 1996.
-To open this message correctly you will need to install E-mail or Usenet
-software that supports modern Internet standards.
-
---=_mimegpg-monstr-desktop-3880-1412154077-0001
-
-From: Subbaraya Sundeep Bhatta <subbaraya.sundeep.bhatta@xilinx.com>
-
-Calling ether_setup is redundant since alloc_etherdev calls it.
-
-Signed-off-by: Subbaraya Sundeep Bhatta <sbhatta@xilinx.com>
-Signed-off-by: Michal Simek <michal.simek@xilinx.com>
----
-
-Changes in v2:
-- Remove axienet because it is already applied in separate patch
-  https://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=c706471b2601d1c9058e7b866db77f6eb7dd37af
-
- drivers/net/ethernet/xilinx/ll_temac_main.c | 1 -
- 1 file changed, 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/xilinx/ll_temac_main.c b/drivers/net/ethernet/xilinx/ll_temac_main.c
-index fda5891835d4..629077050fce 100644
---- a/drivers/net/ethernet/xilinx/ll_temac_main.c
-+++ b/drivers/net/ethernet/xilinx/ll_temac_main.c
-@@ -1012,7 +1012,6 @@ static int temac_of_probe(struct platform_device *op)
- 	if (!ndev)
- 		return -ENOMEM;
-
--	ether_setup(ndev);
- 	platform_set_drvdata(op, ndev);
- 	SET_NETDEV_DEV(ndev, &op->dev);
- 	ndev->flags &= ~IFF_MULTICAST;  /* clear multicast */
---
-1.8.2.3
-
-
---=_mimegpg-monstr-desktop-3880-1412154077-0001
-Content-Type: application/pgp-signature
+From: Roger Quadros <rogerq@ti.com>
+Subject: Re: [PATCH v2 2/3] net: can: c_can: Add syscon/regmap RAMINIT mechanism
+Date: Wed, 1 Oct 2014 12:06:55 +0300
+Message-ID: <542BC42F.2010406@ti.com>
+References: <1410273070-22485-1-git-send-email-rogerq@ti.com> <1410273070-22485-3-git-send-email-rogerq@ti.com> <20140930132650.GN1325@katana> <542AB137.30507@ti.com> <20140930135226.GO1325@katana> <542AB6E9.9000907@ti.com> <20140930141909.GP1325@katana> <542ABC90.7010900@pengutronix.de> <20140930144950.GQ1325@katana> <542AC5B2.9040406@pengutronix.de> <20140930152550.GR1325@katana> <542AD483.2020808@pengutronix.de> <542BBF3F.2040803@ti.com> <542BBFBE.90406@pengutronix.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
+Cc: <wg@grandegger.com>, <tony@atomide.com>, <tglx@linutronix.de>,
+	<mugunthanvnm@ti.com>, <george.cherian@ti.com>, <balbi@ti.com>,
+	<nsekhar@ti.com>, <nm@ti.com>,
+	<sergei.shtylyov@cogentembedded.com>, <linux-omap@vger.kernel.org>,
+	<linux-can@vger.kernel.org>, <netdev@vger.kernel.org>
+To: Marc Kleine-Budde <mkl@pengutronix.de>,
+	Wolfram Sang <wsa@the-dreams.de>
+Return-path: <linux-omap-owner@vger.kernel.org>
+In-Reply-To: <542BBFBE.90406@pengutronix.de>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
+On 10/01/2014 11:47 AM, Marc Kleine-Budde wrote:
+> On 10/01/2014 10:45 AM, Roger Quadros wrote:
+>> On 09/30/2014 07:04 PM, Marc Kleine-Budde wrote:
+>>> On 09/30/2014 05:25 PM, Wolfram Sang wrote:
+>>>>
+>>>>> Yes, but syscon_regmap_lookup_by_phandle() doesn't need any support for
+>>>>> additional parameters. Have a look at:
+>>>>>
+>>>>> drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
+>>>>>
+>>>>> First get the regmap, then the 1st argument is the offset in the regmap,
+>>>>> the 2nd and 3rd could be the bits.
+>>>>
+>>>> So, for one driver the extra arguments are: <reg> <start_bit> <stop_bit>
+>>>> For another driver (the stmmac example): <reg_offset> <reg_shift>
+>>>
+>>> The DCAN's "reg" is a "reg_offset" as in the stmmc.
+>>>
+>>> Roger, can we derive both start and done bit from a common reg_shift?
+>>
+>> I'm sorry I didn't understand what you meant.
+>>
+>> <&syscon_phandl> <reg offset> <start bit> <stop bit> should work well for us.
+>> Even though reg offset is the same for both the DCAN instances.
+> 
+> What's start bit and stop bit for instance 0 and 1 on that SoC that has
+> two instances??
+> 
 
-iEYEABECAAYFAlQrwt0ACgkQykllyylKDCEL6wCgiGNqZfYOFZtg8Uv8wDjAeyXN
-LGAAni1vsqlO2rImzJ5A/GHa3dR3YVl7
-=wD1e
------END PGP SIGNATURE-----
+we have 3 SoCs at the moment, all have 2 DCAN instances.
 
---=_mimegpg-monstr-desktop-3880-1412154077-0001--
+AM33xx & AM43xx
+instance	start	stop
+1		0	8
+2		1	9	
+
+DRA7xx
+instance	start	stop
+1		3	1
+2		5	2
+
+cheers,
+-roger
