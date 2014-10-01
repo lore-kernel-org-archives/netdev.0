@@ -1,39 +1,49 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [PATCH net-next 0/2] sunvnet: Packet processing in non-interrupt
- context.
-Date: Wed, 1 Oct 2014 16:23:15 -0400
-Message-ID: <20141001202315.GN17706@oracle.com>
-References: <20141001185604.GG17706@oracle.com>
- <20141001.155009.2277009117294992988.davem@davemloft.net>
- <542C5C37.1040409@oracle.com>
- <20141001.161508.1823792090990427608.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 2/2] sunvnet: vnet_start_xmit() must hold a
+ refcnt on port.
+Date: Wed, 01 Oct 2014 16:24:31 -0400 (EDT)
+Message-ID: <20141001.162431.2179338820333183894.davem@davemloft.net>
+References: <20141001194403.GM17706@oracle.com>
+	<1412194526.16704.61.camel@edumazet-glaptop2.roam.corp.google.com>
+	<542C61DD.8010504@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: raghuram.kothakota@oracle.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, raghuram.kothakota@oracle.com,
+	netdev@vger.kernel.org
+To: sowmini.varadhan@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:22639 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751789AbaJAUXY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2014 16:23:24 -0400
-Content-Disposition: inline
-In-Reply-To: <20141001.161508.1823792090990427608.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36346 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752303AbaJAUYe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2014 16:24:34 -0400
+In-Reply-To: <542C61DD.8010504@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On (10/01/14 16:15), David Miller wrote:
-> > 
-> > If I make this a NAPI driver that uses napi_gro_receive, I would
-> > still have to deal with a budget, right?
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Date: Wed, 01 Oct 2014 16:19:41 -0400
+
+> On 10/01/2014 04:15 PM, Eric Dumazet wrote:
+>> On Wed, 2014-10-01 at 15:44 -0400, Sowmini Varadhan wrote:
+>>> On (10/01/14 12:05), Eric Dumazet wrote:
+>>>>
+>>>> Hmpff... This calls for rcu protection here !
+>>>>
+>>>
+>>> I did consider that, but given that the lists containing the ports are
+>>> accessed in multiple contexts, some of which can sleep, and given that
+>>> the vnet port is similar in spirit to the net_device, I followed the
+>>> net_device model of dev_put etc.
+>>
+>> dev_put() uses per cpu variables, an order of magnitude faster than a
+>> atomic put/get :(
 > 
-> Absolutely, and YOU MUST, because the budget keeps one device from
-> hogging the RX packet input path from other devices on a given cpu.
+> I could make this a per-cpu variable, it would not be too hard to
+> change
+> vnet_put/hold etc. That's not a problem.
 
-yes, but limiting the budget of sk_buffs read mid-way during descriptor
-read is deadly to perf because of the ensuing LDC stop/start exchange -
-ends up being even worse than the baseline.
+If you went with NAPI you could use RCU.
 
-Doesnt the netif_rx/process_backlog infra already do a napi_schedule,
-thus avoiding the above concern? 
-
---Sowmini
+All of the negative and complicated aspects of your changes strictly
+have to do with not going with that implementation route.
