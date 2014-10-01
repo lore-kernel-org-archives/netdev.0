@@ -1,449 +1,96 @@
-From: Eli Cohen <eli@mellanox.com>
-Subject: [PATCH V1 net-next 2/4] net/mlx5_core: Use hardware registers description header file
-Date: Wed,  1 Oct 2014 16:18:06 +0300
-Message-ID: <1412169488-17500-3-git-send-email-eli@mellanox.com>
-References: <1412169488-17500-1-git-send-email-eli@mellanox.com>
-Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com,
-	yevgenyp@mellanox.com, Eli Cohen <eli@mellanox.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:37369 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751372AbaJANSU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Oct 2014 09:18:20 -0400
-In-Reply-To: <1412169488-17500-1-git-send-email-eli@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Michael =?UTF-8?B?QsO8c2No?= <m@bues.ch>
+Subject: Re: [PATCH] ssb: Fix Sparse error in main
+Date: Wed, 1 Oct 2014 15:27:05 +0200
+Message-ID: <20141001152705.02f4f34e@wiggum>
+References: <1412147196-7466-1-git-send-email-pramod.gurav@smartplayin.com>
+ <1412148544.21730.36.camel@x220>
+ <542BAFB3.6030207@smartplayin.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ boundary="Sig_/WkksWX0=7dNSbjP8muOd0He"; protocol="application/pgp-signature"
+Cc: Paul Bolle <pebolle@tiscali.nl>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Pramod Gurav <pramod.gurav@smartplayin.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <542BAFB3.6030207@smartplayin.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Add an auto generated header file that describes hardware registers along with
-set of macros that set/get values. The macros do static checks to avoid
-overflow, handle endianess, and overall provide a clean way to code commands.
-Currently the header file is small and we will add structs as we make use of
-the macros.
-A few commands were removed from the commands enum since they are not supported
-currently and will be added when support is available.
+--Sig_/WkksWX0=7dNSbjP8muOd0He
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-Change-Id: Ieea94e4b329ec46902b1634cf66b0c3a04445a04
-Signed-off-by: Eli Cohen <eli@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/cmd.c |  36 -------
- drivers/net/ethernet/mellanox/mlx5/core/qp.c  |   3 -
- include/linux/mlx5/device.h                   |  74 +++++++++++++
- include/linux/mlx5/driver.h                   |  76 +-------------
- include/linux/mlx5/mlx5_ifc.h                 | 143 ++++++++++++++++++++++++++
- 5 files changed, 218 insertions(+), 114 deletions(-)
- create mode 100644 include/linux/mlx5/mlx5_ifc.h
+On Wed, 01 Oct 2014 13:09:31 +0530
+Pramod Gurav <pramod.gurav@smartplayin.com> wrote:
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-index 6eb0f85cf872..3ecef1310bae 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-@@ -357,60 +357,24 @@ const char *mlx5_command_str(int command)
- 	case MLX5_CMD_OP_2ERR_QP:
- 		return "2ERR_QP";
- 
--	case MLX5_CMD_OP_RTS2SQD_QP:
--		return "RTS2SQD_QP";
--
--	case MLX5_CMD_OP_SQD2RTS_QP:
--		return "SQD2RTS_QP";
--
- 	case MLX5_CMD_OP_2RST_QP:
- 		return "2RST_QP";
- 
- 	case MLX5_CMD_OP_QUERY_QP:
- 		return "QUERY_QP";
- 
--	case MLX5_CMD_OP_CONF_SQP:
--		return "CONF_SQP";
--
- 	case MLX5_CMD_OP_MAD_IFC:
- 		return "MAD_IFC";
- 
- 	case MLX5_CMD_OP_INIT2INIT_QP:
- 		return "INIT2INIT_QP";
- 
--	case MLX5_CMD_OP_SUSPEND_QP:
--		return "SUSPEND_QP";
--
--	case MLX5_CMD_OP_UNSUSPEND_QP:
--		return "UNSUSPEND_QP";
--
--	case MLX5_CMD_OP_SQD2SQD_QP:
--		return "SQD2SQD_QP";
--
--	case MLX5_CMD_OP_ALLOC_QP_COUNTER_SET:
--		return "ALLOC_QP_COUNTER_SET";
--
--	case MLX5_CMD_OP_DEALLOC_QP_COUNTER_SET:
--		return "DEALLOC_QP_COUNTER_SET";
--
--	case MLX5_CMD_OP_QUERY_QP_COUNTER_SET:
--		return "QUERY_QP_COUNTER_SET";
--
- 	case MLX5_CMD_OP_CREATE_PSV:
- 		return "CREATE_PSV";
- 
- 	case MLX5_CMD_OP_DESTROY_PSV:
- 		return "DESTROY_PSV";
- 
--	case MLX5_CMD_OP_QUERY_PSV:
--		return "QUERY_PSV";
--
--	case MLX5_CMD_OP_QUERY_SIG_RULE_TABLE:
--		return "QUERY_SIG_RULE_TABLE";
--
--	case MLX5_CMD_OP_QUERY_BLOCK_SIZE_TABLE:
--		return "QUERY_BLOCK_SIZE_TABLE";
--
- 	case MLX5_CMD_OP_CREATE_SRQ:
- 		return "CREATE_SRQ";
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/qp.c b/drivers/net/ethernet/mellanox/mlx5/core/qp.c
-index 8145b4668229..415b67ce379e 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/qp.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/qp.c
-@@ -184,13 +184,10 @@ int mlx5_core_qp_modify(struct mlx5_core_dev *dev, enum mlx5_qp_state cur_state,
- 			[MLX5_QP_STATE_RST]	= MLX5_CMD_OP_2RST_QP,
- 			[MLX5_QP_STATE_ERR]	= MLX5_CMD_OP_2ERR_QP,
- 			[MLX5_QP_STATE_RTS]	= MLX5_CMD_OP_RTS2RTS_QP,
--			[MLX5_QP_STATE_SQD]	= MLX5_CMD_OP_RTS2SQD_QP,
- 		},
- 		[MLX5_QP_STATE_SQD] = {
- 			[MLX5_QP_STATE_RST]	= MLX5_CMD_OP_2RST_QP,
- 			[MLX5_QP_STATE_ERR]	= MLX5_CMD_OP_2ERR_QP,
--			[MLX5_QP_STATE_RTS]	= MLX5_CMD_OP_SQD2RTS_QP,
--			[MLX5_QP_STATE_SQD]	= MLX5_CMD_OP_SQD2SQD_QP,
- 		},
- 		[MLX5_QP_STATE_SQER] = {
- 			[MLX5_QP_STATE_RST]	= MLX5_CMD_OP_2RST_QP,
-diff --git a/include/linux/mlx5/device.h b/include/linux/mlx5/device.h
-index dce01fd854a8..3db2d4d82ad3 100644
---- a/include/linux/mlx5/device.h
-+++ b/include/linux/mlx5/device.h
-@@ -44,6 +44,80 @@
- #error Host endianness not defined
- #endif
- 
-+/* helper macros */
-+#define __mlx5_nullp(typ) ((struct mlx5_ifc_##typ##_bits *)0)
-+#define __mlx5_bit_sz(typ, fld) sizeof(__mlx5_nullp(typ)->fld)
-+#define __mlx5_bit_off(typ, fld) ((unsigned)(unsigned long)(&(__mlx5_nullp(typ)->fld)))
-+#define __mlx5_dw_off(typ, fld) (__mlx5_bit_off(typ, fld) / 32)
-+#define __mlx5_64_off(typ, fld) (__mlx5_bit_off(typ, fld) / 64)
-+#define __mlx5_dw_bit_off(typ, fld) (32 - __mlx5_bit_sz(typ, fld) - (__mlx5_bit_off(typ, fld) & 0x1f))
-+#define __mlx5_mask(typ, fld) ((u32)((1ull << __mlx5_bit_sz(typ, fld)) - 1))
-+#define __mlx5_dw_mask(typ, fld) (__mlx5_mask(typ, fld) << __mlx5_dw_bit_off(typ, fld))
-+#define __mlx5_st_sz_bits(typ) sizeof(struct mlx5_ifc_##typ##_bits)
-+
-+#define MLX5_FLD_SZ_BYTES(typ, fld) (__mlx5_bit_sz(typ, fld) / 8)
-+#define MLX5_ST_SZ_BYTES(typ) (sizeof(struct mlx5_ifc_##typ##_bits) / 8)
-+#define MLX5_ST_SZ_DW(typ) (sizeof(struct mlx5_ifc_##typ##_bits) / 32)
-+#define MLX5_BYTE_OFF(typ, fld) (__mlx5_bit_off(typ, fld) / 8)
-+#define MLX5_ADDR_OF(typ, p, fld) ((char *)(p) + MLX5_BYTE_OFF(typ, fld))
-+
-+static inline void non_existent_function(void)
-+{
-+	pr_info("%s\n", __func__);
-+}
-+
-+static inline void non_existent_function_sz_align32(void)
-+{
-+	pr_info("%s\n", __func__);
-+}
-+
-+static inline void non_existent_function_const_overflow(void)
-+{
-+	pr_info("%s\n", __func__);
-+}
-+
-+static inline void memcpy_cpu_to_be32(void *dst, void *src, int len)
-+{
-+	u32 *dst_u32 = (u32 *)dst;
-+	int i;
-+
-+	memcpy(dst, src, len);
-+
-+	for (i = 0; i < (len >> 2); i++)
-+		dst_u32[i] = cpu_to_be32(dst_u32[i]);
-+}
-+
-+/* insert a value to a struct */
-+#define MLX5_SET(typ, p, fld, v) do { \
-+	if (__mlx5_st_sz_bits(typ) % 32) \
-+		non_existent_function_sz_align32();             \
-+	*((__be32 *)(p) + __mlx5_dw_off(typ, fld)) = \
-+	cpu_to_be32((be32_to_cpu(*((__be32 *)(p) + __mlx5_dw_off(typ, fld))) & \
-+		     (~__mlx5_dw_mask(typ, fld))) | (((v) & __mlx5_mask(typ, fld)) \
-+		     << __mlx5_dw_bit_off(typ, fld))); \
-+} while (0)
-+
-+#define MLX5_GET(typ, p, fld) ((be32_to_cpu(*((__be32 *)(p) +\
-+__mlx5_dw_off(typ, fld))) >> __mlx5_dw_bit_off(typ, fld)) & \
-+__mlx5_mask(typ, fld))
-+
-+#define MLX5_GET_PR(typ, p, fld) ({ \
-+	u32 ___t = MLX5_GET(typ, p, fld); \
-+	pr_debug(#fld " = 0x%x\n", ___t); \
-+	___t; \
-+})
-+
-+#define MLX5_SET64(typ, p, fld, v) do { \
-+	if (__mlx5_bit_sz(typ, fld) != 64) \
-+		non_existent_function(); \
-+	else if (__mlx5_bit_off(typ, fld) % 64) \
-+		non_existent_function(); \
-+	else \
-+		*((__be64 *)(p) + __mlx5_64_off(typ, fld)) = cpu_to_be64(v); \
-+} while (0)
-+
-+#define MLX5_GET64(typ, p, fld) be64_to_cpu(*((__be64 *)(p) + __mlx5_64_off(typ, fld)))
-+
- enum {
- 	MLX5_MAX_COMMANDS		= 32,
- 	MLX5_CMD_DATA_BLOCK_SIZE	= 512,
-diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
-index 45a2add747e0..6f48dc793b9f 100644
---- a/include/linux/mlx5/driver.h
-+++ b/include/linux/mlx5/driver.h
-@@ -44,6 +44,7 @@
- 
- #include <linux/mlx5/device.h>
- #include <linux/mlx5/doorbell.h>
-+#include <linux/mlx5/mlx5_ifc.h>
- 
- enum {
- 	MLX5_BOARD_ID_LEN = 64,
-@@ -99,81 +100,6 @@ enum {
- };
- 
- enum {
--	MLX5_CMD_OP_QUERY_HCA_CAP		= 0x100,
--	MLX5_CMD_OP_QUERY_ADAPTER		= 0x101,
--	MLX5_CMD_OP_INIT_HCA			= 0x102,
--	MLX5_CMD_OP_TEARDOWN_HCA		= 0x103,
--	MLX5_CMD_OP_ENABLE_HCA			= 0x104,
--	MLX5_CMD_OP_DISABLE_HCA			= 0x105,
--	MLX5_CMD_OP_QUERY_PAGES			= 0x107,
--	MLX5_CMD_OP_MANAGE_PAGES		= 0x108,
--	MLX5_CMD_OP_SET_HCA_CAP			= 0x109,
--
--	MLX5_CMD_OP_CREATE_MKEY			= 0x200,
--	MLX5_CMD_OP_QUERY_MKEY			= 0x201,
--	MLX5_CMD_OP_DESTROY_MKEY		= 0x202,
--	MLX5_CMD_OP_QUERY_SPECIAL_CONTEXTS	= 0x203,
--
--	MLX5_CMD_OP_CREATE_EQ			= 0x301,
--	MLX5_CMD_OP_DESTROY_EQ			= 0x302,
--	MLX5_CMD_OP_QUERY_EQ			= 0x303,
--
--	MLX5_CMD_OP_CREATE_CQ			= 0x400,
--	MLX5_CMD_OP_DESTROY_CQ			= 0x401,
--	MLX5_CMD_OP_QUERY_CQ			= 0x402,
--	MLX5_CMD_OP_MODIFY_CQ			= 0x403,
--
--	MLX5_CMD_OP_CREATE_QP			= 0x500,
--	MLX5_CMD_OP_DESTROY_QP			= 0x501,
--	MLX5_CMD_OP_RST2INIT_QP			= 0x502,
--	MLX5_CMD_OP_INIT2RTR_QP			= 0x503,
--	MLX5_CMD_OP_RTR2RTS_QP			= 0x504,
--	MLX5_CMD_OP_RTS2RTS_QP			= 0x505,
--	MLX5_CMD_OP_SQERR2RTS_QP		= 0x506,
--	MLX5_CMD_OP_2ERR_QP			= 0x507,
--	MLX5_CMD_OP_RTS2SQD_QP			= 0x508,
--	MLX5_CMD_OP_SQD2RTS_QP			= 0x509,
--	MLX5_CMD_OP_2RST_QP			= 0x50a,
--	MLX5_CMD_OP_QUERY_QP			= 0x50b,
--	MLX5_CMD_OP_CONF_SQP			= 0x50c,
--	MLX5_CMD_OP_MAD_IFC			= 0x50d,
--	MLX5_CMD_OP_INIT2INIT_QP		= 0x50e,
--	MLX5_CMD_OP_SUSPEND_QP			= 0x50f,
--	MLX5_CMD_OP_UNSUSPEND_QP		= 0x510,
--	MLX5_CMD_OP_SQD2SQD_QP			= 0x511,
--	MLX5_CMD_OP_ALLOC_QP_COUNTER_SET	= 0x512,
--	MLX5_CMD_OP_DEALLOC_QP_COUNTER_SET	= 0x513,
--	MLX5_CMD_OP_QUERY_QP_COUNTER_SET	= 0x514,
--
--	MLX5_CMD_OP_CREATE_PSV			= 0x600,
--	MLX5_CMD_OP_DESTROY_PSV			= 0x601,
--	MLX5_CMD_OP_QUERY_PSV			= 0x602,
--	MLX5_CMD_OP_QUERY_SIG_RULE_TABLE	= 0x603,
--	MLX5_CMD_OP_QUERY_BLOCK_SIZE_TABLE	= 0x604,
--
--	MLX5_CMD_OP_CREATE_SRQ			= 0x700,
--	MLX5_CMD_OP_DESTROY_SRQ			= 0x701,
--	MLX5_CMD_OP_QUERY_SRQ			= 0x702,
--	MLX5_CMD_OP_ARM_RQ			= 0x703,
--	MLX5_CMD_OP_RESIZE_SRQ			= 0x704,
--
--	MLX5_CMD_OP_ALLOC_PD			= 0x800,
--	MLX5_CMD_OP_DEALLOC_PD			= 0x801,
--	MLX5_CMD_OP_ALLOC_UAR			= 0x802,
--	MLX5_CMD_OP_DEALLOC_UAR			= 0x803,
--
--	MLX5_CMD_OP_ATTACH_TO_MCG		= 0x806,
--	MLX5_CMD_OP_DETACH_FROM_MCG		= 0x807,
--
--
--	MLX5_CMD_OP_ALLOC_XRCD			= 0x80e,
--	MLX5_CMD_OP_DEALLOC_XRCD		= 0x80f,
--
--	MLX5_CMD_OP_ACCESS_REG			= 0x805,
--	MLX5_CMD_OP_MAX				= 0x810,
--};
--
--enum {
- 	MLX5_REG_PCAP		 = 0x5001,
- 	MLX5_REG_PMTU		 = 0x5003,
- 	MLX5_REG_PTYS		 = 0x5004,
-diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
-new file mode 100644
-index 000000000000..df3bd9b5fbcf
---- /dev/null
-+++ b/include/linux/mlx5/mlx5_ifc.h
-@@ -0,0 +1,143 @@
-+/*
-+ * Copyright (c) 2014, Mellanox Technologies inc.  All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+
-+#ifndef MLX5_IFC_H
-+#define MLX5_IFC_H
-+
-+enum {
-+	MLX5_CMD_OP_QUERY_HCA_CAP                 = 0x100,
-+	MLX5_CMD_OP_QUERY_ADAPTER                 = 0x101,
-+	MLX5_CMD_OP_INIT_HCA                      = 0x102,
-+	MLX5_CMD_OP_TEARDOWN_HCA                  = 0x103,
-+	MLX5_CMD_OP_ENABLE_HCA                    = 0x104,
-+	MLX5_CMD_OP_DISABLE_HCA                   = 0x105,
-+	MLX5_CMD_OP_QUERY_PAGES                   = 0x107,
-+	MLX5_CMD_OP_MANAGE_PAGES                  = 0x108,
-+	MLX5_CMD_OP_SET_HCA_CAP                   = 0x109,
-+	MLX5_CMD_OP_CREATE_MKEY                   = 0x200,
-+	MLX5_CMD_OP_QUERY_MKEY                    = 0x201,
-+	MLX5_CMD_OP_DESTROY_MKEY                  = 0x202,
-+	MLX5_CMD_OP_QUERY_SPECIAL_CONTEXTS        = 0x203,
-+	MLX5_CMD_OP_PAGE_FAULT_RESUME             = 0x204,
-+	MLX5_CMD_OP_CREATE_EQ                     = 0x301,
-+	MLX5_CMD_OP_DESTROY_EQ                    = 0x302,
-+	MLX5_CMD_OP_QUERY_EQ                      = 0x303,
-+	MLX5_CMD_OP_GEN_EQE                       = 0x304,
-+	MLX5_CMD_OP_CREATE_CQ                     = 0x400,
-+	MLX5_CMD_OP_DESTROY_CQ                    = 0x401,
-+	MLX5_CMD_OP_QUERY_CQ                      = 0x402,
-+	MLX5_CMD_OP_MODIFY_CQ                     = 0x403,
-+	MLX5_CMD_OP_CREATE_QP                     = 0x500,
-+	MLX5_CMD_OP_DESTROY_QP                    = 0x501,
-+	MLX5_CMD_OP_RST2INIT_QP                   = 0x502,
-+	MLX5_CMD_OP_INIT2RTR_QP                   = 0x503,
-+	MLX5_CMD_OP_RTR2RTS_QP                    = 0x504,
-+	MLX5_CMD_OP_RTS2RTS_QP                    = 0x505,
-+	MLX5_CMD_OP_SQERR2RTS_QP                  = 0x506,
-+	MLX5_CMD_OP_2ERR_QP                       = 0x507,
-+	MLX5_CMD_OP_2RST_QP                       = 0x50a,
-+	MLX5_CMD_OP_QUERY_QP                      = 0x50b,
-+	MLX5_CMD_OP_INIT2INIT_QP                  = 0x50e,
-+	MLX5_CMD_OP_CREATE_PSV                    = 0x600,
-+	MLX5_CMD_OP_DESTROY_PSV                   = 0x601,
-+	MLX5_CMD_OP_CREATE_SRQ                    = 0x700,
-+	MLX5_CMD_OP_DESTROY_SRQ                   = 0x701,
-+	MLX5_CMD_OP_QUERY_SRQ                     = 0x702,
-+	MLX5_CMD_OP_ARM_RQ                        = 0x703,
-+	MLX5_CMD_OP_RESIZE_SRQ                    = 0x704,
-+	MLX5_CMD_OP_CREATE_DCT                    = 0x710,
-+	MLX5_CMD_OP_DESTROY_DCT                   = 0x711,
-+	MLX5_CMD_OP_DRAIN_DCT                     = 0x712,
-+	MLX5_CMD_OP_QUERY_DCT                     = 0x713,
-+	MLX5_CMD_OP_ARM_DCT_FOR_KEY_VIOLATION     = 0x714,
-+	MLX5_CMD_OP_QUERY_VPORT_STATE             = 0x750,
-+	MLX5_CMD_OP_MODIFY_VPORT_STATE            = 0x751,
-+	MLX5_CMD_OP_QUERY_ESW_VPORT_CONTEXT       = 0x752,
-+	MLX5_CMD_OP_MODIFY_ESW_VPORT_CONTEXT      = 0x753,
-+	MLX5_CMD_OP_QUERY_NIC_VPORT_CONTEXT       = 0x754,
-+	MLX5_CMD_OP_MODIFY_NIC_VPORT_CONTEXT      = 0x755,
-+	MLX5_CMD_OP_QUERY_RCOE_ADDRESS            = 0x760,
-+	MLX5_CMD_OP_SET_ROCE_ADDRESS              = 0x761,
-+	MLX5_CMD_OP_QUERY_VPORT_COUNTER           = 0x770,
-+	MLX5_CMD_OP_ALLOC_Q_COUNTER               = 0x771,
-+	MLX5_CMD_OP_DEALLOC_Q_COUNTER             = 0x772,
-+	MLX5_CMD_OP_QUERY_Q_COUNTER               = 0x773,
-+	MLX5_CMD_OP_ALLOC_PD                      = 0x800,
-+	MLX5_CMD_OP_DEALLOC_PD                    = 0x801,
-+	MLX5_CMD_OP_ALLOC_UAR                     = 0x802,
-+	MLX5_CMD_OP_DEALLOC_UAR                   = 0x803,
-+	MLX5_CMD_OP_CONFIG_INT_MODERATION         = 0x804,
-+	MLX5_CMD_OP_ACCESS_REG                    = 0x805,
-+	MLX5_CMD_OP_ATTACH_TO_MCG                 = 0x806,
-+	MLX5_CMD_OP_DETACH_FROM_MCG               = 0x807,
-+	MLX5_CMD_OP_GET_DROPPED_PACKET_LOG        = 0x80a,
-+	MLX5_CMD_OP_MAD_IFC                       = 0x50d,
-+	MLX5_CMD_OP_QUERY_MAD_DEMUX               = 0x80b,
-+	MLX5_CMD_OP_SET_MAD_DEMUX                 = 0x80c,
-+	MLX5_CMD_OP_NOP                           = 0x80d,
-+	MLX5_CMD_OP_ALLOC_XRCD                    = 0x80e,
-+	MLX5_CMD_OP_DEALLOC_XRCD                  = 0x80f,
-+	MLX5_CMD_OP_SET_BURST_SIZE                = 0x812,
-+	MLX5_CMD_OP_QUERY_BURST_SZIE              = 0x813,
-+	MLX5_CMD_OP_ACTIVATE_TRACER               = 0x814,
-+	MLX5_CMD_OP_DEACTIVATE_TRACER             = 0x815,
-+	MLX5_CMD_OP_CREATE_SNIFFER_RULE           = 0x820,
-+	MLX5_CMD_OP_DESTROY_SNIFFER_RULE          = 0x821,
-+	MLX5_CMD_OP_QUERY_CONG_PARAMS             = 0x822,
-+	MLX5_CMD_OP_MODIFY_CONG_PARAMS            = 0x823,
-+	MLX5_CMD_OP_QUERY_CONG_STATISTICS         = 0x824,
-+	MLX5_CMD_OP_CREATE_TIR                    = 0x900,
-+	MLX5_CMD_OP_MODIFY_TIR                    = 0x901,
-+	MLX5_CMD_OP_DESTROY_TIR                   = 0x902,
-+	MLX5_CMD_OP_QUERY_TIR                     = 0x903,
-+	MLX5_CMD_OP_CREATE_TIS                    = 0x912,
-+	MLX5_CMD_OP_MODIFY_TIS                    = 0x913,
-+	MLX5_CMD_OP_DESTROY_TIS                   = 0x914,
-+	MLX5_CMD_OP_QUERY_TIS                     = 0x915,
-+	MLX5_CMD_OP_CREATE_SQ                     = 0x904,
-+	MLX5_CMD_OP_MODIFY_SQ                     = 0x905,
-+	MLX5_CMD_OP_DESTROY_SQ                    = 0x906,
-+	MLX5_CMD_OP_QUERY_SQ                      = 0x907,
-+	MLX5_CMD_OP_CREATE_RQ                     = 0x908,
-+	MLX5_CMD_OP_MODIFY_RQ                     = 0x909,
-+	MLX5_CMD_OP_DESTROY_RQ                    = 0x90a,
-+	MLX5_CMD_OP_QUERY_RQ                      = 0x90b,
-+	MLX5_CMD_OP_CREATE_RMP                    = 0x90c,
-+	MLX5_CMD_OP_MODIFY_RMP                    = 0x90d,
-+	MLX5_CMD_OP_DESTROY_RMP                   = 0x90e,
-+	MLX5_CMD_OP_QUERY_RMP                     = 0x90f,
-+	MLX5_CMD_OP_SET_FLOW_TABLE_ENTRY          = 0x910,
-+	MLX5_CMD_OP_QUERY_FLOW_TABLE_ENTRY        = 0x911,
-+	MLX5_CMD_OP_MAX				  = 0x911
-+};
-+
-+#endif /* MLX5_IFC_H */
--- 
-2.1.1
+> On Wednesday 01 October 2014 12:59 PM, Paul Bolle wrote:
+> > On Wed, 2014-10-01 at 12:36 +0530, Pramod Gurav wrote:
+> >> This change fixes below sparse error:
+> >>
+> >> drivers/ssb/main.c:94:16: warning: symbol 'ssb_sdio_func_to_bus'
+> >> was not declared. Should it be static?
+> >>
+> >> Cc: Michael Buesch <m@bues.ch>
+> >> Cc: netdev@vger.kernel.org
+> >> Signed-off-by: Pramod Gurav <pramod.gurav@smartplayin.com>
+> >> ---
+> >>  drivers/ssb/ssb_private.h |    1 +
+> >>  1 file changed, 1 insertion(+)
+> >>
+> >> diff --git a/drivers/ssb/ssb_private.h b/drivers/ssb/ssb_private.h
+> >> index eb507a5..86bbbe3 100644
+> >> --- a/drivers/ssb/ssb_private.h
+> >> +++ b/drivers/ssb/ssb_private.h
+> >> @@ -193,6 +193,7 @@ extern struct ssb_bus *ssb_pci_dev_to_bus(struct p=
+ci_dev *pdev);
+> >>  int ssb_for_each_bus_call(unsigned long data,
+> >>  			  int (*func)(struct ssb_bus *bus, unsigned long data));
+> >>  extern struct ssb_bus *ssb_pcmcia_dev_to_bus(struct pcmcia_device *pd=
+ev);
+> >> +struct ssb_bus *ssb_sdio_func_to_bus(struct sdio_func *func);
+> >> =20
+> >>  struct ssb_freeze_context {
+> >>  	/* Pointer to the bus */
+> >=20
+> > To me this looked like an odd way to silence that warning. So I dug a
+> > bit further.
+> >=20
+> > ssb_sdio_func_to_bus() was added in commit 24ea602e183c ("ssb: Implement
+> > SDIO host bus support"). So it was added in release v2.6.32. I found no
+> > evidence this function was ever used. Can't it be removed?
+> >=20
+> Thanks Paul for review. Initially I too had greped for this function in
+> kernel and found noone using it. But I thought this function might be
+> useful in future. About removing it, may be original author can tell.
+
+
+If it's unused, please remove it.
+
+
+
+--=20
+Michael
+
+--Sig_/WkksWX0=7dNSbjP8muOd0He
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Disposition: attachment; filename=signature.asc
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBAgAGBQJULAEpAAoJEPUyvh2QjYsOTycP/1fm+VZJ/UPvhUgso6QEDawL
+IegdwpmygYLVHok8wIFTLPLXGCbdno3MDcwwnjt/UhZOxbFWTIlu5uubhMWPAVkA
+o2Ih83ake89yV/uhRZjW7Gsr0vYH79+46gDSpCGHuQ4GsliJoJ2FWNcN0rk9LIbe
+bZEJYMxwhsep2sExYueJ8wnBVS1Pf1IxLLTSCVdBsf2HxQV6kYl/K5fw5j2o+9ja
+HIYsKHhe41Ij3Vo1RU1MhuOu2TAWhCL19E3szz4AQGBN3j+cycOVOGz2rSPEDDuY
+9KON6eYnXHW4cgw79Rljfx+odVHq72DyYSKO8gqauD7BSvkW36yDWVbEL6b4IaaM
+9L2YKssaRR3Iyjbytzpsl0wg9h5mK+k2a1Yd4OQfFBWITSTvZ8iKWB2lgb2VwmVc
+w3rVPUE62JmVeLZSt5igPp/7ygqaiMWbFOn9I5G8Nl0YDgo8J8uEFNgbUobNcy/l
+8C13VTHp1DIi0GcEaKLBd40tywj49BtpsSwP7PI3kU+1enizPu1KLKZZhtXHSfu9
+imxUu+WktNgZUzhbhnhyFdNK94xIwlp/0gQfA09hFwWquc5snF7rZFI+ZqzO2FQq
+Fm5sHfnR4DJge4hrKyX+hB3nlqpa4NMXMJa0ZzYu8IA4PPNUbl/9IO+sOSh1GNxa
+umkJi4xGfu2SzEjFG5Ny
+=v7Zp
+-----END PGP SIGNATURE-----
+
+--Sig_/WkksWX0=7dNSbjP8muOd0He--
