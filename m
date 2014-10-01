@@ -1,108 +1,80 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: Re: [PATCH net-next v6 2/2] bonding: Simplify the xmit function for
- modes that use xmit_hash
-Date: Wed, 01 Oct 2014 12:08:19 +0200
-Message-ID: <542BD293.5090404@redhat.com>
-References: <1412152711-12646-1-git-send-email-maheshb@google.com>
+From: Roger Quadros <rogerq@ti.com>
+Subject: Re: [PATCH v2 2/3] net: can: c_can: Add syscon/regmap RAMINIT mechanism
+Date: Wed, 1 Oct 2014 13:12:55 +0300
+Message-ID: <542BD3A7.5060200@ti.com>
+References: <1410273070-22485-1-git-send-email-rogerq@ti.com> <1410273070-22485-3-git-send-email-rogerq@ti.com> <20140930132650.GN1325@katana> <542AB137.30507@ti.com> <20140930135226.GO1325@katana> <542AB6E9.9000907@ti.com> <20140930141909.GP1325@katana> <542ABC90.7010900@pengutronix.de> <20140930144950.GQ1325@katana> <542AC5B2.9040406@pengutronix.de> <20140930152550.GR1325@katana> <542AD483.2020808@pengutronix.de> <542BBF3F.2040803@ti.com> <542BBFBE.90406@pengutronix.de> <542BC42F.2010406@ti.com> <542BD116.4090809@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Maciej Zenczykowski <maze@google.com>
-To: Mahesh Bandewar <maheshb@google.com>,
-	Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43362 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751131AbaJAKI2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Oct 2014 06:08:28 -0400
-In-Reply-To: <1412152711-12646-1-git-send-email-maheshb@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <wg@grandegger.com>, <tony@atomide.com>, <tglx@linutronix.de>,
+	<mugunthanvnm@ti.com>, <george.cherian@ti.com>, <balbi@ti.com>,
+	<nsekhar@ti.com>, <nm@ti.com>,
+	<sergei.shtylyov@cogentembedded.com>, <linux-omap@vger.kernel.org>,
+	<linux-can@vger.kernel.org>, <netdev@vger.kernel.org>
+To: Marc Kleine-Budde <mkl@pengutronix.de>,
+	Wolfram Sang <wsa@the-dreams.de>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <542BD116.4090809@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 01/10/14 10:38, Mahesh Bandewar wrote:
-> Earlier change to use usable slave array for TLB mode had an additional
-> performance advantage. So extending the same logic to all other modes
-> that use xmit-hash for slave selection (viz 802.3AD, and XOR modes).
-> Also consolidating this with the earlier TLB change.
->
-> The main idea is to build the usable slaves array in the control path
-> and use that array for slave selection during xmit operation.
->
-> Measured performance in a setup with a bond of 4x1G NICs with 200
-> instances of netperf for the modes involved (3ad, xor, tlb)
-> cmd: netperf -t TCP_RR -H <TargetHost> -l 60 -s 5
->
-> Mode        TPS-Before   TPS-After
->
-> 802.3ad   : 468,694      493,101
-> TLB (lb=0): 392,583      392,965
-> XOR       : 475,696      484,517
->
-> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
-> ---
-> v1:
->    (a) If bond_update_slave_arr() fails to allocate memory, it will overwrite
->        the slave that need to be removed.
->    (b) Freeing of array will assign NULL (to handle bond->down to bond->up
->        transition gracefully.
->    (c) Change from pr_debug() to pr_err() if bond_update_slave_arr() returns
->        failure.
->    (d) XOR: bond_update_slave_arr() will consider mii-mon, arp-mon cases and
->        will populate the array even if these parameters are not used.
->    (e) 3AD: Should handle the ad_agg_selection_logic correctly.
-> v2:
->    (a) Removed rcu_read_{un}lock() calls from array manipulation code.
->    (b) Slave link-events now refresh array for all these modes.
->    (c) Moved free-array call from bond_close() to bond_uninit().
-> v3:
->    (a) Fixed null pointer dereference.
->    (b) Removed bond->lock lockdep dependency.
-> v4:
->    (a) Made to changes to comply with Nikolay's locking changes
->    (b) Added a work-queue to refresh slave-array when RTNL is not held
->    (c) Array refresh happens ONLY with RTNL now.
->    (d) alloc changed from GFP_ATOMIC to GFP_KERNEL
-> v5:
->    (a) Consolidated all delayed slave-array updates at one place in
->        3ad_state_machine_handler()
-> v6:
->    (a) Free slave array when there is no active aggregator
->
->   drivers/net/bonding/bond_3ad.c  | 140 +++++++++++------------------
->   drivers/net/bonding/bond_alb.c  |  51 ++---------
->   drivers/net/bonding/bond_alb.h  |   8 --
->   drivers/net/bonding/bond_main.c | 192 +++++++++++++++++++++++++++++++++++++---
->   drivers/net/bonding/bonding.h   |  10 +++
->   5 files changed, 249 insertions(+), 152 deletions(-)
->
-<<<snip>>>
-> @@ -3869,6 +4029,12 @@ static void bond_uninit(struct net_device *bond_dev)
->   		__bond_release_one(bond_dev, slave->dev, true);
->   	netdev_info(bond_dev, "Released all slaves\n");
->
-> +	arr = rtnl_dereference(bond->slave_arr);
-> +	if (arr) {
-> +		kfree_rcu(arr, rcu);
-> +		RCU_INIT_POINTER(bond->slave_arr, NULL);
-> +	}
-> +
->   	list_del(&bond->bond_list);
->
->   	bond_debug_unregister(bond);
-<<<snip>>>
-I'm fine with this version, just one last question about something I just 
-noticed in the hunk above:
-You first call kfree_rcu() and then RCU_INIT_POINTER(). This feels wrong as the 
-currently used slave_arr can get freed before it's set to NULL if we get 
-preempted after the kfree_rcu(). Now, I know it's not really a problem because 
-at this point the bond device has been closed and shouldn't operate, but just in 
-case I think it'd be nice to first NULL it and call kfree_rcu() after that.
+On 10/01/2014 01:01 PM, Marc Kleine-Budde wrote:
+> On 10/01/2014 11:06 AM, Roger Quadros wrote:
+>> On 10/01/2014 11:47 AM, Marc Kleine-Budde wrote:
+>>> On 10/01/2014 10:45 AM, Roger Quadros wrote:
+>>>> On 09/30/2014 07:04 PM, Marc Kleine-Budde wrote:
+>>>>> On 09/30/2014 05:25 PM, Wolfram Sang wrote:
+>>>>>>
+>>>>>>> Yes, but syscon_regmap_lookup_by_phandle() doesn't need any support for
+>>>>>>> additional parameters. Have a look at:
+>>>>>>>
+>>>>>>> drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
+>>>>>>>
+>>>>>>> First get the regmap, then the 1st argument is the offset in the regmap,
+>>>>>>> the 2nd and 3rd could be the bits.
+>>>>>>
+>>>>>> So, for one driver the extra arguments are: <reg> <start_bit> <stop_bit>
+>>>>>> For another driver (the stmmac example): <reg_offset> <reg_shift>
+>>>>>
+>>>>> The DCAN's "reg" is a "reg_offset" as in the stmmc.
+>>>>>
+>>>>> Roger, can we derive both start and done bit from a common reg_shift?
+>>>>
+>>>> I'm sorry I didn't understand what you meant.
+>>>>
+>>>> <&syscon_phandl> <reg offset> <start bit> <stop bit> should work well for us.
+>>>> Even though reg offset is the same for both the DCAN instances.
+>>>
+>>> What's start bit and stop bit for instance 0 and 1 on that SoC that has
+>>> two instances?
+>>>
+>>
+>> we have 3 SoCs at the moment, all have 2 DCAN instances.
+>>
+>> AM33xx & AM43xx
+>> instance	start	stop
+>> 1		0	8
+>> 2		1	9	
+> 
+> If we use a 0-based numbering for the instances:
+> instance	start		stop
+> 0		(0 << instance)	(8 << instance)
+> 1		(0 << instance)	(8 << instance)
+> 
 
-Thanks for all your hard work on this.
+How does the instance number get set? What happens on boards where the first instance is unused
+while the second one is in use?
 
-Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+>> DRA7xx
+>> instance	start	stop
+>> 1		3	1
+>> 2		5	2
+>                 ^
+> 5 or 4?
+
+Unfortunately it is 5 ;)
+We have display IP related bit in between 3 and 5 :P
+
+cheers,
+-roger
+
