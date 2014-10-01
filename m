@@ -1,33 +1,26 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [PATCH net-next 2/2] sunvnet: vnet_start_xmit() must hold a
- refcnt on port.
-Date: Wed, 1 Oct 2014 15:44:03 -0400
-Message-ID: <20141001194403.GM17706@oracle.com>
-References: <20141001185622.GI17706@oracle.com>
- <1412190324.16704.57.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/1 net-next] inet: frags: add __init to
+ ip4_frags_ctl_register
+Date: Wed, 01 Oct 2014 15:46:31 -0400 (EDT)
+Message-ID: <20141001.154631.1628551566252748883.davem@davemloft.net>
+References: <1412183937-16055-1-git-send-email-fabf@skynet.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, raghuram.kothakota@oracle.com,
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
 	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:36955 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750945AbaJAToL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2014 15:44:11 -0400
-Content-Disposition: inline
-In-Reply-To: <1412190324.16704.57.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: fabf@skynet.be
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1412183937-16055-1-git-send-email-fabf@skynet.be>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On (10/01/14 12:05), Eric Dumazet wrote:
+From: Fabian Frederick <fabf@skynet.be>
+Date: Wed,  1 Oct 2014 19:18:57 +0200
+
+> ip4_frags_ctl_register is only called by __init ipfrag_init
 > 
-> Hmpff... This calls for rcu protection here !
-> 
+> Signed-off-by: Fabian Frederick <fabf@skynet.be>
 
-I did consider that, but given that the lists containing the ports are
-accessed in multiple contexts, some of which can sleep, and given that
-the vnet port is similar in spirit to the net_device, I followed the
-net_device model of dev_put etc.
-
---Sowmini
+Applied.
