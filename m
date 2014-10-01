@@ -1,59 +1,40 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH] net: Add ndo_gso_check
-Date: Wed, 1 Oct 2014 14:12:34 -0700
-Message-ID: <CAEP_g=8mYKypVS-MJeGnY4BGfPiu4zXRn-9--j5kntSFBe8Lnw@mail.gmail.com>
-References: <1411962607-27878-1-git-send-email-therbert@google.com>
- <CAJ3xEMi-TRXevenx87UM7JnKqRQQATW4MBjbz8JdnQE9gk3KZw@mail.gmail.com>
- <CA+mtBx8r05=qs2J58LFq56762tFB7wF4Dsr3C5TC9w5qQP5jGw@mail.gmail.com>
- <CAJ3xEMhf6b75TQDFqEPMSXCpL9ToWG1q0OMPtrEuHNSm=-PSwQ@mail.gmail.com>
- <CA+mtBx_6HcZh5Ys1FJFBXkZ2bWX1gP6bTcjY7gbR6RG_TOy50Q@mail.gmail.com>
- <CAJ3xEMi0biCWTNtLOJ=0HWZYjOWi6pN2bw2=EWajp6XnpoyVRw@mail.gmail.com>
- <CA+mtBx-sP6g9hXAYGfHKCPYkCtjgCFM0srueh1uhoNnC2ACr1g@mail.gmail.com> <CAJ3xEMhc-97+3ZDwqXzX2N+=voO4QvJ5_YXn3sp8r8E9YyqotQ@mail.gmail.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: Why include/net/tcp_states.h is not exported to user-space?
+Date: Wed, 1 Oct 2014 14:26:39 -0700
+Message-ID: <CAHA+R7MG9AG0Poq3SdBro5+5VSaqWZVGsr1GRWVwA1-EFmFeqQ@mail.gmail.com>
+References: <CAHA+R7MDGKA1Z-1ytk8-+9XaKNcW+kG7UBn8drhdbLJeQYBCyQ@mail.gmail.com>
+	<20141001172500.GH2799@kernel.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Tom Herbert <therbert@google.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Thomas Graf <tgraf@suug.ch>,
-	Pravin Shelar <pshelar@nicira.com>,
-	Andy Zhou <azhou@nicira.com>
-To: Or Gerlitz <gerlitz.or@gmail.com>
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Arnaldo Carvalho de Melo <acme@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na6sys009bog020.obsmtp.com ([74.125.150.80]:33276 "HELO
-	na6sys009bog020.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751598AbaJAVM5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2014 17:12:57 -0400
-Received: by mail-qa0-f53.google.com with SMTP id v10so893301qac.26
-        for <netdev@vger.kernel.org>; Wed, 01 Oct 2014 14:12:56 -0700 (PDT)
-In-Reply-To: <CAJ3xEMhc-97+3ZDwqXzX2N+=voO4QvJ5_YXn3sp8r8E9YyqotQ@mail.gmail.com>
+Received: from mail-la0-f45.google.com ([209.85.215.45]:41655 "EHLO
+	mail-la0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751738AbaJAV0l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2014 17:26:41 -0400
+Received: by mail-la0-f45.google.com with SMTP id q1so1219273lam.18
+        for <netdev@vger.kernel.org>; Wed, 01 Oct 2014 14:26:39 -0700 (PDT)
+In-Reply-To: <20141001172500.GH2799@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 1, 2014 at 1:58 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
->> Also, this does not benefit the stack or drivers that already support
->> generic SKB_GSO_UDP_TUNNEL mechanism.
+On Wed, Oct 1, 2014 at 10:25 AM, Arnaldo Carvalho de Melo
+<acme@kernel.org> wrote:
+> Em Tue, Sep 30, 2014 at 11:12:04AM -0700, Cong Wang escreveu:
+>> These states are needed for user-space to specify ->idiag_states.
+>> Currently both libnl and ss make their own copy of these definitions.
+>> Of course, new sock diag is not just limited to TCP, so we probably
+>> need to rename them to SS_* before exporting them.
+>>
+>> I can send a patch if you agree.
 >
-> But again, we have 4-5 drivers that are
->
-> 1. upstream
-> 2. support GSO offloading under VXLAN
-> 3. advertize GSO_UDP_TUNNEL
->
-> As a starting point to stabilize the system (3.18 which has FOU and
-> friends, merge window coming up while we are @ LPC) we can
->
-> 1. add GSO_UDP_VXLAN_TUNNEL type
->
-> 2. ask each maintainer to decide if they want to advertize the generic tunnel
-> or only the vxlan specific one
->
-> 3. color udp tunneled skb's with the tunnel type being vxlan or something else
+> One would have to check what are the current best practices for doing
+> that, i.e. probably this would have to go via
+> include/uapi//linux/tcp_states.h? Or take the time and create a new
+> header for the inet_diag.h stuff as this is not TCP specific for quite a
+> while?
 
-There is no point in doing this. We should create a generic mechanism
-that allows for drivers to assert some restrictions. For existing
-drivers we can just provide an implementation of restrictions that is
-pretty conservative and ask driver writers to take a look and loosen
-it if possible. This is both cleaner and just as safe.
+Exactly. The problem is, even in kernel, other protocols already use
+these TCP_* states. Maybe we should really define SS_* first, and then
+let each protocol define their own based on SS_*, including inet_diag?
