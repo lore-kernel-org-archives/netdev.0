@@ -1,93 +1,88 @@
-From: Ulf Samuelsson <netdev@emagii.com>
-Subject: netlink NETLINK_ROUTE  failure & Can the kernel really handle IPv6
- properly
-Date: Wed, 01 Oct 2014 22:28:46 +0200
-Message-ID: <542C63FE.9080807@emagii.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [PATCH] net: Add ndo_gso_check
+Date: Wed, 1 Oct 2014 23:58:02 +0300
+Message-ID: <CAJ3xEMhc-97+3ZDwqXzX2N+=voO4QvJ5_YXn3sp8r8E9YyqotQ@mail.gmail.com>
+References: <1411962607-27878-1-git-send-email-therbert@google.com>
+	<CAJ3xEMi-TRXevenx87UM7JnKqRQQATW4MBjbz8JdnQE9gk3KZw@mail.gmail.com>
+	<CA+mtBx8r05=qs2J58LFq56762tFB7wF4Dsr3C5TC9w5qQP5jGw@mail.gmail.com>
+	<CAJ3xEMhf6b75TQDFqEPMSXCpL9ToWG1q0OMPtrEuHNSm=-PSwQ@mail.gmail.com>
+	<CA+mtBx_6HcZh5Ys1FJFBXkZ2bWX1gP6bTcjY7gbR6RG_TOy50Q@mail.gmail.com>
+	<CAJ3xEMi0biCWTNtLOJ=0HWZYjOWi6pN2bw2=EWajp6XnpoyVRw@mail.gmail.com>
+	<CA+mtBx-sP6g9hXAYGfHKCPYkCtjgCFM0srueh1uhoNnC2ACr1g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Linux Netdev List <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Thomas Graf <tgraf@suug.ch>,
+	Pravin Shelar <pshelar@nicira.com>,
+	Andy Zhou <azhou@nicira.com>
+To: Tom Herbert <therbert@google.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	John Fastabend <john.r.fastabend@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mxf5.bahnhof.se ([213.80.101.29]:43483 "EHLO mxf5.bahnhof.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751208AbaJAU46 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Oct 2014 16:56:58 -0400
-Received: from localhost (mxf5.local [127.0.0.1])
-	by mxf5-reinject (Postfix) with ESMTP id 9C1E590A16D
-	for <netdev@vger.kernel.org>; Wed,  1 Oct 2014 22:28:57 +0200 (CEST)
-Received: from mxf5.bahnhof.se ([127.0.0.1])
-	by localhost (mxf5.bahnhof.se [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id 6jUjzhtNMvob for <netdev@vger.kernel.org>;
-	Wed,  1 Oct 2014 22:28:49 +0200 (CEST)
-Received: from smtp-auth3.bahnhof.se (unknown [195.178.168.26])
-	by mxf5.bahnhof.se (Postfix) with ESMTP id F2EE690A16A
-	for <netdev@vger.kernel.org>; Wed,  1 Oct 2014 22:28:48 +0200 (CEST)
-Received: from [10.175.196.210] (h-169-18.a454.priv.bahnhof.se [37.123.169.18])
-	(Authenticated sender: mb782575)
-	by smtp-auth3.bahnhof.se (Postfix) with ESMTPA id 95142285EF
-	for <netdev@vger.kernel.org>; Wed,  1 Oct 2014 22:28:47 +0200 (CEST)
+Received: from mail-oi0-f54.google.com ([209.85.218.54]:57448 "EHLO
+	mail-oi0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751208AbaJAU6D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2014 16:58:03 -0400
+Received: by mail-oi0-f54.google.com with SMTP id v63so924789oia.27
+        for <netdev@vger.kernel.org>; Wed, 01 Oct 2014 13:58:02 -0700 (PDT)
+In-Reply-To: <CA+mtBx-sP6g9hXAYGfHKCPYkCtjgCFM0srueh1uhoNnC2ACr1g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, Sep 30, 2014 at 6:34 PM, Tom Herbert <therbert@google.com> wrote:
+> On Tue, Sep 30, 2014 at 7:30 AM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+>> On Tue, Sep 30, 2014 at 12:38 AM, Tom Herbert <therbert@google.com> wrote:
+>>> On Mon, Sep 29, 2014 at 2:10 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+>>>> On Mon, Sep 29, 2014 at 11:53 PM, Tom Herbert <therbert@google.com> wrote:
+>>>>> On Mon, Sep 29, 2014 at 12:59 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+>>>>>> On Mon, Sep 29, 2014 at 6:50 AM, Tom Herbert <therbert@google.com> wrote:
 
-Trying to write a kernel module handing NETLINK_ROUTE messages for a 
-3.4.x kernel.
+>> I'm not sure how exactly this (inner protocol being Ethernet and inner
+>> header lengths)
+>> is going to work to differentiate between VXLAN and NVGRE (or @ least
+>> the GRE-ing done by OVS on guest Ethernet frames).
 
-After building the module, it fails to load on my PowerPC P2020 target.
-Reason is that the "netlink_kernel_create" fails.
+> GSO processing for VXLAN and NVGRE should be identical. They both have
+> a four byte header that needs to be copied per packet and both only
+> carry Ethernet frames.
+
+I know and indeed in the mlx4 case, the HW (ConnectX3-pro NIC) that
+supports VXLAN offloads also supports NVGRE, but generally speaking, I
+can't commit for other vendors HW/driver which support VXLAN today.
 
 
+> This would be equivalent to adding more protocol specific GSO feature
+> bits. I still don't see how this will scale. The number of protocols
+> that we might want to encapsulate over UDP is vast-- even before FOU
+> adding possibility of encapsulating any IP protocol in UDP. And, as
+> already pointed out, devices might have other arbitrary limitations
+> such as length of inner headers that wouldn't easily be represented in features.
 
----------------------------------------
-struct *sock    nls;
 
-...
-static int __init my_init (...)
-{
-     ...
-     nls = netlink_kernel_create( &init_net, NETLINK_ROUTE, 0, my_rcv, 
-NULL, THIS_MODULE);
-     if (!nls) {
-             return -ENOMEM;
-     }
-...
-}
-----------------------------------------
-netlick_kernel_create returns 0, so the kernel module fails.
+> Also, this does not benefit the stack or drivers that already support
+> generic SKB_GSO_UDP_TUNNEL mechanism.
 
-Is there anything wrong wth the call to netlink_kernel_create ?
+But again, we have 4-5 drivers that are
 
-Goggling show that some code uses "__net_init".
-Not sure what that means.
+1. upstream
+2. support GSO offloading under VXLAN
+3. advertize GSO_UDP_TUNNEL
 
-Other code uses a mutex, instead of NULL.
-Does NETLINK_ROUTE require a mutex?
+As a starting point to stabilize the system (3.18 which has FOU and
+friends, merge window coming up while we are @ LPC) we can
 
-All ideas are welcome-
+1. add GSO_UDP_VXLAN_TUNNEL type
 
-==============
-BTW, the problem I am trying to solve is how to connect to an I/F with 
-an IPv6 link-local address.
+2. ask each maintainer to decide if they want to advertize the generic tunnel
+or only the vxlan specific one
 
-An existing kernel module waits for a NETDEV_UP event, and then tries to 
-communicate
-with the link-local address.
+3. color udp tunneled skb's with the tunnel type being vxlan or something else
 
-This will fail, because (according to a colleague) the I/F enters a 
-"tentative" state,
-where it is trying to decide if it is unique or not.
-It will remain in that state for 1-2 seconds, and only afterwards is the 
-link-local address
-available for normal use.
+have today's code that decides if to do SW GSO or HW GSO choose according
+to the skb color and the driver posted value.
 
-The guys writing the module, claim that the kernel is using NETDEV_UP.
-There is very little code in the kernel using NETLINK_ROUTE, even in 
-latest stable.
-It is using NETDEV_UP.
+> Would any other driver maintainers like to chime in on this?
 
-If my colleague is right, the kernel really cannot handle IPv6 
-link-local addresses properly.
-
--- 
-Best Regards
-Ulf Samuelsson
+Alex? John?
