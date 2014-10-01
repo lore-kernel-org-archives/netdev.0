@@ -1,61 +1,110 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] tcp: abort orphan sockets stalling on zero
- window probes
-Date: Wed, 01 Oct 2014 16:28:18 -0400 (EDT)
-Message-ID: <20141001.162818.2113231293600688267.davem@davemloft.net>
-References: <1412022038-14408-1-git-send-email-ycheng@google.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [net-next PATCH V5] qdisc: bulk dequeue support for qdiscs with
+ TCQ_F_ONETXQUEUE
+Date: Wed, 1 Oct 2014 22:32:29 +0200
+Message-ID: <20141001223229.6cbaac07@redhat.com>
+References: <20140930085114.24043.81310.stgit@dragon>
+	<542A8EF9.10403@mojatatu.com>
+	<20140930.142038.235338672810639160.davem@davemloft.net>
+	<542BFEF3.7020302@mojatatu.com>
+	<CA+mtBx8rVu9FXtnc18n22L9LP=t=3Pso7U2yvvLcnny57w8aXg@mail.gmail.com>
+	<542C1F1F.90404@mojatatu.com>
+	<20141001192840.5679a671@redhat.com>
+	<542C4E0D.4050404@mojatatu.com>
+	<20141001214700.18b16387@redhat.com>
+	<542C5E8B.7070204@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, andrey.dmitrov@oktetlabs.ru,
-	ncardwell@google.com, netdev@vger.kernel.org
-To: ycheng@google.com
+Cc: Tom Herbert <therbert@google.com>,
+	David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Florian Westphal <fw@strlen.de>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Dave Taht <dave.taht@gmail.com>,
+	Toke =?UTF-8?B?SMO4aWxhbmQtSsO4cmdlbnNl?= =?UTF-8?B?bg==?=
+	<toke@toke.dk>, brouer@redhat.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36378 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751573AbaJAU2V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2014 16:28:21 -0400
-In-Reply-To: <1412022038-14408-1-git-send-email-ycheng@google.com>
+Received: from mx1.redhat.com ([209.132.183.28]:9190 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751208AbaJAUcw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Oct 2014 16:32:52 -0400
+In-Reply-To: <542C5E8B.7070204@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yuchung Cheng <ycheng@google.com>
-Date: Mon, 29 Sep 2014 13:20:38 -0700
+On Wed, 01 Oct 2014 16:05:31 -0400
+Jamal Hadi Salim <jhs@mojatatu.com> wrote:
 
-> Currently we have two different policies for orphan sockets
-> that repeatedly stall on zero window ACKs. If a socket gets
-> a zero window ACK when it is transmitting data, the RTO is
-> used to probe the window. The socket is aborted after roughly
-> tcp_orphan_retries() retries (as in tcp_write_timeout()).
+> On 10/01/14 15:47, Jesper Dangaard Brouer wrote:
 > 
-> But if the socket was idle when it received the zero window ACK,
-> and later wants to send more data, we use the probe timer to
-> probe the window. If the receiver always returns zero window ACKs,
-> icsk_probes keeps getting reset in tcp_ack() and the orphan socket
-> can stall forever until the system reaches the orphan limit (as
-> commented in tcp_probe_timer()). This opens up a simple attack
-> to create lots of hanging orphan sockets to burn the memory
-> and the CPU, as demonstrated in the recent netdev post "TCP
-> connection will hang in FIN_WAIT1 after closing if zero window is
-> advertised." http://www.spinics.net/lists/netdev/msg296539.html
+> >
+> > Answer is yes.  It is very easy with simple netperf TCP_STREAM to cause
+> > queueing >1 packet in the qdisc layer.
 > 
-> This patch follows the design in RTO-based probe: we abort an orphan
-> socket stalling on zero window when the probe timer reaches both
-> the maximum backoff and the maximum RTO. For example, an 100ms RTT
-> connection will timeout after roughly 153 seconds (0.3 + 0.6 +
-> .... + 76.8) if the receiver keeps the window shut. If the orphan
-> socket passes this check, but the system already has too many orphans
-> (as in tcp_out_of_resources()), we still abort it but we'll also
-> send an RST packet as the connection may still be active.
-> 
-> In addition, we change TCP_USER_TIMEOUT to cover (life or dead)
-> sockets stalled on zero-window probes. This changes the semantics
-> of TCP_USER_TIMEOUT slightly because it previously only applies
-> when the socket has pending transmission.
-> 
-> Signed-off-by: Yuchung Cheng <ycheng@google.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Signed-off-by: Neal Cardwell <ncardwell@google.com>
-> Reported-by: Andrey Dmitrov <andrey.dmitrov@oktetlabs.ru>
+> If that is the case, I withdraw any doubts i had.
+> Can you please specify this in your commit logs for patch 0?
 
-Applied, thanks a lot.
+I'll try to make it more explicit.
+Will resubmit patchset shortly...
+
+Notice it is not difficult cause a queue to form, but it is tricky (not
+difficult) to correctly test this patchset.  Perhaps you misread my
+statement earlier as "it was difficult to test and cause a queue to form"?
+
+
+> > If tuned (according to my blog,
+> > unloading netfilter etc.) then a single netperf TCP_STREAM will max out
+> > 10Gbit/s and cause a standing queue.
+> >
+> 
+> You should describe such tuning in the patch log (hard to read
+> blogs for more than 30 seconds; write a paper if you want to provide
+> more details).
+
+I think you could read this blog in 30 sec:
+ http://netoptimizer.blogspot.dk/2014/04/basic-tuning-for-network-overload.html
+
+My cover letter and testing section... will take you longer that 30
+sec, it have grown quite large (and Eric will not even read it :-P ;-))
+
+Believe or not, I've actually restricted and reduced the testing
+section.  If you want the hole verbose version of my testing for the
+upcoming V6 patch, look at this:
+
+ http://people.netfilter.org/hawk/qdisc/measure12_internal_V6_patch/
+ http://people.netfilter.org/hawk/qdisc/measure13_V6_patch_NObulk/
+
+And use netperf-wrapper to dive into the data.
+A quick setup guide:
+ http://netoptimizer.blogspot.dk/2014/09/mini-tutorial-for-netperf-wrapper-setup.html
+
+
+> > I'm monitoring backlog of qdiscs, and I always see >1 backlog, I never
+> > saw a standing queue of 1 packet in my testing.  Either the backlog
+> > area is high 100-200 packets, or 0 backlog.  (With fake pktgen/trafgen
+> > style tests, it's possible to cause 1000 backlog).
+> 
+> It would be nice to actually collect such stats. Monitoring the backlog
+> via dumping qdisc stats is a good start - but actually keeping traces
+> of average bulk size is more useful.
+
+I usually also monitors the BQL limits during these tests.
+
+ grep -H . /sys/class/net/eth4/queues/tx-*/byte_queue_limits/{inflight,limit}
+
+To Toke:
+ Perhaps we could convince Toke, to add a netperf-wrapper recorder for
+the BQL inflight and limit?  (It would be really cool to plot together)
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
