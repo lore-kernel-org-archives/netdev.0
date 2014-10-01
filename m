@@ -1,54 +1,50 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] net: dsa: Fix build warning for !PM_SLEEP
-Date: Wed, 01 Oct 2014 11:13:54 -0700
-Message-ID: <542C4462.8060704@gmail.com>
-References: <1412164740-32452-1-git-send-email-thierry.reding@gmail.com>
+From: Prashant <prashant@broadcom.com>
+Subject: Re: [PATCH net v6 4/4] tg3: Fix tx_pending checks for tg3_tso_bug
+Date: Wed, 1 Oct 2014 11:29:43 -0700
+Message-ID: <542C4817.60301@broadcom.com>
+References: <1409960135.18724.33.camel@prashant>		<1409961810.26422.149.camel@edumazet-glaptop2.roam.corp.google.com>		<20140905.171306.1460013939580748402.davem@davemloft.net>	 <20140905.213902.1124686922505260665.davem@davemloft.net>	 <542B71B1.4020103@broadcom.com> <1412137489.16704.26.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="UTF-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Thierry Reding <thierry.reding@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>, <bpoirier@suse.de>,
+	<mchan@broadcom.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1412164740-32452-1-git-send-email-thierry.reding@gmail.com>
+In-Reply-To: <1412137489.16704.26.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/01/2014 04:59 AM, Thierry Reding wrote:
-> From: Thierry Reding <treding@nvidia.com>
-> 
-> The dsa_switch_suspend() and dsa_switch_resume() functions are only used
-> when PM_SLEEP is enabled, so they need #ifdef CONFIG_PM_SLEEP protection
-> to avoid a compiler warning.
-> 
-> Signed-off-by: Thierry Reding <treding@nvidia.com>
 
-Acked-by: Florian Fainelli <f.fainelli@gmail.com>
 
-Thanks Thierry!
+On 9/30/2014 9:24 PM, Eric Dumazet wrote:
+> On Tue, 2014-09-30 at 20:14 -0700, Prashant wrote:
+>
+>> Sorry about the late reply, out of all the HW bug conditions checked in
+>> tg3_tx_frag_set() the most frequently hit condition is the short 8 byte
+>> dma bug, where the chip cannot handle TX descriptors whose data buffer
+>> is 8 bytes or less. Most of the LSO skb's given to the driver has their
+>> fragments filled upto PAGE_SIZE (expect the last fragment depending on
+>> skb->len). And if such a LSO skb's last fragment meets the 8 bytes HW
+>> bug condition the above routine will not help workaround this particular
+>> case.
+>
+> Thats pretty easy to work around.
+>
+> Say rebuilt skb has N frags (N > 1 given your description)
+>
+> They are numbered 0, ... N-2, N-1
+>
+> Instead of filling N-2 completely, fill it to PAGE_SIZE-8, so that last
+> frag has at least 8 bytes in it.
 
-> ---
->  net/dsa/dsa.c | 2 ++
->  1 file changed, 2 insertions(+)
-> 
-> diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-> index 6905f2d84c44..22f34cf4cb27 100644
-> --- a/net/dsa/dsa.c
-> +++ b/net/dsa/dsa.c
-> @@ -238,6 +238,7 @@ static void dsa_switch_destroy(struct dsa_switch *ds)
->  {
->  }
->  
-> +#ifdef CONFIG_PM_SLEEP
->  static int dsa_switch_suspend(struct dsa_switch *ds)
->  {
->  	int i, ret = 0;
-> @@ -280,6 +281,7 @@ static int dsa_switch_resume(struct dsa_switch *ds)
->  
->  	return 0;
->  }
-> +#endif
->  
->  
->  /* link polling *************************************************************/
-> 
+definitely it can be tweaked to match what is needed with additional 
+workarounds.
+
+>
+> Also take a look at commit 2e4e44107176d552f8bb1bb76053e850e3809841
+> ("net: add alloc_skb_with_frags() helper")
+>
+>
+This helper is much modular/flexible than the initial proposed one. Thanks.
+>
