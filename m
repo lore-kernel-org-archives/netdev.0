@@ -1,52 +1,98 @@
-From: Fabio Estevam <festevam@gmail.com>
-Subject: Re: [PATCH] net: dsa: Fix build warning for !PM_SLEEP
-Date: Wed, 1 Oct 2014 09:19:24 -0300
-Message-ID: <CAOMZO5DJrvO=mpUEqk+GWFGGU_eNEfn=+XkoL6cqYv+c4GSyZw@mail.gmail.com>
-References: <1412164740-32452-1-git-send-email-thierry.reding@gmail.com>
+From: Sathya Perla <Sathya.Perla@Emulex.Com>
+Subject: RE: [net-next v3 20/29] fm10k: Add support for netdev offloads
+Date: Wed, 1 Oct 2014 12:22:18 +0000
+Message-ID: <CF9D1877D81D214CB0CA0669EFAE020C57B6EE4D@CMEXMB1.ad.emulex.com>
+References: <1411471017-28213-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1411471017-28213-21-git-send-email-jeffrey.t.kirsher@intel.com>
+ <CAJ3xEMhv-cS+vShPjTvOuWP182wf=zubNU=_p08DSkNv9W2C-w@mail.gmail.com>
+ <542BED4F.9070900@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>
-To: Thierry Reding <thierry.reding@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"nhorman@redhat.com" <nhorman@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	"jogreene@redhat.com" <jogreene@redhat.com>,
+	Tom Herbert <therbert@google.com>
+To: Alexander Duyck <alexander.h.duyck@intel.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f177.google.com ([209.85.217.177]:38691 "EHLO
-	mail-lb0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751063AbaJAMT0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2014 08:19:26 -0400
-In-Reply-To: <1412164740-32452-1-git-send-email-thierry.reding@gmail.com>
+Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:12419 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750768AbaJAMWo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2014 08:22:44 -0400
+In-Reply-To: <542BED4F.9070900@intel.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 1, 2014 at 8:59 AM, Thierry Reding <thierry.reding@gmail.com> wrote:
-> From: Thierry Reding <treding@nvidia.com>
->
-> The dsa_switch_suspend() and dsa_switch_resume() functions are only used
-> when PM_SLEEP is enabled, so they need #ifdef CONFIG_PM_SLEEP protection
-> to avoid a compiler warning.
->
-> Signed-off-by: Thierry Reding <treding@nvidia.com>
-> ---
->  net/dsa/dsa.c | 2 ++
->  1 file changed, 2 insertions(+)
->
-> diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-> index 6905f2d84c44..22f34cf4cb27 100644
-> --- a/net/dsa/dsa.c
-> +++ b/net/dsa/dsa.c
-> @@ -238,6 +238,7 @@ static void dsa_switch_destroy(struct dsa_switch *ds)
->  {
->  }
->
-> +#ifdef CONFIG_PM_SLEEP
->  static int dsa_switch_suspend(struct dsa_switch *ds)
->  {
->         int i, ret = 0;
-> @@ -280,6 +281,7 @@ static int dsa_switch_resume(struct dsa_switch *ds)
->
->         return 0;
->  }
-> +#endif
-
-You could also mark them as __maybe_unused and avoid the ifdef.
+DQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IG5ldGRldi1vd25lckB2Z2Vy
+Lmtlcm5lbC5vcmcgW21haWx0bzpuZXRkZXYtDQo+IA0KPiBPbiAxMC8wMS8yMDE0IDAxOjMxIEFN
+LCBPciBHZXJsaXR6IHdyb3RlOg0KPiA+IE9uIFR1ZSwgU2VwIDIzLCAyMDE0IGF0IDI6MTYgUE0s
+IEplZmYgS2lyc2hlcg0KPiA+IDxqZWZmcmV5LnQua2lyc2hlckBpbnRlbC5jb20+IHdyb3RlOg0K
+PiA+PiBGcm9tOiBBbGV4YW5kZXIgRHV5Y2sgPGFsZXhhbmRlci5oLmR1eWNrQGludGVsLmNvbT4N
+Cj4gPj4gVGhpcyBwYXRjaCBhZGRzIHN1cHBvcnQgZm9yIGJhc2ljIG9mZmxvYWRzIGluY2x1ZGlu
+ZyBUU08sIFR4IGNoZWNrc3VtLCBSeA0KPiA+PiBjaGVja3N1bSwgUnggaGFzaCwgYW5kIHRoZSBz
+YW1lIGZlYXR1cmVzIGFwcGxpZWQgdG8gVlhMQU4vTlZHUkUNCj4gdHVubmVscy4NCj4gPg0KPiA+
+PiAtLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9mbTEway9mbTEwa19tYWluLmMNCj4g
+Pj4gKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvZm0xMGsvZm0xMGtfbWFpbi5jDQo+
+ID4gWy4uLl0NCj4gPj4gKyNkZWZpbmUgVlhMQU5fSExFTiAoc2l6ZW9mKHN0cnVjdCB1ZHBoZHIp
+ICsgOCkNCj4gPj4gK3N0YXRpYyBzdHJ1Y3QgZXRoaGRyICpmbTEwa19wb3J0X2lzX3Z4bGFuKHN0
+cnVjdCBza19idWZmICpza2IpDQo+ID4+ICt7DQo+ID4+ICsgICAgICAgc3RydWN0IGZtMTBrX2lu
+dGZjICppbnRlcmZhY2UgPSBuZXRkZXZfcHJpdihza2ItPmRldik7DQo+ID4+ICsgICAgICAgc3Ry
+dWN0IGZtMTBrX3Z4bGFuX3BvcnQgKnZ4bGFuX3BvcnQ7DQo+ID4+ICsNCj4gPj4gKyAgICAgICAv
+KiB3ZSBjYW4gb25seSBvZmZsb2FkIGEgdnhsYW4gaWYgd2UgcmVjb2duaXplIGl0IGFzIHN1Y2gg
+Ki8NCj4gPj4gKyAgICAgICB2eGxhbl9wb3J0ID0gbGlzdF9maXJzdF9lbnRyeV9vcl9udWxsKCZp
+bnRlcmZhY2UtPnZ4bGFuX3BvcnQsDQo+ID4+ICsgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICBzdHJ1Y3QgZm0xMGtfdnhsYW5fcG9ydCwgbGlzdCk7DQo+ID4+ICsN
+Cj4gPj4gKyAgICAgICBpZiAoIXZ4bGFuX3BvcnQpDQo+ID4+ICsgICAgICAgICAgICAgICByZXR1
+cm4gTlVMTDsNCj4gPj4gKyAgICAgICBpZiAodnhsYW5fcG9ydC0+cG9ydCAhPSB1ZHBfaGRyKHNr
+YiktPmRlc3QpDQo+ID4+ICsgICAgICAgICAgICAgICByZXR1cm4gTlVMTDsNCj4gPj4gKw0KPiA+
+PiArICAgICAgIC8qIHJldHVybiBvZmZzZXQgb2YgdWRwX2hkciBwbHVzIDggYnl0ZXMgZm9yIFZY
+TEFOIGhlYWRlciAqLw0KPiA+PiArICAgICAgIHJldHVybiAoc3RydWN0IGV0aGhkciAqKShza2Jf
+dHJhbnNwb3J0X2hlYWRlcihza2IpICsgVlhMQU5fSExFTik7DQo+ID4+ICt9DQo+ID4+ICsNCi4u
+Lg0KPiANCj4gPj4gK3N0YXRpYyBpbnQgZm0xMGtfdHNvKHN0cnVjdCBmbTEwa19yaW5nICp0eF9y
+aW5nLA0KPiA+PiArICAgICAgICAgICAgICAgICAgICBzdHJ1Y3QgZm0xMGtfdHhfYnVmZmVyICpm
+aXJzdCkNCj4gPj4gK3sNCj4gPj4gKyAgICAgICBzdHJ1Y3Qgc2tfYnVmZiAqc2tiID0gZmlyc3Qt
+PnNrYjsNCj4gPj4gKyAgICAgICBzdHJ1Y3QgZm0xMGtfdHhfZGVzYyAqdHhfZGVzYzsNCj4gPj4g
+KyAgICAgICB1bnNpZ25lZCBjaGFyICp0aDsNCj4gPj4gKyAgICAgICB1OCBoZHJsZW47DQo+ID4+
+ICsNCj4gPj4gKyAgICAgICBpZiAoc2tiLT5pcF9zdW1tZWQgIT0gQ0hFQ0tTVU1fUEFSVElBTCkN
+Cj4gPj4gKyAgICAgICAgICAgICAgIHJldHVybiAwOw0KPiA+PiArDQo+ID4+ICsgICAgICAgaWYg
+KCFza2JfaXNfZ3NvKHNrYikpDQo+ID4+ICsgICAgICAgICAgICAgICByZXR1cm4gMDsNCj4gPj4g
+Kw0KPiA+PiArICAgICAgIC8qIGNvbXB1dGUgaGVhZGVyIGxlbmd0aHMgKi8NCj4gPj4gKyAgICAg
+ICBpZiAoc2tiLT5lbmNhcHN1bGF0aW9uKSB7DQo+ID4+ICsgICAgICAgICAgICAgICBpZiAoIWZt
+MTBrX3R4X2VuY2FwX29mZmxvYWQoc2tiKSkNCj4gPj4gKyAgICAgICAgICAgICAgICAgICAgICAg
+Z290byBlcnJfdnhsYW47DQo+ID4+ICsgICAgICAgICAgICAgICB0aCA9IHNrYl9pbm5lcl90cmFu
+c3BvcnRfaGVhZGVyKHNrYik7DQo+ID4+ICsgICAgICAgfSBlbHNlIHsNCj4gPj4gKyAgICAgICAg
+ICAgICAgIHRoID0gc2tiX3RyYW5zcG9ydF9oZWFkZXIoc2tiKTsNCj4gPj4gKyAgICAgICB9DQo+
+ID4+ICsNCj4gPj4gKyAgICAgICAvKiBjb21wdXRlIG9mZnNldCBmcm9tIFNPRiB0byB0cmFuc3Bv
+cnQgaGVhZGVyIGFuZCBhZGQgaGVhZGVyIGxlbg0KPiAqLw0KPiA+PiArICAgICAgIGhkcmxlbiA9
+ICh0aCAtIHNrYi0+ZGF0YSkgKyAoKChzdHJ1Y3QgdGNwaGRyICopdGgpLT5kb2ZmIDw8IDIpOw0K
+PiA+PiArDQo+ID4+ICsgICAgICAgZmlyc3QtPnR4X2ZsYWdzIHw9IEZNMTBLX1RYX0ZMQUdTX0NT
+VU07DQo+ID4+ICsNCj4gPj4gKyAgICAgICAvKiB1cGRhdGUgZ3NvIHNpemUgYW5kIGJ5dGVjb3Vu
+dCB3aXRoIGhlYWRlciBzaXplICovDQo+ID4+ICsgICAgICAgZmlyc3QtPmdzb19zZWdzID0gc2ti
+X3NoaW5mbyhza2IpLT5nc29fc2VnczsNCj4gPj4gKyAgICAgICBmaXJzdC0+Ynl0ZWNvdW50ICs9
+IChmaXJzdC0+Z3NvX3NlZ3MgLSAxKSAqIGhkcmxlbjsNCj4gPj4gKw0KPiA+PiArICAgICAgIC8q
+IHBvcHVsYXRlIFR4IGRlc2NyaXB0b3IgaGVhZGVyIHNpemUgYW5kIG1zcyAqLw0KPiA+PiArICAg
+ICAgIHR4X2Rlc2MgPSBGTTEwS19UWF9ERVNDKHR4X3JpbmcsIHR4X3JpbmctPm5leHRfdG9fdXNl
+KTsNCj4gPj4gKyAgICAgICB0eF9kZXNjLT5oZHJsZW4gPSBoZHJsZW47DQo+ID4+ICsgICAgICAg
+dHhfZGVzYy0+bXNzID0gY3B1X3RvX2xlMTYoc2tiX3NoaW5mbyhza2IpLT5nc29fc2l6ZSk7DQo+
+ID4+ICsNCj4gPj4gKyAgICAgICByZXR1cm4gMTsNCj4gPj4gK2Vycl92eGxhbjoNCj4gPj4gKyAg
+ICAgICB0eF9yaW5nLT5uZXRkZXYtPmZlYXR1cmVzICY9IH5ORVRJRl9GX0dTT19VRFBfVFVOTkVM
+Ow0KPiA+PiArICAgICAgIGlmICghbmV0X3JhdGVsaW1pdCgpKQ0KPiA+PiArICAgICAgICAgICAg
+ICAgbmV0ZGV2X2Vycih0eF9yaW5nLT5uZXRkZXYsDQo+ID4+ICsgICAgICAgICAgICAgICAgICAg
+ICAgICAgICJUU08gcmVxdWVzdGVkIGZvciB1bnN1cHBvcnRlZCB0dW5uZWwsIGRpc2FibGluZw0K
+PiBvZmZsb2FkXG4iKTsNCj4gPj4gKyAgICAgICByZXR1cm4gLTE7DQo+ID4+ICt9DQo+ID4NCj4g
+PiB3aHk/IGlmIFRTTyB3YXMgcmVxdWVzdGVkIGZvciBzb21lIHBhY2tldCB0aGUgZHJpdmVyIGNh
+bid0IGRvLCB5b3UgZGlzYWJsZQ0KPiBHU08NCj4gPiBmb3IgdWRwIHR1bm5lbHMgZm9yIGFueSBm
+dXR1cmUgcGFja2V0cyB0b28/IG1heWJlIGp1c3QgZGlzYWJsZSBpdA0KPiA+IHBlcm1hbmVudGx5
+ICB0aWxsIHlvdQ0KPiA+IGZlZWwgc2FmZXIgdG8gcnVuIHVuZGVyIHRoZSBjdXJyZW50IHN0YWNr
+Pw0KPiANCj4gVGhhdCBpcyBlc3NlbnRpYWxseSB3aGF0IEkgYW0gZG9pbmcuICBJZiB0aGUgdXNl
+ciB3YW50cyB0aGV5IGNhbiB0dXJuDQo+IHRoZSBmZWF0dXJlIGJhY2sgb24gdmlhIGV0aHRvb2ws
+IGJ1dCB0aGVyZSBpcyBubyBwb2ludCBpbiBoYXZpbmcgaXQgb24NCj4gaWYgdGhlIGRldmljZSBp
+dHNlbGYgY2Fubm90IHN1cHBvcnQgdGhlIHBhY2tldHMgdGhhdCBhcmUgY29taW5nIHRocm91Z2gu
+DQo+IA0KDQpUbyB0dXJuIG9mZiB0aGUgb2ZmbG9hZCwgc2hvdWxkbid0IHlvdSBiZSB1c2luZyBu
+ZXRkZXZfdXBkYXRlX2ZlYXR1cmVzKCkNCigtPm5kb19maXhfZmVhdHVyZXMoKSkgaW5zdGVhZCBv
+ZiBkaXJlY3RseSBmbGlwcGluZyBiaXRzIGluIG5ldGRldi0+ZmVhdHVyZXM/DQo=
