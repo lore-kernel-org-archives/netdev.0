@@ -1,64 +1,201 @@
-From: Fabio Estevam <festevam@gmail.com>
-Subject: fec_main: context imbalance in 'fec_set_features'
-Date: Wed, 1 Oct 2014 21:15:53 -0300
-Message-ID: <CAOMZO5CJKp7+d8EPRZdr-3Bd9UxVU8fxLybFZ4uLn+cUQjPH8w@mail.gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next] net: phy: adjust fixed_phy_register() return
+ value
+Date: Wed, 01 Oct 2014 17:33:20 -0700
+Message-ID: <542C9D50.9050301@gmail.com>
+References: <20141001214509.2BF4F10070D@puck.mtv.corp.google.com>	<542C7875.8090102@gmail.com> <CAGXr9JFhD+tguddQ3c9Lv+akbJo2d0Fp0_JBx7pU3A+L=b6RHw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-sparse@vger.kernel.org
-To: Frank Li <Frank.Li@freescale.com>,
-	Duan Fugang-B38611 <B38611@freescale.com>
-Return-path: <linux-sparse-owner@vger.kernel.org>
-Sender: linux-sparse-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	thomas.petazzoni@free-electrons.com
+To: Petri Gynther <pgynther@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:62386 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752075AbaJBAdX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2014 20:33:23 -0400
+Received: by mail-pa0-f50.google.com with SMTP id kx10so1247632pab.9
+        for <netdev@vger.kernel.org>; Wed, 01 Oct 2014 17:33:22 -0700 (PDT)
+In-Reply-To: <CAGXr9JFhD+tguddQ3c9Lv+akbJo2d0Fp0_JBx7pU3A+L=b6RHw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On 10/01/2014 03:16 PM, Petri Gynther wrote:
+> Hi Florian,
+> 
+> On Wed, Oct 1, 2014 at 2:56 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+>> On 10/01/2014 02:45 PM, Petri Gynther wrote:
+>>> Adjust fixed_phy_register() to return struct phy_device *, so that
+>>> it becomes easy to use fixed PHYs without device tree support:
+>>>
+>>>   phydev = fixed_phy_register(PHY_POLL, &fixed_phy_status, NULL);
+>>>   fixed_phy_set_link_update(phydev, fixed_phy_link_update);
+>>>   phy_connect_direct(netdev, phydev, handler_fn, phy_interface);
+>>>
+>>> This change is a prerequisite for modifying bcmgenet driver to work
+>>> without a device tree on Broadcom's MIPS-based 7xxx platforms.
+>>
+>> Without a Device Tree enabled platform, you still have the
+>> fixed_phy_add() API to register a fixed PHY at a known location (the
+>> second parameter), did we someone broke that with Thomas' patches?
+>>
+> 
+> If a driver uses fixed_phy_add() directly, it then has to call
+> get_phy_device() and phy_device_register() as well. But, all that is
+> already handled nicely inside fixed_phy_register(). And,
+> fixed_phy_register() also handles the fixed PHY address allocation
+> automatically.
 
-sparse complains the following:
+Sure, the usual model we had before Thomas' patches was to specifically
+format phy_id to make sure we would bind to the "fixed-0" MDIO bus
+instead of another one, see drivers/net/ethernet/ti/cpmac.c for instance.
 
-drivers/net/ethernet/freescale/fec_main.c:2835:12: warning: context
-imbalance in 'fec_set_features' - different lock contexts for basic
-block
+> 
+> In my opinion, this change makes it really easy to use fixed PHYs from
+> non-OF code, as I showed in the change description.
 
-The code looks like this:
+Agreed, and I think it will allow us to get rid of the manual allocation
+API eventually.
 
-static int fec_set_features(struct net_device *netdev,
-    netdev_features_t features)
-{
-    struct fec_enet_private *fep = netdev_priv(netdev);
-    netdev_features_t changed = features ^ netdev->features;
+I let Thomas comment on whether he likes this or not.
 
-    /* Quiesce the device if necessary */
-    if (netif_running(netdev) && changed & FEATURES_NEED_QUIESCE) {
-        napi_disable(&fep->napi);
-        netif_tx_lock_bh(netdev);
-        fec_stop(netdev);
-    }
-
-    netdev->features = features;
-
-    /* Receive checksum has been changed */
-    if (changed & NETIF_F_RXCSUM) {
-        if (features & NETIF_F_RXCSUM)
-            fep->csum_flags |= FLAG_RX_CSUM_ENABLED;
-        else
-            fep->csum_flags &= ~FLAG_RX_CSUM_ENABLED;
-    }
-
-    /* Resume the device after updates */
-    if (netif_running(netdev) && changed & FEATURES_NEED_QUIESCE) {
-        fec_restart(netdev);
-        netif_tx_wake_all_queues(netdev);
-        netif_tx_unlock_bh(netdev);
-        napi_enable(&fep->napi);
-    }
-
-    return 0;
-}
-
-What would be the proper way to fix this warning?
-
-Thanks,
-
-Fabio Estevam
+> 
+> -- Petri
+> 
+>> You could for instance register a fixed PHY at address 1 for the
+>> GENET/MoCA instance to find it.
+>>
+>> Other than that, I am not opposed to the change, since it allows us to
+>> eventually get rid of fixed_phy_add() in the future.
+>>
+>> Thanks!
+>>
+>>>
+>>> Signed-off-by: Petri Gynther <pgynther@google.com>
+>>> ---
+>>>  drivers/net/phy/fixed.c   | 16 ++++++++--------
+>>>  drivers/of/of_mdio.c      |  7 +++++--
+>>>  include/linux/phy_fixed.h | 14 +++++++-------
+>>>  3 files changed, 20 insertions(+), 17 deletions(-)
+>>>
+>>> diff --git a/drivers/net/phy/fixed.c b/drivers/net/phy/fixed.c
+>>> index 5b19fbb..47872caa 100644
+>>> --- a/drivers/net/phy/fixed.c
+>>> +++ b/drivers/net/phy/fixed.c
+>>> @@ -233,9 +233,9 @@ EXPORT_SYMBOL_GPL(fixed_phy_del);
+>>>  static int phy_fixed_addr;
+>>>  static DEFINE_SPINLOCK(phy_fixed_addr_lock);
+>>>
+>>> -int fixed_phy_register(unsigned int irq,
+>>> -                    struct fixed_phy_status *status,
+>>> -                    struct device_node *np)
+>>> +struct phy_device *fixed_phy_register(unsigned int irq,
+>>> +                                   struct fixed_phy_status *status,
+>>> +                                   struct device_node *np)
+>>>  {
+>>>       struct fixed_mdio_bus *fmb = &platform_fmb;
+>>>       struct phy_device *phy;
+>>> @@ -246,19 +246,19 @@ int fixed_phy_register(unsigned int irq,
+>>>       spin_lock(&phy_fixed_addr_lock);
+>>>       if (phy_fixed_addr == PHY_MAX_ADDR) {
+>>>               spin_unlock(&phy_fixed_addr_lock);
+>>> -             return -ENOSPC;
+>>> +             return ERR_PTR(-ENOSPC);
+>>>       }
+>>>       phy_addr = phy_fixed_addr++;
+>>>       spin_unlock(&phy_fixed_addr_lock);
+>>>
+>>>       ret = fixed_phy_add(PHY_POLL, phy_addr, status);
+>>>       if (ret < 0)
+>>> -             return ret;
+>>> +             return ERR_PTR(ret);
+>>>
+>>>       phy = get_phy_device(fmb->mii_bus, phy_addr, false);
+>>>       if (!phy || IS_ERR(phy)) {
+>>>               fixed_phy_del(phy_addr);
+>>> -             return -EINVAL;
+>>> +             return ERR_PTR(-EINVAL);
+>>>       }
+>>>
+>>>       of_node_get(np);
+>>> @@ -269,10 +269,10 @@ int fixed_phy_register(unsigned int irq,
+>>>               phy_device_free(phy);
+>>>               of_node_put(np);
+>>>               fixed_phy_del(phy_addr);
+>>> -             return ret;
+>>> +             return ERR_PTR(ret);
+>>>       }
+>>>
+>>> -     return 0;
+>>> +     return phy;
+>>>  }
+>>>
+>>>  static int __init fixed_mdio_bus_init(void)
+>>> diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
+>>> index a85d800..907baa9 100644
+>>> --- a/drivers/of/of_mdio.c
+>>> +++ b/drivers/of/of_mdio.c
+>>> @@ -286,6 +286,7 @@ int of_phy_register_fixed_link(struct device_node *np)
+>>>       struct device_node *fixed_link_node;
+>>>       const __be32 *fixed_link_prop;
+>>>       int len;
+>>> +     struct phy_device *phy;
+>>>
+>>>       /* New binding */
+>>>       fixed_link_node = of_get_child_by_name(np, "fixed-link");
+>>> @@ -299,7 +300,8 @@ int of_phy_register_fixed_link(struct device_node *np)
+>>>               status.asym_pause = of_property_read_bool(fixed_link_node,
+>>>                                                         "asym-pause");
+>>>               of_node_put(fixed_link_node);
+>>> -             return fixed_phy_register(PHY_POLL, &status, np);
+>>> +             phy = fixed_phy_register(PHY_POLL, &status, np);
+>>> +             return (!phy || IS_ERR(phy));
+>>>       }
+>>>
+>>>       /* Old binding */
+>>> @@ -310,7 +312,8 @@ int of_phy_register_fixed_link(struct device_node *np)
+>>>               status.speed = be32_to_cpu(fixed_link_prop[2]);
+>>>               status.pause = be32_to_cpu(fixed_link_prop[3]);
+>>>               status.asym_pause = be32_to_cpu(fixed_link_prop[4]);
+>>> -             return fixed_phy_register(PHY_POLL, &status, np);
+>>> +             phy = fixed_phy_register(PHY_POLL, &status, np);
+>>> +             return (!phy || IS_ERR(phy));
+>>>       }
+>>>
+>>>       return -ENODEV;
+>>> diff --git a/include/linux/phy_fixed.h b/include/linux/phy_fixed.h
+>>> index 9411386..f2ca1b4 100644
+>>> --- a/include/linux/phy_fixed.h
+>>> +++ b/include/linux/phy_fixed.h
+>>> @@ -14,9 +14,9 @@ struct device_node;
+>>>  #ifdef CONFIG_FIXED_PHY
+>>>  extern int fixed_phy_add(unsigned int irq, int phy_id,
+>>>                        struct fixed_phy_status *status);
+>>> -extern int fixed_phy_register(unsigned int irq,
+>>> -                           struct fixed_phy_status *status,
+>>> -                           struct device_node *np);
+>>> +extern struct phy_device *fixed_phy_register(unsigned int irq,
+>>> +                                          struct fixed_phy_status *status,
+>>> +                                          struct device_node *np);
+>>>  extern void fixed_phy_del(int phy_addr);
+>>>  extern int fixed_phy_set_link_update(struct phy_device *phydev,
+>>>                       int (*link_update)(struct net_device *,
+>>> @@ -27,11 +27,11 @@ static inline int fixed_phy_add(unsigned int irq, int phy_id,
+>>>  {
+>>>       return -ENODEV;
+>>>  }
+>>> -static inline int fixed_phy_register(unsigned int irq,
+>>> -                                  struct fixed_phy_status *status,
+>>> -                                  struct device_node *np)
+>>> +static inline struct phy_device *fixed_phy_register(unsigned int irq,
+>>> +                                             struct fixed_phy_status *status,
+>>> +                                             struct device_node *np)
+>>>  {
+>>> -     return -ENODEV;
+>>> +     return ERR_PTR(-ENODEV);
+>>>  }
+>>>  static inline int fixed_phy_del(int phy_addr)
+>>>  {
+>>>
+>>
