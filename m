@@ -1,36 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: bridge: add a br_set_state
- helper function
-Date: Wed, 01 Oct 2014 22:05:26 -0400 (EDT)
-Message-ID: <20141001.220526.686849530279803994.davem@davemloft.net>
-References: <1412118799-17128-1-git-send-email-f.fainelli@gmail.com>
+Subject: Re: [PATCH v2 net-next] net: pktgen: packet bursting via
+ skb->xmit_more
+Date: Wed, 01 Oct 2014 22:08:39 -0400 (EDT)
+Message-ID: <20141001.220839.1118640596408366269.davem@davemloft.net>
+References: <1412124801-32096-1-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org, netdev@vger.kernel.org, vyasevich@gmail.com,
-	bridge@lists.linux-foundation.org, jiri@resnulli.us
-To: f.fainelli@gmail.com
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1412118799-17128-1-git-send-email-f.fainelli@gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: edumazet@google.com, brouer@redhat.com, netdev@vger.kernel.org
+To: ast@plumgrid.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39037 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751780AbaJBCIl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2014 22:08:41 -0400
+In-Reply-To: <1412124801-32096-1-git-send-email-ast@plumgrid.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Tue, 30 Sep 2014 16:13:19 -0700
+From: Alexei Starovoitov <ast@plumgrid.com>
+Date: Tue, 30 Sep 2014 17:53:21 -0700
 
-> In preparation for being able to propagate port states to e.g: notifiers
-> or other kernel parts, do not manipulate the port state directly, but
-> instead use a helper function which will allow us to do a bit more than
-> just setting the state.
+> This patch demonstrates the effect of delaying update of HW tailptr.
+> (based on earlier patch by Jesper)
 > 
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> burst=1 is the default. It sends one packet with xmit_more=false
+> burst=2 sends one packet with xmit_more=true and
+>         2nd copy of the same packet with xmit_more=false
+> burst=3 sends two copies of the same packet with xmit_more=true and
+>         3rd copy with xmit_more=false
+> 
+> Performance with ixgbe (usec 30):
+> burst=1  tx:9.2 Mpps
+> burst=2  tx:13.5 Mpps
+> burst=3  tx:14.5 Mpps full 10G line rate
+> 
+> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
 
-This looks fine to me, applied, thanks Florian.
+Applied, great work.
