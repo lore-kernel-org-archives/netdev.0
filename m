@@ -1,35 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next 0/5] udp: Generalize GSO for UDP tunnels
-Date: Wed, 01 Oct 2014 21:36:24 -0400 (EDT)
-Message-ID: <20141001.213624.146270186000828895.davem@davemloft.net>
-References: <1412047353-28502-1-git-send-email-therbert@google.com>
+Subject: Re: [PATCH v2 net 0/3] bridge: Add vlan filtering support
+ for default pvid
+Date: Wed, 01 Oct 2014 21:53:16 -0400 (EDT)
+Message-ID: <20141001.215316.2186693268578428276.davem@davemloft.net>
+References: <1412105462-340-1-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: therbert@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38747 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751896AbaJBBg0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2014 21:36:26 -0400
-In-Reply-To: <1412047353-28502-1-git-send-email-therbert@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org, vyasevic@redhat.com,
+	bridge@lists.linux-foundation.org
+To: vyasevich@gmail.com
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1412105462-340-1-git-send-email-vyasevic@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Tom Herbert <therbert@google.com>
-Date: Mon, 29 Sep 2014 20:22:28 -0700
+From: Vladislav Yasevich <vyasevich@gmail.com>
+Date: Tue, 30 Sep 2014 15:30:59 -0400
 
-> This patch set generalizes the UDP tunnel segmentation functions so
-> that they can work with various protocol encapsulations. The primary
-> change is to set the inner_protocol field in the skbuff when creating
-> the encapsulated packet, and then in skb_udp_tunnel_segment this data
-> is used to determine the function for segmenting the encapsulated
-> packet. The inner_protocol field is overloaded to take either an
-> Ethertype or IP protocol.
+> Version 2 of the series to introduce the default pvid support to
+> vlan filtering in the bridge.  VLAN 1 (as recommended by 802.1q spec)
+> is used as default pvid on ports. 
+> The the user can over-ride this configuration by configuring their
+> own vlan information. 
+> The user can additionally change the default value throught the
+> sysfs interface (netlink comming shortly).
+> The user can turn off default pvid functionality by setting default
+> pvid to 0. 
+> This series changes the default behavior of the bridge when
+> vlan filtering is turned on.  Currently, ports without any vlan
+> filtering configured will not recevie any traffic at all.  This patch
+> changes the behavior of the above ports to receive only untagged traffic.
 > 
-> The inner_protocol is set on transmit using skb_set_inner_ipproto or
-> skb_set_inner_protocol functions. VXLAN and IP tunnels (for fou GSO)
-> were modified to call these.
+> Since v2:
+> - Add ability to turn off default_pvid settings.
+> - Drop the automiatic filtering support based on configured vlan devices (will
+>   be its own series)
 
-Series applied, thanks Tom.
+Please address the given feedback, thanks Vladislav.
