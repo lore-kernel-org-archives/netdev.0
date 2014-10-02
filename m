@@ -1,281 +1,165 @@
-From: Raghuram Kothakota <Raghuram.Kothakota@oracle.com>
-Subject: Re: [PATCHv9 net-next 2/4] sunvnet: make transmit path zero-copy in the kernel
-Date: Wed, 1 Oct 2014 22:50:04 -0700
-Message-ID: <77E6695E-58F8-4D10-8ED7-EEC4A487339E@oracle.com>
-References: <5429EFBB.2090909@oracle.com>
-Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.6\))
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Sowmini Varadhan <sowmini.varadhan@oracle.com>
-To: David L Stevens <david.stevens@oracle.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: RFC: ixgbe+build_skb+extra performance experiments
+Date: Wed,  1 Oct 2014 23:00:42 -0700
+Message-ID: <1412229642-10555-1-git-send-email-ast@plumgrid.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:44383 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751211AbaJBFuJ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2014 01:50:09 -0400
-In-Reply-To: <5429EFBB.2090909@oracle.com>
+Received: from mail-pd0-f179.google.com ([209.85.192.179]:60071 "EHLO
+	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750954AbaJBGAv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2014 02:00:51 -0400
+Received: by mail-pd0-f179.google.com with SMTP id r10so1484743pdi.38
+        for <netdev@vger.kernel.org>; Wed, 01 Oct 2014 23:00:51 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sorry I am late in providing my comments, but I feel it is important
-to share this comment.
+Hi All,
 
-> static int vnet_start_xmit(struct sk_buff *skb, struct net_device *dev)
-> {
-> 	struct vnet *vp = netdev_priv(dev);
-> @@ -788,12 +899,20 @@ static int vnet_start_xmit(struct sk_buff *skb, struct net_device *dev)
-> 	struct vio_net_desc *d;
-> 	unsigned long flags;
-> 	unsigned int len;
-> -	void *tx_buf;
-> -	int i, err;
-> +	struct sk_buff *freeskbs = NULL;
-> +	int i, err, txi;
-> +	void *start = NULL;
-> +	int nlen = 0;
-> +	unsigned pending = 0;
-> 
-> 	if (unlikely(!port))
-> 		goto out_dropped;
-> 
-> +	skb = vnet_skb_shape(skb, &start, &nlen);
-> +
-> +	if (unlikely(!skb))
-> +		goto out_dropped;
-> +
-> 	spin_lock_irqsave(&port->vio.lock, flags);
-> 
-> 	dr = &port->vio.drings[VIO_DRIVER_TX_RING];
-> @@ -811,14 +930,27 @@ static int vnet_start_xmit(struct sk_buff *skb, struct net_device *dev)
-> 
-> 	d = vio_dring_cur(dr);
-> 
-> -	tx_buf = port->tx_bufs[dr->prod].buf;
-> -	skb_copy_from_linear_data(skb, tx_buf + VNET_PACKET_SKIP, skb->len);
-> +	txi = dr->prod;
-> +
-> +	freeskbs = vnet_clean_tx_ring(port, &pending);
-> +
-> +	BUG_ON(port->tx_bufs[txi].skb);
-> 
-> 	len = skb->len;
-> -	if (len < ETH_ZLEN) {
-> +	if (len < ETH_ZLEN)
-> 		len = ETH_ZLEN;
-> -		memset(tx_buf+VNET_PACKET_SKIP+skb->len, 0, len - skb->len);
-> +
-> +	port->tx_bufs[txi].skb = skb;
-> +	skb = NULL;
-> +
-> +	err = ldc_map_single(port->vio.lp, start, nlen,
-> +			     port->tx_bufs[txi].cookies, 2,
-> +			     (LDC_MAP_SHADOW | LDC_MAP_DIRECT | LDC_MAP_RW));
+I'm trying to speed up single core packet per second.
 
+I took dual port ixgbe and added both ports to a linux bridge.
+Only one port is connected to another system running pktgen at 10G rate.
+I disabled gro to measure pure RX speed of ixgbe.
 
-The LDC sharing protection mechanism is at a page level. If I understand
-well, the vnet_skb_shape() function only addresses the alignment requirement
-but it still leaves the possibility of exporting a lot more data than required to the
-peer. This can be treated as a security issue,  wondering if you thought of this issue.
+Out of the box I see 6.5 Mpps and the following stack:
+  21.83%    ksoftirqd/0  [kernel.kallsyms]  [k] memcpy
+  17.58%    ksoftirqd/0  [ixgbe]            [k] ixgbe_clean_rx_irq
+  10.07%    ksoftirqd/0  [kernel.kallsyms]  [k] build_skb
+   6.40%    ksoftirqd/0  [kernel.kallsyms]  [k] __netdev_alloc_frag
+   5.18%    ksoftirqd/0  [kernel.kallsyms]  [k] put_compound_page
+   4.93%    ksoftirqd/0  [kernel.kallsyms]  [k] kmem_cache_alloc
+   4.55%    ksoftirqd/0  [kernel.kallsyms]  [k] __netif_receive_skb_core
 
+Obviously driver spends huge amount of time copying data from
+hw buffers into skb.
 
--Raghuram
+Then I applied buggy but working in this case patch:
+http://patchwork.ozlabs.org/patch/236044/
+that is trying to use build_skb() API in ixgbe.
 
+RX speed jumped to 7.6 Mpps with the following stack:
+  27.02%    ksoftirqd/0  [kernel.kallsyms]  [k] eth_type_trans
+  16.68%    ksoftirqd/0  [ixgbe]            [k] ixgbe_clean_rx_irq
+  11.45%    ksoftirqd/0  [kernel.kallsyms]  [k] build_skb
+   5.20%    ksoftirqd/0  [kernel.kallsyms]  [k] __netif_receive_skb_core
+   4.72%    ksoftirqd/0  [kernel.kallsyms]  [k] kmem_cache_alloc
+   3.96%    ksoftirqd/0  [kernel.kallsyms]  [k] kmem_cache_free
 
+packets no longer copied and performance is higher.
+It's doing the following:
+- build_skb out of hw buffer and prefetch packet data
+- eth_type_trans
+- napi_gro_receive
 
-> +	if (err < 0) {
-> +		netdev_info(dev, "tx buffer map error %d\n", err);
-> +		goto out_dropped_unlock;
-> 	}
-> +	port->tx_bufs[txi].ncookies = err;
-> 
-> 	/* We don't rely on the ACKs to free the skb in vnet_start_xmit(),
-> 	 * thus it is safe to not set VIO_ACK_ENABLE for each transmission:
-> @@ -830,9 +962,9 @@ static int vnet_start_xmit(struct sk_buff *skb, struct net_device *dev)
-> 	 */
-> 	d->hdr.ack = VIO_ACK_DISABLE;
-> 	d->size = len;
-> -	d->ncookies = port->tx_bufs[dr->prod].ncookies;
-> +	d->ncookies = port->tx_bufs[txi].ncookies;
-> 	for (i = 0; i < d->ncookies; i++)
-> -		d->cookies[i] = port->tx_bufs[dr->prod].cookies[i];
-> +		d->cookies[i] = port->tx_bufs[txi].cookies[i];
-> 
-> 	/* This has to be a non-SMP write barrier because we are writing
-> 	 * to memory which is shared with the peer LDOM.
-> @@ -876,7 +1008,7 @@ ldc_start_done:
-> 	port->start_cons = false;
-> 
-> 	dev->stats.tx_packets++;
-> -	dev->stats.tx_bytes += skb->len;
-> +	dev->stats.tx_bytes += port->tx_bufs[txi].skb->len;
-> 
-> 	dr->prod = (dr->prod + 1) & (VNET_TX_RING_SIZE - 1);
-> 	if (unlikely(vnet_tx_dring_avail(dr) < 2)) {
-> @@ -887,7 +1019,9 @@ ldc_start_done:
-> 
-> 	spin_unlock_irqrestore(&port->vio.lock, flags);
-> 
-> -	dev_kfree_skb(skb);
-> +	vnet_free_skbs(freeskbs);
-> +
-> +	(void)mod_timer(&port->clean_timer, jiffies + VNET_CLEAN_TIMEOUT);
-> 
-> 	return NETDEV_TX_OK;
-> 
-> @@ -895,7 +1029,14 @@ out_dropped_unlock:
-> 	spin_unlock_irqrestore(&port->vio.lock, flags);
-> 
-> out_dropped:
-> -	dev_kfree_skb(skb);
-> +	if (skb)
-> +		dev_kfree_skb(skb);
-> +	vnet_free_skbs(freeskbs);
-> +	if (pending)
-> +		(void)mod_timer(&port->clean_timer,
-> +				jiffies + VNET_CLEAN_TIMEOUT);
-> +	else
-> +		del_timer(&port->clean_timer);
-> 	dev->stats.tx_dropped++;
-> 	return NETDEV_TX_OK;
-> }
-> @@ -1097,17 +1238,22 @@ static void vnet_port_free_tx_bufs(struct vnet_port *port)
-> 	}
-> 
-> 	for (i = 0; i < VNET_TX_RING_SIZE; i++) {
-> -		void *buf = port->tx_bufs[i].buf;
-> +		struct vio_net_desc *d;
-> +		void *skb = port->tx_bufs[i].skb;
-> 
-> -		if (!buf)
-> +		if (!skb)
-> 			continue;
-> 
-> +		d = vio_dring_entry(dr, i);
-> +		if (d->hdr.state == VIO_DESC_READY)
-> +			pr_warn("active transmit buffers freed\n");
-> +
-> 		ldc_unmap(port->vio.lp,
-> 			  port->tx_bufs[i].cookies,
-> 			  port->tx_bufs[i].ncookies);
-> -
-> -		kfree(buf);
-> -		port->tx_bufs[i].buf = NULL;
-> +		dev_kfree_skb(skb);
-> +		port->tx_bufs[i].skb = NULL;
-> +		d->hdr.state = VIO_DESC_FREE;
-> 	}
-> }
-> 
-> @@ -1118,34 +1264,6 @@ static int vnet_port_alloc_tx_bufs(struct vnet_port *port)
-> 	int i, err, ncookies;
-> 	void *dring;
-> 
-> -	for (i = 0; i < VNET_TX_RING_SIZE; i++) {
-> -		void *buf = kzalloc(VNET_MAXPACKET + 8, GFP_KERNEL);
-> -		int map_len = (VNET_MAXPACKET + 7) & ~7;
-> -
-> -		err = -ENOMEM;
-> -		if (!buf)
-> -			goto err_out;
-> -
-> -		err = -EFAULT;
-> -		if ((unsigned long)buf & (8UL - 1)) {
-> -			pr_err("TX buffer misaligned\n");
-> -			kfree(buf);
-> -			goto err_out;
-> -		}
-> -
-> -		err = ldc_map_single(port->vio.lp, buf, map_len,
-> -				     port->tx_bufs[i].cookies, 2,
-> -				     (LDC_MAP_SHADOW |
-> -				      LDC_MAP_DIRECT |
-> -				      LDC_MAP_RW));
-> -		if (err < 0) {
-> -			kfree(buf);
-> -			goto err_out;
-> -		}
-> -		port->tx_bufs[i].buf = buf;
-> -		port->tx_bufs[i].ncookies = err;
-> -	}
-> -
-> 	dr = &port->vio.drings[VIO_DRIVER_TX_RING];
-> 
-> 	len = (VNET_TX_RING_SIZE *
-> @@ -1172,6 +1290,12 @@ static int vnet_port_alloc_tx_bufs(struct vnet_port *port)
-> 	dr->pending = VNET_TX_RING_SIZE;
-> 	dr->ncookies = ncookies;
-> 
-> +	for (i = 0; i < VNET_TX_RING_SIZE; ++i) {
-> +		struct vio_net_desc *d;
-> +
-> +		d = vio_dring_entry(dr, i);
-> +		d->hdr.state = VIO_DESC_FREE;
-> +	}
-> 	return 0;
-> 
-> err_out:
-> @@ -1203,6 +1327,8 @@ static struct vnet *vnet_new(const u64 *local_mac)
-> 	dev = alloc_etherdev(sizeof(*vp));
-> 	if (!dev)
-> 		return ERR_PTR(-ENOMEM);
-> +	dev->needed_headroom = VNET_PACKET_SKIP + 8;
-> +	dev->needed_tailroom = 8;
-> 
-> 	for (i = 0; i < ETH_ALEN; i++)
-> 		dev->dev_addr[i] = (*local_mac >> (5 - i) * 8) & 0xff;
-> @@ -1397,6 +1523,9 @@ static int vnet_port_probe(struct vio_dev *vdev, const struct vio_device_id *id)
-> 	pr_info("%s: PORT ( remote-mac %pM%s )\n",
-> 		vp->dev->name, port->raddr, switch_port ? " switch-port" : "");
-> 
-> +	setup_timer(&port->clean_timer, vnet_clean_timer_expire,
-> +		    (unsigned long)port);
-> +
-> 	vio_port_up(&port->vio);
-> 
-> 	mdesc_release(hp);
-> @@ -1423,6 +1552,7 @@ static int vnet_port_remove(struct vio_dev *vdev)
-> 		unsigned long flags;
-> 
-> 		del_timer_sync(&port->vio.timer);
-> +		del_timer_sync(&port->clean_timer);
-> 
-> 		spin_lock_irqsave(&vp->lock, flags);
-> 		list_del(&port->list);
-> diff --git a/drivers/net/ethernet/sun/sunvnet.h b/drivers/net/ethernet/sun/sunvnet.h
-> index 986e04b..02f507d 100644
-> --- a/drivers/net/ethernet/sun/sunvnet.h
-> +++ b/drivers/net/ethernet/sun/sunvnet.h
-> @@ -11,6 +11,11 @@
->  */
-> #define VNET_TX_TIMEOUT			(5 * HZ)
-> 
-> +/* length of time (or less) we expect pending descriptors to be marked
-> + * as VIO_DESC_DONE and skbs ready to be freed
-> + */
-> +#define	VNET_CLEAN_TIMEOUT		((HZ/100)+1)
-> +
-> #define VNET_MAXPACKET			1518ULL /* ETH_FRAMELEN + VLAN_HDR */
-> #define VNET_TX_RING_SIZE		512
-> #define VNET_TX_WAKEUP_THRESH(dr)	((dr)->pending / 4)
-> @@ -22,7 +27,7 @@
-> #define VNET_PACKET_SKIP		6
-> 
-> struct vnet_tx_entry {
-> -	void			*buf;
-> +	struct sk_buff		*skb;
-> 	unsigned int		ncookies;
-> 	struct ldc_trans_cookie	cookies[2];
-> };
-> @@ -46,6 +51,8 @@ struct vnet_port {
-> 	bool			stop_rx;
-> 	bool			start_cons;
-> 
-> +	struct timer_list	clean_timer;
-> +
-> 	u64			rmtu;
-> };
-> 
-> -- 
-> 1.7.1
-> 
+but build_skb() is too fast and cpu doesn't have enough time
+to prefetch packet data before eth_type_trans() is called,
+so I added mini skb bursting of 2 skbs (patch below) that does:
+- build_skb1 out of hw buffer and prefetch packet data
+- build_skb2 out of hw buffer and prefetch packet data
+- eth_type_trans(skb1)
+- napi_gro_receive(skb1)
+- eth_type_trans(skb2)
+- napi_gro_receive(skb2)
+and performance jumped to 9.0 Mpps with stack:
+  20.54%    ksoftirqd/0  [ixgbe]            [k] ixgbe_clean_rx_irq
+  13.15%    ksoftirqd/0  [kernel.kallsyms]  [k] build_skb
+   8.35%    ksoftirqd/0  [kernel.kallsyms]  [k] __netif_receive_skb_core
+   7.16%    ksoftirqd/0  [kernel.kallsyms]  [k] eth_type_trans
+   4.73%    ksoftirqd/0  [kernel.kallsyms]  [k] kmem_cache_free
+   4.50%    ksoftirqd/0  [kernel.kallsyms]  [k] kmem_cache_alloc
+
+with further instruction tunning inside ixgbe_clean_rx_irq()
+I could push it to 9.4 Mpps.
+
+>From 6.5 Mpps to 9.4 Mpps via build_skb() and tunning.
+
+Is there a way to fix the issue Ben pointed a year ago?
+Brute force fix could to be: avoid half-page buffers.
+We'll be wasting 16Mbyte of memory. Sure, but in some cases
+extra peformance might be worth it.
+Other options?
+I think we need to try harder to switch to build_skb()
+It will open up a lot of possibilities for further performance
+improvements.
+Thoughts?
+
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   34 +++++++++++++++++++++----
+ 1 file changed, 29 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 21d1a65..1d1e37f 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -1590,8 +1590,6 @@ static void ixgbe_process_skb_fields(struct ixgbe_ring *rx_ring,
+ 	}
+
+ 	skb_record_rx_queue(skb, rx_ring->queue_index);
+-
+-	skb->protocol = eth_type_trans(skb, dev);
+ }
+
+ static void ixgbe_rx_skb(struct ixgbe_q_vector *q_vector,
+@@ -2063,6 +2061,24 @@ dma_sync:
+ 	return skb;
+ }
+
++#define BURST_SIZE 2
++static void ixgbe_rx_skb_burst(struct sk_buff *skbs[BURST_SIZE],
++			       unsigned int skb_burst,
++			       struct ixgbe_q_vector *q_vector,
++			       struct net_device *dev)
++{
++	int i;
++
++	for (i = 0; i < skb_burst; i++) {
++		struct sk_buff *skb = skbs[i];
++
++		skb->protocol = eth_type_trans(skb, dev);
++
++		skb_mark_napi_id(skb, &q_vector->napi);
++		ixgbe_rx_skb(q_vector, skb);
++	}
++}
++
+ /**
+  * ixgbe_clean_rx_irq - Clean completed descriptors from Rx ring - bounce buf
+  * @q_vector: structure containing interrupt and ring information
+@@ -2087,6 +2103,8 @@ static int ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
+ 	unsigned int mss = 0;
+ #endif /* IXGBE_FCOE */
+ 	u16 cleaned_count = ixgbe_desc_unused(rx_ring);
++	struct sk_buff *skbs[BURST_SIZE];
++	unsigned int skb_burst = 0;
+
+ 	while (likely(total_rx_packets < budget)) {
+ 		union ixgbe_adv_rx_desc *rx_desc;
+@@ -2161,13 +2179,19 @@ static int ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
+ 		}
+ 
+ #endif /* IXGBE_FCOE */
+-		skb_mark_napi_id(skb, &q_vector->napi);
+-		ixgbe_rx_skb(q_vector, skb);
+-
+ 		/* update budget accounting */
+ 		total_rx_packets++;
++		skbs[skb_burst++] = skb;
++
++		if (skb_burst == BURST_SIZE) {
++			ixgbe_rx_skb_burst(skbs, skb_burst, q_vector,
++					   rx_ring->netdev);
++			skb_burst = 0;
++		}
+ 	}
+ 
++	ixgbe_rx_skb_burst(skbs, skb_burst, q_vector, rx_ring->netdev);
++
+ 	u64_stats_update_begin(&rx_ring->syncp);
+ 	rx_ring->stats.packets += total_rx_packets;
+ 	rx_ring->stats.bytes += total_rx_bytes;
+-- 
+1.7.9.5
