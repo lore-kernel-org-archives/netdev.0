@@ -1,36 +1,48 @@
 From: <richard.alpe@ericsson.com>
-Subject: [PATCH v2 net-next 03/15] tipc: add bearer set to new netlink api
-Date: Thu, 2 Oct 2014 16:58:29 +0200
-Message-ID: <1412261921-28510-4-git-send-email-richard.alpe@ericsson.com>
+Subject: [PATCH v2 net-next 02/15] tipc: add bearer
+	get/dump to new netlink api
+Date: Thu, 2 Oct 2014 16:58:28 +0200
+Message-ID: <1412261921-28510-3-git-send-email-richard.alpe@ericsson.com>
 References: <1412261921-28510-1-git-send-email-richard.alpe@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <tipc-discussion@lists.sourceforge.net>,
-	Richard Alpe <richard.alpe@ericsson.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: tipc-discussion@lists.sourceforge.net
 To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sesbmg22.ericsson.net ([193.180.251.48]:42315 "EHLO
-	sesbmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754137AbaJBPAG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2014 11:00:06 -0400
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
 In-Reply-To: <1412261921-28510-1-git-send-email-richard.alpe@ericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
 From: Richard Alpe <richard.alpe@ericsson.com>
 
-Add TIPC_NL_BEARER_SET command to the new tipc netlink API.
+Add TIPC_NL_BEARER_GET command to the new tipc netlink API.
 
-This command can set one or more link properties for a particular
-bearer.
+This command supports dumping all data about all bearers or getting
+all information about a specific bearer.
 
-Netlink logical layout of bearer set message:
+The information about a bearer includes name, link priorities and
+domain.
+
+Netlink logical layout of bearer get message:
+-> bearer
+    -> name
+
+Netlink logical layout of returned bearer information:
 -> bearer
     -> name
     -> link properties
-        [ -> tolerance ]
-        [ -> priority ]
-        [ -> window ]
+        -> priority
+        -> tolerance
+        -> window
+    -> domain
 
 Signed-off-by: Richard Alpe <richard.alpe@ericsson.com>
 Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
@@ -38,37 +50,114 @@ Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
 Acked-by: Ying Xue <ying.xue@windriver.com>
 ---
  include/uapi/linux/tipc_config.h |    1 +
- net/tipc/bearer.c                |   49 ++++++++++++++++++++++++++++++++++++++
- net/tipc/bearer.h                |    1 +
- net/tipc/netlink.c               |    5 ++++
- 4 files changed, 56 insertions(+)
+ net/tipc/bearer.c                |  125 ++++++++++++++++++++++++++++++++++++++
+ net/tipc/bearer.h                |    2 +
+ net/tipc/netlink.c               |    6 ++
+ net/tipc/netlink.h               |    6 ++
+ 5 files changed, 140 insertions(+)
 
 diff --git a/include/uapi/linux/tipc_config.h b/include/uapi/linux/tipc_config.h
-index 6caf581..af7acac 100644
+index 954ecaa..6caf581 100644
 --- a/include/uapi/linux/tipc_config.h
 +++ b/include/uapi/linux/tipc_config.h
-@@ -53,6 +53,7 @@ enum {
+@@ -52,6 +52,7 @@ enum {
+ 	TIPC_NL_LEGACY,
  	TIPC_NL_BEARER_DISABLE,
  	TIPC_NL_BEARER_ENABLE,
- 	TIPC_NL_BEARER_GET,
-+	TIPC_NL_BEARER_SET,
++	TIPC_NL_BEARER_GET,
  
  	__TIPC_NL_CMD_MAX,
  	TIPC_NL_CMD_MAX = __TIPC_NL_CMD_MAX - 1
 diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
-index 7f77cec..906e644 100644
+index 59815be..7f77cec 100644
 --- a/net/tipc/bearer.c
 +++ b/net/tipc/bearer.c
-@@ -849,3 +849,52 @@ int tipc_nl_bearer_enable(struct sk_buff *skb, struct genl_info *info)
- 
- 	return 0;
+@@ -640,6 +640,131 @@ void tipc_bearer_stop(void)
+ 	}
  }
+ 
++/* Caller should hold rtnl_lock to protect the bearer */
++int __tipc_nl_add_bearer(struct tipc_nl_msg *msg, struct tipc_bearer *bearer)
++{
++	void *hdr;
++	struct nlattr *attrs;
++	struct nlattr *prop;
 +
-+int tipc_nl_bearer_set(struct sk_buff *skb, struct genl_info *info)
++	hdr = genlmsg_put(msg->skb, msg->portid, msg->seq, &tipc_genl_family,
++			  NLM_F_MULTI, TIPC_NL_BEARER_GET);
++	if (!hdr)
++		return -EMSGSIZE;
++
++	attrs = nla_nest_start(msg->skb, TIPC_NLA_BEARER);
++	if (!attrs)
++		goto msg_full;
++
++	if (nla_put_string(msg->skb, TIPC_NLA_BEARER_NAME, bearer->name))
++		goto attr_msg_full;
++
++	prop = nla_nest_start(msg->skb, TIPC_NLA_BEARER_PROP);
++	if (!prop)
++		goto prop_msg_full;
++	if (nla_put_u32(msg->skb, TIPC_NLA_PROP_PRIO, bearer->priority))
++		goto prop_msg_full;
++	if (nla_put_u32(msg->skb, TIPC_NLA_PROP_TOL, bearer->tolerance))
++		goto prop_msg_full;
++	if (nla_put_u32(msg->skb, TIPC_NLA_PROP_WIN, bearer->window))
++		goto prop_msg_full;
++
++	nla_nest_end(msg->skb, prop);
++	nla_nest_end(msg->skb, attrs);
++	genlmsg_end(msg->skb, hdr);
++
++	return 0;
++
++prop_msg_full:
++	nla_nest_cancel(msg->skb, prop);
++attr_msg_full:
++	nla_nest_cancel(msg->skb, attrs);
++msg_full:
++	genlmsg_cancel(msg->skb, hdr);
++
++	return -EMSGSIZE;
++}
++
++int tipc_nl_bearer_dump(struct sk_buff *skb, struct netlink_callback *cb)
++{
++	int err;
++	int i = cb->args[0];
++	struct tipc_bearer *bearer;
++	struct tipc_nl_msg msg;
++
++	if (i == MAX_BEARERS)
++		return 0;
++
++	msg.skb = skb;
++	msg.portid = NETLINK_CB(cb->skb).portid;
++	msg.seq = cb->nlh->nlmsg_seq;
++
++	rtnl_lock();
++	for (i = 0; i < MAX_BEARERS; i++) {
++		bearer = rtnl_dereference(bearer_list[i]);
++		if (!bearer)
++			continue;
++
++		err = __tipc_nl_add_bearer(&msg, bearer);
++		if (err)
++			break;
++	}
++	rtnl_unlock();
++
++	cb->args[0] = i;
++	return skb->len;
++}
++
++int tipc_nl_bearer_get(struct sk_buff *skb, struct genl_info *info)
 +{
 +	int err;
 +	char *name;
-+	struct tipc_bearer *b;
++	struct sk_buff *rep;
++	struct tipc_bearer *bearer;
++	struct tipc_nl_msg msg;
 +	struct nlattr *attrs[TIPC_NLA_BEARER_MAX + 1];
 +
 +	if (!info->attrs[TIPC_NLA_BEARER])
@@ -84,61 +173,89 @@ index 7f77cec..906e644 100644
 +		return -EINVAL;
 +	name = nla_data(attrs[TIPC_NLA_BEARER_NAME]);
 +
++	rep = nlmsg_new(NLMSG_GOODSIZE, GFP_KERNEL);
++	if (!rep)
++		return -ENOMEM;
++
++	msg.skb = rep;
++	msg.portid = info->snd_portid;
++	msg.seq = info->snd_seq;
++
 +	rtnl_lock();
-+	b = tipc_bearer_find(name);
-+	if (!b) {
-+		rtnl_unlock();
-+		return -EINVAL;
++	bearer = tipc_bearer_find(name);
++	if (!bearer) {
++		err = -EINVAL;
++		goto err_out;
 +	}
 +
-+	if (attrs[TIPC_NLA_BEARER_PROP]) {
-+		struct nlattr *props[TIPC_NLA_PROP_MAX + 1];
-+
-+		err = tipc_nl_parse_link_prop(attrs[TIPC_NLA_BEARER_PROP],
-+					      props);
-+		if (err) {
-+			rtnl_unlock();
-+			return err;
-+		}
-+
-+		if (props[TIPC_NLA_PROP_TOL])
-+			b->tolerance = nla_get_u32(props[TIPC_NLA_PROP_TOL]);
-+		if (props[TIPC_NLA_PROP_PRIO])
-+			b->priority = nla_get_u32(props[TIPC_NLA_PROP_PRIO]);
-+		if (props[TIPC_NLA_PROP_WIN])
-+			b->window = nla_get_u32(props[TIPC_NLA_PROP_WIN]);
-+	}
++	err = __tipc_nl_add_bearer(&msg, bearer);
++	if (err)
++		goto err_out;
 +	rtnl_unlock();
 +
-+	return 0;
++	return genlmsg_reply(rep, info);
++err_out:
++	rtnl_unlock();
++	nlmsg_free(rep);
++
++	return err;
 +}
++
+ int tipc_nl_bearer_disable(struct sk_buff *skb, struct genl_info *info)
+ {
+ 	int err;
 diff --git a/net/tipc/bearer.h b/net/tipc/bearer.h
-index 2d07e35..c6cf9df 100644
+index a87e8c7..2d07e35 100644
 --- a/net/tipc/bearer.h
 +++ b/net/tipc/bearer.h
-@@ -182,6 +182,7 @@ int tipc_nl_bearer_disable(struct sk_buff *skb, struct genl_info *info);
+@@ -180,6 +180,8 @@ extern struct tipc_media ib_media_info;
+ 
+ int tipc_nl_bearer_disable(struct sk_buff *skb, struct genl_info *info);
  int tipc_nl_bearer_enable(struct sk_buff *skb, struct genl_info *info);
- int tipc_nl_bearer_dump(struct sk_buff *skb, struct netlink_callback *cb);
- int tipc_nl_bearer_get(struct sk_buff *skb, struct genl_info *info);
-+int tipc_nl_bearer_set(struct sk_buff *skb, struct genl_info *info);
++int tipc_nl_bearer_dump(struct sk_buff *skb, struct netlink_callback *cb);
++int tipc_nl_bearer_get(struct sk_buff *skb, struct genl_info *info);
  
  int tipc_media_set_priority(const char *name, u32 new_value);
  int tipc_media_set_window(const char *name, u32 new_value);
 diff --git a/net/tipc/netlink.c b/net/tipc/netlink.c
-index ef106a7..e5fbea9 100644
+index 7c0cf46..ef106a7 100644
 --- a/net/tipc/netlink.c
 +++ b/net/tipc/netlink.c
-@@ -103,6 +103,11 @@ static const struct genl_ops tipc_genl_ops[] = {
- 		.doit	= tipc_nl_bearer_get,
- 		.dumpit	= tipc_nl_bearer_dump,
+@@ -97,6 +97,12 @@ static const struct genl_ops tipc_genl_ops[] = {
+ 		.cmd	= TIPC_NL_BEARER_ENABLE,
+ 		.doit	= tipc_nl_bearer_enable,
  		.policy = tipc_nl_policy,
 +	},
 +	{
-+		.cmd	= TIPC_NL_BEARER_SET,
-+		.doit	= tipc_nl_bearer_set,
++		.cmd	= TIPC_NL_BEARER_GET,
++		.doit	= tipc_nl_bearer_get,
++		.dumpit	= tipc_nl_bearer_dump,
 +		.policy = tipc_nl_policy,
  	}
  };
  
+diff --git a/net/tipc/netlink.h b/net/tipc/netlink.h
+index f883c33..e3b7890 100644
+--- a/net/tipc/netlink.h
++++ b/net/tipc/netlink.h
+@@ -38,4 +38,10 @@
+ 
+ extern struct genl_family tipc_genl_family;
+ 
++struct tipc_nl_msg {
++	struct sk_buff *skb;
++	u32 portid;
++	u32 seq;
++};
++
+ #endif
 -- 
 1.7.10.4
+
+
+------------------------------------------------------------------------------
+Meet PCI DSS 3.0 Compliance Requirements with EventLog Analyzer
+Achieve PCI DSS 3.0 Compliant Status with Out-of-the-box PCI DSS Reports
+Are you Audit-Ready for PCI DSS 3.0 Compliance? Download White paper
+Comply to PCI DSS 3.0 Requirement 10 and 11.5 with EventLog Analyzer
+http://pubads.g.doubleclick.net/gampad/clk?id=154622311&iu=/4140/ostg.clktrk
