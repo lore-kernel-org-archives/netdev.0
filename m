@@ -1,70 +1,83 @@
-From: =?utf-8?Q?Toke_H=C3=B8iland-J=C3=B8rgensen?= <toke@toke.dk>
-Subject: Re: [net-next PATCH V5] qdisc: bulk dequeue support for qdiscs with
-	TCQ_F_ONETXQUEUE
-Date: Thu, 02 Oct 2014 12:08:16 +0200
-Message-ID: <87fvf6wzqn.fsf@toke.dk>
-References: <20140930085114.24043.81310.stgit@dragon>
-	<542A8EF9.10403@mojatatu.com>
-	<20140930.142038.235338672810639160.davem@davemloft.net>
-	<542BFEF3.7020302@mojatatu.com>
-	<CA+mtBx8rVu9FXtnc18n22L9LP=t=3Pso7U2yvvLcnny57w8aXg@mail.gmail.com>
-	<542C1F1F.90404@mojatatu.com> <20141001192840.5679a671@redhat.com>
-	<542C4E0D.4050404@mojatatu.com> <20141001214700.18b16387@redhat.com>
-	<542C5E8B.7070204@mojatatu.com> <20141001223229.6cbaac07@redhat.com>
-	<CAA93jw5orK2FeD20zcFpXGkqGa=kF8E-vGtkdUs7vr54R5AE6g@mail.gmail.com>
-	<20141002094418.37f6ecb4@redhat.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="=-=-=";
-	micalg=pgp-sha256; protocol="application/pgp-signature"
-Cc: Dave Taht <dave.taht@gmail.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Tom Herbert <therbert@google.com>,
-	David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Florian Westphal <fw@strlen.de>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 0/9][pull request] Intel Wired LAN Driver Updates 2014-10-02
+Date: Thu,  2 Oct 2014 03:16:25 -0700
+Message-ID: <1412244994-23636-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.tohojo.dk ([77.235.48.147]:36437 "EHLO mail2.tohojo.dk"
+Received: from mga01.intel.com ([192.55.52.88]:44069 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750919AbaJBKPm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Oct 2014 06:15:42 -0400
-In-Reply-To: <20141002094418.37f6ecb4@redhat.com> (Jesper Dangaard Brouer's
-	message of "Thu, 2 Oct 2014 09:44:18 +0200")
+	id S1750919AbaJBKQh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Oct 2014 06:16:37 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---=-=-=
-Content-Type: text/plain
+This series contains updates to fm10k, igb, ixgbe and i40e.
 
-Jesper Dangaard Brouer <brouer@redhat.com> writes:
+Alex provides two updates to the fm10k driver.  First reduces the buffer
+size to 2k for all page sizes, since most frames only have a 1500 MTU
+so supporting a buffer size larger than this is somewhat wasteful.
+Second fixes an issue where the number of transmit queues was not being
+updated, so added the lines necessary to update the number of transmit
+queues.
 
-> Perhaps Toke have an opinion on the output formatting from bqlmon?
+Rick Jones provides two patches to convert ixgbe, igb and i40e to use
+dev_consume_skb_any().
 
-Anything that outputs one record per line and is parsable by regular
-expression is fine with me. I don't currently have a runner that
-captures json output, so doing that would actually be more work for me
-to support presently :)
+Emil provides two patches for ixgbe, first cleans up a couple of wait
+loops on auto-negotiation that were not needed.  Second fixes an issue
+reported by Fujitsu/Red Hat, which consolidates the logic behind the
+dynamically setting of TXDCTL.WTHRESH depending on interrupt throttle
+rate (ITR) setting regardless of BQL.
 
--Toke
+Ethan Zhao provides a cleanup patch for ixgbe where he noticed a
+duplicate define.
 
---=-=-=
-Content-Type: application/pgp-signature; name="signature.asc"
+Bernhard Kaindl provides a patch for igb to remove a source of latency
+spikes by not calling code that uses mdelay() for feeding a PHY stat
+while being called with a spinlock held.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+Todd bumps the igb version based on the recent changes.
 
-iQEcBAEBCAAGBQJULSQQAAoJEENeEGz1+utPYegIAJXQuhi7PoLMz8X9+TtdTL+O
-XN4ObhJWxmIRuKm6NOHHeWu1yJM4Y0yo0SqgHuEtC7IhPLhyE7fxKB+BhSIc1H90
-wmy366CdLW5Sy2joKtH9T6uazpF7IJ7tEZ7q3uS1OHfnnVtSTfRF5npZPgydFF/e
-1SDMXnDMZ3hiqrW6GkObOErE7+2oKfM53zUTY59RdkYHpBQ+SiNVoYUV0WAWH3A0
-ERsUR9kCMuJv7hRkONfqqk+2O7s3pZxu+Adu4U6QEoVXozzv424EUEGRdDU2l8RU
-MbldRm817vPN73YW4aIUXtWwfGM+HnZ3QGj4yWhUdma7bQ52M0Scg2vD2q8ydAA=
-=MuI2
------END PGP SIGNATURE-----
---=-=-=--
+The following are changes since commit d068b02cfdfc27f5962ec82ec5568b706f599edc:
+  net: phy: add BCM7425 and BCM7429 PHYs
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+
+Alexander Duyck (2):
+  fm10k: Reduce buffer size when pages are larger than 4K
+  fm10k: Correctly set the number of Tx queues
+
+Bernhard Kaindl (1):
+  igb: remove blocking phy read from inside spinlock
+
+Emil Tantilov (2):
+  ixgbe: remove wait loop on autoneg for copper devices
+  ixgbe: fix setting of TXDCTL.WTRHESH when ITR is set to 0 and no BQL
+
+Ethan Zhao (1):
+  ixgbe: delete one duplicate marcro definition of IXGBE_MAX_L2A_QUEUES
+
+Rick Jones (2):
+  ixgbe: Convert the normal transmit complete path to
+    dev_consume_skb_any()
+  i40e/igb: Convert to dev_consume_skb_any()
+
+Todd Fujinaka (1):
+  igb: bump version to 5.2.15
+
+ drivers/net/ethernet/intel/fm10k/fm10k.h         |  8 ++---
+ drivers/net/ethernet/intel/fm10k/fm10k_netdev.c  |  6 +++-
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c      |  2 +-
+ drivers/net/ethernet/intel/igb/e1000_hw.h        |  5 ---
+ drivers/net/ethernet/intel/igb/igb.h             |  1 -
+ drivers/net/ethernet/intel/igb/igb_main.c        | 16 ++-------
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h         |  1 -
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |  3 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |  6 +---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c     | 41 ------------------------
+ 10 files changed, 12 insertions(+), 77 deletions(-)
+
+-- 
+1.9.3
