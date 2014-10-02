@@ -1,58 +1,74 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net-next] mlx4: optimize xmit path
-Date: Thu, 02 Oct 2014 05:07:00 -0700
-Message-ID: <1412251620.16704.88.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1411692382-8898-1-git-send-email-ast@plumgrid.com>
-			 <1411694414.16953.70.camel@edumazet-glaptop2.roam.corp.google.com>
-			 <1411717322.16953.99.camel@edumazet-glaptop2.roam.corp.google.com>
-			 <1411850590.15768.6.camel@edumazet-glaptop2.roam.corp.google.com>
-			 <CAJ3xEMhQCf7j48Yn5sjH6jaYYdLQUgOe2hk-OZhhdZ7taOyx+Q@mail.gmail.com>
-			 <1411853441.15768.13.camel@edumazet-glaptop2.roam.corp.google.com>
-			 <1411858593.15768.51.camel@edumazet-glaptop2.roam.corp.google.com>
-			 <1411964353.30721.6.camel@edumazet-glaptop2.roam.corp.google.com>
-		 <1412224524.16704.75.camel@edumazet-glaptop2.roam.corp.google.com>
-		 <542D06C1.6090802@mellanox.com>
-	 <1412250327.16704.84.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <542D3D5F.5090900@mellanox.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH] wil6210: remove obsolete msm platform code
+Date: Thu, 02 Oct 2014 14:11:22 +0200
+Message-ID: <3354043.ejE77YinPM@wuerfel>
+References: <3995357.SmO1fZQuHn@wuerfel> <1572828.LhiMXjHRdV@lx-wigig-72>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Or Gerlitz <gerlitz.or@gmail.com>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	Eric Dumazet <edumazet@google.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Or Gerlitz <or.gerlitz@gmail.com>, amira@mellanox.com,
-	idos@mellanox.com, Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	eyalpe@mellanox.com
-To: Amir Vadai <amirv@mellanox.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	wil6210@qca.qualcomm.com, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org
+To: Vladimir Kondratiev <qca_vkondrat@qca.qualcomm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:55987 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751507AbaJBMHD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2014 08:07:03 -0400
-Received: by mail-pa0-f51.google.com with SMTP id lj1so2197181pab.24
-        for <netdev@vger.kernel.org>; Thu, 02 Oct 2014 05:07:02 -0700 (PDT)
-In-Reply-To: <542D3D5F.5090900@mellanox.com>
+Received: from mout.kundenserver.de ([212.227.17.10]:57366 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751176AbaJBMMA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2014 08:12:00 -0400
+In-Reply-To: <1572828.LhiMXjHRdV@lx-wigig-72>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-10-02 at 14:56 +0300, Amir Vadai wrote:
-> After making sure the sender thread and the TX completions are not on
-> the same CPU, I see the expected improvement. +0.5Mpps with tx
-> optimizations.
+On Thursday 02 October 2014 14:29:06 Vladimir Kondratiev wrote:
+> On Tuesday, September 30, 2014 05:48:20 PM Arnd Bergmann wrote:
+> > The wil6210 driver has a glue layer for the Qualcomm MSM platform
+> > code, which apparently could never build and is unlikely to
+> > ever be able to in the future, as the MSM platform is being phased
+> > out in favor of the new QCOM platform, and the driver relies
+> > on out-of-tree infrastructure. Trying to build it currently
+> > results in this error:
+> > 
+> > drivers/net/wireless/ath/wil6210/wil_platform_msm.c:19:27: fatal error: linux/msm-bus.h: No such file or directory
+> > 
+> > Removing the driver fixes the build and makes it possible to
+> > build an allmodconfig kernel for MSM.
+> > 
+> > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> > 
+> 
+> We are investigating this, looking for the appropriate solution.
+> Thanks for pointing to this.
 
-I got 40% here.
+FWIW, I took a closer look at the actual driver code now. It's
+actually worse than I thought and I don't see any possible way
+out other than removing this driver completely and starting a
+new one, if you want to use it for mach-qcom. I hadn't realized
+before that this is actually new code rather than ancient bitrot
+that suddenly started causing problems.
 
-Hmm... both cpus are on the same socket, right ?
+Some of the worst problems are:
 
-TX coalescing is properly setup ?
+- the driver scans for DT properties that are completely
+  undocumented and have not been reviewed
 
-What interrupt rate do you get ?
+- if they had been reviewed, the first comment you would have
+  received is that the binding makes no sense: you scan for
+  another node rather than taking the node you already have for
+  the PCI device, then pass data into a random soc-specific
+  driver API that is not part of the upstream kernel.
 
-You can take a look at where cycles are spent
+- as mentioned in the my patch above, the code has never been
+  compiled on a mainline kernel and now breaks builds.
 
-perf record -a -g sleep 5
-perf report
+I think the only way forward is to have the platform support for
+whatever chip this is meant for reviewed and merged first and
+then you can write a new glue driver for the interfaces we end
+up putting into the kernel.
+My guess is that with proper interfaces between the platform
+bus driver and the wil driver glue, there would be very little
+left in terms of interface and you can just call a generic
+interface from the PCI driver, passing the 'struct device'
+for the PCI dev in to an exported interface when provided.
+
+	Arnd
