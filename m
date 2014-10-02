@@ -1,63 +1,90 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: Re: [PATCH net-next v6 2/2] bonding: Simplify the xmit function for
- modes that use xmit_hash
-Date: Thu, 2 Oct 2014 22:58:35 +0530
-Message-ID: <CAF2d9jhdvkxw_3cm-hXFY1wxy5WVKdnmcNOdRTak_Qx+6NS1sA@mail.gmail.com>
-References: <1412152711-12646-1-git-send-email-maheshb@google.com>
- <6356.1412180365@famine> <CAF2d9jioDfj+qmvrQBQcaHnvXbL+Fnsh3-jxwn2KU+zvV=xgJQ@mail.gmail.com>
- <063D6719AE5E284EB5DD2968C1650D6D174A2CF5@AcuExch.aculab.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next PATCH V6 0/2] qdisc: bulk dequeue support
+Date: Thu, 02 Oct 2014 10:32:47 -0700
+Message-ID: <1412271167.22242.9.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20141001203345.3321.99675.stgit@dragon>
+	 <CA+mtBx8ecpd+S+E2o8A+Hzp3i2SO7XO0+F_DYA0ng+fjta7G5A@mail.gmail.com>
+	 <20141002165215.GJ1803@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Jay Vosburgh <jay.vosburgh@canonical.com>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Maciej Zenczykowski <maze@google.com>
-To: David Laight <David.Laight@aculab.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Tom Herbert <therbert@google.com>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Dave Taht <dave.taht@gmail.com>,
+	Toke =?ISO-8859-1?Q?H=F8iland-J=F8rgensen?= <toke@toke.dk>
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f178.google.com ([209.85.220.178]:37632 "EHLO
-	mail-vc0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752032AbaJBR24 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2014 13:28:56 -0400
-Received: by mail-vc0-f178.google.com with SMTP id hq12so1667081vcb.23
-        for <netdev@vger.kernel.org>; Thu, 02 Oct 2014 10:28:55 -0700 (PDT)
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D174A2CF5@AcuExch.aculab.com>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:58773 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751971AbaJBRcw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2014 13:32:52 -0400
+Received: by mail-pa0-f53.google.com with SMTP id kq14so2975894pab.40
+        for <netdev@vger.kernel.org>; Thu, 02 Oct 2014 10:32:51 -0700 (PDT)
+In-Reply-To: <20141002165215.GJ1803@breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 2, 2014 at 2:42 PM, David Laight <David.Laight@aculab.com> wrote:
-> From: Mahesh Bandewar
->> On Wed, Oct 1, 2014 at 9:49 PM, Jay Vosburgh <jay.vosburgh@canonical.com> wrote:
->> > Mahesh Bandewar <maheshb@google.com> wrote:
-> ...
->> >>  * Select aggregation groups, and assign each port for it's aggregetor. The
->> >>  * selection logic is called in the inititalization (after all the handshkes),
->> >>  * and after every lacpdu receive (if selected is off).
->> >>  */
->> >>-static void ad_port_selection_logic(struct port *port)
->> >>+static void ad_port_selection_logic(struct port *port, bool *update_slave_arr)
->> >
->> >         Since this function is void, why not have it return a value
->> > instead of the bool *update_slave_arr?  That would eliminate the need
->> > for some call sites to pass a "dummy" to the function.  This comment
->> > applies to ad_agg_selection_logic and ad_enable_collecting_distributing
->> > as well.
->> >
->> Yes, I had similar discussion with Nik earlier and overloading the
->> return value did not feel clean and future-proof and hence decided to
->> take this approach.
->
-> What overload?
-> Returning values by reference parameters isn't really a good idea.
-> It kills performance and optimisations.
-> If you ever need a second return value then solve the problem then.
->
-Please show me how much performance we are loosing by taking this
-approach... otherwise this argument is bogus!
+On Thu, 2014-10-02 at 18:52 +0200, Florian Westphal wrote:
+> Tom Herbert <therbert@google.com> wrote:
+> > On Wed, Oct 1, 2014 at 1:35 PM, Jesper Dangaard Brouer
+> > <brouer@redhat.com> wrote:
+> > > This patchset uses DaveM's recent API changes to dev_hard_start_xmit(),
+> > > from the qdisc layer, to implement dequeue bulking.
+> > >
+> > > Patch01: "qdisc: bulk dequeue support for qdiscs with TCQ_F_ONETXQUEUE"
+> > >  - Implement basic qdisc dequeue bulking
+> > >  - This time, 100% relying on BQL limits, no magic safe-guard constants
+> > >
+> > > Patch02: "qdisc: dequeue bulking also pickup GSO/TSO packets"
+> > >  - Extend bulking to bulk several GSO/TSO packets
+> > >  - Seperate patch, as it introduce a small regression, see test section.
+> > >
+> > > We do have a patch03, which exports a userspace tunable as a BQL
+> > > tunable, that can byte-cap or disable the bulking/bursting.  But we
+> > > could not agree on it internally, thus not sending it now.  We
+> > > basically strive to avoid adding any new userspace tunable.
+> > >
+> > Unfortunately we probably still need something. If BQL were disabled
+> > (by setting BQL min_limit to infinity) then we'll always dequeue all
+> > the packets in the qdisc. Disabling BQL might be legitimate in
+> > deployment if say a bug is found in a device that prevents prompt
+> > transmit completions for some corner case.
+> 
+> Hmm.  Thats confusing.
+> 
+> So you are saying to disable bql one should do
+> 
+> cat limit_max > limit_min ?
+> 
+> But thats not the same as having a bql-unaware driver.
+> 
+> Seems to get same behavior as non-bql aware driver (where
+> dql_avail always returns 0 since num_queued and adj_limit remain at 0)
+> is to set
+> 
+> echo 0 > limit_max
+> 
+> ... which makes dql_avail() return 0, which then also turns off bulk
+> dequeue.
 
->         David
->
->
->
+So Tom point is that we might have a BQL enabled driver, but for some
+reason admin wants to set limit_min to 10000000.
+
+Then the admin wants also to restrict the xmit_more batches to 13
+packets.
+
+Then a debugging facility might be nice to have.
+
+What about adding 2 attributes :
+
+/sys/class/net/ethX/queues/tx-Y/xmit_more_inflight   (live number of
+deferred frames on this TX queue, waiting a doorbell to kick the NIC)
+
+/sys/class/net/ethX/queues/tx-Y/xmit_more_limit      (default to 8)
