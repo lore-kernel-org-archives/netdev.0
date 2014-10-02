@@ -1,119 +1,44 @@
-From: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [RFC PATCH net-next v2 0/5] netns: allow to identify peer netns
-Date: Thu, 02 Oct 2014 15:46:14 +0200
-Message-ID: <542D5726.8070308@6wind.com>
-References: <1411478430-4989-1-git-send-email-nicolas.dichtel@6wind.com>	<87ppei45ig.fsf@x220.int.ebiederm.org>	<CALCETrX5e0cp4QFCv1eAqR1hjoROU9Rh=cRos9U35DaR-py3Eg@mail.gmail.com>	<87y4t61a6v.fsf@x220.int.ebiederm.org>
-	<54294B4E.70501@6wind.com> <87y4t2gtd0.fsf@x220.int.ebiederm.org>
-Reply-To: nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org
+From: "Jan Beulich" <JBeulich@suse.com>
+Subject: Re: [Xen-devel] [PATCHv1] xen-netfront: always keep the Rx
+ ring full of requests
+Date: Thu, 02 Oct 2014 14:46:41 +0100
+Message-ID: <542D7361020000780003C014@mail.emea.novell.com>
+References: <1412256826-18874-1-git-send-email-david.vrabel@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Containers <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
-	Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
-	Cong Wang <cwang-xCSkyg8dI+0RB7SZvlqPiA@public.gmane.org>, Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <87y4t2gtd0.fsf-JOvCrm2gF+uungPnsOpG7nhyD016LWXt@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+Cc: <xen-devel@lists.xenproject.org>,
+	"Boris Ostrovsky" <boris.ostrovsky@oracle.com>,
+	<netdev@vger.kernel.org>
+To: "David Vrabel" <david.vrabel@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.emea.novell.com ([130.57.118.101]:43791 "EHLO
+	mail.emea.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753707AbaJBNqo convert rfc822-to-8bit (ORCPT
+	<rfc822;groupwise-netdev@vger.kernel.org:4:1>);
+	Thu, 2 Oct 2014 09:46:44 -0400
+In-Reply-To: <1412256826-18874-1-git-send-email-david.vrabel@citrix.com>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-TGUgMjkvMDkvMjAxNCAyMDo0MywgRXJpYyBXLiBCaWVkZXJtYW4gYSDDqWNyaXQgOgo+IE5pY29s
-YXMgRGljaHRlbCA8bmljb2xhcy5kaWNodGVsQDZ3aW5kLmNvbT4gd3JpdGVzOgo+Cj4+IExlIDI2
-LzA5LzIwMTQgMjA6NTcsIEVyaWMgVy4gQmllZGVybWFuIGEgw6ljcml0IDoKPj4+IEFuZHkgTHV0
-b21pcnNraSA8bHV0b0BhbWFjYXBpdGFsLm5ldD4gd3JpdGVzOgo+Pj4KPj4+PiBPbiBGcmksIFNl
-cCAyNiwgMjAxNCBhdCAxMToxMCBBTSwgRXJpYyBXLiBCaWVkZXJtYW4KPj4+PiA8ZWJpZWRlcm1A
-eG1pc3Npb24uY29tPiB3cm90ZToKPj4+Pj4gTmljb2xhcyBEaWNodGVsIDxuaWNvbGFzLmRpY2h0
-ZWxANndpbmQuY29tPiB3cml0ZXM6Cj4+Pj4+Cj4+Pj4+PiBUaGUgZ29hbCBvZiB0aGlzIHNlcmll
-IGlzIHRvIGJlIGFibGUgdG8gbXVsdGljYXN0IG5ldGxpbmsgbWVzc2FnZXMgd2l0aCBhbgo+Pj4+
-Pj4gYXR0cmlidXRlIHRoYXQgaWRlbnRpZnkgYSBwZWVyIG5ldG5zLgo+Pj4+Pj4gVGhpcyBpcyBu
-ZWVkZWQgYnkgdGhlIHVzZXJsYW5kIHRvIGludGVycHJldCBzb21lIGluZm9ybWF0aW9ucyBjb250
-YWluZWQgaW4KPj4+Pj4+IG5ldGxpbmsgbWVzc2FnZXMgKGxpa2UgSUZMQV9MSU5LIHZhbHVlLCBi
-dXQgYWxzbyBzb21lIG90aGVyIGF0dHJpYnV0ZXMgaW4gY2FzZQo+Pj4+Pj4gb2YgeC1uZXRucyBu
-ZXRkZXZpY2UgKHNlZSBhbHNvCj4+Pj4+PiBodHRwOi8vdGhyZWFkLmdtYW5lLm9yZy9nbWFuZS5s
-aW51eC5uZXR3b3JrLzMxNTkzMy9mb2N1cz0zMTYwNjQgYW5kCj4+Pj4+PiBodHRwOi8vdGhyZWFk
-LmdtYW5lLm9yZy9nbWFuZS5saW51eC5rZXJuZWwuY29udGFpbmVycy8yODMwMS9mb2N1cz00MjM5
-KSkuCj4+Pj4+Cj4+Pj4+IEkgd2FudCBzYXkgdGhhdCB0aGUgcHJvYmxlbSBhZGRyZXNzZWQgYnkg
-cGF0Y2ggMy81IG9mIHRoaXMgc2VyaWVzIGlzIGEKPj4+Pj4gZnVuZGFtZW50YWxseSB2YWxpZCBw
-cm9ibGVtLiAgV2UgaGF2ZSBuZXR3b3JrIG9iamVjdHMgc3Bhbm5pbmcgbmV0d29yawo+Pj4+PiBu
-YW1lc3BhY2VzIGFuZCBpdCB3b3VsZCBiZSB2ZXJ5IG5pY2UgdG8gYmUgYWJsZSB0byB0YWxrIGFi
-b3V0IHRoZW0gaW4KPj4+Pj4gbmV0bGluaywgYW5kIGZpbGUgZGVzY3JpcHRvcnMgYXJlIHRvbyBs
-b2NhbCBhbmQgYXJndWJhYmx5IHRvbyBoZWF2eQo+Pj4+PiB3ZWlnaHQgZm9yIG5ldGxpbmsgcXVp
-cmVzIGFuZCBlc3BlY2lhbGx5IGZvciBuZXRsaW5rIGJyb2FkY2FzdCBtZXNzYWdlcy4KPj4+Pj4K
-Pj4+Pj4gRnVydGhlcm1vcmUgdGhlIGNvbmNlcHQgb2YgaW5ldGVybmFsIGNvbmNlcHQgb2YgcGVl
-cm5ldDJpZCBzZWVtcyB2YWxpZC4KPj4+Pj4KPj4+Pj4gSG93ZXZlciB3aGF0IHlvdSBkbyBub3Qg
-YWRkcmVzcyBpcyBhIHdheSBmb3IgQ1JJVSAoYWthIHByb2Nlc3MKPj4+Pj4gbWlncmF0aW9uKSB0
-byBiZSBhYmxlIHRvIHJlc3RvcmUgdGhlc2UgaWRzIGFmdGVyIHByb2Nlc3MgbWlncmF0aW9uLgo+
-Pj4+PiBHb2luZyBmYXJ0aGVyIGl0IGxvb2tzIGxpa2UgeW91IGFyZSBhY3RpdmVseSBicmVha2lu
-ZyBwcm9jZXNzIG1pZ3JhdGlvbgo+Pj4+PiBhdCB0aGlzIHRpbWUsIG1ha2luZyB0aGlzIHNldCBv
-ZiBwYXRjaGVzIGEgbm8tZ28uCj4+IE9rLCBJIHdpbGwgbG9vayBtb3JlIGRlZXBseSBpbnRvIENS
-SVUuCj4+Cj4+Pj4+Cj4+Pj4+IFdoZW4gYWRkaW5nIGEgbmV3IGZvcm0gb2YgbmFtZXNwYWNlIGlk
-IENSSVUgcGF0Y2hlcyBhcmUganVzdCBhYm91dAo+Pj4+PiBhcyBuZWNlc3NhcnkgYXMgaXByb3V0
-ZSBwYXRjaGVzLgo+PiBOb3RlZC4KPgo+Cj4KPj4+Pj4gVGhhdCBkb2VzIG5vdCBkZXNjcmliZSB3
-aGF0IHlvdSBoYXZlIGFjdHVhbGx5IGltcGxlbWVudGVkIGluIHRoZQo+Pj4+PiBwYXRjaGVzLgo+
-Pj4+Pgo+Pj4+PiBJIHNlZSB0d28gd2F5cyB0byBnbyB3aXRoIHRoaXMuCj4+Pj4+Cj4+Pj4+IC0g
-QSBwZXIgbmV0d29yayBuYW1lc3BhY2UgdGFibGUgdG8gdGhhdCB5b3UgY2FuIHN0b3JlIGlkcyBm
-b3IgYGBwZWVyJycKPj4+Pj4gICAgIG5ldHdvcmsgbmFtZXNwYWNlcy4gIFRoZSB0YWJsZSB3b3Vs
-ZCBuZWVkIHRvIGJlIHBvcHVsYXRlZCBtYW51YWxseSBieQo+Pj4+PiAgICAgdGhlIGxpa2VzIG9m
-IGlwIG5ldG5zIGFkZC4KPj4+Pj4KPj4+Pj4gICAgIFRoYXQgZmxpcHMgdGhlIG9yZGVyIG9mIGFz
-c2lnbm1lbnQgYW5kIG1ha2VzIHRoaXMgaWRlYSBzb2xpZC4KPj4gSSBoYXZlIGEgcHJlZmVyZW5j
-ZSBmb3IgdGhpcyBzb2x1dGlvbiwgYmVjYXVzZSBpdCBhbGxvd3MgdG8gaGF2ZSBhIGZ1bGwKPj4g
-YnJvYWRjYXN0IG1lc3NhZ2VzLiBXaGVuIHlvdSBoYXZlIGEgbG90IG9mIG5ldHdvcmsgaW50ZXJm
-YWNlcyAoPiAxMGspLAo+PiBpdCBzYXZlcyBhIGxvdCBvZiB0aW1lIHRvIGF2b2lkIGFub3RoZXIg
-cmVxdWVzdCB0byBnZXQgYWxsIGluZm9ybWF0aW9ucy4KPgo+IE15IHByYWN0aWNhbCBxdWVzdGlv
-biBpcyBob3cgb2Z0ZW4gZG9lcyBpdCBoYXBwZW4gdGhhdCB3ZSBjYXJlPwpJbiBmYWN0LCBJIGRv
-bid0IHRoaW5rIHRoYXQgc2NlbmFyaWkgd2l0aCBhIGxvdCBvZiBuZXRucyBoYXZlIGEgZnVsbCBt
-ZXNoIG9mCngtbmV0bnMgaW50ZXJmYWNlcy4gSXQgd2lsbCBiZSBtb3JlIG9uZSAibGluayIgbmV0
-bnMgd2l0aCB0aGUgcGh5c2ljYWwKaW50ZXJmYWNlIGFuZCBhbGwgb3RoZXIgd2l0aCBvbmUgaW50
-ZXJmYWNlIHdpdGggdGhlIGxpbmsgcGFydCBpbiB0aGlzICJsaW5rIgpuZXRucy4gSGVuY2UsIG9u
-bHkgb25lIG5zaWQgaXMgbmVlZGluZyBpbiBlYWNoIG5ldG5zLgoKPgo+Pj4+PiAgICAgVW5mb3J0
-dW5hdGVseSBpbiB0aGUgY2FzZSBvZiBhIGZ1bGx5IHJlZmVyZW5jaW5nIG1lc2ggb2YgTiBuZXR3
-b3JrCj4+Pj4+ICAgICBuYW1lc3BhY2VzIHN1Y2ggYSBtZXNoIHdpbmRzIHVwIHRha2luZyBPKE5e
-Mikgc3BhY2UsIHdoaWNoIHNlZW1zCj4+Pj4+ICAgICB1bmRlc2lyYWJsZS4KPj4gTWVtb3J5IGNv
-bnN1bXB0aW9uIHZzIHBlcmZvcm1hbmNlcyA7LSkKPj4gSW4gZmFjdCwgd2hlbiB5b3UgaGF2ZSBh
-IGxvdCBvZiBuZXRucywgeW91IGFscmVhZHkgc2hvdWxkIGhhdmUgc29tZSBtZW1vcnkKPj4gYXZh
-aWxhYmxlIChhdCBsZWFzdCBOIGxvIGludGVyZmFjZXMgKyBOIGludGVyZmFjZXMgKHZldGggb3Ig
-YSB4LW5ldG5zCj4+IGludGVyZmFjZSkpLiBJJ20gbm90IGNvbnZpbmNlZCB0aGF0IHRoaXMgaXMg
-cmVhbGx5IGFuIG9ic3RhY2xlLgo+Cj4gSSB3b3VsZCBoYXZlIHRvIHNlZSBob3cgaXQgYWxsIGZp
-dHMgdG9nZXRoZXIuIE8oTl4yKSBncm93cyBhIGxvdCBmYXN0ZXIKPiB0aGF0IE4uICBTbyBhZnRl
-ciBhIHBvaW50IGl0IGlzbid0IGluIHRoZSBzYW1lIGJhbGxwYXJrIG9mIG1lbW9yeQo+IGNvbnN1
-bXB0aW9uLgo+Cj4+PiBicm9hZGNhc3QgbWVzc2FnZSBidXNpbmVzcywgYW5kIG9ubHkgY2FyZSBh
-Ym91dCB0aGUgcmVtb3RlIG5hbWVzcGFjZSBmb3IKPj4+IHVuaWNhc3QgbWVzc2FnZXMuICBQdXR0
-aW5nIHRoZSB3b3JrIGluIGFuIGluZnJlcXVlbnRseSB1c2VkIHNsb3cgcGF0aAo+Pj4gaW5zdGVh
-ZCBvZiBhIGNvbXBhcml0aXZlbHkgY29tbW9uIHBhdGggZ2l2ZXMgdXMgbXVjaCBtb3JlIGZyZWVk
-b20gaW4KPj4+IHRoZSBpbXBsZW1lbnRhdGlvbi4KPj4gSSB0aGluayBpdCdzIGJldHRlciB0byBo
-YXZlIGEgZnVsbCBuZXRsaW5rIG1lc3NhZ2VzLCBpbnN0ZWFkIGEgcGFydGlhbCBvbmUuCj4+IFRo
-ZXJlIGlzIGFscmVhZHkgYSBsb3Qgb2YgYXR0cmlidXRlcyBhZGRlZCBmb3IgZWFjaCBydG5sIGlu
-dGVyZmFjZSBtZXNzYWdlcyB0bwo+PiBiZSBzdXJlIHRvIGRlc2NyaWJlIGFsbCBwYXJhbWV0ZXJz
-IG9mIHRoZXNlIGludGVyZmFjZXMuCj4+IEFuZCBpZiB0aGUgdXNlciBkb24ndCBjYXJlIGFib3V0
-IGlkcyAodXNlciBoYXMgbm90IHNldCBhbnkgaWQgd2l0aCBpcHJvdXRlMiksCj4+IHdlIGNhbiBq
-dXN0IGFkZCB0aGUgc2FtZSBhdHRyaWJ1dGUgd2l0aCBpZCAwIChsZXQncyBzYXkgaXQncyBhIHJl
-c2VydmVkIGlkKSB0bwo+PiBpbmRpY2F0ZSB0aGF0IHRoZSBsaW5rIHBhcnQgb2YgdGhpcyBpbnRl
-cmZhY2UgaXMgaW4gYW5vdGhlciBuZXRucy4KPgo+IEkgaW1hZ2luZSBhbiBpZCBsaWtlIHRoYXQg
-aXMgc29tZXRoaW5nIHdlIHdvdWxkIHdhbnQgaXAgbmV0bnMgYWRkIHRvCj4gc2V0LCBhbmQgcHJv
-YmFibHkgc2V0IGluIGFsbCBleGlzdGluZyBuZXR3b3JrIG5hbWVzcGFjZXMgYXMgd2VsbC4KPgo+
-PiBUaGUgZ3JlYXQgYmVuZWZpdCBvZiB5b3VyIGZpcnN0IHByb3Bvc2FsIGlzIHRoYXQgdGhlIGlk
-cyBhcmUgc2V0IGJ5IHRoZQo+PiB1c2Vyc3BhY2UgYW5kIHRodXMgaXQgYWxsb3dzIGEgaGlnaCBm
-bGV4aWJpbGl0eS4KPj4KPj4gV291bGQgeW91IGFjY2VwdCBhIHBhdGNoIHRoYXQgaW1wbGVtZW50
-cyB0aGlzIGZpcnN0IHNvbHV0aW9uPwo+Cj4gSSB3b3VsZCBub3QgZnVuZGFtZW50YWxseSByZWpl
-Y3QgaXQuICBJIHdvdWxkIHJlYWxseSBsaWtlIHRvIG1ha2UKPiBjZXJ0YWluIHdlIHRoaW5rIHRo
-cm91Z2ggaG93IGl0IHdpbGwgYmUgdXNlZCBhbmQgd2hhdCB0aGUgcHJhY3RpY2FsCj4gYmVuZWZp
-dHMgYXJlLiAgRGVwZW5kaW5nIG9uIGhvdyBpdCBpcyB1c2VkIHRoZSBkYXRhIHN0cnVjdHVyZSBj
-b3VsZAo+IGJlIGEga2lsbGVyIG9yIGl0IGNvdWxkIGJlIGEgY2FzZSB3aGVyZSB3ZSBzZWUgaG93
-IHRvIG1hbmFnZSBpdCBhbmQKPiBzaW1wbHkgZG9uJ3QgY2FyZS4KSSB3aWxsIHNlbmQgYSB2Mywg
-c28gd2UgY2FuIHRhbGsgYWJvdXQgaXQuCgoKVGhhbmsgeW91LApOaWNvbGFzCl9fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCkNvbnRhaW5lcnMgbWFpbGluZyBs
-aXN0CkNvbnRhaW5lcnNAbGlzdHMubGludXgtZm91bmRhdGlvbi5vcmcKaHR0cHM6Ly9saXN0cy5s
-aW51eGZvdW5kYXRpb24ub3JnL21haWxtYW4vbGlzdGluZm8vY29udGFpbmVycw==
+>>> On 02.10.14 at 15:33, <david.vrabel@citrix.com> wrote:
+> A full Rx ring only requires 1 MiB of memory.  This is not enough
+> memory that it is useful to dynamically scale the number of Rx
+> requests in the ring based on traffic rates.
+
+The performance benefits are nice, but does the above statement
+scale to hundreds of guests with perhaps multiple NICs and/or
+queues?
+
+Jan
+
+> Keeping the ring full of Rx requests handles bursty traffic better
+> than trying to converges on an optimal number of requests to keep
+> filled.
+> 
+> On a 4 core host, an iperf -P 64 -t 60 run from dom0 to a 4 VCPU guest
+> improved from 5.1 Gbit/s to 5.6 Gbit/s.  Gains with more bursty
+> traffic are expected to be higher.
+> 
+> Signed-off-by: David Vrabel <david.vrabel@citrix.com>
