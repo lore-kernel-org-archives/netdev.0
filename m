@@ -1,57 +1,51 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 2/9] fm10k: Correctly set the number of Tx queues
-Date: Thu,  2 Oct 2014 03:16:27 -0700
-Message-ID: <1412244994-23636-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 3/9] ixgbe: Convert the normal transmit complete path to dev_consume_skb_any()
+Date: Thu,  2 Oct 2014 03:16:28 -0700
+Message-ID: <1412244994-23636-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1412244994-23636-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Rick Jones <rick.jones2@hp.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:44069 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750919AbaJBKQk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Oct 2014 06:16:40 -0400
+	id S1751448AbaJBKQm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Oct 2014 06:16:42 -0400
 In-Reply-To: <1412244994-23636-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+From: Rick Jones <rick.jones2@hp.com>
 
-The number of Tx queues was not being updated due to some issues when
-generating the patches.  This change makes sure to add the lines necessary
-to update the number of Tx queues correctly.
+Convert the normal packet completion path to dev_consume_skb_any() so
+packet drop profiling via dropwatch or perf top -G -e skb_kfree_skb
+is not cluttered with false hits.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Compile tested only.  There is a dev_kfree_skb_any() in the routine
+ixgbe_ptp_tx_hwtstamp() in ixgbe_ptp.c that looks like a conversion
+candidate but I wasn't familiar enough with the code to pull the
+trigger.
+
+Signed-off-by: Rick Jones <rick.jones2@hp.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/fm10k/fm10k_netdev.c | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
-index dcec000..bf44a8f 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
-@@ -546,6 +546,10 @@ int fm10k_open(struct net_device *netdev)
- 	fm10k_request_glort_range(interface);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 06ef5a3..2daf257 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -1094,7 +1094,7 @@ static bool ixgbe_clean_tx_irq(struct ixgbe_q_vector *q_vector,
+ 		total_packets += tx_buffer->gso_segs;
  
- 	/* Notify the stack of the actual queue counts */
-+	err = netif_set_real_num_tx_queues(netdev,
-+					   interface->num_tx_queues);
-+	if (err)
-+		goto err_set_queues;
+ 		/* free the skb */
+-		dev_kfree_skb_any(tx_buffer->skb);
++		dev_consume_skb_any(tx_buffer->skb);
  
- 	err = netif_set_real_num_rx_queues(netdev,
- 					   interface->num_rx_queues);
-@@ -601,7 +605,7 @@ int fm10k_close(struct net_device *netdev)
- static netdev_tx_t fm10k_xmit_frame(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct fm10k_intfc *interface = netdev_priv(dev);
--	unsigned int r_idx = 0;
-+	unsigned int r_idx = skb->queue_mapping;
- 	int err;
- 
- 	if ((skb->protocol ==  htons(ETH_P_8021Q)) &&
+ 		/* unmap skb header data */
+ 		dma_unmap_single(tx_ring->dev,
 -- 
 1.9.3
