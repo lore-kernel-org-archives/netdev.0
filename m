@@ -1,62 +1,46 @@
-From: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH net] r8152: autoresume before setting MAC address
-Date: Thu, 2 Oct 2014 16:26:06 +0800
-Message-ID: <1394712342-15778-55-Taiwan-albertk@realtek.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
-To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Michel Stam <m.stam@fugro.nl>
+Subject: [PATCH] Don't reset PHY on if_up for ASIX 88772
+Date: Thu,  2 Oct 2014 10:22:02 +0200
+Message-ID: <1412238122-1914-1-git-send-email-m.stam@fugro.nl>
+Cc: freddy@asix.com.tw, grundler@chromium.org,
+	Michel Stam <m.stam@fugro.nl>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.reverze.net ([82.161.88.7]:53734 "EHLO fsm.reverze.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751344AbaJBIaR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Oct 2014 04:30:17 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Resume the device before setting the MAC address.
+I've noticed every time the interface is set to 'up,', the kernel
+reports that the link speed is set to 100 Mbps/Full Duplex, even
+when ethtool is used to set autonegotiation to 'off', half
+duplex, 10 Mbps.
+It can be tested by:
+ ifconfig eth0 down
+ ethtool -s eth0 autoneg off speed 10 duplex half
+ ifconfig eth0 up
 
-Signed-off-by: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+Then checking 'dmesg' for the link speed.
+
+Signed-off-by: Michel Stam <m.stam@fugro.nl>
 ---
- drivers/net/usb/r8152.c | 16 +++++++++++++---
- 1 file changed, 13 insertions(+), 3 deletions(-)
+ drivers/net/usb/asix_devices.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index 604ef21..e823358 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -1007,9 +1007,16 @@ static int rtl8152_set_mac_address(struct net_device *netdev, void *p)
- {
- 	struct r8152 *tp = netdev_priv(netdev);
- 	struct sockaddr *addr = p;
-+	int ret;
-+
-+	ret = usb_autopm_get_interface(tp->intf);
-+	if (ret < 0)
-+		goto out1;
- 
--	if (!is_valid_ether_addr(addr->sa_data))
--		return -EADDRNOTAVAIL;
-+	if (!is_valid_ether_addr(addr->sa_data)) {
-+		ret = -EADDRNOTAVAIL;
-+		goto out2;
-+	}
- 
- 	memcpy(netdev->dev_addr, addr->sa_data, netdev->addr_len);
- 
-@@ -1017,7 +1024,10 @@ static int rtl8152_set_mac_address(struct net_device *netdev, void *p)
- 	pla_ocp_write(tp, PLA_IDR, BYTE_EN_SIX_BYTES, 8, addr->sa_data);
- 	ocp_write_byte(tp, MCU_TYPE_PLA, PLA_CRWECR, CRWECR_NORAML);
- 
--	return 0;
-+out2:
-+	usb_autopm_put_interface(tp->intf);
-+out1:
-+	return ret;
- }
- 
- static void read_bulk_callback(struct urb *urb)
+diff --git a/drivers/net/usb/asix_devices.c b/drivers/net/usb/asix_devices.c
+index 5d19409..2c05f6c 100644
+--- a/drivers/net/usb/asix_devices.c
++++ b/drivers/net/usb/asix_devices.c
+@@ -890,7 +890,7 @@ static const struct driver_info ax88772_info = {
+ 	.unbind = ax88772_unbind,
+ 	.status = asix_status,
+ 	.link_reset = ax88772_link_reset,
+-	.reset = ax88772_reset,
++	.reset = ax88772_link_reset,
+ 	.flags = FLAG_ETHER | FLAG_FRAMING_AX | FLAG_LINK_INTR | FLAG_MULTI_PACKET,
+ 	.rx_fixup = asix_rx_fixup_common,
+ 	.tx_fixup = asix_tx_fixup,
 -- 
-1.9.3
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+1.7.12.1
