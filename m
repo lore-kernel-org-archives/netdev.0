@@ -1,36 +1,35 @@
 From: <richard.alpe@ericsson.com>
-Subject: [PATCH v2 net-next 10/15] tipc: add media set to new netlink api
-Date: Thu, 2 Oct 2014 16:58:36 +0200
-Message-ID: <1412261921-28510-11-git-send-email-richard.alpe@ericsson.com>
+Subject: [PATCH v2 net-next 08/15] tipc: add link stat
+	reset to new netlink api
+Date: Thu, 2 Oct 2014 16:58:34 +0200
+Message-ID: <1412261921-28510-9-git-send-email-richard.alpe@ericsson.com>
 References: <1412261921-28510-1-git-send-email-richard.alpe@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <tipc-discussion@lists.sourceforge.net>,
-	Richard Alpe <richard.alpe@ericsson.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: tipc-discussion@lists.sourceforge.net
 To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sessmg23.ericsson.net ([193.180.251.45]:43721 "EHLO
-	sessmg23.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754515AbaJBPAM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2014 11:00:12 -0400
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
 In-Reply-To: <1412261921-28510-1-git-send-email-richard.alpe@ericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
 From: Richard Alpe <richard.alpe@ericsson.com>
 
-Add TIPC_NL_MEDIA_SET command to the new tipc netlink API.
+Add TIPC_NL_LINK_RESET_STATS command to the new netlink API.
 
-This command can set one or more link properties for a particular
-media.
+This command resets the link statistics for a particular link.
 
-Netlink logical layout of bearer set message:
--> media
+Netlink logical layout of link reset message:
+-> link
     -> name
-    -> link properties
-        [ -> tolerance ]
-        [ -> priority ]
-        [ -> window ]
 
 Signed-off-by: Richard Alpe <richard.alpe@ericsson.com>
 Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
@@ -38,105 +37,115 @@ Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
 Acked-by: Ying Xue <ying.xue@windriver.com>
 ---
  include/uapi/linux/tipc_config.h |    1 +
- net/tipc/bearer.c                |   47 ++++++++++++++++++++++++++++++++++++++
- net/tipc/bearer.h                |    1 +
+ net/tipc/link.c                  |   49 ++++++++++++++++++++++++++++++++++++++
+ net/tipc/link.h                  |    1 +
  net/tipc/netlink.c               |    5 ++++
- 4 files changed, 54 insertions(+)
+ 4 files changed, 56 insertions(+)
 
 diff --git a/include/uapi/linux/tipc_config.h b/include/uapi/linux/tipc_config.h
-index f22f27c..6774c60 100644
+index ab1622e..21c070f 100644
 --- a/include/uapi/linux/tipc_config.h
 +++ b/include/uapi/linux/tipc_config.h
-@@ -60,6 +60,7 @@ enum {
+@@ -58,6 +58,7 @@ enum {
+ 	TIPC_NL_PUBL_GET,
+ 	TIPC_NL_LINK_GET,
  	TIPC_NL_LINK_SET,
- 	TIPC_NL_LINK_RESET_STATS,
- 	TIPC_NL_MEDIA_GET,
-+	TIPC_NL_MEDIA_SET,
++	TIPC_NL_LINK_RESET_STATS,
  
  	__TIPC_NL_CMD_MAX,
  	TIPC_NL_CMD_MAX = __TIPC_NL_CMD_MAX - 1
-diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
-index ad33e44..3e33771 100644
---- a/net/tipc/bearer.c
-+++ b/net/tipc/bearer.c
-@@ -1023,3 +1023,50 @@ err_out:
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index 6d0c1fa..2195197 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -2774,3 +2774,52 @@ err_out:
  
  	return err;
  }
 +
-+int tipc_nl_media_set(struct sk_buff *skb, struct genl_info *info)
++int tipc_nl_link_reset_stats(struct sk_buff *skb, struct genl_info *info)
 +{
 +	int err;
-+	char *name;
-+	struct tipc_media *m;
-+	struct nlattr *attrs[TIPC_NLA_BEARER_MAX + 1];
++	char *link_name;
++	unsigned int bearer_id;
++	struct tipc_link *link;
++	struct tipc_node *node;
++	struct nlattr *attrs[TIPC_NLA_LINK_MAX + 1];
 +
-+	if (!info->attrs[TIPC_NLA_MEDIA])
++	if (!info->attrs[TIPC_NLA_LINK])
 +		return -EINVAL;
 +
-+	err = nla_parse_nested(attrs, TIPC_NLA_MEDIA_MAX,
-+			       info->attrs[TIPC_NLA_MEDIA],
-+			       tipc_nl_media_policy);
++	err = nla_parse_nested(attrs, TIPC_NLA_LINK_MAX,
++			       info->attrs[TIPC_NLA_LINK],
++			       tipc_nl_link_policy);
++	if (err)
++		return err;
 +
-+	if (!attrs[TIPC_NLA_MEDIA_NAME])
++	if (!attrs[TIPC_NLA_LINK_NAME])
 +		return -EINVAL;
-+	name = nla_data(attrs[TIPC_NLA_MEDIA_NAME]);
 +
-+	rtnl_lock();
-+	m = tipc_media_find(name);
-+	if (!m) {
-+		rtnl_unlock();
-+		return -EINVAL;
-+	}
++	link_name = nla_data(attrs[TIPC_NLA_LINK_NAME]);
 +
-+	if (attrs[TIPC_NLA_MEDIA_PROP]) {
-+		struct nlattr *props[TIPC_NLA_PROP_MAX + 1];
-+
-+		err = tipc_nl_parse_link_prop(attrs[TIPC_NLA_MEDIA_PROP],
-+					      props);
-+		if (err) {
-+			rtnl_unlock();
++	if (strcmp(link_name, tipc_bclink_name) == 0) {
++		err = tipc_bclink_reset_stats();
++		if (err)
 +			return err;
-+		}
-+
-+		if (props[TIPC_NLA_PROP_TOL])
-+			m->tolerance = nla_get_u32(props[TIPC_NLA_PROP_TOL]);
-+		if (props[TIPC_NLA_PROP_PRIO])
-+			m->priority = nla_get_u32(props[TIPC_NLA_PROP_PRIO]);
-+		if (props[TIPC_NLA_PROP_WIN])
-+			m->window = nla_get_u32(props[TIPC_NLA_PROP_WIN]);
++		return 0;
 +	}
-+	rtnl_unlock();
++
++	node = tipc_link_find_owner(link_name, &bearer_id);
++	if (!node)
++		return -EINVAL;
++
++	tipc_node_lock(node);
++
++	link = node->links[bearer_id];
++	if (!link) {
++		tipc_node_unlock(node);
++		return -EINVAL;
++	}
++
++	link_reset_statistics(link);
++
++	tipc_node_unlock(node);
 +
 +	return 0;
 +}
-diff --git a/net/tipc/bearer.h b/net/tipc/bearer.h
-index bacd225..b1d9052 100644
---- a/net/tipc/bearer.h
-+++ b/net/tipc/bearer.h
-@@ -186,6 +186,7 @@ int tipc_nl_bearer_set(struct sk_buff *skb, struct genl_info *info);
+diff --git a/net/tipc/link.h b/net/tipc/link.h
+index 3738ba1..f463e7b 100644
+--- a/net/tipc/link.h
++++ b/net/tipc/link.h
+@@ -243,6 +243,7 @@ void tipc_link_retransmit(struct tipc_link *l_ptr,
+ int tipc_nl_link_dump(struct sk_buff *skb, struct netlink_callback *cb);
+ int tipc_nl_link_get(struct sk_buff *skb, struct genl_info *info);
+ int tipc_nl_link_set(struct sk_buff *skb, struct genl_info *info);
++int tipc_nl_link_reset_stats(struct sk_buff *skb, struct genl_info *info);
+ int tipc_nl_parse_link_prop(struct nlattr *prop, struct nlattr *props[]);
  
- int tipc_nl_media_dump(struct sk_buff *skb, struct netlink_callback *cb);
- int tipc_nl_media_get(struct sk_buff *skb, struct genl_info *info);
-+int tipc_nl_media_set(struct sk_buff *skb, struct genl_info *info);
- 
- int tipc_media_set_priority(const char *name, u32 new_value);
- int tipc_media_set_window(const char *name, u32 new_value);
+ /*
 diff --git a/net/tipc/netlink.c b/net/tipc/netlink.c
-index ae96460..42ea5cd 100644
+index 1ed8288..86d628f 100644
 --- a/net/tipc/netlink.c
 +++ b/net/tipc/netlink.c
-@@ -146,6 +146,11 @@ static const struct genl_ops tipc_genl_ops[] = {
- 		.doit	= tipc_nl_media_get,
- 		.dumpit	= tipc_nl_media_dump,
+@@ -134,6 +134,11 @@ static const struct genl_ops tipc_genl_ops[] = {
+ 		.cmd	= TIPC_NL_LINK_SET,
+ 		.doit	= tipc_nl_link_set,
  		.policy = tipc_nl_policy,
 +	},
 +	{
-+		.cmd	= TIPC_NL_MEDIA_SET,
-+		.doit	= tipc_nl_media_set,
++		.cmd	= TIPC_NL_LINK_RESET_STATS,
++		.doit   = tipc_nl_link_reset_stats,
 +		.policy = tipc_nl_policy,
  	}
  };
  
 -- 
 1.7.10.4
+
+
+------------------------------------------------------------------------------
+Meet PCI DSS 3.0 Compliance Requirements with EventLog Analyzer
+Achieve PCI DSS 3.0 Compliant Status with Out-of-the-box PCI DSS Reports
+Are you Audit-Ready for PCI DSS 3.0 Compliance? Download White paper
+Comply to PCI DSS 3.0 Requirement 10 and 11.5 with EventLog Analyzer
+http://pubads.g.doubleclick.net/gampad/clk?id=154622311&iu=/4140/ostg.clktrk
