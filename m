@@ -1,265 +1,315 @@
 From: <richard.alpe@ericsson.com>
-Subject: [PATCH v2 net-next 09/15] tipc: add media get/dump to new netlink api
-Date: Thu, 2 Oct 2014 16:58:35 +0200
-Message-ID: <1412261921-28510-10-git-send-email-richard.alpe@ericsson.com>
+Subject: [PATCH v2 net-next 05/15] tipc: add publication
+	dump to new netlink api
+Date: Thu, 2 Oct 2014 16:58:31 +0200
+Message-ID: <1412261921-28510-6-git-send-email-richard.alpe@ericsson.com>
 References: <1412261921-28510-1-git-send-email-richard.alpe@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <tipc-discussion@lists.sourceforge.net>,
-	Richard Alpe <richard.alpe@ericsson.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: tipc-discussion@lists.sourceforge.net
 To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sessmg22.ericsson.net ([193.180.251.58]:45844 "EHLO
-	sessmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754174AbaJBPAL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2014 11:00:11 -0400
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
 In-Reply-To: <1412261921-28510-1-git-send-email-richard.alpe@ericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
 From: Richard Alpe <richard.alpe@ericsson.com>
 
-Add TIPC_NL_MEDIA_GET command to the new tipc netlink API.
+Add TIPC_NL_PUBL_GET command to the new tipc netlink API.
 
-This command supports dumping all information about all defined
-media as well as getting all information about a specific media.
+This command supports dumping of all publications for a specific
+socket.
 
-The information about a media includes name and link properties.
+Netlink logical layout of request message:
+    -> socket
+        -> reference
 
-Netlink logical layout of media get response message:
--> media
-    -> name
-    -> link properties
-        -> tolerance
-        -> priority
-        -> window
+Netlink logical layout of response message:
+    -> publication
+        -> type
+        -> lower
+        -> upper
 
 Signed-off-by: Richard Alpe <richard.alpe@ericsson.com>
 Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
 Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
-Acked-by: Ying Xue <ying.xue@windriver.com>
 ---
- include/uapi/linux/tipc_config.h |   12 ++++
- net/tipc/bearer.c                |  125 ++++++++++++++++++++++++++++++++++++++
- net/tipc/bearer.h                |    3 +
- net/tipc/netlink.c               |    7 +++
- 4 files changed, 147 insertions(+)
+ include/uapi/linux/tipc_config.h |   18 +++++
+ net/tipc/netlink.c               |   17 +++++
+ net/tipc/netlink.h               |    1 +
+ net/tipc/socket.c                |  135 ++++++++++++++++++++++++++++++++++++++
+ net/tipc/socket.h                |    1 +
+ 5 files changed, 172 insertions(+)
 
 diff --git a/include/uapi/linux/tipc_config.h b/include/uapi/linux/tipc_config.h
-index 21c070f..f22f27c 100644
+index b49e43a..4bfb6e8 100644
 --- a/include/uapi/linux/tipc_config.h
 +++ b/include/uapi/linux/tipc_config.h
-@@ -59,6 +59,7 @@ enum {
- 	TIPC_NL_LINK_GET,
- 	TIPC_NL_LINK_SET,
- 	TIPC_NL_LINK_RESET_STATS,
-+	TIPC_NL_MEDIA_GET,
+@@ -55,6 +55,7 @@ enum {
+ 	TIPC_NL_BEARER_GET,
+ 	TIPC_NL_BEARER_SET,
+ 	TIPC_NL_SOCK_GET,
++	TIPC_NL_PUBL_GET,
  
  	__TIPC_NL_CMD_MAX,
  	TIPC_NL_CMD_MAX = __TIPC_NL_CMD_MAX - 1
-@@ -71,6 +72,7 @@ enum {
+@@ -65,6 +66,7 @@ enum {
+ 	TIPC_NLA_UNSPEC,
+ 	TIPC_NLA_BEARER,		/* nest */
  	TIPC_NLA_SOCK,			/* nest */
- 	TIPC_NLA_PUBL,			/* nest */
- 	TIPC_NLA_LINK,			/* nest */
-+	TIPC_NLA_MEDIA,			/* nest */
++	TIPC_NLA_PUBL,			/* nest */
  
  	__TIPC_NLA_MAX,
  	TIPC_NLA_MAX = __TIPC_NLA_MAX - 1
-@@ -116,6 +118,16 @@ enum {
- 	TIPC_NLA_LINK_MAX = __TIPC_NLA_LINK_MAX - 1
+@@ -93,6 +95,22 @@ enum {
+ 	TIPC_NLA_SOCK_MAX = __TIPC_NLA_SOCK_MAX - 1
  };
  
-+/* Media info */
++/* Publication info */
 +enum {
-+	TIPC_NLA_MEDIA_UNSPEC,
-+	TIPC_NLA_MEDIA_NAME,		/* string */
-+	TIPC_NLA_MEDIA_PROP,		/* nest */
++	TIPC_NLA_PUBL_UNSPEC,
 +
-+	__TIPC_NLA_MEDIA_MAX,
-+	TIPC_NLA_MEDIA_MAX = __TIPC_NLA_MEDIA_MAX - 1
++	TIPC_NLA_PUBL_TYPE,		/* u32 */
++	TIPC_NLA_PUBL_LOWER,		/* u32 */
++	TIPC_NLA_PUBL_UPPER,		/* u32 */
++	TIPC_NLA_PUBL_SCOPE,		/* u32 */
++	TIPC_NLA_PUBL_NODE,		/* u32 */
++	TIPC_NLA_PUBL_REF,		/* u32 */
++	TIPC_NLA_PUBL_KEY,		/* u32 */
++
++	__TIPC_NLA_PUBL_MAX,
++	TIPC_NLA_PUBL_MAX = __TIPC_NLA_PUBL_MAX - 1
 +};
 +
- /* Publication info */
+ /* Nest, connection info */
  enum {
- 	TIPC_NLA_PUBL_UNSPEC,
-diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
-index 906e644..ad33e44 100644
---- a/net/tipc/bearer.c
-+++ b/net/tipc/bearer.c
-@@ -61,6 +61,12 @@ tipc_nl_bearer_policy[TIPC_NLA_BEARER_MAX + 1]	= {
- 	[TIPC_NLA_BEARER_DOMAIN]		= { .type = NLA_U32 }
- };
- 
-+static const struct nla_policy tipc_nl_media_policy[TIPC_NLA_MEDIA_MAX + 1] = {
-+	[TIPC_NLA_MEDIA_UNSPEC]		= { .type = NLA_UNSPEC },
-+	[TIPC_NLA_MEDIA_NAME]		= { .type = NLA_STRING },
-+	[TIPC_NLA_MEDIA_PROP]		= { .type = NLA_NESTED }
-+};
-+
- struct tipc_bearer __rcu *bearer_list[MAX_BEARERS + 1];
- 
- static void bearer_disable(struct tipc_bearer *b_ptr, bool shutting_down);
-@@ -898,3 +904,122 @@ int tipc_nl_bearer_set(struct sk_buff *skb, struct genl_info *info)
- 
- 	return 0;
- }
-+
-+int __tipc_nl_add_media(struct tipc_nl_msg *msg, struct tipc_media *media)
-+{
-+	void *hdr;
-+	struct nlattr *attrs;
-+	struct nlattr *prop;
-+
-+	hdr = genlmsg_put(msg->skb, msg->portid, msg->seq, &tipc_genl_family,
-+			  NLM_F_MULTI, TIPC_NL_MEDIA_GET);
-+	if (!hdr)
-+		return -EMSGSIZE;
-+
-+	attrs = nla_nest_start(msg->skb, TIPC_NLA_MEDIA);
-+	if (!attrs)
-+		goto msg_full;
-+
-+	if (nla_put_string(msg->skb, TIPC_NLA_MEDIA_NAME, media->name))
-+		goto attr_msg_full;
-+
-+	prop = nla_nest_start(msg->skb, TIPC_NLA_MEDIA_PROP);
-+	if (!prop)
-+		goto prop_msg_full;
-+	if (nla_put_u32(msg->skb, TIPC_NLA_PROP_PRIO, media->priority))
-+		goto prop_msg_full;
-+	if (nla_put_u32(msg->skb, TIPC_NLA_PROP_TOL, media->tolerance))
-+		goto prop_msg_full;
-+	if (nla_put_u32(msg->skb, TIPC_NLA_PROP_WIN, media->window))
-+		goto prop_msg_full;
-+
-+	nla_nest_end(msg->skb, prop);
-+	nla_nest_end(msg->skb, attrs);
-+	genlmsg_end(msg->skb, hdr);
-+
-+	return 0;
-+
-+prop_msg_full:
-+	nla_nest_cancel(msg->skb, prop);
-+attr_msg_full:
-+	nla_nest_cancel(msg->skb, attrs);
-+msg_full:
-+	genlmsg_cancel(msg->skb, hdr);
-+
-+	return -EMSGSIZE;
-+}
-+
-+int tipc_nl_media_dump(struct sk_buff *skb, struct netlink_callback *cb)
-+{
-+	int err;
-+	int i = cb->args[0];
-+	struct tipc_nl_msg msg;
-+
-+	if (i == MAX_MEDIA)
-+		return 0;
-+
-+	msg.skb = skb;
-+	msg.portid = NETLINK_CB(cb->skb).portid;
-+	msg.seq = cb->nlh->nlmsg_seq;
-+
-+	rtnl_lock();
-+	for (; media_info_array[i] != NULL; i++) {
-+		err = __tipc_nl_add_media(&msg, media_info_array[i]);
-+		if (err)
-+			break;
-+	}
-+	rtnl_unlock();
-+
-+	cb->args[0] = i;
-+	return skb->len;
-+}
-+
-+int tipc_nl_media_get(struct sk_buff *skb, struct genl_info *info)
-+{
-+	int err;
-+	char *name;
-+	struct tipc_nl_msg msg;
-+	struct tipc_media *media;
-+	struct sk_buff *rep;
-+	struct nlattr *attrs[TIPC_NLA_BEARER_MAX + 1];
-+
-+	if (!info->attrs[TIPC_NLA_MEDIA])
-+		return -EINVAL;
-+
-+	err = nla_parse_nested(attrs, TIPC_NLA_MEDIA_MAX,
-+			       info->attrs[TIPC_NLA_MEDIA],
-+			       tipc_nl_media_policy);
-+	if (err)
-+		return err;
-+
-+	if (!attrs[TIPC_NLA_MEDIA_NAME])
-+		return -EINVAL;
-+	name = nla_data(attrs[TIPC_NLA_MEDIA_NAME]);
-+
-+	rep = nlmsg_new(NLMSG_GOODSIZE, GFP_KERNEL);
-+	if (!rep)
-+		return -ENOMEM;
-+
-+	msg.skb = rep;
-+	msg.portid = info->snd_portid;
-+	msg.seq = info->snd_seq;
-+
-+	rtnl_lock();
-+	media = tipc_media_find(name);
-+	if (!media) {
-+		err = -EINVAL;
-+		goto err_out;
-+	}
-+
-+	err = __tipc_nl_add_media(&msg, media);
-+	if (err)
-+		goto err_out;
-+	rtnl_unlock();
-+
-+	return genlmsg_reply(rep, info);
-+err_out:
-+	rtnl_unlock();
-+	nlmsg_free(rep);
-+
-+	return err;
-+}
-diff --git a/net/tipc/bearer.h b/net/tipc/bearer.h
-index c6cf9df..bacd225 100644
---- a/net/tipc/bearer.h
-+++ b/net/tipc/bearer.h
-@@ -184,6 +184,9 @@ int tipc_nl_bearer_dump(struct sk_buff *skb, struct netlink_callback *cb);
- int tipc_nl_bearer_get(struct sk_buff *skb, struct genl_info *info);
- int tipc_nl_bearer_set(struct sk_buff *skb, struct genl_info *info);
- 
-+int tipc_nl_media_dump(struct sk_buff *skb, struct netlink_callback *cb);
-+int tipc_nl_media_get(struct sk_buff *skb, struct genl_info *info);
-+
- int tipc_media_set_priority(const char *name, u32 new_value);
- int tipc_media_set_window(const char *name, u32 new_value);
- void tipc_media_addr_printf(char *buf, int len, struct tipc_media_addr *a);
+ 	TIPC_NLA_CON_UNSPEC,
 diff --git a/net/tipc/netlink.c b/net/tipc/netlink.c
-index 86d628f..ae96460 100644
+index 52973ce..f78bedd 100644
 --- a/net/tipc/netlink.c
 +++ b/net/tipc/netlink.c
-@@ -77,6 +77,7 @@ static const struct nla_policy tipc_nl_policy[TIPC_NLA_MAX + 1] = {
+@@ -74,6 +74,7 @@ static const struct nla_policy tipc_nl_policy[TIPC_NLA_MAX + 1] = {
+ 	[TIPC_NLA_UNSPEC]	= { .type = NLA_UNSPEC, },
+ 	[TIPC_NLA_BEARER]	= { .type = NLA_NESTED, },
  	[TIPC_NLA_SOCK]		= { .type = NLA_NESTED, },
- 	[TIPC_NLA_PUBL]		= { .type = NLA_NESTED, },
- 	[TIPC_NLA_LINK]		= { .type = NLA_NESTED, },
-+	[TIPC_NLA_MEDIA]	= { .type = NLA_NESTED, },
++	[TIPC_NLA_PUBL]		= { .type = NLA_NESTED, }
  };
  
  struct genl_family tipc_genl_family = {
-@@ -139,6 +140,12 @@ static const struct genl_ops tipc_genl_ops[] = {
- 		.cmd	= TIPC_NL_LINK_RESET_STATS,
- 		.doit   = tipc_nl_link_reset_stats,
+@@ -115,9 +116,25 @@ static const struct genl_ops tipc_genl_ops[] = {
+ 		.cmd	= TIPC_NL_SOCK_GET,
+ 		.dumpit	= tipc_nl_sk_dump,
  		.policy = tipc_nl_policy,
 +	},
 +	{
-+		.cmd	= TIPC_NL_MEDIA_GET,
-+		.doit	= tipc_nl_media_get,
-+		.dumpit	= tipc_nl_media_dump,
++		.cmd	= TIPC_NL_PUBL_GET,
++		.dumpit	= tipc_nl_publ_dump,
 +		.policy = tipc_nl_policy,
  	}
  };
  
++int tipc_nlmsg_parse(const struct nlmsghdr *nlh, struct nlattr ***attr)
++{
++	u32 maxattr = tipc_genl_family.maxattr;
++
++	*attr = tipc_genl_family.attrbuf;
++	if (!*attr)
++		return -ENOTSUPP;
++
++	return nlmsg_parse(nlh, GENL_HDRLEN, *attr, maxattr, tipc_nl_policy);
++}
++
+ int tipc_netlink_start(void)
+ {
+ 	int res;
+diff --git a/net/tipc/netlink.h b/net/tipc/netlink.h
+index e3b7890..34e3d88 100644
+--- a/net/tipc/netlink.h
++++ b/net/tipc/netlink.h
+@@ -37,6 +37,7 @@
+ #define _TIPC_NETLINK_H
+ 
+ extern struct genl_family tipc_genl_family;
++int tipc_nlmsg_parse(const struct nlmsghdr *nlh, struct nlattr ***buf);
+ 
+ struct tipc_nl_msg {
+ 	struct sk_buff *skb;
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index d1c725a..7ffb286 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -121,6 +121,14 @@ static const struct proto_ops msg_ops;
+ static struct proto tipc_proto;
+ static struct proto tipc_proto_kern;
+ 
++static const struct nla_policy tipc_nl_sock_policy[TIPC_NLA_SOCK_MAX + 1] = {
++	[TIPC_NLA_SOCK_UNSPEC]		= { .type = NLA_UNSPEC },
++	[TIPC_NLA_SOCK_ADDR]		= { .type = NLA_U32 },
++	[TIPC_NLA_SOCK_REF]		= { .type = NLA_U32 },
++	[TIPC_NLA_SOCK_CON]		= { .type = NLA_NESTED },
++	[TIPC_NLA_SOCK_HAS_PUBL]	= { .type = NLA_FLAG }
++};
++
+ /*
+  * Revised TIPC socket locking policy:
+  *
+@@ -2903,3 +2911,130 @@ int tipc_nl_sk_dump(struct sk_buff *skb, struct netlink_callback *cb)
+ 
+ 	return skb->len;
+ }
++
++/* Caller should hold socket lock for the passed tipc socket. */
++int __tipc_nl_add_sk_publ(struct sk_buff *skb, struct netlink_callback *cb,
++			  struct publication *publ)
++{
++	void *hdr;
++	struct nlattr *attrs;
++
++	hdr = genlmsg_put(skb, NETLINK_CB(cb->skb).portid, cb->nlh->nlmsg_seq,
++			  &tipc_genl_family, NLM_F_MULTI, TIPC_NL_PUBL_GET);
++	if (!hdr)
++		goto msg_cancel;
++
++	attrs = nla_nest_start(skb, TIPC_NLA_PUBL);
++	if (!attrs)
++		goto genlmsg_cancel;
++
++	if (nla_put_u32(skb, TIPC_NLA_PUBL_KEY, publ->key))
++		goto attr_msg_cancel;
++	if (nla_put_u32(skb, TIPC_NLA_PUBL_TYPE, publ->type))
++		goto attr_msg_cancel;
++	if (nla_put_u32(skb, TIPC_NLA_PUBL_LOWER, publ->lower))
++		goto attr_msg_cancel;
++	if (nla_put_u32(skb, TIPC_NLA_PUBL_UPPER, publ->upper))
++		goto attr_msg_cancel;
++
++	nla_nest_end(skb, attrs);
++	genlmsg_end(skb, hdr);
++
++	return 0;
++
++attr_msg_cancel:
++	nla_nest_cancel(skb, attrs);
++genlmsg_cancel:
++	genlmsg_cancel(skb, hdr);
++msg_cancel:
++	return -EMSGSIZE;
++}
++
++/* Caller should hold socket lock for the passed tipc socket. */
++int __tipc_nl_list_sk_publ(struct sk_buff *skb, struct netlink_callback *cb,
++			   struct tipc_sock *tsk, u32 *last_publ)
++{
++	int err;
++	struct publication *p;
++
++	if (*last_publ) {
++		list_for_each_entry(p, &tsk->publications, pport_list) {
++			if (p->key == *last_publ)
++				break;
++		}
++		if (p->key != *last_publ) {
++			/* We never set seq or call nl_dump_check_consistent()
++			 * this means that setting prev_seq here will cause the
++			 * consistence check to fail in the netlink callback
++			 * handler. Resulting in the last NLMSG_DONE message
++			 * having the NLM_F_DUMP_INTR flag set.
++			 */
++			cb->prev_seq = 1;
++			*last_publ = 0;
++			return -EPIPE;
++		}
++	} else {
++		p = list_first_entry(&tsk->publications, struct publication,
++				     pport_list);
++	}
++
++	list_for_each_entry_from(p, &tsk->publications, pport_list) {
++		err = __tipc_nl_add_sk_publ(skb, cb, p);
++		if (err) {
++			*last_publ = p->key;
++			return err;
++		}
++	}
++	*last_publ = 0;
++
++	return 0;
++}
++
++int tipc_nl_publ_dump(struct sk_buff *skb, struct netlink_callback *cb)
++{
++	int err;
++	u32 tsk_ref = cb->args[0];
++	u32 last_publ = cb->args[1];
++	u32 done = cb->args[2];
++	struct tipc_sock *tsk;
++
++	if (!tsk_ref) {
++		struct nlattr **attrs;
++		struct nlattr *sock[TIPC_NLA_PUBL_MAX + 1];
++
++		err = tipc_nlmsg_parse(cb->nlh, &attrs);
++		if (err)
++			return err;
++
++		err = nla_parse_nested(sock, TIPC_NLA_SOCK_MAX,
++				       attrs[TIPC_NLA_SOCK],
++				       tipc_nl_sock_policy);
++		if (err)
++			return err;
++
++		if (!sock[TIPC_NLA_SOCK_REF])
++			return -EINVAL;
++
++		tsk_ref = nla_get_u32(sock[TIPC_NLA_SOCK_REF]);
++	}
++
++	if (done)
++		return 0;
++
++	tsk = tipc_sk_get(tsk_ref);
++	if (!tsk)
++		return -EINVAL;
++
++	lock_sock(&tsk->sk);
++	err = __tipc_nl_list_sk_publ(skb, cb, tsk, &last_publ);
++	if (!err)
++		done = 1;
++	release_sock(&tsk->sk);
++	tipc_sk_put(tsk);
++
++	cb->args[0] = tsk_ref;
++	cb->args[1] = last_publ;
++	cb->args[2] = done;
++
++	return skb->len;
++}
+diff --git a/net/tipc/socket.h b/net/tipc/socket.h
+index 16dfd62..d340893 100644
+--- a/net/tipc/socket.h
++++ b/net/tipc/socket.h
+@@ -49,5 +49,6 @@ void tipc_sk_reinit(void);
+ int tipc_sk_ref_table_init(u32 requested_size, u32 start);
+ void tipc_sk_ref_table_stop(void);
+ int tipc_nl_sk_dump(struct sk_buff *skb, struct netlink_callback *cb);
++int tipc_nl_publ_dump(struct sk_buff *skb, struct netlink_callback *cb);
+ 
+ #endif
 -- 
 1.7.10.4
+
+
+------------------------------------------------------------------------------
+Meet PCI DSS 3.0 Compliance Requirements with EventLog Analyzer
+Achieve PCI DSS 3.0 Compliant Status with Out-of-the-box PCI DSS Reports
+Are you Audit-Ready for PCI DSS 3.0 Compliance? Download White paper
+Comply to PCI DSS 3.0 Requirement 10 and 11.5 with EventLog Analyzer
+http://pubads.g.doubleclick.net/gampad/clk?id=154622311&iu=/4140/ostg.clktrk
