@@ -1,31 +1,57 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch 1/2 -next] cxgb4: potential shift wrapping bug
-Date: Thu, 2 Oct 2014 13:20:53 +0300
-Message-ID: <20141002102052.GA14241@mwanda>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH v2 net-next] net: pktgen: packet bursting via
+ skb->xmit_more
+Date: Thu, 2 Oct 2014 12:44:36 +0200
+Message-ID: <20141002124436.0d335b97@redhat.com>
+References: <1412124801-32096-1-git-send-email-ast@plumgrid.com>
+	<20141001.220839.1118640596408366269.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Hariprasad S <hariprasad@chelsio.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: ast@plumgrid.com, edumazet@google.com, netdev@vger.kernel.org,
+	brouer@redhat.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:57961 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751612AbaJBKom (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Oct 2014 06:44:42 -0400
+In-Reply-To: <20141001.220839.1118640596408366269.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-"cntxt_id" is an unsigned int but "udb" is a u64 so there is a potential
-shift wrapping bug here.
+On Wed, 01 Oct 2014 22:08:39 -0400 (EDT)
+David Miller <davem@davemloft.net> wrote:
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> From: Alexei Starovoitov <ast@plumgrid.com>
+> Date: Tue, 30 Sep 2014 17:53:21 -0700
+> 
+> > This patch demonstrates the effect of delaying update of HW tailptr.
+> > (based on earlier patch by Jesper)
+> > 
+> > burst=1 is the default. It sends one packet with xmit_more=false
+> > burst=2 sends one packet with xmit_more=true and
+> >         2nd copy of the same packet with xmit_more=false
+> > burst=3 sends two copies of the same packet with xmit_more=true and
+> >         3rd copy with xmit_more=false
+> > 
+> > Performance with ixgbe (usec 30):
+> > burst=1  tx:9.2 Mpps
+> > burst=2  tx:13.5 Mpps
+> > burst=3  tx:14.5 Mpps full 10G line rate
+> > 
+> > Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+> 
+> Applied, great work.
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-index bb7851e..e8e90ce 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-@@ -2258,7 +2258,7 @@ static u64 udb_address(struct adapter *adap, unsigned int cntxt_id,
- 		(QUEUESPERPAGEPF1 - QUEUESPERPAGEPF0) * adap->fn);
- 	udb_density = 1 << ((qpp >> s_qpp) & QUEUESPERPAGEPF0_MASK);
- 	qpshift = PAGE_SHIFT - ilog2(udb_density);
--	udb = cntxt_id << qpshift;
-+	udb = (u64)cntxt_id << qpshift;
- 	udb &= PAGE_MASK;
- 	page = udb / PAGE_SIZE;
- 	udb += (cntxt_id - (page * udb_density)) * SGE_UDB_SIZE;
+Updated my pktgen script "pktgen02_burst.sh" for supporting this new
+"burst" option:
+ https://github.com/netoptimizer/network-testing/commit/cb625712f8efb
+ https://github.com/netoptimizer/network-testing/blob/master/pktgen/pktgen02_burst.sh
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
