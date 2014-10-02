@@ -1,41 +1,33 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net: do not export skb_gro_receive()
-Date: Thu, 02 Oct 2014 07:38:46 -0700
-Message-ID: <1412260726.16704.99.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [net-next PATCH V6 2/2] qdisc: dequeue bulking also pickup GSO/TSO
+ packets
+Date: Thu, 02 Oct 2014 16:38:51 +0200
+Message-ID: <542D637B.8060906@redhat.com>
+References: <20141001203345.3321.99675.stgit@dragon>  <20141001203604.3321.91746.stgit@dragon> <1412260528.16704.96.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Tom Herbert <therbert@google.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Florian Westphal <fw@strlen.de>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Dave Taht <dave.taht@gmail.com>, toke@toke.dk
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f173.google.com ([209.85.213.173]:38256 "EHLO
-	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751507AbaJBOiw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2014 10:38:52 -0400
-Received: by mail-ig0-f173.google.com with SMTP id h18so2134653igc.0
-        for <netdev@vger.kernel.org>; Thu, 02 Oct 2014 07:38:52 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:11151 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752502AbaJBOj2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Oct 2014 10:39:28 -0400
+In-Reply-To: <1412260528.16704.96.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On 10/02/2014 04:35 PM, Eric Dumazet wrote:
+...
+> Thanks a lot guys. I am testing this patch set today.
 
-skb_gro_receive() is only called from tcp_gro_receive() which is
-not in a module.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/core/skbuff.c |    1 -
- 1 file changed, 1 deletion(-)
-
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index f77e64873caf..a1925c727c67 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -3241,7 +3241,6 @@ done:
- 	NAPI_GRO_CB(skb)->same_flow = 1;
- 	return 0;
- }
--EXPORT_SYMBOL_GPL(skb_gro_receive);
- 
- void __init skb_init(void)
- {
+That's great, thanks!
