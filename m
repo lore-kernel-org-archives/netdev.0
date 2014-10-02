@@ -1,63 +1,43 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCHv9 net-next 2/4] sunvnet: make transmit path zero-copy in
- the kernel
-Date: Thu, 2 Oct 2014 09:06:44 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D174A2CD2@AcuExch.aculab.com>
-References: <5429EFBB.2090909@oracle.com>
- <77E6695E-58F8-4D10-8ED7-EEC4A487339E@oracle.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH 1/2] iproute2: Add support for IPv6 VTI tunnels to
+ ip6tunnel
+Date: Thu, 2 Oct 2014 11:11:40 +0200
+Message-ID: <20141002091140.GA1865@nanopsycho.orion>
+References: <20140926071056.GB6390@secunet.com>
+ <20141002084109.GI1844@nanopsycho.orion>
+ <20141002084820.GF6390@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Sowmini Varadhan <sowmini.varadhan@oracle.com>
-To: 'Raghuram Kothakota' <Raghuram.Kothakota@oracle.com>,
-	David L Stevens <david.stevens@oracle.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	netdev@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:42625 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751282AbaJBJIl convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2014 05:08:41 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 20508-04 for <netdev@vger.kernel.org>;
- Thu,  2 Oct 2014 10:08:30 +0100 (BST)
-In-Reply-To: <77E6695E-58F8-4D10-8ED7-EEC4A487339E@oracle.com>
-Content-Language: en-US
+Received: from mail-wi0-f176.google.com ([209.85.212.176]:34671 "EHLO
+	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751282AbaJBJLn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2014 05:11:43 -0400
+Received: by mail-wi0-f176.google.com with SMTP id hi2so3239925wib.9
+        for <netdev@vger.kernel.org>; Thu, 02 Oct 2014 02:11:41 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20141002084820.GF6390@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Raghuram Kothakota
-> Sorry I am late in providing my comments, but I feel it is important
-> to share this comment.
+Thu, Oct 02, 2014 at 10:48:20AM CEST, steffen.klassert@secunet.com wrote:
+>On Thu, Oct 02, 2014 at 10:41:09AM +0200, Jiri Pirko wrote:
+>> Fri, Sep 26, 2014 at 09:10:56AM CEST, steffen.klassert@secunet.com wrote:
+>> >
+>> >@@ -459,11 +462,14 @@ static int do_add(int cmd, int argc, char **argv)
+>> > 	switch (p.proto) {
+>> > 	case IPPROTO_IPIP:
+>> > 	case IPPROTO_IPV6:
+>> >+	if (p.i_flags != VTI_ISVTI)
+>> >+		return tnl_add_ioctl(cmd, "ip6_vti0", p.name, &p);
+>>                                               ^ Wouldn't it be more
+>> 					      consistent to not to use
+>> 					      the underscore? 
+>
+>The ipv4 version of vti uses ip_vti0, so I tried to be consistent
+>with that. 
 
-A comment on the original patch...
-
-...
-> > @@ -811,14 +930,27 @@ static int vnet_start_xmit(struct sk_buff *skb, struct net_device *dev)
-> >
-> > 	d = vio_dring_cur(dr);
-> >
-> > -	tx_buf = port->tx_bufs[dr->prod].buf;
-> > -	skb_copy_from_linear_data(skb, tx_buf + VNET_PACKET_SKIP, skb->len);
-> > +	txi = dr->prod;
-> > +
-> > +	freeskbs = vnet_clean_tx_ring(port, &pending);
-> > +
-> > +	BUG_ON(port->tx_bufs[txi].skb);
-> >
-> > 	len = skb->len;
-> > -	if (len < ETH_ZLEN) {
-> > +	if (len < ETH_ZLEN)
-> > 		len = ETH_ZLEN;
-> > -		memset(tx_buf+VNET_PACKET_SKIP+skb->len, 0, len - skb->len);
-> > +
-
-Aren't you transmitting 'random' bytes from the end of the data?
-Plausibly they might not even be mapped.
-
-Also, for short frames the copy could well be faster - especially on systems
-with non-trivial iommu.
-It is also worth checking whether the original copy was aligned.
-
-	David
+Okay, fine with me.
