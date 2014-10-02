@@ -1,57 +1,83 @@
-From: David L Stevens <david.stevens@oracle.com>
-Subject: Re: [PATCHv9 net-next 2/4] sunvnet: make transmit path zero-copy
- in the kernel
-Date: Thu, 02 Oct 2014 07:33:14 -0400
-Message-ID: <542D37FA.3050708@oracle.com>
-References: <5429EFBB.2090909@oracle.com> <77E6695E-58F8-4D10-8ED7-EEC4A487339E@oracle.com> <063D6719AE5E284EB5DD2968C1650D6D174A2CD2@AcuExch.aculab.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [patch 1/2 -next] cxgb4: clean up a type issue
+Date: Thu, 2 Oct 2014 11:31:45 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D174A2E74@AcuExch.aculab.com>
+References: <20141002112219.GA25606@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Sowmini Varadhan <sowmini.varadhan@oracle.com>
-To: David Laight <David.Laight@ACULAB.COM>,
-	"'Raghuram Kothakota'" <Raghuram.Kothakota@oracle.com>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
+To: 'Dan Carpenter' <dan.carpenter@oracle.com>,
+	Hariprasad S <hariprasad@chelsio.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:34715 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750987AbaJBLdX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2014 07:33:23 -0400
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D174A2CD2@AcuExch.aculab.com>
+Received: from mx0.aculab.com ([213.249.233.131]:46257 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751192AbaJBLdm convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2014 07:33:42 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 26448-03 for <netdev@vger.kernel.org>;
+ Thu,  2 Oct 2014 12:33:33 +0100 (BST)
+In-Reply-To: <20141002112219.GA25606@mwanda>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-On 10/02/2014 05:06 AM, David Laight wrote:
-
->>> 	len = skb->len;
->>> -	if (len < ETH_ZLEN) {
->>> +	if (len < ETH_ZLEN)
->>> 		len = ETH_ZLEN;
->>> -		memset(tx_buf+VNET_PACKET_SKIP+skb->len, 0, len - skb->len);
->>> +
+From: Dan Carpenter
+> The tx_desc struct hold 8 __be64 values.  The original code took a
+> tx_desc pointer then casted it to an int pointer and then casted it to a
+> u64 pointer.  It was confusing and triggered some static checker
+> warnings.
 > 
-> Aren't you transmitting 'random' bytes from the end of the data?
-> Plausibly they might not even be mapped.
-
-	No. The checks to decide whether to copy or not make sure the
-extra 6-14 bytes in the beginning and 0-8 bytes (for large frames, more
-for small) at the end are part of the particular skb's headroom and
-tailroom respectively. So, they aren't random bytes-- they are what
-was allocated as part of the frame. For TCP streams, the trailing bytes
-are likely part of the next packet. They definitely exist and are mapped,
-but I don't zero them because they are usually COW and that forces a copy
-every time.
-
+> I have changed the cxgb_pio_copy() to only take tx_desc pointers.  This
+> isn't really a loss of flexibility because anything else was buggy to
+> begin with.
 > 
-> Also, for short frames the copy could well be faster - especially on systems
-> with non-trivial iommu.
-> It is also worth checking whether the original copy was aligned.
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> 
+> diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+> index bb7851e..599cdfd 100644
+> --- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
+> +++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+> @@ -854,9 +854,10 @@ static void write_sgl(const struct sk_buff *skb, struct sge_txq *q,
+>   * memory mapped BAR2 space(user space writes).
+>   * For coalesced WR SGE, fetches data from the FIFO instead of from Host.
+>   */
+> -static void cxgb_pio_copy(u64 __iomem *dst, u64 *src)
+> +static void cxgb_pio_copy(u64 __iomem *dst, struct tx_desc *desc)
+>  {
+> -	int count = 8;
+> +	int count = sizeof(*desc) / sizeof(u64);
+> +	u64 *src = (u64 *)desc;
+> 
+>  	while (count) {
+>  		writeq(*src, dst);
+> @@ -914,12 +915,11 @@ static inline void ring_tx_db(struct adapter *adap, struct sge_txq *q, int n)
+>  			int index = (q->pidx
+>  				     ? (q->pidx - 1)
+>  				     : (q->size - 1));
+> -			unsigned int *wr = (unsigned int *)&q->desc[index];
+> +			struct tx_desc *desc = &q->desc[index];
+> 
+>  			cxgb_pio_copy((u64 __iomem *)
+>  				      (adap->bar2 + q->udb +
+> -				       SGE_UDB_WCDOORBELL),
+> -				      (u64 *)wr);
+> +				       SGE_UDB_WCDOORBELL), desc);
 
-For the short frames, sure. I'm not sure what you mean by that last sentence--
-the point of the checks that determine whether to copy or not are to enforce
-alignment and length restrictions; if they aren't met in the original buffer,
-we copy.
+Why not put &q->desc[index] in the call itself.
+And I can't help think there are better places to break the long line.
+Getting it to the code below would be nice:
+			cxgp_pio_copy(adap->bar2 + q->udb + SGE_UDB_WCDOORBELL,
+					  q->desc + index);
 
-						+-DLS
+	David
+
+>  		} else {
+>  			writel(val,  adap->bar2 + q->udb + SGE_UDB_KDOORBELL);
+>  		}
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
