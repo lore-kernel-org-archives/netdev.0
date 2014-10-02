@@ -1,66 +1,88 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net-next] mlx4: optimize xmit path
-Date: Wed, 01 Oct 2014 21:35:24 -0700
-Message-ID: <1412224524.16704.75.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1411692382-8898-1-git-send-email-ast@plumgrid.com>
-	 <1411694414.16953.70.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1411717322.16953.99.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1411850590.15768.6.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAJ3xEMhQCf7j48Yn5sjH6jaYYdLQUgOe2hk-OZhhdZ7taOyx+Q@mail.gmail.com>
-	 <1411853441.15768.13.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1411858593.15768.51.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1411964353.30721.6.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [PATCH net-next v6 2/2] bonding: Simplify the xmit function for
+ modes that use xmit_hash
+Date: Wed, 1 Oct 2014 21:40:39 -0700
+Message-ID: <CAHA+R7PiP2Ce-+3S6Uy5kkKjk1sN6uE2gXzvL_HtfnyVHLoKoQ@mail.gmail.com>
+References: <1412152711-12646-1-git-send-email-maheshb@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <ast@plumgrid.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
+Content-Type: text/plain; charset=UTF-8
+Cc: Jay Vosburgh <j.vosburgh@gmail.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
 	Eric Dumazet <edumazet@google.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Amir Vadai <amirv@mellanox.com>,
-	Or Gerlitz <or.gerlitz@gmail.com>
-To: Or Gerlitz <gerlitz.or@gmail.com>
+	Maciej Zenczykowski <maze@google.com>
+To: Mahesh Bandewar <maheshb@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:53108 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750919AbaJBEfI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2014 00:35:08 -0400
-Received: by mail-pa0-f44.google.com with SMTP id et14so1555170pad.17
-        for <netdev@vger.kernel.org>; Wed, 01 Oct 2014 21:35:06 -0700 (PDT)
-In-Reply-To: <1411964353.30721.6.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-la0-f54.google.com ([209.85.215.54]:49737 "EHLO
+	mail-la0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751857AbaJBEkl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2014 00:40:41 -0400
+Received: by mail-la0-f54.google.com with SMTP id gm9so1588701lab.41
+        for <netdev@vger.kernel.org>; Wed, 01 Oct 2014 21:40:39 -0700 (PDT)
+In-Reply-To: <1412152711-12646-1-git-send-email-maheshb@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2014-09-28 at 21:19 -0700, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
-
-...
-> 6) mdev->mr.key stored in ring->mr_key to also avoid bswap() and access
->    to cold cache line.
->  
-
-
->  		ring->bf.offset ^= ring->bf.buf_size;
->  	} else {
-> +		tx_desc->ctrl.vlan_tag = cpu_to_be16(vlan_tag);
-> +		tx_desc->ctrl.ins_vlan = MLX4_WQE_CTRL_INS_VLAN *
-> +			!!vlan_tx_tag_present(skb);
-> +		tx_desc->ctrl.fence_size = real_size;
+On Wed, Oct 1, 2014 at 1:38 AM, Mahesh Bandewar <maheshb@google.com> wrote:
+> +int bond_update_slave_arr(struct bonding *bond, struct slave *skipslave)
+> +{
+> +       struct slave *slave;
+> +       struct list_head *iter;
+> +       struct bond_up_slave *new_arr, *old_arr;
+> +       int slaves_in_agg;
+> +       int agg_id = 0;
+> +       int ret = 0;
 > +
->  		/* Ensure new descriptor hits memory
->  		 * before setting ownership of this descriptor to HW
->  		 */
+> +#ifdef CONFIG_LOCKDEP
+> +       WARN_ON(lockdep_is_held(&bond->mode_lock));
+> +#endif
 
 
-Sorry, there is a missing replacement of 
+I think you can use lockdep_is_held().
 
-	iowrite32be(ring->doorbell_qpn,
-		    ring->bf.uar->map + MLX4_SEND_DOORBELL);
+> +
+> +       new_arr = kzalloc(offsetof(struct bond_up_slave, arr[bond->slave_cnt]),
+> +                         GFP_KERNEL);
+> +       if (!new_arr) {
+> +               ret = -ENOMEM;
+> +               pr_err("Failed to build slave-array.\n");
+> +               goto out;
+> +       }
 
-by iowrite32(ring->doorbell_qpn,
-	     ring->bf.uar->map + MLX4_SEND_DOORBELL);
 
-Since doorbel_qpn was changed to a __be32 and setup in
-mlx4_en_activate_tx_ring()
+No need to print an error message for OOM, it is already noisy. :)
+
+
+> +       if (BOND_MODE(bond) == BOND_MODE_8023AD) {
+> +               struct ad_info ad_info;
+> +
+> +               if (bond_3ad_get_active_agg_info(bond, &ad_info)) {
+> +                       pr_debug("bond_3ad_get_active_agg_info failed\n");
+
+
+I suspect how useful this debug info is since your patch is almost ready
+to merge.
+
+> +                       kfree_rcu(new_arr, rcu);
+> +                       /* No active aggragator means its not safe to use
+
+s/its/it's/
+
+> +                        * the previous array.
+> +                        */
+> +                       old_arr = rtnl_dereference(bond->slave_arr);
+> +                       if (old_arr) {
+> +                               RCU_INIT_POINTER(bond->slave_arr, NULL);
+> +                               kfree_rcu(old_arr, rcu);
+> +                       }
+> +                       goto out;
+> +               }
+> +               slaves_in_agg = ad_info.ports;
+> +               agg_id = ad_info.aggregator_id;
+> +       }
+
+
+
+Thanks.
