@@ -1,67 +1,44 @@
-From: Jason Baron <jbaron@akamai.com>
-Subject: macvlan: optimizing the receive path?
-Date: Thu, 02 Oct 2014 16:28:13 -0400
-Message-ID: <542DB55D.3090601@akamai.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/2] sunvnet: Packet processing in
+ non-interrupt context.
+Date: Thu, 02 Oct 2014 13:43:46 -0700 (PDT)
+Message-ID: <20141002.134346.2291749763304558513.davem@davemloft.net>
+References: <20141001202315.GN17706@oracle.com>
+	<20141001.162529.2246298941833907545.davem@davemloft.net>
+	<20141002201203.GA6001@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net
-To: netdev@vger.kernel.org
+Cc: raghuram.kothakota@oracle.com, netdev@vger.kernel.org
+To: sowmini.varadhan@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from prod-mail-xrelay02.akamai.com ([72.246.2.14]:58162 "EHLO
-	prod-mail-xrelay02.akamai.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752655AbaJBUfD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2014 16:35:03 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:47514 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751723AbaJBUlp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2014 16:41:45 -0400
+In-Reply-To: <20141002201203.GA6001@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Date: Thu, 2 Oct 2014 16:12:03 -0400
 
-I was just wondering why the netif_rx(skb) call in macvlan_handle_frame()
-was necessary? IE:
+> The patch is attached to the end of this email.
 
-macvlan_handle_frame()
-{
-       ........
+There are an explosion of simplifications and optimizations
+possilbe once you've done a NAPI conversion, which I haven't
+seen you perform here in this patch.
 
-        skb->dev = dev;
-        skb->pkt_type = PACKET_HOST;
+For example, you can now move everything into software IRQ context,
+just disable the VIO interrupt and unconditionally go into NAPI
+context from the VIO event.
 
-****>ret = netif_rx(skb);
+No more irqsave/irqrestore.
 
-out:
-        macvlan_count_rx(vlan, len, ret == NET_RX_SUCCESS, 0);
-        return RX_HANDLER_CONSUMED;
-}
+Then the TX path even can run mostly lockless, it just needs
+to hold the VIO lock for a minute period of time.  The caller
+holds the xmit_lock of the network device to prevent re-entry
+into the ->ndo_start_xmit() path.
 
-
-I think the point of going through netif_rx() is to ensure that we throttle
-incoming packets, but hasn't that already been accomplished in this path?
-That is if the packets are arriving from the physical NIC, we've already
-throttled them by this point. Otherwise, if they are coming via
-macvlan_queue_xmit(), it calls either 'dev_forward_skb()', which ends
-up calling netif_rx_internal(), or else in broadcast mode there is
-to be throttling via macvlan_broadcast_enqueue().
-
-So I suspect there is a code path that I am missing but the netif_rx() call in
-question essentially re-queues packets coming from off the box. I've tried the
-simple patch below to optimize this path, and obviously performs a lot better
-in my limited testing.
-
-Thanks,
-
--Jason
-
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -321,8 +321,8 @@ static rx_handler_result_t macvlan_handle_frame(struct sk_buff **pskb)
-        skb->dev = dev;
-        skb->pkt_type = PACKET_HOST;
- 
--       ret = netif_rx(skb);
--
-+      macvlan_count_rx(vlan, len, true, 0);
-+      return RX_HANDLER_ANOTHER;
- out:
-        macvlan_count_rx(vlan, len, ret == NET_RX_SUCCESS, 0);
-        return RX_HANDLER_CONSUMED;
+Really, what you've done here as a NAPI conversion is just the
+beginning.
