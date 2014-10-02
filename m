@@ -1,70 +1,75 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [RFC PATCH linux 2/2] fs/proc: use a hash table for the
- directory entries
-Date: Thu, 2 Oct 2014 09:46:57 -0700
-Message-ID: <20141002094657.1e28e027@urahara>
-References: <20131003.150947.2179820478039260398.davem@davemloft.net>
-	<1412263501-6572-1-git-send-email-nicolas.dichtel@6wind.com>
-	<1412263501-6572-3-git-send-email-nicolas.dichtel@6wind.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [net-next PATCH V6 0/2] qdisc: bulk dequeue support
+Date: Thu, 2 Oct 2014 18:52:15 +0200
+Message-ID: <20141002165215.GJ1803@breakpoint.cc>
+References: <20141001203345.3321.99675.stgit@dragon>
+ <CA+mtBx8ecpd+S+E2o8A+Hzp3i2SO7XO0+F_DYA0ng+fjta7G5A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	davem@davemloft.net, ebiederm@xmission.com,
-	akpm@linux-foundation.org, adobriyan@gmail.com,
-	rui.xiang@huawei.com, viro@zeniv.linux.org.uk, oleg@redhat.com,
-	gorcunov@openvz.org, kirill.shutemov@linux.intel.com,
-	grant.likely@secretlab.ca, tytso@mit.edu,
-	Thierry Herbelot <thierry.herbelot@6wind.com>
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1412263501-6572-3-git-send-email-nicolas.dichtel@6wind.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Florian Westphal <fw@strlen.de>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Dave Taht <dave.taht@gmail.com>,
+	Toke =?iso-8859-15?Q?H=F8iland-J=F8rgensen?= <toke@toke.dk>
+To: Tom Herbert <therbert@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:40160 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751648AbaJBQwV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2014 12:52:21 -0400
+Content-Disposition: inline
+In-Reply-To: <CA+mtBx8ecpd+S+E2o8A+Hzp3i2SO7XO0+F_DYA0ng+fjta7G5A@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu,  2 Oct 2014 17:25:01 +0200
-Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
+Tom Herbert <therbert@google.com> wrote:
+> On Wed, Oct 1, 2014 at 1:35 PM, Jesper Dangaard Brouer
+> <brouer@redhat.com> wrote:
+> > This patchset uses DaveM's recent API changes to dev_hard_start_xmit(),
+> > from the qdisc layer, to implement dequeue bulking.
+> >
+> > Patch01: "qdisc: bulk dequeue support for qdiscs with TCQ_F_ONETXQUEUE"
+> >  - Implement basic qdisc dequeue bulking
+> >  - This time, 100% relying on BQL limits, no magic safe-guard constants
+> >
+> > Patch02: "qdisc: dequeue bulking also pickup GSO/TSO packets"
+> >  - Extend bulking to bulk several GSO/TSO packets
+> >  - Seperate patch, as it introduce a small regression, see test section.
+> >
+> > We do have a patch03, which exports a userspace tunable as a BQL
+> > tunable, that can byte-cap or disable the bulking/bursting.  But we
+> > could not agree on it internally, thus not sending it now.  We
+> > basically strive to avoid adding any new userspace tunable.
+> >
+> Unfortunately we probably still need something. If BQL were disabled
+> (by setting BQL min_limit to infinity) then we'll always dequeue all
+> the packets in the qdisc. Disabling BQL might be legitimate in
+> deployment if say a bug is found in a device that prevents prompt
+> transmit completions for some corner case.
 
-> From: Thierry Herbelot <thierry.herbelot@6wind.com>
-> 
-> The current implementation for the directories in /proc is using a single
-> linked list. This is slow when handling directories with large numbers of
-> entries (eg netdevice-related entries when lots of tunnels are opened).
-> 
-> This patch enables multiple linked lists. A hash based on the entry name is
-> used to select the linked list for one given entry.
-> 
-> The speed creation of netdevices is faster as shorter linked lists must be
-> scanned when adding a new netdevice.
-> 
-> Here are some numbers:
-> 
-> dummy30000.batch contains 30 000 times 'link add type dummy'.
-> 
-> Before the patch:
-> time ip -b dummy30000.batch
-> real    2m32.221s
-> user    0m0.380s
-> sys     2m30.610s
-> 
-> After the patch:
-> time ip -b dummy30000.batch
-> real    1m57.190s
-> user    0m0.350s
-> sys     1m56.120s
-> 
-> The single 'subdir' list head is replaced by a subdir hash table. The subdir
-> hash buckets are only allocated for directories. The number of hash buckets
-> is a compile-time parameter.
-> 
-> For all functions which handle directory entries, an additional check on the
-> directory nature of the dir entry ensures that pde_hash_buckets was allocated.
-> This check was not needed as subdir was present for all dir entries, whether
-> actual directories or simple files.
-> 
-> Signed-off-by: Thierry Herbelot <thierry.herbelot@6wind.com>
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Hmm.  Thats confusing.
 
-I think the speed up is a good idea and makes sense.
-It would be better to use exist hlist macros for hash table rather than
-open coding it.
+So you are saying to disable bql one should do
+
+cat limit_max > limit_min ?
+
+But thats not the same as having a bql-unaware driver.
+
+Seems to get same behavior as non-bql aware driver (where
+dql_avail always returns 0 since num_queued and adj_limit remain at 0)
+is to set
+
+echo 0 > limit_max
+
+... which makes dql_avail() return 0, which then also turns off bulk
+dequeue.
+
+Confused,
+Florian
