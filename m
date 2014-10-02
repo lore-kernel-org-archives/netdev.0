@@ -1,118 +1,74 @@
-From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: Re: [PATCH v1 3/5] dtb: Add 10GbE node to APM X-Gene SoC device tree
-Date: Thu, 2 Oct 2014 16:24:11 -0700
-Message-ID: <CAKh23FmgajO96c7JeyT4baU1Q23sTW2NWwGezgAjGKodqzjYWQ@mail.gmail.com>
-References: <1411530688-2939-1-git-send-email-isubramanian@apm.com>
-	<1411530688-2939-4-git-send-email-isubramanian@apm.com>
-	<20140924093727.GA9162@leverpostej>
+From: "Luis R. Rodriguez" <mcgrof@suse.com>
+Subject: Re: [PATCH v1 5/5] driver-core: add driver asynchronous probe
+	support
+Date: Fri, 3 Oct 2014 01:29:44 +0200
+Message-ID: <20141002232944.GT14081@wotan.suse.de>
+References: <1411768637-6809-1-git-send-email-mcgrof@do-not-panic.com> <1411768637-6809-6-git-send-email-mcgrof@do-not-panic.com> <20140928150329.GC5023@mtj.dyndns.org> <20140929212208.GV17349@wotan.suse.de> <20140929212601.GF15925@htj.dyndns.org> <20140930072159.GC14081@wotan.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"kchudgar@apm.com" <kchudgar@apm.com>,
-	"patches@apm.com" <patches@apm.com>
-To: Mark Rutland <mark.rutland@arm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod5og124.obsmtp.com ([64.18.0.212]:55685 "HELO
-	exprod5og124.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1752910AbaJBXYN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2014 19:24:13 -0400
-Received: by mail-lb0-f180.google.com with SMTP id f15so98871lbj.39
-        for <netdev@vger.kernel.org>; Thu, 02 Oct 2014 16:24:11 -0700 (PDT)
-In-Reply-To: <20140924093727.GA9162@leverpostej>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: gregkh@linuxfoundation.org,
+	"Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
+	dmitry.torokhov@gmail.com, tiwai@suse.de, arjan@linux.intel.com,
+	teg@jklm.no, rmilasan@suse.com, werner@suse.com, oleg@redhat.com,
+	hare@suse.com, bpoirier@suse.de, santosh@chelsio.com,
+	pmladek@suse.cz, dbueso@suse.com, linux-kernel@vger.kernel.org,
+	Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
+	Joseph Salisbury <joseph.salisbury@canonical.com>,
+	Kay Sievers <kay@vrfy.org>,
+	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
+	Tim Gardner <tim.gardner@canonical.com>,
+	Pierre Fersing <pierre-fersing@pierref.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
+	Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
+	Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
+	Abhijit Mahajan <abhijit.mahajan@avagotech.com>,
+	Casey Leedom <leedom@che
+To: Tejun Heo <tj@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20140930072159.GC14081@wotan.suse.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 24, 2014 at 2:37 AM, Mark Rutland <mark.rutland@arm.com> wrote:
-> Hi,
->
-> For some reason, the below appears to use a mixture of spaces and tabs
-> for alignment. Assuming my local mailserver isn't responsible for that,
-> could you please correct that and for consistency use tabs?
->
-> Could you also please Cc the arm64 maintainers when submitting arm64
-> patches?
->
-> On Wed, Sep 24, 2014 at 04:51:26AM +0100, Iyappan Subramanian wrote:
->> Added 10GbE interface and clock nodes.
->>
->> Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
->> ---
->>  arch/arm64/boot/dts/apm-mustang.dts |  4 ++++
->>  arch/arm64/boot/dts/apm-storm.dtsi  | 24 ++++++++++++++++++++++++
->>  2 files changed, 28 insertions(+)
->>
->> diff --git a/arch/arm64/boot/dts/apm-mustang.dts b/arch/arm64/boot/dts/apm-mustang.dts
->> index b2f5622..2ae782b 100644
->> --- a/arch/arm64/boot/dts/apm-mustang.dts
->> +++ b/arch/arm64/boot/dts/apm-mustang.dts
->> @@ -32,3 +32,7 @@
->>  &menet {
->>       status = "ok";
->>  };
->> +
->> +&xgenet {
->> +     status = "ok";
->> +};
->> diff --git a/arch/arm64/boot/dts/apm-storm.dtsi b/arch/arm64/boot/dts/apm-storm.dtsi
->> index c0aceef..ae814ef 100644
->> --- a/arch/arm64/boot/dts/apm-storm.dtsi
->> +++ b/arch/arm64/boot/dts/apm-storm.dtsi
->> @@ -176,6 +176,16 @@
->>                               clock-output-names = "menetclk";
->>                       };
->>
->> +                        xge0clk: xge0clk@1f61c000 {
->> +                             compatible = "apm,xgene-device-clock";
->> +                             #clock-cells = <1>;
->> +                             clocks = <&socplldiv2 0>;
->> +                             reg = <0x0 0x1f61c000 0x0 0x1000>;
->> +                             reg-names = "csr-reg";
->> +                             csr-mask = <0x3>;
->> +                             clock-output-names = "xge0clk";
->> +                        };
->> +
->>                       sataphy1clk: sataphy1clk@1f21c000 {
->>                               compatible = "apm,xgene-device-clock";
->>                               #clock-cells = <1>;
->> @@ -421,5 +431,19 @@
->>
->>                       };
->>               };
->> +
->> +                xgenet: ethernet@1f610000 {
->> +                     compatible = "apm,xgene-enet";
->> +                        status = "disabled";
->> +                        reg = <0x0 0x1f610000 0x0 0xd100>,
->> +                              <0x0 0x1f600000 0x0 0X400>,
->> +                              <0x0 0x18000000 0x0 0X200>;
->> +                     reg-names = "enet_csr", "ring_csr", "ring_cmd";
->> +                        interrupts = <0x0 0x60 0x4>;
->> +                     dma-coherent;
->> +                        clocks = <&xge0clk 0>;
->
->> +                        local-mac-address = [00 01 73 00 00 04];
->
-> Does it really make sense to hard-code the same mac address for all
-> mustang boards?
+On Tue, Sep 30, 2014 at 09:21:59AM +0200, Luis R. Rodriguez wrote:
+> On Mon, Sep 29, 2014 at 05:26:01PM -0400, Tejun Heo wrote:
+> > Hello, Luis.
+> > 
+> > On Mon, Sep 29, 2014 at 11:22:08PM +0200, Luis R. Rodriguez wrote:
+> > > > > +	/* For now lets avoid stupid bug reports */
+> > > > > +	if (!strcmp(bus->name, "pci") ||
+> > > > > +	    !strcmp(bus->name, "pci_express") ||
+> > > > > +	    !strcmp(bus->name, "hid") ||
+> > > > > +	    !strcmp(bus->name, "sdio") ||
+> > > > > +	    !strcmp(bus->name, "gameport") ||
+> > > > > +	    !strcmp(bus->name, "mmc") ||
+> > > > > +	    !strcmp(bus->name, "i2c") ||
+> > > > > +	    !strcmp(bus->name, "platform") ||
+> > > > > +	    !strcmp(bus->name, "usb"))
+> > > > > +		return true;
+> > > > 
+> > > > Ugh... things like this tend to become permanent.  Do we really need
+> > > > this?  And how are we gonna find out what's broken why w/o bug
+> > > > reports?
+> > > 
+> > > Yeah... well we have two options, one is have something like this to
+> > > at least make it generally useful or remove this and let folks who
+> > > care start fixing async for all modules. The downside to removing
+> > > this is it makes async probe pretty much useless on most systems
+> > > right now, it would mean systemd would have to probably consider
+> > > the list above if they wanted to start using this without expecting
+> > > systems to not work.
+> > 
+> > So, I'd much prefer blacklist approach if something like this is a
+> > necessity.  That way, we'd at least know what doesn't work.
+> 
+> For buses? Or do you mean you'd want to wait until we have a decent
+> list of drivers with the sync probe flag set? If the later it may take
+> a while to get that list for this to be somewhat useful.
 
-I tried to keep the OUI for the first 3 bytes.  APM OUI = 00 01 73.
-I noticed some other vendors dtbs have all 0's.  Since they will get
-overwritten by the bootloader, please suggest the preferred way.
+OK I'm removing this part and it works well for me now on my laptop
+and an AMD server without a white list, so all the junk above will
+be removed in the next series.
 
->
-> Mark.
->
->> +                     phy-connection-type = "xgmii";
->> +                };
->>       };
->>  };
->> --
->> 1.9.1
->>
->> --
->> To unsubscribe from this list: send the line "unsubscribe devicetree" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>
+  Luis
