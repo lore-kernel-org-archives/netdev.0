@@ -1,34 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: avoid one atomic operation in skb_clone()
-Date: Wed, 01 Oct 2014 21:27:48 -0400 (EDT)
-Message-ID: <20141001.212748.2188434550553073923.davem@davemloft.net>
-References: <1412202435.16704.68.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH v3 1/1] net: fec: implement rx_copybreak to improve rx
+ performance
+Date: Wed, 01 Oct 2014 21:28:49 -0400 (EDT)
+Message-ID: <20141001.212849.2078900538773317003.davem@davemloft.net>
+References: <1412040485-19130-1-git-send-email-b38611@freescale.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: b20596@freescale.com, netdev@vger.kernel.org,
+	bhutchings@solarflare.com, shawn.guo@linaro.org,
+	romieu@fr.zoreil.com, eric.dumazet@gmail.com
+To: b38611@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38681 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38697 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752741AbaJBB1v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2014 21:27:51 -0400
-In-Reply-To: <1412202435.16704.68.camel@edumazet-glaptop2.roam.corp.google.com>
+	with ESMTP id S1752940AbaJBB2v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2014 21:28:51 -0400
+In-Reply-To: <1412040485-19130-1-git-send-email-b38611@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 01 Oct 2014 15:27:15 -0700
+From: Fugang Duan <b38611@freescale.com>
+Date: Tue, 30 Sep 2014 09:28:05 +0800
 
-> From: Eric Dumazet <edumazet@google.com>
+> - Copy short frames and keep the buffers mapped, re-allocate skb instead of
+>   memory copy for long frames.
+> - Add support for setting/getting rx_copybreak using generic ethtool tunable
 > 
-> Fast clone cloning can actually avoid an atomic_inc(), if we
-> guarantee prior clone_ref value is 1.
+> Changes V3:
+> * As Eric Dumazet's suggestion that removing the copybreak module parameter
+>   and only keep the ethtool API support for rx_copybreak.
 > 
-> This requires a change kfree_skbmem(), to perform the 
-> atomic_dec_and_test() on clone_ref before setting fclone to
-> SKB_FCLONE_UNAVAILABLE.
+> Changes V2:
+> * Implements rx_copybreak
+> * Rx_copybreak provides module parameter to change this value
+> * Add tunable_ops support for rx_copybreak
 > 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Fugang Duan <B38611@freescale.com>
+> Signed-off-by: Frank Li <Frank.Li@freescale.com>
 
-Applied, thanks Eric.
+Applied, thanks.
