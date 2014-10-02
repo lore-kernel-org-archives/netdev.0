@@ -1,48 +1,60 @@
-From: David L Stevens <david.stevens@oracle.com>
-Subject: Re: [PATCHv9 net-next 2/4] sunvnet: make transmit path zero-copy
- in the kernel
-Date: Thu, 02 Oct 2014 07:11:00 -0400
-Message-ID: <542D32C4.8070703@oracle.com>
-References: <5429EFBB.2090909@oracle.com> <77E6695E-58F8-4D10-8ED7-EEC4A487339E@oracle.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch 1/2 -next] cxgb4: clean up a type issue
+Date: Thu, 2 Oct 2014 14:22:19 +0300
+Message-ID: <20141002112219.GA25606@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Sowmini Varadhan <sowmini.varadhan@oracle.com>
-To: Raghuram Kothakota <Raghuram.Kothakota@oracle.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Hariprasad S <hariprasad@chelsio.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:39380 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752254AbaJBLLH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2014 07:11:07 -0400
-In-Reply-To: <77E6695E-58F8-4D10-8ED7-EEC4A487339E@oracle.com>
+Received: from aserp1040.oracle.com ([141.146.126.69]:31131 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751283AbaJBLWd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2014 07:22:33 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+The tx_desc struct hold 8 __be64 values.  The original code took a
+tx_desc pointer then casted it to an int pointer and then casted it to a
+u64 pointer.  It was confusing and triggered some static checker
+warnings.
 
+I have changed the cxgb_pio_copy() to only take tx_desc pointers.  This
+isn't really a loss of flexibility because anything else was buggy to
+begin with.
 
-On 10/02/2014 01:50 AM, Raghuram Kothakota wrote:
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-
->> +	err = ldc_map_single(port->vio.lp, start, nlen,
->> +			     port->tx_bufs[txi].cookies, 2,
->> +			     (LDC_MAP_SHADOW | LDC_MAP_DIRECT | LDC_MAP_RW));
-> 
-> 
-> The LDC sharing protection mechanism is at a page level. If I understand
-> well, the vnet_skb_shape() function only addresses the alignment requirement
-> but it still leaves the possibility of exporting a lot more data than required to the
-> peer. This can be treated as a security issue,  wondering if you thought of this issue.
-
-Since the specific offsets and lengths are provided in the API, I didn't realize that it was
-sharing more than the provided buffer until you pointed that out, before I submitted the
-patches. At that point, I considered it.
-
-The original buffers were ~1500 byte kzalloc'ed (for each buffer), meaning that they were
-potentially shared with arbitrary kernel memory on the same page.
-
-This patch-set doesn't increase or decrease any security concerns related to oversharing
-with other LDOMs. The extents outside the provided buffers are (now) skbs, and so packet
-data, where before they could be any dynamically allocated kernel memory.
-
-								+-DLS
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+index bb7851e..599cdfd 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+@@ -854,9 +854,10 @@ static void write_sgl(const struct sk_buff *skb, struct sge_txq *q,
+  * memory mapped BAR2 space(user space writes).
+  * For coalesced WR SGE, fetches data from the FIFO instead of from Host.
+  */
+-static void cxgb_pio_copy(u64 __iomem *dst, u64 *src)
++static void cxgb_pio_copy(u64 __iomem *dst, struct tx_desc *desc)
+ {
+-	int count = 8;
++	int count = sizeof(*desc) / sizeof(u64);
++	u64 *src = (u64 *)desc;
+ 
+ 	while (count) {
+ 		writeq(*src, dst);
+@@ -914,12 +915,11 @@ static inline void ring_tx_db(struct adapter *adap, struct sge_txq *q, int n)
+ 			int index = (q->pidx
+ 				     ? (q->pidx - 1)
+ 				     : (q->size - 1));
+-			unsigned int *wr = (unsigned int *)&q->desc[index];
++			struct tx_desc *desc = &q->desc[index];
+ 
+ 			cxgb_pio_copy((u64 __iomem *)
+ 				      (adap->bar2 + q->udb +
+-				       SGE_UDB_WCDOORBELL),
+-				      (u64 *)wr);
++				       SGE_UDB_WCDOORBELL), desc);
+ 		} else {
+ 			writel(val,  adap->bar2 + q->udb + SGE_UDB_KDOORBELL);
+ 		}
