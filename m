@@ -1,165 +1,99 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: RFC: ixgbe+build_skb+extra performance experiments
-Date: Wed,  1 Oct 2014 23:00:42 -0700
-Message-ID: <1412229642-10555-1-git-send-email-ast@plumgrid.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f179.google.com ([209.85.192.179]:60071 "EHLO
-	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750954AbaJBGAv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2014 02:00:51 -0400
-Received: by mail-pd0-f179.google.com with SMTP id r10so1484743pdi.38
-        for <netdev@vger.kernel.org>; Wed, 01 Oct 2014 23:00:51 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Tom Gundersen <teg@jklm.no>
+Subject: Re: [PATCH v1 5/5] driver-core: add driver asynchronous probe support
+Date: Thu, 2 Oct 2014 08:12:37 +0200
+Message-ID: <CAG-2HqVBnXUKSRBrJE=gEKA3St5KMfdgAbx2vRfpF3qw_teLOg@mail.gmail.com>
+References: <1411768637-6809-1-git-send-email-mcgrof@do-not-panic.com>
+ <1411768637-6809-6-git-send-email-mcgrof@do-not-panic.com>
+ <CAG-2HqWmVODJ6Q46t96mS9ALbeFjRcQ18ypwejY=ug0wCUVv-Q@mail.gmail.com>
+ <20140930022751.GA14081@wotan.suse.de> <CAG-2HqUdFWBPUrHg2yezVVu7xedqTQDBxAW5nuYWKWJCTkZSBg@mail.gmail.com>
+ <20140930152419.GF14081@wotan.suse.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
+	Michal Hocko <mhocko@suse.cz>,
+	Greg KH <gregkh@linuxfoundation.org>,
+	Dmitry Torokhov <dmitry.torokhov@gmail.com>,
+	Takashi Iwai <tiwai@suse.de>, Tejun Heo <tj@kernel.org>,
+	Arjan van de Ven <arjan@linux.intel.com>,
+	Robert Milasan <rmilasan@suse.com>, werner@suse.com,
+	Oleg Nesterov <oleg@redhat.com>, hare <hare@suse.com>,
+	Benjamin Poirier <bpoirier@suse.de>,
+	Santosh Rastapur <santosh@chelsio.com>, pmladek@suse.cz,
+	dbueso@suse.com, LKML <linux-kernel@vger.kernel.org>,
+	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
+	Joseph Salisbury <joseph.salisbury@canonical.com>,
+	Kay Sievers <kay@vrfy.org>,
+	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
+	Tim Gardner <tim.gardner@canonical.com>,
+	Pierre Fersing <pierre-fersing@pierref.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotec
+To: "Luis R. Rodriguez" <mcgrof@suse.com>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <20140930152419.GF14081@wotan.suse.de>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi All,
+On Tue, Sep 30, 2014 at 5:24 PM, Luis R. Rodriguez <mcgrof@suse.com> wrote:
+>> > commit e64fae5573e566ce4fd9b23c68ac8f3096603314
+>> > Author: Kay Sievers <kay.sievers@vrfy.org>
+>> > Date:   Wed Jan 18 05:06:18 2012 +0100
+>> >
+>> >     udevd: kill hanging event processes after 30 seconds
+>> >
+>> >     Some broken kernel drivers load firmware synchronously in the module init
+>> >     path and block modprobe until the firmware request is fulfilled.
+>> >     <...>
+>>
+>> This was a workaround to avoid a deadlock between udev and the kernel.
+>> The 180 s timeout was already in place before this change, and was not
+>> motivated by firmware loading. Also note that this patch was not about
+>> "tracking device drivers", just about avoiding dead-lock.
+>
+> Thanks, can you elaborate on how a deadlock can occur if the kmod
+> worker is not at some point sigkilled?
 
-I'm trying to speed up single core packet per second.
+This was only relevant whet udev did the firmware loading. modprobe
+would wait for the kernel, which would wait for the firmware loading,
+which would wait for modprobe. This is no longer a problem as udev
+does not do firmware loading any more.
 
-I took dual port ixgbe and added both ports to a linux bridge.
-Only one port is connected to another system running pktgen at 10G rate.
-I disabled gro to measure pure RX speed of ixgbe.
+> Is the issue that if there is no extra worker available and all are
+> idling on sleep / synchronous long work boot will potentially hang
+> unless a new worker becomes available to do more work?
 
-Out of the box I see 6.5 Mpps and the following stack:
-  21.83%    ksoftirqd/0  [kernel.kallsyms]  [k] memcpy
-  17.58%    ksoftirqd/0  [ixgbe]            [k] ixgbe_clean_rx_irq
-  10.07%    ksoftirqd/0  [kernel.kallsyms]  [k] build_skb
-   6.40%    ksoftirqd/0  [kernel.kallsyms]  [k] __netdev_alloc_frag
-   5.18%    ksoftirqd/0  [kernel.kallsyms]  [k] put_compound_page
-   4.93%    ksoftirqd/0  [kernel.kallsyms]  [k] kmem_cache_alloc
-   4.55%    ksoftirqd/0  [kernel.kallsyms]  [k] __netif_receive_skb_core
+Correct.
 
-Obviously driver spends huge amount of time copying data from
-hw buffers into skb.
+> If so I can
+> see the sigkill helping for hanging tasks but it doesn't necessarily
+> mean its a good idea to kill modules loading taking a while. Also
+> what if the sigkill is just avoided for *just* kmod workers?
 
-Then I applied buggy but working in this case patch:
-http://patchwork.ozlabs.org/patch/236044/
-that is trying to use build_skb() API in ixgbe.
+Depending on the number of devices you have, I suppose we could still
+exhaust the workers.
 
-RX speed jumped to 7.6 Mpps with the following stack:
-  27.02%    ksoftirqd/0  [kernel.kallsyms]  [k] eth_type_trans
-  16.68%    ksoftirqd/0  [ixgbe]            [k] ixgbe_clean_rx_irq
-  11.45%    ksoftirqd/0  [kernel.kallsyms]  [k] build_skb
-   5.20%    ksoftirqd/0  [kernel.kallsyms]  [k] __netif_receive_skb_core
-   4.72%    ksoftirqd/0  [kernel.kallsyms]  [k] kmem_cache_alloc
-   3.96%    ksoftirqd/0  [kernel.kallsyms]  [k] kmem_cache_free
+>> The way I see it, the current status from systemd's side is: our
+>> short-term work-around is to increase the timeout, and at the moment
+>> it appears no long-term solution is needed (i.e., it seems like the
+>> right thing to do is to make sure insmod can be near instantaneous, it
+>> appears people are working towards this goal, and so far no examples
+>> have cropped up showing that it is fundamentally impossible (once/if
+>> they do, we should of course revisit the problem)).
+>
+> That again would be reactive behaviour, what would prevent avoiding the
+> sigkill only for kmod workers? Is it known the deadlock is immiment?
+> If the amount of workers for kmod that would hit the timeout is
+> considered low I don't see how that's possible and why not just lift
+> the sigkill.
 
-packets no longer copied and performance is higher.
-It's doing the following:
-- build_skb out of hw buffer and prefetch packet data
-- eth_type_trans
-- napi_gro_receive
+Making kmod a special case is of course possible. However, as long as
+there is no fundamental reason why kmod should get this special
+treatment, this just looks like a work-around to me. We already have a
+work-around, which is to increase the global timeout. If you still
+think we should do something different in systemd, it is probably best
+to take the discussion to systemd-devel to make sure all the relevant
+people are involved.
 
-but build_skb() is too fast and cpu doesn't have enough time
-to prefetch packet data before eth_type_trans() is called,
-so I added mini skb bursting of 2 skbs (patch below) that does:
-- build_skb1 out of hw buffer and prefetch packet data
-- build_skb2 out of hw buffer and prefetch packet data
-- eth_type_trans(skb1)
-- napi_gro_receive(skb1)
-- eth_type_trans(skb2)
-- napi_gro_receive(skb2)
-and performance jumped to 9.0 Mpps with stack:
-  20.54%    ksoftirqd/0  [ixgbe]            [k] ixgbe_clean_rx_irq
-  13.15%    ksoftirqd/0  [kernel.kallsyms]  [k] build_skb
-   8.35%    ksoftirqd/0  [kernel.kallsyms]  [k] __netif_receive_skb_core
-   7.16%    ksoftirqd/0  [kernel.kallsyms]  [k] eth_type_trans
-   4.73%    ksoftirqd/0  [kernel.kallsyms]  [k] kmem_cache_free
-   4.50%    ksoftirqd/0  [kernel.kallsyms]  [k] kmem_cache_alloc
+Cheers,
 
-with further instruction tunning inside ixgbe_clean_rx_irq()
-I could push it to 9.4 Mpps.
-
->From 6.5 Mpps to 9.4 Mpps via build_skb() and tunning.
-
-Is there a way to fix the issue Ben pointed a year ago?
-Brute force fix could to be: avoid half-page buffers.
-We'll be wasting 16Mbyte of memory. Sure, but in some cases
-extra peformance might be worth it.
-Other options?
-I think we need to try harder to switch to build_skb()
-It will open up a lot of possibilities for further performance
-improvements.
-Thoughts?
-
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   34 +++++++++++++++++++++----
- 1 file changed, 29 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 21d1a65..1d1e37f 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -1590,8 +1590,6 @@ static void ixgbe_process_skb_fields(struct ixgbe_ring *rx_ring,
- 	}
-
- 	skb_record_rx_queue(skb, rx_ring->queue_index);
--
--	skb->protocol = eth_type_trans(skb, dev);
- }
-
- static void ixgbe_rx_skb(struct ixgbe_q_vector *q_vector,
-@@ -2063,6 +2061,24 @@ dma_sync:
- 	return skb;
- }
-
-+#define BURST_SIZE 2
-+static void ixgbe_rx_skb_burst(struct sk_buff *skbs[BURST_SIZE],
-+			       unsigned int skb_burst,
-+			       struct ixgbe_q_vector *q_vector,
-+			       struct net_device *dev)
-+{
-+	int i;
-+
-+	for (i = 0; i < skb_burst; i++) {
-+		struct sk_buff *skb = skbs[i];
-+
-+		skb->protocol = eth_type_trans(skb, dev);
-+
-+		skb_mark_napi_id(skb, &q_vector->napi);
-+		ixgbe_rx_skb(q_vector, skb);
-+	}
-+}
-+
- /**
-  * ixgbe_clean_rx_irq - Clean completed descriptors from Rx ring - bounce buf
-  * @q_vector: structure containing interrupt and ring information
-@@ -2087,6 +2103,8 @@ static int ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
- 	unsigned int mss = 0;
- #endif /* IXGBE_FCOE */
- 	u16 cleaned_count = ixgbe_desc_unused(rx_ring);
-+	struct sk_buff *skbs[BURST_SIZE];
-+	unsigned int skb_burst = 0;
-
- 	while (likely(total_rx_packets < budget)) {
- 		union ixgbe_adv_rx_desc *rx_desc;
-@@ -2161,13 +2179,19 @@ static int ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
- 		}
- 
- #endif /* IXGBE_FCOE */
--		skb_mark_napi_id(skb, &q_vector->napi);
--		ixgbe_rx_skb(q_vector, skb);
--
- 		/* update budget accounting */
- 		total_rx_packets++;
-+		skbs[skb_burst++] = skb;
-+
-+		if (skb_burst == BURST_SIZE) {
-+			ixgbe_rx_skb_burst(skbs, skb_burst, q_vector,
-+					   rx_ring->netdev);
-+			skb_burst = 0;
-+		}
- 	}
- 
-+	ixgbe_rx_skb_burst(skbs, skb_burst, q_vector, rx_ring->netdev);
-+
- 	u64_stats_update_begin(&rx_ring->syncp);
- 	rx_ring->stats.packets += total_rx_packets;
- 	rx_ring->stats.bytes += total_rx_bytes;
--- 
-1.7.9.5
+Tom
