@@ -1,72 +1,121 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [net-next PATCH V6 0/2] qdisc: bulk dequeue support
-Date: Thu, 2 Oct 2014 08:27:36 -0700
-Message-ID: <CA+mtBx-dYMRCTz651Nd4emO9gutynLvXzLRuqVkMbF+HhyGRPg@mail.gmail.com>
-References: <20141001203345.3321.99675.stgit@dragon>
-	<CA+mtBx8ecpd+S+E2o8A+Hzp3i2SO7XO0+F_DYA0ng+fjta7G5A@mail.gmail.com>
-	<1412262270.16704.103.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: netlink NETLINK_ROUTE  failure & Can the kernel really handle
+ IPv6 properly
+Date: Thu, 02 Oct 2014 10:44:08 -0500
+Message-ID: <1412264648.7227.9.camel@dcbw.local>
+References: <542C63FE.9080807@emagii.com>
+	 <1412199032.2532289.174101717.2D6510D0@webmail.messagingengine.com>
+	 <9330C415-574C-492B-A7AE-92EBCF6D1A26@emagii.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Amir Vadai <amirv@mellanox.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Florian Westphal <fw@strlen.de>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Dave Taht <dave.taht@gmail.com>,
-	=?UTF-8?B?VG9rZSBIw7hpbGFuZC1Kw7hyZ2Vuc2Vu?= <toke@toke.dk>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Ulf samuelsson <netdev@emagii.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f173.google.com ([209.85.213.173]:37071 "EHLO
-	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753865AbaJBP1h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2014 11:27:37 -0400
-Received: by mail-ig0-f173.google.com with SMTP id h18so1179259igc.12
-        for <netdev@vger.kernel.org>; Thu, 02 Oct 2014 08:27:36 -0700 (PDT)
-In-Reply-To: <1412262270.16704.103.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mx1.redhat.com ([209.132.183.28]:27845 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752502AbaJBPoT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Oct 2014 11:44:19 -0400
+In-Reply-To: <9330C415-574C-492B-A7AE-92EBCF6D1A26@emagii.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 2, 2014 at 8:04 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Thu, 2014-10-02 at 07:42 -0700, Tom Herbert wrote:
->
->
->> Unfortunately we probably still need something. If BQL were disabled
->> (by setting BQL min_limit to infinity) then we'll always dequeue all
->> the packets in the qdisc. Disabling BQL might be legitimate in
->> deployment if say a bug is found in a device that prevents prompt
->> transmit completions for some corner case.
->
->
-> Unfortunately, there is nothing we can do if a ndo_start_xmit() function
-> is buggy.
->
-I was referring more to device bugs not driver bugs. But even so, if a
-user hits a problem like this in the system, disabling something like
-BQL would probably be a better recourse than bringing their network
-down.
+On Thu, 2014-10-02 at 14:38 +0200, Ulf samuelsson wrote:
+> This is the significant code, and it is wrong.
+> 
+> static struct notifier_block my_ipv6_address_notifier =
+>  {
+>    my_ipv6_address_notifier_cb,
+>    NULL,
+>    0
+>  };
+> 
+> register_inet6addr_notifier (&my_ipv6_address_notifier );
+> 
+> int
+> my_ipv6_address_notifier_cb (struct notifier_block *self,
+>                                 unsigned long event, void *val)
+> {
+>  struct inet6_ifaddr *ifaddr = (struct inet6_ifaddr *)val;
+> 
+> 
+>  /* We are only interested in address add/delete events */
+>  /* IPv6 address add comes as NETDEV_UP and delete comes as
+>   * NETDEV_DOWN
+>   */
+>  if ((event != NETDEV_UP) && (event != NETDEV_DOWN))
+>    return ret;
+> 
+>  if (ifaddr == NULL)
+>    return ret;
+>  /* Now that we are sure that it is a IPv6 address being added deleted,
+>   * verify that it is a link local address.
+>   */
+>  if (!IPV6_IS_ADDR_LINKLOCAL (&ifaddr->addr))
+>    {
+>      return ret;
+>    }
+>  ...
+>  send_message_to_app(LINK_LOCAL_UP, ip);
+>  ...
+>  return ret;
+> }
+> 
+> 
+> Application tries to send message to "ip" and fails, because the link-local adress is still
+> in "tentative state"
 
-Minimally we should at least test with BQL disabled, it might not be
-so horrible. I suppose in the worse case we're at least limited by the
-qdisc limit.
+It seems to me that a better architecture would be to have the app
+itself listen for RTM_NEWADDR netlink event and look for lack of
+IFA_F_TENTATIVE in the IFA_FLAGS attribute.  Using a kernel module to do
+the same thing seems pretty wrong.
 
-> For example, if a prior packet is queued on NIC TX ring (with xmit_more
-> set to 1)
->
-> Then following packet given to ndo_start_xmit() returns infamous
-> NETDEV_TX_BUSY, we are screwed.
->
-> mlx4 driver for example has this bug.
->
->
-> Thats why I advocate we have no artifical limit : We are going to catch
-> driver bugs sooner and fix them before xmit_more support is validated,
-> for each driver that claims to support it.
->
-> Amir, the problem with NETDEV_TX_BUSY in mlx4 need to be fixed.
->
->
+Dan
+
+> Best Regards
+> Ulf Samuelsson
+> ulf@emagii.com
+> +46  (722) 427 437
+> 
+> 
+> > 1 okt 2014 kl. 23:30 skrev Hannes Frederic Sowa <hannes@stressinduktion.org>:
+> > 
+> > Hello,
+> > 
+> >> On Wed, Oct 1, 2014, at 22:28, Ulf Samuelsson wrote:
+> >> BTW, the problem I am trying to solve is how to connect to an I/F with 
+> >> an IPv6 link-local address.
+> >> 
+> >> An existing kernel module waits for a NETDEV_UP event, and then tries to 
+> >> communicate
+> >> with the link-local address.
+> >> 
+> >> This will fail, because (according to a colleague) the I/F enters a 
+> >> "tentative" state,
+> >> where it is trying to decide if it is unique or not.
+> >> It will remain in that state for 1-2 seconds, and only afterwards is the 
+> >> link-local address
+> >> available for normal use.
+> >> 
+> >> The guys writing the module, claim that the kernel is using NETDEV_UP.
+> >> There is very little code in the kernel using NETLINK_ROUTE, even in 
+> >> latest stable.
+> >> It is using NETDEV_UP.
+> >> 
+> >> If my colleague is right, the kernel really cannot handle IPv6 
+> >> link-local addresses properly.
+> > 
+> > Sorry, I cannot really follow you, can you send example code or be a bit
+> > more precise?
+> > 
+> > Thanks,
+> > Hannes
+> > --
+> > To unsubscribe from this list: send the line "unsubscribe netdev" in
+> > the body of a message to majordomo@vger.kernel.org
+> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
