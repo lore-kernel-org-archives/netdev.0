@@ -1,99 +1,93 @@
-From: Tom Gundersen <teg@jklm.no>
-Subject: Re: [PATCH v1 5/5] driver-core: add driver asynchronous probe support
-Date: Thu, 2 Oct 2014 08:12:37 +0200
-Message-ID: <CAG-2HqVBnXUKSRBrJE=gEKA3St5KMfdgAbx2vRfpF3qw_teLOg@mail.gmail.com>
-References: <1411768637-6809-1-git-send-email-mcgrof@do-not-panic.com>
- <1411768637-6809-6-git-send-email-mcgrof@do-not-panic.com>
- <CAG-2HqWmVODJ6Q46t96mS9ALbeFjRcQ18ypwejY=ug0wCUVv-Q@mail.gmail.com>
- <20140930022751.GA14081@wotan.suse.de> <CAG-2HqUdFWBPUrHg2yezVVu7xedqTQDBxAW5nuYWKWJCTkZSBg@mail.gmail.com>
- <20140930152419.GF14081@wotan.suse.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
-	Michal Hocko <mhocko@suse.cz>,
-	Greg KH <gregkh@linuxfoundation.org>,
-	Dmitry Torokhov <dmitry.torokhov@gmail.com>,
-	Takashi Iwai <tiwai@suse.de>, Tejun Heo <tj@kernel.org>,
-	Arjan van de Ven <arjan@linux.intel.com>,
-	Robert Milasan <rmilasan@suse.com>, werner@suse.com,
-	Oleg Nesterov <oleg@redhat.com>, hare <hare@suse.com>,
-	Benjamin Poirier <bpoirier@suse.de>,
-	Santosh Rastapur <santosh@chelsio.com>, pmladek@suse.cz,
-	dbueso@suse.com, LKML <linux-kernel@vger.kernel.org>,
-	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-	Joseph Salisbury <joseph.salisbury@canonical.com>,
-	Kay Sievers <kay@vrfy.org>,
-	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
-	Tim Gardner <tim.gardner@canonical.com>,
-	Pierre Fersing <pierre-fersing@pierref.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotec
-To: "Luis R. Rodriguez" <mcgrof@suse.com>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <20140930152419.GF14081@wotan.suse.de>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Vijay Subramanian <subramanian.vijay@gmail.com>
+Subject: [PATCH net-next] net: Cleanup skb cloning  by adding SKB_FCLONE_FREE
+Date: Wed,  1 Oct 2014 23:33:40 -0700
+Message-ID: <1412231620-3767-1-git-send-email-subramanian.vijay@gmail.com>
+Cc: davem@davemloft.net, edumazet@google.com,
+	Vijay Subramanian <subramanian.vijay@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:43152 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751282AbaJBGd7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2014 02:33:59 -0400
+Received: by mail-pd0-f173.google.com with SMTP id g10so1525398pdj.32
+        for <netdev@vger.kernel.org>; Wed, 01 Oct 2014 23:33:59 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 30, 2014 at 5:24 PM, Luis R. Rodriguez <mcgrof@suse.com> wrote:
->> > commit e64fae5573e566ce4fd9b23c68ac8f3096603314
->> > Author: Kay Sievers <kay.sievers@vrfy.org>
->> > Date:   Wed Jan 18 05:06:18 2012 +0100
->> >
->> >     udevd: kill hanging event processes after 30 seconds
->> >
->> >     Some broken kernel drivers load firmware synchronously in the module init
->> >     path and block modprobe until the firmware request is fulfilled.
->> >     <...>
->>
->> This was a workaround to avoid a deadlock between udev and the kernel.
->> The 180 s timeout was already in place before this change, and was not
->> motivated by firmware loading. Also note that this patch was not about
->> "tracking device drivers", just about avoiding dead-lock.
->
-> Thanks, can you elaborate on how a deadlock can occur if the kmod
-> worker is not at some point sigkilled?
+SKB_FCLONE_UNAVAILABLE has overloaded meaning depending on type of skb.
+1: If skb is allocated from head_cache, it indicates fclone is not available.
+2: If skb is a companion fclone skb (allocated from fclone_cache), it indicates
+it is available to be used.
 
-This was only relevant whet udev did the firmware loading. modprobe
-would wait for the kernel, which would wait for the firmware loading,
-which would wait for modprobe. This is no longer a problem as udev
-does not do firmware loading any more.
+To avoid confusion for case 2 above, this patch  replaces
+SKB_FCLONE_UNAVAILABLE with SKB_FCLONE_FREE where appropriate. For fclone
+companion skbs, this indicates it is free for use.
 
-> Is the issue that if there is no extra worker available and all are
-> idling on sleep / synchronous long work boot will potentially hang
-> unless a new worker becomes available to do more work?
+SKB_FCLONE_UNAVAILABLE will now simply indicate skb is from head_cache and
+cannot / will not have a companion fclone.
 
-Correct.
+Signed-off-by: Vijay Subramanian <subramanian.vijay@gmail.com>
+---
+ include/linux/skbuff.h | 3 ++-
+ net/core/skbuff.c      | 8 ++++----
+ 2 files changed, 6 insertions(+), 5 deletions(-)
 
-> If so I can
-> see the sigkill helping for hanging tasks but it doesn't necessarily
-> mean its a good idea to kill modules loading taking a while. Also
-> what if the sigkill is just avoided for *just* kmod workers?
-
-Depending on the number of devices you have, I suppose we could still
-exhaust the workers.
-
->> The way I see it, the current status from systemd's side is: our
->> short-term work-around is to increase the timeout, and at the moment
->> it appears no long-term solution is needed (i.e., it seems like the
->> right thing to do is to make sure insmod can be near instantaneous, it
->> appears people are working towards this goal, and so far no examples
->> have cropped up showing that it is fundamentally impossible (once/if
->> they do, we should of course revisit the problem)).
->
-> That again would be reactive behaviour, what would prevent avoiding the
-> sigkill only for kmod workers? Is it known the deadlock is immiment?
-> If the amount of workers for kmod that would hit the timeout is
-> considered low I don't see how that's possible and why not just lift
-> the sigkill.
-
-Making kmod a special case is of course possible. However, as long as
-there is no fundamental reason why kmod should get this special
-treatment, this just looks like a work-around to me. We already have a
-work-around, which is to increase the global timeout. If you still
-think we should do something different in systemd, it is probably best
-to take the discussion to systemd-devel to make sure all the relevant
-people are involved.
-
-Cheers,
-
-Tom
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 7c5036d..6c3fb9a 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -339,9 +339,10 @@ struct skb_shared_info {
+ 
+ 
+ enum {
+-	SKB_FCLONE_UNAVAILABLE,
++	SKB_FCLONE_UNAVAILABLE,	/* skb has no fclone */
+ 	SKB_FCLONE_ORIG,
+ 	SKB_FCLONE_CLONE,
++	SKB_FCLONE_FREE,	/* this fclone skb is available */
+ };
+ 
+ enum {
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index f77e648..6f4e359 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -265,7 +265,7 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
+ 		skb->fclone = SKB_FCLONE_ORIG;
+ 		atomic_set(&fclones->fclone_ref, 1);
+ 
+-		fclones->skb2.fclone = SKB_FCLONE_UNAVAILABLE;
++		fclones->skb2.fclone = SKB_FCLONE_FREE;
+ 		fclones->skb2.pfmemalloc = pfmemalloc;
+ 	}
+ out:
+@@ -542,7 +542,7 @@ static void kfree_skbmem(struct sk_buff *skb)
+ 		fclones = container_of(skb, struct sk_buff_fclones, skb2);
+ 
+ 		/* Warning : We must perform the atomic_dec_and_test() before
+-		 * setting skb->fclone back to SKB_FCLONE_UNAVAILABLE, otherwise
++		 * setting skb->fclone back to SKB_FCLONE_FREE, otherwise
+ 		 * skb_clone() could set clone_ref to 2 before our decrement.
+ 		 * Anyway, if we are going to free the structure, no need to
+ 		 * rewrite skb->fclone.
+@@ -553,7 +553,7 @@ static void kfree_skbmem(struct sk_buff *skb)
+ 			/* The clone portion is available for
+ 			 * fast-cloning again.
+ 			 */
+-			skb->fclone = SKB_FCLONE_UNAVAILABLE;
++			skb->fclone = SKB_FCLONE_FREE;
+ 		}
+ 		break;
+ 	}
+@@ -874,7 +874,7 @@ struct sk_buff *skb_clone(struct sk_buff *skb, gfp_t gfp_mask)
+ 		return NULL;
+ 
+ 	if (skb->fclone == SKB_FCLONE_ORIG &&
+-	    n->fclone == SKB_FCLONE_UNAVAILABLE) {
++	    n->fclone == SKB_FCLONE_FREE) {
+ 		n->fclone = SKB_FCLONE_CLONE;
+ 		/* As our fastclone was free, clone_ref must be 1 at this point.
+ 		 * We could use atomic_inc() here, but it is faster
+-- 
+1.9.1
