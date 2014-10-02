@@ -1,87 +1,84 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: Re: [PATCH v2 net-next] mlx4: optimize xmit path
-Date: Thu, 2 Oct 2014 15:45:23 +0300
-Message-ID: <542D48E3.2090403@mellanox.com>
-References: <1411692382-8898-1-git-send-email-ast@plumgrid.com>			 <1411694414.16953.70.camel@edumazet-glaptop2.roam.corp.google.com>			 <1411717322.16953.99.camel@edumazet-glaptop2.roam.corp.google.com>			 <1411850590.15768.6.camel@edumazet-glaptop2.roam.corp.google.com>			 <CAJ3xEMhQCf7j48Yn5sjH6jaYYdLQUgOe2hk-OZhhdZ7taOyx+Q@mail.gmail.com>			 <1411853441.15768.13.camel@edumazet-glaptop2.roam.corp.google.com>			 <1411858593.15768.51.camel@edumazet-glaptop2.roam.corp.google.com>			 <1411964353.30721.6.camel@edumazet-glaptop2.roam.corp.google.com>		 <1412224524.16704.75.camel@edumazet-glaptop2.roam.corp.google.com>		 <542D06C1.6090802@mellanox.com>	 <1412250327.16704.84.camel@edumazet-glaptop2.roam.corp.google.com>	 <542D3D5F.5090900@mellanox.com> <1412251620.16704.88.camel@edumazet-glapto
- p2.roam.corp.google.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [net-next PATCH V5] qdisc: bulk dequeue support for qdiscs with
+ TCQ_F_ONETXQUEUE
+Date: Thu, 02 Oct 2014 08:53:11 -0400
+Message-ID: <542D4AB7.7070507@mojatatu.com>
+References: <20140930085114.24043.81310.stgit@dragon>	<542A8EF9.10403@mojatatu.com>	<20140930.142038.235338672810639160.davem@davemloft.net>	<542BFEF3.7020302@mojatatu.com>	<CA+mtBx8rVu9FXtnc18n22L9LP=t=3Pso7U2yvvLcnny57w8aXg@mail.gmail.com>	<542C1F1F.90404@mojatatu.com>	<20141001192840.5679a671@redhat.com>	<542C4E0D.4050404@mojatatu.com>	<20141001214700.18b16387@redhat.com>	<542C5E8B.7070204@mojatatu.com> <20141001223229.6cbaac07@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: Or Gerlitz <gerlitz.or@gmail.com>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	Eric Dumazet <edumazet@google.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Tom Herbert <therbert@google.com>,
+	David Miller <davem@davemloft.net>,
 	Linux Netdev List <netdev@vger.kernel.org>,
-	"Or Gerlitz" <or.gerlitz@gmail.com>, <amira@mellanox.com>,
-	<idos@mellanox.com>, Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	<eyalpe@mellanox.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Florian Westphal <fw@strlen.de>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Dave Taht <dave.taht@gmail.com>,
+	=?windows-1252?Q?Toke_H=F8iland-J=F8rgensen?= <toke@toke.dk>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog106.obsmtp.com ([207.126.144.121]:35093 "EHLO
-	eu1sys200aog106.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751448AbaJBMpg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2014 08:45:36 -0400
-In-Reply-To: <1412251620.16704.88.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-ie0-f175.google.com ([209.85.223.175]:47759 "EHLO
+	mail-ie0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752243AbaJBMxT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2014 08:53:19 -0400
+Received: by mail-ie0-f175.google.com with SMTP id x19so1484386ier.20
+        for <netdev@vger.kernel.org>; Thu, 02 Oct 2014 05:53:19 -0700 (PDT)
+In-Reply-To: <20141001223229.6cbaac07@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/2/2014 3:07 PM, Eric Dumazet wrote:
-> On Thu, 2014-10-02 at 14:56 +0300, Amir Vadai wrote:
->> After making sure the sender thread and the TX completions are not on
->> the same CPU, I see the expected improvement. +0.5Mpps with tx
->> optimizations.
-> 
-> I got 40% here.
-> 
-> Hmm... both cpus are on the same socket, right ?
-Yes. And on a NUMA node close to the NIC
+On 10/01/14 16:32, Jesper Dangaard Brouer wrote:
+> On Wed, 01 Oct 2014 16:05:31 -0400
 
-> 
-> TX coalescing is properly setup ?
-I will try to play with it, if it is too aggressive, the queue is stopped.
-I will play again with it and the ring size to find a better spot.
+> I'll try to make it more explicit.
+> Will resubmit patchset shortly...
+>
 
-> 
-> What interrupt rate do you get ?
-~50K per second.
+Thanks for providing the clarity.
 
-> 
-> You can take a look at where cycles are spent
-> 
-> perf record -a -g sleep 5
-> perf report
-> 
-> 
-I will.
+> Notice it is not difficult cause a queue to form, but it is tricky (not
+> difficult) to correctly test this patchset.  Perhaps you misread my
+> statement earlier as "it was difficult to test and cause a queue to form"?
+>
 
-In case your curious, I have this on the CPU doing completions:
-+  44.86%      swapper  [kernel.kallsyms]  [k] consume_skb
-+  21.38%      swapper  [kernel.kallsyms]  [k] mlx4_en_poll_tx_cq
-+   6.81%      swapper  [kernel.kallsyms]  [k] mlx4_en_free_tx_desc.isra.24
-+   6.07%      swapper  [kernel.kallsyms]  [k] intel_idle
-+   2.98%      swapper  [kernel.kallsyms]  [k] __dev_kfree_skb_any
-+   2.66%         rngd  rngd               [.] 0x0000000000002749
-+   1.79%         rngd  [kernel.kallsyms]  [k] consume_skb
-+   1.28%      swapper  [kernel.kallsyms]  [k] irq_entries_start
-+   1.16%         rngd  [kernel.kallsyms]  [k] mlx4_en_poll_tx_cq
-+   0.86%      swapper  [kernel.kallsyms]  [k] swiotlb_unmap_page
-+   0.79%      swapper  [kernel.kallsyms]  [k] unmap_single
-+   0.63%      swapper  [kernel.kallsyms]  [k] irqtime_account_irq
-+   0.55%      swapper  [kernel.kallsyms]  [k] mlx4_eq_int
-+   0.51%      swapper  [kernel.kallsyms]  [k] eq_set_ci.isra.14
+The conflict maybe what "difficult" or "common" means.
+I know from experience that it is difficult under *normal*
+circumstances to create the overload. Example you had to turn
+off GSO/TSO to see it for 10G ;-> iow you had to go out of your way to
+turn off a useful feature. So you are no longer dealing with "common".
+Which is fine by me - I just wanted you to specify that was the
+case. I also wanted you to run the testcase which said "this is
+how things were before my patch" for 10G (with GSO/TSO). But i
+dont think you are in the mood for that and if your patch goes
+in, then the reaction to any regression to that wouldnt take long.
+If something breaks people would start whining in a short period.
+So I am ok with it.
 
-and this on the xmit thread:
-+  72.00%  kpktgend_6  [kernel.kallsyms]  [k] mlx4_en_xmit
-+  13.11%  kpktgend_6  [kernel.kallsyms]  [k] pktgen_thread_worker
-+   5.34%  kpktgend_6  [kernel.kallsyms]  [k] _raw_spin_lock
-+   3.80%  kpktgend_6  [kernel.kallsyms]  [k] swiotlb_map_page
-+   2.08%  kpktgend_6  [kernel.kallsyms]  [k] __iowrite64_copy
-+   1.21%  kpktgend_6  [kernel.kallsyms]  [k] skb_clone_tx_timestamp
-+   0.87%  kpktgend_6  [kernel.kallsyms]  [k] kthread_should_stop
-+   0.64%  kpktgend_6  [kernel.kallsyms]  [k] swiotlb_dma_mapping_error
-+   0.51%  kpktgend_6  [kernel.kallsyms]  [k] __local_bh_enable_ip
 
-Thanks,
-Amir
+> I think you could read this blog in 30 sec:
+>   http://netoptimizer.blogspot.dk/2014/04/basic-tuning-for-network-overload.html
+>
+
+Ok, yes that message was clear in 30 seconds or less ;-> Immediate
+gratification.
+It is what i would do (havent tried tweaking c states) - but off the
+bat, I would do what you did when i want to run serious networking.
+
+> My cover letter and testing section... will take you longer that 30
+> sec, it have grown quite large (and Eric will not even read it :-P ;-))
+>
+
+But it is referenced forever - so i can go back and read it. A url
+may return a 404 in 5 years.
+
+> Believe or not, I've actually restricted and reduced the testing
+> section.
+
+I agree there is an upper bound to how much testing you can do.
+Looking forward to seeing a paper with all the nice details.
+
+cheers,
+jamal
