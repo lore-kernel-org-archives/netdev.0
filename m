@@ -1,33 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net-next] net_sched: avoid calling tcf_unbind_filter()
- in call_rcu callback
-Date: Wed, 01 Oct 2014 22:01:23 -0400 (EDT)
-Message-ID: <20141001.220123.1054083748022563765.davem@davemloft.net>
-References: <1412118444-29179-1-git-send-email-xiyou.wangcong@gmail.com>
-	<1412118444-29179-2-git-send-email-xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net-next] net: bridge: add a br_set_state
+ helper function
+Date: Wed, 01 Oct 2014 22:05:26 -0400 (EDT)
+Message-ID: <20141001.220526.686849530279803994.davem@davemloft.net>
+References: <1412118799-17128-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, john.r.fastabend@intel.com
-To: xiyou.wangcong@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38958 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754143AbaJBCBY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2014 22:01:24 -0400
-In-Reply-To: <1412118444-29179-2-git-send-email-xiyou.wangcong@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org, vyasevich@gmail.com,
+	bridge@lists.linux-foundation.org, jiri@resnulli.us
+To: f.fainelli@gmail.com
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1412118799-17128-1-git-send-email-f.fainelli@gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Tue, 30 Sep 2014 16:07:24 -0700
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Tue, 30 Sep 2014 16:13:19 -0700
 
-> This fixes the following crash:
- ...
-> tp could be freed in call_rcu callback too, the order is not guaranteed.
+> In preparation for being able to propagate port states to e.g: notifiers
+> or other kernel parts, do not manipulate the port state directly, but
+> instead use a helper function which will allow us to do a bit more than
+> just setting the state.
 > 
-> Cc: John Fastabend <john.r.fastabend@intel.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 
-Applied, and I added John's description of why this is legal to the
-commit message.
+This looks fine to me, applied, thanks Florian.
