@@ -1,45 +1,72 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [RFC PATCH linux 1/2] proc_net: declare /proc/net as a directory
-Date: Thu,  2 Oct 2014 17:25:00 +0200
-Message-ID: <1412263501-6572-2-git-send-email-nicolas.dichtel@6wind.com>
-References: <20131003.150947.2179820478039260398.davem@davemloft.net>
- <1412263501-6572-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: davem@davemloft.net, ebiederm@xmission.com,
-	akpm@linux-foundation.org, adobriyan@gmail.com,
-	rui.xiang@huawei.com, viro@zeniv.linux.org.uk, oleg@redhat.com,
-	gorcunov@openvz.org, kirill.shutemov@linux.intel.com,
-	grant.likely@secretlab.ca, tytso@mit.edu,
-	Thierry Herbelot <thierry.herbelot@6wind.com>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1412263501-6572-1-git-send-email-nicolas.dichtel@6wind.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [net-next PATCH V6 0/2] qdisc: bulk dequeue support
+Date: Thu, 2 Oct 2014 08:27:36 -0700
+Message-ID: <CA+mtBx-dYMRCTz651Nd4emO9gutynLvXzLRuqVkMbF+HhyGRPg@mail.gmail.com>
+References: <20141001203345.3321.99675.stgit@dragon>
+	<CA+mtBx8ecpd+S+E2o8A+Hzp3i2SO7XO0+F_DYA0ng+fjta7G5A@mail.gmail.com>
+	<1412262270.16704.103.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Amir Vadai <amirv@mellanox.com>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Florian Westphal <fw@strlen.de>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Dave Taht <dave.taht@gmail.com>,
+	=?UTF-8?B?VG9rZSBIw7hpbGFuZC1Kw7hyZ2Vuc2Vu?= <toke@toke.dk>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f173.google.com ([209.85.213.173]:37071 "EHLO
+	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753865AbaJBP1h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2014 11:27:37 -0400
+Received: by mail-ig0-f173.google.com with SMTP id h18so1179259igc.12
+        for <netdev@vger.kernel.org>; Thu, 02 Oct 2014 08:27:36 -0700 (PDT)
+In-Reply-To: <1412262270.16704.103.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Thierry Herbelot <thierry.herbelot@6wind.com>
+On Thu, Oct 2, 2014 at 8:04 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Thu, 2014-10-02 at 07:42 -0700, Tom Herbert wrote:
+>
+>
+>> Unfortunately we probably still need something. If BQL were disabled
+>> (by setting BQL min_limit to infinity) then we'll always dequeue all
+>> the packets in the qdisc. Disabling BQL might be legitimate in
+>> deployment if say a bug is found in a device that prevents prompt
+>> transmit completions for some corner case.
+>
+>
+> Unfortunately, there is nothing we can do if a ndo_start_xmit() function
+> is buggy.
+>
+I was referring more to device bugs not driver bugs. But even so, if a
+user hits a problem like this in the system, disabling something like
+BQL would probably be a better recourse than bringing their network
+down.
 
-The mode bits are copied from those of "proc_root".
+Minimally we should at least test with BQL disabled, it might not be
+so horrible. I suppose in the worse case we're at least limited by the
+qdisc limit.
 
-This commit prepares the next patch.
-
-Signed-off-by: Thierry Herbelot <thierry.herbelot@6wind.com>
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- fs/proc/proc_net.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/fs/proc/proc_net.c b/fs/proc/proc_net.c
-index a63af3e0a612..6fc308ec105c 100644
---- a/fs/proc/proc_net.c
-+++ b/fs/proc/proc_net.c
-@@ -193,6 +193,7 @@ static __net_init int proc_net_ns_init(struct net *net)
- 		goto out;
- 
- 	netd->data = net;
-+	netd->mode = S_IFDIR | S_IRUGO | S_IXUGO;
- 	netd->nlink = 2;
- 	netd->namelen = 3;
- 	netd->parent = &proc_root;
--- 
-2.1.0
+> For example, if a prior packet is queued on NIC TX ring (with xmit_more
+> set to 1)
+>
+> Then following packet given to ndo_start_xmit() returns infamous
+> NETDEV_TX_BUSY, we are screwed.
+>
+> mlx4 driver for example has this bug.
+>
+>
+> Thats why I advocate we have no artifical limit : We are going to catch
+> driver bugs sooner and fix them before xmit_more support is validated,
+> for each driver that claims to support it.
+>
+> Amir, the problem with NETDEV_TX_BUSY in mlx4 need to be fixed.
+>
+>
