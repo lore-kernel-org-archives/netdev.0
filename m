@@ -1,44 +1,79 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] sunvnet: Packet processing in
- non-interrupt context.
-Date: Thu, 02 Oct 2014 13:43:46 -0700 (PDT)
-Message-ID: <20141002.134346.2291749763304558513.davem@davemloft.net>
-References: <20141001202315.GN17706@oracle.com>
-	<20141001.162529.2246298941833907545.davem@davemloft.net>
-	<20141002201203.GA6001@oracle.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [RFC PATCH linux 2/2] fs/proc: use a hash table for the directory entries
+Date: Thu, 02 Oct 2014 14:07:37 -0700
+Message-ID: <87h9zmji3q.fsf@x220.int.ebiederm.org>
+References: <20131003.150947.2179820478039260398.davem@davemloft.net>
+	<1412263501-6572-1-git-send-email-nicolas.dichtel@6wind.com>
+	<1412263501-6572-3-git-send-email-nicolas.dichtel@6wind.com>
+	<87h9zmpcz5.fsf@x220.int.ebiederm.org>
+	<20141002200639.GA3497@p183.telecom.by>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: raghuram.kothakota@oracle.com, netdev@vger.kernel.org
-To: sowmini.varadhan@oracle.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47514 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751723AbaJBUlp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2014 16:41:45 -0400
-In-Reply-To: <20141002201203.GA6001@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	davem@davemloft.net, akpm@linux-foundation.org,
+	rui.xiang@huawei.com, viro@zeniv.linux.org.uk, oleg@redhat.com,
+	gorcunov@openvz.org, kirill.shutemov@linux.intel.com,
+	grant.likely@secretlab.ca, tytso@mit.edu,
+	Thierry Herbelot <thierry.herbelot@6wind.com>
+To: Alexey Dobriyan <adobriyan@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141002200639.GA3497@p183.telecom.by> (Alexey Dobriyan's
+	message of "Thu, 2 Oct 2014 23:06:39 +0300")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Date: Thu, 2 Oct 2014 16:12:03 -0400
+Alexey Dobriyan <adobriyan@gmail.com> writes:
 
-> The patch is attached to the end of this email.
+> On Thu, Oct 02, 2014 at 11:01:50AM -0700, Eric W. Biederman wrote:
+>> Nicolas Dichtel <nicolas.dichtel@6wind.com> writes:
+>> 
+>> > From: Thierry Herbelot <thierry.herbelot@6wind.com>
+>> >
+>> > The current implementation for the directories in /proc is using a single
+>> > linked list. This is slow when handling directories with large numbers of
+>> > entries (eg netdevice-related entries when lots of tunnels are opened).
+>> >
+>> > This patch enables multiple linked lists. A hash based on the entry name is
+>> > used to select the linked list for one given entry.
+>> >
+>> > The speed creation of netdevices is faster as shorter linked lists must be
+>> > scanned when adding a new netdevice.
+>> 
+>> Is the directory of primary concern /proc/net/dev/snmp6 ?
+>> 
+>> Unless I have configured my networking stack weird by mistake that
+>> is the only directory under /proc/net that grows when we add an
+>> interface.
+>> 
+>> I just want to make certain I am seeing the same things that you are
+>> seeing.
+>> 
+>> I feel silly for overlooking this directory when the rest of the
+>> scalability work was done.
+>
+> Slowdown comes from "duplicate name" check:
+>
+>         for (tmp = dir->subdir; tmp; tmp = tmp->next)
+>                 if (strcmp(tmp->name, dp->name) == 0) {
+>                         WARN(1, "proc_dir_entry '%s/%s' already registered\n",
+>                                 dir->name, dp->name);
+>                         break;
+>                 }
+>
+> Removal can be made O(1) after switching to doubly-linked list.
 
-There are an explosion of simplifications and optimizations
-possilbe once you've done a NAPI conversion, which I haven't
-seen you perform here in this patch.
+Yes.  There is the however unfortunate fact that proc directories exist
+to be used.  If we don't switch to a better data structure than a linked
+list the actual use will then opening of the files under
+/proc/net/dev/snmp6/ will become O(N^2).  Which doesn't help much
+(assuming those files are good for something).
 
-For example, you can now move everything into software IRQ context,
-just disable the VIO interrupt and unconditionally go into NAPI
-context from the VIO event.
+If those files aren't actually useful we should just make registering
+them a config option.  Deprecate them strongly and let only people who
+need extreme backwards compatibility enable them.
 
-No more irqsave/irqrestore.
+Alexey do you know that those files aren't useful?  Unless we know
+otherwise we should make those files useful.
 
-Then the TX path even can run mostly lockless, it just needs
-to hold the VIO lock for a minute period of time.  The caller
-holds the xmit_lock of the network device to prevent re-entry
-into the ->ndo_start_xmit() path.
-
-Really, what you've done here as a NAPI conversion is just the
-beginning.
+Eric
