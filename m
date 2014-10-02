@@ -1,55 +1,64 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [Patch net-next] net_sched: avoid calling tcf_unbind_filter() in
- call_rcu callback
-Date: Wed, 1 Oct 2014 16:36:57 -0700
-Message-ID: <CAHA+R7O6cHL2csRKxsyggR+qJfLgHgf+hE4MXQakf72zLN6mOw@mail.gmail.com>
-References: <1412118444-29179-1-git-send-email-xiyou.wangcong@gmail.com>
-	<1412118444-29179-2-git-send-email-xiyou.wangcong@gmail.com>
-	<542B5096.2040106@gmail.com>
-	<542B5679.3060601@gmail.com>
-	<542C6910.4070904@intel.com>
+From: Fabio Estevam <festevam@gmail.com>
+Subject: fec_main: context imbalance in 'fec_set_features'
+Date: Wed, 1 Oct 2014 21:15:53 -0300
+Message-ID: <CAOMZO5CJKp7+d8EPRZdr-3Bd9UxVU8fxLybFZ4uLn+cUQjPH8w@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: John Fastabend <john.fastabend@gmail.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: John Fastabend <john.r.fastabend@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f172.google.com ([209.85.217.172]:62705 "EHLO
-	mail-lb0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751798AbaJAXg6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2014 19:36:58 -0400
-Received: by mail-lb0-f172.google.com with SMTP id b6so1287962lbj.31
-        for <netdev@vger.kernel.org>; Wed, 01 Oct 2014 16:36:57 -0700 (PDT)
-In-Reply-To: <542C6910.4070904@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-sparse@vger.kernel.org
+To: Frank Li <Frank.Li@freescale.com>,
+	Duan Fugang-B38611 <B38611@freescale.com>
+Return-path: <linux-sparse-owner@vger.kernel.org>
+Sender: linux-sparse-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 1, 2014 at 1:50 PM, John Fastabend
-<john.r.fastabend@intel.com> wrote:
->
-> Its worth noting why this is safe. Any running schedulers will either
-> read the valid class field or it will be zeroed.
->
-> All schedulers today when the class is 0 do a lookup using the
-> same call used by the tcf_exts_bind(). So even if we have a running
-> classifier hit the null class pointer it will do a lookup and get
-> to the same result. This is particularly fragile at the moment because
-> the only way to verify this is to audit the schedulers call sites.
+Hi,
 
-Yeah, maybe David can squash this into changelog.
+sparse complains the following:
 
->
-> I think we need a helper to ensure the code doesn't get broken in
-> a subtle way in the future. At very least it should be documented.
-> I'll try to draft a follow up patch to use a helper routine for
-> this and document it.
->
-> Similar patches are needed for basic, fw, route, rsvp, and tcindex.
->
+drivers/net/ethernet/freescale/fec_main.c:2835:12: warning: context
+imbalance in 'fec_set_features' - different lock contexts for basic
+block
 
-Please do fix them. Meanwhile, I am trying to refactor these pieces
-of ugly code.
+The code looks like this:
 
-Thanks.
+static int fec_set_features(struct net_device *netdev,
+    netdev_features_t features)
+{
+    struct fec_enet_private *fep = netdev_priv(netdev);
+    netdev_features_t changed = features ^ netdev->features;
+
+    /* Quiesce the device if necessary */
+    if (netif_running(netdev) && changed & FEATURES_NEED_QUIESCE) {
+        napi_disable(&fep->napi);
+        netif_tx_lock_bh(netdev);
+        fec_stop(netdev);
+    }
+
+    netdev->features = features;
+
+    /* Receive checksum has been changed */
+    if (changed & NETIF_F_RXCSUM) {
+        if (features & NETIF_F_RXCSUM)
+            fep->csum_flags |= FLAG_RX_CSUM_ENABLED;
+        else
+            fep->csum_flags &= ~FLAG_RX_CSUM_ENABLED;
+    }
+
+    /* Resume the device after updates */
+    if (netif_running(netdev) && changed & FEATURES_NEED_QUIESCE) {
+        fec_restart(netdev);
+        netif_tx_wake_all_queues(netdev);
+        netif_tx_unlock_bh(netdev);
+        napi_enable(&fep->napi);
+    }
+
+    return 0;
+}
+
+What would be the proper way to fix this warning?
+
+Thanks,
+
+Fabio Estevam
