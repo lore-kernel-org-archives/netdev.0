@@ -1,83 +1,57 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [patch 1/2 -next] cxgb4: clean up a type issue
-Date: Thu, 2 Oct 2014 11:31:45 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D174A2E74@AcuExch.aculab.com>
-References: <20141002112219.GA25606@mwanda>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] net: Cleanup skb cloning  by adding
+ SKB_FCLONE_FREE
+Date: Thu, 02 Oct 2014 04:35:28 -0700
+Message-ID: <1412249728.16704.76.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1412231620-3767-1-git-send-email-subramanian.vijay@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
-To: 'Dan Carpenter' <dan.carpenter@oracle.com>,
-	Hariprasad S <hariprasad@chelsio.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com
+To: Vijay Subramanian <subramanian.vijay@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:46257 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751192AbaJBLdm convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2014 07:33:42 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 26448-03 for <netdev@vger.kernel.org>;
- Thu,  2 Oct 2014 12:33:33 +0100 (BST)
-In-Reply-To: <20141002112219.GA25606@mwanda>
-Content-Language: en-US
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:56818 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751526AbaJBLfa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2014 07:35:30 -0400
+Received: by mail-pa0-f54.google.com with SMTP id ey11so2172486pad.27
+        for <netdev@vger.kernel.org>; Thu, 02 Oct 2014 04:35:30 -0700 (PDT)
+In-Reply-To: <1412231620-3767-1-git-send-email-subramanian.vijay@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter
-> The tx_desc struct hold 8 __be64 values.  The original code took a
-> tx_desc pointer then casted it to an int pointer and then casted it to a
-> u64 pointer.  It was confusing and triggered some static checker
-> warnings.
+On Wed, 2014-10-01 at 23:33 -0700, Vijay Subramanian wrote:
+> SKB_FCLONE_UNAVAILABLE has overloaded meaning depending on type of skb.
+> 1: If skb is allocated from head_cache, it indicates fclone is not available.
+> 2: If skb is a companion fclone skb (allocated from fclone_cache), it indicates
+> it is available to be used.
 > 
-> I have changed the cxgb_pio_copy() to only take tx_desc pointers.  This
-> isn't really a loss of flexibility because anything else was buggy to
-> begin with.
+> To avoid confusion for case 2 above, this patch  replaces
+> SKB_FCLONE_UNAVAILABLE with SKB_FCLONE_FREE where appropriate. For fclone
+> companion skbs, this indicates it is free for use.
 > 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> SKB_FCLONE_UNAVAILABLE will now simply indicate skb is from head_cache and
+> cannot / will not have a companion fclone.
 > 
-> diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-> index bb7851e..599cdfd 100644
-> --- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
-> +++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-> @@ -854,9 +854,10 @@ static void write_sgl(const struct sk_buff *skb, struct sge_txq *q,
->   * memory mapped BAR2 space(user space writes).
->   * For coalesced WR SGE, fetches data from the FIFO instead of from Host.
->   */
-> -static void cxgb_pio_copy(u64 __iomem *dst, u64 *src)
-> +static void cxgb_pio_copy(u64 __iomem *dst, struct tx_desc *desc)
->  {
-> -	int count = 8;
-> +	int count = sizeof(*desc) / sizeof(u64);
-> +	u64 *src = (u64 *)desc;
+> Signed-off-by: Vijay Subramanian <subramanian.vijay@gmail.com>
+> ---
+>  include/linux/skbuff.h | 3 ++-
+>  net/core/skbuff.c      | 8 ++++----
+>  2 files changed, 6 insertions(+), 5 deletions(-)
 > 
->  	while (count) {
->  		writeq(*src, dst);
-> @@ -914,12 +915,11 @@ static inline void ring_tx_db(struct adapter *adap, struct sge_txq *q, int n)
->  			int index = (q->pidx
->  				     ? (q->pidx - 1)
->  				     : (q->size - 1));
-> -			unsigned int *wr = (unsigned int *)&q->desc[index];
-> +			struct tx_desc *desc = &q->desc[index];
+> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+> index 7c5036d..6c3fb9a 100644
+> --- a/include/linux/skbuff.h
+> +++ b/include/linux/skbuff.h
+> @@ -339,9 +339,10 @@ struct skb_shared_info {
+>  
 > 
->  			cxgb_pio_copy((u64 __iomem *)
->  				      (adap->bar2 + q->udb +
-> -				       SGE_UDB_WCDOORBELL),
-> -				      (u64 *)wr);
-> +				       SGE_UDB_WCDOORBELL), desc);
-
-Why not put &q->desc[index] in the call itself.
-And I can't help think there are better places to break the long line.
-Getting it to the code below would be nice:
-			cxgp_pio_copy(adap->bar2 + q->udb + SGE_UDB_WCDOORBELL,
-					  q->desc + index);
-
-	David
-
->  		} else {
->  			writel(val,  adap->bar2 + q->udb + SGE_UDB_KDOORBELL);
->  		}
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>  enum {
+> -	SKB_FCLONE_UNAVAILABLE,
+> +	SKB_FCLONE_UNAVAILABLE,	/* skb has no fclone */
+>  	SKB_FCLONE_ORIG,
+>  	SKB_FCLONE_CLONE,
+> +	SKB_FCLONE_FREE,	/* this fclone skb is available */
+>  };
+>  
+Please comment all the states, now there is no ambiguity ?
