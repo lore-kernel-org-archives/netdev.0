@@ -1,45 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] bpf: add search pruning optimization and
- tests
-Date: Wed, 01 Oct 2014 21:31:10 -0400 (EDT)
-Message-ID: <20141001.213110.1976557946620505084.davem@davemloft.net>
-References: <1412041802-24858-1-git-send-email-ast@plumgrid.com>
+Subject: Re: [PATCH v2 net-next 0/5] udp: Generalize GSO for UDP tunnels
+Date: Wed, 01 Oct 2014 21:36:24 -0400 (EDT)
+Message-ID: <20141001.213624.146270186000828895.davem@davemloft.net>
+References: <1412047353-28502-1-git-send-email-therbert@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mingo@kernel.org, torvalds@linux-foundation.org,
-	luto@amacapital.net, dborkman@redhat.com,
-	hannes@stressinduktion.org, chema@google.com, edumazet@google.com,
-	a.p.zijlstra@chello.nl, pablo@netfilter.org, hpa@zytor.com,
-	akpm@linux-foundation.org, keescook@chromium.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: ast@plumgrid.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1412041802-24858-1-git-send-email-ast@plumgrid.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: therbert@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38747 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751896AbaJBBg0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2014 21:36:26 -0400
+In-Reply-To: <1412047353-28502-1-git-send-email-therbert@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alexei Starovoitov <ast@plumgrid.com>
-Date: Mon, 29 Sep 2014 18:50:00 -0700
+From: Tom Herbert <therbert@google.com>
+Date: Mon, 29 Sep 2014 20:22:28 -0700
 
-> patch #1 commit log explains why eBPF verifier has to examine some
-> instructions multiple times and describes the search pruning optimization
-> that improves verification speed for branchy programs and allows more
-> complex programs to be verified successfully.
-> This patch completes the core verifier logic.
+> This patch set generalizes the UDP tunnel segmentation functions so
+> that they can work with various protocol encapsulations. The primary
+> change is to set the inner_protocol field in the skbuff when creating
+> the encapsulated packet, and then in skb_udp_tunnel_segment this data
+> is used to determine the function for segmenting the encapsulated
+> packet. The inner_protocol field is overloaded to take either an
+> Ethertype or IP protocol.
 > 
-> patch #2 adds more verifier tests related to branches and search pruning
-> 
-> I'm still working on Andy's 'bitmask for stack slots' suggestion. It will be
-> done on top of this patch.
-> 
-> The current verifier algorithm is brute force depth first search with
-> state pruning. If anyone can come up with another algorithm that demonstrates
-> better results, we'll replace the algorithm without affecting user space.
-> 
-> Note verifier doesn't guarantee that all possible valid programs are accepted.
-> Overly complex programs may still be rejected.
-> Verifier improvements/optimizations will guarantee that if a program
-> was passing verification in the past, it will still be passing.
+> The inner_protocol is set on transmit using skb_set_inner_ipproto or
+> skb_set_inner_protocol functions. VXLAN and IP tunnels (for fou GSO)
+> were modified to call these.
 
-Series applied, thanks.
+Series applied, thanks Tom.
