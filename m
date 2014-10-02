@@ -1,42 +1,63 @@
-From: "Luis R. Rodriguez" <mcgrof@suse.com>
-Subject: Re: [PATCH v1 5/5] driver-core: add driver asynchronous probe
-	support
-Date: Fri, 3 Oct 2014 01:31:45 +0200
-Message-ID: <20141002233145.GU14081@wotan.suse.de>
-References: <1411768637-6809-1-git-send-email-mcgrof@do-not-panic.com> <1411768637-6809-6-git-send-email-mcgrof@do-not-panic.com> <20140928192247.GA28033@core.coreip.homeip.net> <20140930071555.GB14081@wotan.suse.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
-	gregkh@linuxfoundation.org, tiwai@suse.de, tj@kernel.org,
-	arjan@linux.intel.com, teg@jklm.no, rmilasan@suse.com,
-	werner@suse.com, oleg@redhat.com, hare@suse.com, bpoirier@suse.de,
-	santosh@chelsio.com, pmladek@suse.cz, dbueso@suse.com,
-	linux-kernel@vger.kernel.org,
-	Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
-	Joseph Salisbury <joseph.salisbury@canonical.com>,
-	Kay Sievers <kay@vrfy.org>,
-	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
-	Tim Gardner <tim.gardner@canonical.com>,
-	Pierre Fersing <pierre-fersing@pierref.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
-	Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
-	Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
-	Abhijit Mahajan <abhijit.mahajan@avagotech.com>,
-	Casey Leedom <leedom@chelsio.com>,
-To: Dmitry Torokhov <dmitry.torokhov@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140930071555.GB14081@wotan.suse.de>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Vladislav Yasevich <vyasevich@gmail.com>
+Subject: [PATCH v3 net-next 0/3] bridge: Add vlan filtering support
+	for default pvid
+Date: Thu,  2 Oct 2014 19:54:27 -0400
+Message-ID: <1412294070-11930-1-git-send-email-vyasevic@redhat.com>
+Cc: stephen@networkplumber.org, bridge@lists.linux-foundation.org,
+	Vladislav Yasevich <vyasevic@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 30, 2014 at 09:15:55AM +0200, Luis R. Rodriguez wrote:
-> Can you provide an example code path hit here? I'll certainly like to address
-> that as well.
+This series adds default pvid support to vlan filtering in the bridge.
+VLAN 1 (as recommended by 802.1q spec) is used as default pvid on ports. 
+The the user can over-ride this configuration by configuring their
+own vlan information. 
+The user can additionally change the default value throught the
+sysfs interface (netlink comming shortly).
+The user can turn off default pvid functionality by setting default
+pvid to 0. 
+This series changes the default behavior of the bridge when
+vlan filtering is turned on.  Currently, ports without any vlan
+filtering configured will not recevie any traffic at all.  This patch
+changes the behavior of the above ports to receive only untagged traffic.
 
-I managed to enable built-in driver support on top of this series,
-I'll send them as part of the next series but I suspect we'll want
-to discuss blacklist/whitelist a bit more there.
+Since v2:
+- Fix handling of invalid values in sysfs interface.
+- Add some additional log messages.
+- Fix default_pvid handling when vlan filtering is compiled out.
+- Fix sparse issues with new code.
+- Fix how we located the old default pvid (added a helper function).
 
- Luis
+Since v1:
+- Add ability to turn off default_pvid settings.
+- Drop the automiatic filtering support based on configured vlan devices (will
+  be its own series)
+
+Thanks
+-vlad
+
+
+Vladislav Yasevich (3):
+  bridge: Add a default_pvid sysfs attribute
+  bridge: Simplify pvid checks.
+  bridge: Add filtering support for default_pvid
+
+ net/bridge/br_device.c   |   8 ++-
+ net/bridge/br_if.c       |   3 +
+ net/bridge/br_private.h  |  23 ++++---
+ net/bridge/br_sysfs_br.c |  17 +++++
+ net/bridge/br_vlan.c     | 158 ++++++++++++++++++++++++++++++++++++++++++++++-
+ 5 files changed, 197 insertions(+), 12 deletions(-)
+
+-- 
+1.9.3
