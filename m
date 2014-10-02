@@ -1,27 +1,22 @@
-From: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
-Subject: Re: [RFC PATCH net-next v2 0/5] netns: allow to identify peer netns
-Date: Thu, 2 Oct 2014 12:31:30 -0700
-Message-ID: <CALCETrWxqzUF1x+TmW5G4kuHPP+sUtiRaT6dpZ0mQTJ217QB5w@mail.gmail.com>
-References: <1411478430-4989-1-git-send-email-nicolas.dichtel@6wind.com>
-	<87ppei45ig.fsf@x220.int.ebiederm.org>
-	<CALCETrX5e0cp4QFCv1eAqR1hjoROU9Rh=cRos9U35DaR-py3Eg@mail.gmail.com>
-	<87y4t61a6v.fsf@x220.int.ebiederm.org> <54294B4E.70501@6wind.com>
-	<87y4t2gtd0.fsf@x220.int.ebiederm.org> <542D5726.8070308@6wind.com>
-	<8761g2nurx.fsf@x220.int.ebiederm.org>
+From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
+Subject: Re: [RFC PATCH net-next v3 1/4] netns: add genl cmd to add and get
+	peer netns ids
+Date: Thu, 02 Oct 2014 12:33:22 -0700
+Message-ID: <87tx3mmflp.fsf@x220.int.ebiederm.org>
+References: <542D5726.8070308@6wind.com>
+	<1412257690-31253-1-git-send-email-nicolas.dichtel@6wind.com>
+	<1412257690-31253-2-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Containers <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
-	Cong Wang <cwang-xCSkyg8dI+0RB7SZvlqPiA@public.gmane.org>, Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org,
+	stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, cwang-xCSkyg8dI+0RB7SZvlqPiA@public.gmane.org,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
 Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <8761g2nurx.fsf-JOvCrm2gF+uungPnsOpG7nhyD016LWXt@public.gmane.org>
+In-Reply-To: <1412257690-31253-2-git-send-email-nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+	(Nicolas Dichtel's message of "Thu, 2 Oct 2014 15:48:07 +0200")
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
 	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
@@ -33,60 +28,16 @@ Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gm
 Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-T24gVGh1LCBPY3QgMiwgMjAxNCBhdCAxMjoyMCBQTSwgRXJpYyBXLiBCaWVkZXJtYW4KPGViaWVk
-ZXJtQHhtaXNzaW9uLmNvbT4gd3JvdGU6Cj4gTmljb2xhcyBEaWNodGVsIDxuaWNvbGFzLmRpY2h0
-ZWxANndpbmQuY29tPiB3cml0ZXM6Cj4KPj4gTGUgMjkvMDkvMjAxNCAyMDo0MywgRXJpYyBXLiBC
-aWVkZXJtYW4gYSDDqWNyaXQgOgo+Pj4gTmljb2xhcyBEaWNodGVsIDxuaWNvbGFzLmRpY2h0ZWxA
-NndpbmQuY29tPiB3cml0ZXM6Cj4+Pgo+Pj4+IExlIDI2LzA5LzIwMTQgMjA6NTcsIEVyaWMgVy4g
-QmllZGVybWFuIGEgw6ljcml0IDoKPj4+Pj4gQW5keSBMdXRvbWlyc2tpIDxsdXRvQGFtYWNhcGl0
-YWwubmV0PiB3cml0ZXM6Cj4+Pj4+Cj4+Pj4+PiBPbiBGcmksIFNlcCAyNiwgMjAxNCBhdCAxMTox
-MCBBTSwgRXJpYyBXLiBCaWVkZXJtYW4KPj4+Pj4+IDxlYmllZGVybUB4bWlzc2lvbi5jb20+IHdy
-b3RlOgo+Pj4+Pj4+IEkgc2VlIHR3byB3YXlzIHRvIGdvIHdpdGggdGhpcy4KPj4+Pj4+Pgo+Pj4+
-Pj4+IC0gQSBwZXIgbmV0d29yayBuYW1lc3BhY2UgdGFibGUgdG8gdGhhdCB5b3UgY2FuIHN0b3Jl
-IGlkcyBmb3IgYGBwZWVyJycKPj4+Pj4+PiAgICAgbmV0d29yayBuYW1lc3BhY2VzLiAgVGhlIHRh
-YmxlIHdvdWxkIG5lZWQgdG8gYmUgcG9wdWxhdGVkIG1hbnVhbGx5IGJ5Cj4+Pj4+Pj4gICAgIHRo
-ZSBsaWtlcyBvZiBpcCBuZXRucyBhZGQuCj4+Pj4+Pj4KPj4+Pj4+PiAgICAgVGhhdCBmbGlwcyB0
-aGUgb3JkZXIgb2YgYXNzaWdubWVudCBhbmQgbWFrZXMgdGhpcyBpZGVhIHNvbGlkLgo+Pj4+IEkg
-aGF2ZSBhIHByZWZlcmVuY2UgZm9yIHRoaXMgc29sdXRpb24sIGJlY2F1c2UgaXQgYWxsb3dzIHRv
-IGhhdmUgYSBmdWxsCj4+Pj4gYnJvYWRjYXN0IG1lc3NhZ2VzLiBXaGVuIHlvdSBoYXZlIGEgbG90
-IG9mIG5ldHdvcmsgaW50ZXJmYWNlcyAoPiAxMGspLAo+Pj4+IGl0IHNhdmVzIGEgbG90IG9mIHRp
-bWUgdG8gYXZvaWQgYW5vdGhlciByZXF1ZXN0IHRvIGdldCBhbGwgaW5mb3JtYXRpb25zLgo+Pj4K
-Pj4+IE15IHByYWN0aWNhbCBxdWVzdGlvbiBpcyBob3cgb2Z0ZW4gZG9lcyBpdCBoYXBwZW4gdGhh
-dCB3ZSBjYXJlPwo+PiBJbiBmYWN0LCBJIGRvbid0IHRoaW5rIHRoYXQgc2NlbmFyaWkgd2l0aCBh
-IGxvdCBvZiBuZXRucyBoYXZlIGEgZnVsbCBtZXNoIG9mCj4+IHgtbmV0bnMgaW50ZXJmYWNlcy4g
-SXQgd2lsbCBiZSBtb3JlIG9uZSAibGluayIgbmV0bnMgd2l0aCB0aGUgcGh5c2ljYWwKPj4gaW50
-ZXJmYWNlIGFuZCBhbGwgb3RoZXIgd2l0aCBvbmUgaW50ZXJmYWNlIHdpdGggdGhlIGxpbmsgcGFy
-dCBpbiB0aGlzICJsaW5rIgo+PiBuZXRucy4gSGVuY2UsIG9ubHkgb25lIG5zaWQgaXMgbmVlZGlu
-ZyBpbiBlYWNoIG5ldG5zLgo+Cj4gSSB3aWxsIGJ1eSB0aGF0IGEgZnVsbCBtZXNoIGlzIHVubGlr
-ZWx5Lgo+Cj4gRm9yIHBlb3BsZSBkb2luZyBzaW11bGF0aW9ucyBhbnl0aGluZyBwaHlzaWNhbCBo
-YXMgYSBsaW1pdGVkIG51bWJlciBvZgo+IGxpbmtzLgo+Cj4gRm9yIHBlb3BsZSB3YW50aW5nIGFs
-bCB0byBhbGwgY29ubmVjdGl2aXR5IHNldHRpbmcgdXAgYW4gaW50ZXJuYWwKPiBtYWN2bGFuIChv
-ciB0aGUgZXF1aXZhbGVudCkgaXMgbGlrZWx5IG11Y2ggc2ltcGxlciBhbmQgbW9yZSBlZmZpY2ll
-bnQKPiB0aGF0IGEgZnVsbCBtZXNoLgo+Cj4gU28gdGhlIHF1ZXN0aW9uIGluIG15IG1pbmQgaXMg
-aG93IGRvIHdlIGNyZWF0ZSB0aGVzZSBpZGVudGlmaWVycyBhdCBuZWVkCj4gKHdoZW4gd2UgY3Jl
-YXRlIHRoZSBjcm9zcyBuZXR3b3JrIG5hbWVzcGFjZSBsaW5rcykgaW5zdGVhZCBvZiBhdCBuZXR3
-b3JrCj4gbmFtZXNwYWNlIGNyZWF0aW9uIHRpbWUuICBJIGRvbid0IHNlZSBhbiBhbnN3ZXIgdG8g
-dGhhdCBpbiB5b3VyIHBhdGNoZXMsCj4gYW5kIHBlcmhhcHMgaXQgb2J2aW91cy4KPgoKSSB3b25k
-ZXIgd2hldGhlciBwYXJ0IG9mIHRoZSBwcm9ibGVtIGlzIHRoYXQgd2UncmUgdGhpbmtpbmcgYWJv
-dXQKc2NvcGluZyB3cm9uZy4gIFdoYXQgaWYgd2UgbWFkZSB0aGUgaGllcmFyY2h5IG1vcmUgZXhw
-bGljaXQ/CgpGb3IgZXhhbXBsZSwgd2UgY291bGQgZ2l2ZSBlYWNoIG5ldG5zIGFuIGFkbWluLWFz
-c2lnbmVkIGlkZW50aWZpZXIKKGUuZy4gYSA2NC1iaXQgbnVtYmVyLCBtYXliZSByZXF1aXJlZCB0
-byBiZSB1bmlxdWUsIG1heWJlIG5vdCkKcmVsYXRpdmUgdG8gaXRzIGNvbnRhaW5pbmcgdXNlcm5z
-LiAgVGhlbiB3ZSBjb3VsZCBjb21lIHVwIHdpdGggYSB3YXkKdG8gaWRlbnRpZnkgdXNlciBuYW1l
-c3BhY2VzIChpLmUuIGlub2RlIG51bWJlciByZWxhdGl2ZSB0byBjb250YWluaW5nCnVzZXIgbnMs
-IGlmIHRoYXQncyB3ZWxsLWRlZmluZWQpLgoKRnJvbSB1c2VyIGNvZGUncyBwZXJzcGVjdGl2ZSwg
-bmV0bnNlcyB0aGF0IGFyZSBpbiB0aGUgcmVxdWVzdGVyJ3MKdXNlcm5zIG9yIGl0cyBkZXNjZW5k
-ZW50cyBhcmUgaWRlbnRpZmllZCBieSBhIHBhdGggdGhyb3VnaCBhIChwb3NzaWJseQp6ZXJvLWxl
-bmd0aCkgc2VxdWVuY2Ugb2YgdXNlcm5zIGlkcyBmb2xsb3dlZCBieSBhIG5ldG5zIGlkLiAgTmV0
-bnNlcwpvdXRzaWRlIHRoZSByZXF1ZXN0ZXIncyB1c2VybnMgaGllcmFyY2h5IGNhbm5vdCBiZSBu
-YW1lZCBhdCBhbGwuCgpXb3VsZCB0aGlzIG1ha2Ugc2Vuc2U/ICBJdCBzaG91bGQga2VlcCB0aGUg
-YXN5bXB0b3RpYyBjb21wbGV4aXR5IG9mCmV2ZXJ5dGhpbmcgdW5kZXIgY29udHJvbCBhbmQsIGZv
-ciB1c2VycyBvZiB2ZXJ5IGxhcmdlIG51bWJlcnMgb2YKbmV0d29yayBuYW1lc3BhY2VzIHdpdGgg
-Y29tcGxleCByb3V0aW5nLCBpdCBkb2Vzbid0IHJlcXVpcmUgYQpjb3JyZXNwb25kaW5nbHkgbGFy
-Z2UgbnVtYmVyIG9mIGZkcy4gSXQgd291bGQgaGF2ZSB0aGUgYWRkZWQgYmVuZWZpdApvZiBhbGxv
-d2luZyB0aGUgc2FtZSBzY2hlbWUgdG8gYmUgdXNlZCBmb3IgYWxsIHRoZSBvdGhlciBuYW1lc3Bh
-Y2UKdHlwZXMsIGFsdGhvdWdoIGl0IGNvdWxkIGJlIGEgYml0IG9kZCBmb3IgcGlkIG5hbWVzcGFj
-ZXMsIHdoaWNoIHJlYWxseQpkbyBoYXZlIHRoZWlyIG93biBoaWVyYXJjaHkuCgotLUFuZHkKX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KQ29udGFpbmVycyBt
-YWlsaW5nIGxpc3QKQ29udGFpbmVyc0BsaXN0cy5saW51eC1mb3VuZGF0aW9uLm9yZwpodHRwczov
-L2xpc3RzLmxpbnV4Zm91bmRhdGlvbi5vcmcvbWFpbG1hbi9saXN0aW5mby9jb250YWluZXJz
+Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org> writes:
+
+> With this patch, a user can define an id for a peer netns by providing a FD or a
+> PID. These ids are local to netns (ie valid only into one netns).
+>
+> This will be useful for netlink messages when a x-netns interface is
+> dumped.
+
+You have a "id -> struct net *" table but you don't have a 
+"struct net * -> id" table which looks like it will impact the
+performance of peernet2id at scale.
+
+Eric
