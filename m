@@ -1,76 +1,65 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [net-next PATCH V5] qdisc: bulk dequeue support for qdiscs with
- TCQ_F_ONETXQUEUE
-Date: Thu, 2 Oct 2014 09:44:18 +0200
-Message-ID: <20141002094418.37f6ecb4@redhat.com>
-References: <20140930085114.24043.81310.stgit@dragon>
-	<542A8EF9.10403@mojatatu.com>
-	<20140930.142038.235338672810639160.davem@davemloft.net>
-	<542BFEF3.7020302@mojatatu.com>
-	<CA+mtBx8rVu9FXtnc18n22L9LP=t=3Pso7U2yvvLcnny57w8aXg@mail.gmail.com>
-	<542C1F1F.90404@mojatatu.com>
-	<20141001192840.5679a671@redhat.com>
-	<542C4E0D.4050404@mojatatu.com>
-	<20141001214700.18b16387@redhat.com>
-	<542C5E8B.7070204@mojatatu.com>
-	<20141001223229.6cbaac07@redhat.com>
-	<CAA93jw5orK2FeD20zcFpXGkqGa=kF8E-vGtkdUs7vr54R5AE6g@mail.gmail.com>
+From: "Stam, Michel [FINT]" <M.Stam@fugro.nl>
+Subject: RE: ASIX 88772
+Date: Thu, 2 Oct 2014 09:50:56 +0200
+Message-ID: <C89EFD3CD56F64468D3D206D683A8D2203864153@ldam-msx2.fugro-nl.local>
+References: <C89EFD3CD56F64468D3D206D683A8D2203863DD8@ldam-msx2.fugro-nl.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-	Tom Herbert <therbert@google.com>,
-	David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Florian Westphal <fw@strlen.de>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Toke =?UTF-8?B?SMO4aWxhbmQtSsO4cmdlbnNlbg==?= <toke@toke.dk>,
-	brouer@redhat.com, Florian Fainelli <f.fainelli@gmail.com>
-To: Dave Taht <dave.taht@gmail.com>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: "Stam, Michel [FINT]" <M.Stam@fugro.nl>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:6253 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751856AbaJBHoj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Oct 2014 03:44:39 -0400
-In-Reply-To: <CAA93jw5orK2FeD20zcFpXGkqGa=kF8E-vGtkdUs7vr54R5AE6g@mail.gmail.com>
+Received: from smtp.eu1.fugro.com ([46.34.88.151]:40911 "EHLO
+	smtp.eu1.fugro.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750962AbaJBHu7 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2014 03:50:59 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <C89EFD3CD56F64468D3D206D683A8D2203863DD8@ldam-msx2.fugro-nl.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 1 Oct 2014 22:18:05 -0700 Dave Taht <dave.taht@gmail.com> wrote:
+LS,
 
-> > I usually also monitors the BQL limits during these tests.
-> >
-> >  grep -H . /sys/class/net/eth4/queues/tx-*/byte_queue_limits/{inflight,limit}
-> >
-> > To Toke:
-> >  Perhaps we could convince Toke, to add a netperf-wrapper recorder for
-> > the BQL inflight and limit?  (It would be really cool to plot together)
-> 
-> I just added a command line mode and support for timestamped limit and
-> inflight output to bqlmon
-> 
-> Get it here:
-> 
-> https://github.com/dtaht/bqlmon
->
-> That should be sufficient for netperf-wrapper to poll it efficiently.
+Is it possible for someone to apply this patch?
 
-https://github.com/dtaht/bqlmon/commit/ace44b55e2e521af88ba9927bf30fe615024073d#diff-aacbd6867cca49695bfe76ad2bcd45d1R407
-
-Now, that we are in control of the output format.  I would output
-something that is easier to parse for netperf-wrapper, e.g. some json
-compliant string (it is future extendable and easy to parse for Toke).
-Besides the output format, I like you patch to bqlmon.
-
-Perhaps Toke have an opinion on the output formatting from bqlmon?
-
--- 
 Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+
+Michel Stam
+
+-----Original Message-----
+From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
+On Behalf Of Stam, Michel [FINT]
+Sent: Monday, September 29, 2014 15:46 PM
+To: netdev@vger.kernel.org
+Subject: ASIX 88772
+
+Dear list,
+
+A while back we did an upgrade of the firmware running on our embedded
+devices. These devices, amongst others, use an ASIX chip, model 88772A.
+
+What we noticed, was that ethtool settings would be negated when the
+interface was set to 'up'. This, effectively voided any control we tried
+to exercise over the autonegotiation process (it always returns back to
+100 Mbps/Full duplex). After comparing with the kernel we used before
+(we used 2.6.22 before, now 3.10.34), I discovered that the difference
+was the .link_reset function pointer defined in the driver_info struct
+in drivers/net/usb/asix_devices.c:888. By setting it back to its
+previous value, ax88772_link_reset, the functionality is restored and
+ethtool behaves as expected.
+
+Apparently this change to drivers/net/usb/asix_devices.c happened at
+line 888 as part of commit 2e55cc721, which moved the driver into its
+own file with that commit. It apparently also addresses some link reset
+problems.
+
+Would anyone have any idea what kind of link reset problems these were?
+
+I have attached a git format-patch which works for us, but I would like
+to make sure it does not break other devices instead. I've attached it
+to this email because the mail client seems to corrupt the patches
+occasionally.
+
+Best regards,
+
+Michel Stam
