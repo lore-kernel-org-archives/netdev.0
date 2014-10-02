@@ -1,74 +1,107 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] wil6210: remove obsolete msm platform code
-Date: Thu, 02 Oct 2014 14:11:22 +0200
-Message-ID: <3354043.ejE77YinPM@wuerfel>
-References: <3995357.SmO1fZQuHn@wuerfel> <1572828.LhiMXjHRdV@lx-wigig-72>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	wil6210@qca.qualcomm.com, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org
-To: Vladimir Kondratiev <qca_vkondrat@qca.qualcomm.com>
+From: Ulf samuelsson <netdev@emagii.com>
+Subject: Re: netlink NETLINK_ROUTE  failure & Can the kernel really handle IPv6 properly
+Date: Thu, 2 Oct 2014 14:38:30 +0200
+Message-ID: <9330C415-574C-492B-A7AE-92EBCF6D1A26@emagii.com>
+References: <542C63FE.9080807@emagii.com> <1412199032.2532289.174101717.2D6510D0@webmail.messagingengine.com>
+Mime-Version: 1.0 (1.0)
+Content-Type: text/plain;
+	charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.17.10]:57366 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751176AbaJBMMA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2014 08:12:00 -0400
-In-Reply-To: <1572828.LhiMXjHRdV@lx-wigig-72>
+Received: from smtp-out12.han.skanova.net ([195.67.226.212]:56113 "EHLO
+	smtp-out12.han.skanova.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751973AbaJBMov convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Oct 2014 08:44:51 -0400
+In-Reply-To: <1412199032.2532289.174101717.2D6510D0@webmail.messagingengine.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 02 October 2014 14:29:06 Vladimir Kondratiev wrote:
-> On Tuesday, September 30, 2014 05:48:20 PM Arnd Bergmann wrote:
-> > The wil6210 driver has a glue layer for the Qualcomm MSM platform
-> > code, which apparently could never build and is unlikely to
-> > ever be able to in the future, as the MSM platform is being phased
-> > out in favor of the new QCOM platform, and the driver relies
-> > on out-of-tree infrastructure. Trying to build it currently
-> > results in this error:
-> > 
-> > drivers/net/wireless/ath/wil6210/wil_platform_msm.c:19:27: fatal error: linux/msm-bus.h: No such file or directory
-> > 
-> > Removing the driver fixes the build and makes it possible to
-> > build an allmodconfig kernel for MSM.
-> > 
-> > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> > 
+This is the significant code, and it is wrong.
+
+static struct notifier_block my_ipv6_address_notifier =
+ {
+   my_ipv6_address_notifier_cb,
+   NULL,
+   0
+ };
+
+register_inet6addr_notifier (&my_ipv6_address_notifier );
+
+int
+my_ipv6_address_notifier_cb (struct notifier_block *self,
+                                unsigned long event, void *val)
+{
+ struct inet6_ifaddr *ifaddr = (struct inet6_ifaddr *)val;
+
+
+ /* We are only interested in address add/delete events */
+ /* IPv6 address add comes as NETDEV_UP and delete comes as
+  * NETDEV_DOWN
+  */
+ if ((event != NETDEV_UP) && (event != NETDEV_DOWN))
+   return ret;
+
+ if (ifaddr == NULL)
+   return ret;
+ /* Now that we are sure that it is a IPv6 address being added deleted,
+  * verify that it is a link local address.
+  */
+ if (!IPV6_IS_ADDR_LINKLOCAL (&ifaddr->addr))
+   {
+     return ret;
+   }
+ ...
+ send_message_to_app(LINK_LOCAL_UP, ip);
+ ...
+ return ret;
+}
+
+
+Application tries to send message to "ip" and fails, because the link-local adress is still
+in "tentative state"
+
+Best Regards
+Ulf Samuelsson
+ulf@emagii.com
++46  (722) 427 437
+
+
+> 1 okt 2014 kl. 23:30 skrev Hannes Frederic Sowa <hannes@stressinduktion.org>:
 > 
-> We are investigating this, looking for the appropriate solution.
-> Thanks for pointing to this.
-
-FWIW, I took a closer look at the actual driver code now. It's
-actually worse than I thought and I don't see any possible way
-out other than removing this driver completely and starting a
-new one, if you want to use it for mach-qcom. I hadn't realized
-before that this is actually new code rather than ancient bitrot
-that suddenly started causing problems.
-
-Some of the worst problems are:
-
-- the driver scans for DT properties that are completely
-  undocumented and have not been reviewed
-
-- if they had been reviewed, the first comment you would have
-  received is that the binding makes no sense: you scan for
-  another node rather than taking the node you already have for
-  the PCI device, then pass data into a random soc-specific
-  driver API that is not part of the upstream kernel.
-
-- as mentioned in the my patch above, the code has never been
-  compiled on a mainline kernel and now breaks builds.
-
-I think the only way forward is to have the platform support for
-whatever chip this is meant for reviewed and merged first and
-then you can write a new glue driver for the interfaces we end
-up putting into the kernel.
-My guess is that with proper interfaces between the platform
-bus driver and the wil driver glue, there would be very little
-left in terms of interface and you can just call a generic
-interface from the PCI driver, passing the 'struct device'
-for the PCI dev in to an exported interface when provided.
-
-	Arnd
+> Hello,
+> 
+>> On Wed, Oct 1, 2014, at 22:28, Ulf Samuelsson wrote:
+>> BTW, the problem I am trying to solve is how to connect to an I/F with 
+>> an IPv6 link-local address.
+>> 
+>> An existing kernel module waits for a NETDEV_UP event, and then tries to 
+>> communicate
+>> with the link-local address.
+>> 
+>> This will fail, because (according to a colleague) the I/F enters a 
+>> "tentative" state,
+>> where it is trying to decide if it is unique or not.
+>> It will remain in that state for 1-2 seconds, and only afterwards is the 
+>> link-local address
+>> available for normal use.
+>> 
+>> The guys writing the module, claim that the kernel is using NETDEV_UP.
+>> There is very little code in the kernel using NETLINK_ROUTE, even in 
+>> latest stable.
+>> It is using NETDEV_UP.
+>> 
+>> If my colleague is right, the kernel really cannot handle IPv6 
+>> link-local addresses properly.
+> 
+> Sorry, I cannot really follow you, can you send example code or be a bit
+> more precise?
+> 
+> Thanks,
+> Hannes
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
