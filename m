@@ -1,65 +1,36 @@
-From: "Stam, Michel [FINT]" <M.Stam@fugro.nl>
-Subject: RE: ASIX 88772
-Date: Thu, 2 Oct 2014 09:50:56 +0200
-Message-ID: <C89EFD3CD56F64468D3D206D683A8D2203864153@ldam-msx2.fugro-nl.local>
-References: <C89EFD3CD56F64468D3D206D683A8D2203863DD8@ldam-msx2.fugro-nl.local>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: [PATCH net-next] r8152: nway reset after setting eee
+Date: Thu, 2 Oct 2014 16:01:22 +0800
+Message-ID: <1394712342-15778-54-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: "Stam, Michel [FINT]" <M.Stam@fugro.nl>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.eu1.fugro.com ([46.34.88.151]:40911 "EHLO
-	smtp.eu1.fugro.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750962AbaJBHu7 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2014 03:50:59 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <C89EFD3CD56F64468D3D206D683A8D2203863DD8@ldam-msx2.fugro-nl.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
+	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
+To: <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-LS,
+Restart autonegotiation is necessary after setting EEE.
 
-Is it possible for someone to apply this patch?
+Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+---
+ drivers/net/usb/r8152.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-Best regards,
-
-Michel Stam
-
------Original Message-----
-From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
-On Behalf Of Stam, Michel [FINT]
-Sent: Monday, September 29, 2014 15:46 PM
-To: netdev@vger.kernel.org
-Subject: ASIX 88772
-
-Dear list,
-
-A while back we did an upgrade of the firmware running on our embedded
-devices. These devices, amongst others, use an ASIX chip, model 88772A.
-
-What we noticed, was that ethtool settings would be negated when the
-interface was set to 'up'. This, effectively voided any control we tried
-to exercise over the autonegotiation process (it always returns back to
-100 Mbps/Full duplex). After comparing with the kernel we used before
-(we used 2.6.22 before, now 3.10.34), I discovered that the difference
-was the .link_reset function pointer defined in the driver_info struct
-in drivers/net/usb/asix_devices.c:888. By setting it back to its
-previous value, ax88772_link_reset, the functionality is restored and
-ethtool behaves as expected.
-
-Apparently this change to drivers/net/usb/asix_devices.c happened at
-line 888 as part of commit 2e55cc721, which moved the driver into its
-own file with that commit. It apparently also addresses some link reset
-problems.
-
-Would anyone have any idea what kind of link reset problems these were?
-
-I have attached a git format-patch which works for us, but I would like
-to make sure it does not break other devices instead. I've attached it
-to this email because the mail client seems to corrupt the patches
-occasionally.
-
-Best regards,
-
-Michel Stam
+diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+index a4d4c4a..e4dcfc1 100644
+--- a/drivers/net/usb/r8152.c
++++ b/drivers/net/usb/r8152.c
+@@ -3480,6 +3480,9 @@ rtl_ethtool_set_eee(struct net_device *net, struct ethtool_eee *edata)
+ 
+ 	ret = tp->rtl_ops.eee_set(tp, edata);
+ 
++	if (ret == 0)
++		ret = mii_nway_restart(&tp->mii);
++
+ 	usb_autopm_put_interface(tp->intf);
+ 
+ out:
+-- 
+1.9.3
