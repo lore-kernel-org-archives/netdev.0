@@ -1,39 +1,418 @@
 From: Eli Cohen <eli@mellanox.com>
-Subject: [PATCH V2 net-next 5/5] net/mlx5_core: Add ConnectX-4 to list of supported devices
-Date: Thu,  2 Oct 2014 12:19:46 +0300
-Message-ID: <1412241586-10108-6-git-send-email-eli@mellanox.com>
+Subject: [PATCH V2 net-next 2/5] net/mlx5_core: Use hardware registers description header file
+Date: Thu,  2 Oct 2014 12:19:43 +0300
+Message-ID: <1412241586-10108-3-git-send-email-eli@mellanox.com>
 References: <1412241586-10108-1-git-send-email-eli@mellanox.com>
 Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com,
 	yevgenyp@mellanox.com, Eli Cohen <eli@mellanox.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:54710 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:58755 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751066AbaJBJT6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751345AbaJBJT6 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 2 Oct 2014 05:19:58 -0400
 In-Reply-To: <1412241586-10108-1-git-send-email-eli@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add the upcoming ConnectX-4 device to the list of supported devices by then
-mlx5 driver.
+Add an auto generated header file that describes hardware registers along with
+set of macros that set/get values. The macros do static checks to avoid
+overflow, handle endianess, and overall provide a clean way to code commands.
+Currently the header file is small and we will add structs as we make use of
+the macros.
+A few commands were removed from the commands enum since they are not supported
+currently and will be added when support is available.
 
 Signed-off-by: Eli Cohen <eli@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/main.c | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/ethernet/mellanox/mlx5/core/cmd.c |  36 -------
+ drivers/net/ethernet/mellanox/mlx5/core/qp.c  |   3 -
+ include/linux/mlx5/device.h                   |  44 ++++++++
+ include/linux/mlx5/driver.h                   |  76 +-------------
+ include/linux/mlx5/mlx5_ifc.h                 | 143 ++++++++++++++++++++++++++
+ 5 files changed, 188 insertions(+), 114 deletions(-)
+ create mode 100644 include/linux/mlx5/mlx5_ifc.h
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-index b9e3259e415f..3d8e8e489b2d 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-@@ -897,6 +897,7 @@ static void remove_one(struct pci_dev *pdev)
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
+index 6eb0f85cf872..3ecef1310bae 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
+@@ -357,60 +357,24 @@ const char *mlx5_command_str(int command)
+ 	case MLX5_CMD_OP_2ERR_QP:
+ 		return "2ERR_QP";
  
- static const struct pci_device_id mlx5_core_pci_table[] = {
- 	{ PCI_VDEVICE(MELLANOX, 4113) }, /* MT4113 Connect-IB */
-+	{ PCI_VDEVICE(MELLANOX, 4115) }, /* ConnectX-4 */
- 	{ 0, }
+-	case MLX5_CMD_OP_RTS2SQD_QP:
+-		return "RTS2SQD_QP";
+-
+-	case MLX5_CMD_OP_SQD2RTS_QP:
+-		return "SQD2RTS_QP";
+-
+ 	case MLX5_CMD_OP_2RST_QP:
+ 		return "2RST_QP";
+ 
+ 	case MLX5_CMD_OP_QUERY_QP:
+ 		return "QUERY_QP";
+ 
+-	case MLX5_CMD_OP_CONF_SQP:
+-		return "CONF_SQP";
+-
+ 	case MLX5_CMD_OP_MAD_IFC:
+ 		return "MAD_IFC";
+ 
+ 	case MLX5_CMD_OP_INIT2INIT_QP:
+ 		return "INIT2INIT_QP";
+ 
+-	case MLX5_CMD_OP_SUSPEND_QP:
+-		return "SUSPEND_QP";
+-
+-	case MLX5_CMD_OP_UNSUSPEND_QP:
+-		return "UNSUSPEND_QP";
+-
+-	case MLX5_CMD_OP_SQD2SQD_QP:
+-		return "SQD2SQD_QP";
+-
+-	case MLX5_CMD_OP_ALLOC_QP_COUNTER_SET:
+-		return "ALLOC_QP_COUNTER_SET";
+-
+-	case MLX5_CMD_OP_DEALLOC_QP_COUNTER_SET:
+-		return "DEALLOC_QP_COUNTER_SET";
+-
+-	case MLX5_CMD_OP_QUERY_QP_COUNTER_SET:
+-		return "QUERY_QP_COUNTER_SET";
+-
+ 	case MLX5_CMD_OP_CREATE_PSV:
+ 		return "CREATE_PSV";
+ 
+ 	case MLX5_CMD_OP_DESTROY_PSV:
+ 		return "DESTROY_PSV";
+ 
+-	case MLX5_CMD_OP_QUERY_PSV:
+-		return "QUERY_PSV";
+-
+-	case MLX5_CMD_OP_QUERY_SIG_RULE_TABLE:
+-		return "QUERY_SIG_RULE_TABLE";
+-
+-	case MLX5_CMD_OP_QUERY_BLOCK_SIZE_TABLE:
+-		return "QUERY_BLOCK_SIZE_TABLE";
+-
+ 	case MLX5_CMD_OP_CREATE_SRQ:
+ 		return "CREATE_SRQ";
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/qp.c b/drivers/net/ethernet/mellanox/mlx5/core/qp.c
+index 8145b4668229..415b67ce379e 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/qp.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/qp.c
+@@ -184,13 +184,10 @@ int mlx5_core_qp_modify(struct mlx5_core_dev *dev, enum mlx5_qp_state cur_state,
+ 			[MLX5_QP_STATE_RST]	= MLX5_CMD_OP_2RST_QP,
+ 			[MLX5_QP_STATE_ERR]	= MLX5_CMD_OP_2ERR_QP,
+ 			[MLX5_QP_STATE_RTS]	= MLX5_CMD_OP_RTS2RTS_QP,
+-			[MLX5_QP_STATE_SQD]	= MLX5_CMD_OP_RTS2SQD_QP,
+ 		},
+ 		[MLX5_QP_STATE_SQD] = {
+ 			[MLX5_QP_STATE_RST]	= MLX5_CMD_OP_2RST_QP,
+ 			[MLX5_QP_STATE_ERR]	= MLX5_CMD_OP_2ERR_QP,
+-			[MLX5_QP_STATE_RTS]	= MLX5_CMD_OP_SQD2RTS_QP,
+-			[MLX5_QP_STATE_SQD]	= MLX5_CMD_OP_SQD2SQD_QP,
+ 		},
+ 		[MLX5_QP_STATE_SQER] = {
+ 			[MLX5_QP_STATE_RST]	= MLX5_CMD_OP_2RST_QP,
+diff --git a/include/linux/mlx5/device.h b/include/linux/mlx5/device.h
+index dce01fd854a8..0032687f58c7 100644
+--- a/include/linux/mlx5/device.h
++++ b/include/linux/mlx5/device.h
+@@ -44,6 +44,50 @@
+ #error Host endianness not defined
+ #endif
+ 
++/* helper macros */
++#define __mlx5_nullp(typ) ((struct mlx5_ifc_##typ##_bits *)0)
++#define __mlx5_bit_sz(typ, fld) sizeof(__mlx5_nullp(typ)->fld)
++#define __mlx5_bit_off(typ, fld) ((unsigned)(unsigned long)(&(__mlx5_nullp(typ)->fld)))
++#define __mlx5_dw_off(typ, fld) (__mlx5_bit_off(typ, fld) / 32)
++#define __mlx5_64_off(typ, fld) (__mlx5_bit_off(typ, fld) / 64)
++#define __mlx5_dw_bit_off(typ, fld) (32 - __mlx5_bit_sz(typ, fld) - (__mlx5_bit_off(typ, fld) & 0x1f))
++#define __mlx5_mask(typ, fld) ((u32)((1ull << __mlx5_bit_sz(typ, fld)) - 1))
++#define __mlx5_dw_mask(typ, fld) (__mlx5_mask(typ, fld) << __mlx5_dw_bit_off(typ, fld))
++#define __mlx5_st_sz_bits(typ) sizeof(struct mlx5_ifc_##typ##_bits)
++
++#define MLX5_FLD_SZ_BYTES(typ, fld) (__mlx5_bit_sz(typ, fld) / 8)
++#define MLX5_ST_SZ_BYTES(typ) (sizeof(struct mlx5_ifc_##typ##_bits) / 8)
++#define MLX5_ST_SZ_DW(typ) (sizeof(struct mlx5_ifc_##typ##_bits) / 32)
++#define MLX5_BYTE_OFF(typ, fld) (__mlx5_bit_off(typ, fld) / 8)
++#define MLX5_ADDR_OF(typ, p, fld) ((char *)(p) + MLX5_BYTE_OFF(typ, fld))
++
++/* insert a value to a struct */
++#define MLX5_SET(typ, p, fld, v) do { \
++	BUILD_BUG_ON(__mlx5_st_sz_bits(typ) % 32);             \
++	*((__be32 *)(p) + __mlx5_dw_off(typ, fld)) = \
++	cpu_to_be32((be32_to_cpu(*((__be32 *)(p) + __mlx5_dw_off(typ, fld))) & \
++		     (~__mlx5_dw_mask(typ, fld))) | (((v) & __mlx5_mask(typ, fld)) \
++		     << __mlx5_dw_bit_off(typ, fld))); \
++} while (0)
++
++#define MLX5_GET(typ, p, fld) ((be32_to_cpu(*((__be32 *)(p) +\
++__mlx5_dw_off(typ, fld))) >> __mlx5_dw_bit_off(typ, fld)) & \
++__mlx5_mask(typ, fld))
++
++#define MLX5_GET_PR(typ, p, fld) ({ \
++	u32 ___t = MLX5_GET(typ, p, fld); \
++	pr_debug(#fld " = 0x%x\n", ___t); \
++	___t; \
++})
++
++#define MLX5_SET64(typ, p, fld, v) do { \
++	BUILD_BUG_ON(__mlx5_bit_sz(typ, fld) != 64); \
++	BUILD_BUG_ON(__mlx5_bit_off(typ, fld) % 64); \
++	*((__be64 *)(p) + __mlx5_64_off(typ, fld)) = cpu_to_be64(v); \
++} while (0)
++
++#define MLX5_GET64(typ, p, fld) be64_to_cpu(*((__be64 *)(p) + __mlx5_64_off(typ, fld)))
++
+ enum {
+ 	MLX5_MAX_COMMANDS		= 32,
+ 	MLX5_CMD_DATA_BLOCK_SIZE	= 512,
+diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
+index 45a2add747e0..6f48dc793b9f 100644
+--- a/include/linux/mlx5/driver.h
++++ b/include/linux/mlx5/driver.h
+@@ -44,6 +44,7 @@
+ 
+ #include <linux/mlx5/device.h>
+ #include <linux/mlx5/doorbell.h>
++#include <linux/mlx5/mlx5_ifc.h>
+ 
+ enum {
+ 	MLX5_BOARD_ID_LEN = 64,
+@@ -99,81 +100,6 @@ enum {
  };
  
+ enum {
+-	MLX5_CMD_OP_QUERY_HCA_CAP		= 0x100,
+-	MLX5_CMD_OP_QUERY_ADAPTER		= 0x101,
+-	MLX5_CMD_OP_INIT_HCA			= 0x102,
+-	MLX5_CMD_OP_TEARDOWN_HCA		= 0x103,
+-	MLX5_CMD_OP_ENABLE_HCA			= 0x104,
+-	MLX5_CMD_OP_DISABLE_HCA			= 0x105,
+-	MLX5_CMD_OP_QUERY_PAGES			= 0x107,
+-	MLX5_CMD_OP_MANAGE_PAGES		= 0x108,
+-	MLX5_CMD_OP_SET_HCA_CAP			= 0x109,
+-
+-	MLX5_CMD_OP_CREATE_MKEY			= 0x200,
+-	MLX5_CMD_OP_QUERY_MKEY			= 0x201,
+-	MLX5_CMD_OP_DESTROY_MKEY		= 0x202,
+-	MLX5_CMD_OP_QUERY_SPECIAL_CONTEXTS	= 0x203,
+-
+-	MLX5_CMD_OP_CREATE_EQ			= 0x301,
+-	MLX5_CMD_OP_DESTROY_EQ			= 0x302,
+-	MLX5_CMD_OP_QUERY_EQ			= 0x303,
+-
+-	MLX5_CMD_OP_CREATE_CQ			= 0x400,
+-	MLX5_CMD_OP_DESTROY_CQ			= 0x401,
+-	MLX5_CMD_OP_QUERY_CQ			= 0x402,
+-	MLX5_CMD_OP_MODIFY_CQ			= 0x403,
+-
+-	MLX5_CMD_OP_CREATE_QP			= 0x500,
+-	MLX5_CMD_OP_DESTROY_QP			= 0x501,
+-	MLX5_CMD_OP_RST2INIT_QP			= 0x502,
+-	MLX5_CMD_OP_INIT2RTR_QP			= 0x503,
+-	MLX5_CMD_OP_RTR2RTS_QP			= 0x504,
+-	MLX5_CMD_OP_RTS2RTS_QP			= 0x505,
+-	MLX5_CMD_OP_SQERR2RTS_QP		= 0x506,
+-	MLX5_CMD_OP_2ERR_QP			= 0x507,
+-	MLX5_CMD_OP_RTS2SQD_QP			= 0x508,
+-	MLX5_CMD_OP_SQD2RTS_QP			= 0x509,
+-	MLX5_CMD_OP_2RST_QP			= 0x50a,
+-	MLX5_CMD_OP_QUERY_QP			= 0x50b,
+-	MLX5_CMD_OP_CONF_SQP			= 0x50c,
+-	MLX5_CMD_OP_MAD_IFC			= 0x50d,
+-	MLX5_CMD_OP_INIT2INIT_QP		= 0x50e,
+-	MLX5_CMD_OP_SUSPEND_QP			= 0x50f,
+-	MLX5_CMD_OP_UNSUSPEND_QP		= 0x510,
+-	MLX5_CMD_OP_SQD2SQD_QP			= 0x511,
+-	MLX5_CMD_OP_ALLOC_QP_COUNTER_SET	= 0x512,
+-	MLX5_CMD_OP_DEALLOC_QP_COUNTER_SET	= 0x513,
+-	MLX5_CMD_OP_QUERY_QP_COUNTER_SET	= 0x514,
+-
+-	MLX5_CMD_OP_CREATE_PSV			= 0x600,
+-	MLX5_CMD_OP_DESTROY_PSV			= 0x601,
+-	MLX5_CMD_OP_QUERY_PSV			= 0x602,
+-	MLX5_CMD_OP_QUERY_SIG_RULE_TABLE	= 0x603,
+-	MLX5_CMD_OP_QUERY_BLOCK_SIZE_TABLE	= 0x604,
+-
+-	MLX5_CMD_OP_CREATE_SRQ			= 0x700,
+-	MLX5_CMD_OP_DESTROY_SRQ			= 0x701,
+-	MLX5_CMD_OP_QUERY_SRQ			= 0x702,
+-	MLX5_CMD_OP_ARM_RQ			= 0x703,
+-	MLX5_CMD_OP_RESIZE_SRQ			= 0x704,
+-
+-	MLX5_CMD_OP_ALLOC_PD			= 0x800,
+-	MLX5_CMD_OP_DEALLOC_PD			= 0x801,
+-	MLX5_CMD_OP_ALLOC_UAR			= 0x802,
+-	MLX5_CMD_OP_DEALLOC_UAR			= 0x803,
+-
+-	MLX5_CMD_OP_ATTACH_TO_MCG		= 0x806,
+-	MLX5_CMD_OP_DETACH_FROM_MCG		= 0x807,
+-
+-
+-	MLX5_CMD_OP_ALLOC_XRCD			= 0x80e,
+-	MLX5_CMD_OP_DEALLOC_XRCD		= 0x80f,
+-
+-	MLX5_CMD_OP_ACCESS_REG			= 0x805,
+-	MLX5_CMD_OP_MAX				= 0x810,
+-};
+-
+-enum {
+ 	MLX5_REG_PCAP		 = 0x5001,
+ 	MLX5_REG_PMTU		 = 0x5003,
+ 	MLX5_REG_PTYS		 = 0x5004,
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+new file mode 100644
+index 000000000000..df3bd9b5fbcf
+--- /dev/null
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -0,0 +1,143 @@
++/*
++ * Copyright (c) 2014, Mellanox Technologies inc.  All rights reserved.
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * OpenIB.org BSD license below:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and/or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++
++#ifndef MLX5_IFC_H
++#define MLX5_IFC_H
++
++enum {
++	MLX5_CMD_OP_QUERY_HCA_CAP                 = 0x100,
++	MLX5_CMD_OP_QUERY_ADAPTER                 = 0x101,
++	MLX5_CMD_OP_INIT_HCA                      = 0x102,
++	MLX5_CMD_OP_TEARDOWN_HCA                  = 0x103,
++	MLX5_CMD_OP_ENABLE_HCA                    = 0x104,
++	MLX5_CMD_OP_DISABLE_HCA                   = 0x105,
++	MLX5_CMD_OP_QUERY_PAGES                   = 0x107,
++	MLX5_CMD_OP_MANAGE_PAGES                  = 0x108,
++	MLX5_CMD_OP_SET_HCA_CAP                   = 0x109,
++	MLX5_CMD_OP_CREATE_MKEY                   = 0x200,
++	MLX5_CMD_OP_QUERY_MKEY                    = 0x201,
++	MLX5_CMD_OP_DESTROY_MKEY                  = 0x202,
++	MLX5_CMD_OP_QUERY_SPECIAL_CONTEXTS        = 0x203,
++	MLX5_CMD_OP_PAGE_FAULT_RESUME             = 0x204,
++	MLX5_CMD_OP_CREATE_EQ                     = 0x301,
++	MLX5_CMD_OP_DESTROY_EQ                    = 0x302,
++	MLX5_CMD_OP_QUERY_EQ                      = 0x303,
++	MLX5_CMD_OP_GEN_EQE                       = 0x304,
++	MLX5_CMD_OP_CREATE_CQ                     = 0x400,
++	MLX5_CMD_OP_DESTROY_CQ                    = 0x401,
++	MLX5_CMD_OP_QUERY_CQ                      = 0x402,
++	MLX5_CMD_OP_MODIFY_CQ                     = 0x403,
++	MLX5_CMD_OP_CREATE_QP                     = 0x500,
++	MLX5_CMD_OP_DESTROY_QP                    = 0x501,
++	MLX5_CMD_OP_RST2INIT_QP                   = 0x502,
++	MLX5_CMD_OP_INIT2RTR_QP                   = 0x503,
++	MLX5_CMD_OP_RTR2RTS_QP                    = 0x504,
++	MLX5_CMD_OP_RTS2RTS_QP                    = 0x505,
++	MLX5_CMD_OP_SQERR2RTS_QP                  = 0x506,
++	MLX5_CMD_OP_2ERR_QP                       = 0x507,
++	MLX5_CMD_OP_2RST_QP                       = 0x50a,
++	MLX5_CMD_OP_QUERY_QP                      = 0x50b,
++	MLX5_CMD_OP_INIT2INIT_QP                  = 0x50e,
++	MLX5_CMD_OP_CREATE_PSV                    = 0x600,
++	MLX5_CMD_OP_DESTROY_PSV                   = 0x601,
++	MLX5_CMD_OP_CREATE_SRQ                    = 0x700,
++	MLX5_CMD_OP_DESTROY_SRQ                   = 0x701,
++	MLX5_CMD_OP_QUERY_SRQ                     = 0x702,
++	MLX5_CMD_OP_ARM_RQ                        = 0x703,
++	MLX5_CMD_OP_RESIZE_SRQ                    = 0x704,
++	MLX5_CMD_OP_CREATE_DCT                    = 0x710,
++	MLX5_CMD_OP_DESTROY_DCT                   = 0x711,
++	MLX5_CMD_OP_DRAIN_DCT                     = 0x712,
++	MLX5_CMD_OP_QUERY_DCT                     = 0x713,
++	MLX5_CMD_OP_ARM_DCT_FOR_KEY_VIOLATION     = 0x714,
++	MLX5_CMD_OP_QUERY_VPORT_STATE             = 0x750,
++	MLX5_CMD_OP_MODIFY_VPORT_STATE            = 0x751,
++	MLX5_CMD_OP_QUERY_ESW_VPORT_CONTEXT       = 0x752,
++	MLX5_CMD_OP_MODIFY_ESW_VPORT_CONTEXT      = 0x753,
++	MLX5_CMD_OP_QUERY_NIC_VPORT_CONTEXT       = 0x754,
++	MLX5_CMD_OP_MODIFY_NIC_VPORT_CONTEXT      = 0x755,
++	MLX5_CMD_OP_QUERY_RCOE_ADDRESS            = 0x760,
++	MLX5_CMD_OP_SET_ROCE_ADDRESS              = 0x761,
++	MLX5_CMD_OP_QUERY_VPORT_COUNTER           = 0x770,
++	MLX5_CMD_OP_ALLOC_Q_COUNTER               = 0x771,
++	MLX5_CMD_OP_DEALLOC_Q_COUNTER             = 0x772,
++	MLX5_CMD_OP_QUERY_Q_COUNTER               = 0x773,
++	MLX5_CMD_OP_ALLOC_PD                      = 0x800,
++	MLX5_CMD_OP_DEALLOC_PD                    = 0x801,
++	MLX5_CMD_OP_ALLOC_UAR                     = 0x802,
++	MLX5_CMD_OP_DEALLOC_UAR                   = 0x803,
++	MLX5_CMD_OP_CONFIG_INT_MODERATION         = 0x804,
++	MLX5_CMD_OP_ACCESS_REG                    = 0x805,
++	MLX5_CMD_OP_ATTACH_TO_MCG                 = 0x806,
++	MLX5_CMD_OP_DETACH_FROM_MCG               = 0x807,
++	MLX5_CMD_OP_GET_DROPPED_PACKET_LOG        = 0x80a,
++	MLX5_CMD_OP_MAD_IFC                       = 0x50d,
++	MLX5_CMD_OP_QUERY_MAD_DEMUX               = 0x80b,
++	MLX5_CMD_OP_SET_MAD_DEMUX                 = 0x80c,
++	MLX5_CMD_OP_NOP                           = 0x80d,
++	MLX5_CMD_OP_ALLOC_XRCD                    = 0x80e,
++	MLX5_CMD_OP_DEALLOC_XRCD                  = 0x80f,
++	MLX5_CMD_OP_SET_BURST_SIZE                = 0x812,
++	MLX5_CMD_OP_QUERY_BURST_SZIE              = 0x813,
++	MLX5_CMD_OP_ACTIVATE_TRACER               = 0x814,
++	MLX5_CMD_OP_DEACTIVATE_TRACER             = 0x815,
++	MLX5_CMD_OP_CREATE_SNIFFER_RULE           = 0x820,
++	MLX5_CMD_OP_DESTROY_SNIFFER_RULE          = 0x821,
++	MLX5_CMD_OP_QUERY_CONG_PARAMS             = 0x822,
++	MLX5_CMD_OP_MODIFY_CONG_PARAMS            = 0x823,
++	MLX5_CMD_OP_QUERY_CONG_STATISTICS         = 0x824,
++	MLX5_CMD_OP_CREATE_TIR                    = 0x900,
++	MLX5_CMD_OP_MODIFY_TIR                    = 0x901,
++	MLX5_CMD_OP_DESTROY_TIR                   = 0x902,
++	MLX5_CMD_OP_QUERY_TIR                     = 0x903,
++	MLX5_CMD_OP_CREATE_TIS                    = 0x912,
++	MLX5_CMD_OP_MODIFY_TIS                    = 0x913,
++	MLX5_CMD_OP_DESTROY_TIS                   = 0x914,
++	MLX5_CMD_OP_QUERY_TIS                     = 0x915,
++	MLX5_CMD_OP_CREATE_SQ                     = 0x904,
++	MLX5_CMD_OP_MODIFY_SQ                     = 0x905,
++	MLX5_CMD_OP_DESTROY_SQ                    = 0x906,
++	MLX5_CMD_OP_QUERY_SQ                      = 0x907,
++	MLX5_CMD_OP_CREATE_RQ                     = 0x908,
++	MLX5_CMD_OP_MODIFY_RQ                     = 0x909,
++	MLX5_CMD_OP_DESTROY_RQ                    = 0x90a,
++	MLX5_CMD_OP_QUERY_RQ                      = 0x90b,
++	MLX5_CMD_OP_CREATE_RMP                    = 0x90c,
++	MLX5_CMD_OP_MODIFY_RMP                    = 0x90d,
++	MLX5_CMD_OP_DESTROY_RMP                   = 0x90e,
++	MLX5_CMD_OP_QUERY_RMP                     = 0x90f,
++	MLX5_CMD_OP_SET_FLOW_TABLE_ENTRY          = 0x910,
++	MLX5_CMD_OP_QUERY_FLOW_TABLE_ENTRY        = 0x911,
++	MLX5_CMD_OP_MAX				  = 0x911
++};
++
++#endif /* MLX5_IFC_H */
 -- 
 2.1.1
