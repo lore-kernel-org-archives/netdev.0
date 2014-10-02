@@ -1,48 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net 0/3] bridge: Add vlan filtering support
- for default pvid
-Date: Wed, 01 Oct 2014 21:53:16 -0400 (EDT)
-Message-ID: <20141001.215316.2186693268578428276.davem@davemloft.net>
-References: <1412105462-340-1-git-send-email-vyasevic@redhat.com>
+Subject: Re: [PATCH net-next] enic: add client name to port profile
+Date: Wed, 01 Oct 2014 21:55:37 -0400 (EDT)
+Message-ID: <20141001.215537.1507274034523758286.davem@davemloft.net>
+References: <1412114357-11557-1-git-send-email-_govind@gmx.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org, netdev@vger.kernel.org, vyasevic@redhat.com,
-	bridge@lists.linux-foundation.org
-To: vyasevich@gmail.com
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1412105462-340-1-git-send-email-vyasevic@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, ssujith@cisco.com, benve@cisco.com
+To: _govind@gmx.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38894 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751896AbaJBBzj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Oct 2014 21:55:39 -0400
+In-Reply-To: <1412114357-11557-1-git-send-email-_govind@gmx.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vladislav Yasevich <vyasevich@gmail.com>
-Date: Tue, 30 Sep 2014 15:30:59 -0400
+From: Govindarajulu Varadarajan <_govind@gmx.com>
+Date: Wed,  1 Oct 2014 03:29:17 +0530
 
-> Version 2 of the series to introduce the default pvid support to
-> vlan filtering in the bridge.  VLAN 1 (as recommended by 802.1q spec)
-> is used as default pvid on ports. 
-> The the user can over-ride this configuration by configuring their
-> own vlan information. 
-> The user can additionally change the default value throught the
-> sysfs interface (netlink comming shortly).
-> The user can turn off default pvid functionality by setting default
-> pvid to 0. 
-> This series changes the default behavior of the bridge when
-> vlan filtering is turned on.  Currently, ports without any vlan
-> filtering configured will not recevie any traffic at all.  This patch
-> changes the behavior of the above ports to receive only untagged traffic.
+> Firmware has support for sending client name of the port profile to the switch
+> it's connected to.
 > 
-> Since v2:
-> - Add ability to turn off default_pvid settings.
-> - Drop the automiatic filtering support based on configured vlan devices (will
->   be its own series)
+> This patch adds client name to port profile which is sent to hardware while
+> associating a port profile to VF.
+> 
+> Since port profile are defined in switch, this patch makes it easier to check
+> what VM is using a port profile.
+> 
+> Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
 
-Please address the given feedback, thanks Vladislav.
+I think you should split this up into two patches, one which adds
+the new netlink facility, and second which adds support to the
+specific driver.
+
+Thanks.
