@@ -1,54 +1,70 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] drivers/net/dsa/Kconfig: Let NET_DSA_BCM_SF2 depend on
- HAS_IOMEM
-Date: Thu, 02 Oct 2014 09:44:23 -0700
-Message-ID: <542D80E7.6040204@gmail.com>
-References: <542D5DAC.4010001@gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [RFC PATCH linux 2/2] fs/proc: use a hash table for the
+ directory entries
+Date: Thu, 2 Oct 2014 09:46:57 -0700
+Message-ID: <20141002094657.1e28e027@urahara>
+References: <20131003.150947.2179820478039260398.davem@davemloft.net>
+	<1412263501-6572-1-git-send-email-nicolas.dichtel@6wind.com>
+	<1412263501-6572-3-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Richard Weinberger <richard@nod.at>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Chen Gang <gang.chen.5i5j@gmail.com>, davem@davemloft.net,
-	leitec@staticky.com, andrew@lunn.ch
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	davem@davemloft.net, ebiederm@xmission.com,
+	akpm@linux-foundation.org, adobriyan@gmail.com,
+	rui.xiang@huawei.com, viro@zeniv.linux.org.uk, oleg@redhat.com,
+	gorcunov@openvz.org, kirill.shutemov@linux.intel.com,
+	grant.likely@secretlab.ca, tytso@mit.edu,
+	Thierry Herbelot <thierry.herbelot@6wind.com>
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <542D5DAC.4010001@gmail.com>
+In-Reply-To: <1412263501-6572-3-git-send-email-nicolas.dichtel@6wind.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/02/2014 07:14 AM, Chen Gang wrote:
-> NET_DSA_BCM_SF2 need HAS_IOMEM, so depend on it, the related error (w=
-ith
-> allmodconfig under um):
->=20
->     CC [M]  drivers/net/dsa/bcm_sf2.o
->   drivers/net/dsa/bcm_sf2.c: In function =E2=80=98bcm_sf2_sw_setup=E2=
-=80=99:
->   drivers/net/dsa/bcm_sf2.c:487:3: error: implicit declaration of fun=
-ction =E2=80=98iounmap=E2=80=99 [-Werror=3Dimplicit-function-declaratio=
-n]
->      iounmap(*base);
->      ^
->=20
-> Signed-off-by: Chen Gang <gang.chen.5i5j@gmail.com>
+On Thu,  2 Oct 2014 17:25:01 +0200
+Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
 
-Acked-by: Florian Fainelli <f.fainelli@gmail.com>
+> From: Thierry Herbelot <thierry.herbelot@6wind.com>
+> 
+> The current implementation for the directories in /proc is using a single
+> linked list. This is slow when handling directories with large numbers of
+> entries (eg netdevice-related entries when lots of tunnels are opened).
+> 
+> This patch enables multiple linked lists. A hash based on the entry name is
+> used to select the linked list for one given entry.
+> 
+> The speed creation of netdevices is faster as shorter linked lists must be
+> scanned when adding a new netdevice.
+> 
+> Here are some numbers:
+> 
+> dummy30000.batch contains 30 000 times 'link add type dummy'.
+> 
+> Before the patch:
+> time ip -b dummy30000.batch
+> real    2m32.221s
+> user    0m0.380s
+> sys     2m30.610s
+> 
+> After the patch:
+> time ip -b dummy30000.batch
+> real    1m57.190s
+> user    0m0.350s
+> sys     1m56.120s
+> 
+> The single 'subdir' list head is replaced by a subdir hash table. The subdir
+> hash buckets are only allocated for directories. The number of hash buckets
+> is a compile-time parameter.
+> 
+> For all functions which handle directory entries, an additional check on the
+> directory nature of the dir entry ensures that pde_hash_buckets was allocated.
+> This check was not needed as subdir was present for all dir entries, whether
+> actual directories or simple files.
+> 
+> Signed-off-by: Thierry Herbelot <thierry.herbelot@6wind.com>
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
-> ---
->  drivers/net/dsa/Kconfig | 1 +
->  1 file changed, 1 insertion(+)
->=20
-> diff --git a/drivers/net/dsa/Kconfig b/drivers/net/dsa/Kconfig
-> index ea0697e..9234d80 100644
-> --- a/drivers/net/dsa/Kconfig
-> +++ b/drivers/net/dsa/Kconfig
-> @@ -47,6 +47,7 @@ config NET_DSA_MV88E6171
-> =20
->  config NET_DSA_BCM_SF2
->  	tristate "Broadcom Starfighter 2 Ethernet switch support"
-> +	depends on HAS_IOMEM
->  	select NET_DSA
->  	select NET_DSA_TAG_BRCM
->  	select FIXED_PHY if NET_DSA_BCM_SF2=3Dy
->=20
+I think the speed up is a good idea and makes sense.
+It would be better to use exist hlist macros for hash table rather than
+open coding it.
