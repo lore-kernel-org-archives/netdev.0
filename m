@@ -1,107 +1,87 @@
-From: Ulf samuelsson <netdev@emagii.com>
-Subject: Re: netlink NETLINK_ROUTE  failure & Can the kernel really handle IPv6 properly
-Date: Thu, 2 Oct 2014 14:38:30 +0200
-Message-ID: <9330C415-574C-492B-A7AE-92EBCF6D1A26@emagii.com>
-References: <542C63FE.9080807@emagii.com> <1412199032.2532289.174101717.2D6510D0@webmail.messagingengine.com>
-Mime-Version: 1.0 (1.0)
-Content-Type: text/plain;
-	charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: Re: [PATCH v2 net-next] mlx4: optimize xmit path
+Date: Thu, 2 Oct 2014 15:45:23 +0300
+Message-ID: <542D48E3.2090403@mellanox.com>
+References: <1411692382-8898-1-git-send-email-ast@plumgrid.com>			 <1411694414.16953.70.camel@edumazet-glaptop2.roam.corp.google.com>			 <1411717322.16953.99.camel@edumazet-glaptop2.roam.corp.google.com>			 <1411850590.15768.6.camel@edumazet-glaptop2.roam.corp.google.com>			 <CAJ3xEMhQCf7j48Yn5sjH6jaYYdLQUgOe2hk-OZhhdZ7taOyx+Q@mail.gmail.com>			 <1411853441.15768.13.camel@edumazet-glaptop2.roam.corp.google.com>			 <1411858593.15768.51.camel@edumazet-glaptop2.roam.corp.google.com>			 <1411964353.30721.6.camel@edumazet-glaptop2.roam.corp.google.com>		 <1412224524.16704.75.camel@edumazet-glaptop2.roam.corp.google.com>		 <542D06C1.6090802@mellanox.com>	 <1412250327.16704.84.camel@edumazet-glaptop2.roam.corp.google.com>	 <542D3D5F.5090900@mellanox.com> <1412251620.16704.88.camel@edumazet-glapto
+ p2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: Or Gerlitz <gerlitz.or@gmail.com>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	Eric Dumazet <edumazet@google.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"Or Gerlitz" <or.gerlitz@gmail.com>, <amira@mellanox.com>,
+	<idos@mellanox.com>, Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	<eyalpe@mellanox.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out12.han.skanova.net ([195.67.226.212]:56113 "EHLO
-	smtp-out12.han.skanova.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751973AbaJBMov convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Oct 2014 08:44:51 -0400
-In-Reply-To: <1412199032.2532289.174101717.2D6510D0@webmail.messagingengine.com>
+Received: from eu1sys200aog106.obsmtp.com ([207.126.144.121]:35093 "EHLO
+	eu1sys200aog106.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751448AbaJBMpg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2014 08:45:36 -0400
+In-Reply-To: <1412251620.16704.88.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is the significant code, and it is wrong.
-
-static struct notifier_block my_ipv6_address_notifier =
- {
-   my_ipv6_address_notifier_cb,
-   NULL,
-   0
- };
-
-register_inet6addr_notifier (&my_ipv6_address_notifier );
-
-int
-my_ipv6_address_notifier_cb (struct notifier_block *self,
-                                unsigned long event, void *val)
-{
- struct inet6_ifaddr *ifaddr = (struct inet6_ifaddr *)val;
-
-
- /* We are only interested in address add/delete events */
- /* IPv6 address add comes as NETDEV_UP and delete comes as
-  * NETDEV_DOWN
-  */
- if ((event != NETDEV_UP) && (event != NETDEV_DOWN))
-   return ret;
-
- if (ifaddr == NULL)
-   return ret;
- /* Now that we are sure that it is a IPv6 address being added deleted,
-  * verify that it is a link local address.
-  */
- if (!IPV6_IS_ADDR_LINKLOCAL (&ifaddr->addr))
-   {
-     return ret;
-   }
- ...
- send_message_to_app(LINK_LOCAL_UP, ip);
- ...
- return ret;
-}
-
-
-Application tries to send message to "ip" and fails, because the link-local adress is still
-in "tentative state"
-
-Best Regards
-Ulf Samuelsson
-ulf@emagii.com
-+46  (722) 427 437
-
-
-> 1 okt 2014 kl. 23:30 skrev Hannes Frederic Sowa <hannes@stressinduktion.org>:
+On 10/2/2014 3:07 PM, Eric Dumazet wrote:
+> On Thu, 2014-10-02 at 14:56 +0300, Amir Vadai wrote:
+>> After making sure the sender thread and the TX completions are not on
+>> the same CPU, I see the expected improvement. +0.5Mpps with tx
+>> optimizations.
 > 
-> Hello,
+> I got 40% here.
 > 
->> On Wed, Oct 1, 2014, at 22:28, Ulf Samuelsson wrote:
->> BTW, the problem I am trying to solve is how to connect to an I/F with 
->> an IPv6 link-local address.
->> 
->> An existing kernel module waits for a NETDEV_UP event, and then tries to 
->> communicate
->> with the link-local address.
->> 
->> This will fail, because (according to a colleague) the I/F enters a 
->> "tentative" state,
->> where it is trying to decide if it is unique or not.
->> It will remain in that state for 1-2 seconds, and only afterwards is the 
->> link-local address
->> available for normal use.
->> 
->> The guys writing the module, claim that the kernel is using NETDEV_UP.
->> There is very little code in the kernel using NETLINK_ROUTE, even in 
->> latest stable.
->> It is using NETDEV_UP.
->> 
->> If my colleague is right, the kernel really cannot handle IPv6 
->> link-local addresses properly.
+> Hmm... both cpus are on the same socket, right ?
+Yes. And on a NUMA node close to the NIC
+
 > 
-> Sorry, I cannot really follow you, can you send example code or be a bit
-> more precise?
+> TX coalescing is properly setup ?
+I will try to play with it, if it is too aggressive, the queue is stopped.
+I will play again with it and the ring size to find a better spot.
+
 > 
-> Thanks,
-> Hannes
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> What interrupt rate do you get ?
+~50K per second.
+
+> 
+> You can take a look at where cycles are spent
+> 
+> perf record -a -g sleep 5
+> perf report
+> 
+> 
+I will.
+
+In case your curious, I have this on the CPU doing completions:
++  44.86%      swapper  [kernel.kallsyms]  [k] consume_skb
++  21.38%      swapper  [kernel.kallsyms]  [k] mlx4_en_poll_tx_cq
++   6.81%      swapper  [kernel.kallsyms]  [k] mlx4_en_free_tx_desc.isra.24
++   6.07%      swapper  [kernel.kallsyms]  [k] intel_idle
++   2.98%      swapper  [kernel.kallsyms]  [k] __dev_kfree_skb_any
++   2.66%         rngd  rngd               [.] 0x0000000000002749
++   1.79%         rngd  [kernel.kallsyms]  [k] consume_skb
++   1.28%      swapper  [kernel.kallsyms]  [k] irq_entries_start
++   1.16%         rngd  [kernel.kallsyms]  [k] mlx4_en_poll_tx_cq
++   0.86%      swapper  [kernel.kallsyms]  [k] swiotlb_unmap_page
++   0.79%      swapper  [kernel.kallsyms]  [k] unmap_single
++   0.63%      swapper  [kernel.kallsyms]  [k] irqtime_account_irq
++   0.55%      swapper  [kernel.kallsyms]  [k] mlx4_eq_int
++   0.51%      swapper  [kernel.kallsyms]  [k] eq_set_ci.isra.14
+
+and this on the xmit thread:
++  72.00%  kpktgend_6  [kernel.kallsyms]  [k] mlx4_en_xmit
++  13.11%  kpktgend_6  [kernel.kallsyms]  [k] pktgen_thread_worker
++   5.34%  kpktgend_6  [kernel.kallsyms]  [k] _raw_spin_lock
++   3.80%  kpktgend_6  [kernel.kallsyms]  [k] swiotlb_map_page
++   2.08%  kpktgend_6  [kernel.kallsyms]  [k] __iowrite64_copy
++   1.21%  kpktgend_6  [kernel.kallsyms]  [k] skb_clone_tx_timestamp
++   0.87%  kpktgend_6  [kernel.kallsyms]  [k] kthread_should_stop
++   0.64%  kpktgend_6  [kernel.kallsyms]  [k] swiotlb_dma_mapping_error
++   0.51%  kpktgend_6  [kernel.kallsyms]  [k] __local_bh_enable_ip
+
+Thanks,
+Amir
