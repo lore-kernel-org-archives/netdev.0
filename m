@@ -1,51 +1,34 @@
-From: Julia Lawall <julia.lawall@lip6.fr>
-Subject: Re: [patch] checkpatch: remove the ether_addr_copy warning
-Date: Fri, 3 Oct 2014 17:14:13 +0200 (CEST)
-Message-ID: <alpine.DEB.2.10.1410031712250.2371@hadrien>
-References: <20141003093505.GA7393@mwanda>  <1412346147.3247.97.camel@joe-AO725>  <alpine.DEB.2.10.1410031628420.2371@hadrien> <1412349028.3247.113.camel@joe-AO725>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 2/2] net: spider_net: avoid using signed char for bitops
+Date: Fri, 03 Oct 2014 17:15:05 +0200
+Message-ID: <9201792.OAu7xPjvdN@wuerfel>
+References: <1412348517-20352-1-git-send-email-antoine.tenart@free-electrons.com> <1412348517-20352-4-git-send-email-antoine.tenart@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Dan Carpenter <dan.carpenter@oracle.com>,
-	Andy Whitcroft <apw@canonical.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	gregkh@linuxfoundation.org
-To: Joe Perches <joe@perches.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <1412349028.3247.113.camel@joe-AO725>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
+	dan.carpenter@oracle.com, kou.ishizaki@toshiba.co.jp,
+	jens@de.ibm.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: linux-arm-kernel@lists.infradead.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.kundenserver.de ([212.227.17.13]:55571 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753679AbaJCPPM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Oct 2014 11:15:12 -0400
+In-Reply-To: <1412348517-20352-4-git-send-email-antoine.tenart@free-electrons.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Friday 03 October 2014 17:01:56 Antoine Tenart wrote:
+> Signedness bugs may occur when using signed char for bitops,
+> depending on if the highest bit is ever used.
+> 
+> Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
+> 
 
+It's probably worth mentioning here that this cannot happen in this
+driver because it's only used in one powerpc-specific chip, and 'char'
+is always 'unsigned' on powerpc.
 
-On Fri, 3 Oct 2014, Joe Perches wrote:
-
-> On Fri, 2014-10-03 at 16:30 +0200, Julia Lawall wrote:
-> > On Fri, 3 Oct 2014, Joe Perches wrote:
-> > > On Fri, 2014-10-03 at 12:35 +0300, Dan Carpenter wrote:
-> > > > Most people sending checkpatch.pl fixes don't know how to verify the
-> > > > alignment.  This checkpatch warning just encourages newbies to try
-> > > > introduce bugs.  Patch submitters tell us that they just sed the code
-> > > > and it's the job for the maintainer to check that it's correct.
-> > >
-> > > I haven't seen many instances of bad patch submittals
-> > > on netdev.  Is this mostly an issue for staging?
-> > >
-> > > Maybe a downgrade to CHK requiring --strict is OK.
-> []
-> > I think it is too bad to have a piece of knowledge that was apparent be
-> > made more obscure.  Why not just change the checkpatch warning to make
-> > more explicit that a lot of expertise is required to make the change?
->
-> Any wordsmithing appreciated.  Maybe something like:
->
-> from: Prefer ether_addr_copy() over memcpy() if the Ethernet addresses are __aligned(2)
-> to: Where both Ethernet addresses are guaranteed to be __aligned(2), prefer ether_addr_copy() over memcpy()
->
-> That won't stop people from blindly following any message.
-
-Perhaps add: Note that checking whether the addresses are aligned may
-require knowing properties of all possible architectures on which the code
-may be executed.  Make this change only if you have this information.
-
-julia
+	Arnd
