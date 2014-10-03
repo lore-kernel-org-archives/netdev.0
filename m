@@ -1,54 +1,55 @@
-From: Frank Li <Frank.Li@freescale.com>
-Subject: [PATCH net-next 1/1] net: fec: fix build error at m68k platform
-Date: Fri, 3 Oct 2014 12:00:31 -0700
-Message-ID: <1412362831-59318-1-git-send-email-Frank.Li@freescale.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/2] sunvnet: Packet processing in
+ non-interrupt context.
+Date: Fri, 03 Oct 2014 12:08:02 -0700 (PDT)
+Message-ID: <20141003.120802.1213573830649867131.davem@davemloft.net>
+References: <20141002201203.GA6001@oracle.com>
+	<20141002.134346.2291749763304558513.davem@davemloft.net>
+	<20141003144024.GA12448@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <b38611@freescale.com>,
-	Frank Li <Frank.Li@freescale.com>
-To: <davem@davemloft.net>, <lznuaa@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: raghuram.kothakota@oracle.com, netdev@vger.kernel.org
+To: sowmini.varadhan@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bon0148.outbound.protection.outlook.com ([157.56.111.148]:29368
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751404AbaJCTAg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Oct 2014 15:00:36 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:58373 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753288AbaJCTF4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Oct 2014 15:05:56 -0400
+In-Reply-To: <20141003144024.GA12448@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-reproduce:
-  wget https://git.kernel.org/cgit/linux/kernel/git/wfg/lkp-tests.git/plain/sbin/make.cross -O ~/bin/make.cross
-  chmod +x ~/bin/make.cross
-  git checkout 1b7bde6d659d30f171259cc2dfba8e5dab34e735
-  # save the attached .config to linux build tree
-  make.cross ARCH=m68k
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Date: Fri, 3 Oct 2014 10:40:24 -0400
 
-All error/warnings:
+> On (10/02/14 13:43), David Miller wrote:
+>> For example, you can now move everything into software IRQ context,
+>> just disable the VIO interrupt and unconditionally go into NAPI
+>> context from the VIO event.
+>> No more irqsave/irqrestore.
+>> Then the TX path even can run mostly lockless, it just needs
+>> to hold the VIO lock for a minute period of time.  The caller
+>> holds the xmit_lock of the network device to prevent re-entry
+>> into the ->ndo_start_xmit() path.
+>> 
+> 
+> let me check into this and get back. I think the xmit path
+> may also need to have some kind of locking for the dring access
+> and ldc_write? I think you are suggesting that I should also
+> move the control-packet processing to vnet_event_napi(), which
+> I have not done in my patch. I will examine where that leads.
 
-   drivers/net/ethernet/freescale/fec_main.c: In function 'fec_enet_rx_queue':
->> drivers/net/ethernet/freescale/fec_main.c:1470:3: error: implicit declaration of function 'prefetch' [-Werror=implicit-function-declaration]
-      prefetch(skb->data - NET_IP_ALIGN);
-      ^
-   cc1: some warnings being treated as errors
+I think you should be able to get rid of all of the in-driver
+locking in the fast paths.
 
-missed included prefetch.h
+NAPI ->poll() is non-reentrant, so all RX processing occurs
+strictly in a serialized environment.
 
-Signed-off-by: Frank Li <Frank.Li@freescale.com>
----
- drivers/net/ethernet/freescale/fec_main.c | 1 +
- 1 file changed, 1 insertion(+)
+Once you do TX reclaim in NAPI context, then all you have to do is
+take the generic netdev TX queue lock during the evaluation of whether
+to wakeup the TX queue or not.  Worst case you need to hold the
+TX netdev queue lock across the whole TX reclaim operation.
 
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 1f07db8..e190eb0 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -57,6 +57,7 @@
- #include <linux/regulator/consumer.h>
- #include <linux/if_vlan.h>
- #include <linux/pinctrl/consumer.h>
-+#include <linux/prefetch.h>
- 
- #include <asm/cacheflush.h>
- 
--- 
-1.9.1
+The VIO lock really ought to be entirely superfluous in the data
+paths.
