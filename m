@@ -1,41 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next PATCH V6 0/2] qdisc: bulk dequeue support
-Date: Fri, 03 Oct 2014 14:57:57 -0700
-Message-ID: <1412373477.17245.5.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20141001203345.3321.99675.stgit@dragon>
-	 <20141003.123806.183331913071081861.davem@davemloft.net>
-	 <1412369869.17245.4.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20141003.145647.1980640682969765484.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next] fm10k: Add CONFIG_FM10K_VXLAN configuration option
+Date: Fri, 03 Oct 2014 15:01:00 -0700 (PDT)
+Message-ID: <20141003.150100.2093419669359736448.davem@davemloft.net>
+References: <1412370352-17680-1-git-send-email-azhou@nicira.com>
+	<542F17B7.80706@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: brouer@redhat.com, netdev@vger.kernel.org, therbert@google.com,
-	hannes@stressinduktion.org, fw@strlen.de, dborkman@redhat.com,
-	jhs@mojatatu.com, alexander.duyck@gmail.com,
-	john.r.fastabend@intel.com, dave.taht@gmail.com, toke@toke.dk
-To: David Miller <davem@davemloft.net>
+Cc: azhou@nicira.com, netdev@vger.kernel.org,
+	jeffrey.t.kirsher@intel.com
+To: alexander.h.duyck@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f181.google.com ([209.85.192.181]:45753 "EHLO
-	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755521AbaJCV52 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Oct 2014 17:57:28 -0400
-Received: by mail-pd0-f181.google.com with SMTP id z10so255074pdj.12
-        for <netdev@vger.kernel.org>; Fri, 03 Oct 2014 14:57:28 -0700 (PDT)
-In-Reply-To: <20141003.145647.1980640682969765484.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60032 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755232AbaJCV6y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Oct 2014 17:58:54 -0400
+In-Reply-To: <542F17B7.80706@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-10-03 at 14:56 -0700, David Miller wrote:
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Date: Fri, 03 Oct 2014 14:40:07 -0700
 
-> I completely agree, and I sort of intended this to happen when
-> I split all the code into that new function.
+> On 10/03/2014 02:05 PM, Andy Zhou wrote:
+>> Compiling with CONFIG_FM10K=y and VXLAN=m resulting in linking error:
+>> 
+>>    drivers/built-in.o: In function `fm10k_open':
+>>    (.text+0x1f9d7a): undefined reference to `vxlan_get_rx_port'
+>>    make: *** [vmlinux] Error 1
+>> 
+>> The fix follows the same strategy as I40E.
+>> 
+>> Signed-off-by: Andy Zhou <azhou@nicira.com>
+>> ---
+>>  drivers/net/ethernet/intel/Kconfig              | 11 +++++++++++
+>>  drivers/net/ethernet/intel/fm10k/fm10k_netdev.c |  6 +++---
+>>  2 files changed, 14 insertions(+), 3 deletions(-)
 > 
->   GSO segmentation of TX checksuming should not prevent other
-> > cpus from queueing other skbs in the qdisc.
-> > 
-> > I will spend some time on this.
+> Looks good to me.  Thanks for resolving this.
 > 
-> Thanks!
+> Acked-by: Alexander Duyck <alexander.h.duyck@intel.com>
 
-I just did my first reboot, will make sure everything is working well
-before sending the patch ;)
+I expect this will go via Jeff Kirsher, CC:'d.
