@@ -1,60 +1,37 @@
-From: Frank Li <Frank.Li@freescale.com>
-Subject: [PATCH v2 net-next 1/1] net: fec: fix build error at m68k platform
-Date: Fri, 3 Oct 2014 14:29:14 -0700
-Message-ID: <1412371754-60384-1-git-send-email-Frank.Li@freescale.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: [net-next] fm10k: Add CONFIG_FM10K_VXLAN configuration option
+Date: Fri, 03 Oct 2014 14:40:07 -0700
+Message-ID: <542F17B7.80706@intel.com>
+References: <1412370352-17680-1-git-send-email-azhou@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <b38611@freescale.com>,
-	Frank Li <Frank.Li@freescale.com>
-To: <davem@davemloft.net>, <lznuaa@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Andy Zhou <azhou@nicira.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bon0116.outbound.protection.outlook.com ([157.56.111.116]:44981
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750832AbaJCV31 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Oct 2014 17:29:27 -0400
+Received: from mga14.intel.com ([192.55.52.115]:58507 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755584AbaJCVkK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Oct 2014 17:40:10 -0400
+In-Reply-To: <1412370352-17680-1-git-send-email-azhou@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-reproduce:
-  wget https://git.kernel.org/cgit/linux/kernel/git/wfg/lkp-tests.git/plain/sbin/make.cross -O ~/bin/make.cross
-  chmod +x ~/bin/make.cross
-  git checkout 1b7bde6d659d30f171259cc2dfba8e5dab34e735
+On 10/03/2014 02:05 PM, Andy Zhou wrote:
+> Compiling with CONFIG_FM10K=y and VXLAN=m resulting in linking error:
+> 
+>    drivers/built-in.o: In function `fm10k_open':
+>    (.text+0x1f9d7a): undefined reference to `vxlan_get_rx_port'
+>    make: *** [vmlinux] Error 1
+> 
+> The fix follows the same strategy as I40E.
+> 
+> Signed-off-by: Andy Zhou <azhou@nicira.com>
+> ---
+>  drivers/net/ethernet/intel/Kconfig              | 11 +++++++++++
+>  drivers/net/ethernet/intel/fm10k/fm10k_netdev.c |  6 +++---
+>  2 files changed, 14 insertions(+), 3 deletions(-)
 
-  make.cross ARCH=m68k m5275evb_defconfig
-  make.cross ARCH=m68k
+Looks good to me.  Thanks for resolving this.
 
-All error/warnings:
-
-   drivers/net/ethernet/freescale/fec_main.c: In function 'fec_enet_rx_queue':
->> drivers/net/ethernet/freescale/fec_main.c:1470:3: error: implicit declaration of function 'prefetch' [-Werror=implicit-function-declaration]
-      prefetch(skb->data - NET_IP_ALIGN);
-      ^
-   cc1: some warnings being treated as errors
-
-missed included prefetch.h
-
-Reported-by: kbuild test robot <fengguang.wu@intel.com>
-Signed-off-by: Frank Li <Frank.Li@freescale.com>
----
-Change from v1 to V2
- - add reported by
- - add make config
-
- drivers/net/ethernet/freescale/fec_main.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 1f07db8..e190eb0 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -57,6 +57,7 @@
- #include <linux/regulator/consumer.h>
- #include <linux/if_vlan.h>
- #include <linux/pinctrl/consumer.h>
-+#include <linux/prefetch.h>
- 
- #include <asm/cacheflush.h>
- 
--- 
-1.9.1
+Acked-by: Alexander Duyck <alexander.h.duyck@intel.com>
