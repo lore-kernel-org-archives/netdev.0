@@ -1,57 +1,46 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [PATCH net-next 0/2] sunvnet: Packet processing in non-interrupt
- context.
-Date: Fri, 3 Oct 2014 10:40:24 -0400
-Message-ID: <20141003144024.GA12448@oracle.com>
-References: <20141001202315.GN17706@oracle.com>
- <20141001.162529.2246298941833907545.davem@davemloft.net>
- <20141002201203.GA6001@oracle.com>
- <20141002.134346.2291749763304558513.davem@davemloft.net>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: [patch] checkpatch: remove the ether_addr_copy warning
+Date: Fri, 3 Oct 2014 17:47:29 +0300
+Message-ID: <20141003144729.GK23154@mwanda>
+References: <20141003093505.GA7393@mwanda>
+ <1412346147.3247.97.camel@joe-AO725>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: raghuram.kothakota@oracle.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:42378 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752712AbaJCOkg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Oct 2014 10:40:36 -0400
+Cc: Andy Whitcroft <apw@canonical.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
+	gregkh@linuxfoundation.org
+To: Joe Perches <joe@perches.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20141002.134346.2291749763304558513.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1412346147.3247.97.camel@joe-AO725>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On (10/02/14 13:43), David Miller wrote:
-> For example, you can now move everything into software IRQ context,
-> just disable the VIO interrupt and unconditionally go into NAPI
-> context from the VIO event.
-> No more irqsave/irqrestore.
-> Then the TX path even can run mostly lockless, it just needs
-> to hold the VIO lock for a minute period of time.  The caller
-> holds the xmit_lock of the network device to prevent re-entry
-> into the ->ndo_start_xmit() path.
+On Fri, Oct 03, 2014 at 07:22:27AM -0700, Joe Perches wrote:
+> On Fri, 2014-10-03 at 12:35 +0300, Dan Carpenter wrote:
+> > Most people sending checkpatch.pl fixes don't know how to verify the
+> > alignment.  This checkpatch warning just encourages newbies to try
+> > introduce bugs.  Patch submitters tell us that they just sed the code
+> > and it's the job for the maintainer to check that it's correct.
 > 
+> I haven't seen many instances of bad patch submittals
+> on netdev.  Is this mostly an issue for staging?
 
-let me check into this and get back. I think the xmit path
-may also need to have some kind of locking for the dring access
-and ldc_write? I think you are suggesting that I should also
-move the control-packet processing to vnet_event_napi(), which
-I have not done in my patch. I will examine where that leads.
+I don't follow netdev so I can't say.
 
-But there is one thing that I do not understand - why does my hack
-to lie to net_rx_action() by always returning "budget" 
-make such a difference to throughput? 
+Most of the time data is aligned at a 4 byte mark so probably you are
+just getting lucky.  I really doubt that netdev checkpatch newbies know
+about alignment...
 
-Even if I set the budget to be as low as 64 (so I would get
-called repeatedly under NAPIs polling infra), I have to 
-turn on the "liar" commented code in my patch for the throughput
-shoots up to 2 - 2.5  Gbps (whereas it's otherwise around 300 Mbps).
-Eyeballing the net_rx_action() code quickly did not make the explanation
-for this pop out at me (yet).
+> 
+> Maybe a downgrade to CHK requiring --strict is OK.
 
-Pure polling (i.e., workq) gives me about 1.5 Gbps, and pure-tasklet
-(i.e, just setting up a tasklet from vnet_event to handle data) gives me
-approx 2 Gbps. So I dont understand why NAPI doesn't give me something
-similar, if I adhere strictly to the documentation.
+I would actually like to turn --strict by default in staging.
 
---Sowmini
+Checkpatch is a good concept, but it should only do safe things instead
+of telling newbies to send buggy patches.
+
+regards,
+dan carpenter
+
