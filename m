@@ -1,82 +1,196 @@
 From: John Fastabend <john.fastabend@gmail.com>
-Subject: [PATCH] net: sched: suspicious RCU usage in qdisc_watchdog
-Date: Thu, 02 Oct 2014 22:43:09 -0700
-Message-ID: <20141003054306.20821.48420.stgit@nitbit.x32>
+Subject: [PATCH v1 1/2] net: sched: do not use tcf_proto 'tp' argument from
+ call_rcu
+Date: Thu, 02 Oct 2014 22:45:59 -0700
+Message-ID: <20141003054558.20925.67091.stgit@nitbit.x32>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: xiyou.wangcong@gmail.com, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org
-To: davem@davemloft.net
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com, eric.dumazet@gmail.com
+To: xiyou.wangcong@gmail.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f169.google.com ([209.85.214.169]:43486 "EHLO
-	mail-ob0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750930AbaJCFn3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Oct 2014 01:43:29 -0400
-Received: by mail-ob0-f169.google.com with SMTP id m8so348940obr.28
-        for <netdev@vger.kernel.org>; Thu, 02 Oct 2014 22:43:29 -0700 (PDT)
+Received: from mail-ob0-f176.google.com ([209.85.214.176]:55090 "EHLO
+	mail-ob0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751409AbaJCFqS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Oct 2014 01:46:18 -0400
+Received: by mail-ob0-f176.google.com with SMTP id m8so353008obr.21
+        for <netdev@vger.kernel.org>; Thu, 02 Oct 2014 22:46:18 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Suspicious RCU usage in qdisc_watchdog call needs to be done inside
-rcu_read_lock/rcu_read_unlock. And then Qdisc destroy operations
-need to ensure timer is cancelled before removing qdisc structure.
+Using the tcf_proto pointer 'tp' from inside the classifiers callback
+is not valid because it may have been cleaned up by another call_rcu
+occuring on another CPU.
 
-[ 3992.191339] ===============================
-[ 3992.191340] [ INFO: suspicious RCU usage. ]
-[ 3992.191343] 3.17.0-rc6net-next+ #72 Not tainted
-[ 3992.191345] -------------------------------
-[ 3992.191347] include/net/sch_generic.h:272 suspicious rcu_dereference_check() usage!
-[ 3992.191348]
-[ 3992.191348] other info that might help us debug this:
-[ 3992.191348]
-[ 3992.191351]
-[ 3992.191351] rcu_scheduler_active = 1, debug_locks = 1
-[ 3992.191353] no locks held by swapper/1/0.
-[ 3992.191355]
-[ 3992.191355] stack backtrace:
-[ 3992.191358] CPU: 1 PID: 0 Comm: swapper/1 Not tainted 3.17.0-rc6net-next+ #72
-[ 3992.191360] Hardware name:                  /DZ77RE-75K, BIOS GAZ7711H.86A.0060.2012.1115.1750 11/15/2012
-[ 3992.191362]  0000000000000001 ffff880235803e48 ffffffff8178f92c 0000000000000000
-[ 3992.191366]  ffff8802322224a0 ffff880235803e78 ffffffff810c9966 ffff8800a5fe3000
-[ 3992.191370]  ffff880235803f30 ffff8802359cd768 ffff8802359cd6e0 ffff880235803e98
-[ 3992.191374] Call Trace:
-[ 3992.191376]  <IRQ>  [<ffffffff8178f92c>] dump_stack+0x4e/0x68
-[ 3992.191387]  [<ffffffff810c9966>] lockdep_rcu_suspicious+0xe6/0x130
-[ 3992.191392]  [<ffffffff8167213a>] qdisc_watchdog+0x8a/0xb0
-[ 3992.191396]  [<ffffffff810f93f2>] __run_hrtimer+0x72/0x420
-[ 3992.191399]  [<ffffffff810f9bcd>] ? hrtimer_interrupt+0x7d/0x240
-[ 3992.191403]  [<ffffffff816720b0>] ? tc_classify+0xc0/0xc0
-[ 3992.191406]  [<ffffffff810f9c4f>] hrtimer_interrupt+0xff/0x240
-[ 3992.191410]  [<ffffffff8109e4a5>] ? __atomic_notifier_call_chain+0x5/0x140
-[ 3992.191415]  [<ffffffff8103577b>] local_apic_timer_interrupt+0x3b/0x60
-[ 3992.191419]  [<ffffffff8179c2b5>] smp_apic_timer_interrupt+0x45/0x60
-[ 3992.191422]  [<ffffffff8179a6bf>] apic_timer_interrupt+0x6f/0x80
-[ 3992.191424]  <EOI>  [<ffffffff815ed233>] ? cpuidle_enter_state+0x73/0x2e0
-[ 3992.191432]  [<ffffffff815ed22e>] ? cpuidle_enter_state+0x6e/0x2e0
-[ 3992.191437]  [<ffffffff815ed567>] cpuidle_enter+0x17/0x20
-[ 3992.191441]  [<ffffffff810c0741>] cpu_startup_entry+0x3d1/0x4a0
-[ 3992.191445]  [<ffffffff81106fc6>] ? clockevents_config_and_register+0x26/0x30
-[ 3992.191448]  [<ffffffff81033c16>] start_secondary+0x1b6/0x260
+'tp' is currently being used by tcf_unbind_filter() in this patch we
+move instances of tcf_unbind_filter outside of the call_rcu() context.
+This is safe to do because any running schedulers will either read the
+valid class field or it will be zeroed.
 
-Fixes: b26b0d1e8b1 ("net: qdisc: use rcu prefix and silence sparse warnings")
+And all schedulers today when the class is 0 do a lookup using the
+same call used by the tcf_exts_bind(). So even if we have a running
+classifier hit the null class pointer it will do a lookup and get
+to the same result. This is particularly fragile at the moment because
+the only way to verify this is to audit the schedulers call sites.
+
+Reported-by: Cong Wang <xiyou.wangconf@gmail.com>
 Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 ---
- net/sched/sch_api.c |    2 ++
- 1 file changed, 2 insertions(+)
+ net/sched/cls_basic.c |    4 +++-
+ net/sched/cls_bpf.c   |    4 +++-
+ net/sched/cls_fw.c    |    5 +++--
+ net/sched/cls_route.c |    8 +++++---
+ 4 files changed, 14 insertions(+), 7 deletions(-)
 
-diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index aa83295..c79a226 100644
---- a/net/sched/sch_api.c
-+++ b/net/sched/sch_api.c
-@@ -578,8 +578,10 @@ static enum hrtimer_restart qdisc_watchdog(struct hrtimer *timer)
- 	struct qdisc_watchdog *wd = container_of(timer, struct qdisc_watchdog,
- 						 timer);
+diff --git a/net/sched/cls_basic.c b/net/sched/cls_basic.c
+index fe20826..81ddfa6 100644
+--- a/net/sched/cls_basic.c
++++ b/net/sched/cls_basic.c
+@@ -93,7 +93,6 @@ static void basic_delete_filter(struct rcu_head *head)
+ 	struct basic_filter *f = container_of(head, struct basic_filter, rcu);
+ 	struct tcf_proto *tp = f->tp;
  
-+	rcu_read_lock();
- 	qdisc_unthrottled(wd->qdisc);
- 	__netif_schedule(qdisc_root(wd->qdisc));
-+	rcu_read_unlock();
+-	tcf_unbind_filter(tp, &f->res);
+ 	tcf_exts_destroy(&f->exts);
+ 	tcf_em_tree_destroy(tp, &f->ematches);
+ 	kfree(f);
+@@ -106,6 +105,7 @@ static void basic_destroy(struct tcf_proto *tp)
  
- 	return HRTIMER_NORESTART;
+ 	list_for_each_entry_safe(f, n, &head->flist, link) {
+ 		list_del_rcu(&f->link);
++		tcf_unbind_filter(tp, &f->res);
+ 		call_rcu(&f->rcu, basic_delete_filter);
+ 	}
+ 	RCU_INIT_POINTER(tp->root, NULL);
+@@ -120,6 +120,7 @@ static int basic_delete(struct tcf_proto *tp, unsigned long arg)
+ 	list_for_each_entry(t, &head->flist, link)
+ 		if (t == f) {
+ 			list_del_rcu(&t->link);
++			tcf_unbind_filter(tp, &t->res);
+ 			call_rcu(&t->rcu, basic_delete_filter);
+ 			return 0;
+ 		}
+@@ -222,6 +223,7 @@ static int basic_change(struct net *net, struct sk_buff *in_skb,
+ 
+ 	if (fold) {
+ 		list_replace_rcu(&fold->link, &fnew->link);
++		tcf_unbind_filter(tp, &fold->res);
+ 		call_rcu(&fold->rcu, basic_delete_filter);
+ 	} else {
+ 		list_add_rcu(&fnew->link, &head->flist);
+diff --git a/net/sched/cls_bpf.c b/net/sched/cls_bpf.c
+index 4318d06..eed49d1 100644
+--- a/net/sched/cls_bpf.c
++++ b/net/sched/cls_bpf.c
+@@ -92,7 +92,6 @@ static int cls_bpf_init(struct tcf_proto *tp)
+ 
+ static void cls_bpf_delete_prog(struct tcf_proto *tp, struct cls_bpf_prog *prog)
+ {
+-	tcf_unbind_filter(tp, &prog->res);
+ 	tcf_exts_destroy(&prog->exts);
+ 
+ 	bpf_prog_destroy(prog->filter);
+@@ -116,6 +115,7 @@ static int cls_bpf_delete(struct tcf_proto *tp, unsigned long arg)
+ 	list_for_each_entry(prog, &head->plist, link) {
+ 		if (prog == todel) {
+ 			list_del_rcu(&prog->link);
++			tcf_unbind_filter(tp, &prog->res);
+ 			call_rcu(&prog->rcu, __cls_bpf_delete_prog);
+ 			return 0;
+ 		}
+@@ -131,6 +131,7 @@ static void cls_bpf_destroy(struct tcf_proto *tp)
+ 
+ 	list_for_each_entry_safe(prog, tmp, &head->plist, link) {
+ 		list_del_rcu(&prog->link);
++		tcf_unbind_filter(tp, &prog->res);
+ 		call_rcu(&prog->rcu, __cls_bpf_delete_prog);
+ 	}
+ 
+@@ -282,6 +283,7 @@ static int cls_bpf_change(struct net *net, struct sk_buff *in_skb,
+ 
+ 	if (oldprog) {
+ 		list_replace_rcu(&prog->link, &oldprog->link);
++		tcf_unbind_filter(tp, &oldprog->res);
+ 		call_rcu(&oldprog->rcu, __cls_bpf_delete_prog);
+ 	} else {
+ 		list_add_rcu(&prog->link, &head->plist);
+diff --git a/net/sched/cls_fw.c b/net/sched/cls_fw.c
+index da805ae..dbfdfd1 100644
+--- a/net/sched/cls_fw.c
++++ b/net/sched/cls_fw.c
+@@ -123,9 +123,7 @@ static int fw_init(struct tcf_proto *tp)
+ static void fw_delete_filter(struct rcu_head *head)
+ {
+ 	struct fw_filter *f = container_of(head, struct fw_filter, rcu);
+-	struct tcf_proto *tp = f->tp;
+ 
+-	tcf_unbind_filter(tp, &f->res);
+ 	tcf_exts_destroy(&f->exts);
+ 	kfree(f);
  }
+@@ -143,6 +141,7 @@ static void fw_destroy(struct tcf_proto *tp)
+ 		while ((f = rtnl_dereference(head->ht[h])) != NULL) {
+ 			RCU_INIT_POINTER(head->ht[h],
+ 					 rtnl_dereference(f->next));
++			tcf_unbind_filter(tp, &f->res);
+ 			call_rcu(&f->rcu, fw_delete_filter);
+ 		}
+ 	}
+@@ -166,6 +165,7 @@ static int fw_delete(struct tcf_proto *tp, unsigned long arg)
+ 	     fp = &pfp->next, pfp = rtnl_dereference(*fp)) {
+ 		if (pfp == f) {
+ 			RCU_INIT_POINTER(*fp, rtnl_dereference(f->next));
++			tcf_unbind_filter(tp, &f->res);
+ 			call_rcu(&f->rcu, fw_delete_filter);
+ 			return 0;
+ 		}
+@@ -280,6 +280,7 @@ static int fw_change(struct net *net, struct sk_buff *in_skb,
+ 
+ 		RCU_INIT_POINTER(fnew->next, rtnl_dereference(pfp->next));
+ 		rcu_assign_pointer(*fp, fnew);
++		tcf_unbind_filter(tp, &f->res);
+ 		call_rcu(&f->rcu, fw_delete_filter);
+ 
+ 		*arg = (unsigned long)fnew;
+diff --git a/net/sched/cls_route.c b/net/sched/cls_route.c
+index b665aee..6f22baa 100644
+--- a/net/sched/cls_route.c
++++ b/net/sched/cls_route.c
+@@ -269,9 +269,7 @@ static void
+ route4_delete_filter(struct rcu_head *head)
+ {
+ 	struct route4_filter *f = container_of(head, struct route4_filter, rcu);
+-	struct tcf_proto *tp = f->tp;
+ 
+-	tcf_unbind_filter(tp, &f->res);
+ 	tcf_exts_destroy(&f->exts);
+ 	kfree(f);
+ }
+@@ -297,6 +295,7 @@ static void route4_destroy(struct tcf_proto *tp)
+ 
+ 					next = rtnl_dereference(f->next);
+ 					RCU_INIT_POINTER(b->ht[h2], next);
++					tcf_unbind_filter(tp, &f->res);
+ 					call_rcu(&f->rcu, route4_delete_filter);
+ 				}
+ 			}
+@@ -338,6 +337,7 @@ static int route4_delete(struct tcf_proto *tp, unsigned long arg)
+ 			route4_reset_fastmap(head);
+ 
+ 			/* Delete it */
++			tcf_unbind_filter(tp, &f->res);
+ 			call_rcu(&f->rcu, route4_delete_filter);
+ 
+ 			/* Strip RTNL protected tree */
+@@ -545,8 +545,10 @@ static int route4_change(struct net *net, struct sk_buff *in_skb,
+ 
+ 	route4_reset_fastmap(head);
+ 	*arg = (unsigned long)f;
+-	if (fold)
++	if (fold) {
++		tcf_unbind_filter(tp, &fold->res);
+ 		call_rcu(&fold->rcu, route4_delete_filter);
++	}
+ 	return 0;
+ 
+ errout:
