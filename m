@@ -1,63 +1,49 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net] ematch: Fix the matching of inverted containers (again).
-Date: Fri, 03 Oct 2014 16:22:29 +0400
-Message-ID: <542E9505.8010805@cogentembedded.com>
-References: <20141003080600.GA13146@zenon.in.qult.net>
+From: Mark Rutland <mark.rutland@arm.com>
+Subject: Re: [PATCH v2 3/6] dtb: Add 10GbE node to APM X-Gene SoC device tree
+Date: Fri, 3 Oct 2014 13:49:56 +0100
+Message-ID: <20141003124956.GI26643@leverpostej>
+References: <1412294568-26747-1-git-send-email-isubramanian@apm.com>
+ <1412294568-26747-4-git-send-email-isubramanian@apm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: =?ISO-8859-2?Q?Ignacy_Gaw=EAdzki?=
-	<ignacy.gawedzki@green-communications.fr>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"patches@apm.com" <patches@apm.com>,
+	"kchudgar@apm.com" <kchudgar@apm.com>
+To: Iyappan Subramanian <isubramanian@apm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f179.google.com ([209.85.217.179]:55579 "EHLO
-	mail-lb0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752233AbaJCMWd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Oct 2014 08:22:33 -0400
-Received: by mail-lb0-f179.google.com with SMTP id l4so873022lbv.38
-        for <netdev@vger.kernel.org>; Fri, 03 Oct 2014 05:22:31 -0700 (PDT)
-In-Reply-To: <20141003080600.GA13146@zenon.in.qult.net>
+Received: from cam-admin0.cambridge.arm.com ([217.140.96.50]:63885 "EHLO
+	cam-admin0.cambridge.arm.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751282AbaJCMuc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Oct 2014 08:50:32 -0400
+Content-Disposition: inline
+In-Reply-To: <1412294568-26747-4-git-send-email-isubramanian@apm.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Hi,
 
-On 10/3/2014 12:06 PM, Ignacy Gaw=EAdzki wrote:
+[...]
 
-> The result of a negated container has to be inverted before checking =
-for
-> early ending.
+> +		xgenet: ethernet@1f610000 {
+> +			compatible = "apm,xgene-enet";
+> +			status = "disabled";
+> +			reg = <0x0 0x1f610000 0x0 0xd100>,
+> +			      <0x0 0x1f600000 0x0 0X400>,
+> +			      <0x0 0x18000000 0x0 0X200>;
+> +			reg-names = "enet_csr", "ring_csr", "ring_cmd";
+> +			interrupts = <0x0 0x60 0x4>;
+> +			dma-coherent;
+> +			clocks = <&xge0clk 0>;
+> +			local-mac-address = [00 01 73 00 00 04];
 
-> Signed-off-by: Ignacy Gaw=EAdzki <ignacy.gawedzki@green-communication=
-s.fr>
-> ---
->   net/sched/ematch.c | 9 +++++----
->   1 file changed, 5 insertions(+), 4 deletions(-)
+Apolgoies, I'd missed your reply on this last time. Please use
+all-zeroes for the mac address, and have a comment that this will be
+overwritten by the bootloader.
 
-> diff --git a/net/sched/ematch.c b/net/sched/ematch.c
-> index ad57f44..300ecf6 100644
-> --- a/net/sched/ematch.c
-> +++ b/net/sched/ematch.c
-> @@ -526,11 +526,12 @@ pop_stack:
->   		match_idx =3D stack[--stackp];
->   		cur_match =3D tcf_em_get_match(tree, match_idx);
->
-> -		if (tcf_em_early_end(cur_match, res)) {
-> -			if (tcf_em_is_inverted(cur_match))
-> -				res =3D !res;
-> +		if (tcf_em_is_inverted(cur_match))
-> +			res =3D !res;
-> +
-> +		if (tcf_em_early_end(cur_match, res))
->   			goto pop_stack;
-> -		} else {
-> +		else {
->   			match_idx++;
->   			goto proceed;
->   		}
-
-    The kernel style dictates that an *if* statement should have {} in =
-all its=20
-arms, if it has {} in at least one of the arms.
-
-WBR, Sergei
+Thanks,
+Mark.
