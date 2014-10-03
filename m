@@ -1,43 +1,48 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [net-next PATCH] veth: don't assign a qdisc to veth
-Date: Fri, 03 Oct 2014 12:48:58 +0200
-Message-ID: <20141003104858.6745.62964.stgit@dragon>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: Re: [RFC PATCH linux 2/2] fs/proc: use a hash table for the directory entries
+Date: Fri, 3 Oct 2014 13:55:51 +0300
+Message-ID: <CACVxJT98EJvw1E+o6mpu8ugMz3Ztqz7pJOwZeZW9A41P0AhB_g@mail.gmail.com>
+References: <20131003.150947.2179820478039260398.davem@davemloft.net>
+	<1412263501-6572-1-git-send-email-nicolas.dichtel@6wind.com>
+	<1412263501-6572-3-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jpirko@redhat.com>, mpatel@redhat.com
-To: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:3818 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751282AbaJCKtA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Oct 2014 06:49:00 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	rui.xiang@huawei.com, Al Viro <viro@zeniv.linux.org.uk>,
+	Oleg Nesterov <oleg@redhat.com>,
+	Cyrill Gorcunov <gorcunov@openvz.org>,
+	kirill.shutemov@linux.intel.com,
+	Grant Likely <grant.likely@secretlab.ca>,
+	"Theodore Ts'o" <tytso@mit.edu>,
+	Thierry Herbelot <thierry.herbelot@6wind.com>
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1412263501-6572-3-git-send-email-nicolas.dichtel@6wind.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The veth driver is a virtual device, and should not have assigned
-the default qdisc.  Verified (ndo_start_xmit) veth_xmit can only
-return NETDEV_TX_OK, thus this should be safe to bypass qdisc.
+On Thu, Oct 2, 2014 at 6:25 PM, Nicolas Dichtel
+<nicolas.dichtel@6wind.com> wrote:
+> --- a/fs/proc/generic.c
+> +++ b/fs/proc/generic.c
+> @@ -81,10 +81,13 @@ static int __xlate_proc_name(const char *name, struct proc_dir_entry **ret,
 
-Not assigning a qdisc is subtly done by setting tx_queue_len to zero.
+> +       if (!S_ISDIR(de->mode))
+> +               return -EINVAL;
 
-Reported-by: Mrunal Patel <mpatel@redhat.com>
-Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
----
+There are way too many S_ISDIR checks.
+In lookup and readdir, it is guaranteed that PDE is directory.
 
- drivers/net/veth.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+I'd say all of them aren't needed because non-directories have
+->subdir = NULL and
+directories have ->subdir != NULL which transforms into hashtable or
+rbtree or whatever,
+so you only need to guarantee only directories appear where they are
+expected and
+fearlessly use your new data structure traversing directories.
 
-diff --git a/drivers/net/veth.c b/drivers/net/veth.c
-index 8ad5965..3c32fcf 100644
---- a/drivers/net/veth.c
-+++ b/drivers/net/veth.c
-@@ -287,6 +287,7 @@ static const struct net_device_ops veth_netdev_ops = {
- static void veth_setup(struct net_device *dev)
- {
- 	ether_setup(dev);
-+	dev->tx_queue_len = 0;
- 
- 	dev->priv_flags &= ~IFF_TX_SKB_SHARING;
- 	dev->priv_flags |= IFF_LIVE_ADDR_CHANGE;
+    Alexey
