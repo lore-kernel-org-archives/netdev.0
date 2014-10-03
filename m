@@ -1,113 +1,226 @@
 From: Andy Zhou <azhou@nicira.com>
-Subject: [net-next v2 3/6] openvswitch: Add support for matching on OAM packets.
-Date: Fri,  3 Oct 2014 15:35:30 -0700
-Message-ID: <1412375733-30981-4-git-send-email-azhou@nicira.com>
+Subject: [net-next v2 2/6] openvswitch: Eliminate memset() from flow_extract.
+Date: Fri,  3 Oct 2014 15:35:29 -0700
+Message-ID: <1412375733-30981-3-git-send-email-azhou@nicira.com>
 References: <1412375733-30981-1-git-send-email-azhou@nicira.com>
 Cc: netdev@vger.kernel.org, Jesse Gross <jesse@nicira.com>,
 	Andy Zhou <azhou@nicira.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog109.obsmtp.com ([74.125.149.201]:50585 "HELO
-	na3sys009aog109.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1756880AbaJCWmW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Oct 2014 18:42:22 -0400
-Received: by mail-pd0-f178.google.com with SMTP id y10so281530pdj.37
-        for <netdev@vger.kernel.org>; Fri, 03 Oct 2014 15:42:22 -0700 (PDT)
+Received: from na3sys009aog123.obsmtp.com ([74.125.149.149]:49266 "HELO
+	na3sys009aog123.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1758746AbaJCWm0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Oct 2014 18:42:26 -0400
+Received: by mail-pd0-f182.google.com with SMTP id y10so299492pdj.13
+        for <netdev@vger.kernel.org>; Fri, 03 Oct 2014 15:42:21 -0700 (PDT)
 In-Reply-To: <1412375733-30981-1-git-send-email-azhou@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jesse Gross <jesse@nicira.com>
 
-Some tunnel formats have mechanisms for indicating that packets are
-OAM frames that should be handled specially (either as high priority or
-not forwarded beyond an endpoint). This provides support for allowing
-those types of packets to be matched.
+As new protocols are added, the size of the flow key tends to
+increase although few protocols care about all of the fields. In
+order to optimize this for hashing and matching, OVS uses a variable
+length portion of the key. However, when fields are extracted from
+the packet we must still zero out the entire key.
 
+This is no longer necessary now that OVS implements masking. Any
+fields (or holes in the structure) which are not part of a given
+protocol will be by definition not part of the mask and zeroed out
+during lookup. Furthermore, since masking already uses variable
+length keys this zeroing operation automatically benefits as well.
+
+In principle, the only thing that needs to be done at this point
+is remove the memset() at the beginning of flow. However, some
+fields assume that they are initialized to zero, which now must be
+done explicitly. In addition, in the event of an error we must also
+zero out corresponding fields to signal that there is no valid data
+present. These increase the total amount of code but very little of
+it is executed in non-error situations.
+
+Removing the memset() reduces the profile of ovs_flow_extract()
+from 0.64% to 0.56% when tested with large packets on a 10G link.
+
+Suggested-by: Pravin Shelar <pshelar@nicira.com>
 Signed-off-by: Jesse Gross <jesse@nicira.com>
 Signed-off-by: Andy Zhou <azhou@nicira.com>
 Acked-by: Pravin B Shelar <pshelar@nicira.com>
 ---
- include/uapi/linux/openvswitch.h |    1 +
- net/openvswitch/datapath.c       |    1 +
- net/openvswitch/flow_netlink.c   |   17 ++++++++++++-----
- 3 files changed, 14 insertions(+), 5 deletions(-)
+ net/openvswitch/flow.c |   54 ++++++++++++++++++++++++++++++++++++++++--------
+ 1 file changed, 45 insertions(+), 9 deletions(-)
 
-diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
-index f7fc507..7c06106 100644
---- a/include/uapi/linux/openvswitch.h
-+++ b/include/uapi/linux/openvswitch.h
-@@ -309,6 +309,7 @@ enum ovs_tunnel_key_attr {
- 	OVS_TUNNEL_KEY_ATTR_TTL,                /* u8 Tunnel IP TTL. */
- 	OVS_TUNNEL_KEY_ATTR_DONT_FRAGMENT,      /* No argument, set DF. */
- 	OVS_TUNNEL_KEY_ATTR_CSUM,               /* No argument. CSUM packet. */
-+	OVS_TUNNEL_KEY_ATTR_OAM,                /* No argument. OAM frame.  */
- 	__OVS_TUNNEL_KEY_ATTR_MAX
- };
+diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
+index 4010423..913bdc1 100644
+--- a/net/openvswitch/flow.c
++++ b/net/openvswitch/flow.c
+@@ -462,6 +462,7 @@ static int key_extract(struct sk_buff *skb, struct sw_flow_key *key)
+ 	 * update skb->csum here.
+ 	 */
  
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index 9e3a2fa..f6bd93d 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -369,6 +369,7 @@ static size_t key_attr_size(void)
- 		  + nla_total_size(1)   /* OVS_TUNNEL_KEY_ATTR_TTL */
- 		  + nla_total_size(0)   /* OVS_TUNNEL_KEY_ATTR_DONT_FRAGMENT */
- 		  + nla_total_size(0)   /* OVS_TUNNEL_KEY_ATTR_CSUM */
-+		  + nla_total_size(0)   /* OVS_TUNNEL_KEY_ATTR_OAM */
- 		+ nla_total_size(4)   /* OVS_KEY_ATTR_IN_PORT */
- 		+ nla_total_size(4)   /* OVS_KEY_ATTR_SKB_MARK */
- 		+ nla_total_size(12)  /* OVS_KEY_ATTR_ETHERNET */
-diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
-index f4c8daa..22c855f 100644
---- a/net/openvswitch/flow_netlink.c
-+++ b/net/openvswitch/flow_netlink.c
-@@ -346,6 +346,7 @@ static int ipv4_tun_from_nlattr(const struct nlattr *attr,
- 			[OVS_TUNNEL_KEY_ATTR_TTL] = 1,
- 			[OVS_TUNNEL_KEY_ATTR_DONT_FRAGMENT] = 0,
- 			[OVS_TUNNEL_KEY_ATTR_CSUM] = 0,
-+			[OVS_TUNNEL_KEY_ATTR_OAM] = 0,
- 		};
++	key->eth.tci = 0;
+ 	if (vlan_tx_tag_present(skb))
+ 		key->eth.tci = htons(skb->vlan_tci);
+ 	else if (eth->h_proto == htons(ETH_P_8021Q))
+@@ -482,6 +483,8 @@ static int key_extract(struct sk_buff *skb, struct sw_flow_key *key)
  
- 		if (type > OVS_TUNNEL_KEY_ATTR_MAX) {
-@@ -390,6 +391,9 @@ static int ipv4_tun_from_nlattr(const struct nlattr *attr,
- 		case OVS_TUNNEL_KEY_ATTR_CSUM:
- 			tun_flags |= TUNNEL_CSUM;
- 			break;
-+		case OVS_TUNNEL_KEY_ATTR_OAM:
-+			tun_flags |= TUNNEL_OAM;
-+			break;
- 		default:
- 			return -EINVAL;
+ 		error = check_iphdr(skb);
+ 		if (unlikely(error)) {
++			memset(&key->ip, 0, sizeof(key->ip));
++			memset(&key->ipv4, 0, sizeof(key->ipv4));
+ 			if (error == -EINVAL) {
+ 				skb->transport_header = skb->network_header;
+ 				error = 0;
+@@ -503,8 +506,10 @@ static int key_extract(struct sk_buff *skb, struct sw_flow_key *key)
+ 			return 0;
  		}
-@@ -431,21 +435,24 @@ static int ipv4_tun_to_nlattr(struct sk_buff *skb,
- 	    nla_put_be64(skb, OVS_TUNNEL_KEY_ATTR_ID, output->tun_id))
- 		return -EMSGSIZE;
- 	if (output->ipv4_src &&
--		nla_put_be32(skb, OVS_TUNNEL_KEY_ATTR_IPV4_SRC, output->ipv4_src))
-+	    nla_put_be32(skb, OVS_TUNNEL_KEY_ATTR_IPV4_SRC, output->ipv4_src))
- 		return -EMSGSIZE;
- 	if (output->ipv4_dst &&
--		nla_put_be32(skb, OVS_TUNNEL_KEY_ATTR_IPV4_DST, output->ipv4_dst))
-+	    nla_put_be32(skb, OVS_TUNNEL_KEY_ATTR_IPV4_DST, output->ipv4_dst))
- 		return -EMSGSIZE;
- 	if (output->ipv4_tos &&
--		nla_put_u8(skb, OVS_TUNNEL_KEY_ATTR_TOS, output->ipv4_tos))
-+	    nla_put_u8(skb, OVS_TUNNEL_KEY_ATTR_TOS, output->ipv4_tos))
- 		return -EMSGSIZE;
- 	if (nla_put_u8(skb, OVS_TUNNEL_KEY_ATTR_TTL, output->ipv4_ttl))
- 		return -EMSGSIZE;
- 	if ((output->tun_flags & TUNNEL_DONT_FRAGMENT) &&
--		nla_put_flag(skb, OVS_TUNNEL_KEY_ATTR_DONT_FRAGMENT))
-+	    nla_put_flag(skb, OVS_TUNNEL_KEY_ATTR_DONT_FRAGMENT))
- 		return -EMSGSIZE;
- 	if ((output->tun_flags & TUNNEL_CSUM) &&
--		nla_put_flag(skb, OVS_TUNNEL_KEY_ATTR_CSUM))
-+	    nla_put_flag(skb, OVS_TUNNEL_KEY_ATTR_CSUM))
-+		return -EMSGSIZE;
-+	if ((output->tun_flags & TUNNEL_OAM) &&
-+	    nla_put_flag(skb, OVS_TUNNEL_KEY_ATTR_OAM))
- 		return -EMSGSIZE;
+ 		if (nh->frag_off & htons(IP_MF) ||
+-			 skb_shinfo(skb)->gso_type & SKB_GSO_UDP)
++			skb_shinfo(skb)->gso_type & SKB_GSO_UDP)
+ 			key->ip.frag = OVS_FRAG_TYPE_FIRST;
++		else
++			key->ip.frag = OVS_FRAG_TYPE_NONE;
  
- 	nla_nest_end(skb, nla);
+ 		/* Transport layer. */
+ 		if (key->ip.proto == IPPROTO_TCP) {
+@@ -513,18 +518,25 @@ static int key_extract(struct sk_buff *skb, struct sw_flow_key *key)
+ 				key->tp.src = tcp->source;
+ 				key->tp.dst = tcp->dest;
+ 				key->tp.flags = TCP_FLAGS_BE16(tcp);
++			} else {
++				memset(&key->tp, 0, sizeof(key->tp));
+ 			}
++
+ 		} else if (key->ip.proto == IPPROTO_UDP) {
+ 			if (udphdr_ok(skb)) {
+ 				struct udphdr *udp = udp_hdr(skb);
+ 				key->tp.src = udp->source;
+ 				key->tp.dst = udp->dest;
++			} else {
++				memset(&key->tp, 0, sizeof(key->tp));
+ 			}
+ 		} else if (key->ip.proto == IPPROTO_SCTP) {
+ 			if (sctphdr_ok(skb)) {
+ 				struct sctphdr *sctp = sctp_hdr(skb);
+ 				key->tp.src = sctp->source;
+ 				key->tp.dst = sctp->dest;
++			} else {
++				memset(&key->tp, 0, sizeof(key->tp));
+ 			}
+ 		} else if (key->ip.proto == IPPROTO_ICMP) {
+ 			if (icmphdr_ok(skb)) {
+@@ -534,33 +546,44 @@ static int key_extract(struct sk_buff *skb, struct sw_flow_key *key)
+ 				 * them in 16-bit network byte order. */
+ 				key->tp.src = htons(icmp->type);
+ 				key->tp.dst = htons(icmp->code);
++			} else {
++				memset(&key->tp, 0, sizeof(key->tp));
+ 			}
+ 		}
+ 
+-	} else if ((key->eth.type == htons(ETH_P_ARP) ||
+-		   key->eth.type == htons(ETH_P_RARP)) && arphdr_ok(skb)) {
++	} else if (key->eth.type == htons(ETH_P_ARP) ||
++		   key->eth.type == htons(ETH_P_RARP)) {
+ 		struct arp_eth_header *arp;
+ 
+ 		arp = (struct arp_eth_header *)skb_network_header(skb);
+ 
+-		if (arp->ar_hrd == htons(ARPHRD_ETHER)
+-				&& arp->ar_pro == htons(ETH_P_IP)
+-				&& arp->ar_hln == ETH_ALEN
+-				&& arp->ar_pln == 4) {
++		if (arphdr_ok(skb) &&
++		    arp->ar_hrd == htons(ARPHRD_ETHER) &&
++		    arp->ar_pro == htons(ETH_P_IP) &&
++		    arp->ar_hln == ETH_ALEN &&
++		    arp->ar_pln == 4) {
+ 
+ 			/* We only match on the lower 8 bits of the opcode. */
+ 			if (ntohs(arp->ar_op) <= 0xff)
+ 				key->ip.proto = ntohs(arp->ar_op);
++			else
++				key->ip.proto = 0;
++
+ 			memcpy(&key->ipv4.addr.src, arp->ar_sip, sizeof(key->ipv4.addr.src));
+ 			memcpy(&key->ipv4.addr.dst, arp->ar_tip, sizeof(key->ipv4.addr.dst));
+ 			ether_addr_copy(key->ipv4.arp.sha, arp->ar_sha);
+ 			ether_addr_copy(key->ipv4.arp.tha, arp->ar_tha);
++		} else {
++			memset(&key->ip, 0, sizeof(key->ip));
++			memset(&key->ipv4, 0, sizeof(key->ipv4));
+ 		}
+ 	} else if (key->eth.type == htons(ETH_P_IPV6)) {
+ 		int nh_len;             /* IPv6 Header + Extensions */
+ 
+ 		nh_len = parse_ipv6hdr(skb, key);
+ 		if (unlikely(nh_len < 0)) {
++			memset(&key->ip, 0, sizeof(key->ip));
++			memset(&key->ipv6.addr, 0, sizeof(key->ipv6.addr));
+ 			if (nh_len == -EINVAL) {
+ 				skb->transport_header = skb->network_header;
+ 				error = 0;
+@@ -582,24 +605,32 @@ static int key_extract(struct sk_buff *skb, struct sw_flow_key *key)
+ 				key->tp.src = tcp->source;
+ 				key->tp.dst = tcp->dest;
+ 				key->tp.flags = TCP_FLAGS_BE16(tcp);
++			} else {
++				memset(&key->tp, 0, sizeof(key->tp));
+ 			}
+ 		} else if (key->ip.proto == NEXTHDR_UDP) {
+ 			if (udphdr_ok(skb)) {
+ 				struct udphdr *udp = udp_hdr(skb);
+ 				key->tp.src = udp->source;
+ 				key->tp.dst = udp->dest;
++			} else {
++				memset(&key->tp, 0, sizeof(key->tp));
+ 			}
+ 		} else if (key->ip.proto == NEXTHDR_SCTP) {
+ 			if (sctphdr_ok(skb)) {
+ 				struct sctphdr *sctp = sctp_hdr(skb);
+ 				key->tp.src = sctp->source;
+ 				key->tp.dst = sctp->dest;
++			} else {
++				memset(&key->tp, 0, sizeof(key->tp));
+ 			}
+ 		} else if (key->ip.proto == NEXTHDR_ICMP) {
+ 			if (icmp6hdr_ok(skb)) {
+ 				error = parse_icmpv6(skb, key, nh_len);
+ 				if (error)
+ 					return error;
++			} else {
++				memset(&key->tp, 0, sizeof(key->tp));
+ 			}
+ 		}
+ 	}
+@@ -615,13 +646,19 @@ int ovs_flow_key_extract(struct ovs_key_ipv4_tunnel *tun_key,
+ 			 struct sk_buff *skb, struct sw_flow_key *key)
+ {
+ 	/* Extract metadata from packet. */
+-	memset(key, 0, sizeof(*key));
+ 	if (tun_key)
+ 		memcpy(&key->tun_key, tun_key, sizeof(key->tun_key));
++	else
++		memset(&key->tun_key, 0, sizeof(key->tun_key));
+ 
+ 	key->phy.priority = skb->priority;
+ 	key->phy.in_port = OVS_CB(skb)->input_vport->port_no;
+ 	key->phy.skb_mark = skb->mark;
++	key->ovs_flow_hash = 0;
++	key->recirc_id = 0;
++
++	/* Flags are always used as part of stats */
++	key->tp.flags = 0;
+ 
+ 	return key_extract(skb, key);
+ }
+@@ -632,7 +669,6 @@ int ovs_flow_key_extract_userspace(const struct nlattr *attr,
+ {
+ 	int err;
+ 
+-	memset(key, 0, sizeof(*key));
+ 	/* Extract metadata from netlink attributes. */
+ 	err = ovs_nla_get_flow_metadata(attr, key);
+ 	if (err)
 -- 
 1.7.9.5
