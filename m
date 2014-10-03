@@ -1,89 +1,110 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: macvlan: optimizing the receive path?
-Date: Fri, 03 Oct 2014 12:16:23 -0400
-Message-ID: <542ECBD7.7030807@gmail.com>
-References: <542DB55D.3090601@akamai.com>
+From: Claudiu Manoil <claudiu.manoil@freescale.com>
+Subject: [net 7/8] gianfar: Replace spin_event_timeout() with arch independent
+Date: Fri, 3 Oct 2014 19:02:48 +0300
+Message-ID: <1412352169-14414-8-git-send-email-claudiu.manoil@freescale.com>
+References: <1412352169-14414-1-git-send-email-claudiu.manoil@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net
-To: Jason Baron <jbaron@akamai.com>, netdev@vger.kernel.org
+Content-Type: text/plain
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Xiubo Li <Li.Xiubo@freescale.com>,
+	Shruti Kanetkar <Shruti@freescale.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f173.google.com ([209.85.216.173]:34979 "EHLO
-	mail-qc0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754037AbaJCQQ1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Oct 2014 12:16:27 -0400
-Received: by mail-qc0-f173.google.com with SMTP id x13so1243538qcv.4
-        for <netdev@vger.kernel.org>; Fri, 03 Oct 2014 09:16:26 -0700 (PDT)
-In-Reply-To: <542DB55D.3090601@akamai.com>
+Received: from mail-by2on0122.outbound.protection.outlook.com ([207.46.100.122]:58272
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753448AbaJCQXi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Oct 2014 12:23:38 -0400
+In-Reply-To: <1412352169-14414-1-git-send-email-claudiu.manoil@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/02/2014 04:28 PM, Jason Baron wrote:
-> Hi,
-> 
-> I was just wondering why the netif_rx(skb) call in macvlan_handle_frame()
-> was necessary? IE:
-> 
-> macvlan_handle_frame()
-> {
->        ........
-> 
->         skb->dev = dev;
->         skb->pkt_type = PACKET_HOST;
-> 
-> ****>ret = netif_rx(skb);
-> 
-> out:
->         macvlan_count_rx(vlan, len, ret == NET_RX_SUCCESS, 0);
->         return RX_HANDLER_CONSUMED;
-> }
-> 
-> 
-> I think the point of going through netif_rx() is to ensure that we throttle
-> incoming packets, but hasn't that already been accomplished in this path?
-> That is if the packets are arriving from the physical NIC, we've already
-> throttled them by this point. Otherwise, if they are coming via
-> macvlan_queue_xmit(), it calls either 'dev_forward_skb()', which ends
-> up calling netif_rx_internal(), or else in broadcast mode there is
-> to be throttling via macvlan_broadcast_enqueue().
-> 
-> So I suspect there is a code path that I am missing but the netif_rx() call in
-> question essentially re-queues packets coming from off the box. I've tried the
-> simple patch below to optimize this path, and obviously performs a lot better
-> in my limited testing.
+Use arch independent code to replace the powerpc dependent
+spin_event_timeout() from gfar_halt_nodisable().
+Added GRS/GTS read accessors to clean-up the implementation
+of gfar_halt_nodisable().
 
-Hi Jason
+Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
+---
+ drivers/net/ethernet/freescale/gianfar.c | 32 +++++++++++++++++++-------------
+ drivers/net/ethernet/freescale/gianfar.h | 15 +++++++++++++++
+ 2 files changed, 34 insertions(+), 13 deletions(-)
 
-I think the patch below is fine and in this particular case, it's OK to do this.
-
--vlad
-
-> 
-> Thanks,
-> 
-> -Jason
-> 
-> --- a/drivers/net/macvlan.c
-> +++ b/drivers/net/macvlan.c
-> @@ -321,8 +321,8 @@ static rx_handler_result_t macvlan_handle_frame(struct sk_buff **pskb)
->         skb->dev = dev;
->         skb->pkt_type = PACKET_HOST;
->  
-> -       ret = netif_rx(skb);
-> -
-> +      macvlan_count_rx(vlan, len, true, 0);
-> +      return RX_HANDLER_ANOTHER;
->  out:
->         macvlan_count_rx(vlan, len, ret == NET_RX_SUCCESS, 0);
->         return RX_HANDLER_CONSUMED;
-> 
-> 
-> 
-> 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
+index 961198a..356a998 100644
+--- a/drivers/net/ethernet/freescale/gianfar.c
++++ b/drivers/net/ethernet/freescale/gianfar.c
+@@ -1762,26 +1762,32 @@ static void gfar_halt_nodisable(struct gfar_private *priv)
+ {
+ 	struct gfar __iomem *regs = priv->gfargrp[0].regs;
+ 	u32 tempval;
++	unsigned int timeout;
++	int stopped;
+ 
+ 	gfar_ints_disable(priv);
+ 
++	if (gfar_is_dma_stopped(priv))
++		return;
++
+ 	/* Stop the DMA, and wait for it to stop */
+ 	tempval = gfar_read(&regs->dmactrl);
+-	if ((tempval & (DMACTRL_GRS | DMACTRL_GTS)) !=
+-	    (DMACTRL_GRS | DMACTRL_GTS)) {
+-		int ret;
+-
+-		tempval |= (DMACTRL_GRS | DMACTRL_GTS);
+-		gfar_write(&regs->dmactrl, tempval);
++	tempval |= (DMACTRL_GRS | DMACTRL_GTS);
++	gfar_write(&regs->dmactrl, tempval);
+ 
+-		do {
+-			ret = spin_event_timeout(((gfar_read(&regs->ievent) &
+-				 (IEVENT_GRSC | IEVENT_GTSC)) ==
+-				 (IEVENT_GRSC | IEVENT_GTSC)), 1000000, 0);
+-			if (!ret && !(gfar_read(&regs->ievent) & IEVENT_GRSC))
+-				ret = __gfar_is_rx_idle(priv);
+-		} while (!ret);
++retry:
++	timeout = 1000;
++	while (!(stopped = gfar_is_dma_stopped(priv)) && timeout) {
++		cpu_relax();
++		timeout--;
+ 	}
++
++	if (!timeout)
++		stopped = gfar_is_dma_stopped(priv);
++
++	if (!stopped && !gfar_is_rx_dma_stopped(priv) &&
++	    !__gfar_is_rx_idle(priv))
++		goto retry;
+ }
+ 
+ /* Halt the receive and transmit queues */
+diff --git a/drivers/net/ethernet/freescale/gianfar.h b/drivers/net/ethernet/freescale/gianfar.h
+index 84632c5..0b37722 100644
+--- a/drivers/net/ethernet/freescale/gianfar.h
++++ b/drivers/net/ethernet/freescale/gianfar.h
+@@ -1226,6 +1226,21 @@ static inline void gfar_write_isrg(struct gfar_private *priv)
+ 	}
+ }
+ 
++static inline int gfar_is_dma_stopped(struct gfar_private *priv)
++{
++	struct gfar __iomem *regs = priv->gfargrp[0].regs;
++
++	return ((gfar_read(&regs->ievent) & (IEVENT_GRSC | IEVENT_GTSC)) ==
++	       (IEVENT_GRSC | IEVENT_GTSC));
++}
++
++static inline int gfar_is_rx_dma_stopped(struct gfar_private *priv)
++{
++	struct gfar __iomem *regs = priv->gfargrp[0].regs;
++
++	return gfar_read(&regs->ievent) & IEVENT_GRSC;
++}
++
+ irqreturn_t gfar_receive(int irq, void *dev_id);
+ int startup_gfar(struct net_device *dev);
+ void stop_gfar(struct net_device *dev);
+-- 
+1.7.11.7
