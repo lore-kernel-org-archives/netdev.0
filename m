@@ -1,7 +1,7 @@
 From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Subject: [net 5/8] gianfar: Exclude PPC specific errata handling from ARM builds
-Date: Fri, 3 Oct 2014 19:02:46 +0300
-Message-ID: <1412352169-14414-6-git-send-email-claudiu.manoil@freescale.com>
+Subject: [net 8/8] gianfar: Replace eieio with wmb for non-PPC archs
+Date: Fri, 3 Oct 2014 19:02:49 +0300
+Message-ID: <1412352169-14414-9-git-send-email-claudiu.manoil@freescale.com>
 References: <1412352169-14414-1-git-send-email-claudiu.manoil@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,68 +10,86 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	Shruti Kanetkar <Shruti@freescale.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0130.outbound.protection.outlook.com ([207.46.100.130]:58433
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+Received: from mail-bn1bon0142.outbound.protection.outlook.com ([157.56.111.142]:60463
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752668AbaJCQY6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Oct 2014 12:24:58 -0400
+	id S1752668AbaJCQZY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Oct 2014 12:25:24 -0400
 In-Reply-To: <1412352169-14414-1-git-send-email-claudiu.manoil@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This excludes the PPC specific instructions for PPC based SoC
-(MPC85xx family) version identification from ARM builds.
-The PPC specific macro mfspr() from asm/reg.h is not defined
-by the ARM architecture.
+Replace PPC specific eieio() with arch independent wmb()
+for other architectures, i.e. ARM.
+The eieio() macro is not defined on ARM and generates
+build error.
 
 Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
 ---
- drivers/net/ethernet/freescale/gianfar.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+ drivers/net/ethernet/freescale/gianfar.c | 13 +++----------
+ drivers/net/ethernet/freescale/gianfar.h | 16 ++++++++++++++++
+ 2 files changed, 19 insertions(+), 10 deletions(-)
 
 diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-index a488105..37e0604 100644
+index 356a998..379b1a5 100644
 --- a/drivers/net/ethernet/freescale/gianfar.c
 +++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -88,8 +88,10 @@
- #include <linux/net_tstamp.h>
+@@ -165,7 +165,7 @@ static void gfar_init_rxbdp(struct gfar_priv_rx_q *rx_queue, struct rxbd8 *bdp,
+ 	if (bdp == rx_queue->rx_bd_base + rx_queue->rx_ring_size - 1)
+ 		lstatus |= BD_LFLAG(RXBD_WRAP);
  
- #include <asm/io.h>
-+#ifdef CONFIG_PPC
- #include <asm/reg.h>
- #include <asm/mpc85xx.h>
-+#endif
- #include <asm/irq.h>
- #include <asm/uaccess.h>
- #include <linux/module.h>
-@@ -1063,6 +1065,7 @@ static void gfar_init_filer_table(struct gfar_private *priv)
- 	}
+-	eieio();
++	gfar_wmb();
+ 
+ 	bdp->lstatus = lstatus;
+ }
+@@ -2371,18 +2371,11 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	 */
+ 	spin_lock_irqsave(&tx_queue->txlock, flags);
+ 
+-	/* The powerpc-specific eieio() is used, as wmb() has too strong
+-	 * semantics (it requires synchronization between cacheable and
+-	 * uncacheable mappings, which eieio doesn't provide and which we
+-	 * don't need), thus requiring a more expensive sync instruction.  At
+-	 * some point, the set of architecture-independent barrier functions
+-	 * should be expanded to include weaker barriers.
+-	 */
+-	eieio();
++	gfar_wmb();
+ 
+ 	txbdp_start->lstatus = lstatus;
+ 
+-	eieio(); /* force lstatus write before tx_skbuff */
++	gfar_wmb(); /* force lstatus write before tx_skbuff */
+ 
+ 	tx_queue->tx_skbuff[tx_queue->skb_curtx] = skb;
+ 
+diff --git a/drivers/net/ethernet/freescale/gianfar.h b/drivers/net/ethernet/freescale/gianfar.h
+index 0b37722..2805cfb 100644
+--- a/drivers/net/ethernet/freescale/gianfar.h
++++ b/drivers/net/ethernet/freescale/gianfar.h
+@@ -1241,6 +1241,22 @@ static inline int gfar_is_rx_dma_stopped(struct gfar_private *priv)
+ 	return gfar_read(&regs->ievent) & IEVENT_GRSC;
  }
  
-+#ifdef CONFIG_PPC
- static void __gfar_detect_errata_83xx(struct gfar_private *priv)
- {
- 	unsigned int pvr = mfspr(SPRN_PVR);
-@@ -1095,6 +1098,7 @@ static void __gfar_detect_errata_85xx(struct gfar_private *priv)
- 	    ((SVR_SOC_VER(svr) == SVR_P2010) && (SVR_REV(svr) < 0x20)))
- 		priv->errata |= GFAR_ERRATA_76; /* aka eTSEC 20 */
- }
++static inline void gfar_wmb(void)
++{
++#if defined(CONFIG_PPC)
++	/* The powerpc-specific eieio() is used, as wmb() has too strong
++	 * semantics (it requires synchronization between cacheable and
++	 * uncacheable mappings, which eieio() doesn't provide and which we
++	 * don't need), thus requiring a more expensive sync instruction.  At
++	 * some point, the set of architecture-independent barrier functions
++	 * should be expanded to include weaker barriers.
++	 */
++	eieio();
++#else
++	wmb(); /* order write acesses for BD (or FCB) fields */
 +#endif
- 
- static void gfar_detect_errata(struct gfar_private *priv)
- {
-@@ -1103,10 +1107,12 @@ static void gfar_detect_errata(struct gfar_private *priv)
- 	/* no plans to fix */
- 	priv->errata |= GFAR_ERRATA_A002;
- 
-+#ifdef CONFIG_PPC
- 	if (pvr_version_is(PVR_VER_E500V1) || pvr_version_is(PVR_VER_E500V2))
- 		__gfar_detect_errata_85xx(priv);
- 	else /* non-mpc85xx parts, i.e. e300 core based */
- 		__gfar_detect_errata_83xx(priv);
-+#endif
- 
- 	if (priv->errata)
- 		dev_info(dev, "enabled errata workarounds, flags: 0x%x\n",
++}
++
+ irqreturn_t gfar_receive(int irq, void *dev_id);
+ int startup_gfar(struct net_device *dev);
+ void stop_gfar(struct net_device *dev);
 -- 
 1.7.11.7
