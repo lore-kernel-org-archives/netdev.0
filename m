@@ -1,21 +1,20 @@
 From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH v3 net-next 3/3] bridge: Add filtering support
-	for default_pvid
-Date: Fri, 03 Oct 2014 09:37:27 -0400
-Message-ID: <542EA697.7070109@redhat.com>
-References: <1412294070-11930-1-git-send-email-vyasevic@redhat.com>	<1412294070-11930-4-git-send-email-vyasevic@redhat.com>
-	<CAHA+R7OycteYron5K3YJ3qtsEE-5uUxhPkictJDWosXCihR5hA@mail.gmail.com>
+Subject: Re: [PATCH v3 net-next 1/3] bridge: Add a default_pvid
+	sysfs attribute
+Date: Fri, 03 Oct 2014 09:42:00 -0400
+Message-ID: <542EA7A8.1070701@redhat.com>
+References: <1412294070-11930-1-git-send-email-vyasevic@redhat.com>
+	<1412294070-11930-2-git-send-email-vyasevic@redhat.com>
+	<542DF6FA.4050107@lab.ntt.co.jp>
 Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	netdev <netdev@vger.kernel.org>,
-	"bridge@lists.linux-foundation.org" <bridge@lists.linux-foundation.org>
-To: Cong Wang <cwang@twopensource.com>,
-	Vladislav Yasevich <vyasevich@gmail.com>
+Cc: stephen@networkplumber.org, bridge@lists.linux-foundation.org
+To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
+	Vladislav Yasevich <vyasevich@gmail.com>, netdev@vger.kernel.org
 Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <CAHA+R7OycteYron5K3YJ3qtsEE-5uUxhPkictJDWosXCihR5hA@mail.gmail.com>
+In-Reply-To: <542DF6FA.4050107@lab.ntt.co.jp>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
 	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
@@ -27,76 +26,48 @@ Sender: bridge-bounces@lists.linux-foundation.org
 Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On 10/03/2014 12:41 AM, Cong Wang wrote:
-> On Thu, Oct 2, 2014 at 4:54 PM, Vladislav Yasevich <vyasevich@gmail.com> wrote:
->> +static void br_vlan_disable_default_pvid(struct net_bridge *br)
+On 10/02/2014 09:08 PM, Toshiaki Makita wrote:
+> On 2014/10/03 8:54, Vladislav Yasevich wrote:
+>> This patch allows the user to set and retrieve default_pvid
+>> value.  A new value can only be stored when vlan filtering
+>> is disabled.
+>>
+>> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
+>> ---
+> ...
+>> +int br_vlan_set_default_pvid(struct net_bridge *br, unsigned long val)
 >> +{
->> +       struct net_bridge_port *p;
->> +       u16 pvid = br->default_pvid;
+>> +	u16 pvid = val;
+>> +	int err = 0;
 >> +
->> +       /* Disable default_pvid on all ports where it is still
->> +        * configured.
->> +        */
+>> +	if (!val || val >= VLAN_VID_MASK)
+>> +		return -EINVAL;
 >> +
-> 
-> This empty line is not necessary.
-> 
->> +       if (vlan_default_pvid(br_get_vlan_info(br), pvid))
->> +               br_vlan_delete(br, pvid);
+>> +	if (!rtnl_trylock())
+>> +		return restart_syscall();
 >> +
->> +       list_for_each_entry(p, &br->port_list, list) {
->> +               if (vlan_default_pvid(nbp_get_vlan_info(p), pvid))
->> +                       nbp_vlan_delete(p, pvid);
->> +       }
+>> +	if (pvid == br->default_pvid)
+>> +		goto unlock;
 >> +
->> +       br->default_pvid = 0;
->> +}
+>> +	/* Only allow default pvid change when filtering is disabled */
+>> +	if (br->vlan_enabled) {
+>> +		pr_info_once("Please disable vlan filtering to change default_pvid\n");
+>> +		err = -EPERM;
+>> +		goto unlock;
+>> +	}
 >> +
->> +static int __br_vlan_set_default_pvid(struct net_bridge *br, u16 pvid)
->> +{
->> +       struct net_bridge_port *p;
->> +       u16 old_pvid;
->> +       int err;
->> +       DECLARE_BITMAP(changed, BR_MAX_PORTS);
+>> +	br->default_pvid = vid;
 > 
-> 
-> This bitmap will use 128 bytes on stack, why not using heap?
-> 
+> typo: s/vid/pvid/
 
-I suppose I wanted to avoid yet another memory allocation failure condition.
-Is this really going to cause issues?
+How the hell did this even build then...!  Oh,  the last patch moved it elsewhere and
+fixed it.
 
+Fixed.
 Thanks
 -vlad
 
-
->> +
->> +       bitmap_zero(changed, BR_MAX_PORTS);
->> +
->> +       /* This function runs with filtering turned off so we can
->> +        * remove the old pvid configuration and add the new one after
->> +        * without impacting traffic.
->> +        */
->> +
->> +       old_pvid = br->default_pvid;
 > 
-> 
-> Remove the empty line.
-> 
-> [...]
-> 
->> +int nbp_vlan_init(struct net_bridge_port *p)
->> +{
->> +       int rc = 0;
->> +
->> +       if (p->br->default_pvid) {
->> +               rc = nbp_vlan_add(p, p->br->default_pvid,
->> +                                 BRIDGE_VLAN_INFO_PVID |
->> +                                 BRIDGE_VLAN_INFO_UNTAGGED);
->> +       }
->> +
->> +       return rc;
->> +}
-> 
-> 'rc' can be removed.
+> Thanks,
+> Toshiaki Makita
 > 
