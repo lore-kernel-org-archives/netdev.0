@@ -1,27 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next 0/4] net: Generic UDP Encapsulation
-Date: Fri, 03 Oct 2014 16:57:11 -0700 (PDT)
-Message-ID: <20141003.165711.783364158551516364.davem@davemloft.net>
-References: <1412376490-8774-1-git-send-email-therbert@google.com>
+Subject: Re: [PATCH] drivers:ethernet:davinci_emac.c:Fixes flaw in mac
+ address handling.
+Date: Fri, 03 Oct 2014 14:55:24 -0700 (PDT)
+Message-ID: <20141003.145524.270976129977723195.davem@davemloft.net>
+References: <1412217125-11057-1-git-send-email-mwelling@ieee.org>
+	<20141003.130305.2216770567363258603.davem@davemloft.net>
+	<20141003204359.GA10110@sysresccd>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: therbert@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60905 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754469AbaJCXzE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Oct 2014 19:55:04 -0400
-In-Reply-To: <1412376490-8774-1-git-send-email-therbert@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: tony@atomide.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: mwelling@ieee.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141003204359.GA10110@sysresccd>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tom Herbert <therbert@google.com>
-Date: Fri,  3 Oct 2014 15:48:06 -0700
+From: Michael Welling <mwelling@ieee.org>
+Date: Fri, 3 Oct 2014 15:43:59 -0500
 
-> Generic UDP Encapsulation (GUE) is UDP encapsulation protocol which
-> encapsulates packets of various IP protocols. The GUE protocol is
-> described in http://tools.ietf.org/html/draft-herbert-gue-01.
+> On Fri, Oct 03, 2014 at 01:03:05PM -0700, David Miller wrote:
+>> From: Michael Welling <mwelling@ieee.org>
+>> Date: Wed,  1 Oct 2014 21:32:05 -0500
+>> 
+>> > The code currently checks the mac_addr variable that is clearly
+>> > zero'd out during allocation.
+>> > 
+>> > Further code is added to bring the mac_addr from the partial pdata.
+>> > 
+>> > Signed-off-by: Michael Welling <mwelling@ieee.org>
+>> 
+>> I don't see anyone specifying a MAC address in the partial pdata,
+>> so better to just delete that field.
+>> 
+>> Even if people did, I am not so sure that the partial pdata should
+>> unconditionally trump an OF provided MAC address.
+> 
+> So should I just leave the code for handling the mac_addr field from the
+> partial pdata out or make it such that the mac_addr field is overriden 
+> if specified from the devicetree?
 
-This looks better, applied, thanks Tom.
+I'm saying the partial pdata mac_addr is completely unused and should
+be removed.
