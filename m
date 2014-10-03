@@ -1,35 +1,107 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V2 net-next 0/5] mlx5 update for 3.18
-Date: Fri, 03 Oct 2014 15:42:58 -0700 (PDT)
-Message-ID: <20141003.154258.223313563251911246.davem@davemloft.net>
-References: <1412241586-10108-1-git-send-email-eli@mellanox.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com,
-	yevgenyp@mellanox.com
-To: eli@mellanox.com
+From: Andy Zhou <azhou@nicira.com>
+Subject: [net-next v2 0/6] Add Geneve tunnel protocol support
+Date: Fri,  3 Oct 2014 15:35:27 -0700
+Message-ID: <1412375733-30981-1-git-send-email-azhou@nicira.com>
+Cc: netdev@vger.kernel.org, Andy Zhou <azhou@nicira.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60397 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755655AbaJCWlA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Oct 2014 18:41:00 -0400
-In-Reply-To: <1412241586-10108-1-git-send-email-eli@mellanox.com>
+Received: from na3sys009aog126.obsmtp.com ([74.125.149.155]:38567 "HELO
+	na3sys009aog126.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1758694AbaJCWlp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Oct 2014 18:41:45 -0400
+Received: by mail-pd0-f175.google.com with SMTP id v10so297256pde.6
+        for <netdev@vger.kernel.org>; Fri, 03 Oct 2014 15:41:44 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eli Cohen <eli@mellanox.com>
-Date: Thu,  2 Oct 2014 12:19:41 +0300
+This patch series adds kernel support for Geneve (Generic Network
+Virtualization Encapsulation) based on Geneve IETF draft:
+http://www.ietf.org/id/draft-gross-geneve-01.txt
 
-> This series integrates a new mechanism for populating and extracting field values 
-> used in the driver/firmware interaction around command mailboxes.
-> 
-> Changes from V1:
->  - Remove unused definition of memcpy_cpu_to_be32()
->  - Remove definitions of non_existent_*() and use BUILD_BUG_ON() instead.
->  - Added a patch one line patch to add support for ConnectX-4 devices.
-> 
-> Changes from V0:
->  - trimmed the auto-generated file to a minimum, as required by the reviewers.
+Patch 1 implements Geneve tunneling protocol driver
 
-Series applied, thanks Eli.
+Patch 2-6 adds openvswitch support for creating and using
+Geneve tunnels by OVS user space.
+
+---
+v1->v2:   Style fixes: use tab instead space for Kconfig
+	  Patch 2-6 are reviewed by Pravin Shetty, add him to acked-by
+	  Patch 6 was reviewed by Thomas Graf when commiting
+	    to openvswitch.org, add him to acked-by.
+
+Andy Zhou (1):
+  net: Add Geneve tunneling protocol driver
+
+Jesse Gross (5):
+  openvswitch: Eliminate memset() from flow_extract.
+  openvswitch: Add support for matching on OAM packets.
+  openvswitch: Wrap struct ovs_key_ipv4_tunnel in a new structure.
+  openvswitch: Factor out allocation and verification of actions.
+  openvswitch: Add support for Geneve tunneling.
+
+ include/net/geneve.h             |   91 ++++++++++
+ include/net/ip_tunnels.h         |   19 +-
+ include/uapi/linux/openvswitch.h |    5 +-
+ net/ipv4/Kconfig                 |   14 ++
+ net/ipv4/Makefile                |    1 +
+ net/ipv4/geneve.c                |  373 ++++++++++++++++++++++++++++++++++++++
+ net/openvswitch/Kconfig          |   11 ++
+ net/openvswitch/Makefile         |    4 +
+ net/openvswitch/actions.c        |    5 +-
+ net/openvswitch/datapath.c       |   44 +++--
+ net/openvswitch/datapath.h       |    2 +-
+ net/openvswitch/flow.c           |   76 ++++++--
+ net/openvswitch/flow.h           |   48 +++--
+ net/openvswitch/flow_netlink.c   |  227 +++++++++++++++++++----
+ net/openvswitch/vport-geneve.c   |  236 ++++++++++++++++++++++++
+ net/openvswitch/vport-gre.c      |   16 +-
+ net/openvswitch/vport-vxlan.c    |   10 +-
+ net/openvswitch/vport.c          |    9 +-
+ net/openvswitch/vport.h          |    3 +-
+ 19 files changed, 1093 insertions(+), 101 deletions(-)
+ create mode 100644 include/net/geneve.h
+ create mode 100644 net/ipv4/geneve.c
+ create mode 100644 net/openvswitch/vport-geneve.c
+
+-- 
+1.7.9.5
+
+
+*** BLURB HERE ***
+
+Andy Zhou (1):
+  net: Add Geneve tunneling protocol driver
+
+Jesse Gross (5):
+  openvswitch: Eliminate memset() from flow_extract.
+  openvswitch: Add support for matching on OAM packets.
+  openvswitch: Wrap struct ovs_key_ipv4_tunnel in a new structure.
+  openvswitch: Factor out allocation and verification of actions.
+  openvswitch: Add support for Geneve tunneling.
+
+ include/net/geneve.h             |   91 ++++++++++
+ include/net/ip_tunnels.h         |   19 +-
+ include/uapi/linux/openvswitch.h |    5 +-
+ net/ipv4/Kconfig                 |   14 ++
+ net/ipv4/Makefile                |    1 +
+ net/ipv4/geneve.c                |  373 ++++++++++++++++++++++++++++++++++++++
+ net/openvswitch/Kconfig          |   11 ++
+ net/openvswitch/Makefile         |    4 +
+ net/openvswitch/actions.c        |    5 +-
+ net/openvswitch/datapath.c       |   44 +++--
+ net/openvswitch/datapath.h       |    2 +-
+ net/openvswitch/flow.c           |   76 ++++++--
+ net/openvswitch/flow.h           |   48 +++--
+ net/openvswitch/flow_netlink.c   |  227 +++++++++++++++++++----
+ net/openvswitch/vport-geneve.c   |  236 ++++++++++++++++++++++++
+ net/openvswitch/vport-gre.c      |   16 +-
+ net/openvswitch/vport-vxlan.c    |   10 +-
+ net/openvswitch/vport.c          |    9 +-
+ net/openvswitch/vport.h          |    3 +-
+ 19 files changed, 1093 insertions(+), 101 deletions(-)
+ create mode 100644 include/net/geneve.h
+ create mode 100644 net/ipv4/geneve.c
+ create mode 100644 net/openvswitch/vport-geneve.c
+
+-- 
+1.7.9.5
