@@ -1,45 +1,59 @@
-From: "Luis R. Rodriguez" <mcgrof@suse.com>
-Subject: Re: [PATCH v1 5/5] driver-core: add driver asynchronous probe
-	support
-Date: Fri, 3 Oct 2014 22:11:26 +0200
-Message-ID: <20141003201126.GW14081@wotan.suse.de>
-References: <1411768637-6809-1-git-send-email-mcgrof@do-not-panic.com> <1411768637-6809-6-git-send-email-mcgrof@do-not-panic.com>
+From: Zhi Li <lznuaa@gmail.com>
+Subject: Re: [PATCH net-next 1/1] net: fec: fix build error at m68k platform
+Date: Fri, 3 Oct 2014 15:14:53 -0500
+Message-ID: <CAHrpEqRQkY-09tcvxuuSHK+KbxMYXH50O7brXCA5B-K3V1S9_Q@mail.gmail.com>
+References: <1412362831-59318-1-git-send-email-Frank.Li@freescale.com>
+	<CAOMZO5B=cgVT1gr5VJ78x_Aj5ssvrsTOq4t0DrrLK4kz7vNMjQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: gregkh@linuxfoundation.org, dmitry.torokhov@gmail.com,
-	tiwai@suse.de, tj@kernel.org, arjan@linux.intel.com, teg@jklm.no,
-	rmilasan@suse.com, werner@suse.com, oleg@redhat.com, hare@suse.com,
-	bpoirier@suse.de, santosh@chelsio.com, pmladek@suse.cz,
-	dbueso@suse.com, linux-kernel@vger.kernel.org,
-	Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
-	Joseph Salisbury <joseph.salisbury@canonical.com>,
-	Kay Sievers <kay@vrfy.org>,
-	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
-	Tim Gardner <tim.gardner@canonical.com>,
-	Pierre Fersing <pierre-fersing@pierref.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
-	Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
-	Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
-	Abhijit Mahajan <abhijit.mahajan@avagotech.com>,
-	Casey Leedom <leedom@chelsio.com>,
-	Hariprasad S <haripra
-To: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1411768637-6809-6-git-send-email-mcgrof@do-not-panic.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Frank Li <Frank.Li@freescale.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Duan Fugang-B38611 <b38611@freescale.com>
+To: Fabio Estevam <festevam@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f171.google.com ([209.85.217.171]:33225 "EHLO
+	mail-lb0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750823AbaJCUOz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Oct 2014 16:14:55 -0400
+Received: by mail-lb0-f171.google.com with SMTP id z12so1628905lbi.2
+        for <netdev@vger.kernel.org>; Fri, 03 Oct 2014 13:14:54 -0700 (PDT)
+In-Reply-To: <CAOMZO5B=cgVT1gr5VJ78x_Aj5ssvrsTOq4t0DrrLK4kz7vNMjQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 26, 2014 at 02:57:17PM -0700, Luis R. Rodriguez wrote:
-> +	queue_work(system_unbound_wq, &priv->attach_work->work);
+On Fri, Oct 3, 2014 at 3:07 PM, Fabio Estevam <festevam@gmail.com> wrote:
+> On Fri, Oct 3, 2014 at 4:00 PM, Frank Li <Frank.Li@freescale.com> wrote:
+>> reproduce:
+>>   wget https://git.kernel.org/cgit/linux/kernel/git/wfg/lkp-tests.git/plain/sbin/make.cross -O ~/bin/make.cross
+>>   chmod +x ~/bin/make.cross
+>>   git checkout 1b7bde6d659d30f171259cc2dfba8e5dab34e735
+>>   # save the attached .config to linux build tree
+>
+> There is no attached config ;-)
 
-Tejun,
+It is copy from kbuild report.
 
-based on my testing so far using system_highpri_wq instead of
-system_unbound_wq yields close to par / better boot times
-than synchronous probe support for all modules. How set are
-you on using system_unbound_wq? About to punt out a new
-series which also addresses built-in.
+Can I change to
+config: m68k-m5275evb_defconfig (attached as .config)
 
-  Luis
+
+>
+>>   make.cross ARCH=m68k
+>>
+>> All error/warnings:
+>>
+>>    drivers/net/ethernet/freescale/fec_main.c: In function 'fec_enet_rx_queue':
+>>>> drivers/net/ethernet/freescale/fec_main.c:1470:3: error: implicit declaration of function 'prefetch' [-Werror=implicit-function-declaration]
+>>       prefetch(skb->data - NET_IP_ALIGN);
+>>       ^
+>>    cc1: some warnings being treated as errors
+>>
+>> missed included prefetch.h
+>>
+>> Signed-off-by: Frank Li <Frank.Li@freescale.com>
+>
+> It seems you missed the Reported-by: kbuild test robot
+> <fengguang.wu@intel.com> tag.
+
+Okay I can add it.
