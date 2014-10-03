@@ -1,133 +1,54 @@
-From: Vladislav Yasevich <vyasevich@gmail.com>
-Subject: [PATCH v3 net-next 1/3] bridge: Add a default_pvid sysfs
-	attribute
-Date: Thu,  2 Oct 2014 19:54:28 -0400
-Message-ID: <1412294070-11930-2-git-send-email-vyasevic@redhat.com>
-References: <1412294070-11930-1-git-send-email-vyasevic@redhat.com>
-Cc: stephen@networkplumber.org, bridge@lists.linux-foundation.org,
-	Vladislav Yasevich <vyasevic@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1412294070-11930-1-git-send-email-vyasevic@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Iyappan Subramanian <isubramanian@apm.com>
+Subject: [PATCH v2 0/6] Add 10GbE support to APM X-Gene SoC ethernet driver
+Date: Thu,  2 Oct 2014 17:02:42 -0700
+Message-ID: <1412294568-26747-1-git-send-email-isubramanian@apm.com>
+Cc: linux-arm-kernel@lists.infradead.org, patches@apm.com,
+	kchudgar@apm.com, Iyappan Subramanian <isubramanian@apm.com>
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exprod5og122.obsmtp.com ([64.18.0.192]:54551 "HELO
+	exprod5og122.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1751882AbaJCADP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2014 20:03:15 -0400
+Received: by mail-pa0-f53.google.com with SMTP id kq14so286106pab.40
+        for <netdev@vger.kernel.org>; Thu, 02 Oct 2014 17:03:14 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch allows the user to set and retrieve default_pvid
-value.  A new value can only be stored when vlan filtering
-is disabled.
+Adding 10GbE support to APM X-Gene SoC ethernet driver.
 
-Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
+v2: Address comments from v1
+* created preparatory patch to review before adding new functionality
+* dtb: updated to use tabs consistently
+
+v1:
+* Initial version
 ---
- net/bridge/br_private.h  |  2 ++
- net/bridge/br_sysfs_br.c | 17 +++++++++++++++++
- net/bridge/br_vlan.c     | 29 +++++++++++++++++++++++++++++
- 3 files changed, 48 insertions(+)
 
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index fe7463c..5a347eb 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -299,6 +299,7 @@ struct net_bridge
- #ifdef CONFIG_BRIDGE_VLAN_FILTERING
- 	u8				vlan_enabled;
- 	__be16				vlan_proto;
-+	u16				default_pvid;
- 	struct net_port_vlans __rcu	*vlan_info;
- #endif
- };
-@@ -605,6 +606,7 @@ void br_recalculate_fwd_mask(struct net_bridge *br);
- int br_vlan_filter_toggle(struct net_bridge *br, unsigned long val);
- int br_vlan_set_proto(struct net_bridge *br, unsigned long val);
- void br_vlan_init(struct net_bridge *br);
-+int br_vlan_set_default_pvid(struct net_bridge *br, unsigned long val);
- int nbp_vlan_add(struct net_bridge_port *port, u16 vid, u16 flags);
- int nbp_vlan_delete(struct net_bridge_port *port, u16 vid);
- void nbp_vlan_flush(struct net_bridge_port *port);
-diff --git a/net/bridge/br_sysfs_br.c b/net/bridge/br_sysfs_br.c
-index cb431c6..4c97fc5 100644
---- a/net/bridge/br_sysfs_br.c
-+++ b/net/bridge/br_sysfs_br.c
-@@ -725,6 +725,22 @@ static ssize_t vlan_protocol_store(struct device *d,
- 	return store_bridge_parm(d, buf, len, br_vlan_set_proto);
- }
- static DEVICE_ATTR_RW(vlan_protocol);
-+
-+static ssize_t default_pvid_show(struct device *d,
-+				 struct device_attribute *attr,
-+				 char *buf)
-+{
-+	struct net_bridge *br = to_bridge(d);
-+	return sprintf(buf, "%d\n", br->default_pvid);
-+}
-+
-+static ssize_t default_pvid_store(struct device *d,
-+				  struct device_attribute *attr,
-+				  const char *buf, size_t len)
-+{
-+	return store_bridge_parm(d, buf, len, br_vlan_set_default_pvid);
-+}
-+static DEVICE_ATTR_RW(default_pvid);
- #endif
- 
- static struct attribute *bridge_attrs[] = {
-@@ -771,6 +787,7 @@ static struct attribute *bridge_attrs[] = {
- #ifdef CONFIG_BRIDGE_VLAN_FILTERING
- 	&dev_attr_vlan_filtering.attr,
- 	&dev_attr_vlan_protocol.attr,
-+	&dev_attr_default_pvid.attr,
- #endif
- 	NULL
- };
-diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
-index 3ba57fc..1a2ee97 100644
---- a/net/bridge/br_vlan.c
-+++ b/net/bridge/br_vlan.c
-@@ -499,9 +499,38 @@ err_filt:
- 	goto unlock;
- }
- 
-+int br_vlan_set_default_pvid(struct net_bridge *br, unsigned long val)
-+{
-+	u16 pvid = val;
-+	int err = 0;
-+
-+	if (!val || val >= VLAN_VID_MASK)
-+		return -EINVAL;
-+
-+	if (!rtnl_trylock())
-+		return restart_syscall();
-+
-+	if (pvid == br->default_pvid)
-+		goto unlock;
-+
-+	/* Only allow default pvid change when filtering is disabled */
-+	if (br->vlan_enabled) {
-+		pr_info_once("Please disable vlan filtering to change default_pvid\n");
-+		err = -EPERM;
-+		goto unlock;
-+	}
-+
-+	br->default_pvid = vid;
-+
-+unlock:
-+	rtnl_unlock();
-+	return err;
-+}
-+
- void br_vlan_init(struct net_bridge *br)
- {
- 	br->vlan_proto = htons(ETH_P_8021Q);
-+	br->default_pvid = 1;
- }
- 
- /* Must be protected by RTNL.
+Iyappan Subramanian (6):
+  MAINTAINERS: Update APM X-Gene section
+  Documentation: dts: Update section header for APM X-Gene
+  dtb: Add 10GbE node to APM X-Gene SoC device tree
+  drivers: net: xgene: Preparing for adding 10GbE support
+  drivers: net: xgene: Add 10GbE support
+  drivers: net: xgene: Add 10GbE ethtool support
+
+ .../devicetree/bindings/net/apm-xgene-enet.txt     |   4 +-
+ MAINTAINERS                                        |   1 -
+ arch/arm64/boot/dts/apm-mustang.dts                |   4 +
+ arch/arm64/boot/dts/apm-storm.dtsi                 |  24 ++
+ drivers/net/ethernet/apm/xgene/Makefile            |   3 +-
+ .../net/ethernet/apm/xgene/xgene_enet_ethtool.c    |  28 +-
+ drivers/net/ethernet/apm/xgene/xgene_enet_hw.c     |  44 ++-
+ drivers/net/ethernet/apm/xgene/xgene_enet_hw.h     |  30 +-
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.c   |  86 ++++--
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.h   |  24 +-
+ drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c  | 331 +++++++++++++++++++++
+ drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.h  |  57 ++++
+ 12 files changed, 563 insertions(+), 73 deletions(-)
+ create mode 100644 drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c
+ create mode 100644 drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.h
+
 -- 
-1.9.3
+1.9.1
