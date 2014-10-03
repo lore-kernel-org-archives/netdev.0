@@ -1,67 +1,48 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [PATCH iproute2 0/5] iproute: Add FOU and GUE configuration in ip
-Date: Fri,  3 Oct 2014 08:55:13 -0700
-Message-ID: <1412351718-22921-1-git-send-email-therbert@google.com>
+Subject: [PATCH iproute2 1/5] iplink: Fix setting of -1 as ifindex
+Date: Fri,  3 Oct 2014 08:55:14 -0700
+Message-ID: <1412351718-22921-2-git-send-email-therbert@google.com>
+References: <1412351718-22921-1-git-send-email-therbert@google.com>
 To: davem@davemloft.net, stephen@networkplumber.org,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:47311 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753260AbaJCPzk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Oct 2014 11:55:40 -0400
-Received: by mail-pa0-f49.google.com with SMTP id hz1so1702581pad.36
-        for <netdev@vger.kernel.org>; Fri, 03 Oct 2014 08:55:39 -0700 (PDT)
+Received: from mail-pd0-f178.google.com ([209.85.192.178]:60962 "EHLO
+	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754078AbaJCPzq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Oct 2014 11:55:46 -0400
+Received: by mail-pd0-f178.google.com with SMTP id y10so2775381pdj.9
+        for <netdev@vger.kernel.org>; Fri, 03 Oct 2014 08:55:46 -0700 (PDT)
+In-Reply-To: <1412351718-22921-1-git-send-email-therbert@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch set adds support in iproute2 to configure FOU and GUE ports
-for receive, and using FOU or GUE with ip tunnels (IPIP, GRE, sit) on
-transmit.
+Commit 3c682146aeff157ec3540 ("iplink: forbid negative ifindex and
+modifying ifindex") initializes index to -1 in iplink_modify. When
+creating a link, req.i.ifi_index is then set to -1 if the link option is
+not used. In the kernel this is then used to set dev->ifindex. For
+dev->ifindex, zero is considered to be unset and -1 is treated as
+a set index, so when a second tunnel is create the new device conflicts
+with the old one (both have ifindex of -1) so -EBUSY is returned.
 
-A new ip subcommand "fou" has been added to configure FOU/GUE ports.
-For example:
+This patch set zero in req.i.ifi_index is index is unset (still -1).
 
-  ip fou add port 5555 gue 
-  ip fou add port 9999 ipproto 4
+Signed-off-by: Tom Herbert <therbert@google.com>
+---
+ ip/iplink.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-The first command creates a GUE port, the second creates a direct FOU
-port for IPIP (receive payload is a assumed to be an IP packet).
-
-To configure an IP tunnel to use FOU or GUE encap parameters have
-been added. For example:
-
-  ip link add name tun1 type ipip remote 192.168.1.1 local 192.168.1.2 \
-     ttl 225 encap gue encap-sport auto encap-dport 7777 encap-csum
-  ip link add name tun2 type gre remote 192.168.1.1 local 192.168.1.2 \
-     ttl 225 encap fou encap-sport auto encap-dport 8888 encap-csum
-
-The first command configures an IPIP tunnel to use GUE on transmit. The
-peer might be configured to receive GUE packets with the
-"ip fou add port 7777 gue" command.
-
-The second configures a GRE tunnel to use FOU encapsulation. The
-peer might be configured to receive these packets with the
-"ip fou add port 8888 ipproto 47" command.
-
-Tom Herbert (5):
-  iplink: Fix setting of -1 as ifindex
-  ip fou: Support to configure foo-over-udp RX
-  ip tunnel: Kernel uapi definitions for fou and gue
-  ip link ipip: Add support to configure FOU and GUE
-  ip link gre: Add support to configure FOU and GUE
-
- include/linux/fou.h       |  41 ++++++++++++
- include/linux/if_tunnel.h |  17 +++++
- ip/Makefile               |   3 +-
- ip/ip.c                   |   3 +-
- ip/ip_common.h            |   1 +
- ip/ipfou.c                | 158 ++++++++++++++++++++++++++++++++++++++++++++++
- ip/iplink.c               |   2 +-
- ip/link_gre.c             |  89 ++++++++++++++++++++++++++
- ip/link_iptnl.c           |  89 ++++++++++++++++++++++++++
- 9 files changed, 400 insertions(+), 3 deletions(-)
- create mode 100644 include/linux/fou.h
- create mode 100644 ip/ipfou.c
-
+diff --git a/ip/iplink.c b/ip/iplink.c
+index cb9c870..1b6ffc6 100644
+--- a/ip/iplink.c
++++ b/ip/iplink.c
+@@ -689,7 +689,7 @@ static int iplink_modify(int cmd, unsigned int flags, int argc, char **argv)
+ 			addattr_l(&req.n, sizeof(req), IFLA_LINK, &ifindex, 4);
+ 		}
+ 
+-		req.i.ifi_index = index;
++		req.i.ifi_index = (index > 0) ? : 0;
+ 	}
+ 
+ 	if (name) {
 -- 
 2.1.0.rc2.206.gedb03e5
