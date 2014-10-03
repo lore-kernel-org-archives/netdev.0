@@ -1,7 +1,7 @@
 From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Subject: [PATCH v2 7/7] driver-core: add preferred async probe option for built-in and modules
-Date: Fri,  3 Oct 2014 14:44:43 -0700
-Message-ID: <1412372683-2003-8-git-send-email-mcgrof@do-not-panic.com>
+Subject: [PATCH v2 6/7] driver-core: add driver module asynchronous probe support
+Date: Fri,  3 Oct 2014 14:44:42 -0700
+Message-ID: <1412372683-2003-7-git-send-email-mcgrof@do-not-panic.com>
 References: <1412372683-2003-1-git-send-email-mcgrof@do-not-panic.com>
 Cc: teg@jklm.no, rmilasan@suse.com, werner@suse.com, oleg@redhat.com,
 	hare@suse.com, bpoirier@suse.de, santosh@chelsio.com,
@@ -24,30 +24,81 @@ Cc: teg@jklm.no, rmilasan@suse.com, werner@suse.com, oleg@redhat.com,
 	netdev@vg
 To: gregkh@linuxfoundation.org, dmitry.torokhov@gmail.com,
 	tiwai@suse.de, tj@kernel.org, arjan@linux.intel.com
-Return-path: <linux-scsi-owner@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1412372683-2003-1-git-send-email-mcgrof@do-not-panic.com>
-Sender: linux-scsi-owner@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: "Luis R. Rodriguez" <mcgrof@suse.com>
 
-At times we may wish to express the desire to prefer to have
-a device driver probe asynchronously by default. We cannot
-simply enable all device drivers to do this without vetting
-that userspace is prepared for this though given that some
-old userspace is expected to exist which is not equipped to
-deal with broad async probe support. This defines a new kernel
-parameter, bus.enable_kern_async=1, to help address this both to
-help enable async probe support for built-in drivers and to
-enable drivers to specify a preference to opt in for async
-probe support.
+Some init systems may wish to express the desire to have
+device drivers run their device driver's bus probe() run
+asynchronously. This implements support for this and
+allows userspace to request async probe as a preference
+through a generic shared device driver module parameter,
+async_probe. Implemention for async probe is supported
+through a module parameter given that since synchronous
+probe has been prevalent for years some userspace might
+exist which relies on the fact that the device driver will
+probe synchronously and the assumption that devices it
+provides will be immediately available after this.
 
-If you have a device driver that should use async probe
-support when possible enable the prefer_async_probe bool.
+Some device driver might not be able to run async probe
+so we enable device drivers to annotate this to prevent
+this module parameter from having any effect on them.
 
-Folks wishing to test enabling async probe for all built-in
-drivers can enable bus.__DEBUG__kernel_force_mod_async_probe=1,
-if you use that though you are on your own.
+This implementation uses queue_work(system_unbound_wq)
+to queue async probes, this should enable probe to run
+slightly *faster* if the driver's probe path did not
+have much interaction with other workqueues otherwise
+it may run _slightly_ slower. Tests were done with cxgb4,
+which is known to take long on probe, both without
+having to run request_firmware() [0] and then by
+requiring it to use request_firmware() [1]. The
+difference in run time are only measurable in microseconds:
+
+=====================================================================|
+strategy                                fw (usec)       no-fw (usec) |
+---------------------------------------------------------------------|
+synchronous                             24472569        1307563      |
+kthread                                 25066415.5      1309868.5    |
+queue_work(system_unbound_wq)           24913661.5      1307631      |
+---------------------------------------------------------------------|
+
+In practice, in seconds, the difference is barely noticeable:
+
+=====================================================================|
+strategy                                fw (s)          no-fw (s)    |
+---------------------------------------------------------------------|
+synchronous                             24.47           1.31         |
+kthread                                 25.07           1.31         |
+queue_work(system_unbound_wq)           24.91           1.31         |
+---------------------------------------------------------------------|
+
+[0] http://ftp.suse.com/pub/people/mcgrof/async-probe/probe-cgxb4-no-firmware.png
+[1] http://ftp.suse.com/pub/people/mcgrof/async-probe/probe-cgxb4-firmware.png
+
+Systemd should consider enabling async probe on device drivers
+it loads through systemd-udev but probably does not want to
+enable it for modules loaded through systemd-modules-load
+(modules-load.d). At least on my booting enabling async probe
+for all modules fails to boot as such in order to make this
+a bit more useful we whitelist a few buses where it should be
+at least in theory safe to try to enable async probe. This
+way even if systemd tried to ask to enable async probe for all
+its device drivers the kernel won't blindly do this. We also
+have the sync_probe flag which device drivers can themselves
+enable *iff* its known the device driver should never async
+probe.
+
+In order to help *test* things folks can use the kernel parameter
+bus.__DEBUG__module_safe_mod_async_probe=1 which will work as if
+userspace would have requested all modules to load with async probe.
+Daring folks can also use bus.__DEBUG__module_force_mod_async_probe=1
+which will enable asynch probe even on buses not tested in any way yet,
+if you use that though you're on your own. Both of these flag taint
+the kernel as being in a debug intrusive mode to avoid spurious bug
+reports while this mechanism gets tested.
 
 Cc: Tejun Heo <tj@kernel.org>
 Cc: Arjan van de Ven <arjan@linux.intel.com>
@@ -72,161 +123,267 @@ Cc: MPT-FusionLinux.pdl@avagotech.com
 Cc: linux-scsi@vger.kernel.org
 Cc: linux-kernel@vger.kernel.org
 Cc: netdev@vger.kernel.org
+Acked-by: Tom Gundersen <teg@jklm.no>
 Signed-off-by: Luis R. Rodriguez <mcgrof@suse.com>
 ---
- Documentation/kernel-parameters.txt |  9 +++++++
- drivers/base/bus.c                  | 52 ++++++++++++++++++++++++++++++-------
- include/linux/device.h              |  9 +++++++
- 3 files changed, 60 insertions(+), 10 deletions(-)
+ Documentation/kernel-parameters.txt |   7 +++
+ drivers/base/base.h                 |   6 +++
+ drivers/base/bus.c                  | 104 ++++++++++++++++++++++++++++++++++--
+ drivers/base/dd.c                   |   7 +++
+ include/linux/module.h              |   2 +
+ kernel/module.c                     |  12 ++++-
+ 6 files changed, 133 insertions(+), 5 deletions(-)
 
 diff --git a/Documentation/kernel-parameters.txt b/Documentation/kernel-parameters.txt
-index e4be3b8..56f4d4e 100644
+index 10d51c2..e4be3b8 100644
 --- a/Documentation/kernel-parameters.txt
 +++ b/Documentation/kernel-parameters.txt
-@@ -914,12 +914,21 @@ bytes respectively. Such letter suffixes can also be entirely omitted.
+@@ -914,6 +914,13 @@ bytes respectively. Such letter suffixes can also be entirely omitted.
  			Enable debug messages at boot time.  See
  			Documentation/dynamic-debug-howto.txt for details.
  
-+	bus.enable_kern_async=1 [KNL]
-+			This tells the kernel userspace has been vetted for
-+			asynchronous probe support and can listen to the device
-+			driver prefer_async_probe flag for both built-in device
-+			drivers and modules.
- 	module.async_probe [KNL]
- 			Enable asynchronous probe on this module.
- 	bus.__DEBUG__module_force_mod_async_probe=1 [KNL]
- 			Enable asynchronous probe on all modules. This is
- 			testing parameter and using it will taint your
- 			kernel.
-+	bus.__DEBUG__kernel_force_mod_async_probe=1 [KNL]
-+			Enable asynchronous probe on all built-in drivers. This
-+			is testing parameter and using it will taint your
++	module.async_probe [KNL]
++			Enable asynchronous probe on this module.
++	bus.__DEBUG__module_force_mod_async_probe=1 [KNL]
++			Enable asynchronous probe on all modules. This is
++			testing parameter and using it will taint your
 +			kernel.
- 
++
  	early_ioremap_debug [KNL]
  			Enable debug messages in early_ioremap support. This
+ 			is useful for tracking down temporary early mappings
+diff --git a/drivers/base/base.h b/drivers/base/base.h
+index 251c5d3..24836f1 100644
+--- a/drivers/base/base.h
++++ b/drivers/base/base.h
+@@ -43,11 +43,17 @@ struct subsys_private {
+ };
+ #define to_subsys_private(obj) container_of(obj, struct subsys_private, subsys.kobj)
+ 
++struct driver_attach_work {
++	struct work_struct work;
++	struct device_driver *driver;
++};
++
+ struct driver_private {
+ 	struct kobject kobj;
+ 	struct klist klist_devices;
+ 	struct klist_node knode_bus;
+ 	struct module_kobject *mkobj;
++	struct driver_attach_work *attach_work;
+ 	struct device_driver *driver;
+ };
+ #define to_driver(obj) container_of(obj, struct driver_private, kobj)
 diff --git a/drivers/base/bus.c b/drivers/base/bus.c
-index ec203d6..25d0412 100644
+index a5f41e4..ec203d6 100644
 --- a/drivers/base/bus.c
 +++ b/drivers/base/bus.c
-@@ -695,8 +695,10 @@ int bus_driver_async_probe(struct device_driver *drv)
- 	INIT_WORK(&priv->attach_work->work, driver_attach_workfn);
+@@ -85,6 +85,7 @@ static void driver_release(struct kobject *kobj)
+ 	struct driver_private *drv_priv = to_driver(kobj);
  
- 	/* Keep this as pr_info() until this is prevalent */
--	pr_info("bus: '%s': probe for driver %s is run asynchronously\n",
--		 drv->bus->name, drv->name);
-+	pr_info("bus: '%s': probe for %s driver %s is run asynchronously\n",
-+		 drv->bus->name,
-+		 drv->owner ? "module" : "built-in",
-+		 drv->name);
+ 	pr_debug("driver: '%s': %s\n", kobject_name(kobj), __func__);
++	kfree(drv_priv->attach_work);
+ 	kfree(drv_priv);
+ }
  
- 	queue_work(system_unbound_wq, &priv->attach_work->work);
+@@ -662,10 +663,93 @@ static void remove_driver_private(struct device_driver *drv)
+ 	struct driver_private *priv = drv->p;
  
-@@ -708,6 +710,16 @@ module_param_named(__DEBUG__module_force_mod_async_probe, force_mod_async, bool,
- MODULE_PARM_DESC(__DEBUG__module_force_mod_async_probe,
- 		 "Force async probe on all modules");
+ 	kobject_put(&priv->kobj);
++	kfree(priv->attach_work);
+ 	kfree(priv);
+ 	drv->p = NULL;
+ }
  
-+static bool force_kern_async = false;
-+module_param_named(__DEBUG__kernel_force_mod_async_probe, force_kern_async, bool, 0400);
-+MODULE_PARM_DESC(__DEBUG__kernel_force_mod_async_probe,
++static void driver_attach_workfn(struct work_struct *work)
++{
++	struct driver_attach_work *attach_work =
++		container_of(work, struct driver_attach_work, work);
++	struct device_driver *drv = attach_work->driver;
++	int ret;
++
++	ret = driver_attach(drv);
++	if (ret != 0) {
++		remove_driver_private(drv);
++		bus_put(drv->bus);
++	}
++}
++
++int bus_driver_async_probe(struct device_driver *drv)
++{
++	struct driver_private *priv = drv->p;
++
++	priv->attach_work = kzalloc(sizeof(struct driver_attach_work),
++				    GFP_KERNEL);
++	if (!priv->attach_work)
++		return -ENOMEM;
++
++	priv->attach_work->driver = drv;
++	INIT_WORK(&priv->attach_work->work, driver_attach_workfn);
++
++	/* Keep this as pr_info() until this is prevalent */
++	pr_info("bus: '%s': probe for driver %s is run asynchronously\n",
++		 drv->bus->name, drv->name);
++
++	queue_work(system_unbound_wq, &priv->attach_work->work);
++
++	return 0;
++}
++
++static bool force_mod_async = false;
++module_param_named(__DEBUG__module_force_mod_async_probe, force_mod_async, bool, 0400);
++MODULE_PARM_DESC(__DEBUG__module_force_mod_async_probe,
 +		 "Force async probe on all modules");
 +
-+static bool enable_kern_async = false;
-+module_param_named(enable_kern_async, enable_kern_async, bool, 0400);
-+MODULE_PARM_DESC(enable_kern_async,
-+		 "Userspace is vetted to handle driver async probe");
++/**
++ * drv_enable_async_probe - evaluates if async probe should be used
++ * @drv: device driver to evaluate
++ * @bus: the bus for the device driver
++ *
++ * The driver core supports enabling asynchronous probe on device drivers
++ * through a few mechanisms. We're careful to ensure that async probe can
++ * only be used by userspace that is prepared and has been vetted to support
++ * async probe support given that the driver core has historically only
++ * supported synchronous probe. If any driver is known to not work well with
++ * async probe the @drv can enable sync_probe and asynchronous probe will never
++ * be used on it.
++ *
++ * Drivers can be built-in or modules. Userspace can inform the kernel that
++ * it is prepared for async probe by passing the module parameter
++ * async_probe on each module it wishes to load. The async_probe parameter is
++ * module specific and gives userspace the flexibility to opt out of using
++ * async probe for certain types of modules. Built-in drivers are currently
++ * not supported for async probe.
++ *
++ * If you'd like to test enabling async probe for all modules you can enable
++ * the bus.__DEBUG__module_force_mod_async_probe=1 kernel parameter. This
++ * parameter should only be used to help test and should be used with caution.
++ */
++static bool drv_enable_async_probe(struct device_driver *drv,
++				   struct bus_type *bus)
++{
++	struct module *mod;
 +
- /**
-  * drv_enable_async_probe - evaluates if async probe should be used
-  * @drv: device driver to evaluate
-@@ -722,25 +734,41 @@ MODULE_PARM_DESC(__DEBUG__module_force_mod_async_probe,
-  * be used on it.
-  *
-  * Drivers can be built-in or modules. Userspace can inform the kernel that
-- * it is prepared for async probe by passing the module parameter
-- * async_probe on each module it wishes to load. The async_probe parameter is
-+ * it is prepared for async probe by either passing the module parameter
-+ * async_probe on each module it wishes to load or by enabling the
-+ * bus.enable_kern_async=1 kernel parameter. The async_probe parameter is
-  * module specific and gives userspace the flexibility to opt out of using
-- * async probe for certain types of modules. Built-in drivers are currently
-- * not supported for async probe.
-+ * async probe for certain types of modules. Built-in drivers and modules which
-+ * are known to work well with async probe can enable @drv->prefer_async_probe,
-+ * async probe will be used for it if the kernel parameter but only if the
-+ * kernel parameter bus.enable_kern_async=1 has been set.
-  *
-  * If you'd like to test enabling async probe for all modules you can enable
-- * the bus.__DEBUG__module_force_mod_async_probe=1 kernel parameter. This
-- * parameter should only be used to help test and should be used with caution.
-+ * the bus.__DEBUG__module_force_mod_async_probe=1 kernel parameter. If you'd
-+ * like to test enabling async probe for all built-in drivers you can enable
-+ * the bus.__DEBUG__kernel_force_mod_async_probe=1 kernel parameter. These
-+ * parameters should only be used to help test and should be used with caution.
-  */
- static bool drv_enable_async_probe(struct device_driver *drv,
- 				   struct bus_type *bus)
- {
- 	struct module *mod;
- 
--	if (!drv->owner || drv->sync_probe)
-+	if (drv->sync_probe)
++	if (!drv->owner || drv->sync_probe)
 +		return false;
 +
-+	/* built-in drivers */
-+	if (!drv->owner) {
-+		if (!enable_kern_async)
-+			return false;
-+		if (drv->prefer_async_probe || force_kern_async)
-+			return true;
- 		return false;
-+	}
++	if (force_mod_async)
++		return true;
++
++	mod = drv->owner;
++	if (!mod->async_probe_requested)
++		return false;
++
++	return true;
++}
++
+ /**
+  * bus_add_driver - Add a driver to the bus.
+  * @drv: driver.
+@@ -675,6 +759,7 @@ int bus_add_driver(struct device_driver *drv)
+ 	struct bus_type *bus;
+ 	struct driver_private *priv;
+ 	int error = 0;
++	bool async_probe = false;
  
--	if (force_mod_async)
-+	/* modules */
-+	if ((enable_kern_async && drv->prefer_async_probe) ||
-+	    force_mod_async)
- 		return true;
+ 	bus = bus_get(drv->bus);
+ 	if (!bus)
+@@ -696,11 +781,19 @@ int bus_add_driver(struct device_driver *drv)
+ 	if (error)
+ 		goto out_unregister;
  
- 	mod = drv->owner;
-@@ -1364,6 +1392,10 @@ int __init buses_init(void)
- 		pr_info("Enabling force_mod_async -- you're on your own!\n");
- 		add_taint(TAINT_DEBUG, LOCKDEP_STILL_OK);
++	async_probe = drv_enable_async_probe(drv, bus);
++
+ 	klist_add_tail(&priv->knode_bus, &bus->p->klist_drivers);
+ 	if (drv->bus->p->drivers_autoprobe) {
+-		error = driver_attach(drv);
+-		if (error)
+-			goto out_unregister;
++		if (async_probe) {
++			error = bus_driver_async_probe(drv);
++			if (error)
++				goto out_unregister;
++		} else {
++			error = driver_attach(drv);
++			if (error)
++				goto out_unregister;
++		}
  	}
-+	if (unlikely(force_kern_async)) {
-+		pr_info("Enabling force_kern_async -- you're on your own!\n");
+ 	module_add_driver(drv->owner, drv);
+ 
+@@ -1267,6 +1360,11 @@ EXPORT_SYMBOL_GPL(subsys_virtual_register);
+ 
+ int __init buses_init(void)
+ {
++	if (unlikely(force_mod_async)) {
++		pr_info("Enabling force_mod_async -- you're on your own!\n");
 +		add_taint(TAINT_DEBUG, LOCKDEP_STILL_OK);
 +	}
- 
++
  	bus_kset = kset_create_and_add("bus", &bus_uevent_ops, NULL);
  	if (!bus_kset)
-diff --git a/include/linux/device.h b/include/linux/device.h
-index aa14b95..058a8e0 100644
---- a/include/linux/device.h
-+++ b/include/linux/device.h
-@@ -202,6 +202,14 @@ extern struct klist *bus_get_device_klist(struct bus_type *bus);
-  * @suppress_bind_attrs: Disables bind/unbind via sysfs.
-  * @sync_probe:	Use this to annotate drivers which don't work well with
-  *		async probe.
-+ * @prefer_async_probe: if userspace is vetted for async probe support enable
-+ * 		async probe on this device driver whether module or built-in.
-+ * 		Userspace expresses it is vetted for async probe support by
-+ * 		enabling the bus.enable_kern_async=1 kernel parameter. Without
-+ * 		this option enabled userspace can still request modules to be
-+ * 		loaded asynchronously by using the shared async_probe module
-+ * 		parameter. Built-in drivers must however enable
-+ * 		prefer_async_probe and cope with bus.enable_kern_async=1
-  * @of_match_table: The open firmware table.
-  * @acpi_match_table: The ACPI match table.
-  * @probe:	Called to query the existence of a specific device,
-@@ -236,6 +244,7 @@ struct device_driver {
+ 		return -ENOMEM;
+diff --git a/drivers/base/dd.c b/drivers/base/dd.c
+index e4ffbcf..7999aba 100644
+--- a/drivers/base/dd.c
++++ b/drivers/base/dd.c
+@@ -507,6 +507,13 @@ static void __device_release_driver(struct device *dev)
  
- 	bool suppress_bind_attrs;	/* disables bind/unbind via sysfs */
- 	bool sync_probe;
-+	bool prefer_async_probe;
+ 	drv = dev->driver;
+ 	if (drv) {
++		if (drv->owner && !drv->sync_probe) {
++			struct module *mod = drv->owner;
++			struct driver_private *priv = drv->p;
++
++			if (mod->async_probe_requested)
++				flush_work(&priv->attach_work->work);
++		}
+ 		pm_runtime_get_sync(dev);
  
- 	const struct of_device_id	*of_match_table;
- 	const struct acpi_device_id	*acpi_match_table;
+ 		driver_sysfs_remove(dev);
+diff --git a/include/linux/module.h b/include/linux/module.h
+index 71f282a..1e9e017 100644
+--- a/include/linux/module.h
++++ b/include/linux/module.h
+@@ -271,6 +271,8 @@ struct module {
+ 	bool sig_ok;
+ #endif
+ 
++	bool async_probe_requested;
++
+ 	/* symbols that will be GPL-only in the near future. */
+ 	const struct kernel_symbol *gpl_future_syms;
+ 	const unsigned long *gpl_future_crcs;
+diff --git a/kernel/module.c b/kernel/module.c
+index 6a07671..f5f709d 100644
+--- a/kernel/module.c
++++ b/kernel/module.c
+@@ -3175,8 +3175,16 @@ out:
+ static int unknown_module_param_cb(char *param, char *val, const char *modname,
+ 				   void *arg)
+ {
++	struct module *mod = arg;
++	int ret;
++
++	if (strcmp(param, "async_probe") == 0) {
++		mod->async_probe_requested = true;
++		return 0;
++	}
++
+ 	/* Check for magic 'dyndbg' arg */ 
+-	int ret = ddebug_dyndbg_module_param_cb(param, val, modname);
++	ret = ddebug_dyndbg_module_param_cb(param, val, modname);
+ 	if (ret != 0)
+ 		pr_warn("%s: unknown parameter '%s' ignored\n", modname, param);
+ 	return 0;
+@@ -3278,7 +3286,7 @@ static int load_module(struct load_info *info, const char __user *uargs,
+ 
+ 	/* Module is ready to execute: parsing args may do that. */
+ 	after_dashes = parse_args(mod->name, mod->args, mod->kp, mod->num_kp,
+-				  -32768, 32767, NULL,
++				  -32768, 32767, mod,
+ 				  unknown_module_param_cb);
+ 	if (IS_ERR(after_dashes)) {
+ 		err = PTR_ERR(after_dashes);
 -- 
 2.1.1
-
