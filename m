@@ -1,37 +1,40 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] qdisc: validate skb without holding lock
-Date: Fri, 03 Oct 2014 16:30:44 -0700
-Message-ID: <1412379044.17245.26.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20141003.145647.1980640682969765484.davem@davemloft.net>
-	 <1412373477.17245.5.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1412375467.17245.16.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20141003.153645.72976986956341944.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next 15/15] tipc: remove old ASCII netlink API
+Date: Fri, 03 Oct 2014 16:50:38 -0700 (PDT)
+Message-ID: <20141003.165038.2121547250200790300.davem@davemloft.net>
+References: <1412261921-28510-1-git-send-email-richard.alpe@ericsson.com>
+	<1412261921-28510-16-git-send-email-richard.alpe@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: brouer@redhat.com, netdev@vger.kernel.org, therbert@google.com,
-	hannes@stressinduktion.org, fw@strlen.de, dborkman@redhat.com,
-	jhs@mojatatu.com, alexander.duyck@gmail.com,
-	john.r.fastabend@intel.com, dave.taht@gmail.com, toke@toke.dk
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net
+To: richard.alpe@ericsson.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:60778 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755561AbaJCXaN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Oct 2014 19:30:13 -0400
-Received: by mail-pa0-f43.google.com with SMTP id lf10so2244036pab.16
-        for <netdev@vger.kernel.org>; Fri, 03 Oct 2014 16:30:12 -0700 (PDT)
-In-Reply-To: <20141003.153645.72976986956341944.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60871 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932065AbaJCXsj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Oct 2014 19:48:39 -0400
+In-Reply-To: <1412261921-28510-16-git-send-email-richard.alpe@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-10-03 at 15:36 -0700, David Miller wrote:
+From: <richard.alpe@ericsson.com>
+Date: Thu, 2 Oct 2014 16:58:41 +0200
 
-> Applied, thanks Eric!
+> From: Richard Alpe <richard.alpe@ericsson.com>
+> 
+> The API has been deprecated along with its user-space tool
+> "tipc-config". Users shall use the new kernel netlink API already in
+> place along with the new user space tool "tipc" that's part of the
+> tipc-utils package.
+> 
+> Signed-off-by: Richard Alpe <richard.alpe@ericsson.com>
+> Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
+> Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
+> Acked-by: Ying Xue <ying.xue@windriver.com>
 
-Thanks David
+Sorry, no matter what your circumstances, you cannot just break
+binaries that might be out there.
 
-Another problem we need to address is the quota in __qdisc_run()
-is no longer meaningfull, if each qdisc_restart() can pump many packets.
-
-An idea would be to use the bstats (or cpu_qstats if applicable)
+The rest of this patch series is fine, but I'm really not going
+to even entertain applying this one, sorry.
