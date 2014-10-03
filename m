@@ -1,77 +1,121 @@
-From: Joe Lawrence <joe.lawrence@stratus.com>
-Subject: [PATCH] team: avoid race condition in scheduling delayed work
-Date: Fri, 3 Oct 2014 09:58:34 -0400
-Message-ID: <1412344714-29938-1-git-send-email-joe.lawrence@stratus.com>
+From: Benjamin LaHaise <bcrl@kvack.org>
+Subject: Re: HW bridging support using notifiers?
+Date: Fri, 3 Oct 2014 10:22:15 -0400
+Message-ID: <20141003142215.GR17057@kvack.org>
+References: <542E0089.5050005@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Jiri Pirko <jiri@resnulli.us>,
-	Joe Lawrence <joe.lawrence@stratus.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, jiri@resnulli.us,
+	stephen@networkplumber.org, andy@greyhouse.net, tgraf@suug.ch,
+	nbd@openwrt.org, john.r.fastabend@intel.com, edumazet@google.com,
+	vyasevic@redhat.com, buytenh@wantstofly.org,
+	sfeldma@cumulusnetworks.com, Jamal Hadi Salim <jhs@mojatatu.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from p02c11o143.mxlogic.net ([208.65.144.76]:36524 "EHLO
-	p02c11o143.mxlogic.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752602AbaJCOFk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Oct 2014 10:05:40 -0400
+Received: from kanga.kvack.org ([205.233.56.17]:40866 "EHLO kanga.kvack.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752152AbaJCOWR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Oct 2014 10:22:17 -0400
+Content-Disposition: inline
+In-Reply-To: <542E0089.5050005@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When team_notify_peers and team_mcast_rejoin are called, they both reset
-their respective .count_pending atomic variable. Then when the actual
-worker function is executed, the variable is atomically decremented.
-This pattern introduces a potential race condition where the
-.count_pending rolls over and the worker function keeps rescheduling
-until .count_pending decrements to zero again:
+Hi Florian et al,
 
-THREAD 1                           THREAD 2
-========                           ========
-team_notify_peers(teamX)
-  atomic_set count_pending = 1
-  schedule_delayed_work
-                                   team_notify_peers(teamX)
-                                   atomic_set count_pending = 1
-team_notify_peers_work
-  atomic_dec_and_test
-    count_pending = 0
-  (return)
-                                   schedule_delayed_work
-                                   team_notify_peers_work
-                                   atomic_dec_and_test
-                                     count_pending = -1
-                                   schedule_delayed_work
-                                   (repeat until count_pending = 0)
+On Thu, Oct 02, 2014 at 06:48:57PM -0700, Florian Fainelli wrote:
+> Hi all,
+> 
+> I am taking a look at adding HW bridging support to DSA, in way that's
+> usable outside of DSA.
 
-Instead of assigning a new value to .count_pending, use atomic_add to
-tack-on the additional desired worker function invocations.
+I've been working on support for the RTL8366S switch, and our work is 
+directly overlapping here.  I actually have something that is working at 
+configuring port and tag based vlans on the RTL8366S.  I'll try to clean 
+up the code to post something for discussion over the next couple of days.
 
-Signed-off-by: Joe Lawrence <joe.lawrence@stratus.com>
-Acked-by: Jiri Pirko <jiri@resnulli.us>
-Fixes: fc423ff00df3a19554414ee ("team: add peer notification")
-Fixes: 492b200efdd20b8fcfdac87 ("team: add support for sending multicast rejoins")
----
- drivers/net/team/team.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+> Lennert's approach in 2008 [1] looks conceptually good to me,as he
+> noted, it uses a bunch of new ndo's which is not only limiting to one
+> ndo implementer per struct net_device, but also is mostly consuming the
+> information from the bridge layer, while the ndo is an action
 
-diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
-index d46df38..2b87e3f 100644
---- a/drivers/net/team/team.c
-+++ b/drivers/net/team/team.c
-@@ -647,7 +647,7 @@ static void team_notify_peers(struct team *team)
- {
- 	if (!team->notify_peers.count || !netif_running(team->dev))
- 		return;
--	atomic_set(&team->notify_peers.count_pending, team->notify_peers.count);
-+	atomic_add(team->notify_peers.count, &team->notify_peers.count_pending);
- 	schedule_delayed_work(&team->notify_peers.dw, 0);
- }
- 
-@@ -687,7 +687,7 @@ static void team_mcast_rejoin(struct team *team)
- {
- 	if (!team->mcast_rejoin.count || !netif_running(team->dev))
- 		return;
--	atomic_set(&team->mcast_rejoin.count_pending, team->mcast_rejoin.count);
-+	atomic_add(team->mcast_rejoin.count, &team->mcast_rejoin.count_pending);
- 	schedule_delayed_work(&team->mcast_rejoin.dw, 0);
- }
- 
+I think having ndo implementer methods for hardware switch offloads makes 
+more sense.  Such a scheme is needed in order to implement the stacking of 
+devices that is required in order to transparently handle configuration of 
+vlans on switch ports where the 8021q device has to pass on the vlan tag 
+to the switch device.  The ndo methods do perform an action of causing the 
+switch to be configured to match the bridge config.  Additionally, they 
+can be used to veto changes that cannot be offloaded to hardware -- this 
+(configurable) behaviour is desired by some users of these APIs who wish 
+to be made aware when a particuarly configuration is not supported by the 
+underlying hardware.
+
+> So here's what I am up to now:
+> 
+> - use the NETDEV_JOIN notifier to discover when a bridge port is added
+> - use the NETDEV_LEAVE notifier, still need to verify this does not
+> break netconsole as indicated in net/bridge/br_if.c
+> - use the NETDEV_CHANGEINFODATA notifier to notify about STP state changes
+
+To me, notifiers are the wrong model for join and leave.  Implementing 
+stacking on top of notifiers is somewhat more complicated.  Here are the 
+ndo methods I've implemented so far which are sufficient for basic config 
+of the RTL8366S.  They're fairly similar to those in [1].
+
++	int			(*ndo_join_bridge)(struct net_bridge *bridge,
++						   struct net_device *dev,
++						   int *switch_nr,
++						   int *switch_port_nr,
++						   int vlan);
++	int			(*ndo_leave_bridge)(struct net_bridge *bridge,
++						    struct net_device *dev,
++						    int switch_nr,
++						    int switch_port_nr,
++						    int vlan);
++	int			(*ndo_flood_xmit)(struct switch_info *dev,
++						  struct sk_buff *skb,
++						  u64 port_mask);
+
+There are a couple of important points here.  In the case of joining and 
+leaving a bridge, the bridge needs to be provided with information it can 
+use to identify switch ports.  This is needed in order to offload the 
+flooding of packets to multiple ports, as otherwise the Linux bridge code 
+doesn't have any way to figure out which packets can be merged into a 
+single transmit via the ndo_flood_xmit() method.
+
+> Now, this raises a bunch of questions:
+> 
+> - we would need a getter to return the stp state of a given network
+> device when called with NETDEV_CHANGEINFODATA, is that acceptable? This
+> would be the first function exported by the bridge layer to expose
+> internal data
+
+I have yet to dig into STP, so I'll refrain from commenting on these parts 
+for now.
+
+> NB: this also raises the question of the race condition and locking
+> within br_set_stp_state() and when the network devices notifier callback
+> runs
+U
+> - or do we need a new network device notifier accepting an opaque
+> pointer which could provide us with the data we what, something like
+> this: call_netdevices_notifier_data(NETDEV_CHANGEINFODATA, dev, info),
+> where info would be a structure/union telling what's this data about
+> 
+> Let me know what you think, thanks!
+> 
+> [1]: http://patchwork.ozlabs.org/patch/16578/
+
+Thanks for the pointer to this.  Cheers!
+
+		-ben
+
+> --
+> Florian
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
 -- 
-1.7.10.4
+"Thought is the essence of where you are now."
