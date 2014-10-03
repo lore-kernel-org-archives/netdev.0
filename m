@@ -1,36 +1,29 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Don't reset PHY on if_up for ASIX 88772
-Date: Fri, 03 Oct 2014 15:39:27 -0700 (PDT)
-Message-ID: <20141003.153927.1271451328252985749.davem@davemloft.net>
-References: <1412238122-1914-1-git-send-email-m.stam@fugro.nl>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net v2] r8152: autoresume before setting MAC address
+Date: Fri, 03 Oct 2014 15:40:59 -0700 (PDT)
+Message-ID: <20141003.154059.1211808905920859149.davem@davemloft.net>
+References: <1394712342-15778-55-Taiwan-albertk@realtek.com>
+	<1394712342-15778-56-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, freddy@asix.com.tw, grundler@chromium.org
-To: m.stam@fugro.nl
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60371 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753166AbaJCWhV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Oct 2014 18:37:21 -0400
-In-Reply-To: <1412238122-1914-1-git-send-email-m.stam@fugro.nl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1394712342-15778-56-Taiwan-albertk-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Michel Stam <m.stam@fugro.nl>
-Date: Thu,  2 Oct 2014 10:22:02 +0200
+From: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+Date: Thu, 2 Oct 2014 17:03:12 +0800
 
-> I've noticed every time the interface is set to 'up,', the kernel
-> reports that the link speed is set to 100 Mbps/Full Duplex, even
-> when ethtool is used to set autonegotiation to 'off', half
-> duplex, 10 Mbps.
-> It can be tested by:
->  ifconfig eth0 down
->  ethtool -s eth0 autoneg off speed 10 duplex half
->  ifconfig eth0 up
+> Resume the device before setting the MAC address.
 > 
-> Then checking 'dmesg' for the link speed.
-> 
-> Signed-off-by: Michel Stam <m.stam@fugro.nl>
+> Signed-off-by: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
 
-Applied, thank you.
+Applied, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
