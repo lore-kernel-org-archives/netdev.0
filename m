@@ -1,48 +1,90 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next] net: dsa: do not call phy_start_aneg
-Date: Thu,  2 Oct 2014 18:56:03 -0700
-Message-ID: <1412301363-8478-2-git-send-email-f.fainelli@gmail.com>
-References: <1412301363-8478-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:49784 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752463AbaJCB4N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Oct 2014 21:56:13 -0400
-Received: by mail-pa0-f54.google.com with SMTP id ey11so586421pad.41
-        for <netdev@vger.kernel.org>; Thu, 02 Oct 2014 18:56:13 -0700 (PDT)
-In-Reply-To: <1412301363-8478-1-git-send-email-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [PATCH v3 net-next 3/3] bridge: Add filtering support
+	for default_pvid
+Date: Thu, 2 Oct 2014 21:41:46 -0700
+Message-ID: <CAHA+R7OycteYron5K3YJ3qtsEE-5uUxhPkictJDWosXCihR5hA@mail.gmail.com>
+References: <1412294070-11930-1-git-send-email-vyasevic@redhat.com>
+	<1412294070-11930-4-git-send-email-vyasevic@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	netdev <netdev@vger.kernel.org>,
+	"bridge@lists.linux-foundation.org" <bridge@lists.linux-foundation.org>,
+	Vladislav Yasevich <vyasevic@redhat.com>
+To: Vladislav Yasevich <vyasevich@gmail.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1412294070-11930-4-git-send-email-vyasevic@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Commit f7f1de51edbd ("net: dsa: start and stop the PHY state machine")
-add calls to phy_start() in dsa_slave_open() respectively phy_stop() in
-dsa_slave_close().
+On Thu, Oct 2, 2014 at 4:54 PM, Vladislav Yasevich <vyasevich@gmail.com> wrote:
+> +static void br_vlan_disable_default_pvid(struct net_bridge *br)
+> +{
+> +       struct net_bridge_port *p;
+> +       u16 pvid = br->default_pvid;
+> +
+> +       /* Disable default_pvid on all ports where it is still
+> +        * configured.
+> +        */
+> +
 
-We also call phy_start_aneg() in dsa_slave_create(), and this call is
-messing up with the PHY state machine, since we basically start the
-auto-negotiation, and later on restart it when calling phy_start().
-phy_start() does not currently handle the PHY_FORCING or PHY_AN states
-properly, but such a fix would be too invasive for this window.
+This empty line is not necessary.
 
-Fixes: f7f1de51edbd ("net: dsa: start and stop the PHY state machine")
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- net/dsa/slave.c | 1 -
- 1 file changed, 1 deletion(-)
+> +       if (vlan_default_pvid(br_get_vlan_info(br), pvid))
+> +               br_vlan_delete(br, pvid);
+> +
+> +       list_for_each_entry(p, &br->port_list, list) {
+> +               if (vlan_default_pvid(nbp_get_vlan_info(p), pvid))
+> +                       nbp_vlan_delete(p, pvid);
+> +       }
+> +
+> +       br->default_pvid = 0;
+> +}
+> +
+> +static int __br_vlan_set_default_pvid(struct net_bridge *br, u16 pvid)
+> +{
+> +       struct net_bridge_port *p;
+> +       u16 old_pvid;
+> +       int err;
+> +       DECLARE_BITMAP(changed, BR_MAX_PORTS);
 
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 36953c84ff2d..8030489d9cbe 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -608,7 +608,6 @@ dsa_slave_create(struct dsa_switch *ds, struct device *parent,
- 		p->phy->speed = 0;
- 		p->phy->duplex = 0;
- 		p->phy->advertising = p->phy->supported | ADVERTISED_Autoneg;
--		phy_start_aneg(p->phy);
- 	}
- 
- 	return slave_dev;
--- 
-1.9.1
+
+This bitmap will use 128 bytes on stack, why not using heap?
+
+> +
+> +       bitmap_zero(changed, BR_MAX_PORTS);
+> +
+> +       /* This function runs with filtering turned off so we can
+> +        * remove the old pvid configuration and add the new one after
+> +        * without impacting traffic.
+> +        */
+> +
+> +       old_pvid = br->default_pvid;
+
+
+Remove the empty line.
+
+[...]
+
+> +int nbp_vlan_init(struct net_bridge_port *p)
+> +{
+> +       int rc = 0;
+> +
+> +       if (p->br->default_pvid) {
+> +               rc = nbp_vlan_add(p, p->br->default_pvid,
+> +                                 BRIDGE_VLAN_INFO_PVID |
+> +                                 BRIDGE_VLAN_INFO_UNTAGGED);
+> +       }
+> +
+> +       return rc;
+> +}
+
+'rc' can be removed.
