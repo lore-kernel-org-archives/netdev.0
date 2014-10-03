@@ -1,50 +1,67 @@
-From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: Re: [PATCH 2/2] net: spider_net: avoid using signed char for bitops
-Date: Fri, 3 Oct 2014 17:17:24 +0200
-Message-ID: <20141003151724.GB20398@kwain>
-References: <1412348517-20352-1-git-send-email-antoine.tenart@free-electrons.com>
- <1412348517-20352-4-git-send-email-antoine.tenart@free-electrons.com>
- <9201792.OAu7xPjvdN@wuerfel>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-arm-kernel@lists.infradead.org,
-	Antoine Tenart <antoine.tenart@free-electrons.com>,
-	dan.carpenter@oracle.com, kou.ishizaki@toshiba.co.jp,
-	jens@de.ibm.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
+From: Vladislav Yasevich <vyasevich@gmail.com>
+Subject: [PATCH v4 net-next 0/3] bridge: Add vlan filtering support for default pvid
+Date: Fri,  3 Oct 2014 11:29:15 -0400
+Message-ID: <1412350158-19061-1-git-send-email-vyasevic@redhat.com>
+Cc: stephen@networkplumber.org, bridge@lists.linux-foundation.org,
+	toshiaki.makita1@gmail.com, cwang@twopensource.com,
+	Vladislav Yasevich <vyasevic@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:46903 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751773AbaJCPR2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Oct 2014 11:17:28 -0400
-Content-Disposition: inline
-In-Reply-To: <9201792.OAu7xPjvdN@wuerfel>
+Received: from mail-qg0-f44.google.com ([209.85.192.44]:50454 "EHLO
+	mail-qg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752006AbaJCP32 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Oct 2014 11:29:28 -0400
+Received: by mail-qg0-f44.google.com with SMTP id j5so1120727qga.3
+        for <netdev@vger.kernel.org>; Fri, 03 Oct 2014 08:29:27 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Arnd,
+This series adds default pvid support to vlan filtering in the bridge.
+VLAN 1 (as recommended by 802.1q spec) is used as default pvid on ports. 
+The the user can over-ride this configuration by configuring their
+own vlan information. 
+The user can additionally change the default value throught the
+sysfs interface (netlink comming shortly).
+The user can turn off default pvid functionality by setting default
+pvid to 0. 
+This series changes the default behavior of the bridge when
+vlan filtering is turned on.  Currently, ports without any vlan
+filtering configured will not recevie any traffic at all.  This patch
+changes the behavior of the above ports to receive only untagged traffic.
 
-On Fri, Oct 03, 2014 at 05:15:05PM +0200, Arnd Bergmann wrote:
-> On Friday 03 October 2014 17:01:56 Antoine Tenart wrote:
-> > Signedness bugs may occur when using signed char for bitops,
-> > depending on if the highest bit is ever used.
-> >=20
-> > Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
-> >=20
->=20
-> It's probably worth mentioning here that this cannot happen in this
-> driver because it's only used in one powerpc-specific chip, and 'char=
-'
-> is always 'unsigned' on powerpc.
+Since v3:
+- allocated 'changed' bitmap on the heap and re-arrange code to clean it up.
+- remove extra blank lines.
+- Fix patch1 to build by itself.
+- Fix error recover to not add vlan 0.
+- Restructure nbp_vlan_init to remove uneeded variable.
 
-Oh, that's good to know :)
+Since v2:
+- Fix handling of invalid values in sysfs interface.
+- Add some additional log messages.
+- Fix default_pvid handling when vlan filtering is compiled out.
+- Fix sparse issues with new code.
+- Fix how we located the old default pvid (added a helper function).
 
+Since v1:
+- Add ability to turn off default_pvid settings.
+- Drop the automiatic filtering support based on configured vlan devices (will
+  be its own series)
 
-Antoine
+Thanks
+-vlad
 
---=20
-Antoine T=E9nart, Free Electrons
-Embedded Linux, Kernel and Android engineering
-http://free-electrons.com
+Vladislav Yasevich (3):
+  bridge: Add a default_pvid sysfs attribute
+  bridge: Simplify pvid checks.
+  bridge: Add filtering support for default_pvid
+
+ net/bridge/br_device.c   |   8 ++-
+ net/bridge/br_if.c       |   3 +
+ net/bridge/br_private.h  |  23 +++++---
+ net/bridge/br_sysfs_br.c |  17 ++++++
+ net/bridge/br_vlan.c     | 148 ++++++++++++++++++++++++++++++++++++++++++++++-
+ 5 files changed, 187 insertions(+), 12 deletions(-)
+
+-- 
+1.9.3
