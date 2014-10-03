@@ -1,45 +1,47 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: [PATCH RFC net 0/2] ipv6: Avoid restarting fib6_lookup() for RTF_CACHE hit
-Date: Fri, 3 Oct 2014 15:12:10 -0700
-Message-ID: <1412374332-26657-1-git-send-email-kafai@fb.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next PATCH V6 0/2] qdisc: bulk dequeue support
+Date: Fri, 03 Oct 2014 15:15:35 -0700
+Message-ID: <1412374535.17245.7.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20141001203345.3321.99675.stgit@dragon>
+	 <20141003.123806.183331913071081861.davem@davemloft.net>
+	 <1412369869.17245.4.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20141003.145647.1980640682969765484.davem@davemloft.net>
+	 <1412373477.17245.5.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: brouer@redhat.com, netdev@vger.kernel.org, therbert@google.com,
+	hannes@stressinduktion.org, fw@strlen.de, dborkman@redhat.com,
+	jhs@mojatatu.com, alexander.duyck@gmail.com,
+	john.r.fastabend@intel.com, dave.taht@gmail.com, toke@toke.dk
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:8355 "EHLO
-	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757525AbaJCWMT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Oct 2014 18:12:19 -0400
-Received: from pps.filterd (m0004077 [127.0.0.1])
-	by mx0b-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id s93LvrHA028173
-	for <netdev@vger.kernel.org>; Fri, 3 Oct 2014 15:12:19 -0700
-Received: from mail.thefacebook.com (mailwest.thefacebook.com [173.252.71.148])
-	by mx0b-00082601.pphosted.com with ESMTP id 1psys6rye8-1
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=OK)
-	for <netdev@vger.kernel.org>; Fri, 03 Oct 2014 15:12:19 -0700
-Received: from facebook.com (2401:db00:20:7029:face:0:33:0)	by
- mx-out.facebook.com (10.102.107.97) with ESMTP	id
- 562fe15e4b4a11e4b21f0002c99331b0-eded3e0 for <netdev@vger.kernel.org>;	Fri,
- 03 Oct 2014 15:12:17 -0700
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:42473 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751364AbaJCWPG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Oct 2014 18:15:06 -0400
+Received: by mail-pa0-f41.google.com with SMTP id eu11so2168767pac.28
+        for <netdev@vger.kernel.org>; Fri, 03 Oct 2014 15:15:06 -0700 (PDT)
+In-Reply-To: <1412373477.17245.5.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I am trying to understand why there is a need to restart fib6_lookup() after
-getting rt with RTF_CACHE.
+On Fri, 2014-10-03 at 14:57 -0700, Eric Dumazet wrote:
+> On Fri, 2014-10-03 at 14:56 -0700, David Miller wrote:
+> 
+> > I completely agree, and I sort of intended this to happen when
+> > I split all the code into that new function.
+> > 
+> >   GSO segmentation of TX checksuming should not prevent other
+> > > cpus from queueing other skbs in the qdisc.
+> > > 
+> > > I will spend some time on this.
+> > 
+> > Thanks!
+> 
+> I just did my first reboot, will make sure everything is working well
+> before sending the patch ;)
 
-I have adapted the davem's udpflood test
-(https://git.kernel.org/pub/scm/linux/kernel/git/davem/net_test_tools.git) to
-support IPv6 and here is the result:
+This is awesome...
 
-#root > time ./udpflood -l 20000000 -c 250 2401:db00:face:face::2
-
-Before:
-real    0m33.224s
-user    0m2.941s
-sys     0m30.232s
-
-After:
-real    0m31.517s
-user    0m2.938s
-sys     0m28.536s
+40Gb rate, with TSO=on or TSO=off, it does not matter anymore.
