@@ -1,48 +1,60 @@
-From: Jason Baron <jbaron@akamai.com>
-Subject: Re: macvlan: optimizing the receive path?
-Date: Fri, 03 Oct 2014 11:08:10 -0400
-Message-ID: <542EBBDA.8070209@akamai.com>
-References: <542DB55D.3090601@akamai.com> <20141002143136.2234c9e6@urahara>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kaber@trash.net" <kaber@trash.net>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from prod-mail-xrelay02.akamai.com ([72.246.2.14]:54684 "EHLO
-	prod-mail-xrelay02.akamai.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753450AbaJCPIM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Oct 2014 11:08:12 -0400
-In-Reply-To: <20141002143136.2234c9e6@urahara>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Antoine Tenart <antoine.tenart@free-electrons.com>
+Subject: [PATCH RESEND] net: pxa168_eth: avoid using signed char for bitops
+Date: Fri,  3 Oct 2014 17:08:19 +0200
+Message-ID: <1412348899-20586-1-git-send-email-antoine.tenart@free-electrons.com>
+Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
+	sebastian.hesselbarth@gmail.com,
+	alexandre.belloni@free-electrons.com,
+	thomas.petazzoni@free-electrons.com, zmxu@marvell.com,
+	jszhang@marvell.com, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+To: dan.carpenter@oracle.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/02/2014 05:31 PM, Stephen Hemminger wrote:
-> On Thu, 02 Oct 2014 16:28:13 -0400
-> Jason Baron <jbaron@akamai.com> wrote:
-> 
->> Hi,
->>
->> I was just wondering why the netif_rx(skb) call in macvlan_handle_frame()
->> was necessary? IE:
-> 
-> 
-> It is to prevent too deep a call stack of
->   netif_receive_skb
->      macvlan_receive
->         netif_receive_skb ...
-> 
+Signedness bugs may occur when using signed char for bitops,
+depending on if the highest bit is ever used.
 
-So the concern is a stack overflow? The above nesting would really look like:
+Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
+Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+---
 
-netif_receive_skb
-        macvlan_receive
-netif_receive_skb
+Dan reported a static checker warning:
+http://marc.info/?l=kernel-janitors&m=141218246222535&w=2
 
-b/c the macvlan_receive call would return. So its not clear to me that the
-macvlan code would be adding to the stack depth here.
+This patch fixes it. Instead of using sa->sa_data we now use
+dev->dev_addr (of type unsigned char *) to avoid possible
+signedness issues.
 
-Thanks,
+Resend: this patch was sent alongside another series, an was
+considered part of the thread.
 
--Jason
+ drivers/net/ethernet/marvell/pxa168_eth.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/ethernet/marvell/pxa168_eth.c b/drivers/net/ethernet/marvell/pxa168_eth.c
+index 24de41231593..c3b209cd0660 100644
+--- a/drivers/net/ethernet/marvell/pxa168_eth.c
++++ b/drivers/net/ethernet/marvell/pxa168_eth.c
+@@ -634,12 +634,12 @@ static int pxa168_eth_set_mac_address(struct net_device *dev, void *addr)
+ 	memcpy(oldMac, dev->dev_addr, ETH_ALEN);
+ 	memcpy(dev->dev_addr, sa->sa_data, ETH_ALEN);
+ 
+-	mac_h = sa->sa_data[0] << 24;
+-	mac_h |= sa->sa_data[1] << 16;
+-	mac_h |= sa->sa_data[2] << 8;
+-	mac_h |= sa->sa_data[3];
+-	mac_l = sa->sa_data[4] << 8;
+-	mac_l |= sa->sa_data[5];
++	mac_h = dev->dev_addr[0] << 24;
++	mac_h |= dev->dev_addr[1] << 16;
++	mac_h |= dev->dev_addr[2] << 8;
++	mac_h |= dev->dev_addr[3];
++	mac_l = dev->dev_addr[4] << 8;
++	mac_l |= dev->dev_addr[5];
+ 	wrl(pep, MAC_ADDR_HIGH, mac_h);
+ 	wrl(pep, MAC_ADDR_LOW, mac_l);
+ 
+-- 
+1.9.1
