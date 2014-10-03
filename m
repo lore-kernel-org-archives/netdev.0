@@ -1,144 +1,80 @@
-From: Ulf Samuelsson <ulf.samuelsson@ericsson.com>
-Subject: Re: netlink NETLINK_ROUTE  failure & Can the kernel really handle
- IPv6 properly
-Date: Fri, 3 Oct 2014 09:59:39 +0200
-Message-ID: <542E576B.50708@ericsson.com>
-References: <542C63FE.9080807@emagii.com>	 <1412199032.2532289.174101717.2D6510D0@webmail.messagingengine.com>	 <9330C415-574C-492B-A7AE-92EBCF6D1A26@emagii.com> <1412264648.7227.9.camel@dcbw.local>
+From: Tom Gundersen <teg@jklm.no>
+Subject: Re: [PATCH v1 5/5] driver-core: add driver
+	asynchronous probe support
+Date: Fri, 3 Oct 2014 10:23:24 +0200
+Message-ID: <CAG-2HqXxQG0fk2LsBT89fCZMmqo1NqX2xEK1aAT69hY8VLBoQQ@mail.gmail.com>
+References: <1411768637-6809-1-git-send-email-mcgrof@do-not-panic.com>
+ <1411768637-6809-6-git-send-email-mcgrof@do-not-panic.com>
+ <CAG-2HqWmVODJ6Q46t96mS9ALbeFjRcQ18ypwejY=ug0wCUVv-Q@mail.gmail.com>
+ <20140930022751.GA14081@wotan.suse.de>
+ <CAG-2HqUdFWBPUrHg2yezVVu7xedqTQDBxAW5nuYWKWJCTkZSBg@mail.gmail.com>
+ <20140930152419.GF14081@wotan.suse.de>
+ <CAG-2HqVBnXUKSRBrJE=gEKA3St5KMfdgAbx2vRfpF3qw_teLOg@mail.gmail.com>
+ <20141002200612.GQ14081@wotan.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Dan Williams <dcbw@redhat.com>, Ulf samuelsson <netdev@emagii.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sesbmg22.ericsson.net ([193.180.251.48]:56393 "EHLO
-	sesbmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750987AbaJCIOz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Oct 2014 04:14:55 -0400
-In-Reply-To: <1412264648.7227.9.camel@dcbw.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
+ Takashi Iwai <tiwai@suse.de>, Kay Sievers <kay@vrfy.org>, pmladek@suse.cz,
+ LKML <linux-kernel@vger.kernel.org>, Michal Hocko <mhocko@suse.cz>,
+ Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
+ hare <hare@suse.com>,
+ Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>, werner@suse.com,
+ Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
+ "mpt-fusionlinux.pdl" <MPT-FusionLinux.pdl@avagotech.com>,
+ Tim Gardner <tim.gardner@canonical.com>, Benjamin Poirier <bpoirier@suse.de>,
+ Santosh Rastapur <santosh@chelsio.com>, Casey Leedom <leedom@chelsio.com>,
+ Hariprasad S <hariprasad@chelsio.com>,
+ Pierre Fersing <pierre-fersing@pierref.org>, dbueso@suse.com,
+ Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
+ Arjan van de Ven <arjan@linux.intel.com>,
+ Abhijit Mahajan <abhijit.mahajan@avagotech.com>,
+ systemd Mailing List
+To: "Luis R. Rodriguez" <mcgrof@suse.com>
+Return-path: <systemd-devel-bounces@lists.freedesktop.org>
+In-Reply-To: <20141002200612.GQ14081@wotan.suse.de>
+List-Unsubscribe: <http://lists.freedesktop.org/mailman/options/systemd-devel>,
+ <mailto:systemd-devel-request@lists.freedesktop.org?subject=unsubscribe>
+List-Archive: <http://lists.freedesktop.org/archives/systemd-devel>
+List-Post: <mailto:systemd-devel@lists.freedesktop.org>
+List-Help: <mailto:systemd-devel-request@lists.freedesktop.org?subject=help>
+List-Subscribe: <http://lists.freedesktop.org/mailman/listinfo/systemd-devel>,
+ <mailto:systemd-devel-request@lists.freedesktop.org?subject=subscribe>
+Errors-To: systemd-devel-bounces@lists.freedesktop.org
+Sender: "systemd-devel" <systemd-devel-bounces@lists.freedesktop.org>
+List-Id: netdev.vger.kernel.org
 
-
-On 10/02/2014 05:44 PM, Dan Williams wrote:
-> On Thu, 2014-10-02 at 14:38 +0200, Ulf samuelsson wrote:
->> This is the significant code, and it is wrong.
->>
->> static struct notifier_block my_ipv6_address_notifier =
->>   {
->>     my_ipv6_address_notifier_cb,
->>     NULL,
->>     0
->>   };
->>
->> register_inet6addr_notifier (&my_ipv6_address_notifier );
->>
->> int
->> my_ipv6_address_notifier_cb (struct notifier_block *self,
->>                                  unsigned long event, void *val)
->> {
->>   struct inet6_ifaddr *ifaddr = (struct inet6_ifaddr *)val;
->>
->>
->>   /* We are only interested in address add/delete events */
->>   /* IPv6 address add comes as NETDEV_UP and delete comes as
->>    * NETDEV_DOWN
->>    */
->>   if ((event != NETDEV_UP) && (event != NETDEV_DOWN))
->>     return ret;
->>
->>   if (ifaddr == NULL)
->>     return ret;
->>   /* Now that we are sure that it is a IPv6 address being added deleted,
->>    * verify that it is a link local address.
->>    */
->>   if (!IPV6_IS_ADDR_LINKLOCAL (&ifaddr->addr))
->>     {
->>       return ret;
->>     }
->>   ...
->>   send_message_to_app(LINK_LOCAL_UP, ip);
->>   ...
->>   return ret;
->> }
->>
->>
->> Application tries to send message to "ip" and fails, because the link-local adress is still
->> in "tentative state"
-> It seems to me that a better architecture would be to have the app
-> itself listen for RTM_NEWADDR netlink event and look for lack of
-> IFA_F_TENTATIVE in the IFA_FLAGS attribute.  Using a kernel module to do
-> the same thing seems pretty wrong.
+On Thu, Oct 2, 2014 at 10:06 PM, Luis R. Rodriguez <mcgrof@suse.com> wrote:
+> On Thu, Oct 02, 2014 at 08:12:37AM +0200, Tom Gundersen wrote:
+>> Making kmod a special case is of course possible. However, as long as
+>> there is no fundamental reason why kmod should get this special
+>> treatment, this just looks like a work-around to me.
 >
-> Dan
+> I've mentioned a series of five reasons why its a bad idea right now to
+> sigkill modules [0], we're reviewed them each and still at least
+> items 2-4 remain particularly valid fundamental reasons to avoid it
 
-OK, got more information. This is part of a fairly large and complex system.
+So items 2-4 basically say "there currently are drivers that cannot
+deal with sigkill after a three minute timeout".
 
-The kernel module is a control module which collects information
-both from the kernel and from H/W, and talks to a userspace interface 
-manager.
+In the short-term we already have the solution: increase the timeout.
+In the long-term, we have two choices, either permanently add some
+heuristic to udev to deal with drivers taking a very long time to be
+inserted, or fix the drivers not to take such a long time. A priori,
+it makes no sense to me that drivers spend unbounded amounts of time
+to get inserted, so fixing the drivers seems like the most reasonable
+approach to me. That said, I'm of course open to be proven wrong if
+there are some drivers that fundamentally _must_ take a long time to
+insert (but we should then discuss why that is and how we can best
+deal with the situation, rather than adding some hack up-front when we
+don't even know if it is needed).
 
-There is a proprietary management application which is used to configure 
-the stack.
-This talks to the interface manager to handle different operations for IPv6.
+Your patch series should go a long way towards fixing the drivers (and
+I imagine there being a lot of low-hanging fruit that can easily be
+fixed once your series has landed), and the fact that we have now
+increased the udev timeout from 30 to 180 seconds should also greatly
+reduce the problem.
 
-The kernel module needs to know when interfaces are ready to use,
-I.E: know when it exits "tentative" mode to do its job properly,
-so the kernel module has to listen for RTM_NEWADDR.
+Cheers,
 
-In a simpler system, your approach would be OK.
-
-Best Regards,
-Ulf Samuelsson
-
-
->> Best Regards
->> Ulf Samuelsson
->> ulf@emagii.com
->> +46  (722) 427 437
->>
->>
->>> 1 okt 2014 kl. 23:30 skrev Hannes Frederic Sowa <hannes@stressinduktion.org>:
->>>
->>> Hello,
->>>
->>>> On Wed, Oct 1, 2014, at 22:28, Ulf Samuelsson wrote:
->>>> BTW, the problem I am trying to solve is how to connect to an I/F with
->>>> an IPv6 link-local address.
->>>>
->>>> An existing kernel module waits for a NETDEV_UP event, and then tries to
->>>> communicate
->>>> with the link-local address.
->>>>
->>>> This will fail, because (according to a colleague) the I/F enters a
->>>> "tentative" state,
->>>> where it is trying to decide if it is unique or not.
->>>> It will remain in that state for 1-2 seconds, and only afterwards is the
->>>> link-local address
->>>> available for normal use.
->>>>
->>>> The guys writing the module, claim that the kernel is using NETDEV_UP.
->>>> There is very little code in the kernel using NETLINK_ROUTE, even in
->>>> latest stable.
->>>> It is using NETDEV_UP.
->>>>
->>>> If my colleague is right, the kernel really cannot handle IPv6
->>>> link-local addresses properly.
->>> Sorry, I cannot really follow you, can you send example code or be a bit
->>> more precise?
->>>
->>> Thanks,
->>> Hannes
->>> --
->>> To unsubscribe from this list: send the line "unsubscribe netdev" in
->>> the body of a message to majordomo@vger.kernel.org
->>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Tom
