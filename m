@@ -1,122 +1,102 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH iproute2] ip address: print stats with -s
-Date: Fri,  3 Oct 2014 15:25:02 +0200
-Message-ID: <27994ada1acf56bc276a97a7d6c6a19131d84be1.1412342498.git.jbenc@redhat.com>
-Cc: netdev@vger.kernel.org, Pavel Simerda <psimerda@redhat.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40487 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751462AbaJCN2Y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Oct 2014 09:28:24 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH v3 net-next 3/3] bridge: Add filtering support
+	for default_pvid
+Date: Fri, 03 Oct 2014 09:37:27 -0400
+Message-ID: <542EA697.7070109@redhat.com>
+References: <1412294070-11930-1-git-send-email-vyasevic@redhat.com>	<1412294070-11930-4-git-send-email-vyasevic@redhat.com>
+	<CAHA+R7OycteYron5K3YJ3qtsEE-5uUxhPkictJDWosXCihR5hA@mail.gmail.com>
+Reply-To: vyasevic@redhat.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	netdev <netdev@vger.kernel.org>,
+	"bridge@lists.linux-foundation.org" <bridge@lists.linux-foundation.org>
+To: Cong Wang <cwang@twopensource.com>,
+	Vladislav Yasevich <vyasevich@gmail.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <CAHA+R7OycteYron5K3YJ3qtsEE-5uUxhPkictJDWosXCihR5hA@mail.gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Make ip address show accept the -s option similarly to ip link. This creates
-an one command replacement for "ifconfig -a" useful for people who still
-stay with ifconfig because of this feature.
+On 10/03/2014 12:41 AM, Cong Wang wrote:
+> On Thu, Oct 2, 2014 at 4:54 PM, Vladislav Yasevich <vyasevich@gmail.com> wrote:
+>> +static void br_vlan_disable_default_pvid(struct net_bridge *br)
+>> +{
+>> +       struct net_bridge_port *p;
+>> +       u16 pvid = br->default_pvid;
+>> +
+>> +       /* Disable default_pvid on all ports where it is still
+>> +        * configured.
+>> +        */
+>> +
+> 
+> This empty line is not necessary.
+> 
+>> +       if (vlan_default_pvid(br_get_vlan_info(br), pvid))
+>> +               br_vlan_delete(br, pvid);
+>> +
+>> +       list_for_each_entry(p, &br->port_list, list) {
+>> +               if (vlan_default_pvid(nbp_get_vlan_info(p), pvid))
+>> +                       nbp_vlan_delete(p, pvid);
+>> +       }
+>> +
+>> +       br->default_pvid = 0;
+>> +}
+>> +
+>> +static int __br_vlan_set_default_pvid(struct net_bridge *br, u16 pvid)
+>> +{
+>> +       struct net_bridge_port *p;
+>> +       u16 old_pvid;
+>> +       int err;
+>> +       DECLARE_BITMAP(changed, BR_MAX_PORTS);
+> 
+> 
+> This bitmap will use 128 bytes on stack, why not using heap?
+> 
 
-Print the stats as the last thing for the interface. This requires some code
-shuffling.
+I suppose I wanted to avoid yet another memory allocation failure condition.
+Is this really going to cause issues?
 
-Signed-off-by: Jiri Benc <jbenc@redhat.com>
----
- ip/ipaddress.c | 43 +++++++++++++++++++++++++++++++------------
- 1 file changed, 31 insertions(+), 12 deletions(-)
+Thanks
+-vlad
 
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index 245df39179a9..45729d890abd 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -322,7 +322,6 @@ static void print_vfinfo(FILE *fp, struct rtattr *vfinfo)
- static void print_link_stats64(FILE *fp, const struct rtnl_link_stats64 *s,
-                                const struct rtattr *carrier_changes)
- {
--	fprintf(fp, "%s", _SL_);
- 	fprintf(fp, "    RX: bytes  packets  errors  dropped overrun mcast   %s%s",
- 		s->rx_compressed ? "compressed" : "", _SL_);
- 	fprintf(fp, "    %-10"PRIu64" %-8"PRIu64" %-7"PRIu64" %-7"PRIu64" %-7"PRIu64" %-7"PRIu64"",
-@@ -375,10 +374,9 @@ static void print_link_stats64(FILE *fp, const struct rtnl_link_stats64 *s,
- 	}
- }
- 
--static void print_link_stats(FILE *fp, const struct rtnl_link_stats *s,
--			     const struct rtattr *carrier_changes)
-+static void print_link_stats32(FILE *fp, const struct rtnl_link_stats *s,
-+			       const struct rtattr *carrier_changes)
- {
--	fprintf(fp, "%s", _SL_);
- 	fprintf(fp, "    RX: bytes  packets  errors  dropped overrun mcast   %s%s",
- 		s->rx_compressed ? "compressed" : "", _SL_);
- 	fprintf(fp, "    %-10u %-8u %-7u %-7u %-7u %-7u",
-@@ -425,6 +423,27 @@ static void print_link_stats(FILE *fp, const struct rtnl_link_stats *s,
- 	}
- }
- 
-+static void __print_link_stats(FILE *fp, struct rtattr **tb)
-+{
-+	if (tb[IFLA_STATS64])
-+		print_link_stats64(fp, RTA_DATA(tb[IFLA_STATS64]),
-+					tb[IFLA_CARRIER_CHANGES]);
-+	else if (tb[IFLA_STATS])
-+		print_link_stats32(fp, RTA_DATA(tb[IFLA_STATS]),
-+					tb[IFLA_CARRIER_CHANGES]);
-+}
-+
-+static void print_link_stats(FILE *fp, struct nlmsghdr *n)
-+{
-+	struct ifinfomsg *ifi = NLMSG_DATA(n);
-+	struct rtattr * tb[IFLA_MAX+1];
-+
-+	parse_rtattr(tb, IFLA_MAX, IFLA_RTA(ifi),
-+		     n->nlmsg_len - NLMSG_LENGTH(sizeof(*ifi)));
-+	__print_link_stats(fp, tb);
-+	fprintf(fp, "%s", _SL_);
-+}
-+
- int print_linkinfo(const struct sockaddr_nl *who,
- 		   struct nlmsghdr *n, void *arg)
- {
-@@ -550,12 +569,8 @@ int print_linkinfo(const struct sockaddr_nl *who,
- 	}
- 
- 	if (do_link && show_stats) {
--		if (tb[IFLA_STATS64])
--			print_link_stats64(fp, RTA_DATA(tb[IFLA_STATS64]),
--					   tb[IFLA_CARRIER_CHANGES]);
--		else if (tb[IFLA_STATS])
--			print_link_stats(fp, RTA_DATA(tb[IFLA_STATS]),
--					 tb[IFLA_CARRIER_CHANGES]);
-+		fprintf(fp, "%s", _SL_);
-+		__print_link_stats(fp, tb);
- 	}
- 
- 	if (do_link && tb[IFLA_VFINFO_LIST] && tb[IFLA_NUM_VF]) {
-@@ -567,7 +582,7 @@ int print_linkinfo(const struct sockaddr_nl *who,
- 
- 	fprintf(fp, "\n");
- 	fflush(fp);
--	return 0;
-+	return 1;
- }
- 
- static int flush_update(void)
-@@ -1282,11 +1297,15 @@ static int ipaddr_list_flush_or_save(int argc, char **argv, int action)
- 	}
- 
- 	for (l = linfo.head; l; l = l->next) {
--		if (no_link || print_linkinfo(NULL, &l->h, stdout) == 0) {
-+		int res = 0;
-+
-+		if (no_link || (res = print_linkinfo(NULL, &l->h, stdout)) >= 0) {
- 			struct ifinfomsg *ifi = NLMSG_DATA(&l->h);
- 			if (filter.family != AF_PACKET)
- 				print_selected_addrinfo(ifi->ifi_index,
- 							ainfo.head, stdout);
-+			if (res > 0 && !do_link && show_stats)
-+				print_link_stats(stdout, &l->h);
- 		}
- 	}
- 	fflush(stdout);
--- 
-1.8.3.1
+
+>> +
+>> +       bitmap_zero(changed, BR_MAX_PORTS);
+>> +
+>> +       /* This function runs with filtering turned off so we can
+>> +        * remove the old pvid configuration and add the new one after
+>> +        * without impacting traffic.
+>> +        */
+>> +
+>> +       old_pvid = br->default_pvid;
+> 
+> 
+> Remove the empty line.
+> 
+> [...]
+> 
+>> +int nbp_vlan_init(struct net_bridge_port *p)
+>> +{
+>> +       int rc = 0;
+>> +
+>> +       if (p->br->default_pvid) {
+>> +               rc = nbp_vlan_add(p, p->br->default_pvid,
+>> +                                 BRIDGE_VLAN_INFO_PVID |
+>> +                                 BRIDGE_VLAN_INFO_UNTAGGED);
+>> +       }
+>> +
+>> +       return rc;
+>> +}
+> 
+> 'rc' can be removed.
+> 
