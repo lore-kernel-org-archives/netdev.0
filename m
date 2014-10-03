@@ -1,29 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: phy: adjust fixed_phy_register() return
- value
-Date: Fri, 03 Oct 2014 12:47:49 -0700 (PDT)
-Message-ID: <20141003.124749.974873486444083611.davem@davemloft.net>
-References: <542C7875.8090102@gmail.com>
-	<CAGXr9JFhD+tguddQ3c9Lv+akbJo2d0Fp0_JBx7pU3A+L=b6RHw@mail.gmail.com>
-	<542C9D50.9050301@gmail.com>
+Subject: Re: Small fixes/changes for RDS
+Date: Fri, 03 Oct 2014 12:52:59 -0700 (PDT)
+Message-ID: <20141003.125259.1940750405354043575.davem@davemloft.net>
+References: <1412200194-28902-1-git-send-email-herton@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: pgynther@google.com, netdev@vger.kernel.org,
-	thomas.petazzoni@free-electrons.com
-To: f.fainelli@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58785 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753862AbaJCTpp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Oct 2014 15:45:45 -0400
-In-Reply-To: <542C9D50.9050301@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: chien.yen@oracle.com, rds-devel@oss.oracle.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	rmanes@redhat.com, dledford@redhat.com
+To: herton@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1412200194-28902-1-git-send-email-herton@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Wed, 01 Oct 2014 17:33:20 -0700
+From: "Herton R. Krzesinski" <herton@redhat.com>
+Date: Wed,  1 Oct 2014 18:49:51 -0300
 
-> I let Thomas comment on whether he likes this or not.
+> I got a report of one issue within RDS (after investigation it was a double
+> free), and I'm sending the fix (patch 3/3) which reporter said it works (no more
+> WARNING triggered on a specially instrumented kernel). The report/test was done
+> on a very old kernel (RHEL 5, 2.6.18 based with backports), but the problem the
+> patch handles still exists and should not change. Besides that, while
+> reviewing some of the code but being unable to reproduce with rds_tcp, I
+> noticed two small improvements/fixes which are in patches 1 and 2.
 
-I'm still waiting to see Thomas's feedback.
+Series applied, thanks.
