@@ -1,140 +1,125 @@
-From: "Luis R. Rodriguez" <mcgrof@suse.com>
-Subject: Re: [PATCH v1 5/5] driver-core: add driver
-	asynchronous probe support
-Date: Fri, 3 Oct 2014 09:54:51 -0700
-Message-ID: <CAB=NE6WKZOnu2YwG5AN=+EsCVnqdHnYJdmVcLvHhMt4VZ5okrQ@mail.gmail.com>
-References: <1411768637-6809-1-git-send-email-mcgrof@do-not-panic.com>
- <1411768637-6809-6-git-send-email-mcgrof@do-not-panic.com>
- <CAG-2HqWmVODJ6Q46t96mS9ALbeFjRcQ18ypwejY=ug0wCUVv-Q@mail.gmail.com>
- <20140930022751.GA14081@wotan.suse.de>
- <CAG-2HqUdFWBPUrHg2yezVVu7xedqTQDBxAW5nuYWKWJCTkZSBg@mail.gmail.com>
- <20140930152419.GF14081@wotan.suse.de>
- <CAG-2HqVBnXUKSRBrJE=gEKA3St5KMfdgAbx2vRfpF3qw_teLOg@mail.gmail.com>
- <20141002200612.GQ14081@wotan.suse.de>
- <CAG-2HqXxQG0fk2LsBT89fCZMmqo1NqX2xEK1aAT69hY8VLBoQQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
- Takashi Iwai <tiwai@suse.de>, Kay Sievers <kay@vrfy.org>,
- Petr Mladek <pmladek@suse.cz>, LKML <linux-kernel@vger.kernel.org>,
- Michal Hocko <mhocko@suse.cz>,
- Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
- hare <hare@suse.com>,
- Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>, werner@suse.com,
- Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
- "mpt-fusionlinux.pdl" <MPT-FusionLinux.pdl@avagotech.com>,
- Tim Gardner <tim.gardner@canonical.com>, Benjamin Poirier <bpoirier@suse.de>,
- Santosh Rastapur <santosh@chelsio.com>, Casey Leedom <leedom@chelsio.com>,
- Hariprasad S <hariprasad@chelsio.com>,
- Pierre Fersing <pierre-fersing@pierref.org>, dbueso@suse.com,
- Julia Lawall <julia.lawall@lip6.fr>,
- Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
- Arjan van de Ven <arjan@linux.intel.com>,
- Abhijit Mahajan <a
-To: Tom Gundersen <teg@jklm.no>
-Return-path: <systemd-devel-bounces@lists.freedesktop.org>
-In-Reply-To: <CAG-2HqXxQG0fk2LsBT89fCZMmqo1NqX2xEK1aAT69hY8VLBoQQ@mail.gmail.com>
-List-Unsubscribe: <http://lists.freedesktop.org/mailman/options/systemd-devel>,
- <mailto:systemd-devel-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <http://lists.freedesktop.org/archives/systemd-devel>
-List-Post: <mailto:systemd-devel@lists.freedesktop.org>
-List-Help: <mailto:systemd-devel-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <http://lists.freedesktop.org/mailman/listinfo/systemd-devel>,
- <mailto:systemd-devel-request@lists.freedesktop.org?subject=subscribe>
-Errors-To: systemd-devel-bounces@lists.freedesktop.org
-Sender: "systemd-devel" <systemd-devel-bounces@lists.freedesktop.org>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 0/9] Netfilter/IPVS updates for net-next
+Date: Fri,  3 Oct 2014 19:20:15 +0200
+Message-ID: <1412356824-6362-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 3, 2014 at 1:23 AM, Tom Gundersen <teg@jklm.no> wrote:
-> On Thu, Oct 2, 2014 at 10:06 PM, Luis R. Rodriguez <mcgrof@suse.com> wrote:
->> On Thu, Oct 02, 2014 at 08:12:37AM +0200, Tom Gundersen wrote:
->>> Making kmod a special case is of course possible. However, as long as
->>> there is no fundamental reason why kmod should get this special
->>> treatment, this just looks like a work-around to me.
->>
->> I've mentioned a series of five reasons why its a bad idea right now to
->> sigkill modules [0], we're reviewed them each and still at least
->> items 2-4 remain particularly valid fundamental reasons to avoid it
->
-> So items 2-4 basically say "there currently are drivers that cannot
-> deal with sigkill after a three minute timeout".
+Hi David,
 
-No, dealing with the sigkill gracefully is all related to 2) as it
-says its probably a terrible idea to be triggering exit paths at
-random points on device drivers on init / probe. And while one could
-argue that perhaps that can be cleaned up I provided tons of
-references and even *research effort* on this particular area so the
-issues over this point should by no means easily be brushed off. And
-it may be true that we can fix some things on Linux but a) that
-requires a kernel upgrade on users and b) Some users may end up buying
-hardware that only is supported through a proprietary driver and
-getting those fixes is not trivial and almost impossible on some
-cases.
+The following patchset contains another batch with Netfilter/IPVS updates
+for net-next, they are:
 
-3) says it is fundamentally incorrect to limit with any arbitrary
-timeout the bus probe routine
+1) Add abstracted ICMP codes to the nf_tables reject expression. We
+   introduce four reasons to reject using ICMP that overlap in IPv4
+   and IPv6 from the semantic point of view. This should simplify the
+   maintainance of dual stack rule-sets through the inet table.
 
-4) talks about how the timeout is creating a limit on the number of
-devices a device driver can support on Linux as follows give the
-driver core batches *all* probes for one device driver serially:
+2) Move nf_send_reset() functions from header files to per-family
+   nf_reject modules, suggested by Patrick McHardy.
 
-   number_devices =          systemd_timeout
-                      -------------------------------------
-                         max known probe time for driver
+3) We have to use IS_ENABLED(CONFIG_BRIDGE_NETFILTER) everywhere in the
+   code now that br_netfilter can be modularized. Convert remaining spots
+   in the network stack code.
 
-We have device drivers which we *know* just on *probe* will take over
-1 minute, this means that by default for these device drivers folks
-can only install 3 devices of that type on a system. One can surely
-address things on the kernel but again assuming folks use defaults and
-don't upgrade their kernel the sigkill is simply limiting Linux right
-now, even if it is for the short term.
+4) Use rcu_barrier() in the nf_tables module removal path to ensure that
+   we don't leave object that are still pending to be released via
+   call_rcu (that may likely result in a crash).
 
-> In the short-term we already have the solution: increase the timeout.
+5) Remove incomplete arch 32/64 compat from nft_compat. The original (bad)
+   idea was to probe the word size based on the xtables match/target info
+   size, but this assumption is wrong when you have to dump the information
+   back to userspace.
 
-Short term implicates what will be supported for a while for tons of
-deployments of systemd. The kernel command line work around for
-increasing the timeout is a reactive measure, its not addressing the
-problem architecturally. If the sigkill is going to be maintained for
-kmod its implications should be well documented as well in terms of
-the impact and limitations on both device drivers and number of
-devices a driver can support.
+6) Allow to filter from prerouting and postrouting in the nf_tables bridge.
+   In order to emulate the ebtables NAT chains (which are actually simple
+   filter chains with no special semantics), we have support filtering from
+   this hooks too.
 
-> In the long-term, we have two choices, either permanently add some
-> heuristic to udev to deal with drivers taking a very long time to be
-> inserted, or fix the drivers not to take such a long time.
+7) Add explicit module dependency between xt_physdev and br_netfilter.
+   This provides a way to detect if the user needs br_netfilter from
+   the configuration path. This should reduce the breakage of the
+   br_netfilter modularization.
 
-Drivers taking long on init should probably be addressed, drivers
-taking long on probe are not broken specially since the driver core
-probe's all supported devices on one device driver serially, so the
-probe time is actually cumulative.
+8) Cleanup coding style in ip_vs.h, from Simon Horman.
 
-> A priori,
-> it makes no sense to me that drivers spend unbounded amounts of time
-> to get inserted, so fixing the drivers seems like the most reasonable
-> approach to me. That said, I'm of course open to be proven wrong if
-> there are some drivers that fundamentally _must_ take a long time to
-> insert (but we should then discuss why that is and how we can best
-> deal with the situation, rather than adding some hack up-front when we
-> don't even know if it is needed).
+9) Fix crash in the recently added nf_tables masq expression. We have
+   to register/unregister the notifiers to clean up the conntrack table
+   entries from the module init/exit path, not from the rule addition /
+   deletion path. From Arturo Borrero.
 
-Ok hold on. Async probe on the driver core will be a new feature and
-there are even caveats that Tejun pointed out which are important for
-distributions to consider before embracing it. Of course folks can
-ignore these but by no means should it be considered that tons of
-device device drivers were broken, what we are providing is a new
-mechanism. And then there are device drivers which will need work in
-order to use async probe, some will require fixes on init / probe
-assumptions as I provided for the amd64_edac driver but for others
-only time will tell what is required.
+You can pull these changes from:
 
-> Your patch series should go a long way towards fixing the drivers (and
-> I imagine there being a lot of low-hanging fruit that can easily be
-> fixed once your series has landed), and the fact that we have now
-> increased the udev timeout from 30 to 180 seconds should also greatly
-> reduce the problem.
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git
 
-Sure, I do ask for folks to revisit the short term solution though, I
-did my best to communicate / document the issues.
+Thanks!
 
-  Luis
+----------------------------------------------------------------
+
+The following changes since commit 2c804d0f8fc7799981d9fdd8c88653541b28c1a7:
+
+  ipv4: mentions skb_gro_postpull_rcsum() in inet_gro_receive() (2014-10-01 13:44:05 -0400)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git master
+
+for you to fetch changes up to 8da4cc1b10c1aeba090d1d862b17174e4dbd50a4:
+
+  netfilter: nft_masq: register/unregister notifiers on module init/exit (2014-10-03 14:24:35 +0200)
+
+----------------------------------------------------------------
+Arturo Borrero (1):
+      netfilter: nft_masq: register/unregister notifiers on module init/exit
+
+Pablo Neira Ayuso (7):
+      netfilter: nft_reject: introduce icmp code abstraction for inet and bridge
+      netfilter: move nf_send_resetX() code to nf_reject_ipvX modules
+      netfilter: use IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
+      netfilter: nf_tables: wait for call_rcu completion on module removal
+      netfilter: nft_compat: remove incomplete 32/64 bits arch compat code
+      netfilter: nf_tables: allow to filter from prerouting and postrouting
+      netfilter: explicit module dependency between br_netfilter and physdev
+
+Simon Horman (1):
+      ipvs: Clean up comment style in ip_vs.h
+
+ include/net/ip_vs.h                        |  214 ++++++++++------------------
+ include/net/netfilter/br_netfilter.h       |    6 +
+ include/net/netfilter/ipv4/nf_reject.h     |  119 +---------------
+ include/net/netfilter/nft_reject.h         |    9 +-
+ include/uapi/linux/netfilter/nf_tables.h   |   21 +++
+ net/bridge/br_netfilter.c                  |    5 +
+ net/bridge/netfilter/nf_tables_bridge.c    |    2 +
+ net/bridge/netfilter/nft_reject_bridge.c   |   95 +++++++++++-
+ net/core/skbuff.c                          |    2 +-
+ net/ipv4/ip_output.c                       |    2 +-
+ net/ipv4/netfilter/Kconfig                 |    6 +
+ net/ipv4/netfilter/Makefile                |    3 +
+ net/ipv4/netfilter/ipt_REJECT.c            |    2 +-
+ net/ipv4/netfilter/nf_defrag_ipv4.c        |    2 +-
+ net/ipv4/netfilter/nf_reject_ipv4.c        |  127 +++++++++++++++++
+ net/ipv4/netfilter/nft_masq_ipv4.c         |   34 ++---
+ net/ipv4/netfilter/nft_reject_ipv4.c       |    1 -
+ net/ipv6/netfilter/Kconfig                 |    6 +
+ net/ipv6/netfilter/Makefile                |    3 +
+ net/ipv6/netfilter/nf_defrag_ipv6_hooks.c  |    2 +-
+ net/ipv6/netfilter/nf_reject_ipv6.c        |  163 +++++++++++++++++++++
+ net/ipv6/netfilter/nft_masq_ipv6.c         |   34 ++---
+ net/netfilter/ipset/ip_set_hash_netiface.c |    4 +-
+ net/netfilter/nf_log_common.c              |    2 +-
+ net/netfilter/nf_queue.c                   |    4 +-
+ net/netfilter/nf_tables_api.c              |    1 +
+ net/netfilter/nfnetlink_log.c              |    8 +-
+ net/netfilter/nfnetlink_queue_core.c       |   12 +-
+ net/netfilter/nft_compat.c                 |  116 ++-------------
+ net/netfilter/nft_reject.c                 |   37 +++++
+ net/netfilter/nft_reject_inet.c            |   94 +++++++++++-
+ net/netfilter/xt_physdev.c                 |    3 +
+ 32 files changed, 699 insertions(+), 440 deletions(-)
+ create mode 100644 include/net/netfilter/br_netfilter.h
+ create mode 100644 net/ipv4/netfilter/nf_reject_ipv4.c
+ create mode 100644 net/ipv6/netfilter/nf_reject_ipv6.c
