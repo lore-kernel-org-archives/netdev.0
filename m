@@ -1,46 +1,231 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [patch] checkpatch: remove the ether_addr_copy warning
-Date: Fri, 3 Oct 2014 17:47:29 +0300
-Message-ID: <20141003144729.GK23154@mwanda>
-References: <20141003093505.GA7393@mwanda>
- <1412346147.3247.97.camel@joe-AO725>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: RFC: ixgbe+build_skb+extra performance experiments
+Date: Fri, 03 Oct 2014 07:40:27 -0700
+Message-ID: <542EB55B.3000102@gmail.com>
+References: <1412229642-10555-1-git-send-email-ast@plumgrid.com> <20141002093636.6f482281@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andy Whitcroft <apw@canonical.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	gregkh@linuxfoundation.org
-To: Joe Perches <joe@perches.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1412346147.3247.97.camel@joe-AO725>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org
+To: Jesper Dangaard Brouer <brouer@redhat.com>,
+	Alexei Starovoitov <ast@plumgrid.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:62985 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752541AbaJCOsH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Oct 2014 10:48:07 -0400
+Received: by mail-pd0-f177.google.com with SMTP id v10so2567016pde.8
+        for <netdev@vger.kernel.org>; Fri, 03 Oct 2014 07:48:06 -0700 (PDT)
+In-Reply-To: <20141002093636.6f482281@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 03, 2014 at 07:22:27AM -0700, Joe Perches wrote:
-> On Fri, 2014-10-03 at 12:35 +0300, Dan Carpenter wrote:
-> > Most people sending checkpatch.pl fixes don't know how to verify the
-> > alignment.  This checkpatch warning just encourages newbies to try
-> > introduce bugs.  Patch submitters tell us that they just sed the code
-> > and it's the job for the maintainer to check that it's correct.
-> 
-> I haven't seen many instances of bad patch submittals
-> on netdev.  Is this mostly an issue for staging?
+On 10/02/2014 12:36 AM, Jesper Dangaard Brouer wrote:
+> On Wed,  1 Oct 2014 23:00:42 -0700 Alexei Starovoitov <ast@plumgrid.com> wrote:
+>
+>> I'm trying to speed up single core packet per second.
+> Great, welcome to the club ;-)
 
-I don't follow netdev so I can't say.
+Yes, but please keep in mind that multi-core is the more common use case
+for many systems.
 
-Most of the time data is aligned at a 4 byte mark so probably you are
-just getting lucky.  I really doubt that netdev checkpatch newbies know
-about alignment...
+>> I took dual port ixgbe and added both ports to a linux bridge.
+>> Only one port is connected to another system running pktgen at 10G rate.
+>> I disabled gro to measure pure RX speed of ixgbe.
+> It is great that you are attacking the RX side, I planned to look at it
+> after finishing the qdisc bulking.  It is really lacking behind,
+> especially after we have now almost "fixed" the TX side (driver layer
+> can now do 14.8Mpps, if ignoring rest of stack, alloc etc.).
 
-> 
-> Maybe a downgrade to CHK requiring --strict is OK.
+To that end we may want to look to something like GRO to do the
+buffering on the Rx side so that we could make use of GRO/GSO to send
+blocks of buffers instead of one at a time.
 
-I would actually like to turn --strict by default in staging.
+>> Out of the box I see 6.5 Mpps and the following stack:
+>>   21.83%    ksoftirqd/0  [kernel.kallsyms]  [k] memcpy
+>>   17.58%    ksoftirqd/0  [ixgbe]            [k] ixgbe_clean_rx_irq
+>>   10.07%    ksoftirqd/0  [kernel.kallsyms]  [k] build_skb
+>>    6.40%    ksoftirqd/0  [kernel.kallsyms]  [k] __netdev_alloc_frag
+>>    5.18%    ksoftirqd/0  [kernel.kallsyms]  [k] put_compound_page
+>>    4.93%    ksoftirqd/0  [kernel.kallsyms]  [k] kmem_cache_alloc
+>>    4.55%    ksoftirqd/0  [kernel.kallsyms]  [k] __netif_receive_skb_core
+>>
+>> Obviously driver spends huge amount of time copying data from
+>> hw buffers into skb.
+>>
+>> Then I applied buggy but working in this case patch:
+>> http://patchwork.ozlabs.org/patch/236044/
+>> that is trying to use build_skb() API in ixgbe.
+> I also expected it will be a huge win to use build_skb() API.
+> Good to see this confirmed! :-)
 
-Checkpatch is a good concept, but it should only do safe things instead
-of telling newbies to send buggy patches.
+>From my past experience this is very platform dependant.  For example
+with DDIO or DCA features enabled on a system the memcpy is very cheap
+since it is already in the cache.  It is one of the reasons for choosing
+that as a means of working around the fact that we cannot use build_skb
+and page reuse in the same driver.
 
-regards,
-dan carpenter
+> I've been playing with a faster memory pool/allocator (implemented via a
+> ring_queue), and my experiments show I could save 52ns when using it
+> for the skb->data.  And you basically avoid this skb->data alloc with
+> build_skb().
 
+The other big item that I think many are overlooking is the cost of
+mapping the buffer.  On systems with an IOMMU or even in some cases just
+the swiotlb can add some significant cost to allocating a new buffer.
+
+>> RX speed jumped to 7.6 Mpps with the following stack:
+>>   27.02%    ksoftirqd/0  [kernel.kallsyms]  [k] eth_type_trans
+>>   16.68%    ksoftirqd/0  [ixgbe]            [k] ixgbe_clean_rx_irq
+>>   11.45%    ksoftirqd/0  [kernel.kallsyms]  [k] build_skb
+>>    5.20%    ksoftirqd/0  [kernel.kallsyms]  [k] __netif_receive_skb_core
+>>    4.72%    ksoftirqd/0  [kernel.kallsyms]  [k] kmem_cache_alloc
+>>    3.96%    ksoftirqd/0  [kernel.kallsyms]  [k] kmem_cache_free
+> My faster memory pool/allocator could save 8ns for the kmem_cache/slub
+> calls, which is also high in your perf top.  8ns out of 40ns which is
+> the micro benchmarked cost of the kmem_cache_{alloc,free} calls.
+>
+>
+>> packets no longer copied and performance is higher.
+>> It's doing the following:
+>> - build_skb out of hw buffer and prefetch packet data
+>> - eth_type_trans
+>> - napi_gro_receive
+>>
+>> but build_skb() is too fast and cpu doesn't have enough time
+>> to prefetch packet data before eth_type_trans() is called,
+>> so I added mini skb bursting of 2 skbs (patch below) that does:
+>> - build_skb1 out of hw buffer and prefetch packet data
+>> - build_skb2 out of hw buffer and prefetch packet data
+>> - eth_type_trans(skb1)
+>> - napi_gro_receive(skb1)
+>> - eth_type_trans(skb2)
+>> - napi_gro_receive(skb2)
+>> and performance jumped to 9.0 Mpps with stack:
+>>   20.54%    ksoftirqd/0  [ixgbe]            [k] ixgbe_clean_rx_irq
+>>   13.15%    ksoftirqd/0  [kernel.kallsyms]  [k] build_skb
+>>    8.35%    ksoftirqd/0  [kernel.kallsyms]  [k] __netif_receive_skb_core
+>>    7.16%    ksoftirqd/0  [kernel.kallsyms]  [k] eth_type_trans
+>>    4.73%    ksoftirqd/0  [kernel.kallsyms]  [k] kmem_cache_free
+>>    4.50%    ksoftirqd/0  [kernel.kallsyms]  [k] kmem_cache_alloc
+>>
+>> with further instruction tunning inside ixgbe_clean_rx_irq()
+>> I could push it to 9.4 Mpps.
+>>
+>> From 6.5 Mpps to 9.4 Mpps via build_skb() and tunning.
+> Cool, quite impressive performance boost! - good work! :-)
+
+One thought I had at one point was to try and add a flag to the DMA api
+to indicate if the DMA api is trivial resulting in just a call to
+virt_to_phys.  It might be worthwhile to look into something like that,
+then we could split the receive processing into one of two paths, one
+for non-trivial DMA mapping APIs, and one for trivial DMA mapping APIs
+such as swiotlb on a device that supports all the memory in the system.
+
+>> Is there a way to fix the issue Ben pointed a year ago?
+>> Brute force fix could to be: avoid half-page buffers.
+>> We'll be wasting 16Mbyte of memory. Sure, but in some cases
+>> extra peformance might be worth it.
+>> Other options?
+>>
+>> I think we need to try harder to switch to build_skb()
+>> It will open up a lot of possibilities for further performance
+>> improvements.
+>> Thoughts?
+> Yes, we should really work on converting more drivers to use
+> build_skb().
+
+The problem is build_skb usage comes at a certain cost.  Specifically in
+the case of small packets it can result in a larger memory footprint
+since you cannot just reuse the same region in the buffer.  I suspect we
+may need to look into some sort of compromise between build_skb and a
+copybreak scheme for best cache performance on Xeon for example.
+
+>> ---
+>>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   34 +++++++++++++++++++++----
+>>  1 file changed, 29 insertions(+), 5 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+>> index 21d1a65..1d1e37f 100644
+>> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+>> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+>> @@ -1590,8 +1590,6 @@ static void ixgbe_process_skb_fields(struct ixgbe_ring *rx_ring,
+>>  	}
+>>
+>>  	skb_record_rx_queue(skb, rx_ring->queue_index);
+>> -
+>> -	skb->protocol = eth_type_trans(skb, dev);
+>>  }
+>>
+>>  static void ixgbe_rx_skb(struct ixgbe_q_vector *q_vector,
+>> @@ -2063,6 +2061,24 @@ dma_sync:
+>>  	return skb;
+>>  }
+>>
+>> +#define BURST_SIZE 2
+>> +static void ixgbe_rx_skb_burst(struct sk_buff *skbs[BURST_SIZE],
+>> +			       unsigned int skb_burst,
+>> +			       struct ixgbe_q_vector *q_vector,
+>> +			       struct net_device *dev)
+>> +{
+>> +	int i;
+>> +
+>> +	for (i = 0; i < skb_burst; i++) {
+>> +		struct sk_buff *skb = skbs[i];
+>> +
+>> +		skb->protocol = eth_type_trans(skb, dev);
+>> +
+>> +		skb_mark_napi_id(skb, &q_vector->napi);
+>> +		ixgbe_rx_skb(q_vector, skb);
+>> +	}
+>> +}
+>> +
+>>  /**
+>>   * ixgbe_clean_rx_irq - Clean completed descriptors from Rx ring - bounce buf
+>>   * @q_vector: structure containing interrupt and ring information
+>> @@ -2087,6 +2103,8 @@ static int ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
+>>  	unsigned int mss = 0;
+>>  #endif /* IXGBE_FCOE */
+>>  	u16 cleaned_count = ixgbe_desc_unused(rx_ring);
+>> +	struct sk_buff *skbs[BURST_SIZE];
+>> +	unsigned int skb_burst = 0;
+>>
+>>  	while (likely(total_rx_packets < budget)) {
+>>  		union ixgbe_adv_rx_desc *rx_desc;
+>> @@ -2161,13 +2179,19 @@ static int ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
+>>  		}
+>>  
+>>  #endif /* IXGBE_FCOE */
+>> -		skb_mark_napi_id(skb, &q_vector->napi);
+>> -		ixgbe_rx_skb(q_vector, skb);
+>> -
+>>  		/* update budget accounting */
+>>  		total_rx_packets++;
+>> +		skbs[skb_burst++] = skb;
+>> +
+>> +		if (skb_burst == BURST_SIZE) {
+>> +			ixgbe_rx_skb_burst(skbs, skb_burst, q_vector,
+>> +					   rx_ring->netdev);
+>> +			skb_burst = 0;
+>> +		}
+>>  	}
+>>  
+>> +	ixgbe_rx_skb_burst(skbs, skb_burst, q_vector, rx_ring->netdev);
+>> +
+>>  	u64_stats_update_begin(&rx_ring->syncp);
+>>  	rx_ring->stats.packets += total_rx_packets;
+>>  	rx_ring->stats.bytes += total_rx_bytes;
+>
+
+For the burst size logic you might want to explore handling the
+descriptors in 4 descriptor aligned chunks that should give you the best
+possible performance since that would mean processing the descriptor
+ring one cache-line at a time.
+
+Thanks,
+
+Alex
