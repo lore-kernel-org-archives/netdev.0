@@ -1,40 +1,58 @@
 From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Subject: Re: [RFC PATCH linux 2/2] fs/proc: use a hash table for the directory
  entries
-Date: Fri, 03 Oct 2014 15:07:01 +0200
-Message-ID: <542E9F75.6070407@6wind.com>
-References: <20131003.150947.2179820478039260398.davem@davemloft.net> <1412263501-6572-1-git-send-email-nicolas.dichtel@6wind.com> <1412263501-6572-3-git-send-email-nicolas.dichtel@6wind.com> <20141002172814.GA2435@p183.telecom.by>
+Date: Fri, 03 Oct 2014 15:07:14 +0200
+Message-ID: <542E9F82.20709@6wind.com>
+References: <20131003.150947.2179820478039260398.davem@davemloft.net>	<1412263501-6572-1-git-send-email-nicolas.dichtel@6wind.com>	<1412263501-6572-3-git-send-email-nicolas.dichtel@6wind.com> <CACVxJT98EJvw1E+o6mpu8ugMz3Ztqz7pJOwZeZW9A41P0AhB_g@mail.gmail.com>
 Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252;
+Content-Type: text/plain; charset=utf-8;
 	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	davem@davemloft.net, ebiederm@xmission.com,
-	akpm@linux-foundation.org, rui.xiang@huawei.com,
-	viro@zeniv.linux.org.uk, oleg@redhat.com, gorcunov@openvz.org,
-	kirill.shutemov@linux.intel.com, grant.likely@secretlab.ca,
-	tytso@mit.edu, Thierry Herbelot <thierry.herbelot@6wind.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	rui.xiang@huawei.com, Al Viro <viro@zeniv.linux.org.uk>,
+	Oleg Nesterov <oleg@redhat.com>,
+	Cyrill Gorcunov <gorcunov@openvz.org>,
+	kirill.shutemov@linux.intel.com,
+	Grant Likely <grant.likely@secretlab.ca>,
+	Theodore Ts'o <tytso@mit.edu>,
+	Thierry Herbelot <thierry.herbelot@6wind.com>
 To: Alexey Dobriyan <adobriyan@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141002172814.GA2435@p183.telecom.by>
+In-Reply-To: <CACVxJT98EJvw1E+o6mpu8ugMz3Ztqz7pJOwZeZW9A41P0AhB_g@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le 02/10/2014 19:28, Alexey Dobriyan a =E9crit :
-> On Thu, Oct 02, 2014 at 05:25:01PM +0200, Nicolas Dichtel wrote:
->> +static inline unsigned int proc_pde_name_hash(const unsigned char *=
-name,
->> +					      const unsigned int len)
->> +{
->> +	return full_name_hash(name, len) & PROC_PDE_HASH_MASK;
->> +}
+Le 03/10/2014 12:55, Alexey Dobriyan a =C3=A9crit :
+> On Thu, Oct 2, 2014 at 6:25 PM, Nicolas Dichtel
+> <nicolas.dichtel@6wind.com> wrote:
+>> --- a/fs/proc/generic.c
+>> +++ b/fs/proc/generic.c
+>> @@ -81,10 +81,13 @@ static int __xlate_proc_name(const char *name, s=
+truct proc_dir_entry **ret,
 >
-> PDE already stands for "proc dir entry" :^)
+>> +       if (!S_ISDIR(de->mode))
+>> +               return -EINVAL;
 >
-> 	Alexey
+> There are way too many S_ISDIR checks.
+> In lookup and readdir, it is guaranteed that PDE is directory.
 >
-Oops, will fix it in v2.
+> I'd say all of them aren't needed because non-directories have
+> ->subdir =3D NULL and
+> directories have ->subdir !=3D NULL which transforms into hashtable o=
+r
+> rbtree or whatever,
+> so you only need to guarantee only directories appear where they are
+> expected and
+> fearlessly use your new data structure traversing directories.
+To be honest, they was put during the debug stage and I hesitated to re=
+move
+them at the end.
+I will remove them!
 
 
 Thank you,
