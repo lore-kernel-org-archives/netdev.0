@@ -1,99 +1,140 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: RFC: ixgbe+build_skb+extra performance experiments
-Date: Fri, 3 Oct 2014 09:54:41 -0700
-Message-ID: <CAMEtUuzoWyvFgDjtVUOCvG-i0zyWU_QELbXA9shT2Y3VKoS1pQ@mail.gmail.com>
-References: <1412229642-10555-1-git-send-email-ast@plumgrid.com>
-	<20141002093636.6f482281@redhat.com>
-	<542EB55B.3000102@gmail.com>
+From: "Luis R. Rodriguez" <mcgrof@suse.com>
+Subject: Re: [PATCH v1 5/5] driver-core: add driver
+	asynchronous probe support
+Date: Fri, 3 Oct 2014 09:54:51 -0700
+Message-ID: <CAB=NE6WKZOnu2YwG5AN=+EsCVnqdHnYJdmVcLvHhMt4VZ5okrQ@mail.gmail.com>
+References: <1411768637-6809-1-git-send-email-mcgrof@do-not-panic.com>
+ <1411768637-6809-6-git-send-email-mcgrof@do-not-panic.com>
+ <CAG-2HqWmVODJ6Q46t96mS9ALbeFjRcQ18ypwejY=ug0wCUVv-Q@mail.gmail.com>
+ <20140930022751.GA14081@wotan.suse.de>
+ <CAG-2HqUdFWBPUrHg2yezVVu7xedqTQDBxAW5nuYWKWJCTkZSBg@mail.gmail.com>
+ <20140930152419.GF14081@wotan.suse.de>
+ <CAG-2HqVBnXUKSRBrJE=gEKA3St5KMfdgAbx2vRfpF3qw_teLOg@mail.gmail.com>
+ <20141002200612.GQ14081@wotan.suse.de>
+ <CAG-2HqXxQG0fk2LsBT89fCZMmqo1NqX2xEK1aAT69hY8VLBoQQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	Eric Dumazet <edumazet@google.com>,
-	Network Development <netdev@vger.kernel.org>
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f175.google.com ([209.85.212.175]:52510 "EHLO
-	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753828AbaJCQym (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Oct 2014 12:54:42 -0400
-Received: by mail-wi0-f175.google.com with SMTP id d1so7807147wiv.14
-        for <netdev@vger.kernel.org>; Fri, 03 Oct 2014 09:54:41 -0700 (PDT)
-In-Reply-To: <542EB55B.3000102@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
+ Takashi Iwai <tiwai@suse.de>, Kay Sievers <kay@vrfy.org>,
+ Petr Mladek <pmladek@suse.cz>, LKML <linux-kernel@vger.kernel.org>,
+ Michal Hocko <mhocko@suse.cz>,
+ Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
+ hare <hare@suse.com>,
+ Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>, werner@suse.com,
+ Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
+ "mpt-fusionlinux.pdl" <MPT-FusionLinux.pdl@avagotech.com>,
+ Tim Gardner <tim.gardner@canonical.com>, Benjamin Poirier <bpoirier@suse.de>,
+ Santosh Rastapur <santosh@chelsio.com>, Casey Leedom <leedom@chelsio.com>,
+ Hariprasad S <hariprasad@chelsio.com>,
+ Pierre Fersing <pierre-fersing@pierref.org>, dbueso@suse.com,
+ Julia Lawall <julia.lawall@lip6.fr>,
+ Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
+ Arjan van de Ven <arjan@linux.intel.com>,
+ Abhijit Mahajan <a
+To: Tom Gundersen <teg@jklm.no>
+Return-path: <systemd-devel-bounces@lists.freedesktop.org>
+In-Reply-To: <CAG-2HqXxQG0fk2LsBT89fCZMmqo1NqX2xEK1aAT69hY8VLBoQQ@mail.gmail.com>
+List-Unsubscribe: <http://lists.freedesktop.org/mailman/options/systemd-devel>,
+ <mailto:systemd-devel-request@lists.freedesktop.org?subject=unsubscribe>
+List-Archive: <http://lists.freedesktop.org/archives/systemd-devel>
+List-Post: <mailto:systemd-devel@lists.freedesktop.org>
+List-Help: <mailto:systemd-devel-request@lists.freedesktop.org?subject=help>
+List-Subscribe: <http://lists.freedesktop.org/mailman/listinfo/systemd-devel>,
+ <mailto:systemd-devel-request@lists.freedesktop.org?subject=subscribe>
+Errors-To: systemd-devel-bounces@lists.freedesktop.org
+Sender: "systemd-devel" <systemd-devel-bounces@lists.freedesktop.org>
+List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 3, 2014 at 7:40 AM, Alexander Duyck
-<alexander.duyck@gmail.com> wrote:
-> On 10/02/2014 12:36 AM, Jesper Dangaard Brouer wrote:
->> On Wed,  1 Oct 2014 23:00:42 -0700 Alexei Starovoitov <ast@plumgrid.com> wrote:
+On Fri, Oct 3, 2014 at 1:23 AM, Tom Gundersen <teg@jklm.no> wrote:
+> On Thu, Oct 2, 2014 at 10:06 PM, Luis R. Rodriguez <mcgrof@suse.com> wrote:
+>> On Thu, Oct 02, 2014 at 08:12:37AM +0200, Tom Gundersen wrote:
+>>> Making kmod a special case is of course possible. However, as long as
+>>> there is no fundamental reason why kmod should get this special
+>>> treatment, this just looks like a work-around to me.
 >>
->>> I'm trying to speed up single core packet per second.
->> Great, welcome to the club ;-)
+>> I've mentioned a series of five reasons why its a bad idea right now to
+>> sigkill modules [0], we're reviewed them each and still at least
+>> items 2-4 remain particularly valid fundamental reasons to avoid it
 >
-> Yes, but please keep in mind that multi-core is the more common use case
-> for many systems.
+> So items 2-4 basically say "there currently are drivers that cannot
+> deal with sigkill after a three minute timeout".
 
-well, I care about 'single core performance' and not 'single core systems'.
-My primary test machines are 4-core i7 haswell and
-12-core xeon servers. It's much easier to benchmark, understand,
-speedup performance on a single cpu before turning on packet
-spraying and stressing the whole box.
+No, dealing with the sigkill gracefully is all related to 2) as it
+says its probably a terrible idea to be triggering exit paths at
+random points on device drivers on init / probe. And while one could
+argue that perhaps that can be cleaned up I provided tons of
+references and even *research effort* on this particular area so the
+issues over this point should by no means easily be brushed off. And
+it may be true that we can fix some things on Linux but a) that
+requires a kernel upgrade on users and b) Some users may end up buying
+hardware that only is supported through a proprietary driver and
+getting those fixes is not trivial and almost impossible on some
+cases.
 
-> To that end we may want to look to something like GRO to do the
-> buffering on the Rx side so that we could make use of GRO/GSO to send
-> blocks of buffers instead of one at a time.
+3) says it is fundamentally incorrect to limit with any arbitrary
+timeout the bus probe routine
 
-Optimizing gro would be next step. When I turn gro now, it only
-slows things down and muddies perf profile.
+4) talks about how the timeout is creating a limit on the number of
+devices a device driver can support on Linux as follows give the
+driver core batches *all* probes for one device driver serially:
 
-> From my past experience this is very platform dependant.  For example
-> with DDIO or DCA features enabled on a system the memcpy is very cheap
-> since it is already in the cache.  It is one of the reasons for choosing
-> that as a means of working around the fact that we cannot use build_skb
-> and page reuse in the same driver.
+   number_devices =          systemd_timeout
+                      -------------------------------------
+                         max known probe time for driver
 
-my systems are already intel alphabet soup, including DCA
-and I have CONFIG_IXGBE_DCA=y
-yet, memcpy() is #1 as you can see in profile.
+We have device drivers which we *know* just on *probe* will take over
+1 minute, this means that by default for these device drivers folks
+can only install 3 devices of that type on a system. One can surely
+address things on the kernel but again assuming folks use defaults and
+don't upgrade their kernel the sigkill is simply limiting Linux right
+now, even if it is for the short term.
 
-> One thought I had at one point was to try and add a flag to the DMA api
-> to indicate if the DMA api is trivial resulting in just a call to
-> virt_to_phys.  It might be worthwhile to look into something like that,
-> then we could split the receive processing into one of two paths, one
-> for non-trivial DMA mapping APIs, and one for trivial DMA mapping APIs
-> such as swiotlb on a device that supports all the memory in the system.
+> In the short-term we already have the solution: increase the timeout.
 
-I have similar hack to optimize swiotlb case, but it's not helpful
-right now. The first step is to use build_skb()
+Short term implicates what will be supported for a while for tons of
+deployments of systemd. The kernel command line work around for
+increasing the timeout is a reactive measure, its not addressing the
+problem architecturally. If the sigkill is going to be maintained for
+kmod its implications should be well documented as well in terms of
+the impact and limitations on both device drivers and number of
+devices a driver can support.
 
-> The problem is build_skb usage comes at a certain cost.  Specifically in
-> the case of small packets it can result in a larger memory footprint
-> since you cannot just reuse the same region in the buffer.  I suspect we
-> may need to look into some sort of compromise between build_skb and a
-> copybreak scheme for best cache performance on Xeon for example.
+> In the long-term, we have two choices, either permanently add some
+> heuristic to udev to deal with drivers taking a very long time to be
+> inserted, or fix the drivers not to take such a long time.
 
-we're talking 10Gbps ixgbe use case here.
-For e1000 on small system with precious memory the copybreak
-approach might makes sense, but large server in datacenter
-I would rather configure for build_skb() only.
-In your patch you made a cutoff based on 1500 mtu.
-I would prefer 1550 or 1600 cutoff, so that encapsulated
-packets can get into hypervisor as quickly as possible and
-forwarded to appropriate VMs or containers.
+Drivers taking long on init should probably be addressed, drivers
+taking long on probe are not broken specially since the driver core
+probe's all supported devices on one device driver serially, so the
+probe time is actually cumulative.
 
-> For the burst size logic you might want to explore handling the
-> descriptors in 4 descriptor aligned chunks that should give you the best
-> possible performance since that would mean processing the descriptor
-> ring one cache-line at a time.
+> A priori,
+> it makes no sense to me that drivers spend unbounded amounts of time
+> to get inserted, so fixing the drivers seems like the most reasonable
+> approach to me. That said, I'm of course open to be proven wrong if
+> there are some drivers that fundamentally _must_ take a long time to
+> insert (but we should then discuss why that is and how we can best
+> deal with the situation, rather than adding some hack up-front when we
+> don't even know if it is needed).
 
-makes sense. I was thinking to pipeline it more in the future.
-Including splitting build_skb() into phases of allocation and initialization,
-so that prefetch from previous stage will have time to populate caches.
+Ok hold on. Async probe on the driver core will be a new feature and
+there are even caveats that Tejun pointed out which are important for
+distributions to consider before embracing it. Of course folks can
+ignore these but by no means should it be considered that tons of
+device device drivers were broken, what we are providing is a new
+mechanism. And then there are device drivers which will need work in
+order to use async probe, some will require fixes on init / probe
+assumptions as I provided for the amd64_edac driver but for others
+only time will tell what is required.
 
-I was hoping my performance measurements were convincing
-enough for you to dust off ixgbe+build_skb patch, fix page reuse
-somehow and submit it for everyone to cheer :)
+> Your patch series should go a long way towards fixing the drivers (and
+> I imagine there being a lot of low-hanging fruit that can easily be
+> fixed once your series has landed), and the fact that we have now
+> increased the udev timeout from 30 to 180 seconds should also greatly
+> reduce the problem.
+
+Sure, I do ask for folks to revisit the short term solution though, I
+did my best to communicate / document the issues.
+
+  Luis
