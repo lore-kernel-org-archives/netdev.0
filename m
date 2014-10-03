@@ -1,50 +1,43 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] checkpatch: remove the ether_addr_copy warning
-Date: Fri, 3 Oct 2014 12:35:05 +0300
-Message-ID: <20141003093505.GA7393@mwanda>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: [net-next PATCH] veth: don't assign a qdisc to veth
+Date: Fri, 03 Oct 2014 12:48:58 +0200
+Message-ID: <20141003104858.6745.62964.stgit@dragon>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org, gregkh@linuxfoundation.org
-To: Andy Whitcroft <apw@canonical.com>,
-	Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Pirko <jpirko@redhat.com>, mpatel@redhat.com
+To: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:50958 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750831AbaJCJfX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Oct 2014 05:35:23 -0400
-Content-Disposition: inline
+Received: from mx1.redhat.com ([209.132.183.28]:3818 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751282AbaJCKtA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Oct 2014 06:49:00 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Most people sending checkpatch.pl fixes don't know how to verify the
-alignment.  This checkpatch warning just encourages newbies to try
-introduce bugs.  Patch submitters tell us that they just sed the code
-and it's the job for the maintainer to check that it's correct.
+The veth driver is a virtual device, and should not have assigned
+the default qdisc.  Verified (ndo_start_xmit) veth_xmit can only
+return NETDEV_TX_OK, thus this should be safe to bypass qdisc.
 
-If you want to work on these then you can get the same information by
-typing `grep -nw memcpy drivers/net/ -R | grep ETH_ALEN`
+Not assigning a qdisc is subtly done by setting tx_queue_len to zero.
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Reported-by: Mrunal Patel <mpatel@redhat.com>
+Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+---
 
-diff --git a/scripts/checkpatch.pl b/scripts/checkpatch.pl
-index 52a223e..d540dd4 100755
---- a/scripts/checkpatch.pl
-+++ b/scripts/checkpatch.pl
-@@ -4698,16 +4698,6 @@ sub process {
- 			}
- 		}
+ drivers/net/veth.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/veth.c b/drivers/net/veth.c
+index 8ad5965..3c32fcf 100644
+--- a/drivers/net/veth.c
++++ b/drivers/net/veth.c
+@@ -287,6 +287,7 @@ static const struct net_device_ops veth_netdev_ops = {
+ static void veth_setup(struct net_device *dev)
+ {
+ 	ether_setup(dev);
++	dev->tx_queue_len = 0;
  
--# Check for memcpy(foo, bar, ETH_ALEN) that could be ether_addr_copy(foo, bar)
--		if ($^V && $^V ge 5.10.0 &&
--		    $line =~ /^\+(?:.*?)\bmemcpy\s*\(\s*$FuncArg\s*,\s*$FuncArg\s*\,\s*ETH_ALEN\s*\)/s) {
--			if (WARN("PREFER_ETHER_ADDR_COPY",
--				 "Prefer ether_addr_copy() over memcpy() if the Ethernet addresses are __aligned(2)\n" . $herecurr) &&
--			    $fix) {
--				$fixed[$fixlinenr] =~ s/\bmemcpy\s*\(\s*$FuncArg\s*,\s*$FuncArg\s*\,\s*ETH_ALEN\s*\)/ether_addr_copy($2, $7)/;
--			}
--		}
--
- # typecasts on min/max could be min_t/max_t
- 		if ($^V && $^V ge 5.10.0 &&
- 		    defined $stat &&
+ 	dev->priv_flags &= ~IFF_TX_SKB_SHARING;
+ 	dev->priv_flags |= IFF_LIVE_ADDR_CHANGE;
