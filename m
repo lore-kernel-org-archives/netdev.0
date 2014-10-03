@@ -1,60 +1,47 @@
-From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH RESEND] net: pxa168_eth: avoid using signed char for bitops
-Date: Fri,  3 Oct 2014 17:08:19 +0200
-Message-ID: <1412348899-20586-1-git-send-email-antoine.tenart@free-electrons.com>
-Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
-	sebastian.hesselbarth@gmail.com,
-	alexandre.belloni@free-electrons.com,
-	thomas.petazzoni@free-electrons.com, zmxu@marvell.com,
-	jszhang@marvell.com, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
-To: dan.carpenter@oracle.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Joe Perches <joe@perches.com>
+Subject: Re: [patch] checkpatch: remove the ether_addr_copy warning
+Date: Fri, 03 Oct 2014 08:10:28 -0700
+Message-ID: <1412349028.3247.113.camel@joe-AO725>
+References: <20141003093505.GA7393@mwanda>
+	 <1412346147.3247.97.camel@joe-AO725>
+	 <alpine.DEB.2.10.1410031628420.2371@hadrien>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Dan Carpenter <dan.carpenter@oracle.com>,
+	Andy Whitcroft <apw@canonical.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
+	gregkh@linuxfoundation.org
+To: Julia Lawall <julia.lawall@lip6.fr>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.10.1410031628420.2371@hadrien>
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signedness bugs may occur when using signed char for bitops,
-depending on if the highest bit is ever used.
+On Fri, 2014-10-03 at 16:30 +0200, Julia Lawall wrote:
+> On Fri, 3 Oct 2014, Joe Perches wrote:
+> > On Fri, 2014-10-03 at 12:35 +0300, Dan Carpenter wrote:
+> > > Most people sending checkpatch.pl fixes don't know how to verify the
+> > > alignment.  This checkpatch warning just encourages newbies to try
+> > > introduce bugs.  Patch submitters tell us that they just sed the code
+> > > and it's the job for the maintainer to check that it's correct.
+> >
+> > I haven't seen many instances of bad patch submittals
+> > on netdev.  Is this mostly an issue for staging?
+> >
+> > Maybe a downgrade to CHK requiring --strict is OK.
+[]
+> I think it is too bad to have a piece of knowledge that was apparent be
+> made more obscure.  Why not just change the checkpatch warning to make
+> more explicit that a lot of expertise is required to make the change?
 
-Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
-Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
----
+Any wordsmithing appreciated.  Maybe something like:
 
-Dan reported a static checker warning:
-http://marc.info/?l=kernel-janitors&m=141218246222535&w=2
+from: Prefer ether_addr_copy() over memcpy() if the Ethernet addresses are __aligned(2)
+to: Where both Ethernet addresses are guaranteed to be __aligned(2), prefer ether_addr_copy() over memcpy() 
 
-This patch fixes it. Instead of using sa->sa_data we now use
-dev->dev_addr (of type unsigned char *) to avoid possible
-signedness issues.
+That won't stop people from blindly following any message.
 
-Resend: this patch was sent alongside another series, an was
-considered part of the thread.
 
- drivers/net/ethernet/marvell/pxa168_eth.c | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/marvell/pxa168_eth.c b/drivers/net/ethernet/marvell/pxa168_eth.c
-index 24de41231593..c3b209cd0660 100644
---- a/drivers/net/ethernet/marvell/pxa168_eth.c
-+++ b/drivers/net/ethernet/marvell/pxa168_eth.c
-@@ -634,12 +634,12 @@ static int pxa168_eth_set_mac_address(struct net_device *dev, void *addr)
- 	memcpy(oldMac, dev->dev_addr, ETH_ALEN);
- 	memcpy(dev->dev_addr, sa->sa_data, ETH_ALEN);
- 
--	mac_h = sa->sa_data[0] << 24;
--	mac_h |= sa->sa_data[1] << 16;
--	mac_h |= sa->sa_data[2] << 8;
--	mac_h |= sa->sa_data[3];
--	mac_l = sa->sa_data[4] << 8;
--	mac_l |= sa->sa_data[5];
-+	mac_h = dev->dev_addr[0] << 24;
-+	mac_h |= dev->dev_addr[1] << 16;
-+	mac_h |= dev->dev_addr[2] << 8;
-+	mac_h |= dev->dev_addr[3];
-+	mac_l = dev->dev_addr[4] << 8;
-+	mac_l |= dev->dev_addr[5];
- 	wrl(pep, MAC_ADDR_HIGH, mac_h);
- 	wrl(pep, MAC_ADDR_LOW, mac_l);
- 
--- 
-1.9.1
