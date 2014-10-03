@@ -1,65 +1,51 @@
-From: Joe Perches <joe@perches.com>
+From: Julia Lawall <julia.lawall@lip6.fr>
 Subject: Re: [patch] checkpatch: remove the ether_addr_copy warning
-Date: Fri, 03 Oct 2014 08:11:09 -0700
-Message-ID: <1412349069.3247.114.camel@joe-AO725>
-References: <20141003093505.GA7393@mwanda>
-	 <1412346147.3247.97.camel@joe-AO725> <20141003144729.GK23154@mwanda>
+Date: Fri, 3 Oct 2014 17:14:13 +0200 (CEST)
+Message-ID: <alpine.DEB.2.10.1410031712250.2371@hadrien>
+References: <20141003093505.GA7393@mwanda>  <1412346147.3247.97.camel@joe-AO725>  <alpine.DEB.2.10.1410031628420.2371@hadrien> <1412349028.3247.113.camel@joe-AO725>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Andy Whitcroft <apw@canonical.com>,
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Dan Carpenter <dan.carpenter@oracle.com>,
+	Andy Whitcroft <apw@canonical.com>,
 	Andrew Morton <akpm@linux-foundation.org>,
 	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
 	gregkh@linuxfoundation.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0151.hostedemail.com ([216.40.44.151]:42843 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751773AbaJCPLP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Oct 2014 11:11:15 -0400
-In-Reply-To: <20141003144729.GK23154@mwanda>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Joe Perches <joe@perches.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <1412349028.3247.113.camel@joe-AO725>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2014-10-03 at 17:47 +0300, Dan Carpenter wrote:
-> On Fri, Oct 03, 2014 at 07:22:27AM -0700, Joe Perches wrote:
-> > On Fri, 2014-10-03 at 12:35 +0300, Dan Carpenter wrote:
-> > > Most people sending checkpatch.pl fixes don't know how to verify the
-> > > alignment.  This checkpatch warning just encourages newbies to try
-> > > introduce bugs.  Patch submitters tell us that they just sed the code
-> > > and it's the job for the maintainer to check that it's correct.
 
-And that's where it's the maintainer's job to educate,
-inform, reject 
- 
-> > I haven't seen many instances of bad patch submittals
-> > on netdev.  Is this mostly an issue for staging?
-> 
-> I don't follow netdev so I can't say.
-> 
-> Most of the time data is aligned at a 4 byte mark so probably you are
-> just getting lucky.
 
-All typical Ethernet frames have 1 of the 2 addresses on an
-even byte boundary but not 4 byte aligned.
+On Fri, 3 Oct 2014, Joe Perches wrote:
 
-Most all of the is_<foo>_ether_addr tests assume __aligned(2)
+> On Fri, 2014-10-03 at 16:30 +0200, Julia Lawall wrote:
+> > On Fri, 3 Oct 2014, Joe Perches wrote:
+> > > On Fri, 2014-10-03 at 12:35 +0300, Dan Carpenter wrote:
+> > > > Most people sending checkpatch.pl fixes don't know how to verify the
+> > > > alignment.  This checkpatch warning just encourages newbies to try
+> > > > introduce bugs.  Patch submitters tell us that they just sed the code
+> > > > and it's the job for the maintainer to check that it's correct.
+> > >
+> > > I haven't seen many instances of bad patch submittals
+> > > on netdev.  Is this mostly an issue for staging?
+> > >
+> > > Maybe a downgrade to CHK requiring --strict is OK.
+> []
+> > I think it is too bad to have a piece of knowledge that was apparent be
+> > made more obscure.  Why not just change the checkpatch warning to make
+> > more explicit that a lot of expertise is required to make the change?
+>
+> Any wordsmithing appreciated.  Maybe something like:
+>
+> from: Prefer ether_addr_copy() over memcpy() if the Ethernet addresses are __aligned(2)
+> to: Where both Ethernet addresses are guaranteed to be __aligned(2), prefer ether_addr_copy() over memcpy()
+>
+> That won't stop people from blindly following any message.
 
-> I really doubt that netdev checkpatch newbies know
-> about alignment...
+Perhaps add: Note that checking whether the addresses are aligned may
+require knowing properties of all possible architectures on which the code
+may be executed.  Make this change only if you have this information.
 
-I think that's a learning opportunity...
-
-> > Maybe a downgrade to CHK requiring --strict is OK.
-> 
-> I would actually like to turn --strict by default in staging.
-
-I recall a suggested patch for that.
-
-> Checkpatch is a good concept, but it should only do safe things instead
-> of telling newbies to send buggy patches.
-
-checkpatch isn't just for the inexperienced.
-It's an oversight tester and a style tool.
-
-Degrading it doesn't make it better.
+julia
