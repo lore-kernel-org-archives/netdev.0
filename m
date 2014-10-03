@@ -1,7 +1,7 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 2/9] netfilter: move nf_send_resetX() code to nf_reject_ipvX modules
-Date: Fri,  3 Oct 2014 19:20:17 +0200
-Message-ID: <1412356824-6362-3-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 8/9] ipvs: Clean up comment style in ip_vs.h
+Date: Fri,  3 Oct 2014 19:20:23 +0200
+Message-ID: <1412356824-6362-9-git-send-email-pablo@netfilter.org>
 References: <1412356824-6362-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -10,540 +10,562 @@ In-Reply-To: <1412356824-6362-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Move nf_send_reset() and nf_send_reset6() to nf_reject_ipv4 and
-nf_reject_ipv6 respectively. This code is shared by x_tables and
-nf_tables.
+From: Simon Horman <horms@verge.net.au>
 
+* Consistently use the multi-line comment style for networking code:
+
+  /* This
+   * That
+   * The other thing
+   */
+
+* Use single-line comment style for comments with only one line of text.
+
+* In general follow the leading '*' of each line of a comment with a
+  single space and then text.
+
+* Add missing line break between functions, remove double line break,
+  align comments to previous lines whenever possible.
+
+Reported-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Signed-off-by: Simon Horman <horms@verge.net.au>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/netfilter/ipv4/nf_reject.h |  118 +----------------------
- net/ipv4/netfilter/Kconfig             |    6 ++
- net/ipv4/netfilter/Makefile            |    3 +
- net/ipv4/netfilter/nf_reject_ipv4.c    |  127 +++++++++++++++++++++++++
- net/ipv6/netfilter/Kconfig             |    6 ++
- net/ipv6/netfilter/Makefile            |    3 +
- net/ipv6/netfilter/nf_reject_ipv6.c    |  163 ++++++++++++++++++++++++++++++++
- 7 files changed, 309 insertions(+), 117 deletions(-)
- create mode 100644 net/ipv4/netfilter/nf_reject_ipv4.c
- create mode 100644 net/ipv6/netfilter/nf_reject_ipv6.c
+ include/net/ip_vs.h |  214 ++++++++++++++++++---------------------------------
+ 1 file changed, 75 insertions(+), 139 deletions(-)
 
-diff --git a/include/net/netfilter/ipv4/nf_reject.h b/include/net/netfilter/ipv4/nf_reject.h
-index 8ce0638..e842719 100644
---- a/include/net/netfilter/ipv4/nf_reject.h
-+++ b/include/net/netfilter/ipv4/nf_reject.h
-@@ -1,10 +1,6 @@
- #ifndef _IPV4_NF_REJECT_H
- #define _IPV4_NF_REJECT_H
+diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
+index 576d7f0..615b20b 100644
+--- a/include/net/ip_vs.h
++++ b/include/net/ip_vs.h
+@@ -1,6 +1,5 @@
+-/*
+- *      IP Virtual Server
+- *      data structure and functionality definitions
++/* IP Virtual Server
++ * data structure and functionality definitions
+  */
  
--#include <net/ip.h>
--#include <net/tcp.h>
--#include <net/route.h>
--#include <net/dst.h>
- #include <net/icmp.h>
+ #ifndef _NET_IP_VS_H
+@@ -12,7 +11,7 @@
  
- static inline void nf_send_unreach(struct sk_buff *skb_in, int code)
-@@ -12,118 +8,6 @@ static inline void nf_send_unreach(struct sk_buff *skb_in, int code)
- 	icmp_send(skb_in, ICMP_DEST_UNREACH, code, 0);
+ #include <linux/list.h>                 /* for struct list_head */
+ #include <linux/spinlock.h>             /* for struct rwlock_t */
+-#include <linux/atomic.h>                 /* for struct atomic_t */
++#include <linux/atomic.h>               /* for struct atomic_t */
+ #include <linux/compiler.h>
+ #include <linux/timer.h>
+ #include <linux/bug.h>
+@@ -30,15 +29,13 @@
+ #endif
+ #include <net/net_namespace.h>		/* Netw namespace */
+ 
+-/*
+- * Generic access of ipvs struct
+- */
++/* Generic access of ipvs struct */
+ static inline struct netns_ipvs *net_ipvs(struct net* net)
+ {
+ 	return net->ipvs;
+ }
+-/*
+- * Get net ptr from skb in traffic cases
++
++/* Get net ptr from skb in traffic cases
+  * use skb_sknet when call is from userland (ioctl or netlink)
+  */
+ static inline struct net *skb_net(const struct sk_buff *skb)
+@@ -90,8 +87,8 @@ static inline struct net *skb_sknet(const struct sk_buff *skb)
+ 	return &init_net;
+ #endif
+ }
+-/*
+- * This one needed for single_open_net since net is stored directly in
++
++/* This one needed for single_open_net since net is stored directly in
+  * private not as a struct i.e. seq_file_net can't be used.
+  */
+ static inline struct net *seq_file_single_net(struct seq_file *seq)
+@@ -108,7 +105,7 @@ extern int ip_vs_conn_tab_size;
+ 
+ struct ip_vs_iphdr {
+ 	__u32 len;	/* IPv4 simply where L4 starts
+-			   IPv6 where L4 Transport Header starts */
++			 * IPv6 where L4 Transport Header starts */
+ 	__u16 fragoffs; /* IPv6 fragment offset, 0 if first frag (or not frag)*/
+ 	__s16 protocol;
+ 	__s32 flags;
+@@ -304,16 +301,11 @@ static inline const char *ip_vs_dbg_addr(int af, char *buf, size_t buf_len,
+ #define LeaveFunction(level)   do {} while (0)
+ #endif
+ 
+-
+-/*
+- *      The port number of FTP service (in network order).
+- */
++/* The port number of FTP service (in network order). */
+ #define FTPPORT  cpu_to_be16(21)
+ #define FTPDATA  cpu_to_be16(20)
+ 
+-/*
+- *      TCP State Values
+- */
++/* TCP State Values */
+ enum {
+ 	IP_VS_TCP_S_NONE = 0,
+ 	IP_VS_TCP_S_ESTABLISHED,
+@@ -329,25 +321,19 @@ enum {
+ 	IP_VS_TCP_S_LAST
+ };
+ 
+-/*
+- *	UDP State Values
+- */
++/* UDP State Values */
+ enum {
+ 	IP_VS_UDP_S_NORMAL,
+ 	IP_VS_UDP_S_LAST,
+ };
+ 
+-/*
+- *	ICMP State Values
+- */
++/* ICMP State Values */
+ enum {
+ 	IP_VS_ICMP_S_NORMAL,
+ 	IP_VS_ICMP_S_LAST,
+ };
+ 
+-/*
+- *	SCTP State Values
+- */
++/* SCTP State Values */
+ enum ip_vs_sctp_states {
+ 	IP_VS_SCTP_S_NONE,
+ 	IP_VS_SCTP_S_INIT1,
+@@ -366,21 +352,18 @@ enum ip_vs_sctp_states {
+ 	IP_VS_SCTP_S_LAST
+ };
+ 
+-/*
+- *	Delta sequence info structure
+- *	Each ip_vs_conn has 2 (output AND input seq. changes).
+- *      Only used in the VS/NAT.
++/* Delta sequence info structure
++ * Each ip_vs_conn has 2 (output AND input seq. changes).
++ * Only used in the VS/NAT.
+  */
+ struct ip_vs_seq {
+ 	__u32			init_seq;	/* Add delta from this seq */
+ 	__u32			delta;		/* Delta in sequence numbers */
+ 	__u32			previous_delta;	/* Delta in sequence numbers
+-						   before last resized pkt */
++						 * before last resized pkt */
+ };
+ 
+-/*
+- * counters per cpu
+- */
++/* counters per cpu */
+ struct ip_vs_counters {
+ 	__u32		conns;		/* connections scheduled */
+ 	__u32		inpkts;		/* incoming packets */
+@@ -388,17 +371,13 @@ struct ip_vs_counters {
+ 	__u64		inbytes;	/* incoming bytes */
+ 	__u64		outbytes;	/* outgoing bytes */
+ };
+-/*
+- * Stats per cpu
+- */
++/* Stats per cpu */
+ struct ip_vs_cpu_stats {
+ 	struct ip_vs_counters   ustats;
+ 	struct u64_stats_sync   syncp;
+ };
+ 
+-/*
+- *	IPVS statistics objects
+- */
++/* IPVS statistics objects */
+ struct ip_vs_estimator {
+ 	struct list_head	list;
+ 
+@@ -491,9 +470,7 @@ struct ip_vs_protocol {
+ 	void (*timeout_change)(struct ip_vs_proto_data *pd, int flags);
+ };
+ 
+-/*
+- * protocol data per netns
+- */
++/* protocol data per netns */
+ struct ip_vs_proto_data {
+ 	struct ip_vs_proto_data	*next;
+ 	struct ip_vs_protocol	*pp;
+@@ -520,9 +497,7 @@ struct ip_vs_conn_param {
+ 	__u8				pe_data_len;
+ };
+ 
+-/*
+- *	IP_VS structure allocated for each dynamically scheduled connection
+- */
++/* IP_VS structure allocated for each dynamically scheduled connection */
+ struct ip_vs_conn {
+ 	struct hlist_node	c_list;         /* hashed list heads */
+ 	/* Protocol, addresses and port numbers */
+@@ -561,17 +536,18 @@ struct ip_vs_conn {
+ 	struct ip_vs_dest       *dest;          /* real server */
+ 	atomic_t                in_pkts;        /* incoming packet counter */
+ 
+-	/* packet transmitter for different forwarding methods.  If it
+-	   mangles the packet, it must return NF_DROP or better NF_STOLEN,
+-	   otherwise this must be changed to a sk_buff **.
+-	   NF_ACCEPT can be returned when destination is local.
++	/* Packet transmitter for different forwarding methods.  If it
++	 * mangles the packet, it must return NF_DROP or better NF_STOLEN,
++	 * otherwise this must be changed to a sk_buff **.
++	 * NF_ACCEPT can be returned when destination is local.
+ 	 */
+ 	int (*packet_xmit)(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 			   struct ip_vs_protocol *pp, struct ip_vs_iphdr *iph);
+ 
+ 	/* Note: we can group the following members into a structure,
+-	   in order to save more space, and the following members are
+-	   only used in VS/NAT anyway */
++	 * in order to save more space, and the following members are
++	 * only used in VS/NAT anyway
++	 */
+ 	struct ip_vs_app        *app;           /* bound ip_vs_app object */
+ 	void                    *app_data;      /* Application private data */
+ 	struct ip_vs_seq        in_seq;         /* incoming seq. struct */
+@@ -584,9 +560,7 @@ struct ip_vs_conn {
+ 	struct rcu_head		rcu_head;
+ };
+ 
+-/*
+- *  To save some memory in conn table when name space is disabled.
+- */
++/* To save some memory in conn table when name space is disabled. */
+ static inline struct net *ip_vs_conn_net(const struct ip_vs_conn *cp)
+ {
+ #ifdef CONFIG_NET_NS
+@@ -595,6 +569,7 @@ static inline struct net *ip_vs_conn_net(const struct ip_vs_conn *cp)
+ 	return &init_net;
+ #endif
+ }
++
+ static inline void ip_vs_conn_net_set(struct ip_vs_conn *cp, struct net *net)
+ {
+ #ifdef CONFIG_NET_NS
+@@ -612,13 +587,12 @@ static inline int ip_vs_conn_net_eq(const struct ip_vs_conn *cp,
+ #endif
  }
  
--/* Send RST reply */
--static void nf_send_reset(struct sk_buff *oldskb, int hook)
--{
--	struct sk_buff *nskb;
--	const struct iphdr *oiph;
--	struct iphdr *niph;
--	const struct tcphdr *oth;
--	struct tcphdr _otcph, *tcph;
+-/*
+- *	Extended internal versions of struct ip_vs_service_user and
+- *	ip_vs_dest_user for IPv6 support.
++/* Extended internal versions of struct ip_vs_service_user and ip_vs_dest_user
++ * for IPv6 support.
+  *
+- *	We need these to conveniently pass around service and destination
+- *	options, but unfortunately, we also need to keep the old definitions to
+- *	maintain userspace backwards compatibility for the setsockopt interface.
++ * We need these to conveniently pass around service and destination
++ * options, but unfortunately, we also need to keep the old definitions to
++ * maintain userspace backwards compatibility for the setsockopt interface.
+  */
+ struct ip_vs_service_user_kern {
+ 	/* virtual service addresses */
+@@ -656,8 +630,8 @@ struct ip_vs_dest_user_kern {
+ 
+ 
+ /*
+- *	The information about the virtual service offered to the net
+- *	and the forwarding entries
++ * The information about the virtual service offered to the net and the
++ * forwarding entries.
+  */
+ struct ip_vs_service {
+ 	struct hlist_node	s_list;   /* for normal service table */
+@@ -697,9 +671,8 @@ struct ip_vs_dest_dst {
+ 	struct rcu_head		rcu_head;
+ };
+ 
+-/*
+- *	The real server destination forwarding entry
+- *	with ip address, port number, and so on.
++/* The real server destination forwarding entry with ip address, port number,
++ * and so on.
+  */
+ struct ip_vs_dest {
+ 	struct list_head	n_list;   /* for the dests in the service */
+@@ -738,10 +711,7 @@ struct ip_vs_dest {
+ 	unsigned int		in_rs_table:1;	/* we are in rs_table */
+ };
+ 
 -
--	/* IP header checks: fragment. */
--	if (ip_hdr(oldskb)->frag_off & htons(IP_OFFSET))
--		return;
--
--	oth = skb_header_pointer(oldskb, ip_hdrlen(oldskb),
--				 sizeof(_otcph), &_otcph);
--	if (oth == NULL)
--		return;
--
--	/* No RST for RST. */
--	if (oth->rst)
--		return;
--
--	if (skb_rtable(oldskb)->rt_flags & (RTCF_BROADCAST | RTCF_MULTICAST))
--		return;
--
--	/* Check checksum */
--	if (nf_ip_checksum(oldskb, hook, ip_hdrlen(oldskb), IPPROTO_TCP))
--		return;
--	oiph = ip_hdr(oldskb);
--
--	nskb = alloc_skb(sizeof(struct iphdr) + sizeof(struct tcphdr) +
--			 LL_MAX_HEADER, GFP_ATOMIC);
--	if (!nskb)
--		return;
--
--	skb_reserve(nskb, LL_MAX_HEADER);
--
--	skb_reset_network_header(nskb);
--	niph = (struct iphdr *)skb_put(nskb, sizeof(struct iphdr));
--	niph->version	= 4;
--	niph->ihl	= sizeof(struct iphdr) / 4;
--	niph->tos	= 0;
--	niph->id	= 0;
--	niph->frag_off	= htons(IP_DF);
--	niph->protocol	= IPPROTO_TCP;
--	niph->check	= 0;
--	niph->saddr	= oiph->daddr;
--	niph->daddr	= oiph->saddr;
--
--	skb_reset_transport_header(nskb);
--	tcph = (struct tcphdr *)skb_put(nskb, sizeof(struct tcphdr));
--	memset(tcph, 0, sizeof(*tcph));
--	tcph->source	= oth->dest;
--	tcph->dest	= oth->source;
--	tcph->doff	= sizeof(struct tcphdr) / 4;
--
--	if (oth->ack)
--		tcph->seq = oth->ack_seq;
--	else {
--		tcph->ack_seq = htonl(ntohl(oth->seq) + oth->syn + oth->fin +
--				      oldskb->len - ip_hdrlen(oldskb) -
--				      (oth->doff << 2));
--		tcph->ack = 1;
--	}
--
--	tcph->rst	= 1;
--	tcph->check = ~tcp_v4_check(sizeof(struct tcphdr), niph->saddr,
--				    niph->daddr, 0);
--	nskb->ip_summed = CHECKSUM_PARTIAL;
--	nskb->csum_start = (unsigned char *)tcph - nskb->head;
--	nskb->csum_offset = offsetof(struct tcphdr, check);
--
--	/* ip_route_me_harder expects skb->dst to be set */
--	skb_dst_set_noref(nskb, skb_dst(oldskb));
--
--	nskb->protocol = htons(ETH_P_IP);
--	if (ip_route_me_harder(nskb, RTN_UNSPEC))
--		goto free_nskb;
--
--	niph->ttl	= ip4_dst_hoplimit(skb_dst(nskb));
--
--	/* "Never happens" */
--	if (nskb->len > dst_mtu(skb_dst(nskb)))
--		goto free_nskb;
--
--	nf_ct_attach(nskb, oldskb);
--
--#if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
--	/* If we use ip_local_out for bridged traffic, the MAC source on
--	 * the RST will be ours, instead of the destination's.  This confuses
--	 * some routers/firewalls, and they drop the packet.  So we need to
--	 * build the eth header using the original destination's MAC as the
--	 * source, and send the RST packet directly.
+-/*
+- *	The scheduler object
+- */
++/* The scheduler object */
+ struct ip_vs_scheduler {
+ 	struct list_head	n_list;		/* d-linked list head */
+ 	char			*name;		/* scheduler name */
+@@ -781,9 +751,7 @@ struct ip_vs_pe {
+ 	int (*show_pe_data)(const struct ip_vs_conn *cp, char *buf);
+ };
+ 
+-/*
+- *	The application module object (a.k.a. app incarnation)
+- */
++/* The application module object (a.k.a. app incarnation) */
+ struct ip_vs_app {
+ 	struct list_head	a_list;		/* member in app list */
+ 	int			type;		/* IP_VS_APP_TYPE_xxx */
+@@ -799,16 +767,14 @@ struct ip_vs_app {
+ 	atomic_t		usecnt;		/* usage counter */
+ 	struct rcu_head		rcu_head;
+ 
+-	/*
+-	 * output hook: Process packet in inout direction, diff set for TCP.
++	/* output hook: Process packet in inout direction, diff set for TCP.
+ 	 * Return: 0=Error, 1=Payload Not Mangled/Mangled but checksum is ok,
+ 	 *	   2=Mangled but checksum was not updated
+ 	 */
+ 	int (*pkt_out)(struct ip_vs_app *, struct ip_vs_conn *,
+ 		       struct sk_buff *, int *diff);
+ 
+-	/*
+-	 * input hook: Process packet in outin direction, diff set for TCP.
++	/* input hook: Process packet in outin direction, diff set for TCP.
+ 	 * Return: 0=Error, 1=Payload Not Mangled/Mangled but checksum is ok,
+ 	 *	   2=Mangled but checksum was not updated
+ 	 */
+@@ -867,9 +833,7 @@ struct ipvs_master_sync_state {
+ struct netns_ipvs {
+ 	int			gen;		/* Generation */
+ 	int			enable;		/* enable like nf_hooks do */
+-	/*
+-	 *	Hash table: for real service lookups
 -	 */
--	if (oldskb->nf_bridge) {
--		struct ethhdr *oeth = eth_hdr(oldskb);
--		nskb->dev = oldskb->nf_bridge->physindev;
--		niph->tot_len = htons(nskb->len);
--		ip_send_check(niph);
--		if (dev_hard_header(nskb, nskb->dev, ntohs(nskb->protocol),
--				    oeth->h_source, oeth->h_dest, nskb->len) < 0)
--			goto free_nskb;
--		dev_queue_xmit(nskb);
--	} else
++	/* Hash table: for real service lookups */
+ 	#define IP_VS_RTAB_BITS 4
+ 	#define IP_VS_RTAB_SIZE (1 << IP_VS_RTAB_BITS)
+ 	#define IP_VS_RTAB_MASK (IP_VS_RTAB_SIZE - 1)
+@@ -903,7 +867,7 @@ struct netns_ipvs {
+ 	struct list_head	sctp_apps[SCTP_APP_TAB_SIZE];
+ #endif
+ 	/* ip_vs_conn */
+-	atomic_t		conn_count;      /*  connection counter */
++	atomic_t		conn_count;      /* connection counter */
+ 
+ 	/* ip_vs_ctl */
+ 	struct ip_vs_stats		tot_stats;  /* Statistics & est. */
+@@ -990,9 +954,9 @@ struct netns_ipvs {
+ 	char			backup_mcast_ifn[IP_VS_IFNAME_MAXLEN];
+ 	/* net name space ptr */
+ 	struct net		*net;            /* Needed by timer routines */
+-	/* Number of heterogeneous destinations, needed because
+-	 * heterogeneous are not supported when synchronization is
+-	 * enabled */
++	/* Number of heterogeneous destinations, needed becaus heterogeneous
++	 * are not supported when synchronization is enabled.
++	 */
+ 	unsigned int		mixed_address_family_dests;
+ };
+ 
+@@ -1147,9 +1111,8 @@ static inline int sysctl_backup_only(struct netns_ipvs *ipvs)
+ 
+ #endif
+ 
+-/*
+- *      IPVS core functions
+- *      (from ip_vs_core.c)
++/* IPVS core functions
++ * (from ip_vs_core.c)
+  */
+ const char *ip_vs_proto_name(unsigned int proto);
+ void ip_vs_init_hash_table(struct list_head *table, int rows);
+@@ -1157,11 +1120,9 @@ void ip_vs_init_hash_table(struct list_head *table, int rows);
+ 
+ #define IP_VS_APP_TYPE_FTP	1
+ 
+-/*
+- *     ip_vs_conn handling functions
+- *     (from ip_vs_conn.c)
++/* ip_vs_conn handling functions
++ * (from ip_vs_conn.c)
+  */
+-
+ enum {
+ 	IP_VS_DIR_INPUT = 0,
+ 	IP_VS_DIR_OUTPUT,
+@@ -1292,9 +1253,7 @@ ip_vs_control_add(struct ip_vs_conn *cp, struct ip_vs_conn *ctl_cp)
+ 	atomic_inc(&ctl_cp->n_control);
+ }
+ 
+-/*
+- * IPVS netns init & cleanup functions
+- */
++/* IPVS netns init & cleanup functions */
+ int ip_vs_estimator_net_init(struct net *net);
+ int ip_vs_control_net_init(struct net *net);
+ int ip_vs_protocol_net_init(struct net *net);
+@@ -1309,9 +1268,8 @@ void ip_vs_estimator_net_cleanup(struct net *net);
+ void ip_vs_sync_net_cleanup(struct net *net);
+ void ip_vs_service_net_cleanup(struct net *net);
+ 
+-/*
+- *      IPVS application functions
+- *      (from ip_vs_app.c)
++/* IPVS application functions
++ * (from ip_vs_app.c)
+  */
+ #define IP_VS_APP_MAX_PORTS  8
+ struct ip_vs_app *register_ip_vs_app(struct net *net, struct ip_vs_app *app);
+@@ -1331,9 +1289,7 @@ int unregister_ip_vs_pe(struct ip_vs_pe *pe);
+ struct ip_vs_pe *ip_vs_pe_getbyname(const char *name);
+ struct ip_vs_pe *__ip_vs_pe_getbyname(const char *pe_name);
+ 
+-/*
+- * Use a #define to avoid all of module.h just for these trivial ops
+- */
++/* Use a #define to avoid all of module.h just for these trivial ops */
+ #define ip_vs_pe_get(pe)			\
+ 	if (pe && pe->module)			\
+ 		__module_get(pe->module);
+@@ -1342,9 +1298,7 @@ struct ip_vs_pe *__ip_vs_pe_getbyname(const char *pe_name);
+ 	if (pe && pe->module)			\
+ 		module_put(pe->module);
+ 
+-/*
+- *	IPVS protocol functions (from ip_vs_proto.c)
+- */
++/* IPVS protocol functions (from ip_vs_proto.c) */
+ int ip_vs_protocol_init(void);
+ void ip_vs_protocol_cleanup(void);
+ void ip_vs_protocol_timeout_change(struct netns_ipvs *ipvs, int flags);
+@@ -1362,9 +1316,8 @@ extern struct ip_vs_protocol ip_vs_protocol_esp;
+ extern struct ip_vs_protocol ip_vs_protocol_ah;
+ extern struct ip_vs_protocol ip_vs_protocol_sctp;
+ 
+-/*
+- *      Registering/unregistering scheduler functions
+- *      (from ip_vs_sched.c)
++/* Registering/unregistering scheduler functions
++ * (from ip_vs_sched.c)
+  */
+ int register_ip_vs_scheduler(struct ip_vs_scheduler *scheduler);
+ int unregister_ip_vs_scheduler(struct ip_vs_scheduler *scheduler);
+@@ -1383,10 +1336,7 @@ int ip_vs_leave(struct ip_vs_service *svc, struct sk_buff *skb,
+ 
+ void ip_vs_scheduler_err(struct ip_vs_service *svc, const char *msg);
+ 
+-
+-/*
+- *      IPVS control data and functions (from ip_vs_ctl.c)
+- */
++/* IPVS control data and functions (from ip_vs_ctl.c) */
+ extern struct ip_vs_stats ip_vs_stats;
+ extern int sysctl_ip_vs_sync_ver;
+ 
+@@ -1427,26 +1377,21 @@ static inline void ip_vs_dest_put_and_free(struct ip_vs_dest *dest)
+ 		kfree(dest);
+ }
+ 
+-/*
+- *      IPVS sync daemon data and function prototypes
+- *      (from ip_vs_sync.c)
++/* IPVS sync daemon data and function prototypes
++ * (from ip_vs_sync.c)
+  */
+ int start_sync_thread(struct net *net, int state, char *mcast_ifn, __u8 syncid);
+ int stop_sync_thread(struct net *net, int state);
+ void ip_vs_sync_conn(struct net *net, struct ip_vs_conn *cp, int pkts);
+ 
+-/*
+- *      IPVS rate estimator prototypes (from ip_vs_est.c)
+- */
++/* IPVS rate estimator prototypes (from ip_vs_est.c) */
+ void ip_vs_start_estimator(struct net *net, struct ip_vs_stats *stats);
+ void ip_vs_stop_estimator(struct net *net, struct ip_vs_stats *stats);
+ void ip_vs_zero_estimator(struct ip_vs_stats *stats);
+ void ip_vs_read_estimator(struct ip_vs_stats_user *dst,
+ 			  struct ip_vs_stats *stats);
+ 
+-/*
+- *	Various IPVS packet transmitters (from ip_vs_xmit.c)
+- */
++/* Various IPVS packet transmitters (from ip_vs_xmit.c) */
+ int ip_vs_null_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 		    struct ip_vs_protocol *pp, struct ip_vs_iphdr *iph);
+ int ip_vs_bypass_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
+@@ -1477,12 +1422,10 @@ int ip_vs_icmp_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
+ #endif
+ 
+ #ifdef CONFIG_SYSCTL
+-/*
+- *	This is a simple mechanism to ignore packets when
+- *	we are loaded. Just set ip_vs_drop_rate to 'n' and
+- *	we start to drop 1/rate of the packets
++/* This is a simple mechanism to ignore packets when
++ * we are loaded. Just set ip_vs_drop_rate to 'n' and
++ * we start to drop 1/rate of the packets
+  */
+-
+ static inline int ip_vs_todrop(struct netns_ipvs *ipvs)
+ {
+ 	if (!ipvs->drop_rate)
+@@ -1496,9 +1439,7 @@ static inline int ip_vs_todrop(struct netns_ipvs *ipvs)
+ static inline int ip_vs_todrop(struct netns_ipvs *ipvs) { return 0; }
+ #endif
+ 
+-/*
+- *      ip_vs_fwd_tag returns the forwarding tag of the connection
+- */
++/* ip_vs_fwd_tag returns the forwarding tag of the connection */
+ #define IP_VS_FWD_METHOD(cp)  (cp->flags & IP_VS_CONN_F_FWD_MASK)
+ 
+ static inline char ip_vs_fwd_tag(struct ip_vs_conn *cp)
+@@ -1557,9 +1498,7 @@ static inline __wsum ip_vs_check_diff2(__be16 old, __be16 new, __wsum oldsum)
+ 	return csum_partial(diff, sizeof(diff), oldsum);
+ }
+ 
+-/*
+- * Forget current conntrack (unconfirmed) and attach notrack entry
+- */
++/* Forget current conntrack (unconfirmed) and attach notrack entry */
+ static inline void ip_vs_notrack(struct sk_buff *skb)
+ {
+ #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
+@@ -1576,9 +1515,8 @@ static inline void ip_vs_notrack(struct sk_buff *skb)
+ }
+ 
+ #ifdef CONFIG_IP_VS_NFCT
+-/*
+- *      Netfilter connection tracking
+- *      (from ip_vs_nfct.c)
++/* Netfilter connection tracking
++ * (from ip_vs_nfct.c)
+  */
+ static inline int ip_vs_conntrack_enabled(struct netns_ipvs *ipvs)
+ {
+@@ -1617,14 +1555,12 @@ static inline int ip_vs_confirm_conntrack(struct sk_buff *skb)
+ static inline void ip_vs_conn_drop_conntrack(struct ip_vs_conn *cp)
+ {
+ }
+-/* CONFIG_IP_VS_NFCT */
 -#endif
--		ip_local_out(nskb);
--
--	return;
--
-- free_nskb:
--	kfree_skb(nskb);
--}
--
-+void nf_send_reset(struct sk_buff *oldskb, int hook);
++#endif /* CONFIG_IP_VS_NFCT */
  
- #endif /* _IPV4_NF_REJECT_H */
-diff --git a/net/ipv4/netfilter/Kconfig b/net/ipv4/netfilter/Kconfig
-index 345242a..4c019d5 100644
---- a/net/ipv4/netfilter/Kconfig
-+++ b/net/ipv4/netfilter/Kconfig
-@@ -61,8 +61,13 @@ config NFT_CHAIN_ROUTE_IPV4
- 	  fields such as the source, destination, type of service and
- 	  the packet mark.
- 
-+config NF_REJECT_IPV4
-+	tristate "IPv4 packet rejection"
-+	default m if NETFILTER_ADVANCED=n
-+
- config NFT_REJECT_IPV4
- 	depends on NF_TABLES_IPV4
-+	select NF_REJECT_IPV4
- 	default NFT_REJECT
- 	tristate
- 
-@@ -208,6 +213,7 @@ config IP_NF_FILTER
- config IP_NF_TARGET_REJECT
- 	tristate "REJECT target support"
- 	depends on IP_NF_FILTER
-+	select NF_REJECT_IPV4
- 	default m if NETFILTER_ADVANCED=n
- 	help
- 	  The REJECT target allows a filtering rule to specify that an ICMP
-diff --git a/net/ipv4/netfilter/Makefile b/net/ipv4/netfilter/Makefile
-index 14488cc..f4cef5a 100644
---- a/net/ipv4/netfilter/Makefile
-+++ b/net/ipv4/netfilter/Makefile
-@@ -23,6 +23,9 @@ obj-$(CONFIG_NF_DEFRAG_IPV4) += nf_defrag_ipv4.o
- obj-$(CONFIG_NF_LOG_ARP) += nf_log_arp.o
- obj-$(CONFIG_NF_LOG_IPV4) += nf_log_ipv4.o
- 
-+# reject
-+obj-$(CONFIG_NF_REJECT_IPV4) += nf_reject_ipv4.o
-+
- # NAT helpers (nf_conntrack)
- obj-$(CONFIG_NF_NAT_H323) += nf_nat_h323.o
- obj-$(CONFIG_NF_NAT_PPTP) += nf_nat_pptp.o
-diff --git a/net/ipv4/netfilter/nf_reject_ipv4.c b/net/ipv4/netfilter/nf_reject_ipv4.c
-new file mode 100644
-index 0000000..b023b4e
---- /dev/null
-+++ b/net/ipv4/netfilter/nf_reject_ipv4.c
-@@ -0,0 +1,127 @@
-+/* (C) 1999-2001 Paul `Rusty' Russell
-+ * (C) 2002-2004 Netfilter Core Team <coreteam@netfilter.org>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
-+ */
-+
-+#include <net/ip.h>
-+#include <net/tcp.h>
-+#include <net/route.h>
-+#include <net/dst.h>
-+#include <linux/netfilter_ipv4.h>
-+
-+/* Send RST reply */
-+void nf_send_reset(struct sk_buff *oldskb, int hook)
-+{
-+	struct sk_buff *nskb;
-+	const struct iphdr *oiph;
-+	struct iphdr *niph;
-+	const struct tcphdr *oth;
-+	struct tcphdr _otcph, *tcph;
-+
-+	/* IP header checks: fragment. */
-+	if (ip_hdr(oldskb)->frag_off & htons(IP_OFFSET))
-+		return;
-+
-+	oth = skb_header_pointer(oldskb, ip_hdrlen(oldskb),
-+				 sizeof(_otcph), &_otcph);
-+	if (oth == NULL)
-+		return;
-+
-+	/* No RST for RST. */
-+	if (oth->rst)
-+		return;
-+
-+	if (skb_rtable(oldskb)->rt_flags & (RTCF_BROADCAST | RTCF_MULTICAST))
-+		return;
-+
-+	/* Check checksum */
-+	if (nf_ip_checksum(oldskb, hook, ip_hdrlen(oldskb), IPPROTO_TCP))
-+		return;
-+	oiph = ip_hdr(oldskb);
-+
-+	nskb = alloc_skb(sizeof(struct iphdr) + sizeof(struct tcphdr) +
-+			 LL_MAX_HEADER, GFP_ATOMIC);
-+	if (!nskb)
-+		return;
-+
-+	skb_reserve(nskb, LL_MAX_HEADER);
-+
-+	skb_reset_network_header(nskb);
-+	niph = (struct iphdr *)skb_put(nskb, sizeof(struct iphdr));
-+	niph->version	= 4;
-+	niph->ihl	= sizeof(struct iphdr) / 4;
-+	niph->tos	= 0;
-+	niph->id	= 0;
-+	niph->frag_off	= htons(IP_DF);
-+	niph->protocol	= IPPROTO_TCP;
-+	niph->check	= 0;
-+	niph->saddr	= oiph->daddr;
-+	niph->daddr	= oiph->saddr;
-+
-+	skb_reset_transport_header(nskb);
-+	tcph = (struct tcphdr *)skb_put(nskb, sizeof(struct tcphdr));
-+	memset(tcph, 0, sizeof(*tcph));
-+	tcph->source	= oth->dest;
-+	tcph->dest	= oth->source;
-+	tcph->doff	= sizeof(struct tcphdr) / 4;
-+
-+	if (oth->ack)
-+		tcph->seq = oth->ack_seq;
-+	else {
-+		tcph->ack_seq = htonl(ntohl(oth->seq) + oth->syn + oth->fin +
-+				      oldskb->len - ip_hdrlen(oldskb) -
-+				      (oth->doff << 2));
-+		tcph->ack = 1;
-+	}
-+
-+	tcph->rst	= 1;
-+	tcph->check = ~tcp_v4_check(sizeof(struct tcphdr), niph->saddr,
-+				    niph->daddr, 0);
-+	nskb->ip_summed = CHECKSUM_PARTIAL;
-+	nskb->csum_start = (unsigned char *)tcph - nskb->head;
-+	nskb->csum_offset = offsetof(struct tcphdr, check);
-+
-+	/* ip_route_me_harder expects skb->dst to be set */
-+	skb_dst_set_noref(nskb, skb_dst(oldskb));
-+
-+	nskb->protocol = htons(ETH_P_IP);
-+	if (ip_route_me_harder(nskb, RTN_UNSPEC))
-+		goto free_nskb;
-+
-+	niph->ttl	= ip4_dst_hoplimit(skb_dst(nskb));
-+
-+	/* "Never happens" */
-+	if (nskb->len > dst_mtu(skb_dst(nskb)))
-+		goto free_nskb;
-+
-+	nf_ct_attach(nskb, oldskb);
-+
-+#if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
-+	/* If we use ip_local_out for bridged traffic, the MAC source on
-+	 * the RST will be ours, instead of the destination's.  This confuses
-+	 * some routers/firewalls, and they drop the packet.  So we need to
-+	 * build the eth header using the original destination's MAC as the
-+	 * source, and send the RST packet directly.
-+	 */
-+	if (oldskb->nf_bridge) {
-+		struct ethhdr *oeth = eth_hdr(oldskb);
-+		nskb->dev = oldskb->nf_bridge->physindev;
-+		niph->tot_len = htons(nskb->len);
-+		ip_send_check(niph);
-+		if (dev_hard_header(nskb, nskb->dev, ntohs(nskb->protocol),
-+				    oeth->h_source, oeth->h_dest, nskb->len) < 0)
-+			goto free_nskb;
-+		dev_queue_xmit(nskb);
-+	} else
-+#endif
-+		ip_local_out(nskb);
-+
-+	return;
-+
-+ free_nskb:
-+	kfree_skb(nskb);
-+}
-+EXPORT_SYMBOL_GPL(nf_send_reset);
-diff --git a/net/ipv6/netfilter/Kconfig b/net/ipv6/netfilter/Kconfig
-index bb1a40d..6af874f 100644
---- a/net/ipv6/netfilter/Kconfig
-+++ b/net/ipv6/netfilter/Kconfig
-@@ -40,8 +40,13 @@ config NFT_CHAIN_ROUTE_IPV6
- 	  fields such as the source, destination, flowlabel, hop-limit and
- 	  the packet mark.
- 
-+config NF_REJECT_IPV6
-+	tristate "IPv6 packet rejection"
-+	default m if NETFILTER_ADVANCED=n
-+
- config NFT_REJECT_IPV6
- 	depends on NF_TABLES_IPV6
-+	select NF_REJECT_IPV6
- 	default NFT_REJECT
- 	tristate
- 
-@@ -208,6 +213,7 @@ config IP6_NF_FILTER
- config IP6_NF_TARGET_REJECT
- 	tristate "REJECT target support"
- 	depends on IP6_NF_FILTER
-+	select NF_REJECT_IPV6
- 	default m if NETFILTER_ADVANCED=n
- 	help
- 	  The REJECT target allows a filtering rule to specify that an ICMPv6
-diff --git a/net/ipv6/netfilter/Makefile b/net/ipv6/netfilter/Makefile
-index 0f7e5b3..fbb25f0 100644
---- a/net/ipv6/netfilter/Makefile
-+++ b/net/ipv6/netfilter/Makefile
-@@ -27,6 +27,9 @@ obj-$(CONFIG_NF_DEFRAG_IPV6) += nf_defrag_ipv6.o
- # logging
- obj-$(CONFIG_NF_LOG_IPV6) += nf_log_ipv6.o
- 
-+# reject
-+obj-$(CONFIG_NF_REJECT_IPV6) += nf_reject_ipv6.o
-+
- # nf_tables
- obj-$(CONFIG_NF_TABLES_IPV6) += nf_tables_ipv6.o
- obj-$(CONFIG_NFT_CHAIN_ROUTE_IPV6) += nft_chain_route_ipv6.o
-diff --git a/net/ipv6/netfilter/nf_reject_ipv6.c b/net/ipv6/netfilter/nf_reject_ipv6.c
-new file mode 100644
-index 0000000..5f5f043
---- /dev/null
-+++ b/net/ipv6/netfilter/nf_reject_ipv6.c
-@@ -0,0 +1,163 @@
-+/* (C) 1999-2001 Paul `Rusty' Russell
-+ * (C) 2002-2004 Netfilter Core Team <coreteam@netfilter.org>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
-+ */
-+#include <net/ipv6.h>
-+#include <net/ip6_route.h>
-+#include <net/ip6_fib.h>
-+#include <net/ip6_checksum.h>
-+#include <linux/netfilter_ipv6.h>
-+
-+void nf_send_reset6(struct net *net, struct sk_buff *oldskb, int hook)
-+{
-+	struct sk_buff *nskb;
-+	struct tcphdr otcph, *tcph;
-+	unsigned int otcplen, hh_len;
-+	int tcphoff, needs_ack;
-+	const struct ipv6hdr *oip6h = ipv6_hdr(oldskb);
-+	struct ipv6hdr *ip6h;
-+#define DEFAULT_TOS_VALUE	0x0U
-+	const __u8 tclass = DEFAULT_TOS_VALUE;
-+	struct dst_entry *dst = NULL;
-+	u8 proto;
-+	__be16 frag_off;
-+	struct flowi6 fl6;
-+
-+	if ((!(ipv6_addr_type(&oip6h->saddr) & IPV6_ADDR_UNICAST)) ||
-+	    (!(ipv6_addr_type(&oip6h->daddr) & IPV6_ADDR_UNICAST))) {
-+		pr_debug("addr is not unicast.\n");
-+		return;
-+	}
-+
-+	proto = oip6h->nexthdr;
-+	tcphoff = ipv6_skip_exthdr(oldskb, ((u8*)(oip6h+1) - oldskb->data), &proto, &frag_off);
-+
-+	if ((tcphoff < 0) || (tcphoff > oldskb->len)) {
-+		pr_debug("Cannot get TCP header.\n");
-+		return;
-+	}
-+
-+	otcplen = oldskb->len - tcphoff;
-+
-+	/* IP header checks: fragment, too short. */
-+	if (proto != IPPROTO_TCP || otcplen < sizeof(struct tcphdr)) {
-+		pr_debug("proto(%d) != IPPROTO_TCP, "
-+			 "or too short. otcplen = %d\n",
-+			 proto, otcplen);
-+		return;
-+	}
-+
-+	if (skb_copy_bits(oldskb, tcphoff, &otcph, sizeof(struct tcphdr)))
-+		BUG();
-+
-+	/* No RST for RST. */
-+	if (otcph.rst) {
-+		pr_debug("RST is set\n");
-+		return;
-+	}
-+
-+	/* Check checksum. */
-+	if (nf_ip6_checksum(oldskb, hook, tcphoff, IPPROTO_TCP)) {
-+		pr_debug("TCP checksum is invalid\n");
-+		return;
-+	}
-+
-+	memset(&fl6, 0, sizeof(fl6));
-+	fl6.flowi6_proto = IPPROTO_TCP;
-+	fl6.saddr = oip6h->daddr;
-+	fl6.daddr = oip6h->saddr;
-+	fl6.fl6_sport = otcph.dest;
-+	fl6.fl6_dport = otcph.source;
-+	security_skb_classify_flow(oldskb, flowi6_to_flowi(&fl6));
-+	dst = ip6_route_output(net, NULL, &fl6);
-+	if (dst == NULL || dst->error) {
-+		dst_release(dst);
-+		return;
-+	}
-+	dst = xfrm_lookup(net, dst, flowi6_to_flowi(&fl6), NULL, 0);
-+	if (IS_ERR(dst))
-+		return;
-+
-+	hh_len = (dst->dev->hard_header_len + 15)&~15;
-+	nskb = alloc_skb(hh_len + 15 + dst->header_len + sizeof(struct ipv6hdr)
-+			 + sizeof(struct tcphdr) + dst->trailer_len,
-+			 GFP_ATOMIC);
-+
-+	if (!nskb) {
-+		net_dbg_ratelimited("cannot alloc skb\n");
-+		dst_release(dst);
-+		return;
-+	}
-+
-+	skb_dst_set(nskb, dst);
-+
-+	skb_reserve(nskb, hh_len + dst->header_len);
-+
-+	skb_put(nskb, sizeof(struct ipv6hdr));
-+	skb_reset_network_header(nskb);
-+	ip6h = ipv6_hdr(nskb);
-+	ip6_flow_hdr(ip6h, tclass, 0);
-+	ip6h->hop_limit = ip6_dst_hoplimit(dst);
-+	ip6h->nexthdr = IPPROTO_TCP;
-+	ip6h->saddr = oip6h->daddr;
-+	ip6h->daddr = oip6h->saddr;
-+
-+	skb_reset_transport_header(nskb);
-+	tcph = (struct tcphdr *)skb_put(nskb, sizeof(struct tcphdr));
-+	/* Truncate to length (no data) */
-+	tcph->doff = sizeof(struct tcphdr)/4;
-+	tcph->source = otcph.dest;
-+	tcph->dest = otcph.source;
-+
-+	if (otcph.ack) {
-+		needs_ack = 0;
-+		tcph->seq = otcph.ack_seq;
-+		tcph->ack_seq = 0;
-+	} else {
-+		needs_ack = 1;
-+		tcph->ack_seq = htonl(ntohl(otcph.seq) + otcph.syn + otcph.fin
-+				      + otcplen - (otcph.doff<<2));
-+		tcph->seq = 0;
-+	}
-+
-+	/* Reset flags */
-+	((u_int8_t *)tcph)[13] = 0;
-+	tcph->rst = 1;
-+	tcph->ack = needs_ack;
-+	tcph->window = 0;
-+	tcph->urg_ptr = 0;
-+	tcph->check = 0;
-+
-+	/* Adjust TCP checksum */
-+	tcph->check = csum_ipv6_magic(&ipv6_hdr(nskb)->saddr,
-+				      &ipv6_hdr(nskb)->daddr,
-+				      sizeof(struct tcphdr), IPPROTO_TCP,
-+				      csum_partial(tcph,
-+						   sizeof(struct tcphdr), 0));
-+
-+	nf_ct_attach(nskb, oldskb);
-+
-+#if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
-+	/* If we use ip6_local_out for bridged traffic, the MAC source on
-+	 * the RST will be ours, instead of the destination's.  This confuses
-+	 * some routers/firewalls, and they drop the packet.  So we need to
-+	 * build the eth header using the original destination's MAC as the
-+	 * source, and send the RST packet directly.
-+	 */
-+	if (oldskb->nf_bridge) {
-+		struct ethhdr *oeth = eth_hdr(oldskb);
-+		nskb->dev = oldskb->nf_bridge->physindev;
-+		nskb->protocol = htons(ETH_P_IPV6);
-+		ip6h->payload_len = htons(sizeof(struct tcphdr));
-+		if (dev_hard_header(nskb, nskb->dev, ntohs(nskb->protocol),
-+				    oeth->h_source, oeth->h_dest, nskb->len) < 0)
-+			return;
-+		dev_queue_xmit(nskb);
-+	} else
-+#endif
-+		ip6_local_out(nskb);
-+}
-+EXPORT_SYMBOL_GPL(nf_send_reset6);
+ static inline int
+ ip_vs_dest_conn_overhead(struct ip_vs_dest *dest)
+ {
+-	/*
+-	 * We think the overhead of processing active connections is 256
++	/* We think the overhead of processing active connections is 256
+ 	 * times higher than that of inactive connections in average. (This
+ 	 * 256 times might not be accurate, we will change it later) We
+ 	 * use the following formula to estimate the overhead now:
 -- 
 1.7.10.4
 
