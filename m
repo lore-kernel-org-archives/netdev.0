@@ -1,41 +1,63 @@
-From: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [RFC PATCH net-next v3 1/4] netns: add genl cmd to add and get
- peer netns ids
-Date: Fri, 03 Oct 2014 14:22:26 +0200
-Message-ID: <542E9502.1040104@6wind.com>
-References: <542D5726.8070308@6wind.com>	<1412257690-31253-1-git-send-email-nicolas.dichtel@6wind.com>	<1412257690-31253-2-git-send-email-nicolas.dichtel@6wind.com> <87tx3mmflp.fsf@x220.int.ebiederm.org>
-Reply-To: nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net] ematch: Fix the matching of inverted containers (again).
+Date: Fri, 03 Oct 2014 16:22:29 +0400
+Message-ID: <542E9505.8010805@cogentembedded.com>
+References: <20141003080600.GA13146@zenon.in.qult.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
+Content-Type: text/plain; charset=iso-8859-2;
 	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org,
-	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org,
-	cwang-xCSkyg8dI+0RB7SZvlqPiA@public.gmane.org
-To: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <87tx3mmflp.fsf-JOvCrm2gF+uungPnsOpG7nhyD016LWXt@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+To: =?ISO-8859-2?Q?Ignacy_Gaw=EAdzki?=
+	<ignacy.gawedzki@green-communications.fr>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f179.google.com ([209.85.217.179]:55579 "EHLO
+	mail-lb0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752233AbaJCMWd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Oct 2014 08:22:33 -0400
+Received: by mail-lb0-f179.google.com with SMTP id l4so873022lbv.38
+        for <netdev@vger.kernel.org>; Fri, 03 Oct 2014 05:22:31 -0700 (PDT)
+In-Reply-To: <20141003080600.GA13146@zenon.in.qult.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le 02/10/2014 21:33, Eric W. Biederman a =C3=A9crit :
-> Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org> writes:
+Hello.
+
+On 10/3/2014 12:06 PM, Ignacy Gaw=EAdzki wrote:
+
+> The result of a negated container has to be inverted before checking =
+for
+> early ending.
+
+> Signed-off-by: Ignacy Gaw=EAdzki <ignacy.gawedzki@green-communication=
+s.fr>
+> ---
+>   net/sched/ematch.c | 9 +++++----
+>   1 file changed, 5 insertions(+), 4 deletions(-)
+
+> diff --git a/net/sched/ematch.c b/net/sched/ematch.c
+> index ad57f44..300ecf6 100644
+> --- a/net/sched/ematch.c
+> +++ b/net/sched/ematch.c
+> @@ -526,11 +526,12 @@ pop_stack:
+>   		match_idx =3D stack[--stackp];
+>   		cur_match =3D tcf_em_get_match(tree, match_idx);
 >
->> With this patch, a user can define an id for a peer netns by providi=
-ng a FD or a
->> PID. These ids are local to netns (ie valid only into one netns).
->>
->> This will be useful for netlink messages when a x-netns interface is
->> dumped.
->
-> You have a "id -> struct net *" table but you don't have a
-> "struct net * -> id" table which looks like it will impact the
-> performance of peernet2id at scale.
-It is indirectly stores in 'struct idr'. It can be optimized later, wit=
-h a
-proper algorithm to find quickly this 'struct net *' (hash table? somet=
-hing
-else?). A basic algorithm will not be more scalable than the current
-idr_for_each().
+> -		if (tcf_em_early_end(cur_match, res)) {
+> -			if (tcf_em_is_inverted(cur_match))
+> -				res =3D !res;
+> +		if (tcf_em_is_inverted(cur_match))
+> +			res =3D !res;
+> +
+> +		if (tcf_em_early_end(cur_match, res))
+>   			goto pop_stack;
+> -		} else {
+> +		else {
+>   			match_idx++;
+>   			goto proceed;
+>   		}
+
+    The kernel style dictates that an *if* statement should have {} in =
+all its=20
+arms, if it has {} in at least one of the arms.
+
+WBR, Sergei
