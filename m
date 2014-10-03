@@ -1,47 +1,60 @@
-From: Kim Phillips <kim.phillips@freescale.com>
-Subject: Re: [net 0/8] gianfar: ARM port driver updates (1/2)
-Date: Fri, 3 Oct 2014 16:20:31 -0500
-Message-ID: <20141003162031.2a9ae05c6d38402cd8e70298@freescale.com>
-References: <1412352169-14414-1-git-send-email-claudiu.manoil@freescale.com>
+From: Frank Li <Frank.Li@freescale.com>
+Subject: [PATCH v2 net-next 1/1] net: fec: fix build error at m68k platform
+Date: Fri, 3 Oct 2014 14:29:14 -0700
+Message-ID: <1412371754-60384-1-git-send-email-Frank.Li@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>,
-	"Xiubo Li" <Li.Xiubo@freescale.com>,
-	Shruti Kanetkar <Shruti@freescale.com>
-To: Claudiu Manoil <claudiu.manoil@freescale.com>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <b38611@freescale.com>,
+	Frank Li <Frank.Li@freescale.com>
+To: <davem@davemloft.net>, <lznuaa@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0136.outbound.protection.outlook.com ([65.55.169.136]:9984
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+Received: from mail-bn1bon0116.outbound.protection.outlook.com ([157.56.111.116]:44981
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750850AbaJCVZr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Oct 2014 17:25:47 -0400
-In-Reply-To: <1412352169-14414-1-git-send-email-claudiu.manoil@freescale.com>
+	id S1750832AbaJCV31 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Oct 2014 17:29:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 3 Oct 2014 19:02:41 +0300
-Claudiu Manoil <claudiu.manoil@freescale.com> wrote:
+reproduce:
+  wget https://git.kernel.org/cgit/linux/kernel/git/wfg/lkp-tests.git/plain/sbin/make.cross -O ~/bin/make.cross
+  chmod +x ~/bin/make.cross
+  git checkout 1b7bde6d659d30f171259cc2dfba8e5dab34e735
 
-> Claudiu Manoil (8):
->   net/fsl_pq_mdio: Fix asm/ucc.h compile error for ARM
->   net/fsl_pq_mdio: Use ioread/iowrite32be() portable accessors
->   net/fsl_pq_mdio: Replace spin_event_timeout() with arch independent
->   gianfar: Include missing headers for ARM builds
->   gianfar: Exclude PPC specific errata handling from ARM builds
->   gianfar: Make MAC addr setup endian safe, cleanup
->   gianfar: Replace spin_event_timeout() with arch independent
->   gianfar: Replace eieio with wmb for non-PPC archs
-> 
->  drivers/net/ethernet/freescale/fsl_pq_mdio.c | 56 ++++++++++++++---------
->  drivers/net/ethernet/freescale/gianfar.c     | 68 +++++++++++++++-------------
->  drivers/net/ethernet/freescale/gianfar.h     | 31 +++++++++++++
->  3 files changed, 102 insertions(+), 53 deletions(-)
+  make.cross ARCH=m68k m5275evb_defconfig
+  make.cross ARCH=m68k
 
-this series:
+All error/warnings:
 
-Reviewed-by: Kim Phillips <kim.phillips@freescale.com>
+   drivers/net/ethernet/freescale/fec_main.c: In function 'fec_enet_rx_queue':
+>> drivers/net/ethernet/freescale/fec_main.c:1470:3: error: implicit declaration of function 'prefetch' [-Werror=implicit-function-declaration]
+      prefetch(skb->data - NET_IP_ALIGN);
+      ^
+   cc1: some warnings being treated as errors
 
-Thanks,
+missed included prefetch.h
 
-Kim
+Reported-by: kbuild test robot <fengguang.wu@intel.com>
+Signed-off-by: Frank Li <Frank.Li@freescale.com>
+---
+Change from v1 to V2
+ - add reported by
+ - add make config
+
+ drivers/net/ethernet/freescale/fec_main.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index 1f07db8..e190eb0 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -57,6 +57,7 @@
+ #include <linux/regulator/consumer.h>
+ #include <linux/if_vlan.h>
+ #include <linux/pinctrl/consumer.h>
++#include <linux/prefetch.h>
+ 
+ #include <asm/cacheflush.h>
+ 
+-- 
+1.9.1
