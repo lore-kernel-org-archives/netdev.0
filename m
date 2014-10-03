@@ -1,113 +1,82 @@
-From: Scott Feldman <sfeldma@cumulusnetworks.com>
-Subject: Re: HW bridging support using notifiers?
-Date: Thu, 2 Oct 2014 22:13:35 -0700
-Message-ID: <A97C2083-CFD9-4238-9C43-97EF43200124@cumulusnetworks.com>
-References: <542E0089.5050005@gmail.com>
-Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.6\))
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net, jiri@resnulli.us,
-	stephen@networkplumber.org, andy@greyhouse.net, tgraf@suug.ch,
-	nbd@openwrt.org, john.r.fastabend@intel.com, edumazet@google.com,
-	vyasevic@redhat.com, buytenh@wantstofly.org
-To: Florian Fainelli <f.fainelli@gmail.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: [PATCH] net: sched: suspicious RCU usage in qdisc_watchdog
+Date: Thu, 02 Oct 2014 22:43:09 -0700
+Message-ID: <20141003054306.20821.48420.stgit@nitbit.x32>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: xiyou.wangcong@gmail.com, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:60803 "EHLO
-	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750814AbaJCFNo convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Oct 2014 01:13:44 -0400
-In-Reply-To: <542E0089.5050005@gmail.com>
+Received: from mail-ob0-f169.google.com ([209.85.214.169]:43486 "EHLO
+	mail-ob0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750930AbaJCFn3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Oct 2014 01:43:29 -0400
+Received: by mail-ob0-f169.google.com with SMTP id m8so348940obr.28
+        for <netdev@vger.kernel.org>; Thu, 02 Oct 2014 22:43:29 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Suspicious RCU usage in qdisc_watchdog call needs to be done inside
+rcu_read_lock/rcu_read_unlock. And then Qdisc destroy operations
+need to ensure timer is cancelled before removing qdisc structure.
 
-On Oct 2, 2014, at 6:48 PM, Florian Fainelli <f.fainelli@gmail.com> wro=
-te:
+[ 3992.191339] ===============================
+[ 3992.191340] [ INFO: suspicious RCU usage. ]
+[ 3992.191343] 3.17.0-rc6net-next+ #72 Not tainted
+[ 3992.191345] -------------------------------
+[ 3992.191347] include/net/sch_generic.h:272 suspicious rcu_dereference_check() usage!
+[ 3992.191348]
+[ 3992.191348] other info that might help us debug this:
+[ 3992.191348]
+[ 3992.191351]
+[ 3992.191351] rcu_scheduler_active = 1, debug_locks = 1
+[ 3992.191353] no locks held by swapper/1/0.
+[ 3992.191355]
+[ 3992.191355] stack backtrace:
+[ 3992.191358] CPU: 1 PID: 0 Comm: swapper/1 Not tainted 3.17.0-rc6net-next+ #72
+[ 3992.191360] Hardware name:                  /DZ77RE-75K, BIOS GAZ7711H.86A.0060.2012.1115.1750 11/15/2012
+[ 3992.191362]  0000000000000001 ffff880235803e48 ffffffff8178f92c 0000000000000000
+[ 3992.191366]  ffff8802322224a0 ffff880235803e78 ffffffff810c9966 ffff8800a5fe3000
+[ 3992.191370]  ffff880235803f30 ffff8802359cd768 ffff8802359cd6e0 ffff880235803e98
+[ 3992.191374] Call Trace:
+[ 3992.191376]  <IRQ>  [<ffffffff8178f92c>] dump_stack+0x4e/0x68
+[ 3992.191387]  [<ffffffff810c9966>] lockdep_rcu_suspicious+0xe6/0x130
+[ 3992.191392]  [<ffffffff8167213a>] qdisc_watchdog+0x8a/0xb0
+[ 3992.191396]  [<ffffffff810f93f2>] __run_hrtimer+0x72/0x420
+[ 3992.191399]  [<ffffffff810f9bcd>] ? hrtimer_interrupt+0x7d/0x240
+[ 3992.191403]  [<ffffffff816720b0>] ? tc_classify+0xc0/0xc0
+[ 3992.191406]  [<ffffffff810f9c4f>] hrtimer_interrupt+0xff/0x240
+[ 3992.191410]  [<ffffffff8109e4a5>] ? __atomic_notifier_call_chain+0x5/0x140
+[ 3992.191415]  [<ffffffff8103577b>] local_apic_timer_interrupt+0x3b/0x60
+[ 3992.191419]  [<ffffffff8179c2b5>] smp_apic_timer_interrupt+0x45/0x60
+[ 3992.191422]  [<ffffffff8179a6bf>] apic_timer_interrupt+0x6f/0x80
+[ 3992.191424]  <EOI>  [<ffffffff815ed233>] ? cpuidle_enter_state+0x73/0x2e0
+[ 3992.191432]  [<ffffffff815ed22e>] ? cpuidle_enter_state+0x6e/0x2e0
+[ 3992.191437]  [<ffffffff815ed567>] cpuidle_enter+0x17/0x20
+[ 3992.191441]  [<ffffffff810c0741>] cpu_startup_entry+0x3d1/0x4a0
+[ 3992.191445]  [<ffffffff81106fc6>] ? clockevents_config_and_register+0x26/0x30
+[ 3992.191448]  [<ffffffff81033c16>] start_secondary+0x1b6/0x260
 
-> Hi all,
->=20
-> I am taking a look at adding HW bridging support to DSA, in way that'=
-s
-> usable outside of DSA.
->=20
-> Lennert's approach in 2008 [1] looks conceptually good to me,as he
-> noted, it uses a bunch of new ndo's which is not only limiting to one
-> ndo implementer per struct net_device, but also is mostly consuming t=
-he
-> information from the bridge layer, while the ndo is an action
->=20
-> So here's what I am up to now:
->=20
-> - use the NETDEV_JOIN notifier to discover when a bridge port is adde=
-d
-> - use the NETDEV_LEAVE notifier, still need to verify this does not
-> break netconsole as indicated in net/bridge/br_if.c
+Fixes: b26b0d1e8b1 ("net: qdisc: use rcu prefix and silence sparse warnings")
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+---
+ net/sched/sch_api.c |    2 ++
+ 1 file changed, 2 insertions(+)
 
-I can=92t find a NETDEV_LEAVE...is this new?
-
-=46or this, rocker is using netdev_notifier and watching for NETDEV_CHA=
-NGEUPPER.  On CHANGEUPPER, use netdev_master_upper_dev_get(dev) to get =
-master.  If master and master rtnl_link_ops->kind is =93bridge=94, then=
- dev port is in bridge; otherwise port is not in bridge.  Of course, ma=
-ster could be =93openvswitch=94, if the driver swings both ways.
-
-Would this approach work for DSA?
-
-> - use the NETDEV_CHANGEINFODATA notifier to notify about STP state ch=
-anges
->=20
-> Now, this raises a bunch of questions:
->=20
-> - we would need a getter to return the stp state of a given network
-> device when called with NETDEV_CHANGEINFODATA, is that acceptable? Th=
-is
-> would be the first function exported by the bridge layer to expose
-> internal data
->=20
-> NB: this also raises the question of the race condition and locking
-> within br_set_stp_state() and when the network devices notifier callb=
-ack
-> runs
->=20
-> - or do we need a new network device notifier accepting an opaque
-> pointer which could provide us with the data we what, something like
-> this: call_netdevices_notifier_data(NETDEV_CHANGEINFODATA, dev, info)=
-,
-> where info would be a structure/union telling what's this data about
->=20
-
-We need STP state change notification for rocker also, so we can instal=
-l/remove STP/ARP filters on port state change.  Netdev_notifier would w=
-ork.  I was also thinking about using Jiri=92s ndo_swdev_flow_install/r=
-emove to install/remove the STP filters on the port, rather than using =
-netdev_notifier.  In other words, does the HW bridge driver need to kno=
-w the STP state or can it be dumb (stateless) and told when to accept S=
-TP BPDUs, or not, using swdev_flow construct:
-
-  dst_mac 01:80:c2:00:00:00 lasp 0x4242 in_port <port ifindex> actions =
-output <br ifindex>
-
-and later when reaching LEARNING state:
-
-  dst_mac ff:ff:ff:ff:ff:ff eth_type ARP in_port <port ifindex> actions=
- output <br ifindex>
-
-and finally when reaching FORWARDING state, the learned/static bridge f=
-dbs:
-
-  dst_mac <neigh_mac> in_port <br ifindex> actions output <port ifindex=
->
-
-So driver doesn=92t really know what STP is; it=92s just installs/remov=
-es port filter when told to, using the common ndo_swdev_flow API.  The =
-smarts stay in the bridge driver.
-
-
-> Let me know what you think, thanks!
->=20
-> [1]: http://patchwork.ozlabs.org/patch/16578/
-> --
-> Florian
-
-
--scott
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index aa83295..c79a226 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -578,8 +578,10 @@ static enum hrtimer_restart qdisc_watchdog(struct hrtimer *timer)
+ 	struct qdisc_watchdog *wd = container_of(timer, struct qdisc_watchdog,
+ 						 timer);
+ 
++	rcu_read_lock();
+ 	qdisc_unthrottled(wd->qdisc);
+ 	__netif_schedule(qdisc_root(wd->qdisc));
++	rcu_read_unlock();
+ 
+ 	return HRTIMER_NORESTART;
+ }
