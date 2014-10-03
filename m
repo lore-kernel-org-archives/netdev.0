@@ -1,74 +1,48 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [PATCH] net: sched: suspicious RCU usage in qdisc_watchdog
-Date: Fri, 3 Oct 2014 15:22:39 -0700
-Message-ID: <CAHA+R7M1puJ1ZV9yGAEUyY99-MO9DLf7WLmi3Ghniw=H7BYhJA@mail.gmail.com>
-References: <20141003054306.20821.48420.stgit@nitbit.x32>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH V6 0/2] qdisc: bulk dequeue support
+Date: Fri, 03 Oct 2014 15:30:31 -0700 (PDT)
+Message-ID: <20141003.153031.1190785267843072967.davem@davemloft.net>
+References: <20141003.145647.1980640682969765484.davem@davemloft.net>
+	<1412373477.17245.5.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1412374535.17245.7.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: John Fastabend <john.fastabend@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: brouer@redhat.com, netdev@vger.kernel.org, therbert@google.com,
+	hannes@stressinduktion.org, fw@strlen.de, dborkman@redhat.com,
+	jhs@mojatatu.com, alexander.duyck@gmail.com,
+	john.r.fastabend@intel.com, dave.taht@gmail.com, toke@toke.dk
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f176.google.com ([209.85.217.176]:55410 "EHLO
-	mail-lb0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756078AbaJCWWk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Oct 2014 18:22:40 -0400
-Received: by mail-lb0-f176.google.com with SMTP id p9so1786947lbv.35
-        for <netdev@vger.kernel.org>; Fri, 03 Oct 2014 15:22:39 -0700 (PDT)
-In-Reply-To: <20141003054306.20821.48420.stgit@nitbit.x32>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60297 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754468AbaJCW21 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Oct 2014 18:28:27 -0400
+In-Reply-To: <1412374535.17245.7.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 2, 2014 at 10:43 PM, John Fastabend
-<john.fastabend@gmail.com> wrote:
-> Suspicious RCU usage in qdisc_watchdog call needs to be done inside
-> rcu_read_lock/rcu_read_unlock. And then Qdisc destroy operations
-> need to ensure timer is cancelled before removing qdisc structure.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 03 Oct 2014 15:15:35 -0700
 
-More precisely, qdisc_root().
+> On Fri, 2014-10-03 at 14:57 -0700, Eric Dumazet wrote:
+>> On Fri, 2014-10-03 at 14:56 -0700, David Miller wrote:
+>> 
+>> > I completely agree, and I sort of intended this to happen when
+>> > I split all the code into that new function.
+>> > 
+>> >   GSO segmentation of TX checksuming should not prevent other
+>> > > cpus from queueing other skbs in the qdisc.
+>> > > 
+>> > > I will spend some time on this.
+>> > 
+>> > Thanks!
+>> 
+>> I just did my first reboot, will make sure everything is working well
+>> before sending the patch ;)
+> 
+> This is awesome...
+> 
+> 40Gb rate, with TSO=on or TSO=off, it does not matter anymore.
 
->
-> [ 3992.191339] ===============================
-> [ 3992.191340] [ INFO: suspicious RCU usage. ]
-> [ 3992.191343] 3.17.0-rc6net-next+ #72 Not tainted
-> [ 3992.191345] -------------------------------
-> [ 3992.191347] include/net/sch_generic.h:272 suspicious rcu_dereference_check() usage!
-> [ 3992.191348]
-> [ 3992.191348] other info that might help us debug this:
-> [ 3992.191348]
-> [ 3992.191351]
-> [ 3992.191351] rcu_scheduler_active = 1, debug_locks = 1
-> [ 3992.191353] no locks held by swapper/1/0.
-> [ 3992.191355]
-> [ 3992.191355] stack backtrace:
-> [ 3992.191358] CPU: 1 PID: 0 Comm: swapper/1 Not tainted 3.17.0-rc6net-next+ #72
-> [ 3992.191360] Hardware name:                  /DZ77RE-75K, BIOS GAZ7711H.86A.0060.2012.1115.1750 11/15/2012
-> [ 3992.191362]  0000000000000001 ffff880235803e48 ffffffff8178f92c 0000000000000000
-> [ 3992.191366]  ffff8802322224a0 ffff880235803e78 ffffffff810c9966 ffff8800a5fe3000
-> [ 3992.191370]  ffff880235803f30 ffff8802359cd768 ffff8802359cd6e0 ffff880235803e98
-> [ 3992.191374] Call Trace:
-> [ 3992.191376]  <IRQ>  [<ffffffff8178f92c>] dump_stack+0x4e/0x68
-> [ 3992.191387]  [<ffffffff810c9966>] lockdep_rcu_suspicious+0xe6/0x130
-> [ 3992.191392]  [<ffffffff8167213a>] qdisc_watchdog+0x8a/0xb0
-> [ 3992.191396]  [<ffffffff810f93f2>] __run_hrtimer+0x72/0x420
-> [ 3992.191399]  [<ffffffff810f9bcd>] ? hrtimer_interrupt+0x7d/0x240
-> [ 3992.191403]  [<ffffffff816720b0>] ? tc_classify+0xc0/0xc0
-> [ 3992.191406]  [<ffffffff810f9c4f>] hrtimer_interrupt+0xff/0x240
-> [ 3992.191410]  [<ffffffff8109e4a5>] ? __atomic_notifier_call_chain+0x5/0x140
-> [ 3992.191415]  [<ffffffff8103577b>] local_apic_timer_interrupt+0x3b/0x60
-> [ 3992.191419]  [<ffffffff8179c2b5>] smp_apic_timer_interrupt+0x45/0x60
-> [ 3992.191422]  [<ffffffff8179a6bf>] apic_timer_interrupt+0x6f/0x80
-> [ 3992.191424]  <EOI>  [<ffffffff815ed233>] ? cpuidle_enter_state+0x73/0x2e0
-> [ 3992.191432]  [<ffffffff815ed22e>] ? cpuidle_enter_state+0x6e/0x2e0
-> [ 3992.191437]  [<ffffffff815ed567>] cpuidle_enter+0x17/0x20
-> [ 3992.191441]  [<ffffffff810c0741>] cpu_startup_entry+0x3d1/0x4a0
-> [ 3992.191445]  [<ffffffff81106fc6>] ? clockevents_config_and_register+0x26/0x30
-> [ 3992.191448]  [<ffffffff81033c16>] start_secondary+0x1b6/0x260
->
-> Fixes: b26b0d1e8b1 ("net: qdisc: use rcu prefix and silence sparse warnings")
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-
-
-Acked-by: Cong Wang <cwang@twopensource.com>
+Kick ass!
