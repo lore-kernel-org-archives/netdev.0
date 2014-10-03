@@ -1,59 +1,35 @@
-From: Zhi Li <lznuaa@gmail.com>
-Subject: Re: [PATCH net-next 1/1] net: fec: fix build error at m68k platform
-Date: Fri, 3 Oct 2014 15:14:53 -0500
-Message-ID: <CAHrpEqRQkY-09tcvxuuSHK+KbxMYXH50O7brXCA5B-K3V1S9_Q@mail.gmail.com>
-References: <1412362831-59318-1-git-send-email-Frank.Li@freescale.com>
-	<CAOMZO5B=cgVT1gr5VJ78x_Aj5ssvrsTOq4t0DrrLK4kz7vNMjQ@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/4] net: Generic UDP Encapsulation
+Date: Fri, 03 Oct 2014 13:18:15 -0700 (PDT)
+Message-ID: <20141003.131815.972110119857439918.davem@davemloft.net>
+References: <1412225199-24942-1-git-send-email-therbert@google.com>
+	<20141003.131029.1598012589716466958.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Frank Li <Frank.Li@freescale.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Duan Fugang-B38611 <b38611@freescale.com>
-To: Fabio Estevam <festevam@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: therbert@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f171.google.com ([209.85.217.171]:33225 "EHLO
-	mail-lb0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750823AbaJCUOz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Oct 2014 16:14:55 -0400
-Received: by mail-lb0-f171.google.com with SMTP id z12so1628905lbi.2
-        for <netdev@vger.kernel.org>; Fri, 03 Oct 2014 13:14:54 -0700 (PDT)
-In-Reply-To: <CAOMZO5B=cgVT1gr5VJ78x_Aj5ssvrsTOq4t0DrrLK4kz7vNMjQ@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:59193 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750944AbaJCUQJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Oct 2014 16:16:09 -0400
+In-Reply-To: <20141003.131029.1598012589716466958.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 3, 2014 at 3:07 PM, Fabio Estevam <festevam@gmail.com> wrote:
-> On Fri, Oct 3, 2014 at 4:00 PM, Frank Li <Frank.Li@freescale.com> wrote:
->> reproduce:
->>   wget https://git.kernel.org/cgit/linux/kernel/git/wfg/lkp-tests.git/plain/sbin/make.cross -O ~/bin/make.cross
->>   chmod +x ~/bin/make.cross
->>   git checkout 1b7bde6d659d30f171259cc2dfba8e5dab34e735
->>   # save the attached .config to linux build tree
->
-> There is no attached config ;-)
+From: David Miller <davem@davemloft.net>
+Date: Fri, 03 Oct 2014 13:10:29 -0700 (PDT)
 
-It is copy from kbuild report.
+> From: Tom Herbert <therbert@google.com>
+> Date: Wed,  1 Oct 2014 21:46:35 -0700
+> 
+>> Generic UDP Encapsulation (GUE) is UDP encapsulation protocol that
+>> encapsulates packets of various IP protocols. The GUE protocol is
+>> described in http://tools.ietf.org/html/draft-herbert-gue-01.
+> 
+> Series applied, thanks Tom.
 
-Can I change to
-config: m68k-m5275evb_defconfig (attached as .config)
+I had to revert, forgot to 'git add' this file?
 
-
->
->>   make.cross ARCH=m68k
->>
->> All error/warnings:
->>
->>    drivers/net/ethernet/freescale/fec_main.c: In function 'fec_enet_rx_queue':
->>>> drivers/net/ethernet/freescale/fec_main.c:1470:3: error: implicit declaration of function 'prefetch' [-Werror=implicit-function-declaration]
->>       prefetch(skb->data - NET_IP_ALIGN);
->>       ^
->>    cc1: some warnings being treated as errors
->>
->> missed included prefetch.h
->>
->> Signed-off-by: Frank Li <Frank.Li@freescale.com>
->
-> It seems you missed the Reported-by: kbuild test robot
-> <fengguang.wu@intel.com> tag.
-
-Okay I can add it.
+net/ipv4/ip_tunnel.c:59:21: fatal error: net/gue.h: No such file or directory
