@@ -1,63 +1,77 @@
-From: Ignacy =?iso-8859-2?Q?Gaw=EAdzki?=
-	<ignacy.gawedzki@green-communications.fr>
-Subject: [PATCH net v2 1/1] ematch: Fix early ending of inverted containers.
-Date: Fri, 3 Oct 2014 15:44:48 +0200
-Message-ID: <20141003134448.GB26399@zenon.in.qult.net>
-References: <542E9505.8010805@cogentembedded.com>
+From: Joe Lawrence <joe.lawrence@stratus.com>
+Subject: [PATCH] team: avoid race condition in scheduling delayed work
+Date: Fri, 3 Oct 2014 09:58:34 -0400
+Message-ID: <1412344714-29938-1-git-send-email-joe.lawrence@stratus.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Content-Type: text/plain
+Cc: Jiri Pirko <jiri@resnulli.us>,
+	Joe Lawrence <joe.lawrence@stratus.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [78.193.33.39] ([78.193.33.39]:55167 "EHLO qult.net"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1752528AbaJCNpQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Oct 2014 09:45:16 -0400
-Received: from zenon.in.qult.net ([192.168.64.1])
-	by qult.net with esmtpsa (TLS1.2:DHE_RSA_AES_128_CBC_SHA1:128)
-	(Exim 4.82)
-	(envelope-from <ignacy.gawedzki@green-communications.fr>)
-	id 1Xa3A8-0000V2-Pj
-	for netdev@vger.kernel.org; Fri, 03 Oct 2014 15:44:48 +0200
-Received: from ig by zenon.in.qult.net with local (Exim 4.82)
-	(envelope-from <ignacy.gawedzki@green-communications.fr>)
-	id 1Xa3A8-0007GX-5c
-	for netdev@vger.kernel.org; Fri, 03 Oct 2014 15:44:48 +0200
-Content-Disposition: inline
-In-Reply-To: <542E9505.8010805@cogentembedded.com>
+Received: from p02c11o143.mxlogic.net ([208.65.144.76]:36524 "EHLO
+	p02c11o143.mxlogic.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752602AbaJCOFk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Oct 2014 10:05:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The result of a negated container has to be inverted before checking fo=
-r
-early ending.
+When team_notify_peers and team_mcast_rejoin are called, they both reset
+their respective .count_pending atomic variable. Then when the actual
+worker function is executed, the variable is atomically decremented.
+This pattern introduces a potential race condition where the
+.count_pending rolls over and the worker function keeps rescheduling
+until .count_pending decrements to zero again:
 
-This fixes my previous attempt (17c9c8232663a47f074b7452b9b034efda868ca=
-7) to
-make inverted containers work correctly.
+THREAD 1                           THREAD 2
+========                           ========
+team_notify_peers(teamX)
+  atomic_set count_pending = 1
+  schedule_delayed_work
+                                   team_notify_peers(teamX)
+                                   atomic_set count_pending = 1
+team_notify_peers_work
+  atomic_dec_and_test
+    count_pending = 0
+  (return)
+                                   schedule_delayed_work
+                                   team_notify_peers_work
+                                   atomic_dec_and_test
+                                     count_pending = -1
+                                   schedule_delayed_work
+                                   (repeat until count_pending = 0)
 
-Signed-off-by: Ignacy Gaw=EAdzki <ignacy.gawedzki@green-communications.=
-fr>
+Instead of assigning a new value to .count_pending, use atomic_add to
+tack-on the additional desired worker function invocations.
+
+Signed-off-by: Joe Lawrence <joe.lawrence@stratus.com>
+Acked-by: Jiri Pirko <jiri@resnulli.us>
+Fixes: fc423ff00df3a19554414ee ("team: add peer notification")
+Fixes: 492b200efdd20b8fcfdac87 ("team: add support for sending multicast rejoins")
 ---
- net/sched/ematch.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+ drivers/net/team/team.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/sched/ematch.c b/net/sched/ematch.c
-index ad57f44..f878fa1 100644
---- a/net/sched/ematch.c
-+++ b/net/sched/ematch.c
-@@ -526,9 +526,10 @@ pop_stack:
- 		match_idx =3D stack[--stackp];
- 		cur_match =3D tcf_em_get_match(tree, match_idx);
-=20
-+		if (tcf_em_is_inverted(cur_match))
-+			res =3D !res;
-+
- 		if (tcf_em_early_end(cur_match, res)) {
--			if (tcf_em_is_inverted(cur_match))
--				res =3D !res;
- 			goto pop_stack;
- 		} else {
- 			match_idx++;
---=20
-1.9.1
+diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+index d46df38..2b87e3f 100644
+--- a/drivers/net/team/team.c
++++ b/drivers/net/team/team.c
+@@ -647,7 +647,7 @@ static void team_notify_peers(struct team *team)
+ {
+ 	if (!team->notify_peers.count || !netif_running(team->dev))
+ 		return;
+-	atomic_set(&team->notify_peers.count_pending, team->notify_peers.count);
++	atomic_add(team->notify_peers.count, &team->notify_peers.count_pending);
+ 	schedule_delayed_work(&team->notify_peers.dw, 0);
+ }
+ 
+@@ -687,7 +687,7 @@ static void team_mcast_rejoin(struct team *team)
+ {
+ 	if (!team->mcast_rejoin.count || !netif_running(team->dev))
+ 		return;
+-	atomic_set(&team->mcast_rejoin.count_pending, team->mcast_rejoin.count);
++	atomic_add(team->mcast_rejoin.count, &team->mcast_rejoin.count_pending);
+ 	schedule_delayed_work(&team->mcast_rejoin.dw, 0);
+ }
+ 
+-- 
+1.7.10.4
