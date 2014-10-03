@@ -1,128 +1,157 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: HW bridging support using notifiers?
-Date: Fri, 3 Oct 2014 09:53:18 +0200
-Message-ID: <20141003075318.GA2814@nanopsycho.orion>
-References: <542E0089.5050005@gmail.com>
- <A97C2083-CFD9-4238-9C43-97EF43200124@cumulusnetworks.com>
+Subject: Re: bug: race in team_{notify_peers,mcast_rejoin} scheduling
+Date: Fri, 3 Oct 2014 10:04:43 +0200
+Message-ID: <20141003080442.GB2814@nanopsycho.orion>
+References: <20141002145028.2f62838c@jlaw-desktop.mno.stratus.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, stephen@networkplumber.org,
-	andy@greyhouse.net, tgraf@suug.ch, nbd@openwrt.org,
-	john.r.fastabend@intel.com, edumazet@google.com,
-	vyasevic@redhat.com, buytenh@wantstofly.org
-To: Scott Feldman <sfeldma@cumulusnetworks.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Joe Lawrence <joe.lawrence@stratus.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:46014 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750823AbaJCHxV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Oct 2014 03:53:21 -0400
-Received: by mail-wi0-f174.google.com with SMTP id cc10so6355969wib.7
-        for <netdev@vger.kernel.org>; Fri, 03 Oct 2014 00:53:19 -0700 (PDT)
+Received: from mail-wi0-f173.google.com ([209.85.212.173]:53054 "EHLO
+	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750852AbaJCIEp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Oct 2014 04:04:45 -0400
+Received: by mail-wi0-f173.google.com with SMTP id fb4so1956704wid.12
+        for <netdev@vger.kernel.org>; Fri, 03 Oct 2014 01:04:44 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <A97C2083-CFD9-4238-9C43-97EF43200124@cumulusnetworks.com>
+In-Reply-To: <20141002145028.2f62838c@jlaw-desktop.mno.stratus.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46ri, Oct 03, 2014 at 07:13:35AM CEST, sfeldma@cumulusnetworks.com wro=
-te:
+Thu, Oct 02, 2014 at 08:50:28PM CEST, joe.lawrence@stratus.com wrote:
+>Hello Jiri,
 >
->On Oct 2, 2014, at 6:48 PM, Florian Fainelli <f.fainelli@gmail.com> wr=
-ote:
+>Occasionally on boot I noticed that team_notify_peers_work would get
+>*very* busy.
 >
->> Hi all,
->>=20
->> I am taking a look at adding HW bridging support to DSA, in way that=
-'s
->> usable outside of DSA.
->>=20
->> Lennert's approach in 2008 [1] looks conceptually good to me,as he
->> noted, it uses a bunch of new ndo's which is not only limiting to on=
-e
->> ndo implementer per struct net_device, but also is mostly consuming =
-the
->> information from the bridge layer, while the ndo is an action
->>=20
->> So here's what I am up to now:
->>=20
->> - use the NETDEV_JOIN notifier to discover when a bridge port is add=
-ed
->> - use the NETDEV_LEAVE notifier, still need to verify this does not
->> break netconsole as indicated in net/bridge/br_if.c
+>With the following debugging added to team_notify_peers:
 >
->I can=E2=80=99t find a NETDEV_LEAVE...is this new?
+>        netdev_info(team->dev, "%s(%p)\n", __func__, team);
+>        dump_stack();
 >
->For this, rocker is using netdev_notifier and watching for NETDEV_CHAN=
-GEUPPER.  On CHANGEUPPER, use netdev_master_upper_dev_get(dev) to get m=
-aster.  If master and master rtnl_link_ops->kind is =E2=80=9Cbridge=E2=80=
-=9D, then dev port is in bridge; otherwise port is not in bridge.  Of c=
-ourse, master could be =E2=80=9Copenvswitch=E2=80=9D, if the driver swi=
-ngs both ways.
+>I saw the following:
+>
+>% dmesg | grep -e 'team[0-9]: team_notify_peers' -e 'port_enable' -e 'port_disable'
+>[   68.340861] team0: team_notify_peers(ffff88104ffa4de0)
+>[   68.743264]  [<ffffffffa034fd38>] team_port_enable.part.40+0x78/0x90 [team]
+>[   69.622395] team0: team_notify_peers(ffff88104ffa4de0)
+>[   69.966758]  [<ffffffffa034ef63>] team_port_disable+0x123/0x160 [team]
+>[   71.099263] team0: team_notify_peers(ffff88104ffa4de0)
+>[   71.466243]  [<ffffffffa034fd38>] team_port_enable.part.40+0x78/0x90 [team]
+>[   72.383788] team0: team_notify_peers(ffff88104ffa4de0)
+>[   72.744778]  [<ffffffffa034ef63>] team_port_disable+0x123/0x160 [team]
+>[   73.476190] team0: team_notify_peers(ffff88104ffa4de0)
+>[   73.830592]  [<ffffffffa034fd38>] team_port_enable.part.40+0x78/0x90 [team]
+>[   74.796738] team1: team_notify_peers(ffff88104f5df080)
+>[   75.165577]  [<ffffffffa034fd38>] team_port_enable.part.40+0x78/0x90 [team]
+>[   75.694968] team1: team_notify_peers(ffff88104f5df080)
+>[   75.694984]  [<ffffffffa034ef63>] team_port_disable+0x123/0x160 [team]
+>[   77.316488] team1: team_notify_peers(ffff88104f5df080)
+>[   77.663122]  [<ffffffffa034fd38>] team_port_enable.part.40+0x78/0x90 [team]
+>[   78.470488] team1: team_notify_peers(ffff88104f5df080)
+>[   78.814722]  [<ffffffffa034ef63>] team_port_disable+0x123/0x160 [team]
+>[   82.690765] team2: team_notify_peers(ffff88083d24df40)
+>[   83.083540]  [<ffffffffa034fd38>] team_port_enable.part.40+0x78/0x90 [team]
+>[   83.942458] team2: team_notify_peers(ffff88083d24df40)
+>[   84.286446]  [<ffffffffa034ef63>] team_port_disable+0x123/0x160 [team]
+>[   86.089955] team3: team_notify_peers(ffff88083fd14de0)
+>[   86.453495]  [<ffffffffa034fd38>] team_port_enable.part.40+0x78/0x90 [team]
+>[   87.267773] team3: team_notify_peers(ffff88083fd14de0)
+>[   87.610203]  [<ffffffffa034ef63>] team_port_disable+0x123/0x160 [team]
+>
+>which shows team_port_enable/disable getting invoked in short
+>succession.  When looking at one of the team's
+>notify_peers.count_pending value, I saw that it was negative and slowly
+>counting down from 0xffff...ffff!
+>
+>This lead me believe that there is a race condition present in
+>the .count_pending pattern that both team_notify_peers and
+>team_mcast_rejoin employ.
+>
+>Can you comment on the following patch/workaround?
 
-I agree that NETDEV_CHANGEUPPER should be used for this.
+Well, I can't see a better solution. Adding is fine here I believe.
+
+Acked-by: Jiri Pirko <jiri@resnulli.us>
+
+Please send to patch with my ack and with:
+
+Fixes: fc423ff00df3a19554414ee ("team: add peer notification")
+
+So it can be pushed to stable.
+
+Thanks!
 
 >
->Would this approach work for DSA?
+>Thanks,
 >
->> - use the NETDEV_CHANGEINFODATA notifier to notify about STP state c=
-hanges
->>=20
->> Now, this raises a bunch of questions:
->>=20
->> - we would need a getter to return the stp state of a given network
->> device when called with NETDEV_CHANGEINFODATA, is that acceptable? T=
-his
->> would be the first function exported by the bridge layer to expose
->> internal data
->>=20
->> NB: this also raises the question of the race condition and locking
->> within br_set_stp_state() and when the network devices notifier call=
-back
->> runs
->>=20
->> - or do we need a new network device notifier accepting an opaque
->> pointer which could provide us with the data we what, something like
->> this: call_netdevices_notifier_data(NETDEV_CHANGEINFODATA, dev, info=
-),
->> where info would be a structure/union telling what's this data about
->>=20
+>-- Joe
 >
->We need STP state change notification for rocker also, so we can insta=
-ll/remove STP/ARP filters on port state change.  Netdev_notifier would =
-work.  I was also thinking about using Jiri=E2=80=99s ndo_swdev_flow_in=
-stall/remove to install/remove the STP filters on the port, rather than=
- using netdev_notifier.  In other words, does the HW bridge driver need=
- to know the STP state or can it be dumb (stateless) and told when to a=
-ccept STP BPDUs, or not, using swdev_flow construct:
+>-->8-- -->8-- -->8--
 >
->  dst_mac 01:80:c2:00:00:00 lasp 0x4242 in_port <port ifindex> actions=
- output <br ifindex>
+>From b11d7dcd051a2f141c1eec0a43c4a4ddf0361d10 Mon Sep 17 00:00:00 2001
+>From: Joe Lawrence <joe.lawrence@stratus.com>
+>Date: Thu, 2 Oct 2014 14:24:26 -0400
+>Subject: [PATCH] team: avoid race condition in scheduling delayed work
 >
->and later when reaching LEARNING state:
+>When team_notify_peers and team_mcast_rejoin are called, they both reset
+>their respective .count_pending atomic variable. Then when the actual
+>worker function is executed, the variable is atomically decremented.
+>This pattern introduces a potential race condition where the
+>.count_pending rolls over and the worker function keeps rescheduling
+>until .count_pending decrements to zero again:
 >
->  dst_mac ff:ff:ff:ff:ff:ff eth_type ARP in_port <port ifindex> action=
-s output <br ifindex>
+>THREAD 1                           THREAD 2
+>========                           ========
+>team_notify_peers(teamX)
+>  atomic_set count_pending = 1
+>  schedule_delayed_work
+>                                   team_notify_peers(teamX)
+>                                   atomic_set count_pending = 1
+>team_notify_peers_work
+>  atomic_dec_and_test
+>    count_pending = 0
+>  (return)
+>                                   schedule_delayed_work
+>                                   team_notify_peers_work
+>                                   atomic_dec_and_test
+>                                     count_pending = -1
+>                                   schedule_delayed_work
+>                                   (repeat until count_pending = 0)
 >
->and finally when reaching FORWARDING state, the learned/static bridge =
-fdbs:
+>Instead of assigning a new value to .count_pending, use atomic_add to
+>tack-on the additional desired worker function invocations.
 >
->  dst_mac <neigh_mac> in_port <br ifindex> actions output <port ifinde=
-x>
+>Signed-off-by: Joe Lawrence <joe.lawrence@stratus.com>
+>---
+> drivers/net/team/team.c |    4 ++--
+> 1 file changed, 2 insertions(+), 2 deletions(-)
 >
->So driver doesn=E2=80=99t really know what STP is; it=E2=80=99s just i=
-nstalls/removes port filter when told to, using the common ndo_swdev_fl=
-ow API.  The smarts stay in the bridge driver.
->
->
->> Let me know what you think, thanks!
->>=20
->> [1]: http://patchwork.ozlabs.org/patch/16578/
->> --
->> Florian
->
->
->-scott
+>diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+>index d46df38..2b87e3f 100644
+>--- a/drivers/net/team/team.c
+>+++ b/drivers/net/team/team.c
+>@@ -647,7 +647,7 @@ static void team_notify_peers(struct team *team)
+> {
+> 	if (!team->notify_peers.count || !netif_running(team->dev))
+> 		return;
+>-	atomic_set(&team->notify_peers.count_pending, team->notify_peers.count);
+>+	atomic_add(team->notify_peers.count, &team->notify_peers.count_pending);
+> 	schedule_delayed_work(&team->notify_peers.dw, 0);
+> }
+> 
+>@@ -687,7 +687,7 @@ static void team_mcast_rejoin(struct team *team)
+> {
+> 	if (!team->mcast_rejoin.count || !netif_running(team->dev))
+> 		return;
+>-	atomic_set(&team->mcast_rejoin.count_pending, team->mcast_rejoin.count);
+>+	atomic_add(team->mcast_rejoin.count, &team->mcast_rejoin.count_pending);
+> 	schedule_delayed_work(&team->mcast_rejoin.dw, 0);
+> }
+> 
+>-- 
+>1.7.10.4
 >
 >
 >
