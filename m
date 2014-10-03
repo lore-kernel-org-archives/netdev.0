@@ -1,47 +1,42 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [net-next PATCH] veth: don't assign a qdisc to veth
-Date: Fri, 3 Oct 2014 22:38:16 +0200
-Message-ID: <20141003223816.6c56e6d8@redhat.com>
-References: <20141003104858.6745.62964.stgit@dragon>
-	<CAHA+R7PMkNefxottnNOq+xhRVW_n+SXQxZYFXoNY1b_xEjWm5g@mail.gmail.com>
+From: Michael Welling <mwelling@ieee.org>
+Subject: Re: [PATCH] drivers:ethernet:davinci_emac.c:Fixes flaw in mac
+ address handling.
+Date: Fri, 3 Oct 2014 15:43:59 -0500
+Message-ID: <20141003204359.GA10110@sysresccd>
+References: <1412217125-11057-1-git-send-email-mwelling@ieee.org>
+ <20141003.130305.2216770567363258603.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jiri Pirko <jpirko@redhat.com>, mpatel@redhat.com,
-	brouer@redhat.com
-To: Cong Wang <cwang@twopensource.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: tony@atomide.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:7760 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750750AbaJCUiW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Oct 2014 16:38:22 -0400
-In-Reply-To: <CAHA+R7PMkNefxottnNOq+xhRVW_n+SXQxZYFXoNY1b_xEjWm5g@mail.gmail.com>
+Received: from mail-ig0-f173.google.com ([209.85.213.173]:48317 "EHLO
+	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750780AbaJCUoH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Oct 2014 16:44:07 -0400
+Content-Disposition: inline
+In-Reply-To: <20141003.130305.2216770567363258603.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 3 Oct 2014 09:53:16 -0700
-Cong Wang <cwang@twopensource.com> wrote:
-
-> On Fri, Oct 3, 2014 at 3:48 AM, Jesper Dangaard Brouer
-> <brouer@redhat.com> wrote:
-> > The veth driver is a virtual device, and should not have assigned
-> > the default qdisc.  Verified (ndo_start_xmit) veth_xmit can only
-> > return NETDEV_TX_OK, thus this should be safe to bypass qdisc.
-> >
-> > Not assigning a qdisc is subtly done by setting tx_queue_len to zero.
-> >
+On Fri, Oct 03, 2014 at 01:03:05PM -0700, David Miller wrote:
+> From: Michael Welling <mwelling@ieee.org>
+> Date: Wed,  1 Oct 2014 21:32:05 -0500
 > 
-> Huh?? Maybe your $subject is too misleading, but we do use HTB
-> on veth, this will break our code since we will have to set tx_queue_len
-> after your patch, no?
+> > The code currently checks the mac_addr variable that is clearly
+> > zero'd out during allocation.
+> > 
+> > Further code is added to bring the mac_addr from the partial pdata.
+> > 
+> > Signed-off-by: Michael Welling <mwelling@ieee.org>
+> 
+> I don't see anyone specifying a MAC address in the partial pdata,
+> so better to just delete that field.
+> 
+> Even if people did, I am not so sure that the partial pdata should
+> unconditionally trump an OF provided MAC address.
 
-No, you HTB setup should still work.
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+So should I just leave the code for handling the mac_addr field from the
+partial pdata out or make it such that the mac_addr field is overriden 
+if specified from the devicetree?
