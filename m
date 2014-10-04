@@ -1,88 +1,101 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH nf next 0/3] bridge: netfilter: fix handling of ipv4
- packets w. options
-Date: Sat, 4 Oct 2014 11:56:06 +0800
-Message-ID: <20141004035606.GA8228@gondor.apana.org.au>
-References: <1412384670-17794-1-git-send-email-fw@strlen.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net: skb_segment() provides list head and tail
+Date: Fri, 03 Oct 2014 20:59:19 -0700
+Message-ID: <1412395159.17245.33.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20141001203345.3321.99675.stgit@dragon>
+	 <20141003.123806.183331913071081861.davem@davemloft.net>
+	 <1412369869.17245.4.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20141003.145647.1980640682969765484.davem@davemloft.net>
+	 <1412373477.17245.5.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1412375467.17245.16.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@vger.kernel.org, bsd@redhat.com,
-	stephen@networkplumber.org, netdev@cger.kernel.org,
-	eric.dumazet@gmail.com, davidn@davidnewall.com,
-	Bandan Das <bandan.das@stratus.com>
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1412384670-17794-1-git-send-email-fw@strlen.de>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: brouer@redhat.com, netdev@vger.kernel.org, therbert@google.com,
+	hannes@stressinduktion.org, fw@strlen.de, dborkman@redhat.com,
+	jhs@mojatatu.com, alexander.duyck@gmail.com,
+	john.r.fastabend@intel.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:46164 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750944AbaJDD6m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Oct 2014 23:58:42 -0400
+Received: by mail-pa0-f47.google.com with SMTP id rd3so2484457pab.20
+        for <netdev@vger.kernel.org>; Fri, 03 Oct 2014 20:58:40 -0700 (PDT)
+In-Reply-To: <1412375467.17245.16.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Oct 04, 2014 at 03:04:27AM +0200, Florian Westphal wrote:
-> David Newall reported that bridge causes bad checksums:
-> http://thread.gmane.org/gmane.linux.network/315705/focus=1706769
-> 
-> The proposal was to revert
-> 462fb2af9788a82a5 (bridge : Sanitize skb before it enters the IP stack).
-> 
-> However, this has some other adverse effects since bridge netfilter
-> and ip stack both use skb->cb (and we thus memset skb->cb whenever
-> we hand skb off to the ip stack).
-> 
-> So, this series attemps to resolve this a bit differently.
-> 
-> First, lets add the inet_param padding that Eric suggested previously.
-> This means that any earlier setup of IPCB will be preserved inside the
-> bridge layer.
-> 
-> This is also useful for netfilter since it will preserve
-> IPCB(skb)->frag_max_size set up by ip defrag.
-> 
-> Second, this gets rid of the option parsing/memset calls in
-> to forward and output cases.
-> 
-> Third, the pre-routing path is changed to not mangle the packets
-> but to only validate the ip options.
-> 
-> This patch series is vs. next instead of net/nf tree.
-> 
-> This has been broken for so long that I don't think we need
-> to rush this.
+From: Eric Dumazet <edumazet@google.com>
 
-I'm unsure whether this is the right approach.  So if I understand
-this correctly your problem is coming from packets that are
+Its unfortunate we have to walk again skb list to find the tail
+after segmentation, even if data is probably hot in cpu caches.
 
-	IP stack => bridge => IP stack
+skb_segment() can store the tail of the list into segs->prev,
+and validate_xmit_skb_list() can immediately get the tail.
 
-in which case preserving IP options may work.
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/core/dev.c    |   27 +++++++++++++++------------
+ net/core/skbuff.c |    5 +++++
+ 2 files changed, 20 insertions(+), 12 deletions(-)
 
-But does your patch handle packets that are
-
-	external => bridge => IP stack
-
-The reason I asked for the IPCB to be built is to handle exactly
-that case.
-
-In fact, even preserving IPCB in the IP stack reentry case is
-a hack since if we ever change the IP stack in future such that
-on exit the IPCB is no longer valid for reentry your approach
-will fail.
-
-Now as to your original problem that ip_options_compile mangles
-the packet this is something I explicitly said we should fix
-before we added br_parse_ip_options (point 2 in that email):
-
-	https://lkml.org/lkml/2010/9/3/16
-
-Unfortunately it looks like nobody actually did the audit.
-
-So my suggestion would be to fix br_parse_ip_options so that
-it never mangles the packet.
-
-Does this fix your problem or are there other issues that I
-have overlooked?
-
-Thanks,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 1a90530f83ff..7d5691cc1f47 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2724,22 +2724,25 @@ struct sk_buff *validate_xmit_skb_list(struct sk_buff *skb, struct net_device *d
+ {
+ 	struct sk_buff *next, *head = NULL, *tail;
+ 
+-	while (skb) {
++	for (; skb != NULL; skb = next) {
+ 		next = skb->next;
+ 		skb->next = NULL;
++
++		/* in case skb wont be segmented, point to itself */
++		skb->prev = skb;
++
+ 		skb = validate_xmit_skb(skb, dev);
+-		if (skb) {
+-			struct sk_buff *end = skb;
++		if (!skb)
++			continue;
+ 
+-			while (end->next)
+-				end = end->next;
+-			if (!head)
+-				head = skb;
+-			else
+-				tail->next = skb;
+-			tail = end;
+-		}
+-		skb = next;
++		if (!head)
++			head = skb;
++		else
++			tail->next = skb;
++		/* If skb was segmented, skb->prev points to
++		 * the last segment. If not, it still contains skb.
++		 */
++		tail = skb->prev;
+ 	}
+ 	return head;
+ }
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index a0b312fa3047..06b57ec91f32 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -3083,6 +3083,11 @@ perform_csum_check:
+ 		}
+ 	} while ((offset += len) < head_skb->len);
+ 
++	/* Some callers want to get the end of the list.
++	 * Put it in segs->prev to avoid walking the list.
++	 * (see validate_xmit_skb_list() for example)
++	 */
++	segs->prev = tail;
+ 	return segs;
+ 
+ err:
