@@ -1,70 +1,133 @@
-From: Fabio Estevam <festevam@gmail.com>
-Subject: [PATCH net-next] fec: Fix fec_enet_alloc_buffers() error path
-Date: Sat,  4 Oct 2014 13:40:01 -0300
-Message-ID: <1412440801-15381-1-git-send-email-festevam@gmail.com>
-Cc: rmk+kernel@arm.linux.org.uk, Frank.Li@freescale.com,
-	netdev@vger.kernel.org, Fabio Estevam <fabio.estevam@freescale.com>
-To: davem@davemloft.net
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net: sched: avoid costly atomic operation in
+ fq_dequeue()
+Date: Sat, 04 Oct 2014 10:11:31 -0700
+Message-ID: <1412442691.17245.40.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f44.google.com ([209.85.216.44]:44602 "EHLO
-	mail-qa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751085AbaJDQkf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Oct 2014 12:40:35 -0400
-Received: by mail-qa0-f44.google.com with SMTP id x12so2036957qac.17
-        for <netdev@vger.kernel.org>; Sat, 04 Oct 2014 09:40:34 -0700 (PDT)
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:54260 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750928AbaJDRLd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Oct 2014 13:11:33 -0400
+Received: by mail-pa0-f46.google.com with SMTP id fa1so3060296pad.19
+        for <netdev@vger.kernel.org>; Sat, 04 Oct 2014 10:11:32 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Fabio Estevam <fabio.estevam@freescale.com>
+From: Eric Dumazet <edumazet@google.com>
 
-When fec_enet_alloc_buffers() fails we should better undo the previous actions,
-which consists of: disabling the FEC clocks and putting the FEC pins into
-inactive state.
+Standard qdisc API to setup a timer implies an atomic operation on every
+packet dequeue : qdisc_unthrottled()
 
-The error path for fec_enet_mii_probe() is kept unchanged.
+It turns out this is not really needed for FQ, as FQ has no concept of
+global qdisc throttling, being a qdisc handling many different flows,
+some of them can be throttled, while others are not.
 
-Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
+Fix is straightforward : add a 'bool throttle' to
+qdisc_watchdog_schedule_ns(), and remove calls to qdisc_unthrottled()
+in sch_fq.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- drivers/net/ethernet/freescale/fec_main.c | 17 ++++++++++-------
- 1 file changed, 10 insertions(+), 7 deletions(-)
+ include/net/pkt_sched.h |    4 ++--
+ net/sched/sch_api.c     |    5 +++--
+ net/sched/sch_fq.c      |    6 ++----
+ net/sched/sch_tbf.c     |    3 ++-
+ 4 files changed, 9 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 1f07db8..620feaf 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -2746,16 +2746,12 @@ fec_enet_open(struct net_device *ndev)
+diff --git a/include/net/pkt_sched.h b/include/net/pkt_sched.h
+index e4b3c828c1c2..27a33833ff4a 100644
+--- a/include/net/pkt_sched.h
++++ b/include/net/pkt_sched.h
+@@ -65,12 +65,12 @@ struct qdisc_watchdog {
+ };
  
- 	ret = fec_enet_alloc_buffers(ndev);
- 	if (ret)
--		return ret;
-+		goto err_enet_alloc;
+ void qdisc_watchdog_init(struct qdisc_watchdog *wd, struct Qdisc *qdisc);
+-void qdisc_watchdog_schedule_ns(struct qdisc_watchdog *wd, u64 expires);
++void qdisc_watchdog_schedule_ns(struct qdisc_watchdog *wd, u64 expires, bool throttle);
  
- 	/* Probe and connect to PHY when open the interface */
- 	ret = fec_enet_mii_probe(ndev);
--	if (ret) {
--		fec_enet_free_buffers(ndev);
--		fec_enet_clk_enable(ndev, false);
--		pinctrl_pm_select_sleep_state(&fep->pdev->dev);
--		return ret;
--	}
-+	if (ret)
-+		goto err_enet_mii_probe;
- 
- 	fec_restart(ndev);
- 	napi_enable(&fep->napi);
-@@ -2763,6 +2759,13 @@ fec_enet_open(struct net_device *ndev)
- 	netif_tx_start_all_queues(ndev);
- 
- 	return 0;
-+
-+err_enet_mii_probe:
-+	fec_enet_free_buffers(ndev);
-+err_enet_alloc:
-+	fec_enet_clk_enable(ndev, false);
-+	pinctrl_pm_select_sleep_state(&fep->pdev->dev);
-+	return ret;
+ static inline void qdisc_watchdog_schedule(struct qdisc_watchdog *wd,
+ 					   psched_time_t expires)
+ {
+-	qdisc_watchdog_schedule_ns(wd, PSCHED_TICKS2NS(expires));
++	qdisc_watchdog_schedule_ns(wd, PSCHED_TICKS2NS(expires), true);
  }
  
- static int
--- 
-1.9.1
+ void qdisc_watchdog_cancel(struct qdisc_watchdog *wd);
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index aa8329508dba..ab70e7dddb04 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -592,13 +592,14 @@ void qdisc_watchdog_init(struct qdisc_watchdog *wd, struct Qdisc *qdisc)
+ }
+ EXPORT_SYMBOL(qdisc_watchdog_init);
+ 
+-void qdisc_watchdog_schedule_ns(struct qdisc_watchdog *wd, u64 expires)
++void qdisc_watchdog_schedule_ns(struct qdisc_watchdog *wd, u64 expires, bool throttle)
+ {
+ 	if (test_bit(__QDISC_STATE_DEACTIVATED,
+ 		     &qdisc_root_sleeping(wd->qdisc)->state))
+ 		return;
+ 
+-	qdisc_throttled(wd->qdisc);
++	if (throttle)
++		qdisc_throttled(wd->qdisc);
+ 
+ 	hrtimer_start(&wd->timer,
+ 		      ns_to_ktime(expires),
+diff --git a/net/sched/sch_fq.c b/net/sched/sch_fq.c
+index c9b9fcb53206..cbd7e1fd23b4 100644
+--- a/net/sched/sch_fq.c
++++ b/net/sched/sch_fq.c
+@@ -377,7 +377,6 @@ static int fq_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 		if (time_after(jiffies, f->age + q->flow_refill_delay))
+ 			f->credit = max_t(u32, f->credit, q->quantum);
+ 		q->inactive_flows--;
+-		qdisc_unthrottled(sch);
+ 	}
+ 
+ 	/* Note: this overwrites f->age */
+@@ -385,7 +384,6 @@ static int fq_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 
+ 	if (unlikely(f == &q->internal)) {
+ 		q->stat_internal_packets++;
+-		qdisc_unthrottled(sch);
+ 	}
+ 	sch->q.qlen++;
+ 
+@@ -433,7 +431,8 @@ begin:
+ 		if (!head->first) {
+ 			if (q->time_next_delayed_flow != ~0ULL)
+ 				qdisc_watchdog_schedule_ns(&q->watchdog,
+-							   q->time_next_delayed_flow);
++							   q->time_next_delayed_flow,
++							   false);
+ 			return NULL;
+ 		}
+ 	}
+@@ -495,7 +494,6 @@ begin:
+ 	}
+ out:
+ 	qdisc_bstats_update(sch, skb);
+-	qdisc_unthrottled(sch);
+ 	return skb;
+ }
+ 
+diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
+index 77edffe329c4..a4afde14e865 100644
+--- a/net/sched/sch_tbf.c
++++ b/net/sched/sch_tbf.c
+@@ -268,7 +268,8 @@ static struct sk_buff *tbf_dequeue(struct Qdisc *sch)
+ 		}
+ 
+ 		qdisc_watchdog_schedule_ns(&q->watchdog,
+-					   now + max_t(long, -toks, -ptoks));
++					   now + max_t(long, -toks, -ptoks),
++					   true);
+ 
+ 		/* Maybe we have a shorter packet in the queue,
+ 		   which can be sent now. It sounds cool,
