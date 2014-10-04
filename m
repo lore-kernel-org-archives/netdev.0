@@ -1,80 +1,53 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: Re: [PATCH net-next] net: phy: adjust fixed_phy_register() return
- value
-Date: Sat, 4 Oct 2014 14:07:31 +0200
-Message-ID: <20141004140731.15c18a77@free-electrons.com>
-References: <20141001214509.2BF4F10070D@puck.mtv.corp.google.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH nf next 0/3] bridge: netfilter: fix handling of ipv4
+ packets w. options
+Date: Sat, 4 Oct 2014 21:55:08 +0800
+Message-ID: <20141004135508.GA10705@gondor.apana.org.au>
+References: <1412384670-17794-1-git-send-email-fw@strlen.de>
+ <20141004035606.GA8228@gondor.apana.org.au>
+ <20141004100413.GA1241@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, f.fainelli@gmail.com
-To: Petri Gynther <pgynther@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:50190 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750959AbaJDMHe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Oct 2014 08:07:34 -0400
-In-Reply-To: <20141001214509.2BF4F10070D@puck.mtv.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netfilter-devel@vger.kernel.org, bsd@redhat.com,
+	stephen@networkplumber.org, netdev@vger.kernel.org,
+	eric.dumazet@gmail.com, davidn@davidnewall.com,
+	Bandan Das <bandan.das@stratus.com>
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20141004100413.GA1241@breakpoint.cc>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dear Petri Gynther,
-
-Sorry for the late answer.
-
-On Wed,  1 Oct 2014 14:45:09 -0700 (PDT), Petri Gynther wrote:
-> Adjust fixed_phy_register() to return struct phy_device *, so that
-> it becomes easy to use fixed PHYs without device tree support:
+On Sat, Oct 04, 2014 at 12:04:13PM +0200, Florian Westphal wrote:
+>
+> > The reason I asked for the IPCB to be built is to handle exactly
+> > that case.
 > 
->   phydev = fixed_phy_register(PHY_POLL, &fixed_phy_status, NULL);
->   fixed_phy_set_link_update(phydev, fixed_phy_link_update);
->   phy_connect_direct(netdev, phydev, handler_fn, phy_interface);
-> 
-> This change is a prerequisite for modifying bcmgenet driver to work
-> without a device tree on Broadcom's MIPS-based 7xxx platforms.
-> 
-> Signed-off-by: Petri Gynther <pgynther@google.com>
+> Why do we need to compile ip options, exactly?  If the packet
+> is locally delivered, we hand it up to the ip stack which will
+> compile ip options normally.
 
-On the principle, I'm obviously fine, but I have one comment below.
+Good point.  I thought we added this because Bandan Das wanted
+options.  But rereading the thread in question
 
+	http://lkml.org/lkml/2010/9/3/16
 
->  	/* New binding */
->  	fixed_link_node = of_get_child_by_name(np, "fixed-link");
-> @@ -299,7 +300,8 @@ int of_phy_register_fixed_link(struct device_node *np)
->  		status.asym_pause = of_property_read_bool(fixed_link_node,
->  							  "asym-pause");
->  		of_node_put(fixed_link_node);
-> -		return fixed_phy_register(PHY_POLL, &status, np);
-> +		phy = fixed_phy_register(PHY_POLL, &status, np);
-> +		return (!phy || IS_ERR(phy));
->  	}
->  
->  	/* Old binding */
-> @@ -310,7 +312,8 @@ int of_phy_register_fixed_link(struct device_node *np)
->  		status.speed = be32_to_cpu(fixed_link_prop[2]);
->  		status.pause = be32_to_cpu(fixed_link_prop[3]);
->  		status.asym_pause = be32_to_cpu(fixed_link_prop[4]);
-> -		return fixed_phy_register(PHY_POLL, &status, np);
-> +		phy = fixed_phy_register(PHY_POLL, &status, np);
-> +		return (!phy || IS_ERR(phy));
+it seems that he doesn't actually need options.  So what happened
+appears to be a misunderstanding.  Bandan tried to improve my
+original memset hack by compiling options which would have been
+fine except that his approach ended up mangling the packet which
+is a big no-no.
 
-I am not sure this return (!phy || IS_ERR(phy)) is doing the right
-thing. This function is supposed to return an error code on failure, or
-0 on success. I don't see how your error handling returns an error code
-on failure. What about doing the more explicit:
+So the most straightforward solution is to go back to my original
+hack and just do a straight memset zero of the cb area before
+each entry into the IP stack from the bridge.
 
-		phy = fixed_phy_register(PHY_POLL, &status, np);
-		if (IS_ERR(phy))
-			return PTR_ERR(phy);
-		else
-			return 0;
+I'll try to create a patch that essentially reverts the patch
+that led us here.
 
-Or am I missing something?
-
-Thanks,
-
-Thomas
+Cheers,
 -- 
-Thomas Petazzoni, CTO, Free Electrons
-Embedded Linux, Kernel and Android engineering
-http://free-electrons.com
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
