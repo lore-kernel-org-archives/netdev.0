@@ -1,91 +1,88 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH nf next 1/3] bridge: prepend inet_skb_param dummy to bridge cb
-Date: Sat,  4 Oct 2014 03:04:28 +0200
-Message-ID: <1412384670-17794-2-git-send-email-fw@strlen.de>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH nf next 0/3] bridge: netfilter: fix handling of ipv4
+ packets w. options
+Date: Sat, 4 Oct 2014 11:56:06 +0800
+Message-ID: <20141004035606.GA8228@gondor.apana.org.au>
 References: <1412384670-17794-1-git-send-email-fw@strlen.de>
-Cc: bsd@redhat.com, stephen@networkplumber.org, netdev@cger.kernel.org,
-	herbert@gondor.apana.org.au, eric.dumazet@gmail.com,
-	davidn@davidnewall.com, Florian Westphal <fw@strlen.de>
-To: netfilter-devel@vger.kernel.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netfilter-devel@vger.kernel.org, bsd@redhat.com,
+	stephen@networkplumber.org, netdev@cger.kernel.org,
+	eric.dumazet@gmail.com, davidn@davidnewall.com,
+	Bandan Das <bandan.das@stratus.com>
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
 In-Reply-To: <1412384670-17794-1-git-send-email-fw@strlen.de>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-bridge can make upcalls into the ip stack, especially
-when bridge netfilter is involved, we can end up calling ip_fragment().
+On Sat, Oct 04, 2014 at 03:04:27AM +0200, Florian Westphal wrote:
+> David Newall reported that bridge causes bad checksums:
+> http://thread.gmane.org/gmane.linux.network/315705/focus=1706769
+> 
+> The proposal was to revert
+> 462fb2af9788a82a5 (bridge : Sanitize skb before it enters the IP stack).
+> 
+> However, this has some other adverse effects since bridge netfilter
+> and ip stack both use skb->cb (and we thus memset skb->cb whenever
+> we hand skb off to the ip stack).
+> 
+> So, this series attemps to resolve this a bit differently.
+> 
+> First, lets add the inet_param padding that Eric suggested previously.
+> This means that any earlier setup of IPCB will be preserved inside the
+> bridge layer.
+> 
+> This is also useful for netfilter since it will preserve
+> IPCB(skb)->frag_max_size set up by ip defrag.
+> 
+> Second, this gets rid of the option parsing/memset calls in
+> to forward and output cases.
+> 
+> Third, the pre-routing path is changed to not mangle the packets
+> but to only validate the ip options.
+> 
+> This patch series is vs. next instead of net/nf tree.
+> 
+> This has been broken for so long that I don't think we need
+> to rush this.
 
-IPv4 functions, however, may (rightfully) depend on skb->cb[]
-containing the IPCB area, where eg. earlier-parsed ip options
-reside.
+I'm unsure whether this is the right approach.  So if I understand
+this correctly your problem is coming from packets that are
 
-However, since bridge has its own cb area, this has caused several
-crashes in the past, and several call sites in br_netfilter since
-zero ->cb again before invoking netfilter hooks.
+	IP stack => bridge => IP stack
 
-We've tried to cure these in the past by applying memsets of skb->cb
-where needed, and parsing ip options within the bridge layer.
+in which case preserving IP options may work.
 
-This isn't such a great idea since we e.g. lose max fragment size
-information stored there via ipv4 defrag.
+But does your patch handle packets that are
 
-Also, since 462fb2af9788a82 (bridge : Sanitize skb before it enters the IP
-stack) bridge handling of received packets with ipv4 options is broken
-in different ways (crash, then discarding of such packets).
+	external => bridge => IP stack
 
-This patch, originally proposed by Eric Dumazet, prepends
-inet_skb_param padding so IPCB contents will be preserved (e.g.
-ipv4 defrag info).
+The reason I asked for the IPCB to be built is to handle exactly
+that case.
 
-This is a first step in fixing handling of ipv4 packets with options.
+In fact, even preserving IPCB in the IP stack reentry case is
+a hack since if we ever change the IP stack in future such that
+on exit the IPCB is no longer valid for reentry your approach
+will fail.
 
-br_input_skb_cb is now exactly 48 bytes.
+Now as to your original problem that ip_options_compile mangles
+the packet this is something I explicitly said we should fix
+before we added br_parse_ip_options (point 2 in that email):
 
-Cc: Bandan Das <bsd@redhat.com>
-Suggested-by: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
- net/bridge/br.c         | 2 ++
- net/bridge/br_private.h | 6 ++++++
- 2 files changed, 8 insertions(+)
+	https://lkml.org/lkml/2010/9/3/16
 
-diff --git a/net/bridge/br.c b/net/bridge/br.c
-index 44425af..4ee730e 100644
---- a/net/bridge/br.c
-+++ b/net/bridge/br.c
-@@ -147,6 +147,8 @@ static int __init br_init(void)
- {
- 	int err;
- 
-+	BUILD_BUG_ON(sizeof(struct br_input_skb_cb) > FIELD_SIZEOF(struct sk_buff, cb));
-+
- 	err = stp_proto_register(&br_stp_proto);
- 	if (err < 0) {
- 		pr_err("bridge: can't register sap for STP\n");
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index f53592f..559938f 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -19,6 +19,8 @@
- #include <linux/u64_stats_sync.h>
- #include <net/route.h>
- #include <linux/if_vlan.h>
-+#include <linux/ipv6.h>
-+#include <net/ip.h>
- 
- #define BR_HASH_BITS 8
- #define BR_HASH_SIZE (1 << BR_HASH_BITS)
-@@ -304,6 +306,10 @@ struct net_bridge
- };
- 
- struct br_input_skb_cb {
-+	union {
-+		struct inet_skb_parm inet4_parm;
-+		struct inet6_skb_parm inet6_param;
-+	} inet_parm;
- 	struct net_device *brdev;
- #ifdef CONFIG_BRIDGE_IGMP_SNOOPING
- 	int igmp;
+Unfortunately it looks like nobody actually did the audit.
+
+So my suggestion would be to fix br_parse_ip_options so that
+it never mangles the packet.
+
+Does this fix your problem or are there other issues that I
+have overlooked?
+
+Thanks,
 -- 
-2.0.4
-
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
