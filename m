@@ -1,45 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] drivers:ethernet:davinci_emac.c:Fixes flaw in mac
- address handling.
-Date: Fri, 03 Oct 2014 14:55:24 -0700 (PDT)
-Message-ID: <20141003.145524.270976129977723195.davem@davemloft.net>
-References: <1412217125-11057-1-git-send-email-mwelling@ieee.org>
-	<20141003.130305.2216770567363258603.davem@davemloft.net>
-	<20141003204359.GA10110@sysresccd>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [PATCH v1 2/2] net: sched: replace ematch calls to use struct
+ net
+Date: Fri, 03 Oct 2014 17:19:19 -0700
+Message-ID: <542F3D07.6090008@intel.com>
+References: <20141003054558.20925.67091.stgit@nitbit.x32>	<20141003054624.20925.28150.stgit@nitbit.x32> <CAHA+R7PWrAk1+ds8SNytf0dABwcSQYqSAvK9dTN44kQqRiq4Rw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: tony@atomide.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: mwelling@ieee.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141003204359.GA10110@sysresccd>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Cong Wang <cwang@twopensource.com>,
+	John Fastabend <john.fastabend@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:10616 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756462AbaJDAUD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Oct 2014 20:20:03 -0400
+In-Reply-To: <CAHA+R7PWrAk1+ds8SNytf0dABwcSQYqSAvK9dTN44kQqRiq4Rw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Michael Welling <mwelling@ieee.org>
-Date: Fri, 3 Oct 2014 15:43:59 -0500
-
-> On Fri, Oct 03, 2014 at 01:03:05PM -0700, David Miller wrote:
->> From: Michael Welling <mwelling@ieee.org>
->> Date: Wed,  1 Oct 2014 21:32:05 -0500
->> 
->> > The code currently checks the mac_addr variable that is clearly
->> > zero'd out during allocation.
->> > 
->> > Further code is added to bring the mac_addr from the partial pdata.
->> > 
->> > Signed-off-by: Michael Welling <mwelling@ieee.org>
->> 
->> I don't see anyone specifying a MAC address in the partial pdata,
->> so better to just delete that field.
->> 
->> Even if people did, I am not so sure that the partial pdata should
->> unconditionally trump an OF provided MAC address.
+On 10/03/2014 03:40 PM, Cong Wang wrote:
+> On Thu, Oct 2, 2014 at 10:46 PM, John Fastabend
+> <john.fastabend@gmail.com> wrote:
+>> diff --git a/net/sched/cls_basic.c b/net/sched/cls_basic.c
+>> index 81ddfa6..f37e4fb 100644
+>> --- a/net/sched/cls_basic.c
+>> +++ b/net/sched/cls_basic.c
+>> @@ -32,7 +32,7 @@ struct basic_filter {
+>>         struct tcf_exts         exts;
+>>         struct tcf_ematch_tree  ematches;
+>>         struct tcf_result       res;
+>> -       struct tcf_proto        *tp;
+>> +       struct net              *net;
+>>         struct list_head        link;
+>>         struct rcu_head         rcu;
+>>  };
 > 
-> So should I just leave the code for handling the mac_addr field from the
-> partial pdata out or make it such that the mac_addr field is overriden 
-> if specified from the devicetree?
+> I guess storing this net pointer to struct tcf_ematch_tree is better,
+> since it is only used by ematch?
 
-I'm saying the partial pdata mac_addr is completely unused and should
-be removed.
+Sure, that is fine. It is used by em_ipset and three classifiers. It
+does simplify the API slightly if its in tcf_ematch, I guess. So I'll 
+move it there.
+
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
