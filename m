@@ -1,193 +1,103 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: Re: [PATCH v7 net-next 2/2] bonding: Simplify the xmit function for
- modes that use xmit_hash
-Date: Sat, 04 Oct 2014 09:37:37 +0200
-Message-ID: <542FA3C1.9080405@redhat.com>
-References: <1412383720-1540-1-git-send-email-maheshb@google.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH] team: add rescheduling jiffy delay on !rtnl_trylock
+Date: Sat, 4 Oct 2014 01:37:32 -0700
+Message-ID: <20141004083732.GG5015@linux.vnet.ibm.com>
+References: <20140929115445.40221d8e@jlaw-desktop.mno.stratus.com>
+ <20140929160601.GD15925@htj.dyndns.org>
+ <20141002064308.GN5015@linux.vnet.ibm.com>
+ <20141003153701.7c7da030@jlaw-desktop.mno.stratus.com>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Maciej Zenczykowski <maze@google.com>,
-	Cong Wang <cwang@twopensource.com>
-To: Mahesh Bandewar <maheshb@google.com>,
-	Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Tejun Heo <tj@kernel.org>, netdev@vger.kernel.org,
+	Jiri Pirko <jiri@resnulli.us>
+To: Joe Lawrence <joe.lawrence@stratus.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33626 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751022AbaJDHhv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 4 Oct 2014 03:37:51 -0400
-In-Reply-To: <1412383720-1540-1-git-send-email-maheshb@google.com>
+Received: from e33.co.us.ibm.com ([32.97.110.151]:51355 "EHLO
+	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751312AbaJDIwP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Oct 2014 04:52:15 -0400
+Received: from /spool/local
+	by e33.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <paulmck@linux.vnet.ibm.com>;
+	Sat, 4 Oct 2014 02:52:14 -0600
+Received: from b03cxnp08027.gho.boulder.ibm.com (b03cxnp08027.gho.boulder.ibm.com [9.17.130.19])
+	by d03dlp01.boulder.ibm.com (Postfix) with ESMTP id 03D331FF0040
+	for <netdev@vger.kernel.org>; Sat,  4 Oct 2014 02:40:57 -0600 (MDT)
+Received: from d03av06.boulder.ibm.com (d03av06.boulder.ibm.com [9.17.195.245])
+	by b03cxnp08027.gho.boulder.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id s948qB9u54394936
+	for <netdev@vger.kernel.org>; Sat, 4 Oct 2014 10:52:11 +0200
+Received: from d03av06.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av06.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id s948ulDZ025203
+	for <netdev@vger.kernel.org>; Sat, 4 Oct 2014 02:56:47 -0600
+Content-Disposition: inline
+In-Reply-To: <20141003153701.7c7da030@jlaw-desktop.mno.stratus.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/04/2014 02:48 AM, Mahesh Bandewar wrote:
-> Earlier change to use usable slave array for TLB mode had an additional
-> performance advantage. So extending the same logic to all other modes
-> that use xmit-hash for slave selection (viz 802.3AD, and XOR modes).
-> Also consolidating this with the earlier TLB change.
+On Fri, Oct 03, 2014 at 03:37:01PM -0400, Joe Lawrence wrote:
+> On Wed, 1 Oct 2014 23:43:08 -0700
+> "Paul E. McKenney" <paulmck@linux.vnet.ibm.com> wrote:
 > 
-> The main idea is to build the usable slaves array in the control path
-> and use that array for slave selection during xmit operation.
+> > On Mon, Sep 29, 2014 at 12:06:01PM -0400, Tejun Heo wrote:
+> > > (cc'ing Paul and quoting the whole body)
+> > > 
+> > > Paul, this is a fix for RCU sched stall observed w/ a work item
+> > > requeueing itself waiting for the RCU grace period.  As the self
+> > > requeueing work item ends up being executed by the same kworker, the
+> > > worker task never stops running in the absence of a higher priority
+> > > task and it seems to delay RCU grace period for a very long time on
+> > > !PREEMPT kernels.  As each work item denotes a boundary which no
+> > > synchronization construct stretches across, I wonder whether it'd be a
+> > > good idea to add a notification for the end of RCU critical section
+> > > between executions of work items.
+> > 
+> > It sounds like a great idea to me!  I suggest invoking
+> > rcu_note_context_switch() between executions of work items.
+> > 
+> > 							Thanx, Paul
 > 
-> Measured performance in a setup with a bond of 4x1G NICs with 200
-> instances of netperf for the modes involved (3ad, xor, tlb)
-> cmd: netperf -t TCP_RR -H <TargetHost> -l 60 -s 5
+> I gave this a spin, probably inserting the call in the wrong place:
 > 
-> Mode        TPS-Before   TPS-After
+> diff --git a/kernel/workqueue.c b/kernel/workqueue.c
+> index 5dbe22a..77f128e 100644
+> --- a/kernel/workqueue.c
+> +++ b/kernel/workqueue.c
+> @@ -2045,7 +2045,8 @@ __acquires(&pool->lock)
+>          * indefinitely requeue itself while all other CPUs are trapped in
+>          * stop_machine.
+>          */
+> -       cond_resched();
+> +       if (!cond_resched())
+> +               rcu_note_context_switch(raw_smp_processor_id());
 > 
-> 802.3ad   : 468,694      493,101
-> TLB (lb=0): 392,583      392,965
-> XOR       : 475,696      484,517
-> 
-> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
-> Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
-> ---
-> v1:
->   (a) If bond_update_slave_arr() fails to allocate memory, it will overwrite
->       the slave that need to be removed.
->   (b) Freeing of array will assign NULL (to handle bond->down to bond->up
->       transition gracefully.
->   (c) Change from pr_debug() to pr_err() if bond_update_slave_arr() returns
->       failure.
->   (d) XOR: bond_update_slave_arr() will consider mii-mon, arp-mon cases and
->       will populate the array even if these parameters are not used.
->   (e) 3AD: Should handle the ad_agg_selection_logic correctly.
-> v2:
->   (a) Removed rcu_read_{un}lock() calls from array manipulation code.
->   (b) Slave link-events now refresh array for all these modes.
->   (c) Moved free-array call from bond_close() to bond_uninit().
-> v3:
->   (a) Fixed null pointer dereference.
->   (b) Removed bond->lock lockdep dependency.
-> v4:
->   (a) Made to changes to comply with Nikolay's locking changes
->   (b) Added a work-queue to refresh slave-array when RTNL is not held
->   (c) Array refresh happens ONLY with RTNL now.
->   (d) alloc changed from GFP_ATOMIC to GFP_KERNEL
-> v5:
->   (a) Consolidated all delayed slave-array updates at one place in
->       3ad_state_machine_handler()
-> v6:
->   (a) Free slave array when there is no active aggregator
-> v7:
->   (a) Couple of trivial changes.
-> 
->  drivers/net/bonding/bond_3ad.c  | 140 +++++++++++------------------
->  drivers/net/bonding/bond_alb.c  |  51 ++---------
->  drivers/net/bonding/bond_alb.h  |   8 --
->  drivers/net/bonding/bond_main.c | 192 +++++++++++++++++++++++++++++++++++++---
->  drivers/net/bonding/bonding.h   |  10 +++
->  5 files changed, 249 insertions(+), 152 deletions(-)
-> 
-<<<snip>>>
-> +/* Build the usable slaves array in control path for modes that use xmit-hash
-> + * to determine the slave interface -
-> + * (a) BOND_MODE_8023AD
-> + * (b) BOND_MODE_XOR
-> + * (c) BOND_MODE_TLB && tlb_dynamic_lb == 0
-> + *
-> + * The caller is expected to hold RTNL only and NO other lock!
-> + */
-> +int bond_update_slave_arr(struct bonding *bond, struct slave *skipslave)
-> +{
-> +	struct slave *slave;
-> +	struct list_head *iter;
-> +	struct bond_up_slave *new_arr, *old_arr;
-> +	int slaves_in_agg;
-> +	int agg_id = 0;
-> +	int ret = 0;
-> +
-> +#ifdef CONFIG_LOCKDEP
-> +	lockdep_assert_held(&bond->mode_lock);
-> +#endif
-^^^^^^^^^
-This is wrong now, the logic is inverted.
-It will WARN every time mode_lock is _not_ held:
+>         spin_lock_irq(&pool->lock);
 
-#define lockdep_assert_held(l)  do {                            \
-                WARN_ON(debug_locks && !lockdep_is_held(l));    \
-        } while (0)
+If the cond_resched() is in the right place, then you should be good.
 
-The previous version was correct which did a WARN when mode_lock was
-actually held as that is the wrong condition, not when it's not held.
-I've missed that comment earlier.
+FWIW, there is a cond_resched_rcu_qs() that should be going into the next
+merge window that could be used in place of the above two lines.  This is
+commit bde6c3aa9930 in -tip.
 
-(also switched Veaceslav's email address with the correct one in the CC list)
+> this results in RCU grace periods progressing (dyntick remains
+> fixed) as advertised, even with the test-module from [1] loaded:
+> 
+> Fri Oct  3 14:37:14 2014
+>   4 c=9635 g=9636 pq=1 qp=0 dt=51693/140000000000000/0 df=163 of=0 ql=0/1 qs=...D b=10 ci=0 nci=34184 co=0 ca=0
+> 
+> Fri Oct  3 14:50:24 2014
+>   4 c=13072 g=13073 pq=1 qp=0 dt=51693/140000000000000/0 df=163 of=0 ql=0/1 qs=...D b=10 ci=0 nci=34191 co=0 ca=0
 
-> +
-> +	new_arr = kzalloc(offsetof(struct bond_up_slave, arr[bond->slave_cnt]),
-> +			  GFP_KERNEL);
-> +	if (!new_arr) {
-> +		ret = -ENOMEM;
-> +		pr_err("Failed to build slave-array.\n");
-> +		goto out;
-> +	}
-> +	if (BOND_MODE(bond) == BOND_MODE_8023AD) {
-> +		struct ad_info ad_info;
-> +
-> +		if (bond_3ad_get_active_agg_info(bond, &ad_info)) {
-> +			pr_debug("bond_3ad_get_active_agg_info failed\n");
-> +			kfree_rcu(new_arr, rcu);
-> +			/* No active aggragator means it's not safe to use
-> +			 * the previous array.
-> +			 */
-> +			old_arr = rtnl_dereference(bond->slave_arr);
-> +			if (old_arr) {
-> +				RCU_INIT_POINTER(bond->slave_arr, NULL);
-> +				kfree_rcu(old_arr, rcu);
-> +			}
-> +			goto out;
-> +		}
-> +		slaves_in_agg = ad_info.ports;
-> +		agg_id = ad_info.aggregator_id;
-> +	}
-> +	bond_for_each_slave(bond, slave, iter) {
-> +		if (BOND_MODE(bond) == BOND_MODE_8023AD) {
-> +			struct aggregator *agg;
-> +
-> +			agg = SLAVE_AD_INFO(slave)->port.aggregator;
-> +			if (!agg || agg->aggregator_identifier != agg_id)
-> +				continue;
-> +		}
-> +		if (!bond_slave_can_tx(slave))
-> +			continue;
-> +		if (skipslave == slave)
-> +			continue;
-> +		new_arr->arr[new_arr->count++] = slave;
-> +	}
-> +
-> +	old_arr = rtnl_dereference(bond->slave_arr);
-> +	rcu_assign_pointer(bond->slave_arr, new_arr);
-> +	if (old_arr)
-> +		kfree_rcu(old_arr, rcu);
-> +out:
-> +	if (ret != 0 && skipslave) {
-> +		int idx;
-> +
-> +		/* Rare situation where caller has asked to skip a specific
-> +		 * slave but allocation failed (most likely!). BTW this is
-> +		 * only possible when the call is initiated from
-> +		 * __bond_release_one(). In this situation; overwrite the
-> +		 * skipslave entry in the array with the last entry from the
-> +		 * array to avoid a situation where the xmit path may choose
-> +		 * this to-be-skipped slave to send a packet out.
-> +		 */
-> +		old_arr = rtnl_dereference(bond->slave_arr);
-> +		for (idx = 0; idx < old_arr->count; idx++) {
-> +			if (skipslave == old_arr->arr[idx]) {
-> +				old_arr->arr[idx] =
-> +				    old_arr->arr[old_arr->count-1];
-> +				old_arr->count--;
-> +				break;
-> +			}
-> +		}
-> +	}
-> +	return ret;
-> +}
-> +
-<<<snip>>>
+Nice!
+
+							Thanx, Paul
+
+> I'll leave it up to Tejun to determine where/how that call should be
+> made.
+> 
+> Thanks!
+> 
+> -- Joe
+> 
+> [1] http://marc.info/?l=linux-kernel&m=141192244232345
+> 
