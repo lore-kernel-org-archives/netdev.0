@@ -1,54 +1,74 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [PATCH v1 2/2] net: sched: replace ematch calls to use struct
- net
-Date: Fri, 03 Oct 2014 17:19:19 -0700
-Message-ID: <542F3D07.6090008@intel.com>
-References: <20141003054558.20925.67091.stgit@nitbit.x32>	<20141003054624.20925.28150.stgit@nitbit.x32> <CAHA+R7PWrAk1+ds8SNytf0dABwcSQYqSAvK9dTN44kQqRiq4Rw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Cong Wang <cwang@twopensource.com>,
-	John Fastabend <john.fastabend@gmail.com>
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: [PATCH v7 net-next 1/2] bonding: display xmit_hash_policy for non-dynamic-tlb mode
+Date: Fri,  3 Oct 2014 17:48:20 -0700
+Message-ID: <1412383700-1354-1-git-send-email-maheshb@google.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	Mahesh Bandewar <maheshb@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Maciej Zenczykowski <maze@google.com>
+To: Jay Vosburgh <j.vosburgh@gmail.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:10616 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756462AbaJDAUD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Oct 2014 20:20:03 -0400
-In-Reply-To: <CAHA+R7PWrAk1+ds8SNytf0dABwcSQYqSAvK9dTN44kQqRiq4Rw@mail.gmail.com>
+Received: from mail-qa0-f73.google.com ([209.85.216.73]:64534 "EHLO
+	mail-qa0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759495AbaJDAs0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Oct 2014 20:48:26 -0400
+Received: by mail-qa0-f73.google.com with SMTP id cm18so97392qab.2
+        for <netdev@vger.kernel.org>; Fri, 03 Oct 2014 17:48:25 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/03/2014 03:40 PM, Cong Wang wrote:
-> On Thu, Oct 2, 2014 at 10:46 PM, John Fastabend
-> <john.fastabend@gmail.com> wrote:
->> diff --git a/net/sched/cls_basic.c b/net/sched/cls_basic.c
->> index 81ddfa6..f37e4fb 100644
->> --- a/net/sched/cls_basic.c
->> +++ b/net/sched/cls_basic.c
->> @@ -32,7 +32,7 @@ struct basic_filter {
->>         struct tcf_exts         exts;
->>         struct tcf_ematch_tree  ematches;
->>         struct tcf_result       res;
->> -       struct tcf_proto        *tp;
->> +       struct net              *net;
->>         struct list_head        link;
->>         struct rcu_head         rcu;
->>  };
-> 
-> I guess storing this net pointer to struct tcf_ematch_tree is better,
-> since it is only used by ematch?
+It's a trivial fix to display xmit_hash_policy for this new TLB mode
+since it uses transmit-hash-poilicy as part of bonding-master info
+(/proc/net/bonding/<bonding-interface).
 
-Sure, that is fine. It is used by em_ipset and three classifiers. It
-does simplify the API slightly if its in tcf_ematch, I guess. So I'll 
-move it there.
+Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+Reviewed-by: Nikolay Aleksandrov <nikolay@redhat.com>
+---
+v1
+ Rebase
+v2
+ Added bond_mode_uses_xmit_hash() inline function
+v3-v7
+ Rebase
 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+ drivers/net/bonding/bond_procfs.c | 3 +--
+ drivers/net/bonding/bonding.h     | 7 +++++++
+ 2 files changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_procfs.c b/drivers/net/bonding/bond_procfs.c
+index bb09d0442aa8..a3948f8d1e53 100644
+--- a/drivers/net/bonding/bond_procfs.c
++++ b/drivers/net/bonding/bond_procfs.c
+@@ -73,8 +73,7 @@ static void bond_info_show_master(struct seq_file *seq)
+ 
+ 	seq_printf(seq, "\n");
+ 
+-	if (BOND_MODE(bond) == BOND_MODE_XOR ||
+-		BOND_MODE(bond) == BOND_MODE_8023AD) {
++	if (bond_mode_uses_xmit_hash(bond)) {
+ 		optval = bond_opt_get_val(BOND_OPT_XMIT_HASH,
+ 					  bond->params.xmit_policy);
+ 		seq_printf(seq, "Transmit Hash Policy: %s (%d)\n",
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index 57917e63b4e6..5b022da9cad2 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -274,6 +274,13 @@ static inline bool bond_is_nondyn_tlb(const struct bonding *bond)
+ 	       (bond->params.tlb_dynamic_lb == 0);
+ }
+ 
++static inline bool bond_mode_uses_xmit_hash(const struct bonding *bond)
++{
++	return (BOND_MODE(bond) == BOND_MODE_8023AD ||
++		BOND_MODE(bond) == BOND_MODE_XOR ||
++		bond_is_nondyn_tlb(bond));
++}
++
+ static inline bool bond_mode_uses_arp(int mode)
+ {
+ 	return mode != BOND_MODE_8023AD && mode != BOND_MODE_TLB &&
+-- 
+2.1.0.rc2.206.gedb03e5
