@@ -1,103 +1,59 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: bridge: Do not compile options in br_parse_ip_options
-Date: Sat, 4 Oct 2014 22:18:02 +0800
-Message-ID: <20141004141802.GA10878@gondor.apana.org.au>
-References: <1412384670-17794-1-git-send-email-fw@strlen.de>
- <20141004035606.GA8228@gondor.apana.org.au>
- <20141004100413.GA1241@breakpoint.cc>
- <20141004135508.GA10705@gondor.apana.org.au>
+From: Dmitry Popov <ixaphire@qrator.net>
+Subject: [PATCH iproute2] ip tunnel: fix 'ip -oneline tunnel show' for some
+ GRE tunnels
+Date: Sat, 4 Oct 2014 19:00:25 +0400
+Message-ID: <20141004190025.d26b74dab093a455381d46fc@qrator.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@vger.kernel.org, bsd@redhat.com,
-	stephen@networkplumber.org, netdev@vger.kernel.org,
-	eric.dumazet@gmail.com, davidn@davidnewall.com,
-	"David S. Miller" <davem@davemloft.net>
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20141004135508.GA10705@gondor.apana.org.au>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f44.google.com ([209.85.215.44]:58913 "EHLO
+	mail-la0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750857AbaJDPAb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Oct 2014 11:00:31 -0400
+Received: by mail-la0-f44.google.com with SMTP id gb8so2445292lab.31
+        for <netdev@vger.kernel.org>; Sat, 04 Oct 2014 08:00:29 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Oct 04, 2014 at 09:55:08PM +0800, Herbert Xu wrote:
->
-> I'll try to create a patch that essentially reverts the patch
-> that led us here.
+'ip -oneline tunnel show' was not "oneline" for GRE tunnels with iseq:
+# ip tun add gre_test remote 1.1.1.1 local 2.2.2.2 mode gre iseq oseq
+# ip -oneline tun show gre_test | wc -l
+2
 
-Here is a patch that's only compile-tested:
+The problem existed because of a typo: '\n' was printed when it shouldn't be.
+Fixed.
 
-bridge: Do not compile options in br_parse_ip_options
-
-Commit 462fb2af9788a82a534f8184abfde31574e1cfa0
-
-	bridge : Sanitize skb before it enters the IP stack
-
-broke when IP options are actually used because it mangles the
-skb as if it entered the IP stack which is wrong because the
-bridge is supposed to operate below the IP stack.
-
-Since nobody has actually requested for parsing of IP options
-this patch fixes it by simply reverting to the previous approach
-of ignoring all IP options, i.e., zeroing the IPCB.
-
-If and when somebody who uses IP options and actually needs them
-to be parsed by the bridge complains then we can revisit this.
-
-Reported-by: David Newall <davidn@davidnewall.com>
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
-index a615264..c0fdb4d 100644
---- a/net/bridge/br_netfilter.c
-+++ b/net/bridge/br_netfilter.c
-@@ -260,7 +260,6 @@ static inline void nf_bridge_update_protocol(struct sk_buff *skb)
+Signed-off-by: Dmitry Popov <ixaphire@qrator.net>
+---
+ ip/ip6tunnel.c | 2 +-
+ ip/iptunnel.c  | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+diff --git a/ip/ip6tunnel.c b/ip/ip6tunnel.c
+index 4b73ec6..b83534e 100644
+--- a/ip/ip6tunnel.c
++++ b/ip/ip6tunnel.c
+@@ -117,7 +117,7 @@ static void print_tunnel(struct ip6_tnl_parm2 *p)
+ 		}
  
- static int br_parse_ip_options(struct sk_buff *skb)
- {
--	struct ip_options *opt;
- 	const struct iphdr *iph;
- 	struct net_device *dev = skb->dev;
- 	u32 len;
-@@ -269,7 +268,6 @@ static int br_parse_ip_options(struct sk_buff *skb)
- 		goto inhdr_error;
- 
- 	iph = ip_hdr(skb);
--	opt = &(IPCB(skb)->opt);
- 
- 	/* Basic sanity checks */
- 	if (iph->ihl < 5 || iph->version != 4)
-@@ -295,23 +293,11 @@ static int br_parse_ip_options(struct sk_buff *skb)
+ 		if (p->i_flags&GRE_SEQ)
+-			printf("%s  Drop packets out of sequence.\n", _SL_);
++			printf("%s  Drop packets out of sequence.", _SL_);
+ 		if (p->i_flags&GRE_CSUM)
+ 			printf("%s  Checksum in received packet is required.", _SL_);
+ 		if (p->o_flags&GRE_SEQ)
+diff --git a/ip/iptunnel.c b/ip/iptunnel.c
+index 0844a4f..caf8a28 100644
+--- a/ip/iptunnel.c
++++ b/ip/iptunnel.c
+@@ -409,7 +409,7 @@ static void print_tunnel(struct ip_tunnel_parm *p)
  	}
  
- 	memset(IPCB(skb), 0, sizeof(struct inet_skb_parm));
--	if (iph->ihl == 5)
--		return 0;
--
--	opt->optlen = iph->ihl*4 - sizeof(struct iphdr);
--	if (ip_options_compile(dev_net(dev), opt, skb))
--		goto inhdr_error;
--
--	/* Check correct handling of SRR option */
--	if (unlikely(opt->srr)) {
--		struct in_device *in_dev = __in_dev_get_rcu(dev);
--		if (in_dev && !IN_DEV_SOURCE_ROUTE(in_dev))
--			goto drop;
--
--		if (ip_options_rcv_srr(skb))
--			goto drop;
--	}
--
-+	/* We should really parse IP options here but until
-+	 * somebody who actually uses IP options complains to
-+	 * us we'll just silently ignore the options because
-+	 * we're lazy!
-+	 */
- 	return 0;
- 
- inhdr_error:
-
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+ 	if (p->i_flags&GRE_SEQ)
+-		printf("%s  Drop packets out of sequence.\n", _SL_);
++		printf("%s  Drop packets out of sequence.", _SL_);
+ 	if (p->i_flags&GRE_CSUM)
+ 		printf("%s  Checksum in received packet is required.", _SL_);
+ 	if (p->o_flags&GRE_SEQ)
