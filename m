@@ -1,59 +1,88 @@
-From: Dmitry Popov <ixaphire@qrator.net>
-Subject: [PATCH iproute2] ip tunnel: fix 'ip -oneline tunnel show' for some
- GRE tunnels
-Date: Sat, 4 Oct 2014 19:00:25 +0400
-Message-ID: <20141004190025.d26b74dab093a455381d46fc@qrator.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC 1/1] net: fix rcu access on phonet_routes
+Date: Sat, 04 Oct 2014 08:30:42 -0700
+Message-ID: <1412436642.17245.37.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1412416676-21698-1-git-send-email-fabf@skynet.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Cc: linux-kernel@vger.kernel.org,
+	Josh Triplett <josh@joshtriplett.org>,
+	Remi Denis-Courmont <courmisch@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Fabian Frederick <fabf@skynet.be>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f44.google.com ([209.85.215.44]:58913 "EHLO
-	mail-la0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750857AbaJDPAb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Oct 2014 11:00:31 -0400
-Received: by mail-la0-f44.google.com with SMTP id gb8so2445292lab.31
-        for <netdev@vger.kernel.org>; Sat, 04 Oct 2014 08:00:29 -0700 (PDT)
+Received: from mail-pd0-f180.google.com ([209.85.192.180]:54459 "EHLO
+	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750973AbaJDPao (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Oct 2014 11:30:44 -0400
+In-Reply-To: <1412416676-21698-1-git-send-email-fabf@skynet.be>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-'ip -oneline tunnel show' was not "oneline" for GRE tunnels with iseq:
-# ip tun add gre_test remote 1.1.1.1 local 2.2.2.2 mode gre iseq oseq
-# ip -oneline tun show gre_test | wc -l
-2
+On Sat, 2014-10-04 at 11:57 +0200, Fabian Frederick wrote:
+> -Add __rcu annotation on table to fix sparse warnings:
+> net/phonet/pn_dev.c:279:25: warning: incorrect type in assignment (different address spaces)
+> net/phonet/pn_dev.c:279:25:    expected struct net_device *<noident>
+> net/phonet/pn_dev.c:279:25:    got void [noderef] <asn:4>*<noident>
+> net/phonet/pn_dev.c:376:17: warning: incorrect type in assignment (different address spaces)
+> net/phonet/pn_dev.c:376:17:    expected struct net_device *volatile <noident>
+> net/phonet/pn_dev.c:376:17:    got struct net_device [noderef] <asn:4>*<noident>
+> net/phonet/pn_dev.c:392:17: warning: incorrect type in assignment (different address spaces)
+> net/phonet/pn_dev.c:392:17:    expected struct net_device *<noident>
+> net/phonet/pn_dev.c:392:17:    got void [noderef] <asn:4>*<noident>
+> 
+> -Access table with rcu_dereference (fixes the following sparse errors):
+> net/phonet/pn_dev.c:278:25: error: incompatible types in comparison expression (different address spaces)
+> net/phonet/pn_dev.c:391:17: error: incompatible types in comparison expression (different address spaces)
+> 
+> Signed-off-by: Fabian Frederick <fabf@skynet.be>
+> ---
+>  net/phonet/pn_dev.c | 6 +++---
+>  1 file changed, 3 insertions(+), 3 deletions(-)
+> 
+> diff --git a/net/phonet/pn_dev.c b/net/phonet/pn_dev.c
+> index 56a6146..5c9c0b2f1 100644
+> --- a/net/phonet/pn_dev.c
+> +++ b/net/phonet/pn_dev.c
+> @@ -36,7 +36,7 @@
+>  
+>  struct phonet_routes {
+>  	struct mutex		lock;
+> -	struct net_device	*table[64];
+> +	struct net_device __rcu	*table[64];
+>  };
+>  
+>  struct phonet_net {
+> @@ -275,7 +275,7 @@ static void phonet_route_autodel(struct net_device *dev)
+>  	bitmap_zero(deleted, 64);
+>  	mutex_lock(&pnn->routes.lock);
+>  	for (i = 0; i < 64; i++)
+> -		if (dev == pnn->routes.table[i]) {
+> +		if (rcu_dereference(pnn->routes.table[i]) == dev) {
+>  			RCU_INIT_POINTER(pnn->routes.table[i], NULL);
+>  			set_bit(i, deleted);
+>  		}
+> @@ -388,7 +388,7 @@ int phonet_route_del(struct net_device *dev, u8 daddr)
+>  
+>  	daddr = daddr >> 2;
+>  	mutex_lock(&routes->lock);
+> -	if (dev == routes->table[daddr])
+> +	if (rcu_dereference(routes->table[daddr]) == dev)
+>  		RCU_INIT_POINTER(routes->table[daddr], NULL);
+>  	else
+>  		dev = NULL;
 
-The problem existed because of a typo: '\n' was printed when it shouldn't be.
-Fixed.
+Hi Fabian
 
-Signed-off-by: Dmitry Popov <ixaphire@qrator.net>
----
- ip/ip6tunnel.c | 2 +-
- ip/iptunnel.c  | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
-diff --git a/ip/ip6tunnel.c b/ip/ip6tunnel.c
-index 4b73ec6..b83534e 100644
---- a/ip/ip6tunnel.c
-+++ b/ip/ip6tunnel.c
-@@ -117,7 +117,7 @@ static void print_tunnel(struct ip6_tnl_parm2 *p)
- 		}
- 
- 		if (p->i_flags&GRE_SEQ)
--			printf("%s  Drop packets out of sequence.\n", _SL_);
-+			printf("%s  Drop packets out of sequence.", _SL_);
- 		if (p->i_flags&GRE_CSUM)
- 			printf("%s  Checksum in received packet is required.", _SL_);
- 		if (p->o_flags&GRE_SEQ)
-diff --git a/ip/iptunnel.c b/ip/iptunnel.c
-index 0844a4f..caf8a28 100644
---- a/ip/iptunnel.c
-+++ b/ip/iptunnel.c
-@@ -409,7 +409,7 @@ static void print_tunnel(struct ip_tunnel_parm *p)
- 	}
- 
- 	if (p->i_flags&GRE_SEQ)
--		printf("%s  Drop packets out of sequence.\n", _SL_);
-+		printf("%s  Drop packets out of sequence.", _SL_);
- 	if (p->i_flags&GRE_CSUM)
- 		printf("%s  Checksum in received packet is required.", _SL_);
- 	if (p->o_flags&GRE_SEQ)
+Have you tested this running the kernel with following config options :
+
+CONFIG_LOCKDEP=y
+CONFIG_PROVE_RCU=y
+
+LOCKDEP should complain loudly, if not, we should file a bug !
+
+Hint : Use rcu_access_pointer(), and check that LOCKDEP is happy with
+that.
+
+Thanks !
