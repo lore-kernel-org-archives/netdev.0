@@ -1,62 +1,74 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next 14/14] net/mlx4_en: Use the new tx_copybreak
- to set inline threshold
-Date: Sun, 05 Oct 2014 17:03:40 +0400
-Message-ID: <543141AC.3060006@cogentembedded.com>
-References: <1412501722-25092-1-git-send-email-amirv@mellanox.com> <1412501722-25092-15-git-send-email-amirv@mellanox.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [PATCH] net: Add ndo_gso_check
+Date: Sun, 5 Oct 2014 17:04:04 +0300
+Message-ID: <CAJ3xEMhzxfP3Sqp=_QSQehd2j2s=Gr3B1iO2S--OcoT7VC94nQ@mail.gmail.com>
+References: <1411962607-27878-1-git-send-email-therbert@google.com>
+	<CAJ3xEMi-TRXevenx87UM7JnKqRQQATW4MBjbz8JdnQE9gk3KZw@mail.gmail.com>
+	<CA+mtBx8r05=qs2J58LFq56762tFB7wF4Dsr3C5TC9w5qQP5jGw@mail.gmail.com>
+	<CAJ3xEMhf6b75TQDFqEPMSXCpL9ToWG1q0OMPtrEuHNSm=-PSwQ@mail.gmail.com>
+	<CA+mtBx_6HcZh5Ys1FJFBXkZ2bWX1gP6bTcjY7gbR6RG_TOy50Q@mail.gmail.com>
+	<CAJ3xEMi0biCWTNtLOJ=0HWZYjOWi6pN2bw2=EWajp6XnpoyVRw@mail.gmail.com>
+	<CA+mtBx-sP6g9hXAYGfHKCPYkCtjgCFM0srueh1uhoNnC2ACr1g@mail.gmail.com>
+	<CAJ3xEMhc-97+3ZDwqXzX2N+=voO4QvJ5_YXn3sp8r8E9YyqotQ@mail.gmail.com>
+	<CA+mtBx9=+fGjwJCKpTW5EifmavC6VGnbuJdkc5tqzeEHz+5twA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Ido Shamay <idos@mellanox.com>
-To: Amir Vadai <amirv@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Thomas Graf <tgraf@suug.ch>,
+	Pravin Shelar <pshelar@nicira.com>,
+	Andy Zhou <azhou@nicira.com>
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f180.google.com ([209.85.217.180]:34293 "EHLO
-	mail-lb0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751384AbaJENDn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Oct 2014 09:03:43 -0400
-Received: by mail-lb0-f180.google.com with SMTP id f15so2976773lbj.39
-        for <netdev@vger.kernel.org>; Sun, 05 Oct 2014 06:03:41 -0700 (PDT)
-In-Reply-To: <1412501722-25092-15-git-send-email-amirv@mellanox.com>
+Received: from mail-oi0-f41.google.com ([209.85.218.41]:33422 "EHLO
+	mail-oi0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751359AbaJEOEF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Oct 2014 10:04:05 -0400
+Received: by mail-oi0-f41.google.com with SMTP id u20so2614895oif.28
+        for <netdev@vger.kernel.org>; Sun, 05 Oct 2014 07:04:05 -0700 (PDT)
+In-Reply-To: <CA+mtBx9=+fGjwJCKpTW5EifmavC6VGnbuJdkc5tqzeEHz+5twA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
-
-On 10/5/2014 1:35 PM, Amir Vadai wrote:
-
-> From: Eric Dumazet <edumazet@google.com>
-
-> Instead of setting inline threshold using module parameter only on
-> driver load, use set_tunable() to set it dynamically.
-> No need to store the threshold per ring, using instead the netdev global
-> priv->prof->inline_thold
-> Initial value still is set using the module parameter, therefore
-> backward compatability is kept.
-
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Signed-off-by: Amir Vadai <amirv@mellanox.com>
-> ---
->   drivers/net/ethernet/mellanox/mlx4/en_ethtool.c | 44 +++++++++++++++++++++++++
->   drivers/net/ethernet/mellanox/mlx4/en_tx.c      |  1 -
->   drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    |  1 -
->   3 files changed, 44 insertions(+), 2 deletions(-)
-
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-> index 42c9f8b..ae83da9 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+On Thu, Oct 2, 2014 at 2:06 AM, Tom Herbert <therbert@google.com> wrote:
+> On Wed, Oct 1, 2014 at 1:58 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+>> On Tue, Sep 30, 2014 at 6:34 PM, Tom Herbert <therbert@google.com> wrote:
+>>> On Tue, Sep 30, 2014 at 7:30 AM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
 [...]
-> @@ -1297,6 +1339,8 @@ const struct ethtool_ops mlx4_en_ethtool_ops = {
->   	.get_ts_info = mlx4_en_get_ts_info,
->   	.set_priv_flags = mlx4_en_set_priv_flags,
->   	.get_priv_flags = mlx4_en_get_priv_flags,
-> +	.get_tunable		= mlx4_en_get_tunable,
-> +	.set_tunable		= mlx4_en_set_tunable,
+> Solution #4: apply this patch and implement the check functions as
+> needed in those 4 or 5 drivers. If a device can only do VXLAN/NVGRE
+> then I believe the check function is something like:
+>
+> bool mydev_gso_check(struct sk_buff *skb, struct net_device *dev)
+> {
+>         if ((skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL) &&
+>             ((skb->inner_protocol_type != ENCAP_TYPE_ETHER ||
+>               skb->protocol != htons(ETH_P_TEB) ||
+>               skb_inner_mac_header(skb) - skb_transport_header(skb) != 12)
+>                 return false;
+>
+>         return true;
+> }
 
-    If the above initializers aren't aligned with tabs, why should these two be?
+Yep, such helper can can be basically made to work and let the 4-5
+drivers that can
+do GSO offloading for vxlan but not for any FOU/GUE packets signal
+that to the stack.
 
-WBR, Sergei
+Re the 12 constant, you were referring to the udp+vxlan headers? it's 8+8
+
+Also, we need a way for drivers that can support VXLAN or NVGRE but
+not concurrently
+on the same port @ the same time to only let vxlan packet to pass
+successfully through the helper.
+
+There was that coloring scheme I suggested, but you didn't like it...
+
+>>> Would any other driver maintainers like to chime in on this?
+>> Alex? John?
+
+
+Or.
