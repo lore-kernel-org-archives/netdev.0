@@ -1,74 +1,66 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH] net: Add ndo_gso_check
-Date: Sun, 5 Oct 2014 17:04:04 +0300
-Message-ID: <CAJ3xEMhzxfP3Sqp=_QSQehd2j2s=Gr3B1iO2S--OcoT7VC94nQ@mail.gmail.com>
-References: <1411962607-27878-1-git-send-email-therbert@google.com>
-	<CAJ3xEMi-TRXevenx87UM7JnKqRQQATW4MBjbz8JdnQE9gk3KZw@mail.gmail.com>
-	<CA+mtBx8r05=qs2J58LFq56762tFB7wF4Dsr3C5TC9w5qQP5jGw@mail.gmail.com>
-	<CAJ3xEMhf6b75TQDFqEPMSXCpL9ToWG1q0OMPtrEuHNSm=-PSwQ@mail.gmail.com>
-	<CA+mtBx_6HcZh5Ys1FJFBXkZ2bWX1gP6bTcjY7gbR6RG_TOy50Q@mail.gmail.com>
-	<CAJ3xEMi0biCWTNtLOJ=0HWZYjOWi6pN2bw2=EWajp6XnpoyVRw@mail.gmail.com>
-	<CA+mtBx-sP6g9hXAYGfHKCPYkCtjgCFM0srueh1uhoNnC2ACr1g@mail.gmail.com>
-	<CAJ3xEMhc-97+3ZDwqXzX2N+=voO4QvJ5_YXn3sp8r8E9YyqotQ@mail.gmail.com>
-	<CA+mtBx9=+fGjwJCKpTW5EifmavC6VGnbuJdkc5tqzeEHz+5twA@mail.gmail.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH] team: add rescheduling jiffy delay on !rtnl_trylock
+Date: Sun, 5 Oct 2014 07:08:55 -0700
+Message-ID: <20141005140855.GO5015@linux.vnet.ibm.com>
+References: <20140929115445.40221d8e@jlaw-desktop.mno.stratus.com>
+ <20140929160601.GD15925@htj.dyndns.org>
+ <20141002064308.GN5015@linux.vnet.ibm.com>
+ <20141003153701.7c7da030@jlaw-desktop.mno.stratus.com>
+ <20141004083732.GG5015@linux.vnet.ibm.com>
+ <20141005021325.GB8549@htj.dyndns.org>
+ <54313F34.8090801@stratus.com>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Thomas Graf <tgraf@suug.ch>,
-	Pravin Shelar <pshelar@nicira.com>,
-	Andy Zhou <azhou@nicira.com>
-To: Tom Herbert <therbert@google.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Tejun Heo <tj@kernel.org>, netdev@vger.kernel.org,
+	Jiri Pirko <jiri@resnulli.us>
+To: Joe Lawrence <joe.lawrence@stratus.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f41.google.com ([209.85.218.41]:33422 "EHLO
-	mail-oi0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751359AbaJEOEF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Oct 2014 10:04:05 -0400
-Received: by mail-oi0-f41.google.com with SMTP id u20so2614895oif.28
-        for <netdev@vger.kernel.org>; Sun, 05 Oct 2014 07:04:05 -0700 (PDT)
-In-Reply-To: <CA+mtBx9=+fGjwJCKpTW5EifmavC6VGnbuJdkc5tqzeEHz+5twA@mail.gmail.com>
+Received: from e33.co.us.ibm.com ([32.97.110.151]:40030 "EHLO
+	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751407AbaJEOJA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Oct 2014 10:09:00 -0400
+Received: from /spool/local
+	by e33.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <paulmck@linux.vnet.ibm.com>;
+	Sun, 5 Oct 2014 08:09:00 -0600
+Received: from b03cxnp07029.gho.boulder.ibm.com (b03cxnp07029.gho.boulder.ibm.com [9.17.130.16])
+	by d03dlp03.boulder.ibm.com (Postfix) with ESMTP id 1D6E919D803E
+	for <netdev@vger.kernel.org>; Sun,  5 Oct 2014 07:57:42 -0600 (MDT)
+Received: from d03av06.boulder.ibm.com (d03av06.boulder.ibm.com [9.17.195.245])
+	by b03cxnp07029.gho.boulder.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id s95C4iM457278664
+	for <netdev@vger.kernel.org>; Sun, 5 Oct 2014 14:04:44 +0200
+Received: from d03av06.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av06.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id s95EDXgl002877
+	for <netdev@vger.kernel.org>; Sun, 5 Oct 2014 08:13:34 -0600
+Content-Disposition: inline
+In-Reply-To: <54313F34.8090801@stratus.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 2, 2014 at 2:06 AM, Tom Herbert <therbert@google.com> wrote:
-> On Wed, Oct 1, 2014 at 1:58 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
->> On Tue, Sep 30, 2014 at 6:34 PM, Tom Herbert <therbert@google.com> wrote:
->>> On Tue, Sep 30, 2014 at 7:30 AM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
-[...]
-> Solution #4: apply this patch and implement the check functions as
-> needed in those 4 or 5 drivers. If a device can only do VXLAN/NVGRE
-> then I believe the check function is something like:
->
-> bool mydev_gso_check(struct sk_buff *skb, struct net_device *dev)
-> {
->         if ((skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL) &&
->             ((skb->inner_protocol_type != ENCAP_TYPE_ETHER ||
->               skb->protocol != htons(ETH_P_TEB) ||
->               skb_inner_mac_header(skb) - skb_transport_header(skb) != 12)
->                 return false;
->
->         return true;
-> }
+On Sun, Oct 05, 2014 at 08:53:08AM -0400, Joe Lawrence wrote:
+> On 10/04/2014 10:13 PM, Tejun Heo wrote:
+> > Hello,
+> > 
+> > On Sat, Oct 04, 2014 at 01:37:32AM -0700, Paul E. McKenney wrote:
+> >> FWIW, there is a cond_resched_rcu_qs() that should be going into the next
+> >> merge window that could be used in place of the above two lines.  This is
+> >> commit bde6c3aa9930 in -tip.
+> > 
+> > That sounds even better.
+> > 
+> > Joe, can you please send a patch with proper SOB and description?
+> > 
+> > Thanks.
+> 
+> New patch tested and posted on lkml w/everyone CC'd.
+> 
+> I wasn't sure if cond_resched_rcu_qs will be backported, so how should
+> -stable handle this condition?
 
-Yep, such helper can can be basically made to work and let the 4-5
-drivers that can
-do GSO offloading for vxlan but not for any FOU/GUE packets signal
-that to the stack.
+If it is needed to backport a fix, it can of course be backported.
+The various -stable maintainers also have the option of avoiding
+the need for a backport by expanding it inline.  I am happy to let
+them choose.  ;-)
 
-Re the 12 constant, you were referring to the udp+vxlan headers? it's 8+8
-
-Also, we need a way for drivers that can support VXLAN or NVGRE but
-not concurrently
-on the same port @ the same time to only let vxlan packet to pass
-successfully through the helper.
-
-There was that coloring scheme I suggested, but you didn't like it...
-
->>> Would any other driver maintainers like to chime in on this?
->> Alex? John?
-
-
-Or.
+							Thanx, Paul
