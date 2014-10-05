@@ -1,46 +1,80 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH 15/16] 9p/trans_virtio: enable VQs early
-Date: Sun, 5 Oct 2014 19:07:33 +0300
-Message-ID: <1412525038-15871-16-git-send-email-mst@redhat.com>
+Subject: [PATCH 09/16] virtio-net: drop config_mutex
+Date: Sun, 5 Oct 2014 19:07:16 +0300
+Message-ID: <1412525038-15871-10-git-send-email-mst@redhat.com>
 References: <1412525038-15871-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Van Hensbergen <ericvh@gmail.com>,
-	Ron Minnich <rminnich@sandia.gov>,
-	Latchesar Ionkov <lucho@ionkov.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	v9fs-developer@lists.sourceforge.net, netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org
 To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
 In-Reply-To: <1412525038-15871-1-git-send-email-mst@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-virtio spec requires drivers to set DRIVER_OK before using VQs.
-This is set automatically after probe returns, but virtio 9p device
-adds self to channel list within probe, at which point VQ can be
-used in violation of the spec.
+config_mutex served two purposes: prevent multiple concurrent config
+change handlers, and synchronize access to config_enable flag.
 
-To fix, call virtio_early_enable_vqs before using VQs.
+Since commit dbf2576e37da0fcc7aacbfbb9fd5d3de7888a3c1
+    workqueue: make all workqueues non-reentrant
+all workqueues are non-reentrant, and config_enable
+is now gone.
+
+Get rid of the unnecessary lock.
 
 Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
- net/9p/trans_virtio.c | 2 ++
- 1 file changed, 2 insertions(+)
+ drivers/net/virtio_net.c | 7 +------
+ 1 file changed, 1 insertion(+), 6 deletions(-)
 
-diff --git a/net/9p/trans_virtio.c b/net/9p/trans_virtio.c
-index 6940d8f..0e8bbb3 100644
---- a/net/9p/trans_virtio.c
-+++ b/net/9p/trans_virtio.c
-@@ -575,6 +575,8 @@ static int p9_virtio_probe(struct virtio_device *vdev)
- 	/* Ceiling limit to avoid denial of service attacks */
- 	chan->p9_max_pages = nr_free_buffer_pages()/4;
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index fa17afa..d80fef4 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -132,9 +132,6 @@ struct virtnet_info {
+ 	/* Work struct for config space updates */
+ 	struct work_struct config_work;
  
-+	virtio_early_enable_vqs(vdev);
-+
- 	mutex_lock(&virtio_9p_lock);
- 	list_add_tail(&chan->chan_list, &virtio_chan_list);
- 	mutex_unlock(&virtio_9p_lock);
+-	/* Lock for config space updates */
+-	struct mutex config_lock;
+-
+ 	/* Does the affinity hint is set for virtqueues? */
+ 	bool affinity_hint_set;
+ 
+@@ -1404,7 +1401,6 @@ static void virtnet_config_changed_work(struct work_struct *work)
+ 		container_of(work, struct virtnet_info, config_work);
+ 	u16 v;
+ 
+-	mutex_lock(&vi->config_lock);
+ 	if (virtio_cread_feature(vi->vdev, VIRTIO_NET_F_STATUS,
+ 				 struct virtio_net_config, status, &v) < 0)
+ 		goto done;
+@@ -1430,7 +1426,7 @@ static void virtnet_config_changed_work(struct work_struct *work)
+ 		netif_tx_stop_all_queues(vi->dev);
+ 	}
+ done:
+-	mutex_unlock(&vi->config_lock);
++	return;
+ }
+ 
+ static void virtnet_config_changed(struct virtio_device *vdev)
+@@ -1751,7 +1747,6 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 		u64_stats_init(&virtnet_stats->rx_syncp);
+ 	}
+ 
+-	mutex_init(&vi->config_lock);
+ 	INIT_WORK(&vi->config_work, virtnet_config_changed_work);
+ 
+ 	/* If we can receive ANY GSO packets, we must allocate large ones. */
 -- 
 MST
