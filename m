@@ -1,7 +1,8 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH V1 net-next 0/2] Add pgtable API to query if write combining is available
-Date: Sun,  5 Oct 2014 11:22:20 +0300
-Message-ID: <1412497342-12451-1-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH V1 net-next 1/2] pgtable: Add API to query if write combining is available
+Date: Sun,  5 Oct 2014 11:22:21 +0300
+Message-ID: <1412497342-12451-2-git-send-email-ogerlitz@mellanox.com>
+References: <1412497342-12451-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
 	Jack Morgenstein <jackm@dev.mellanox.co.il>,
 	Moshe Lazer <moshel@mellanox.com>,
@@ -10,115 +11,159 @@ Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:41766 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:46508 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750907AbaJEIWb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 5 Oct 2014 04:22:31 -0400
+	id S1751203AbaJEIXP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 5 Oct 2014 04:23:15 -0400
+In-Reply-To: <1412497342-12451-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
+
+From: Moshe Lazer <moshel@mellanox.com>
 
 Currently the kernel write-combining interface provides a best effort
 mechanism in which the caller simply invokes pgprot_writecombine().
 
 If write combining is available, the region is mapped for it, otherwise
-the region is (silently) mapped as non-cached. In some cases, however, 
-the calling driver must know if write combining is available, so a silent 
-best effort mechanism is not sufficient. Add writecombine_available(), which 
-returns 1 if the system supports write combining and 0 if it doesn't.
+the region is (silently) mapped as non-cached.
 
-In mlx4 for better latency, we write send descriptors to a write-combining
-(WC) mapped buffer instead of ringing a doorbell and having the HW fetch
-the descriptor from system memory.
+In some cases, however, the calling driver must know if write combining
+is available, so a silent best effort mechanism is not sufficient.
 
-However, if write-combining is not supported on the host, then we
-obtain better latency by using the doorbell-ring/HW fetch mechanism.
+Add writecombine_available(), which returns true if the system
+supports write combining and false if it doesn't.
 
-This series from Moshe and Jack adds the API and uses in in mlx4.
+Signed-off-by: Moshe Lazer <moshel@mellanox.com>
+Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+---
+ arch/arm/include/asm/pgtable.h       |    6 ++++++
+ arch/arm64/include/asm/pgtable.h     |    5 +++++
+ arch/ia64/include/asm/pgtable.h      |    6 ++++++
+ arch/powerpc/include/asm/pgtable.h   |    6 ++++++
+ arch/x86/include/asm/pgtable_types.h |    2 ++
+ arch/x86/mm/pat.c                    |    9 +++++++++
+ include/asm-generic/pgtable.h        |    8 ++++++++
+ 7 files changed, 42 insertions(+), 0 deletions(-)
 
-We are sending through netdev to get feedback from the networking 
-community and extend the reviewer audience if required.
-
-Per the reviewers request, here are some results from these 
-three different configurations:
-
-[1] bf=on with wc
-[2] bf=on without wc
-[3] bf=off and doorbell 
-
-The 1st set of results was obtained from running latency test 
-with the HCA being passthrough-ed into VM running over KVM 
-host -- so WC isn't available.
-
-The problematic range is 32-128B, for example with 128 bytes 
-message, using BF has latency of 1.47us and no usage of BF 
-only 1us. When WC isn't really available every write of 64B
-would actually translate into 8 writes of 8 bytes which obviously
-hurts the latency.
-
-# /usr/bin/taskset -c 0 ib_write_lat -d mlx4_0 -i 1  -F -a -n 1000000
-
-[2] BF on without WC 
- #bytes #iterations    t_min[usec]    t_max[usec]  t_typical[usec]
- 2       1000000          0.74           186.16       0.79
- 4       1000000          0.70           103.62       0.78
- 8       1000000          0.74           77.02        0.78
- 16      1000000          0.65           640.75       0.86
- 32      1000000          0.90           134.63       0.96
- 64      1000000          1.05           808.52       1.11
- 128     1000000          1.05           405.58       1.47
+diff --git a/arch/arm/include/asm/pgtable.h b/arch/arm/include/asm/pgtable.h
+index 01baef0..ce06b64 100644
+--- a/arch/arm/include/asm/pgtable.h
++++ b/arch/arm/include/asm/pgtable.h
+@@ -119,6 +119,12 @@ extern pgprot_t		pgprot_s2_device;
+ #define pgprot_writecombine(prot) \
+ 	__pgprot_modify(prot, L_PTE_MT_MASK, L_PTE_MT_BUFFERABLE)
  
-[3] BF off and using doorbell
- #bytes #iterations    t_min[usec]    t_max[usec]  t_typical[usec]
- 2       1000000          0.85           107.29       0.89
- 4       1000000          0.84           705.90       0.89
- 8       1000000          0.85           457.72       0.89
- 16      1000000          0.85           1041.43      0.90
- 32      1000000          0.88           773.67       0.92
- 64      1000000          0.90           82.70        0.93
- 128     1000000          0.96           78.20        1.00
-
-The 2nd set of results was obtained from running latency test 
-over bare-metal host where WC is available. Clearly we gain
-better latency when BF is used vs. the doorbell base.
-
-# /usr/bin/taskset -c 0 ib_write_lat -d mlx4_0 -i 1  -F -a -n 1000000
-
-[1] BF on, WC available
-#bytes #iterations    t_min[usec]    t_max[usec]  t_typical[usec]
- 2       1000000          0.74           131.62       0.79
- 4       1000000          0.74           134.51       0.79
- 8       1000000          0.74           154.30       0.79
- 16      1000000          0.74           1437.57      0.79
- 32      1000000          0.79           138.23       0.83
- 64      1000000          0.82           135.86       0.85
- 128     1000000          0.94           131.11       0.98
-
-[3] BF off and using doorbell
-#bytes #iterations    t_min[usec]    t_max[usec]  t_typical[usec]
- 2       1000000          1.05           137.55       1.10
- 4       1000000          1.04           422.50       1.10
- 8       1000000          1.05           141.26       1.10
- 16      1000000          1.06           1261.99      1.11
- 32      1000000          1.09           141.47       1.14
- 64      1000000          1.11           435.44       1.16
- 128     1000000          1.22           212.19       1.27
-
-Moshe and Or.
-
-changes from V0:
-  - changed the WC helper to return bool value
-
-
-Moshe Lazer (2):
-  pgtable: Add API to query if write combining is available
-  net/mlx4_core: Disable BF when write combining is not available
-
- arch/arm/include/asm/pgtable.h          |    6 ++++++
- arch/arm64/include/asm/pgtable.h        |    5 +++++
- arch/ia64/include/asm/pgtable.h         |    6 ++++++
- arch/powerpc/include/asm/pgtable.h      |    6 ++++++
- arch/x86/include/asm/pgtable_types.h    |    2 ++
- arch/x86/mm/pat.c                       |    9 +++++++++
- drivers/net/ethernet/mellanox/mlx4/fw.c |    2 +-
- include/asm-generic/pgtable.h           |    8 ++++++++
- 8 files changed, 43 insertions(+), 1 deletions(-)
++#define writecombine_available writecombine_available
++static inline bool writecombine_available(void)
++{
++	return true;
++}
++
+ #define pgprot_stronglyordered(prot) \
+ 	__pgprot_modify(prot, L_PTE_MT_MASK, L_PTE_MT_UNCACHED)
+ 
+diff --git a/arch/arm64/include/asm/pgtable.h b/arch/arm64/include/asm/pgtable.h
+index ffe1ba0..6ab0630 100644
+--- a/arch/arm64/include/asm/pgtable.h
++++ b/arch/arm64/include/asm/pgtable.h
+@@ -296,6 +296,11 @@ static inline int has_transparent_hugepage(void)
+ 	__pgprot_modify(prot, PTE_ATTRINDX_MASK, PTE_ATTRINDX(MT_DEVICE_nGnRnE) | PTE_PXN | PTE_UXN)
+ #define pgprot_writecombine(prot) \
+ 	__pgprot_modify(prot, PTE_ATTRINDX_MASK, PTE_ATTRINDX(MT_NORMAL_NC) | PTE_PXN | PTE_UXN)
++#define writecombine_available writecombine_available
++static inline bool writecombine_available(void)
++{
++	return true;
++}
+ #define __HAVE_PHYS_MEM_ACCESS_PROT
+ struct file;
+ extern pgprot_t phys_mem_access_prot(struct file *file, unsigned long pfn,
+diff --git a/arch/ia64/include/asm/pgtable.h b/arch/ia64/include/asm/pgtable.h
+index 7935115..2e44501 100644
+--- a/arch/ia64/include/asm/pgtable.h
++++ b/arch/ia64/include/asm/pgtable.h
+@@ -356,6 +356,12 @@ static inline void set_pte(pte_t *ptep, pte_t pteval)
+ #define pgprot_noncached(prot)		__pgprot((pgprot_val(prot) & ~_PAGE_MA_MASK) | _PAGE_MA_UC)
+ #define pgprot_writecombine(prot)	__pgprot((pgprot_val(prot) & ~_PAGE_MA_MASK) | _PAGE_MA_WC)
+ 
++#define writecombine_available writecombine_available
++static inline bool writecombine_available(void)
++{
++	return true;
++}
++
+ struct file;
+ extern pgprot_t phys_mem_access_prot(struct file *file, unsigned long pfn,
+ 				     unsigned long size, pgprot_t vma_prot);
+diff --git a/arch/powerpc/include/asm/pgtable.h b/arch/powerpc/include/asm/pgtable.h
+index d98c1ec..3232d98 100644
+--- a/arch/powerpc/include/asm/pgtable.h
++++ b/arch/powerpc/include/asm/pgtable.h
+@@ -267,6 +267,12 @@ extern int ptep_set_access_flags(struct vm_area_struct *vma, unsigned long addre
+ 
+ #define pgprot_writecombine pgprot_noncached_wc
+ 
++#define writecombine_available writecombine_available
++static inline bool writecombine_available(void)
++{
++	return true;
++}
++
+ struct file;
+ extern pgprot_t phys_mem_access_prot(struct file *file, unsigned long pfn,
+ 				     unsigned long size, pgprot_t vma_prot);
+diff --git a/arch/x86/include/asm/pgtable_types.h b/arch/x86/include/asm/pgtable_types.h
+index f216963..7d3dc79 100644
+--- a/arch/x86/include/asm/pgtable_types.h
++++ b/arch/x86/include/asm/pgtable_types.h
+@@ -337,6 +337,8 @@ extern int nx_enabled;
+ 
+ #define pgprot_writecombine	pgprot_writecombine
+ extern pgprot_t pgprot_writecombine(pgprot_t prot);
++#define writecombine_available  writecombine_available
++bool writecombine_available(void);
+ 
+ /* Indicate that x86 has its own track and untrack pfn vma functions */
+ #define __HAVE_PFNMAP_TRACKING
+diff --git a/arch/x86/mm/pat.c b/arch/x86/mm/pat.c
+index 6574388..851ee51 100644
+--- a/arch/x86/mm/pat.c
++++ b/arch/x86/mm/pat.c
+@@ -797,6 +797,15 @@ pgprot_t pgprot_writecombine(pgprot_t prot)
+ }
+ EXPORT_SYMBOL_GPL(pgprot_writecombine);
+ 
++bool writecombine_available(void)
++{
++	if (pat_enabled)
++		return true;
++
++	return false;
++}
++EXPORT_SYMBOL_GPL(writecombine_available);
++
+ #if defined(CONFIG_DEBUG_FS) && defined(CONFIG_X86_PAT)
+ 
+ static struct memtype *memtype_get_idx(loff_t pos)
+diff --git a/include/asm-generic/pgtable.h b/include/asm-generic/pgtable.h
+index 53b2acc..2cb40d9 100644
+--- a/include/asm-generic/pgtable.h
++++ b/include/asm-generic/pgtable.h
+@@ -249,6 +249,14 @@ static inline int pmd_same(pmd_t pmd_a, pmd_t pmd_b)
+ #define pgprot_writecombine pgprot_noncached
+ #endif
+ 
++#ifndef writecombine_available
++#define writecombine_available writecombine_available
++static inline bool writecombine_available(void)
++{
++	return false;
++}
++#endif
++
+ /*
+  * When walking page tables, get the address of the next boundary,
+  * or the end address of the range if that comes earlier.  Although no
+-- 
+1.7.1
