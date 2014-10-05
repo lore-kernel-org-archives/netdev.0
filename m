@@ -1,31 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: sched: suspicious RCU usage in qdisc_watchdog
-Date: Sat, 04 Oct 2014 20:46:15 -0400 (EDT)
-Message-ID: <20141004.204615.153993151788265529.davem@davemloft.net>
-References: <20141003054306.20821.48420.stgit@nitbit.x32>
+Subject: Re: [PATCH net v2 1/1] ematch: Fix early ending of inverted
+ containers.
+Date: Sat, 04 Oct 2014 20:50:05 -0400 (EDT)
+Message-ID: <20141004.205005.829959859421038149.davem@davemloft.net>
+References: <542E9505.8010805@cogentembedded.com>
+	<20141003134448.GB26399@zenon.in.qult.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: xiyou.wangcong@gmail.com, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org
-To: john.fastabend@gmail.com
+Content-Type: Text/Plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: ignacy.gawedzki@green-communications.fr
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44244 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44261 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750932AbaJEAqQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Oct 2014 20:46:16 -0400
-In-Reply-To: <20141003054306.20821.48420.stgit@nitbit.x32>
+	with ESMTP id S1750952AbaJEAuG convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Oct 2014 20:50:06 -0400
+In-Reply-To: <20141003134448.GB26399@zenon.in.qult.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Fastabend <john.fastabend@gmail.com>
-Date: Thu, 02 Oct 2014 22:43:09 -0700
+=46rom: Ignacy Gaw=EAdzki <ignacy.gawedzki@green-communications.fr>
+Date: Fri, 3 Oct 2014 15:44:48 +0200
 
-> Suspicious RCU usage in qdisc_watchdog call needs to be done inside
-> rcu_read_lock/rcu_read_unlock. And then Qdisc destroy operations
-> need to ensure timer is cancelled before removing qdisc structure.
- ...
-> Fixes: b26b0d1e8b1 ("net: qdisc: use rcu prefix and silence sparse warnings")
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> The result of a negated container has to be inverted before checking =
+for
+> early ending.
+>=20
+> This fixes my previous attempt (17c9c8232663a47f074b7452b9b034efda868=
+ca7) to
+> make inverted containers work correctly.
+>=20
+> Signed-off-by: Ignacy Gaw=EAdzki <ignacy.gawedzki@green-communication=
+s.fr>
 
-Applied, thank you.
+Applied.
