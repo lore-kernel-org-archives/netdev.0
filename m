@@ -1,48 +1,112 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 00/14] net/mlx4_en: Optimizations to TX flow
-Date: Sun, 05 Oct 2014 08:50:52 -0700
-Message-ID: <1412524252.11091.3.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1412501722-25092-1-git-send-email-amirv@mellanox.com>
-	 <54312F50.2060608@mellanox.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH 08/16] virtio_net: drop config_enable
+Date: Sun, 5 Oct 2014 19:07:13 +0300
+Message-ID: <1412525038-15871-9-git-send-email-mst@redhat.com>
+References: <1412525038-15871-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Ido Shamay <idos@mellanox.com>
-To: Amir Vadai <amirv@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f179.google.com ([209.85.192.179]:48519 "EHLO
-	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751555AbaJEPuz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Oct 2014 11:50:55 -0400
-Received: by mail-pd0-f179.google.com with SMTP id r10so2046315pdi.10
-        for <netdev@vger.kernel.org>; Sun, 05 Oct 2014 08:50:55 -0700 (PDT)
-In-Reply-To: <54312F50.2060608@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Rusty Russell <rusty@rustcorp.com.au>,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1412525038-15871-1-git-send-email-mst@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2014-10-05 at 14:45 +0300, Amir Vadai wrote:
-> On 10/5/2014 12:35 PM, Amir Vadai wrote:
-> > I am sending this patchset now since the merge window is near and don't want to
-> > miss it.
-> 
-> A small clarification, since I didn't explain myself precisely enough:
-> This patchset is not a WIP and ready for merge. The open issues
-> aren't directly related to the series and will be addressed in
-> incremental manner.
+Now that virtio core ensures config changes don't arrive during probing,
+drop config_enable flag in virtio net.
+On removal, flush is now sufficient to guarantee that no change work is
+queued.
 
+This help simplify the driver, and will allow setting DRIVER_OK earlier
+without losing config change notifications.
 
-+2
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+---
+ drivers/net/virtio_net.c | 23 ++---------------------
+ 1 file changed, 2 insertions(+), 21 deletions(-)
 
-Thanks Amir for this hard work.
-
-Note that now the validate calls (GSO segmentation) is performed outside
-of qdisc or device lock ( 55a93b3ea780 qdisc: validate skb without
-holding lock) , its very easy to add a dev->gso_min_segs
-
-I already have a patch for this, I am sending it right now.
-
-Thanks !
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 59caa06..fa17afa 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -123,9 +123,6 @@ struct virtnet_info {
+ 	/* Host can handle any s/g split between our header and packet data */
+ 	bool any_header_sg;
+ 
+-	/* enable config space updates */
+-	bool config_enable;
+-
+ 	/* Active statistics */
+ 	struct virtnet_stats __percpu *stats;
+ 
+@@ -1408,9 +1405,6 @@ static void virtnet_config_changed_work(struct work_struct *work)
+ 	u16 v;
+ 
+ 	mutex_lock(&vi->config_lock);
+-	if (!vi->config_enable)
+-		goto done;
+-
+ 	if (virtio_cread_feature(vi->vdev, VIRTIO_NET_F_STATUS,
+ 				 struct virtio_net_config, status, &v) < 0)
+ 		goto done;
+@@ -1758,7 +1752,6 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 	}
+ 
+ 	mutex_init(&vi->config_lock);
+-	vi->config_enable = true;
+ 	INIT_WORK(&vi->config_work, virtnet_config_changed_work);
+ 
+ 	/* If we can receive ANY GSO packets, we must allocate large ones. */
+@@ -1876,16 +1869,12 @@ static void virtnet_remove(struct virtio_device *vdev)
+ 	unregister_hotcpu_notifier(&vi->nb);
+ 
+ 	/* Prevent config work handler from accessing the device. */
+-	mutex_lock(&vi->config_lock);
+-	vi->config_enable = false;
+-	mutex_unlock(&vi->config_lock);
++	flush_work(&vi->config_work);
+ 
+ 	unregister_netdev(vi->dev);
+ 
+ 	remove_vq_common(vi);
+ 
+-	flush_work(&vi->config_work);
+-
+ 	free_percpu(vi->stats);
+ 	free_netdev(vi->dev);
+ }
+@@ -1899,9 +1888,7 @@ static int virtnet_freeze(struct virtio_device *vdev)
+ 	unregister_hotcpu_notifier(&vi->nb);
+ 
+ 	/* Prevent config work handler from accessing the device */
+-	mutex_lock(&vi->config_lock);
+-	vi->config_enable = false;
+-	mutex_unlock(&vi->config_lock);
++	flush_work(&vi->config_work);
+ 
+ 	netif_device_detach(vi->dev);
+ 	cancel_delayed_work_sync(&vi->refill);
+@@ -1916,8 +1903,6 @@ static int virtnet_freeze(struct virtio_device *vdev)
+ 
+ 	remove_vq_common(vi);
+ 
+-	flush_work(&vi->config_work);
+-
+ 	return 0;
+ }
+ 
+@@ -1941,10 +1926,6 @@ static int virtnet_restore(struct virtio_device *vdev)
+ 
+ 	netif_device_attach(vi->dev);
+ 
+-	mutex_lock(&vi->config_lock);
+-	vi->config_enable = true;
+-	mutex_unlock(&vi->config_lock);
+-
+ 	rtnl_lock();
+ 	virtnet_set_queues(vi, vi->curr_queue_pairs);
+ 	rtnl_unlock();
+-- 
+MST
