@@ -1,36 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2 1/1] ematch: Fix early ending of inverted
- containers.
-Date: Sat, 04 Oct 2014 20:50:05 -0400 (EDT)
-Message-ID: <20141004.205005.829959859421038149.davem@davemloft.net>
-References: <542E9505.8010805@cogentembedded.com>
-	<20141003134448.GB26399@zenon.in.qult.net>
+Subject: Re: [PATCH] team: avoid race condition in scheduling delayed work
+Date: Sat, 04 Oct 2014 20:51:28 -0400 (EDT)
+Message-ID: <20141004.205128.1396970963248010476.davem@davemloft.net>
+References: <1412344714-29938-1-git-send-email-joe.lawrence@stratus.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: ignacy.gawedzki@green-communications.fr
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jiri@resnulli.us
+To: joe.lawrence@stratus.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44261 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44265 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750952AbaJEAuG convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Oct 2014 20:50:06 -0400
-In-Reply-To: <20141003134448.GB26399@zenon.in.qult.net>
+	with ESMTP id S1750952AbaJEAv3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Oct 2014 20:51:29 -0400
+In-Reply-To: <1412344714-29938-1-git-send-email-joe.lawrence@stratus.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Ignacy Gaw=EAdzki <ignacy.gawedzki@green-communications.fr>
-Date: Fri, 3 Oct 2014 15:44:48 +0200
+From: Joe Lawrence <joe.lawrence@stratus.com>
+Date: Fri, 3 Oct 2014 09:58:34 -0400
 
-> The result of a negated container has to be inverted before checking =
-for
-> early ending.
->=20
-> This fixes my previous attempt (17c9c8232663a47f074b7452b9b034efda868=
-ca7) to
-> make inverted containers work correctly.
->=20
-> Signed-off-by: Ignacy Gaw=EAdzki <ignacy.gawedzki@green-communication=
-s.fr>
+> When team_notify_peers and team_mcast_rejoin are called, they both reset
+> their respective .count_pending atomic variable. Then when the actual
+> worker function is executed, the variable is atomically decremented.
+> This pattern introduces a potential race condition where the
+> .count_pending rolls over and the worker function keeps rescheduling
+> until .count_pending decrements to zero again:
+ ...
+> Instead of assigning a new value to .count_pending, use atomic_add to
+> tack-on the additional desired worker function invocations.
+> 
+> Signed-off-by: Joe Lawrence <joe.lawrence@stratus.com>
+> Acked-by: Jiri Pirko <jiri@resnulli.us>
+> Fixes: fc423ff00df3a19554414ee ("team: add peer notification")
+> Fixes: 492b200efdd20b8fcfdac87 ("team: add support for sending multicast rejoins")
 
-Applied.
+Applied and queued up for -stable, thanks.
