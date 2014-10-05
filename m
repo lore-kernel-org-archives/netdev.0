@@ -1,37 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: dsa: do not call phy_start_aneg
-Date: Sat, 04 Oct 2014 20:45:17 -0400 (EDT)
-Message-ID: <20141004.204517.857778573109570110.davem@davemloft.net>
-References: <1412301363-8478-1-git-send-email-f.fainelli@gmail.com>
-	<1412301363-8478-2-git-send-email-f.fainelli@gmail.com>
+Subject: Re: [PATCH] net: sched: suspicious RCU usage in qdisc_watchdog
+Date: Sat, 04 Oct 2014 20:46:15 -0400 (EDT)
+Message-ID: <20141004.204615.153993151788265529.davem@davemloft.net>
+References: <20141003054306.20821.48420.stgit@nitbit.x32>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: f.fainelli@gmail.com
+Cc: xiyou.wangcong@gmail.com, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org
+To: john.fastabend@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44240 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44244 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750952AbaJEApS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Oct 2014 20:45:18 -0400
-In-Reply-To: <1412301363-8478-2-git-send-email-f.fainelli@gmail.com>
+	with ESMTP id S1750932AbaJEAqQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Oct 2014 20:46:16 -0400
+In-Reply-To: <20141003054306.20821.48420.stgit@nitbit.x32>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Thu,  2 Oct 2014 18:56:03 -0700
+From: John Fastabend <john.fastabend@gmail.com>
+Date: Thu, 02 Oct 2014 22:43:09 -0700
 
-> Commit f7f1de51edbd ("net: dsa: start and stop the PHY state machine")
-> add calls to phy_start() in dsa_slave_open() respectively phy_stop() in
-> dsa_slave_close().
-> 
-> We also call phy_start_aneg() in dsa_slave_create(), and this call is
-> messing up with the PHY state machine, since we basically start the
-> auto-negotiation, and later on restart it when calling phy_start().
-> phy_start() does not currently handle the PHY_FORCING or PHY_AN states
-> properly, but such a fix would be too invasive for this window.
-> 
-> Fixes: f7f1de51edbd ("net: dsa: start and stop the PHY state machine")
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> Suspicious RCU usage in qdisc_watchdog call needs to be done inside
+> rcu_read_lock/rcu_read_unlock. And then Qdisc destroy operations
+> need to ensure timer is cancelled before removing qdisc structure.
+ ...
+> Fixes: b26b0d1e8b1 ("net: qdisc: use rcu prefix and silence sparse warnings")
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 
-Applied, thanks.
+Applied, thank you.
