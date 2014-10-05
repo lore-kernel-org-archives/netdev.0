@@ -1,13 +1,14 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: bridge: Respect call-iptables sysctls everywhere
-Date: Sun, 5 Oct 2014 11:53:43 +0800
-Message-ID: <20141005035343.GA13696@gondor.apana.org.au>
+Subject: bridge: Save frag_max_size between PRE_ROUTING and POST_ROUTING
+Date: Sun, 5 Oct 2014 12:00:22 +0800
+Message-ID: <20141005040022.GA14118@gondor.apana.org.au>
 References: <1412384670-17794-1-git-send-email-fw@strlen.de>
  <20141004035606.GA8228@gondor.apana.org.au>
  <20141004100413.GA1241@breakpoint.cc>
  <20141004135508.GA10705@gondor.apana.org.au>
  <20141004141802.GA10878@gondor.apana.org.au>
  <20141004180647.GB1241@breakpoint.cc>
+ <20141005035343.GA13696@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netfilter-devel@vger.kernel.org, bsd@redhat.com,
@@ -17,190 +18,99 @@ Cc: netfilter-devel@vger.kernel.org, bsd@redhat.com,
 To: Florian Westphal <fw@strlen.de>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20141004180647.GB1241@breakpoint.cc>
+In-Reply-To: <20141005035343.GA13696@gondor.apana.org.au>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Oct 04, 2014 at 08:06:47PM +0200, Florian Westphal wrote:
->
-> Fair enough.  We lose frag_max_size information from ipv4 defrag,
+On Sun, Oct 05, 2014 at 11:53:43AM +0800, Herbert Xu wrote:
+> 
+> What we should do therefore is to save any necessary information
+> such as frag_max_size into the bridge CB area when reentering the
+> bridge and then copy it back upon the next reentry into the IP stack.
 
-Sigh.  Why are people still doing IP netfilter through the bridge?
-It's a huge security hole because all bridge devices share the same
-defrag zone so each bridge port can inject packets into any bridge
-device on the system through conntrack.  It used to be an even bigger
-hole when all defrag were in the same zone which meant that you could
-inject packets into the IP stack itself.  At least that hole is
-closed now.
+Here's a patch that does just that:
 
-So in this case what we have is a bridge packet that temporarily
-enters the IP stack for filtering, then reenters the bridge for
-processing, and then gets reinserted into the IP stack for filtering.
+bridge: Save frag_max_size between PRE_ROUTING and POST_ROUTING
 
-What we should do therefore is to save any necessary information
-such as frag_max_size into the bridge CB area when reentering the
-bridge and then copy it back upon the next reentry into the IP stack.
+As we may defragment the packet in IPv4 PRE_ROUTING and refragment
+it after POST_ROUTING we should save the value of frag_max_size.
 
-But really we should be printing a big warning to tell people that
-this feature (specifically IP netfilter through the bridge, netfilter
-through the bridge itself is fine) is insecure and shouldn't be used
-until such a time that it is redesigned properly.
+This is still very wrong as the bridge is supposed to leave the
+packets intact, meaning that the right thing to do is to use the
+original frag_list for fragmentation.
 
-> plus netfilter hooks are called without validating ip options.
+Unfortunately we don't currently guarantee that the frag_list is
+left untouched throughout netfilter so until this changes this is
+the best we can do.
 
-This was the status quo before the patch in question.  Patches are
-welcome.
- 
-> So I am fine with it, provided we rename br_parse_ip_options() --
-> thats not what it does after this patch (br_validate_iphdr(), for
-> example?)
-
-I thought about renaming it but if we ever do add option parsing
-then we'll be renaming it back.  So let's just stick with the name
-plus my comment in the function.
-
-While reviewing this code it occured to me that we have a serious
-bug in that call-iptables sysctls aren't even respected in FORWARD
-and POST_ROUTING.  Here is a patch that fixes this.
-
-bridge: Respect call-iptables sysctls everywhere
-
->From the very beginning the call-iptables sysctl only prevented
-the PRE_ROUTING hook from entering the IP stack.  This is very
-wrong.  The sysctl is used because entering the IP stack from the
-bridge has serious security ramifications so when the admin says
-that we shouldn't do it, it really means no.
-
-This patch fixes this by also checking the sysctl in FORWARD and
-POST_ROUTING.
+There is also a spot in FORWARD where it appears that we can
+forward a packet without going through fragmentation, mark it
+so that we can fix it later.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
 diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
-index c0fdb4d..389d1c6 100644
+index 389d1c6..47fe079 100644
 --- a/net/bridge/br_netfilter.c
 +++ b/net/bridge/br_netfilter.c
-@@ -171,20 +171,28 @@ void br_netfilter_rtable_init(struct net_bridge *br)
- 	rt->dst.ops = &fake_dst_ops;
- }
- 
--static inline struct rtable *bridge_parent_rtable(const struct net_device *dev)
-+static inline struct net_bridge *bridge_parent(const struct net_device *dev)
- {
- 	struct net_bridge_port *port;
- 
- 	port = br_port_get_rcu(dev);
--	return port ? &port->br->fake_rtable : NULL;
-+	return port ? port->br : NULL;
- }
- 
--static inline struct net_device *bridge_parent(const struct net_device *dev)
-+static inline struct rtable *bridge_parent_rtable(const struct net_device *dev)
- {
--	struct net_bridge_port *port;
-+	struct net_bridge *br;
- 
--	port = br_port_get_rcu(dev);
--	return port ? port->br->dev : NULL;
-+	br = bridge_parent(dev);
-+	return br ? &br->fake_rtable : NULL;
-+}
-+
-+static inline struct net_device *bridge_parent_dev(const struct net_device *dev)
-+{
-+	struct net_bridge *br;
-+
-+	br = bridge_parent(dev);
-+	return br ? br->dev : NULL;
- }
- 
- static inline struct nf_bridge_info *nf_bridge_alloc(struct sk_buff *skb)
-@@ -367,7 +375,7 @@ static int br_nf_pre_routing_finish_bridge(struct sk_buff *skb)
- 	struct neighbour *neigh;
- 	struct dst_entry *dst;
- 
--	skb->dev = bridge_parent(skb->dev);
-+	skb->dev = bridge_parent_dev(skb->dev);
- 	if (!skb->dev)
- 		goto free_skb;
- 	dst = skb_dst(skb);
-@@ -517,7 +525,7 @@ static struct net_device *brnf_get_logical_dev(struct sk_buff *skb, const struct
- {
- 	struct net_device *vlan, *br;
- 
--	br = bridge_parent(dev);
-+	br = bridge_parent_dev(dev);
- 	if (brnf_pass_vlan_indev == 0 || !vlan_tx_tag_present(skb))
- 		return br;
- 
-@@ -763,6 +771,7 @@ static unsigned int br_nf_forward_ip(const struct nf_hook_ops *ops,
- {
- 	struct nf_bridge_info *nf_bridge;
- 	struct net_device *parent;
-+	struct net_bridge *br;
- 	u_int8_t pf;
- 
- 	if (!skb->nf_bridge)
-@@ -773,15 +782,21 @@ static unsigned int br_nf_forward_ip(const struct nf_hook_ops *ops,
- 	if (!nf_bridge_unshare(skb))
- 		return NF_DROP;
- 
--	parent = bridge_parent(out);
--	if (!parent)
-+	br = bridge_parent(out);
-+	if (!br)
- 		return NF_DROP;
- 
--	if (IS_IP(skb) || IS_VLAN_IP(skb) || IS_PPPOE_IP(skb))
-+	parent = br->dev;
-+
-+	if (IS_IP(skb) || IS_VLAN_IP(skb) || IS_PPPOE_IP(skb)) {
- 		pf = NFPROTO_IPV4;
--	else if (IS_IPV6(skb) || IS_VLAN_IPV6(skb) || IS_PPPOE_IPV6(skb))
-+		if (!brnf_call_iptables && !br->nf_call_iptables)
-+			return NF_ACCEPT;
-+	} else if (IS_IPV6(skb) || IS_VLAN_IPV6(skb) || IS_PPPOE_IPV6(skb)) {
- 		pf = NFPROTO_IPV6;
--	else
-+		if (!brnf_call_ip6tables && !br->nf_call_ip6tables)
-+			return NF_ACCEPT;
-+	} else
- 		return NF_ACCEPT;
- 
- 	nf_bridge_pull_encap_header(skb);
-@@ -877,20 +892,27 @@ static unsigned int br_nf_post_routing(const struct nf_hook_ops *ops,
- 				       int (*okfn)(struct sk_buff *))
- {
+@@ -398,6 +398,7 @@ static int br_nf_pre_routing_finish_bridge(struct sk_buff *skb)
+ 							 ETH_HLEN-ETH_ALEN);
+ 			/* tell br_dev_xmit to continue with forwarding */
+ 			nf_bridge->mask |= BRNF_BRIDGED_DNAT;
++			/* FIXME Need to refragment */
+ 			ret = neigh->output(neigh, skb);
+ 		}
+ 		neigh_release(neigh);
+@@ -453,6 +454,10 @@ static int br_nf_pre_routing_finish(struct sk_buff *skb)
  	struct nf_bridge_info *nf_bridge = skb->nf_bridge;
--	struct net_device *realoutdev = bridge_parent(skb->dev);
-+	struct net_bridge *br = bridge_parent(skb->dev);
-+	struct net_device *realoutdev;
- 	u_int8_t pf;
- 
- 	if (!nf_bridge || !(nf_bridge->mask & BRNF_BRIDGED))
- 		return NF_ACCEPT;
- 
--	if (!realoutdev)
-+	if (!br)
- 		return NF_DROP;
- 
--	if (IS_IP(skb) || IS_VLAN_IP(skb) || IS_PPPOE_IP(skb))
-+	realoutdev = br->dev;
+ 	struct rtable *rt;
+ 	int err;
++	int frag_max_size;
 +
-+	if (IS_IP(skb) || IS_VLAN_IP(skb) || IS_PPPOE_IP(skb)) {
- 		pf = NFPROTO_IPV4;
--	else if (IS_IPV6(skb) || IS_VLAN_IPV6(skb) || IS_PPPOE_IPV6(skb))
-+		if (!brnf_call_iptables && !br->nf_call_iptables)
-+			return NF_ACCEPT;
-+	} else if (IS_IPV6(skb) || IS_VLAN_IPV6(skb) || IS_PPPOE_IPV6(skb)) {
- 		pf = NFPROTO_IPV6;
--	else
-+		if (!brnf_call_ip6tables && !br->nf_call_ip6tables)
-+			return NF_ACCEPT;
-+	} else
- 		return NF_ACCEPT;
++	frag_max_size = IPCB(skb)->frag_max_size;
++	BR_INPUT_SKB_CB(skb)->frag_max_size = frag_max_size;
  
- 	/* We assume any code from br_dev_queue_push_xmit onwards doesn't care
+ 	if (nf_bridge->mask & BRNF_PKT_TYPE) {
+ 		skb->pkt_type = PACKET_OTHERHOST;
+@@ -864,13 +869,19 @@ static unsigned int br_nf_forward_arp(const struct nf_hook_ops *ops,
+ static int br_nf_dev_queue_xmit(struct sk_buff *skb)
+ {
+ 	int ret;
++	int frag_max_size;
+ 
++	/* This is wrong! We should preserve the original fragment
++	 * boundaries by preserving frag_list rather than refragmenting.
++	 */
+ 	if (skb->protocol == htons(ETH_P_IP) &&
+ 	    skb->len + nf_bridge_mtu_reduction(skb) > skb->dev->mtu &&
+ 	    !skb_is_gso(skb)) {
++		frag_max_size = BR_INPUT_SKB_CB(skb)->frag_max_size;
+ 		if (br_parse_ip_options(skb))
+ 			/* Drop invalid packet */
+ 			return NF_DROP;
++		IPCB(skb)->frag_max_size = frag_max_size;
+ 		ret = ip_fragment(skb, br_dev_queue_push_xmit);
+ 	} else
+ 		ret = br_dev_queue_push_xmit(skb);
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index b6c04cb..2398369 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -305,10 +305,14 @@ struct net_bridge
+ 
+ struct br_input_skb_cb {
+ 	struct net_device *brdev;
++
+ #ifdef CONFIG_BRIDGE_IGMP_SNOOPING
+ 	int igmp;
+ 	int mrouters_only;
+ #endif
++
++	u16 frag_max_size;
++
+ #ifdef CONFIG_BRIDGE_VLAN_FILTERING
+ 	bool vlan_filtered;
+ #endif
 
 Cheers,
 -- 
