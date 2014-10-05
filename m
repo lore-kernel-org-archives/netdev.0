@@ -1,119 +1,83 @@
 From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH net-next] net: introduce netdevice gso_min_segs attribute
-Date: Sun, 5 Oct 2014 11:45:46 -0700
-Message-ID: <CA+mtBx9qLU_6OgLQ=GW+V2UwZ2h_GqrzAHhYL_0BP8p8AzVd=g@mail.gmail.com>
-References: <1412501722-25092-1-git-send-email-amirv@mellanox.com>
-	<54312F50.2060608@mellanox.com>
-	<1412524252.11091.3.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1412529087.11091.14.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH] net: Add ndo_gso_check
+Date: Sun, 5 Oct 2014 11:49:05 -0700
+Message-ID: <CA+mtBx8-w74f_f9JEfpwH9=Mjr_zaJJAYCMMdYAWdCy-51pzqg@mail.gmail.com>
+References: <1411962607-27878-1-git-send-email-therbert@google.com>
+	<CAJ3xEMi-TRXevenx87UM7JnKqRQQATW4MBjbz8JdnQE9gk3KZw@mail.gmail.com>
+	<CA+mtBx8r05=qs2J58LFq56762tFB7wF4Dsr3C5TC9w5qQP5jGw@mail.gmail.com>
+	<CAJ3xEMhf6b75TQDFqEPMSXCpL9ToWG1q0OMPtrEuHNSm=-PSwQ@mail.gmail.com>
+	<CA+mtBx_6HcZh5Ys1FJFBXkZ2bWX1gP6bTcjY7gbR6RG_TOy50Q@mail.gmail.com>
+	<CAJ3xEMi0biCWTNtLOJ=0HWZYjOWi6pN2bw2=EWajp6XnpoyVRw@mail.gmail.com>
+	<CA+mtBx-sP6g9hXAYGfHKCPYkCtjgCFM0srueh1uhoNnC2ACr1g@mail.gmail.com>
+	<CAJ3xEMhc-97+3ZDwqXzX2N+=voO4QvJ5_YXn3sp8r8E9YyqotQ@mail.gmail.com>
+	<CA+mtBx9=+fGjwJCKpTW5EifmavC6VGnbuJdkc5tqzeEHz+5twA@mail.gmail.com>
+	<CAJ3xEMhzxfP3Sqp=_QSQehd2j2s=Gr3B1iO2S--OcoT7VC94nQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Amir Vadai <amirv@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	David Miller <davem@davemloft.net>,
 	Linux Netdev List <netdev@vger.kernel.org>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Ido Shamay <idos@mellanox.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+	Thomas Graf <tgraf@suug.ch>,
+	Pravin Shelar <pshelar@nicira.com>,
+	Andy Zhou <azhou@nicira.com>
+To: Or Gerlitz <gerlitz.or@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f179.google.com ([209.85.213.179]:48966 "EHLO
-	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751775AbaJESpr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Oct 2014 14:45:47 -0400
-Received: by mail-ig0-f179.google.com with SMTP id h18so1702214igc.0
-        for <netdev@vger.kernel.org>; Sun, 05 Oct 2014 11:45:46 -0700 (PDT)
-In-Reply-To: <1412529087.11091.14.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-ie0-f174.google.com ([209.85.223.174]:60028 "EHLO
+	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751775AbaJEStG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Oct 2014 14:49:06 -0400
+Received: by mail-ie0-f174.google.com with SMTP id tr6so2160536ieb.5
+        for <netdev@vger.kernel.org>; Sun, 05 Oct 2014 11:49:05 -0700 (PDT)
+In-Reply-To: <CAJ3xEMhzxfP3Sqp=_QSQehd2j2s=Gr3B1iO2S--OcoT7VC94nQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Oct 5, 2014 at 10:11 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> From: Eric Dumazet <edumazet@google.com>
+On Sun, Oct 5, 2014 at 7:04 AM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+> On Thu, Oct 2, 2014 at 2:06 AM, Tom Herbert <therbert@google.com> wrote:
+>> On Wed, Oct 1, 2014 at 1:58 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+>>> On Tue, Sep 30, 2014 at 6:34 PM, Tom Herbert <therbert@google.com> wrote:
+>>>> On Tue, Sep 30, 2014 at 7:30 AM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+> [...]
+>> Solution #4: apply this patch and implement the check functions as
+>> needed in those 4 or 5 drivers. If a device can only do VXLAN/NVGRE
+>> then I believe the check function is something like:
+>>
+>> bool mydev_gso_check(struct sk_buff *skb, struct net_device *dev)
+>> {
+>>         if ((skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL) &&
+>>             ((skb->inner_protocol_type != ENCAP_TYPE_ETHER ||
+>>               skb->protocol != htons(ETH_P_TEB) ||
+>>               skb_inner_mac_header(skb) - skb_transport_header(skb) != 12)
+>>                 return false;
+>>
+>>         return true;
+>> }
 >
-> Some TSO engines might have a too heavy setup cost, that impacts
-> performance on hosts sending small bursts (2 MSS per packet).
+> Yep, such helper can can be basically made to work and let the 4-5
+> drivers that can
+> do GSO offloading for vxlan but not for any FOU/GUE packets signal
+> that to the stack.
 >
-> This patch adds a device gso_min_segs, allowing drivers to set
-> a minimum segment size for TSO packets, according to the NIC
-> performance.
+> Re the 12 constant, you were referring to the udp+vxlan headers? it's 8+8
 >
-Eric, this seems like another device specific limitation in TSO we are
-exposing to the stack. Can't we just put things like this in
-ndo_gso_check so driver can apply whatever criteria it wants in
-deciding if it worth it or even to rather do TSO?
+> Also, we need a way for drivers that can support VXLAN or NVGRE but
+> not concurrently
+> on the same port @ the same time to only let vxlan packet to pass
+> successfully through the helper.
+>
+Or, there should be no difference in GSO processing between VXLAN and
+NVGRE. Can you explain why you feel you need to differentiate them for
+GSO?
 
-> Tested on a mlx4 NIC, this allows to get a ~110% increase of
-> throughput when sending 2 MSS per packet.
+Thanks,
+Tom
+
+> There was that coloring scheme I suggested, but you didn't like it...
 >
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> ---
-> mlx4 patch will be sent later, its a one liner.
->
->  include/linux/netdevice.h |    4 +++-
->  net/core/dev.c            |    9 ++++++---
->  2 files changed, 9 insertions(+), 4 deletions(-)
->
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index 22d54b9b700d..2df86f50261c 100644
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -1416,6 +1416,8 @@ enum netdev_priv_flags {
->   *     @gso_max_size:  Maximum size of generic segmentation offload
->   *     @gso_max_segs:  Maximum number of segments that can be passed to the
->   *                     NIC for GSO
-> + *     @gso_min_segs:  Minimum number of segments that can be passed to the
-> + *                     NIC for GSO
->   *
->   *     @dcbnl_ops:     Data Center Bridging netlink ops
->   *     @num_tc:        Number of traffic classes in the net device
-> @@ -1666,7 +1668,7 @@ struct net_device {
->         unsigned int            gso_max_size;
->  #define GSO_MAX_SEGS           65535
->         u16                     gso_max_segs;
-> -
-> +       u16                     gso_min_segs;
->  #ifdef CONFIG_DCB
->         const struct dcbnl_rtnl_ops *dcbnl_ops;
->  #endif
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 1a90530f83ff..16e8ebbd3316 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -2567,10 +2567,12 @@ static netdev_features_t harmonize_features(struct sk_buff *skb,
->
->  netdev_features_t netif_skb_features(struct sk_buff *skb)
->  {
-> +       const struct net_device *dev = skb->dev;
-> +       netdev_features_t features = dev->features;
-> +       u16 gso_segs = skb_shinfo(skb)->gso_segs;
->         __be16 protocol = skb->protocol;
-> -       netdev_features_t features = skb->dev->features;
->
-> -       if (skb_shinfo(skb)->gso_segs > skb->dev->gso_max_segs)
-> +       if (gso_segs > dev->gso_max_segs || gso_segs < dev->gso_min_segs)
->                 features &= ~NETIF_F_GSO_MASK;
->
->         if (protocol == htons(ETH_P_8021Q) || protocol == htons(ETH_P_8021AD)) {
-> @@ -2581,7 +2583,7 @@ netdev_features_t netif_skb_features(struct sk_buff *skb)
->         }
->
->         features = netdev_intersect_features(features,
-> -                                            skb->dev->vlan_features |
-> +                                            dev->vlan_features |
->                                              NETIF_F_HW_VLAN_CTAG_TX |
->                                              NETIF_F_HW_VLAN_STAG_TX);
->
-> @@ -6658,6 +6660,7 @@ struct net_device *alloc_netdev_mqs(int sizeof_priv, const char *name,
->
->         dev->gso_max_size = GSO_MAX_SIZE;
->         dev->gso_max_segs = GSO_MAX_SEGS;
-> +       dev->gso_min_segs = 0;
->
->         INIT_LIST_HEAD(&dev->napi_list);
->         INIT_LIST_HEAD(&dev->unreg_list);
+>>>> Would any other driver maintainers like to chime in on this?
+>>> Alex? John?
 >
 >
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Or.
