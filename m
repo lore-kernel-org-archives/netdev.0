@@ -1,30 +1,119 @@
-From: Govindarajulu Varadarajan <_govind@gmx.com>
-Subject: Re: [PATCH net-next v2 1/2] if_link: add client name to port
- profile
-Date: Mon, 6 Oct 2014 00:14:30 +0530 (IST)
-Message-ID: <alpine.LNX.2.03.1410052339550.5378@ws.cisco>
-References: <1412289683-8278-1-git-send-email-_govind@gmx.com> <1412289683-8278-2-git-send-email-_govind@gmx.com> <20141004200523.4fc102e3@urahara>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH net-next] net: introduce netdevice gso_min_segs attribute
+Date: Sun, 5 Oct 2014 11:45:46 -0700
+Message-ID: <CA+mtBx9qLU_6OgLQ=GW+V2UwZ2h_GqrzAHhYL_0BP8p8AzVd=g@mail.gmail.com>
+References: <1412501722-25092-1-git-send-email-amirv@mellanox.com>
+	<54312F50.2060608@mellanox.com>
+	<1412524252.11091.3.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1412529087.11091.14.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Govindarajulu Varadarajan <_govind@gmx.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, ssujith@cisco.com, benve@cisco.com
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Amir Vadai <amirv@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Ido Shamay <idos@mellanox.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.com ([74.208.4.201]:57650 "EHLO mout.gmx.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751775AbaJESos (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 5 Oct 2014 14:44:48 -0400
-In-Reply-To: <20141004200523.4fc102e3@urahara>
+Received: from mail-ig0-f179.google.com ([209.85.213.179]:48966 "EHLO
+	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751775AbaJESpr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Oct 2014 14:45:47 -0400
+Received: by mail-ig0-f179.google.com with SMTP id h18so1702214igc.0
+        for <netdev@vger.kernel.org>; Sun, 05 Oct 2014 11:45:46 -0700 (PDT)
+In-Reply-To: <1412529087.11091.14.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 4 Oct 2014, Stephen Hemminger wrote:
-> Maybe you could use the existing IFLA_IFALIAS?
-> It is already supported by iproute tools and sysfs, and can be used by net-snmp as well.
-> You would just be setting the default string, users could change it.
+On Sun, Oct 5, 2014 at 10:11 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> From: Eric Dumazet <edumazet@google.com>
 >
+> Some TSO engines might have a too heavy setup cost, that impacts
+> performance on hosts sending small bursts (2 MSS per packet).
+>
+> This patch adds a device gso_min_segs, allowing drivers to set
+> a minimum segment size for TSO packets, according to the NIC
+> performance.
+>
+Eric, this seems like another device specific limitation in TSO we are
+exposing to the stack. Can't we just put things like this in
+ndo_gso_check so driver can apply whatever criteria it wants in
+deciding if it worth it or even to rather do TSO?
 
-I do not think we can use ifalias here. Port profile is for SRIOV-VF
-pci passthrough. vfio-pci will own the pci device and there would not be
-net_device registeres for that interface on host. The client (libvirt)
-unregisters the vf before binding it to vfio-pci.
+> Tested on a mlx4 NIC, this allows to get a ~110% increase of
+> throughput when sending 2 MSS per packet.
+>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> ---
+> mlx4 patch will be sent later, its a one liner.
+>
+>  include/linux/netdevice.h |    4 +++-
+>  net/core/dev.c            |    9 ++++++---
+>  2 files changed, 9 insertions(+), 4 deletions(-)
+>
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index 22d54b9b700d..2df86f50261c 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -1416,6 +1416,8 @@ enum netdev_priv_flags {
+>   *     @gso_max_size:  Maximum size of generic segmentation offload
+>   *     @gso_max_segs:  Maximum number of segments that can be passed to the
+>   *                     NIC for GSO
+> + *     @gso_min_segs:  Minimum number of segments that can be passed to the
+> + *                     NIC for GSO
+>   *
+>   *     @dcbnl_ops:     Data Center Bridging netlink ops
+>   *     @num_tc:        Number of traffic classes in the net device
+> @@ -1666,7 +1668,7 @@ struct net_device {
+>         unsigned int            gso_max_size;
+>  #define GSO_MAX_SEGS           65535
+>         u16                     gso_max_segs;
+> -
+> +       u16                     gso_min_segs;
+>  #ifdef CONFIG_DCB
+>         const struct dcbnl_rtnl_ops *dcbnl_ops;
+>  #endif
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 1a90530f83ff..16e8ebbd3316 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -2567,10 +2567,12 @@ static netdev_features_t harmonize_features(struct sk_buff *skb,
+>
+>  netdev_features_t netif_skb_features(struct sk_buff *skb)
+>  {
+> +       const struct net_device *dev = skb->dev;
+> +       netdev_features_t features = dev->features;
+> +       u16 gso_segs = skb_shinfo(skb)->gso_segs;
+>         __be16 protocol = skb->protocol;
+> -       netdev_features_t features = skb->dev->features;
+>
+> -       if (skb_shinfo(skb)->gso_segs > skb->dev->gso_max_segs)
+> +       if (gso_segs > dev->gso_max_segs || gso_segs < dev->gso_min_segs)
+>                 features &= ~NETIF_F_GSO_MASK;
+>
+>         if (protocol == htons(ETH_P_8021Q) || protocol == htons(ETH_P_8021AD)) {
+> @@ -2581,7 +2583,7 @@ netdev_features_t netif_skb_features(struct sk_buff *skb)
+>         }
+>
+>         features = netdev_intersect_features(features,
+> -                                            skb->dev->vlan_features |
+> +                                            dev->vlan_features |
+>                                              NETIF_F_HW_VLAN_CTAG_TX |
+>                                              NETIF_F_HW_VLAN_STAG_TX);
+>
+> @@ -6658,6 +6660,7 @@ struct net_device *alloc_netdev_mqs(int sizeof_priv, const char *name,
+>
+>         dev->gso_max_size = GSO_MAX_SIZE;
+>         dev->gso_max_segs = GSO_MAX_SEGS;
+> +       dev->gso_min_segs = 0;
+>
+>         INIT_LIST_HEAD(&dev->napi_list);
+>         INIT_LIST_HEAD(&dev->unreg_list);
+>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
