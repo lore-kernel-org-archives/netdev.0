@@ -1,60 +1,81 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net: introduce netdevice gso_min_segs attribute
-Date: Sun, 05 Oct 2014 11:58:37 -0700
-Message-ID: <1412535517.11091.24.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1412501722-25092-1-git-send-email-amirv@mellanox.com>
-	 <54312F50.2060608@mellanox.com>
-	 <1412524252.11091.3.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1412529087.11091.14.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+mtBx9qLU_6OgLQ=GW+V2UwZ2h_GqrzAHhYL_0BP8p8AzVd=g@mail.gmail.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [PATCH] net: Add ndo_gso_check
+Date: Sun, 5 Oct 2014 22:13:37 +0300
+Message-ID: <CAJ3xEMgPb9BhvtifmTzy6bS9WDf3jUx6dnx4418KNTjGNPreHQ@mail.gmail.com>
+References: <1411962607-27878-1-git-send-email-therbert@google.com>
+	<CAJ3xEMi-TRXevenx87UM7JnKqRQQATW4MBjbz8JdnQE9gk3KZw@mail.gmail.com>
+	<CA+mtBx8r05=qs2J58LFq56762tFB7wF4Dsr3C5TC9w5qQP5jGw@mail.gmail.com>
+	<CAJ3xEMhf6b75TQDFqEPMSXCpL9ToWG1q0OMPtrEuHNSm=-PSwQ@mail.gmail.com>
+	<CA+mtBx_6HcZh5Ys1FJFBXkZ2bWX1gP6bTcjY7gbR6RG_TOy50Q@mail.gmail.com>
+	<CAJ3xEMi0biCWTNtLOJ=0HWZYjOWi6pN2bw2=EWajp6XnpoyVRw@mail.gmail.com>
+	<CA+mtBx-sP6g9hXAYGfHKCPYkCtjgCFM0srueh1uhoNnC2ACr1g@mail.gmail.com>
+	<CAJ3xEMhc-97+3ZDwqXzX2N+=voO4QvJ5_YXn3sp8r8E9YyqotQ@mail.gmail.com>
+	<CA+mtBx9=+fGjwJCKpTW5EifmavC6VGnbuJdkc5tqzeEHz+5twA@mail.gmail.com>
+	<CAJ3xEMhzxfP3Sqp=_QSQehd2j2s=Gr3B1iO2S--OcoT7VC94nQ@mail.gmail.com>
+	<CA+mtBx8-w74f_f9JEfpwH9=Mjr_zaJJAYCMMdYAWdCy-51pzqg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Amir Vadai <amirv@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	David Miller <davem@davemloft.net>,
 	Linux Netdev List <netdev@vger.kernel.org>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Ido Shamay <idos@mellanox.com>
+	Thomas Graf <tgraf@suug.ch>,
+	Pravin Shelar <pshelar@nicira.com>,
+	Andy Zhou <azhou@nicira.com>
 To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f181.google.com ([209.85.192.181]:43505 "EHLO
-	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751711AbaJES6k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Oct 2014 14:58:40 -0400
-Received: by mail-pd0-f181.google.com with SMTP id z10so2165772pdj.12
-        for <netdev@vger.kernel.org>; Sun, 05 Oct 2014 11:58:39 -0700 (PDT)
-In-Reply-To: <CA+mtBx9qLU_6OgLQ=GW+V2UwZ2h_GqrzAHhYL_0BP8p8AzVd=g@mail.gmail.com>
+Received: from mail-oi0-f52.google.com ([209.85.218.52]:61262 "EHLO
+	mail-oi0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751711AbaJETNi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Oct 2014 15:13:38 -0400
+Received: by mail-oi0-f52.google.com with SMTP id a3so2727492oib.25
+        for <netdev@vger.kernel.org>; Sun, 05 Oct 2014 12:13:37 -0700 (PDT)
+In-Reply-To: <CA+mtBx8-w74f_f9JEfpwH9=Mjr_zaJJAYCMMdYAWdCy-51pzqg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2014-10-05 at 11:45 -0700, Tom Herbert wrote:
-> On Sun, Oct 5, 2014 at 10:11 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > From: Eric Dumazet <edumazet@google.com>
-> >
-> > Some TSO engines might have a too heavy setup cost, that impacts
-> > performance on hosts sending small bursts (2 MSS per packet).
-> >
-> > This patch adds a device gso_min_segs, allowing drivers to set
-> > a minimum segment size for TSO packets, according to the NIC
-> > performance.
-> >
-> Eric, this seems like another device specific limitation in TSO we are
-> exposing to the stack. Can't we just put things like this in
-> ndo_gso_check so driver can apply whatever criteria it wants in
-> deciding if it worth it or even to rather do TSO?
+On Sun, Oct 5, 2014 at 9:49 PM, Tom Herbert <therbert@google.com> wrote:
+> On Sun, Oct 5, 2014 at 7:04 AM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+>> On Thu, Oct 2, 2014 at 2:06 AM, Tom Herbert <therbert@google.com> wrote:
+>>> On Wed, Oct 1, 2014 at 1:58 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+>>>> On Tue, Sep 30, 2014 at 6:34 PM, Tom Herbert <therbert@google.com> wrote:
+>>>>> On Tue, Sep 30, 2014 at 7:30 AM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+>> [...]
+>>> Solution #4: apply this patch and implement the check functions as
+>>> needed in those 4 or 5 drivers. If a device can only do VXLAN/NVGRE
+>>> then I believe the check function is something like:
+>>>
+>>> bool mydev_gso_check(struct sk_buff *skb, struct net_device *dev)
+>>> {
+>>>         if ((skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL) &&
+>>>             ((skb->inner_protocol_type != ENCAP_TYPE_ETHER ||
+>>>               skb->protocol != htons(ETH_P_TEB) ||
+>>>               skb_inner_mac_header(skb) - skb_transport_header(skb) != 12)
+>>>                 return false;
+>>>
+>>>         return true;
+>>> }
+>>
+>> Yep, such helper can can be basically made to work and let the 4-5
+>> drivers that can
+>> do GSO offloading for vxlan but not for any FOU/GUE packets signal
+>> that to the stack.
+>>
+>> Re the 12 constant, you were referring to the udp+vxlan headers? it's 8+8
+>>
+>> Also, we need a way for drivers that can support VXLAN or NVGRE but
+>> not concurrently
+>> on the same port @ the same time to only let vxlan packet to pass
+>> successfully through the helper.
 
-I don't think it really matters where the check is done.
+> Or, there should be no difference in GSO processing between VXLAN and
+> NVGRE. Can you explain why you feel you need to differentiate them for GSO?
 
-If you want to move the check away from netif_skb_features(), its fine
-with me, but please note you did not suggest this for current check
-against gso_max_segs.
 
-I based my patch on current net-next, where ndo_gso_check() does not
-exist.
-
-BTW, I wonder now why we added gso_max_segs support to bonding driver.
-(commit 0e376bd0b791ac6ac6bdb051492df0769c840848)
-
-It makes little sense, gso should be done at the last possible stage.
+RX wise, Linux tells the driver that UDP port X would be used for
+VXLAN, right? and indeed, it's possible for some HW implementations
+not to support RX offloading (checksum) for both VXLAN and NVGRE @ the
+same time over the same port. But TX/GRO wise, you're probably
+correct. The thing is that from the user POV they need solution that
+works for both RX and TX offloading.
