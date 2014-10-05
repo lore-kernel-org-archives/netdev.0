@@ -1,7 +1,7 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next 03/14] net/mlx4_en: Avoid calling bswap in tx fast path
-Date: Sun,  5 Oct 2014 12:35:11 +0300
-Message-ID: <1412501722-25092-4-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next 13/14] ethtool: Ethtool parameter to dynamically change tx_copybreak
+Date: Sun,  5 Oct 2014 12:35:21 +0300
+Message-ID: <1412501722-25092-14-git-send-email-amirv@mellanox.com>
 References: <1412501722-25092-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
@@ -9,9 +9,9 @@ Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.com>,
 To: "David S. Miller" <davem@davemloft.net>,
 	Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:59537 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:59536 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751406AbaJEJfj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751407AbaJEJfj (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sun, 5 Oct 2014 05:35:39 -0400
 In-Reply-To: <1412501722-25092-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
@@ -19,96 +19,38 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Eric Dumazet <edumazet@google.com>
 
-- doorbell_qpn is stored in the cpu_to_be32() way to avoid bswap() in fast
-  path.
-- mdev->mr.key stored in ring->mr_key to also avoid bswap() and access to
-  cold cache line.
+Use new ethtool [sg]et_tunable() to set tx_copybread (inline threshold)
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_tx.c   | 17 ++++++++++-------
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h |  3 ++-
- 2 files changed, 12 insertions(+), 8 deletions(-)
+ include/uapi/linux/ethtool.h | 1 +
+ net/core/ethtool.c           | 1 +
+ 2 files changed, 2 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-index eaf23eb..322cda3 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-@@ -195,7 +195,8 @@ int mlx4_en_activate_tx_ring(struct mlx4_en_priv *priv,
- 	memset(ring->buf, 0, ring->buf_size);
+diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
+index 7a364f2..99b4305 100644
+--- a/include/uapi/linux/ethtool.h
++++ b/include/uapi/linux/ethtool.h
+@@ -212,6 +212,7 @@ struct ethtool_value {
+ enum tunable_id {
+ 	ETHTOOL_ID_UNSPEC,
+ 	ETHTOOL_RX_COPYBREAK,
++	ETHTOOL_TX_COPYBREAK,
+ };
  
- 	ring->qp_state = MLX4_QP_STATE_RST;
--	ring->doorbell_qpn = ring->qp.qpn << 8;
-+	ring->doorbell_qpn = cpu_to_be32(ring->qp.qpn << 8);
-+	ring->mr_key = cpu_to_be32(mdev->mr.key);
- 
- 	mlx4_en_fill_qp_context(priv, ring->size, ring->stride, 1, 0, ring->qpn,
- 				ring->cqn, user_prio, &ring->context);
-@@ -654,7 +655,6 @@ static void mlx4_bf_copy(void __iomem *dst, const void *src,
- netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ enum tunable_type_id {
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 27e61b8..1600aa2 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -1625,6 +1625,7 @@ static int ethtool_tunable_valid(const struct ethtool_tunable *tuna)
  {
- 	struct mlx4_en_priv *priv = netdev_priv(dev);
--	struct mlx4_en_dev *mdev = priv->mdev;
- 	struct device *ddev = priv->ddev;
- 	struct mlx4_en_tx_ring *ring;
- 	struct mlx4_en_tx_desc *tx_desc;
-@@ -769,7 +769,7 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
- 				goto tx_drop_unmap;
- 
- 			data->addr = cpu_to_be64(dma);
--			data->lkey = cpu_to_be32(mdev->mr.key);
-+			data->lkey = ring->mr_key;
- 			wmb();
- 			data->byte_count = cpu_to_be32(skb_frag_size(frag));
- 			--data;
-@@ -787,7 +787,7 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
- 				goto tx_drop_unmap;
- 
- 			data->addr = cpu_to_be64(dma);
--			data->lkey = cpu_to_be32(mdev->mr.key);
-+			data->lkey = ring->mr_key;
- 			wmb();
- 			data->byte_count = cpu_to_be32(byte_count);
- 		}
-@@ -879,9 +879,12 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 	send_doorbell = !skb->xmit_more || netif_xmit_stopped(ring->tx_queue);
- 
-+	real_size = (real_size / 16) & 0x3f;
-+
- 	if (ring->bf_enabled && desc_size <= MAX_BF && !bounce &&
- 	    !vlan_tx_tag_present(skb) && send_doorbell) {
--		tx_desc->ctrl.bf_qpn |= cpu_to_be32(ring->doorbell_qpn);
-+		tx_desc->ctrl.bf_qpn = ring->doorbell_qpn |
-+				       cpu_to_be32(real_size);
- 
- 		op_own |= htonl((bf_index & 0xffff) << 8);
- 		/* Ensure new descriptor hits memory
-@@ -911,8 +914,8 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
- 		tx_desc->ctrl.owner_opcode = op_own;
- 		if (send_doorbell) {
- 			wmb();
--			iowrite32be(ring->doorbell_qpn,
--				    ring->bf.uar->map + MLX4_SEND_DOORBELL);
-+			iowrite32(ring->doorbell_qpn,
-+				  ring->bf.uar->map + MLX4_SEND_DOORBELL);
- 		} else {
- 			ring->xmit_more++;
- 		}
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index b7bde95..ab34461 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -279,7 +279,8 @@ struct mlx4_en_tx_ring {
- 	u16			stride;
- 	u16			cqn;	/* index of port CQ associated with this ring */
- 	u32			buf_size;
--	u32			doorbell_qpn;
-+	__be32			doorbell_qpn;
-+	__be32			mr_key;
- 	void			*buf;
- 	struct mlx4_en_tx_info	*tx_info;
- 	u8			*bounce_buf;
+ 	switch (tuna->id) {
+ 	case ETHTOOL_RX_COPYBREAK:
++	case ETHTOOL_TX_COPYBREAK:
+ 		if (tuna->len != sizeof(u32) ||
+ 		    tuna->type_id != ETHTOOL_TUNABLE_U32)
+ 			return -EINVAL;
 -- 
 1.8.3.4
