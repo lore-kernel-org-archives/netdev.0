@@ -1,7 +1,7 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next 14/14] net/mlx4_en: Use the new tx_copybreak to set inline threshold
-Date: Sun,  5 Oct 2014 12:35:22 +0300
-Message-ID: <1412501722-25092-15-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next 12/14] net/mlx4_en: Enable the compiler to make is_inline() inlined
+Date: Sun,  5 Oct 2014 12:35:20 +0300
+Message-ID: <1412501722-25092-13-git-send-email-amirv@mellanox.com>
 References: <1412501722-25092-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
@@ -9,116 +9,173 @@ Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.com>,
 To: "David S. Miller" <davem@davemloft.net>,
 	Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:52736 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:52733 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751644AbaJEJgN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 5 Oct 2014 05:36:13 -0400
+	id S1751634AbaJEJgL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 5 Oct 2014 05:36:11 -0400
 In-Reply-To: <1412501722-25092-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eric Dumazet <edumazet@google.com>
 
-Instead of setting inline threshold using module parameter only on
-driver load, use set_tunable() to set it dynamically.
-No need to store the threshold per ring, using instead the netdev global
-priv->prof->inline_thold
-Initial value still is set using the module parameter, therefore
-backward compatability is kept.
+Reorganize code to call is_inline() once, so compiler can inline it
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_ethtool.c | 44 +++++++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx4/en_tx.c      |  1 -
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    |  1 -
- 3 files changed, 44 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c | 67 +++++++++++++++++-------------
+ 1 file changed, 38 insertions(+), 29 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-index 42c9f8b..ae83da9 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-@@ -1267,6 +1267,48 @@ static u32 mlx4_en_get_priv_flags(struct net_device *dev)
- 	return priv->pflags;
- }
- 
-+static int mlx4_en_get_tunable(struct net_device *dev,
-+			       const struct ethtool_tunable *tuna,
-+			       void *data)
-+{
-+	const struct mlx4_en_priv *priv = netdev_priv(dev);
-+	int ret = 0;
-+
-+	switch (tuna->id) {
-+	case ETHTOOL_TX_COPYBREAK:
-+		*(u32 *)data = priv->prof->inline_thold;
-+		break;
-+	default:
-+		ret = -EINVAL;
-+		break;
-+	}
-+
-+	return ret;
-+}
-+
-+static int mlx4_en_set_tunable(struct net_device *dev,
-+			       const struct ethtool_tunable *tuna,
-+			       const void *data)
-+{
-+	struct mlx4_en_priv *priv = netdev_priv(dev);
-+	int val, ret = 0;
-+
-+	switch (tuna->id) {
-+	case ETHTOOL_TX_COPYBREAK:
-+		val = *(u32 *)data;
-+		if (val < MIN_PKT_LEN || val > MAX_INLINE)
-+			ret = -EINVAL;
-+		else
-+			priv->prof->inline_thold = val;
-+		break;
-+	default:
-+		ret = -EINVAL;
-+		break;
-+	}
-+
-+	return ret;
-+}
-+
- 
- const struct ethtool_ops mlx4_en_ethtool_ops = {
- 	.get_drvinfo = mlx4_en_get_drvinfo,
-@@ -1297,6 +1339,8 @@ const struct ethtool_ops mlx4_en_ethtool_ops = {
- 	.get_ts_info = mlx4_en_get_ts_info,
- 	.set_priv_flags = mlx4_en_set_priv_flags,
- 	.get_priv_flags = mlx4_en_get_priv_flags,
-+	.get_tunable		= mlx4_en_get_tunable,
-+	.set_tunable		= mlx4_en_set_tunable,
- };
- 
- 
 diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-index f0080c5..92a7cf4 100644
+index 2c03b55..f0080c5 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
 +++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-@@ -66,7 +66,6 @@ int mlx4_en_create_tx_ring(struct mlx4_en_priv *priv,
- 	ring->size = size;
- 	ring->size_mask = size - 1;
- 	ring->stride = stride;
--	ring->inline_thold = priv->prof->inline_thold;
+@@ -531,29 +531,32 @@ static struct mlx4_en_tx_desc *mlx4_en_bounce_to_desc(struct mlx4_en_priv *priv,
+ 	return ring->buf + index * TXBB_SIZE;
+ }
  
- 	tmp = size * sizeof(struct mlx4_en_tx_info);
- 	ring->tx_info = kmalloc_node(tmp, GFP_KERNEL | __GFP_NOWARN, node);
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index a904030..8fef658 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -295,7 +295,6 @@ struct mlx4_en_tx_ring {
- 	bool			bf_alloced;
- 	struct netdev_queue	*tx_queue;
- 	int			hwtstamp_tx_type;
--	int			inline_thold;
- } ____cacheline_aligned_in_smp;
++/* Decide if skb can be inlined in tx descriptor to avoid dma mapping
++ *
++ * It seems strange we do not simply use skb_copy_bits().
++ * This would allow to inline all skbs iff skb->len <= inline_thold
++ *
++ * Note that caller already checked skb was not a gso packet
++ */
+ static bool is_inline(int inline_thold, const struct sk_buff *skb,
+ 		      const struct skb_shared_info *shinfo,
+ 		      void **pfrag)
+ {
+ 	void *ptr;
  
- struct mlx4_en_rx_desc {
+-	if (inline_thold && !skb_is_gso(skb) && skb->len <= inline_thold) {
+-		if (shinfo->nr_frags == 1) {
+-			ptr = skb_frag_address_safe(&shinfo->frags[0]);
+-			if (unlikely(!ptr))
+-				return 0;
+-
+-			if (pfrag)
+-				*pfrag = ptr;
++	if (skb->len > inline_thold || !inline_thold)
++		return false;
+ 
+-			return 1;
+-		} else if (unlikely(shinfo->nr_frags))
+-			return 0;
+-		else
+-			return 1;
++	if (shinfo->nr_frags == 1) {
++		ptr = skb_frag_address_safe(&shinfo->frags[0]);
++		if (unlikely(!ptr))
++			return false;
++		*pfrag = ptr;
++		return true;
+ 	}
+-
+-	return 0;
++	if (shinfo->nr_frags)
++		return false;
++	return true;
+ }
+ 
+ static int inline_size(const struct sk_buff *skb)
+@@ -570,12 +573,15 @@ static int inline_size(const struct sk_buff *skb)
+ static int get_real_size(const struct sk_buff *skb,
+ 			 const struct skb_shared_info *shinfo,
+ 			 struct net_device *dev,
+-			 int *lso_header_size)
++			 int *lso_header_size,
++			 bool *inline_ok,
++			 void **pfrag)
+ {
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
+ 	int real_size;
+ 
+ 	if (shinfo->gso_size) {
++		*inline_ok = false;
+ 		if (skb->encapsulation)
+ 			*lso_header_size = (skb_inner_transport_header(skb) - skb->data) + inner_tcp_hdrlen(skb);
+ 		else
+@@ -595,10 +601,14 @@ static int get_real_size(const struct sk_buff *skb,
+ 		}
+ 	} else {
+ 		*lso_header_size = 0;
+-		if (!is_inline(priv->prof->inline_thold, skb, shinfo, NULL))
+-			real_size = CTRL_SIZE + (shinfo->nr_frags + 1) * DS_SIZE;
+-		else
++		*inline_ok = is_inline(priv->prof->inline_thold, skb,
++				       shinfo, pfrag);
++
++		if (*inline_ok)
+ 			real_size = inline_size(skb);
++		else
++			real_size = CTRL_SIZE +
++				    (shinfo->nr_frags + 1) * DS_SIZE;
+ 	}
+ 
+ 	return real_size;
+@@ -694,9 +704,10 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	u16 vlan_tag = 0;
+ 	int i_frag;
+ 	int lso_header_size;
+-	void *fragptr;
++	void *fragptr = NULL;
+ 	bool bounce = false;
+ 	bool send_doorbell;
++	bool inline_ok;
+ 	u32 ring_cons;
+ 
+ 	if (!priv->port_up)
+@@ -708,7 +719,8 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	/* fetch ring->cons far ahead before needing it to avoid stall */
+ 	ring_cons = ACCESS_ONCE(ring->cons);
+ 
+-	real_size = get_real_size(skb, shinfo, dev, &lso_header_size);
++	real_size = get_real_size(skb, shinfo, dev, &lso_header_size,
++				  &inline_ok, &fragptr);
+ 	if (unlikely(!real_size))
+ 		goto tx_drop;
+ 
+@@ -781,15 +793,15 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	/* valid only for none inline segments */
+ 	tx_info->data_offset = (void *)data - (void *)tx_desc;
+ 
++	tx_info->inl = inline_ok;
++
+ 	tx_info->linear = (lso_header_size < skb_headlen(skb) &&
+-			   !is_inline(ring->inline_thold, skb, shinfo, NULL)) ? 1 : 0;
++			   !inline_ok) ? 1 : 0;
+ 
+ 	tx_info->nr_maps = shinfo->nr_frags + tx_info->linear;
+ 	data += tx_info->nr_maps - 1;
+ 
+-	if (is_inline(ring->inline_thold, skb, shinfo, &fragptr)) {
+-		tx_info->inl = 1;
+-	} else {
++	if (!tx_info->inl) {
+ 		dma_addr_t dma = 0;
+ 		u32 byte_count = 0;
+ 
+@@ -827,7 +839,6 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 			wmb();
+ 			data->byte_count = cpu_to_be32(byte_count);
+ 		}
+-		tx_info->inl = 0;
+ 		/* tx completion can avoid cache line miss for common cases */
+ 		tx_info->map0_dma = dma;
+ 		tx_info->map0_byte_count = byte_count;
+@@ -899,11 +910,9 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	netdev_tx_sent_queue(ring->tx_queue, tx_info->nr_bytes);
+ 	AVG_PERF_COUNTER(priv->pstats.tx_pktsz_avg, skb->len);
+ 
+-	if (tx_info->inl) {
++	if (tx_info->inl)
+ 		build_inline_wqe(tx_desc, skb, shinfo, real_size, &vlan_tag,
+ 				 tx_ind, fragptr);
+-		tx_info->inl = 1;
+-	}
+ 
+ 	if (skb->encapsulation) {
+ 		struct iphdr *ipv4 = (struct iphdr *)skb_inner_network_header(skb);
 -- 
 1.8.3.4
