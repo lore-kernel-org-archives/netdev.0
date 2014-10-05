@@ -1,81 +1,40 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH] net: Add ndo_gso_check
-Date: Sun, 5 Oct 2014 22:13:37 +0300
-Message-ID: <CAJ3xEMgPb9BhvtifmTzy6bS9WDf3jUx6dnx4418KNTjGNPreHQ@mail.gmail.com>
-References: <1411962607-27878-1-git-send-email-therbert@google.com>
-	<CAJ3xEMi-TRXevenx87UM7JnKqRQQATW4MBjbz8JdnQE9gk3KZw@mail.gmail.com>
-	<CA+mtBx8r05=qs2J58LFq56762tFB7wF4Dsr3C5TC9w5qQP5jGw@mail.gmail.com>
-	<CAJ3xEMhf6b75TQDFqEPMSXCpL9ToWG1q0OMPtrEuHNSm=-PSwQ@mail.gmail.com>
-	<CA+mtBx_6HcZh5Ys1FJFBXkZ2bWX1gP6bTcjY7gbR6RG_TOy50Q@mail.gmail.com>
-	<CAJ3xEMi0biCWTNtLOJ=0HWZYjOWi6pN2bw2=EWajp6XnpoyVRw@mail.gmail.com>
-	<CA+mtBx-sP6g9hXAYGfHKCPYkCtjgCFM0srueh1uhoNnC2ACr1g@mail.gmail.com>
-	<CAJ3xEMhc-97+3ZDwqXzX2N+=voO4QvJ5_YXn3sp8r8E9YyqotQ@mail.gmail.com>
-	<CA+mtBx9=+fGjwJCKpTW5EifmavC6VGnbuJdkc5tqzeEHz+5twA@mail.gmail.com>
-	<CAJ3xEMhzxfP3Sqp=_QSQehd2j2s=Gr3B1iO2S--OcoT7VC94nQ@mail.gmail.com>
-	<CA+mtBx8-w74f_f9JEfpwH9=Mjr_zaJJAYCMMdYAWdCy-51pzqg@mail.gmail.com>
+From: Ceriel Jacobs <linux-ide@crashplan.pro>
+Subject: Re: r8168 is needed to enter P-state: Package State 6 (pc6) on Haswell
+ hardware
+Date: Mon, 06 Oct 2014 00:22:29 +0200
+Message-ID: <5431C4A5.8050001@crashplan.pro>
+References: <542B3829.3010108@crashplan.pro> <20141005165920.GA21926@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Thomas Graf <tgraf@suug.ch>,
-	Pravin Shelar <pshelar@nicira.com>,
-	Andy Zhou <azhou@nicira.com>
-To: Tom Herbert <therbert@google.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Realtek linux nic maintainers <nic_swsd@realtek.com>,
+	netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f52.google.com ([209.85.218.52]:61262 "EHLO
-	mail-oi0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751711AbaJETNi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Oct 2014 15:13:38 -0400
-Received: by mail-oi0-f52.google.com with SMTP id a3so2727492oib.25
-        for <netdev@vger.kernel.org>; Sun, 05 Oct 2014 12:13:37 -0700 (PDT)
-In-Reply-To: <CA+mtBx8-w74f_f9JEfpwH9=Mjr_zaJJAYCMMdYAWdCy-51pzqg@mail.gmail.com>
+Received: from relay6-d.mail.gandi.net ([217.70.183.198]:56196 "EHLO
+	relay6-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751596AbaJEWWe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Oct 2014 18:22:34 -0400
+In-Reply-To: <20141005165920.GA21926@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Oct 5, 2014 at 9:49 PM, Tom Herbert <therbert@google.com> wrote:
-> On Sun, Oct 5, 2014 at 7:04 AM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
->> On Thu, Oct 2, 2014 at 2:06 AM, Tom Herbert <therbert@google.com> wrote:
->>> On Wed, Oct 1, 2014 at 1:58 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
->>>> On Tue, Sep 30, 2014 at 6:34 PM, Tom Herbert <therbert@google.com> wrote:
->>>>> On Tue, Sep 30, 2014 at 7:30 AM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
->> [...]
->>> Solution #4: apply this patch and implement the check functions as
->>> needed in those 4 or 5 drivers. If a device can only do VXLAN/NVGRE
->>> then I believe the check function is something like:
->>>
->>> bool mydev_gso_check(struct sk_buff *skb, struct net_device *dev)
->>> {
->>>         if ((skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL) &&
->>>             ((skb->inner_protocol_type != ENCAP_TYPE_ETHER ||
->>>               skb->protocol != htons(ETH_P_TEB) ||
->>>               skb_inner_mac_header(skb) - skb_transport_header(skb) != 12)
->>>                 return false;
->>>
->>>         return true;
->>> }
->>
->> Yep, such helper can can be basically made to work and let the 4-5
->> drivers that can
->> do GSO offloading for vxlan but not for any FOU/GUE packets signal
->> that to the stack.
->>
->> Re the 12 constant, you were referring to the udp+vxlan headers? it's 8+8
->>
->> Also, we need a way for drivers that can support VXLAN or NVGRE but
->> not concurrently
->> on the same port @ the same time to only let vxlan packet to pass
->> successfully through the helper.
+This is the requested "XID" dmesg line is:
 
-> Or, there should be no difference in GSO processing between VXLAN and
-> NVGRE. Can you explain why you feel you need to differentiate them for GSO?
+[    1.479298] r8169 0000:03:00.0 eth0: RTL8168g/8111g at 
+0xffffc90004752000, d0:50:99:0b:09:90, XID 0c000800 IRQ 27
 
-
-RX wise, Linux tells the driver that UDP port X would be used for
-VXLAN, right? and indeed, it's possible for some HW implementations
-not to support RX offloading (checksum) for both VXLAN and NVGRE @ the
-same time over the same port. But TX/GRO wise, you're probably
-correct. The thing is that from the user POV they need solution that
-works for both RX and TX offloading.
+Francois Romieu schreef op 05-10-14 om 18:59:
+> Ceriel Jacobs <linux-ide@crashplan.pro> :
+>> With in-kernel r8169 module, only P-state package C3 (pc3) can be reached
+>> when enabling ASPM.
+>>
+>> Only after installing r8168 driver (and enabling ASPM), a Haswell Celeron
+>> G1820/G1840 processer will enter package C6 state (pc6).
+>
+> Vanilla kernel r8169 driver logs a message that contains an "XID" string.
+> Please grep for it in your dmesg so that I can narrow the search for
+> meaningful differences in Realtek's r8168 driver.
+>
+> Thanks.
+>
