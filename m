@@ -1,7 +1,7 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next 04/14] net/mlx4_en: tx_info allocated with kmalloc() instead of vmalloc()
-Date: Sun,  5 Oct 2014 12:35:12 +0300
-Message-ID: <1412501722-25092-5-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next 10/14] net/mlx4_en: Use local var for skb_headlen(skb)
+Date: Sun,  5 Oct 2014 12:35:18 +0300
+Message-ID: <1412501722-25092-11-git-send-email-amirv@mellanox.com>
 References: <1412501722-25092-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
@@ -9,55 +9,75 @@ Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.com>,
 To: "David S. Miller" <davem@davemloft.net>,
 	Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:52673 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:52711 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751466AbaJEJfk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 5 Oct 2014 05:35:40 -0400
+	id S1751621AbaJEJgG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 5 Oct 2014 05:36:06 -0400
 In-Reply-To: <1412501722-25092-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eric Dumazet <edumazet@google.com>
 
-Try to allocate using kmalloc_node() first, only on failure use
-vmalloc()
+Access skb_headlen() once in tx flow
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_tx.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c | 21 +++++++++++----------
+ 1 file changed, 11 insertions(+), 10 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-index 322cda3..1447906 100644
+index aa05b09..e00841a 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
 +++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-@@ -68,7 +68,7 @@ int mlx4_en_create_tx_ring(struct mlx4_en_priv *priv,
- 	ring->inline_thold = priv->prof->inline_thold;
+@@ -612,6 +612,7 @@ static void build_inline_wqe(struct mlx4_en_tx_desc *tx_desc,
+ {
+ 	struct mlx4_wqe_inline_seg *inl = &tx_desc->inl;
+ 	int spc = MLX4_INLINE_ALIGN - CTRL_SIZE - sizeof *inl;
++	unsigned int hlen = skb_headlen(skb);
  
- 	tmp = size * sizeof(struct mlx4_en_tx_info);
--	ring->tx_info = vmalloc_node(tmp, node);
-+	ring->tx_info = kmalloc_node(tmp, GFP_KERNEL | __GFP_NOWARN, node);
- 	if (!ring->tx_info) {
- 		ring->tx_info = vmalloc(tmp);
- 		if (!ring->tx_info) {
-@@ -151,7 +151,7 @@ err_bounce:
- 	kfree(ring->bounce_buf);
- 	ring->bounce_buf = NULL;
- err_info:
--	vfree(ring->tx_info);
-+	kvfree(ring->tx_info);
- 	ring->tx_info = NULL;
- err_ring:
- 	kfree(ring);
-@@ -174,7 +174,7 @@ void mlx4_en_destroy_tx_ring(struct mlx4_en_priv *priv,
- 	mlx4_free_hwq_res(mdev->dev, &ring->wqres, ring->buf_size);
- 	kfree(ring->bounce_buf);
- 	ring->bounce_buf = NULL;
--	vfree(ring->tx_info);
-+	kvfree(ring->tx_info);
- 	ring->tx_info = NULL;
- 	kfree(ring);
- 	*pring = NULL;
+ 	if (skb->len <= spc) {
+ 		if (likely(skb->len >= MIN_PKT_LEN)) {
+@@ -621,19 +622,19 @@ static void build_inline_wqe(struct mlx4_en_tx_desc *tx_desc,
+ 			memset(((void *)(inl + 1)) + skb->len, 0,
+ 			       MIN_PKT_LEN - skb->len);
+ 		}
+-		skb_copy_from_linear_data(skb, inl + 1, skb_headlen(skb));
++		skb_copy_from_linear_data(skb, inl + 1, hlen);
+ 		if (shinfo->nr_frags)
+-			memcpy(((void *)(inl + 1)) + skb_headlen(skb), fragptr,
++			memcpy(((void *)(inl + 1)) + hlen, fragptr,
+ 			       skb_frag_size(&shinfo->frags[0]));
+ 
+ 	} else {
+ 		inl->byte_count = cpu_to_be32(1 << 31 | spc);
+-		if (skb_headlen(skb) <= spc) {
+-			skb_copy_from_linear_data(skb, inl + 1, skb_headlen(skb));
+-			if (skb_headlen(skb) < spc) {
+-				memcpy(((void *)(inl + 1)) + skb_headlen(skb),
+-					fragptr, spc - skb_headlen(skb));
+-				fragptr +=  spc - skb_headlen(skb);
++		if (hlen <= spc) {
++			skb_copy_from_linear_data(skb, inl + 1, hlen);
++			if (hlen < spc) {
++				memcpy(((void *)(inl + 1)) + hlen,
++				       fragptr, spc - hlen);
++				fragptr +=  spc - hlen;
+ 			}
+ 			inl = (void *) (inl + 1) + spc;
+ 			memcpy(((void *)(inl + 1)), fragptr, skb->len - spc);
+@@ -641,9 +642,9 @@ static void build_inline_wqe(struct mlx4_en_tx_desc *tx_desc,
+ 			skb_copy_from_linear_data(skb, inl + 1, spc);
+ 			inl = (void *) (inl + 1) + spc;
+ 			skb_copy_from_linear_data_offset(skb, spc, inl + 1,
+-					skb_headlen(skb) - spc);
++							 hlen - spc);
+ 			if (shinfo->nr_frags)
+-				memcpy(((void *)(inl + 1)) + skb_headlen(skb) - spc,
++				memcpy(((void *)(inl + 1)) + hlen - spc,
+ 				       fragptr,
+ 				       skb_frag_size(&shinfo->frags[0]));
+ 		}
 -- 
 1.8.3.4
