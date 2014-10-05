@@ -1,7 +1,7 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next 06/14] net/mlx4_en: Use prefetch in tx path
-Date: Sun,  5 Oct 2014 12:35:14 +0300
-Message-ID: <1412501722-25092-7-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next 04/14] net/mlx4_en: tx_info allocated with kmalloc() instead of vmalloc()
+Date: Sun,  5 Oct 2014 12:35:12 +0300
+Message-ID: <1412501722-25092-5-git-send-email-amirv@mellanox.com>
 References: <1412501722-25092-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
@@ -9,66 +9,55 @@ Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.com>,
 To: "David S. Miller" <davem@davemloft.net>,
 	Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:52667 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:52673 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751221AbaJEJfi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 5 Oct 2014 05:35:38 -0400
+	id S1751466AbaJEJfk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 5 Oct 2014 05:35:40 -0400
 In-Reply-To: <1412501722-25092-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eric Dumazet <edumazet@google.com>
 
-mlx4_en_free_tx_desc() uses a prefetchw(&skb->users) to speed up
-consume_skb()
-prefetchw(&ring->tx_queue->dql) to speed up BQL update
+Try to allocate using kmalloc_node() first, only on failure use
+vmalloc()
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_tx.c | 9 +++++++++
- 1 file changed, 9 insertions(+)
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-index edc4a88..b96627c 100644
+index 322cda3..1447906 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
 +++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-@@ -37,6 +37,7 @@
- #include <linux/mlx4/qp.h>
- #include <linux/skbuff.h>
- #include <linux/if_vlan.h>
-+#include <linux/prefetch.h>
- #include <linux/vmalloc.h>
- #include <linux/tcp.h>
- #include <linux/ip.h>
-@@ -267,6 +268,11 @@ static u32 mlx4_en_free_tx_desc(struct mlx4_en_priv *priv,
- 	int nr_maps = tx_info->nr_maps;
- 	int i;
+@@ -68,7 +68,7 @@ int mlx4_en_create_tx_ring(struct mlx4_en_priv *priv,
+ 	ring->inline_thold = priv->prof->inline_thold;
  
-+	/* We do not touch skb here, so prefetch skb->users location
-+	 * to speedup consume_skb()
-+	 */
-+	prefetchw(&skb->users);
-+
- 	if (unlikely(timestamp)) {
- 		struct skb_shared_hwtstamps hwts;
- 
-@@ -385,6 +391,7 @@ static bool mlx4_en_process_tx_cq(struct net_device *dev,
- 	if (!priv->port_up)
- 		return true;
- 
-+	prefetchw(&ring->tx_queue->dql.limit);
- 	index = cons_index & size_mask;
- 	cqe = mlx4_en_get_cqe(buf, index, priv->cqe_size) + factor;
- 	ring_index = ring->cons & size_mask;
-@@ -722,6 +729,8 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
- 		}
- 	}
- 
-+	prefetchw(&ring->tx_queue->dql);
-+
- 	/* Track current inflight packets for performance analysis */
- 	AVG_PERF_COUNTER(priv->pstats.inflight_avg,
- 			 (u32) (ring->prod - ring->cons - 1));
+ 	tmp = size * sizeof(struct mlx4_en_tx_info);
+-	ring->tx_info = vmalloc_node(tmp, node);
++	ring->tx_info = kmalloc_node(tmp, GFP_KERNEL | __GFP_NOWARN, node);
+ 	if (!ring->tx_info) {
+ 		ring->tx_info = vmalloc(tmp);
+ 		if (!ring->tx_info) {
+@@ -151,7 +151,7 @@ err_bounce:
+ 	kfree(ring->bounce_buf);
+ 	ring->bounce_buf = NULL;
+ err_info:
+-	vfree(ring->tx_info);
++	kvfree(ring->tx_info);
+ 	ring->tx_info = NULL;
+ err_ring:
+ 	kfree(ring);
+@@ -174,7 +174,7 @@ void mlx4_en_destroy_tx_ring(struct mlx4_en_priv *priv,
+ 	mlx4_free_hwq_res(mdev->dev, &ring->wqres, ring->buf_size);
+ 	kfree(ring->bounce_buf);
+ 	ring->bounce_buf = NULL;
+-	vfree(ring->tx_info);
++	kvfree(ring->tx_info);
+ 	ring->tx_info = NULL;
+ 	kfree(ring);
+ 	*pring = NULL;
 -- 
 1.8.3.4
