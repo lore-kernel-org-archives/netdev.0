@@ -1,74 +1,68 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: RE: [PATCH v2 net-next 15/15] tipc: remove old ASCII netlink API
-Date: Mon, 6 Oct 2014 13:37:14 +0000
-Message-ID: <A2BAEFC30C8FD34388F02C9B3121859D1C2EB615@eusaamb103.ericsson.se>
-References: <1412261921-28510-1-git-send-email-richard.alpe@ericsson.com>
-	<1412261921-28510-16-git-send-email-richard.alpe@ericsson.com>
- <20141003.165038.2121547250200790300.davem@davemloft.net>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH net-next] qdisc: validate skb without holding lock
+Date: Mon, 6 Oct 2014 16:12:35 +0200
+Message-ID: <20141006161235.010033f5@redhat.com>
+References: <20141003.145647.1980640682969765484.davem@davemloft.net>
+	<1412373477.17245.5.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1412375467.17245.16.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20141003.153645.72976986956341944.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"tipc-discussion@lists.sourceforge.net"
-	<tipc-discussion@lists.sourceforge.net>
-To: David Miller <davem@davemloft.net>,
-	Richard Alpe <richard.alpe@ericsson.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	therbert@google.com, hannes@stressinduktion.org, fw@strlen.de,
+	dborkman@redhat.com, jhs@mojatatu.com, alexander.duyck@gmail.com,
+	john.r.fastabend@intel.com, dave.taht@gmail.com, toke@toke.dk,
+	brouer@redhat.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usevmg20.ericsson.net ([198.24.6.45]:64638 "EHLO
-	usevmg20.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752512AbaJFNhU convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 09:37:20 -0400
-In-Reply-To: <20141003.165038.2121547250200790300.davem@davemloft.net>
-Content-Language: en-US
+Received: from mx1.redhat.com ([209.132.183.28]:2417 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752680AbaJFOND (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Oct 2014 10:13:03 -0400
+In-Reply-To: <20141003.153645.72976986956341944.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, 03 Oct 2014 15:36:45 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-
-> owner@vger.kernel.org] On Behalf Of David Miller
-> Sent: October-03-14 7:51 PM
-> To: Richard Alpe
-> Cc: netdev@vger.kernel.org; tipc-discussion@lists.sourceforge.net
-> Subject: Re: [PATCH v2 net-next 15/15] tipc: remove old ASCII netlink API
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Fri, 03 Oct 2014 15:31:07 -0700
 > 
-> From: <richard.alpe@ericsson.com>
-> Date: Thu, 2 Oct 2014 16:58:41 +0200
-> 
-> > From: Richard Alpe <richard.alpe@ericsson.com>
-> >
-> > The API has been deprecated along with its user-space tool
-> > "tipc-config". Users shall use the new kernel netlink API already in
-> > place along with the new user space tool "tipc" that's part of the
-> > tipc-utils package.
-> >
-> > Signed-off-by: Richard Alpe <richard.alpe@ericsson.com>
-> > Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
-> > Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
-> > Acked-by: Ying Xue <ying.xue@windriver.com>
-> 
-> Sorry, no matter what your circumstances, you cannot just break binaries
-> that might be out there.
+> > From: Eric Dumazet <edumazet@google.com>
+> > 
+> > Validation of skb can be pretty expensive :
+> > 
+> > GSO segmentation and/or checksum computations.
+> > 
+> > We can do this without holding qdisc lock, so that other cpus
+> > can queue additional packets.
+> > 
+[...]
+> > 
+> > Turning TSO on or off had no effect on throughput, only few more cpu
+> > cycles. Lock contention on qdisc lock disappeared.
 
-I disagree.  We did of course consider this before we posted the patch.  
-There is absolutely no reason to believe there are binaries "out there" 
-using this API. It is intended for and used only by our own tool "tipc-config", 
-and the half-baked documentation that exists about it is not even
-correct. This is an TIPC-internal API/ABI, which has changed over the years,
-and keeps changing.  To our best judgement there is no risk in removing the
-old API.
+This is good work! Lock contention significantly reduced!
 
-However, we took great care to not break any scripts that might be using 
-tipc-config. Therefore, we made this wrapper that provides the old 
-tipc-config command API to existing users.
+My 10G tests just 2x 10G netperf TCP_STREAM shows:
 
-Regards
-///jon
-> 
-> The rest of this patch series is fine, but I'm really not going to even entertain
-> applying this one, sorry.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in the body
-> of a message to majordomo@vger.kernel.org More majordomo info at
-> http://vger.kernel.org/majordomo-info.html
+ With GSO=off TSO=off, _raw_spin_lock is now only at perf top#13 with
+1.44% (80% from qdisc calls, 60% is from __dev_queue_xmit and 20% from
+sch_direct_xmit) (before with qdisc bulking is was 2.66%).
+
+ The "show off" case is GSO=on TSO=off, where raw_spin_lock is now only
+at perf top#26 with 0.85% and only 54.74% comes from qdisc calls
+(52.07% sch_direct_xmit and 2.67% __dev_queue_xmit).
+
+
+This is some significant improvements to the kernels xmit layer,
+me very happy!!! :-))) Thanks everyone!
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
