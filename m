@@ -1,105 +1,36 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: randconfig build error with next-20141001, in drivers/i2c/algos/i2c-algo-bit.c
-Date: Mon, 06 Oct 2014 10:06:00 +0200
-Message-ID: <54324D68.6070309@hartkopp.net>
-References: <CA+r1ZhiL1y9aeLeJjpd_1DtzOG_oyoPg7XsTPJ9G-XY5G2DfCQ@mail.gmail.com> <542C8D93.8090008@infradead.org>
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: Re: [PATCH v8 net-next 1/2] bonding: display xmit_hash_policy for
+ non-dynamic-tlb mode
+Date: Mon, 06 Oct 2014 10:35:14 +0200
+Message-ID: <54325442.2000607@redhat.com>
+References: <1412469884-27308-1-git-send-email-maheshb@google.com> <20141006.005841.1016428020297723523.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-next <linux-next@vger.kernel.org>,
-	Stephane Grosjean <s.grosjean@peak-system.com>,
-	linux-i2c@vger.kernel.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-can@vger.kernel.org
-To: Randy Dunlap <rdunlap@infradead.org>,
-	Jim Davis <jim.epost@gmail.com>,
-	Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <542C8D93.8090008@infradead.org>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: j.vosburgh@gmail.com, andy@greyhouse.net, vfalico@gmail.com,
+	netdev@vger.kernel.org, edumazet@google.com, maze@google.com
+To: David Miller <davem@davemloft.net>, maheshb@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:24972 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751157AbaJFIf0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Oct 2014 04:35:26 -0400
+In-Reply-To: <20141006.005841.1016428020297723523.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello all,
+On 06/10/14 06:58, David Miller wrote:
+>
+> After 8 revisions, I want to see some ACKs before applying these
+> two changes :)
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
 
-just to get it right:
+On my side all comments have been taken care of, I don't know if it's 
+appropriate to also ack the patches as I've already given a reviewed-by to the 
+first and my sob to the second :-)
 
-So far it looks like this in linux/drivers/net/can/sja1000/Kconfig
-
-config CAN_PEAK_PCIEC
-        bool "PEAK PCAN-ExpressCard Cards"
-        depends on CAN_PEAK_PCI
-        select I2C
-        select I2C_ALGOBIT
-
-If one would change the
-
-        select I2C
-
-into
-
-        depends on I2C
-
-IMHO the CAN_PEAK_PCIEC hardware would *only* be visible and selectable=
- when
-I2C was selected before (from anyone else?).
-
-So what it wrong on the current Kconfig entry?
-Is 'select' deprecated?
-
-Or did randconfig generate a configuration that would not be possible b=
-y
-properly generating the config file with 'make menuconfig' ??
-
-Please explain.
-
-Thanks,
-Oliver
-
-On 10/02/2014 01:26 AM, Randy Dunlap wrote:
-> On 10/01/14 14:37, Jim Davis wrote:
->> Building with the attached random configuration file,
->=20
-> Also:
-> warning: (CAN_PEAK_PCIEC && SFC && IGB && VIDEO_TW68 && DRM && FB_DDC=
- && FB_VIA) selects I2C_ALGOBIT which has unmet direct dependencies (I2=
-C)
->=20
->> drivers/i2c/algos/i2c-algo-bit.c: In function =91i2c_bit_add_bus=92:
->> drivers/i2c/algos/i2c-algo-bit.c:658:33: error: =91i2c_add_adapter=92
->> undeclared (first use in this function)
->>   return __i2c_bit_add_bus(adap, i2c_add_adapter);
->>                                  ^
->> drivers/i2c/algos/i2c-algo-bit.c:658:33: note: each undeclared
->> identifier is reported only once for each function it appears in
->> drivers/i2c/algos/i2c-algo-bit.c: In function =91i2c_bit_add_numbere=
-d_bus=92:
->> drivers/i2c/algos/i2c-algo-bit.c:664:33: error:
->> =91i2c_add_numbered_adapter=92 undeclared (first use in this functio=
-n)
->>   return __i2c_bit_add_bus(adap, i2c_add_numbered_adapter);
->>                                  ^
->>   CC      net/openvswitch/actions.o
->> drivers/i2c/algos/i2c-algo-bit.c: In function =91i2c_bit_add_bus=92:
->> drivers/i2c/algos/i2c-algo-bit.c:659:1: warning: control reaches end=
- of non-void
->>  function [-Wreturn-type]
->>  }
->>  ^
->> drivers/i2c/algos/i2c-algo-bit.c: In function =91i2c_bit_add_numbere=
-d_bus=92:
->> drivers/i2c/algos/i2c-algo-bit.c:665:1: warning: control reaches end=
- of non-void
->>  function [-Wreturn-type]
->>  }
->>  ^
->> make[3]: *** [drivers/i2c/algos/i2c-algo-bit.o] Error 1
->=20
-> In drivers/media/pci/tw68/Kconfig, VIDEO_TW68 should depend on I2C in=
- order
-> to make it safe to select I2C_ALGOBIT.
->=20
-> In drivers/net/can/sja1000/Kconfig, CAN_PEAK_PCIEC should depend on I=
-2C
-> instead of selecting I2C (and change the help text).
->=20
->=20
+Nik
