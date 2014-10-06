@@ -1,58 +1,66 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: Re: [Xen-devel] [PATCHv1] xen-netfront: always keep the Rx ring full
- of requests
-Date: Mon, 6 Oct 2014 17:00:22 +0100
-Message-ID: <5432BC96.6060709@citrix.com>
-References: <1412256826-18874-1-git-send-email-david.vrabel@citrix.com> <5432B6D2.9030503@oracle.com>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: Re: [PATCH net-next 0/2] sunvnet: Packet processing in non-interrupt
+ context.
+Date: Mon, 6 Oct 2014 12:04:18 -0400
+Message-ID: <20141006160418.GA3604@oracle.com>
+References: <20141002201203.GA6001@oracle.com>
+ <20141002.134346.2291749763304558513.davem@davemloft.net>
+ <20141003144024.GA12448@oracle.com>
+ <20141003.120802.1213573830649867131.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>
-To: annie li <annie.li@oracle.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: raghuram.kothakota@oracle.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:42045 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753221AbaJFQCu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Oct 2014 12:02:50 -0400
-In-Reply-To: <5432B6D2.9030503@oracle.com>
+Received: from aserp1040.oracle.com ([141.146.126.69]:33288 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752912AbaJFQE2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 12:04:28 -0400
+Content-Disposition: inline
+In-Reply-To: <20141003.120802.1213573830649867131.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/10/14 16:35, annie li wrote:
+> I think you should be able to get rid of all of the in-driver
+> locking in the fast paths.
 > 
-> On 2014/10/2 9:33, David Vrabel wrote:
->> A full Rx ring only requires 1 MiB of memory.  This is not enough
->> memory that it is useful to dynamically scale the number of Rx
->> requests in the ring based on traffic rates.
->>
->> Keeping the ring full of Rx requests handles bursty traffic better
->> than trying to converges on an optimal number of requests to keep
->> filled.
->>
->> On a 4 core host, an iperf -P 64 -t 60 run from dom0 to a 4 VCPU guest
->> improved from 5.1 Gbit/s to 5.6 Gbit/s.  Gains with more bursty
->> traffic are expected to be higher.
+> NAPI ->poll() is non-reentrant, so all RX processing occurs
+> strictly in a serialized environment.
 > 
-> Although removing sysfs is connected with the code change for full Rx
-> ring utilization, I assume it is better to split this patch into two to
-> make it simpler?
-
-I don't see how splitting the patch would be an improvement.
-
->>   +    queue->rx.req_prod_pvt = req_prod;
->> +
->> +    /* Not enough requests? Try again later. */
->> +    if (req_prod - queue->rx.rsp_cons < NET_RX_SLOTS_MIN) {
->> +        mod_timer(&queue->rx_refill_timer, jiffies + (HZ/10));
->> +        return;
+> Once you do TX reclaim in NAPI context, then all you have to do is
+> take the generic netdev TX queue lock during the evaluation of whether
+> to wakeup the TX queue or not.  Worst case you need to hold the
+> TX netdev queue lock across the whole TX reclaim operation.
 > 
-> If the previous for loop breaks because of failure of
-> xennet_alloc_one_rx_buffer, then notify_remote_via_irq is missed here if
-> the code returns directly.
+> The VIO lock really ought to be entirely superfluous in the data
+> paths.
 
-This is deliberate -- there's no point notifying the backend if there
-aren't enough requests for the next packet.  Since we don't know what
-the next packet might be we assume it's the largest possible.
+A few clarifications, since there are more driver-examples using NAPI for
+Rx than for Tx reclaim
 
-David
+so I can move the LDC_EVENT_RESET/LDC_EVENT_UP processing code into the 
+napi callback, and that enables the removal of irqsave/restore for
+vio.lock from vio_port_up at the least (I do this conditional on
+in_softirq() so as to not perturb vdc code at the moment)
+
+But there are still a lot of irqsaves at the ldc layer for the lp lock.
+I dont know if these can/should be optimized out. 
+
+I looked at tg3 for a template on how to use NAPI in the TX path
+The analog of the tg3_poll_work->tg3_tx invocation is probably the
+maybe_tx_wakeup call triggered from the Rx side vnet processing,
+which, with NAPI happens naturally from softirq context (no need for
+extra tasklet). 
+
+Regarding rcu locking of port_list and the hash in struct vnet_port,
+the thorn here is that vnet_set_rx_mode may end up allocating a
+vnet_mcast_entry as part of __update_mc_list
+(there may be a different bug here in that it assumes that the 
+first entry is the switch_port, and this is the only switch_port)
+I dont know of a simple way to avoid that (a rwlock just for this
+function?!).
+
+But we still need to hold the vio lock around the ldc_write 
+(and also around dring write) in vnet_start_xmit, right?
+
+--Sowmini
