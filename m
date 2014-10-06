@@ -1,48 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] sunvnet: Packet processing in
- non-interrupt context.
-Date: Mon, 06 Oct 2014 15:37:12 -0400 (EDT)
-Message-ID: <20141006.153712.1610016632407187994.davem@davemloft.net>
-References: <20141006160418.GA3604@oracle.com>
-	<20141006.152526.965519223260573233.davem@davemloft.net>
-	<20141006193111.GE24721@oracle.com>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: [PATCH v2 7/7] driver-core: add preferred async probe option for
+ built-in and modules
+Date: Mon, 6 Oct 2014 16:19:26 -0400
+Message-ID: <20141006201926.GF18303@htj.dyndns.org>
+References: <1412372683-2003-1-git-send-email-mcgrof@do-not-panic.com>
+ <1412372683-2003-8-git-send-email-mcgrof@do-not-panic.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: raghuram.kothakota@oracle.com, netdev@vger.kernel.org
-To: sowmini.varadhan@oracle.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37476 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750859AbaJFThO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 15:37:14 -0400
-In-Reply-To: <20141006193111.GE24721@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: gregkh@linuxfoundation.org, dmitry.torokhov@gmail.com,
+	tiwai@suse.de, arjan@linux.intel.com, teg@jklm.no,
+	rmilasan@suse.com, werner@suse.com, oleg@redhat.com, hare@suse.com,
+	bpoirier@suse.de, santosh@chelsio.com, pmladek@suse.cz,
+	dbueso@suse.com, mcgrof@suse.com, linux-kernel@vger.kernel.org,
+	Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
+	Joseph Salisbury <joseph.salisbury@canonical.com>,
+	Kay Sievers <kay@vrfy.org>,
+	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
+	Tim Gardner <tim.gardner@canonical.com>,
+	Pierre Fersing <pierre-fersing@pierref.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
+	Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
+	Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
+	Abhijit Mahajan <abhijit.mahajan@avagotech.com>,
+	Casey Leedom <leedom@chelsio.com>,
+	Hariprasad S <harip
+To: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1412372683-2003-8-git-send-email-mcgrof@do-not-panic.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Date: Mon, 6 Oct 2014 15:31:11 -0400
+Hello, Luis.
 
-> On (10/06/14 15:25), David Miller wrote:
->> 
->> > But we still need to hold the vio lock around the ldc_write 
->> > (and also around dring write) in vnet_start_xmit, right?
->> 
->> You might be able to avoid it, you're fully serialized by the TX queue
->> lock.
-> 
-> yes, I was just noticing that. The only place where I believe I need
-> to hold the vio spin-lock is to sync with the dr->cons checks
-> (the "should I send a start_cons LDC message?" check in vnet_start_xmit()
-> vs the vnet_ack() updates).
+The patchset generally looks good to me.  Please feel free to add
 
-I don't see how that is any different from the netif_queue_wake() checks,
-it should be just as easy to cover it with the generic xmit lock.
+ Reviewed-by: Tejun Heo <tj@kernel.org>
 
-> But isn't it better in general to declare NETIF_F_LLTX and have finer lock
-> granularity in the driver?
+A question below.
 
-No, NETIF_F_LLTX drivers are heavily discouraged.  And on the
-contrary, it's easier to optimize the locking when we can consolidate
-what is covered at both the mid-level of the networking send paths and
-what the drivers need in their ->ndo_start_xmit() routines.
+On Fri, Oct 03, 2014 at 02:44:43PM -0700, Luis R. Rodriguez wrote:
+> +	bus.enable_kern_async=1 [KNL]
+> +			This tells the kernel userspace has been vetted for
+> +			asynchronous probe support and can listen to the device
+> +			driver prefer_async_probe flag for both built-in device
+> +			drivers and modules.
+
+Do we intend to keep this param permanently?  Isn't this more of a
+temp tool to be used during development?  If so, maybe we should make
+that clear with __DEVEL__ too?
+
+Thanks.
+
+-- 
+tejun
