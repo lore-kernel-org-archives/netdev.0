@@ -1,63 +1,46 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH net-next] ipvs: Avoid null-pointer deref in debug code
-Date: Mon, 6 Oct 2014 22:01:08 +0300 (EEST)
-Message-ID: <alpine.LFD.2.11.1410062159290.2258@ja.home.ssi.bg>
-References: <20141006073232.GA10073@verge.net.au> <1412610379-6295-1-git-send-email-agartrell@fb.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 08/16] virtio_net: drop config_enable
+Date: Mon, 06 Oct 2014 15:02:38 -0400 (EDT)
+Message-ID: <20141006.150238.2180269239953265506.davem@davemloft.net>
+References: <1412525038-15871-1-git-send-email-mst@redhat.com>
+	<1412525038-15871-9-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: horms@verge.net.au, dan.carpenter@oracle.com,
-	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	kernel-team@fb.com
-To: Alex Gartrell <agartrell@fb.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <1412610379-6295-1-git-send-email-agartrell@fb.com>
-Sender: lvs-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: mst@redhat.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1412525038-15871-9-git-send-email-mst@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Sun, 5 Oct 2014 19:07:13 +0300
 
-	Hello,
-
-On Mon, 6 Oct 2014, Alex Gartrell wrote:
-
-> Use daddr instead of reaching into dest.
+> Now that virtio core ensures config changes don't arrive during probing,
+> drop config_enable flag in virtio net.
+> On removal, flush is now sufficient to guarantee that no change work is
+> queued.
 > 
-> Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-> Signed-off-by: Alex Gartrell <agartrell@fb.com>
-
-	Thanks!
-
-Acked-by: Julian Anastasov <ja@ssi.bg>
-
-> ---
->  net/netfilter/ipvs/ip_vs_xmit.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
+> This help simplify the driver, and will allow setting DRIVER_OK earlier
+> without losing config change notifications.
 > 
-> diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
-> index 91f17c1..437a366 100644
-> --- a/net/netfilter/ipvs/ip_vs_xmit.c
-> +++ b/net/netfilter/ipvs/ip_vs_xmit.c
-> @@ -316,7 +316,7 @@ __ip_vs_get_out_rt(int skb_af, struct sk_buff *skb, struct ip_vs_dest *dest,
->  	if (unlikely(crosses_local_route_boundary(skb_af, skb, rt_mode,
->  						  local))) {
->  		IP_VS_DBG_RL("We are crossing local and non-local addresses"
-> -			     " daddr=%pI4\n", &dest->addr.ip);
-> +			     " daddr=%pI4\n", &daddr);
->  		goto err_put;
->  	}
->  
-> @@ -458,7 +458,7 @@ __ip_vs_get_out_rt_v6(int skb_af, struct sk_buff *skb, struct ip_vs_dest *dest,
->  	if (unlikely(crosses_local_route_boundary(skb_af, skb, rt_mode,
->  						  local))) {
->  		IP_VS_DBG_RL("We are crossing local and non-local addresses"
-> -			     " daddr=%pI6\n", &dest->addr.in6);
-> +			     " daddr=%pI6\n", daddr);
->  		goto err_put;
->  	}
->  
-> -- 
-> Alex Gartrell <agartrell@fb.com>
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 
-Regards
+It's hard for people on the networking side to review these changes
+since you haven't CC:'d them on any of the postings necessary to
+understand the context of the net/ and drivers/net/ changes.
 
---
-Julian Anastasov <ja@ssi.bg>
+Please at a minimum CC: everyone on your header [PATCH 0/N] posting
+so we know at least at a high level what is going on, and why.
+
+Thanks.
