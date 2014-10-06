@@ -1,64 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net: core: Quiet W=1 warnings for unused vars
- and static functions
-Date: Mon, 06 Oct 2014 15:02:19 -0700
-Message-ID: <1412632939.11091.86.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1412632298.2916.42.camel@joe-AO725>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH v1 0/3] net sched rcu updates
+Date: Mon, 06 Oct 2014 18:03:01 -0400 (EDT)
+Message-ID: <20141006.180301.251258497544909892.davem@davemloft.net>
+References: <20141006042335.6010.27000.stgit@nitbit.x32>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	John Fastabend <john.fastabend@gmail.com>
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1412632298.2916.42.camel@joe-AO725>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: xiyou.wangcong@gmail.com, netdev@vger.kernel.org, jhs@mojatatu.com,
+	eric.dumazet@gmail.com
+To: john.fastabend@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38608 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751131AbaJFWDF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 18:03:05 -0400
+In-Reply-To: <20141006042335.6010.27000.stgit@nitbit.x32>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-10-06 at 14:51 -0700, Joe Perches wrote:
-> Reduce noise when compiling W=1.
+From: John Fastabend <john.fastabend@gmail.com>
+Date: Sun, 05 Oct 2014 21:27:25 -0700
+
+> This fixes the use of tcf_proto from RCU callbacks it requires
+> moving the unbind calls out of the callbacks and removing the
+> tcf_proto argument from the tcf_em_tree_destroy().
 > 
-> All the variables are unused.
-> The functions are not called outside of the file so static
-> is preferred.
+> This is a rework of two previous series and addresses comments
+> from Cong. And should apply against latest net-next.
 > 
-> Signed-off-by: Joe Perches <joe@perches.com>
-> ---
+> The previous series links below for reference:
 > 
-> John, can you please verify that these gen_stats accesses
-> are unnecessary?  I believe the compiler can elide them in
-> any case, but I'm not sure what you intended here.
+> (1/2) net: sched: do not use tcf_proto 'tp' argument from call_rcu
+> http://patchwork.ozlabs.org/patch/396149/ 
+> 
+> (2/2) net: sched: replace ematch calls to use struct net
+> http://patchwork.ozlabs.org/patch/396150/
+> 
+> 
+> net: sched: cls_cgroup tear down exts and ematch from rcu callback
+> http://patchwork.ozlabs.org/patch/396307/
 
-...
-
-> diff --git a/net/core/gen_stats.c b/net/core/gen_stats.c
-> index 14681b9..01be9cf 100644
-> --- a/net/core/gen_stats.c
-> +++ b/net/core/gen_stats.c
-> @@ -106,13 +106,9 @@ __gnet_stats_copy_basic_cpu(struct gnet_stats_basic_packed *bstats,
->  	for_each_possible_cpu(i) {
->  		struct gnet_stats_basic_cpu *bcpu = per_cpu_ptr(cpu, i);
->  		unsigned int start;
-> -		__u64 bytes;
-> -		__u32 packets;
->  
->  		do {
->  			start = u64_stats_fetch_begin_irq(&bcpu->syncp);
-> -			bytes = bcpu->bstats.bytes;
-> -			packets = bcpu->bstats.packets;
->  		} while (u64_stats_fetch_retry_irq(&bcpu->syncp, start));
->  
-
-Well... Please fix the bug for real.
-
-
-
-
-
->  		bstats->bytes += bcpu->bstats.bytes;
-
-->
-
-	bstats->bytes += bytes;
-	bstats->packets += packets;
+Series applied, thanks.
