@@ -1,146 +1,219 @@
 From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: [iproute2 1/1] discourage use of direct policer interface
-Date: Mon,  6 Oct 2014 07:41:21 -0400
-Message-ID: <1412595681-7302-1-git-send-email-jhs@emojatatu.com>
+Subject: [iproute2 1/1] RFC: obsolete direct invocation of police
+Date: Mon,  6 Oct 2014 07:46:00 -0400
+Message-ID: <1412595960-7862-1-git-send-email-jhs@emojatatu.com>
 Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com,
-	john.r.fastabend@intel.com, Jamal Hadi Salim <hadi@mojatatu.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>
+	john.r.fastabend@intel.com, Jamal Hadi Salim <jhs@mojatatu.com>
 To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f180.google.com ([209.85.223.180]:59675 "EHLO
-	mail-ie0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751407AbaJFLlc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 07:41:32 -0400
-Received: by mail-ie0-f180.google.com with SMTP id x19so3004808ier.25
-        for <netdev@vger.kernel.org>; Mon, 06 Oct 2014 04:41:31 -0700 (PDT)
+Received: from mail-ie0-f177.google.com ([209.85.223.177]:55252 "EHLO
+	mail-ie0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751814AbaJFLqN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 07:46:13 -0400
+Received: by mail-ie0-f177.google.com with SMTP id rd18so2968611iec.8
+        for <netdev@vger.kernel.org>; Mon, 06 Oct 2014 04:46:12 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jamal Hadi Salim <hadi@mojatatu.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+
+I realize this may be controversial. I dont think people are still using
+the 1990s syntax anymore. This is one way to test it.
+We want to eventually phase out the kernel hacks for backward compat.
 
 Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
 ---
- tc/f_basic.c  |    3 ++-
- tc/f_bpf.c    |    5 +++--
- tc/f_cgroup.c |    4 ++--
- tc/f_flow.c   |    2 +-
- tc/f_fw.c     |    4 ++--
- tc/f_rsvp.c   |    4 ++--
- tc/f_u32.c    |    2 +-
- 7 files changed, 13 insertions(+), 11 deletions(-)
+ tc/f_basic.c   |    9 +++------
+ tc/f_bpf.c     |    9 +++------
+ tc/f_cgroup.c  |    9 +++------
+ tc/f_flow.c    |    9 +++------
+ tc/f_fw.c      |    9 +++------
+ tc/f_route.c   |    9 +++------
+ tc/f_rsvp.c    |    9 +++------
+ tc/f_tcindex.c |    9 +++------
+ tc/f_u32.c     |   10 +++-------
+ 9 files changed, 27 insertions(+), 55 deletions(-)
 
 diff --git a/tc/f_basic.c b/tc/f_basic.c
-index 67d26ec..1c33ca3 100644
+index 1c33ca3..6137f83 100644
 --- a/tc/f_basic.c
 +++ b/tc/f_basic.c
-@@ -27,11 +27,12 @@
+@@ -86,12 +86,9 @@ static int basic_parse_opt(struct filter_util *qu, char *handle,
+ 			continue;
  
- static void explain(void)
- {
--	fprintf(stderr, "Usage: ... basic [ match EMATCH_TREE ] [ police POLICE_SPEC ]\n");
-+	fprintf(stderr, "Usage: ... basic [ match EMATCH_TREE ] \n");
- 	fprintf(stderr, "                 [ action ACTION_SPEC ] [ classid CLASSID ]\n");
- 	fprintf(stderr, "\n");
- 	fprintf(stderr, "Where: SELECTOR := SAMPLE SAMPLE ...\n");
- 	fprintf(stderr, "       FILTERID := X:Y:Z\n");
-+	fprintf(stderr, "       ACTION_SPEC := ... look at individual actions\n");
- 	fprintf(stderr, "\nNOTE: CLASSID is parsed as hexadecimal input.\n");
- }
- 
+ 		} else if (matches(*argv, "police") == 0) {
+-			NEXT_ARG();
+-			if (parse_police(&argc, &argv, TCA_BASIC_POLICE, n)) {
+-				fprintf(stderr, "Illegal \"police\"\n");
+-				return -1;
+-			}
+-			continue;
++			fprintf(stderr, "Obsolete \"police\"\n");
++			fprintf(stderr, "use \"action police ...\"\n");
++			return -1;
+ 		} else if (strcmp(*argv, "help") == 0) {
+ 			explain();
+ 			return -1;
 diff --git a/tc/f_bpf.c b/tc/f_bpf.c
-index 8f1593c..48635a7 100644
+index 48635a7..4d86f38 100644
 --- a/tc/f_bpf.c
 +++ b/tc/f_bpf.c
-@@ -34,13 +34,14 @@ static void explain(void)
- 	fprintf(stderr, " [inline]:     run bytecode BPF_BYTECODE\n");
- 	fprintf(stderr, " [from file]:  run bytecode-file FILE\n");
- 	fprintf(stderr, "\n");
--	fprintf(stderr, "               [ police POLICE_SPEC ] [ action ACTION_SPEC ]\n");
-+	fprintf(stderr, "               [ action ACTION_SPEC ]\n");
- 	fprintf(stderr, "               [ classid CLASSID ]\n");
- 	fprintf(stderr, "\n");
- 	fprintf(stderr, "Where BPF_BYTECODE := \'s,c t f k,c t f k,c t f k,...\'\n");
- 	fprintf(stderr, "      c,t,f,k and s are decimals; s denotes number of 4-tuples\n");
- 	fprintf(stderr, "Where FILE points to a file containing the BPF_BYTECODE string\n");
--	fprintf(stderr, "\nNOTE: CLASSID is parsed as hexadecimal input.\n");
-+	fprintf(stderr, "\nACTION_SPEC := ... look at individual actions\n");
-+	fprintf(stderr, "NOTE: CLASSID is parsed as hexadecimal input.\n");
- }
- 
- static int bpf_parse_string(char *arg, bool from_file, __u16 *bpf_len,
+@@ -227,12 +227,9 @@ static int bpf_parse_opt(struct filter_util *qu, char *handle,
+ 			}
+ 			continue;
+ 		} else if (matches(*argv, "police") == 0) {
+-			NEXT_ARG();
+-			if (parse_police(&argc, &argv, TCA_BPF_POLICE, n)) {
+-				fprintf(stderr, "Illegal \"police\"\n");
+-				return -1;
+-			}
+-			continue;
++			fprintf(stderr, "Obsolete \"police\"\n");
++			fprintf(stderr, "use \"action police ...\"\n");
++			return -1;
+ 		} else if (strcmp(*argv, "help") == 0) {
+ 			explain();
+ 			return -1;
 diff --git a/tc/f_cgroup.c b/tc/f_cgroup.c
-index 4a4026e..53f7406 100644
+index 53f7406..092050c 100644
 --- a/tc/f_cgroup.c
 +++ b/tc/f_cgroup.c
-@@ -18,8 +18,8 @@
+@@ -60,12 +60,9 @@ static int cgroup_parse_opt(struct filter_util *qu, char *handle,
+ 			continue;
  
- static void explain(void)
- {
--	fprintf(stderr, "Usage: ... cgroup [ match EMATCH_TREE ] [ police POLICE_SPEC ]\n");
--	fprintf(stderr, "                 [ action ACTION_SPEC ]\n");
-+	fprintf(stderr, "Usage: ... cgroup [ match EMATCH_TREE ]\n");
-+	fprintf(stderr, "                  [ action ACTION_SPEC ]\n");
- }
- 
- static int cgroup_parse_opt(struct filter_util *qu, char *handle,
+ 		} else if (matches(*argv, "police") == 0) {
+-			NEXT_ARG();
+-			if (parse_police(&argc, &argv, TCA_CGROUP_POLICE, n)) {
+-				fprintf(stderr, "Illegal \"police\"\n");
+-				return -1;
+-			}
+-			continue;
++			fprintf(stderr, "Obsolete \"police\"\n");
++			fprintf(stderr, "use \"action police ...\"\n");
++			return -1;
+ 		} else if (strcmp(*argv, "help") == 0) {
+ 			explain();
+ 			return -1;
 diff --git a/tc/f_flow.c b/tc/f_flow.c
-index 7d4bb7a..b454a65 100644
+index b454a65..d021f6f 100644
 --- a/tc/f_flow.c
 +++ b/tc/f_flow.c
-@@ -27,7 +27,7 @@ static void explain(void)
- " [hashing mode]: hash keys KEY-LIST ... [ perturb SECS ]\n"
- "\n"
- "                 [ divisor NUM ] [ baseclass ID ] [ match EMATCH_TREE ]\n"
--"                 [ police POLICE_SPEC ] [ action ACTION_SPEC ]\n"
-+"                 [ action ACTION_SPEC ]\n"
- "\n"
- "KEY-LIST := [ KEY-LIST , ] KEY\n"
- "KEY      := [ src | dst | proto | proto-src | proto-dst | iif | priority | \n"
+@@ -220,12 +220,9 @@ static int flow_parse_opt(struct filter_util *fu, char *handle,
+ 			}
+ 			addattr32(n, 4096, TCA_FLOW_PERTURB, tmp);
+ 		} else if (matches(*argv, "police") == 0) {
+-			NEXT_ARG();
+-			if (parse_police(&argc, &argv, TCA_FLOW_POLICE, n)) {
+-				fprintf(stderr, "Illegal \"police\"\n");
+-				return -1;
+-			}
+-			continue;
++			fprintf(stderr, "Obsolete \"police\"\n");
++			fprintf(stderr, "use \"action police ...\"\n");
++			return -1;
+ 		} else if (matches(*argv, "action") == 0) {
+ 			NEXT_ARG();
+ 			if (parse_action(&argc, &argv, TCA_FLOW_ACT, n)) {
 diff --git a/tc/f_fw.c b/tc/f_fw.c
-index 161e2f7..165f489 100644
+index 165f489..4b15cce1 100644
 --- a/tc/f_fw.c
 +++ b/tc/f_fw.c
-@@ -25,8 +25,8 @@
- 
- static void explain(void)
- {
--	fprintf(stderr, "Usage: ... fw [ classid CLASSID ] [ police POLICE_SPEC ]\n");
--	fprintf(stderr, "       POLICE_SPEC := ... look at TBF\n");
-+	fprintf(stderr, "Usage: ... fw [ classid CLASSID ] [ action ACTION_SPEC ]\n");
-+	fprintf(stderr, "       ACTION_SPEC := ... look at individual actions\n");
- 	fprintf(stderr, "       CLASSID := X:Y\n");
- 	fprintf(stderr, "\nNOTE: CLASSID is parsed as hexadecimal input.\n");
- }
+@@ -78,12 +78,9 @@ static int fw_parse_opt(struct filter_util *qu, char *handle, int argc, char **a
+ 			}
+ 			addattr_l(n, 4096, TCA_FW_CLASSID, &handle, 4);
+ 		} else if (matches(*argv, "police") == 0) {
+-			NEXT_ARG();
+-			if (parse_police(&argc, &argv, TCA_FW_POLICE, n)) {
+-				fprintf(stderr, "Illegal \"police\"\n");
+-				return -1;
+-			}
+-			continue;
++			fprintf(stderr, "Obsolete \"police\"\n");
++			fprintf(stderr, "use \"action police ...\"\n");
++			return -1;
+ 		} else if (matches(*argv, "action") == 0) {
+ 			NEXT_ARG();
+ 			if (parse_action(&argc, &argv, TCA_FW_ACT, n)) {
+diff --git a/tc/f_route.c b/tc/f_route.c
+index 23c4ecc..7603c0e 100644
+--- a/tc/f_route.c
++++ b/tc/f_route.c
+@@ -99,12 +99,9 @@ static int route_parse_opt(struct filter_util *qu, char *handle, int argc, char
+ 			}
+ 			addattr_l(n, 4096, TCA_ROUTE4_CLASSID, &handle, 4);
+ 		} else if (matches(*argv, "police") == 0) {
+-			NEXT_ARG();
+-			if (parse_police(&argc, &argv, TCA_ROUTE4_POLICE, n)) {
+-				fprintf(stderr, "Illegal \"police\"\n");
+-				return -1;
+-			}
+-			continue;
++			fprintf(stderr, "Obsolete \"police\"\n");
++			fprintf(stderr, "use \"action police ...\"\n");
++			return -1;
+ 		} else if (matches(*argv, "action") == 0) {
+ 			NEXT_ARG();
+ 			if (parse_action(&argc, &argv, TCA_ROUTE4_ACT, n)) {
 diff --git a/tc/f_rsvp.c b/tc/f_rsvp.c
-index 14f24b1..cb7b8fb 100644
+index cb7b8fb..b1af8fb 100644
 --- a/tc/f_rsvp.c
 +++ b/tc/f_rsvp.c
-@@ -28,11 +28,11 @@ static void explain(void)
- {
- 	fprintf(stderr, "Usage: ... rsvp ipproto PROTOCOL session DST[/PORT | GPI ]\n");
- 	fprintf(stderr, "                [ sender SRC[/PORT | GPI ]\n");
--	fprintf(stderr, "                [ classid CLASSID ] [ police POLICE_SPEC ]\n");
-+	fprintf(stderr, "                [ classid CLASSID ] [ action ACTION_SPEC ]\n");
- 	fprintf(stderr, "                [ tunnelid ID ] [ tunnel ID skip NUMBER ]\n");
- 	fprintf(stderr, "Where: GPI := { flowlabel NUMBER | spi/ah SPI | spi/esp SPI |\n");
- 	fprintf(stderr, "                u{8|16|32} NUMBER mask MASK at OFFSET}\n");
--	fprintf(stderr, "       POLICE_SPEC := ... look at TBF\n");
-+	fprintf(stderr, "       ACTION_SPEC := ... look at individual actions\n");
- 	fprintf(stderr, "       FILTERID := X:Y\n");
- 	fprintf(stderr, "\nNOTE: CLASSID is parsed as hexadecimal input.\n");
- }
+@@ -269,12 +269,9 @@ static int rsvp_parse_opt(struct filter_util *qu, char *handle, int argc, char *
+ 			}
+ 			continue;
+ 		} else if (matches(*argv, "police") == 0) {
+-			NEXT_ARG();
+-			if (parse_police(&argc, &argv, TCA_RSVP_POLICE, n)) {
+-				fprintf(stderr, "Illegal \"police\"\n");
+-				return -1;
+-			}
+-			continue;
++			fprintf(stderr, "Obsolete \"police\"\n");
++			fprintf(stderr, "use \"action police ...\"\n");
++			return -1;
+ 		} else if (strcmp(*argv, "help") == 0) {
+ 			explain();
+ 			return -1;
+diff --git a/tc/f_tcindex.c b/tc/f_tcindex.c
+index b1847c8..e7a08d9 100644
+--- a/tc/f_tcindex.c
++++ b/tc/f_tcindex.c
+@@ -99,12 +99,9 @@ static int tcindex_parse_opt(struct filter_util *qu, char *handle, int argc,
+ 			addattr_l(n, 4096, TCA_TCINDEX_CLASSID, &handle, 4);
+ 		}
+ 		else if (!strcmp(*argv,"police")) {
+-			NEXT_ARG();
+-			if (parse_police(&argc, &argv, TCA_TCINDEX_POLICE, n)) {
+-				fprintf(stderr, "Illegal \"police\"\n");
+-				return -1;
+-			}
+-			continue;
++			fprintf(stderr, "Obsolete \"police\"\n");
++			fprintf(stderr, "use \"action police ...\"\n");
++			return -1;
+ 		}
+ 		else if (!strcmp(*argv,"action")) {
+ 			NEXT_ARG();
 diff --git a/tc/f_u32.c b/tc/f_u32.c
-index f2a862d..80a5097 100644
+index 80a5097..a7b3da6 100644
 --- a/tc/f_u32.c
 +++ b/tc/f_u32.c
-@@ -32,7 +32,7 @@ static void explain(void)
- {
- 	fprintf(stderr, "Usage: ... u32 [ match SELECTOR ... ] [ link HTID ]"
- 		" [ classid CLASSID ]\n");
--	fprintf(stderr, "               [ police POLICE_SPEC ]"
-+	fprintf(stderr, "               [ action ACTION_SPEC ]"
- 		" [ offset OFFSET_SPEC ]\n");
- 	fprintf(stderr, "               [ ht HTID ] [ hashkey HASHKEY_SPEC ]\n");
- 	fprintf(stderr, "               [ sample SAMPLE ]\n");
+@@ -1131,13 +1131,9 @@ static int u32_parse_opt(struct filter_util *qu, char *handle,
+ 			continue;
+ 
+ 		} else if (matches(*argv, "police") == 0) {
+-			NEXT_ARG();
+-			if (parse_police(&argc, &argv, TCA_U32_POLICE, n)) {
+-				fprintf(stderr, "Illegal \"police\"\n");
+-				return -1;
+-			}
+-			terminal_ok++;
+-			continue;
++			fprintf(stderr, "Obsolete \"police\"\n");
++			fprintf(stderr, "use \"action police ...\"\n");
++			return -1;
+ 		} else if (strcmp(*argv, "help") == 0) {
+ 			explain();
+ 			return -1;
 -- 
 1.7.9.5
