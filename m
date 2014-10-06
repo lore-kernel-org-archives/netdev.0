@@ -1,86 +1,70 @@
-From: Hau <hau@realtek.com>
-Subject: RE: [PATCH v2 net-next] r8169:add support for RTL8168EP
-Date: Mon, 6 Oct 2014 08:56:39 +0000
-Message-ID: <80377ECBC5453840BA8C7155328B537765786D@RTITMBSV03.realtek.com.tw>
-References: <1412328052-8480-1-git-send-email-hau@realtek.com>
- <20141003203244.GA19965@electric-eye.fr.zoreil.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [net-next PATCH v1 1/3] net: sched: af_packet support for direct
+ ring access
+Date: Mon, 06 Oct 2014 11:49:25 +0200
+Message-ID: <543265A5.8000606@redhat.com>
+References: <20141006000629.32055.2295.stgit@nitbit.x32> <20141006002951.GA24376@breakpoint.cc> <5431EC82.7010305@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	nic_swsd <nic_swsd@realtek.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141003203244.GA19965@electric-eye.fr.zoreil.com>
-Content-Language: zh-TW
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Florian Westphal <fw@strlen.de>, gerlitz.or@gmail.com,
+	hannes@stressinduktion.org, netdev@vger.kernel.org,
+	john.ronciak@intel.com, amirv@mellanox.com, eric.dumazet@gmail.com,
+	danny.zhou@intel.com
+To: John Fastabend <john.fastabend@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:51134 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751387AbaJFJti (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Oct 2014 05:49:38 -0400
+In-Reply-To: <5431EC82.7010305@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hi John,
 
-> -----Original Message-----
-> From: Francois Romieu [mailto:romieu@fr.zoreil.com]
-> Sent: Saturday, October 04, 2014 4:33 AM
-> To: Hau
-> Cc: netdev@vger.kernel.org; nic_swsd; linux-kernel@vger.kernel.org
-> Subject: Re: [PATCH v2 net-next] r8169:add support for RTL8168EP
-> 
-> Chun-Hao Lin <hau@realtek.com> :
-> [...]
-> > diff --git a/drivers/net/ethernet/realtek/r8169.c
-> > b/drivers/net/ethernet/realtek/r8169.c
-> > index 54476ba..3efdf4d 100644
-> > --- a/drivers/net/ethernet/realtek/r8169.c
-> > +++ b/drivers/net/ethernet/realtek/r8169.c
-> [...]
-> > @@ -1276,6 +1273,52 @@ static void rtl_w0w1_eri(struct rtl8169_private
-> *tp, int addr, u32 mask, u32 p,
-> >  	rtl_eri_write(tp, addr, mask, (val & ~m) | p, type);  }
-> >
-> > +static u32 ocp_read(struct rtl8169_private *tp, u8 mask, u16 reg) {
-> > +	void __iomem *ioaddr = tp->mmio_addr;
-> > +
-> > +	switch (tp->mac_version) {
-> > +	case RTL_GIGA_MAC_VER_27:
-> > +	case RTL_GIGA_MAC_VER_28:
-> > +	case RTL_GIGA_MAC_VER_31:
-> > +		RTL_W32(OCPAR, ((u32)mask & 0x0f) << 12 | (reg & 0x0fff));
-> > +		return rtl_udelay_loop_wait_high(tp, &rtl_ocpar_cond, 100,
-> 20)
-> > +			? RTL_R32(OCPDR) : ~0;
-> 
-> '?' should be on the previous line. There isn't more room than needed but it's
-> still ok.
-> 
-> [...]
-> > +static void rtl8168ep_2_hw_phy_config(struct rtl8169_private *tp) {
-> [...]
-> > +	rtl_w0w1_phy(tp, 0x14, 0x7C00, ~0x7Cff);
-> 
-> Nit:	rtl_w0w1_phy(tp, 0x14, 0x7c00, ~0x7cff);
-> 
-> [...]
-> +	rtl_writephy(tp, 0x1f, 0x0bC8);
-> 
-> Nit:	rtl_writephy(tp, 0x1f, 0x0bc8);
-> 
-> Tangent: please find feature wise identical code below without moves.
-> I have avoided introducing more helpers that may have kept the code more
-> balanced for 8168dp vs 8168ep as it wasn't the point and it is still possible to
-> change the code from there.
-> 
-> It provides a different review experience. Feel free to give it a thought.
+On 10/06/2014 03:12 AM, John Fastabend wrote:
+> On 10/05/2014 05:29 PM, Florian Westphal wrote:
+>> John Fastabend <john.fastabend@gmail.com> wrote:
+>>> There is one critical difference when running with these interfaces
+>>> vs running without them. In the normal case the af_packet module
+>>> uses a standard descriptor format exported by the af_packet user
+>>> space headers. In this model because we are working directly with
+>>> driver queues the descriptor format maps to the descriptor format
+>>> used by the device. User space applications can learn device
+>>> information from the socket option PACKET_DEV_DESC_INFO which
+>>> should provide enough details to extrapulate the descriptor formats.
+>>> Although this adds some complexity to user space it removes the
+>>> requirement to copy descriptor fields around.
+>>
+>> I find it very disappointing that we seem to have to expose such
+>> hardware specific details to userspace via hw-independent interface.
+>
+> Well it was only for convenience if it doesn't fit as a socket
+> option we can remove it. We can look up the device using the netdev
+> name from the bind call. I see your point though so if there is
+> consensus that this is not needed that is fine.
+>
+>> How big of a cost are we talking about when you say that it 'removes
+>> the requirement to copy descriptor fields'?
+>
+> This was likely a poor description. If you want to let user space
+> poll on the ring (without using system calls or interrupts) then
+> I don't see how you can _not_ expose the ring directly complete with
+> the vendor descriptor formats.
 
-Do you mean I should collect similar hardware parameters setting into one function?
-or
-I should set hardware parameters according to hardware feature support version?
-For example,
-If mac_version == RTL8168DP
-	dash_ver = 1
-else If mac_version == RTL8168DP
-	dash_ver = 2
+But how big is the concrete performance degradation you're seeing if you
+use an e.g. `netmap-alike` Linux-own variant as a hw-neutral interface
+that does *not* directly expose hw descriptor formats to user space?
 
-if dashver == 1
-	...
-else if dashver == 2
-	...
+With 1 core netmap does 10G line-rate on 64b; I don't know their numbers
+on 40G when run on decent hardware though.
+
+It would really be great if we have something vendor neutral exposed as
+a stable ABI and could leverage emerging infrastructure we already have
+in the kernel such as eBPF and recent qdisc batching for raw sockets
+instead of reinventing the wheels. (Don't get me wrong, I would love to
+see AF_PACKET improved ...)
+
+Thanks,
+Daniel
