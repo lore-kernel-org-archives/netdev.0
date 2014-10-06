@@ -1,29 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net: better IFF_XMIT_DST_RELEASE support
-Date: Sun, 05 Oct 2014 17:26:12 -0700
-Message-ID: <1412555172.11091.30.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1412267647.22242.3.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20141004.202900.1107815015981261576.davem@davemloft.net>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [net-next PATCH v1 1/3] net: sched: af_packet support for direct
+ ring access
+Date: Mon, 6 Oct 2014 02:29:51 +0200
+Message-ID: <20141006002951.GA24376@breakpoint.cc>
+References: <20141006000629.32055.2295.stgit@nitbit.x32>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: dborkman@redhat.com, fw@strlen.de, gerlitz.or@gmail.com,
+	hannes@stressinduktion.org, netdev@vger.kernel.org,
+	john.ronciak@intel.com, amirv@mellanox.com, eric.dumazet@gmail.com,
+	danny.zhou@intel.com
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:38682 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751768AbaJFA0P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Oct 2014 20:26:15 -0400
-Received: by mail-pd0-f169.google.com with SMTP id w10so2422800pde.0
-        for <netdev@vger.kernel.org>; Sun, 05 Oct 2014 17:26:14 -0700 (PDT)
-In-Reply-To: <20141004.202900.1107815015981261576.davem@davemloft.net>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:45051 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751775AbaJFA36 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Oct 2014 20:29:58 -0400
+Content-Disposition: inline
+In-Reply-To: <20141006000629.32055.2295.stgit@nitbit.x32>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2014-10-04 at 20:29 -0400, David Miller wrote:
+John Fastabend <john.fastabend@gmail.com> wrote:
+> There is one critical difference when running with these interfaces
+> vs running without them. In the normal case the af_packet module
+> uses a standard descriptor format exported by the af_packet user
+> space headers. In this model because we are working directly with
+> driver queues the descriptor format maps to the descriptor format
+> used by the device. User space applications can learn device
+> information from the socket option PACKET_DEV_DESC_INFO which
+> should provide enough details to extrapulate the descriptor formats.
+> Although this adds some complexity to user space it removes the
+> requirement to copy descriptor fields around.
 
-> I assume you are going to rework this to use a counter indication
-> in order to deal with the packet scheduler issues Julian brought
-> up.
+I find it very disappointing that we seem to have to expose such
+hardware specific details to userspace via hw-independent interface.
 
-Absolutely, I will provide a v2.
+How big of a cost are we talking about when you say that it 'removes
+the requirement to copy descriptor fields'?
+
+Thanks,
+Florian
