@@ -1,29 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: validate_xmit_vlan() is static
-Date: Mon, 06 Oct 2014 18:17:43 -0400 (EDT)
-Message-ID: <20141006.181743.865615080283790796.davem@davemloft.net>
-References: <1412619987.11091.76.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH net-next] net: core: Quiet W=1 warnings for unused vars
+ and static functions
+Date: Mon, 06 Oct 2014 18:19:40 -0400 (EDT)
+Message-ID: <20141006.181940.852741335799941670.davem@davemloft.net>
+References: <1412632298.2916.42.camel@joe-AO725>
+	<20141006.175612.1709169088283433326.davem@davemloft.net>
+	<1412633064.2916.46.camel@joe-AO725>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38781 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752449AbaJFWRo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 18:17:44 -0400
-In-Reply-To: <1412619987.11091.76.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	john.fastabend@gmail.com
+To: joe@perches.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1412633064.2916.46.camel@joe-AO725>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 06 Oct 2014 11:26:27 -0700
+From: Joe Perches <joe@perches.com>
+Date: Mon, 06 Oct 2014 15:04:24 -0700
 
-> From: Eric Dumazet <edumazet@google.com>
+> On Mon, 2014-10-06 at 17:56 -0400, David Miller wrote:
+>> From: Joe Perches <joe@perches.com>
+>> Date: Mon, 06 Oct 2014 14:51:38 -0700
+>> 
+>> > Reduce noise when compiling W=1.
+> []
+>> BTW, this patch reminds me that if people think there are
+>> subdirectories where we can turn on things like -Werror in the
+>> networking I would be very happy to apply such patches.
+> []
+>> Things like net/core/ for example should be doable for sure.
 > 
-> Marking this as static allows compiler to inline it.
+> I don't have any significant opposition to -Werror, but
+> I think there are real arguments _against_ using -Werror.
 > 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> I think the primary one is new compiler versions have a
+> tendency to add new warnings for various things that can
+> unnecessarily and unpredictably break the build.
 
-Applied, thanks Eric.
+My experience over at least a decade with arch/sparc doesn't match
+your claims.
