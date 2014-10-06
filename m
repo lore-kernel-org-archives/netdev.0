@@ -1,70 +1,39 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [net-next PATCH v1 1/3] net: sched: af_packet support for direct
- ring access
-Date: Mon, 06 Oct 2014 11:49:25 +0200
-Message-ID: <543265A5.8000606@redhat.com>
-References: <20141006000629.32055.2295.stgit@nitbit.x32> <20141006002951.GA24376@breakpoint.cc> <5431EC82.7010305@gmail.com>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: Re: CPSW bug with AM437x SK
+Date: Mon, 6 Oct 2014 15:24:59 +0530
+Message-ID: <543266F3.4090200@ti.com>
+References: <20141003010418.GA9612@saruman>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: Florian Westphal <fw@strlen.de>, gerlitz.or@gmail.com,
-	hannes@stressinduktion.org, netdev@vger.kernel.org,
-	john.ronciak@intel.com, amirv@mellanox.com, eric.dumazet@gmail.com,
-	danny.zhou@intel.com
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51134 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751387AbaJFJti (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Oct 2014 05:49:38 -0400
-In-Reply-To: <5431EC82.7010305@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Linux OMAP Mailing List <linux-omap@vger.kernel.org>,
+	Linux ARM Kernel Mailing List
+	<linux-arm-kernel@lists.infradead.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: <balbi@ti.com>
+Return-path: <linux-omap-owner@vger.kernel.org>
+In-Reply-To: <20141003010418.GA9612@saruman>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi John,
+On Friday 03 October 2014 06:34 AM, Felipe Balbi wrote:
+> [  261.177168] [<c0648d48>] (skb_panic) from [<c0565edc>] (skb_put+0x5c/0x60)
+> [  261.184415] [<c0565edc>] (skb_put) from [<c0605aac>] (unix_stream_sendmsg+0x164/0x390)
+> [  261.192712] [<c0605aac>] (unix_stream_sendmsg) from [<c055b364>] (sock_aio_write+0xdc/0xfc)
+> [  261.201475] [<c055b364>] (sock_aio_write) from [<c014c42c>] (do_sync_write+0x8c/0xb4)
+> [  261.209697] [<c014c42c>] (do_sync_write) from [<c014cf70>] (vfs_write+0x118/0x1c0)
+> [  261.217652] [<c014cf70>] (vfs_write) from [<c014d564>] (SyS_write+0x4c/0xa0)
+> [  261.225054] [<c014d564>] (SyS_write) from [<c000ed40>] (ret_fast_syscall+0x0/0x48)
+> [  261.232988] Code: e58d4008 e58de00c e59f0008 ebfff48e (e7f001f2) 
+> [  261.239378] ---[ end trace d64258d586f40104 ]---
 
-On 10/06/2014 03:12 AM, John Fastabend wrote:
-> On 10/05/2014 05:29 PM, Florian Westphal wrote:
->> John Fastabend <john.fastabend@gmail.com> wrote:
->>> There is one critical difference when running with these interfaces
->>> vs running without them. In the normal case the af_packet module
->>> uses a standard descriptor format exported by the af_packet user
->>> space headers. In this model because we are working directly with
->>> driver queues the descriptor format maps to the descriptor format
->>> used by the device. User space applications can learn device
->>> information from the socket option PACKET_DEV_DESC_INFO which
->>> should provide enough details to extrapulate the descriptor formats.
->>> Although this adds some complexity to user space it removes the
->>> requirement to copy descriptor fields around.
->>
->> I find it very disappointing that we seem to have to expose such
->> hardware specific details to userspace via hw-independent interface.
->
-> Well it was only for convenience if it doesn't fit as a socket
-> option we can remove it. We can look up the device using the netdev
-> name from the bind call. I see your point though so if there is
-> consensus that this is not needed that is fine.
->
->> How big of a cost are we talking about when you say that it 'removes
->> the requirement to copy descriptor fields'?
->
-> This was likely a poor description. If you want to let user space
-> poll on the ring (without using system calls or interrupts) then
-> I don't see how you can _not_ expose the ring directly complete with
-> the vendor descriptor formats.
+The BT shows that the warn came from a unix socket interface, so this
+cannot be a CPSW bug, its a bug in unix socket.
 
-But how big is the concrete performance degradation you're seeing if you
-use an e.g. `netmap-alike` Linux-own variant as a hw-neutral interface
-that does *not* directly expose hw descriptor formats to user space?
+Are you not seeing this issue with file system in any other media?
 
-With 1 core netmap does 10G line-rate on 64b; I don't know their numbers
-on 40G when run on decent hardware though.
+I will try to reproduce this locally with my AM437x EVMsk.
 
-It would really be great if we have something vendor neutral exposed as
-a stable ABI and could leverage emerging infrastructure we already have
-in the kernel such as eBPF and recent qdisc batching for raw sockets
-instead of reinventing the wheels. (Don't get me wrong, I would love to
-see AF_PACKET improved ...)
-
-Thanks,
-Daniel
+Regards
+Mugunthan V N
