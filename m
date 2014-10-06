@@ -1,55 +1,42 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [PATCH] net: sched: cls_cgroup tear down exts and ematch from
- rcu callback
-Date: Sun, 05 Oct 2014 18:48:20 -0700
-Message-ID: <5431F4E4.8000209@gmail.com>
-References: <20141003163333.20118.59609.stgit@nitbit.x32> <20141005.213146.1400362219156302379.davem@davemloft.net>
+From: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCH net-next v2] r8152: nway reset after setting eee
+Date: Mon, 6 Oct 2014 10:36:04 +0800
+Message-ID: <1394712342-15778-57-Taiwan-albertk@realtek.com>
+References: <1394712342-15778-54-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: xiyou.wangcong@gmail.com, netdev@vger.kernel.org, jhs@mojatatu.com,
-	eric.dumazet@gmail.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f51.google.com ([209.85.218.51]:63187 "EHLO
-	mail-oi0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751859AbaJFBsf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Oct 2014 21:48:35 -0400
-Received: by mail-oi0-f51.google.com with SMTP id h136so173079oig.38
-        for <netdev@vger.kernel.org>; Sun, 05 Oct 2014 18:48:35 -0700 (PDT)
-In-Reply-To: <20141005.213146.1400362219156302379.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1394712342-15778-54-Taiwan-albertk-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 10/05/2014 06:31 PM, David Miller wrote:
-> From: John Fastabend <john.fastabend@gmail.com>
-> Date: Fri, 03 Oct 2014 09:33:35 -0700
->
->> It is not RCU safe to destroy the action chain while there
->> is a possibility of readers accessing it. Move this code
->> into the rcu callback using the same rcu callback used in the
->> code patch to make a change to head.
->>
->> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
->   ...
->> @@ -156,10 +156,8 @@ static void cls_cgroup_destroy(struct tcf_proto *tp)
->>   	struct cls_cgroup_head *head = rtnl_dereference(tp->root);
->>
->>   	if (head) {
->> -		tcf_exts_destroy(&head->exts);
->> -		tcf_em_tree_destroy(head->net, &head->ematches);
->>   		RCU_INIT_POINTER(tp->root, NULL);
->> -		kfree_rcu(head, rcu);
->> +		call_rcu(&head->rcu, cls_cgroup_destroy_rcu);
->>   	}
->
-> tcf_em_tree_destroy() takes head->tp as it's first argument in my
-> net-next tree, maybe you need to respin this?
->
+Restart autonegotiation is necessary after setting EEE.
 
-Yep, I'll respin this now sorry about that got a bit out of sync.
+Signed-off-by: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+---
+ drivers/net/usb/r8152.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-Thanks!
-
+diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+index b9a9815..6532620 100644
+--- a/drivers/net/usb/r8152.c
++++ b/drivers/net/usb/r8152.c
+@@ -3471,6 +3471,8 @@ rtl_ethtool_set_eee(struct net_device *net, struct ethtool_eee *edata)
+ 		goto out;
+ 
+ 	ret = tp->rtl_ops.eee_set(tp, edata);
++	if (!ret)
++		ret = mii_nway_restart(&tp->mii);
+ 
+ 	usb_autopm_put_interface(tp->intf);
+ 
 -- 
-John Fastabend         Intel Corporation
+1.9.3
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
