@@ -1,114 +1,86 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next 2/5] ipv6: make rt_sernum atomic and serial number fields ordinary ints
-Date: Mon,  6 Oct 2014 10:52:11 +0200
-Message-ID: <c98d73f367912e2fa164ffa7f6cc0c7ecbd21de1.1412585163.git.hannes@stressinduktion.org>
-References: <cover.1412585162.git.hannes@stressinduktion.org>
-Cc: hideaki@yoshifuji.org, kafai@fb.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:58404 "EHLO
-	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751289AbaJFIwX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 04:52:23 -0400
-Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
-	by gateway2.nyi.internal (Postfix) with ESMTP id 6071D202EA
-	for <netdev@vger.kernel.org>; Mon,  6 Oct 2014 04:52:23 -0400 (EDT)
-In-Reply-To: <cover.1412585162.git.hannes@stressinduktion.org>
-In-Reply-To: <cover.1412585162.git.hannes@stressinduktion.org>
-References: <cover.1412585162.git.hannes@stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Hau <hau@realtek.com>
+Subject: RE: [PATCH v2 net-next] r8169:add support for RTL8168EP
+Date: Mon, 6 Oct 2014 08:56:39 +0000
+Message-ID: <80377ECBC5453840BA8C7155328B537765786D@RTITMBSV03.realtek.com.tw>
+References: <1412328052-8480-1-git-send-email-hau@realtek.com>
+ <20141003203244.GA19965@electric-eye.fr.zoreil.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	nic_swsd <nic_swsd@realtek.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141003203244.GA19965@electric-eye.fr.zoreil.com>
+Content-Language: zh-TW
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Cc: YOSHIFUJI Hideaki <hideaki@yoshifuji.org>
-Cc: Martin Lau <kafai@fb.com>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- include/net/ip6_fib.h |  2 +-
- net/ipv6/ip6_fib.c    | 23 +++++++++++++----------
- 2 files changed, 14 insertions(+), 11 deletions(-)
 
-diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
-index f4e6b3e..ee07f92 100644
---- a/include/net/ip6_fib.h
-+++ b/include/net/ip6_fib.h
-@@ -64,7 +64,7 @@ struct fib6_node {
- 
- 	__u16			fn_bit;		/* bit key */
- 	__u16			fn_flags;
--	__u32			fn_sernum;
-+	int			fn_sernum;
- 	struct rt6_info		*rr_ptr;
- };
- 
-diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-index 92f53db..bfad469 100644
---- a/net/ipv6/ip6_fib.c
-+++ b/net/ipv6/ip6_fib.c
-@@ -74,7 +74,7 @@ static int fib6_walk_continue(struct fib6_walker_t *w);
-  *	result of redirects, path MTU changes, etc.
-  */
- 
--static __u32 rt_sernum;
-+static atomic_t rt_sernum = ATOMIC_INIT(1);
- 
- static void fib6_gc_timer_cb(unsigned long arg);
- 
-@@ -95,12 +95,15 @@ static void fib6_walker_unlink(struct fib6_walker_t *w)
- 	write_unlock_bh(&fib6_walker_lock);
- }
- 
--static u32 fib6_new_sernum(void)
-+static int fib6_new_sernum(void)
- {
--	u32 n = ++rt_sernum;
--	if ((__s32)n <= 0)
--		rt_sernum = n = 1;
--	return n;
-+	int new, old;
-+
-+	do {
-+		old = atomic_read(&rt_sernum);
-+		new = old < INT_MAX ? old + 1 : 1;
-+	} while (atomic_cmpxchg(&rt_sernum, old, new) != old);
-+	return new;
- }
- 
- /*
-@@ -421,7 +424,7 @@ static struct fib6_node *fib6_add_1(struct fib6_node *root,
- 	struct rt6key *key;
- 	int	bit;
- 	__be32	dir = 0;
--	__u32	sernum = fib6_new_sernum();
-+	int	sernum = fib6_new_sernum();
- 
- 	RT6_TRACE("fib6_add_1\n");
- 
-@@ -1598,7 +1601,7 @@ static void fib6_prune_clones(struct net *net, struct fib6_node *fn)
- 
- static int fib6_update_sernum(struct rt6_info *rt, void *arg)
- {
--	__u32 sernum = *(__u32 *)arg;
-+	int sernum = *(__u32 *)arg;
- 
- 	if (rt->rt6i_node &&
- 	    rt->rt6i_node->fn_sernum != sernum)
-@@ -1609,7 +1612,7 @@ static int fib6_update_sernum(struct rt6_info *rt, void *arg)
- 
- static void fib6_flush_trees(struct net *net)
- {
--	__u32 new_sernum = fib6_new_sernum();
-+	int new_sernum = fib6_new_sernum();
- 
- 	fib6_clean_all(net, fib6_update_sernum, &new_sernum);
- }
-@@ -1822,7 +1825,7 @@ struct ipv6_route_iter {
- 	struct fib6_walker_t w;
- 	loff_t skip;
- 	struct fib6_table *tbl;
--	__u32 sernum;
-+	int sernum;
- };
- 
- static int ipv6_route_seq_show(struct seq_file *seq, void *v)
--- 
-1.9.3
+> -----Original Message-----
+> From: Francois Romieu [mailto:romieu@fr.zoreil.com]
+> Sent: Saturday, October 04, 2014 4:33 AM
+> To: Hau
+> Cc: netdev@vger.kernel.org; nic_swsd; linux-kernel@vger.kernel.org
+> Subject: Re: [PATCH v2 net-next] r8169:add support for RTL8168EP
+> 
+> Chun-Hao Lin <hau@realtek.com> :
+> [...]
+> > diff --git a/drivers/net/ethernet/realtek/r8169.c
+> > b/drivers/net/ethernet/realtek/r8169.c
+> > index 54476ba..3efdf4d 100644
+> > --- a/drivers/net/ethernet/realtek/r8169.c
+> > +++ b/drivers/net/ethernet/realtek/r8169.c
+> [...]
+> > @@ -1276,6 +1273,52 @@ static void rtl_w0w1_eri(struct rtl8169_private
+> *tp, int addr, u32 mask, u32 p,
+> >  	rtl_eri_write(tp, addr, mask, (val & ~m) | p, type);  }
+> >
+> > +static u32 ocp_read(struct rtl8169_private *tp, u8 mask, u16 reg) {
+> > +	void __iomem *ioaddr = tp->mmio_addr;
+> > +
+> > +	switch (tp->mac_version) {
+> > +	case RTL_GIGA_MAC_VER_27:
+> > +	case RTL_GIGA_MAC_VER_28:
+> > +	case RTL_GIGA_MAC_VER_31:
+> > +		RTL_W32(OCPAR, ((u32)mask & 0x0f) << 12 | (reg & 0x0fff));
+> > +		return rtl_udelay_loop_wait_high(tp, &rtl_ocpar_cond, 100,
+> 20)
+> > +			? RTL_R32(OCPDR) : ~0;
+> 
+> '?' should be on the previous line. There isn't more room than needed but it's
+> still ok.
+> 
+> [...]
+> > +static void rtl8168ep_2_hw_phy_config(struct rtl8169_private *tp) {
+> [...]
+> > +	rtl_w0w1_phy(tp, 0x14, 0x7C00, ~0x7Cff);
+> 
+> Nit:	rtl_w0w1_phy(tp, 0x14, 0x7c00, ~0x7cff);
+> 
+> [...]
+> +	rtl_writephy(tp, 0x1f, 0x0bC8);
+> 
+> Nit:	rtl_writephy(tp, 0x1f, 0x0bc8);
+> 
+> Tangent: please find feature wise identical code below without moves.
+> I have avoided introducing more helpers that may have kept the code more
+> balanced for 8168dp vs 8168ep as it wasn't the point and it is still possible to
+> change the code from there.
+> 
+> It provides a different review experience. Feel free to give it a thought.
+
+Do you mean I should collect similar hardware parameters setting into one function?
+or
+I should set hardware parameters according to hardware feature support version?
+For example,
+If mac_version == RTL8168DP
+	dash_ver = 1
+else If mac_version == RTL8168DP
+	dash_ver = 2
+
+if dashver == 1
+	...
+else if dashver == 2
+	...
