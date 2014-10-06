@@ -1,59 +1,51 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [PATCH v2 7/7] driver-core: add preferred async probe option for
- built-in and modules
-Date: Mon, 6 Oct 2014 17:01:18 -0400
-Message-ID: <20141006210118.GG18303@htj.dyndns.org>
-References: <1412372683-2003-1-git-send-email-mcgrof@do-not-panic.com>
- <1412372683-2003-8-git-send-email-mcgrof@do-not-panic.com>
- <20141006201926.GF18303@htj.dyndns.org>
- <20141006203627.GZ14081@wotan.suse.de>
+From: David Miller <davem@redhat.com>
+Subject: Re: [Xen-devel] [PATCHv1] xen-netfront: always keep the Rx ring
+ full of requests
+Date: Mon, 06 Oct 2014 17:07:48 -0400 (EDT)
+Message-ID: <20141006.170748.1817067290457286845.davem@redhat.com>
+References: <5432B6D2.9030503@oracle.com>
+	<5432BC96.6060709@citrix.com>
+	<5432E26C.3020207@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
-	gregkh@linuxfoundation.org, dmitry.torokhov@gmail.com,
-	tiwai@suse.de, arjan@linux.intel.com, teg@jklm.no,
-	rmilasan@suse.com, werner@suse.com, oleg@redhat.com, hare@suse.com,
-	bpoirier@suse.de, santosh@chelsio.com, pmladek@suse.cz,
-	dbueso@suse.com, linux-kernel@vger.kernel.org,
-	Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
-	Joseph Salisbury <joseph.salisbury@canonical.com>,
-	Kay Sievers <kay@vrfy.org>,
-	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
-	Tim Gardner <tim.gardner@canonical.com>,
-	Pierre Fersing <pierre-fersing@pierref.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
-	Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
-	Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
-	Abhijit Mahajan <abhijit.mahajan@avagotech.com>,
-	Casey Leedom <leedom@che
-To: "Luis R. Rodriguez" <mcgrof@suse.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20141006203627.GZ14081@wotan.suse.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: david.vrabel@citrix.com, netdev@vger.kernel.org,
+	boris.ostrovsky@oracle.com, xen-devel@lists.xenproject.org
+To: annie.li@oracle.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:37802 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751098AbaJFVH4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Oct 2014 17:07:56 -0400
+In-Reply-To: <5432E26C.3020207@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
+From: annie li <annie.li@oracle.com>
+Date: Mon, 06 Oct 2014 14:41:48 -0400
 
-On Mon, Oct 06, 2014 at 10:36:27PM +0200, Luis R. Rodriguez wrote:
-> > Do we intend to keep this param permanently?  Isn't this more of a
-> > temp tool to be used during development?  If so, maybe we should make
-> > that clear with __DEVEL__ too?
 > 
-> As its designed right now no, its not a temp tool, its there to
-> require compatibility with old userspace. For modules we can require
-> the module parameter but for built-in we need something else and this
-> is what came to mind. It is also what would allow the prefer_async_probe
-> flag too as otherwise we won't know if userspace is prepared.
+> On 2014/10/6 12:00, David Vrabel wrote:
+>>>>    +    queue->rx.req_prod_pvt = req_prod;
+>>>> +
+>>>> +    /* Not enough requests? Try again later. */
+>>>> +    if (req_prod - queue->rx.rsp_cons < NET_RX_SLOTS_MIN) {
+>>>> +        mod_timer(&queue->rx_refill_timer, jiffies + (HZ/10));
+>>>> +        return;
+>>> If the previous for loop breaks because of failure of
+>>> xennet_alloc_one_rx_buffer, then notify_remote_via_irq is missed here
+>>> if
+>>> the code returns directly.
+>> This is deliberate -- there's no point notifying the backend if there
+>> aren't enough requests for the next packet.  Since we don't know what
+>> the next packet might be we assume it's the largest possible.
+> That makes sense.
+> However, the largest packet case does not happen so
+> frequently. Moreover, netback checks the slots every incoming skb
+> requires in xenvif_rx_ring_slots_available, not only concerning the
+> largest case.
 
-I don't get it.  For in-kernel stuff, we already have a clear
-synchronization point where we already synchronize all async calls.
-Shouldn't we be flushing these async probes there too?  insmod'ing is
-userland visible but there's no reason this has to be for the built-in
-drivers.
+I have an opinion about the sysfs stuff.
 
-Thanks.
-
--- 
-tejun
+It's user facing, so even if it doesn't influence behavior any more
+you have to keep the files around, just make them nops.
