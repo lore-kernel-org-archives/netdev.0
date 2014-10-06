@@ -1,32 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: bcmgenet: improve bcmgenet_mii_setup()
-Date: Mon, 06 Oct 2014 00:18:40 -0400 (EDT)
-Message-ID: <20141006.001840.1053267802558927782.davem@davemloft.net>
-References: <20141003192501.C79311004A1@puck.mtv.corp.google.com>
+Subject: Re: [PATCH net-next 1/1] net: fec: fix build error at m68k platform
+Date: Mon, 06 Oct 2014 00:19:43 -0400 (EDT)
+Message-ID: <20141006.001943.1985890859811807248.davem@davemloft.net>
+References: <1412362831-59318-1-git-send-email-Frank.Li@freescale.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, f.fainelli@gmail.com
-To: pgynther@google.com
+Cc: lznuaa@gmail.com, netdev@vger.kernel.org, b38611@freescale.com
+To: Frank.Li@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57588 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:57594 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750720AbaJFESo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 00:18:44 -0400
-In-Reply-To: <20141003192501.C79311004A1@puck.mtv.corp.google.com>
+	with ESMTP id S1751090AbaJFETp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 00:19:45 -0400
+In-Reply-To: <1412362831-59318-1-git-send-email-Frank.Li@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Petri Gynther <pgynther@google.com>
-Date: Fri,  3 Oct 2014 12:25:01 -0700 (PDT)
+From: Frank Li <Frank.Li@freescale.com>
+Date: Fri, 3 Oct 2014 12:00:31 -0700
 
-> bcmgenet_mii_setup() is called from the PHY state machine every 1-2 seconds
-> when the PHYs are in PHY_POLL mode.
+> reproduce:
+>   wget https://git.kernel.org/cgit/linux/kernel/git/wfg/lkp-tests.git/plain/sbin/make.cross -O ~/bin/make.cross
+>   chmod +x ~/bin/make.cross
+>   git checkout 1b7bde6d659d30f171259cc2dfba8e5dab34e735
+>   # save the attached .config to linux build tree
+>   make.cross ARCH=m68k
 > 
-> Improve bcmgenet_mii_setup() so that it touches the MAC registers only when
-> the link is up and there was a change to link, speed, duplex, or pause status.
+> All error/warnings:
 > 
-> Signed-off-by: Petri Gynther <pgynther@google.com>
+>    drivers/net/ethernet/freescale/fec_main.c: In function 'fec_enet_rx_queue':
+>>> drivers/net/ethernet/freescale/fec_main.c:1470:3: error: implicit declaration of function 'prefetch' [-Werror=implicit-function-declaration]
+>       prefetch(skb->data - NET_IP_ALIGN);
+>       ^
+>    cc1: some warnings being treated as errors
+> 
+> missed included prefetch.h
+> 
+> Signed-off-by: Frank Li <Frank.Li@freescale.com>
 
-Yeah that's ugly reprogramming so much stuff unnecessarily every
-second or two, applied thanks.
+Applied, thanks Frank.
