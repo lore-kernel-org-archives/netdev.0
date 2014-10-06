@@ -1,46 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next 15/15] tipc: remove old ASCII netlink API
-Date: Mon, 06 Oct 2014 15:20:03 -0400 (EDT)
-Message-ID: <20141006.152003.1261907320590776614.davem@davemloft.net>
-References: <1412261921-28510-16-git-send-email-richard.alpe@ericsson.com>
-	<20141003.165038.2121547250200790300.davem@davemloft.net>
-	<A2BAEFC30C8FD34388F02C9B3121859D1C2EB615@eusaamb103.ericsson.se>
+Subject: Re: [PATCH net-next 0/2] sunvnet: Packet processing in
+ non-interrupt context.
+Date: Mon, 06 Oct 2014 15:25:26 -0400 (EDT)
+Message-ID: <20141006.152526.965519223260573233.davem@davemloft.net>
+References: <20141003144024.GA12448@oracle.com>
+	<20141003.120802.1213573830649867131.davem@davemloft.net>
+	<20141006160418.GA3604@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: richard.alpe@ericsson.com, netdev@vger.kernel.org,
-	tipc-discussion@lists.sourceforge.net
-To: jon.maloy@ericsson.com
+Cc: raghuram.kothakota@oracle.com, netdev@vger.kernel.org
+To: sowmini.varadhan@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37230 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37290 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753004AbaJFTUF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 15:20:05 -0400
-In-Reply-To: <A2BAEFC30C8FD34388F02C9B3121859D1C2EB615@eusaamb103.ericsson.se>
+	with ESMTP id S1750780AbaJFTZ2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 15:25:28 -0400
+In-Reply-To: <20141006160418.GA3604@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jon Maloy <jon.maloy@ericsson.com>
-Date: Mon, 6 Oct 2014 13:37:14 +0000
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Date: Mon, 6 Oct 2014 12:04:18 -0400
 
-> I disagree.  We did of course consider this before we posted the patch.  
-> There is absolutely no reason to believe there are binaries "out there" 
-> using this API. It is intended for and used only by our own tool "tipc-config", 
-> and the half-baked documentation that exists about it is not even
-> correct. This is an TIPC-internal API/ABI, which has changed over the years,
-> and keeps changing.  To our best judgement there is no risk in removing the
-> old API.
+>> I think you should be able to get rid of all of the in-driver
+>> locking in the fast paths.
+>> 
+>> NAPI ->poll() is non-reentrant, so all RX processing occurs
+>> strictly in a serialized environment.
+>> 
+>> Once you do TX reclaim in NAPI context, then all you have to do is
+>> take the generic netdev TX queue lock during the evaluation of whether
+>> to wakeup the TX queue or not.  Worst case you need to hold the
+>> TX netdev queue lock across the whole TX reclaim operation.
+>> 
+>> The VIO lock really ought to be entirely superfluous in the data
+>> paths.
 > 
-> However, we took great care to not break any scripts that might be using 
-> tipc-config. Therefore, we made this wrapper that provides the old 
-> tipc-config command API to existing users.
+> A few clarifications, since there are more driver-examples using NAPI for
+> Rx than for Tx reclaim
 
-A user should be able to upgrade the kernel and keep using tipc-config
-(or _whatever_) that's on their machine.
+Those drivers fully go against our recommendations, we always say that
+TX reclaim should also run from NAPI because it liberates SKBs that
+therefore become available for RX processing.
 
-You cannot break old stuff like this, and just because I didn't notice
-you slipping in incompatible changes in the past doesn't mean I'm going
-to let you keep doing it.
+> But we still need to hold the vio lock around the ldc_write 
+> (and also around dring write) in vnet_start_xmit, right?
 
-Backwards compatability must be maintained for every single interface
-exposed to the user, and this is non-negotiable, sorry.
+You might be able to avoid it, you're fully serialized by the TX queue
+lock.
