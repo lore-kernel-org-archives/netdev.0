@@ -1,36 +1,41 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: Re: [PATCH v8 net-next 1/2] bonding: display xmit_hash_policy for
- non-dynamic-tlb mode
-Date: Mon, 06 Oct 2014 10:35:14 +0200
-Message-ID: <54325442.2000607@redhat.com>
-References: <1412469884-27308-1-git-send-email-maheshb@google.com> <20141006.005841.1016428020297723523.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: j.vosburgh@gmail.com, andy@greyhouse.net, vfalico@gmail.com,
-	netdev@vger.kernel.org, edumazet@google.com, maze@google.com
-To: David Miller <davem@davemloft.net>, maheshb@google.com
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: [PATCH net-next 0/5] ipv6: cleanup after rt6_genid removal
+Date: Mon,  6 Oct 2014 10:52:09 +0200
+Message-ID: <cover.1412585162.git.hannes@stressinduktion.org>
+Cc: hideaki@yoshifuji.org, kafai@fb.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:24972 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751157AbaJFIf0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Oct 2014 04:35:26 -0400
-In-Reply-To: <20141006.005841.1016428020297723523.davem@davemloft.net>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:46925 "EHLO
+	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751289AbaJFIwW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 04:52:22 -0400
+Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
+	by gateway2.nyi.internal (Postfix) with ESMTP id D0E4B2084E
+	for <netdev@vger.kernel.org>; Mon,  6 Oct 2014 04:52:21 -0400 (EDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/10/14 06:58, David Miller wrote:
->
-> After 8 revisions, I want to see some ACKs before applying these
-> two changes :)
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+Leftover patches after rt6_genid removal after 705f1c869d577c ("ipv6:
+remove rt6i_genid").
 
-On my side all comments have been taken care of, I don't know if it's 
-appropriate to also ack the patches as I've already given a reviewed-by to the 
-first and my sob to the second :-)
+Major two changes are:
+* keep fib6_sernum per namespace to reduce number of flushes in case
+  system has high number of namespaces
+* make fn_sernum updates cheaper
 
-Nik
+Hannes Frederic Sowa (5):
+  ipv6: minor fib6 cleanups like type safety, bool conversion, inline
+    removal
+  ipv6: make rt_sernum atomic and serial number fields ordinary ints
+  ipv6: only generate one new serial number per fib mutation
+  ipv6: make fib6 serial number per namespace
+  ipv6: don't walk node's leaf during serial number update
+
+ include/net/ip6_fib.h    |  16 +++++--
+ include/net/netns/ipv6.h |   2 +-
+ net/ipv6/af_inet6.c      |   2 +-
+ net/ipv6/ip6_fib.c       | 106 +++++++++++++++++++++++++----------------------
+ 4 files changed, 71 insertions(+), 55 deletions(-)
+
+-- 
+1.9.3
