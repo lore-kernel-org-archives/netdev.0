@@ -1,44 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: sched: cls_cgroup tear down exts and ematch from
- rcu callback
-Date: Sun, 05 Oct 2014 21:31:46 -0400 (EDT)
-Message-ID: <20141005.213146.1400362219156302379.davem@davemloft.net>
-References: <20141003163333.20118.59609.stgit@nitbit.x32>
+Subject: Re: [PATCH 0/9] Netfilter/IPVS updates for net-next
+Date: Sun, 05 Oct 2014 21:33:09 -0400 (EDT)
+Message-ID: <20141005.213309.868146350129561592.davem@davemloft.net>
+References: <1412356824-6362-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xiyou.wangcong@gmail.com, netdev@vger.kernel.org, jhs@mojatatu.com,
-	eric.dumazet@gmail.com
-To: john.fastabend@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56624 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751809AbaJFBbs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Oct 2014 21:31:48 -0400
-In-Reply-To: <20141003163333.20118.59609.stgit@nitbit.x32>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1412356824-6362-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: John Fastabend <john.fastabend@gmail.com>
-Date: Fri, 03 Oct 2014 09:33:35 -0700
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Fri,  3 Oct 2014 19:20:15 +0200
 
-> It is not RCU safe to destroy the action chain while there
-> is a possibility of readers accessing it. Move this code
-> into the rcu callback using the same rcu callback used in the
-> code patch to make a change to head.
+> The following patchset contains another batch with Netfilter/IPVS updates
+> for net-next, they are:
+...
+> You can pull these changes from:
 > 
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
- ...
-> @@ -156,10 +156,8 @@ static void cls_cgroup_destroy(struct tcf_proto *tp)
->  	struct cls_cgroup_head *head = rtnl_dereference(tp->root);
->  
->  	if (head) {
-> -		tcf_exts_destroy(&head->exts);
-> -		tcf_em_tree_destroy(head->net, &head->ematches);
->  		RCU_INIT_POINTER(tp->root, NULL);
-> -		kfree_rcu(head, rcu);
-> +		call_rcu(&head->rcu, cls_cgroup_destroy_rcu);
->  	}
+>   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git
 
-tcf_em_tree_destroy() takes head->tp as it's first argument in my
-net-next tree, maybe you need to respin this?
+Pulled, thanks a lot Pablo.
