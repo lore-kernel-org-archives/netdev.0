@@ -1,37 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net: introduce netdevice gso_min_segs attribute
-Date: Mon, 06 Oct 2014 15:26:23 -0700
-Message-ID: <1412634383.11091.91.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1412529087.11091.14.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20141006.172149.1596496098013953331.davem@davemloft.net>
-	 <1412631778.11091.84.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20141006.175410.2083551367207718756.davem@davemloft.net>
+From: josh@joshtriplett.org
+Subject: Re: [PATCH net-next] net: core: Quiet W=1 warnings for unused vars
+ and static functions
+Date: Mon, 6 Oct 2014 15:27:56 -0700
+Message-ID: <20141006222756.GA1497@cloud>
+References: <1412632298.2916.42.camel@joe-AO725>
+ <20141006.175612.1709169088283433326.davem@davemloft.net>
+ <1412633064.2916.46.camel@joe-AO725>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: amirv@mellanox.com, edumazet@google.com, netdev@vger.kernel.org,
-	yevgenyp@mellanox.com, ogerlitz@mellanox.com, idos@mellanox.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:36039 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750956AbaJFW0Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 18:26:25 -0400
-Received: by mail-pa0-f49.google.com with SMTP id hz1so5906663pad.8
-        for <netdev@vger.kernel.org>; Mon, 06 Oct 2014 15:26:25 -0700 (PDT)
-In-Reply-To: <20141006.175410.2083551367207718756.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, john.fastabend@gmail.com
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1412633064.2916.46.camel@joe-AO725>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2014-10-06 at 17:54 -0400, David Miller wrote:
-
-> Ok I'm sold on your patch then if two major chipsets already benefit
-> from differing values.
+On Mon, Oct 06, 2014 at 03:04:24PM -0700, Joe Perches wrote:
+> On Mon, 2014-10-06 at 17:56 -0400, David Miller wrote:
+> > From: Joe Perches <joe@perches.com>
+> > Date: Mon, 06 Oct 2014 14:51:38 -0700
+> > 
+> > > Reduce noise when compiling W=1.
+> []
+> > BTW, this patch reminds me that if people think there are
+> > subdirectories where we can turn on things like -Werror in the
+> > networking I would be very happy to apply such patches.
+> []
+> > Things like net/core/ for example should be doable for sure.
 > 
-> I'll apply this, thanks Eric.
+> I don't have any significant opposition to -Werror, but
+> I think there are real arguments _against_ using -Werror.
+> 
+> I think the primary one is new compiler versions have a
+> tendency to add new warnings for various things that can
+> unnecessarily and unpredictably break the build.
 
-I did the experiment on I40e, and no difference on this NIC.
+-Werror is a bad idea, even on a per-directory basis.  However,
+-Werror=specific-warning is a great idea.  We should add that for
+high-value warnings that have been entirely eliminated in a directory.
 
-(Note it stills lacks xmit_more support atm)
-
-Thanks David
+- Josh Triplett
