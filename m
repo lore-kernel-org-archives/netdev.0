@@ -1,215 +1,89 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next V1 05/14] net/mlx4_en: Avoid a cache line miss in TX completion for single frag skb's
-Date: Mon,  6 Oct 2014 09:15:54 +0300
-Message-ID: <1412576163-7224-6-git-send-email-amirv@mellanox.com>
-References: <1412576163-7224-1-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next V1 00/14] net/mlx4_en: Optimizations to TX flow
+Date: Mon,  6 Oct 2014 09:15:49 +0300
+Message-ID: <1412576163-7224-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
 	Ido Shamay <idos@mellanox.com>, Amir Vadai <amirv@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>,
 	Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:57144 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:37881 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751274AbaJFGQc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Oct 2014 02:16:32 -0400
-In-Reply-To: <1412576163-7224-1-git-send-email-amirv@mellanox.com>
+	id S1750929AbaJFGQ2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Oct 2014 02:16:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+Hi,
 
-Add frag0_dma/frag0_byte_count into mlx4_en_tx_info to avoid a cache
-line miss in TX completion for frames having one dma element.  (We avoid
-reading back the tx descriptor)
+This patchset contains optimizations to TX flow in mlx4_en driver. It also introduce
+setting/getting tx copybreak, to enable controlling inline threshold dynamically.
 
-Note this could be extended to 2/3 dma elements later, as we have free
-room in mlx4_en_tx_info
+TX flow optimizations was authored and posted to the mailing list by Eric
+Dumazet [1] as a single patch. I splitted this patch to smaller patches,
+Reviewed it and tested.
+Changed from original patch:
+- s/iowrite32be/iowrite32/, since ring->doorbell_qpn is stored as be32
 
-Also, mlx4_en_free_tx_desc() no longer accesses skb_shinfo(). We use a
-new nr_maps fields in mlx4_en_tx_info to avoid 2 or 3 cache misses.
+The tx copybreak patch was also suggested by Eric Dumazet, and was edited and
+reviewed by me. User space patch will be sent after kernel code is ready.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/en_tx.c   | 83 +++++++++++++++-------------
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h |  3 +
- 2 files changed, 49 insertions(+), 37 deletions(-)
+I am sending this patchset now since the merge window is near and don't want to
+miss it.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-index 02ade59..772ae6f 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-@@ -259,38 +259,40 @@ static u32 mlx4_en_free_tx_desc(struct mlx4_en_priv *priv,
- 				struct mlx4_en_tx_ring *ring,
- 				int index, u8 owner, u64 timestamp)
- {
--	struct mlx4_en_dev *mdev = priv->mdev;
- 	struct mlx4_en_tx_info *tx_info = &ring->tx_info[index];
- 	struct mlx4_en_tx_desc *tx_desc = ring->buf + index * TXBB_SIZE;
- 	struct mlx4_wqe_data_seg *data = (void *) tx_desc + tx_info->data_offset;
--	struct sk_buff *skb = tx_info->skb;
--	struct skb_frag_struct *frag;
- 	void *end = ring->buf + ring->buf_size;
--	int frags = skb_shinfo(skb)->nr_frags;
-+	struct sk_buff *skb = tx_info->skb;
-+	int nr_maps = tx_info->nr_maps;
- 	int i;
--	struct skb_shared_hwtstamps hwts;
- 
--	if (timestamp) {
--		mlx4_en_fill_hwtstamps(mdev, &hwts, timestamp);
-+	if (unlikely(timestamp)) {
-+		struct skb_shared_hwtstamps hwts;
-+
-+		mlx4_en_fill_hwtstamps(priv->mdev, &hwts, timestamp);
- 		skb_tstamp_tx(skb, &hwts);
- 	}
- 
- 	/* Optimize the common case when there are no wraparounds */
- 	if (likely((void *) tx_desc + tx_info->nr_txbb * TXBB_SIZE <= end)) {
- 		if (!tx_info->inl) {
--			if (tx_info->linear) {
-+			if (tx_info->linear)
- 				dma_unmap_single(priv->ddev,
--					(dma_addr_t) be64_to_cpu(data->addr),
--					 be32_to_cpu(data->byte_count),
--					 PCI_DMA_TODEVICE);
--				++data;
--			}
--
--			for (i = 0; i < frags; i++) {
--				frag = &skb_shinfo(skb)->frags[i];
-+						tx_info->map0_dma,
-+						tx_info->map0_byte_count,
-+						PCI_DMA_TODEVICE);
-+			else
-+				dma_unmap_page(priv->ddev,
-+					       tx_info->map0_dma,
-+					       tx_info->map0_byte_count,
-+					       PCI_DMA_TODEVICE);
-+			for (i = 1; i < nr_maps; i++) {
-+				data++;
- 				dma_unmap_page(priv->ddev,
--					(dma_addr_t) be64_to_cpu(data[i].addr),
--					skb_frag_size(frag), PCI_DMA_TODEVICE);
-+					(dma_addr_t)be64_to_cpu(data->addr),
-+					be32_to_cpu(data->byte_count),
-+					PCI_DMA_TODEVICE);
- 			}
- 		}
- 	} else {
-@@ -299,23 +301,25 @@ static u32 mlx4_en_free_tx_desc(struct mlx4_en_priv *priv,
- 				data = ring->buf + ((void *)data - end);
- 			}
- 
--			if (tx_info->linear) {
-+			if (tx_info->linear)
- 				dma_unmap_single(priv->ddev,
--					(dma_addr_t) be64_to_cpu(data->addr),
--					 be32_to_cpu(data->byte_count),
--					 PCI_DMA_TODEVICE);
--				++data;
--			}
--
--			for (i = 0; i < frags; i++) {
-+						tx_info->map0_dma,
-+						tx_info->map0_byte_count,
-+						PCI_DMA_TODEVICE);
-+			else
-+				dma_unmap_page(priv->ddev,
-+					       tx_info->map0_dma,
-+					       tx_info->map0_byte_count,
-+					       PCI_DMA_TODEVICE);
-+			for (i = 1; i < nr_maps; i++) {
-+				data++;
- 				/* Check for wraparound before unmapping */
- 				if ((void *) data >= end)
- 					data = ring->buf;
--				frag = &skb_shinfo(skb)->frags[i];
- 				dma_unmap_page(priv->ddev,
--					(dma_addr_t) be64_to_cpu(data->addr),
--					 skb_frag_size(frag), PCI_DMA_TODEVICE);
--				++data;
-+					(dma_addr_t)be64_to_cpu(data->addr),
-+					be32_to_cpu(data->byte_count),
-+					PCI_DMA_TODEVICE);
- 			}
- 		}
- 	}
-@@ -751,19 +755,22 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
- 	tx_info->linear = (lso_header_size < skb_headlen(skb) &&
- 			   !is_inline(ring->inline_thold, skb, NULL)) ? 1 : 0;
- 
--	data += skb_shinfo(skb)->nr_frags + tx_info->linear - 1;
-+	tx_info->nr_maps = skb_shinfo(skb)->nr_frags + tx_info->linear;
-+	data += tx_info->nr_maps - 1;
- 
- 	if (is_inline(ring->inline_thold, skb, &fragptr)) {
- 		tx_info->inl = 1;
- 	} else {
-+		dma_addr_t dma = 0;
-+		u32 byte_count = 0;
-+
- 		/* Map fragments if any */
- 		for (i = skb_shinfo(skb)->nr_frags - 1; i >= 0; i--) {
- 			const struct skb_frag_struct *frag;
--			dma_addr_t dma;
--
- 			frag = &skb_shinfo(skb)->frags[i];
-+			byte_count = skb_frag_size(frag);
- 			dma = skb_frag_dma_map(ddev, frag,
--					       0, skb_frag_size(frag),
-+					       0, byte_count,
- 					       DMA_TO_DEVICE);
- 			if (dma_mapping_error(ddev, dma))
- 				goto tx_drop_unmap;
-@@ -771,14 +778,13 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
- 			data->addr = cpu_to_be64(dma);
- 			data->lkey = ring->mr_key;
- 			wmb();
--			data->byte_count = cpu_to_be32(skb_frag_size(frag));
-+			data->byte_count = cpu_to_be32(byte_count);
- 			--data;
- 		}
- 
- 		/* Map linear part if needed */
- 		if (tx_info->linear) {
--			u32 byte_count = skb_headlen(skb) - lso_header_size;
--			dma_addr_t dma;
-+			byte_count = skb_headlen(skb) - lso_header_size;
- 
- 			dma = dma_map_single(ddev, skb->data +
- 					     lso_header_size, byte_count,
-@@ -792,6 +798,9 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
- 			data->byte_count = cpu_to_be32(byte_count);
- 		}
- 		tx_info->inl = 0;
-+		/* tx completion can avoid cache line miss for common cases */
-+		tx_info->map0_dma = dma;
-+		tx_info->map0_byte_count = byte_count;
- 	}
- 
- 	/*
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index ab34461..a904030 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -216,12 +216,15 @@ enum cq_type {
- 
- struct mlx4_en_tx_info {
- 	struct sk_buff *skb;
-+	dma_addr_t	map0_dma;
-+	u32		map0_byte_count;
- 	u32		nr_txbb;
- 	u32		nr_bytes;
- 	u8		linear;
- 	u8		data_offset;
- 	u8		inl;
- 	u8		ts_requested;
-+	u8		nr_maps;
- } ____cacheline_aligned_in_smp;
- 
- 
+More work need to do:
+- Disable BF when xmit_more is in use
+- Make TSO use xmit_more too. Maybe by splitting small TSO packets in the
+  driver itself, to avoid extra cpu/memory costs of GSO before the driver
+- Fix mlx4_en_xmit buggy handling of queue full in the middle of a burst
+  partially posted to send queue using xmit_more
+
+Eric, I edited the patches to have you as the Author and the first
+signed-off-by. I hope it is ok with you (I wasn't sure if it is ok to sign by
+you), anyway all the credit to those changes should go to you.
+
+Patchset was tested and applied over commit 1e203c1 "(net: sched:
+suspicious RCU usage in qdisc_watchdog")
+
+[1] - https://patchwork.ozlabs.org/patch/394256/
+
+Changes from V0:
+- Patch 14/14 ("Use the new tx_copybreak to set inline threshold"):
+  - Use same coding convention as currently is in en_ethtool.c
+- Patch 1/14 ("Code cleanups in tx path") and Patch 9/14 ("Use local var in
+  tx flow for skb_shinfo(skb)"):
+  - local var shinfo was used by mistake in Patch 1/14 while declared at 9/14.
+    Fixed it for the sake of future bisections
+
+Thanks,
+Amir
+
+Eric Dumazet (14):
+  net/mlx4_en: Code cleanups in tx path
+  net/mlx4_en: Align tx path structures to cache lines
+  net/mlx4_en: Avoid calling bswap in tx fast path
+  net/mlx4_en: tx_info allocated with kmalloc() instead of vmalloc()
+  net/mlx4_en: Avoid a cache line miss in TX completion for single frag
+    skb's
+  net/mlx4_en: Use prefetch in tx path
+  net/mlx4_en: Avoid false sharing in mlx4_en_en_process_tx_cq()
+  net/mlx4_en: mlx4_en_xmit() reads ring->cons once, and ahead of time
+    to avoid stalls
+  net/mlx4_en: Use local var in tx flow for skb_shinfo(skb)
+  net/mlx4_en: Use local var for skb_headlen(skb)
+  net/mlx4_en: tx_info->ts_requested was not cleared
+  net/mlx4_en: Enable the compiler to make is_inline() inlined
+  ethtool: Ethtool parameter to dynamically change tx_copybreak
+  net/mlx4_en: Use the new tx_copybreak to set inline threshold
+
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |  44 ++++
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c      | 330 ++++++++++++++----------
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    |  90 ++++---
+ include/linux/mlx4/device.h                     |   2 +-
+ include/uapi/linux/ethtool.h                    |   1 +
+ net/core/ethtool.c                              |   1 +
+ 6 files changed, 290 insertions(+), 178 deletions(-)
+
 -- 
 1.8.3.1
