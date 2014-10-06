@@ -1,58 +1,73 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [Patch net-next] net_sched: refactor out tcf_exts
-Date: Mon, 06 Oct 2014 07:09:49 -0400
-Message-ID: <5432787D.90808@mojatatu.com>
-References: <1412376709-25564-1-git-send-email-xiyou.wangcong@gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] sctp: handle association restarts when the socket is
+ closed.
+Date: Mon, 6 Oct 2014 11:09:52 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D174AC1DA@AcuExch.aculab.com>
+References: <1412374580-22286-1-git-send-email-vyasevich@gmail.com>
+ <20141006.002229.1370132762577292096.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: John Fastabend <john.r.fastabend@intel.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'David Miller' <davem@davemloft.net>,
+	"vyasevich@gmail.com" <vyasevich@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f177.google.com ([209.85.213.177]:36933 "EHLO
-	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751289AbaJFLJ6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 07:09:58 -0400
-Received: by mail-ig0-f177.google.com with SMTP id a13so2475059igq.16
-        for <netdev@vger.kernel.org>; Mon, 06 Oct 2014 04:09:57 -0700 (PDT)
-In-Reply-To: <1412376709-25564-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from mx0.aculab.com ([213.249.233.131]:53085 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751289AbaJFLLR convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 07:11:17 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 31156-08 for <netdev@vger.kernel.org>;
+ Mon,  6 Oct 2014 12:11:05 +0100 (BST)
+In-Reply-To: <20141006.002229.1370132762577292096.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/03/14 18:51, Cong Wang wrote:
-> As Jamal pointed it out, tcf_exts is really unnecessary,
-> we can definitely refactor it out without losing any functionality.
-> This could also remove an indirect layer which makes the code
-> much easier to read.
->
-> This patch:
->
-> 1) moves exts->action and exts->police into tp->ops, since they
-> are statically assigned
->
-> 2) moves exts->actions list head out
->
-> 3) removes exts->type, act->type does the same thing
->
-> 4) renames tcf_exts_*() functions to tcf_act_*()
->
-> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-> Cc: John Fastabend <john.r.fastabend@intel.com>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+From: David Miller
+> From: Vladislav Yasevich <vyasevich@gmail.com>
+> Date: Fri,  3 Oct 2014 18:16:20 -0400
+> 
+> > From: Vlad Yasevich <vyasevich@gmail.com>
+> >
+> > Currently association restarts do not take into consideration the
+> > state of the socket.  When a restart happens, the current assocation
+> > simply transitions into established state.  This creates a condition
+> > where a remote system, through a the restart procedure, may create a
+> > local association that is no way reachable by user.  The conditions
+> > to trigger this are as follows:
+> >   1) Remote does not acknoledge some data causing data to remain
+> >      outstanding.
+> >   2) Local application calls close() on the socket.  Since data
+> >      is still outstanding, the association is placed in SHUTDOWN_PENDING
+> >      state.  However, the socket is closed.
+> >   3) The remote tries to create a new association, triggering a restart
+> >      on the local system.  The association moves from SHUTDOWN_PENDING
+> >      to ESTABLISHED.  At this point, it is no longer reachable by
+> >      any socket on the local system.
+> >
+> > This patch addresses the above situation by moving the newly ESTABLISHED
+> > association into SHUTDOWN-SENT state and bundling a SHUTDOWN after
+> > the COOKIE-ACK chunk.  This way, the restarted associate immidiately
+> > enters the shutdown procedure and forces the termination of the
+> > unreachable association.
+> >
+> > Reported-by: David Laight <David.Laight@aculab.com>
+> > Signed-off-by: Vlad Yasevich <vyasevich@gmail.com>
+> 
+> Applied, thanks.
+> 
+> Candidate for -stable?
 
-Thanks for doing the work Cong.
-I noticed John points to an issue in his testing; but
-please add my:
-Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
+Maybe, but while I raised the problem and tested the fix, I added
+a workaround to our M3UA code to ABORT sctp connections.
+I'll predicate it on a kernel version when I know which one it is in,
+but I'm not going to check backports to old distributions.
+(I'm tempted to disable sctp on 2.6.18 kernels...)
 
-I will start sending incremental patches to iproute2 to slowly get
-rid of direct police interfacing which will allow us to get rid of
-.police dereference altogether.
-It was a mistake not to do it years ago.
-One way to accelerate it right now is to log a "deprecated"
-message everytime someone uses TCA_XXX_POLICE attributes.
+So I'm not worried -stable.
 
-cheers,
-jamal
+Other sctp users may be more worried.
+
+	David
