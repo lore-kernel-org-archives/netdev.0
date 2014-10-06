@@ -1,89 +1,114 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next V1 00/14] net/mlx4_en: Optimizations to TX flow
-Date: Mon,  6 Oct 2014 09:15:49 +0300
-Message-ID: <1412576163-7224-1-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next V1 03/14] net/mlx4_en: Avoid calling bswap in tx fast path
+Date: Mon,  6 Oct 2014 09:15:52 +0300
+Message-ID: <1412576163-7224-4-git-send-email-amirv@mellanox.com>
+References: <1412576163-7224-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
 	Ido Shamay <idos@mellanox.com>, Amir Vadai <amirv@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>,
 	Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:37881 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:57145 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750929AbaJFGQ2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Oct 2014 02:16:28 -0400
+	id S1751252AbaJFGQc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Oct 2014 02:16:32 -0400
+In-Reply-To: <1412576163-7224-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Eric Dumazet <edumazet@google.com>
 
-This patchset contains optimizations to TX flow in mlx4_en driver. It also introduce
-setting/getting tx copybreak, to enable controlling inline threshold dynamically.
+- doorbell_qpn is stored in the cpu_to_be32() way to avoid bswap() in fast
+  path.
+- mdev->mr.key stored in ring->mr_key to also avoid bswap() and access to
+  cold cache line.
 
-TX flow optimizations was authored and posted to the mailing list by Eric
-Dumazet [1] as a single patch. I splitted this patch to smaller patches,
-Reviewed it and tested.
-Changed from original patch:
-- s/iowrite32be/iowrite32/, since ring->doorbell_qpn is stored as be32
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c   | 17 ++++++++++-------
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h |  3 ++-
+ 2 files changed, 12 insertions(+), 8 deletions(-)
 
-The tx copybreak patch was also suggested by Eric Dumazet, and was edited and
-reviewed by me. User space patch will be sent after kernel code is ready.
-
-I am sending this patchset now since the merge window is near and don't want to
-miss it.
-
-More work need to do:
-- Disable BF when xmit_more is in use
-- Make TSO use xmit_more too. Maybe by splitting small TSO packets in the
-  driver itself, to avoid extra cpu/memory costs of GSO before the driver
-- Fix mlx4_en_xmit buggy handling of queue full in the middle of a burst
-  partially posted to send queue using xmit_more
-
-Eric, I edited the patches to have you as the Author and the first
-signed-off-by. I hope it is ok with you (I wasn't sure if it is ok to sign by
-you), anyway all the credit to those changes should go to you.
-
-Patchset was tested and applied over commit 1e203c1 "(net: sched:
-suspicious RCU usage in qdisc_watchdog")
-
-[1] - https://patchwork.ozlabs.org/patch/394256/
-
-Changes from V0:
-- Patch 14/14 ("Use the new tx_copybreak to set inline threshold"):
-  - Use same coding convention as currently is in en_ethtool.c
-- Patch 1/14 ("Code cleanups in tx path") and Patch 9/14 ("Use local var in
-  tx flow for skb_shinfo(skb)"):
-  - local var shinfo was used by mistake in Patch 1/14 while declared at 9/14.
-    Fixed it for the sake of future bisections
-
-Thanks,
-Amir
-
-Eric Dumazet (14):
-  net/mlx4_en: Code cleanups in tx path
-  net/mlx4_en: Align tx path structures to cache lines
-  net/mlx4_en: Avoid calling bswap in tx fast path
-  net/mlx4_en: tx_info allocated with kmalloc() instead of vmalloc()
-  net/mlx4_en: Avoid a cache line miss in TX completion for single frag
-    skb's
-  net/mlx4_en: Use prefetch in tx path
-  net/mlx4_en: Avoid false sharing in mlx4_en_en_process_tx_cq()
-  net/mlx4_en: mlx4_en_xmit() reads ring->cons once, and ahead of time
-    to avoid stalls
-  net/mlx4_en: Use local var in tx flow for skb_shinfo(skb)
-  net/mlx4_en: Use local var for skb_headlen(skb)
-  net/mlx4_en: tx_info->ts_requested was not cleared
-  net/mlx4_en: Enable the compiler to make is_inline() inlined
-  ethtool: Ethtool parameter to dynamically change tx_copybreak
-  net/mlx4_en: Use the new tx_copybreak to set inline threshold
-
- drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |  44 ++++
- drivers/net/ethernet/mellanox/mlx4/en_tx.c      | 330 ++++++++++++++----------
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    |  90 ++++---
- include/linux/mlx4/device.h                     |   2 +-
- include/uapi/linux/ethtool.h                    |   1 +
- net/core/ethtool.c                              |   1 +
- 6 files changed, 290 insertions(+), 178 deletions(-)
-
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+index d2f06a7..3ea17f9 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+@@ -195,7 +195,8 @@ int mlx4_en_activate_tx_ring(struct mlx4_en_priv *priv,
+ 	memset(ring->buf, 0, ring->buf_size);
+ 
+ 	ring->qp_state = MLX4_QP_STATE_RST;
+-	ring->doorbell_qpn = ring->qp.qpn << 8;
++	ring->doorbell_qpn = cpu_to_be32(ring->qp.qpn << 8);
++	ring->mr_key = cpu_to_be32(mdev->mr.key);
+ 
+ 	mlx4_en_fill_qp_context(priv, ring->size, ring->stride, 1, 0, ring->qpn,
+ 				ring->cqn, user_prio, &ring->context);
+@@ -654,7 +655,6 @@ static void mlx4_bf_copy(void __iomem *dst, const void *src,
+ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
+-	struct mlx4_en_dev *mdev = priv->mdev;
+ 	struct device *ddev = priv->ddev;
+ 	struct mlx4_en_tx_ring *ring;
+ 	struct mlx4_en_tx_desc *tx_desc;
+@@ -769,7 +769,7 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 				goto tx_drop_unmap;
+ 
+ 			data->addr = cpu_to_be64(dma);
+-			data->lkey = cpu_to_be32(mdev->mr.key);
++			data->lkey = ring->mr_key;
+ 			wmb();
+ 			data->byte_count = cpu_to_be32(skb_frag_size(frag));
+ 			--data;
+@@ -787,7 +787,7 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 				goto tx_drop_unmap;
+ 
+ 			data->addr = cpu_to_be64(dma);
+-			data->lkey = cpu_to_be32(mdev->mr.key);
++			data->lkey = ring->mr_key;
+ 			wmb();
+ 			data->byte_count = cpu_to_be32(byte_count);
+ 		}
+@@ -879,9 +879,12 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	send_doorbell = !skb->xmit_more || netif_xmit_stopped(ring->tx_queue);
+ 
++	real_size = (real_size / 16) & 0x3f;
++
+ 	if (ring->bf_enabled && desc_size <= MAX_BF && !bounce &&
+ 	    !vlan_tx_tag_present(skb) && send_doorbell) {
+-		tx_desc->ctrl.bf_qpn |= cpu_to_be32(ring->doorbell_qpn);
++		tx_desc->ctrl.bf_qpn = ring->doorbell_qpn |
++				       cpu_to_be32(real_size);
+ 
+ 		op_own |= htonl((bf_index & 0xffff) << 8);
+ 		/* Ensure new descriptor hits memory
+@@ -911,8 +914,8 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		tx_desc->ctrl.owner_opcode = op_own;
+ 		if (send_doorbell) {
+ 			wmb();
+-			iowrite32be(ring->doorbell_qpn,
+-				    ring->bf.uar->map + MLX4_SEND_DOORBELL);
++			iowrite32(ring->doorbell_qpn,
++				  ring->bf.uar->map + MLX4_SEND_DOORBELL);
+ 		} else {
+ 			ring->xmit_more++;
+ 		}
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+index b7bde95..ab34461 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+@@ -279,7 +279,8 @@ struct mlx4_en_tx_ring {
+ 	u16			stride;
+ 	u16			cqn;	/* index of port CQ associated with this ring */
+ 	u32			buf_size;
+-	u32			doorbell_qpn;
++	__be32			doorbell_qpn;
++	__be32			mr_key;
+ 	void			*buf;
+ 	struct mlx4_en_tx_info	*tx_info;
+ 	u8			*bounce_buf;
 -- 
 1.8.3.1
