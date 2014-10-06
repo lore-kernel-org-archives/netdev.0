@@ -1,43 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH v1 0/3] net sched rcu updates
-Date: Mon, 06 Oct 2014 18:03:01 -0400 (EDT)
-Message-ID: <20141006.180301.251258497544909892.davem@davemloft.net>
-References: <20141006042335.6010.27000.stgit@nitbit.x32>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next] net: core: Quiet W=1 warnings for unused vars
+ and static functions
+Date: Mon, 06 Oct 2014 15:04:24 -0700
+Message-ID: <1412633064.2916.46.camel@joe-AO725>
+References: <1412632298.2916.42.camel@joe-AO725>
+	 <20141006.175612.1709169088283433326.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: xiyou.wangcong@gmail.com, netdev@vger.kernel.org, jhs@mojatatu.com,
-	eric.dumazet@gmail.com
-To: john.fastabend@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38608 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751131AbaJFWDF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 18:03:05 -0400
-In-Reply-To: <20141006042335.6010.27000.stgit@nitbit.x32>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	john.fastabend@gmail.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141006.175612.1709169088283433326.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: John Fastabend <john.fastabend@gmail.com>
-Date: Sun, 05 Oct 2014 21:27:25 -0700
+On Mon, 2014-10-06 at 17:56 -0400, David Miller wrote:
+> From: Joe Perches <joe@perches.com>
+> Date: Mon, 06 Oct 2014 14:51:38 -0700
+> 
+> > Reduce noise when compiling W=1.
+[]
+> BTW, this patch reminds me that if people think there are
+> subdirectories where we can turn on things like -Werror in the
+> networking I would be very happy to apply such patches.
+[]
+> Things like net/core/ for example should be doable for sure.
 
-> This fixes the use of tcf_proto from RCU callbacks it requires
-> moving the unbind calls out of the callbacks and removing the
-> tcf_proto argument from the tcf_em_tree_destroy().
-> 
-> This is a rework of two previous series and addresses comments
-> from Cong. And should apply against latest net-next.
-> 
-> The previous series links below for reference:
-> 
-> (1/2) net: sched: do not use tcf_proto 'tp' argument from call_rcu
-> http://patchwork.ozlabs.org/patch/396149/ 
-> 
-> (2/2) net: sched: replace ematch calls to use struct net
-> http://patchwork.ozlabs.org/patch/396150/
-> 
-> 
-> net: sched: cls_cgroup tear down exts and ematch from rcu callback
-> http://patchwork.ozlabs.org/patch/396307/
+I don't have any significant opposition to -Werror, but
+I think there are real arguments _against_ using -Werror.
 
-Series applied, thanks.
+I think the primary one is new compiler versions have a
+tendency to add new warnings for various things that can
+unnecessarily and unpredictably break the build.
