@@ -1,52 +1,32 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH net-next] ipvs: Avoid null-pointer deref in debug code
-Date: Mon, 6 Oct 2014 22:13:07 +0300 (EEST)
-Message-ID: <alpine.LFD.2.11.1410062201140.2258@ja.home.ssi.bg>
-References: <20141001174526.GA16206@mwanda> <1412556895-26891-1-git-send-email-agartrell@fb.com> <alpine.LFD.2.11.1410060940470.1738@ja.home.ssi.bg> <5432BBB8.9070206@fb.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] sctp: handle association restarts when the socket is
+ closed.
+Date: Mon, 06 Oct 2014 15:18:04 -0400 (EDT)
+Message-ID: <20141006.151804.735956240011107584.davem@davemloft.net>
+References: <1412374580-22286-1-git-send-email-vyasevich@gmail.com>
+	<20141006.002229.1370132762577292096.davem@davemloft.net>
+	<5432943E.7000505@gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: horms@verge.net.au, dan.carpenter@oracle.com,
-	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	kernel-team@fb.com
-To: Alex Gartrell <agartrell@fb.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <5432BBB8.9070206@fb.com>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: vyasevich@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37213 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753063AbaJFTSH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 15:18:07 -0400
+In-Reply-To: <5432943E.7000505@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Vlad Yasevich <vyasevich@gmail.com>
+Date: Mon, 06 Oct 2014 09:08:14 -0400
 
-	Hello,
-
-On Mon, 6 Oct 2014, Alex Gartrell wrote:
-
-> Hey Julian,
+> On 10/06/2014 12:22 AM, David Miller wrote:
+>> Candidate for -stable?
 > 
-> I've sent an updated patch that does this but I have some questions about
-> other stuff that I find mildly confusing.  Specifically I didn't realize until
-> looking at the call sites that !dest || daddr = dest->addr.ip (but maybe I'm
-> wrong?)
-> 
-> If that's the case, why do we have the following line in __ip_vs_get_out_rt?
-> 
->                 daddr = dest->addr.ip;
+> I say yes.  If this problem is triggered it is total pain to get the memory
+> clean-up.
 
-	Extra line that is not needed...
-
-> If that's /always/ true then we should add the following line or a comment to
-> the same effect to clarify
-> 
-> 	BUG_ON(dest && dest->addr.ip != daddr);
-
-	IMHO, BUG_ON is not needed.
-
-> If that's not intended to always be true, then should the patch be the
-> following?
-> 
-> 	...%pI4", dest ? &dest->addr.ip : &daddr);
-
-	Using daddr is fine.
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+Ok, queued up, thanks.
