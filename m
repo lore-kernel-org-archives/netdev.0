@@ -1,40 +1,49 @@
-From: Cornelia Huck <cornelia.huck@de.ibm.com>
-Subject: Re: [PATCH v2 11/15] virtio_net: enable VQs early
-Date: Mon, 6 Oct 2014 17:39:20 +0200
-Message-ID: <20141006173920.3e66a421.cornelia.huck@de.ibm.com>
-References: <1412608214-31944-1-git-send-email-mst@redhat.com>
-	<1412608214-31944-12-git-send-email-mst@redhat.com>
+From: Alex Gartrell <agartrell@fb.com>
+Subject: [PATCH net-next] ipvs: Avoid null-pointer deref in debug code
+Date: Mon, 6 Oct 2014 08:46:19 -0700
+Message-ID: <1412610379-6295-1-git-send-email-agartrell@fb.com>
+References: <20141006073232.GA10073@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1412608214-31944-12-git-send-email-mst@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain
+Cc: <ja@ssi.bg>, <dan.carpenter@oracle.com>,
+	<lvs-devel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<kernel-team@fb.com>, Alex Gartrell <agartrell@fb.com>
+To: <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20141006073232.GA10073@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 6 Oct 2014 18:11:19 +0300
-"Michael S. Tsirkin" <mst@redhat.com> wrote:
+Use daddr instead of reaching into dest.
 
-> virtio spec requires drivers to set DRIVER_OK before using VQs.
-> This is set automatically after probe returns, virtio net violated this
-> rule by using receive VQs within probe.
-> 
-> To fix, call virtio_enable_vqs_early before using VQs.
-> 
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> ---
->  drivers/net/virtio_net.c | 2 ++
->  1 file changed, 2 insertions(+)
+Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+Signed-off-by: Alex Gartrell <agartrell@fb.com>
+---
+ net/netfilter/ipvs/ip_vs_xmit.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Reviewed-by: Cornelia Huck <cornelia.huck@de.ibm.com>
+diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
+index 91f17c1..437a366 100644
+--- a/net/netfilter/ipvs/ip_vs_xmit.c
++++ b/net/netfilter/ipvs/ip_vs_xmit.c
+@@ -316,7 +316,7 @@ __ip_vs_get_out_rt(int skb_af, struct sk_buff *skb, struct ip_vs_dest *dest,
+ 	if (unlikely(crosses_local_route_boundary(skb_af, skb, rt_mode,
+ 						  local))) {
+ 		IP_VS_DBG_RL("We are crossing local and non-local addresses"
+-			     " daddr=%pI4\n", &dest->addr.ip);
++			     " daddr=%pI4\n", &daddr);
+ 		goto err_put;
+ 	}
+ 
+@@ -458,7 +458,7 @@ __ip_vs_get_out_rt_v6(int skb_af, struct sk_buff *skb, struct ip_vs_dest *dest,
+ 	if (unlikely(crosses_local_route_boundary(skb_af, skb, rt_mode,
+ 						  local))) {
+ 		IP_VS_DBG_RL("We are crossing local and non-local addresses"
+-			     " daddr=%pI6\n", &dest->addr.in6);
++			     " daddr=%pI6\n", daddr);
+ 		goto err_put;
+ 	}
+ 
+-- 
+Alex Gartrell <agartrell@fb.com>
+
