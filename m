@@ -1,63 +1,63 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH net-next] ipvs: Avoid null-pointer deref in debug code
-Date: Mon, 6 Oct 2014 09:49:57 +0300 (EEST)
-Message-ID: <alpine.LFD.2.11.1410060940470.1738@ja.home.ssi.bg>
-References: <20141001174526.GA16206@mwanda> <1412556895-26891-1-git-send-email-agartrell@fb.com>
+From: Claudiu Manoil <claudiu.manoil@freescale.com>
+Subject: Re: [net 0/8] gianfar: ARM port driver updates (1/2)
+Date: Mon, 6 Oct 2014 10:55:42 +0300
+Message-ID: <54324AFE.1040803@freescale.com>
+References: <1412352169-14414-1-git-send-email-claudiu.manoil@freescale.com>
+ <20141005.212722.1867743289839811370.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: horms@verge.net.au, dan.carpenter@oracle.com,
-	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	kernel-team@fb.com
-To: Alex Gartrell <agartrell@fb.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <1412556895-26891-1-git-send-email-agartrell@fb.com>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <Li.Xiubo@freescale.com>,
+	<Shruti@freescale.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bl2on0119.outbound.protection.outlook.com ([65.55.169.119]:31596
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751646AbaJFHz5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Oct 2014 03:55:57 -0400
+In-Reply-To: <20141005.212722.1867743289839811370.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On 10/6/2014 4:27 AM, David Miller wrote:
+> From: Claudiu Manoil <claudiu.manoil@freescale.com>
+> Date: Fri, 3 Oct 2014 19:02:41 +0300
+>
+>> This is the first round of driver protability fixes and clean-up
+>> with the main purpose to make gianfar portable on ARM, for the ARM
+>> based SoC that integrates the eTSEC ethernet controller - "ls1021a".
+>> The patches primarily address compile time errors, when compiling
+>> gianfar on ARM.  They replace PPC specific functions and macros
+>> with architecture independent ones, solve arch specific header
+>> inclusions, guard code that relates to PPC only, and even address
+>> some simple endianess issues (see MAC address setup patch).
+>> The patches addressing the bulk of remaining endianess issues,
+>> like handling DMA fields (BD and FCB), will follow with the sencond
+>> round.
+>> These patches were verified on the ls1021a SoC.
+>
+> If more endianness fixes are necessary and "will follow with the
+> second round", I do not see how you could have verified specifically
+> these changes on the ls1021a.
+>
 
-	Hello,
+Hi David,
 
-On Sun, 5 Oct 2014, Alex Gartrell wrote:
+What I did is to split the initial patchset in 2, to ease up the review
+process.
+This first part is fairly straightforward, these patches make localized
+code changes and can be more easily ported among different kernel 
+versions.  The second part has fewer patches but touches more code,
+because it handles endianess conversions for all the reads/writes to
+the buffer descriptors.  Please let me now if you have objections to
+this approach.
+As for testing, we have our internal kernel tree for ARM supporting
+ls1021a, and these gianfar patches have been there for a while and 
+tested.  Now it's time to upstream (a cleaned-up version of) them.
+(see git.freescale.com/git/cgit.cgi/layerscape/ls1021a/linux.git/)
+Please note that the current (upstream) net tree does not include the
+support for ls1021a (which is to be propagated via the arm tree).
 
-> Ensure that the pointer is non-NULL before dereferencing it for debugging
-> purposes.
-> 
-> Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-> Signed-off-by: Alex Gartrell <agartrell@fb.com>
-> ---
->  net/netfilter/ipvs/ip_vs_xmit.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
-> index 91f17c1..06bba9b 100644
-> --- a/net/netfilter/ipvs/ip_vs_xmit.c
-> +++ b/net/netfilter/ipvs/ip_vs_xmit.c
-> @@ -316,7 +316,7 @@ __ip_vs_get_out_rt(int skb_af, struct sk_buff *skb, struct ip_vs_dest *dest,
->  	if (unlikely(crosses_local_route_boundary(skb_af, skb, rt_mode,
->  						  local))) {
->  		IP_VS_DBG_RL("We are crossing local and non-local addresses"
-> -			     " daddr=%pI4\n", &dest->addr.ip);
-> +			     " daddr=%pI4\n", dest ? &dest->addr.ip : NULL);
->  		goto err_put;
->  	}
->  
-> @@ -458,7 +458,7 @@ __ip_vs_get_out_rt_v6(int skb_af, struct sk_buff *skb, struct ip_vs_dest *dest,
->  	if (unlikely(crosses_local_route_boundary(skb_af, skb, rt_mode,
->  						  local))) {
->  		IP_VS_DBG_RL("We are crossing local and non-local addresses"
-> -			     " daddr=%pI6\n", &dest->addr.in6);
-> +			     " daddr=%pI6\n", dest ? &dest->addr.in6 : NULL);
->  		goto err_put;
->  	}
-
-	You have to print the "daddr" variable as
-it was done before your patchset in the
-"Stopping traffic to %s address, dest: %p..." message
-because dest is not present in all cases, for example,
-for *bypass_xmit. Other places provide cp->daddr but
-for backup server some conns can live without cp->dest.
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+Thanks and regards,
+Claudiu
