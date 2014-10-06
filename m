@@ -1,234 +1,93 @@
-From: Govindarajulu Varadarajan <_govind@gmx.com>
-Subject: [PATCH ethtool v2 2/3] ethtool: Add copybreak support
-Date: Tue,  7 Oct 2014 04:42:20 +0530
-Message-ID: <1412637141-3205-3-git-send-email-_govind@gmx.com>
-References: <1412637141-3205-1-git-send-email-_govind@gmx.com>
-Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com,
-	yevgenyp@mellanox.com, Govindarajulu Varadarajan <_govind@gmx.com>
-To: ben@decadent.org.uk
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [net-next PATCH v1 1/3] net: sched: af_packet support for direct
+ ring access
+Date: Tue, 07 Oct 2014 01:26:11 +0200
+Message-ID: <1412637971.706532.175886517.077550BE@webmail.messagingengine.com>
+References: <20141006000629.32055.2295.stgit@nitbit.x32>
+ <20141006002951.GA24376@breakpoint.cc> <5431EC82.7010305@gmail.com>
+ <543265A5.8000606@redhat.com> <5432AEE0.9000600@intel.com>
+ <1412615032.3403.27.camel@localhost> <5432FD6D.2020102@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Daniel Borkmann <dborkman@redhat.com>,
+	John Fastabend <john.fastabend@gmail.com>,
+	Jesper Dangaard Brouer <jbrouer@redhat.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Florian Westphal <fw@strlen.de>, gerlitz.or@gmail.com,
+	netdev@vger.kernel.org, john.ronciak@intel.com, amirv@mellanox.com,
+	eric.dumazet@gmail.com, danny.zhou@intel.com,
+	Willem de Bruijn <willemb@google.com>
+To: John Fastabend <john.r.fastabend@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.com ([74.208.4.201]:62541 "EHLO mout.gmx.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752545AbaJFXNR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Oct 2014 19:13:17 -0400
-In-Reply-To: <1412637141-3205-1-git-send-email-_govind@gmx.com>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:54702 "EHLO
+	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750859AbaJFX0M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 19:26:12 -0400
+Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
+	by gateway2.nyi.internal (Postfix) with ESMTP id 211652099F
+	for <netdev@vger.kernel.org>; Mon,  6 Oct 2014 19:26:12 -0400 (EDT)
+In-Reply-To: <5432FD6D.2020102@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds support for setting/getting driver's rx_copybreak value.
-copybreak is set/get using new ethtool tunable interface.
+Hi John,
 
-This was added to net-next in
-commit: f0db9b073415848709dd59a6394969882f517da9
+On Mon, Oct 6, 2014, at 22:37, John Fastabend wrote:
+> > I find the six additional ndo ops a bit worrisome as we are adding more
+> > and more subsystem specific ndoops to this struct. I would like to see
+> > some unification here, but currently cannot make concrete proposals,
+> > sorry.
+> 
+> I agree it seems like a bit much. One thought was to split the ndo
+> ops into categories. Switch ops, MACVLAN ops, basic ops and with this
+> userspace queue ops. This sort of goes along with some of the switch
+> offload work which is going to add a handful more ops as best I can
+> tell.
 
-	ethtool: Add generic options for tunables
+Thanks for your mail, you answered all of my questions.
 
-Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
----
- ethtool.c | 177 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 177 insertions(+)
+Have you looked at <https://code.google.com/p/kernel/wiki/ProjectUnetq>?
+Willem (also in Cc) used sysfs files which get mmaped to represent the
+tx/rx descriptors. The representation was independent of the device and
+IIRC the prototype used a write(fd, "", 1) to signal the kernel it
+should proceed with tx. I agree, it would be great to be syscall-free
+here.
 
-diff --git a/ethtool.c b/ethtool.c
-index bf583f3..4045356 100644
---- a/ethtool.c
-+++ b/ethtool.c
-@@ -179,6 +179,12 @@ static const struct flag_info flags_msglvl[] = {
- 	{ "wol",	NETIF_MSG_WOL },
- };
- 
-+static const char *tunable_name[] = {
-+	[ETHTOOL_ID_UNSPEC]	= "Unspec",
-+	[ETHTOOL_RX_COPYBREAK]	= "rx",
-+	[ETHTOOL_TX_COPYBREAK]	= "tx",
-+};
-+
- struct off_flag_def {
- 	const char *short_name;
- 	const char *long_name;
-@@ -1805,6 +1811,173 @@ static int do_gring(struct cmd_context *ctx)
- 	return 0;
- }
- 
-+static int get_u32tunable(struct cmd_context *ctx, enum tunable_id id,
-+			  __u32 *value)
-+{
-+	struct ethtool_tunable *etuna;
-+	int ret;
-+
-+	etuna = calloc(sizeof(*etuna) + sizeof(__u32), 1);
-+	if (!etuna)
-+		return 1;
-+	etuna->cmd = ETHTOOL_GTUNABLE;
-+	etuna->id = id;
-+	etuna->type_id = ETHTOOL_TUNABLE_U32;
-+	etuna->len = sizeof(__u32);
-+	ret = send_ioctl(ctx, etuna);
-+	*value = *(__u32 *)((void *)etuna + sizeof(*etuna));
-+	free(etuna);
-+
-+	return ret;
-+}
-+
-+static int print_u32tunable(int err, enum tunable_id id, const __u32 value)
-+{
-+	if (err) {
-+		switch (errno) {
-+		/* Driver does not support this particular tunable
-+		 * Usually displays 0
-+		 */
-+		case EINVAL:
-+			goto print;
-+		/* Driver does not support get tunables ops or no such device
-+		 * No point in proceeding further
-+		 */
-+		case EOPNOTSUPP:
-+		case ENODEV:
-+			perror("Cannot get device settings");
-+			exit(err);
-+		default:
-+			perror(tunable_name[id]);
-+			return err;
-+		}
-+	}
-+print:
-+	fprintf(stdout, "%s: %u\n", tunable_name[id], value);
-+
-+	return 0;
-+}
-+
-+static int do_gcopybreak(struct cmd_context *ctx)
-+{
-+	int err, anyerror = 0;
-+	__u32 u32value;
-+
-+	if (ctx->argc != 0)
-+		exit_bad_args();
-+
-+	fprintf(stdout, "Copybreak settings for device %s\n", ctx->devname);
-+
-+	err = get_u32tunable(ctx, ETHTOOL_RX_COPYBREAK, &u32value);
-+	err = print_u32tunable(err, ETHTOOL_RX_COPYBREAK, u32value);
-+	if (err)
-+		anyerror = err;
-+
-+	err = get_u32tunable(ctx, ETHTOOL_TX_COPYBREAK, &u32value);
-+	err = print_u32tunable(err, ETHTOOL_TX_COPYBREAK, u32value);
-+	if (err)
-+		anyerror = err;
-+
-+	if (anyerror)
-+		fprintf(stderr, "Failed to get all settings. displayed partial settings\n");
-+
-+	return anyerror;
-+}
-+
-+static int set_u32tunable(struct cmd_context *ctx, enum tunable_id id,
-+			  const __u32 value)
-+{
-+	struct ethtool_tunable *etuna;
-+	int ret;
-+	__u32 *data;
-+
-+	etuna = malloc(sizeof(*etuna) + sizeof(__u32));
-+	if (!etuna) {
-+		perror(tunable_name[id]);
-+		return 1;
-+	}
-+	data = (void *)etuna + sizeof(*etuna);
-+	*data = value;
-+	etuna->cmd = ETHTOOL_STUNABLE;
-+	etuna->id = id;
-+	etuna->type_id = ETHTOOL_TUNABLE_U32;
-+	etuna->len = sizeof(__u32);
-+	ret = send_ioctl(ctx, etuna);
-+	free(etuna);
-+
-+	return ret;
-+}
-+
-+static int check_set_u32tunable(int err, enum tunable_id id)
-+{
-+	if (err) {
-+		switch (errno) {
-+		/* Driver does not support get tunables ops or no such device
-+		 * No point in proceeding further
-+		 */
-+		case EOPNOTSUPP:
-+		case ENODEV:
-+			perror("Cannot set device settings");
-+			exit(err);
-+		default:
-+			perror(tunable_name[id]);
-+			return err;
-+		}
-+	}
-+
-+	return 0;
-+}
-+
-+static int do_scopybreak(struct cmd_context *ctx)
-+{
-+	int err, anyerr = 0;
-+	int copybreak_changed = 0;
-+	__u32 rx, tx;
-+	s32 rx_seen = 0;
-+	s32 tx_seen = 0;
-+
-+	struct cmdline_info cmdline_channels[] = {
-+		{ .name = "rx",
-+		  .type = CMDL_U32,
-+		  .wanted_val = &rx,
-+		  .seen_val = &rx_seen, },
-+
-+		{ .name = "tx",
-+		  .type = CMDL_U32,
-+		  .wanted_val = &tx,
-+		  .seen_val = &tx_seen, },
-+	};
-+
-+	parse_generic_cmdline(ctx, &copybreak_changed, cmdline_channels,
-+			      ARRAY_SIZE(cmdline_channels));
-+
-+	if (!copybreak_changed) {
-+		fprintf(stderr, "no copybreak parameters changed\n");
-+		return 0;
-+	}
-+
-+	if (rx_seen) {
-+		err = set_u32tunable(ctx, ETHTOOL_RX_COPYBREAK, rx);
-+		err = check_set_u32tunable(err, ETHTOOL_RX_COPYBREAK);
-+		if (err)
-+			anyerr = err;
-+	}
-+
-+	if (tx_seen) {
-+		err = set_u32tunable(ctx, ETHTOOL_TX_COPYBREAK, tx);
-+		err = check_set_u32tunable(err, ETHTOOL_TX_COPYBREAK);
-+		if (err)
-+			anyerr = err;
-+	}
-+
-+	if (anyerr) {
-+		fprintf(stderr, "Failed to set all requested parameters\n");
-+		return anyerr;
-+	}
-+
-+	return 0;
-+}
-+
- static int do_schannels(struct cmd_context *ctx)
- {
- 	struct ethtool_channels echannels;
-@@ -4055,6 +4228,10 @@ static const struct option {
- 	  "		[ rx-mini N ]\n"
- 	  "		[ rx-jumbo N ]\n"
- 	  "		[ tx N ]\n" },
-+	{ "-b|--show-copybreak", 1, do_gcopybreak, "Show copybreak values" },
-+	{ "-B|--set-copybreak", 1, do_scopybreak, "Set copybreak values",
-+	  "		[ rx N]\n"
-+	  "		[ tx N]\n" },
- 	{ "-k|--show-features|--show-offload", 1, do_gfeatures,
- 	  "Get state of protocol offload and other features" },
- 	{ "-K|--features|--offload", 1, do_sfeatures,
--- 
-2.1.0
+For the semantics of the descriptors we could also easily generate files
+in sysfs. I thought about something like tracepoints already do for
+representing the data in the ringbuffer depending on the event:
+
+-- >8 --
+# cat /sys/kernel/debug/tracing/events/net/net_dev_queue/format 
+name: net_dev_queue
+ID: 1006
+format:
+	field:unsigned short common_type;       offset:0;       size:2;
+	signed:0;
+	field:unsigned char common_flags;       offset:2;       size:1;
+	signed:0;
+	field:unsigned char common_preempt_count;       offset:3;      
+	size:1; signed:0;
+	field:int common_pid;   offset:4;       size:4; signed:1;
+
+	field:void * skbaddr;   offset:8;       size:8; signed:0;
+	field:unsigned int len; offset:16;      size:4; signed:0;
+	field:__data_loc char[] name;   offset:20;      size:4;
+	signed:1;
+
+print fmt: "dev=%s skbaddr=%p len=%u", __get_str(name), REC->skbaddr,
+REC->len
+-- >8 --
+
+Maybe the macros from tracing are reusable (TP_STRUCT__entry), e.g.
+endianess would need to be added. Hopefully there is already a user
+space parser somewhere in the perf sources. An easier to parse binary
+representation could be added easily and maybe even something vDSO alike
+if people care about that.
+
+Maybe this open/mmap per queue also kills some of the ndo_ops?
+
+Bye,
+Hannes
