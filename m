@@ -1,7 +1,7 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next V1 08/14] net/mlx4_en: mlx4_en_xmit() reads ring->cons once, and ahead of time to avoid stalls
-Date: Mon,  6 Oct 2014 09:15:57 +0300
-Message-ID: <1412576163-7224-9-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next V1 10/14] net/mlx4_en: Use local var for skb_headlen(skb)
+Date: Mon,  6 Oct 2014 09:15:59 +0300
+Message-ID: <1412576163-7224-11-git-send-email-amirv@mellanox.com>
 References: <1412576163-7224-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
@@ -9,9 +9,9 @@ Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.com>,
 To: "David S. Miller" <davem@davemloft.net>,
 	Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:37934 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:37939 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751346AbaJFGQd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751355AbaJFGQd (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 6 Oct 2014 02:16:33 -0400
 In-Reply-To: <1412576163-7224-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
@@ -19,67 +19,65 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Eric Dumazet <edumazet@google.com>
 
+Access skb_headlen() once in tx flow
+
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_tx.c | 16 +++++++++++-----
- 1 file changed, 11 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c | 21 +++++++++++----------
+ 1 file changed, 11 insertions(+), 10 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-index 63e1f24..4b018ce 100644
+index aa05b09..e00841a 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
 +++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-@@ -691,10 +691,17 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
- 	void *fragptr;
- 	bool bounce = false;
- 	bool send_doorbell;
-+	u32 ring_cons;
+@@ -612,6 +612,7 @@ static void build_inline_wqe(struct mlx4_en_tx_desc *tx_desc,
+ {
+ 	struct mlx4_wqe_inline_seg *inl = &tx_desc->inl;
+ 	int spc = MLX4_INLINE_ALIGN - CTRL_SIZE - sizeof *inl;
++	unsigned int hlen = skb_headlen(skb);
  
- 	if (!priv->port_up)
- 		goto tx_drop;
+ 	if (skb->len <= spc) {
+ 		if (likely(skb->len >= MIN_PKT_LEN)) {
+@@ -621,19 +622,19 @@ static void build_inline_wqe(struct mlx4_en_tx_desc *tx_desc,
+ 			memset(((void *)(inl + 1)) + skb->len, 0,
+ 			       MIN_PKT_LEN - skb->len);
+ 		}
+-		skb_copy_from_linear_data(skb, inl + 1, skb_headlen(skb));
++		skb_copy_from_linear_data(skb, inl + 1, hlen);
+ 		if (shinfo->nr_frags)
+-			memcpy(((void *)(inl + 1)) + skb_headlen(skb), fragptr,
++			memcpy(((void *)(inl + 1)) + hlen, fragptr,
+ 			       skb_frag_size(&shinfo->frags[0]));
  
-+	tx_ind = skb_get_queue_mapping(skb);
-+	ring = priv->tx_ring[tx_ind];
-+
-+	/* fetch ring->cons far ahead before needing it to avoid stall */
-+	ring_cons = ACCESS_ONCE(ring->cons);
-+
- 	real_size = get_real_size(skb, dev, &lso_header_size);
- 	if (unlikely(!real_size))
- 		goto tx_drop;
-@@ -708,13 +715,11 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
- 		goto tx_drop;
- 	}
- 
--	tx_ind = skb->queue_mapping;
--	ring = priv->tx_ring[tx_ind];
- 	if (vlan_tx_tag_present(skb))
- 		vlan_tag = vlan_tx_tag_get(skb);
- 
- 	/* Check available TXBBs And 2K spare for prefetch */
--	if (unlikely(((int)(ring->prod - ring->cons)) >
-+	if (unlikely(((int)(ring->prod - ring_cons)) >
- 		     ring->size - HEADROOM - MAX_DESC_TXBBS)) {
- 		/* every full Tx ring stops queue */
- 		netif_tx_stop_queue(ring->tx_queue);
-@@ -728,7 +733,8 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
- 		 */
- 		wmb();
- 
--		if (unlikely(((int)(ring->prod - ring->cons)) <=
-+		ring_cons = ACCESS_ONCE(ring->cons);
-+		if (unlikely(((int)(ring->prod - ring_cons)) <=
- 			     ring->size - HEADROOM - MAX_DESC_TXBBS)) {
- 			netif_tx_wake_queue(ring->tx_queue);
- 			ring->wake_queue++;
-@@ -741,7 +747,7 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 	/* Track current inflight packets for performance analysis */
- 	AVG_PERF_COUNTER(priv->pstats.inflight_avg,
--			 (u32) (ring->prod - ring->cons - 1));
-+			 (u32)(ring->prod - ring_cons - 1));
- 
- 	/* Packet is good - grab an index and transmit it */
- 	index = ring->prod & ring->size_mask;
+ 	} else {
+ 		inl->byte_count = cpu_to_be32(1 << 31 | spc);
+-		if (skb_headlen(skb) <= spc) {
+-			skb_copy_from_linear_data(skb, inl + 1, skb_headlen(skb));
+-			if (skb_headlen(skb) < spc) {
+-				memcpy(((void *)(inl + 1)) + skb_headlen(skb),
+-					fragptr, spc - skb_headlen(skb));
+-				fragptr +=  spc - skb_headlen(skb);
++		if (hlen <= spc) {
++			skb_copy_from_linear_data(skb, inl + 1, hlen);
++			if (hlen < spc) {
++				memcpy(((void *)(inl + 1)) + hlen,
++				       fragptr, spc - hlen);
++				fragptr +=  spc - hlen;
+ 			}
+ 			inl = (void *) (inl + 1) + spc;
+ 			memcpy(((void *)(inl + 1)), fragptr, skb->len - spc);
+@@ -641,9 +642,9 @@ static void build_inline_wqe(struct mlx4_en_tx_desc *tx_desc,
+ 			skb_copy_from_linear_data(skb, inl + 1, spc);
+ 			inl = (void *) (inl + 1) + spc;
+ 			skb_copy_from_linear_data_offset(skb, spc, inl + 1,
+-					skb_headlen(skb) - spc);
++							 hlen - spc);
+ 			if (shinfo->nr_frags)
+-				memcpy(((void *)(inl + 1)) + skb_headlen(skb) - spc,
++				memcpy(((void *)(inl + 1)) + hlen - spc,
+ 				       fragptr,
+ 				       skb_frag_size(&shinfo->frags[0]));
+ 		}
 -- 
 1.8.3.1
