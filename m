@@ -1,38 +1,58 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [iproute2 1/1] RFC: obsolete direct invocation of police
-Date: Mon, 6 Oct 2014 10:01:32 -0700
-Message-ID: <20141006100132.032e75bc@urahara>
-References: <1412595960-7862-1-git-send-email-jhs@emojatatu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com,
-	john.r.fastabend@intel.com
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+From: Ivan Vecera <ivecera@redhat.com>
+Subject: [PATCH net] bna: allow transmit tagged frames
+Date: Mon,  6 Oct 2014 19:02:37 +0200
+Message-ID: <1412614957-18549-1-git-send-email-ivecera@redhat.com>
+Cc: Rasesh Mody <rasesh.mody@qlogic.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f172.google.com ([209.85.192.172]:37777 "EHLO
-	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753014AbaJFRBp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 13:01:45 -0400
-Received: by mail-pd0-f172.google.com with SMTP id ft15so3606934pdb.3
-        for <netdev@vger.kernel.org>; Mon, 06 Oct 2014 10:01:45 -0700 (PDT)
-In-Reply-To: <1412595960-7862-1-git-send-email-jhs@emojatatu.com>
+Received: from mx1.redhat.com ([209.132.183.28]:51529 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752067AbaJFRCp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Oct 2014 13:02:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon,  6 Oct 2014 07:46:00 -0400
-Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+When Tx VLAN offloading is disabled frames with size ~ MTU are not
+transmitted as the driver does not account 4 bytes of VLAN header added
+by stack. It should use VLAN_ETH_HLEN instead of ETH_HLEN.
 
-> From: Jamal Hadi Salim <jhs@mojatatu.com>
-> 
-> I realize this may be controversial. I dont think people are still using
-> the 1990s syntax anymore. This is one way to test it.
-> We want to eventually phase out the kernel hacks for backward compat.
-> 
-> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+The second problem is with newer BNA chips (BNA 1860). These chips filter
+out any VLAN tagged frames in Tx path. This is a problem when Tx VLAN
+offloading is disabled and frames are tagged by stack. Older chips like
+1010/1020 are not affected as they probably don't do such filtering.
 
-I think iproute utilities needs to accept the old syntax and warn about
-deprecated syntax use. Later (like 2yr +) the code can be removed.
+Cc: Rasesh Mody <rasesh.mody@qlogic.com>
+Signed-off-by: Ivan Vecera <ivecera@redhat.com>
+---
+ drivers/net/ethernet/brocade/bna/bna_tx_rx.c | 2 +-
+ drivers/net/ethernet/brocade/bna/bnad.c      | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-The old syntax can be removed from all documentation and help messages
-now though.
+diff --git a/drivers/net/ethernet/brocade/bna/bna_tx_rx.c b/drivers/net/ethernet/brocade/bna/bna_tx_rx.c
+index 85e6354..9949bd9 100644
+--- a/drivers/net/ethernet/brocade/bna/bna_tx_rx.c
++++ b/drivers/net/ethernet/brocade/bna/bna_tx_rx.c
+@@ -3410,7 +3410,7 @@ bna_bfi_tx_enet_start(struct bna_tx *tx)
+ 
+ 	cfg_req->tx_cfg.vlan_mode = BFI_ENET_TX_VLAN_WI;
+ 	cfg_req->tx_cfg.vlan_id = htons((u16)tx->txf_vlan_id);
+-	cfg_req->tx_cfg.admit_tagged_frame = BNA_STATUS_T_DISABLED;
++	cfg_req->tx_cfg.admit_tagged_frame = BNA_STATUS_T_ENABLED;
+ 	cfg_req->tx_cfg.apply_vlan_filter = BNA_STATUS_T_DISABLED;
+ 
+ 	bfa_msgq_cmd_set(&tx->msgq_cmd, NULL, NULL,
+diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
+index ffc92a4..153cafa 100644
+--- a/drivers/net/ethernet/brocade/bna/bnad.c
++++ b/drivers/net/ethernet/brocade/bna/bnad.c
+@@ -2864,7 +2864,7 @@ bnad_txq_wi_prepare(struct bnad *bnad, struct bna_tcb *tcb,
+ 		txqent->hdr.wi.opcode =	htons(BNA_TXQ_WI_SEND);
+ 		txqent->hdr.wi.lso_mss = 0;
+ 
+-		if (unlikely(skb->len > (bnad->netdev->mtu + ETH_HLEN))) {
++		if (unlikely(skb->len > (bnad->netdev->mtu + VLAN_ETH_HLEN))) {
+ 			BNAD_UPDATE_CTR(bnad, tx_skb_non_tso_too_long);
+ 			return -EINVAL;
+ 		}
+-- 
+2.0.4
