@@ -1,68 +1,71 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net-next] net: better IFF_XMIT_DST_RELEASE support
-Date: Mon, 06 Oct 2014 15:05:26 -0700
-Message-ID: <1412633126.11091.89.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1412559515.11091.46.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20141006.175015.2075737681876306575.davem@davemloft.net>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [PATCH net-next] net: core: Quiet W=1 warnings for unused vars
+ and static functions
+Date: Mon, 6 Oct 2014 15:12:28 -0700
+Message-ID: <CAHA+R7NjP42U+oggUMVXLOde22=d46BGA2Hrjms16+288pGbuw@mail.gmail.com>
+References: <1412632298.2916.42.camel@joe-AO725>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ja@ssi.bg
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	John Fastabend <john.fastabend@gmail.com>
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f178.google.com ([209.85.192.178]:38092 "EHLO
-	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751213AbaJFWF2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 18:05:28 -0400
-Received: by mail-pd0-f178.google.com with SMTP id y10so3931894pdj.37
-        for <netdev@vger.kernel.org>; Mon, 06 Oct 2014 15:05:27 -0700 (PDT)
-In-Reply-To: <20141006.175015.2075737681876306575.davem@davemloft.net>
+Received: from mail-la0-f50.google.com ([209.85.215.50]:35216 "EHLO
+	mail-la0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750956AbaJFWMa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 18:12:30 -0400
+Received: by mail-la0-f50.google.com with SMTP id s18so5349026lam.9
+        for <netdev@vger.kernel.org>; Mon, 06 Oct 2014 15:12:28 -0700 (PDT)
+In-Reply-To: <1412632298.2916.42.camel@joe-AO725>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-10-06 at 17:50 -0400, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Sun, 05 Oct 2014 18:38:35 -0700
-> 
-> > @@ -1001,7 +1001,8 @@ static netdev_features_t bond_fix_features(struct net_device *dev,
-> >  
-> >  static void bond_compute_features(struct bonding *bond)
-> >  {
-> > -	unsigned int flags, dst_release_flag = IFF_XMIT_DST_RELEASE;
-> > +	unsigned int dst_release_flag = IFF_XMIT_DST_RELEASE |
-> > +					IFF_XMIT_DST_RELEASE_PERM;
-> >  	netdev_features_t vlan_features = BOND_VLAN_FEATURES;
-> >  	netdev_features_t enc_features  = BOND_ENC_FEATURES;
-> >  	struct net_device *bond_dev = bond->dev;
-> > @@ -1037,8 +1038,10 @@ done:
-> >  	bond_dev->gso_max_segs = gso_max_segs;
-> >  	netif_set_gso_max_size(bond_dev, gso_max_size);
-> >  
-> > -	flags = bond_dev->priv_flags & ~IFF_XMIT_DST_RELEASE;
-> > -	bond_dev->priv_flags = flags | dst_release_flag;
-> > +	bond_dev->priv_flags &= ~IFF_XMIT_DST_RELEASE;
-> > +	if ((bond_dev->priv_flags & IFF_XMIT_DST_RELEASE_PERM) &&
-> > +	    dst_release_flag == (IFF_XMIT_DST_RELEASE | IFF_XMIT_DST_RELEASE_PERM))
-> > +		bond_dev->priv_flags |= IFF_XMIT_DST_RELEASE;
-> 
-> I think I might be missing something, but in all of these places where
-> you add this logic, it looks to me like:
-> 
-> 	dst_release_flag = CONSTANT;
-> 	...
-> 	if (... &&
-> 	    dst_release_flags == CONSTANT)
-> 
-> This 'dst_release_flag' variable never changes, so why bother with the
-> test at all?
+On Mon, Oct 6, 2014 at 2:51 PM, Joe Perches <joe@perches.com> wrote:
+> John, can you please verify that these gen_stats accesses
+> are unnecessary?  I believe the compiler can elide them in
+> any case, but I'm not sure what you intended here.
+>
+>  net/core/dev.c       | 4 ++--
+>  net/core/gen_stats.c | 4 ----
+>  net/core/rtnetlink.c | 3 +--
+>  3 files changed, 3 insertions(+), 8 deletions(-)
+
+You need to split this patch.
 
 
-We have a loop over team/bonding members, where we do :
+> diff --git a/net/core/gen_stats.c b/net/core/gen_stats.c
+> index 14681b9..01be9cf 100644
+> --- a/net/core/gen_stats.c
+> +++ b/net/core/gen_stats.c
+> @@ -106,13 +106,9 @@ __gnet_stats_copy_basic_cpu(struct gnet_stats_basic_packed *bstats,
+>         for_each_possible_cpu(i) {
+>                 struct gnet_stats_basic_cpu *bcpu = per_cpu_ptr(cpu, i);
+>                 unsigned int start;
+> -               __u64 bytes;
+> -               __u32 packets;
+>
+>                 do {
+>                         start = u64_stats_fetch_begin_irq(&bcpu->syncp);
+> -                       bytes = bcpu->bstats.bytes;
+> -                       packets = bcpu->bstats.packets;
+>                 } while (u64_stats_fetch_retry_irq(&bcpu->syncp, start));
 
-dst_release_flag &= slave->dev->priv_flags;
 
-So at the end of the loop, we check if any one of the member had one of
-the bit cleared.
+Looks like we really need them:
 
-if dst_release_flags has both bits set, then we are set and we allow the
-IFF_XMIT_DST_RELEASE being set on the master.
+diff --git a/net/core/gen_stats.c b/net/core/gen_stats.c
+index 14681b9..7948ecf 100644
+--- a/net/core/gen_stats.c
++++ b/net/core/gen_stats.c
+@@ -115,8 +115,8 @@ __gnet_stats_copy_basic_cpu(struct
+gnet_stats_basic_packed *bstats,
+                        packets = bcpu->bstats.packets;
+                } while (u64_stats_fetch_retry_irq(&bcpu->syncp, start));
+
+-               bstats->bytes += bcpu->bstats.bytes;
+-               bstats->packets += bcpu->bstats.packets;
++               bstats->bytes += bytes;
++               bstats->packets += packets;
+        }
+ }
