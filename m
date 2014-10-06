@@ -1,81 +1,136 @@
-From: Dmitry Torokhov <dmitry.torokhov@gmail.com>
-Subject: Re: [PATCH v2 7/7] driver-core: add preferred async probe option for
- built-in and modules
-Date: Mon, 6 Oct 2014 13:41:55 -0700
-Message-ID: <20141006204155.GA37994@dtor-ws>
-References: <1412372683-2003-1-git-send-email-mcgrof@do-not-panic.com>
- <1412372683-2003-8-git-send-email-mcgrof@do-not-panic.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [net-next PATCH v1 1/3] net: sched: af_packet support for direct
+ ring access
+Date: Mon, 06 Oct 2014 13:42:28 -0700
+Message-ID: <5432FEB4.7040909@gmail.com>
+References: <20141006000629.32055.2295.stgit@nitbit.x32> <20141006095553.18097d68@urahara>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: gregkh@linuxfoundation.org, tiwai@suse.de, tj@kernel.org,
-	arjan@linux.intel.com, teg@jklm.no, rmilasan@suse.com,
-	werner@suse.com, oleg@redhat.com, hare@suse.com, bpoirier@suse.de,
-	santosh@chelsio.com, pmladek@suse.cz, dbueso@suse.com,
-	mcgrof@suse.com, linux-kernel@vger.kernel.org,
-	Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
-	Joseph Salisbury <joseph.salisbury@canonical.com>,
-	Kay Sievers <kay@vrfy.org>,
-	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
-	Tim Gardner <tim.gardner@canonical.com>,
-	Pierre Fersing <pierre-fersing@pierref.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
-	Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
-	Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
-	Abhijit Mahajan <abhijit.mahajan@avagotech.com>,
-	Casey Leedom <leedom@chelsio.com>,
-	Hariprasad S <hariprasad@chelsi
-To: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1412372683-2003-8-git-send-email-mcgrof@do-not-panic.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: dborkman@redhat.com, fw@strlen.de, gerlitz.or@gmail.com,
+	hannes@stressinduktion.org, netdev@vger.kernel.org,
+	john.ronciak@intel.com, amirv@mellanox.com, eric.dumazet@gmail.com,
+	danny.zhou@intel.com
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f171.google.com ([209.85.214.171]:60439 "EHLO
+	mail-ob0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752472AbaJFUmr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 16:42:47 -0400
+Received: by mail-ob0-f171.google.com with SMTP id va2so4624272obc.30
+        for <netdev@vger.kernel.org>; Mon, 06 Oct 2014 13:42:46 -0700 (PDT)
+In-Reply-To: <20141006095553.18097d68@urahara>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Luis,
+On 10/06/2014 09:55 AM, Stephen Hemminger wrote:
+> On Sun, 05 Oct 2014 17:06:31 -0700
+> John Fastabend <john.fastabend@gmail.com> wrote:
+>
+>> This patch adds a net_device ops to split off a set of driver queues
+>> from the driver and map the queues into user space via mmap. This
+>> allows the queues to be directly manipulated from user space. For
+>> raw packet interface this removes any overhead from the kernel network
+>> stack.
+>>
+>> Typically in an af_packet interface a packet_type handler is
+>> registered and used to filter traffic to the socket and do other
+>> things such as fan out traffic to multiple sockets. In this case the
+>> networking stack is being bypassed so this code is not run. So the
+>> hardware must push the correct traffic to the queues obtained from
+>> the ndo callback ndo_split_queue_pairs().
+>>
+>> Fortunately there is already a flow classification interface which
+>> is part of the ethtool command set, ETHTOOL_SRXCLSRLINS. It is
+>> currently supported by multiple drivers including sfc, mlx4, niu,
+>> ixgbe, and i40e. Supporting some way to steer traffic to a queue
+>> is the _only_ hardware requirement to support the interface, plus
+>> the driver needs to implement the correct ndo ops. A follow on
+>> patch adds support for ixgbe but we expect at least the subset of
+>> drivers implementing ETHTOOL_SRXCLSRLINS to be implemented later.
+>>
+>> The interface is driven over an af_packet socket which we believe
+>> is the most natural interface to use. Because it is already used
+>> for raw packet interfaces which is what we are providing here.
+>>   The high level flow for this interface looks like:
+>>
+>> 	bind(fd, &sockaddr, sizeof(sockaddr));
+>>
+>> 	/* Get the device type and info */
+>> 	getsockopt(fd, SOL_PACKET, PACKET_DEV_DESC_INFO, &def_info,
+>> 		   &optlen);
+>>
+>> 	/* With device info we can look up descriptor format */
+>>
+>> 	/* Get the layout of ring space offset, page_sz, cnt */
+>> 	getsockopt(fd, SOL_PACKET, PACKET_DEV_QPAIR_MAP_REGION_INFO,
+>> 		   &info, &optlen);
+>>
+>> 	/* request some queues from the driver */
+>> 	setsockopt(fd, SOL_PACKET, PACKET_RXTX_QPAIRS_SPLIT,
+>> 		   &qpairs_info, sizeof(qpairs_info));
+>>
+>> 	/* if we let the driver pick us queues learn which queues
+>>           * we were given
+>>           */
+>> 	getsockopt(fd, SOL_PACKET, PACKET_RXTX_QPAIRS_SPLIT,
+>> 		   &qpairs_info, sizeof(qpairs_info));
+>>
+>> 	/* And mmap queue pairs to user space */
+>> 	mmap(NULL, info.tp_dev_bar_sz, PROT_READ | PROT_WRITE,
+>> 	     MAP_SHARED, fd, 0);
+>>
+>> 	/* Now we have some user space queues to read/write to*/
+>>
+>> There is one critical difference when running with these interfaces
+>> vs running without them. In the normal case the af_packet module
+>> uses a standard descriptor format exported by the af_packet user
+>> space headers. In this model because we are working directly with
+>> driver queues the descriptor format maps to the descriptor format
+>> used by the device. User space applications can learn device
+>> information from the socket option PACKET_DEV_DESC_INFO which
+>> should provide enough details to extrapulate the descriptor formats.
+>> Although this adds some complexity to user space it removes the
+>> requirement to copy descriptor fields around.
+>>
+>> The formats are usually provided by the device vendor documentation
+>> If folks want I can provide a follow up patch to provide the formats
+>> in a .h file in ./include/uapi/linux/ for ease of use. I have access
+>> to formats for ixgbe and mlx drivers other driver owners would need to
+>> provide their formats.
+>>
+>> We tested this interface using traffic generators and doing basic
+>> L2 forwarding tests on ixgbe devices. Our tests use a set of patches
+>> to DPDK to enable an interface using this socket interfaace. With
+>> this interface we can xmit/receive @ line rate from a test user space
+>> application on a single core.
+>>
+>> Additionally we have a set of DPDK patches to enable DPDK with this
+>> interface. DPDK can be downloaded @ dpdk.org although as I hope is
+>> clear from above DPDK is just our paticular test environment we
+>> expect other libraries could be built on this interface.
+>>
+>> Signed-off-by: Danny Zhou <danny.zhou@intel.com>
+>> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+>
+> I like the ability to share a device between kernel and user mode networking.
+> The model used for DPDK for this is really ugly and fragile/broken.
+> Your proposal assumes that you fully trust the user mode networking application
+> which is not a generally safe assumption.
+>
+> A device can DMA from/to any arbitrary physical memory.
+> And it would be hard to use IOMMU to protect because the
+> IOMMU doesn't know that the difference between the applications queue and
+> the rest of the queues.
+>
+> At least with DPDK you can use VFIO, and you are claiming the whole device to
+> allow protection against random memory being read/written.
+>
+>
 
-On Fri, Oct 03, 2014 at 02:44:43PM -0700, Luis R. Rodriguez wrote:
-> From: "Luis R. Rodriguez" <mcgrof@suse.com>
-> 
-> At times we may wish to express the desire to prefer to have
-> a device driver probe asynchronously by default. We cannot
-> simply enable all device drivers to do this without vetting
-> that userspace is prepared for this though given that some
-> old userspace is expected to exist which is not equipped to
-> deal with broad async probe support. This defines a new kernel
-> parameter, bus.enable_kern_async=1, to help address this both to
-> help enable async probe support for built-in drivers and to
-> enable drivers to specify a preference to opt in for async
-> probe support.
-> 
-> If you have a device driver that should use async probe
-> support when possible enable the prefer_async_probe bool.
-> 
-> Folks wishing to test enabling async probe for all built-in
-> drivers can enable bus.__DEBUG__kernel_force_mod_async_probe=1,
-> if you use that though you are on your own.
-
-Thank you for working on this. However there are still couple of issues
-with the async probe.
-
-1. As far as I can see you only handle the case when device is already
-present and you load a driver. In this case we will do either async or
-sync probing, depending on the driver/module settings. However if driver
-has already been loaded/registered and we are adding a new device
-(another module load, for example you load i2c controller module and it
-enumerates its children, or driver signalled deferral during binding)
-the probe will be synchronous regardless of the settings.
-
-2. I thin kin the current implementation deferred binding process is
-still single-threaded and basically synchronous.
-
-Both of these issues stem form the fact that you only plugging into
-bus_add_driver(), but you also need to plug into bus_probe_device(). I
-believe I handled these 2 cases properly in the version of patch I sent
-a couple of weeks ago so if you could incorporate that in your work that
-would be great.
-
-Thanks.
+However not all platforms support VFIO and when the application
+only want to handle specific traffic types a queue maps well to
+this.
 
 -- 
-Dmitry
+John Fastabend         Intel Corporation
