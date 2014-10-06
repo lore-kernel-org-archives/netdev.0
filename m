@@ -1,63 +1,40 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [net-next PATCH v1 1/3] net: sched: af_packet support for direct
- ring access
-Date: Sun, 05 Oct 2014 18:12:34 -0700
-Message-ID: <5431EC82.7010305@gmail.com>
-References: <20141006000629.32055.2295.stgit@nitbit.x32> <20141006002951.GA24376@breakpoint.cc>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/2] net: spider_net: fix possible bitops errors
+Date: Sun, 05 Oct 2014 21:15:52 -0400 (EDT)
+Message-ID: <20141005.211552.452619735296906900.davem@davemloft.net>
+References: <1412348517-20352-1-git-send-email-antoine.tenart@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dborkman@redhat.com, gerlitz.or@gmail.com,
-	hannes@stressinduktion.org, netdev@vger.kernel.org,
-	john.ronciak@intel.com, amirv@mellanox.com, eric.dumazet@gmail.com,
-	danny.zhou@intel.com
-To: Florian Westphal <fw@strlen.de>
+Cc: dan.carpenter@oracle.com, kou.ishizaki@toshiba.co.jp,
+	jens@de.ibm.com, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+To: antoine.tenart@free-electrons.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f178.google.com ([209.85.214.178]:44580 "EHLO
-	mail-ob0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751809AbaJFBMv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Oct 2014 21:12:51 -0400
-Received: by mail-ob0-f178.google.com with SMTP id wn1so3167771obc.37
-        for <netdev@vger.kernel.org>; Sun, 05 Oct 2014 18:12:51 -0700 (PDT)
-In-Reply-To: <20141006002951.GA24376@breakpoint.cc>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56477 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751809AbaJFBPy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Oct 2014 21:15:54 -0400
+In-Reply-To: <1412348517-20352-1-git-send-email-antoine.tenart@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/05/2014 05:29 PM, Florian Westphal wrote:
-> John Fastabend <john.fastabend@gmail.com> wrote:
->> There is one critical difference when running with these interfaces
->> vs running without them. In the normal case the af_packet module
->> uses a standard descriptor format exported by the af_packet user
->> space headers. In this model because we are working directly with
->> driver queues the descriptor format maps to the descriptor format
->> used by the device. User space applications can learn device
->> information from the socket option PACKET_DEV_DESC_INFO which
->> should provide enough details to extrapulate the descriptor formats.
->> Although this adds some complexity to user space it removes the
->> requirement to copy descriptor fields around.
->
-> I find it very disappointing that we seem to have to expose such
-> hardware specific details to userspace via hw-independent interface.
->
+From: Antoine Tenart <antoine.tenart@free-electrons.com>
+Date: Fri,  3 Oct 2014 17:01:53 +0200
 
-Well it was only for convenience if it doesn't fit as a socket
-option we can remove it. We can look up the device using the netdev
-name from the bind call. I see your point though so if there is
-consensus that this is not needed that is fine.
+> Dan reported a possible signedness issue on the pxa168_eth driver. While
+> having a look at it, I came across a similar problem in the spider_net
+> driver.
+> 
+> Here is one proposal to fix it. The first patch rework the
+> spider_net_set_mac() function by removing the spider_net_get_mac_address()
+> call and using memcpy() to set netdev->dev_addr (which is what's done in
+> lots of Ethernet drivers) and the second one fix the actual signedness
+> issue.
+> 
+> If for any reason you really want to keep a call to
+> spider_net_get_mac_address() because the memcpy() is somehow not good
+> enough here, we can also come up with a solution involving a temporary
+> unsigned char variable.
 
-> How big of a cost are we talking about when you say that it 'removes
-> the requirement to copy descriptor fields'?
->
-
-This was likely a poor description. If you want to let user space
-poll on the ring (without using system calls or interrupts) then
-I don't see how you can _not_ expose the ring directly complete with
-the vendor descriptor formats.
-
-> Thanks,
-> Florian
->
-
-
--- 
-John Fastabend         Intel Corporation
+Series applied, thanks.
