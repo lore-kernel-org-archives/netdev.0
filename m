@@ -1,55 +1,94 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] net: better IFF_XMIT_DST_RELEASE support
-Date: Mon, 06 Oct 2014 17:50:15 -0400 (EDT)
-Message-ID: <20141006.175015.2075737681876306575.davem@davemloft.net>
-References: <1412559515.11091.46.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH net-next] net: core: Quiet W=1 warnings for unused vars and
+ static functions
+Date: Mon, 06 Oct 2014 14:51:38 -0700
+Message-ID: <1412632298.2916.42.camel@joe-AO725>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ja@ssi.bg
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38509 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750780AbaJFVuR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 17:50:17 -0400
-In-Reply-To: <1412559515.11091.46.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	John Fastabend <john.fastabend@gmail.com>
+To: netdev <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sun, 05 Oct 2014 18:38:35 -0700
+Reduce noise when compiling W=1.
 
-> @@ -1001,7 +1001,8 @@ static netdev_features_t bond_fix_features(struct net_device *dev,
->  
->  static void bond_compute_features(struct bonding *bond)
->  {
-> -	unsigned int flags, dst_release_flag = IFF_XMIT_DST_RELEASE;
-> +	unsigned int dst_release_flag = IFF_XMIT_DST_RELEASE |
-> +					IFF_XMIT_DST_RELEASE_PERM;
->  	netdev_features_t vlan_features = BOND_VLAN_FEATURES;
->  	netdev_features_t enc_features  = BOND_ENC_FEATURES;
->  	struct net_device *bond_dev = bond->dev;
-> @@ -1037,8 +1038,10 @@ done:
->  	bond_dev->gso_max_segs = gso_max_segs;
->  	netif_set_gso_max_size(bond_dev, gso_max_size);
->  
-> -	flags = bond_dev->priv_flags & ~IFF_XMIT_DST_RELEASE;
-> -	bond_dev->priv_flags = flags | dst_release_flag;
-> +	bond_dev->priv_flags &= ~IFF_XMIT_DST_RELEASE;
-> +	if ((bond_dev->priv_flags & IFF_XMIT_DST_RELEASE_PERM) &&
-> +	    dst_release_flag == (IFF_XMIT_DST_RELEASE | IFF_XMIT_DST_RELEASE_PERM))
-> +		bond_dev->priv_flags |= IFF_XMIT_DST_RELEASE;
+All the variables are unused.
+The functions are not called outside of the file so static
+is preferred.
 
-I think I might be missing something, but in all of these places where
-you add this logic, it looks to me like:
+Signed-off-by: Joe Perches <joe@perches.com>
+---
 
-	dst_release_flag = CONSTANT;
-	...
-	if (... &&
-	    dst_release_flags == CONSTANT)
+John, can you please verify that these gen_stats accesses
+are unnecessary?  I believe the compiler can elide them in
+any case, but I'm not sure what you intended here.
 
-This 'dst_release_flag' variable never changes, so why bother with the
-test at all?
+ net/core/dev.c       | 4 ++--
+ net/core/gen_stats.c | 4 ----
+ net/core/rtnetlink.c | 3 +--
+ 3 files changed, 3 insertions(+), 8 deletions(-)
 
-Maybe I'm just being dense today...
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 1a90530..2049a17 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5239,7 +5239,7 @@ void netdev_upper_dev_unlink(struct net_device *dev,
+ }
+ EXPORT_SYMBOL(netdev_upper_dev_unlink);
+ 
+-void netdev_adjacent_add_links(struct net_device *dev)
++static void netdev_adjacent_add_links(struct net_device *dev)
+ {
+ 	struct netdev_adjacent *iter;
+ 
+@@ -5264,7 +5264,7 @@ void netdev_adjacent_add_links(struct net_device *dev)
+ 	}
+ }
+ 
+-void netdev_adjacent_del_links(struct net_device *dev)
++static void netdev_adjacent_del_links(struct net_device *dev)
+ {
+ 	struct netdev_adjacent *iter;
+ 
+diff --git a/net/core/gen_stats.c b/net/core/gen_stats.c
+index 14681b9..01be9cf 100644
+--- a/net/core/gen_stats.c
++++ b/net/core/gen_stats.c
+@@ -106,13 +106,9 @@ __gnet_stats_copy_basic_cpu(struct gnet_stats_basic_packed *bstats,
+ 	for_each_possible_cpu(i) {
+ 		struct gnet_stats_basic_cpu *bcpu = per_cpu_ptr(cpu, i);
+ 		unsigned int start;
+-		__u64 bytes;
+-		__u32 packets;
+ 
+ 		do {
+ 			start = u64_stats_fetch_begin_irq(&bcpu->syncp);
+-			bytes = bcpu->bstats.bytes;
+-			packets = bcpu->bstats.packets;
+ 		} while (u64_stats_fetch_retry_irq(&bcpu->syncp, start));
+ 
+ 		bstats->bytes += bcpu->bstats.bytes;
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index a688268..c2fe350 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -2917,7 +2917,7 @@ static int rtnetlink_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+ {
+ 	struct net *net = sock_net(skb->sk);
+ 	rtnl_doit_func doit;
+-	int sz_idx, kind;
++	int kind;
+ 	int family;
+ 	int type;
+ 	int err;
+@@ -2933,7 +2933,6 @@ static int rtnetlink_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 		return 0;
+ 
+ 	family = ((struct rtgenmsg *)nlmsg_data(nlh))->rtgen_family;
+-	sz_idx = type>>2;
+ 	kind = type&3;
+ 
+ 	if (kind != 2 && !netlink_net_capable(skb, CAP_NET_ADMIN))
