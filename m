@@ -1,45 +1,38 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: Re: [PATCH net-next V1 00/14] net/mlx4_en: Optimizations to TX flow
-Date: Mon, 6 Oct 2014 15:54:00 +0300
-Message-ID: <543290E8.3070609@mellanox.com>
-References: <1412576163-7224-1-git-send-email-amirv@mellanox.com> <1412599904.11091.66.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Chen Gang <gang.chen.5i5j@gmail.com>
+Subject: Re: [PATCH] drivers/net/phy/Kconfig: Let MDIO_BCM_UNIMAC depend on
+ HAS_IOMEM
+Date: Mon, 06 Oct 2014 21:05:13 +0800
+Message-ID: <54329389.2050304@gmail.com>
+References: <542FC3D9.4080607@gmail.com> <20141006.004646.685997864382345892.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>, <netdev@vger.kernel.org>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Ido Shamay <idos@mellanox.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog134.obsmtp.com ([207.126.144.211]:33672 "EHLO
-	eu1sys200aog134.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752330AbaJFMyI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 08:54:08 -0400
-In-Reply-To: <1412599904.11091.66.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, richard@nod.at
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141006.004646.685997864382345892.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/6/2014 3:51 PM, Eric Dumazet wrote:
-> On Mon, 2014-10-06 at 09:15 +0300, Amir Vadai wrote:
+On 10/6/14 12:46, David Miller wrote:
+> From: Chen Gang <gang.chen.5i5j@gmail.com>
+> Date: Sat, 04 Oct 2014 17:54:33 +0800
 > 
->> Changes from V0:
->> - Patch 14/14 ("Use the new tx_copybreak to set inline threshold"):
->>   - Use same coding convention as currently is in en_ethtool.c
->> - Patch 1/14 ("Code cleanups in tx path") and Patch 9/14 ("Use local var in
->>   tx flow for skb_shinfo(skb)"):
->>   - local var shinfo was used by mistake in Patch 1/14 while declared at 9/14.
->>     Fixed it for the sake of future bisections
+>> MDIO_BCM_UNIMAC needs HAS_IOMEM, so depend on it, the related error (
+>> with allmodconfig under um):
+>>
+>>     MODPOST 1205 modules
+>>   ERROR: "devm_ioremap" [drivers/net/phy/mdio-bcm-unimac.ko] undefined!
+>>
+>> Signed-off-by: Chen Gang <gang.chen.5i5j@gmail.com>
 > 
-> Hmm... patches were already merged. I am afraid you need to provide one
-> patch on top of current net-next, if still needed. Too bad for the
-> bisection.
-> 
-> Thanks !
-> 
+> Applied, thanks.
 > 
 
-Yeh, I missed it somehow. Sorry for the spam.
+Thank you for your work.
 
-Amir
+-- 
+Chen Gang
+
+Open, share, and attitude like air, water, and life which God blessed
