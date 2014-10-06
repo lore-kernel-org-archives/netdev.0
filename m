@@ -1,122 +1,65 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net/mlx4_en: remove NETDEV_TX_BUSY
-Date: Mon, 06 Oct 2014 09:30:35 -0700
-Message-ID: <1412613035.11091.72.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1412576163-7224-1-git-send-email-amirv@mellanox.com>
-	 <1412599904.11091.66.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [net-next PATCH v1 1/3] net: sched: af_packet support for
+ direct ring access
+Date: Mon, 6 Oct 2014 18:35:36 +0200
+Message-ID: <20141006183536.329de8b0@redhat.com>
+References: <20141006000629.32055.2295.stgit@nitbit.x32>
+	<20141006002951.GA24376@breakpoint.cc>
+	<5431EC82.7010305@gmail.com>
+	<543265A5.8000606@redhat.com>
+	<5432AEE0.9000600@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Ido Shamay <idos@mellanox.com>
-To: Amir Vadai <amirv@mellanox.com>
+Cc: brouer@redhat.com, Daniel Borkmann <dborkman@redhat.com>,
+	John Fastabend <john.fastabend@gmail.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Florian Westphal <fw@strlen.de>, gerlitz.or@gmail.com,
+	hannes@stressinduktion.org, netdev@vger.kernel.org,
+	john.ronciak@intel.com, amirv@mellanox.com, eric.dumazet@gmail.com,
+	danny.zhou@intel.com
+To: John Fastabend <john.r.fastabend@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:36201 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751289AbaJFQah (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 12:30:37 -0400
-Received: by mail-pa0-f50.google.com with SMTP id kx10so5523540pab.37
-        for <netdev@vger.kernel.org>; Mon, 06 Oct 2014 09:30:37 -0700 (PDT)
-In-Reply-To: <1412599904.11091.66.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mx1.redhat.com ([209.132.183.28]:40304 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751316AbaJFQgL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Oct 2014 12:36:11 -0400
+In-Reply-To: <5432AEE0.9000600@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
 
-Drivers should avoid NETDEV_TX_BUSY as much as possible.
+On Mon, 06 Oct 2014 08:01:52 -0700 John Fastabend <john.r.fastabend@intel.com> wrote:
+ 
+> This requires a system call as far as I can tell. Which has unwanted
+> overhead. I can micro-benchmark this if its helpful. But if we dredge
+> up Jesper's slides here we are really counting cycles so even small
+> numbers count if we want to hit line rate in a user space application
+> with 40Gpbs hardware.
 
-They should stop the tx queue before qdisc even tries to push another
-packet, to avoid requeues.
+The micro-benchmarked syscall[2] cost is approx 42 ns [1] (when
+disabling CONFIG_AUDITSYSCALL else its approx 88ns), which is
+significant compared to the 10G wirespeed smallest packet size budget
+of 67.2ns.
 
-For a driver supporting skb->xmit_more, this is likely to be a prereq
-anyway, otherwise we could have a tx deadlock : We need to force a
-doorbell if TX ring is full.
+See:
+ [1] http://netoptimizer.blogspot.dk/2014/05/the-calculations-10gbits-wirespeed.html
+ [2] https://github.com/netoptimizer/network-testing/blob/master/src/syscall_overhead.c
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- drivers/net/ethernet/mellanox/mlx4/en_tx.c |   48 +++++++++----------
- 1 file changed, 24 insertions(+), 24 deletions(-)
+[...] 
+> We already added a qdisc bypass option I see this as taking this path
+> further. I believe there is room for a continuum here. For basic cases
+> use af_packet v1,v2 for mmap rings but using common descriptors use
+> af_packet v3 and set QOS_BYASS. For absolute lowest overhead and
+> specific applications that don't need QOS, eBPF use this interface.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-index 92a7cf46d9af9260d601a0d65ec5bba4..44004e331e4e760f18cfa69ef99a2b2b 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-@@ -706,6 +706,7 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
- 	void *fragptr = NULL;
- 	bool bounce = false;
- 	bool send_doorbell;
-+	bool stop_queue;
- 	bool inline_ok;
- 	u32 ring_cons;
- 
-@@ -735,30 +736,6 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
- 	if (vlan_tx_tag_present(skb))
- 		vlan_tag = vlan_tx_tag_get(skb);
- 
--	/* Check available TXBBs And 2K spare for prefetch */
--	if (unlikely(((int)(ring->prod - ring_cons)) >
--		     ring->size - HEADROOM - MAX_DESC_TXBBS)) {
--		/* every full Tx ring stops queue */
--		netif_tx_stop_queue(ring->tx_queue);
--		ring->queue_stopped++;
--
--		/* If queue was emptied after the if, and before the
--		 * stop_queue - need to wake the queue, or else it will remain
--		 * stopped forever.
--		 * Need a memory barrier to make sure ring->cons was not
--		 * updated before queue was stopped.
--		 */
--		wmb();
--
--		ring_cons = ACCESS_ONCE(ring->cons);
--		if (unlikely(((int)(ring->prod - ring_cons)) <=
--			     ring->size - HEADROOM - MAX_DESC_TXBBS)) {
--			netif_tx_wake_queue(ring->tx_queue);
--			ring->wake_queue++;
--		} else {
--			return NETDEV_TX_BUSY;
--		}
--	}
- 
- 	prefetchw(&ring->tx_queue->dql);
- 
-@@ -929,6 +906,13 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 	skb_tx_timestamp(skb);
- 
-+	/* Check available TXBBs And 2K spare for prefetch */
-+	stop_queue = (int)(ring->prod - ring_cons) >
-+		      ring->size - HEADROOM - MAX_DESC_TXBBS;
-+	if (unlikely(stop_queue)) {
-+		netif_tx_stop_queue(ring->tx_queue);
-+		ring->queue_stopped++;
-+	}
- 	send_doorbell = !skb->xmit_more || netif_xmit_stopped(ring->tx_queue);
- 
- 	real_size = (real_size / 16) & 0x3f;
-@@ -973,6 +957,22 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
- 		}
- 	}
- 
-+	if (unlikely(stop_queue)) {
-+		/* If queue was emptied after the if (stop_queue) , and before
-+		 * the netif_tx_stop_queue() - need to wake the queue,
-+		 * or else it will remain stopped forever.
-+		 * Need a memory barrier to make sure ring->cons was not
-+		 * updated before queue was stopped.
-+		 */
-+		smp_rmb();
-+
-+		ring_cons = ACCESS_ONCE(ring->cons);
-+		if (unlikely(((int)(ring->prod - ring_cons)) <=
-+			     ring->size - HEADROOM - MAX_DESC_TXBBS)) {
-+			netif_tx_wake_queue(ring->tx_queue);
-+			ring->wake_queue++;
-+		}
-+	}
- 	return NETDEV_TX_OK;
- 
- tx_drop_unmap:
+Well, after the qdisc bulking changes, when bulking kicks in then the
+qdisc path is faster than the qdisc bypass (measured with trafgen).
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
