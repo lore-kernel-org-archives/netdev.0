@@ -1,63 +1,105 @@
-From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Subject: Re: [net 0/8] gianfar: ARM port driver updates (1/2)
-Date: Mon, 6 Oct 2014 10:55:42 +0300
-Message-ID: <54324AFE.1040803@freescale.com>
-References: <1412352169-14414-1-git-send-email-claudiu.manoil@freescale.com>
- <20141005.212722.1867743289839811370.davem@davemloft.net>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: randconfig build error with next-20141001, in drivers/i2c/algos/i2c-algo-bit.c
+Date: Mon, 06 Oct 2014 10:06:00 +0200
+Message-ID: <54324D68.6070309@hartkopp.net>
+References: <CA+r1ZhiL1y9aeLeJjpd_1DtzOG_oyoPg7XsTPJ9G-XY5G2DfCQ@mail.gmail.com> <542C8D93.8090008@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <Li.Xiubo@freescale.com>,
-	<Shruti@freescale.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0119.outbound.protection.outlook.com ([65.55.169.119]:31596
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751646AbaJFHz5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Oct 2014 03:55:57 -0400
-In-Reply-To: <20141005.212722.1867743289839811370.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-next <linux-next@vger.kernel.org>,
+	Stephane Grosjean <s.grosjean@peak-system.com>,
+	linux-i2c@vger.kernel.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-can@vger.kernel.org
+To: Randy Dunlap <rdunlap@infradead.org>,
+	Jim Davis <jim.epost@gmail.com>,
+	Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <542C8D93.8090008@infradead.org>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/6/2014 4:27 AM, David Miller wrote:
-> From: Claudiu Manoil <claudiu.manoil@freescale.com>
-> Date: Fri, 3 Oct 2014 19:02:41 +0300
->
->> This is the first round of driver protability fixes and clean-up
->> with the main purpose to make gianfar portable on ARM, for the ARM
->> based SoC that integrates the eTSEC ethernet controller - "ls1021a".
->> The patches primarily address compile time errors, when compiling
->> gianfar on ARM.  They replace PPC specific functions and macros
->> with architecture independent ones, solve arch specific header
->> inclusions, guard code that relates to PPC only, and even address
->> some simple endianess issues (see MAC address setup patch).
->> The patches addressing the bulk of remaining endianess issues,
->> like handling DMA fields (BD and FCB), will follow with the sencond
->> round.
->> These patches were verified on the ls1021a SoC.
->
-> If more endianness fixes are necessary and "will follow with the
-> second round", I do not see how you could have verified specifically
-> these changes on the ls1021a.
->
+Hello all,
 
-Hi David,
+just to get it right:
 
-What I did is to split the initial patchset in 2, to ease up the review
-process.
-This first part is fairly straightforward, these patches make localized
-code changes and can be more easily ported among different kernel 
-versions.  The second part has fewer patches but touches more code,
-because it handles endianess conversions for all the reads/writes to
-the buffer descriptors.  Please let me now if you have objections to
-this approach.
-As for testing, we have our internal kernel tree for ARM supporting
-ls1021a, and these gianfar patches have been there for a while and 
-tested.  Now it's time to upstream (a cleaned-up version of) them.
-(see git.freescale.com/git/cgit.cgi/layerscape/ls1021a/linux.git/)
-Please note that the current (upstream) net tree does not include the
-support for ls1021a (which is to be propagated via the arm tree).
+So far it looks like this in linux/drivers/net/can/sja1000/Kconfig
 
-Thanks and regards,
-Claudiu
+config CAN_PEAK_PCIEC
+        bool "PEAK PCAN-ExpressCard Cards"
+        depends on CAN_PEAK_PCI
+        select I2C
+        select I2C_ALGOBIT
+
+If one would change the
+
+        select I2C
+
+into
+
+        depends on I2C
+
+IMHO the CAN_PEAK_PCIEC hardware would *only* be visible and selectable=
+ when
+I2C was selected before (from anyone else?).
+
+So what it wrong on the current Kconfig entry?
+Is 'select' deprecated?
+
+Or did randconfig generate a configuration that would not be possible b=
+y
+properly generating the config file with 'make menuconfig' ??
+
+Please explain.
+
+Thanks,
+Oliver
+
+On 10/02/2014 01:26 AM, Randy Dunlap wrote:
+> On 10/01/14 14:37, Jim Davis wrote:
+>> Building with the attached random configuration file,
+>=20
+> Also:
+> warning: (CAN_PEAK_PCIEC && SFC && IGB && VIDEO_TW68 && DRM && FB_DDC=
+ && FB_VIA) selects I2C_ALGOBIT which has unmet direct dependencies (I2=
+C)
+>=20
+>> drivers/i2c/algos/i2c-algo-bit.c: In function =91i2c_bit_add_bus=92:
+>> drivers/i2c/algos/i2c-algo-bit.c:658:33: error: =91i2c_add_adapter=92
+>> undeclared (first use in this function)
+>>   return __i2c_bit_add_bus(adap, i2c_add_adapter);
+>>                                  ^
+>> drivers/i2c/algos/i2c-algo-bit.c:658:33: note: each undeclared
+>> identifier is reported only once for each function it appears in
+>> drivers/i2c/algos/i2c-algo-bit.c: In function =91i2c_bit_add_numbere=
+d_bus=92:
+>> drivers/i2c/algos/i2c-algo-bit.c:664:33: error:
+>> =91i2c_add_numbered_adapter=92 undeclared (first use in this functio=
+n)
+>>   return __i2c_bit_add_bus(adap, i2c_add_numbered_adapter);
+>>                                  ^
+>>   CC      net/openvswitch/actions.o
+>> drivers/i2c/algos/i2c-algo-bit.c: In function =91i2c_bit_add_bus=92:
+>> drivers/i2c/algos/i2c-algo-bit.c:659:1: warning: control reaches end=
+ of non-void
+>>  function [-Wreturn-type]
+>>  }
+>>  ^
+>> drivers/i2c/algos/i2c-algo-bit.c: In function =91i2c_bit_add_numbere=
+d_bus=92:
+>> drivers/i2c/algos/i2c-algo-bit.c:665:1: warning: control reaches end=
+ of non-void
+>>  function [-Wreturn-type]
+>>  }
+>>  ^
+>> make[3]: *** [drivers/i2c/algos/i2c-algo-bit.o] Error 1
+>=20
+> In drivers/media/pci/tw68/Kconfig, VIDEO_TW68 should depend on I2C in=
+ order
+> to make it safe to select I2C_ALGOBIT.
+>=20
+> In drivers/net/can/sja1000/Kconfig, CAN_PEAK_PCIEC should depend on I=
+2C
+> instead of selecting I2C (and change the help text).
+>=20
+>=20
