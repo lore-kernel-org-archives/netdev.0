@@ -1,38 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next v2 0/6] Add Geneve tunnel protocol support
-Date: Mon, 06 Oct 2014 00:32:50 -0400 (EDT)
-Message-ID: <20141006.003250.2261438479584184724.davem@davemloft.net>
-References: <1412375733-30981-1-git-send-email-azhou@nicira.com>
+Subject: Re: [PATCH net-next] net: skb_segment() provides list head and tail
+Date: Mon, 06 Oct 2014 00:38:13 -0400 (EDT)
+Message-ID: <20141006.003813.912754832034876042.davem@davemloft.net>
+References: <1412373477.17245.5.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1412375467.17245.16.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1412395159.17245.33.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: azhou@nicira.com
+Cc: brouer@redhat.com, netdev@vger.kernel.org, therbert@google.com,
+	hannes@stressinduktion.org, fw@strlen.de, dborkman@redhat.com,
+	jhs@mojatatu.com, alexander.duyck@gmail.com,
+	john.r.fastabend@intel.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57683 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:57745 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750720AbaJFEcw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 00:32:52 -0400
-In-Reply-To: <1412375733-30981-1-git-send-email-azhou@nicira.com>
+	with ESMTP id S1750720AbaJFEiQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 00:38:16 -0400
+In-Reply-To: <1412395159.17245.33.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andy Zhou <azhou@nicira.com>
-Date: Fri,  3 Oct 2014 15:35:27 -0700
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 03 Oct 2014 20:59:19 -0700
 
-> This patch series adds kernel support for Geneve (Generic Network
-> Virtualization Encapsulation) based on Geneve IETF draft:
-> http://www.ietf.org/id/draft-gross-geneve-01.txt
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Patch 1 implements Geneve tunneling protocol driver
+> Its unfortunate we have to walk again skb list to find the tail
+> after segmentation, even if data is probably hot in cpu caches.
 > 
-> Patch 2-6 adds openvswitch support for creating and using
-> Geneve tunnels by OVS user space.
+> skb_segment() can store the tail of the list into segs->prev,
+> and validate_xmit_skb_list() can immediately get the tail.
 > 
-> ---
-> v1->v2:   Style fixes: use tab instead space for Kconfig
-> 	  Patch 2-6 are reviewed by Pravin Shetty, add him to acked-by
-> 	  Patch 6 was reviewed by Thomas Graf when commiting
-> 	    to openvswitch.org, add him to acked-by.
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Series applied, thanks Andy.
+Applied, thanks Eric.
