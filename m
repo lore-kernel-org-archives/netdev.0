@@ -1,18 +1,18 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next 3/5] ipv6: only generate one new serial number per fib mutation
-Date: Mon,  6 Oct 2014 10:52:12 +0200
-Message-ID: <4b06f87b74e5ce9d39fb8b13af5a62604fb372f5.1412585163.git.hannes@stressinduktion.org>
+Subject: [PATCH net-next 2/5] ipv6: make rt_sernum atomic and serial number fields ordinary ints
+Date: Mon,  6 Oct 2014 10:52:11 +0200
+Message-ID: <c98d73f367912e2fa164ffa7f6cc0c7ecbd21de1.1412585163.git.hannes@stressinduktion.org>
 References: <cover.1412585162.git.hannes@stressinduktion.org>
 Cc: hideaki@yoshifuji.org, kafai@fb.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:37613 "EHLO
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:58404 "EHLO
 	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752040AbaJFIwY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 04:52:24 -0400
-Received: from compute6.internal (compute6.nyi.internal [10.202.2.46])
-	by gateway2.nyi.internal (Postfix) with ESMTP id 2A914208C7
-	for <netdev@vger.kernel.org>; Mon,  6 Oct 2014 04:52:24 -0400 (EDT)
+	by vger.kernel.org with ESMTP id S1751289AbaJFIwX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 04:52:23 -0400
+Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
+	by gateway2.nyi.internal (Postfix) with ESMTP id 6071D202EA
+	for <netdev@vger.kernel.org>; Mon,  6 Oct 2014 04:52:23 -0400 (EDT)
 In-Reply-To: <cover.1412585162.git.hannes@stressinduktion.org>
 In-Reply-To: <cover.1412585162.git.hannes@stressinduktion.org>
 References: <cover.1412585162.git.hannes@stressinduktion.org>
@@ -23,71 +23,92 @@ Cc: YOSHIFUJI Hideaki <hideaki@yoshifuji.org>
 Cc: Martin Lau <kafai@fb.com>
 Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- net/ipv6/ip6_fib.c | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+ include/net/ip6_fib.h |  2 +-
+ net/ipv6/ip6_fib.c    | 23 +++++++++++++----------
+ 2 files changed, 14 insertions(+), 11 deletions(-)
 
+diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
+index f4e6b3e..ee07f92 100644
+--- a/include/net/ip6_fib.h
++++ b/include/net/ip6_fib.h
+@@ -64,7 +64,7 @@ struct fib6_node {
+ 
+ 	__u16			fn_bit;		/* bit key */
+ 	__u16			fn_flags;
+-	__u32			fn_sernum;
++	int			fn_sernum;
+ 	struct rt6_info		*rr_ptr;
+ };
+ 
 diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-index bfad469..a55a072 100644
+index 92f53db..bfad469 100644
 --- a/net/ipv6/ip6_fib.c
 +++ b/net/ipv6/ip6_fib.c
-@@ -417,14 +417,13 @@ out:
- static struct fib6_node *fib6_add_1(struct fib6_node *root,
- 				     struct in6_addr *addr, int plen,
- 				     int offset, int allow_create,
--				     int replace_required)
-+				     int replace_required, int sernum)
+@@ -74,7 +74,7 @@ static int fib6_walk_continue(struct fib6_walker_t *w);
+  *	result of redirects, path MTU changes, etc.
+  */
+ 
+-static __u32 rt_sernum;
++static atomic_t rt_sernum = ATOMIC_INIT(1);
+ 
+ static void fib6_gc_timer_cb(unsigned long arg);
+ 
+@@ -95,12 +95,15 @@ static void fib6_walker_unlink(struct fib6_walker_t *w)
+ 	write_unlock_bh(&fib6_walker_lock);
+ }
+ 
+-static u32 fib6_new_sernum(void)
++static int fib6_new_sernum(void)
  {
- 	struct fib6_node *fn, *in, *ln;
- 	struct fib6_node *pn = NULL;
+-	u32 n = ++rt_sernum;
+-	if ((__s32)n <= 0)
+-		rt_sernum = n = 1;
+-	return n;
++	int new, old;
++
++	do {
++		old = atomic_read(&rt_sernum);
++		new = old < INT_MAX ? old + 1 : 1;
++	} while (atomic_cmpxchg(&rt_sernum, old, new) != old);
++	return new;
+ }
+ 
+ /*
+@@ -421,7 +424,7 @@ static struct fib6_node *fib6_add_1(struct fib6_node *root,
  	struct rt6key *key;
  	int	bit;
  	__be32	dir = 0;
--	int	sernum = fib6_new_sernum();
+-	__u32	sernum = fib6_new_sernum();
++	int	sernum = fib6_new_sernum();
  
  	RT6_TRACE("fib6_add_1\n");
  
-@@ -842,6 +841,7 @@ int fib6_add(struct fib6_node *root, struct rt6_info *rt, struct nl_info *info,
- 	int err = -ENOMEM;
- 	int allow_create = 1;
- 	int replace_required = 0;
-+	int sernum = fib6_new_sernum();
+@@ -1598,7 +1601,7 @@ static void fib6_prune_clones(struct net *net, struct fib6_node *fn)
  
- 	if (info->nlh) {
- 		if (!(info->nlh->nlmsg_flags & NLM_F_CREATE))
-@@ -854,7 +854,7 @@ int fib6_add(struct fib6_node *root, struct rt6_info *rt, struct nl_info *info,
+ static int fib6_update_sernum(struct rt6_info *rt, void *arg)
+ {
+-	__u32 sernum = *(__u32 *)arg;
++	int sernum = *(__u32 *)arg;
  
- 	fn = fib6_add_1(root, &rt->rt6i_dst.addr, rt->rt6i_dst.plen,
- 			offsetof(struct rt6_info, rt6i_dst), allow_create,
--			replace_required);
-+			replace_required, sernum);
- 	if (IS_ERR(fn)) {
- 		err = PTR_ERR(fn);
- 		fn = NULL;
-@@ -888,14 +888,14 @@ int fib6_add(struct fib6_node *root, struct rt6_info *rt, struct nl_info *info,
- 			sfn->leaf = info->nl_net->ipv6.ip6_null_entry;
- 			atomic_inc(&info->nl_net->ipv6.ip6_null_entry->rt6i_ref);
- 			sfn->fn_flags = RTN_ROOT;
--			sfn->fn_sernum = fib6_new_sernum();
-+			sfn->fn_sernum = sernum;
+ 	if (rt->rt6i_node &&
+ 	    rt->rt6i_node->fn_sernum != sernum)
+@@ -1609,7 +1612,7 @@ static int fib6_update_sernum(struct rt6_info *rt, void *arg)
  
- 			/* Now add the first leaf node to new subtree */
+ static void fib6_flush_trees(struct net *net)
+ {
+-	__u32 new_sernum = fib6_new_sernum();
++	int new_sernum = fib6_new_sernum();
  
- 			sn = fib6_add_1(sfn, &rt->rt6i_src.addr,
- 					rt->rt6i_src.plen,
- 					offsetof(struct rt6_info, rt6i_src),
--					allow_create, replace_required);
-+					allow_create, replace_required, sernum);
+ 	fib6_clean_all(net, fib6_update_sernum, &new_sernum);
+ }
+@@ -1822,7 +1825,7 @@ struct ipv6_route_iter {
+ 	struct fib6_walker_t w;
+ 	loff_t skip;
+ 	struct fib6_table *tbl;
+-	__u32 sernum;
++	int sernum;
+ };
  
- 			if (IS_ERR(sn)) {
- 				/* If it is failed, discard just allocated
-@@ -914,7 +914,7 @@ int fib6_add(struct fib6_node *root, struct rt6_info *rt, struct nl_info *info,
- 			sn = fib6_add_1(fn->subtree, &rt->rt6i_src.addr,
- 					rt->rt6i_src.plen,
- 					offsetof(struct rt6_info, rt6i_src),
--					allow_create, replace_required);
-+					allow_create, replace_required, sernum);
- 
- 			if (IS_ERR(sn)) {
- 				err = PTR_ERR(sn);
+ static int ipv6_route_seq_show(struct seq_file *seq, void *v)
 -- 
 1.9.3
