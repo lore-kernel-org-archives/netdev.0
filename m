@@ -1,37 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/1] hyperv: Fix a bug in netvsc_send()
-Date: Sun, 05 Oct 2014 21:11:29 -0400 (EDT)
-Message-ID: <20141005.211129.632749242463744635.davem@davemloft.net>
-References: <1412530971-29897-1-git-send-email-kys@microsoft.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [net-next PATCH v1 1/3] net: sched: af_packet support for direct
+ ring access
+Date: Sun, 05 Oct 2014 18:12:34 -0700
+Message-ID: <5431EC82.7010305@gmail.com>
+References: <20141006000629.32055.2295.stgit@nitbit.x32> <20141006002951.GA24376@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
- linux-kernel@vger.kernel.org, apw@canonical.com, devel@linuxdriverproject.org
-To: kys@microsoft.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1412530971-29897-1-git-send-email-kys@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: dborkman@redhat.com, gerlitz.or@gmail.com,
+	hannes@stressinduktion.org, netdev@vger.kernel.org,
+	john.ronciak@intel.com, amirv@mellanox.com, eric.dumazet@gmail.com,
+	danny.zhou@intel.com
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f178.google.com ([209.85.214.178]:44580 "EHLO
+	mail-ob0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751809AbaJFBMv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Oct 2014 21:12:51 -0400
+Received: by mail-ob0-f178.google.com with SMTP id wn1so3167771obc.37
+        for <netdev@vger.kernel.org>; Sun, 05 Oct 2014 18:12:51 -0700 (PDT)
+In-Reply-To: <20141006002951.GA24376@breakpoint.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "K. Y. Srinivasan" <kys@microsoft.com>
-Date: Sun,  5 Oct 2014 10:42:51 -0700
+On 10/05/2014 05:29 PM, Florian Westphal wrote:
+> John Fastabend <john.fastabend@gmail.com> wrote:
+>> There is one critical difference when running with these interfaces
+>> vs running without them. In the normal case the af_packet module
+>> uses a standard descriptor format exported by the af_packet user
+>> space headers. In this model because we are working directly with
+>> driver queues the descriptor format maps to the descriptor format
+>> used by the device. User space applications can learn device
+>> information from the socket option PACKET_DEV_DESC_INFO which
+>> should provide enough details to extrapulate the descriptor formats.
+>> Although this adds some complexity to user space it removes the
+>> requirement to copy descriptor fields around.
+>
+> I find it very disappointing that we seem to have to expose such
+> hardware specific details to userspace via hw-independent interface.
+>
 
-> After the packet is successfully sent, we should not touch the packet 
-> as it may have been freed. This patch is based on the work done by
-> Long Li <longli@microsoft.com>.
-> 
-> David, please queue this up for stable.
-> 
-> Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
-> Reported-by: Sitsofe Wheeler <sitsofe@yahoo.com>
+Well it was only for convenience if it doesn't fit as a socket
+option we can remove it. We can look up the device using the netdev
+name from the bind call. I see your point though so if there is
+consensus that this is not needed that is fine.
 
-Applied and queued up for -stable.
+> How big of a cost are we talking about when you say that it 'removes
+> the requirement to copy descriptor fields'?
+>
+
+This was likely a poor description. If you want to let user space
+poll on the ring (without using system calls or interrupts) then
+I don't see how you can _not_ expose the ring directly complete with
+the vendor descriptor formats.
+
+> Thanks,
+> Florian
+>
+
+
+-- 
+John Fastabend         Intel Corporation
