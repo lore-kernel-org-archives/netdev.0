@@ -1,33 +1,63 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next] net: validate_xmit_vlan() is static
-Date: Mon, 06 Oct 2014 11:44:02 -0700
-Message-ID: <1412621042.2916.29.camel@joe-AO725>
-References: <1412619987.11091.76.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH net-next] ipvs: Avoid null-pointer deref in debug code
+Date: Mon, 6 Oct 2014 22:01:08 +0300 (EEST)
+Message-ID: <alpine.LFD.2.11.1410062159290.2258@ja.home.ssi.bg>
+References: <20141006073232.GA10073@verge.net.au> <1412610379-6295-1-git-send-email-agartrell@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Julia Lawall <julia.lawall@lip6.fr>,
-	Dan Carpenter <error27@gmail.com>,
-	Josh Triplett <josh@joshtriplett.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0040.hostedemail.com ([216.40.44.40]:60771 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753036AbaJFSoI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 14:44:08 -0400
-In-Reply-To: <1412619987.11091.76.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: horms@verge.net.au, dan.carpenter@oracle.com,
+	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	kernel-team@fb.com
+To: Alex Gartrell <agartrell@fb.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <1412610379-6295-1-git-send-email-agartrell@fb.com>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2014-10-06 at 11:26 -0700, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
+
+	Hello,
+
+On Mon, 6 Oct 2014, Alex Gartrell wrote:
+
+> Use daddr instead of reaching into dest.
 > 
-> Marking this as static allows compiler to inline it.
+> Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Signed-off-by: Alex Gartrell <agartrell@fb.com>
 
-Found by inspection or another tool?
+	Thanks!
 
-Wasn't there some tool to look for non-static functions
-that are not called externally that could/should be
-converted to static?
+Acked-by: Julian Anastasov <ja@ssi.bg>
+
+> ---
+>  net/netfilter/ipvs/ip_vs_xmit.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
+> index 91f17c1..437a366 100644
+> --- a/net/netfilter/ipvs/ip_vs_xmit.c
+> +++ b/net/netfilter/ipvs/ip_vs_xmit.c
+> @@ -316,7 +316,7 @@ __ip_vs_get_out_rt(int skb_af, struct sk_buff *skb, struct ip_vs_dest *dest,
+>  	if (unlikely(crosses_local_route_boundary(skb_af, skb, rt_mode,
+>  						  local))) {
+>  		IP_VS_DBG_RL("We are crossing local and non-local addresses"
+> -			     " daddr=%pI4\n", &dest->addr.ip);
+> +			     " daddr=%pI4\n", &daddr);
+>  		goto err_put;
+>  	}
+>  
+> @@ -458,7 +458,7 @@ __ip_vs_get_out_rt_v6(int skb_af, struct sk_buff *skb, struct ip_vs_dest *dest,
+>  	if (unlikely(crosses_local_route_boundary(skb_af, skb, rt_mode,
+>  						  local))) {
+>  		IP_VS_DBG_RL("We are crossing local and non-local addresses"
+> -			     " daddr=%pI6\n", &dest->addr.in6);
+> +			     " daddr=%pI6\n", daddr);
+>  		goto err_put;
+>  	}
+>  
+> -- 
+> Alex Gartrell <agartrell@fb.com>
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
