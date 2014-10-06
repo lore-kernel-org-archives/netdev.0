@@ -1,63 +1,68 @@
-From: Andy Zhou <azhou@nicira.com>
-Subject: [net-next 2/2] openvswitch: fix a sparse warning
-Date: Mon,  6 Oct 2014 13:22:51 -0700
-Message-ID: <1412626971-30271-2-git-send-email-azhou@nicira.com>
-References: <1412626971-30271-1-git-send-email-azhou@nicira.com>
-Cc: netdev@vger.kernel.org, Andy Zhou <azhou@nicira.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog125.obsmtp.com ([74.125.149.153]:45934 "HELO
-	na3sys009aog125.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751011AbaJFU25 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 16:28:57 -0400
-Received: by mail-pa0-f42.google.com with SMTP id bj1so5921175pad.29
-        for <netdev@vger.kernel.org>; Mon, 06 Oct 2014 13:28:56 -0700 (PDT)
-In-Reply-To: <1412626971-30271-1-git-send-email-azhou@nicira.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Luis R. Rodriguez" <mcgrof@suse.com>
+Subject: Re: [PATCH v2 7/7] driver-core: add preferred async probe option
+	for built-in and modules
+Date: Mon, 6 Oct 2014 22:36:27 +0200
+Message-ID: <20141006203627.GZ14081@wotan.suse.de>
+References: <1412372683-2003-1-git-send-email-mcgrof@do-not-panic.com> <1412372683-2003-8-git-send-email-mcgrof@do-not-panic.com> <20141006201926.GF18303@htj.dyndns.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
+	gregkh@linuxfoundation.org, dmitry.torokhov@gmail.com,
+	tiwai@suse.de, arjan@linux.intel.com, teg@jklm.no,
+	rmilasan@suse.com, werner@suse.com, oleg@redhat.com, hare@suse.com,
+	bpoirier@suse.de, santosh@chelsio.com, pmladek@suse.cz,
+	dbueso@suse.com, linux-kernel@vger.kernel.org,
+	Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
+	Joseph Salisbury <joseph.salisbury@canonical.com>,
+	Kay Sievers <kay@vrfy.org>,
+	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
+	Tim Gardner <tim.gardner@canonical.com>,
+	Pierre Fersing <pierre-fersing@pierref.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
+	Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
+	Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
+	Abhijit Mahajan <abhijit.mahajan@avagotech.com>,
+	Casey Leedom <leedom@che
+To: Tejun Heo <tj@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20141006201926.GF18303@htj.dyndns.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Fix a sparse warning introduced by commit:
-f5796684069e0c71c65bce6a6d4766114aec1396 (openvswitch: Add support for
-Geneve tunneling.) caught by kbuild test robot:
+On Mon, Oct 06, 2014 at 04:19:26PM -0400, Tejun Heo wrote:
+> Hello, Luis.
+> 
+> The patchset generally looks good to me.  Please feel free to add
+> 
+>  Reviewed-by: Tejun Heo <tj@kernel.org>
 
-reproduce:
-  # apt-get install sparse
-  #   git checkout f5796684069e0c71c65bce6a6d4766114aec1396
-  #     make ARCH=x86_64 allmodconfig
-  #       make C=1 CF=-D__CHECK_ENDIAN__
-  #
-  #
-  #       sparse warnings: (new ones prefixed by >>)
-  #
-  #       >> net/openvswitch/vport-geneve.c:109:15: sparse: incorrect type in assignment (different base types)
-  #          net/openvswitch/vport-geneve.c:109:15:    expected restricted __be16 [usertype] sport
-  #             net/openvswitch/vport-geneve.c:109:15:    got int
-  #             >> net/openvswitch/vport-geneve.c:110:56: sparse: incorrect type in argument 3 (different base types)
-  #                net/openvswitch/vport-geneve.c:110:56:    expected unsigned short [unsigned] [usertype] value
-  #                   net/openvswitch/vport-geneve.c:110:56:    got restricted __be16 [usertype] sport
+Will do.
 
-Reported-by: kbuild test robot <fengguang.wu@intel.com>
-Signed-off-by: Andy Zhou <azhou@nicira.com>
----
- net/openvswitch/vport-geneve.c |    5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+> A question below.
+> 
+> On Fri, Oct 03, 2014 at 02:44:43PM -0700, Luis R. Rodriguez wrote:
+> > +	bus.enable_kern_async=1 [KNL]
+> > +			This tells the kernel userspace has been vetted for
+> > +			asynchronous probe support and can listen to the device
+> > +			driver prefer_async_probe flag for both built-in device
+> > +			drivers and modules.
+> 
+> Do we intend to keep this param permanently?  Isn't this more of a
+> temp tool to be used during development?  If so, maybe we should make
+> that clear with __DEVEL__ too?
 
-diff --git a/net/openvswitch/vport-geneve.c b/net/openvswitch/vport-geneve.c
-index 5572d48..910b3ef 100644
---- a/net/openvswitch/vport-geneve.c
-+++ b/net/openvswitch/vport-geneve.c
-@@ -104,10 +104,9 @@ static int geneve_get_options(const struct vport *vport,
- 			      struct sk_buff *skb)
- {
- 	struct geneve_port *geneve_port = geneve_vport(vport);
--	__be16 sport;
-+	struct inet_sock *sk = inet_sk(geneve_port->gs->sock->sk);
- 
--	sport = ntohs(inet_sk(geneve_port->gs->sock->sk)->inet_sport);
--	if (nla_put_u16(skb, OVS_TUNNEL_ATTR_DST_PORT, sport))
-+	if (nla_put_u16(skb, OVS_TUNNEL_ATTR_DST_PORT, ntohs(sk->inet_sport)))
- 		return -EMSGSIZE;
- 	return 0;
- }
--- 
-1.7.9.5
+As its designed right now no, its not a temp tool, its there to
+require compatibility with old userspace. For modules we can require
+the module parameter but for built-in we need something else and this
+is what came to mind. It is also what would allow the prefer_async_probe
+flag too as otherwise we won't know if userspace is prepared.
+
+If we want to get rid of it, it would mean that we're letting go of the idea
+that some userspace might exist which depends on *not* doing async probe. As
+such I would not consider it a __DEVEL__ param and it'd be a judgement call
+to eventually *not require* it. I can see that happening but perhaps a large
+series of kernels down the road?
+
+  Luis
