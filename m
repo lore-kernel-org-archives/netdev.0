@@ -1,104 +1,48 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [Patch net-next] net_sched: refactor out tcf_exts
-Date: Sun, 05 Oct 2014 20:04:20 -0700
-Message-ID: <543206B4.7090504@gmail.com>
-References: <1412376709-25564-1-git-send-email-xiyou.wangcong@gmail.com> <5431F4A1.3040107@gmail.com>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: RE: r8168 is needed to enter P-state: Package State 6 (pc6)onHaswell hardware
+Date: Mon, 6 Oct 2014 03:06:07 +0000
+Message-ID: <0835B3720019904CB8F7AA43166CEEB2526932@RTITMBSV03.realtek.com.tw>
+References: <542B3829.3010108@crashplan.pro>
+ <20141005165920.GA21926@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: nic_swsd <nic_swsd@realtek.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Francois Romieu <romieu@fr.zoreil.com>,
+	Ceriel Jacobs <linux-ide@crashplan.pro>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f170.google.com ([209.85.214.170]:64543 "EHLO
-	mail-ob0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751859AbaJFDEl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Oct 2014 23:04:41 -0400
-Received: by mail-ob0-f170.google.com with SMTP id uz6so3262956obc.15
-        for <netdev@vger.kernel.org>; Sun, 05 Oct 2014 20:04:40 -0700 (PDT)
-In-Reply-To: <5431F4A1.3040107@gmail.com>
+Received: from rtits2.realtek.com ([60.250.210.242]:58776 "EHLO
+	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751859AbaJFDG2 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Oct 2014 23:06:28 -0400
+In-Reply-To: <20141005165920.GA21926@electric-eye.fr.zoreil.com>
+Content-Language: zh-TW
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/05/2014 06:47 PM, John Fastabend wrote:
-> On 10/03/2014 03:51 PM, Cong Wang wrote:
->> As Jamal pointed it out, tcf_exts is really unnecessary,
->> we can definitely refactor it out without losing any functionality.
->> This could also remove an indirect layer which makes the code
->> much easier to read.
->>
->> This patch:
->>
->> 1) moves exts->action and exts->police into tp->ops, since they
->> are statically assigned
->>
->> 2) moves exts->actions list head out
->>
->> 3) removes exts->type, act->type does the same thing
->>
->> 4) renames tcf_exts_*() functions to tcf_act_*()
->>
->> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
->> Cc: John Fastabend <john.r.fastabend@intel.com>
->> Cc: "David S. Miller" <davem@davemloft.net>
->> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
->> ---
->
-> Looks OK to me and removes a layer of abstraction without changing
-> the code much. This is going to conflict with my series so I'll hold
-> off resubmitting it until this is dealt with. I need to respin that
-> ematch fix up to drop the ingress lock.
->
-> Acked-by: John Fastabend <john.r.fastabend@intel.com>
->
-> [...]
->
+ Francois Romieu [mailto:romieu@fr.zoreil.com] 
+> Sent: Monday, October 06, 2014 12:59 AM
+[...]
+> > With in-kernel r8169 module, only P-state package C3 (pc3) 
+> > can be reached
+> > when enabling ASPM.
+> > 
+> > Only after installing r8168 driver (and enabling ASPM), a 
+> > Haswell Celeron
+> > G1820/G1840 processer will enter package C6 state (pc6).
+> 
+> Vanilla kernel r8169 driver logs a message that contains an 
+> "XID" string.
+> Please grep for it in your dmesg so that I can narrow the search for 
+> meaningful differences in Realtek's r8168 driver.
 
-But after running my test kit I see a null pointer dereference
-in cls_cgroup in tcf_act_change().
+I don't sure if the following information is helpful. Besides, I remember the rtl_init_one()
+would disable it.
 
-Looks like you dropped an initializer...
+http://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=d64ec841517a25f6d468bde9f67e5b4cffdc67c7
 
-@@ -116,7 +116,6 @@ static int cls_cgroup_change(struct net *net, struct 
-sk_buff *in_skb,
-  	if (!new)
-  		return -ENOBUFS;
-
--	tcf_exts_init(&new->exts, TCA_CGROUP_ACT, TCA_CGROUP_POLICE);
-  	if (head)
-  		new->handle = head->handle;
-  	else
-
-
-
-
->>
->> -void tcf_exts_change(struct tcf_proto *tp, struct tcf_exts *dst,
->> -             struct tcf_exts *src)
->> +void tcf_act_change(struct tcf_proto *tp, struct list_head *dst,
->> +            struct list_head *src)
->>   {
->>   #ifdef CONFIG_NET_CLS_ACT
->>       LIST_HEAD(tmp);
->>       tcf_tree_lock(tp);
->> -    list_splice_init(&dst->actions, &tmp);
->> -    list_splice(&src->actions, &dst->actions);
->> +    list_splice_init(dst, &tmp);
->> +    list_splice(src, dst);
->>       tcf_tree_unlock(tp);
->>       tcf_action_destroy(&tmp, TCA_ACT_UNBIND);
->
->
-> This is overly complex now that tcf_act_change only
-> occurs on null lists. And unattached ones because of the
-> RCU semantics so I'm fairly sure we can drop the lock and
-> double splice.
->
->
-> [...]
->
-
-
--- 
-John Fastabend         Intel Corporation
+http://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=4521e1a94279ce610d3f9b7945c17d581f804242
+ 
+Best Regards,
+Hayes
