@@ -1,44 +1,48 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next] net: validate_xmit_vlan() is static
-Date: Mon, 06 Oct 2014 12:36:23 -0700
-Message-ID: <1412624183.2916.35.camel@joe-AO725>
-References: <1412619987.11091.76.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1412621042.2916.29.camel@joe-AO725> <20141006190728.GA2137@thin>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/2] sunvnet: Packet processing in
+ non-interrupt context.
+Date: Mon, 06 Oct 2014 15:37:12 -0400 (EDT)
+Message-ID: <20141006.153712.1610016632407187994.davem@davemloft.net>
+References: <20141006160418.GA3604@oracle.com>
+	<20141006.152526.965519223260573233.davem@davemloft.net>
+	<20141006193111.GE24721@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Julia Lawall <julia.lawall@lip6.fr>,
-	Dan Carpenter <error27@gmail.com>
-To: Josh Triplett <josh@joshtriplett.org>
+Cc: raghuram.kothakota@oracle.com, netdev@vger.kernel.org
+To: sowmini.varadhan@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0157.hostedemail.com ([216.40.44.157]:58916 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750909AbaJFTg1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 15:36:27 -0400
-In-Reply-To: <20141006190728.GA2137@thin>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37476 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750859AbaJFThO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 15:37:14 -0400
+In-Reply-To: <20141006193111.GE24721@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-10-06 at 12:07 -0700, Josh Triplett wrote:
-> On Mon, Oct 06, 2014 at 11:44:02AM -0700, Joe Perches wrote:
-> > On Mon, 2014-10-06 at 11:26 -0700, Eric Dumazet wrote:
-> > > From: Eric Dumazet <edumazet@google.com>
-> > > 
-> > > Marking this as static allows compiler to inline it.
-> > 
-> > Found by inspection or another tool?
-> > 
-> > Wasn't there some tool to look for non-static functions
-> > that are not called externally that could/should be
-> > converted to static?
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Date: Mon, 6 Oct 2014 15:31:11 -0400
+
+> On (10/06/14 15:25), David Miller wrote:
+>> 
+>> > But we still need to hold the vio lock around the ldc_write 
+>> > (and also around dring write) in vnet_start_xmit, right?
+>> 
+>> You might be able to avoid it, you're fully serialized by the TX queue
+>> lock.
 > 
-> Several: sparse,
+> yes, I was just noticing that. The only place where I believe I need
+> to hold the vio spin-lock is to sync with the dr->cons checks
+> (the "should I send a start_cons LDC message?" check in vnet_start_xmit()
+> vs the vnet_ack() updates).
 
-Doesn't find anything for this use case
+I don't see how that is any different from the netif_queue_wake() checks,
+it should be just as easy to cover it with the generic xmit lock.
 
-> gcc -Wmissing-prototypes, and findstatic.pl.
+> But isn't it better in general to declare NETIF_F_LLTX and have finer lock
+> granularity in the driver?
 
-Right, thanks, using "make W=1" adds -Wmissing-prototypes.
+No, NETIF_F_LLTX drivers are heavily discouraged.  And on the
+contrary, it's easier to optimize the locking when we can consolidate
+what is covered at both the mid-level of the networking send paths and
+what the drivers need in their ->ndo_start_xmit() routines.
