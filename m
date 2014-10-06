@@ -1,77 +1,65 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 09/16] virtio-net: drop config_mutex
-Date: Mon, 6 Oct 2014 15:22:15 +0300
-Message-ID: <20141006122215.GA26790@redhat.com>
-References: <1412525038-15871-1-git-send-email-mst@redhat.com>
-	<1412525038-15871-10-git-send-email-mst@redhat.com>
-	<54328107.5090400@cogentembedded.com>
-	<20141006115636.GA26184@redhat.com>
-	<54328604.30403@cogentembedded.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] net: introduce netdevice gso_min_segs attribute
+Date: Mon, 06 Oct 2014 05:22:55 -0700
+Message-ID: <1412598175.11091.63.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1412501722-25092-1-git-send-email-amirv@mellanox.com>
+	 <54312F50.2060608@mellanox.com>
+	 <1412524252.11091.3.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1412529087.11091.14.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <5432399B.3060406@mellanox.com>
+	 <1412597876.11091.59.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <54328604.30403@cogentembedded.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Ido Shamay <idos@mellanox.com>
+To: Amir Vadai <amirv@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:52068 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751814AbaJFMW5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 08:22:57 -0400
+Received: by mail-pa0-f44.google.com with SMTP id et14so5199786pad.17
+        for <netdev@vger.kernel.org>; Mon, 06 Oct 2014 05:22:57 -0700 (PDT)
+In-Reply-To: <1412597876.11091.59.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 06, 2014 at 04:07:32PM +0400, Sergei Shtylyov wrote:
-> On 10/6/2014 3:56 PM, Michael S. Tsirkin wrote:
+On Mon, 2014-10-06 at 05:17 -0700, Eric Dumazet wrote:
+> On Mon, 2014-10-06 at 09:41 +0300, Amir Vadai wrote:
+> > On 10/5/2014 8:11 PM, Eric Dumazet wrote:
+> > > From: Eric Dumazet <edumazet@google.com>
+> > > 
+> > > Some TSO engines might have a too heavy setup cost, that impacts
+> > > performance on hosts sending small bursts (2 MSS per packet).
+> > > 
+> > > This patch adds a device gso_min_segs, allowing drivers to set
+> > > a minimum segment size for TSO packets, according to the NIC
+> > > performance.
+> > > 
+> > > Tested on a mlx4 NIC, this allows to get a ~110% increase of
+> > > throughput when sending 2 MSS per packet.
+> > > 
+> > 
+> > Amazing!
+> > 
+> > Shouldn't there be a netif_set_gso_min_size() too?
 > 
-> >>>config_mutex served two purposes: prevent multiple concurrent config
-> >>>change handlers, and synchronize access to config_enable flag.
-> 
-> >>>Since commit dbf2576e37da0fcc7aacbfbb9fd5d3de7888a3c1
-> >>>     workqueue: make all workqueues non-reentrant
-> >>>all workqueues are non-reentrant, and config_enable
-> >>>is now gone.
-> 
-> >>>Get rid of the unnecessary lock.
-> 
-> >>>Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> >>>---
-> >>>  drivers/net/virtio_net.c | 7 +------
-> >>>  1 file changed, 1 insertion(+), 6 deletions(-)
-> 
-> >>>diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> >>>index fa17afa..d80fef4 100644
-> >>>--- a/drivers/net/virtio_net.c
-> >>>+++ b/drivers/net/virtio_net.c
-> >>[...]
-> >>>@@ -1430,7 +1426,7 @@ static void virtnet_config_changed_work(struct work_struct *work)
-> >>>  		netif_tx_stop_all_queues(vi->dev);
-> >>>  	}
-> >>>  done:
-> >>>-	mutex_unlock(&vi->config_lock);
-> >>>+	return;
-> 
-> >>    There's no need for this *return*.
-> 
-> >I know - it's removed by the follow-up patch.
-> 
->    Yeah, I saw.
-> 
-> >It's formatted like this to make diff smaller
-> >and make review easier.
-> 
->    Don't understand how adding this line makes diff smaller though...
-> You first need to add it and then to delete it, where's the save?
-> 
-> WBR, Sergei
+> Good point, I'll add it in v2, thanks !
 
+Well, no... I thought you were speaking of an hypothetical
+netif_set_gso_{max|min}_segs()
 
-If I don't add it, gcc generates a compiler warning: it does not like
-labels at the end of functions.
-So I don't want to just drop the return function: I must drop the label too.
+But we don't have it. : Drivers simply change dev->gso_max_segs
+
+drivers/net/ethernet/freescale/fec_main.c:3058:         ndev->gso_max_segs = FEC_MAX_TSO_SEGS;
+drivers/net/ethernet/marvell/mv643xx_eth.c:3120:        dev->gso_max_segs = MV643XX_MAX_TSO_SEGS;
+drivers/net/ethernet/marvell/mvneta.c:3057:     dev->gso_max_segs = MVNETA_MAX_TSO_SEGS;
+drivers/net/ethernet/sfc/efx.c:2300:    net_dev->gso_max_segs = EFX_TSO_MAX_SEGS;
+
+So my mlx4 patch was simply doing
+
+	dev->gso_min_segs = MLX4_MIN_TSO_SEGS;
