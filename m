@@ -1,42 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net: validate_xmit_vlan() is static
-Date: Mon, 06 Oct 2014 11:26:27 -0700
-Message-ID: <1412619987.11091.76.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [PATCH net-next 5/5] ipv6: don't walk node's leaf during serial
+ number update
+Date: Mon, 6 Oct 2014 11:27:33 -0700
+Message-ID: <CAHA+R7PZPR=OXzU6b4DoRPqfAkOWXuyyS9YstaZCENFnutLYFg@mail.gmail.com>
+References: <cover.1412585162.git.hannes@stressinduktion.org>
+	<60321af8a7305bec398e62858ef53bb6605878fb.1412585163.git.hannes@stressinduktion.org>
+	<CAHA+R7O2GYo6vTpm9uYPVE+jamdYRPEZo5301=NnL+Zw7vmxpg@mail.gmail.com>
+	<1412618574.3403.29.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>, hideaki@yoshifuji.org,
+	kafai@fb.com
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:61549 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753155AbaJFS02 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 14:26:28 -0400
-Received: by mail-pa0-f54.google.com with SMTP id ey11so5740190pad.27
-        for <netdev@vger.kernel.org>; Mon, 06 Oct 2014 11:26:28 -0700 (PDT)
+Received: from mail-la0-f51.google.com ([209.85.215.51]:48763 "EHLO
+	mail-la0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753011AbaJFS1f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 14:27:35 -0400
+Received: by mail-la0-f51.google.com with SMTP id ge10so4940644lab.10
+        for <netdev@vger.kernel.org>; Mon, 06 Oct 2014 11:27:33 -0700 (PDT)
+In-Reply-To: <1412618574.3403.29.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Mon, Oct 6, 2014 at 11:02 AM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> On Mo, 2014-10-06 at 10:58 -0700, Cong Wang wrote:
+>> On Mon, Oct 6, 2014 at 1:52 AM, Hannes Frederic Sowa
+>> <hannes@stressinduktion.org> wrote:
+>> > @@ -105,6 +106,10 @@ static int fib6_new_sernum(struct net *net)
+>> >         return new;
+>> >  }
+>> >
+>> > +enum {
+>> > +       FIB6_NO_SERNUM_CHANGE = 0,
+>> > +};
+>> > +
+>>
+>> Not sure if it worth an enum definition... seems overkill for me.
+>
+> Yeah, maybe, I was used to do it like that in user space because of
+> debuggers.
+>
+> I think it is ok, also I just send v2 with your proposed changes.
+> If you have a strong opinion about that, let me know. ;)
 
-Marking this as static allows compiler to inline it.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/core/dev.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 7d5691cc1f479ee4f1bb46b06d35fe8c..2702724ce2de5712e13c37321597a314 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2643,7 +2643,8 @@ out:
- 	return skb;
- }
- 
--struct sk_buff *validate_xmit_vlan(struct sk_buff *skb, netdev_features_t features)
-+static struct sk_buff *validate_xmit_vlan(struct sk_buff *skb,
-+					  netdev_features_t features)
- {
- 	if (vlan_tx_tag_present(skb) &&
- 	    !vlan_hw_offload_capable(features, skb->vlan_proto)) {
+No, I don't. :)
