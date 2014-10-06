@@ -1,83 +1,54 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH] net: Add ndo_gso_check
-Date: Mon, 6 Oct 2014 23:22:29 +0300
-Message-ID: <CAJ3xEMiLsQ=Wd=461L1Wx0jQ+zivY-Z573+90dD8d7pdUD4Skw@mail.gmail.com>
-References: <1411962607-27878-1-git-send-email-therbert@google.com>
-	<CAJ3xEMi-TRXevenx87UM7JnKqRQQATW4MBjbz8JdnQE9gk3KZw@mail.gmail.com>
-	<CA+mtBx8r05=qs2J58LFq56762tFB7wF4Dsr3C5TC9w5qQP5jGw@mail.gmail.com>
-	<CAJ3xEMhf6b75TQDFqEPMSXCpL9ToWG1q0OMPtrEuHNSm=-PSwQ@mail.gmail.com>
-	<CA+mtBx_6HcZh5Ys1FJFBXkZ2bWX1gP6bTcjY7gbR6RG_TOy50Q@mail.gmail.com>
-	<CAJ3xEMi0biCWTNtLOJ=0HWZYjOWi6pN2bw2=EWajp6XnpoyVRw@mail.gmail.com>
-	<CA+mtBx-sP6g9hXAYGfHKCPYkCtjgCFM0srueh1uhoNnC2ACr1g@mail.gmail.com>
-	<CAJ3xEMhc-97+3ZDwqXzX2N+=voO4QvJ5_YXn3sp8r8E9YyqotQ@mail.gmail.com>
-	<CA+mtBx9=+fGjwJCKpTW5EifmavC6VGnbuJdkc5tqzeEHz+5twA@mail.gmail.com>
-	<CAJ3xEMhzxfP3Sqp=_QSQehd2j2s=Gr3B1iO2S--OcoT7VC94nQ@mail.gmail.com>
-	<CA+mtBx8-w74f_f9JEfpwH9=Mjr_zaJJAYCMMdYAWdCy-51pzqg@mail.gmail.com>
-	<CAJ3xEMgPb9BhvtifmTzy6bS9WDf3jUx6dnx4418KNTjGNPreHQ@mail.gmail.com>
-	<CA+mtBx-AW65w7grfb7zTaDKzKQ2n_7JQuLquj1Ayopa4gdiF6Q@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Thomas Graf <tgraf@suug.ch>,
-	Pravin Shelar <pshelar@nicira.com>,
-	Andy Zhou <azhou@nicira.com>
-To: Tom Herbert <therbert@google.com>
+From: Andy Zhou <azhou@nicira.com>
+Subject: [net-next 1/2] net: fix a sparse warning
+Date: Mon,  6 Oct 2014 13:22:50 -0700
+Message-ID: <1412626971-30271-1-git-send-email-azhou@nicira.com>
+Cc: netdev@vger.kernel.org, Andy Zhou <azhou@nicira.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:57652 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750991AbaJFUWa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 16:22:30 -0400
-Received: by mail-ob0-f174.google.com with SMTP id wp18so4546058obc.19
-        for <netdev@vger.kernel.org>; Mon, 06 Oct 2014 13:22:29 -0700 (PDT)
-In-Reply-To: <CA+mtBx-AW65w7grfb7zTaDKzKQ2n_7JQuLquj1Ayopa4gdiF6Q@mail.gmail.com>
+Received: from na3sys009aog121.obsmtp.com ([74.125.149.145]:50645 "HELO
+	na3sys009aog121.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751011AbaJFU2z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 16:28:55 -0400
+Received: by mail-pd0-f172.google.com with SMTP id ft15so3817561pdb.17
+        for <netdev@vger.kernel.org>; Mon, 06 Oct 2014 13:28:55 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 6, 2014 at 8:59 PM, Tom Herbert <therbert@google.com> wrote:
-> On Sun, Oct 5, 2014 at 12:13 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
->> RX wise, Linux tells the driver that UDP port X would be used for
->> VXLAN, right? and indeed, it's possible for some HW implementations
->> not to support RX offloading (checksum) for both VXLAN and NVGRE @ the
->> same time over the same port. But TX/GRO wise, you're probably
->> correct. The thing is that from the user POV they need solution that
->> works for both RX and TX offloading.
+Fix a sparse warning introduced by Commit
+0b5e8b8eeae40bae6ad7c7e91c97c3c0d0e57882 (net: Add Geneve tunneling
+protocol driver) caught by kbuild test robot:
 
-> I think from a user POV we want a solution that supports RX and TX
-> offloading across the widest range of protocols. This is accomplished
-> by implementing protocol agnostic mechanisms like CHECKSUM_COMPLETE
-> and protocol agnostic UDP tunnel TSO like we've described. IMO, the
-> fact that we have devices that implement protocol specific mechanisms
-> for NVGRE and VXLAN should be considered legacy support in the stack,
-> for new UDP encapsulation protocols we should not expose specifics in
-> the stack in either by adding a GSO type for each protocol, nor
-> ndo_add_foo_port for each protocol-- these things will not scale and
-> unnecessarily complicate the core stack.
+  # apt-get install sparse
+  #   git checkout 0b5e8b8eeae40bae6ad7c7e91c97c3c0d0e57882
+  #     make ARCH=x86_64 allmodconfig
+  #       make C=1 CF=-D__CHECK_ENDIAN__
+  #
+  #
+  #       sparse warnings: (new ones prefixed by >>)
+  #
+  #       >> net/ipv4/geneve.c:230:42: sparse: incorrect type in assignment (different base types)
+  #          net/ipv4/geneve.c:230:42:    expected restricted __be32 [addressable] [assigned] [usertype] s_addr
+  #             net/ipv4/geneve.c:230:42:    got unsigned long [unsigned] <noident>
+  #
 
-I tend to generally agree to the wind that blows from your writeup, namely:
+Reported-by: kbuild test robot <fengguang.wu@intel.com>
+Signed-off-by: Andy Zhou <azhou@nicira.com>
+---
+ net/ipv4/geneve.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-UDP encapsulation offloads wise, we should pose few general
-requirements to NICs to be implemented by vendors in their tomorrow's
-HW and treat the current generation (these 4-5 drivers with their
-limitations as legacy which should be supported but not state the
-stack overall design).
-
-Still we should seek more ways to reduce the pain/amount of
-not-well-defined-configurations when these drivers are there and the
-stack goes through this upside-down turnaround changes. OTOH you
-didn't accept my SKB coloring suggestion for GSO inspection, and OTOH
-I guess we can live with some sort of generic helper in the form of
-what you suggested, but like it or not, getting rid of
-ndo_add_vxlan_port will simply break things out.
-
-Are we going to have a session on the encapsulation/offloads design @ LPC?
-
-I think a replay of your LKS presentation along with open discussion
-on how to get there with the legacy requirements could be very
-helpful.
-
-
-Or.
+diff --git a/net/ipv4/geneve.c b/net/ipv4/geneve.c
+index f008c55..065cd94 100644
+--- a/net/ipv4/geneve.c
++++ b/net/ipv4/geneve.c
+@@ -227,7 +227,7 @@ static struct socket *geneve_create_sock(struct net *net, bool ipv6,
+ 		udp_conf.family = AF_INET6;
+ 	} else {
+ 		udp_conf.family = AF_INET;
+-		udp_conf.local_ip.s_addr = INADDR_ANY;
++		udp_conf.local_ip.s_addr = htonl(INADDR_ANY);
+ 	}
+ 
+ 	udp_conf.local_udp_port = port;
+-- 
+1.7.9.5
