@@ -1,93 +1,94 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH v2 net-next 3/5] ipv6: only generate one new serial number per fib mutation
-Date: Mon,  6 Oct 2014 19:58:36 +0200
-Message-ID: <4334c53fc3563600ec325e1d2d9f6f018f566278.1412618014.git.hannes@stressinduktion.org>
-References: <cover.1412618014.git.hannes@stressinduktion.org>
-Cc: hideaki@yoshifuji.org, kafai@fb.com, cwang@twopensource.com
-To: netdev@vger.kernel.org
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH] net: Add ndo_gso_check
+Date: Mon, 6 Oct 2014 10:59:55 -0700
+Message-ID: <CA+mtBx-AW65w7grfb7zTaDKzKQ2n_7JQuLquj1Ayopa4gdiF6Q@mail.gmail.com>
+References: <1411962607-27878-1-git-send-email-therbert@google.com>
+	<CAJ3xEMi-TRXevenx87UM7JnKqRQQATW4MBjbz8JdnQE9gk3KZw@mail.gmail.com>
+	<CA+mtBx8r05=qs2J58LFq56762tFB7wF4Dsr3C5TC9w5qQP5jGw@mail.gmail.com>
+	<CAJ3xEMhf6b75TQDFqEPMSXCpL9ToWG1q0OMPtrEuHNSm=-PSwQ@mail.gmail.com>
+	<CA+mtBx_6HcZh5Ys1FJFBXkZ2bWX1gP6bTcjY7gbR6RG_TOy50Q@mail.gmail.com>
+	<CAJ3xEMi0biCWTNtLOJ=0HWZYjOWi6pN2bw2=EWajp6XnpoyVRw@mail.gmail.com>
+	<CA+mtBx-sP6g9hXAYGfHKCPYkCtjgCFM0srueh1uhoNnC2ACr1g@mail.gmail.com>
+	<CAJ3xEMhc-97+3ZDwqXzX2N+=voO4QvJ5_YXn3sp8r8E9YyqotQ@mail.gmail.com>
+	<CA+mtBx9=+fGjwJCKpTW5EifmavC6VGnbuJdkc5tqzeEHz+5twA@mail.gmail.com>
+	<CAJ3xEMhzxfP3Sqp=_QSQehd2j2s=Gr3B1iO2S--OcoT7VC94nQ@mail.gmail.com>
+	<CA+mtBx8-w74f_f9JEfpwH9=Mjr_zaJJAYCMMdYAWdCy-51pzqg@mail.gmail.com>
+	<CAJ3xEMgPb9BhvtifmTzy6bS9WDf3jUx6dnx4418KNTjGNPreHQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Thomas Graf <tgraf@suug.ch>,
+	Pravin Shelar <pshelar@nicira.com>,
+	Andy Zhou <azhou@nicira.com>
+To: Or Gerlitz <gerlitz.or@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:52440 "EHLO
-	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753201AbaJFR6z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 13:58:55 -0400
-Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
-	by gateway2.nyi.internal (Postfix) with ESMTP id 9B49D2099A
-	for <netdev@vger.kernel.org>; Mon,  6 Oct 2014 13:58:54 -0400 (EDT)
-In-Reply-To: <cover.1412618014.git.hannes@stressinduktion.org>
-In-Reply-To: <cover.1412618014.git.hannes@stressinduktion.org>
-References: <cover.1412618014.git.hannes@stressinduktion.org>
+Received: from mail-ig0-f175.google.com ([209.85.213.175]:34433 "EHLO
+	mail-ig0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752588AbaJFR74 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 13:59:56 -0400
+Received: by mail-ig0-f175.google.com with SMTP id uq10so2920134igb.2
+        for <netdev@vger.kernel.org>; Mon, 06 Oct 2014 10:59:56 -0700 (PDT)
+In-Reply-To: <CAJ3xEMgPb9BhvtifmTzy6bS9WDf3jUx6dnx4418KNTjGNPreHQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cc: YOSHIFUJI Hideaki <hideaki@yoshifuji.org>
-Cc: Martin Lau <kafai@fb.com>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- net/ipv6/ip6_fib.c | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+On Sun, Oct 5, 2014 at 12:13 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+> On Sun, Oct 5, 2014 at 9:49 PM, Tom Herbert <therbert@google.com> wrote:
+>> On Sun, Oct 5, 2014 at 7:04 AM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+>>> On Thu, Oct 2, 2014 at 2:06 AM, Tom Herbert <therbert@google.com> wrote:
+>>>> On Wed, Oct 1, 2014 at 1:58 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+>>>>> On Tue, Sep 30, 2014 at 6:34 PM, Tom Herbert <therbert@google.com> wrote:
+>>>>>> On Tue, Sep 30, 2014 at 7:30 AM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+>>> [...]
+>>>> Solution #4: apply this patch and implement the check functions as
+>>>> needed in those 4 or 5 drivers. If a device can only do VXLAN/NVGRE
+>>>> then I believe the check function is something like:
+>>>>
+>>>> bool mydev_gso_check(struct sk_buff *skb, struct net_device *dev)
+>>>> {
+>>>>         if ((skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL) &&
+>>>>             ((skb->inner_protocol_type != ENCAP_TYPE_ETHER ||
+>>>>               skb->protocol != htons(ETH_P_TEB) ||
+>>>>               skb_inner_mac_header(skb) - skb_transport_header(skb) != 12)
+>>>>                 return false;
+>>>>
+>>>>         return true;
+>>>> }
+>>>
+>>> Yep, such helper can can be basically made to work and let the 4-5
+>>> drivers that can
+>>> do GSO offloading for vxlan but not for any FOU/GUE packets signal
+>>> that to the stack.
+>>>
+>>> Re the 12 constant, you were referring to the udp+vxlan headers? it's 8+8
+>>>
+>>> Also, we need a way for drivers that can support VXLAN or NVGRE but
+>>> not concurrently
+>>> on the same port @ the same time to only let vxlan packet to pass
+>>> successfully through the helper.
+>
+>> Or, there should be no difference in GSO processing between VXLAN and
+>> NVGRE. Can you explain why you feel you need to differentiate them for GSO?
+>
+>
+> RX wise, Linux tells the driver that UDP port X would be used for
+> VXLAN, right? and indeed, it's possible for some HW implementations
+> not to support RX offloading (checksum) for both VXLAN and NVGRE @ the
+> same time over the same port. But TX/GRO wise, you're probably
+> correct. The thing is that from the user POV they need solution that
+> works for both RX and TX offloading.
 
-diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-index 332f1e0..be9cb09 100644
---- a/net/ipv6/ip6_fib.c
-+++ b/net/ipv6/ip6_fib.c
-@@ -417,14 +417,13 @@ out:
- static struct fib6_node *fib6_add_1(struct fib6_node *root,
- 				     struct in6_addr *addr, int plen,
- 				     int offset, int allow_create,
--				     int replace_required)
-+				     int replace_required, int sernum)
- {
- 	struct fib6_node *fn, *in, *ln;
- 	struct fib6_node *pn = NULL;
- 	struct rt6key *key;
- 	int	bit;
- 	__be32	dir = 0;
--	int	sernum = fib6_new_sernum();
- 
- 	RT6_TRACE("fib6_add_1\n");
- 
-@@ -842,6 +841,7 @@ int fib6_add(struct fib6_node *root, struct rt6_info *rt, struct nl_info *info,
- 	int err = -ENOMEM;
- 	int allow_create = 1;
- 	int replace_required = 0;
-+	int sernum = fib6_new_sernum();
- 
- 	if (info->nlh) {
- 		if (!(info->nlh->nlmsg_flags & NLM_F_CREATE))
-@@ -854,7 +854,7 @@ int fib6_add(struct fib6_node *root, struct rt6_info *rt, struct nl_info *info,
- 
- 	fn = fib6_add_1(root, &rt->rt6i_dst.addr, rt->rt6i_dst.plen,
- 			offsetof(struct rt6_info, rt6i_dst), allow_create,
--			replace_required);
-+			replace_required, sernum);
- 	if (IS_ERR(fn)) {
- 		err = PTR_ERR(fn);
- 		fn = NULL;
-@@ -888,14 +888,14 @@ int fib6_add(struct fib6_node *root, struct rt6_info *rt, struct nl_info *info,
- 			sfn->leaf = info->nl_net->ipv6.ip6_null_entry;
- 			atomic_inc(&info->nl_net->ipv6.ip6_null_entry->rt6i_ref);
- 			sfn->fn_flags = RTN_ROOT;
--			sfn->fn_sernum = fib6_new_sernum();
-+			sfn->fn_sernum = sernum;
- 
- 			/* Now add the first leaf node to new subtree */
- 
- 			sn = fib6_add_1(sfn, &rt->rt6i_src.addr,
- 					rt->rt6i_src.plen,
- 					offsetof(struct rt6_info, rt6i_src),
--					allow_create, replace_required);
-+					allow_create, replace_required, sernum);
- 
- 			if (IS_ERR(sn)) {
- 				/* If it is failed, discard just allocated
-@@ -914,7 +914,7 @@ int fib6_add(struct fib6_node *root, struct rt6_info *rt, struct nl_info *info,
- 			sn = fib6_add_1(fn->subtree, &rt->rt6i_src.addr,
- 					rt->rt6i_src.plen,
- 					offsetof(struct rt6_info, rt6i_src),
--					allow_create, replace_required);
-+					allow_create, replace_required, sernum);
- 
- 			if (IS_ERR(sn)) {
- 				err = PTR_ERR(sn);
--- 
-1.9.3
+I think from a user POV we want a solution that supports RX and TX
+offloading across the widest range of protocols. This is accomplished
+by implementing protocol agnostic mechanisms like CHECKSUM_COMPLETE
+and protocol agnostic UDP tunnel TSO like we've described. IMO, the
+fact that we have devices that implement protocol specific mechanisms
+for NVGRE and VXLAN should be considered legacy support in the stack,
+for new UDP encapsulation protocols we should not expose specifics in
+the stack in either by adding a GSO type for each protocol, nor
+ndo_add_foo_port for each protocol-- these things will not scale and
+unnecessarily complicate the core stack.
