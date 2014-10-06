@@ -1,50 +1,58 @@
-From: Alex Gartrell <agartrell@fb.com>
-Subject: Re: [PATCH net-next] ipvs: Avoid null-pointer deref in debug code
-Date: Mon, 6 Oct 2014 08:56:40 -0700
-Message-ID: <5432BBB8.9070206@fb.com>
-References: <20141001174526.GA16206@mwanda> <1412556895-26891-1-git-send-email-agartrell@fb.com> <alpine.LFD.2.11.1410060940470.1738@ja.home.ssi.bg>
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: Re: [Xen-devel] [PATCHv1] xen-netfront: always keep the Rx ring full
+ of requests
+Date: Mon, 6 Oct 2014 17:00:22 +0100
+Message-ID: <5432BC96.6060709@citrix.com>
+References: <1412256826-18874-1-git-send-email-david.vrabel@citrix.com> <5432B6D2.9030503@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: <horms@verge.net.au>, <dan.carpenter@oracle.com>,
-	<lvs-devel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<kernel-team@fb.com>
-To: Julian Anastasov <ja@ssi.bg>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LFD.2.11.1410060940470.1738@ja.home.ssi.bg>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>,
+	Boris Ostrovsky <boris.ostrovsky@oracle.com>
+To: annie li <annie.li@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:42045 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753221AbaJFQCu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Oct 2014 12:02:50 -0400
+In-Reply-To: <5432B6D2.9030503@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hey Julian,
+On 06/10/14 16:35, annie li wrote:
+> 
+> On 2014/10/2 9:33, David Vrabel wrote:
+>> A full Rx ring only requires 1 MiB of memory.  This is not enough
+>> memory that it is useful to dynamically scale the number of Rx
+>> requests in the ring based on traffic rates.
+>>
+>> Keeping the ring full of Rx requests handles bursty traffic better
+>> than trying to converges on an optimal number of requests to keep
+>> filled.
+>>
+>> On a 4 core host, an iperf -P 64 -t 60 run from dom0 to a 4 VCPU guest
+>> improved from 5.1 Gbit/s to 5.6 Gbit/s.  Gains with more bursty
+>> traffic are expected to be higher.
+> 
+> Although removing sysfs is connected with the code change for full Rx
+> ring utilization, I assume it is better to split this patch into two to
+> make it simpler?
 
-On 10/05/2014 11:49 PM, Julian Anastasov wrote:
->
-> 	You have to print the "daddr" variable as
-> it was done before your patchset in the
-> "Stopping traffic to %s address, dest: %p..." message
-> because dest is not present in all cases, for example,
-> for *bypass_xmit. Other places provide cp->daddr but
-> for backup server some conns can live without cp->dest.
+I don't see how splitting the patch would be an improvement.
 
-I've sent an updated patch that does this but I have some questions 
-about other stuff that I find mildly confusing.  Specifically I didn't 
-realize until looking at the call sites that !dest || daddr = 
-dest->addr.ip (but maybe I'm wrong?)
+>>   +    queue->rx.req_prod_pvt = req_prod;
+>> +
+>> +    /* Not enough requests? Try again later. */
+>> +    if (req_prod - queue->rx.rsp_cons < NET_RX_SLOTS_MIN) {
+>> +        mod_timer(&queue->rx_refill_timer, jiffies + (HZ/10));
+>> +        return;
+> 
+> If the previous for loop breaks because of failure of
+> xennet_alloc_one_rx_buffer, then notify_remote_via_irq is missed here if
+> the code returns directly.
 
-If that's the case, why do we have the following line in __ip_vs_get_out_rt?
+This is deliberate -- there's no point notifying the backend if there
+aren't enough requests for the next packet.  Since we don't know what
+the next packet might be we assume it's the largest possible.
 
-                 daddr = dest->addr.ip;
-
-If that's /always/ true then we should add the following line or a 
-comment to the same effect to clarify
-
-	BUG_ON(dest && dest->addr.ip != daddr);
-
-If that's not intended to always be true, then should the patch be the 
-following?
-
-	...%pI4", dest ? &dest->addr.ip : &daddr);
-
-Thanks,
--- 
-Alex Gartrell <agartrell@fb.com>
+David
