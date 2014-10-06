@@ -1,118 +1,109 @@
-From: Sathya Perla <Sathya.Perla@Emulex.Com>
-Subject: RE: [net-next v3 20/29] fm10k: Add support for netdev offloads
-Date: Mon, 6 Oct 2014 06:19:43 +0000
-Message-ID: <CF9D1877D81D214CB0CA0669EFAE020C57B759B7@CMEXMB1.ad.emulex.com>
-References: <1411471017-28213-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1411471017-28213-21-git-send-email-jeffrey.t.kirsher@intel.com>
- <CAJ3xEMhv-cS+vShPjTvOuWP182wf=zubNU=_p08DSkNv9W2C-w@mail.gmail.com>
- <542BED4F.9070900@intel.com>
- <CF9D1877D81D214CB0CA0669EFAE020C57B6EE4D@CMEXMB1.ad.emulex.com>
- <D29CC2C771335549BDCBB23A2B92BE379C7F84CE@ORSMSX110.amr.corp.intel.com>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: Re: [PATCH net-next] net: introduce netdevice gso_min_segs attribute
+Date: Mon, 6 Oct 2014 09:41:31 +0300
+Message-ID: <5432399B.3060406@mellanox.com>
+References: <1412501722-25092-1-git-send-email-amirv@mellanox.com>	 <54312F50.2060608@mellanox.com>	 <1412524252.11091.3.camel@edumazet-glaptop2.roam.corp.google.com> <1412529087.11091.14.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"nhorman@redhat.com" <nhorman@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	"jogreene@redhat.com" <jogreene@redhat.com>,
-	Tom Herbert <therbert@google.com>
-To: "Duyck, Alexander H" <alexander.h.duyck@intel.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Content-Transfer-Encoding: 8bit
+Cc: Eric Dumazet <edumazet@google.com>, <netdev@vger.kernel.org>,
+	"Yevgeny Petrilin" <yevgenyp@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	"Ido Shamay" <idos@mellanox.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.emulex.com ([138.239.224.100]:18181 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750888AbaJFGUK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 02:20:10 -0400
-In-Reply-To: <D29CC2C771335549BDCBB23A2B92BE379C7F84CE@ORSMSX110.amr.corp.intel.com>
-Content-Language: en-US
+Received: from eu1sys200aog121.obsmtp.com ([207.126.144.151]:49543 "EHLO
+	eu1sys200aog121.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751564AbaJFGli (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 02:41:38 -0400
+In-Reply-To: <1412529087.11091.14.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
-ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LQ0KPiBvd25lckB2Z2VyLmtlcm5lbC5vcmddIE9uIEJl
-aGFsZiBPZiBEdXljaywgQWxleGFuZGVyIEgNCi4uLg0KPiBhZGRzDQo+ID4gPiA+PiBzdXBwb3J0
-IGZvciBiYXNpYyBvZmZsb2FkcyBpbmNsdWRpbmcgVFNPLCBUeCBjaGVja3N1bSwgUnggY2hlY2tz
-dW0sDQo+ID4gPiA+PiBSeCBoYXNoLCBhbmQgdGhlIHNhbWUgZmVhdHVyZXMgYXBwbGllZCB0byBW
-WExBTi9OVkdSRQ0KPiA+ID4gdHVubmVscy4NCj4gPiA+ID4NCj4gPiA+ID4+IC0tLSBhL2RyaXZl
-cnMvbmV0L2V0aGVybmV0L2ludGVsL2ZtMTBrL2ZtMTBrX21haW4uYw0KPiA+ID4gPj4gKysrIGIv
-ZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvZm0xMGsvZm0xMGtfbWFpbi5jDQo+ID4gPiA+IFsu
-Li5dDQo+ID4gPiA+PiArI2RlZmluZSBWWExBTl9ITEVOIChzaXplb2Yoc3RydWN0IHVkcGhkcikg
-KyA4KSBzdGF0aWMgc3RydWN0DQo+ID4gPiA+PiArZXRoaGRyICpmbTEwa19wb3J0X2lzX3Z4bGFu
-KHN0cnVjdCBza19idWZmICpza2IpIHsNCj4gPiA+ID4+ICsgICAgICAgc3RydWN0IGZtMTBrX2lu
-dGZjICppbnRlcmZhY2UgPSBuZXRkZXZfcHJpdihza2ItPmRldik7DQo+ID4gPiA+PiArICAgICAg
-IHN0cnVjdCBmbTEwa192eGxhbl9wb3J0ICp2eGxhbl9wb3J0Ow0KPiA+ID4gPj4gKw0KPiA+ID4g
-Pj4gKyAgICAgICAvKiB3ZSBjYW4gb25seSBvZmZsb2FkIGEgdnhsYW4gaWYgd2UgcmVjb2duaXpl
-IGl0IGFzIHN1Y2ggKi8NCj4gPiA+ID4+ICsgICAgICAgdnhsYW5fcG9ydCA9IGxpc3RfZmlyc3Rf
-ZW50cnlfb3JfbnVsbCgmaW50ZXJmYWNlLT52eGxhbl9wb3J0LA0KPiA+ID4gPj4gKyAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHN0cnVjdA0KPiA+ID4gPj4gKyBm
-bTEwa192eGxhbl9wb3J0LCBsaXN0KTsNCj4gPiA+ID4+ICsNCj4gPiA+ID4+ICsgICAgICAgaWYg
-KCF2eGxhbl9wb3J0KQ0KPiA+ID4gPj4gKyAgICAgICAgICAgICAgIHJldHVybiBOVUxMOw0KPiA+
-ID4gPj4gKyAgICAgICBpZiAodnhsYW5fcG9ydC0+cG9ydCAhPSB1ZHBfaGRyKHNrYiktPmRlc3Qp
-DQo+ID4gPiA+PiArICAgICAgICAgICAgICAgcmV0dXJuIE5VTEw7DQo+ID4gPiA+PiArDQo+ID4g
-PiA+PiArICAgICAgIC8qIHJldHVybiBvZmZzZXQgb2YgdWRwX2hkciBwbHVzIDggYnl0ZXMgZm9y
-IFZYTEFOIGhlYWRlciAqLw0KPiA+ID4gPj4gKyAgICAgICByZXR1cm4gKHN0cnVjdCBldGhoZHIg
-Kikoc2tiX3RyYW5zcG9ydF9oZWFkZXIoc2tiKSArDQo+ID4gPiA+PiArVlhMQU5fSExFTik7IH0N
-Cj4gPiA+ID4+ICsNCj4gPiAuLi4NCj4gPiA+DQo+ID4gPiA+PiArc3RhdGljIGludCBmbTEwa190
-c28oc3RydWN0IGZtMTBrX3JpbmcgKnR4X3JpbmcsDQo+ID4gPiA+PiArICAgICAgICAgICAgICAg
-ICAgICBzdHJ1Y3QgZm0xMGtfdHhfYnVmZmVyICpmaXJzdCkgew0KPiA+ID4gPj4gKyAgICAgICBz
-dHJ1Y3Qgc2tfYnVmZiAqc2tiID0gZmlyc3QtPnNrYjsNCj4gPiA+ID4+ICsgICAgICAgc3RydWN0
-IGZtMTBrX3R4X2Rlc2MgKnR4X2Rlc2M7DQo+ID4gPiA+PiArICAgICAgIHVuc2lnbmVkIGNoYXIg
-KnRoOw0KPiA+ID4gPj4gKyAgICAgICB1OCBoZHJsZW47DQo+ID4gPiA+PiArDQo+ID4gPiA+PiAr
-ICAgICAgIGlmIChza2ItPmlwX3N1bW1lZCAhPSBDSEVDS1NVTV9QQVJUSUFMKQ0KPiA+ID4gPj4g
-KyAgICAgICAgICAgICAgIHJldHVybiAwOw0KPiA+ID4gPj4gKw0KPiA+ID4gPj4gKyAgICAgICBp
-ZiAoIXNrYl9pc19nc28oc2tiKSkNCj4gPiA+ID4+ICsgICAgICAgICAgICAgICByZXR1cm4gMDsN
-Cj4gPiA+ID4+ICsNCj4gPiA+ID4+ICsgICAgICAgLyogY29tcHV0ZSBoZWFkZXIgbGVuZ3RocyAq
-Lw0KPiA+ID4gPj4gKyAgICAgICBpZiAoc2tiLT5lbmNhcHN1bGF0aW9uKSB7DQo+ID4gPiA+PiAr
-ICAgICAgICAgICAgICAgaWYgKCFmbTEwa190eF9lbmNhcF9vZmZsb2FkKHNrYikpDQo+ID4gPiA+
-PiArICAgICAgICAgICAgICAgICAgICAgICBnb3RvIGVycl92eGxhbjsNCj4gPiA+ID4+ICsgICAg
-ICAgICAgICAgICB0aCA9IHNrYl9pbm5lcl90cmFuc3BvcnRfaGVhZGVyKHNrYik7DQo+ID4gPiA+
-PiArICAgICAgIH0gZWxzZSB7DQo+ID4gPiA+PiArICAgICAgICAgICAgICAgdGggPSBza2JfdHJh
-bnNwb3J0X2hlYWRlcihza2IpOw0KPiA+ID4gPj4gKyAgICAgICB9DQo+ID4gPiA+PiArDQo+ID4g
-PiA+PiArICAgICAgIC8qIGNvbXB1dGUgb2Zmc2V0IGZyb20gU09GIHRvIHRyYW5zcG9ydCBoZWFk
-ZXIgYW5kIGFkZA0KPiA+ID4gPj4gKyBoZWFkZXIgbGVuDQo+ID4gPiAqLw0KPiA+ID4gPj4gKyAg
-ICAgICBoZHJsZW4gPSAodGggLSBza2ItPmRhdGEpICsgKCgoc3RydWN0IHRjcGhkciAqKXRoKS0+
-ZG9mZiA8PA0KPiA+ID4gPj4gKyAyKTsNCj4gPiA+ID4+ICsNCj4gPiA+ID4+ICsgICAgICAgZmly
-c3QtPnR4X2ZsYWdzIHw9IEZNMTBLX1RYX0ZMQUdTX0NTVU07DQo+ID4gPiA+PiArDQo+ID4gPiA+
-PiArICAgICAgIC8qIHVwZGF0ZSBnc28gc2l6ZSBhbmQgYnl0ZWNvdW50IHdpdGggaGVhZGVyIHNp
-emUgKi8NCj4gPiA+ID4+ICsgICAgICAgZmlyc3QtPmdzb19zZWdzID0gc2tiX3NoaW5mbyhza2Ip
-LT5nc29fc2VnczsNCj4gPiA+ID4+ICsgICAgICAgZmlyc3QtPmJ5dGVjb3VudCArPSAoZmlyc3Qt
-Pmdzb19zZWdzIC0gMSkgKiBoZHJsZW47DQo+ID4gPiA+PiArDQo+ID4gPiA+PiArICAgICAgIC8q
-IHBvcHVsYXRlIFR4IGRlc2NyaXB0b3IgaGVhZGVyIHNpemUgYW5kIG1zcyAqLw0KPiA+ID4gPj4g
-KyAgICAgICB0eF9kZXNjID0gRk0xMEtfVFhfREVTQyh0eF9yaW5nLCB0eF9yaW5nLT5uZXh0X3Rv
-X3VzZSk7DQo+ID4gPiA+PiArICAgICAgIHR4X2Rlc2MtPmhkcmxlbiA9IGhkcmxlbjsNCj4gPiA+
-ID4+ICsgICAgICAgdHhfZGVzYy0+bXNzID0gY3B1X3RvX2xlMTYoc2tiX3NoaW5mbyhza2IpLT5n
-c29fc2l6ZSk7DQo+ID4gPiA+PiArDQo+ID4gPiA+PiArICAgICAgIHJldHVybiAxOw0KPiA+ID4g
-Pj4gK2Vycl92eGxhbjoNCj4gPiA+ID4+ICsgICAgICAgdHhfcmluZy0+bmV0ZGV2LT5mZWF0dXJl
-cyAmPSB+TkVUSUZfRl9HU09fVURQX1RVTk5FTDsNCj4gPiA+ID4+ICsgICAgICAgaWYgKCFuZXRf
-cmF0ZWxpbWl0KCkpDQo+ID4gPiA+PiArICAgICAgICAgICAgICAgbmV0ZGV2X2Vycih0eF9yaW5n
-LT5uZXRkZXYsDQo+ID4gPiA+PiArICAgICAgICAgICAgICAgICAgICAgICAgICAiVFNPIHJlcXVl
-c3RlZCBmb3IgdW5zdXBwb3J0ZWQgdHVubmVsLA0KPiA+ID4gPj4gK2Rpc2FibGluZw0KPiA+ID4g
-b2ZmbG9hZFxuIik7DQo+ID4gPiA+PiArICAgICAgIHJldHVybiAtMTsNCj4gPiA+ID4+ICt9DQo+
-ID4gPiA+DQo+ID4gPiA+IHdoeT8gaWYgVFNPIHdhcyByZXF1ZXN0ZWQgZm9yIHNvbWUgcGFja2V0
-IHRoZSBkcml2ZXIgY2FuJ3QgZG8sIHlvdQ0KPiA+ID4gPiBkaXNhYmxlDQo+ID4gPiBHU08NCj4g
-PiA+ID4gZm9yIHVkcCB0dW5uZWxzIGZvciBhbnkgZnV0dXJlIHBhY2tldHMgdG9vPyBtYXliZSBq
-dXN0IGRpc2FibGUgaXQNCj4gPiA+ID4gcGVybWFuZW50bHkgIHRpbGwgeW91IGZlZWwgc2FmZXIg
-dG8gcnVuIHVuZGVyIHRoZSBjdXJyZW50IHN0YWNrPw0KPiA+ID4NCj4gPiA+IFRoYXQgaXMgZXNz
-ZW50aWFsbHkgd2hhdCBJIGFtIGRvaW5nLiAgSWYgdGhlIHVzZXIgd2FudHMgdGhleSBjYW4gdHVy
-bg0KPiA+ID4gdGhlIGZlYXR1cmUgYmFjayBvbiB2aWEgZXRodG9vbCwgYnV0IHRoZXJlIGlzIG5v
-IHBvaW50IGluIGhhdmluZyBpdCBvbg0KPiA+ID4gaWYgdGhlIGRldmljZSBpdHNlbGYgY2Fubm90
-IHN1cHBvcnQgdGhlIHBhY2tldHMgdGhhdCBhcmUgY29taW5nIHRocm91Z2guDQo+ID4gPg0KPiA+
-DQo+ID4gVG8gdHVybiBvZmYgdGhlIG9mZmxvYWQsIHNob3VsZG4ndCB5b3UgYmUgdXNpbmcgbmV0
-ZGV2X3VwZGF0ZV9mZWF0dXJlcygpDQo+ID4gKC0+bmRvX2ZpeF9mZWF0dXJlcygpKSBpbnN0ZWFk
-IG9mIGRpcmVjdGx5IGZsaXBwaW5nIGJpdHMgaW4gbmV0ZGV2LT5mZWF0dXJlcz8NCj4gDQo+IFdo
-eT8gIFRoYXQgd291bGQganVzdCBiZSBtZSBjYWxsaW5nIG15IG93biBuZG8gb3BlcmF0aW9uIHdv
-dWxkbid0IGl0LCBzaW5jZQ0KPiBJIGFtIGNoYW5naW5nIHRoZSBmZWF0dXJlcyBvZiB0aGUgZGV2
-aWNlIGNvdmVyZWQgYnkgdGhpcyBkcml2ZXIuDQoNCkkgZ3Vlc3MgaXQgd291bGQgYmUgdG8gZW5z
-dXJlIHRoYXQgYWxsIGRlcGVuZGVuY2llcyBhcmUgcmVzb2x2ZWQgYW5kIGEgDQpGRUFUX0NIQU5H
-RSBub3RpZmljYXRpb24gaXMgaXNzdWVkLg0KDQpEb2N1bWVudGF0aW9uL25ldHdvcmtpbmcvbmV0
-ZGV2LWZlYXR1cmVzLnR4dCBzYXlzIHRoZSBmb2xsb3dpbmc6DQoiIFdoZW4gY3VycmVudCBmZWF0
-dXJlIHNldCAobmV0ZGV2LT5mZWF0dXJlcykgaXMgdG8gYmUgY2hhbmdlZCwgbmV3IHNldA0KaXMg
-Y2FsY3VsYXRlZCBhbmQgZmlsdGVyZWQgYnkgY2FsbGluZyBuZG9fZml4X2ZlYXR1cmVzIGNhbGxi
-YWNrDQphbmQgbmV0ZGV2X2ZpeF9mZWF0dXJlcygpLiINCg0KIiBBIGRyaXZlciB0aGF0IHdhbnRz
-IHRvIHRyaWdnZXIgcmVjYWxjdWxhdGlvbiBtdXN0IGRvIHNvIGJ5IGNhbGxpbmcNCm5ldGRldl91
-cGRhdGVfZmVhdHVyZXMoKSB3aGlsZSBob2xkaW5nIHJ0bmxfbG9jay4gVGhpcyBzaG91bGQgbm90
-IGJlIGRvbmUNCmZyb20gbmRvXypfZmVhdHVyZXMgY2FsbGJhY2tzLiBuZXRkZXYtPmZlYXR1cmVz
-IHNob3VsZCBub3QgYmUgbW9kaWZpZWQgYnkNCmRyaXZlciBleGNlcHQgYnkgbWVhbnMgb2YgbmRv
-X2ZpeF9mZWF0dXJlcyBjYWxsYmFjay4iDQo=
+On 10/5/2014 8:11 PM, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> Some TSO engines might have a too heavy setup cost, that impacts
+> performance on hosts sending small bursts (2 MSS per packet).
+> 
+> This patch adds a device gso_min_segs, allowing drivers to set
+> a minimum segment size for TSO packets, according to the NIC
+> performance.
+> 
+> Tested on a mlx4 NIC, this allows to get a ~110% increase of
+> throughput when sending 2 MSS per packet.
+> 
+
+Amazing!
+
+Shouldn't there be a netif_set_gso_min_size() too?
+
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> ---
+> mlx4 patch will be sent later, its a one liner.
+> 
+>  include/linux/netdevice.h |    4 +++-
+>  net/core/dev.c            |    9 ++++++---
+>  2 files changed, 9 insertions(+), 4 deletions(-)
+> 
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index 22d54b9b700d..2df86f50261c 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -1416,6 +1416,8 @@ enum netdev_priv_flags {
+>   *	@gso_max_size:	Maximum size of generic segmentation offload
+>   *	@gso_max_segs:	Maximum number of segments that can be passed to the
+>   *			NIC for GSO
+> + *	@gso_min_segs:	Minimum number of segments that can be passed to the
+> + *			NIC for GSO
+>   *
+>   *	@dcbnl_ops:	Data Center Bridging netlink ops
+>   *	@num_tc:	Number of traffic classes in the net device
+> @@ -1666,7 +1668,7 @@ struct net_device {
+>  	unsigned int		gso_max_size;
+>  #define GSO_MAX_SEGS		65535
+>  	u16			gso_max_segs;
+> -
+> +	u16			gso_min_segs;
+>  #ifdef CONFIG_DCB
+>  	const struct dcbnl_rtnl_ops *dcbnl_ops;
+>  #endif
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 1a90530f83ff..16e8ebbd3316 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -2567,10 +2567,12 @@ static netdev_features_t harmonize_features(struct sk_buff *skb,
+>  
+>  netdev_features_t netif_skb_features(struct sk_buff *skb)
+>  {
+> +	const struct net_device *dev = skb->dev;
+> +	netdev_features_t features = dev->features;
+> +	u16 gso_segs = skb_shinfo(skb)->gso_segs;
+>  	__be16 protocol = skb->protocol;
+> -	netdev_features_t features = skb->dev->features;
+>  
+> -	if (skb_shinfo(skb)->gso_segs > skb->dev->gso_max_segs)
+> +	if (gso_segs > dev->gso_max_segs || gso_segs < dev->gso_min_segs)
+>  		features &= ~NETIF_F_GSO_MASK;
+>  
+>  	if (protocol == htons(ETH_P_8021Q) || protocol == htons(ETH_P_8021AD)) {
+> @@ -2581,7 +2583,7 @@ netdev_features_t netif_skb_features(struct sk_buff *skb)
+>  	}
+>  
+>  	features = netdev_intersect_features(features,
+> -					     skb->dev->vlan_features |
+> +					     dev->vlan_features |
+>  					     NETIF_F_HW_VLAN_CTAG_TX |
+>  					     NETIF_F_HW_VLAN_STAG_TX);
+>  
+> @@ -6658,6 +6660,7 @@ struct net_device *alloc_netdev_mqs(int sizeof_priv, const char *name,
+>  
+>  	dev->gso_max_size = GSO_MAX_SIZE;
+>  	dev->gso_max_segs = GSO_MAX_SEGS;
+> +	dev->gso_min_segs = 0;
+>  
+>  	INIT_LIST_HEAD(&dev->napi_list);
+>  	INIT_LIST_HEAD(&dev->unreg_list);
+> 
+> 
