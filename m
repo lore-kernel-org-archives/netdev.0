@@ -1,43 +1,55 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net: introduce netdevice gso_min_segs attribute
-Date: Mon, 06 Oct 2014 14:42:58 -0700
-Message-ID: <1412631778.11091.84.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <54312F50.2060608@mellanox.com>
-	 <1412524252.11091.3.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1412529087.11091.14.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20141006.172149.1596496098013953331.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next] net: better IFF_XMIT_DST_RELEASE support
+Date: Mon, 06 Oct 2014 17:50:15 -0400 (EDT)
+Message-ID: <20141006.175015.2075737681876306575.davem@davemloft.net>
+References: <1412559515.11091.46.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: amirv@mellanox.com, edumazet@google.com, netdev@vger.kernel.org,
-	yevgenyp@mellanox.com, ogerlitz@mellanox.com, idos@mellanox.com
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, ja@ssi.bg
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f172.google.com ([209.85.192.172]:42111 "EHLO
-	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751380AbaJFVm7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 17:42:59 -0400
-Received: by mail-pd0-f172.google.com with SMTP id ft15so3963473pdb.3
-        for <netdev@vger.kernel.org>; Mon, 06 Oct 2014 14:42:59 -0700 (PDT)
-In-Reply-To: <20141006.172149.1596496098013953331.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38509 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750780AbaJFVuR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 17:50:17 -0400
+In-Reply-To: <1412559515.11091.46.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-10-06 at 17:21 -0400, David Miller wrote:
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sun, 05 Oct 2014 18:38:35 -0700
 
-> So exactly what value are you using for mlx4?
-> 
+> @@ -1001,7 +1001,8 @@ static netdev_features_t bond_fix_features(struct net_device *dev,
+>  
+>  static void bond_compute_features(struct bonding *bond)
+>  {
+> -	unsigned int flags, dst_release_flag = IFF_XMIT_DST_RELEASE;
+> +	unsigned int dst_release_flag = IFF_XMIT_DST_RELEASE |
+> +					IFF_XMIT_DST_RELEASE_PERM;
+>  	netdev_features_t vlan_features = BOND_VLAN_FEATURES;
+>  	netdev_features_t enc_features  = BOND_ENC_FEATURES;
+>  	struct net_device *bond_dev = bond->dev;
+> @@ -1037,8 +1038,10 @@ done:
+>  	bond_dev->gso_max_segs = gso_max_segs;
+>  	netif_set_gso_max_size(bond_dev, gso_max_size);
+>  
+> -	flags = bond_dev->priv_flags & ~IFF_XMIT_DST_RELEASE;
+> -	bond_dev->priv_flags = flags | dst_release_flag;
+> +	bond_dev->priv_flags &= ~IFF_XMIT_DST_RELEASE;
+> +	if ((bond_dev->priv_flags & IFF_XMIT_DST_RELEASE_PERM) &&
+> +	    dst_release_flag == (IFF_XMIT_DST_RELEASE | IFF_XMIT_DST_RELEASE_PERM))
+> +		bond_dev->priv_flags |= IFF_XMIT_DST_RELEASE;
 
-It seems that on ConnectX-3 family, TSO packets of 2 or 3 MSS are not
-worth using TSO engine. The cutoff point seems to be 4 (same throughput)
+I think I might be missing something, but in all of these places where
+you add this logic, it looks to me like:
 
-So I was planning to use gso_min_segs = 4 only for them.
+	dst_release_flag = CONSTANT;
+	...
+	if (... &&
+	    dst_release_flags == CONSTANT)
 
-> Because I wonder if we should just generically forfeit TSO unless
-> we have > 2 segments, for example.
+This 'dst_release_flag' variable never changes, so why bother with the
+test at all?
 
-When I tested on bnx2x, this was not a gain.
-
-bnx2x is faster sending TSO packets, even if they have 2 MSS.
-
-I'll try the experiment on I40E Intel cards.
+Maybe I'm just being dense today...
