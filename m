@@ -1,48 +1,26 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: RE: r8168 is needed to enter P-state: Package State 6 (pc6)onHaswell hardware
-Date: Mon, 6 Oct 2014 03:06:07 +0000
-Message-ID: <0835B3720019904CB8F7AA43166CEEB2526932@RTITMBSV03.realtek.com.tw>
-References: <542B3829.3010108@crashplan.pro>
- <20141005165920.GA21926@electric-eye.fr.zoreil.com>
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: Re: netlink NETLINK_ROUTE  failure & Can the kernel really handle
+ IPv6 properly
+Date: Mon, 6 Oct 2014 11:35:46 +0800
+Message-ID: <54320E12.9080002@cn.fujitsu.com>
+References: <542C63FE.9080807@emagii.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: nic_swsd <nic_swsd@realtek.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Francois Romieu <romieu@fr.zoreil.com>,
-	Ceriel Jacobs <linux-ide@crashplan.pro>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+To: Ulf Samuelsson <netdev@emagii.com>,
+	Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtits2.realtek.com ([60.250.210.242]:58776 "EHLO
-	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751859AbaJFDG2 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Oct 2014 23:06:28 -0400
-In-Reply-To: <20141005165920.GA21926@electric-eye.fr.zoreil.com>
-Content-Language: zh-TW
+Received: from cn.fujitsu.com ([59.151.112.132]:10940 "EHLO
+	heian.cn.fujitsu.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752123AbaJFDf4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Oct 2014 23:35:56 -0400
+In-Reply-To: <542C63FE.9080807@emagii.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- Francois Romieu [mailto:romieu@fr.zoreil.com] 
-> Sent: Monday, October 06, 2014 12:59 AM
-[...]
-> > With in-kernel r8169 module, only P-state package C3 (pc3) 
-> > can be reached
-> > when enabling ASPM.
-> > 
-> > Only after installing r8168 driver (and enabling ASPM), a 
-> > Haswell Celeron
-> > G1820/G1840 processer will enter package C6 state (pc6).
+On 10/02/2014 04:28 AM, Ulf Samuelsson wrote:
 > 
-> Vanilla kernel r8169 driver logs a message that contains an 
-> "XID" string.
-> Please grep for it in your dmesg so that I can narrow the search for 
-> meaningful differences in Realtek's r8168 driver.
+>     nls = netlink_kernel_create( &init_net, NETLINK_ROUTE, 0, my_rcv, NULL, THIS_MODULE);
 
-I don't sure if the following information is helpful. Besides, I remember the rtl_init_one()
-would disable it.
-
-http://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=d64ec841517a25f6d468bde9f67e5b4cffdc67c7
-
-http://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=4521e1a94279ce610d3f9b7945c17d581f804242
- 
-Best Regards,
-Hayes
+Kernel already creates NETLINK_ROUTE type netlink,
+you can not create another kernel side NETLINK_ROUTE netlink socket.
