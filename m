@@ -1,65 +1,61 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [net-next PATCH v1 1/3] net: sched: af_packet support for
- direct ring access
-Date: Mon, 6 Oct 2014 18:35:36 +0200
-Message-ID: <20141006183536.329de8b0@redhat.com>
-References: <20141006000629.32055.2295.stgit@nitbit.x32>
-	<20141006002951.GA24376@breakpoint.cc>
-	<5431EC82.7010305@gmail.com>
-	<543265A5.8000606@redhat.com>
-	<5432AEE0.9000600@intel.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] net: bcmgenet: fix increase rx_read_ptr
+Date: Mon, 06 Oct 2014 09:45:50 -0700
+Message-ID: <5432C73E.90805@gmail.com>
+References: <1412564726-40192-1-git-send-email-jaedon.shin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: brouer@redhat.com, Daniel Borkmann <dborkman@redhat.com>,
-	John Fastabend <john.fastabend@gmail.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Florian Westphal <fw@strlen.de>, gerlitz.or@gmail.com,
-	hannes@stressinduktion.org, netdev@vger.kernel.org,
-	john.ronciak@intel.com, amirv@mellanox.com, eric.dumazet@gmail.com,
-	danny.zhou@intel.com
-To: John Fastabend <john.r.fastabend@intel.com>
+Cc: netdev@vger.kernel.org
+To: Jaedon Shin <jaedon.shin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40304 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751316AbaJFQgL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Oct 2014 12:36:11 -0400
-In-Reply-To: <5432AEE0.9000600@intel.com>
+Received: from mail-pd0-f178.google.com ([209.85.192.178]:49563 "EHLO
+	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752223AbaJFQp5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 12:45:57 -0400
+Received: by mail-pd0-f178.google.com with SMTP id y10so3496395pdj.23
+        for <netdev@vger.kernel.org>; Mon, 06 Oct 2014 09:45:56 -0700 (PDT)
+In-Reply-To: <1412564726-40192-1-git-send-email-jaedon.shin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 10/05/2014 08:05 PM, Jaedon Shin wrote:
+> The rx_read_ptr must increase after using it.
 
-On Mon, 06 Oct 2014 08:01:52 -0700 John Fastabend <john.r.fastabend@intel.com> wrote:
- 
-> This requires a system call as far as I can tell. Which has unwanted
-> overhead. I can micro-benchmark this if its helpful. But if we dredge
-> up Jesper's slides here we are really counting cycles so even small
-> numbers count if we want to hit line rate in a user space application
-> with 40Gpbs hardware.
+Your commit message is too terse, you need to explain why you think the
+current code is bad, and how your patch is fixing it.
 
-The micro-benchmarked syscall[2] cost is approx 42 ns [1] (when
-disabling CONFIG_AUDITSYSCALL else its approx 88ns), which is
-significant compared to the 10G wirespeed smallest packet size budget
-of 67.2ns.
+One possible thing that I see is that we might be off by one in how we
+use the enet_cb versus how we read the HW packet descriptor.
 
-See:
- [1] http://netoptimizer.blogspot.dk/2014/05/the-calculations-10gbits-wirespeed.html
- [2] https://github.com/netoptimizer/network-testing/blob/master/src/syscall_overhead.c
-
-[...] 
-> We already added a qdisc bypass option I see this as taking this path
-> further. I believe there is room for a continuum here. For basic cases
-> use af_packet v1,v2 for mmap rings but using common descriptors use
-> af_packet v3 and set QOS_BYASS. For absolute lowest overhead and
-> specific applications that don't need QOS, eBPF use this interface.
-
-Well, after the qdisc bulking changes, when bulking kicks in then the
-qdisc path is faster than the qdisc bypass (measured with trafgen).
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+> 
+> Signed-off-by: Jaedon Shin <jaedon.shin@gmail.com>
+> ---
+>  drivers/net/ethernet/broadcom/genet/bcmgenet.c | 6 +++---
+>  1 file changed, 3 insertions(+), 3 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+> index 5cc9cae..b47db5e 100644
+> --- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+> +++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+> @@ -1282,9 +1282,6 @@ static unsigned int bcmgenet_desc_rx(struct bcmgenet_priv *priv,
+>  
+>  		rxpktprocessed++;
+>  
+> -		priv->rx_read_ptr++;
+> -		priv->rx_read_ptr &= (priv->num_rx_bds - 1);
+> -
+>  		/* We do not have a backing SKB, so we do not have a
+>  		 * corresponding DMA mapping for this incoming packet since
+>  		 * bcmgenet_rx_refill always either has both skb and mapping or
+> @@ -1399,6 +1396,9 @@ refill:
+>  		err = bcmgenet_rx_refill(priv, cb);
+>  		if (err)
+>  			netif_err(priv, rx_err, dev, "Rx refill failed\n");
+> +
+> +		priv->rx_read_ptr++;
+> +		priv->rx_read_ptr &= (priv->num_rx_bds - 1);
+>  	}
+>  
+>  	return rxpktprocessed;
+> 
