@@ -1,61 +1,123 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] net: bcmgenet: fix increase rx_read_ptr
-Date: Mon, 06 Oct 2014 09:45:50 -0700
-Message-ID: <5432C73E.90805@gmail.com>
-References: <1412564726-40192-1-git-send-email-jaedon.shin@gmail.com>
+From: Randy Dunlap <rdunlap@infradead.org>
+Subject: Re: randconfig build error with next-20141001, in drivers/i2c/algos/i2c-algo-bit.c
+Date: Mon, 06 Oct 2014 09:52:22 -0700
+Message-ID: <5432C8C6.7060506@infradead.org>
+References: <CA+r1ZhiL1y9aeLeJjpd_1DtzOG_oyoPg7XsTPJ9G-XY5G2DfCQ@mail.gmail.com> <542C8D93.8090008@infradead.org> <54324D68.6070309@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jaedon Shin <jaedon.shin@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f178.google.com ([209.85.192.178]:49563 "EHLO
-	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752223AbaJFQp5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 12:45:57 -0400
-Received: by mail-pd0-f178.google.com with SMTP id y10so3496395pdj.23
-        for <netdev@vger.kernel.org>; Mon, 06 Oct 2014 09:45:56 -0700 (PDT)
-In-Reply-To: <1412564726-40192-1-git-send-email-jaedon.shin@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-next <linux-next@vger.kernel.org>,
+	Stephane Grosjean <s.grosjean@peak-system.com>,
+	linux-i2c@vger.kernel.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-can@vger.kernel.org
+To: Oliver Hartkopp <socketcan@hartkopp.net>,
+	Jim Davis <jim.epost@gmail.com>,
+	Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <54324D68.6070309@hartkopp.net>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/05/2014 08:05 PM, Jaedon Shin wrote:
-> The rx_read_ptr must increase after using it.
+On 10/06/14 01:06, Oliver Hartkopp wrote:
+> Hello all,
+>=20
+> just to get it right:
+>=20
+> So far it looks like this in linux/drivers/net/can/sja1000/Kconfig
+>=20
+> config CAN_PEAK_PCIEC
+>         bool "PEAK PCAN-ExpressCard Cards"
+>         depends on CAN_PEAK_PCI
+>         select I2C
+>         select I2C_ALGOBIT
+>=20
+> If one would change the
+>=20
+>         select I2C
+>=20
+> into
+>=20
+>         depends on I2C
+>=20
+> IMHO the CAN_PEAK_PCIEC hardware would *only* be visible and selectab=
+le when
+> I2C was selected before (from anyone else?).
 
-Your commit message is too terse, you need to explain why you think the
-current code is bad, and how your patch is fixing it.
+That is correct.
 
-One possible thing that I see is that we might be off by one in how we
-use the enet_cb versus how we read the HW packet descriptor.
+> So what it wrong on the current Kconfig entry?
+> Is 'select' deprecated?
 
-> 
-> Signed-off-by: Jaedon Shin <jaedon.shin@gmail.com>
-> ---
->  drivers/net/ethernet/broadcom/genet/bcmgenet.c | 6 +++---
->  1 file changed, 3 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-> index 5cc9cae..b47db5e 100644
-> --- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-> +++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-> @@ -1282,9 +1282,6 @@ static unsigned int bcmgenet_desc_rx(struct bcmgenet_priv *priv,
->  
->  		rxpktprocessed++;
->  
-> -		priv->rx_read_ptr++;
-> -		priv->rx_read_ptr &= (priv->num_rx_bds - 1);
-> -
->  		/* We do not have a backing SKB, so we do not have a
->  		 * corresponding DMA mapping for this incoming packet since
->  		 * bcmgenet_rx_refill always either has both skb and mapping or
-> @@ -1399,6 +1396,9 @@ refill:
->  		err = bcmgenet_rx_refill(priv, cb);
->  		if (err)
->  			netif_err(priv, rx_err, dev, "Rx refill failed\n");
-> +
-> +		priv->rx_read_ptr++;
-> +		priv->rx_read_ptr &= (priv->num_rx_bds - 1);
->  	}
->  
->  	return rxpktprocessed;
-> 
+No, it's not deprecated.  It's just dangerous.  and driver configs shou=
+ld not
+enable entire subsystems via 'select'.
+
+> Or did randconfig generate a configuration that would not be possible=
+ by
+> properly generating the config file with 'make menuconfig' ??
+
+randconfig generated a config for another driver which causes a build e=
+rror,
+not for a CAN driver.  The CAN driver does not have a build error AFAIK=
+=2E
+Its Kconfig is just doing something with a very big & ugly stick.
+
+
+> Please explain.
+>=20
+> Thanks,
+> Oliver
+>=20
+> On 10/02/2014 01:26 AM, Randy Dunlap wrote:
+>> On 10/01/14 14:37, Jim Davis wrote:
+>>> Building with the attached random configuration file,
+>>
+>> Also:
+>> warning: (CAN_PEAK_PCIEC && SFC && IGB && VIDEO_TW68 && DRM && FB_DD=
+C && FB_VIA) selects I2C_ALGOBIT which has unmet direct dependencies (I=
+2C)
+>>
+>>> drivers/i2c/algos/i2c-algo-bit.c: In function =91i2c_bit_add_bus=92=
+:
+>>> drivers/i2c/algos/i2c-algo-bit.c:658:33: error: =91i2c_add_adapter=92
+>>> undeclared (first use in this function)
+>>>   return __i2c_bit_add_bus(adap, i2c_add_adapter);
+>>>                                  ^
+>>> drivers/i2c/algos/i2c-algo-bit.c:658:33: note: each undeclared
+>>> identifier is reported only once for each function it appears in
+>>> drivers/i2c/algos/i2c-algo-bit.c: In function =91i2c_bit_add_number=
+ed_bus=92:
+>>> drivers/i2c/algos/i2c-algo-bit.c:664:33: error:
+>>> =91i2c_add_numbered_adapter=92 undeclared (first use in this functi=
+on)
+>>>   return __i2c_bit_add_bus(adap, i2c_add_numbered_adapter);
+>>>                                  ^
+>>>   CC      net/openvswitch/actions.o
+>>> drivers/i2c/algos/i2c-algo-bit.c: In function =91i2c_bit_add_bus=92=
+:
+>>> drivers/i2c/algos/i2c-algo-bit.c:659:1: warning: control reaches en=
+d of non-void
+>>>  function [-Wreturn-type]
+>>>  }
+>>>  ^
+>>> drivers/i2c/algos/i2c-algo-bit.c: In function =91i2c_bit_add_number=
+ed_bus=92:
+>>> drivers/i2c/algos/i2c-algo-bit.c:665:1: warning: control reaches en=
+d of non-void
+>>>  function [-Wreturn-type]
+>>>  }
+>>>  ^
+>>> make[3]: *** [drivers/i2c/algos/i2c-algo-bit.o] Error 1
+>>
+>> In drivers/media/pci/tw68/Kconfig, VIDEO_TW68 should depend on I2C i=
+n order
+>> to make it safe to select I2C_ALGOBIT.
+>>
+>> In drivers/net/can/sja1000/Kconfig, CAN_PEAK_PCIEC should depend on =
+I2C
+>> instead of selecting I2C (and change the help text).
+
+
+--=20
+~Randy
