@@ -1,7 +1,7 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next V1 02/14] net/mlx4_en: Align tx path structures to cache lines
-Date: Mon,  6 Oct 2014 09:15:51 +0300
-Message-ID: <1412576163-7224-3-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next V1 13/14] ethtool: Ethtool parameter to dynamically change tx_copybreak
+Date: Mon,  6 Oct 2014 09:16:02 +0300
+Message-ID: <1412576163-7224-14-git-send-email-amirv@mellanox.com>
 References: <1412576163-7224-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
@@ -9,134 +9,48 @@ Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.com>,
 To: "David S. Miller" <davem@davemloft.net>,
 	Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:37928 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:57232 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751319AbaJFGQd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Oct 2014 02:16:33 -0400
+	id S1751680AbaJFGRE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Oct 2014 02:17:04 -0400
 In-Reply-To: <1412576163-7224-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eric Dumazet <edumazet@google.com>
 
-Reorganize struct mlx4_en_tx_ring to have:
-- One cache line containing last_nr_txbb & cons & wake_queue, used by tx
-  completion.
-- One cache line containing fields dirtied by mlx4_en_xmit()
-- Following part is read mostly and shared by cpus.
-
-Align struct mlx4_en_tx_info to a cache line
+Use new ethtool [sg]et_tunable() to set tx_copybread (inline threshold)
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h | 86 +++++++++++++++-------------
- 1 file changed, 46 insertions(+), 40 deletions(-)
+ include/uapi/linux/ethtool.h | 1 +
+ net/core/ethtool.c           | 1 +
+ 2 files changed, 2 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index e54b653..b7bde95 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -216,13 +216,13 @@ enum cq_type {
- 
- struct mlx4_en_tx_info {
- 	struct sk_buff *skb;
--	u32 nr_txbb;
--	u32 nr_bytes;
--	u8 linear;
--	u8 data_offset;
--	u8 inl;
--	u8 ts_requested;
--};
-+	u32		nr_txbb;
-+	u32		nr_bytes;
-+	u8		linear;
-+	u8		data_offset;
-+	u8		inl;
-+	u8		ts_requested;
-+} ____cacheline_aligned_in_smp;
- 
- 
- #define MLX4_EN_BIT_DESC_OWN	0x80000000
-@@ -253,40 +253,46 @@ struct mlx4_en_rx_alloc {
+diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
+index 7a364f2..99b4305 100644
+--- a/include/uapi/linux/ethtool.h
++++ b/include/uapi/linux/ethtool.h
+@@ -212,6 +212,7 @@ struct ethtool_value {
+ enum tunable_id {
+ 	ETHTOOL_ID_UNSPEC,
+ 	ETHTOOL_RX_COPYBREAK,
++	ETHTOOL_TX_COPYBREAK,
  };
  
- struct mlx4_en_tx_ring {
-+	/* cache line used and dirtied in tx completion
-+	 * (mlx4_en_free_tx_buf())
-+	 */
-+	u32			last_nr_txbb;
-+	u32			cons;
-+	unsigned long		wake_queue;
-+
-+	/* cache line used and dirtied in mlx4_en_xmit() */
-+	u32			prod ____cacheline_aligned_in_smp;
-+	unsigned long		bytes;
-+	unsigned long		packets;
-+	unsigned long		tx_csum;
-+	unsigned long		tso_packets;
-+	unsigned long		xmit_more;
-+	struct mlx4_bf		bf;
-+	unsigned long		queue_stopped;
-+
-+	/* Following part should be mostly read */
-+	cpumask_t		affinity_mask;
-+	struct mlx4_qp		qp;
- 	struct mlx4_hwq_resources wqres;
--	u32 size ; /* number of TXBBs */
--	u32 size_mask;
--	u16 stride;
--	u16 cqn;	/* index of port CQ associated with this ring */
--	u32 prod;
--	u32 cons;
--	u32 buf_size;
--	u32 doorbell_qpn;
--	void *buf;
--	struct mlx4_en_tx_info *tx_info;
--	u8 *bounce_buf;
--	u8 queue_index;
--	cpumask_t affinity_mask;
--	u32 last_nr_txbb;
--	struct mlx4_qp qp;
--	struct mlx4_qp_context context;
--	int qpn;
--	enum mlx4_qp_state qp_state;
--	struct mlx4_srq dummy;
--	unsigned long bytes;
--	unsigned long packets;
--	unsigned long tx_csum;
--	unsigned long queue_stopped;
--	unsigned long wake_queue;
--	unsigned long tso_packets;
--	unsigned long xmit_more;
--	struct mlx4_bf bf;
--	bool bf_enabled;
--	bool bf_alloced;
--	struct netdev_queue *tx_queue;
--	int hwtstamp_tx_type;
--	int inline_thold;
--};
-+	u32			size; /* number of TXBBs */
-+	u32			size_mask;
-+	u16			stride;
-+	u16			cqn;	/* index of port CQ associated with this ring */
-+	u32			buf_size;
-+	u32			doorbell_qpn;
-+	void			*buf;
-+	struct mlx4_en_tx_info	*tx_info;
-+	u8			*bounce_buf;
-+	struct mlx4_qp_context	context;
-+	int			qpn;
-+	enum mlx4_qp_state	qp_state;
-+	u8			queue_index;
-+	bool			bf_enabled;
-+	bool			bf_alloced;
-+	struct netdev_queue	*tx_queue;
-+	int			hwtstamp_tx_type;
-+	int			inline_thold;
-+} ____cacheline_aligned_in_smp;
- 
- struct mlx4_en_rx_desc {
- 	/* actual number of entries depends on rx ring stride */
+ enum tunable_type_id {
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 27e61b8..1600aa2 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -1625,6 +1625,7 @@ static int ethtool_tunable_valid(const struct ethtool_tunable *tuna)
+ {
+ 	switch (tuna->id) {
+ 	case ETHTOOL_RX_COPYBREAK:
++	case ETHTOOL_TX_COPYBREAK:
+ 		if (tuna->len != sizeof(u32) ||
+ 		    tuna->type_id != ETHTOOL_TUNABLE_U32)
+ 			return -EINVAL;
 -- 
 1.8.3.1
