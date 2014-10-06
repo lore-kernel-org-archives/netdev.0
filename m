@@ -1,42 +1,104 @@
-From: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH net-next v2] r8152: nway reset after setting eee
-Date: Mon, 6 Oct 2014 10:36:04 +0800
-Message-ID: <1394712342-15778-57-Taiwan-albertk@realtek.com>
-References: <1394712342-15778-54-Taiwan-albertk@realtek.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [Patch net-next] net_sched: refactor out tcf_exts
+Date: Sun, 05 Oct 2014 20:04:20 -0700
+Message-ID: <543206B4.7090504@gmail.com>
+References: <1412376709-25564-1-git-send-email-xiyou.wangcong@gmail.com> <5431F4A1.3040107@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
-To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1394712342-15778-54-Taiwan-albertk-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f170.google.com ([209.85.214.170]:64543 "EHLO
+	mail-ob0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751859AbaJFDEl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Oct 2014 23:04:41 -0400
+Received: by mail-ob0-f170.google.com with SMTP id uz6so3262956obc.15
+        for <netdev@vger.kernel.org>; Sun, 05 Oct 2014 20:04:40 -0700 (PDT)
+In-Reply-To: <5431F4A1.3040107@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Restart autonegotiation is necessary after setting EEE.
+On 10/05/2014 06:47 PM, John Fastabend wrote:
+> On 10/03/2014 03:51 PM, Cong Wang wrote:
+>> As Jamal pointed it out, tcf_exts is really unnecessary,
+>> we can definitely refactor it out without losing any functionality.
+>> This could also remove an indirect layer which makes the code
+>> much easier to read.
+>>
+>> This patch:
+>>
+>> 1) moves exts->action and exts->police into tp->ops, since they
+>> are statically assigned
+>>
+>> 2) moves exts->actions list head out
+>>
+>> 3) removes exts->type, act->type does the same thing
+>>
+>> 4) renames tcf_exts_*() functions to tcf_act_*()
+>>
+>> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+>> Cc: John Fastabend <john.r.fastabend@intel.com>
+>> Cc: "David S. Miller" <davem@davemloft.net>
+>> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+>> ---
+>
+> Looks OK to me and removes a layer of abstraction without changing
+> the code much. This is going to conflict with my series so I'll hold
+> off resubmitting it until this is dealt with. I need to respin that
+> ematch fix up to drop the ingress lock.
+>
+> Acked-by: John Fastabend <john.r.fastabend@intel.com>
+>
+> [...]
+>
 
-Signed-off-by: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
----
- drivers/net/usb/r8152.c | 2 ++
- 1 file changed, 2 insertions(+)
+But after running my test kit I see a null pointer dereference
+in cls_cgroup in tcf_act_change().
 
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index b9a9815..6532620 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -3471,6 +3471,8 @@ rtl_ethtool_set_eee(struct net_device *net, struct ethtool_eee *edata)
- 		goto out;
- 
- 	ret = tp->rtl_ops.eee_set(tp, edata);
-+	if (!ret)
-+		ret = mii_nway_restart(&tp->mii);
- 
- 	usb_autopm_put_interface(tp->intf);
- 
+Looks like you dropped an initializer...
+
+@@ -116,7 +116,6 @@ static int cls_cgroup_change(struct net *net, struct 
+sk_buff *in_skb,
+  	if (!new)
+  		return -ENOBUFS;
+
+-	tcf_exts_init(&new->exts, TCA_CGROUP_ACT, TCA_CGROUP_POLICE);
+  	if (head)
+  		new->handle = head->handle;
+  	else
+
+
+
+
+>>
+>> -void tcf_exts_change(struct tcf_proto *tp, struct tcf_exts *dst,
+>> -             struct tcf_exts *src)
+>> +void tcf_act_change(struct tcf_proto *tp, struct list_head *dst,
+>> +            struct list_head *src)
+>>   {
+>>   #ifdef CONFIG_NET_CLS_ACT
+>>       LIST_HEAD(tmp);
+>>       tcf_tree_lock(tp);
+>> -    list_splice_init(&dst->actions, &tmp);
+>> -    list_splice(&src->actions, &dst->actions);
+>> +    list_splice_init(dst, &tmp);
+>> +    list_splice(src, dst);
+>>       tcf_tree_unlock(tp);
+>>       tcf_action_destroy(&tmp, TCA_ACT_UNBIND);
+>
+>
+> This is overly complex now that tcf_act_change only
+> occurs on null lists. And unattached ones because of the
+> RCU semantics so I'm fairly sure we can drop the lock and
+> double splice.
+>
+>
+> [...]
+>
+
+
 -- 
-1.9.3
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+John Fastabend         Intel Corporation
