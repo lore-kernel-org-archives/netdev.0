@@ -1,40 +1,45 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [PATCH net-next 0/2] sunvnet: Packet processing in non-interrupt
- context.
-Date: Mon, 6 Oct 2014 15:31:11 -0400
-Message-ID: <20141006193111.GE24721@oracle.com>
-References: <20141003144024.GA12448@oracle.com>
- <20141003.120802.1213573830649867131.davem@davemloft.net>
- <20141006160418.GA3604@oracle.com>
- <20141006.152526.965519223260573233.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] net: validate_xmit_vlan() is static
+Date: Mon, 06 Oct 2014 12:35:03 -0700
+Message-ID: <1412624103.11091.78.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1412619987.11091.76.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1412621042.2916.29.camel@joe-AO725>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: raghuram.kothakota@oracle.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Julia Lawall <julia.lawall@lip6.fr>,
+	Dan Carpenter <error27@gmail.com>,
+	Josh Triplett <josh@joshtriplett.org>
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:30340 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752082AbaJFTbT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 15:31:19 -0400
-Content-Disposition: inline
-In-Reply-To: <20141006.152526.965519223260573233.davem@davemloft.net>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:47003 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750995AbaJFTfE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 15:35:04 -0400
+Received: by mail-pa0-f49.google.com with SMTP id hz1so5778417pad.36
+        for <netdev@vger.kernel.org>; Mon, 06 Oct 2014 12:35:04 -0700 (PDT)
+In-Reply-To: <1412621042.2916.29.camel@joe-AO725>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On (10/06/14 15:25), David Miller wrote:
+On Mon, 2014-10-06 at 11:44 -0700, Joe Perches wrote:
+> On Mon, 2014-10-06 at 11:26 -0700, Eric Dumazet wrote:
+> > From: Eric Dumazet <edumazet@google.com>
+> > 
+> > Marking this as static allows compiler to inline it.
 > 
-> > But we still need to hold the vio lock around the ldc_write 
-> > (and also around dring write) in vnet_start_xmit, right?
+> Found by inspection or another tool?
 > 
-> You might be able to avoid it, you're fully serialized by the TX queue
-> lock.
+> Wasn't there some tool to look for non-static functions
+> that are not called externally that could/should be
+> converted to static?
 
-yes, I was just noticing that. The only place where I believe I need
-to hold the vio spin-lock is to sync with the dr->cons checks
-(the "should I send a start_cons LDC message?" check in vnet_start_xmit()
-vs the vnet_ack() updates).
+Found by inspecting and analyzing performance on real workload.
 
-But isn't it better in general to declare NETIF_F_LLTX and have finer lock
-granularity in the driver?
+Note prior commits :
 
---Sowmini
+bec3cfdca36bf43cfa3751ad7b56db1a307e0760 net: skb_segment() provides list head and tail
+01291202ed4ad548f9a7147d20425cb1d24f49a7 net: do not export skb_gro_receive()
+55a93b3ea780908b7d1b3a8cf1976223a9268d78 qdisc: validate skb without holding lock
