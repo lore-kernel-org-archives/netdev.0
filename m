@@ -1,200 +1,38 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: [net-next PATCH v1 3/3] net: sched: do not use tcf_proto 'tp'
- argument from call_rcu
-Date: Sun, 05 Oct 2014 21:28:52 -0700
-Message-ID: <20141006042850.6010.176.stgit@nitbit.x32>
-References: <20141006042335.6010.27000.stgit@nitbit.x32>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next v2 0/6] Add Geneve tunnel protocol support
+Date: Mon, 06 Oct 2014 00:32:50 -0400 (EDT)
+Message-ID: <20141006.003250.2261438479584184724.davem@davemloft.net>
+References: <1412375733-30981-1-git-send-email-azhou@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com, eric.dumazet@gmail.com
-To: xiyou.wangcong@gmail.com, davem@davemloft.net
+Cc: netdev@vger.kernel.org
+To: azhou@nicira.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f181.google.com ([209.85.214.181]:58229 "EHLO
-	mail-ob0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750972AbaJFE3M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 00:29:12 -0400
-Received: by mail-ob0-f181.google.com with SMTP id wm4so3393001obc.12
-        for <netdev@vger.kernel.org>; Sun, 05 Oct 2014 21:29:11 -0700 (PDT)
-In-Reply-To: <20141006042335.6010.27000.stgit@nitbit.x32>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57683 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750720AbaJFEcw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 00:32:52 -0400
+In-Reply-To: <1412375733-30981-1-git-send-email-azhou@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Using the tcf_proto pointer 'tp' from inside the classifiers callback
-is not valid because it may have been cleaned up by another call_rcu
-occuring on another CPU.
+From: Andy Zhou <azhou@nicira.com>
+Date: Fri,  3 Oct 2014 15:35:27 -0700
 
-'tp' is currently being used by tcf_unbind_filter() in this patch we
-move instances of tcf_unbind_filter outside of the call_rcu() context.
-This is safe to do because any running schedulers will either read the
-valid class field or it will be zeroed.
+> This patch series adds kernel support for Geneve (Generic Network
+> Virtualization Encapsulation) based on Geneve IETF draft:
+> http://www.ietf.org/id/draft-gross-geneve-01.txt
+> 
+> Patch 1 implements Geneve tunneling protocol driver
+> 
+> Patch 2-6 adds openvswitch support for creating and using
+> Geneve tunnels by OVS user space.
+> 
+> ---
+> v1->v2:   Style fixes: use tab instead space for Kconfig
+> 	  Patch 2-6 are reviewed by Pravin Shetty, add him to acked-by
+> 	  Patch 6 was reviewed by Thomas Graf when commiting
+> 	    to openvswitch.org, add him to acked-by.
 
-And all schedulers today when the class is 0 do a lookup using the
-same call used by the tcf_exts_bind(). So even if we have a running
-classifier hit the null class pointer it will do a lookup and get
-to the same result. This is particularly fragile at the moment because
-the only way to verify this is to audit the schedulers call sites.
-
-Reported-by: Cong Wang <xiyou.wangconf@gmail.com>
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
----
- net/sched/cls_basic.c |    5 +++--
- net/sched/cls_bpf.c   |    4 +++-
- net/sched/cls_fw.c    |    5 +++--
- net/sched/cls_route.c |    8 +++++---
- 4 files changed, 14 insertions(+), 8 deletions(-)
-
-diff --git a/net/sched/cls_basic.c b/net/sched/cls_basic.c
-index 90647a8..cd61280 100644
---- a/net/sched/cls_basic.c
-+++ b/net/sched/cls_basic.c
-@@ -91,9 +91,7 @@ static int basic_init(struct tcf_proto *tp)
- static void basic_delete_filter(struct rcu_head *head)
- {
- 	struct basic_filter *f = container_of(head, struct basic_filter, rcu);
--	struct tcf_proto *tp = f->tp;
- 
--	tcf_unbind_filter(tp, &f->res);
- 	tcf_exts_destroy(&f->exts);
- 	tcf_em_tree_destroy(&f->ematches);
- 	kfree(f);
-@@ -106,6 +104,7 @@ static void basic_destroy(struct tcf_proto *tp)
- 
- 	list_for_each_entry_safe(f, n, &head->flist, link) {
- 		list_del_rcu(&f->link);
-+		tcf_unbind_filter(tp, &f->res);
- 		call_rcu(&f->rcu, basic_delete_filter);
- 	}
- 	RCU_INIT_POINTER(tp->root, NULL);
-@@ -120,6 +119,7 @@ static int basic_delete(struct tcf_proto *tp, unsigned long arg)
- 	list_for_each_entry(t, &head->flist, link)
- 		if (t == f) {
- 			list_del_rcu(&t->link);
-+			tcf_unbind_filter(tp, &t->res);
- 			call_rcu(&t->rcu, basic_delete_filter);
- 			return 0;
- 		}
-@@ -222,6 +222,7 @@ static int basic_change(struct net *net, struct sk_buff *in_skb,
- 
- 	if (fold) {
- 		list_replace_rcu(&fold->link, &fnew->link);
-+		tcf_unbind_filter(tp, &fold->res);
- 		call_rcu(&fold->rcu, basic_delete_filter);
- 	} else {
- 		list_add_rcu(&fnew->link, &head->flist);
-diff --git a/net/sched/cls_bpf.c b/net/sched/cls_bpf.c
-index 4318d06..eed49d1 100644
---- a/net/sched/cls_bpf.c
-+++ b/net/sched/cls_bpf.c
-@@ -92,7 +92,6 @@ static int cls_bpf_init(struct tcf_proto *tp)
- 
- static void cls_bpf_delete_prog(struct tcf_proto *tp, struct cls_bpf_prog *prog)
- {
--	tcf_unbind_filter(tp, &prog->res);
- 	tcf_exts_destroy(&prog->exts);
- 
- 	bpf_prog_destroy(prog->filter);
-@@ -116,6 +115,7 @@ static int cls_bpf_delete(struct tcf_proto *tp, unsigned long arg)
- 	list_for_each_entry(prog, &head->plist, link) {
- 		if (prog == todel) {
- 			list_del_rcu(&prog->link);
-+			tcf_unbind_filter(tp, &prog->res);
- 			call_rcu(&prog->rcu, __cls_bpf_delete_prog);
- 			return 0;
- 		}
-@@ -131,6 +131,7 @@ static void cls_bpf_destroy(struct tcf_proto *tp)
- 
- 	list_for_each_entry_safe(prog, tmp, &head->plist, link) {
- 		list_del_rcu(&prog->link);
-+		tcf_unbind_filter(tp, &prog->res);
- 		call_rcu(&prog->rcu, __cls_bpf_delete_prog);
- 	}
- 
-@@ -282,6 +283,7 @@ static int cls_bpf_change(struct net *net, struct sk_buff *in_skb,
- 
- 	if (oldprog) {
- 		list_replace_rcu(&prog->link, &oldprog->link);
-+		tcf_unbind_filter(tp, &oldprog->res);
- 		call_rcu(&oldprog->rcu, __cls_bpf_delete_prog);
- 	} else {
- 		list_add_rcu(&prog->link, &head->plist);
-diff --git a/net/sched/cls_fw.c b/net/sched/cls_fw.c
-index da805ae..dbfdfd1 100644
---- a/net/sched/cls_fw.c
-+++ b/net/sched/cls_fw.c
-@@ -123,9 +123,7 @@ static int fw_init(struct tcf_proto *tp)
- static void fw_delete_filter(struct rcu_head *head)
- {
- 	struct fw_filter *f = container_of(head, struct fw_filter, rcu);
--	struct tcf_proto *tp = f->tp;
- 
--	tcf_unbind_filter(tp, &f->res);
- 	tcf_exts_destroy(&f->exts);
- 	kfree(f);
- }
-@@ -143,6 +141,7 @@ static void fw_destroy(struct tcf_proto *tp)
- 		while ((f = rtnl_dereference(head->ht[h])) != NULL) {
- 			RCU_INIT_POINTER(head->ht[h],
- 					 rtnl_dereference(f->next));
-+			tcf_unbind_filter(tp, &f->res);
- 			call_rcu(&f->rcu, fw_delete_filter);
- 		}
- 	}
-@@ -166,6 +165,7 @@ static int fw_delete(struct tcf_proto *tp, unsigned long arg)
- 	     fp = &pfp->next, pfp = rtnl_dereference(*fp)) {
- 		if (pfp == f) {
- 			RCU_INIT_POINTER(*fp, rtnl_dereference(f->next));
-+			tcf_unbind_filter(tp, &f->res);
- 			call_rcu(&f->rcu, fw_delete_filter);
- 			return 0;
- 		}
-@@ -280,6 +280,7 @@ static int fw_change(struct net *net, struct sk_buff *in_skb,
- 
- 		RCU_INIT_POINTER(fnew->next, rtnl_dereference(pfp->next));
- 		rcu_assign_pointer(*fp, fnew);
-+		tcf_unbind_filter(tp, &f->res);
- 		call_rcu(&f->rcu, fw_delete_filter);
- 
- 		*arg = (unsigned long)fnew;
-diff --git a/net/sched/cls_route.c b/net/sched/cls_route.c
-index b665aee..6f22baa 100644
---- a/net/sched/cls_route.c
-+++ b/net/sched/cls_route.c
-@@ -269,9 +269,7 @@ static void
- route4_delete_filter(struct rcu_head *head)
- {
- 	struct route4_filter *f = container_of(head, struct route4_filter, rcu);
--	struct tcf_proto *tp = f->tp;
- 
--	tcf_unbind_filter(tp, &f->res);
- 	tcf_exts_destroy(&f->exts);
- 	kfree(f);
- }
-@@ -297,6 +295,7 @@ static void route4_destroy(struct tcf_proto *tp)
- 
- 					next = rtnl_dereference(f->next);
- 					RCU_INIT_POINTER(b->ht[h2], next);
-+					tcf_unbind_filter(tp, &f->res);
- 					call_rcu(&f->rcu, route4_delete_filter);
- 				}
- 			}
-@@ -338,6 +337,7 @@ static int route4_delete(struct tcf_proto *tp, unsigned long arg)
- 			route4_reset_fastmap(head);
- 
- 			/* Delete it */
-+			tcf_unbind_filter(tp, &f->res);
- 			call_rcu(&f->rcu, route4_delete_filter);
- 
- 			/* Strip RTNL protected tree */
-@@ -545,8 +545,10 @@ static int route4_change(struct net *net, struct sk_buff *in_skb,
- 
- 	route4_reset_fastmap(head);
- 	*arg = (unsigned long)f;
--	if (fold)
-+	if (fold) {
-+		tcf_unbind_filter(tp, &fold->res);
- 		call_rcu(&fold->rcu, route4_delete_filter);
-+	}
- 	return 0;
- 
- errout:
+Series applied, thanks Andy.
