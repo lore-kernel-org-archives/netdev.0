@@ -1,41 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH linux v2 1/1] fs/proc: use a rb tree for the directory
- entries
-Date: Mon, 06 Oct 2014 18:14:48 -0400 (EDT)
-Message-ID: <20141006.181448.1696747135961247651.davem@davemloft.net>
-References: <542EA009.4060009@6wind.com>
-	<1412605834-4417-1-git-send-email-nicolas.dichtel@6wind.com>
-	<1412605834-4417-2-git-send-email-nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH V2 linux-next] net: fix rcu access on phonet_routes
+Date: Mon, 06 Oct 2014 18:16:51 -0400 (EDT)
+Message-ID: <20141006.181651.2058519626308257571.davem@davemloft.net>
+References: <1412619321-2212-1-git-send-email-fabf@skynet.be>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ebiederm@xmission.com, akpm@linux-foundation.org,
-	adobriyan@gmail.com, rui.xiang@huawei.com, viro@zeniv.linux.org.uk,
-	oleg@redhat.com, gorcunov@openvz.org,
-	kirill.shutemov@linux.intel.com, grant.likely@secretlab.ca,
-	tytso@mit.edu
-To: nicolas.dichtel@6wind.com
+Cc: linux-kernel@vger.kernel.org, edumazet@google.com,
+	josh@joshtriplett.org, courmisch@gmail.com, netdev@vger.kernel.org
+To: fabf@skynet.be
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1412605834-4417-2-git-send-email-nicolas.dichtel@6wind.com>
+In-Reply-To: <1412619321-2212-1-git-send-email-fabf@skynet.be>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date: Mon,  6 Oct 2014 16:30:34 +0200
+From: Fabian Frederick <fabf@skynet.be>
+Date: Mon,  6 Oct 2014 20:15:20 +0200
 
-> The current implementation for the directories in /proc is using a single
-> linked list. This is slow when handling directories with large numbers of
-> entries (eg netdevice-related entries when lots of tunnels are opened).
+> -Add __rcu annotation on table to fix sparse warnings:
+> net/phonet/pn_dev.c:279:25: warning: incorrect type in assignment (different address spaces)
+> net/phonet/pn_dev.c:279:25:    expected struct net_device *<noident>
+> net/phonet/pn_dev.c:279:25:    got void [noderef] <asn:4>*<noident>
+> net/phonet/pn_dev.c:376:17: warning: incorrect type in assignment (different address spaces)
+> net/phonet/pn_dev.c:376:17:    expected struct net_device *volatile <noident>
+> net/phonet/pn_dev.c:376:17:    got struct net_device [noderef] <asn:4>*<noident>
+> net/phonet/pn_dev.c:392:17: warning: incorrect type in assignment (different address spaces)
+> net/phonet/pn_dev.c:392:17:    expected struct net_device *<noident>
+> net/phonet/pn_dev.c:392:17:    got void [noderef] <asn:4>*<noident>
 > 
-> This patch replaces this linked list by a red-black tree.
+> -Access table with rcu_access_pointer (fixes the following sparse errors):
+> net/phonet/pn_dev.c:278:25: error: incompatible types in comparison expression (different address spaces)
+> net/phonet/pn_dev.c:391:17: error: incompatible types in comparison expression (different address spaces)
 > 
-> Here are some numbers:
-> 
-> dummy30000.batch contains 30 000 times 'link add type dummy'.
- ...
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> Suggested-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Fabian Frederick <fabf@skynet.be>
+> ---
+> V2: use rcu_access_pointer instead of rcu_dereference out of rcu_read_lock context
+>     (suggested by Eric Dumazet).
 
-FWIW:
-
-Acked-by: David S. Miller <davem@davemloft.net>
+Applied, thank you.
