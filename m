@@ -1,32 +1,35 @@
 From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [Patch net-next] net_sched: refactor out tcf_exts
-Date: Mon, 6 Oct 2014 09:56:37 -0700
-Message-ID: <CAHA+R7PaoyT2Otzn4RH2J89+ni4Lg_2tp_WwrR0csedqLGbhCQ@mail.gmail.com>
-References: <1412376709-25564-1-git-send-email-xiyou.wangcong@gmail.com>
-	<54327B09.9070204@mojatatu.com>
+Subject: Re: [net-next PATCH v1 2/3] net: sched: cls_cgroup tear down exts and
+ ematch from rcu callback
+Date: Mon, 6 Oct 2014 10:01:40 -0700
+Message-ID: <CAHA+R7NszfZUZOmTQD9a47Oaqa3zhOAhOdx05Uu89=_=Nks25A@mail.gmail.com>
+References: <20141006042335.6010.27000.stgit@nitbit.x32>
+	<20141006042819.6010.32857.stgit@nitbit.x32>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	David Miller <davem@davemloft.net>,
 	netdev <netdev@vger.kernel.org>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f175.google.com ([209.85.217.175]:39136 "EHLO
-	mail-lb0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751827AbaJFQ4j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 12:56:39 -0400
-Received: by mail-lb0-f175.google.com with SMTP id u10so4553120lbd.6
-        for <netdev@vger.kernel.org>; Mon, 06 Oct 2014 09:56:37 -0700 (PDT)
-In-Reply-To: <54327B09.9070204@mojatatu.com>
+Received: from mail-lb0-f179.google.com ([209.85.217.179]:62694 "EHLO
+	mail-lb0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752913AbaJFRBm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 13:01:42 -0400
+Received: by mail-lb0-f179.google.com with SMTP id l4so4542724lbv.24
+        for <netdev@vger.kernel.org>; Mon, 06 Oct 2014 10:01:41 -0700 (PDT)
+In-Reply-To: <20141006042819.6010.32857.stgit@nitbit.x32>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 6, 2014 at 4:20 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
-> Sorry for being annoying.
-> Cong - here's a simple test that will test for both .police and .action
-> for one classifier. If you have time please run it when updating your
-> patch.
+On Sun, Oct 5, 2014 at 9:28 PM, John Fastabend <john.fastabend@gmail.com> wrote:
+> It is not RCU safe to destroy the action chain while there
+> is a possibility of readers accessing it. Move this code
+> into the rcu callback using the same rcu callback used in the
+> code patch to make a change to head.
 >
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 
-Sure. Thanks for sharing it!
+Acked-by: Cong Wang <cwang@twopensource.com>
