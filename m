@@ -1,7 +1,7 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next V1 10/14] net/mlx4_en: Use local var for skb_headlen(skb)
-Date: Mon,  6 Oct 2014 09:15:59 +0300
-Message-ID: <1412576163-7224-11-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next V1 12/14] net/mlx4_en: Enable the compiler to make is_inline() inlined
+Date: Mon,  6 Oct 2014 09:16:01 +0300
+Message-ID: <1412576163-7224-13-git-send-email-amirv@mellanox.com>
 References: <1412576163-7224-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
@@ -9,9 +9,9 @@ Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.com>,
 To: "David S. Miller" <davem@davemloft.net>,
 	Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:37939 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:37933 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751355AbaJFGQd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751344AbaJFGQd (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 6 Oct 2014 02:16:33 -0400
 In-Reply-To: <1412576163-7224-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
@@ -19,65 +19,163 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Eric Dumazet <edumazet@google.com>
 
-Access skb_headlen() once in tx flow
+Reorganize code to call is_inline() once, so compiler can inline it
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_tx.c | 21 +++++++++++----------
- 1 file changed, 11 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c | 67 +++++++++++++++++-------------
+ 1 file changed, 38 insertions(+), 29 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-index aa05b09..e00841a 100644
+index 2c03b55..f0080c5 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
 +++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-@@ -612,6 +612,7 @@ static void build_inline_wqe(struct mlx4_en_tx_desc *tx_desc,
+@@ -531,29 +531,32 @@ static struct mlx4_en_tx_desc *mlx4_en_bounce_to_desc(struct mlx4_en_priv *priv,
+ 	return ring->buf + index * TXBB_SIZE;
+ }
+ 
++/* Decide if skb can be inlined in tx descriptor to avoid dma mapping
++ *
++ * It seems strange we do not simply use skb_copy_bits().
++ * This would allow to inline all skbs iff skb->len <= inline_thold
++ *
++ * Note that caller already checked skb was not a gso packet
++ */
+ static bool is_inline(int inline_thold, const struct sk_buff *skb,
+ 		      const struct skb_shared_info *shinfo,
+ 		      void **pfrag)
  {
- 	struct mlx4_wqe_inline_seg *inl = &tx_desc->inl;
- 	int spc = MLX4_INLINE_ALIGN - CTRL_SIZE - sizeof *inl;
-+	unsigned int hlen = skb_headlen(skb);
+ 	void *ptr;
  
- 	if (skb->len <= spc) {
- 		if (likely(skb->len >= MIN_PKT_LEN)) {
-@@ -621,19 +622,19 @@ static void build_inline_wqe(struct mlx4_en_tx_desc *tx_desc,
- 			memset(((void *)(inl + 1)) + skb->len, 0,
- 			       MIN_PKT_LEN - skb->len);
+-	if (inline_thold && !skb_is_gso(skb) && skb->len <= inline_thold) {
+-		if (shinfo->nr_frags == 1) {
+-			ptr = skb_frag_address_safe(&shinfo->frags[0]);
+-			if (unlikely(!ptr))
+-				return 0;
+-
+-			if (pfrag)
+-				*pfrag = ptr;
++	if (skb->len > inline_thold || !inline_thold)
++		return false;
+ 
+-			return 1;
+-		} else if (unlikely(shinfo->nr_frags))
+-			return 0;
+-		else
+-			return 1;
++	if (shinfo->nr_frags == 1) {
++		ptr = skb_frag_address_safe(&shinfo->frags[0]);
++		if (unlikely(!ptr))
++			return false;
++		*pfrag = ptr;
++		return true;
+ 	}
+-
+-	return 0;
++	if (shinfo->nr_frags)
++		return false;
++	return true;
+ }
+ 
+ static int inline_size(const struct sk_buff *skb)
+@@ -570,12 +573,15 @@ static int inline_size(const struct sk_buff *skb)
+ static int get_real_size(const struct sk_buff *skb,
+ 			 const struct skb_shared_info *shinfo,
+ 			 struct net_device *dev,
+-			 int *lso_header_size)
++			 int *lso_header_size,
++			 bool *inline_ok,
++			 void **pfrag)
+ {
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
+ 	int real_size;
+ 
+ 	if (shinfo->gso_size) {
++		*inline_ok = false;
+ 		if (skb->encapsulation)
+ 			*lso_header_size = (skb_inner_transport_header(skb) - skb->data) + inner_tcp_hdrlen(skb);
+ 		else
+@@ -595,10 +601,14 @@ static int get_real_size(const struct sk_buff *skb,
  		}
--		skb_copy_from_linear_data(skb, inl + 1, skb_headlen(skb));
-+		skb_copy_from_linear_data(skb, inl + 1, hlen);
- 		if (shinfo->nr_frags)
--			memcpy(((void *)(inl + 1)) + skb_headlen(skb), fragptr,
-+			memcpy(((void *)(inl + 1)) + hlen, fragptr,
- 			       skb_frag_size(&shinfo->frags[0]));
- 
  	} else {
- 		inl->byte_count = cpu_to_be32(1 << 31 | spc);
--		if (skb_headlen(skb) <= spc) {
--			skb_copy_from_linear_data(skb, inl + 1, skb_headlen(skb));
--			if (skb_headlen(skb) < spc) {
--				memcpy(((void *)(inl + 1)) + skb_headlen(skb),
--					fragptr, spc - skb_headlen(skb));
--				fragptr +=  spc - skb_headlen(skb);
-+		if (hlen <= spc) {
-+			skb_copy_from_linear_data(skb, inl + 1, hlen);
-+			if (hlen < spc) {
-+				memcpy(((void *)(inl + 1)) + hlen,
-+				       fragptr, spc - hlen);
-+				fragptr +=  spc - hlen;
- 			}
- 			inl = (void *) (inl + 1) + spc;
- 			memcpy(((void *)(inl + 1)), fragptr, skb->len - spc);
-@@ -641,9 +642,9 @@ static void build_inline_wqe(struct mlx4_en_tx_desc *tx_desc,
- 			skb_copy_from_linear_data(skb, inl + 1, spc);
- 			inl = (void *) (inl + 1) + spc;
- 			skb_copy_from_linear_data_offset(skb, spc, inl + 1,
--					skb_headlen(skb) - spc);
-+							 hlen - spc);
- 			if (shinfo->nr_frags)
--				memcpy(((void *)(inl + 1)) + skb_headlen(skb) - spc,
-+				memcpy(((void *)(inl + 1)) + hlen - spc,
- 				       fragptr,
- 				       skb_frag_size(&shinfo->frags[0]));
+ 		*lso_header_size = 0;
+-		if (!is_inline(priv->prof->inline_thold, skb, shinfo, NULL))
+-			real_size = CTRL_SIZE + (shinfo->nr_frags + 1) * DS_SIZE;
+-		else
++		*inline_ok = is_inline(priv->prof->inline_thold, skb,
++				       shinfo, pfrag);
++
++		if (*inline_ok)
+ 			real_size = inline_size(skb);
++		else
++			real_size = CTRL_SIZE +
++				    (shinfo->nr_frags + 1) * DS_SIZE;
+ 	}
+ 
+ 	return real_size;
+@@ -694,9 +704,10 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	u16 vlan_tag = 0;
+ 	int i_frag;
+ 	int lso_header_size;
+-	void *fragptr;
++	void *fragptr = NULL;
+ 	bool bounce = false;
+ 	bool send_doorbell;
++	bool inline_ok;
+ 	u32 ring_cons;
+ 
+ 	if (!priv->port_up)
+@@ -708,7 +719,8 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	/* fetch ring->cons far ahead before needing it to avoid stall */
+ 	ring_cons = ACCESS_ONCE(ring->cons);
+ 
+-	real_size = get_real_size(skb, shinfo, dev, &lso_header_size);
++	real_size = get_real_size(skb, shinfo, dev, &lso_header_size,
++				  &inline_ok, &fragptr);
+ 	if (unlikely(!real_size))
+ 		goto tx_drop;
+ 
+@@ -781,15 +793,15 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	/* valid only for none inline segments */
+ 	tx_info->data_offset = (void *)data - (void *)tx_desc;
+ 
++	tx_info->inl = inline_ok;
++
+ 	tx_info->linear = (lso_header_size < skb_headlen(skb) &&
+-			   !is_inline(ring->inline_thold, skb, shinfo, NULL)) ? 1 : 0;
++			   !inline_ok) ? 1 : 0;
+ 
+ 	tx_info->nr_maps = shinfo->nr_frags + tx_info->linear;
+ 	data += tx_info->nr_maps - 1;
+ 
+-	if (is_inline(ring->inline_thold, skb, shinfo, &fragptr)) {
+-		tx_info->inl = 1;
+-	} else {
++	if (!tx_info->inl) {
+ 		dma_addr_t dma = 0;
+ 		u32 byte_count = 0;
+ 
+@@ -827,7 +839,6 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 			wmb();
+ 			data->byte_count = cpu_to_be32(byte_count);
  		}
+-		tx_info->inl = 0;
+ 		/* tx completion can avoid cache line miss for common cases */
+ 		tx_info->map0_dma = dma;
+ 		tx_info->map0_byte_count = byte_count;
+@@ -899,11 +910,9 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	netdev_tx_sent_queue(ring->tx_queue, tx_info->nr_bytes);
+ 	AVG_PERF_COUNTER(priv->pstats.tx_pktsz_avg, skb->len);
+ 
+-	if (tx_info->inl) {
++	if (tx_info->inl)
+ 		build_inline_wqe(tx_desc, skb, shinfo, real_size, &vlan_tag,
+ 				 tx_ind, fragptr);
+-		tx_info->inl = 1;
+-	}
+ 
+ 	if (skb->encapsulation) {
+ 		struct iphdr *ipv4 = (struct iphdr *)skb_inner_network_header(skb);
 -- 
 1.8.3.1
