@@ -1,119 +1,100 @@
-From: =?UTF-8?q?Lothar=20Wa=C3=9Fmann?= <LW@KARO-electronics.de>
-Subject: [PATCH] net: fec: fix regression on i.MX28 introduced by rx_copybreak support
-Date: Tue,  7 Oct 2014 15:19:37 +0200
-Message-ID: <1412687977-11742-1-git-send-email-LW@KARO-electronics.de>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] net: fec: fix regression on i.MX28 introduced by
+ rx_copybreak support
+Date: Tue, 7 Oct 2014 13:31:01 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D174C6025@AcuExch.aculab.com>
+References: <1412687977-11742-1-git-send-email-LW@KARO-electronics.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Russell King <rmk+kernel@arm.linux.org.uk>,
 	Frank Li <Frank.Li@freescale.com>,
-	Fabio Estevam <fabio.estevam@freescale.com>,
-	linux-kernel@vger.kernel.org,
-	=?UTF-8?q?Lothar=20Wa=C3=9Fmann?= <LW@KARO-electronics.de>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	"Fabio Estevam" <fabio.estevam@freescale.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: =?utf-8?B?J0xvdGhhciBXYcOfbWFubic=?= <LW@KARO-electronics.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:48591 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752368AbaJGNcc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Oct 2014 09:32:32 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 24736-03 for <netdev@vger.kernel.org>;
+ Tue,  7 Oct 2014 14:32:22 +0100 (BST)
+In-Reply-To: <1412687977-11742-1-git-send-email-LW@KARO-electronics.de>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-commit 1b7bde6d659d ("net: fec: implement rx_copybreak to improve rx pe=
-rformance")
-introduced a regression for i.MX28. The swap_buffer() function doing
-the endian conversion of the received data on i.MX28 may access memory
-beyond the actual packet size in the DMA buffer. fec_enet_copybreak()
-does not copy those bytes, so that the last bytes of a packet may be
-filled with invalid data after swapping.
-This will likely lead to checksum errors on received packets.
-E.g. when trying to mount an NFS rootfs:
-UDP: bad checksum. From 192.168.1.225:111 to 192.168.100.73:44662 ulen =
-36
-
-Do the byte swapping and copying to the new skb in one go if
-necessary.
-
-Signed-off-by: Lothar Wa=C3=9Fmann <LW@KARO-electronics.de>
----
- drivers/net/ethernet/freescale/fec_main.c |   25 +++++++++++++++++++++=
-----
- 1 file changed, 21 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/et=
-hernet/freescale/fec_main.c
-index 87975b5..eaaebad 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -339,6 +339,18 @@ static void *swap_buffer(void *bufaddr, int len)
- 	return bufaddr;
- }
-=20
-+static void *swap_buffer2(void *dst_buf, void *src_buf, int len)
-+{
-+	int i;
-+	unsigned int *src =3D src_buf;
-+	unsigned int *dst =3D dst_buf;
-+
-+	for (i =3D 0; i < DIV_ROUND_UP(len, 4); i++, src++, dst++)
-+		*dst =3D cpu_to_be32(*src);
-+
-+	return dst_buf;
-+}
-+
- static void fec_dump(struct net_device *ndev)
- {
- 	struct fec_enet_private *fep =3D netdev_priv(ndev);
-@@ -1348,7 +1360,7 @@ fec_enet_new_rxbdp(struct net_device *ndev, struc=
-t bufdesc *bdp, struct sk_buff
- }
-=20
- static bool fec_enet_copybreak(struct net_device *ndev, struct sk_buff=
- **skb,
--			       struct bufdesc *bdp, u32 length)
-+			       struct bufdesc *bdp, u32 length, int swap)
- {
- 	struct  fec_enet_private *fep =3D netdev_priv(ndev);
- 	struct sk_buff *new_skb;
-@@ -1363,7 +1375,10 @@ static bool fec_enet_copybreak(struct net_device=
- *ndev, struct sk_buff **skb,
- 	dma_sync_single_for_cpu(&fep->pdev->dev, bdp->cbd_bufaddr,
- 				FEC_ENET_RX_FRSIZE - fep->rx_align,
- 				DMA_FROM_DEVICE);
--	memcpy(new_skb->data, (*skb)->data, length);
-+	if (!swap)
-+		memcpy(new_skb->data, (*skb)->data, length);
-+	else
-+		swap_buffer2(new_skb->data, (*skb)->data, length);
- 	*skb =3D new_skb;
-=20
- 	return true;
-@@ -1393,6 +1408,7 @@ fec_enet_rx_queue(struct net_device *ndev, int bu=
-dget, u16 queue_id)
- 	u16	vlan_tag;
- 	int	index =3D 0;
- 	bool	is_copybreak;
-+	bool need_swap =3D id_entry->driver_data & FEC_QUIRK_SWAP_FRAME;
-=20
- #ifdef CONFIG_M532x
- 	flush_cache_all();
-@@ -1456,7 +1472,8 @@ fec_enet_rx_queue(struct net_device *ndev, int bu=
-dget, u16 queue_id)
- 		 * include that when passing upstream as it messes up
- 		 * bridging applications.
- 		 */
--		is_copybreak =3D fec_enet_copybreak(ndev, &skb, bdp, pkt_len - 4);
-+		is_copybreak =3D fec_enet_copybreak(ndev, &skb, bdp, pkt_len - 4,
-+						  need_swap);
- 		if (!is_copybreak) {
- 			skb_new =3D netdev_alloc_skb(ndev, FEC_ENET_RX_FRSIZE);
- 			if (unlikely(!skb_new)) {
-@@ -1471,7 +1488,7 @@ fec_enet_rx_queue(struct net_device *ndev, int bu=
-dget, u16 queue_id)
- 		prefetch(skb->data - NET_IP_ALIGN);
- 		skb_put(skb, pkt_len - 4);
- 		data =3D skb->data;
--		if (id_entry->driver_data & FEC_QUIRK_SWAP_FRAME)
-+		if (!is_copybreak && need_swap)
- 			swap_buffer(data, pkt_len);
-=20
- 		/* Extract the enhanced buffer descriptor */
---=20
-1.7.10.4
+RnJvbTogTG90aGFyIFdhw59tYW5uDQo+IGNvbW1pdCAxYjdiZGU2ZDY1OWQgKCJuZXQ6IGZlYzog
+aW1wbGVtZW50IHJ4X2NvcHlicmVhayB0byBpbXByb3ZlIHJ4IHBlcmZvcm1hbmNlIikNCj4gaW50
+cm9kdWNlZCBhIHJlZ3Jlc3Npb24gZm9yIGkuTVgyOC4gVGhlIHN3YXBfYnVmZmVyKCkgZnVuY3Rp
+b24gZG9pbmcNCj4gdGhlIGVuZGlhbiBjb252ZXJzaW9uIG9mIHRoZSByZWNlaXZlZCBkYXRhIG9u
+IGkuTVgyOCBtYXkgYWNjZXNzIG1lbW9yeQ0KPiBiZXlvbmQgdGhlIGFjdHVhbCBwYWNrZXQgc2l6
+ZSBpbiB0aGUgRE1BIGJ1ZmZlci4gZmVjX2VuZXRfY29weWJyZWFrKCkNCj4gZG9lcyBub3QgY29w
+eSB0aG9zZSBieXRlcywgc28gdGhhdCB0aGUgbGFzdCBieXRlcyBvZiBhIHBhY2tldCBtYXkgYmUN
+Cj4gZmlsbGVkIHdpdGggaW52YWxpZCBkYXRhIGFmdGVyIHN3YXBwaW5nLg0KPiBUaGlzIHdpbGwg
+bGlrZWx5IGxlYWQgdG8gY2hlY2tzdW0gZXJyb3JzIG9uIHJlY2VpdmVkIHBhY2tldHMuDQo+IEUu
+Zy4gd2hlbiB0cnlpbmcgdG8gbW91bnQgYW4gTkZTIHJvb3RmczoNCj4gVURQOiBiYWQgY2hlY2tz
+dW0uIEZyb20gMTkyLjE2OC4xLjIyNToxMTEgdG8gMTkyLjE2OC4xMDAuNzM6NDQ2NjIgdWxlbiAz
+Ng0KPiANCj4gRG8gdGhlIGJ5dGUgc3dhcHBpbmcgYW5kIGNvcHlpbmcgdG8gdGhlIG5ldyBza2Ig
+aW4gb25lIGdvIGlmDQo+IG5lY2Vzc2FyeS4NCg0KSVNUTSB0aGF0IGlmIHlvdSBuZWVkIHRvIGRv
+IHRoZSAnc3dhcCcgeW91IHNob3VsZCBjb3B5IHRoZSBkYXRhIHJlZ2FyZGxlc3MNCm9mIHRoZSBs
+ZW5ndGguDQoNCglEYXZpZA0KDQo+IA0KPiBTaWduZWQtb2ZmLWJ5OiBMb3RoYXIgV2FtYW5uIDxM
+V0BLQVJPLWVsZWN0cm9uaWNzLmRlPg0KPiAtLS0NCj4gIGRyaXZlcnMvbmV0L2V0aGVybmV0L2Zy
+ZWVzY2FsZS9mZWNfbWFpbi5jIHwgICAyNSArKysrKysrKysrKysrKysrKysrKystLS0tDQo+ICAx
+IGZpbGUgY2hhbmdlZCwgMjEgaW5zZXJ0aW9ucygrKSwgNCBkZWxldGlvbnMoLSkNCj4gDQo+IGRp
+ZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZmVjX21haW4uYyBiL2Ry
+aXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mZWNfbWFpbi5jDQo+IGluZGV4IDg3OTc1YjUu
+LmVhYWViYWQgMTAwNjQ0DQo+IC0tLSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9m
+ZWNfbWFpbi5jDQo+ICsrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mZWNfbWFp
+bi5jDQo+IEBAIC0zMzksNiArMzM5LDE4IEBAIHN0YXRpYyB2b2lkICpzd2FwX2J1ZmZlcih2b2lk
+ICpidWZhZGRyLCBpbnQgbGVuKQ0KPiAgCXJldHVybiBidWZhZGRyOw0KPiAgfQ0KPiANCj4gK3N0
+YXRpYyB2b2lkICpzd2FwX2J1ZmZlcjIodm9pZCAqZHN0X2J1Ziwgdm9pZCAqc3JjX2J1ZiwgaW50
+IGxlbikNCj4gK3sNCj4gKwlpbnQgaTsNCj4gKwl1bnNpZ25lZCBpbnQgKnNyYyA9IHNyY19idWY7
+DQo+ICsJdW5zaWduZWQgaW50ICpkc3QgPSBkc3RfYnVmOw0KPiArDQo+ICsJZm9yIChpID0gMDsg
+aSA8IERJVl9ST1VORF9VUChsZW4sIDQpOyBpKyssIHNyYysrLCBkc3QrKykNCj4gKwkJKmRzdCA9
+IGNwdV90b19iZTMyKCpzcmMpOw0KPiArDQo+ICsJcmV0dXJuIGRzdF9idWY7DQo+ICt9DQo+ICsN
+Cj4gIHN0YXRpYyB2b2lkIGZlY19kdW1wKHN0cnVjdCBuZXRfZGV2aWNlICpuZGV2KQ0KPiAgew0K
+PiAgCXN0cnVjdCBmZWNfZW5ldF9wcml2YXRlICpmZXAgPSBuZXRkZXZfcHJpdihuZGV2KTsNCj4g
+QEAgLTEzNDgsNyArMTM2MCw3IEBAIGZlY19lbmV0X25ld19yeGJkcChzdHJ1Y3QgbmV0X2Rldmlj
+ZSAqbmRldiwgc3RydWN0IGJ1ZmRlc2MgKmJkcCwgc3RydWN0IHNrX2J1ZmYNCj4gIH0NCj4gDQo+
+ICBzdGF0aWMgYm9vbCBmZWNfZW5ldF9jb3B5YnJlYWsoc3RydWN0IG5ldF9kZXZpY2UgKm5kZXYs
+IHN0cnVjdCBza19idWZmICoqc2tiLA0KPiAtCQkJICAgICAgIHN0cnVjdCBidWZkZXNjICpiZHAs
+IHUzMiBsZW5ndGgpDQo+ICsJCQkgICAgICAgc3RydWN0IGJ1ZmRlc2MgKmJkcCwgdTMyIGxlbmd0
+aCwgaW50IHN3YXApDQo+ICB7DQo+ICAJc3RydWN0ICBmZWNfZW5ldF9wcml2YXRlICpmZXAgPSBu
+ZXRkZXZfcHJpdihuZGV2KTsNCj4gIAlzdHJ1Y3Qgc2tfYnVmZiAqbmV3X3NrYjsNCj4gQEAgLTEz
+NjMsNyArMTM3NSwxMCBAQCBzdGF0aWMgYm9vbCBmZWNfZW5ldF9jb3B5YnJlYWsoc3RydWN0IG5l
+dF9kZXZpY2UgKm5kZXYsIHN0cnVjdCBza19idWZmICoqc2tiLA0KPiAgCWRtYV9zeW5jX3Npbmds
+ZV9mb3JfY3B1KCZmZXAtPnBkZXYtPmRldiwgYmRwLT5jYmRfYnVmYWRkciwNCj4gIAkJCQlGRUNf
+RU5FVF9SWF9GUlNJWkUgLSBmZXAtPnJ4X2FsaWduLA0KPiAgCQkJCURNQV9GUk9NX0RFVklDRSk7
+DQo+IC0JbWVtY3B5KG5ld19za2ItPmRhdGEsICgqc2tiKS0+ZGF0YSwgbGVuZ3RoKTsNCj4gKwlp
+ZiAoIXN3YXApDQo+ICsJCW1lbWNweShuZXdfc2tiLT5kYXRhLCAoKnNrYiktPmRhdGEsIGxlbmd0
+aCk7DQo+ICsJZWxzZQ0KPiArCQlzd2FwX2J1ZmZlcjIobmV3X3NrYi0+ZGF0YSwgKCpza2IpLT5k
+YXRhLCBsZW5ndGgpOw0KPiAgCSpza2IgPSBuZXdfc2tiOw0KPiANCj4gIAlyZXR1cm4gdHJ1ZTsN
+Cj4gQEAgLTEzOTMsNiArMTQwOCw3IEBAIGZlY19lbmV0X3J4X3F1ZXVlKHN0cnVjdCBuZXRfZGV2
+aWNlICpuZGV2LCBpbnQgYnVkZ2V0LCB1MTYgcXVldWVfaWQpDQo+ICAJdTE2CXZsYW5fdGFnOw0K
+PiAgCWludAlpbmRleCA9IDA7DQo+ICAJYm9vbAlpc19jb3B5YnJlYWs7DQo+ICsJYm9vbCBuZWVk
+X3N3YXAgPSBpZF9lbnRyeS0+ZHJpdmVyX2RhdGEgJiBGRUNfUVVJUktfU1dBUF9GUkFNRTsNCj4g
+DQo+ICAjaWZkZWYgQ09ORklHX001MzJ4DQo+ICAJZmx1c2hfY2FjaGVfYWxsKCk7DQo+IEBAIC0x
+NDU2LDcgKzE0NzIsOCBAQCBmZWNfZW5ldF9yeF9xdWV1ZShzdHJ1Y3QgbmV0X2RldmljZSAqbmRl
+diwgaW50IGJ1ZGdldCwgdTE2IHF1ZXVlX2lkKQ0KPiAgCQkgKiBpbmNsdWRlIHRoYXQgd2hlbiBw
+YXNzaW5nIHVwc3RyZWFtIGFzIGl0IG1lc3NlcyB1cA0KPiAgCQkgKiBicmlkZ2luZyBhcHBsaWNh
+dGlvbnMuDQo+ICAJCSAqLw0KPiAtCQlpc19jb3B5YnJlYWsgPSBmZWNfZW5ldF9jb3B5YnJlYWso
+bmRldiwgJnNrYiwgYmRwLCBwa3RfbGVuIC0gNCk7DQo+ICsJCWlzX2NvcHlicmVhayA9IGZlY19l
+bmV0X2NvcHlicmVhayhuZGV2LCAmc2tiLCBiZHAsIHBrdF9sZW4gLSA0LA0KPiArCQkJCQkJICBu
+ZWVkX3N3YXApOw0KPiAgCQlpZiAoIWlzX2NvcHlicmVhaykgew0KPiAgCQkJc2tiX25ldyA9IG5l
+dGRldl9hbGxvY19za2IobmRldiwgRkVDX0VORVRfUlhfRlJTSVpFKTsNCj4gIAkJCWlmICh1bmxp
+a2VseSghc2tiX25ldykpIHsNCj4gQEAgLTE0NzEsNyArMTQ4OCw3IEBAIGZlY19lbmV0X3J4X3F1
+ZXVlKHN0cnVjdCBuZXRfZGV2aWNlICpuZGV2LCBpbnQgYnVkZ2V0LCB1MTYgcXVldWVfaWQpDQo+
+ICAJCXByZWZldGNoKHNrYi0+ZGF0YSAtIE5FVF9JUF9BTElHTik7DQo+ICAJCXNrYl9wdXQoc2ti
+LCBwa3RfbGVuIC0gNCk7DQo+ICAJCWRhdGEgPSBza2ItPmRhdGE7DQo+IC0JCWlmIChpZF9lbnRy
+eS0+ZHJpdmVyX2RhdGEgJiBGRUNfUVVJUktfU1dBUF9GUkFNRSkNCj4gKwkJaWYgKCFpc19jb3B5
+YnJlYWsgJiYgbmVlZF9zd2FwKQ0KPiAgCQkJc3dhcF9idWZmZXIoZGF0YSwgcGt0X2xlbik7DQo+
+IA0KPiAgCQkvKiBFeHRyYWN0IHRoZSBlbmhhbmNlZCBidWZmZXIgZGVzY3JpcHRvciAqLw0KPiAt
+LQ0KPiAxLjcuMTAuNA0KPiANCj4gLS0NCj4gVG8gdW5zdWJzY3JpYmUgZnJvbSB0aGlzIGxpc3Q6
+IHNlbmQgdGhlIGxpbmUgInVuc3Vic2NyaWJlIG5ldGRldiIgaW4NCj4gdGhlIGJvZHkgb2YgYSBt
+ZXNzYWdlIHRvIG1ham9yZG9tb0B2Z2VyLmtlcm5lbC5vcmcNCj4gTW9yZSBtYWpvcmRvbW8gaW5m
+byBhdCAgaHR0cDovL3ZnZXIua2VybmVsLm9yZy9tYWpvcmRvbW8taW5mby5odG1sDQo=
