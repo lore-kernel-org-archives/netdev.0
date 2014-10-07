@@ -1,45 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Quota in __qdisc_run()
-Date: Tue, 07 Oct 2014 13:19:38 -0400 (EDT)
-Message-ID: <20141007.131938.1410434352331637585.davem@davemloft.net>
-References: <20141007153050.792c9743@redhat.com>
-	<1412693013.4140057.176149461.0FBF6CBD@webmail.messagingengine.com>
-	<1412694080.11091.131.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH net-next] net/mlx4_en: remove NETDEV_TX_BUSY
+Date: Tue, 07 Oct 2014 13:21:02 -0400 (EDT)
+Message-ID: <20141007.132102.2147742408943394634.davem@davemloft.net>
+References: <1412599904.11091.66.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1412613035.11091.72.camel@edumazet-glaptop2.roam.corp.google.com>
+	<5433A48E.1040505@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hannes@stressinduktion.org, brouer@redhat.com,
-	netdev@vger.kernel.org, therbert@google.com, fw@strlen.de,
-	dborkman@redhat.com, jhs@mojatatu.com, alexander.duyck@gmail.com,
-	john.r.fastabend@intel.com, dave.taht@gmail.com, toke@toke.dk
-To: eric.dumazet@gmail.com
+Cc: eric.dumazet@gmail.com, edumazet@google.com,
+	netdev@vger.kernel.org, yevgenyp@mellanox.com,
+	ogerlitz@mellanox.com, idos@mellanox.com
+To: amirv@mellanox.com, amirv.mellanox@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46607 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:46626 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752709AbaJGRTm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2014 13:19:42 -0400
-In-Reply-To: <1412694080.11091.131.camel@edumazet-glaptop2.roam.corp.google.com>
+	with ESMTP id S1754371AbaJGRVF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2014 13:21:05 -0400
+In-Reply-To: <5433A48E.1040505@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 07 Oct 2014 08:01:20 -0700
+From: Amir Vadai <amirv.mellanox@gmail.com>
+Date: Tue, 07 Oct 2014 11:30:06 +0300
 
-> On Tue, 2014-10-07 at 16:43 +0200, Hannes Frederic Sowa wrote:
-> 
->> This needs to be:
+> On 10/6/2014 7:30 PM, Eric Dumazet wrote:
+>> From: Eric Dumazet <edumazet@google.com>
 >> 
->> do
->>    ...
->> while ((iskb = iskb->next))
+>> Drivers should avoid NETDEV_TX_BUSY as much as possible.
+>> 
+>> They should stop the tx queue before qdisc even tries to push another
+>> packet, to avoid requeues.
+>> 
+>> For a driver supporting skb->xmit_more, this is likely to be a prereq
+>> anyway, otherwise we could have a tx deadlock : We need to force a
+>> doorbell if TX ring is full.
+>> 
+>> Signed-off-by: Eric Dumazet <edumazet@google.com>
+>> ---
 > 
-> I do not feel needed to break the bulk dequeue at precise quota
-> boundary. These quotas are advisory, and bql prefers to get its full
-> budget for appropriate feedback from TX completion.
+> Reviewed. Also verified that it fixes the deadlock (by sending a large
+> burst - larger than ring size). Before this fix, last packet of the
+> burst wasn't sent, therefore no doorbell was rang, and the queue was
+> stalled.
 > 
-> Quota was a packet quota, which was quite irrelevant if segmentation had
-> to be done, so I would just let the dequeue be done so that we benefit
-> from optimal xmit_more.
+> BTW, another nice optimization that we hope to send soon, is not to arm
+> the CQ unless ringing the doorbell.
+> 
+> Acked-by: Amir Vadai <amirv@mellanox.com>
 
-Yes, this makes sense, do a full qdisc_restart() cycle without boundaries,
-then check how much quota was used afterwards to guard the outermost loop.
+Applied, thanks everyone.
