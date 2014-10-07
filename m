@@ -1,63 +1,142 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH] net: Add ndo_gso_check
-Date: Tue, 7 Oct 2014 11:15:32 -0700
-Message-ID: <CAADnVQL_6tEhgQE9aCLe-icG4pyS1dMECGhiQ7+OHEao1GXk3g@mail.gmail.com>
-References: <CAADnVQLkWrjN=MgtU_8zBrGFW1eJd01hd6BM_m9iOq=ypHvSLQ@mail.gmail.com>
-	<1412702616.11091.143.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Tom Herbert <therbert@google.com>, Jesse Gross <jesse@nicira.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Thomas Graf <tgraf@suug.ch>,
-	Pravin Shelar <pshelar@nicira.com>,
-	Andy Zhou <azhou@nicira.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: [PATCH net-next v2 1/1] tipc: fix bug in multicast congestion handling
+Date: Tue,  7 Oct 2014 14:12:34 -0400
+Message-ID: <1412705554-24252-1-git-send-email-jon.maloy@ericsson.com>
+Cc: netdev@vger.kernel.org,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
+	tipc-discussion@lists.sourceforge.net,
+	Jon Maloy <jon.maloy@ericsson.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f182.google.com ([209.85.216.182]:61048 "EHLO
-	mail-qc0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754601AbaJGSPd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2014 14:15:33 -0400
-Received: by mail-qc0-f182.google.com with SMTP id i17so6357574qcy.13
-        for <netdev@vger.kernel.org>; Tue, 07 Oct 2014 11:15:32 -0700 (PDT)
-In-Reply-To: <1412702616.11091.143.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from smtp104.biz.mail.bf1.yahoo.com ([98.139.221.63]:34742 "EHLO
+	smtp104.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754618AbaJGSTS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2014 14:19:18 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 7, 2014 at 10:23 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Tue, 2014-10-07 at 09:50 -0700, Alexei Starovoitov wrote:
->
->> it's definitely more difficult to properly implement
->> CHECKSUM_UNNECESSARY in HW, but it's worth it.
->> CHECKSUM_COMPLETE is a burden on software. Old NICs
->> used to do that, but overhead of recomputing csum for every
->> step of packet parsing and header modifications is too high.
->> sw routers, bridges and < L4 networking devices are
->> simpler and faster with CHECKSUM_UNNECESSARY.
->
-> Really this is wrong. Once you validated/pulled a header,
-> adjusting the complete checksum is in the order of 10 cycles or so,
-> ie less than 1% of the other costs.
+One aim of commit 50100a5e39461b2a61d6040e73c384766c29975d ("tipc:
+use pseudo message to wake up sockets after link congestion") was
+to handle link congestion abatement in a uniform way for both unicast
+and multicast transmit. However, the latter doesn't work correctly,
+and has been broken since the referenced commit was applied.
 
-correct, but there is also postpull() cost for every pull.
-and there are many of them for encapsulated traffic.
-It's small, but it's not zero.
+If a user now sends a burst of multicast messages that is big
+enough to cause broadcast link congestion, it will be put to sleep,
+and not be waked up when the congestion abates as it should be.
 
-> UNNECESSARY usually requests complex NIC firmware, and usually the NIC
-> has fewer cores than the host.
->
-> It mostly worked for basic IP+TCP kind of traffic, but once you want
-> complex cloud models, it is a major pain.
->
-> If we need to optimize csum_partial() for short lengths, lets do it,
-> instead of pushing hardware vendors adding more and more schemes.
+This has two reasons. First, the flag that is used, TIPC_WAKEUP_USERS,
+is set correctly, but in the wrong field. Instead of setting it in the
+'action_flags' field of the arrival node struct, it is by mistake set
+in the dummy node struct that is owned by the broadcast link, where it
+will never tested for. Second, we cannot use the same flag for waking
+up unicast and multicast users, since the function tipc_node_unlock()
+needs to pick the wakeup pseudo messages to deliver from different
+queues. It must hence be able to distinguish between the two cases.
 
-csum_partial() is in asm already. probably not much more can be squeezed.
-I'm not suggesting that NICs must always do UNNECESSARY.
-COMPLETE is a low bar which is magnitude better than NONE,
-but if HW has programmable parser it should be able to take advantage
-of it and UNNECESSARY is an established model.
+This commit solves this problem by adding a new flag
+TIPC_WAKEUP_BCAST_USERS, and a new function tipc_bclink_wakeup_user().
+The latter is to be called by tipc_node_unlock() when the named flag,
+now set in the correct field, is encountered.
+
+v2: using explicit 'unsigned int' declaration instead of 'uint', as
+per comment from David Miller.
+
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+---
+ net/tipc/bcast.c | 14 +++++++++++++-
+ net/tipc/bcast.h |  2 +-
+ net/tipc/node.c  |  5 +++++
+ net/tipc/node.h  |  3 ++-
+ 4 files changed, 21 insertions(+), 3 deletions(-)
+
+diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
+index b2bbe69..b8670bf 100644
+--- a/net/tipc/bcast.c
++++ b/net/tipc/bcast.c
+@@ -226,6 +226,17 @@ static void bclink_retransmit_pkt(u32 after, u32 to)
+ }
+ 
+ /**
++ * tipc_bclink_wakeup_users - wake up pending users
++ *
++ * Called with no locks taken
++ */
++void tipc_bclink_wakeup_users(void)
++{
++	while (skb_queue_len(&bclink->link.waiting_sks))
++		tipc_sk_rcv(skb_dequeue(&bclink->link.waiting_sks));
++}
++
++/**
+  * tipc_bclink_acknowledge - handle acknowledgement of broadcast packets
+  * @n_ptr: node that sent acknowledgement info
+  * @acked: broadcast sequence # that has been acknowledged
+@@ -300,7 +311,8 @@ void tipc_bclink_acknowledge(struct tipc_node *n_ptr, u32 acked)
+ 		bclink_set_last_sent();
+ 	}
+ 	if (unlikely(released && !skb_queue_empty(&bcl->waiting_sks)))
+-		bclink->node.action_flags |= TIPC_WAKEUP_USERS;
++		n_ptr->action_flags |= TIPC_WAKEUP_BCAST_USERS;
++
+ exit:
+ 	tipc_bclink_unlock();
+ }
+diff --git a/net/tipc/bcast.h b/net/tipc/bcast.h
+index 4875d95..e7b0f85 100644
+--- a/net/tipc/bcast.h
++++ b/net/tipc/bcast.h
+@@ -99,5 +99,5 @@ int  tipc_bclink_set_queue_limits(u32 limit);
+ void tipc_bcbearer_sort(struct tipc_node_map *nm_ptr, u32 node, bool action);
+ uint  tipc_bclink_get_mtu(void);
+ int tipc_bclink_xmit(struct sk_buff *buf);
+-
++void tipc_bclink_wakeup_users(void);
+ #endif
+diff --git a/net/tipc/node.c b/net/tipc/node.c
+index 17e6378..90cee4a 100644
+--- a/net/tipc/node.c
++++ b/net/tipc/node.c
+@@ -552,6 +552,7 @@ void tipc_node_unlock(struct tipc_node *node)
+ 	LIST_HEAD(conn_sks);
+ 	struct sk_buff_head waiting_sks;
+ 	u32 addr = 0;
++	unsigned int flags = node->action_flags;
+ 
+ 	if (likely(!node->action_flags)) {
+ 		spin_unlock_bh(&node->lock);
+@@ -572,6 +573,7 @@ void tipc_node_unlock(struct tipc_node *node)
+ 		node->action_flags &= ~TIPC_NOTIFY_NODE_UP;
+ 		addr = node->addr;
+ 	}
++	node->action_flags &= ~TIPC_WAKEUP_BCAST_USERS;
+ 	spin_unlock_bh(&node->lock);
+ 
+ 	while (!skb_queue_empty(&waiting_sks))
+@@ -583,6 +585,9 @@ void tipc_node_unlock(struct tipc_node *node)
+ 	if (!list_empty(&nsub_list))
+ 		tipc_nodesub_notify(&nsub_list);
+ 
++	if (flags & TIPC_WAKEUP_BCAST_USERS)
++		tipc_bclink_wakeup_users();
++
+ 	if (addr)
+ 		tipc_named_node_up(addr);
+ }
+diff --git a/net/tipc/node.h b/net/tipc/node.h
+index 522d6f3..67513c3 100644
+--- a/net/tipc/node.h
++++ b/net/tipc/node.h
+@@ -59,7 +59,8 @@ enum {
+ 	TIPC_WAIT_OWN_LINKS_DOWN	= (1 << 2),
+ 	TIPC_NOTIFY_NODE_DOWN		= (1 << 3),
+ 	TIPC_NOTIFY_NODE_UP		= (1 << 4),
+-	TIPC_WAKEUP_USERS		= (1 << 5)
++	TIPC_WAKEUP_USERS		= (1 << 5),
++	TIPC_WAKEUP_BCAST_USERS		= (1 << 6)
+ };
+ 
+ /**
+-- 
+1.9.1
