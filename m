@@ -1,60 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH v1 1/3] net: sched: af_packet support for
- direct ring access
-Date: Tue, 07 Oct 2014 12:08:44 -0400 (EDT)
-Message-ID: <20141007.120844.1942274261809860374.davem@davemloft.net>
-References: <063D6719AE5E284EB5DD2968C1650D6D174C5C35@AcuExch.aculab.com>
-	<20141007.114341.1417644866461362364.davem@davemloft.net>
-	<063D6719AE5E284EB5DD2968C1650D6D174C621F@AcuExch.aculab.com>
+From: Petri Gynther <pgynther@google.com>
+Subject: Re: [PATCH net-next] net: bcmgenet: fix Tx ring priority programming
+Date: Tue, 7 Oct 2014 09:09:20 -0700
+Message-ID: <CAGXr9JGL535nJ9SC9iA1P_tt39zA7T672adoWd9GqaqM_jHafA@mail.gmail.com>
+References: <20141007005001.61C1D100BC1@puck.mtv.corp.google.com>
+	<20141006.235926.30933585433924137.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: willemb@google.com, john.fastabend@gmail.com, dborkman@redhat.com,
-	fw@strlen.de, gerlitz.or@gmail.com, hannes@stressinduktion.org,
-	netdev@vger.kernel.org, john.ronciak@intel.com, amirv@mellanox.com,
-	eric.dumazet@gmail.com, danny.zhou@intel.com
-To: David.Laight@ACULAB.COM
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, Florian Fainelli <f.fainelli@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46003 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754078AbaJGQIr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2014 12:08:47 -0400
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D174C621F@AcuExch.aculab.com>
+Received: from mail-vc0-f178.google.com ([209.85.220.178]:56896 "EHLO
+	mail-vc0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754198AbaJGQJV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2014 12:09:21 -0400
+Received: by mail-vc0-f178.google.com with SMTP id hq12so5178444vcb.9
+        for <netdev@vger.kernel.org>; Tue, 07 Oct 2014 09:09:20 -0700 (PDT)
+In-Reply-To: <20141006.235926.30933585433924137.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Laight <David.Laight@ACULAB.COM>
-Date: Tue, 7 Oct 2014 15:59:35 +0000
+Hi David,
 
-> From: David 
->> From: David Laight <David.Laight@ACULAB.COM>
->> Date: Tue, 7 Oct 2014 09:27:03 +0000
->> 
->> > That is (probably) the only scheme that stops the application
->> > accessing random parts of physical memory.
->> 
->> I don't know where this claim keeps coming from, it's false.
->> 
->> The application has to attach memory to the ring, and then the
->> ring can only refer to that memory for the duration of the
->> session.
->> 
->> There is no way that the user can program the address field of the
->> descriptors to point at arbitrary physical memory locations.
->> 
->> There is protection and control.
-> 
-> I got the impression that the application was directly writing the ring
-> structure that the ethernet mac hardware uses to describe tx and rx buffers.
-> (ie they are mapped read-write into userspace).
-> Unless you have a system where you can limit the physical memory
-> ranges accessible to the mac hardware, I don't see how you can stop
-> the application putting rogue values into the ring.
-> 
-> Clearly I'm missing something in my quick read of the change.
+On Mon, Oct 6, 2014 at 8:59 PM, David Miller <davem@davemloft.net> wrote:
+> From: Petri Gynther <pgynther@google.com>
+> Date: Mon,  6 Oct 2014 17:50:01 -0700 (PDT)
+>
+>> @@ -1731,11 +1744,12 @@ static void bcmgenet_init_multiq(struct net_device *dev)
+>>       reg |= ring_cfg;
+>>       bcmgenet_tdma_writel(priv, reg, DMA_RING_CFG);
+>>
+>> -     /* Use configured rings priority and set ring #16 priority */
+>> -     reg = bcmgenet_tdma_readl(priv, DMA_RING_PRIORITY);
+>> -     reg |= ((GENET_Q0_PRIORITY + priv->hw_params->tx_queues) << 20);
+>> -     reg |= dma_priority;
+>> -     bcmgenet_tdma_writel(priv, reg, DMA_PRIORITY);
+>> +     /* Set ring 16 priority and program the hardware registers */
+>> +     dma_priority[2] |=
+>> +             ((GENET_Q0_PRIORITY + priv->hw_params->tx_queues) << 20);
+>
+> Please use "<< (16 - 12) * DMA_RING_BUF_PRIORITY_SHIFT" otherwise this
+> constant is magic.
+>
+> You might, optionally, add macros for the subtraction adjustment each
+> priority register uses (0, 6, 12, respectively).
 
-No, I think I misunderstood, and apparently the Mellanox driver allows
-the user to crap into arbitrary physical memory too.
-
-All of this garbage must get fixed and this feature is a non-starter
-until there is control over the memory the rings can point ti.
+Thanks for the comments. I'm going to simplify this with a few macros.
