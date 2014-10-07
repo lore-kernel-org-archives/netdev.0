@@ -1,32 +1,68 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
 Subject: RE: [PATCH] net: fec: fix regression on i.MX28 introduced by
  rx_copybreak support
-Date: Tue, 07 Oct 2014 07:34:44 -0700
-Message-ID: <1412692484.11091.123.camel@edumazet-glaptop2.roam.corp.google.com>
+Date: Tue, 7 Oct 2014 14:41:49 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D174C6116@AcuExch.aculab.com>
 References: <1412687977-11742-1-git-send-email-LW@KARO-electronics.de>
-	 <063D6719AE5E284EB5DD2968C1650D6D174C6025@AcuExch.aculab.com>
-	 <20141007161702.7cd1e800@ipc1.ka-ro>
-	 <063D6719AE5E284EB5DD2968C1650D6D174C60B1@AcuExch.aculab.com>
+ <1412692034.11091.122.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: 'Lothar =?ISO-8859-1?Q?Wa=DFmann=27?= <LW@KARO-electronics.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"David S. Miller" <davem@davemloft.net>,
 	Russell King <rmk+kernel@arm.linux.org.uk>,
 	Frank Li <Frank.Li@freescale.com>,
 	Fabio Estevam <fabio.estevam@freescale.com>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
+To: 'Eric Dumazet' <eric.dumazet@gmail.com>,
+	=?utf-8?B?TG90aGFyIFdhw59tYW5u?= <LW@KARO-electronics.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D174C60B1@AcuExch.aculab.com>
+In-Reply-To: <1412692034.11091.122.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2014-10-07 at 14:23 +0000, David Laight wrote:
-
-> The point I was making is that if you have to do a read-write of the received
-> data (to byteswap it) then you might as well always copy it into a new skb that
-> is just big enough for the actual receive frame.
-
-+1
+RnJvbTogRXJpYyBEdW1hemV0DQo+IE9uIFR1ZSwgMjAxNC0xMC0wNyBhdCAxNToxOSArMDIwMCwg
+TG90aGFyIFdhbWFubiB3cm90ZToNCj4gPiBjb21taXQgMWI3YmRlNmQ2NTlkICgibmV0OiBmZWM6
+IGltcGxlbWVudCByeF9jb3B5YnJlYWsgdG8gaW1wcm92ZSByeCBwZXJmb3JtYW5jZSIpDQo+ID4g
+aW50cm9kdWNlZCBhIHJlZ3Jlc3Npb24gZm9yIGkuTVgyOC4gVGhlIHN3YXBfYnVmZmVyKCkgZnVu
+Y3Rpb24gZG9pbmcNCj4gPiB0aGUgZW5kaWFuIGNvbnZlcnNpb24gb2YgdGhlIHJlY2VpdmVkIGRh
+dGEgb24gaS5NWDI4IG1heSBhY2Nlc3MgbWVtb3J5DQo+ID4gYmV5b25kIHRoZSBhY3R1YWwgcGFj
+a2V0IHNpemUgaW4gdGhlIERNQSBidWZmZXIuIGZlY19lbmV0X2NvcHlicmVhaygpDQo+ID4gZG9l
+cyBub3QgY29weSB0aG9zZSBieXRlcywgc28gdGhhdCB0aGUgbGFzdCBieXRlcyBvZiBhIHBhY2tl
+dCBtYXkgYmUNCj4gPiBmaWxsZWQgd2l0aCBpbnZhbGlkIGRhdGEgYWZ0ZXIgc3dhcHBpbmcuDQo+
+ID4gVGhpcyB3aWxsIGxpa2VseSBsZWFkIHRvIGNoZWNrc3VtIGVycm9ycyBvbiByZWNlaXZlZCBw
+YWNrZXRzLg0KPiA+IEUuZy4gd2hlbiB0cnlpbmcgdG8gbW91bnQgYW4gTkZTIHJvb3RmczoNCj4g
+PiBVRFA6IGJhZCBjaGVja3N1bS4gRnJvbSAxOTIuMTY4LjEuMjI1OjExMSB0byAxOTIuMTY4LjEw
+MC43Mzo0NDY2MiB1bGVuIDM2DQo+ID4NCj4gPiBEbyB0aGUgYnl0ZSBzd2FwcGluZyBhbmQgY29w
+eWluZyB0byB0aGUgbmV3IHNrYiBpbiBvbmUgZ28gaWYNCj4gPiBuZWNlc3NhcnkuDQo+ID4NCj4g
+PiBTaWduZWQtb2ZmLWJ5OiBMb3RoYXIgV2FtYW5uIDxMV0BLQVJPLWVsZWN0cm9uaWNzLmRlPg0K
+PiA+IC0tLQ0KPiA+ICBkcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZmVjX21haW4uYyB8
+ICAgMjUgKysrKysrKysrKysrKysrKysrKysrLS0tLQ0KPiA+ICAxIGZpbGUgY2hhbmdlZCwgMjEg
+aW5zZXJ0aW9ucygrKSwgNCBkZWxldGlvbnMoLSkNCj4gPg0KPiA+IGRpZmYgLS1naXQgYS9kcml2
+ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZmVjX21haW4uYyBiL2RyaXZlcnMvbmV0L2V0aGVy
+bmV0L2ZyZWVzY2FsZS9mZWNfbWFpbi5jDQo+ID4gaW5kZXggODc5NzViNS4uZWFhZWJhZCAxMDA2
+NDQNCj4gPiAtLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZmVjX21haW4uYw0K
+PiA+ICsrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mZWNfbWFpbi5jDQo+ID4g
+QEAgLTMzOSw2ICszMzksMTggQEAgc3RhdGljIHZvaWQgKnN3YXBfYnVmZmVyKHZvaWQgKmJ1ZmFk
+ZHIsIGludCBsZW4pDQo+ID4gIAlyZXR1cm4gYnVmYWRkcjsNCj4gPiAgfQ0KPiA+DQo+ID4gK3N0
+YXRpYyB2b2lkICpzd2FwX2J1ZmZlcjIodm9pZCAqZHN0X2J1Ziwgdm9pZCAqc3JjX2J1ZiwgaW50
+IGxlbikNCj4gPiArew0KPiA+ICsJaW50IGk7DQo+ID4gKwl1bnNpZ25lZCBpbnQgKnNyYyA9IHNy
+Y19idWY7DQo+ID4gKwl1bnNpZ25lZCBpbnQgKmRzdCA9IGRzdF9idWY7DQo+ID4gKw0KPiA+ICsJ
+Zm9yIChpID0gMDsgaSA8IERJVl9ST1VORF9VUChsZW4sIDQpOyBpKyssIHNyYysrLCBkc3QrKykN
+Cj4gPiArCQkqZHN0ID0gY3B1X3RvX2JlMzIoKnNyYyk7DQo+IA0KPiBObyBuZWVkIGZvciB0aGUg
+RElWIDoNCj4gDQo+IAlmb3IgKGkgPSAwOyBpIDwgbGVuOyBpICs9IHNpemVvZigqZHN0KSwgc3Jj
+KyssIGRzdCsrKQ0KPiAJCSpkc3QgPSBjcHVfdG9fYmUzMigqc3JjKTsNCj4gDQo+IEFsc28gYXJl
+IHlvdSBzdXJlIGJvdGggc3JjL2RzdCBhcmUgYWxpZ25lZCB0byB3b3JkIGJvdW5kYXJpZXMsIG9y
+IGlzDQo+IHRoaXMgYXJjaGl0ZWN0dXJlIE9LIHdpdGggcG9zc2libGUgbWlzYWxpZ25tZW50ID8N
+Cg0KSSB3b25kZXJlZCBhYm91dCB0aGF0IGFzIHdlbGwuDQpJIHdvdWxkbid0IGhhdmUgZXhwZWN0
+ZWQgcHBjIHRvIHN1cHBvcnQgbWlzYWxpZ25lZCB0cmFuc2ZlcnMsIGFuZCB5b3UnZCBhbHNvDQp3
+YW50IHRvIG1ha2Ugc3VyZSB0aGF0IGNwdV90b19iZSgqc3JjKSB3YXMgdXNpbmcgYSBieXRlLXN3
+YXBwaW5nIGluc3RydWN0aW9uLg0KSG1tbS4uLiBjcHVfdG9fYmUoKSBkb2Vzbid0IHNvdW5kIGxp
+a2UgdGhlIHJpZ2h0ICdzd2FwJyBtYWNybyBuYW1lLg0KDQpJdCBsb29rcyBhcyB0aG91Z2ggdGhp
+cyBpcyBwcm9jZXNzaW5nIGFuIGVudGlyZSBldGhlcm5ldCBmcmFtZSwgaW4gd2hpY2gNCmNhc2Ug
+dGhlIGRhdGEgKGRlc3RpbmF0aW9uIGFkZHJlc3MpIHdvdWxkIG5vcm1hbGx5IGJlIG9uIGFuIDRu
+KzIgYm91bmRhcnkuDQpUaGUgdHdvIGJ5dGVzIGJlZm9yZSB0aGUgZGF0YSBjYW4gYmUgc2FmZWx5
+IGNvcGllZCAoYXMgY2FuIHRoZSByb3VuZGluZyBieXRlcyBhdA0KdGhlIGVuZCkgLSBzbyBwcm92
+aWRlZCB0aGUgcG9pbnRlcnMgYWxsb3cgZm9yIHRoaXMgaXQgc2hvdWxkIGJlIGZpbmUuDQpPVE9I
+IEkndmUgTkZJIHdoYXQgdGhlIGFjdHVhbCBkYXRhIGlzLg0KDQoJRGF2aWQNCg0K
