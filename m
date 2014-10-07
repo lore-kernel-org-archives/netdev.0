@@ -1,48 +1,51 @@
-From: "Luis R. Rodriguez" <mcgrof@suse.com>
-Subject: Re: [PATCH v2 7/7] driver-core: add preferred async probe option for
- built-in and modules
-Date: Tue, 7 Oct 2014 12:07:29 -0700
-Message-ID: <CAB=NE6X1zf6JYxiitvoOi-7OcmvhSJyP2oVE4gCF5JgfqhAyQA@mail.gmail.com>
-References: <1412372683-2003-1-git-send-email-mcgrof@do-not-panic.com>
- <1412372683-2003-8-git-send-email-mcgrof@do-not-panic.com>
- <20141006201926.GF18303@htj.dyndns.org> <20141006203627.GZ14081@wotan.suse.de>
- <20141006210118.GG18303@htj.dyndns.org> <20141006231046.GD14081@wotan.suse.de>
- <20141007173404.GB31328@mtj.dyndns.org> <20141007175010.GH14081@wotan.suse.de>
- <20141007175503.GE31328@mtj.dyndns.org> <CAB=NE6V_1yyYPhzbV_yRzt7fg=_8yF2YYNBz4qH_2TbH0nozcw@mail.gmail.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH] net: Add ndo_gso_check
+Date: Tue, 7 Oct 2014 12:10:05 -0700
+Message-ID: <CA+mtBx8cMt1kV6tiEd=iVKsVdZeFif_6vZZ2TDuYZPGmz5XaNw@mail.gmail.com>
+References: <CAADnVQLkWrjN=MgtU_8zBrGFW1eJd01hd6BM_m9iOq=ypHvSLQ@mail.gmail.com>
+	<1412702616.11091.143.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CAADnVQL_6tEhgQE9aCLe-icG4pyS1dMECGhiQ7+OHEao1GXk3g@mail.gmail.com>
+	<20141007.145117.1442458821633299880.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Dmitry Torokhov <dmitry.torokhov@gmail.com>,
-	Takashi Iwai <tiwai@suse.de>,
-	Arjan van de Ven <arjan@linux.intel.com>,
-	Tom Gundersen <teg@jklm.no>,
-	Robert Milasan <rmilasan@suse.com>, werner@suse.com,
-	Oleg Nesterov <oleg@redhat.com>, hare <hare@suse.com>,
-	Benjamin Poirier <bpoirier@suse.de>,
-	Santosh Rastapur <santosh@chelsio.com>,
-	Petr Mladek <pmladek@suse.cz>, dbueso@suse.com,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-	Joseph Salisbury <joseph.salisbury@canonical.com>,
-	Kay Sievers <kay@vrfy.org>,
-	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
-	Tim Gardner <tim.gardner@canonical.com>,
-	Pierre Fersing <pierre-fersing@pierref.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
-	Praveen Krishnam
-To: Tejun Heo <tj@kernel.org>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <CAB=NE6V_1yyYPhzbV_yRzt7fg=_8yF2YYNBz4qH_2TbH0nozcw@mail.gmail.com>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Jesse Gross <jesse@nicira.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Thomas Graf <tgraf@suug.ch>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Andy Zhou <azhou@nicira.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f175.google.com ([209.85.213.175]:55023 "EHLO
+	mail-ig0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753728AbaJGTKG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2014 15:10:06 -0400
+Received: by mail-ig0-f175.google.com with SMTP id uq10so4742226igb.8
+        for <netdev@vger.kernel.org>; Tue, 07 Oct 2014 12:10:05 -0700 (PDT)
+In-Reply-To: <20141007.145117.1442458821633299880.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 7, 2014 at 11:55 AM, Luis R. Rodriguez <mcgrof@suse.com> wrote:
-> OK I'll just kill bus.enable_kern_async=1 to enable built-in async
-> probe support *and* also have prefer_async_probe *always* be
-> respected, whether modular or not.
+On Tue, Oct 7, 2014 at 11:51 AM, David Miller <davem@davemloft.net> wrote:
+>
+> From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+> Date: Tue, 7 Oct 2014 11:15:32 -0700
+>
+> > but if HW has programmable parser it should be able to take advantage
+> > of it and UNNECESSARY is an established model.
+>
+> Strongly disagree.
 
-Well and I just realized you *do* want to flush, so will throw that in
-too without an option to skip it.
 
- Luis
+Another problem with UNNECESSARY is that the stack has no way to
+validate what the HW is doing. If HW starts setting UNNECESSARY for
+packets with bad checksums, this sort of bug can be really difficult
+to detect. With CHECKSUM_COMPLETE it's much harder to have undetected
+false positives like this, especially when we need to include pseudo
+header in validation. UNNECESSARY really shouldn't be considered
+robust for deployment IMO.
