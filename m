@@ -1,68 +1,51 @@
-From: Klemen Mihevc <solor@mihgroup.net>
-Subject: hw csum error since =?UTF-8?Q?=33=2E=31=36=E2=80=8F?=
-Date: Tue, 07 Oct 2014 12:54:01 +0200
-Message-ID: <92a37c19e2fb42a308fdd5acf107b12f@mihgroup.net>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [PATCH] net: Add ndo_gso_check
+Date: Tue, 7 Oct 2014 14:07:23 +0300
+Message-ID: <CAJ3xEMg2TUsg0mYCPC=PE1p3BZV1=_CuPsGWH-67frxy+PeUSg@mail.gmail.com>
+References: <1411962607-27878-1-git-send-email-therbert@google.com>
+	<CAJ3xEMi-TRXevenx87UM7JnKqRQQATW4MBjbz8JdnQE9gk3KZw@mail.gmail.com>
+	<CA+mtBx8r05=qs2J58LFq56762tFB7wF4Dsr3C5TC9w5qQP5jGw@mail.gmail.com>
+	<CAJ3xEMhf6b75TQDFqEPMSXCpL9ToWG1q0OMPtrEuHNSm=-PSwQ@mail.gmail.com>
+	<CA+mtBx_6HcZh5Ys1FJFBXkZ2bWX1gP6bTcjY7gbR6RG_TOy50Q@mail.gmail.com>
+	<CAJ3xEMi0biCWTNtLOJ=0HWZYjOWi6pN2bw2=EWajp6XnpoyVRw@mail.gmail.com>
+	<CA+mtBx-sP6g9hXAYGfHKCPYkCtjgCFM0srueh1uhoNnC2ACr1g@mail.gmail.com>
+	<CAJ3xEMhc-97+3ZDwqXzX2N+=voO4QvJ5_YXn3sp8r8E9YyqotQ@mail.gmail.com>
+	<CA+mtBx9=+fGjwJCKpTW5EifmavC6VGnbuJdkc5tqzeEHz+5twA@mail.gmail.com>
+	<CAJ3xEMhzxfP3Sqp=_QSQehd2j2s=Gr3B1iO2S--OcoT7VC94nQ@mail.gmail.com>
+	<CA+mtBx8-w74f_f9JEfpwH9=Mjr_zaJJAYCMMdYAWdCy-51pzqg@mail.gmail.com>
+	<CAJ3xEMgPb9BhvtifmTzy6bS9WDf3jUx6dnx4418KNTjGNPreHQ@mail.gmail.com>
+	<CA+mtBx-AW65w7grfb7zTaDKzKQ2n_7JQuLquj1Ayopa4gdiF6Q@mail.gmail.com>
+	<CAJ3xEMiLsQ=Wd=461L1Wx0jQ+zivY-Z573+90dD8d7pdUD4Skw@mail.gmail.com>
+	<CA+mtBx9HMuMnsmN0rjqV9-5iK9H6b+J8OZQsmmbFHwjm+qW7bQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
- format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Thomas Graf <tgraf@suug.ch>,
+	Pravin Shelar <pshelar@nicira.com>,
+	Andy Zhou <azhou@nicira.com>
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 84-255-207-212.static.t-2.net ([84.255.207.212]:48894 "EHLO
-	smtp.mihgroup.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753075AbaJGK7m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2014 06:59:42 -0400
+Received: from mail-oi0-f51.google.com ([209.85.218.51]:65352 "EHLO
+	mail-oi0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753386AbaJGLHY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2014 07:07:24 -0400
+Received: by mail-oi0-f51.google.com with SMTP id h136so2169609oig.24
+        for <netdev@vger.kernel.org>; Tue, 07 Oct 2014 04:07:23 -0700 (PDT)
+In-Reply-To: <CA+mtBx9HMuMnsmN0rjqV9-5iK9H6b+J8OZQsmmbFHwjm+qW7bQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since 3.16.0 (also present in 3.17.0) kernel im geting following error 
-in my kern.log
+> yes, I will talk about FOU and GUE implementation. You should
+> abstracts in the schedule now.
 
-Aug 15 14:51:00 mih kernel: <unknown>: hw csum failure
-Aug 15 14:51:00 mih kernel: CPU: 0 PID: 5543 Comm: named Not tainted 
-3.16.1-gentoo #1
-Aug 15 14:51:00 mih kernel: Hardware name: stem manufacturer System 
-Product Name/P5LD2, BIOS 2002    08/28/2009
-Aug 15 14:51:00 mih kernel: c16e4bba c14ab6db 00000000 f1b29d20 ffff43fa 
-00000008 87d4782b f5a31200
-Aug 15 14:51:00 mih kernel: f1b1dc80 f1b29f24 0000005a c15e13b1 f1b29d58 
-f1b29d5c 00000000 0000005a
-Aug 15 14:51:00 mih kernel: 00000000 f1b29d78 f1b1dec0 00000000 00000000 
-f1e3f600 00000040 f1b29f24
-Aug 15 14:51:00 mih kernel: Call Trace:
-Aug 15 14:51:00 mih kernel: [<c16e4bba>] ? dump_stack+0xa/0x13
-Aug 15 14:51:00 mih kernel: [<c14ab6db>] ? 
-skb_copy_and_csum_datagram_iovec+0xe5/0xea
-Aug 15 14:51:00 mih kernel: [<c15e13b1>] ? udpv6_recvmsg+0xd9/0x4f7
-Aug 15 14:51:00 mih kernel: [<c158efde>] ? inet_recvmsg+0x3e/0x50
-Aug 15 14:51:00 mih kernel: [<c149f2d3>] ? sock_recvmsg+0x60/0x80
-Aug 15 14:51:00 mih kernel: [<c14aa367>] ? verify_iovec+0x35/0x9e
-Aug 15 14:51:00 mih kernel: [<c149f273>] ? kernel_sendmsg+0x34/0x34
-Aug 15 14:51:00 mih kernel: [<c14a030e>] ? 
-___sys_recvmsg.part.33+0xe6/0x175
-Aug 15 14:51:00 mih kernel: [<c149f273>] ? kernel_sendmsg+0x34/0x34
-Aug 15 14:51:00 mih kernel: [<c1093cae>] ? futex_wait+0x12e/0x1e1
-Aug 15 14:51:00 mih kernel: [<c1583ce5>] ? 
-ip4_datagram_connect+0x1e6/0x281
-Aug 15 14:51:00 mih kernel: [<c108304a>] ? __wake_up_common+0x3f/0x66
-Aug 15 14:51:00 mih kernel: [<c109390c>] ? get_futex_key+0x164/0x1d6
-Aug 15 14:51:00 mih kernel: [<c1093a97>] ? futex_wake+0xcc/0xf3
-Aug 15 14:51:00 mih kernel: [<c10f5982>] ? __fget_light+0x19/0x49
-Aug 15 14:51:00 mih kernel: [<c14a1098>] ? __sys_recvmsg+0x44/0x6c
-Aug 15 14:51:00 mih kernel: [<c14a142f>] ? SyS_socketcall+0xdf/0x2e6
-Aug 15 14:51:00 mih kernel: [<c108b72d>] ? __getnstimeofday+0x2c/0x109
-Aug 15 14:51:00 mih kernel: [<c10676ea>] ? SyS_gettimeofday+0x26/0x5e
-Aug 15 14:51:00 mih kernel: [<c16e9fd1>] ? syscall_call+0x7/0x7
-Aug 15 14:51:00 mih kernel: [<c16e0000>] ? soft_store+0x3b/0x6e
+Thanks, I think it would be also good to cover the challenges we're
+discussing over this
+thread w.r.t nowadays upstream NICs HW/drivers
 
-I guess it something related to my hardware/network. Everything seems to 
-work fine tho... just error poping out every few minutes. Its kinda 
-random, sometimes time between is ~5min, sometimes 30sec... If i boot 
-with old kernel (3.15.8) this error is gone. If you need anything else i 
-can provide config etc, but since this seems like somekind of trace i 
-tought its enough :)
-
-Also filled in a bug on bugzilla 
-(https://bugzilla.kernel.org/show_bug.cgi?id=82461)
-
-Thanks
+>> I think a replay of your LKS presentation along with open discussion
+>> on how to get there with the legacy requirements could be very
+>> helpful.
