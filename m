@@ -1,41 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next] openvswitch: fix a compilation error when
- CONFIG_INET is not setW!
-Date: Tue, 07 Oct 2014 00:11:23 -0400 (EDT)
-Message-ID: <20141007.001123.407556403373178636.davem@davemloft.net>
-References: <1412633714-25048-1-git-send-email-azhou@nicira.com>
+Subject: Re: [Patch net-next] net_sched: fix unused variables in
+ __gnet_stats_copy_basic_cpu()
+Date: Tue, 07 Oct 2014 00:12:10 -0400 (EDT)
+Message-ID: <20141007.001210.1100027565930307487.davem@davemloft.net>
+References: <1412640093-11388-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: azhou@nicira.com
+Cc: netdev@vger.kernel.org, john.fastabend@gmail.com
+To: xiyou.wangcong@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40863 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40871 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752528AbaJGELY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2014 00:11:24 -0400
-In-Reply-To: <1412633714-25048-1-git-send-email-azhou@nicira.com>
+	with ESMTP id S1750738AbaJGEML (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2014 00:12:11 -0400
+In-Reply-To: <1412640093-11388-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andy Zhou <azhou@nicira.com>
-Date: Mon,  6 Oct 2014 15:15:14 -0700
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Mon,  6 Oct 2014 17:01:33 -0700
 
-> Fix a openvswitch compilation error when CONFIG_INET is not set:
+> Probably not a big deal, but we'd better just use the
+> one we get in retry loop.
 > 
-> =====================================================
->    In file included from include/net/geneve.h:4:0,
->                        from net/openvswitch/flow_netlink.c:45:
-> 		          include/net/udp_tunnel.h: In function 'udp_tunnel_handle_offloads':
-> 			  >> include/net/udp_tunnel.h:100:2: error: implicit declaration of function 'iptunnel_handle_offloads' [-Werror=implicit-function-declaration]
-> 			  >>      return iptunnel_handle_offloads(skb, udp_csum, type);
-> 			  >>           ^
-> 			  >>           >> include/net/udp_tunnel.h:100:2: warning: return makes pointer from integer without a cast
-> 			  >>           >>    cc1: some warnings being treated as errors
-> 
-> =====================================================
-> 
-> Reported-by: kbuild test robot <fengguang.wu@intel.com>
-> Signed-off-by: Andy Zhou <azhou@nicira.com>
+> Fixes: commit 22e0f8b9322cb1a48b1357e8 ("net: sched: make bstats per cpu and estimator RCU safe")
+> Reported-by: Joe Perches <joe@perches.com>
+> Cc: John Fastabend <john.fastabend@gmail.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
 Applied.
