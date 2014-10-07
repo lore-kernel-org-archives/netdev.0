@@ -1,59 +1,38 @@
-From: Eric Wheeler <netdev@lists.ewheeler.net>
-Subject: Re: [PATCH net] bna: page allocation during interrupts to use a
- mempool.
-Date: Mon, 6 Oct 2014 20:05:39 -0700 (PDT)
-Message-ID: <alpine.DEB.2.00.1410061956410.7392@ware.dreamhost.com>
-References: <alpine.DEB.2.00.1409271631530.26069@ware.dreamhost.com>  <20140929092833.6c2cb7e9@urahara>  <262CB373A6D1F14F9B81E82F74F77D5A4704FAE7@avmb2.qlogic.org>  <alpine.DEB.2.00.1410061850120.5129@ware.dreamhost.com>
- <1412646735.11091.93.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: RE: r8168 is needed to enter P-state: Package State 6(pc6)onHaswellhardware
+Date: Tue, 7 Oct 2014 02:50:54 +0000
+Message-ID: <0835B3720019904CB8F7AA43166CEEB2526B88@RTITMBSV03.realtek.com.tw>
+References: <542B3829.3010108@crashplan.pro>
+ <20141005165920.GA21926@electric-eye.fr.zoreil.com>
+ <0835B3720019904CB8F7AA43166CEEB2526932@RTITMBSV03.realtek.com.tw>
+ <20141006221307.GB10936@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Shahed Shaikh <shahed.shaikh@qlogic.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	netdev <netdev@vger.kernel.org>,
-	Rasesh Mody <rasesh.mody@qlogic.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Ceriel Jacobs <linux-ide@crashplan.pro>,
+	nic_swsd <nic_swsd@realtek.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from homie.mail.dreamhost.com ([208.97.132.208]:51760 "EHLO
-	homiemail-a4.g.dreamhost.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751720AbaJGCuR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 22:50:17 -0400
-In-Reply-To: <1412646735.11091.93.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from rtits2.realtek.com ([60.250.210.242]:52523 "EHLO
+	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751213AbaJGCvP convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 22:51:15 -0400
+In-Reply-To: <20141006221307.GB10936@electric-eye.fr.zoreil.com>
+Content-Language: zh-TW
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 6 Oct 2014, Eric Dumazet wrote:
-> On Mon, 2014-10-06 at 18:57 -0700, Eric Wheeler wrote:
->> This patch fixes an order:2 memory allocation error backtrace by
->> guaranteeing that memory is available during simultaneous high memory
->> pressure and packet rates when using 9k jumbo frames.
->
-> This is highly suspect to me.
-> Most likely yet another truesize lie.
-> At a first glance, bnad_cq_setup_skb_frags() is buggy here :
-> skb->truesize += totlen;
+ Francois Romieu [mailto:romieu@fr.zoreil.com] 
+> Sent: Tuesday, October 07, 2014 6:13 AM
+[...]
+> Realtek's r8168 driver defaults to CONFIG_ASPM=1 but I guess 
+> some users
+> need to disable it and there's no known pattern / blacklist, right ?
 
-skb->truesize wasn't part of my patch, can you explain in more detail what 
-you suggest a better fix might be? If you write a quick patch I can test 
-it.
+When enabling the ASPM, it would influence the thrpughput. It is hard to
+choose performance or power saving. Therefore, we reserve the config
+to let the user determines it.
 
-The patch in question implements a simple mempool for the interrupt page 
-allocs---which definitely fixes the problem even if a better solution 
-might exist.  I have no problem giving up a small amount of memory to 
-guarantee page allocs in the interrupt handler.
-
-It would be great to see this patch pushed through since it does fix the 
-problem---at least until we can come up with a better fix.  I'm happy to 
-test if you can send a patch.
-
--Eric
-
->
-> With this kind of lies, system can OOM very fast.
->
->
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+ Best Regards,
+Hayes
