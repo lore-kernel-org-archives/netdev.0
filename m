@@ -1,72 +1,97 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [PATCH v2 7/7] driver-core: add preferred async probe option for
- built-in and modules
-Date: Tue, 7 Oct 2014 13:34:04 -0400
-Message-ID: <20141007173404.GB31328@mtj.dyndns.org>
-References: <1412372683-2003-1-git-send-email-mcgrof@do-not-panic.com>
- <1412372683-2003-8-git-send-email-mcgrof@do-not-panic.com>
- <20141006201926.GF18303@htj.dyndns.org>
- <20141006203627.GZ14081@wotan.suse.de>
- <20141006210118.GG18303@htj.dyndns.org>
- <20141006231046.GD14081@wotan.suse.de>
+From: Jason Baron <jbaron@akamai.com>
+Subject: Re: macvlan: optimizing the receive path?
+Date: Tue, 07 Oct 2014 13:35:42 -0400
+Message-ID: <5434246E.1000403@akamai.com>
+References: <542DB55D.3090601@akamai.com> <20141004.204203.2211720828886085354.davem@davemloft.net> <5432936D.7010906@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
-	gregkh@linuxfoundation.org, dmitry.torokhov@gmail.com,
-	tiwai@suse.de, arjan@linux.intel.com, teg@jklm.no,
-	rmilasan@suse.com, werner@suse.com, oleg@redhat.com, hare@suse.com,
-	bpoirier@suse.de, santosh@chelsio.com, pmladek@suse.cz,
-	dbueso@suse.com, linux-kernel@vger.kernel.org,
-	Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
-	Joseph Salisbury <joseph.salisbury@canonical.com>,
-	Kay Sievers <kay@vrfy.org>,
-	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
-	Tim Gardner <tim.gardner@canonical.com>,
-	Pierre Fersing <pierre-fersing@pierref.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
-	Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
-	Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
-	Abhijit Mahajan <abhijit.mahajan@avagotech.com>,
-	Casey Leedom <leedom@che
-To: "Luis R. Rodriguez" <mcgrof@suse.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20141006231046.GD14081@wotan.suse.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"kaber@trash.net" <kaber@trash.net>
+To: Vlad Yasevich <vyasevich@gmail.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from prod-mail-xrelay02.akamai.com ([72.246.2.14]:45326 "EHLO
+	prod-mail-xrelay02.akamai.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754295AbaJGRfn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2014 13:35:43 -0400
+In-Reply-To: <5432936D.7010906@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On 10/06/2014 09:04 AM, Vlad Yasevich wrote:
+> On 10/04/2014 08:42 PM, David Miller wrote:
+>> From: Jason Baron <jbaron@akamai.com>
+>> Date: Thu, 02 Oct 2014 16:28:13 -0400
+>>
+>>> --- a/drivers/net/macvlan.c
+>>> +++ b/drivers/net/macvlan.c
+>>> @@ -321,8 +321,8 @@ static rx_handler_result_t macvlan_handle_frame(struct sk_buff **pskb)
+>>>         skb->dev = dev;
+>>>         skb->pkt_type = PACKET_HOST;
+>>>  
+>>> -       ret = netif_rx(skb);
+>>> -
+>>> +      macvlan_count_rx(vlan, len, true, 0);
+>>> +      return RX_HANDLER_ANOTHER;
+>>>  out:
+>>>         macvlan_count_rx(vlan, len, ret == NET_RX_SUCCESS, 0);
+>>>         return RX_HANDLER_CONSUMED;
+>>
+>> That last argument to macvlan_count_rx() is a bool and thus should be
+>> specified as "false".  Yes I know other areas of this file get it
+>> wrong too.
+>>
 
-On Tue, Oct 07, 2014 at 01:10:46AM +0200, Luis R. Rodriguez wrote:
-> On Mon, Oct 06, 2014 at 05:01:18PM -0400, Tejun Heo wrote:
-> > For in-kernel stuff, we already have a clear
-> > synchronization point where we already synchronize all async calls.
-> > Shouldn't we be flushing these async probes there too?
+ok. I can fix those up too while here.
+
+>> Also, what about GRO?  Won't we get GRO processing if we do this via
+>> netif_rx() but not via the RX_HANDLER_ANOTHER route?  Just curious...
 > 
-> This seems to be addressing if what I meant by prepared, "ready", so let
-> me address this as I do think its important.
+> Wouldn't GRO already happen at the lower level?  For macvlan-to-macvlan,
+> you'd typically have large packets so no need for GRO.
 > 
-> By async calls do you mean users of async_schedule()? I see it
 
-Yes.
+Yes, afaict gro is happening a layer below __netif_receive_skb_core().
 
-> also uses system_unbound_wq as well but I do not see anyone calling
-> flush_workqueue(system_unbound_wq) on the kernel. We do use
-> async_synchronize_full() on kernel_init() but that just waits.
+Here are some results of this optimization on 3.17 using macvlan with
+lxc. Test case is (average of 3 runs):
 
-But you can create a new workqueue and queue all the async probing
-work items there and flush the workqueue right after
-async_synchronize_full().
+for i in {35,50,65,80,95,110,125,140,155};
+do super_netperf $i netperf -H $ip -t TCP_RR;
+done
 
-...
-> bus.enable_kern_async=1 would still also serve as a helper for the driver core
-> to figure out if it should use async probe then on modules if prefer_async_probe
-> was enabled. Let me know if you figure out a way to avoid it.
+trans./sec (3.17)
 
-Why do we need the choice at all?  It always should, no?
+494016
+612806
+673100
+696982
+710494
+716830
+714729
+713478
+711056
 
-Thanks.
+trans./sec (3.17 + macvlan patch)
 
--- 
-tejun
+517159  +(4.684733558%)
+628382  +(2.541860742%)
+669688  -(0.5069080835%)
+706181  +(1.319833855%)
+716660  +(0.8677995555%)
+719581  +(0.3838661811%)
+718738  +(0.5609585358%)
+718904  +(0.7605470482%)
+718344  +(1.02509555%)
+
+On the host I can see that the idle time goes to 0, so this would
+appear to be an improvement. I also observed that enqueue_to_backlog()
+and process_backlog() are no longer in the 'perf' profiles as
+expected.
+
+So if there are no objections, I will post as a formal patch.
+
+Thanks,
+
+-Jason
