@@ -1,36 +1,65 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: sunvnet and ->xmit_more
-Date: Tue, 07 Oct 2014 16:46:49 -0400 (EDT)
-Message-ID: <20141007.164649.587971614591244924.davem@davemloft.net>
-References: <20141007192922.GA31406@oracle.com>
-	<20141007.153829.1919460115976279645.davem@davemloft.net>
-	<9BB04EDE-1842-4DB0-93BE-5186B2D187AB@oracle.com>
+Subject: Re: [PATCH] net: Add ndo_gso_check
+Date: Tue, 07 Oct 2014 16:48:02 -0400 (EDT)
+Message-ID: <20141007.164802.624713385845633192.davem@davemloft.net>
+References: <CAADnVQKKv43aBFCCaEypAosCf+8K64A2oyYEtxw4jQqY0npV5g@mail.gmail.com>
+	<20141007.163239.157997964784151921.davem@davemloft.net>
+	<CAADnVQJDxPsMeuNmnR5iUwccOKG2A02dZ+3Ae6wGg-RNFPeeeQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sowmini.varadhan@oracle.com, netdev@vger.kernel.org,
-	david.stevens@oracle.com
-To: Raghuram.Kothakota@oracle.com
+Cc: therbert@google.com, jesse@nicira.com, gerlitz.or@gmail.com,
+	alexander.h.duyck@intel.com, john.r.fastabend@intel.com,
+	jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org, tgraf@suug.ch,
+	pshelar@nicira.com, azhou@nicira.com
+To: alexei.starovoitov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48501 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:48515 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754939AbaJGUqv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2014 16:46:51 -0400
-In-Reply-To: <9BB04EDE-1842-4DB0-93BE-5186B2D187AB@oracle.com>
+	with ESMTP id S1751213AbaJGUsF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2014 16:48:05 -0400
+In-Reply-To: <CAADnVQJDxPsMeuNmnR5iUwccOKG2A02dZ+3Ae6wGg-RNFPeeeQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Raghuram Kothakota <Raghuram.Kothakota@oracle.com>
-Date: Tue, 7 Oct 2014 13:38:07 -0700
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Date: Tue, 7 Oct 2014 13:43:09 -0700
 
-> In case of sunvnet,  consumer starting as soon as possible would help
-> as the consumer is slower as it copies the data to local buffers. The recent
-> change by DLS avoids the copy in the Tx side, so the producer could be
-> faster than the receiver.  If the trigger is sent after n packets, then consumer
-> will really start after n packets in the ring and it may have lost that much time
-> to pickup the packets.
+> On Tue, Oct 7, 2014 at 1:32 PM, David Miller <davem@davemloft.net> wrote:
+>> From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+>> Date: Tue, 7 Oct 2014 13:28:01 -0700
+>>
+>>> On Tue, Oct 7, 2014 at 11:47 AM, David Miller <davem@davemloft.net> wrote:
+>>>>
+>>>> I am totally against boolean "yes/no" protocol specific checksum
+>>>> validation by HW.
+>>>>
+>>>> It's not faster.  You have to look at the pseudo-header and bring it into
+>>>> the CPU cache _anyways_, so negating it and 2's complementing it into
+>>>> the CHECKSUM_COMPLETE value for validation is free.
+>>>>
+>>>> There is no performance advantage whatsoever to use another checksumming
+>>>> scheme.
+>>>
+>>> ok, forget faster/slower argument for a second.
+>>> Why is it a bad thing to have HW verifying checksums?
+>>
+>> Because you have to change the damn hardware and/or firmware for every
+>> new protocol.
+> 
+> It is true for existing NICs, but it is not true for upcoming devices.
+> They're exposing packet parsers to users, so we will be able to
+> program any protocol into the device without reflashing it.
+> Some of the guys are even allowing reprogramming the parser
+> while packets are flowing.
 
-I agree for the first few TX queue entires, or even just the first, but after
-that it always pays to defer and decrease the number of hcalls, locks, etc.
+So we have to write new software in _EVERY_ driver to accomodate this.
 
-Play with it, you'll see.
+That makes zero sense either, and it is unneeded complexity in the
+hardware.
+
+COMPLETE works everywhere, on everything, with no driver changes, and
+is so much harder to get wrong.
+
+Every protocol specific feature has major downsides whether you choose
+to see them or not.
