@@ -1,54 +1,119 @@
-From: annie li <annie.li@oracle.com>
-Subject: Re: [Xen-devel] [PATCHv1] xen-netfront: always keep the Rx ring full
- of requests
-Date: Tue, 07 Oct 2014 09:12:30 -0400
-Message-ID: <5433E6BE.6070401@oracle.com>
-References: <5432B6D2.9030503@oracle.com>	<5432BC96.6060709@citrix.com>	<5432E26C.3020207@oracle.com> <20141006.170748.1817067290457286845.davem@redhat.com> <5433B5C8.9060309@citrix.com>
+From: =?UTF-8?q?Lothar=20Wa=C3=9Fmann?= <LW@KARO-electronics.de>
+Subject: [PATCH] net: fec: fix regression on i.MX28 introduced by rx_copybreak support
+Date: Tue,  7 Oct 2014 15:19:37 +0200
+Message-ID: <1412687977-11742-1-git-send-email-LW@KARO-electronics.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@redhat.com>, netdev@vger.kernel.org,
-	boris.ostrovsky@oracle.com, xen-devel@lists.xenproject.org
-To: David Vrabel <david.vrabel@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:31688 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752054AbaJGNMp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2014 09:12:45 -0400
-In-Reply-To: <5433B5C8.9060309@citrix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Russell King <rmk+kernel@arm.linux.org.uk>,
+	Frank Li <Frank.Li@freescale.com>,
+	Fabio Estevam <fabio.estevam@freescale.com>,
+	linux-kernel@vger.kernel.org,
+	=?UTF-8?q?Lothar=20Wa=C3=9Fmann?= <LW@KARO-electronics.de>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+commit 1b7bde6d659d ("net: fec: implement rx_copybreak to improve rx pe=
+rformance")
+introduced a regression for i.MX28. The swap_buffer() function doing
+the endian conversion of the received data on i.MX28 may access memory
+beyond the actual packet size in the DMA buffer. fec_enet_copybreak()
+does not copy those bytes, so that the last bytes of a packet may be
+filled with invalid data after swapping.
+This will likely lead to checksum errors on received packets.
+E.g. when trying to mount an NFS rootfs:
+UDP: bad checksum. From 192.168.1.225:111 to 192.168.100.73:44662 ulen =
+36
 
-On 2014/10/7 5:43, David Vrabel wrote:
-> On 06/10/14 22:07, David Miller wrote:
->> From: annie li <annie.li@oracle.com>
->> Date: Mon, 06 Oct 2014 14:41:48 -0400
->>
->>> On 2014/10/6 12:00, David Vrabel wrote:
->>>>>>     +    queue->rx.req_prod_pvt = req_prod;
->>>>>> +
->>>>>> +    /* Not enough requests? Try again later. */
->>>>>> +    if (req_prod - queue->rx.rsp_cons < NET_RX_SLOTS_MIN) {
->>>>>> +        mod_timer(&queue->rx_refill_timer, jiffies + (HZ/10));
->>>>>> +        return;
->>>>> If the previous for loop breaks because of failure of
->>>>> xennet_alloc_one_rx_buffer, then notify_remote_via_irq is missed here
->>>>> if
->>>>> the code returns directly.
->>>> This is deliberate -- there's no point notifying the backend if there
->>>> aren't enough requests for the next packet.  Since we don't know what
->>>> the next packet might be we assume it's the largest possible.
->>> That makes sense.
->>> However, the largest packet case does not happen so
->>> frequently. Moreover, netback checks the slots every incoming skb
->>> requires in xenvif_rx_ring_slots_available, not only concerning the
->>> largest case.
-> An upcoming change to netback will cause it to wait for enough slots for
-> the largest possible packet.
+Do the byte swapping and copying to the new skb in one go if
+necessary.
 
-Netback knows the exact slot number that incoming skb will consumes, is 
-there any reason to let it wait for the largest possible packets?
+Signed-off-by: Lothar Wa=C3=9Fmann <LW@KARO-electronics.de>
+---
+ drivers/net/ethernet/freescale/fec_main.c |   25 +++++++++++++++++++++=
+----
+ 1 file changed, 21 insertions(+), 4 deletions(-)
 
-Thanks
-Annie
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/et=
+hernet/freescale/fec_main.c
+index 87975b5..eaaebad 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -339,6 +339,18 @@ static void *swap_buffer(void *bufaddr, int len)
+ 	return bufaddr;
+ }
+=20
++static void *swap_buffer2(void *dst_buf, void *src_buf, int len)
++{
++	int i;
++	unsigned int *src =3D src_buf;
++	unsigned int *dst =3D dst_buf;
++
++	for (i =3D 0; i < DIV_ROUND_UP(len, 4); i++, src++, dst++)
++		*dst =3D cpu_to_be32(*src);
++
++	return dst_buf;
++}
++
+ static void fec_dump(struct net_device *ndev)
+ {
+ 	struct fec_enet_private *fep =3D netdev_priv(ndev);
+@@ -1348,7 +1360,7 @@ fec_enet_new_rxbdp(struct net_device *ndev, struc=
+t bufdesc *bdp, struct sk_buff
+ }
+=20
+ static bool fec_enet_copybreak(struct net_device *ndev, struct sk_buff=
+ **skb,
+-			       struct bufdesc *bdp, u32 length)
++			       struct bufdesc *bdp, u32 length, int swap)
+ {
+ 	struct  fec_enet_private *fep =3D netdev_priv(ndev);
+ 	struct sk_buff *new_skb;
+@@ -1363,7 +1375,10 @@ static bool fec_enet_copybreak(struct net_device=
+ *ndev, struct sk_buff **skb,
+ 	dma_sync_single_for_cpu(&fep->pdev->dev, bdp->cbd_bufaddr,
+ 				FEC_ENET_RX_FRSIZE - fep->rx_align,
+ 				DMA_FROM_DEVICE);
+-	memcpy(new_skb->data, (*skb)->data, length);
++	if (!swap)
++		memcpy(new_skb->data, (*skb)->data, length);
++	else
++		swap_buffer2(new_skb->data, (*skb)->data, length);
+ 	*skb =3D new_skb;
+=20
+ 	return true;
+@@ -1393,6 +1408,7 @@ fec_enet_rx_queue(struct net_device *ndev, int bu=
+dget, u16 queue_id)
+ 	u16	vlan_tag;
+ 	int	index =3D 0;
+ 	bool	is_copybreak;
++	bool need_swap =3D id_entry->driver_data & FEC_QUIRK_SWAP_FRAME;
+=20
+ #ifdef CONFIG_M532x
+ 	flush_cache_all();
+@@ -1456,7 +1472,8 @@ fec_enet_rx_queue(struct net_device *ndev, int bu=
+dget, u16 queue_id)
+ 		 * include that when passing upstream as it messes up
+ 		 * bridging applications.
+ 		 */
+-		is_copybreak =3D fec_enet_copybreak(ndev, &skb, bdp, pkt_len - 4);
++		is_copybreak =3D fec_enet_copybreak(ndev, &skb, bdp, pkt_len - 4,
++						  need_swap);
+ 		if (!is_copybreak) {
+ 			skb_new =3D netdev_alloc_skb(ndev, FEC_ENET_RX_FRSIZE);
+ 			if (unlikely(!skb_new)) {
+@@ -1471,7 +1488,7 @@ fec_enet_rx_queue(struct net_device *ndev, int bu=
+dget, u16 queue_id)
+ 		prefetch(skb->data - NET_IP_ALIGN);
+ 		skb_put(skb, pkt_len - 4);
+ 		data =3D skb->data;
+-		if (id_entry->driver_data & FEC_QUIRK_SWAP_FRAME)
++		if (!is_copybreak && need_swap)
+ 			swap_buffer(data, pkt_len);
+=20
+ 		/* Extract the enhanced buffer descriptor */
+--=20
+1.7.10.4
