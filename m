@@ -1,41 +1,55 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net/mlx4_en: remove NETDEV_TX_BUSY
-Date: Tue, 07 Oct 2014 05:38:04 -0700
-Message-ID: <1412685484.11091.108.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1412576163-7224-1-git-send-email-amirv@mellanox.com>
-		 <1412599904.11091.66.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1412613035.11091.72.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <5433A48E.1040505@gmail.com>
+Subject: Re: Quota in __qdisc_run() (was: qdisc: validate skb without
+ holding lock)
+Date: Tue, 07 Oct 2014 05:47:18 -0700
+Message-ID: <1412686038.11091.111.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20141003.145647.1980640682969765484.davem@davemloft.net>
+	 <1412373477.17245.5.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1412375467.17245.16.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20141003.153645.72976986956341944.davem@davemloft.net>
+	 <1412379044.17245.26.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20141007093441.35ce3a02@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Ido Shamay <idos@mellanox.com>
-To: amirv@mellanox.com
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	therbert@google.com, hannes@stressinduktion.org, fw@strlen.de,
+	dborkman@redhat.com, jhs@mojatatu.com, alexander.duyck@gmail.com,
+	john.r.fastabend@intel.com, dave.taht@gmail.com, toke@toke.dk
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f171.google.com ([209.85.192.171]:48634 "EHLO
-	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752028AbaJGMiH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2014 08:38:07 -0400
-Received: by mail-pd0-f171.google.com with SMTP id ft15so5017396pdb.16
-        for <netdev@vger.kernel.org>; Tue, 07 Oct 2014 05:38:06 -0700 (PDT)
-In-Reply-To: <5433A48E.1040505@gmail.com>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:34485 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753159AbaJGMrU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2014 08:47:20 -0400
+Received: by mail-pa0-f49.google.com with SMTP id hz1so7100944pad.36
+        for <netdev@vger.kernel.org>; Tue, 07 Oct 2014 05:47:19 -0700 (PDT)
+In-Reply-To: <20141007093441.35ce3a02@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-10-07 at 11:30 +0300, Amir Vadai wrote:
-
-> Reviewed. Also verified that it fixes the deadlock (by sending a large
-> burst - larger than ring size). Before this fix, last packet of the
-> burst wasn't sent, therefore no doorbell was rang, and the queue was
-> stalled.
+On Tue, 2014-10-07 at 09:34 +0200, Jesper Dangaard Brouer wrote:
+> On Fri, 03 Oct 2014 16:30:44 -0700 Eric Dumazet <eric.dumazet@gmail.com> wrote:
 > 
-> BTW, another nice optimization that we hope to send soon, is not to arm
-> the CQ unless ringing the doorbell.
+> > Another problem we need to address is the quota in __qdisc_run()
+> > is no longer meaningfull, if each qdisc_restart() can pump many packets.
 > 
-> Acked-by: Amir Vadai <amirv@mellanox.com>
+> I fully agree. My earlier "magic" packet limit was covering/pampering
+> over this issue.
 
-This sounds great, thanks Amir
+Although quota was multiplied by 7 or 8 in worst case ?
+
+> 
+> > An idea would be to use the bstats (or cpu_qstats if applicable)
+> 
+> Please elaborate some more, as I don't completely follow (feel free to
+> show with a patch ;-)).
+> 
+
+I was hoping John could finish the percpu stats before I do that.
+
+Problem with q->bstats.packets is that TSO packets with 45 MSS add 45 to
+this counter.
+
+Using a time quota would be better, but : jiffies is too big, and
+local_clock() might be too expensive.
