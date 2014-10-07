@@ -1,34 +1,65 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: sunvnet and ->xmit_more
-Date: Tue, 7 Oct 2014 16:51:25 -0400
-Message-ID: <20141007205125.GE31406@oracle.com>
-References: <20141007192922.GA31406@oracle.com>
- <20141007.153829.1919460115976279645.davem@davemloft.net>
- <9BB04EDE-1842-4DB0-93BE-5186B2D187AB@oracle.com>
- <20141007.164649.587971614591244924.davem@davemloft.net>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH 1/1 net-next] af_unix: remove NULL assignment on static
+Date: Tue, 07 Oct 2014 22:54:43 +0200
+Message-ID: <1412715283.11600.11.camel@localhost>
+References: <1412712996-4672-1-git-send-email-fabf@skynet.be>
+	 <20141007.161832.453892039501955243.davem@davemloft.net>
+	 <20141007203344.GA4748@roeck-us.net>
+	 <1559212122.19553.1412714971908.open-xchange@webmail.nmp.skynet.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Raghuram.Kothakota@oracle.com, netdev@vger.kernel.org,
-	david.stevens@oracle.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:28916 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750865AbaJGUva (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2014 16:51:30 -0400
-Content-Disposition: inline
-In-Reply-To: <20141007.164649.587971614591244924.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Guenter Roeck <linux@roeck-us.net>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Fabian Frederick <fabf@skynet.be>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1559212122.19553.1412714971908.open-xchange@webmail.nmp.skynet.be>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On (10/07/14 16:46), David Miller wrote:
+On Di, 2014-10-07 at 22:49 +0200, Fabian Frederick wrote:
 > 
-> Play with it, you'll see.
+> > On 07 October 2014 at 22:33 Guenter Roeck <linux@roeck-us.net> wrote:
+> >
+> >
+> > On Tue, Oct 07, 2014 at 04:18:32PM -0400, David Miller wrote:
+> > > From: Fabian Frederick <fabf@skynet.be>
+> > > Date: Tue,  7 Oct 2014 22:16:36 +0200
+> > >
+> > > > static values are automatically initialized to NULL
+> > > >
+> > > > Signed-off-by: Fabian Frederick <fabf@skynet.be>
+> > >
+> > > Isn't there some implementation room given to compilers
+> > > as to the representation of true and false?
+> >
+> > Not for true/false.
+> >
+> > C99 standard, section 7.16:
+> >
+> > ...
+> > The remaining three macros are suitable for use in #if preprocessing
+> > directives. They are
+> >
+> > true
+> >
+> > which expands to the integer constant 1,
+> >
+> > false
+> >
+> > which expands to the integer constant 0, and
+> > ...
+> >
+> > No idea where the NULL comes into the picture, though.
+> >
+> > Guenter
+> 
+> Maybe comment should have been "static values are automatically initialized to
+> 0" then ?
 
-at the moment, there are enough fun and games just doing a 
-"modload -r sunvnet; modload sunvnet" in a loop while running iperf.
+I think David's concern was whether if 0 == false in all situations. It
+is pretty clear that static memory is initialized to 0.
 
-I think running stably is as important as tput, no? :-) Lets fix
-all the races first.
-
---Sowmini
+Thanks,
+Hannes
