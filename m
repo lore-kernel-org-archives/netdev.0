@@ -1,142 +1,65 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next v2 1/1] tipc: fix bug in multicast congestion handling
-Date: Tue,  7 Oct 2014 14:12:34 -0400
-Message-ID: <1412705554-24252-1-git-send-email-jon.maloy@ericsson.com>
-Cc: netdev@vger.kernel.org,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
-	tipc-discussion@lists.sourceforge.net,
-	Jon Maloy <jon.maloy@ericsson.com>
-To: davem@davemloft.net
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: Quota in __qdisc_run()
+Date: Tue, 7 Oct 2014 20:03:29 +0200
+Message-ID: <20141007200329.5d20a27e@redhat.com>
+References: <20141007153050.792c9743@redhat.com>
+	<1412693013.4140057.176149461.0FBF6CBD@webmail.messagingengine.com>
+	<1412694080.11091.131.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20141007.131938.1410434352331637585.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, hannes@stressinduktion.org,
+	netdev@vger.kernel.org, therbert@google.com, fw@strlen.de,
+	dborkman@redhat.com, jhs@mojatatu.com, alexander.duyck@gmail.com,
+	john.r.fastabend@intel.com, dave.taht@gmail.com, toke@toke.dk,
+	brouer@redhat.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp104.biz.mail.bf1.yahoo.com ([98.139.221.63]:34742 "EHLO
-	smtp104.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754618AbaJGSTS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2014 14:19:18 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:40714 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753608AbaJGSWe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Oct 2014 14:22:34 -0400
+In-Reply-To: <20141007.131938.1410434352331637585.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-One aim of commit 50100a5e39461b2a61d6040e73c384766c29975d ("tipc:
-use pseudo message to wake up sockets after link congestion") was
-to handle link congestion abatement in a uniform way for both unicast
-and multicast transmit. However, the latter doesn't work correctly,
-and has been broken since the referenced commit was applied.
+On Tue, 07 Oct 2014 13:19:38 -0400 (EDT)
+David Miller <davem@davemloft.net> wrote:
 
-If a user now sends a burst of multicast messages that is big
-enough to cause broadcast link congestion, it will be put to sleep,
-and not be waked up when the congestion abates as it should be.
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Tue, 07 Oct 2014 08:01:20 -0700
+> 
+> > On Tue, 2014-10-07 at 16:43 +0200, Hannes Frederic Sowa wrote:
+> > 
+> >> This needs to be:
+> >> 
+> >> do
+> >>    ...
+> >> while ((iskb = iskb->next))
+> > 
+> > I do not feel needed to break the bulk dequeue at precise quota
+> > boundary. These quotas are advisory, and bql prefers to get its full
+> > budget for appropriate feedback from TX completion.
+> > 
+> > Quota was a packet quota, which was quite irrelevant if segmentation had
+> > to be done, so I would just let the dequeue be done so that we benefit
+> > from optimal xmit_more.
+> 
+> Yes, this makes sense, do a full qdisc_restart() cycle without boundaries,
+> then check how much quota was used afterwards to guard the outermost loop.
 
-This has two reasons. First, the flag that is used, TIPC_WAKEUP_USERS,
-is set correctly, but in the wrong field. Instead of setting it in the
-'action_flags' field of the arrival node struct, it is by mistake set
-in the dummy node struct that is owned by the broadcast link, where it
-will never tested for. Second, we cannot use the same flag for waking
-up unicast and multicast users, since the function tipc_node_unlock()
-needs to pick the wakeup pseudo messages to deliver from different
-queues. It must hence be able to distinguish between the two cases.
+According to my measurements, at 10Gbit/s TCP_STREAM test the BQL limit
+is 381528 bytes / 1514 = 252 packets, that will (potentially) be bulk
+dequeued at once (with your version of the patch).
 
-This commit solves this problem by adding a new flag
-TIPC_WAKEUP_BCAST_USERS, and a new function tipc_bclink_wakeup_user().
-The latter is to be called by tipc_node_unlock() when the named flag,
-now set in the correct field, is encountered.
+It seems to have the potential to exceed the weight_p(64) quite a lot.
+And with e.g. TX ring size 512, we also also challenge the drivers at
+this early adoption phase of tailptr writes.  Just saying...
 
-v2: using explicit 'unsigned int' declaration instead of 'uint', as
-per comment from David Miller.
-
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
----
- net/tipc/bcast.c | 14 +++++++++++++-
- net/tipc/bcast.h |  2 +-
- net/tipc/node.c  |  5 +++++
- net/tipc/node.h  |  3 ++-
- 4 files changed, 21 insertions(+), 3 deletions(-)
-
-diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
-index b2bbe69..b8670bf 100644
---- a/net/tipc/bcast.c
-+++ b/net/tipc/bcast.c
-@@ -226,6 +226,17 @@ static void bclink_retransmit_pkt(u32 after, u32 to)
- }
- 
- /**
-+ * tipc_bclink_wakeup_users - wake up pending users
-+ *
-+ * Called with no locks taken
-+ */
-+void tipc_bclink_wakeup_users(void)
-+{
-+	while (skb_queue_len(&bclink->link.waiting_sks))
-+		tipc_sk_rcv(skb_dequeue(&bclink->link.waiting_sks));
-+}
-+
-+/**
-  * tipc_bclink_acknowledge - handle acknowledgement of broadcast packets
-  * @n_ptr: node that sent acknowledgement info
-  * @acked: broadcast sequence # that has been acknowledged
-@@ -300,7 +311,8 @@ void tipc_bclink_acknowledge(struct tipc_node *n_ptr, u32 acked)
- 		bclink_set_last_sent();
- 	}
- 	if (unlikely(released && !skb_queue_empty(&bcl->waiting_sks)))
--		bclink->node.action_flags |= TIPC_WAKEUP_USERS;
-+		n_ptr->action_flags |= TIPC_WAKEUP_BCAST_USERS;
-+
- exit:
- 	tipc_bclink_unlock();
- }
-diff --git a/net/tipc/bcast.h b/net/tipc/bcast.h
-index 4875d95..e7b0f85 100644
---- a/net/tipc/bcast.h
-+++ b/net/tipc/bcast.h
-@@ -99,5 +99,5 @@ int  tipc_bclink_set_queue_limits(u32 limit);
- void tipc_bcbearer_sort(struct tipc_node_map *nm_ptr, u32 node, bool action);
- uint  tipc_bclink_get_mtu(void);
- int tipc_bclink_xmit(struct sk_buff *buf);
--
-+void tipc_bclink_wakeup_users(void);
- #endif
-diff --git a/net/tipc/node.c b/net/tipc/node.c
-index 17e6378..90cee4a 100644
---- a/net/tipc/node.c
-+++ b/net/tipc/node.c
-@@ -552,6 +552,7 @@ void tipc_node_unlock(struct tipc_node *node)
- 	LIST_HEAD(conn_sks);
- 	struct sk_buff_head waiting_sks;
- 	u32 addr = 0;
-+	unsigned int flags = node->action_flags;
- 
- 	if (likely(!node->action_flags)) {
- 		spin_unlock_bh(&node->lock);
-@@ -572,6 +573,7 @@ void tipc_node_unlock(struct tipc_node *node)
- 		node->action_flags &= ~TIPC_NOTIFY_NODE_UP;
- 		addr = node->addr;
- 	}
-+	node->action_flags &= ~TIPC_WAKEUP_BCAST_USERS;
- 	spin_unlock_bh(&node->lock);
- 
- 	while (!skb_queue_empty(&waiting_sks))
-@@ -583,6 +585,9 @@ void tipc_node_unlock(struct tipc_node *node)
- 	if (!list_empty(&nsub_list))
- 		tipc_nodesub_notify(&nsub_list);
- 
-+	if (flags & TIPC_WAKEUP_BCAST_USERS)
-+		tipc_bclink_wakeup_users();
-+
- 	if (addr)
- 		tipc_named_node_up(addr);
- }
-diff --git a/net/tipc/node.h b/net/tipc/node.h
-index 522d6f3..67513c3 100644
---- a/net/tipc/node.h
-+++ b/net/tipc/node.h
-@@ -59,7 +59,8 @@ enum {
- 	TIPC_WAIT_OWN_LINKS_DOWN	= (1 << 2),
- 	TIPC_NOTIFY_NODE_DOWN		= (1 << 3),
- 	TIPC_NOTIFY_NODE_UP		= (1 << 4),
--	TIPC_WAKEUP_USERS		= (1 << 5)
-+	TIPC_WAKEUP_USERS		= (1 << 5),
-+	TIPC_WAKEUP_BCAST_USERS		= (1 << 6)
- };
- 
- /**
 -- 
-1.9.1
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
