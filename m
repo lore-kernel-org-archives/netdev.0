@@ -1,66 +1,65 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: Quota in __qdisc_run() (was: qdisc: validate skb without
- holding lock)
-Date: Tue, 7 Oct 2014 17:26:06 +0200
-Message-ID: <20141007172606.0da50a60@redhat.com>
-References: <20141003.145647.1980640682969765484.davem@davemloft.net>
-	<1412373477.17245.5.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1412375467.17245.16.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20141003.153645.72976986956341944.davem@davemloft.net>
-	<1412379044.17245.26.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20141007093441.35ce3a02@redhat.com>
-	<1412686038.11091.111.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20141007153050.792c9743@redhat.com>
-	<1412693013.4140057.176149461.0FBF6CBD@webmail.messagingengine.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 08/16] virtio_net: drop config_enable
+Date: Tue, 07 Oct 2014 11:36:43 -0400 (EDT)
+Message-ID: <20141007.113643.1462528588440998168.davem@davemloft.net>
+References: <1412525038-15871-9-git-send-email-mst@redhat.com>
+	<20141006.150238.2180269239953265506.davem@davemloft.net>
+	<20141007064915.GA2424@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	therbert@google.com, fw@strlen.de, dborkman@redhat.com,
-	jhs@mojatatu.com, alexander.duyck@gmail.com,
-	john.r.fastabend@intel.com, dave.taht@gmail.com, toke@toke.dk,
-	brouer@redhat.com
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45247 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754110AbaJGP1E (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Oct 2014 11:27:04 -0400
-In-Reply-To: <1412693013.4140057.176149461.0FBF6CBD@webmail.messagingengine.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: mst@redhat.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20141007064915.GA2424@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 07 Oct 2014 16:43:33 +0200
-Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Tue, 7 Oct 2014 09:49:15 +0300
 
-> On Tue, Oct 7, 2014, at 15:30, Jesper Dangaard Brouer wrote:
-[...]
-> > 
-> > The basic idea is we want keep/restore the quota fairness between
-> > qdisc's , that we sort of broke with commit 5772e9a346 ("qdisc: bulk
-> > dequeue support for qdiscs with TCQ_F_ONETXQUEUE").
-> > 
-[...]
+> On Mon, Oct 06, 2014 at 03:02:38PM -0400, David Miller wrote:
+>> From: "Michael S. Tsirkin" <mst@redhat.com>
+>> Date: Sun, 5 Oct 2014 19:07:13 +0300
+>> 
+>> > Now that virtio core ensures config changes don't arrive during probing,
+>> > drop config_enable flag in virtio net.
+>> > On removal, flush is now sufficient to guarantee that no change work is
+>> > queued.
+>> > 
+>> > This help simplify the driver, and will allow setting DRIVER_OK earlier
+>> > without losing config change notifications.
+>> > 
+>> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+>> 
+>> It's hard for people on the networking side to review these changes
+>> since you haven't CC:'d them on any of the postings necessary to
+>> understand the context of the net/ and drivers/net/ changes.
+>> 
+>> Please at a minimum CC: everyone on your header [PATCH 0/N] posting
+>> so we know at least at a high level what is going on, and why.
+>> 
+>> Thanks.
 > 
-> This needs to be:
+> It's a bit tricky for large patchsets - if I add everyone to 0/N
+> then vger isn't happy with Cc list that is too large.
 > 
-> do
->    ...
-> while ((iskb = iskb->next))
+> What is your advice here? Cc just mailing lists on 0/N?
+> 
+> FWIW this patchset is inteded for the virtio tree.
 
-Check, testing with this update, now.
+CC: mailing lists and "focus" developers, a small carefully selected
+group of people who would be strongly interested in this change.
 
-My netperf-wrapper test with GSO=off TSO=off, looks much more stable at
-keeping the 10G link fully utilized.  Before, without this patch, I
-could not get stable results at 10G with GSO=off TSO=off.  Think this
-really does address the fairness (I didn't think I would be able to
-measure it).
-
-The other cases (GSO=on,TSO=off) and (GSO=on,TSO=on) looks the same.
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+I really don't understand why this is so complicated, I've never run
+into a situation where I had to CC: 200 people in my two decades of
+kernel development :-/
