@@ -1,37 +1,66 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [Patch net] net_sched: copy exts->type in tcf_exts_change()
-Date: Tue, 07 Oct 2014 07:33:58 -0400
-Message-ID: <5433CFA6.8060901@mojatatu.com>
-References: <1412641314-17335-1-git-send-email-xiyou.wangcong@gmail.com>
+From: Claudiu Manoil <claudiu.manoil@freescale.com>
+Subject: Re: [net v2 3/8] net/fsl_pq_mdio: Replace spin_event_timeout() with
+ arch independent
+Date: Tue, 7 Oct 2014 15:16:10 +0300
+Message-ID: <5433D98A.2060904@freescale.com>
+References: <1412667875-18225-1-git-send-email-claudiu.manoil@freescale.com>
+ <1412667875-18225-4-git-send-email-claudiu.manoil@freescale.com>
+ <063D6719AE5E284EB5DD2968C1650D6D174C5BAC@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: John Fastabend <john.fastabend@gmail.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Xiubo Li <Li.Xiubo@freescale.com>,
+	Shruti Kanetkar <Shruti@freescale.com>,
+	"Kim Phillips" <kim.phillips@freescale.com>
+To: David Laight <David.Laight@ACULAB.COM>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f176.google.com ([209.85.223.176]:37233 "EHLO
-	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751334AbaJGLeD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2014 07:34:03 -0400
-Received: by mail-ie0-f176.google.com with SMTP id rp18so5111780iec.21
-        for <netdev@vger.kernel.org>; Tue, 07 Oct 2014 04:34:01 -0700 (PDT)
-In-Reply-To: <1412641314-17335-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from mail-bn1bbn0103.outbound.protection.outlook.com ([157.56.111.103]:24256
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753400AbaJGMQe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Oct 2014 08:16:34 -0400
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D174C5BAC@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/06/14 20:21, Cong Wang wrote:
-> We need to copy exts->type when committing the change, otherwise
-> it would be always 0. This is a quick fix for -net and -stable,
-> for net-next tcf_exts will be removed.
+On 10/7/2014 11:12 AM, David Laight wrote:
+> From: netdev-owner@vger.kernel.
+>> spin_event_timeout() is PPC dependent, use an arch independent
+>> equivalent instead.
 >
-> Fixes: commit 33be627159913b094bb578e83 ("net_sched: act: use standard struct list_head")
-> Reported-by: Jamal Hadi Salim <jhs@mojatatu.com>
-> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-> Cc: John Fastabend <john.fastabend@gmail.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> I think you should white a local function/#define that expands to spin_event_timeout()
+> on ppc and to the code below you are substituting on other architectures.
+>
+>>   	/* Wait for the transaction to finish */
+>> -	status = spin_event_timeout(!(ioread32be(&regs->miimind) &
+>> -				    MIIMIND_BUSY), MII_TIMEOUT, 0);
+>> +	timeout = MII_TIMEOUT;
+>> +	while ((ioread32be(&regs->miimind) & MIIMIND_BUSY) && timeout) {
+>> +		cpu_relax();
+>> +		timeout--;
+>> +	}
+>
+> 	David
+>
+>
+>
 
-Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
+Hi David,
 
+This point is debatable. Still better than adding a new local function 
+would be to provide an implementation for spin_even_timeout() for ARM.
+But it is not the place of the ethernet driver to provide an 
+implementation of spin_event_timeout() on ARM.
+Instead, I opted to simplify the busy wait/ timeout mechanism
+in the driver using a simple and arch independent implementation 
+replacing the PPC specific spin_event_timeout().  This timeout 
+implementation, open-coded as a while() loop, is commonly used by other 
+drivers too and I think that for this particular driver (fsl_pq_mdio) it 
+is good enough to do the job, while keeping the code simple and 
+portable.  It may not be as precise as spin_event_timeout() on PPC, but 
+good enough.
 
-cheers,
-jamal
+Thanks,
+Claudiu
