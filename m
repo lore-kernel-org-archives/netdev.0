@@ -1,42 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: bridge: Save frag_max_size between PRE_ROUTING and POST_ROUTING
-Date: Tue, 07 Oct 2014 15:13:10 -0400 (EDT)
-Message-ID: <20141007.151310.1935755900721864640.davem@davemloft.net>
-References: <20141004180647.GB1241@breakpoint.cc>
-	<20141005035343.GA13696@gondor.apana.org.au>
-	<20141005040022.GA14118@gondor.apana.org.au>
+Subject: Re: [PATCH] Update Intel Ethernet Driver maintainers list
+Date: Tue, 07 Oct 2014 15:13:55 -0400 (EDT)
+Message-ID: <20141007.151355.241594524590332845.davem@davemloft.net>
+References: <20141003213835.147369.71088.stgit@ahduyck-cp2.jf.intel.com>
+	<1412373876.2408.18.camel@jtkirshe-mobl>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: fw@strlen.de, netfilter-devel@vger.kernel.org, bsd@redhat.com,
-	stephen@networkplumber.org, netdev@vger.kernel.org,
-	eric.dumazet@gmail.com, davidn@davidnewall.com
-To: herbert@gondor.apana.org.au
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20141005040022.GA14118@gondor.apana.org.au>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: alexander.h.duyck@intel.com, netdev@vger.kernel.org,
+	matthew.vick@intel.com, alexander.duyck@gmail.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47708 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753728AbaJGTN6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2014 15:13:58 -0400
+In-Reply-To: <1412373876.2408.18.camel@jtkirshe-mobl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Sun, 5 Oct 2014 12:00:22 +0800
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Fri, 03 Oct 2014 15:04:36 -0700
 
-> bridge: Save frag_max_size between PRE_ROUTING and POST_ROUTING
+> On Fri, 2014-10-03 at 14:45 -0700, Alexander Duyck wrote:
+>> I will no longer be working for Intel as of today.  As such I am removing
+>> myself from the maintainers list and adding my replacement, Matthew Vick
+>> as he will be taking over maintenance of the fm10k driver.
+>> 
+>> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 > 
-> As we may defragment the packet in IPv4 PRE_ROUTING and refragment
-> it after POST_ROUTING we should save the value of frag_max_size.
+> Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 > 
-> This is still very wrong as the bridge is supposed to leave the
-> packets intact, meaning that the right thing to do is to use the
-> original frag_list for fragmentation.
-> 
-> Unfortunately we don't currently guarantee that the frag_list is
-> left untouched throughout netfilter so until this changes this is
-> the best we can do.
-> 
-> There is also a spot in FORWARD where it appears that we can
-> forward a packet without going through fragmentation, mark it
-> so that we can fix it later.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> Dave, no need to wait for a pull request on this one. :-)  We will miss
+> you Alex.
 
-Applied, thanks Herbert.
+Applied.
