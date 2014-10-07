@@ -1,66 +1,43 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [net-next PATCH v1 1/3] net: sched: af_packet support for
- direct ring access
-Date: Tue, 7 Oct 2014 15:59:35 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D174C621F@AcuExch.aculab.com>
-References: <20141006000629.32055.2295.stgit@nitbit.x32>
-	<CA+FuTSfwTBtZLu7CXh4bPxUtVubOvpCPo+O38BsnSiLdvV_KEA@mail.gmail.com>
-	<063D6719AE5E284EB5DD2968C1650D6D174C5C35@AcuExch.aculab.com>
- <20141007.114341.1417644866461362364.davem@davemloft.net>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [iproute2 1/1] RFC: obsolete direct invocation of police
+Date: Tue, 7 Oct 2014 09:04:25 -0700
+Message-ID: <20141007090425.007bbd37@urahara>
+References: <1412595960-7862-1-git-send-email-jhs@emojatatu.com>
+	<20141006100132.032e75bc@urahara>
+	<5433CF39.5030202@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "willemb@google.com" <willemb@google.com>,
-	"john.fastabend@gmail.com" <john.fastabend@gmail.com>,
-	"dborkman@redhat.com" <dborkman@redhat.com>,
-	"fw@strlen.de" <fw@strlen.de>,
-	"gerlitz.or@gmail.com" <gerlitz.or@gmail.com>,
-	"hannes@stressinduktion.org" <hannes@stressinduktion.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"john.ronciak@intel.com" <john.ronciak@intel.com>,
-	"amirv@mellanox.com" <amirv@mellanox.com>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	"danny.zhou@intel.com" <danny.zhou@intel.com>
-To: 'David Miller' <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com,
+	john.r.fastabend@intel.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:52500 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752028AbaJGQBI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2014 12:01:08 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 04465-08 for <netdev@vger.kernel.org>;
- Tue,  7 Oct 2014 17:01:03 +0100 (BST)
-In-Reply-To: <20141007.114341.1417644866461362364.davem@davemloft.net>
-Content-Language: en-US
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:34308 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754363AbaJGQEh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2014 12:04:37 -0400
+Received: by mail-pa0-f52.google.com with SMTP id fb1so7453449pad.11
+        for <netdev@vger.kernel.org>; Tue, 07 Oct 2014 09:04:37 -0700 (PDT)
+In-Reply-To: <5433CF39.5030202@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David 
-> From: David Laight <David.Laight@ACULAB.COM>
-> Date: Tue, 7 Oct 2014 09:27:03 +0000
-> 
-> > That is (probably) the only scheme that stops the application
-> > accessing random parts of physical memory.
-> 
-> I don't know where this claim keeps coming from, it's false.
-> 
-> The application has to attach memory to the ring, and then the
-> ring can only refer to that memory for the duration of the
-> session.
-> 
-> There is no way that the user can program the address field of the
-> descriptors to point at arbitrary physical memory locations.
-> 
-> There is protection and control.
+On Tue, 07 Oct 2014 07:32:09 -0400
+Jamal Hadi Salim <jhs@mojatatu.com> wrote:
 
-I got the impression that the application was directly writing the ring
-structure that the ethernet mac hardware uses to describe tx and rx buffers.
-(ie they are mapped read-write into userspace).
-Unless you have a system where you can limit the physical memory
-ranges accessible to the mac hardware, I don't see how you can stop
-the application putting rogue values into the ring.
+> On 10/06/14 13:01, Stephen Hemminger wrote:
+> 
+> > I think iproute utilities needs to accept the old syntax and warn about
+> > deprecated syntax use. Later (like 2yr +) the code can be removed.
+> >
+> > The old syntax can be removed from all documentation and help messages
+> > now though.
+> 
+> Ok, so ignore that one patch. I will send another one.
+> Fair to put a date for when the obsoletion notice went out?
+> Example:
+> "As of October 10, 2014 this syntax is obsolete. Please use instead ..."
+> Maybe also mention when the approximate cutoff date is.
 
-Clearly I'm missing something in my quick read of the change.
-
-	David
+Don't put a date in, it either will look silly, or will be ignored.
+Make message a short direct one liner.
