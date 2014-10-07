@@ -1,58 +1,36 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH] net: Add ndo_gso_check
-Date: Tue, 7 Oct 2014 13:43:09 -0700
-Message-ID: <CAADnVQJDxPsMeuNmnR5iUwccOKG2A02dZ+3Ae6wGg-RNFPeeeQ@mail.gmail.com>
-References: <CAADnVQJUhEmER7C_OOs0dM_mD8REbYT89SG1dfu2b79AUn9eow@mail.gmail.com>
-	<20141007.144752.657165589422333613.davem@davemloft.net>
-	<CAADnVQKKv43aBFCCaEypAosCf+8K64A2oyYEtxw4jQqY0npV5g@mail.gmail.com>
-	<20141007.163239.157997964784151921.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: sunvnet and ->xmit_more
+Date: Tue, 07 Oct 2014 16:46:49 -0400 (EDT)
+Message-ID: <20141007.164649.587971614591244924.davem@davemloft.net>
+References: <20141007192922.GA31406@oracle.com>
+	<20141007.153829.1919460115976279645.davem@davemloft.net>
+	<9BB04EDE-1842-4DB0-93BE-5186B2D187AB@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Tom Herbert <therbert@google.com>, Jesse Gross <jesse@nicira.com>,
-	"gerlitz.or@gmail.com" <gerlitz.or@gmail.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Thomas Graf <tgraf@suug.ch>,
-	Pravin Shelar <pshelar@nicira.com>,
-	Andy Zhou <azhou@nicira.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: sowmini.varadhan@oracle.com, netdev@vger.kernel.org,
+	david.stevens@oracle.com
+To: Raghuram.Kothakota@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f182.google.com ([209.85.216.182]:45924 "EHLO
-	mail-qc0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751264AbaJGUnK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2014 16:43:10 -0400
-Received: by mail-qc0-f182.google.com with SMTP id i17so6589336qcy.13
-        for <netdev@vger.kernel.org>; Tue, 07 Oct 2014 13:43:09 -0700 (PDT)
-In-Reply-To: <20141007.163239.157997964784151921.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48501 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754939AbaJGUqv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2014 16:46:51 -0400
+In-Reply-To: <9BB04EDE-1842-4DB0-93BE-5186B2D187AB@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 7, 2014 at 1:32 PM, David Miller <davem@davemloft.net> wrote:
-> From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-> Date: Tue, 7 Oct 2014 13:28:01 -0700
->
->> On Tue, Oct 7, 2014 at 11:47 AM, David Miller <davem@davemloft.net> wrote:
->>>
->>> I am totally against boolean "yes/no" protocol specific checksum
->>> validation by HW.
->>>
->>> It's not faster.  You have to look at the pseudo-header and bring it into
->>> the CPU cache _anyways_, so negating it and 2's complementing it into
->>> the CHECKSUM_COMPLETE value for validation is free.
->>>
->>> There is no performance advantage whatsoever to use another checksumming
->>> scheme.
->>
->> ok, forget faster/slower argument for a second.
->> Why is it a bad thing to have HW verifying checksums?
->
-> Because you have to change the damn hardware and/or firmware for every
-> new protocol.
+From: Raghuram Kothakota <Raghuram.Kothakota@oracle.com>
+Date: Tue, 7 Oct 2014 13:38:07 -0700
 
-It is true for existing NICs, but it is not true for upcoming devices.
-They're exposing packet parsers to users, so we will be able to
-program any protocol into the device without reflashing it.
-Some of the guys are even allowing reprogramming the parser
-while packets are flowing.
+> In case of sunvnet,  consumer starting as soon as possible would help
+> as the consumer is slower as it copies the data to local buffers. The recent
+> change by DLS avoids the copy in the Tx side, so the producer could be
+> faster than the receiver.  If the trigger is sent after n packets, then consumer
+> will really start after n packets in the ring and it may have lost that much time
+> to pickup the packets.
+
+I agree for the first few TX queue entires, or even just the first, but after
+that it always pays to defer and decrease the number of hcalls, locks, etc.
+
+Play with it, you'll see.
