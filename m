@@ -1,65 +1,35 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [PATCH v2 7/7] driver-core: add preferred async probe option for
- built-in and modules
-Date: Tue, 7 Oct 2014 13:55:03 -0400
-Message-ID: <20141007175503.GE31328@mtj.dyndns.org>
-References: <1412372683-2003-1-git-send-email-mcgrof@do-not-panic.com>
- <1412372683-2003-8-git-send-email-mcgrof@do-not-panic.com>
- <20141006201926.GF18303@htj.dyndns.org>
- <20141006203627.GZ14081@wotan.suse.de>
- <20141006210118.GG18303@htj.dyndns.org>
- <20141006231046.GD14081@wotan.suse.de>
- <20141007173404.GB31328@mtj.dyndns.org>
- <20141007175010.GH14081@wotan.suse.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: macvlan: optimizing the receive path?
+Date: Tue, 07 Oct 2014 11:00:42 -0700
+Message-ID: <1412704842.11091.147.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <542DB55D.3090601@akamai.com>
+	 <20141004.204203.2211720828886085354.davem@davemloft.net>
+	 <5432936D.7010906@gmail.com> <5434246E.1000403@akamai.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
-	gregkh@linuxfoundation.org, dmitry.torokhov@gmail.com,
-	tiwai@suse.de, arjan@linux.intel.com, teg@jklm.no,
-	rmilasan@suse.com, werner@suse.com, oleg@redhat.com, hare@suse.com,
-	bpoirier@suse.de, santosh@chelsio.com, pmladek@suse.cz,
-	dbueso@suse.com, linux-kernel@vger.kernel.org,
-	Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
-	Joseph Salisbury <joseph.salisbury@canonical.com>,
-	Kay Sievers <kay@vrfy.org>,
-	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
-	Tim Gardner <tim.gardner@canonical.com>,
-	Pierre Fersing <pierre-fersing@pierref.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
-	Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
-	Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
-	Abhijit Mahajan <abhijit.mahajan@avagotech.com>,
-	Casey Leedom <leedom@che
-To: "Luis R. Rodriguez" <mcgrof@suse.com>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20141007175010.GH14081@wotan.suse.de>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Vlad Yasevich <vyasevich@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"kaber@trash.net" <kaber@trash.net>
+To: Jason Baron <jbaron@akamai.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:49965 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753764AbaJGSAp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2014 14:00:45 -0400
+Received: by mail-pd0-f177.google.com with SMTP id v10so5349010pde.8
+        for <netdev@vger.kernel.org>; Tue, 07 Oct 2014 11:00:45 -0700 (PDT)
+In-Reply-To: <5434246E.1000403@akamai.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On Tue, 2014-10-07 at 13:35 -0400, Jason Baron wrote:
 
-On Tue, Oct 07, 2014 at 07:50:10PM +0200, Luis R. Rodriguez wrote:
-> On Tue, Oct 07, 2014 at 01:34:04PM -0400, Tejun Heo wrote:
-> > But you can create a new workqueue and queue all the async probing
-> > work items there and flush the workqueue right after
-> > async_synchronize_full().
-> 
-> On second thought I would prefer to avoid this, I see this being good
-> to help with old userspace but other than that I don't see a requirement
-> for new userspace. Do you?
+> So if there are no objections, I will post as a formal patch.
 
-Hmmm... we batch up and do everything parallel, so I'm not sure how
-much gain we'd be looking at by not waiting for at the end before
-jumping into the userland.  Also, it's a bit of an orthogonal issue.
-If we wanna skip such synchornization point before passing control to
-userland, why are we applying that to this but not
-async_synchronize_full() which has a far larger impact?  It's weird to
-synchronize one while not the other, so yeah, if there are actual
-benefits we can consider it but let's do it separately.
+I think the code used netif_rx() as a precaution because of
+multicast/broadcasts.
 
-Thanks.
-
--- 
-tejun
+Now these are taken care (if multicast filter + work queue for
+broadcasts), it seems ok to have a fast path.
