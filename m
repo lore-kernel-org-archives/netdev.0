@@ -1,37 +1,130 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [PATCH iproute2 1/5] iplink: Fix setting of -1 as ifindex
-Date: Mon, 6 Oct 2014 17:42:11 -0700
-Message-ID: <CAHA+R7N7_Aim_dvs2mdGaPWk59qYbuafzW8WUd2PRLT=Yc7K8g@mail.gmail.com>
-References: <1412351718-22921-1-git-send-email-therbert@google.com>
-	<1412351718-22921-2-git-send-email-therbert@google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	netdev <netdev@vger.kernel.org>
-To: Tom Herbert <therbert@google.com>
+From: Petri Gynther <pgynther@google.com>
+Subject: [PATCH net-next] net: bcmgenet: fix Tx ring priority programming
+Date: Mon,  6 Oct 2014 17:50:01 -0700 (PDT)
+Message-ID: <20141007005001.61C1D100BC1@puck.mtv.corp.google.com>
+Cc: davem@davemloft.net, f.fainelli@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f51.google.com ([209.85.215.51]:59195 "EHLO
-	mail-la0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751213AbaJGAmN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 20:42:13 -0400
-Received: by mail-la0-f51.google.com with SMTP id ge10so5350671lab.38
-        for <netdev@vger.kernel.org>; Mon, 06 Oct 2014 17:42:11 -0700 (PDT)
-In-Reply-To: <1412351718-22921-2-git-send-email-therbert@google.com>
+Received: from mail-ie0-f202.google.com ([209.85.223.202]:48865 "EHLO
+	mail-ie0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751827AbaJGAuI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 20:50:08 -0400
+Received: by mail-ie0-f202.google.com with SMTP id rd18so813310iec.5
+        for <netdev@vger.kernel.org>; Mon, 06 Oct 2014 17:50:07 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 3, 2014 at 8:55 AM, Tom Herbert <therbert@google.com> wrote:
-> Commit 3c682146aeff157ec3540 ("iplink: forbid negative ifindex and
-> modifying ifindex") initializes index to -1 in iplink_modify. When
-> creating a link, req.i.ifi_index is then set to -1 if the link option is
-> not used. In the kernel this is then used to set dev->ifindex. For
-> dev->ifindex, zero is considered to be unset and -1 is treated as
-> a set index, so when a second tunnel is create the new device conflicts
-> with the old one (both have ifindex of -1) so -EBUSY is returned.
->
-> This patch set zero in req.i.ifi_index is index is unset (still -1).
+GENET MAC has three Tx ring priority registers:
+- GENET_x_TDMA_PRIORITY0 for queues 0-5
+- GENET_x_TDMA_PRIORITY1 for queues 6-11
+- GENET_x_TDMA_PRIORITY2 for queues 12-16
 
+Fix bcmgenet_init_multiq() to program them correctly.
 
-There was a patch before yours:
-https://patchwork.ozlabs.org/patch/395404/
+Signed-off-by: Petri Gynther <pgynther@google.com>
+---
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c | 46 +++++++++++++++++---------
+ 1 file changed, 30 insertions(+), 16 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+index e0a6238..151d5b2 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+@@ -191,8 +191,9 @@ enum dma_reg {
+ 	DMA_STATUS,
+ 	DMA_SCB_BURST_SIZE,
+ 	DMA_ARB_CTRL,
+-	DMA_PRIORITY,
+-	DMA_RING_PRIORITY,
++	DMA_PRIORITY_0,
++	DMA_PRIORITY_1,
++	DMA_PRIORITY_2,
+ };
+ 
+ static const u8 bcmgenet_dma_regs_v3plus[] = {
+@@ -201,8 +202,9 @@ static const u8 bcmgenet_dma_regs_v3plus[] = {
+ 	[DMA_STATUS]		= 0x08,
+ 	[DMA_SCB_BURST_SIZE]	= 0x0C,
+ 	[DMA_ARB_CTRL]		= 0x2C,
+-	[DMA_PRIORITY]		= 0x30,
+-	[DMA_RING_PRIORITY]	= 0x38,
++	[DMA_PRIORITY_0]	= 0x30,
++	[DMA_PRIORITY_1]	= 0x34,
++	[DMA_PRIORITY_2]	= 0x38,
+ };
+ 
+ static const u8 bcmgenet_dma_regs_v2[] = {
+@@ -211,8 +213,9 @@ static const u8 bcmgenet_dma_regs_v2[] = {
+ 	[DMA_STATUS]		= 0x08,
+ 	[DMA_SCB_BURST_SIZE]	= 0x0C,
+ 	[DMA_ARB_CTRL]		= 0x30,
+-	[DMA_PRIORITY]		= 0x34,
+-	[DMA_RING_PRIORITY]	= 0x3C,
++	[DMA_PRIORITY_0]	= 0x34,
++	[DMA_PRIORITY_1]	= 0x38,
++	[DMA_PRIORITY_2]	= 0x3C,
+ };
+ 
+ static const u8 bcmgenet_dma_regs_v1[] = {
+@@ -220,8 +223,9 @@ static const u8 bcmgenet_dma_regs_v1[] = {
+ 	[DMA_STATUS]		= 0x04,
+ 	[DMA_SCB_BURST_SIZE]	= 0x0C,
+ 	[DMA_ARB_CTRL]		= 0x30,
+-	[DMA_PRIORITY]		= 0x34,
+-	[DMA_RING_PRIORITY]	= 0x3C,
++	[DMA_PRIORITY_0]	= 0x34,
++	[DMA_PRIORITY_1]	= 0x38,
++	[DMA_PRIORITY_2]	= 0x3C,
+ };
+ 
+ /* Set at runtime once bcmgenet version is known */
+@@ -1696,7 +1700,8 @@ static void bcmgenet_init_multiq(struct net_device *dev)
+ {
+ 	struct bcmgenet_priv *priv = netdev_priv(dev);
+ 	unsigned int i, dma_enable;
+-	u32 reg, dma_ctrl, ring_cfg = 0, dma_priority = 0;
++	u32 reg, dma_ctrl, ring_cfg = 0;
++	u32 dma_priority[3] = {0, 0, 0};
+ 
+ 	if (!netif_is_multiqueue(dev)) {
+ 		netdev_warn(dev, "called with non multi queue aware HW\n");
+@@ -1721,9 +1726,17 @@ static void bcmgenet_init_multiq(struct net_device *dev)
+ 
+ 		/* Configure ring as descriptor ring and setup priority */
+ 		ring_cfg |= 1 << i;
+-		dma_priority |= ((GENET_Q0_PRIORITY + i) <<
+-				(GENET_MAX_MQ_CNT + 1) * i);
+ 		dma_ctrl |= 1 << (i + DMA_RING_BUF_EN_SHIFT);
++
++		if (i < 6)
++			dma_priority[0] |= ((GENET_Q0_PRIORITY + i) <<
++				(i * DMA_RING_BUF_PRIORITY_SHIFT));
++		else if (i < 12)
++			dma_priority[1] |= ((GENET_Q0_PRIORITY + i) <<
++				((i - 6) * DMA_RING_BUF_PRIORITY_SHIFT));
++		else
++			dma_priority[2] |= ((GENET_Q0_PRIORITY + i) <<
++				((i - 12) * DMA_RING_BUF_PRIORITY_SHIFT));
+ 	}
+ 
+ 	/* Enable rings */
+@@ -1731,11 +1744,12 @@ static void bcmgenet_init_multiq(struct net_device *dev)
+ 	reg |= ring_cfg;
+ 	bcmgenet_tdma_writel(priv, reg, DMA_RING_CFG);
+ 
+-	/* Use configured rings priority and set ring #16 priority */
+-	reg = bcmgenet_tdma_readl(priv, DMA_RING_PRIORITY);
+-	reg |= ((GENET_Q0_PRIORITY + priv->hw_params->tx_queues) << 20);
+-	reg |= dma_priority;
+-	bcmgenet_tdma_writel(priv, reg, DMA_PRIORITY);
++	/* Set ring 16 priority and program the hardware registers */
++	dma_priority[2] |=
++		((GENET_Q0_PRIORITY + priv->hw_params->tx_queues) << 20);
++	bcmgenet_tdma_writel(priv, dma_priority[0], DMA_PRIORITY_0);
++	bcmgenet_tdma_writel(priv, dma_priority[1], DMA_PRIORITY_1);
++	bcmgenet_tdma_writel(priv, dma_priority[2], DMA_PRIORITY_2);
+ 
+ 	/* Configure ring as descriptor ring and re-enable DMA if enabled */
+ 	reg = bcmgenet_tdma_readl(priv, DMA_CTRL);
+-- 
+2.1.0.rc2.206.gedb03e5
