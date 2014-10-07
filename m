@@ -1,130 +1,142 @@
-From: Petri Gynther <pgynther@google.com>
-Subject: [PATCH net-next] net: bcmgenet: fix Tx ring priority programming
-Date: Mon,  6 Oct 2014 17:50:01 -0700 (PDT)
-Message-ID: <20141007005001.61C1D100BC1@puck.mtv.corp.google.com>
-Cc: davem@davemloft.net, f.fainelli@gmail.com
-To: netdev@vger.kernel.org
+From: Eric Wheeler <netdev@lists.ewheeler.net>
+Subject: [PATCH net] bna: page allocation during interrupts to use a
+ mempool.
+Date: Mon, 6 Oct 2014 18:57:24 -0700 (PDT)
+Message-ID: <alpine.DEB.2.00.1410061850120.5129@ware.dreamhost.com>
+References: <alpine.DEB.2.00.1409271631530.26069@ware.dreamhost.com> <20140929092833.6c2cb7e9@urahara> <262CB373A6D1F14F9B81E82F74F77D5A4704FAE7@avmb2.qlogic.org>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; format=flowed; charset=US-ASCII
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	netdev <netdev@vger.kernel.org>,
+	"rmody@brocade.com" <rmody@brocade.com>,
+	Rasesh Mody <rasesh.mody@qlogic.com>
+To: Shahed Shaikh <shahed.shaikh@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f202.google.com ([209.85.223.202]:48865 "EHLO
-	mail-ie0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751827AbaJGAuI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 20:50:08 -0400
-Received: by mail-ie0-f202.google.com with SMTP id rd18so813310iec.5
-        for <netdev@vger.kernel.org>; Mon, 06 Oct 2014 17:50:07 -0700 (PDT)
+Received: from homie.mail.dreamhost.com ([208.97.132.208]:40241 "EHLO
+	homiemail-a60.g.dreamhost.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751213AbaJGBmC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 21:42:02 -0400
+In-Reply-To: <262CB373A6D1F14F9B81E82F74F77D5A4704FAE7@avmb2.qlogic.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-GENET MAC has three Tx ring priority registers:
-- GENET_x_TDMA_PRIORITY0 for queues 0-5
-- GENET_x_TDMA_PRIORITY1 for queues 6-11
-- GENET_x_TDMA_PRIORITY2 for queues 12-16
+This patch fixes an order:2 memory allocation error backtrace by 
+guaranteeing that memory is available during simultaneous high memory 
+pressure and packet rates when using 9k jumbo frames.
 
-Fix bcmgenet_init_multiq() to program them correctly.
+Tests between two systems (one patched, one not) succeeded with ~1TB of 
+data transferred over DRBD.  As expected, the unpatched host gave 
+warn_alloc_failed's, and the patched host worked correctly.  This patch 
+increases kernel memory usage by 32 order-2 allocation when this module is 
+loaded (512k on x86) which should be negligible on hosts that use 10GbE 
+cards.
 
-Signed-off-by: Petri Gynther <pgynther@google.com>
+Fixes:
+[<ffffffff8113b17b>] warn_alloc_failed+0xeb/0x150
+[<ffffffff8113e2f0>] __alloc_pages_slowpath+0x4a0/0x7e0
+[<ffffffff8113e8e2>] __alloc_pages_nodemask+0x2b2/0x2c0
+[<ffffffff81181232>] alloc_pages_current+0xb2/0x170
+[<ffffffffa0239cb4>] bnad_rxq_refill_page+0x154/0x1e0 [bna]
+[<ffffffffa023c282>] bnad_cq_process+0x462/0x840 [bna]
+[<ffffffffa023c6af>] bnad_napi_poll_rx+0x4f/0xc0 [bna]
+[<ffffffff814dcf4c>] net_rx_action+0xfc/0x280
+[<ffffffff8105ba83>] __do_softirq+0xf3/0x2c0
+[<ffffffff8105bd5d>] irq_exit+0xbd/0xd0
+[<ffffffff815ae697>] do_IRQ+0x67/0x110
+[<ffffffff815a39ad>] common_interrupt+0x6d/0x6d
+<EOI>
+[<ffffffff81486275>] ? cpuidle_enter_state+0x55/0xd0
+[<ffffffff8148626b>] ? cpuidle_enter_state+0x4b/0xd0
+[<ffffffff814863b7>] cpuidle_idle_call+0xc7/0x160
+[<ffffffff8100d73e>] arch_cpu_idle+0xe/0x30
+[<ffffffff810b187e>] cpu_idle_loop+0x9e/0x250
+[<ffffffff810b1aa0>] cpu_startup_entry+0x70/0x80
+[<ffffffff810350d2>] start_secondary+0xd2/0xe0
+
+Signed-off-by: Eric Wheeler <netdev@lists.ewheeler.net>
 ---
- drivers/net/ethernet/broadcom/genet/bcmgenet.c | 46 +++++++++++++++++---------
- 1 file changed, 30 insertions(+), 16 deletions(-)
+  drivers/net/ethernet/brocade/bna/bnad.c |   27 ++++++++++++++++++++++++---
+  1 files changed, 24 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-index e0a6238..151d5b2 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-+++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-@@ -191,8 +191,9 @@ enum dma_reg {
- 	DMA_STATUS,
- 	DMA_SCB_BURST_SIZE,
- 	DMA_ARB_CTRL,
--	DMA_PRIORITY,
--	DMA_RING_PRIORITY,
-+	DMA_PRIORITY_0,
-+	DMA_PRIORITY_1,
-+	DMA_PRIORITY_2,
- };
- 
- static const u8 bcmgenet_dma_regs_v3plus[] = {
-@@ -201,8 +202,9 @@ static const u8 bcmgenet_dma_regs_v3plus[] = {
- 	[DMA_STATUS]		= 0x08,
- 	[DMA_SCB_BURST_SIZE]	= 0x0C,
- 	[DMA_ARB_CTRL]		= 0x2C,
--	[DMA_PRIORITY]		= 0x30,
--	[DMA_RING_PRIORITY]	= 0x38,
-+	[DMA_PRIORITY_0]	= 0x30,
-+	[DMA_PRIORITY_1]	= 0x34,
-+	[DMA_PRIORITY_2]	= 0x38,
- };
- 
- static const u8 bcmgenet_dma_regs_v2[] = {
-@@ -211,8 +213,9 @@ static const u8 bcmgenet_dma_regs_v2[] = {
- 	[DMA_STATUS]		= 0x08,
- 	[DMA_SCB_BURST_SIZE]	= 0x0C,
- 	[DMA_ARB_CTRL]		= 0x30,
--	[DMA_PRIORITY]		= 0x34,
--	[DMA_RING_PRIORITY]	= 0x3C,
-+	[DMA_PRIORITY_0]	= 0x34,
-+	[DMA_PRIORITY_1]	= 0x38,
-+	[DMA_PRIORITY_2]	= 0x3C,
- };
- 
- static const u8 bcmgenet_dma_regs_v1[] = {
-@@ -220,8 +223,9 @@ static const u8 bcmgenet_dma_regs_v1[] = {
- 	[DMA_STATUS]		= 0x04,
- 	[DMA_SCB_BURST_SIZE]	= 0x0C,
- 	[DMA_ARB_CTRL]		= 0x30,
--	[DMA_PRIORITY]		= 0x34,
--	[DMA_RING_PRIORITY]	= 0x3C,
-+	[DMA_PRIORITY_0]	= 0x34,
-+	[DMA_PRIORITY_1]	= 0x38,
-+	[DMA_PRIORITY_2]	= 0x3C,
- };
- 
- /* Set at runtime once bcmgenet version is known */
-@@ -1696,7 +1700,8 @@ static void bcmgenet_init_multiq(struct net_device *dev)
- {
- 	struct bcmgenet_priv *priv = netdev_priv(dev);
- 	unsigned int i, dma_enable;
--	u32 reg, dma_ctrl, ring_cfg = 0, dma_priority = 0;
-+	u32 reg, dma_ctrl, ring_cfg = 0;
-+	u32 dma_priority[3] = {0, 0, 0};
- 
- 	if (!netif_is_multiqueue(dev)) {
- 		netdev_warn(dev, "called with non multi queue aware HW\n");
-@@ -1721,9 +1726,17 @@ static void bcmgenet_init_multiq(struct net_device *dev)
- 
- 		/* Configure ring as descriptor ring and setup priority */
- 		ring_cfg |= 1 << i;
--		dma_priority |= ((GENET_Q0_PRIORITY + i) <<
--				(GENET_MAX_MQ_CNT + 1) * i);
- 		dma_ctrl |= 1 << (i + DMA_RING_BUF_EN_SHIFT);
+diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
+index 3a77f9e..8906ad1 100644
+--- a/drivers/net/ethernet/brocade/bna/bnad.c
++++ b/drivers/net/ethernet/brocade/bna/bnad.c
+@@ -26,6 +26,7 @@
+  #include <linux/ip.h>
+  #include <linux/prefetch.h>
+  #include <linux/module.h>
++#include <linux/mempool.h>
+
+  #include "bnad.h"
+  #include "bna.h"
+@@ -58,6 +59,8 @@ static struct mutex bnad_list_mutex;
+  static LIST_HEAD(bnad_list);
+  static const u8 bnad_bcast_addr[] =  {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+
++static mempool_t *rxq_mempool_o2 = NULL;
 +
-+		if (i < 6)
-+			dma_priority[0] |= ((GENET_Q0_PRIORITY + i) <<
-+				(i * DMA_RING_BUF_PRIORITY_SHIFT));
-+		else if (i < 12)
-+			dma_priority[1] |= ((GENET_Q0_PRIORITY + i) <<
-+				((i - 6) * DMA_RING_BUF_PRIORITY_SHIFT));
-+		else
-+			dma_priority[2] |= ((GENET_Q0_PRIORITY + i) <<
-+				((i - 12) * DMA_RING_BUF_PRIORITY_SHIFT));
- 	}
- 
- 	/* Enable rings */
-@@ -1731,11 +1744,12 @@ static void bcmgenet_init_multiq(struct net_device *dev)
- 	reg |= ring_cfg;
- 	bcmgenet_tdma_writel(priv, reg, DMA_RING_CFG);
- 
--	/* Use configured rings priority and set ring #16 priority */
--	reg = bcmgenet_tdma_readl(priv, DMA_RING_PRIORITY);
--	reg |= ((GENET_Q0_PRIORITY + priv->hw_params->tx_queues) << 20);
--	reg |= dma_priority;
--	bcmgenet_tdma_writel(priv, reg, DMA_PRIORITY);
-+	/* Set ring 16 priority and program the hardware registers */
-+	dma_priority[2] |=
-+		((GENET_Q0_PRIORITY + priv->hw_params->tx_queues) << 20);
-+	bcmgenet_tdma_writel(priv, dma_priority[0], DMA_PRIORITY_0);
-+	bcmgenet_tdma_writel(priv, dma_priority[1], DMA_PRIORITY_1);
-+	bcmgenet_tdma_writel(priv, dma_priority[2], DMA_PRIORITY_2);
- 
- 	/* Configure ring as descriptor ring and re-enable DMA if enabled */
- 	reg = bcmgenet_tdma_readl(priv, DMA_CTRL);
+  /*
+   * Local MACROS
+   */
+@@ -321,7 +324,7 @@ bnad_rxq_cleanup_page(struct bnad *bnad, struct bnad_rx_unmap *unmap)
+  	dma_unmap_page(&bnad->pcidev->dev,
+  			dma_unmap_addr(&unmap->vector, dma_addr),
+  			unmap->vector.len, DMA_FROM_DEVICE);
+-	put_page(unmap->page);
++	mempool_free(unmap->page, rxq_mempool_o2);
+  	unmap->page = NULL;
+  	dma_unmap_addr_set(&unmap->vector, dma_addr, 0);
+  	unmap->vector.len = 0;
+@@ -380,8 +383,11 @@ bnad_rxq_refill_page(struct bnad *bnad, struct bna_rcb *rcb, u32 nalloc)
+  		unmap = &unmap_q->unmap[prod];
+
+  		if (unmap_q->reuse_pi < 0) {
+-			page = alloc_pages(GFP_ATOMIC | __GFP_COMP,
+-					unmap_q->alloc_order);
++			if (unmap_q->alloc_order == 2)
++				page = mempool_alloc(rxq_mempool_o2, GFP_ATOMIC | __GFP_COMP);
++			else
++				page = alloc_pages(GFP_ATOMIC | __GFP_COMP,
++						unmap_q->alloc_order);
+  			page_offset = 0;
+  		} else {
+  			prev = &unmap_q->unmap[unmap_q->reuse_pi];
+@@ -3861,6 +3867,16 @@ static struct pci_driver bnad_pci_driver = {
+  	.remove = bnad_pci_remove,
+  };
+
++void *bnad_rxq_mempool_alloc_o2(gfp_t gfp_mask, void *pool_data)
++{
++	return (void*) alloc_pages(gfp_mask, 2);
++}
++
++void bnad_rxq_mempool_free_o2(void *page, void *pool_data)
++{
++	put_page((struct page*)page);
++}
++
+  static int __init
+  bnad_module_init(void)
+  {
+@@ -3878,6 +3894,10 @@ bnad_module_init(void)
+  		return err;
+  	}
+
++	rxq_mempool_o2 = mempool_create(32, /* how many do we really need? */
++		bnad_rxq_mempool_alloc_o2,
++		bnad_rxq_mempool_free_o2, NULL);
++
+  	return 0;
+  }
+
+@@ -3886,6 +3906,7 @@ bnad_module_exit(void)
+  {
+  	pci_unregister_driver(&bnad_pci_driver);
+  	release_firmware(bfi_fw);
++	mempool_destroy(rxq_mempool_o2);
+  }
+
+  module_init(bnad_module_init);
 -- 
-2.1.0.rc2.206.gedb03e5
+1.7.1
