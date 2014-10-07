@@ -1,35 +1,29 @@
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH V2 net-next] af_unix: remove 0 assignment on static
+Date: Tue, 07 Oct 2014 17:03:34 -0400 (EDT)
+Message-ID: <20141007.170334.1642010479995041045.davem@davemloft.net>
+References: <1412715735-6757-1-git-send-email-fabf@skynet.be>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: fabf@skynet.be
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48630 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755256AbaJGVDg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2014 17:03:36 -0400
+In-Reply-To: <1412715735-6757-1-git-send-email-fabf@skynet.be>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
 From: Fabian Frederick <fabf@skynet.be>
-Subject: [PATCH V2 net-next] af_unix: remove 0 assignment on static
 Date: Tue,  7 Oct 2014 23:02:15 +0200
-Message-ID: <1412715735-6757-1-git-send-email-fabf@skynet.be>
-Cc: Fabian Frederick <fabf@skynet.be>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
 
-static values are automatically initialized to 0
+> static values are automatically initialized to 0
+> 
+> Signed-off-by: Fabian Frederick <fabf@skynet.be>
+> ---
+> V2: replace NULL by 0 in description
 
-Signed-off-by: Fabian Frederick <fabf@skynet.be>
----
-V2: replace NULL by 0 in description
-
- net/unix/garbage.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/unix/garbage.c b/net/unix/garbage.c
-index 9bc73f8..99f7012 100644
---- a/net/unix/garbage.c
-+++ b/net/unix/garbage.c
-@@ -258,7 +258,7 @@ static void inc_inflight_move_tail(struct unix_sock *u)
- 		list_move_tail(&u->link, &gc_candidates);
- }
- 
--static bool gc_in_progress = false;
-+static bool gc_in_progress;
- #define UNIX_INFLIGHT_TRIGGER_GC 16000
- 
- void wait_for_unix_gc(void)
--- 
-1.9.3
+Applied, thanks Fabian.
