@@ -1,65 +1,66 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: Quota in __qdisc_run()
-Date: Tue, 7 Oct 2014 20:03:29 +0200
-Message-ID: <20141007200329.5d20a27e@redhat.com>
-References: <20141007153050.792c9743@redhat.com>
-	<1412693013.4140057.176149461.0FBF6CBD@webmail.messagingengine.com>
-	<1412694080.11091.131.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20141007.131938.1410434352331637585.davem@davemloft.net>
+From: "Luis R. Rodriguez" <mcgrof@suse.com>
+Subject: Re: [PATCH v2 7/7] driver-core: add preferred async probe option for
+ built-in and modules
+Date: Tue, 7 Oct 2014 11:55:16 -0700
+Message-ID: <CAB=NE6V_1yyYPhzbV_yRzt7fg=_8yF2YYNBz4qH_2TbH0nozcw@mail.gmail.com>
+References: <1412372683-2003-1-git-send-email-mcgrof@do-not-panic.com>
+ <1412372683-2003-8-git-send-email-mcgrof@do-not-panic.com>
+ <20141006201926.GF18303@htj.dyndns.org> <20141006203627.GZ14081@wotan.suse.de>
+ <20141006210118.GG18303@htj.dyndns.org> <20141006231046.GD14081@wotan.suse.de>
+ <20141007173404.GB31328@mtj.dyndns.org> <20141007175010.GH14081@wotan.suse.de>
+ <20141007175503.GE31328@mtj.dyndns.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, hannes@stressinduktion.org,
-	netdev@vger.kernel.org, therbert@google.com, fw@strlen.de,
-	dborkman@redhat.com, jhs@mojatatu.com, alexander.duyck@gmail.com,
-	john.r.fastabend@intel.com, dave.taht@gmail.com, toke@toke.dk,
-	brouer@redhat.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40714 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753608AbaJGSWe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Oct 2014 14:22:34 -0400
-In-Reply-To: <20141007.131938.1410434352331637585.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Dmitry Torokhov <dmitry.torokhov@gmail.com>,
+	Takashi Iwai <tiwai@suse.de>,
+	Arjan van de Ven <arjan@linux.intel.com>,
+	Tom Gundersen <teg@jklm.no>,
+	Robert Milasan <rmilasan@suse.com>, werner@suse.com,
+	Oleg Nesterov <oleg@redhat.com>, hare <hare@suse.com>,
+	Benjamin Poirier <bpoirier@suse.de>,
+	Santosh Rastapur <santosh@chelsio.com>,
+	Petr Mladek <pmladek@suse.cz>, dbueso@suse.com,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
+	Joseph Salisbury <joseph.salisbury@canonical.com>,
+	Kay Sievers <kay@vrfy.org>,
+	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
+	Tim Gardner <tim.gardner@canonical.com>,
+	Pierre Fersing <pierre-fersing@pierref.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
+	Praveen Krishnam
+To: Tejun Heo <tj@kernel.org>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <20141007175503.GE31328@mtj.dyndns.org>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 07 Oct 2014 13:19:38 -0400 (EDT)
-David Miller <davem@davemloft.net> wrote:
+On Tue, Oct 7, 2014 at 10:55 AM, Tejun Heo <tj@kernel.org> wrote:
+> Hello,
+>
+> On Tue, Oct 07, 2014 at 07:50:10PM +0200, Luis R. Rodriguez wrote:
+>> On Tue, Oct 07, 2014 at 01:34:04PM -0400, Tejun Heo wrote:
+>> > But you can create a new workqueue and queue all the async probing
+>> > work items there and flush the workqueue right after
+>> > async_synchronize_full().
+>>
+>> On second thought I would prefer to avoid this, I see this being good
+>> to help with old userspace but other than that I don't see a requirement
+>> for new userspace. Do you?
+>
+> Hmmm... we batch up and do everything parallel, so I'm not sure how
+> much gain we'd be looking at by not waiting for at the end before
+> jumping into the userland.  Also, it's a bit of an orthogonal issue.
+> If we wanna skip such synchornization point before passing control to
+> userland, why are we applying that to this but not
+> async_synchronize_full() which has a far larger impact?  It's weird to
+> synchronize one while not the other, so yeah, if there are actual
+> benefits we can consider it but let's do it separately.
 
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Tue, 07 Oct 2014 08:01:20 -0700
-> 
-> > On Tue, 2014-10-07 at 16:43 +0200, Hannes Frederic Sowa wrote:
-> > 
-> >> This needs to be:
-> >> 
-> >> do
-> >>    ...
-> >> while ((iskb = iskb->next))
-> > 
-> > I do not feel needed to break the bulk dequeue at precise quota
-> > boundary. These quotas are advisory, and bql prefers to get its full
-> > budget for appropriate feedback from TX completion.
-> > 
-> > Quota was a packet quota, which was quite irrelevant if segmentation had
-> > to be done, so I would just let the dequeue be done so that we benefit
-> > from optimal xmit_more.
-> 
-> Yes, this makes sense, do a full qdisc_restart() cycle without boundaries,
-> then check how much quota was used afterwards to guard the outermost loop.
+OK I'll just kill bus.enable_kern_async=1 to enable built-in async
+probe support *and* also have prefer_async_probe *always* be
+respected, whether modular or not.
 
-According to my measurements, at 10Gbit/s TCP_STREAM test the BQL limit
-is 381528 bytes / 1514 = 252 packets, that will (potentially) be bulk
-dequeued at once (with your version of the patch).
-
-It seems to have the potential to exceed the weight_p(64) quite a lot.
-And with e.g. TX ring size 512, we also also challenge the drivers at
-this early adoption phase of tailptr writes.  Just saying...
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+  Luis
