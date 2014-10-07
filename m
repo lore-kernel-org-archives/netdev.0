@@ -1,7 +1,7 @@
 From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Subject: [net v2 6/8] gianfar: Make MAC addr setup endian safe, cleanup
-Date: Tue, 7 Oct 2014 10:44:33 +0300
-Message-ID: <1412667875-18225-7-git-send-email-claudiu.manoil@freescale.com>
+Subject: [net v2 3/8] net/fsl_pq_mdio: Replace spin_event_timeout() with arch independent
+Date: Tue, 7 Oct 2014 10:44:30 +0300
+Message-ID: <1412667875-18225-4-git-send-email-claudiu.manoil@freescale.com>
 References: <1412667875-18225-1-git-send-email-claudiu.manoil@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,62 +11,110 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	"Kim Phillips" <kim.phillips@freescale.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [65.55.169.135] ([65.55.169.135]:54432 "EHLO
+Received: from [65.55.169.143] ([65.55.169.143]:3299 "EHLO
 	na01-bl2-obe.outbound.protection.outlook.com"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752784AbaJGHrQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Oct 2014 03:47:16 -0400
+	id S1753176AbaJGHrN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Oct 2014 03:47:13 -0400
 In-Reply-To: <1412667875-18225-1-git-send-email-claudiu.manoil@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix the 32-bit memory access that is not endian safe,
-i.e. not giving the desired byte layout for a LE CPU:
-tempval = *((u32 *) (tmpbuf + 4)), where 'char tmpbuf[]'.
-
-Get rid of rendundant local vars (tmpbuf[] and idx) and
-forced casts.  Cleanup comments.
+spin_event_timeout() is PPC dependent, use an arch independent
+equivalent instead.
 
 Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
 ---
 v2 - none
 
- drivers/net/ethernet/freescale/gianfar.c | 15 +++++++--------
- 1 file changed, 7 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/freescale/fsl_pq_mdio.c | 36 ++++++++++++++++++----------
+ 1 file changed, 23 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-index 37e0604..961198a 100644
---- a/drivers/net/ethernet/freescale/gianfar.c
-+++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -3248,22 +3248,21 @@ static void gfar_set_mac_for_addr(struct net_device *dev, int num,
+diff --git a/drivers/net/ethernet/freescale/fsl_pq_mdio.c b/drivers/net/ethernet/freescale/fsl_pq_mdio.c
+index a422838..964c6bf 100644
+--- a/drivers/net/ethernet/freescale/fsl_pq_mdio.c
++++ b/drivers/net/ethernet/freescale/fsl_pq_mdio.c
+@@ -104,7 +104,7 @@ static int fsl_pq_mdio_write(struct mii_bus *bus, int mii_id, int regnum,
  {
- 	struct gfar_private *priv = netdev_priv(dev);
- 	struct gfar __iomem *regs = priv->gfargrp[0].regs;
--	int idx;
--	char tmpbuf[ETH_ALEN];
- 	u32 tempval;
- 	u32 __iomem *macptr = &regs->macstnaddr1;
+ 	struct fsl_pq_mdio_priv *priv = bus->priv;
+ 	struct fsl_pq_mii __iomem *regs = priv->regs;
+-	u32 status;
++	unsigned int timeout;
  
- 	macptr += num*2;
+ 	/* Set the PHY address and the register address we want to write */
+ 	iowrite32be((mii_id << 8) | regnum, &regs->miimadd);
+@@ -113,10 +113,13 @@ static int fsl_pq_mdio_write(struct mii_bus *bus, int mii_id, int regnum,
+ 	iowrite32be(value, &regs->miimcon);
  
--	/* Now copy it into the mac registers backwards, cuz
--	 * little endian is silly
-+	/* For a station address of 0x12345678ABCD in transmission
-+	 * order (BE), MACnADDR1 is set to 0xCDAB7856 and
-+	 * MACnADDR2 is set to 0x34120000.
- 	 */
--	for (idx = 0; idx < ETH_ALEN; idx++)
--		tmpbuf[ETH_ALEN - 1 - idx] = addr[idx];
-+	tempval = (addr[5] << 24) | (addr[4] << 16) |
-+		  (addr[3] << 8)  |  addr[2];
+ 	/* Wait for the transaction to finish */
+-	status = spin_event_timeout(!(ioread32be(&regs->miimind) &
+-				    MIIMIND_BUSY), MII_TIMEOUT, 0);
++	timeout = MII_TIMEOUT;
++	while ((ioread32be(&regs->miimind) & MIIMIND_BUSY) && timeout) {
++		cpu_relax();
++		timeout--;
++	}
  
--	gfar_write(macptr, *((u32 *) (tmpbuf)));
-+	gfar_write(macptr, tempval);
- 
--	tempval = *((u32 *) (tmpbuf + 4));
-+	tempval = (addr[1] << 24) | (addr[0] << 16);
- 
- 	gfar_write(macptr+1, tempval);
+-	return status ? 0 : -ETIMEDOUT;
++	return timeout ? 0 : -ETIMEDOUT;
  }
+ 
+ /*
+@@ -133,7 +136,7 @@ static int fsl_pq_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
+ {
+ 	struct fsl_pq_mdio_priv *priv = bus->priv;
+ 	struct fsl_pq_mii __iomem *regs = priv->regs;
+-	u32 status;
++	unsigned int timeout;
+ 	u16 value;
+ 
+ 	/* Set the PHY address and the register address we want to read */
+@@ -144,10 +147,14 @@ static int fsl_pq_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
+ 	iowrite32be(MII_READ_COMMAND, &regs->miimcom);
+ 
+ 	/* Wait for the transaction to finish, normally less than 100us */
+-	status = spin_event_timeout(!(ioread32be(&regs->miimind) &
+-				    (MIIMIND_NOTVALID | MIIMIND_BUSY)),
+-				    MII_TIMEOUT, 0);
+-	if (!status)
++	timeout = MII_TIMEOUT;
++	while ((ioread32be(&regs->miimind) &
++	       (MIIMIND_NOTVALID | MIIMIND_BUSY)) && timeout) {
++		cpu_relax();
++		timeout--;
++	}
++
++	if (!timeout)
+ 		return -ETIMEDOUT;
+ 
+ 	/* Grab the value of the register from miimstat */
+@@ -162,7 +169,7 @@ static int fsl_pq_mdio_reset(struct mii_bus *bus)
+ {
+ 	struct fsl_pq_mdio_priv *priv = bus->priv;
+ 	struct fsl_pq_mii __iomem *regs = priv->regs;
+-	u32 status;
++	unsigned int timeout;
+ 
+ 	mutex_lock(&bus->mdio_lock);
+ 
+@@ -173,12 +180,15 @@ static int fsl_pq_mdio_reset(struct mii_bus *bus)
+ 	iowrite32be(MIIMCFG_INIT_VALUE, &regs->miimcfg);
+ 
+ 	/* Wait until the bus is free */
+-	status = spin_event_timeout(!(ioread32be(&regs->miimind) &
+-				    MIIMIND_BUSY), MII_TIMEOUT, 0);
++	timeout = MII_TIMEOUT;
++	while ((ioread32be(&regs->miimind) & MIIMIND_BUSY) && timeout) {
++		cpu_relax();
++		timeout--;
++	}
+ 
+ 	mutex_unlock(&bus->mdio_lock);
+ 
+-	if (!status) {
++	if (!timeout) {
+ 		dev_err(&bus->dev, "timeout waiting for MII bus\n");
+ 		return -EBUSY;
+ 	}
 -- 
 1.7.11.7
