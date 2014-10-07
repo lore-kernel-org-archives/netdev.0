@@ -1,51 +1,47 @@
-From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Subject: [net v2 4/8] gianfar: Include missing headers for ARM builds
-Date: Tue, 7 Oct 2014 10:44:31 +0300
-Message-ID: <1412667875-18225-5-git-send-email-claudiu.manoil@freescale.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [net v2 3/8] net/fsl_pq_mdio: Replace spin_event_timeout() with
+ arch independent
+Date: Tue, 7 Oct 2014 08:12:42 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D174C5BAC@AcuExch.aculab.com>
 References: <1412667875-18225-1-git-send-email-claudiu.manoil@freescale.com>
+ <1412667875-18225-4-git-send-email-claudiu.manoil@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Xiubo Li <Li.Xiubo@freescale.com>,
 	Shruti Kanetkar <Shruti@freescale.com>,
 	"Kim Phillips" <kim.phillips@freescale.com>
-To: <netdev@vger.kernel.org>
+To: 'Claudiu Manoil' <claudiu.manoil@freescale.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [65.55.169.139] ([65.55.169.139]:31859 "EHLO
-	na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753165AbaJGHrm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Oct 2014 03:47:42 -0400
-In-Reply-To: <1412667875-18225-1-git-send-email-claudiu.manoil@freescale.com>
+Received: from mx0.aculab.com ([213.249.233.131]:40547 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1753092AbaJGIOL convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2014 04:14:11 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 00333-01 for <netdev@vger.kernel.org>;
+ Tue,  7 Oct 2014 09:14:02 +0100 (BST)
+In-Reply-To: <1412667875-18225-4-git-send-email-claudiu.manoil@freescale.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Include linux/of_address.h for of_iomap() and linux/of_irq.h
-for irq_of_parse_and_map().
+From: netdev-owner@vger.kernel. 
+> spin_event_timeout() is PPC dependent, use an arch independent
+> equivalent instead.
 
-This wasn't an issue for PPC, because these were implicitly
-included from asm/prom.h (via linux/of.h) for PPC builds only.
-ARM builds need these includes explicitly.
+I think you should white a local function/#define that expands to spin_event_timeout()
+on ppc and to the code below you are substituting on other architectures.
 
-Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
----
-v2 - none
+>  	/* Wait for the transaction to finish */
+> -	status = spin_event_timeout(!(ioread32be(&regs->miimind) &
+> -				    MIIMIND_BUSY), MII_TIMEOUT, 0);
+> +	timeout = MII_TIMEOUT;
+> +	while ((ioread32be(&regs->miimind) & MIIMIND_BUSY) && timeout) {
+> +		cpu_relax();
+> +		timeout--;
+> +	}
 
- drivers/net/ethernet/freescale/gianfar.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-index fb29d04..a488105 100644
---- a/drivers/net/ethernet/freescale/gianfar.c
-+++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -100,6 +100,8 @@
- #include <linux/phy_fixed.h>
- #include <linux/of.h>
- #include <linux/of_net.h>
-+#include <linux/of_address.h>
-+#include <linux/of_irq.h>
- 
- #include "gianfar.h"
- 
--- 
-1.7.11.7
+	David
