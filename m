@@ -1,56 +1,61 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net-next] net_sched: fix unused variables in __gnet_stats_copy_basic_cpu()
-Date: Mon,  6 Oct 2014 17:01:33 -0700
-Message-ID: <1412640093-11388-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	John Fastabend <john.fastabend@gmail.com>
-To: netdev@vger.kernel.org
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: [PATCH RFC v3 net 2/2] ipv6: Avoid restarting fib6_lookup() for RTF_CACHE hit case
+Date: Mon, 6 Oct 2014 17:05:15 -0700
+Message-ID: <1412640315-22472-3-git-send-email-kafai@fb.com>
+References: <1412640315-22472-1-git-send-email-kafai@fb.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f172.google.com ([209.85.192.172]:39922 "EHLO
-	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751213AbaJGABm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 20:01:42 -0400
-Received: by mail-pd0-f172.google.com with SMTP id ft15so4073857pdb.31
-        for <netdev@vger.kernel.org>; Mon, 06 Oct 2014 17:01:42 -0700 (PDT)
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:64847 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751252AbaJGAF1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 20:05:27 -0400
+Received: from pps.filterd (m0044010 [127.0.0.1])
+	by mx0a-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id s9705QWh016671
+	for <netdev@vger.kernel.org>; Mon, 6 Oct 2014 17:05:27 -0700
+Received: from mail.thefacebook.com (mailwest.thefacebook.com [173.252.71.148])
+	by mx0a-00082601.pphosted.com with ESMTP id 1pv4xu01j7-2
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=OK)
+	for <netdev@vger.kernel.org>; Mon, 06 Oct 2014 17:05:26 -0700
+Received: from facebook.com (2401:db00:20:7029:face:0:33:0)	by
+ mx-out.facebook.com (10.212.236.89) with ESMTP	id
+ a314ac944db511e499150002c95209d8-c17fd3e0 for <netdev@vger.kernel.org>;	Mon,
+ 06 Oct 2014 17:05:24 -0700
+In-Reply-To: <1412640315-22472-1-git-send-email-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Probably not a big deal, but we'd better just use the
-one we get in retry loop.
+When there is a RTF_CACHE hit, no need to redo fib6_lookup()
+with reachable=0.
 
-Fixes: commit 22e0f8b9322cb1a48b1357e8 ("net: sched: make bstats per cpu and estimator RCU safe")
-Reported-by: Joe Perches <joe@perches.com>
-Cc: John Fastabend <john.fastabend@gmail.com>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Signed-off-by: Martin KaFai Lau <kafai@fb.com>
 ---
- net/core/gen_stats.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ net/ipv6/route.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/net/core/gen_stats.c b/net/core/gen_stats.c
-index 14681b9..0c08062 100644
---- a/net/core/gen_stats.c
-+++ b/net/core/gen_stats.c
-@@ -106,8 +106,8 @@ __gnet_stats_copy_basic_cpu(struct gnet_stats_basic_packed *bstats,
- 	for_each_possible_cpu(i) {
- 		struct gnet_stats_basic_cpu *bcpu = per_cpu_ptr(cpu, i);
- 		unsigned int start;
--		__u64 bytes;
--		__u32 packets;
-+		u64 bytes;
-+		u32 packets;
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index d53dc4f..e40b5dc 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -937,7 +937,7 @@ restart:
+ 		rt = rt6_multipath_select(rt, fl6, oif, strict | reachable);
+ 	BACKTRACK(net, &fl6->saddr);
+ 	if (rt->rt6i_flags & RTF_CACHE)
+-		goto out;
++		goto out1;
  
- 		do {
- 			start = u64_stats_fetch_begin_irq(&bcpu->syncp);
-@@ -115,8 +115,8 @@ __gnet_stats_copy_basic_cpu(struct gnet_stats_basic_packed *bstats,
- 			packets = bcpu->bstats.packets;
- 		} while (u64_stats_fetch_retry_irq(&bcpu->syncp, start));
- 
--		bstats->bytes += bcpu->bstats.bytes;
--		bstats->packets += bcpu->bstats.packets;
-+		bstats->bytes += bytes;
-+		bstats->packets += packets;
+ 	dst_hold(&rt->dst);
+ 	read_unlock_bh(&table->tb6_lock);
+@@ -974,6 +974,7 @@ out:
+ 		reachable = 0;
+ 		goto restart_2;
  	}
- }
- 
++out1:
+ 	dst_hold(&rt->dst);
+ 	read_unlock_bh(&table->tb6_lock);
+ out2:
 -- 
-1.8.3.1
+1.8.1
