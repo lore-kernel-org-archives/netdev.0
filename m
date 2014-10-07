@@ -1,34 +1,69 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] i40e: skb->xmit_more support
-Date: Tue, 07 Oct 2014 16:37:30 -0400 (EDT)
-Message-ID: <20141007.163730.2221137596344407031.davem@davemloft.net>
-References: <1412713823.11091.166.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dborkman@redhat.com,
-	jeffrey.t.kirsher@intel.com
-To: eric.dumazet@gmail.com
+From: Raghuram Kothakota <Raghuram.Kothakota@oracle.com>
+Subject: Re: sunvnet and ->xmit_more
+Date: Tue, 7 Oct 2014 13:38:07 -0700
+Message-ID: <9BB04EDE-1842-4DB0-93BE-5186B2D187AB@oracle.com>
+References: <20141007.151849.84417269004453869.davem@davemloft.net> <20141007192922.GA31406@oracle.com> <20141007.153829.1919460115976279645.davem@davemloft.net>
+Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.6\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: sowmini.varadhan@oracle.com, netdev@vger.kernel.org,
+	david.stevens@oracle.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48432 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751407AbaJGUhd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2014 16:37:33 -0400
-In-Reply-To: <1412713823.11091.166.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from userp1040.oracle.com ([156.151.31.81]:21661 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753917AbaJGUiM convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2014 16:38:12 -0400
+In-Reply-To: <20141007.153829.1919460115976279645.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 07 Oct 2014 13:30:23 -0700
 
-> From: Eric Dumazet <edumazet@google.com>
+On Oct 7, 2014, at 12:38 PM, David Miller <davem@davemloft.net> wrote:
+
+> From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+> Date: Tue, 7 Oct 2014 15:29:22 -0400
 > 
-> Support skb->xmit_more in i40e is straightforward : we need to move
-> around i40e_maybe_stop_tx() call to correctly test netif_xmit_stopped()
-> before taking the decision to not kick the NIC.
+>> I'm not sure how this can be useful to sunvnet- in sunvnet's case
+>> we send the TX indication at the *start* of a burst, so if xmit_more
+>> was set, sure- we can send out another packet immediately, and
+>> avoid another START message (which we already do today), but 
+>> nothing else to be gained from xmit_more?
 > 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> If you defer that __vnet_tx_trigger() call through all the ->xmit_more
+> SKBs, then you are less likely to see the DRING_STOPPED event from the
+> peer which will make you have to send a START again.
+> 
+> So, for an xmit_more burst of 3, instead of:
+> 
+> 	->ndo_start_xmit()
+> 		__vnet_tx_trigger()
+> 	->ndo_start_xmit()
+> IRQ -> vnet_ack() -> STOPPED
+> 	->ndo_start_xmit()
+> 		__vnet_tx_trigger()
+> 
+> You would do something like:
+> 
+> 	->ndo_start_xmit()
+> 	->ndo_start_xmit()
+> 	->ndo_start_xmit()
+> 		__vnet_tx_trigger()
 
-Intel folks, if I could get a quick review of this that would be great.
+In case of sunvnet,  consumer starting as soon as possible would help
+as the consumer is slower as it copies the data to local buffers. The recent
+change by DLS avoids the copy in the Tx side, so the producer could be
+faster than the receiver.  If the trigger is sent after n packets, then consumer
+will really start after n packets in the ring and it may have lost that much time
+to pickup the packets.
 
-Thanks.
+-Raghuram
+
+> 
+>> BTW, I have most of the NAPI done, getting it stress-tested etc
+>> (the recent jumbo commit added a few more races between vnet_port_remove
+>> and vnet_start_xmit, thanks to the extra clean_timer) but I figure
+>> I might as well fully test this internally since net-next is closed
+>> for the moment anyway?
+> 
+> Yeah no rush.
