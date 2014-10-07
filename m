@@ -1,75 +1,138 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] net: fec: fix regression on i.MX28 introduced by rx_copybreak
- support
-Date: Tue, 07 Oct 2014 20:07:00 +0400
-Message-ID: <54340FA4.509@cogentembedded.com>
-References: <1412687977-11742-1-git-send-email-LW@KARO-electronics.de>
+From: "Zhou, Danny" <danny.zhou@intel.com>
+Subject: RE: [net-next PATCH v1 1/3] net: sched: af_packet support for
+ direct ring access
+Date: Tue, 7 Oct 2014 16:06:41 +0000
+Message-ID: <DFDF335405C17848924A094BC35766CF0A953573@SHSMSX104.ccr.corp.intel.com>
+References: <20141006000629.32055.2295.stgit@nitbit.x32>
+ <CA+FuTSfwTBtZLu7CXh4bPxUtVubOvpCPo+O38BsnSiLdvV_KEA@mail.gmail.com>
+ <DFDF335405C17848924A094BC35766CF0A953308@SHSMSX104.ccr.corp.intel.com>
+ <CA+FuTSe=vo1-Xpk+318SNc-mCH_c0WQadXo3usiA_dRBNx_fEQ@mail.gmail.com>
+ <54340CEB.204@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Russell King <rmk+kernel@arm.linux.org.uk>,
-	Frank Li <Frank.Li@freescale.com>,
-	Fabio Estevam <fabio.estevam@freescale.com>,
-	linux-kernel@vger.kernel.org
-To: =?UTF-8?B?TG90aGFyIFdhw59tYW5u?= <LW@KARO-electronics.de>,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1412687977-11742-1-git-send-email-LW@KARO-electronics.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: John Fastabend <john.fastabend@gmail.com>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Florian Westphal <fw@strlen.de>,
+	"gerlitz.or@gmail.com" <gerlitz.or@gmail.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Network Development <netdev@vger.kernel.org>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: "Fastabend, John R" <john.r.fastabend@intel.com>,
+	Willem de Bruijn <willemb@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:8994 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754544AbaJGQHo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Oct 2014 12:07:44 -0400
+In-Reply-To: <54340CEB.204@intel.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
-
-On 10/07/2014 05:19 PM, Lothar Wa=C3=9Fmann wrote:
-
-> commit 1b7bde6d659d ("net: fec: implement rx_copybreak to improve rx =
-performance")
-> introduced a regression for i.MX28. The swap_buffer() function doing
-> the endian conversion of the received data on i.MX28 may access memor=
-y
-> beyond the actual packet size in the DMA buffer. fec_enet_copybreak()
-> does not copy those bytes, so that the last bytes of a packet may be
-> filled with invalid data after swapping.
-> This will likely lead to checksum errors on received packets.
-> E.g. when trying to mount an NFS rootfs:
-> UDP: bad checksum. From 192.168.1.225:111 to 192.168.100.73:44662 ule=
-n 36
-
-> Do the byte swapping and copying to the new skb in one go if
-> necessary.
-
-> Signed-off-by: Lothar Wa=C3=9Fmann <LW@KARO-electronics.de>
-> ---
->   drivers/net/ethernet/freescale/fec_main.c |   25 ++++++++++++++++++=
-+++----
->   1 file changed, 21 insertions(+), 4 deletions(-)
-
-> diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/=
-ethernet/freescale/fec_main.c
-> index 87975b5..eaaebad 100644
-> --- a/drivers/net/ethernet/freescale/fec_main.c
-> +++ b/drivers/net/ethernet/freescale/fec_main.c
-[...]
-> @@ -1348,7 +1360,7 @@ fec_enet_new_rxbdp(struct net_device *ndev, str=
-uct bufdesc *bdp, struct sk_buff
->   }
->
->   static bool fec_enet_copybreak(struct net_device *ndev, struct sk_b=
-uff **skb,
-> -			       struct bufdesc *bdp, u32 length)
-> +			       struct bufdesc *bdp, u32 length, int swap)
-
-    'bool swap' perhaps?
-
-> @@ -1393,6 +1408,7 @@ fec_enet_rx_queue(struct net_device *ndev, int =
-budget, u16 queue_id)
->   	u16	vlan_tag;
->   	int	index =3D 0;
->   	bool	is_copybreak;
-> +	bool need_swap =3D id_entry->driver_data & FEC_QUIRK_SWAP_FRAME;
-
-    ... especially talking this into account...
-
-WBR, Sergei
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogRmFzdGFiZW5kLCBKb2hu
+IFINCj4gU2VudDogVHVlc2RheSwgT2N0b2JlciAwNywgMjAxNCAxMTo1NSBQTQ0KPiBUbzogV2ls
+bGVtIGRlIEJydWlqbjsgWmhvdSwgRGFubnkNCj4gQ2M6IEpvaG4gRmFzdGFiZW5kOyBEYW5pZWwg
+Qm9ya21hbm47IEZsb3JpYW4gV2VzdHBoYWw7IGdlcmxpdHoub3JAZ21haWwuY29tOyBIYW5uZXMg
+RnJlZGVyaWMgU293YTsgTmV0d29yayBEZXZlbG9wbWVudDsNCj4gUm9uY2lhaywgSm9objsgQW1p
+ciBWYWRhaTsgRXJpYyBEdW1hemV0DQo+IFN1YmplY3Q6IFJlOiBbbmV0LW5leHQgUEFUQ0ggdjEg
+MS8zXSBuZXQ6IHNjaGVkOiBhZl9wYWNrZXQgc3VwcG9ydCBmb3IgZGlyZWN0IHJpbmcgYWNjZXNz
+DQo+IA0KPiBPbiAxMC8wNy8yMDE0IDA4OjQ2IEFNLCBXaWxsZW0gZGUgQnJ1aWpuIHdyb3RlOg0K
+PiA+Pj4+IFR5cGljYWxseSBpbiBhbiBhZl9wYWNrZXQgaW50ZXJmYWNlIGEgcGFja2V0X3R5cGUg
+aGFuZGxlciBpcw0KPiA+Pj4+IHJlZ2lzdGVyZWQgYW5kIHVzZWQgdG8gZmlsdGVyIHRyYWZmaWMg
+dG8gdGhlIHNvY2tldCBhbmQgZG8gb3RoZXINCj4gPj4+PiB0aGluZ3Mgc3VjaCBhcyBmYW4gb3V0
+IHRyYWZmaWMgdG8gbXVsdGlwbGUgc29ja2V0cy4gSW4gdGhpcyBjYXNlIHRoZQ0KPiA+Pj4+IG5l
+dHdvcmtpbmcgc3RhY2sgaXMgYmVpbmcgYnlwYXNzZWQgc28gdGhpcyBjb2RlIGlzIG5vdCBydW4u
+IFNvIHRoZQ0KPiA+Pj4+IGhhcmR3YXJlIG11c3QgcHVzaCB0aGUgY29ycmVjdCB0cmFmZmljIHRv
+IHRoZSBxdWV1ZXMgb2J0YWluZWQgZnJvbQ0KPiA+Pj4+IHRoZSBuZG8gY2FsbGJhY2sgbmRvX3Nw
+bGl0X3F1ZXVlX3BhaXJzKCkuDQo+ID4+Pg0KPiA+Pj4gV2h5IGRvZXMgdGhlIGludGVyZmFjZSB3
+b3JrIGF0IHRoZSBsZXZlbCBvZiBxdWV1ZV9wYWlycyBpbnN0ZWFkIG9mDQo+ID4+PiBpbmRpdmlk
+dWFsIHF1ZXVlcz8NCj4gPj4NCj4gPj4gVGhlIHVzZXIgbW9kZSAic2xhdmUiIGRyaXZlcihJIGNh
+bGwgaXQgc2xhdmUgZHJpdmVyIGJlY2F1c2UgaXQgaXMgb25seSByZXNwb25zaWJsZSBmb3IgcGFj
+a2V0IEkvTw0KPiA+PiBvbiBjZXJ0YWluIHF1ZXVlIHBhaXJzKSBuZWVkcyBhdCBsZWFzdCB0YWtl
+IG92ZXIgb25lIHJ4IHF1ZXVlIGFuZCBvbmUgdHggcXVldWUgZm9yIGluZ3Jlc3MgYW5kDQo+ID4+
+IGVncmVzcyB0cmFmZmljcyByZXNwZWN0aXZlbHksIGFsdGhvdWdoIHRoZSBmbG93IGRpcmVjdG9y
+IG9ubHkgYXBwbGllcyB0byBpbmdyZXNzIHRyYWZmaWNzLg0KPiA+DQo+ID4gVGhhdCByZXF1aXJl
+bWVudCBvZiBjby1hbGxvY2F0aW9uIGlzIGFic2VudCBpbiBleGlzdGluZyBwYWNrZXQNCj4gPiBy
+aW5ncy4gTWFueSBhcHBsaWNhdGlvbnMgb25seSByZWNlaXZlIG9yIHRyYW5zbWl0LiBGb3INCj4g
+PiByZWNlaXZlLW9ubHksIGl0IHdvdWxkIGV2ZW4gYmUgcG9zc2libGUgdG8gbWFwIGRlc2NyaXB0
+b3INCj4gPiByaW5ncyByZWFkLW9ubHksIGlmIHRoZSBrZXJuZWwgcmVtYWlucyByZXNwb25zaWJs
+ZSBmb3IgcG9zdGluZw0KPiA+IGJ1ZmZlcnMgLS0gYnV0IEkgc2VlIGJlbG93IHRoYXQgdGhhdCBp
+cyBub3QgdGhlIGNhc2UsIHNvIHRoYXQncw0KPiA+IG5vdCB2ZXJ5IHJlbGV2YW50IGhlcmUuDQo+
+ID4NCj4gPiBTdGlsbCwgc29tZSB3b3JrbG9hZHMgd2FudCBhc3ltbWV0cmljIHNldHMgb2Ygcngg
+YW5kIHR4IHJpbmdzLg0KPiA+IEZvciBpbnN0YW5jZSwgaW5zdGVhZCBvZiB1c2luZyBSU1MsIGEg
+cHJvY2VzcyBtYXkgd2FudCB0bw0KPiA+IHJlY2VpdmUgb24gYXMgZmV3IHJpbmdzIGFzIHBvc3Np
+YmxlLCBsb2FkIGJhbGFuY2UgYWNyb3NzDQo+ID4gd29ya2VycyBpbiBzb2Z0d2FyZSwgYnV0IHN0
+aWxsIGdpdmUgZWFjaCB3b3JrZXIgdGhyZWFkIGl0cyBvd24NCj4gPiBwcml2YXRlIHRyYW5zbWl0
+IHJpbmcuDQo+ID4NCg0KPiANCj4gV2UgY2FuIGJ1aWxkIHRoaXMgaW50byB0aGUgaW50ZXJmYWNl
+IGJ5IGhhdmluZyB0aGUgc2V0c29ja29wdA0KPiBwcm92aWRlIGJvdGggdGhlIG51bWJlciBvZiB0
+eCByaW5ncyBhbmQgbnVtYmVyIG9mIHJ4IHJpbmdzLiBJdA0KPiBtaWdodCBub3QgYmUgaW1tZWRp
+YXRlbHkgYXZhaWxhYmxlIGluIGFueSBkcml2ZXJzIGJlY2F1c2UgYXQNCj4gbGVhc3QgaXhnYmUg
+aXMgcHJldHR5IGRlcGVuZGVudCBvbiB0eC9yeCBwYWlyaW5nLg0KPiANCj4gSSB3b3VsZCBoYXZl
+IHRvIGxvb2sgdGhyb3VnaCB0aGUgb3RoZXIgZHJpdmVycyB0byBzZWUgaG93DQo+IG11Y2ggd29y
+ayBpdCB3b3VsZCBiZSB0byBzdXBwb3J0IHRoaXMgb24gdGhlbS4gSWYgSSBjYW4ndCBmaW5kDQo+
+IGEgZ29vZCBjYW5kaWRhdGUgd2UgbWlnaHQgbGVhdmUgaXQgb3V0IHVudGlsIHdlIGNhbiBmaXgg
+dXAgdGhlDQo+IGRyaXZlcnMuDQo+IA0KDQoNCkZ1bGx5IGFncmVlZC4gVW5saWtlIGl4Z2JlLCBE
+UERLIHN1cHBvcnRzIGFzeW1tZXRyaWMgc2V0cyBvZiByeCBhbmQgdHggcmluZ3MuIEl0IHNob3Vs
+ZCBiZSBlYXNpbHkgZW5hYmxlZA0KaWYgdXNlciBzcGFjZSByZXF1ZXN0cyB0aG9zZSBmcmVlIGFu
+ZCBhdmFpbGFibGUgcngvdHggcXVldWVzLCBidXQgaXQgd291bGQgY2F1c2UgYSBsb3Qgb2YgdHJv
+dWJsZXMgaWYgY2VydGFpbiANCnJlcXVlc3RlZCBxdWV1ZXMgaGF2ZSBiZWVuIG9jY3VwaWVkIGJ5
+IGl4Z2JlLCBhcyBpdCBicmVha3MgZXhpc3RpbmcgcngvdHggcGFpcmluZy4NCg0KPiA+DQo+ID4+
+Pg0KPiA+Pj4+ICAgICAgICAgLyogR2V0IHRoZSBsYXlvdXQgb2YgcmluZyBzcGFjZSBvZmZzZXQs
+IHBhZ2Vfc3osIGNudCAqLw0KPiA+Pj4+ICAgICAgICAgZ2V0c29ja29wdChmZCwgU09MX1BBQ0tF
+VCwgUEFDS0VUX0RFVl9RUEFJUl9NQVBfUkVHSU9OX0lORk8sDQo+ID4+Pj4gICAgICAgICAgICAg
+ICAgICAgICZpbmZvLCAmb3B0bGVuKTsNCj4gPj4+Pg0KPiA+Pj4+ICAgICAgICAgLyogcmVxdWVz
+dCBzb21lIHF1ZXVlcyBmcm9tIHRoZSBkcml2ZXIgKi8NCj4gPj4+PiAgICAgICAgIHNldHNvY2tv
+cHQoZmQsIFNPTF9QQUNLRVQsIFBBQ0tFVF9SWFRYX1FQQUlSU19TUExJVCwNCj4gPj4+PiAgICAg
+ICAgICAgICAgICAgICAgJnFwYWlyc19pbmZvLCBzaXplb2YocXBhaXJzX2luZm8pKTsNCj4gPj4+
+Pg0KPiA+Pj4+ICAgICAgICAgLyogaWYgd2UgbGV0IHRoZSBkcml2ZXIgcGljayB1cyBxdWV1ZXMg
+bGVhcm4gd2hpY2ggcXVldWVzDQo+ID4+Pj4gICAgICAgICAgKiB3ZSB3ZXJlIGdpdmVuDQo+ID4+
+Pj4gICAgICAgICAgKi8NCj4gPj4+PiAgICAgICAgIGdldHNvY2tvcHQoZmQsIFNPTF9QQUNLRVQs
+IFBBQ0tFVF9SWFRYX1FQQUlSU19TUExJVCwNCj4gPj4+PiAgICAgICAgICAgICAgICAgICAgJnFw
+YWlyc19pbmZvLCBzaXplb2YocXBhaXJzX2luZm8pKTsNCj4gPj4+DQo+ID4+PiBJZiBldGh0b29s
+IC1VIGlzIHVzZWQgdG8gc3RlZXIgdHJhZmZpYyB0byBhIHNwZWNpZmljIGRlc2NyaXB0b3IgcXVl
+dWUsDQo+ID4+PiB0aGVuIHRoZSBzZXRzb2Nrb3B0IGNhbiBwYXNzIHRoZSBleGFjdCBpZCBvZiB0
+aGF0IHF1ZXVlIGFuZCB0aGVyZQ0KPiA+Pj4gaXMgbm8gbmVlZCBmb3IgYSBnZXRzb2Nrb3B0IGZv
+bGxvdy11cC4NCj4gPj4NCj4gPj4gVmVyeSBnb29kIHBvaW50LCBpdCBzdXBwb3J0cyBwYXNzICIt
+MSIgYXMgcXVldWUgaWQoZm9sbG93aW5nIGJ5IG51bWJlciBvZiBxcGFpcnMgbmVlZGVkKSB2aWEN
+Cj4gPj4gc2V0c29ja29wdCB0byBhZl9wYWNrZXQgYW5kIE5JQyBrZXJuZWwgZHJpdmVyIHRvIGFz
+ayB0aGUgZHJpdmVyIGR5bmFtaWNhbGx5IGFsbG9jYXRlIGZyZWUgYW5kDQo+ID4+IGF2YWlsYWJs
+ZSBxcGFpcnMgZm9yIHRoaXMgc29ja2V0LCBzbyBnZXRzb2Nrb3B0KCkgaXMgbmVlZGVkIHRvIHJl
+dHVybiB0aGUgYWN0dWFsbHkgYXNzaWduZWQgcXVldWUgcGFpciBpbmRleGVzLg0KPiA+PiBJbml0
+aWFsbHksIHdlIGhhZCBhIGltcGxlbWVudGF0aW9uIHRoYXQgY2FsbHMgZ2V0c29ja29wdCBvbmNl
+IGFuZCBhZl9wYWNrZXQgdHJlYXRzIHFwYWlyc19pbmZvDQo+ID4+IGFzIGEgSU4vT1VUIHBhcmFt
+ZXRlciwgYnV0IGl0IGlzIHNlbWFudGljIHdyb25nLCBzbyB3ZSB0aGluayBhYm92ZSBpbXBsZW1l
+bnRhdGlvbiBpcyBtb3N0IHN1aXRhYmxlLg0KPiA+PiBCdXQgSSBhZ3JlZSB3aXRoIHlvdSwgaWYg
+c2V0c29ja29wdCBjYW4gcGFzcyB0aGUgZXhhY3QgaWQgd2l0aCBhIHZhbGlkIHF1ZXVlIHBhaXIg
+aW5kZXgsIHRoZXJlIGlzIG5vIG5lZWQNCj4gPj4gdG8gY2FsbCBnZXRzb2NrZXRvcHQuDQo+ID4N
+Cj4gPiBPbmUgc3RlcCBmdXJ0aGVyIHdvdWxkIGJlIHRvIG1vdmUgdGhlIGVudGlyZSBjb25maWd1
+cmF0aW9uIGJlaGluZA0KPiA+IHRoZSBwYWNrZXQgc29ja2V0IGludGVyZmFjZS4gSXQncyBwZXJo
+YXBzIG91dCBvZiBzY29wZSBvZiB0aGlzIHBhdGNoLA0KPiA+IGJ1dCB0aGUgZGlmZmVyZW5jZSBi
+ZXR3ZWVuIHVzaW5nIGBldGh0b29sIC1VYCBhbmQgcGFzc2luZyB0aGUgc2FtZQ0KPiA+IGV4cHJl
+c3Npb24gdGhyb3VnaCB0aGUgcGFja2V0IHNvY2tldCBpcyB0aGF0IGluIHRoZSBsYXR0ZXIgY2Fz
+ZSB0aGUNCj4gPiBrZXJuZWwgY2FuIGF1dG9tYXRpY2FsbHkgcm9sbGJhY2sgdGhlIGNvbmZpZ3Vy
+YXRpb24gY2hhbmdlIHdoZW4gdGhlDQo+ID4gcHJvY2VzcyBkaWVzLg0KPiA+DQo+IA0KPiBobW0g
+bWlnaHQgYmUgaW50ZXJlc3RpbmcgSSB0aGluayAgdGhpcyBpcyBhIGZvbGxvdyBvbiBwYXRoIHRv
+DQo+IGludmVzdGlnYXRlIGFmdGVyIHRoZSBpbml0aWFsIHN1cHBvcnQuDQo+IA0KPiA+Pg0KPiA+
+Pj4NCj4gPj4+PiAgICAgICAgIC8qIEFuZCBtbWFwIHF1ZXVlIHBhaXJzIHRvIHVzZXIgc3BhY2Ug
+Ki8NCj4gPj4+PiAgICAgICAgIG1tYXAoTlVMTCwgaW5mby50cF9kZXZfYmFyX3N6LCBQUk9UX1JF
+QUQgfCBQUk9UX1dSSVRFLA0KPiA+Pj4+ICAgICAgICAgICAgICBNQVBfU0hBUkVELCBmZCwgMCk7
+DQo+ID4+Pg0KPiA+Pj4gSG93IHdpbGwgcGFja2V0IGRhdGEgYmUgbWFwcGVkIGFuZCBob3cgd2ls
+bCB1c2Vyc3BhY2UgdHJhbnNsYXRlDQo+ID4+PiBmcm9tIHBhZGRyIHRvIHZhZGRyPyBJcyB0aGUg
+Z29hbCB0byBtYWludGFpbiBsb25nIGxpdmVkIG1hcHBpbmdzDQo+ID4+PiBhbmQgaW5zdHJ1Y3Qg
+ZHJpdmVycyB0byBhbGxvY2F0ZSBmcm9tIHRoaXMgcmVzdHJpY3RlZCByYW5nZSAodG8NCj4gPj4+
+IGF2b2lkIHBlci1wYWNrZXQgc3lzdGVtIGNhbGxzIGFuZCB2bWEgb3BlcmF0aW9ucyk/DQo+ID4+
+Pg0KPiA+Pg0KPiA+PiBPbmNlIHFwYWlycyBzcGxpdC1vZmYgaXMgZG9uZSwgdGhlIHVzZXIgc3Bh
+Y2UgZHJpdmVyLCBhcyBhIHNsYXZlIGRyaXZlciwgd2lsbCByZS1pbml0aWFsaXplIHRob3NlIHF1
+ZXVlcw0KPiA+PiBjb21wbGV0ZWx5IGluIHVzZXIgc3BhY2UgYnkgdXNpbmcgcGFkZHIoaW4gdGhl
+IGNhc2Ugb2YgRFBESywgdmFkZHIgb2YgRFBESyB1c2VkIGh1Z2UgcGFnZXMNCj4gPj4gYXJlIHRy
+YW5zbGF0ZWQgdG8gcGFkZHIpIHRvIGZpbGwgaW4gdGhlIHBhY2tldCBkZXNjcmlwdG9ycy4NCj4g
+Pg0KPiA+IEFoLCB1c2Vyc3BhY2UgaXMgcmVzcG9uc2libGUgZm9yIHBvc3RpbmcgYnVmZmVycyBh
+bmQgdHJhbnNsYXRpb24NCj4gPiBmcm9tIHZhZGRyIHRvIHBhZGRyIGlzIHN0cmFpZ2h0Zm9yd2Fy
+ZC4gWWVzIHRoYXQgbWFrZXMgc2Vuc2UuDQo+ID4gLS0NCj4gPiBUbyB1bnN1YnNjcmliZSBmcm9t
+IHRoaXMgbGlzdDogc2VuZCB0aGUgbGluZSAidW5zdWJzY3JpYmUgbmV0ZGV2IiBpbg0KPiA+IHRo
+ZSBib2R5IG9mIGEgbWVzc2FnZSB0byBtYWpvcmRvbW9Admdlci5rZXJuZWwub3JnDQo+ID4gTW9y
+ZSBtYWpvcmRvbW8gaW5mbyBhdCAgaHR0cDovL3ZnZXIua2VybmVsLm9yZy9tYWpvcmRvbW8taW5m
+by5odG1sDQo+ID4NCg0K
