@@ -1,43 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Add ndo_gso_check
-Date: Tue, 07 Oct 2014 16:15:36 -0400 (EDT)
-Message-ID: <20141007.161536.2010569159491464646.davem@davemloft.net>
-References: <1411962607-27878-1-git-send-email-therbert@google.com>
-	<CA+mtBx9u9j0m+VWJLN-Svs2ZeZpUMdP6aLdNbcAFYGzgebektQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, gerlitz.or@gmail.com
-To: therbert@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48266 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754941AbaJGUPj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2014 16:15:39 -0400
-In-Reply-To: <CA+mtBx9u9j0m+VWJLN-Svs2ZeZpUMdP6aLdNbcAFYGzgebektQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Fabian Frederick <fabf@skynet.be>
+Subject: [PATCH 1/1 net-next] af_unix: remove NULL assignment on static
+Date: Tue,  7 Oct 2014 22:16:36 +0200
+Message-ID: <1412712996-4672-1-git-send-email-fabf@skynet.be>
+Cc: Fabian Frederick <fabf@skynet.be>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogVG9tIEhlcmJlcnQgPHRoZXJiZXJ0QGdvb2dsZS5jb20+DQpEYXRlOiBUdWUsIDcgT2N0
-IDIwMTQgMTE6MTM6MDggLTA3MDANCg0KPiBJIGRvbid0IHRoaW5rIHRoZXJlIGFyZSBhbnkgb3V0
-c3RhbmRpbmcgb2JqZWN0aW9ucyB0byB0aGlzIHBhdGNoLg0KPiBXaWxsIHlvdSBiZSBhYmxlIHRv
-IGFwcGx5IGl0IG9yIGRvIHlvdSBuZWVkIHNvbWV0aGluZyBtb3JlIHRvIGJlIGRvbmU/DQoNCk1h
-a2luZyBpdCBjb21waWxlIHdvdWxkIGJlIG5pY2U6DQoNCmRyaXZlcnMvbmV0L21hY3Z0YXAuYzog
-SW4gZnVuY3Rpb24goW1hY3Z0YXBfaGFuZGxlX2ZyYW1lojoNCmRyaXZlcnMvbmV0L21hY3Z0YXAu
-YzozMDE6Mjogd2FybmluZzogcGFzc2luZyBhcmd1bWVudCAxIG9mIKFuZXRpZl9uZWVkc19nc2+i
-IGZyb20gaW5jb21wYXRpYmxlIHBvaW50ZXIgdHlwZSBbZW5hYmxlZCBieSBkZWZhdWx0XQ0KSW4g
-ZmlsZSBpbmNsdWRlZCBmcm9tIGluY2x1ZGUvbGludXgvZXRoZXJkZXZpY2UuaDoyNjowLA0KICAg
-ICAgICAgICAgICAgICBmcm9tIGRyaXZlcnMvbmV0L21hY3Z0YXAuYzoxOg0KaW5jbHVkZS9saW51
-eC9uZXRkZXZpY2UuaDozNTU0OjIwOiBub3RlOiBleHBlY3RlZCChc3RydWN0IG5ldF9kZXZpY2Ug
-KqIgYnV0IGFyZ3VtZW50IGlzIG9mIHR5cGUgoXN0cnVjdCBza19idWZmICqiDQpkcml2ZXJzL25l
-dC9tYWN2dGFwLmM6MzAxOjI6IHdhcm5pbmc6IHBhc3NpbmcgYXJndW1lbnQgMiBvZiChbmV0aWZf
-bmVlZHNfZ3NvoiBtYWtlcyBwb2ludGVyIGZyb20gaW50ZWdlciB3aXRob3V0IGEgY2FzdCBbZW5h
-YmxlZCBieSBkZWZhdWx0XQ0KSW4gZmlsZSBpbmNsdWRlZCBmcm9tIGluY2x1ZGUvbGludXgvZXRo
-ZXJkZXZpY2UuaDoyNjowLA0KICAgICAgICAgICAgICAgICBmcm9tIGRyaXZlcnMvbmV0L21hY3Z0
-YXAuYzoxOg0KaW5jbHVkZS9saW51eC9uZXRkZXZpY2UuaDozNTU0OjIwOiBub3RlOiBleHBlY3Rl
-ZCChc3RydWN0IHNrX2J1ZmYgKqIgYnV0IGFyZ3VtZW50IGlzIG9mIHR5cGUgoW5ldGRldl9mZWF0
-dXJlc190og0KZHJpdmVycy9uZXQvbWFjdnRhcC5jOjMwMToyOiBlcnJvcjogdG9vIGZldyBhcmd1
-bWVudHMgdG8gZnVuY3Rpb24goW5ldGlmX25lZWRzX2dzb6INCkluIGZpbGUgaW5jbHVkZWQgZnJv
-bSBpbmNsdWRlL2xpbnV4L2V0aGVyZGV2aWNlLmg6MjY6MCwNCiAgICAgICAgICAgICAgICAgZnJv
-bSBkcml2ZXJzL25ldC9tYWN2dGFwLmM6MToNCmluY2x1ZGUvbGludXgvbmV0ZGV2aWNlLmg6MzU1
-NDoyMDogbm90ZTogZGVjbGFyZWQgaGVyZQ0K
+static values are automatically initialized to NULL
+
+Signed-off-by: Fabian Frederick <fabf@skynet.be>
+---
+ net/unix/garbage.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/unix/garbage.c b/net/unix/garbage.c
+index 9bc73f8..99f7012 100644
+--- a/net/unix/garbage.c
++++ b/net/unix/garbage.c
+@@ -258,7 +258,7 @@ static void inc_inflight_move_tail(struct unix_sock *u)
+ 		list_move_tail(&u->link, &gc_candidates);
+ }
+ 
+-static bool gc_in_progress = false;
++static bool gc_in_progress;
+ #define UNIX_INFLIGHT_TRIGGER_GC 16000
+ 
+ void wait_for_unix_gc(void)
+-- 
+1.9.3
