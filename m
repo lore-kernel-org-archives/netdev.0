@@ -1,40 +1,55 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: Add ndo_gso_check
-Date: Tue, 07 Oct 2014 11:50:35 -0700
-Message-ID: <1412707835.11091.149.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CAADnVQLkWrjN=MgtU_8zBrGFW1eJd01hd6BM_m9iOq=ypHvSLQ@mail.gmail.com>
-	 <1412702616.11091.143.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAADnVQL_6tEhgQE9aCLe-icG4pyS1dMECGhiQ7+OHEao1GXk3g@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 1/1] tipc: fix bug in multicast congestion
+ handling
+Date: Tue, 07 Oct 2014 14:50:35 -0400 (EDT)
+Message-ID: <20141007.145035.531731732780897375.davem@davemloft.net>
+References: <1412705554-24252-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <therbert@google.com>, Jesse Gross <jesse@nicira.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Thomas Graf <tgraf@suug.ch>,
-	Pravin Shelar <pshelar@nicira.com>,
-	Andy Zhou <azhou@nicira.com>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Cc: netdev@vger.kernel.org, paul.gortmaker@windriver.com,
+	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
+	tipc-discussion@lists.sourceforge.net
+To: jon.maloy@ericsson.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f174.google.com ([209.85.192.174]:55346 "EHLO
-	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755092AbaJGSuh (ORCPT
+Received: from shards.monkeyblade.net ([149.20.54.216]:47447 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755100AbaJGSuh (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2014 14:50:37 -0400
-Received: by mail-pd0-f174.google.com with SMTP id y13so5516002pdi.33
-        for <netdev@vger.kernel.org>; Tue, 07 Oct 2014 11:50:36 -0700 (PDT)
-In-Reply-To: <CAADnVQL_6tEhgQE9aCLe-icG4pyS1dMECGhiQ7+OHEao1GXk3g@mail.gmail.com>
+In-Reply-To: <1412705554-24252-1-git-send-email-jon.maloy@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-10-07 at 11:15 -0700, Alexei Starovoitov wrote:
+From: Jon Maloy <jon.maloy@ericsson.com>
+Date: Tue,  7 Oct 2014 14:12:34 -0400
 
-> csum_partial() is in asm already. probably not much more can be squeezed.
+> One aim of commit 50100a5e39461b2a61d6040e73c384766c29975d ("tipc:
+> use pseudo message to wake up sockets after link congestion") was
+> to handle link congestion abatement in a uniform way for both unicast
+> and multicast transmit. However, the latter doesn't work correctly,
+> and has been broken since the referenced commit was applied.
+> 
+> If a user now sends a burst of multicast messages that is big
+> enough to cause broadcast link congestion, it will be put to sleep,
+> and not be waked up when the congestion abates as it should be.
+> 
+> This has two reasons. First, the flag that is used, TIPC_WAKEUP_USERS,
+> is set correctly, but in the wrong field. Instead of setting it in the
+> 'action_flags' field of the arrival node struct, it is by mistake set
+> in the dummy node struct that is owned by the broadcast link, where it
+> will never tested for. Second, we cannot use the same flag for waking
+> up unicast and multicast users, since the function tipc_node_unlock()
+> needs to pick the wakeup pseudo messages to deliver from different
+> queues. It must hence be able to distinguish between the two cases.
+> 
+> This commit solves this problem by adding a new flag
+> TIPC_WAKEUP_BCAST_USERS, and a new function tipc_bclink_wakeup_user().
+> The latter is to be called by tipc_node_unlock() when the named flag,
+> now set in the correct field, is encountered.
+> 
+> v2: using explicit 'unsigned int' declaration instead of 'uint', as
+> per comment from David Miller.
+> 
+> Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 
-Again this is wrong assumption. Its assembly and damn slow.
-
-Take a look at commit 99f0b958b194f7d88973f1c2190d207e0a2c7e79
-for details.
+Applied, thanks Jon.
