@@ -1,45 +1,36 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH] net: Add ndo_gso_check
-Date: Tue, 7 Oct 2014 22:41:32 +0100
-Message-ID: <20141007214132.GA3181@casper.infradead.org>
-References: <CAADnVQKKv43aBFCCaEypAosCf+8K64A2oyYEtxw4jQqY0npV5g@mail.gmail.com>
- <20141007.163239.157997964784151921.davem@davemloft.net>
- <CAADnVQJDxPsMeuNmnR5iUwccOKG2A02dZ+3Ae6wGg-RNFPeeeQ@mail.gmail.com>
- <20141007.164802.624713385845633192.davem@davemloft.net>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net-next] i40e: skb->xmit_more support
+Date: Wed, 08 Oct 2014 00:03:37 +0200
+Message-ID: <54346339.3000509@redhat.com>
+References: <1412713823.11091.166.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: alexei.starovoitov@gmail.com, therbert@google.com,
-	jesse@nicira.com, gerlitz.or@gmail.com,
-	alexander.h.duyck@intel.com, john.r.fastabend@intel.com,
-	jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
-	pshelar@nicira.com, azhou@nicira.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:57583 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754244AbaJGVlg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2014 17:41:36 -0400
-Content-Disposition: inline
-In-Reply-To: <20141007.164802.624713385845633192.davem@davemloft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:55850 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751056AbaJGWDo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Oct 2014 18:03:44 -0400
+In-Reply-To: <1412713823.11091.166.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/07/14 at 04:48pm, David Miller wrote:
-> So we have to write new software in _EVERY_ driver to accomodate this.
-> 
-> That makes zero sense either, and it is unneeded complexity in the
-> hardware.
-> 
-> COMPLETE works everywhere, on everything, with no driver changes, and
-> is so much harder to get wrong.
-> 
-> Every protocol specific feature has major downsides whether you choose
-> to see them or not.
+On 10/07/2014 10:30 PM, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
+>
+> Support skb->xmit_more in i40e is straightforward : we need to move
+> around i40e_maybe_stop_tx() call to correctly test netif_xmit_stopped()
+> before taking the decision to not kick the NIC.
+>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-It's probably not overly bold to state that the behaviour behind
-CHECKSUM_UNNECESSARY was not created for technical reasons in the
-first place.
+Jeff, feel free to drop the same version I've sent you yesterday
+directly since this here is already in patchwork ...
 
-I enourage NICs to have protocol awareness in the absence of full
-programmability but I agree with Dave that there is little to no
-reason to expose anything but the full packet checksum to the CPU.
+Thanks, Eric!
+
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
