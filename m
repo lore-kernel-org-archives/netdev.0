@@ -1,100 +1,86 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] net: fec: fix regression on i.MX28 introduced by
- rx_copybreak support
-Date: Tue, 7 Oct 2014 13:31:01 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D174C6025@AcuExch.aculab.com>
-References: <1412687977-11742-1-git-send-email-LW@KARO-electronics.de>
+From: Sylvain 'ythier' Hitier <sylvain.hitier@gmail.com>
+Subject: [PATCH RESEND v3] 3c59x: fix bad split of
+ cpu_to_le32(pci_map_single())
+Date: Tue, 7 Oct 2014 13:40:34 +0000
+Message-ID: <20141007134034.GA8838@erable>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Russell King <rmk+kernel@arm.linux.org.uk>,
-	Frank Li <Frank.Li@freescale.com>,
-	"Fabio Estevam" <fabio.estevam@freescale.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: =?utf-8?B?J0xvdGhhciBXYcOfbWFubic=?= <LW@KARO-electronics.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:48591 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752368AbaJGNcc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Oct 2014 09:32:32 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 24736-03 for <netdev@vger.kernel.org>;
- Tue,  7 Oct 2014 14:32:22 +0100 (BST)
-In-Reply-To: <1412687977-11742-1-git-send-email-LW@KARO-electronics.de>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: nhorman@tuxdriver.com, mroos@linux.ee,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogTG90aGFyIFdhw59tYW5uDQo+IGNvbW1pdCAxYjdiZGU2ZDY1OWQgKCJuZXQ6IGZlYzog
-aW1wbGVtZW50IHJ4X2NvcHlicmVhayB0byBpbXByb3ZlIHJ4IHBlcmZvcm1hbmNlIikNCj4gaW50
-cm9kdWNlZCBhIHJlZ3Jlc3Npb24gZm9yIGkuTVgyOC4gVGhlIHN3YXBfYnVmZmVyKCkgZnVuY3Rp
-b24gZG9pbmcNCj4gdGhlIGVuZGlhbiBjb252ZXJzaW9uIG9mIHRoZSByZWNlaXZlZCBkYXRhIG9u
-IGkuTVgyOCBtYXkgYWNjZXNzIG1lbW9yeQ0KPiBiZXlvbmQgdGhlIGFjdHVhbCBwYWNrZXQgc2l6
-ZSBpbiB0aGUgRE1BIGJ1ZmZlci4gZmVjX2VuZXRfY29weWJyZWFrKCkNCj4gZG9lcyBub3QgY29w
-eSB0aG9zZSBieXRlcywgc28gdGhhdCB0aGUgbGFzdCBieXRlcyBvZiBhIHBhY2tldCBtYXkgYmUN
-Cj4gZmlsbGVkIHdpdGggaW52YWxpZCBkYXRhIGFmdGVyIHN3YXBwaW5nLg0KPiBUaGlzIHdpbGwg
-bGlrZWx5IGxlYWQgdG8gY2hlY2tzdW0gZXJyb3JzIG9uIHJlY2VpdmVkIHBhY2tldHMuDQo+IEUu
-Zy4gd2hlbiB0cnlpbmcgdG8gbW91bnQgYW4gTkZTIHJvb3RmczoNCj4gVURQOiBiYWQgY2hlY2tz
-dW0uIEZyb20gMTkyLjE2OC4xLjIyNToxMTEgdG8gMTkyLjE2OC4xMDAuNzM6NDQ2NjIgdWxlbiAz
-Ng0KPiANCj4gRG8gdGhlIGJ5dGUgc3dhcHBpbmcgYW5kIGNvcHlpbmcgdG8gdGhlIG5ldyBza2Ig
-aW4gb25lIGdvIGlmDQo+IG5lY2Vzc2FyeS4NCg0KSVNUTSB0aGF0IGlmIHlvdSBuZWVkIHRvIGRv
-IHRoZSAnc3dhcCcgeW91IHNob3VsZCBjb3B5IHRoZSBkYXRhIHJlZ2FyZGxlc3MNCm9mIHRoZSBs
-ZW5ndGguDQoNCglEYXZpZA0KDQo+IA0KPiBTaWduZWQtb2ZmLWJ5OiBMb3RoYXIgV2FtYW5uIDxM
-V0BLQVJPLWVsZWN0cm9uaWNzLmRlPg0KPiAtLS0NCj4gIGRyaXZlcnMvbmV0L2V0aGVybmV0L2Zy
-ZWVzY2FsZS9mZWNfbWFpbi5jIHwgICAyNSArKysrKysrKysrKysrKysrKysrKystLS0tDQo+ICAx
-IGZpbGUgY2hhbmdlZCwgMjEgaW5zZXJ0aW9ucygrKSwgNCBkZWxldGlvbnMoLSkNCj4gDQo+IGRp
-ZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZmVjX21haW4uYyBiL2Ry
-aXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mZWNfbWFpbi5jDQo+IGluZGV4IDg3OTc1YjUu
-LmVhYWViYWQgMTAwNjQ0DQo+IC0tLSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9m
-ZWNfbWFpbi5jDQo+ICsrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mZWNfbWFp
-bi5jDQo+IEBAIC0zMzksNiArMzM5LDE4IEBAIHN0YXRpYyB2b2lkICpzd2FwX2J1ZmZlcih2b2lk
-ICpidWZhZGRyLCBpbnQgbGVuKQ0KPiAgCXJldHVybiBidWZhZGRyOw0KPiAgfQ0KPiANCj4gK3N0
-YXRpYyB2b2lkICpzd2FwX2J1ZmZlcjIodm9pZCAqZHN0X2J1Ziwgdm9pZCAqc3JjX2J1ZiwgaW50
-IGxlbikNCj4gK3sNCj4gKwlpbnQgaTsNCj4gKwl1bnNpZ25lZCBpbnQgKnNyYyA9IHNyY19idWY7
-DQo+ICsJdW5zaWduZWQgaW50ICpkc3QgPSBkc3RfYnVmOw0KPiArDQo+ICsJZm9yIChpID0gMDsg
-aSA8IERJVl9ST1VORF9VUChsZW4sIDQpOyBpKyssIHNyYysrLCBkc3QrKykNCj4gKwkJKmRzdCA9
-IGNwdV90b19iZTMyKCpzcmMpOw0KPiArDQo+ICsJcmV0dXJuIGRzdF9idWY7DQo+ICt9DQo+ICsN
-Cj4gIHN0YXRpYyB2b2lkIGZlY19kdW1wKHN0cnVjdCBuZXRfZGV2aWNlICpuZGV2KQ0KPiAgew0K
-PiAgCXN0cnVjdCBmZWNfZW5ldF9wcml2YXRlICpmZXAgPSBuZXRkZXZfcHJpdihuZGV2KTsNCj4g
-QEAgLTEzNDgsNyArMTM2MCw3IEBAIGZlY19lbmV0X25ld19yeGJkcChzdHJ1Y3QgbmV0X2Rldmlj
-ZSAqbmRldiwgc3RydWN0IGJ1ZmRlc2MgKmJkcCwgc3RydWN0IHNrX2J1ZmYNCj4gIH0NCj4gDQo+
-ICBzdGF0aWMgYm9vbCBmZWNfZW5ldF9jb3B5YnJlYWsoc3RydWN0IG5ldF9kZXZpY2UgKm5kZXYs
-IHN0cnVjdCBza19idWZmICoqc2tiLA0KPiAtCQkJICAgICAgIHN0cnVjdCBidWZkZXNjICpiZHAs
-IHUzMiBsZW5ndGgpDQo+ICsJCQkgICAgICAgc3RydWN0IGJ1ZmRlc2MgKmJkcCwgdTMyIGxlbmd0
-aCwgaW50IHN3YXApDQo+ICB7DQo+ICAJc3RydWN0ICBmZWNfZW5ldF9wcml2YXRlICpmZXAgPSBu
-ZXRkZXZfcHJpdihuZGV2KTsNCj4gIAlzdHJ1Y3Qgc2tfYnVmZiAqbmV3X3NrYjsNCj4gQEAgLTEz
-NjMsNyArMTM3NSwxMCBAQCBzdGF0aWMgYm9vbCBmZWNfZW5ldF9jb3B5YnJlYWsoc3RydWN0IG5l
-dF9kZXZpY2UgKm5kZXYsIHN0cnVjdCBza19idWZmICoqc2tiLA0KPiAgCWRtYV9zeW5jX3Npbmds
-ZV9mb3JfY3B1KCZmZXAtPnBkZXYtPmRldiwgYmRwLT5jYmRfYnVmYWRkciwNCj4gIAkJCQlGRUNf
-RU5FVF9SWF9GUlNJWkUgLSBmZXAtPnJ4X2FsaWduLA0KPiAgCQkJCURNQV9GUk9NX0RFVklDRSk7
-DQo+IC0JbWVtY3B5KG5ld19za2ItPmRhdGEsICgqc2tiKS0+ZGF0YSwgbGVuZ3RoKTsNCj4gKwlp
-ZiAoIXN3YXApDQo+ICsJCW1lbWNweShuZXdfc2tiLT5kYXRhLCAoKnNrYiktPmRhdGEsIGxlbmd0
-aCk7DQo+ICsJZWxzZQ0KPiArCQlzd2FwX2J1ZmZlcjIobmV3X3NrYi0+ZGF0YSwgKCpza2IpLT5k
-YXRhLCBsZW5ndGgpOw0KPiAgCSpza2IgPSBuZXdfc2tiOw0KPiANCj4gIAlyZXR1cm4gdHJ1ZTsN
-Cj4gQEAgLTEzOTMsNiArMTQwOCw3IEBAIGZlY19lbmV0X3J4X3F1ZXVlKHN0cnVjdCBuZXRfZGV2
-aWNlICpuZGV2LCBpbnQgYnVkZ2V0LCB1MTYgcXVldWVfaWQpDQo+ICAJdTE2CXZsYW5fdGFnOw0K
-PiAgCWludAlpbmRleCA9IDA7DQo+ICAJYm9vbAlpc19jb3B5YnJlYWs7DQo+ICsJYm9vbCBuZWVk
-X3N3YXAgPSBpZF9lbnRyeS0+ZHJpdmVyX2RhdGEgJiBGRUNfUVVJUktfU1dBUF9GUkFNRTsNCj4g
-DQo+ICAjaWZkZWYgQ09ORklHX001MzJ4DQo+ICAJZmx1c2hfY2FjaGVfYWxsKCk7DQo+IEBAIC0x
-NDU2LDcgKzE0NzIsOCBAQCBmZWNfZW5ldF9yeF9xdWV1ZShzdHJ1Y3QgbmV0X2RldmljZSAqbmRl
-diwgaW50IGJ1ZGdldCwgdTE2IHF1ZXVlX2lkKQ0KPiAgCQkgKiBpbmNsdWRlIHRoYXQgd2hlbiBw
-YXNzaW5nIHVwc3RyZWFtIGFzIGl0IG1lc3NlcyB1cA0KPiAgCQkgKiBicmlkZ2luZyBhcHBsaWNh
-dGlvbnMuDQo+ICAJCSAqLw0KPiAtCQlpc19jb3B5YnJlYWsgPSBmZWNfZW5ldF9jb3B5YnJlYWso
-bmRldiwgJnNrYiwgYmRwLCBwa3RfbGVuIC0gNCk7DQo+ICsJCWlzX2NvcHlicmVhayA9IGZlY19l
-bmV0X2NvcHlicmVhayhuZGV2LCAmc2tiLCBiZHAsIHBrdF9sZW4gLSA0LA0KPiArCQkJCQkJICBu
-ZWVkX3N3YXApOw0KPiAgCQlpZiAoIWlzX2NvcHlicmVhaykgew0KPiAgCQkJc2tiX25ldyA9IG5l
-dGRldl9hbGxvY19za2IobmRldiwgRkVDX0VORVRfUlhfRlJTSVpFKTsNCj4gIAkJCWlmICh1bmxp
-a2VseSghc2tiX25ldykpIHsNCj4gQEAgLTE0NzEsNyArMTQ4OCw3IEBAIGZlY19lbmV0X3J4X3F1
-ZXVlKHN0cnVjdCBuZXRfZGV2aWNlICpuZGV2LCBpbnQgYnVkZ2V0LCB1MTYgcXVldWVfaWQpDQo+
-ICAJCXByZWZldGNoKHNrYi0+ZGF0YSAtIE5FVF9JUF9BTElHTik7DQo+ICAJCXNrYl9wdXQoc2ti
-LCBwa3RfbGVuIC0gNCk7DQo+ICAJCWRhdGEgPSBza2ItPmRhdGE7DQo+IC0JCWlmIChpZF9lbnRy
-eS0+ZHJpdmVyX2RhdGEgJiBGRUNfUVVJUktfU1dBUF9GUkFNRSkNCj4gKwkJaWYgKCFpc19jb3B5
-YnJlYWsgJiYgbmVlZF9zd2FwKQ0KPiAgCQkJc3dhcF9idWZmZXIoZGF0YSwgcGt0X2xlbik7DQo+
-IA0KPiAgCQkvKiBFeHRyYWN0IHRoZSBlbmhhbmNlZCBidWZmZXIgZGVzY3JpcHRvciAqLw0KPiAt
-LQ0KPiAxLjcuMTAuNA0KPiANCj4gLS0NCj4gVG8gdW5zdWJzY3JpYmUgZnJvbSB0aGlzIGxpc3Q6
-IHNlbmQgdGhlIGxpbmUgInVuc3Vic2NyaWJlIG5ldGRldiIgaW4NCj4gdGhlIGJvZHkgb2YgYSBt
-ZXNzYWdlIHRvIG1ham9yZG9tb0B2Z2VyLmtlcm5lbC5vcmcNCj4gTW9yZSBtYWpvcmRvbW8gaW5m
-byBhdCAgaHR0cDovL3ZnZXIua2VybmVsLm9yZy9tYWpvcmRvbW8taW5mby5odG1sDQo=
+From: Sylvain "ythier" Hitier <sylvain.hitier@gmail.com>
+
+In commit 6f2b6a3005b2c34c39f207a87667564f64f2f91a,
+  # 3c59x: Add dma error checking and recovery
+the intent is to split out the mapping from the byte-swapping in order to
+insert a dma_mapping_error() check.
+
+Kinda this semantic patch:
+
+    // See http://coccinelle.lip6.fr/
+    //
+    // Beware, grouik-and-dirty!
+    @@
+    expression DEV, X, Y, Z;
+    @@
+    -   cpu_to_le32(pci_map_single(DEV, X, Y, Z))
+    +   dma_addr_t addr = pci_map_single(DEV, X, Y, Z);
+    +   if (dma_mapping_error(&DEV->dev, addr))
+    +       /* snip */;
+    +   cpu_to_le32(addr)
+
+However, the #else part (of the #if DO_ZEROCOPY test) is changed this way:
+
+    -   cpu_to_le32(pci_map_single(DEV, X, Y, Z))
+    +   dma_addr_t addr = cpu_to_le32(pci_map_single(DEV, X, Y, Z));
+    //                    ^^^^^^^^^^^
+    //                    That mismatches the 3 other changes!
+    +   if (dma_mapping_error(&DEV->dev, addr))
+    +       /* snip */;
+    +   cpu_to_le32(addr)
+
+Let's remove the leftover cpu_to_le32() for coherency.
+
+v2: Better changelog.
+v3: Add Acked-by
+
+Fixes: 6f2b6a3005b2c34c39f207a87667564f64f2f91a
+  # 3c59x: Add dma error checking and recovery
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
+Signed-off-by: Sylvain "ythier" Hitier <sylvain.hitier@gmail.com>
+---
+
+[Resent with maintainer and mailing-list Cc-ed]
+
+ drivers/net/ethernet/3com/3c59x.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/3com/3c59x.c b/drivers/net/ethernet/3com/3c59x.c
+index 8ca49f04..0a3108b3 100644
+--- a/drivers/net/ethernet/3com/3c59x.c
++++ b/drivers/net/ethernet/3com/3c59x.c
+@@ -2214,7 +2214,7 @@ boomerang_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		}
+ 	}
+ #else
+-	dma_addr = cpu_to_le32(pci_map_single(VORTEX_PCI(vp), skb->data, skb->len, PCI_DMA_TODEVICE));
++	dma_addr = pci_map_single(VORTEX_PCI(vp), skb->data, skb->len, PCI_DMA_TODEVICE);
+ 	if (dma_mapping_error(&VORTEX_PCI(vp)->dev, dma_addr))
+ 		goto out_dma_err;
+ 	vp->tx_ring[entry].addr = cpu_to_le32(dma_addr);
+-- 
+1.7.10.4
+
+Regards,
+Sylvain "ythier" Hitier
+
+-- 
+Business is about being busy, not being rich...
+Lived 777 days in a Debian package => http://en.wikipedia.org/wiki/Apt,_Vaucluse
+There's THE room for ideals in this mechanical place!
