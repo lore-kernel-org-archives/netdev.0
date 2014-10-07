@@ -1,266 +1,54 @@
-From: Christophe Leroy <christophe.leroy@c-s.fr>
-Subject: [PATCH 1/2] net: fs_enet: Remove non NAPI RX
-Date: Tue,  7 Oct 2014 15:04:57 +0200 (CEST)
-Message-ID: <20141007130457.7F04E1AB266@localhost.localdomain>
-Cc: linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-	netdev@vger.kernel.org
-To: Pantelis Antoniou <pantelis.antoniou@gmail.com>,
-	Vitaly Bordug <vbordug@ru.mvista.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: annie li <annie.li@oracle.com>
+Subject: Re: [Xen-devel] [PATCHv1] xen-netfront: always keep the Rx ring full
+ of requests
+Date: Tue, 07 Oct 2014 09:12:30 -0400
+Message-ID: <5433E6BE.6070401@oracle.com>
+References: <5432B6D2.9030503@oracle.com>	<5432BC96.6060709@citrix.com>	<5432E26C.3020207@oracle.com> <20141006.170748.1817067290457286845.davem@redhat.com> <5433B5C8.9060309@citrix.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@redhat.com>, netdev@vger.kernel.org,
+	boris.ostrovsky@oracle.com, xen-devel@lists.xenproject.org
+To: David Vrabel <david.vrabel@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:31688 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752054AbaJGNMp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2014 09:12:45 -0400
+In-Reply-To: <5433B5C8.9060309@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In the probe function, use_napi is inconditionnaly set to 1. This patch removes
-all the code which is conditional to !use_napi, and removes use_napi which has
-then become useless.
 
-Signed-off-by: Christophe Leroy <christophe.leroy@c-s.fr>
+On 2014/10/7 5:43, David Vrabel wrote:
+> On 06/10/14 22:07, David Miller wrote:
+>> From: annie li <annie.li@oracle.com>
+>> Date: Mon, 06 Oct 2014 14:41:48 -0400
+>>
+>>> On 2014/10/6 12:00, David Vrabel wrote:
+>>>>>>     +    queue->rx.req_prod_pvt = req_prod;
+>>>>>> +
+>>>>>> +    /* Not enough requests? Try again later. */
+>>>>>> +    if (req_prod - queue->rx.rsp_cons < NET_RX_SLOTS_MIN) {
+>>>>>> +        mod_timer(&queue->rx_refill_timer, jiffies + (HZ/10));
+>>>>>> +        return;
+>>>>> If the previous for loop breaks because of failure of
+>>>>> xennet_alloc_one_rx_buffer, then notify_remote_via_irq is missed here
+>>>>> if
+>>>>> the code returns directly.
+>>>> This is deliberate -- there's no point notifying the backend if there
+>>>> aren't enough requests for the next packet.  Since we don't know what
+>>>> the next packet might be we assume it's the largest possible.
+>>> That makes sense.
+>>> However, the largest packet case does not happen so
+>>> frequently. Moreover, netback checks the slots every incoming skb
+>>> requires in xenvif_rx_ring_slots_available, not only concerning the
+>>> largest case.
+> An upcoming change to netback will cause it to wait for enough slots for
+> the largest possible packet.
 
----
- .../net/ethernet/freescale/fs_enet/fs_enet-main.c  | 164 ++-------------------
- include/linux/fs_enet_pd.h                         |   1 -
- 2 files changed, 15 insertions(+), 150 deletions(-)
+Netback knows the exact slot number that incoming skb will consumes, is 
+there any reason to let it wait for the largest possible packets?
 
-diff --git a/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c b/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
-index 748fd24..71a25b4 100644
---- a/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
-+++ b/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
-@@ -215,128 +215,6 @@ static int fs_enet_rx_napi(struct napi_struct *napi, int budget)
- 	return received;
- }
- 
--/* non NAPI receive function */
--static int fs_enet_rx_non_napi(struct net_device *dev)
--{
--	struct fs_enet_private *fep = netdev_priv(dev);
--	const struct fs_platform_info *fpi = fep->fpi;
--	cbd_t __iomem *bdp;
--	struct sk_buff *skb, *skbn, *skbt;
--	int received = 0;
--	u16 pkt_len, sc;
--	int curidx;
--	/*
--	 * First, grab all of the stats for the incoming packet.
--	 * These get messed up if we get called due to a busy condition.
--	 */
--	bdp = fep->cur_rx;
--
--	while (((sc = CBDR_SC(bdp)) & BD_ENET_RX_EMPTY) == 0) {
--
--		curidx = bdp - fep->rx_bd_base;
--
--		/*
--		 * Since we have allocated space to hold a complete frame,
--		 * the last indicator should be set.
--		 */
--		if ((sc & BD_ENET_RX_LAST) == 0)
--			dev_warn(fep->dev, "rcv is not +last\n");
--
--		/*
--		 * Check for errors.
--		 */
--		if (sc & (BD_ENET_RX_LG | BD_ENET_RX_SH | BD_ENET_RX_CL |
--			  BD_ENET_RX_NO | BD_ENET_RX_CR | BD_ENET_RX_OV)) {
--			fep->stats.rx_errors++;
--			/* Frame too long or too short. */
--			if (sc & (BD_ENET_RX_LG | BD_ENET_RX_SH))
--				fep->stats.rx_length_errors++;
--			/* Frame alignment */
--			if (sc & (BD_ENET_RX_NO | BD_ENET_RX_CL))
--				fep->stats.rx_frame_errors++;
--			/* CRC Error */
--			if (sc & BD_ENET_RX_CR)
--				fep->stats.rx_crc_errors++;
--			/* FIFO overrun */
--			if (sc & BD_ENET_RX_OV)
--				fep->stats.rx_crc_errors++;
--
--			skb = fep->rx_skbuff[curidx];
--
--			dma_unmap_single(fep->dev, CBDR_BUFADDR(bdp),
--				L1_CACHE_ALIGN(PKT_MAXBUF_SIZE),
--				DMA_FROM_DEVICE);
--
--			skbn = skb;
--
--		} else {
--
--			skb = fep->rx_skbuff[curidx];
--
--			dma_unmap_single(fep->dev, CBDR_BUFADDR(bdp),
--				L1_CACHE_ALIGN(PKT_MAXBUF_SIZE),
--				DMA_FROM_DEVICE);
--
--			/*
--			 * Process the incoming frame.
--			 */
--			fep->stats.rx_packets++;
--			pkt_len = CBDR_DATLEN(bdp) - 4;	/* remove CRC */
--			fep->stats.rx_bytes += pkt_len + 4;
--
--			if (pkt_len <= fpi->rx_copybreak) {
--				/* +2 to make IP header L1 cache aligned */
--				skbn = netdev_alloc_skb(dev, pkt_len + 2);
--				if (skbn != NULL) {
--					skb_reserve(skbn, 2);	/* align IP header */
--					skb_copy_from_linear_data(skb,
--						      skbn->data, pkt_len);
--					/* swap */
--					skbt = skb;
--					skb = skbn;
--					skbn = skbt;
--				}
--			} else {
--				skbn = netdev_alloc_skb(dev, ENET_RX_FRSIZE);
--
--				if (skbn)
--					skb_align(skbn, ENET_RX_ALIGN);
--			}
--
--			if (skbn != NULL) {
--				skb_put(skb, pkt_len);	/* Make room */
--				skb->protocol = eth_type_trans(skb, dev);
--				received++;
--				netif_rx(skb);
--			} else {
--				fep->stats.rx_dropped++;
--				skbn = skb;
--			}
--		}
--
--		fep->rx_skbuff[curidx] = skbn;
--		CBDW_BUFADDR(bdp, dma_map_single(fep->dev, skbn->data,
--			     L1_CACHE_ALIGN(PKT_MAXBUF_SIZE),
--			     DMA_FROM_DEVICE));
--		CBDW_DATLEN(bdp, 0);
--		CBDW_SC(bdp, (sc & ~BD_ENET_RX_STATS) | BD_ENET_RX_EMPTY);
--
--		/*
--		 * Update BD pointer to next entry.
--		 */
--		if ((sc & BD_ENET_RX_WRAP) == 0)
--			bdp++;
--		else
--			bdp = fep->rx_bd_base;
--
--		(*fep->ops->rx_bd_done)(dev);
--	}
--
--	fep->cur_rx = bdp;
--
--	return 0;
--}
--
- static void fs_enet_tx(struct net_device *dev)
- {
- 	struct fs_enet_private *fep = netdev_priv(dev);
-@@ -453,8 +331,7 @@ fs_enet_interrupt(int irq, void *dev_id)
- 		nr++;
- 
- 		int_clr_events = int_events;
--		if (fpi->use_napi)
--			int_clr_events &= ~fep->ev_napi_rx;
-+		int_clr_events &= ~fep->ev_napi_rx;
- 
- 		(*fep->ops->clear_int_events)(dev, int_clr_events);
- 
-@@ -462,19 +339,15 @@ fs_enet_interrupt(int irq, void *dev_id)
- 			(*fep->ops->ev_error)(dev, int_events);
- 
- 		if (int_events & fep->ev_rx) {
--			if (!fpi->use_napi)
--				fs_enet_rx_non_napi(dev);
--			else {
--				napi_ok = napi_schedule_prep(&fep->napi);
--
--				(*fep->ops->napi_disable_rx)(dev);
--				(*fep->ops->clear_int_events)(dev, fep->ev_napi_rx);
--
--				/* NOTE: it is possible for FCCs in NAPI mode    */
--				/* to submit a spurious interrupt while in poll  */
--				if (napi_ok)
--					__napi_schedule(&fep->napi);
--			}
-+			napi_ok = napi_schedule_prep(&fep->napi);
-+
-+			(*fep->ops->napi_disable_rx)(dev);
-+			(*fep->ops->clear_int_events)(dev, fep->ev_napi_rx);
-+
-+			/* NOTE: it is possible for FCCs in NAPI mode    */
-+			/* to submit a spurious interrupt while in poll  */
-+			if (napi_ok)
-+				__napi_schedule(&fep->napi);
- 		}
- 
- 		if (int_events & fep->ev_tx)
-@@ -811,24 +684,21 @@ static int fs_enet_open(struct net_device *dev)
- 	/* not doing this, will cause a crash in fs_enet_rx_napi */
- 	fs_init_bds(fep->ndev);
- 
--	if (fep->fpi->use_napi)
--		napi_enable(&fep->napi);
-+	napi_enable(&fep->napi);
- 
- 	/* Install our interrupt handler. */
- 	r = request_irq(fep->interrupt, fs_enet_interrupt, IRQF_SHARED,
- 			"fs_enet-mac", dev);
- 	if (r != 0) {
- 		dev_err(fep->dev, "Could not allocate FS_ENET IRQ!");
--		if (fep->fpi->use_napi)
--			napi_disable(&fep->napi);
-+		napi_disable(&fep->napi);
- 		return -EINVAL;
- 	}
- 
- 	err = fs_init_phy(dev);
- 	if (err) {
- 		free_irq(fep->interrupt, dev);
--		if (fep->fpi->use_napi)
--			napi_disable(&fep->napi);
-+		napi_disable(&fep->napi);
- 		return err;
- 	}
- 	phy_start(fep->phydev);
-@@ -845,8 +715,7 @@ static int fs_enet_close(struct net_device *dev)
- 
- 	netif_stop_queue(dev);
- 	netif_carrier_off(dev);
--	if (fep->fpi->use_napi)
--		napi_disable(&fep->napi);
-+	napi_disable(&fep->napi);
- 	phy_stop(fep->phydev);
- 
- 	spin_lock_irqsave(&fep->lock, flags);
-@@ -1022,7 +891,6 @@ static int fs_enet_probe(struct platform_device *ofdev)
- 	fpi->rx_ring = 32;
- 	fpi->tx_ring = 32;
- 	fpi->rx_copybreak = 240;
--	fpi->use_napi = 1;
- 	fpi->napi_weight = 17;
- 	fpi->phy_node = of_parse_phandle(ofdev->dev.of_node, "phy-handle", 0);
- 	if (!fpi->phy_node && of_phy_is_fixed_link(ofdev->dev.of_node)) {
-@@ -1102,9 +970,7 @@ static int fs_enet_probe(struct platform_device *ofdev)
- 
- 	ndev->netdev_ops = &fs_enet_netdev_ops;
- 	ndev->watchdog_timeo = 2 * HZ;
--	if (fpi->use_napi)
--		netif_napi_add(ndev, &fep->napi, fs_enet_rx_napi,
--		               fpi->napi_weight);
-+	netif_napi_add(ndev, &fep->napi, fs_enet_rx_napi, fpi->napi_weight);
- 
- 	ndev->ethtool_ops = &fs_ethtool_ops;
- 
-diff --git a/include/linux/fs_enet_pd.h b/include/linux/fs_enet_pd.h
-index efb0596..77d783f 100644
---- a/include/linux/fs_enet_pd.h
-+++ b/include/linux/fs_enet_pd.h
-@@ -139,7 +139,6 @@ struct fs_platform_info {
- 	int rx_ring, tx_ring;	/* number of buffers on rx     */
- 	__u8 macaddr[ETH_ALEN];	/* mac address                 */
- 	int rx_copybreak;	/* limit we copy small frames  */
--	int use_napi;		/* use NAPI                    */
- 	int napi_weight;	/* NAPI weight                 */
- 
- 	int use_rmii;		/* use RMII mode 	       */
--- 
-2.1.0
+Thanks
+Annie
