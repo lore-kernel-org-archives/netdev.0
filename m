@@ -1,68 +1,63 @@
-From: "Zhou, Danny" <danny.zhou@intel.com>
-Subject: RE: [net-next PATCH v1 1/3] net: sched: af_packet support for
- direct ring access
-Date: Tue, 7 Oct 2014 16:46:11 +0000
-Message-ID: <DFDF335405C17848924A094BC35766CF0A95370E@SHSMSX104.ccr.corp.intel.com>
-References: <CAADnVQJf8jtRr3xBdSOt_X188Xkkg0EnxVd+gh6ruTMjc9jOHg@mail.gmail.com>
+From: Petri Gynther <pgynther@google.com>
+Subject: Re: [PATCH v2 net-next] net: phy: adjust fixed_phy_register() return value
+Date: Tue, 7 Oct 2014 09:48:40 -0700
+Message-ID: <CAGXr9JFGD6TXvOszghKJqchTsb9_xbm76U98sgWCUeg8dfP0yA@mail.gmail.com>
+References: <20141006183830.D4E82100BC1@puck.mtv.corp.google.com>
+	<20141007.000754.1011567266866832634.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Willem de Bruijn <willemb@google.com>,
-	John Fastabend <john.fastabend@gmail.com>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	"Florian Westphal" <fw@strlen.de>,
-	"gerlitz.or@gmail.com" <gerlitz.or@gmail.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Network Development <netdev@vger.kernel.org>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"Amir Vadai" <amirv@mellanox.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, Florian Fainelli <f.fainelli@gmail.com>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:9140 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752036AbaJGQqs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Oct 2014 12:46:48 -0400
-In-Reply-To: <CAADnVQJf8jtRr3xBdSOt_X188Xkkg0EnxVd+gh6ruTMjc9jOHg@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-vc0-f182.google.com ([209.85.220.182]:49913 "EHLO
+	mail-vc0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752028AbaJGQsl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2014 12:48:41 -0400
+Received: by mail-vc0-f182.google.com with SMTP id la4so5272054vcb.27
+        for <netdev@vger.kernel.org>; Tue, 07 Oct 2014 09:48:40 -0700 (PDT)
+In-Reply-To: <20141007.000754.1011567266866832634.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IEFsZXhlaSBTdGFyb3ZvaXRv
-diBbbWFpbHRvOmFsZXhlaS5zdGFyb3ZvaXRvdkBnbWFpbC5jb21dDQo+IFNlbnQ6IFdlZG5lc2Rh
-eSwgT2N0b2JlciAwOCwgMjAxNCAxMjozMyBBTQ0KPiBUbzogWmhvdSwgRGFubnkNCj4gQ2M6IFdp
-bGxlbSBkZSBCcnVpam47IEpvaG4gRmFzdGFiZW5kOyBEYW5pZWwgQm9ya21hbm47IEZsb3JpYW4g
-V2VzdHBoYWw7IGdlcmxpdHoub3JAZ21haWwuY29tOyBIYW5uZXMgRnJlZGVyaWMgU293YTsgTmV0
-d29yaw0KPiBEZXZlbG9wbWVudDsgUm9uY2lhaywgSm9objsgQW1pciBWYWRhaTsgRXJpYyBEdW1h
-emV0OyBEYXZpZCBTLiBNaWxsZXINCj4gU3ViamVjdDogUmU6IFtuZXQtbmV4dCBQQVRDSCB2MSAx
-LzNdIG5ldDogc2NoZWQ6IGFmX3BhY2tldCBzdXBwb3J0IGZvciBkaXJlY3QgcmluZyBhY2Nlc3MN
-Cj4gDQo+IE9uIFR1ZSwgT2N0IDcsIDIwMTQgYXQgODoyMSBBTSwgWmhvdSwgRGFubnkgPGRhbm55
-Lnpob3VAaW50ZWwuY29tPiB3cm90ZToNCj4gPg0KPiA+IEFzIGEgbWFzdGVyIGRyaXZlciwgdGhl
-IE5JQyBrZXJuZWwgZHJpdmVyIHN0aWxsIHRha2VzIGNvbnRyb2wgb2YgZmxvdyBkaXJlY3RvciBh
-cyBhIGV0aHRvb2wgYmFja2VuZC4gR2VuZXJhbGx5LA0KPiA+IG5vdCBhbGwgcXVldWVzIGFyZSBp
-bml0aWFsaXplZCBhbmQgdXNlZCBieSBOSUMga2VybmVsIGRyaXZlciwgd2hpY2ggcmVwb3J0cyBh
-Y3R1YWxseSB1c2VkIHJ4L3R4IG51bWJlcnMgdG8gc3RhY2tzLg0KPiA+IEJlZm9yZSBzcGxpdHRp
-bmcgb2ZmIGNlcnRhaW4gcXVldWVzLCBpZiB5b3Ugd2FudCB1c2UgZXRodG9vbCB0byBkaXJlY3Qg
-dHJhZmZpY3MgdG8gdGhvc2UgdW51c2VkIHF1ZXVlcywNCj4gPiBldGh0b29sIHJlcG9ydHMgaW52
-YWxpZCBhcmd1bWVudC4gT25jZSBjZXJ0YWluIHN0YWNrLXVuYXdhcmUgcXVldWVzIGFyZSBhbGxv
-Y2F0ZWQgZm9yIHVzZXIgc3BhY2Ugc2xhdmUgZHJpdmVyLA0KPiA+IGV0aHRvb2wgYWxsb3dzIGRp
-cmVjdGluZyBwYWNrZXRzIHRvIHRoZW0gYXMgdGhlIE5JQyBkcml2ZXIgbWFpbnRhaW5zIGEgZGF0
-YSBzdHJ1Y3QgYWJvdXQgd2hpY2ggcXVldWVzIGFyZSB2aXNpYmxlDQo+ID4gYW5kIHVzZWQgYnkg
-a2VybmVsLCB3aGljaCBhcmUgdXNlZCBieSB1c2VyIHNwYWNlLg0KPiANCj4gdGhpcyB3aG9sZSB0
-aGluZyBzb3VuZHMgbGlrZSBpdCdzIGEgd2F5IHRvIGxldCBEUERLIGFwcHMgc2hhcmUgcGh5c2lj
-YWwNCj4gaW50ZXJmYWNlcyB3aXRoIGtlcm5lbCwgc28gdGhhdCB0Y3AtYmFzZWQgY29udHJvbCBw
-bGFuZSB0cmFmZmljDQo+IGNhbiByZWFjaCBEUERLIHByb2Nlc3MgdmlhIGtlcm5lbCB3aGlsZSBE
-UERLIHVzZXIgc3BhY2UNCj4gZGF0YSBwYXRoIGRvZXMgdGhlIHJlc3Qgb2YgcGFja2V0IHByb2Nl
-c3Npbmc/DQo+IE9uZSBzdGlsbCBuZWVkcyBwY2llIHJlZ2lzdGVyIGkvbyBhbmQgYWxsIG9mIHVz
-ZXIgc3BhY2UgZHJpdmVyIHN1cHBvcnQNCj4gdG8gbWFrZSBpdCB3b3JrLCByaWdodD8NCj4gSSBn
-dWVzcyB0aGF0J3MgZ3JlYXQgZm9yIERQREsgdXNlcnMsIGJ1dCBJIGRvbid0IHRoaW5rIGl0J3Mg
-Z29vZCBmb3IgbGludXguDQoNCk5vLCBpdCBpcyBhIGdlbmVyaWMgTklDIHJlc291cmNlKGUuZy4g
-cngvdHggcXVldWUgcGFpcnMpIHBvcnRpb25pbmcgbWVjaGFuaXNtIGFtb25nIE5JQyBrZXJuZWwg
-YW5kIHVzZXIgc3BhY2UgZHJpdmVycyB3aXRoIA0KZGlmZmVyZW50IHBlcmZvcm1hbmNlL2xhdGVu
-Y3kvaml0dGVyIGNoYXJhY3RlcmlzdGljcy4gT25lIG9ubHkgbmVlZHMgd3JpdGUgZWZmaWNpZW50
-IHBhY2tldCByeC90eCByb3V0aW5lcyBieSB0YWtpbmcgYWR2YW50YWdlDQpvZiB3aGF0ZXZlciBz
-b2Z0d2FyZSBvcHRpbWl6YXRpb25zLCB0byBtYW5pcHVsYXRlIGxpbWl0ZWQgcngvdHggcXVldWUg
-cmVsZXZhbnQgcmVnaXN0ZXJzIG9uIFBDSWUgSS9PIHNwYWNlLiBJbiBvdGhlciB3b3Jkcywgbm8g
-DQpuZWVkIHRvIHBvcnQgdGhlIGVudGlyZSBOSUMgZHJpdmVyIGZyb20ga2VybmVsIHRvIHVzZXIg
-c3BhY2UuIA0KDQo=
+Hi David,
+
+On Mon, Oct 6, 2014 at 9:07 PM, David Miller <davem@davemloft.net> wrote:
+> From: Petri Gynther <pgynther@google.com>
+> Date: Mon,  6 Oct 2014 11:38:30 -0700 (PDT)
+>
+>> Adjust fixed_phy_register() to return struct phy_device *, so that
+>> it becomes easy to use fixed PHYs without device tree support:
+>>
+>>   phydev = fixed_phy_register(PHY_POLL, &fixed_phy_status, NULL);
+>>   fixed_phy_set_link_update(phydev, fixed_phy_link_update);
+>>   phy_connect_direct(netdev, phydev, handler_fn, phy_interface);
+>>
+>> This change is a prerequisite for modifying bcmgenet driver to work
+>> without a device tree on Broadcom's MIPS-based 7xxx platforms.
+>>
+>> Signed-off-by: Petri Gynther <pgynther@google.com>
+>
+> If the caller gets this 'phy' pointer and does something with it,
+> something seems amiss.
+>
+> We don't hold an extra reference to the 'phy' object for the caller,
+> so another thread of control can unregister it and kill that last
+> reference and therefore free it up.
+>
+> I think to be legitimate, you have to hold an extra reference on
+> 'phy' for the caller.  And now that means that code paths that
+> don't need to do anything with 'phy' now will need to release
+> that reference.
+
+I'm not sure if I understand your comment. The caller of
+fixed_phy_register() now gets the pointer to the phydev created by
+get_phy_device(). What other thread is aware of this pointer and how
+could they free it? Isn't the caller of fixed_phy_register()
+exclusively in charge of the created phydev?
+
+I'm trying to make fixed_phy_device() more convenient to use, so that
+drivers don't need to make separate calls to fixed_phy_add() +
+get_phy_device() + phy_device_register().
+
+-- Petri
