@@ -1,38 +1,37 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: RE: r8168 is needed to enter P-state: Package State 6(pc6)onHaswellhardware
-Date: Tue, 7 Oct 2014 02:50:54 +0000
-Message-ID: <0835B3720019904CB8F7AA43166CEEB2526B88@RTITMBSV03.realtek.com.tw>
-References: <542B3829.3010108@crashplan.pro>
- <20141005165920.GA21926@electric-eye.fr.zoreil.com>
- <0835B3720019904CB8F7AA43166CEEB2526932@RTITMBSV03.realtek.com.tw>
- <20141006221307.GB10936@electric-eye.fr.zoreil.com>
+From: Emel Group <rudr1991@gmail.com>
+Subject: Interested in your product
+Date: Tue, 7 Oct 2014 03:52:55 +0100
+Message-ID: <CAFDSKKmXhjHqjts2i07w+h-xGFX7dv_KnsY0CNSA+vuYma4rZw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Ceriel Jacobs <linux-ide@crashplan.pro>,
-	nic_swsd <nic_swsd@realtek.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset=UTF-8
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtits2.realtek.com ([60.250.210.242]:52523 "EHLO
-	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751213AbaJGCvP convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 22:51:15 -0400
-In-Reply-To: <20141006221307.GB10936@electric-eye.fr.zoreil.com>
-Content-Language: zh-TW
+Received: from mail-vc0-f194.google.com ([209.85.220.194]:52685 "EHLO
+	mail-vc0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751290AbaJGC7C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Oct 2014 22:59:02 -0400
+Received: by mail-vc0-f194.google.com with SMTP id lf12so1228855vcb.5
+        for <netdev@vger.kernel.org>; Mon, 06 Oct 2014 19:59:01 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- Francois Romieu [mailto:romieu@fr.zoreil.com] 
-> Sent: Tuesday, October 07, 2014 6:13 AM
-[...]
-> Realtek's r8168 driver defaults to CONFIG_ASPM=1 but I guess 
-> some users
-> need to disable it and there's no known pattern / blacklist, right ?
+Dear Sir,
 
-When enabling the ASPM, it would influence the thrpughput. It is hard to
-choose performance or power saving. Therefore, we reserve the config
-to let the user determines it.
+My company is interested in your products. We are a big import company
+based in Nigeria and we will like to import your products to Nigeria
+in large quantities as we have decided to venture into the products
+market. Nigeria is the biggest market in Africa and the destination of
+every foreign product. My company can create very large market share
+for your products as we have done for other products under our
+company. Your collaboration in this venture is required for successful
+business partnership.
 
- Best Regards,
-Hayes
+View our updated company website below to know more about us.
+
+Website hyperlink: http://ccya.tw/view/emelgroup.html
+
+
+Yours faithfully.
+Ben Hillary.
+
+For: Emel Group Nig. Ltd.
