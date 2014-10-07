@@ -1,63 +1,57 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [net-next PATCH v1 1/3] net: sched: af_packet support for
- direct ring access
-Date: Tue, 7 Oct 2014 09:27:03 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D174C5C35@AcuExch.aculab.com>
-References: <20141006000629.32055.2295.stgit@nitbit.x32>
- <CA+FuTSfwTBtZLu7CXh4bPxUtVubOvpCPo+O38BsnSiLdvV_KEA@mail.gmail.com>
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: Re: [Xen-devel] [PATCHv1] xen-netfront: always keep the Rx ring full
+ of requests
+Date: Tue, 7 Oct 2014 10:43:36 +0100
+Message-ID: <5433B5C8.9060309@citrix.com>
+References: <5432B6D2.9030503@oracle.com>	<5432BC96.6060709@citrix.com>	<5432E26C.3020207@oracle.com> <20141006.170748.1817067290457286845.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Daniel Borkmann <dborkman@redhat.com>,
-	Florian Westphal <fw@strlen.de>,
-	"gerlitz.or@gmail.com" <gerlitz.or@gmail.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Network Development <netdev@vger.kernel.org>,
-	"john.ronciak@intel.com" <john.ronciak@intel.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"danny.zhou@intel.com" <danny.zhou@intel.com>
-To: 'Willem de Bruijn' <willemb@google.com>,
-	John Fastabend <john.fastabend@gmail.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <boris.ostrovsky@oracle.com>,
+	<xen-devel@lists.xenproject.org>
+To: David Miller <davem@redhat.com>, <annie.li@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:42305 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752825AbaJGJ2c (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Oct 2014 05:28:32 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 05392-02 for <netdev@vger.kernel.org>;
- Tue,  7 Oct 2014 10:28:23 +0100 (BST)
-In-Reply-To: <CA+FuTSfwTBtZLu7CXh4bPxUtVubOvpCPo+O38BsnSiLdvV_KEA@mail.gmail.com>
-Content-Language: en-US
+Received: from smtp02.citrix.com ([66.165.176.63]:7324 "EHLO SMTP02.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752825AbaJGJnj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Oct 2014 05:43:39 -0400
+In-Reply-To: <20141006.170748.1817067290457286845.davem@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogV2lsbGVtIGRlIEJydWlqbg0KLi4uDQo+IFdoZW4ga2VlcGluZyB0aGUga2VybmVsIGlu
-IHRoZSBsb29wLCBpdCBpcyBwb3NzaWJsZSB0byBkbw0KPiBzb21lIGJhc2ljIHNhbml0eSBjaGVj
-a2luZyBhbmQgdHJhbnNwYXJlbnRseSB0cmFuc2xhdGUgYmV0d2Vlbg0KPiB2YWRkciBhbmQgcGFk
-ZHIsIGV2ZW4gd2hlbiBleHBvc2luZyB0aGUgaGFyZHdhcmUgZGVzY3JpcHRvcnMNCj4gZGlyZWN0
-bHkuDQoNClRoZSBhcHBsaWNhdGlvbiBjb3VsZCBjaGFuZ2UgdGhlIGFkZHJlc3NlcyBhZnRlciB0
-aGV5IGhhdmUgYmVlbg0KdmFsaWRhdGVkLCBidXQgYmVmb3JlIHRoZXkgaGF2ZSBiZWVuIHJlYWQg
-YnkgdGhlIGRldmljZS4NCg0KPiBUaG91Z2ggYXQgdGhpcyBwb2ludCBpdCBtYXkgYmUganVzdCBh
-cyBjaGVhcCB0byBleHBvc2UNCj4gYW4gaWRlYWxpemVkIHZpcnR1YWxpemVkIGRlc2NyaXB0b3Ig
-Zm9ybWF0IGFuZCBjb3B5IGZpZWxkcyBiZXR3ZWVuDQo+IHRoYXQgYW5kIGRldmljZSBkZXNjcmlw
-dG9ycy4NCg0KVGhhdCBpcyAocHJvYmFibHkpIHRoZSBvbmx5IHNjaGVtZSB0aGF0IHN0b3BzIHRo
-ZSBhcHBsaWNhdGlvbg0KYWNjZXNzaW5nIHJhbmRvbSBwYXJ0cyBvZiBwaHlzaWNhbCBtZW1vcnku
-DQoNCj4gT25lIGFzc3VtcHRpb24gdW5kZXJseWluZyBleHBvc2luZyB0aGUgaGFyZHdhcmUgZGVz
-Y3JpcHRvcnMNCj4gaXMgdGhhdCB0aGV5IGFyZSBxdWlyZSBzaW1pbGFyIGJldHdlZW4gZGV2aWNl
-cy4gSG93IHRydWUgaXMgdGhpcw0KPiBpbiB0aGUgY29udGV4dCBvZiBmb3JtYXRzIHRoYXQgc3Bh
-biBtdWx0aXBsZSBkZXNjcmlwdG9ycz8NCg0KSSBzdXNwZWN0IHlvdSdkIG5lZWQgdG8gZGVmaW5l
-IGNvbXBsZXRlIHJpbmcgZW50cmllcyBmb3IgJ2luaXRpYWwnLA0KJ21pZGRsZScsICdmaW5hbCcg
-YW5kICdjb21wbGV0ZScgZnJhZ21lbnRzLCB0b2dldGhlciB3aXRoIHRoZQ0Kb2Zmc2V0cyBhbmQg
-ZW5kaWFubmVzcyAoYW5kIHNpemU/KSBvZiB0aGUgYWRkcmVzcyBhbmQgZGF0YSBmaWVsZHMuDQoN
-CkFsc28gd2hldGhlciB0aGVyZSBpcyBhIHNwZWNpYWwgJ2xhc3QgZW50cnknIGluIHRoZSByaW5n
-Lg0KDQpQYXNzaW5nIGNoZWNrc3VtIG9mZmxvYWQgZmxhZ3MgdGhyb3VnaCBhZGRzIGFuIGV4dHJh
-IGxldmVsIG9mIGNvbXBsZXhpdHkuDQoNClJpbmdzIGxpa2UgdGhlIHhoY2kgKGFjdHVhbGx5IFVT
-QiwgYnV0IGNvdWxkIGNvbnRhaW4gZXRoZXJuZXQgZGF0YSkNCnJlcXVpcmUgdGhlICdvd25lcicg
-Yml0IGJlIHdyaXR0ZW4gb2RkIG9yIGV2ZW4gaW4gYWx0ZXJuYXRpbmcgcGFzc2VzLg0KQWN0dWFs
-bHkgbWFwcGluZyBzdXBwb3J0IGZvciB1c2JuZXQgKGVzcGVjaWFsbHkgeGhjaSAtIHVzYjMpIG1p
-Z2h0IHNob3cNCnVwIHNvbWUgZGVmaWNpZW5jaWVzIGluIHRoZSBkZWZpbml0aW9uLg0KDQpZb3Ug
-YWxzbyBuZWVkIHRvIGtub3cgd2hlbiB0cmFuc21pdHMgaGF2ZSBjb21wbGV0ZWQuDQpUaGlzIG1p
-Z2h0IGJlIGFuICdvd25lcicgYml0IGJlaW5nIGNsZWFyZWQsIGJ1dCBjb3VsZCBiZSBzaWduYWxs
-ZWQNCmluIGFuIGVudGlyZWx5IGRpZmZlcmVudCB3YXkuDQoNCglEYXZpZA0KDQo=
+On 06/10/14 22:07, David Miller wrote:
+> From: annie li <annie.li@oracle.com>
+> Date: Mon, 06 Oct 2014 14:41:48 -0400
+> 
+>>
+>> On 2014/10/6 12:00, David Vrabel wrote:
+>>>>>    +    queue->rx.req_prod_pvt = req_prod;
+>>>>> +
+>>>>> +    /* Not enough requests? Try again later. */
+>>>>> +    if (req_prod - queue->rx.rsp_cons < NET_RX_SLOTS_MIN) {
+>>>>> +        mod_timer(&queue->rx_refill_timer, jiffies + (HZ/10));
+>>>>> +        return;
+>>>> If the previous for loop breaks because of failure of
+>>>> xennet_alloc_one_rx_buffer, then notify_remote_via_irq is missed here
+>>>> if
+>>>> the code returns directly.
+>>> This is deliberate -- there's no point notifying the backend if there
+>>> aren't enough requests for the next packet.  Since we don't know what
+>>> the next packet might be we assume it's the largest possible.
+>> That makes sense.
+>> However, the largest packet case does not happen so
+>> frequently. Moreover, netback checks the slots every incoming skb
+>> requires in xenvif_rx_ring_slots_available, not only concerning the
+>> largest case.
+
+An upcoming change to netback will cause it to wait for enough slots for
+the largest possible packet.
+
+> I have an opinion about the sysfs stuff.
+> 
+> It's user facing, so even if it doesn't influence behavior any more
+> you have to keep the files around, just make them nops.
+
+That's a good point.
+
+David
