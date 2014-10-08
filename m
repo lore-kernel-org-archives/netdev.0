@@ -1,37 +1,32 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] net: description of dma_cookie cause make xmldocs warning
-Date: Wed, 08 Oct 2014 19:59:34 +0400
-Message-ID: <54355F66.6060204@cogentembedded.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: description of dma_cookie cause make xmldocs
+ warning
+Date: Wed, 08 Oct 2014 09:15:37 -0700
+Message-ID: <1412784937.11091.185.camel@edumazet-glaptop2.roam.corp.google.com>
 References: <1412780019-32475-1-git-send-email-standby24x7@gmail.com>
+	 <54355F66.6060204@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: dan.j.williams@intel.com
-To: Masanari Iida <standby24x7@gmail.com>,
+Cc: Masanari Iida <standby24x7@gmail.com>,
 	linux-kernel@vger.kernel.org, davem@davemloft.net,
-	netdev@vger.kernel.org
+	netdev@vger.kernel.org, dan.j.williams@intel.com
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1412780019-32475-1-git-send-email-standby24x7@gmail.com>
+In-Reply-To: <54355F66.6060204@cogentembedded.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+On Wed, 2014-10-08 at 19:59 +0400, Sergei Shtylyov wrote:
+> Hello.
+> 
+> On 10/08/2014 06:53 PM, Masanari Iida wrote:
+> 
+> > In commit 7bced397510ab569d31de4c70b39e13355046387,
+> 
+>     Please also specify that commit's summary line in parens.
 
-On 10/08/2014 06:53 PM, Masanari Iida wrote:
+Note that this information is useful for backports and bug fixes.
 
-> In commit 7bced397510ab569d31de4c70b39e13355046387,
-
-    Please also specify that commit's summary line in parens.
-
-> dma_cookie was removed from struct skbuff.
-> But the description of dma_cookie still exist.
-> So the "make xmldocs" output following warning.
-
-> Warning(.//include/linux/skbuff.h:609): Excess struct/union
-> /enum/typedef member 'dma_cookie' description in 'sk_buff'
-
-> Remove description of dma_cookie fix the symptom.
-
-> Signed-off-by: Masanari Iida <standby24x7@gmail.com>
-
-WBR, Sergei
+In this particular case (documentation), there is no chance we'll
+backport this patch to any prior stable kernel
