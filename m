@@ -1,45 +1,49 @@
-From: Ceriel Jacobs <linux-ide@crashplan.pro>
-Subject: Re: r8168 is needed to enter P-state: Package State6(pc6)onHaswellhardware
-Date: Wed, 08 Oct 2014 13:40:33 +0200
-Message-ID: <543522B1.30303@crashplan.pro>
-References: <542B3829.3010108@crashplan.pro> <20141005165920.GA21926@electric-eye.fr.zoreil.com> <0835B3720019904CB8F7AA43166CEEB2526932@RTITMBSV03.realtek.com.tw> <20141006221307.GB10936@electric-eye.fr.zoreil.com> <0835B3720019904CB8F7AA43166CEEB2526B88@RTITMBSV03.realtek.com.tw> <20141007201713.GB4398@zoreil.com> <0835B3720019904CB8F7AA43166CEEB2526D20@RTITMBSV03.realtek.com.tw>
+From: Richard Alpe <richard.alpe@ericsson.com>
+Subject: Re: [PATCH v2 net-next 15/15] tipc: remove old ASCII netlink API
+Date: Wed, 8 Oct 2014 14:02:30 +0200
+Message-ID: <543527D6.2060607@ericsson.com>
+References: <1412261921-28510-16-git-send-email-richard.alpe@ericsson.com>	<20141003.165038.2121547250200790300.davem@davemloft.net>	<A2BAEFC30C8FD34388F02C9B3121859D1C2EB615@eusaamb103.ericsson.se> <20141006.152003.1261907320590776614.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: nic_swsd <nic_swsd@realtek.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Hayes Wang <hayeswang@realtek.com>,
-	Francois Romieu <romieu@fr.zoreil.com>
+Cc: <netdev@vger.kernel.org>, <tipc-discussion@lists.sourceforge.net>
+To: David Miller <davem@davemloft.net>, <jon.maloy@ericsson.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay3-d.mail.gandi.net ([217.70.183.195]:43642 "EHLO
-	relay3-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933156AbaJHLkj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2014 07:40:39 -0400
-In-Reply-To: <0835B3720019904CB8F7AA43166CEEB2526D20@RTITMBSV03.realtek.com.tw>
+Received: from sessmg22.ericsson.net ([193.180.251.58]:65520 "EHLO
+	sessmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754555AbaJHMED (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2014 08:04:03 -0400
+In-Reply-To: <20141006.152003.1261907320590776614.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-Hayes Wang schreef op 08-10-14 om 04:35:
->   Francois Romieu [mailto:romieu@fr.zoreil.com]
->> Sent: Wednesday, October 08, 2014 4:17 AM
-> [...]
->>> When enabling the ASPM, it would influence the thrpughput.
->>> It is hard to
->>> choose performance or power saving. Therefore, we reserve the config
->>> to let the user determines it.
->>
->> Mmmm...
->>
->> How do Realtek's devices behave if Config{2, 3} + MISC registers are
->> configured for ASPM whereas PCI config space registers aren't ?
+On 10/06/2014 09:20 PM, David Miller wrote:
+> From: Jon Maloy <jon.maloy@ericsson.com>
+> Date: Mon, 6 Oct 2014 13:37:14 +0000
 >
-> The feature of the ASPM for the nic would be disabled.
-> ASPM is enabled when both the internal settings and
-> the PCI config space registers are enabled.
+>> I disagree.  We did of course consider this before we posted the patch.
+>> There is absolutely no reason to believe there are binaries "out there"
+>> using this API. It is intended for and used only by our own tool "tipc-config",
+>> and the half-baked documentation that exists about it is not even
+>> correct. This is an TIPC-internal API/ABI, which has changed over the years,
+>> and keeps changing.  To our best judgement there is no risk in removing the
+>> old API.
+>>
+>> However, we took great care to not break any scripts that might be using
+>> tipc-config. Therefore, we made this wrapper that provides the old
+>> tipc-config command API to existing users.
+>
+> A user should be able to upgrade the kernel and keep using tipc-config
+> (or _whatever_) that's on their machine.
+>
+> You cannot break old stuff like this, and just because I didn't notice
+> you slipping in incompatible changes in the past doesn't mean I'm going
+> to let you keep doing it.
+>
+> Backwards compatability must be maintained for every single interface
+> exposed to the user, and this is non-negotiable, sorry.
+Alright. Can we log a deprecated warning when using the old API and 
+eventually phase it out?
 
-Have in mind a situation where the PCI config space registers are set 
-manually (after user login).
-
-At which point in time will be determined whether ASPM for the nic will 
-be disabled or enabled? Once, when loading the kernel module? Or more often?
+Regards
+Richard
