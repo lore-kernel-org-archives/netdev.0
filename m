@@ -1,45 +1,50 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH net] ixgbe: check adapter->vfinfo before dereference
-Date: Wed, 08 Oct 2014 05:22:51 -0700
-Message-ID: <1412770971.2295.40.camel@jtkirshe-mobl>
-References: <1412769913-22306-1-git-send-email-thierry.herbelot@6wind.com>
+Subject: Re: [PATCH net-next] i40e: skb->xmit_more support
+Date: Wed, 08 Oct 2014 05:29:19 -0700
+Message-ID: <1412771359.2295.42.camel@jtkirshe-mobl>
+References: <1412713823.11091.166.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <54346339.3000509@redhat.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-xVyEi78uvGsdHRFIPx/t"
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org
-To: Thierry Herbelot <thierry.herbelot@6wind.com>
+	protocol="application/pgp-signature"; boundary="=-ZuBo3z96A1cTZcbp1XA9"
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:60899 "EHLO mga02.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:33676 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753446AbaJHMXN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Oct 2014 08:23:13 -0400
-In-Reply-To: <1412769913-22306-1-git-send-email-thierry.herbelot@6wind.com>
+	id S1753480AbaJHM3d (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Oct 2014 08:29:33 -0400
+In-Reply-To: <54346339.3000509@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-xVyEi78uvGsdHRFIPx/t
+--=-ZuBo3z96A1cTZcbp1XA9
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Wed, 2014-10-08 at 14:05 +0200, Thierry Herbelot wrote:
-> this protects against the following panic:
-> (before a VF was actually created on p96p1 PF Ethernet port)
-> ip link set p96p1 vf 0 spoofchk off
-> BUG: unable to handle kernel NULL pointer dereference at
-> 0000000000000052
-> IP: [<ffffffffa044a1c1>] ixgbe_ndo_set_vf_spoofchk+0x51/0x150 [ixgbe]
+On Wed, 2014-10-08 at 00:03 +0200, Daniel Borkmann wrote:
+> On 10/07/2014 10:30 PM, Eric Dumazet wrote:
+> > From: Eric Dumazet <edumazet@google.com>
+> >
+> > Support skb->xmit_more in i40e is straightforward : we need to move
+> > around i40e_maybe_stop_tx() call to correctly test netif_xmit_stopped()
+> > before taking the decision to not kick the NIC.
+> >
+> > Signed-off-by: Eric Dumazet <edumazet@google.com>
 >=20
-> Signed-off-by: Thierry Herbelot <thierry.herbelot@6wind.com>
-> ---
->  drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c |   73
-> +++++++++++++++++++++++-
->  1 file changed, 70 insertions(+), 3 deletions(-)
+> Jeff, feel free to drop the same version I've sent you yesterday
+> directly since this here is already in patchwork ...
+>=20
+> Thanks, Eric!
+>=20
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 
-Thanks Thierry, I have added your patch to my queue.
+Done, I have dropped your patch for this patch.
 
---=-xVyEi78uvGsdHRFIPx/t
+--=-ZuBo3z96A1cTZcbp1XA9
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
@@ -47,19 +52,19 @@ Content-Transfer-Encoding: 7bit
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v2
 
-iQIcBAABCgAGBQJUNSybAAoJEOVv75VaS+3OMR4P/38Sg46vwp1SSC2EU2ioXfYf
-vUkfHZnroxuEp04JvtnZkIzHkAz/Wb+EIraPRdjbEkACmwgNViaOXwg4HzeVW+by
-2xE6VAHQWD3c71R7xP5pVQKExhCBC2hIjvtf2LHqQ/eadZOXCguFjNJDWxVPS9MO
-b29wQq1SrPKejHJ8agCDiFLPIo4/Ng2Lo7z2qVIiw8RL7E0OY4zTGIOZs6xYpRkV
-XWOSgpdegiCGORQn8RImDQ9nv561Z/tFKMVDrHHwOu6LAIyX/m674ZBYLMDFhsw7
-zwJRFDuJP8erU7EC0LYeUiPq5IMnlhJjQlrd8oiYLulVsS+yIjaAoqHxpaCMGggx
-ORT9T8j8b2ijZs/SFAwgPDieVQqN+k0j5SD00rGl/v5VLMGutyTTz1qqb/UdhyvI
-fzMXXrtCzPO0xvvhXq7gljJhEAfZdE6Lgl40O4KDW0zN8pwm0z+hEFZknHcYw7ni
-XJCUItlLEiaE4N4T5xP3I0RoG77YEpj7uARlO1zsnPYSWt+fTARYfsK2AD0QoJWN
-FvJpxCPzRDzIjbZbDlp8f4xHqHkBhrxdzYAxbbIhMpD+5gFNYdWaDyN4v3xDSBWO
-/bRfXRboxyyTe8WK27aPXHxlbnCc47o+pXjs1jcPqVuOGytnkhwxkgcduNJ+SoO9
-aExmEmvmEz8GQdRNohWp
-=N8nB
+iQIcBAABCgAGBQJUNS4fAAoJEOVv75VaS+3O2usP/RPJriZGIvOlSV1oCGSQ3jhb
+e/ayGCw1rhrbQONiD6JLf9aNzqo/JMQotyaJzdAb+5kDbL8K5TxPsiamN4EiD1Oo
+8CW/eNKwC28tIsI2RjxCbben1hfGYuXeMsfDpdIcZosWH7FXB931WF++y9lrS8YE
++IzW5Isz/DP0KefmyCs6A394xn1na+K1hV9p1M4UBJgX450BhjBKIVqzk/tqwvCG
+XvOtysw3coOjcaMAmMkA9wn57kOC6glJD5czop09Y8LZ5VFNL8/k1kJRu4FvSAi0
+F5IC5IR76KMItMuMvXW8UEX6Koatpzz27MYX+VGZQd+UuabtZfnGn4X4s0MlkCFq
+ObBZYD3Rbqmq8l3LAuHGXPKt6ddkfI+katB3EQvfvINhtGC8kJOiT7oxSd33/ADP
+z7yrDNjyWY1pzA7QqPJHpm4JZ6oXAcli25JvI0oTDivC/roIaRJadEcAa2AEwvkf
+pwaX0Kqy+Tgi/4jY7Gjfa6QNfXDux++gXQL4S8ML7HH8r1wWFC6FxUns4TjPRYCX
+LfUY5b/T94HVFULZ7JviQViGpOB2a3H2z3MseOqpsI+xqnLfHBaUpXaCLD586P/p
+M7ziLbejub+XktlYmPqv2xIG52Yi7zIs8xPrghxoRzuEv+5G8oik6Gpp92Enl5eG
+nVai110G1igyb6A4LZsq
+=WJmE
 -----END PGP SIGNATURE-----
 
---=-xVyEi78uvGsdHRFIPx/t--
+--=-ZuBo3z96A1cTZcbp1XA9--
