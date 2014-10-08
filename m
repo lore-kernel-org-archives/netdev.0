@@ -1,67 +1,77 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH net-next] i40e: skb->xmit_more support
-Date: Tue, 07 Oct 2014 21:02:04 -0700
-Message-ID: <1412740924.2295.35.camel@jtkirshe-mobl>
-References: <1412713823.11091.166.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20141007.163730.2221137596344407031.davem@davemloft.net>
+From: Lothar =?UTF-8?B?V2HDn21hbm4=?= <LW@KARO-electronics.de>
+Subject: Re: [PATCH] net: fec: fix regression on i.MX28 introduced by
+ rx_copybreak support
+Date: Wed, 8 Oct 2014 06:43:42 +0200
+Message-ID: <20141008064342.5d4db175@ipc1.ka-ro>
+References: <1412687977-11742-1-git-send-email-LW@KARO-electronics.de>
+	<20141007.131507.635415594538460008.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-T524RJdTRNhCHKnwlGMX"
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, dborkman@redhat.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, rmk+kernel@arm.linux.org.uk,
+	Frank.Li@freescale.com, fabio.estevam@freescale.com,
+	linux-kernel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:24408 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754169AbaJHECH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Oct 2014 00:02:07 -0400
-In-Reply-To: <20141007.163730.2221137596344407031.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141007.131507.635415594538460008.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Hi,
 
---=-T524RJdTRNhCHKnwlGMX
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Tue, 2014-10-07 at 16:37 -0400, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Tue, 07 Oct 2014 13:30:23 -0700
+David Miller wrote:
+> From: Lothar Wa=C3=9Fmann <LW@KARO-electronics.de>
+> Date: Tue,  7 Oct 2014 15:19:37 +0200
 >=20
-> > From: Eric Dumazet <edumazet@google.com>
+> > commit 1b7bde6d659d ("net: fec: implement rx_copybreak to improve r=
+x performance")
+> > introduced a regression for i.MX28. The swap_buffer() function doin=
+g
+> > the endian conversion of the received data on i.MX28 may access mem=
+ory
+> > beyond the actual packet size in the DMA buffer. fec_enet_copybreak=
+()
+> > does not copy those bytes, so that the last bytes of a packet may b=
+e
+> > filled with invalid data after swapping.
+> > This will likely lead to checksum errors on received packets.
+> > E.g. when trying to mount an NFS rootfs:
+> > UDP: bad checksum. From 192.168.1.225:111 to 192.168.100.73:44662 u=
+len 36
 > >=20
-> > Support skb->xmit_more in i40e is straightforward : we need to move
-> > around i40e_maybe_stop_tx() call to correctly test netif_xmit_stopped()
-> > before taking the decision to not kick the NIC.
+> > Do the byte swapping and copying to the new skb in one go if
+> > necessary.
 > >=20
-> > Signed-off-by: Eric Dumazet <edumazet@google.com>
+> > Signed-off-by: Lothar Wa=C3=9Fmann <LW@KARO-electronics.de>
 >=20
-> Intel folks, if I could get a quick review of this that would be great.
+> Why don't you just round up the length fec_enet_copybreak() uses when
+> need_swap is true?  Then you will end up mimicking the original behav=
+ior
+> and not require this new helper function.
 >=20
-> Thanks.
+I wanted to eliminate the need to access the buffer twice (once for
+copying and once for swapping).
 
-Working on it, let you know tomorrow.
+> And in any case I agree with Sergei that if you do retain your approa=
+ch,
+> the new 'swap' argument to fec_enet_copybreak() should be a 'bool'.
+>=20
+Right.
 
---=-T524RJdTRNhCHKnwlGMX
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+> I'm really surprised there isn't a control register bit to adjust the
+> endianness of the data DMA'd to/from the network.
+>
+This is a "feature" of the i.MX28.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
 
-iQIcBAABCgAGBQJUNLc9AAoJEOVv75VaS+3OhaUP/0O8FMzniCGHKeXrm+W6b410
-su1aP+e4IPeGLPmEbRnppvwTKdMDs0UxunTWy1Uyk6Qj8qSB4NOXNZkHPtZdz0Lg
-IWGfNjDASBRw0Vmk263RUBQvcXkPMN9jSs5ql+fwSohSoUV9yyTv2MtVOM6r0NpD
-wPo6ScLqKP3l2KmFwEAC15ZIrL25Nlf5SKhTuJgURZ9ANHIa1gVMJvIqngGmENZ0
-URAafP/V7zUH6CMNXUl0jtKICRZwlfocLm5YBb8TWkpRdHXctpJTg682HBytV9OI
-q/GWXcOu6QQ1IswkUIX7/jSKx25XgsRP3Nh+kNJhgZ0jdCVrzgfWCEnrwRZK2KvS
-EgQAJ60dgTSIRcvEScRd0GhocebpKDPQE84dBG2nmKFKm6tYCsgWVeJlfQfEa1nX
-e6GJPhLZq5QJQ8VkXC4UJs2/51F9pGEQuzNn9xFs4cGaUXIzG73UN8tBNuRt/ffM
-A86p4jXvw65uFPQsmTHAORFzGDiGLSZCPtRJVWMm8I0/EqShsEP0W359rSlVWdiw
-40B8F1Ea5iwIhR5+yRdr3KJSxPGgVEhTtUYe3iadJNNXhRxdzhnX410lVtMeHi7T
-mPlr1cHQQwP5bZJX/S9OlQMvH6wrXyaBQftpypO2eZbYKM2kFVsxan2v7O7oOCTA
-B1eArfi6URSHBqGTZVef
-=hltv
------END PGP SIGNATURE-----
+Lothar Wa=C3=9Fmann
+--=20
+___________________________________________________________
 
---=-T524RJdTRNhCHKnwlGMX--
+Ka-Ro electronics GmbH | Pascalstra=C3=9Fe 22 | D - 52076 Aachen
+Phone: +49 2408 1402-0 | Fax: +49 2408 1402-10
+Gesch=C3=A4ftsf=C3=BChrer: Matthias Kaussen
+Handelsregistereintrag: Amtsgericht Aachen, HRB 4996
+
+www.karo-electronics.de | info@karo-electronics.de
+___________________________________________________________
