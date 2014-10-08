@@ -1,110 +1,68 @@
-From: Lothar =?UTF-8?B?V2HDn21hbm4=?= <LW@KARO-electronics.de>
-Subject: Re: [PATCH] net: fec: fix regression on i.MX28 introduced by
- rx_copybreak support
-Date: Wed, 8 Oct 2014 07:01:47 +0200
-Message-ID: <20141008070147.2f3b5319@ipc1.ka-ro>
-References: <1412687977-11742-1-git-send-email-LW@KARO-electronics.de>
-	<1412692034.11091.122.camel@edumazet-glaptop2.roam.corp.google.com>
-	<063D6719AE5E284EB5DD2968C1650D6D174C6116@AcuExch.aculab.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH v1 4/4] ARM: Documentation: Update fec dts binding doc
+Date: Wed, 8 Oct 2014 10:06:03 +0200
+Message-ID: <20141008080603.GA4648@netboy>
+References: <1411632621-17429-1-git-send-email-b45643@freescale.com>
+ <1411632621-17429-5-git-send-email-b45643@freescale.com>
+ <20140925144350.GC21453@netboy>
+ <20141001035900.GA4544@netboy>
+ <39bcecf4ec1a4862bc7316dc845a535c@BY2PR03MB441.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: 'Eric Dumazet' <eric.dumazet@gmail.com>,
+Content-Type: text/plain; charset=us-ascii
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Russell King <rmk+kernel@arm.linux.org.uk>,
-	Frank Li <Frank.Li@freescale.com>,
-	Fabio Estevam <fabio.estevam@freescale.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
+	"shawn.guo@linaro.org" <shawn.guo@linaro.org>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
+	"Fabio.Estevam@freescale.com" <Fabio.Estevam@freescale.com>,
+	"fugang.duan@freescale.com" <fugang.duan@freescale.com>,
+	"Frank.Li@freescale.com" <Frank.Li@freescale.com>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>
+To: "luwei.zhou@freescale.com" <luwei.zhou@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.karo-electronics.de ([81.173.242.67]:51650 "EHLO
-	mail.karo-electronics.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752281AbaJHFRu convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2014 01:17:50 -0400
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D174C6116@AcuExch.aculab.com>
+Received: from mail-wg0-f47.google.com ([74.125.82.47]:54464 "EHLO
+	mail-wg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754076AbaJHIGK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2014 04:06:10 -0400
+Received: by mail-wg0-f47.google.com with SMTP id x13so10933014wgg.18
+        for <netdev@vger.kernel.org>; Wed, 08 Oct 2014 01:06:08 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <39bcecf4ec1a4862bc7316dc845a535c@BY2PR03MB441.namprd03.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-David Laight wrote:
-> From: Eric Dumazet
-> > On Tue, 2014-10-07 at 15:19 +0200, Lothar Wamann wrote:
-> > > commit 1b7bde6d659d ("net: fec: implement rx_copybreak to improve=
- rx performance")
-> > > introduced a regression for i.MX28. The swap_buffer() function do=
-ing
-> > > the endian conversion of the received data on i.MX28 may access m=
-emory
-> > > beyond the actual packet size in the DMA buffer. fec_enet_copybre=
-ak()
-> > > does not copy those bytes, so that the last bytes of a packet may=
- be
-> > > filled with invalid data after swapping.
-> > > This will likely lead to checksum errors on received packets.
-> > > E.g. when trying to mount an NFS rootfs:
-> > > UDP: bad checksum. From 192.168.1.225:111 to 192.168.100.73:44662=
- ulen 36
+On Wed, Oct 08, 2014 at 03:15:08AM +0000, luwei.zhou@freescale.com wrote:
+> On Wed, Oct 1, 2014 at 11:59:00AM, Richard Cochran wrote:
+> > -----Original Message-----
+> > From: Richard Cochran [mailto:richardcochran@gmail.com]
+> > Sent: Wednesday, October 01, 2014 11:59 AM
+> > To: Zhou Luwei-B45643
+> > Cc: davem@davemloft.net; netdev@vger.kernel.org; shawn.guo@linaro.org;
+> > bhutchings@solarflare.com; Estevam Fabio-R49496; Duan Fugang-B38611; Li
+> > Frank-B20596; stephen@networkplumber.org
+> > Subject: Re: [PATCH v1 4/4] ARM: Documentation: Update fec dts binding
+> > doc
+> > 
+> > On Thu, Sep 25, 2014 at 04:43:50PM +0200, Richard Cochran wrote:
+> > > On Thu, Sep 25, 2014 at 04:10:21PM +0800, Luwei Zhou wrote:
+> > > > This patch update fec devicetree binding doc that add Optional
+> > > > properties "pps-channel".
 > > >
-> > > Do the byte swapping and copying to the new skb in one go if
-> > > necessary.
-> > >
-> > > Signed-off-by: Lothar Wamann <LW@KARO-electronics.de>
-> > > ---
-> > >  drivers/net/ethernet/freescale/fec_main.c |   25 +++++++++++++++=
-++++++----
-> > >  1 file changed, 21 insertions(+), 4 deletions(-)
-> > >
-> > > diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/=
-net/ethernet/freescale/fec_main.c
-> > > index 87975b5..eaaebad 100644
-> > > --- a/drivers/net/ethernet/freescale/fec_main.c
-> > > +++ b/drivers/net/ethernet/freescale/fec_main.c
-> > > @@ -339,6 +339,18 @@ static void *swap_buffer(void *bufaddr, int =
-len)
-> > >  	return bufaddr;
-> > >  }
-> > >
-> > > +static void *swap_buffer2(void *dst_buf, void *src_buf, int len)
-> > > +{
-> > > +	int i;
-> > > +	unsigned int *src =3D src_buf;
-> > > +	unsigned int *dst =3D dst_buf;
-> > > +
-> > > +	for (i =3D 0; i < DIV_ROUND_UP(len, 4); i++, src++, dst++)
-> > > +		*dst =3D cpu_to_be32(*src);
-> >=20
-> > No need for the DIV :
-> >=20
-> > 	for (i =3D 0; i < len; i +=3D sizeof(*dst), src++, dst++)
-> > 		*dst =3D cpu_to_be32(*src);
-> >=20
-> > Also are you sure both src/dst are aligned to word boundaries, or i=
-s
-> > this architecture OK with possible misalignment ?
->=20
-> I wondered about that as well.
-> I wouldn't have expected ppc to support misaligned transfers, and you=
-'d also
-> want to make sure that cpu_to_be(*src) was using a byte-swapping inst=
-ruction.
-> Hmmm... cpu_to_be() doesn't sound like the right 'swap' macro name.
->=20
-??? So what is cpu_to_be32() then?
-The new swap function is an exact copy of the original one already in
-use except for the fact that it uses distinct source and destination
-buffers.
+> > > Again, use the PTP pin interface. We don't need a random new FEC DT
+> > > property for this.
+> > 
+> > BTW, if the "channel" only means an internal timer resource, please find
+> > a proper way to claim that resource. Do not add another random DT
+> > property. We have enough of those already.
+> > 
+> > Thanks,
+> > Richard
+> 
+> Okay. I will use the PTP pin interface to let user set the channel index as V2 patch does. Sorry for the
+> late reply caused by vocation.
 
+Do not use the PTP pin control for an internal PPS event. Instead,
+just claim the timer as some kind of internal resource. It looks like
+timers are already part of DT, so why not use those?
 
-Lothar Wa=C3=9Fmann
---=20
-___________________________________________________________
-
-Ka-Ro electronics GmbH | Pascalstra=C3=9Fe 22 | D - 52076 Aachen
-Phone: +49 2408 1402-0 | Fax: +49 2408 1402-10
-Gesch=C3=A4ftsf=C3=BChrer: Matthias Kaussen
-Handelsregistereintrag: Amtsgericht Aachen, HRB 4996
-
-www.karo-electronics.de | info@karo-electronics.de
-___________________________________________________________
+Thanks,
+Richard
