@@ -1,33 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V3.18] rtlwifi: Fix possible unaligned array in
- ether_addr_copy()
-Date: Wed, 08 Oct 2014 15:00:19 -0400 (EDT)
-Message-ID: <20141008.150019.1302200505918792300.davem@davemloft.net>
-References: <1412790295-27858-1-git-send-email-Larry.Finger@lwfinger.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] bna: page allocation during interrupts to use a
+ mempool.
+Date: Wed, 08 Oct 2014 12:04:52 -0700
+Message-ID: <1412795092.11091.197.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <alpine.DEB.2.00.1409271631530.26069@ware.dreamhost.com>
+	    <20140929092833.6c2cb7e9@urahara>
+	    <262CB373A6D1F14F9B81E82F74F77D5A4704FAE7@avmb2.qlogic.org>
+	    <alpine.DEB.2.00.1410061850120.5129@ware.dreamhost.com>
+	   <1412646735.11091.93.camel@edumazet-glaptop2.roam.corp.google.com>
+	   <alpine.DEB.2.00.1410061956410.7392@ware.dreamhost.com>
+	  <1412651746.11091.98.camel@edumazet-glaptop2.roam.corp.google.com>
+	  <alpine.DEB.2.00.1410071746230.3503@ware.dreamhost.com>
+	 <1412731718.11091.175.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <alpine.DEB.2.00.1410081157470.16668@ware.dreamhost.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
-	troy_tan@realsil.com.cn, netdev@vger.kernel.org
-To: Larry.Finger@lwfinger.net
+Cc: Shahed Shaikh <shahed.shaikh@qlogic.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	netdev <netdev@vger.kernel.org>,
+	Rasesh Mody <rasesh.mody@qlogic.com>
+To: Eric Wheeler <netdev@lists.ewheeler.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56613 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752263AbaJHTAX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2014 15:00:23 -0400
-In-Reply-To: <1412790295-27858-1-git-send-email-Larry.Finger@lwfinger.net>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:39863 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751866AbaJHTEy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2014 15:04:54 -0400
+Received: by mail-pa0-f45.google.com with SMTP id rd3so9567978pab.18
+        for <netdev@vger.kernel.org>; Wed, 08 Oct 2014 12:04:54 -0700 (PDT)
+In-Reply-To: <alpine.DEB.2.00.1410081157470.16668@ware.dreamhost.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Date: Wed,  8 Oct 2014 12:44:55 -0500
-
-> Two macros used to copy BSSID information use ether_addr_copy(), thus
-> the arrays must be 2-byte aligned. In one case, the array could become
-> unaligned if the struct containing it were changed. Use the __unaligned(2)
-> attribute to retain the necessary alignment. In addition, the magic number
-> used to specify the size of the array is replaced by ETH_ALEN.
+On Wed, 2014-10-08 at 12:01 -0700, Eric Wheeler wrote:
+> On Tue, 7 Oct 2014, Eric Dumazet wrote:
 > 
-> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+> > On Tue, 2014-10-07 at 17:48 -0700, Eric Wheeler wrote:
+> >
+> >> Just += unmap->vector.len still did not work (same backtrace), so I've
+> >> rebuilt with PAGE_SIZE<<2 and so far so good.  I'll let it run all night
+> >> and see if we get any problems.
+> >
+> > Further inspection of the driver told me that unmap->vector.len should
+> > be 16384 already. (same than PAGE_SIZE << 2)
+> > (set at line 304, drivers/net/ethernet/brocade/bna/bnad.c)
+> >
+> > So you might hit memory fragmentation issues.
+> >
+> > Do you have CONFIG_COMPACTION=y in your .config ?
+> 
+> We're still having the backtrace.
 
-Acked-by: David S. Miller <davem@davemloft.net>
+What is the output of 
+
+free
+cat /proc/sys/vm/min_free_kbytes
+cat /proc/buddyinfo
