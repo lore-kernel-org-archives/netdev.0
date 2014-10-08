@@ -1,58 +1,51 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] bna: page allocation during interrupts to use a
- mempool.
-Date: Wed, 08 Oct 2014 12:04:52 -0700
-Message-ID: <1412795092.11091.197.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <alpine.DEB.2.00.1409271631530.26069@ware.dreamhost.com>
-	    <20140929092833.6c2cb7e9@urahara>
-	    <262CB373A6D1F14F9B81E82F74F77D5A4704FAE7@avmb2.qlogic.org>
-	    <alpine.DEB.2.00.1410061850120.5129@ware.dreamhost.com>
-	   <1412646735.11091.93.camel@edumazet-glaptop2.roam.corp.google.com>
-	   <alpine.DEB.2.00.1410061956410.7392@ware.dreamhost.com>
-	  <1412651746.11091.98.camel@edumazet-glaptop2.roam.corp.google.com>
-	  <alpine.DEB.2.00.1410071746230.3503@ware.dreamhost.com>
-	 <1412731718.11091.175.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <alpine.DEB.2.00.1410081157470.16668@ware.dreamhost.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH RFC v3 net 1/2] ipv6: Remove the
+ net->ipv6.ip6_null_entry check
+Date: Wed, 08 Oct 2014 15:08:38 -0400 (EDT)
+Message-ID: <20141008.150838.2078642969379360127.davem@davemloft.net>
+References: <1412640315-22472-1-git-send-email-kafai@fb.com>
+	<1412640315-22472-2-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Shahed Shaikh <shahed.shaikh@qlogic.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	netdev <netdev@vger.kernel.org>,
-	Rasesh Mody <rasesh.mody@qlogic.com>
-To: Eric Wheeler <netdev@lists.ewheeler.net>
+Cc: netdev@vger.kernel.org, hannes@stressinduktion.org
+To: kafai@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:39863 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751866AbaJHTEy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2014 15:04:54 -0400
-Received: by mail-pa0-f45.google.com with SMTP id rd3so9567978pab.18
-        for <netdev@vger.kernel.org>; Wed, 08 Oct 2014 12:04:54 -0700 (PDT)
-In-Reply-To: <alpine.DEB.2.00.1410081157470.16668@ware.dreamhost.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56705 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753358AbaJHTIl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2014 15:08:41 -0400
+In-Reply-To: <1412640315-22472-2-git-send-email-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-10-08 at 12:01 -0700, Eric Wheeler wrote:
-> On Tue, 7 Oct 2014, Eric Dumazet wrote:
-> 
-> > On Tue, 2014-10-07 at 17:48 -0700, Eric Wheeler wrote:
-> >
-> >> Just += unmap->vector.len still did not work (same backtrace), so I've
-> >> rebuilt with PAGE_SIZE<<2 and so far so good.  I'll let it run all night
-> >> and see if we get any problems.
-> >
-> > Further inspection of the driver told me that unmap->vector.len should
-> > be 16384 already. (same than PAGE_SIZE << 2)
-> > (set at line 304, drivers/net/ethernet/brocade/bna/bnad.c)
-> >
-> > So you might hit memory fragmentation issues.
-> >
-> > Do you have CONFIG_COMPACTION=y in your .config ?
-> 
-> We're still having the backtrace.
+From: Martin KaFai Lau <kafai@fb.com>
+Date: Mon, 6 Oct 2014 17:05:14 -0700
 
-What is the output of 
+> The above BACKTRACK have already caught the rt == net->ipv6.ip6_null_entry case
+> 
+> Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+ ...
+> @@ -936,8 +936,7 @@ restart:
+>  	if (rt->rt6i_nsiblings)
+>  		rt = rt6_multipath_select(rt, fl6, oif, strict | reachable);
+>  	BACKTRACK(net, &fl6->saddr);
+> -	if (rt == net->ipv6.ip6_null_entry ||
+> -	    rt->rt6i_flags & RTF_CACHE)
+> +	if (rt->rt6i_flags & RTF_CACHE)
+>  		goto out;
+>  
+>  	dst_hold(&rt->dst);
 
-free
-cat /proc/sys/vm/min_free_kbytes
-cat /proc/buddyinfo
+I think this is sort of going in the wrong direction.
+
+The BACKTRACK() macro hides a lot of side effects inside of it's
+implementation, and worst of all it hides a change of control flow
+with it's "goto out;" and "goto restart;"
+
+I'd rather see us clean this up in some way that someone auditing this
+code won't be tricked into missing the control flow side effects, than
+adding more dependencies upon BACKTRACK()'s implementation.
+
+Thanks.
