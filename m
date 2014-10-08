@@ -1,77 +1,74 @@
-From: Lothar =?UTF-8?B?V2HDn21hbm4=?= <LW@KARO-electronics.de>
-Subject: Re: [PATCH] net: fec: fix regression on i.MX28 introduced by
- rx_copybreak support
-Date: Wed, 8 Oct 2014 06:43:42 +0200
-Message-ID: <20141008064342.5d4db175@ipc1.ka-ro>
-References: <1412687977-11742-1-git-send-email-LW@KARO-electronics.de>
-	<20141007.131507.635415594538460008.davem@davemloft.net>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH/RFC] datapath: offload hooks
+Date: Tue, 7 Oct 2014 21:50:36 -0700
+Message-ID: <20141007215036.65f1d439@urahara>
+References: <1412728851-32534-1-git-send-email-simon.horman@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, rmk+kernel@arm.linux.org.uk,
-	Frank.Li@freescale.com, fabio.estevam@freescale.com,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141007.131507.635415594538460008.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: dev@openvswitch.org, netdev@vger.kernel.org,
+	Pravin Shelar <pshelar@nicira.com>,
+	Jesse Gross <jesse@nicira.com>, Jiri Pirko <jiri@resnulli.us>,
+	Thomas Graf <tgraf@suug.ch>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Scott Feldman <sfeldma@gmail.com>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Alexi Starovoitov <alexei.starovoitov@gmail.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Bert van Leeuwen <bert.vanleeuwen@netronome.com>
+To: Simon Horman <simon.horman@netronome.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f176.google.com ([209.85.192.176]:41262 "EHLO
+	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754539AbaJHEuy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2014 00:50:54 -0400
+Received: by mail-pd0-f176.google.com with SMTP id fp1so6167844pdb.7
+        for <netdev@vger.kernel.org>; Tue, 07 Oct 2014 21:50:54 -0700 (PDT)
+In-Reply-To: <1412728851-32534-1-git-send-email-simon.horman@netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Wed,  8 Oct 2014 09:40:51 +0900
+Simon Horman <simon.horman@netronome.com> wrote:
 
-David Miller wrote:
-> From: Lothar Wa=C3=9Fmann <LW@KARO-electronics.de>
-> Date: Tue,  7 Oct 2014 15:19:37 +0200
->=20
-> > commit 1b7bde6d659d ("net: fec: implement rx_copybreak to improve r=
-x performance")
-> > introduced a regression for i.MX28. The swap_buffer() function doin=
-g
-> > the endian conversion of the received data on i.MX28 may access mem=
-ory
-> > beyond the actual packet size in the DMA buffer. fec_enet_copybreak=
-()
-> > does not copy those bytes, so that the last bytes of a packet may b=
-e
-> > filled with invalid data after swapping.
-> > This will likely lead to checksum errors on received packets.
-> > E.g. when trying to mount an NFS rootfs:
-> > UDP: bad checksum. From 192.168.1.225:111 to 192.168.100.73:44662 u=
-len 36
-> >=20
-> > Do the byte swapping and copying to the new skb in one go if
-> > necessary.
-> >=20
-> > Signed-off-by: Lothar Wa=C3=9Fmann <LW@KARO-electronics.de>
->=20
-> Why don't you just round up the length fec_enet_copybreak() uses when
-> need_swap is true?  Then you will end up mimicking the original behav=
-ior
-> and not require this new helper function.
->=20
-I wanted to eliminate the need to access the buffer twice (once for
-copying and once for swapping).
+> +struct ovs_offload_ops {
+> +	/* Flow offload functions  */
+> +	/* Called when a flow entry is added to the flow table */
+> +	void (*flow_new)(struct sw_flow *);
+> +	/* Called when a flow entry is modified */
+> +	void (*flow_set)(struct sw_flow *);
+> +	/* Called when a flow entry is removed from the flow table */
+> +	void (*flow_del)(struct sw_flow *);
+> +	/* Called when flow stats are queried */
+> +	void (*flow_stats_get)(const struct sw_flow *, struct ovs_flow_stats *,
+> +			      unsigned long *used, __be16 *tcp_flags);
+> +	/* Called when flow stats are removed */
+> +	void (*flow_stats_clear)(struct sw_flow *);
+> +
+> +	/* Port offload functions  */
+> +	/* Called when a vport is added to the datapath */
+> +	void (*vport_new)(struct sk_buff *, struct vport *,
+> +			  struct vport_parms *);
+> +	/* Called when a vport is modified */
+> +	void (*vport_set)(struct sk_buff *, struct vport *);
+> +	/* Called when a vport is removed from the datapath */
+> +	void (*vport_del)(struct sk_buff *, struct vport *);
+> +	/* Called when vport stats are queried */
+> +	void (*vport_stats_get)(struct vport *, struct ovs_vport_stats *);
+> +	/* Called when vport stats are set */
+> +	void (*vport_stats_set)(struct vport *, struct ovs_vport_stats *);
+> +
+> +	/* Datapath offload functions  */
+> +	/* Called when the datapath is created */
+> +	void (*dp_new)(struct datapath *);
+> +	/* Called when the datapath is modified */
+> +	void (*dp_set)(struct datapath *);
+> +	/* Called when the datapath is removed */
+> +	void (*dp_del)(struct datapath *);
+> +	/* Called when the datapath stats are queried */
+> +	void (*dp_stats_get)(struct datapath *, struct ovs_dp_stats *);
+> +}
 
-> And in any case I agree with Sergei that if you do retain your approa=
-ch,
-> the new 'swap' argument to fec_enet_copybreak() should be a 'bool'.
->=20
-Right.
-
-> I'm really surprised there isn't a control register bit to adjust the
-> endianness of the data DMA'd to/from the network.
->
-This is a "feature" of the i.MX28.
-
-
-Lothar Wa=C3=9Fmann
---=20
-___________________________________________________________
-
-Ka-Ro electronics GmbH | Pascalstra=C3=9Fe 22 | D - 52076 Aachen
-Phone: +49 2408 1402-0 | Fax: +49 2408 1402-10
-Gesch=C3=A4ftsf=C3=BChrer: Matthias Kaussen
-Handelsregistereintrag: Amtsgericht Aachen, HRB 4996
-
-www.karo-electronics.de | info@karo-electronics.de
-___________________________________________________________
+For security, you should mark any ops type table const, so an
+attacker can't find a home to poke their favorite routine into.
