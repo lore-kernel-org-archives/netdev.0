@@ -1,75 +1,37 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch 2/2 v2 -next] cxgb4: clean up a type issue
-Date: Wed, 8 Oct 2014 16:44:34 +0300
-Message-ID: <20141008134434.GB12036@mwanda>
-References: <20141003.154629.555967384624529643.davem@davemloft.net>
+From: Hau <hau@realtek.com>
+Subject: RE: NIC not supported
+Date: Wed, 8 Oct 2014 13:51:57 +0000
+Message-ID: <80377ECBC5453840BA8C7155328B53770100926E@RTITMBSTEMP01.realtek.com.tw>
+References: <CAEjNc1y1Fc=rvPw5TOp=+d_SadyXivNz7Vsar9G1Tzx3=6YYjA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Hariprasad S <hariprasad@chelsio.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Graham Moss <grahamrmoss@gmail.com>,
+	nic_swsd <nic_swsd@realtek.com>,
+	Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:24833 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756138AbaJHNo6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2014 09:44:58 -0400
-Content-Disposition: inline
-In-Reply-To: <20141003.154629.555967384624529643.davem@davemloft.net>
+Received: from rtits2.realtek.com ([60.250.210.242]:59374 "EHLO
+	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754367AbaJHNwJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2014 09:52:09 -0400
+In-Reply-To: <CAEjNc1y1Fc=rvPw5TOp=+d_SadyXivNz7Vsar9G1Tzx3=6YYjA@mail.gmail.com>
+Content-Language: zh-TW
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The tx_desc struct holds 8 __be64 values.  The original code in
-ring_tx_db() took a tx_desc pointer then casted it to an int pointer and
-then casted it to a u64 pointer.  It was confusing and triggered some
-static checker warnings.
-
-I have changed the cxgb_pio_copy() function to only take tx_desc
-pointers.  This isn't really a loss of flexibility because anything else
-was buggy to begin with.
-
-I also removed the casting on the destination pointer since that was
-unnecessary and a bit messy.
-
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
----
-v2: More cleanups as suggested by David Laight.
-    Update cxgb_pio_copy() comments.
-
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-index e8e90ce..fab4c84 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-@@ -850,13 +850,14 @@ static void write_sgl(const struct sk_buff *skb, struct sge_txq *q,
- 		*end = 0;
- }
- 
--/* This function copies 64 byte coalesced work request to
-- * memory mapped BAR2 space(user space writes).
-- * For coalesced WR SGE, fetches data from the FIFO instead of from Host.
-+/* This function copies a tx_desc struct to memory mapped BAR2 space(user space
-+ * writes). For coalesced WR SGE, fetches data from the FIFO instead of from
-+ * Host.
-  */
--static void cxgb_pio_copy(u64 __iomem *dst, u64 *src)
-+static void cxgb_pio_copy(u64 __iomem *dst, struct tx_desc *desc)
- {
--	int count = 8;
-+	int count = sizeof(*desc) / sizeof(u64);
-+	u64 *src = (u64 *)desc;
- 
- 	while (count) {
- 		writeq(*src, dst);
-@@ -914,12 +915,9 @@ static inline void ring_tx_db(struct adapter *adap, struct sge_txq *q, int n)
- 			int index = (q->pidx
- 				     ? (q->pidx - 1)
- 				     : (q->size - 1));
--			unsigned int *wr = (unsigned int *)&q->desc[index];
- 
--			cxgb_pio_copy((u64 __iomem *)
--				      (adap->bar2 + q->udb +
--				       SGE_UDB_WCDOORBELL),
--				      (u64 *)wr);
-+			cxgb_pio_copy(adap->bar2 + q->udb + SGE_UDB_WCDOORBELL,
-+				      q->desc + index);
- 		} else {
- 			writel(val,  adap->bar2 + q->udb + SGE_UDB_KDOORBELL);
- 		}
+PiBGcm9tOiBHcmFoYW0gTW9zcyBbbWFpbHRvOmdyYWhhbXJtb3NzQGdtYWlsLmNvbV0NCj4gU2Vu
+dDogV2VkbmVzZGF5LCBPY3RvYmVyIDA4LCAyMDE0IDg6MjQgUE0NCj4gVG86IG5pY19zd3NkOyBG
+cmFuY29pcyBSb21pZXUNCj4gQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcNCj4gU3ViamVjdDog
+TklDIG5vdCBzdXBwb3J0ZWQNCj4gDQo+IEhJSElISUgNCj4gDQo+IEkgaGF2ZSB0byByZWd1bGFy
+bHkgYmxhY2tsaXN0IHRoZSByODE2OSBkcml2ZXIgYW5kIHJlLWluc3RhbGwvYnVpbGQgdGhlIHI4
+MTY4DQo+IGRyaXZlciBhZ2FpbnN0IG5ldyBrZXJuZWxzIGR1ZSB0byBubyBzdXBwb3J0IG9mIG15
+IE5JQywgY2FuIHlvdSBoZWxwPz8NCj4gDQo+ICQgdW5hbWUgLWENCj4gTGludXggcG93ZXJwYy1a
+NjhYUC1VRDNQIDMuMTMuMC0zNS1nZW5lcmljICM2Mi1VYnVudHUgU01QIEZyaSBBdWcgMTUNCj4g
+MDE6NTg6NDIgVVRDIDIwMTQgeDg2XzY0IHg4Nl82NCB4ODZfNjQgR05VL0xpbnV4DQo+IA0KPiAk
+IGxzcGNpfGdyZXAgRXRoZXINCj4gMDc6MDAuMCBFdGhlcm5ldCBjb250cm9sbGVyOiBSZWFsdGVr
+IFNlbWljb25kdWN0b3IgQ28uLCBMdGQuDQo+IFJUTDgxMTEvODE2OC84NDExIFBDSSBFeHByZXNz
+IEdpZ2FiaXQgRXRoZXJuZXQgQ29udHJvbGxlciAocmV2IDA2KQ0KPiANCj4gVGhhbmtzDQo+IEdy
+YWhhbQ0KPiANCg0KUGxlYXNlIHVzZSAiZXRodG9vbCAtZCBldGh4IiB0byBkdW1wIE5JQydzIHJl
+Z2lzdGVyIGFuZCBzZW5kIGl0IHRvIHVzLg0KDQpUaGFua3MNCg0KIC0tLS0tLVBsZWFzZSBjb25z
+aWRlciB0aGUgZW52aXJvbm1lbnQgYmVmb3JlIHByaW50aW5nIHRoaXMgZS1tYWlsLg0K
