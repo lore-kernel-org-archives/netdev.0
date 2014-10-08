@@ -1,80 +1,41 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] net: fec: fix regression on i.MX28 introduced by
- rx_copybreak support
-Date: Wed, 8 Oct 2014 08:45:31 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D174C6BA0@AcuExch.aculab.com>
-References: <1412687977-11742-1-git-send-email-LW@KARO-electronics.de>
-	<1412692034.11091.122.camel@edumazet-glaptop2.roam.corp.google.com>
-	<063D6719AE5E284EB5DD2968C1650D6D174C6116@AcuExch.aculab.com>
- <20141008070147.2f3b5319@ipc1.ka-ro>
+From: yinpeijun <yinpeijun@huawei.com>
+Subject: vxlan gro problem ?
+Date: Wed, 8 Oct 2014 16:46:58 +0800
+Message-ID: <5434FA02.8070608@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: 'Eric Dumazet' <eric.dumazet@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Russell King" <rmk+kernel@arm.linux.org.uk>,
-	Frank Li <Frank.Li@freescale.com>,
-	"Fabio Estevam" <fabio.estevam@freescale.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: =?utf-8?B?J0xvdGhhciBXYcOfbWFubic=?= <LW@KARO-electronics.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141008070147.2f3b5319@ipc1.ka-ro>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <lichunhe@huawei.com>, <wangfakai@huawei.com>
+To: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<ogerlitz@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:51192 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755062AbaJHIra (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2014 04:47:30 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogTG90aGFyIFdhw59tYW5uDQo+IERhdmlkIExhaWdodCB3cm90ZToNCj4gPiBGcm9tOiBF
-cmljIER1bWF6ZXQNCj4gPiA+IE9uIFR1ZSwgMjAxNC0xMC0wNyBhdCAxNToxOSArMDIwMCwgTG90
-aGFyIFdhbWFubiB3cm90ZToNCj4gPiA+ID4gY29tbWl0IDFiN2JkZTZkNjU5ZCAoIm5ldDogZmVj
-OiBpbXBsZW1lbnQgcnhfY29weWJyZWFrIHRvIGltcHJvdmUgcnggcGVyZm9ybWFuY2UiKQ0KPiA+
-ID4gPiBpbnRyb2R1Y2VkIGEgcmVncmVzc2lvbiBmb3IgaS5NWDI4LiBUaGUgc3dhcF9idWZmZXIo
-KSBmdW5jdGlvbiBkb2luZw0KPiA+ID4gPiB0aGUgZW5kaWFuIGNvbnZlcnNpb24gb2YgdGhlIHJl
-Y2VpdmVkIGRhdGEgb24gaS5NWDI4IG1heSBhY2Nlc3MgbWVtb3J5DQo+ID4gPiA+IGJleW9uZCB0
-aGUgYWN0dWFsIHBhY2tldCBzaXplIGluIHRoZSBETUEgYnVmZmVyLiBmZWNfZW5ldF9jb3B5YnJl
-YWsoKQ0KPiA+ID4gPiBkb2VzIG5vdCBjb3B5IHRob3NlIGJ5dGVzLCBzbyB0aGF0IHRoZSBsYXN0
-IGJ5dGVzIG9mIGEgcGFja2V0IG1heSBiZQ0KPiA+ID4gPiBmaWxsZWQgd2l0aCBpbnZhbGlkIGRh
-dGEgYWZ0ZXIgc3dhcHBpbmcuDQo+ID4gPiA+IFRoaXMgd2lsbCBsaWtlbHkgbGVhZCB0byBjaGVj
-a3N1bSBlcnJvcnMgb24gcmVjZWl2ZWQgcGFja2V0cy4NCj4gPiA+ID4gRS5nLiB3aGVuIHRyeWlu
-ZyB0byBtb3VudCBhbiBORlMgcm9vdGZzOg0KPiA+ID4gPiBVRFA6IGJhZCBjaGVja3N1bS4gRnJv
-bSAxOTIuMTY4LjEuMjI1OjExMSB0byAxOTIuMTY4LjEwMC43Mzo0NDY2MiB1bGVuIDM2DQo+ID4g
-PiA+DQo+ID4gPiA+IERvIHRoZSBieXRlIHN3YXBwaW5nIGFuZCBjb3B5aW5nIHRvIHRoZSBuZXcg
-c2tiIGluIG9uZSBnbyBpZg0KPiA+ID4gPiBuZWNlc3NhcnkuDQo+ID4gPiA+DQo+ID4gPiA+IFNp
-Z25lZC1vZmYtYnk6IExvdGhhciBXYW1hbm4gPExXQEtBUk8tZWxlY3Ryb25pY3MuZGU+DQo+ID4g
-PiA+IC0tLQ0KPiA+ID4gPiAgZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZlY19tYWlu
-LmMgfCAgIDI1ICsrKysrKysrKysrKysrKysrKysrKy0tLS0NCj4gPiA+ID4gIDEgZmlsZSBjaGFu
-Z2VkLCAyMSBpbnNlcnRpb25zKCspLCA0IGRlbGV0aW9ucygtKQ0KPiA+ID4gPg0KPiA+ID4gPiBk
-aWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZlY19tYWluLmMgYi9k
-cml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZmVjX21haW4uYw0KPiA+ID4gPiBpbmRleCA4
-Nzk3NWI1Li5lYWFlYmFkIDEwMDY0NA0KPiA+ID4gPiAtLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5l
-dC9mcmVlc2NhbGUvZmVjX21haW4uYw0KPiA+ID4gPiArKysgYi9kcml2ZXJzL25ldC9ldGhlcm5l
-dC9mcmVlc2NhbGUvZmVjX21haW4uYw0KPiA+ID4gPiBAQCAtMzM5LDYgKzMzOSwxOCBAQCBzdGF0
-aWMgdm9pZCAqc3dhcF9idWZmZXIodm9pZCAqYnVmYWRkciwgaW50IGxlbikNCj4gPiA+ID4gIAly
-ZXR1cm4gYnVmYWRkcjsNCj4gPiA+ID4gIH0NCj4gPiA+ID4NCj4gPiA+ID4gK3N0YXRpYyB2b2lk
-ICpzd2FwX2J1ZmZlcjIodm9pZCAqZHN0X2J1Ziwgdm9pZCAqc3JjX2J1ZiwgaW50IGxlbikNCj4g
-PiA+ID4gK3sNCj4gPiA+ID4gKwlpbnQgaTsNCj4gPiA+ID4gKwl1bnNpZ25lZCBpbnQgKnNyYyA9
-IHNyY19idWY7DQo+ID4gPiA+ICsJdW5zaWduZWQgaW50ICpkc3QgPSBkc3RfYnVmOw0KPiA+ID4g
-PiArDQo+ID4gPiA+ICsJZm9yIChpID0gMDsgaSA8IERJVl9ST1VORF9VUChsZW4sIDQpOyBpKyss
-IHNyYysrLCBkc3QrKykNCj4gPiA+ID4gKwkJKmRzdCA9IGNwdV90b19iZTMyKCpzcmMpOw0KPiA+
-ID4NCj4gPiA+IE5vIG5lZWQgZm9yIHRoZSBESVYgOg0KPiA+ID4NCj4gPiA+IAlmb3IgKGkgPSAw
-OyBpIDwgbGVuOyBpICs9IHNpemVvZigqZHN0KSwgc3JjKyssIGRzdCsrKQ0KPiA+ID4gCQkqZHN0
-ID0gY3B1X3RvX2JlMzIoKnNyYyk7DQo+ID4gPg0KPiA+ID4gQWxzbyBhcmUgeW91IHN1cmUgYm90
-aCBzcmMvZHN0IGFyZSBhbGlnbmVkIHRvIHdvcmQgYm91bmRhcmllcywgb3IgaXMNCj4gPiA+IHRo
-aXMgYXJjaGl0ZWN0dXJlIE9LIHdpdGggcG9zc2libGUgbWlzYWxpZ25tZW50ID8NCj4gPg0KPiA+
-IEkgd29uZGVyZWQgYWJvdXQgdGhhdCBhcyB3ZWxsLg0KPiA+IEkgd291bGRuJ3QgaGF2ZSBleHBl
-Y3RlZCBwcGMgdG8gc3VwcG9ydCBtaXNhbGlnbmVkIHRyYW5zZmVycywgYW5kIHlvdSdkIGFsc28N
-Cj4gPiB3YW50IHRvIG1ha2Ugc3VyZSB0aGF0IGNwdV90b19iZSgqc3JjKSB3YXMgdXNpbmcgYSBi
-eXRlLXN3YXBwaW5nIGluc3RydWN0aW9uLg0KPiA+IEhtbW0uLi4gY3B1X3RvX2JlKCkgZG9lc24n
-dCBzb3VuZCBsaWtlIHRoZSByaWdodCAnc3dhcCcgbWFjcm8gbmFtZS4NCj4gPg0KPiA/Pz8gU28g
-d2hhdCBpcyBjcHVfdG9fYmUzMigpIHRoZW4/DQo+IFRoZSBuZXcgc3dhcCBmdW5jdGlvbiBpcyBh
-biBleGFjdCBjb3B5IG9mIHRoZSBvcmlnaW5hbCBvbmUgYWxyZWFkeSBpbg0KPiB1c2UgZXhjZXB0
-IGZvciB0aGUgZmFjdCB0aGF0IGl0IHVzZXMgZGlzdGluY3Qgc291cmNlIGFuZCBkZXN0aW5hdGlv
-bg0KPiBidWZmZXJzLg0KDQpjcHVfdG9fYmUzMigpIGlzIGZvciBjb252ZXJ0aW5nIGEgJ2NwdScg
-ZW5kaWFubmVzcyB2YWx1ZSB0byAnYmlnLWVuZGlhbicuDQpIZXJlIHlvdSBhcmUgcHJvY2Vzc2lu
-ZyByZWNlaXZlIGRhdGEgLSBzbyB5b3UgcHJvYmFibHkgd2FudCBiZTMyX3RvX2NwdSgpLg0KKFll
-cywgSSBrbm93IHRoZXkgYXJlIGZ1bmN0aW9uYWxseSBpZGVudGljYWwuLi4uKQ0KDQpBbHRlcm5h
-dGl2ZWx5LCBzaW5jZSB0aGVzZSBhcmVuJ3QgYWN0dWFsbHkgMzJiaXQgbnVtYmVycyBhbmQgeW91
-IGtub3cNCndoZXRoZXIgeW91IHdhbnQgdG8gc3dhcCwgc29tZXRoaW5nIGxpa2UgdGhlIF9fc3dh
-YjMycCgpIGZyb20gc3dhYi5oDQotIGJ1dCBJJ20gbm90IGVudGlyZWx5IHN1cmUgdGhhdCBvbmUg
-aXMgZXhwZWN0ZWQgdG8gYmUgdXNlZC4NCg0KQ2xlYXJseSB5b3UgYXJlIHdlbGwgaW5zaWRlIHRo
-ZSBwcGMgJ2VuZGlhbm5lc3MnIGhlbGwuDQoNCglEYXZpZA0KDQo=
+Hi all,
+        recently Linux 3.14 has been released and I find the networking has added udp gro and vxlan gro funtion, then I use the redhat 7.0(there is also add this funtion)
+to test, I use kernel vxlan module and  create a vxlan device then attach the device to  ovs  bridge , the configure as follow:
+       root@25:~$ ip link      
+        15: vxlan0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1450 qdisc noqueue master ovs-system state UNKNOWN mode DEFAULT
+            link/ether be:e1:ae:3d:8b:f2 brd ff:ff:ff:ff:ff:ff
+        16: vnet0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1400 qdisc mq master ovs-system state UNKNOWN mode DEFAULT qlen 5000
+       
+       root@25:~$ ovs-vsctl show
+        aa1294f3-9952-4393-b2b5-54e9a6eb76ee
+        Bridge ovs-vx
+            Port ovs-vx
+                Interface ovs-vx
+                    type: internal
+            Port "vnet0"
+                Interface "vnet0"
+            Port "vxlan0"
+                Interface "vxlan0"
+        ovs_version: "2.0.2"
+
+vnet0 is a vm backend device,  and the end is the same configuration. then I use netperf to test throughput  in vm (netperf -H **** -t TCP_STREAM -l 10 -- -m 1460), 
+the result is 3-4 Gbit/sec, the  improvement  is not obvious,   and I also confused there is no aggregation  packets (length > mtu) in the end vm.   so I want to know what
+wrong ?   or how to test the function ?
