@@ -1,39 +1,41 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: randconfig build error with next-20141008, in
- drivers/net/ethernet/mellanox/mlx4/en_tx.c
-Date: Wed, 08 Oct 2014 07:49:06 -0700
-Message-ID: <1412779746.11091.176.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CA+r1ZhiU6uzE-CQcTJoH2JxrS06H+5Paaofz+3Ugzon02mxD8Q@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
-	linux-next <linux-next@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>, amirv@mellanox.com,
-	netdev <netdev@vger.kernel.org>
-To: Jim Davis <jim.epost@gmail.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <CA+r1ZhiU6uzE-CQcTJoH2JxrS06H+5Paaofz+3Ugzon02mxD8Q@mail.gmail.com>
-Sender: linux-next-owner@vger.kernel.org
+From: Masanari Iida <standby24x7@gmail.com>
+Subject: [PATCH] net: description of dma_cookie cause make xmldocs warning
+Date: Wed,  8 Oct 2014 23:53:39 +0900
+Message-ID: <1412780019-32475-1-git-send-email-standby24x7@gmail.com>
+Cc: dan.j.williams@intel.com, Masanari Iida <standby24x7@gmail.com>
+To: linux-kernel@vger.kernel.org, davem@davemloft.net,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2014-10-08 at 07:42 -0700, Jim Davis wrote:
-> Building with the attached random configuration file,
->=20
-> drivers/net/ethernet/mellanox/mlx4/en_tx.c: In function =E2=80=98mlx4=
-_en_process_tx_cq=E2=80=99:
-> drivers/net/ethernet/mellanox/mlx4/en_tx.c:395:27: error: =E2=80=98st=
-ruct netdev_queue=E2=80=99
-> has no member named =E2=80=98dql=E2=80=99
->   prefetchw(&ring->tx_queue->dql.limit);
->                            ^
-> drivers/net/ethernet/mellanox/mlx4/en_tx.c: In function =E2=80=98mlx4=
-_en_xmit=E2=80=99:
-> drivers/net/ethernet/mellanox/mlx4/en_tx.c:740:27: error: =E2=80=98st=
-ruct netdev_queue=E2=80=99
-> has no member named =E2=80=98dql=E2=80=99
->   prefetchw(&ring->tx_queue->dql);
->                            ^
-> make[5]: *** [drivers/net/ethernet/mellanox/mlx4/en_tx.o] Error 1
+In commit 7bced397510ab569d31de4c70b39e13355046387,
+dma_cookie was removed from struct skbuff.
+But the description of dma_cookie still exist.
+So the "make xmldocs" output following warning.
 
-Thanks for the report, I'll take care of this.
+Warning(.//include/linux/skbuff.h:609): Excess struct/union
+/enum/typedef member 'dma_cookie' description in 'sk_buff'
+
+Remove description of dma_cookie fix the symptom.
+
+Signed-off-by: Masanari Iida <standby24x7@gmail.com>
+---
+ include/linux/skbuff.h | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index a17ba08..9a86644 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -459,8 +459,6 @@ static inline u32 skb_mstamp_us_delta(const struct skb_mstamp *t1,
+  *	@wifi_acked_valid: wifi_acked was set
+  *	@wifi_acked: whether frame was acked on wifi or not
+  *	@no_fcs:  Request NIC to treat last 4 bytes as Ethernet FCS
+- *	@dma_cookie: a cookie to one of several possible DMA operations
+- *		done by skb DMA functions
+   *	@napi_id: id of the NAPI struct this skb came from
+  *	@secmark: security marking
+  *	@mark: Generic packet mark
+-- 
+2.1.1.273.g97b8860
