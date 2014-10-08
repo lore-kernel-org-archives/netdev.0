@@ -1,65 +1,132 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] net: fec: fix regression on i.MX28 introduced by
+From: Lothar =?UTF-8?B?V2HDn21hbm4=?= <LW@KARO-electronics.de>
+Subject: Re: [PATCH] net: fec: fix regression on i.MX28 introduced by
  rx_copybreak support
-Date: Wed, 8 Oct 2014 08:54:58 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D174C6C14@AcuExch.aculab.com>
+Date: Wed, 8 Oct 2014 10:55:54 +0200
+Message-ID: <20141008105554.2af97be9@ipc1.ka-ro>
 References: <1412687977-11742-1-git-send-email-LW@KARO-electronics.de>
- <54340FA4.509@cogentembedded.com>
+	<1412692034.11091.122.camel@edumazet-glaptop2.roam.corp.google.com>
+	<063D6719AE5E284EB5DD2968C1650D6D174C6116@AcuExch.aculab.com>
+	<20141008070147.2f3b5319@ipc1.ka-ro>
+	<063D6719AE5E284EB5DD2968C1650D6D174C6BA0@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Russell King <rmk+kernel@arm.linux.org.uk>,
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: 'Eric Dumazet' <eric.dumazet@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Russell King" <rmk+kernel@arm.linux.org.uk>,
 	Frank Li <Frank.Li@freescale.com>,
 	"Fabio Estevam" <fabio.estevam@freescale.com>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: 'Sergei Shtylyov' <sergei.shtylyov@cogentembedded.com>,
-	=?utf-8?B?TG90aGFyIFdhw59tYW5u?= <LW@KARO-electronics.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54340FA4.509@cogentembedded.com>
-Content-Language: en-US
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D174C6BA0@AcuExch.aculab.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-RnJvbTogU2VyZ2VpIFNodHlseW92DQo+IE9uIDEwLzA3LzIwMTQgMDU6MTkgUE0sIExvdGhhciBX
-YW1hbm4gd3JvdGU6DQo+IA0KPiA+IGNvbW1pdCAxYjdiZGU2ZDY1OWQgKCJuZXQ6IGZlYzogaW1w
-bGVtZW50IHJ4X2NvcHlicmVhayB0byBpbXByb3ZlIHJ4IHBlcmZvcm1hbmNlIikNCj4gPiBpbnRy
-b2R1Y2VkIGEgcmVncmVzc2lvbiBmb3IgaS5NWDI4LiBUaGUgc3dhcF9idWZmZXIoKSBmdW5jdGlv
-biBkb2luZw0KPiA+IHRoZSBlbmRpYW4gY29udmVyc2lvbiBvZiB0aGUgcmVjZWl2ZWQgZGF0YSBv
-biBpLk1YMjggbWF5IGFjY2VzcyBtZW1vcnkNCj4gPiBiZXlvbmQgdGhlIGFjdHVhbCBwYWNrZXQg
-c2l6ZSBpbiB0aGUgRE1BIGJ1ZmZlci4gZmVjX2VuZXRfY29weWJyZWFrKCkNCj4gPiBkb2VzIG5v
-dCBjb3B5IHRob3NlIGJ5dGVzLCBzbyB0aGF0IHRoZSBsYXN0IGJ5dGVzIG9mIGEgcGFja2V0IG1h
-eSBiZQ0KPiA+IGZpbGxlZCB3aXRoIGludmFsaWQgZGF0YSBhZnRlciBzd2FwcGluZy4NCj4gPiBU
-aGlzIHdpbGwgbGlrZWx5IGxlYWQgdG8gY2hlY2tzdW0gZXJyb3JzIG9uIHJlY2VpdmVkIHBhY2tl
-dHMuDQo+ID4gRS5nLiB3aGVuIHRyeWluZyB0byBtb3VudCBhbiBORlMgcm9vdGZzOg0KPiA+IFVE
-UDogYmFkIGNoZWNrc3VtLiBGcm9tIDE5Mi4xNjguMS4yMjU6MTExIHRvIDE5Mi4xNjguMTAwLjcz
-OjQ0NjYyIHVsZW4gMzYNCj4gDQo+ID4gRG8gdGhlIGJ5dGUgc3dhcHBpbmcgYW5kIGNvcHlpbmcg
-dG8gdGhlIG5ldyBza2IgaW4gb25lIGdvIGlmDQo+ID4gbmVjZXNzYXJ5Lg0KPiANCj4gPiBTaWdu
-ZWQtb2ZmLWJ5OiBMb3RoYXIgV2FtYW5uIDxMV0BLQVJPLWVsZWN0cm9uaWNzLmRlPg0KPiA+IC0t
-LQ0KPiA+ICAgZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZlY19tYWluLmMgfCAgIDI1
-ICsrKysrKysrKysrKysrKysrKysrKy0tLS0NCj4gPiAgIDEgZmlsZSBjaGFuZ2VkLCAyMSBpbnNl
-cnRpb25zKCspLCA0IGRlbGV0aW9ucygtKQ0KPiANCj4gPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9u
-ZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZlY19tYWluLmMgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9m
-cmVlc2NhbGUvZmVjX21haW4uYw0KPiA+IGluZGV4IDg3OTc1YjUuLmVhYWViYWQgMTAwNjQ0DQo+
-ID4gLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZlY19tYWluLmMNCj4gPiAr
-KysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZmVjX21haW4uYw0KPiBbLi4uXQ0K
-PiA+IEBAIC0xMzQ4LDcgKzEzNjAsNyBAQCBmZWNfZW5ldF9uZXdfcnhiZHAoc3RydWN0IG5ldF9k
-ZXZpY2UgKm5kZXYsIHN0cnVjdCBidWZkZXNjICpiZHAsIHN0cnVjdA0KPiBza19idWZmDQo+ID4g
-ICB9DQo+ID4NCj4gPiAgIHN0YXRpYyBib29sIGZlY19lbmV0X2NvcHlicmVhayhzdHJ1Y3QgbmV0
-X2RldmljZSAqbmRldiwgc3RydWN0IHNrX2J1ZmYgKipza2IsDQo+ID4gLQkJCSAgICAgICBzdHJ1
-Y3QgYnVmZGVzYyAqYmRwLCB1MzIgbGVuZ3RoKQ0KPiA+ICsJCQkgICAgICAgc3RydWN0IGJ1ZmRl
-c2MgKmJkcCwgdTMyIGxlbmd0aCwgaW50IHN3YXApDQo+IA0KPiAgICAgJ2Jvb2wgc3dhcCcgcGVy
-aGFwcz8NCj4gDQo+ID4gQEAgLTEzOTMsNiArMTQwOCw3IEBAIGZlY19lbmV0X3J4X3F1ZXVlKHN0
-cnVjdCBuZXRfZGV2aWNlICpuZGV2LCBpbnQgYnVkZ2V0LCB1MTYgcXVldWVfaWQpDQo+ID4gICAJ
-dTE2CXZsYW5fdGFnOw0KPiA+ICAgCWludAlpbmRleCA9IDA7DQo+ID4gICAJYm9vbAlpc19jb3B5
-YnJlYWs7DQo+ID4gKwlib29sIG5lZWRfc3dhcCA9IGlkX2VudHJ5LT5kcml2ZXJfZGF0YSAmIEZF
-Q19RVUlSS19TV0FQX0ZSQU1FOw0KPiANCj4gICAgIC4uLiBlc3BlY2lhbGx5IHRhbGtpbmcgdGhp
-cyBpbnRvIGFjY291bnQuLi4NCg0KSG1tbS4uLiBpbiB0aGF0IGNhc2UgeW91IG1heSBub3Qgd2Fu
-dCB0aGUgY29tcGlsZXIgdG8gY29udmVydCB0aGUgYml0IHZhbHVlDQp0byBhICdib29sJyBhdCBh
-bGwuDQoNClBhc3NpbmcgJ2lkX2VudHJ5LT5kcml2ZXJfZGF0YScgdGhyb3VnaCAodGhhdCBkb2Vz
-bid0IGxvb2sgbGlrZSBhIGZpZWxkIG5hbWUgZm9yDQoncXVpcmsgZmxhZ3MpIHdvdWxkIGdlbmVy
-YXRlIGJldHRlciBjb2RlLg0KDQpFdmVuIGJldHRlciB3b3VsZCBiZSB0byByZWZlcmVuY2UgdGhl
-IGZsYWcgZGlyZWN0bHkgZnJvbSAnbmRldicuDQpBIHBvaW50ZXIgaW5kaXJlY3Rpb24gZm9yIHRo
-ZSB0ZXN0IGlmIHByb2JhYmx5IGZhc3RlciB0aGVuIHBhc3NpbmcgYW5vdGhlciBhcmd1bWVudC4N
-Cg0KCURhdmlkDQoNCg==
+Hi,
+
+David Laight wrote:
+> From: Lothar Wa=C3=9Fmann
+> > David Laight wrote:
+> > > From: Eric Dumazet
+> > > > On Tue, 2014-10-07 at 15:19 +0200, Lothar Wamann wrote:
+> > > > > commit 1b7bde6d659d ("net: fec: implement rx_copybreak to imp=
+rove rx performance")
+> > > > > introduced a regression for i.MX28. The swap_buffer() functio=
+n doing
+> > > > > the endian conversion of the received data on i.MX28 may acce=
+ss memory
+> > > > > beyond the actual packet size in the DMA buffer. fec_enet_cop=
+ybreak()
+> > > > > does not copy those bytes, so that the last bytes of a packet=
+ may be
+> > > > > filled with invalid data after swapping.
+> > > > > This will likely lead to checksum errors on received packets.
+> > > > > E.g. when trying to mount an NFS rootfs:
+> > > > > UDP: bad checksum. From 192.168.1.225:111 to 192.168.100.73:4=
+4662 ulen 36
+> > > > >
+> > > > > Do the byte swapping and copying to the new skb in one go if
+> > > > > necessary.
+> > > > >
+> > > > > Signed-off-by: Lothar Wamann <LW@KARO-electronics.de>
+> > > > > ---
+> > > > >  drivers/net/ethernet/freescale/fec_main.c |   25 +++++++++++=
+++++++++++----
+> > > > >  1 file changed, 21 insertions(+), 4 deletions(-)
+> > > > >
+> > > > > diff --git a/drivers/net/ethernet/freescale/fec_main.c b/driv=
+ers/net/ethernet/freescale/fec_main.c
+> > > > > index 87975b5..eaaebad 100644
+> > > > > --- a/drivers/net/ethernet/freescale/fec_main.c
+> > > > > +++ b/drivers/net/ethernet/freescale/fec_main.c
+> > > > > @@ -339,6 +339,18 @@ static void *swap_buffer(void *bufaddr, =
+int len)
+> > > > >  	return bufaddr;
+> > > > >  }
+> > > > >
+> > > > > +static void *swap_buffer2(void *dst_buf, void *src_buf, int =
+len)
+> > > > > +{
+> > > > > +	int i;
+> > > > > +	unsigned int *src =3D src_buf;
+> > > > > +	unsigned int *dst =3D dst_buf;
+> > > > > +
+> > > > > +	for (i =3D 0; i < DIV_ROUND_UP(len, 4); i++, src++, dst++)
+> > > > > +		*dst =3D cpu_to_be32(*src);
+> > > >
+> > > > No need for the DIV :
+> > > >
+> > > > 	for (i =3D 0; i < len; i +=3D sizeof(*dst), src++, dst++)
+> > > > 		*dst =3D cpu_to_be32(*src);
+> > > >
+> > > > Also are you sure both src/dst are aligned to word boundaries, =
+or is
+> > > > this architecture OK with possible misalignment ?
+> > >
+> > > I wondered about that as well.
+> > > I wouldn't have expected ppc to support misaligned transfers, and=
+ you'd also
+> > > want to make sure that cpu_to_be(*src) was using a byte-swapping =
+instruction.
+> > > Hmmm... cpu_to_be() doesn't sound like the right 'swap' macro nam=
+e.
+> > >
+> > ??? So what is cpu_to_be32() then?
+> > The new swap function is an exact copy of the original one already =
+in
+> > use except for the fact that it uses distinct source and destinatio=
+n
+> > buffers.
+>=20
+> cpu_to_be32() is for converting a 'cpu' endianness value to 'big-endi=
+an'.
+> Here you are processing receive data - so you probably want be32_to_c=
+pu().
+> (Yes, I know they are functionally identical....)
+>=20
+> Alternatively, since these aren't actually 32bit numbers and you know
+> whether you want to swap, something like the __swab32p() from swab.h
+> - but I'm not entirely sure that one is expected to be used.
+>=20
+OK, but that should probably be a separate patch to fix the original
+swap_buffer() function as well.
+
+> Clearly you are well inside the ppc 'endianness' hell.
+>
+No. i.MX28 is not PPC. It only has a "feature" in the ethernet
+controller that stores all data in big endian format.
+
+
+Lothar Wa=C3=9Fmann
+--=20
+___________________________________________________________
+
+Ka-Ro electronics GmbH | Pascalstra=C3=9Fe 22 | D - 52076 Aachen
+Phone: +49 2408 1402-0 | Fax: +49 2408 1402-10
+Gesch=C3=A4ftsf=C3=BChrer: Matthias Kaussen
+Handelsregistereintrag: Amtsgericht Aachen, HRB 4996
+
+www.karo-electronics.de | info@karo-electronics.de
+___________________________________________________________
