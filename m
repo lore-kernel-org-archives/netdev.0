@@ -1,104 +1,65 @@
 From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: FW: [PATCH V1 net-next 1/2] pgtable: Add API to query if write
- combining is available
-Date: Wed, 8 Oct 2014 08:50:07 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D174C6BE5@AcuExch.aculab.com>
-References: <1412497342-12451-1-git-send-email-ogerlitz@mellanox.com>
-	<1412497342-12451-2-git-send-email-ogerlitz@mellanox.com>
- <20141007.154425.2156753440391523455.davem@davemloft.net>
- <925ad10b2ec44e228e69bf0cbe6c0a0e@AMSPR05MB002.eurprd05.prod.outlook.com>
- <5434F989.2040101@dev.mellanox.co.il>
+Subject: RE: [PATCH] net: fec: fix regression on i.MX28 introduced by
+ rx_copybreak support
+Date: Wed, 8 Oct 2014 08:54:58 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D174C6C14@AcuExch.aculab.com>
+References: <1412687977-11742-1-git-send-email-LW@KARO-electronics.de>
+ <54340FA4.509@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: Or Gerlitz <ogerlitz@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Tal Alon <talal@mellanox.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Amir Vadai <amirv@mellanox.com>
-To: 'Moshe Lazer' <moshel@dev.mellanox.co.il>,
-	"davem@davemloft.net" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:35972 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1750787AbaJHIvk convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2014 04:51:40 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 08237-10 for <netdev@vger.kernel.org>;
- Wed,  8 Oct 2014 09:51:30 +0100 (BST)
-In-Reply-To: <5434F989.2040101@dev.mellanox.co.il>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Russell King <rmk+kernel@arm.linux.org.uk>,
+	Frank Li <Frank.Li@freescale.com>,
+	"Fabio Estevam" <fabio.estevam@freescale.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: 'Sergei Shtylyov' <sergei.shtylyov@cogentembedded.com>,
+	=?utf-8?B?TG90aGFyIFdhw59tYW5u?= <LW@KARO-electronics.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <54340FA4.509@cogentembedded.com>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Moshe Lazer
-> > From: David Miller [mailto:davem@davemloft.net]
-> > Sent: Tuesday, October 07, 2014 10:44 PM
-> > To: Or Gerlitz
-> > Cc: netdev@vger.kernel.org; Amir Vadai; jackm@dev.mellanox.co.il; Moshe Lazer; Tal Alon; Yevgeny
-> Petrilin
-> > Subject: Re: [PATCH V1 net-next 1/2] pgtable: Add API to query if write combining is available
-> >
-> > From: Or Gerlitz <ogerlitz@mellanox.com>
-> > Date: Sun,  5 Oct 2014 11:22:21 +0300
-> >
-> >> From: Moshe Lazer <moshel@mellanox.com>
-> >>
-> >> Currently the kernel write-combining interface provides a best effort
-> >> mechanism in which the caller simply invokes pgprot_writecombine().
-> >>
-> >> If write combining is available, the region is mapped for it,
-> >> otherwise the region is (silently) mapped as non-cached.
-> >>
-> >> In some cases, however, the calling driver must know if write
-> >> combining is available, so a silent best effort mechanism is not sufficient.
-> >>
-> >> Add writecombine_available(), which returns true if the system
-> >> supports write combining and false if it doesn't.
-> >>
-> >> Signed-off-by: Moshe Lazer <moshel@mellanox.com>
-> >> Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
-> >> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-> > This needs some ACKs from MM developers.
-> >
-> > But also the situation is more complicated than a simple boolean test.
-> >
-> > On some platforms you have to test first whether the range you are trying to write combine can
-> legally be marked in that way.  The DRM layer has all of these per-arch tests to do this properly.
-> >
-> > #if defined(__i386__) || defined(__x86_64__)
-> > 	if (map->type == _DRM_REGISTERS && !(map->flags & _DRM_WRITE_COMBINING))
-> > 		tmp = pgprot_noncached(tmp);
-> > 	else
-> > 		tmp = pgprot_writecombine(tmp);
-> > #elif defined(__powerpc__)
-> > 	pgprot_val(tmp) |= _PAGE_NO_CACHE;
-> > 	if (map->type == _DRM_REGISTERS)
-> > 		pgprot_val(tmp) |= _PAGE_GUARDED;
-> > #elif defined(__ia64__)
-> > 	if (efi_range_is_wc(vma->vm_start, vma->vm_end -
-> > 				    vma->vm_start))
-> > 		tmp = pgprot_writecombine(tmp);
-> > 	else
-> > 		tmp = pgprot_noncached(tmp);
-> > #elif defined(__sparc__) || defined(__arm__) || defined(__mips__)
-> > 	tmp = pgprot_noncached(tmp);
-> > #endif
-
-> The idea was to provide an indication as for whether the arch supports
-> write-combining in general.
-> If we want to benefit from blue flame operations, we need to map the
-> blue flame registers as write combining - otherwise there is no benefit.
-> So we would like to know if write combining is supported by the system
-> or not.
-
-Sounds like the mapping functions should have a mode where 'write combining'
-is mandatory, then you can try to map the registers as 'write combining' and
-if the map request fails use the alternate scheme.
-
-That moves the test into the architecture specific mapping code where
-it belongs.
-
-	David
+RnJvbTogU2VyZ2VpIFNodHlseW92DQo+IE9uIDEwLzA3LzIwMTQgMDU6MTkgUE0sIExvdGhhciBX
+YW1hbm4gd3JvdGU6DQo+IA0KPiA+IGNvbW1pdCAxYjdiZGU2ZDY1OWQgKCJuZXQ6IGZlYzogaW1w
+bGVtZW50IHJ4X2NvcHlicmVhayB0byBpbXByb3ZlIHJ4IHBlcmZvcm1hbmNlIikNCj4gPiBpbnRy
+b2R1Y2VkIGEgcmVncmVzc2lvbiBmb3IgaS5NWDI4LiBUaGUgc3dhcF9idWZmZXIoKSBmdW5jdGlv
+biBkb2luZw0KPiA+IHRoZSBlbmRpYW4gY29udmVyc2lvbiBvZiB0aGUgcmVjZWl2ZWQgZGF0YSBv
+biBpLk1YMjggbWF5IGFjY2VzcyBtZW1vcnkNCj4gPiBiZXlvbmQgdGhlIGFjdHVhbCBwYWNrZXQg
+c2l6ZSBpbiB0aGUgRE1BIGJ1ZmZlci4gZmVjX2VuZXRfY29weWJyZWFrKCkNCj4gPiBkb2VzIG5v
+dCBjb3B5IHRob3NlIGJ5dGVzLCBzbyB0aGF0IHRoZSBsYXN0IGJ5dGVzIG9mIGEgcGFja2V0IG1h
+eSBiZQ0KPiA+IGZpbGxlZCB3aXRoIGludmFsaWQgZGF0YSBhZnRlciBzd2FwcGluZy4NCj4gPiBU
+aGlzIHdpbGwgbGlrZWx5IGxlYWQgdG8gY2hlY2tzdW0gZXJyb3JzIG9uIHJlY2VpdmVkIHBhY2tl
+dHMuDQo+ID4gRS5nLiB3aGVuIHRyeWluZyB0byBtb3VudCBhbiBORlMgcm9vdGZzOg0KPiA+IFVE
+UDogYmFkIGNoZWNrc3VtLiBGcm9tIDE5Mi4xNjguMS4yMjU6MTExIHRvIDE5Mi4xNjguMTAwLjcz
+OjQ0NjYyIHVsZW4gMzYNCj4gDQo+ID4gRG8gdGhlIGJ5dGUgc3dhcHBpbmcgYW5kIGNvcHlpbmcg
+dG8gdGhlIG5ldyBza2IgaW4gb25lIGdvIGlmDQo+ID4gbmVjZXNzYXJ5Lg0KPiANCj4gPiBTaWdu
+ZWQtb2ZmLWJ5OiBMb3RoYXIgV2FtYW5uIDxMV0BLQVJPLWVsZWN0cm9uaWNzLmRlPg0KPiA+IC0t
+LQ0KPiA+ICAgZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZlY19tYWluLmMgfCAgIDI1
+ICsrKysrKysrKysrKysrKysrKysrKy0tLS0NCj4gPiAgIDEgZmlsZSBjaGFuZ2VkLCAyMSBpbnNl
+cnRpb25zKCspLCA0IGRlbGV0aW9ucygtKQ0KPiANCj4gPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9u
+ZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZlY19tYWluLmMgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9m
+cmVlc2NhbGUvZmVjX21haW4uYw0KPiA+IGluZGV4IDg3OTc1YjUuLmVhYWViYWQgMTAwNjQ0DQo+
+ID4gLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZlY19tYWluLmMNCj4gPiAr
+KysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZmVjX21haW4uYw0KPiBbLi4uXQ0K
+PiA+IEBAIC0xMzQ4LDcgKzEzNjAsNyBAQCBmZWNfZW5ldF9uZXdfcnhiZHAoc3RydWN0IG5ldF9k
+ZXZpY2UgKm5kZXYsIHN0cnVjdCBidWZkZXNjICpiZHAsIHN0cnVjdA0KPiBza19idWZmDQo+ID4g
+ICB9DQo+ID4NCj4gPiAgIHN0YXRpYyBib29sIGZlY19lbmV0X2NvcHlicmVhayhzdHJ1Y3QgbmV0
+X2RldmljZSAqbmRldiwgc3RydWN0IHNrX2J1ZmYgKipza2IsDQo+ID4gLQkJCSAgICAgICBzdHJ1
+Y3QgYnVmZGVzYyAqYmRwLCB1MzIgbGVuZ3RoKQ0KPiA+ICsJCQkgICAgICAgc3RydWN0IGJ1ZmRl
+c2MgKmJkcCwgdTMyIGxlbmd0aCwgaW50IHN3YXApDQo+IA0KPiAgICAgJ2Jvb2wgc3dhcCcgcGVy
+aGFwcz8NCj4gDQo+ID4gQEAgLTEzOTMsNiArMTQwOCw3IEBAIGZlY19lbmV0X3J4X3F1ZXVlKHN0
+cnVjdCBuZXRfZGV2aWNlICpuZGV2LCBpbnQgYnVkZ2V0LCB1MTYgcXVldWVfaWQpDQo+ID4gICAJ
+dTE2CXZsYW5fdGFnOw0KPiA+ICAgCWludAlpbmRleCA9IDA7DQo+ID4gICAJYm9vbAlpc19jb3B5
+YnJlYWs7DQo+ID4gKwlib29sIG5lZWRfc3dhcCA9IGlkX2VudHJ5LT5kcml2ZXJfZGF0YSAmIEZF
+Q19RVUlSS19TV0FQX0ZSQU1FOw0KPiANCj4gICAgIC4uLiBlc3BlY2lhbGx5IHRhbGtpbmcgdGhp
+cyBpbnRvIGFjY291bnQuLi4NCg0KSG1tbS4uLiBpbiB0aGF0IGNhc2UgeW91IG1heSBub3Qgd2Fu
+dCB0aGUgY29tcGlsZXIgdG8gY29udmVydCB0aGUgYml0IHZhbHVlDQp0byBhICdib29sJyBhdCBh
+bGwuDQoNClBhc3NpbmcgJ2lkX2VudHJ5LT5kcml2ZXJfZGF0YScgdGhyb3VnaCAodGhhdCBkb2Vz
+bid0IGxvb2sgbGlrZSBhIGZpZWxkIG5hbWUgZm9yDQoncXVpcmsgZmxhZ3MpIHdvdWxkIGdlbmVy
+YXRlIGJldHRlciBjb2RlLg0KDQpFdmVuIGJldHRlciB3b3VsZCBiZSB0byByZWZlcmVuY2UgdGhl
+IGZsYWcgZGlyZWN0bHkgZnJvbSAnbmRldicuDQpBIHBvaW50ZXIgaW5kaXJlY3Rpb24gZm9yIHRo
+ZSB0ZXN0IGlmIHByb2JhYmx5IGZhc3RlciB0aGVuIHBhc3NpbmcgYW5vdGhlciBhcmd1bWVudC4N
+Cg0KCURhdmlkDQoNCg==
