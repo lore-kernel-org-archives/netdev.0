@@ -1,45 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] bna: page allocation during interrupts to use a
- mempool.
-Date: Tue, 07 Oct 2014 18:28:38 -0700
-Message-ID: <1412731718.11091.175.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <alpine.DEB.2.00.1409271631530.26069@ware.dreamhost.com>
-	   <20140929092833.6c2cb7e9@urahara>
-	   <262CB373A6D1F14F9B81E82F74F77D5A4704FAE7@avmb2.qlogic.org>
-	   <alpine.DEB.2.00.1410061850120.5129@ware.dreamhost.com>
-	  <1412646735.11091.93.camel@edumazet-glaptop2.roam.corp.google.com>
-	  <alpine.DEB.2.00.1410061956410.7392@ware.dreamhost.com>
-	 <1412651746.11091.98.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <alpine.DEB.2.00.1410071746230.3503@ware.dreamhost.com>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: RE: r8168 is needed to enter P-state: Package State6(pc6)onHaswellhardware
+Date: Wed, 8 Oct 2014 02:35:23 +0000
+Message-ID: <0835B3720019904CB8F7AA43166CEEB2526D20@RTITMBSV03.realtek.com.tw>
+References: <542B3829.3010108@crashplan.pro>
+ <20141005165920.GA21926@electric-eye.fr.zoreil.com>
+ <0835B3720019904CB8F7AA43166CEEB2526932@RTITMBSV03.realtek.com.tw>
+ <20141006221307.GB10936@electric-eye.fr.zoreil.com>
+ <0835B3720019904CB8F7AA43166CEEB2526B88@RTITMBSV03.realtek.com.tw>
+ <20141007201713.GB4398@zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Shahed Shaikh <shahed.shaikh@qlogic.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	netdev <netdev@vger.kernel.org>,
-	Rasesh Mody <rasesh.mody@qlogic.com>
-To: Eric Wheeler <netdev@lists.ewheeler.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Ceriel Jacobs <linux-ide@crashplan.pro>,
+	nic_swsd <nic_swsd@realtek.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:43955 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755196AbaJHB25 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2014 21:28:57 -0400
-Received: by mail-pa0-f45.google.com with SMTP id rd3so8131462pab.4
-        for <netdev@vger.kernel.org>; Tue, 07 Oct 2014 18:28:57 -0700 (PDT)
-In-Reply-To: <alpine.DEB.2.00.1410071746230.3503@ware.dreamhost.com>
+Received: from rtits2.realtek.com ([60.250.210.242]:41060 "EHLO
+	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751504AbaJHCgX convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Oct 2014 22:36:23 -0400
+In-Reply-To: <20141007201713.GB4398@zoreil.com>
+Content-Language: zh-TW
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-10-07 at 17:48 -0700, Eric Wheeler wrote:
+ Francois Romieu [mailto:romieu@fr.zoreil.com] 
+> Sent: Wednesday, October 08, 2014 4:17 AM
+[...]
+> > When enabling the ASPM, it would influence the thrpughput. 
+> > It is hard to
+> > choose performance or power saving. Therefore, we reserve the config
+> > to let the user determines it.
+> 
+> Mmmm...
+> 
+> How do Realtek's devices behave if Config{2, 3} + MISC registers are
+> configured for ASPM whereas PCI config space registers aren't ?
 
-> Just += unmap->vector.len still did not work (same backtrace), so I've 
-> rebuilt with PAGE_SIZE<<2 and so far so good.  I'll let it run all night 
-> and see if we get any problems.
-
-Further inspection of the driver told me that unmap->vector.len should
-be 16384 already. (same than PAGE_SIZE << 2)
-(set at line 304, drivers/net/ethernet/brocade/bna/bnad.c)
-
-So you might hit memory fragmentation issues.
-
-Do you have CONFIG_COMPACTION=y in your .config ?
+The feature of the ASPM for the nic would be disabled.
+ASPM is enabled when both the internal settings and
+the PCI config space registers are enabled.
+ 
+Best Regards,
+Hayes
