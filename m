@@ -1,7 +1,7 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
 Subject: Re: [PATCH/RFC] datapath: offload hooks
-Date: Tue, 7 Oct 2014 21:50:36 -0700
-Message-ID: <20141007215036.65f1d439@urahara>
+Date: Tue, 7 Oct 2014 21:55:21 -0700
+Message-ID: <20141007215521.493233d2@urahara>
 References: <1412728851-32534-1-git-send-email-simon.horman@netronome.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
@@ -19,12 +19,12 @@ Cc: dev@openvswitch.org, netdev@vger.kernel.org,
 	Bert van Leeuwen <bert.vanleeuwen@netronome.com>
 To: Simon Horman <simon.horman@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f176.google.com ([209.85.192.176]:41262 "EHLO
-	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754539AbaJHEuy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2014 00:50:54 -0400
-Received: by mail-pd0-f176.google.com with SMTP id fp1so6167844pdb.7
-        for <netdev@vger.kernel.org>; Tue, 07 Oct 2014 21:50:54 -0700 (PDT)
+Received: from mail-pd0-f169.google.com ([209.85.192.169]:63200 "EHLO
+	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754539AbaJHEzh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2014 00:55:37 -0400
+Received: by mail-pd0-f169.google.com with SMTP id w10so6249892pde.14
+        for <netdev@vger.kernel.org>; Tue, 07 Oct 2014 21:55:36 -0700 (PDT)
 In-Reply-To: <1412728851-32534-1-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -32,6 +32,7 @@ List-ID: <netdev.vger.kernel.org>
 On Wed,  8 Oct 2014 09:40:51 +0900
 Simon Horman <simon.horman@netronome.com> wrote:
 
+> +
 > +struct ovs_offload_ops {
 > +	/* Flow offload functions  */
 > +	/* Called when a flow entry is added to the flow table */
@@ -68,7 +69,8 @@ Simon Horman <simon.horman@netronome.com> wrote:
 > +	void (*dp_del)(struct datapath *);
 > +	/* Called when the datapath stats are queried */
 > +	void (*dp_stats_get)(struct datapath *, struct ovs_dp_stats *);
-> +}
+> +};
 
-For security, you should mark any ops type table const, so an
-attacker can't find a home to poke their favorite routine into.
+What about using netlink and netlink notifiers for event type stuff?
+Much easier to extend than all the _ops stuff and you can provide
+hook for people that want to do it in user space.
