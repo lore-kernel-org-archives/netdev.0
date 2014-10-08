@@ -1,181 +1,118 @@
-From: Maximilian Engelhardt <maxi@daemonizer.de>
-Subject: Re: BCM4313 & brcmsmac & 3.12: only semi-working?
-Date: Thu, 09 Oct 2014 00:19:03 +0200
-Message-ID: <1527190.sqFmD6XRNJ@eisbaer>
-References: <53FDACD1.8090805@msgid.tls.msk.ru> <2326963.udog5tteBt@eisbaer> <542A8092.9090602@broadcom.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH] igb: Indicate failure on vf reset for empty mac address
+Date: Wed, 08 Oct 2014 15:29:15 -0700
+Message-ID: <1412807355.2260.17.camel@jtkirshe-mobl.jf.intel.com>
+References: <1412803407-10621-1-git-send-email-agraf@suse.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="nextPart5197269.Gpuo0GhADS"; micalg="pgp-sha512"; protocol="application/pgp-signature"
-Cc: Michael Tokarev <mjt@tls.msk.ru>,
-	Seth Forshee <seth.forshee@canonical.com>,
-	brcm80211-dev-list@broadcom.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Arend van Spriel <arend@broadcom.com>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-/abLlJXioHUfEfGJ+cPw"
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Mitch Williams <mitch.a.williams@intel.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Stefan Assmann <sassmann@kpanic.de>,
+	Aaron Brown <aaron.f.brown@intel.com>,
+	Greg Rose <gregory.v.rose@intel.com>,
+	John Ronciak <john.ronciak@intel.com>
+To: Alexander Graf <agraf@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from daemonizer.de ([87.230.18.164]:51210 "EHLO daemonizer.de"
+Received: from mga11.intel.com ([192.55.52.93]:11055 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753471AbaJHWTQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Oct 2014 18:19:16 -0400
-In-Reply-To: <542A8092.9090602@broadcom.com>
+	id S1755430AbaJHW3f (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Oct 2014 18:29:35 -0400
+In-Reply-To: <1412803407-10621-1-git-send-email-agraf@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---nextPart5197269.Gpuo0GhADS
-Content-Transfer-Encoding: 7Bit
-Content-Type: text/plain; charset="us-ascii"
+--=-/abLlJXioHUfEfGJ+cPw
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-On Tuesday 30 September 2014 12:06:10 Arend van Spriel wrote:
-> On 09/29/14 21:40, Maximilian Engelhardt wrote:
-> > On Monday 29 September 2014 15:44:03 Arend van Spriel wrote:
-> >> On 09/26/14 17:20, Michael Tokarev wrote:
-> >>> I can send it your way, -- guess it will be quite a bit costly,
-> >>> but I don't have any use for it anyway (short of throwing it
-> >>> away), and since I already spent significantly more money due
-> >>> to all this (whole thinkpad plus ssds and several wifi adaptors),
-> >>> this additional cost is just a small noize.  But since that's
-> >>> 2nd card in a row, maybe there's something else in there, the
-> >>> prob is not in the card?
-> >> 
-> >> Could be. Maybe some BIOS issue. Can you make some hi-res pictures of
-> >> the card and email them to me? If it is identical to what I already have
-> >> over here there is not much sense in sending it.
-> >> 
-> >> Regards,
-> >> Arend
-> > 
-> > Hi Arend,
-> > 
-> > I just saw this thread on linux-wireless and wanted to answer as it might
-> > be of interest to you.
-> > 
-> > I also own a BCM4313 wireless network card. About a year ago I reported
-> > some problems with reception strength which were then fixed after some
-> > time, debugging and testing passed. At that time I also did some
-> > throughput testing, but only had a 802.11g access-point to test. The
-> > results were not ideal, but also not too bad. So at that time I thought
-> > the issues were all more or less fixed and mostly fine. I also don't use
-> > wireless very much, so as long as things do work somehow acceptable I
-> > probably don't notice any problems immediately. So it comes that only
-> > about some month ago I noticed that the throughput I measured with my 11g
-> > access-point (about half the rate than with an atheros card on the same
-> > ap) is about the same on a 11n access-point where it should be much
-> > faster. I didn't experience any stalls, but that may also be that I
-> > didn't use the card enough to really notice them.
-> > 
-> > I always wanted to report a bug because of the low throughout, but never
-> > got to it because of lack of time. I didn't want to provide a report
-> > saying just it doesn't work or it's slow without any data about it and a
-> > description how to reproduce it, as I think without this information a
-> > bug report is mostly useless.
-> > 
-> > I also had a look at the kernel changelog of the brcmsm driver and notices
-> > there was little to no activity lately. Because of this I also wasn't sure
-> > if there is still someone interesting in fixing bugs for this device.
-> > 
-> > As I was annoyed by the bad support for this card I decided it would be
-> > more easy and much less time consuming to simply buy another card than
-> > trying to get this fixed. So I bought a BCM43228 card, because it also
-> > supports 5 GHz. Only after it arrived I noticed that it was only
-> > supported by the 3.17+ kernel (not so much of a problem) and that it only
-> > seems to work in 802.11g mode (only slow speeds and no 5 GHz). At least I
-> > could use it in full 11g speeds, so it was a improvement.
-> > 
-> > So I still don't have a card that does simply work. As I hope the missing
-> > support for my BCM43228 will hopefully be added some time in the future it
-> > probably would still be worth fixing the BCM4313 card as other users will
-> > also benefit from it.
-> > 
-> > A friend of mine also has the same laptop than me and the same (or at
-> > least
-> > very similar) wireless card. He has told me he has also problem with
-> > stalls
-> > like Michael reported (if I remember the history of the thread correctly).
-> > 
-> > So I'm not really sure where I should go from here. I can try to provide
-> > some debugging information as time permits, but I don't know how much
-> > time I will have for this in the future. Of course ideally I want to use
-> > the BCM43228 card with full support, as it can work on 5 GHz.
-> > 
-> > Currently the BCM43228 card is plugged into my laptop, but I want to avoid
-> > swapping the cards more that very few times because the antenna connectors
-> > are only designed for very few (un)plug cycles.
-> > 
-> > If it's of any information, my card is labeled BCM-BCM94313HMGB on the
-> > sticker, the laptop where it was originally is a ThinkPad Edge E135.
-> 
-> Thanks for taking time to chime in. This chipset is a pain in the....
-> The label info does help. You have a 4313 with internal PA for which
-> support was added later. The card that Michael has seems to have an
-> external PA. The initial iPA support patch broke things for everyone
-> with external PA so it was reverted. In the second round it was better,
-> but it seems Michael still had issues. As he mentioned BT issues and his
-> card shares the external PA between WLAN and BT I believe that there is
-> a BT-coex issue.
-> 
-> What is causing your 4313 to seemingly do 11g rates is hard to tell
-> without any debug info. I have that card over here, but in my cabled
-> setup it is doing 72Mbps, ie. 11n rate. I can run a rate-vs-range test
-> to see if there is an issue.
-> 
-> Thanks again and
-> Regards,
-> Arend
+On Wed, 2014-10-08 at 23:23 +0200, Alexander Graf wrote:
+> Commit 5ac6f91d changed the igb driver to expose a zero (empty) mac
+> address to the VF on reset rather than a random one.
+>=20
+> However, that behavioral change also requires igbvf driver changes
+> which can be hard especially when we want to talk to proprietary
+> guest OSs.
+>=20
+> Looking at the code previous to the commit in Linux that made igbvf
+> work with empty mac addresses (8d56b6d), we can see that on reset
+> failure the driver will try to generate a new mac address with both
+> the old and the new code.
+>=20
+> Furthermore, ixgbe does send reset failure when it detects an empty
+> mac address (35055928c).
+>=20
+> So I think it's safe to make igb behave the same. With this patch I
+> can successfully run a Windows 8.1 guest with an empty mac address
+> and an assigned igbvf device that has no mac address set by the host.
+>=20
+> If anyone is aware of a guest driver that chokes on NACK returns of
+> VF RESET commands, please speak up.
+>=20
+> Signed-off-by: Alexander Graf <agraf@suse.de>
+> ---
+>  drivers/net/ethernet/intel/igb/igb_main.c | 8 ++++++--
+>  1 file changed, 6 insertions(+), 2 deletions(-)
 
-Hi Arend,
+Actually after further review of this patch and the reported bug in
+SuSE's bugzilla, we are NACK'ing this patch.
 
-Today I changed back to the BC4313 card to verify the speed is still slow. At 
-first it was slow as I remembered it (down about 3 Mbits/s, up about 1 Mbit/s, 
-measured with iperf).
-I then booted an Ubuntu Live image to try the wl driver, just to verify that 
-it performs better and the hardware is still fine. First on the Ubuntu Live 
-image the speed with the brcmsmac driver were the same as in my test above. I 
-the installed the wl driver, unloaded the brcmsmac module and loaded the wl 
-module. That however did not work as something in the kernel crashed and 
-wireless didn't work at all. I rebootet the system to test again in case this 
-was a random failure. What was interesting after this reboot was that the 
-wireless connection was fast with the brcmsmac driver. I got about 35 Mbit/s 
-up and down speed. I then tried the wl driver again but it still crashed.
+If the reset has not failed, why are we indicating that it has?  We
+originally supplied the VF with a NULL MAC, so we should supply it
+again.  That way, the VF can choose to either regenerate a new random
+MAC or keep using the one that it had.
 
-After this I rebooted into my normal Debian system and the brcmsmac driver was 
-still fast. So what was different now than before. I realized that I always did 
-a reboot, so the Laptop was never really off between the boots. I then shut 
-down the laptop and waited a few seconds before turning it on again. And after 
-that the driver was back to the slow speed.
+The current method was a fix that was requested by the community in the
+first place, also we cannot take into account "proprietary guest OS's".
 
-I did not verify this a second time, but for now it very much looks like the 
-wl driver is settings something in the card that is necessary for getting 
-faster speeds. This seems to be preserved on reboot but not on poweroff.
+>=20
+> diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethe=
+rnet/intel/igb/igb_main.c
+> index cb14bbd..e8c53b6 100644
+> --- a/drivers/net/ethernet/intel/igb/igb_main.c
+> +++ b/drivers/net/ethernet/intel/igb/igb_main.c
+> @@ -6024,8 +6024,12 @@ static void igb_vf_reset_msg(struct igb_adapter *a=
+dapter, u32 vf)
+>  	adapter->vf_data[vf].flags |=3D IGB_VF_FLAG_CTS;
+> =20
+>  	/* reply to reset with ack and vf mac address */
+> -	msgbuf[0] =3D E1000_VF_RESET | E1000_VT_MSGTYPE_ACK;
+> -	memcpy(addr, vf_mac, ETH_ALEN);
+> +	if (!is_zero_ether_addr(vf_mac)) {
+> +		msgbuf[0] =3D E1000_VF_RESET | E1000_VT_MSGTYPE_ACK;
+> +		memcpy(addr, vf_mac, ETH_ALEN);
+> +	} else {
+> +		msgbuf[0] =3D E1000_VF_RESET | E1000_VT_MSGTYPE_NACK;
+> +	}
+>  	igb_write_mbx(hw, msgbuf, 3, vf);
+>  }
+> =20
 
-I hope this my help you finding the problem in the brcmsmac driver. Feel free 
-to ask if you need any addition debug information from me.
 
-And for the record, my atheros usb card is still much faster, it reaches 
-130 Mbit/s.
 
-Greetings,
-Maxi
-
---nextPart5197269.Gpuo0GhADS
+--=-/abLlJXioHUfEfGJ+cPw
 Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part.
-Content-Transfer-Encoding: 7Bit
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v2
 
-iQIcBAABCgAGBQJUNbhaAAoJEIHqZH0kK9IVK4YQAIX0p/7UOQtXVVlOhIKvvcM9
-xTR4YDJ3gHyiKKSx/kZOCgmuyjbTkZ7A1s2re3DYzaNnY3TM1Y7rNOV8v5ao/dsA
-j4/zAub0bv3E7r3hNi85J30BHv365yMTtrZDqwuQxPx2vtZ8aAZVTQHGEmuTjAWJ
-o8PF2eevySWsnvfciyWlJMwESTi1HdHhOuAZWvxiv+fTbgQNCZdK90CeGvHnTKz1
-1oDY8Yae0U5XzwmvuRpxCjS5IHWuAzrUrGjKY2ri3fodjSGcLryOe7d+qWMidJAS
-iaT51AIm0yzKFTye1UZ9cWK/3B7cIWETct4f+LyjnzfL9t4OKgt9MtKDyuGThy10
-4jDAcWbJI6HXRJbskDixK2AOqRGVs9wqwXEP/+5q/lSA/fH1pBYjn53ojNib3BEz
-7lBpquUY9VkDfzGgyc+BhCWtpUmlXGaYK50+SMKhLaoxoaJGnmE4TDIbRaaCmzLa
-S4/6LOGu/FeH8Fpx0vAn04oYxbo1oLvzutdzbOOLiOKDahtWzn9b7hILCTT7126H
-fPJqLxycJPcwQFWdTos/iw8L8K51JIrL/fBRgtVLduyhuWbzcu7F70tmeszKWGCk
-wyRZD9tzT0nCSaLRRY/c2l/VfCbOsSc4jpKkddeR4YROnYW88in9uB9DNHqmGcXg
-cFaWCpiB3t0OGzVS7j+M
-=bSVn
+iQIcBAABCgAGBQJUNbq7AAoJEOVv75VaS+3OgzAP/2EynCUTqEHCqk/piUUyj1ZY
+g6V2qTsid0qqHS/Rra7WFedKF0GlOam+ztJjw9VFYpTtRUiYpGiVdN4ONpS4b52M
+mUfU1oLECCXYUsflZlKNJi+YYZ3dQPHvxqtNjLsFE+se6K+XuzbtPQ3q0gGsEDIS
+xtvzFETd8jLuwr7Yh1hWC4E0dc8WoPP/PKaf7w3S7purUN8qsgQ3WqGEJSQVWMC6
+yRtIYJnSNG5rCbCgq6NOPEkbUQPkjcmGtsWRcRbrvMWyLgqTHqeHoh72p1IYXohL
+Wt/Nkiq7GUnnKDRNkRcfIwkXln9xQqVYHA94T4vgm2hBhrSjygPV68pdmRcwviMk
+X+z/nmoWaIBzhvwaqrtD7GRd004qoaf2dlyrhM2BIPaLVN+NWPffrZ+2tF8NfRBF
+5qemRqU9AtMlL/q80LdvlWNVuM6P03D4D+U4rUMi6bBpabkbkvL8KNI1/G6Mfs6l
+Xvn6DVZo+0WoDSI97mTvLM0bLZv6u3B+GpiZk1ikH4bUUaEcdKI88I7gijVq+6G+
+F1q/aPALyPO0PemJAXCaXpwl8g7VT+YQ3iXk6FJ0khBXV+VQ+HoM3Bi6oSkR4dB3
+oJuPjFZJYCQUsmkj/DCcSAdrgMydfWo2rjnEsauj1XhHRq+9gPqhNRbTWkb5lH0Q
+efzFe3v7r3JcEDzWhNe5
+=bB80
 -----END PGP SIGNATURE-----
 
---nextPart5197269.Gpuo0GhADS--
+--=-/abLlJXioHUfEfGJ+cPw--
