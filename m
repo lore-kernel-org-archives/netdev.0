@@ -1,44 +1,45 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [patch 1/2 -next] cxgb4: clean up a type issue
-Date: Wed, 8 Oct 2014 13:18:19 +0300
-Message-ID: <20141008101819.GB26918@mwanda>
-References: <20141002112219.GA25606@mwanda>
- <20141003.154629.555967384624529643.davem@davemloft.net>
+From: Ceriel Jacobs <linux-ide@crashplan.pro>
+Subject: Re: r8168 is needed to enter P-state: Package State6(pc6)onHaswellhardware
+Date: Wed, 08 Oct 2014 13:40:33 +0200
+Message-ID: <543522B1.30303@crashplan.pro>
+References: <542B3829.3010108@crashplan.pro> <20141005165920.GA21926@electric-eye.fr.zoreil.com> <0835B3720019904CB8F7AA43166CEEB2526932@RTITMBSV03.realtek.com.tw> <20141006221307.GB10936@electric-eye.fr.zoreil.com> <0835B3720019904CB8F7AA43166CEEB2526B88@RTITMBSV03.realtek.com.tw> <20141007201713.GB4398@zoreil.com> <0835B3720019904CB8F7AA43166CEEB2526D20@RTITMBSV03.realtek.com.tw>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: hariprasad@chelsio.com, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: nic_swsd <nic_swsd@realtek.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Hayes Wang <hayeswang@realtek.com>,
+	Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:37008 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754601AbaJHKSc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2014 06:18:32 -0400
-Content-Disposition: inline
-In-Reply-To: <20141003.154629.555967384624529643.davem@davemloft.net>
+Received: from relay3-d.mail.gandi.net ([217.70.183.195]:43642 "EHLO
+	relay3-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933156AbaJHLkj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2014 07:40:39 -0400
+In-Reply-To: <0835B3720019904CB8F7AA43166CEEB2526D20@RTITMBSV03.realtek.com.tw>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 03, 2014 at 03:46:29PM -0700, David Miller wrote:
-> From: Dan Carpenter <dan.carpenter@oracle.com>
-> Date: Thu, 2 Oct 2014 14:22:19 +0300
-> 
-> > The tx_desc struct hold 8 __be64 values.  The original code took a
-> > tx_desc pointer then casted it to an int pointer and then casted it to a
-> > u64 pointer.  It was confusing and triggered some static checker
-> > warnings.
-> > 
-> > I have changed the cxgb_pio_copy() to only take tx_desc pointers.  This
-> > isn't really a loss of flexibility because anything else was buggy to
-> > begin with.
-> > 
-> > Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> 
-> Please address the feedback you've received, resubmit this series, and actually
-> number this second change "2/2" instead of "1/2" :-)
-> 
 
-Yes.  Sorry for the delay.  I'll send that this afternoon.
+Hayes Wang schreef op 08-10-14 om 04:35:
+>   Francois Romieu [mailto:romieu@fr.zoreil.com]
+>> Sent: Wednesday, October 08, 2014 4:17 AM
+> [...]
+>>> When enabling the ASPM, it would influence the thrpughput.
+>>> It is hard to
+>>> choose performance or power saving. Therefore, we reserve the config
+>>> to let the user determines it.
+>>
+>> Mmmm...
+>>
+>> How do Realtek's devices behave if Config{2, 3} + MISC registers are
+>> configured for ASPM whereas PCI config space registers aren't ?
+>
+> The feature of the ASPM for the nic would be disabled.
+> ASPM is enabled when both the internal settings and
+> the PCI config space registers are enabled.
 
-regards,
-dan carpenter
+Have in mind a situation where the PCI config space registers are set 
+manually (after user login).
+
+At which point in time will be determined whether ASPM for the nic will 
+be disabled or enabled? Once, when loading the kernel module? Or more often?
