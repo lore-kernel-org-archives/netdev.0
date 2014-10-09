@@ -1,41 +1,365 @@
-From: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
-Subject: [PATCH v3 1/6] MAINTAINERS: Update APM X-Gene section
-Date: Wed,  8 Oct 2014 20:54:16 -0700
-Message-ID: <1412826861-32208-2-git-send-email-isubramanian@apm.com>
+From: Iyappan Subramanian <isubramanian@apm.com>
+Subject: [PATCH v3 4/6] drivers: net: xgene: Preparing for adding 10GbE support
+Date: Wed,  8 Oct 2014 20:54:19 -0700
+Message-ID: <1412826861-32208-5-git-send-email-isubramanian@apm.com>
 References: <1412826861-32208-1-git-send-email-isubramanian@apm.com>
-Cc: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, patches-qTEPVZfXA3Y@public.gmane.org,
-	kchudgar-qTEPVZfXA3Y@public.gmane.org, Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1412826861-32208-1-git-send-email-isubramanian-qTEPVZfXA3Y@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-arm-kernel@lists.infradead.org, patches@apm.com,
+	kchudgar@apm.com, Iyappan Subramanian <isubramanian@apm.com>
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exprod5og122.obsmtp.com ([64.18.0.192]:56406 "HELO
+	exprod5og122.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1754233AbaJIDyS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2014 23:54:18 -0400
+Received: by mail-ig0-f172.google.com with SMTP id r2so10421466igi.17
+        for <netdev@vger.kernel.org>; Wed, 08 Oct 2014 20:54:17 -0700 (PDT)
+In-Reply-To: <1412826861-32208-1-git-send-email-isubramanian@apm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Updated APM X-Gene ethernet driver maintainers list.
+- Rearranged code to pave the way for adding 10GbE support
+- Added mac_ops structure containing function pointers for mac specific functions
+- Added port_ops structure containing function pointers for port specific functions
 
-Signed-off-by: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
-Signed-off-by: Keyur Chudgar <kchudgar-qTEPVZfXA3Y@public.gmane.org>
+Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
+Signed-off-by: Keyur Chudgar <kchudgar@apm.com>
 ---
- MAINTAINERS | 1 -
- 1 file changed, 1 deletion(-)
+ drivers/net/ethernet/apm/xgene/xgene_enet_hw.c   | 44 ++++++++++++++++--------
+ drivers/net/ethernet/apm/xgene/xgene_enet_hw.h   | 16 ++-------
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.c | 40 +++++++++++++--------
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.h | 19 ++++++++++
+ 4 files changed, 78 insertions(+), 41 deletions(-)
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 907de3d..5da45de 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -723,7 +723,6 @@ F:	net/appletalk/
- APPLIED MICRO (APM) X-GENE SOC ETHERNET DRIVER
- M:	Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
- M:	Keyur Chudgar <kchudgar-qTEPVZfXA3Y@public.gmane.org>
--M:	Ravi Patel <rapatel-qTEPVZfXA3Y@public.gmane.org>
- S:	Supported
- F:	drivers/net/ethernet/apm/xgene/
- F:	Documentation/devicetree/bindings/net/apm-xgene-enet.txt
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
+index 812d8d6..c8f3824 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
+@@ -402,7 +402,7 @@ static int xgene_mii_phy_read(struct xgene_enet_pdata *pdata,
+ 	return data;
+ }
+ 
+-void xgene_gmac_set_mac_addr(struct xgene_enet_pdata *pdata)
++static void xgene_gmac_set_mac_addr(struct xgene_enet_pdata *pdata)
+ {
+ 	u32 addr0, addr1;
+ 	u8 *dev_addr = pdata->ndev->dev_addr;
+@@ -436,13 +436,13 @@ static int xgene_enet_ecc_init(struct xgene_enet_pdata *pdata)
+ 	return 0;
+ }
+ 
+-void xgene_gmac_reset(struct xgene_enet_pdata *pdata)
++static void xgene_gmac_reset(struct xgene_enet_pdata *pdata)
+ {
+ 	xgene_enet_wr_mcx_mac(pdata, MAC_CONFIG_1_ADDR, SOFT_RESET1);
+ 	xgene_enet_wr_mcx_mac(pdata, MAC_CONFIG_1_ADDR, 0);
+ }
+ 
+-void xgene_gmac_init(struct xgene_enet_pdata *pdata, int speed)
++static void xgene_gmac_init(struct xgene_enet_pdata *pdata)
+ {
+ 	u32 value, mc2;
+ 	u32 intf_ctl, rgmii;
+@@ -456,7 +456,7 @@ void xgene_gmac_init(struct xgene_enet_pdata *pdata, int speed)
+ 	xgene_enet_rd_mcx_mac(pdata, INTERFACE_CONTROL_ADDR, &intf_ctl);
+ 	xgene_enet_rd_csr(pdata, RGMII_REG_0_ADDR, &rgmii);
+ 
+-	switch (speed) {
++	switch (pdata->phy_speed) {
+ 	case SPEED_10:
+ 		ENET_INTERFACE_MODE2_SET(&mc2, 1);
+ 		CFG_MACMODE_SET(&icm0, 0);
+@@ -525,8 +525,8 @@ static void xgene_enet_config_ring_if_assoc(struct xgene_enet_pdata *pdata)
+ 	xgene_enet_wr_ring_if(pdata, ENET_CFGSSQMIQMLITEFPQASSOC_ADDR, val);
+ }
+ 
+-void xgene_enet_cle_bypass(struct xgene_enet_pdata *pdata,
+-			   u32 dst_ring_num, u16 bufpool_id)
++static void xgene_enet_cle_bypass(struct xgene_enet_pdata *pdata,
++				  u32 dst_ring_num, u16 bufpool_id)
+ {
+ 	u32 cb;
+ 	u32 fpsel;
+@@ -544,7 +544,7 @@ void xgene_enet_cle_bypass(struct xgene_enet_pdata *pdata,
+ 	xgene_enet_wr_csr(pdata, CLE_BYPASS_REG1_0_ADDR, cb);
+ }
+ 
+-void xgene_gmac_rx_enable(struct xgene_enet_pdata *pdata)
++static void xgene_gmac_rx_enable(struct xgene_enet_pdata *pdata)
+ {
+ 	u32 data;
+ 
+@@ -552,7 +552,7 @@ void xgene_gmac_rx_enable(struct xgene_enet_pdata *pdata)
+ 	xgene_enet_wr_mcx_mac(pdata, MAC_CONFIG_1_ADDR, data | RX_EN);
+ }
+ 
+-void xgene_gmac_tx_enable(struct xgene_enet_pdata *pdata)
++static void xgene_gmac_tx_enable(struct xgene_enet_pdata *pdata)
+ {
+ 	u32 data;
+ 
+@@ -560,7 +560,7 @@ void xgene_gmac_tx_enable(struct xgene_enet_pdata *pdata)
+ 	xgene_enet_wr_mcx_mac(pdata, MAC_CONFIG_1_ADDR, data | TX_EN);
+ }
+ 
+-void xgene_gmac_rx_disable(struct xgene_enet_pdata *pdata)
++static void xgene_gmac_rx_disable(struct xgene_enet_pdata *pdata)
+ {
+ 	u32 data;
+ 
+@@ -568,7 +568,7 @@ void xgene_gmac_rx_disable(struct xgene_enet_pdata *pdata)
+ 	xgene_enet_wr_mcx_mac(pdata, MAC_CONFIG_1_ADDR, data & ~RX_EN);
+ }
+ 
+-void xgene_gmac_tx_disable(struct xgene_enet_pdata *pdata)
++static void xgene_gmac_tx_disable(struct xgene_enet_pdata *pdata)
+ {
+ 	u32 data;
+ 
+@@ -576,7 +576,7 @@ void xgene_gmac_tx_disable(struct xgene_enet_pdata *pdata)
+ 	xgene_enet_wr_mcx_mac(pdata, MAC_CONFIG_1_ADDR, data & ~TX_EN);
+ }
+ 
+-void xgene_enet_reset(struct xgene_enet_pdata *pdata)
++static void xgene_enet_reset(struct xgene_enet_pdata *pdata)
+ {
+ 	u32 val;
+ 
+@@ -593,7 +593,7 @@ void xgene_enet_reset(struct xgene_enet_pdata *pdata)
+ 	xgene_enet_wr_mcx_mac(pdata, MII_MGMT_CONFIG_ADDR, val);
+ }
+ 
+-void xgene_gport_shutdown(struct xgene_enet_pdata *pdata)
++static void xgene_gport_shutdown(struct xgene_enet_pdata *pdata)
+ {
+ 	clk_disable_unprepare(pdata->clk);
+ }
+@@ -627,10 +627,10 @@ static void xgene_enet_adjust_link(struct net_device *ndev)
+ 
+ 	if (phydev->link) {
+ 		if (pdata->phy_speed != phydev->speed) {
+-			xgene_gmac_init(pdata, phydev->speed);
++			pdata->phy_speed = phydev->speed;
++			xgene_gmac_init(pdata);
+ 			xgene_gmac_rx_enable(pdata);
+ 			xgene_gmac_tx_enable(pdata);
+-			pdata->phy_speed = phydev->speed;
+ 			phy_print_status(phydev);
+ 		}
+ 	} else {
+@@ -726,3 +726,19 @@ void xgene_enet_mdio_remove(struct xgene_enet_pdata *pdata)
+ 	mdiobus_free(pdata->mdio_bus);
+ 	pdata->mdio_bus = NULL;
+ }
++
++struct xgene_mac_ops xgene_gmac_ops = {
++	.init = xgene_gmac_init,
++	.reset = xgene_gmac_reset,
++	.rx_enable = xgene_gmac_rx_enable,
++	.tx_enable = xgene_gmac_tx_enable,
++	.rx_disable = xgene_gmac_rx_disable,
++	.tx_disable = xgene_gmac_tx_disable,
++	.set_mac_addr = xgene_gmac_set_mac_addr,
++};
++
++struct xgene_port_ops xgene_gport_ops = {
++	.reset = xgene_enet_reset,
++	.cle_bypass = xgene_enet_cle_bypass,
++	.shutdown = xgene_gport_shutdown,
++};
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
+index 371e7a5..084ac68 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
+@@ -318,20 +318,10 @@ void xgene_enet_parse_error(struct xgene_enet_desc_ring *ring,
+ 			    struct xgene_enet_pdata *pdata,
+ 			    enum xgene_enet_err_code status);
+ 
+-void xgene_enet_reset(struct xgene_enet_pdata *priv);
+-void xgene_gmac_reset(struct xgene_enet_pdata *priv);
+-void xgene_gmac_init(struct xgene_enet_pdata *priv, int speed);
+-void xgene_gmac_tx_enable(struct xgene_enet_pdata *priv);
+-void xgene_gmac_rx_enable(struct xgene_enet_pdata *priv);
+-void xgene_gmac_tx_disable(struct xgene_enet_pdata *priv);
+-void xgene_gmac_rx_disable(struct xgene_enet_pdata *priv);
+-void xgene_gmac_set_mac_addr(struct xgene_enet_pdata *pdata);
+-void xgene_enet_cle_bypass(struct xgene_enet_pdata *pdata,
+-			   u32 dst_ring_num, u16 bufpool_id);
+-void xgene_gport_shutdown(struct xgene_enet_pdata *priv);
+-void xgene_gmac_get_tx_stats(struct xgene_enet_pdata *pdata);
+-
+ int xgene_enet_mdio_config(struct xgene_enet_pdata *pdata);
+ void xgene_enet_mdio_remove(struct xgene_enet_pdata *pdata);
+ 
++extern struct xgene_mac_ops xgene_gmac_ops;
++extern struct xgene_port_ops xgene_gport_ops;
++
+ #endif /* __XGENE_ENET_HW_H__ */
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+index e4222af..c432644 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+@@ -413,7 +413,7 @@ static void xgene_enet_timeout(struct net_device *ndev)
+ {
+ 	struct xgene_enet_pdata *pdata = netdev_priv(ndev);
+ 
+-	xgene_gmac_reset(pdata);
++	pdata->mac_ops->reset(pdata);
+ }
+ 
+ static int xgene_enet_register_irq(struct net_device *ndev)
+@@ -445,10 +445,11 @@ static void xgene_enet_free_irq(struct net_device *ndev)
+ static int xgene_enet_open(struct net_device *ndev)
+ {
+ 	struct xgene_enet_pdata *pdata = netdev_priv(ndev);
++	struct xgene_mac_ops *mac_ops = pdata->mac_ops;
+ 	int ret;
+ 
+-	xgene_gmac_tx_enable(pdata);
+-	xgene_gmac_rx_enable(pdata);
++	mac_ops->tx_enable(pdata);
++	mac_ops->rx_enable(pdata);
+ 
+ 	ret = xgene_enet_register_irq(ndev);
+ 	if (ret)
+@@ -466,6 +467,7 @@ static int xgene_enet_open(struct net_device *ndev)
+ static int xgene_enet_close(struct net_device *ndev)
+ {
+ 	struct xgene_enet_pdata *pdata = netdev_priv(ndev);
++	struct xgene_mac_ops *mac_ops = pdata->mac_ops;
+ 
+ 	netif_stop_queue(ndev);
+ 
+@@ -476,8 +478,8 @@ static int xgene_enet_close(struct net_device *ndev)
+ 	xgene_enet_free_irq(ndev);
+ 	xgene_enet_process_ring(pdata->rx_ring, -1);
+ 
+-	xgene_gmac_tx_disable(pdata);
+-	xgene_gmac_rx_disable(pdata);
++	mac_ops->tx_disable(pdata);
++	mac_ops->rx_disable(pdata);
+ 
+ 	return 0;
+ }
+@@ -724,7 +726,7 @@ static int xgene_enet_set_mac_address(struct net_device *ndev, void *addr)
+ 	ret = eth_mac_addr(ndev, addr);
+ 	if (ret)
+ 		return ret;
+-	xgene_gmac_set_mac_addr(pdata);
++	pdata->mac_ops->set_mac_addr(pdata);
+ 
+ 	return ret;
+ }
+@@ -834,8 +836,8 @@ static int xgene_enet_init_hw(struct xgene_enet_pdata *pdata)
+ 	u16 dst_ring_num;
+ 	int ret;
+ 
+-	xgene_gmac_tx_disable(pdata);
+-	xgene_gmac_rx_disable(pdata);
++	pdata->mac_ops->tx_disable(pdata);
++	pdata->mac_ops->rx_disable(pdata);
+ 
+ 	ret = xgene_enet_create_desc_rings(ndev);
+ 	if (ret) {
+@@ -853,11 +855,17 @@ static int xgene_enet_init_hw(struct xgene_enet_pdata *pdata)
+ 	}
+ 
+ 	dst_ring_num = xgene_enet_dst_ring_num(pdata->rx_ring);
+-	xgene_enet_cle_bypass(pdata, dst_ring_num, buf_pool->id);
++	pdata->port_ops->cle_bypass(pdata, dst_ring_num, buf_pool->id);
+ 
+ 	return ret;
+ }
+ 
++static void xgene_enet_setup_ops(struct xgene_enet_pdata *pdata)
++{
++	pdata->mac_ops = &xgene_gmac_ops;
++	pdata->port_ops = &xgene_gport_ops;
++}
++
+ static int xgene_enet_probe(struct platform_device *pdev)
+ {
+ 	struct net_device *ndev;
+@@ -886,8 +894,9 @@ static int xgene_enet_probe(struct platform_device *pdev)
+ 	if (ret)
+ 		goto err;
+ 
+-	xgene_enet_reset(pdata);
+-	xgene_gmac_init(pdata, SPEED_1000);
++	xgene_enet_setup_ops(pdata);
++	pdata->port_ops->reset(pdata);
++	pdata->mac_ops->init(pdata);
+ 
+ 	ret = register_netdev(ndev);
+ 	if (ret) {
+@@ -918,19 +927,21 @@ err:
+ static int xgene_enet_remove(struct platform_device *pdev)
+ {
+ 	struct xgene_enet_pdata *pdata;
++	struct xgene_mac_ops *mac_ops;
+ 	struct net_device *ndev;
+ 
+ 	pdata = platform_get_drvdata(pdev);
++	mac_ops = pdata->mac_ops;
+ 	ndev = pdata->ndev;
+ 
+-	xgene_gmac_rx_disable(pdata);
+-	xgene_gmac_tx_disable(pdata);
++	mac_ops->rx_disable(pdata);
++	mac_ops->tx_disable(pdata);
+ 
+ 	netif_napi_del(&pdata->rx_ring->napi);
+ 	xgene_enet_mdio_remove(pdata);
+ 	xgene_enet_delete_desc_rings(pdata);
+ 	unregister_netdev(ndev);
+-	xgene_gport_shutdown(pdata);
++	pdata->port_ops->shutdown(pdata);
+ 	free_netdev(ndev);
+ 
+ 	return 0;
+@@ -956,5 +967,6 @@ module_platform_driver(xgene_enet_driver);
+ 
+ MODULE_DESCRIPTION("APM X-Gene SoC Ethernet driver");
+ MODULE_VERSION(XGENE_DRV_VERSION);
++MODULE_AUTHOR("Iyappan Subramanian <isubramanian@apm.com>");
+ MODULE_AUTHOR("Keyur Chudgar <kchudgar@apm.com>");
+ MODULE_LICENSE("GPL");
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.h b/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
+index 0815866..ac180f9 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
+@@ -68,6 +68,23 @@ struct xgene_enet_desc_ring {
+ 	};
+ };
+ 
++struct xgene_mac_ops {
++	void (*init)(struct xgene_enet_pdata *pdata);
++	void (*reset)(struct xgene_enet_pdata *pdata);
++	void (*tx_enable)(struct xgene_enet_pdata *pdata);
++	void (*rx_enable)(struct xgene_enet_pdata *pdata);
++	void (*tx_disable)(struct xgene_enet_pdata *pdata);
++	void (*rx_disable)(struct xgene_enet_pdata *pdata);
++	void (*set_mac_addr)(struct xgene_enet_pdata *pdata);
++};
++
++struct xgene_port_ops {
++	void (*reset)(struct xgene_enet_pdata *pdata);
++	void (*cle_bypass)(struct xgene_enet_pdata *pdata,
++			   u32 dst_ring_num, u16 bufpool_id);
++	void (*shutdown)(struct xgene_enet_pdata *pdata);
++};
++
+ /* ethernet private data */
+ struct xgene_enet_pdata {
+ 	struct net_device *ndev;
+@@ -98,6 +115,8 @@ struct xgene_enet_pdata {
+ 	u32 speed;
+ 	u16 rm;
+ 	struct rtnl_link_stats64 stats;
++	struct xgene_mac_ops *mac_ops;
++	struct xgene_port_ops *port_ops;
+ };
+ 
+ /* Set the specified value into a bit-field defined by its starting position
 -- 
 1.9.1
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
