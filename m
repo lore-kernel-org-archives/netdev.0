@@ -1,33 +1,65 @@
-From: Fabio Estevam <festevam@gmail.com>
-Subject: Re: fec_main: context imbalance in 'fec_set_features'
-Date: Thu, 9 Oct 2014 08:20:20 -0300
-Message-ID: <CAOMZO5A_=o-J_ZhQPOaWcErc6ExUKk_-9MtSUY5MwGwm4Uc0-w@mail.gmail.com>
-References: <CAOMZO5CJKp7+d8EPRZdr-3Bd9UxVU8fxLybFZ4uLn+cUQjPH8w@mail.gmail.com>
-	<f5e97105d948410d8346ea6f0bc0d79e@BY2PR03MB377.namprd03.prod.outlook.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] igb: Indicate failure on vf reset for empty mac address
+Date: Thu, 09 Oct 2014 15:34:54 +0400
+Message-ID: <543672DE.80202@cogentembedded.com>
+References: <1412803407-10621-1-git-send-email-agraf@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "Frank.Li@freescale.com" <Frank.Li@freescale.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-sparse@vger.kernel.org" <linux-sparse@vger.kernel.org>
-To: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
-Return-path: <linux-sparse-owner@vger.kernel.org>
-In-Reply-To: <f5e97105d948410d8346ea6f0bc0d79e@BY2PR03MB377.namprd03.prod.outlook.com>
-Sender: linux-sparse-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Mitch Williams <mitch.a.williams@intel.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Stefan Assmann <sassmann@kpanic.de>,
+	Aaron Brown <aaron.f.brown@intel.com>,
+	Greg Rose <gregory.v.rose@intel.com>,
+	John Ronciak <john.ronciak@intel.com>
+To: Alexander Graf <agraf@suse.de>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f41.google.com ([209.85.215.41]:36697 "EHLO
+	mail-la0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755955AbaJILe6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Oct 2014 07:34:58 -0400
+Received: by mail-la0-f41.google.com with SMTP id pn19so978351lab.14
+        for <netdev@vger.kernel.org>; Thu, 09 Oct 2014 04:34:56 -0700 (PDT)
+In-Reply-To: <1412803407-10621-1-git-send-email-agraf@suse.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Fugang,
+Hello.
 
-On Thu, Oct 9, 2014 at 6:55 AM, fugang.duan@freescale.com
-<fugang.duan@freescale.com> wrote:
+On 10/9/2014 1:23 AM, Alexander Graf wrote:
 
-> I run sparse and cannot get any warning.
+> Commit 5ac6f91d changed the igb driver to expose a zero (empty) mac
 
-Try it on linux-next with the following command:
+   Please also specify that commit's summary line in parens.
 
-make -j4 C=1  2>fect.txt drivers/net/ethernet/freescale/fec_main.o
+> address to the VF on reset rather than a random one.
 
-cat v6.txt
-drivers/net/ethernet/freescale/fec_main.c:2916:12: warning: context
-imbalance in 'fec_set_features' - different lock contexts for basic
-block
+> However, that behavioral change also requires igbvf driver changes
+> which can be hard especially when we want to talk to proprietary
+> guest OSs.
+
+> Looking at the code previous to the commit in Linux that made igbvf
+> work with empty mac addresses (8d56b6d), we can see that on reset
+
+    And that one's
+
+> failure the driver will try to generate a new mac address with both
+> the old and the new code.
+
+> Furthermore, ixgbe does send reset failure when it detects an empty
+> mac address (35055928c).
+
+    And that one's too.
+
+> So I think it's safe to make igb behave the same. With this patch I
+> can successfully run a Windows 8.1 guest with an empty mac address
+> and an assigned igbvf device that has no mac address set by the host.
+
+> If anyone is aware of a guest driver that chokes on NACK returns of
+> VF RESET commands, please speak up.
+
+> Signed-off-by: Alexander Graf <agraf@suse.de>
+
+WBR, Sergei
