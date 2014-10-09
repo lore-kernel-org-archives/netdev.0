@@ -1,118 +1,106 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next 2/3] cxgb4vf: Add 40G support for cxgb4vf driver
-Date: Thu,  9 Oct 2014 05:48:46 +0530
-Message-ID: <1412813927-24951-3-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCH net-next 3/3] cxgb4: Wait for device to get ready before reading any register
+Date: Thu,  9 Oct 2014 05:48:47 +0530
+Message-ID: <1412813927-24951-4-git-send-email-hariprasad@chelsio.com>
 References: <1412813927-24951-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, leedom@chelsio.com, kumaras@chelsio.com,
 	nirranjan@chelsio.com, santosh@chelsio.com,
 	Hariprasad Shenai <hariprasad@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:59660
+Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:59663
 	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755212AbaJIAOf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2014 20:14:35 -0400
+	by vger.kernel.org with ESMTP id S1755199AbaJIAOi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2014 20:14:38 -0400
 In-Reply-To: <1412813927-24951-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add 40G support for cxgb4vf driver. ethtool speed values are just numbers of
-megabits and there is no SPEED_40000 in ethtool speed values. To be consistent,
-use integer constants directly for all speeds.
-
-Use is_x_10g_port()("is 10Gb/s or higher") in cfg_queues() instead of
-is_10g_port() ("is exactly 10Gb/s"). Else we will end up using a single
-"Queue Set" on 40Gb/s adapters.
+Call t4_wait_dev_ready() before attempting to read the PL_WHOAMI register
+(to determine which function we have been attached to). This prevents us from
+failing on that read if it comes right after a RESET.
 
 Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 ---
- .../net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c    |   12 ++++++++----
- drivers/net/ethernet/chelsio/cxgb4vf/t4vf_common.h |    6 ++++++
- drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c     |   10 +++++++---
- 3 files changed, 21 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |    2 +-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |    6 +++++-
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      |   17 ++++++++++-------
+ 3 files changed, 16 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-index 8498a64..bfa398d 100644
---- a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-@@ -163,15 +163,19 @@ void t4vf_os_link_changed(struct adapter *adapter, int pidx, int link_ok)
- 		netif_carrier_on(dev);
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+index 9b2c669..410ed58 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+@@ -968,7 +968,7 @@ void t4_intr_enable(struct adapter *adapter);
+ void t4_intr_disable(struct adapter *adapter);
+ int t4_slow_intr_handler(struct adapter *adapter);
  
- 		switch (pi->link_cfg.speed) {
--		case SPEED_10000:
-+		case 40000:
-+			s = "40Gbps";
-+			break;
-+
-+		case 10000:
- 			s = "10Gbps";
- 			break;
+-int t4_wait_dev_ready(struct adapter *adap);
++int t4_wait_dev_ready(void __iomem *regs);
+ int t4_link_start(struct adapter *adap, unsigned int mbox, unsigned int port,
+ 		  struct link_config *lc);
+ int t4_restart_aneg(struct adapter *adap, unsigned int mbox, unsigned int port);
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 321f3d9..5b38e95 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -6137,7 +6137,7 @@ static pci_ers_result_t eeh_slot_reset(struct pci_dev *pdev)
+ 	pci_save_state(pdev);
+ 	pci_cleanup_aer_uncorrect_error_status(pdev);
  
--		case SPEED_1000:
-+		case 1000:
- 			s = "1000Mbps";
- 			break;
- 
--		case SPEED_100:
-+		case 100:
- 			s = "100Mbps";
- 			break;
- 
-@@ -2351,7 +2355,7 @@ static void cfg_queues(struct adapter *adapter)
- 		struct port_info *pi = adap2pinfo(adapter, pidx);
- 
- 		pi->first_qset = qidx;
--		pi->nqsets = is_10g_port(&pi->link_cfg) ? q10g : 1;
-+		pi->nqsets = is_x_10g_port(&pi->link_cfg) ? q10g : 1;
- 		qidx += pi->nqsets;
+-	if (t4_wait_dev_ready(adap) < 0)
++	if (t4_wait_dev_ready(adap->regs) < 0)
+ 		return PCI_ERS_RESULT_DISCONNECT;
+ 	if (t4_fw_hello(adap, adap->fn, adap->fn, MASTER_MUST, NULL) < 0)
+ 		return PCI_ERS_RESULT_DISCONNECT;
+@@ -6530,6 +6530,10 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		goto out_disable_device;
  	}
- 	s->ethqsets = qidx;
-diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_common.h b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_common.h
-index f412d0f..95df61d 100644
---- a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_common.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_common.h
-@@ -228,6 +228,12 @@ static inline bool is_10g_port(const struct link_config *lc)
- 	return (lc->supported & SUPPORTED_10000baseT_Full) != 0;
+ 
++	err = t4_wait_dev_ready(regs);
++	if (err < 0)
++		goto out_unmap_bar0;
++
+ 	/* We control everything through one PF */
+ 	func = SOURCEPF_GET(readl(regs + PL_WHOAMI));
+ 	if (func != ent->driver_data) {
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+index 22d7581..1fff149 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+@@ -3845,12 +3845,19 @@ static void init_link_config(struct link_config *lc, unsigned int caps)
+ 	}
  }
  
-+static inline bool is_x_10g_port(const struct link_config *lc)
-+{
-+	return (lc->supported & FW_PORT_CAP_SPEED_10G) != 0 ||
-+		(lc->supported & FW_PORT_CAP_SPEED_40G) != 0;
-+}
+-int t4_wait_dev_ready(struct adapter *adap)
++#define CIM_PF_NOACCESS 0xeeeeeeee
 +
- static inline unsigned int core_ticks_per_usec(const struct adapter *adapter)
++int t4_wait_dev_ready(void __iomem *regs)
  {
- 	return adapter->params.vpd.cclk / 1000;
-diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
-index 25dfeb8..e984fdc 100644
---- a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
-@@ -327,6 +327,8 @@ int t4vf_port_init(struct adapter *adapter, int pidx)
- 		v |= SUPPORTED_1000baseT_Full;
- 	if (word & FW_PORT_CAP_SPEED_10G)
- 		v |= SUPPORTED_10000baseT_Full;
-+	if (word & FW_PORT_CAP_SPEED_40G)
-+		v |= SUPPORTED_40000baseSR4_Full;
- 	if (word & FW_PORT_CAP_ANEG)
- 		v |= SUPPORTED_Autoneg;
- 	init_link_config(&pi->link_cfg, v);
-@@ -1352,11 +1354,13 @@ int t4vf_handle_fw_rpl(struct adapter *adapter, const __be64 *rpl)
- 		if (word & FW_PORT_CMD_TXPAUSE)
- 			fc |= PAUSE_TX;
- 		if (word & FW_PORT_CMD_LSPEED(FW_PORT_CAP_SPEED_100M))
--			speed = SPEED_100;
-+			speed = 100;
- 		else if (word & FW_PORT_CMD_LSPEED(FW_PORT_CAP_SPEED_1G))
--			speed = SPEED_1000;
-+			speed = 1000;
- 		else if (word & FW_PORT_CMD_LSPEED(FW_PORT_CAP_SPEED_10G))
--			speed = SPEED_10000;
-+			speed = 10000;
-+		else if (word & FW_PORT_CMD_LSPEED(FW_PORT_CAP_SPEED_40G))
-+			speed = 40000;
+-	if (t4_read_reg(adap, PL_WHOAMI) != 0xffffffff)
++	u32 whoami;
++
++	whoami = readl(regs + PL_WHOAMI);
++	if (whoami != 0xffffffff && whoami != CIM_PF_NOACCESS)
+ 		return 0;
++
+ 	msleep(500);
+-	return t4_read_reg(adap, PL_WHOAMI) != 0xffffffff ? 0 : -EIO;
++	whoami = readl(regs + PL_WHOAMI);
++	return (whoami != 0xffffffff && whoami != CIM_PF_NOACCESS ? 0 : -EIO);
+ }
  
- 		/*
- 		 * Scan all of our "ports" (Virtual Interfaces) looking for
+ struct flash_desc {
+@@ -3919,10 +3926,6 @@ int t4_prep_adapter(struct adapter *adapter)
+ 	uint16_t device_id;
+ 	u32 pl_rev;
+ 
+-	ret = t4_wait_dev_ready(adapter);
+-	if (ret < 0)
+-		return ret;
+-
+ 	get_pci_mode(adapter, &adapter->params.pci);
+ 	pl_rev = G_REV(t4_read_reg(adapter, PL_REV));
+ 
 -- 
 1.7.1
