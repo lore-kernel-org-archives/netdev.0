@@ -1,85 +1,57 @@
-From: "luwei.zhou@freescale.com" <luwei.zhou@freescale.com>
-Subject: RE: [PATCH v1 4/4] ARM: Documentation: Update fec dts binding doc
-Date: Thu, 9 Oct 2014 02:19:07 +0000
-Message-ID: <482a8065ead14cb5afab87c7934d8031@BY2PR03MB441.namprd03.prod.outlook.com>
-References: <1411632621-17429-1-git-send-email-b45643@freescale.com>
- <1411632621-17429-5-git-send-email-b45643@freescale.com>
- <20140925144350.GC21453@netboy> <20141001035900.GA4544@netboy>
- <39bcecf4ec1a4862bc7316dc845a535c@BY2PR03MB441.namprd03.prod.outlook.com>
- <20141008080603.GA4648@netboy>
- <d9c981e97dae416488b45b06f7384471@BY2PR03MB441.namprd03.prod.outlook.com>
- <20141008101309.GA15020@netboy>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"shawn.guo@linaro.org" <shawn.guo@linaro.org>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"Fabio.Estevam@freescale.com" <Fabio.Estevam@freescale.com>,
-	"fugang.duan@freescale.com" <fugang.duan@freescale.com>,
-	"Frank.Li@freescale.com" <Frank.Li@freescale.com>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>
-To: Richard Cochran <richardcochran@gmail.com>
+From: Iyappan Subramanian <isubramanian@apm.com>
+Subject: [PATCH v3 0/6] Add 10GbE support to APM X-Gene SoC ethernet driver
+Date: Wed,  8 Oct 2014 20:54:15 -0700
+Message-ID: <1412826861-32208-1-git-send-email-isubramanian@apm.com>
+Cc: linux-arm-kernel@lists.infradead.org, patches@apm.com,
+	kchudgar@apm.com, Iyappan Subramanian <isubramanian@apm.com>
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0147.outbound.protection.outlook.com ([207.46.100.147]:34875
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751261AbaJICTL convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2014 22:19:11 -0400
-In-Reply-To: <20141008101309.GA15020@netboy>
-Content-Language: en-US
+Received: from exprod5og126.obsmtp.com ([64.18.0.251]:58817 "HELO
+	exprod5og126.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1752469AbaJIDyL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2014 23:54:11 -0400
+Received: by mail-ig0-f173.google.com with SMTP id h18so10422616igc.6
+        for <netdev@vger.kernel.org>; Wed, 08 Oct 2014 20:54:10 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 8, 2014 at 06:13:00PM, Richard Cochran wrote:
-> -----Original Message-----
-> From: Richard Cochran [mailto:richardcochran@gmail.com]
-> Sent: Wednesday, October 08, 2014 6:13 PM
-> To: Zhou Luwei-B45643
-> Cc: davem@davemloft.net; netdev@vger.kernel.org; shawn.guo@linaro.org;
-> bhutchings@solarflare.com; Estevam Fabio-R49496; Duan Fugang-B38611; Li
-> Frank-B20596; stephen@networkplumber.org
-> Subject: Re: [PATCH v1 4/4] ARM: Documentation: Update fec dts binding
-> doc
-> 
-> On Wed, Oct 08, 2014 at 08:36:11AM +0000, luwei.zhou@freescale.com wrote:
-> >
-> > I am not expert in DT.
-> 
-> (Me neither ;)
-> 
-> > I didn't get your point of using timer resource in the DT.  Yes, the
-> > timer resource is Part of FEC IP hardware. But if you want to choose
-> > one channel for using PPS, you have to add another property to specify.
-> Do you mean the current code already have the DT property to specify the
-> channel?
-> 
-> I see some timer bindings in Documentation/devicetree/bindings/timer.
-> So, you could and should add your SoC timer there and in the DTS files.
-> 
-> Then, you have something like
-> 
-> 	@fec {
-> 		pps_timer = &timer;
-> 	}
-> 
-> in your SoC's DTS file.
-> 
-> Thanks,
-> Richard
+Adding 10GbE support to APM X-Gene SoC ethernet driver.
 
-I know what you meant now. If using similar way, it seems that we still need the new property in the timer node below.
+v3: Address comments from v2
+* dtb: changed to use all-zeros for the mac address
 
-@timer
-{
-	pps_channel = 0;
-}
-I didn't find out the exiting channel related property in the Documentation.
+v2: Address comments from v1
+* created preparatory patch to review before adding new functionality
+* dtb: updated to use tabs consistently
 
-Since there are 4 channels in the PTP timer IP and none of 4 channels
-Is now used by now. We can use hardcode to define the default PPS output channel not DT such as 
-"#define PPS_COUTPUT_CHANNEL FEC_TIMER_CHANNEL0". 
+v1:
+* Initial version
+---
 
-Thanks
-Luwei
+Iyappan Subramanian (6):
+  MAINTAINERS: Update APM X-Gene section
+  Documentation: dts: Update section header for APM X-Gene
+  dtb: Add 10GbE node to APM X-Gene SoC device tree
+  drivers: net: xgene: Preparing for adding 10GbE support
+  drivers: net: xgene: Add 10GbE support
+  drivers: net: xgene: Add 10GbE ethtool support
+
+ .../devicetree/bindings/net/apm-xgene-enet.txt     |   4 +-
+ MAINTAINERS                                        |   1 -
+ arch/arm64/boot/dts/apm-mustang.dts                |   4 +
+ arch/arm64/boot/dts/apm-storm.dtsi                 |  28 +-
+ drivers/net/ethernet/apm/xgene/Makefile            |   3 +-
+ .../net/ethernet/apm/xgene/xgene_enet_ethtool.c    |  28 +-
+ drivers/net/ethernet/apm/xgene/xgene_enet_hw.c     |  44 ++-
+ drivers/net/ethernet/apm/xgene/xgene_enet_hw.h     |  30 +-
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.c   |  86 ++++--
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.h   |  24 +-
+ drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c  | 331 +++++++++++++++++++++
+ drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.h  |  57 ++++
+ 12 files changed, 566 insertions(+), 74 deletions(-)
+ create mode 100644 drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c
+ create mode 100644 drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.h
+
+-- 
+1.9.1
