@@ -1,7 +1,7 @@
 From: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH net-next v2 2/3] r8152: adjust usb_autopm_xxx
-Date: Thu, 9 Oct 2014 18:00:25 +0800
-Message-ID: <1394712342-15778-62-Taiwan-albertk@realtek.com>
+Subject: [PATCH net-next v2 1/3] r8152: autoresume before setting feature
+Date: Thu, 9 Oct 2014 18:00:24 +0800
+Message-ID: <1394712342-15778-61-Taiwan-albertk@realtek.com>
 References: <1394712342-15778-58-Taiwan-albertk@realtek.com>
  <1394712342-15778-60-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
@@ -14,70 +14,41 @@ In-Reply-To: <1394712342-15778-60-Taiwan-albertk-Rasf1IRRPZFBDgjK7y7TUQ@public.g
 Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Add usb_autopm_xxx for rtl8152_get_settings() ,and remove
-usb_autopm_xxx from read_mii_word() and write_mii_word().
+Resume the device before setting the feature.
 
 Signed-off-by: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
 ---
- drivers/net/usb/r8152.c | 24 +++++++++++-------------
- 1 file changed, 11 insertions(+), 13 deletions(-)
+ drivers/net/usb/r8152.c | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index c5afe8c..1d2fc8e 100644
+index 5cfd414..c5afe8c 100644
 --- a/drivers/net/usb/r8152.c
 +++ b/drivers/net/usb/r8152.c
-@@ -942,15 +942,8 @@ static int read_mii_word(struct net_device *netdev, int phy_id, int reg)
- 	if (phy_id != R8152_PHY_ID)
- 		return -EINVAL;
- 
--	ret = usb_autopm_get_interface(tp->intf);
--	if (ret < 0)
--		goto out;
--
- 	ret = r8152_mdio_read(tp, reg);
- 
--	usb_autopm_put_interface(tp->intf);
--
--out:
- 	return ret;
- }
- 
-@@ -965,12 +958,7 @@ void write_mii_word(struct net_device *netdev, int phy_id, int reg, int val)
- 	if (phy_id != R8152_PHY_ID)
- 		return;
- 
--	if (usb_autopm_get_interface(tp->intf) < 0)
--		return;
--
- 	r8152_mdio_write(tp, reg, val);
--
--	usb_autopm_put_interface(tp->intf);
- }
- 
- static int
-@@ -3290,11 +3278,21 @@ static
- int rtl8152_get_settings(struct net_device *netdev, struct ethtool_cmd *cmd)
+@@ -2145,6 +2145,11 @@ static int rtl8152_set_features(struct net_device *dev,
  {
- 	struct r8152 *tp = netdev_priv(netdev);
+ 	netdev_features_t changed = features ^ dev->features;
+ 	struct r8152 *tp = netdev_priv(dev);
 +	int ret;
- 
- 	if (!tp->mii.mdio_read)
- 		return -EOPNOTSUPP;
- 
--	return mii_ethtool_gset(&tp->mii, cmd);
++
 +	ret = usb_autopm_get_interface(tp->intf);
 +	if (ret < 0)
 +		goto out;
-+
-+	ret = mii_ethtool_gset(&tp->mii, cmd);
-+
+ 
+ 	if (changed & NETIF_F_HW_VLAN_CTAG_RX) {
+ 		if (features & NETIF_F_HW_VLAN_CTAG_RX)
+@@ -2153,7 +2158,10 @@ static int rtl8152_set_features(struct net_device *dev,
+ 			rtl_rx_vlan_en(tp, false);
+ 	}
+ 
+-	return 0;
 +	usb_autopm_put_interface(tp->intf);
 +
 +out:
 +	return ret;
  }
  
- static int rtl8152_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ #define WAKE_ANY (WAKE_PHY | WAKE_MAGIC | WAKE_UCAST | WAKE_BCAST | WAKE_MCAST)
 -- 
 1.9.3
 
