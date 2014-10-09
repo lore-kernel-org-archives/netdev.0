@@ -1,59 +1,113 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH RFT 0/8] Marvell PXA168 libphy handling and Berlin Ethernet
-Date: Thu, 09 Oct 2014 09:57:35 -0700
-Message-ID: <5436BE7F.7000603@gmail.com>
-References: <1412858346-11334-1-git-send-email-sebastian.hesselbarth@gmail.com> <20141009163315.2a9e1806@free-electrons.com> <54369EAC.5040301@gmail.com> <20141009164704.7286fc3f@free-electrons.com> <5436A8B2.1030200@gmail.com>
+Subject: Re: [PATCH] net/phy: micrel: Add clock support for KSZ8021/KSZ8031
+Date: Thu, 09 Oct 2014 10:01:15 -0700
+Message-ID: <5436BF5B.5060006@gmail.com>
+References: <1412857956-6207-1-git-send-email-s.hauer@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: devicetree@vger.kernel.org, Eric Miao <eric.y.miao@gmail.com>,
-	netdev@vger.kernel.org,
-	=?UTF-8?B?QW50b2luZSBUw6luYXJ0?=
-	<antoine.tenart@free-electrons.com>, linux-kernel@vger.kernel.org,
-	Haojian Zhuang <haojian.zhuang@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-arm-kernel@lists.infradead.org
-To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f179.google.com ([209.85.192.179]:48467 "EHLO
-	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750855AbaJIQ5p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Oct 2014 12:57:45 -0400
-In-Reply-To: <5436A8B2.1030200@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@pengutronix.de
+To: Sascha Hauer <s.hauer@pengutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1412857956-6207-1-git-send-email-s.hauer@pengutronix.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/09/2014 08:24 AM, Sebastian Hesselbarth wrote:
-> On 10/09/2014 04:47 PM, Thomas Petazzoni wrote:
->> Well, I initially remember that the original driver coming from Marvell
->> was using the HW PHY stuff, and that I changed that because it would
->> not integrate well with the kernel libphy.
->>
->> A drawback of this is that because the hardware has built-in PHY
->> polling which triggers a MAC interrupt when the PHY status changes, they
->> typically don't wire up the PHY interrupt. Therefore, since we're not
->> able to use the MAC interrupt for PHY event notifications, we rely on
->> software PHY polling, which means that link up / link down events take
->> a few seconds to be noticed by the kernel. Unfortunately, I don't think
->> the hardware allows to use the hardware PHY polling to get link changes
->> interrupt, but not let the hardware configure the PHY itself.
-> 
-> Yeah, but that HW PHY stuff really only works properly with standard
-> compliant PHYs. In particular, the integrated Marvell PHY in Marvell
-> Berlin SoCs does not seem to reflect PHY status on BMCR properly /sigh/.
-> Anyway, I think we can live with PHY polling.
-> 
-> BTW, one thing I noticed here is that libphy calls adjust_link
-> over-and-over again although nothing has changed. I guess we can just
-> add some before/after comparison in the libphy state machine and only
-> call adjust_link when something has changed. I'll have to look closer
-> at the state machine first and maybe Florian can comment on this,
-> too.
+On 10/09/2014 05:32 AM, Sascha Hauer wrote:
+> The KSZ8021 and KSZ8031 support RMII reference input clocks of 25MHz
+> and 50MHz. Both PHYs differ in the default frequency they expect
+> after reset. If this differs from the actual input clock, then
+> register 0x1f bit 7 must be changed.
 
-There's basically nothing built in the generic libphy that would try to
-limit the number of times the adjust_link() callback is invoked, some
-changes went in the bcmgenet driver to avoid that, I have yet to see how
-much of this logic is transferable to the libphy layer.
---
-Florian
+Looks reasonable to me, some minor comments below:
+
+> 
+> Signed-off-by: Sascha Hauer <s.hauer@pengutronix.de>
+> ---
+>  Documentation/devicetree/bindings/net/micrel.txt |  6 ++++++
+>  drivers/net/phy/micrel.c                         | 19 +++++++++++++++++--
+>  include/linux/micrel_phy.h                       |  1 +
+>  3 files changed, 24 insertions(+), 2 deletions(-)
+> 
+> diff --git a/Documentation/devicetree/bindings/net/micrel.txt b/Documentation/devicetree/bindings/net/micrel.txt
+> index 98a3e61..e1d99b9 100644
+> --- a/Documentation/devicetree/bindings/net/micrel.txt
+> +++ b/Documentation/devicetree/bindings/net/micrel.txt
+> @@ -16,3 +16,9 @@ Optional properties:
+>  	      KSZ8051: register 0x1f, bits 5..4
+>  
+>                See the respective PHY datasheet for the mode values.
+> +
+> + - clocks, clock-names: contains clocks according to the common clock bindings.
+> +
+> +              supported clocks:
+> +	      - KSZ8021, KSZ8031: "rmii-ref": The RMII refence input clock. Used
+> +		to determine the XI input clock.
+> diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+> index 011dbda..ca130e9 100644
+> --- a/drivers/net/phy/micrel.c
+> +++ b/drivers/net/phy/micrel.c
+> @@ -26,6 +26,7 @@
+>  #include <linux/phy.h>
+>  #include <linux/micrel_phy.h>
+>  #include <linux/of.h>
+> +#include <linux/clk.h>
+>  
+>  /* Operation Mode Strap Override */
+>  #define MII_KSZPHY_OMSO				0x16
+> @@ -72,9 +73,12 @@ static int ksz_config_flags(struct phy_device *phydev)
+>  {
+>  	int regval;
+>  
+> -	if (phydev->dev_flags & MICREL_PHY_50MHZ_CLK) {
+> +	if (phydev->dev_flags & (MICREL_PHY_50MHZ_CLK | MICREL_PHY_25MHZ_CLK)) {
+>  		regval = phy_read(phydev, MII_KSZPHY_CTRL);
+> -		regval |= KSZ8051_RMII_50MHZ_CLK;
+> +		if (phydev->dev_flags & MICREL_PHY_50MHZ_CLK)
+> +			regval |= KSZ8051_RMII_50MHZ_CLK;
+> +		else
+> +			regval &= ~KSZ8051_RMII_50MHZ_CLK;
+>  		return phy_write(phydev, MII_KSZPHY_CTRL, regval);
+>  	}
+>  	return 0;
+> @@ -187,9 +191,20 @@ static int kszphy_config_init_led8041(struct phy_device *phydev)
+>  
+>  static int ksz8021_config_init(struct phy_device *phydev)
+>  {
+> +	struct clk *clk;
+>  	const u16 val = KSZPHY_OMSO_B_CAST_OFF | KSZPHY_OMSO_RMII_OVERRIDE;
+>  	int rc;
+>  
+> +	clk = devm_clk_get(&phydev->dev, "rmii-ref");
+> +	if (!IS_ERR(clk)) {
+> +		unsigned long rate = clk_get_rate(clk);
+> +
+> +		if (rate > 24500000 && rate < 25500000)
+> +			phydev->dev_flags |= MICREL_PHY_25MHZ_CLK;
+> +		else if (rate > 49500000 && rate < 50500000)
+> +			phydev->dev_flags |= MICREL_PHY_50MHZ_CLK;
+> +	}
+
+I suppose that you could move this to the PHY driver probe() callback,
+and perform the rate checking from here, rejecting a clock whose rate is
+out of the acceptable range, and return an error to prevent the PHY
+driver registration? It is really up to you though.
+
+> +
+>  	rc = kszphy_setup_led(phydev, 0x1f, 4);
+>  	if (rc)
+>  		dev_err(&phydev->dev, "failed to set led mode\n");
+> diff --git a/include/linux/micrel_phy.h b/include/linux/micrel_phy.h
+> index 2e5b194..53d33de 100644
+> --- a/include/linux/micrel_phy.h
+> +++ b/include/linux/micrel_phy.h
+> @@ -37,6 +37,7 @@
+>  
+>  /* struct phy_device dev_flags definitions */
+>  #define MICREL_PHY_50MHZ_CLK	0x00000001
+> +#define MICREL_PHY_25MHZ_CLK	0x00000002
+>  
+>  #define MICREL_KSZ9021_EXTREG_CTRL	0xB
+>  #define MICREL_KSZ9021_EXTREG_DATA_WRITE	0xC
+> 
