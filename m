@@ -1,66 +1,63 @@
-From: Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH RFT 0/8] Marvell PXA168 libphy handling and Berlin
- Ethernet
-Date: Thu, 9 Oct 2014 16:47:04 +0200
-Message-ID: <20141009164704.7286fc3f@free-electrons.com>
-References: <1412858346-11334-1-git-send-email-sebastian.hesselbarth@gmail.com>
-	<20141009163315.2a9e1806@free-electrons.com>
-	<54369EAC.5040301@gmail.com>
+From: Bruno Thomsen <bth@kamstrup.dk>
+Subject: [PATCH] phy/micrel: KSZ8031RNL RMII clock reconfiguration bug
+Date: Thu, 9 Oct 2014 16:48:14 +0200
+Message-ID: <1412866094-4972-1-git-send-email-bth@kamstrup.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Eric Miao <eric.y.miao-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Antoine =?UTF-8?B?VMOpbmFydA==?=
-	<antoine.tenart-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Haojian Zhuang <haojian.zhuang-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: Sebastian Hesselbarth <sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <54369EAC.5040301-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <f.fainelli@gmail.com>, <s.hauer@pengutronix.de>,
+	<bruno.thomsen@gmail.com>, <bth@kamstrup.dk>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.kamstrup.com ([93.167.225.188]:62688 "EHLO
+	mail.kamstrup.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751571AbaJIOy1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Oct 2014 10:54:27 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Dear Sebastian Hesselbarth,
+Bug: Unable to send and receive Ethernet packets with Micrel PHY.
 
-On Thu, 09 Oct 2014 16:41:48 +0200, Sebastian Hesselbarth wrote:
+Affected devices:
+KSZ8031RNL (commercial temp)
+KSZ8031RNLI (industrial temp)
 
-> > Hum, in mvneta, we already disabled the automatic negotiation and use
-> > libphy. What makes you think the current mvneta driver is wrong in this
-> > respect?
-> 
-> I didn't check mvneta, but remember Ezequiel didn't clear all AN bits
-> in the barebox driver (which is based on Linux mvneta). Just mentioned
-> that I'll have a closer look at it.
+Description:
+PHY device is correctly detected during probe.
+PHY power-up default is 25MHz crystal clock input
+and output 50MHz RMII clock to MAC.
+Reconfiguration of PHY to input 50MHz RMII clock from MAC
+causes PHY to become unresponsive if clock source is changed
+after Operation Mode Strap Override (OMSO) register setup.
 
-Ah, ok.
+Cause:
+Long lead times on parts where clock setup match circuit design
+forces the usage of similar parts with wrong default setup.
 
-> But I agree, regarding libphy support mvneta is probably the best
-> already.
+Solution:
+Swapped KSZ8031 register setup and added phy_write return code validation.
 
-Well, I initially remember that the original driver coming from Marvell
-was using the HW PHY stuff, and that I changed that because it would
-not integrate well with the kernel libphy.
+Tested with Freescale i.MX28 Fast Ethernet Controler (fec).
 
-A drawback of this is that because the hardware has built-in PHY
-polling which triggers a MAC interrupt when the PHY status changes, they
-typically don't wire up the PHY interrupt. Therefore, since we're not
-able to use the MAC interrupt for PHY event notifications, we rely on
-software PHY polling, which means that link up / link down events take
-a few seconds to be noticed by the kernel. Unfortunately, I don't think
-the hardware allows to use the hardware PHY polling to get link changes
-interrupt, but not let the hardware configure the PHY itself.
+Signed-off-by: Bruno Thomsen <bth@kamstrup.dk>
+---
+ drivers/net/phy/micrel.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-Best regards,
-
-Thomas
+diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+index 011dbda..ec3f646 100644
+--- a/drivers/net/phy/micrel.c
++++ b/drivers/net/phy/micrel.c
+@@ -194,8 +194,10 @@ static int ksz8021_config_init(struct phy_device *phydev)
+ 	if (rc)
+ 		dev_err(&phydev->dev, "failed to set led mode\n");
+ 
+-	phy_write(phydev, MII_KSZPHY_OMSO, val);
+ 	rc = ksz_config_flags(phydev);
++	if (rc < 0)
++		return rc;
++	rc = phy_write(phydev, MII_KSZPHY_OMSO, val);
+ 	return rc < 0 ? rc : 0;
+ }
+ 
 -- 
-Thomas Petazzoni, CTO, Free Electrons
-Embedded Linux, Kernel and Android engineering
-http://free-electrons.com
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+1.9.1
