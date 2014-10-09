@@ -1,152 +1,99 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH] net: Add ndo_gso_check
-Date: Wed, 8 Oct 2014 17:30:21 -0700
-Message-ID: <CAEP_g=_sPBCeSO3nQfy-HJ68HqCgRU+CcA_09bKDL9fgehtveA@mail.gmail.com>
-References: <1411962607-27878-1-git-send-email-therbert@google.com>
- <CAJ3xEMi-TRXevenx87UM7JnKqRQQATW4MBjbz8JdnQE9gk3KZw@mail.gmail.com>
- <CA+mtBx8r05=qs2J58LFq56762tFB7wF4Dsr3C5TC9w5qQP5jGw@mail.gmail.com>
- <CAJ3xEMhf6b75TQDFqEPMSXCpL9ToWG1q0OMPtrEuHNSm=-PSwQ@mail.gmail.com>
- <CA+mtBx_6HcZh5Ys1FJFBXkZ2bWX1gP6bTcjY7gbR6RG_TOy50Q@mail.gmail.com>
- <CAJ3xEMi0biCWTNtLOJ=0HWZYjOWi6pN2bw2=EWajp6XnpoyVRw@mail.gmail.com>
- <CA+mtBx-sP6g9hXAYGfHKCPYkCtjgCFM0srueh1uhoNnC2ACr1g@mail.gmail.com>
- <CAJ3xEMhc-97+3ZDwqXzX2N+=voO4QvJ5_YXn3sp8r8E9YyqotQ@mail.gmail.com>
- <CA+mtBx9=+fGjwJCKpTW5EifmavC6VGnbuJdkc5tqzeEHz+5twA@mail.gmail.com>
- <CAJ3xEMhzxfP3Sqp=_QSQehd2j2s=Gr3B1iO2S--OcoT7VC94nQ@mail.gmail.com>
- <CA+mtBx8-w74f_f9JEfpwH9=Mjr_zaJJAYCMMdYAWdCy-51pzqg@mail.gmail.com>
- <CAJ3xEMgPb9BhvtifmTzy6bS9WDf3jUx6dnx4418KNTjGNPreHQ@mail.gmail.com>
- <CA+mtBx-AW65w7grfb7zTaDKzKQ2n_7JQuLquj1Ayopa4gdiF6Q@mail.gmail.com>
- <CAEP_g=-S2b3mev+q-qPBHeBw7jb-Y2XvbTeZPgaLgVj=c+3Bjg@mail.gmail.com> <CA+mtBx811eEUub3juPpXpS1qAEfPMAtrp7CWjipMZwFC81GcYQ@mail.gmail.com>
+From: Eric Wheeler <netdev@lists.ewheeler.net>
+Subject: RE: [PATCH net] bna: page allocation during interrupts to use a
+ mempool.
+Date: Wed, 8 Oct 2014 17:50:24 -0700 (PDT)
+Message-ID: <alpine.DEB.2.00.1410081746100.18846@ware.dreamhost.com>
+References: <alpine.DEB.2.00.1409271631530.26069@ware.dreamhost.com>    <20140929092833.6c2cb7e9@urahara>    <262CB373A6D1F14F9B81E82F74F77D5A4704FAE7@avmb2.qlogic.org>    <alpine.DEB.2.00.1410061850120.5129@ware.dreamhost.com>  
+ <1412646735.11091.93.camel@edumazet-glaptop2.roam.corp.google.com>   <alpine.DEB.2.00.1410061956410.7392@ware.dreamhost.com>  <1412651746.11091.98.camel@edumazet-glaptop2.roam.corp.google.com>  <alpine.DEB.2.00.1410071746230.3503@ware.dreamhost.com>
+ <1412731718.11091.175.camel@edumazet-glaptop2.roam.corp.google.com> <2552F74A0BCCBE4DBE2AD218C81B2811C6399B@avmb3.qlogic.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Or Gerlitz <gerlitz.or@gmail.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Thomas Graf <tgraf@suug.ch>,
-	Pravin Shelar <pshelar@nicira.com>,
-	Andy Zhou <azhou@nicira.com>
-To: Tom Herbert <therbert@google.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Shahed Shaikh <shahed.shaikh@qlogic.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	netdev <netdev@vger.kernel.org>
+To: Rasesh Mody <rasesh.mody@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog111.obsmtp.com ([74.125.149.205]:38223 "HELO
-	na3sys009aog111.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751347AbaJIAam (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2014 20:30:42 -0400
-Received: by mail-qa0-f53.google.com with SMTP id v10so141133qac.40
-        for <netdev@vger.kernel.org>; Wed, 08 Oct 2014 17:30:41 -0700 (PDT)
-In-Reply-To: <CA+mtBx811eEUub3juPpXpS1qAEfPMAtrp7CWjipMZwFC81GcYQ@mail.gmail.com>
+Received: from homie.mail.dreamhost.com ([208.97.132.208]:56056 "EHLO
+	homiemail-a9.g.dreamhost.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752719AbaJIAeo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2014 20:34:44 -0400
+In-Reply-To: <2552F74A0BCCBE4DBE2AD218C81B2811C6399B@avmb3.qlogic.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 6, 2014 at 5:17 PM, Tom Herbert <therbert@google.com> wrote:
-> On Mon, Oct 6, 2014 at 3:33 PM, Jesse Gross <jesse@nicira.com> wrote:
->> On Mon, Oct 6, 2014 at 10:59 AM, Tom Herbert <therbert@google.com> wrote:
->>> On Sun, Oct 5, 2014 at 12:13 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
->>>> On Sun, Oct 5, 2014 at 9:49 PM, Tom Herbert <therbert@google.com> wrote:
->>>>> On Sun, Oct 5, 2014 at 7:04 AM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
->>>>>> On Thu, Oct 2, 2014 at 2:06 AM, Tom Herbert <therbert@google.com> wrote:
->>>>>>> On Wed, Oct 1, 2014 at 1:58 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
->>>>>>>> On Tue, Sep 30, 2014 at 6:34 PM, Tom Herbert <therbert@google.com> wrote:
->>>>>>>>> On Tue, Sep 30, 2014 at 7:30 AM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
->>>>>> [...]
->>>>>>> Solution #4: apply this patch and implement the check functions as
->>>>>>> needed in those 4 or 5 drivers. If a device can only do VXLAN/NVGRE
->>>>>>> then I believe the check function is something like:
->>>>>>>
->>>>>>> bool mydev_gso_check(struct sk_buff *skb, struct net_device *dev)
->>>>>>> {
->>>>>>>         if ((skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL) &&
->>>>>>>             ((skb->inner_protocol_type != ENCAP_TYPE_ETHER ||
->>>>>>>               skb->protocol != htons(ETH_P_TEB) ||
->>>>>>>               skb_inner_mac_header(skb) - skb_transport_header(skb) != 12)
->>>>>>>                 return false;
->>>>>>>
->>>>>>>         return true;
->>>>>>> }
->>>>>>
->>>>>> Yep, such helper can can be basically made to work and let the 4-5
->>>>>> drivers that can
->>>>>> do GSO offloading for vxlan but not for any FOU/GUE packets signal
->>>>>> that to the stack.
->>>>>>
->>>>>> Re the 12 constant, you were referring to the udp+vxlan headers? it's 8+8
->>>>>>
->>>>>> Also, we need a way for drivers that can support VXLAN or NVGRE but
->>>>>> not concurrently
->>>>>> on the same port @ the same time to only let vxlan packet to pass
->>>>>> successfully through the helper.
->>>>
->>>>> Or, there should be no difference in GSO processing between VXLAN and
->>>>> NVGRE. Can you explain why you feel you need to differentiate them for GSO?
->>>>
->>>>
->>>> RX wise, Linux tells the driver that UDP port X would be used for
->>>> VXLAN, right? and indeed, it's possible for some HW implementations
->>>> not to support RX offloading (checksum) for both VXLAN and NVGRE @ the
->>>> same time over the same port. But TX/GRO wise, you're probably
->>>> correct. The thing is that from the user POV they need solution that
->>>> works for both RX and TX offloading.
->>>
->>> I think from a user POV we want a solution that supports RX and TX
->>> offloading across the widest range of protocols. This is accomplished
->>> by implementing protocol agnostic mechanisms like CHECKSUM_COMPLETE
->>> and protocol agnostic UDP tunnel TSO like we've described. IMO, the
->>> fact that we have devices that implement protocol specific mechanisms
->>> for NVGRE and VXLAN should be considered legacy support in the stack,
->>> for new UDP encapsulation protocols we should not expose specifics in
->>> the stack in either by adding a GSO type for each protocol, nor
->>> ndo_add_foo_port for each protocol-- these things will not scale and
->>> unnecessarily complicate the core stack.
->>
->> It's not clear to me that allowing devices to know what protocols are
->> running on what ports actually complicates the stack. The part that is
->> complicated is usually the types of operations that are being
->> offloaded (checksum, TSO, etc.). In all of these tunnel cases, the
->> operations are same and if you have a clean registration mechanism
->> then nothing in the core has to see this - only the protocol doing the
->> registering and the driver that is supporting it.
->>
+On Wed, 8 Oct 2014, Rasesh Mody wrote:
+
+> Hi Eric Wheeler, Eric Dumazet,
 >
-> We already have an ntuple filtering interface that allows configuring
-> a device for special processing of RX packets. I don't see why that
-> shouldn't apply to the use case protocol processing for specific ports
-> in the encapsulation use case.
+> We'll try to reproduce the issue in-house to find more about the root 
+> cause of the failure and work on possible solution.
 
-You mentioned this before but I guess I don't really understand it. I
-suppose it is possible to express the port number and encapsulation as
-a filter but it doesn't really seem all that natural and at the end of
-the day it won't be mapped to a filter in the NIC. Can you explain it
-some more?
+Thanks Rasesh,
 
->> I have no disagreement with trying to be generic across protocols. I'm
->> just not convinced that it is a realistic plan. It's obvious that it
->> is not doable today nor will be it be in the next generation of NICs
->> (which are guaranteed to add support for new protocols). Furthermore,
->> there will be more advanced stuff coming in the future that I think
->> will be difficult or impossible to make protocol agnostic. Rather than
->> pretending that this doesn't exist or will never happen, it's better
->> focus on how to integrating it cleanly.
+FYI, we're using the Ethernet part this card (no FCoE use here); I believe 
+it is the 1020 version:
+
+02:00.0 Fibre Channel: Brocade Communications Systems, Inc. 1010/1020/1007/1741 10Gbps CNA (rev 01)
+02:00.1 Fibre Channel: Brocade Communications Systems, Inc. 1010/1020/1007/1741 10Gbps CNA (rev 01)
+02:00.2 Ethernet controller: Brocade Communications Systems, Inc. 1010/1020/1007/1741 10Gbps CNA (rev 01)
+02:00.3 Ethernet controller: Brocade Communications Systems, Inc. 1010/1020/1007/1741 10Gbps CNA (rev 01)
+
+
+02:00.2 Ethernet controller: Brocade Communications Systems, Inc. 1010/1020/1007/1741 10Gbps CNA (rev 01)
+         Subsystem: Brocade Communications Systems, Inc. 1010/1020/1007/1741 10Gbps CNA - LL
+         Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B- DisINTx+
+         Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
+         Latency: 0, Cache Line Size: 64 bytes
+         Interrupt: pin A routed to IRQ 19
+         Region 0: Memory at df540000 (64-bit, non-prefetchable) [size=256K]
+         Region 2: Memory at df604000 (64-bit, non-prefetchable) [size=16K]
+         Expansion ROM at df200000 [disabled] [size=1M]
+         Capabilities: [40] Power Management version 3
+                 Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0+,D1-,D2-,D3hot+,D3cold-)
+                 Status: D0 NoSoftRst+ PME-Enable- DSel=0 DScale=1 PME-
+         Capabilities: [50] MSI-X: Enable+ Count=256 Masked-
+                 Vector table: BAR=2 offset=00000000
+                 PBA: BAR=2 offset=00002000
+         Capabilities: [60] Express (v2) Endpoint, MSI 00
+                 DevCap: MaxPayload 2048 bytes, PhantFunc 0, Latency L0s <256ns, L1 <64us
+                         ExtTag- AttnBtn- AttnInd- PwrInd- RBE+ FLReset-
+                 DevCtl: Report errors: Correctable- Non-Fatal- Fatal- Unsupported-
+                         RlxdOrd- ExtTag- PhantFunc- AuxPwr- NoSnoop+
+                         MaxPayload 128 bytes, MaxReadReq 512 bytes
+                 DevSta: CorrErr+ UncorrErr- FatalErr- UnsuppReq+ AuxPwr- TransPend-
+                 LnkCap: Port #0, Speed 5GT/s, Width x8, ASPM L0s, Latency L0 <256ns, L1 <64us
+                         ClockPM- Surprise- LLActRep- BwNot-
+                 LnkCtl: ASPM Disabled; RCB 64 bytes Disabled- Retrain- CommClk+
+                         ExtSynch- ClockPM- AutWidDis- BWInt- AutBWInt-
+                 LnkSta: Speed 5GT/s, Width x4, TrErr- Train- SlotClk+ DLActive- BWMgmt- ABWMgmt-
+                 DevCap2: Completion Timeout: Range ABCD, TimeoutDis+, LTR-, OBFF Not Supported
+                 DevCtl2: Completion Timeout: 50us to 50ms, TimeoutDis-, LTR-, OBFF Disabled
+                 LnkSta2: Current De-emphasis Level: -6dB, EqualizationComplete-, EqualizationPhase1-
+                          EqualizationPhase2-, EqualizationPhase3-, LinkEqualizationRequest-
+         Capabilities: [a0] Vital Product Data
+                 No end tag found
+         Capabilities: [100 v1] Advanced Error Reporting
+                 UESta:  DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt- UnxCmplt- RxOF- MalfTLP- ECRC- UnsupReq- ACSViol-
+                 UEMsk:  DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt- UnxCmplt- RxOF- MalfTLP- ECRC- UnsupReq- ACSViol-
+                 UESvrt: DLP+ SDES+ TLP- FCP+ CmpltTO- CmpltAbrt- UnxCmplt- RxOF+ MalfTLP+ ECRC- UnsupReq- ACSViol-
+                 CESta:  RxErr+ BadTLP- BadDLLP- Rollover- Timeout- NonFatalErr+
+                 CEMsk:  RxErr- BadTLP- BadDLLP- Rollover- Timeout- NonFatalErr+
+                 AERCap: First Error Pointer: 00, GenCap+ CGenEn- ChkCap+ ChkEn-
+         Capabilities: [180 v1] Power Budgeting <?>
+         Capabilities: [190 v1] Alternative Routing-ID Interpretation (ARI)
+                 ARICap: MFVC- ACS-, Next Function: 3
+                 ARICtl: MFVC- ACS-, Function Group: 0
+         Kernel driver in use: bna
+         Kernel modules: bna
+
+
+--
+Eric Wheeler, President           eWheeler, Inc. dba Global Linux Security
+888-LINUX26 (888-546-8926)        Fax: 503-716-3878           PO Box 25107
+www.GlobalLinuxSecurity.pro       Linux since 1996!     Portland, OR 97298
+
+
 >
-> Sorry, but I don't understand how supporting a new protocols in a
-> device for the purposes of returning CHECKSUM_UNNECESSARY is better or
-> easier to implement than just returning CHECKSUM_COMPLETE. Same thing
-> for trying to use NETIF_F_IP_CSUM with encapsulation rather than
-> NETIF_F_HW_CSUM. I'm not a hardware guy, so it's possible I'm missing
-> something obvious...
->
-> Can you be more specific about this "advanced stuff"?
-
-I think checksums are really the exception, not the rule. It's great
-that they have this nice property of being additive and we should use
-that where we can but that doesn't apply to other types of operation
-(or even other types of checksums). Encryption or CRC32 carried inside
-the tunnel header can't be accelerated without some additional
-knowledge of the protocol. I think there were also a few other things
-that came up along these lines when we talked about this in an earlier
-thread - that's what I mean by "advanced stuff".
-
-For the basic one's complement checksums, I have no objection to
-CHECKSUM_COMPLETE. However, the reality is that this is not generally
-implemented today and that is unlikely to change for a few years even
-in the best case.
+> Thanks,
+> -Rasesh
