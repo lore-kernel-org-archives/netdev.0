@@ -1,59 +1,53 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: [PATCH] net: pxa168_eth: PXA168_ETH should depend on HAS_DMA
-Date: Thu,  9 Oct 2014 16:15:42 +0200
-Message-ID: <1412864142-21468-1-git-send-email-geert@linux-m68k.org>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Geert Uytterhoeven <geert@linux-m68k.org>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from xavier.telenet-ops.be ([195.130.132.52]:44960 "EHLO
-	xavier.telenet-ops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755584AbaJIOPj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Oct 2014 10:15:39 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Subject: Re: [PATCH RFT 0/8] Marvell PXA168 libphy handling and Berlin
+ Ethernet
+Date: Thu, 9 Oct 2014 16:33:15 +0200
+Message-ID: <20141009163315.2a9e1806@free-electrons.com>
+References: <1412858346-11334-1-git-send-email-sebastian.hesselbarth@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Eric Miao <eric.y.miao-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Antoine =?UTF-8?B?VMOpbmFydA==?=
+	<antoine.tenart-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Haojian Zhuang <haojian.zhuang-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: Sebastian Hesselbarth <sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1412858346-11334-1-git-send-email-sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-If NO_DMA=y:
+Dear Sebastian Hesselbarth,
 
-drivers/built-in.o: In function `rxq_deinit':
-pxa168_eth.c:(.text+0x2a2f2e): undefined reference to `dma_free_coherent'
-drivers/built-in.o: In function `txq_reclaim':
-pxa168_eth.c:(.text+0x2a3044): undefined reference to `dma_unmap_single'
-drivers/built-in.o: In function `txq_deinit':
-pxa168_eth.c:(.text+0x2a310a): undefined reference to `dma_free_coherent'
-drivers/built-in.o: In function `txq_init':
-pxa168_eth.c:(.text+0x2a3226): undefined reference to `dma_alloc_coherent'
-drivers/built-in.o: In function `rxq_init':
-pxa168_eth.c:(.text+0x2a32d4): undefined reference to `dma_alloc_coherent'
-drivers/built-in.o: In function `init_hash_table':
-pxa168_eth.c:(.text+0x2a3354): undefined reference to `dma_alloc_coherent'
-drivers/built-in.o: In function `rxq_refill':
-pxa168_eth.c:(.text+0x2a345a): undefined reference to `dma_map_single'
-drivers/built-in.o: In function `rxq_process':
-pxa168_eth.c:(.text+0x2a39cc): undefined reference to `dma_unmap_single'
-drivers/built-in.o: In function `pxa168_eth_remove':
-pxa168_eth.c:(.text+0x2a3b84): undefined reference to `dma_free_coherent'
-drivers/built-in.o: In function `pxa168_eth_start_xmit':
-pxa168_eth.c:(.text+0x2a3e8a): undefined reference to `dma_map_single'
+On Thu,  9 Oct 2014 14:38:58 +0200, Sebastian Hesselbarth wrote:
 
-Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
----
- drivers/net/ethernet/marvell/Kconfig | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+> This patch series deals with a removing a IP feature that can be found
+> on all currently supported Marvell Ethernet IP (pxa168_eth, mv643xx_eth,
+> mvneta). The MAC IP allows to automatically perform PHY auto-negotiation
+> without software interaction.
+> 
+> However, this feature (a) fundamentally clashes with the way libphy works
+> and (b) is unable to deal with quirky PHYs that require special treatment.
+> In this series, pxa168_eth driver is rewritten to completely disable that
+> feature and properly deal with libphy provided PHYs. The other two drivers
+> are suspect to future patch sets, also removing the code related with it.
 
-diff --git a/drivers/net/ethernet/marvell/Kconfig b/drivers/net/ethernet/marvell/Kconfig
-index b3b72ad92d4a9de4..d323a695dfbcb4e3 100644
---- a/drivers/net/ethernet/marvell/Kconfig
-+++ b/drivers/net/ethernet/marvell/Kconfig
-@@ -64,7 +64,8 @@ config MVPP2
- 
- config PXA168_ETH
- 	tristate "Marvell pxa168 ethernet support"
--	depends on (CPU_PXA168 || ARCH_BERLIN || COMPILE_TEST) && HAS_IOMEM
-+	depends on HAS_IOMEM && HAS_DMA
-+	depends on CPU_PXA168 || ARCH_BERLIN || COMPILE_TEST
- 	select PHYLIB
- 	---help---
- 	  This driver supports the pxa168 Ethernet ports.
+Hum, in mvneta, we already disabled the automatic negotiation and use
+libphy. What makes you think the current mvneta driver is wrong in this
+respect?
+
+Thanks,
+
+Thomas
 -- 
-1.9.1
+Thomas Petazzoni, CTO, Free Electrons
+Embedded Linux, Kernel and Android engineering
+http://free-electrons.com
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
