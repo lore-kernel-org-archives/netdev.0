@@ -1,65 +1,44 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] igb: Indicate failure on vf reset for empty mac address
-Date: Thu, 09 Oct 2014 15:34:54 +0400
-Message-ID: <543672DE.80202@cogentembedded.com>
-References: <1412803407-10621-1-git-send-email-agraf@suse.de>
+From: Ceriel Jacobs <linux-ide@crashplan.pro>
+Subject: Re: r8168 is needed to enter P-state: Package State 6 (pc6)onHaswell
+ hardware: does the patch below against current kernel make a difference?
+Date: Thu, 09 Oct 2014 14:02:45 +0200
+Message-ID: <54367965.7010301@crashplan.pro>
+References: <542B3829.3010108@crashplan.pro> <20141005165920.GA21926@electric-eye.fr.zoreil.com> <0835B3720019904CB8F7AA43166CEEB2526932@RTITMBSV03.realtek.com.tw> <20141006221307.GB10936@electric-eye.fr.zoreil.com> <54359E9C.7060704@crashplan.pro> <20141008221726.GA25515@electric-eye.fr.zoreil.com> <5435BEC3.6080200@crashplan.pro> <20141008232655.GA26561@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Mitch Williams <mitch.a.williams@intel.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Stefan Assmann <sassmann@kpanic.de>,
-	Aaron Brown <aaron.f.brown@intel.com>,
-	Greg Rose <gregory.v.rose@intel.com>,
-	John Ronciak <john.ronciak@intel.com>
-To: Alexander Graf <agraf@suse.de>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Hayes Wang <hayeswang@realtek.com>,
+	nic_swsd <nic_swsd@realtek.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f41.google.com ([209.85.215.41]:36697 "EHLO
-	mail-la0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755955AbaJILe6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Oct 2014 07:34:58 -0400
-Received: by mail-la0-f41.google.com with SMTP id pn19so978351lab.14
-        for <netdev@vger.kernel.org>; Thu, 09 Oct 2014 04:34:56 -0700 (PDT)
-In-Reply-To: <1412803407-10621-1-git-send-email-agraf@suse.de>
+Received: from relay3-d.mail.gandi.net ([217.70.183.195]:55971 "EHLO
+	relay3-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754916AbaJIMCv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Oct 2014 08:02:51 -0400
+In-Reply-To: <20141008232655.GA26561@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Francois Romieu schreef op 09-10-14 om 01:26:
+ > You are mixing 3.13 and 3.17. Try 'uname -r' alone. Got it ?
+I think I have got it.
 
-On 10/9/2014 1:23 AM, Alexander Graf wrote:
+Francois Romieu schreef op 07-10-14 om 00:13:
+ > Ceriel, does the patch below against current kernel make a difference?
 
-> Commit 5ac6f91d changed the igb driver to expose a zero (empty) mac
+Old r8169 "powertop --auto-tune && powertop" result:
+C2 (pc2)   26.1%    |                     |
+C3 (pc3)   73.6%    | C3 (cc3)    1.6%    | C3-HSW      1.6%  108.0 ms
+C6 (pc6)    0.0%    | C6 (cc6)   98.3%    | C6-HSW     98.3%  194.9 ms
+---
+C2 (pc2)    0.0%    |                     |
+C3 (pc3)   99.4%    | C3 (cc3)    0.0%    | C3-HSW      0.0%    0.0 ms
+C6 (pc6)    0.0%    | C6 (cc6)   99.6%    | C6-HSW     99.6%  237.4 ms
+---
 
-   Please also specify that commit's summary line in parens.
-
-> address to the VF on reset rather than a random one.
-
-> However, that behavioral change also requires igbvf driver changes
-> which can be hard especially when we want to talk to proprietary
-> guest OSs.
-
-> Looking at the code previous to the commit in Linux that made igbvf
-> work with empty mac addresses (8d56b6d), we can see that on reset
-
-    And that one's
-
-> failure the driver will try to generate a new mac address with both
-> the old and the new code.
-
-> Furthermore, ixgbe does send reset failure when it detects an empty
-> mac address (35055928c).
-
-    And that one's too.
-
-> So I think it's safe to make igb behave the same. With this patch I
-> can successfully run a Windows 8.1 guest with an empty mac address
-> and an assigned igbvf device that has no mac address set by the host.
-
-> If anyone is aware of a guest driver that chokes on NACK returns of
-> VF RESET commands, please speak up.
-
-> Signed-off-by: Alexander Graf <agraf@suse.de>
-
-WBR, Sergei
+New r8169 "powertop" result (even without --auto-tune):
+C2 (pc2)    0.0%    |                     |
+C3 (pc3)    9.9%    | C3 (cc3)    0.7%    | C3-HSW      0.7%   16.4 ms
+C6 (pc6)   89.9%    | C6 (cc6)   99.2%    | C6-HSW     99.2%  223.2 ms
+---
