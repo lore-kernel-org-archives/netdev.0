@@ -1,63 +1,54 @@
-From: Bruno Thomsen <bth@kamstrup.dk>
-Subject: [PATCH] phy/micrel: KSZ8031RNL RMII clock reconfiguration bug
-Date: Thu, 9 Oct 2014 16:48:14 +0200
-Message-ID: <1412866094-4972-1-git-send-email-bth@kamstrup.dk>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <f.fainelli@gmail.com>, <s.hauer@pengutronix.de>,
-	<bruno.thomsen@gmail.com>, <bth@kamstrup.dk>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kamstrup.com ([93.167.225.188]:62688 "EHLO
-	mail.kamstrup.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751571AbaJIOy1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Oct 2014 10:54:27 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Christophe Leroy <christophe.leroy@c-s.fr>
+Subject: [PATCH] net: fs_enet: error: 'SCCE_ENET_TXF' undeclared
+Date: Thu,  9 Oct 2014 16:54:43 +0200 (CEST)
+Message-ID: <20141009145443.74AD61AB275@localhost.localdomain>
+Cc: linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	netdev@vger.kernel.org
+To: Pantelis Antoniou <pantelis.antoniou@gmail.com>,
+	Vitaly Bordug <vbordug@ru.mvista.com>, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Bug: Unable to send and receive Ethernet packets with Micrel PHY.
+[linux-devel:devel-hourly-2014100909 3763/3915] drivers/net/ethernet/freescale/fs_enet/mac-scc.c:119:32: error: 'SCCE_ENET_TXF' undeclared
 
-Affected devices:
-KSZ8031RNL (commercial temp)
-KSZ8031RNLI (industrial temp)
+Due to patch d43a396 net: fs_enet: Add NAPI TX, it appears that some target
+compilations are broken.
+This is due to the fact that unlike the FEC, the SCC and FCC don't have a TXF
+event (complete Frame transmitted) but only TXB (buffer transmitted).
 
-Description:
-PHY device is correctly detected during probe.
-PHY power-up default is 25MHz crystal clock input
-and output 50MHz RMII clock to MAC.
-Reconfiguration of PHY to input 50MHz RMII clock from MAC
-causes PHY to become unresponsive if clock source is changed
-after Operation Mode Strap Override (OMSO) register setup.
+Signed-off-by: Christophe Leroy <christophe.leroy@c-s.fr>
 
-Cause:
-Long lead times on parts where clock setup match circuit design
-forces the usage of similar parts with wrong default setup.
-
-Solution:
-Swapped KSZ8031 register setup and added phy_write return code validation.
-
-Tested with Freescale i.MX28 Fast Ethernet Controler (fec).
-
-Signed-off-by: Bruno Thomsen <bth@kamstrup.dk>
 ---
- drivers/net/phy/micrel.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/freescale/fs_enet/mac-fcc.c | 2 +-
+ drivers/net/ethernet/freescale/fs_enet/mac-scc.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
-index 011dbda..ec3f646 100644
---- a/drivers/net/phy/micrel.c
-+++ b/drivers/net/phy/micrel.c
-@@ -194,8 +194,10 @@ static int ksz8021_config_init(struct phy_device *phydev)
- 	if (rc)
- 		dev_err(&phydev->dev, "failed to set led mode\n");
- 
--	phy_write(phydev, MII_KSZPHY_OMSO, val);
- 	rc = ksz_config_flags(phydev);
-+	if (rc < 0)
-+		return rc;
-+	rc = phy_write(phydev, MII_KSZPHY_OMSO, val);
- 	return rc < 0 ? rc : 0;
+diff --git a/drivers/net/ethernet/freescale/fs_enet/mac-fcc.c b/drivers/net/ethernet/freescale/fs_enet/mac-fcc.c
+index 2c578db..08f5b91 100644
+--- a/drivers/net/ethernet/freescale/fs_enet/mac-fcc.c
++++ b/drivers/net/ethernet/freescale/fs_enet/mac-fcc.c
+@@ -125,7 +125,7 @@ out:
  }
  
+ #define FCC_NAPI_RX_EVENT_MSK	(FCC_ENET_RXF | FCC_ENET_RXB)
+-#define FCC_NAPI_TX_EVENT_MSK	(FCC_ENET_TXF | FCC_ENET_TXB)
++#define FCC_NAPI_TX_EVENT_MSK	(FCC_ENET_TXB)
+ #define FCC_RX_EVENT		(FCC_ENET_RXF)
+ #define FCC_TX_EVENT		(FCC_ENET_TXB)
+ #define FCC_ERR_EVENT_MSK	(FCC_ENET_TXE)
+diff --git a/drivers/net/ethernet/freescale/fs_enet/mac-scc.c b/drivers/net/ethernet/freescale/fs_enet/mac-scc.c
+index 5b592a6..90c9652 100644
+--- a/drivers/net/ethernet/freescale/fs_enet/mac-scc.c
++++ b/drivers/net/ethernet/freescale/fs_enet/mac-scc.c
+@@ -117,7 +117,7 @@ static int do_pd_setup(struct fs_enet_private *fep)
+ }
+ 
+ #define SCC_NAPI_RX_EVENT_MSK	(SCCE_ENET_RXF | SCCE_ENET_RXB)
+-#define SCC_NAPI_TX_EVENT_MSK	(SCCE_ENET_TXF | SCCE_ENET_TXB)
++#define SCC_NAPI_TX_EVENT_MSK	(SCCE_ENET_TXB)
+ #define SCC_RX_EVENT		(SCCE_ENET_RXF)
+ #define SCC_TX_EVENT		(SCCE_ENET_TXB)
+ #define SCC_ERR_EVENT_MSK	(SCCE_ENET_TXE | SCCE_ENET_BSY)
 -- 
-1.9.1
+2.1.0
