@@ -1,35 +1,57 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/3] r8152: use mutex for hw settings
-Date: Thu, 09 Oct 2014 19:06:32 -0400 (EDT)
-Message-ID: <20141009.190632.1109121162247372029.davem@davemloft.net>
-References: <1394712342-15778-58-Taiwan-albertk@realtek.com>
-	<1394712342-15778-60-Taiwan-albertk@realtek.com>
+Subject: Re: [PATCH] net_sched: restore qdisc quota fairness limits after
+ bulk dequeue
+Date: Thu, 09 Oct 2014 19:12:48 -0400 (EDT)
+Message-ID: <20141009.191248.516797236807606254.davem@davemloft.net>
+References: <20141009101640.26713.80729.stgit@dragon>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
-	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
-To: hayeswang@realtek.com
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
+	hannes@stressinduktion.org, dborkman@redhat.com,
+	dave.taht@gmail.com
+To: brouer@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43744 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:43776 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750918AbaJIXGe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Oct 2014 19:06:34 -0400
-In-Reply-To: <1394712342-15778-60-Taiwan-albertk@realtek.com>
+	with ESMTP id S1750903AbaJIXMu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Oct 2014 19:12:50 -0400
+In-Reply-To: <20141009101640.26713.80729.stgit@dragon>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hayes Wang <hayeswang@realtek.com>
-Date: Thu, 9 Oct 2014 18:00:23 +0800
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Date: Thu, 09 Oct 2014 12:18:10 +0200
 
-> v2:
-> Make sure the autoresume wouldn't occur inside the mutex, otherwise
-> the dead lock would happen. For the purpose, adjust some code about
-> autosuspend/autoresume.
+> Restore the quota fairness between qdisc's, that we broke with commit
+> 5772e9a346 ("qdisc: bulk dequeue support for qdiscs with TCQ_F_ONETXQUEUE").
 > 
-> v1:
-> Use mutex to avoid that the serial hw settings would be interrupted
-> by other settings. Although there is no problem now, it makes the
-> driver more safe.
+> Before that commit, the quota in __qdisc_run() were in packets as
+> dequeue_skb() would only dequeue a single packet, that assumption
+> broke with bulk dequeue.
+> 
+> We choose not to account for the number of packets inside the TSO/GSO
+> packets (accessable via "skb_gso_segs").  As the previous fairness
+> also had this "defect". Thus, GSO/TSO packets counts as a single
+> packet.
+> 
+> Further more, we choose to slack on accuracy, by allowing a bulk
+> dequeue try_bulk_dequeue_skb() to exceed the "packets" limit, only
+> limited by the BQL bytelimit.  This is done because BQL prefers to get
+> its full budget for appropriate feedback from TX completion.
+> 
+> In future, we might consider reworking this further and, if it allows,
+> switch to a time-based model, as suggested by Eric. Right now, we only
+> restore old semantics.
+> 
+> Joint work with Eric, Hannes, Daniel and Jesper.  Hannes wrote the
+> first patch in cooperation with Daniel and Jesper.  Eric rewrote the
+> patch.
+> 
+> Fixes: 5772e9a346 ("qdisc: bulk dequeue support for qdiscs with TCQ_F_ONETXQUEUE")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 
-Series applied, thanks.
+Looks fantastic, thanks everyone.
