@@ -1,113 +1,51 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] net/phy: micrel: Add clock support for KSZ8021/KSZ8031
-Date: Thu, 09 Oct 2014 10:01:15 -0700
-Message-ID: <5436BF5B.5060006@gmail.com>
-References: <1412857956-6207-1-git-send-email-s.hauer@pengutronix.de>
+From: Lukas Tribus <luky-37@hotmail.com>
+Subject: RE: [PATCH] ipv6: honour non local bind
+Date: Thu, 9 Oct 2014 19:07:52 +0200
+Message-ID: <DUB123-W108DA950E52906D29ADEC4EDA00@phx.gbl>
+References: <1412867063-28433-1-git-send-email-michele.dionisio@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel@pengutronix.de
-To: Sascha Hauer <s.hauer@pengutronix.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1412857956-6207-1-git-send-email-s.hauer@pengutronix.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: "michele.dionisio@gmail.com" <michele.dionisio@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"yoshfuji@linux-ipv6.org" <yoshfuji@linux-ipv6.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dub004-omc4s7.hotmail.com ([157.55.2.82]:50400 "EHLO
+	DUB004-OMC4S7.hotmail.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751126AbaJIRM4 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Oct 2014 13:12:56 -0400
+In-Reply-To: <1412867063-28433-1-git-send-email-michele.dionisio@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/09/2014 05:32 AM, Sascha Hauer wrote:
-> The KSZ8021 and KSZ8031 support RMII reference input clocks of 25MHz
-> and 50MHz. Both PHYs differ in the default frequency they expect
-> after reset. If this differs from the actual input clock, then
-> register 0x1f bit 7 must be changed.
+Hi Michele,
 
-Looks reasonable to me, some minor comments below:
 
-> 
-> Signed-off-by: Sascha Hauer <s.hauer@pengutronix.de>
-> ---
->  Documentation/devicetree/bindings/net/micrel.txt |  6 ++++++
->  drivers/net/phy/micrel.c                         | 19 +++++++++++++++++--
->  include/linux/micrel_phy.h                       |  1 +
->  3 files changed, 24 insertions(+), 2 deletions(-)
-> 
-> diff --git a/Documentation/devicetree/bindings/net/micrel.txt b/Documentation/devicetree/bindings/net/micrel.txt
-> index 98a3e61..e1d99b9 100644
-> --- a/Documentation/devicetree/bindings/net/micrel.txt
-> +++ b/Documentation/devicetree/bindings/net/micrel.txt
-> @@ -16,3 +16,9 @@ Optional properties:
->  	      KSZ8051: register 0x1f, bits 5..4
->  
->                See the respective PHY datasheet for the mode values.
-> +
-> + - clocks, clock-names: contains clocks according to the common clock bindings.
-> +
-> +              supported clocks:
-> +	      - KSZ8021, KSZ8031: "rmii-ref": The RMII refence input clock. Used
-> +		to determine the XI input clock.
-> diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
-> index 011dbda..ca130e9 100644
-> --- a/drivers/net/phy/micrel.c
-> +++ b/drivers/net/phy/micrel.c
-> @@ -26,6 +26,7 @@
->  #include <linux/phy.h>
->  #include <linux/micrel_phy.h>
->  #include <linux/of.h>
-> +#include <linux/clk.h>
->  
->  /* Operation Mode Strap Override */
->  #define MII_KSZPHY_OMSO				0x16
-> @@ -72,9 +73,12 @@ static int ksz_config_flags(struct phy_device *phydev)
->  {
->  	int regval;
->  
-> -	if (phydev->dev_flags & MICREL_PHY_50MHZ_CLK) {
-> +	if (phydev->dev_flags & (MICREL_PHY_50MHZ_CLK | MICREL_PHY_25MHZ_CLK)) {
->  		regval = phy_read(phydev, MII_KSZPHY_CTRL);
-> -		regval |= KSZ8051_RMII_50MHZ_CLK;
-> +		if (phydev->dev_flags & MICREL_PHY_50MHZ_CLK)
-> +			regval |= KSZ8051_RMII_50MHZ_CLK;
-> +		else
-> +			regval &= ~KSZ8051_RMII_50MHZ_CLK;
->  		return phy_write(phydev, MII_KSZPHY_CTRL, regval);
->  	}
->  	return 0;
-> @@ -187,9 +191,20 @@ static int kszphy_config_init_led8041(struct phy_device *phydev)
->  
->  static int ksz8021_config_init(struct phy_device *phydev)
->  {
-> +	struct clk *clk;
->  	const u16 val = KSZPHY_OMSO_B_CAST_OFF | KSZPHY_OMSO_RMII_OVERRIDE;
->  	int rc;
->  
-> +	clk = devm_clk_get(&phydev->dev, "rmii-ref");
-> +	if (!IS_ERR(clk)) {
-> +		unsigned long rate = clk_get_rate(clk);
-> +
-> +		if (rate > 24500000 && rate < 25500000)
-> +			phydev->dev_flags |= MICREL_PHY_25MHZ_CLK;
-> +		else if (rate > 49500000 && rate < 50500000)
-> +			phydev->dev_flags |= MICREL_PHY_50MHZ_CLK;
-> +	}
+> I see that net.ipv4.ip_nonlocal_bind = 1 does not works on ipv6 if
+> you try to bind on not local ip.
+> An easy test to see the issue using python is:
+>
+> set net.ipv4.ip_nonlocal_bind = 1 and in python shell try to execute
+>
+> import socket
+> s = socket.socket(family=socket.AF_INET6)
+> s.bind(('2a01:84a0:1001:A001:0000:0:0015:8', 1234))
+>
+> you receive an error. In ipv4 it works.
+>
+> The patch attached solve the issue
 
-I suppose that you could move this to the PHY driver probe() callback,
-and perform the rate checking from here, rejecting a clock whose rate is
-out of the acceptable range, and return an error to prevent the PHY
-driver registration? It is really up to you though.
 
-> +
->  	rc = kszphy_setup_led(phydev, 0x1f, 4);
->  	if (rc)
->  		dev_err(&phydev->dev, "failed to set led mode\n");
-> diff --git a/include/linux/micrel_phy.h b/include/linux/micrel_phy.h
-> index 2e5b194..53d33de 100644
-> --- a/include/linux/micrel_phy.h
-> +++ b/include/linux/micrel_phy.h
-> @@ -37,6 +37,7 @@
->  
->  /* struct phy_device dev_flags definitions */
->  #define MICREL_PHY_50MHZ_CLK	0x00000001
-> +#define MICREL_PHY_25MHZ_CLK	0x00000002
->  
->  #define MICREL_KSZ9021_EXTREG_CTRL	0xB
->  #define MICREL_KSZ9021_EXTREG_DATA_WRITE	0xC
-> 
+This has been proposed in the past and refused:
+http://marc.info/?t=132369669000005&r=1&w=2
+
+You will have to set the available socket options from the application.
+
+
+
+Regards,
+
+Lukas
+
+
+ 		 	   		  
