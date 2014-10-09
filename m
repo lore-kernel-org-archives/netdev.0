@@ -1,47 +1,50 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] niu: remove unnecessary atomic operation
-Date: Thu, 09 Oct 2014 10:23:48 -0700
-Message-ID: <1412875428.18196.3.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Subject: Re: [PATCH RFT 0/8] Marvell PXA168 libphy handling and Berlin Ethernet
+Date: Thu, 09 Oct 2014 19:28:38 +0200
+Message-ID: <5436C5C6.3020406@gmail.com>
+References: <1412858346-11334-1-git-send-email-sebastian.hesselbarth@gmail.com> <20141009163315.2a9e1806@free-electrons.com> <54369EAC.5040301@gmail.com> <20141009164704.7286fc3f@free-electrons.com> <5436A8B2.1030200@gmail.com> <5436BE7F.7000603@gmail.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: devicetree@vger.kernel.org, Eric Miao <eric.y.miao@gmail.com>,
+	netdev@vger.kernel.org,
+	=?UTF-8?B?QW50b2luZSBUw6luYXJ0?=
+	<antoine.tenart@free-electrons.com>, linux-kernel@vger.kernel.org,
+	Haojian Zhuang <haojian.zhuang@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-arm-kernel@lists.infradead.org
+To: Florian Fainelli <f.fainelli@gmail.com>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:35478 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751420AbaJIRXw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Oct 2014 13:23:52 -0400
-Received: by mail-pa0-f52.google.com with SMTP id fb1so148851pad.11
-        for <netdev@vger.kernel.org>; Thu, 09 Oct 2014 10:23:52 -0700 (PDT)
+Received: from mail-wg0-f50.google.com ([74.125.82.50]:57531 "EHLO
+	mail-wg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751540AbaJIR2r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Oct 2014 13:28:47 -0400
+In-Reply-To: <5436BE7F.7000603@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On 10/09/2014 06:57 PM, Florian Fainelli wrote:
+> On 10/09/2014 08:24 AM, Sebastian Hesselbarth wrote:
+>> Yeah, but that HW PHY stuff really only works properly with standard
+>> compliant PHYs. In particular, the integrated Marvell PHY in Marvell
+>> Berlin SoCs does not seem to reflect PHY status on BMCR properly /sigh/.
+>> Anyway, I think we can live with PHY polling.
+>>
+>> BTW, one thing I noticed here is that libphy calls adjust_link
+>> over-and-over again although nothing has changed. I guess we can just
+>> add some before/after comparison in the libphy state machine and only
+>> call adjust_link when something has changed. I'll have to look closer
+>> at the state machine first and maybe Florian can comment on this,
+>> too.
+>
+> There's basically nothing built in the generic libphy that would try to
+> limit the number of times the adjust_link() callback is invoked, some
+> changes went in the bcmgenet driver to avoid that, I have yet to see how
+> much of this logic is transferable to the libphy layer.
 
-We allocate single page, compound_head() is not needed.
+Ok, thanks for the clarification. I guess for the final patch series,
+I'll add a check for both registers modified in foo_adjust_link to bail
+out if there is no change. That will save the two register writes per
+second or so and also allow to phy_print_status() after the writels.
 
-We own the page, we can simply set page->_count to the
-needed value instead of doing a locked addition.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- drivers/net/ethernet/sun/niu.c |    5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/sun/niu.c b/drivers/net/ethernet/sun/niu.c
-index 904fd1ab5f6e..ec2cd8a6d5bc 100644
---- a/drivers/net/ethernet/sun/niu.c
-+++ b/drivers/net/ethernet/sun/niu.c
-@@ -3340,9 +3340,8 @@ static int niu_rbr_add_page(struct niu *np, struct rx_ring_info *rp,
- 	}
- 
- 	niu_hash_page(rp, page, addr);
--	if (rp->rbr_blocks_per_page > 1)
--		atomic_add(rp->rbr_blocks_per_page - 1,
--			   &compound_head(page)->_count);
-+
-+	atomic_set(&page->_count, rp->rbr_blocks_per_page);
- 
- 	for (i = 0; i < rp->rbr_blocks_per_page; i++) {
- 		__le32 *rbr = &rp->rbr[start_index + i];
+Sebastian
