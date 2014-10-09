@@ -1,40 +1,31 @@
-From: Fabian Frederick <fabf@skynet.be>
-Subject: [PATCH 1/1 net-next] mac80211: directly return ieee80211_vif_use_reserved_context()
-Date: Thu,  9 Oct 2014 20:36:22 +0200
-Message-ID: <1412879782-8818-1-git-send-email-fabf@skynet.be>
-Cc: Fabian Frederick <fabf@skynet.be>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: [PATCH 1/1 net-next] mac80211: directly return
+ ieee80211_vif_use_reserved_context()
+Date: Thu, 09 Oct 2014 20:53:06 +0200
+Message-ID: <1412880786.1828.64.camel@jlt4.sipsolutions.net>
+References: <1412879782-8818-1-git-send-email-fabf@skynet.be>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Fabian Frederick <fabf-AgBVmzD5pcezQB+pC5nmwQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1412879782-8818-1-git-send-email-fabf-AgBVmzD5pcezQB+pC5nmwQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-No need to store ieee80211_vif_use_reserved_context result and test it before returning.
+On Thu, 2014-10-09 at 20:36 +0200, Fabian Frederick wrote:
+> No need to store ieee80211_vif_use_reserved_context result and test it before returning.
 
-Signed-off-by: Fabian Frederick <fabf@skynet.be>
----
- net/mac80211/cfg.c | 6 +-----
- 1 file changed, 1 insertion(+), 5 deletions(-)
+Makes sense, applied. Please break commit log lines to <=72 characters
+in the future though.
 
-diff --git a/net/mac80211/cfg.c b/net/mac80211/cfg.c
-index fb6a150..c76b457 100644
---- a/net/mac80211/cfg.c
-+++ b/net/mac80211/cfg.c
-@@ -2850,11 +2850,7 @@ static int __ieee80211_csa_finalize(struct ieee80211_sub_if_data *sdata)
- 		if (sdata->reserved_ready)
- 			return 0;
- 
--		err = ieee80211_vif_use_reserved_context(sdata);
--		if (err)
--			return err;
--
--		return 0;
-+		return ieee80211_vif_use_reserved_context(sdata);
- 	}
- 
- 	if (!cfg80211_chandef_identical(&sdata->vif.bss_conf.chandef,
--- 
-1.9.3
+johannes
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
