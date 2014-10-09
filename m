@@ -1,51 +1,40 @@
-From: Bruno Thomsen <bth@kamstrup.dk>
-Subject: RE: Micrel KSZ8031 - phy link missing
-Date: Thu, 9 Oct 2014 15:05:52 +0000
-Message-ID: <915054555B5659448ACF8A70E114824D0163C79016@Exchange2010.kamstrup.dk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Bruno Thomsen <bth@kamstrup.dk>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+From: michele.dionisio@gmail.com
+Subject: [PATCH] ipv6: make ipv6 bind honour non local bind as IPV4
+Date: Thu,  9 Oct 2014 17:04:23 +0200
+Message-ID: <1412867063-28433-2-git-send-email-michele.dionisio@gmail.com>
+References: <1412867063-28433-1-git-send-email-michele.dionisio@gmail.com>
+Cc: Michele Dionisio <michele.dionisio@gmail.com>
+To: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kamstrup.com ([93.167.225.188]:65236 "EHLO
-	mail.kamstrup.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757342AbaJIPFy convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Oct 2014 11:05:54 -0400
-Content-Language: en-US
+Received: from mail-wg0-f49.google.com ([74.125.82.49]:35013 "EHLO
+	mail-wg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757243AbaJIPE4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Oct 2014 11:04:56 -0400
+Received: by mail-wg0-f49.google.com with SMTP id x12so1543328wgg.20
+        for <netdev@vger.kernel.org>; Thu, 09 Oct 2014 08:04:53 -0700 (PDT)
+In-Reply-To: <1412867063-28433-1-git-send-email-michele.dionisio@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Michele Dionisio <michele.dionisio@gmail.com>
 
-Hi Angelo,
+---
+ net/ipv6/af_inet6.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-> It says no lease. But i verified that even setting a fixed ip, board is not reachable.
->
-> Tracing inside phy.c i don't see the link to come up. Nothing seen on WS.
->
-> As far as you know, there can be some bug open for davinci-emac and micrel ?
-
-
-This sounds a lot like an issue I have just created and send a patch to fix.
-Since I just joined this mail list it might have been eaten by Majordomo :)
-
-
-[PATCH] phy/micrel: KSZ8031RNL RMII clock reconfiguration bug
-
-
-
-Venlig hilsen / Best regards
-
-Kamstrup A/S <http://www.kamstrup.dk> 
-Bruno Thomsen
-Development engineer
-Technology
-
-Kamstrup A/S
-Industrivej 28
-DK-8660 Skanderborg
-Tel:	 +45 89 93 10 00	 
-Fax:	 +45 89 93 10 01	 
-Dir:	 +45 89 93 13 94	 
-E-mail:	 bth@kamstrup.dk	 
-Web:	 www.kamstrup.dk	 
+diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+index 2daa3a1..e8ca2e6 100644
+--- a/net/ipv6/af_inet6.c
++++ b/net/ipv6/af_inet6.c
+@@ -342,7 +342,8 @@ int inet6_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
+ 			 */
+ 			v4addr = LOOPBACK4_IPV6;
+ 			if (!(addr_type & IPV6_ADDR_MULTICAST))	{
+-				if (!(inet->freebind || inet->transparent) &&
++				if (!sysctl_ip_nonlocal_bind &&
++				    !(inet->freebind || inet->transparent) &&
+ 				    !ipv6_chk_addr(net, &addr->sin6_addr,
+ 						   dev, 0)) {
+ 					err = -EADDRNOTAVAIL;
+-- 
+2.1.1
