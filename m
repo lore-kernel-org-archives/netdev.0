@@ -1,66 +1,58 @@
 From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Subject: [PATCH RFT 6/8] ARM: berlin: Add BG2 ethernet DT nodes
-Date: Thu,  9 Oct 2014 14:39:04 +0200
-Message-ID: <1412858346-11334-7-git-send-email-sebastian.hesselbarth@gmail.com>
+Subject: [PATCH RFT 8/8] ARM: berlin: Enable ethernet on Sony NSZ-GS7
+Date: Thu,  9 Oct 2014 14:39:06 +0200
+Message-ID: <1412858346-11334-9-git-send-email-sebastian.hesselbarth@gmail.com>
 References: <1412858346-11334-1-git-send-email-sebastian.hesselbarth@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: devicetree@vger.kernel.org, Florian Fainelli <f.fainelli@gmail.com>,
- Eric Miao <eric.y.miao@gmail.com>, netdev@vger.kernel.org,
- =?UTF-8?q?Antoine=20T=C3=A9nart?= <antoine.tenart@free-electrons.com>,
- linux-kernel@vger.kernel.org, Haojian Zhuang <haojian.zhuang@gmail.com>,
- "David S. Miller" <davem@davemloft.net>, linux-arm-kernel@lists.infradead.org
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	=?UTF-8?q?Antoine=20T=C3=A9nart?=
+	<antoine.tenart@free-electrons.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Eric Miao <eric.y.miao@gmail.com>,
+	Haojian Zhuang <haojian.zhuang@gmail.com>,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org, linux-kernel@vger.kernel.org
 To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f41.google.com ([74.125.82.41]:42020 "EHLO
+	mail-wg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755205AbaJIMjX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Oct 2014 08:39:23 -0400
 In-Reply-To: <1412858346-11334-1-git-send-email-sebastian.hesselbarth@gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-TWFydmVsbCBCRzIgaGFzIHR3byBmYXN0IGV0aGVybmV0IGNvbnRyb2xsZXJzIHdpdGggaW50ZXJu
-YWwgUEhZLAphZGQgdGhlIGNvcnJlc3BvbmRpbmcgbm9kZXMgdG8gU29DIGR0c2kuCgpTaWduZWQt
-b2ZmLWJ5OiBTZWJhc3RpYW4gSGVzc2VsYmFydGggPHNlYmFzdGlhbi5oZXNzZWxiYXJ0aEBnbWFp
-bC5jb20+Ci0tLQpDYzogIkRhdmlkIFMuIE1pbGxlciIgPGRhdmVtQGRhdmVtbG9mdC5uZXQ+CkNj
-OiAiQW50b2luZSBUw6luYXJ0IiA8YW50b2luZS50ZW5hcnRAZnJlZS1lbGVjdHJvbnMuY29tPgpD
-YzogRmxvcmlhbiBGYWluZWxsaSA8Zi5mYWluZWxsaUBnbWFpbC5jb20+CkNjOiBFcmljIE1pYW8g
-PGVyaWMueS5taWFvQGdtYWlsLmNvbT4KQ2M6IEhhb2ppYW4gWmh1YW5nIDxoYW9qaWFuLnpodWFu
-Z0BnbWFpbC5jb20+CkNjOiBsaW51eC1hcm0ta2VybmVsQGxpc3RzLmluZnJhZGVhZC5vcmcKQ2M6
-IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcKQ2M6IGRldmljZXRyZWVAdmdlci5rZXJuZWwub3JnCkNj
-OiBsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3JnCi0tLQogYXJjaC9hcm0vYm9vdC9kdHMvYmVy
-bGluMi5kdHNpIHwgMzYgKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrCiAxIGZp
-bGUgY2hhbmdlZCwgMzYgaW5zZXJ0aW9ucygrKQoKZGlmZiAtLWdpdCBhL2FyY2gvYXJtL2Jvb3Qv
-ZHRzL2JlcmxpbjIuZHRzaSBiL2FyY2gvYXJtL2Jvb3QvZHRzL2JlcmxpbjIuZHRzaQppbmRleCBk
-N2U4MWUxMjRkZTAuLjVmODJkY2ZjNmFjNiAxMDA2NDQKLS0tIGEvYXJjaC9hcm0vYm9vdC9kdHMv
-YmVybGluMi5kdHNpCisrKyBiL2FyY2gvYXJtL2Jvb3QvZHRzL2JlcmxpbjIuZHRzaQpAQCAtNzks
-MTEgKzc5LDQ3IEBACiAJCQljbG9ja3MgPSA8JmNoaXAgQ0xLSURfVFdEPjsKIAkJfTsKIAorCQll
-dGgxOiBldGhlcm5ldEBiOTAwMDAgeworCQkJY29tcGF0aWJsZSA9ICJtYXJ2ZWxsLHB4YTE2OC1l
-dGgiOworCQkJcmVnID0gPDB4YjkwMDAwIDB4MTAwMDA+OworCQkJY2xvY2tzID0gPCZjaGlwIENM
-S0lEX0dFVEgxPjsKKwkJCWludGVycnVwdHMgPSA8R0lDX1NQSSAyNCBJUlFfVFlQRV9MRVZFTF9I
-SUdIPjsKKwkJCS8qIHNldCBieSBib290bG9hZGVyICovCisJCQlsb2NhbC1tYWMtYWRkcmVzcyA9
-IFswMCAwMCAwMCAwMCAwMCAwMF07CisJCQkjYWRkcmVzcy1jZWxscyA9IDwxPjsKKwkJCSNzaXpl
-LWNlbGxzID0gPDA+OworCQkJcGh5LWhhbmRsZSA9IDwmZXRocGh5MT47CisJCQlzdGF0dXMgPSAi
-ZGlzYWJsZWQiOworCisJCQlldGhwaHkxOiBldGhlcm5ldC1waHlAMCB7CisJCQkJcGh5LWNvbm5l
-Y3Rpb24tdHlwZSA9ICJtaWkiOworCQkJCXJlZyA9IDwwPjsKKwkJCX07CisJCX07CisKIAkJY3B1
-LWN0cmxAZGQwMDAwIHsKIAkJCWNvbXBhdGlibGUgPSAibWFydmVsbCxiZXJsaW4tY3B1LWN0cmwi
-OwogCQkJcmVnID0gPDB4ZGQwMDAwIDB4MTAwMDA+OwogCQl9OwogCisJCWV0aDA6IGV0aGVybmV0
-QGU1MDAwMCB7CisJCQljb21wYXRpYmxlID0gIm1hcnZlbGwscHhhMTY4LWV0aCI7CisJCQlyZWcg
-PSA8MHhlNTAwMDAgMHgxMDAwMD47CisJCQljbG9ja3MgPSA8JmNoaXAgQ0xLSURfR0VUSDA+Owor
-CQkJaW50ZXJydXB0cyA9IDxHSUNfU1BJIDggSVJRX1RZUEVfTEVWRUxfSElHSD47CisJCQkvKiBz
-ZXQgYnkgYm9vdGxvYWRlciAqLworCQkJbG9jYWwtbWFjLWFkZHJlc3MgPSBbMDAgMDAgMDAgMDAg
-MDAgMDBdOworCQkJI2FkZHJlc3MtY2VsbHMgPSA8MT47CisJCQkjc2l6ZS1jZWxscyA9IDwwPjsK
-KwkJCXBoeS1oYW5kbGUgPSA8JmV0aHBoeTA+OworCQkJc3RhdHVzID0gImRpc2FibGVkIjsKKwor
-CQkJZXRocGh5MDogZXRoZXJuZXQtcGh5QDAgeworCQkJCXBoeS1jb25uZWN0aW9uLXR5cGUgPSAi
-bWlpIjsKKwkJCQlyZWcgPSA8MD47CisJCQl9OworCQl9OworCiAJCWFwYkBlODAwMDAgewogCQkJ
-Y29tcGF0aWJsZSA9ICJzaW1wbGUtYnVzIjsKIAkJCSNhZGRyZXNzLWNlbGxzID0gPDE+OwotLSAK
-Mi4xLjEKCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwps
-aW51eC1hcm0ta2VybmVsIG1haWxpbmcgbGlzdApsaW51eC1hcm0ta2VybmVsQGxpc3RzLmluZnJh
-ZGVhZC5vcmcKaHR0cDovL2xpc3RzLmluZnJhZGVhZC5vcmcvbWFpbG1hbi9saXN0aW5mby9saW51
-eC1hcm0ta2VybmVsCg==
+Marvell Berlin BG2 based Sony NSZ-GS7 has one ethernet controller
+connected to rear RJ45 jack. Enable it by default.
+
+Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+---
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: "Antoine T=C3=A9nart" <antoine.tenart@free-electrons.com>
+Cc: Florian Fainelli <f.fainelli@gmail.com>
+Cc: Eric Miao <eric.y.miao@gmail.com>
+Cc: Haojian Zhuang <haojian.zhuang@gmail.com>
+Cc: linux-arm-kernel@lists.infradead.org
+Cc: netdev@vger.kernel.org
+Cc: devicetree@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+---
+ arch/arm/boot/dts/berlin2-sony-nsz-gs7.dts | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/arch/arm/boot/dts/berlin2-sony-nsz-gs7.dts b/arch/arm/boot=
+/dts/berlin2-sony-nsz-gs7.dts
+index c72bfd468d10..27f2f0ad7562 100644
+--- a/arch/arm/boot/dts/berlin2-sony-nsz-gs7.dts
++++ b/arch/arm/boot/dts/berlin2-sony-nsz-gs7.dts
+@@ -26,4 +26,6 @@
+ 	};
+ };
+=20
++&eth1 { status =3D "okay"; };
++
+ &uart0 { status =3D "okay"; };
+--=20
+2.1.1
