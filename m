@@ -1,106 +1,60 @@
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next 3/3] cxgb4: Wait for device to get ready before reading any register
-Date: Thu,  9 Oct 2014 05:48:47 +0530
-Message-ID: <1412813927-24951-4-git-send-email-hariprasad@chelsio.com>
-References: <1412813927-24951-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem@davemloft.net, leedom@chelsio.com, kumaras@chelsio.com,
-	nirranjan@chelsio.com, santosh@chelsio.com,
-	Hariprasad Shenai <hariprasad@chelsio.com>
-To: netdev@vger.kernel.org
+From: Eric Wheeler <netdev@lists.ewheeler.net>
+Subject: Re: [PATCH net] bna: page allocation during interrupts to use a
+ mempool.
+Date: Wed, 8 Oct 2014 17:46:03 -0700 (PDT)
+Message-ID: <alpine.DEB.2.00.1410081745160.18846@ware.dreamhost.com>
+References: <alpine.DEB.2.00.1409271631530.26069@ware.dreamhost.com>     <20140929092833.6c2cb7e9@urahara>     <262CB373A6D1F14F9B81E82F74F77D5A4704FAE7@avmb2.qlogic.org>     <alpine.DEB.2.00.1410061850120.5129@ware.dreamhost.com>   
+ <1412646735.11091.93.camel@edumazet-glaptop2.roam.corp.google.com>    <alpine.DEB.2.00.1410061956410.7392@ware.dreamhost.com>   <1412651746.11091.98.camel@edumazet-glaptop2.roam.corp.google.com>   <alpine.DEB.2.00.1410071746230.3503@ware.dreamhost.com>
+ <1412731718.11091.175.camel@edumazet-glaptop2.roam.corp.google.com>  <alpine.DEB.2.00.1410081157470.16668@ware.dreamhost.com> <1412795092.11091.197.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Shahed Shaikh <shahed.shaikh@qlogic.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	netdev <netdev@vger.kernel.org>,
+	Rasesh Mody <rasesh.mody@qlogic.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:59663
-	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755199AbaJIAOi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2014 20:14:38 -0400
-In-Reply-To: <1412813927-24951-1-git-send-email-hariprasad@chelsio.com>
+Received: from homie.mail.dreamhost.com ([208.97.132.208]:45762 "EHLO
+	homiemail-a9.g.dreamhost.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751347AbaJIAaW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Oct 2014 20:30:22 -0400
+In-Reply-To: <1412795092.11091.197.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Call t4_wait_dev_ready() before attempting to read the PL_WHOAMI register
-(to determine which function we have been attached to). This prevents us from
-failing on that read if it comes right after a RESET.
+>>> Further inspection of the driver told me that unmap->vector.len should
+>>> be 16384 already. (same than PAGE_SIZE << 2)
+>>> (set at line 304, drivers/net/ethernet/brocade/bna/bnad.c)
+>>>
+>>> So you might hit memory fragmentation issues.
+>>>
+>>> Do you have CONFIG_COMPACTION=y in your .config ?
+>>
+>> We're still having the backtrace.
+>
+> What is the output of
+>
+> free
+> cat /proc/sys/vm/min_free_kbytes
+> cat /proc/buddyinfo
 
-Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |    2 +-
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |    6 +++++-
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      |   17 ++++++++++-------
- 3 files changed, 16 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-index 9b2c669..410ed58 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-@@ -968,7 +968,7 @@ void t4_intr_enable(struct adapter *adapter);
- void t4_intr_disable(struct adapter *adapter);
- int t4_slow_intr_handler(struct adapter *adapter);
- 
--int t4_wait_dev_ready(struct adapter *adap);
-+int t4_wait_dev_ready(void __iomem *regs);
- int t4_link_start(struct adapter *adap, unsigned int mbox, unsigned int port,
- 		  struct link_config *lc);
- int t4_restart_aneg(struct adapter *adap, unsigned int mbox, unsigned int port);
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 321f3d9..5b38e95 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -6137,7 +6137,7 @@ static pci_ers_result_t eeh_slot_reset(struct pci_dev *pdev)
- 	pci_save_state(pdev);
- 	pci_cleanup_aer_uncorrect_error_status(pdev);
- 
--	if (t4_wait_dev_ready(adap) < 0)
-+	if (t4_wait_dev_ready(adap->regs) < 0)
- 		return PCI_ERS_RESULT_DISCONNECT;
- 	if (t4_fw_hello(adap, adap->fn, adap->fn, MASTER_MUST, NULL) < 0)
- 		return PCI_ERS_RESULT_DISCONNECT;
-@@ -6530,6 +6530,10 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		goto out_disable_device;
- 	}
- 
-+	err = t4_wait_dev_ready(regs);
-+	if (err < 0)
-+		goto out_unmap_bar0;
-+
- 	/* We control everything through one PF */
- 	func = SOURCEPF_GET(readl(regs + PL_WHOAMI));
- 	if (func != ent->driver_data) {
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-index 22d7581..1fff149 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-@@ -3845,12 +3845,19 @@ static void init_link_config(struct link_config *lc, unsigned int caps)
- 	}
- }
- 
--int t4_wait_dev_ready(struct adapter *adap)
-+#define CIM_PF_NOACCESS 0xeeeeeeee
-+
-+int t4_wait_dev_ready(void __iomem *regs)
- {
--	if (t4_read_reg(adap, PL_WHOAMI) != 0xffffffff)
-+	u32 whoami;
-+
-+	whoami = readl(regs + PL_WHOAMI);
-+	if (whoami != 0xffffffff && whoami != CIM_PF_NOACCESS)
- 		return 0;
-+
- 	msleep(500);
--	return t4_read_reg(adap, PL_WHOAMI) != 0xffffffff ? 0 : -EIO;
-+	whoami = readl(regs + PL_WHOAMI);
-+	return (whoami != 0xffffffff && whoami != CIM_PF_NOACCESS ? 0 : -EIO);
- }
- 
- struct flash_desc {
-@@ -3919,10 +3926,6 @@ int t4_prep_adapter(struct adapter *adapter)
- 	uint16_t device_id;
- 	u32 pl_rev;
- 
--	ret = t4_wait_dev_ready(adapter);
--	if (ret < 0)
--		return ret;
--
- 	get_pci_mode(adapter, &adapter->params.pci);
- 	pl_rev = G_REV(t4_read_reg(adapter, PL_REV));
- 
--- 
-1.7.1
+[root@hv2 ~]# cat /proc/sys/vm/min_free_kbytes
+262144
+
+[root@hv2 ~]# cat /proc/buddyinfo
+Node 0, zone      DMA      1      2      1      1      1      1      1      0      1      1      3
+Node 0, zone    DMA32   2221  28306    771   2964    148      9      4      1      0      0      1
+Node 0, zone   Normal 956207  99272      0      0      0      0      0      0      0      0      1
+
+[root@hv2 ~]# free
+              total       used       free     shared    buffers     cached
+Mem:      33051552   28058192    4993360          0    3058040     158224
+-/+ buffers/cache:   24841928    8209624
+Swap:      8388604      21540    8367064
+
+[root@hv2 ~]# free -m
+              total       used       free     shared    buffers     cached
+Mem:         32276      27401       4875          0       2986        154
+-/+ buffers/cache:      24260       8016
+Swap:         8191         21       8170
