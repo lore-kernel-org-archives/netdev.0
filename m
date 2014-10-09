@@ -1,65 +1,83 @@
 From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net 2/3] net: sctp: fix panic on duplicate ASCONF chunks
-Date: Thu,  9 Oct 2014 22:55:32 +0200
-Message-ID: <1412888133-833-3-git-send-email-dborkman@redhat.com>
+Subject: [PATCH net 3/3] net: sctp: fix remote memory pressure from excessive queueing
+Date: Thu,  9 Oct 2014 22:55:33 +0200
+Message-ID: <1412888133-833-4-git-send-email-dborkman@redhat.com>
 References: <1412888133-833-1-git-send-email-dborkman@redhat.com>
 Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
 	Vlad Yasevich <vyasevich@gmail.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33694 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:42607 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751161AbaJIUzm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Oct 2014 16:55:42 -0400
+	id S1751210AbaJIUzo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Oct 2014 16:55:44 -0400
 In-Reply-To: <1412888133-833-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When receiving a e.g. semi-good formed connection scan in the
-form of ...
+This scenario is not limited to ASCONF, just taken as one
+example triggering the issue. When receiving ASCONF probes
+in the form of ...
 
   -------------- INIT[ASCONF; ASCONF_ACK] ------------->
   <----------- INIT-ACK[ASCONF; ASCONF_ACK] ------------
   -------------------- COOKIE-ECHO -------------------->
   <-------------------- COOKIE-ACK ---------------------
-  ---------------- ASCONF_a; ASCONF_b ----------------->
+  ---- ASCONF_a; [ASCONF_b; ...; ASCONF_n;] JUNK ------>
+  [...]
+  ---- ASCONF_m; [ASCONF_o; ...; ASCONF_z;] JUNK ------>
 
-... where ASCONF_a equals ASCONF_b chunk (at least both serials
-need to be equal), we panic an SCTP server!
+... where ASCONF_a, ASCONF_b, ..., ASCONF_z are good-formed
+ASCONFs and have increasing serial numbers, we process such
+ASCONF chunk(s) marked with !end_of_packet and !singleton,
+since we have not yet reached the SCTP packet end. SCTP does
+only do verification on a chunk by chunk basis, as an SCTP
+packet is nothing more than just a container of a stream of
+chunks which it eats up one by one.
 
-The problem is that good-formed ASCONF chunks that we reply with
-ASCONF_ACK chunks are cached per serial. Thus, when we receive a
-same ASCONF chunk twice (e.g. through a lost ASCONF_ACK), we do
-not need to process them again on the server side (that was the
-idea, also proposed in the RFC). Instead, we know it was cached
-and we just resend the cached chunk instead. So far, so good.
+We could run into the case that we receive a packet with a
+malformed tail, above marked as trailing JUNK. All previous
+chunks are here goodformed, so the stack will eat up all
+previous chunks up to this point. In case JUNK does not fit
+into a chunk header and there are no more other chunks in
+the input queue, or in case JUNK contains a garbage chunk
+header, but the encoded chunk length would exceed the skb
+tail, or we came here from an entirely different scenario
+and the chunk has pdiscard=1 mark (without having had a flush
+point), it will happen, that we will excessively queue up
+the association's output queue (a correct final chunk may
+then turn it into a response flood when flushing the
+queue ;)): I ran a simple script with incremental ASCONF
+serial numbers and could see the server side consuming
+excessive amount of RAM [before/after: up to 2GB and more].
 
-Where things get nasty is in SCTP's side effect interpreter, that
-is, sctp_cmd_interpreter():
+The issue at heart is that the chunk train basically ends
+with !end_of_packet and !singleton markers and since commit
+2e3216cd54b1 ("sctp: Follow security requirement of responding
+with 1 packet") therefore preventing an output queue flush
+point in sctp_do_sm() -> sctp_cmd_interpreter() on the input
+chunk (chunk = event_arg) even though local_cork is set,
+but its precedence has changed since then. In the normal
+case, the last chunk with end_of_packet=1 would trigger the
+queue flush to accommodate possible outgoing bundling.
 
-While incoming ASCONF_a (chunk = event_arg) is being marked
-!end_of_packet and !singleton, and we have an association context,
-we do not flush the outqueue the first time after processing the
-ASCONF_ACK singleton chunk via SCTP_CMD_REPLY. Instead, we keep it
-queued up, although we set local_cork to 1. Commit 2e3216cd54b1
-changed the precedence, so that as long as we get bundled, incoming
-chunks we try possible bundling on outgoing queue as well. Before
-this commit, we would just flush the output queue.
+In the input queue, sctp_inq_pop() seems to do the right thing
+in terms of discarding invalid chunks. So, above JUNK will
+not enter the state machine and instead be released and exit
+the sctp_assoc_bh_rcv() chunk processing loop. It's simply
+the flush point being missing at loop exit. Adding a try-flush
+approach on the output queue might not work as the underlying
+infrastructure might be long gone at this point due to the
+side-effect interpreter run.
 
-Now, while ASCONF_a's ASCONF_ACK sits in the corked outq, we
-continue to process the same ASCONF_b chunk from the packet. As
-we have cached the previous ASCONF_ACK, we find it, grab it and
-do another SCTP_CMD_REPLY command on it. So, effectively, we rip
-the chunk->list pointers and requeue the same ASCONF_ACK chunk
-another time. Since we process ASCONF_b, it's correctly marked
-with end_of_packet and we enforce an uncork, and thus flush, thus
-crashing the kernel.
-
-Fix it by testing if the ASCONF_ACK is currently pending and if
-that is the case, do not requeue it. When flushing the output
-queue we may relink the chunk for preparing an outgoing packet,
-but eventually unlink it when it's copied into the skb right
-before transmission.
+One possibility, albeit a bit of a kludge, would be to defer
+invalid chunk freeing into the state machine in order to
+possibly trigger packet discards and thus indirectly a queue
+flush on error. It would surely be better to discard chunks
+as in the current, perhaps better controlled environment, but
+going back and forth, it's simply architecturally not possible.
+I tried various trailing JUNK attack cases and it seems to
+look good now.
 
 Joint work with Vlad Yasevich.
 
@@ -67,38 +85,78 @@ Fixes: 2e3216cd54b1 ("sctp: Follow security requirement of responding with 1 pac
 Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 Signed-off-by: Vlad Yasevich <vyasevich@gmail.com>
 ---
- include/net/sctp/sctp.h | 5 +++++
- net/sctp/associola.c    | 2 ++
- 2 files changed, 7 insertions(+)
+ net/sctp/inqueue.c      | 33 +++++++--------------------------
+ net/sctp/sm_statefuns.c |  3 +++
+ 2 files changed, 10 insertions(+), 26 deletions(-)
 
-diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
-index 9fbd856..856f01c 100644
---- a/include/net/sctp/sctp.h
-+++ b/include/net/sctp/sctp.h
-@@ -426,6 +426,11 @@ static inline void sctp_assoc_pending_pmtu(struct sock *sk, struct sctp_associat
- 	asoc->pmtu_pending = 0;
- }
+diff --git a/net/sctp/inqueue.c b/net/sctp/inqueue.c
+index 4de12af..7e8a16c 100644
+--- a/net/sctp/inqueue.c
++++ b/net/sctp/inqueue.c
+@@ -140,18 +140,9 @@ struct sctp_chunk *sctp_inq_pop(struct sctp_inq *queue)
+ 		} else {
+ 			/* Nothing to do. Next chunk in the packet, please. */
+ 			ch = (sctp_chunkhdr_t *) chunk->chunk_end;
+-
+ 			/* Force chunk->skb->data to chunk->chunk_end.  */
+-			skb_pull(chunk->skb,
+-				 chunk->chunk_end - chunk->skb->data);
+-
+-			/* Verify that we have at least chunk headers
+-			 * worth of buffer left.
+-			 */
+-			if (skb_headlen(chunk->skb) < sizeof(sctp_chunkhdr_t)) {
+-				sctp_chunk_free(chunk);
+-				chunk = queue->in_progress = NULL;
+-			}
++			skb_pull(chunk->skb, chunk->chunk_end - chunk->skb->data);
++			/* We are guaranteed to pull a SCTP header. */
+ 		}
+ 	}
  
-+static inline bool sctp_chunk_pending(const struct sctp_chunk *chunk)
-+{
-+	return !list_empty(&chunk->list);
-+}
-+
- /* Walk through a list of TLV parameters.  Don't trust the
-  * individual parameter lengths and instead depend on
-  * the chunk length to indicate when to stop.  Make sure
-diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-index a88b852..f791edd 100644
---- a/net/sctp/associola.c
-+++ b/net/sctp/associola.c
-@@ -1668,6 +1668,8 @@ struct sctp_chunk *sctp_assoc_lookup_asconf_ack(
- 	 * ack chunk whose serial number matches that of the request.
- 	 */
- 	list_for_each_entry(ack, &asoc->asconf_ack_list, transmitted_list) {
-+		if (sctp_chunk_pending(ack))
-+			continue;
- 		if (ack->subh.addip_hdr->serial == serial) {
- 			sctp_chunk_hold(ack);
- 			return ack;
+@@ -187,24 +178,14 @@ struct sctp_chunk *sctp_inq_pop(struct sctp_inq *queue)
+ 	skb_pull(chunk->skb, sizeof(sctp_chunkhdr_t));
+ 	chunk->subh.v = NULL; /* Subheader is no longer valid.  */
+ 
+-	if (chunk->chunk_end < skb_tail_pointer(chunk->skb)) {
++	if (chunk->chunk_end + sizeof(sctp_chunkhdr_t) <
++	    skb_tail_pointer(chunk->skb)) {
+ 		/* This is not a singleton */
+ 		chunk->singleton = 0;
+ 	} else if (chunk->chunk_end > skb_tail_pointer(chunk->skb)) {
+-		/* RFC 2960, Section 6.10  Bundling
+-		 *
+-		 * Partial chunks MUST NOT be placed in an SCTP packet.
+-		 * If the receiver detects a partial chunk, it MUST drop
+-		 * the chunk.
+-		 *
+-		 * Since the end of the chunk is past the end of our buffer
+-		 * (which contains the whole packet, we can freely discard
+-		 * the whole packet.
+-		 */
+-		sctp_chunk_free(chunk);
+-		chunk = queue->in_progress = NULL;
+-
+-		return NULL;
++		/* Discard inside state machine. */
++		chunk->pdiscard = 1;
++		chunk->chunk_end = skb_tail_pointer(chunk->skb);
+ 	} else {
+ 		/* We are at the end of the packet, so mark the chunk
+ 		 * in case we need to send a SACK.
+diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
+index bdea3df..3ee27b7 100644
+--- a/net/sctp/sm_statefuns.c
++++ b/net/sctp/sm_statefuns.c
+@@ -170,6 +170,9 @@ sctp_chunk_length_valid(struct sctp_chunk *chunk,
+ {
+ 	__u16 chunk_length = ntohs(chunk->chunk_hdr->length);
+ 
++	/* Previously already marked? */
++	if (unlikely(chunk->pdiscard))
++		return 0;
+ 	if (unlikely(chunk_length < required_length))
+ 		return 0;
+ 
 -- 
 1.7.11.7
