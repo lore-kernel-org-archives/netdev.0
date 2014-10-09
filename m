@@ -1,30 +1,40 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH 1/1 net-next] net: rfkill: kernel-doc warning fixes
-Date: Thu, 09 Oct 2014 20:34:59 +0200
-Message-ID: <1412879699.1828.59.camel@jlt4.sipsolutions.net>
-References: <1412713224-5017-1-git-send-email-fabf@skynet.be>
-	 <1412846213.1828.28.camel@jlt4.sipsolutions.net>
-	 <20141009153359.GA13986@tuxdriver.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Fabian Frederick <fabf@skynet.be>, linux-kernel@vger.kernel.org,
+From: Fabian Frederick <fabf@skynet.be>
+Subject: [PATCH 1/1 net-next] mac80211: directly return ieee80211_vif_use_reserved_context()
+Date: Thu,  9 Oct 2014 20:36:22 +0200
+Message-ID: <1412879782-8818-1-git-send-email-fabf@skynet.be>
+Cc: Fabian Frederick <fabf@skynet.be>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Johannes Berg <johannes@sipsolutions.net>,
 	"David S. Miller" <davem@davemloft.net>,
 	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: "John W. Linville" <linville@tuxdriver.com>
+To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141009153359.GA13986@tuxdriver.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2014-10-09 at 11:33 -0400, John W. Linville wrote:
-> On Thu, Oct 09, 2014 at 11:16:53AM +0200, Johannes Berg wrote:
-> > Applied, with a somewhat better changelog.
-> 
-> FWIW, I had already merged that one as-is -- sorry!
+No need to store ieee80211_vif_use_reserved_context result and test it before returning.
 
-Hmm? That can't be right - then I shouldn't have been able to apply it?
-I think you're thinking of another rfkill patch: "net: rfkill: gpio: Fix
-clock status"?
+Signed-off-by: Fabian Frederick <fabf@skynet.be>
+---
+ net/mac80211/cfg.c | 6 +-----
+ 1 file changed, 1 insertion(+), 5 deletions(-)
 
-johannes
+diff --git a/net/mac80211/cfg.c b/net/mac80211/cfg.c
+index fb6a150..c76b457 100644
+--- a/net/mac80211/cfg.c
++++ b/net/mac80211/cfg.c
+@@ -2850,11 +2850,7 @@ static int __ieee80211_csa_finalize(struct ieee80211_sub_if_data *sdata)
+ 		if (sdata->reserved_ready)
+ 			return 0;
+ 
+-		err = ieee80211_vif_use_reserved_context(sdata);
+-		if (err)
+-			return err;
+-
+-		return 0;
++		return ieee80211_vif_use_reserved_context(sdata);
+ 	}
+ 
+ 	if (!cfg80211_chandef_identical(&sdata->vif.bss_conf.chandef,
+-- 
+1.9.3
