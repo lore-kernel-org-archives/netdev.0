@@ -1,49 +1,35 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v3] Add support for GPIOs for SMSC LAN95xx chips.
-Date: Thu, 09 Oct 2014 18:45:58 -0400 (EDT)
-Message-ID: <20141009.184558.619106178447500762.davem@davemloft.net>
-References: <CAN_we7MbMywYzysn_Q_iRAOZZuE+KU_jDJxMW-Qz0KK0RHwSRQ@mail.gmail.com>
-	<1412806498-22556-1-git-send-email-boger@contactless.ru>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/3] cxgb4/cxgb4vf: Misc fixes and 40G support
+ for cxgb4vf
+Date: Thu, 09 Oct 2014 18:55:59 -0400 (EDT)
+Message-ID: <20141009.185559.756024011555918969.davem@davemloft.net>
+References: <1412813927-24951-1-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dforsi-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, steve.glendinning-nksJyM/082jR7s880joybQ@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: boger-hVk9LwgH4SrGCOCKMErq+g@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1412806498-22556-1-git-send-email-boger-hVk9LwgH4SrGCOCKMErq+g@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, leedom@chelsio.com, kumaras@chelsio.com,
+	nirranjan@chelsio.com, santosh@chelsio.com
+To: hariprasad@chelsio.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43665 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751065AbaJIW4B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Oct 2014 18:56:01 -0400
+In-Reply-To: <1412813927-24951-1-git-send-email-hariprasad@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Evgeny Boger <boger-hVk9LwgH4SrGCOCKMErq+g@public.gmane.org>
-Date: Thu,  9 Oct 2014 02:14:58 +0400
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Date: Thu,  9 Oct 2014 05:48:44 +0530
 
-> There might be 11 GPIOs in total.
-> Last three GPIOs  (offsets 8-10, 0-based) are shared with FDX, LNKA, SPD
-> LEDs respectively. The LEDs are driven by chip by default at startup time.
-> Once the corresponding GPIO is requested, the chip LED drive logic is disabled.
+> This patch series adds 40G support for cxgb4vf driver. Update the LSO length for
+> cxgb4vf, fix macro. Wait for device to get ready before reading PL_WHOAMI
+> register.
 > 
-> The numbering scheme according to datasheets differs a bit between LAN9500
-> and LAN951x.
+> The patches series is created against 'net-next' tree.
+> And includes patches on cxgb4 and cxgb4vf driver.
 > 
-> For LAN951x:
-> GPIOs with offsets 0-7 are named "GPIO3" - "GPIO7",
-> offsets 8-10 are for "GPIO0" - "GPIO2" (these three are multiplexed with nFDX_LED,
-> nLNKA_LED, nSPD_LED).
-> 
-> For LAN9500:
-> The datasheet name is the same as the corresponding offset, i.e. offsets 0-10 are
-> for "GPIO0"-"GPIO10".
-> 
-> Signed-off-by: Evgeny Boger <boger-hVk9LwgH4SrGCOCKMErq+g@public.gmane.org>
+> We have included all the maintainers of respective drivers. Kindly review the
+> change and let us know in case of any review comments.
 
-Please either "select GPIOLIB" from USB_NET_SMSC95XX, or add a new
-config option "UBS_NET_SMSC95XX_GPIO" which does it.  I would prefer
-the former, and then you can get rid of all of the ifdefs in your
-patch.
-
-Thanks.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Series applied, thanks.
