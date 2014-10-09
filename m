@@ -1,41 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Missing @ before descriptions cause make xmldocs
- warning
-Date: Thu, 09 Oct 2014 18:57:26 -0400 (EDT)
-Message-ID: <20141009.185726.2200139354739768161.davem@davemloft.net>
-References: <1412827088-30718-1-git-send-email-standby24x7@gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next] r8152: use mutex for hw settings
+Date: Thu, 09 Oct 2014 19:05:17 -0400 (EDT)
+Message-ID: <20141009.190517.1411360749517857554.davem@davemloft.net>
+References: <1394712342-15778-58-Taiwan-albertk@realtek.com>
+	<20141008.154513.1944594723904521723.davem@davemloft.net>
+	<0835B3720019904CB8F7AA43166CEEB2EC397B@RTITMBSTEMP01.realtek.com.tw>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	edumazet@google.com
-To: standby24x7@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43680 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751065AbaJIW52 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Oct 2014 18:57:28 -0400
-In-Reply-To: <1412827088-30718-1-git-send-email-standby24x7@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <0835B3720019904CB8F7AA43166CEEB2EC397B-DsoXZbr0xhNADej8IQs+YlSdAeM+KJnwp3nQiEPZk/A@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Masanari Iida <standby24x7@gmail.com>
-Date: Thu,  9 Oct 2014 12:58:08 +0900
+From: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+Date: Thu, 9 Oct 2014 07:59:35 +0000
 
-> This patch fix following warning.
-> Warning(.//net/core/skbuff.c:4142): No description found for parameter 'header_len'
-> Warning(.//net/core/skbuff.c:4142): No description found for parameter 'data_len'
-> Warning(.//net/core/skbuff.c:4142): No description found for parameter 'max_page_order'
-> Warning(.//net/core/skbuff.c:4142): No description found for parameter 'errcode'
-> Warning(.//net/core/skbuff.c:4142): No description found for parameter 'gfp_mask'
+> If I use the rtnl_lock(), I get a dead lock when enabling autosuspend.
 > 
-> Acutually the descriptions exist, but missing "@" in front.
+> Case 1:
+>    autosuspend before calling open.
+>    rtnl_lock()
+>    call open
+>    try to autoresume and rtl8152_resume is called.
+>    dead lock occurs.
 > 
-> This problem start to happen when following commit was merged
-> into Linus's tree during 3.18-rc1 merge period.
-> commit 2e4e44107176d552f8bb1bb76053e850e3809841
-> net: add alloc_skb_with_frags() helper
-> 
-> Signed-off-by: Masanari Iida <standby24x7@gmail.com>
+> Case 2:
+>    autosuspend occurs.
+>    rtnl_lock()
+>    call close
+>    try to autoresume and rtl8152_resume is called.
+>    dead lock occurs.
 
-Applied, thank you.
+That's really unfortunate that we can variably get into the resume
+handlers from contexts holding the RTNL mutex.
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
