@@ -1,131 +1,86 @@
-From: alexander.duyck@gmail.com
-Subject: [PATCH] fm10k: Add skb->xmit_more support
-Date: Fri, 10 Oct 2014 13:17:40 -0700
-Message-ID: <20141010201714.20593.67813.stgit@ahduyck-workstation.home>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: matthew.vick@intel.com
-To: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	jeffrey.t.kirsher@intel.com
+From: Iyappan Subramanian <isubramanian@apm.com>
+Subject: [PATCH v1 1/3] dtb: Add SGMII based 1GbE node to APM X-Gene SoC device tree
+Date: Fri, 10 Oct 2014 13:18:34 -0700
+Message-ID: <1412972316-16344-2-git-send-email-isubramanian@apm.com>
+References: <1412972316-16344-1-git-send-email-isubramanian@apm.com>
+Cc: linux-arm-kernel@lists.infradead.org, patches@apm.com,
+	kchudgar@apm.com, Iyappan Subramanian <isubramanian@apm.com>
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:60147 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751866AbaJJURl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2014 16:17:41 -0400
-Received: by mail-pd0-f170.google.com with SMTP id p10so2259499pdj.15
-        for <netdev@vger.kernel.org>; Fri, 10 Oct 2014 13:17:40 -0700 (PDT)
+Received: from exprod5og116.obsmtp.com ([64.18.0.147]:46558 "HELO
+	exprod5og116.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1751866AbaJJUSb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2014 16:18:31 -0400
+Received: by mail-pa0-f50.google.com with SMTP id kx10so2375502pab.37
+        for <netdev@vger.kernel.org>; Fri, 10 Oct 2014 13:18:30 -0700 (PDT)
+In-Reply-To: <1412972316-16344-1-git-send-email-isubramanian@apm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-
-This change adds suport for skb->xmit_more based on the changes that were
-made to igb to support the feature.  The main changes are moving up the
-check for maybe_stop_tx so that we can check netif_xmit_stopped to determine
-if we must write the tail because we can add no further buffers.
-
-Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
+Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
+Signed-off-by: Keyur Chudgar <kchudgar@apm.com>
 ---
- drivers/net/ethernet/intel/fm10k/fm10k_main.c |   65 +++++++++++++------------
- 1 file changed, 34 insertions(+), 31 deletions(-)
+ arch/arm64/boot/dts/apm-mustang.dts |  4 ++++
+ arch/arm64/boot/dts/apm-storm.dtsi  | 24 ++++++++++++++++++++++++
+ 2 files changed, 28 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_main.c b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-index 6c800a3..8ad7ff4 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-@@ -930,6 +930,30 @@ static bool fm10k_tx_desc_push(struct fm10k_ring *tx_ring,
- 	return i == tx_ring->count;
- }
+diff --git a/arch/arm64/boot/dts/apm-mustang.dts b/arch/arm64/boot/dts/apm-mustang.dts
+index 2ae782b..71a1489 100644
+--- a/arch/arm64/boot/dts/apm-mustang.dts
++++ b/arch/arm64/boot/dts/apm-mustang.dts
+@@ -33,6 +33,10 @@
+ 	status = "ok";
+ };
  
-+static int __fm10k_maybe_stop_tx(struct fm10k_ring *tx_ring, u16 size)
-+{
-+	netif_stop_subqueue(tx_ring->netdev, tx_ring->queue_index);
++&sgenet0 {
++	status = "ok";
++};
 +
-+	smp_mb();
+ &xgenet {
+ 	status = "ok";
+ };
+diff --git a/arch/arm64/boot/dts/apm-storm.dtsi b/arch/arm64/boot/dts/apm-storm.dtsi
+index d16cc03..f45bbfe 100644
+--- a/arch/arm64/boot/dts/apm-storm.dtsi
++++ b/arch/arm64/boot/dts/apm-storm.dtsi
+@@ -176,6 +176,16 @@
+ 				clock-output-names = "menetclk";
+ 			};
+ 
++			sge0clk: sge0clk@1f21c000 {
++				compatible = "apm,xgene-device-clock";
++				#clock-cells = <1>;
++				clocks = <&socplldiv2 0>;
++				reg = <0x0 0x1f21c000 0x0 0x1000>;
++				reg-names = "csr-reg";
++				csr-mask = <0x3>;
++				clock-output-names = "sge0clk";
++			};
 +
-+	/* We need to check again in a case another CPU has just
-+	 * made room available. */
-+	if (likely(fm10k_desc_unused(tx_ring) < size))
-+		return -EBUSY;
+ 			xge0clk: xge0clk@1f61c000 {
+ 				compatible = "apm,xgene-device-clock";
+ 				#clock-cells = <1>;
+@@ -446,6 +456,20 @@
+ 			};
+ 		};
+ 
++		sgenet0: ethernet@1f210000 {
++			compatible = "apm,xgene-enet";
++			status = "disabled";
++			reg = <0x0 0x1f210000 0x0 0x10000>,
++			      <0x0 0x1f200000 0x0 0X10000>,
++			      <0x0 0x1B000000 0x0 0X20000>;
++			reg-names = "enet_csr", "ring_csr", "ring_cmd";
++			interrupts = <0x0 0xA0 0x4>;
++			dma-coherent;
++			clocks = <&sge0clk 0>;
++			local-mac-address = [00 00 00 00 00 00];
++			phy-connection-type = "sgmii";
++		};
 +
-+	/* A reprieve! - use start_queue because it doesn't call schedule */
-+	netif_start_subqueue(tx_ring->netdev, tx_ring->queue_index);
-+	++tx_ring->tx_stats.restart_queue;
-+	return 0;
-+}
-+
-+static inline int fm10k_maybe_stop_tx(struct fm10k_ring *tx_ring, u16 size)
-+{
-+	if (likely(fm10k_desc_unused(tx_ring) >= size))
-+		return 0;
-+	return __fm10k_maybe_stop_tx(tx_ring, size);
-+}
-+
- static void fm10k_tx_map(struct fm10k_ring *tx_ring,
- 			 struct fm10k_tx_buffer *first)
- {
-@@ -1023,13 +1047,18 @@ static void fm10k_tx_map(struct fm10k_ring *tx_ring,
- 
- 	tx_ring->next_to_use = i;
- 
-+	/* Make sure there is space in the ring for the next send. */
-+	fm10k_maybe_stop_tx(tx_ring, DESC_NEEDED);
-+
- 	/* notify HW of packet */
--	writel(i, tx_ring->tail);
-+	if (netif_xmit_stopped(txring_txq(tx_ring)) || !skb->xmit_more) {
-+		writel(i, tx_ring->tail);
- 
--	/* we need this if more than one processor can write to our tail
--	 * at a time, it synchronizes IO on IA64/Altix systems
--	 */
--	mmiowb();
-+		/* we need this if more than one processor can write to our tail
-+		 * at a time, it synchronizes IO on IA64/Altix systems
-+		 */
-+		mmiowb();
-+	}
- 
- 	return;
- dma_error:
-@@ -1049,30 +1078,6 @@ dma_error:
- 	tx_ring->next_to_use = i;
- }
- 
--static int __fm10k_maybe_stop_tx(struct fm10k_ring *tx_ring, u16 size)
--{
--	netif_stop_subqueue(tx_ring->netdev, tx_ring->queue_index);
--
--	smp_mb();
--
--	/* We need to check again in a case another CPU has just
--	 * made room available. */
--	if (likely(fm10k_desc_unused(tx_ring) < size))
--		return -EBUSY;
--
--	/* A reprieve! - use start_queue because it doesn't call schedule */
--	netif_start_subqueue(tx_ring->netdev, tx_ring->queue_index);
--	++tx_ring->tx_stats.restart_queue;
--	return 0;
--}
--
--static inline int fm10k_maybe_stop_tx(struct fm10k_ring *tx_ring, u16 size)
--{
--	if (likely(fm10k_desc_unused(tx_ring) >= size))
--		return 0;
--	return __fm10k_maybe_stop_tx(tx_ring, size);
--}
--
- netdev_tx_t fm10k_xmit_frame_ring(struct sk_buff *skb,
- 				  struct fm10k_ring *tx_ring)
- {
-@@ -1117,8 +1122,6 @@ netdev_tx_t fm10k_xmit_frame_ring(struct sk_buff *skb,
- 
- 	fm10k_tx_map(tx_ring, first);
- 
--	fm10k_maybe_stop_tx(tx_ring, DESC_NEEDED);
--
- 	return NETDEV_TX_OK;
- 
- out_drop:
+ 		xgenet: ethernet@1f610000 {
+ 			compatible = "apm,xgene-enet";
+ 			status = "disabled";
+-- 
+1.9.1
