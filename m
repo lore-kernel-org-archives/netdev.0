@@ -1,52 +1,135 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: kernel crash in bpf_jit on x86_64 when running nmap
-Date: Fri, 10 Oct 2014 14:17:45 -0700
-Message-ID: <CAMEtUuwmw2KUB4+vFmL-_iPXbCfYpBxisYEC0CLEbkqUFL7RPg@mail.gmail.com>
-References: <20141010204403.GA30018@birch.djwong.org>
+From: alexander.duyck@gmail.com
+Subject: [PATCH v2] fm10k: Add skb->xmit_more support
+Date: Fri, 10 Oct 2014 14:30:52 -0700
+Message-ID: <20141010213013.20973.19209.stgit@ahduyck-workstation.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@kernel.org>,
-	Network Development <netdev@vger.kernel.org>
-To: "Darrick J. Wong" <darrick.wong@oracle.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: matthew.vick@intel.com
+To: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	davem@davemloft.net, jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f169.google.com ([209.85.212.169]:51779 "EHLO
-	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751661AbaJJVRq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2014 17:17:46 -0400
-Received: by mail-wi0-f169.google.com with SMTP id cc10so5394480wib.0
-        for <netdev@vger.kernel.org>; Fri, 10 Oct 2014 14:17:45 -0700 (PDT)
-In-Reply-To: <20141010204403.GA30018@birch.djwong.org>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:37359 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751292AbaJJVax (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2014 17:30:53 -0400
+Received: by mail-pa0-f53.google.com with SMTP id kq14so2489113pab.12
+        for <netdev@vger.kernel.org>; Fri, 10 Oct 2014 14:30:53 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 10, 2014 at 1:44 PM, Darrick J. Wong
-<darrick.wong@oracle.com> wrote:
-> Hi everyone,
->
-> I was running nmap on a x86_64 qemu guest and experienced the following crash:
->
-> # nmap -sS -O -vvv 192.168.122.1
-> Starting Nmap 6.40 ( http://nmap.org ) at 2014-10-10 13:14 PDT
-> Initiating ARP Ping Scan at 13:14
-> Scanning 192.168.122.1 [1 port]
-> <kaboom>
->
-> dmesg output is as follows (I set net.core.bpf_jit_enable=2 the second time):
->
-> [   32.376291] flen=3 proglen=82 pass=0 image=ffffffffc01ac65b
-> [   32.377595] JIT code: 00000000: 55 48 89 e5 48 81 ec 28 02 00 00 48 89 9d d8 fd
-> [   32.379243] JIT code: 00000010: ff ff 4c 89 ad e0 fd ff ff 4c 89 b5 e8 fd ff ff
-> [   32.380984] JIT code: 00000020: 4c 89 bd f0 fd ff ff 31 c0 4d 31 ed 48 89 fb b8
-> [   32.382606] JIT code: 00000030: 00 00 00 00 48 8b 9d d8 fd ff ff 4c 8b ad e0 fd
-> [   32.384280] JIT code: 00000040: ff ff 4c 8b b5 e8 fd ff ff 4c 8b bd f0 fd ff ff
-> [   32.385911] JIT code: 00000050: c9 c3
-> [   32.386841] bpf_jit: proglen=265 != oldproglen=269
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
 
-thanks for the report. The line above indicates that JIT tried to emit
-4 byte longer program than during pre-final pass.
-Will look at it asap.
+This change adds support for skb->xmit_more based on the changes that were
+made to igb to support the feature.  The main changes are moving up the
+check for maybe_stop_tx so that we can check netif_xmit_stopped to determine
+if we must write the tail because we can add no further buffers.
+
+Acked-by: Matthew Vick <matthew.vick@intel.com>
+Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
+---
+
+v2: Minor fix to patch description for typo.
+
+ drivers/net/ethernet/intel/fm10k/fm10k_main.c |   65 +++++++++++++------------
+ 1 file changed, 34 insertions(+), 31 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_main.c b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
+index 6c800a3..8ad7ff4 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_main.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
+@@ -930,6 +930,30 @@ static bool fm10k_tx_desc_push(struct fm10k_ring *tx_ring,
+ 	return i == tx_ring->count;
+ }
+ 
++static int __fm10k_maybe_stop_tx(struct fm10k_ring *tx_ring, u16 size)
++{
++	netif_stop_subqueue(tx_ring->netdev, tx_ring->queue_index);
++
++	smp_mb();
++
++	/* We need to check again in a case another CPU has just
++	 * made room available. */
++	if (likely(fm10k_desc_unused(tx_ring) < size))
++		return -EBUSY;
++
++	/* A reprieve! - use start_queue because it doesn't call schedule */
++	netif_start_subqueue(tx_ring->netdev, tx_ring->queue_index);
++	++tx_ring->tx_stats.restart_queue;
++	return 0;
++}
++
++static inline int fm10k_maybe_stop_tx(struct fm10k_ring *tx_ring, u16 size)
++{
++	if (likely(fm10k_desc_unused(tx_ring) >= size))
++		return 0;
++	return __fm10k_maybe_stop_tx(tx_ring, size);
++}
++
+ static void fm10k_tx_map(struct fm10k_ring *tx_ring,
+ 			 struct fm10k_tx_buffer *first)
+ {
+@@ -1023,13 +1047,18 @@ static void fm10k_tx_map(struct fm10k_ring *tx_ring,
+ 
+ 	tx_ring->next_to_use = i;
+ 
++	/* Make sure there is space in the ring for the next send. */
++	fm10k_maybe_stop_tx(tx_ring, DESC_NEEDED);
++
+ 	/* notify HW of packet */
+-	writel(i, tx_ring->tail);
++	if (netif_xmit_stopped(txring_txq(tx_ring)) || !skb->xmit_more) {
++		writel(i, tx_ring->tail);
+ 
+-	/* we need this if more than one processor can write to our tail
+-	 * at a time, it synchronizes IO on IA64/Altix systems
+-	 */
+-	mmiowb();
++		/* we need this if more than one processor can write to our tail
++		 * at a time, it synchronizes IO on IA64/Altix systems
++		 */
++		mmiowb();
++	}
+ 
+ 	return;
+ dma_error:
+@@ -1049,30 +1078,6 @@ dma_error:
+ 	tx_ring->next_to_use = i;
+ }
+ 
+-static int __fm10k_maybe_stop_tx(struct fm10k_ring *tx_ring, u16 size)
+-{
+-	netif_stop_subqueue(tx_ring->netdev, tx_ring->queue_index);
+-
+-	smp_mb();
+-
+-	/* We need to check again in a case another CPU has just
+-	 * made room available. */
+-	if (likely(fm10k_desc_unused(tx_ring) < size))
+-		return -EBUSY;
+-
+-	/* A reprieve! - use start_queue because it doesn't call schedule */
+-	netif_start_subqueue(tx_ring->netdev, tx_ring->queue_index);
+-	++tx_ring->tx_stats.restart_queue;
+-	return 0;
+-}
+-
+-static inline int fm10k_maybe_stop_tx(struct fm10k_ring *tx_ring, u16 size)
+-{
+-	if (likely(fm10k_desc_unused(tx_ring) >= size))
+-		return 0;
+-	return __fm10k_maybe_stop_tx(tx_ring, size);
+-}
+-
+ netdev_tx_t fm10k_xmit_frame_ring(struct sk_buff *skb,
+ 				  struct fm10k_ring *tx_ring)
+ {
+@@ -1117,8 +1122,6 @@ netdev_tx_t fm10k_xmit_frame_ring(struct sk_buff *skb,
+ 
+ 	fm10k_tx_map(tx_ring, first);
+ 
+-	fm10k_maybe_stop_tx(tx_ring, DESC_NEEDED);
+-
+ 	return NETDEV_TX_OK;
+ 
+ out_drop:
