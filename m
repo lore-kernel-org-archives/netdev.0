@@ -1,311 +1,75 @@
-From: Luwei Zhou <b45643@freescale.com>
-Subject: [PATCH v3 3/3] net: fec: ptp: Enable PPS output based on ptp clock
-Date: Fri, 10 Oct 2014 13:15:30 +0800
-Message-ID: <1412918130-18830-4-git-send-email-b45643@freescale.com>
-References: <1412918130-18830-1-git-send-email-b45643@freescale.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <shawn.guo@linaro.org>,
-	<bhutchings@solarflare.com>, <R49496@freescale.com>,
-	<b38611@freescale.com>, <b20596@freescale.com>,
-	<stephen@networkplumber.org>
-To: <davem@davemloft.net>, <richardcochran@gmail.com>
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: [PATCH iproute2] tests: Allow to run tests recursively
+Date: Fri, 10 Oct 2014 09:27:19 +0300
+Message-ID: <1412922439-28953-1-git-send-email-vadim4j@gmail.com>
+Cc: Vadim Kochan <vadim4j@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0139.outbound.protection.outlook.com ([65.55.169.139]:18640
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750982AbaJJGfR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Oct 2014 02:35:17 -0400
-In-Reply-To: <1412918130-18830-1-git-send-email-b45643@freescale.com>
+Received: from mail-la0-f47.google.com ([209.85.215.47]:54261 "EHLO
+	mail-la0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751337AbaJJGgD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2014 02:36:03 -0400
+Received: by mail-la0-f47.google.com with SMTP id pv20so2627093lab.34
+        for <netdev@vger.kernel.org>; Thu, 09 Oct 2014 23:36:01 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-FEC ptp timer has 4 channel compare/trigger function. It can be used to
-enable pps output.
-The pulse would be ouput high exactly on N second. The pulse ouput high
-on compare event mode is used to produce pulse per second.  The pulse
-width would be one cycle based on ptp timer clock source.Since 31-bit
-ptp hardware timer is used, the timer will wrap more than 2 seconds. We
-need to reload the compare compare event about every 1 second.
+Such approach allows to run *.t scripts from any
+tests/ subdirectories.
 
-Signed-off-by: Luwei Zhou <b45643@freescale.com>
+One point is that tests from tests/cls/*.t (which are needed
+by tests/cls-testbed.t but does not exist yet) will also
+be ran aside with tests/cls-testbed.t which is not good
+because in such case they will be ran twice, so renamed these
+tests path to tests/cls/*.c in tests/cls-testbed.t
+
+Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
 ---
- drivers/net/ethernet/freescale/fec.h      |   7 ++
- drivers/net/ethernet/freescale/fec_main.c |   2 +
- drivers/net/ethernet/freescale/fec_ptp.c  | 197 +++++++++++++++++++++++++++++-
- 3 files changed, 205 insertions(+), 1 deletion(-)
+ testsuite/Makefile            | 11 ++++++++++-
+ testsuite/tests/cls-testbed.t |  2 +-
+ 2 files changed, 11 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
-index b0e6025..1e65917 100644
---- a/drivers/net/ethernet/freescale/fec.h
-+++ b/drivers/net/ethernet/freescale/fec.h
-@@ -487,12 +487,19 @@ struct fec_enet_private {
+diff --git a/testsuite/Makefile b/testsuite/Makefile
+index d1bf359..2ba9547 100644
+--- a/testsuite/Makefile
++++ b/testsuite/Makefile
+@@ -4,7 +4,11 @@ PREFIX := sudo -E
+ RESULTS_DIR := results
+ ## -- End Config --
  
- 	/* ptp clock period in ns*/
- 	unsigned int ptp_inc;
+-TESTS := $(patsubst tests/%,%,$(wildcard tests/*.t))
++rwildcard=$(wildcard $1$2) $(foreach d,$(wildcard $1*),$(call rwildcard,$d/,$2))
 +
-+	/* pps  */
-+	int pps_channel;
-+	unsigned int reload_period;
-+	int pps_enable;
-+	unsigned int next_counter;
- };
++TESTS := $(patsubst tests/%,%,$(call rwildcard,tests/,*.t))
++TESTS_DIR := $(dir $(TESTS))
++
+ IPVERS := $(filter-out iproute2/Makefile,$(wildcard iproute2/*))
  
- void fec_ptp_init(struct platform_device *pdev);
- void fec_ptp_start_cyclecounter(struct net_device *ndev);
- int fec_ptp_set(struct net_device *ndev, struct ifreq *ifr);
- int fec_ptp_get(struct net_device *ndev, struct ifreq *ifr);
-+uint fec_ptp_check_pps_event(struct fec_enet_private *fep);
+ ifneq (,$(wildcard /proc/config.gz))
+@@ -34,6 +38,11 @@ distclean: clean
  
- /****************************************************************************/
- #endif /* FEC_H */
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 87975b5..0167601 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -1622,6 +1622,8 @@ fec_enet_interrupt(int irq, void *dev_id)
- 		complete(&fep->mdio_done);
- 	}
+ $(TESTS):
+ 	@mkdir -p $(RESULTS_DIR)
++	
++	@for d in $(TESTS_DIR); do \
++	    mkdir -p $(RESULTS_DIR)/$$d; \
++	done
++	
+ 	@for i in $(IPVERS); do \
+ 		o=`echo $$i | sed -e 's/iproute2\///'`; \
+ 		echo -n "Running $@ [$$o/`uname -r`]: "; \
+diff --git a/testsuite/tests/cls-testbed.t b/testsuite/tests/cls-testbed.t
+index efae2a5..9fe86f5 100755
+--- a/testsuite/tests/cls-testbed.t
++++ b/testsuite/tests/cls-testbed.t
+@@ -8,7 +8,7 @@ QDISCS="cbq htb dsmark"
+ for q in ${QDISCS}; do
+ 	ts_log "Preparing classifier testbed with qdisc $q"
  
-+	fec_ptp_check_pps_event(fep);
-+
- 	return ret;
- }
+-	for c in tests/cls/*.t; do
++	for c in tests/cls/*.c; do
  
-diff --git a/drivers/net/ethernet/freescale/fec_ptp.c b/drivers/net/ethernet/freescale/fec_ptp.c
-index f5ee460..0fdcdc9 100644
---- a/drivers/net/ethernet/freescale/fec_ptp.c
-+++ b/drivers/net/ethernet/freescale/fec_ptp.c
-@@ -61,6 +61,24 @@
- #define FEC_T_INC_CORR_MASK             0x00007f00
- #define FEC_T_INC_CORR_OFFSET           8
- 
-+#define FEC_T_CTRL_PINPER		0x00000080
-+#define FEC_T_TF0_MASK			0x00000001
-+#define FEC_T_TF0_OFFSET		0
-+#define FEC_T_TF1_MASK			0x00000002
-+#define FEC_T_TF1_OFFSET		1
-+#define FEC_T_TF2_MASK			0x00000004
-+#define FEC_T_TF2_OFFSET		2
-+#define FEC_T_TF3_MASK			0x00000008
-+#define FEC_T_TF3_OFFSET		3
-+#define FEC_T_TDRE_MASK			0x00000001
-+#define FEC_T_TDRE_OFFSET		0
-+#define FEC_T_TMODE_MASK		0x0000003C
-+#define FEC_T_TMODE_OFFSET		2
-+#define FEC_T_TIE_MASK			0x00000040
-+#define FEC_T_TIE_OFFSET		6
-+#define FEC_T_TF_MASK			0x00000080
-+#define FEC_T_TF_OFFSET			7
-+
- #define FEC_ATIME_CTRL		0x400
- #define FEC_ATIME		0x404
- #define FEC_ATIME_EVT_OFFSET	0x408
-@@ -69,8 +87,143 @@
- #define FEC_ATIME_INC		0x414
- #define FEC_TS_TIMESTAMP	0x418
- 
-+#define FEC_TGSR		0x604
-+#define FEC_TCSR(n)		(0x608 + n * 0x08)
-+#define FEC_TCCR(n)		(0x60C + n * 0x08)
-+#define MAX_TIMER_CHANNEL	3
-+#define FEC_TMODE_TOGGLE	0x05
-+#define FEC_HIGH_PULSE		0x0F
-+
- #define FEC_CC_MULT	(1 << 31)
- #define FEC_COUNTER_PERIOD	(1 << 31)
-+#define PPS_OUPUT_RELOAD_PERIOD	NSEC_PER_SEC
-+#define FEC_CHANNLE_0		0
-+#define DEFAULT_PPS_CHANNEL	FEC_CHANNLE_0
-+
-+/**
-+ * fec_ptp_enable_pps
-+ * @fep: the fec_enet_private structure handle
-+ * @enable: enable the channel pps output
-+ *
-+ * This function enble the PPS ouput on the timer channel.
-+ */
-+static int fec_ptp_enable_pps(struct fec_enet_private *fep, uint enable)
-+{
-+	unsigned long flags;
-+	u32 val, tempval;
-+	int inc;
-+	struct timespec ts;
-+	u64 ns;
-+	u32 remainder;
-+	val = 0;
-+
-+	if (!(fep->hwts_tx_en || fep->hwts_rx_en)) {
-+		dev_err(&fep->pdev->dev, "No ptp stack is running\n");
-+		return -EINVAL;
-+	}
-+
-+	if (fep->pps_enable == enable)
-+		return 0;
-+
-+	fep->pps_channel = DEFAULT_PPS_CHANNEL;
-+	fep->reload_period = PPS_OUPUT_RELOAD_PERIOD;
-+	inc = fep->ptp_inc;
-+
-+	spin_lock_irqsave(&fep->tmreg_lock, flags);
-+
-+	if (enable) {
-+		/* clear capture or output compare interrupt status if have.
-+		 */
-+		writel(FEC_T_TF_MASK, fep->hwp + FEC_TCSR(fep->pps_channel));
-+
-+		/* It is recommended to doulbe check the TMODE field in the
-+		 * TCSR register to be cleared before the first compare counter
-+		 * is written into TCCR register. Just add a double check.
-+		 */
-+		val = readl(fep->hwp + FEC_TCSR(fep->pps_channel));
-+		do {
-+			val &= ~(FEC_T_TMODE_MASK);
-+			writel(val, fep->hwp + FEC_TCSR(fep->pps_channel));
-+			val = readl(fep->hwp + FEC_TCSR(fep->pps_channel));
-+		} while (val & FEC_T_TMODE_MASK);
-+
-+		/* Dummy read counter to update the counter */
-+		timecounter_read(&fep->tc);
-+		/* We want to find the first compare event in the next
-+		 * second point. So we need to know what the ptp time
-+		 * is now and how many nanoseconds is ahead to get next second.
-+		 * The remaining nanosecond ahead before the next second would be
-+		 * NSEC_PER_SEC - ts.tv_nsec. Add the remaining nanoseconds
-+		 * to current timer would be next second.
-+		 */
-+		tempval = readl(fep->hwp + FEC_ATIME_CTRL);
-+		tempval |= FEC_T_CTRL_CAPTURE;
-+		writel(tempval, fep->hwp + FEC_ATIME_CTRL);
-+
-+		tempval = readl(fep->hwp + FEC_ATIME);
-+		/* Convert the ptp local counter to 1588 timestamp */
-+		ns = timecounter_cyc2time(&fep->tc, tempval);
-+		ts.tv_sec = div_u64_rem(ns, 1000000000ULL, &remainder);
-+		ts.tv_nsec = remainder;
-+
-+		/* The tempval is  less than 3 seconds, and  so val is less than
-+		 * 4 seconds. No overflow for 32bit calculation.
-+		 */
-+		val = NSEC_PER_SEC - (u32)ts.tv_nsec + tempval;
-+
-+		/* Need to consider the situation that the current time is
-+		 * very close to the second point, which means NSEC_PER_SEC
-+		 * - ts.tv_nsec is close to be zero(For example 20ns); Since the timer
-+		 * is still running when we calculate the first compare event, it is
-+		 * possible that the remaining nanoseonds run out before the compare
-+		 * counter is calculated and written into TCCR register. To avoid
-+		 * this possibility, we will set the compare event to be the next
-+		 * of next second. The current setting is 31-bit timer and wrap
-+		 * around over 2 seconds. So it is okay to set the next of next
-+		 * seond for the timer.
-+		 */
-+		val += NSEC_PER_SEC;
-+
-+		/* We add (2 * NSEC_PER_SEC - (u32)ts.tv_nsec) to current
-+		 * ptp counter, which maybe cause 32-bit wrap. Since the
-+		 * (NSEC_PER_SEC - (u32)ts.tv_nsec) is less than 2 second.
-+		 * We can ensure the wrap will not cause issue. If the offset
-+		 * is bigger than fep->cc.mask would be a error.
-+		 */
-+		val &= fep->cc.mask;
-+		writel(val, fep->hwp + FEC_TCCR(fep->pps_channel));
-+
-+		/* Calculate the second the compare event timestamp */
-+		fep->next_counter = (val + fep->reload_period) & fep->cc.mask;
-+
-+		/* * Enable compare event when overflow */
-+		val = readl(fep->hwp + FEC_ATIME_CTRL);
-+		val |= FEC_T_CTRL_PINPER;
-+		writel(val, fep->hwp + FEC_ATIME_CTRL);
-+
-+		/* Compare channel setting. */
-+		val = readl(fep->hwp + FEC_TCSR(fep->pps_channel));
-+		val |= (1 << FEC_T_TF_OFFSET | 1 << FEC_T_TIE_OFFSET);
-+		val &= ~(1 << FEC_T_TDRE_OFFSET);
-+		val &= ~(FEC_T_TMODE_MASK);
-+		val |= (FEC_HIGH_PULSE << FEC_T_TMODE_OFFSET);
-+		writel(val, fep->hwp + FEC_TCSR(fep->pps_channel));
-+
-+		/* Write the second compare event timestamp and calculate
-+		 * the third timestamp. Refer the TCCR register detail in the spec.
-+		 */
-+		writel(fep->next_counter, fep->hwp + FEC_TCCR(fep->pps_channel));
-+		fep->next_counter = (fep->next_counter + fep->reload_period) & fep->cc.mask;
-+	} else {
-+		writel(0, fep->hwp + FEC_TCSR(fep->pps_channel));
-+	}
-+
-+	fep->pps_enable = enable;
-+	spin_unlock_irqrestore(&fep->tmreg_lock, flags);
-+
-+	return 0;
-+}
-+
- /**
-  * fec_ptp_read - read raw cycle counter (to be used by time counter)
-  * @cc: the cyclecounter structure
-@@ -314,6 +467,15 @@ static int fec_ptp_settime(struct ptp_clock_info *ptp,
- static int fec_ptp_enable(struct ptp_clock_info *ptp,
- 			  struct ptp_clock_request *rq, int on)
- {
-+	struct fec_enet_private *fep =
-+	    container_of(ptp, struct fec_enet_private, ptp_caps);
-+	int ret = 0;
-+
-+	if (rq->type == PTP_CLK_REQ_PPS) {
-+		ret = fec_ptp_enable_pps(fep, on);
-+
-+		return ret;
-+	}
- 	return -EOPNOTSUPP;
- }
- 
-@@ -428,7 +590,7 @@ void fec_ptp_init(struct platform_device *pdev)
- 	fep->ptp_caps.n_ext_ts = 0;
- 	fep->ptp_caps.n_per_out = 0;
- 	fep->ptp_caps.n_pins = 0;
--	fep->ptp_caps.pps = 0;
-+	fep->ptp_caps.pps = 1;
- 	fep->ptp_caps.adjfreq = fec_ptp_adjfreq;
- 	fep->ptp_caps.adjtime = fec_ptp_adjtime;
- 	fep->ptp_caps.gettime = fec_ptp_gettime;
-@@ -452,3 +614,36 @@ void fec_ptp_init(struct platform_device *pdev)
- 
- 	schedule_delayed_work(&fep->time_keep, HZ);
- }
-+
-+/**
-+ * fec_ptp_check_pps_event
-+ * @fep: the fec_enet_private structure handle
-+ *
-+ * This function check the pps event and reload the timer compare counter.
-+ */
-+uint fec_ptp_check_pps_event(struct fec_enet_private *fep)
-+{
-+	u32 val;
-+	u8 channel = fep->pps_channel;
-+	struct ptp_clock_event event;
-+
-+	val = readl(fep->hwp + FEC_TCSR(channel));
-+	if (val & FEC_T_TF_MASK) {
-+		/* Write the next next compare(not the next according the spec)
-+		 * value to the register
-+		 */
-+		writel(fep->next_counter, fep->hwp + FEC_TCCR(channel));
-+		do {
-+			writel(val, fep->hwp + FEC_TCSR(channel));
-+		} while (readl(fep->hwp + FEC_TCSR(channel)) & FEC_T_TF_MASK);
-+
-+		/* Update the counter; */
-+		fep->next_counter = (fep->next_counter + fep->reload_period) & fep->cc.mask;
-+
-+		event.type = PTP_CLOCK_PPS;
-+		ptp_clock_event(fep->ptp_clock, &event);
-+		return 1;
-+	}
-+
-+	return 0;
-+}
+ 		case "$q" in
+ 		cbq)
 -- 
-1.9.1
+2.1.0
