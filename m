@@ -1,9 +1,9 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH net 3/5] igb: fix race accessing page->_count
-Date: Thu, 9 Oct 2014 22:54:56 -0700
-Message-ID: <CAL3LdT7XkGju-10a8G3=nH+EgFdKeu4qE1V3M3DJoMBMG44JEQ@mail.gmail.com>
+Subject: Re: [PATCH net 2/5] igb: fix race accessing page->_count
+Date: Thu, 9 Oct 2014 22:55:24 -0700
+Message-ID: <CAL3LdT5_uQ07kbB+N6RY1yMe3yfko6O2g+QsTaz1-TDk7A1CCQ@mail.gmail.com>
 References: <1412918694-22882-1-git-send-email-edumazet@google.com>
-	<1412918694-22882-4-git-send-email-edumazet@google.com>
+	<1412918694-22882-3-git-send-email-edumazet@google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: "David S. Miller" <davem@davemloft.net>,
@@ -15,13 +15,13 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	David Rientjes <rientjes@google.com>
 To: Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f44.google.com ([209.85.218.44]:64639 "EHLO
-	mail-oi0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751079AbaJJFy5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2014 01:54:57 -0400
-Received: by mail-oi0-f44.google.com with SMTP id x69so5605201oia.17
-        for <netdev@vger.kernel.org>; Thu, 09 Oct 2014 22:54:57 -0700 (PDT)
-In-Reply-To: <1412918694-22882-4-git-send-email-edumazet@google.com>
+Received: from mail-oi0-f54.google.com ([209.85.218.54]:47792 "EHLO
+	mail-oi0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751079AbaJJFzZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2014 01:55:25 -0400
+Received: by mail-oi0-f54.google.com with SMTP id v63so5534282oia.41
+        for <netdev@vger.kernel.org>; Thu, 09 Oct 2014 22:55:24 -0700 (PDT)
+In-Reply-To: <1412918694-22882-3-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -33,28 +33,26 @@ On Thu, Oct 9, 2014 at 10:24 PM, Eric Dumazet <edumazet@google.com> wrote:
 >
 > Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Change the title to :ixgbe: ...", then you have my ACK.
 Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
 Since this is apart of a series, if the changes to skbuff are ok, then
 the changes to the Intel drivers are ok.
 
 > ---
->  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 8 +++-----
->  1 file changed, 3 insertions(+), 5 deletions(-)
+>  drivers/net/ethernet/intel/igb/igb_main.c | 7 +++----
+>  1 file changed, 3 insertions(+), 4 deletions(-)
 >
-> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> index d677b5a23b58..fec5212d4337 100644
-> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> @@ -1865,12 +1865,10 @@ static bool ixgbe_add_rx_frag(struct ixgbe_ring *rx_ring,
+> diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+> index ae59c0b108c5..a21b14495ebd 100644
+> --- a/drivers/net/ethernet/intel/igb/igb_main.c
+> +++ b/drivers/net/ethernet/intel/igb/igb_main.c
+> @@ -6545,11 +6545,10 @@ static bool igb_can_reuse_rx_page(struct igb_rx_buffer *rx_buffer,
 >         /* flip page offset to other buffer */
->         rx_buffer->page_offset ^= truesize;
+>         rx_buffer->page_offset ^= IGB_RX_BUFSZ;
 >
-> -       /*
-> -        * since we are the only owner of the page and we need to
+> -       /* since we are the only owner of the page and we need to
 > -        * increment it, just set the value to 2 in order to avoid
-> -        * an unecessary locked operation
+> -        * an unnecessary locked operation
 > +       /* Even if we own the page, we are not allowed to use atomic_set()
 > +        * This would break get_page_unless_zero() users.
 >          */
