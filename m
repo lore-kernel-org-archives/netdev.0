@@ -1,41 +1,52 @@
-From: "Vick, Matthew" <matthew.vick@intel.com>
-Subject: Re: [PATCH] fm10k: Add skb->xmit_more support
-Date: Fri, 10 Oct 2014 21:12:03 +0000
-Message-ID: <D05D98E2.5B584%matthew.vick@intel.com>
-References: <20141010201714.20593.67813.stgit@ahduyck-workstation.home>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: kernel crash in bpf_jit on x86_64 when running nmap
+Date: Fri, 10 Oct 2014 14:17:45 -0700
+Message-ID: <CAMEtUuwmw2KUB4+vFmL-_iPXbCfYpBxisYEC0CLEbkqUFL7RPg@mail.gmail.com>
+References: <20141010204403.GA30018@birch.djwong.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: "alexander.duyck@gmail.com" <alexander.duyck@gmail.com>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@kernel.org>,
+	Network Development <netdev@vger.kernel.org>
+To: "Darrick J. Wong" <darrick.wong@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:24218 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751292AbaJJVNp convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2014 17:13:45 -0400
-In-Reply-To: <20141010201714.20593.67813.stgit@ahduyck-workstation.home>
-Content-Language: en-US
-Content-ID: <31EBFFEE7C31954D8DF201AB47652894@intel.com>
+Received: from mail-wi0-f169.google.com ([209.85.212.169]:51779 "EHLO
+	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751661AbaJJVRq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2014 17:17:46 -0400
+Received: by mail-wi0-f169.google.com with SMTP id cc10so5394480wib.0
+        for <netdev@vger.kernel.org>; Fri, 10 Oct 2014 14:17:45 -0700 (PDT)
+In-Reply-To: <20141010204403.GA30018@birch.djwong.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/10/14, 1:17 PM, "alexander.duyck@gmail.com"
-<alexander.duyck@gmail.com> wrote:
-
->From: Alexander Duyck <alexander.h.duyck@redhat.com>
+On Fri, Oct 10, 2014 at 1:44 PM, Darrick J. Wong
+<darrick.wong@oracle.com> wrote:
+> Hi everyone,
 >
->This change adds suport for skb->xmit_more based on the changes that were
->made to igb to support the feature.  The main changes are moving up the
->check for maybe_stop_tx so that we can check netif_xmit_stopped to
->determine
->if we must write the tail because we can add no further buffers.
+> I was running nmap on a x86_64 qemu guest and experienced the following crash:
 >
->Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
+> # nmap -sS -O -vvv 192.168.122.1
+> Starting Nmap 6.40 ( http://nmap.org ) at 2014-10-10 13:14 PDT
+> Initiating ARP Ping Scan at 13:14
+> Scanning 192.168.122.1 [1 port]
+> <kaboom>
+>
+> dmesg output is as follows (I set net.core.bpf_jit_enable=2 the second time):
+>
+> [   32.376291] flen=3 proglen=82 pass=0 image=ffffffffc01ac65b
+> [   32.377595] JIT code: 00000000: 55 48 89 e5 48 81 ec 28 02 00 00 48 89 9d d8 fd
+> [   32.379243] JIT code: 00000010: ff ff 4c 89 ad e0 fd ff ff 4c 89 b5 e8 fd ff ff
+> [   32.380984] JIT code: 00000020: 4c 89 bd f0 fd ff ff 31 c0 4d 31 ed 48 89 fb b8
+> [   32.382606] JIT code: 00000030: 00 00 00 00 48 8b 9d d8 fd ff ff 4c 8b ad e0 fd
+> [   32.384280] JIT code: 00000040: ff ff 4c 8b b5 e8 fd ff ff 4c 8b bd f0 fd ff ff
+> [   32.385911] JIT code: 00000050: c9 c3
+> [   32.386841] bpf_jit: proglen=265 != oldproglen=269
 
-s/suport/support in the first line of the patch description, but other
-than that this looks good to me. Thanks, Alex!
-
-Acked-by: Matthew Vick <matthew.vick@intel.com>
+thanks for the report. The line above indicates that JIT tried to emit
+4 byte longer program than during pre-final pass.
+Will look at it asap.
