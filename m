@@ -1,119 +1,61 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net 2/3] net: sctp: fix panic on duplicate ASCONF chunks
-Date: Fri, 10 Oct 2014 11:39:54 -0400
-Message-ID: <20141010153954.GE19499@hmsreliant.think-freely.org>
-References: <1412888133-833-1-git-send-email-dborkman@redhat.com>
- <1412888133-833-3-git-send-email-dborkman@redhat.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] flow-dissector: Fix alignment issue in
+ __skb_flow_get_ports
+Date: Fri, 10 Oct 2014 16:30:50 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D174C863E@AcuExch.aculab.com>
+References: <20141009.201248.1210454965155680255.davem@davemloft.net>
+	 <20141010035840.21428.359.stgit@ahduyck-workstation.home>
+	 <20141010.004708.1975127853551765914.davem@davemloft.net>
+	 <5437F072.5060502@redhat.com>
+	 <063D6719AE5E284EB5DD2968C1650D6D174C858B@AcuExch.aculab.com>
+ <1412955219.9362.13.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, linux-sctp@vger.kernel.org,
-	netdev@vger.kernel.org, Vlad Yasevich <vyasevich@gmail.com>
-To: Daniel Borkmann <dborkman@redhat.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "'alexander.h.duyck@redhat.com'" <alexander.h.duyck@redhat.com>,
+	"David Miller" <davem@davemloft.net>,
+	"alexander.duyck@gmail.com" <alexander.duyck@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'Eric Dumazet' <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:39680 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751273AbaJJPkD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2014 11:40:03 -0400
-Content-Disposition: inline
-In-Reply-To: <1412888133-833-3-git-send-email-dborkman@redhat.com>
+Received: from mx0.aculab.com ([213.249.233.131]:39756 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751622AbaJJQcc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Oct 2014 12:32:32 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 24376-03 for <netdev@vger.kernel.org>;
+ Fri, 10 Oct 2014 17:32:22 +0100 (BST)
+In-Reply-To: <1412955219.9362.13.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 09, 2014 at 10:55:32PM +0200, Daniel Borkmann wrote:
-> When receiving a e.g. semi-good formed connection scan in the
-> form of ...
-> 
->   -------------- INIT[ASCONF; ASCONF_ACK] ------------->
->   <----------- INIT-ACK[ASCONF; ASCONF_ACK] ------------
->   -------------------- COOKIE-ECHO -------------------->
->   <-------------------- COOKIE-ACK ---------------------
->   ---------------- ASCONF_a; ASCONF_b ----------------->
-> 
-> ... where ASCONF_a equals ASCONF_b chunk (at least both serials
-> need to be equal), we panic an SCTP server!
-> 
-> The problem is that good-formed ASCONF chunks that we reply with
-> ASCONF_ACK chunks are cached per serial. Thus, when we receive a
-> same ASCONF chunk twice (e.g. through a lost ASCONF_ACK), we do
-> not need to process them again on the server side (that was the
-> idea, also proposed in the RFC). Instead, we know it was cached
-> and we just resend the cached chunk instead. So far, so good.
-> 
-> Where things get nasty is in SCTP's side effect interpreter, that
-> is, sctp_cmd_interpreter():
-> 
-> While incoming ASCONF_a (chunk = event_arg) is being marked
-> !end_of_packet and !singleton, and we have an association context,
-> we do not flush the outqueue the first time after processing the
-> ASCONF_ACK singleton chunk via SCTP_CMD_REPLY. Instead, we keep it
-> queued up, although we set local_cork to 1. Commit 2e3216cd54b1
-> changed the precedence, so that as long as we get bundled, incoming
-> chunks we try possible bundling on outgoing queue as well. Before
-> this commit, we would just flush the output queue.
-> 
-> Now, while ASCONF_a's ASCONF_ACK sits in the corked outq, we
-> continue to process the same ASCONF_b chunk from the packet. As
-> we have cached the previous ASCONF_ACK, we find it, grab it and
-> do another SCTP_CMD_REPLY command on it. So, effectively, we rip
-> the chunk->list pointers and requeue the same ASCONF_ACK chunk
-> another time. Since we process ASCONF_b, it's correctly marked
-> with end_of_packet and we enforce an uncork, and thus flush, thus
-> crashing the kernel.
-> 
-> Fix it by testing if the ASCONF_ACK is currently pending and if
-> that is the case, do not requeue it. When flushing the output
-> queue we may relink the chunk for preparing an outgoing packet,
-> but eventually unlink it when it's copied into the skb right
-> before transmission.
-> 
-> Joint work with Vlad Yasevich.
-> 
-> Fixes: 2e3216cd54b1 ("sctp: Follow security requirement of responding with 1 packet")
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-> Signed-off-by: Vlad Yasevich <vyasevich@gmail.com>
-> ---
->  include/net/sctp/sctp.h | 5 +++++
->  net/sctp/associola.c    | 2 ++
->  2 files changed, 7 insertions(+)
-> 
-> diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
-> index 9fbd856..856f01c 100644
-> --- a/include/net/sctp/sctp.h
-> +++ b/include/net/sctp/sctp.h
-> @@ -426,6 +426,11 @@ static inline void sctp_assoc_pending_pmtu(struct sock *sk, struct sctp_associat
->  	asoc->pmtu_pending = 0;
->  }
->  
-> +static inline bool sctp_chunk_pending(const struct sctp_chunk *chunk)
-> +{
-> +	return !list_empty(&chunk->list);
-> +}
-> +
->  /* Walk through a list of TLV parameters.  Don't trust the
->   * individual parameter lengths and instead depend on
->   * the chunk length to indicate when to stop.  Make sure
-> diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-> index a88b852..f791edd 100644
-> --- a/net/sctp/associola.c
-> +++ b/net/sctp/associola.c
-> @@ -1668,6 +1668,8 @@ struct sctp_chunk *sctp_assoc_lookup_asconf_ack(
->  	 * ack chunk whose serial number matches that of the request.
->  	 */
->  	list_for_each_entry(ack, &asoc->asconf_ack_list, transmitted_list) {
-> +		if (sctp_chunk_pending(ack))
-> +			continue;
->  		if (ack->subh.addip_hdr->serial == serial) {
->  			sctp_chunk_hold(ack);
->  			return ack;
-> -- 
-> 1.7.11.7
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-Is it worth adding a WARN_ON, to indicate that two ASCONF chunks have been
-received with duplicate serials?
-
-Neil
+RnJvbTogRXJpYyBEdW1hemV0IFttYWlsdG86ZXJpYy5kdW1hemV0QGdtYWlsLmNvbV0NCj4gU2Vu
+dDogMTAgT2N0b2JlciAyMDE0IDE2OjM0DQo+IFRvOiBEYXZpZCBMYWlnaHQNCj4gQ2M6ICdhbGV4
+YW5kZXIuaC5kdXlja0ByZWRoYXQuY29tJzsgRGF2aWQgTWlsbGVyOyBhbGV4YW5kZXIuZHV5Y2tA
+Z21haWwuY29tOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0hd
+IGZsb3ctZGlzc2VjdG9yOiBGaXggYWxpZ25tZW50IGlzc3VlIGluIF9fc2tiX2Zsb3dfZ2V0X3Bv
+cnRzDQo+IA0KPiBPbiBGcmksIDIwMTQtMTAtMTAgYXQgMTQ6NTcgKzAwMDAsIERhdmlkIExhaWdo
+dCB3cm90ZToNCj4gDQo+ID4gSSB0aGluayB0aGVyZSBpcyBjb2RlIHRvIGNvcHkgdGhlIElQIGFu
+ZCBUQ1AgaGVhZGVycyB0byBhbGlnbmVkIG1lbW9yeQ0KPiA+IGJlZm9yZSB0aGV5IGFyZSBwYXJz
+ZWQuDQo+IA0KPiBUaGVyZSBpcyBubyBzdWNoIHRoaW5nLiBZb3UgYXJlIGhlcmUgb24gbmV0ZGV2
+IGxpc3QsIHBsZWFzZSByZWFkIHRoZQ0KPiBjb2RlIGJlZm9yZSBkb2luZyBzdWNoIGNsYWltcy4N
+Cg0KSSBkaWQgc2F5ICdJIHRoaW5rJy4uLg0KSSBtdXN0IGJlIHRoaW5raW5nIG9mIHNvbWUgc2lt
+aWxhciBjb2RlIHNvbWV3aGVyZSBlbHNlLg0KUG9zc2libHkganVzdCB0aGUgY29kZSB0aGF0IGVu
+c3VyZXMgdGhlIGhlYWRlciBpc24ndCBmcmFnbWVudGVkLg0KDQo+ID4gPiBUaGUgcHJvYmxlbSBp
+cyB0aGUgaWdiIC8gaXhnYmUgLyBmbTEwayBoYXJkd2FyZSBkb2Vzbid0IGhhdmUgYSBtZWFucyBv
+Zg0KPiA+ID4gaW5zZXJ0aW5nIHBhZGRpbmcgZnJvbSBpdHMgc2lkZS4uLg0KPiA+DQo+ID4gU2hv
+b3QgdGhlIGhhcmR3YXJlIGVuZ2luZWVycy4NCj4gPg0KPiA+IFlvdSBhcmVuJ3QgZ29pbmcgdG8g
+Z2V0IHRoZSBwZXJmb3JtYW5jZSB5b3UgZXhwZWN0IGZyb20gYSAxMEdlIGNhcmQNCj4gPiB1bmxl
+c3MgdGhlIHJ4IGJ1ZmZlcnMgYXJlICdjb3JyZWN0bHknIGFsaWduZWQuDQo+IA0KPiBUaGF0IGlz
+IHNpbXBseSBub3QgdHJ1ZSBvbiBjdXJyZW50IHg4NiBjcHVzLiBUaGV5IHNpbXBseSBkb250IGNh
+cmUgYXQNCj4gYWxsLg0KDQpJIHdhcyByZWZlcnJpbmcgdG8gdXNpbmcgdGhlbSBvbiBzcGFyYzY0
+LCBub3QgeDg2Lg0KDQpJIGtub3cgdGhhdCBjdXJyZW50IGludGVsIHg4NiBjcHUgaGF2ZSBzdXBw
+b3J0IGZvciBtaXNhbGlnbmVkICdyZXAgbW92c2QnLA0KYnV0IEkgdGhvdWdodCB0aGVyZSB3YXMg
+c3RpbGwgYSBzbWFsbCBjb3N0IChtYXliZSBvbmUgY2xvY2spIGZvcg0Kc2luZ2xlIHdvcmQgdHJh
+bnNmZXJzLg0KU28gbWF5YmUgdGhleSBjYXJlICdqdXN0IGEgbGl0dGxlIGJpdCcuDQoNCj4gWW91
+IGNhbm5vdCBibGFtZSBJbnRlbCBmb3Igb3RoZXIgYXJjaGVzLg0KDQpUcnVlLCBidXQgdGhpcyBk
+b2VzIG1lYW4gdGhhdCB5b3UgZG9uJ3QgcmVhbGx5IHdhbnQgdG8gdXNlIHRoZXNlIGFkYXB0ZXJz
+DQpvbiBhIHN5c3RlbSB0aGF0IGNhbid0IHRvIHVuYWxpZ25lZCBhY2Nlc3Nlcy4NCg0KCURhdmlk
+DQoNCg==
