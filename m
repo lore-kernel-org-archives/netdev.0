@@ -1,60 +1,44 @@
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: Re: eth_get_headlen() and unaligned accesses...
-Date: Thu, 09 Oct 2014 20:10:01 -0700
-Message-ID: <54374E09.1020907@redhat.com>
-References: <20141009.201248.1210454965155680255.davem@davemloft.net>
-Reply-To: alexander.h.duyck@redhat.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+From: Jason Baron <jbaron@akamai.com>
+Subject: [PATCH net-next 0/2] macvlan: optimize receive path
+Date: Fri, 10 Oct 2014 03:13:24 +0000 (GMT)
+Message-ID: <cover.1412908929.git.jbaron@akamai.com>
+Cc: eric.dumazet@gmail.com, stephen@networkplumber.org,
+	vyasevich@gmail.com, kaber@trash.net, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:31784 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751081AbaJJDKE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Oct 2014 23:10:04 -0400
-In-Reply-To: <20141009.201248.1210454965155680255.davem@davemloft.net>
+Received: from prod-mail-xrelay07.akamai.com ([72.246.2.115]:44574 "EHLO
+	prod-mail-xrelay07.akamai.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751081AbaJJDN1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Oct 2014 23:13:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/09/2014 05:12 PM, David Miller wrote:
-> So, we have a bit of a problem, this is on sparc64:
->
-> [423475.740836] Kernel unaligned access at TPC[81d330] __skb_flow_get_ports+0x70/0xe0
-> [423475.755756] CPU: 0 PID: 0 Comm: swapper/0 Not tainted 3.17.0+ #2
-> [423475.767854] Call Trace:
-> [423475.772877]  [0000000000433288] kernel_unaligned_trap+0x368/0x5c0
-> [423475.785203]  [000000000042a824] sun4v_do_mna+0x84/0xa0
-> [423475.795624]  [0000000000406cd0] sun4v_mna+0x5c/0x68
-> [423475.805521]  [000000000081d330] __skb_flow_get_ports+0x70/0xe0
-> [423475.817323]  [000000000081d6ac] __skb_flow_dissect+0x1ac/0x460
-> [423475.829128]  [0000000000843c98] eth_get_headlen+0x38/0xa0
-> [423475.840083]  [0000000010064d54] igb_poll+0x8d4/0xf60 [igb]
-> [423475.851184]  [00000000008243c8] net_rx_action+0xa8/0x1c0
->
-> The chip DMA's to the beginning of a frag page and (unless timestamps
-> are enabled) that's where the ethernet header begins.
->
-> So any larger than 16-bit access to the IP and later headers will be
-> unaligned.
->
-> We have various ways we can deal with this based upon the capabilities
-> of the chips involved.  Can we configure the IGB to put 2 "don't care"
-> bytes at the beginning of the packet?
+Hi,
 
-The problem is the igb part expects to be able to use 2K buffers which 
-means it will always try to use the full half of a page.  I had 
-forgotten that the function this replaced had worked with unaligned 
-accesses as all of the fields I was pulling were only 16b in width.  I 
-think I assumed that this function was already setup to handle that.
+So after porting this optimization to net-next, I found that the netperf
+results of TCP_RR regress right at the maximum peak of transactions/sec. That
+is as I increase the number of threads via the first argument to super_netperf,
+the number of transactions/sec keep increasing, peak, and then start
+decreasing. It is right at the peak, that I see a small regression with this
+patch (see results in patch 2/2).
 
-Actually the fix should be pretty simple.  Just do what we already 
-appear to be doing for the iph_to_flow_copy_addrs.  We can use memcpy to 
-copy the 4 bytes for the port data instead of doing the direct assignment.
-
-I'll try to submit a patch, just need to see if I have a tree setup as 
-it has been a couple weeks.
+Without the patch, the ksoftirqd threads are the top cpu consumers threads on
+the system, since the extra 'netif_rx()', is queuing more softirq work, whereas
+with the patch, the ksoftirqd threads are below all of the 'netserver' threads 
+in terms of their cpu usage. So there appears to be some interaction between how
+softirqs are serviced at the peak here and this patch. I think the test results
+are still supportive of this approach, but I wanted to be clear on my findings.
 
 Thanks,
 
-Alex
+-Jason
+
+Jason Baron (2):
+  macvlan: pass 'bool' type to macvlan_count_rx()
+  macvlan: optimize the receive path
+
+ drivers/net/macvlan.c | 21 +++++++++++++--------
+ 1 file changed, 13 insertions(+), 8 deletions(-)
+
+-- 
+1.8.2.rc2
