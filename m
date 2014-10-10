@@ -1,47 +1,105 @@
-From: Dave Young <dyoung@redhat.com>
-Subject: nf_reject_ipv4: module license 'unspecified' taints kernel
-Date: Fri, 10 Oct 2014 17:19:04 +0800
-Message-ID: <20141010091904.GD1981@darkstar.nay.redhat.com>
+From: Angelo Dureghello <angelo70@gmail.com>
+Subject: Re: Micrel KSZ8031 - phy link missing
+Date: Fri, 10 Oct 2014 11:32:18 +0200
+Message-ID: <5437A7A2.3020700@gmail.com>
+References: <915054555B5659448ACF8A70E114824D0163C79016@Exchange2010.kamstrup.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, Bruno Thomsen <bth@kamstrup.dk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:39955 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751786AbaJJJcV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2014 05:32:21 -0400
+Received: by mail-wi0-f172.google.com with SMTP id n3so1402714wiv.17
+        for <netdev@vger.kernel.org>; Fri, 10 Oct 2014 02:32:20 -0700 (PDT)
+In-Reply-To: <915054555B5659448ACF8A70E114824D0163C79016@Exchange2010.kamstrup.dk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Dear Bruno,
 
-With today's linus tree, I got below kmsg:
-[   23.545204] nf_reject_ipv4: module license 'unspecified' taints kernel.
-[   23.551886] Disabling lock debugging due to kernel taint
-[   23.557302] nf_reject_ipv4: Unknown symbol lock_is_held (err 0)
-[   23.563256] nf_reject_ipv4: Unknown symbol rcu_read_lock_bh_held (err 0)
-[   23.569992] nf_reject_ipv4: Unknown symbol ip_local_out_sk (err 0)
-[   23.576206] nf_reject_ipv4: Unknown symbol debug_lockdep_rcu_enabled (err 0)
-[   23.583290] nf_reject_ipv4: Unknown symbol rcu_is_watching (err 0)
-[   23.589523] nf_reject_ipv4: Unknown symbol rcu_lock_map (err
+many thanks,
 
-It could be caused by below commit:
+i still have the issue after patching kernel 3.17.
 
-commit c8d7b98bec43faaa6583c3135030be5eb4693acb
-Author: Pablo Neira Ayuso <pablo@netfilter.org>
-Date:   Fri Sep 26 14:35:15 2014 +0200
+static int ksz8021_config_init(struct phy_device *phydev)
+{
+         const u16 val = KSZPHY_OMSO_B_CAST_OFF | KSZPHY_OMSO_RMII_OVERRIDE;
+         int rc;
 
-    netfilter: move nf_send_resetX() code to nf_reject_ipvX modules
-    
-    Move nf_send_reset() and nf_send_reset6() to nf_reject_ipv4 and
-    nf_reject_ipv6 respectively. This code is shared by x_tables and
-    nf_tables.
-    
-    Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+         rc = kszphy_setup_led(phydev, 0x1f, 4);
+         if (rc)
+                 dev_err(&phydev->dev, "failed to set led mode\n");
 
-I believe there's similar issue for ipv6 reject part though I have disabled ipv6
-in my .config.
+         /*
+          * signalled no-link to linux-net community, followed
+          * see [PATCH] phy/micrel: KSZ8031RNL RMII clock 
+reconfiguration bug
+          */
+         rc = ksz_config_flags(phydev);
+         if (rc < 0)
+                 return rc;
+         rc = phy_write(phydev, MII_KSZPHY_OMSO, val);
 
-Let me know if you need any furthur information.
+         return rc < 0 ? rc : 0;
+}
 
-Thanks
-Dave
+
+I am using RMII in my custom board, don't know if it makes any difference.
+
+Scanning device for bad blocks
+Bad block table written to 0x000007fe0000, version 0x01
+Bad block table written to 0x000007fc0000, version 0x01
+8 cmdlinepart partitions found on MTD device davinci_nand.0
+Creating 8 MTD partitions on "davinci_nand.0":
+0x000000000000-0x000000020000 : "u-boot-env"
+0x000000020000-0x000000180000 : "u-boot"
+0x000000180000-0x0000001a0000 : "bootparms"
+0x0000001a0000-0x000000200000 : "factory-info"
+EMAC: device MAC address: 00:08:e1:03:2a:c5
+GPIO LEDs: old hardware revision detected
+0x000000200000-0x000000600000 : "kernel"
+0x000000600000-0x000000700000 : "config"
+0x000000700000-0x000004300000 : "rootfs"
+0x000004300000-0x000007f00000 : "update"
+davinci_nand davinci_nand.0: controller rev. 2.5
+davinci_mdio davinci_mdio.0: Runtime PM disabled, clock forced on.
+davinci_mdio davinci_mdio.0: davinci mdio revision 1.5
+davinci_mdio davinci_mdio.0: detected phy mask fffffffc
+libphy: davinci_mdio.0: probed
+davinci_mdio davinci_mdio.0: phy[0]: device davinci_mdio-0:00, driver 
+Micrel KSZ8031
+davinci_mdio davinci_mdio.0: phy[1]: device davinci_mdio-0:01, driver 
+Micrel KSZ8031
+omap_rtc da830-rtc: rtc core: registered da830-rtc as rtc0
+
+......
+
+Starting LED service: done
+Setting time zone...
+UTC
+Time zone set
+Starting network...
+davinci_mdio davinci_mdio.0: resetting idled controller
+net eth0: attached PHY driver [Micrel KSZ8031] 
+(mii_bus:phy_addr=davinci_mdio-0:00, id=221556)
+udhcpc (v1.20.2) started
+Sending discover...
+Sending discover...
+Sending discover...
+No lease, failing
+.....
+
+
+
+
+Angelo
+
+
+
+
+
+On 09/10/2014 17:05, Bruno Thomsen wrote:
+> [PATCH] phy/micrel: KSZ8031RNL RMII clock reconfiguration bug
