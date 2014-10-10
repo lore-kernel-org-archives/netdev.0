@@ -1,55 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] flow-dissector: Fix alignment issue in
- __skb_flow_get_ports
-Date: Fri, 10 Oct 2014 00:47:08 -0400 (EDT)
-Message-ID: <20141010.004708.1975127853551765914.davem@davemloft.net>
-References: <20141009.201248.1210454965155680255.davem@davemloft.net>
-	<20141010035840.21428.359.stgit@ahduyck-workstation.home>
+Subject: Re: [PATCH] net: fs_enet: error: 'SCCE_ENET_TXF' undeclared
+Date: Fri, 10 Oct 2014 00:51:46 -0400 (EDT)
+Message-ID: <20141010.005146.105821454500503183.davem@davemloft.net>
+References: <20141009145443.74AD61AB275@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: alexander.duyck@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45595 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750758AbaJJErJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2014 00:47:09 -0400
-In-Reply-To: <20141010035840.21428.359.stgit@ahduyck-workstation.home>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: pantelis.antoniou@gmail.com, vbordug@ru.mvista.com,
+	linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	netdev@vger.kernel.org
+To: christophe.leroy@c-s.fr
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141009145443.74AD61AB275@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: alexander.duyck@gmail.com
-Date: Thu, 09 Oct 2014 21:03:28 -0700
+From: Christophe Leroy <christophe.leroy@c-s.fr>
+Date: Thu,  9 Oct 2014 16:54:43 +0200 (CEST)
 
-> From: Alexander Duyck <alexander.h.duyck@redhat.com>
+> [linux-devel:devel-hourly-2014100909 3763/3915] drivers/net/ethernet/freescale/fs_enet/mac-scc.c:119:32: error: 'SCCE_ENET_TXF' undeclared
 > 
-> This patch addresses a kernel unaligned access bug seen on a sparc64 system
-> with an igb adapter.  Specifically the __skb_flow_get_ports was returning a
-> be32 pointer which was then having the value directly returned.
+> Due to patch d43a396 net: fs_enet: Add NAPI TX, it appears that some target
+> compilations are broken.
+> This is due to the fact that unlike the FEC, the SCC and FCC don't have a TXF
+> event (complete Frame transmitted) but only TXB (buffer transmitted).
 > 
-> In order to keep the handling of the ports consistent with how we were
-> handling the IPv4 and IPv6 addresses I have instead replaced the assignment
-> with a memcpy to the flow key ports value.  This way it should stay a
-> memcpy on systems that cannot handle unaligned access, and will likely be
-> converted to a 32b assignment on the systems that can support it.
-> 
-> Reported-by: David S. Miller <davem@davemloft.net>
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
+> Signed-off-by: Christophe Leroy <christophe.leroy@c-s.fr>
 
-Guess what the compiler will output for the memcpy()....
-
-	*(u32 *)dest = *(u32 *)src;
-
-Using memcpy() is never a valid way to avoid misaligned loads and
-stores.
-
-If the types have a given alignment, the compiler can legitimately
-expand the memcpy() inline with suitably sized loads and stores.
-
-Please see my other reply in the original thread, we have to use
-the hardware when we can to manage this situation, by configuring
-it to output two garbage bytes before the packet contents when
-DMA'ing into power-of-2 aligned blocks of memory.
-
-Thanks.
+Applied, thanks.
