@@ -1,32 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] Netfilter fixes for net-next
-Date: Fri, 10 Oct 2014 15:01:28 -0400 (EDT)
-Message-ID: <20141010.150128.999718046890657580.davem@davemloft.net>
-References: <1412879261-25045-1-git-send-email-pablo@netfilter.org>
+Subject: Re: [PATCH net] net: bpf: fix bpf syscall dependence on anon_inodes
+Date: Fri, 10 Oct 2014 15:03:57 -0400 (EDT)
+Message-ID: <20141010.150357.694076940362545829.davem@davemloft.net>
+References: <1412893001-8401-1-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1412879261-25045-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: sojkam1@fel.cvut.cz, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: ast@plumgrid.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56075 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751356AbaJJTD7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2014 15:03:59 -0400
+In-Reply-To: <1412893001-8401-1-git-send-email-ast@plumgrid.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Thu,  9 Oct 2014 20:27:39 +0200
+From: Alexei Starovoitov <ast@plumgrid.com>
+Date: Thu,  9 Oct 2014 15:16:41 -0700
 
-> This batch contains two fixes for what you have in your net-next,
-> they are:
+> minimal configurations where EPOLL, PERF_EVENTS, etc are disabled,
+> but NET is enabled, are failing to build with link error:
+> kernel/built-in.o: In function `bpf_prog_load':
+> syscall.c:(.text+0x3b728): undefined reference to `anon_inode_getfd'
 > 
-> 1) Remove nf_send_reset6() from header file. This function now resides
->    in the nf_reject_ipv6 module. Reported by Eric Dumazet.
+> fix it by selecting ANON_INODES when NET is enabled
 > 
-> 2) Fix wrong NFT_REJECT_ICMPX_MAX definition and adjust code to fix
->    errors reported by Dan Carpenter's static analysis tools.
+> Reported-by: Michal Sojka <sojkam1@fel.cvut.cz>
+> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+> ---
 > 
-> You can pull these changes from:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git
+> I understand that 'select' is highly non-recommended for all good reasons,
+> but here 'depends on' is very user unfriendly, since ANON_INODES is
+> a hidden config that users cannot select directly.
 
-Pulled, thanks Pablo.
+Applied, thanks.
