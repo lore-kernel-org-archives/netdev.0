@@ -1,29 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] stmmac: correct mc_filter local variable in
- set_filter and set_mac_addr call
-Date: Fri, 10 Oct 2014 14:48:41 -0400 (EDT)
-Message-ID: <20141010.144841.1103657696761242978.davem@davemloft.net>
-References: <1412867436-22153-1-git-send-email-vbridger@opensource.altera.com>
+Subject: Re: pull request: wireless-next 2014-10-09
+Date: Fri, 10 Oct 2014 14:50:17 -0400 (EDT)
+Message-ID: <20141010.145017.157815509134709496.davem@davemloft.net>
+References: <20141009154402.GB13986@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, vbridger@altera.com
-To: vbridger@opensource.altera.com
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: linville@tuxdriver.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1412867436-22153-1-git-send-email-vbridger@opensource.altera.com>
+In-Reply-To: <20141009154402.GB13986@tuxdriver.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Vince Bridgers <vbridger@opensource.altera.com>
-Date: Thu, 9 Oct 2014 10:10:36 -0500
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Thu, 9 Oct 2014 11:44:02 -0400
 
-> Testing revealed that the local variable mc_filter was dimensioned
-> incorrectly for all possible configurations and get_mac_addr should
-> have been set_mac_addr (a typo). Make sure mc_filter is dimensioned
-> to 8 32-bit unsigned longs - the largest size of the Synopsys
-> multicast filter register set.
+> Please pull this batch of fixes intended for the 3.18 stream!
 > 
-> Signed-off-by: Vince Bridgers <vbridger@opensource.altera.com>
+> Andrea Merello makes rtl818x_pci use a more reasonable transmission
+> rate for HW generated frames.
+> 
+> Fabian Frederick tweaks some kernel-doc bits to avoid warnings.
+> 
+> Larry Finger corrects a possible unaligned access in the rtlwifi code.
+> 
+> Marek Puzyniak avoids a kernel panic in ath9k_hw_reset.
+> 
+> Sujith Manoharan goes for the hat trick -- he fixes a smatch warning
+> in the shared ath code, he fixes a crash in ath9k, and he corrects
+> a sequence number assignment problem in ath9k too.
+> 
+> For ease of merging, I pulled the last bits of the wireless tree as well...
+> 
+> Please let me know if there are problems!
 
-Applied, thanks vince.
+Pulled, thank you John.
