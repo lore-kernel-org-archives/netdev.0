@@ -1,55 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] networking: fm10k: Fix build failure
-Date: Fri, 10 Oct 2014 01:01:21 -0400 (EDT)
-Message-ID: <20141010.010121.1739918681035567554.davem@davemloft.net>
-References: <1412916929-21592-1-git-send-email-bobby.prani@gmail.com>
+Subject: Re: [PATCH net-next 0/2] sunvnet: Packet processing in
+ non-interrupt context.
+Date: Fri, 10 Oct 2014 01:03:20 -0400 (EDT)
+Message-ID: <20141010.010320.1545286759850518718.davem@davemloft.net>
+References: <EB9A1CD1-6E1D-409C-89CB-95CC9A5AFC1D@oracle.com>
+	<20141010.003628.646817757614430018.davem@davemloft.net>
+	<960E9AF5-0319-44C7-9A1C-37EAEE52E78E@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux.nics@intel.com, e1000-devel@lists.sourceforge.net,
-	bruce.w.allan@intel.com, jesse.brandeburg@intel.com,
-	linux-kernel@vger.kernel.org, john.ronciak@intel.com,
-	netdev@vger.kernel.org
-To: bobby.prani@gmail.com
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1412916929-21592-1-git-send-email-bobby.prani@gmail.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: sowmini.varadhan@oracle.com, netdev@vger.kernel.org
+To: Raghuram.Kothakota@oracle.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45751 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750786AbaJJFDV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2014 01:03:21 -0400
+In-Reply-To: <960E9AF5-0319-44C7-9A1C-37EAEE52E78E@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Pranith Kumar <bobby.prani@gmail.com>
-Date: Fri, 10 Oct 2014 00:55:29 -0400
+From: Raghuram Kothakota <Raghuram.Kothakota@oracle.com>
+Date: Thu, 9 Oct 2014 21:56:45 -0700
 
-> The latest linus git tip (3.18-rc1) fails with the following build failure. Fix
-> this by making PTP support explicit for fm10k driver.
-> 
-> rivers/built-in.o: In function `fm10k_ptp_register':
-> (.text+0x12e760): undefined reference to `ptp_clock_registER'
-> drivers/built-in.o: In function `fm10k_ptp_unregister':
-> (.text+0x12e7dc): undefined reference to `ptp_clock_unregister'
-> Makefile:930: recipe for target 'vmlinux' failed
-> 
-> Signed-off-by: Pranith Kumar <bobby.prani@gmail.com>
+> Sorry, I used incorrect terminology in my email. My knowledge of LLTX
+> is limited and I am still learning. I was not referring to the LLTX, but  about 
+> the implementation of  sunvnet transmit path and receive paths without locks. To me that
+> means only one thread of execution exists at a given time and I was
+> referring to it as single threadedness,  which limits performance on SPARC CMT
+> processors today. Using  methods to increase parallelism will help especially
+> when the traffic involves multiple connections, mainly from the point of view
+> of using multiple vCPUs to perform the processing where possible. 
 
-Please follow what other drivers do, which is to use "select" on this
-Kconfig symbol.
+Let's not speak in generalities, but rather about specifical
+implementations of specific things.
 
-Thanks.
-
-------------------------------------------------------------------------------
-Meet PCI DSS 3.0 Compliance Requirements with EventLog Analyzer
-Achieve PCI DSS 3.0 Compliant Status with Out-of-the-box PCI DSS Reports
-Are you Audit-Ready for PCI DSS 3.0 Compliance? Download White paper
-Comply to PCI DSS 3.0 Requirement 10 and 11.5 with EventLog Analyzer
-http://pubads.g.doubleclick.net/gampad/clk?id=154622311&iu=/4140/ostg.clktrk
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Linux's TX path it fully parallelized and multiqueue, so you can have
+as many parallel TX threads of control executing over a specific
+device as you can provide TX queues.
