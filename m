@@ -1,80 +1,72 @@
-From: Petri Gynther <pgynther@google.com>
-Subject: Re: [PATCH net 1/3] net: bcmgenet: fix off-by-one in incrementing
- read pointer
-Date: Thu, 9 Oct 2014 23:01:48 -0700
-Message-ID: <CAGXr9JHBVW9rOiSUCCsVnYp73OPdyynP35xiAnKjRsVCf8fK9Q@mail.gmail.com>
-References: <1412903197-19193-1-git-send-email-f.fainelli@gmail.com>
-	<1412903197-19193-2-git-send-email-f.fainelli@gmail.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH][net-next][V2] net: filter: fix the comments
+Date: Thu, 9 Oct 2014 23:01:56 -0700
+Message-ID: <CAMEtUuwFUiFCkXhm2Oe8r70HXutiGYGkhNmR9QeKrVtdAppsAQ@mail.gmail.com>
+References: <1412920611-2094-1-git-send-email-roy.qing.li@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	jaedon.shin@gmail.com
-To: Florian Fainelli <f.fainelli@gmail.com>
+Cc: Network Development <netdev@vger.kernel.org>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>
+To: roy.qing.li@gmail.com, Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f175.google.com ([209.85.220.175]:48871 "EHLO
-	mail-vc0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751217AbaJJGBt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2014 02:01:49 -0400
-Received: by mail-vc0-f175.google.com with SMTP id id10so2122114vcb.6
-        for <netdev@vger.kernel.org>; Thu, 09 Oct 2014 23:01:48 -0700 (PDT)
-In-Reply-To: <1412903197-19193-2-git-send-email-f.fainelli@gmail.com>
+Received: from mail-wg0-f43.google.com ([74.125.82.43]:37299 "EHLO
+	mail-wg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751822AbaJJGCE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2014 02:02:04 -0400
+Received: by mail-wg0-f43.google.com with SMTP id m15so3037980wgh.14
+        for <netdev@vger.kernel.org>; Thu, 09 Oct 2014 23:01:56 -0700 (PDT)
+In-Reply-To: <1412920611-2094-1-git-send-email-roy.qing.li@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Florian,
+On Thu, Oct 9, 2014 at 10:56 PM,  <roy.qing.li@gmail.com> wrote:
+> From: Li RongQing <roy.qing.li@gmail.com>
+>
+> 1. sk_run_filter has been renamed, sk_filter() is using SK_RUN_FILTER.
+> 2. Remove wrong comments about storing intermediate value.
+> 3. replace sk_run_filter with __bpf_prog_run for check_load_and_stores's
+> comments
+>
+> Cc: Alexei Starovoitov <ast@plumgrid.com>
+> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
 
-On Thu, Oct 9, 2014 at 6:06 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
-> Commit b629be5c8399d7c423b92135eb43a86c924d1cbc ("net: bcmgenet: check
-> harder for out of memory conditions") moved the increment of the local
-> read pointer *before* reading from the hardware descriptor using
-> dmadesc_get_length_status(), which creates an off-by-one situation.
->
-> Fix this by moving again the read_ptr increment after we have read the
-> hardware descriptor to get both the control block and the read pointer
-> back in sync.
->
-> Fixes: b629be5c8399 ("net: bcmgenet: check harder for out of memory conditions")
-> Reported-by: Jaedon Shin <jaedon.shin@gmail.com>
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+Acked-by: Alexei Starovoitov <ast@plumgrid.com>
+
+Thanks!
+
 > ---
->  drivers/net/ethernet/broadcom/genet/bcmgenet.c | 6 +++---
->  1 file changed, 3 insertions(+), 3 deletions(-)
+>  net/core/filter.c |    9 +++------
+>  1 file changed, 3 insertions(+), 6 deletions(-)
 >
-> diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-> index fff2634b6f34..f1bcebcbba80 100644
-> --- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-> +++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-> @@ -1287,9 +1287,6 @@ static unsigned int bcmgenet_desc_rx(struct bcmgenet_priv *priv,
+> diff --git a/net/core/filter.c b/net/core/filter.c
+> index fcd3f67..647b122 100644
+> --- a/net/core/filter.c
+> +++ b/net/core/filter.c
+> @@ -51,9 +51,9 @@
+>   *     @skb: buffer to filter
+>   *
+>   * Run the filter code and then cut skb->data to correct size returned by
+> - * sk_run_filter. If pkt_len is 0 we toss packet. If skb->len is smaller
+> + * SK_RUN_FILTER. If pkt_len is 0 we toss packet. If skb->len is smaller
+>   * than pkt_len we keep whole skb->data. This is the socket level
+> - * wrapper to sk_run_filter. It returns 0 if the packet should
+> + * wrapper to SK_RUN_FILTER. It returns 0 if the packet should
+>   * be accepted or -EPERM if the packet should be tossed.
+>   *
+>   */
+> @@ -566,11 +566,8 @@ err:
 >
->                 rxpktprocessed++;
->
-> -               priv->rx_read_ptr++;
-> -               priv->rx_read_ptr &= (priv->num_rx_bds - 1);
-> -
-
-Wouldn't it be better to move the three lines:
-rxpktprocessed++;
-priv->rx_read_ptr++;
-priv->rx_read_ptr &= (priv->num_rx_bds - 1)
-
-as the last lines of the while-loop, after the CB refill?
-
--- Petri
-
-
->                 /* We do not have a backing SKB, so we do not have a
->                  * corresponding DMA mapping for this incoming packet since
->                  * bcmgenet_rx_refill always either has both skb and mapping or
-> @@ -1332,6 +1329,9 @@ static unsigned int bcmgenet_desc_rx(struct bcmgenet_priv *priv,
->                           __func__, p_index, priv->rx_c_index,
->                           priv->rx_read_ptr, dma_length_status);
->
-> +               priv->rx_read_ptr++;
-> +               priv->rx_read_ptr &= (priv->num_rx_bds - 1);
-> +
->                 if (unlikely(!(dma_flag & DMA_EOP) || !(dma_flag & DMA_SOP))) {
->                         netif_err(priv, rx_status, dev,
->                                   "dropping fragmented packet!\n");
+>  /* Security:
+>   *
+> - * A BPF program is able to use 16 cells of memory to store intermediate
+> - * values (check u32 mem[BPF_MEMWORDS] in sk_run_filter()).
+> - *
+>   * As we dont want to clear mem[] array for each packet going through
+> - * sk_run_filter(), we check that filter loaded by user never try to read
+> + * __bpf_prog_run(), we check that filter loaded by user never try to read
+>   * a cell if not previously written, and we check all branches to be sure
+>   * a malicious user doesn't try to abuse us.
+>   */
 > --
-> 1.9.1
+> 1.7.10.4
 >
