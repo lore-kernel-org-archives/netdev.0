@@ -1,61 +1,140 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] flow-dissector: Fix alignment issue in
- __skb_flow_get_ports
-Date: Fri, 10 Oct 2014 16:30:50 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D174C863E@AcuExch.aculab.com>
-References: <20141009.201248.1210454965155680255.davem@davemloft.net>
-	 <20141010035840.21428.359.stgit@ahduyck-workstation.home>
-	 <20141010.004708.1975127853551765914.davem@davemloft.net>
-	 <5437F072.5060502@redhat.com>
-	 <063D6719AE5E284EB5DD2968C1650D6D174C858B@AcuExch.aculab.com>
- <1412955219.9362.13.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH v2] net/phy: micrel: Add clock support for KSZ8021/KSZ8031
+Date: Fri, 10 Oct 2014 09:38:20 -0700
+Message-ID: <54380B7C.6060604@gmail.com>
+References: <1412927285-6809-1-git-send-email-s.hauer@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "'alexander.h.duyck@redhat.com'" <alexander.h.duyck@redhat.com>,
-	"David Miller" <davem@davemloft.net>,
-	"alexander.duyck@gmail.com" <alexander.duyck@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'Eric Dumazet' <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@pengutronix.de
+To: Sascha Hauer <s.hauer@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:39756 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751622AbaJJQcc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Oct 2014 12:32:32 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 24376-03 for <netdev@vger.kernel.org>;
- Fri, 10 Oct 2014 17:32:22 +0100 (BST)
-In-Reply-To: <1412955219.9362.13.camel@edumazet-glaptop2.roam.corp.google.com>
-Content-Language: en-US
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:40612 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751375AbaJJQie (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2014 12:38:34 -0400
+In-Reply-To: <1412927285-6809-1-git-send-email-s.hauer@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRXJpYyBEdW1hemV0IFttYWlsdG86ZXJpYy5kdW1hemV0QGdtYWlsLmNvbV0NCj4gU2Vu
-dDogMTAgT2N0b2JlciAyMDE0IDE2OjM0DQo+IFRvOiBEYXZpZCBMYWlnaHQNCj4gQ2M6ICdhbGV4
-YW5kZXIuaC5kdXlja0ByZWRoYXQuY29tJzsgRGF2aWQgTWlsbGVyOyBhbGV4YW5kZXIuZHV5Y2tA
-Z21haWwuY29tOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0hd
-IGZsb3ctZGlzc2VjdG9yOiBGaXggYWxpZ25tZW50IGlzc3VlIGluIF9fc2tiX2Zsb3dfZ2V0X3Bv
-cnRzDQo+IA0KPiBPbiBGcmksIDIwMTQtMTAtMTAgYXQgMTQ6NTcgKzAwMDAsIERhdmlkIExhaWdo
-dCB3cm90ZToNCj4gDQo+ID4gSSB0aGluayB0aGVyZSBpcyBjb2RlIHRvIGNvcHkgdGhlIElQIGFu
-ZCBUQ1AgaGVhZGVycyB0byBhbGlnbmVkIG1lbW9yeQ0KPiA+IGJlZm9yZSB0aGV5IGFyZSBwYXJz
-ZWQuDQo+IA0KPiBUaGVyZSBpcyBubyBzdWNoIHRoaW5nLiBZb3UgYXJlIGhlcmUgb24gbmV0ZGV2
-IGxpc3QsIHBsZWFzZSByZWFkIHRoZQ0KPiBjb2RlIGJlZm9yZSBkb2luZyBzdWNoIGNsYWltcy4N
-Cg0KSSBkaWQgc2F5ICdJIHRoaW5rJy4uLg0KSSBtdXN0IGJlIHRoaW5raW5nIG9mIHNvbWUgc2lt
-aWxhciBjb2RlIHNvbWV3aGVyZSBlbHNlLg0KUG9zc2libHkganVzdCB0aGUgY29kZSB0aGF0IGVu
-c3VyZXMgdGhlIGhlYWRlciBpc24ndCBmcmFnbWVudGVkLg0KDQo+ID4gPiBUaGUgcHJvYmxlbSBp
-cyB0aGUgaWdiIC8gaXhnYmUgLyBmbTEwayBoYXJkd2FyZSBkb2Vzbid0IGhhdmUgYSBtZWFucyBv
-Zg0KPiA+ID4gaW5zZXJ0aW5nIHBhZGRpbmcgZnJvbSBpdHMgc2lkZS4uLg0KPiA+DQo+ID4gU2hv
-b3QgdGhlIGhhcmR3YXJlIGVuZ2luZWVycy4NCj4gPg0KPiA+IFlvdSBhcmVuJ3QgZ29pbmcgdG8g
-Z2V0IHRoZSBwZXJmb3JtYW5jZSB5b3UgZXhwZWN0IGZyb20gYSAxMEdlIGNhcmQNCj4gPiB1bmxl
-c3MgdGhlIHJ4IGJ1ZmZlcnMgYXJlICdjb3JyZWN0bHknIGFsaWduZWQuDQo+IA0KPiBUaGF0IGlz
-IHNpbXBseSBub3QgdHJ1ZSBvbiBjdXJyZW50IHg4NiBjcHVzLiBUaGV5IHNpbXBseSBkb250IGNh
-cmUgYXQNCj4gYWxsLg0KDQpJIHdhcyByZWZlcnJpbmcgdG8gdXNpbmcgdGhlbSBvbiBzcGFyYzY0
-LCBub3QgeDg2Lg0KDQpJIGtub3cgdGhhdCBjdXJyZW50IGludGVsIHg4NiBjcHUgaGF2ZSBzdXBw
-b3J0IGZvciBtaXNhbGlnbmVkICdyZXAgbW92c2QnLA0KYnV0IEkgdGhvdWdodCB0aGVyZSB3YXMg
-c3RpbGwgYSBzbWFsbCBjb3N0IChtYXliZSBvbmUgY2xvY2spIGZvcg0Kc2luZ2xlIHdvcmQgdHJh
-bnNmZXJzLg0KU28gbWF5YmUgdGhleSBjYXJlICdqdXN0IGEgbGl0dGxlIGJpdCcuDQoNCj4gWW91
-IGNhbm5vdCBibGFtZSBJbnRlbCBmb3Igb3RoZXIgYXJjaGVzLg0KDQpUcnVlLCBidXQgdGhpcyBk
-b2VzIG1lYW4gdGhhdCB5b3UgZG9uJ3QgcmVhbGx5IHdhbnQgdG8gdXNlIHRoZXNlIGFkYXB0ZXJz
-DQpvbiBhIHN5c3RlbSB0aGF0IGNhbid0IHRvIHVuYWxpZ25lZCBhY2Nlc3Nlcy4NCg0KCURhdmlk
-DQoNCg==
+On 10/10/2014 12:48 AM, Sascha Hauer wrote:
+> The KSZ8021 and KSZ8031 support RMII reference input clocks of 25MHz
+> and 50MHz. Both PHYs differ in the default frequency they expect
+> after reset. If this differs from the actual input clock, then
+> register 0x1f bit 7 must be changed.
+> 
+> Signed-off-by: Sascha Hauer <s.hauer@pengutronix.de>
+
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+
+> ---
+> 
+> Changes since v1:
+> 
+> - Move clock handling to the probe callback
+> - Bail out with an error for invalid clock rates
+> 
+>  Documentation/devicetree/bindings/net/micrel.txt |  6 +++++
+>  drivers/net/phy/micrel.c                         | 31 ++++++++++++++++++++++--
+>  include/linux/micrel_phy.h                       |  1 +
+>  3 files changed, 36 insertions(+), 2 deletions(-)
+> 
+> diff --git a/Documentation/devicetree/bindings/net/micrel.txt b/Documentation/devicetree/bindings/net/micrel.txt
+> index 98a3e61..e1d99b9 100644
+> --- a/Documentation/devicetree/bindings/net/micrel.txt
+> +++ b/Documentation/devicetree/bindings/net/micrel.txt
+> @@ -16,3 +16,9 @@ Optional properties:
+>  	      KSZ8051: register 0x1f, bits 5..4
+>  
+>                See the respective PHY datasheet for the mode values.
+> +
+> + - clocks, clock-names: contains clocks according to the common clock bindings.
+> +
+> +              supported clocks:
+> +	      - KSZ8021, KSZ8031: "rmii-ref": The RMII refence input clock. Used
+> +		to determine the XI input clock.
+> diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+> index 011dbda..492435f 100644
+> --- a/drivers/net/phy/micrel.c
+> +++ b/drivers/net/phy/micrel.c
+> @@ -26,6 +26,7 @@
+>  #include <linux/phy.h>
+>  #include <linux/micrel_phy.h>
+>  #include <linux/of.h>
+> +#include <linux/clk.h>
+>  
+>  /* Operation Mode Strap Override */
+>  #define MII_KSZPHY_OMSO				0x16
+> @@ -72,9 +73,12 @@ static int ksz_config_flags(struct phy_device *phydev)
+>  {
+>  	int regval;
+>  
+> -	if (phydev->dev_flags & MICREL_PHY_50MHZ_CLK) {
+> +	if (phydev->dev_flags & (MICREL_PHY_50MHZ_CLK | MICREL_PHY_25MHZ_CLK)) {
+>  		regval = phy_read(phydev, MII_KSZPHY_CTRL);
+> -		regval |= KSZ8051_RMII_50MHZ_CLK;
+> +		if (phydev->dev_flags & MICREL_PHY_50MHZ_CLK)
+> +			regval |= KSZ8051_RMII_50MHZ_CLK;
+> +		else
+> +			regval &= ~KSZ8051_RMII_50MHZ_CLK;
+>  		return phy_write(phydev, MII_KSZPHY_CTRL, regval);
+>  	}
+>  	return 0;
+> @@ -440,6 +444,27 @@ ksz9021_wr_mmd_phyreg(struct phy_device *phydev, int ptrad, int devnum,
+>  {
+>  }
+>  
+> +static int ksz8021_probe(struct phy_device *phydev)
+> +{
+> +	struct clk *clk;
+> +
+> +	clk = devm_clk_get(&phydev->dev, "rmii-ref");
+> +	if (!IS_ERR(clk)) {
+> +		unsigned long rate = clk_get_rate(clk);
+> +
+> +		if (rate > 24500000 && rate < 25500000) {
+> +			phydev->dev_flags |= MICREL_PHY_25MHZ_CLK;
+> +		} else if (rate > 49500000 && rate < 50500000) {
+> +			phydev->dev_flags |= MICREL_PHY_50MHZ_CLK;
+> +		} else {
+> +			dev_err(&phydev->dev, "Clock rate out of range: %ld\n", rate);
+> +			return -EINVAL;
+> +		}
+> +	}
+> +
+> +	return 0;
+> +}
+> +
+>  static struct phy_driver ksphy_driver[] = {
+>  {
+>  	.phy_id		= PHY_ID_KS8737,
+> @@ -462,6 +487,7 @@ static struct phy_driver ksphy_driver[] = {
+>  	.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause |
+>  			   SUPPORTED_Asym_Pause),
+>  	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
+> +	.probe		= ksz8021_probe,
+>  	.config_init	= ksz8021_config_init,
+>  	.config_aneg	= genphy_config_aneg,
+>  	.read_status	= genphy_read_status,
+> @@ -477,6 +503,7 @@ static struct phy_driver ksphy_driver[] = {
+>  	.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause |
+>  			   SUPPORTED_Asym_Pause),
+>  	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
+> +	.probe		= ksz8021_probe,
+>  	.config_init	= ksz8021_config_init,
+>  	.config_aneg	= genphy_config_aneg,
+>  	.read_status	= genphy_read_status,
+> diff --git a/include/linux/micrel_phy.h b/include/linux/micrel_phy.h
+> index 2e5b194..53d33de 100644
+> --- a/include/linux/micrel_phy.h
+> +++ b/include/linux/micrel_phy.h
+> @@ -37,6 +37,7 @@
+>  
+>  /* struct phy_device dev_flags definitions */
+>  #define MICREL_PHY_50MHZ_CLK	0x00000001
+> +#define MICREL_PHY_25MHZ_CLK	0x00000002
+>  
+>  #define MICREL_KSZ9021_EXTREG_CTRL	0xB
+>  #define MICREL_KSZ9021_EXTREG_DATA_WRITE	0xC
+> 
