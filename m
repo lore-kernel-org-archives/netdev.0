@@ -1,45 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] flow-dissector: Fix alignment issue in
- __skb_flow_get_ports
-Date: Fri, 10 Oct 2014 14:22:55 -0400 (EDT)
-Message-ID: <20141010.142255.359367991309840826.davem@davemloft.net>
-References: <20141010.135851.1743803688676076555.davem@davemloft.net>
-	<54381F1C.2030800@gmail.com>
-	<20141010.141559.2024576018585843684.davem@davemloft.net>
+Subject: Re: [PATCH 1/1] Checkpatch: coding style errors in Nvidia ethernet
+ driver
+Date: Fri, 10 Oct 2014 14:25:46 -0400 (EDT)
+Message-ID: <20141010.142546.2200998192474741214.davem@davemloft.net>
+References: <1412928102-1696-1-git-send-email-akshaysarode21@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: alexander.h.duyck@redhat.com, eric.dumazet@gmail.com,
-	David.Laight@ACULAB.COM, netdev@vger.kernel.org
-To: alexander.duyck@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55758 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751932AbaJJSW6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2014 14:22:58 -0400
-In-Reply-To: <20141010.141559.2024576018585843684.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: john.stultz@linaro.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: akshaysarode21@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1412928102-1696-1-git-send-email-akshaysarode21@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Miller <davem@davemloft.net>
-Date: Fri, 10 Oct 2014 14:15:59 -0400 (EDT)
+From: Akshay Sarode <akshaysarode21@gmail.com>
+Date: Fri, 10 Oct 2014 13:31:42 +0530
 
-> Your original code works because you do things like "byte[12] & 0xf0" to
-> extract these fields.
+> ERROR: "foo* bar" should be "foo *bar"
+> ERROR: do not initialise statics to 0 or NULL
+> CHECK: spinlock_t definition without comment
+> Signed-off-by: Akshay Sarode <akshaysarode21@gmail.com>
 
-Changing that th->doff sequence to instead be:
+The Subject "Subsystem: " prefix is meant to refer to what area of
+the kernel you are changing.
 
-		const u8 *bp;
-		u8 buf[13];
+You aren't making changes to "Checkpatch: " so that isn't an
+appropriate prefix.  Someone scanning the commit header lines
+won't be able to tell what part of the kernel your change is
+touching.
 
-		bp = __skb_header_pointer(skb, poff, sizeof(buf),
-					  data, hlen, &buf);
-		if (!bp)
-			return poff;
-
-		poff += max_t(u32, sizeof(struct tcphdr), (bp[12] & 0xf0) >> 2);
-		break;
-
-on top of your v3 patch works for me.
-
-Please double-check my calculations.
+In this case you should use "nvidia: " as your subsystem
+prefix.
