@@ -1,85 +1,172 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: eth_get_headlen() and unaligned accesses...
-Date: Fri, 10 Oct 2014 10:59:52 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D174C8396@AcuExch.aculab.com>
-References: <20141009.201248.1210454965155680255.davem@davemloft.net>
-	<54374E09.1020907@redhat.com>
- <20141010.004316.2276717749634684299.davem@davemloft.net>
+From: Ceriel Jacobs <linux-ide@crashplan.pro>
+Subject: Re: r8168 is needed to enter P-state: Package State 6 (pc6)onHaswell
+ hardware: does the patch below against current kernel make a difference?
+ Yes, it does
+Date: Fri, 10 Oct 2014 13:09:40 +0200
+Message-ID: <5437BE74.2010301@crashplan.pro>
+References: <542B3829.3010108@crashplan.pro> <20141005165920.GA21926@electric-eye.fr.zoreil.com> <0835B3720019904CB8F7AA43166CEEB2526932@RTITMBSV03.realtek.com.tw> <20141006221307.GB10936@electric-eye.fr.zoreil.com> <54359E9C.7060704@crashplan.pro> <20141008221726.GA25515@electric-eye.fr.zoreil.com> <5435BEC3.6080200@crashplan.pro> <20141008232655.GA26561@electric-eye.fr.zoreil.com> <54367965.7010301@crashplan.pro> <20141009221458.GA20126@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'David Miller' <davem@davemloft.net>,
-	"alexander.h.duyck@redhat.com" <alexander.h.duyck@redhat.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Hayes Wang <hayeswang@realtek.com>,
+	nic_swsd <nic_swsd@realtek.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:33377 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1753484AbaJJLBd convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2014 07:01:33 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 14647-05 for <netdev@vger.kernel.org>;
- Fri, 10 Oct 2014 12:01:23 +0100 (BST)
-In-Reply-To: <20141010.004316.2276717749634684299.davem@davemloft.net>
-Content-Language: en-US
+Received: from relay5-d.mail.gandi.net ([217.70.183.197]:51123 "EHLO
+	relay5-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751837AbaJJLJq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2014 07:09:46 -0400
+In-Reply-To: <20141009221458.GA20126@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller
-> From: Alexander Duyck <alexander.h.duyck@redhat.com>
-> Date: Thu, 09 Oct 2014 20:10:01 -0700
-> 
-> > On 10/09/2014 05:12 PM, David Miller wrote:
-> >> So, we have a bit of a problem, this is on sparc64:
-> >>
-> >> [423475.740836] Kernel unaligned access at TPC[81d330]
-> >> __skb_flow_get_ports+0x70/0xe0
-> >> [423475.755756] CPU: 0 PID: 0 Comm: swapper/0 Not tainted 3.17.0+ #2
-> >> [423475.767854] Call Trace:
-> >> [423475.772877]  [0000000000433288] kernel_unaligned_trap+0x368/0x5c0
-> >> [423475.785203]  [000000000042a824] sun4v_do_mna+0x84/0xa0
-> >> [423475.795624]  [0000000000406cd0] sun4v_mna+0x5c/0x68
-> >> [423475.805521]  [000000000081d330] __skb_flow_get_ports+0x70/0xe0
-> >> [423475.817323]  [000000000081d6ac] __skb_flow_dissect+0x1ac/0x460
-> >> [423475.829128]  [0000000000843c98] eth_get_headlen+0x38/0xa0
-> >> [423475.840083]  [0000000010064d54] igb_poll+0x8d4/0xf60 [igb]
-> >> [423475.851184]  [00000000008243c8] net_rx_action+0xa8/0x1c0
-> >>
-> >> The chip DMA's to the beginning of a frag page and (unless timestamps
-> >> are enabled) that's where the ethernet header begins.
-> >>
-> >> So any larger than 16-bit access to the IP and later headers will be
-> >> unaligned.
-> >>
-> >> We have various ways we can deal with this based upon the capabilities
-> >> of the chips involved.  Can we configure the IGB to put 2 "don't care"
-> >> bytes at the beginning of the packet?
-> >
-> > The problem is the igb part expects to be able to use 2K buffers which
-> > means it will always try to use the full half of a page.
-> 
-> Let me try to ask this again.
-> 
-> Can you configure the MAC to put two garbage bytes at the head of
-> the packet data as it feeds it into the DMA fifos on the IGB chip?
-> 
-> This is an essential (again: _essential_) feature for chips that
-> manage RX buffers as power-of-2 chunks of pages, as it is the only
-> cheap way to get the IP headers 32-bit aligned in those power-of-2 DMA
-> buffer blocks.
+ASPM is enabled in the BIOS as far as possible.
+ASPM is also enabled using kernel parameters:
+1. pcie_aspm.policy=powersave
+2. pcie_aspm=force
 
-Not only the IP header, at some point all of the data is likely to
-accessed (preferably) as words - if only as a final copy of the
-userdata somewhere.
+Despite the result for 03:00.0 (and 2 other PCIe devices) is:
+LnkCtl:	ASPM Disabled; RCB 64 bytes Disabled- CommClk+
 
-So if you can't efficiently DMA the destination MAC address to a 4n+2
-boundary you might as well do a realigning copy of the entire frame
-into a separate skb.
-Which probably means you should use a different ethernet adapter.
 
-This isn't exactly a new problem.
-One of the changes between the Sbus 'DMA' and 'DMA+' parts was that the
-latter would do Sbus bursts for transfers (from the lance) that started
-misaligned.
+I have filed a bug report for that at:
+https://bugzilla.kernel.org/show_bug.cgi?id=85621
 
-	David
+
+In my testing before, I did manually enable L0s L1 ASPM after login 
+prompt using:
+# setpci -s 03:00.0 0x80.B=0x43 (also for 3 other ASPM PCIe devices)
+
+=============================
+Now back to your Realtek test request
+=============================
+For your information: I am running all testing remote via SSH over the 
+Realtek NIc.
+
+=======
+L0s and L1 = PC6
+=======
+# setpci -s 03:00.0 0x80.B=0x43
+# lspci -vvvv -s 03:00.0 | grep LnkCtl:
+		LnkCtl:	ASPM L0s L1 Enabled; RCB 64 bytes Disabled- ...
+
+PC6 reached in 1 powertop screen update (5 second interval)
+C3 (pc3)   21.0%    | C3 (cc3)    0.0%    | C3-HSW      0.0%    0.0 ms
+C6 (pc6)   76.0%    | C6 (cc6)   99.9%    | C6-HSW     99.9%  198.1 ms
+
+=======
+L1 only = no PC6
+=======
+# setpci -s 03:00.0 0x80.B=0x42
+		LnkCtl:	ASPM L1 Enabled; RCB 64 bytes Disabled- CommClk+
+
+C3 (pc3)   99.8%    | C3 (cc3)    0.0%    | C3-HSW      0.0%    0.0 ms
+C6 (pc6)    0.0%    | C6 (cc6)   99.9%    | C6-HSW    100.0%  206.4 ms
+
+=======
+L0s only = PC6 !!
+=======
+# setpci -s 03:00.0 0x80.B=0x41
+		LnkCtl:	ASPM L0s Enabled; RCB 64 bytes Disabled- ...
+
+C3 (pc3)   10.6%    | C3 (cc3)    0.0%    | C3-HSW      0.0%    0.0 ms
+C6 (pc6)   89.1%    | C6 (cc6)   99.9%    | C6-HSW     99.9%  210.7 ms
+
+=======
+Disabled = no PC6
+=======
+# setpci -s 03:00.0 0x80.B=0x40
+		LnkCtl:	ASPM Disabled; RCB 64 bytes Disabled- CommClk+
+
+C3 (pc3)   99.8%    | C3 (cc3)    0.0%    | C3-HSW      0.0%    0.0 ms
+C6 (pc6)    0.0%    | C6 (cc6)   99.9%    | C6-HSW     99.9%  230.1 ms
+
+Now I am wondering whether it is by design or a bug that PC6 is not 
+reached when only L1 ASPM is activated
+
+An applause for:
+1. saving "polar bears",
+2. letting me test a little more,
+3. realtime behavior changing (no module unloading and loading to active 
+ASPM, just set the config space registers).
+
+Francois Romieu schreef op 10-10-14 om 00:14:
+> Ceriel Jacobs <linux-ide@crashplan.pro> :
+>> Francois Romieu schreef op 07-10-14 om 00:13:
+>>> Ceriel, does the patch below against current kernel make a difference?
+> [...]
+>> New r8169 "powertop" result (even without --auto-tune):
+>> C2 (pc2)    0.0%    |                     |
+>> C3 (pc3)    9.9%    | C3 (cc3)    0.7%    | C3-HSW      0.7%   16.4 ms
+>> C6 (pc6)   89.9%    | C6 (cc6)   99.2%    | C6-HSW     99.2%  223.2 ms
+>> ---
+>
+> Fine (almost: I hope that ASPM was enabled from bios or during boot
+> behind your back).
+>
+> Remember your "lspci -nnkvv -s 03:00.0" ?
+>
+> 03:00.0 Ethernet controller [0200]: Realtek Semiconductor Co., Ltd. RTL8111/8168/8411 PCI Express Gigabit Ethernet Controller [10ec:8168] (rev 11)
+> [...]
+>          Capabilities: [70] Express (v2) Endpoint, MSI 01
+>                  DevCap: MaxPayload 128 bytes, PhantFunc 0, Latency L0s <512ns, L1 <64us
+>                          ExtTag- AttnBtn- AttnInd- PwrInd- RBE+ FLReset-
+>                  DevCtl: Report errors: Correctable- Non-Fatal- Fatal- Unsupported-
+>                          RlxdOrd- ExtTag- PhantFunc- AuxPwr- NoSnoop-
+>                          MaxPayload 128 bytes, MaxReadReq 4096 bytes
+>                  DevSta: CorrErr- UncorrErr- FatalErr- UnsuppReq- AuxPwr+ TransPend-
+>                  LnkCap: Port #0, Speed 2.5GT/s, Width x1, ASPM L0s L1, Exit Latency L0s unlimited, L1 <64us
+>                     	ClockPM+ Surprise- LLActRep- BwNot-
+>                  LnkCtl: ASPM Disabled; RCB 64 bytes Disabled- CommClk+
+>                          ExtSynch- ClockPM- AutWidDis- BWInt- AutBWInt-
+>
+> It should now look like:
+> [...]
+>                  LnkCtl: ASPM L1 Enabled; RCB 64 bytes Disabled- CommClk+
+>
+> Let's temporarily disable it and see if powertop notices a difference.
+>
+> <full disclosure>
+>
+> "Capabilities: [70]" above gives you the offset of the relevant registers:
+> # lspci -xxx -s 03:00.0
+> [...]
+> 70: .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. ..
+> ^^ -> "[70]"
+>
+> You are interested in the Link Control register, aka PCI_EXP_LNKCTL in
+> /usr/include/pci/header.h (devel part of pciutils) or kernel's
+> include/uapi/linux/pci_regs.h. It's 16 bytes further, thus
+> [...]
+> 70: .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. ..
+> 80: 42 .. .. .. .. .. .. .. .. .. .. .. .. .. .. ..
+>      ^^
+>
+> 0x42 matches "LnkCtl: ASPM L1 Enabled; RCB 64 bytes Disabled- CommClk+
+> ExtSynch-" built from above. There may be differences but the 3 lower
+> weight binary digits in 0x42 encode ASPM control (0=nada, 1=L0, 2=L1,
+> see PCI_EXP_LNKCTL_ASPxyz in include/uapi/linux/pci_regs.h). Mask these
+> out (0x42 & ~0x03) and feed the resulting value back into the Link
+> Control register:
+>
+> # setpci -s 03:00.0 CAP_EXP+10.b=0x40
+>
+> (CAP_EXP is pciutils's alias for the PCI Express capability block, see
+> PCI_CAP_ID_EXP in kernel's include/uapi/linux/pci_regs.h)
+>
+> If you are not too sure about the 0x40 value, you can retrieve it with
+> lspci and an unpatched r8169 driver.
+>
+> </full disclosure>
+>
+> If I have understood Hayes correctly and he got my question right, lspci
+> should now tell that ASPM is disabled. C6 should not be reached anymore.
+>
+> ASPM could thus be enabled unconditionally at the driver level, then
+> controled through the PCI config registers. Kernel r8169 driver would
+> thus protect polar bears as Realtek's own r8168 driver already does.
+>
+> I can't exclude that it will fail miserably in a firework of smelly
+> smoke though.
+>
