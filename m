@@ -1,103 +1,85 @@
-From: Vincent Fortier <th0ma7@gmail.com>
-Subject: Problem - Connection reset - Ralink RT3290 - HP Split 13 x2
-Date: Fri, 10 Oct 2014 18:39:11 -0400
-Message-ID: <CALAySu+SsT5V84Bhd6Ln2yUrLV5MGpdW7sUODhA-N8oeWLXWpQ@mail.gmail.com>
+From: Tom Gundersen <teg@jklm.no>
+Subject: Re: [RFC v2 3/6] kthread: warn on kill signal if
+	not OOM
+Date: Sat, 11 Oct 2014 00:45:17 +0200
+Message-ID: <CAG-2HqXdxHrx4OL4E0TnzA1Fb6zK6J+qowfD0RHCwviGUv-_ng@mail.gmail.com>
+References: <1409899047-13045-1-git-send-email-mcgrof@do-not-panic.com>
+ <CAB=NE6Wti1RpAFk5q_YeZn2F9Rd=wsiwhyPszu74nG9fXwH5vQ@mail.gmail.com>
+ <20140905141241.GC10455@mtj.dyndns.org>
+ <20140905164405.GA28964@core.coreip.homeip.net>
+ <20140905174925.GA12991@mtj.dyndns.org>
+ <CAB=NE6VPTV39pNujOgO422wbUvU44HZ7s=aaxPVraNECqA6e4Q@mail.gmail.com>
+ <20140905224047.GC15723@mtj.dyndns.org>
+ <CAB=NE6Uz1VD5qpMFSBfQRV8ih9FQcCUhNtWMvD38t5hdDvix4Q@mail.gmail.com>
+ <20140909011059.GB11706@mtj.dyndns.org> <1410241109.2028.22.camel@jarvis.lan>
+ <CAB=NE6WGAMvffGDTkN5x5Cd+YOtD-Cmo3v7_8FmJ5cvCRbFEpw@mail.gmail.com>
+ <1410291346.13298.16.camel@jarvis.lan>
+ <CAB=NE6U6v-GhAaZv3yXn9uVFvBvE4Uq8z7MQU8N+CyW19WpnNQ@mail.gmail.com>
+ <CAG-2HqUiUksdT4UyeDsdc1Q74=2BiX2TuzzGh_hoLiO5_DOvXQ@mail.gmail.com>
+ <CAB=NE6UprJH69hzc1mjqyq6PAn+7LZmX65Z8CDwUdJ73nDusHg@mail.gmail.com>
+ <CAG-2HqUzCvd55mq=M3=tXbHAjc2QnVuRtbFZMWTz9k_6BmmngQ@mail.gmail.com>
+ <CAB=NE6XmFaWMKuW3vJ7QMZ1BmmWrAPezTYYsqatX4mMNdMjpog@mail.gmail.com>
+ <CAG-2HqWYXo+uRtOk_XW-Bi5aXcTLphEMLCMy8a2THuEg9dHPzw@mail.gmail.com>
+ <CAB=NE6XS9pWmfO7xjTpLFG1OdOJ=UktbOK5pjJCK8hzfXagfXQ@mail.gmail.com>
+ <CAOMFOmVSwPAbPtNzPn93QGjbXh1B3QC7B2Ahd1Qxc=gWb6H7fQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f54.google.com ([209.85.215.54]:47872 "EHLO
-	mail-la0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751498AbaJJWjM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2014 18:39:12 -0400
-Received: by mail-la0-f54.google.com with SMTP id gm9so4132226lab.27
-        for <netdev@vger.kernel.org>; Fri, 10 Oct 2014 15:39:11 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
+ Takashi Iwai <tiwai@suse.de>, Kay Sievers <kay@vrfy.org>,
+ Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
+ James Bottomley <James.Bottomley@hansenpartnership.com>,
+ Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
+ hare <hare@suse.com>,
+ Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
+ Wu Zhangjin <falcon@meizu.com>,
+ Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
+ "mpt-fusionlinux.pdl" <MPT-FusionLinux.pdl@avagotech.com>,
+ Tim Gardner <tim.gardner@canonical.com>, Benjamin Poirier <bpoirier@suse.de>,
+ Santosh Rastapur <santosh@chelsio.com>, Casey Leedom <leedom@chelsio.com>,
+ Hariprasad S <hariprasad@chelsio.com>,
+ Pierre Fersing <pierre-fersing@pierref.org>,
+ Arjan van de Ven <arjan@linux.intel.com>,
+ Abhijit Mahajan <abhijit.mahajan@avagotech.com>,
+ systemd Mailing List <systemd-devel@lists.freedesk
+To: Anatol Pomozov <anatol.pomozov@gmail.com>
+Return-path: <systemd-devel-bounces@lists.freedesktop.org>
+In-Reply-To: <CAOMFOmVSwPAbPtNzPn93QGjbXh1B3QC7B2Ahd1Qxc=gWb6H7fQ@mail.gmail.com>
+List-Unsubscribe: <http://lists.freedesktop.org/mailman/options/systemd-devel>,
+ <mailto:systemd-devel-request@lists.freedesktop.org?subject=unsubscribe>
+List-Archive: <http://lists.freedesktop.org/archives/systemd-devel>
+List-Post: <mailto:systemd-devel@lists.freedesktop.org>
+List-Help: <mailto:systemd-devel-request@lists.freedesktop.org?subject=help>
+List-Subscribe: <http://lists.freedesktop.org/mailman/listinfo/systemd-devel>,
+ <mailto:systemd-devel-request@lists.freedesktop.org?subject=subscribe>
+Errors-To: systemd-devel-bounces@lists.freedesktop.org
+Sender: "systemd-devel" <systemd-devel-bounces@lists.freedesktop.org>
+List-Id: netdev.vger.kernel.org
 
-My connection stop really really often.  Sometimes it works for up to
-an hour but usually within 10-15 minutes it just stop/reset.
-Presumably networkmanager restarts it.
+On Fri, Oct 10, 2014 at 11:54 PM, Anatol Pomozov
+<anatol.pomozov@gmail.com> wrote:
+> 1) Why not to make the timeout configurable through config file? There
+> is already udev.conf you can put config option there. Thus people with
+> modprobe issues can easily "fix" the problem. And then decrease
+> default timeout back to 30 seconds. I agree that long module loading
+> (more than 30 secs) is abnormal and should be investigated by driver
+> authors.
 
-Tested using 3.16 & 3.17.
+We can already configure this either on the udev or kernel
+commandline, is that not sufficient (I don't object to also adding it
+to the config file, just asking)?
 
-Device:
-03:00.0 Network controller: Ralink corp. RT3290 Wireless 802.11n 1T/1R PCIe
-    Subsystem: Hewlett-Packard Company Ralink RT3290LE 802.11bgn 1x1
-Wi-Fi and Bluetooth 4.0 Combo Adapter
-    Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop-
-ParErr- Stepping- SERR- FastB2B- DisINTx-
-    Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort-
-<TAbort- <MAbort- >SERR- <PERR- INTx-
-    Latency: 0, Cache Line Size: 64 bytes
-    Interrupt: pin A routed to IRQ 18
-    Region 0: Memory at b0410000 (32-bit, non-prefetchable) [size=64K]
-    Capabilities: <access denied>
-    Kernel driver in use: rt2800pci
+> 2) Could you add 'echo w > /proc/sysrq-trigger' to udev code right
+> before killing the "modprobe" thread? sysrq will print information
+> about stuck threads (including modprobe itself) this will make
+> debugging easier. e.g. dmesg here
+> https://bugs.archlinux.org/task/40454 says nothing where the threads
+> were stuck.
 
-Getting the following messsages in syslog:
-Oct 10 17:45:36 brutus kernel: [    4.937845] ieee80211 phy0:
-rt2x00_set_rt: Info - RT chipset 3290, rev 0015 detected
-Oct 10 17:45:36 brutus kernel: [    4.941563] ieee80211 phy0:
-rt2x00_set_rf: Info - RF chipset 3290 detected
-Oct 10 17:45:36 brutus kernel: [    4.983868] ieee80211 phy0: Selected
-rate control algorithm 'minstrel_ht'
-Oct 10 17:45:37 brutus NetworkManager[877]: <info> rfkill0: found WiFi
-radio killswitch (at
-/sys/devices/pci0000:00/0000:00:1c.2/0000:03:00.0/ieee80211/phy0/rfkill0)
-(driver rt2800pci)
-Oct 10 17:45:37 brutus kernel: [    5.610165] ieee80211 phy0:
-rt2x00lib_request_firmware: Info - Loading firmware file 'rt3290.bin'
-Oct 10 17:45:37 brutus kernel: [    5.611453] ieee80211 phy0:
-rt2x00lib_request_firmware: Info - Firmware detected - version: 0.37
-Oct 10 17:46:01 brutus kernel: [   29.621979] ieee80211 phy0:
-rt2x00queue_flush_queue: Warning - Queue 2 failed to flush
-Oct 10 17:46:01 brutus kernel: [   30.070125] ieee80211 phy0:
-rt2x00queue_flush_queue: Warning - Queue 0 failed to flush
-Oct 10 17:46:01 brutus kernel: [   30.230153] ieee80211 phy0:
-rt2x00queue_flush_queue: Warning - Queue 2 failed to flush
-Oct 10 17:46:02 brutus kernel: [   30.678194] ieee80211 phy0:
-rt2x00queue_flush_queue: Warning - Queue 2 failed to flush
-Oct 10 17:46:02 brutus kernel: [   31.190166] ieee80211 phy0:
-rt2x00queue_flush_queue: Warning - Queue 0 failed to flush
-Oct 10 17:46:02 brutus kernel: [   31.350260] ieee80211 phy0:
-rt2x00queue_flush_queue: Warning - Queue 2 failed to flush
-Oct 10 17:46:03 brutus kernel: [   31.798309] ieee80211 phy0:
-rt2x00queue_flush_queue: Warning - Queue 2 failed to flush
-Oct 10 17:46:03 brutus kernel: [   32.246352] ieee80211 phy0:
-rt2x00queue_flush_queue: Warning - Queue 0 failed to flush
-Oct 10 17:46:03 brutus kernel: [   32.406369] ieee80211 phy0:
-rt2x00queue_flush_queue: Warning - Queue 2 failed to flush
-Oct 10 17:46:04 brutus kernel: [   32.918438] ieee80211 phy0:
-rt2x00queue_flush_queue: Warning - Queue 2 failed to flush
-Oct 10 17:49:01 brutus kernel: [  210.316739] ieee80211 phy0:
-rt2x00queue_flush_queue: Warning - Queue 2 failed to flush
-Oct 10 17:49:02 brutus kernel: [  210.764804] ieee80211 phy0:
-rt2x00queue_flush_queue: Warning - Queue 2 failed to flush
-Oct 10 17:49:02 brutus kernel: [  211.276854] ieee80211 phy0:
-rt2x00queue_flush_queue: Warning - Queue 2 failed to flush
-Oct 10 17:49:03 brutus kernel: [  211.724905] ieee80211 phy0:
-rt2x00queue_flush_queue: Warning - Queue 2 failed to flush
-Oct 10 17:50:04 brutus kernel: [  272.647105] ieee80211 phy0:
-rt2x00queue_flush_queue: Warning - Queue 2 failed to flush
-Oct 10 17:51:27 brutus kernel: [  355.999778] ieee80211 phy0:
-rt2x00queue_flush_queue: Warning - Queue 2 failed to flush
-Oct 10 17:51:28 brutus kernel: [  357.183902] ieee80211 phy0:
-rt2x00queue_flush_queue: Warning - Queue 2 failed to flush
-Oct 10 17:53:11 brutus kernel: [  460.055960] ieee80211 phy0:
-rt2x00queue_flush_queue: Warning - Queue 2 failed to flush
-Oct 10 17:57:10 brutus kernel: [  699.528350] ieee80211 phy0:
-rt2x00queue_flush_queue: Warning - Queue 0 failed to flush
-Oct 10 17:57:11 brutus kernel: [  699.688416] ieee80211 phy0:
-rt2x00queue_flush_queue: Warning - Queue 2 failed to flush
-Oct 10 17:57:11 brutus kernel: [  700.136713] ieee80211 phy0:
-rt2x00queue_flush_queue: Warning - Queue 2 failed to flush
-Oct 10 18:01:10 brutus kernel: [  939.336908] ieee80211 phy0:
-rt2x00queue_flush_queue: Warning - Queue 2 failed to flush
-Oct 10 18:01:11 brutus kernel: [  939.801190] ieee80211 phy0:
-rt2x00queue_flush_queue: Warning - Queue 2 failed to flush
+Are the current warnings (in udev git) sufficient (should tell you
+which module is taking long, but still won't tell you which kernel
+thread of course)?
 
+Cheers,
 
-Help much appreciated. Thnx in advance.
-
-- vin
+Tom
