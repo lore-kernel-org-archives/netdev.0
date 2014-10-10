@@ -1,54 +1,59 @@
-From: Raghuram Kothakota <Raghuram.Kothakota@oracle.com>
-Subject: Re: [PATCH net-next 0/2] sunvnet: Packet processing in non-interrupt context.
-Date: Thu, 9 Oct 2014 18:10:24 -0700
-Message-ID: <EB9A1CD1-6E1D-409C-89CB-95CC9A5AFC1D@oracle.com>
-References: <20141003144024.GA12448@oracle.com> <20141003.120802.1213573830649867131.davem@davemloft.net> <20141006160418.GA3604@oracle.com> <20141006.152526.965519223260573233.davem@davemloft.net> <20141006193111.GE24721@oracle.com>
-Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.6\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:43194 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750979AbaJJBK3 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Oct 2014 21:10:29 -0400
-In-Reply-To: <20141006193111.GE24721@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
+Subject: [PATCH v4 0/6] Add 10GbE support to APM X-Gene SoC ethernet driver
+Date: Thu,  9 Oct 2014 18:32:01 -0700
+Message-ID: <1412904727-23485-1-git-send-email-isubramanian@apm.com>
+Cc: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, patches-qTEPVZfXA3Y@public.gmane.org,
+	kchudgar-qTEPVZfXA3Y@public.gmane.org, Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-I would like to share my experience, on sparc we need more parallelism to
-get the high performance that's just the nature of CMT processors(at least today).
-Lock less Tx and Rx implementation is very nice, but requires to the code path to
-single threaded to achieve it. This may limit the performance to the single thread
-performance, that may be not very high for standard MTU packets. The large MTU packets
-like 64K MTU may have some advantage due to less processing both in the stack
-and the driver, but still  single thread would limit the max performance. I would suggest
-explore both lock less and high parallelism methods to see which one gives the
-best performance.
+Adding 10GbE support to APM X-Gene SoC ethernet driver.
 
--Raghuram
-On Oct 6, 2014, at 12:31 PM, Sowmini Varadhan <sowmini.varadhan@oracle.com> wrote:
+v4: Address comments from v3
+* dtb: resolved merge conflict for the net tree
 
-> On (10/06/14 15:25), David Miller wrote:
->> 
->>> But we still need to hold the vio lock around the ldc_write 
->>> (and also around dring write) in vnet_start_xmit, right?
->> 
->> You might be able to avoid it, you're fully serialized by the TX queue
->> lock.
-> 
-> yes, I was just noticing that. The only place where I believe I need
-> to hold the vio spin-lock is to sync with the dr->cons checks
-> (the "should I send a start_cons LDC message?" check in vnet_start_xmit()
-> vs the vnet_ack() updates).
-> 
-> But isn't it better in general to declare NETIF_F_LLTX and have finer lock
-> granularity in the driver?
-> 
-> --Sowmini
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+v3: Address comments from v2
+* dtb: changed to use all-zeros for the mac address
+
+v2: Address comments from v1
+* created preparatory patch to review before adding new functionality
+* dtb: updated to use tabs consistently
+
+v1:
+* Initial version
+---
+
+Iyappan Subramanian (6):
+  MAINTAINERS: Update APM X-Gene section
+  Documentation: dts: Update section header for APM X-Gene
+  dtb: Add 10GbE node to APM X-Gene SoC device tree
+  drivers: net: xgene: Preparing for adding 10GbE support
+  drivers: net: xgene: Add 10GbE support
+  drivers: net: xgene: Add 10GbE ethtool support
+
+ .../devicetree/bindings/net/apm-xgene-enet.txt     |   4 +-
+ MAINTAINERS                                        |   1 -
+ arch/arm64/boot/dts/apm-mustang.dts                |   4 +
+ arch/arm64/boot/dts/apm-storm.dtsi                 |  29 +-
+ drivers/net/ethernet/apm/xgene/Makefile            |   3 +-
+ .../net/ethernet/apm/xgene/xgene_enet_ethtool.c    |  28 +-
+ drivers/net/ethernet/apm/xgene/xgene_enet_hw.c     |  44 ++-
+ drivers/net/ethernet/apm/xgene/xgene_enet_hw.h     |  30 +-
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.c   |  86 ++++--
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.h   |  24 +-
+ drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c  | 331 +++++++++++++++++++++
+ drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.h  |  57 ++++
+ 12 files changed, 566 insertions(+), 75 deletions(-)
+ create mode 100644 drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c
+ create mode 100644 drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.h
+
+-- 
+1.9.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
