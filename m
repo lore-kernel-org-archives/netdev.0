@@ -1,80 +1,42 @@
-From: Angelo Dureghello <angelo70@gmail.com>
-Subject: Re: [PATCH] phy/micrel: KSZ8031RNL RMII clock reconfiguration bug
-Date: Fri, 10 Oct 2014 12:02:40 +0200
-Message-ID: <5437AEC0.9010209@gmail.com>
-References: <1412866094-4972-1-git-send-email-bth@kamstrup.dk>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net 0/5] net: fix races accessing page->_count
+Date: Fri, 10 Oct 2014 10:02:37 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D174C833D@AcuExch.aculab.com>
+References: <1412918694-22882-1-git-send-email-edumazet@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, Bruno Thomsen <bth@kamstrup.dk>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Alexander Duyck <alexander.h.duyck@redhat.com>,
+	Andres Lagar-Cavilla <andreslc@google.com>,
+	Greg Thelen <gthelen@google.com>,
+	Hugh Dickins <hughd@google.com>,
+	"David Rientjes" <rientjes@google.com>
+To: 'Eric Dumazet' <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f170.google.com ([209.85.212.170]:49593 "EHLO
-	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751058AbaJJKCr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2014 06:02:47 -0400
-Received: by mail-wi0-f170.google.com with SMTP id hi2so3824812wib.1
-        for <netdev@vger.kernel.org>; Fri, 10 Oct 2014 03:02:45 -0700 (PDT)
-In-Reply-To: <1412866094-4972-1-git-send-email-bth@kamstrup.dk>
+Received: from mx0.aculab.com ([213.249.233.131]:60336 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751306AbaJJKES convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2014 06:04:18 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 09525-07 for <netdev@vger.kernel.org>;
+ Fri, 10 Oct 2014 11:04:07 +0100 (BST)
+In-Reply-To: <1412918694-22882-1-git-send-email-edumazet@google.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I add some useful info:
-there is a carrier change after phy is attached, but link state arrives 
-as zero.
+From: Eric Dumazet
+> This is illegal to use atomic_set(&page->_count, ...) even if we 'own'
+> the page. Other entities in the kernel need to use get_page_unless_zero()
+> to get a reference to the page before testing page properties, so we could
+> loose a refcount increment.
 
-[root@xb ~]# cat /sys/class/net/eth0/carrier
-carrier          carrier_changes
-[root@xb ~]# cat /sys/class/net/eth0/carrier
-0
-[root@xb ~]# cat /sys/class/net/eth0/carrier_changes
-1
+Plausibly the atomic_inc() could be avoided by allocating the page
+with multiple references, or by gabbing a lot of extra references
+and keeping a local count of when they are 'used' (by passing
+ownership onwards).
 
-Regards,
-Angelo
-
-
-On 09/10/2014 16:48, Bruno Thomsen wrote:
-> Bug: Unable to send and receive Ethernet packets with Micrel PHY.
->
-> Affected devices:
-> KSZ8031RNL (commercial temp)
-> KSZ8031RNLI (industrial temp)
->
-> Description:
-> PHY device is correctly detected during probe.
-> PHY power-up default is 25MHz crystal clock input
-> and output 50MHz RMII clock to MAC.
-> Reconfiguration of PHY to input 50MHz RMII clock from MAC
-> causes PHY to become unresponsive if clock source is changed
-> after Operation Mode Strap Override (OMSO) register setup.
->
-> Cause:
-> Long lead times on parts where clock setup match circuit design
-> forces the usage of similar parts with wrong default setup.
->
-> Solution:
-> Swapped KSZ8031 register setup and added phy_write return code validation.
->
-> Tested with Freescale i.MX28 Fast Ethernet Controler (fec).
->
-> Signed-off-by: Bruno Thomsen <bth@kamstrup.dk>
-> ---
->   drivers/net/phy/micrel.c | 4 +++-
->   1 file changed, 3 insertions(+), 1 deletion(-)
->
-> diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
-> index 011dbda..ec3f646 100644
-> --- a/drivers/net/phy/micrel.c
-> +++ b/drivers/net/phy/micrel.c
-> @@ -194,8 +194,10 @@ static int ksz8021_config_init(struct phy_device *phydev)
->   	if (rc)
->   		dev_err(&phydev->dev, "failed to set led mode\n");
->   
-> -	phy_write(phydev, MII_KSZPHY_OMSO, val);
->   	rc = ksz_config_flags(phydev);
-> +	if (rc < 0)
-> +		return rc;
-> +	rc = phy_write(phydev, MII_KSZPHY_OMSO, val);
->   	return rc < 0 ? rc : 0;
->   }
->   
+	David
