@@ -1,7 +1,7 @@
 From: Martin KaFai Lau <kafai@fb.com>
-Subject: [PATCH RFC v4 net 2/3] ipv6: Avoid redoing fib6_lookup() for RTF_CACHE hit case
-Date: Fri, 10 Oct 2014 11:48:07 -0700
-Message-ID: <1412966888-31384-3-git-send-email-kafai@fb.com>
+Subject: [PATCH RFC v4 net 1/3] ipv6: Remove BACKTRACK macro
+Date: Fri, 10 Oct 2014 11:48:06 -0700
+Message-ID: <1412966888-31384-2-git-send-email-kafai@fb.com>
 References: <1412966888-31384-1-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,54 +9,196 @@ Cc: David Miller <davem@davemloft.net>,
 	Hannes Frederic Sowa <hannes@stressinduktion.org>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:13040 "EHLO
-	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751665AbaJJSsQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2014 14:48:16 -0400
-Received: from pps.filterd (m0004077 [127.0.0.1])
-	by mx0b-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id s9AIliQt020048
-	for <netdev@vger.kernel.org>; Fri, 10 Oct 2014 11:48:15 -0700
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:60496 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751406AbaJJSsS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2014 14:48:18 -0400
+Received: from pps.filterd (m0004003 [127.0.0.1])
+	by mx0b-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id s9AIhhvS009791
+	for <netdev@vger.kernel.org>; Fri, 10 Oct 2014 11:48:18 -0700
 Received: from mail.thefacebook.com (mailwest.thefacebook.com [173.252.71.148])
-	by mx0b-00082601.pphosted.com with ESMTP id 1pxfaf1dgc-1
+	by mx0b-00082601.pphosted.com with ESMTP id 1pxmbv86bv-2
 	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=OK)
-	for <netdev@vger.kernel.org>; Fri, 10 Oct 2014 11:48:15 -0700
+	for <netdev@vger.kernel.org>; Fri, 10 Oct 2014 11:48:17 -0700
 Received: from facebook.com (2401:db00:20:7029:face:0:33:0)	by
- mx-out.facebook.com (10.102.107.99) with ESMTP	id
- fd89015250ad11e48f4a0002c99293a0-84bfd3e0 for <netdev@vger.kernel.org>;	Fri,
+ mx-out.facebook.com (10.103.99.99) with ESMTP	id
+ fd827e5e50ad11e494470002c9dfb610-d32ee3e0 for <netdev@vger.kernel.org>;	Fri,
  10 Oct 2014 11:48:14 -0700
 In-Reply-To: <1412966888-31384-1-git-send-email-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When there is a RTF_CACHE hit, no need to redo fib6_lookup()
-with reachable=0.
+It is the prep work to reduce the number of calls to fib6_lookup().
+
+The BACKTRACK macro could be hard-to-read and error-prone due to
+its side effects (mainly goto).
+
+This patch is to:
+1. Replace BACKTRACK macro with a function (fib6_backtrack) with the following
+   return values:
+   * If it is backtrack-able, returns next fn for retry.
+   * If it reaches the root, returns NULL.
+2. The caller needs to decide if a backtrack is needed (by testing
+   rt == net->ipv6.ip6_null_entry).
+3. Rename the goto labels in ip6_pol_route() to make the next few
+   patches easier to read.
 
 Cc: David Miller <davem@davemloft.net>
 Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Signed-off-by: Martin KaFai Lau <kafai@fb.com>
 ---
- net/ipv6/route.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ include/net/ip6_fib.h |  3 +++
+ net/ipv6/ip6_fib.c    | 17 ++++++++++++++++
+ net/ipv6/route.c      | 55 ++++++++++++++++++++++-----------------------------
+ 3 files changed, 44 insertions(+), 31 deletions(-)
 
+diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
+index 8eea35d..1f1d7f8 100644
+--- a/include/net/ip6_fib.h
++++ b/include/net/ip6_fib.h
+@@ -288,6 +288,9 @@ struct fib6_node *fib6_locate(struct fib6_node *root,
+ 			      const struct in6_addr *daddr, int dst_len,
+ 			      const struct in6_addr *saddr, int src_len);
+ 
++struct fib6_node *fib6_backtrack(struct fib6_node *fn,
++				 struct in6_addr *saddr);
++
+ void fib6_clean_all(struct net *net, int (*func)(struct rt6_info *, void *arg),
+ 		    void *arg);
+ 
+diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
+index b2d1838..594d189 100644
+--- a/net/ipv6/ip6_fib.c
++++ b/net/ipv6/ip6_fib.c
+@@ -1139,6 +1139,23 @@ struct fib6_node *fib6_locate(struct fib6_node *root,
+ 	return NULL;
+ }
+ 
++struct fib6_node* fib6_backtrack(struct fib6_node *fn,
++				 struct in6_addr *saddr)
++{
++	struct fib6_node *pn;
++	while (1) {
++		if (fn->fn_flags & RTN_TL_ROOT)
++			return NULL;
++		pn = fn->parent;
++		if (FIB6_SUBTREE(pn) && FIB6_SUBTREE(pn) != fn)
++			fn = fib6_lookup(FIB6_SUBTREE(pn), NULL, saddr);
++		else
++			fn = pn;
++		if (fn->fn_flags & RTN_RTINFO)
++			return fn;
++	}
++}
++
+ 
+ /*
+  *	Deletion
 diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 797a6e7..5469ecf 100644
+index a318dd89..797a6e7 100644
 --- a/net/ipv6/route.c
 +++ b/net/ipv6/route.c
-@@ -927,12 +927,12 @@ redo_rt6_select:
- 			goto out;
- 	}
+@@ -772,24 +772,6 @@ int rt6_route_rcv(struct net_device *dev, u8 *opt, int len,
+ }
+ #endif
  
--	if (rt->rt6i_flags & RTF_CACHE)
--		goto out;
+-#define BACKTRACK(__net, saddr)			\
+-do { \
+-	if (rt == __net->ipv6.ip6_null_entry) {	\
+-		struct fib6_node *pn; \
+-		while (1) { \
+-			if (fn->fn_flags & RTN_TL_ROOT) \
+-				goto out; \
+-			pn = fn->parent; \
+-			if (FIB6_SUBTREE(pn) && FIB6_SUBTREE(pn) != fn) \
+-				fn = fib6_lookup(FIB6_SUBTREE(pn), NULL, saddr); \
+-			else \
+-				fn = pn; \
+-			if (fn->fn_flags & RTN_RTINFO) \
+-				goto restart; \
+-		} \
+-	} \
+-} while (0)
 -
+ static struct rt6_info *ip6_pol_route_lookup(struct net *net,
+ 					     struct fib6_table *table,
+ 					     struct flowi6 *fl6, int flags)
+@@ -804,8 +786,11 @@ restart:
+ 	rt = rt6_device_match(net, rt, &fl6->saddr, fl6->flowi6_oif, flags);
+ 	if (rt->rt6i_nsiblings && fl6->flowi6_oif == 0)
+ 		rt = rt6_multipath_select(rt, fl6, fl6->flowi6_oif, flags);
+-	BACKTRACK(net, &fl6->saddr);
+-out:
++	if (rt == net->ipv6.ip6_null_entry) {
++		fn = fib6_backtrack(fn, &fl6->saddr);
++		if (fn)
++			goto restart;
++	}
+ 	dst_use(&rt->dst, jiffies);
+ 	read_unlock_bh(&table->tb6_lock);
+ 	return rt;
+@@ -924,19 +909,25 @@ static struct rt6_info *ip6_pol_route(struct net *net, struct fib6_table *table,
+ 
+ 	strict |= flags & RT6_LOOKUP_F_IFACE;
+ 
+-relookup:
++redo_fib6_lookup_lock:
+ 	read_lock_bh(&table->tb6_lock);
+ 
+-restart_2:
++redo_fib6_lookup:
+ 	fn = fib6_lookup(&table->tb6_root, &fl6->daddr, &fl6->saddr);
+ 
+-restart:
++redo_rt6_select:
+ 	rt = rt6_select(fn, oif, strict | reachable);
+ 	if (rt->rt6i_nsiblings)
+ 		rt = rt6_multipath_select(rt, fl6, oif, strict | reachable);
+-	BACKTRACK(net, &fl6->saddr);
+-	if (rt == net->ipv6.ip6_null_entry ||
+-	    rt->rt6i_flags & RTF_CACHE)
++	if (rt == net->ipv6.ip6_null_entry) {
++		fn = fib6_backtrack(fn, &fl6->saddr);
++		if (fn)
++			goto redo_rt6_select;
++		else
++			goto out;
++	}
++
++	if (rt->rt6i_flags & RTF_CACHE)
+ 		goto out;
+ 
+ 	dst_hold(&rt->dst);
+@@ -967,12 +958,12 @@ restart:
+ 	 * released someone could insert this route.  Relookup.
+ 	 */
+ 	ip6_rt_put(rt);
+-	goto relookup;
++	goto redo_fib6_lookup_lock;
+ 
+ out:
+ 	if (reachable) {
+ 		reachable = 0;
+-		goto restart_2;
++		goto redo_fib6_lookup;
+ 	}
  	dst_hold(&rt->dst);
  	read_unlock_bh(&table->tb6_lock);
- 
-+	if (rt->rt6i_flags & RTF_CACHE)
-+		goto out2;
+@@ -1235,10 +1226,12 @@ restart:
+ 		rt = net->ipv6.ip6_null_entry;
+ 	else if (rt->dst.error) {
+ 		rt = net->ipv6.ip6_null_entry;
+-		goto out;
++	} else if (rt == net->ipv6.ip6_null_entry) {
++		fn = fib6_backtrack(fn, &fl6->saddr);
++		if (fn)
++			goto restart;
+ 	}
+-	BACKTRACK(net, &fl6->saddr);
+-out:
 +
- 	if (!(rt->rt6i_flags & (RTF_NONEXTHOP | RTF_GATEWAY)))
- 		nrt = rt6_alloc_cow(rt, &fl6->daddr, &fl6->saddr);
- 	else if (!(rt->dst.flags & DST_HOST))
+ 	dst_hold(&rt->dst);
+ 
+ 	read_unlock_bh(&table->tb6_lock);
 -- 
 1.8.1
