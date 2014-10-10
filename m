@@ -1,140 +1,85 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v2] net/phy: micrel: Add clock support for KSZ8021/KSZ8031
-Date: Fri, 10 Oct 2014 09:38:20 -0700
-Message-ID: <54380B7C.6060604@gmail.com>
-References: <1412927285-6809-1-git-send-email-s.hauer@pengutronix.de>
+Subject: Re: [PATCH net 1/3] net: bcmgenet: fix off-by-one in incrementing
+ read pointer
+Date: Fri, 10 Oct 2014 09:41:13 -0700
+Message-ID: <54380C29.9010704@gmail.com>
+References: <1412903197-19193-1-git-send-email-f.fainelli@gmail.com>	<1412903197-19193-2-git-send-email-f.fainelli@gmail.com> <CAGXr9JHBVW9rOiSUCCsVnYp73OPdyynP35xiAnKjRsVCf8fK9Q@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel@pengutronix.de
-To: Sascha Hauer <s.hauer@pengutronix.de>
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	jaedon.shin@gmail.com
+To: Petri Gynther <pgynther@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:40612 "EHLO
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:38668 "EHLO
 	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751375AbaJJQie (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2014 12:38:34 -0400
-In-Reply-To: <1412927285-6809-1-git-send-email-s.hauer@pengutronix.de>
+	with ESMTP id S1751356AbaJJQlX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2014 12:41:23 -0400
+Received: by mail-pa0-f50.google.com with SMTP id kx10so2026473pab.23
+        for <netdev@vger.kernel.org>; Fri, 10 Oct 2014 09:41:23 -0700 (PDT)
+In-Reply-To: <CAGXr9JHBVW9rOiSUCCsVnYp73OPdyynP35xiAnKjRsVCf8fK9Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/10/2014 12:48 AM, Sascha Hauer wrote:
-> The KSZ8021 and KSZ8031 support RMII reference input clocks of 25MHz
-> and 50MHz. Both PHYs differ in the default frequency they expect
-> after reset. If this differs from the actual input clock, then
-> register 0x1f bit 7 must be changed.
+On 10/09/2014 11:01 PM, Petri Gynther wrote:
+> Hi Florian,
 > 
-> Signed-off-by: Sascha Hauer <s.hauer@pengutronix.de>
+> On Thu, Oct 9, 2014 at 6:06 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+>> Commit b629be5c8399d7c423b92135eb43a86c924d1cbc ("net: bcmgenet: check
+>> harder for out of memory conditions") moved the increment of the local
+>> read pointer *before* reading from the hardware descriptor using
+>> dmadesc_get_length_status(), which creates an off-by-one situation.
+>>
+>> Fix this by moving again the read_ptr increment after we have read the
+>> hardware descriptor to get both the control block and the read pointer
+>> back in sync.
+>>
+>> Fixes: b629be5c8399 ("net: bcmgenet: check harder for out of memory conditions")
+>> Reported-by: Jaedon Shin <jaedon.shin@gmail.com>
+>> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+>> ---
+>>  drivers/net/ethernet/broadcom/genet/bcmgenet.c | 6 +++---
+>>  1 file changed, 3 insertions(+), 3 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+>> index fff2634b6f34..f1bcebcbba80 100644
+>> --- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+>> +++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+>> @@ -1287,9 +1287,6 @@ static unsigned int bcmgenet_desc_rx(struct bcmgenet_priv *priv,
+>>
+>>                 rxpktprocessed++;
+>>
+>> -               priv->rx_read_ptr++;
+>> -               priv->rx_read_ptr &= (priv->num_rx_bds - 1);
+>> -
+> 
+> Wouldn't it be better to move the three lines:
+> rxpktprocessed++;
+> priv->rx_read_ptr++;
+> priv->rx_read_ptr &= (priv->num_rx_bds - 1)
+> 
+> as the last lines of the while-loop, after the CB refill?
 
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+That's basically what Jaedon did in his first patch, I don't have strong
+objections in doing that if you think that makes it look clearer.
 
-> ---
 > 
-> Changes since v1:
+> -- Petri
 > 
-> - Move clock handling to the probe callback
-> - Bail out with an error for invalid clock rates
 > 
->  Documentation/devicetree/bindings/net/micrel.txt |  6 +++++
->  drivers/net/phy/micrel.c                         | 31 ++++++++++++++++++++++--
->  include/linux/micrel_phy.h                       |  1 +
->  3 files changed, 36 insertions(+), 2 deletions(-)
-> 
-> diff --git a/Documentation/devicetree/bindings/net/micrel.txt b/Documentation/devicetree/bindings/net/micrel.txt
-> index 98a3e61..e1d99b9 100644
-> --- a/Documentation/devicetree/bindings/net/micrel.txt
-> +++ b/Documentation/devicetree/bindings/net/micrel.txt
-> @@ -16,3 +16,9 @@ Optional properties:
->  	      KSZ8051: register 0x1f, bits 5..4
->  
->                See the respective PHY datasheet for the mode values.
-> +
-> + - clocks, clock-names: contains clocks according to the common clock bindings.
-> +
-> +              supported clocks:
-> +	      - KSZ8021, KSZ8031: "rmii-ref": The RMII refence input clock. Used
-> +		to determine the XI input clock.
-> diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
-> index 011dbda..492435f 100644
-> --- a/drivers/net/phy/micrel.c
-> +++ b/drivers/net/phy/micrel.c
-> @@ -26,6 +26,7 @@
->  #include <linux/phy.h>
->  #include <linux/micrel_phy.h>
->  #include <linux/of.h>
-> +#include <linux/clk.h>
->  
->  /* Operation Mode Strap Override */
->  #define MII_KSZPHY_OMSO				0x16
-> @@ -72,9 +73,12 @@ static int ksz_config_flags(struct phy_device *phydev)
->  {
->  	int regval;
->  
-> -	if (phydev->dev_flags & MICREL_PHY_50MHZ_CLK) {
-> +	if (phydev->dev_flags & (MICREL_PHY_50MHZ_CLK | MICREL_PHY_25MHZ_CLK)) {
->  		regval = phy_read(phydev, MII_KSZPHY_CTRL);
-> -		regval |= KSZ8051_RMII_50MHZ_CLK;
-> +		if (phydev->dev_flags & MICREL_PHY_50MHZ_CLK)
-> +			regval |= KSZ8051_RMII_50MHZ_CLK;
-> +		else
-> +			regval &= ~KSZ8051_RMII_50MHZ_CLK;
->  		return phy_write(phydev, MII_KSZPHY_CTRL, regval);
->  	}
->  	return 0;
-> @@ -440,6 +444,27 @@ ksz9021_wr_mmd_phyreg(struct phy_device *phydev, int ptrad, int devnum,
->  {
->  }
->  
-> +static int ksz8021_probe(struct phy_device *phydev)
-> +{
-> +	struct clk *clk;
-> +
-> +	clk = devm_clk_get(&phydev->dev, "rmii-ref");
-> +	if (!IS_ERR(clk)) {
-> +		unsigned long rate = clk_get_rate(clk);
-> +
-> +		if (rate > 24500000 && rate < 25500000) {
-> +			phydev->dev_flags |= MICREL_PHY_25MHZ_CLK;
-> +		} else if (rate > 49500000 && rate < 50500000) {
-> +			phydev->dev_flags |= MICREL_PHY_50MHZ_CLK;
-> +		} else {
-> +			dev_err(&phydev->dev, "Clock rate out of range: %ld\n", rate);
-> +			return -EINVAL;
-> +		}
-> +	}
-> +
-> +	return 0;
-> +}
-> +
->  static struct phy_driver ksphy_driver[] = {
->  {
->  	.phy_id		= PHY_ID_KS8737,
-> @@ -462,6 +487,7 @@ static struct phy_driver ksphy_driver[] = {
->  	.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause |
->  			   SUPPORTED_Asym_Pause),
->  	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
-> +	.probe		= ksz8021_probe,
->  	.config_init	= ksz8021_config_init,
->  	.config_aneg	= genphy_config_aneg,
->  	.read_status	= genphy_read_status,
-> @@ -477,6 +503,7 @@ static struct phy_driver ksphy_driver[] = {
->  	.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause |
->  			   SUPPORTED_Asym_Pause),
->  	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
-> +	.probe		= ksz8021_probe,
->  	.config_init	= ksz8021_config_init,
->  	.config_aneg	= genphy_config_aneg,
->  	.read_status	= genphy_read_status,
-> diff --git a/include/linux/micrel_phy.h b/include/linux/micrel_phy.h
-> index 2e5b194..53d33de 100644
-> --- a/include/linux/micrel_phy.h
-> +++ b/include/linux/micrel_phy.h
-> @@ -37,6 +37,7 @@
->  
->  /* struct phy_device dev_flags definitions */
->  #define MICREL_PHY_50MHZ_CLK	0x00000001
-> +#define MICREL_PHY_25MHZ_CLK	0x00000002
->  
->  #define MICREL_KSZ9021_EXTREG_CTRL	0xB
->  #define MICREL_KSZ9021_EXTREG_DATA_WRITE	0xC
-> 
+>>                 /* We do not have a backing SKB, so we do not have a
+>>                  * corresponding DMA mapping for this incoming packet since
+>>                  * bcmgenet_rx_refill always either has both skb and mapping or
+>> @@ -1332,6 +1329,9 @@ static unsigned int bcmgenet_desc_rx(struct bcmgenet_priv *priv,
+>>                           __func__, p_index, priv->rx_c_index,
+>>                           priv->rx_read_ptr, dma_length_status);
+>>
+>> +               priv->rx_read_ptr++;
+>> +               priv->rx_read_ptr &= (priv->num_rx_bds - 1);
+>> +
+>>                 if (unlikely(!(dma_flag & DMA_EOP) || !(dma_flag & DMA_SOP))) {
+>>                         netif_err(priv, rx_status, dev,
+>>                                   "dropping fragmented packet!\n");
+>> --
+>> 1.9.1
+>>
