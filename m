@@ -1,76 +1,60 @@
-From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: [PATCH v4 6/6] drivers: net: xgene: Add 10GbE ethtool support
-Date: Thu,  9 Oct 2014 18:32:07 -0700
-Message-ID: <1412904727-23485-7-git-send-email-isubramanian@apm.com>
-References: <1412904727-23485-1-git-send-email-isubramanian@apm.com>
-Cc: linux-arm-kernel@lists.infradead.org, patches@apm.com,
-	kchudgar@apm.com, Iyappan Subramanian <isubramanian@apm.com>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	devicetree@vger.kernel.org
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Subject: Re: eth_get_headlen() and unaligned accesses...
+Date: Thu, 09 Oct 2014 20:10:01 -0700
+Message-ID: <54374E09.1020907@redhat.com>
+References: <20141009.201248.1210454965155680255.davem@davemloft.net>
+Reply-To: alexander.h.duyck@redhat.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod5og112.obsmtp.com ([64.18.0.24]:48251 "HELO
-	exprod5og112.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1751287AbaJJBcK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Oct 2014 21:32:10 -0400
-Received: by mail-pa0-f43.google.com with SMTP id lf10so739174pab.30
-        for <netdev@vger.kernel.org>; Thu, 09 Oct 2014 18:32:10 -0700 (PDT)
-In-Reply-To: <1412904727-23485-1-git-send-email-isubramanian@apm.com>
+Received: from mx1.redhat.com ([209.132.183.28]:31784 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751081AbaJJDKE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Oct 2014 23:10:04 -0400
+In-Reply-To: <20141009.201248.1210454965155680255.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
-Signed-off-by: Keyur Chudgar <kchudgar@apm.com>
----
- .../net/ethernet/apm/xgene/xgene_enet_ethtool.c    | 28 +++++++++++++++++-----
- 1 file changed, 22 insertions(+), 6 deletions(-)
+On 10/09/2014 05:12 PM, David Miller wrote:
+> So, we have a bit of a problem, this is on sparc64:
+>
+> [423475.740836] Kernel unaligned access at TPC[81d330] __skb_flow_get_ports+0x70/0xe0
+> [423475.755756] CPU: 0 PID: 0 Comm: swapper/0 Not tainted 3.17.0+ #2
+> [423475.767854] Call Trace:
+> [423475.772877]  [0000000000433288] kernel_unaligned_trap+0x368/0x5c0
+> [423475.785203]  [000000000042a824] sun4v_do_mna+0x84/0xa0
+> [423475.795624]  [0000000000406cd0] sun4v_mna+0x5c/0x68
+> [423475.805521]  [000000000081d330] __skb_flow_get_ports+0x70/0xe0
+> [423475.817323]  [000000000081d6ac] __skb_flow_dissect+0x1ac/0x460
+> [423475.829128]  [0000000000843c98] eth_get_headlen+0x38/0xa0
+> [423475.840083]  [0000000010064d54] igb_poll+0x8d4/0xf60 [igb]
+> [423475.851184]  [00000000008243c8] net_rx_action+0xa8/0x1c0
+>
+> The chip DMA's to the beginning of a frag page and (unless timestamps
+> are enabled) that's where the ethernet header begins.
+>
+> So any larger than 16-bit access to the IP and later headers will be
+> unaligned.
+>
+> We have various ways we can deal with this based upon the capabilities
+> of the chips involved.  Can we configure the IGB to put 2 "don't care"
+> bytes at the beginning of the packet?
 
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_ethtool.c b/drivers/net/ethernet/apm/xgene/xgene_enet_ethtool.c
-index 63f2aa5..c1c997b 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_ethtool.c
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_ethtool.c
-@@ -59,10 +59,22 @@ static int xgene_get_settings(struct net_device *ndev, struct ethtool_cmd *cmd)
- 	struct xgene_enet_pdata *pdata = netdev_priv(ndev);
- 	struct phy_device *phydev = pdata->phy_dev;
- 
--	if (phydev == NULL)
--		return -ENODEV;
-+	if (pdata->phy_mode == PHY_INTERFACE_MODE_RGMII) {
-+		if (phydev == NULL)
-+			return -ENODEV;
- 
--	return phy_ethtool_gset(phydev, cmd);
-+		return phy_ethtool_gset(phydev, cmd);
-+	}
-+
-+	cmd->supported = SUPPORTED_10000baseT_Full | SUPPORTED_FIBRE;
-+	cmd->advertising = cmd->supported;
-+	ethtool_cmd_speed_set(cmd, SPEED_10000);
-+	cmd->duplex = DUPLEX_FULL;
-+	cmd->port = PORT_FIBRE;
-+	cmd->transceiver = XCVR_EXTERNAL;
-+	cmd->autoneg = AUTONEG_DISABLE;
-+
-+	return 0;
- }
- 
- static int xgene_set_settings(struct net_device *ndev, struct ethtool_cmd *cmd)
-@@ -70,10 +82,14 @@ static int xgene_set_settings(struct net_device *ndev, struct ethtool_cmd *cmd)
- 	struct xgene_enet_pdata *pdata = netdev_priv(ndev);
- 	struct phy_device *phydev = pdata->phy_dev;
- 
--	if (phydev == NULL)
--		return -ENODEV;
-+	if (pdata->phy_mode == PHY_INTERFACE_MODE_RGMII) {
-+		if (phydev == NULL)
-+			return -ENODEV;
-+
-+		return phy_ethtool_sset(phydev, cmd);
-+	}
- 
--	return phy_ethtool_sset(phydev, cmd);
-+	return -EINVAL;
- }
- 
- static void xgene_get_strings(struct net_device *ndev, u32 stringset, u8 *data)
--- 
-1.9.1
+The problem is the igb part expects to be able to use 2K buffers which 
+means it will always try to use the full half of a page.  I had 
+forgotten that the function this replaced had worked with unaligned 
+accesses as all of the fields I was pulling were only 16b in width.  I 
+think I assumed that this function was already setup to handle that.
+
+Actually the fix should be pretty simple.  Just do what we already 
+appear to be doing for the iph_to_flow_copy_addrs.  We can use memcpy to 
+copy the 4 bytes for the port data instead of doing the direct assignment.
+
+I'll try to submit a patch, just need to see if I have a tree setup as 
+it has been a couple weeks.
+
+Thanks,
+
+Alex
