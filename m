@@ -1,132 +1,118 @@
-From: Sascha Hauer <s.hauer@pengutronix.de>
-Subject: [PATCH v2] net/phy: micrel: Add clock support for KSZ8021/KSZ8031
-Date: Fri, 10 Oct 2014 09:48:05 +0200
-Message-ID: <1412927285-6809-1-git-send-email-s.hauer@pengutronix.de>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel@pengutronix.de, Sascha Hauer <s.hauer@pengutronix.de>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:42569 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751324AbaJJHsP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2014 03:48:15 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Akshay Sarode <akshaysarode21@gmail.com>
+Subject: [PATCH 1/1] Checkpatch: coding style errors in Nvidia ethernet driver
+Date: Fri, 10 Oct 2014 13:31:42 +0530
+Message-ID: <1412928102-1696-1-git-send-email-akshaysarode21@gmail.com>
+Cc: Akshay Sarode <akshaysarode21@gmail.com>
+To: John Stultz <john.stultz@linaro.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The KSZ8021 and KSZ8031 support RMII reference input clocks of 25MHz
-and 50MHz. Both PHYs differ in the default frequency they expect
-after reset. If this differs from the actual input clock, then
-register 0x1f bit 7 must be changed.
-
-Signed-off-by: Sascha Hauer <s.hauer@pengutronix.de>
+ERROR: "foo* bar" should be "foo *bar"
+ERROR: do not initialise statics to 0 or NULL
+CHECK: spinlock_t definition without comment
+Signed-off-by: Akshay Sarode <akshaysarode21@gmail.com>
 ---
+ drivers/net/ethernet/nvidia/forcedeth.c | 25 +++++++++++++++++++------
+ 1 file changed, 19 insertions(+), 6 deletions(-)
 
-Changes since v1:
-
-- Move clock handling to the probe callback
-- Bail out with an error for invalid clock rates
-
- Documentation/devicetree/bindings/net/micrel.txt |  6 +++++
- drivers/net/phy/micrel.c                         | 31 ++++++++++++++++++++++--
- include/linux/micrel_phy.h                       |  1 +
- 3 files changed, 36 insertions(+), 2 deletions(-)
-
-diff --git a/Documentation/devicetree/bindings/net/micrel.txt b/Documentation/devicetree/bindings/net/micrel.txt
-index 98a3e61..e1d99b9 100644
---- a/Documentation/devicetree/bindings/net/micrel.txt
-+++ b/Documentation/devicetree/bindings/net/micrel.txt
-@@ -16,3 +16,9 @@ Optional properties:
- 	      KSZ8051: register 0x1f, bits 5..4
+diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
+index f39cae6..dd03d1a 100644
+--- a/drivers/net/ethernet/nvidia/forcedeth.c
++++ b/drivers/net/ethernet/nvidia/forcedeth.c
+@@ -748,7 +748,7 @@ struct nv_skb_map {
  
-               See the respective PHY datasheet for the mode values.
+ /* in dev: base, irq */
+ struct fe_priv {
+-	spinlock_t lock;
++	spinlock_t lock; /* spinlock for SMA lock handling */
+ 
+ 	struct net_device *dev;
+ 	struct napi_struct napi;
+@@ -893,6 +893,7 @@ enum {
+ 	NV_MSI_INT_DISABLED,
+ 	NV_MSI_INT_ENABLED
+ };
 +
-+ - clocks, clock-names: contains clocks according to the common clock bindings.
+ static int msi = NV_MSI_INT_ENABLED;
+ 
+ /*
+@@ -902,6 +903,7 @@ enum {
+ 	NV_MSIX_INT_DISABLED,
+ 	NV_MSIX_INT_ENABLED
+ };
 +
-+              supported clocks:
-+	      - KSZ8021, KSZ8031: "rmii-ref": The RMII refence input clock. Used
-+		to determine the XI input clock.
-diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
-index 011dbda..492435f 100644
---- a/drivers/net/phy/micrel.c
-+++ b/drivers/net/phy/micrel.c
-@@ -26,6 +26,7 @@
- #include <linux/phy.h>
- #include <linux/micrel_phy.h>
- #include <linux/of.h>
-+#include <linux/clk.h>
+ static int msix = NV_MSIX_INT_ENABLED;
  
- /* Operation Mode Strap Override */
- #define MII_KSZPHY_OMSO				0x16
-@@ -72,9 +73,12 @@ static int ksz_config_flags(struct phy_device *phydev)
- {
- 	int regval;
+ /*
+@@ -911,12 +913,18 @@ enum {
+ 	NV_DMA_64BIT_DISABLED,
+ 	NV_DMA_64BIT_ENABLED
+ };
++
+ static int dma_64bit = NV_DMA_64BIT_ENABLED;
  
--	if (phydev->dev_flags & MICREL_PHY_50MHZ_CLK) {
-+	if (phydev->dev_flags & (MICREL_PHY_50MHZ_CLK | MICREL_PHY_25MHZ_CLK)) {
- 		regval = phy_read(phydev, MII_KSZPHY_CTRL);
--		regval |= KSZ8051_RMII_50MHZ_CLK;
-+		if (phydev->dev_flags & MICREL_PHY_50MHZ_CLK)
-+			regval |= KSZ8051_RMII_50MHZ_CLK;
-+		else
-+			regval &= ~KSZ8051_RMII_50MHZ_CLK;
- 		return phy_write(phydev, MII_KSZPHY_CTRL, regval);
- 	}
- 	return 0;
-@@ -440,6 +444,27 @@ ksz9021_wr_mmd_phyreg(struct phy_device *phydev, int ptrad, int devnum,
- {
+ /*
+  * Debug output control for tx_timeout
+  */
+-static bool debug_tx_timeout = false;
++enum {
++	NV_DEBUG_TX_TIMEOUT_DISABLED,
++	NV_DEBUG_TX_TIMEOUT_ENABLED
++};
++
++static bool debug_tx_timeout = NV_DEBUG_TX_TIMEOUT_DISABLED;
+ 
+ /*
+  * Crossover Detection
+@@ -926,6 +934,7 @@ enum {
+ 	NV_CROSSOVER_DETECTION_DISABLED,
+ 	NV_CROSSOVER_DETECTION_ENABLED
+ };
++
+ static int phy_cross = NV_CROSSOVER_DETECTION_DISABLED;
+ 
+ /*
+@@ -4562,7 +4571,8 @@ static int nv_nway_reset(struct net_device *dev)
+ 	return ret;
  }
  
-+static int ksz8021_probe(struct phy_device *phydev)
-+{
-+	struct clk *clk;
-+
-+	clk = devm_clk_get(&phydev->dev, "rmii-ref");
-+	if (!IS_ERR(clk)) {
-+		unsigned long rate = clk_get_rate(clk);
-+
-+		if (rate > 24500000 && rate < 25500000) {
-+			phydev->dev_flags |= MICREL_PHY_25MHZ_CLK;
-+		} else if (rate > 49500000 && rate < 50500000) {
-+			phydev->dev_flags |= MICREL_PHY_50MHZ_CLK;
-+		} else {
-+			dev_err(&phydev->dev, "Clock rate out of range: %ld\n", rate);
-+			return -EINVAL;
-+		}
-+	}
-+
-+	return 0;
-+}
-+
- static struct phy_driver ksphy_driver[] = {
+-static void nv_get_ringparam(struct net_device *dev, struct ethtool_ringparam* ring)
++static void nv_get_ringparam(struct net_device *dev,
++			     struct ethtool_ringparam *ring)
  {
- 	.phy_id		= PHY_ID_KS8737,
-@@ -462,6 +487,7 @@ static struct phy_driver ksphy_driver[] = {
- 	.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause |
- 			   SUPPORTED_Asym_Pause),
- 	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
-+	.probe		= ksz8021_probe,
- 	.config_init	= ksz8021_config_init,
- 	.config_aneg	= genphy_config_aneg,
- 	.read_status	= genphy_read_status,
-@@ -477,6 +503,7 @@ static struct phy_driver ksphy_driver[] = {
- 	.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause |
- 			   SUPPORTED_Asym_Pause),
- 	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
-+	.probe		= ksz8021_probe,
- 	.config_init	= ksz8021_config_init,
- 	.config_aneg	= genphy_config_aneg,
- 	.read_status	= genphy_read_status,
-diff --git a/include/linux/micrel_phy.h b/include/linux/micrel_phy.h
-index 2e5b194..53d33de 100644
---- a/include/linux/micrel_phy.h
-+++ b/include/linux/micrel_phy.h
-@@ -37,6 +37,7 @@
+ 	struct fe_priv *np = netdev_priv(dev);
  
- /* struct phy_device dev_flags definitions */
- #define MICREL_PHY_50MHZ_CLK	0x00000001
-+#define MICREL_PHY_25MHZ_CLK	0x00000002
+@@ -4573,7 +4583,8 @@ static void nv_get_ringparam(struct net_device *dev, struct ethtool_ringparam* r
+ 	ring->tx_pending = np->tx_ring_size;
+ }
  
- #define MICREL_KSZ9021_EXTREG_CTRL	0xB
- #define MICREL_KSZ9021_EXTREG_DATA_WRITE	0xC
+-static int nv_set_ringparam(struct net_device *dev, struct ethtool_ringparam* ring)
++static int nv_set_ringparam(struct net_device *dev,
++			    struct ethtool_ringparam *ring)
+ {
+ 	struct fe_priv *np = netdev_priv(dev);
+ 	u8 __iomem *base = get_hwbase(dev);
+@@ -4685,7 +4696,8 @@ exit:
+ 	return -ENOMEM;
+ }
+ 
+-static void nv_get_pauseparam(struct net_device *dev, struct ethtool_pauseparam* pause)
++static void nv_get_pauseparam(struct net_device *dev,
++			      struct ethtool_pauseparam *pause)
+ {
+ 	struct fe_priv *np = netdev_priv(dev);
+ 
+@@ -4694,7 +4706,8 @@ static void nv_get_pauseparam(struct net_device *dev, struct ethtool_pauseparam*
+ 	pause->tx_pause = (np->pause_flags & NV_PAUSEFRAME_TX_ENABLE) != 0;
+ }
+ 
+-static int nv_set_pauseparam(struct net_device *dev, struct ethtool_pauseparam* pause)
++static int nv_set_pauseparam(struct net_device *dev,
++			     struct ethtool_pauseparam *pause)
+ {
+ 	struct fe_priv *np = netdev_priv(dev);
+ 	int adv, bmcr;
 -- 
-2.1.1
+1.9.1
