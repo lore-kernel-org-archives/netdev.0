@@ -1,43 +1,56 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH v3 0/3] Enable FEC pps feather
-Date: Fri, 10 Oct 2014 09:44:31 +0200
-Message-ID: <20141010074431.GA4181@localhost.localdomain>
-References: <1412918130-18830-1-git-send-email-b45643@freescale.com>
+From: Sascha Hauer <s.hauer@pengutronix.de>
+Subject: Re: [PATCH] net/phy: micrel: Add clock support for KSZ8021/KSZ8031
+Date: Fri, 10 Oct 2014 09:44:54 +0200
+Message-ID: <20141010074454.GO4992@pengutronix.de>
+References: <1412857956-6207-1-git-send-email-s.hauer@pengutronix.de>
+ <5436BF5B.5060006@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, shawn.guo@linaro.org,
-	bhutchings@solarflare.com, R49496@freescale.com,
-	b38611@freescale.com, b20596@freescale.com,
-	stephen@networkplumber.org
-To: Luwei Zhou <b45643@freescale.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@pengutronix.de
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f175.google.com ([209.85.212.175]:47445 "EHLO
-	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750905AbaJJHoh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2014 03:44:37 -0400
-Received: by mail-wi0-f175.google.com with SMTP id d1so1181961wiv.2
-        for <netdev@vger.kernel.org>; Fri, 10 Oct 2014 00:44:35 -0700 (PDT)
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:49345 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751174AbaJJHpC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2014 03:45:02 -0400
 Content-Disposition: inline
-In-Reply-To: <1412918130-18830-1-git-send-email-b45643@freescale.com>
+In-Reply-To: <5436BF5B.5060006@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 10, 2014 at 01:15:27PM +0800, Luwei Zhou wrote:
-> Change from v2 to v3:
-> 	-Using the default channel 0 to be PPS channel not PTP_PIN_SET/GETFUNC interface.
-> 	-Using the linux definition of NSEC_PER_SEC.
+On Thu, Oct 09, 2014 at 10:01:15AM -0700, Florian Fainelli wrote:
+> On 10/09/2014 05:32 AM, Sascha Hauer wrote:
+> >  static int ksz8021_config_init(struct phy_device *phydev)
+> >  {
+> > +	struct clk *clk;
+> >  	const u16 val = KSZPHY_OMSO_B_CAST_OFF | KSZPHY_OMSO_RMII_OVERRIDE;
+> >  	int rc;
+> >  
+> > +	clk = devm_clk_get(&phydev->dev, "rmii-ref");
+> > +	if (!IS_ERR(clk)) {
+> > +		unsigned long rate = clk_get_rate(clk);
+> > +
+> > +		if (rate > 24500000 && rate < 25500000)
+> > +			phydev->dev_flags |= MICREL_PHY_25MHZ_CLK;
+> > +		else if (rate > 49500000 && rate < 50500000)
+> > +			phydev->dev_flags |= MICREL_PHY_50MHZ_CLK;
+> > +	}
 > 
-> Change from v1 to v2:
-> 	- Fix the potential 32-bit multiplication overflow issue.
-> 	- Optimize the hareware adjustment code to improve efficiency as Richard suggested
-> 	- Use ptp PTP_PIN_SET/GETFUNC interface to set PPS channel not device tree
-> 	and add PTP_PF_PPS enumeration
-> 	- Modify comments style
-> 
-> 
-> Luwei Zhou (3):
->   net: fec: ptp: Use the 31-bit ptp timer.
->   net: fec: ptp: Use hardware algorithm to adjust PTP counter.
->   net: fec: ptp: Enable PPS output based on ptp clock
+> I suppose that you could move this to the PHY driver probe() callback,
+> and perform the rate checking from here, rejecting a clock whose rate is
+> out of the acceptable range, and return an error to prevent the PHY
+> driver registration? It is really up to you though.
 
-Acked-by: Richard Cochran <richardcochran@gmail.com>
+Oh, it seems doing this in config_init is really wrong as it can be
+called multiple times, even as a response to the SIOCSMIIREG ioctl.
+We would request the clock each time then without ever releasing it.
+I'll send an updated version with clock handling in probe().
+
+Sascha
+
+-- 
+Pengutronix e.K.                           |                             |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
