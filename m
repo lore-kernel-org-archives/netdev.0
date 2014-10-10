@@ -1,105 +1,107 @@
-From: Angelo Dureghello <angelo70@gmail.com>
-Subject: Re: Micrel KSZ8031 - phy link missing
-Date: Fri, 10 Oct 2014 11:32:18 +0200
-Message-ID: <5437A7A2.3020700@gmail.com>
-References: <915054555B5659448ACF8A70E114824D0163C79016@Exchange2010.kamstrup.dk>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: nf_reject_ipv4: module license 'unspecified' taints kernel
+Date: Fri, 10 Oct 2014 11:56:16 +0200
+Message-ID: <20141010095520.GA3126@salvia>
+References: <20141010091904.GD1981@darkstar.nay.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, Bruno Thomsen <bth@kamstrup.dk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:39955 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751786AbaJJJcV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2014 05:32:21 -0400
-Received: by mail-wi0-f172.google.com with SMTP id n3so1402714wiv.17
-        for <netdev@vger.kernel.org>; Fri, 10 Oct 2014 02:32:20 -0700 (PDT)
-In-Reply-To: <915054555B5659448ACF8A70E114824D0163C79016@Exchange2010.kamstrup.dk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-Dear Bruno,
-
-many thanks,
-
-i still have the issue after patching kernel 3.17.
-
-static int ksz8021_config_init(struct phy_device *phydev)
-{
-         const u16 val = KSZPHY_OMSO_B_CAST_OFF | KSZPHY_OMSO_RMII_OVERRIDE;
-         int rc;
-
-         rc = kszphy_setup_led(phydev, 0x1f, 4);
-         if (rc)
-                 dev_err(&phydev->dev, "failed to set led mode\n");
-
-         /*
-          * signalled no-link to linux-net community, followed
-          * see [PATCH] phy/micrel: KSZ8031RNL RMII clock 
-reconfiguration bug
-          */
-         rc = ksz_config_flags(phydev);
-         if (rc < 0)
-                 return rc;
-         rc = phy_write(phydev, MII_KSZPHY_OMSO, val);
-
-         return rc < 0 ? rc : 0;
-}
+Content-Type: multipart/mixed; boundary="mojUlQ0s9EVzWg2t"
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Dave Young <dyoung@redhat.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20141010091904.GD1981@darkstar.nay.redhat.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-I am using RMII in my custom board, don't know if it makes any difference.
+--mojUlQ0s9EVzWg2t
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Scanning device for bad blocks
-Bad block table written to 0x000007fe0000, version 0x01
-Bad block table written to 0x000007fc0000, version 0x01
-8 cmdlinepart partitions found on MTD device davinci_nand.0
-Creating 8 MTD partitions on "davinci_nand.0":
-0x000000000000-0x000000020000 : "u-boot-env"
-0x000000020000-0x000000180000 : "u-boot"
-0x000000180000-0x0000001a0000 : "bootparms"
-0x0000001a0000-0x000000200000 : "factory-info"
-EMAC: device MAC address: 00:08:e1:03:2a:c5
-GPIO LEDs: old hardware revision detected
-0x000000200000-0x000000600000 : "kernel"
-0x000000600000-0x000000700000 : "config"
-0x000000700000-0x000004300000 : "rootfs"
-0x000004300000-0x000007f00000 : "update"
-davinci_nand davinci_nand.0: controller rev. 2.5
-davinci_mdio davinci_mdio.0: Runtime PM disabled, clock forced on.
-davinci_mdio davinci_mdio.0: davinci mdio revision 1.5
-davinci_mdio davinci_mdio.0: detected phy mask fffffffc
-libphy: davinci_mdio.0: probed
-davinci_mdio davinci_mdio.0: phy[0]: device davinci_mdio-0:00, driver 
-Micrel KSZ8031
-davinci_mdio davinci_mdio.0: phy[1]: device davinci_mdio-0:01, driver 
-Micrel KSZ8031
-omap_rtc da830-rtc: rtc core: registered da830-rtc as rtc0
+On Fri, Oct 10, 2014 at 05:19:04PM +0800, Dave Young wrote:
+> Hi,
+> 
+> With today's linus tree, I got below kmsg:
+> [   23.545204] nf_reject_ipv4: module license 'unspecified' taints kernel.
+> 
+> It could be caused by below commit:
+> 
+> commit c8d7b98bec43faaa6583c3135030be5eb4693acb
+> Author: Pablo Neira Ayuso <pablo@netfilter.org>
+> Date:   Fri Sep 26 14:35:15 2014 +0200
+> 
+>     netfilter: move nf_send_resetX() code to nf_reject_ipvX modules
+>     
+>     Move nf_send_reset() and nf_send_reset6() to nf_reject_ipv4 and
+>     nf_reject_ipv6 respectively. This code is shared by x_tables and
+>     nf_tables.
+>     
+>     Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 
-......
+Patch attached, thanks for reporting.
 
-Starting LED service: done
-Setting time zone...
-UTC
-Time zone set
-Starting network...
-davinci_mdio davinci_mdio.0: resetting idled controller
-net eth0: attached PHY driver [Micrel KSZ8031] 
-(mii_bus:phy_addr=davinci_mdio-0:00, id=221556)
-udhcpc (v1.20.2) started
-Sending discover...
-Sending discover...
-Sending discover...
-No lease, failing
-.....
+P.S: Please, Cc netfilter-devel@vger.kernel.org in future reports, so
+we make sure things don't get lost.
+
+--mojUlQ0s9EVzWg2t
+Content-Type: text/x-diff; charset=us-ascii
+Content-Disposition: attachment; filename="0001-netfilter-missing-module-license-in-the-nf_reject_ip.patch"
+
+>From d4358bcf64ba7a64d4de4e1dc5533c4c8f88ea82 Mon Sep 17 00:00:00 2001
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Fri, 10 Oct 2014 11:25:20 +0200
+Subject: [PATCH] netfilter: missing module license in the nf_reject_ipvX
+ modules
+
+[   23.545204] nf_reject_ipv4: module license 'unspecified' taints kernel.
+
+Reported-by: Dave Young <dyoung@redhat.com>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ net/ipv4/netfilter/nf_reject_ipv4.c |    3 +++
+ net/ipv6/netfilter/nf_reject_ipv6.c |    4 ++++
+ 2 files changed, 7 insertions(+)
+
+diff --git a/net/ipv4/netfilter/nf_reject_ipv4.c b/net/ipv4/netfilter/nf_reject_ipv4.c
+index b023b4e..92b303d 100644
+--- a/net/ipv4/netfilter/nf_reject_ipv4.c
++++ b/net/ipv4/netfilter/nf_reject_ipv4.c
+@@ -6,6 +6,7 @@
+  * published by the Free Software Foundation.
+  */
+ 
++#include <linux/module.h>
+ #include <net/ip.h>
+ #include <net/tcp.h>
+ #include <net/route.h>
+@@ -125,3 +126,5 @@ void nf_send_reset(struct sk_buff *oldskb, int hook)
+ 	kfree_skb(nskb);
+ }
+ EXPORT_SYMBOL_GPL(nf_send_reset);
++
++MODULE_LICENSE("GPL");
+diff --git a/net/ipv6/netfilter/nf_reject_ipv6.c b/net/ipv6/netfilter/nf_reject_ipv6.c
+index 5f5f043..20d9def 100644
+--- a/net/ipv6/netfilter/nf_reject_ipv6.c
++++ b/net/ipv6/netfilter/nf_reject_ipv6.c
+@@ -5,6 +5,8 @@
+  * it under the terms of the GNU General Public License version 2 as
+  * published by the Free Software Foundation.
+  */
++
++#include <linux/module.h>
+ #include <net/ipv6.h>
+ #include <net/ip6_route.h>
+ #include <net/ip6_fib.h>
+@@ -161,3 +163,5 @@ void nf_send_reset6(struct net *net, struct sk_buff *oldskb, int hook)
+ 		ip6_local_out(nskb);
+ }
+ EXPORT_SYMBOL_GPL(nf_send_reset6);
++
++MODULE_LICENSE("GPL");
+-- 
+1.7.10.4
 
 
-
-
-Angelo
-
-
-
-
-
-On 09/10/2014 17:05, Bruno Thomsen wrote:
-> [PATCH] phy/micrel: KSZ8031RNL RMII clock reconfiguration bug
+--mojUlQ0s9EVzWg2t--
