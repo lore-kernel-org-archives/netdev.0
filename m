@@ -1,49 +1,60 @@
 From: roy.qing.li@gmail.com
-Subject: [PATCH][net-next] Documentation: replace __sk_run_filter with __bpf_prog_run
-Date: Fri, 10 Oct 2014 11:36:54 +0800
-Message-ID: <1412912214-964-1-git-send-email-roy.qing.li@gmail.com>
+Subject: [PATCH][net-next] net: filter: replace sk_run_filter with __bpf_prog_run in comments
+Date: Fri, 10 Oct 2014 11:37:11 +0800
+Message-ID: <1412912231-1004-1-git-send-email-roy.qing.li@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f172.google.com ([209.85.192.172]:40952 "EHLO
-	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751099AbaJJDhF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Oct 2014 23:37:05 -0400
-Received: by mail-pd0-f172.google.com with SMTP id ft15so867964pdb.31
-        for <netdev@vger.kernel.org>; Thu, 09 Oct 2014 20:37:04 -0700 (PDT)
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:55187 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751099AbaJJDhT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Oct 2014 23:37:19 -0400
+Received: by mail-pa0-f48.google.com with SMTP id eu11so897870pac.35
+        for <netdev@vger.kernel.org>; Thu, 09 Oct 2014 20:37:17 -0700 (PDT)
 Received: from localhost ([106.120.101.38])
-        by mx.google.com with ESMTPSA id yw3sm1853041pbc.88.2014.10.09.20.37.02
+        by mx.google.com with ESMTPSA id on3sm1873013pdb.71.2014.10.09.20.37.16
         for <netdev@vger.kernel.org>
         (version=TLSv1.2 cipher=RC4-SHA bits=128/128);
-        Thu, 09 Oct 2014 20:37:03 -0700 (PDT)
+        Thu, 09 Oct 2014 20:37:17 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Li RongQing <roy.qing.li@gmail.com> 
 
-__sk_run_filter has been renamed as __bpf_prog_run, so replace them in comments
+sk_run_filter has been renamed as __bpf_prog_run, so replace them in comments
 
 Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
 ---
- Documentation/networking/filter.txt |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/core/filter.c |    8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/Documentation/networking/filter.txt b/Documentation/networking/filter.txt
-index 5ce4d07..c22b797 100644
---- a/Documentation/networking/filter.txt
-+++ b/Documentation/networking/filter.txt
-@@ -700,11 +700,11 @@ Some core changes of the new internal format:
-     bpf_exit
- 
-   If f2 is JITed and the pointer stored to '_f2'. The calls f1 -> f2 -> f3 and
--  returns will be seamless. Without JIT, __sk_run_filter() interpreter needs to
-+  returns will be seamless. Without JIT, __bpf_prog_run() interpreter needs to
-   be used to call into f2.
- 
-   For practical reasons all eBPF programs have only one argument 'ctx' which is
--  already placed into R1 (e.g. on __sk_run_filter() startup) and the programs
-+  already placed into R1 (e.g. on __bpf_prog_run() startup) and the programs
-   can call kernel functions with up to 5 arguments. Calls with 6 or more arguments
-   are currently not supported, but these restrictions can be lifted if necessary
-   in the future.
+diff --git a/net/core/filter.c b/net/core/filter.c
+index fcd3f67..9324601 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -51,9 +51,9 @@
+  *	@skb: buffer to filter
+  *
+  * Run the filter code and then cut skb->data to correct size returned by
+- * sk_run_filter. If pkt_len is 0 we toss packet. If skb->len is smaller
++ * __bpf_prog_run. If pkt_len is 0 we toss packet. If skb->len is smaller
+  * than pkt_len we keep whole skb->data. This is the socket level
+- * wrapper to sk_run_filter. It returns 0 if the packet should
++ * wrapper to __bpf_prog_run. It returns 0 if the packet should
+  * be accepted or -EPERM if the packet should be tossed.
+  *
+  */
+@@ -567,10 +567,10 @@ err:
+ /* Security:
+  *
+  * A BPF program is able to use 16 cells of memory to store intermediate
+- * values (check u32 mem[BPF_MEMWORDS] in sk_run_filter()).
++ * values (check u32 mem[BPF_MEMWORDS] in __bpf_prog_run()).
+  *
+  * As we dont want to clear mem[] array for each packet going through
+- * sk_run_filter(), we check that filter loaded by user never try to read
++ * __bpf_prog_run(), we check that filter loaded by user never try to read
+  * a cell if not previously written, and we check all branches to be sure
+  * a malicious user doesn't try to abuse us.
+  */
 -- 
 1.7.10.4
