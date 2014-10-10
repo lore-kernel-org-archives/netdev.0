@@ -1,38 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] macvlan: optimize receive path
-Date: Fri, 10 Oct 2014 15:10:24 -0400 (EDT)
-Message-ID: <20141010.151024.832041296782975325.davem@davemloft.net>
-References: <cover.1412908929.git.jbaron@akamai.com>
+Subject: Re: [PATCH][net-next] Documentation: replace __sk_run_filter with
+ __bpf_prog_run
+Date: Fri, 10 Oct 2014 15:11:18 -0400 (EDT)
+Message-ID: <20141010.151118.974636956450200310.davem@davemloft.net>
+References: <1412912214-964-1-git-send-email-roy.qing.li@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, stephen@networkplumber.org,
-	vyasevich@gmail.com, kaber@trash.net, netdev@vger.kernel.org
-To: jbaron@akamai.com
+Cc: netdev@vger.kernel.org
+To: roy.qing.li@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56129 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:56136 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751928AbaJJTK1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2014 15:10:27 -0400
-In-Reply-To: <cover.1412908929.git.jbaron@akamai.com>
+	with ESMTP id S1751867AbaJJTLU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2014 15:11:20 -0400
+In-Reply-To: <1412912214-964-1-git-send-email-roy.qing.li@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jason Baron <jbaron@akamai.com>
-Date: Fri, 10 Oct 2014 03:13:24 +0000 (GMT)
+From: roy.qing.li@gmail.com
+Date: Fri, 10 Oct 2014 11:36:54 +0800
 
-> So after porting this optimization to net-next, I found that the netperf
-> results of TCP_RR regress right at the maximum peak of transactions/sec. That
-> is as I increase the number of threads via the first argument to super_netperf,
-> the number of transactions/sec keep increasing, peak, and then start
-> decreasing. It is right at the peak, that I see a small regression with this
-> patch (see results in patch 2/2).
+> From: Li RongQing <roy.qing.li@gmail.com> 
 > 
-> Without the patch, the ksoftirqd threads are the top cpu consumers threads on
-> the system, since the extra 'netif_rx()', is queuing more softirq work, whereas
-> with the patch, the ksoftirqd threads are below all of the 'netserver' threads 
-> in terms of their cpu usage. So there appears to be some interaction between how
-> softirqs are serviced at the peak here and this patch. I think the test results
-> are still supportive of this approach, but I wanted to be clear on my findings.
+> __sk_run_filter has been renamed as __bpf_prog_run, so replace them in comments
+> 
+> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
 
-I think this is definitely the right thing to do, applied, thanks!
+Applied.
