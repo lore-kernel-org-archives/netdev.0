@@ -1,85 +1,74 @@
-From: Tom Gundersen <teg@jklm.no>
-Subject: Re: [RFC v2 3/6] kthread: warn on kill signal if
-	not OOM
-Date: Sat, 11 Oct 2014 00:45:17 +0200
-Message-ID: <CAG-2HqXdxHrx4OL4E0TnzA1Fb6zK6J+qowfD0RHCwviGUv-_ng@mail.gmail.com>
-References: <1409899047-13045-1-git-send-email-mcgrof@do-not-panic.com>
- <CAB=NE6Wti1RpAFk5q_YeZn2F9Rd=wsiwhyPszu74nG9fXwH5vQ@mail.gmail.com>
- <20140905141241.GC10455@mtj.dyndns.org>
- <20140905164405.GA28964@core.coreip.homeip.net>
- <20140905174925.GA12991@mtj.dyndns.org>
- <CAB=NE6VPTV39pNujOgO422wbUvU44HZ7s=aaxPVraNECqA6e4Q@mail.gmail.com>
- <20140905224047.GC15723@mtj.dyndns.org>
- <CAB=NE6Uz1VD5qpMFSBfQRV8ih9FQcCUhNtWMvD38t5hdDvix4Q@mail.gmail.com>
- <20140909011059.GB11706@mtj.dyndns.org> <1410241109.2028.22.camel@jarvis.lan>
- <CAB=NE6WGAMvffGDTkN5x5Cd+YOtD-Cmo3v7_8FmJ5cvCRbFEpw@mail.gmail.com>
- <1410291346.13298.16.camel@jarvis.lan>
- <CAB=NE6U6v-GhAaZv3yXn9uVFvBvE4Uq8z7MQU8N+CyW19WpnNQ@mail.gmail.com>
- <CAG-2HqUiUksdT4UyeDsdc1Q74=2BiX2TuzzGh_hoLiO5_DOvXQ@mail.gmail.com>
- <CAB=NE6UprJH69hzc1mjqyq6PAn+7LZmX65Z8CDwUdJ73nDusHg@mail.gmail.com>
- <CAG-2HqUzCvd55mq=M3=tXbHAjc2QnVuRtbFZMWTz9k_6BmmngQ@mail.gmail.com>
- <CAB=NE6XmFaWMKuW3vJ7QMZ1BmmWrAPezTYYsqatX4mMNdMjpog@mail.gmail.com>
- <CAG-2HqWYXo+uRtOk_XW-Bi5aXcTLphEMLCMy8a2THuEg9dHPzw@mail.gmail.com>
- <CAB=NE6XS9pWmfO7xjTpLFG1OdOJ=UktbOK5pjJCK8hzfXagfXQ@mail.gmail.com>
- <CAOMFOmVSwPAbPtNzPn93QGjbXh1B3QC7B2Ahd1Qxc=gWb6H7fQ@mail.gmail.com>
+From: Long Li <longli@microsoft.com>
+Subject: RE: [PATCH net 1/1] hyperv: Fix a bug in netvsc_send()
+Date: Fri, 10 Oct 2014 23:39:00 +0000
+Message-ID: <96f3d4f6b90a461686b23f64aedcb4fc@BL2PR03MB132.namprd03.prod.outlook.com>
+References: <1412530971-29897-1-git-send-email-kys@microsoft.com>
+ <20141005.211129.632749242463744635.davem@davemloft.net>
+ <20141009133200.GA17134@sucs.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
- Takashi Iwai <tiwai@suse.de>, Kay Sievers <kay@vrfy.org>,
- Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
- James Bottomley <James.Bottomley@hansenpartnership.com>,
- Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
- hare <hare@suse.com>,
- Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
- Wu Zhangjin <falcon@meizu.com>,
- Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
- "mpt-fusionlinux.pdl" <MPT-FusionLinux.pdl@avagotech.com>,
- Tim Gardner <tim.gardner@canonical.com>, Benjamin Poirier <bpoirier@suse.de>,
- Santosh Rastapur <santosh@chelsio.com>, Casey Leedom <leedom@chelsio.com>,
- Hariprasad S <hariprasad@chelsio.com>,
- Pierre Fersing <pierre-fersing@pierref.org>,
- Arjan van de Ven <arjan@linux.intel.com>,
- Abhijit Mahajan <abhijit.mahajan@avagotech.com>,
- systemd Mailing List <systemd-devel@lists.freedesk
-To: Anatol Pomozov <anatol.pomozov@gmail.com>
-Return-path: <systemd-devel-bounces@lists.freedesktop.org>
-In-Reply-To: <CAOMFOmVSwPAbPtNzPn93QGjbXh1B3QC7B2Ahd1Qxc=gWb6H7fQ@mail.gmail.com>
-List-Unsubscribe: <http://lists.freedesktop.org/mailman/options/systemd-devel>,
- <mailto:systemd-devel-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <http://lists.freedesktop.org/archives/systemd-devel>
-List-Post: <mailto:systemd-devel@lists.freedesktop.org>
-List-Help: <mailto:systemd-devel-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <http://lists.freedesktop.org/mailman/listinfo/systemd-devel>,
- <mailto:systemd-devel-request@lists.freedesktop.org?subject=subscribe>
-Errors-To: systemd-devel-bounces@lists.freedesktop.org
-Sender: "systemd-devel" <systemd-devel-bounces@lists.freedesktop.org>
+Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "jasowang@redhat.com" <jasowang@redhat.com>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "apw@canonical.com" <apw@canonical.com>,
+ "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>
+To: Sitsofe Wheeler <sitsofe@gmail.com>, David Miller <davem@davemloft.net>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20141009133200.GA17134@sucs.org>
+Content-Language: en-US
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 10, 2014 at 11:54 PM, Anatol Pomozov
-<anatol.pomozov@gmail.com> wrote:
-> 1) Why not to make the timeout configurable through config file? There
-> is already udev.conf you can put config option there. Thus people with
-> modprobe issues can easily "fix" the problem. And then decrease
-> default timeout back to 30 seconds. I agree that long module loading
-> (more than 30 secs) is abnormal and should be investigated by driver
-> authors.
+Thanks Sitsofe. Can you provide more details on the test setup?
 
-We can already configure this either on the udev or kernel
-commandline, is that not sufficient (I don't object to also adding it
-to the config file, just asking)?
+The kernel trace shows that skb->mac_header=0xffff (which means not yet set, it's in RCX: 000000000000ffff).
 
-> 2) Could you add 'echo w > /proc/sysrq-trigger' to udev code right
-> before killing the "modprobe" thread? sysrq will print information
-> about stuck threads (including modprobe itself) this will make
-> debugging easier. e.g. dmesg here
-> https://bugs.archlinux.org/task/40454 says nothing where the threads
-> were stuck.
 
-Are the current warnings (in udev git) sufficient (should tell you
-which module is taking long, but still won't tell you which kernel
-thread of course)?
+-----Original Message-----
+From: devel [mailto:driverdev-devel-bounces@linuxdriverproject.org] On Behalf Of Sitsofe Wheeler
+Sent: Thursday, October 09, 2014 6:32 AM
+To: David Miller
+Cc: olaf@aepfle.de; netdev@vger.kernel.org; jasowang@redhat.com; linux-kernel@vger.kernel.org; apw@canonical.com; devel@linuxdriverproject.org
+Subject: Re: [PATCH net 1/1] hyperv: Fix a bug in netvsc_send()
 
-Cheers,
+On Sun, Oct 05, 2014 at 09:11:29PM -0400, David Miller wrote:
+> From: "K. Y. Srinivasan" <kys@microsoft.com>
+> Date: Sun,  5 Oct 2014 10:42:51 -0700
+> 
+> > After the packet is successfully sent, we should not touch the 
+> > packet as it may have been freed. This patch is based on the work 
+> > done by Long Li <longli@microsoft.com>.
+> > 
+> > David, please queue this up for stable.
 
-Tom
+With 3.17.0 g782d59c (which should include this patch) I'm still seeing the following:
+
+Oct 09 13:14:51 a network[428]: Bringing up interface eth0:
+Oct 09 13:14:51 a dhclient[538]: DHCPREQUEST on eth0 to 255.255.255.255 port 67 (xid=0x1dd33078) Oct 09 13:14:51 a dhclient[538]: DHCPACK from 10.x.x.x (xid=0x1dd33078) Oct 09 13:14:55 a kernel: BUG: unable to handle kernel paging request at ffff8800ed2e72e3 Oct 09 13:14:55 a kernel: IP: [<ffffffff814ede1d>] netvsc_select_queue+0x3d/0x150 Oct 09 13:14:55 a kernel: PGD 2db5067 PUD 2075be067 PMD 207454067 PTE 80000000ed2e7060 Oct 09 13:14:55 a kernel: Oops: 0000 [#1] SMP DEBUG_PAGEALLOC Oct 09 13:14:55 a kernel: CPU: 6 PID: 566 Comm: arping Not tainted 3.17.0.x86_64-05585-g782d59c #147 Oct 09 13:14:55 a kernel: Hardware name: Microsoft Corporation Virtual Machine/Virtual Machine, BIOS 090006  05/23/2012 Oct 09 13:14:55 a kernel: task: ffff8801f978b9f0 ti: ffff8801f3b84000 task.ti: ffff8801f3
+ b84000 Oct 09 13:14:55 a kernel: RIP: 0010:[<ffffffff814ede1d>]  [<ffffffff814ede1d>] netvsc_select_queue+0x3d/0x150 Oct 09 13:14:55 a kernel: RSP: 0018:ffff8801f3b87c60  EFLAGS: 00010202 Oc
+ t 09 13:14:55 a kernel: RAX: 0000000000000000 RBX: ffff8800f13e8000 RCX: 000000000000ffff Oct 09 13:14:55 a kernel: RDX: ffff8800ed2d72d8 RSI: ffff8801fabca1c0 RDI: ffff8800f13e8000 Oct 09 13:14:55 a kernel: RBP: ffff8801f3b87c88 R08: 000000000000002a R09: 0000000000000000 Oct 09 13:14:55 a kernel: R10: ffff8801f83b3f60 R11: 0000000000000008 R12: ffff8801fabca1c0 Oct 09 13:14:55 a kernel: R13: 0000000000000000 R14: ffff8800ed359bd8 R15: ffff8801fabca1c0 Oct 09 13:14:55 a kernel: FS:  00007f943a5c9740(0000) GS:ffff880206cc0000(0000) knlGS:0000000000000000 Oct 09 13:14:55 a kernel: CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033 Oct 09 13:14:55 a kernel: CR2: ffff8800ed2e72e3 CR3: 00000001f3957000 CR4: 00000000000406e0 Oct 09 13:14:55 a kernel: Stack:
+Oct 09 13:14:55 a kernel:  ffffffff816a0221 ffff8800f13e8000 000000000000001c 0000000000000000 Oct 09 13:14:55 a kernel:  ffff8800ed359bd8 ffff8801f3b87d48 ffffffff816a3fce ffff8801f3b87cb0 Oct 09 13:14:55 a kernel:  ffffffff816c34a7 0000000000000001 ffff8801f3b87db8 000000000000001c Oct 09 13:14:55 a kernel: Call Trace:
+Oct 09 13:14:55 a kernel:  [<ffffffff816a0221>] ? packet_pick_tx_queue+0x31/0xa0 Oct 09 13:14:55 a kernel:  [<ffffffff816a3fce>] packet_sendmsg+0xc6e/0xe30 Oct 09 13:14:55 a kernel:  [<ffffffff816c34a7>] ? _raw_spin_unlock+0x27/0x40 Oct 09 13:14:55 a kernel:  [<ffffffff81091bba>] ? prepare_creds+0x3a/0x170 Oct 09 13:14:55 a kernel:  [<ffffffff815d2e08>] sock_sendmsg+0x88/0xb0 Oct 09 13:14:55 a kernel:  [<ffffffff81188f83>] ? might_fault+0xa3/0xb0 Oct 09 13:14:55 a kernel:  [<ffffffff81188f3a>] ? might_fault+0x5a/0xb0 Oct 09 13:14:55 a kernel:  [<ffffffff815d2f3e>] SYSC_sendto+0x10e/0x150 Oct 09 13:14:55 a kernel:  [<ffffffff81188f3a>] ? might_fault+0x5a/0xb0 Oct 09 13:14:55 a kernel:  [<ffffffff816c41d5>] ? sysret_check+0x22/0x5d Oct 09 13:14:55 a kernel:  [<ffffffff810ba3fd>] ? trace_hard
+ irqs_on_caller+0x17d/0x210
+Oct 09 13:14:55 a kernel:  [<ffffffff813a20ee>] ? trace_hardirqs_on_thunk+0x3a/0x3f Oct 09 13:14:55 a kernel:  [<ffffffff815d3f1e>] SyS_sendto+0xe/0x10 Oct 09 13:14:55 a kernel:  [<ffffffff816c41a9>] system_call_fastpath+0x16/0x1b Oct 09 13:14:55 a kernel: Code: 00 4d 85 d2 0f 84 1c 01 00 00 44 8b 9f 8c 03 00 00 31 c0 41 83 fb 01 0f 86 1b 01 00 00 0f b7 8e b6 00 00 00 Oct 09 13:14:55 a kernel: RIP  [<ffffffff814ede1d>] netvsc_select_queue+0x3d/0x150 Oct 09 13:14:55 a kernel:  RSP <ffff8801f3b87c60> Oct 09 13:14:55 a kernel: CR2: ffff8800ed2e72e3 Oct 09 13:14:55 a kernel: ---[ end trace e52f922dd7435e0d ]---
+
+Was the above meant to have been fixed by the patch "[PATCH 1/1]
+Drivers: net: hyperv: Cleanup  netvsc_change_mtu ()" from
+https://lkml.org/lkml/2014/8/29/369 ? If so will that patch be resent?
+
+--
+Sitsofe | http://sucs.org/~sits/
+_______________________________________________
+devel mailing list
+devel@linuxdriverproject.org
+http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel
