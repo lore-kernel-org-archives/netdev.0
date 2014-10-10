@@ -1,56 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] flow-dissector: Fix alignment issue in
+Subject: Re: [PATCH v4] flow-dissector: Fix alignment issue in
  __skb_flow_get_ports
-Date: Fri, 10 Oct 2014 15:32:38 -0400 (EDT)
-Message-ID: <20141010.153238.1534216185987913103.davem@davemloft.net>
-References: <20141010.141559.2024576018585843684.davem@davemloft.net>
-	<20141010.142255.359367991309840826.davem@davemloft.net>
-	<54382B2F.8030203@redhat.com>
+Date: Fri, 10 Oct 2014 15:34:21 -0400 (EDT)
+Message-ID: <20141010.153421.869334149742394721.davem@davemloft.net>
+References: <20141010190716.8311.98709.stgit@ahduyck-workstation.home>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: alexander.duyck@gmail.com, eric.dumazet@gmail.com,
-	David.Laight@ACULAB.COM, netdev@vger.kernel.org
-To: alexander.h.duyck@redhat.com
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: alexander.duyck@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56336 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:56367 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751888AbaJJTck (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2014 15:32:40 -0400
-In-Reply-To: <54382B2F.8030203@redhat.com>
+	with ESMTP id S1751703AbaJJTeX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2014 15:34:23 -0400
+In-Reply-To: <20141010190716.8311.98709.stgit@ahduyck-workstation.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Date: Fri, 10 Oct 2014 11:53:35 -0700
+From: alexander.duyck@gmail.com
+Date: Fri, 10 Oct 2014 12:09:12 -0700
 
-> On 10/10/2014 11:22 AM, David Miller wrote:
->> From: David Miller <davem@davemloft.net>
->> Date: Fri, 10 Oct 2014 14:15:59 -0400 (EDT)
->>
->>> Your original code works because you do things like "byte[12] & 0xf0"
->>> to
->>> extract these fields.
->> Changing that th->doff sequence to instead be:
->>
->> 		const u8 *bp;
->> 		u8 buf[13];
->>
->> 		bp = __skb_header_pointer(skb, poff, sizeof(buf),
->> 					  data, hlen, &buf);
->> 		if (!bp)
->> 			return poff;
->>
->> 		poff += max_t(u32, sizeof(struct tcphdr), (bp[12] & 0xf0) >> 2);
->> 		break;
->>
->> on top of your v3 patch works for me.
->>
->> Please double-check my calculations.
+> From: Alexander Duyck <alexander.h.duyck@redhat.com>
 > 
-> Any reason why you are grabbing all 13 bytes instead of just the 1 we
-> care about?  Seems like we could just use a u8 buf instead of the
-> array since we are only grabbing doff.
+> This patch addresses a kernel unaligned access bug seen on a sparc64 system
+> with an igb adapter.  Specifically the __skb_flow_get_ports was returning a
+> be32 pointer which was then having the value directly returned.
+> 
+> In order to prevent this it is actually easier to simply not populate the
+> ports or address values when an skb is not present.  In this case the
+> assumption is that the data isn't needed and rather than slow down the
+> faster aligned accesses by making them have to assume the unaligned path on
+> architectures that don't support efficent unaligned access it makes more
+> sense to simply switch off the bits that were copying the source and
+> destination address/port for the case where we only care about the protocol
+> types and lengths which are normally 16 bit fields anyway.
+> 
+> Reported-by: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
+> ---
+> 
+> v2: Fixed alignment to __be16 on ports
+> v3: Discarded previous approach and instead simplified things by
+>     not populating ports, or src/dst addresses if skb is not present.
+>     By doing this we avoid the unaligned access issue entirely and do not
+>     populate fields that will not be used by the eth_get_headlen function.
+> v4: Minor whitespace cleanups
+>     Added workaround for access of doff resulting in unaligned access
 
-No reason, just a thinko, my brain implemented this as if skb_header_pointer
-worked like skb_pull :-/
+Applied, thanks Alex.
