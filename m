@@ -1,58 +1,41 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] niu: remove unnecessary atomic operation
-Date: Thu, 09 Oct 2014 16:40:18 -0700
-Message-ID: <1412898018.3751.0.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1412875428.18196.3.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: eth_get_headlen() and unaligned accesses...
+Date: Thu, 09 Oct 2014 20:12:48 -0400 (EDT)
+Message-ID: <20141009.201248.1210454965155680255.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: alexander.duyck@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:43401 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750967AbaJIXkV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Oct 2014 19:40:21 -0400
-Received: by mail-pd0-f169.google.com with SMTP id w10so568736pde.14
-        for <netdev@vger.kernel.org>; Thu, 09 Oct 2014 16:40:20 -0700 (PDT)
-In-Reply-To: <1412875428.18196.3.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44131 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751026AbaJJAMw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Oct 2014 20:12:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-10-09 at 10:23 -0700, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> We allocate single page, compound_head() is not needed.
-> 
-> We own the page, we can simply set page->_count to the
-> needed value instead of doing a locked addition.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> ---
->  drivers/net/ethernet/sun/niu.c |    5 ++---
->  1 file changed, 2 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/sun/niu.c b/drivers/net/ethernet/sun/niu.c
-> index 904fd1ab5f6e..ec2cd8a6d5bc 100644
-> --- a/drivers/net/ethernet/sun/niu.c
-> +++ b/drivers/net/ethernet/sun/niu.c
-> @@ -3340,9 +3340,8 @@ static int niu_rbr_add_page(struct niu *np, struct rx_ring_info *rp,
->  	}
->  
->  	niu_hash_page(rp, page, addr);
-> -	if (rp->rbr_blocks_per_page > 1)
-> -		atomic_add(rp->rbr_blocks_per_page - 1,
-> -			   &compound_head(page)->_count);
-> +
-> +	atomic_set(&page->_count, rp->rbr_blocks_per_page);
->  
->  	for (i = 0; i < rp->rbr_blocks_per_page; i++) {
->  		__le32 *rbr = &rp->rbr[start_index + i];
-> 
 
-Please disregard this patch.
+So, we have a bit of a problem, this is on sparc64:
 
-We need to fix all usages of atomic_set() on page->_count as they are
-racy.
+[423475.740836] Kernel unaligned access at TPC[81d330] __skb_flow_get_ports+0x70/0xe0
+[423475.755756] CPU: 0 PID: 0 Comm: swapper/0 Not tainted 3.17.0+ #2
+[423475.767854] Call Trace:
+[423475.772877]  [0000000000433288] kernel_unaligned_trap+0x368/0x5c0
+[423475.785203]  [000000000042a824] sun4v_do_mna+0x84/0xa0
+[423475.795624]  [0000000000406cd0] sun4v_mna+0x5c/0x68
+[423475.805521]  [000000000081d330] __skb_flow_get_ports+0x70/0xe0
+[423475.817323]  [000000000081d6ac] __skb_flow_dissect+0x1ac/0x460
+[423475.829128]  [0000000000843c98] eth_get_headlen+0x38/0xa0
+[423475.840083]  [0000000010064d54] igb_poll+0x8d4/0xf60 [igb]
+[423475.851184]  [00000000008243c8] net_rx_action+0xa8/0x1c0
 
-I'll send fixes.
+The chip DMA's to the beginning of a frag page and (unless timestamps
+are enabled) that's where the ethernet header begins.
+
+So any larger than 16-bit access to the IP and later headers will be
+unaligned.
+
+We have various ways we can deal with this based upon the capabilities
+of the chips involved.  Can we configure the IGB to put 2 "don't care"
+bytes at the beginning of the packet?
