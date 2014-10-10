@@ -1,72 +1,94 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 1/1] Checkpatch: coding style errors in Nvidia ethernet
- driver
-Date: Fri, 10 Oct 2014 10:04:59 -0700
-Message-ID: <1412960699.8770.33.camel@joe-AO725>
-References: <1412928102-1696-1-git-send-email-akshaysarode21@gmail.com>
-	 <1412953387.8770.23.camel@joe-AO725>
-	 <20141010164515.GA3596@linux.akshay.com>
+From: Petri Gynther <pgynther@google.com>
+Subject: Re: [PATCH net 1/3] net: bcmgenet: fix off-by-one in incrementing
+ read pointer
+Date: Fri, 10 Oct 2014 10:17:11 -0700
+Message-ID: <CAGXr9JEm4Dmo5QYhsv7ydr8NBujtrJ=gJ9kxSFoiBQ-YVQkGBA@mail.gmail.com>
+References: <1412903197-19193-1-git-send-email-f.fainelli@gmail.com>
+	<1412903197-19193-2-git-send-email-f.fainelli@gmail.com>
+	<CAGXr9JHBVW9rOiSUCCsVnYp73OPdyynP35xiAnKjRsVCf8fK9Q@mail.gmail.com>
+	<54380C29.9010704@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Akshay Sarode <akshaysarode21@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	jaedon.shin@gmail.com
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0033.hostedemail.com ([216.40.44.33]:49044 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751779AbaJJRFD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2014 13:05:03 -0400
-In-Reply-To: <20141010164515.GA3596@linux.akshay.com>
+Received: from mail-vc0-f176.google.com ([209.85.220.176]:45669 "EHLO
+	mail-vc0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752098AbaJJRRM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2014 13:17:12 -0400
+Received: by mail-vc0-f176.google.com with SMTP id hq11so2986913vcb.21
+        for <netdev@vger.kernel.org>; Fri, 10 Oct 2014 10:17:11 -0700 (PDT)
+In-Reply-To: <54380C29.9010704@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-10-10 at 22:15 +0530, Akshay Sarode wrote:
-> On Fri, Oct 10, 2014 at 08:03:07AM -0700, Joe Perches wrote:
-> > On Fri, 2014-10-10 at 13:31 +0530, Akshay Sarode wrote:
-> > > ERROR: "foo* bar" should be "foo *bar"
-> > > ERROR: do not initialise statics to 0 or NULL
-> > > CHECK: spinlock_t definition without comment
-> > > Signed-off-by: Akshay Sarode <akshaysarode21@gmail.com>
-> > []
-> > > diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
-> > []
-> > > @@ -911,12 +913,18 @@ enum {
-> > []
-> > >  /*
-> > >   * Debug output control for tx_timeout
-> > >   */
-> > > -static bool debug_tx_timeout = false;
-> > > +enum {
-> > > +	NV_DEBUG_TX_TIMEOUT_DISABLED,
-> > > +	NV_DEBUG_TX_TIMEOUT_ENABLED
-> > > +};
-> > > +
-> > > +static bool debug_tx_timeout = NV_DEBUG_TX_TIMEOUT_DISABLED;
-> > 
-> > Adding this enum is not useful.
-> > 
-> Sorry, If I may have not checked the code properly. I am a newbie here and I was hoping to start with checking coding styles.
+On Fri, Oct 10, 2014 at 9:41 AM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+> On 10/09/2014 11:01 PM, Petri Gynther wrote:
+>> Hi Florian,
+>>
+>> On Thu, Oct 9, 2014 at 6:06 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+>>> Commit b629be5c8399d7c423b92135eb43a86c924d1cbc ("net: bcmgenet: check
+>>> harder for out of memory conditions") moved the increment of the local
+>>> read pointer *before* reading from the hardware descriptor using
+>>> dmadesc_get_length_status(), which creates an off-by-one situation.
+>>>
+>>> Fix this by moving again the read_ptr increment after we have read the
+>>> hardware descriptor to get both the control block and the read pointer
+>>> back in sync.
+>>>
+>>> Fixes: b629be5c8399 ("net: bcmgenet: check harder for out of memory conditions")
+>>> Reported-by: Jaedon Shin <jaedon.shin@gmail.com>
+>>> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+>>> ---
+>>>  drivers/net/ethernet/broadcom/genet/bcmgenet.c | 6 +++---
+>>>  1 file changed, 3 insertions(+), 3 deletions(-)
+>>>
+>>> diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+>>> index fff2634b6f34..f1bcebcbba80 100644
+>>> --- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+>>> +++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+>>> @@ -1287,9 +1287,6 @@ static unsigned int bcmgenet_desc_rx(struct bcmgenet_priv *priv,
+>>>
+>>>                 rxpktprocessed++;
+>>>
+>>> -               priv->rx_read_ptr++;
+>>> -               priv->rx_read_ptr &= (priv->num_rx_bds - 1);
+>>> -
+>>
+>> Wouldn't it be better to move the three lines:
+>> rxpktprocessed++;
+>> priv->rx_read_ptr++;
+>> priv->rx_read_ptr &= (priv->num_rx_bds - 1)
+>>
+>> as the last lines of the while-loop, after the CB refill?
+>
+> That's basically what Jaedon did in his first patch, I don't have strong
+> objections in doing that if you think that makes it look clearer.
+>
 
-No worries, welcome.
+I feel that this would be cleaner approach. First do the work (or skip
+to refill), then increment necessary variables, and go back to the
+while-loop.
 
-Starting with fixing a coding style defect or three is
-just fine to learn how to compile and test the kernel.
-
-But generally it's more useful to find things that make
-the code better, more readable, smaller, faster, etc.
-
-Also if you have some functional defect or enhancement
-to implement, that's even better still.
-
-> I'll check again.
-
-Using an enum for a bool isn't very sensible.
-true/false exist already.
-
->  Also there are a whole lot of warnings for line over 80 characters.
-
-I wouldn't bother with long line conversions unless
-you're doing something else at the same time.
-
-If you want to do them for the practice, please do
-them on files in drivers/staging/.
+>>
+>> -- Petri
+>>
+>>
+>>>                 /* We do not have a backing SKB, so we do not have a
+>>>                  * corresponding DMA mapping for this incoming packet since
+>>>                  * bcmgenet_rx_refill always either has both skb and mapping or
+>>> @@ -1332,6 +1329,9 @@ static unsigned int bcmgenet_desc_rx(struct bcmgenet_priv *priv,
+>>>                           __func__, p_index, priv->rx_c_index,
+>>>                           priv->rx_read_ptr, dma_length_status);
+>>>
+>>> +               priv->rx_read_ptr++;
+>>> +               priv->rx_read_ptr &= (priv->num_rx_bds - 1);
+>>> +
+>>>                 if (unlikely(!(dma_flag & DMA_EOP) || !(dma_flag & DMA_SOP))) {
+>>>                         netif_err(priv, rx_status, dev,
+>>>                                   "dropping fragmented packet!\n");
+>>> --
+>>> 1.9.1
+>>>
+>
