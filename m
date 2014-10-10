@@ -1,120 +1,83 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net 1/3] net: sctp: fix skb_over_panic when receiving
- malformed ASCONF chunks
-Date: Fri, 10 Oct 2014 10:48:07 -0400
-Message-ID: <20141010144806.GD19499@hmsreliant.think-freely.org>
-References: <1412888133-833-1-git-send-email-dborkman@redhat.com>
- <1412888133-833-2-git-send-email-dborkman@redhat.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] flow-dissector: Fix alignment issue in
+ __skb_flow_get_ports
+Date: Fri, 10 Oct 2014 14:57:35 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D174C858B@AcuExch.aculab.com>
+References: <20141009.201248.1210454965155680255.davem@davemloft.net>
+	<20141010035840.21428.359.stgit@ahduyck-workstation.home>
+ <20141010.004708.1975127853551765914.davem@davemloft.net>
+ <5437F072.5060502@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, linux-sctp@vger.kernel.org,
-	netdev@vger.kernel.org, Vlad Yasevich <vyasevich@gmail.com>
-To: Daniel Borkmann <dborkman@redhat.com>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "'alexander.h.duyck@redhat.com'" <alexander.h.duyck@redhat.com>,
+	"David Miller" <davem@davemloft.net>,
+	"alexander.duyck@gmail.com" <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:38972 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754078AbaJJOsU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2014 10:48:20 -0400
-Content-Disposition: inline
-In-Reply-To: <1412888133-833-2-git-send-email-dborkman@redhat.com>
+Received: from mx0.aculab.com ([213.249.233.131]:37793 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752017AbaJJO7S convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2014 10:59:18 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 15196-01 for <netdev@vger.kernel.org>;
+ Fri, 10 Oct 2014 15:59:07 +0100 (BST)
+In-Reply-To: <5437F072.5060502@redhat.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 09, 2014 at 10:55:31PM +0200, Daniel Borkmann wrote:
-> Commit 6f4c618ddb0 ("SCTP : Add paramters validity check for
-> ASCONF chunk") added basic verification of ASCONF chunks, however,
-> it is still possible to remotely crash a server by sending a
-> special crafted ASCONF chunk, even up to pre 2.6.12 kernels:
+From: Alexander Duyck
+> On 10/09/2014 09:47 PM, David Miller wrote:
+> > From: alexander.duyck@gmail.com
+> > Date: Thu, 09 Oct 2014 21:03:28 -0700
+> >
+> >> From: Alexander Duyck <alexander.h.duyck@redhat.com>
+> >>
+> >> This patch addresses a kernel unaligned access bug seen on a sparc64 system
+> >> with an igb adapter.  Specifically the __skb_flow_get_ports was returning a
+> >> be32 pointer which was then having the value directly returned.
+> >>
+> >> In order to keep the handling of the ports consistent with how we were
+> >> handling the IPv4 and IPv6 addresses I have instead replaced the assignment
+> >> with a memcpy to the flow key ports value.  This way it should stay a
+> >> memcpy on systems that cannot handle unaligned access, and will likely be
+> >> converted to a 32b assignment on the systems that can support it.
+> >>
+> >> Reported-by: David S. Miller <davem@davemloft.net>
+> >> Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
+> > Guess what the compiler will output for the memcpy()....
+> >
+> > 	*(u32 *)dest = *(u32 *)src;
+> >
+> > Using memcpy() is never a valid way to avoid misaligned loads and
+> > stores.
 > 
-> skb_over_panic: text:ffffffffa01ea1c3 len:31056 put:30768
->  head:ffff88011bd81800 data:ffff88011bd81800 tail:0x7950
->  end:0x440 dev:<NULL>
->  ------------[ cut here ]------------
-> kernel BUG at net/core/skbuff.c:129!
-> [...]
-> Call Trace:
->  <IRQ>
->  [<ffffffff8144fb1c>] skb_put+0x5c/0x70
->  [<ffffffffa01ea1c3>] sctp_addto_chunk+0x63/0xd0 [sctp]
->  [<ffffffffa01eadaf>] sctp_process_asconf+0x1af/0x540 [sctp]
->  [<ffffffff8152d025>] ? _read_unlock_bh+0x15/0x20
->  [<ffffffffa01e0038>] sctp_sf_do_asconf+0x168/0x240 [sctp]
->  [<ffffffffa01e3751>] sctp_do_sm+0x71/0x1210 [sctp]
->  [<ffffffff8147645d>] ? fib_rules_lookup+0xad/0xf0
->  [<ffffffffa01e6b22>] ? sctp_cmp_addr_exact+0x32/0x40 [sctp]
->  [<ffffffffa01e8393>] sctp_assoc_bh_rcv+0xd3/0x180 [sctp]
->  [<ffffffffa01ee986>] sctp_inq_push+0x56/0x80 [sctp]
->  [<ffffffffa01fcc42>] sctp_rcv+0x982/0xa10 [sctp]
->  [<ffffffffa01d5123>] ? ipt_local_in_hook+0x23/0x28 [iptable_filter]
->  [<ffffffff8148bdc9>] ? nf_iterate+0x69/0xb0
->  [<ffffffff81496d10>] ? ip_local_deliver_finish+0x0/0x2d0
->  [<ffffffff8148bf86>] ? nf_hook_slow+0x76/0x120
->  [<ffffffff81496d10>] ? ip_local_deliver_finish+0x0/0x2d0
->  [<ffffffff81496ded>] ip_local_deliver_finish+0xdd/0x2d0
->  [<ffffffff81497078>] ip_local_deliver+0x98/0xa0
->  [<ffffffff8149653d>] ip_rcv_finish+0x12d/0x440
->  [<ffffffff81496ac5>] ip_rcv+0x275/0x350
->  [<ffffffff8145c88b>] __netif_receive_skb+0x4ab/0x750
->  [<ffffffff81460588>] netif_receive_skb+0x58/0x60
-> 
-> This can be triggered e.g., through a simple scripted nmap
-> connection scan injecting the chunk after the handshake, for
-> example, ...
-> 
->   -------------- INIT[ASCONF; ASCONF_ACK] ------------->
->   <----------- INIT-ACK[ASCONF; ASCONF_ACK] ------------
->   -------------------- COOKIE-ECHO -------------------->
->   <-------------------- COOKIE-ACK ---------------------
->   ------------------ ASCONF; UNKNOWN ------------------>
-> 
-> ... where ASCONF chunk of length 280 contains 2 parameters ...
-> 
->   1) Add IP address parameter (param length: 16)
->   2) Add/del IP address parameter (param length: 255)
-> 
-> ... followed by an UNKNOWN chunk of e.g. 4 bytes. Here, the
-> Address Parameter in the ASCONF chunk is even missing, too.
-> This is just an example and similarly-crafted ASCONF chunks
-> could be used just as well.
-> 
-> The ASCONF chunk passes through sctp_verify_asconf() as all
-> parameters passed sanity checks, and after walking, we ended
-> up successfully at the chunk end boundary, and thus may invoke
-> sctp_process_asconf(). Parameter walking is done with
-> WORD_ROUND() to take padding into account.
-> 
-> In sctp_process_asconf()'s TLV processing, we may fail in
-> sctp_process_asconf_param() e.g., due to removal of the IP
-> address that is also the source address of the packet containing
-> the ASCONF chunk, and thus we need to add all TLVs after the
-> failure to our ASCONF response to remote via helper function
-> sctp_add_asconf_response(), which basically invokes a
-> sctp_addto_chunk() adding the error parameters to the given
-> skb.
-> 
-> When walking to the next parameter this time, we proceed
-> with ...
-> 
->   length = ntohs(asconf_param->param_hdr.length);
->   asconf_param = (void *)asconf_param + length;
-> 
-> ... instead of the WORD_ROUND()'ed length, thus resulting here
-> in an off-by-one that leads to reading the follow-up garbage
-> parameter length of 12336, and thus throwing an skb_over_panic
-> for the reply when trying to sctp_addto_chunk() next time,
-> which implicitly calls the skb_put() with that length.
-> 
-> Fix it by using sctp_walk_params() [ which is also used in
-> INIT parameter processing ] macro in the verification *and*
-> in ASCONF processing: it will make sure we don't spill over,
-> that we walk parameters WORD_ROUND()'ed. Moreover, we're being
-> more defensive and guard against unknown parameter types and
-> missized addresses.
-> 
-> Joint work with Vlad Yasevich.
-> 
-> Fixes: b896b82be4ae ("[SCTP] ADDIP: Support for processing incoming ASCONF_ACK chunks.")
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-> Signed-off-by: Vlad Yasevich <vyasevich@gmail.com>
+> If needed we could convert ports to a __be16 I suppose.
 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+You would have to cast it somewhere where the compiler cannot
+tell what the original type was.
+This usually means you have to call a non-static function, which
+might have to be in a different compilation unit.
+
+...
+> That is what I get for trying to come up with a fix at the end of the
+> day.  Although it does leave me scratching my head why the IPv4 and IPv6
+> addresses were not causing unaligned accesses or were they triggering
+> them as well?
+
+I think there is code to copy the IP and TCP headers to aligned memory
+before they are parsed.
+
+...
+> 
+> The problem is the igb / ixgbe / fm10k hardware doesn't have a means of
+> inserting padding from its side...
+
+Shoot the hardware engineers.
+
+You aren't going to get the performance you expect from a 10Ge card
+unless the rx buffers are 'correctly' aligned.
+
+	David
