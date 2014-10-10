@@ -1,35 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] flow-dissector: Fix alignment issue in
- __skb_flow_get_ports
-Date: Fri, 10 Oct 2014 12:41:45 -0400 (EDT)
-Message-ID: <20141010.124145.1972528960826419387.davem@davemloft.net>
-References: <5437F072.5060502@redhat.com>
-	<063D6719AE5E284EB5DD2968C1650D6D174C858B@AcuExch.aculab.com>
-	<1412955219.9362.13.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Akshay Sarode <akshaysarode21@gmail.com>
+Subject: Re: [PATCH 1/1] Checkpatch: coding style errors in Nvidia ethernet
+ driver
+Date: Fri, 10 Oct 2014 22:15:15 +0530
+Message-ID: <20141010164515.GA3596@linux.akshay.com>
+References: <1412928102-1696-1-git-send-email-akshaysarode21@gmail.com>
+ <1412953387.8770.23.camel@joe-AO725>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: David.Laight@ACULAB.COM, alexander.h.duyck@redhat.com,
-	alexander.duyck@gmail.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54270 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751849AbaJJQlv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2014 12:41:51 -0400
-In-Reply-To: <1412955219.9362.13.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:58188 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751356AbaJJQpX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2014 12:45:23 -0400
+Content-Disposition: inline
+In-Reply-To: <1412953387.8770.23.camel@joe-AO725>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 10 Oct 2014 08:33:39 -0700
-
-> On Fri, 2014-10-10 at 14:57 +0000, David Laight wrote:
+On Fri, Oct 10, 2014 at 08:03:07AM -0700, Joe Perches wrote:
+> On Fri, 2014-10-10 at 13:31 +0530, Akshay Sarode wrote:
+> > ERROR: "foo* bar" should be "foo *bar"
+> > ERROR: do not initialise statics to 0 or NULL
+> > CHECK: spinlock_t definition without comment
+> > Signed-off-by: Akshay Sarode <akshaysarode21@gmail.com>
+> []
+> > diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
+> []
+> > @@ -911,12 +913,18 @@ enum {
+> []
+> >  /*
+> >   * Debug output control for tx_timeout
+> >   */
+> > -static bool debug_tx_timeout = false;
+> > +enum {
+> > +	NV_DEBUG_TX_TIMEOUT_DISABLED,
+> > +	NV_DEBUG_TX_TIMEOUT_ENABLED
+> > +};
+> > +
+> > +static bool debug_tx_timeout = NV_DEBUG_TX_TIMEOUT_DISABLED;
 > 
->> I think there is code to copy the IP and TCP headers to aligned memory
->> before they are parsed.
+> Adding this enum is not useful.
 > 
-> There is no such thing. You are here on netdev list, please read the
-> code before doing such claims.
+Sorry, If I may have not checked the code properly. I am a newbie here and I was hoping to start with checking coding styles.
+I'll check again. Also there are a whole lot of warnings for line over 80 characters.
 
-+1
+Regards,
+Akshay 
