@@ -1,7 +1,7 @@
 From: Tilman Schmidt <tilman@imap.cc>
-Subject: [PATCH 11/12] isdn/capi: don't return NULL from capi_cmd2str()
+Subject: [PATCH 06/12] isdn/capi: correct capi20_manufacturer argument type mismatch
 Date: Sat, 11 Oct 2014 13:46:30 +0200 (CEST)
-Message-ID: <937f46dfacacd354b31440e0842334308edcfe0b.1413021631.git.tilman@imap.cc>
+Message-ID: <c6167666dd9c206765eac6d87f421e0405eb59b1.1413021630.git.tilman@imap.cc>
 References: <cover.1413021630.git.tilman@imap.cc>
 Cc: David Miller <davem@davemloft.net>, Dave Jones <davej@redhat.com>,
 	Hansjoerg Lipp <hjlipp@web.de>,
@@ -9,47 +9,65 @@ Cc: David Miller <davem@davemloft.net>, Dave Jones <davej@redhat.com>,
 	isdn4linux@listserv.isdn4linux.de
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.pxnet.com ([89.1.7.7]:52712 "EHLO mail.pxnet.com"
+Received: from gimli.pxnet.com ([89.1.7.7]:50234 "EHLO mail.pxnet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752049AbaJKLrD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752099AbaJKLrD (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sat, 11 Oct 2014 07:47:03 -0400
 In-Reply-To: <cover.1413021630.git.tilman@imap.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-capi_cmd2str() is used in many places to build log messages.
-None of them is prepared to handle NULL as a result.
-Change the function to return printable string "INVALID_COMMAND"
-instead.
+Function capi20_manufacturer() is declared with unsigned int cmd
+argument but called with unsigned long.
+Fix by correcting the function prototype since the actual argument
+is part of the user visible API.
+
+Spotted with Coverity.
 
 Signed-off-by: Tilman Schmidt <tilman@imap.cc>
 ---
- drivers/isdn/capi/capiutil.c | 9 +++++++--
- 1 file changed, 7 insertions(+), 2 deletions(-)
+Note: The issue about printk(KERN_ERR which checkpatch is complaining
+about is already present in the original file in this and many other
+places. Cleaning it up is outside the scope of this patch.
 
-diff --git a/drivers/isdn/capi/capiutil.c b/drivers/isdn/capi/capiutil.c
-index 36835ef..36c1b37 100644
---- a/drivers/isdn/capi/capiutil.c
-+++ b/drivers/isdn/capi/capiutil.c
-@@ -489,12 +489,17 @@ static char *mnames[] =
-  * @cmd:	command number
-  * @subcmd:	subcommand number
-  *
-- * Return value: static string, NULL if command/subcommand unknown
-+ * Return value: static string
+ drivers/isdn/capi/kcapi.c  | 4 ++--
+ include/linux/kernelcapi.h | 2 +-
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/isdn/capi/kcapi.c b/drivers/isdn/capi/kcapi.c
+index c123709..823f698 100644
+--- a/drivers/isdn/capi/kcapi.c
++++ b/drivers/isdn/capi/kcapi.c
+@@ -1184,7 +1184,7 @@ static int old_capi_manufacturer(unsigned int cmd, void __user *data)
+  * Return value: CAPI result code
   */
  
- char *capi_cmd2str(u8 cmd, u8 subcmd)
+-int capi20_manufacturer(unsigned int cmd, void __user *data)
++int capi20_manufacturer(unsigned long cmd, void __user *data)
  {
--	return mnames[command_2_index(cmd, subcmd)];
-+	char *result;
-+
-+	result = mnames[command_2_index(cmd, subcmd)];
-+	if (result == NULL)
-+		result = "INVALID_COMMAND";
-+	return result;
- }
+ 	struct capi_ctr *ctr;
+ 	int retval;
+@@ -1259,7 +1259,7 @@ int capi20_manufacturer(unsigned int cmd, void __user *data)
+ 	}
  
+ 	default:
+-		printk(KERN_ERR "kcapi: manufacturer command %d unknown.\n",
++		printk(KERN_ERR "kcapi: manufacturer command %lu unknown.\n",
+ 		       cmd);
+ 		break;
  
+diff --git a/include/linux/kernelcapi.h b/include/linux/kernelcapi.h
+index 9be37da..e985ba6 100644
+--- a/include/linux/kernelcapi.h
++++ b/include/linux/kernelcapi.h
+@@ -41,7 +41,7 @@ u16 capi20_get_manufacturer(u32 contr, u8 buf[CAPI_MANUFACTURER_LEN]);
+ u16 capi20_get_version(u32 contr, struct capi_version *verp);
+ u16 capi20_get_serial(u32 contr, u8 serial[CAPI_SERIAL_LEN]);
+ u16 capi20_get_profile(u32 contr, struct capi_profile *profp);
+-int capi20_manufacturer(unsigned int cmd, void __user *data);
++int capi20_manufacturer(unsigned long cmd, void __user *data);
+ 
+ #define CAPICTR_UP			0
+ #define CAPICTR_DOWN			1
 -- 
 1.9.2.459.g68773ac
