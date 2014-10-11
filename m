@@ -1,73 +1,54 @@
 From: Tilman Schmidt <tilman@imap.cc>
-Subject: [PATCH 06/12] isdn/capi: correct capi20_manufacturer argument type mismatch
-Date: Sat, 11 Oct 2014 13:46:30 +0200 (CEST)
-Message-ID: <c6167666dd9c206765eac6d87f421e0405eb59b1.1413021630.git.tilman@imap.cc>
-References: <cover.1413021630.git.tilman@imap.cc>
+Subject: [PATCH 00/12] Coverity patches for drivers/isdn
+Date: Sat, 11 Oct 2014 13:46:29 +0200 (CEST)
+Message-ID: <cover.1413021630.git.tilman@imap.cc>
 Cc: David Miller <davem@davemloft.net>, Dave Jones <davej@redhat.com>,
 	Hansjoerg Lipp <hjlipp@web.de>,
 	Karsten Keil <isdn@linux-pingi.de>,
 	isdn4linux@listserv.isdn4linux.de
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gimli.pxnet.com ([89.1.7.7]:50234 "EHLO mail.pxnet.com"
+Received: from mail.pxnet.com ([89.1.7.7]:60913 "EHLO mail.pxnet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752099AbaJKLrD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752152AbaJKLrD (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sat, 11 Oct 2014 07:47:03 -0400
-In-Reply-To: <cover.1413021630.git.tilman@imap.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Function capi20_manufacturer() is declared with unsigned int cmd
-argument but called with unsigned long.
-Fix by correcting the function prototype since the actual argument
-is part of the user visible API.
+Here's a series of patches for the ISDN CAPI subsystem and the
+Gigaset ISDN driver.
+Patches 1 to 7 are specific fixes for Coverity warnings.
+Patches 8 to 11 fix related problems with the handling of invalid
+CAPI command codes I noticed while working on this.
+Patch 12 fixes an unrelated problem I noticed during the subsequent
+regression tests.
+It would be great if these could still be merged.
 
-Spotted with Coverity.
+Thanks,
+Tilman
 
-Signed-off-by: Tilman Schmidt <tilman@imap.cc>
----
-Note: The issue about printk(KERN_ERR which checkpatch is complaining
-about is already present in the original file in this and many other
-places. Cleaning it up is outside the scope of this patch.
+Tilman Schmidt (12):
+  isdn/gigaset: missing break in do_facility_req
+  isdn/gigaset: make sure controller name is null terminated
+  isdn/gigaset: limit raw CAPI message dump length
+  isdn/gigaset: fix NULL pointer dereference
+  isdn/gigaset: fix non-heap pointer deallocation
+  isdn/capi: correct capi20_manufacturer argument type mismatch
+  isdn/capi: prevent index overrun from command_2_index()
+  isdn/capi: refactor command/subcommand table accesses
+  isdn/capi: prevent NULL pointer dereference on invalid CAPI command
+  isdn/capi: handle CAPI 2.0 message parser failures
+  isdn/capi: don't return NULL from capi_cmd2str()
+  isdn/gigaset: fix usb_gigaset write_cmd result race
 
- drivers/isdn/capi/kcapi.c  | 4 ++--
- include/linux/kernelcapi.h | 2 +-
- 2 files changed, 3 insertions(+), 3 deletions(-)
+ drivers/isdn/capi/capidrv.c        |  24 +++++-
+ drivers/isdn/capi/capiutil.c       |  41 ++++++++--
+ drivers/isdn/capi/kcapi.c          |   4 +-
+ drivers/isdn/gigaset/capi.c        | 155 +++++++++++++++++++++++++++++++------
+ drivers/isdn/gigaset/ev-layer.c    | 116 +++++++++++++++++----------
+ drivers/isdn/gigaset/usb-gigaset.c |   4 +-
+ include/linux/kernelcapi.h         |   2 +-
+ 7 files changed, 265 insertions(+), 81 deletions(-)
 
-diff --git a/drivers/isdn/capi/kcapi.c b/drivers/isdn/capi/kcapi.c
-index c123709..823f698 100644
---- a/drivers/isdn/capi/kcapi.c
-+++ b/drivers/isdn/capi/kcapi.c
-@@ -1184,7 +1184,7 @@ static int old_capi_manufacturer(unsigned int cmd, void __user *data)
-  * Return value: CAPI result code
-  */
- 
--int capi20_manufacturer(unsigned int cmd, void __user *data)
-+int capi20_manufacturer(unsigned long cmd, void __user *data)
- {
- 	struct capi_ctr *ctr;
- 	int retval;
-@@ -1259,7 +1259,7 @@ int capi20_manufacturer(unsigned int cmd, void __user *data)
- 	}
- 
- 	default:
--		printk(KERN_ERR "kcapi: manufacturer command %d unknown.\n",
-+		printk(KERN_ERR "kcapi: manufacturer command %lu unknown.\n",
- 		       cmd);
- 		break;
- 
-diff --git a/include/linux/kernelcapi.h b/include/linux/kernelcapi.h
-index 9be37da..e985ba6 100644
---- a/include/linux/kernelcapi.h
-+++ b/include/linux/kernelcapi.h
-@@ -41,7 +41,7 @@ u16 capi20_get_manufacturer(u32 contr, u8 buf[CAPI_MANUFACTURER_LEN]);
- u16 capi20_get_version(u32 contr, struct capi_version *verp);
- u16 capi20_get_serial(u32 contr, u8 serial[CAPI_SERIAL_LEN]);
- u16 capi20_get_profile(u32 contr, struct capi_profile *profp);
--int capi20_manufacturer(unsigned int cmd, void __user *data);
-+int capi20_manufacturer(unsigned long cmd, void __user *data);
- 
- #define CAPICTR_UP			0
- #define CAPICTR_DOWN			1
 -- 
 1.9.2.459.g68773ac
