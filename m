@@ -1,58 +1,84 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] tcp: fix ooo_okay setting vs Small Queues
-Date: Fri, 10 Oct 2014 18:06:35 -0700
-Message-ID: <1412989595.9362.30.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Christopher Li <sparse@chrisli.org>
+Subject: Re: fec_main: context imbalance in 'fec_set_features'
+Date: Sat, 11 Oct 2014 10:07:13 +0800
+Message-ID: <CANeU7Qn2WX3CCN5YzFqcWngYu_Uy2wQ=mW1gBhGYMAaLhOkkZg@mail.gmail.com>
+References: <CAOMZO5CJKp7+d8EPRZdr-3Bd9UxVU8fxLybFZ4uLn+cUQjPH8w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f178.google.com ([209.85.192.178]:64922 "EHLO
-	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750706AbaJKBGh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Oct 2014 21:06:37 -0400
-Received: by mail-pd0-f178.google.com with SMTP id y10so2491793pdj.23
-        for <netdev@vger.kernel.org>; Fri, 10 Oct 2014 18:06:37 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Frank Li <Frank.Li@freescale.com>,
+	Duan Fugang-B38611 <B38611@freescale.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Linux-Sparse <linux-sparse@vger.kernel.org>
+To: Fabio Estevam <festevam@gmail.com>
+Return-path: <linux-sparse-owner@vger.kernel.org>
+In-Reply-To: <CAOMZO5CJKp7+d8EPRZdr-3Bd9UxVU8fxLybFZ4uLn+cUQjPH8w@mail.gmail.com>
+Sender: linux-sparse-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+On Thu, Oct 2, 2014 at 8:15 AM, Fabio Estevam <festevam@gmail.com> wrote:
+> Hi,
+>
+> sparse complains the following:
+>
+> drivers/net/ethernet/freescale/fec_main.c:2835:12: warning: context
+> imbalance in 'fec_set_features' - different lock contexts for basic
+> block
 
-TCP Small Queues (tcp_tsq_handler()) can hold one reference on
-sk->sk_wmem_alloc, preventing skb->ooo_okay being set.
+That is expected to receive warnings. Sparse can't really tell the lock
+and unlock are actually on the same condition and it never change.
 
-We should relax test done to set skb->ooo_okay to take care
-of this extra reference.
+>
+> The code looks like this:
+>
+> static int fec_set_features(struct net_device *netdev,
+>     netdev_features_t features)
+> {
+>     struct fec_enet_private *fep = netdev_priv(netdev);
+>     netdev_features_t changed = features ^ netdev->features;
+>
+>     /* Quiesce the device if necessary */
+>     if (netif_running(netdev) && changed & FEATURES_NEED_QUIESCE) {
 
-Minimal truesize of skb containing one byte of payload is
-SKB_TRUESIZE(1)
+e.g. netdev is running here, you take the lock.
 
-Without this fix, we have more chance locking flows into the wrong
-transmit queue.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/ipv4/tcp_output.c |    8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
+>         napi_disable(&fep->napi);
+>         netif_tx_lock_bh(netdev);
+>         fec_stop(netdev);
+>     }
+>
+>     netdev->features = features;
+>>
+>     /* Resume the device after updates */
+>     if (netif_running(netdev) && changed & FEATURES_NEED_QUIESCE) {
 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 8d4eac793700..e2be1f80e0be 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -914,9 +914,13 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
- 		tcp_ca_event(sk, CA_EVENT_TX_START);
- 
- 	/* if no packet is in qdisc/device queue, then allow XPS to select
--	 * another queue.
-+	 * another queue. We can be called from tcp_tsq_handler()
-+	 * which holds one reference to sk_wmem_alloc.
-+	 *
-+	 * TODO: Ideally, in-flight pure ACK packets should not matter here.
-+	 * One way to get this would be to set skb->truesize = 2 on them.
- 	 */
--	skb->ooo_okay = sk_wmem_alloc_get(sk) == 0;
-+	skb->ooo_okay = sk_wmem_alloc_get(sk) < SKB_TRUESIZE(1);
- 
- 	skb_push(skb, tcp_header_size);
- 	skb_reset_transport_header(skb);
+Then there is race some one shutdown the netdev before the code hits
+here (is it possible? it is hard to tell from this source alone.)
+Then the unlock is skipped.
+
+>         fec_restart(netdev);
+>         netif_tx_wake_all_queues(netdev);
+
+Sparse is complaining, there exist a code path, from execution flow
+point of view, (without considering the data flow analyze), there exists a
+code path lock and unlock are not balanced.
+
+It is possible that warning code path is not actually executable
+due to data flow reason(e.g. "changed" never change during the same function).
+But sparse did not have data flow analyze to know that.
+
+If you move the code, e.g. the code inside the lock area into a function.
+You can write:
+
+if (need_lock) {
+       lock();
+       do_something_real();
+       unlock();
+} else {
+       do_something_real();
+}
+
+That way, sparse don't see such a code path can trigger lock unbalanced.
+
+Chris
