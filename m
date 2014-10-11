@@ -1,84 +1,126 @@
-From: Christopher Li <sparse@chrisli.org>
-Subject: Re: fec_main: context imbalance in 'fec_set_features'
-Date: Sat, 11 Oct 2014 10:07:13 +0800
-Message-ID: <CANeU7Qn2WX3CCN5YzFqcWngYu_Uy2wQ=mW1gBhGYMAaLhOkkZg@mail.gmail.com>
-References: <CAOMZO5CJKp7+d8EPRZdr-3Bd9UxVU8fxLybFZ4uLn+cUQjPH8w@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Frank Li <Frank.Li@freescale.com>,
-	Duan Fugang-B38611 <B38611@freescale.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Linux-Sparse <linux-sparse@vger.kernel.org>
-To: Fabio Estevam <festevam@gmail.com>
-Return-path: <linux-sparse-owner@vger.kernel.org>
-In-Reply-To: <CAOMZO5CJKp7+d8EPRZdr-3Bd9UxVU8fxLybFZ4uLn+cUQjPH8w@mail.gmail.com>
-Sender: linux-sparse-owner@vger.kernel.org
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: [PATCH net] x86: bpf_jit: fix two bugs in eBPF JIT compiler
+Date: Fri, 10 Oct 2014 19:44:53 -0700
+Message-ID: <1412995493-16100-1-git-send-email-ast@plumgrid.com>
+Cc: "Darrick J. Wong" <darrick.wong@oracle.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@kernel.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 2, 2014 at 8:15 AM, Fabio Estevam <festevam@gmail.com> wrote:
-> Hi,
->
-> sparse complains the following:
->
-> drivers/net/ethernet/freescale/fec_main.c:2835:12: warning: context
-> imbalance in 'fec_set_features' - different lock contexts for basic
-> block
+1.
+JIT compiler using multi-pass approach to converge to final image size,
+since x86 instructions are variable length. It starts with large
+gaps between instructions (so some jumps may use imm32 instead of imm8)
+and iterates until total program size is the same as in previous pass.
+This algorithm works only if program size is strictly decreasing.
+Programs that use LD_ABS insn need additional code in prologue, but it
+was not emitted during 1st pass, so there was a chance that 2nd pass would
+adjust imm32->imm8 jump offsets to the same number of bytes as increase in
+prologue, which may cause algorithm to erroneously decide that size converged.
+Fix it by always emitting largest prologue in the first pass which
+is detected by oldproglen==0 check.
+Also change error check condition 'proglen != oldproglen' to fail gracefully.
 
-That is expected to receive warnings. Sparse can't really tell the lock
-and unlock are actually on the same condition and it never change.
+2.
+while staring at the code realized that 64-byte buffer may not be enough
+when 1st insn is large, so increase it to 128 to avoid buffer overflow
+(theoretical maximum size of prologue+div is 109) and add runtime check.
 
->
-> The code looks like this:
->
-> static int fec_set_features(struct net_device *netdev,
->     netdev_features_t features)
-> {
->     struct fec_enet_private *fep = netdev_priv(netdev);
->     netdev_features_t changed = features ^ netdev->features;
->
->     /* Quiesce the device if necessary */
->     if (netif_running(netdev) && changed & FEATURES_NEED_QUIESCE) {
+Fixes: 622582786c9e ("net: filter: x86: internal BPF JIT")
+Reported-by: Darrick J. Wong <darrick.wong@oracle.com>
+Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+---
+note in classic BPF programs 1st insn is always short move, but native eBPF
+programs may trigger buffer overflow. I couldn't force the crash with overflow,
+since there are no further calls while this part of stack is used.
+Both are ugly bugs regardless.
+When net-next opens I will add narrowed down testcase from 'nmap' to testsuite.
 
-e.g. netdev is running here, you take the lock.
+ arch/x86/net/bpf_jit_comp.c |   21 +++++++++++++++------
+ 1 file changed, 15 insertions(+), 6 deletions(-)
 
-
->         napi_disable(&fep->napi);
->         netif_tx_lock_bh(netdev);
->         fec_stop(netdev);
->     }
->
->     netdev->features = features;
->>
->     /* Resume the device after updates */
->     if (netif_running(netdev) && changed & FEATURES_NEED_QUIESCE) {
-
-Then there is race some one shutdown the netdev before the code hits
-here (is it possible? it is hard to tell from this source alone.)
-Then the unlock is skipped.
-
->         fec_restart(netdev);
->         netif_tx_wake_all_queues(netdev);
-
-Sparse is complaining, there exist a code path, from execution flow
-point of view, (without considering the data flow analyze), there exists a
-code path lock and unlock are not balanced.
-
-It is possible that warning code path is not actually executable
-due to data flow reason(e.g. "changed" never change during the same function).
-But sparse did not have data flow analyze to know that.
-
-If you move the code, e.g. the code inside the lock area into a function.
-You can write:
-
-if (need_lock) {
-       lock();
-       do_something_real();
-       unlock();
-} else {
-       do_something_real();
-}
-
-That way, sparse don't see such a code path can trigger lock unbalanced.
-
-Chris
+diff --git a/arch/x86/net/bpf_jit_comp.c b/arch/x86/net/bpf_jit_comp.c
+index d56cd1f..8266896 100644
+--- a/arch/x86/net/bpf_jit_comp.c
++++ b/arch/x86/net/bpf_jit_comp.c
+@@ -187,7 +187,8 @@ static int do_jit(struct bpf_prog *bpf_prog, int *addrs, u8 *image,
+ {
+ 	struct bpf_insn *insn = bpf_prog->insnsi;
+ 	int insn_cnt = bpf_prog->len;
+-	u8 temp[64];
++	bool seen_ld_abs = ctx->seen_ld_abs | (oldproglen == 0);
++	u8 temp[128];
+ 	int i;
+ 	int proglen = 0;
+ 	u8 *prog = temp;
+@@ -225,7 +226,7 @@ static int do_jit(struct bpf_prog *bpf_prog, int *addrs, u8 *image,
+ 	EMIT2(0x31, 0xc0); /* xor eax, eax */
+ 	EMIT3(0x4D, 0x31, 0xED); /* xor r13, r13 */
+ 
+-	if (ctx->seen_ld_abs) {
++	if (seen_ld_abs) {
+ 		/* r9d : skb->len - skb->data_len (headlen)
+ 		 * r10 : skb->data
+ 		 */
+@@ -685,7 +686,7 @@ xadd:			if (is_imm8(insn->off))
+ 		case BPF_JMP | BPF_CALL:
+ 			func = (u8 *) __bpf_call_base + imm32;
+ 			jmp_offset = func - (image + addrs[i]);
+-			if (ctx->seen_ld_abs) {
++			if (seen_ld_abs) {
+ 				EMIT2(0x41, 0x52); /* push %r10 */
+ 				EMIT2(0x41, 0x51); /* push %r9 */
+ 				/* need to adjust jmp offset, since
+@@ -699,7 +700,7 @@ xadd:			if (is_imm8(insn->off))
+ 				return -EINVAL;
+ 			}
+ 			EMIT1_off32(0xE8, jmp_offset);
+-			if (ctx->seen_ld_abs) {
++			if (seen_ld_abs) {
+ 				EMIT2(0x41, 0x59); /* pop %r9 */
+ 				EMIT2(0x41, 0x5A); /* pop %r10 */
+ 			}
+@@ -804,7 +805,8 @@ emit_jmp:
+ 			goto common_load;
+ 		case BPF_LD | BPF_ABS | BPF_W:
+ 			func = CHOOSE_LOAD_FUNC(imm32, sk_load_word);
+-common_load:		ctx->seen_ld_abs = true;
++common_load:
++			ctx->seen_ld_abs = seen_ld_abs = true;
+ 			jmp_offset = func - (image + addrs[i]);
+ 			if (!func || !is_simm32(jmp_offset)) {
+ 				pr_err("unsupported bpf func %d addr %p image %p\n",
+@@ -878,6 +880,11 @@ common_load:		ctx->seen_ld_abs = true;
+ 		}
+ 
+ 		ilen = prog - temp;
++		if (ilen >= sizeof(temp)) {
++			pr_err("bpf_jit_compile fatal insn size error\n");
++			return -EFAULT;
++		}
++
+ 		if (image) {
+ 			if (unlikely(proglen + ilen > oldproglen)) {
+ 				pr_err("bpf_jit_compile fatal error\n");
+@@ -934,9 +941,11 @@ void bpf_int_jit_compile(struct bpf_prog *prog)
+ 			goto out;
+ 		}
+ 		if (image) {
+-			if (proglen != oldproglen)
++			if (proglen != oldproglen) {
+ 				pr_err("bpf_jit: proglen=%d != oldproglen=%d\n",
+ 				       proglen, oldproglen);
++				goto out;
++			}
+ 			break;
+ 		}
+ 		if (proglen == oldproglen) {
+-- 
+1.7.9.5
