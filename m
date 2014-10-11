@@ -1,7 +1,7 @@
 From: Tilman Schmidt <tilman@imap.cc>
-Subject: [PATCH 01/12] isdn/gigaset: missing break in do_facility_req
-Date: Sat, 11 Oct 2014 13:46:29 +0200 (CEST)
-Message-ID: <db056151f18db824b1f8814cf6fdfe6aa841bc29.1413021630.git.tilman@imap.cc>
+Subject: [PATCH 11/12] isdn/capi: don't return NULL from capi_cmd2str()
+Date: Sat, 11 Oct 2014 13:46:30 +0200 (CEST)
+Message-ID: <937f46dfacacd354b31440e0842334308edcfe0b.1413021631.git.tilman@imap.cc>
 References: <cover.1413021630.git.tilman@imap.cc>
 Cc: David Miller <davem@davemloft.net>, Dave Jones <davej@redhat.com>,
 	Hansjoerg Lipp <hjlipp@web.de>,
@@ -9,38 +9,47 @@ Cc: David Miller <davem@davemloft.net>, Dave Jones <davej@redhat.com>,
 	isdn4linux@listserv.isdn4linux.de
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gimli.pxnet.com ([89.1.7.7]:52033 "EHLO mail.pxnet.com"
+Received: from mail.pxnet.com ([89.1.7.7]:52712 "EHLO mail.pxnet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752105AbaJKLrD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752049AbaJKLrD (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sat, 11 Oct 2014 07:47:03 -0400
 In-Reply-To: <cover.1413021630.git.tilman@imap.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If we take the unsupported supplementary service notification mask
-path, we end up falling through and overwriting the error code.
-Insert a break statement to skip the remainder of the switch case
-and proceed to sending the reply message.
+capi_cmd2str() is used in many places to build log messages.
+None of them is prepared to handle NULL as a result.
+Change the function to return printable string "INVALID_COMMAND"
+instead.
 
-Spotted with Coverity.
-
-Reported-by: Dave Jones <davej@redhat.com>
 Signed-off-by: Tilman Schmidt <tilman@imap.cc>
 ---
- drivers/isdn/gigaset/capi.c | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/isdn/capi/capiutil.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/isdn/gigaset/capi.c b/drivers/isdn/gigaset/capi.c
-index 3286903..a2eabe9 100644
---- a/drivers/isdn/gigaset/capi.c
-+++ b/drivers/isdn/gigaset/capi.c
-@@ -1180,6 +1180,7 @@ static void do_facility_req(struct gigaset_capi_ctr *iif,
- 				confparam[3] = 2;	/* length */
- 				capimsg_setu16(confparam, 4,
- 					       CapiSupplementaryServiceNotSupported);
-+				break;
- 			}
- 			info = CapiSuccess;
- 			confparam[3] = 2;	/* length */
+diff --git a/drivers/isdn/capi/capiutil.c b/drivers/isdn/capi/capiutil.c
+index 36835ef..36c1b37 100644
+--- a/drivers/isdn/capi/capiutil.c
++++ b/drivers/isdn/capi/capiutil.c
+@@ -489,12 +489,17 @@ static char *mnames[] =
+  * @cmd:	command number
+  * @subcmd:	subcommand number
+  *
+- * Return value: static string, NULL if command/subcommand unknown
++ * Return value: static string
+  */
+ 
+ char *capi_cmd2str(u8 cmd, u8 subcmd)
+ {
+-	return mnames[command_2_index(cmd, subcmd)];
++	char *result;
++
++	result = mnames[command_2_index(cmd, subcmd)];
++	if (result == NULL)
++		result = "INVALID_COMMAND";
++	return result;
+ }
+ 
+ 
 -- 
 1.9.2.459.g68773ac
