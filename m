@@ -1,98 +1,56 @@
-From: Fugang Duan <b38611@freescale.com>
-Subject: [PATCH] net: fec: Fix sparse warnings with different lock contexts for basic block
-Date: Sat, 11 Oct 2014 11:00:29 +0800
-Message-ID: <1412996429-2253-1-git-send-email-b38611@freescale.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <festevam@gmail.com>,
-	<sparse@chrisli.org>, <b20596@freescale.com>,
-	<b38611@freescale.com>
-To: <davem@davemloft.net>
+From: roy.qing.li@gmail.com
+Subject: [PATCH] ipv6: remove aca_lock spinlock from struct ifacaddr6
+Date: Sat, 11 Oct 2014 13:03:34 +0800
+Message-ID: <1413003814-14216-1-git-send-email-roy.qing.li@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1on0145.outbound.protection.outlook.com ([157.56.110.145]:20065
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750795AbaJKDa7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Oct 2014 23:30:59 -0400
+Received: from mail-pd0-f179.google.com ([209.85.192.179]:59607 "EHLO
+	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750747AbaJKFDm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Oct 2014 01:03:42 -0400
+Received: by mail-pd0-f179.google.com with SMTP id r10so2763426pdi.38
+        for <netdev@vger.kernel.org>; Fri, 10 Oct 2014 22:03:41 -0700 (PDT)
+Received: from localhost ([106.120.101.38])
+        by mx.google.com with ESMTPSA id ri9sm5010543pbc.5.2014.10.10.22.03.38
+        for <netdev@vger.kernel.org>
+        (version=TLSv1.2 cipher=RC4-SHA bits=128/128);
+        Fri, 10 Oct 2014 22:03:40 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-reproduce:
-make  ARCH=arm C=1 2>fec.txt drivers/net/ethernet/freescale/fec_main.o
-cat fec.txt
+From: Li RongQing <roy.qing.li@gmail.com>
 
-sparse warnings:
-drivers/net/ethernet/freescale/fec_main.c:2916:12: warning: context imbalance
-in 'fec_set_features' - different lock contexts for basic block
+no user uses this lock.
 
-Christopher Li suggest to change as below:
-	if (need_lock) {
-		lock();
-		do_something_real();
-		unlock();
-	} else {
-		do_something_real();
-	}
-
-Reported-by: Fabio Estevam <festevam@gmail.com>
-Signed-off-by: Fugang Duan <B38611@freescale.com>
-Signed-off-by: Christopher Li <sparse@chrisli.org>
+Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
 ---
- drivers/net/ethernet/freescale/fec_main.c |   24 ++++++++++++++----------
- 1 files changed, 14 insertions(+), 10 deletions(-)
+ include/net/if_inet6.h |    1 -
+ net/ipv6/anycast.c     |    1 -
+ 2 files changed, 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 87975b5..7a8209e 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -2912,20 +2912,12 @@ static void fec_poll_controller(struct net_device *dev)
- #endif
+diff --git a/include/net/if_inet6.h b/include/net/if_inet6.h
+index 55a8d40..98e5f95 100644
+--- a/include/net/if_inet6.h
++++ b/include/net/if_inet6.h
+@@ -146,7 +146,6 @@ struct ifacaddr6 {
+ 	struct ifacaddr6	*aca_next;
+ 	int			aca_users;
+ 	atomic_t		aca_refcnt;
+-	spinlock_t		aca_lock;
+ 	unsigned long		aca_cstamp;
+ 	unsigned long		aca_tstamp;
+ };
+diff --git a/net/ipv6/anycast.c b/net/ipv6/anycast.c
+index f5e319a..baf2742 100644
+--- a/net/ipv6/anycast.c
++++ b/net/ipv6/anycast.c
+@@ -235,7 +235,6 @@ static struct ifacaddr6 *aca_alloc(struct rt6_info *rt,
+ 	/* aca_tstamp should be updated upon changes */
+ 	aca->aca_cstamp = aca->aca_tstamp = jiffies;
+ 	atomic_set(&aca->aca_refcnt, 1);
+-	spin_lock_init(&aca->aca_lock);
  
- #define FEATURES_NEED_QUIESCE NETIF_F_RXCSUM
--
--static int fec_set_features(struct net_device *netdev,
-+static inline void fec_enet_set_netdev_features(struct net_device *netdev,
- 	netdev_features_t features)
- {
- 	struct fec_enet_private *fep = netdev_priv(netdev);
- 	netdev_features_t changed = features ^ netdev->features;
- 
--	/* Quiesce the device if necessary */
--	if (netif_running(netdev) && changed & FEATURES_NEED_QUIESCE) {
--		napi_disable(&fep->napi);
--		netif_tx_lock_bh(netdev);
--		fec_stop(netdev);
--	}
--
- 	netdev->features = features;
- 
- 	/* Receive checksum has been changed */
-@@ -2935,13 +2927,25 @@ static int fec_set_features(struct net_device *netdev,
- 		else
- 			fep->csum_flags &= ~FLAG_RX_CSUM_ENABLED;
- 	}
-+}
-+
-+static int fec_set_features(struct net_device *netdev,
-+	netdev_features_t features)
-+{
-+	struct fec_enet_private *fep = netdev_priv(netdev);
-+	netdev_features_t changed = features ^ netdev->features;
- 
--	/* Resume the device after updates */
- 	if (netif_running(netdev) && changed & FEATURES_NEED_QUIESCE) {
-+		napi_disable(&fep->napi);
-+		netif_tx_lock_bh(netdev);
-+		fec_stop(netdev);
-+		fec_enet_set_netdev_features(netdev, features);
- 		fec_restart(netdev);
- 		netif_tx_wake_all_queues(netdev);
- 		netif_tx_unlock_bh(netdev);
- 		napi_enable(&fep->napi);
-+	} else {
-+		fec_enet_set_netdev_features(netdev, features);
- 	}
- 
- 	return 0;
+ 	return aca;
+ }
 -- 
-1.7.8
+1.7.10.4
