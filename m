@@ -1,39 +1,77 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Netlink mmap tx security?
-Date: Sat, 11 Oct 2014 19:09:57 -0400 (EDT)
-Message-ID: <20141011.190957.1296445052360891885.davem@davemloft.net>
-References: <CALCETrWsCqy7KEKPTOeHjrO1c2JE1E_seO_J+yA=sYFhS11NXQ@mail.gmail.com>
-	<CALCETrVuREGVKwrni61DEg=Tgjc7x41WYtrEiDMqMvwVFXfybw@mail.gmail.com>
-	<CALCETrWfQe5H2Ht7cjCQLfUw+XUcRvga_H93esaWpAp37=noZg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: torvalds@linux-foundation.org, kaber@trash.net,
-	netdev@vger.kernel.org
-To: luto@amacapital.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40551 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751624AbaJKXJ6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Oct 2014 19:09:58 -0400
-In-Reply-To: <CALCETrWfQe5H2Ht7cjCQLfUw+XUcRvga_H93esaWpAp37=noZg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+Subject: [PATCH] net: wireless: brcm80211: brcmfmac: dhd_sdio.c:  Cleaning up missing null-terminate in conjunction with strncpy
+Date: Sun, 12 Oct 2014 01:52:31 +0200
+Message-ID: <1413071551-15372-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+Cc: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>,
+	Hante Meuleman <meuleman@broadcom.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
+	Daniel Kim <dekim@broadcom.com>,
+	linux-wireless@vger.kernel.org, brcm80211-dev-list@broadcom.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Brett Rudley <brudley@broadcom.com>,
+	Arend van Spriel <arend@broadcom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Andy Lutomirski <luto@amacapital.net>
-Date: Sat, 11 Oct 2014 15:29:17 -0700
+Replacing strncpy with strlcpy to avoid strings that lacks null terminate.
+And changed from using strncpy to strlcpy to simplify code.
 
-> On May 12, 2014 3:08 PM, "Andy Lutomirski" <luto@amacapital.net> wrote:
->>
->> [moving to netdev -- this is much lower impact than I thought, since
->> you can't set up a netlink mmap ring without global CAP_NET_ADMIN]
-> 
-> Did anything ever happen here?  Despite not being a privilege
-> escalation in the normal sense, it's still a bug, and it's still a
-> fairly easy bypass of module signatures.
+Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+---
+ drivers/net/wireless/brcm80211/brcmfmac/dhd_sdio.c |   25 ++++++++++----------
+ 1 file changed, 12 insertions(+), 13 deletions(-)
 
-We definitely still need to address this, and since Patrick has still
-not responded on this issue after being given 5 months to do so, the
-only reasonable path is to get rid of this feature altogether.
-
-Thanks for reminding me.
+diff --git a/drivers/net/wireless/brcm80211/brcmfmac/dhd_sdio.c b/drivers/net/wireless/brcm80211/brcmfmac/dhd_sdio.c
+index f55f625..d20d4e6 100644
+--- a/drivers/net/wireless/brcm80211/brcmfmac/dhd_sdio.c
++++ b/drivers/net/wireless/brcm80211/brcmfmac/dhd_sdio.c
+@@ -670,7 +670,6 @@ static int brcmf_sdio_get_fwnames(struct brcmf_chip *ci,
+ 				  struct brcmf_sdio_dev *sdiodev)
+ {
+ 	int i;
+-	uint fw_len, nv_len;
+ 	char end;
+ 
+ 	for (i = 0; i < ARRAY_SIZE(brcmf_fwname_data); i++) {
+@@ -684,25 +683,25 @@ static int brcmf_sdio_get_fwnames(struct brcmf_chip *ci,
+ 		return -ENODEV;
+ 	}
+ 
+-	fw_len = sizeof(sdiodev->fw_name) - 1;
+-	nv_len = sizeof(sdiodev->nvram_name) - 1;
+ 	/* check if firmware path is provided by module parameter */
+ 	if (brcmf_firmware_path[0] != '\0') {
+-		strncpy(sdiodev->fw_name, brcmf_firmware_path, fw_len);
+-		strncpy(sdiodev->nvram_name, brcmf_firmware_path, nv_len);
+-		fw_len -= strlen(sdiodev->fw_name);
+-		nv_len -= strlen(sdiodev->nvram_name);
++		strlcpy(sdiodev->fw_name, brcmf_firmware_path,
++			sizeof(sdiodev->fw_name));
++		strlcpy(sdiodev->nvram_name, brcmf_firmware_path,
++			sizeof(sdiodev->nvram_name));
+ 
+ 		end = brcmf_firmware_path[strlen(brcmf_firmware_path) - 1];
+ 		if (end != '/') {
+-			strncat(sdiodev->fw_name, "/", fw_len);
+-			strncat(sdiodev->nvram_name, "/", nv_len);
+-			fw_len--;
+-			nv_len--;
++			strlcat(sdiodev->fw_name, "/",
++				sizeof(sdiodev->fw_name));
++			strlcat(sdiodev->nvram_name, "/",
++				sizeof(sdiodev->nvram_name));
+ 		}
+ 	}
+-	strncat(sdiodev->fw_name, brcmf_fwname_data[i].bin, fw_len);
+-	strncat(sdiodev->nvram_name, brcmf_fwname_data[i].nv, nv_len);
++	strlcat(sdiodev->fw_name, brcmf_fwname_data[i].bin,
++		sizeof(sdiodev->fw_name));
++	strlcat(sdiodev->nvram_name, brcmf_fwname_data[i].nv,
++		sizeof(sdiodev->nvram_name));
+ 
+ 	return 0;
+ }
+-- 
+1.7.10.4
