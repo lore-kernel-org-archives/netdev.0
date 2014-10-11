@@ -1,163 +1,241 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: Question regarding netpoll_info != NULL check.
-Date: Sat, 11 Oct 2014 14:39:55 -0700
-Message-ID: <87zjd28evo.fsf@x220.int.ebiederm.org>
-References: <201410112036.CGG26070.FOHSFMtOQOVLFJ@I-love.SAKURA.ne.jp>
+From: David Miller <davem@davemloft.net>
+Subject: [GIT] Networking
+Date: Sat, 11 Oct 2014 17:59:49 -0400 (EDT)
+Message-ID: <20141011.175949.1280849585247431047.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: nhorman@tuxdriver.com, davem@davemloft.net, netdev@vger.kernel.org
-To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:40155 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751758AbaJKVkc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Oct 2014 17:40:32 -0400
-In-Reply-To: <201410112036.CGG26070.FOHSFMtOQOVLFJ@I-love.SAKURA.ne.jp>
-	(Tetsuo Handa's message of "Sat, 11 Oct 2014 20:36:21 +0900")
+Received: from shards.monkeyblade.net ([149.20.54.216]:40003 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751147AbaJKV7x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Oct 2014 17:59:53 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp> writes:
 
-> Hello.
->
-> A 2.6.32-220.4.2.el6 system crashed at poll_one_napi() when the administrator
-> was updating network configuration and by error issued ifconfig command with
-> a wrong argument.
->
-> His system was using a bonding device as netconsole's the ethernet device to
-> send console messages out of, and poll_one_napi() was called due to printk()
-> by changing status of a bonding device.
->
-> ---------- linux-2.6.32-220.4.2.el6.x86_64/net/core/netpoll.c ----------
-> 128:static int poll_one_napi(struct netpoll_info *npinfo,
-> 129:                     struct napi_struct *napi, int budget)
-> 130:{
-> 131:    int work;
-> 132:
-> 133:    /* net_rx_action's ->poll() invocations and our's are
-> 134:     * synchronized by this test which is only made while
-> 135:     * holding the napi->poll_lock.
-> 136:     */
-> 137:    if (!test_bit(NAPI_STATE_SCHED, &napi->state))
-> 138:            return budget;
-> 139:
-> 140:    npinfo->rx_flags |= NETPOLL_RX_DROP;
-> 141:    atomic_inc(&trapped);
-> 142:    set_bit(NAPI_STATE_NPSVC, &napi->state);
-> 143:
-> 144:    work = napi->poll(napi, budget);
-> 145:    trace_napi_poll(napi);
-> 146:
-> 147:    clear_bit(NAPI_STATE_NPSVC, &napi->state);
-> 148:    atomic_dec(&trapped);
-> 149:    npinfo->rx_flags &= ~NETPOLL_RX_DROP;
-> 150:
-> 151:    return budget - work;
-> 152:}
-> 153:
-> 154:static void poll_napi(struct net_device *dev)
-> 155:{
-> 156:    struct napi_struct *napi;
-> 157:    int budget = 16;
-> 158:
-> 159:    list_for_each_entry(napi, &dev->napi_list, dev_list) {
-> 160:            if (napi->poll_owner != smp_processor_id() &&
-> 161:                spin_trylock(&napi->poll_lock)) {
-> 162:                    budget = poll_one_napi(dev->npinfo, napi, budget);
-> 163:                    spin_unlock(&napi->poll_lock);
-> 164:
-> 165:                    if (!budget)
-> 166:                            break;
-> 167:            }
-> 168:    }
-> 169:}
-> 170:
-> 171:static void service_arp_queue(struct netpoll_info *npi)
-> 172:{
-> 173:    if (npi) {
-> 174:            struct sk_buff *skb;
-> 175:
-> 176:            while ((skb = skb_dequeue(&npi->arp_tx)))
-> 177:                    arp_reply(skb);
-> 178:    }
-> 179:}
-> 180:
-> 181:void netpoll_poll_dev(struct net_device *dev)
-> 182:{
-> 183:    const struct net_device_ops *ops;
-> 184:
-> 185:    if (!dev || !netif_running(dev))
-> 186:            return;
-> 187:
-> 188:    ops = dev->netdev_ops;
-> 189:    if (!ops->ndo_poll_controller)
-> 190:            return;
-> 191:
-> 192:    /* Process pending work on NIC */
-> 193:    ops->ndo_poll_controller(dev);
-> 194:
-> 195:    poll_napi(dev);
-> 196:
-> 197:    if (dev->priv_flags & IFF_SLAVE) {
-> 198:            if (dev->npinfo) {
-> 199:                    struct net_device *bond_dev = dev->master;
-> 200:                    struct sk_buff *skb;
-> 201:                    while ((skb = skb_dequeue(&dev->npinfo->arp_tx))) {
-> 202:                            skb->dev = bond_dev;
-> 203:                            skb_queue_tail(&bond_dev->npinfo->arp_tx, skb);
-> 204:                    }
-> 205:            }
-> 206:    }
-> 207:
-> 208:    service_arp_queue(dev->npinfo);
-> 209:
-> 210:    zap_completion_queue();
-> 211:}
-> ---------- linux-2.6.32-220.4.2.el6.x86_64/net/core/netpoll.c ----------
->
-> We can see that while line 198 did dev->npinfo != NULL check, line 162 called
-> by line 195 did not do dev->npinfo != NULL check and thus npinfo was NULL at
-> line 140 called by line 162.
->
-> What is strange, we kept this dev->npinfo != NULL check until commit 18b37535
-> ("netpoll: Consolidate neigh_tx processing in service_neigh_queue") and that
-> commit depends on dev->npinfo != NULL assumption which commit ca99ca14
-> ("netpoll: protect napi_poll and poll_controller during dev_[open|close]")
-> is also assuming. But the above-mentioned system crashed due to
-> dev->npinfo == NULL. Why we don't do dev->npinfo != NULL check?
+This set fixes a bunch of fallout from the changes that went in
+during this merge window, particularly:
 
-The short version is that netpoll methods are not supposed to be called
-on network devices where npinfo is NULL, and that check at line 198 has
-always been dody.   The poll_napi check started dereferencing
-dev->npinfo in 2.6.13.  While the IFF_SLAVE code came in in 2.6.39.
+1) Fix fsl_pq_mdio (Claudiu Manoil) and fm10k (Pranith Kumar) build
+   failures.
 
-The current code in netpoll_poll_dev does the exclusion against races
-that was happening in poll_napi at the begining of netpoll_poll_dev.
+2) Several networking drivers do atomic_set() on page counts where
+   that's not exactly legal.  From Eric Dumazet.
 
-In the current code and I expect el6 is similar the code flow of all
-of this starts with netpoll_send_udp.  netpoll_send_udp is passed a
-netpoll structure.  The device we send to is obtained from that netpoll
-structure.
+3) Make __skb_flow_get_ports() work cleanly with unaligned data,
+   from Alexander Duyck.
 
-That npinfo structure should be allocated in __netpoll_setup,
-and freed in netpoll_cleanup.
+4) Fix some kernel-doc buglets in rfkill and netlabel, from Fabian
+   Frederick.
 
-I would recommend looking at where your bonding driver calls
-netpoll_setup and netpoll_cleanup and the current exclusing in the
-netpoll driver against races.
+5) Unbalanced enable_irq_wake usage in bcmgenet and systemport
+   drivers, from Florian Fainelli.
 
-> Excuse me, I didn't do a full-fledged study because the size of vmcore was
-> too huge to receive. Therefore I asked the administrator to do a superficial
-> analysis by feeding predefined commands to the crash utility. If the reason
-> we don't need dev->npinfo != NULL check is that dev->npinfo != NULL is always
-> true, how should I verify that dev->npinfo == NULL was a race
-> condition?
+6) pxa168_eth needs to depend on HAS_DMA, from Geert Uytterhoeven.
 
-If possible look at the bonding event that was happening and see how
-that interacts with the rest of the code.
+7) Multi-dequeue in the qdisc layer severely bypasses the fairness
+   limits the previous code used to enforce, reintroduce in a way that
+   at the same time doesn't compromise bulk dequeue opportunities.
+   From Jesper Dangaard Brouer.
 
-There really isn't a lot of netpoll code.  So it should be too hard to
-read through all of the relevant bits and understand what is going on.
+8) macvlan receive path unnecessarily hops through a softirq by
+   using netif_rx() instead of netif_receive_skb().  From Jason
+   Baron.
 
-Eric
+Please pull, thanks a lot!
+
+The following changes since commit 35a9ad8af0bb0fa3525e6d0d20e32551d226f38e:
+
+  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next (2014-10-08 21:40:54 -0400)
+
+are available in the git repository at:
+
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git master
+
+for you to fetch changes up to 01d2d484e49e9bc0ed9b5fdaf345a0e2bf35ffed:
+
+  Merge branch 'bcmgenet_systemport' (2014-10-10 15:39:22 -0400)
+
+----------------------------------------------------------------
+
+Alexander Duyck (1):
+      flow-dissector: Fix alignment issue in __skb_flow_get_ports
+
+Alexei Starovoitov (1):
+      net: bpf: fix bpf syscall dependence on anon_inodes
+
+Andrea Merello (1):
+      rtl818x_pci: fix response rate may be incorrect.
+
+Claudiu Manoil (8):
+      net/fsl_pq_mdio: Fix asm/ucc.h compile error for ARM
+      net/fsl_pq_mdio: Use ioread/iowrite32be() portable accessors
+      net/fsl_pq_mdio: Replace spin_event_timeout() with arch independent
+      gianfar: Include missing headers for ARM builds
+      gianfar: Exclude PPC specific errata handling from ARM builds
+      gianfar: Make MAC addr setup endian safe, cleanup
+      gianfar: Replace spin_event_timeout() with arch independent
+      gianfar: Replace eieio with wmb for non-PPC archs
+
+David S. Miller (9):
+      Merge branch 'gianfar'
+      Merge branch 'cxgb4'
+      Merge branch 'r8152'
+      Merge tag 'master-2014-10-08' of git://git.kernel.org/.../linville/wireless-next
+      Merge git://git.kernel.org/.../pablo/nf-next
+      Merge branch 'xgene'
+      Merge branch 'macvlan'
+      Merge branch 'net-drivers-pgcnt'
+      Merge branch 'bcmgenet_systemport'
+
+Eric Dumazet (5):
+      fm10k: fix race accessing page->_count
+      igb: fix race accessing page->_count
+      ixgbe: fix race accessing page->_count
+      mlx4: fix race accessing page->_count
+      net: fix races in page->_count manipulation
+
+Fabian Frederick (2):
+      net: rfkill: kernel-doc warning fixes
+      netlabel: kernel-doc warning fix
+
+Florian Fainelli (3):
+      net: bcmgenet: fix off-by-one in incrementing read pointer
+      net: bcmgenet: avoid unbalanced enable_irq_wake calls
+      net: systemport: avoid unbalanced enable_irq_wake calls
+
+Geert Uytterhoeven (1):
+      net: pxa168_eth: PXA168_ETH should depend on HAS_DMA
+
+Hariprasad Shenai (3):
+      cxgb4/cxgb4vf: Updated the LSO transfer length in CPL_TX_PKT_LSO for T5
+      cxgb4vf: Add 40G support for cxgb4vf driver
+      cxgb4: Wait for device to get ready before reading any register
+
+Iyappan Subramanian (6):
+      MAINTAINERS: Update APM X-Gene section
+      Documentation: dts: Update section header for APM X-Gene
+      dtb: Add 10GbE node to APM X-Gene SoC device tree
+      drivers: net: xgene: Preparing for adding 10GbE support
+      drivers: net: xgene: Add 10GbE support
+      drivers: net: xgene: Add 10GbE ethtool support
+
+Jesper Dangaard Brouer (1):
+      net_sched: restore qdisc quota fairness limits after bulk dequeue
+
+John W. Linville (1):
+      Merge branch 'master' of git://git.kernel.org/.../linville/wireless
+
+LEROY Christophe (1):
+      net: fs_enet: error: 'SCCE_ENET_TXF' undeclared
+
+Larry Finger (1):
+      rtlwifi: Fix possible unaligned array in ether_addr_copy()
+
+Li RongQing (2):
+      Documentation: replace __sk_run_filter with __bpf_prog_run
+      net: filter: fix the comments
+
+Marek Puzyniak (1):
+      ath9k_htc: avoid kernel panic in ath9k_hw_reset
+
+Masanari Iida (1):
+      net: Missing @ before descriptions cause make xmldocs warning
+
+Pablo Neira Ayuso (2):
+      netfilter: kill nf_send_reset6() from include/net/netfilter/ipv6/nf_reject.h
+      netfilter: fix wrong arithmetics regarding NFT_REJECT_ICMPX_MAX
+
+Pranith Kumar (1):
+      networking: fm10k: Fix build failure
+
+Sascha Hauer (1):
+      net/phy: micrel: Add clock support for KSZ8021/KSZ8031
+
+Sujith Manoharan (3):
+      ath: Fix smatch warning
+      ath9k: Fix crash in MCC mode
+      ath9k: Fix sequence number assignment
+
+Vince Bridgers (1):
+      stmmac: correct mc_filter local variable in set_filter and set_mac_addr call
+
+hayeswang (3):
+      r8152: autoresume before setting feature
+      r8152: adjust usb_autopm_xxx
+      r8152: add mutex for hw settings
+
+jbaron@akamai.com (2):
+      macvlan: pass 'bool' type to macvlan_count_rx()
+      macvlan: optimize the receive path
+
+ Documentation/devicetree/bindings/net/apm-xgene-enet.txt |   4 +-
+ Documentation/devicetree/bindings/net/micrel.txt         |   6 +
+ Documentation/networking/filter.txt                      |   4 +-
+ MAINTAINERS                                              |   1 -
+ arch/arm64/boot/dts/apm-mustang.dts                      |   4 +
+ arch/arm64/boot/dts/apm-storm.dtsi                       |  29 ++++-
+ drivers/net/ethernet/apm/xgene/Makefile                  |   3 +-
+ drivers/net/ethernet/apm/xgene/xgene_enet_ethtool.c      |  28 ++++-
+ drivers/net/ethernet/apm/xgene/xgene_enet_hw.c           |  44 ++++---
+ drivers/net/ethernet/apm/xgene/xgene_enet_hw.h           |  30 ++---
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.c         |  86 ++++++++++----
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.h         |  24 +++-
+ drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c        | 331 ++++++++++++++++++++++++++++++++++++++++++++++++++++
+ drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.h        |  57 +++++++++
+ drivers/net/ethernet/broadcom/bcmsysport.c               |   3 +-
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c           |   9 +-
+ drivers/net/ethernet/broadcom/genet/bcmgenet_wol.c       |   4 +-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h               |   2 +-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c          |   6 +-
+ drivers/net/ethernet/chelsio/cxgb4/sge.c                 |   5 +-
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c               |  17 +--
+ drivers/net/ethernet/chelsio/cxgb4/t4_msg.h              |   1 +
+ drivers/net/ethernet/chelsio/cxgb4/t4_regs.h             |   5 +-
+ drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c      |  12 +-
+ drivers/net/ethernet/chelsio/cxgb4vf/sge.c               |   5 +-
+ drivers/net/ethernet/chelsio/cxgb4vf/t4vf_common.h       |   6 +
+ drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c           |  10 +-
+ drivers/net/ethernet/freescale/fs_enet/mac-fcc.c         |   2 +-
+ drivers/net/ethernet/freescale/fs_enet/mac-scc.c         |   2 +-
+ drivers/net/ethernet/freescale/fsl_pq_mdio.c             |  56 +++++----
+ drivers/net/ethernet/freescale/gianfar.c                 |  68 ++++++-----
+ drivers/net/ethernet/freescale/gianfar.h                 |  31 +++++
+ drivers/net/ethernet/intel/Kconfig                       |   1 +
+ drivers/net/ethernet/intel/fm10k/fm10k_main.c            |   7 +-
+ drivers/net/ethernet/intel/igb/igb_main.c                |   7 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c            |   8 +-
+ drivers/net/ethernet/marvell/Kconfig                     |   3 +-
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c               |   6 +-
+ drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c     |   4 +-
+ drivers/net/macvlan.c                                    |  21 ++--
+ drivers/net/phy/micrel.c                                 |  31 ++++-
+ drivers/net/usb/r8152.c                                  |  98 +++++++++++++---
+ drivers/net/wireless/ath/ath9k/ath9k.h                   |   4 +-
+ drivers/net/wireless/ath/ath9k/beacon.c                  |  12 +-
+ drivers/net/wireless/ath/ath9k/htc_drv_init.c            |   1 +
+ drivers/net/wireless/ath/ath9k/main.c                    |   2 +-
+ drivers/net/wireless/ath/ath9k/tx99.c                    |   8 +-
+ drivers/net/wireless/ath/ath9k/xmit.c                    |  34 ++++--
+ drivers/net/wireless/ath/main.c                          |   8 +-
+ drivers/net/wireless/rtl818x/rtl8180/dev.c               |  36 ++++--
+ drivers/net/wireless/rtlwifi/wifi.h                      |   2 +-
+ include/linux/micrel_phy.h                               |   1 +
+ include/net/netfilter/ipv6/nf_reject.h                   | 157 +------------------------
+ include/uapi/linux/netfilter/nf_tables.h                 |   2 +-
+ net/Kconfig                                              |   1 +
+ net/core/filter.c                                        |   9 +-
+ net/core/flow_dissector.c                                |  36 +++---
+ net/core/skbuff.c                                        |  35 ++++--
+ net/netfilter/nft_reject.c                               |  10 +-
+ net/netlabel/netlabel_kapi.c                             |   1 -
+ net/rfkill/core.c                                        |   4 +-
+ net/sched/sch_generic.c                                  |  20 ++--
+ 62 files changed, 1017 insertions(+), 447 deletions(-)
+ create mode 100644 drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c
+ create mode 100644 drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.h
