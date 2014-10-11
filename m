@@ -1,64 +1,47 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH V3.18] rtlwifi: rtl8192ee: Prevent log spamming for
- switch statements
-Date: Sat, 11 Oct 2014 11:14:46 -0700
-Message-ID: <1413051286.22149.2.camel@joe-AO725>
-References: <1413050393-6257-1-git-send-email-Larry.Finger@lwfinger.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [bisected] e341694e3eb5 netlink_lookup() rcu conversion causes
+ latencies
+Date: Sat, 11 Oct 2014 12:32:44 -0700
+Message-ID: <1413055964.9362.50.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20141011083627.GB5074@osiris>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
-	troy_tan@realsil.com.cn, netdev@vger.kernel.org
-To: Larry Finger <Larry.Finger@lwfinger.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0036.hostedemail.com ([216.40.44.36]:46240 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752502AbaJKSOt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Oct 2014 14:14:49 -0400
-In-Reply-To: <1413050393-6257-1-git-send-email-Larry.Finger@lwfinger.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Thomas Graf <tgraf@suug.ch>,
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Ursula Braun <braunu@de.ibm.com>
+To: Heiko Carstens <heiko.carstens@de.ibm.com>,
+	Sasha Levin <sasha.levin@oracle.com>,
+	paulmck@linux.vnet.ibm.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141011083627.GB5074@osiris>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 2014-10-11 at 12:59 -0500, Larry Finger wrote:
-> The driver logs a message when the default branch of switch statements are
-> taken. Such information is useful when debugging, but these log items should
-> not be seen for standard usage.
+On Sat, 2014-10-11 at 10:36 +0200, Heiko Carstens wrote:
+> Hi all,
+> 
+> it just came to my attention that commit e341694e3eb5
+> "netlink: Convert netlink_lookup() to use RCU protected hash table"
+> causes network latencies for me on s390.
+> 
+> The testcase is quite simple and 100% reproducible on s390:
+> 
+> Simply login via ssh to a remote system which has the above mentioned
+> patch applied. Any action like pressing return now has significant
+> latencies. Or in other words, working via such a connection becomes
+> a pain ;)
+> 
+> I haven't debugged it, however I assume the problem is that a) the
+> commit introduces a synchronize_net() call und b) s390 kernels
+> usually get compiled with CONFIG_HZ_100 while most other architectures
+> use CONFIG_HZ_1000.
+> If I change the kernel config to CONFIG_HZ_1000 the problem goes away,
+> however I don't consider this a fix...
+> 
+> Another reason why this hasn't been observed on x86 may or may not be
+> that we haven't implemented CONFIG_HAVE_CONTEXT_TRACKING on s390 (yet).
+> But that's just guessing...
 
-Hey Larry.
-
-At some point, it'd be good to make RT_TRACE use
-the generic dynamic_debug facility.
-
-Something like the below, but I believe there are
-some issues with include ordering and #define DEBUG
-when dynamic_debug is not #defined.
-
----
-
- drivers/net/wireless/rtlwifi/debug.h | 7 ++-----
- 1 file changed, 2 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/wireless/rtlwifi/debug.h b/drivers/net/wireless/rtlwifi/debug.h
-index fc794b3..fbc8185 100644
---- a/drivers/net/wireless/rtlwifi/debug.h
-+++ b/drivers/net/wireless/rtlwifi/debug.h
-@@ -178,17 +178,14 @@ do {									\
- do {									\
- 	if (unlikely(((comp) & rtlpriv->dbg.global_debugcomponents) &&	\
- 		     ((level) <= rtlpriv->dbg.global_debuglevel))) {	\
--		printk(KERN_DEBUG KBUILD_MODNAME ":%s():<%lx-%x> " fmt,	\
--		       __func__, in_interrupt(), in_atomic(),		\
--		       ##__VA_ARGS__);					\
-+		pr_debug(fmt, ##__VA_ARGS__);				\
- 	}								\
- } while (0)
- 
- #define RTPRINT(rtlpriv, dbgtype, dbgflag, fmt, ...)			\
- do {									\
- 	if (unlikely(rtlpriv->dbg.dbgp_type[dbgtype] & dbgflag)) {	\
--		printk(KERN_DEBUG KBUILD_MODNAME ": " fmt,		\
--		       ##__VA_ARGS__);					\
-+		pr_debug(fmt, ##__VA_ARGS__);				\
- 	}								\
- } while (0)
- 
+CC Paul and Sasha
