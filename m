@@ -1,7 +1,7 @@
 From: Tilman Schmidt <tilman@imap.cc>
-Subject: [PATCH 08/12] isdn/capi: refactor command/subcommand table accesses
+Subject: [PATCH 12/12] isdn/gigaset: fix usb_gigaset write_cmd result race
 Date: Sat, 11 Oct 2014 13:46:30 +0200 (CEST)
-Message-ID: <87bc0bfeb6dda43c417a8c81c18ce73b787d61a3.1413021631.git.tilman@imap.cc>
+Message-ID: <2606e14cb61bc99f0f574b43ff6d9f585f199286.1413021631.git.tilman@imap.cc>
 References: <cover.1413021630.git.tilman@imap.cc>
 Cc: David Miller <davem@davemloft.net>, Dave Jones <davej@redhat.com>,
 	Hansjoerg Lipp <hjlipp@web.de>,
@@ -9,85 +9,48 @@ Cc: David Miller <davem@davemloft.net>, Dave Jones <davej@redhat.com>,
 	isdn4linux@listserv.isdn4linux.de
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.pxnet.com ([89.1.7.7]:35862 "EHLO mail.pxnet.com"
+Received: from mail.pxnet.com ([89.1.7.7]:36362 "EHLO mail.pxnet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751993AbaJKLrD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751978AbaJKLrD (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sat, 11 Oct 2014 07:47:03 -0400
 In-Reply-To: <cover.1413021630.git.tilman@imap.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Encapsulate accesses to the CAPI 2.0 command/subcommand name and
-parameter tables in a single place in preparation for redesign.
+In usb_gigaset function gigaset_write_cmd(), the length field of
+the command buffer structure could be cleared by the transmit
+tasklet before it was used for the function's return value.
+Fix by copying to a local variable before scheduling the tasklet.
 
 Signed-off-by: Tilman Schmidt <tilman@imap.cc>
 ---
- drivers/isdn/capi/capiutil.c | 23 ++++++++++++++++++-----
- 1 file changed, 18 insertions(+), 5 deletions(-)
+ drivers/isdn/gigaset/usb-gigaset.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/isdn/capi/capiutil.c b/drivers/isdn/capi/capiutil.c
-index b501d76..8e401ed 100644
---- a/drivers/isdn/capi/capiutil.c
-+++ b/drivers/isdn/capi/capiutil.c
-@@ -212,6 +212,19 @@ static unsigned command_2_index(unsigned c, unsigned sc)
- 	return (sc & 3) * (0x9 + 0x9) + c;
+diff --git a/drivers/isdn/gigaset/usb-gigaset.c b/drivers/isdn/gigaset/usb-gigaset.c
+index 82e91ba..a8e652d 100644
+--- a/drivers/isdn/gigaset/usb-gigaset.c
++++ b/drivers/isdn/gigaset/usb-gigaset.c
+@@ -497,6 +497,7 @@ static int send_cb(struct cardstate *cs, struct cmdbuf_t *cb)
+ static int gigaset_write_cmd(struct cardstate *cs, struct cmdbuf_t *cb)
+ {
+ 	unsigned long flags;
++	int len;
+ 
+ 	gigaset_dbg_buffer(cs->mstate != MS_LOCKED ?
+ 			   DEBUG_TRANSCMD : DEBUG_LOCKCMD,
+@@ -515,10 +516,11 @@ static int gigaset_write_cmd(struct cardstate *cs, struct cmdbuf_t *cb)
+ 	spin_unlock_irqrestore(&cs->cmdlock, flags);
+ 
+ 	spin_lock_irqsave(&cs->lock, flags);
++	len = cb->len;
+ 	if (cs->connected)
+ 		tasklet_schedule(&cs->write_tasklet);
+ 	spin_unlock_irqrestore(&cs->lock, flags);
+-	return cb->len;
++	return len;
  }
  
-+/**
-+ * capi_cmd2par() - find parameter string for CAPI 2.0 command/subcommand
-+ * @cmd:	command number
-+ * @subcmd:	subcommand number
-+ *
-+ * Return value: static string, NULL if command/subcommand unknown
-+ */
-+
-+static unsigned char *capi_cmd2par(u8 cmd, u8 subcmd)
-+{
-+	return cpars[command_2_index(cmd, subcmd)];
-+}
-+
- /*-------------------------------------------------------*/
- #define TYP (cdef[cmsg->par[cmsg->p]].typ)
- #define OFF (((u8 *)cmsg) + cdef[cmsg->par[cmsg->p]].off)
-@@ -304,7 +317,7 @@ unsigned capi_cmsg2message(_cmsg *cmsg, u8 *msg)
- 	cmsg->m = msg;
- 	cmsg->l = 8;
- 	cmsg->p = 0;
--	cmsg->par = cpars[command_2_index(cmsg->Command, cmsg->Subcommand)];
-+	cmsg->par = capi_cmd2par(cmsg->Command, cmsg->Subcommand);
- 
- 	pars_2_message(cmsg);
- 
-@@ -377,7 +390,7 @@ unsigned capi_message2cmsg(_cmsg *cmsg, u8 *msg)
- 	cmsg->p = 0;
- 	byteTRcpy(cmsg->m + 4, &cmsg->Command);
- 	byteTRcpy(cmsg->m + 5, &cmsg->Subcommand);
--	cmsg->par = cpars[command_2_index(cmsg->Command, cmsg->Subcommand)];
-+	cmsg->par = capi_cmd2par(cmsg->Command, cmsg->Subcommand);
- 
- 	message_2_pars(cmsg);
- 
-@@ -761,10 +774,10 @@ _cdebbuf *capi_message2str(u8 *msg)
- 	cmsg->p = 0;
- 	byteTRcpy(cmsg->m + 4, &cmsg->Command);
- 	byteTRcpy(cmsg->m + 5, &cmsg->Subcommand);
--	cmsg->par = cpars[command_2_index(cmsg->Command, cmsg->Subcommand)];
-+	cmsg->par = capi_cmd2par(cmsg->Command, cmsg->Subcommand);
- 
- 	cdb = bufprint(cdb, "%-26s ID=%03d #0x%04x LEN=%04d\n",
--		       mnames[command_2_index(cmsg->Command, cmsg->Subcommand)],
-+		       capi_cmd2str(cmsg->Command, cmsg->Subcommand),
- 		       ((unsigned short *) msg)[1],
- 		       ((unsigned short *) msg)[3],
- 		       ((unsigned short *) msg)[0]);
-@@ -798,7 +811,7 @@ _cdebbuf *capi_cmsg2str(_cmsg *cmsg)
- 	cmsg->l = 8;
- 	cmsg->p = 0;
- 	cdb = bufprint(cdb, "%s ID=%03d #0x%04x LEN=%04d\n",
--		       mnames[command_2_index(cmsg->Command, cmsg->Subcommand)],
-+		       capi_cmd2str(cmsg->Command, cmsg->Subcommand),
- 		       ((u16 *) cmsg->m)[1],
- 		       ((u16 *) cmsg->m)[3],
- 		       ((u16 *) cmsg->m)[0]);
+ static int gigaset_write_room(struct cardstate *cs)
 -- 
 1.9.2.459.g68773ac
