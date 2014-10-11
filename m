@@ -1,70 +1,37 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: Re: Netlink mmap tx security?
-Date: Sat, 11 Oct 2014 15:29:17 -0700
-Message-ID: <CALCETrWfQe5H2Ht7cjCQLfUw+XUcRvga_H93esaWpAp37=noZg@mail.gmail.com>
-References: <CALCETrWsCqy7KEKPTOeHjrO1c2JE1E_seO_J+yA=sYFhS11NXQ@mail.gmail.com>
- <CALCETrVuREGVKwrni61DEg=Tgjc7x41WYtrEiDMqMvwVFXfybw@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [bisected] e341694e3eb5 netlink_lookup() rcu conversion causes
+ latencies
+Date: Sat, 11 Oct 2014 19:08:29 -0400 (EDT)
+Message-ID: <20141011.190829.876705206204533685.davem@davemloft.net>
+References: <20141011083627.GB5074@osiris>
+	<1413055964.9362.50.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20141011222514.GA14186@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: Linus Torvalds <torvalds@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	Network Development <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f51.google.com ([209.85.215.51]:65181 "EHLO
-	mail-la0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751582AbaJKW3k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Oct 2014 18:29:40 -0400
-Received: by mail-la0-f51.google.com with SMTP id ge10so5036917lab.10
-        for <netdev@vger.kernel.org>; Sat, 11 Oct 2014 15:29:38 -0700 (PDT)
-In-Reply-To: <CALCETrVuREGVKwrni61DEg=Tgjc7x41WYtrEiDMqMvwVFXfybw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, heiko.carstens@de.ibm.com,
+	sasha.levin@oracle.com, paulmck@linux.vnet.ibm.com,
+	nikolay@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, braunu@de.ibm.com
+To: tgraf@suug.ch
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141011222514.GA14186@casper.infradead.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On May 12, 2014 3:08 PM, "Andy Lutomirski" <luto@amacapital.net> wrote:
->
-> [moving to netdev -- this is much lower impact than I thought, since
-> you can't set up a netlink mmap ring without global CAP_NET_ADMIN]
+From: Thomas Graf <tgraf@suug.ch>
+Date: Sat, 11 Oct 2014 23:25:14 +0100
 
-Did anything ever happen here?  Despite not being a privilege
-escalation in the normal sense, it's still a bug, and it's still a
-fairly easy bypass of module signatures.
+> I think the issue here is obvious and a fix is on the way to move
+> the insertion and removal to a worker to no longer require the
+> synchronize_rcu().
+> 
+> What bothers me is that the synchronize_rcu() should only occur
+> on expand/shrink and not for every table update. The default table
+> size is 64.
 
+Not true, every netlink socket release incurs a synchronize_net()
+now, because we added such a call to netlink_release().
 
---Andy
-
->
-> On Wed, May 7, 2014 at 5:46 PM, Andy Lutomirski <luto@amacapital.net> wrote:
-> > Disclaimer: I haven't tried to write a proof-of-concept, so I could be
-> > wrong here.
-> >
-> >     /* Netlink messages are validated by the receiver before processing.
-> >      * In order to avoid userspace changing the contents of the message
-> >      * after validation, the socket and the ring may only be used by a
-> >      * single process, otherwise we fall back to copying.
-> >      */
-> >     if (atomic_long_read(&sk->sk_socket->file->f_count) > 2 ||
-> >         atomic_read(&nlk->mapped) > 1)
-> >         excl = false;
-> >
-> > How is this possibly safe?  I think it's broken for at least three reasons:
-> >
-> > 1. Shouldn't that be atomic_long(read(&f_count) > 1))?
-> >
-> > 2. threads
-> >
-> > 3. process_vm_writev
-> >
-> > I wouldn't be surprised if RDMA and AIO also break this assumption.
-> >
-> > Does anything rely on mmapped netlink tx being fast?  If not, can this
-> > code just be deleted?
-> >
-> > For that matter, does anything rely on mmapped netlink tx at all?
-> >
-> > (On a non-KASLR, non-SMEP system, this probably gives reliable kernel
-> > code execution.)
-> >
-> > For that matter, netlink_mmap_sendmsg also appears to vulnerable to a
-> > TOCTOU attack via hdr.
-> >
+I specifically brought this up to as a possible problem when the
+changes went in...
