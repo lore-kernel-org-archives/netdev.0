@@ -1,76 +1,57 @@
-From: Walter Lozano <walter@vanguardiasur.com.ar>
-Subject: Re: [Nios2-dev] [PATCH net-next 0/2] Altera TSE with no PHY
-Date: Sat, 11 Oct 2014 19:24:13 -0300
-Message-ID: <CABxpGwCL4MSoqutnFL9ebATwe4aug7ciwyR50HO5T1R8XPURgg@mail.gmail.com>
-References: <1412359741-8423-1-git-send-email-walter@vanguardiasur.com.ar>
-	<1412974007001.77871@opensource.altera.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [bisected] e341694e3eb5 netlink_lookup() rcu conversion causes
+ latencies
+Date: Sat, 11 Oct 2014 23:25:14 +0100
+Message-ID: <20141011222514.GA14186@casper.infradead.org>
+References: <20141011083627.GB5074@osiris>
+ <1413055964.9362.50.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"f.fainelli@gmail.com" <f.fainelli@gmail.com>,
-	"tobias.klauser@gmail.com" <tobias.klauser@gmail.com>,
-	"vbridgers2013@gmail.com" <vbridgers2013@gmail.com>,
-	"nios2-dev@lists.rocketboards.org" <nios2-dev@lists.rocketboards.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"guido@vanguardiasur.com.ar" <guido@vanguardiasur.com.ar>
-To: Matthew Gerlach <mgerlach@opensource.altera.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f52.google.com ([209.85.218.52]:59934 "EHLO
-	mail-oi0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751147AbaJKWYO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Oct 2014 18:24:14 -0400
-Received: by mail-oi0-f52.google.com with SMTP id a3so9980547oib.11
-        for <netdev@vger.kernel.org>; Sat, 11 Oct 2014 15:24:13 -0700 (PDT)
-In-Reply-To: <1412974007001.77871@opensource.altera.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Heiko Carstens <heiko.carstens@de.ibm.com>,
+	Sasha Levin <sasha.levin@oracle.com>,
+	paulmck@linux.vnet.ibm.com,
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Ursula Braun <braunu@de.ibm.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1413055964.9362.50.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Matthew,
+On 10/11/14 at 12:32pm, Eric Dumazet wrote:
+> On Sat, 2014-10-11 at 10:36 +0200, Heiko Carstens wrote:
+> > Hi all,
+> > 
+> > it just came to my attention that commit e341694e3eb5
+> > "netlink: Convert netlink_lookup() to use RCU protected hash table"
+> > causes network latencies for me on s390.
+> > 
+> > The testcase is quite simple and 100% reproducible on s390:
+> > 
+> > Simply login via ssh to a remote system which has the above mentioned
+> > patch applied. Any action like pressing return now has significant
+> > latencies. Or in other words, working via such a connection becomes
+> > a pain ;)
+> > 
+> > I haven't debugged it, however I assume the problem is that a) the
+> > commit introduces a synchronize_net() call und b) s390 kernels
+> > usually get compiled with CONFIG_HZ_100 while most other architectures
+> > use CONFIG_HZ_1000.
+> > If I change the kernel config to CONFIG_HZ_1000 the problem goes away,
+> > however I don't consider this a fix...
+> > 
+> > Another reason why this hasn't been observed on x86 may or may not be
+> > that we haven't implemented CONFIG_HAVE_CONTEXT_TRACKING on s390 (yet).
+> > But that's just guessing...
+> 
+> CC Paul and Sasha
 
-Thanks for your testing. I'm glad to hear that I didn't break
-anything. Most of my testing
-was done with a custom board with a SFP transceiver.
+I think the issue here is obvious and a fix is on the way to move
+the insertion and removal to a worker to no longer require the
+synchronize_rcu().
 
-Regards,
-
-Walter
-
-On Fri, Oct 10, 2014 at 5:46 PM, Matthew Gerlach
-<mgerlach@opensource.altera.com> wrote:
-> Hi Walter,
->
-> I've examined your patch, and it makes sense to me.  I tested your patch again the TSE example design, and it did not break anything.
->
-> Thanks,
-> Matthew Gerlach
-> ________________________________________
-> From: nios2-dev-bounces@lists.rocketboards.org <nios2-dev-bounces@lists.rocketboards.org> on behalf of Walter Lozano <walter@vanguardiasur.com.ar>
-> Sent: Friday, October 3, 2014 11:08 AM
-> To: netdev@vger.kernel.org
-> Cc: f.fainelli@gmail.com; tobias.klauser@gmail.com; vbridgers2013@gmail.com; nios2-dev@lists.rocketboards.org; davem@davemloft.net; guido@vanguardiasur.com.ar
-> Subject: [Nios2-dev] [PATCH net-next 0/2] Altera TSE with no PHY
->
-> In some scenarios there is no PHY chip present, for example in optical links.
-> This serie of patches moves PHY get addr and MDIO create to a new function and
-> avoids PHY and MDIO probing in these cases.
->
-> Walter Lozano (2):
->   Altera TSE: Move PHY get addr and MDIO create
->   Altera TSE: Add support for no PHY
->
->  drivers/net/ethernet/altera/altera_tse_main.c |   65 +++++++++++++++++--------
->  1 file changed, 44 insertions(+), 21 deletions(-)
->
-> --
-> 1.7.10.4
->
-> _______________________________________________
-> Nios2-dev mailing list
-> Nios2-dev@lists.rocketboards.org
-> http://lists.rocketboards.org/cgi-bin/mailman/listinfo/nios2-dev
-
-
-
--- 
-Walter Lozano, VanguardiaSur
-www.vanguardiasur.com.ar
+What bothers me is that the synchronize_rcu() should only occur
+on expand/shrink and not for every table update. The default table
+size is 64.
