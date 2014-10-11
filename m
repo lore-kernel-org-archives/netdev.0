@@ -1,37 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [bisected] e341694e3eb5 netlink_lookup() rcu conversion causes
- latencies
-Date: Sat, 11 Oct 2014 19:08:29 -0400 (EDT)
-Message-ID: <20141011.190829.876705206204533685.davem@davemloft.net>
-References: <20141011083627.GB5074@osiris>
-	<1413055964.9362.50.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20141011222514.GA14186@casper.infradead.org>
+Subject: Re: Netlink mmap tx security?
+Date: Sat, 11 Oct 2014 19:09:57 -0400 (EDT)
+Message-ID: <20141011.190957.1296445052360891885.davem@davemloft.net>
+References: <CALCETrWsCqy7KEKPTOeHjrO1c2JE1E_seO_J+yA=sYFhS11NXQ@mail.gmail.com>
+	<CALCETrVuREGVKwrni61DEg=Tgjc7x41WYtrEiDMqMvwVFXfybw@mail.gmail.com>
+	<CALCETrWfQe5H2Ht7cjCQLfUw+XUcRvga_H93esaWpAp37=noZg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, heiko.carstens@de.ibm.com,
-	sasha.levin@oracle.com, paulmck@linux.vnet.ibm.com,
-	nikolay@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, braunu@de.ibm.com
-To: tgraf@suug.ch
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141011222514.GA14186@casper.infradead.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: torvalds@linux-foundation.org, kaber@trash.net,
+	netdev@vger.kernel.org
+To: luto@amacapital.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40551 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751624AbaJKXJ6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Oct 2014 19:09:58 -0400
+In-Reply-To: <CALCETrWfQe5H2Ht7cjCQLfUw+XUcRvga_H93esaWpAp37=noZg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Graf <tgraf@suug.ch>
-Date: Sat, 11 Oct 2014 23:25:14 +0100
+From: Andy Lutomirski <luto@amacapital.net>
+Date: Sat, 11 Oct 2014 15:29:17 -0700
 
-> I think the issue here is obvious and a fix is on the way to move
-> the insertion and removal to a worker to no longer require the
-> synchronize_rcu().
+> On May 12, 2014 3:08 PM, "Andy Lutomirski" <luto@amacapital.net> wrote:
+>>
+>> [moving to netdev -- this is much lower impact than I thought, since
+>> you can't set up a netlink mmap ring without global CAP_NET_ADMIN]
 > 
-> What bothers me is that the synchronize_rcu() should only occur
-> on expand/shrink and not for every table update. The default table
-> size is 64.
+> Did anything ever happen here?  Despite not being a privilege
+> escalation in the normal sense, it's still a bug, and it's still a
+> fairly easy bypass of module signatures.
 
-Not true, every netlink socket release incurs a synchronize_net()
-now, because we added such a call to netlink_release().
+We definitely still need to address this, and since Patrick has still
+not responded on this issue after being given 5 months to do so, the
+only reasonable path is to get rid of this feature altogether.
 
-I specifically brought this up to as a possible problem when the
-changes went in...
+Thanks for reminding me.
