@@ -1,68 +1,64 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: [PATCH V3.18] rtlwifi: rtl8192ee: Prevent log spamming for switch statements
-Date: Sat, 11 Oct 2014 12:59:53 -0500
-Message-ID: <1413050393-6257-1-git-send-email-Larry.Finger@lwfinger.net>
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, troy_tan-kXabqFNEczNtrwSWzY7KCg@public.gmane.org,
-	Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH V3.18] rtlwifi: rtl8192ee: Prevent log spamming for
+ switch statements
+Date: Sat, 11 Oct 2014 11:14:46 -0700
+Message-ID: <1413051286.22149.2.camel@joe-AO725>
+References: <1413050393-6257-1-git-send-email-Larry.Finger@lwfinger.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
+	troy_tan@realsil.com.cn, netdev@vger.kernel.org
+To: Larry Finger <Larry.Finger@lwfinger.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay0036.hostedemail.com ([216.40.44.36]:46240 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752502AbaJKSOt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Oct 2014 14:14:49 -0400
+In-Reply-To: <1413050393-6257-1-git-send-email-Larry.Finger@lwfinger.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The driver logs a message when the default branch of switch statements are
-taken. Such information is useful when debugging, but these log items should
-not be seen for standard usage.
+On Sat, 2014-10-11 at 12:59 -0500, Larry Finger wrote:
+> The driver logs a message when the default branch of switch statements are
+> taken. Such information is useful when debugging, but these log items should
+> not be seen for standard usage.
 
-Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Hey Larry.
+
+At some point, it'd be good to make RT_TRACE use
+the generic dynamic_debug facility.
+
+Something like the below, but I believe there are
+some issues with include ordering and #define DEBUG
+when dynamic_debug is not #defined.
+
 ---
- drivers/net/wireless/rtlwifi/rtl8192ee/hw.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/wireless/rtlwifi/rtl8192ee/hw.c b/drivers/net/wireless/rtlwifi/rtl8192ee/hw.c
-index dfdc9b2..1a87edc 100644
---- a/drivers/net/wireless/rtlwifi/rtl8192ee/hw.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8192ee/hw.c
-@@ -362,7 +362,7 @@ void rtl92ee_get_hw_reg(struct ieee80211_hw *hw, u8 variable, u8 *val)
- 		}
- 		break;
- 	default:
--		RT_TRACE(rtlpriv, COMP_ERR, DBG_EMERG,
-+		RT_TRACE(rtlpriv, COMP_ERR, DBG_DMESG,
- 			 "switch case not process %x\n", variable);
- 		break;
- 	}
-@@ -591,7 +591,7 @@ void rtl92ee_set_hw_reg(struct ieee80211_hw *hw, u8 variable, u8 *val)
- 				acm_ctrl &= (~ACMHW_BEQEN);
- 				break;
- 			default:
--				RT_TRACE(rtlpriv, COMP_ERR, DBG_EMERG,
-+				RT_TRACE(rtlpriv, COMP_ERR, DBG_DMESG,
- 					 "switch case not process\n");
- 				break;
- 			}
-@@ -710,7 +710,7 @@ void rtl92ee_set_hw_reg(struct ieee80211_hw *hw, u8 variable, u8 *val)
- 		}
- 		break;
- 	default:
--		RT_TRACE(rtlpriv, COMP_ERR, DBG_EMERG,
-+		RT_TRACE(rtlpriv, COMP_ERR, DBG_DMESG,
- 			 "switch case not process %x\n", variable);
- 		break;
- 	}
-@@ -2424,7 +2424,7 @@ void rtl92ee_set_key(struct ieee80211_hw *hw, u32 key_index,
- 			enc_algo = CAM_AES;
- 			break;
- 		default:
--			RT_TRACE(rtlpriv, COMP_ERR, DBG_EMERG,
-+			RT_TRACE(rtlpriv, COMP_ERR, DBG_DMESG,
- 				 "switch case not process\n");
- 			enc_algo = CAM_TKIP;
- 			break;
--- 
-1.8.4.5
+ drivers/net/wireless/rtlwifi/debug.h | 7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/wireless/rtlwifi/debug.h b/drivers/net/wireless/rtlwifi/debug.h
+index fc794b3..fbc8185 100644
+--- a/drivers/net/wireless/rtlwifi/debug.h
++++ b/drivers/net/wireless/rtlwifi/debug.h
+@@ -178,17 +178,14 @@ do {									\
+ do {									\
+ 	if (unlikely(((comp) & rtlpriv->dbg.global_debugcomponents) &&	\
+ 		     ((level) <= rtlpriv->dbg.global_debuglevel))) {	\
+-		printk(KERN_DEBUG KBUILD_MODNAME ":%s():<%lx-%x> " fmt,	\
+-		       __func__, in_interrupt(), in_atomic(),		\
+-		       ##__VA_ARGS__);					\
++		pr_debug(fmt, ##__VA_ARGS__);				\
+ 	}								\
+ } while (0)
+ 
+ #define RTPRINT(rtlpriv, dbgtype, dbgflag, fmt, ...)			\
+ do {									\
+ 	if (unlikely(rtlpriv->dbg.dbgp_type[dbgtype] & dbgflag)) {	\
+-		printk(KERN_DEBUG KBUILD_MODNAME ": " fmt,		\
+-		       ##__VA_ARGS__);					\
++		pr_debug(fmt, ##__VA_ARGS__);				\
+ 	}								\
+ } while (0)
+ 
