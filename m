@@ -1,57 +1,70 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [bisected] e341694e3eb5 netlink_lookup() rcu conversion causes
- latencies
-Date: Sat, 11 Oct 2014 23:25:14 +0100
-Message-ID: <20141011222514.GA14186@casper.infradead.org>
-References: <20141011083627.GB5074@osiris>
- <1413055964.9362.50.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Andy Lutomirski <luto@amacapital.net>
+Subject: Re: Netlink mmap tx security?
+Date: Sat, 11 Oct 2014 15:29:17 -0700
+Message-ID: <CALCETrWfQe5H2Ht7cjCQLfUw+XUcRvga_H93esaWpAp37=noZg@mail.gmail.com>
+References: <CALCETrWsCqy7KEKPTOeHjrO1c2JE1E_seO_J+yA=sYFhS11NXQ@mail.gmail.com>
+ <CALCETrVuREGVKwrni61DEg=Tgjc7x41WYtrEiDMqMvwVFXfybw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Heiko Carstens <heiko.carstens@de.ibm.com>,
-	Sasha Levin <sasha.levin@oracle.com>,
-	paulmck@linux.vnet.ibm.com,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Ursula Braun <braunu@de.ibm.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1413055964.9362.50.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+To: Linus Torvalds <torvalds@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	Network Development <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f51.google.com ([209.85.215.51]:65181 "EHLO
+	mail-la0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751582AbaJKW3k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Oct 2014 18:29:40 -0400
+Received: by mail-la0-f51.google.com with SMTP id ge10so5036917lab.10
+        for <netdev@vger.kernel.org>; Sat, 11 Oct 2014 15:29:38 -0700 (PDT)
+In-Reply-To: <CALCETrVuREGVKwrni61DEg=Tgjc7x41WYtrEiDMqMvwVFXfybw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/11/14 at 12:32pm, Eric Dumazet wrote:
-> On Sat, 2014-10-11 at 10:36 +0200, Heiko Carstens wrote:
-> > Hi all,
-> > 
-> > it just came to my attention that commit e341694e3eb5
-> > "netlink: Convert netlink_lookup() to use RCU protected hash table"
-> > causes network latencies for me on s390.
-> > 
-> > The testcase is quite simple and 100% reproducible on s390:
-> > 
-> > Simply login via ssh to a remote system which has the above mentioned
-> > patch applied. Any action like pressing return now has significant
-> > latencies. Or in other words, working via such a connection becomes
-> > a pain ;)
-> > 
-> > I haven't debugged it, however I assume the problem is that a) the
-> > commit introduces a synchronize_net() call und b) s390 kernels
-> > usually get compiled with CONFIG_HZ_100 while most other architectures
-> > use CONFIG_HZ_1000.
-> > If I change the kernel config to CONFIG_HZ_1000 the problem goes away,
-> > however I don't consider this a fix...
-> > 
-> > Another reason why this hasn't been observed on x86 may or may not be
-> > that we haven't implemented CONFIG_HAVE_CONTEXT_TRACKING on s390 (yet).
-> > But that's just guessing...
-> 
-> CC Paul and Sasha
+On May 12, 2014 3:08 PM, "Andy Lutomirski" <luto@amacapital.net> wrote:
+>
+> [moving to netdev -- this is much lower impact than I thought, since
+> you can't set up a netlink mmap ring without global CAP_NET_ADMIN]
 
-I think the issue here is obvious and a fix is on the way to move
-the insertion and removal to a worker to no longer require the
-synchronize_rcu().
+Did anything ever happen here?  Despite not being a privilege
+escalation in the normal sense, it's still a bug, and it's still a
+fairly easy bypass of module signatures.
 
-What bothers me is that the synchronize_rcu() should only occur
-on expand/shrink and not for every table update. The default table
-size is 64.
+
+--Andy
+
+>
+> On Wed, May 7, 2014 at 5:46 PM, Andy Lutomirski <luto@amacapital.net> wrote:
+> > Disclaimer: I haven't tried to write a proof-of-concept, so I could be
+> > wrong here.
+> >
+> >     /* Netlink messages are validated by the receiver before processing.
+> >      * In order to avoid userspace changing the contents of the message
+> >      * after validation, the socket and the ring may only be used by a
+> >      * single process, otherwise we fall back to copying.
+> >      */
+> >     if (atomic_long_read(&sk->sk_socket->file->f_count) > 2 ||
+> >         atomic_read(&nlk->mapped) > 1)
+> >         excl = false;
+> >
+> > How is this possibly safe?  I think it's broken for at least three reasons:
+> >
+> > 1. Shouldn't that be atomic_long(read(&f_count) > 1))?
+> >
+> > 2. threads
+> >
+> > 3. process_vm_writev
+> >
+> > I wouldn't be surprised if RDMA and AIO also break this assumption.
+> >
+> > Does anything rely on mmapped netlink tx being fast?  If not, can this
+> > code just be deleted?
+> >
+> > For that matter, does anything rely on mmapped netlink tx at all?
+> >
+> > (On a non-KASLR, non-SMEP system, this probably gives reliable kernel
+> > code execution.)
+> >
+> > For that matter, netlink_mmap_sendmsg also appears to vulnerable to a
+> > TOCTOU attack via hdr.
+> >
