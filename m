@@ -1,130 +1,125 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH v3 05/25] virtio_blk: drop config_enable
-Date: Sun, 12 Oct 2014 14:46:52 +0300
-Message-ID: <1413114332-626-6-git-send-email-mst@redhat.com>
+Subject: [PATCH v3 07/25] virtio_net: drop config_enable
+Date: Sun, 12 Oct 2014 14:47:02 +0300
+Message-ID: <1413114332-626-8-git-send-email-mst@redhat.com>
 References: <1413114332-626-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linux-s390@vger.kernel.org, kvm@vger.kernel.org, linux-scsi@vger.kernel.org,
-	Christian Borntraeger <borntraeger@de.ibm.com>, netdev@vger.kernel.org,
+Content-Type: text/plain; charset=us-ascii
+Cc: Rusty Russell <rusty@rustcorp.com.au>,
 	virtualization@lists.linux-foundation.org,
-	Paolo Bonzini <pbonzini@redhat.com>, Amit Shah <amit.shah@redhat.com>,
-	v9fs-developer@lists.sourceforge.net,
-	"David S. Miller" <davem@davemloft.net>
+	linux-scsi@vger.kernel.org, linux-s390@vger.kernel.org,
+	v9fs-developer@lists.sourceforge.net, netdev@vger.kernel.org,
+	kvm@vger.kernel.org, Amit Shah <amit.shah@redhat.com>,
+	Cornelia Huck <cornelia.huck@de.ibm.com>,
+	Christian Borntraeger <borntraeger@de.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Paolo Bonzini <pbonzini@redhat.com>
 To: linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Return-path: <linux-scsi-owner@vger.kernel.org>
 Content-Disposition: inline
 In-Reply-To: <1413114332-626-1-git-send-email-mst@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Now that virtio core ensures config changes don't
-arrive during probing, drop config_enable flag
-in virtio blk.
-On removal, flush is now sufficient to guarantee that
-no change work is queued.
+Now that virtio core ensures config changes don't arrive during probing,
+drop config_enable flag in virtio net.
+On removal, flush is now sufficient to guarantee that no change work is
+queued.
 
-This help simplify the driver, and will allow
-setting DRIVER_OK earlier without losing config
-change notifications.
+This help simplify the driver, and will allow setting DRIVER_OK earlier
+without losing config change notifications.
 
 Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 Reviewed-by: Cornelia Huck <cornelia.huck@de.ibm.com>
 ---
- drivers/block/virtio_blk.c | 23 ++++-------------------
- 1 file changed, 4 insertions(+), 19 deletions(-)
+ drivers/net/virtio_net.c | 27 ++++-----------------------
+ 1 file changed, 4 insertions(+), 23 deletions(-)
 
-diff --git a/drivers/block/virtio_blk.c b/drivers/block/virtio_blk.c
-index 0a58140..91272f1a 100644
---- a/drivers/block/virtio_blk.c
-+++ b/drivers/block/virtio_blk.c
-@@ -44,9 +44,6 @@ struct virtio_blk
- 	/* Lock for config space updates */
- 	struct mutex config_lock;
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 59caa06..743fb04 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -123,9 +123,6 @@ struct virtnet_info {
+ 	/* Host can handle any s/g split between our header and packet data */
+ 	bool any_header_sg;
  
 -	/* enable config space updates */
 -	bool config_enable;
 -
- 	/* What host tells us, plus 2 for header & tailer. */
- 	unsigned int sg_elems;
+ 	/* Active statistics */
+ 	struct virtnet_stats __percpu *stats;
  
-@@ -348,8 +345,6 @@ static void virtblk_config_changed_work(struct work_struct *work)
- 	u64 capacity, size;
+@@ -1408,9 +1405,6 @@ static void virtnet_config_changed_work(struct work_struct *work)
+ 	u16 v;
  
- 	mutex_lock(&vblk->config_lock);
--	if (!vblk->config_enable)
+ 	mutex_lock(&vi->config_lock);
+-	if (!vi->config_enable)
 -		goto done;
+-
+ 	if (virtio_cread_feature(vi->vdev, VIRTIO_NET_F_STATUS,
+ 				 struct virtio_net_config, status, &v) < 0)
+ 		goto done;
+@@ -1758,7 +1752,6 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 	}
  
- 	/* Host must always specify the capacity. */
- 	virtio_cread(vdev, struct virtio_blk_config, capacity, &capacity);
-@@ -374,7 +369,7 @@ static void virtblk_config_changed_work(struct work_struct *work)
- 	set_capacity(vblk->disk, capacity);
- 	revalidate_disk(vblk->disk);
- 	kobject_uevent_env(&disk_to_dev(vblk->disk)->kobj, KOBJ_CHANGE, envp);
--done:
-+
- 	mutex_unlock(&vblk->config_lock);
+ 	mutex_init(&vi->config_lock);
+-	vi->config_enable = true;
+ 	INIT_WORK(&vi->config_work, virtnet_config_changed_work);
+ 
+ 	/* If we can receive ANY GSO packets, we must allocate large ones. */
+@@ -1875,17 +1868,13 @@ static void virtnet_remove(struct virtio_device *vdev)
+ 
+ 	unregister_hotcpu_notifier(&vi->nb);
+ 
+-	/* Prevent config work handler from accessing the device. */
+-	mutex_lock(&vi->config_lock);
+-	vi->config_enable = false;
+-	mutex_unlock(&vi->config_lock);
++	/* Make sure no work handler is accessing the device. */
++	flush_work(&vi->config_work);
+ 
+ 	unregister_netdev(vi->dev);
+ 
+ 	remove_vq_common(vi);
+ 
+-	flush_work(&vi->config_work);
+-
+ 	free_percpu(vi->stats);
+ 	free_netdev(vi->dev);
+ }
+@@ -1898,10 +1887,8 @@ static int virtnet_freeze(struct virtio_device *vdev)
+ 
+ 	unregister_hotcpu_notifier(&vi->nb);
+ 
+-	/* Prevent config work handler from accessing the device */
+-	mutex_lock(&vi->config_lock);
+-	vi->config_enable = false;
+-	mutex_unlock(&vi->config_lock);
++	/* Make sure no work handler is accessing the device */
++	flush_work(&vi->config_work);
+ 
+ 	netif_device_detach(vi->dev);
+ 	cancel_delayed_work_sync(&vi->refill);
+@@ -1916,8 +1903,6 @@ static int virtnet_freeze(struct virtio_device *vdev)
+ 
+ 	remove_vq_common(vi);
+ 
+-	flush_work(&vi->config_work);
+-
+ 	return 0;
  }
  
-@@ -609,7 +604,6 @@ static int virtblk_probe(struct virtio_device *vdev)
- 	mutex_init(&vblk->config_lock);
+@@ -1941,10 +1926,6 @@ static int virtnet_restore(struct virtio_device *vdev)
  
- 	INIT_WORK(&vblk->config_work, virtblk_config_changed_work);
--	vblk->config_enable = true;
+ 	netif_device_attach(vi->dev);
  
- 	err = init_vq(vblk);
- 	if (err)
-@@ -771,10 +765,8 @@ static void virtblk_remove(struct virtio_device *vdev)
- 	int index = vblk->index;
- 	int refc;
- 
--	/* Prevent config work handler from accessing the device. */
--	mutex_lock(&vblk->config_lock);
--	vblk->config_enable = false;
--	mutex_unlock(&vblk->config_lock);
-+	/* Make sure no work handler is accessing the device. */
-+	flush_work(&vblk->config_work);
- 
- 	del_gendisk(vblk->disk);
- 	blk_cleanup_queue(vblk->disk->queue);
-@@ -784,8 +776,6 @@ static void virtblk_remove(struct virtio_device *vdev)
- 	/* Stop all the virtqueues. */
- 	vdev->config->reset(vdev);
- 
--	flush_work(&vblk->config_work);
+-	mutex_lock(&vi->config_lock);
+-	vi->config_enable = true;
+-	mutex_unlock(&vi->config_lock);
 -
- 	refc = atomic_read(&disk_to_dev(vblk->disk)->kobj.kref.refcount);
- 	put_disk(vblk->disk);
- 	vdev->config->del_vqs(vdev);
-@@ -805,11 +795,7 @@ static int virtblk_freeze(struct virtio_device *vdev)
- 	/* Ensure we don't receive any more interrupts */
- 	vdev->config->reset(vdev);
- 
--	/* Prevent config work handler from accessing the device. */
--	mutex_lock(&vblk->config_lock);
--	vblk->config_enable = false;
--	mutex_unlock(&vblk->config_lock);
--
-+	/* Make sure no work handler is accessing the device. */
- 	flush_work(&vblk->config_work);
- 
- 	blk_mq_stop_hw_queues(vblk->disk->queue);
-@@ -823,7 +809,6 @@ static int virtblk_restore(struct virtio_device *vdev)
- 	struct virtio_blk *vblk = vdev->priv;
- 	int ret;
- 
--	vblk->config_enable = true;
- 	ret = init_vq(vdev->priv);
- 	if (!ret)
- 		blk_mq_start_stopped_hw_queues(vblk->disk->queue, true);
+ 	rtnl_lock();
+ 	virtnet_set_queues(vi, vi->curr_queue_pairs);
+ 	rtnl_unlock();
 -- 
 MST
+
