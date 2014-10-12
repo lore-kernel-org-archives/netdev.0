@@ -1,44 +1,46 @@
-From: Rickard Strandqvist <rickard_strandqvist-IW2WV5XWFqGZkjO+N0TKoMugMpMbD5Xr@public.gmane.org>
-Subject: Re: [PATCH] net: wireless: brcm80211: brcmfmac: dhd_sdio.c: Cleaning
- up missing null-terminate in conjunction with strncpy
-Date: Sun, 12 Oct 2014 13:05:40 +0200
-Message-ID: <CAFo99gY9dyzhuJe4LwiJKgRwLRU+uVKzLpscFrZw_xZDhVKEWA@mail.gmail.com>
-References: <1413071551-15372-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
- <543A36A0.8090300@broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Brett Rudley <brudley-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Hante Meuleman <meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Pieter-Paul Giesberts <pieterpg-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Daniel Kim <dekim-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, brcm80211-dev-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <543A36A0.8090300-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+Subject: [PATCH v2] brcmfmac: dhd_sdio.c:  Cleaning up missing null-terminate in conjunction with strncpy
+Date: Sun, 12 Oct 2014 13:42:13 +0200
+Message-ID: <1413114134-18044-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+Cc: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>,
+	Hante Meuleman <meuleman@broadcom.com>,
+	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
+	Daniel Kim <dekim@broadcom.com>,
+	linux-wireless@vger.kernel.org, brcm80211-dev-list@broadcom.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Brett Rudley <brudley@broadcom.com>,
+	Arend van Spriel <arend@broadcom.com>, linville@tuxdriver.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-2014-10-12 10:06 GMT+02:00 Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>:
-> On 12-10-14 01:52, Rickard Strandqvist wrote:
->> Replacing strncpy with strlcpy to avoid strings that lacks null terminate.
->> And changed from using strncpy to strlcpy to simplify code.
->
-> Looks good to me. Just two small process related remarks:
->
-> - It is sufficient to prefix the patch with brcmfmac (skip net:...).
-> - Send the patch to the wireless maintainer, ie. John Linville.
+Now when I did the patch again I just want to ensure that this is not any other errors.
 
-Hi
+Although strncpy use before was wrong, it did filled the remaining part of the string with null
+characters. This is not something that is needed?
 
-Sure, no problem.
-Sending a new patch in a moment...
+
+And a part that is not obvious right, so check.
+When brcmf_firmware_path[0] == '\0'   we do not want to do like.
+
+if (brcmf_firmware_path[0] != '\0') {
+...
+} else {
+  sdiodev->fw_name[0] = '\0';
+  sdiodev->nvram_name[0] = '\0';
+}
+
 
 Kind regards
 Rickard Strandqvist
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
+Rickard Strandqvist (1):
+  net: wireless: brcm80211: brcmfmac: dhd_sdio.c:  Cleaning up missing null-terminate in conjunction with
+    strncpy
+
+ drivers/net/wireless/brcm80211/brcmfmac/dhd_sdio.c |   25 ++++++++++----------
+ 1 file changed, 12 insertions(+), 13 deletions(-)
+
+-- 
+1.7.10.4
