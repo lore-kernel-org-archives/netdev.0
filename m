@@ -1,83 +1,98 @@
-From: Rickard Strandqvist <rickard_strandqvist-IW2WV5XWFqGZkjO+N0TKoMugMpMbD5Xr@public.gmane.org>
-Subject: [PATCH v2] brcmfmac: dhd_sdio.c:  Cleaning up missing null-terminate in conjunction with strncpy
-Date: Sun, 12 Oct 2014 13:42:14 +0200
-Message-ID: <1413114134-18044-2-git-send-email-rickard_strandqvist@spectrumdigital.se>
-References: <1413114134-18044-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
-Cc: Rickard Strandqvist <rickard_strandqvist-IW2WV5XWFqGZkjO+N0TKoMugMpMbD5Xr@public.gmane.org>,
-	Hante Meuleman <meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Pieter-Paul Giesberts <pieterpg-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Daniel Kim <dekim-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, brcm80211-dev-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Brett Rudley <brudley-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1413114134-18044-1-git-send-email-rickard_strandqvist-IW2WV5XWFqGZkjO+N0TKoMugMpMbD5Xr@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Vladislav Yasevich <vyasevich@gmail.com>
+Subject: Re: IPv6 FIB related crash with MACVLANs in 3.9.11+ kernel.
+Date: Sun, 12 Oct 2014 07:42:24 -0400
+Message-ID: <CAGCdqXHh6AvabW2JwQEK5NcnTuxw9eMdRwd+JvYZUYqyHW4K7Q@mail.gmail.com>
+References: <52EFFE20.5080500@candelatech.com>
+	<20140203220323.GB17999@order.stressinduktion.org>
+	<52F012FF.9030105@candelatech.com>
+	<52F65EB4.1050306@candelatech.com>
+	<20140208172310.GF16198@order.stressinduktion.org>
+	<loom.20140926T001736-777@post.gmane.org>
+	<1411906297.2400343.172598909.66223582@webmail.messagingengine.com>
+	<loom.20140929T195637-887@post.gmane.org>
+	<5429A886.1040809@candelatech.com>
+	<1412017399.14757.4.camel@localhost>
+	<5429B783.20207@candelatech.com>
+	<CAHA+R7O_xghD4a5RD=omhnuMD72pRmKU9VMoxPUVuGcu682jBg@mail.gmail.com>
+	<5429CE26.6000108@candelatech.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Cong Wang <cwang@twopensource.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Hongmei Li <duckcncn@gmail.com>,
+	netdev <netdev@vger.kernel.org>
+To: Ben Greear <greearb@candelatech.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f171.google.com ([209.85.212.171]:42443 "EHLO
+	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751278AbaJLLmZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 12 Oct 2014 07:42:25 -0400
+Received: by mail-wi0-f171.google.com with SMTP id em10so5343790wid.4
+        for <netdev@vger.kernel.org>; Sun, 12 Oct 2014 04:42:24 -0700 (PDT)
+In-Reply-To: <5429CE26.6000108@candelatech.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Replacing strncpy with strlcpy to avoid strings that lacks null terminate.
-And changed from using strncat to strlcat to simplify code.
+On Mon, Sep 29, 2014 at 5:24 PM, Ben Greear <greearb@candelatech.com> wrote:
+> On 09/29/2014 01:39 PM, Cong Wang wrote:
+>> On Mon, Sep 29, 2014 at 12:48 PM, Ben Greear <greearb@candelatech.com> wrote:
+>>>
+>>> We are going to be running up to 20 concurrent scripts that
+>>> will be dumping routes & ips, and configuring ip addresses
+>>> and routes during bringup.
+>>>
+>>> I don't have a simple stand-alone way to reproduce this,
+>>> but at least when we reported the problem is was very easy
+>>> for us to reproduce with our tool.
+>>>
+>>> Maybe 20 scripts running in parallel that randomly configured and dumped routes
+>>> and ip addresses on random interfaces would do the trick?
+>>>
+>>
+>> I think the most important question is why is this related with macvlan?
+>> IPv6 is L3 while macvlan pure L2, if this is a IPv6 routing bug, it should
+>> not be limited to macvlan.
+>
+> We saw it using mac-vlans on top of ixgbe.  Probably it can be reproduced
+> elsewhere, but since we had a good test case, we didn't bother trying lots
+> of other combinations.
+>
+> Just enabling some debug code caused the problem to be much harder
+> to reproduce, so it is probably some sort of race.  Maybe lots of mac-vlans
+> make it easier to hit.
+>
+>> What does your IPv6 routing table look like? And how do you configure those
+>> macvlan interfaces?
+>
+> Each interface would have it's own routing table, with at least as subnet
+> route.  I'm not sure we were adding a default gateway or not.
+>
+> The main routing table would also have some auto-created routes
+> I think.
+>
+> It is configured using 'ip' to add and dump routes.
+>
 
-Signed-off-by: Rickard Strandqvist <rickard_strandqvist-IW2WV5XWFqGZkjO+N0TKoMugMpMbD5Xr@public.gmane.org>
----
- drivers/net/wireless/brcm80211/brcmfmac/dhd_sdio.c |   25 ++++++++++----------
- 1 file changed, 12 insertions(+), 13 deletions(-)
+Ben
 
-diff --git a/drivers/net/wireless/brcm80211/brcmfmac/dhd_sdio.c b/drivers/net/wireless/brcm80211/brcmfmac/dhd_sdio.c
-index f55f625..d20d4e6 100644
---- a/drivers/net/wireless/brcm80211/brcmfmac/dhd_sdio.c
-+++ b/drivers/net/wireless/brcm80211/brcmfmac/dhd_sdio.c
-@@ -670,7 +670,6 @@ static int brcmf_sdio_get_fwnames(struct brcmf_chip *ci,
- 				  struct brcmf_sdio_dev *sdiodev)
- {
- 	int i;
--	uint fw_len, nv_len;
- 	char end;
- 
- 	for (i = 0; i < ARRAY_SIZE(brcmf_fwname_data); i++) {
-@@ -684,25 +683,25 @@ static int brcmf_sdio_get_fwnames(struct brcmf_chip *ci,
- 		return -ENODEV;
- 	}
- 
--	fw_len = sizeof(sdiodev->fw_name) - 1;
--	nv_len = sizeof(sdiodev->nvram_name) - 1;
- 	/* check if firmware path is provided by module parameter */
- 	if (brcmf_firmware_path[0] != '\0') {
--		strncpy(sdiodev->fw_name, brcmf_firmware_path, fw_len);
--		strncpy(sdiodev->nvram_name, brcmf_firmware_path, nv_len);
--		fw_len -= strlen(sdiodev->fw_name);
--		nv_len -= strlen(sdiodev->nvram_name);
-+		strlcpy(sdiodev->fw_name, brcmf_firmware_path,
-+			sizeof(sdiodev->fw_name));
-+		strlcpy(sdiodev->nvram_name, brcmf_firmware_path,
-+			sizeof(sdiodev->nvram_name));
- 
- 		end = brcmf_firmware_path[strlen(brcmf_firmware_path) - 1];
- 		if (end != '/') {
--			strncat(sdiodev->fw_name, "/", fw_len);
--			strncat(sdiodev->nvram_name, "/", nv_len);
--			fw_len--;
--			nv_len--;
-+			strlcat(sdiodev->fw_name, "/",
-+				sizeof(sdiodev->fw_name));
-+			strlcat(sdiodev->nvram_name, "/",
-+				sizeof(sdiodev->nvram_name));
- 		}
- 	}
--	strncat(sdiodev->fw_name, brcmf_fwname_data[i].bin, fw_len);
--	strncat(sdiodev->nvram_name, brcmf_fwname_data[i].nv, nv_len);
-+	strlcat(sdiodev->fw_name, brcmf_fwname_data[i].bin,
-+		sizeof(sdiodev->fw_name));
-+	strlcat(sdiodev->nvram_name, brcmf_fwname_data[i].nv,
-+		sizeof(sdiodev->nvram_name));
- 
- 	return 0;
- }
--- 
-1.7.10.4
+Just saw this thread.  Can you check if this commit makes a difference:
+commit 40b8fe45d1f094e3babe7b2dc2b71557ab71401d
+Author: Vlad Yasevich <vyasevich@gmail.com>
+Date:   Mon Sep 22 16:34:17 2014 -0400
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+    macvtap: Fix race between device delete and open.
+
+Thanks
+-vlad
+
+> Thanks,
+> Ben
+>
+> --
+> Ben Greear <greearb@candelatech.com>
+> Candela Technologies Inc  http://www.candelatech.com
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
