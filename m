@@ -1,87 +1,68 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH v3 06/25] virtio-blk: drop config_mutex
-Date: Sun, 12 Oct 2014 14:46:57 +0300
-Message-ID: <1413114332-626-7-git-send-email-mst@redhat.com>
+Subject: [PATCH v3 09/25] virtio_net: minor cleanup
+Date: Sun, 12 Oct 2014 14:47:12 +0300
+Message-ID: <1413114332-626-10-git-send-email-mst@redhat.com>
 References: <1413114332-626-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linux-s390@vger.kernel.org, kvm@vger.kernel.org, linux-scsi@vger.kernel.org,
-	Christian Borntraeger <borntraeger@de.ibm.com>, netdev@vger.kernel.org,
+Content-Type: text/plain; charset=us-ascii
+Cc: Rusty Russell <rusty@rustcorp.com.au>,
 	virtualization@lists.linux-foundation.org,
-	Paolo Bonzini <pbonzini@redhat.com>, Amit Shah <amit.shah@redhat.com>,
-	v9fs-developer@lists.sourceforge.net,
-	"David S. Miller" <davem@davemloft.net>
+	linux-scsi@vger.kernel.org, linux-s390@vger.kernel.org,
+	v9fs-developer@lists.sourceforge.net, netdev@vger.kernel.org,
+	kvm@vger.kernel.org, Amit Shah <amit.shah@redhat.com>,
+	Cornelia Huck <cornelia.huck@de.ibm.com>,
+	Christian Borntraeger <borntraeger@de.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Paolo Bonzini <pbonzini@redhat.com>
 To: linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
 In-Reply-To: <1413114332-626-1-git-send-email-mst@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-config_mutex served two purposes: prevent multiple concurrent config
-change handlers, and synchronize access to config_enable flag.
-
-Since commit dbf2576e37da0fcc7aacbfbb9fd5d3de7888a3c1
-    workqueue: make all workqueues non-reentrant
-all workqueues are non-reentrant, and config_enable
-is now gone.
-
-Get rid of the unnecessary lock.
+	goto done;
+done:
+	return;
+is ugly, it was put there to make diff review easier.
+replace by open-coded return.
 
 Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-Reviewed-by: Cornelia Huck <cornelia.huck@de.ibm.com>
+Acked-by: Cornelia Huck <cornelia.huck@de.ibm.com>
 ---
- drivers/block/virtio_blk.c | 8 --------
- 1 file changed, 8 deletions(-)
+ drivers/net/virtio_net.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/block/virtio_blk.c b/drivers/block/virtio_blk.c
-index 91272f1a..89ba8d6 100644
---- a/drivers/block/virtio_blk.c
-+++ b/drivers/block/virtio_blk.c
-@@ -41,9 +41,6 @@ struct virtio_blk
- 	/* Process context for config space updates */
- 	struct work_struct config_work;
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 23e4a69..ef04d23 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -1403,7 +1403,7 @@ static void virtnet_config_changed_work(struct work_struct *work)
  
--	/* Lock for config space updates */
--	struct mutex config_lock;
--
- 	/* What host tells us, plus 2 for header & tailer. */
- 	unsigned int sg_elems;
+ 	if (virtio_cread_feature(vi->vdev, VIRTIO_NET_F_STATUS,
+ 				 struct virtio_net_config, status, &v) < 0)
+-		goto done;
++		return;
  
-@@ -344,8 +341,6 @@ static void virtblk_config_changed_work(struct work_struct *work)
- 	char *envp[] = { "RESIZE=1", NULL };
- 	u64 capacity, size;
+ 	if (v & VIRTIO_NET_S_ANNOUNCE) {
+ 		netdev_notify_peers(vi->dev);
+@@ -1414,7 +1414,7 @@ static void virtnet_config_changed_work(struct work_struct *work)
+ 	v &= VIRTIO_NET_S_LINK_UP;
  
--	mutex_lock(&vblk->config_lock);
--
- 	/* Host must always specify the capacity. */
- 	virtio_cread(vdev, struct virtio_blk_config, capacity, &capacity);
+ 	if (vi->status == v)
+-		goto done;
++		return;
  
-@@ -369,8 +364,6 @@ static void virtblk_config_changed_work(struct work_struct *work)
- 	set_capacity(vblk->disk, capacity);
- 	revalidate_disk(vblk->disk);
- 	kobject_uevent_env(&disk_to_dev(vblk->disk)->kobj, KOBJ_CHANGE, envp);
--
--	mutex_unlock(&vblk->config_lock);
+ 	vi->status = v;
+ 
+@@ -1425,8 +1425,6 @@ static void virtnet_config_changed_work(struct work_struct *work)
+ 		netif_carrier_off(vi->dev);
+ 		netif_tx_stop_all_queues(vi->dev);
+ 	}
+-done:
+-	return;
  }
  
- static void virtblk_config_changed(struct virtio_device *vdev)
-@@ -601,7 +594,6 @@ static int virtblk_probe(struct virtio_device *vdev)
- 
- 	vblk->vdev = vdev;
- 	vblk->sg_elems = sg_elems;
--	mutex_init(&vblk->config_lock);
- 
- 	INIT_WORK(&vblk->config_work, virtblk_config_changed_work);
- 
+ static void virtnet_config_changed(struct virtio_device *vdev)
 -- 
 MST
