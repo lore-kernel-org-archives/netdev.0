@@ -1,7 +1,7 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH v3 22/25] virtio_scsi: fix race on device removal
-Date: Sun, 12 Oct 2014 14:48:22 +0300
-Message-ID: <1413114332-626-23-git-send-email-mst@redhat.com>
+Subject: [PATCH v3 24/25] virtio_scsi: drop scan callback
+Date: Sun, 12 Oct 2014 14:48:33 +0300
+Message-ID: <1413114332-626-25-git-send-email-mst@redhat.com>
 References: <1413114332-626-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -22,56 +22,64 @@ In-Reply-To: <1413114332-626-1-git-send-email-mst@redhat.com>
 Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We cancel event work on device removal, but an interrupt
-could trigger immediately after this, and queue it
-again.
+Enable VQs early like we do for restore.
+This makes it possible to drop the scan callback,
+moving scanning into the probe function, and making
+code simpler.
 
-To fix, set a flag.
-
-Loosely based on patch by Paolo Bonzini
-
-Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
 Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
- drivers/scsi/virtio_scsi.c | 11 ++++++++++-
- 1 file changed, 10 insertions(+), 1 deletion(-)
+ drivers/scsi/virtio_scsi.c | 23 +++++++----------------
+ 1 file changed, 7 insertions(+), 16 deletions(-)
 
 diff --git a/drivers/scsi/virtio_scsi.c b/drivers/scsi/virtio_scsi.c
-index 501838d..327eba0 100644
+index 327eba0..5f022ff 100644
 --- a/drivers/scsi/virtio_scsi.c
 +++ b/drivers/scsi/virtio_scsi.c
-@@ -110,6 +110,9 @@ struct virtio_scsi {
- 	/* CPU hotplug notifier */
- 	struct notifier_block nb;
- 
-+	/* Protected by event_vq lock */
-+	bool stop_events;
-+
- 	struct virtio_scsi_vq ctrl_vq;
- 	struct virtio_scsi_vq event_vq;
- 	struct virtio_scsi_vq req_vqs[];
-@@ -303,6 +306,11 @@ static void virtscsi_cancel_event_work(struct virtio_scsi *vscsi)
- {
- 	int i;
- 
-+	/* Stop scheduling work before calling cancel_work_sync.  */
-+	spin_lock_irq(&vscsi->event_vq.vq_lock);
-+	vscsi->stop_events = true;
-+	spin_unlock_irq(&vscsi->event_vq.vq_lock);
-+
- 	for (i = 0; i < VIRTIO_SCSI_EVENT_LEN; i++)
- 		cancel_work_sync(&vscsi->event_list[i].work);
- }
-@@ -390,7 +398,8 @@ static void virtscsi_complete_event(struct virtio_scsi *vscsi, void *buf)
- {
- 	struct virtio_scsi_event_node *event_node = buf;
- 
--	queue_work(system_freezable_wq, &event_node->work);
-+	if (!vscsi->stop_events)
-+		queue_work(system_freezable_wq, &event_node->work);
+@@ -860,17 +860,6 @@ static void virtscsi_init_vq(struct virtio_scsi_vq *virtscsi_vq,
+ 	virtscsi_vq->vq = vq;
  }
  
- static void virtscsi_event_done(struct virtqueue *vq)
+-static void virtscsi_scan(struct virtio_device *vdev)
+-{
+-	struct Scsi_Host *shost = virtio_scsi_host(vdev);
+-	struct virtio_scsi *vscsi = shost_priv(shost);
+-
+-	if (virtio_has_feature(vdev, VIRTIO_SCSI_F_HOTPLUG))
+-		virtscsi_kick_event_all(vscsi);
+-
+-	scsi_scan_host(shost);
+-}
+-
+ static void virtscsi_remove_vqs(struct virtio_device *vdev)
+ {
+ 	struct Scsi_Host *sh = virtio_scsi_host(vdev);
+@@ -1007,10 +996,13 @@ static int virtscsi_probe(struct virtio_device *vdev)
+ 	err = scsi_add_host(shost, &vdev->dev);
+ 	if (err)
+ 		goto scsi_add_host_failed;
+-	/*
+-	 * scsi_scan_host() happens in virtscsi_scan() via virtio_driver->scan()
+-	 * after VIRTIO_CONFIG_S_DRIVER_OK has been set..
+-	 */
++
++	virtio_enable_vqs_early(vdev);
++
++	if (virtio_has_feature(vdev, VIRTIO_SCSI_F_HOTPLUG))
++		virtscsi_kick_event_all(vscsi);
++
++	scsi_scan_host(shost);
+ 	return 0;
+ 
+ scsi_add_host_failed:
+@@ -1090,7 +1082,6 @@ static struct virtio_driver virtio_scsi_driver = {
+ 	.driver.owner = THIS_MODULE,
+ 	.id_table = id_table,
+ 	.probe = virtscsi_probe,
+-	.scan = virtscsi_scan,
+ #ifdef CONFIG_PM_SLEEP
+ 	.freeze = virtscsi_freeze,
+ 	.restore = virtscsi_restore,
 -- 
 MST
 
