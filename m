@@ -1,98 +1,109 @@
-From: Vladislav Yasevich <vyasevich@gmail.com>
-Subject: Re: IPv6 FIB related crash with MACVLANs in 3.9.11+ kernel.
-Date: Sun, 12 Oct 2014 07:42:24 -0400
-Message-ID: <CAGCdqXHh6AvabW2JwQEK5NcnTuxw9eMdRwd+JvYZUYqyHW4K7Q@mail.gmail.com>
-References: <52EFFE20.5080500@candelatech.com>
-	<20140203220323.GB17999@order.stressinduktion.org>
-	<52F012FF.9030105@candelatech.com>
-	<52F65EB4.1050306@candelatech.com>
-	<20140208172310.GF16198@order.stressinduktion.org>
-	<loom.20140926T001736-777@post.gmane.org>
-	<1411906297.2400343.172598909.66223582@webmail.messagingengine.com>
-	<loom.20140929T195637-887@post.gmane.org>
-	<5429A886.1040809@candelatech.com>
-	<1412017399.14757.4.camel@localhost>
-	<5429B783.20207@candelatech.com>
-	<CAHA+R7O_xghD4a5RD=omhnuMD72pRmKU9VMoxPUVuGcu682jBg@mail.gmail.com>
-	<5429CE26.6000108@candelatech.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH v3 00/25] virtio: fix spec compliance issues
+Date: Sun, 12 Oct 2014 14:46:08 +0300
+Message-ID: <1413114332-626-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Cong Wang <cwang@twopensource.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Hongmei Li <duckcncn@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f171.google.com ([209.85.212.171]:42443 "EHLO
-	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751278AbaJLLmZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Oct 2014 07:42:25 -0400
-Received: by mail-wi0-f171.google.com with SMTP id em10so5343790wid.4
-        for <netdev@vger.kernel.org>; Sun, 12 Oct 2014 04:42:24 -0700 (PDT)
-In-Reply-To: <5429CE26.6000108@candelatech.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linux-s390@vger.kernel.org, kvm@vger.kernel.org, linux-scsi@vger.kernel.org,
+	Christian Borntraeger <borntraeger@de.ibm.com>, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	Paolo Bonzini <pbonzini@redhat.com>, Amit Shah <amit.shah@redhat.com>,
+	v9fs-developer@lists.sourceforge.net,
+	"David S. Miller" <davem@davemloft.net>
+To: linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 29, 2014 at 5:24 PM, Ben Greear <greearb@candelatech.com> wrote:
-> On 09/29/2014 01:39 PM, Cong Wang wrote:
->> On Mon, Sep 29, 2014 at 12:48 PM, Ben Greear <greearb@candelatech.com> wrote:
->>>
->>> We are going to be running up to 20 concurrent scripts that
->>> will be dumping routes & ips, and configuring ip addresses
->>> and routes during bringup.
->>>
->>> I don't have a simple stand-alone way to reproduce this,
->>> but at least when we reported the problem is was very easy
->>> for us to reproduce with our tool.
->>>
->>> Maybe 20 scripts running in parallel that randomly configured and dumped routes
->>> and ip addresses on random interfaces would do the trick?
->>>
->>
->> I think the most important question is why is this related with macvlan?
->> IPv6 is L3 while macvlan pure L2, if this is a IPv6 routing bug, it should
->> not be limited to macvlan.
->
-> We saw it using mac-vlans on top of ixgbe.  Probably it can be reproduced
-> elsewhere, but since we had a good test case, we didn't bother trying lots
-> of other combinations.
->
-> Just enabling some debug code caused the problem to be much harder
-> to reproduce, so it is probably some sort of race.  Maybe lots of mac-vlans
-> make it easier to hit.
->
->> What does your IPv6 routing table look like? And how do you configure those
->> macvlan interfaces?
->
-> Each interface would have it's own routing table, with at least as subnet
-> route.  I'm not sure we were adding a default gateway or not.
->
-> The main routing table would also have some auto-created routes
-> I think.
->
-> It is configured using 'ip' to add and dump routes.
->
+Rusty, please review this, and consider for this merge window.
 
-Ben
+This fixes the following virtio spec compliance issues:
+1. on restore, drivers use device before setting ACKNOWLEDGE and DRIVER bits
+2. on probe, drivers aren't prepared to handle config interrupts
+   arriving before probe returns
+3. on probe, drivers use device before DRIVER_OK it set
 
-Just saw this thread.  Can you check if this commit makes a difference:
-commit 40b8fe45d1f094e3babe7b2dc2b71557ab71401d
-Author: Vlad Yasevich <vyasevich@gmail.com>
-Date:   Mon Sep 22 16:34:17 2014 -0400
+Note that 1 is a clear violation of virtio spec 0.9 and 1.0,
+so I am proposing the fix for stable. OTOH 2 is against 1.0 rules but
+is a known documented bug in many drivers, so let's fix it going
+forward, but it does not seem to be worth it to backport
+the changes.
 
-    macvtap: Fix race between device delete and open.
+An error handling bugfix for virtio-net and a fix for a
+theoretical race condition in virtio scsi is also included.
 
-Thanks
--vlad
+2 is merely a theoretical race condition, but it seems important
+to address to make sure that changes to address 3 do not introduce
+instability.
 
-> Thanks,
-> Ben
->
-> --
-> Ben Greear <greearb@candelatech.com>
-> Candela Technologies Inc  http://www.candelatech.com
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I also included patch to drop scan callback use from virtio
+scsi: using this callback creates asymmetry between probe
+and resume, and we actually had to add code comments so
+people can figure out the flow. Code flow becomes clearer
+with the new API.
+
+After this change, the only user of the scan callback is virtio rng.
+It's possible to modify it trivially and then drop scan callback
+from core, but I'm rather inclined to look at ways to
+make some rng core changes so that we don't need to
+have so many variables tracking device state.
+So this is deferred for now.
+
+Michael S. Tsirkin (24):
+  virtio_pci: fix virtio spec compliance on restore
+  virtio: unify config_changed handling
+  virtio-pci: move freeze/restore to virtio core
+  virtio: defer config changed notifications
+  virtio_blk: drop config_enable
+  virtio-blk: drop config_mutex
+  virtio_net: drop config_enable
+  virtio-net: drop config_mutex
+  virtio_net: minor cleanup
+  virtio: add API to enable VQs early
+  virtio_net: enable VQs early
+  virtio_blk: enable VQs early
+  virtio_console: enable VQs early
+  9p/trans_virtio: enable VQs early
+  virtio_net: fix use after free on allocation failure
+  virtio_scsi: move kick event out from virtscsi_init
+  virtio_blk: enable VQs early on restore
+  virtio_scsi: enable VQs early on restore
+  virtio_console: enable VQs early on restore
+  virtio_net: enable VQs early on restore
+  virtio_scsi: fix race on device removal
+  virtio_balloon: enable VQs early on restore
+  virtio_scsi: drop scan callback
+  virtio-rng: refactor probe error handling
+
+Paolo Bonzini (1):
+  virito_scsi: use freezable WQ for events
+
+ include/linux/virtio.h              |  14 +++++
+ include/linux/virtio_config.h       |  17 ++++++
+ drivers/block/virtio_blk.c          |  40 ++++----------
+ drivers/char/hw_random/virtio-rng.c |  15 +++---
+ drivers/char/virtio_console.c       |   4 ++
+ drivers/misc/mic/card/mic_virtio.c  |   6 +--
+ drivers/net/virtio_net.c            |  44 +++++-----------
+ drivers/s390/kvm/kvm_virtio.c       |   9 +---
+ drivers/s390/kvm/virtio_ccw.c       |   6 +--
+ drivers/scsi/virtio_scsi.c          |  42 +++++++++------
+ drivers/virtio/virtio.c             | 102 ++++++++++++++++++++++++++++++++++++
+ drivers/virtio/virtio_balloon.c     |   2 +
+ drivers/virtio/virtio_mmio.c        |   7 +--
+ drivers/virtio/virtio_pci.c         |  33 ++----------
+ net/9p/trans_virtio.c               |   2 +
+ 15 files changed, 206 insertions(+), 137 deletions(-)
+
+-- 
+MST
