@@ -1,58 +1,106 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH net-next] tg3: Add skb->xmit_more support
-Date: Mon, 13 Oct 2014 20:01:44 +0200
-Message-ID: <20141013180144.GC26105@breakpoint.cc>
-References: <1413217302-15396-1-git-send-email-prashant@broadcom.com>
- <20141013173806.GB26105@breakpoint.cc>
+From: Edward Cree <ecree@solarflare.com>
+Subject: Re: [PATCH] sfc: efx: add support for skb->xmit_more
+Date: Mon, 13 Oct 2014 19:02:22 +0100
+Message-ID: <543C13AE.80606@solarflare.com>
+References: <1413219585-15854-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Prashant Sreedharan <prashant@broadcom.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, dborkman@redhat.com, mchan@broadcom.com
-To: Florian Westphal <fw@strlen.de>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <nikolay@redhat.com>,
+	<netdev@vger.kernel.org>, Shradha Shah <sshah@solarflare.com>,
+	linux-net-drivers <linux-net-drivers@solarflare.com>
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:59072 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753797AbaJMSBt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Oct 2014 14:01:49 -0400
-Content-Disposition: inline
-In-Reply-To: <20141013173806.GB26105@breakpoint.cc>
+Received: from nbfkord-smmo01.seg.att.com ([209.65.160.76]:37415 "EHLO
+	nbfkord-smmo01.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753945AbaJMSFk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Oct 2014 14:05:40 -0400
+In-Reply-To: <1413219585-15854-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Florian Westphal <fw@strlen.de> wrote:
-> Prashant Sreedharan <prashant@broadcom.com> wrote:
-> > Ring TX doorbell only if xmit_more is not set or the queue is stopped.
-> > 
-> > Suggested-by: Daniel Borkmann <dborkman@redhat.com>
-> > Signed-off-by: Prashant Sreedharan <prashant@broadcom.com>
-> > Signed-off-by: Michael Chan <mchan@broadcom.com>
-> > ---
-> >  drivers/net/ethernet/broadcom/tg3.c |   10 ++++++----
-> >  1 files changed, 6 insertions(+), 4 deletions(-)
-> > 
-> > diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-> > index ba49948..dbb41c1 100644
-> > --- a/drivers/net/ethernet/broadcom/tg3.c
-> > +++ b/drivers/net/ethernet/broadcom/tg3.c
-> > @@ -8099,9 +8099,6 @@ static netdev_tx_t tg3_start_xmit(struct sk_buff *skb, struct net_device *dev)
-> >  	/* Sync BD data before updating mailbox */
-> >  	wmb();
-> >  
-> > -	/* Packets are ready, update Tx producer idx local and on card. */
-> > -	tw32_tx_mbox(tnapi->prodmbox, entry);
-> > -
-> >  	tnapi->tx_prod = entry;
-> >  	if (unlikely(tg3_tx_avail(tnapi) <= (MAX_SKB_FRAGS + 1))) {
-> >  		netif_tx_stop_queue(txq);
-> > @@ -8116,7 +8113,12 @@ static netdev_tx_t tg3_start_xmit(struct sk_buff *skb, struct net_device *dev)
-> >  			netif_tx_wake_queue(txq);
-> >  	}
-> >  
-> > -	mmiowb();
-> > +	if (!skb->xmit_more || netif_xmit_stopped(txq)) {
-> > +		/* Packets are ready, update Tx producer idx on card. */
-> > +		tw32_tx_mbox(tnapi->prodmbox, entry);
-> 
-> I think you need to swap the test, i.e.
+On 13/10/14 17:59, Daniel Borkmann wrote:
+> Add support for xmit_more batching: efx has BQL support, thus we need
+> to only move the queue hang check before the hw tail pointer write
+> and test for xmit_more bit resp. whether the queue/stack has stopped.
+> Thanks to Nikolay Aleksandrov who had a Solarflare NIC to test!
+I see two issues here.
 
-Never mind, sorry for the noise.
+1) The error handling path (labels dma_err: and err:) will unwind back
+to tx_queue->insert_count, which (AFAICT) only gets updated by
+efx_nic_push_buffers() (at least on EF10, where that calls
+efx_ef10_tx_write()).
+So if we transmit a bunch of skbs with xmit_more, then get an error, we
+will unwind all the way back to the start, whereas (again, AFAICT) the
+previous skbs were nicely completed and safe to send.
+The unwind will leave us in a good state, but we'll have failed to send
+some packets that there was nothing wrong with.
+I think the appropriate fix for this would be to maintain two separate
+insert_counts, as xmit_more means we can't conflate "last write pointer
+pushed" and "write pointer at start of this skb" any longer.
+
+2) I think we shouldn't do PIO when xmit_more is set - it's probably bad
+for performance (though I haven't measured), and I'm not entirely
+convinced it will behave correctly.  I think
+efx_nic_tx_is_empty(tx_queue) will return true if we have xmit_more'd a
+PIO packet, enabling us to potentially PIO the next packet as well, thus
+overwriting the PIO buffer before the NIC's had a chance to read it.
+I'm also unsure about what happens to TX Push (efx_ef10_push_tx_desc),
+for similar reasons.
+So I think TX PIO and TX Push both need to be suppressed when
+skb->xmit_more (as a correctness issue), and should also be suppressed
+on the !xmit_more skb that 'uncorks' a previous row of xmit_mores - as a
+performance issue at the least, and for TX Push I'm also unsure about
+the correctness (though I haven't worked that one through in detail).
+
+Until these issues are addressed, I have to NAK this.  Tomorrow I'll try
+to rustle up an rfc patch that handles these issues, unless someone
+beats me to it.
+
+-Edward
+
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> Acked-by: Nikolay Aleksandrov <nikolay@redhat.com>
+> Cc: Shradha Shah <sshah@solarflare.com>
+> ---
+>  drivers/net/ethernet/sfc/tx.c | 15 ++++++++-------
+>  1 file changed, 8 insertions(+), 7 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/sfc/tx.c b/drivers/net/ethernet/sfc/tx.c
+> index 3206098..566432c 100644
+> --- a/drivers/net/ethernet/sfc/tx.c
+> +++ b/drivers/net/ethernet/sfc/tx.c
+> @@ -439,13 +439,13 @@ finish_packet:
+>  
+>  	netdev_tx_sent_queue(tx_queue->core_txq, skb->len);
+>  
+> +	efx_tx_maybe_stop_queue(tx_queue);
+> +
+>  	/* Pass off to hardware */
+> -	efx_nic_push_buffers(tx_queue);
+> +	if (!skb->xmit_more || netif_xmit_stopped(tx_queue->core_txq))
+> +		efx_nic_push_buffers(tx_queue);
+>  
+>  	tx_queue->tx_packets++;
+> -
+> -	efx_tx_maybe_stop_queue(tx_queue);
+> -
+>  	return NETDEV_TX_OK;
+>  
+>   dma_err:
+> @@ -1308,11 +1308,12 @@ static int efx_enqueue_skb_tso(struct efx_tx_queue *tx_queue,
+>  
+>  	netdev_tx_sent_queue(tx_queue->core_txq, skb->len);
+>  
+> -	/* Pass off to hardware */
+> -	efx_nic_push_buffers(tx_queue);
+> -
+>  	efx_tx_maybe_stop_queue(tx_queue);
+>  
+> +	/* Pass off to hardware */
+> +	if (!skb->xmit_more || netif_xmit_stopped(tx_queue->core_txq))
+> +		efx_nic_push_buffers(tx_queue);
+> +
+>  	tx_queue->tso_bursts++;
+>  	return NETDEV_TX_OK;
+>  
