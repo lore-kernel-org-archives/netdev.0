@@ -1,56 +1,43 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: [net PATCH 3/3] drivers: net: cpsw: remove child devices while driver detach
-Date: Mon, 13 Oct 2014 22:21:07 +0530
-Message-ID: <1413219067-15328-4-git-send-email-mugunthanvnm@ti.com>
-References: <1413219067-15328-1-git-send-email-mugunthanvnm@ti.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH stable 3.2 3.4] ipv4: disable bh while doing route gc
+Date: Mon, 13 Oct 2014 12:52:25 -0400 (EDT)
+Message-ID: <20141013.125225.1129718741415025861.davem@davemloft.net>
+References: <6c3d6eca5d6a15c01393b010f2116bd169477c5a.1413215324.git.mleitner@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, Mugunthan V N <mugunthanvnm@ti.com>
-To: <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, hannes@stressinduktion.org
+To: mleitner@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from arroyo.ext.ti.com ([192.94.94.40]:41676 "EHLO arroyo.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754159AbaJMQvV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Oct 2014 12:51:21 -0400
-In-Reply-To: <1413219067-15328-1-git-send-email-mugunthanvnm@ti.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33189 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754041AbaJMQwa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Oct 2014 12:52:30 -0400
+In-Reply-To: <6c3d6eca5d6a15c01393b010f2116bd169477c5a.1413215324.git.mleitner@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-remove all the child devices from the system to make sure that re-insert of
-cpsw module doesn't fail on child device populated by of_platform_populate().
+From: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Date: Mon, 13 Oct 2014 13:20:38 -0300
 
-Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
----
- drivers/net/ethernet/ti/cpsw.c | 10 ++++++++++
- 1 file changed, 10 insertions(+)
+> Further tests revealed that after moving the garbage collector to a work
+> queue and protecting it with a spinlock may leave the system prone to
+> soft lockups if bottom half gets very busy.
+> 
+> It was reproced with a set of firewall rules that REJECTed packets. If
+> the NIC bottom half handler ends up running on the same CPU that is
+> running the garbage collector on a very large cache, the garbage
+> collector will not be able to do its job due to the amount of work
+> needed for handling the REJECTs and also won't reschedule.
+> 
+> The fix is to disable bottom half during the garbage collecting, as it
+> already was in the first place (most calls to it came from softirqs).
+> 
+> Signed-off-by: Marcelo Ricardo Leitner <mleitner@redhat.com>
+> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index ab167dc..952e1e4 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -2392,6 +2392,15 @@ clean_ndev_ret:
- 	return ret;
- }
- 
-+static int cpsw_remove_child_device(struct device *dev, void *c)
-+{
-+	struct platform_device *pdev = to_platform_device(dev);
-+
-+	of_device_unregister(pdev);
-+
-+	return 0;
-+}
-+
- static int cpsw_remove(struct platform_device *pdev)
- {
- 	struct net_device *ndev = platform_get_drvdata(pdev);
-@@ -2406,6 +2415,7 @@ static int cpsw_remove(struct platform_device *pdev)
- 	cpdma_chan_destroy(priv->rxch);
- 	cpdma_ctlr_destroy(priv->dma);
- 	pm_runtime_disable(&pdev->dev);
-+	device_for_each_child(&pdev->dev, NULL, cpsw_remove_child_device);
- 	if (priv->data.dual_emac)
- 		free_netdev(cpsw_get_slave_ndev(priv, 1));
- 	free_netdev(ndev);
--- 
-2.1.1.332.g0bf7dd6
+Please add my:
+
+Acked-by: David S. Miller <davem@davemloft.net>
+
+and submit this directly to -stable, thanks.
