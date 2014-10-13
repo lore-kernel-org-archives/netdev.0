@@ -1,52 +1,54 @@
-From: Matthias Fuchs <matthias.fuchs@esd.eu>
-Subject: Re: [PATCH] net: can: esd_usb2: fix memory leak on disconnect
-Date: Mon, 13 Oct 2014 10:05:47 +0200
-Message-ID: <543B87DB.8090104@esd.eu>
-References: <1412973067-29707-1-git-send-email-khoroshilov@ispras.ru>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] flow-dissector: Fix alignment issue in
+ __skb_flow_get_ports
+Date: Mon, 13 Oct 2014 08:32:10 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D174C987C@AcuExch.aculab.com>
+References: <5437F7CB.5010101@redhat.com>
+	<1412954973.9362.11.camel@edumazet-glaptop2.roam.corp.google.com>
+	<54380E49.5050504@redhat.com>
+ <20141010.135851.1743803688676076555.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 8bit
-Cc: "linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"ldv-project@linuxtesting.org" <ldv-project@linuxtesting.org>
-To: Alexey Khoroshilov <khoroshilov@ispras.ru>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	Marc Kleine-Budde <mkl@pengutronix.de>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1412973067-29707-1-git-send-email-khoroshilov@ispras.ru>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	"alexander.duyck@gmail.com" <alexander.duyck@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'David Miller' <davem@davemloft.net>,
+	"alexander.h.duyck@redhat.com" <alexander.h.duyck@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:49533 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752052AbaJMIeD convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Oct 2014 04:34:03 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 07864-08 for <netdev@vger.kernel.org>;
+ Mon, 13 Oct 2014 09:33:53 +0100 (BST)
+In-Reply-To: <20141010.135851.1743803688676076555.davem@davemloft.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Alexey,
+From: David Miller
+> From: Alexander Duyck <alexander.h.duyck@redhat.com>
+> Date: Fri, 10 Oct 2014 09:50:17 -0700
+> 
+> > If I just use get_unaligned that is pretty easy in terms of cleanup
+> > for the ports and IPv4 addresses, the IPv6 will still be a significant
+> > hurdle to overcome though.
+> 
+> Actually, it's not that simple.
+> 
+> When the compiler sees things like "th->doff" it will load the 32-bit
+> word that 4-bit field contains and extract the value using shifts and
+> masking.
+> 
+> So we might need to sprinkle a "attribute((packed))" here and there
+> to make it work.
 
-On 10/10/2014 10:31 PM, Alexey Khoroshilov wrote:
-> It seems struct esd_usb2 dev is not deallocated on disconnect.
-> 
-> The patch adds the deallocation.
-> 
-> Found by Linux Driver Verification project (linuxtesting.org).
-> 
-> Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
-> ---
->  drivers/net/can/usb/esd_usb2.c | 1 +
->  1 file changed, 1 insertion(+)
-> 
-> diff --git a/drivers/net/can/usb/esd_usb2.c b/drivers/net/can/usb/esd_usb2.c
-> index b7c9e8b11460..7a90075529c3 100644
-> --- a/drivers/net/can/usb/esd_usb2.c
-> +++ b/drivers/net/can/usb/esd_usb2.c
-> @@ -1143,6 +1143,7 @@ static void esd_usb2_disconnect(struct usb_interface *intf)
->  			}
->  		}
->  		unlink_all_urbs(dev);
-> +		kfree(dev);
->  	}
->  }
->  
-> 
-thanks for pointing this out. Marc, can you please catch this up.
+Marking a structure 'packed' forces the compiler to generate byte accesses.
+It is enough to mark the 32bit members with __attribute__((aligned(2)))
+(or use a typedef for u32 that includes that attribute).
+Then the compiler will use 16bit accesses for that field.
 
-Matthias
-
-Acked-by: Matthias Fuchs <matthias.fuchs@esd.eu>
+	David
