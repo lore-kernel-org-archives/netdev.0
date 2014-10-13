@@ -1,71 +1,37 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH linux v3 1/1] fs/proc: use a rb tree for the directory
- entries
-Date: Mon, 13 Oct 2014 13:14:51 +0200
-Message-ID: <543BB42B.30505@6wind.com>
-References: <20141006.181448.1696747135961247651.davem@davemloft.net> <1412672559-5256-1-git-send-email-nicolas.dichtel@6wind.com> <1412672559-5256-2-git-send-email-nicolas.dichtel@6wind.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Angelo Dureghello <angelo70@gmail.com>
+Subject: Fwd: micrel: ksz8051 badly detected as ksz8031
+Date: Mon, 13 Oct 2014 13:23:33 +0200
+Message-ID: <543BB635.80608@gmail.com>
+References: <543A7A2A.5040700@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, ebiederm@xmission.com,
-	akpm@linux-foundation.org, adobriyan@gmail.com,
-	rui.xiang@huawei.com, viro@zeniv.linux.org.uk, oleg@redhat.com,
-	gorcunov@openvz.org, kirill.shutemov@linux.intel.com,
-	grant.likely@secretlab.ca, tytso@mit.edu,
-	Linus Torvalds <torvalds@linux-foundation.org>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1412672559-5256-2-git-send-email-nicolas.dichtel@6wind.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-Le 07/10/2014 11:02, Nicolas Dichtel a =C3=A9crit :
-> The current implementation for the directories in /proc is using a si=
-ngle
-> linked list. This is slow when handling directories with large number=
-s of
-> entries (eg netdevice-related entries when lots of tunnels are opened=
-).
->
-> This patch replaces this linked list by a red-black tree.
->
-> Here are some numbers:
->
-> dummy30000.batch contains 30 000 times 'link add type dummy'.
->
-> Before the patch:
-> $ time ip -b dummy30000.batch
-> real	2m31.950s
-> user	0m0.440s
-> sys	2m21.440s
-> $ time rmmod dummy
-> real	1m35.764s
-> user	0m0.000s
-> sys	1m24.088s
->
-> After the patch:
-> $ time ip -b dummy30000.batch
-> real	2m0.874s
-> user	0m0.448s
-> sys	1m49.720s
-> $ time rmmod dummy
-> real	1m13.988s
-> user	0m0.000s
-> sys	1m1.008s
->
-> The idea of improving this part was suggested by
-> Thierry Herbelot <thierry.herbelot@6wind.com>.
->
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> Acked-by: David S. Miller <davem@davemloft.net>
-> ---
-
-I'm not sure who is in charge of taking this patch. Should I resend it =
-to
-someone else or is it already included in a tree?
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f179.google.com ([209.85.212.179]:64435 "EHLO
+	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753046AbaJMLXg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Oct 2014 07:23:36 -0400
+Received: by mail-wi0-f179.google.com with SMTP id d1so7157843wiv.0
+        for <netdev@vger.kernel.org>; Mon, 13 Oct 2014 04:23:35 -0700 (PDT)
+Received: from [192.168.0.2] (host155-25-dynamic.14-87-r.retail.telecomitalia.it. [87.14.25.155])
+        by mx.google.com with ESMTPSA id ew1sm16295244wjb.31.2014.10.13.04.23.33
+        for <netdev@vger.kernel.org>
+        (version=TLSv1 cipher=ECDHE-RSA-RC4-SHA bits=128/128);
+        Mon, 13 Oct 2014 04:23:34 -0700 (PDT)
+In-Reply-To: <543A7A2A.5040700@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-Thank you,
-Nicolas
+
+I confirm this seems to be an issue of recent versions of kernel driver 
+"micrel.c".
+
+I just compiled kernel 3.17.0 with micrel.c driver 3.5.1, link is up and 
+running.
+
+If you need debug info, or to test a patch, let me know.
+
+Regards
+angelo
