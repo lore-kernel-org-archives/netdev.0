@@ -1,35 +1,48 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: Fw: [Bug 86081] New: Can't free the return value of
- sock_kmalloc() when the value is NULL
-Date: Mon, 13 Oct 2014 13:58:56 -0700
-Message-ID: <CAHA+R7OgvPOM1GVQOU5eJreM2R5V-SxkO4nubVYoLdCvS_hUAQ@mail.gmail.com>
-References: <20141012170756.19d1d12e@uryu.home.lan>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH v9 net-next 2/4] net: filter: split filter.h and expose
+ eBPF to user space
+Date: Mon, 13 Oct 2014 14:49:53 -0700
+Message-ID: <CAMEtUuw-iAGiYqmcN0AOkku0+Wto7810JJo9HEQvQN-2F=baTA@mail.gmail.com>
+References: <1409714246-31054-1-git-send-email-ast@plumgrid.com>
+	<1409714246-31054-3-git-send-email-ast@plumgrid.com>
+	<540737DF.1010801@redhat.com>
+	<543C0A2D.5040908@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Andy Grover <andy.grover@oracle.com>,
-	netdev <netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f42.google.com ([209.85.192.42]:39396 "EHLO
-	mail-qg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751429AbaJMU65 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Oct 2014 16:58:57 -0400
-Received: by mail-qg0-f42.google.com with SMTP id z60so7546745qgd.29
-        for <netdev@vger.kernel.org>; Mon, 13 Oct 2014 13:58:56 -0700 (PDT)
-In-Reply-To: <20141012170756.19d1d12e@uryu.home.lan>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ingo Molnar <mingo@kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andy Lutomirski <luto@amacapital.net>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Chema Gonzalez <chema@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Kees Cook <keescook@chromium.org>,
+	Linux API <linux-api@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Daniel Borkmann <dborkman@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <543C0A2D.5040908@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Oct 12, 2014 at 8:07 AM, Stephen Hemminger
-<stephen@networkplumber.org> wrote:
+On Mon, Oct 13, 2014 at 10:21 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
+> On 09/03/2014 05:46 PM, Daniel Borkmann wrote:
+> ...
+>>
+>> Ok, given you post the remaining two RFCs later on this window as
+>> you indicate, I have no objections:
+>>
+>> Acked-by: Daniel Borkmann <dborkman@redhat.com>
 >
-> in function rds_cmsg_rdma_args() at net/rds/rdma.c:L546, the variable
-> "iovstack" is an array and the pointer variable *iovs is equal to iovstack (at
-> Line 554). As the the return value of sock_kmalloc() (called at line 578),when
-> "iovs" is NULL, function sock_kfree_s() will be called(at line 697) and
-> function sock_kfree_s() will free "iovs".
-> The related code snippets in function rds_cmsg_rdma_args() are as followings.
-> rds_cmsg_rdma_args() at net/rds/rdma.c:L546
+>
+> Ping, Alexei, are you still sending the patch for bpf_common.h or
+> do you want me to take care of this?
 
-Free'ing NULL is okay, but not sub'ing the sk_omem_alloc size.
-I will send a patch.
+It's not forgotten.
+I'm not sending it only because net-next is closed
+and it seems to be -next material.
