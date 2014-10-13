@@ -1,57 +1,68 @@
 From: Marcelo Ricardo Leitner <mleitner@redhat.com>
-Subject: [PATCH] nf_conntrack_proto_tcp: allow server to become a client in TW handling
-Date: Mon, 13 Oct 2014 13:09:28 -0300
-Message-ID: <a9618c5db692413c2970201b5206bcd357438399.1413216136.git.mleitner@redhat.com>
-References: <5419B546.40702@redhat.com>
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <5419B546.40702@redhat.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Subject: [PATCH stable 3.2 3.4] ipv4: disable bh while doing route gc
+Date: Mon, 13 Oct 2014 13:20:38 -0300
+Message-ID: <6c3d6eca5d6a15c01393b010f2116bd169477c5a.1413215324.git.mleitner@redhat.com>
+Cc: netdev@vger.kernel.org, hannes@stressinduktion.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:54312 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753100AbaJMQU5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Oct 2014 12:20:57 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When a port that was used to listen for inbound connections gets closed
-and reused for outgoing connections (like rsh ends up doing for stderr
-flow), current we may reject the SYN/ACK packet for the new connection
-because tcp_conntracks states forbirds a port to become a client while
-there is still a TIME_WAIT entry in there for it.
+Further tests revealed that after moving the garbage collector to a work
+queue and protecting it with a spinlock may leave the system prone to
+soft lockups if bottom half gets very busy.
 
-As TCP may expire the TIME_WAIT socket in 60s and conntrack's timeout
-for it is 120s, there is a ~60s window that the application can end up
-opening a port that conntrack will end up blocking.
+It was reproced with a set of firewall rules that REJECTed packets. If
+the NIC bottom half handler ends up running on the same CPU that is
+running the garbage collector on a very large cache, the garbage
+collector will not be able to do its job due to the amount of work
+needed for handling the REJECTs and also won't reschedule.
 
-This patch fixes this by simply allowing such state transition: if we
-see a SYN, in TIME_WAIT state, on REPLY direction, move it to sSS. Note
-that the rest of the code already handles this situation, more
-specificly in tcp_packet(), first switch clause.
+The fix is to disable bottom half during the garbage collecting, as it
+already was in the first place (most calls to it came from softirqs).
 
 Signed-off-by: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- net/netfilter/nf_conntrack_proto_tcp.c | 4 ++--
+
+Notes:
+    Hi Dave,
+    
+    This is needed for stables 3.2 and 3.4, as those are the ones that we
+    applied the previous patches:
+        ipv4: move route garbage collector to work queue
+        ipv4: avoid parallel route cache gc executions
+    
+    Thanks.
+
+ net/ipv4/route.c | 4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack_proto_tcp.c
-index 44d1ea32570a07338dc39f34624bd823b6f76916..d87b6423ffb21e0f8f9b6ef25ef51c1cb5f54ad6 100644
---- a/net/netfilter/nf_conntrack_proto_tcp.c
-+++ b/net/netfilter/nf_conntrack_proto_tcp.c
-@@ -213,7 +213,7 @@ static const u8 tcp_conntracks[2][6][TCP_CONNTRACK_MAX] = {
- 	{
- /* REPLY */
- /* 	     sNO, sSS, sSR, sES, sFW, sCW, sLA, sTW, sCL, sS2	*/
--/*syn*/	   { sIV, sS2, sIV, sIV, sIV, sIV, sIV, sIV, sIV, sS2 },
-+/*syn*/	   { sIV, sS2, sIV, sIV, sIV, sIV, sIV, sSS, sIV, sS2 },
- /*
-  *	sNO -> sIV	Never reached.
-  *	sSS -> sS2	Simultaneous open
-@@ -223,7 +223,7 @@ static const u8 tcp_conntracks[2][6][TCP_CONNTRACK_MAX] = {
-  *	sFW -> sIV
-  *	sCW -> sIV
-  *	sLA -> sIV
-- *	sTW -> sIV	Reopened connection, but server may not do it.
-+ *	sTW -> sSS	Reopened connection, but server may have switched role
-  *	sCL -> sIV
-  */
- /* 	     sNO, sSS, sSR, sES, sFW, sCW, sLA, sTW, sCL, sS2	*/
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 9e7909eef8d10107008f8d629f9f2d75fde52eb2..6c34bc98bce7147cf6c242439f2afeb9adf28c72 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -998,7 +998,7 @@ static void __do_rt_garbage_collect(int elasticity, int min_interval)
+ 	 * do not make it too frequently.
+ 	 */
+ 
+-	spin_lock(&rt_gc_lock);
++	spin_lock_bh(&rt_gc_lock);
+ 
+ 	RT_CACHE_STAT_INC(gc_total);
+ 
+@@ -1101,7 +1101,7 @@ work_done:
+ 	    dst_entries_get_slow(&ipv4_dst_ops) < ipv4_dst_ops.gc_thresh)
+ 		expire = ip_rt_gc_timeout;
+ out:
+-	spin_unlock(&rt_gc_lock);
++	spin_unlock_bh(&rt_gc_lock);
+ }
+ 
+ static void __rt_garbage_collect(struct work_struct *w)
 -- 
 1.9.3
-
