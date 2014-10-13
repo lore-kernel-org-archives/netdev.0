@@ -1,37 +1,39 @@
-From: Angelo Dureghello <angelo70@gmail.com>
-Subject: Fwd: micrel: ksz8051 badly detected as ksz8031
-Date: Mon, 13 Oct 2014 13:23:33 +0200
-Message-ID: <543BB635.80608@gmail.com>
-References: <543A7A2A.5040700@gmail.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH] netfilter: release skbuf when nlmsg put fail
+Date: Mon, 13 Oct 2014 13:42:56 +0200
+Message-ID: <20141013114256.GB6560@breakpoint.cc>
+References: <CAL8JtxAqDhOXooLtOebSBHtKxwE=sLFqW8B-VgtCzsr-M4OD7g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f179.google.com ([209.85.212.179]:64435 "EHLO
-	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753046AbaJMLXg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Oct 2014 07:23:36 -0400
-Received: by mail-wi0-f179.google.com with SMTP id d1so7157843wiv.0
-        for <netdev@vger.kernel.org>; Mon, 13 Oct 2014 04:23:35 -0700 (PDT)
-Received: from [192.168.0.2] (host155-25-dynamic.14-87-r.retail.telecomitalia.it. [87.14.25.155])
-        by mx.google.com with ESMTPSA id ew1sm16295244wjb.31.2014.10.13.04.23.33
-        for <netdev@vger.kernel.org>
-        (version=TLSv1 cipher=ECDHE-RSA-RC4-SHA bits=128/128);
-        Mon, 13 Oct 2014 04:23:34 -0700 (PDT)
-In-Reply-To: <543A7A2A.5040700@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
+	davem@davemloft.net, netfilter-devel@vger.kernel.org,
+	coreteam@netfilter.org, netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Houcheng Lin <houcheng@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAL8JtxAqDhOXooLtOebSBHtKxwE=sLFqW8B-VgtCzsr-M4OD7g@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Houcheng Lin <houcheng@gmail.com> wrote:
+> When system is under heavy loading, the __nfulnl_send() may may failed
+> to put nlmsg into skbuf of nfulnl_instance. If not clear the skbuff on failed,
+> the __nfulnl_send() will still try to put next nlmsg onto this half-full skbuf
+> and cause the user program can never receive packet.
+> 
+> This patch fix this issue by releasing skbuf immediately after nlmst put
+> failed.
 
+Did you observe such problem or is this based on code reading?
+I ask because nflog should make sure we always have enough room left in
+skb to append a done message, see nfulnl_log_packet():
 
-I confirm this seems to be an issue of recent versions of kernel driver 
-"micrel.c".
+if (inst->skb &&
+    size > skb_tailroom(inst->skb) - sizeof(struct nfgenmsg)) {
+	/* flush skb */
 
-I just compiled kernel 3.17.0 with micrel.c driver 3.5.1, link is up and 
-running.
-
-If you need debug info, or to test a patch, let me know.
-
-Regards
-angelo
+Your patch fixes such 'can never send' skb condition by leaking the
+skb.  So at the very least you would need to call kfree_skb(), and
+perhaps also add WARN_ON() so we catch this and can fix up the size
+accounting?
