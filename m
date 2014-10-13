@@ -1,42 +1,30 @@
 From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: [net PATCH 1/3] drivers: net: davinci_cpdma: remove kfree on objects allocated with devm_* apis
-Date: Mon, 13 Oct 2014 22:21:05 +0530
-Message-ID: <1413219067-15328-2-git-send-email-mugunthanvnm@ti.com>
-References: <1413219067-15328-1-git-send-email-mugunthanvnm@ti.com>
+Subject: [net PATCH 0/3] bug fixes for davinci_cpdma and cpsw drivers
+Date: Mon, 13 Oct 2014 22:21:04 +0530
+Message-ID: <1413219067-15328-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <davem@davemloft.net>, Mugunthan V N <mugunthanvnm@ti.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bear.ext.ti.com ([192.94.94.41]:58090 "EHLO bear.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753895AbaJMQvR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Oct 2014 12:51:17 -0400
-In-Reply-To: <1413219067-15328-1-git-send-email-mugunthanvnm@ti.com>
+Received: from devils.ext.ti.com ([198.47.26.153]:57828 "EHLO
+	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753895AbaJMQvP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Oct 2014 12:51:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-memories allocated with devm_* apis must not be freed with kfree apis,
-so removing the kfree calls
 
-Fixes: e194312854ed ('drivers: net: davinci_cpdma: Convert kzalloc() to devm_kzalloc().')
+Mugunthan V N (3):
+  drivers: net: davinci_cpdma: remove kfree on objects allocated with
+    devm_* apis
+  drivers: net: davinci_cpdma: remove spinlock as SOFTIRQ-unsafe lock
+    order detected
+  drivers: net: cpsw: remove child devices while driver detach
 
-Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
----
- drivers/net/ethernet/ti/davinci_cpdma.c | 1 -
- 1 file changed, 1 deletion(-)
+ drivers/net/ethernet/ti/cpsw.c          | 10 ++++++++++
+ drivers/net/ethernet/ti/davinci_cpdma.c |  5 -----
+ 2 files changed, 10 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/ethernet/ti/davinci_cpdma.c
-index 4a000f6..32dc289 100644
---- a/drivers/net/ethernet/ti/davinci_cpdma.c
-+++ b/drivers/net/ethernet/ti/davinci_cpdma.c
-@@ -561,7 +561,6 @@ int cpdma_chan_destroy(struct cpdma_chan *chan)
- 		cpdma_chan_stop(chan);
- 	ctlr->channels[chan->chan_num] = NULL;
- 	spin_unlock_irqrestore(&ctlr->lock, flags);
--	kfree(chan);
- 	return 0;
- }
- EXPORT_SYMBOL_GPL(cpdma_chan_destroy);
 -- 
 2.1.1.332.g0bf7dd6
