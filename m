@@ -1,44 +1,53 @@
-From: =?iso-8859-1?Q?Llu=EDs?= Batlle i Rossell <viric@viric.name>
-Subject: Re: Regarding tx-nocache-copy in the Sheevaplug
-Date: Mon, 13 Oct 2014 17:48:07 +0200
-Message-ID: <20141013154807.GN1972@vicerveza.homeunix.net>
-References: <20141013105246.GD1972@vicerveza.homeunix.net>
- <20141013142156.GE26864@lunn.ch>
- <20141013143138.GJ1972@vicerveza.homeunix.net>
- <1413211759.9362.103.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH 1/2] netfilter: kill nf_send_reset6() from
+ include/net/netfilter/ipv6/nf_reject.h
+Date: Mon, 13 Oct 2014 17:55:10 +0200
+Message-ID: <20141013155510.GA26105@breakpoint.cc>
+References: <1412879261-25045-1-git-send-email-pablo@netfilter.org>
+ <1412879261-25045-2-git-send-email-pablo@netfilter.org>
+ <CA+5PVA7-k-HFGUUeZ3LTCmVcmR1h_=8W-_PzRO4-2dcc_cRHaQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
-	Andrew Lunn <andrew@lunn.ch>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org,
-	Carles =?iso-8859-1?Q?Pag=E8s?= <page@cubata.homelinux.net>,
-	linux-arm-kernel@lists.infradead.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	netfilter-devel@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>
+To: Josh Boyer <jwboyer@fedoraproject.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1413211759.9362.103.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <CA+5PVA7-k-HFGUUeZ3LTCmVcmR1h_=8W-_PzRO4-2dcc_cRHaQ@mail.gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 13, 2014 at 07:49:19AM -0700, Eric Dumazet wrote:
-> On Mon, 2014-10-13 at 16:31 +0200, Llu=EDs Batlle i Rossell wrote:
-> > Enabling tx offload and disabling tx-nocache-copy, making the machi=
-ne *send* a
-> > lot of ssh traffic (sftp for example) makes ssh fail HMAC. It's qui=
-te easy to
-> > reproduce here.
-> >=20
-> > As for the hardware, it's an old sheevaplug board.
->=20
->=20
-> Have you tried disabling TSO only, and are you using the latest kerne=
-l ?
->=20
-> Ezequiel Garcia added lot of changes recently.
->=20
->=20
+Josh Boyer <jwboyer@fedoraproject.org> wrote:
+> On Thu, Oct 9, 2014 at 2:27 PM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
+> > nf_send_reset6() now resides in net/ipv6/netfilter/nf_reject_ipv6.c
+> >
+> > Fixes: c8d7b98 ("netfilter: move nf_send_resetX() code to nf_reject_ipvX modules")
+> > Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
+> > Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+> > Acked-by: Eric Dumazet <edumazet@google.com>
+> > ---
+> >  include/net/netfilter/ipv6/nf_reject.h |  157 +-------------------------------
+> >  1 file changed, 2 insertions(+), 155 deletions(-)
+> 
+> Hi All,
+> 
+> This morning I was testing a kernel build from Linus' tree as of Linux
+> v3.17-7639-g90eac7eee2f4.  When I rebooted my test machines, I
+> couldn't ssh back into any of them.  I poked around a bit and noticed
+> that it seems the iptables rules weren't getting loaded properly.
+> Traffic out worked fine, and I could ping the machine, but other
+> incoming traffic was blocked.  Then I saw that the ip6t_REJECT and
+> ip6t_rpfilter modules were not being loaded on the bad kernel.
+> Looking in dmesg I see:
+> 
+> [   14.619028] nf_reject_ipv6: module license 'unspecified' taints kernel.
+> [   14.619125] nf_reject_ipv6: Unknown symbol ip6_local_out (err 0)
 
-Is TSO TCP segmentation offload? It's disabled. The kernel is 3.16.3 (d=
-ebian).
-https://packages.debian.org/testing/kernel/linux-image-3.16-2-kirkwood
+Ouch. ip6_local_is EXPORT_SYMBOL_GPL.
+
+http://patchwork.ozlabs.org/patch/398501/
+
+should fix this.
