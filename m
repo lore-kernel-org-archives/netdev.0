@@ -1,43 +1,58 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [2/2] dsa: Replace mii_bus with a generic host device
-Date: Mon, 13 Oct 2014 10:51:43 -0700
-Message-ID: <20141013175143.GA30743@roeck-us.net>
-References: <20140915170024.1261.97226.stgit@ahduyck-bv4.jf.intel.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH net-next] tg3: Add skb->xmit_more support
+Date: Mon, 13 Oct 2014 20:01:44 +0200
+Message-ID: <20141013180144.GC26105@breakpoint.cc>
+References: <1413217302-15396-1-git-send-email-prashant@broadcom.com>
+ <20141013173806.GB26105@breakpoint.cc>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, f.fainelli@gmail.com,
-	kernel@wantstofly.org, davem@davemloft.net
-To: Alexander Duyck <alexander.h.duyck@intel.com>
+Cc: Prashant Sreedharan <prashant@broadcom.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, dborkman@redhat.com, mchan@broadcom.com
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:47732 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753853AbaJMRvt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Oct 2014 13:51:49 -0400
-Received: by mail-pa0-f51.google.com with SMTP id lj1so6238185pab.10
-        for <netdev@vger.kernel.org>; Mon, 13 Oct 2014 10:51:48 -0700 (PDT)
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:59072 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753797AbaJMSBt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Oct 2014 14:01:49 -0400
 Content-Disposition: inline
-In-Reply-To: <20140915170024.1261.97226.stgit@ahduyck-bv4.jf.intel.com>
+In-Reply-To: <20141013173806.GB26105@breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 15, 2014 at 01:00:27PM -0400, Alexander Duyck wrote:
-> This change makes it so that instead of passing and storing a mii_bus we
-> instead pass and store a host_dev.  From there we can test to determine the
-> exact type of device, and can verify it is the correct device for our switch.
+Florian Westphal <fw@strlen.de> wrote:
+> Prashant Sreedharan <prashant@broadcom.com> wrote:
+> > Ring TX doorbell only if xmit_more is not set or the queue is stopped.
+> > 
+> > Suggested-by: Daniel Borkmann <dborkman@redhat.com>
+> > Signed-off-by: Prashant Sreedharan <prashant@broadcom.com>
+> > Signed-off-by: Michael Chan <mchan@broadcom.com>
+> > ---
+> >  drivers/net/ethernet/broadcom/tg3.c |   10 ++++++----
+> >  1 files changed, 6 insertions(+), 4 deletions(-)
+> > 
+> > diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+> > index ba49948..dbb41c1 100644
+> > --- a/drivers/net/ethernet/broadcom/tg3.c
+> > +++ b/drivers/net/ethernet/broadcom/tg3.c
+> > @@ -8099,9 +8099,6 @@ static netdev_tx_t tg3_start_xmit(struct sk_buff *skb, struct net_device *dev)
+> >  	/* Sync BD data before updating mailbox */
+> >  	wmb();
+> >  
+> > -	/* Packets are ready, update Tx producer idx local and on card. */
+> > -	tw32_tx_mbox(tnapi->prodmbox, entry);
+> > -
+> >  	tnapi->tx_prod = entry;
+> >  	if (unlikely(tg3_tx_avail(tnapi) <= (MAX_SKB_FRAGS + 1))) {
+> >  		netif_tx_stop_queue(txq);
+> > @@ -8116,7 +8113,12 @@ static netdev_tx_t tg3_start_xmit(struct sk_buff *skb, struct net_device *dev)
+> >  			netif_tx_wake_queue(txq);
+> >  	}
+> >  
+> > -	mmiowb();
+> > +	if (!skb->xmit_more || netif_xmit_stopped(txq)) {
+> > +		/* Packets are ready, update Tx producer idx on card. */
+> > +		tw32_tx_mbox(tnapi->prodmbox, entry);
 > 
-> So for example it would be possible to pass a device pointer from a pci_dev
-> and instead of checking for a PHY ID we could check for a vendor and/or device
-> ID.
-> 
+> I think you need to swap the test, i.e.
 
-Hi Alexander,
-
-We are thinking about porting a PCIe based switch to use the DSA infrastructure,
-so this patch is coming quite handy.
-
-Have you been working on a port or a PCIe based chip to DSA yourself, by any
-chance ? If yes, could you possibly share the current state ?
-That might save us some time.
-
-Thanks,
-Guenter
+Never mind, sorry for the noise.
