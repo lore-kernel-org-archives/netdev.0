@@ -1,74 +1,51 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH v4 09/25] virtio_net: minor cleanup
-Date: Mon, 13 Oct 2014 10:50:28 +0300
-Message-ID: <1413114332-626-10-git-send-email-mst-v4@redhat.com>
+Subject: [PATCH v4 12/25] virtio_blk: enable VQs early
+Date: Mon, 13 Oct 2014 10:50:43 +0300
+Message-ID: <1413114332-626-13-git-send-email-mst-v4@redhat.com>
 References: <1413114332-626-1-git-send-email-mst-v4@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linux-s390@vger.kernel.org, kvm@vger.kernel.org, linux-scsi@vger.kernel.org,
-	Christian Borntraeger <borntraeger@de.ibm.com>, netdev@vger.kernel.org,
+Content-Type: text/plain; charset=us-ascii
+Cc: Rusty Russell <rusty@rustcorp.com.au>,
 	virtualization@lists.linux-foundation.org,
-	Paolo Bonzini <pbonzini@redhat.com>, Amit Shah <amit.shah@redhat.com>,
-	v9fs-developer@lists.sourceforge.net,
-	"David S. Miller" <davem@davemloft.net>
+	linux-scsi@vger.kernel.org, linux-s390@vger.kernel.org,
+	v9fs-developer@lists.sourceforge.net, netdev@vger.kernel.org,
+	kvm@vger.kernel.org, Amit Shah <amit.shah@redhat.com>,
+	Cornelia Huck <cornelia.huck@de.ibm.com>,
+	Christian Borntraeger <borntraeger@de.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Paolo Bonzini <pbonzini@redhat.com>
 To: linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
 In-Reply-To: <1413114332-626-1-git-send-email-mst-v4@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-	goto done;
-done:
-	return;
-is ugly, it was put there to make diff review easier.
-replace by open-coded return.
+virtio spec requires drivers to set DRIVER_OK before using VQs.
+This is set automatically after probe returns, virtio block violated this
+rule by calling add_disk, which causes the VQ to be used directly within
+probe.
+
+To fix, call virtio_device_ready before using VQs.
 
 Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-Acked-by: Cornelia Huck <cornelia.huck@de.ibm.com>
+Reviewed-by: Cornelia Huck <cornelia.huck@de.ibm.com>
 ---
- drivers/net/virtio_net.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+ drivers/block/virtio_blk.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 23e4a69..ef04d23 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -1403,7 +1403,7 @@ static void virtnet_config_changed_work(struct work_struct *work)
+diff --git a/drivers/block/virtio_blk.c b/drivers/block/virtio_blk.c
+index 89ba8d6..46b04bf 100644
+--- a/drivers/block/virtio_blk.c
++++ b/drivers/block/virtio_blk.c
+@@ -719,6 +719,8 @@ static int virtblk_probe(struct virtio_device *vdev)
+ 	if (!err && opt_io_size)
+ 		blk_queue_io_opt(q, blk_size * opt_io_size);
  
- 	if (virtio_cread_feature(vi->vdev, VIRTIO_NET_F_STATUS,
- 				 struct virtio_net_config, status, &v) < 0)
--		goto done;
-+		return;
- 
- 	if (v & VIRTIO_NET_S_ANNOUNCE) {
- 		netdev_notify_peers(vi->dev);
-@@ -1414,7 +1414,7 @@ static void virtnet_config_changed_work(struct work_struct *work)
- 	v &= VIRTIO_NET_S_LINK_UP;
- 
- 	if (vi->status == v)
--		goto done;
-+		return;
- 
- 	vi->status = v;
- 
-@@ -1425,8 +1425,6 @@ static void virtnet_config_changed_work(struct work_struct *work)
- 		netif_carrier_off(vi->dev);
- 		netif_tx_stop_all_queues(vi->dev);
- 	}
--done:
--	return;
- }
- 
- static void virtnet_config_changed(struct virtio_device *vdev)
++	virtio_device_ready(vdev);
++
+ 	add_disk(vblk->disk);
+ 	err = device_create_file(disk_to_dev(vblk->disk), &dev_attr_serial);
+ 	if (err)
 -- 
 MST
