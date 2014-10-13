@@ -1,7 +1,7 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH v4 20/25] virtio_net: enable VQs early on restore
-Date: Mon, 13 Oct 2014 10:51:24 +0300
-Message-ID: <1413114332-626-21-git-send-email-mst-v4@redhat.com>
+Subject: [PATCH v4 18/25] virtio_scsi: enable VQs early on restore
+Date: Mon, 13 Oct 2014 10:51:14 +0300
+Message-ID: <1413114332-626-19-git-send-email-mst-v4@redhat.com>
 References: <1413114332-626-1-git-send-email-mst-v4@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -13,7 +13,8 @@ Cc: Rusty Russell <rusty@rustcorp.com.au>,
 	Cornelia Huck <cornelia.huck@de.ibm.com>,
 	Christian Borntraeger <borntraeger@de.ibm.com>,
 	"David S. Miller" <davem@davemloft.net>,
-	Paolo Bonzini <pbonzini@redhat.com>
+	Paolo Bonzini <pbonzini@redhat.com>,
+	"James E.J. Bottomley" <JBottomley@parallels.com>
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
@@ -22,29 +23,28 @@ Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 virtio spec requires drivers to set DRIVER_OK before using VQs.
-This is set automatically after restore returns, virtio net violated this
-rule by using receive VQs within restore.
+This is set automatically after restore returns, virtio scsi violated
+this rule on restore by kicking event vq within restore.
 
-To fix, call virtio_device_ready before using VQs.
+To fix, call virtio_device_ready before using event queue.
 
 Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-Reviewed-by: Cornelia Huck <cornelia.huck@de.ibm.com>
 ---
- drivers/net/virtio_net.c | 2 ++
+ drivers/scsi/virtio_scsi.c | 2 ++
  1 file changed, 2 insertions(+)
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 3551417..6b6e136 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -1912,6 +1912,8 @@ static int virtnet_restore(struct virtio_device *vdev)
- 	if (err)
+diff --git a/drivers/scsi/virtio_scsi.c b/drivers/scsi/virtio_scsi.c
+index 0642ce3..2b565b3 100644
+--- a/drivers/scsi/virtio_scsi.c
++++ b/drivers/scsi/virtio_scsi.c
+@@ -1054,6 +1054,8 @@ static int virtscsi_restore(struct virtio_device *vdev)
  		return err;
+ 	}
  
 +	virtio_device_ready(vdev);
 +
- 	if (netif_running(vi->dev)) {
- 		for (i = 0; i < vi->curr_queue_pairs; i++)
- 			if (!try_fill_recv(&vi->rq[i], GFP_KERNEL))
+ 	if (virtio_has_feature(vdev, VIRTIO_SCSI_F_HOTPLUG))
+ 		virtscsi_kick_event_all(vscsi);
+ 
 -- 
 MST
