@@ -1,64 +1,52 @@
-From: zhuyj <zyjzyj2000@gmail.com>
-Subject: Re: ipv4: net namespace does not inherit network configurations
-Date: Mon, 13 Oct 2014 16:20:39 +0800
-Message-ID: <543B8B57.80108@gmail.com>
-References: <53D7697C.6020103@gmail.com> <CAHA+R7MC2gKeSWqR8pDDX26D-Th4BG1AveM+HseMMPjLBJuWDw@mail.gmail.com>
+From: Matthias Fuchs <matthias.fuchs@esd.eu>
+Subject: Re: [PATCH] net: can: esd_usb2: fix memory leak on disconnect
+Date: Mon, 13 Oct 2014 10:05:47 +0200
+Message-ID: <543B87DB.8090104@esd.eu>
+References: <1412973067-29707-1-git-send-email-khoroshilov@ispras.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Hong Zhiguo <honkiko@gmail.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	"Tao, Yue" <Yue.Tao@windriver.com>,
-	Alexandre Dietsch <alexandre.dietsch@windriver.com>,
-	zhuyj <zyjzyj2000@gmail.com>
-To: Cong Wang <cwang@twopensource.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAHA+R7MC2gKeSWqR8pDDX26D-Th4BG1AveM+HseMMPjLBJuWDw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 8bit
+Cc: "linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"ldv-project@linuxtesting.org" <ldv-project@linuxtesting.org>
+To: Alexey Khoroshilov <khoroshilov@ispras.ru>,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	Marc Kleine-Budde <mkl@pengutronix.de>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1412973067-29707-1-git-send-email-khoroshilov@ispras.ru>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi, Miller && Cong
+Hi Alexey,
 
-Can we merge this patch into kernel mainline? since the independence
-between ipv4 and ipv6 is inconsistent even in the latest linux 
-kernel(3.17-rc7),
-that is, the net namespace is independent in ipv6 while it is not in ipv4.
+On 10/10/2014 10:31 PM, Alexey Khoroshilov wrote:
+> It seems struct esd_usb2 dev is not deallocated on disconnect.
+> 
+> The patch adds the deallocation.
+> 
+> Found by Linux Driver Verification project (linuxtesting.org).
+> 
+> Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
+> ---
+>  drivers/net/can/usb/esd_usb2.c | 1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/drivers/net/can/usb/esd_usb2.c b/drivers/net/can/usb/esd_usb2.c
+> index b7c9e8b11460..7a90075529c3 100644
+> --- a/drivers/net/can/usb/esd_usb2.c
+> +++ b/drivers/net/can/usb/esd_usb2.c
+> @@ -1143,6 +1143,7 @@ static void esd_usb2_disconnect(struct usb_interface *intf)
+>  			}
+>  		}
+>  		unlink_all_urbs(dev);
+> +		kfree(dev);
+>  	}
+>  }
+>  
+> 
+thanks for pointing this out. Marc, can you please catch this up.
 
-Thanks a lot.
-Zhu Yanjun
+Matthias
 
-On 07/30/2014 01:48 AM, Cong Wang wrote:
-> On Tue, Jul 29, 2014 at 2:29 AM, zhuyj <zyjzyj2000@gmail.com> wrote:
->> Hi,all
->>
->> I did a test on kernel3.16 rc6:
->>
->> root@qemu1:~# echo 1 > /proc/sys/net/ipv6/conf/all/forwarding
->> root@qemu1:~# echo 1 > /proc/sys/net/ipv4/conf/all/forwarding
->> root@qemu1:~# ip netns list
->> root@qemu1:~# ip netns add fib1
->> root@qemu1:~# ip netns exec fib1 bash
->> root@qemu1:~# cat /proc/sys/net/ipv6/conf/all/forwarding
->> 0
->> root@qemu1:~# cat /proc/sys/net/ipv4/conf/all/forwarding
->> 1
->>
->> The behavior of ipv4 and ipv6 is very inconsistent. I checked
->> the kernel source code. I found that from this patch
->> [ipv6: fix bad free of addrconf_init_net], the above difference
->> appeared.
->>
->> Since a net namespace is independent to another. That is, there
->> is no any relationship between the net namespaces. So the behavior
->> of ipv4 is not correct.
->>
-> Well, they are already independent, not shared, just that the initial
-> value is duplicated from init_net for IPv4.
->
-> This change might break existing applications which rely on this
-> behavior, but given IPv6 change is almost the same, I think it's ok.
->
-> BTW, you need to submit a patch as normal, instead of as an attachment.
->
+Acked-by: Matthias Fuchs <matthias.fuchs@esd.eu>
