@@ -1,98 +1,143 @@
-From: Fugang Duan <b38611@freescale.com>
-Subject: [PATCH v2 1/1] net: fec: Fix sparse warnings with different lock contexts for basic block
-Date: Mon, 13 Oct 2014 10:53:48 +0800
-Message-ID: <1413168828-9335-1-git-send-email-b38611@freescale.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next RFC 3/3] virtio-net: conditionally enable tx
+	interrupt
+Date: Mon, 13 Oct 2014 14:02:42 +0800
+Message-ID: <543B6B02.5000404@redhat.com>
+References: <1413011806-3813-1-git-send-email-jasowang@redhat.com>	
+	<1413011806-3813-4-git-send-email-jasowang@redhat.com>
+	<1413038899.9362.43.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <festevam@gmail.com>,
-	<sparse@chrisli.org>, <B20596@freescale.com>,
-	<b38611@freescale.com>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1on0118.outbound.protection.outlook.com ([157.56.110.118]:52459
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752824AbaJMDYS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 12 Oct 2014 23:24:18 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: kvm@vger.kernel.org, mst@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	linux-api@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1413038899.9362.43.camel@edumazet-glaptop2.roam.corp.google.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-reproduce:
-make  ARCH=arm C=1 2>fec.txt drivers/net/ethernet/freescale/fec_main.o
-cat fec.txt
+On 10/11/2014 10:48 PM, Eric Dumazet wrote:
+> On Sat, 2014-10-11 at 15:16 +0800, Jason Wang wrote:
+>> We free transmitted packets in ndo_start_xmit() in the past to get better
+>> performance in the past. One side effect is that skb_orphan() needs to be
+>> called in ndo_start_xmit() which makes sk_wmem_alloc not accurate in
+>> fact. For TCP protocol, this means several optimization could not work well
+>> such as TCP small queue and auto corking. This can lead extra low
+>> throughput of small packets stream.
+>>
+>> Thanks to the urgent descriptor support. This patch tries to solve this
+>> issue by enable the tx interrupt selectively for stream packets. This means
+>> we don't need to orphan TCP stream packets in ndo_start_xmit() but enable
+>> tx interrupt for those packets. After we get tx interrupt, a tx napi was
+>> scheduled to free those packets.
+>>
+>> With this method, sk_wmem_alloc of TCP socket were more accurate than in
+>> the past which let TCP can batch more through TSQ and auto corking.
+>>
+>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+>> ---
+>>  drivers/net/virtio_net.c | 164 ++++++++++++++++++++++++++++++++++++-----------
+>>  1 file changed, 128 insertions(+), 36 deletions(-)
+>>
+>> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+>> index 5810841..b450fc4 100644
+>> --- a/drivers/net/virtio_net.c
+>> +++ b/drivers/net/virtio_net.c
+>> @@ -72,6 +72,8 @@ struct send_queue {
+>>  
+>>  	/* Name of the send queue: output.$index */
+>>  	char name[40];
+>> +
+>> +	struct napi_struct napi;
+>>  };
+>>  
+>>  /* Internal representation of a receive virtqueue */
+>> @@ -217,15 +219,40 @@ static struct page *get_a_page(struct receive_queue *rq, gfp_t gfp_mask)
+>>  	return p;
+>>  }
+>>  
+>> +static int free_old_xmit_skbs(struct send_queue *sq, int budget)
+>> +{
+>> +	struct sk_buff *skb;
+>> +	unsigned int len;
+>> +	struct virtnet_info *vi = sq->vq->vdev->priv;
+>> +	struct virtnet_stats *stats = this_cpu_ptr(vi->stats);
+>> +	int sent = 0;
+>> +
+>> +	while (sent < budget &&
+>> +	       (skb = virtqueue_get_buf(sq->vq, &len)) != NULL) {
+>> +		pr_debug("Sent skb %p\n", skb);
+>> +
+>> +		u64_stats_update_begin(&stats->tx_syncp);
+>> +		stats->tx_bytes += skb->len;
+>> +		stats->tx_packets++;
+>> +		u64_stats_update_end(&stats->tx_syncp);
+>> +
+>> +		dev_kfree_skb_any(skb);
+>> +		sent++;
+>> +	}
+>> +
+> You could accumulate skb->len in a totlen var, and perform a single
+>
+> 	u64_stats_update_begin(&stats->tx_syncp);
+> 	stats->tx_bytes += totlen;
+> 	stats->tx_packets += sent;
+> 	u64_stats_update_end(&stats->tx_syncp);
+>
+> after the loop.
+>
 
-sparse warnings:
-drivers/net/ethernet/freescale/fec_main.c:2916:12: warning: context imbalance
-in 'fec_set_features' - different lock contexts for basic block
+Yes, will do this in a separated patch.
+>> +	return sent;
+>> +}
+>> +
+> ...
+>
+>> +
+>> +static bool virtnet_skb_needs_intr(struct sk_buff *skb)
+>> +{
+>> +	union {
+>> +		unsigned char *network;
+>> +		struct iphdr *ipv4;
+>> +		struct ipv6hdr *ipv6;
+>> +	} hdr;
+>> +	struct tcphdr *th = tcp_hdr(skb);
+>> +	u16 payload_len;
+>> +
+>> +	hdr.network = skb_network_header(skb);
+>> +
+>> +	/* Only IPv4/IPv6 with TCP is supported */
+> 	Oh well, yet another packet flow dissector :)
+>
+> 	If most packets were caught by your implementation, you could use it
+> for fast patj and fallback to skb_flow_dissect() for encapsulated
+> traffic.
+>
+> 	struct flow_keys keys;   
+>
+> 	if (!skb_flow_dissect(skb, &keys)) 
+> 		return false;
+>
+> 	if (keys.ip_proto != IPPROTO_TCP)
+> 		return false;
+>
+> 	then check __skb_get_poff() how to get th, and check if there is some
+> payload...
+>
+>
 
-Christopher Li suggest to change as below:
-	if (need_lock) {
-		lock();
-		do_something_real();
-		unlock();
-	} else {
-		do_something_real();
-	}
+Yes, but we don't know if most of packets were TCP or encapsulated TCP,
+it depends on userspace application. If not, looks like
+skb_flow_dissect() can bring some overhead, or it could be ignored?
 
-Reported-by: Fabio Estevam <festevam@gmail.com>
-Suggested-by: Christopher Li <sparse@chrisli.org>
-Signed-off-by: Fugang Duan <B38611@freescale.com>
----
- drivers/net/ethernet/freescale/fec_main.c |   24 ++++++++++++++----------
- 1 files changed, 14 insertions(+), 10 deletions(-)
-
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 87975b5..7a8209e 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -2912,20 +2912,12 @@ static void fec_poll_controller(struct net_device *dev)
- #endif
- 
- #define FEATURES_NEED_QUIESCE NETIF_F_RXCSUM
--
--static int fec_set_features(struct net_device *netdev,
-+static inline void fec_enet_set_netdev_features(struct net_device *netdev,
- 	netdev_features_t features)
- {
- 	struct fec_enet_private *fep = netdev_priv(netdev);
- 	netdev_features_t changed = features ^ netdev->features;
- 
--	/* Quiesce the device if necessary */
--	if (netif_running(netdev) && changed & FEATURES_NEED_QUIESCE) {
--		napi_disable(&fep->napi);
--		netif_tx_lock_bh(netdev);
--		fec_stop(netdev);
--	}
--
- 	netdev->features = features;
- 
- 	/* Receive checksum has been changed */
-@@ -2935,13 +2927,25 @@ static int fec_set_features(struct net_device *netdev,
- 		else
- 			fep->csum_flags &= ~FLAG_RX_CSUM_ENABLED;
- 	}
-+}
-+
-+static int fec_set_features(struct net_device *netdev,
-+	netdev_features_t features)
-+{
-+	struct fec_enet_private *fep = netdev_priv(netdev);
-+	netdev_features_t changed = features ^ netdev->features;
- 
--	/* Resume the device after updates */
- 	if (netif_running(netdev) && changed & FEATURES_NEED_QUIESCE) {
-+		napi_disable(&fep->napi);
-+		netif_tx_lock_bh(netdev);
-+		fec_stop(netdev);
-+		fec_enet_set_netdev_features(netdev, features);
- 		fec_restart(netdev);
- 		netif_tx_wake_all_queues(netdev);
- 		netif_tx_unlock_bh(netdev);
- 		napi_enable(&fep->napi);
-+	} else {
-+		fec_enet_set_netdev_features(netdev, features);
- 	}
- 
- 	return 0;
--- 
-1.7.8
+skb_flow_dissect
