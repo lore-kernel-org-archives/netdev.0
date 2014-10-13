@@ -1,103 +1,78 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] net: wireless: brcm80211: brcmfmac: dhd_sdio.c:
-  Cleaning up missing null-terminate in conjunction with strncpy
-Date: Mon, 13 Oct 2014 08:55:46 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D174C992F@AcuExch.aculab.com>
-References: <1413071551-15372-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+From: yinpeijun <yinpeijun@huawei.com>
+Subject: Re: vxlan gro problem ?
+Date: Mon, 13 Oct 2014 17:14:24 +0800
+Message-ID: <543B97F0.6040603@huawei.com>
+References: <5434FA02.8070608@huawei.com> <543ADBA3.5030305@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: Hante Meuleman <meuleman@broadcom.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
-	Daniel Kim <dekim@broadcom.com>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"brcm80211-dev-list@broadcom.com" <brcm80211-dev-list@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: 'Rickard Strandqvist' <rickard_strandqvist@spectrumdigital.se>,
-	"Brett Rudley" <brudley@broadcom.com>,
-	Arend van Spriel <arend@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:50323 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1753447AbaJMI5j convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Oct 2014 04:57:39 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 11653-07 for <netdev@vger.kernel.org>;
- Mon, 13 Oct 2014 09:57:36 +0100 (BST)
-In-Reply-To: <1413071551-15372-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<lichunhe@huawei.com>, <wangfakai@huawei.com>,
+	<liuyongan@huawei.com>
+To: Or Gerlitz <ogerlitz@mellanox.com>, <qinchuanyu@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <543ADBA3.5030305@mellanox.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Rickard Strandqvist
-> Replacing strncpy with strlcpy to avoid strings that lacks null terminate.
-> And changed from using strncpy to strlcpy to simplify code.
+On 2014/10/13 3:50, Or Gerlitz wrote:
+> On 10/8/2014 10:46 AM, yinpeijun wrote:
+>> Hi all,
+>>          recently Linux 3.14 has been released and I find the networking has added udp gro and vxlan gro funtion, then I use the redhat 7.0(there is also add this funtion)
+>> to test, I use kernel vxlan module and  create a vxlan device then attach the device to  ovs  bridge , the configure as follow:
+>>         root@25:~$ ip link
+>>          15: vxlan0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1450 qdisc noqueue master ovs-system state UNKNOWN mode DEFAULT
+>>              link/ether be:e1:ae:3d:8b:f2 brd ff:ff:ff:ff:ff:ff
+>>          16: vnet0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1400 qdisc mq master ovs-system state UNKNOWN mode DEFAULT qlen 5000
+>>                 root@25:~$ ovs-vsctl show
+>>          aa1294f3-9952-4393-b2b5-54e9a6eb76ee
+>>          Bridge ovs-vx
+>>              Port ovs-vx
+>>                  Interface ovs-vx
+>>                      type: internal
+>>              Port "vnet0"
+>>                  Interface "vnet0"
+>>              Port "vxlan0"
+>>                  Interface "vxlan0"
+>>          ovs_version: "2.0.2"
+>>
+>> vnet0 is a vm backend device,  and the end is the same configuration. then I use netperf to test throughput  in vm (netperf -H **** -t TCP_STREAM -l 10 -- -m 1460),
+>> the result is 3-4 Gbit/sec, the  improvement  is not obvious,   and I also confused there is no aggregation  packets (length > mtu) in the end vm.   so I want to know what
+>> wrong ?   or how to test the function ?
+>>
+>
+> As things are set in 3.14 and AFAIK also in RHEL 7.0, for GRO/VXLAN to come into play you need to run over a NIC which supports RX checksum offload too, is this the case?
+>
+> Also, the configuration you run with isn't the typical play of VXLAN with OVS... I didn't try it out and this week being out to LPC.
+>
+> Did you try the usual track of running OVS VXLAN port?e.g as explained in the Example section of [1]
+>
+> Or.
+>
+> [1] http://community.mellanox.com/docs/DOC-1446
+>
+> Or.
+>
+>
+>
+> .
+>
+thank you for your reply, Gerlitz .
 
-I think you should return an error if the strings get truncated.
-Silent truncation is going to lead to issues at some point in the future
-(in some places).
+my test environment use mellanox ConnectX-3 Pro nic ,  as I know the nic support Rx  checksum offload.  but I am not confirm if should  I  do some special configure?
+or the nic driver or firmware need update  ?  also , I have used redhat7.0 ovs vxlan to test with the similar configure as before, but there is also no improvement . 
 
-> Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
-> ---
->  drivers/net/wireless/brcm80211/brcmfmac/dhd_sdio.c |   25 ++++++++++----------
->  1 file changed, 12 insertions(+), 13 deletions(-)
-> 
-> diff --git a/drivers/net/wireless/brcm80211/brcmfmac/dhd_sdio.c
-> b/drivers/net/wireless/brcm80211/brcmfmac/dhd_sdio.c
-> index f55f625..d20d4e6 100644
-> --- a/drivers/net/wireless/brcm80211/brcmfmac/dhd_sdio.c
-> +++ b/drivers/net/wireless/brcm80211/brcmfmac/dhd_sdio.c
-> @@ -670,7 +670,6 @@ static int brcmf_sdio_get_fwnames(struct brcmf_chip *ci,
->  				  struct brcmf_sdio_dev *sdiodev)
->  {
->  	int i;
-> -	uint fw_len, nv_len;
->  	char end;
-> 
->  	for (i = 0; i < ARRAY_SIZE(brcmf_fwname_data); i++) {
-> @@ -684,25 +683,25 @@ static int brcmf_sdio_get_fwnames(struct brcmf_chip *ci,
->  		return -ENODEV;
->  	}
-> 
-> -	fw_len = sizeof(sdiodev->fw_name) - 1;
-> -	nv_len = sizeof(sdiodev->nvram_name) - 1;
->  	/* check if firmware path is provided by module parameter */
->  	if (brcmf_firmware_path[0] != '\0') {
-> -		strncpy(sdiodev->fw_name, brcmf_firmware_path, fw_len);
-> -		strncpy(sdiodev->nvram_name, brcmf_firmware_path, nv_len);
-> -		fw_len -= strlen(sdiodev->fw_name);
-> -		nv_len -= strlen(sdiodev->nvram_name);
-> +		strlcpy(sdiodev->fw_name, brcmf_firmware_path,
-> +			sizeof(sdiodev->fw_name));
-> +		strlcpy(sdiodev->nvram_name, brcmf_firmware_path,
-> +			sizeof(sdiodev->nvram_name));
-> 
->  		end = brcmf_firmware_path[strlen(brcmf_firmware_path) - 1];
+the nic infomation:
 
-If you are doing a strlen() here, you could use the length for the copy
-and/or use it to avoid the strcat().
+04:00.0 Ethernet controller: Mellanox Technologies MT27520 Family [ConnectX-3 Pro]
 
->  		if (end != '/') {
-> -			strncat(sdiodev->fw_name, "/", fw_len);
-> -			strncat(sdiodev->nvram_name, "/", nv_len);
-> -			fw_len--;
-> -			nv_len--;
-> +			strlcat(sdiodev->fw_name, "/",
-> +				sizeof(sdiodev->fw_name));
-> +			strlcat(sdiodev->nvram_name, "/",
-> +				sizeof(sdiodev->nvram_name));
->  		}
->  	}
-> -	strncat(sdiodev->fw_name, brcmf_fwname_data[i].bin, fw_len);
-> -	strncat(sdiodev->nvram_name, brcmf_fwname_data[i].nv, nv_len);
-> +	strlcat(sdiodev->fw_name, brcmf_fwname_data[i].bin,
-> +		sizeof(sdiodev->fw_name));
-> +	strlcat(sdiodev->nvram_name, brcmf_fwname_data[i].nv,
-> +		sizeof(sdiodev->nvram_name));
-
-I assume something ensures that fw_name[0] == 0 here.
-
-	David
+root@localhost:~# ethtool -i eth4
+driver: mlx4_en
+version: 2.0(Dec 2011)
+firmware-version:  2.31.5050
+bus-info: 0000:04:00.0
+supports-statistics: yes
+supports-test: yes
+supports-eeprom-access: no
+supports-register-dump: no
+supports-priv-flags: yes
