@@ -1,7 +1,7 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH v4 24/25] virtio_scsi: drop scan callback
-Date: Mon, 13 Oct 2014 10:51:44 +0300
-Message-ID: <1413114332-626-25-git-send-email-mst-v4@redhat.com>
+Subject: [PATCH v4 25/25] virtio-rng: refactor probe error handling
+Date: Mon, 13 Oct 2014 10:51:49 +0300
+Message-ID: <1413114332-626-26-git-send-email-mst-v4@redhat.com>
 References: <1413114332-626-1-git-send-email-mst-v4@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -14,73 +14,64 @@ Cc: Rusty Russell <rusty@rustcorp.com.au>,
 	Christian Borntraeger <borntraeger@de.ibm.com>,
 	"David S. Miller" <davem@davemloft.net>,
 	Paolo Bonzini <pbonzini@redhat.com>,
-	"James E.J. Bottomley" <JBottomley@parallels.com>
+	Matt Mackall <mpm@selenic.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Amos Kong <akong@redhat.com>,
+	Sasha Levin <sasha.levin@oracle.com>
 To: linux-kernel@vger.kernel.org
-Return-path: <kvm-owner@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
 In-Reply-To: <1413114332-626-1-git-send-email-mst-v4@redhat.com>
-Sender: kvm-owner@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Enable VQs early like we do for restore.
-This makes it possible to drop the scan callback,
-moving scanning into the probe function, and making
-code simpler.
+Code like
+	vi->vq = NULL;
+	kfree(vi)
+does not make sense.
+
+Clean it up, use goto error labels for cleanup.
 
 Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
- drivers/scsi/virtio_scsi.c | 23 +++++++----------------
- 1 file changed, 7 insertions(+), 16 deletions(-)
+ drivers/char/hw_random/virtio-rng.c | 15 +++++++++------
+ 1 file changed, 9 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/scsi/virtio_scsi.c b/drivers/scsi/virtio_scsi.c
-index 327eba0..5f022ff 100644
---- a/drivers/scsi/virtio_scsi.c
-+++ b/drivers/scsi/virtio_scsi.c
-@@ -860,17 +860,6 @@ static void virtscsi_init_vq(struct virtio_scsi_vq *virtscsi_vq,
- 	virtscsi_vq->vq = vq;
+diff --git a/drivers/char/hw_random/virtio-rng.c b/drivers/char/hw_random/virtio-rng.c
+index 132c9cc..72295ea 100644
+--- a/drivers/char/hw_random/virtio-rng.c
++++ b/drivers/char/hw_random/virtio-rng.c
+@@ -109,8 +109,8 @@ static int probe_common(struct virtio_device *vdev)
+ 
+ 	vi->index = index = ida_simple_get(&rng_index_ida, 0, 0, GFP_KERNEL);
+ 	if (index < 0) {
+-		kfree(vi);
+-		return index;
++		err = index;
++		goto err_ida;
+ 	}
+ 	sprintf(vi->name, "virtio_rng.%d", index);
+ 	init_completion(&vi->have_data);
+@@ -128,13 +128,16 @@ static int probe_common(struct virtio_device *vdev)
+ 	vi->vq = virtio_find_single_vq(vdev, random_recv_done, "input");
+ 	if (IS_ERR(vi->vq)) {
+ 		err = PTR_ERR(vi->vq);
+-		vi->vq = NULL;
+-		kfree(vi);
+-		ida_simple_remove(&rng_index_ida, index);
+-		return err;
++		goto err_find;
+ 	}
+ 
+ 	return 0;
++
++err_find:
++	ida_simple_remove(&rng_index_ida, index);
++err_ida:
++	kfree(vi);
++	return err;
  }
  
--static void virtscsi_scan(struct virtio_device *vdev)
--{
--	struct Scsi_Host *shost = virtio_scsi_host(vdev);
--	struct virtio_scsi *vscsi = shost_priv(shost);
--
--	if (virtio_has_feature(vdev, VIRTIO_SCSI_F_HOTPLUG))
--		virtscsi_kick_event_all(vscsi);
--
--	scsi_scan_host(shost);
--}
--
- static void virtscsi_remove_vqs(struct virtio_device *vdev)
- {
- 	struct Scsi_Host *sh = virtio_scsi_host(vdev);
-@@ -1007,10 +996,13 @@ static int virtscsi_probe(struct virtio_device *vdev)
- 	err = scsi_add_host(shost, &vdev->dev);
- 	if (err)
- 		goto scsi_add_host_failed;
--	/*
--	 * scsi_scan_host() happens in virtscsi_scan() via virtio_driver->scan()
--	 * after VIRTIO_CONFIG_S_DRIVER_OK has been set..
--	 */
-+
-+	virtio_device_ready(vdev);
-+
-+	if (virtio_has_feature(vdev, VIRTIO_SCSI_F_HOTPLUG))
-+		virtscsi_kick_event_all(vscsi);
-+
-+	scsi_scan_host(shost);
- 	return 0;
- 
- scsi_add_host_failed:
-@@ -1090,7 +1082,6 @@ static struct virtio_driver virtio_scsi_driver = {
- 	.driver.owner = THIS_MODULE,
- 	.id_table = id_table,
- 	.probe = virtscsi_probe,
--	.scan = virtscsi_scan,
- #ifdef CONFIG_PM_SLEEP
- 	.freeze = virtscsi_freeze,
- 	.restore = virtscsi_restore,
+ static void remove_common(struct virtio_device *vdev)
 -- 
 MST
-
-
