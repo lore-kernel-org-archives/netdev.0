@@ -1,68 +1,56 @@
-From: Marcelo Ricardo Leitner <mleitner@redhat.com>
-Subject: [PATCH stable 3.2 3.4] ipv4: disable bh while doing route gc
-Date: Mon, 13 Oct 2014 13:20:38 -0300
-Message-ID: <6c3d6eca5d6a15c01393b010f2116bd169477c5a.1413215324.git.mleitner@redhat.com>
-Cc: netdev@vger.kernel.org, hannes@stressinduktion.org
-To: davem@davemloft.net
+From: Prashant Sreedharan <prashant@broadcom.com>
+Subject: [PATCH net-next] tg3: Add skb->xmit_more support
+Date: Mon, 13 Oct 2014 09:21:42 -0700
+Message-ID: <1413217302-15396-1-git-send-email-prashant@broadcom.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <dborkman@redhat.com>,
+	<mchan@broadcom.com>, Prashant Sreedharan <prashant@broadcom.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54312 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753100AbaJMQU5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Oct 2014 12:20:57 -0400
+Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:53423 "EHLO
+	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753747AbaJMQdc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Oct 2014 12:33:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Further tests revealed that after moving the garbage collector to a work
-queue and protecting it with a spinlock may leave the system prone to
-soft lockups if bottom half gets very busy.
+Ring TX doorbell only if xmit_more is not set or the queue is stopped.
 
-It was reproced with a set of firewall rules that REJECTed packets. If
-the NIC bottom half handler ends up running on the same CPU that is
-running the garbage collector on a very large cache, the garbage
-collector will not be able to do its job due to the amount of work
-needed for handling the REJECTs and also won't reschedule.
-
-The fix is to disable bottom half during the garbage collecting, as it
-already was in the first place (most calls to it came from softirqs).
-
-Signed-off-by: Marcelo Ricardo Leitner <mleitner@redhat.com>
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Suggested-by: Daniel Borkmann <dborkman@redhat.com>
+Signed-off-by: Prashant Sreedharan <prashant@broadcom.com>
+Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
+ drivers/net/ethernet/broadcom/tg3.c |   10 ++++++----
+ 1 files changed, 6 insertions(+), 4 deletions(-)
 
-Notes:
-    Hi Dave,
-    
-    This is needed for stables 3.2 and 3.4, as those are the ones that we
-    applied the previous patches:
-        ipv4: move route garbage collector to work queue
-        ipv4: avoid parallel route cache gc executions
-    
-    Thanks.
-
- net/ipv4/route.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 9e7909eef8d10107008f8d629f9f2d75fde52eb2..6c34bc98bce7147cf6c242439f2afeb9adf28c72 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -998,7 +998,7 @@ static void __do_rt_garbage_collect(int elasticity, int min_interval)
- 	 * do not make it too frequently.
- 	 */
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index ba49948..dbb41c1 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -8099,9 +8099,6 @@ static netdev_tx_t tg3_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	/* Sync BD data before updating mailbox */
+ 	wmb();
  
--	spin_lock(&rt_gc_lock);
-+	spin_lock_bh(&rt_gc_lock);
+-	/* Packets are ready, update Tx producer idx local and on card. */
+-	tw32_tx_mbox(tnapi->prodmbox, entry);
+-
+ 	tnapi->tx_prod = entry;
+ 	if (unlikely(tg3_tx_avail(tnapi) <= (MAX_SKB_FRAGS + 1))) {
+ 		netif_tx_stop_queue(txq);
+@@ -8116,7 +8113,12 @@ static netdev_tx_t tg3_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 			netif_tx_wake_queue(txq);
+ 	}
  
- 	RT_CACHE_STAT_INC(gc_total);
+-	mmiowb();
++	if (!skb->xmit_more || netif_xmit_stopped(txq)) {
++		/* Packets are ready, update Tx producer idx on card. */
++		tw32_tx_mbox(tnapi->prodmbox, entry);
++		mmiowb();
++	}
++
+ 	return NETDEV_TX_OK;
  
-@@ -1101,7 +1101,7 @@ work_done:
- 	    dst_entries_get_slow(&ipv4_dst_ops) < ipv4_dst_ops.gc_thresh)
- 		expire = ip_rt_gc_timeout;
- out:
--	spin_unlock(&rt_gc_lock);
-+	spin_unlock_bh(&rt_gc_lock);
- }
- 
- static void __rt_garbage_collect(struct work_struct *w)
+ dma_error:
 -- 
-1.9.3
+1.7.1
