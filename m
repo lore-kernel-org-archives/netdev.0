@@ -1,7 +1,7 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH v4 03/25] virtio-pci: move freeze/restore to virtio core
-Date: Mon, 13 Oct 2014 10:48:27 +0300
-Message-ID: <1413114332-626-4-git-send-email-mst-v4@redhat.com>
+Subject: [PATCH v4 04/25] virtio: defer config changed notifications
+Date: Mon, 13 Oct 2014 10:50:04 +0300
+Message-ID: <1413114332-626-5-git-send-email-mst-v4@redhat.com>
 References: <1413114332-626-1-git-send-email-mst-v4@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -27,201 +27,156 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-This is in preparation to extending config changed event handling
-in core.
-Wrapping these in an API also seems to make for a cleaner code.
+Defer config changed notifications that arrive during
+probe/scan/freeze/restore.
+
+This will allow drivers to set DRIVER_OK earlier, without worrying about
+racing with config change interrupts.
+
+This change will also benefit old hypervisors (before 2009)
+that send interrupts without checking DRIVER_OK: previously,
+the callback could race with driver-specific initialization.
+
+This will also help simplify drivers.
 
 Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 Reviewed-by: Cornelia Huck <cornelia.huck@de.ibm.com>
 ---
- include/linux/virtio.h      |  6 +++++
- drivers/virtio/virtio.c     | 54 +++++++++++++++++++++++++++++++++++++++++++++
- drivers/virtio/virtio_pci.c | 54 ++-------------------------------------------
- 3 files changed, 62 insertions(+), 52 deletions(-)
+ include/linux/virtio.h  |  6 ++++++
+ drivers/virtio/virtio.c | 57 +++++++++++++++++++++++++++++++++++++++++--------
+ 2 files changed, 54 insertions(+), 9 deletions(-)
 
 diff --git a/include/linux/virtio.h b/include/linux/virtio.h
-index 3c19bd3..8df7ba8 100644
+index 8df7ba8..5636b11 100644
 --- a/include/linux/virtio.h
 +++ b/include/linux/virtio.h
-@@ -78,6 +78,7 @@ bool virtqueue_is_broken(struct virtqueue *vq);
- /**
+@@ -79,6 +79,9 @@ bool virtqueue_is_broken(struct virtqueue *vq);
   * virtio_device - representation of a device using virtio
   * @index: unique position on the virtio bus
-+ * @failed: saved value for CONFIG_S_FAILED bit (for restore)
+  * @failed: saved value for CONFIG_S_FAILED bit (for restore)
++ * @config_enabled: configuration change reporting enabled
++ * @config_changed: configuration change reported while disabled
++ * @config_lock: protects configuration change reporting
   * @dev: underlying device.
   * @id: the device type identification (used to match it with a driver).
   * @config: the configuration ops for this device.
-@@ -88,6 +89,7 @@ bool virtqueue_is_broken(struct virtqueue *vq);
-  */
+@@ -90,6 +93,9 @@ bool virtqueue_is_broken(struct virtqueue *vq);
  struct virtio_device {
  	int index;
-+	bool failed;
+ 	bool failed;
++	bool config_enabled;
++	bool config_changed;
++	spinlock_t config_lock;
  	struct device dev;
  	struct virtio_device_id id;
  	const struct virtio_config_ops *config;
-@@ -109,6 +111,10 @@ void unregister_virtio_device(struct virtio_device *dev);
- void virtio_break_device(struct virtio_device *dev);
- 
- void virtio_config_changed(struct virtio_device *dev);
-+#ifdef CONFIG_PM_SLEEP
-+int virtio_device_freeze(struct virtio_device *dev);
-+int virtio_device_restore(struct virtio_device *dev);
-+#endif
- 
- /**
-  * virtio_driver - operations for a virtio I/O driver
 diff --git a/drivers/virtio/virtio.c b/drivers/virtio/virtio.c
-index 3980687..8216b73 100644
+index 8216b73..2536701 100644
 --- a/drivers/virtio/virtio.c
 +++ b/drivers/virtio/virtio.c
-@@ -248,6 +248,60 @@ void virtio_config_changed(struct virtio_device *dev)
+@@ -117,6 +117,42 @@ void virtio_check_driver_offered_feature(const struct virtio_device *vdev,
  }
- EXPORT_SYMBOL_GPL(virtio_config_changed);
+ EXPORT_SYMBOL_GPL(virtio_check_driver_offered_feature);
  
-+#ifdef CONFIG_PM_SLEEP
-+int virtio_device_freeze(struct virtio_device *dev)
++static void __virtio_config_changed(struct virtio_device *dev)
 +{
 +	struct virtio_driver *drv = drv_to_virtio(dev->dev.driver);
 +
-+	dev->failed = dev->config->get_status(dev) & VIRTIO_CONFIG_S_FAILED;
-+
-+	if (drv && drv->freeze)
-+		return drv->freeze(dev);
-+
-+	return 0;
++	if (!dev->config_enabled)
++		dev->config_changed = true;
++	else if (drv && drv->config_changed)
++		drv->config_changed(dev);
 +}
-+EXPORT_SYMBOL_GPL(virtio_device_freeze);
 +
-+int virtio_device_restore(struct virtio_device *dev)
++void virtio_config_changed(struct virtio_device *dev)
 +{
-+	struct virtio_driver *drv = drv_to_virtio(dev->dev.driver);
++	unsigned long flags;
 +
-+	/* We always start by resetting the device, in case a previous
-+	 * driver messed it up. */
-+	dev->config->reset(dev);
-+
-+	/* Acknowledge that we've seen the device. */
-+	add_status(dev, VIRTIO_CONFIG_S_ACKNOWLEDGE);
-+
-+	/* Maybe driver failed before freeze.
-+	 * Restore the failed status, for debugging. */
-+	if (dev->failed)
-+		add_status(dev, VIRTIO_CONFIG_S_FAILED);
-+
-+	if (!drv)
-+		return 0;
-+
-+	/* We have a driver! */
-+	add_status(dev, VIRTIO_CONFIG_S_DRIVER);
-+
-+	dev->config->finalize_features(dev);
-+
-+	if (drv->restore) {
-+		int ret = drv->restore(dev);
-+		if (ret) {
-+			add_status(dev, VIRTIO_CONFIG_S_FAILED);
-+			return ret;
-+		}
-+	}
-+
-+	/* Finally, tell the device we're all set */
-+	add_status(dev, VIRTIO_CONFIG_S_DRIVER_OK);
-+
-+	return 0;
++	spin_lock_irqsave(&dev->config_lock, flags);
++	__virtio_config_changed(dev);
++	spin_unlock_irqrestore(&dev->config_lock, flags);
 +}
-+EXPORT_SYMBOL_GPL(virtio_device_restore);
-+#endif
++EXPORT_SYMBOL_GPL(virtio_config_changed);
 +
- static int virtio_init(void)
++static void virtio_config_disable(struct virtio_device *dev)
++{
++	spin_lock_irq(&dev->config_lock);
++	dev->config_enabled = false;
++	spin_unlock_irq(&dev->config_lock);
++}
++
++static void virtio_config_enable(struct virtio_device *dev)
++{
++	spin_lock_irq(&dev->config_lock);
++	dev->config_enabled = true;
++	__virtio_config_changed(dev);
++	dev->config_changed = false;
++	spin_unlock_irq(&dev->config_lock);
++}
++
+ static int virtio_dev_probe(struct device *_d)
  {
- 	if (bus_register(&virtio_bus) != 0)
-diff --git a/drivers/virtio/virtio_pci.c b/drivers/virtio/virtio_pci.c
-index f39f4e7..d34ebfa 100644
---- a/drivers/virtio/virtio_pci.c
-+++ b/drivers/virtio/virtio_pci.c
-@@ -57,9 +57,6 @@ struct virtio_pci_device
- 	/* Vectors allocated, excluding per-vq vectors if any */
- 	unsigned msix_used_vectors;
+ 	int err, i;
+@@ -153,6 +189,8 @@ static int virtio_dev_probe(struct device *_d)
+ 		add_status(dev, VIRTIO_CONFIG_S_DRIVER_OK);
+ 		if (drv->scan)
+ 			drv->scan(dev);
++
++		virtio_config_enable(dev);
+ 	}
  
--	/* Status saved during hibernate/restore */
--	u8 saved_status;
--
- 	/* Whether we have vector per vq */
- 	bool per_vq_vectors;
- };
-@@ -764,16 +761,9 @@ static int virtio_pci_freeze(struct device *dev)
- {
- 	struct pci_dev *pci_dev = to_pci_dev(dev);
- 	struct virtio_pci_device *vp_dev = pci_get_drvdata(pci_dev);
--	struct virtio_driver *drv;
- 	int ret;
+ 	return err;
+@@ -163,6 +201,8 @@ static int virtio_dev_remove(struct device *_d)
+ 	struct virtio_device *dev = dev_to_virtio(_d);
+ 	struct virtio_driver *drv = drv_to_virtio(dev->dev.driver);
  
--	drv = container_of(vp_dev->vdev.dev.driver,
--			   struct virtio_driver, driver);
--
--	ret = 0;
--	vp_dev->saved_status = vp_get_status(&vp_dev->vdev);
--	if (drv && drv->freeze)
--		ret = drv->freeze(&vp_dev->vdev);
-+	ret = virtio_device_freeze(&vp_dev->vdev);
++	virtio_config_disable(dev);
++
+ 	drv->remove(dev);
  
- 	if (!ret)
- 		pci_disable_device(pci_dev);
-@@ -784,54 +774,14 @@ static int virtio_pci_restore(struct device *dev)
- {
- 	struct pci_dev *pci_dev = to_pci_dev(dev);
- 	struct virtio_pci_device *vp_dev = pci_get_drvdata(pci_dev);
--	struct virtio_driver *drv;
--	unsigned status = 0;
- 	int ret;
+ 	/* Driver should have reset device. */
+@@ -211,6 +251,10 @@ int register_virtio_device(struct virtio_device *dev)
+ 	dev->index = err;
+ 	dev_set_name(&dev->dev, "virtio%u", dev->index);
  
--	drv = container_of(vp_dev->vdev.dev.driver,
--			   struct virtio_driver, driver);
--
- 	ret = pci_enable_device(pci_dev);
- 	if (ret)
- 		return ret;
- 
- 	pci_set_master(pci_dev);
--	/* We always start by resetting the device, in case a previous
--	 * driver messed it up. */
--	vp_reset(&vp_dev->vdev);
--
--	/* Acknowledge that we've seen the device. */
--	status |= VIRTIO_CONFIG_S_ACKNOWLEDGE;
--	vp_set_status(&vp_dev->vdev, status);
--
--	/* Maybe driver failed before freeze.
--	 * Restore the failed status, for debugging. */
--	status |= vp_dev->saved_status & VIRTIO_CONFIG_S_FAILED;
--	vp_set_status(&vp_dev->vdev, status);
--
--	if (!drv)
--		return 0;
--
--	/* We have a driver! */
--	status |= VIRTIO_CONFIG_S_DRIVER;
--	vp_set_status(&vp_dev->vdev, status);
--
--	vp_finalize_features(&vp_dev->vdev);
--
--	if (drv->restore) {
--		ret = drv->restore(&vp_dev->vdev);
--		if (ret) {
--			status |= VIRTIO_CONFIG_S_FAILED;
--			vp_set_status(&vp_dev->vdev, status);
--			return ret;
--		}
--	}
--
--	/* Finally, tell the device we're all set */
--	status |= VIRTIO_CONFIG_S_DRIVER_OK;
--	vp_set_status(&vp_dev->vdev, status);
--
--	return ret;
-+	return virtio_device_restore(&vp_dev->vdev);
++	spin_lock_init(&dev->config_lock);
++	dev->config_enabled = false;
++	dev->config_changed = false;
++
+ 	/* We always start by resetting the device, in case a previous
+ 	 * driver messed it up.  This also tests that code path a little. */
+ 	dev->config->reset(dev);
+@@ -239,20 +283,13 @@ void unregister_virtio_device(struct virtio_device *dev)
  }
+ EXPORT_SYMBOL_GPL(unregister_virtio_device);
  
- static const struct dev_pm_ops virtio_pci_pm_ops = {
+-void virtio_config_changed(struct virtio_device *dev)
+-{
+-	struct virtio_driver *drv = drv_to_virtio(dev->dev.driver);
+-
+-	if (drv && drv->config_changed)
+-		drv->config_changed(dev);
+-}
+-EXPORT_SYMBOL_GPL(virtio_config_changed);
+-
+ #ifdef CONFIG_PM_SLEEP
+ int virtio_device_freeze(struct virtio_device *dev)
+ {
+ 	struct virtio_driver *drv = drv_to_virtio(dev->dev.driver);
+ 
++	virtio_config_disable(dev);
++
+ 	dev->failed = dev->config->get_status(dev) & VIRTIO_CONFIG_S_FAILED;
+ 
+ 	if (drv && drv->freeze)
+@@ -297,6 +334,8 @@ int virtio_device_restore(struct virtio_device *dev)
+ 	/* Finally, tell the device we're all set */
+ 	add_status(dev, VIRTIO_CONFIG_S_DRIVER_OK);
+ 
++	virtio_config_enable(dev);
++
+ 	return 0;
+ }
+ EXPORT_SYMBOL_GPL(virtio_device_restore);
 -- 
 MST
