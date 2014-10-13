@@ -1,67 +1,42 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH] sfc: efx: add support for skb->xmit_more
-Date: Mon, 13 Oct 2014 18:59:45 +0200
-Message-ID: <1413219585-15854-1-git-send-email-dborkman@redhat.com>
-Cc: nikolay@redhat.com, netdev@vger.kernel.org,
-	Shradha Shah <sshah@solarflare.com>
-To: davem@davemloft.net
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH net-next] tg3: Add skb->xmit_more support
+Date: Mon, 13 Oct 2014 10:14:17 -0700
+Message-ID: <543C0869.7000604@hp.com>
+References: <1413217302-15396-1-git-send-email-prashant@broadcom.com> <1413218934.9362.104.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org, dborkman@redhat.com,
+	mchan@broadcom.com
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Prashant Sreedharan <prashant@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60057 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754160AbaJMQ7w (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Oct 2014 12:59:52 -0400
+Received: from g4t3427.houston.hp.com ([15.201.208.55]:14855 "EHLO
+	g4t3427.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752231AbaJMROU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Oct 2014 13:14:20 -0400
+In-Reply-To: <1413218934.9362.104.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support for xmit_more batching: efx has BQL support, thus we need
-to only move the queue hang check before the hw tail pointer write
-and test for xmit_more bit resp. whether the queue/stack has stopped.
-Thanks to Nikolay Aleksandrov who had a Solarflare NIC to test!
+On 10/13/2014 09:48 AM, Eric Dumazet wrote:
+> On Mon, 2014-10-13 at 09:21 -0700, Prashant Sreedharan wrote:
+>> Ring TX doorbell only if xmit_more is not set or the queue is stopped.
+>>
+>> Suggested-by: Daniel Borkmann <dborkman@redhat.com>
+>> Signed-off-by: Prashant Sreedharan <prashant@broadcom.com>
+>> Signed-off-by: Michael Chan <mchan@broadcom.com>
+>> ---
+>>   drivers/net/ethernet/broadcom/tg3.c |   10 ++++++----
+>>   1 files changed, 6 insertions(+), 4 deletions(-)
+>
+> Have you noticed any performance change ?
+>
+> I did the patch for bnx2x but got no real difference...
 
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-Acked-by: Nikolay Aleksandrov <nikolay@redhat.com>
-Cc: Shradha Shah <sshah@solarflare.com>
----
- drivers/net/ethernet/sfc/tx.c | 15 ++++++++-------
- 1 file changed, 8 insertions(+), 7 deletions(-)
+If ringing the doorbell is just a pio write, it may just get lost in the 
+noise.  If though the programming model (or some sort of defect 
+workaround) of the NIC requires a pio read of some sort when ringing the 
+doorbell...
 
-diff --git a/drivers/net/ethernet/sfc/tx.c b/drivers/net/ethernet/sfc/tx.c
-index 3206098..566432c 100644
---- a/drivers/net/ethernet/sfc/tx.c
-+++ b/drivers/net/ethernet/sfc/tx.c
-@@ -439,13 +439,13 @@ finish_packet:
- 
- 	netdev_tx_sent_queue(tx_queue->core_txq, skb->len);
- 
-+	efx_tx_maybe_stop_queue(tx_queue);
-+
- 	/* Pass off to hardware */
--	efx_nic_push_buffers(tx_queue);
-+	if (!skb->xmit_more || netif_xmit_stopped(tx_queue->core_txq))
-+		efx_nic_push_buffers(tx_queue);
- 
- 	tx_queue->tx_packets++;
--
--	efx_tx_maybe_stop_queue(tx_queue);
--
- 	return NETDEV_TX_OK;
- 
-  dma_err:
-@@ -1308,11 +1308,12 @@ static int efx_enqueue_skb_tso(struct efx_tx_queue *tx_queue,
- 
- 	netdev_tx_sent_queue(tx_queue->core_txq, skb->len);
- 
--	/* Pass off to hardware */
--	efx_nic_push_buffers(tx_queue);
--
- 	efx_tx_maybe_stop_queue(tx_queue);
- 
-+	/* Pass off to hardware */
-+	if (!skb->xmit_more || netif_xmit_stopped(tx_queue->core_txq))
-+		efx_nic_push_buffers(tx_queue);
-+
- 	tx_queue->tso_bursts++;
- 	return NETDEV_TX_OK;
- 
--- 
-1.7.11.7
+rick
