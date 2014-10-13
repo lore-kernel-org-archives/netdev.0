@@ -1,52 +1,157 @@
-From: =?iso-8859-1?Q?Llu=EDs?= Batlle i Rossell <viric@viric.name>
-Subject: Re: Regarding tx-nocache-copy in the Sheevaplug
-Date: Mon, 13 Oct 2014 14:32:17 +0200
-Message-ID: <20141013123217.GF1972@vicerveza.homeunix.net>
-References: <20141013105246.GD1972@vicerveza.homeunix.net>
- <1413203171.9362.81.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] tcp: TCP Small Queues and strange attractors
+Date: Mon, 13 Oct 2014 06:27:47 -0700
+Message-ID: <1413206867.9362.100.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Carles =?iso-8859-1?Q?Pag=E8s?= <page@cubata.homelinux.net>,
-	linux-arm-kernel@lists.infradead.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1413203171.9362.81.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:54806 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753626AbaJMN1t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Oct 2014 09:27:49 -0400
+Received: by mail-pa0-f53.google.com with SMTP id kq14so5851273pab.40
+        for <netdev@vger.kernel.org>; Mon, 13 Oct 2014 06:27:49 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 13, 2014 at 05:26:11AM -0700, Eric Dumazet wrote:
-> On Mon, 2014-10-13 at 12:52 +0200, Llu=EDs Batlle i Rossell wrote:
-> > Hello,
-> >=20
-> > on the 7th of January 2014 ths patch was applied:
-> > https://lkml.org/lkml/2014/1/7/307
-> >=20
-> > [PATCH v2] net: Do not enable tx-nocache-copy by default
-> >        =20
-> > In the Sheevaplug (ARM Feroceon 88FR131 from Marvell) this made pac=
-kets to be
-> > sent corrupted. I think this machine has something special about th=
-e cache.
-> >=20
-> > Enabling back this tx-nocache-copy (as it used to be before the pat=
-ch) the
-> > transfers work fine again. I think that most people, encountering t=
-his problem,
-> > completely disable the tx offload instead of enabling back this set=
-ting.
-> >=20
-> > Is this an ARM kernel problem regarding this platform?
->=20
-> Which NIC and driver is this exactly ?
+From: Eric Dumazet <edumazet@google.com>
 
-According to dmesg in 3.10.1:
-[    7.858872] mv643xx_eth: MV-643xx 10/100/1000 ethernet driver versio=
-n 1.4
-[    7.866001] mv643xx_eth_port mv643xx_eth_port.0 eth0: port 0 with MA=
-C address 00:50:43:01:d1:bb
+TCP Small queues tries to keep number of packets in qdisc
+as small as possible, and depends on a tasklet to feed following
+packets at TX completion time.
+Choice of tasklet was driven by latencies requirements.
 
-Regards,
-Llu=EDs.
+Then, TCP stack tries to avoid reorders, by locking flows with
+outstanding packets in qdisc in a given TX queue.
+
+What can happen is that many flows get attracted by a low performing
+TX queue, and cpu servicing TX completion has to feed packets for all of
+them, making this cpu 100% busy in softirq mode.
+
+This became particularly visible with latest skb->xmit_more support
+
+Strategy adopted in this patch is to detect when tcp_wfree() is called
+from ksoftirqd and let the outstanding queue for this flow being drained
+before feeding additional packets, so that skb->ooo_okay can be set
+to allow select_queue() to select the optimal queue :
+
+Incoming ACKS are normally handled by different cpus, so this patch
+gives more chance for these cpus to take over the burden of feeding
+qdisc with future packets.
+
+Tested:
+
+lpaa23:~# ./super_netperf 1400 --google-pacing-rate 3028000 -H lpaa24 -l 3600 &
+
+lpaa23:~# sar -n DEV 1 10 | grep eth1
+06:16:18 AM      eth1 595448.00 1190564.00  38381.09 1760253.12      0.00      0.00      1.00
+06:16:19 AM      eth1 594858.00 1189686.00  38340.76 1758952.72      0.00      0.00      0.00
+06:16:20 AM      eth1 597017.00 1194019.00  38480.79 1765370.29      0.00      0.00      1.00
+06:16:21 AM      eth1 595450.00 1190936.00  38380.19 1760805.05      0.00      0.00      0.00
+06:16:22 AM      eth1 596385.00 1193096.00  38442.56 1763976.29      0.00      0.00      1.00
+06:16:23 AM      eth1 598155.00 1195978.00  38552.97 1768264.60      0.00      0.00      0.00
+06:16:24 AM      eth1 594405.00 1188643.00  38312.57 1757414.89      0.00      0.00      1.00
+06:16:25 AM      eth1 593366.00 1187154.00  38252.16 1755195.83      0.00      0.00      0.00
+06:16:26 AM      eth1 593188.00 1186118.00  38232.88 1753682.57      0.00      0.00      1.00
+06:16:27 AM      eth1 596301.00 1192241.00  38440.94 1762733.09      0.00      0.00      0.00
+Average:         eth1 595457.30 1190843.50  38381.69 1760664.84      0.00      0.00      0.50
+lpaa23:~# ./tc -s -d qd sh dev eth1 | grep backlog
+ backlog 7606336b 2513p requeues 167982 
+ backlog 224072b 74p requeues 566 
+ backlog 581376b 192p requeues 5598 
+ backlog 181680b 60p requeues 1070 
+ backlog 5305056b 1753p requeues 110166    // Here, this TX queue is attracting flows
+ backlog 157456b 52p requeues 1758 
+ backlog 672216b 222p requeues 3025 
+ backlog 60560b 20p requeues 24541 
+ backlog 448144b 148p requeues 21258 
+
+lpaa23:~# echo 1 >/proc/sys/net/ipv4/tcp_tsq_enable_tcp_wfree_ksoftirqd_detect
+
+Immediate jump to full bandwidth, and traffic is properly
+shard on all tx queues.
+
+lpaa23:~# sar -n DEV 1 10 | grep eth1
+06:16:46 AM      eth1 1397632.00 2795397.00  90081.87 4133031.26      0.00      0.00      1.00
+06:16:47 AM      eth1 1396874.00 2793614.00  90032.99 4130385.46      0.00      0.00      0.00
+06:16:48 AM      eth1 1395842.00 2791600.00  89966.46 4127409.67      0.00      0.00      1.00
+06:16:49 AM      eth1 1395528.00 2791017.00  89946.17 4126551.24      0.00      0.00      0.00
+06:16:50 AM      eth1 1397891.00 2795716.00  90098.74 4133497.39      0.00      0.00      1.00
+06:16:51 AM      eth1 1394951.00 2789984.00  89908.96 4125022.51      0.00      0.00      0.00
+06:16:52 AM      eth1 1394608.00 2789190.00  89886.90 4123851.36      0.00      0.00      1.00
+06:16:53 AM      eth1 1395314.00 2790653.00  89934.33 4125983.09      0.00      0.00      0.00
+06:16:54 AM      eth1 1396115.00 2792276.00  89984.25 4128411.21      0.00      0.00      1.00
+06:16:55 AM      eth1 1396829.00 2793523.00  90030.19 4130250.28      0.00      0.00      0.00
+Average:         eth1 1396158.40 2792297.00  89987.09 4128439.35      0.00      0.00      0.50
+
+lpaa23:~# tc -s -d qd sh dev eth1 | grep backlog
+ backlog 7900052b 2609p requeues 173287 
+ backlog 878120b 290p requeues 589 
+ backlog 1068884b 354p requeues 5621 
+ backlog 996212b 329p requeues 1088 
+ backlog 984100b 325p requeues 115316 
+ backlog 956848b 316p requeues 1781 
+ backlog 1080996b 357p requeues 3047 
+ backlog 975016b 322p requeues 24571 
+ backlog 990156b 327p requeues 21274 
+
+(All 8 TX queues get a fair share of the traffic)
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/ipv4/tcp_output.c |   26 +++++++++++++++++++-------
+ 1 file changed, 19 insertions(+), 7 deletions(-)
+
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 8d4eac793700..4a7e97811d71 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -839,26 +839,38 @@ void tcp_wfree(struct sk_buff *skb)
+ {
+ 	struct sock *sk = skb->sk;
+ 	struct tcp_sock *tp = tcp_sk(sk);
++	int wmem;
++
++	/* Keep one reference on sk_wmem_alloc.
++	 * Will be released by sk_free() from here or tcp_tasklet_func()
++	 */
++	wmem = atomic_sub_return(skb->truesize - 1, &sk->sk_wmem_alloc);
++
++	/* If this softirq is serviced by ksoftirqd, we are likely under stress.
++	 * Wait until our queues (qdisc + devices) are drained.
++	 * This gives :
++	 * - less callbacks to tcp_write_xmit(), reducing stress (batches)
++	 * - chance for incoming ACK (processed by another cpu maybe)
++	 *   to migrate this flow (skb->ooo_okay will be eventually set)
++	 */
++	if (wmem >= SKB_TRUESIZE(1) && this_cpu_ksoftirqd() == current)
++		goto out;
+ 
+ 	if (test_and_clear_bit(TSQ_THROTTLED, &tp->tsq_flags) &&
+ 	    !test_and_set_bit(TSQ_QUEUED, &tp->tsq_flags)) {
+ 		unsigned long flags;
+ 		struct tsq_tasklet *tsq;
+ 
+-		/* Keep a ref on socket.
+-		 * This last ref will be released in tcp_tasklet_func()
+-		 */
+-		atomic_sub(skb->truesize - 1, &sk->sk_wmem_alloc);
+-
+ 		/* queue this socket to tasklet queue */
+ 		local_irq_save(flags);
+ 		tsq = &__get_cpu_var(tsq_tasklet);
+ 		list_add(&tp->tsq_node, &tsq->head);
+ 		tasklet_schedule(&tsq->tasklet);
+ 		local_irq_restore(flags);
+-	} else {
+-		sock_wfree(skb);
++		return;
+ 	}
++out:
++	sk_free(sk);
+ }
+ 
+ /* This routine actually transmits TCP packets queued in by
