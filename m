@@ -1,48 +1,67 @@
-From: Marcelo Ricardo Leitner <mleitner@redhat.com>
-Subject: Re: [PATCH stable 3.2 3.4] ipv4: disable bh while doing route gc
-Date: Mon, 13 Oct 2014 13:58:31 -0300
-Message-ID: <543C04B7.1040005@redhat.com>
-References: <6c3d6eca5d6a15c01393b010f2116bd169477c5a.1413215324.git.mleitner@redhat.com> <20141013.125225.1129718741415025861.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hannes@stressinduktion.org
-To: David Miller <davem@davemloft.net>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH] sfc: efx: add support for skb->xmit_more
+Date: Mon, 13 Oct 2014 18:59:45 +0200
+Message-ID: <1413219585-15854-1-git-send-email-dborkman@redhat.com>
+Cc: nikolay@redhat.com, netdev@vger.kernel.org,
+	Shradha Shah <sshah@solarflare.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:61479 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:60057 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754486AbaJMQ7O (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Oct 2014 12:59:14 -0400
-In-Reply-To: <20141013.125225.1129718741415025861.davem@davemloft.net>
+	id S1754160AbaJMQ7w (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Oct 2014 12:59:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 13-10-2014 13:52, David Miller wrote:
-> From: Marcelo Ricardo Leitner <mleitner@redhat.com>
-> Date: Mon, 13 Oct 2014 13:20:38 -0300
->
->> Further tests revealed that after moving the garbage collector to a work
->> queue and protecting it with a spinlock may leave the system prone to
->> soft lockups if bottom half gets very busy.
->>
->> It was reproced with a set of firewall rules that REJECTed packets. If
->> the NIC bottom half handler ends up running on the same CPU that is
->> running the garbage collector on a very large cache, the garbage
->> collector will not be able to do its job due to the amount of work
->> needed for handling the REJECTs and also won't reschedule.
->>
->> The fix is to disable bottom half during the garbage collecting, as it
->> already was in the first place (most calls to it came from softirqs).
->>
->> Signed-off-by: Marcelo Ricardo Leitner <mleitner@redhat.com>
->> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
->
-> Please add my:
->
-> Acked-by: David S. Miller <davem@davemloft.net>
->
-> and submit this directly to -stable, thanks.
+Add support for xmit_more batching: efx has BQL support, thus we need
+to only move the queue hang check before the hw tail pointer write
+and test for xmit_more bit resp. whether the queue/stack has stopped.
+Thanks to Nikolay Aleksandrov who had a Solarflare NIC to test!
 
-Will do. Thanks.
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Acked-by: Nikolay Aleksandrov <nikolay@redhat.com>
+Cc: Shradha Shah <sshah@solarflare.com>
+---
+ drivers/net/ethernet/sfc/tx.c | 15 ++++++++-------
+ 1 file changed, 8 insertions(+), 7 deletions(-)
 
-Marcelo
+diff --git a/drivers/net/ethernet/sfc/tx.c b/drivers/net/ethernet/sfc/tx.c
+index 3206098..566432c 100644
+--- a/drivers/net/ethernet/sfc/tx.c
++++ b/drivers/net/ethernet/sfc/tx.c
+@@ -439,13 +439,13 @@ finish_packet:
+ 
+ 	netdev_tx_sent_queue(tx_queue->core_txq, skb->len);
+ 
++	efx_tx_maybe_stop_queue(tx_queue);
++
+ 	/* Pass off to hardware */
+-	efx_nic_push_buffers(tx_queue);
++	if (!skb->xmit_more || netif_xmit_stopped(tx_queue->core_txq))
++		efx_nic_push_buffers(tx_queue);
+ 
+ 	tx_queue->tx_packets++;
+-
+-	efx_tx_maybe_stop_queue(tx_queue);
+-
+ 	return NETDEV_TX_OK;
+ 
+  dma_err:
+@@ -1308,11 +1308,12 @@ static int efx_enqueue_skb_tso(struct efx_tx_queue *tx_queue,
+ 
+ 	netdev_tx_sent_queue(tx_queue->core_txq, skb->len);
+ 
+-	/* Pass off to hardware */
+-	efx_nic_push_buffers(tx_queue);
+-
+ 	efx_tx_maybe_stop_queue(tx_queue);
+ 
++	/* Pass off to hardware */
++	if (!skb->xmit_more || netif_xmit_stopped(tx_queue->core_txq))
++		efx_nic_push_buffers(tx_queue);
++
+ 	tx_queue->tso_bursts++;
+ 	return NETDEV_TX_OK;
+ 
+-- 
+1.7.11.7
