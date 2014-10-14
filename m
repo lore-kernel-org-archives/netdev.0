@@ -1,56 +1,39 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [Patch net] rds: avoid calling sock_kfree_s() on allocation failure
-Date: Tue, 14 Oct 2014 14:27:00 -0700
-Message-ID: <CAHA+R7MOAKdyrhS3eaxkfou+xKZmQ_DzzdjdEjV3yszdnjQtNA@mail.gmail.com>
-References: <1413315308-32288-1-git-send-email-xiyou.wangcong@gmail.com>
-	<20141014.170311.2104285680542945400.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next,v2] hyperv: Add handling of IP header with
+ option field in netvsc_set_hash()
+Date: Tue, 14 Oct 2014 17:37:17 -0400 (EDT)
+Message-ID: <20141014.173717.1412701736631211553.davem@davemloft.net>
+References: <1413324988-8863-1-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	netdev <netdev@vger.kernel.org>, rds-devel@oss.oracle.com,
-	chien.yen@oracle.com,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f50.google.com ([209.85.216.50]:44833 "EHLO
-	mail-qa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753059AbaJNV1B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2014 17:27:01 -0400
-Received: by mail-qa0-f50.google.com with SMTP id w8so6602923qac.9
-        for <netdev@vger.kernel.org>; Tue, 14 Oct 2014 14:27:01 -0700 (PDT)
-In-Reply-To: <20141014.170311.2104285680542945400.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
+ driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org
+To: haiyangz@microsoft.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1413324988-8863-1-git-send-email-haiyangz@microsoft.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 14, 2014 at 2:03 PM, David Miller <davem@davemloft.net> wrote:
-> From: Cong Wang <xiyou.wangcong@gmail.com>
-> Date: Tue, 14 Oct 2014 12:35:08 -0700
->
->> From: Cong Wang <cwang@twopensource.com>
->>
->> It is okay to free a NULL pointer but not okay to mischarge the socket optmem
->> accounting. Compile test only.
->>
->> Reported-by: rucsoftsec@gmail.com
->> Cc: Chien Yen <chien.yen@oracle.com>
->> Cc: Stephen Hemminger <stephen@networkplumber.org>
->> Signed-off-by: Cong Wang <cwang@twopensource.com>
->> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
->
-> Applied, and I'm going to add the following bug check to the tree too.
->
-> ====================
-> [PATCH] net: Trap attempts to call sock_kfree_s() with a NULL pointer.
->
-> Unlike normal kfree() it is never right to call sock_kfree_s() with
-> a NULL pointer, because sock_kfree_s() also has the side effect of
-> discharging the memory from the sockets quota.
->
-> Signed-off-by: David S. Miller <davem@davemloft.net>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Date: Tue, 14 Oct 2014 15:16:28 -0700
 
+> In case that the IP header has optional field at the end, this patch will
+> get the port numbers after that field, and compute the hash.
+> 
+> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
 
-Acked-by: Cong Wang <cwang@twopensource.com>
+Instead of adding hack after hack after hack to your internal header
+parser, just use the generic flow dissector we already have in the
+kernel to fetch out the values you need.
 
-Sounds reasonable. It could catch more bugs similar to this one.
-
-Thanks!
+__skb_flow_get_ports() etc.
