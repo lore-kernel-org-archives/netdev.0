@@ -1,40 +1,70 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: TCP socket receives strange packet
-Date: Tue, 14 Oct 2014 12:50:04 -0400 (EDT)
-Message-ID: <20141014.125004.1504941413142780868.davem@davemloft.net>
-References: <1413298852.17109.3.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CABrhC0=y745PHJdmKvPeyiYNAEUX_CHPZo7ekiWJYxLt=pYEkw@mail.gmail.com>
-	<20141014164144.GG28432@Paaschs-MacBook-Pro.local>
+Subject: Re: [PATCH] net: fec: ptp: fix convergence issue to support
+ LinuxPTP stack
+Date: Tue, 14 Oct 2014 12:52:39 -0400 (EDT)
+Message-ID: <20141014.125239.1562178476120218308.davem@davemloft.net>
+References: <1413265187-5228-1-git-send-email-b38611@freescale.com>
+	<20141014103610.GA4019@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: johnwheffner@gmail.com, eric.dumazet@gmail.com,
-	Yurij.Plotnikov@oktetlabs.ru, netdev@vger.kernel.org,
-	Alexandra.Kossovsky@oktetlabs.ru
-To: christoph.paasch@gmail.com
+Cc: b38611@freescale.com, netdev@vger.kernel.org,
+	bhutchings@solarflare.com, b20596@freescale.com
+To: richardcochran@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42606 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:42618 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753208AbaJNQuH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2014 12:50:07 -0400
-In-Reply-To: <20141014164144.GG28432@Paaschs-MacBook-Pro.local>
+	with ESMTP id S1755511AbaJNQwm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2014 12:52:42 -0400
+In-Reply-To: <20141014103610.GA4019@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Christoph Paasch <christoph.paasch@gmail.com>
-Date: Tue, 14 Oct 2014 09:41:44 -0700
+From: Richard Cochran <richardcochran@gmail.com>
+Date: Tue, 14 Oct 2014 12:36:10 +0200
 
-> there was a long discussion whether for the updated version of RFC1323 (now
-> published as RFC 7323) a segment must be dropped if it does not contain a
-> timestamp. The rationale (defended by Joe Touch) was that it must be there to
-> protect against wrapped sequence numbers while others argued that mandating
-> a drop might result in stalling connections if (for one reason or another) a
-> host sends a segment without TS (or a middlebox removed it).
+> On Tue, Oct 14, 2014 at 01:39:47PM +0800, Fugang Duan wrote:
+>> IEEE 1588 module has one hw issue in capturing the ATVR register. According
+>> to the user manual it is:
+>> 		ENET0->ATCR |= ENET_ATCR_CAPTURE_MASK;
+>> 		while(ENET0->ATCR & ENET_ATCR_CAPTURE_MASK);
+>> 		ts_counter_ns = ENET0->ATVR;
 > 
-> The RFC now says that a host SHOULD drop segments without timestamps.
+> ...
+> 
+>> diff --git a/drivers/net/ethernet/freescale/fec_ptp.c b/drivers/net/ethernet/freescale/fec_ptp.c
+>> index cca3617..380bb10 100644
+>> --- a/drivers/net/ethernet/freescale/fec_ptp.c
+>> +++ b/drivers/net/ethernet/freescale/fec_ptp.c
+>> @@ -82,12 +82,17 @@ static cycle_t fec_ptp_read(const struct cyclecounter *cc)
+>>  {
+>>  	struct fec_enet_private *fep =
+>>  		container_of(cc, struct fec_enet_private, cc);
+>> +	const struct platform_device_id *id_entry =
+>> +		platform_get_device_id(fep->pdev);
+>>  	u32 tempval;
+>>  
+>>  	tempval = readl(fep->hwp + FEC_ATIME_CTRL);
+>>  	tempval |= FEC_T_CTRL_CAPTURE;
+>>  	writel(tempval, fep->hwp + FEC_ATIME_CTRL);
+>>  
+>> +	if (id_entry->driver_data & FEC_QUIRK_BUG_CAPTURE)
+>> +		udelay(1);
+>> +
+> 
+> What? You never had
+> 
+> 	while(ENET0->ATCR & ENET_ATCR_CAPTURE_MASK);
+> 
+> in the first place. Maybe you should try that.
+> 
+> Did this code ever work? I guess not.
 
-There are too many middle-boxes that drop timestamps for that to be a tenable
-way to behave, especially by default.
+Also see Luwei Zhou's series:
 
-If you want to be disconnected from various parts of the internet, feel free
-to follow that RFC's recommendations.
+http://patchwork.ozlabs.org/patch/398467/
+http://patchwork.ozlabs.org/patch/398465/
+http://patchwork.ozlabs.org/patch/398466/
+
+Let's get down to the bottom of all of this before I apply anything.  Does this
+fec PTP code work at all?
