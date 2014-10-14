@@ -1,21 +1,18 @@
 From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH v4 04/25] virtio: defer config changed notifications
-Date: Tue, 14 Oct 2014 11:01:12 +1030
-Message-ID: <87lhojcx0v.fsf@rustcorp.com.au>
-References: <1413114332-626-1-git-send-email-mst-v4@redhat.com>
-	<1413114332-626-5-git-send-email-mst-v4@redhat.com>
+Subject: Re: [PATCH 1/3] virtio_net: pass well-formed sgs to virtqueue_add_*()
+Date: Tue, 14 Oct 2014 12:51:47 +1030
+Message-ID: <877g03crwk.fsf@rustcorp.com.au>
+References: <1409718556-3041-1-git-send-email-rusty@rustcorp.com.au>
+	<1409718556-3041-2-git-send-email-rusty__16380.2289790057$1409718628$gmane$org@rustcorp.com.au>
+	<54099332.7060909@redhat.com> <20140907072032.GA25143@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-s390@vger.kernel.org, linux-scsi@vger.kernel.org, kvm@vger.kernel.org,
-	Christian Borntraeger <borntraeger@de.ibm.com>, netdev@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	Paolo Bonzini <pbonzini@redhat.com>, Amit Shah <amit.shah@redhat.com>,
-	v9fs-developer@lists.sourceforge.net,
-	"David S. Miller" <davem@davemloft.net>
-To: "Michael S. Tsirkin" <mst@redhat.com>, linux-kernel@vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>, Andy Lutomirski <luto@amacapital.net>,
+	virtualization@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>, Paolo Bonzini <pbonzini@redhat.com>
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1413114332-626-5-git-send-email-mst-v4@redhat.com>
+In-Reply-To: <20140907072032.GA25143@redhat.com>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
@@ -28,85 +25,25 @@ Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
 "Michael S. Tsirkin" <mst@redhat.com> writes:
-> Defer config changed notifications that arrive during
-> probe/scan/freeze/restore.
->
-> This will allow drivers to set DRIVER_OK earlier, without worrying about
-> racing with config change interrupts.
->
-> This change will also benefit old hypervisors (before 2009)
-> that send interrupts without checking DRIVER_OK: previously,
-> the callback could race with driver-specific initialization.
->
-> This will also help simplify drivers.
+> On Fri, Sep 05, 2014 at 12:40:50PM +0200, Paolo Bonzini wrote:
+>> Il 03/09/2014 06:29, Rusty Russell ha scritto:
+>> > +	sg_init_table(rq->sg, MAX_SKB_FRAGS + 2);
+>> 
+>> I think 2 is enough here.  That said...
+>> 
+>> >  	sg_set_buf(rq->sg, &hdr->hdr, sizeof hdr->hdr);
+>> > -
+>> >  	skb_to_sgvec(skb, rq->sg + 1, 0, skb->len);
+>> >  
+>> >  	err = virtqueue_add_inbuf(rq->vq, rq->sg, 2, skb, gfp);
+>> 
+>> ... skb_to_sgvec will already make the sg well formed, so the
+>> sg_init_table is _almost_ redundant; it is only there to remove
+>> intermediate end marks.  The block layer takes care to remove
+>> them, but skb_to_sgvec doesn't.
 
-But AFAICT you never *read* dev->config_changed.
+sg_init_table is still needed if CONFIG_DEBUG_SG, so I don't
+think it's worth it.
 
-You unconditionally trigger a config_changed event in
-virtio_config_enable().  That's a bit weird, but probably OK.
-
-How about the following change (on top of your patch).  I
-think the renaming is clearer, and note the added if() test in
-virtio_config_enable().
-
-If you approve, I'll fold it in.
-
-Cheers,
+Thanks,
 Rusty.
-
-diff --git a/drivers/virtio/virtio.c b/drivers/virtio/virtio.c
-index 2536701b098b..df598dd8c5c8 100644
---- a/drivers/virtio/virtio.c
-+++ b/drivers/virtio/virtio.c
-@@ -122,7 +122,7 @@ static void __virtio_config_changed(struct virtio_device *dev)
- 	struct virtio_driver *drv = drv_to_virtio(dev->dev.driver);
- 
- 	if (!dev->config_enabled)
--		dev->config_changed = true;
-+		dev->config_change_pending = true;
- 	else if (drv && drv->config_changed)
- 		drv->config_changed(dev);
- }
-@@ -148,8 +148,9 @@ static void virtio_config_enable(struct virtio_device *dev)
- {
- 	spin_lock_irq(&dev->config_lock);
- 	dev->config_enabled = true;
--	__virtio_config_changed(dev);
--	dev->config_changed = false;
-+	if (dev->config_change_pending)
-+		__virtio_config_changed(dev);
-+	dev->config_change_pending = false;
- 	spin_unlock_irq(&dev->config_lock);
- }
- 
-@@ -253,7 +254,7 @@ int register_virtio_device(struct virtio_device *dev)
- 
- 	spin_lock_init(&dev->config_lock);
- 	dev->config_enabled = false;
--	dev->config_changed = false;
-+	dev->config_change_pending = false;
- 
- 	/* We always start by resetting the device, in case a previous
- 	 * driver messed it up.  This also tests that code path a little. */
-diff --git a/include/linux/virtio.h b/include/linux/virtio.h
-index 5636b119dc25..65261a7244fc 100644
---- a/include/linux/virtio.h
-+++ b/include/linux/virtio.h
-@@ -80,7 +80,7 @@ bool virtqueue_is_broken(struct virtqueue *vq);
-  * @index: unique position on the virtio bus
-  * @failed: saved value for CONFIG_S_FAILED bit (for restore)
-  * @config_enabled: configuration change reporting enabled
-- * @config_changed: configuration change reported while disabled
-+ * @config_change_pending: configuration change reported while disabled
-  * @config_lock: protects configuration change reporting
-  * @dev: underlying device.
-  * @id: the device type identification (used to match it with a driver).
-@@ -94,7 +94,7 @@ struct virtio_device {
- 	int index;
- 	bool failed;
- 	bool config_enabled;
--	bool config_changed;
-+	bool config_change_pending;
- 	spinlock_t config_lock;
- 	struct device dev;
- 	struct virtio_device_id id;
