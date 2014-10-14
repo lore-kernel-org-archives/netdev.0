@@ -1,69 +1,64 @@
 From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Subject: [PATCH (net.git) 1/2] stmmac: make the STi Layer compatible to STiH407
-Date: Tue, 14 Oct 2014 08:12:55 +0200
-Message-ID: <1413267176-325-2-git-send-email-peppe.cavallaro@st.com>
-References: <1413267176-325-1-git-send-email-peppe.cavallaro@st.com>
+Subject: [PATCH (net.git) 0/2] stmmac: review and fix the dwmac-sti glue-logic
+Date: Tue, 14 Oct 2014 08:12:54 +0200
+Message-ID: <1413267176-325-1-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <maxime.coquelin@st.com>,
 	Giuseppe Cavallaro <peppe.cavallaro@st.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx07-00178001.pphosted.com ([62.209.51.94]:52765 "EHLO
+Received: from mx07-00178001.pphosted.com ([62.209.51.94]:36240 "EHLO
 	mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754652AbaJNGRg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2014 02:17:36 -0400
-Received: from pps.filterd (m0046668.ppops.net [127.0.0.1])
-	by mx07-00178001.pphosted.com (8.14.5/8.14.5) with SMTP id s9E6DY7s030106
-	for <netdev@vger.kernel.org>; Tue, 14 Oct 2014 08:17:35 +0200
+	by vger.kernel.org with ESMTP id S1754323AbaJNGRf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2014 02:17:35 -0400
+Received: from pps.filterd (m0046670.ppops.net [127.0.0.1])
+	by mx07-00178001.pphosted.com (8.14.5/8.14.5) with SMTP id s9E6FPTX011503
+	for <netdev@vger.kernel.org>; Tue, 14 Oct 2014 08:17:34 +0200
 Received: from beta.dmz-eu.st.com (beta.dmz-eu.st.com [164.129.1.35])
-	by mx07-00178001.pphosted.com with ESMTP id 1q0sg598nm-1
+	by mx07-00178001.pphosted.com with ESMTP id 1q0cy84gh1-1
 	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Tue, 14 Oct 2014 08:17:35 +0200
+	for <netdev@vger.kernel.org>; Tue, 14 Oct 2014 08:17:33 +0200
 Received: from zeta.dmz-eu.st.com (zeta.dmz-eu.st.com [164.129.230.9])
-	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 97E603A
-	for <netdev@vger.kernel.org>; Tue, 14 Oct 2014 06:17:10 +0000 (GMT)
+	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 9F52E34
+	for <netdev@vger.kernel.org>; Tue, 14 Oct 2014 06:17:09 +0000 (GMT)
 Received: from Webmail-eu.st.com (Safex1hubcas21.st.com [10.75.90.44])
-	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id BADFD16A1F
-	for <netdev@vger.kernel.org>; Tue, 14 Oct 2014 06:17:32 +0000 (GMT)
-In-Reply-To: <1413267176-325-1-git-send-email-peppe.cavallaro@st.com>
+	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id DD9CE16A22
+	for <netdev@vger.kernel.org>; Tue, 14 Oct 2014 06:17:31 +0000 (GMT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This adds the missing compatibility to the STiH407 SoC.
+This patch is to review the whole glue logic adopted on STi SoCs that
+was bugged.
+In the old glue-logic there was a lot of confusion when setup the
+retiming especially for STiD127 where, for example, the bits 6 and 7
+(in the GMAC  control register) have a different meaning of what is
+used for STiH4xx SoCs. So we cannot adopt the same glue for all these
+SoCs.
+Moreover, GiGa on STiD127 didn't work and, for all the SoCs, the RGMII
+couldn't run when the speed was 10Mbps (because the clock was not properly
+managed).
+Note that the phy clock needs to be provided by the platform as well as
+documented in the related binding file (updated as consequence).
 
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
----
- .../devicetree/bindings/net/sti-dwmac.txt          |    4 ++--
+The old code supported too many configurations never adopted and validated.
+This made the code very complex to maintain and debug in case of issues.
+
+The patch simplifies all the configurations as commented in the tables
+inside the file and obviously it has been tested on all the boards
+based on the SoCs mentioned.
+
+With this patch, the dwmac-sti is also ready to support new configurations that
+will be available on next SoC generations.
+
+Giuseppe Cavallaro (2):
+  stmmac: make the STi Layer compatible to STiH407
+  stmmac: dwmac-sti: review the glue-logic for STi4xx and STiD127 SoCs
+
+ .../devicetree/bindings/net/sti-dwmac.txt          |   91 +++---
+ drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c    |  374 +++++++++++---------
  .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |    1 +
- 2 files changed, 3 insertions(+), 2 deletions(-)
+ 3 files changed, 255 insertions(+), 211 deletions(-)
 
-diff --git a/Documentation/devicetree/bindings/net/sti-dwmac.txt b/Documentation/devicetree/bindings/net/sti-dwmac.txt
-index 3dd3d0b..8c84d9a 100644
---- a/Documentation/devicetree/bindings/net/sti-dwmac.txt
-+++ b/Documentation/devicetree/bindings/net/sti-dwmac.txt
-@@ -3,8 +3,8 @@ STMicroelectronics SoC DWMAC glue layer controller
- The device node has following properties.
- 
- Required properties:
-- - compatible	: Can be "st,stih415-dwmac", "st,stih416-dwmac" or
--   "st,stid127-dwmac".
-+ - compatible	: Can be "st,stih415-dwmac", "st,stih416-dwmac",
-+   "st,stid127-dwmac", "st,stih407-dwmac".
-  - reg		: Offset of the glue configuration register map in system
-    configuration regmap pointed by st,syscon property and size.
- 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index 4894500..0d6b9ad 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -40,6 +40,7 @@ static const struct of_device_id stmmac_dt_ids[] = {
- 	{ .compatible = "st,stih415-dwmac", .data = &sti_gmac_data},
- 	{ .compatible = "st,stih416-dwmac", .data = &sti_gmac_data},
- 	{ .compatible = "st,stid127-dwmac", .data = &sti_gmac_data},
-+	{ .compatible = "st,stih407-dwmac", .data = &sti_gmac_data},
- #endif
- #ifdef CONFIG_DWMAC_SOCFPGA
- 	{ .compatible = "altr,socfpga-stmmac", .data = &socfpga_gmac_data },
 -- 
 1.7.4.4
