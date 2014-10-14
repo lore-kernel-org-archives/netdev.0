@@ -1,127 +1,100 @@
-From: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
-Subject: Re: [PATCH] net: ethernet: marvell: sky2.c: Cleaning up missing
- null-terminate in conjunction with strncpy
-Date: Wed, 15 Oct 2014 00:11:33 +0200
-Message-ID: <CAFo99gY7s_6V0LNU81P1z0=W4=OdOLXsjGe4tbRNSXPbnXGfyg@mail.gmail.com>
-References: <20140914190557.690183d2@urahara> <20140915.130721.589682835868904320.davem@davemloft.net>
- <20140915135339.0659f618@urahara> <20140915.165620.1169777676117933052.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	Mirko Lindner <mlindner@marvell.com>,
-	Network Development <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140915.165620.1169777676117933052.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Anish Bhatt <anish@chelsio.com>
+Subject: [PATCH net 3/4] cxgb4i : All this code is only needed when IPV6 is enabled, disable when not required, also fixes -Wunused-function warning
+Date: Tue, 14 Oct 2014 15:13:10 -0700
+Message-ID: <1413324791-12104-4-git-send-email-anish@chelsio.com>
+References: <1413324791-12104-1-git-send-email-anish@chelsio.com>
+Cc: davem@davemloft.net, hariprasad@chelsio.com, leedom@chelsio.com,
+	kxie@chelsio.com, manojmalviya@chelsio.com,
+	Anish Bhatt <anish@chelsio.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:43768
+	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S932569AbaJNWNu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2014 18:13:50 -0400
+In-Reply-To: <1413324791-12104-1-git-send-email-anish@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2014-09-15 22:56 GMT+02:00 David Miller <davem@davemloft.net>:
-> From: Stephen Hemminger <stephen@networkplumber.org>
-> Date: Mon, 15 Sep 2014 13:53:39 -0700
->
->> On Mon, 15 Sep 2014 13:07:21 -0400 (EDT)
->> David Miller <davem@davemloft.net> wrote:
->>
->>> From: Stephen Hemminger <stephen@networkplumber.org>
->>> Date: Sun, 14 Sep 2014 19:05:57 -0700
->>>
->>> > On Sun, 14 Sep 2014 19:33:43 +0200
->>> > Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se> wrote:
->>> >
->>> >> Replacing strncpy with strlcpy to avoid strings that lacks null terminate.
->>> >>
->>> >> Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
->>> >> ---
->>> >>  drivers/net/ethernet/marvell/sky2.c |    2 +-
->>> >>  1 file changed, 1 insertion(+), 1 deletion(-)
->>> >>
->>> >> diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
->>> >> index dba48a5c..7053d38 100644
->>> >> --- a/drivers/net/ethernet/marvell/sky2.c
->>> >> +++ b/drivers/net/ethernet/marvell/sky2.c
->>> >> @@ -4907,7 +4907,7 @@ static const char *sky2_name(u8 chipid, char *buf, int sz)
->>> >>   };
->>> >>
->>> >>   if (chipid >= CHIP_ID_YUKON_XL && chipid <= CHIP_ID_YUKON_OP_2)
->>> >> -         strncpy(buf, name[chipid - CHIP_ID_YUKON_XL], sz);
->>> >> +         strlcpy(buf, name[chipid - CHIP_ID_YUKON_XL], sz);
->>> >>   else
->>> >>           snprintf(buf, sz, "(chip %#x)", chipid);
->>> >>   return buf;
->>> >
->>> > Useless and unnecessary since the list of names is right there.
->>> > Why not avoid the copy all together?
->>> >
->>> > Subject: sky2: avoid strncpy
->>> >
->>> > Don't use strncpy() since security thought police think it is bad.
->>> >
->>> > Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
->>>
->>> I think providing the buffer on the stack of the thread executing the
->>> probe is superior because it will allow enabling parallel probing
->>> in the future.
->>>
->>> I don't think you have to change that aspect to achieve your goal
->>> of returning the const char * string when possible.
->>
->> What is benefit of s/strncpy/strlcpy/ for known safe code?
->> Seems like more of the checkpatch police state.
->>
->
-> Stephen, read my reply again.
->
-> I didn't say to go back to the strlcpy change.
->
-> I said to use your patch, but keep the buf[] parameter allocated on
-> the caller's stack.
->
-> Thanks.
+Signed-off-by: Anish Bhatt <anish@chelsio.com>
+---
+ drivers/scsi/cxgbi/cxgb4i/cxgb4i.c | 8 ++++++++
+ drivers/scsi/cxgbi/libcxgbi.c      | 2 ++
+ 2 files changed, 10 insertions(+)
 
-
-Hi
-
-Has not happened anything here ...
-
-Stephen, how can this be "." Then you might as well use strcpy,
-because the use here does not guarantee that the string will be null
-terminated, anyway.
-
-
-And David, as I understand you want to use code like this:
-
-static const char *sky2_name(u8 chipid, char *buf, int sz)
-{
-....
-
-    if (chipid >= CHIP_ID_YUKON_XL && chipid <= CHIP_ID_YUKON_OP_2)
-        return name[chipid - CHIP_ID_YUKON_XL];
-
-    snprintf(buf, sz, "(chip %#x)", chipid);
-
-    return buf;
-}
-
-Or?
-
-
-And we can all easily see how the code is used here.
-
-So Stephen statement as true, sz = 16.
-And David, since we only use the return value.
-
-But is it really such we should assume always is true?
-
-What if someone uses it like this:
-
-char tmp[8];
-...
-sky2_name(id, tmp, sizeof(tmp));
-printf("The chip: %s\n", tmp);
-
-
-
-Kind regards
-Rickard Strandqvist
+diff --git a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
+index 18d0d1c145ad..df176f0e5e60 100644
+--- a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
++++ b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
+@@ -259,6 +259,7 @@ static void send_act_open_req(struct cxgbi_sock *csk, struct sk_buff *skb,
+ 	cxgb4_l2t_send(csk->cdev->ports[csk->port_id], skb, csk->l2t);
+ }
+ 
++#if IS_ENABLED(CONFIG_IPV6)
+ static void send_act_open_req6(struct cxgbi_sock *csk, struct sk_buff *skb,
+ 			       struct l2t_entry *e)
+ {
+@@ -344,6 +345,7 @@ static void send_act_open_req6(struct cxgbi_sock *csk, struct sk_buff *skb,
+ 
+ 	cxgb4_l2t_send(csk->cdev->ports[csk->port_id], skb, csk->l2t);
+ }
++#endif
+ 
+ static void send_close_req(struct cxgbi_sock *csk)
+ {
+@@ -781,9 +783,11 @@ static void csk_act_open_retry_timer(unsigned long data)
+ 	if (csk->csk_family == AF_INET) {
+ 		send_act_open_func = send_act_open_req;
+ 		skb = alloc_wr(size, 0, GFP_ATOMIC);
++#if IS_ENABLED(CONFIG_IPV6)
+ 	} else {
+ 		send_act_open_func = send_act_open_req6;
+ 		skb = alloc_wr(size6, 0, GFP_ATOMIC);
++#endif
+ 	}
+ 
+ 	if (!skb)
+@@ -1335,8 +1339,10 @@ static int init_act_open(struct cxgbi_sock *csk)
+ 
+ 	if (csk->csk_family == AF_INET)
+ 		skb = alloc_wr(size, 0, GFP_NOIO);
++#if IS_ENABLED(CONFIG_IPV6)
+ 	else
+ 		skb = alloc_wr(size6, 0, GFP_NOIO);
++#endif
+ 
+ 	if (!skb)
+ 		goto rel_resource;
+@@ -1370,8 +1376,10 @@ static int init_act_open(struct cxgbi_sock *csk)
+ 	cxgbi_sock_set_state(csk, CTP_ACTIVE_OPEN);
+ 	if (csk->csk_family == AF_INET)
+ 		send_act_open_req(csk, skb, csk->l2t);
++#if IS_ENABLED(CONFIG_IPV6)
+ 	else
+ 		send_act_open_req6(csk, skb, csk->l2t);
++#endif
+ 	neigh_release(n);
+ 
+ 	return 0;
+diff --git a/drivers/scsi/cxgbi/libcxgbi.c b/drivers/scsi/cxgbi/libcxgbi.c
+index d65df6dc106f..64fcb1eea0af 100644
+--- a/drivers/scsi/cxgbi/libcxgbi.c
++++ b/drivers/scsi/cxgbi/libcxgbi.c
+@@ -230,6 +230,7 @@ struct cxgbi_device *cxgbi_device_find_by_netdev(struct net_device *ndev,
+ }
+ EXPORT_SYMBOL_GPL(cxgbi_device_find_by_netdev);
+ 
++#if IS_ENABLED(CONFIG_IPV6)
+ static struct cxgbi_device *cxgbi_device_find_by_mac(struct net_device *ndev,
+ 						     int *port)
+ {
+@@ -262,6 +263,7 @@ static struct cxgbi_device *cxgbi_device_find_by_mac(struct net_device *ndev,
+ 		  ndev, ndev->name);
+ 	return NULL;
+ }
++#endif
+ 
+ void cxgbi_hbas_remove(struct cxgbi_device *cdev)
+ {
+-- 
+2.1.2
