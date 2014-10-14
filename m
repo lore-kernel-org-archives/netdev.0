@@ -1,67 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] tcp: TCP Small Queues and strange attractors
-Date: Tue, 14 Oct 2014 17:16:52 -0400 (EDT)
-Message-ID: <20141014.171652.711587177378371980.davem@davemloft.net>
-References: <1413206867.9362.100.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20141014.153308.2221538197341630790.davem@davemloft.net>
-	<1413321018.17109.7.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: something is wrong in commit 971f10eca1 - tcp: better TCP_SKB_CB
+ layout to reduce cache line misses
+Date: Tue, 14 Oct 2014 14:24:05 -0700
+Message-ID: <CAHA+R7PyUZyjHPf-SJRiiOw=jQjJnXVaosYU7TuiVe6sQTC9Ww@mail.gmail.com>
+References: <CAFrEnehWNzmzZGV-ZGbZF=wJ1q0TjFtB1yG6Dp1yVrJmBj9B7Q@mail.gmail.com>
+	<20141014.164705.1874094084240216813.davem@davemloft.net>
+	<CAFrEnejET5wer6S6qx13tMKWMshmRj+JnQeZL-zdPGcs__9NoQ@mail.gmail.com>
+	<20141014.171559.1355616486999711590.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <edumazet@gmail.com>,
+	Krzysztof Kolasa <kkolasa@winsoft.pl>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44847 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932269AbaJNVQz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2014 17:16:55 -0400
-In-Reply-To: <1413321018.17109.7.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-qa0-f54.google.com ([209.85.216.54]:50258 "EHLO
+	mail-qa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932569AbaJNVYG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2014 17:24:06 -0400
+Received: by mail-qa0-f54.google.com with SMTP id i13so6638122qae.27
+        for <netdev@vger.kernel.org>; Tue, 14 Oct 2014 14:24:05 -0700 (PDT)
+In-Reply-To: <20141014.171559.1355616486999711590.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 14 Oct 2014 14:10:18 -0700
+On Tue, Oct 14, 2014 at 2:15 PM, David Miller <davem@davemloft.net> wrote:
+> From: Eric Dumazet <edumazet@gmail.com>
+> Date: Tue, 14 Oct 2014 14:03:51 -0700
+>
+>> 2014-10-14 13:47 GMT-07:00 David Miller <davem@davemloft.net>:
+>>>
+>>>
+>>> > Patch looks good, but seems a net-next candidate to me.
+>>>
+>>> I thought it is a potential fix for this corruption report?
+>>
+>>
+>> Sure, but a one liner fix seemed more obvious, as it points to the problem.
+>>
+>> I do not particularly care, as long as we fixed the bug.
 
-> On Tue, 2014-10-14 at 15:33 -0400, David Miller wrote:
->> From: Eric Dumazet <eric.dumazet@gmail.com>
->> Date: Mon, 13 Oct 2014 06:27:47 -0700
->> 
->> > diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
->> > index 8d4eac793700..4a7e97811d71 100644
->> > --- a/net/ipv4/tcp_output.c
->> > +++ b/net/ipv4/tcp_output.c
->> > @@ -839,26 +839,38 @@ void tcp_wfree(struct sk_buff *skb)
->> >  {
->>  ...
->> >  		local_irq_restore(flags);
->> > -	} else {
->> > -		sock_wfree(skb);
->> > +		return;
->> >  	}
->> > +out:
->> > +	sk_free(sk);
->> >  }
->> >  
->> 
->> Why do we need to release the socket here?
-> 
-> Thats because we had to keep a reference at the very beginning :
-> 
-> +       /* Keep one reference on sk_wmem_alloc.
-> +        * Will be released by sk_free() from here or tcp_tasklet_func()
-> +        */
-> +       wmem = atomic_sub_return(skb->truesize - 1, &sk->sk_wmem_alloc);
-> +
-> 
-> 
-> If we find that we do not arm the tasklet (and keep the reference), we
-> then can remove the last ref we kept.
-> 
-> sk_free() is essentially doing :
-> 
-> if (atomic_dec_and_test(&sk->sk_wmem_alloc))
->     __sk_free(sk)
 
-Gotcha, now it makes sense.
+Since we are still in merge window, I don't think we have to use
+a one-line fix for a bug introduced in this merge window.
 
-Patch applied, thanks Eric.
+>
+> Ok, let's get testing feedback and then I'll look for a formal submission.
+
+Yeah, there is no evidence to say my patch fixes the bug Krzysztof
+reported before he tests it, I found it during code review.
+
+Thanks!
