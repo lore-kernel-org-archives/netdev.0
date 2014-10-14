@@ -1,53 +1,48 @@
-From: Rajesh Borundia <rajesh.borundia@qlogic.com>
-Subject: [PATCH net 1/2] qlcnic: Fix programming number of arguments in a command.
-Date: Tue, 14 Oct 2014 07:41:45 -0400
-Message-ID: <1413286906-14220-2-git-send-email-rajesh.borundia@qlogic.com>
-References: <1413286906-14220-1-git-send-email-rajesh.borundia@qlogic.com>
+From: vadim4j@gmail.com
+Subject: Re: [PATCH net-next] Allow to set net namespace for wireless device
+ via RTM_LINK
+Date: Tue, 14 Oct 2014 15:16:27 +0300
+Message-ID: <20141014121627.GA5115@angus-think.lan>
+References: <1410467723-2550-1-git-send-email-vadim4j@gmail.com>
+ <1411075535.2034.5.camel@jlt4.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <Dept-HSGLinuxNICDev@qlogic.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:4666 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932146AbaJNMQ3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2014 08:16:29 -0400
-In-Reply-To: <1413286906-14220-1-git-send-email-rajesh.borundia@qlogic.com>
+Received: from mail-la0-f45.google.com ([209.85.215.45]:55453 "EHLO
+	mail-la0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755214AbaJNMZQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2014 08:25:16 -0400
+Content-Disposition: inline
+In-Reply-To: <1411075535.2034.5.camel@jlt4.sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-o Initially we were programming maximum number of arguments.
-  Instead we should program number of arguments required in
-  a command.
-o Maximum number of arguments for 82xx adapter is four. Fix it
-  for GET_ESWITCH_STATS command.
+On Thu, Sep 18, 2014 at 11:25:35PM +0200, Johannes Berg wrote:
+> On Thu, 2014-09-11 at 23:35 +0300, Vadim Kochan wrote:
+> > Added new netdev_ops callback for setting namespace in specific
+> > for this device way
+> 
+> > +++ b/include/linux/netdevice.h
+> > @@ -997,6 +997,8 @@ typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
+> >   *	Callback to use for xmit over the accelerated station. This
+> >   *	is used in place of ndo_start_xmit on accelerated net
+> >   *	devices.
+> > + * int (*ndo_set_netns)(struct net_device *dev, struct net *net);
+> > + *      Callback to set net namespace in specific way for this device.
+> 
+> For the record, I don't consider it appropriate to set the net namespace
+> on one netdev and end up with multiple netdevs switching namespaces ...
+> 
+> As a result, I don't think this should done.
+> 
+> johannes
+> 
 
-Signed-off-by: Rajesh Borundia <rajesh.borundia@qlogic.com>
----
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+The reason for this was to make possible to change netns for wireless
+dev via 'ip link' too like for 'iw' util. I just think that changing
+namespace for netdev should have the generic way. May be you can suggest
+a better way
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c
-index ffbae29..243752f 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c
-@@ -32,7 +32,7 @@ static const struct qlcnic_mailbox_metadata qlcnic_mbx_tbl[] = {
- 	{QLCNIC_CMD_CONFIGURE_ESWITCH, 4, 1},
- 	{QLCNIC_CMD_GET_MAC_STATS, 4, 1},
- 	{QLCNIC_CMD_GET_ESWITCH_PORT_CONFIG, 4, 3},
--	{QLCNIC_CMD_GET_ESWITCH_STATS, 5, 1},
-+	{QLCNIC_CMD_GET_ESWITCH_STATS, 4, 1},
- 	{QLCNIC_CMD_CONFIG_PORT, 4, 1},
- 	{QLCNIC_CMD_TEMP_SIZE, 4, 4},
- 	{QLCNIC_CMD_GET_TEMP_HDR, 4, 1},
-@@ -129,7 +129,7 @@ int qlcnic_82xx_issue_cmd(struct qlcnic_adapter *adapter,
- 	}
- 
- 	QLCWR32(adapter, QLCNIC_SIGN_CRB_OFFSET, signature);
--	for (i = 1; i < QLCNIC_CDRP_MAX_ARGS; i++)
-+	for (i = 1; i < cmd->req.num; i++)
- 		QLCWR32(adapter, QLCNIC_CDRP_ARG(i), cmd->req.arg[i]);
- 	QLCWR32(adapter, QLCNIC_CDRP_CRB_OFFSET,
- 		QLCNIC_CDRP_FORM_CMD(cmd->req.arg[0]));
--- 
-1.6.3.3
+Thanks,
