@@ -1,49 +1,52 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH 1/3] virtio_net: pass well-formed sgs to virtqueue_add_*()
-Date: Tue, 14 Oct 2014 12:51:47 +1030
-Message-ID: <877g03crwk.fsf@rustcorp.com.au>
-References: <1409718556-3041-1-git-send-email-rusty@rustcorp.com.au>
-	<1409718556-3041-2-git-send-email-rusty__16380.2289790057$1409718628$gmane$org@rustcorp.com.au>
-	<54099332.7060909@redhat.com> <20140907072032.GA25143@redhat.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH v9 net-next 2/4] net: filter: split filter.h and expose
+ eBPF to user space
+Date: Tue, 14 Oct 2014 09:34:30 +0200
+Message-ID: <543CD206.709@redhat.com>
+References: <1409714246-31054-1-git-send-email-ast@plumgrid.com> <1409714246-31054-3-git-send-email-ast@plumgrid.com> <540737DF.1010801@redhat.com> <543C0A2D.5040908@redhat.com> <CAMEtUuw-iAGiYqmcN0AOkku0+Wto7810JJo9HEQvQN-2F=baTA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Andy Lutomirski <luto@amacapital.net>,
-	virtualization@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>, Paolo Bonzini <pbonzini@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20140907072032.GA25143@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ingo Molnar <mingo@kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andy Lutomirski <luto@amacapital.net>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Chema Gonzalez <chema@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Kees Cook <keescook@chromium.org>,
+	Linux API <linux-api@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Alexei Starovoitov <ast@plumgrid.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAMEtUuw-iAGiYqmcN0AOkku0+Wto7810JJo9HEQvQN-2F=baTA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-"Michael S. Tsirkin" <mst@redhat.com> writes:
-> On Fri, Sep 05, 2014 at 12:40:50PM +0200, Paolo Bonzini wrote:
->> Il 03/09/2014 06:29, Rusty Russell ha scritto:
->> > +	sg_init_table(rq->sg, MAX_SKB_FRAGS + 2);
->> 
->> I think 2 is enough here.  That said...
->> 
->> >  	sg_set_buf(rq->sg, &hdr->hdr, sizeof hdr->hdr);
->> > -
->> >  	skb_to_sgvec(skb, rq->sg + 1, 0, skb->len);
->> >  
->> >  	err = virtqueue_add_inbuf(rq->vq, rq->sg, 2, skb, gfp);
->> 
->> ... skb_to_sgvec will already make the sg well formed, so the
->> sg_init_table is _almost_ redundant; it is only there to remove
->> intermediate end marks.  The block layer takes care to remove
->> them, but skb_to_sgvec doesn't.
+On 10/13/2014 11:49 PM, Alexei Starovoitov wrote:
+> On Mon, Oct 13, 2014 at 10:21 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
+>> On 09/03/2014 05:46 PM, Daniel Borkmann wrote:
+>> ...
+>>>
+>>> Ok, given you post the remaining two RFCs later on this window as
+>>> you indicate, I have no objections:
+>>>
+>>> Acked-by: Daniel Borkmann <dborkman@redhat.com>
+>>
+>> Ping, Alexei, are you still sending the patch for bpf_common.h or
+>> do you want me to take care of this?
+>
+> It's not forgotten.
+> I'm not sending it only because net-next is closed
+> and it seems to be -next material.
 
-sg_init_table is still needed if CONFIG_DEBUG_SG, so I don't
-think it's worth it.
+Well, the point was since it's UAPI you're modifying, that it needs
+to be shipped before it first gets exposed to user land ...
 
-Thanks,
-Rusty.
+I think that should be reason enough ... there's no point in doing
+this at a later point in time.
