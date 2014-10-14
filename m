@@ -1,100 +1,207 @@
 From: Anish Bhatt <anish@chelsio.com>
-Subject: [PATCH net 3/4] cxgb4i : All this code is only needed when IPV6 is enabled, disable when not required, also fixes -Wunused-function warning
-Date: Tue, 14 Oct 2014 15:13:10 -0700
-Message-ID: <1413324791-12104-4-git-send-email-anish@chelsio.com>
+Subject: [PATCH net 1/4] cxgb4i : Remove duplicated code from cxgb4i, fucntionality already present in  cxgb4
+Date: Tue, 14 Oct 2014 15:13:08 -0700
+Message-ID: <1413324791-12104-2-git-send-email-anish@chelsio.com>
 References: <1413324791-12104-1-git-send-email-anish@chelsio.com>
 Cc: davem@davemloft.net, hariprasad@chelsio.com, leedom@chelsio.com,
 	kxie@chelsio.com, manojmalviya@chelsio.com,
 	Anish Bhatt <anish@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:43768
+Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:43760
 	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S932569AbaJNWNu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2014 18:13:50 -0400
+	by vger.kernel.org with ESMTP id S932569AbaJNWNq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2014 18:13:46 -0400
 In-Reply-To: <1413324791-12104-1-git-send-email-anish@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Anish Bhatt <anish@chelsio.com>
 ---
- drivers/scsi/cxgbi/cxgb4i/cxgb4i.c | 8 ++++++++
- drivers/scsi/cxgbi/libcxgbi.c      | 2 ++
- 2 files changed, 10 insertions(+)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   7 ++
+ drivers/scsi/cxgbi/cxgb4i/cxgb4i.c              | 133 ------------------------
+ 2 files changed, 7 insertions(+), 133 deletions(-)
 
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 321f3d9385c9..6222a42f7a2a 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -4480,6 +4480,13 @@ static int update_root_dev_clip(struct net_device *dev)
+ 		return ret;
+ 
+ 	/* Parse all bond and vlan devices layered on top of the physical dev */
++	root_dev = netdev_master_upper_dev_get_rcu(dev);
++	if (root_dev) {
++		ret = update_dev_clip(root_dev, dev);
++		if (ret)
++			return ret;
++	}
++
+ 	for (i = 0; i < VLAN_N_VID; i++) {
+ 		root_dev = __vlan_find_dev_deep_rcu(dev, htons(ETH_P_8021Q), i);
+ 		if (!root_dev)
 diff --git a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-index 18d0d1c145ad..df176f0e5e60 100644
+index 79788a12712d..18d0d1c145ad 100644
 --- a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
 +++ b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-@@ -259,6 +259,7 @@ static void send_act_open_req(struct cxgbi_sock *csk, struct sk_buff *skb,
- 	cxgb4_l2t_send(csk->cdev->ports[csk->port_id], skb, csk->l2t);
- }
- 
-+#if IS_ENABLED(CONFIG_IPV6)
- static void send_act_open_req6(struct cxgbi_sock *csk, struct sk_buff *skb,
- 			       struct l2t_entry *e)
- {
-@@ -344,6 +345,7 @@ static void send_act_open_req6(struct cxgbi_sock *csk, struct sk_buff *skb,
- 
- 	cxgb4_l2t_send(csk->cdev->ports[csk->port_id], skb, csk->l2t);
- }
-+#endif
- 
- static void send_close_req(struct cxgbi_sock *csk)
- {
-@@ -781,9 +783,11 @@ static void csk_act_open_retry_timer(unsigned long data)
- 	if (csk->csk_family == AF_INET) {
- 		send_act_open_func = send_act_open_req;
- 		skb = alloc_wr(size, 0, GFP_ATOMIC);
-+#if IS_ENABLED(CONFIG_IPV6)
- 	} else {
- 		send_act_open_func = send_act_open_req6;
- 		skb = alloc_wr(size6, 0, GFP_ATOMIC);
-+#endif
- 	}
- 
- 	if (!skb)
-@@ -1335,8 +1339,10 @@ static int init_act_open(struct cxgbi_sock *csk)
- 
- 	if (csk->csk_family == AF_INET)
- 		skb = alloc_wr(size, 0, GFP_NOIO);
-+#if IS_ENABLED(CONFIG_IPV6)
- 	else
- 		skb = alloc_wr(size6, 0, GFP_NOIO);
-+#endif
- 
- 	if (!skb)
- 		goto rel_resource;
-@@ -1370,8 +1376,10 @@ static int init_act_open(struct cxgbi_sock *csk)
- 	cxgbi_sock_set_state(csk, CTP_ACTIVE_OPEN);
- 	if (csk->csk_family == AF_INET)
- 		send_act_open_req(csk, skb, csk->l2t);
-+#if IS_ENABLED(CONFIG_IPV6)
- 	else
- 		send_act_open_req6(csk, skb, csk->l2t);
-+#endif
- 	neigh_release(n);
- 
+@@ -1635,129 +1635,6 @@ static int cxgb4i_ddp_init(struct cxgbi_device *cdev)
  	return 0;
-diff --git a/drivers/scsi/cxgbi/libcxgbi.c b/drivers/scsi/cxgbi/libcxgbi.c
-index d65df6dc106f..64fcb1eea0af 100644
---- a/drivers/scsi/cxgbi/libcxgbi.c
-+++ b/drivers/scsi/cxgbi/libcxgbi.c
-@@ -230,6 +230,7 @@ struct cxgbi_device *cxgbi_device_find_by_netdev(struct net_device *ndev,
  }
- EXPORT_SYMBOL_GPL(cxgbi_device_find_by_netdev);
  
-+#if IS_ENABLED(CONFIG_IPV6)
- static struct cxgbi_device *cxgbi_device_find_by_mac(struct net_device *ndev,
- 						     int *port)
+-#if IS_ENABLED(CONFIG_IPV6)
+-static int cxgbi_inet6addr_handler(struct notifier_block *this,
+-				   unsigned long event, void *data)
+-{
+-	struct inet6_ifaddr *ifa = data;
+-	struct net_device *event_dev = ifa->idev->dev;
+-	struct cxgbi_device *cdev;
+-	int ret = NOTIFY_DONE;
+-
+-	if (event_dev->priv_flags & IFF_802_1Q_VLAN)
+-		event_dev = vlan_dev_real_dev(event_dev);
+-
+-	cdev = cxgbi_device_find_by_netdev(event_dev, NULL);
+-
+-	if (!cdev)
+-		return ret;
+-
+-	switch (event) {
+-	case NETDEV_UP:
+-		ret = cxgb4_clip_get(event_dev,
+-				     (const struct in6_addr *)
+-				     ((ifa)->addr.s6_addr));
+-		if (ret < 0)
+-			return ret;
+-
+-		ret = NOTIFY_OK;
+-		break;
+-
+-	case NETDEV_DOWN:
+-		cxgb4_clip_release(event_dev,
+-				   (const struct in6_addr *)
+-				   ((ifa)->addr.s6_addr));
+-		ret = NOTIFY_OK;
+-		break;
+-
+-	default:
+-		break;
+-	}
+-
+-	return ret;
+-}
+-
+-static struct notifier_block cxgbi_inet6addr_notifier = {
+-	.notifier_call = cxgbi_inet6addr_handler
+-};
+-
+-/* Retrieve IPv6 addresses from a root device (bond, vlan) associated with
+- * a physical device.
+- * The physical device reference is needed to send the actual CLIP command.
+- */
+-static int update_dev_clip(struct net_device *root_dev, struct net_device *dev)
+-{
+-	struct inet6_dev *idev = NULL;
+-	struct inet6_ifaddr *ifa;
+-	int ret = 0;
+-
+-	idev = __in6_dev_get(root_dev);
+-	if (!idev)
+-		return ret;
+-
+-	read_lock_bh(&idev->lock);
+-	list_for_each_entry(ifa, &idev->addr_list, if_list) {
+-		pr_info("updating the clip for addr %pI6\n",
+-			ifa->addr.s6_addr);
+-		ret = cxgb4_clip_get(dev, (const struct in6_addr *)
+-				     ifa->addr.s6_addr);
+-		if (ret < 0)
+-			break;
+-	}
+-
+-	read_unlock_bh(&idev->lock);
+-	return ret;
+-}
+-
+-static int update_root_dev_clip(struct net_device *dev)
+-{
+-	struct net_device *root_dev = NULL;
+-	int i, ret = 0;
+-
+-	/* First populate the real net device's IPv6 address */
+-	ret = update_dev_clip(dev, dev);
+-	if (ret)
+-		return ret;
+-
+-	/* Parse all bond and vlan devices layered on top of the physical dev */
+-	root_dev = netdev_master_upper_dev_get(dev);
+-	if (root_dev) {
+-		ret = update_dev_clip(root_dev, dev);
+-		if (ret)
+-			return ret;
+-	}
+-
+-	for (i = 0; i < VLAN_N_VID; i++) {
+-		root_dev = __vlan_find_dev_deep_rcu(dev, htons(ETH_P_8021Q), i);
+-		if (!root_dev)
+-			continue;
+-
+-		ret = update_dev_clip(root_dev, dev);
+-		if (ret)
+-			break;
+-	}
+-	return ret;
+-}
+-
+-static void cxgbi_update_clip(struct cxgbi_device *cdev)
+-{
+-	int i;
+-
+-	rcu_read_lock();
+-
+-	for (i = 0; i < cdev->nports; i++) {
+-		struct net_device *dev = cdev->ports[i];
+-		int ret = 0;
+-
+-		if (dev)
+-			ret = update_root_dev_clip(dev);
+-		if (ret < 0)
+-			break;
+-	}
+-	rcu_read_unlock();
+-}
+-#endif /* IS_ENABLED(CONFIG_IPV6) */
+-
+ static void *t4_uld_add(const struct cxgb4_lld_info *lldi)
  {
-@@ -262,6 +263,7 @@ static struct cxgbi_device *cxgbi_device_find_by_mac(struct net_device *ndev,
- 		  ndev, ndev->name);
- 	return NULL;
+ 	struct cxgbi_device *cdev;
+@@ -1876,10 +1753,6 @@ static int t4_uld_state_change(void *handle, enum cxgb4_state state)
+ 	switch (state) {
+ 	case CXGB4_STATE_UP:
+ 		pr_info("cdev 0x%p, UP.\n", cdev);
+-#if IS_ENABLED(CONFIG_IPV6)
+-		cxgbi_update_clip(cdev);
+-#endif
+-		/* re-initialize */
+ 		break;
+ 	case CXGB4_STATE_START_RECOVERY:
+ 		pr_info("cdev 0x%p, RECOVERY.\n", cdev);
+@@ -1910,17 +1783,11 @@ static int __init cxgb4i_init_module(void)
+ 		return rc;
+ 	cxgb4_register_uld(CXGB4_ULD_ISCSI, &cxgb4i_uld_info);
+ 
+-#if IS_ENABLED(CONFIG_IPV6)
+-	register_inet6addr_notifier(&cxgbi_inet6addr_notifier);
+-#endif
+ 	return 0;
  }
-+#endif
  
- void cxgbi_hbas_remove(struct cxgbi_device *cdev)
+ static void __exit cxgb4i_exit_module(void)
  {
+-#if IS_ENABLED(CONFIG_IPV6)
+-	unregister_inet6addr_notifier(&cxgbi_inet6addr_notifier);
+-#endif
+ 	cxgb4_unregister_uld(CXGB4_ULD_ISCSI);
+ 	cxgbi_device_unregister_all(CXGBI_FLAG_DEV_T4);
+ 	cxgbi_iscsi_cleanup(&cxgb4i_iscsi_transport, &cxgb4i_stt);
 -- 
 2.1.2
