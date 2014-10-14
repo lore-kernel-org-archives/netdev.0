@@ -1,65 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net] rds: avoid calling sock_kfree_s() on allocation
- failure
-Date: Tue, 14 Oct 2014 17:03:11 -0400 (EDT)
-Message-ID: <20141014.170311.2104285680542945400.davem@davemloft.net>
-References: <1413315308-32288-1-git-send-email-xiyou.wangcong@gmail.com>
+From: Eric Dumazet <edumazet@gmail.com>
+Subject: Re: something is wrong in commit 971f10eca1 - tcp: better TCP_SKB_CB
+ layout to reduce cache line misses
+Date: Tue, 14 Oct 2014 14:03:51 -0700
+Message-ID: <CAFrEnejET5wer6S6qx13tMKWMshmRj+JnQeZL-zdPGcs__9NoQ@mail.gmail.com>
+References: <CAHA+R7N9rNUH4aytFG3YLt8nzpERqmf34FgaWbe5R7P0AaWuZw@mail.gmail.com>
+	<20141014.150300.536881166743492994.davem@davemloft.net>
+	<CAFrEnehWNzmzZGV-ZGbZF=wJ1q0TjFtB1yG6Dp1yVrJmBj9B7Q@mail.gmail.com>
+	<20141014.164705.1874094084240216813.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rds-devel@oss.oracle.com,
-	chien.yen@oracle.com, stephen@networkplumber.org,
-	cwang@twopensource.com
-To: xiyou.wangcong@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Cc: cwang@twopensource.com, kkolasa@winsoft.pl,
+	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44687 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753413AbaJNVDO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2014 17:03:14 -0400
-In-Reply-To: <1413315308-32288-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:58991 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752944AbaJNVDw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2014 17:03:52 -0400
+Received: by mail-pa0-f42.google.com with SMTP id bj1so8666941pad.1
+        for <netdev@vger.kernel.org>; Tue, 14 Oct 2014 14:03:52 -0700 (PDT)
+In-Reply-To: <20141014.164705.1874094084240216813.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Tue, 14 Oct 2014 12:35:08 -0700
+2014-10-14 13:47 GMT-07:00 David Miller <davem@davemloft.net>:
+>
+>
+> > Patch looks good, but seems a net-next candidate to me.
+>
+> I thought it is a potential fix for this corruption report?
 
-> From: Cong Wang <cwang@twopensource.com>
-> 
-> It is okay to free a NULL pointer but not okay to mischarge the socket optmem
-> accounting. Compile test only.
-> 
-> Reported-by: rucsoftsec@gmail.com
-> Cc: Chien Yen <chien.yen@oracle.com>
-> Cc: Stephen Hemminger <stephen@networkplumber.org>
-> Signed-off-by: Cong Wang <cwang@twopensource.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-Applied, and I'm going to add the following bug check to the tree too.
+Sure, but a one liner fix seemed more obvious, as it points to the problem.
 
-====================
-[PATCH] net: Trap attempts to call sock_kfree_s() with a NULL pointer.
+I do not particularly care, as long as we fixed the bug.
 
-Unlike normal kfree() it is never right to call sock_kfree_s() with
-a NULL pointer, because sock_kfree_s() also has the side effect of
-discharging the memory from the sockets quota.
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- net/core/sock.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/net/core/sock.c b/net/core/sock.c
-index b4f3ea2..15e0c67 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -1718,6 +1718,8 @@ EXPORT_SYMBOL(sock_kmalloc);
-  */
- void sock_kfree_s(struct sock *sk, void *mem, int size)
- {
-+	if (WARN_ON_ONCE(!mem))
-+		return;
- 	kfree(mem);
- 	atomic_sub(size, &sk->sk_omem_alloc);
- }
--- 
-1.7.11.7
+Thanks !
