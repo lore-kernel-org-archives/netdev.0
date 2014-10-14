@@ -1,39 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] tcp: fix ooo_okay setting vs Small Queues
-Date: Tue, 14 Oct 2014 13:12:20 -0400 (EDT)
-Message-ID: <20141014.131220.305958099471977918.davem@davemloft.net>
-References: <1412989595.9362.30.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH v2 net] x86: bpf_jit: fix two bugs in eBPF JIT compiler
+Date: Tue, 14 Oct 2014 13:13:38 -0400 (EDT)
+Message-ID: <20141014.131338.1924789014148410781.davem@davemloft.net>
+References: <1412998223-3805-1-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42817 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753837AbaJNRMX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2014 13:12:23 -0400
-In-Reply-To: <1412989595.9362.30.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: darrick.wong@oracle.com, edumazet@google.com, dborkman@redhat.com,
+	hpa@zytor.com, tglx@linutronix.de, mingo@kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: ast@plumgrid.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1412998223-3805-1-git-send-email-ast@plumgrid.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 10 Oct 2014 18:06:35 -0700
+From: Alexei Starovoitov <ast@plumgrid.com>
+Date: Fri, 10 Oct 2014 20:30:23 -0700
 
-> From: Eric Dumazet <edumazet@google.com>
+> 1.
+> JIT compiler using multi-pass approach to converge to final image size,
+> since x86 instructions are variable length. It starts with large
+> gaps between instructions (so some jumps may use imm32 instead of imm8)
+> and iterates until total program size is the same as in previous pass.
+> This algorithm works only if program size is strictly decreasing.
+> Programs that use LD_ABS insn need additional code in prologue, but it
+> was not emitted during 1st pass, so there was a chance that 2nd pass would
+> adjust imm32->imm8 jump offsets to the same number of bytes as increase in
+> prologue, which may cause algorithm to erroneously decide that size converged.
+> Fix it by always emitting largest prologue in the first pass which
+> is detected by oldproglen==0 check.
+> Also change error check condition 'proglen != oldproglen' to fail gracefully.
 > 
-> TCP Small Queues (tcp_tsq_handler()) can hold one reference on
-> sk->sk_wmem_alloc, preventing skb->ooo_okay being set.
+> 2.
+> while staring at the code realized that 64-byte buffer may not be enough
+> when 1st insn is large, so increase it to 128 to avoid buffer overflow
+> (theoretical maximum size of prologue+div is 109) and add runtime check.
 > 
-> We should relax test done to set skb->ooo_okay to take care
-> of this extra reference.
+> Fixes: 622582786c9e ("net: filter: x86: internal BPF JIT")
+> Reported-by: Darrick J. Wong <darrick.wong@oracle.com>
+> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+> ---
+> v1->v2: reduce chances of stack corruption in case of future bugs (suggested by Eric)
 > 
-> Minimal truesize of skb containing one byte of payload is
-> SKB_TRUESIZE(1)
-> 
-> Without this fix, we have more chance locking flows into the wrong
-> transmit queue.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> note in classic BPF programs 1st insn is always short move, but native eBPF
+> programs may trigger buffer overflow. I couldn't force the crash with overflow,
+> since there are no further calls while this part of stack is used.
+> Both are ugly bugs regardless.
+> When net-next opens I will add narrowed down testcase from 'nmap' to testsuite.
 
-Applied, thanks Eric.
+Applied, thanks Alexei.
