@@ -1,44 +1,64 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net] genl_magic: Resolve logical-op warnings
-Date: Tue, 14 Oct 2014 06:28:38 -0700
-Message-ID: <1413293318-9070-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mark Rustad <mark.d.rustad@intel.com>,
-	linux-kernel@vger.kernel.org, johannes.berg@intel.com,
-	netdev@vger.kernel.org, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "Yurij M. Plotnikov" <Yurij.Plotnikov@oktetlabs.ru>
+Subject: TCP socket receives strange packet
+Date: Tue, 14 Oct 2014 18:09:54 +0400
+Message-ID: <543D2EB2.4000009@oktetlabs.ru>
+Mime-Version: 1.0
+Content-Type: multipart/mixed;
+ boundary="------------020208070708090309040403"
+Cc: "Alexandra N. Kossovsky" <Alexandra.Kossovsky@oktetlabs.ru>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shelob.oktetlabs.ru ([84.52.89.53]:52147 "EHLO
+	shelob.oktetlabs.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755282AbaJNOTE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2014 10:19:04 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Mark Rustad <mark.d.rustad@intel.com>
+This is a multi-part message in MIME format.
+--------------020208070708090309040403
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Resolve "logical 'and' applied to non-boolean constant" warnings"
-that appear in W=2 builds by adding !! to a bit test.
+Connected TCP socket receives packet without timestamps option which 
+exists in SYN, SYNACK and ACK. It is packet 4 in attached tcpdump output.
 
-Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- include/linux/genl_magic_func.h | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+tcpdump output description: The host has address 10.208.10.1 (server) 
+and the peer host has address 10.208.10.2 (client).
 
-diff --git a/include/linux/genl_magic_func.h b/include/linux/genl_magic_func.h
-index c0894dd..667c311 100644
---- a/include/linux/genl_magic_func.h
-+++ b/include/linux/genl_magic_func.h
-@@ -178,12 +178,12 @@ static int s_name ## _from_attrs_for_change(struct s_name *s,		\
- #define __assign(attr_nr, attr_flag, name, nla_type, type, assignment...)	\
- 		nla = ntb[attr_nr];						\
- 		if (nla) {						\
--			if (exclude_invariants && ((attr_flag) & DRBD_F_INVARIANT)) {		\
-+			if (exclude_invariants && !!((attr_flag) & DRBD_F_INVARIANT)) {		\
- 				pr_info("<< must not change invariant attr: %s\n", #name);	\
- 				return -EEXIST;				\
- 			}						\
- 			assignment;					\
--		} else if (exclude_invariants && ((attr_flag) & DRBD_F_INVARIANT)) {		\
-+		} else if (exclude_invariants && !!((attr_flag) & DRBD_F_INVARIANT)) {		\
- 			/* attribute missing from payload, */		\
- 			/* which was expected */			\
- 		} else if ((attr_flag) & DRBD_F_REQUIRED) {		\
--- 
-1.9.3
+Establishing connection: Timestamps option exists in SYN, SYNACK and ACK 
+(packets 1, 2 and 3 in attached file), so accepted socket should receive 
+packets only with timestamps option.
+
+Sending packet: the socket receives the packet without timestamps option 
+(packet 4 in attached file), i.e. recv() function called on the socket 
+receives the data from the packet. The "strange" packet is generated 
+using PCAP.
+
+I see this behaviour on 2.6.26 and on 3.14 kernels.
+
+--------------020208070708090309040403
+Content-Type: application/octet-stream;
+ name="pcap_with_bad_packet"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+ filename="pcap_with_bad_packet"
+
+1MOyoQIABAAAAAAAAAAAANwFAAABAAAAKaIzVLqlDgBKAAAASgAAAAAPUwE5fAAPUwE5lAgA
+RQAAPHbYQABABppBCtAKAgrQCgFlvWW8lT487wAAAACgAnIQxF4AAAIEBbQEAggKABBKNwAA
+AAABAwMHKaIzVNmlDgBKAAAASgAAAAAPUwE5lAAPUwE5fAgARQAAPAAAQABABhEaCtAKAQrQ
+CgJlvGW9JBhNSpU+PPCgEnEgKdEAAAIEBbQEAggKABB/SgAQSjcBAwMHKaIzVDamDgBCAAAA
+QgAAAAAPUwE5fAAPUwE5lAgARQAANHbZQABABppICtAKAgrQCgFlvWW8lT488CQYTUuAEADl
+c4gAAAEBCAoAEEo3ABB/SiqiM1R/GgIAPAAAADwAAAAAD1MBOXwAD1MBOZQIAEUAACkAAAAA
+QAZRLQrQCgIK0AoBZb1lvJU+PPAkGE1KUBj//xAeAABnAAAAAAAqojNUnBoCAEIAAABCAAAA
+AA9TATmUAA9TATl8CABFAAA0MgFAAEAG3yAK0AoBCtAKAmW8Zb0kGE1LlT488YAQAOMpyQAA
+AQEICgAQf3cAEEo3KqIzVKKQAwBCAAAAQgAAAAAPUwE5lAAPUwE5fAgARQAANDICQABABt8f
+CtAKAQrQCgJlvGW9JBhNS5U+PPGAEQDjKckAAAEBCAoAEH+OABBKNyqiM1S+kwMAQgAAAEIA
+AAAAD1MBOXwAD1MBOZQIAEUAADR22kAAQAaaRwrQCgIK0AoBZb1lvJU+PPAkGE1LgBEA5XNC
+AAABAQgKABBKfAAQf0oqojNU3ZMDAE4AAABOAAAAAA9TATmUAA9TATl8CABFAABAMgNAAEAG
+3xIK0AoBCtAKAmW8Zb0kGE1MlT488bAQAOMp1QAAAQEICgAQf48AEEp8AQEFCpU+PPCVPjzx
+KqIzVJG7CQBCAAAAQgAAAAAPUwE5lAAPUwE5fAgARQAANDIEQABABt8dCtAKAQrQCgJlvGW9
+JBhNS5U+PPGAEQDjKckAAAEBCAoAEH/0ABBKfCqiM1T2uwkAQgAAAEIAAAAAD1MBOXwAD1MB
+OZQIAEUAADRHFUAAQAbKDArQCgIK0AoBZb1lvJU+PPEkGE1MgBAA5XIyAAABAQgKABBK4QAQ
+f/Q=
+--------------020208070708090309040403--
