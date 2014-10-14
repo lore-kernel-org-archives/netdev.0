@@ -1,209 +1,149 @@
-From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Subject: [PATCH net] net: filter: move common defines into bpf_common.h
-Date: Tue, 14 Oct 2014 02:08:54 -0700
-Message-ID: <1413277734-13053-1-git-send-email-ast@plumgrid.com>
-Cc: Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
-	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
-	Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
-	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
-	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Houcheng Lin <houcheng@gmail.com>
+Subject: Re: [PATCH] netfilter: release skbuf when nlmsg put fail
+Date: Tue, 14 Oct 2014 17:39:33 +0800
+Message-ID: <CAL8JtxC8Qv6=Q9XWd0WPmCMSiB4m46qkPG3db0s8PNw1835DJg@mail.gmail.com>
+References: <CAL8JtxAqDhOXooLtOebSBHtKxwE=sLFqW8B-VgtCzsr-M4OD7g@mail.gmail.com>
+	<20141013114256.GB6560@breakpoint.cc>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: pablo@netfilter.org, Patrick McHardy <kaber@trash.net>,
+	kadlec@blackhole.kfki.hu, davem@davemloft.net,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Florian Westphal <fw@strlen.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141013114256.GB6560@breakpoint.cc>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-userspace programs that use eBPF instruction macros need to include two files:
-uapi/linux/filter.h and uapi/linux/bpf.h
-Move common macro definitions that are shared between classic BPF and eBPF
-into uapi/linux/bpf_common.h, so that user app can include only one bpf.h file
+Hi Florian:
+Please see my replies below.
 
-Cc: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Signed-off-by: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
----
+2014-10-13 19:42 GMT+08:00 Florian Westphal <fw@strlen.de>:
+> Houcheng Lin <houcheng@gmail.com> wrote:
+>> When system is under heavy loading, the __nfulnl_send() may may failed
+>> to put nlmsg into skbuf of nfulnl_instance. If not clear the skbuff on failed,
+>> the __nfulnl_send() will still try to put next nlmsg onto this half-full skbuf
+>> and cause the user program can never receive packet.
+>>
+>> This patch fix this issue by releasing skbuf immediately after nlmst put
+>> failed.
+>
+> Did you observe such problem or is this based on code reading?
+> I ask because nflog should make sure we always have enough room left in
+> skb to append a done message, see nfulnl_log_packet():
 
-Daniel believes that this patch has to be done for this merge window.
-I think it can wait till next, but it won't hurt now either.
+I observe this problem as my user mode program can not received any packet
+on receive() function after bursts of packets. After this patch, my user mode
+program can always receive packet.
 
- include/uapi/linux/Kbuild       |    1 +
- include/uapi/linux/bpf.h        |    1 +
- include/uapi/linux/bpf_common.h |   55 ++++++++++++++++++++++++++++++++++++++
- include/uapi/linux/filter.h     |   56 +--------------------------------------
- 4 files changed, 58 insertions(+), 55 deletions(-)
- create mode 100644 include/uapi/linux/bpf_common.h
+>
+> if (inst->skb &&
+>     size > skb_tailroom(inst->skb) - sizeof(struct nfgenmsg)) {
+>         /* flush skb */
 
-diff --git a/include/uapi/linux/Kbuild b/include/uapi/linux/Kbuild
-index 70e150e..1115d68 100644
---- a/include/uapi/linux/Kbuild
-+++ b/include/uapi/linux/Kbuild
-@@ -68,6 +68,7 @@ header-y += binfmts.h
- header-y += blkpg.h
- header-y += blktrace_api.h
- header-y += bpf.h
-+header-y += bpf_common.h
- header-y += bpqether.h
- header-y += bsg.h
- header-y += btrfs.h
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index 31b0ac2..d18316f 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -8,6 +8,7 @@
- #define _UAPI__LINUX_BPF_H__
- 
- #include <linux/types.h>
-+#include <linux/bpf_common.h>
- 
- /* Extended instruction set based on top of classic BPF */
- 
-diff --git a/include/uapi/linux/bpf_common.h b/include/uapi/linux/bpf_common.h
-new file mode 100644
-index 0000000..a5c220e
---- /dev/null
-+++ b/include/uapi/linux/bpf_common.h
-@@ -0,0 +1,55 @@
-+#ifndef _UAPI__LINUX_BPF_COMMON_H__
-+#define _UAPI__LINUX_BPF_COMMON_H__
-+
-+/* Instruction classes */
-+#define BPF_CLASS(code) ((code) & 0x07)
-+#define		BPF_LD		0x00
-+#define		BPF_LDX		0x01
-+#define		BPF_ST		0x02
-+#define		BPF_STX		0x03
-+#define		BPF_ALU		0x04
-+#define		BPF_JMP		0x05
-+#define		BPF_RET		0x06
-+#define		BPF_MISC        0x07
-+
-+/* ld/ldx fields */
-+#define BPF_SIZE(code)  ((code) & 0x18)
-+#define		BPF_W		0x00
-+#define		BPF_H		0x08
-+#define		BPF_B		0x10
-+#define BPF_MODE(code)  ((code) & 0xe0)
-+#define		BPF_IMM		0x00
-+#define		BPF_ABS		0x20
-+#define		BPF_IND		0x40
-+#define		BPF_MEM		0x60
-+#define		BPF_LEN		0x80
-+#define		BPF_MSH		0xa0
-+
-+/* alu/jmp fields */
-+#define BPF_OP(code)    ((code) & 0xf0)
-+#define		BPF_ADD		0x00
-+#define		BPF_SUB		0x10
-+#define		BPF_MUL		0x20
-+#define		BPF_DIV		0x30
-+#define		BPF_OR		0x40
-+#define		BPF_AND		0x50
-+#define		BPF_LSH		0x60
-+#define		BPF_RSH		0x70
-+#define		BPF_NEG		0x80
-+#define		BPF_MOD		0x90
-+#define		BPF_XOR		0xa0
-+
-+#define		BPF_JA		0x00
-+#define		BPF_JEQ		0x10
-+#define		BPF_JGT		0x20
-+#define		BPF_JGE		0x30
-+#define		BPF_JSET        0x40
-+#define BPF_SRC(code)   ((code) & 0x08)
-+#define		BPF_K		0x00
-+#define		BPF_X		0x08
-+
-+#ifndef BPF_MAXINSNS
-+#define BPF_MAXINSNS 4096
-+#endif
-+
-+#endif /* _UAPI__LINUX_BPF_COMMON_H__ */
-diff --git a/include/uapi/linux/filter.h b/include/uapi/linux/filter.h
-index 253b4d4..47785d5 100644
---- a/include/uapi/linux/filter.h
-+++ b/include/uapi/linux/filter.h
-@@ -7,7 +7,7 @@
- 
- #include <linux/compiler.h>
- #include <linux/types.h>
--
-+#include <linux/bpf_common.h>
- 
- /*
-  * Current version of the filter code architecture.
-@@ -32,56 +32,6 @@ struct sock_fprog {	/* Required for SO_ATTACH_FILTER. */
- 	struct sock_filter __user *filter;
- };
- 
--/*
-- * Instruction classes
-- */
--
--#define BPF_CLASS(code) ((code) & 0x07)
--#define         BPF_LD          0x00
--#define         BPF_LDX         0x01
--#define         BPF_ST          0x02
--#define         BPF_STX         0x03
--#define         BPF_ALU         0x04
--#define         BPF_JMP         0x05
--#define         BPF_RET         0x06
--#define         BPF_MISC        0x07
--
--/* ld/ldx fields */
--#define BPF_SIZE(code)  ((code) & 0x18)
--#define         BPF_W           0x00
--#define         BPF_H           0x08
--#define         BPF_B           0x10
--#define BPF_MODE(code)  ((code) & 0xe0)
--#define         BPF_IMM         0x00
--#define         BPF_ABS         0x20
--#define         BPF_IND         0x40
--#define         BPF_MEM         0x60
--#define         BPF_LEN         0x80
--#define         BPF_MSH         0xa0
--
--/* alu/jmp fields */
--#define BPF_OP(code)    ((code) & 0xf0)
--#define         BPF_ADD         0x00
--#define         BPF_SUB         0x10
--#define         BPF_MUL         0x20
--#define         BPF_DIV         0x30
--#define         BPF_OR          0x40
--#define         BPF_AND         0x50
--#define         BPF_LSH         0x60
--#define         BPF_RSH         0x70
--#define         BPF_NEG         0x80
--#define		BPF_MOD		0x90
--#define		BPF_XOR		0xa0
--
--#define         BPF_JA          0x00
--#define         BPF_JEQ         0x10
--#define         BPF_JGT         0x20
--#define         BPF_JGE         0x30
--#define         BPF_JSET        0x40
--#define BPF_SRC(code)   ((code) & 0x08)
--#define         BPF_K           0x00
--#define         BPF_X           0x08
--
- /* ret - BPF_K and BPF_X also apply */
- #define BPF_RVAL(code)  ((code) & 0x18)
- #define         BPF_A           0x10
-@@ -91,10 +41,6 @@ struct sock_fprog {	/* Required for SO_ATTACH_FILTER. */
- #define         BPF_TAX         0x00
- #define         BPF_TXA         0x80
- 
--#ifndef BPF_MAXINSNS
--#define BPF_MAXINSNS 4096
--#endif
--
- /*
-  * Macros for filter block array initializers.
-  */
+I agree with you. The code had check skb lefting space before sending.
+Not sure where was wrong.
+
+>
+> Your patch fixes such 'can never send' skb condition by leaking the
+> skb.  So at the very least you would need to call kfree_skb(), and
+> perhaps also add WARN_ON() so we catch this and can fix up the size
+> accounting?
+
+Sorry for not releasing the skb buffer. I modified my code to call kfree_skb on
+put failure and call a WARN_ON(1).
+
+A) Below is WARN_ON log that repeatly inserted into syslog when heavy loading:
+
+[  531.877328] ------------[ cut here ]------------
+[  531.877338] WARNING: CPU: 2 PID: 4133 at
+net/netfilter/nfnetlink_log.c:357 __nfulnl_send+0x91/0xb0
+[nfnetlink_log]()
+[  531.877340] Modules linked in: nfnetlink_log ebt_nflog ebt_ip
+ebtable_filter vhost_net vhost tun ebtable_nat kvm_intel kvm r8169
+[  531.877352] CPU: 2 PID: 4133 Comm: vhost-4131 Tainted: G        W
+   3.17.0-rc6+ #3
+[  531.877354] Hardware name: Gigabyte Technology Co., Ltd.
+EP43-UD3L/EP43-UD3L, BIOS F6 08/31/2009
+[  531.877356]  0000000000000165 ffff88023fd038a8 ffffffff8183177b
+0000000000000007
+[  531.877359]  0000000000000000 ffff88023fd038e8 ffffffff8104c877
+ffff8802361b4000
+[  531.877362]  ffff8802213bc600 0000000000000338 ffff88023fd03b6c
+ffff8800834a7e00
+[  531.877366] Call Trace:
+[  531.877368]  <IRQ>  [<ffffffff8183177b>] dump_stack+0x46/0x58
+[  531.877377]  [<ffffffff8104c877>] warn_slowpath_common+0x87/0xb0
+[  531.877380]  [<ffffffff8104c8b5>] warn_slowpath_null+0x15/0x20
+[  531.877384]  [<ffffffffa00e4161>] __nfulnl_send+0x91/0xb0 [nfnetlink_log]
+[  531.877387]  [<ffffffffa00e4508>] __nfulnl_flush+0x28/0x40 [nfnetlink_log]
+[  531.877390]  [<ffffffffa00e4dbe>] nfulnl_log_packet+0x2ce/0x84c
+[nfnetlink_log]
+[  531.877395]  [<ffffffff81693d9a>] nf_log_packet+0xda/0x110
+[  531.877400]  [<ffffffff8130f029>] ? map_single+0x19/0x20
+[  531.877403]  [<ffffffff8130f1e3>] ? swiotlb_map_page+0x93/0x160
+[  531.877408]  [<ffffffffa0008c23>] ? rtl8169_start_xmit+0x1c3/0x7c0 [r8169]
+[  531.877412]  [<ffffffffa00e0088>] ebt_nflog_tg+0x68/0x7c [ebt_nflog]
+[  531.877417]  [<ffffffff81773afa>] ebt_do_table+0x53a/0x700
+[  531.877421]  [<ffffffff81765660>] ? br_dev_queue_push_xmit+0x60/0x60
+[  531.877424]  [<ffffffffa00d80ba>] ebt_in_hook+0x1a/0x1c [ebtable_filter]
+[  531.877428]  [<ffffffff816934c6>] nf_iterate+0x86/0xc0
+[  531.877431]  [<ffffffff81765660>] ? br_dev_queue_push_xmit+0x60/0x60
+[  531.877434]  [<ffffffff81693575>] nf_hook_slow+0x75/0x150
+[  531.877437]  [<ffffffff81765660>] ? br_dev_queue_push_xmit+0x60/0x60
+[  531.877440]  [<ffffffff8176573d>] __br_forward+0x7d/0xc0
+[  531.877443]  [<ffffffff817658f5>] br_forward+0x55/0x60
+[  531.877446]  [<ffffffff81766637>] br_handle_frame_finish+0x147/0x350
+[  531.877449]  [<ffffffff817669d8>] br_handle_frame+0x198/0x250
+[  531.877452]  [<ffffffff81766840>] ? br_handle_frame_finish+0x350/0x350
+[  531.877456]  [<ffffffff816633b6>] __netif_receive_skb_core+0x196/0x700
+[  531.877459]  [<ffffffff8109f639>] ? enqueue_hrtimer+0x39/0xc0
+[  531.877462]  [<ffffffff81663941>] __netif_receive_skb+0x21/0x70
+[  531.877465]  [<ffffffff81663a0f>] process_backlog+0x7f/0x150
+[  531.877468]  [<ffffffff816641c9>] net_rx_action+0x109/0x200
+[  531.877471]  [<ffffffff8104fe08>] __do_softirq+0xe8/0x2e0
+[  531.877476]  [<ffffffff8183cddc>] do_softirq_own_stack+0x1c/0x30
+[  531.877477]  <EOI>  [<ffffffff81050075>] do_softirq+0x35/0x40
+[  531.877482]  [<ffffffff81662ed1>] netif_rx_ni+0x41/0x90
+[  531.877486]  [<ffffffffa00bf96c>] tun_get_user+0x3dc/0x860 [tun]
+[  531.877490]  [<ffffffffa00c9483>] ? vhost_get_vq_desc+0x223/0x3e0 [vhost]
+[  531.877494]  [<ffffffffa00bfe42>] tun_sendmsg+0x52/0x80 [tun]
+[  531.877497]  [<ffffffffa00d1d80>] handle_tx+0x240/0x420 [vhost_net]
+[  531.877501]  [<ffffffffa00d1f90>] handle_tx_kick+0x10/0x20 [vhost_net]
+[  531.877505]  [<ffffffffa00c8a6f>] vhost_worker+0xff/0x1c0 [vhost]
+[  531.877508]  [<ffffffffa00c8970>] ?
+vhost_attach_cgroups_work+0x30/0x30 [vhost]
+[  531.877511]  [<ffffffff810679e4>] kthread+0xc4/0xe0
+[  531.877515]  [<ffffffff81067920>] ? flush_kthread_worker+0x90/0x90
+[  531.877518]  [<ffffffff8183b46c>] ret_from_fork+0x7c/0xb0
+[  531.877521]  [<ffffffff81067920>] ? flush_kthread_worker+0x90/0x90
+[  531.877523] ---[ end trace 4e280f9febf1c04d ]---
+
+B) My ebtable settings to trigger this bug:
+-p IPv4 --ip-src 192.168.122.229 --ip-proto tcp --nflog-prefix
+"11111"--nflog-group 1 --nflog-range 65535 --nflog-threshold 20 -j
+ACCEPT
+-p IPv4 --ip-dst 192.168.122.229 --ip-proto tcp --nflog-prefix
+"11111"--nflog-group 1 --nflog-range 65535 --nflog-threshold 20 -j
+ACCEPT
+-p IPv4 --ip-src 192.168.122.222 --ip-proto tcp --nflog-prefix
+"11111"--nflog-group 1 --nflog-range 65535 --nflog-threshold 20 -j
+ACCEPT
+-p IPv4 --ip-dst 192.168.122.222 --ip-proto tcp --nflog-prefix
+"11111"--nflog-group 1 --nflog-range 65535 --nflog-threshold 20 -j
+ACCEPT
+-p IPv4 --ip-src 192.168.122.221 --ip-proto tcp --nflog-prefix
+"11111"--nflog-group 1 --nflog-range 65535 --nflog-threshold 20 -j
+ACCEPT
+-p IPv4 --ip-dst 192.168.122.221 --ip-proto tcp --nflog-prefix
+"11111"--nflog-group 1 --nflog-range 65535 --nflog-threshold 20 -j
+ACCEPT
+
+C) These IP (229, 222, 221) are actually assigned to 3 VM running on
+the same box
+
 -- 
-1.7.9.5
+Best regards,
+Houcheng Lin
