@@ -1,37 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 0/3] Enable FEC pps feather
-Date: Tue, 14 Oct 2014 14:45:34 -0400 (EDT)
-Message-ID: <20141014.144534.579480584292383456.davem@davemloft.net>
-References: <1412918130-18830-1-git-send-email-b45643@freescale.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH] net: fec: ptp: fix convergence issue to support LinuxPTP
+ stack
+Date: Tue, 14 Oct 2014 20:49:52 +0200
+Message-ID: <20141014184952.GC14216@localhost.localdomain>
+References: <1413265187-5228-1-git-send-email-b38611@freescale.com>
+ <20141014103610.GA4019@localhost.localdomain>
+ <20141014.125239.1562178476120218308.davem@davemloft.net>
+ <7e6db0b336a340bd80b62475fca284fc@BLUPR03MB486.namprd03.prod.outlook.com>
+ <20141014183933.GA14216@localhost.localdomain>
+ <6b1256b73b7a4f978573a77ec3e36831@BLUPR03MB486.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: richardcochran@gmail.com, netdev@vger.kernel.org,
-	shawn.guo@linaro.org, bhutchings@solarflare.com,
-	R49496@freescale.com, b38611@freescale.com, b20596@freescale.com,
-	stephen@networkplumber.org
-To: b45643@freescale.com
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	"fugang.duan@freescale.com" <fugang.duan@freescale.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>
+To: "Frank.Li@freescale.com" <Frank.Li@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43535 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755371AbaJNSpj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2014 14:45:39 -0400
-In-Reply-To: <1412918130-18830-1-git-send-email-b45643@freescale.com>
+Received: from mail-wi0-f176.google.com ([209.85.212.176]:59351 "EHLO
+	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754166AbaJNSt5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2014 14:49:57 -0400
+Received: by mail-wi0-f176.google.com with SMTP id hi2so10998112wib.3
+        for <netdev@vger.kernel.org>; Tue, 14 Oct 2014 11:49:56 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <6b1256b73b7a4f978573a77ec3e36831@BLUPR03MB486.namprd03.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Luwei Zhou <b45643@freescale.com>
-Date: Fri, 10 Oct 2014 13:15:27 +0800
+On Tue, Oct 14, 2014 at 06:43:51PM +0000, Frank.Li@freescale.com wrote:
+> Only MX6 SX. Only MX6 SX added FEC_QUIRK_BUG_CAPTURE.
 
-> Change from v2 to v3:
-> 	-Using the default channel 0 to be PPS channel not PTP_PIN_SET/GETFUNC interface.
-> 	-Using the linux definition of NSEC_PER_SEC.
-> 
-> Change from v1 to v2:
-> 	- Fix the potential 32-bit multiplication overflow issue.
-> 	- Optimize the hareware adjustment code to improve efficiency as Richard suggested
-> 	- Use ptp PTP_PIN_SET/GETFUNC interface to set PPS channel not device tree
-> 	and add PTP_PF_PPS enumeration
-> 	- Modify comments style
+But what about this comment:
 
-Series applied, thanks.
++/* ENET Block Guide/ Chapter for the iMX6SLX (PELE) address one issue:
++ * Incorrect behavior for ENET_ATCR[Capture and Restart Bits]. These bits will
++ * always read a value zero. When these bits are set to 1'b1, these should hold
++ * value 1'b1 until the counter value is capture in the register clock domain.
++ */
+
+It sounds like the bits are "sticky" until the counter value has been
+latched. Therefore you need to check the bits before reading the
+counter, but the code does not do this for the case of !SX.
+
+Thanks,
+Richard
