@@ -1,25 +1,69 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] dsa: mv88e6171: Fix tag_protocol check
-Date: Tue, 14 Oct 2014 16:23:52 -0400 (EDT)
-Message-ID: <20141014.162352.791378690757940770.davem@davemloft.net>
-References: <1413310864-16830-1-git-send-email-linux@roeck-us.net>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH v9 net-next 2/4] net: filter: split filter.h and expose
+ eBPF to user space
+Date: Tue, 14 Oct 2014 22:27:45 +0200
+Message-ID: <543D8741.5040107@redhat.com>
+References: <1409714246-31054-1-git-send-email-ast@plumgrid.com> <1409714246-31054-3-git-send-email-ast@plumgrid.com> <540737DF.1010801@redhat.com> <543C0A2D.5040908@redhat.com> <CAMEtUuw-iAGiYqmcN0AOkku0+Wto7810JJo9HEQvQN-2F=baTA@mail.gmail.com> <543CD206.709@redhat.com> <CAMEtUuws+AtOdwud8_YjXhs=yomt8nY+49f_UuhofcmhV58c1Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, andrew@lunn.ch
-To: linux@roeck-us.net
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ingo Molnar <mingo@kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andy Lutomirski <luto@amacapital.net>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Chema Gonzalez <chema@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Kees Cook <keescook@chromium.org>,
+	Linux API <linux-api@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Alexei Starovoitov <ast@plumgrid.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1413310864-16830-1-git-send-email-linux@roeck-us.net>
+In-Reply-To: <CAMEtUuws+AtOdwud8_YjXhs=yomt8nY+49f_UuhofcmhV58c1Q@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Guenter Roeck <linux@roeck-us.net>
-Date: Tue, 14 Oct 2014 11:21:04 -0700
+On 10/14/2014 10:43 AM, Alexei Starovoitov wrote:
+> On Tue, Oct 14, 2014 at 12:34 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
+>> On 10/13/2014 11:49 PM, Alexei Starovoitov wrote:
+>>>
+>>> On Mon, Oct 13, 2014 at 10:21 AM, Daniel Borkmann <dborkman@redhat.com>
+>>> wrote:
+>>>>
+>>>> On 09/03/2014 05:46 PM, Daniel Borkmann wrote:
+>>>> ...
+>>>>>
+>>>>> Ok, given you post the remaining two RFCs later on this window as
+>>>>> you indicate, I have no objections:
+>>>>>
+>>>>> Acked-by: Daniel Borkmann <dborkman@redhat.com>
+>>>>
+>>>> Ping, Alexei, are you still sending the patch for bpf_common.h or
+>>>> do you want me to take care of this?
+>>>
+>>> It's not forgotten.
+>>> I'm not sending it only because net-next is closed
+>>> and it seems to be -next material.
+>>
+>> Well, the point was since it's UAPI you're modifying, that it needs
+>> to be shipped before it first gets exposed to user land ...
+>>
+>> I think that should be reason enough ... there's no point in doing
+>> this at a later point in time.
+>
+> Moving common #defines from filter.h into bpf_common.h can
+> be done at any point in time. For the sake of argument if
+> there is an app that includes both filter.h and bpf.h, it will
+> continue to work just fine.
 
-> tag_protocol is now an enum, so drivers have to check against it.
-> 
-> Cc: Andrew Lunn <andrew@lunn.ch>
-> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+Correct, but the argument was that we can _avoid_ this from the
+very beginning. Thus, user space applications making use of eBPF
+only need to include <linux/bpf.h>, nothing more.
 
-Applied, thanks.
+Doing this at any later point in time will just lead to the need
+to include both headers.
