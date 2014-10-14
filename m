@@ -1,86 +1,45 @@
-From: Angelo Dureghello <angelo70@gmail.com>
-Subject: Re: Fwd: micrel: ksz8051 badly detected as ksz8031
-Date: Tue, 14 Oct 2014 21:33:24 +0200
-Message-ID: <543D7A84.4030202@gmail.com>
-References: <543C2954.5010609@gmail.com> <543D5C5B.9010703@gmail.com> <543D7507.3060008@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch net repost] ipv4: fix nexthop attlen check in
+ fib_nh_match
+Date: Tue, 14 Oct 2014 15:33:42 -0400 (EDT)
+Message-ID: <20141014.153342.970326469632179961.davem@davemloft.net>
+References: <1413210850-14456-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: Florian Fainelli <f.fainelli@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, edumazet@google.com,
+	tgraf@suug.ch
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f50.google.com ([74.125.82.50]:57808 "EHLO
-	mail-wg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755357AbaJNTdd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2014 15:33:33 -0400
-Received: by mail-wg0-f50.google.com with SMTP id a1so11634579wgh.33
-        for <netdev@vger.kernel.org>; Tue, 14 Oct 2014 12:33:32 -0700 (PDT)
-In-Reply-To: <543D7507.3060008@gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43946 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755357AbaJNTdp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2014 15:33:45 -0400
+In-Reply-To: <1413210850-14456-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Florian,
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Mon, 13 Oct 2014 16:34:10 +0200
 
-> On 10/14/2014 10:24 AM, Angelo Dureghello wrote:
->> Dear,
->>
->> have to apologize for the confusion, previous patch is not the proper fix,
->> since it is not solving completely the issue.
->>
->> And also, i mainly misunderstood the issue.
->>
->> The issue i am experiencing is :
->>
->> https://lkml.org/lkml/2013/9/18/259
->>
->> Mainly, i have Micrel chip marked KSZ8051(RNL), but the product Id in the
->> silicon is KSZ8031 and linux detects it as KSZ8031.
->> The attmept to mdio boot override register kill the Micrel functionality.
-> Ok, so basically your bootloader does something that Linux does, and
-> once Linux boots, it will reset the PHY to put it in a known state. If
-> you can snoop the MDIO read/writes done in your bootloader environment,
-> that might help narrow down the issue.
->
-Bootloader is u-boot and seems it uses generic PHY setup, and so it works.
+> fib_nh_match does not match nexthops correctly. Example:
+> 
+> ip route add 172.16.10/24 nexthop via 192.168.122.12 dev eth0 \
+>                           nexthop via 192.168.122.13 dev eth0
+> ip route del 172.16.10/24 nexthop via 192.168.122.14 dev eth0 \
+>                           nexthop via 192.168.122.15 dev eth0
+> 
+> Del command is successful and route is removed. After this patch
+> applied, the route is correctly matched and result is:
+> RTNETLINK answers: No such process
+> 
+> Please consider this for stable trees as well.
+> 
+> Fixes: 4e902c57417c4 ("[IPv4]: FIB configuration using struct fib_config")
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> Acked-by: Eric Dumazet <edumazet@google.com>
+> ---
+> reposted with example (it was missing for some reason in the original post)
 
-Linux at boot detects the phy and does a soft_reset. If the detection 
-sets the
-driver as for KSZ8031, ethernet/link will not work, becouse micrel.c uses
-the incorrect config_init function, attempts to write to the bootstrap
-override register, that can't be written for KSZ8051, and so puts the micrel
-chip in a broken state.
-
-The guy in this link (https://lkml.org/lkml/2013/9/18/259) seems are 
-discussing a
-better solution.
-
-I patched my linux as below, but this is a fast fixup for me:
-
-diff -rupN drivers/net/phy/phy_device.c 
-../linux-3.17/drivers/net/phy/phy_device.c
---- drivers/net/phy/phy_device.c        2014-10-14 21:05:56.191117190 +0200
-+++ ../linux-3.17/drivers/net/phy/phy_device.c  2014-10-05 
-21:23:04.000000000 +0200
-@@ -310,19 +310,6 @@ static int get_phy_id(struct mii_bus *bu
-
-         *phy_id |= (phy_reg & 0xffff);
-
--       /*
--        * Angelo - Barix
--        * Micrel produced chips marked KSZ8051 but with KSZ8031 id code
--        * in the silicon. After getting crazy to understand why in 
-recent kernel
--        * the ethenret was not workeing, i find it out.
--        *
--        * From the schematic, we assume to use KSZ8051
--        * I hardcode the fix here for ipam390.
--        */
--#if CONFIG_MACH_BARIX_IPAM390
--       if (*phy_id == 0x00221556) *phy_id = 0x00221550;
--#endif
--
-         return 0;
-  }
-
-Regards
-angelo
+Applied and queued up for -stable, thanks Jiri!
