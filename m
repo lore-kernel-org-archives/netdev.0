@@ -1,51 +1,40 @@
-From: Christoph Paasch <christoph.paasch@gmail.com>
-Subject: Re: TCP socket receives strange packet
-Date: Tue, 14 Oct 2014 09:54:30 -0700
-Message-ID: <20141014165430.GI28432@Paaschs-MacBook-Pro.local>
-References: <1413298852.17109.3.camel@edumazet-glaptop2.roam.corp.google.com>
- <CABrhC0=y745PHJdmKvPeyiYNAEUX_CHPZo7ekiWJYxLt=pYEkw@mail.gmail.com>
- <20141014164144.GG28432@Paaschs-MacBook-Pro.local>
- <20141014.125004.1504941413142780868.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: johnwheffner@gmail.com, eric.dumazet@gmail.com,
-	Yurij.Plotnikov@oktetlabs.ru, netdev@vger.kernel.org,
-	Alexandra.Kossovsky@oktetlabs.ru
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:44366 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754360AbaJNQyc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2014 12:54:32 -0400
-Received: by mail-pa0-f49.google.com with SMTP id hz1so7997865pad.8
-        for <netdev@vger.kernel.org>; Tue, 14 Oct 2014 09:54:32 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20141014.125004.1504941413142780868.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Fabian Frederick <fabf@skynet.be>
+Subject: [PATCH V2 1/2 net-next] caif_usb: remove redundant memory message
+Date: Tue, 14 Oct 2014 19:00:55 +0200
+Message-ID: <1413306055-8281-1-git-send-email-fabf@skynet.be>
+Cc: Joe Perches <joe@perches.com>, Fabian Frederick <fabf@skynet.be>,
+	Dmitry Tarnyagin <dmitry.tarnyagin@lockless.no>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 14/10/14 - 12:50:04, David Miller wrote:
-> From: Christoph Paasch <christoph.paasch@gmail.com>
-> Date: Tue, 14 Oct 2014 09:41:44 -0700
-> 
-> > there was a long discussion whether for the updated version of RFC1323 (now
-> > published as RFC 7323) a segment must be dropped if it does not contain a
-> > timestamp. The rationale (defended by Joe Touch) was that it must be there to
-> > protect against wrapped sequence numbers while others argued that mandating
-> > a drop might result in stalling connections if (for one reason or another) a
-> > host sends a segment without TS (or a middlebox removed it).
-> > 
-> > The RFC now says that a host SHOULD drop segments without timestamps.
-> 
-> There are too many middle-boxes that drop timestamps for that to be a tenable
-> way to behave, especially by default.
-> 
-> If you want to be disconnected from various parts of the internet, feel free
-> to follow that RFC's recommendations.
+Let MM subsystem display out of memory messages.
 
-I'm completely with you. We actually argued against Joe Touch, who wanted to
-have a  "MUST" for dropping these segments without TS.
+Signed-off-by: Fabian Frederick <fabf@skynet.be>
+---
+V2: add second patch with memset fix
 
+ net/caif/caif_usb.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-Cheers,
-Christoph
+diff --git a/net/caif/caif_usb.c b/net/caif/caif_usb.c
+index ba02db0..0e487b0 100644
+--- a/net/caif/caif_usb.c
++++ b/net/caif/caif_usb.c
+@@ -87,10 +87,9 @@ static struct cflayer *cfusbl_create(int phyid, u8 ethaddr[ETH_ALEN],
+ {
+ 	struct cfusbl *this = kmalloc(sizeof(struct cfusbl), GFP_ATOMIC);
+ 
+-	if (!this) {
+-		pr_warn("Out of memory\n");
++	if (!this)
+ 		return NULL;
+-	}
++
+ 	caif_assert(offsetof(struct cfusbl, layer) == 0);
+ 
+ 	memset(this, 0, sizeof(struct cflayer));
+-- 
+1.9.3
