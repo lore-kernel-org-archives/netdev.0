@@ -1,46 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 1/1] net: fec: Fix sparse warnings with different
- lock contexts for basic block
-Date: Tue, 14 Oct 2014 12:53:56 -0400 (EDT)
-Message-ID: <20141014.125356.683543714454912616.davem@davemloft.net>
-References: <1413168828-9335-1-git-send-email-b38611@freescale.com>
+From: Christoph Paasch <christoph.paasch@gmail.com>
+Subject: Re: TCP socket receives strange packet
+Date: Tue, 14 Oct 2014 09:54:30 -0700
+Message-ID: <20141014165430.GI28432@Paaschs-MacBook-Pro.local>
+References: <1413298852.17109.3.camel@edumazet-glaptop2.roam.corp.google.com>
+ <CABrhC0=y745PHJdmKvPeyiYNAEUX_CHPZo7ekiWJYxLt=pYEkw@mail.gmail.com>
+ <20141014164144.GG28432@Paaschs-MacBook-Pro.local>
+ <20141014.125004.1504941413142780868.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, festevam@gmail.com, sparse@chrisli.org,
-	B20596@freescale.com
-To: b38611@freescale.com
+Content-Type: text/plain; charset=us-ascii
+Cc: johnwheffner@gmail.com, eric.dumazet@gmail.com,
+	Yurij.Plotnikov@oktetlabs.ru, netdev@vger.kernel.org,
+	Alexandra.Kossovsky@oktetlabs.ru
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42644 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754779AbaJNQx6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2014 12:53:58 -0400
-In-Reply-To: <1413168828-9335-1-git-send-email-b38611@freescale.com>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:44366 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754360AbaJNQyc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2014 12:54:32 -0400
+Received: by mail-pa0-f49.google.com with SMTP id hz1so7997865pad.8
+        for <netdev@vger.kernel.org>; Tue, 14 Oct 2014 09:54:32 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20141014.125004.1504941413142780868.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Fugang Duan <b38611@freescale.com>
-Date: Mon, 13 Oct 2014 10:53:48 +0800
+On 14/10/14 - 12:50:04, David Miller wrote:
+> From: Christoph Paasch <christoph.paasch@gmail.com>
+> Date: Tue, 14 Oct 2014 09:41:44 -0700
+> 
+> > there was a long discussion whether for the updated version of RFC1323 (now
+> > published as RFC 7323) a segment must be dropped if it does not contain a
+> > timestamp. The rationale (defended by Joe Touch) was that it must be there to
+> > protect against wrapped sequence numbers while others argued that mandating
+> > a drop might result in stalling connections if (for one reason or another) a
+> > host sends a segment without TS (or a middlebox removed it).
+> > 
+> > The RFC now says that a host SHOULD drop segments without timestamps.
+> 
+> There are too many middle-boxes that drop timestamps for that to be a tenable
+> way to behave, especially by default.
+> 
+> If you want to be disconnected from various parts of the internet, feel free
+> to follow that RFC's recommendations.
 
-> reproduce:
-> make  ARCH=arm C=1 2>fec.txt drivers/net/ethernet/freescale/fec_main.o
-> cat fec.txt
-> 
-> sparse warnings:
-> drivers/net/ethernet/freescale/fec_main.c:2916:12: warning: context imbalance
-> in 'fec_set_features' - different lock contexts for basic block
-> 
-> Christopher Li suggest to change as below:
-> 	if (need_lock) {
-> 		lock();
-> 		do_something_real();
-> 		unlock();
-> 	} else {
-> 		do_something_real();
-> 	}
-> 
-> Reported-by: Fabio Estevam <festevam@gmail.com>
-> Suggested-by: Christopher Li <sparse@chrisli.org>
-> Signed-off-by: Fugang Duan <B38611@freescale.com>
+I'm completely with you. We actually argued against Joe Touch, who wanted to
+have a  "MUST" for dropping these segments without TS.
 
-Applied, thanks.
+
+Cheers,
+Christoph
