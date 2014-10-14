@@ -1,41 +1,62 @@
-From: Anish Bhatt <anish@chelsio.com>
-Subject: [PATCH net 4/4] cxgb4i: Remove duplicate call to dst_neigh_lookup()
-Date: Tue, 14 Oct 2014 15:13:11 -0700
-Message-ID: <1413324791-12104-5-git-send-email-anish@chelsio.com>
-References: <1413324791-12104-1-git-send-email-anish@chelsio.com>
-Cc: davem@davemloft.net, hariprasad@chelsio.com, leedom@chelsio.com,
-	kxie@chelsio.com, manojmalviya@chelsio.com,
-	Anish Bhatt <anish@chelsio.com>
-To: netdev@vger.kernel.org
+From: Andy Lutomirski <luto@amacapital.net>
+Subject: Re: Netlink mmap tx security?
+Date: Tue, 14 Oct 2014 15:16:46 -0700
+Message-ID: <CALCETrWDSG2EhxBnM8Jm55Ov8PYQ_w3Wf88SKYOB1q1WgRpbEw@mail.gmail.com>
+References: <CALCETrWfQe5H2Ht7cjCQLfUw+XUcRvga_H93esaWpAp37=noZg@mail.gmail.com>
+ <20141014.151949.1967601568480255495.davem@davemloft.net> <CALCETrUYBed_TBacxoDPMphM5y=iqxho2isrDruOQi=pmK2yoQ@mail.gmail.com>
+ <20141014.160056.2113064815910782529.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Network Development <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:43766
-	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S932592AbaJNWNt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2014 18:13:49 -0400
-In-Reply-To: <1413324791-12104-1-git-send-email-anish@chelsio.com>
+Received: from mail-la0-f52.google.com ([209.85.215.52]:35749 "EHLO
+	mail-la0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754621AbaJNWRI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2014 18:17:08 -0400
+Received: by mail-la0-f52.google.com with SMTP id hz20so13643lab.39
+        for <netdev@vger.kernel.org>; Tue, 14 Oct 2014 15:17:06 -0700 (PDT)
+In-Reply-To: <20141014.160056.2113064815910782529.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Anish Bhatt <anish@chelsio.com>
----
- drivers/scsi/cxgbi/cxgb4i/cxgb4i.c | 5 -----
- 1 file changed, 5 deletions(-)
+On Tue, Oct 14, 2014 at 1:00 PM, David Miller <davem@davemloft.net> wrote:
+> From: Andy Lutomirski <luto@amacapital.net>
+> Date: Tue, 14 Oct 2014 12:33:43 -0700
+>
+>> For full honesty, there is now the machinery developed for memfd
+>> sealing, but I can't imagine that this is ever faster than just
+>> copying the buffer.
+>
+> I don't have much motivation to even check if it's a worthwhile
+> pursuit at this point.
+>
+> Someone who wants to can :-)
+>
+>> I think that the NETLINK_SKB_TX declaration in include/linux/netlink.h
+>> should probably go, too.  And there's the last parameter to
+>> netlink_set_ring, too, and possibly even the nlk->tx_ring struct
+>> itself.
+>
+> Agreed on all counts, here is the new patch:
+>
+> ====================
+> [PATCH] netlink: Remove TX mmap support.
+>
+> There is no reasonable manner in which to absolutely make sure that another
+> thread of control cannot write to the pages in the mmap()'d area and thus
+> make sure that netlink messages do not change underneath us after we've
+> performed verifications.
+>
+> Reported-by: Andy Lutomirski <luto@amacapital.net>
+> Signed-off-by: David S. Miller <davem@davemloft.net>
 
-diff --git a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-index df176f0e5e60..8c3003b6d591 100644
---- a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-+++ b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-@@ -1317,11 +1317,6 @@ static int init_act_open(struct cxgbi_sock *csk)
- 	cxgbi_sock_set_flag(csk, CTPF_HAS_ATID);
- 	cxgbi_sock_get(csk);
- 
--	n = dst_neigh_lookup(csk->dst, &csk->daddr.sin_addr.s_addr);
--	if (!n) {
--		pr_err("%s, can't get neighbour of csk->dst.\n", ndev->name);
--		goto rel_resource;
--	}
- 	csk->l2t = cxgb4_l2t_get(lldi->l2t, n, ndev, 0);
- 	if (!csk->l2t) {
- 		pr_err("%s, cannot alloc l2t.\n", ndev->name);
--- 
-2.1.2
+Looks sensible to me, but I have no idea how to test it.
+
+It's at least remotely possible that there's something that assumes
+that assumes that the availability of NETLINK_RX_RING implies
+NETLINK_TX_RING, which would be unfortunate.
+
+--Andy
