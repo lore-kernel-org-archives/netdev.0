@@ -1,41 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: TCP socket receives strange packet
-Date: Tue, 14 Oct 2014 12:32:59 -0400 (EDT)
-Message-ID: <20141014.123259.185699262217339879.davem@davemloft.net>
-References: <543D2EB2.4000009@oktetlabs.ru>
-	<1413298852.17109.3.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Yurij.Plotnikov@oktetlabs.ru, netdev@vger.kernel.org,
-	Alexandra.Kossovsky@oktetlabs.ru
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42410 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752598AbaJNQdC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2014 12:33:02 -0400
-In-Reply-To: <1413298852.17109.3.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Fabian Frederick <fabf@skynet.be>
+Subject: [PATCH 1/1 linux-next] zd1201: replace kmalloc/memset by kzalloc
+Date: Tue, 14 Oct 2014 18:40:31 +0200
+Message-ID: <1413304831-7203-1-git-send-email-fabf@skynet.be>
+Cc: Fabian Frederick <fabf@skynet.be>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 14 Oct 2014 08:00:52 -0700
+Signed-off-by: Fabian Frederick <fabf@skynet.be>
+---
+ drivers/net/wireless/zd1201.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-> On Tue, 2014-10-14 at 18:09 +0400, Yurij M. Plotnikov wrote:
->> Connected TCP socket receives packet without timestamps option which 
->> exists in SYN, SYNACK and ACK. It is packet 4 in attached tcpdump output.
->> 
->> tcpdump output description: The host has address 10.208.10.1 (server) 
->> and the peer host has address 10.208.10.2 (client).
->> 
->> Establishing connection: Timestamps option exists in SYN, SYNACK and ACK 
->> (packets 1, 2 and 3 in attached file), so accepted socket should receive 
->> packets only with timestamps option.
-> 
-> Can you point the RFC paragraph stating so ?
-
-There is no requirement that timestamps be present just because they
-were successfuly negoatiated during the handshake.
-
-This has been brought up before several times.
+diff --git a/drivers/net/wireless/zd1201.c b/drivers/net/wireless/zd1201.c
+index 6f5c793..4630b26 100644
+--- a/drivers/net/wireless/zd1201.c
++++ b/drivers/net/wireless/zd1201.c
+@@ -525,7 +525,7 @@ static int zd1201_setconfig(struct zd1201 *zd, int rid, void *buf, int len, int
+ 	zd->rxdatas = 0;
+ 	zd->rxlen = 0;
+ 	for (seq=0; len > 0; seq++) {
+-		request = kmalloc(16, gfp_mask);
++		request = kzalloc(16, gfp_mask);
+ 		if (!request)
+ 			return -ENOMEM;
+ 		urb = usb_alloc_urb(0, gfp_mask);
+@@ -533,7 +533,6 @@ static int zd1201_setconfig(struct zd1201 *zd, int rid, void *buf, int len, int
+ 			kfree(request);
+ 			return -ENOMEM;
+ 		}
+-		memset(request, 0, 16);
+ 		reqlen = len>12 ? 12 : len;
+ 		request[0] = ZD1201_USB_RESREQ;
+ 		request[1] = seq;
+-- 
+1.9.3
