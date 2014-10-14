@@ -1,71 +1,120 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH v9 net-next 2/4] net: filter: split filter.h and expose
- eBPF to user space
-Date: Tue, 14 Oct 2014 01:43:17 -0700
-Message-ID: <CAMEtUuws+AtOdwud8_YjXhs=yomt8nY+49f_UuhofcmhV58c1Q@mail.gmail.com>
-References: <1409714246-31054-1-git-send-email-ast@plumgrid.com>
-	<1409714246-31054-3-git-send-email-ast@plumgrid.com>
-	<540737DF.1010801@redhat.com>
-	<543C0A2D.5040908@redhat.com>
-	<CAMEtUuw-iAGiYqmcN0AOkku0+Wto7810JJo9HEQvQN-2F=baTA@mail.gmail.com>
-	<543CD206.709@redhat.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH v4 04/25] virtio: defer config changed notifications
+Date: Tue, 14 Oct 2014 11:59:08 +0300
+Message-ID: <20141014085908.GA6016@redhat.com>
+References: <1413114332-626-1-git-send-email-mst-v4@redhat.com>
+	<1413114332-626-5-git-send-email-mst-v4@redhat.com>
+	<87lhojcx0v.fsf@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Ingo Molnar <mingo@kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andy Lutomirski <luto@amacapital.net>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Chema Gonzalez <chema@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Kees Cook <keescook@chromium.org>,
-	Linux API <linux-api@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <543CD206.709@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linux-s390@vger.kernel.org, kvm@vger.kernel.org, linux-scsi@vger.kernel.org,
+	Christian Borntraeger <borntraeger@de.ibm.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	Paolo Bonzini <pbonzini@redhat.com>, Amit Shah <amit.shah@redhat.com>,
+	v9fs-developer@lists.sourceforge.net,
+	"David S. Miller" <davem@davemloft.net>
+To: Rusty Russell <rusty@rustcorp.com.au>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <87lhojcx0v.fsf@rustcorp.com.au>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 14, 2014 at 12:34 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
-> On 10/13/2014 11:49 PM, Alexei Starovoitov wrote:
->>
->> On Mon, Oct 13, 2014 at 10:21 AM, Daniel Borkmann <dborkman@redhat.com>
->> wrote:
->>>
->>> On 09/03/2014 05:46 PM, Daniel Borkmann wrote:
->>> ...
->>>>
->>>>
->>>> Ok, given you post the remaining two RFCs later on this window as
->>>> you indicate, I have no objections:
->>>>
->>>> Acked-by: Daniel Borkmann <dborkman@redhat.com>
->>>
->>>
->>> Ping, Alexei, are you still sending the patch for bpf_common.h or
->>> do you want me to take care of this?
->>
->>
->> It's not forgotten.
->> I'm not sending it only because net-next is closed
->> and it seems to be -next material.
->
->
-> Well, the point was since it's UAPI you're modifying, that it needs
-> to be shipped before it first gets exposed to user land ...
->
-> I think that should be reason enough ... there's no point in doing
-> this at a later point in time.
+On Tue, Oct 14, 2014 at 11:01:12AM +1030, Rusty Russell wrote:
+> "Michael S. Tsirkin" <mst@redhat.com> writes:
+> > Defer config changed notifications that arrive during
+> > probe/scan/freeze/restore.
+> >
+> > This will allow drivers to set DRIVER_OK earlier, without worrying about
+> > racing with config change interrupts.
+> >
+> > This change will also benefit old hypervisors (before 2009)
+> > that send interrupts without checking DRIVER_OK: previously,
+> > the callback could race with driver-specific initialization.
+> >
+> > This will also help simplify drivers.
+> 
+> But AFAICT you never *read* dev->config_changed.
+> 
+> You unconditionally trigger a config_changed event in
+> virtio_config_enable().  That's a bit weird, but probably OK.
+> 
+> How about the following change (on top of your patch).  I
+> think the renaming is clearer, and note the added if() test in
+> virtio_config_enable().
+> 
+> If you approve, I'll fold it in.
+> 
+> Cheers,
+> Rusty.
 
-Moving common #defines from filter.h into bpf_common.h can
-be done at any point in time. For the sake of argument if
-there is an app that includes both filter.h and bpf.h, it will
-continue to work just fine.
-Anyway, since you insist, I will send it now, though it definitely
-can wait.
+Hi Rusty,
+I'm okay with both changes.
+You can fold it in if you prefer, or just make it a patch on top.
+
+> diff --git a/drivers/virtio/virtio.c b/drivers/virtio/virtio.c
+> index 2536701b098b..df598dd8c5c8 100644
+> --- a/drivers/virtio/virtio.c
+> +++ b/drivers/virtio/virtio.c
+> @@ -122,7 +122,7 @@ static void __virtio_config_changed(struct virtio_device *dev)
+>  	struct virtio_driver *drv = drv_to_virtio(dev->dev.driver);
+>  
+>  	if (!dev->config_enabled)
+> -		dev->config_changed = true;
+> +		dev->config_change_pending = true;
+>  	else if (drv && drv->config_changed)
+>  		drv->config_changed(dev);
+>  }
+> @@ -148,8 +148,9 @@ static void virtio_config_enable(struct virtio_device *dev)
+>  {
+>  	spin_lock_irq(&dev->config_lock);
+>  	dev->config_enabled = true;
+> -	__virtio_config_changed(dev);
+> -	dev->config_changed = false;
+> +	if (dev->config_change_pending)
+> +		__virtio_config_changed(dev);
+> +	dev->config_change_pending = false;
+>  	spin_unlock_irq(&dev->config_lock);
+>  }
+>  
+> @@ -253,7 +254,7 @@ int register_virtio_device(struct virtio_device *dev)
+>  
+>  	spin_lock_init(&dev->config_lock);
+>  	dev->config_enabled = false;
+> -	dev->config_changed = false;
+> +	dev->config_change_pending = false;
+>  
+>  	/* We always start by resetting the device, in case a previous
+>  	 * driver messed it up.  This also tests that code path a little. */
+> diff --git a/include/linux/virtio.h b/include/linux/virtio.h
+> index 5636b119dc25..65261a7244fc 100644
+> --- a/include/linux/virtio.h
+> +++ b/include/linux/virtio.h
+> @@ -80,7 +80,7 @@ bool virtqueue_is_broken(struct virtqueue *vq);
+>   * @index: unique position on the virtio bus
+>   * @failed: saved value for CONFIG_S_FAILED bit (for restore)
+>   * @config_enabled: configuration change reporting enabled
+> - * @config_changed: configuration change reported while disabled
+> + * @config_change_pending: configuration change reported while disabled
+>   * @config_lock: protects configuration change reporting
+>   * @dev: underlying device.
+>   * @id: the device type identification (used to match it with a driver).
+> @@ -94,7 +94,7 @@ struct virtio_device {
+>  	int index;
+>  	bool failed;
+>  	bool config_enabled;
+> -	bool config_changed;
+> +	bool config_change_pending;
+>  	spinlock_t config_lock;
+>  	struct device dev;
+>  	struct virtio_device_id id;
