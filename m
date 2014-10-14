@@ -1,86 +1,68 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: [PATCH net-next,
- v2] hyperv: Add handling of IP header with option field in
- netvsc_set_hash()
-Date: Tue, 14 Oct 2014 15:16:28 -0700
-Message-ID: <1413324988-8863-1-git-send-email-haiyangz@microsoft.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] tcp: TCP Small Queues and strange attractors
+Date: Tue, 14 Oct 2014 14:10:18 -0700
+Message-ID: <1413321018.17109.7.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1413206867.9362.100.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20141014.153308.2221538197341630790.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, jasowang@redhat.com, driverdev-devel@linuxdriverproject.org,
- linux-kernel@vger.kernel.org, haiyangz@microsoft.com
-To: davem@davemloft.net,
-	netdev@vger.kernel.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f170.google.com ([209.85.192.170]:46751 "EHLO
+	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755680AbaJNVKU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2014 17:10:20 -0400
+Received: by mail-pd0-f170.google.com with SMTP id p10so8279262pdj.29
+        for <netdev@vger.kernel.org>; Tue, 14 Oct 2014 14:10:20 -0700 (PDT)
+In-Reply-To: <20141014.153308.2221538197341630790.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In case that the IP header has optional field at the end, this patch will
-get the port numbers after that field, and compute the hash.
+On Tue, 2014-10-14 at 15:33 -0400, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Mon, 13 Oct 2014 06:27:47 -0700
+> 
+> > diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+> > index 8d4eac793700..4a7e97811d71 100644
+> > --- a/net/ipv4/tcp_output.c
+> > +++ b/net/ipv4/tcp_output.c
+> > @@ -839,26 +839,38 @@ void tcp_wfree(struct sk_buff *skb)
+> >  {
+>  ...
+> >  		local_irq_restore(flags);
+> > -	} else {
+> > -		sock_wfree(skb);
+> > +		return;
+> >  	}
+> > +out:
+> > +	sk_free(sk);
+> >  }
+> >  
+> 
+> Why do we need to release the socket here?
 
-Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
----
- drivers/net/hyperv/netvsc_drv.c |   16 ++++++++++------
- 1 files changed, 10 insertions(+), 6 deletions(-)
+Thats because we had to keep a reference at the very beginning :
 
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 0fcb5e7..0d60c91 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -162,7 +162,7 @@ union sub_key {
-  * data: network byte order
-  * return: host byte order
-  */
--static u32 comp_hash(u8 *key, int klen, u8 *data, int dlen)
-+static u32 comp_hash(u8 *key, int klen, void *data, int dlen)
- {
- 	union sub_key subk;
- 	int k_next = 4;
-@@ -176,7 +176,7 @@ static u32 comp_hash(u8 *key, int klen, u8 *data, int dlen)
- 	for (i = 0; i < dlen; i++) {
- 		subk.kb = key[k_next];
- 		k_next = (k_next + 1) % klen;
--		dt = data[i];
-+		dt = ((u8 *)data)[i];
- 		for (j = 0; j < 8; j++) {
- 			if (dt & 0x80)
- 				ret ^= subk.ka;
-@@ -191,6 +191,7 @@ static u32 comp_hash(u8 *key, int klen, u8 *data, int dlen)
- static bool netvsc_set_hash(u32 *hash, struct sk_buff *skb)
- {
- 	struct iphdr *iphdr;
-+	__be32 dbuf[3];
- 	int data_len;
- 	bool ret = false;
- 
-@@ -200,12 +201,15 @@ static bool netvsc_set_hash(u32 *hash, struct sk_buff *skb)
- 	iphdr = ip_hdr(skb);
- 
- 	if (iphdr->version == 4) {
--		if (iphdr->protocol == IPPROTO_TCP)
-+		dbuf[0] = iphdr->saddr;
-+		dbuf[1] = iphdr->daddr;
-+		if (iphdr->protocol == IPPROTO_TCP) {
-+			dbuf[2] = *(__be32 *)&tcp_hdr(skb)->source;
- 			data_len = 12;
--		else
-+		} else {
- 			data_len = 8;
--		*hash = comp_hash(netvsc_hash_key, HASH_KEYLEN,
--				  (u8 *)&iphdr->saddr, data_len);
-+		}
-+		*hash = comp_hash(netvsc_hash_key, HASH_KEYLEN, dbuf, data_len);
- 		ret = true;
- 	}
- 
--- 
-1.7.1
++       /* Keep one reference on sk_wmem_alloc.
++        * Will be released by sk_free() from here or tcp_tasklet_func()
++        */
++       wmem = atomic_sub_return(skb->truesize - 1, &sk->sk_wmem_alloc);
++
+
+
+If we find that we do not arm the tasklet (and keep the reference), we
+then can remove the last ref we kept.
+
+sk_free() is essentially doing :
+
+if (atomic_dec_and_test(&sk->sk_wmem_alloc))
+    __sk_free(sk)
+
+sock_wfree() is the same, its only that we know that TCP socket do not
+pass this test :
+
+if (!sock_flag(sk, SOCK_USE_WRITE_QUEUE)) {
+   sk->sk_write_space(sk);
+}
