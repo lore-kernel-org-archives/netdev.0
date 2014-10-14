@@ -1,47 +1,78 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH RFC] virtio_net: enable tx interrupt
-Date: Wed, 15 Oct 2014 02:11:54 +0300
-Message-ID: <20141014231154.GA23806@redhat.com>
-References: <1413323524-23380-1-git-send-email-mst@redhat.com>
+From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Subject: RE: [PATCH v2] ixgbe: check adapter->vfinfo before dereference
+Date: Tue, 14 Oct 2014 23:18:35 +0000
+Message-ID: <87618083B2453E4A8714035B62D67992500E19F5@FMSMSX105.amr.corp.intel.com>
+References: <1412930732-892-1-git-send-email-thierry.herbelot@6wind.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org
-To: linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1413323524-23380-1-git-send-email-mst@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 8BIT
+To: Thierry Herbelot <thierry.herbelot@6wind.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:50914 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751303AbaJNXSi convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2014 19:18:38 -0400
+In-Reply-To: <1412930732-892-1-git-send-email-thierry.herbelot@6wind.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 15, 2014 at 12:53:59AM +0300, Michael S. Tsirkin wrote:
->  static void skb_xmit_done(struct virtqueue *vq)
->  {
->  	struct virtnet_info *vi = vq->vdev->priv;
-> +	struct send_queue *sq = &vi->sq[vq2txq(vq)];
->  
-> -	/* Suppress further interrupts. */
-> -	virtqueue_disable_cb(vq);
-> -
+>-----Original Message-----
+>From: netdev-owner@vger.kernel.org [mailto:netdev-
+>owner@vger.kernel.org] On Behalf Of Thierry Herbelot
+>Sent: Friday, October 10, 2014 1:46 AM
+>To: Kirsher, Jeffrey T; Brandeburg, Jesse; Allan, Bruce W;
+>netdev@vger.kernel.org
+>Cc: Thierry Herbelot
+>Subject: [PATCH v2] ixgbe: check adapter->vfinfo before
+>dereference
+>
+>this protects against the following panic:
+>(before a VF was actually created on p96p1 PF Ethernet port)
+>ip link set p96p1 vf 0 spoofchk off
+>BUG: unable to handle kernel NULL pointer dereference at
+>0000000000000052
+>IP: [<ffffffffa044a1c1>]
+>ixgbe_ndo_set_vf_spoofchk+0x51/0x150 [ixgbe]
+>
+>Signed-off-by: Thierry Herbelot <thierry.herbelot@6wind.com>
+>---
+> drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c |   73
+>+++++++++++++++++++++++-
+> 1 file changed, 70 insertions(+), 3 deletions(-)
+>
+>diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+>b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+>index 706fc69..29279ad 100644
+>--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+>+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+>@@ -316,7 +316,7 @@ static int ixgbe_set_vf_multicasts(struct ixgbe_adapter *adapter,
+> 	int entries = (msgbuf[0] & IXGBE_VT_MSGINFO_MASK)
+> 		       >> IXGBE_VT_MSGINFO_SHIFT;
+> 	u16 *hash_list = (u16 *)&msgbuf[1];
+>-	struct vf_data_storage *vfinfo = &adapter->vfinfo[vf];
+>+	struct vf_data_storage *vfinfo;
+> 	struct ixgbe_hw *hw = &adapter->hw;
+> 	int i;
+> 	u32 vector_bit;
+>@@ -324,6 +324,11 @@ static int
+>ixgbe_set_vf_multicasts(struct ixgbe_adapter *adapter,
+> 	u32 mta_reg;
+> 	u32 vmolr = IXGBE_READ_REG(hw, IXGBE_VMOLR(vf));
+>
+>+	if (!adapter->vfinfo)
+>+		return -1;
+>+
+>+	vfinfo = &adapter->vfinfo[vf];
 
-One note here: current code seems racy because of doing
-virtqueue_disable_cb from skb_xmit_done that I'm dropping here: there's
-no guarantee we don't get an interrupt while tx ring is running, and if
-that happens we can end up with interrupts disabled forever.
+This check makes sense for the ndo functions that get called by the ip command, but I don't think we need to add them before every use of adapter->vfinfo. In this case for example ixgbe_set_vf_multicasts() is called from
+ixgbe_rcv_msg_from_vf() which will be called when an actual VF exists.
 
-> -	/* We were probably waiting for more output buffers. */
-> -	netif_wake_subqueue(vi->dev, vq2txq(vq));
-> +	if (napi_schedule_prep(&sq->napi)) {
-> +		__napi_schedule(&sq->napi);
-> +	}
->  }
->  
->  static unsigned int mergeable_ctx_to_buf_truesize(unsigned long mrg_ctx)
+Also for the error -EINVAL probably makes more sense than -1.
+
+Thanks,
+Emil
