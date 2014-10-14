@@ -1,71 +1,32 @@
-From: "Frank.Li@freescale.com" <Frank.Li@freescale.com>
-Subject: RE: [PATCH] net: fec: ptp: fix convergence issue to support LinuxPTP
- stack
-Date: Tue, 14 Oct 2014 18:43:51 +0000
-Message-ID: <6b1256b73b7a4f978573a77ec3e36831@BLUPR03MB486.namprd03.prod.outlook.com>
-References: <1413265187-5228-1-git-send-email-b38611@freescale.com>
- <20141014103610.GA4019@localhost.localdomain>
- <20141014.125239.1562178476120218308.davem@davemloft.net>
- <7e6db0b336a340bd80b62475fca284fc@BLUPR03MB486.namprd03.prod.outlook.com>
- <20141014183933.GA14216@localhost.localdomain>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH v3 0/3] Enable FEC pps feather
+Date: Tue, 14 Oct 2014 20:45:30 +0200
+Message-ID: <20141014184530.GB14216@localhost.localdomain>
+References: <1412918130-18830-1-git-send-email-b45643@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: David Miller <davem@davemloft.net>,
-	"fugang.duan@freescale.com" <fugang.duan@freescale.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>
-To: Richard Cochran <richardcochran@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org, shawn.guo@linaro.org,
+	bhutchings@solarflare.com, R49496@freescale.com,
+	b38611@freescale.com, b20596@freescale.com,
+	stephen@networkplumber.org
+To: Luwei Zhou <b45643@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bbn0107.outbound.protection.outlook.com ([157.56.111.107]:48042
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754705AbaJNSnx convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2014 14:43:53 -0400
-In-Reply-To: <20141014183933.GA14216@localhost.localdomain>
-Content-Language: en-US
+Received: from mail-wi0-f176.google.com ([209.85.212.176]:61900 "EHLO
+	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753866AbaJNSph (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2014 14:45:37 -0400
+Received: by mail-wi0-f176.google.com with SMTP id hi2so10988149wib.3
+        for <netdev@vger.kernel.org>; Tue, 14 Oct 2014 11:45:35 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1412918130-18830-1-git-send-email-b45643@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
+I had to think a lot about PPS feathers
+and wonder what color they might be.
 
-> -----Original Message-----
-> From: Richard Cochran [mailto:richardcochran@gmail.com]
-> Sent: Tuesday, October 14, 2014 1:40 PM
-> To: Li Frank-B20596
-> Cc: David Miller; Duan Fugang-B38611; netdev@vger.kernel.org;
-> bhutchings@solarflare.com
-> Subject: Re: [PATCH] net: fec: ptp: fix convergence issue to support LinuxPTP
-> stack
-> 
-> Frank,
-> 
-> On Tue, Oct 14, 2014 at 06:27:28PM +0000, Frank.Li@freescale.com wrote:
-> > Fugang's patch fix the problem existed in MX6SX platform.
-> 
-> You say that Fugang's patch fixes a quirk in the SX device.
-> 
-> But he said that the user's manual tells us to wait for some status bits to
-> clear. (See the third line, with the 'while' key word).
-> 
-> > > > On Tue, Oct 14, 2014 at 01:39:47PM +0800, Fugang Duan wrote:
-> > > >> IEEE 1588 module has one hw issue in capturing the ATVR register.
-> > > >> According to the user manual it is:
-> > > >> 		ENET0->ATCR |= ENET_ATCR_CAPTURE_MASK;
-> > > >> 		while(ENET0->ATCR & ENET_ATCR_CAPTURE_MASK);
-> > > >> 		ts_counter_ns = ENET0->ATVR;
-> 
-> That applies to all IMX devices, doesn't it?
-> In any case, Fugang's change log is not clear.
+Finally I got it: you meant "feature" :^)
 
-Only MX6 SX. Only MX6 SX added FEC_QUIRK_BUG_CAPTURE.
-
-.driver_data = FEC_QUIRK_ENET_MAC | FEC_QUIRK_HAS_GBIT |
- 				FEC_QUIRK_HAS_BUFDESC_EX | FEC_QUIRK_HAS_CSUM |
- 				FEC_QUIRK_HAS_VLAN | FEC_QUIRK_HAS_AVB |
--				FEC_QUIRK_ERR007885,
-+				FEC_QUIRK_ERR007885 | FEC_QUIRK_BUG_CAPTURE,
-
-> 
-> Confused,
-> Richard
+Thanks,
+Richard
