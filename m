@@ -1,40 +1,86 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] tcp: TCP Small Queues and strange attractors
-Date: Tue, 14 Oct 2014 15:33:08 -0400 (EDT)
-Message-ID: <20141014.153308.2221538197341630790.davem@davemloft.net>
-References: <1413206867.9362.100.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Angelo Dureghello <angelo70@gmail.com>
+Subject: Re: Fwd: micrel: ksz8051 badly detected as ksz8031
+Date: Tue, 14 Oct 2014 21:33:24 +0200
+Message-ID: <543D7A84.4030202@gmail.com>
+References: <543C2954.5010609@gmail.com> <543D5C5B.9010703@gmail.com> <543D7507.3060008@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+To: Florian Fainelli <f.fainelli@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43927 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755401AbaJNTdK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2014 15:33:10 -0400
-In-Reply-To: <1413206867.9362.100.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-wg0-f50.google.com ([74.125.82.50]:57808 "EHLO
+	mail-wg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755357AbaJNTdd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2014 15:33:33 -0400
+Received: by mail-wg0-f50.google.com with SMTP id a1so11634579wgh.33
+        for <netdev@vger.kernel.org>; Tue, 14 Oct 2014 12:33:32 -0700 (PDT)
+In-Reply-To: <543D7507.3060008@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 13 Oct 2014 06:27:47 -0700
+Hi Florian,
 
-> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-> index 8d4eac793700..4a7e97811d71 100644
-> --- a/net/ipv4/tcp_output.c
-> +++ b/net/ipv4/tcp_output.c
-> @@ -839,26 +839,38 @@ void tcp_wfree(struct sk_buff *skb)
->  {
- ...
->  		local_irq_restore(flags);
-> -	} else {
-> -		sock_wfree(skb);
-> +		return;
->  	}
-> +out:
-> +	sk_free(sk);
->  }
->  
+> On 10/14/2014 10:24 AM, Angelo Dureghello wrote:
+>> Dear,
+>>
+>> have to apologize for the confusion, previous patch is not the proper fix,
+>> since it is not solving completely the issue.
+>>
+>> And also, i mainly misunderstood the issue.
+>>
+>> The issue i am experiencing is :
+>>
+>> https://lkml.org/lkml/2013/9/18/259
+>>
+>> Mainly, i have Micrel chip marked KSZ8051(RNL), but the product Id in the
+>> silicon is KSZ8031 and linux detects it as KSZ8031.
+>> The attmept to mdio boot override register kill the Micrel functionality.
+> Ok, so basically your bootloader does something that Linux does, and
+> once Linux boots, it will reset the PHY to put it in a known state. If
+> you can snoop the MDIO read/writes done in your bootloader environment,
+> that might help narrow down the issue.
+>
+Bootloader is u-boot and seems it uses generic PHY setup, and so it works.
 
-Why do we need to release the socket here?
+Linux at boot detects the phy and does a soft_reset. If the detection 
+sets the
+driver as for KSZ8031, ethernet/link will not work, becouse micrel.c uses
+the incorrect config_init function, attempts to write to the bootstrap
+override register, that can't be written for KSZ8051, and so puts the micrel
+chip in a broken state.
+
+The guy in this link (https://lkml.org/lkml/2013/9/18/259) seems are 
+discussing a
+better solution.
+
+I patched my linux as below, but this is a fast fixup for me:
+
+diff -rupN drivers/net/phy/phy_device.c 
+../linux-3.17/drivers/net/phy/phy_device.c
+--- drivers/net/phy/phy_device.c        2014-10-14 21:05:56.191117190 +0200
++++ ../linux-3.17/drivers/net/phy/phy_device.c  2014-10-05 
+21:23:04.000000000 +0200
+@@ -310,19 +310,6 @@ static int get_phy_id(struct mii_bus *bu
+
+         *phy_id |= (phy_reg & 0xffff);
+
+-       /*
+-        * Angelo - Barix
+-        * Micrel produced chips marked KSZ8051 but with KSZ8031 id code
+-        * in the silicon. After getting crazy to understand why in 
+recent kernel
+-        * the ethenret was not workeing, i find it out.
+-        *
+-        * From the schematic, we assume to use KSZ8051
+-        * I hardcode the fix here for ipam390.
+-        */
+-#if CONFIG_MACH_BARIX_IPAM390
+-       if (*phy_id == 0x00221556) *phy_id = 0x00221550;
+-#endif
+-
+         return 0;
+  }
+
+Regards
+angelo
