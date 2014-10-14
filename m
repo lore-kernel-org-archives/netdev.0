@@ -1,36 +1,36 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net] net: filter: move common defines into bpf_common.h
-Date: Tue, 14 Oct 2014 16:07:07 -0400 (EDT)
-Message-ID: <20141014.160707.30937593503083649.davem@davemloft.net>
-References: <1413277734-13053-1-git-send-email-ast@plumgrid.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 0/4] Add SGMII based 1GbE support to APM X-Gene SoC
+ ethernet driver
+Date: Tue, 14 Oct 2014 16:10:01 -0400 (EDT)
+Message-ID: <20141014.161001.808204632101029906.davem@davemloft.net>
+References: <1413245135-2989-1-git-send-email-isubramanian@apm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org, rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org, dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org, chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
-	a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org, hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1413277734-13053-1-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	patches@apm.com, kchudgar@apm.com
+To: isubramanian@apm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44327 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754524AbaJNUKE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2014 16:10:04 -0400
+In-Reply-To: <1413245135-2989-1-git-send-email-isubramanian@apm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Date: Tue, 14 Oct 2014 02:08:54 -0700
+From: Iyappan Subramanian <isubramanian@apm.com>
+Date: Mon, 13 Oct 2014 17:05:31 -0700
 
-> userspace programs that use eBPF instruction macros need to include two files:
-> uapi/linux/filter.h and uapi/linux/bpf.h
-> Move common macro definitions that are shared between classic BPF and eBPF
-> into uapi/linux/bpf_common.h, so that user app can include only one bpf.h file
+> Adding SGMII based 1GbE basic support to APM X-Gene SoC ethernet driver.
 > 
-> Cc: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-> Signed-off-by: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-> ---
+> v2: Address comments from v1
+> * Split the patchset into two, the first one being preparatory patch
+> * Added link_state function pointer to the xgene_mac_ops structure
+> * Added xgene_indirect_ctl structure for indirect read/write arguments
 > 
-> Daniel believes that this patch has to be done for this merge window.
-> I think it can wait till next, but it won't hurt now either.
+> v1:
+> * Initial version
 
-Applied, thanks everyone.
+Series applied, thanks.
