@@ -1,164 +1,66 @@
 From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: [PATCH v2 2/4] drivers: net: xgene: Preparing for adding SGMII based 1GbE
-Date: Mon, 13 Oct 2014 17:05:33 -0700
-Message-ID: <1413245135-2989-3-git-send-email-isubramanian@apm.com>
+Subject: [PATCH v2 4/4] drivers: net: xgene: Add SGMII based 1GbE ethtool support
+Date: Mon, 13 Oct 2014 17:05:35 -0700
+Message-ID: <1413245135-2989-5-git-send-email-isubramanian@apm.com>
 References: <1413245135-2989-1-git-send-email-isubramanian@apm.com>
 Cc: linux-arm-kernel@lists.infradead.org, patches@apm.com,
 	kchudgar@apm.com, Iyappan Subramanian <isubramanian@apm.com>
 To: davem@davemloft.net, romieu@fr.zoreil.com, netdev@vger.kernel.org,
 	devicetree@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod5og113.obsmtp.com ([64.18.0.26]:39127 "HELO
-	exprod5og113.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1753993AbaJNAFz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Oct 2014 20:05:55 -0400
-Received: by mail-pa0-f49.google.com with SMTP id hz1so6614694pad.22
-        for <netdev@vger.kernel.org>; Mon, 13 Oct 2014 17:05:54 -0700 (PDT)
+Received: from exprod5og124.obsmtp.com ([64.18.0.212]:57995 "HELO
+	exprod5og124.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1754123AbaJNAF7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Oct 2014 20:05:59 -0400
+Received: by mail-pd0-f178.google.com with SMTP id y10so6405572pdj.37
+        for <netdev@vger.kernel.org>; Mon, 13 Oct 2014 17:05:58 -0700 (PDT)
 In-Reply-To: <1413245135-2989-1-git-send-email-isubramanian@apm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-- Added link_state function pointer to the xgene__mac_ops structure
-- Moved ring manager (pdata->rm) assignment to xgene_enet_setup_ops
-- Removed unused variable (pdata->phy_addr) and macro (FULL_DUPLEX)
-
 Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
 Signed-off-by: Keyur Chudgar <kchudgar@apm.com>
 ---
- drivers/net/ethernet/apm/xgene/xgene_enet_hw.c    | 1 -
- drivers/net/ethernet/apm/xgene/xgene_enet_hw.h    | 1 -
- drivers/net/ethernet/apm/xgene/xgene_enet_main.c  | 8 +++++---
- drivers/net/ethernet/apm/xgene/xgene_enet_main.h  | 2 +-
- drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c | 3 ++-
- drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.h | 1 -
- 6 files changed, 8 insertions(+), 8 deletions(-)
+ .../net/ethernet/apm/xgene/xgene_enet_ethtool.c    | 25 +++++++++++++++-------
+ 1 file changed, 17 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
-index c8f3824..63ea194 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
-@@ -410,7 +410,6 @@ static void xgene_gmac_set_mac_addr(struct xgene_enet_pdata *pdata)
- 	addr0 = (dev_addr[3] << 24) | (dev_addr[2] << 16) |
- 		(dev_addr[1] << 8) | dev_addr[0];
- 	addr1 = (dev_addr[5] << 24) | (dev_addr[4] << 16);
--	addr1 |= pdata->phy_addr & 0xFFFF;
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_ethtool.c b/drivers/net/ethernet/apm/xgene/xgene_enet_ethtool.c
+index c1c997b..416d6eb 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_ethtool.c
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_ethtool.c
+@@ -64,16 +64,25 @@ static int xgene_get_settings(struct net_device *ndev, struct ethtool_cmd *cmd)
+ 			return -ENODEV;
  
- 	xgene_enet_wr_mcx_mac(pdata, STATION_ADDR0_ADDR, addr0);
- 	xgene_enet_wr_mcx_mac(pdata, STATION_ADDR1_ADDR, addr1);
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
-index 15ec426..2efc4d9 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
-@@ -179,7 +179,6 @@ enum xgene_enet_rm {
- #define TUND_ADDR			0x4a
- 
- #define TSO_IPPROTO_TCP			1
--#define	FULL_DUPLEX			2
- 
- #define USERINFO_POS			0
- #define USERINFO_LEN			32
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-index 9b85239..9e251ec 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-@@ -833,11 +833,9 @@ static int xgene_enet_get_resources(struct xgene_enet_pdata *pdata)
- 	if (pdata->phy_mode == PHY_INTERFACE_MODE_RGMII) {
- 		pdata->mcx_mac_addr = base_addr + BLOCK_ETH_MAC_OFFSET;
- 		pdata->mcx_mac_csr_addr = base_addr + BLOCK_ETH_MAC_CSR_OFFSET;
--		pdata->rm = RM3;
- 	} else {
- 		pdata->mcx_mac_addr = base_addr + BLOCK_AXG_MAC_OFFSET;
- 		pdata->mcx_mac_csr_addr = base_addr + BLOCK_AXG_MAC_CSR_OFFSET;
--		pdata->rm = RM0;
+ 		return phy_ethtool_gset(phydev, cmd);
++	} else if (pdata->phy_mode == PHY_INTERFACE_MODE_SGMII) {
++		cmd->supported = SUPPORTED_1000baseT_Full |
++				 SUPPORTED_Autoneg | SUPPORTED_MII;
++		cmd->advertising = cmd->supported;
++		ethtool_cmd_speed_set(cmd, SPEED_1000);
++		cmd->duplex = DUPLEX_FULL;
++		cmd->port = PORT_MII;
++		cmd->transceiver = XCVR_INTERNAL;
++		cmd->autoneg = AUTONEG_ENABLE;
++	} else {
++		cmd->supported = SUPPORTED_10000baseT_Full | SUPPORTED_FIBRE;
++		cmd->advertising = cmd->supported;
++		ethtool_cmd_speed_set(cmd, SPEED_10000);
++		cmd->duplex = DUPLEX_FULL;
++		cmd->port = PORT_FIBRE;
++		cmd->transceiver = XCVR_INTERNAL;
++		cmd->autoneg = AUTONEG_DISABLE;
  	}
- 	pdata->rx_buff_cnt = NUM_PKT_BUF;
  
-@@ -881,10 +879,12 @@ static void xgene_enet_setup_ops(struct xgene_enet_pdata *pdata)
- 	case PHY_INTERFACE_MODE_RGMII:
- 		pdata->mac_ops = &xgene_gmac_ops;
- 		pdata->port_ops = &xgene_gport_ops;
-+		pdata->rm = RM3;
- 		break;
- 	default:
- 		pdata->mac_ops = &xgene_xgmac_ops;
- 		pdata->port_ops = &xgene_xgport_ops;
-+		pdata->rm = RM0;
- 		break;
- 	}
+-	cmd->supported = SUPPORTED_10000baseT_Full | SUPPORTED_FIBRE;
+-	cmd->advertising = cmd->supported;
+-	ethtool_cmd_speed_set(cmd, SPEED_10000);
+-	cmd->duplex = DUPLEX_FULL;
+-	cmd->port = PORT_FIBRE;
+-	cmd->transceiver = XCVR_EXTERNAL;
+-	cmd->autoneg = AUTONEG_DISABLE;
+-
+ 	return 0;
  }
-@@ -895,6 +895,7 @@ static int xgene_enet_probe(struct platform_device *pdev)
- 	struct xgene_enet_pdata *pdata;
- 	struct device *dev = &pdev->dev;
- 	struct napi_struct *napi;
-+	struct xgene_mac_ops *mac_ops;
- 	int ret;
- 
- 	ndev = alloc_etherdev(sizeof(struct xgene_enet_pdata));
-@@ -937,10 +938,11 @@ static int xgene_enet_probe(struct platform_device *pdev)
- 
- 	napi = &pdata->rx_ring->napi;
- 	netif_napi_add(ndev, napi, xgene_enet_napi, NAPI_POLL_WEIGHT);
-+	mac_ops = pdata->mac_ops;
- 	if (pdata->phy_mode == PHY_INTERFACE_MODE_RGMII)
- 		ret = xgene_enet_mdio_config(pdata);
- 	else
--		INIT_DELAYED_WORK(&pdata->link_work, xgene_enet_link_state);
-+		INIT_DELAYED_WORK(&pdata->link_work, mac_ops->link_state);
- 
- 	return ret;
- err:
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.h b/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
-index 86cf68b..10b03a1 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
-@@ -76,6 +76,7 @@ struct xgene_mac_ops {
- 	void (*tx_disable)(struct xgene_enet_pdata *pdata);
- 	void (*rx_disable)(struct xgene_enet_pdata *pdata);
- 	void (*set_mac_addr)(struct xgene_enet_pdata *pdata);
-+	void (*link_state)(struct work_struct *work);
- };
- 
- struct xgene_port_ops {
-@@ -109,7 +110,6 @@ struct xgene_enet_pdata {
- 	void __iomem *base_addr;
- 	void __iomem *ring_csr_addr;
- 	void __iomem *ring_cmd_addr;
--	u32 phy_addr;
- 	int phy_mode;
- 	enum xgene_enet_rm rm;
- 	struct rtnl_link_stats64 stats;
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c b/drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c
-index cd64b9f..67d0720 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c
-@@ -284,7 +284,7 @@ static void xgene_enet_shutdown(struct xgene_enet_pdata *pdata)
- 	clk_disable_unprepare(pdata->clk);
- }
- 
--void xgene_enet_link_state(struct work_struct *work)
-+static void xgene_enet_link_state(struct work_struct *work)
- {
- 	struct xgene_enet_pdata *pdata = container_of(to_delayed_work(work),
- 					 struct xgene_enet_pdata, link_work);
-@@ -322,6 +322,7 @@ struct xgene_mac_ops xgene_xgmac_ops = {
- 	.rx_disable = xgene_xgmac_rx_disable,
- 	.tx_disable = xgene_xgmac_tx_disable,
- 	.set_mac_addr = xgene_xgmac_set_mac_addr,
-+	.link_state = xgene_enet_link_state
- };
- 
- struct xgene_port_ops xgene_xgport_ops = {
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.h b/drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.h
-index d2d59e7..dcb2087 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.h
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.h
-@@ -50,7 +50,6 @@
- #define PHY_POLL_LINK_ON	(10 * HZ)
- #define PHY_POLL_LINK_OFF	(PHY_POLL_LINK_ON / 5)
- 
--void xgene_enet_link_state(struct work_struct *work);
- extern struct xgene_mac_ops xgene_xgmac_ops;
- extern struct xgene_port_ops xgene_xgport_ops;
  
 -- 
 1.9.1
