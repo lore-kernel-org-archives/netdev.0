@@ -1,70 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: fec: ptp: fix convergence issue to support
- LinuxPTP stack
-Date: Tue, 14 Oct 2014 12:52:39 -0400 (EDT)
-Message-ID: <20141014.125239.1562178476120218308.davem@davemloft.net>
-References: <1413265187-5228-1-git-send-email-b38611@freescale.com>
-	<20141014103610.GA4019@localhost.localdomain>
+Subject: Re: [PATCH v2 1/1] net: fec: Fix sparse warnings with different
+ lock contexts for basic block
+Date: Tue, 14 Oct 2014 12:53:56 -0400 (EDT)
+Message-ID: <20141014.125356.683543714454912616.davem@davemloft.net>
+References: <1413168828-9335-1-git-send-email-b38611@freescale.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: b38611@freescale.com, netdev@vger.kernel.org,
-	bhutchings@solarflare.com, b20596@freescale.com
-To: richardcochran@gmail.com
+Cc: netdev@vger.kernel.org, festevam@gmail.com, sparse@chrisli.org,
+	B20596@freescale.com
+To: b38611@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42618 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:42644 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755511AbaJNQwm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2014 12:52:42 -0400
-In-Reply-To: <20141014103610.GA4019@localhost.localdomain>
+	with ESMTP id S1754779AbaJNQx6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2014 12:53:58 -0400
+In-Reply-To: <1413168828-9335-1-git-send-email-b38611@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Richard Cochran <richardcochran@gmail.com>
-Date: Tue, 14 Oct 2014 12:36:10 +0200
+From: Fugang Duan <b38611@freescale.com>
+Date: Mon, 13 Oct 2014 10:53:48 +0800
 
-> On Tue, Oct 14, 2014 at 01:39:47PM +0800, Fugang Duan wrote:
->> IEEE 1588 module has one hw issue in capturing the ATVR register. According
->> to the user manual it is:
->> 		ENET0->ATCR |= ENET_ATCR_CAPTURE_MASK;
->> 		while(ENET0->ATCR & ENET_ATCR_CAPTURE_MASK);
->> 		ts_counter_ns = ENET0->ATVR;
+> reproduce:
+> make  ARCH=arm C=1 2>fec.txt drivers/net/ethernet/freescale/fec_main.o
+> cat fec.txt
 > 
-> ...
+> sparse warnings:
+> drivers/net/ethernet/freescale/fec_main.c:2916:12: warning: context imbalance
+> in 'fec_set_features' - different lock contexts for basic block
 > 
->> diff --git a/drivers/net/ethernet/freescale/fec_ptp.c b/drivers/net/ethernet/freescale/fec_ptp.c
->> index cca3617..380bb10 100644
->> --- a/drivers/net/ethernet/freescale/fec_ptp.c
->> +++ b/drivers/net/ethernet/freescale/fec_ptp.c
->> @@ -82,12 +82,17 @@ static cycle_t fec_ptp_read(const struct cyclecounter *cc)
->>  {
->>  	struct fec_enet_private *fep =
->>  		container_of(cc, struct fec_enet_private, cc);
->> +	const struct platform_device_id *id_entry =
->> +		platform_get_device_id(fep->pdev);
->>  	u32 tempval;
->>  
->>  	tempval = readl(fep->hwp + FEC_ATIME_CTRL);
->>  	tempval |= FEC_T_CTRL_CAPTURE;
->>  	writel(tempval, fep->hwp + FEC_ATIME_CTRL);
->>  
->> +	if (id_entry->driver_data & FEC_QUIRK_BUG_CAPTURE)
->> +		udelay(1);
->> +
+> Christopher Li suggest to change as below:
+> 	if (need_lock) {
+> 		lock();
+> 		do_something_real();
+> 		unlock();
+> 	} else {
+> 		do_something_real();
+> 	}
 > 
-> What? You never had
-> 
-> 	while(ENET0->ATCR & ENET_ATCR_CAPTURE_MASK);
-> 
-> in the first place. Maybe you should try that.
-> 
-> Did this code ever work? I guess not.
+> Reported-by: Fabio Estevam <festevam@gmail.com>
+> Suggested-by: Christopher Li <sparse@chrisli.org>
+> Signed-off-by: Fugang Duan <B38611@freescale.com>
 
-Also see Luwei Zhou's series:
-
-http://patchwork.ozlabs.org/patch/398467/
-http://patchwork.ozlabs.org/patch/398465/
-http://patchwork.ozlabs.org/patch/398466/
-
-Let's get down to the bottom of all of this before I apply anything.  Does this
-fec PTP code work at all?
+Applied, thanks.
