@@ -1,65 +1,56 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH] net: fec: ptp: fix convergence issue to support LinuxPTP
- stack
-Date: Tue, 14 Oct 2014 12:36:10 +0200
-Message-ID: <20141014103610.GA4019@localhost.localdomain>
-References: <1413265187-5228-1-git-send-email-b38611@freescale.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH v2] netfilter: release skbuf when nlmsg put fail
+Date: Tue, 14 Oct 2014 12:49:23 +0200
+Message-ID: <20141014104923.GA30916@breakpoint.cc>
+References: <CAL8JtxD=Vopo7fvKEnfKgOa3T=WyVH=mb_YqX9mES+n-6dJbrQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	bhutchings@solarflare.com, b20596@freescale.com
-To: Fugang Duan <b38611@freescale.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f173.google.com ([209.85.212.173]:56365 "EHLO
-	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752778AbaJNKgP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2014 06:36:15 -0400
-Received: by mail-wi0-f173.google.com with SMTP id fb4so9716611wid.0
-        for <netdev@vger.kernel.org>; Tue, 14 Oct 2014 03:36:14 -0700 (PDT)
+Cc: pablo@netfilter.org, Patrick McHardy <kaber@trash.net>,
+	kadlec@blackhole.kfki.hu, davem@davemloft.net,
+	netfilter-devel@vger.kernel.org, Florian Westphal <fw@strlen.de>,
+	coreteam@netfilter.org, netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Houcheng Lin <houcheng@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1413265187-5228-1-git-send-email-b38611@freescale.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <CAL8JtxD=Vopo7fvKEnfKgOa3T=WyVH=mb_YqX9mES+n-6dJbrQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 14, 2014 at 01:39:47PM +0800, Fugang Duan wrote:
-> IEEE 1588 module has one hw issue in capturing the ATVR register. According
-> to the user manual it is:
-> 		ENET0->ATCR |= ENET_ATCR_CAPTURE_MASK;
-> 		while(ENET0->ATCR & ENET_ATCR_CAPTURE_MASK);
-> 		ts_counter_ns = ENET0->ATVR;
+Houcheng Lin <houcheng@gmail.com> wrote:
+> When system is under heavy loading, the __nfulnl_send() may may failed
+> to put nlmsg into skbuf of nfulnl_instance. If not clear the skbuff on failed,
+> the __nfulnl_send() will still try to put next nlmsg onto this half-full skbuf
+> and cause the user program can never receive packet.
+> 
+> This patch fix this issue by releasing skbuf immediately after nlmst put
+> failed.
 
-...
+Could you please try this patch on top of this one and see if the
+WARN_ON goes away?
 
-> diff --git a/drivers/net/ethernet/freescale/fec_ptp.c b/drivers/net/ethernet/freescale/fec_ptp.c
-> index cca3617..380bb10 100644
-> --- a/drivers/net/ethernet/freescale/fec_ptp.c
-> +++ b/drivers/net/ethernet/freescale/fec_ptp.c
-> @@ -82,12 +82,17 @@ static cycle_t fec_ptp_read(const struct cyclecounter *cc)
->  {
->  	struct fec_enet_private *fep =
->  		container_of(cc, struct fec_enet_private, cc);
-> +	const struct platform_device_id *id_entry =
-> +		platform_get_device_id(fep->pdev);
->  	u32 tempval;
->  
->  	tempval = readl(fep->hwp + FEC_ATIME_CTRL);
->  	tempval |= FEC_T_CTRL_CAPTURE;
->  	writel(tempval, fep->hwp + FEC_ATIME_CTRL);
->  
-> +	if (id_entry->driver_data & FEC_QUIRK_BUG_CAPTURE)
-> +		udelay(1);
-> +
+Thanks
 
-What? You never had
-
-	while(ENET0->ATCR & ENET_ATCR_CAPTURE_MASK);
-
-in the first place. Maybe you should try that.
-
-Did this code ever work? I guess not.
-
->  	return readl(fep->hwp + FEC_ATIME);
->  }
-
-Thanks,
-Richard
+diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
+--- a/net/netfilter/nfnetlink_log.c
++++ b/net/netfilter/nfnetlink_log.c
+@@ -649,7 +649,8 @@ nfulnl_log_packet(struct net *net,
+ 		+ nla_total_size(sizeof(u_int32_t))	/* gid */
+ 		+ nla_total_size(plen)			/* prefix */
+ 		+ nla_total_size(sizeof(struct nfulnl_msg_packet_hw))
+-		+ nla_total_size(sizeof(struct nfulnl_msg_packet_timestamp));
++		+ nla_total_size(sizeof(struct nfulnl_msg_packet_timestamp))
++		+ nla_total_size(sizeof(struct nfgenmsg));	/* NLMSG_DONE */
+ 
+ 	if (in && skb_mac_header_was_set(skb)) {
+ 		size +=   nla_total_size(skb->dev->hard_header_len)
+@@ -692,8 +693,7 @@ nfulnl_log_packet(struct net *net,
+ 		goto unlock_and_release;
+ 	}
+ 
+-	if (inst->skb &&
+-	    size > skb_tailroom(inst->skb) - sizeof(struct nfgenmsg)) {
++	if (inst->skb && size > skb_tailroom(inst->skb)) {
+ 		/* either the queue len is too high or we don't have
+ 		 * enough room in the skb left. flush to userspace. */
+ 		__nfulnl_flush(inst);
