@@ -1,127 +1,53 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: something is wrong in commit 971f10eca1 - tcp: better TCP_SKB_CB
- layout to reduce cache line misses
-Date: Tue, 14 Oct 2014 11:59:25 -0700
-Message-ID: <CAHA+R7N9rNUH4aytFG3YLt8nzpERqmf34FgaWbe5R7P0AaWuZw@mail.gmail.com>
-References: <543AB655.6060603@winsoft.pl>
-	<1413139613.9362.78.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAHA+R7OWpjO0AbwteOAfxd1fej6BcjXR99xy+MnkZ8y+JZ8f4g@mail.gmail.com>
-	<CAHA+R7NOvmyDo_Up32z1oJKCEmCqywRyTkbio4i4n1J+bNg4Cw@mail.gmail.com>
-	<543D2435.8090002@winsoft.pl>
+From: dom <dominic.curran@citrix.com>
+Subject: ixgbe: Question about Flow Control on 10G
+Date: Tue, 14 Oct 2014 12:01:18 -0700
+Message-ID: <543D72FE.9090107@citrix.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=001a11c294d43097180505669d1f
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	netdev <netdev@vger.kernel.org>, edumazet@gmail.com,
-	David Miller <davem@davemloft.net>
-To: Krzysztof Kolasa <kkolasa@winsoft.pl>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+To: <donald.c.skidmore@intel.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f51.google.com ([209.85.216.51]:36369 "EHLO
-	mail-qa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753866AbaJNS70 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2014 14:59:26 -0400
-Received: by mail-qa0-f51.google.com with SMTP id k15so6406783qaq.10
-        for <netdev@vger.kernel.org>; Tue, 14 Oct 2014 11:59:25 -0700 (PDT)
-In-Reply-To: <543D2435.8090002@winsoft.pl>
+Received: from smtp.citrix.com ([66.165.176.89]:7769 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753601AbaJNTA5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Oct 2014 15:00:57 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---001a11c294d43097180505669d1f
-Content-Type: text/plain; charset=UTF-8
+Hi
 
-On Tue, Oct 14, 2014 at 6:25 AM, Krzysztof Kolasa <kkolasa@winsoft.pl> wrote:
-> W dniu 14.10.2014 o 02:09, Cong Wang pisze:
->
->> On Mon, Oct 13, 2014 at 4:59 PM, Cong Wang <cwang@twopensource.com> wrote:
->>>
->>> Probably not related with this bug, but with regarding to the
->>> offending commit, what's the point of the memmove() in tcp_v4_rcv()
->>> since ip_rcv() already clears IPCB()?
->>
->> Oh, ip options are actually saved in ip_rcv_finish()... Hmm, looks scary
->> to play with variable-length array with memmove()....
->>
-> On my other old laptop with 32bit kernel next and graphics card Intel 945GM
-> just after the revert commit working OK,
-> before, after login to gnome shell in some seconds decorations disappear
->
-> 32 bit Ubuntu 12.04.5 LTS, gnome shell, kernel source next 14-10-2014
->
-> Can anyone confirm this ?
->
+I have a question about the ixgbe driver's handling of 'ethtool -a ethX' 
+when the NIC is using fibre.
 
-Sorry, believe it or not, for me it is hard to find a 32bit machine even VM. :)
+Specifically I don't understand the code introduced by this commit:
 
-Could the attached patch by any chance help? I noticed cookie_v4_check()
-still uses IPCB() instead of TCPCB() at TCP layer.
+commit 73d80953dfd1d5a92948005798c857c311c2834b
+Author: Don Skidmore <donald.c.skidmore@intel.com>
+Date:   Wed Jul 31 02:19:24 2013 +0000
+Subject: ixgbe: fix fc autoneg ethtool reporting.
 
-Thanks.
+The function introduced the function:
+        ixgbe_device_supports_autoneg_fc()
 
---001a11c294d43097180505669d1f
-Content-Type: text/plain; charset=US-ASCII; name="tcp-cb.diff"
-Content-Disposition: attachment; filename="tcp-cb.diff"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_i19m492o0
+which gets called by ixgbe_get_pauseparam()/ixgbe_set_pauseparam().
 
-ZGlmZiAtLWdpdCBhL2luY2x1ZGUvbmV0L3RjcC5oIGIvaW5jbHVkZS9uZXQvdGNwLmgKaW5kZXgg
-NzRlZmVkYS4uNWQxMTAxMiAxMDA2NDQKLS0tIGEvaW5jbHVkZS9uZXQvdGNwLmgKKysrIGIvaW5j
-bHVkZS9uZXQvdGNwLmgKQEAgLTQ2OCw4ICs0NjgsNyBAQCB2b2lkIGluZXRfc2tfcnhfZHN0X3Nl
-dChzdHJ1Y3Qgc29jayAqc2ssIGNvbnN0IHN0cnVjdCBza19idWZmICpza2IpOwogLyogRnJvbSBz
-eW5jb29raWVzLmMgKi8KIGludCBfX2Nvb2tpZV92NF9jaGVjayhjb25zdCBzdHJ1Y3QgaXBoZHIg
-KmlwaCwgY29uc3Qgc3RydWN0IHRjcGhkciAqdGgsCiAJCSAgICAgIHUzMiBjb29raWUpOwotc3Ry
-dWN0IHNvY2sgKmNvb2tpZV92NF9jaGVjayhzdHJ1Y3Qgc29jayAqc2ssIHN0cnVjdCBza19idWZm
-ICpza2IsCi0JCQkgICAgIHN0cnVjdCBpcF9vcHRpb25zICpvcHQpOworc3RydWN0IHNvY2sgKmNv
-b2tpZV92NF9jaGVjayhzdHJ1Y3Qgc29jayAqc2ssIHN0cnVjdCBza19idWZmICpza2IpOwogI2lm
-ZGVmIENPTkZJR19TWU5fQ09PS0lFUwogCiAvKiBTeW5jb29raWVzIHVzZSBhIG1vbm90b25pYyB0
-aW1lciB3aGljaCBpbmNyZW1lbnRzIGV2ZXJ5IDYwIHNlY29uZHMuCkBAIC01MzAsNiArNTI5LDcg
-QEAgdm9pZCB0Y3Bfc2VuZF9hY3RpdmVfcmVzZXQoc3RydWN0IHNvY2sgKnNrLCBnZnBfdCBwcmlv
-cml0eSk7CiBpbnQgdGNwX3NlbmRfc3luYWNrKHN0cnVjdCBzb2NrICopOwogYm9vbCB0Y3Bfc3lu
-X2Zsb29kX2FjdGlvbihzdHJ1Y3Qgc29jayAqc2ssIGNvbnN0IHN0cnVjdCBza19idWZmICpza2Is
-CiAJCQkgIGNvbnN0IGNoYXIgKnByb3RvKTsKK3N0cnVjdCBpcF9vcHRpb25zX3JjdSAqdGNwX3Y0
-X3NhdmVfb3B0aW9ucyhzdHJ1Y3Qgc2tfYnVmZiAqc2tiKTsKIHZvaWQgdGNwX3B1c2hfb25lKHN0
-cnVjdCBzb2NrICosIHVuc2lnbmVkIGludCBtc3Nfbm93KTsKIHZvaWQgdGNwX3NlbmRfYWNrKHN0
-cnVjdCBzb2NrICpzayk7CiB2b2lkIHRjcF9zZW5kX2RlbGF5ZWRfYWNrKHN0cnVjdCBzb2NrICpz
-ayk7CmRpZmYgLS1naXQgYS9uZXQvaXB2NC9zeW5jb29raWVzLmMgYi9uZXQvaXB2NC9zeW5jb29r
-aWVzLmMKaW5kZXggMDQzMWE4Zi4uZDM0NjMwMyAxMDA2NDQKLS0tIGEvbmV0L2lwdjQvc3luY29v
-a2llcy5jCisrKyBiL25ldC9pcHY0L3N5bmNvb2tpZXMuYwpAQCAtMjU1LDkgKzI1NSw5IEBAIGJv
-b2wgY29va2llX2NoZWNrX3RpbWVzdGFtcChzdHJ1Y3QgdGNwX29wdGlvbnNfcmVjZWl2ZWQgKnRj
-cF9vcHQsCiB9CiBFWFBPUlRfU1lNQk9MKGNvb2tpZV9jaGVja190aW1lc3RhbXApOwogCi1zdHJ1
-Y3Qgc29jayAqY29va2llX3Y0X2NoZWNrKHN0cnVjdCBzb2NrICpzaywgc3RydWN0IHNrX2J1ZmYg
-KnNrYiwKLQkJCSAgICAgc3RydWN0IGlwX29wdGlvbnMgKm9wdCkKK3N0cnVjdCBzb2NrICpjb29r
-aWVfdjRfY2hlY2soc3RydWN0IHNvY2sgKnNrLCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiKQogeworCXN0
-cnVjdCBpcF9vcHRpb25zICpvcHQgPSAmVENQX1NLQl9DQihza2IpLT5oZWFkZXIuaDQub3B0Owog
-CXN0cnVjdCB0Y3Bfb3B0aW9uc19yZWNlaXZlZCB0Y3Bfb3B0OwogCXN0cnVjdCBpbmV0X3JlcXVl
-c3Rfc29jayAqaXJlcTsKIAlzdHJ1Y3QgdGNwX3JlcXVlc3Rfc29jayAqdHJlcTsKQEAgLTMxNywx
-NSArMzE3LDcgQEAgc3RydWN0IHNvY2sgKmNvb2tpZV92NF9jaGVjayhzdHJ1Y3Qgc29jayAqc2ss
-IHN0cnVjdCBza19idWZmICpza2IsCiAJLyogV2UgdGhyb3dlZCB0aGUgb3B0aW9ucyBvZiB0aGUg
-aW5pdGlhbCBTWU4gYXdheSwgc28gd2UgaG9wZQogCSAqIHRoZSBBQ0sgY2FycmllcyB0aGUgc2Ft
-ZSBvcHRpb25zIGFnYWluIChzZWUgUkZDMTEyMiA0LjIuMy44KQogCSAqLwotCWlmIChvcHQgJiYg
-b3B0LT5vcHRsZW4pIHsKLQkJaW50IG9wdF9zaXplID0gc2l6ZW9mKHN0cnVjdCBpcF9vcHRpb25z
-X3JjdSkgKyBvcHQtPm9wdGxlbjsKLQotCQlpcmVxLT5vcHQgPSBrbWFsbG9jKG9wdF9zaXplLCBH
-RlBfQVRPTUlDKTsKLQkJaWYgKGlyZXEtPm9wdCAhPSBOVUxMICYmIGlwX29wdGlvbnNfZWNobygm
-aXJlcS0+b3B0LT5vcHQsIHNrYikpIHsKLQkJCWtmcmVlKGlyZXEtPm9wdCk7Ci0JCQlpcmVxLT5v
-cHQgPSBOVUxMOwotCQl9Ci0JfQorCWlyZXEtPm9wdCA9IHRjcF92NF9zYXZlX29wdGlvbnMoc2ti
-KTsKIAogCWlmIChzZWN1cml0eV9pbmV0X2Nvbm5fcmVxdWVzdChzaywgc2tiLCByZXEpKSB7CiAJ
-CXJlcXNrX2ZyZWUocmVxKTsKQEAgLTM0NCw3ICszMzYsNyBAQCBzdHJ1Y3Qgc29jayAqY29va2ll
-X3Y0X2NoZWNrKHN0cnVjdCBzb2NrICpzaywgc3RydWN0IHNrX2J1ZmYgKnNrYiwKIAlmbG93aTRf
-aW5pdF9vdXRwdXQoJmZsNCwgc2stPnNrX2JvdW5kX2Rldl9pZiwgaXJlcS0+aXJfbWFyaywKIAkJ
-CSAgIFJUX0NPTk5fRkxBR1Moc2spLCBSVF9TQ09QRV9VTklWRVJTRSwgSVBQUk9UT19UQ1AsCiAJ
-CQkgICBpbmV0X3NrX2Zsb3dpX2ZsYWdzKHNrKSwKLQkJCSAgIChvcHQgJiYgb3B0LT5zcnIpID8g
-b3B0LT5mYWRkciA6IGlyZXEtPmlyX3JtdF9hZGRyLAorCQkJICAgb3B0LT5zcnIgPyBvcHQtPmZh
-ZGRyIDogaXJlcS0+aXJfcm10X2FkZHIsCiAJCQkgICBpcmVxLT5pcl9sb2NfYWRkciwgdGgtPnNv
-dXJjZSwgdGgtPmRlc3QpOwogCXNlY3VyaXR5X3JlcV9jbGFzc2lmeV9mbG93KHJlcSwgZmxvd2k0
-X3RvX2Zsb3dpKCZmbDQpKTsKIAlydCA9IGlwX3JvdXRlX291dHB1dF9rZXkoc29ja19uZXQoc2sp
-LCAmZmw0KTsKZGlmZiAtLWdpdCBhL25ldC9pcHY0L3RjcF9pcHY0LmMgYi9uZXQvaXB2NC90Y3Bf
-aXB2NC5jCmluZGV4IDU1MmU4N2UuLmUwMmQ1ODYgMTAwNjQ0Ci0tLSBhL25ldC9pcHY0L3RjcF9p
-cHY0LmMKKysrIGIvbmV0L2lwdjQvdGNwX2lwdjQuYwpAQCAtODgzLDcgKzg4Myw3IEBAIEVYUE9S
-VF9TWU1CT0wodGNwX3N5bl9mbG9vZF9hY3Rpb24pOwogLyoKICAqIFNhdmUgYW5kIGNvbXBpbGUg
-SVB2NCBvcHRpb25zIGludG8gdGhlIHJlcXVlc3Rfc29jayBpZiBuZWVkZWQuCiAgKi8KLXN0YXRp
-YyBzdHJ1Y3QgaXBfb3B0aW9uc19yY3UgKnRjcF92NF9zYXZlX29wdGlvbnMoc3RydWN0IHNrX2J1
-ZmYgKnNrYikKK3N0cnVjdCBpcF9vcHRpb25zX3JjdSAqdGNwX3Y0X3NhdmVfb3B0aW9ucyhzdHJ1
-Y3Qgc2tfYnVmZiAqc2tiKQogewogCWNvbnN0IHN0cnVjdCBpcF9vcHRpb25zICpvcHQgPSAmVENQ
-X1NLQl9DQihza2IpLT5oZWFkZXIuaDQub3B0OwogCXN0cnVjdCBpcF9vcHRpb25zX3JjdSAqZG9w
-dCA9IE5VTEw7CkBAIC0xNDI4LDcgKzE0MjgsNyBAQCBzdGF0aWMgc3RydWN0IHNvY2sgKnRjcF92
-NF9obmRfcmVxKHN0cnVjdCBzb2NrICpzaywgc3RydWN0IHNrX2J1ZmYgKnNrYikKIAogI2lmZGVm
-IENPTkZJR19TWU5fQ09PS0lFUwogCWlmICghdGgtPnN5bikKLQkJc2sgPSBjb29raWVfdjRfY2hl
-Y2soc2ssIHNrYiwgJlRDUF9TS0JfQ0Ioc2tiKS0+aGVhZGVyLmg0Lm9wdCk7CisJCXNrID0gY29v
-a2llX3Y0X2NoZWNrKHNrLCBza2IpOwogI2VuZGlmCiAJcmV0dXJuIHNrOwogfQo=
---001a11c294d43097180505669d1f--
+specifically there is a  case in ixgbe_device_supports_autoneg_fc()
+
+     case ixgbe_media_type_fiber_qsfp:
+     case ixgbe_media_type_fiber:
+         hw->mac.ops.check_link(hw, &speed, &link_up, false);
+         /* if link is down, assume supported */
+         if (link_up)
+             supported = speed == IXGBE_LINK_SPEED_1GB_FULL ?
+                 true : false;
+
+If link_up=1 then why is supported only true for a 
+speed=IXGBE_LINK_SPEED_1GB_FULL ?
+
+Why is Flow Control not  supported for IXGBE_LINK_SPEED_10GB_FULL ?
+
+I have search through the 82599 spec, but I can't find a reason.
+Please can anyone help me understand ?
+
+Thanks
+dom
