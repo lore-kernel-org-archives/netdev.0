@@ -1,53 +1,36 @@
-From: dom <dominic.curran@citrix.com>
-Subject: ixgbe: Question about Flow Control on 10G
-Date: Tue, 14 Oct 2014 12:01:18 -0700
-Message-ID: <543D72FE.9090107@citrix.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH RFC v4 net 1/3] ipv6: Remove BACKTRACK macro
+Date: Tue, 14 Oct 2014 15:01:06 -0400 (EDT)
+Message-ID: <20141014.150106.2250383188165649088.davem@davemloft.net>
+References: <1412966888-31384-1-git-send-email-kafai@fb.com>
+	<1412966888-31384-2-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: <donald.c.skidmore@intel.com>, <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org, hannes@stressinduktion.org
+To: kafai@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:7769 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753601AbaJNTA5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Oct 2014 15:00:57 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:43659 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753601AbaJNTBI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2014 15:01:08 -0400
+In-Reply-To: <1412966888-31384-2-git-send-email-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi
+From: Martin KaFai Lau <kafai@fb.com>
+Date: Fri, 10 Oct 2014 11:48:06 -0700
 
-I have a question about the ixgbe driver's handling of 'ethtool -a ethX' 
-when the NIC is using fibre.
+> +struct fib6_node *fib6_backtrack(struct fib6_node *fn,
+> +				 struct in6_addr *saddr);
+> +
 
-Specifically I don't understand the code introduced by this commit:
+I am completely mystified why you did this, could you explain the
+logic?  I want to know what drove you to make this exported.
 
-commit 73d80953dfd1d5a92948005798c857c311c2834b
-Author: Don Skidmore <donald.c.skidmore@intel.com>
-Date:   Wed Jul 31 02:19:24 2013 +0000
-Subject: ixgbe: fix fc autoneg ethtool reporting.
+I marked it static in my example patch, and there is no caller outside
+of route.c
 
-The function introduced the function:
-        ixgbe_device_supports_autoneg_fc()
+Doing this also eliminates inlining opportunitites.
 
-which gets called by ixgbe_get_pauseparam()/ixgbe_set_pauseparam().
-
-specifically there is a  case in ixgbe_device_supports_autoneg_fc()
-
-     case ixgbe_media_type_fiber_qsfp:
-     case ixgbe_media_type_fiber:
-         hw->mac.ops.check_link(hw, &speed, &link_up, false);
-         /* if link is down, assume supported */
-         if (link_up)
-             supported = speed == IXGBE_LINK_SPEED_1GB_FULL ?
-                 true : false;
-
-If link_up=1 then why is supported only true for a 
-speed=IXGBE_LINK_SPEED_1GB_FULL ?
-
-Why is Flow Control not  supported for IXGBE_LINK_SPEED_10GB_FULL ?
-
-I have search through the 82599 spec, but I can't find a reason.
-Please can anyone help me understand ?
-
-Thanks
-dom
+Please keep this private inside of route.c
