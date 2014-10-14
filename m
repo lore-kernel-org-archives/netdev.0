@@ -1,78 +1,62 @@
-From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
-Subject: RE: [PATCH v2] ixgbe: check adapter->vfinfo before dereference
-Date: Tue, 14 Oct 2014 23:18:35 +0000
-Message-ID: <87618083B2453E4A8714035B62D67992500E19F5@FMSMSX105.amr.corp.intel.com>
-References: <1412930732-892-1-git-send-email-thierry.herbelot@6wind.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build failure after merge of the net tree
+Date: Wed, 15 Oct 2014 10:44:11 +1100
+Message-ID: <20141015104411.306b138e@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: Thierry Herbelot <thierry.herbelot@6wind.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:50914 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751303AbaJNXSi convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2014 19:18:38 -0400
-In-Reply-To: <1412930732-892-1-git-send-email-thierry.herbelot@6wind.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ boundary="Sig_/6dNYcMkOevjJGJJO7vt0dpZ"; protocol="application/pgp-signature"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->-----Original Message-----
->From: netdev-owner@vger.kernel.org [mailto:netdev-
->owner@vger.kernel.org] On Behalf Of Thierry Herbelot
->Sent: Friday, October 10, 2014 1:46 AM
->To: Kirsher, Jeffrey T; Brandeburg, Jesse; Allan, Bruce W;
->netdev@vger.kernel.org
->Cc: Thierry Herbelot
->Subject: [PATCH v2] ixgbe: check adapter->vfinfo before
->dereference
->
->this protects against the following panic:
->(before a VF was actually created on p96p1 PF Ethernet port)
->ip link set p96p1 vf 0 spoofchk off
->BUG: unable to handle kernel NULL pointer dereference at
->0000000000000052
->IP: [<ffffffffa044a1c1>]
->ixgbe_ndo_set_vf_spoofchk+0x51/0x150 [ixgbe]
->
->Signed-off-by: Thierry Herbelot <thierry.herbelot@6wind.com>
->---
-> drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c |   73
->+++++++++++++++++++++++-
-> 1 file changed, 70 insertions(+), 3 deletions(-)
->
->diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
->b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
->index 706fc69..29279ad 100644
->--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
->+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
->@@ -316,7 +316,7 @@ static int ixgbe_set_vf_multicasts(struct ixgbe_adapter *adapter,
-> 	int entries = (msgbuf[0] & IXGBE_VT_MSGINFO_MASK)
-> 		       >> IXGBE_VT_MSGINFO_SHIFT;
-> 	u16 *hash_list = (u16 *)&msgbuf[1];
->-	struct vf_data_storage *vfinfo = &adapter->vfinfo[vf];
->+	struct vf_data_storage *vfinfo;
-> 	struct ixgbe_hw *hw = &adapter->hw;
-> 	int i;
-> 	u32 vector_bit;
->@@ -324,6 +324,11 @@ static int
->ixgbe_set_vf_multicasts(struct ixgbe_adapter *adapter,
-> 	u32 mta_reg;
-> 	u32 vmolr = IXGBE_READ_REG(hw, IXGBE_VMOLR(vf));
->
->+	if (!adapter->vfinfo)
->+		return -1;
->+
->+	vfinfo = &adapter->vfinfo[vf];
+--Sig_/6dNYcMkOevjJGJJO7vt0dpZ
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-This check makes sense for the ndo functions that get called by the ip command, but I don't think we need to add them before every use of adapter->vfinfo. In this case for example ixgbe_set_vf_multicasts() is called from
-ixgbe_rcv_msg_from_vf() which will be called when an actual VF exists.
+Hi all,
 
-Also for the error -EINVAL probably makes more sense than -1.
+After merging the net tree, today's linux-next build (arm
+multi_v7_defconfig) failed like this:
 
-Thanks,
-Emil
+drivers/built-in.o: In function `.LANCHOR0':
+:(.rodata+0x6b764): undefined reference to `sti_gmac_data'
+:(.rodata+0x6b828): undefined reference to `sti_gmac_data'
+:(.rodata+0x6b8ec): undefined reference to `sti_gmac_data'
+:(.rodata+0x6b9b0): undefined reference to `sti_gmac_data'
+
+Caused by commit 53b26b9bc9a5 ("stmmac: dwmac-sti: review the
+glue-logic for STi4xx and STiD127 SoCs") which renamed sti_gmac_data to
+stih4xx_dwmac_data (or something) without updating all the references
+to it (including the one added in the previous commit ...).
+
+I reverted that commit for today.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+--Sig_/6dNYcMkOevjJGJJO7vt0dpZ
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Disposition: attachment; filename=signature.asc
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCAAGBQJUPbVRAAoJEMDTa8Ir7ZwVbsEQAIl2J3gpOAOUTw8NvszPayQa
+9DFdf6UwMqkjAQvWqPOhuhkfIdN7QI0glOEM17DjgdKKARVXIXj2fn6EeMTvATj9
+olgyPlWs43sbp8k/OVP4EnyqqCkpXBIEnKLi2//hojbwtHfB1SR2mgDF9rvmKtk3
+SuASRalp1P9LJPXmbFPH/dnQVteE+IOCbUg+Q8N3felyipUQvuiX7g6K+B+HCNTq
+jNjSD+ZbGozJrz5vtbBzPUcfBsapAY083/Yca0oZyK83NA8Z6K0xaBQ1Aj58+w0o
+GGnlFCIIAqDGpqkTwrCTQiNWrlF0+EJvV+CR5oHU/TlOR00otTe98DK8Fvljdwk3
+pRxEs3wpv1zu3L7Dp7NUst84K8+7n7SpTNitd9OnqsINhH+eBvVB3DekOmg+VnrJ
+ZKCOfZ3QXSgSe9S8BLKyP0qUppqjAKxDdkJalHAUFC8p9w/BuYZXpmH+HhQ6ugJs
+h/ekgD23Tpqq3mcC4GSZQ+ODFEK9B/+PfxWSgIp7j103djrSkG4jcTho9xqeRpQj
+B4kes+C32NWENvUZH9njEjjTqWHxT/4W1LPsHAUedrJWg8gVaIzGcgJrQzIkBHYm
+L1B7iT//ZWR1o1AiuUz5JzT3gzH2rqgWiH3TXIJ/bjA0eiejQrwC1w3FtPcz/BC0
+0Mr37AuPOfWOK+eYIsnn
+=6Xh4
+-----END PGP SIGNATURE-----
+
+--Sig_/6dNYcMkOevjJGJJO7vt0dpZ--
