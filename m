@@ -1,39 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next,v2] hyperv: Add handling of IP header with
- option field in netvsc_set_hash()
-Date: Tue, 14 Oct 2014 17:37:17 -0400 (EDT)
-Message-ID: <20141014.173717.1412701736631211553.davem@davemloft.net>
-References: <1413324988-8863-1-git-send-email-haiyangz@microsoft.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: something is wrong in commit 971f10eca1 - tcp: better
+ TCP_SKB_CB layout to reduce cache line misses
+Date: Tue, 14 Oct 2014 14:43:44 -0700
+Message-ID: <1413323024.17109.11.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CAFrEnehWNzmzZGV-ZGbZF=wJ1q0TjFtB1yG6Dp1yVrJmBj9B7Q@mail.gmail.com>
+	 <20141014.164705.1874094084240216813.davem@davemloft.net>
+	 <CAFrEnejET5wer6S6qx13tMKWMshmRj+JnQeZL-zdPGcs__9NoQ@mail.gmail.com>
+	 <20141014.171559.1355616486999711590.davem@davemloft.net>
+	 <CAHA+R7PyUZyjHPf-SJRiiOw=jQjJnXVaosYU7TuiVe6sQTC9Ww@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
- driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org
-To: haiyangz@microsoft.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1413324988-8863-1-git-send-email-haiyangz@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@gmail.com>,
+	Krzysztof Kolasa <kkolasa@winsoft.pl>,
+	netdev <netdev@vger.kernel.org>
+To: Cong Wang <cwang@twopensource.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:41760 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750971AbaJNVnq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2014 17:43:46 -0400
+Received: by mail-pa0-f46.google.com with SMTP id fa1so8473961pad.5
+        for <netdev@vger.kernel.org>; Tue, 14 Oct 2014 14:43:45 -0700 (PDT)
+In-Reply-To: <CAHA+R7PyUZyjHPf-SJRiiOw=jQjJnXVaosYU7TuiVe6sQTC9Ww@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Date: Tue, 14 Oct 2014 15:16:28 -0700
+On Tue, 2014-10-14 at 14:24 -0700, Cong Wang wrote:
 
-> In case that the IP header has optional field at the end, this patch will
-> get the port numbers after that field, and compute the hash.
 > 
-> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+> Since we are still in merge window, I don't think we have to use
+> a one-line fix for a bug introduced in this merge window.
 
-Instead of adding hack after hack after hack to your internal header
-parser, just use the generic flow dissector we already have in the
-kernel to fetch out the values you need.
+You are clearly refactoring here. Its a nice cleanup.
 
-__skb_flow_get_ports() etc.
+If I was the maintainer, I would prefer the one line fix.
+
+Then when net-next is open, you refactor.
+
+As I said, I wont argue, do whatever you want.
+
+Thanks
