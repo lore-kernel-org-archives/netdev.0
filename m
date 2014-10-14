@@ -1,64 +1,68 @@
-From: "Yurij M. Plotnikov" <Yurij.Plotnikov@oktetlabs.ru>
-Subject: TCP socket receives strange packet
-Date: Tue, 14 Oct 2014 18:09:54 +0400
-Message-ID: <543D2EB2.4000009@oktetlabs.ru>
+From: Houcheng Lin <houcheng@gmail.com>
+Subject: Re: [PATCH v2] netfilter: release skbuf when nlmsg put fail
+Date: Tue, 14 Oct 2014 22:51:32 +0800
+Message-ID: <CAL8JtxARGy6V1=m_4RJmeS5O0D0PD75cv+q2NrbmBr7ZGKeE4w@mail.gmail.com>
+References: <CAL8JtxD=Vopo7fvKEnfKgOa3T=WyVH=mb_YqX9mES+n-6dJbrQ@mail.gmail.com>
+	<20141014104923.GA30916@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------020208070708090309040403"
-Cc: "Alexandra N. Kossovsky" <Alexandra.Kossovsky@oktetlabs.ru>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shelob.oktetlabs.ru ([84.52.89.53]:52147 "EHLO
-	shelob.oktetlabs.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755282AbaJNOTE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2014 10:19:04 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: pablo@netfilter.org, Patrick McHardy <kaber@trash.net>,
+	kadlec@blackhole.kfki.hu, davem@davemloft.net,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Florian Westphal <fw@strlen.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141014104923.GA30916@breakpoint.cc>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------020208070708090309040403
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+2014-10-14 18:49 GMT+08:00 Florian Westphal <fw@strlen.de>:
+> Houcheng Lin <houcheng@gmail.com> wrote:
+>> When system is under heavy loading, the __nfulnl_send() may may failed
+>> to put nlmsg into skbuf of nfulnl_instance. If not clear the skbuff on failed,
+>> the __nfulnl_send() will still try to put next nlmsg onto this half-full skbuf
+>> and cause the user program can never receive packet.
+>>
+>> This patch fix this issue by releasing skbuf immediately after nlmst put
+>> failed.
+>
+> Could you please try this patch on top of this one and see if the
+> WARN_ON goes away?
+>
+> Thanks
+>
+> diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
+> --- a/net/netfilter/nfnetlink_log.c
+> +++ b/net/netfilter/nfnetlink_log.c
+> @@ -649,7 +649,8 @@ nfulnl_log_packet(struct net *net,
+>                 + nla_total_size(sizeof(u_int32_t))     /* gid */
+>                 + nla_total_size(plen)                  /* prefix */
+>                 + nla_total_size(sizeof(struct nfulnl_msg_packet_hw))
+> -               + nla_total_size(sizeof(struct nfulnl_msg_packet_timestamp));
+> +               + nla_total_size(sizeof(struct nfulnl_msg_packet_timestamp))
+> +               + nla_total_size(sizeof(struct nfgenmsg));      /* NLMSG_DONE */
+>
+>         if (in && skb_mac_header_was_set(skb)) {
+>                 size +=   nla_total_size(skb->dev->hard_header_len)
+> @@ -692,8 +693,7 @@ nfulnl_log_packet(struct net *net,
+>                 goto unlock_and_release;
+>         }
+>
+> -       if (inst->skb &&
+> -           size > skb_tailroom(inst->skb) - sizeof(struct nfgenmsg)) {
+> +       if (inst->skb && size > skb_tailroom(inst->skb)) {
+>                 /* either the queue len is too high or we don't have
+>                  * enough room in the skb left. flush to userspace. */
+>                 __nfulnl_flush(inst);
+Hi Florian,
+The modified code seems won't affect the program flow: Size is add a
+extra value,
+sizeof(struct nfgenmsg), during initialization. comparison size with tailroom
+space, the right-side value also add the same value. Is there anything
+I miss or
+not understand ?
 
-Connected TCP socket receives packet without timestamps option which 
-exists in SYN, SYNACK and ACK. It is packet 4 in attached tcpdump output.
-
-tcpdump output description: The host has address 10.208.10.1 (server) 
-and the peer host has address 10.208.10.2 (client).
-
-Establishing connection: Timestamps option exists in SYN, SYNACK and ACK 
-(packets 1, 2 and 3 in attached file), so accepted socket should receive 
-packets only with timestamps option.
-
-Sending packet: the socket receives the packet without timestamps option 
-(packet 4 in attached file), i.e. recv() function called on the socket 
-receives the data from the packet. The "strange" packet is generated 
-using PCAP.
-
-I see this behaviour on 2.6.26 and on 3.14 kernels.
-
---------------020208070708090309040403
-Content-Type: application/octet-stream;
- name="pcap_with_bad_packet"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment;
- filename="pcap_with_bad_packet"
-
-1MOyoQIABAAAAAAAAAAAANwFAAABAAAAKaIzVLqlDgBKAAAASgAAAAAPUwE5fAAPUwE5lAgA
-RQAAPHbYQABABppBCtAKAgrQCgFlvWW8lT487wAAAACgAnIQxF4AAAIEBbQEAggKABBKNwAA
-AAABAwMHKaIzVNmlDgBKAAAASgAAAAAPUwE5lAAPUwE5fAgARQAAPAAAQABABhEaCtAKAQrQ
-CgJlvGW9JBhNSpU+PPCgEnEgKdEAAAIEBbQEAggKABB/SgAQSjcBAwMHKaIzVDamDgBCAAAA
-QgAAAAAPUwE5fAAPUwE5lAgARQAANHbZQABABppICtAKAgrQCgFlvWW8lT488CQYTUuAEADl
-c4gAAAEBCAoAEEo3ABB/SiqiM1R/GgIAPAAAADwAAAAAD1MBOXwAD1MBOZQIAEUAACkAAAAA
-QAZRLQrQCgIK0AoBZb1lvJU+PPAkGE1KUBj//xAeAABnAAAAAAAqojNUnBoCAEIAAABCAAAA
-AA9TATmUAA9TATl8CABFAAA0MgFAAEAG3yAK0AoBCtAKAmW8Zb0kGE1LlT488YAQAOMpyQAA
-AQEICgAQf3cAEEo3KqIzVKKQAwBCAAAAQgAAAAAPUwE5lAAPUwE5fAgARQAANDICQABABt8f
-CtAKAQrQCgJlvGW9JBhNS5U+PPGAEQDjKckAAAEBCAoAEH+OABBKNyqiM1S+kwMAQgAAAEIA
-AAAAD1MBOXwAD1MBOZQIAEUAADR22kAAQAaaRwrQCgIK0AoBZb1lvJU+PPAkGE1LgBEA5XNC
-AAABAQgKABBKfAAQf0oqojNU3ZMDAE4AAABOAAAAAA9TATmUAA9TATl8CABFAABAMgNAAEAG
-3xIK0AoBCtAKAmW8Zb0kGE1MlT488bAQAOMp1QAAAQEICgAQf48AEEp8AQEFCpU+PPCVPjzx
-KqIzVJG7CQBCAAAAQgAAAAAPUwE5lAAPUwE5fAgARQAANDIEQABABt8dCtAKAQrQCgJlvGW9
-JBhNS5U+PPGAEQDjKckAAAEBCAoAEH/0ABBKfCqiM1T2uwkAQgAAAEIAAAAAD1MBOXwAD1MB
-OZQIAEUAADRHFUAAQAbKDArQCgIK0AoBZb1lvJU+PPEkGE1MgBAA5XIyAAABAQgKABBK4QAQ
-f/Q=
---------------020208070708090309040403--
+-- 
+Best regards,
+Houcheng Lin
