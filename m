@@ -1,59 +1,29 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 1/1 linux-next] zd1201: replace kmalloc/memset by kzalloc
-Date: Tue, 14 Oct 2014 10:15:55 -0700
-Message-ID: <1413306955.3269.30.camel@joe-AO725>
-References: <1413304831-7203-1-git-send-email-fabf@skynet.be>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ipv6: remove aca_lock spinlock from struct ifacaddr6
+Date: Tue, 14 Oct 2014 13:16:03 -0400 (EDT)
+Message-ID: <20141014.131603.663078350161195232.davem@davemloft.net>
+References: <1413003814-14216-1-git-send-email-roy.qing.li@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: Fabian Frederick <fabf@skynet.be>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1413304831-7203-1-git-send-email-fabf@skynet.be>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: roy.qing.li@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42863 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755371AbaJNRQH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2014 13:16:07 -0400
+In-Reply-To: <1413003814-14216-1-git-send-email-roy.qing.li@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-10-14 at 18:40 +0200, Fabian Frederick wrote:
-> Signed-off-by: Fabian Frederick <fabf@skynet.be>
+From: roy.qing.li@gmail.com
+Date: Sat, 11 Oct 2014 13:03:34 +0800
 
-It might be clearer to use a structure for this 16 byte thing.
+> From: Li RongQing <roy.qing.li@gmail.com>
+> 
+> no user uses this lock.
+> 
+> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
 
-There's a comment bit in the code:
-
-/* cmdreq message: 
-	u32 type
-	u16 cmd
-	u16 parm0
-	u16 parm1
-	u16 parm2
-	u8  pad[4]
-
-	total: 4 + 2 + 2 + 2 + 2 + 4 = 16
-*/
-
-It seems thought that this first u32 is actually
-a series of u8s.
-
-Maybe:
-
-struct zd1201_cmdreq {
-	u8	type;
-	u8	seq;
-	u8	a;
-	u8	b;
-	__le16	cmd;
-	__le16	parm0;
-	__le16	parm1;
-	__le16	parm2;
-	u8	pad[4];
-};
-
-And does this really need to be alloc'd?
-
-maybe
-
-struct zd1202_cmdreq request = {};
-
-etc...
+Applied, thanks.
