@@ -1,30 +1,104 @@
-From: Webmaster <standardloanmailbox1@gmail.com>
-Subject: Verify Your Account Else It Will Be Blocked
-Date: Mon, 13 Oct 2014 19:18:28 -0700
-Message-ID: <CAP-mjLUoArb54AbPRTfBi=J3zr5v+tepBHySEaErkV4Q9ce58A@mail.gmail.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [ovs-dev] [PATCH/RFC repost 7/8] ofproto: translate datapath
+ select group action
+Date: Tue, 14 Oct 2014 06:54:47 +0200
+Message-ID: <20141014045446.GC538@verge.net.au>
+References: <1411005311-11752-1-git-send-email-simon.horman@netronome.com>
+ <1411005311-11752-8-git-send-email-simon.horman@netronome.com>
+ <20140926235725.GB20493@nicira.com>
+ <20141009011434.GE9339@vergenet.net>
+ <20141013204624.GD6806@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: undisclosed-recipients:;
+Content-Type: text/plain; charset=us-ascii
+Cc: Simon Horman <simon.horman@netronome.com>, dev@openvswitch.org,
+	netdev@vger.kernel.org
+To: Ben Pfaff <blp@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f195.google.com ([209.85.220.195]:58468 "EHLO
-	mail-vc0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754353AbaJNCS3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Oct 2014 22:18:29 -0400
-Received: by mail-vc0-f195.google.com with SMTP id hy10so2758253vcb.10
-        for <netdev@vger.kernel.org>; Mon, 13 Oct 2014 19:18:28 -0700 (PDT)
+Received: from kirsty.vergenet.net ([202.4.237.240]:36460 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750746AbaJNEyw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2014 00:54:52 -0400
+Content-Disposition: inline
+In-Reply-To: <20141013204624.GD6806@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
--- 
+On Mon, Oct 13, 2014 at 01:46:24PM -0700, Ben Pfaff wrote:
+> On Thu, Oct 09, 2014 at 10:14:36AM +0900, Simon Horman wrote:
+> > On Fri, Sep 26, 2014 at 04:57:25PM -0700, Ben Pfaff wrote:
+> > > On Thu, Sep 18, 2014 at 10:55:10AM +0900, Simon Horman wrote:
+> > > > This patch is a prototype and has several limitations:
+> > > > 
+> > > > * It assumes that no actions follow a select group action
+> > > >   because the resulting packet after a select group action may
+> > > >   differ depending on the bucket used. It may be possible
+> > > >   to address this problem using recirculation. Or to not use
+> > > >   the datapath select group in such situations. In any case
+> > > >   this patch does not solve this problem or even prevent it
+> > > >   from occurring.
+> > > 
+> > > It seems like this limitation in particular is a pretty big one.  Do
+> > > you have a good plan in mind for how to resolve it?
+> > 
+> > Hi Ben,
+> > 
+> > it seems to me that this would be somewhat difficult to resolve in the
+> > datapath so I propose not doing so. And I have two ideas on how to
+> > resolve this problem outside of the datapath.
+> > 
+> > 1. Recirculation
+> > 
+> >    It seems to me that it ought to be possible to handle this by
+> >    recirculating if actions occur after an ODP select group action.
+> > 
+> >    This could be made slightly more selective by only recirculating
+> >    if the execution different buckets may result in different packet
+> >    contents and the actions after the ODP select group action rely on
+> >    the packet contents (e.g. set actions do but output actions do not).
+> > 
+> >    My feeling is that this could be implemented by adding a small amount
+> >    of extra state to action translation in ovs-vswitchd.
+> > 
+> > 2. Fall back to selecting buckets in ovs-vswtichd
+> > 
+> >    The idea here is to detect cases where there would be a problem
+> >    executing actions after an ODP select group action and in that
+> >    case to select buckets in ovs-vswtichd: that is use the existing bucket
+> >    translation code in ovs-vswtichd.
+> > 
+> >    Though this seems conceptually simpler than recirculation it
+> >    seems to me that it would be somewhat more difficult to implement
+> >    as it implies a two stage translation process: e.g. one stage to
+> >    determine if an ODP select group may be used; and one to perform
+> >    the translation.
+> > 
+> >    I seem to recall trying various two stage translation processes
+> >    as part some earlier unrelated work. And my recollection is that
+> >    the result of my previous efforts were not pretty.
+> > 
+> > Both of the above more or less negate any benefits of ODP select group
+> > action. In particular lowering flow setup cost and potentially allowing
+> > complete offload of select groups from the datapath to hardware. However I
+> > think that this case is not a common one as it requires both of the
+> > following. And I think they are both not usual use cases.
+> > 
+> > * Different buckets modifying packets in different ways
+> >   - My expectation is that it is common for buckets to be homogeneous in
+> >     regards to packet modifications. But perhaps this is na??ve in the
+> >     context of VLANs, MPLS, and similar tags that can be pushed and popped.
+> > * Actions that rely on packet contents after
+> >   - My expectation is that it is common to use a select group to output
+> >     packets and that is the final action performed.
+> 
+> I am glad that you have thought about it.  Your ideas seem like a good
+> start to me.  Personally, approach #2, of falling back to selecting
+> buckets in ovs-vswitchd, seems like a clean solution to me, although
+> if it really takes multiple stages in translation then that is
+> undesirable, so I hope that some clean and simple approach works out.
 
-Dear user,
-We are undergoing maintenance therefore all accounts must be updated,
-this is to reduce the number of dormant accounts.
-Accounts not updated in 48 hours will be suspended.
-Please follow the hyper link below to update your account
+Thanks. I'll focus on #2 and see how far I can get.
 
-Click Here To Update Account.
-http://zimbra1.my3gb.com/
+> I think that we probably need a solution before we can apply the patch
+> series, because otherwise we end up with half-working code.
 
-Best Regards,
-Administrator
+Yes, I agree. It needs to be solved before it can be merged.
