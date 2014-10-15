@@ -1,41 +1,48 @@
 From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [PATCHv3 RFC net-next 1/4] sunvnet: NAPIfy sunvnet
-Date: Wed, 15 Oct 2014 13:22:04 -0400
-Message-ID: <20141015172204.GF11840@oracle.com>
-References: <20141015164252.GB11840@oracle.com>
- <543EAC34.1010502@oracle.com>
+Subject: [PATCHv4 RFC net-next 0/4] sunvnet: NAPIfy sunvnet
+Date: Wed, 15 Oct 2014 14:00:34 -0400
+Message-ID: <20141015180034.GG11840@oracle.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, bob.picco@oracle.com, dwight.engen@oracle.com,
-	raghuram.kothakota@oracle.com, netdev@vger.kernel.org
-To: David L Stevens <david.stevens@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:33366 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750758AbaJORWJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Oct 2014 13:22:09 -0400
+Cc: netdev@vger.kernel.org, sparclinux@vger.kernel.org
+To: davem@davemloft.net, bob.picco@oracle.com,
+	sowmini.varadhan@oracle.com, dwight.engen@oracle.com,
+	raghuram.kothakota@oracle.com, david.stevens@oracle.com
+Return-path: <sparclinux-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <543EAC34.1010502@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: sparclinux-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On (10/15/14 13:17), David L Stevens wrote:
-> > -static void maybe_tx_wakeup(unsigned long param)
-> > +static void maybe_tx_wakeup(struct vnet *vp)
-> >  {
-> > -	struct vnet *vp = (struct vnet *)param;
-> >  	struct net_device *dev = vp->dev;
-> >  
-> >  	netif_tx_lock(dev);
-> 
-> Isn't this a function type conflict for tasklet_init()?
 
-maybe_tx_wakeup is not a tasklet any more. That was one of the
-big benefits of going NAPI, as David Miller pointed out- we
-are already in NAPI context, so the original reason (deadlock
-with dev_watchdog) does not exist any more.
+This patchset converts the sunvnet driver to use the NAPI framework.
 
-I'm working on adding the rest of your comments about
-removing comments and making an int into a bool.
+Patch 1 in the series addresses the packet-receive path- all
+the vnet_event() processing is moved into NAPI context.
+This patch is dependant on the sparc-next commit:
+  "sparc64: Add vio_set_intr() to enable/disable Rx interrupts"
+(Please cherry-pick sparc commit id ca605b7dd740c8909408d67911d8ddd272c2b320)
 
---Sowmini
+Patch 2 uses RCU to fix race conditions between vnet_port_remove and
+paths that access/modify port-related state, such as vnet_start_xmit.
+
+Patch 3 and Patch 4 in the series leverage from the NAPIfied Rx path, 
+dropping superfluous usage of the irqsave/irqrestores on the vio.lock
+where possible.
+
+Note: Patch 3 contains changes that target sparc-next, Patch 4 targets
+net-next.
+
+Sowmini Varadhan (4):
+  NAPIfy sunvnet
+  Use RCU to synchronize port usage with vnet_port_remove()
+  Avoid irqsave/restore on vio.lock if in_softirq()
+  Remove irqsave/irqrestore on vio.lock
+
+ arch/sparc/kernel/viohs.c          |   8 +-
+ drivers/net/ethernet/sun/sunvnet.c | 258 +++++++++++++++++++++++--------------
+ drivers/net/ethernet/sun/sunvnet.h |   6 +-
+ 3 files changed, 173 insertions(+), 99 deletions(-)
+
+-- 
+1.8.4.2
+
