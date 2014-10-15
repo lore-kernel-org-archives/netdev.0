@@ -1,61 +1,34 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: Re: Netlink mmap tx security?
-Date: Tue, 14 Oct 2014 19:03:11 -0700
-Message-ID: <CALCETrW1HFJ3QXMfV9Hv922eax0hbHJn5GmHPvtED8_JR5KOVg@mail.gmail.com>
-References: <CALCETrUYBed_TBacxoDPMphM5y=iqxho2isrDruOQi=pmK2yoQ@mail.gmail.com>
- <20141014.160056.2113064815910782529.davem@davemloft.net> <CALCETrWDSG2EhxBnM8Jm55Ov8PYQ_w3Wf88SKYOB1q1WgRpbEw@mail.gmail.com>
- <20141014.220111.179628329028952302.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH RFC v4 net 1/3] ipv6: Remove BACKTRACK macro
+Date: Tue, 14 Oct 2014 22:04:08 -0400 (EDT)
+Message-ID: <20141014.220408.2191848339517394223.davem@davemloft.net>
+References: <1412966888-31384-2-git-send-email-kafai@fb.com>
+	<20141014.150106.2250383188165649088.davem@davemloft.net>
+	<20141015001409.GB27904@devbig242.prn2.facebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Network Development <netdev@vger.kernel.org>,
-	Thomas Graf <tgraf@suug.ch>
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, hannes@stressinduktion.org
+To: kafai@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f50.google.com ([209.85.215.50]:49628 "EHLO
-	mail-la0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932644AbaJOCDd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2014 22:03:33 -0400
-Received: by mail-la0-f50.google.com with SMTP id s18so237277lam.9
-        for <netdev@vger.kernel.org>; Tue, 14 Oct 2014 19:03:31 -0700 (PDT)
-In-Reply-To: <20141014.220111.179628329028952302.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46475 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932644AbaJOCEJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2014 22:04:09 -0400
+In-Reply-To: <20141015001409.GB27904@devbig242.prn2.facebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 14, 2014 at 7:01 PM, David Miller <davem@davemloft.net> wrote:
-> From: Andy Lutomirski <luto@amacapital.net>
-> Date: Tue, 14 Oct 2014 15:16:46 -0700
->
->> It's at least remotely possible that there's something that assumes
->> that assumes that the availability of NETLINK_RX_RING implies
->> NETLINK_TX_RING, which would be unfortunate.
->
-> I already found one such case, nlmon :-/
->
-> It also reminds me that I'll have to update
-> Documentation/networking/netlink_mmap.txt
->
-> Thomas, the context is that we have to remove NETLINK_TX_RING support
-> (there is absolutely no way whatsoever to reliably keep some thread of
-> control from modifying the underlying pages while we parse and
-> validate the netlink request).
->
-> I'd like to be able to do so while retaining NETLINK_RX_RING because
-> that works fine and is great for monitoring when the rate of events
-> is high.
->
-> But I already have found userland pieces of code, like nlmon, which
-> assume that if one is present then both must be present.
->
-> I really think this means I'll have to remove all of the netlink
-> mmap() support in order to prevent from breaking applications. :(
->
-> The other option is to keep NETLINK_TX_RING, but copy the data into
-> a kernel side buffer before acting upon it.
+From: Martin Lau <kafai@fb.com>
+Date: Tue, 14 Oct 2014 17:14:11 -0700
 
-Option 3, which sucks but maybe not that badly: change the value of
-NETLINK_RX_RING.  (Practically: add NETLINK_RX_RING2 or something like
-that.)
+> Do you have input on the function signature and also the following
+> two patches?
 
---Andy
+Sorry, patch review doesn't work this way.
+
+Invest the time into reposting your series with the most glaring
+problems fixed, and then reviewers will invest their time into
+reviewing the updated patch series.
+
+Thanks.
