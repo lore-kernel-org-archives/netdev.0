@@ -1,102 +1,70 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [RFC PATCH net-next 2/6] virtio: introduce
-	virtio_enable_cb_avail()
-Date: Wed, 15 Oct 2014 12:28:49 +0300
-Message-ID: <20141015092849.GA25776@redhat.com>
-References: <1413357930-45302-1-git-send-email-jasowang@redhat.com>
-	<1413357930-45302-3-git-send-email-jasowang@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2] ipv4: dst_entry leak in ip_append_data()
+Date: Wed, 15 Oct 2014 02:30:33 -0700
+Message-ID: <1413365433.12304.53.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <543CAD2A.3070701@parallels.com>
+	 <1413348385.12304.0.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <543E1AAF.9050601@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, davem@davemloft.net
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1413357930-45302-3-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Vasily Averin <vvs@parallels.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:61216 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751609AbaJOJaf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Oct 2014 05:30:35 -0400
+Received: by mail-pa0-f45.google.com with SMTP id rd3so1001939pab.4
+        for <netdev@vger.kernel.org>; Wed, 15 Oct 2014 02:30:35 -0700 (PDT)
+In-Reply-To: <543E1AAF.9050601@parallels.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 15, 2014 at 03:25:26PM +0800, Jason Wang wrote:
-> This patch introduces virtio_enable_cb_avail() to publish avail idx
-> and used event. This could be used by batched buffer submitting to
-> reduce the number of tx interrupts.
+On Wed, 2014-10-15 at 10:56 +0400, Vasily Averin wrote:
+> On 15.10.2014 08:46, Eric Dumazet wrote:
+> > On Tue, 2014-10-14 at 08:57 +0400, Vasily Averin wrote:
+> >> v2: adjust the indentation of the arguments __ip_append_data() call
+> >>
+> >> Fixes: 2e77d89b2fa8 ("net: avoid a pair of dst_hold()/dst_release() in ip_append_data()")
+> >>
+> >> If sk_write_queue is empty ip_append_data() executes ip_setup_cork()
+> >> that "steals" dst entry from rt to cork. Later it calls __ip_append_data()
+> >> that creates skb and adds it to sk_write_queue.
+> >>
+> >> If skb was added successfully following ip_push_pending_frames() call
+> >> reassign dst entries from cork to skb, and kfree_skb frees dst_entry.
+> >>
+> >> However nobody frees stolen dst_entry if skb was not added into sk_write_queue.
+> > 
+> > I thought this was done by ip_flush_pending_frames() ?
 > 
-> Cc: Rusty Russell <rusty@rustcorp.com.au>
-> Cc: Michael S. Tsirkin <mst@redhat.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> ---
->  drivers/virtio/virtio_ring.c |   22 ++++++++++++++++++++--
->  include/linux/virtio.h       |    2 ++
->  2 files changed, 22 insertions(+), 2 deletions(-)
+> Take look at ip_send_unicast_reply():
+
+So maybe the bug is here ?
+
+
 > 
-> diff --git a/drivers/virtio/virtio_ring.c b/drivers/virtio/virtio_ring.c
-> index 1b3929f..d67fbf8 100644
-> --- a/drivers/virtio/virtio_ring.c
-> +++ b/drivers/virtio/virtio_ring.c
-> @@ -567,14 +567,32 @@ unsigned virtqueue_enable_cb_prepare(struct virtqueue *_vq)
->  	 * entry. Always do both to keep code simple. */
->  	vq->vring.avail->flags &= ~VRING_AVAIL_F_NO_INTERRUPT;
->  	/* Make sure used event never go backwards */
-> -	if (!vring_need_event(vring_used_event(&vq->vring),
-> -			      vq->vring.avail->idx, last_used_idx))
-> +	if (vq->vring.avail->idx != vring_used_event(&vq->vring) &&
-> +	    !vring_need_event(vring_used_event(&vq->vring),
-> +			      vq->vring.avail->idx, last_used_idx)) {
->  		vring_used_event(&vq->vring) = last_used_idx;
-> +	}
->  	END_USE(vq);
->  	return last_used_idx;
->  }
->  EXPORT_SYMBOL_GPL(virtqueue_enable_cb_prepare);
->
+> ip_flush_pending_frames() is not called if skb was not added to sk_write_queue.
+> And ip_rt_put() does not work, because dst entry was stolen in ip_setup_cork().
+> 
+> Probably it can happen in raw_sendmsg() and udp_sendmsg() too.
 
-I see you are also changing virtqueue_enable_cb_prepare, why?
+UDP & RAW do :
 
-> +bool virtqueue_enable_cb_avail(struct virtqueue *_vq)
-> +{
-> +	struct vring_virtqueue *vq = to_vvq(_vq);
-> +	bool ret;
-> +
-> +	START_USE(vq);
-> +	vq->vring.avail->flags &= ~VRING_AVAIL_F_NO_INTERRUPT;
-> +	vring_used_event(&vq->vring) = vq->vring.avail->idx;
-> +	ret = vring_need_event(vq->vring.avail->idx,
-> +			       vq->last_used_idx, vq->vring.used->idx);
-> +	END_USE(vq);
-> +
-> +	return ret;
-> +}
-> +EXPORT_SYMBOL_GPL(virtqueue_enable_cb_avail);
-> +
->  /**
->   * virtqueue_poll - query pending used buffers
->   * @vq: the struct virtqueue we're talking about.
+err = ip_append_data(...);
+if (err)
+    udp_flush_pending_frames(sk);
 
-Could not figure out what this does.
-Please add documentation.
 
-> diff --git a/include/linux/virtio.h b/include/linux/virtio.h
-> index b46671e..bfaf058 100644
-> --- a/include/linux/virtio.h
-> +++ b/include/linux/virtio.h
-> @@ -65,6 +65,8 @@ bool virtqueue_enable_cb(struct virtqueue *vq);
->  
->  unsigned virtqueue_enable_cb_prepare(struct virtqueue *vq);
->  
-> +bool virtqueue_enable_cb_avail(struct virtqueue *vq);
-> +
->  bool virtqueue_poll(struct virtqueue *vq, unsigned);
->  
->  bool virtqueue_enable_cb_delayed(struct virtqueue *vq);
-> -- 
-> 1.7.1
+It seems you chose to add a test in fast path, with not even adding an
+unlikely() clause, while it seems that we took care of all the cases but
+missed a single one : ip_send_unicast_reply()
+
+I am suggesting to fix this bug in another way.
+
+Thanks.
