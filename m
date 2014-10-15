@@ -1,52 +1,44 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH] net: use hardware buffer pool to allocate skb
-Date: Wed, 15 Oct 2014 06:59:24 +0200
-Message-ID: <543DFF2C.40306@hartkopp.net>
-References: <1413343571-33231-1-git-send-email-Jiafei.Pan@freescale.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: linux-next: build failure after merge of the net tree
+Date: Wed, 15 Oct 2014 07:24:33 +0200
+Message-ID: <543E0511.3050505@st.com>
+References: <20141015104411.306b138e@canb.auug.org.au> <20141014.220254.144210672646232483.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, LeoLi@freescale.com,
-	linux-doc@vger.kernel.org
-To: Pan Jiafei <Jiafei.Pan@freescale.com>, davem@davemloft.net,
-	jkosina@suse.cz
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <1413343571-33231-1-git-send-email-Jiafei.Pan@freescale.com>
-Sender: linux-doc-owner@vger.kernel.org
+Cc: <netdev@vger.kernel.org>, <linux-next@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>, <sfr@canb.auug.org.au>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20141014.220254.144210672646232483.davem@davemloft.net>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 15.10.2014 05:26, Pan Jiafei wrote:
-> In some platform, there are some hardware block provided
-> to manage buffers to improve performance.
-
-(..)
-
-> diff --git a/net/Kconfig b/net/Kconfig
-> index d6b138e..346e021 100644
-> --- a/net/Kconfig
-> +++ b/net/Kconfig
-> @@ -291,6 +291,16 @@ config NET_FLOW_LIMIT
->   	  with many clients some protection against DoS by a single (spoofed)
->   	  flow that greatly exceeds average workload.
+On 10/15/2014 4:02 AM, David Miller wrote:
+> From: Stephen Rothwell <sfr@canb.auug.org.au>
+> Date: Wed, 15 Oct 2014 10:44:11 +1100
 >
-> +config USE_HW_SKB
-> +	bool "NIC use hardware managed buffer to build skb"
-> +	depends on INET
-
-The feature seems to be valid for network devices in general.
-Why did you make it depending on INET ??
-
-Regards,
-Oliver
-
-> +	---help---
-> +	  If select this, the third party drivers will use hardware managed
-> +	  buffers to allocate SKB without any modification for the driver.
-> +
-> +	  Documentation on how to use this featue can be found at
-> +	  <file:Documentation/networking/hw_skb.txt>.
-> +
->   menu "Network testing"
+>> Hi all,
+>>
+>> After merging the net tree, today's linux-next build (arm
+>> multi_v7_defconfig) failed like this:
+>>
+>> drivers/built-in.o: In function `.LANCHOR0':
+>> :(.rodata+0x6b764): undefined reference to `sti_gmac_data'
+>> :(.rodata+0x6b828): undefined reference to `sti_gmac_data'
+>> :(.rodata+0x6b8ec): undefined reference to `sti_gmac_data'
+>> :(.rodata+0x6b9b0): undefined reference to `sti_gmac_data'
+>>
+>> Caused by commit 53b26b9bc9a5 ("stmmac: dwmac-sti: review the
+>> glue-logic for STi4xx and STiD127 SoCs") which renamed sti_gmac_data to
+>> stih4xx_dwmac_data (or something) without updating all the references
+>> to it (including the one added in the previous commit ...).
+>>
+>> I reverted that commit for today.
 >
->   config NET_PKTGEN
+> Sigh, Giuseppe if I don't see a proper fix by tomorrow I'm
+> reverting all of the stmmac changes I applied today.
 
+I am looking at this now and let you know soon
+
+peppe
