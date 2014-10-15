@@ -1,8 +1,7 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [RFC PATCH net-next 1/6] virtio: make sure used event never go
-	backwards
-Date: Wed, 15 Oct 2014 15:25:25 +0800
-Message-ID: <1413357930-45302-2-git-send-email-jasowang@redhat.com>
+Subject: [RFC PATCH net-next 2/6] virtio: introduce virtio_enable_cb_avail()
+Date: Wed, 15 Oct 2014 15:25:26 +0800
+Message-ID: <1413357930-45302-3-git-send-email-jasowang@redhat.com>
 References: <1413357930-45302-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -24,40 +23,69 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-This patch checks the new event idx to make sure used event idx never
-goes back. This is used to synchronize the calls between
-virtqueue_enable_cb_delayed() and virtqueue_enable_cb().
+This patch introduces virtio_enable_cb_avail() to publish avail idx
+and used event. This could be used by batched buffer submitting to
+reduce the number of tx interrupts.
 
 Cc: Rusty Russell <rusty@rustcorp.com.au>
 Cc: Michael S. Tsirkin <mst@redhat.com>
 Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- drivers/virtio/virtio_ring.c |    7 +++++--
- 1 files changed, 5 insertions(+), 2 deletions(-)
+ drivers/virtio/virtio_ring.c |   22 ++++++++++++++++++++--
+ include/linux/virtio.h       |    2 ++
+ 2 files changed, 22 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/virtio/virtio_ring.c b/drivers/virtio/virtio_ring.c
-index 3b1f89b..1b3929f 100644
+index 1b3929f..d67fbf8 100644
 --- a/drivers/virtio/virtio_ring.c
 +++ b/drivers/virtio/virtio_ring.c
-@@ -559,14 +559,17 @@ unsigned virtqueue_enable_cb_prepare(struct virtqueue *_vq)
- 	u16 last_used_idx;
- 
- 	START_USE(vq);
--
-+	last_used_idx = vq->last_used_idx;
- 	/* We optimistically turn back on interrupts, then check if there was
- 	 * more to do. */
- 	/* Depending on the VIRTIO_RING_F_EVENT_IDX feature, we need to
- 	 * either clear the flags bit or point the event index at the next
+@@ -567,14 +567,32 @@ unsigned virtqueue_enable_cb_prepare(struct virtqueue *_vq)
  	 * entry. Always do both to keep code simple. */
  	vq->vring.avail->flags &= ~VRING_AVAIL_F_NO_INTERRUPT;
--	vring_used_event(&vq->vring) = last_used_idx = vq->last_used_idx;
-+	/* Make sure used event never go backwards */
-+	if (!vring_need_event(vring_used_event(&vq->vring),
-+			      vq->vring.avail->idx, last_used_idx))
-+		vring_used_event(&vq->vring) = last_used_idx;
+ 	/* Make sure used event never go backwards */
+-	if (!vring_need_event(vring_used_event(&vq->vring),
+-			      vq->vring.avail->idx, last_used_idx))
++	if (vq->vring.avail->idx != vring_used_event(&vq->vring) &&
++	    !vring_need_event(vring_used_event(&vq->vring),
++			      vq->vring.avail->idx, last_used_idx)) {
+ 		vring_used_event(&vq->vring) = last_used_idx;
++	}
  	END_USE(vq);
  	return last_used_idx;
  }
+ EXPORT_SYMBOL_GPL(virtqueue_enable_cb_prepare);
+ 
++bool virtqueue_enable_cb_avail(struct virtqueue *_vq)
++{
++	struct vring_virtqueue *vq = to_vvq(_vq);
++	bool ret;
++
++	START_USE(vq);
++	vq->vring.avail->flags &= ~VRING_AVAIL_F_NO_INTERRUPT;
++	vring_used_event(&vq->vring) = vq->vring.avail->idx;
++	ret = vring_need_event(vq->vring.avail->idx,
++			       vq->last_used_idx, vq->vring.used->idx);
++	END_USE(vq);
++
++	return ret;
++}
++EXPORT_SYMBOL_GPL(virtqueue_enable_cb_avail);
++
+ /**
+  * virtqueue_poll - query pending used buffers
+  * @vq: the struct virtqueue we're talking about.
+diff --git a/include/linux/virtio.h b/include/linux/virtio.h
+index b46671e..bfaf058 100644
+--- a/include/linux/virtio.h
++++ b/include/linux/virtio.h
+@@ -65,6 +65,8 @@ bool virtqueue_enable_cb(struct virtqueue *vq);
+ 
+ unsigned virtqueue_enable_cb_prepare(struct virtqueue *vq);
+ 
++bool virtqueue_enable_cb_avail(struct virtqueue *vq);
++
+ bool virtqueue_poll(struct virtqueue *vq, unsigned);
+ 
+ bool virtqueue_enable_cb_delayed(struct virtqueue *vq);
 -- 
 1.7.1
