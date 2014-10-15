@@ -1,51 +1,102 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: use hardware buffer pool to allocate skb
-Date: Wed, 15 Oct 2014 02:15:33 -0700
-Message-ID: <1413364533.12304.44.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1413343571-33231-1-git-send-email-Jiafei.Pan@freescale.com>
-	 <20141015.002514.384962932982389732.davem@davemloft.net>
-	 <c02005b9d8794d14bc2149f468ab571c@BY2PR03MB524.namprd03.prod.outlook.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [RFC PATCH net-next 2/6] virtio: introduce
+	virtio_enable_cb_avail()
+Date: Wed, 15 Oct 2014 12:28:49 +0300
+Message-ID: <20141015092849.GA25776@redhat.com>
+References: <1413357930-45302-1-git-send-email-jasowang@redhat.com>
+	<1413357930-45302-3-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	"jkosina@suse.cz" <jkosina@suse.cz>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"LeoLi@freescale.com" <LeoLi@freescale.com>,
-	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>
-To: "Jiafei.Pan@freescale.com" <Jiafei.Pan@freescale.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <c02005b9d8794d14bc2149f468ab571c@BY2PR03MB524.namprd03.prod.outlook.com>
-Sender: linux-doc-owner@vger.kernel.org
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, davem@davemloft.net
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1413357930-45302-3-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2014-10-15 at 05:34 +0000, Jiafei.Pan@freescale.com wrote:
- 
-> Yes, for this matter, in order to do this we should modify the Ethernet
-> drivers. For example, driver A want to driver B, C, D.. to support driver
-> A's Hardware block access functions, so we have to modify driver B, C, D...
-> It will be so complex for this matter.
+On Wed, Oct 15, 2014 at 03:25:26PM +0800, Jason Wang wrote:
+> This patch introduces virtio_enable_cb_avail() to publish avail idx
+> and used event. This could be used by batched buffer submitting to
+> reduce the number of tx interrupts.
 > 
-> But by using my patch, I just modify a Ethernet device (I don't care
-> Which driver it is used) flag in driver A in order to implement this
-> Ethernet device using hardware block access functions provided by
-> Driver A.
+> Cc: Rusty Russell <rusty@rustcorp.com.au>
+> Cc: Michael S. Tsirkin <mst@redhat.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> ---
+>  drivers/virtio/virtio_ring.c |   22 ++++++++++++++++++++--
+>  include/linux/virtio.h       |    2 ++
+>  2 files changed, 22 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/virtio/virtio_ring.c b/drivers/virtio/virtio_ring.c
+> index 1b3929f..d67fbf8 100644
+> --- a/drivers/virtio/virtio_ring.c
+> +++ b/drivers/virtio/virtio_ring.c
+> @@ -567,14 +567,32 @@ unsigned virtqueue_enable_cb_prepare(struct virtqueue *_vq)
+>  	 * entry. Always do both to keep code simple. */
+>  	vq->vring.avail->flags &= ~VRING_AVAIL_F_NO_INTERRUPT;
+>  	/* Make sure used event never go backwards */
+> -	if (!vring_need_event(vring_used_event(&vq->vring),
+> -			      vq->vring.avail->idx, last_used_idx))
+> +	if (vq->vring.avail->idx != vring_used_event(&vq->vring) &&
+> +	    !vring_need_event(vring_used_event(&vq->vring),
+> +			      vq->vring.avail->idx, last_used_idx)) {
+>  		vring_used_event(&vq->vring) = last_used_idx;
+> +	}
+>  	END_USE(vq);
+>  	return last_used_idx;
+>  }
+>  EXPORT_SYMBOL_GPL(virtqueue_enable_cb_prepare);
+>
 
-We care a lot of all the bugs added by your patches. You have little
-idea of how many of them were added. We do not want to spend days of
-work explaining everything or fixing all the details for you.
+I see you are also changing virtqueue_enable_cb_prepare, why?
 
-Carefully read net/core/skbuff.c, net/core/dev.c, GRO layer, you'll see
-how many spots you missed.
+> +bool virtqueue_enable_cb_avail(struct virtqueue *_vq)
+> +{
+> +	struct vring_virtqueue *vq = to_vvq(_vq);
+> +	bool ret;
+> +
+> +	START_USE(vq);
+> +	vq->vring.avail->flags &= ~VRING_AVAIL_F_NO_INTERRUPT;
+> +	vring_used_event(&vq->vring) = vq->vring.avail->idx;
+> +	ret = vring_need_event(vq->vring.avail->idx,
+> +			       vq->last_used_idx, vq->vring.used->idx);
+> +	END_USE(vq);
+> +
+> +	return ret;
+> +}
+> +EXPORT_SYMBOL_GPL(virtqueue_enable_cb_avail);
+> +
+>  /**
+>   * virtqueue_poll - query pending used buffers
+>   * @vq: the struct virtqueue we're talking about.
 
-You cannot control how skbs are cooked before reaching your driver
-ndo_start_xmit(). You are not going to add hooks in UDP , TCP, or other
-drivers RX path. This would be absolutely insane.
+Could not figure out what this does.
+Please add documentation.
 
-Trying to control how skb are cooked in RX path is absolutely something
-drivers do, using page frags that are read-only by all the stack.
-
-Fix your driver to use existing infra, your suggestion is not going to
-be accepted.
-
-
+> diff --git a/include/linux/virtio.h b/include/linux/virtio.h
+> index b46671e..bfaf058 100644
+> --- a/include/linux/virtio.h
+> +++ b/include/linux/virtio.h
+> @@ -65,6 +65,8 @@ bool virtqueue_enable_cb(struct virtqueue *vq);
+>  
+>  unsigned virtqueue_enable_cb_prepare(struct virtqueue *vq);
+>  
+> +bool virtqueue_enable_cb_avail(struct virtqueue *vq);
+> +
+>  bool virtqueue_poll(struct virtqueue *vq, unsigned);
+>  
+>  bool virtqueue_enable_cb_delayed(struct virtqueue *vq);
+> -- 
+> 1.7.1
