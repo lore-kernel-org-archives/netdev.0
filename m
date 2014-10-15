@@ -1,35 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2 0/4] ipv6 and related cleanup for cxgb4/cxgb4i
-Date: Wed, 15 Oct 2014 00:30:48 -0400 (EDT)
-Message-ID: <20141015.003048.958582830964017464.davem@davemloft.net>
-References: <1413342444-16388-1-git-send-email-anish@chelsio.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH RFC] virtio_net: enable tx interrupt
+Date: Wed, 15 Oct 2014 12:33:48 +0800
+Message-ID: <543DF92C.6060209@redhat.com>
+References: <1413323524-23380-1-git-send-email-mst@redhat.com>
+	<20141014231154.GA23806@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
-	hch@infradead.org, jbottomley@parallels.com, kxie@chelsio.com,
-	manojmalviya@chelsio.com, hariprasad@chelsio.com,
-	leedom@chelsio.com, swise@opengridcomputing.com
-To: anish@chelsio.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47407 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751430AbaJOEav (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Oct 2014 00:30:51 -0400
-In-Reply-To: <1413342444-16388-1-git-send-email-anish@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>, linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20141014231154.GA23806@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Anish Bhatt <anish@chelsio.com>
-Date: Tue, 14 Oct 2014 20:07:20 -0700
+On 10/15/2014 07:11 AM, Michael S. Tsirkin wrote:
+> On Wed, Oct 15, 2014 at 12:53:59AM +0300, Michael S. Tsirkin wrote:
+>> >  static void skb_xmit_done(struct virtqueue *vq)
+>> >  {
+>> >  	struct virtnet_info *vi = vq->vdev->priv;
+>> > +	struct send_queue *sq = &vi->sq[vq2txq(vq)];
+>> >  
+>> > -	/* Suppress further interrupts. */
+>> > -	virtqueue_disable_cb(vq);
+>> > -
+> One note here: current code seems racy because of doing
+> virtqueue_disable_cb from skb_xmit_done that I'm dropping here: there's
+> no guarantee we don't get an interrupt while tx ring is running, and if
+> that happens we can end up with interrupts disabled forever.
+>
 
-> This patch set removes some duplicated/extraneous code from cxgb4i, guards
-> cxgb4 against compilation failure based on ipv6 tristate, make ipv6 related
-> code no longer be enabled by default irrespective of ipv6 tristate and fixes
-> a refcnt issue.
-> -Anish
-> 
-> v2 : Provide more detailed commit messages, make subject more concise as 
-> recommended by Dave Miller.
+Looks harmless since:
 
-Much better, series applied, thanks!
+- if event index is enabled, virtqueue_disable_cb() does nothing in fact.
+- if event index is disabled, we don't depend on tx interrupt and when
+num_free is low we will try to enable the tx interrupt again.
