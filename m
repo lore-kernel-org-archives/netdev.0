@@ -1,51 +1,46 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH net-next RFC 1/3] virtio: support for urgent descriptors
-Date: Wed, 15 Oct 2014 16:10:02 +1030
-Message-ID: <877g01c2ml.fsf@rustcorp.com.au>
-References: <1413011806-3813-1-git-send-email-jasowang@redhat.com>
-	<1413011806-3813-2-git-send-email-jasowang@redhat.com>
+From: Vasily Averin <vvs@parallels.com>
+Subject: Re: [PATCH v2] ipv4: dst_entry leak in ip_append_data()
+Date: Wed, 15 Oct 2014 10:56:47 +0400
+Message-ID: <543E1AAF.9050601@parallels.com>
+References: <543CAD2A.3070701@parallels.com> <1413348385.12304.0.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: linux-api@vger.kernel.org, kvm@vger.kernel.org
-To: Jason Wang <jasowang@redhat.com>, mst@redhat.com,
-	virtualization@lists.linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1413011806-3813-2-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailhub.sw.ru ([195.214.232.25]:28960 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750775AbaJOG62 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Oct 2014 02:58:28 -0400
+In-Reply-To: <1413348385.12304.0.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Jason Wang <jasowang@redhat.com> writes:
-> Below should be useful for some experiments Jason is doing.
-> I thought I'd send it out for early review/feedback.
->
-> event idx feature allows us to defer interrupts until
-> a specific # of descriptors were used.
-> Sometimes it might be useful to get an interrupt after
-> a specific descriptor, regardless.
-> This adds a descriptor flag for this, and an API
-> to create an urgent output descriptor.
-> This is still an RFC:
-> we'll need a feature bit for drivers to detect this,
-> but we've run out of feature bits for virtio 0.X.
-> For experimentation purposes, drivers can assume
-> this is set, or add a driver-specific feature bit.
->
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+On 15.10.2014 08:46, Eric Dumazet wrote:
+> On Tue, 2014-10-14 at 08:57 +0400, Vasily Averin wrote:
+>> v2: adjust the indentation of the arguments __ip_append_data() call
+>>
+>> Fixes: 2e77d89b2fa8 ("net: avoid a pair of dst_hold()/dst_release() in ip_append_data()")
+>>
+>> If sk_write_queue is empty ip_append_data() executes ip_setup_cork()
+>> that "steals" dst entry from rt to cork. Later it calls __ip_append_data()
+>> that creates skb and adds it to sk_write_queue.
+>>
+>> If skb was added successfully following ip_push_pending_frames() call
+>> reassign dst entries from cork to skb, and kfree_skb frees dst_entry.
+>>
+>> However nobody frees stolen dst_entry if skb was not added into sk_write_queue.
+> 
+> I thought this was done by ip_flush_pending_frames() ?
 
-The new VRING_DESC_F_URGENT bit is theoretically nicer, but for
-networking (which tends to take packets in order) couldn't we just set
-the event counter to give us a tx interrupt at the packet we want?
+Take look at ip_send_unicast_reply():
 
-Cheers,
-Rusty.
+ip_flush_pending_frames() is not called if skb was not added to sk_write_queue.
+And ip_rt_put() does not work, because dst entry was stolen in ip_setup_cork().
+
+Probably it can happen in raw_sendmsg() and udp_sendmsg() too.
