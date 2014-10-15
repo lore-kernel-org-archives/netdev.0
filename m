@@ -1,47 +1,108 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: [PATCH] gianfar: disable vlan tag insertion by default on 2.6.x
-Date: Wed, 15 Oct 2014 12:09:49 +0200
-Message-ID: <20141015100949.GA30089@1wt.eu>
-References: <1413367234-28652-1-git-send-email-Yanjun.Zhu@windriver.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [RFC PATCH net-next 1/6] virtio: make sure used event never go
+	backwards
+Date: Wed, 15 Oct 2014 18:13:19 +0800
+Message-ID: <543E48BF.4080502@redhat.com>
+References: <1413357930-45302-1-git-send-email-jasowang@redhat.com>
+	<1413357930-45302-2-git-send-email-jasowang@redhat.com>
+	<20141015093432.GB25776@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: sandeep.kumar@freescale.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Yue.Tao@windriver.com,
-	guang.yang@windriver.com, joe@perches.com, festevam@gmail.com,
-	richardcochran@gmail.com, clarocq@gmail.com,
-	yongjun_wei@trendmicro.com.cn, claudiu.manoil@freescale.com,
-	roy.xu@huawei.com, sky.wangfeng@huawei.com,
-	Zhu Yanjun <Yanjun.Zhu@windriver.com>
-To: Zhu Yanjun <zyjzyj2000@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1413367234-28652-1-git-send-email-Yanjun.Zhu@windriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, davem@davemloft.net
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20141015093432.GB25776@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Hi Zhu,
+On 10/15/2014 05:34 PM, Michael S. Tsirkin wrote:
+> On Wed, Oct 15, 2014 at 03:25:25PM +0800, Jason Wang wrote:
+>> This patch checks the new event idx to make sure used event idx never
+>> goes back. This is used to synchronize the calls between
+>> virtqueue_enable_cb_delayed() and virtqueue_enable_cb().
+>>
+>> Cc: Rusty Russell <rusty@rustcorp.com.au>
+>> Cc: Michael S. Tsirkin <mst@redhat.com>
+>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> the implication being that moving event idx back might cause some race
+> condition?  
 
-On Wed, Oct 15, 2014 at 06:00:33PM +0800, Zhu Yanjun wrote:
-> In commit f43c75d4b6[gianfar: disable TX vlan based on kernel 2.6.x],
-> gianfar nic disables TX vlan. But gianfar nic enables vlan tag 
-> insertion by default. This will lead to unusable connections on 
-> some configurations. Since vlan tag insertion is disabled by default 
-> and it is not enabled any longer, it is not necessary to disable it again.
-> 
-> Zhu Yanjun (1):
->   gianfar: disable vlan tag insertion by default
-> 
->  drivers/net/gianfar.c | 6 ------
->  1 file changed, 6 deletions(-)
-> 
-> -- 
-> 1.9.1
+This will cause race condition when tx interrupt is enabled. Consider
+the following cases
 
-There's no patch in this e-mail. Since you sent another e-mail with almost
-the same subject, I'm confused, it's unclear to me whether I only need to
-apply the patch in the other one with this commit message or if it's just
-that you accidently dropped the patch when sending this e-mail. Could you
-please enlighten me ?
+1) tx napi was scheduled
+2) start_xmit() call virtqueue_enable_cb_delayed() and disable cb, [used
+event is vq->last_used_idx + 3/4 pendg bufs]
+3) tx napi enable the callback by virtqueue_enable_cb() [ used event is
+vq->last_used_idx ]
+ 
+After step 3, used event was moved back, unnecessary tx interrupt was
+triggered.
+> If yes but please describe the race explicitly.
+> Is there a bug we need to fix on stable?
 
-Thanks,
-Willy
+Looks not, current code does not have such race condition.
+> Please also explicitly describe a configuration that causes event idx
+> to go back.
+>
+> All this info should go in the commit log.
+
+Will do this.
+>> ---
+>>  drivers/virtio/virtio_ring.c |    7 +++++--
+>>  1 files changed, 5 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/drivers/virtio/virtio_ring.c b/drivers/virtio/virtio_ring.c
+>> index 3b1f89b..1b3929f 100644
+>> --- a/drivers/virtio/virtio_ring.c
+>> +++ b/drivers/virtio/virtio_ring.c
+>> @@ -559,14 +559,17 @@ unsigned virtqueue_enable_cb_prepare(struct virtqueue *_vq)
+>>  	u16 last_used_idx;
+>>  
+>>  	START_USE(vq);
+>> -
+>> +	last_used_idx = vq->last_used_idx;
+>>  	/* We optimistically turn back on interrupts, then check if there was
+>>  	 * more to do. */
+>>  	/* Depending on the VIRTIO_RING_F_EVENT_IDX feature, we need to
+>>  	 * either clear the flags bit or point the event index at the next
+>>  	 * entry. Always do both to keep code simple. */
+>>  	vq->vring.avail->flags &= ~VRING_AVAIL_F_NO_INTERRUPT;
+>> -	vring_used_event(&vq->vring) = last_used_idx = vq->last_used_idx;
+>> +	/* Make sure used event never go backwards */
+> s/go/goes/
+>
+>> +	if (!vring_need_event(vring_used_event(&vq->vring),
+>> +			      vq->vring.avail->idx, last_used_idx))
+>> +		vring_used_event(&vq->vring) = last_used_idx;
+> The result will be that driver will *not* get an interrupt
+> on the next consumed buffer, which is likely not what driver
+> intended when it called virtqueue_enable_cb.
+
+This will only happen when we want to delay the interrupt for next few
+consumed buffers (virtqueue_enable_cb_delayed() was called). For the
+other case, vq->last_used_idx should be ahead of previous used event. Do
+you see any other case?
+>
+> Instead, how about we simply document the requirement that drivers either
+> always call virtqueue_enable_cb_delayed or virtqueue_enable_cb
+> but not both?
+
+We need call them both when tx interrupt is enabled I believe.
+>
+>>  	END_USE(vq);
+>>  	return last_used_idx;
+>>  }
+>> -- 
+>> 1.7.1
