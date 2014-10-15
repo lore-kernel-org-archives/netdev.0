@@ -1,315 +1,128 @@
-From: Pan Jiafei <Jiafei.Pan@freescale.com>
-Subject: [PATCH] net: use hardware buffer pool to allocate skb
-Date: Wed, 15 Oct 2014 11:26:11 +0800
-Message-ID: <1413343571-33231-1-git-send-email-Jiafei.Pan@freescale.com>
+From: Joe Jin <joe.jin@oracle.com>
+Subject: Re: Unable to handle kernel NULL pointer dereference at 0000000000000088
+ RIP:  [<ffffffff881ba167>] :bnx2:bnx2_poll_work+0xc7/0x1253
+Date: Wed, 15 Oct 2014 11:29:14 +0800
+Message-ID: <543DEA0A.3080609@oracle.com>
+References: <5438F6C6.4040309@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <Jiafei.Pan@freescale.com>,
-	<LeoLi@freescale.com>, <linux-doc@vger.kernel.org>
-To: <davem@davemloft.net>, <jkosina@suse.cz>
-Return-path: <linux-doc-owner@vger.kernel.org>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=gbk
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Michael Chan <mchan@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "zheng.li" <zheng.x.li@oracle.com>,
+	Sony Chacko <sony.chacko@qlogic.com>,
+	Dept-HSGLinuxNICDev@qlogic.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:45162 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755643AbaJOD3Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2014 23:29:25 -0400
+In-Reply-To: <5438F6C6.4040309@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In some platform, there are some hardware block provided
-to manage buffers to improve performance. So in some case,
-it is expected that the packets received by some generic
-NIC should be put into such hardware managed buffers
-directly, so that such buffer can be released by hardware
-or by driver.
+Copy to new maintainer from QLogic and netdev.
 
-This patch provide such general APIs for generic NIC to
-use hardware block managed buffers without any modification
-for generic NIC drivers.
-In this patch, the following fields are added to "net_device":
-    void *hw_skb_priv;
-    struct sk_buff *(*alloc_hw_skb)(void *hw_skb_priv, unsigned int length);
-    void (*free_hw_skb)(struct sk_buff *skb);
-so in order to let generic NIC driver to use hardware managed
-buffers, the function "alloc_hw_skb" and "free_hw_skb"
-provide implementation for allocate and free hardware managed
-buffers. "hw_skb_priv" is provided to pass some private data for
-these two functions.
-
-When the socket buffer is allocated by these APIs, "hw_skb_state"
-is provided in struct "sk_buff". this argument can indicate
-that the buffer is hardware managed buffer, this buffer
-should freed by software or by hardware.
-
-Documentation on how to use this featue can be found at
-<file:Documentation/networking/hw_skb.txt>.
-
-Signed-off-by: Pan Jiafei <Jiafei.Pan@freescale.com>
----
- Documentation/networking/hw_skb.txt | 117 ++++++++++++++++++++++++++++++++++++
- include/linux/netdevice.h           |   5 ++
- include/linux/skbuff.h              |  16 +++++
- net/Kconfig                         |  10 +++
- net/core/skbuff.c                   |  28 +++++++++
- 5 files changed, 176 insertions(+)
- create mode 100644 Documentation/networking/hw_skb.txt
-
-diff --git a/Documentation/networking/hw_skb.txt b/Documentation/networking/hw_skb.txt
-new file mode 100644
-index 0000000..256f3fc
---- /dev/null
-+++ b/Documentation/networking/hw_skb.txt
-@@ -0,0 +1,117 @@
-+Document for using hardware managed SKB.
-+
-+1. Description
-+
-+In some platform, there are some hardware block provided
-+to manage buffers to improve performance. So in some case,
-+it is expected that the packets received by some generic
-+NIC should be put into such hardware managed buffers
-+directly, so that such buffer can be released by hardware
-+or by driver.
-+
-+2. Related Struct Definition
-+
-+Some general APIs are provided for generic NIC to use hardware
-+block managed buffers without any modification for generic NIC
-+drivers.
-+
-+1)Kernel Configuration Item
-+
-+	"CONFIG_USE_HW_SKB"
-+
-+2)The DEVICE structure
-+
-+	struct net_device {
-+		...
-+	#ifdef CONFIG_USE_HW_SKB
-+		void *hw_skb_priv;
-+		struct sk_buff *(*alloc_hw_skb)(void *hw_skb_priv, unsigned int length);
-+		void (*free_hw_skb)(struct sk_buff *skb);
-+	#endif
-+		...
-+	}
-+
-+"hw_skb_priv" is private data for "alloc_hw_skb" and "free_hw_skb" functions.
-+"alloc_hw_skb" is for allocating skb by using hardware managed buffer.
-+"free_hw_skb" is for freeing skb allocated by hardware manager buffer.
-+
-+3)struct sk_buff - socket buffer
-+
-+	struct sk_buff {
-+		...
-+	#ifdef CONFIG_SKB_USE_HW_BP
-+		__u32 			hw_skb_state;
-+		void			*hw_skb_priv;
-+		void 			(*free_hw_skb)(struct sk_buff *skb);
-+	#endif
-+		...
-+	}
-+
-+	/* hw_skb_state list */
-+	enum hw_skb_state {
-+		/* If set, SKB use hardware managed buffer */
-+		IS_HW_SKB = 1 << 0,
-+		/* If set, and skb can be freed by software by calling
-+		 * netdev->free_hw_skb
-+		 */
-+		HW_SKB_SW_FREE = 1 << 1,
-+	};
-+
-+"hw_skb_priv" and "free_hw_skb" are the same with the field in the
-+struct "net_device"
-+
-+After calling "alloc_hw_skb" to allocate skb by using hardware managed
-+buffers, "hw_skb_priv" and "free_hw_skb" is set in SKB driver:
-+	skb->hw_skb_priv = dev->hw_skb_priv;
-+	skb->free_hw_skb = dev->free_hw_skb;
-+So that when "struct net_device	*dev" is changed after the skb is allocated,
-+It is be confirmed that this skb can be freed by the method synced
-+with allocation.
-+
-+"hw_skb_state" indicates that the state of SKB. When the skb is allocated
-+by "alloc_hw_skb" function, the flag of "IS_HW_SKB" is set by
-+"__netdev_alloc_skb" function in skbuff.c when returned from "alloc_hw_skb".
-+But in "alloc_hw_skb", "HW_SKB_SW_FREE" must be set if the skb should be
-+freed by calling "free_hw_skb", otherwise, the skb will never be freed by
-+any driver until it is freed by hardware block.
-+
-+SKB using hardware managed buffer is not recycleable.
-+
-+3. How to use this feature
-+
-+For example, driver "A" wants the third-party NIC driver "B" to
-+store the data in some hardware managed buffer then send to "A".
-+
-+1) Select "CONFIG_USE_HW_SKB" to enable this feature.
-+
-+2) In driver "A", implement the function "alloc_hw_skb" and
-+"free_hw_skb". For example:
-+
-+struct sk_buff *alloc_hw_skb(void *priv, unsigned int length)
-+{
-+	buf = alloc_hw_buffer();
-+	skb = build_skb(buf, ...);
-+	if (skb)
-+		skb->hw_skb_state |= HW_SKB_SW_FREE;
-+
-+	return skb;
-+}
-+
-+void free_hw_skb(struct sk_buff *skb)
-+{
-+	free_hw_buffer(skb->head);
-+}
-+
-+3) In driver "A", get "net_device" handle of net device case using
-+driver "B".
-+	...
-+	net_dev_b->hw_skb_priv = priv;
-+	net_dev_b->alloc_hw_skb = alloc_hw_skb;
-+	net_dev_b->free_hw_skb = free_hw_skb;
-+	...
-+
-+4) Then, when driver "B" wants to allocate skb, "alloc_hw_skb"
-+will be called to allocate hardware manager skb firstly, if
-+failed, the normal skb will also be allocate, if successed,
-+the skb will be freed by calling free_hw_skb when "kfree_skb"
-+is called to free this skb.
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 838407a..42b6158 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1689,6 +1689,11 @@ struct net_device {
- 	struct lock_class_key *qdisc_tx_busylock;
- 	int group;
- 	struct pm_qos_request	pm_qos_req;
-+#ifdef CONFIG_USE_HW_SKB
-+	void *hw_skb_priv;
-+	struct sk_buff *(*alloc_hw_skb)(void *hw_skb_priv, unsigned int length);
-+	void (*free_hw_skb)(struct sk_buff *skb);
-+#endif
- };
- #define to_net_dev(d) container_of(d, struct net_device, dev)
- 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 776104b..d9afdeb 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -436,6 +436,16 @@ static inline u32 skb_mstamp_us_delta(const struct skb_mstamp *t1,
- }
- 
- 
-+/* hw_skb_state list */
-+enum hw_skb_state {
-+	/* If set, SKB use hardware managed buffer */
-+	IS_HW_SKB = 1 << 0,
-+	/* If set, and skb can be freed by software by calling
-+	 * netdev->free_hw_skb
-+	 */
-+	HW_SKB_SW_FREE = 1 << 1,
-+};
-+
- /** 
-  *	struct sk_buff - socket buffer
-  *	@next: Next buffer in list
-@@ -646,6 +656,12 @@ struct sk_buff {
- 	__u16			network_header;
- 	__u16			mac_header;
- 
-+#ifdef CONFIG_USE_HW_SKB
-+	__u32			hw_skb_state;
-+	void			*hw_skb_priv;
-+	void			(*free_hw_skb)(struct sk_buff *skb);
-+#endif
-+
- 	__u32			headers_end[0];
- 
- 	/* These elements must be at the end, see alloc_skb() for details.  */
-diff --git a/net/Kconfig b/net/Kconfig
-index d6b138e..346e021 100644
---- a/net/Kconfig
-+++ b/net/Kconfig
-@@ -291,6 +291,16 @@ config NET_FLOW_LIMIT
- 	  with many clients some protection against DoS by a single (spoofed)
- 	  flow that greatly exceeds average workload.
- 
-+config USE_HW_SKB
-+	bool "NIC use hardware managed buffer to build skb"
-+	depends on INET
-+	---help---
-+	  If select this, the third party drivers will use hardware managed
-+	  buffers to allocate SKB without any modification for the driver.
-+
-+	  Documentation on how to use this featue can be found at
-+	  <file:Documentation/networking/hw_skb.txt>.
-+
- menu "Network testing"
- 
- config NET_PKTGEN
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 7b3df0d..f8603e5 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -415,6 +415,19 @@ struct sk_buff *__netdev_alloc_skb(struct net_device *dev,
- 	unsigned int fragsz = SKB_DATA_ALIGN(length + NET_SKB_PAD) +
- 			      SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
- 
-+#ifdef CONFIG_USE_HW_SKB
-+	if (dev->alloc_hw_skb) {
-+		skb = dev->alloc_hw_skb(dev->hw_skb_priv, length);
-+		if (likely(skb)) {
-+			skb->hw_skb_state |= IS_HW_SKB;
-+			skb->hw_skb_priv = dev->hw_skb_priv;
-+			skb->free_hw_skb = dev->free_hw_skb;
-+			skb_reserve(skb, NET_SKB_PAD);
-+			skb->dev = dev;
-+			return skb;
-+		}
-+	}
-+#endif
- 	if (fragsz <= PAGE_SIZE && !(gfp_mask & (__GFP_WAIT | GFP_DMA))) {
- 		void *data;
- 
-@@ -432,6 +445,7 @@ struct sk_buff *__netdev_alloc_skb(struct net_device *dev,
- 		skb = __alloc_skb(length + NET_SKB_PAD, gfp_mask,
- 				  SKB_ALLOC_RX, NUMA_NO_NODE);
- 	}
-+
- 	if (likely(skb)) {
- 		skb_reserve(skb, NET_SKB_PAD);
- 		skb->dev = dev;
-@@ -483,6 +497,15 @@ static void skb_clone_fraglist(struct sk_buff *skb)
- 
- static void skb_free_head(struct sk_buff *skb)
- {
-+#ifdef CONFIG_USE_HW_SKB
-+	if (skb->hw_skb_state & IS_HW_SKB) {
-+		if (skb->hw_skb_state & HW_SKB_SW_FREE) {
-+			BUG_ON(!skb->free_hw_skb);
-+			skb->free_hw_skb(skb);
-+		}
-+		return;
-+	}
-+#endif
- 	if (skb->head_frag)
- 		put_page(virt_to_head_page(skb->head));
- 	else
-@@ -506,6 +529,10 @@ static void skb_release_data(struct sk_buff *skb)
- 	 * If skb buf is from userspace, we need to notify the caller
- 	 * the lower device DMA has done;
- 	 */
-+#ifdef CONFIG_USE_HW_SKB
-+	if (skb->hw_skb_state & IS_HW_SKB)
-+		goto skip_callback;
-+#endif
- 	if (shinfo->tx_flags & SKBTX_DEV_ZEROCOPY) {
- 		struct ubuf_info *uarg;
- 
-@@ -514,6 +541,7 @@ static void skb_release_data(struct sk_buff *skb)
- 			uarg->callback(uarg, true);
- 	}
- 
-+skip_callback:
- 	if (shinfo->frag_list)
- 		kfree_skb_list(shinfo->frag_list);
- 
--- 
-2.1.0.27.g96db324
-
+Thanks,
+Joe
+On 10/11/14 17:22, zheng.li wrote:
+> Hi Michael,
+> I encounter a null pointer in bnx2_poll_work=A3=AC
+> after analyzed the vmcore found:
+> tx_prod =3D 27708 and hw_cons =3D bnx2_get_hw_tx_cons(bnapi) =3D 2772=
+2;
+> hw_cons > tx_prod;
+> so the root cause is mostly HW sent data count is larger than stack
+> provide in bnx2_start_xmit to cause memory override, normally HW just
+> can sent data maximum is tx_prod, but don't know why HW sent data mor=
+e
+> than tx_prod 14 data.
+>=20
+> Can you help to look at the issue? we encounter several times.
+> bnx2 driver is 2.1.11,
+> #define DRV_MODULE_VERSION	"2.1.11"
+> #define DRV_MODULE_RELDATE	"July 20, 2011"
+> Kernel version is : 2.6.18-371.1.2.0.1
+>=20
+>=20
+> vmcore show infor is below:
+>=20
+> crash64> bnx2 ffff81122c650500
+> struct bnx2 {
+>   regview =3D 0xffffc200100e0000,
+>   dev =3D 0xffff81122c650000,
+>   pdev =3D 0xffff81122f0c9000,
+>   intr_sem =3D {
+>     counter =3D 0
+>   },
+>   flags =3D 22404,
+>   bnx2_napi =3D {{
+>       dummy_netdev =3D 0xffff81242ae3e800,
+>       bp =3D 0xffff81122c650500,
+>       status_blk =3D {
+>         msi =3D 0xffff81122391b000,
+>         msix =3D 0xffff81122391b000
+>       },
+>       hw_tx_cons_ptr =3D 0xffff81122391b00a,
+>       hw_rx_cons_ptr =3D 0xffff81122391b012,
+>       last_status_idx =3D 65048,
+>       int_num =3D 0,
+>       cnic_tag =3D 0,
+>       cnic_present =3D 0,
+>       rx_ring =3D {
+>         rx_prod_bseq =3D 1540471240,
+>         rx_prod =3D 21188,
+>         rx_cons =3D 20932,
+>         rx_bidx_addr =3D 65540,
+>         rx_bseq_addr =3D 65544,
+>         rx_pg_bidx_addr =3D 65604,
+>         rx_pg_prod =3D 0,
+>         rx_pg_cons =3D 0,
+>         rx_buf_ring =3D 0xffffc20014a7b000,
+>         rx_desc_ring =3D {0xffff81122b8a0000, 0x0, 0x0, 0x0, 0x0, 0x0=
+,
+> 0x0, 0x0},
+>         rx_pg_ring =3D 0x0,
+>         rx_pg_desc_ring =3D {0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, =
+0x0,
+> 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+> 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
+>         rx_desc_mapping =3D {78039875584, 0, 0, 0, 0, 0, 0, 0},
+>         rx_pg_desc_mapping =3D {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0=
+, 0,
+> 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+>       },
+>       tx_ring =3D {
+>         tx_prod_bseq =3D 3702584042,
+>         tx_prod =3D 27708,
+>         tx_bidx_addr =3D 69768,
+>         tx_bseq_addr =3D 69776,
+>         tx_desc_ring =3D 0xffff811227890000,
+>         tx_buf_ring =3D 0xffff81242f510000,
+>         tx_cons =3D 27603,
+>         hw_tx_cons =3D 27603,
+>         tx_desc_mapping =3D 77972701184
+>       }
+>     },
+>=20
+> crash64> rd 0xffff81122391b00a
+> ffff81122391b00a:  0000000000006c4a
+> hw_cons =3D 6c4a =3D 27722;
+>=20
+> usr/src/debug/kernel-2.6.18/linux-2.6.18-371.1.2.0.1.el5.x86_64/inclu=
+de/linux/skbuff.h:
+> 921
+> 0xffffffff881ba167 <bnx2_poll_work+199>:921>:   mov    0x88(%r13),%ed=
+x
+> R13: 0000000000000000
+> R13 is skb which is NULL at that moment.
+>=20
+> Had refer https://access.redhat.com/solutions/341183
+> and
+> http://kernel.opensuse.org/cgit/kernel/commit/?id=3Dc1f5163de417dab01=
+fa9daaf09a74bbb19303f3c
+> but can't exactly know which case our bug hit.
+>=20
+> Thanks,
+> James Li
+>=20
