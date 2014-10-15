@@ -1,50 +1,28 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: something is wrong in commit 971f10eca1 - tcp: better
- TCP_SKB_CB layout to reduce cache line misses
-Date: Wed, 15 Oct 2014 08:32:32 -0700
-Message-ID: <1413387152.17365.26.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CAFrEnehWNzmzZGV-ZGbZF=wJ1q0TjFtB1yG6Dp1yVrJmBj9B7Q@mail.gmail.com>
-	 <20141014.164705.1874094084240216813.davem@davemloft.net>
-	 <CAFrEnejET5wer6S6qx13tMKWMshmRj+JnQeZL-zdPGcs__9NoQ@mail.gmail.com>
-	 <20141014.171559.1355616486999711590.davem@davemloft.net>
-	 <CAHA+R7PyUZyjHPf-SJRiiOw=jQjJnXVaosYU7TuiVe6sQTC9Ww@mail.gmail.com>
-	 <1413323024.17109.11.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <543E4DD8.80203@winsoft.pl>
-	 <1413372422.17365.10.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <543E5D1F.2020207@winsoft.pl>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH (net.git) 1/1] stmmac: fix sti compatibililies
+Date: Wed, 15 Oct 2014 11:46:39 -0400 (EDT)
+Message-ID: <20141015.114639.1870406278699948300.davem@davemloft.net>
+References: <1413351041-11369-1-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <cwang@twopensource.com>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: Krzysztof Kolasa <kkolasa@winsoft.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:44556 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751439AbaJOPce (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Oct 2014 11:32:34 -0400
-Received: by mail-pa0-f47.google.com with SMTP id rd3so1504679pab.34
-        for <netdev@vger.kernel.org>; Wed, 15 Oct 2014 08:32:34 -0700 (PDT)
-In-Reply-To: <543E5D1F.2020207@winsoft.pl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, sfr@canb.auug.org.au,
+	linux-kernel@vger.kernel.org, linux-next@vger.kernel.org
+To: peppe.cavallaro@st.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1413351041-11369-1-git-send-email-peppe.cavallaro@st.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2014-10-15 at 13:40 +0200, Krzysztof Kolasa wrote:
+From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Date: Wed, 15 Oct 2014 07:30:41 +0200
 
-> on a 32bit system, the patch did not solve the problem :(
-> I have exactly the same problem as before the patch
-
-
-You mean Cong patch ?
-
+> this patch is to fix the stmmac data compatibilities for
+> all the SoCs inside the platform file.
 > 
-> I do not understand this, perhaps the problem is hidden somewhere else,
-> one thing is certain after revert commit 971f10eca1 everything works 
-> correctly
-> 
+> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 
-Can you privately send me the vmlinux file ?
+Please in the future provide a proper "Reported-by: " tag for people
+like Stephen who let you know about the problem.
 
-It might be a compiler issue...
+Applied, thanks.
