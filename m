@@ -1,71 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: use hardware buffer pool to allocate skb
-Date: Tue, 14 Oct 2014 21:15:03 -0700
-Message-ID: <1413346503.17109.23.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1413343571-33231-1-git-send-email-Jiafei.Pan@freescale.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 0/3] SCTP fixes
+Date: Wed, 15 Oct 2014 00:21:43 -0400 (EDT)
+Message-ID: <20141015.002143.780696221161706737.davem@davemloft.net>
+References: <1412888133-833-1-git-send-email-dborkman@redhat.com>
+	<20141014.124657.128658692728989163.davem@davemloft.net>
+	<20141015030631.GA6778@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, jkosina@suse.cz, netdev@vger.kernel.org,
-	LeoLi@freescale.com, linux-doc@vger.kernel.org
-To: Pan Jiafei <Jiafei.Pan@freescale.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <1413343571-33231-1-git-send-email-Jiafei.Pan@freescale.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: dborkman@redhat.com, linux-sctp@vger.kernel.org,
+	netdev@vger.kernel.org
+To: nhorman@tuxdriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47340 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750736AbaJOEVs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Oct 2014 00:21:48 -0400
+In-Reply-To: <20141015030631.GA6778@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-10-15 at 11:26 +0800, Pan Jiafei wrote:
-> In some platform, there are some hardware block provided
-> to manage buffers to improve performance. So in some case,
-> it is expected that the packets received by some generic
-> NIC should be put into such hardware managed buffers
-> directly, so that such buffer can be released by hardware
-> or by driver.
+From: Neil Horman <nhorman@tuxdriver.com>
+Date: Tue, 14 Oct 2014 23:06:32 -0400
 
-You repeat 'some' four times.
+> On Tue, Oct 14, 2014 at 12:46:57PM -0400, David Miller wrote:
+>> From: Daniel Borkmann <dborkman@redhat.com>
+>> Date: Thu,  9 Oct 2014 22:55:30 +0200
+>> 
+>> > Here are some SCTP fixes.
+>> > 
+>> > [ Note, immediate workaround would be to disable ASCONF (it
+>> >   is sysctl disabled by default). It is actually only used
+>> >   together with chunk authentication. ]
+>> 
+>> Series applied, thanks guys.
+> Why did you apply this Dave? There was ongoing discussion around it.
 
-> 
-> This patch provide such general APIs for generic NIC to
-> use hardware block managed buffers without any modification
-> for generic NIC drivers.
+Sorry Neil, that wasn't my impression.
 
-...
+Worry not I can revert or apply relative fixes on top.
+:-)
 
-> In this patch, the following fields are added to "net_device":
->     void *hw_skb_priv;
->     struct sk_buff *(*alloc_hw_skb)(void *hw_skb_priv, unsigned int length);
->     void (*free_hw_skb)(struct sk_buff *skb);
-> so in order to let generic NIC driver to use hardware managed
-> buffers, the function "alloc_hw_skb" and "free_hw_skb"
-> provide implementation for allocate and free hardware managed
-> buffers. "hw_skb_priv" is provided to pass some private data for
-> these two functions.
-> 
-> When the socket buffer is allocated by these APIs, "hw_skb_state"
-> is provided in struct "sk_buff". this argument can indicate
-> that the buffer is hardware managed buffer, this buffer
-> should freed by software or by hardware.
-> 
-> Documentation on how to use this featue can be found at
-> <file:Documentation/networking/hw_skb.txt>.
-> 
-> Signed-off-by: Pan Jiafei <Jiafei.Pan@freescale.com>
-
-
-I am giving a strong NACK, of course.
-
-We are not going to grow sk_buff and add yet another conditional in fast
-path for a very obscure feature like that.
-
-Memory management is not going to be done by drivers.
-
-The way it should work is that if your hardware has specific needs, rx
-and tx paths (of the driver) need to make the needed adaptation.
-Not the other way.
-
-We already have complex skb layouts, we do not need a new one. 
-
-Take a look at how drivers can 'lock' pages already, and build skb sith
-page frags. It is already there.
-
-
+Thanks.
