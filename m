@@ -1,47 +1,65 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Netlink mmap tx security?
-Date: Tue, 14 Oct 2014 22:09:08 -0400 (EDT)
-Message-ID: <20141014.220908.123550384430402000.davem@davemloft.net>
-References: <CALCETrWDSG2EhxBnM8Jm55Ov8PYQ_w3Wf88SKYOB1q1WgRpbEw@mail.gmail.com>
-	<20141014.220111.179628329028952302.davem@davemloft.net>
-	<CALCETrW1HFJ3QXMfV9Hv922eax0hbHJn5GmHPvtED8_JR5KOVg@mail.gmail.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH net 2/3] net: sctp: fix panic on duplicate ASCONF chunks
+Date: Tue, 14 Oct 2014 22:58:34 -0400
+Message-ID: <20141015025833.GA6493@localhost.localdomain>
+References: <1412888133-833-1-git-send-email-dborkman@redhat.com>
+ <1412888133-833-3-git-send-email-dborkman@redhat.com>
+ <20141010153954.GE19499@hmsreliant.think-freely.org>
+ <54385777.7090907@redhat.com>
+ <20141012014233.GA16360@localhost.localdomain>
+ <543B0DD7.7000900@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: torvalds@linux-foundation.org, kaber@trash.net,
-	netdev@vger.kernel.org, tgraf@suug.ch
-To: luto@amacapital.net
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, linux-sctp@vger.kernel.org,
+	netdev@vger.kernel.org, Vlad Yasevich <vyasevich@gmail.com>
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46505 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755926AbaJOCJK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2014 22:09:10 -0400
-In-Reply-To: <CALCETrW1HFJ3QXMfV9Hv922eax0hbHJn5GmHPvtED8_JR5KOVg@mail.gmail.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:60689 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755536AbaJOC64 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2014 22:58:56 -0400
+Content-Disposition: inline
+In-Reply-To: <543B0DD7.7000900@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andy Lutomirski <luto@amacapital.net>
-Date: Tue, 14 Oct 2014 19:03:11 -0700
-
-> On Tue, Oct 14, 2014 at 7:01 PM, David Miller <davem@davemloft.net> wrote:
->> I really think this means I'll have to remove all of the netlink
->> mmap() support in order to prevent from breaking applications. :(
->>
->> The other option is to keep NETLINK_TX_RING, but copy the data into
->> a kernel side buffer before acting upon it.
+On Mon, Oct 13, 2014 at 01:25:11AM +0200, Daniel Borkmann wrote:
+> On 10/12/2014 03:42 AM, Neil Horman wrote:
+> >On Sat, Oct 11, 2014 at 12:02:31AM +0200, Daniel Borkmann wrote:
+> >>On 10/10/2014 05:39 PM, Neil Horman wrote:
+> >>...
+> >>>Is it worth adding a WARN_ON, to indicate that two ASCONF chunks have been
+> >>>received with duplicate serials?
+> >>
+> >>Don't think so, as this would be triggerable from outside.
+> >>
+> >WARN_ON_ONCE then, per serial number?
 > 
-> Option 3, which sucks but maybe not that badly: change the value of
-> NETLINK_RX_RING.  (Practically: add NETLINK_RX_RING2 or something like
-> that.)
+> Sorry, but no. If someone seriously runs that in production and it
+> triggers a WARN() from outside, admins will start sending us bug
+> reports that apparently something with the kernel code is wrong.
+> 
+> WARN() should only be used if we have some *internal* unexpected bug,
+> but can still fail gracefully. This would neither be an actual code bug
+> nor would it be an internally triggered one, plus we add unnecessary
+> complexity to the code. Similarly, for those reasons we don't WARN()
+> and throw a stack trace when we receive, say, an skb of invalid length
+> elsewhere.
+> 
+> I'd also like to avoid any additional pr_debug().
+> 
+> I don't think people enable them in production, and if they really do,
+> it's too late anyway as we already have received this chunk. If anything,
+> I'd rather like to see debugging code further removed as we have already
+> different facilities in the kernel for runtime debugging that are much
+> more powerful.
+What do you suggest then?  It seems like this is a protocol error that an
+administrator will want to be made aware of.  I'm open to other options, but
+just saying "no" isn't sufficient for me.
+Neil
 
-That would work as well.
-
-There are pros and cons to all of these approaches.
-
-I was thinking that if we do the "TX mmap --> copy to kernel buffer"
-approach, then if in the future we find a way to make it work
-reliably, we can avoid the copy.  And frankly performance wise it's no
-worse than what happens via normal sendmsg() calls.
-
-And all applications using NETLINK_RX_RING keep working and keep
-getting the performance boost.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
