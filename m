@@ -1,44 +1,52 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2] ipv4: dst_entry leak in ip_append_data()
-Date: Tue, 14 Oct 2014 21:46:25 -0700
-Message-ID: <1413348385.12304.0.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <543CAD2A.3070701@parallels.com>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH] net: use hardware buffer pool to allocate skb
+Date: Wed, 15 Oct 2014 06:59:24 +0200
+Message-ID: <543DFF2C.40306@hartkopp.net>
+References: <1413343571-33231-1-git-send-email-Jiafei.Pan@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Vasily Averin <vvs@parallels.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f173.google.com ([209.85.192.173]:38557 "EHLO
-	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750736AbaJOEq0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Oct 2014 00:46:26 -0400
-Received: by mail-pd0-f173.google.com with SMTP id g10so556139pdj.4
-        for <netdev@vger.kernel.org>; Tue, 14 Oct 2014 21:46:26 -0700 (PDT)
-In-Reply-To: <543CAD2A.3070701@parallels.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, LeoLi@freescale.com,
+	linux-doc@vger.kernel.org
+To: Pan Jiafei <Jiafei.Pan@freescale.com>, davem@davemloft.net,
+	jkosina@suse.cz
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <1413343571-33231-1-git-send-email-Jiafei.Pan@freescale.com>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2014-10-14 at 08:57 +0400, Vasily Averin wrote:
-> v2: adjust the indentation of the arguments __ip_append_data() call
-> 
-> Fixes: 2e77d89b2fa8 ("net: avoid a pair of dst_hold()/dst_release() in ip_append_data()")
-> 
-> If sk_write_queue is empty ip_append_data() executes ip_setup_cork()
-> that "steals" dst entry from rt to cork. Later it calls __ip_append_data()
-> that creates skb and adds it to sk_write_queue.
-> 
-> If skb was added successfully following ip_push_pending_frames() call
-> reassign dst entries from cork to skb, and kfree_skb frees dst_entry.
-> 
-> However nobody frees stolen dst_entry if skb was not added into sk_write_queue.
+On 15.10.2014 05:26, Pan Jiafei wrote:
+> In some platform, there are some hardware block provided
+> to manage buffers to improve performance.
 
-I thought this was done by ip_flush_pending_frames() ?
+(..)
 
-Can you describe the issue more precisely ?
+> diff --git a/net/Kconfig b/net/Kconfig
+> index d6b138e..346e021 100644
+> --- a/net/Kconfig
+> +++ b/net/Kconfig
+> @@ -291,6 +291,16 @@ config NET_FLOW_LIMIT
+>   	  with many clients some protection against DoS by a single (spoofed)
+>   	  flow that greatly exceeds average workload.
+>
+> +config USE_HW_SKB
+> +	bool "NIC use hardware managed buffer to build skb"
+> +	depends on INET
 
-Thanks !
+The feature seems to be valid for network devices in general.
+Why did you make it depending on INET ??
+
+Regards,
+Oliver
+
+> +	---help---
+> +	  If select this, the third party drivers will use hardware managed
+> +	  buffers to allocate SKB without any modification for the driver.
+> +
+> +	  Documentation on how to use this featue can be found at
+> +	  <file:Documentation/networking/hw_skb.txt>.
+> +
+>   menu "Network testing"
+>
+>   config NET_PKTGEN
+
