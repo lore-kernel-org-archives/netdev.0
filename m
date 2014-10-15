@@ -1,91 +1,89 @@
-From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Subject: Re: [PATCH] nf_conntrack_proto_tcp: allow server to become a client
- in TW handling
-Date: Wed, 15 Oct 2014 09:27:43 +0200 (CEST)
-Message-ID: <alpine.DEB.2.10.1410150854460.19251@blackhole.kfki.hu>
-References: <5419B546.40702@redhat.com> <a9618c5db692413c2970201b5206bcd357438399.1413216136.git.mleitner@redhat.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next RFC 0/3] virtio-net: Conditionally enable tx
+	interrupt
+Date: Wed, 15 Oct 2014 15:28:43 +0800
+Message-ID: <543E222B.40706@redhat.com>
+References: <1413011806-3813-1-git-send-email-jasowang@redhat.com>
+	<20141014.145327.365091739350390288.davem@davemloft.net>
+	<20141014230627.GA23715@redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Marcelo Ricardo Leitner <mleitner@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp0.kfki.hu ([148.6.0.25]:52086 "EHLO smtp0.kfki.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751603AbaJOH1O (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Oct 2014 03:27:14 -0400
-In-Reply-To: <a9618c5db692413c2970201b5206bcd357438399.1413216136.git.mleitner@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: kvm@vger.kernel.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, linux-api@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>, David Miller <davem@davemloft.net>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20141014230627.GA23715@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 13 Oct 2014, Marcelo Ricardo Leitner wrote:
+On 10/15/2014 07:06 AM, Michael S. Tsirkin wrote:
+> On Tue, Oct 14, 2014 at 02:53:27PM -0400, David Miller wrote:
+>> > From: Jason Wang <jasowang@redhat.com>
+>> > Date: Sat, 11 Oct 2014 15:16:43 +0800
+>> > 
+>>> > > We free old transmitted packets in ndo_start_xmit() currently, so any
+>>> > > packet must be orphaned also there. This was used to reduce the overhead of
+>>> > > tx interrupt to achieve better performance. But this may not work for some
+>>> > > protocols such as TCP stream. TCP depends on the value of sk_wmem_alloc to
+>>> > > implement various optimization for small packets stream such as TCP small
+>>> > > queue and auto corking. But orphaning packets early in ndo_start_xmit()
+>>> > > disable such things more or less since sk_wmem_alloc was not accurate. This
+>>> > > lead extra low throughput for TCP stream of small writes.
+>>> > > 
+>>> > > This series tries to solve this issue by enable tx interrupts for all TCP
+>>> > > packets other than the ones with push bit or pure ACK. This is done through
+>>> > > the support of urgent descriptor which can force an interrupt for a
+>>> > > specified packet. If tx interrupt was enabled for a packet, there's no need
+>>> > > to orphan it in ndo_start_xmit(), we can free it tx napi which is scheduled
+>>> > > by tx interrupt. Then sk_wmem_alloc was more accurate than before and TCP
+>>> > > can batch more for small write. More larger skb was produced by TCP in this
+>>> > > case to improve both throughput and cpu utilization.
+>>> > > 
+>>> > > Test shows great improvements on small write tcp streams. For most of the
+>>> > > other cases, the throughput and cpu utilization are the same in the
+>>> > > past. Only few cases, more cpu utilization was noticed which needs more
+>>> > > investigation.
+>>> > > 
+>>> > > Review and comments are welcomed.
+>> > 
+>> > I think proper accounting and queueing (at all levels, not just TCP
+>> > sockets) is more important than trying to skim a bunch of cycles by
+>> > avoiding TX interrupts.
+>> > 
+>> > Having an event to free the SKB is absolutely essential for the stack
+>> > to operate correctly.
+>> > 
+>> > And with virtio-net you don't even have the excuse of "the HW
+>> > unfortunately doesn't have an appropriate TX event."
+>> > 
+>> > So please don't play games, and instead use TX interrupts all the
+>> > time.  You can mitigate them in various ways, but don't turn them on
+>> > selectively based upon traffic type, that's terrible.
+>> > 
+>> > You can even use ->xmit_more to defer the TX interrupt indication to
+>> > the final TX packet in the chain.
+> I guess we can just defer the kick, interrupt will naturally be
+> deferred as well.
+> This should solve the problem for old hosts as well.
 
-> When a port that was used to listen for inbound connections gets closed
-> and reused for outgoing connections (like rsh ends up doing for stderr
-> flow), current we may reject the SYN/ACK packet for the new connection
-> because tcp_conntracks states forbirds a port to become a client while
-> there is still a TIME_WAIT entry in there for it.
-> 
-> As TCP may expire the TIME_WAIT socket in 60s and conntrack's timeout
-> for it is 120s, there is a ~60s window that the application can end up
-> opening a port that conntrack will end up blocking.
-> 
-> This patch fixes this by simply allowing such state transition: if we
-> see a SYN, in TIME_WAIT state, on REPLY direction, move it to sSS. Note
-> that the rest of the code already handles this situation, more
-> specificly in tcp_packet(), first switch clause.
+Interrupt were delayed but not reduced, to support this we need publish
+avail idx as used event. This should reduce the tx interrupt in the case
+of bulk dequeuing.
 
-In those code branch if there was a valid FIN in either direction, we 
-destroy the old connection and a new will be created. That way the rules 
-about NEW connections will be applied, so the policies are not bypassed. 
-Otherwise we just ignore the SYN packet, so if it's invalid, we'll catch 
-the RST from the other side and destroy the conntrack entry. The event 
-flow looks OK to me.
+I will draft a new rfc series contain this.
+>
+> We'll also need to implement bql for this.
+> Something like the below?
+> Completely untested - posting here to see if I figured the
+> API out correctly. Has to be applied on top of the previous patch.
 
-> Signed-off-by: Marcelo Ricardo Leitner <mleitner@redhat.com>
-
-Acked-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-
-Best regards,
-Jozsef
-
-> ---
->  net/netfilter/nf_conntrack_proto_tcp.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack_proto_tcp.c
-> index 44d1ea32570a07338dc39f34624bd823b6f76916..d87b6423ffb21e0f8f9b6ef25ef51c1cb5f54ad6 100644
-> --- a/net/netfilter/nf_conntrack_proto_tcp.c
-> +++ b/net/netfilter/nf_conntrack_proto_tcp.c
-> @@ -213,7 +213,7 @@ static const u8 tcp_conntracks[2][6][TCP_CONNTRACK_MAX] = {
->  	{
->  /* REPLY */
->  /* 	     sNO, sSS, sSR, sES, sFW, sCW, sLA, sTW, sCL, sS2	*/
-> -/*syn*/	   { sIV, sS2, sIV, sIV, sIV, sIV, sIV, sIV, sIV, sS2 },
-> +/*syn*/	   { sIV, sS2, sIV, sIV, sIV, sIV, sIV, sSS, sIV, sS2 },
->  /*
->   *	sNO -> sIV	Never reached.
->   *	sSS -> sS2	Simultaneous open
-> @@ -223,7 +223,7 @@ static const u8 tcp_conntracks[2][6][TCP_CONNTRACK_MAX] = {
->   *	sFW -> sIV
->   *	sCW -> sIV
->   *	sLA -> sIV
-> - *	sTW -> sIV	Reopened connection, but server may not do it.
-> + *	sTW -> sSS	Reopened connection, but server may have switched role
->   *	sCL -> sIV
->   */
->  /* 	     sNO, sSS, sSR, sES, sFW, sCW, sLA, sTW, sCL, sS2	*/
-> -- 
-> 1.9.3
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netfilter-devel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-
--
-E-mail  : kadlec@blackhole.kfki.hu, kadlecsik.jozsef@wigner.mta.hu
-PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
-Address : Wigner Research Centre for Physics, Hungarian Academy of Sciences
-          H-1525 Budapest 114, POB. 49, Hungary
+Looks so. I believe better to have but not a must.
