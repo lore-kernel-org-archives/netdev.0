@@ -1,60 +1,42 @@
-From: Paul Bolle <pebolle@tiscali.nl>
-Subject: Re: [PATCH v4 03/25] virtio-pci: move freeze/restore to virtio core
-Date: Wed, 15 Oct 2014 09:05:14 +0200
-Message-ID: <1413356714.27272.3.camel@x220>
-References: <1413114332-626-1-git-send-email-mst-v4@redhat.com>
-	 <1413114332-626-4-git-send-email-mst-v4@redhat.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH] net: fec: ptp: fix convergence issue to support LinuxPTP
+ stack
+Date: Wed, 15 Oct 2014 09:25:40 +0200
+Message-ID: <20141015072540.GA4172@localhost.localdomain>
+References: <1413265187-5228-1-git-send-email-b38611@freescale.com>
+ <20141014103610.GA4019@localhost.localdomain>
+ <20141014.125239.1562178476120218308.davem@davemloft.net>
+ <7e6db0b336a340bd80b62475fca284fc@BLUPR03MB486.namprd03.prod.outlook.com>
+ <20141014183933.GA14216@localhost.localdomain>
+ <ca979a5eb7764367a6b8b944948cbd1a@BLUPR03MB373.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Valentin Rothberg <valentinrothberg@gmail.com>,
-	linux-kernel@vger.kernel.org,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	virtualization@lists.linux-foundation.org,
-	linux-scsi@vger.kernel.org, linux-s390@vger.kernel.org,
-	v9fs-developer@lists.sourceforge.net, netdev@vger.kernel.org,
-	kvm@vger.kernel.org, Amit Shah <amit.shah@redhat.com>,
-	Cornelia Huck <cornelia.huck@de.ibm.com>,
-	Christian Borntraeger <borntraeger@de.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Paolo Bonzini <pbonzini@redhat.com>,
-	Heinz Graalfs <graalfs@linux.vnet.ibm.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1413114332-626-4-git-send-email-mst-v4@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "Frank.Li@freescale.com" <Frank.Li@freescale.com>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>
+To: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f181.google.com ([209.85.212.181]:40419 "EHLO
+	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751292AbaJOHZp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Oct 2014 03:25:45 -0400
+Received: by mail-wi0-f181.google.com with SMTP id hi2so1017607wib.14
+        for <netdev@vger.kernel.org>; Wed, 15 Oct 2014 00:25:44 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <ca979a5eb7764367a6b8b944948cbd1a@BLUPR03MB373.namprd03.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-10-13 at 10:48 +0300, Michael S. Tsirkin wrote:
-> This is in preparation to extending config changed event handling
-> in core.
-> Wrapping these in an API also seems to make for a cleaner code.
+On Wed, Oct 15, 2014 at 01:30:41AM +0000, fugang.duan@freescale.com wrote:
 > 
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> Reviewed-by: Cornelia Huck <cornelia.huck@de.ibm.com>
+> Pls read the commit log in entire ?
 
-This patch landed in today's linux-next (next-20141015).
+I did read it. 
 
->  include/linux/virtio.h      |  6 +++++
->  drivers/virtio/virtio.c     | 54 +++++++++++++++++++++++++++++++++++++++++++++
->  drivers/virtio/virtio_pci.c | 54 ++-------------------------------------------
->  3 files changed, 62 insertions(+), 52 deletions(-)
-> 
-> diff --git a/include/linux/virtio.h b/include/linux/virtio.h
-> index 3c19bd3..8df7ba8 100644
-> --- a/include/linux/virtio.h
-> +++ b/include/linux/virtio.h
-> @@ -78,6 +78,7 @@ bool virtqueue_is_broken(struct virtqueue *vq);
->  /**
->   * virtio_device - representation of a device using virtio
->   * @index: unique position on the virtio bus
-> + * @failed: saved value for CONFIG_S_FAILED bit (for restore)
+It is incomprehensible.
 
-s/CONFIG_S_FAILED/VIRTIO_CONFIG_S_FAILED/?
+Can you please fix it?
 
->   * @dev: underlying device.
->   * @id: the device type identification (used to match it with a driver).
->   * @config: the configuration ops for this device.
-
-
-Paul Bolle
+Thanks,
+Richard
