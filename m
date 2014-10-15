@@ -1,58 +1,72 @@
-From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Subject: [PATCH (net.git) 1/1] stmmac: fix sti compatibililies
-Date: Wed, 15 Oct 2014 07:30:41 +0200
-Message-ID: <1413351041-11369-1-git-send-email-peppe.cavallaro@st.com>
+From: "Jiafei.Pan@freescale.com" <Jiafei.Pan@freescale.com>
+Subject: RE: [PATCH] net: use hardware buffer pool to allocate skb
+Date: Wed, 15 Oct 2014 05:43:05 +0000
+Message-ID: <efb0b7f4955243fbab9b24e0c31ea806@BY2PR03MB524.namprd03.prod.outlook.com>
+References: <1413343571-33231-1-git-send-email-Jiafei.Pan@freescale.com>
+ <1413346503.17109.23.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <sfr@canb.auug.org.au>,
-	<linux-kernel@vger.kernel.org>, <linux-next@vger.kernel.org>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"jkosina@suse.cz" <jkosina@suse.cz>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"LeoLi@freescale.com" <LeoLi@freescale.com>,
+	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
+	"Jiafei.Pan@freescale.com" <Jiafei.Pan@freescale.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <1413346503.17109.23.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Language: en-US
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-this patch is to fix the stmmac data compatibilities for
-all the SoCs inside the platform file.
-
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
----
- drivers/net/ethernet/stmicro/stmmac/stmmac.h       |    3 ++-
- .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |    8 ++++----
- 2 files changed, 6 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-index 4452889..c3c4065 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-@@ -144,7 +144,8 @@ extern const struct stmmac_of_data meson6_dwmac_data;
- extern const struct stmmac_of_data sun7i_gmac_data;
- #endif
- #ifdef CONFIG_DWMAC_STI
--extern const struct stmmac_of_data sti_gmac_data;
-+extern const struct stmmac_of_data stih4xx_dwmac_data;
-+extern const struct stmmac_of_data stid127_dwmac_data;
- #endif
- #ifdef CONFIG_DWMAC_SOCFPGA
- extern const struct stmmac_of_data socfpga_gmac_data;
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index 0d6b9ad..db56fa7 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -37,10 +37,10 @@ static const struct of_device_id stmmac_dt_ids[] = {
- 	{ .compatible = "allwinner,sun7i-a20-gmac", .data = &sun7i_gmac_data},
- #endif
- #ifdef CONFIG_DWMAC_STI
--	{ .compatible = "st,stih415-dwmac", .data = &sti_gmac_data},
--	{ .compatible = "st,stih416-dwmac", .data = &sti_gmac_data},
--	{ .compatible = "st,stid127-dwmac", .data = &sti_gmac_data},
--	{ .compatible = "st,stih407-dwmac", .data = &sti_gmac_data},
-+	{ .compatible = "st,stih415-dwmac", .data = &stih4xx_dwmac_data},
-+	{ .compatible = "st,stih416-dwmac", .data = &stih4xx_dwmac_data},
-+	{ .compatible = "st,stid127-dwmac", .data = &stid127_dwmac_data},
-+	{ .compatible = "st,stih407-dwmac", .data = &stih4xx_dwmac_data},
- #endif
- #ifdef CONFIG_DWMAC_SOCFPGA
- 	{ .compatible = "altr,socfpga-stmmac", .data = &socfpga_gmac_data },
--- 
-1.7.4.4
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogRXJpYyBEdW1hemV0IFtt
+YWlsdG86ZXJpYy5kdW1hemV0QGdtYWlsLmNvbV0NCj4gU2VudDogV2VkbmVzZGF5LCBPY3RvYmVy
+IDE1LCAyMDE0IDEyOjE1IFBNDQo+IFRvOiBQYW4gSmlhZmVpLUIzNzAyMg0KPiBDYzogZGF2ZW1A
+ZGF2ZW1sb2Z0Lm5ldDsgamtvc2luYUBzdXNlLmN6OyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBM
+aSBZYW5nLUxlby0NCj4gUjU4NDcyOyBsaW51eC1kb2NAdmdlci5rZXJuZWwub3JnDQo+IFN1Ympl
+Y3Q6IFJlOiBbUEFUQ0hdIG5ldDogdXNlIGhhcmR3YXJlIGJ1ZmZlciBwb29sIHRvIGFsbG9jYXRl
+IHNrYg0KPiANCj4gT24gV2VkLCAyMDE0LTEwLTE1IGF0IDExOjI2ICswODAwLCBQYW4gSmlhZmVp
+IHdyb3RlOg0KPiA+IEluIHNvbWUgcGxhdGZvcm0sIHRoZXJlIGFyZSBzb21lIGhhcmR3YXJlIGJs
+b2NrIHByb3ZpZGVkDQo+ID4gdG8gbWFuYWdlIGJ1ZmZlcnMgdG8gaW1wcm92ZSBwZXJmb3JtYW5j
+ZS4gU28gaW4gc29tZSBjYXNlLA0KPiA+IGl0IGlzIGV4cGVjdGVkIHRoYXQgdGhlIHBhY2tldHMg
+cmVjZWl2ZWQgYnkgc29tZSBnZW5lcmljDQo+ID4gTklDIHNob3VsZCBiZSBwdXQgaW50byBzdWNo
+IGhhcmR3YXJlIG1hbmFnZWQgYnVmZmVycw0KPiA+IGRpcmVjdGx5LCBzbyB0aGF0IHN1Y2ggYnVm
+ZmVyIGNhbiBiZSByZWxlYXNlZCBieSBoYXJkd2FyZQ0KPiA+IG9yIGJ5IGRyaXZlci4NCj4gDQo+
+IFlvdSByZXBlYXQgJ3NvbWUnIGZvdXIgdGltZXMuDQo+IA0KPiA+DQo+ID4gVGhpcyBwYXRjaCBw
+cm92aWRlIHN1Y2ggZ2VuZXJhbCBBUElzIGZvciBnZW5lcmljIE5JQyB0bw0KPiA+IHVzZSBoYXJk
+d2FyZSBibG9jayBtYW5hZ2VkIGJ1ZmZlcnMgd2l0aG91dCBhbnkgbW9kaWZpY2F0aW9uDQo+ID4g
+Zm9yIGdlbmVyaWMgTklDIGRyaXZlcnMuDQo+IA0KPiAuLi4NCj4gDQo+ID4gSW4gdGhpcyBwYXRj
+aCwgdGhlIGZvbGxvd2luZyBmaWVsZHMgYXJlIGFkZGVkIHRvICJuZXRfZGV2aWNlIjoNCj4gPiAg
+ICAgdm9pZCAqaHdfc2tiX3ByaXY7DQo+ID4gICAgIHN0cnVjdCBza19idWZmICooKmFsbG9jX2h3
+X3NrYikodm9pZCAqaHdfc2tiX3ByaXYsIHVuc2lnbmVkIGludCBsZW5ndGgpOw0KPiA+ICAgICB2
+b2lkICgqZnJlZV9od19za2IpKHN0cnVjdCBza19idWZmICpza2IpOw0KPiA+IHNvIGluIG9yZGVy
+IHRvIGxldCBnZW5lcmljIE5JQyBkcml2ZXIgdG8gdXNlIGhhcmR3YXJlIG1hbmFnZWQNCj4gPiBi
+dWZmZXJzLCB0aGUgZnVuY3Rpb24gImFsbG9jX2h3X3NrYiIgYW5kICJmcmVlX2h3X3NrYiINCj4g
+PiBwcm92aWRlIGltcGxlbWVudGF0aW9uIGZvciBhbGxvY2F0ZSBhbmQgZnJlZSBoYXJkd2FyZSBt
+YW5hZ2VkDQo+ID4gYnVmZmVycy4gImh3X3NrYl9wcml2IiBpcyBwcm92aWRlZCB0byBwYXNzIHNv
+bWUgcHJpdmF0ZSBkYXRhIGZvcg0KPiA+IHRoZXNlIHR3byBmdW5jdGlvbnMuDQo+ID4NCj4gPiBX
+aGVuIHRoZSBzb2NrZXQgYnVmZmVyIGlzIGFsbG9jYXRlZCBieSB0aGVzZSBBUElzLCAiaHdfc2ti
+X3N0YXRlIg0KPiA+IGlzIHByb3ZpZGVkIGluIHN0cnVjdCAic2tfYnVmZiIuIHRoaXMgYXJndW1l
+bnQgY2FuIGluZGljYXRlDQo+ID4gdGhhdCB0aGUgYnVmZmVyIGlzIGhhcmR3YXJlIG1hbmFnZWQg
+YnVmZmVyLCB0aGlzIGJ1ZmZlcg0KPiA+IHNob3VsZCBmcmVlZCBieSBzb2Z0d2FyZSBvciBieSBo
+YXJkd2FyZS4NCj4gPg0KPiA+IERvY3VtZW50YXRpb24gb24gaG93IHRvIHVzZSB0aGlzIGZlYXR1
+ZSBjYW4gYmUgZm91bmQgYXQNCj4gPiA8ZmlsZTpEb2N1bWVudGF0aW9uL25ldHdvcmtpbmcvaHdf
+c2tiLnR4dD4uDQo+ID4NCj4gPiBTaWduZWQtb2ZmLWJ5OiBQYW4gSmlhZmVpIDxKaWFmZWkuUGFu
+QGZyZWVzY2FsZS5jb20+DQo+IA0KPiANCj4gSSBhbSBnaXZpbmcgYSBzdHJvbmcgTkFDSywgb2Yg
+Y291cnNlLg0KPiANCj4gV2UgYXJlIG5vdCBnb2luZyB0byBncm93IHNrX2J1ZmYgYW5kIGFkZCB5
+ZXQgYW5vdGhlciBjb25kaXRpb25hbCBpbiBmYXN0DQo+IHBhdGggZm9yIGEgdmVyeSBvYnNjdXJl
+IGZlYXR1cmUgbGlrZSB0aGF0Lg0KPiANCj4gTWVtb3J5IG1hbmFnZW1lbnQgaXMgbm90IGdvaW5n
+IHRvIGJlIGRvbmUgYnkgZHJpdmVycy4NCj4gDQo+IFRoZSB3YXkgaXQgc2hvdWxkIHdvcmsgaXMg
+dGhhdCBpZiB5b3VyIGhhcmR3YXJlIGhhcyBzcGVjaWZpYyBuZWVkcywgcngNCj4gYW5kIHR4IHBh
+dGhzIChvZiB0aGUgZHJpdmVyKSBuZWVkIHRvIG1ha2UgdGhlIG5lZWRlZCBhZGFwdGF0aW9uLg0K
+PiBOb3QgdGhlIG90aGVyIHdheS4NCj4gDQo+IFdlIGFscmVhZHkgaGF2ZSBjb21wbGV4IHNrYiBs
+YXlvdXRzLCB3ZSBkbyBub3QgbmVlZCBhIG5ldyBvbmUuDQo+IA0KPiBUYWtlIGEgbG9vayBhdCBo
+b3cgZHJpdmVycyBjYW4gJ2xvY2snIHBhZ2VzIGFscmVhZHksIGFuZCBidWlsZCBza2Igc2l0aA0K
+PiBwYWdlIGZyYWdzLiBJdCBpcyBhbHJlYWR5IHRoZXJlLg0KPiANCkZvciBteSBjYXNlLCB0aGVy
+ZSBhcmUgc29tZSBzaG9ydGNvbWluZyB0byB1c2UgcGFnZSBmcmFncy4gRmlyc3RseSwgSSBoYXZl
+IHRvDQptb2RpZnkgZWFjaCBFdGhlcm5ldCBkcml2ZXJzIHRvIHN1cHBvcnQgaXQgZXNwZWNpYWxs
+eSBJIGRvbuKAmXQgd2hpY2ggdmVuZG9yJ3MNCmRyaXZlciB0aGUgY3VzdG9tZXIgd2lsbCB1c2Uu
+IFNlY29uZGx5LCBpdCBpcyBub3QgZW5vdWdoIG9ubHkgDQpidWlsZCBza2IgYnkgJ2xvY2snIHBh
+Z2VzLCB0aGUgYnVmZmVyIGFkZHJlc3MgY29tZXMgZnJvbSBoYXJkd2FyZSBibG9jayBhbmQNCnNo
+b3VsZCBiZSBhbGlnbmVkIHRvIGhhcmR3YXJlIGJsb2NrLg0K
