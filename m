@@ -1,7 +1,7 @@
 From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net 2/3] ipv4: share tcp_v4_save_options() with cookie_v4_check()
-Date: Wed, 15 Oct 2014 14:33:21 -0700
-Message-ID: <1413408802-21052-2-git-send-email-xiyou.wangcong@gmail.com>
+Subject: [Patch net 3/3] ipv4: clean up cookie_v4_check()
+Date: Wed, 15 Oct 2014 14:33:22 -0700
+Message-ID: <1413408802-21052-3-git-send-email-xiyou.wangcong@gmail.com>
 References: <1413408802-21052-1-git-send-email-xiyou.wangcong@gmail.com>
 Cc: davem@davemloft.net, Cong Wang <xiyou.wangcong@gmail.com>,
 	Krzysztof Kolasa <kkolasa@winsoft.pl>,
@@ -9,111 +9,92 @@ Cc: davem@davemloft.net, Cong Wang <xiyou.wangcong@gmail.com>,
 	Cong Wang <cwang@twopensource.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f180.google.com ([209.85.192.180]:55124 "EHLO
-	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751059AbaJOVde (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Oct 2014 17:33:34 -0400
-Received: by mail-pd0-f180.google.com with SMTP id fp1so1945419pdb.39
-        for <netdev@vger.kernel.org>; Wed, 15 Oct 2014 14:33:34 -0700 (PDT)
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:35698 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751276AbaJOVdg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Oct 2014 17:33:36 -0400
+Received: by mail-pd0-f177.google.com with SMTP id v10so1921616pde.8
+        for <netdev@vger.kernel.org>; Wed, 15 Oct 2014 14:33:35 -0700 (PDT)
 In-Reply-To: <1413408802-21052-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Cong Wang <cwang@twopensource.com>
 
-cookie_v4_check() allocates ip_options_rcu in the same way
-with tcp_v4_save_options(), we can just make it a helper function.
+We can retrieve opt from skb, no need to pass it as a parameter.
+And opt should always be non-NULL, no need to check.
 
 Cc: Krzysztof Kolasa <kkolasa@winsoft.pl>
 Cc: Eric Dumazet <edumazet@google.com>
+Tested-by: Krzysztof Kolasa <kkolasa@winsoft.pl>
 Signed-off-by: Cong Wang <cwang@twopensource.com>
 Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 ---
- include/net/tcp.h     | 20 ++++++++++++++++++++
- net/ipv4/syncookies.c | 10 +---------
- net/ipv4/tcp_ipv4.c   | 20 --------------------
- 3 files changed, 21 insertions(+), 29 deletions(-)
+ include/net/tcp.h     | 5 ++---
+ net/ipv4/syncookies.c | 6 +++---
+ net/ipv4/tcp_ipv4.c   | 2 +-
+ 3 files changed, 6 insertions(+), 7 deletions(-)
 
 diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 74efeda..869637a 100644
+index 869637a..3a4bbbf 100644
 --- a/include/net/tcp.h
 +++ b/include/net/tcp.h
-@@ -1666,4 +1666,24 @@ int tcpv4_offload_init(void);
- void tcp_v4_init(void);
- void tcp_init(void);
+@@ -468,8 +468,7 @@ void inet_sk_rx_dst_set(struct sock *sk, const struct sk_buff *skb);
+ /* From syncookies.c */
+ int __cookie_v4_check(const struct iphdr *iph, const struct tcphdr *th,
+ 		      u32 cookie);
+-struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
+-			     struct ip_options *opt);
++struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb);
+ #ifdef CONFIG_SYN_COOKIES
  
-+/*
-+ * Save and compile IPv4 options, return a pointer to it
-+ */
-+static inline struct ip_options_rcu *tcp_v4_save_options(struct sk_buff *skb)
-+{
-+	const struct ip_options *opt = &TCP_SKB_CB(skb)->header.h4.opt;
-+	struct ip_options_rcu *dopt = NULL;
-+
-+	if (opt && opt->optlen) {
-+		int opt_size = sizeof(*dopt) + opt->optlen;
-+
-+		dopt = kmalloc(opt_size, GFP_ATOMIC);
-+		if (dopt && __ip_options_echo(&dopt->opt, skb, opt)) {
-+			kfree(dopt);
-+			dopt = NULL;
-+		}
-+	}
-+	return dopt;
-+}
-+
- #endif	/* _TCP_H */
+ /* Syncookies use a monotonic timer which increments every 60 seconds.
+@@ -1674,7 +1673,7 @@ static inline struct ip_options_rcu *tcp_v4_save_options(struct sk_buff *skb)
+ 	const struct ip_options *opt = &TCP_SKB_CB(skb)->header.h4.opt;
+ 	struct ip_options_rcu *dopt = NULL;
+ 
+-	if (opt && opt->optlen) {
++	if (opt->optlen) {
+ 		int opt_size = sizeof(*dopt) + opt->optlen;
+ 
+ 		dopt = kmalloc(opt_size, GFP_ATOMIC);
 diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
-index 7e7401c..c68d0a1 100644
+index c68d0a1..d346303 100644
 --- a/net/ipv4/syncookies.c
 +++ b/net/ipv4/syncookies.c
-@@ -317,15 +317,7 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
- 	/* We throwed the options of the initial SYN away, so we hope
- 	 * the ACK carries the same options again (see RFC1122 4.2.3.8)
- 	 */
--	if (opt && opt->optlen) {
--		int opt_size = sizeof(struct ip_options_rcu) + opt->optlen;
--
--		ireq->opt = kmalloc(opt_size, GFP_ATOMIC);
--		if (ireq->opt != NULL && __ip_options_echo(&ireq->opt->opt, skb, opt)) {
--			kfree(ireq->opt);
--			ireq->opt = NULL;
--		}
--	}
-+	ireq->opt = tcp_v4_save_options(skb);
+@@ -255,9 +255,9 @@ bool cookie_check_timestamp(struct tcp_options_received *tcp_opt,
+ }
+ EXPORT_SYMBOL(cookie_check_timestamp);
  
- 	if (security_inet_conn_request(sk, skb, req)) {
- 		reqsk_free(req);
+-struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
+-			     struct ip_options *opt)
++struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb)
+ {
++	struct ip_options *opt = &TCP_SKB_CB(skb)->header.h4.opt;
+ 	struct tcp_options_received tcp_opt;
+ 	struct inet_request_sock *ireq;
+ 	struct tcp_request_sock *treq;
+@@ -336,7 +336,7 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
+ 	flowi4_init_output(&fl4, sk->sk_bound_dev_if, ireq->ir_mark,
+ 			   RT_CONN_FLAGS(sk), RT_SCOPE_UNIVERSE, IPPROTO_TCP,
+ 			   inet_sk_flowi_flags(sk),
+-			   (opt && opt->srr) ? opt->faddr : ireq->ir_rmt_addr,
++			   opt->srr ? opt->faddr : ireq->ir_rmt_addr,
+ 			   ireq->ir_loc_addr, th->source, th->dest);
+ 	security_req_classify_flow(req, flowi4_to_flowi(&fl4));
+ 	rt = ip_route_output_key(sock_net(sk), &fl4);
 diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 552e87e..6a2a7d6 100644
+index 6a2a7d6..94d1a77 100644
 --- a/net/ipv4/tcp_ipv4.c
 +++ b/net/ipv4/tcp_ipv4.c
-@@ -880,26 +880,6 @@ bool tcp_syn_flood_action(struct sock *sk,
- }
- EXPORT_SYMBOL(tcp_syn_flood_action);
+@@ -1408,7 +1408,7 @@ static struct sock *tcp_v4_hnd_req(struct sock *sk, struct sk_buff *skb)
  
--/*
-- * Save and compile IPv4 options into the request_sock if needed.
-- */
--static struct ip_options_rcu *tcp_v4_save_options(struct sk_buff *skb)
--{
--	const struct ip_options *opt = &TCP_SKB_CB(skb)->header.h4.opt;
--	struct ip_options_rcu *dopt = NULL;
--
--	if (opt && opt->optlen) {
--		int opt_size = sizeof(*dopt) + opt->optlen;
--
--		dopt = kmalloc(opt_size, GFP_ATOMIC);
--		if (dopt && __ip_options_echo(&dopt->opt, skb, opt)) {
--			kfree(dopt);
--			dopt = NULL;
--		}
--	}
--	return dopt;
--}
--
- #ifdef CONFIG_TCP_MD5SIG
- /*
-  * RFC2385 MD5 checksumming requires a mapping of
+ #ifdef CONFIG_SYN_COOKIES
+ 	if (!th->syn)
+-		sk = cookie_v4_check(sk, skb, &TCP_SKB_CB(skb)->header.h4.opt);
++		sk = cookie_v4_check(sk, skb);
+ #endif
+ 	return sk;
+ }
 -- 
 1.8.3.1
