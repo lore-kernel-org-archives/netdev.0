@@ -1,58 +1,134 @@
 From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: [PATCHv3 RFC 3/4] sparc64: Avoid irqsave/restore on vio.lock if
- in_softirq()
-Date: Wed, 15 Oct 2014 12:43:17 -0400
-Message-ID: <20141015164317.GD11840@oracle.com>
+Subject: [PATCHv3 RFC net-next 4/4] sunvnet: Remove irqsave/irqrestore on
+ vio.lock
+Date: Wed, 15 Oct 2014 12:43:31 -0400
+Message-ID: <20141015164331.GE11840@oracle.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, sparclinux@vger.kernel.org
+Cc: netdev@vger.kernel.org
 To: davem@davemloft.net, sowmini.varadhan@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:44060 "EHLO
+Received: from aserp1040.oracle.com ([141.146.126.69]:44214 "EHLO
 	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751450AbaJOQnX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Oct 2014 12:43:23 -0400
+	with ESMTP id S1751923AbaJOQnh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Oct 2014 12:43:37 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-For NAPIfied drivers , there is no need to
-synchronize by doing irqsave/restore on vio.lock in the I/O
-path.
+After the  NAPIfication of sunvnet, we no longer need to
+synchronize by doing irqsave/restore on vio.lock in the
+I/O fastpath.
+
+NAPI ->poll() is non-reentrant, so all RX processing occurs
+strictly in a serialized environment. TX reclaim is done in NAPI
+context, so the netif_tx_lock can be used to serialize
+critical sections between Tx and Rx paths.
 
 Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
 ---
- arch/sparc/kernel/viohs.c | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/sun/sunvnet.c | 30 +++++-------------------------
+ 1 file changed, 5 insertions(+), 25 deletions(-)
 
-diff --git a/arch/sparc/kernel/viohs.c b/arch/sparc/kernel/viohs.c
-index 7ef081a..d731586 100644
---- a/arch/sparc/kernel/viohs.c
-+++ b/arch/sparc/kernel/viohs.c
-@@ -747,10 +747,11 @@ EXPORT_SYMBOL(vio_ldc_free);
+diff --git a/drivers/net/ethernet/sun/sunvnet.c b/drivers/net/ethernet/sun/sunvnet.c
+index 09dbd07..128547cc 100644
+--- a/drivers/net/ethernet/sun/sunvnet.c
++++ b/drivers/net/ethernet/sun/sunvnet.c
+@@ -840,18 +840,6 @@ struct vnet_port *__tx_port_find(struct vnet *vp, struct sk_buff *skb)
+ 	return NULL;
+ }
  
- void vio_port_up(struct vio_driver_state *vio)
- {
+-struct vnet_port *tx_port_find(struct vnet *vp, struct sk_buff *skb)
+-{
+-	struct vnet_port *ret;
 -	unsigned long flags;
-+	unsigned long flags = 0;
- 	int err, state;
+-
+-	spin_lock_irqsave(&vp->lock, flags);
+-	ret = __tx_port_find(vp, skb);
+-	spin_unlock_irqrestore(&vp->lock, flags);
+-
+-	return ret;
+-}
+-
+ static struct sk_buff *vnet_clean_tx_ring(struct vnet_port *port,
+ 					  unsigned *pending)
+ {
+@@ -912,11 +900,10 @@ static void vnet_clean_timer_expire(unsigned long port0)
+ 	struct vnet_port *port = (struct vnet_port *)port0;
+ 	struct sk_buff *freeskbs;
+ 	unsigned pending;
+-	unsigned long flags;
  
--	spin_lock_irqsave(&vio->lock, flags);
-+	if (!in_softirq())
-+		spin_lock_irqsave(&vio->lock, flags);
+-	spin_lock_irqsave(&port->vio.lock, flags);
++	netif_tx_lock(port->vp->dev);
+ 	freeskbs = vnet_clean_tx_ring(port, &pending);
+-	spin_unlock_irqrestore(&port->vio.lock, flags);
++	netif_tx_unlock(port->vp->dev);
  
- 	state = ldc_state(vio->lp);
+ 	vnet_free_skbs(freeskbs);
  
-@@ -777,7 +778,8 @@ void vio_port_up(struct vio_driver_state *vio)
- 		mod_timer(&vio->timer, expires);
+@@ -969,7 +956,6 @@ static int vnet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	struct vnet_port *port = NULL;
+ 	struct vio_dring_state *dr;
+ 	struct vio_net_desc *d;
+-	unsigned long flags;
+ 	unsigned int len;
+ 	struct sk_buff *freeskbs = NULL;
+ 	int i, err, txi;
+@@ -982,7 +968,7 @@ static int vnet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		goto out_dropped;
+ 
+ 	rcu_read_lock();
+-	port = tx_port_find(vp, skb);
++	port = __tx_port_find(vp, skb);
+ 	if (unlikely(!port))
+ 		goto out_dropped;
+ 
+@@ -1020,8 +1006,6 @@ static int vnet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		goto out_dropped;
  	}
  
--	spin_unlock_irqrestore(&vio->lock, flags);
-+	if (!in_softirq())
-+		spin_unlock_irqrestore(&vio->lock, flags);
- }
- EXPORT_SYMBOL(vio_port_up);
+-	spin_lock_irqsave(&port->vio.lock, flags);
+-
+ 	dr = &port->vio.drings[VIO_DRIVER_TX_RING];
+ 	if (unlikely(vnet_tx_dring_avail(dr) < 2)) {
+ 		if (!netif_queue_stopped(dev)) {
+@@ -1055,7 +1039,7 @@ static int vnet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 			     (LDC_MAP_SHADOW | LDC_MAP_DIRECT | LDC_MAP_RW));
+ 	if (err < 0) {
+ 		netdev_info(dev, "tx buffer map error %d\n", err);
+-		goto out_dropped_unlock;
++		goto out_dropped;
+ 	}
+ 	port->tx_bufs[txi].ncookies = err;
  
+@@ -1108,7 +1092,7 @@ static int vnet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		netdev_info(dev, "TX trigger error %d\n", err);
+ 		d->hdr.state = VIO_DESC_FREE;
+ 		dev->stats.tx_carrier_errors++;
+-		goto out_dropped_unlock;
++		goto out_dropped;
+ 	}
+ 
+ ldc_start_done:
+@@ -1124,7 +1108,6 @@ ldc_start_done:
+ 			netif_wake_queue(dev);
+ 	}
+ 
+-	spin_unlock_irqrestore(&port->vio.lock, flags);
+ 	(void)mod_timer(&port->clean_timer, jiffies + VNET_CLEAN_TIMEOUT);
+ 	rcu_read_unlock();
+ 
+@@ -1132,9 +1115,6 @@ ldc_start_done:
+ 
+ 	return NETDEV_TX_OK;
+ 
+-out_dropped_unlock:
+-	spin_unlock_irqrestore(&port->vio.lock, flags);
+-
+ out_dropped:
+ 	if (pending)
+ 		(void)mod_timer(&port->clean_timer,
 -- 
 1.8.4.2
