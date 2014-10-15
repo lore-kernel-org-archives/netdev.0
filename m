@@ -1,48 +1,84 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Regarding tx-nocache-copy in the Sheevaplug
-Date: Wed, 15 Oct 2014 15:45:27 -0700
-Message-ID: <1413413127.17186.5.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20141013105246.GD1972@vicerveza.homeunix.net>
-	 <20141015215701.GA4109@f1.synalogic.ca>
+From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Subject: RE: [PATCH v3 net] ixgbe: check adapter->vfinfo before dereference
+Date: Wed, 15 Oct 2014 22:50:31 +0000
+Message-ID: <87618083B2453E4A8714035B62D67992500E2629@FMSMSX105.amr.corp.intel.com>
+References: <1412930732-892-1-git-send-email-thierry.herbelot@6wind.com>
+ <1413367080-31540-1-git-send-email-thierry.herbelot@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?ISO-8859-1?Q?Llu=EDs?= Batlle i Rossell <viric@viric.name>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Carles =?ISO-8859-1?Q?Pag=E8s?= <page@cubata.homelinux.net>,
-	linux-arm-kernel@lists.infradead.org
-To: Benjamin Poirier <benjamin.poirier@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141015215701.GA4109@f1.synalogic.ca>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: Thierry Herbelot <thierry.herbelot@6wind.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([134.134.136.65]:49789 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750809AbaJOWul convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Oct 2014 18:50:41 -0400
+In-Reply-To: <1413367080-31540-1-git-send-email-thierry.herbelot@6wind.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-10-15 at 14:57 -0700, Benjamin Poirier wrote:
-> On 2014/10/13 12:52, Llu=C3=ADs Batlle i Rossell wrote:
-> > Hello,
-> >=20
-> > on the 7th of January 2014 ths patch was applied:
-> > https://lkml.org/lkml/2014/1/7/307
-> >=20
-> > [PATCH v2] net: Do not enable tx-nocache-copy by default
-> >        =20
-> > In the Sheevaplug (ARM Feroceon 88FR131 from Marvell) this made pac=
-kets to be
-> > sent corrupted. I think this machine has something special about th=
-e cache.
-> >=20
-> > Enabling back this tx-nocache-copy (as it used to be before the pat=
-ch) the
-> > transfers work fine again. I think that most people, encountering t=
-his problem,
-> > completely disable the tx offload instead of enabling back this set=
-ting.
-> >=20
-> > Is this an ARM kernel problem regarding this platform?
->=20
-> This is odd, only x86 defines ARCH_HAS_NOCACHE_UACCESS. On arm,
-> skb_do_copy_data_nocache() should end up using __copy_from_user()
-> regardless of tx-nocache-copy.
+>-----Original Message-----
+>From: Thierry Herbelot [mailto:thierry.herbelot@6wind.com]
+>Sent: Wednesday, October 15, 2014 2:58 AM
+>To: Kirsher, Jeffrey T; Brandeburg, Jesse; Allan, Bruce W;
+>netdev@vger.kernel.org; Tantilov, Emil S
+>Cc: Thierry Herbelot
+>Subject: [PATCH v3 net] ixgbe: check adapter->vfinfo before dereference
+>
+>this protects against the following panic:
+>(before a VF was actually created on p96p1 PF Ethernet port)
+>
+>ip link set p96p1 vf 0 spoofchk off
+>BUG: unable to handle kernel NULL pointer dereference at 0000000000000052
+>IP: [<ffffffffa044a1c1>]
+>ixgbe_ndo_set_vf_spoofchk+0x51/0x150 [ixgbe]
+>
+>Signed-off-by: Thierry Herbelot <thierry.herbelot@6wind.com>
+>---
+>
+>v2:
+>  compilation fixes
+>
+>v3:
+>  remove checks in functions where vfinfo is known not to be NULL
+>  return -EINVAL as error code
+>
+> drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c |   42
+>++++++++++++++++++++++--
+> 1 file changed, 40 insertions(+), 2 deletions(-)
 
- kmap_atomic()/kunmap_atomic() is missing, so we lack
-__cpuc_flush_dcache_area() operations.
+Actually looking into this a bit more, the check for vfinfo is not sufficient
+because it does not protect against specifying vf that is outside of sriov_num_vfs range.
+
+All of the ndo functions have a check for it except for ixgbevf_ndo_set_spoofcheck().
+
+The following patch should be all we need to protect against this panic:
+
+This patch adds a check to return -EINVAL when setting spoofcheck on
+VF that is not configured.
+
+Reported-by: Thierry Herbelot <thierry.herbelot@6wind.com>
+Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c |    3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+index 706fc69..97c85b8 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+@@ -1261,6 +1261,9 @@ int ixgbe_ndo_set_vf_spoofchk(struct net_device *netdev, int vf, bool setting)
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 	u32 regval;
+ 
++	if (vf >= adapter->num_vfs)
++		return -EINVAL;
++
+ 	adapter->vfinfo[vf].spoofchk_enabled = setting;
+ 
+ 	regval = IXGBE_READ_REG(hw, IXGBE_PFVFSPOOF(vf_target_reg));
