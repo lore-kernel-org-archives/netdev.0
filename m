@@ -1,30 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] cxgb4i : Fix -Wmaybe-uninitialized warning.
-Date: Wed, 15 Oct 2014 12:14:12 -0400 (EDT)
-Message-ID: <20141015.121412.2124734484633968051.davem@davemloft.net>
-References: <1413358007-16980-1-git-send-email-anish@chelsio.com>
+Subject: Re: [PATCH RFC net-next] sfc: add support for skb->xmit_more
+Date: Wed, 15 Oct 2014 12:20:34 -0400 (EDT)
+Message-ID: <20141015.122034.126232757997381022.davem@davemloft.net>
+References: <alpine.LFD.2.03.1410141933500.26972@solarflare.com>
+	<20141014.171501.448630399243434370.davem@davemloft.net>
+	<543E54FF.1040304@solarflare.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kxie@chelsio.com
-To: anish@chelsio.com
+Cc: dborkman@redhat.com, nikolay@redhat.com, netdev@vger.kernel.org,
+	sshah@solarflare.com, jcooper@solarflare.com,
+	linux-net-drivers@solarflare.com
+To: ecree@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52108 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:52145 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750880AbaJOQOO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Oct 2014 12:14:14 -0400
-In-Reply-To: <1413358007-16980-1-git-send-email-anish@chelsio.com>
+	with ESMTP id S1751429AbaJOQUh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Oct 2014 12:20:37 -0400
+In-Reply-To: <543E54FF.1040304@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anish Bhatt <anish@chelsio.com>
-Date: Wed, 15 Oct 2014 00:26:47 -0700
+From: Edward Cree <ecree@solarflare.com>
+Date: Wed, 15 Oct 2014 12:05:35 +0100
 
-> Identified by kbuild test robot. csk family is always set to be AF_INET or 
-> AF_INET6, so skb will always be initialized to some value but there is no harm 
-> in silencing the warning anyways.
-> 
-> Signed-off-by: Anish Bhatt <anish@chelsio.com>
-> Fixes : f42bb57c61fd ('cxgb4i : Fix -Wunused-function warning')
+> On 14/10/14 22:15, David Miller wrote:
+>> From: Edward Cree <ecree@solarflare.com>
+>> Date: Tue, 14 Oct 2014 19:41:37 +0100
+>>
+>>> Don't ring the doorbell, and don't do PIO.  This will also prevent
+>>>  TX Push, because there will be more than one buffer waiting when
+>>>  the doorbell is rung.
+>>>
+>>> Signed-off-by: Edward Cree <ecree@solarflare.com>
+>> This looks good to me, mind if I apply this now?
+> I'd rather wait until Jon Cooper's had a chance to look at it; he
+> understands our TX path better than I.
 
-Applied.
+Ok.
