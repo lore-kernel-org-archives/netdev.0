@@ -1,65 +1,65 @@
-From: Krzysztof Kolasa <kkolasa@winsoft.pl>
-Subject: Re: something is wrong in commit 971f10eca1 - tcp: better TCP_SKB_CB
- layout to reduce cache line misses
-Date: Wed, 15 Oct 2014 13:40:15 +0200
-Message-ID: <543E5D1F.2020207@winsoft.pl>
-References: <CAFrEnehWNzmzZGV-ZGbZF=wJ1q0TjFtB1yG6Dp1yVrJmBj9B7Q@mail.gmail.com>	 <20141014.164705.1874094084240216813.davem@davemloft.net>	 <CAFrEnejET5wer6S6qx13tMKWMshmRj+JnQeZL-zdPGcs__9NoQ@mail.gmail.com>	 <20141014.171559.1355616486999711590.davem@davemloft.net>	 <CAHA+R7PyUZyjHPf-SJRiiOw=jQjJnXVaosYU7TuiVe6sQTC9Ww@mail.gmail.com>	 <1413323024.17109.11.camel@edumazet-glaptop2.roam.corp.google.com>	 <543E4DD8.80203@winsoft.pl> <1413372422.17365.10.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] tcp: refine autocork condition check
+Date: Wed, 15 Oct 2014 04:47:49 -0700
+Message-ID: <1413373669.17365.25.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <8e0610510498c7f6ecbe2e99ab6044030f93f792.1413369212.git.panweiping3@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <cwang@twopensource.com>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev@vger.kernel.org, edumazet@google.com
+To: Weiping Pan <panweiping3@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps01.winsoft.pl ([5.133.9.51]:60308 "EHLO vps01.winsoft.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752472AbaJOLkV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Oct 2014 07:40:21 -0400
-In-Reply-To: <1413372422.17365.10.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:56295 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751183AbaJOLrv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Oct 2014 07:47:51 -0400
+Received: by mail-pa0-f46.google.com with SMTP id fa1so1167268pad.5
+        for <netdev@vger.kernel.org>; Wed, 15 Oct 2014 04:47:51 -0700 (PDT)
+In-Reply-To: <8e0610510498c7f6ecbe2e99ab6044030f93f792.1413369212.git.panweiping3@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-W dniu 15.10.2014 o 13:27, Eric Dumazet pisze:
-> On Wed, 2014-10-15 at 12:35 +0200, Krzysztof Kolasa wrote:
->> W dniu 14.10.2014 o 23:43, Eric Dumazet pisze:
->>> On Tue, 2014-10-14 at 14:24 -0700, Cong Wang wrote:
->>>
->>>> Since we are still in merge window, I don't think we have to use
->>>> a one-line fix for a bug introduced in this merge window.
->>> You are clearly refactoring here. Its a nice cleanup.
->>>
->>> If I was the maintainer, I would prefer the one line fix.
->>>
->>> Then when net-next is open, you refactor.
->>>
->>> As I said, I wont argue, do whatever you want.
->>>
->>> Thanks
->>>
->>>
->>>
->> one-line patch not resolve problem, fix created by Cong Wang resolves
->> problem !!!
-> Hmm, there should be no difference with either patch.
->
-> tcp_v4_rcv()
-> ...
-> memmove(&TCP_SKB_CB(skb)->header.h4, IPCB(skb),
->          sizeof(struct inet_skb_parm));
-> ...
-> -> tcp_v4_do_rcv()
->     ->  tcp_v4_hnd_req()
->        -> cookie_v4_check(... , &TCP_SKB_CB(skb)->header.h4.opt)
->
-> Hmm...
->
->
+On Wed, 2014-10-15 at 18:34 +0800, Weiping Pan wrote:
+> Inspired by commit b2532eb9abd8 (tcp: fix ooo_okay setting vs Small Queues).
+> 
+> The last check in tcp_should_autocork() was meant to check that whether we
+> only have an ACK in Qdisc/NIC queues, or if TX completion was delayed after we
+> processed ACK packet, if so, we should push the packet immediately instead of
+> corking it.
+> Therefore we should compare sk_wmem_alloc with SKB_TRUESIZE(1) instead of
+> skb->truesize.
+> 
+> After this patch, tcp should have more chances to be corked, and the
+> performance should be a little better.  And netperf shows that this patch
+> works as expected.
+> 
+> ./super_netperf.sh 300 -H 10.16.42.249 -t TCP_STREAM -- -m 1 -M 1
+> 	      speed	TCPAutoCorking
+> Before patch: 169.38    222278
+> After patch:  173.27    232988
+> 
 
-on a 32bit system, the patch did not solve the problem :(
-I have exactly the same problem as before the patch
+I do not see how this patch changes anything on this workload, I suspect
+noise in your tests ? Full nstat output would give some hints maybe.
 
-I do not understand this, perhaps the problem is hidden somewhere else,
-one thing is certain after revert commit 971f10eca1 everything works 
-correctly
+TCP_STREAM netperfs send no ACK packets at all.
+
+I am concerned that this patch adds some latencies, and this wont be
+seen with your TCP_STREAM test.
+
+Autocorking is a trade off between throughput and latencies.
+
+We need extensive tests, using TCP_RR with various sizes.
+
+Existing behavior is telling that if a prior packet is in qdisc, and
+this skb has a bigger truesize, we do not autocork.
+
+
+In practice, you might hold now packets that are quite big, (more than
+SKB_WITH_OVERHEAD(2048 - MAX_TCP_HEADER) bytes of payload.
+
+Typical cases is applications using two writes, one to send a small
+header, one for the body of the request/answer.
+
+Existing code is better because we allow the second send() to be pushed
+to the qdisc/NIC, before first send is TX completed.
