@@ -1,48 +1,96 @@
-From: David L Stevens <david.stevens@oracle.com>
-Subject: Re: [PATCHv4 RFC net-next 1/4] sunvnet: NAPIfy sunvnet
-Date: Wed, 15 Oct 2014 14:51:03 -0400
-Message-ID: <543EC217.6060306@oracle.com>
-References: <20141015180115.GH11840@oracle.com>
+From: dom <dominic.curran@citrix.com>
+Subject: Re: ixgbe: Question about Flow Control on 10G
+Date: Wed, 15 Oct 2014 11:56:34 -0700
+Message-ID: <543EC362.5060507@citrix.com>
+References: <543D72FE.9090107@citrix.com> <87618083B2453E4A8714035B62D67992500E1865@FMSMSX105.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
-	davem@davemloft.net, bob.picco@oracle.com, dwight.engen@oracle.com,
-	raghuram.kothakota@oracle.com
+To: "Tantilov, Emil S" <emil.s.tantilov@intel.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:41613 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751324AbaJOSvI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Oct 2014 14:51:08 -0400
-In-Reply-To: <20141015180115.GH11840@oracle.com>
+Received: from smtp02.citrix.com ([66.165.176.63]:19460 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751624AbaJOS4K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Oct 2014 14:56:10 -0400
+In-Reply-To: <87618083B2453E4A8714035B62D67992500E1865@FMSMSX105.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 10/14/2014 01:54 PM, Tantilov, Emil S wrote:
+>> -----Original Message-----
+>> From: netdev-owner@vger.kernel.org [mailto:netdev-
+>> owner@vger.kernel.org] On Behalf Of dom
+>> Sent: Tuesday, October 14, 2014 12:01 PM
+>> To: Skidmore, Donald C; netdev@vger.kernel.org
+>> Subject: ixgbe: Question about Flow Control on 10G
+>>
+>> Hi
+>>
+>> I have a question about the ixgbe driver's handling of
+>> 'ethtool -a ethX'
+>> when the NIC is using fibre.
+>>
+>> Specifically I don't understand the code introduced by this
+>> commit:
+>>
+>> commit 73d80953dfd1d5a92948005798c857c311c2834b
+>> Author: Don Skidmore <donald.c.skidmore@intel.com>
+>> Date:   Wed Jul 31 02:19:24 2013 +0000
+>> Subject: ixgbe: fix fc autoneg ethtool reporting.
+>>
+>> The function introduced the function:
+>>         ixgbe_device_supports_autoneg_fc()
+>>
+>> which gets called by
+>> ixgbe_get_pauseparam()/ixgbe_set_pauseparam().
+>>
+>> specifically there is a  case in
+>> ixgbe_device_supports_autoneg_fc()
+>>
+>>      case ixgbe_media_type_fiber_qsfp:
+>>      case ixgbe_media_type_fiber:
+>>          hw->mac.ops.check_link(hw, &speed, &link_up,
+>> false);
+>>          /* if link is down, assume supported */
+>>          if (link_up)
+>>              supported = speed == IXGBE_LINK_SPEED_1GB_FULL ?
+>>                  true : false;
+>>
+>> If link_up=1 then why is supported only true for a
+>> speed=IXGBE_LINK_SPEED_1GB_FULL ?
+>>
+>> Why is Flow Control not supported for IXGBE_LINK_SPEED_10GB_FULL ?
+> For SFP modules (media_type_fiber) flow control autoneg is not supported at 10gig. You can still set flow control manually to enabled/disabled, just not autoneg.
+>
+> Thanks,
+> Emil
+Hi Emil
+
+Thank you for the quick answer.  I have a one follow-up question if I may...
+
+We noticed that back in 3.2.9 (before 73d80953dfd basically) the 
+behaviour was different for 10G fibre.  i.e.  autonegotiate showed 'on'.
+
+# ethtool -a eth1
+Pause parameters for eth1:
+Autonegotiate:  on
+RX:             on
+TX:             on
 
 
-On 10/15/2014 02:01 PM, Sowmini Varadhan wrote:
+The code:
+     if (hw->fc.disable_fc_autoneg ||
+         (hw->fc.current_mode == ixgbe_fc_none))
+         pause->autoneg = 0;
+     else
+         pause->autoneg = 1;
 
-> @@ -482,13 +485,26 @@ static int vnet_walk_rx(struct vnet_port *port, struct vio_dring_state *dr,
->  				return err;
->  			ack_start = -1;
->  		}
-> +		if ((*npkts) >= budget) {
-> +			send_ack = false;
-> +			break;
-> +		}
->  	}
+So I assume this old output from 'ethtool -a' for autogen was just 
+wrong, is that correct ?
 
-I still don't like this-- it's virtually "boolean_variable = true;if (condition) boolean_variable = false".
-Yes, it has the extra "break;", but I think it's clearer to say "send an ACK when
-we're under budget; don't send an ACK and break when we're over," or:
+[I'm asking cos I _know_ my h/w collegues are going to ask why the change.]
 
-		send_ack = *npkts < budget;
-		if (!send_ack)
-			break;
-
-I can live with either way, though.
-
-Acked-by: David L Stevens <david.stevens@oracle.com>
-
-						+-DLS
+Thanks again
+dom
