@@ -1,39 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: build failure after merge of the net tree
-Date: Tue, 14 Oct 2014 22:02:54 -0400 (EDT)
-Message-ID: <20141014.220254.144210672646232483.davem@davemloft.net>
-References: <20141015104411.306b138e@canb.auug.org.au>
+From: Andy Lutomirski <luto@amacapital.net>
+Subject: Re: Netlink mmap tx security?
+Date: Tue, 14 Oct 2014 19:03:11 -0700
+Message-ID: <CALCETrW1HFJ3QXMfV9Hv922eax0hbHJn5GmHPvtED8_JR5KOVg@mail.gmail.com>
+References: <CALCETrUYBed_TBacxoDPMphM5y=iqxho2isrDruOQi=pmK2yoQ@mail.gmail.com>
+ <20141014.160056.2113064815910782529.davem@davemloft.net> <CALCETrWDSG2EhxBnM8Jm55Ov8PYQ_w3Wf88SKYOB1q1WgRpbEw@mail.gmail.com>
+ <20141014.220111.179628329028952302.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, peppe.cavallaro@st.com
-To: sfr@canb.auug.org.au
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20141015104411.306b138e@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Network Development <netdev@vger.kernel.org>,
+	Thomas Graf <tgraf@suug.ch>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f50.google.com ([209.85.215.50]:49628 "EHLO
+	mail-la0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932644AbaJOCDd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2014 22:03:33 -0400
+Received: by mail-la0-f50.google.com with SMTP id s18so237277lam.9
+        for <netdev@vger.kernel.org>; Tue, 14 Oct 2014 19:03:31 -0700 (PDT)
+In-Reply-To: <20141014.220111.179628329028952302.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Wed, 15 Oct 2014 10:44:11 +1100
+On Tue, Oct 14, 2014 at 7:01 PM, David Miller <davem@davemloft.net> wrote:
+> From: Andy Lutomirski <luto@amacapital.net>
+> Date: Tue, 14 Oct 2014 15:16:46 -0700
+>
+>> It's at least remotely possible that there's something that assumes
+>> that assumes that the availability of NETLINK_RX_RING implies
+>> NETLINK_TX_RING, which would be unfortunate.
+>
+> I already found one such case, nlmon :-/
+>
+> It also reminds me that I'll have to update
+> Documentation/networking/netlink_mmap.txt
+>
+> Thomas, the context is that we have to remove NETLINK_TX_RING support
+> (there is absolutely no way whatsoever to reliably keep some thread of
+> control from modifying the underlying pages while we parse and
+> validate the netlink request).
+>
+> I'd like to be able to do so while retaining NETLINK_RX_RING because
+> that works fine and is great for monitoring when the rate of events
+> is high.
+>
+> But I already have found userland pieces of code, like nlmon, which
+> assume that if one is present then both must be present.
+>
+> I really think this means I'll have to remove all of the netlink
+> mmap() support in order to prevent from breaking applications. :(
+>
+> The other option is to keep NETLINK_TX_RING, but copy the data into
+> a kernel side buffer before acting upon it.
 
-> Hi all,
-> 
-> After merging the net tree, today's linux-next build (arm
-> multi_v7_defconfig) failed like this:
-> 
-> drivers/built-in.o: In function `.LANCHOR0':
-> :(.rodata+0x6b764): undefined reference to `sti_gmac_data'
-> :(.rodata+0x6b828): undefined reference to `sti_gmac_data'
-> :(.rodata+0x6b8ec): undefined reference to `sti_gmac_data'
-> :(.rodata+0x6b9b0): undefined reference to `sti_gmac_data'
-> 
-> Caused by commit 53b26b9bc9a5 ("stmmac: dwmac-sti: review the
-> glue-logic for STi4xx and STiD127 SoCs") which renamed sti_gmac_data to
-> stih4xx_dwmac_data (or something) without updating all the references
-> to it (including the one added in the previous commit ...).
-> 
-> I reverted that commit for today.
+Option 3, which sucks but maybe not that badly: change the value of
+NETLINK_RX_RING.  (Practically: add NETLINK_RX_RING2 or something like
+that.)
 
-Sigh, Giuseppe if I don't see a proper fix by tomorrow I'm
-reverting all of the stmmac changes I applied today.
+--Andy
