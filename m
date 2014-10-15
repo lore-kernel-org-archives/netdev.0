@@ -1,35 +1,70 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: Re: [PATCH RFC net-next] sfc: add support for skb->xmit_more
-Date: Wed, 15 Oct 2014 12:05:35 +0100
-Message-ID: <543E54FF.1040304@solarflare.com>
-References: <543C13AE.80606@solarflare.com> <543C2588.6060604@redhat.com> <alpine.LFD.2.03.1410141933500.26972@solarflare.com> <20141014.171501.448630399243434370.davem@davemloft.net>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [RFC PATCH net-next 0/6] Always use tx interrupt for virtio-net
+Date: Wed, 15 Oct 2014 19:14:14 +0800
+Message-ID: <543E5706.10305@redhat.com>
+References: <1413357930-45302-1-git-send-email-jasowang@redhat.com>
+	<20141015102553.GF25776@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: <dborkman@redhat.com>, <nikolay@redhat.com>,
-	<netdev@vger.kernel.org>, <sshah@solarflare.com>,
-	<jcooper@solarflare.com>, <linux-net-drivers@solarflare.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo01.seg.att.com ([209.65.160.76]:52252 "EHLO
-	nbfkord-smmo01.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751118AbaJOLJj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Oct 2014 07:09:39 -0400
-In-Reply-To: <20141014.171501.448630399243434370.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, davem@davemloft.net
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20141015102553.GF25776@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 14/10/14 22:15, David Miller wrote:
-> From: Edward Cree <ecree@solarflare.com>
-> Date: Tue, 14 Oct 2014 19:41:37 +0100
+On 10/15/2014 06:25 PM, Michael S. Tsirkin wrote:
+> On Wed, Oct 15, 2014 at 03:25:24PM +0800, Jason Wang wrote:
+>> According to David, proper accounting and queueing (at all levels, not
+>> just TCP sockets) is more important than trying to skim a bunch of
+>> cycles by avoiding TX interrupts.
+> He also mentioned we should find other ways to batch
 >
->> Don't ring the doorbell, and don't do PIO.  This will also prevent
->>  TX Push, because there will be more than one buffer waiting when
->>  the doorbell is rung.
->>
->> Signed-off-by: Edward Cree <ecree@solarflare.com>
-> This looks good to me, mind if I apply this now?
-I'd rather wait until Jon Cooper's had a chance to look at it; he
-understands our TX path better than I.
 
--Edward
+Right.
+>> Having an event to free the SKB is
+>> absolutely essential for the stack to operate correctly.
+>>
+>> This series tries to enable tx interrupt for virtio-net. The idea is
+>> simple: enable tx interrupt and schedule a tx napi to free old xmit
+>> skbs.
+>>
+>> Several notes:
+>> - Tx interrupt storm avoidance when queue is about to be full is
+>>   kept.
+> But queue is typically *not* full. More important to avoid interrupt
+> storms in that case IMO.
+
+Yes.
+>> Since we may enable callbacks in both ndo_start_xmit() and tx
+>>   napi, patch 1 adds a check to make sure used event never go
+>>   back. This will let the napi not enable the callbacks wrongly after
+>>   delayed callbacks was used.
+> So why not just use delayed callbacks?
+
+This means the tx interrupt are coalesced in a somewhat adaptive way.
+Need benchmark to see its effect.
+>
+>> - For bulk dequeuing, there's no need to enable tx interrupt for each
+>>   packet. The last patch only enable tx interrupt for the final skb in
+>>   the chain through xmit_more and a new helper to publish current avail
+>>   idx as used event.
+>>
+>> This series fixes several issues of original rfc pointed out by Michael.
+> Could you list the issues, for ease of review?
+
+Probably just one:
+
+- Move the virtqueue_disable_cb() from skb_xmit_done() into
+virtnet_poll_tx() under tx lock.
