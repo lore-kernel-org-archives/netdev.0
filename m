@@ -1,95 +1,175 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [RFC PATCH net-next 3/6] virtio-net: small optimization on
-	free_old_xmit_skbs()
-Date: Wed, 15 Oct 2014 09:49:01 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1C9D752A@AcuExch.aculab.com>
-References: <1413357930-45302-1-git-send-email-jasowang@redhat.com>
-	<1413357930-45302-4-git-send-email-jasowang@redhat.com>
-	<20141015093739.GC25776@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"virtualization@lists.linux-foundation.org"
-	<virtualization@lists.linux-foundation.org>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: "'Michael S. Tsirkin'" <mst@redhat.com>, Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20141015093739.GC25776@redhat.com>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Thierry Herbelot <thierry.herbelot@6wind.com>
+Subject: [PATCH v3 net] ixgbe: check adapter->vfinfo before dereference
+Date: Wed, 15 Oct 2014 11:58:00 +0200
+Message-ID: <1413367080-31540-1-git-send-email-thierry.herbelot@6wind.com>
+References: <1412930732-892-1-git-send-email-thierry.herbelot@6wind.com>
+Cc: Thierry Herbelot <thierry.herbelot@6wind.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
+	<emil.s.tantilov@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f171.google.com ([209.85.212.171]:33677 "EHLO
+	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751793AbaJOJ6h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Oct 2014 05:58:37 -0400
+Received: by mail-wi0-f171.google.com with SMTP id em10so12426093wid.16
+        for <netdev@vger.kernel.org>; Wed, 15 Oct 2014 02:58:35 -0700 (PDT)
+In-Reply-To: <1412930732-892-1-git-send-email-thierry.herbelot@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Of Michael S. Tsirkin
-> On Wed, Oct 15, 2014 at 03:25:27PM +0800, Jason Wang wrote:
-> > Accumulate the sent packets and sent bytes in local variables and perform a
-> > single u64_stats_update_begin/end() after.
-> >
-> > Cc: Rusty Russell <rusty@rustcorp.com.au>
-> > Cc: Michael S. Tsirkin <mst@redhat.com>
-> > Signed-off-by: Jason Wang <jasowang@redhat.com>
-> 
-> Not sure how much it's worth but since Eric suggested it ...
+this protects against the following panic:
+(before a VF was actually created on p96p1 PF Ethernet port)
 
-Probably depends on the actual cost of u64_stats_update_begin/end
-against the likely extra saving of the tx_bytes and tx_packets
-values onto the stack across the call to dev_kfree_skb_any().
-(Which depends on the number of caller saved registers.)
+ip link set p96p1 vf 0 spoofchk off
+BUG: unable to handle kernel NULL pointer dereference at 0000000000000052
+IP: [<ffffffffa044a1c1>] ixgbe_ndo_set_vf_spoofchk+0x51/0x150 [ixgbe]
 
-> Acked-by: Michael S. Tsirkin <mst@redhat.com>
-> 
-> > ---
-> >  drivers/net/virtio_net.c |   12 ++++++++----
-> >  1 files changed, 8 insertions(+), 4 deletions(-)
-> >
-> > diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> > index 3d0ce44..a4d56b8 100644
-> > --- a/drivers/net/virtio_net.c
-> > +++ b/drivers/net/virtio_net.c
-> > @@ -833,17 +833,21 @@ static void free_old_xmit_skbs(struct send_queue *sq)
-> >  	unsigned int len;
-> >  	struct virtnet_info *vi = sq->vq->vdev->priv;
-> >  	struct virtnet_stats *stats = this_cpu_ptr(vi->stats);
-> > +	u64 tx_bytes = 0, tx_packets = 0;
+Signed-off-by: Thierry Herbelot <thierry.herbelot@6wind.com>
+---
 
-tx_packets need only be 'unsigned int'.
-The same is almost certainly true of tx_bytes.
+v2:
+  compilation fixes
 
-	David
+v3:
+  remove checks in functions where vfinfo is known not to be NULL
+  return -EINVAL as error code
 
-> >  	while ((skb = virtqueue_get_buf(sq->vq, &len)) != NULL) {
-> >  		pr_debug("Sent skb %p\n", skb);
-> >
-> > -		u64_stats_update_begin(&stats->tx_syncp);
-> > -		stats->tx_bytes += skb->len;
-> > -		stats->tx_packets++;
-> > -		u64_stats_update_end(&stats->tx_syncp);
-> > +		tx_bytes += skb->len;
-> > +		tx_packets++;
-> >
-> >  		dev_kfree_skb_any(skb);
-> >  	}
-> > +
-> > +	u64_stats_update_begin(&stats->tx_syncp);
-> > +	stats->tx_bytes += tx_bytes;
-> > +	stats->tx_packets =+ tx_packets;
-> > +	u64_stats_update_end(&stats->tx_syncp);
-> >  }
-> >
-> >  static int xmit_skb(struct send_queue *sq, struct sk_buff *skb)
-> > --
-> > 1.7.1
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c |   42 ++++++++++++++++++++++--
+ 1 file changed, 40 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+index 706fc69..fab0157 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+@@ -365,6 +365,9 @@ void ixgbe_restore_vf_multicasts(struct ixgbe_adapter *adapter)
+ 	u32 vector_reg;
+ 	u32 mta_reg;
+ 
++	if (!adapter->vfinfo)
++		return;
++
+ 	for (i = 0; i < adapter->num_vfs; i++) {
+ 		u32 vmolr = IXGBE_READ_REG(hw, IXGBE_VMOLR(i));
+ 		vfinfo = &adapter->vfinfo[i];
+@@ -504,9 +507,13 @@ static void ixgbe_clear_vmvir(struct ixgbe_adapter *adapter, u32 vf)
+ static inline void ixgbe_vf_reset_event(struct ixgbe_adapter *adapter, u32 vf)
+ {
+ 	struct ixgbe_hw *hw = &adapter->hw;
+-	struct vf_data_storage *vfinfo = &adapter->vfinfo[vf];
++	struct vf_data_storage *vfinfo;
+ 	u8 num_tcs = netdev_get_num_tc(adapter->netdev);
+ 
++	if (!adapter->vfinfo)
++		return;
++	vfinfo = &adapter->vfinfo[vf];
++
+ 	/* add PF assigned VLAN or VLAN 0 */
+ 	ixgbe_set_vf_vlan(adapter, true, vfinfo->pf_vlan, vf);
+ 
+@@ -612,6 +619,9 @@ int ixgbe_vf_configuration(struct pci_dev *pdev, unsigned int event_mask)
+ 
+ 	bool enable = ((event_mask & 0x10000000U) != 0);
+ 
++	if (!adapter->vfinfo)
++		return -EINVAL;
++
+ 	if (enable)
+ 		eth_zero_addr(adapter->vfinfo[vfn].vf_mac_addresses);
+ 
+@@ -937,6 +947,9 @@ static int ixgbe_rcv_msg_from_vf(struct ixgbe_adapter *adapter, u32 vf)
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 	s32 retval;
+ 
++	if (!adapter->vfinfo)
++		return -EINVAL;
++
+ 	retval = ixgbe_read_mbx(hw, msgbuf, mbx_size, vf);
+ 
+ 	if (retval) {
+@@ -1010,6 +1023,9 @@ static void ixgbe_rcv_ack_from_vf(struct ixgbe_adapter *adapter, u32 vf)
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 	u32 msg = IXGBE_VT_MSGTYPE_NACK;
+ 
++	if (!adapter->vfinfo)
++		return;
++
+ 	/* if device isn't clear to send it shouldn't be reading either */
+ 	if (!adapter->vfinfo[vf].clear_to_send)
+ 		ixgbe_write_mbx(hw, &msg, 1, vf);
+@@ -1053,6 +1069,9 @@ void ixgbe_ping_all_vfs(struct ixgbe_adapter *adapter)
+ 	u32 ping;
+ 	int i;
+ 
++	if (!adapter->vfinfo)
++		return;
++
+ 	for (i = 0 ; i < adapter->num_vfs; i++) {
+ 		ping = IXGBE_PF_CONTROL_MSG;
+ 		if (adapter->vfinfo[i].clear_to_send)
+@@ -1066,6 +1085,9 @@ int ixgbe_ndo_set_vf_mac(struct net_device *netdev, int vf, u8 *mac)
+ 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+ 	if (!is_valid_ether_addr(mac) || (vf >= adapter->num_vfs))
+ 		return -EINVAL;
++	if (!adapter->vfinfo)
++		return -EINVAL;
++
+ 	adapter->vfinfo[vf].pf_set_mac = true;
+ 	dev_info(&adapter->pdev->dev, "setting MAC %pM on VF %d\n", mac, vf);
+ 	dev_info(&adapter->pdev->dev, "Reload the VF driver to make this"
+@@ -1085,6 +1107,9 @@ int ixgbe_ndo_set_vf_vlan(struct net_device *netdev, int vf, u16 vlan, u8 qos)
+ 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 
++	if (!adapter->vfinfo)
++		return -EINVAL;
++
+ 	if ((vf >= adapter->num_vfs) || (vlan > 4095) || (qos > 7))
+ 		return -EINVAL;
+ 	if (vlan || qos) {
+@@ -1149,7 +1174,11 @@ static void ixgbe_set_vf_rate_limit(struct ixgbe_adapter *adapter, int vf)
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 	u32 bcnrc_val = 0;
+ 	u16 queue, queues_per_pool;
+-	u16 tx_rate = adapter->vfinfo[vf].tx_rate;
++	u16 tx_rate;
++
++	if (!adapter->vfinfo)
++		return;
++	tx_rate = adapter->vfinfo[vf].tx_rate;
+ 
+ 	if (tx_rate) {
+ 		/* start with base link speed value */
+@@ -1199,6 +1228,9 @@ void ixgbe_check_vf_rate_limit(struct ixgbe_adapter *adapter)
+ {
+ 	int i;
+ 
++	if (!adapter->vfinfo)
++		return;
++
+ 	/* VF Tx rate limit was not set */
+ 	if (!adapter->vf_rate_link_speed)
+ 		return;
+@@ -1261,6 +1293,9 @@ int ixgbe_ndo_set_vf_spoofchk(struct net_device *netdev, int vf, bool setting)
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 	u32 regval;
+ 
++	if (!adapter->vfinfo)
++		return -EINVAL;
++
+ 	adapter->vfinfo[vf].spoofchk_enabled = setting;
+ 
+ 	regval = IXGBE_READ_REG(hw, IXGBE_PFVFSPOOF(vf_target_reg));
+@@ -1285,6 +1320,9 @@ int ixgbe_ndo_get_vf_config(struct net_device *netdev,
+ 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+ 	if (vf >= adapter->num_vfs)
+ 		return -EINVAL;
++	if (!adapter->vfinfo)
++		return -EINVAL;
++
+ 	ivi->vf = vf;
+ 	memcpy(&ivi->mac, adapter->vfinfo[vf].vf_mac_addresses, ETH_ALEN);
+ 	ivi->max_tx_rate = adapter->vfinfo[vf].tx_rate;
+-- 
+1.7.10.4
