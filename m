@@ -1,125 +1,183 @@
 From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Subject: [net-next.git 2/3] stmmac: remove STMMAC_DEBUG_FS
-Date: Wed, 15 Oct 2014 10:25:30 +0200
-Message-ID: <1413361531-9182-3-git-send-email-peppe.cavallaro@st.com>
+Subject: [net-next.git 1/3] stmmac: remove specific SoC Koption from platform.
+Date: Wed, 15 Oct 2014 10:25:29 +0200
+Message-ID: <1413361531-9182-2-git-send-email-peppe.cavallaro@st.com>
 References: <1413361531-9182-1-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx08-00178001.pphosted.com ([91.207.212.93]:36085 "EHLO
+Received: from mx08-00178001.pphosted.com ([91.207.212.93]:36081 "EHLO
 	mx08-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751458AbaJOIat (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Oct 2014 04:30:49 -0400
+	by vger.kernel.org with ESMTP id S1751458AbaJOIaf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Oct 2014 04:30:35 -0400
 Received: from pps.filterd (m0046661.ppops.net [127.0.0.1])
-	by mx08-00178001.pphosted.com (8.14.5/8.14.5) with SMTP id s9F8FMjL009123
-	for <netdev@vger.kernel.org>; Wed, 15 Oct 2014 10:30:47 +0200
+	by mx08-00178001.pphosted.com (8.14.5/8.14.5) with SMTP id s9F8FOG7009136
+	for <netdev@vger.kernel.org>; Wed, 15 Oct 2014 10:30:32 +0200
 Received: from beta.dmz-eu.st.com (beta.dmz-eu.st.com [164.129.1.35])
-	by mx08-00178001.pphosted.com with ESMTP id 1q0ee72u40-1
+	by mx08-00178001.pphosted.com with ESMTP id 1q0ee72u3s-1
 	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Wed, 15 Oct 2014 10:30:34 +0200
+	for <netdev@vger.kernel.org>; Wed, 15 Oct 2014 10:30:32 +0200
 Received: from zeta.dmz-eu.st.com (zeta.dmz-eu.st.com [164.129.230.9])
-	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 90EFE43
-	for <netdev@vger.kernel.org>; Wed, 15 Oct 2014 08:30:09 +0000 (GMT)
+	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 3983241
+	for <netdev@vger.kernel.org>; Wed, 15 Oct 2014 08:30:08 +0000 (GMT)
 Received: from Webmail-eu.st.com (Safex1hubcas21.st.com [10.75.90.44])
-	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 9E28E2CD5D
-	for <netdev@vger.kernel.org>; Wed, 15 Oct 2014 08:30:31 +0000 (GMT)
+	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 01F342CD5A
+	for <netdev@vger.kernel.org>; Wed, 15 Oct 2014 08:30:29 +0000 (GMT)
 In-Reply-To: <1413361531-9182-1-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-the STMMAC_DEBUG_FS Koption is now removed from the
-driver configuration and this support will be built
-by default when DEBUG_FS is present. This can also be
-useful on building driver verification.
+This patch removes all the Koptions added to build the glue-logic files
+for all different architectures: DWMAC_MESON, DWMAC_SUNXI, DWMAC_STI ...
+Nowadays the stmmac needs to be compiled on several platforms; in some
+case it very convenient to guarantee that its build is always completed
+with success on all the branches where the driver is present.
+Note that there is no Koption for SPEAr.
 
 Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/Kconfig       |    8 --------
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   14 +++++++-------
- 2 files changed, 7 insertions(+), 15 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/Kconfig        |   50 ++------------------
+ drivers/net/ethernet/stmicro/stmmac/Makefile       |    8 +--
+ drivers/net/ethernet/stmicro/stmmac/stmmac.h       |    9 +---
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |   10 +----
+ 4 files changed, 9 insertions(+), 68 deletions(-)
 
 diff --git a/drivers/net/ethernet/stmicro/stmmac/Kconfig b/drivers/net/ethernet/stmicro/stmmac/Kconfig
-index 40f356d..af5228a 100644
+index b02d4a3..40f356d 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/Kconfig
 +++ b/drivers/net/ethernet/stmicro/stmmac/Kconfig
-@@ -38,14 +38,6 @@ config STMMAC_PCI
+@@ -18,56 +18,14 @@ config STMMAC_PLATFORM
+ 	depends on STMMAC_ETH
+ 	default y
+ 	---help---
+-	  This selects the platform specific bus support for
+-	  the stmmac device driver. This is the driver used
+-	  on many embedded STM platforms based on ARM and SuperH
+-	  processors.
++	  This selects the platform specific bus support for the stmmac driver.
++	  This is the driver used on several SoCs:
++	  STi, Allwinner, Amlogic Meson, Altera SOCFPGA.
++
+ 	  If you have a controller with this interface, say Y or M here.
  
  	  If unsure, say N.
  
--config STMMAC_DEBUG_FS
--	bool "Enable monitoring via sysFS "
--	default n
--	depends on STMMAC_ETH && DEBUG_FS
--	---help---
--	  The stmmac entry in /sys reports DMA TX/RX rings
--	  or (if supported) the HW cap register.
+-config DWMAC_MESON
+-	bool "Amlogic Meson dwmac support"
+-	depends on STMMAC_PLATFORM && ARCH_MESON
+-	help
+-	  Support for Ethernet controller on Amlogic Meson SoCs.
 -
- config STMMAC_DA
- 	bool "STMMAC DMA arbitration scheme"
- 	default n
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 6f77a46..a34754b 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -44,10 +44,10 @@
- #include <linux/slab.h>
- #include <linux/prefetch.h>
- #include <linux/pinctrl/consumer.h>
--#ifdef CONFIG_STMMAC_DEBUG_FS
-+#ifdef CONFIG_DEBUG_FS
- #include <linux/debugfs.h>
- #include <linux/seq_file.h>
--#endif /* CONFIG_STMMAC_DEBUG_FS */
-+#endif /* CONFIG_DEBUG_FS */
- #include <linux/net_tstamp.h>
- #include "stmmac_ptp.h"
+-	  This selects the Amlogic Meson SoC glue layer support for
+-	  the stmmac device driver. This driver is used for Meson6 and
+-	  Meson8 SoCs.
+-
+-config DWMAC_SOCFPGA
+-	bool "SOCFPGA dwmac support"
+-	depends on STMMAC_PLATFORM && MFD_SYSCON && (ARCH_SOCFPGA || COMPILE_TEST)
+-	help
+-	  Support for ethernet controller on Altera SOCFPGA
+-
+-	  This selects the Altera SOCFPGA SoC glue layer support
+-	  for the stmmac device driver. This driver is used for
+-	  arria5 and cyclone5 FPGA SoCs.
+-
+-config DWMAC_SUNXI
+-	bool "Allwinner GMAC support"
+-	depends on STMMAC_PLATFORM && ARCH_SUNXI
+-	default y
+-	---help---
+-	  Support for Allwinner A20/A31 GMAC ethernet controllers.
+-
+-	  This selects Allwinner SoC glue layer support for the
+-	  stmmac device driver. This driver is used for A20/A31
+-	  GMAC 	  ethernet controller.
+-
+-config DWMAC_STI
+-	bool "STi GMAC support"
+-	depends on STMMAC_PLATFORM && ARCH_STI
+-	default y
+-	---help---
+-	  Support for ethernet controller on STi SOCs.
+-
+-	  This selects STi SoC glue layer support for the stmmac
+-	  device driver. This driver is used on for the STi series
+-	  SOCs GMAC ethernet controller.
+-
+ config STMMAC_PCI
+ 	bool "STMMAC PCI bus support"
+ 	depends on STMMAC_ETH && PCI
+diff --git a/drivers/net/ethernet/stmicro/stmmac/Makefile b/drivers/net/ethernet/stmicro/stmmac/Makefile
+index 0533d0b..034da70 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/Makefile
++++ b/drivers/net/ethernet/stmicro/stmmac/Makefile
+@@ -1,10 +1,8 @@
+ obj-$(CONFIG_STMMAC_ETH) += stmmac.o
+-stmmac-$(CONFIG_STMMAC_PLATFORM) += stmmac_platform.o
+ stmmac-$(CONFIG_STMMAC_PCI) += stmmac_pci.o
+-stmmac-$(CONFIG_DWMAC_MESON) += dwmac-meson.o
+-stmmac-$(CONFIG_DWMAC_SUNXI) += dwmac-sunxi.o
+-stmmac-$(CONFIG_DWMAC_STI) += dwmac-sti.o
+-stmmac-$(CONFIG_DWMAC_SOCFPGA) += dwmac-socfpga.o
++stmmac-$(CONFIG_STMMAC_PLATFORM) +=	stmmac_platform.o dwmac-meson.o \
++					dwmac-sunxi.o dwmac-sti.o \
++					dwmac-socfpga.o
+ stmmac-objs:= stmmac_main.o stmmac_ethtool.o stmmac_mdio.o ring_mode.o	\
+ 	      chain_mode.o dwmac_lib.o dwmac1000_core.o  dwmac1000_dma.o \
+ 	      dwmac100_core.o dwmac100_dma.o enh_desc.o  norm_desc.o \
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+index 4452889..4df544e 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+@@ -137,19 +137,12 @@ void stmmac_disable_eee_mode(struct stmmac_priv *priv);
+ bool stmmac_eee_init(struct stmmac_priv *priv);
+ 
+ #ifdef CONFIG_STMMAC_PLATFORM
+-#ifdef CONFIG_DWMAC_MESON
+ extern const struct stmmac_of_data meson6_dwmac_data;
+-#endif
+-#ifdef CONFIG_DWMAC_SUNXI
+ extern const struct stmmac_of_data sun7i_gmac_data;
+-#endif
+-#ifdef CONFIG_DWMAC_STI
+ extern const struct stmmac_of_data sti_gmac_data;
+-#endif
+-#ifdef CONFIG_DWMAC_SOCFPGA
+ extern const struct stmmac_of_data socfpga_gmac_data;
+-#endif
+ extern struct platform_driver stmmac_pltfr_driver;
++
+ static inline int stmmac_register_platform(void)
+ {
+ 	int err;
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+index 6521717..2fe3c43 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+@@ -30,21 +30,13 @@
  #include "stmmac.h"
-@@ -116,7 +116,7 @@ MODULE_PARM_DESC(chain_mode, "To use chain instead of ring mode");
  
- static irqreturn_t stmmac_interrupt(int irq, void *dev_id);
- 
--#ifdef CONFIG_STMMAC_DEBUG_FS
-+#ifdef CONFIG_DEBUG_FS
- static int stmmac_init_fs(struct net_device *dev);
- static void stmmac_exit_fs(void);
- #endif
-@@ -1688,7 +1688,7 @@ static int stmmac_hw_setup(struct net_device *dev)
- 	if (ret && ret != -EOPNOTSUPP)
- 		pr_warn("%s: failed PTP initialisation\n", __func__);
- 
--#ifdef CONFIG_STMMAC_DEBUG_FS
-+#ifdef CONFIG_DEBUG_FS
- 	ret = stmmac_init_fs(dev);
- 	if (ret < 0)
- 		pr_warn("%s: failed debugFS registration\n", __func__);
-@@ -1866,7 +1866,7 @@ static int stmmac_release(struct net_device *dev)
- 
- 	netif_carrier_off(dev);
- 
--#ifdef CONFIG_STMMAC_DEBUG_FS
-+#ifdef CONFIG_DEBUG_FS
- 	stmmac_exit_fs();
- #endif
- 
-@@ -2453,7 +2453,7 @@ static int stmmac_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
- 	return ret;
- }
- 
--#ifdef CONFIG_STMMAC_DEBUG_FS
-+#ifdef CONFIG_DEBUG_FS
- static struct dentry *stmmac_fs_dir;
- static struct dentry *stmmac_rings_status;
- static struct dentry *stmmac_dma_cap;
-@@ -2638,7 +2638,7 @@ static void stmmac_exit_fs(void)
- 	debugfs_remove(stmmac_dma_cap);
- 	debugfs_remove(stmmac_fs_dir);
- }
--#endif /* CONFIG_STMMAC_DEBUG_FS */
-+#endif /* CONFIG_DEBUG_FS */
- 
- static const struct net_device_ops stmmac_netdev_ops = {
- 	.ndo_open = stmmac_open,
+ static const struct of_device_id stmmac_dt_ids[] = {
+-#ifdef CONFIG_DWMAC_MESON
++	/* SoC specific glue layers should come before generic bindings */
+ 	{ .compatible = "amlogic,meson6-dwmac", .data = &meson6_dwmac_data},
+-#endif
+-#ifdef CONFIG_DWMAC_SUNXI
+ 	{ .compatible = "allwinner,sun7i-a20-gmac", .data = &sun7i_gmac_data},
+-#endif
+-#ifdef CONFIG_DWMAC_STI
+ 	{ .compatible = "st,stih415-dwmac", .data = &sti_gmac_data},
+ 	{ .compatible = "st,stih416-dwmac", .data = &sti_gmac_data},
+ 	{ .compatible = "st,stid127-dwmac", .data = &sti_gmac_data},
+-#endif
+-#ifdef CONFIG_DWMAC_SOCFPGA
+ 	{ .compatible = "altr,socfpga-stmmac", .data = &socfpga_gmac_data },
+-#endif
+-	/* SoC specific glue layers should come before generic bindings */
+ 	{ .compatible = "st,spear600-gmac"},
+ 	{ .compatible = "snps,dwmac-3.610"},
+ 	{ .compatible = "snps,dwmac-3.70a"},
 -- 
 1.7.4.4
