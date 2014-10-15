@@ -1,97 +1,98 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH] virtio_net: fix use after free
-Date: Wed, 15 Oct 2014 16:37:10 +0300
-Message-ID: <20141015133710.GA28339@redhat.com>
-References: <1413378878-28118-1-git-send-email-mst@redhat.com>
-	<063D6719AE5E284EB5DD2968C1650D6D1C9D77AB@AcuExch.aculab.com>
+From: Ian Morgan <imorgan@primordial.ca>
+Subject: [NET/USB] ax88179_set_mac_addr: return only error or zero
+Date: Wed, 15 Oct 2014 09:49:19 -0400
+Message-ID: <CALgSy_dy8=WwTJ-GAkGY-DV=NeOOKEP7nMNO=0XyaP2wGwbkdA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"virtualization@lists.linux-foundation.org"
-	<virtualization@lists.linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1C9D77AB@AcuExch.aculab.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed; boundary=001a113fb70842e8860505766710
+To: netdev@vger.kernel.org, linux-usb@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f175.google.com ([209.85.213.175]:56760 "EHLO
+	mail-ig0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751191AbaJONtl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Oct 2014 09:49:41 -0400
+Received: by mail-ig0-f175.google.com with SMTP id uq10so17412500igb.8
+        for <netdev@vger.kernel.org>; Wed, 15 Oct 2014 06:49:40 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 15, 2014 at 01:24:57PM +0000, David Laight wrote:
-> From: Michael S. Tsirkin
-> > commit 0b725a2ca61bedc33a2a63d0451d528b268cf975
-> >     net: Remove ndo_xmit_flush netdev operation, use signalling instead.
-> > 
-> > added code that looks at skb->xmit_more after the skb has
-> > been put in TX VQ. Since some paths process the ring and free the skb
-> > immediately, this can cause use after free.
-> > 
-> > Fix by storing xmit_more in a local variable.
-> > 
-> > Cc: David S. Miller <davem@davemloft.net>
-> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> > ---
-> > 
-> > David, am I using the API correctly?
-> > Seems to work for me.
-> > You used __netif_subqueue_stopped but that seems to use
-> > a slightly more expensive test_bit internally.
-> > The reason I added a variable for the txq here is because it's handy for
-> > BQL patch later on.
-> > 
-> > 
-> >  drivers/net/virtio_net.c | 4 +++-
-> >  1 file changed, 3 insertions(+), 1 deletion(-)
-> > 
-> > diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> > index 3d0ce44..13d0a8b 100644
-> > --- a/drivers/net/virtio_net.c
-> > +++ b/drivers/net/virtio_net.c
-> > @@ -920,6 +920,8 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
-> >  	int qnum = skb_get_queue_mapping(skb);
-> >  	struct send_queue *sq = &vi->sq[qnum];
-> >  	int err;
-> > +	struct netdev_queue *txq = netdev_get_tx_queue(dev, qnum);
-> 
-> Do you need to cache 'txq' on stack for the entire call?
-> Looks like it is only needed when 'kick' is true.
-> I've not looked to see if saves both 'dev' and 'qnum' being kept.
-> 
-> In any case it isn't mentioned in the commit message.
-> 
-> 	David
+--001a113fb70842e8860505766710
+Content-Type: text/plain; charset=UTF-8
 
-Code seems slightly neater this way, I haven't bothered to
-micro-optimize it to this level yet.
-Want to benchmark and send a patch on top?
+(It's about a USB NIC, so not sure if this is suitable to the netdev
+mailing list or the linux-usb mailing list, so you both get it.)
 
-> > +	bool kick = !skb->xmit_more;
-> > 
-> >  	/* Free up any pending old buffers before queueing new ones. */
-> >  	free_old_xmit_skbs(sq);
-> > @@ -956,7 +958,7 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
-> >  		}
-> >  	}
-> > 
-> > -	if (__netif_subqueue_stopped(dev, qnum) || !skb->xmit_more)
-> > +	if (kick || netif_xmit_stopped(txq))
-> >  		virtqueue_kick(sq->vq);
-> > 
-> >  	return NETDEV_TX_OK;
-> > --
-> > MST
-> > --
-> > To unsubscribe from this list: send the line "unsubscribe netdev" in
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+I had an issue with bonding one of these USB3 Gigabit NIC devices
+because set_mac_addr was returning a positive value (6), and the
+bonding driver thinks that any non-zero value is an error.
+
+My proposed fix was to (I thought correctly) check for negative return
+codes in bond_enslave() instead of any non-zero value.
+
+I was told by the bonding driver maintainers that my proposed fix was
+incorrect, and that the device driver should return only zero on
+success, as other drivers do this and that assumption has been made.
+I'm really not sure why the more vigilant check in the bonding driver
+was "wrong" though. We all know the rule about assumptions ;-) But I
+defer to their superior knowledge of kernel interfaces.
+
+Anyhow, it would seem that the following patch is the "more
+acceptable" solution, and is in line with what other drivers do:
+
+
+--- linux-3.17/drivers/net/usb/ax88179_178a.c.orig  2014-10-05
+15:23:04.000000000 -0400
++++ linux-3.17/drivers/net/usb/ax88179_178a.c   2014-10-15
+09:07:31.217810217 -0400
+@@ -937,6 +937,7 @@ static int ax88179_set_mac_addr(struct n
+ {
+        struct usbnet *dev = netdev_priv(net);
+        struct sockaddr *addr = p;
++       int ret;
+
+        if (netif_running(net))
+                return -EBUSY;
+@@ -946,8 +947,12 @@ static int ax88179_set_mac_addr(struct n
+        memcpy(net->dev_addr, addr->sa_data, ETH_ALEN);
+
+        /* Set the MAC address */
+-       return ax88179_write_cmd(dev, AX_ACCESS_MAC, AX_NODE_ID, ETH_ALEN,
++       ret = ax88179_write_cmd(dev, AX_ACCESS_MAC, AX_NODE_ID, ETH_ALEN,
+                                 ETH_ALEN, net->dev_addr);
++       if (ret < 0)
++               return ret;
++
++       return 0;
+ }
+
+ static const struct net_device_ops ax88179_netdev_ops = {
+
+
+(non-tab-mangled patch file attached)
+
+Your feedback is duly appreciated. Please CC me, as I am not
+subscribed to these mailing lists.
+
+--
+Ian Morgan
+
+--001a113fb70842e8860505766710
+Content-Type: text/x-patch; charset=US-ASCII; name="ax88719_setmacaddr_rc.patch"
+Content-Disposition: attachment; filename="ax88719_setmacaddr_rc.patch"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_i1apg2mh0
+
+LS0tIGxpbnV4LTMuMTcvZHJpdmVycy9uZXQvdXNiL2F4ODgxNzlfMTc4YS5jfgkyMDE0LTEwLTA1
+IDE1OjIzOjA0LjAwMDAwMDAwMCAtMDQwMAorKysgbGludXgtMy4xNy9kcml2ZXJzL25ldC91c2Iv
+YXg4ODE3OV8xNzhhLmMJMjAxNC0xMC0xNSAwOTowNzozMS4yMTc4MTAyMTcgLTA0MDAKQEAgLTkz
+Nyw2ICs5MzcsNyBAQCBzdGF0aWMgaW50IGF4ODgxNzlfc2V0X21hY19hZGRyKHN0cnVjdCBuCiB7
+CiAJc3RydWN0IHVzYm5ldCAqZGV2ID0gbmV0ZGV2X3ByaXYobmV0KTsKIAlzdHJ1Y3Qgc29ja2Fk
+ZHIgKmFkZHIgPSBwOworCWludCByZXQ7CiAKIAlpZiAobmV0aWZfcnVubmluZyhuZXQpKQogCQly
+ZXR1cm4gLUVCVVNZOwpAQCAtOTQ2LDggKzk0NywxMiBAQCBzdGF0aWMgaW50IGF4ODgxNzlfc2V0
+X21hY19hZGRyKHN0cnVjdCBuCiAJbWVtY3B5KG5ldC0+ZGV2X2FkZHIsIGFkZHItPnNhX2RhdGEs
+IEVUSF9BTEVOKTsKIAogCS8qIFNldCB0aGUgTUFDIGFkZHJlc3MgKi8KLQlyZXR1cm4gYXg4ODE3
+OV93cml0ZV9jbWQoZGV2LCBBWF9BQ0NFU1NfTUFDLCBBWF9OT0RFX0lELCBFVEhfQUxFTiwKKwly
+ZXQgPSBheDg4MTc5X3dyaXRlX2NtZChkZXYsIEFYX0FDQ0VTU19NQUMsIEFYX05PREVfSUQsIEVU
+SF9BTEVOLAogCQkJCSBFVEhfQUxFTiwgbmV0LT5kZXZfYWRkcik7CisJaWYgKHJldCA8IDApCisJ
+CXJldHVybiByZXQ7CisKKwlyZXR1cm4gMDsKIH0KIAogc3RhdGljIGNvbnN0IHN0cnVjdCBuZXRf
+ZGV2aWNlX29wcyBheDg4MTc5X25ldGRldl9vcHMgPSB7Cg==
+--001a113fb70842e8860505766710--
