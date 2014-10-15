@@ -1,47 +1,148 @@
-From: Vasily Averin <vvs@parallels.com>
-Subject: Re: [PATCH v2] ipv4: dst_entry leak in ip_append_data()
-Date: Wed, 15 Oct 2014 15:31:37 +0400
-Message-ID: <543E5B19.2080200@parallels.com>
-References: <543CAD2A.3070701@parallels.com>	 <1413348385.12304.0.camel@edumazet-glaptop2.roam.corp.google.com>	 <543E1AAF.9050601@parallels.com> <1413365433.12304.53.camel@edumazet-glaptop2.roam.corp.google.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [RFC PATCH net-next 1/6] virtio: make sure used event never go
+	backwards
+Date: Wed, 15 Oct 2014 14:38:59 +0300
+Message-ID: <20141015113859.GA26918@redhat.com>
+References: <1413357930-45302-1-git-send-email-jasowang@redhat.com>
+	<1413357930-45302-2-git-send-email-jasowang@redhat.com>
+	<20141015093432.GB25776@redhat.com> <543E48BF.4080502@redhat.com>
+	<20141015103232.GG25776@redhat.com> <543E5019.9020507@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:16421 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751301AbaJOLdU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Oct 2014 07:33:20 -0400
-In-Reply-To: <1413365433.12304.53.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, davem@davemloft.net
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <543E5019.9020507@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 15.10.2014 13:30, Eric Dumazet wrote:
-> On Wed, 2014-10-15 at 10:56 +0400, Vasily Averin wrote:
->> On 15.10.2014 08:46, Eric Dumazet wrote:
->>> On Tue, 2014-10-14 at 08:57 +0400, Vasily Averin wrote:
->>>> v2: adjust the indentation of the arguments __ip_append_data() call
->>>>
->>>> Fixes: 2e77d89b2fa8 ("net: avoid a pair of dst_hold()/dst_release() in ip_append_data()")
->>>>
->>>> If sk_write_queue is empty ip_append_data() executes ip_setup_cork()
->>>> that "steals" dst entry from rt to cork. Later it calls __ip_append_data()
->>>> that creates skb and adds it to sk_write_queue.
->>>>
->>>> If skb was added successfully following ip_push_pending_frames() call
->>>> reassign dst entries from cork to skb, and kfree_skb frees dst_entry.
->>>>
->>>> However nobody frees stolen dst_entry if skb was not added into sk_write_queue.
->>>
->>> I thought this was done by ip_flush_pending_frames() ?
->>
->> Take look at ip_send_unicast_reply():
+On Wed, Oct 15, 2014 at 06:44:41PM +0800, Jason Wang wrote:
+> On 10/15/2014 06:32 PM, Michael S. Tsirkin wrote:
+> > On Wed, Oct 15, 2014 at 06:13:19PM +0800, Jason Wang wrote:
+> >> On 10/15/2014 05:34 PM, Michael S. Tsirkin wrote:
+> >>> On Wed, Oct 15, 2014 at 03:25:25PM +0800, Jason Wang wrote:
+> >>>> This patch checks the new event idx to make sure used event idx never
+> >>>> goes back. This is used to synchronize the calls between
+> >>>> virtqueue_enable_cb_delayed() and virtqueue_enable_cb().
+> >>>>
+> >>>> Cc: Rusty Russell <rusty@rustcorp.com.au>
+> >>>> Cc: Michael S. Tsirkin <mst@redhat.com>
+> >>>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> >>> the implication being that moving event idx back might cause some race
+> >>> condition?  
+> >> This will cause race condition when tx interrupt is enabled. Consider
+> >> the following cases
+> >>
+> >> 1) tx napi was scheduled
+> >> 2) start_xmit() call virtqueue_enable_cb_delayed() and disable cb, [used
+> >> event is vq->last_used_idx + 3/4 pendg bufs]
+> >> 3) tx napi enable the callback by virtqueue_enable_cb() [ used event is
+> >> vq->last_used_idx ]
+> >>  
+> >> After step 3, used event was moved back, unnecessary tx interrupt was
+> >> triggered.
+> > Well unnecessary interrupts are safe.
 > 
-> So maybe the bug is here ?
+> But it that is what we want to reduce.
 
-Thank you, I'll remake my patch.
+It's all about correctness. I don't think mixing enable_cb
+and enable_cb_delayed makes sense, let's just make
+virtio behave correctly if that happens, no need to
+optimize for that.
+
+
+> > With your patch caller of virtqueue_enable_cb will not get an
+> > interrupt on the next buffer which is not safe.
+> >
+> > If you don't want an interrupt on the next buffer, don't
+> > call virtqueue_enable_cb.
+> 
+> So something like this patch should be done in virtio core somewhere
+> else. Virtio-net can not do this since it does not have the knowledge of
+> event index.
+
+Take a look at my patch - no calls to enable_cb, only
+enable_cb_delayed, so we should be fine.
+
+> >
+> >>> If yes but please describe the race explicitly.
+> >>> Is there a bug we need to fix on stable?
+> >> Looks not, current code does not have such race condition.
+> >>> Please also explicitly describe a configuration that causes event idx
+> >>> to go back.
+> >>>
+> >>> All this info should go in the commit log.
+> >> Will do this.
+> >>>> ---
+> >>>>  drivers/virtio/virtio_ring.c |    7 +++++--
+> >>>>  1 files changed, 5 insertions(+), 2 deletions(-)
+> >>>>
+> >>>> diff --git a/drivers/virtio/virtio_ring.c b/drivers/virtio/virtio_ring.c
+> >>>> index 3b1f89b..1b3929f 100644
+> >>>> --- a/drivers/virtio/virtio_ring.c
+> >>>> +++ b/drivers/virtio/virtio_ring.c
+> >>>> @@ -559,14 +559,17 @@ unsigned virtqueue_enable_cb_prepare(struct virtqueue *_vq)
+> >>>>  	u16 last_used_idx;
+> >>>>  
+> >>>>  	START_USE(vq);
+> >>>> -
+> >>>> +	last_used_idx = vq->last_used_idx;
+> >>>>  	/* We optimistically turn back on interrupts, then check if there was
+> >>>>  	 * more to do. */
+> >>>>  	/* Depending on the VIRTIO_RING_F_EVENT_IDX feature, we need to
+> >>>>  	 * either clear the flags bit or point the event index at the next
+> >>>>  	 * entry. Always do both to keep code simple. */
+> >>>>  	vq->vring.avail->flags &= ~VRING_AVAIL_F_NO_INTERRUPT;
+> >>>> -	vring_used_event(&vq->vring) = last_used_idx = vq->last_used_idx;
+> >>>> +	/* Make sure used event never go backwards */
+> >>> s/go/goes/
+> >>>
+> >>>> +	if (!vring_need_event(vring_used_event(&vq->vring),
+> >>>> +			      vq->vring.avail->idx, last_used_idx))
+> >>>> +		vring_used_event(&vq->vring) = last_used_idx;
+> >>> The result will be that driver will *not* get an interrupt
+> >>> on the next consumed buffer, which is likely not what driver
+> >>> intended when it called virtqueue_enable_cb.
+> >> This will only happen when we want to delay the interrupt for next few
+> >> consumed buffers (virtqueue_enable_cb_delayed() was called). For the
+> >> other case, vq->last_used_idx should be ahead of previous used event. Do
+> >> you see any other case?
+> > Call virtqueue_enable_cb_delayed, later call virtqueue_enable_cb.  If
+> > event index is not updated in virtqueue_enable_cb, driver will not get
+> > an interrupt on the next buffer.
+> 
+> This is just what we want I think. The interrupt was not lost but fired
+> after 3/4 pending buffers were consumed. Do you see any real issue on this?
+
+Yes, this violates the API. For example device might never
+consume the rest of buffers.
+
+
+> >
+> >>> Instead, how about we simply document the requirement that drivers either
+> >>> always call virtqueue_enable_cb_delayed or virtqueue_enable_cb
+> >>> but not both?
+> >> We need call them both when tx interrupt is enabled I believe.
+> > Can you pls reply to my patch and document issues you see?
+> >
+> 
+> In the previous reply you said you're using
+> virtuqueue_enable_cb_delayed(), so no race in your patch.
+
+OK so you think my patch is also correct, but that yours gives better
+efficiency?
+
+-- 
+MST
