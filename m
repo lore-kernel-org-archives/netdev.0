@@ -1,88 +1,25 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [RFC PATCH net-next 1/6] virtio: make sure used event never go
-	backwards
-Date: Wed, 15 Oct 2014 12:34:32 +0300
-Message-ID: <20141015093432.GB25776@redhat.com>
-References: <1413357930-45302-1-git-send-email-jasowang@redhat.com>
-	<1413357930-45302-2-git-send-email-jasowang@redhat.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH] net: use hardware buffer pool to allocate skb
+Date: Wed, 15 Oct 2014 11:33:23 +0200
+Message-ID: <20141015113323.5321b2f7@uryu.home.lan>
+References: <1413343571-33231-1-git-send-email-Jiafei.Pan@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, davem@davemloft.net
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1413357930-45302-2-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: <davem@davemloft.net>, <jkosina@suse.cz>, <netdev@vger.kernel.org>,
+	<LeoLi@freescale.com>, <linux-doc@vger.kernel.org>
+To: Pan Jiafei <Jiafei.Pan@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f176.google.com ([209.85.212.176]:61603 "EHLO
+	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751644AbaJOJdm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Oct 2014 05:33:42 -0400
+Received: by mail-wi0-f176.google.com with SMTP id hi2so12402527wib.3
+        for <netdev@vger.kernel.org>; Wed, 15 Oct 2014 02:33:41 -0700 (PDT)
+In-Reply-To: <1413343571-33231-1-git-send-email-Jiafei.Pan@freescale.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 15, 2014 at 03:25:25PM +0800, Jason Wang wrote:
-> This patch checks the new event idx to make sure used event idx never
-> goes back. This is used to synchronize the calls between
-> virtqueue_enable_cb_delayed() and virtqueue_enable_cb().
-> 
-> Cc: Rusty Russell <rusty@rustcorp.com.au>
-> Cc: Michael S. Tsirkin <mst@redhat.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-
-the implication being that moving event idx back might cause some race
-condition?  If yes but please describe the race explicitly.
-Is there a bug we need to fix on stable?
-Please also explicitly describe a configuration that causes event idx
-to go back.
-
-All this info should go in the commit log.
-
-> ---
->  drivers/virtio/virtio_ring.c |    7 +++++--
->  1 files changed, 5 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/virtio/virtio_ring.c b/drivers/virtio/virtio_ring.c
-> index 3b1f89b..1b3929f 100644
-> --- a/drivers/virtio/virtio_ring.c
-> +++ b/drivers/virtio/virtio_ring.c
-> @@ -559,14 +559,17 @@ unsigned virtqueue_enable_cb_prepare(struct virtqueue *_vq)
->  	u16 last_used_idx;
->  
->  	START_USE(vq);
-> -
-> +	last_used_idx = vq->last_used_idx;
->  	/* We optimistically turn back on interrupts, then check if there was
->  	 * more to do. */
->  	/* Depending on the VIRTIO_RING_F_EVENT_IDX feature, we need to
->  	 * either clear the flags bit or point the event index at the next
->  	 * entry. Always do both to keep code simple. */
->  	vq->vring.avail->flags &= ~VRING_AVAIL_F_NO_INTERRUPT;
-> -	vring_used_event(&vq->vring) = last_used_idx = vq->last_used_idx;
-> +	/* Make sure used event never go backwards */
-
-s/go/goes/
-
-> +	if (!vring_need_event(vring_used_event(&vq->vring),
-> +			      vq->vring.avail->idx, last_used_idx))
-> +		vring_used_event(&vq->vring) = last_used_idx;
-
-The result will be that driver will *not* get an interrupt
-on the next consumed buffer, which is likely not what driver
-intended when it called virtqueue_enable_cb.
-
-Instead, how about we simply document the requirement that drivers either
-always call virtqueue_enable_cb_delayed or virtqueue_enable_cb
-but not both?
-
-
->  	END_USE(vq);
->  	return last_used_idx;
->  }
-> -- 
-> 1.7.1
+Since an skb can sit forever in an application queue, you have created
+an easy way to livelock the system when enough skb's are waiting to be
+read.
