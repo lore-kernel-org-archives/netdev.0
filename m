@@ -1,43 +1,55 @@
-From: Krzysztof Kolasa <kkolasa@winsoft.pl>
-Subject: Re: something is wrong in commit 971f10eca1 - tcp: better TCP_SKB_CB
- layout to reduce cache line misses
-Date: Wed, 15 Oct 2014 22:20:05 +0200
-Message-ID: <543ED6F5.4080901@winsoft.pl>
-References: <CAFrEnehWNzmzZGV-ZGbZF=wJ1q0TjFtB1yG6Dp1yVrJmBj9B7Q@mail.gmail.com>	 <20141014.164705.1874094084240216813.davem@davemloft.net>	 <CAFrEnejET5wer6S6qx13tMKWMshmRj+JnQeZL-zdPGcs__9NoQ@mail.gmail.com>	 <20141014.171559.1355616486999711590.davem@davemloft.net>	 <CAHA+R7PyUZyjHPf-SJRiiOw=jQjJnXVaosYU7TuiVe6sQTC9Ww@mail.gmail.com>	 <1413323024.17109.11.camel@edumazet-glaptop2.roam.corp.google.com>	 <543E4DD8.80203@winsoft.pl>	 <1413372422.17365.10.camel@edumazet-glaptop2.roam.corp.google.com>	 <543E5D1F.2020207@winsoft.pl> <1413387152.17365.26.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH net 0/3] SCTP fixes
+Date: Wed, 15 Oct 2014 16:20:31 -0400
+Message-ID: <20141015202031.GA9310@localhost.localdomain>
+References: <1412888133-833-1-git-send-email-dborkman@redhat.com>
+ <20141014.124657.128658692728989163.davem@davemloft.net>
+ <20141015030631.GA6778@localhost.localdomain>
+ <20141015.002143.780696221161706737.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <cwang@twopensource.com>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: dborkman@redhat.com, linux-sctp@vger.kernel.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps01.winsoft.pl ([5.133.9.51]:43677 "EHLO vps01.winsoft.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750721AbaJOUUL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Oct 2014 16:20:11 -0400
-In-Reply-To: <1413387152.17365.26.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:43852 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750775AbaJOUUo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Oct 2014 16:20:44 -0400
+Content-Disposition: inline
+In-Reply-To: <20141015.002143.780696221161706737.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-W dniu 15.10.2014 o 17:32, Eric Dumazet pisze:
-> On Wed, 2014-10-15 at 13:40 +0200, Krzysztof Kolasa wrote:
->
->> on a 32bit system, the patch did not solve the problem :(
->> I have exactly the same problem as before the patch
->
-> You mean Cong patch ?
-Yes
->
->> I do not understand this, perhaps the problem is hidden somewhere else,
->> one thing is certain after revert commit 971f10eca1 everything works
->> correctly
->>
-> Can you privately send me the vmlinux file ?
->
-> It might be a compiler issue...
->
->
->
-I sent the file
+On Wed, Oct 15, 2014 at 12:21:43AM -0400, David Miller wrote:
+> From: Neil Horman <nhorman@tuxdriver.com>
+> Date: Tue, 14 Oct 2014 23:06:32 -0400
+> 
+> > On Tue, Oct 14, 2014 at 12:46:57PM -0400, David Miller wrote:
+> >> From: Daniel Borkmann <dborkman@redhat.com>
+> >> Date: Thu,  9 Oct 2014 22:55:30 +0200
+> >> 
+> >> > Here are some SCTP fixes.
+> >> > 
+> >> > [ Note, immediate workaround would be to disable ASCONF (it
+> >> >   is sysctl disabled by default). It is actually only used
+> >> >   together with chunk authentication. ]
+> >> 
+> >> Series applied, thanks guys.
+> > Why did you apply this Dave? There was ongoing discussion around it.
+> 
+> Sorry Neil, that wasn't my impression.
+> 
+> Worry not I can revert or apply relative fixes on top.
+> :-)
+> 
+No, no worries, just trying to figure out how to inform admins of duplicate
+ASCONF serial numbers.  A follow on patch to add pr_debugs will be easy here.
+Neil
+
+> Thanks.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
