@@ -1,42 +1,40 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH] net: fec: ptp: fix convergence issue to support LinuxPTP
- stack
-Date: Wed, 15 Oct 2014 09:25:40 +0200
-Message-ID: <20141015072540.GA4172@localhost.localdomain>
-References: <1413265187-5228-1-git-send-email-b38611@freescale.com>
- <20141014103610.GA4019@localhost.localdomain>
- <20141014.125239.1562178476120218308.davem@davemloft.net>
- <7e6db0b336a340bd80b62475fca284fc@BLUPR03MB486.namprd03.prod.outlook.com>
- <20141014183933.GA14216@localhost.localdomain>
- <ca979a5eb7764367a6b8b944948cbd1a@BLUPR03MB373.namprd03.prod.outlook.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Frank.Li@freescale.com" <Frank.Li@freescale.com>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>
-To: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
+From: Anish Bhatt <anish@chelsio.com>
+Subject: [PATCH net] cxgb4i : Fix -Wmaybe-uninitialized warning.
+Date: Wed, 15 Oct 2014 00:26:47 -0700
+Message-ID: <1413358007-16980-1-git-send-email-anish@chelsio.com>
+Cc: davem@davemloft.net, kxie@chelsio.com,
+	Anish Bhatt <anish@chelsio.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f181.google.com ([209.85.212.181]:40419 "EHLO
-	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751292AbaJOHZp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Oct 2014 03:25:45 -0400
-Received: by mail-wi0-f181.google.com with SMTP id hi2so1017607wib.14
-        for <netdev@vger.kernel.org>; Wed, 15 Oct 2014 00:25:44 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <ca979a5eb7764367a6b8b944948cbd1a@BLUPR03MB373.namprd03.prod.outlook.com>
+Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:44472
+	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751239AbaJOH1A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Oct 2014 03:27:00 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 15, 2014 at 01:30:41AM +0000, fugang.duan@freescale.com wrote:
-> 
-> Pls read the commit log in entire ?
+Identified by kbuild test robot. csk family is always set to be AF_INET or 
+AF_INET6, so skb will always be initialized to some value but there is no harm 
+in silencing the warning anyways.
 
-I did read it. 
+Signed-off-by: Anish Bhatt <anish@chelsio.com>
+Fixes : f42bb57c61fd ('cxgb4i : Fix -Wunused-function warning')
+---
+ drivers/scsi/cxgbi/cxgb4i/cxgb4i.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-It is incomprehensible.
-
-Can you please fix it?
-
-Thanks,
-Richard
+diff --git a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
+index 8c3003b..3e0a0d3 100644
+--- a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
++++ b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
+@@ -758,7 +758,7 @@ static int act_open_rpl_status_to_errno(int status)
+ 
+ static void csk_act_open_retry_timer(unsigned long data)
+ {
+-	struct sk_buff *skb;
++	struct sk_buff *skb = NULL;
+ 	struct cxgbi_sock *csk = (struct cxgbi_sock *)data;
+ 	struct cxgb4_lld_info *lldi = cxgbi_cdev_priv(csk->cdev);
+ 	void (*send_act_open_func)(struct cxgbi_sock *, struct sk_buff *,
+-- 
+2.1.2
