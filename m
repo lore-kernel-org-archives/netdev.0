@@ -1,55 +1,62 @@
-From: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
-Subject: RE: [PATCH] net: fec: ptp: fix convergence issue to support LinuxPTP
- stack
-Date: Wed, 15 Oct 2014 07:42:13 +0000
-Message-ID: <bd0be4d14a3c4550902f2067b82fe1ca@BLUPR03MB373.namprd03.prod.outlook.com>
-References: <1413265187-5228-1-git-send-email-b38611@freescale.com>
- <20141014103610.GA4019@localhost.localdomain>
- <20141014.125239.1562178476120218308.davem@davemloft.net>
- <7e6db0b336a340bd80b62475fca284fc@BLUPR03MB486.namprd03.prod.outlook.com>
- <20141014183933.GA14216@localhost.localdomain>
- <ca979a5eb7764367a6b8b944948cbd1a@BLUPR03MB373.namprd03.prod.outlook.com>
- <20141015072540.GA4172@localhost.localdomain>
+From: Jason Wang <jasowang@redhat.com>
+Subject: [RFC PATCH net-next 0/6] Always use tx interrupt for virtio-net
+Date: Wed, 15 Oct 2014 15:25:24 +0800
+Message-ID: <1413357930-45302-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Frank.Li@freescale.com" <Frank.Li@freescale.com>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1on0145.outbound.protection.outlook.com ([157.56.110.145]:65152
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751238AbaJOHmQ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Oct 2014 03:42:16 -0400
-In-Reply-To: <20141015072540.GA4172@localhost.localdomain>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, eric.dumazet@gmail.com
+To: rusty@rustcorp.com.au, mst@redhat.com,
+	virtualization@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Richard Cochran <richardcochran@gmail.com> Sent: Wednesday, October 15, 2014 3:26 PM
->To: Duan Fugang-B38611
->Cc: Li Frank-B20596; David Miller; netdev@vger.kernel.org;
->bhutchings@solarflare.com
->Subject: Re: [PATCH] net: fec: ptp: fix convergence issue to support
->LinuxPTP stack
->
->On Wed, Oct 15, 2014 at 01:30:41AM +0000, fugang.duan@freescale.com wrote:
->>
->> Pls read the commit log in entire ?
->
->I did read it.
->
->It is incomprehensible.
->
->Can you please fix it?
->
->Thanks,
->Richard
+According to David, proper accounting and queueing (at all levels, not
+just TCP sockets) is more important than trying to skim a bunch of
+cycles by avoiding TX interrupts. Having an event to free the SKB is
+absolutely essential for the stack to operate correctly.
 
-Ok, I will enhance the commit/comment log and then send out V2.
+This series tries to enable tx interrupt for virtio-net. The idea is
+simple: enable tx interrupt and schedule a tx napi to free old xmit
+skbs.
 
-Thanks,
-Andy
+Several notes:
+- Tx interrupt storm avoidance when queue is about to be full is
+  kept. Since we may enable callbacks in both ndo_start_xmit() and tx
+  napi, patch 1 adds a check to make sure used event never go
+  back. This will let the napi not enable the callbacks wrongly after
+  delayed callbacks was used.
+- For bulk dequeuing, there's no need to enable tx interrupt for each
+  packet. The last patch only enable tx interrupt for the final skb in
+  the chain through xmit_more and a new helper to publish current avail
+  idx as used event.
+
+This series fixes several issues of original rfc pointed out by Michael.
+
+Smoking test is done, and will do complete netperf test. Send the
+seires for early review.
+
+Thanks
+
+Jason Wang (6):
+  virtio: make sure used event never go backwards
+  virtio: introduce virtio_enable_cb_avail()
+  virtio-net: small optimization on free_old_xmit_skbs()
+  virtio-net: return the number of packets sent in free_old_xmit_skbs()
+  virtio-net: enable tx interrupt
+  virtio-net: enable tx interrupt only for the final skb in the chain
+
+ drivers/net/virtio_net.c     |  125 ++++++++++++++++++++++++++++++------------
+ drivers/virtio/virtio_ring.c |   25 ++++++++-
+ include/linux/virtio.h       |    2 +
+ 3 files changed, 115 insertions(+), 37 deletions(-)
