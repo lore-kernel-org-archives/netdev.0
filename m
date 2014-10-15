@@ -1,31 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/4] ipv6 and related cleanup for cxgb4/cxgb4i
-Date: Tue, 14 Oct 2014 21:52:14 -0400 (EDT)
-Message-ID: <20141014.215214.1506186384051746027.davem@davemloft.net>
-References: <1413324791-12104-1-git-send-email-anish@chelsio.com>
+Subject: Re: Netlink mmap tx security?
+Date: Tue, 14 Oct 2014 22:01:11 -0400 (EDT)
+Message-ID: <20141014.220111.179628329028952302.davem@davemloft.net>
+References: <CALCETrUYBed_TBacxoDPMphM5y=iqxho2isrDruOQi=pmK2yoQ@mail.gmail.com>
+	<20141014.160056.2113064815910782529.davem@davemloft.net>
+	<CALCETrWDSG2EhxBnM8Jm55Ov8PYQ_w3Wf88SKYOB1q1WgRpbEw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hariprasad@chelsio.com, leedom@chelsio.com,
-	kxie@chelsio.com, manojmalviya@chelsio.com
-To: anish@chelsio.com
+Cc: torvalds@linux-foundation.org, kaber@trash.net,
+	netdev@vger.kernel.org, tgraf@suug.ch
+To: luto@amacapital.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46396 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:46442 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755536AbaJOBwT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2014 21:52:19 -0400
-In-Reply-To: <1413324791-12104-1-git-send-email-anish@chelsio.com>
+	with ESMTP id S1755840AbaJOCBN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2014 22:01:13 -0400
+In-Reply-To: <CALCETrWDSG2EhxBnM8Jm55Ov8PYQ_w3Wf88SKYOB1q1WgRpbEw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anish Bhatt <anish@chelsio.com>
-Date: Tue, 14 Oct 2014 15:13:07 -0700
+From: Andy Lutomirski <luto@amacapital.net>
+Date: Tue, 14 Oct 2014 15:16:46 -0700
 
-> This patch set removes some duplicated/extraneous code from cxgb4i,
-> and guards cxgb4 against compilation failure based on ipv6 tristate.
+> It's at least remotely possible that there's something that assumes
+> that assumes that the availability of NETLINK_RX_RING implies
+> NETLINK_TX_RING, which would be unfortunate.
 
-Sorry Anish, you can't have your Subject lines be the entire
-content of your commit messages.
+I already found one such case, nlmon :-/
 
-Write something more substantial in your logs, and make the
-Subject line be a very concise summary.
+It also reminds me that I'll have to update
+Documentation/networking/netlink_mmap.txt
+
+Thomas, the context is that we have to remove NETLINK_TX_RING support
+(there is absolutely no way whatsoever to reliably keep some thread of
+control from modifying the underlying pages while we parse and
+validate the netlink request).
+
+I'd like to be able to do so while retaining NETLINK_RX_RING because
+that works fine and is great for monitoring when the rate of events
+is high.
+
+But I already have found userland pieces of code, like nlmon, which
+assume that if one is present then both must be present.
+
+I really think this means I'll have to remove all of the netlink
+mmap() support in order to prevent from breaking applications. :(
+
+The other option is to keep NETLINK_TX_RING, but copy the data into
+a kernel side buffer before acting upon it.
