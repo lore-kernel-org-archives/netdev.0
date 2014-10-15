@@ -1,19 +1,17 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [RFC PATCH net-next 3/6] virtio-net: small optimization on
 	free_old_xmit_skbs()
-Date: Wed, 15 Oct 2014 12:37:39 +0300
-Message-ID: <20141015093739.GC25776@redhat.com>
+Date: Wed, 15 Oct 2014 02:36:04 -0700
+Message-ID: <1413365764.12304.54.camel@edumazet-glaptop2.roam.corp.google.com>
 References: <1413357930-45302-1-git-send-email-jasowang@redhat.com>
 	<1413357930-45302-4-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
+Cc: mst@redhat.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	virtualization@lists.linux-foundation.org, davem@davemloft.net
 To: Jason Wang <jasowang@redhat.com>
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
 In-Reply-To: <1413357930-45302-4-git-send-email-jasowang@redhat.com>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
@@ -26,18 +24,13 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 15, 2014 at 03:25:27PM +0800, Jason Wang wrote:
+On Wed, 2014-10-15 at 15:25 +0800, Jason Wang wrote:
 > Accumulate the sent packets and sent bytes in local variables and perform a
 > single u64_stats_update_begin/end() after.
 > 
 > Cc: Rusty Russell <rusty@rustcorp.com.au>
 > Cc: Michael S. Tsirkin <mst@redhat.com>
 > Signed-off-by: Jason Wang <jasowang@redhat.com>
-
-Not sure how much it's worth but since Eric suggested it ...
-
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
-
 > ---
 >  drivers/net/virtio_net.c |   12 ++++++++----
 >  1 files changed, 8 insertions(+), 4 deletions(-)
@@ -68,9 +61,12 @@ Acked-by: Michael S. Tsirkin <mst@redhat.com>
 > +	u64_stats_update_begin(&stats->tx_syncp);
 > +	stats->tx_bytes += tx_bytes;
 > +	stats->tx_packets =+ tx_packets;
+
+	
+	stats->tx_packets += tx_packets;
+
+
 > +	u64_stats_update_end(&stats->tx_syncp);
 >  }
 >  
 >  static int xmit_skb(struct send_queue *sq, struct sk_buff *skb)
-> -- 
-> 1.7.1
