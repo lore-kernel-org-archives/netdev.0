@@ -1,61 +1,45 @@
-From: Weiping Pan <panweiping3@gmail.com>
-Subject: [PATCH] tcp: refine autocork condition check
-Date: Wed, 15 Oct 2014 18:34:53 +0800
-Message-ID: <8e0610510498c7f6ecbe2e99ab6044030f93f792.1413369212.git.panweiping3@gmail.com>
-Cc: edumazet@google.com
-To: netdev@vger.kernel.org
+From: Krzysztof Kolasa <kkolasa@winsoft.pl>
+Subject: Re: something is wrong in commit 971f10eca1 - tcp: better TCP_SKB_CB
+ layout to reduce cache line misses
+Date: Wed, 15 Oct 2014 12:35:04 +0200
+Message-ID: <543E4DD8.80203@winsoft.pl>
+References: <CAFrEnehWNzmzZGV-ZGbZF=wJ1q0TjFtB1yG6Dp1yVrJmBj9B7Q@mail.gmail.com>	 <20141014.164705.1874094084240216813.davem@davemloft.net>	 <CAFrEnejET5wer6S6qx13tMKWMshmRj+JnQeZL-zdPGcs__9NoQ@mail.gmail.com>	 <20141014.171559.1355616486999711590.davem@davemloft.net>	 <CAHA+R7PyUZyjHPf-SJRiiOw=jQjJnXVaosYU7TuiVe6sQTC9Ww@mail.gmail.com> <1413323024.17109.11.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-2; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@gmail.com>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Cong Wang <cwang@twopensource.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45690 "EHLO mx1.redhat.com"
+Received: from vps01.winsoft.pl ([5.133.9.51]:49199 "EHLO vps01.winsoft.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751732AbaJOKfA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Oct 2014 06:35:00 -0400
+	id S1751732AbaJOKfK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Oct 2014 06:35:10 -0400
+In-Reply-To: <1413323024.17109.11.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Inspired by commit b2532eb9abd8 (tcp: fix ooo_okay setting vs Small Queues).
+W dniu 14.10.2014 o 23:43, Eric Dumazet pisze:
+> On Tue, 2014-10-14 at 14:24 -0700, Cong Wang wrote:
+>
+>> Since we are still in merge window, I don't think we have to use
+>> a one-line fix for a bug introduced in this merge window.
+> You are clearly refactoring here. Its a nice cleanup.
+>
+> If I was the maintainer, I would prefer the one line fix.
+>
+> Then when net-next is open, you refactor.
+>
+> As I said, I wont argue, do whatever you want.
+>
+> Thanks
+>
+>
+>
 
-The last check in tcp_should_autocork() was meant to check that whether we
-only have an ACK in Qdisc/NIC queues, or if TX completion was delayed after we
-processed ACK packet, if so, we should push the packet immediately instead of
-corking it.
-Therefore we should compare sk_wmem_alloc with SKB_TRUESIZE(1) instead of
-skb->truesize.
+one-line patch not resolve problem, fix created by Cong Wang resolves 
+problem !!!
 
-After this patch, tcp should have more chances to be corked, and the
-performance should be a little better.  And netperf shows that this patch
-works as expected.
-
-./super_netperf.sh 300 -H 10.16.42.249 -t TCP_STREAM -- -m 1 -M 1
-	      speed	TCPAutoCorking
-Before patch: 169.38    222278
-After patch:  173.27    232988
-
-Signed-off-by: Weiping Pan <panweiping3@gmail.com>
----
- net/ipv4/tcp.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 461003d..44f0bc6 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -647,7 +647,7 @@ static bool tcp_should_autocork(struct sock *sk, struct sk_buff *skb,
- 	return skb->len < size_goal &&
- 	       sysctl_tcp_autocorking &&
- 	       skb != tcp_write_queue_head(sk) &&
--	       atomic_read(&sk->sk_wmem_alloc) > skb->truesize;
-+	       atomic_read(&sk->sk_wmem_alloc) > SKB_TRUESIZE(1);
- }
- 
- static void tcp_push(struct sock *sk, int flags, int mss_now,
-@@ -675,7 +675,7 @@ static void tcp_push(struct sock *sk, int flags, int mss_now,
- 		/* It is possible TX completion already happened
- 		 * before we set TSQ_THROTTLED.
- 		 */
--		if (atomic_read(&sk->sk_wmem_alloc) > skb->truesize)
-+		if (atomic_read(&sk->sk_wmem_alloc) > SKB_TRUESIZE(1))
- 			return;
- 	}
- 
--- 
-1.7.4
+tested on 64bit system and working OK
