@@ -1,49 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 1/1] net: fec: ptp: fix convergence issue to support
- LinuxPTP stack
-Date: Wed, 15 Oct 2014 16:40:39 -0400 (EDT)
-Message-ID: <20141015.164039.817474261624839292.davem@davemloft.net>
-References: <1413365412-22072-1-git-send-email-b38611@freescale.com>
+From: Krzysztof Kolasa <kkolasa@winsoft.pl>
+Subject: Re: something is wrong in commit 971f10eca1 - tcp: better TCP_SKB_CB
+ layout to reduce cache line misses
+Date: Wed, 15 Oct 2014 22:42:23 +0200
+Message-ID: <543EDC2F.1090604@winsoft.pl>
+References: <CAFrEnehWNzmzZGV-ZGbZF=wJ1q0TjFtB1yG6Dp1yVrJmBj9B7Q@mail.gmail.com>	<20141014.164705.1874094084240216813.davem@davemloft.net>	<CAFrEnejET5wer6S6qx13tMKWMshmRj+JnQeZL-zdPGcs__9NoQ@mail.gmail.com>	<20141014.171559.1355616486999711590.davem@davemloft.net>	<CAHA+R7PyUZyjHPf-SJRiiOw=jQjJnXVaosYU7TuiVe6sQTC9Ww@mail.gmail.com>	<1413323024.17109.11.camel@edumazet-glaptop2.roam.corp.google.com>	<543E4DD8.80203@winsoft.pl> <CAHA+R7OEvTcZOm-OepWYvGP+pC_CJRoSen351nw8VJGdLTo0uA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=iso-8859-2; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: richardcochran@gmail.com, netdev@vger.kernel.org,
-	bhutchings@solarflare.com, b20596@freescale.com
-To: b38611@freescale.com
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@gmail.com>,
+	netdev <netdev@vger.kernel.org>
+To: Cong Wang <cwang@twopensource.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54127 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750721AbaJOUmB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Oct 2014 16:42:01 -0400
-In-Reply-To: <1413365412-22072-1-git-send-email-b38611@freescale.com>
+Received: from vps01.winsoft.pl ([5.133.9.51]:47812 "EHLO vps01.winsoft.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751033AbaJOUm3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Oct 2014 16:42:29 -0400
+In-Reply-To: <CAHA+R7OEvTcZOm-OepWYvGP+pC_CJRoSen351nw8VJGdLTo0uA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Fugang Duan <b38611@freescale.com>
-Date: Wed, 15 Oct 2014 17:30:12 +0800
-
-> iMX6SX IEEE 1588 module has one hw issue in capturing the ATVR register.
-> The current SW flow is:
-> 		ENET0->ATCR |= ENET_ATCR_CAPTURE_MASK;
-> 		ts_counter_ns = ENET0->ATVR;
-> The ATVR value is not expected value that cause LinuxPTP stack cannot be convergent.
-> 
-> ENET Block Guide/ Chapter for the iMX6SX (PELE) address the issue:
-> After set ENET_ATCR[Capture], there need some time cycles before the counter
-> value is capture in the register clock domain. The wait-time-cycles is at least
-> 6 clock cycles of the slower clock between the register clock and the 1588 clock.
-> So need something like:
-> 		ENET0->ATCR |= ENET_ATCR_CAPTURE_MASK;
-> 		wait();
-> 		ts_counter_ns = ENET0->ATVR;
-> 
-> For iMX6SX, the 1588 ts_clk is fixed to 25Mhz, register clock is 66Mhz, so the
-> wait-time-cycles must be greater than 240ns (40ns * 6). The patch add 1us delay
-> before cpu read ATVR register.
-> 
-> Changes V2:
-> Modify the commit/comments log to describe the issue clearly.
-> 
-> Signed-off-by: Fugang Duan <B38611@freescale.com>
-
-Applied, thanks.
+W dniu 15.10.2014 o 22:36, Cong Wang pisze:
+> On Wed, Oct 15, 2014 at 3:35 AM, Krzysztof Kolasa <kkolasa@winsoft.pl> wrote:
+>> one-line patch not resolve problem, fix created by Cong Wang resolves
+>> problem !!!
+>>
+>> tested on 64bit system and working OK
+>>
+> So my patch fixes your problem on 64bit but not on 32bit,
+> is this correct?
+Yes
