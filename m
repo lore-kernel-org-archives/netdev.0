@@ -1,70 +1,65 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [RFC PATCH net-next 0/6] Always use tx interrupt for virtio-net
-Date: Wed, 15 Oct 2014 19:14:14 +0800
-Message-ID: <543E5706.10305@redhat.com>
-References: <1413357930-45302-1-git-send-email-jasowang@redhat.com>
-	<20141015102553.GF25776@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: something is wrong in commit 971f10eca1 - tcp: better
+ TCP_SKB_CB layout to reduce cache line misses
+Date: Wed, 15 Oct 2014 04:27:02 -0700
+Message-ID: <1413372422.17365.10.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CAFrEnehWNzmzZGV-ZGbZF=wJ1q0TjFtB1yG6Dp1yVrJmBj9B7Q@mail.gmail.com>
+	 <20141014.164705.1874094084240216813.davem@davemloft.net>
+	 <CAFrEnejET5wer6S6qx13tMKWMshmRj+JnQeZL-zdPGcs__9NoQ@mail.gmail.com>
+	 <20141014.171559.1355616486999711590.davem@davemloft.net>
+	 <CAHA+R7PyUZyjHPf-SJRiiOw=jQjJnXVaosYU7TuiVe6sQTC9Ww@mail.gmail.com>
+	 <1413323024.17109.11.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <543E4DD8.80203@winsoft.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, davem@davemloft.net
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20141015102553.GF25776@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: Cong Wang <cwang@twopensource.com>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@gmail.com>,
+	netdev <netdev@vger.kernel.org>
+To: Krzysztof Kolasa <kkolasa@winsoft.pl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f176.google.com ([209.85.192.176]:62079 "EHLO
+	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752198AbaJOL1E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Oct 2014 07:27:04 -0400
+Received: by mail-pd0-f176.google.com with SMTP id fp1so1090689pdb.7
+        for <netdev@vger.kernel.org>; Wed, 15 Oct 2014 04:27:03 -0700 (PDT)
+In-Reply-To: <543E4DD8.80203@winsoft.pl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/15/2014 06:25 PM, Michael S. Tsirkin wrote:
-> On Wed, Oct 15, 2014 at 03:25:24PM +0800, Jason Wang wrote:
->> According to David, proper accounting and queueing (at all levels, not
->> just TCP sockets) is more important than trying to skim a bunch of
->> cycles by avoiding TX interrupts.
-> He also mentioned we should find other ways to batch
->
+On Wed, 2014-10-15 at 12:35 +0200, Krzysztof Kolasa wrote:
+> W dniu 14.10.2014 o 23:43, Eric Dumazet pisze:
+> > On Tue, 2014-10-14 at 14:24 -0700, Cong Wang wrote:
+> >
+> >> Since we are still in merge window, I don't think we have to use
+> >> a one-line fix for a bug introduced in this merge window.
+> > You are clearly refactoring here. Its a nice cleanup.
+> >
+> > If I was the maintainer, I would prefer the one line fix.
+> >
+> > Then when net-next is open, you refactor.
+> >
+> > As I said, I wont argue, do whatever you want.
+> >
+> > Thanks
+> >
+> >
+> >
+> 
+> one-line patch not resolve problem, fix created by Cong Wang resolves 
+> problem !!!
 
-Right.
->> Having an event to free the SKB is
->> absolutely essential for the stack to operate correctly.
->>
->> This series tries to enable tx interrupt for virtio-net. The idea is
->> simple: enable tx interrupt and schedule a tx napi to free old xmit
->> skbs.
->>
->> Several notes:
->> - Tx interrupt storm avoidance when queue is about to be full is
->>   kept.
-> But queue is typically *not* full. More important to avoid interrupt
-> storms in that case IMO.
+Hmm, there should be no difference with either patch.
 
-Yes.
->> Since we may enable callbacks in both ndo_start_xmit() and tx
->>   napi, patch 1 adds a check to make sure used event never go
->>   back. This will let the napi not enable the callbacks wrongly after
->>   delayed callbacks was used.
-> So why not just use delayed callbacks?
+tcp_v4_rcv() 
+...
+memmove(&TCP_SKB_CB(skb)->header.h4, IPCB(skb),
+        sizeof(struct inet_skb_parm));
+...
+-> tcp_v4_do_rcv() 
+   ->  tcp_v4_hnd_req()
+      -> cookie_v4_check(... , &TCP_SKB_CB(skb)->header.h4.opt)
 
-This means the tx interrupt are coalesced in a somewhat adaptive way.
-Need benchmark to see its effect.
->
->> - For bulk dequeuing, there's no need to enable tx interrupt for each
->>   packet. The last patch only enable tx interrupt for the final skb in
->>   the chain through xmit_more and a new helper to publish current avail
->>   idx as used event.
->>
->> This series fixes several issues of original rfc pointed out by Michael.
-> Could you list the issues, for ease of review?
-
-Probably just one:
-
-- Move the virtqueue_disable_cb() from skb_xmit_done() into
-virtnet_poll_tx() under tx lock.
+Hmm...
