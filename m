@@ -1,12 +1,12 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [RFC PATCH net-next 1/6] virtio: make sure used event never go
-	backwards
-Date: Wed, 15 Oct 2014 14:38:59 +0300
-Message-ID: <20141015113859.GA26918@redhat.com>
+Subject: Re: [RFC PATCH net-next 2/6] virtio: introduce
+	virtio_enable_cb_avail()
+Date: Wed, 15 Oct 2014 14:43:21 +0300
+Message-ID: <20141015114321.GB26918@redhat.com>
 References: <1413357930-45302-1-git-send-email-jasowang@redhat.com>
-	<1413357930-45302-2-git-send-email-jasowang@redhat.com>
-	<20141015093432.GB25776@redhat.com> <543E48BF.4080502@redhat.com>
-	<20141015103232.GG25776@redhat.com> <543E5019.9020507@redhat.com>
+	<1413357930-45302-3-git-send-email-jasowang@redhat.com>
+	<20141015092849.GA25776@redhat.com> <543E4A23.7060903@redhat.com>
+	<20141015104130.GH25776@redhat.com> <543E5347.7060106@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -16,7 +16,7 @@ Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
 To: Jason Wang <jasowang@redhat.com>
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <543E5019.9020507@redhat.com>
+In-Reply-To: <543E5347.7060106@redhat.com>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
@@ -28,121 +28,153 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 15, 2014 at 06:44:41PM +0800, Jason Wang wrote:
-> On 10/15/2014 06:32 PM, Michael S. Tsirkin wrote:
-> > On Wed, Oct 15, 2014 at 06:13:19PM +0800, Jason Wang wrote:
-> >> On 10/15/2014 05:34 PM, Michael S. Tsirkin wrote:
-> >>> On Wed, Oct 15, 2014 at 03:25:25PM +0800, Jason Wang wrote:
-> >>>> This patch checks the new event idx to make sure used event idx never
-> >>>> goes back. This is used to synchronize the calls between
-> >>>> virtqueue_enable_cb_delayed() and virtqueue_enable_cb().
+On Wed, Oct 15, 2014 at 06:58:15PM +0800, Jason Wang wrote:
+> On 10/15/2014 06:41 PM, Michael S. Tsirkin wrote:
+> > On Wed, Oct 15, 2014 at 06:19:15PM +0800, Jason Wang wrote:
+> >> On 10/15/2014 05:28 PM, Michael S. Tsirkin wrote:
+> >>> On Wed, Oct 15, 2014 at 03:25:26PM +0800, Jason Wang wrote:
+> >>>> This patch introduces virtio_enable_cb_avail() to publish avail idx
+> >>>> and used event. This could be used by batched buffer submitting to
+> >>>> reduce the number of tx interrupts.
 > >>>>
 > >>>> Cc: Rusty Russell <rusty@rustcorp.com.au>
 > >>>> Cc: Michael S. Tsirkin <mst@redhat.com>
 > >>>> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> >>> the implication being that moving event idx back might cause some race
-> >>> condition?  
-> >> This will cause race condition when tx interrupt is enabled. Consider
-> >> the following cases
-> >>
-> >> 1) tx napi was scheduled
-> >> 2) start_xmit() call virtqueue_enable_cb_delayed() and disable cb, [used
-> >> event is vq->last_used_idx + 3/4 pendg bufs]
-> >> 3) tx napi enable the callback by virtqueue_enable_cb() [ used event is
-> >> vq->last_used_idx ]
-> >>  
-> >> After step 3, used event was moved back, unnecessary tx interrupt was
-> >> triggered.
-> > Well unnecessary interrupts are safe.
-> 
-> But it that is what we want to reduce.
-
-It's all about correctness. I don't think mixing enable_cb
-and enable_cb_delayed makes sense, let's just make
-virtio behave correctly if that happens, no need to
-optimize for that.
-
-
-> > With your patch caller of virtqueue_enable_cb will not get an
-> > interrupt on the next buffer which is not safe.
-> >
-> > If you don't want an interrupt on the next buffer, don't
-> > call virtqueue_enable_cb.
-> 
-> So something like this patch should be done in virtio core somewhere
-> else. Virtio-net can not do this since it does not have the knowledge of
-> event index.
-
-Take a look at my patch - no calls to enable_cb, only
-enable_cb_delayed, so we should be fine.
-
-> >
-> >>> If yes but please describe the race explicitly.
-> >>> Is there a bug we need to fix on stable?
-> >> Looks not, current code does not have such race condition.
-> >>> Please also explicitly describe a configuration that causes event idx
-> >>> to go back.
-> >>>
-> >>> All this info should go in the commit log.
-> >> Will do this.
 > >>>> ---
-> >>>>  drivers/virtio/virtio_ring.c |    7 +++++--
-> >>>>  1 files changed, 5 insertions(+), 2 deletions(-)
+> >>>>  drivers/virtio/virtio_ring.c |   22 ++++++++++++++++++++--
+> >>>>  include/linux/virtio.h       |    2 ++
+> >>>>  2 files changed, 22 insertions(+), 2 deletions(-)
 > >>>>
 > >>>> diff --git a/drivers/virtio/virtio_ring.c b/drivers/virtio/virtio_ring.c
-> >>>> index 3b1f89b..1b3929f 100644
+> >>>> index 1b3929f..d67fbf8 100644
 > >>>> --- a/drivers/virtio/virtio_ring.c
 > >>>> +++ b/drivers/virtio/virtio_ring.c
-> >>>> @@ -559,14 +559,17 @@ unsigned virtqueue_enable_cb_prepare(struct virtqueue *_vq)
-> >>>>  	u16 last_used_idx;
-> >>>>  
-> >>>>  	START_USE(vq);
-> >>>> -
-> >>>> +	last_used_idx = vq->last_used_idx;
-> >>>>  	/* We optimistically turn back on interrupts, then check if there was
-> >>>>  	 * more to do. */
-> >>>>  	/* Depending on the VIRTIO_RING_F_EVENT_IDX feature, we need to
-> >>>>  	 * either clear the flags bit or point the event index at the next
+> >>>> @@ -567,14 +567,32 @@ unsigned virtqueue_enable_cb_prepare(struct virtqueue *_vq)
 > >>>>  	 * entry. Always do both to keep code simple. */
 > >>>>  	vq->vring.avail->flags &= ~VRING_AVAIL_F_NO_INTERRUPT;
-> >>>> -	vring_used_event(&vq->vring) = last_used_idx = vq->last_used_idx;
-> >>>> +	/* Make sure used event never go backwards */
-> >>> s/go/goes/
+> >>>>  	/* Make sure used event never go backwards */
+> >>>> -	if (!vring_need_event(vring_used_event(&vq->vring),
+> >>>> -			      vq->vring.avail->idx, last_used_idx))
+> >>>> +	if (vq->vring.avail->idx != vring_used_event(&vq->vring) &&
+> >>>> +	    !vring_need_event(vring_used_event(&vq->vring),
+> >>>> +			      vq->vring.avail->idx, last_used_idx)) {
+> >>>>  		vring_used_event(&vq->vring) = last_used_idx;
+> >>>> +	}
+> >>>>  	END_USE(vq);
+> >>>>  	return last_used_idx;
+> >>>>  }
+> >>>>  EXPORT_SYMBOL_GPL(virtqueue_enable_cb_prepare);
+> >>>>
+> >>> I see you are also changing virtqueue_enable_cb_prepare, why?
+> >> This is also used to prevent it from moving the used event backwards.
+> >> This may happens when we handle tx napi after we publish avail idx as
+> >> used event (virtqueue_enable_cb_avail() was called).
+> > So it's wrong exactly in the same way.
+> >
+> > But also, please document this stuff, don't put
+> > unrelated changes in a patch called "introduce
+> > virtqueue_enable_cb_avail".
+> >
+> >
+> >>>> +bool virtqueue_enable_cb_avail(struct virtqueue *_vq)
+> >>>> +{
+> >>>> +	struct vring_virtqueue *vq = to_vvq(_vq);
+> >>>> +	bool ret;
+> >>>> +
+> >>>> +	START_USE(vq);
+> >>>> +	vq->vring.avail->flags &= ~VRING_AVAIL_F_NO_INTERRUPT;
+> >>>> +	vring_used_event(&vq->vring) = vq->vring.avail->idx;
+> >>>> +	ret = vring_need_event(vq->vring.avail->idx,
+> >>>> +			       vq->last_used_idx, vq->vring.used->idx);
+> >>>> +	END_USE(vq);
+> >>>> +
+> >>>> +	return ret;
+> >>>> +}
+> >>>> +EXPORT_SYMBOL_GPL(virtqueue_enable_cb_avail);
+> >>>> +
+> >>>>  /**
+> >>>>   * virtqueue_poll - query pending used buffers
+> >>>>   * @vq: the struct virtqueue we're talking about.
+> >>> Could not figure out what this does.
+> >>> Please add documentation.
 > >>>
-> >>>> +	if (!vring_need_event(vring_used_event(&vq->vring),
-> >>>> +			      vq->vring.avail->idx, last_used_idx))
-> >>>> +		vring_used_event(&vq->vring) = last_used_idx;
-> >>> The result will be that driver will *not* get an interrupt
-> >>> on the next consumed buffer, which is likely not what driver
-> >>> intended when it called virtqueue_enable_cb.
-> >> This will only happen when we want to delay the interrupt for next few
-> >> consumed buffers (virtqueue_enable_cb_delayed() was called). For the
-> >> other case, vq->last_used_idx should be ahead of previous used event. Do
-> >> you see any other case?
-> > Call virtqueue_enable_cb_delayed, later call virtqueue_enable_cb.  If
-> > event index is not updated in virtqueue_enable_cb, driver will not get
-> > an interrupt on the next buffer.
+> >> Sure, does something like below explain what does this function do?
+> >>
+> >> /**                                                                            
+> >>
+> >>  * virtqueue_enable_cb_avail - restart callbacks after
+> >> disable_cb.           
+> >>  * @vq: the struct virtqueue we're talking
+> >> about.                              
+> >>  *                                                                             
+> >>
+> >>  * This re-enables callbacks but hints to the other side to
+> >> delay              
+> >>  * interrupts all of the available buffers have been processed;         
+> >
+> > So this is like virtqueue_enable_cb_delayed but even more
+> > aggressive?
+> > I think it's too agressive: it's better to wake up guest
+> > after you are through most of buffers, but not all,
+> > so guest and host can work in parallel.
 > 
-> This is just what we want I think. The interrupt was not lost but fired
-> after 3/4 pending buffers were consumed. Do you see any real issue on this?
+> Note that:
+> 
+> - it was only used when there are still few of free slots (which is
+> greater than 2 + MAX_SKB_FRAGS)
+> - my patch keeps the free_old_xmit_skbs() in the beginning of
+> start_xmit(), so the tx skb reclaiming does not depends totally on tx
+> interrupt. If more packets comes, we'd expect some of them were freed in
+> ndo_start_xmit(). If not, finally we may trigger the
+> virtqueue_enable_cb_delayed().
+> 
+> So probably not as aggressive as it looks. I will do benchmark on this.
 
-Yes, this violates the API. For example device might never
-consume the rest of buffers.
+Mine too:
+        } else if (virtqueue_enable_cb_delayed(sq->vq)) {
+                free_old_xmit_skbs(txq, sq, qsize);
+        }
+
 
 
 > >
-> >>> Instead, how about we simply document the requirement that drivers either
-> >>> always call virtqueue_enable_cb_delayed or virtqueue_enable_cb
-> >>> but not both?
-> >> We need call them both when tx interrupt is enabled I believe.
-> > Can you pls reply to my patch and document issues you see?
 > >
-> 
-> In the previous reply you said you're using
-> virtuqueue_enable_cb_delayed(), so no race in your patch.
-
-OK so you think my patch is also correct, but that yours gives better
-efficiency?
-
--- 
-MST
+> >>  * it returns "false" if there are at least one pending buffer in the
+> >> queue,          
+> >>  * to detect a possible race between the driver checking for more
+> >> work,        
+> >>  * and enabling
+> >> callbacks.                                                     
+> >>  *                                                                             
+> >>
+> >>  * Caller must ensure we don't call this with other
+> >> virtqueue                  
+> >>  * operations at the same time (except where
+> >> noted).                           
+> >>  */
+> >>
+> >>>> diff --git a/include/linux/virtio.h b/include/linux/virtio.h
+> >>>> index b46671e..bfaf058 100644
+> >>>> --- a/include/linux/virtio.h
+> >>>> +++ b/include/linux/virtio.h
+> >>>> @@ -65,6 +65,8 @@ bool virtqueue_enable_cb(struct virtqueue *vq);
+> >>>>  
+> >>>>  unsigned virtqueue_enable_cb_prepare(struct virtqueue *vq);
+> >>>>  
+> >>>> +bool virtqueue_enable_cb_avail(struct virtqueue *vq);
+> >>>> +
+> >>>>  bool virtqueue_poll(struct virtqueue *vq, unsigned);
+> >>>>  
+> >>>>  bool virtqueue_enable_cb_delayed(struct virtqueue *vq);
+> >>>> -- 
+> >>>> 1.7.1
+> >>> --
+> >>> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> >>> the body of a message to majordomo@vger.kernel.org
+> >>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> >>> Please read the FAQ at  http://www.tux.org/lkml/
+> > --
+> > To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> > the body of a message to majordomo@vger.kernel.org
+> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> > Please read the FAQ at  http://www.tux.org/lkml/
