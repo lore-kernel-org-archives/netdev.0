@@ -1,65 +1,47 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: something is wrong in commit 971f10eca1 - tcp: better
- TCP_SKB_CB layout to reduce cache line misses
-Date: Wed, 15 Oct 2014 04:27:02 -0700
-Message-ID: <1413372422.17365.10.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CAFrEnehWNzmzZGV-ZGbZF=wJ1q0TjFtB1yG6Dp1yVrJmBj9B7Q@mail.gmail.com>
-	 <20141014.164705.1874094084240216813.davem@davemloft.net>
-	 <CAFrEnejET5wer6S6qx13tMKWMshmRj+JnQeZL-zdPGcs__9NoQ@mail.gmail.com>
-	 <20141014.171559.1355616486999711590.davem@davemloft.net>
-	 <CAHA+R7PyUZyjHPf-SJRiiOw=jQjJnXVaosYU7TuiVe6sQTC9Ww@mail.gmail.com>
-	 <1413323024.17109.11.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <543E4DD8.80203@winsoft.pl>
+From: Vasily Averin <vvs@parallels.com>
+Subject: Re: [PATCH v2] ipv4: dst_entry leak in ip_append_data()
+Date: Wed, 15 Oct 2014 15:31:37 +0400
+Message-ID: <543E5B19.2080200@parallels.com>
+References: <543CAD2A.3070701@parallels.com>	 <1413348385.12304.0.camel@edumazet-glaptop2.roam.corp.google.com>	 <543E1AAF.9050601@parallels.com> <1413365433.12304.53.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <cwang@twopensource.com>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: Krzysztof Kolasa <kkolasa@winsoft.pl>
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f176.google.com ([209.85.192.176]:62079 "EHLO
-	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752198AbaJOL1E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Oct 2014 07:27:04 -0400
-Received: by mail-pd0-f176.google.com with SMTP id fp1so1090689pdb.7
-        for <netdev@vger.kernel.org>; Wed, 15 Oct 2014 04:27:03 -0700 (PDT)
-In-Reply-To: <543E4DD8.80203@winsoft.pl>
+Received: from mailhub.sw.ru ([195.214.232.25]:16421 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751301AbaJOLdU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Oct 2014 07:33:20 -0400
+In-Reply-To: <1413365433.12304.53.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-10-15 at 12:35 +0200, Krzysztof Kolasa wrote:
-> W dniu 14.10.2014 o 23:43, Eric Dumazet pisze:
-> > On Tue, 2014-10-14 at 14:24 -0700, Cong Wang wrote:
-> >
-> >> Since we are still in merge window, I don't think we have to use
-> >> a one-line fix for a bug introduced in this merge window.
-> > You are clearly refactoring here. Its a nice cleanup.
-> >
-> > If I was the maintainer, I would prefer the one line fix.
-> >
-> > Then when net-next is open, you refactor.
-> >
-> > As I said, I wont argue, do whatever you want.
-> >
-> > Thanks
-> >
-> >
-> >
+On 15.10.2014 13:30, Eric Dumazet wrote:
+> On Wed, 2014-10-15 at 10:56 +0400, Vasily Averin wrote:
+>> On 15.10.2014 08:46, Eric Dumazet wrote:
+>>> On Tue, 2014-10-14 at 08:57 +0400, Vasily Averin wrote:
+>>>> v2: adjust the indentation of the arguments __ip_append_data() call
+>>>>
+>>>> Fixes: 2e77d89b2fa8 ("net: avoid a pair of dst_hold()/dst_release() in ip_append_data()")
+>>>>
+>>>> If sk_write_queue is empty ip_append_data() executes ip_setup_cork()
+>>>> that "steals" dst entry from rt to cork. Later it calls __ip_append_data()
+>>>> that creates skb and adds it to sk_write_queue.
+>>>>
+>>>> If skb was added successfully following ip_push_pending_frames() call
+>>>> reassign dst entries from cork to skb, and kfree_skb frees dst_entry.
+>>>>
+>>>> However nobody frees stolen dst_entry if skb was not added into sk_write_queue.
+>>>
+>>> I thought this was done by ip_flush_pending_frames() ?
+>>
+>> Take look at ip_send_unicast_reply():
 > 
-> one-line patch not resolve problem, fix created by Cong Wang resolves 
-> problem !!!
+> So maybe the bug is here ?
 
-Hmm, there should be no difference with either patch.
-
-tcp_v4_rcv() 
-...
-memmove(&TCP_SKB_CB(skb)->header.h4, IPCB(skb),
-        sizeof(struct inet_skb_parm));
-...
--> tcp_v4_do_rcv() 
-   ->  tcp_v4_hnd_req()
-      -> cookie_v4_check(... , &TCP_SKB_CB(skb)->header.h4.opt)
-
-Hmm...
+Thank you, I'll remake my patch.
