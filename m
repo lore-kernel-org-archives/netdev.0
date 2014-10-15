@@ -1,126 +1,103 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: bnx2: can't disable rx-vlan-offload?
-Date: Wed, 15 Oct 2014 16:37:25 +0200
-Message-ID: <543E86A5.8010406@gmail.com>
-References: <DUB123-W35654C3B747AEBC067DAF8EDAD0@phx.gbl>
+From: Andy Lutomirski <luto@amacapital.net>
+Subject: Re: feature suggestion: implement SO_PEERCRED on local AF_INET/AF_INET6
+ sockets (allow uid-based identification on localhost)
+Date: Wed, 15 Oct 2014 07:41:48 -0700
+Message-ID: <543E87AC.5090402@amacapital.net>
+References: <20141015133518.GA7179@achernar.madore.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Lukas Tribus <luky-37@hotmail.com>,
-	Sony Chacko <sony.chacko@qlogic.com>,
-	"Dept-HSGLinuxNICDev@qlogic.com" <dept-hsglinuxnicdev@qlogic.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f182.google.com ([209.85.216.182]:40091 "EHLO
-	mail-qc0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751262AbaJOOha (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Oct 2014 10:37:30 -0400
-Received: by mail-qc0-f182.google.com with SMTP id i17so1013142qcy.41
-        for <netdev@vger.kernel.org>; Wed, 15 Oct 2014 07:37:30 -0700 (PDT)
-In-Reply-To: <DUB123-W35654C3B747AEBC067DAF8EDAD0@phx.gbl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: David Madore <david+ml@madore.org>,
+	Linux Kernel mailing-list <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141015133518.GA7179@achernar.madore.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/14/2014 06:05 PM, Lukas Tribus wrote:
-> Hi!
+On 10/15/2014 06:35 AM, David Madore wrote:
+> Given an AF_UNIX socket, the getsockopt(, SOL_SOCKET, SO_PEERCRED,,)
+> call allows one endpoint to authenticate the other endpoint's pid, uid
+> and gid.
 > 
+> The call is valid on AF_INET and AF_INET6 sockets but returns no data
+> (pid=0, uid=-1, gid=-1).  Obviously it is meaningless to try to get
+> such credentials from a INET/INET6 socket in general, but there is one
+> case where it would make sense: namely, when the endpoint is local
+> (i.e., when the socket is a connection to the same machine, e.g., when
+> connecting to 127.0.0.0/8 or ::1/32).
 > 
-> For a passive, libpcap based sniffer I'm trying to disable rx vlan
-> offload on a bnx2 card (vlan capture filter in libpcap doesn't work
-> correctly), but I'm not able to:
+> Being able to authenticate local INET/INET6 sockets would be immensely
+> valuable for a number of programs, to provide some kind of access
+> control to local sockets.  For example, ssh allows port forwarding
+> using the -L and -D options: by default or by option (cf. the
+> GatewayPorts option of ssh), these port-forwarding sockets can be
+> restricted to localhost, but of course they cannot be restricted to
+> the user running ssh, which makes them a huge security problem.  Many
+> programs suffer from the same problem (they restrict some kind of
+> connection to localhost, but they of course cannot make a restriction
+> on which user will be able to connect).
 > 
-> disabling rxvlan fails:
+> One cannot simply retort "these programs should be using Unix-domain
+> sockets instead": I don't think many browsers support using a SOCKS
+> proxy or an HTTP proxy over a Unix-domain socket, and in the latter
+> case I'm not even sure it would make sense (protocol-wise).
 > 
-> root@sniffer:~# ethtool -K eth1 rxvlan off
-> Could not change any device features
-> root@sniffer:~#
-> root@sniffer:~# ethtool -k eth1
-> Features for eth1:
-> rx-checksumming: on
-> tx-checksumming: on
->         tx-checksum-ipv4: on
->         tx-checksum-ip-generic: off [fixed]
->         tx-checksum-ipv6: on
->         tx-checksum-fcoe-crc: off [fixed]
->         tx-checksum-sctp: off [fixed]
-> scatter-gather: on
->         tx-scatter-gather: on
->         tx-scatter-gather-fraglist: off [fixed]
-> tcp-segmentation-offload: on
->         tx-tcp-segmentation: on
->         tx-tcp-ecn-segmentation: on
->         tx-tcp6-segmentation: on
-> udp-fragmentation-offload: off [fixed]
-> generic-segmentation-offload: on
-> generic-receive-offload: on
-> large-receive-offload: off [fixed]
-> rx-vlan-offload: on [requested off]
-> tx-vlan-offload: on
-> ntuple-filters: off [fixed]
-> receive-hashing: on
-> highdma: on [fixed]
-> rx-vlan-filter: off [fixed]
-> vlan-challenged: off [fixed]
-> tx-lockless: off [fixed]
-> netns-local: off [fixed]
-> tx-gso-robust: off [fixed]
-> tx-fcoe-segmentation: off [fixed]
-> tx-gre-segmentation: off [fixed]
-> tx-ipip-segmentation: off [fixed]
-> tx-sit-segmentation: off [fixed]
-> tx-udp_tnl-segmentation: off [fixed]
-> tx-mpls-segmentation: off [fixed]
-> fcoe-mtu: off [fixed]
-> tx-nocache-copy: on
-> loopback: off [fixed]
-> rx-fcs: off [fixed]
-> rx-all: off [fixed]
-> tx-vlan-stag-hw-insert: off [fixed]
-> rx-vlan-stag-hw-parse: off [fixed]
-> rx-vlan-stag-filter: off [fixed]
-> l2-fwd-offload: off [fixed]
-> root@sniffer:~#
-> root@sniffer:~# ethtool -i eth1
-> driver: bnx2
-> version: 2.2.4
-> firmware-version: 5.0.9 bc 5.0.6 NCSI 2.0.3
-> bus-info: 0000:01:00.1
-> supports-statistics: yes
-> supports-test: yes
-> supports-eeprom-access: yes
-> supports-register-dump: yes
-> supports-priv-flags: no
-> root@sniffer:~#
+> If I believe <URL:
+> http://www.lehman.cuny.edu/cgi-bin/man-cgi?getpeerucred+3
+>  > ("The system currently supports both sides of connection end-points
+> for local AF_UNIX, AF_INET, and AF_INET6 sockets"), Solaris, or at
+> least some version thereof, support authentication of local AF_INET
+> and AF_INET6 sockets.
 > 
-> dmesg bnx2 lines:
-> [    6.974972] bnx2: Broadcom NetXtreme II Gigabit Ethernet Driver bnx2 v2.2.4 (Aug 05, 2013)
-> [    6.975681] bnx2 0000:01:00.0 eth0: Broadcom NetXtreme II BCM5716 1000Base-T (C0) PCI Express found at mem da000000, IRQ 36, node addr 00:26:b9:51:ba:59
-> [    6.976631] bnx2 0000:01:00.1 eth1: Broadcom NetXtreme II BCM5716 1000Base-T (C0) PCI Express found at mem dc000000, IRQ 48, node addr 00:26:b9:51:ba:5a
+> I think it would be wonderful if Linux had this.  I'm willing to work
+> on the implementation if it is considered *a priori* acceptable for
+> inclusion.
 > 
+> The data seems to be available, since it is exposed in /proc/net/tcp
+> and /proc/net/tcp6 and whatnots (implementation details left aside, it
+> is merely a question of matching a line with opposite endpoints to the
+> current socket and returning it).
 > 
-> I'm using Ubuntus 3.13 kernel and ethtool version 3.13, but I previously
-> tried ethtool 3.1 on both ubuntu 3.8 kernel and a vanilla 3.14.21
-> kernel as well.
+> [In principle, a userland program can parse /proc/net/tcp so it does
+> not need the feature I am suggesting, but in practice parsing a text
+> file to communicate with the kernel is yucky at best, and probably not
+> very robust (e.g., /proc might not be mounted), and it would be very
+> difficult to convince, say, the OpenSSH authors to include code that
+> parses the Linux /proc/net/tcp format (or even link with a library
+> which does this) in order to add access-control on ssh port-forwards:
+> having this under a more standard getsockpot() interface is cleaner
+> and opens at least some kind of hope that programs would agree to use
+> it.]
 > 
-> 
-> Any ideas or workarounds that may help disabling rx vlan acceleration?
+> Question number 1: If this feature were implemented, would it be
+> considered acceptable for inclusion in the kernel?  (If there is some
+> reason why it can't be accepted, I'd like to know in advance, to avoid
+> working in vain.)
 
-Try bringing the interface down first.  BNX2 is a bit strange in how it handles
-vlan feature changes.
+I will object to adding it as described, for the same reason that I
+object to anything that extends the current model of socket-based
+credential passing.  Ideally, credentials would *never* be implicitly
+captured by socket syscalls.  We live in the real world, and SO_****CRED
+exists, so I think the best we can do is to try to minimize its use.
 
--vlad
+I can elaborate further, or you can IIRC search the archives for
+SCM_IDENTITY, and you can also look at CVE-2013-1979 for a nasty example
+of why this model is broken.
+
+That being said, if anyone ever finished the SCM_IDENTITY work, I think
+I'd be okay with allowing it over TCP.  I can't speak for the network
+people, though, and you should ask on netdev (cc'd).
 
 > 
-> 
-> 
-> 
-> Thanks!
-> 
-> Lukas
-> 
-> 
->  		 	   		  --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+> Question number 2: A priori, how difficult would it be to implement
+> this?  (As mentioned above, it seems trivial in principle to merely go
+> through the local endpoints to find a matching connection, but maybe
+> there are locking issues that I don't understand that make it much
+> more difficult than it would seem.)  Any guidelines on implementation?
+> (I imagine one should try to fill sk->sk_peer_cred at connect time,
+> but I don't really know how difficult this might turn out.)
+
+Dunno.
+
+--Andy
