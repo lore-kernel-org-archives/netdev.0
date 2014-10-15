@@ -1,70 +1,88 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2] ipv4: dst_entry leak in ip_append_data()
-Date: Wed, 15 Oct 2014 02:30:33 -0700
-Message-ID: <1413365433.12304.53.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <543CAD2A.3070701@parallels.com>
-	 <1413348385.12304.0.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <543E1AAF.9050601@parallels.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [RFC PATCH net-next 1/6] virtio: make sure used event never go
+	backwards
+Date: Wed, 15 Oct 2014 12:34:32 +0300
+Message-ID: <20141015093432.GB25776@redhat.com>
+References: <1413357930-45302-1-git-send-email-jasowang@redhat.com>
+	<1413357930-45302-2-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Vasily Averin <vvs@parallels.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:61216 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751609AbaJOJaf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Oct 2014 05:30:35 -0400
-Received: by mail-pa0-f45.google.com with SMTP id rd3so1001939pab.4
-        for <netdev@vger.kernel.org>; Wed, 15 Oct 2014 02:30:35 -0700 (PDT)
-In-Reply-To: <543E1AAF.9050601@parallels.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, davem@davemloft.net
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1413357930-45302-2-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2014-10-15 at 10:56 +0400, Vasily Averin wrote:
-> On 15.10.2014 08:46, Eric Dumazet wrote:
-> > On Tue, 2014-10-14 at 08:57 +0400, Vasily Averin wrote:
-> >> v2: adjust the indentation of the arguments __ip_append_data() call
-> >>
-> >> Fixes: 2e77d89b2fa8 ("net: avoid a pair of dst_hold()/dst_release() in ip_append_data()")
-> >>
-> >> If sk_write_queue is empty ip_append_data() executes ip_setup_cork()
-> >> that "steals" dst entry from rt to cork. Later it calls __ip_append_data()
-> >> that creates skb and adds it to sk_write_queue.
-> >>
-> >> If skb was added successfully following ip_push_pending_frames() call
-> >> reassign dst entries from cork to skb, and kfree_skb frees dst_entry.
-> >>
-> >> However nobody frees stolen dst_entry if skb was not added into sk_write_queue.
-> > 
-> > I thought this was done by ip_flush_pending_frames() ?
+On Wed, Oct 15, 2014 at 03:25:25PM +0800, Jason Wang wrote:
+> This patch checks the new event idx to make sure used event idx never
+> goes back. This is used to synchronize the calls between
+> virtqueue_enable_cb_delayed() and virtqueue_enable_cb().
 > 
-> Take look at ip_send_unicast_reply():
+> Cc: Rusty Russell <rusty@rustcorp.com.au>
+> Cc: Michael S. Tsirkin <mst@redhat.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-So maybe the bug is here ?
+the implication being that moving event idx back might cause some race
+condition?  If yes but please describe the race explicitly.
+Is there a bug we need to fix on stable?
+Please also explicitly describe a configuration that causes event idx
+to go back.
 
+All this info should go in the commit log.
 
+> ---
+>  drivers/virtio/virtio_ring.c |    7 +++++--
+>  1 files changed, 5 insertions(+), 2 deletions(-)
 > 
-> ip_flush_pending_frames() is not called if skb was not added to sk_write_queue.
-> And ip_rt_put() does not work, because dst entry was stolen in ip_setup_cork().
-> 
-> Probably it can happen in raw_sendmsg() and udp_sendmsg() too.
+> diff --git a/drivers/virtio/virtio_ring.c b/drivers/virtio/virtio_ring.c
+> index 3b1f89b..1b3929f 100644
+> --- a/drivers/virtio/virtio_ring.c
+> +++ b/drivers/virtio/virtio_ring.c
+> @@ -559,14 +559,17 @@ unsigned virtqueue_enable_cb_prepare(struct virtqueue *_vq)
+>  	u16 last_used_idx;
+>  
+>  	START_USE(vq);
+> -
+> +	last_used_idx = vq->last_used_idx;
+>  	/* We optimistically turn back on interrupts, then check if there was
+>  	 * more to do. */
+>  	/* Depending on the VIRTIO_RING_F_EVENT_IDX feature, we need to
+>  	 * either clear the flags bit or point the event index at the next
+>  	 * entry. Always do both to keep code simple. */
+>  	vq->vring.avail->flags &= ~VRING_AVAIL_F_NO_INTERRUPT;
+> -	vring_used_event(&vq->vring) = last_used_idx = vq->last_used_idx;
+> +	/* Make sure used event never go backwards */
 
-UDP & RAW do :
+s/go/goes/
 
-err = ip_append_data(...);
-if (err)
-    udp_flush_pending_frames(sk);
+> +	if (!vring_need_event(vring_used_event(&vq->vring),
+> +			      vq->vring.avail->idx, last_used_idx))
+> +		vring_used_event(&vq->vring) = last_used_idx;
+
+The result will be that driver will *not* get an interrupt
+on the next consumed buffer, which is likely not what driver
+intended when it called virtqueue_enable_cb.
+
+Instead, how about we simply document the requirement that drivers either
+always call virtqueue_enable_cb_delayed or virtqueue_enable_cb
+but not both?
 
 
-It seems you chose to add a test in fast path, with not even adding an
-unlikely() clause, while it seems that we took care of all the cases but
-missed a single one : ip_send_unicast_reply()
-
-I am suggesting to fix this bug in another way.
-
-Thanks.
+>  	END_USE(vq);
+>  	return last_used_idx;
+>  }
+> -- 
+> 1.7.1
