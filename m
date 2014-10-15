@@ -1,47 +1,44 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH RFC] virtio_net: enable tx interrupt
-Date: Wed, 15 Oct 2014 12:40:43 +0800
-Message-ID: <543DFACB.5030905@redhat.com>
-References: <1413323524-23380-1-git-send-email-mst@redhat.com>	<20141014231154.GA23806@redhat.com>
-	<543DF92C.6060209@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2] ipv4: dst_entry leak in ip_append_data()
+Date: Tue, 14 Oct 2014 21:46:25 -0700
+Message-ID: <1413348385.12304.0.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <543CAD2A.3070701@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>, linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <543DF92C.6060209@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Vasily Averin <vvs@parallels.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:38557 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750736AbaJOEq0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Oct 2014 00:46:26 -0400
+Received: by mail-pd0-f173.google.com with SMTP id g10so556139pdj.4
+        for <netdev@vger.kernel.org>; Tue, 14 Oct 2014 21:46:26 -0700 (PDT)
+In-Reply-To: <543CAD2A.3070701@parallels.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/15/2014 12:33 PM, Jason Wang wrote:
-> On 10/15/2014 07:11 AM, Michael S. Tsirkin wrote:
->> > On Wed, Oct 15, 2014 at 12:53:59AM +0300, Michael S. Tsirkin wrote:
->>>> >> >  static void skb_xmit_done(struct virtqueue *vq)
->>>> >> >  {
->>>> >> >  	struct virtnet_info *vi = vq->vdev->priv;
->>>> >> > +	struct send_queue *sq = &vi->sq[vq2txq(vq)];
->>>> >> >  
->>>> >> > -	/* Suppress further interrupts. */
->>>> >> > -	virtqueue_disable_cb(vq);
->>>> >> > -
->> > One note here: current code seems racy because of doing
->> > virtqueue_disable_cb from skb_xmit_done that I'm dropping here: there's
->> > no guarantee we don't get an interrupt while tx ring is running, and if
->> > that happens we can end up with interrupts disabled forever.
->> >
-> Looks harmless since:
->
-> - if event index is enabled, virtqueue_disable_cb() does nothing in fact.
-> - if event index is disabled, we don't depend on tx interrupt and when
-> num_free is low we will try to enable the tx interrupt again.
+On Tue, 2014-10-14 at 08:57 +0400, Vasily Averin wrote:
+> v2: adjust the indentation of the arguments __ip_append_data() call
+> 
+> Fixes: 2e77d89b2fa8 ("net: avoid a pair of dst_hold()/dst_release() in ip_append_data()")
+> 
+> If sk_write_queue is empty ip_append_data() executes ip_setup_cork()
+> that "steals" dst entry from rt to cork. Later it calls __ip_append_data()
+> that creates skb and adds it to sk_write_queue.
+> 
+> If skb was added successfully following ip_push_pending_frames() call
+> reassign dst entries from cork to skb, and kfree_skb frees dst_entry.
+> 
+> However nobody frees stolen dst_entry if skb was not added into sk_write_queue.
 
-Ok, I think I get you here. For 'current' you mean the rfc I post.
+I thought this was done by ip_flush_pending_frames() ?
+
+Can you describe the issue more precisely ?
+
+Thanks !
