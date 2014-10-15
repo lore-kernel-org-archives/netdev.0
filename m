@@ -1,96 +1,85 @@
-From: dom <dominic.curran@citrix.com>
-Subject: Re: ixgbe: Question about Flow Control on 10G
-Date: Wed, 15 Oct 2014 11:56:34 -0700
-Message-ID: <543EC362.5060507@citrix.com>
-References: <543D72FE.9090107@citrix.com> <87618083B2453E4A8714035B62D67992500E1865@FMSMSX105.amr.corp.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-To: "Tantilov, Emil S" <emil.s.tantilov@intel.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:19460 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751624AbaJOS4K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Oct 2014 14:56:10 -0400
-In-Reply-To: <87618083B2453E4A8714035B62D67992500E1865@FMSMSX105.amr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Fabian Frederick <fabf@skynet.be>
+Subject: [PATCH 1/1 net-next] HCI: remove comparisons on shdlc boolean members.
+Date: Wed, 15 Oct 2014 21:00:24 +0200
+Message-ID: <1413399624-8128-1-git-send-email-fabf@skynet.be>
+Cc: Fabian Frederick <fabf@skynet.be>,
+	Lauro Ramos Venancio <lauro.venancio@openbossa.org>,
+	Aloisio Almeida Jr <aloisio.almeida@openbossa.org>,
+	Samuel Ortiz <sameo@linux.intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/14/2014 01:54 PM, Tantilov, Emil S wrote:
->> -----Original Message-----
->> From: netdev-owner@vger.kernel.org [mailto:netdev-
->> owner@vger.kernel.org] On Behalf Of dom
->> Sent: Tuesday, October 14, 2014 12:01 PM
->> To: Skidmore, Donald C; netdev@vger.kernel.org
->> Subject: ixgbe: Question about Flow Control on 10G
->>
->> Hi
->>
->> I have a question about the ixgbe driver's handling of
->> 'ethtool -a ethX'
->> when the NIC is using fibre.
->>
->> Specifically I don't understand the code introduced by this
->> commit:
->>
->> commit 73d80953dfd1d5a92948005798c857c311c2834b
->> Author: Don Skidmore <donald.c.skidmore@intel.com>
->> Date:   Wed Jul 31 02:19:24 2013 +0000
->> Subject: ixgbe: fix fc autoneg ethtool reporting.
->>
->> The function introduced the function:
->>         ixgbe_device_supports_autoneg_fc()
->>
->> which gets called by
->> ixgbe_get_pauseparam()/ixgbe_set_pauseparam().
->>
->> specifically there is a  case in
->> ixgbe_device_supports_autoneg_fc()
->>
->>      case ixgbe_media_type_fiber_qsfp:
->>      case ixgbe_media_type_fiber:
->>          hw->mac.ops.check_link(hw, &speed, &link_up,
->> false);
->>          /* if link is down, assume supported */
->>          if (link_up)
->>              supported = speed == IXGBE_LINK_SPEED_1GB_FULL ?
->>                  true : false;
->>
->> If link_up=1 then why is supported only true for a
->> speed=IXGBE_LINK_SPEED_1GB_FULL ?
->>
->> Why is Flow Control not supported for IXGBE_LINK_SPEED_10GB_FULL ?
-> For SFP modules (media_type_fiber) flow control autoneg is not supported at 10gig. You can still set flow control manually to enabled/disabled, just not autoneg.
->
-> Thanks,
-> Emil
-Hi Emil
+Fixes coccinelles warnings:
+net/nfc/hci/llc_shdlc.c:539:7-17: WARNING: Comparison to bool
+net/nfc/hci/llc_shdlc.c:544:9-19: WARNING: Comparison to bool
+net/nfc/hci/llc_shdlc.c:574:6-22: WARNING: Comparison to bool
+net/nfc/hci/llc_shdlc.c:250:5-21: WARNING: Comparison to bool
+net/nfc/hci/llc_shdlc.c:333:6-16: WARNING: Comparison to bool
+net/nfc/hci/llc_shdlc.c:431:31-43: WARNING: Comparison to bool
 
-Thank you for the quick answer.  I have a one follow-up question if I may...
+Signed-off-by: Fabian Frederick <fabf@skynet.be>
+---
+ net/nfc/hci/llc_shdlc.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
-We noticed that back in 3.2.9 (before 73d80953dfd basically) the 
-behaviour was different for 10G fibre.  i.e.  autonegotiate showed 'on'.
-
-# ethtool -a eth1
-Pause parameters for eth1:
-Autonegotiate:  on
-RX:             on
-TX:             on
-
-
-The code:
-     if (hw->fc.disable_fc_autoneg ||
-         (hw->fc.current_mode == ixgbe_fc_none))
-         pause->autoneg = 0;
-     else
-         pause->autoneg = 1;
-
-So I assume this old output from 'ethtool -a' for autogen was just 
-wrong, is that correct ?
-
-[I'm asking cos I _know_ my h/w collegues are going to ask why the change.]
-
-Thanks again
-dom
+diff --git a/net/nfc/hci/llc_shdlc.c b/net/nfc/hci/llc_shdlc.c
+index 401c7e2..76e6fa2 100644
+--- a/net/nfc/hci/llc_shdlc.c
++++ b/net/nfc/hci/llc_shdlc.c
+@@ -247,7 +247,7 @@ static void llc_shdlc_rcv_i_frame(struct llc_shdlc *shdlc,
+ 		goto exit;
+ 	}
+ 
+-	if (shdlc->t1_active == false) {
++	if (!shdlc->t1_active) {
+ 		shdlc->t1_active = true;
+ 		mod_timer(&shdlc->t1_timer, jiffies +
+ 			  msecs_to_jiffies(SHDLC_T1_VALUE_MS(shdlc->w)));
+@@ -330,7 +330,7 @@ static void llc_shdlc_rcv_s_frame(struct llc_shdlc *shdlc,
+ 	switch (s_frame_type) {
+ 	case S_FRAME_RR:
+ 		llc_shdlc_rcv_ack(shdlc, nr);
+-		if (shdlc->rnr == true) {	/* see SHDLC 10.7.7 */
++		if (shdlc->rnr) {	/* see SHDLC 10.7.7 */
+ 			shdlc->rnr = false;
+ 			if (shdlc->send_q.qlen == 0) {
+ 				skb = llc_shdlc_alloc_skb(shdlc, 0);
+@@ -428,7 +428,7 @@ static void llc_shdlc_rcv_u_frame(struct llc_shdlc *shdlc,
+ 					       false;
+ 
+ 			if ((w <= SHDLC_MAX_WINDOW) &&
+-			    (SHDLC_SREJ_SUPPORT || (srej_support == false))) {
++			    (SHDLC_SREJ_SUPPORT || (!srej_support))) {
+ 				shdlc->w = w;
+ 				shdlc->srej_support = srej_support;
+ 				r = llc_shdlc_connect_send_ua(shdlc);
+@@ -536,12 +536,12 @@ static void llc_shdlc_handle_send_queue(struct llc_shdlc *shdlc)
+ 		pr_debug
+ 		    ("sendQlen=%d ns=%d dnr=%d rnr=%s w_room=%d unackQlen=%d\n",
+ 		     shdlc->send_q.qlen, shdlc->ns, shdlc->dnr,
+-		     shdlc->rnr == false ? "false" : "true",
++		     !shdlc->rnr ? "false" : "true",
+ 		     shdlc->w - llc_shdlc_w_used(shdlc->ns, shdlc->dnr),
+ 		     shdlc->ack_pending_q.qlen);
+ 
+ 	while (shdlc->send_q.qlen && shdlc->ack_pending_q.qlen < shdlc->w &&
+-	       (shdlc->rnr == false)) {
++	       (!shdlc->rnr)) {
+ 
+ 		if (shdlc->t1_active) {
+ 			del_timer_sync(&shdlc->t1_timer);
+@@ -571,7 +571,7 @@ static void llc_shdlc_handle_send_queue(struct llc_shdlc *shdlc)
+ 
+ 		skb_queue_tail(&shdlc->ack_pending_q, skb);
+ 
+-		if (shdlc->t2_active == false) {
++		if (!shdlc->t2_active) {
+ 			shdlc->t2_active = true;
+ 			mod_timer(&shdlc->t2_timer, time_sent +
+ 				  msecs_to_jiffies(SHDLC_T2_VALUE_MS));
+-- 
+1.9.3
