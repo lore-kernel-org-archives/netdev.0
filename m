@@ -1,148 +1,77 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [RFC PATCH net-next 5/6] virtio-net: enable tx interrupt
-Date: Wed, 15 Oct 2014 19:00:22 +0800
-Message-ID: <543E53C6.8040907@redhat.com>
-References: <1413357930-45302-1-git-send-email-jasowang@redhat.com>
-	<1413357930-45302-6-git-send-email-jasowang@redhat.com>
-	<20141015101826.GD25776@redhat.com> <543E4B95.2040209@redhat.com>
-	<20141015104309.GI25776@redhat.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH v3 net] ixgbe: check adapter->vfinfo before dereference
+Date: Wed, 15 Oct 2014 04:00:34 -0700
+Message-ID: <1413370834.2412.5.camel@jtkirshe-mobl>
+References: <1412930732-892-1-git-send-email-thierry.herbelot@6wind.com>
+	 <1413367080-31540-1-git-send-email-thierry.herbelot@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-QNp3OUPRFkhUlwix3+Ou"
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
+	emil.s.tantilov@intel.com
+To: Thierry Herbelot <thierry.herbelot@6wind.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:49022 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751533AbaJOLAk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Oct 2014 07:00:40 -0400
+In-Reply-To: <1413367080-31540-1-git-send-email-thierry.herbelot@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+
+--=-QNp3OUPRFkhUlwix3+Ou
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Wed, 2014-10-15 at 11:58 +0200, Thierry Herbelot wrote:
+> this protects against the following panic:
+> (before a VF was actually created on p96p1 PF Ethernet port)
+>=20
+> ip link set p96p1 vf 0 spoofchk off
+> BUG: unable to handle kernel NULL pointer dereference at
+> 0000000000000052
+> IP: [<ffffffffa044a1c1>] ixgbe_ndo_set_vf_spoofchk+0x51/0x150 [ixgbe]
+>=20
+> Signed-off-by: Thierry Herbelot <thierry.herbelot@6wind.com>
+> ---
+>=20
+> v2:
+>   compilation fixes
+>=20
+> v3:
+>   remove checks in functions where vfinfo is known not to be NULL
+>   return -EINVAL as error code
+>=20
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c |   42
+> ++++++++++++++++++++++--
+>  1 file changed, 40 insertions(+), 2 deletions(-)
+
+Thanks Thierry, I have added this patch to my queue (and dropped your
+v2).
+
+--=-QNp3OUPRFkhUlwix3+Ou
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, davem@davemloft.net
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20141015104309.GI25776@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
 
-On 10/15/2014 06:43 PM, Michael S. Tsirkin wrote:
-> On Wed, Oct 15, 2014 at 06:25:25PM +0800, Jason Wang wrote:
->> > On 10/15/2014 06:18 PM, Michael S. Tsirkin wrote:
->>> > > On Wed, Oct 15, 2014 at 03:25:29PM +0800, Jason Wang wrote:
->>>>> > >> > Orphan skb in ndo_start_xmit() breaks socket accounting and packet
->>>>> > >> > queuing. This in fact breaks lots of things such as pktgen and several
->>>>> > >> > TCP optimizations. And also make BQL can't be implemented for
->>>>> > >> > virtio-net.
->>>>> > >> > 
->>>>> > >> > This patch tries to solve this issue by enabling tx interrupt. To
->>>>> > >> > avoid introducing extra spinlocks, a tx napi was scheduled to free
->>>>> > >> > those packets.
->>>>> > >> > 
->>>>> > >> > More tx interrupt mitigation method could be used on top.
->>>>> > >> > 
->>>>> > >> > Cc: Rusty Russell <rusty@rustcorp.com.au>
->>>>> > >> > Cc: Michael S. Tsirkin <mst@redhat.com>
->>>>> > >> > Signed-off-by: Jason Wang <jasowang@redhat.com>
->>>>> > >> > ---
->>>>> > >> >  drivers/net/virtio_net.c |  125 +++++++++++++++++++++++++++++++---------------
->>>>> > >> >  1 files changed, 85 insertions(+), 40 deletions(-)
->>>>> > >> > 
->>>>> > >> > diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
->>>>> > >> > index ccf98f9..2afc2e2 100644
->>>>> > >> > --- a/drivers/net/virtio_net.c
->>>>> > >> > +++ b/drivers/net/virtio_net.c
->>>>> > >> > @@ -72,6 +72,8 @@ struct send_queue {
->>>>> > >> >  
->>>>> > >> >  	/* Name of the send queue: output.$index */
->>>>> > >> >  	char name[40];
->>>>> > >> > +
->>>>> > >> > +	struct napi_struct napi;
->>>>> > >> >  };
->>>>> > >> >  
->>>>> > >> >  /* Internal representation of a receive virtqueue */
->>>>> > >> > @@ -217,15 +219,40 @@ static struct page *get_a_page(struct receive_queue *rq, gfp_t gfp_mask)
->>>>> > >> >  	return p;
->>>>> > >> >  }
->>>>> > >> >  
->>>>> > >> > +static int free_old_xmit_skbs(struct send_queue *sq, int budget)
->>>>> > >> > +{
->>>>> > >> > +	struct sk_buff *skb;
->>>>> > >> > +	unsigned int len;
->>>>> > >> > +	struct virtnet_info *vi = sq->vq->vdev->priv;
->>>>> > >> > +	struct virtnet_stats *stats = this_cpu_ptr(vi->stats);
->>>>> > >> > +	u64 tx_bytes = 0, tx_packets = 0;
->>>>> > >> > +
->>>>> > >> > +	while (tx_packets < budget &&
->>>>> > >> > +	       (skb = virtqueue_get_buf(sq->vq, &len)) != NULL) {
->>>>> > >> > +		pr_debug("Sent skb %p\n", skb);
->>>>> > >> > +
->>>>> > >> > +		tx_bytes += skb->len;
->>>>> > >> > +		tx_packets++;
->>>>> > >> > +
->>>>> > >> > +		dev_kfree_skb_any(skb);
->>>>> > >> > +	}
->>>>> > >> > +
->>>>> > >> > +	u64_stats_update_begin(&stats->tx_syncp);
->>>>> > >> > +	stats->tx_bytes += tx_bytes;
->>>>> > >> > +	stats->tx_packets =+ tx_packets;
->>>>> > >> > +	u64_stats_update_end(&stats->tx_syncp);
->>>>> > >> > +
->>>>> > >> > +	return tx_packets;
->>>>> > >> > +}
->>>>> > >> > +
->>>>> > >> >  static void skb_xmit_done(struct virtqueue *vq)
->>>>> > >> >  {
->>>>> > >> >  	struct virtnet_info *vi = vq->vdev->priv;
->>>>> > >> > +	struct send_queue *sq = &vi->sq[vq2txq(vq)];
->>>>> > >> >  
->>>>> > >> > -	/* Suppress further interrupts. */
->>>>> > >> > -	virtqueue_disable_cb(vq);
->>>>> > >> > -
->>>>> > >> > -	/* We were probably waiting for more output buffers. */
->>>>> > >> > -	netif_wake_subqueue(vi->dev, vq2txq(vq));
->>>>> > >> > +	if (napi_schedule_prep(&sq->napi)) {
->>>>> > >> > +		__napi_schedule(&sq->napi);
->>>>> > >> > +	}
->>>>> > >> >  }
->>>>> > >> >  
->>>>> > >> >  static unsigned int mergeable_ctx_to_buf_truesize(unsigned long mrg_ctx)
->>>>> > >> > @@ -774,7 +801,39 @@ again:
->>>>> > >> >  	return received;
->>>>> > >> >  }
->>>>> > >> >  
->>>>> > >> > +static int virtnet_poll_tx(struct napi_struct *napi, int budget)
->>>>> > >> > +{
->>>>> > >> > +	struct send_queue *sq =
->>>>> > >> > +		container_of(napi, struct send_queue, napi);
->>>>> > >> > +	struct virtnet_info *vi = sq->vq->vdev->priv;
->>>>> > >> > +	struct netdev_queue *txq = netdev_get_tx_queue(vi->dev, vq2txq(sq->vq));
->>>>> > >> > +	unsigned int r, sent = 0;
->>>>> > >> > +
->>>>> > >> > +again:
->>>>> > >> > +	__netif_tx_lock(txq, smp_processor_id());
->>>>> > >> > +	virtqueue_disable_cb(sq->vq);
->>>>> > >> > +	sent += free_old_xmit_skbs(sq, budget - sent);
->>>>> > >> > +
->>>>> > >> > +	if (sent < budget) {
->>>>> > >> > +		r = virtqueue_enable_cb_prepare(sq->vq);
->>>>> > >> > +		napi_complete(napi);
->>>>> > >> > +		__netif_tx_unlock(txq);
->>>>> > >> > +		if (unlikely(virtqueue_poll(sq->vq, r)) &&
->>> > > So you are enabling callback on the next packet,
->>> > > which is almost sure to cause an interrupt storm
->>> > > on the guest.
->>> > >
->>> > >
->>> > > I think it's a bad idea, this is why I used
->>> > > enable_cb_delayed in my patch.
->> > 
->> > Right, will do this, but may also need to make sure used event never
->> > goes back since we may call virtqueue_enable_cb_avail().
-> That's why my patch always calls virtqueue_enable_cb_delayed.
-> So no need for hacks.
->
-> Maybe you can review my patch and comment?
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
 
-I think I miss the virtqueue_enable_cb_delayed() in your patch when I'm
-reviewing it. Will do.
+iQIcBAABCgAGBQJUPlPSAAoJEOVv75VaS+3Oh6kP/1XzBKSo7EVsU52y4JFO2B8d
+CCvYNuegQDsal4dHk74mARqlZmHymrVbodcObnvJq58FaRfxN3Od2kYdH35bblDF
+VSqAfasz0a+8jC9zdZ9MLzo6hVnIoiFNrEVPnh27KnY5l0YALjC6dhuGBP8187bN
+guHdWGpG3XBhx4nqPLDgBbCEztf5noKikXVBP77vX5yRB+wLNLPTlbeJNFbxBQPI
++8R6aSbco4PNxEP2cZEBiYb9W3j9pnjgSZC5GBPWD47ZbRBMdzLMi//h0dNbE1xj
+F94fi5HbhcTnp08v2Rx3iNO13Fi28Cofo5HA/bggGpQbjIQd+733fuDQj+q92+oj
+lac4ZieZ3siSCRpb8gUF5kVsjbKlihw+xn9og6TbyNAtLwz0QztvTu4xu77Lm1ap
+sPLrhOA3mkY5vrs7Sit2JTvqYW/pit7agQdlYu3zQsWRUhjwTuQXl5MfZWxN+3Yv
++CuCtN1H0cipdn+eS1FuW/u/HFJLkfM5NbGEjth6PC/PTfTp5WcqGMUaGcVrFGof
+J6udW04a3AnD9j3ePWUgBhxymadw5wWUWNYnbCLjLnAxb27JqC4EFGNIKdQlvhxR
+00kGymOzkNUFfnf3jqPnfVaLQV0qe/J6xaczBpw6kNxP2heaEZoIgg6Rv3KAHQEm
+mEYawaFycFdAkVtnhDFX
+=P5C7
+-----END PGP SIGNATURE-----
+
+--=-QNp3OUPRFkhUlwix3+Ou--
