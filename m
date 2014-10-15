@@ -1,175 +1,193 @@
-From: Thierry Herbelot <thierry.herbelot@6wind.com>
-Subject: [PATCH v3 net] ixgbe: check adapter->vfinfo before dereference
-Date: Wed, 15 Oct 2014 11:58:00 +0200
-Message-ID: <1413367080-31540-1-git-send-email-thierry.herbelot@6wind.com>
-References: <1412930732-892-1-git-send-email-thierry.herbelot@6wind.com>
-Cc: Thierry Herbelot <thierry.herbelot@6wind.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
-	<emil.s.tantilov@intel.com>
+From: Fugang Duan <b38611@freescale.com>
+Subject: [PATCH v2 1/1] net: fec: ptp: fix convergence issue to support LinuxPTP stack
+Date: Wed, 15 Oct 2014 17:30:12 +0800
+Message-ID: <1413365412-22072-1-git-send-email-b38611@freescale.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <bhutchings@solarflare.com>,
+	<b20596@freescale.com>, <b38611@freescale.com>
+To: <richardcochran@gmail.com>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f171.google.com ([209.85.212.171]:33677 "EHLO
-	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751793AbaJOJ6h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Oct 2014 05:58:37 -0400
-Received: by mail-wi0-f171.google.com with SMTP id em10so12426093wid.16
-        for <netdev@vger.kernel.org>; Wed, 15 Oct 2014 02:58:35 -0700 (PDT)
-In-Reply-To: <1412930732-892-1-git-send-email-thierry.herbelot@6wind.com>
+Received: from mail-bn1on0132.outbound.protection.outlook.com ([157.56.110.132]:57248
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751395AbaJOKAi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Oct 2014 06:00:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-this protects against the following panic:
-(before a VF was actually created on p96p1 PF Ethernet port)
+iMX6SX IEEE 1588 module has one hw issue in capturing the ATVR register.
+The current SW flow is:
+		ENET0->ATCR |= ENET_ATCR_CAPTURE_MASK;
+		ts_counter_ns = ENET0->ATVR;
+The ATVR value is not expected value that cause LinuxPTP stack cannot be convergent.
 
-ip link set p96p1 vf 0 spoofchk off
-BUG: unable to handle kernel NULL pointer dereference at 0000000000000052
-IP: [<ffffffffa044a1c1>] ixgbe_ndo_set_vf_spoofchk+0x51/0x150 [ixgbe]
+ENET Block Guide/ Chapter for the iMX6SX (PELE) address the issue:
+After set ENET_ATCR[Capture], there need some time cycles before the counter
+value is capture in the register clock domain. The wait-time-cycles is at least
+6 clock cycles of the slower clock between the register clock and the 1588 clock.
+So need something like:
+		ENET0->ATCR |= ENET_ATCR_CAPTURE_MASK;
+		wait();
+		ts_counter_ns = ENET0->ATVR;
 
-Signed-off-by: Thierry Herbelot <thierry.herbelot@6wind.com>
+For iMX6SX, the 1588 ts_clk is fixed to 25Mhz, register clock is 66Mhz, so the
+wait-time-cycles must be greater than 240ns (40ns * 6). The patch add 1us delay
+before cpu read ATVR register.
+
+Changes V2:
+Modify the commit/comments log to describe the issue clearly.
+
+Signed-off-by: Fugang Duan <B38611@freescale.com>
 ---
+ drivers/net/ethernet/freescale/fec.h      |   50 +++++++++++++++++++++++++++++
+ drivers/net/ethernet/freescale/fec_main.c |   43 +------------------------
+ drivers/net/ethernet/freescale/fec_ptp.c  |    5 +++
+ 3 files changed, 56 insertions(+), 42 deletions(-)
 
-v2:
-  compilation fixes
-
-v3:
-  remove checks in functions where vfinfo is known not to be NULL
-  return -EINVAL as error code
-
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c |   42 ++++++++++++++++++++++--
- 1 file changed, 40 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-index 706fc69..fab0157 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-@@ -365,6 +365,9 @@ void ixgbe_restore_vf_multicasts(struct ixgbe_adapter *adapter)
- 	u32 vector_reg;
- 	u32 mta_reg;
+diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
+index 1d5e182..906b739 100644
+--- a/drivers/net/ethernet/freescale/fec.h
++++ b/drivers/net/ethernet/freescale/fec.h
+@@ -367,6 +367,56 @@ struct bufdesc_ex {
+ #define FEC_VLAN_TAG_LEN       0x04
+ #define FEC_ETHTYPE_LEN                0x02
  
-+	if (!adapter->vfinfo)
-+		return;
++/* Controller is ENET-MAC */
++#define FEC_QUIRK_ENET_MAC		(1 << 0)
++/* Controller needs driver to swap frame */
++#define FEC_QUIRK_SWAP_FRAME		(1 << 1)
++/* Controller uses gasket */
++#define FEC_QUIRK_USE_GASKET		(1 << 2)
++/* Controller has GBIT support */
++#define FEC_QUIRK_HAS_GBIT		(1 << 3)
++/* Controller has extend desc buffer */
++#define FEC_QUIRK_HAS_BUFDESC_EX	(1 << 4)
++/* Controller has hardware checksum support */
++#define FEC_QUIRK_HAS_CSUM		(1 << 5)
++/* Controller has hardware vlan support */
++#define FEC_QUIRK_HAS_VLAN		(1 << 6)
++/* ENET IP errata ERR006358
++ *
++ * If the ready bit in the transmit buffer descriptor (TxBD[R]) is previously
++ * detected as not set during a prior frame transmission, then the
++ * ENET_TDAR[TDAR] bit is cleared at a later time, even if additional TxBDs
++ * were added to the ring and the ENET_TDAR[TDAR] bit is set. This results in
++ * frames not being transmitted until there is a 0-to-1 transition on
++ * ENET_TDAR[TDAR].
++ */
++#define FEC_QUIRK_ERR006358            (1 << 7)
++/* ENET IP hw AVB
++ *
++ * i.MX6SX ENET IP add Audio Video Bridging (AVB) feature support.
++ * - Two class indicators on receive with configurable priority
++ * - Two class indicators and line speed timer on transmit allowing
++ *   implementation class credit based shapers externally
++ * - Additional DMA registers provisioned to allow managing up to 3
++ *   independent rings
++ */
++#define FEC_QUIRK_HAS_AVB		(1 << 8)
++/* There is a TDAR race condition for mutliQ when the software sets TDAR
++ * and the UDMA clears TDAR simultaneously or in a small window (2-4 cycles).
++ * This will cause the udma_tx and udma_tx_arbiter state machines to hang.
++ * The issue exist at i.MX6SX enet IP.
++ */
++#define FEC_QUIRK_ERR007885		(1 << 9)
++/* ENET Block Guide/ Chapter for the iMX6SX (PELE) address one issue:
++ * After set ENET_ATCR[Capture], there need some time cycles before the counter
++ * value is capture in the register clock domain.
++ * The wait-time-cycles is at least 6 clock cycles of the slower clock between
++ * the register clock and the 1588 clock. The 1588 ts_clk is fixed to 25Mhz,
++ * register clock is 66Mhz, so the wait-time-cycles must be greater than 240ns
++ * (40ns * 6).
++ */
++#define FEC_QUIRK_BUG_CAPTURE		(1 << 10)
 +
- 	for (i = 0; i < adapter->num_vfs; i++) {
- 		u32 vmolr = IXGBE_READ_REG(hw, IXGBE_VMOLR(i));
- 		vfinfo = &adapter->vfinfo[i];
-@@ -504,9 +507,13 @@ static void ixgbe_clear_vmvir(struct ixgbe_adapter *adapter, u32 vf)
- static inline void ixgbe_vf_reset_event(struct ixgbe_adapter *adapter, u32 vf)
+ struct fec_enet_priv_tx_q {
+ 	int index;
+ 	unsigned char *tx_bounce[TX_RING_SIZE];
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index 87975b5..965f1c8 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -78,47 +78,6 @@ static void fec_enet_itr_coal_init(struct net_device *ndev);
+ #define FEC_ENET_RAFL_V	0x8
+ #define FEC_ENET_OPD_V	0xFFF0
+ 
+-/* Controller is ENET-MAC */
+-#define FEC_QUIRK_ENET_MAC		(1 << 0)
+-/* Controller needs driver to swap frame */
+-#define FEC_QUIRK_SWAP_FRAME		(1 << 1)
+-/* Controller uses gasket */
+-#define FEC_QUIRK_USE_GASKET		(1 << 2)
+-/* Controller has GBIT support */
+-#define FEC_QUIRK_HAS_GBIT		(1 << 3)
+-/* Controller has extend desc buffer */
+-#define FEC_QUIRK_HAS_BUFDESC_EX	(1 << 4)
+-/* Controller has hardware checksum support */
+-#define FEC_QUIRK_HAS_CSUM		(1 << 5)
+-/* Controller has hardware vlan support */
+-#define FEC_QUIRK_HAS_VLAN		(1 << 6)
+-/* ENET IP errata ERR006358
+- *
+- * If the ready bit in the transmit buffer descriptor (TxBD[R]) is previously
+- * detected as not set during a prior frame transmission, then the
+- * ENET_TDAR[TDAR] bit is cleared at a later time, even if additional TxBDs
+- * were added to the ring and the ENET_TDAR[TDAR] bit is set. This results in
+- * frames not being transmitted until there is a 0-to-1 transition on
+- * ENET_TDAR[TDAR].
+- */
+-#define FEC_QUIRK_ERR006358            (1 << 7)
+-/* ENET IP hw AVB
+- *
+- * i.MX6SX ENET IP add Audio Video Bridging (AVB) feature support.
+- * - Two class indicators on receive with configurable priority
+- * - Two class indicators and line speed timer on transmit allowing
+- *   implementation class credit based shapers externally
+- * - Additional DMA registers provisioned to allow managing up to 3
+- *   independent rings
+- */
+-#define FEC_QUIRK_HAS_AVB		(1 << 8)
+-/* There is a TDAR race condition for mutliQ when the software sets TDAR
+- * and the UDMA clears TDAR simultaneously or in a small window (2-4 cycles).
+- * This will cause the udma_tx and udma_tx_arbiter state machines to hang.
+- * The issue exist at i.MX6SX enet IP.
+- */
+-#define FEC_QUIRK_ERR007885		(1 << 9)
+-
+ static struct platform_device_id fec_devtype[] = {
+ 	{
+ 		/* keep it for coldfire */
+@@ -146,7 +105,7 @@ static struct platform_device_id fec_devtype[] = {
+ 		.driver_data = FEC_QUIRK_ENET_MAC | FEC_QUIRK_HAS_GBIT |
+ 				FEC_QUIRK_HAS_BUFDESC_EX | FEC_QUIRK_HAS_CSUM |
+ 				FEC_QUIRK_HAS_VLAN | FEC_QUIRK_HAS_AVB |
+-				FEC_QUIRK_ERR007885,
++				FEC_QUIRK_ERR007885 | FEC_QUIRK_BUG_CAPTURE,
+ 	}, {
+ 		/* sentinel */
+ 	}
+diff --git a/drivers/net/ethernet/freescale/fec_ptp.c b/drivers/net/ethernet/freescale/fec_ptp.c
+index cca3617..380bb10 100644
+--- a/drivers/net/ethernet/freescale/fec_ptp.c
++++ b/drivers/net/ethernet/freescale/fec_ptp.c
+@@ -82,12 +82,17 @@ static cycle_t fec_ptp_read(const struct cyclecounter *cc)
  {
- 	struct ixgbe_hw *hw = &adapter->hw;
--	struct vf_data_storage *vfinfo = &adapter->vfinfo[vf];
-+	struct vf_data_storage *vfinfo;
- 	u8 num_tcs = netdev_get_num_tc(adapter->netdev);
+ 	struct fec_enet_private *fep =
+ 		container_of(cc, struct fec_enet_private, cc);
++	const struct platform_device_id *id_entry =
++		platform_get_device_id(fep->pdev);
+ 	u32 tempval;
  
-+	if (!adapter->vfinfo)
-+		return;
-+	vfinfo = &adapter->vfinfo[vf];
+ 	tempval = readl(fep->hwp + FEC_ATIME_CTRL);
+ 	tempval |= FEC_T_CTRL_CAPTURE;
+ 	writel(tempval, fep->hwp + FEC_ATIME_CTRL);
+ 
++	if (id_entry->driver_data & FEC_QUIRK_BUG_CAPTURE)
++		udelay(1);
 +
- 	/* add PF assigned VLAN or VLAN 0 */
- 	ixgbe_set_vf_vlan(adapter, true, vfinfo->pf_vlan, vf);
+ 	return readl(fep->hwp + FEC_ATIME);
+ }
  
-@@ -612,6 +619,9 @@ int ixgbe_vf_configuration(struct pci_dev *pdev, unsigned int event_mask)
- 
- 	bool enable = ((event_mask & 0x10000000U) != 0);
- 
-+	if (!adapter->vfinfo)
-+		return -EINVAL;
-+
- 	if (enable)
- 		eth_zero_addr(adapter->vfinfo[vfn].vf_mac_addresses);
- 
-@@ -937,6 +947,9 @@ static int ixgbe_rcv_msg_from_vf(struct ixgbe_adapter *adapter, u32 vf)
- 	struct ixgbe_hw *hw = &adapter->hw;
- 	s32 retval;
- 
-+	if (!adapter->vfinfo)
-+		return -EINVAL;
-+
- 	retval = ixgbe_read_mbx(hw, msgbuf, mbx_size, vf);
- 
- 	if (retval) {
-@@ -1010,6 +1023,9 @@ static void ixgbe_rcv_ack_from_vf(struct ixgbe_adapter *adapter, u32 vf)
- 	struct ixgbe_hw *hw = &adapter->hw;
- 	u32 msg = IXGBE_VT_MSGTYPE_NACK;
- 
-+	if (!adapter->vfinfo)
-+		return;
-+
- 	/* if device isn't clear to send it shouldn't be reading either */
- 	if (!adapter->vfinfo[vf].clear_to_send)
- 		ixgbe_write_mbx(hw, &msg, 1, vf);
-@@ -1053,6 +1069,9 @@ void ixgbe_ping_all_vfs(struct ixgbe_adapter *adapter)
- 	u32 ping;
- 	int i;
- 
-+	if (!adapter->vfinfo)
-+		return;
-+
- 	for (i = 0 ; i < adapter->num_vfs; i++) {
- 		ping = IXGBE_PF_CONTROL_MSG;
- 		if (adapter->vfinfo[i].clear_to_send)
-@@ -1066,6 +1085,9 @@ int ixgbe_ndo_set_vf_mac(struct net_device *netdev, int vf, u8 *mac)
- 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
- 	if (!is_valid_ether_addr(mac) || (vf >= adapter->num_vfs))
- 		return -EINVAL;
-+	if (!adapter->vfinfo)
-+		return -EINVAL;
-+
- 	adapter->vfinfo[vf].pf_set_mac = true;
- 	dev_info(&adapter->pdev->dev, "setting MAC %pM on VF %d\n", mac, vf);
- 	dev_info(&adapter->pdev->dev, "Reload the VF driver to make this"
-@@ -1085,6 +1107,9 @@ int ixgbe_ndo_set_vf_vlan(struct net_device *netdev, int vf, u16 vlan, u8 qos)
- 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
- 	struct ixgbe_hw *hw = &adapter->hw;
- 
-+	if (!adapter->vfinfo)
-+		return -EINVAL;
-+
- 	if ((vf >= adapter->num_vfs) || (vlan > 4095) || (qos > 7))
- 		return -EINVAL;
- 	if (vlan || qos) {
-@@ -1149,7 +1174,11 @@ static void ixgbe_set_vf_rate_limit(struct ixgbe_adapter *adapter, int vf)
- 	struct ixgbe_hw *hw = &adapter->hw;
- 	u32 bcnrc_val = 0;
- 	u16 queue, queues_per_pool;
--	u16 tx_rate = adapter->vfinfo[vf].tx_rate;
-+	u16 tx_rate;
-+
-+	if (!adapter->vfinfo)
-+		return;
-+	tx_rate = adapter->vfinfo[vf].tx_rate;
- 
- 	if (tx_rate) {
- 		/* start with base link speed value */
-@@ -1199,6 +1228,9 @@ void ixgbe_check_vf_rate_limit(struct ixgbe_adapter *adapter)
- {
- 	int i;
- 
-+	if (!adapter->vfinfo)
-+		return;
-+
- 	/* VF Tx rate limit was not set */
- 	if (!adapter->vf_rate_link_speed)
- 		return;
-@@ -1261,6 +1293,9 @@ int ixgbe_ndo_set_vf_spoofchk(struct net_device *netdev, int vf, bool setting)
- 	struct ixgbe_hw *hw = &adapter->hw;
- 	u32 regval;
- 
-+	if (!adapter->vfinfo)
-+		return -EINVAL;
-+
- 	adapter->vfinfo[vf].spoofchk_enabled = setting;
- 
- 	regval = IXGBE_READ_REG(hw, IXGBE_PFVFSPOOF(vf_target_reg));
-@@ -1285,6 +1320,9 @@ int ixgbe_ndo_get_vf_config(struct net_device *netdev,
- 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
- 	if (vf >= adapter->num_vfs)
- 		return -EINVAL;
-+	if (!adapter->vfinfo)
-+		return -EINVAL;
-+
- 	ivi->vf = vf;
- 	memcpy(&ivi->mac, adapter->vfinfo[vf].vf_mac_addresses, ETH_ALEN);
- 	ivi->max_tx_rate = adapter->vfinfo[vf].tx_rate;
 -- 
-1.7.10.4
+1.7.8
