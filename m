@@ -1,7 +1,7 @@
 From: Fabian Frederick <fabf@skynet.be>
-Subject: [PATCH 1/1 net-next] NFC: digital: use sizeof(*target) instead of nfc_target
-Date: Wed, 15 Oct 2014 21:01:20 +0200
-Message-ID: <1413399680-8338-1-git-send-email-fabf@skynet.be>
+Subject: [PATCH 1/1 net-next] NFC: llcp: remove bool comparison on device
+Date: Wed, 15 Oct 2014 21:01:58 +0200
+Message-ID: <1413399718-8382-1-git-send-email-fabf@skynet.be>
 Cc: Fabian Frederick <fabf@skynet.be>,
 	Lauro Ramos Venancio <lauro.venancio@openbossa.org>,
 	Aloisio Almeida Jr <aloisio.almeida@openbossa.org>,
@@ -13,34 +13,26 @@ Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-See Documentation/CodingStyle Chapter 14
+Fixes coccinelle warning:
+net/nfc/llcp_core.c:132:5-11: WARNING: Comparison to bool
 
 Signed-off-by: Fabian Frederick <fabf@skynet.be>
 ---
- net/nfc/digital_technology.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/nfc/llcp_core.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/nfc/digital_technology.c b/net/nfc/digital_technology.c
-index fb58ed2d..5e94b6f 100644
---- a/net/nfc/digital_technology.c
-+++ b/net/nfc/digital_technology.c
-@@ -494,7 +494,7 @@ static void digital_in_recv_sens_res(struct nfc_digital_dev *ddev, void *arg,
- 		goto exit;
- 	}
+diff --git a/net/nfc/llcp_core.c b/net/nfc/llcp_core.c
+index 51e7887..978399d 100644
+--- a/net/nfc/llcp_core.c
++++ b/net/nfc/llcp_core.c
+@@ -129,7 +129,7 @@ static void nfc_llcp_socket_release(struct nfc_llcp_local *local, bool device,
+ 	write_unlock(&local->sockets.lock);
  
--	target = kzalloc(sizeof(struct nfc_target), GFP_KERNEL);
-+	target = kzalloc(sizeof(*target), GFP_KERNEL);
- 	if (!target) {
- 		rc = -ENOMEM;
- 		goto exit;
-@@ -693,7 +693,7 @@ static void digital_in_recv_sensb_res(struct nfc_digital_dev *ddev, void *arg,
- 	else
- 		ddev->target_fsc = digital_ats_fsc[fsci];
+ 	/* If we still have a device, we keep the RAW sockets alive */
+-	if (device == true)
++	if (device)
+ 		return;
  
--	target = kzalloc(sizeof(struct nfc_target), GFP_KERNEL);
-+	target = kzalloc(sizeof(*target), GFP_KERNEL);
- 	if (!target) {
- 		rc = -ENOMEM;
- 		goto exit;
+ 	write_lock(&local->raw_sockets.lock);
 -- 
 1.9.3
