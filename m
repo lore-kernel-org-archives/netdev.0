@@ -1,39 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next,v2] hyperv: Add handling of IP header with
- option field in netvsc_set_hash()
-Date: Tue, 14 Oct 2014 22:05:05 -0400 (EDT)
-Message-ID: <20141014.220505.586366171329066629.davem@davemloft.net>
-References: <1413317117-28678-1-git-send-email-haiyangz@microsoft.com>
+Subject: Re: Netlink mmap tx security?
+Date: Tue, 14 Oct 2014 22:09:08 -0400 (EDT)
+Message-ID: <20141014.220908.123550384430402000.davem@davemloft.net>
+References: <CALCETrWDSG2EhxBnM8Jm55Ov8PYQ_w3Wf88SKYOB1q1WgRpbEw@mail.gmail.com>
+	<20141014.220111.179628329028952302.davem@davemloft.net>
+	<CALCETrW1HFJ3QXMfV9Hv922eax0hbHJn5GmHPvtED8_JR5KOVg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
- driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org
-To: haiyangz@microsoft.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1413317117-28678-1-git-send-email-haiyangz@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: torvalds@linux-foundation.org, kaber@trash.net,
+	netdev@vger.kernel.org, tgraf@suug.ch
+To: luto@amacapital.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46505 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755926AbaJOCJK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2014 22:09:10 -0400
+In-Reply-To: <CALCETrW1HFJ3QXMfV9Hv922eax0hbHJn5GmHPvtED8_JR5KOVg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Date: Tue, 14 Oct 2014 20:05:17 +0000
+From: Andy Lutomirski <luto@amacapital.net>
+Date: Tue, 14 Oct 2014 19:03:11 -0700
 
-> In case that the IP header has optional field at the end, this patch will
-> get the port numbers after that field, and compute the hash.
+> On Tue, Oct 14, 2014 at 7:01 PM, David Miller <davem@davemloft.net> wrote:
+>> I really think this means I'll have to remove all of the netlink
+>> mmap() support in order to prevent from breaking applications. :(
+>>
+>> The other option is to keep NETLINK_TX_RING, but copy the data into
+>> a kernel side buffer before acting upon it.
 > 
-> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+> Option 3, which sucks but maybe not that badly: change the value of
+> NETLINK_RX_RING.  (Practically: add NETLINK_RX_RING2 or something like
+> that.)
 
-This isn't even close to what I asked for.
+That would work as well.
 
-I said to remove all of this by-hand header parsing code in the
-hyperv driver, and use the generic code networking facilities
-that exist already to do this.
+There are pros and cons to all of these approaches.
+
+I was thinking that if we do the "TX mmap --> copy to kernel buffer"
+approach, then if in the future we find a way to make it work
+reliably, we can avoid the copy.  And frankly performance wise it's no
+worse than what happens via normal sendmsg() calls.
+
+And all applications using NETLINK_RX_RING keep working and keep
+getting the performance boost.
