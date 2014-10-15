@@ -1,128 +1,117 @@
-From: Joe Jin <joe.jin@oracle.com>
-Subject: Re: Unable to handle kernel NULL pointer dereference at 0000000000000088
- RIP:  [<ffffffff881ba167>] :bnx2:bnx2_poll_work+0xc7/0x1253
-Date: Wed, 15 Oct 2014 11:29:14 +0800
-Message-ID: <543DEA0A.3080609@oracle.com>
-References: <5438F6C6.4040309@oracle.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next RFC 3/3] virtio-net: conditionally enable tx
+	interrupt
+Date: Wed, 15 Oct 2014 11:34:35 +0800
+Message-ID: <543DEB4B.1010505@redhat.com>
+References: <1413011806-3813-1-git-send-email-jasowang@redhat.com>
+	<1413011806-3813-4-git-send-email-jasowang@redhat.com>
+	<20141014215146.GB23344@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=gbk
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Michael Chan <mchan@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "zheng.li" <zheng.x.li@oracle.com>,
-	Sony Chacko <sony.chacko@qlogic.com>,
-	Dept-HSGLinuxNICDev@qlogic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:45162 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755643AbaJOD3Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Oct 2014 23:29:25 -0400
-In-Reply-To: <5438F6C6.4040309@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: kvm@vger.kernel.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, linux-api@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20141014215146.GB23344@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Copy to new maintainer from QLogic and netdev.
+On 10/15/2014 05:51 AM, Michael S. Tsirkin wrote:
+> On Sat, Oct 11, 2014 at 03:16:46PM +0800, Jason Wang wrote:
+>> > We free transmitted packets in ndo_start_xmit() in the past to get better
+>> > performance in the past. One side effect is that skb_orphan() needs to be
+>> > called in ndo_start_xmit() which makes sk_wmem_alloc not accurate in
+>> > fact. For TCP protocol, this means several optimization could not work well
+>> > such as TCP small queue and auto corking. This can lead extra low
+>> > throughput of small packets stream.
+>> > 
+>> > Thanks to the urgent descriptor support. This patch tries to solve this
+>> > issue by enable the tx interrupt selectively for stream packets. This means
+>> > we don't need to orphan TCP stream packets in ndo_start_xmit() but enable
+>> > tx interrupt for those packets. After we get tx interrupt, a tx napi was
+>> > scheduled to free those packets.
+>> > 
+>> > With this method, sk_wmem_alloc of TCP socket were more accurate than in
+>> > the past which let TCP can batch more through TSQ and auto corking.
+>> > 
+>> > Signed-off-by: Jason Wang <jasowang@redhat.com>
+>> > ---
+>> >  drivers/net/virtio_net.c | 164 ++++++++++++++++++++++++++++++++++++-----------
+>> >  1 file changed, 128 insertions(+), 36 deletions(-)
+>> > 
+>> > diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+>> > index 5810841..b450fc4 100644
+>> > --- a/drivers/net/virtio_net.c
+>> > +++ b/drivers/net/virtio_net.c
+>> > @@ -72,6 +72,8 @@ struct send_queue {
+>> >  
+>> >  	/* Name of the send queue: output.$index */
+>> >  	char name[40];
+>> > +
+>> > +	struct napi_struct napi;
+>> >  };
+>> >  
+>> >  /* Internal representation of a receive virtqueue */
+>> > @@ -217,15 +219,40 @@ static struct page *get_a_page(struct receive_queue *rq, gfp_t gfp_mask)
+>> >  	return p;
+>> >  }
+>> >  
+>> > +static int free_old_xmit_skbs(struct send_queue *sq, int budget)
+>> > +{
+>> > +	struct sk_buff *skb;
+>> > +	unsigned int len;
+>> > +	struct virtnet_info *vi = sq->vq->vdev->priv;
+>> > +	struct virtnet_stats *stats = this_cpu_ptr(vi->stats);
+>> > +	int sent = 0;
+>> > +
+>> > +	while (sent < budget &&
+>> > +	       (skb = virtqueue_get_buf(sq->vq, &len)) != NULL) {
+>> > +		pr_debug("Sent skb %p\n", skb);
+>> > +
+>> > +		u64_stats_update_begin(&stats->tx_syncp);
+>> > +		stats->tx_bytes += skb->len;
+>> > +		stats->tx_packets++;
+>> > +		u64_stats_update_end(&stats->tx_syncp);
+>> > +
+>> > +		dev_kfree_skb_any(skb);
+>> > +		sent++;
+>> > +	}
+>> > +
+>> > +	return sent;
+>> > +}
+>> > +
+>> >  static void skb_xmit_done(struct virtqueue *vq)
+>> >  {
+>> >  	struct virtnet_info *vi = vq->vdev->priv;
+>> > +	struct send_queue *sq = &vi->sq[vq2txq(vq)];
+>> >  
+>> > -	/* Suppress further interrupts. */
+>> > -	virtqueue_disable_cb(vq);
+>> > -
+>> > -	/* We were probably waiting for more output buffers. */
+>> > -	netif_wake_subqueue(vi->dev, vq2txq(vq));
+>> > +	if (napi_schedule_prep(&sq->napi)) {
+>> > +		virtqueue_disable_cb(vq);
+>> > +		virtqueue_disable_cb_urgent(vq);
+> This disable_cb is no longer safe in xmit_done callback,
+> since queue can be running at the same time.
+>
+> You must do it under tx lock. And yes, this likely will not work
+> work well without event_idx. We'll probably need extra
+> synchronization for such old hosts.
+>
+>
+>
 
-Thanks,
-Joe
-On 10/11/14 17:22, zheng.li wrote:
-> Hi Michael,
-> I encounter a null pointer in bnx2_poll_work=A3=AC
-> after analyzed the vmcore found:
-> tx_prod =3D 27708 and hw_cons =3D bnx2_get_hw_tx_cons(bnapi) =3D 2772=
-2;
-> hw_cons > tx_prod;
-> so the root cause is mostly HW sent data count is larger than stack
-> provide in bnx2_start_xmit to cause memory override, normally HW just
-> can sent data maximum is tx_prod, but don't know why HW sent data mor=
-e
-> than tx_prod 14 data.
->=20
-> Can you help to look at the issue? we encounter several times.
-> bnx2 driver is 2.1.11,
-> #define DRV_MODULE_VERSION	"2.1.11"
-> #define DRV_MODULE_RELDATE	"July 20, 2011"
-> Kernel version is : 2.6.18-371.1.2.0.1
->=20
->=20
-> vmcore show infor is below:
->=20
-> crash64> bnx2 ffff81122c650500
-> struct bnx2 {
->   regview =3D 0xffffc200100e0000,
->   dev =3D 0xffff81122c650000,
->   pdev =3D 0xffff81122f0c9000,
->   intr_sem =3D {
->     counter =3D 0
->   },
->   flags =3D 22404,
->   bnx2_napi =3D {{
->       dummy_netdev =3D 0xffff81242ae3e800,
->       bp =3D 0xffff81122c650500,
->       status_blk =3D {
->         msi =3D 0xffff81122391b000,
->         msix =3D 0xffff81122391b000
->       },
->       hw_tx_cons_ptr =3D 0xffff81122391b00a,
->       hw_rx_cons_ptr =3D 0xffff81122391b012,
->       last_status_idx =3D 65048,
->       int_num =3D 0,
->       cnic_tag =3D 0,
->       cnic_present =3D 0,
->       rx_ring =3D {
->         rx_prod_bseq =3D 1540471240,
->         rx_prod =3D 21188,
->         rx_cons =3D 20932,
->         rx_bidx_addr =3D 65540,
->         rx_bseq_addr =3D 65544,
->         rx_pg_bidx_addr =3D 65604,
->         rx_pg_prod =3D 0,
->         rx_pg_cons =3D 0,
->         rx_buf_ring =3D 0xffffc20014a7b000,
->         rx_desc_ring =3D {0xffff81122b8a0000, 0x0, 0x0, 0x0, 0x0, 0x0=
-,
-> 0x0, 0x0},
->         rx_pg_ring =3D 0x0,
->         rx_pg_desc_ring =3D {0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, =
-0x0,
-> 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
-> 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
->         rx_desc_mapping =3D {78039875584, 0, 0, 0, 0, 0, 0, 0},
->         rx_pg_desc_mapping =3D {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0=
-, 0,
-> 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
->       },
->       tx_ring =3D {
->         tx_prod_bseq =3D 3702584042,
->         tx_prod =3D 27708,
->         tx_bidx_addr =3D 69768,
->         tx_bseq_addr =3D 69776,
->         tx_desc_ring =3D 0xffff811227890000,
->         tx_buf_ring =3D 0xffff81242f510000,
->         tx_cons =3D 27603,
->         hw_tx_cons =3D 27603,
->         tx_desc_mapping =3D 77972701184
->       }
->     },
->=20
-> crash64> rd 0xffff81122391b00a
-> ffff81122391b00a:  0000000000006c4a
-> hw_cons =3D 6c4a =3D 27722;
->=20
-> usr/src/debug/kernel-2.6.18/linux-2.6.18-371.1.2.0.1.el5.x86_64/inclu=
-de/linux/skbuff.h:
-> 921
-> 0xffffffff881ba167 <bnx2_poll_work+199>:921>:   mov    0x88(%r13),%ed=
-x
-> R13: 0000000000000000
-> R13 is skb which is NULL at that moment.
->=20
-> Had refer https://access.redhat.com/solutions/341183
-> and
-> http://kernel.opensuse.org/cgit/kernel/commit/?id=3Dc1f5163de417dab01=
-fa9daaf09a74bbb19303f3c
-> but can't exactly know which case our bug hit.
->=20
-> Thanks,
-> James Li
->=20
+Yes, and the virtqueue_enable_cb_prepare() in virtnet_poll_tx() needs to
+be synced with virtqueue_enabled_cb_dealyed(). Otherwise an old idx will
+be published and we may still see tx interrupt storm.
