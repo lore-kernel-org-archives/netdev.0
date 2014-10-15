@@ -1,56 +1,35 @@
 From: Fabian Frederick <fabf@skynet.be>
-Subject: [PATCH 1/1 net-next] NFC: netlink: use sizeof(*iter) instead of class_dev_iter
-Date: Wed, 15 Oct 2014 21:03:00 +0200
-Message-ID: <1413399780-8470-1-git-send-email-fabf@skynet.be>
+Subject: [PATCH 1/1 net-next] openvswitch: kerneldoc warning fix
+Date: Wed, 15 Oct 2014 21:03:18 +0200
+Message-ID: <1413399798-8514-1-git-send-email-fabf@skynet.be>
 Cc: Fabian Frederick <fabf@skynet.be>,
-	Lauro Ramos Venancio <lauro.venancio@openbossa.org>,
-	Aloisio Almeida Jr <aloisio.almeida@openbossa.org>,
-	Samuel Ortiz <sameo@linux.intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+	Pravin Shelar <pshelar@nicira.com>,
+	"David S. Miller" <davem@davemloft.net>, dev@openvswitch.org,
+	netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Also fixes kzalloc on struct se_io_ctx
-See Documentation/CodingStyle Chapter 14
+s/sock/gs
 
 Signed-off-by: Fabian Frederick <fabf@skynet.be>
 ---
- net/nfc/netlink.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ net/openvswitch/vport-geneve.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/nfc/netlink.c b/net/nfc/netlink.c
-index 43cb1c1..b4ba68e 100644
---- a/net/nfc/netlink.c
-+++ b/net/nfc/netlink.c
-@@ -534,7 +534,7 @@ static int nfc_genl_dump_devices(struct sk_buff *skb,
+diff --git a/net/openvswitch/vport-geneve.c b/net/openvswitch/vport-geneve.c
+index 910b3ef..106a9d8 100644
+--- a/net/openvswitch/vport-geneve.c
++++ b/net/openvswitch/vport-geneve.c
+@@ -30,7 +30,7 @@
  
- 	if (!iter) {
- 		first_call = true;
--		iter = kmalloc(sizeof(struct class_dev_iter), GFP_KERNEL);
-+		iter = kmalloc(sizeof(*iter), GFP_KERNEL);
- 		if (!iter)
- 			return -ENOMEM;
- 		cb->args[0] = (long) iter;
-@@ -1242,7 +1242,7 @@ static int nfc_genl_dump_ses(struct sk_buff *skb,
- 
- 	if (!iter) {
- 		first_call = true;
--		iter = kmalloc(sizeof(struct class_dev_iter), GFP_KERNEL);
-+		iter = kmalloc(sizeof(*iter), GFP_KERNEL);
- 		if (!iter)
- 			return -ENOMEM;
- 		cb->args[0] = (long) iter;
-@@ -1360,7 +1360,7 @@ static int nfc_genl_se_io(struct sk_buff *skb, struct genl_info *info)
- 	if (!apdu)
- 		return -EINVAL;
- 
--	ctx = kzalloc(sizeof(struct se_io_ctx), GFP_KERNEL);
-+	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
- 	if (!ctx)
- 		return -ENOMEM;
- 
+ /**
+  * struct geneve_port - Keeps track of open UDP ports
+- * @sock: The socket created for this port number.
++ * @gs: The socket created for this port number.
+  * @name: vport name.
+  */
+ struct geneve_port {
 -- 
 1.9.3
