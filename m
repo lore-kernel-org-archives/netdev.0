@@ -1,57 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: something is wrong in commit 971f10eca1 - tcp: better
- TCP_SKB_CB layout to reduce cache line misses
-Date: Wed, 15 Oct 2014 14:42:34 -0700
-Message-ID: <1413409354.17186.2.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CAFrEnehWNzmzZGV-ZGbZF=wJ1q0TjFtB1yG6Dp1yVrJmBj9B7Q@mail.gmail.com>
-	 <20141014.164705.1874094084240216813.davem@davemloft.net>
-	 <CAFrEnejET5wer6S6qx13tMKWMshmRj+JnQeZL-zdPGcs__9NoQ@mail.gmail.com>
-	 <20141014.171559.1355616486999711590.davem@davemloft.net>
-	 <CAHA+R7PyUZyjHPf-SJRiiOw=jQjJnXVaosYU7TuiVe6sQTC9Ww@mail.gmail.com>
-	 <1413323024.17109.11.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <543E4DD8.80203@winsoft.pl>
-	 <CAHA+R7OEvTcZOm-OepWYvGP+pC_CJRoSen351nw8VJGdLTo0uA@mail.gmail.com>
-	 <1413409168.17186.0.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Benjamin Poirier <benjamin.poirier@gmail.com>
+Subject: Re: Regarding tx-nocache-copy in the Sheevaplug
+Date: Wed, 15 Oct 2014 14:57:01 -0700
+Message-ID: <20141015215701.GA4109@f1.synalogic.ca>
+References: <20141013105246.GD1972@vicerveza.homeunix.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Krzysztof Kolasa <kkolasa@winsoft.pl>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: Cong Wang <cwang@twopensource.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:35380 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751490AbaJOVmf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Oct 2014 17:42:35 -0400
-Received: by mail-pa0-f53.google.com with SMTP id kq14so2070082pab.40
-        for <netdev@vger.kernel.org>; Wed, 15 Oct 2014 14:42:35 -0700 (PDT)
-In-Reply-To: <1413409168.17186.0.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Carles =?iso-8859-1?Q?Pag=E8s?= <page@cubata.homelinux.net>,
+	linux-arm-kernel@lists.infradead.org
+To: =?iso-8859-1?Q?Llu=EDs?= Batlle i Rossell <viric@viric.name>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20141013105246.GD1972@vicerveza.homeunix.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2014-10-15 at 14:39 -0700, Eric Dumazet wrote:
-> On Wed, 2014-10-15 at 13:36 -0700, Cong Wang wrote:
-> > On Wed, Oct 15, 2014 at 3:35 AM, Krzysztof Kolasa <kkolasa@winsoft.pl> wrote:
-> > >
-> > > one-line patch not resolve problem, fix created by Cong Wang resolves
-> > > problem !!!
-> > >
-> > > tested on 64bit system and working OK
-> > >
-> > 
-> > So my patch fixes your problem on 64bit but not on 32bit,
-> > is this correct?
-> > 
-> > I will send out the patch. And as Eric said, the problem on 32bit
-> > might be a different issue, we can definitely fix it separately.
-> > 
-> > Thanks for testing!
-> 
-> I think more fixes are needed.
-> 
-> This is most probably an IPv6 issue.
-> 
+On 2014/10/13 12:52, Llu=EDs Batlle i Rossell wrote:
+> Hello,
+>=20
+> on the 7th of January 2014 ths patch was applied:
+> https://lkml.org/lkml/2014/1/7/307
+>=20
+> [PATCH v2] net: Do not enable tx-nocache-copy by default
+>        =20
+> In the Sheevaplug (ARM Feroceon 88FR131 from Marvell) this made packe=
+ts to be
+> sent corrupted. I think this machine has something special about the =
+cache.
+>=20
+> Enabling back this tx-nocache-copy (as it used to be before the patch=
+) the
+> transfers work fine again. I think that most people, encountering thi=
+s problem,
+> completely disable the tx offload instead of enabling back this setti=
+ng.
+>=20
+> Is this an ARM kernel problem regarding this platform?
 
-Yes, ipv6 uses inet6_iif() a lot. We need to use a different accessor.
+This is odd, only x86 defines ARCH_HAS_NOCACHE_UACCESS. On arm,
+skb_do_copy_data_nocache() should end up using __copy_from_user()
+regardless of tx-nocache-copy.
