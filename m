@@ -1,118 +1,68 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH RFC v2 2/3] virtio_net: bql
-Date: Wed, 15 Oct 2014 17:32:06 +0300
-Message-ID: <1413383116-30977-3-git-send-email-mst@redhat.com>
+Subject: [PATCH RFC v2 3/3] virtio-net: optimize free_old_xmit_skbs stats
+Date: Wed, 15 Oct 2014 17:32:09 +0300
+Message-ID: <1413383116-30977-4-git-send-email-mst@redhat.com>
 References: <1413383116-30977-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jason Wang <jasowang@redhat.com>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
 In-Reply-To: <1413383116-30977-1-git-send-email-mst@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Improve tx batching using byte queue limits.
-Should be especially effective for MQ.
+From: Jason Wang <jasowang@redhat.com>
 
+We already have counters for sent packets and sent bytes.
+Use them to reduce the number of u64_stats_update_begin/end().
+
+Take care not to bother with stats update when called
+speculatively.
+
+Based on a patch by Jason Wang.
+
+Cc: Rusty Russell <rusty@rustcorp.com.au>
+Signed-off-by: Jason Wang <jasowang@redhat.com>
 Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
- drivers/net/virtio_net.c | 20 ++++++++++++++++----
- 1 file changed, 16 insertions(+), 4 deletions(-)
+ drivers/net/virtio_net.c | 16 +++++++++++-----
+ 1 file changed, 11 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index a9bf178..8dea411 100644
+index 8dea411..4e12023 100644
 --- a/drivers/net/virtio_net.c
 +++ b/drivers/net/virtio_net.c
-@@ -219,13 +219,15 @@ static struct page *get_a_page(struct receive_queue *rq, gfp_t gfp_mask)
- 	return p;
- }
- 
--static unsigned int free_old_xmit_skbs(struct send_queue *sq, int budget)
-+static unsigned int free_old_xmit_skbs(struct netdev_queue *txq,
-+				       struct send_queue *sq, int budget)
- {
- 	struct sk_buff *skb;
- 	unsigned int len;
- 	struct virtnet_info *vi = sq->vq->vdev->priv;
- 	struct virtnet_stats *stats = this_cpu_ptr(vi->stats);
- 	unsigned int packets = 0;
-+	unsigned int bytes = 0;
- 
- 	while (packets < budget &&
+@@ -233,16 +233,22 @@ static unsigned int free_old_xmit_skbs(struct netdev_queue *txq,
  	       (skb = virtqueue_get_buf(sq->vq, &len)) != NULL) {
-@@ -233,6 +235,7 @@ static unsigned int free_old_xmit_skbs(struct send_queue *sq, int budget)
+ 		pr_debug("Sent skb %p\n", skb);
  
- 		u64_stats_update_begin(&stats->tx_syncp);
- 		stats->tx_bytes += skb->len;
-+		bytes += skb->len;
- 		stats->tx_packets++;
- 		u64_stats_update_end(&stats->tx_syncp);
+-		u64_stats_update_begin(&stats->tx_syncp);
+-		stats->tx_bytes += skb->len;
+ 		bytes += skb->len;
+-		stats->tx_packets++;
+-		u64_stats_update_end(&stats->tx_syncp);
++		packets++;
  
-@@ -240,6 +243,8 @@ static unsigned int free_old_xmit_skbs(struct send_queue *sq, int budget)
- 		packets++;
+ 		dev_kfree_skb_any(skb);
+-		packets++;
  	}
  
-+	netdev_tx_completed_queue(txq, packets, bytes);
++	/* Avoid overhead when no packets have been processed
++	 * happens when called speculatively from start_xmit. */
++	if (!packets)
++		return 0;
 +
++	u64_stats_update_begin(&stats->tx_syncp);
++	stats->tx_bytes += bytes;
++	stats->tx_packets += packets;
++	u64_stats_update_end(&stats->tx_syncp);
++
+ 	netdev_tx_completed_queue(txq, packets, bytes);
+ 
  	return packets;
- }
- 
-@@ -810,7 +815,7 @@ static int virtnet_poll_tx(struct napi_struct *napi, int budget)
- again:
- 	__netif_tx_lock(txq, smp_processor_id());
- 	virtqueue_disable_cb(sq->vq);
--	sent += free_old_xmit_skbs(sq, budget - sent);
-+	sent += free_old_xmit_skbs(txq, sq, budget - sent);
- 
- 	if (sent < budget) {
- 		enable_done = virtqueue_enable_cb_delayed(sq->vq);
-@@ -962,12 +967,13 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	struct netdev_queue *txq = netdev_get_tx_queue(dev, qnum);
- 	bool kick = !skb->xmit_more;
- 	bool stopped;
-+	unsigned int bytes = skb->len;
- 
- 	virtqueue_disable_cb(sq->vq);
- 
- 	/* We are going to push one skb.
- 	 * Try to pop one off to free space for it. */
--	free_old_xmit_skbs(sq, 1);
-+	free_old_xmit_skbs(txq, sq, 1);
- 
- 	/* Try to transmit */
- 	err = xmit_skb(sq, skb);
-@@ -983,6 +989,12 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		return NETDEV_TX_OK;
- 	}
- 
-+	netdev_tx_sent_queue(txq, bytes);
-+
-+	/* Kick early so device can process descriptors in parallel with us. */
-+	if (kick)
-+		virtqueue_kick(sq->vq);
-+
- 	/* Apparently nice girls don't return TX_BUSY; stop the queue
- 	 * before it gets out of hand.  Naturally, this wastes entries. */
- 	if (sq->vq->num_free < 2+MAX_SKB_FRAGS) {
-@@ -997,7 +1009,7 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 	if (unlikely(!virtqueue_enable_cb_delayed(sq->vq))) {
- 		/* More just got used, free them then recheck. */
--		free_old_xmit_skbs(sq, qsize);
-+		free_old_xmit_skbs(txq, sq, qsize);
- 		if (stopped && sq->vq->num_free >= 2+MAX_SKB_FRAGS)
- 			netif_start_subqueue(dev, qnum);
- 	}
 -- 
 MST
