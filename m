@@ -1,44 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/3] SCTP fixes
-Date: Wed, 15 Oct 2014 00:21:43 -0400 (EDT)
-Message-ID: <20141015.002143.780696221161706737.davem@davemloft.net>
-References: <1412888133-833-1-git-send-email-dborkman@redhat.com>
-	<20141014.124657.128658692728989163.davem@davemloft.net>
-	<20141015030631.GA6778@localhost.localdomain>
+Subject: Re: [PATCH] net: use hardware buffer pool to allocate skb
+Date: Wed, 15 Oct 2014 00:25:14 -0400 (EDT)
+Message-ID: <20141015.002514.384962932982389732.davem@davemloft.net>
+References: <1413343571-33231-1-git-send-email-Jiafei.Pan@freescale.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dborkman@redhat.com, linux-sctp@vger.kernel.org,
-	netdev@vger.kernel.org
-To: nhorman@tuxdriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47340 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750736AbaJOEVs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Oct 2014 00:21:48 -0400
-In-Reply-To: <20141015030631.GA6778@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jkosina@suse.cz, netdev@vger.kernel.org, LeoLi@freescale.com,
+	linux-doc@vger.kernel.org
+To: Jiafei.Pan@freescale.com
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <1413343571-33231-1-git-send-email-Jiafei.Pan@freescale.com>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Neil Horman <nhorman@tuxdriver.com>
-Date: Tue, 14 Oct 2014 23:06:32 -0400
+From: Pan Jiafei <Jiafei.Pan@freescale.com>
+Date: Wed, 15 Oct 2014 11:26:11 +0800
 
-> On Tue, Oct 14, 2014 at 12:46:57PM -0400, David Miller wrote:
->> From: Daniel Borkmann <dborkman@redhat.com>
->> Date: Thu,  9 Oct 2014 22:55:30 +0200
->> 
->> > Here are some SCTP fixes.
->> > 
->> > [ Note, immediate workaround would be to disable ASCONF (it
->> >   is sysctl disabled by default). It is actually only used
->> >   together with chunk authentication. ]
->> 
->> Series applied, thanks guys.
-> Why did you apply this Dave? There was ongoing discussion around it.
+> In some platform, there are some hardware block provided
+> to manage buffers to improve performance. So in some case,
+> it is expected that the packets received by some generic
+> NIC should be put into such hardware managed buffers
+> directly, so that such buffer can be released by hardware
+> or by driver.
+> 
+> This patch provide such general APIs for generic NIC to
+> use hardware block managed buffers without any modification
+> for generic NIC drivers.
 
-Sorry Neil, that wasn't my impression.
+Why are existing interfaces insufficent for your needs?
 
-Worry not I can revert or apply relative fixes on top.
-:-)
+Several ethernet drivers already build SKBs from block
+buffer pools.
 
-Thanks.
+They allocate pools of pages which the hardware divides into various
+powers of 2, then the RX descriptor says what pieces of which pools
+were used to hold the data for a packet, and then the SKB is
+constructed with page frags pointing to those locations.
+
+It's very cheap, inexpensive, and existing APIs are considered to
+cover all use cases.
