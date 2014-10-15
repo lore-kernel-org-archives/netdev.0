@@ -1,70 +1,71 @@
-From: Vasily Averin <vvs@parallels.com>
-Subject: [PATCH] ipv4: dst_entry leak in ip_send_unicast_reply()
-Date: Wed, 15 Oct 2014 16:24:02 +0400
-Message-ID: <543E6762.9090807@parallels.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH] virtio_net: fix use after free
+Date: Wed, 15 Oct 2014 16:23:28 +0300
+Message-ID: <1413378878-28118-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:45780 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751539AbaJOMZk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Oct 2014 08:25:40 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	virtualization@lists.linux-foundation.org
+To: linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Fixes: 2e77d89b2fa8 ("net: avoid a pair of dst_hold()/dst_release() in ip_append_data()")
+commit 0b725a2ca61bedc33a2a63d0451d528b268cf975
+    net: Remove ndo_xmit_flush netdev operation, use signalling instead.
 
-ip_setup_cork() called inside ip_append_data() steals dst entry from rt to cork
-and in case errors in __ip_append_data() nobody frees stolen dst entry
+added code that looks at skb->xmit_more after the skb has
+been put in TX VQ. Since some paths process the ring and free the skb
+immediately, this can cause use after free.
 
-Signed-off-by: Vasily Averin <vvs@parallels.com>
+Fix by storing xmit_more in a local variable.
+
+Cc: David S. Miller <davem@davemloft.net>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
- net/ipv4/ip_output.c | 12 +++++++++---
- 1 file changed, 9 insertions(+), 3 deletions(-)
 
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index e35b712..88e5ef2 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -1535,6 +1535,7 @@ void ip_send_unicast_reply(struct net *net, struct sk_buff *skb,
- 	struct sk_buff *nskb;
- 	struct sock *sk;
- 	struct inet_sock *inet;
-+	int err;
+David, am I using the API correctly?
+Seems to work for me.
+You used __netif_subqueue_stopped but that seems to use
+a slightly more expensive test_bit internally.
+The reason I added a variable for the txq here is because it's handy for
+BQL patch later on.
+
+
+ drivers/net/virtio_net.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 3d0ce44..13d0a8b 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -920,6 +920,8 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	int qnum = skb_get_queue_mapping(skb);
+ 	struct send_queue *sq = &vi->sq[qnum];
+ 	int err;
++	struct netdev_queue *txq = netdev_get_tx_queue(dev, qnum);
++	bool kick = !skb->xmit_more;
  
- 	if (__ip_options_echo(&replyopts.opt.opt, skb, sopt))
- 		return;
-@@ -1574,8 +1575,13 @@ void ip_send_unicast_reply(struct net *net, struct sk_buff *skb,
- 	sock_net_set(sk, net);
- 	__skb_queue_head_init(&sk->sk_write_queue);
- 	sk->sk_sndbuf = sysctl_wmem_default;
--	ip_append_data(sk, &fl4, ip_reply_glue_bits, arg->iov->iov_base, len, 0,
--		       &ipc, &rt, MSG_DONTWAIT);
-+	err = ip_append_data(sk, &fl4, ip_reply_glue_bits, arg->iov->iov_base,
-+			     len, 0, &ipc, &rt, MSG_DONTWAIT);
-+	if (unlikely(err)) {
-+		ip_flush_pending_frames(sk);
-+		goto out;
-+	}
-+
- 	nskb = skb_peek(&sk->sk_write_queue);
- 	if (nskb) {
- 		if (arg->csumoffset >= 0)
-@@ -1587,7 +1593,7 @@ void ip_send_unicast_reply(struct net *net, struct sk_buff *skb,
- 		skb_set_queue_mapping(nskb, skb_get_queue_mapping(skb));
- 		ip_push_pending_frames(sk, &fl4);
+ 	/* Free up any pending old buffers before queueing new ones. */
+ 	free_old_xmit_skbs(sq);
+@@ -956,7 +958,7 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		}
  	}
--
-+out:
- 	put_cpu_var(unicast_sock);
  
- 	ip_rt_put(rt);
+-	if (__netif_subqueue_stopped(dev, qnum) || !skb->xmit_more)
++	if (kick || netif_xmit_stopped(txq))
+ 		virtqueue_kick(sq->vq);
+ 
+ 	return NETDEV_TX_OK;
 -- 
-1.9.1
+MST
