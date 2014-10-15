@@ -1,90 +1,76 @@
-From: Anish Bhatt <anish@chelsio.com>
-Subject: [PATCH net v2 2/4] cxgb4 : Fix build failure in cxgb4 when ipv6 is disabled/not in-built
-Date: Tue, 14 Oct 2014 20:07:22 -0700
-Message-ID: <1413342444-16388-3-git-send-email-anish@chelsio.com>
-References: <1413342444-16388-1-git-send-email-anish@chelsio.com>
-Cc: davem@davemloft.net, hch@infradead.org, jbottomley@parallels.com,
-	kxie@chelsio.com, manojmalviya@chelsio.com, hariprasad@chelsio.com,
-	leedom@chelsio.com, swise@opengridcomputing.com,
-	Anish Bhatt <anish@chelsio.com>
-To: netdev@vger.kernel.org, linux-scsi@vger.kernel.org
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <1413342444-16388-1-git-send-email-anish@chelsio.com>
-Sender: linux-scsi-owner@vger.kernel.org
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next RFC 0/3] virtio-net: Conditionally enable tx
+	interrupt
+Date: Wed, 15 Oct 2014 11:24:32 +0800
+Message-ID: <543DE8F0.2040305@redhat.com>
+References: <1413011806-3813-1-git-send-email-jasowang@redhat.com>
+	<20141014.145327.365091739350390288.davem@davemloft.net>
+	<20141014215133.GA23344@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: kvm@vger.kernel.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, linux-api@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>, David Miller <davem@davemloft.net>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20141014215133.GA23344@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-cxgb4 ipv6 does not guard against ipv6 being disabled, or the standard
-ipv6 module vs inbuilt tri-state issue. This was fixed for cxgb4i & iw_cxgb4
-but missed for cxgb4.
+On 10/15/2014 05:51 AM, Michael S. Tsirkin wrote:
+> On Tue, Oct 14, 2014 at 02:53:27PM -0400, David Miller wrote:
+>> From: Jason Wang <jasowang@redhat.com>
+>> Date: Sat, 11 Oct 2014 15:16:43 +0800
+>>
+>>> We free old transmitted packets in ndo_start_xmit() currently, so any
+>>> packet must be orphaned also there. This was used to reduce the overhead of
+>>> tx interrupt to achieve better performance. But this may not work for some
+>>> protocols such as TCP stream. TCP depends on the value of sk_wmem_alloc to
+>>> implement various optimization for small packets stream such as TCP small
+>>> queue and auto corking. But orphaning packets early in ndo_start_xmit()
+>>> disable such things more or less since sk_wmem_alloc was not accurate. This
+>>> lead extra low throughput for TCP stream of small writes.
+>>>
+>>> This series tries to solve this issue by enable tx interrupts for all TCP
+>>> packets other than the ones with push bit or pure ACK. This is done through
+>>> the support of urgent descriptor which can force an interrupt for a
+>>> specified packet. If tx interrupt was enabled for a packet, there's no need
+>>> to orphan it in ndo_start_xmit(), we can free it tx napi which is scheduled
+>>> by tx interrupt. Then sk_wmem_alloc was more accurate than before and TCP
+>>> can batch more for small write. More larger skb was produced by TCP in this
+>>> case to improve both throughput and cpu utilization.
+>>>
+>>> Test shows great improvements on small write tcp streams. For most of the
+>>> other cases, the throughput and cpu utilization are the same in the
+>>> past. Only few cases, more cpu utilization was noticed which needs more
+>>> investigation.
+>>>
+>>> Review and comments are welcomed.
+>> I think proper accounting and queueing (at all levels, not just TCP
+>> sockets) is more important than trying to skim a bunch of cycles by
+>> avoiding TX interrupts.
+>>
+>> Having an event to free the SKB is absolutely essential for the stack
+>> to operate correctly.
+>>
+>> And with virtio-net you don't even have the excuse of "the HW
+>> unfortunately doesn't have an appropriate TX event."
+>>
+>> So please don't play games, and instead use TX interrupts all the
+>> time.  You can mitigate them in various ways, but don't turn them on
+>> selectively based upon traffic type, that's terrible.
+> This got me thinking: how about using virtqueue_enable_cb_delayed
+> for this mitigation?
 
-Signed-off-by: Anish Bhatt <anish@chelsio.com>
----
- drivers/net/ethernet/chelsio/Kconfig            | 2 +-
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 8 ++++++++
- 2 files changed, 9 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/chelsio/Kconfig b/drivers/net/ethernet/chelsio/Kconfig
-index c3ce9df..ac6473f 100644
---- a/drivers/net/ethernet/chelsio/Kconfig
-+++ b/drivers/net/ethernet/chelsio/Kconfig
-@@ -68,7 +68,7 @@ config CHELSIO_T3
- 
- config CHELSIO_T4
- 	tristate "Chelsio Communications T4/T5 Ethernet support"
--	depends on PCI
-+	depends on PCI && (IPV6 || IPV6=n)
- 	select FW_LOADER
- 	select MDIO
- 	---help---
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 411acf0..3f60070 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -4369,6 +4369,7 @@ EXPORT_SYMBOL(cxgb4_unregister_uld);
-  * success (true) if it belongs otherwise failure (false).
-  * Called with rcu_read_lock() held.
-  */
-+#if IS_ENABLED(CONFIG_IPV6)
- static bool cxgb4_netdev(const struct net_device *netdev)
- {
- 	struct adapter *adap;
-@@ -4529,6 +4530,7 @@ static void update_clip(const struct adapter *adap)
- 	}
- 	rcu_read_unlock();
- }
-+#endif /* IS_ENABLED(CONFIG_IPV6) */
- 
- /**
-  *	cxgb_up - enable the adapter
-@@ -4575,7 +4577,9 @@ static int cxgb_up(struct adapter *adap)
- 	t4_intr_enable(adap);
- 	adap->flags |= FULL_INIT_DONE;
- 	notify_ulds(adap, CXGB4_STATE_UP);
-+#if IS_ENABLED(CONFIG_IPV6)
- 	update_clip(adap);
-+#endif
-  out:
- 	return err;
-  irq_err:
-@@ -6869,14 +6873,18 @@ static int __init cxgb4_init_module(void)
- 	if (ret < 0)
- 		debugfs_remove(cxgb4_debugfs_root);
- 
-+#if IS_ENABLED(CONFIG_IPV6)
- 	register_inet6addr_notifier(&cxgb4_inet6addr_notifier);
-+#endif
- 
- 	return ret;
- }
- 
- static void __exit cxgb4_cleanup_module(void)
- {
-+#if IS_ENABLED(CONFIG_IPV6)
- 	unregister_inet6addr_notifier(&cxgb4_inet6addr_notifier);
-+#endif
- 	pci_unregister_driver(&cxgb4_driver);
- 	debugfs_remove(cxgb4_debugfs_root);  /* NULL ok */
- }
--- 
-2.1.2
-
+Should work, another possible solution is interrupt coalescing, which
+can speed up also the case without event index.
+> It's pretty easy to implement - I'll send a proof of concept patch
+> separately.
