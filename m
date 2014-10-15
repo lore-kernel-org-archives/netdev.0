@@ -1,66 +1,47 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [RFC PATCH net-next 3/6] virtio-net: small optimization on
-	free_old_xmit_skbs()
-Date: Wed, 15 Oct 2014 15:25:27 +0800
-Message-ID: <1413357930-45302-4-git-send-email-jasowang@redhat.com>
+Subject: [RFC PATCH net-next 4/6] virtio-net: return the number of packets sent in free_old_xmit_skbs()
+Date: Wed, 15 Oct 2014 15:25:28 +0800
+Message-ID: <1413357930-45302-5-git-send-email-jasowang@redhat.com>
 References: <1413357930-45302-1-git-send-email-jasowang@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, eric.dumazet@gmail.com
+Cc: davem@davemloft.net, eric.dumazet@gmail.com,
+	Jason Wang <jasowang@redhat.com>
 To: rusty@rustcorp.com.au, mst@redhat.com,
 	virtualization@lists.linux-foundation.org,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1413357930-45302-1-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Accumulate the sent packets and sent bytes in local variables and perform a
-single u64_stats_update_begin/end() after.
+This patch returns the number of packets sent in free_old_xmit_skbs(), this is
+necessary for calling this function in napi.
 
 Cc: Rusty Russell <rusty@rustcorp.com.au>
 Cc: Michael S. Tsirkin <mst@redhat.com>
 Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- drivers/net/virtio_net.c |   12 ++++++++----
- 1 files changed, 8 insertions(+), 4 deletions(-)
+ drivers/net/virtio_net.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 3d0ce44..a4d56b8 100644
+index a4d56b8..ccf98f9 100644
 --- a/drivers/net/virtio_net.c
 +++ b/drivers/net/virtio_net.c
-@@ -833,17 +833,21 @@ static void free_old_xmit_skbs(struct send_queue *sq)
+@@ -827,7 +827,7 @@ static int virtnet_open(struct net_device *dev)
+ 	return 0;
+ }
+ 
+-static void free_old_xmit_skbs(struct send_queue *sq)
++static int free_old_xmit_skbs(struct send_queue *sq)
+ {
+ 	struct sk_buff *skb;
  	unsigned int len;
- 	struct virtnet_info *vi = sq->vq->vdev->priv;
- 	struct virtnet_stats *stats = this_cpu_ptr(vi->stats);
-+	u64 tx_bytes = 0, tx_packets = 0;
- 
- 	while ((skb = virtqueue_get_buf(sq->vq, &len)) != NULL) {
- 		pr_debug("Sent skb %p\n", skb);
- 
--		u64_stats_update_begin(&stats->tx_syncp);
--		stats->tx_bytes += skb->len;
--		stats->tx_packets++;
--		u64_stats_update_end(&stats->tx_syncp);
-+		tx_bytes += skb->len;
-+		tx_packets++;
- 
- 		dev_kfree_skb_any(skb);
- 	}
+@@ -848,6 +848,8 @@ static void free_old_xmit_skbs(struct send_queue *sq)
+ 	stats->tx_bytes += tx_bytes;
+ 	stats->tx_packets =+ tx_packets;
+ 	u64_stats_update_end(&stats->tx_syncp);
 +
-+	u64_stats_update_begin(&stats->tx_syncp);
-+	stats->tx_bytes += tx_bytes;
-+	stats->tx_packets =+ tx_packets;
-+	u64_stats_update_end(&stats->tx_syncp);
++	return tx_packets;
  }
  
  static int xmit_skb(struct send_queue *sq, struct sk_buff *skb)
