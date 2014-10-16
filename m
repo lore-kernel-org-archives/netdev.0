@@ -1,60 +1,128 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] openvswitch: fix a use after free
-Date: Thu, 16 Oct 2014 07:12:27 -0700
-Message-ID: <1413468747.28798.19.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1413450075-5044-1-git-send-email-roy.qing.li@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jesse Gross <jesse@nicira.com>,
-	Andy Zhou <azhou@nicira.com>,
-	Pravin B Shelar <pshelar@nicira.com>
-To: roy.qing.li@gmail.com
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: [PATCH iproute2] ss: Use generic handle_netlink_request for packet
+Date: Thu, 16 Oct 2014 17:40:32 +0300
+Message-ID: <1413470432-28588-1-git-send-email-vadim4j@gmail.com>
+Cc: Vadim Kochan <vadim4j@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:39876 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753009AbaJPOM2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Oct 2014 10:12:28 -0400
-Received: by mail-pa0-f53.google.com with SMTP id kq14so3459616pab.26
-        for <netdev@vger.kernel.org>; Thu, 16 Oct 2014 07:12:28 -0700 (PDT)
-In-Reply-To: <1413450075-5044-1-git-send-email-roy.qing.li@gmail.com>
+Received: from mail-lb0-f177.google.com ([209.85.217.177]:36724 "EHLO
+	mail-lb0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751208AbaJPOuD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Oct 2014 10:50:03 -0400
+Received: by mail-lb0-f177.google.com with SMTP id w7so2891743lbi.8
+        for <netdev@vger.kernel.org>; Thu, 16 Oct 2014 07:50:02 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-10-16 at 17:01 +0800, roy.qing.li@gmail.com wrote:
-> From: Li RongQing <roy.qing.li@gmail.com>
-> 
-> pskb_may_pull() called by arphdr_ok can change skb->data, so put the arp
-> setting after arphdr_ok to avoid the use the freed memory
-> 
-> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
-> ---
->  net/openvswitch/flow.c |    3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
-> index 62db02b..b13ba5e 100644
-> --- a/net/openvswitch/flow.c
-> +++ b/net/openvswitch/flow.c
-> @@ -557,10 +557,11 @@ static int key_extract(struct sk_buff *skb, struct sw_flow_key *key)
->  	} else if (key->eth.type == htons(ETH_P_ARP) ||
->  		   key->eth.type == htons(ETH_P_RARP)) {
->  		struct arp_eth_header *arp;
-> +		bool arp_t = arphdr_ok(skb);
+Get rid of self-handling and creating of Netlink socket for show packet
+socket stats.
 
-This is a strange name for a bool.  _t suffix is normally used by
-typedef.
+Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+---
+ misc/ss.c | 80 +++------------------------------------------------------------
+ 1 file changed, 3 insertions(+), 77 deletions(-)
 
->  
->  		arp = (struct arp_eth_header *)skb_network_header(skb);
->  
-> -		if (arphdr_ok(skb) &&
-> +		if (arp_t &&
->  		    arp->ar_hrd == htons(ARPHRD_ETHER) &&
->  		    arp->ar_pro == htons(ETH_P_IP) &&
->  		    arp->ar_hln == ETH_ALEN &&
-
-Fixes: 0714812134d7d ("openvswitch: Eliminate memset() from flow_extract.")
-
-By doing this bug hunting, you also can CC bug author so that he knows
-what happened. Maybe he will avoid similar mistakes in the future.
+diff --git a/misc/ss.c b/misc/ss.c
+index 2420b51..b3cc455 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -2777,17 +2777,11 @@ static int packet_show_sock(struct nlmsghdr *nlh, struct filter *f)
+ 
+ static int packet_show_netlink(struct filter *f, FILE *dump_fp)
+ {
+-	int fd;
+ 	struct {
+ 		struct nlmsghdr nlh;
+ 		struct packet_diag_req r;
+-	} req;
+-	char	buf[8192];
+-
+-	if ((fd = socket(AF_NETLINK, SOCK_RAW, NETLINK_INET_DIAG)) < 0)
+-		return -1;
++	} req = {};
+ 
+-	memset(&req, 0, sizeof(req));
+ 	req.nlh.nlmsg_len = sizeof(req);
+ 	req.nlh.nlmsg_type = SOCK_DIAG_BY_FAMILY;
+ 	req.nlh.nlmsg_flags = NLM_F_ROOT|NLM_F_MATCH|NLM_F_REQUEST;
+@@ -2796,76 +2790,8 @@ static int packet_show_netlink(struct filter *f, FILE *dump_fp)
+ 	req.r.sdiag_family = AF_PACKET;
+ 	req.r.pdiag_show = PACKET_SHOW_INFO | PACKET_SHOW_MEMINFO | PACKET_SHOW_FILTER;
+ 
+-	if (send(fd, &req, sizeof(req), 0) < 0) {
+-		close(fd);
+-		return -1;
+-	}
+-
+-	while (1) {
+-		ssize_t status;
+-		struct nlmsghdr *h;
+-		struct sockaddr_nl nladdr;
+-		socklen_t slen = sizeof(nladdr);
+-
+-		status = recvfrom(fd, buf, sizeof(buf), 0,
+-				  (struct sockaddr *) &nladdr, &slen);
+-		if (status < 0) {
+-			if (errno == EINTR)
+-				continue;
+-			perror("OVERRUN");
+-			continue;
+-		}
+-		if (status == 0) {
+-			fprintf(stderr, "EOF on netlink\n");
+-			goto close_it;
+-		}
+-
+-		if (dump_fp)
+-			fwrite(buf, 1, NLMSG_ALIGN(status), dump_fp);
+-
+-		h = (struct nlmsghdr*)buf;
+-		while (NLMSG_OK(h, status)) {
+-			int err;
+-
+-			if (h->nlmsg_seq != 123456)
+-				goto skip_it;
+-
+-			if (h->nlmsg_type == NLMSG_DONE)
+-				goto close_it;
+-
+-			if (h->nlmsg_type == NLMSG_ERROR) {
+-				struct nlmsgerr *err = (struct nlmsgerr*)NLMSG_DATA(h);
+-				if (h->nlmsg_len < NLMSG_LENGTH(sizeof(struct nlmsgerr))) {
+-					fprintf(stderr, "ERROR truncated\n");
+-				} else {
+-					errno = -err->error;
+-					if (errno != ENOENT)
+-						fprintf(stderr, "UDIAG answers %d\n", errno);
+-				}
+-				close(fd);
+-				return -1;
+-			}
+-			if (!dump_fp) {
+-				err = packet_show_sock(h, f);
+-				if (err < 0) {
+-					close(fd);
+-					return err;
+-				}
+-			}
+-
+-skip_it:
+-			h = NLMSG_NEXT(h, status);
+-		}
+-
+-		if (status) {
+-			fprintf(stderr, "!!!Remnant of size %zd\n", status);
+-			exit(1);
+-		}
+-	}
+-
+-close_it:
+-	close(fd);
+-	return 0;
++	return handle_netlink_request(f, dump_fp, &req.nlh, sizeof(req),
++			packet_show_sock);
+ }
+ 
+ 
+-- 
+2.1.0
