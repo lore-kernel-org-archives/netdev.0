@@ -1,54 +1,47 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH 1/1 net-next] openvswitch: kerneldoc warning fix
-Date: Wed, 15 Oct 2014 18:12:15 -0700
-Message-ID: <CALnjE+qap-kXC6DaALqc0S=a8oNjyuEu8B-_8dBLQ3NtHr8Ytw@mail.gmail.com>
-References: <1413399798-8514-1-git-send-email-fabf@skynet.be>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"dev@openvswitch.org" <dev@openvswitch.org>,
-	netdev <netdev@vger.kernel.org>
-To: Fabian Frederick <fabf@skynet.be>
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCH net-next 0/4] Add support for few debugfs entries
+Date: Thu, 16 Oct 2014 06:52:00 +0530
+Message-ID: <1413422524-14054-1-git-send-email-hariprasad@chelsio.com>
+Cc: davem@davemloft.net, leedom@chelsio.com, kumaras@chelsio.com,
+	nirranjan@chelsio.com, santosh@chelsio.com, anish@chelsio.com,
+	Hariprasad Shenai <hariprasad@chelsio.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na6sys009bog024.obsmtp.com ([74.125.150.88]:33051 "HELO
-	na6sys009bog024.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1750820AbaJPBMX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Oct 2014 21:12:23 -0400
-Received: by mail-ig0-f173.google.com with SMTP id h18so18507456igc.6
-        for <netdev@vger.kernel.org>; Wed, 15 Oct 2014 18:12:15 -0700 (PDT)
-In-Reply-To: <1413399798-8514-1-git-send-email-fabf@skynet.be>
+Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:46059
+	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751001AbaJPBQc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Oct 2014 21:16:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 15, 2014 at 12:03 PM, Fabian Frederick <fabf@skynet.be> wrote:
-> s/sock/gs
->
-> Signed-off-by: Fabian Frederick <fabf@skynet.be>
+Hi,
 
-Looks good.
+This patch series adds a new file for debugfs and support for devlog, cim_la,
+cim_la_qcfg and mps_tcam debugfs entries.
 
-Acked-by: Pravin B Shelar <pshelar@nicira.com>
+The patches series is created against 'net-next' tree.
+And includes patches on cxgb4 driver.
 
-Thanks.
+We have included all the maintainers of respective drivers. Kindly review the
+change and let us know in case of any review comments.
 
-> ---
->  net/openvswitch/vport-geneve.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/net/openvswitch/vport-geneve.c b/net/openvswitch/vport-geneve.c
-> index 910b3ef..106a9d8 100644
-> --- a/net/openvswitch/vport-geneve.c
-> +++ b/net/openvswitch/vport-geneve.c
-> @@ -30,7 +30,7 @@
->
->  /**
->   * struct geneve_port - Keeps track of open UDP ports
-> - * @sock: The socket created for this port number.
-> + * @gs: The socket created for this port number.
->   * @name: vport name.
->   */
->  struct geneve_port {
-> --
-> 1.9.3
->
+Thanks
+
+Hariprasad Shenai (4):
+  cxgb4: Add cxgb4_debugfs.c and devlog support
+  cxgb4: Add support for cim_la entry in debugfs
+  cxgb4: Add support for cim_la_qcfg entry in debugfs
+  cxgb4: Add support for mps_tcam debugfs
+
+ drivers/net/ethernet/chelsio/cxgb4/Makefile        |    2 +-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h         |   17 +
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c |  683 ++++++++++++++++++++
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.h |   64 ++
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    |  121 +---
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c         |  155 +++++
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.h         |   19 +
+ drivers/net/ethernet/chelsio/cxgb4/t4_regs.h       |   52 ++
+ drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h      |   72 ++
+ 9 files changed, 1091 insertions(+), 94 deletions(-)
+ create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
+ create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.h
