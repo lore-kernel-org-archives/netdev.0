@@ -1,62 +1,60 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH v3 net] ixgbe: check adapter->vfinfo before dereference
-Date: Thu, 16 Oct 2014 00:36:32 -0700
-Message-ID: <1413444992.2412.45.camel@jtkirshe-mobl>
-References: <1412930732-892-1-git-send-email-thierry.herbelot@6wind.com>
-		 <1413367080-31540-1-git-send-email-thierry.herbelot@6wind.com>
-		 <87618083B2453E4A8714035B62D67992500E2629@FMSMSX105.amr.corp.intel.com>
-		 <543F7255.7070606@6wind.com> <1413444750.2412.43.camel@jtkirshe-mobl>
-	 <543F74F5.1040706@6wind.com>
+From: Fabian Frederick <fabf@skynet.be>
+Subject: Re: [PATCH 1/1 linux-next] zd1201: replace kmalloc/memset by
+ kzalloc
+Date: Thu, 16 Oct 2014 10:08:50 +0200 (CEST)
+Message-ID: <346236957.6316.1413446930736.open-xchange@webmail.nmp.skynet.be>
+References: <1413304831-7203-1-git-send-email-fabf@skynet.be> <1413306955.3269.30.camel@joe-AO725> <87iojm8qxp.fsf@nemi.mork.no>
+Reply-To: Fabian Frederick <fabf@skynet.be>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-vTMrPH6JFCggLQ5SrwYy"
-Cc: "Tantilov, Emil S" <emil.s.tantilov@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Thierry Herbelot <thierry.herbelot@6wind.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:19606 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750765AbaJPHh2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Oct 2014 03:37:28 -0400
-In-Reply-To: <543F74F5.1040706@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>
+To: Joe Perches <joe@perches.com>,
+	=?UTF-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87iojm8qxp.fsf@nemi.mork.no>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
---=-vTMrPH6JFCggLQ5SrwYy
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
 
-On Thu, 2014-10-16 at 09:34 +0200, Thierry Herbelot wrote:
-> I agree with the patch.
->=20
-> Acked-by Thierry Herbelot <thierry.herbelot@6wind.com>
+> On 14 October 2014 at 20:08 Bj=C3=B8rn Mork <bjorn@mork.no> wrote:
+>
+>
+> Joe Perches <joe@perches.com> writes:
+>
+> > And does this really need to be alloc'd?
+>
+> Yes, it does. It is used as a transfer_buffer in usb_fill_bulk_urb() =
+and
+> must be "suitable for DMA".=C2=A0 From include/linux/usb.h:
+>
+> /**
+>=C2=A0 * struct urb - USB Request Block
+> ..
+>=C2=A0 * @transfer_buffer:=C2=A0 This identifies the buffer to (or fro=
+m) which the I/O
+>=C2=A0 *=C2=A0 =C2=A0 =C2=A0 request will be performed unless URB_NO_T=
+RANSFER_DMA_MAP is set
+>=C2=A0 *=C2=A0 =C2=A0 =C2=A0 (however, do not leave garbage in transfe=
+r_buffer even then).
+>=C2=A0 *=C2=A0 =C2=A0 =C2=A0 This buffer must be suitable for DMA; all=
+ocate it with
+>=C2=A0 *=C2=A0 =C2=A0 =C2=A0 kmalloc() or equivalent.=C2=A0 For transf=
+ers to "in" endpoints, contents
+>=C2=A0 *=C2=A0 =C2=A0 =C2=A0 of this buffer will be modified.=C2=A0 Th=
+is buffer is used for the data
+>=C2=A0 *=C2=A0 =C2=A0 =C2=A0 stage of control transfers.
+>
+>
 
-Thanks!
+Adding a structure would be a nice design update indeed but this would =
+require
+some testing...Separate patch maybe ?
+=C2=A0
+=46abian
 
---=-vTMrPH6JFCggLQ5SrwYy
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJUP3WAAAoJEOVv75VaS+3OMzMP/044Va3+UQWTY6faOK/b0JuZ
-UVO0N/1Fsf0qcUhYjq7vBbiX7RSQCj5hKtCadg1LBp3dMeGB6SysICiLkwhS5LgZ
-VFpf7jQqg3wcrOh660j6r65N5ZfA3ah5glYBdbgBenoRa5+Ui6HvtcK1RIzdKAWD
-RqTwGtiXgxKBaxhmusKKtW4IYBOdJe5u4SlEXod9qYHar0X5NVPAae7iTACHGr7a
-1k9fqLxwnapQec2xZTFz46pbihXOJ0C8Pf2diIZLZaV/6BTutqQnI2CMG4SlmFP3
-Tad208JmNMWZqXF1RZZHkP88MgYb8NNANWU1GzGVcv0vrDqZWZLxT9Cub9K0+7ly
-EMSYZDhU1dYtI/cHa9K4F7E1lX6+weZxLGQBXVjlk5DTVn3nkLvZgHb+EHOyVLLV
-6CSwWmpiTxvKhr78+XD0FiEBKm4j1SC5Y+TrhDCYRuKWQYVFl0AwJ0CwuqEMToaA
-hNBExnfNpP+G8LsbLuc/gFg7NJfzT10q3JDvltDoTG7cyvrpdmxWYdnePMJh3txR
-9prqDHj71NJjLD73UVurwzUqwC3PxW0d2yCnjDnr97C3umI/URQJSJFHrEyfEc6x
-qKqzbsDm/5hmqHFPjUKutZFu2fSJ6yUxkv9jmudvcAI6g19JcFfJj8lpE/F6DKbp
-A3PL+HNsyu92utITpGDU
-=fTSu
------END PGP SIGNATURE-----
-
---=-vTMrPH6JFCggLQ5SrwYy--
+>
+> Bj=C3=B8rn
