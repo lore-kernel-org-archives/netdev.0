@@ -1,39 +1,99 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH] openvswitch: fix a use after free
-Date: Thu, 16 Oct 2014 16:58:49 +0200
-Message-ID: <CAEP_g=9dcPGNTFTL729yFFSUzyZ7OHQaVa9cJLGihqdoT+X66g@mail.gmail.com>
-References: <1413450075-5044-1-git-send-email-roy.qing.li@gmail.com> <1413468747.28798.19.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: roy.qing.li@gmail.com, netdev <netdev@vger.kernel.org>,
-	Andy Zhou <azhou@nicira.com>,
-	Pravin B Shelar <pshelar@nicira.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog133.obsmtp.com ([74.125.149.82]:52264 "HELO
-	na3sys009aog133.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751273AbaJPO7K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Oct 2014 10:59:10 -0400
-Received: by mail-qc0-f169.google.com with SMTP id o8so2924930qcw.14
-        for <netdev@vger.kernel.org>; Thu, 16 Oct 2014 07:59:09 -0700 (PDT)
-In-Reply-To: <1413468747.28798.19.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Masanari Iida <standby24x7@gmail.com>
+Subject: [PATCH] [trivial] treewide: Fix company name in module descriptions
+Date: Fri, 17 Oct 2014 00:09:24 +0900
+Message-ID: <1413472164-22366-1-git-send-email-standby24x7@gmail.com>
+Cc: netdev@vger.kernel.org, Masanari Iida <standby24x7@gmail.com>
+To: linux-kernel@vger.kernel.org, mturquette@linaro.org,
+	trivial@kernel.org, linus.walleij@linaro.org, gnurou@gmail.com,
+	jcliburn@gmail.com, chris.snook@gmail.com, viresh.linux@gmail.com,
+	inki.dae@samsung.com, dh09.lee@samsung.com, kgene.kim@samsung.com,
+	rdunlap@infradead.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 16, 2014 at 4:12 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Thu, 2014-10-16 at 17:01 +0800, roy.qing.li@gmail.com wrote:
->>
->>               arp = (struct arp_eth_header *)skb_network_header(skb);
->>
->> -             if (arphdr_ok(skb) &&
->> +             if (arp_t &&
->>                   arp->ar_hrd == htons(ARPHRD_ETHER) &&
->>                   arp->ar_pro == htons(ETH_P_IP) &&
->>                   arp->ar_hln == ETH_ALEN &&
->
-> Fixes: 0714812134d7d ("openvswitch: Eliminate memset() from flow_extract.")
->
-> By doing this bug hunting, you also can CC bug author so that he knows
-> what happened. Maybe he will avoid similar mistakes in the future.
+This patch fix company name's spelling typo in module descriptions
+and a Kconfig.
 
-Yes, this one is my fault. Thanks for tracking it down.
+Signed-off-by: Masanari Iida <standby24x7@gmail.com>
+---
+ drivers/clk/Kconfig                                 | 2 +-
+ drivers/gpio/gpio-spear-spics.c                     | 2 +-
+ drivers/net/ethernet/atheros/atl1c/atl1c_main.c     | 2 +-
+ drivers/pinctrl/spear/pinctrl-plgpio.c              | 2 +-
+ drivers/video/fbdev/exynos/exynos_mipi_dsi.c        | 2 +-
+ drivers/video/fbdev/exynos/exynos_mipi_dsi_common.c | 2 +-
+ 6 files changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/clk/Kconfig b/drivers/clk/Kconfig
+index 455fd17..3f44f29 100644
+--- a/drivers/clk/Kconfig
++++ b/drivers/clk/Kconfig
+@@ -28,7 +28,7 @@ config COMMON_CLK_WM831X
+ 	depends on MFD_WM831X
+ 	---help---
+           Supports the clocking subsystem of the WM831x/2x series of
+-	  PMICs from Wolfson Microlectronics.
++	  PMICs from Wolfson Microelectronics.
+ 
+ source "drivers/clk/versatile/Kconfig"
+ 
+diff --git a/drivers/gpio/gpio-spear-spics.c b/drivers/gpio/gpio-spear-spics.c
+index 353263c..506a2ea 100644
+--- a/drivers/gpio/gpio-spear-spics.c
++++ b/drivers/gpio/gpio-spear-spics.c
+@@ -204,5 +204,5 @@ static int __init spics_gpio_init(void)
+ subsys_initcall(spics_gpio_init);
+ 
+ MODULE_AUTHOR("Shiraz Hashim <shiraz.linux.kernel@gmail.com>");
+-MODULE_DESCRIPTION("ST Microlectronics SPEAr SPI Chip Select Abstraction");
++MODULE_DESCRIPTION("STMicroelectronics SPEAr SPI Chip Select Abstraction");
+ MODULE_LICENSE("GPL");
+diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+index 72fb86b..c9946c6 100644
+--- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
++++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+@@ -48,7 +48,7 @@ MODULE_DEVICE_TABLE(pci, atl1c_pci_tbl);
+ 
+ MODULE_AUTHOR("Jie Yang");
+ MODULE_AUTHOR("Qualcomm Atheros Inc., <nic-devel@qualcomm.com>");
+-MODULE_DESCRIPTION("Qualcom Atheros 100/1000M Ethernet Network Driver");
++MODULE_DESCRIPTION("Qualcomm Atheros 100/1000M Ethernet Network Driver");
+ MODULE_LICENSE("GPL");
+ MODULE_VERSION(ATL1C_DRV_VERSION);
+ 
+diff --git a/drivers/pinctrl/spear/pinctrl-plgpio.c b/drivers/pinctrl/spear/pinctrl-plgpio.c
+index bddb791..ce5f22c 100644
+--- a/drivers/pinctrl/spear/pinctrl-plgpio.c
++++ b/drivers/pinctrl/spear/pinctrl-plgpio.c
+@@ -724,5 +724,5 @@ static int __init plgpio_init(void)
+ subsys_initcall(plgpio_init);
+ 
+ MODULE_AUTHOR("Viresh Kumar <viresh.kumar@linaro.org>");
+-MODULE_DESCRIPTION("ST Microlectronics SPEAr PLGPIO driver");
++MODULE_DESCRIPTION("STMicroelectronics SPEAr PLGPIO driver");
+ MODULE_LICENSE("GPL");
+diff --git a/drivers/video/fbdev/exynos/exynos_mipi_dsi.c b/drivers/video/fbdev/exynos/exynos_mipi_dsi.c
+index cee9602..716bfad 100644
+--- a/drivers/video/fbdev/exynos/exynos_mipi_dsi.c
++++ b/drivers/video/fbdev/exynos/exynos_mipi_dsi.c
+@@ -570,5 +570,5 @@ static struct platform_driver exynos_mipi_dsi_driver = {
+ module_platform_driver(exynos_mipi_dsi_driver);
+ 
+ MODULE_AUTHOR("InKi Dae <inki.dae@samsung.com>");
+-MODULE_DESCRIPTION("Samusung SoC MIPI-DSI driver");
++MODULE_DESCRIPTION("Samsung SoC MIPI-DSI driver");
+ MODULE_LICENSE("GPL");
+diff --git a/drivers/video/fbdev/exynos/exynos_mipi_dsi_common.c b/drivers/video/fbdev/exynos/exynos_mipi_dsi_common.c
+index 85edabf..2358a2f 100644
+--- a/drivers/video/fbdev/exynos/exynos_mipi_dsi_common.c
++++ b/drivers/video/fbdev/exynos/exynos_mipi_dsi_common.c
+@@ -876,5 +876,5 @@ int exynos_mipi_dsi_fifo_clear(struct mipi_dsim_device *dsim,
+ }
+ 
+ MODULE_AUTHOR("InKi Dae <inki.dae@samsung.com>");
+-MODULE_DESCRIPTION("Samusung SoC MIPI-DSI common driver");
++MODULE_DESCRIPTION("Samsung SoC MIPI-DSI common driver");
+ MODULE_LICENSE("GPL");
+-- 
+2.1.2.443.g670a3c1
