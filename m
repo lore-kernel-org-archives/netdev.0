@@ -1,59 +1,40 @@
 From: "Jiafei.Pan@freescale.com" <Jiafei.Pan@freescale.com>
 Subject: RE: [PATCH] net: use hardware buffer pool to allocate skb
-Date: Thu, 16 Oct 2014 02:17:16 +0000
-Message-ID: <2f8cd20573304cc29558495823ac45f6@BLUPR03MB517.namprd03.prod.outlook.com>
+Date: Thu, 16 Oct 2014 02:30:05 +0000
+Message-ID: <43e8b86d47784ff78df70fc1b6e4b965@BLUPR03MB517.namprd03.prod.outlook.com>
 References: <1413343571-33231-1-git-send-email-Jiafei.Pan@freescale.com>
-	 <20141015.002514.384962932982389732.davem@davemloft.net>
-	 <c02005b9d8794d14bc2149f468ab571c@BY2PR03MB524.namprd03.prod.outlook.com>
- <1413364533.12304.44.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20141015113323.5321b2f7@uryu.home.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Miller <davem@davemloft.net>,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
 	"jkosina@suse.cz" <jkosina@suse.cz>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"LeoLi@freescale.com" <LeoLi@freescale.com>,
 	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
 	"Jiafei.Pan@freescale.com" <Jiafei.Pan@freescale.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <1413364533.12304.44.camel@edumazet-glaptop2.roam.corp.google.com>
+In-Reply-To: <20141015113323.5321b2f7@uryu.home.lan>
 Content-Language: en-US
 Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-DQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IEVyaWMgRHVtYXpldCBbbWFp
-bHRvOmVyaWMuZHVtYXpldEBnbWFpbC5jb21dDQo+IFNlbnQ6IFdlZG5lc2RheSwgT2N0b2JlciAx
-NSwgMjAxNCA1OjE2IFBNDQo+IFRvOiBQYW4gSmlhZmVpLUIzNzAyMg0KPiBDYzogRGF2aWQgTWls
-bGVyOyBqa29zaW5hQHN1c2UuY3o7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IExpIFlhbmctTGVv
-LVI1ODQ3MjsNCj4gbGludXgtZG9jQHZnZXIua2VybmVsLm9yZw0KPiBTdWJqZWN0OiBSZTogW1BB
-VENIXSBuZXQ6IHVzZSBoYXJkd2FyZSBidWZmZXIgcG9vbCB0byBhbGxvY2F0ZSBza2INCj4gDQo+
-IE9uIFdlZCwgMjAxNC0xMC0xNSBhdCAwNTozNCArMDAwMCwgSmlhZmVpLlBhbkBmcmVlc2NhbGUu
-Y29tIHdyb3RlOg0KPiANCj4gPiBZZXMsIGZvciB0aGlzIG1hdHRlciwgaW4gb3JkZXIgdG8gZG8g
-dGhpcyB3ZSBzaG91bGQgbW9kaWZ5IHRoZSBFdGhlcm5ldA0KPiA+IGRyaXZlcnMuIEZvciBleGFt
-cGxlLCBkcml2ZXIgQSB3YW50IHRvIGRyaXZlciBCLCBDLCBELi4gdG8gc3VwcG9ydCBkcml2ZXIN
-Cj4gPiBBJ3MgSGFyZHdhcmUgYmxvY2sgYWNjZXNzIGZ1bmN0aW9ucywgc28gd2UgaGF2ZSB0byBt
-b2RpZnkgZHJpdmVyIEIsIEMsIEQuLi4NCj4gPiBJdCB3aWxsIGJlIHNvIGNvbXBsZXggZm9yIHRo
-aXMgbWF0dGVyLg0KPiA+DQo+ID4gQnV0IGJ5IHVzaW5nIG15IHBhdGNoLCBJIGp1c3QgbW9kaWZ5
-IGEgRXRoZXJuZXQgZGV2aWNlIChJIGRvbid0IGNhcmUNCj4gPiBXaGljaCBkcml2ZXIgaXQgaXMg
-dXNlZCkgZmxhZyBpbiBkcml2ZXIgQSBpbiBvcmRlciB0byBpbXBsZW1lbnQgdGhpcw0KPiA+IEV0
-aGVybmV0IGRldmljZSB1c2luZyBoYXJkd2FyZSBibG9jayBhY2Nlc3MgZnVuY3Rpb25zIHByb3Zp
-ZGVkIGJ5DQo+ID4gRHJpdmVyIEEuDQo+IA0KPiBXZSBjYXJlIGEgbG90IG9mIGFsbCB0aGUgYnVn
-cyBhZGRlZCBieSB5b3VyIHBhdGNoZXMuIFlvdSBoYXZlIGxpdHRsZQ0KPiBpZGVhIG9mIGhvdyBt
-YW55IG9mIHRoZW0gd2VyZSBhZGRlZC4gV2UgZG8gbm90IHdhbnQgdG8gc3BlbmQgZGF5cyBvZg0K
-PiB3b3JrIGV4cGxhaW5pbmcgZXZlcnl0aGluZyBvciBmaXhpbmcgYWxsIHRoZSBkZXRhaWxzIGZv
-ciB5b3UuDQo+IA0KPiBDYXJlZnVsbHkgcmVhZCBuZXQvY29yZS9za2J1ZmYuYywgbmV0L2NvcmUv
-ZGV2LmMsIEdSTyBsYXllciwgeW91J2xsIHNlZQ0KPiBob3cgbWFueSBzcG90cyB5b3UgbWlzc2Vk
-Lg0KPiANCj4gWW91IGNhbm5vdCBjb250cm9sIGhvdyBza2JzIGFyZSBjb29rZWQgYmVmb3JlIHJl
-YWNoaW5nIHlvdXIgZHJpdmVyDQo+IG5kb19zdGFydF94bWl0KCkuIFlvdSBhcmUgbm90IGdvaW5n
-IHRvIGFkZCBob29rcyBpbiBVRFAgLCBUQ1AsIG9yIG90aGVyDQo+IGRyaXZlcnMgUlggcGF0aC4g
-VGhpcyB3b3VsZCBiZSBhYnNvbHV0ZWx5IGluc2FuZS4NCj4gDQo+IFRyeWluZyB0byBjb250cm9s
-IGhvdyBza2IgYXJlIGNvb2tlZCBpbiBSWCBwYXRoIGlzIGFic29sdXRlbHkgc29tZXRoaW5nDQo+
-IGRyaXZlcnMgZG8sIHVzaW5nIHBhZ2UgZnJhZ3MgdGhhdCBhcmUgcmVhZC1vbmx5IGJ5IGFsbCB0
-aGUgc3RhY2suDQo+IA0KPiBGaXggeW91ciBkcml2ZXIgdG8gdXNlIGV4aXN0aW5nIGluZnJhLCB5
-b3VyIHN1Z2dlc3Rpb24gaXMgbm90IGdvaW5nIHRvDQo+IGJlIGFjY2VwdGVkLg0KPiANCkkgdGhp
-bmsgbXkgcGF0Y2ggY2FuIGNvbm5lY3Qgc29tZSBoYXJkd2FyZSBidWZmZXIgYmxvY2sgd2l0aCB0
-aGUgdGhpcmQgcGFydHkNCm5ldCBjYXJkIGRyaXZlcnMuIHRoaXMgc2hvdWxkIGJlIGEgZ2VuZXJh
-bCByZXF1aXJlbWVudCBpbiBvcmRlciB0byBnZXQNCmEgYmV0dGVyIHBlcmZvcm1hbmNlLiBZZXMs
-IG1heWJlIHNvbWUgZGVmZWN0IGluIG15IHBhdGNoLCBidXQgYW55IGNvbW1lbnRzDQphbmQgc3Vn
-Z2VzdGlvbnMgZm9yIHRoaXMgdGFyZ2V0IGlzIHdlbGNvbWUgYW5kIHRoYW5rcy4NCg0K
+
+
+> -----Original Message-----
+> From: Stephen Hemminger [mailto:stephen@networkplumber.org]
+> Sent: Wednesday, October 15, 2014 5:33 PM
+> To: Pan Jiafei-B37022
+> Cc: davem@davemloft.net; jkosina@suse.cz; netdev@vger.kernel.org; Li Yang-Leo-
+> R58472; linux-doc@vger.kernel.org
+> Subject: Re: [PATCH] net: use hardware buffer pool to allocate skb
+> 
+> Since an skb can sit forever in an application queue, you have created
+> an easy way to livelock the system when enough skb's are waiting to be
+> read.
+
+I think there is no possible to livelock the system, because in my patch
+The function __netdev_alloc_skb will try to allocate hardware block buffer
+Firstly if dev->alloc_hw_skb is set, but it will continue allocate normal
+skb buffer if the hardware block buffer allocation fails.
