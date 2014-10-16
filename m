@@ -1,113 +1,73 @@
-From: Randy Dunlap <rdunlap@infradead.org>
-Subject: Re: [PATCH] [trivial] treewide: Fix company name in module descriptions
-Date: Thu, 16 Oct 2014 10:01:38 -0700
-Message-ID: <543FF9F2.4020005@infradead.org>
-References: <1413472164-22366-1-git-send-email-standby24x7@gmail.com>
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Subject: Re: [PATCH] net: use hardware buffer pool to allocate skb
+Date: Thu, 16 Oct 2014 10:10:27 -0700
+Message-ID: <543FFC03.1060207@redhat.com>
+References: <1413343571-33231-1-git-send-email-Jiafei.Pan@freescale.com>	 <20141015.002514.384962932982389732.davem@davemloft.net>	 <c02005b9d8794d14bc2149f468ab571c@BY2PR03MB524.namprd03.prod.outlook.com>	 <1413364533.12304.44.camel@edumazet-glaptop2.roam.corp.google.com>	 <524626e093684abeba65839d26e94262@BLUPR03MB517.namprd03.prod.outlook.com>	 <1413432912.28798.7.camel@edumazet-glaptop2.roam.corp.google.com>	 <aeef795129504782ae1e9f91467d243e@BLUPR03MB517.namprd03.prod.outlook.com>	 <543FE413.6030406@redhat.com> <1413478657.28798.22.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Masanari Iida <standby24x7@gmail.com>,
-	linux-kernel@vger.kernel.org, mturquette@linaro.org,
-	trivial@kernel.org, linus.walleij@linaro.org, gnurou@gmail.com,
-	jcliburn@gmail.com, chris.snook@gmail.com, viresh.linux@gmail.com,
-	inki.dae@samsung.com, dh09.lee@samsung.com, kgene.kim@samsung.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1413472164-22366-1-git-send-email-standby24x7@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: "Jiafei.Pan@freescale.com" <Jiafei.Pan@freescale.com>,
+	David Miller <davem@davemloft.net>,
+	"jkosina@suse.cz" <jkosina@suse.cz>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"LeoLi@freescale.com" <LeoLi@freescale.com>,
+	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <1413478657.28798.22.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/16/14 08:09, Masanari Iida wrote:
-> This patch fix company name's spelling typo in module descriptions
-> and a Kconfig.
-> 
-> Signed-off-by: Masanari Iida <standby24x7@gmail.com>
 
-Acked-by: Randy Dunlap <rdunlap@infradead.org>
+On 10/16/2014 09:57 AM, Eric Dumazet wrote:
+> On Thu, 2014-10-16 at 08:28 -0700, Alexander Duyck wrote:
+>
+>> I think the part you are not getting is that is how buffers are
+>> essentially handled now.  So for example in the case if igb the only
+>> part we have copied out is usually the header, or the entire frame in
+>> the case of small packets.  This has to happen in order to allow for
+>> changes to the header for routing and such.  Beyond that the frags that
+>> are passed are the buffers that igb is still holding onto.  So
+>> effectively what the other device transmits in a bridging/routing
+>> scenario is my own net card specified buffer plus the copied/modified
+>> header.
+>>
+>> For a brief period igb used build_skb but that isn't valid on most
+>> systems as memory mapped for a device can be overwritten if the page is
+>> unmapped resulting in any changes to the header for routing/bridging
+>> purposes being invalidated.  Thus we cannot use the buffers for both the
+>> skb->data header which may be changed and Rx DMA simultaneously.
+> This reminds me that igb still has skb->truesize underestimation by 100%
+>
+> If a fragment is held in some socket receive buffer, a full page is
+> consumed, not 2048 bytes.
+>
+> diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+> index a21b14495ebd..56ca6c78985e 100644
+> --- a/drivers/net/ethernet/intel/igb/igb_main.c
+> +++ b/drivers/net/ethernet/intel/igb/igb_main.c
+> @@ -6586,9 +6586,11 @@ static bool igb_add_rx_frag(struct igb_ring *rx_ring,
+>   	struct page *page = rx_buffer->page;
+>   	unsigned int size = le16_to_cpu(rx_desc->wb.upper.length);
+>   #if (PAGE_SIZE < 8192)
+> -	unsigned int truesize = IGB_RX_BUFSZ;
+> +	unsigned int segsize = IGB_RX_BUFSZ;
+> +	unsigned int truesize = PAGE_SIZE;
+>   #else
+> -	unsigned int truesize = ALIGN(size, L1_CACHE_BYTES);
+> +	unsigned int segsize = ALIGN(size, L1_CACHE_BYTES);
+> +	unsigned int truesize = segsize;
+>   #endif
 
-Thanks.
+So if a page is used twice we are double counting the page size for the 
+socket then, is that correct?  I just want to make sure because prior to 
+this patch both flows did the same thing and counted the portion of the 
+page used in this pass, now with this change for PAGE_SIZE of 4K we 
+count the entire page, and for all other cases we count the portion of 
+the page used.
 
-> ---
->  drivers/clk/Kconfig                                 | 2 +-
->  drivers/gpio/gpio-spear-spics.c                     | 2 +-
->  drivers/net/ethernet/atheros/atl1c/atl1c_main.c     | 2 +-
->  drivers/pinctrl/spear/pinctrl-plgpio.c              | 2 +-
->  drivers/video/fbdev/exynos/exynos_mipi_dsi.c        | 2 +-
->  drivers/video/fbdev/exynos/exynos_mipi_dsi_common.c | 2 +-
->  6 files changed, 6 insertions(+), 6 deletions(-)
-> 
-> diff --git a/drivers/clk/Kconfig b/drivers/clk/Kconfig
-> index 455fd17..3f44f29 100644
-> --- a/drivers/clk/Kconfig
-> +++ b/drivers/clk/Kconfig
-> @@ -28,7 +28,7 @@ config COMMON_CLK_WM831X
->  	depends on MFD_WM831X
->  	---help---
->            Supports the clocking subsystem of the WM831x/2x series of
-> -	  PMICs from Wolfson Microlectronics.
-> +	  PMICs from Wolfson Microelectronics.
->  
->  source "drivers/clk/versatile/Kconfig"
->  
-> diff --git a/drivers/gpio/gpio-spear-spics.c b/drivers/gpio/gpio-spear-spics.c
-> index 353263c..506a2ea 100644
-> --- a/drivers/gpio/gpio-spear-spics.c
-> +++ b/drivers/gpio/gpio-spear-spics.c
-> @@ -204,5 +204,5 @@ static int __init spics_gpio_init(void)
->  subsys_initcall(spics_gpio_init);
->  
->  MODULE_AUTHOR("Shiraz Hashim <shiraz.linux.kernel@gmail.com>");
-> -MODULE_DESCRIPTION("ST Microlectronics SPEAr SPI Chip Select Abstraction");
-> +MODULE_DESCRIPTION("STMicroelectronics SPEAr SPI Chip Select Abstraction");
->  MODULE_LICENSE("GPL");
-> diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-> index 72fb86b..c9946c6 100644
-> --- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-> +++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-> @@ -48,7 +48,7 @@ MODULE_DEVICE_TABLE(pci, atl1c_pci_tbl);
->  
->  MODULE_AUTHOR("Jie Yang");
->  MODULE_AUTHOR("Qualcomm Atheros Inc., <nic-devel@qualcomm.com>");
-> -MODULE_DESCRIPTION("Qualcom Atheros 100/1000M Ethernet Network Driver");
-> +MODULE_DESCRIPTION("Qualcomm Atheros 100/1000M Ethernet Network Driver");
->  MODULE_LICENSE("GPL");
->  MODULE_VERSION(ATL1C_DRV_VERSION);
->  
-> diff --git a/drivers/pinctrl/spear/pinctrl-plgpio.c b/drivers/pinctrl/spear/pinctrl-plgpio.c
-> index bddb791..ce5f22c 100644
-> --- a/drivers/pinctrl/spear/pinctrl-plgpio.c
-> +++ b/drivers/pinctrl/spear/pinctrl-plgpio.c
-> @@ -724,5 +724,5 @@ static int __init plgpio_init(void)
->  subsys_initcall(plgpio_init);
->  
->  MODULE_AUTHOR("Viresh Kumar <viresh.kumar@linaro.org>");
-> -MODULE_DESCRIPTION("ST Microlectronics SPEAr PLGPIO driver");
-> +MODULE_DESCRIPTION("STMicroelectronics SPEAr PLGPIO driver");
->  MODULE_LICENSE("GPL");
-> diff --git a/drivers/video/fbdev/exynos/exynos_mipi_dsi.c b/drivers/video/fbdev/exynos/exynos_mipi_dsi.c
-> index cee9602..716bfad 100644
-> --- a/drivers/video/fbdev/exynos/exynos_mipi_dsi.c
-> +++ b/drivers/video/fbdev/exynos/exynos_mipi_dsi.c
-> @@ -570,5 +570,5 @@ static struct platform_driver exynos_mipi_dsi_driver = {
->  module_platform_driver(exynos_mipi_dsi_driver);
->  
->  MODULE_AUTHOR("InKi Dae <inki.dae@samsung.com>");
-> -MODULE_DESCRIPTION("Samusung SoC MIPI-DSI driver");
-> +MODULE_DESCRIPTION("Samsung SoC MIPI-DSI driver");
->  MODULE_LICENSE("GPL");
-> diff --git a/drivers/video/fbdev/exynos/exynos_mipi_dsi_common.c b/drivers/video/fbdev/exynos/exynos_mipi_dsi_common.c
-> index 85edabf..2358a2f 100644
-> --- a/drivers/video/fbdev/exynos/exynos_mipi_dsi_common.c
-> +++ b/drivers/video/fbdev/exynos/exynos_mipi_dsi_common.c
-> @@ -876,5 +876,5 @@ int exynos_mipi_dsi_fifo_clear(struct mipi_dsim_device *dsim,
->  }
->  
->  MODULE_AUTHOR("InKi Dae <inki.dae@samsung.com>");
-> -MODULE_DESCRIPTION("Samusung SoC MIPI-DSI common driver");
-> +MODULE_DESCRIPTION("Samsung SoC MIPI-DSI common driver");
->  MODULE_LICENSE("GPL");
-> 
+Thanks,
+
+Alex
 
 
--- 
-~Randy
