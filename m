@@ -1,115 +1,50 @@
 From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: tcpdump's capture filter: "vlan" doesn't match
-Date: Thu, 16 Oct 2014 08:10:52 +0200
-Message-ID: <543F616C.5040801@redhat.com>
-References: <DUB123-W23D5ECAD4869F9A799E1F6EDAA0@phx.gbl>
+Subject: Re: Netlink mmap tx security?
+Date: Thu, 16 Oct 2014 08:45:44 +0200
+Message-ID: <543F6998.5090000@redhat.com>
+References: <CALCETrWDSG2EhxBnM8Jm55Ov8PYQ_w3Wf88SKYOB1q1WgRpbEw@mail.gmail.com> <20141014.220111.179628329028952302.davem@davemloft.net> <CALCETrW1HFJ3QXMfV9Hv922eax0hbHJn5GmHPvtED8_JR5KOVg@mail.gmail.com> <20141014.220908.123550384430402000.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	=?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>,
-	Jiri Pirko <jpirko@redhat.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Atzm Watanabe <atzm@stratosphere.co.jp>,
-	Patrick McHardy <kaber@trash.net>,
-	Jesse Gross <jesse@nicira.com>
-To: Lukas Tribus <luky-37@hotmail.com>
+Cc: luto@amacapital.net, torvalds@linux-foundation.org,
+	kaber@trash.net, netdev@vger.kernel.org, tgraf@suug.ch
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:39938 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:17406 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750951AbaJPGLL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Oct 2014 02:11:11 -0400
-In-Reply-To: <DUB123-W23D5ECAD4869F9A799E1F6EDAA0@phx.gbl>
+	id S1750867AbaJPGqW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Oct 2014 02:46:22 -0400
+In-Reply-To: <20141014.220908.123550384430402000.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 10/15/2014 04:09 AM, David Miller wrote:
+> From: Andy Lutomirski <luto@amacapital.net>
+> Date: Tue, 14 Oct 2014 19:03:11 -0700
+>
+>> On Tue, Oct 14, 2014 at 7:01 PM, David Miller <davem@davemloft.net> wrote:
+>>> I really think this means I'll have to remove all of the netlink
+>>> mmap() support in order to prevent from breaking applications. :(
+>>>
+>>> The other option is to keep NETLINK_TX_RING, but copy the data into
+>>> a kernel side buffer before acting upon it.
+>>
+>> Option 3, which sucks but maybe not that badly: change the value of
+>> NETLINK_RX_RING.  (Practically: add NETLINK_RX_RING2 or something like
+>> that.)
+>
+> That would work as well.
+>
+> There are pros and cons to all of these approaches.
+>
+> I was thinking that if we do the "TX mmap --> copy to kernel buffer"
+> approach, then if in the future we find a way to make it work
+> reliably, we can avoid the copy.  And frankly performance wise it's no
+> worse than what happens via normal sendmsg() calls.
+>
+> And all applications using NETLINK_RX_RING keep working and keep
+> getting the performance boost.
 
-
-On 10/16/2014 12:58 AM, Lukas Tribus wrote:
-> Hi,
->
->
->
-> since 2.6.39 (including -rc1), tcpdump "vlan" capture filters don't match
-> anymore. All 2.6.38 and older kernels are fine.
->
->
-> I reproduced this specifically on a r8169 NIC on 2.6.39-rc1, but I found
-> this problem initially on bnx2 and e1000e nics.
->
->
-> Howto reproduce: just tcpdump with a "not vlan", "vlan" or "vlan <vlanid>"
-> capture filter on a passive eth interface (dot1q/vlan/ip config not necessary).
->
-> Actual behavior is that a "vlan [vlanid]" capture filter doesn't match the
-> (tagged) packet, and a "not vlan" capture filter matches everything.
->
->
-> Disabling rx-vlan-offloading via
-> ethtool -K eth0 rxvlan off
->
-> doesn't change anything.
->
->
-> Here we are filtering for "not vlan" and we can see that the matched frame
-> is vlan tagged:
->
-> # tcpdump -Uenc1 not vlan
-> tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
-> listening on eth0, link-type EN10MB (Ethernet), capture size 65535 bytes
-> 22:03:39.077584 70:ca:9b:01:23:34> 00:18:f8:01:23:34, \
-> *ethertype 802.1Q (0x8100), length 70: vlan 7, p 0*, ethertype IPv4, \
-> 192.168.47.9.443> 192.168.32.30.39436: Flags [.], ack 255248912, \
-> [...]
-> 1 packet captured
-> 169 packets received by filter
-> 0 packets dropped by kernel
-> 59 packets dropped by interface
-> #
->
->
->
->
-> As suggested here [1], we can pipe everything through another tcpdump
-> instance:
-> tcpdump -Uw - | tcpdump -en -r - vlan <vlanid>
->
->
-> But that is not something that works for my specific use-case (dedicated
-> sniffer box, dedicated interface connected to a Cisco SPAN/mirror port,
-> un/single/double-tagged packets, remotely accessible via remote-pcap [2]).
->
->
-> The sniffer should also be able to:
-> - maintain the frame as-is, including dot1q, dot1p (preferably
->    without artificial recreation of header fields/values and including CFI/DEI)
-> - "direct" capture filter based on vlan (not through multiple userspace
->    instances)
->
-> Kernel <= 2.6.38 perfectly satisfies those requirements.
->
->
-> Isn't disabling rx-vlan-offloading supposed to remedy those problems?
-
-There were some discussions on this in the past e.g. [1]. We have
-SKF_AD_VLAN_TAG and SKF_AD_VLAN_TAG_PRESENT for the BPF filter on
-this, but libpcap is currently not making use of any of them.
-
-  [1] http://thread.gmane.org/gmane.linux.network/247947
-
-> Thanks,
->
-> Lukas
->
->
->
->
-> [1] https://bugzilla.redhat.com/show_bug.cgi?id=498981
-> [2] https://github.com/frgtn/rpcapd-linux
->
->   		 	   		  --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+That would be better, yes. This would avoid having such a TPACKET_V*
+API chaos we have in packet sockets if this could be fixed for netlink
+eventually.
