@@ -1,65 +1,63 @@
-From: roy.qing.li@gmail.com
-Subject: [PATCH] vxlan: fix a use after free in vxlan_encap_bypass
-Date: Thu, 16 Oct 2014 08:49:41 +0800
-Message-ID: <1413420581-12989-1-git-send-email-roy.qing.li@gmail.com>
-To: netdev@vger.kernel.org
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH 1/1 net-next] openvswitch: use vport instead of p
+Date: Wed, 15 Oct 2014 18:11:52 -0700
+Message-ID: <CALnjE+ohd=zcCVmBEcaGqyD70uX=DXj-YoKP2pFw5JuncxjiFQ@mail.gmail.com>
+References: <1413399821-8558-1-git-send-email-fabf@skynet.be>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"dev@openvswitch.org" <dev@openvswitch.org>,
+	netdev <netdev@vger.kernel.org>
+To: Fabian Frederick <fabf@skynet.be>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:63396 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750820AbaJPAts (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Oct 2014 20:49:48 -0400
-Received: by mail-pa0-f44.google.com with SMTP id et14so2354600pad.3
-        for <netdev@vger.kernel.org>; Wed, 15 Oct 2014 17:49:48 -0700 (PDT)
-Received: from localhost ([106.120.101.38])
-        by mx.google.com with ESMTPSA id fk10sm18188537pdb.49.2014.10.15.17.49.46
-        for <netdev@vger.kernel.org>
-        (version=TLSv1.2 cipher=RC4-SHA bits=128/128);
-        Wed, 15 Oct 2014 17:49:47 -0700 (PDT)
+Received: from na6sys009bog014.obsmtp.com ([74.125.150.68]:32931 "HELO
+	na6sys009bog014.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751001AbaJPBLx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Oct 2014 21:11:53 -0400
+Received: by mail-ig0-f177.google.com with SMTP id a13so2526863igq.10
+        for <netdev@vger.kernel.org>; Wed, 15 Oct 2014 18:11:52 -0700 (PDT)
+In-Reply-To: <1413399821-8558-1-git-send-email-fabf@skynet.be>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Li RongQing <roy.qing.li@gmail.com>
+On Wed, Oct 15, 2014 at 12:03 PM, Fabian Frederick <fabf@skynet.be> wrote:
+> All functions used struct vport *vport except
+> ovs_vport_find_upcall_portid.
+>
+> This fixes 1 kerneldoc warning
+>
+> Signed-off-by: Fabian Frederick <fabf@skynet.be>
 
-when netif_rx() is done, the netif_rx handled skb maybe be freed,
-and should not be used.
 
-Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
----
- drivers/net/vxlan.c |    8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
+Acked-by: Pravin B Shelar <pshelar@nicira.com>
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 6f83be7..f677cd0 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1668,6 +1668,8 @@ static void vxlan_encap_bypass(struct sk_buff *skb, struct vxlan_dev *src_vxlan,
- 	struct pcpu_sw_netstats *tx_stats, *rx_stats;
- 	union vxlan_addr loopback;
- 	union vxlan_addr *remote_ip = &dst_vxlan->default_dst.remote_ip;
-+	struct net_device *dev = skb->dev;
-+	int len = skb->len;
- 
- 	tx_stats = this_cpu_ptr(src_vxlan->dev->tstats);
- 	rx_stats = this_cpu_ptr(dst_vxlan->dev->tstats);
-@@ -1691,16 +1693,16 @@ static void vxlan_encap_bypass(struct sk_buff *skb, struct vxlan_dev *src_vxlan,
- 
- 	u64_stats_update_begin(&tx_stats->syncp);
- 	tx_stats->tx_packets++;
--	tx_stats->tx_bytes += skb->len;
-+	tx_stats->tx_bytes += len;
- 	u64_stats_update_end(&tx_stats->syncp);
- 
- 	if (netif_rx(skb) == NET_RX_SUCCESS) {
- 		u64_stats_update_begin(&rx_stats->syncp);
- 		rx_stats->rx_packets++;
--		rx_stats->rx_bytes += skb->len;
-+		rx_stats->rx_bytes += len;
- 		u64_stats_update_end(&rx_stats->syncp);
- 	} else {
--		skb->dev->stats.rx_dropped++;
-+		dev->stats.rx_dropped++;
- 	}
- }
- 
--- 
-1.7.10.4
+Thanks.
+
+> ---
+>  net/openvswitch/vport.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+>
+> diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
+> index 53001b0..6015802 100644
+> --- a/net/openvswitch/vport.c
+> +++ b/net/openvswitch/vport.c
+> @@ -408,13 +408,13 @@ int ovs_vport_get_upcall_portids(const struct vport *vport,
+>   *
+>   * Returns the portid of the target socket.  Must be called with rcu_read_lock.
+>   */
+> -u32 ovs_vport_find_upcall_portid(const struct vport *p, struct sk_buff *skb)
+> +u32 ovs_vport_find_upcall_portid(const struct vport *vport, struct sk_buff *skb)
+>  {
+>         struct vport_portids *ids;
+>         u32 ids_index;
+>         u32 hash;
+>
+> -       ids = rcu_dereference(p->upcall_portids);
+> +       ids = rcu_dereference(vport->upcall_portids);
+>
+>         if (ids->n_ids == 1 && ids->ids[0] == 0)
+>                 return 0;
+> --
+> 1.9.3
+>
