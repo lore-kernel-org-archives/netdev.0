@@ -1,53 +1,118 @@
-From: roy.qing.li@gmail.com
-Subject: [PATCH] vxlan: using pskb_may_pull as early as possible
-Date: Thu, 16 Oct 2014 09:17:18 +0800
-Message-ID: <1413422238-2562-1-git-send-email-roy.qing.li@gmail.com>
-Cc: xiyou.wangcong@gmail.com
+From: Anish Bhatt <anish@chelsio.com>
+Subject: [PATCH net-next] cxgb4 : Improve handling of DCB negotiation or loss thereof
+Date: Wed, 15 Oct 2014 19:08:15 -0700
+Message-ID: <1413425295-22824-1-git-send-email-anish@chelsio.com>
+Cc: davem@davemloft.net, hariprasad@chelsio.com, leedom@chelsio.com,
+	Anish Bhatt <anish@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:38994 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751474AbaJPBRZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Oct 2014 21:17:25 -0400
-Received: by mail-pa0-f50.google.com with SMTP id kx10so2360229pab.37
-        for <netdev@vger.kernel.org>; Wed, 15 Oct 2014 18:17:24 -0700 (PDT)
+Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:46151
+	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751342AbaJPCIn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Oct 2014 22:08:43 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Li RongQing <roy.qing.li@gmail.com>
+Clear out any DCB apps we might have added to kernel table when we lose DCB
+sync (or IEEE equivalent event). IEEE allows individual components to work
+independently, so improve check for IEEE completion by specifying individual
+components.
 
-pskb_may_pull should be used to check if skb->data has enough space,
-skb->len can not ensure that.
-
-Cc: Cong Wang <xiyou.wangcong@gmail.com>
-Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+Signed-off-by: Anish Bhatt <anish@chelsio.com>
 ---
- drivers/net/vxlan.c |    6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c | 48 ++++++++++++++++++++++++--
+ 1 file changed, 45 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index faf1bd1..77ab844 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1437,9 +1437,6 @@ static int neigh_reduce(struct net_device *dev, struct sk_buff *skb)
- 	if (!in6_dev)
- 		goto out;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c
+index 8edf0f5bd679..ee819fd12bd2 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c
+@@ -60,6 +60,42 @@ void cxgb4_dcb_version_init(struct net_device *dev)
+ 	dcb->dcb_version = FW_PORT_DCB_VER_AUTO;
+ }
  
--	if (!pskb_may_pull(skb, skb->len))
--		goto out;
--
- 	iphdr = ipv6_hdr(skb);
- 	saddr = &iphdr->saddr;
- 	daddr = &iphdr->daddr;
-@@ -1880,7 +1877,8 @@ static netdev_tx_t vxlan_xmit(struct sk_buff *skb, struct net_device *dev)
- 			return arp_reduce(dev, skb);
- #if IS_ENABLED(CONFIG_IPV6)
- 		else if (ntohs(eth->h_proto) == ETH_P_IPV6 &&
--			 skb->len >= sizeof(struct ipv6hdr) + sizeof(struct nd_msg) &&
-+			 pskb_may_pull(skb, sizeof(struct ipv6hdr)
-+				       + sizeof(struct nd_msg)) &&
- 			 ipv6_hdr(skb)->nexthdr == IPPROTO_ICMPV6) {
- 				struct nd_msg *msg;
++static void cxgb4_dcb_cleanup_apps(struct net_device *dev)
++{
++	struct port_info *pi = netdev2pinfo(dev);
++	struct adapter *adap = pi->adapter;
++	struct port_dcb_info *dcb = &pi->dcb;
++	struct dcb_app app;
++	int i, err;
++
++	/* zero priority implies remove */
++	app.priority = 0;
++
++	for (i = 0; i < CXGB4_MAX_DCBX_APP_SUPPORTED; i++) {
++		/* Check if app list is exhausted */
++		if (!dcb->app_priority[i].protocolid)
++			break;
++
++		app.protocol = dcb->app_priority[i].protocolid;
++
++		if (dcb->dcb_version == FW_PORT_DCB_VER_IEEE) {
++			app.selector = dcb->app_priority[i].sel_field + 1;
++			err = dcb_ieee_setapp(dev, &app);
++		} else {
++			app.selector = !!(dcb->app_priority[i].sel_field);
++			err = dcb_setapp(dev, &app);
++		}
++
++		if (err) {
++			dev_err(adap->pdev_dev,
++				"Failed DCB Clear %s Application Priority: sel=%d, prot=%d, , err=%d\n",
++				dcb_ver_array[dcb->dcb_version], app.selector,
++				app.protocol, -err);
++			break;
++		}
++	}
++}
++
+ /* Finite State machine for Data Center Bridging.
+  */
+ void cxgb4_dcb_state_fsm(struct net_device *dev,
+@@ -145,6 +181,7 @@ void cxgb4_dcb_state_fsm(struct net_device *dev,
+ 			 * state.  We need to reset back to a ground state
+ 			 * of incomplete.
+ 			 */
++			cxgb4_dcb_cleanup_apps(dev);
+ 			cxgb4_dcb_state_init(dev);
+ 			dcb->state = CXGB4_DCB_STATE_FW_INCOMPLETE;
+ 			dcb->supported = CXGB4_DCBX_FW_SUPPORT;
+@@ -833,11 +870,16 @@ static int cxgb4_setapp(struct net_device *dev, u8 app_idtype, u16 app_id,
  
+ /* Return whether IEEE Data Center Bridging has been negotiated.
+  */
+-static inline int cxgb4_ieee_negotiation_complete(struct net_device *dev)
++static inline int
++cxgb4_ieee_negotiation_complete(struct net_device *dev,
++				enum cxgb4_dcb_fw_msgs dcb_subtype)
+ {
+ 	struct port_info *pi = netdev2pinfo(dev);
+ 	struct port_dcb_info *dcb = &pi->dcb;
+ 
++	if (dcb_subtype && !(dcb->msgs & dcb_subtype))
++		return 0;
++
+ 	return (dcb->state == CXGB4_DCB_STATE_FW_ALLSYNCED &&
+ 		(dcb->supported & DCB_CAP_DCBX_VER_IEEE));
+ }
+@@ -850,7 +892,7 @@ static int cxgb4_ieee_getapp(struct net_device *dev, struct dcb_app *app)
+ {
+ 	int prio;
+ 
+-	if (!cxgb4_ieee_negotiation_complete(dev))
++	if (!cxgb4_ieee_negotiation_complete(dev, CXGB4_DCB_FW_APP_ID))
+ 		return -EINVAL;
+ 	if (!(app->selector && app->protocol))
+ 		return -EINVAL;
+@@ -872,7 +914,7 @@ static int cxgb4_ieee_setapp(struct net_device *dev, struct dcb_app *app)
+ {
+ 	int ret;
+ 
+-	if (!cxgb4_ieee_negotiation_complete(dev))
++	if (!cxgb4_ieee_negotiation_complete(dev, CXGB4_DCB_FW_APP_ID))
+ 		return -EINVAL;
+ 	if (!(app->selector && app->protocol))
+ 		return -EINVAL;
 -- 
-1.7.10.4
+2.1.2
