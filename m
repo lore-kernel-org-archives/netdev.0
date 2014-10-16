@@ -1,118 +1,59 @@
-From: Anish Bhatt <anish@chelsio.com>
-Subject: [PATCH net-next] cxgb4 : Improve handling of DCB negotiation or loss thereof
-Date: Wed, 15 Oct 2014 19:08:15 -0700
-Message-ID: <1413425295-22824-1-git-send-email-anish@chelsio.com>
-Cc: davem@davemloft.net, hariprasad@chelsio.com, leedom@chelsio.com,
-	Anish Bhatt <anish@chelsio.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:46151
-	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751342AbaJPCIn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Oct 2014 22:08:43 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Jiafei.Pan@freescale.com" <Jiafei.Pan@freescale.com>
+Subject: RE: [PATCH] net: use hardware buffer pool to allocate skb
+Date: Thu, 16 Oct 2014 02:17:16 +0000
+Message-ID: <2f8cd20573304cc29558495823ac45f6@BLUPR03MB517.namprd03.prod.outlook.com>
+References: <1413343571-33231-1-git-send-email-Jiafei.Pan@freescale.com>
+	 <20141015.002514.384962932982389732.davem@davemloft.net>
+	 <c02005b9d8794d14bc2149f468ab571c@BY2PR03MB524.namprd03.prod.outlook.com>
+ <1413364533.12304.44.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: David Miller <davem@davemloft.net>,
+	"jkosina@suse.cz" <jkosina@suse.cz>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"LeoLi@freescale.com" <LeoLi@freescale.com>,
+	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
+	"Jiafei.Pan@freescale.com" <Jiafei.Pan@freescale.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <1413364533.12304.44.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Language: en-US
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Clear out any DCB apps we might have added to kernel table when we lose DCB
-sync (or IEEE equivalent event). IEEE allows individual components to work
-independently, so improve check for IEEE completion by specifying individual
-components.
-
-Signed-off-by: Anish Bhatt <anish@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c | 48 ++++++++++++++++++++++++--
- 1 file changed, 45 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c
-index 8edf0f5bd679..ee819fd12bd2 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c
-@@ -60,6 +60,42 @@ void cxgb4_dcb_version_init(struct net_device *dev)
- 	dcb->dcb_version = FW_PORT_DCB_VER_AUTO;
- }
- 
-+static void cxgb4_dcb_cleanup_apps(struct net_device *dev)
-+{
-+	struct port_info *pi = netdev2pinfo(dev);
-+	struct adapter *adap = pi->adapter;
-+	struct port_dcb_info *dcb = &pi->dcb;
-+	struct dcb_app app;
-+	int i, err;
-+
-+	/* zero priority implies remove */
-+	app.priority = 0;
-+
-+	for (i = 0; i < CXGB4_MAX_DCBX_APP_SUPPORTED; i++) {
-+		/* Check if app list is exhausted */
-+		if (!dcb->app_priority[i].protocolid)
-+			break;
-+
-+		app.protocol = dcb->app_priority[i].protocolid;
-+
-+		if (dcb->dcb_version == FW_PORT_DCB_VER_IEEE) {
-+			app.selector = dcb->app_priority[i].sel_field + 1;
-+			err = dcb_ieee_setapp(dev, &app);
-+		} else {
-+			app.selector = !!(dcb->app_priority[i].sel_field);
-+			err = dcb_setapp(dev, &app);
-+		}
-+
-+		if (err) {
-+			dev_err(adap->pdev_dev,
-+				"Failed DCB Clear %s Application Priority: sel=%d, prot=%d, , err=%d\n",
-+				dcb_ver_array[dcb->dcb_version], app.selector,
-+				app.protocol, -err);
-+			break;
-+		}
-+	}
-+}
-+
- /* Finite State machine for Data Center Bridging.
-  */
- void cxgb4_dcb_state_fsm(struct net_device *dev,
-@@ -145,6 +181,7 @@ void cxgb4_dcb_state_fsm(struct net_device *dev,
- 			 * state.  We need to reset back to a ground state
- 			 * of incomplete.
- 			 */
-+			cxgb4_dcb_cleanup_apps(dev);
- 			cxgb4_dcb_state_init(dev);
- 			dcb->state = CXGB4_DCB_STATE_FW_INCOMPLETE;
- 			dcb->supported = CXGB4_DCBX_FW_SUPPORT;
-@@ -833,11 +870,16 @@ static int cxgb4_setapp(struct net_device *dev, u8 app_idtype, u16 app_id,
- 
- /* Return whether IEEE Data Center Bridging has been negotiated.
-  */
--static inline int cxgb4_ieee_negotiation_complete(struct net_device *dev)
-+static inline int
-+cxgb4_ieee_negotiation_complete(struct net_device *dev,
-+				enum cxgb4_dcb_fw_msgs dcb_subtype)
- {
- 	struct port_info *pi = netdev2pinfo(dev);
- 	struct port_dcb_info *dcb = &pi->dcb;
- 
-+	if (dcb_subtype && !(dcb->msgs & dcb_subtype))
-+		return 0;
-+
- 	return (dcb->state == CXGB4_DCB_STATE_FW_ALLSYNCED &&
- 		(dcb->supported & DCB_CAP_DCBX_VER_IEEE));
- }
-@@ -850,7 +892,7 @@ static int cxgb4_ieee_getapp(struct net_device *dev, struct dcb_app *app)
- {
- 	int prio;
- 
--	if (!cxgb4_ieee_negotiation_complete(dev))
-+	if (!cxgb4_ieee_negotiation_complete(dev, CXGB4_DCB_FW_APP_ID))
- 		return -EINVAL;
- 	if (!(app->selector && app->protocol))
- 		return -EINVAL;
-@@ -872,7 +914,7 @@ static int cxgb4_ieee_setapp(struct net_device *dev, struct dcb_app *app)
- {
- 	int ret;
- 
--	if (!cxgb4_ieee_negotiation_complete(dev))
-+	if (!cxgb4_ieee_negotiation_complete(dev, CXGB4_DCB_FW_APP_ID))
- 		return -EINVAL;
- 	if (!(app->selector && app->protocol))
- 		return -EINVAL;
--- 
-2.1.2
+DQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IEVyaWMgRHVtYXpldCBbbWFp
+bHRvOmVyaWMuZHVtYXpldEBnbWFpbC5jb21dDQo+IFNlbnQ6IFdlZG5lc2RheSwgT2N0b2JlciAx
+NSwgMjAxNCA1OjE2IFBNDQo+IFRvOiBQYW4gSmlhZmVpLUIzNzAyMg0KPiBDYzogRGF2aWQgTWls
+bGVyOyBqa29zaW5hQHN1c2UuY3o7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IExpIFlhbmctTGVv
+LVI1ODQ3MjsNCj4gbGludXgtZG9jQHZnZXIua2VybmVsLm9yZw0KPiBTdWJqZWN0OiBSZTogW1BB
+VENIXSBuZXQ6IHVzZSBoYXJkd2FyZSBidWZmZXIgcG9vbCB0byBhbGxvY2F0ZSBza2INCj4gDQo+
+IE9uIFdlZCwgMjAxNC0xMC0xNSBhdCAwNTozNCArMDAwMCwgSmlhZmVpLlBhbkBmcmVlc2NhbGUu
+Y29tIHdyb3RlOg0KPiANCj4gPiBZZXMsIGZvciB0aGlzIG1hdHRlciwgaW4gb3JkZXIgdG8gZG8g
+dGhpcyB3ZSBzaG91bGQgbW9kaWZ5IHRoZSBFdGhlcm5ldA0KPiA+IGRyaXZlcnMuIEZvciBleGFt
+cGxlLCBkcml2ZXIgQSB3YW50IHRvIGRyaXZlciBCLCBDLCBELi4gdG8gc3VwcG9ydCBkcml2ZXIN
+Cj4gPiBBJ3MgSGFyZHdhcmUgYmxvY2sgYWNjZXNzIGZ1bmN0aW9ucywgc28gd2UgaGF2ZSB0byBt
+b2RpZnkgZHJpdmVyIEIsIEMsIEQuLi4NCj4gPiBJdCB3aWxsIGJlIHNvIGNvbXBsZXggZm9yIHRo
+aXMgbWF0dGVyLg0KPiA+DQo+ID4gQnV0IGJ5IHVzaW5nIG15IHBhdGNoLCBJIGp1c3QgbW9kaWZ5
+IGEgRXRoZXJuZXQgZGV2aWNlIChJIGRvbid0IGNhcmUNCj4gPiBXaGljaCBkcml2ZXIgaXQgaXMg
+dXNlZCkgZmxhZyBpbiBkcml2ZXIgQSBpbiBvcmRlciB0byBpbXBsZW1lbnQgdGhpcw0KPiA+IEV0
+aGVybmV0IGRldmljZSB1c2luZyBoYXJkd2FyZSBibG9jayBhY2Nlc3MgZnVuY3Rpb25zIHByb3Zp
+ZGVkIGJ5DQo+ID4gRHJpdmVyIEEuDQo+IA0KPiBXZSBjYXJlIGEgbG90IG9mIGFsbCB0aGUgYnVn
+cyBhZGRlZCBieSB5b3VyIHBhdGNoZXMuIFlvdSBoYXZlIGxpdHRsZQ0KPiBpZGVhIG9mIGhvdyBt
+YW55IG9mIHRoZW0gd2VyZSBhZGRlZC4gV2UgZG8gbm90IHdhbnQgdG8gc3BlbmQgZGF5cyBvZg0K
+PiB3b3JrIGV4cGxhaW5pbmcgZXZlcnl0aGluZyBvciBmaXhpbmcgYWxsIHRoZSBkZXRhaWxzIGZv
+ciB5b3UuDQo+IA0KPiBDYXJlZnVsbHkgcmVhZCBuZXQvY29yZS9za2J1ZmYuYywgbmV0L2NvcmUv
+ZGV2LmMsIEdSTyBsYXllciwgeW91J2xsIHNlZQ0KPiBob3cgbWFueSBzcG90cyB5b3UgbWlzc2Vk
+Lg0KPiANCj4gWW91IGNhbm5vdCBjb250cm9sIGhvdyBza2JzIGFyZSBjb29rZWQgYmVmb3JlIHJl
+YWNoaW5nIHlvdXIgZHJpdmVyDQo+IG5kb19zdGFydF94bWl0KCkuIFlvdSBhcmUgbm90IGdvaW5n
+IHRvIGFkZCBob29rcyBpbiBVRFAgLCBUQ1AsIG9yIG90aGVyDQo+IGRyaXZlcnMgUlggcGF0aC4g
+VGhpcyB3b3VsZCBiZSBhYnNvbHV0ZWx5IGluc2FuZS4NCj4gDQo+IFRyeWluZyB0byBjb250cm9s
+IGhvdyBza2IgYXJlIGNvb2tlZCBpbiBSWCBwYXRoIGlzIGFic29sdXRlbHkgc29tZXRoaW5nDQo+
+IGRyaXZlcnMgZG8sIHVzaW5nIHBhZ2UgZnJhZ3MgdGhhdCBhcmUgcmVhZC1vbmx5IGJ5IGFsbCB0
+aGUgc3RhY2suDQo+IA0KPiBGaXggeW91ciBkcml2ZXIgdG8gdXNlIGV4aXN0aW5nIGluZnJhLCB5
+b3VyIHN1Z2dlc3Rpb24gaXMgbm90IGdvaW5nIHRvDQo+IGJlIGFjY2VwdGVkLg0KPiANCkkgdGhp
+bmsgbXkgcGF0Y2ggY2FuIGNvbm5lY3Qgc29tZSBoYXJkd2FyZSBidWZmZXIgYmxvY2sgd2l0aCB0
+aGUgdGhpcmQgcGFydHkNCm5ldCBjYXJkIGRyaXZlcnMuIHRoaXMgc2hvdWxkIGJlIGEgZ2VuZXJh
+bCByZXF1aXJlbWVudCBpbiBvcmRlciB0byBnZXQNCmEgYmV0dGVyIHBlcmZvcm1hbmNlLiBZZXMs
+IG1heWJlIHNvbWUgZGVmZWN0IGluIG15IHBhdGNoLCBidXQgYW55IGNvbW1lbnRzDQphbmQgc3Vn
+Z2VzdGlvbnMgZm9yIHRoaXMgdGFyZ2V0IGlzIHdlbGNvbWUgYW5kIHRoYW5rcy4NCg0K
