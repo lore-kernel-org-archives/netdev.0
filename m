@@ -1,49 +1,52 @@
-From: roy.qing.li@gmail.com
-Subject: [PATCH] openvswitch: fix a use after free
-Date: Thu, 16 Oct 2014 17:01:15 +0800
-Message-ID: <1413450075-5044-1-git-send-email-roy.qing.li@gmail.com>
-To: netdev@vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net 0/4][pull request] Intel Wired LAN Driver Updates 2014-10-16
+Date: Thu, 16 Oct 2014 02:36:23 -0700
+Message-ID: <1413452187-2950-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:36400 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751509AbaJPJBV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Oct 2014 05:01:21 -0400
-Received: by mail-pa0-f44.google.com with SMTP id et14so3061244pad.31
-        for <netdev@vger.kernel.org>; Thu, 16 Oct 2014 02:01:21 -0700 (PDT)
-Received: from localhost ([106.120.101.38])
-        by mx.google.com with ESMTPSA id zn2sm19133454pbb.41.2014.10.16.02.01.19
-        for <netdev@vger.kernel.org>
-        (version=TLSv1.2 cipher=RC4-SHA bits=128/128);
-        Thu, 16 Oct 2014 02:01:20 -0700 (PDT)
+Received: from mga09.intel.com ([134.134.136.24]:44209 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751678AbaJPJga (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Oct 2014 05:36:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Li RongQing <roy.qing.li@gmail.com>
+This series contains updates to fm10k and ixgbe.
 
-pskb_may_pull() called by arphdr_ok can change skb->data, so put the arp
-setting after arphdr_ok to avoid the use the freed memory
+Matthew provides two fixes for fm10k, first sets the flag to fetch the
+host state before kicking off the service task that reads the host
+state when bringing the interface up.  The second makes sure that we
+release the mailbox lock after detecting an error and before we return
+the error code.
 
-Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
----
- net/openvswitch/flow.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+Andy Zhou provides a compile fix for fm10k, when the driver is compiled
+into the kernel and the VXLAN driver is compiled as a module.
 
-diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
-index 62db02b..b13ba5e 100644
---- a/net/openvswitch/flow.c
-+++ b/net/openvswitch/flow.c
-@@ -557,10 +557,11 @@ static int key_extract(struct sk_buff *skb, struct sw_flow_key *key)
- 	} else if (key->eth.type == htons(ETH_P_ARP) ||
- 		   key->eth.type == htons(ETH_P_RARP)) {
- 		struct arp_eth_header *arp;
-+		bool arp_t = arphdr_ok(skb);
- 
- 		arp = (struct arp_eth_header *)skb_network_header(skb);
- 
--		if (arphdr_ok(skb) &&
-+		if (arp_t &&
- 		    arp->ar_hrd == htons(ARPHRD_ETHER) &&
- 		    arp->ar_pro == htons(ETH_P_IP) &&
- 		    arp->ar_hln == ETH_ALEN &&
+Emil provides a fix for ixgbe to prevent against a panic by trying
+to dereference a NULL pointer in ixgbe_ndo_set_vf_spoofchk().
+
+The following are changes since commit 91269e390d062b526432f2ef1352b8df82e0e0bc:
+  vxlan: using pskb_may_pull as early as possible
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net master
+
+Andy Zhou (1):
+  fm10k: Add CONFIG_FM10K_VXLAN configuration option
+
+Emil Tantilov (1):
+  ixgbe: check for vfs outside of sriov_num_vfs before dereference
+
+Matthew Vick (2):
+  fm10k: Check the host state when bringing the interface up
+  fm10k: Unlock mailbox on VLAN addition failures
+
+ drivers/net/ethernet/intel/Kconfig              | 11 +++++++++++
+ drivers/net/ethernet/intel/fm10k/fm10k_netdev.c | 13 +++++++------
+ drivers/net/ethernet/intel/fm10k/fm10k_pci.c    |  1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c  |  3 +++
+ 4 files changed, 22 insertions(+), 6 deletions(-)
+
 -- 
-1.7.10.4
+1.9.3
