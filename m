@@ -1,39 +1,57 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Patch net 3/3] ipv4: clean up cookie_v4_check()
-Date: Wed, 15 Oct 2014 21:17:19 -0700
-Message-ID: <1413433039.28798.10.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1413408802-21052-1-git-send-email-xiyou.wangcong@gmail.com>
-	 <1413408802-21052-3-git-send-email-xiyou.wangcong@gmail.com>
+From: "Jiafei.Pan@freescale.com" <Jiafei.Pan@freescale.com>
+Subject: RE: [PATCH] net: use hardware buffer pool to allocate skb
+Date: Thu, 16 Oct 2014 05:15:30 +0000
+Message-ID: <aeef795129504782ae1e9f91467d243e@BLUPR03MB517.namprd03.prod.outlook.com>
+References: <1413343571-33231-1-git-send-email-Jiafei.Pan@freescale.com>
+	 <20141015.002514.384962932982389732.davem@davemloft.net>
+	 <c02005b9d8794d14bc2149f468ab571c@BY2PR03MB524.namprd03.prod.outlook.com>
+	 <1413364533.12304.44.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <524626e093684abeba65839d26e94262@BLUPR03MB517.namprd03.prod.outlook.com>
+ <1413432912.28798.7.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	Krzysztof Kolasa <kkolasa@winsoft.pl>,
-	Eric Dumazet <edumazet@google.com>,
-	Cong Wang <cwang@twopensource.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f180.google.com ([209.85.192.180]:61762 "EHLO
-	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751035AbaJPERU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Oct 2014 00:17:20 -0400
-Received: by mail-pd0-f180.google.com with SMTP id fp1so2482594pdb.39
-        for <netdev@vger.kernel.org>; Wed, 15 Oct 2014 21:17:20 -0700 (PDT)
-In-Reply-To: <1413408802-21052-3-git-send-email-xiyou.wangcong@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: David Miller <davem@davemloft.net>,
+	"jkosina@suse.cz" <jkosina@suse.cz>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"LeoLi@freescale.com" <LeoLi@freescale.com>,
+	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
+	"Jiafei.Pan@freescale.com" <Jiafei.Pan@freescale.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <1413432912.28798.7.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Language: en-US
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2014-10-15 at 14:33 -0700, Cong Wang wrote:
-> From: Cong Wang <cwang@twopensource.com>
-> 
-> We can retrieve opt from skb, no need to pass it as a parameter.
-> And opt should always be non-NULL, no need to check.
-> 
-> Cc: Krzysztof Kolasa <kkolasa@winsoft.pl>
-> Cc: Eric Dumazet <edumazet@google.com>
-> Tested-by: Krzysztof Kolasa <kkolasa@winsoft.pl>
-> Signed-off-by: Cong Wang <cwang@twopensource.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-> ---
-
-Acked-by: Eric Dumazet <edumazet@google.com>
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0
+bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXQ0KPiBTZW50OiBUaHVyc2RheSwgT2N0b2JlciAxNiwg
+MjAxNCAxMjoxNSBQTQ0KPiBUbzogUGFuIEppYWZlaS1CMzcwMjINCj4gQ2M6IERhdmlkIE1pbGxl
+cjsgamtvc2luYUBzdXNlLmN6OyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBMaSBZYW5nLUxlby1S
+NTg0NzI7DQo+IGxpbnV4LWRvY0B2Z2VyLmtlcm5lbC5vcmcNCj4gU3ViamVjdDogUmU6IFtQQVRD
+SF0gbmV0OiB1c2UgaGFyZHdhcmUgYnVmZmVyIHBvb2wgdG8gYWxsb2NhdGUgc2tiDQo+IA0KPiBP
+biBUaHUsIDIwMTQtMTAtMTYgYXQgMDI6MTcgKzAwMDAsIEppYWZlaS5QYW5AZnJlZXNjYWxlLmNv
+bSB3cm90ZToNCj4gDQo+ID4gVGhhbmtzIGZvciB5b3VyIGNvbW1lbnRzIGFuZCBzdWdnZXN0aW9u
+LiBJbiBteSBjYXNlLCBJIHdhbnQgdG8gYnVpbGQgc2tiDQo+ID4gZnJvbSBoYXJkd2FyZSBibG9j
+ayBzcGVjaWZpZWQgbWVtb3J5LCBJIG9ubHkgY2FuIHNlZSB0d28gd2F5cywgb25lIGlzIG1vZGlm
+aWVkDQo+ID4gbmV0IGNhcmQgZHJpdmVyIHJlcGxhY2UgY29tbW9uIHNrYiBhbGxvY2F0aW9uIGZ1
+bmN0aW9uIHdpdGggbXkgc3BlY2lhbGx5DQo+ID4gZnVuY3Rpb25zLCBhbm90aGVyIHdheSBpcyB0
+byBoYWNrIGNvbW1vbiBza2IgYWxsb2NhdGlvbiBmdW5jdGlvbiBpbiB3aGljaA0KPiA+IHJlZGly
+ZWN0IHRvIG15IHNwZWNpYWxseSBmdW5jdGlvbnMuIE15IHBhdGNoIGlzIGp1c3QgZm9yIHRoZSBz
+ZWNvbmQgd2F5Lg0KPiA+IEV4Y2VwdCB0aGVzZSB0d28gd2F5cywgd291bGQgeW91IHBsZWFzZSBn
+aXZlIG1lIHNvbWUgYWR2aWNlIGZvciBzb21lIG90aGVyDQo+ID4gd2F5cyBmb3IgbXkgY2FzZT8g
+VGhhbmtzDQo+IA0KPiBJIHN1Z2dlc3QgeW91IHJlYWQgZHJpdmVycy9uZXQvZXRoZXJuZXQgbnVt
+ZXJvdXMgZXhhbXBsZXMuDQo+IA0KPiBObyBuZWVkIHRvIGNoYW5nZSBhbnl0aGluZyAgaW4gbmV0
+Lyogb3IgaW5jbHVkZS8qLCByZWFsbHkuDQo+IA0KPiBGb3IgYSBzdGFydCwgbG9vayBhdCBkcml2
+ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pZ2IvaWdiX21haW4uYw0KPiANCj4gTWVudGlvbmluZyAn
+aGFjaycgaW4geW91ciBtYWlscyBzaW1wbHkgc2hvdWxkIGhpbnQgeW91IGFyZSBkb2luZw0KPiBz
+b21ldGhpbmcgdmVyeSB3cm9uZy4NCj4gDQo+IFdoYXQgbWFrZXMgeW91IHRoaW5rIHlvdXIgaGFy
+ZHdhcmUgaXMgc28gc3BlY2lhbCA/DQo+IA0KSW4gZmFjdCwgSSBhbSBkZXZlbG9waW5nIGEgYnJp
+ZGdlIGRyaXZlciwgaXQgY2FuIGJyaWRnZSBiZXR3ZWVuIGFueSBvdGhlciB0aGUNCnRoaXJkIHBh
+cnR5IG5ldCBjYXJkIGFuZCBteSBvd24gbmV0IGNhcmQuIE15IHRhcmdldCBpcyB0byBsZXQgYW55
+IG90aGVyIHRoZQ0KdGhpcmQgcGFydHkgbmV0IGNhcmQgY2FuIGRpcmVjdGx5IHVzZSBteSBvd24g
+bmV0IGNhcmQgc3BlY2lmaWVkIGJ1ZmZlciwgdGhlbg0KdGhlcmUgd2lsbCBiZSBubyBtZW1vcnkg
+Y29weSBpbiB0aGUgd2hvbGUgYnJpZGdlIHByb2Nlc3MuDQpCeSB0aGUgd2F5LCBJIGRvbuKAmXQg
+c2VlIGFueSBzaW1pbGFyIGJldHdlZW4gaWdiX21haW4uYyBhbmQgbXkgY2FzZS4gQW5kIGFsc28N
+Ck15IGJyaWRnZSBhbHNvIGNhbuKAmXQgaW1wbGVtZW50ZWQgd2l0aCAic2tiIGZyYWciIGluIG9y
+ZGVyIHRvIGFpbSBhdCB6ZXJvIG1lbW9yeQ0KY29weS4NCg==
