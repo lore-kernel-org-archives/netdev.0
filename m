@@ -1,69 +1,55 @@
-From: Benjamin Poirier <benjamin.poirier@gmail.com>
-Subject: Re: Regarding tx-nocache-copy in the Sheevaplug
-Date: Thu, 16 Oct 2014 10:34:01 -0700
-Message-ID: <20141016173401.GA16515@f1.synalogic.ca>
-References: <20141013105246.GD1972@vicerveza.homeunix.net>
- <20141015215701.GA4109@f1.synalogic.ca>
- <1413413127.17186.5.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: use hardware buffer pool to allocate skb
+Date: Thu, 16 Oct 2014 10:45:29 -0700
+Message-ID: <1413481529.28798.29.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1413343571-33231-1-git-send-email-Jiafei.Pan@freescale.com>
+	 <20141015.002514.384962932982389732.davem@davemloft.net>
+	 <c02005b9d8794d14bc2149f468ab571c@BY2PR03MB524.namprd03.prod.outlook.com>
+	 <1413364533.12304.44.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <524626e093684abeba65839d26e94262@BLUPR03MB517.namprd03.prod.outlook.com>
+	 <1413432912.28798.7.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <aeef795129504782ae1e9f91467d243e@BLUPR03MB517.namprd03.prod.outlook.com>
+	 <543FE413.6030406@redhat.com>
+	 <1413478657.28798.22.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <543FFC03.1060207@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?iso-8859-1?Q?Llu=EDs?= Batlle i Rossell <viric@viric.name>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Carles =?iso-8859-1?Q?Pag=E8s?= <page@cubata.homelinux.net>,
-	linux-arm-kernel@lists.infradead.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f176.google.com ([209.85.192.176]:61130 "EHLO
-	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751449AbaJPReG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Oct 2014 13:34:06 -0400
-Content-Disposition: inline
-In-Reply-To: <1413413127.17186.5.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "Jiafei.Pan@freescale.com" <Jiafei.Pan@freescale.com>,
+	David Miller <davem@davemloft.net>,
+	"jkosina@suse.cz" <jkosina@suse.cz>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"LeoLi@freescale.com" <LeoLi@freescale.com>,
+	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>
+To: Alexander Duyck <alexander.h.duyck@redhat.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <543FFC03.1060207@redhat.com>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2014/10/15 15:45, Eric Dumazet wrote:
-> On Wed, 2014-10-15 at 14:57 -0700, Benjamin Poirier wrote:
-> > On 2014/10/13 12:52, Llu=EDs Batlle i Rossell wrote:
-> > > Hello,
-> > >=20
-> > > on the 7th of January 2014 ths patch was applied:
-> > > https://lkml.org/lkml/2014/1/7/307
-> > >=20
-> > > [PATCH v2] net: Do not enable tx-nocache-copy by default
-> > >        =20
-> > > In the Sheevaplug (ARM Feroceon 88FR131 from Marvell) this made p=
-ackets to be
-> > > sent corrupted. I think this machine has something special about =
-the cache.
-> > >=20
-> > > Enabling back this tx-nocache-copy (as it used to be before the p=
-atch) the
-> > > transfers work fine again. I think that most people, encountering=
- this problem,
-> > > completely disable the tx offload instead of enabling back this s=
-etting.
-> > >=20
-> > > Is this an ARM kernel problem regarding this platform?
-> >=20
-> > This is odd, only x86 defines ARCH_HAS_NOCACHE_UACCESS. On arm,
-> > skb_do_copy_data_nocache() should end up using __copy_from_user()
-> > regardless of tx-nocache-copy.
->=20
->  kmap_atomic()/kunmap_atomic() is missing, so we lack
-> __cpuc_flush_dcache_area() operations.
->=20
+On Thu, 2014-10-16 at 10:10 -0700, Alexander Duyck wrote:
 
-You lost me there.
-1) I don't see the link
-2) It seems kmap_atomic and so on are there:
-$ grep kmap_atomic System.map-3.16-2-kirkwood
-c0014838 T kmap_atomic
-c001491c T kmap_atomic_pfn
-c00149a4 T kmap_atomic_to_page
+> So if a page is used twice we are double counting the page size for the 
+> socket then, is that correct?  I just want to make sure because prior to 
+> this patch both flows did the same thing and counted the portion of the 
+> page used in this pass, now with this change for PAGE_SIZE of 4K we 
+> count the entire page, and for all other cases we count the portion of 
+> the page used.
 
-MACH_KIRKWOOD selects CPU_FEROCEON which has
-__cpuc_flush_dcache_area ->
-	cpu_cache.flush_kern_dcache_area ->
-		feroceon_flush_kern_dcache_area
+When a page is split in 2 parts only, probability that a segment holds
+the 4K page is quite high (There is a single half page)
+
+When we split say 64KB in 42 segments, the probability a single segment
+hold the full 64KB block is very low, so we can almost be safe when we
+consider 'truesize = 1536'
+
+Of course there are pathological cases, but attacker has to be quite
+smart.
+
+I am just saying that counting 2048 might have a big impact on memory
+consumption if all these incoming segments are stored a long time in
+receive queues (TCP receive queues or out of order queues) : We might be
+off by a factor of 2 on the real memory usage, and delay the TCP
+collapsing too much.
+
+
