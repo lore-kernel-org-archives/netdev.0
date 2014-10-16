@@ -1,44 +1,71 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH] net: ethernet : stmicro: fixed power suspend and resume
- failure in stmmac driver
-Date: Thu, 16 Oct 2014 10:58:22 +0200
-Message-ID: <543F88AE.2020702@st.com>
-References: <1412056534-7995-1-git-send-email-hliang1025@gmail.com>	<20140930.151056.950254777090461575.davem@davemloft.net>	<CAPig_t=oA6BuAt77DDsLqrtRBDbV_vsoAxM31XxLjkAFpYG1-Q@mail.gmail.com> <20141001.134508.1301867654128829684.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>,
-	<adi-linux-docs@lists.sourceforge.net>
-To: <hliang1025@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141001.134508.1301867654128829684.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: roy.qing.li@gmail.com
+Subject: [PATCH] vxlan: small improvements
+Date: Thu, 16 Oct 2014 17:00:44 +0800
+Message-ID: <1413450045-5008-1-git-send-email-roy.qing.li@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:43681 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750816AbaJPJAv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Oct 2014 05:00:51 -0400
+Received: by mail-pd0-f173.google.com with SMTP id g10so2894108pdj.4
+        for <netdev@vger.kernel.org>; Thu, 16 Oct 2014 02:00:51 -0700 (PDT)
+Received: from localhost ([106.120.101.38])
+        by mx.google.com with ESMTPSA id ra2sm18243580pbc.27.2014.10.16.02.00.49
+        for <netdev@vger.kernel.org>
+        (version=TLSv1.2 cipher=RC4-SHA bits=128/128);
+        Thu, 16 Oct 2014 02:00:50 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello Hao Liang
+From: Li RongQing <roy.qing.li@gmail.com>
 
-On 10/1/2014 7:45 PM, David Miller wrote:
-> From: Hao Liang <hliang1025@gmail.com>
-> Date: Wed, 1 Oct 2014 14:08:28 +0800
->
->> I double-check my patch and the ->mac->xxx calls are still under the lock.
->> I think that lock is trying to protect priv struct and related data, so i
->> just remove some functions have no bearing on priv struct.
->
-> It's preventing parallel invocations of the ->mac->xxx calls.
->
-> The other instances are in device open/close, where RTNL semaphore is
-> held, and no other code paths in the driver can be active.
->
-> You need the lock.
+1. remove the dead codes, pr_fmt definition and vxlan_salt variable
+2. pskb_may_pull() can change skb->data, so we have to reload eth in vxlan_xmit.
 
-Do you have a new patch for this problem after David's advice?
+Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+---
+ drivers/net/vxlan.c |    7 +------
+ 1 file changed, 1 insertion(+), 6 deletions(-)
 
-I am reviewing the patches sent some weeks ago for driver looking
-and I can also try to fix this in case of you have no news.
-
-Let me know,
-
-Regards,
-peppe
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 77ab844..3a07fbf 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -8,8 +8,6 @@
+  * published by the Free Software Foundation.
+  */
+ 
+-#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+-
+ #include <linux/kernel.h>
+ #include <linux/types.h>
+ #include <linux/module.h>
+@@ -152,8 +150,6 @@ struct vxlan_dev {
+ 	struct hlist_head fdb_head[FDB_HASH_SIZE];
+ };
+ 
+-/* salt for hash table */
+-static u32 vxlan_salt __read_mostly;
+ static struct workqueue_struct *vxlan_wq;
+ 
+ static void vxlan_sock_work(struct work_struct *work);
+@@ -1890,6 +1886,7 @@ static netdev_tx_t vxlan_xmit(struct sk_buff *skb, struct net_device *dev)
+ #endif
+ 	}
+ 
++	eth = eth_hdr(skb);
+ 	f = vxlan_find_mac(vxlan, eth->h_dest);
+ 	did_rsc = false;
+ 
+@@ -2797,8 +2794,6 @@ static int __init vxlan_init_module(void)
+ 	if (!vxlan_wq)
+ 		return -ENOMEM;
+ 
+-	get_random_bytes(&vxlan_salt, sizeof(vxlan_salt));
+-
+ 	rc = register_pernet_subsys(&vxlan_net_ops);
+ 	if (rc)
+ 		goto out1;
+-- 
+1.7.10.4
