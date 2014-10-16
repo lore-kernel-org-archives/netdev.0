@@ -1,99 +1,93 @@
-From: Masanari Iida <standby24x7@gmail.com>
-Subject: [PATCH] [trivial] treewide: Fix company name in module descriptions
-Date: Fri, 17 Oct 2014 00:09:24 +0900
-Message-ID: <1413472164-22366-1-git-send-email-standby24x7@gmail.com>
-Cc: netdev@vger.kernel.org, Masanari Iida <standby24x7@gmail.com>
-To: linux-kernel@vger.kernel.org, mturquette@linaro.org,
-	trivial@kernel.org, linus.walleij@linaro.org, gnurou@gmail.com,
-	jcliburn@gmail.com, chris.snook@gmail.com, viresh.linux@gmail.com,
-	inki.dae@samsung.com, dh09.lee@samsung.com, kgene.kim@samsung.com,
-	rdunlap@infradead.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Subject: Re: [PATCH] net: use hardware buffer pool to allocate skb
+Date: Thu, 16 Oct 2014 08:28:19 -0700
+Message-ID: <543FE413.6030406@redhat.com>
+References: <1413343571-33231-1-git-send-email-Jiafei.Pan@freescale.com>	 <20141015.002514.384962932982389732.davem@davemloft.net>	 <c02005b9d8794d14bc2149f468ab571c@BY2PR03MB524.namprd03.prod.outlook.com>	 <1413364533.12304.44.camel@edumazet-glaptop2.roam.corp.google.com>	 <524626e093684abeba65839d26e94262@BLUPR03MB517.namprd03.prod.outlook.com> <1413432912.28798.7.camel@edumazet-glaptop2.roam.corp.google.com> <aeef795129504782ae1e9f91467d243e@BLUPR03MB517.namprd03.prod.outlook.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	"jkosina@suse.cz" <jkosina@suse.cz>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"LeoLi@freescale.com" <LeoLi@freescale.com>,
+	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>
+To: "Jiafei.Pan@freescale.com" <Jiafei.Pan@freescale.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <aeef795129504782ae1e9f91467d243e@BLUPR03MB517.namprd03.prod.outlook.com>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch fix company name's spelling typo in module descriptions
-and a Kconfig.
 
-Signed-off-by: Masanari Iida <standby24x7@gmail.com>
----
- drivers/clk/Kconfig                                 | 2 +-
- drivers/gpio/gpio-spear-spics.c                     | 2 +-
- drivers/net/ethernet/atheros/atl1c/atl1c_main.c     | 2 +-
- drivers/pinctrl/spear/pinctrl-plgpio.c              | 2 +-
- drivers/video/fbdev/exynos/exynos_mipi_dsi.c        | 2 +-
- drivers/video/fbdev/exynos/exynos_mipi_dsi_common.c | 2 +-
- 6 files changed, 6 insertions(+), 6 deletions(-)
+On 10/15/2014 10:15 PM, Jiafei.Pan@freescale.com wrote:
+>> -----Original Message-----
+>> From: Eric Dumazet [mailto:eric.dumazet@gmail.com]
+>> Sent: Thursday, October 16, 2014 12:15 PM
+>> To: Pan Jiafei-B37022
+>> Cc: David Miller; jkosina@suse.cz; netdev@vger.kernel.org; Li Yang-L=
+eo-R58472;
+>> linux-doc@vger.kernel.org
+>> Subject: Re: [PATCH] net: use hardware buffer pool to allocate skb
+>>
+>> On Thu, 2014-10-16 at 02:17 +0000, Jiafei.Pan@freescale.com wrote:
+>>
+>>> Thanks for your comments and suggestion. In my case, I want to buil=
+d skb
+>>> from hardware block specified memory, I only can see two ways, one =
+is modified
+>>> net card driver replace common skb allocation function with my spec=
+ially
+>>> functions, another way is to hack common skb allocation function in=
+ which
+>>> redirect to my specially functions. My patch is just for the second=
+ way.
+>>> Except these two ways, would you please give me some advice for som=
+e other
+>>> ways for my case? Thanks
+>> I suggest you read drivers/net/ethernet numerous examples.
+>>
+>> No need to change anything  in net/* or include/*, really.
+>>
+>> For a start, look at drivers/net/ethernet/intel/igb/igb_main.c
+>>
+>> Mentioning 'hack' in your mails simply should hint you are doing
+>> something very wrong.
+>>
+>> What makes you think your hardware is so special ?
+>>
+> In fact, I am developing a bridge driver, it can bridge between any o=
+ther the
+> third party net card and my own net card. My target is to let any oth=
+er the
+> third party net card can directly use my own net card specified buffe=
+r, then
+> there will be no memory copy in the whole bridge process.
+> By the way, I don=E2=80=99t see any similar between igb_main.c and my=
+ case. And also
+> My bridge also can=E2=80=99t implemented with "skb frag" in order to =
+aim at zero memory
+> copy.
 
-diff --git a/drivers/clk/Kconfig b/drivers/clk/Kconfig
-index 455fd17..3f44f29 100644
---- a/drivers/clk/Kconfig
-+++ b/drivers/clk/Kconfig
-@@ -28,7 +28,7 @@ config COMMON_CLK_WM831X
- 	depends on MFD_WM831X
- 	---help---
-           Supports the clocking subsystem of the WM831x/2x series of
--	  PMICs from Wolfson Microlectronics.
-+	  PMICs from Wolfson Microelectronics.
- 
- source "drivers/clk/versatile/Kconfig"
- 
-diff --git a/drivers/gpio/gpio-spear-spics.c b/drivers/gpio/gpio-spear-spics.c
-index 353263c..506a2ea 100644
---- a/drivers/gpio/gpio-spear-spics.c
-+++ b/drivers/gpio/gpio-spear-spics.c
-@@ -204,5 +204,5 @@ static int __init spics_gpio_init(void)
- subsys_initcall(spics_gpio_init);
- 
- MODULE_AUTHOR("Shiraz Hashim <shiraz.linux.kernel@gmail.com>");
--MODULE_DESCRIPTION("ST Microlectronics SPEAr SPI Chip Select Abstraction");
-+MODULE_DESCRIPTION("STMicroelectronics SPEAr SPI Chip Select Abstraction");
- MODULE_LICENSE("GPL");
-diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-index 72fb86b..c9946c6 100644
---- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-+++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-@@ -48,7 +48,7 @@ MODULE_DEVICE_TABLE(pci, atl1c_pci_tbl);
- 
- MODULE_AUTHOR("Jie Yang");
- MODULE_AUTHOR("Qualcomm Atheros Inc., <nic-devel@qualcomm.com>");
--MODULE_DESCRIPTION("Qualcom Atheros 100/1000M Ethernet Network Driver");
-+MODULE_DESCRIPTION("Qualcomm Atheros 100/1000M Ethernet Network Driver");
- MODULE_LICENSE("GPL");
- MODULE_VERSION(ATL1C_DRV_VERSION);
- 
-diff --git a/drivers/pinctrl/spear/pinctrl-plgpio.c b/drivers/pinctrl/spear/pinctrl-plgpio.c
-index bddb791..ce5f22c 100644
---- a/drivers/pinctrl/spear/pinctrl-plgpio.c
-+++ b/drivers/pinctrl/spear/pinctrl-plgpio.c
-@@ -724,5 +724,5 @@ static int __init plgpio_init(void)
- subsys_initcall(plgpio_init);
- 
- MODULE_AUTHOR("Viresh Kumar <viresh.kumar@linaro.org>");
--MODULE_DESCRIPTION("ST Microlectronics SPEAr PLGPIO driver");
-+MODULE_DESCRIPTION("STMicroelectronics SPEAr PLGPIO driver");
- MODULE_LICENSE("GPL");
-diff --git a/drivers/video/fbdev/exynos/exynos_mipi_dsi.c b/drivers/video/fbdev/exynos/exynos_mipi_dsi.c
-index cee9602..716bfad 100644
---- a/drivers/video/fbdev/exynos/exynos_mipi_dsi.c
-+++ b/drivers/video/fbdev/exynos/exynos_mipi_dsi.c
-@@ -570,5 +570,5 @@ static struct platform_driver exynos_mipi_dsi_driver = {
- module_platform_driver(exynos_mipi_dsi_driver);
- 
- MODULE_AUTHOR("InKi Dae <inki.dae@samsung.com>");
--MODULE_DESCRIPTION("Samusung SoC MIPI-DSI driver");
-+MODULE_DESCRIPTION("Samsung SoC MIPI-DSI driver");
- MODULE_LICENSE("GPL");
-diff --git a/drivers/video/fbdev/exynos/exynos_mipi_dsi_common.c b/drivers/video/fbdev/exynos/exynos_mipi_dsi_common.c
-index 85edabf..2358a2f 100644
---- a/drivers/video/fbdev/exynos/exynos_mipi_dsi_common.c
-+++ b/drivers/video/fbdev/exynos/exynos_mipi_dsi_common.c
-@@ -876,5 +876,5 @@ int exynos_mipi_dsi_fifo_clear(struct mipi_dsim_device *dsim,
- }
- 
- MODULE_AUTHOR("InKi Dae <inki.dae@samsung.com>");
--MODULE_DESCRIPTION("Samusung SoC MIPI-DSI common driver");
-+MODULE_DESCRIPTION("Samsung SoC MIPI-DSI common driver");
- MODULE_LICENSE("GPL");
--- 
-2.1.2.443.g670a3c1
+I think the part you are not getting is that is how buffers are=20
+essentially handled now.  So for example in the case if igb the only=20
+part we have copied out is usually the header, or the entire frame in=20
+the case of small packets.  This has to happen in order to allow for=20
+changes to the header for routing and such.  Beyond that the frags that=
+=20
+are passed are the buffers that igb is still holding onto.  So=20
+effectively what the other device transmits in a bridging/routing=20
+scenario is my own net card specified buffer plus the copied/modified=20
+header.
+
+=46or a brief period igb used build_skb but that isn't valid on most=20
+systems as memory mapped for a device can be overwritten if the page is=
+=20
+unmapped resulting in any changes to the header for routing/bridging=20
+purposes being invalidated.  Thus we cannot use the buffers for both th=
+e=20
+skb->data header which may be changed and Rx DMA simultaneously.
+
+Thanks,
+
+Alex
