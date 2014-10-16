@@ -1,57 +1,51 @@
-From: "Jiafei.Pan@freescale.com" <Jiafei.Pan@freescale.com>
-Subject: RE: [PATCH] net: use hardware buffer pool to allocate skb
-Date: Thu, 16 Oct 2014 05:15:30 +0000
-Message-ID: <aeef795129504782ae1e9f91467d243e@BLUPR03MB517.namprd03.prod.outlook.com>
-References: <1413343571-33231-1-git-send-email-Jiafei.Pan@freescale.com>
-	 <20141015.002514.384962932982389732.davem@davemloft.net>
-	 <c02005b9d8794d14bc2149f468ab571c@BY2PR03MB524.namprd03.prod.outlook.com>
-	 <1413364533.12304.44.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <524626e093684abeba65839d26e94262@BLUPR03MB517.namprd03.prod.outlook.com>
- <1413432912.28798.7.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: Netlink mmap tx security?
+Date: Thu, 16 Oct 2014 06:52:47 +0100
+Message-ID: <20141016055247.GA13475@casper.infradead.org>
+References: <CALCETrWDSG2EhxBnM8Jm55Ov8PYQ_w3Wf88SKYOB1q1WgRpbEw@mail.gmail.com>
+ <20141014.220111.179628329028952302.davem@davemloft.net>
+ <543F0712.8080503@redhat.com>
+ <20141015.195737.1429281929513331763.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Miller <davem@davemloft.net>,
-	"jkosina@suse.cz" <jkosina@suse.cz>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"LeoLi@freescale.com" <LeoLi@freescale.com>,
-	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
-	"Jiafei.Pan@freescale.com" <Jiafei.Pan@freescale.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <1413432912.28798.7.camel@edumazet-glaptop2.roam.corp.google.com>
-Content-Language: en-US
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: dborkman@redhat.com, luto@amacapital.net,
+	torvalds@linux-foundation.org, kaber@trash.net,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:49636 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750765AbaJPFwt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Oct 2014 01:52:49 -0400
+Content-Disposition: inline
+In-Reply-To: <20141015.195737.1429281929513331763.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0
-bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXQ0KPiBTZW50OiBUaHVyc2RheSwgT2N0b2JlciAxNiwg
-MjAxNCAxMjoxNSBQTQ0KPiBUbzogUGFuIEppYWZlaS1CMzcwMjINCj4gQ2M6IERhdmlkIE1pbGxl
-cjsgamtvc2luYUBzdXNlLmN6OyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBMaSBZYW5nLUxlby1S
-NTg0NzI7DQo+IGxpbnV4LWRvY0B2Z2VyLmtlcm5lbC5vcmcNCj4gU3ViamVjdDogUmU6IFtQQVRD
-SF0gbmV0OiB1c2UgaGFyZHdhcmUgYnVmZmVyIHBvb2wgdG8gYWxsb2NhdGUgc2tiDQo+IA0KPiBP
-biBUaHUsIDIwMTQtMTAtMTYgYXQgMDI6MTcgKzAwMDAsIEppYWZlaS5QYW5AZnJlZXNjYWxlLmNv
-bSB3cm90ZToNCj4gDQo+ID4gVGhhbmtzIGZvciB5b3VyIGNvbW1lbnRzIGFuZCBzdWdnZXN0aW9u
-LiBJbiBteSBjYXNlLCBJIHdhbnQgdG8gYnVpbGQgc2tiDQo+ID4gZnJvbSBoYXJkd2FyZSBibG9j
-ayBzcGVjaWZpZWQgbWVtb3J5LCBJIG9ubHkgY2FuIHNlZSB0d28gd2F5cywgb25lIGlzIG1vZGlm
-aWVkDQo+ID4gbmV0IGNhcmQgZHJpdmVyIHJlcGxhY2UgY29tbW9uIHNrYiBhbGxvY2F0aW9uIGZ1
-bmN0aW9uIHdpdGggbXkgc3BlY2lhbGx5DQo+ID4gZnVuY3Rpb25zLCBhbm90aGVyIHdheSBpcyB0
-byBoYWNrIGNvbW1vbiBza2IgYWxsb2NhdGlvbiBmdW5jdGlvbiBpbiB3aGljaA0KPiA+IHJlZGly
-ZWN0IHRvIG15IHNwZWNpYWxseSBmdW5jdGlvbnMuIE15IHBhdGNoIGlzIGp1c3QgZm9yIHRoZSBz
-ZWNvbmQgd2F5Lg0KPiA+IEV4Y2VwdCB0aGVzZSB0d28gd2F5cywgd291bGQgeW91IHBsZWFzZSBn
-aXZlIG1lIHNvbWUgYWR2aWNlIGZvciBzb21lIG90aGVyDQo+ID4gd2F5cyBmb3IgbXkgY2FzZT8g
-VGhhbmtzDQo+IA0KPiBJIHN1Z2dlc3QgeW91IHJlYWQgZHJpdmVycy9uZXQvZXRoZXJuZXQgbnVt
-ZXJvdXMgZXhhbXBsZXMuDQo+IA0KPiBObyBuZWVkIHRvIGNoYW5nZSBhbnl0aGluZyAgaW4gbmV0
-Lyogb3IgaW5jbHVkZS8qLCByZWFsbHkuDQo+IA0KPiBGb3IgYSBzdGFydCwgbG9vayBhdCBkcml2
-ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pZ2IvaWdiX21haW4uYw0KPiANCj4gTWVudGlvbmluZyAn
-aGFjaycgaW4geW91ciBtYWlscyBzaW1wbHkgc2hvdWxkIGhpbnQgeW91IGFyZSBkb2luZw0KPiBz
-b21ldGhpbmcgdmVyeSB3cm9uZy4NCj4gDQo+IFdoYXQgbWFrZXMgeW91IHRoaW5rIHlvdXIgaGFy
-ZHdhcmUgaXMgc28gc3BlY2lhbCA/DQo+IA0KSW4gZmFjdCwgSSBhbSBkZXZlbG9waW5nIGEgYnJp
-ZGdlIGRyaXZlciwgaXQgY2FuIGJyaWRnZSBiZXR3ZWVuIGFueSBvdGhlciB0aGUNCnRoaXJkIHBh
-cnR5IG5ldCBjYXJkIGFuZCBteSBvd24gbmV0IGNhcmQuIE15IHRhcmdldCBpcyB0byBsZXQgYW55
-IG90aGVyIHRoZQ0KdGhpcmQgcGFydHkgbmV0IGNhcmQgY2FuIGRpcmVjdGx5IHVzZSBteSBvd24g
-bmV0IGNhcmQgc3BlY2lmaWVkIGJ1ZmZlciwgdGhlbg0KdGhlcmUgd2lsbCBiZSBubyBtZW1vcnkg
-Y29weSBpbiB0aGUgd2hvbGUgYnJpZGdlIHByb2Nlc3MuDQpCeSB0aGUgd2F5LCBJIGRvbuKAmXQg
-c2VlIGFueSBzaW1pbGFyIGJldHdlZW4gaWdiX21haW4uYyBhbmQgbXkgY2FzZS4gQW5kIGFsc28N
-Ck15IGJyaWRnZSBhbHNvIGNhbuKAmXQgaW1wbGVtZW50ZWQgd2l0aCAic2tiIGZyYWciIGluIG9y
-ZGVyIHRvIGFpbSBhdCB6ZXJvIG1lbW9yeQ0KY29weS4NCg==
+On 10/15/14 at 07:57pm, David Miller wrote:
+> From: Daniel Borkmann <dborkman@redhat.com>
+> Date: Thu, 16 Oct 2014 01:45:22 +0200
+> 
+> > On 10/15/2014 04:01 AM, David Miller wrote:
+> >> From: Andy Lutomirski <luto@amacapital.net>
+> >> Date: Tue, 14 Oct 2014 15:16:46 -0700
+> >>
+> >>> It's at least remotely possible that there's something that assumes
+> >>> that assumes that the availability of NETLINK_RX_RING implies
+> >>> NETLINK_TX_RING, which would be unfortunate.
+> >>
+> >> I already found one such case, nlmon :-/
+> > 
+> > Hmm, can you elaborate? I currently don't think that nlmon cares
+> > actually.
+> 
+> nlmon cares, openvswitch cares, etc:
+> 
+> http://openvswitch.org/pipermail/dev/2013-December/034496.html
+
+(Fortunately) the OVS patch has not been merged yet because the number
+of Netlink sockets created per vport in the current architecture
+currently make it a non scalable approach.
+
+I think introdcing a NETLINK_RX_RING2 and having NETLINK_RX_RING fail
+is not a bad way out of this.
