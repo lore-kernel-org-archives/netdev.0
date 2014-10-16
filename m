@@ -1,45 +1,103 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: Netlink mmap tx security?
-Date: Thu, 16 Oct 2014 08:07:53 +0100
-Message-ID: <20141016070753.GA16738@casper.infradead.org>
-References: <CALCETrWDSG2EhxBnM8Jm55Ov8PYQ_w3Wf88SKYOB1q1WgRpbEw@mail.gmail.com>
- <20141014.220111.179628329028952302.davem@davemloft.net>
- <CALCETrW1HFJ3QXMfV9Hv922eax0hbHJn5GmHPvtED8_JR5KOVg@mail.gmail.com>
- <20141014.220908.123550384430402000.davem@davemloft.net>
- <543F6998.5090000@redhat.com>
+From: Thierry Herbelot <thierry.herbelot@6wind.com>
+Subject: Re: [PATCH v3 net] ixgbe: check adapter->vfinfo before dereference
+Date: Thu, 16 Oct 2014 09:23:01 +0200
+Message-ID: <543F7255.7070606@6wind.com>
+References: <1412930732-892-1-git-send-email-thierry.herbelot@6wind.com> <1413367080-31540-1-git-send-email-thierry.herbelot@6wind.com> <87618083B2453E4A8714035B62D67992500E2629@FMSMSX105.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, luto@amacapital.net,
-	torvalds@linux-foundation.org, kaber@trash.net,
-	netdev@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: "Tantilov, Emil S" <emil.s.tantilov@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:49962 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751329AbaJPHHz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Oct 2014 03:07:55 -0400
-Content-Disposition: inline
-In-Reply-To: <543F6998.5090000@redhat.com>
+Received: from mail-wi0-f173.google.com ([209.85.212.173]:64358 "EHLO
+	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751177AbaJPHX2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Oct 2014 03:23:28 -0400
+Received: by mail-wi0-f173.google.com with SMTP id fb4so632162wid.12
+        for <netdev@vger.kernel.org>; Thu, 16 Oct 2014 00:23:26 -0700 (PDT)
+In-Reply-To: <87618083B2453E4A8714035B62D67992500E2629@FMSMSX105.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/16/14 at 08:45am, Daniel Borkmann wrote:
-> On 10/15/2014 04:09 AM, David Miller wrote:
-> >That would work as well.
-> >
-> >There are pros and cons to all of these approaches.
-> >
-> >I was thinking that if we do the "TX mmap --> copy to kernel buffer"
-> >approach, then if in the future we find a way to make it work
-> >reliably, we can avoid the copy.  And frankly performance wise it's no
-> >worse than what happens via normal sendmsg() calls.
-> >
-> >And all applications using NETLINK_RX_RING keep working and keep
-> >getting the performance boost.
-> 
-> That would be better, yes. This would avoid having such a TPACKET_V*
-> API chaos we have in packet sockets if this could be fixed for netlink
-> eventually.
+On 10/16/2014 12:50 AM, Tantilov, Emil S wrote:
+>> -----Original Message-----
+>> From: Thierry Herbelot [mailto:thierry.herbelot@6wind.com]
+>> Sent: Wednesday, October 15, 2014 2:58 AM
+>> To: Kirsher, Jeffrey T; Brandeburg, Jesse; Allan, Bruce W;
+>> netdev@vger.kernel.org; Tantilov, Emil S
+>> Cc: Thierry Herbelot
+>> Subject: [PATCH v3 net] ixgbe: check adapter->vfinfo before dereference
+>>
+>> this protects against the following panic:
+>> (before a VF was actually created on p96p1 PF Ethernet port)
+>>
+>> ip link set p96p1 vf 0 spoofchk off
+>> BUG: unable to handle kernel NULL pointer dereference at 0000000000000052
+>> IP: [<ffffffffa044a1c1>]
+>> ixgbe_ndo_set_vf_spoofchk+0x51/0x150 [ixgbe]
+>>
+>> Signed-off-by: Thierry Herbelot <thierry.herbelot@6wind.com>
+>> ---
+>>
+>> v2:
+>>   compilation fixes
+>>
+>> v3:
+>>   remove checks in functions where vfinfo is known not to be NULL
+>>   return -EINVAL as error code
+>>
+>> drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c |   42
+>> ++++++++++++++++++++++--
+>> 1 file changed, 40 insertions(+), 2 deletions(-)
+>
+> Actually looking into this a bit more, the check for vfinfo is not sufficient
+> because it does not protect against specifying vf that is outside of sriov_num_vfs range.
+>
+> All of the ndo functions have a check for it except for ixgbevf_ndo_set_spoofcheck().
+>
+> The following patch should be all we need to protect against this panic:
+>
+> This patch adds a check to return -EINVAL when setting spoofcheck on
+> VF that is not configured.
+>
+> Reported-by: Thierry Herbelot <thierry.herbelot@6wind.com>
+> Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+> ---
+>   drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c |    3 +++
+>   1 file changed, 3 insertions(+)
+>
+> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+> index 706fc69..97c85b8 100644
+> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+> @@ -1261,6 +1261,9 @@ int ixgbe_ndo_set_vf_spoofchk(struct net_device *netdev, int vf, bool setting)
+>   	struct ixgbe_hw *hw = &adapter->hw;
+>   	u32 regval;
+>
+> +	if (vf >= adapter->num_vfs)
+> +		return -EINVAL;
+> +
+>   	adapter->vfinfo[vf].spoofchk_enabled = setting;
+>
+>   	regval = IXGBE_READ_REG(hw, IXGBE_PFVFSPOOF(vf_target_reg));
+>
+>
 
-Only saw the second part of Dave's message now. I agree that this
-is even a better option.
+Hello,
+
+Indeed your patch solves the initial issue.
+
+And indeed I also double-checked that all other instances are protected 
+by the (vf >= adapter->num_vfs) condition.
+
+	Best regards
+
+	Thierry
+
+-- 
+Thierry Herbelot
+6WIND
+Software Engineer
