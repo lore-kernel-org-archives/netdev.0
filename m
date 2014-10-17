@@ -1,57 +1,38 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] bna: fix skb->truesize underestimation
-Date: Fri, 17 Oct 2014 12:45:55 -0700
-Message-ID: <1413575155.27176.5.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: something is wrong in commit 971f10eca1 - tcp: better
+ TCP_SKB_CB layout to reduce cache line misses
+Date: Fri, 17 Oct 2014 12:48:05 -0700
+Message-ID: <1413575285.27176.7.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CAHA+R7OEvTcZOm-OepWYvGP+pC_CJRoSen351nw8VJGdLTo0uA@mail.gmail.com>
+	 <1413409168.17186.0.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1413409354.17186.2.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20141017.152923.678515861731659347.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Rasesh Mody <rasesh.mody@qlogic.com>
+Cc: cwang@twopensource.com, kkolasa@winsoft.pl, edumazet@gmail.com,
+	netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:59264 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753677AbaJQTp5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Oct 2014 15:45:57 -0400
-Received: by mail-pa0-f54.google.com with SMTP id ey11so1416003pad.13
-        for <netdev@vger.kernel.org>; Fri, 17 Oct 2014 12:45:57 -0700 (PDT)
+Received: from mail-pd0-f174.google.com ([209.85.192.174]:37796 "EHLO
+	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753762AbaJQTsH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Oct 2014 15:48:07 -0400
+Received: by mail-pd0-f174.google.com with SMTP id y13so1322694pdi.19
+        for <netdev@vger.kernel.org>; Fri, 17 Oct 2014 12:48:06 -0700 (PDT)
+In-Reply-To: <20141017.152923.678515861731659347.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Fri, 2014-10-17 at 15:29 -0400, David Miller wrote:
+> So I applied Cong's patches, but if I am to understand the testing feedback
+> so far only the 64-bit case of the reporter's problems is fixed, and that
+> the 32-bit graphics corruption still happens.
+> 
+> Can I get some clarification of where we stand after Cong's fixes
+> which are already merged into 'net'?
 
-skb->truesize is not meant to be tracking amount of used bytes
-in an skb, but amount of reserved/consumed bytes in memory.
+I spent some time on the (awful) memmove() implementation on x86_32, and
+could not find a bug in it.
 
-For instance, if we use a single byte in last page fragment,
-we have to account the full size of the fragment.
-
-skb->truesize can be very different from skb->len, that has
-a very specific safety purpose.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Rasesh Mody <rasesh.mody@qlogic.com>
----
- drivers/net/ethernet/brocade/bna/bnad.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
-index 153cafac323c..c3861de9dc81 100644
---- a/drivers/net/ethernet/brocade/bna/bnad.c
-+++ b/drivers/net/ethernet/brocade/bna/bnad.c
-@@ -552,6 +552,7 @@ bnad_cq_setup_skb_frags(struct bna_rcb *rcb, struct sk_buff *skb,
- 
- 		len = (vec == nvecs) ?
- 			last_fraglen : unmap->vector.len;
-+		skb->truesize += unmap->vector.len;
- 		totlen += len;
- 
- 		skb_fill_page_desc(skb, skb_shinfo(skb)->nr_frags,
-@@ -563,7 +564,6 @@ bnad_cq_setup_skb_frags(struct bna_rcb *rcb, struct sk_buff *skb,
- 
- 	skb->len += totlen;
- 	skb->data_len += totlen;
--	skb->truesize += totlen;
- }
- 
- static inline void
+It would be worth trying doing 2 memcpy() instead just in case...
