@@ -1,223 +1,40 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] ipv6: introduce tcp_v6_iif()
-Date: Fri, 17 Oct 2014 09:17:20 -0700
-Message-ID: <1413562640.24953.26.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Patch net 1/3] ipv4: call __ip_options_echo() in
+ cookie_v4_check()
+Date: Fri, 17 Oct 2014 12:18:21 -0400 (EDT)
+Message-ID: <20141017.121821.1367483767179008009.davem@davemloft.net>
+References: <1413408802-21052-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, kkolasa@winsoft.pl, edumazet@google.com,
+	cwang@twopensource.com
+To: xiyou.wangcong@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:60182 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752822AbaJQQRW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Oct 2014 12:17:22 -0400
-Received: by mail-pa0-f51.google.com with SMTP id lj1so1089632pab.38
-        for <netdev@vger.kernel.org>; Fri, 17 Oct 2014 09:17:22 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:40812 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752032AbaJQQSX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Oct 2014 12:18:23 -0400
+In-Reply-To: <1413408802-21052-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Wed, 15 Oct 2014 14:33:20 -0700
 
-Commit 971f10eca186 ("tcp: better TCP_SKB_CB layout to reduce cache line
-misses") added a regression for SO_BINDTODEVICE on IPv6.
+> From: Cong Wang <cwang@twopensource.com>
+> 
+> commit 971f10eca186cab238c49da ("tcp: better TCP_SKB_CB layout to reduce cache line misses")
+> missed that cookie_v4_check() still calls ip_options_echo() which uses
+> IPCB(). It should use TCPCB() at TCP layer, so call __ip_options_echo()
+> instead.
+> 
+> Fixes: commit 971f10eca186cab238c49da ("tcp: better TCP_SKB_CB layout to reduce cache line misses")
+> Cc: Krzysztof Kolasa <kkolasa@winsoft.pl>
+> Cc: Eric Dumazet <edumazet@google.com>
+> Reported-by: Krzysztof Kolasa <kkolasa@winsoft.pl>
+> Tested-by: Krzysztof Kolasa <kkolasa@winsoft.pl>
+> Signed-off-by: Cong Wang <cwang@twopensource.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-This is because we still use inet6_iif() which expects that IP6 control
-block is still at the beginning of skb->cb[]
-
-This patch adds tcp_v6_iif() helper and uses it where necessary.
-
-Because __inet6_lookup_skb() is used by TCP and DCCP, we add an iif
-parameter to it.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Fixes: 971f10eca186 ("tcp: better TCP_SKB_CB layout to reduce cache line misses")
----
- include/net/inet6_hashtables.h |    5 +++--
- include/net/tcp.h              |    9 +++++++++
- net/dccp/ipv6.c                |    3 ++-
- net/ipv6/syncookies.c          |    2 +-
- net/ipv6/tcp_ipv6.c            |   26 +++++++++++++++-----------
- 5 files changed, 30 insertions(+), 15 deletions(-)
-
-diff --git a/include/net/inet6_hashtables.h b/include/net/inet6_hashtables.h
-index ae0613544308..d1d272843b3b 100644
---- a/include/net/inet6_hashtables.h
-+++ b/include/net/inet6_hashtables.h
-@@ -80,7 +80,8 @@ static inline struct sock *__inet6_lookup(struct net *net,
- static inline struct sock *__inet6_lookup_skb(struct inet_hashinfo *hashinfo,
- 					      struct sk_buff *skb,
- 					      const __be16 sport,
--					      const __be16 dport)
-+					      const __be16 dport,
-+					      int iif)
- {
- 	struct sock *sk = skb_steal_sock(skb);
- 
-@@ -90,7 +91,7 @@ static inline struct sock *__inet6_lookup_skb(struct inet_hashinfo *hashinfo,
- 	return __inet6_lookup(dev_net(skb_dst(skb)->dev), hashinfo,
- 			      &ipv6_hdr(skb)->saddr, sport,
- 			      &ipv6_hdr(skb)->daddr, ntohs(dport),
--			      inet6_iif(skb));
-+			      iif);
- }
- 
- struct sock *inet6_lookup(struct net *net, struct inet_hashinfo *hashinfo,
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 74efeda994b3..12e895c52139 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -730,6 +730,15 @@ struct tcp_skb_cb {
- 
- #define TCP_SKB_CB(__skb)	((struct tcp_skb_cb *)&((__skb)->cb[0]))
- 
-+
-+/* This is the variant of inet6_iif() that must be used by TCP,
-+ * as TCP moves IP6CB into a different location in skb->cb[]
-+ */
-+static inline int tcp_v6_iif(const struct sk_buff *skb)
-+{
-+	return TCP_SKB_CB(skb)->header.h6.iif;
-+}
-+
- /* Due to TSO, an SKB can be composed of multiple actual
-  * packets.  To keep these tracked properly, we use this.
-  */
-diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
-index ad2acfe1ca61..6bcaa33cd804 100644
---- a/net/dccp/ipv6.c
-+++ b/net/dccp/ipv6.c
-@@ -757,7 +757,8 @@ static int dccp_v6_rcv(struct sk_buff *skb)
- 	/* Step 2:
- 	 *	Look up flow ID in table and get corresponding socket */
- 	sk = __inet6_lookup_skb(&dccp_hashinfo, skb,
--			        dh->dccph_sport, dh->dccph_dport);
-+			        dh->dccph_sport, dh->dccph_dport,
-+				inet6_iif(skb));
- 	/*
- 	 * Step 2:
- 	 *	If no socket ...
-diff --git a/net/ipv6/syncookies.c b/net/ipv6/syncookies.c
-index 9a2838e93cc5..2a86a0f00f2b 100644
---- a/net/ipv6/syncookies.c
-+++ b/net/ipv6/syncookies.c
-@@ -214,7 +214,7 @@ struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
- 	/* So that link locals have meaning */
- 	if (!sk->sk_bound_dev_if &&
- 	    ipv6_addr_type(&ireq->ir_v6_rmt_addr) & IPV6_ADDR_LINKLOCAL)
--		ireq->ir_iif = inet6_iif(skb);
-+		ireq->ir_iif = tcp_v6_iif(skb);
- 
- 	ireq->ir_mark = inet_request_mark(sk, skb);
- 
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index cf2e45ab2fa4..831495529b82 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -424,6 +424,7 @@ static void tcp_v6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
- 		if (sock_owned_by_user(sk))
- 			goto out;
- 
-+		/* Note : We use inet6_iif() here, not tcp_v6_iif() */
- 		req = inet6_csk_search_req(sk, &prev, th->dest, &hdr->daddr,
- 					   &hdr->saddr, inet6_iif(skb));
- 		if (!req)
-@@ -738,7 +739,7 @@ static void tcp_v6_init_req(struct request_sock *req, struct sock *sk,
- 	/* So that link locals have meaning */
- 	if (!sk->sk_bound_dev_if &&
- 	    ipv6_addr_type(&ireq->ir_v6_rmt_addr) & IPV6_ADDR_LINKLOCAL)
--		ireq->ir_iif = inet6_iif(skb);
-+		ireq->ir_iif = tcp_v6_iif(skb);
- 
- 	if (!TCP_SKB_CB(skb)->tcp_tw_isn &&
- 	    (ipv6_opt_accepted(sk, skb, &TCP_SKB_CB(skb)->header.h6) ||
-@@ -860,7 +861,7 @@ static void tcp_v6_send_response(struct sk_buff *skb, u32 seq, u32 ack, u32 win,
- 
- 	fl6.flowi6_proto = IPPROTO_TCP;
- 	if (rt6_need_strict(&fl6.daddr) && !oif)
--		fl6.flowi6_oif = inet6_iif(skb);
-+		fl6.flowi6_oif = tcp_v6_iif(skb);
- 	else
- 		fl6.flowi6_oif = oif;
- 	fl6.flowi6_mark = IP6_REPLY_MARK(net, skb->mark);
-@@ -918,7 +919,7 @@ static void tcp_v6_send_reset(struct sock *sk, struct sk_buff *skb)
- 		sk1 = inet6_lookup_listener(dev_net(skb_dst(skb)->dev),
- 					   &tcp_hashinfo, &ipv6h->saddr,
- 					   th->source, &ipv6h->daddr,
--					   ntohs(th->source), inet6_iif(skb));
-+					   ntohs(th->source), tcp_v6_iif(skb));
- 		if (!sk1)
- 			return;
- 
-@@ -1000,13 +1001,14 @@ static struct sock *tcp_v6_hnd_req(struct sock *sk, struct sk_buff *skb)
- 	/* Find possible connection requests. */
- 	req = inet6_csk_search_req(sk, &prev, th->source,
- 				   &ipv6_hdr(skb)->saddr,
--				   &ipv6_hdr(skb)->daddr, inet6_iif(skb));
-+				   &ipv6_hdr(skb)->daddr, tcp_v6_iif(skb));
- 	if (req)
- 		return tcp_check_req(sk, skb, req, prev, false);
- 
- 	nsk = __inet6_lookup_established(sock_net(sk), &tcp_hashinfo,
--			&ipv6_hdr(skb)->saddr, th->source,
--			&ipv6_hdr(skb)->daddr, ntohs(th->dest), inet6_iif(skb));
-+					 &ipv6_hdr(skb)->saddr, th->source,
-+					 &ipv6_hdr(skb)->daddr, ntohs(th->dest),
-+					 tcp_v6_iif(skb));
- 
- 	if (nsk) {
- 		if (nsk->sk_state != TCP_TIME_WAIT) {
-@@ -1090,7 +1092,7 @@ static struct sock *tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
- 		newnp->ipv6_fl_list = NULL;
- 		newnp->pktoptions  = NULL;
- 		newnp->opt	   = NULL;
--		newnp->mcast_oif   = inet6_iif(skb);
-+		newnp->mcast_oif   = tcp_v6_iif(skb);
- 		newnp->mcast_hops  = ipv6_hdr(skb)->hop_limit;
- 		newnp->rcv_flowinfo = ip6_flowinfo(ipv6_hdr(skb));
- 		if (np->repflow)
-@@ -1174,7 +1176,7 @@ static struct sock *tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
- 			skb_set_owner_r(newnp->pktoptions, newsk);
- 	}
- 	newnp->opt	  = NULL;
--	newnp->mcast_oif  = inet6_iif(skb);
-+	newnp->mcast_oif  = tcp_v6_iif(skb);
- 	newnp->mcast_hops = ipv6_hdr(skb)->hop_limit;
- 	newnp->rcv_flowinfo = ip6_flowinfo(ipv6_hdr(skb));
- 	if (np->repflow)
-@@ -1360,7 +1362,7 @@ ipv6_pktoptions:
- 	if (TCP_SKB_CB(opt_skb)->end_seq == tp->rcv_nxt &&
- 	    !((1 << sk->sk_state) & (TCPF_CLOSE | TCPF_LISTEN))) {
- 		if (np->rxopt.bits.rxinfo || np->rxopt.bits.rxoinfo)
--			np->mcast_oif = inet6_iif(opt_skb);
-+			np->mcast_oif = tcp_v6_iif(opt_skb);
- 		if (np->rxopt.bits.rxhlim || np->rxopt.bits.rxohlim)
- 			np->mcast_hops = ipv6_hdr(opt_skb)->hop_limit;
- 		if (np->rxopt.bits.rxflow || np->rxopt.bits.rxtclass)
-@@ -1427,7 +1429,8 @@ static int tcp_v6_rcv(struct sk_buff *skb)
- 	TCP_SKB_CB(skb)->ip_dsfield = ipv6_get_dsfield(hdr);
- 	TCP_SKB_CB(skb)->sacked = 0;
- 
--	sk = __inet6_lookup_skb(&tcp_hashinfo, skb, th->source, th->dest);
-+	sk = __inet6_lookup_skb(&tcp_hashinfo, skb, th->source, th->dest,
-+				tcp_v6_iif(skb));
- 	if (!sk)
- 		goto no_tcp_socket;
- 
-@@ -1514,7 +1517,7 @@ do_time_wait:
- 		sk2 = inet6_lookup_listener(dev_net(skb->dev), &tcp_hashinfo,
- 					    &ipv6_hdr(skb)->saddr, th->source,
- 					    &ipv6_hdr(skb)->daddr,
--					    ntohs(th->dest), inet6_iif(skb));
-+					    ntohs(th->dest), tcp_v6_iif(skb));
- 		if (sk2 != NULL) {
- 			struct inet_timewait_sock *tw = inet_twsk(sk);
- 			inet_twsk_deschedule(tw, &tcp_death_row);
-@@ -1553,6 +1556,7 @@ static void tcp_v6_early_demux(struct sk_buff *skb)
- 	if (th->doff < sizeof(struct tcphdr) / 4)
- 		return;
- 
-+	/* Note : We use inet6_iif() here, not tcp_v6_iif() */
- 	sk = __inet6_lookup_established(dev_net(skb->dev), &tcp_hashinfo,
- 					&hdr->saddr, th->source,
- 					&hdr->daddr, ntohs(th->dest),
+Applied.
