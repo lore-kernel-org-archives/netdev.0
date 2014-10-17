@@ -1,22 +1,16 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [RFC PATCH net-next 1/6] virtio: make sure used event never go
-	backwards
-Date: Fri, 17 Oct 2014 13:04:44 +0800
-Message-ID: <5440A36C.8050700@redhat.com>
-References: <1413357930-45302-1-git-send-email-jasowang@redhat.com>
-	<1413357930-45302-2-git-send-email-jasowang@redhat.com>
-	<20141015093432.GB25776@redhat.com> <543E48BF.4080502@redhat.com>
-	<20141015103232.GG25776@redhat.com> <543E5019.9020507@redhat.com>
-	<20141015113859.GA26918@redhat.com>
+Subject: Re: [PATCH RFC v2 1/3] virtio_net: enable tx interrupt
+Date: Fri, 17 Oct 2014 13:11:33 +0800
+Message-ID: <5440A505.1060705@redhat.com>
+References: <1413383116-30977-1-git-send-email-mst@redhat.com>
+	<1413383116-30977-2-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, davem@davemloft.net
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>, linux-kernel@vger.kernel.org
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20141015113859.GA26918@redhat.com>
+In-Reply-To: <1413383116-30977-2-git-send-email-mst@redhat.com>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
@@ -28,117 +22,280 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On 10/15/2014 07:38 PM, Michael S. Tsirkin wrote:
-> On Wed, Oct 15, 2014 at 06:44:41PM +0800, Jason Wang wrote:
->> On 10/15/2014 06:32 PM, Michael S. Tsirkin wrote:
->>> On Wed, Oct 15, 2014 at 06:13:19PM +0800, Jason Wang wrote:
->>>> On 10/15/2014 05:34 PM, Michael S. Tsirkin wrote:
->>>>> On Wed, Oct 15, 2014 at 03:25:25PM +0800, Jason Wang wrote:
->>>>>> This patch checks the new event idx to make sure used event idx never
->>>>>> goes back. This is used to synchronize the calls between
->>>>>> virtqueue_enable_cb_delayed() and virtqueue_enable_cb().
->>>>>>
->>>>>> Cc: Rusty Russell <rusty@rustcorp.com.au>
->>>>>> Cc: Michael S. Tsirkin <mst@redhat.com>
->>>>>> Signed-off-by: Jason Wang <jasowang@redhat.com>
->>>>> the implication being that moving event idx back might cause some race
->>>>> condition?  
->>>> This will cause race condition when tx interrupt is enabled. Consider
->>>> the following cases
->>>>
->>>> 1) tx napi was scheduled
->>>> 2) start_xmit() call virtqueue_enable_cb_delayed() and disable cb, [used
->>>> event is vq->last_used_idx + 3/4 pendg bufs]
->>>> 3) tx napi enable the callback by virtqueue_enable_cb() [ used event is
->>>> vq->last_used_idx ]
->>>>  
->>>> After step 3, used event was moved back, unnecessary tx interrupt was
->>>> triggered.
->>> Well unnecessary interrupts are safe.
->> But it that is what we want to reduce.
-> It's all about correctness. I don't think mixing enable_cb
-> and enable_cb_delayed makes sense, let's just make
-> virtio behave correctly if that happens, no need to
-> optimize for that.
+On 10/15/2014 10:32 PM, Michael S. Tsirkin wrote:
+> On newer hosts that support delayed tx interrupts,
+> we probably don't have much to gain from orphaning
+> packets early.
+>
+> Based on patch by Jason Wang.
+>
+> Note: this might degrade performance for
+> hosts without event idx support.
+> Should be addressed by the next patch.
+>
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> ---
+>  drivers/net/virtio_net.c | 137 ++++++++++++++++++++++++++++++++---------------
+>  1 file changed, 94 insertions(+), 43 deletions(-)
+>
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index 13d0a8b..a9bf178 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -72,6 +72,8 @@ struct send_queue {
+>  
+>  	/* Name of the send queue: output.$index */
+>  	char name[40];
+> +
+> +	struct napi_struct napi;
+>  };
+>  
+>  /* Internal representation of a receive virtqueue */
+> @@ -217,15 +219,37 @@ static struct page *get_a_page(struct receive_queue *rq, gfp_t gfp_mask)
+>  	return p;
+>  }
+>  
+> +static unsigned int free_old_xmit_skbs(struct send_queue *sq, int budget)
+> +{
+> +	struct sk_buff *skb;
+> +	unsigned int len;
+> +	struct virtnet_info *vi = sq->vq->vdev->priv;
+> +	struct virtnet_stats *stats = this_cpu_ptr(vi->stats);
+> +	unsigned int packets = 0;
+> +
+> +	while (packets < budget &&
+> +	       (skb = virtqueue_get_buf(sq->vq, &len)) != NULL) {
+> +		pr_debug("Sent skb %p\n", skb);
+> +
+> +		u64_stats_update_begin(&stats->tx_syncp);
+> +		stats->tx_bytes += skb->len;
+> +		stats->tx_packets++;
+> +		u64_stats_update_end(&stats->tx_syncp);
+> +
+> +		dev_kfree_skb_any(skb);
+> +		packets++;
+> +	}
+> +
+> +	return packets;
+> +}
+> +
+>  static void skb_xmit_done(struct virtqueue *vq)
+>  {
+>  	struct virtnet_info *vi = vq->vdev->priv;
+> +	struct send_queue *sq = &vi->sq[vq2txq(vq)];
+>  
+> -	/* Suppress further interrupts. */
+> -	virtqueue_disable_cb(vq);
+> -
+> -	/* We were probably waiting for more output buffers. */
+> -	netif_wake_subqueue(vi->dev, vq2txq(vq));
+> +	if (napi_schedule_prep(&sq->napi))
+> +		__napi_schedule(&sq->napi);
+>  }
+>  
+>  static unsigned int mergeable_ctx_to_buf_truesize(unsigned long mrg_ctx)
+> @@ -774,6 +798,37 @@ again:
+>  	return received;
+>  }
+>  
+> +static int virtnet_poll_tx(struct napi_struct *napi, int budget)
+> +{
+> +	struct send_queue *sq =
+> +		container_of(napi, struct send_queue, napi);
+> +	struct virtnet_info *vi = sq->vq->vdev->priv;
+> +	struct netdev_queue *txq = netdev_get_tx_queue(vi->dev, vq2txq(sq->vq));
+> +	unsigned int sent = 0;
+> +	bool enable_done;
+> +
+> +again:
+> +	__netif_tx_lock(txq, smp_processor_id());
+> +	virtqueue_disable_cb(sq->vq);
+> +	sent += free_old_xmit_skbs(sq, budget - sent);
+> +
+> +	if (sent < budget) {
+> +		enable_done = virtqueue_enable_cb_delayed(sq->vq);
+> +		napi_complete(napi);
+> +		__netif_tx_unlock(txq);
+> +		if (unlikely(enable_done) && napi_schedule_prep(napi)) {
 
-Then as you said, need document or add WARN_ON() or BUG() in case both
-of the two are used.
->
->
->>> With your patch caller of virtqueue_enable_cb will not get an
->>> interrupt on the next buffer which is not safe.
->>>
->>> If you don't want an interrupt on the next buffer, don't
->>> call virtqueue_enable_cb.
->> So something like this patch should be done in virtio core somewhere
->> else. Virtio-net can not do this since it does not have the knowledge of
->> event index.
-> Take a look at my patch - no calls to enable_cb, only
-> enable_cb_delayed, so we should be fine.
->
->>>>> If yes but please describe the race explicitly.
->>>>> Is there a bug we need to fix on stable?
->>>> Looks not, current code does not have such race condition.
->>>>> Please also explicitly describe a configuration that causes event idx
->>>>> to go back.
->>>>>
->>>>> All this info should go in the commit log.
->>>> Will do this.
->>>>>> ---
->>>>>>  drivers/virtio/virtio_ring.c |    7 +++++--
->>>>>>  1 files changed, 5 insertions(+), 2 deletions(-)
->>>>>>
->>>>>> diff --git a/drivers/virtio/virtio_ring.c b/drivers/virtio/virtio_ring.c
->>>>>> index 3b1f89b..1b3929f 100644
->>>>>> --- a/drivers/virtio/virtio_ring.c
->>>>>> +++ b/drivers/virtio/virtio_ring.c
->>>>>> @@ -559,14 +559,17 @@ unsigned virtqueue_enable_cb_prepare(struct virtqueue *_vq)
->>>>>>  	u16 last_used_idx;
->>>>>>  
->>>>>>  	START_USE(vq);
->>>>>> -
->>>>>> +	last_used_idx = vq->last_used_idx;
->>>>>>  	/* We optimistically turn back on interrupts, then check if there was
->>>>>>  	 * more to do. */
->>>>>>  	/* Depending on the VIRTIO_RING_F_EVENT_IDX feature, we need to
->>>>>>  	 * either clear the flags bit or point the event index at the next
->>>>>>  	 * entry. Always do both to keep code simple. */
->>>>>>  	vq->vring.avail->flags &= ~VRING_AVAIL_F_NO_INTERRUPT;
->>>>>> -	vring_used_event(&vq->vring) = last_used_idx = vq->last_used_idx;
->>>>>> +	/* Make sure used event never go backwards */
->>>>> s/go/goes/
->>>>>
->>>>>> +	if (!vring_need_event(vring_used_event(&vq->vring),
->>>>>> +			      vq->vring.avail->idx, last_used_idx))
->>>>>> +		vring_used_event(&vq->vring) = last_used_idx;
->>>>> The result will be that driver will *not* get an interrupt
->>>>> on the next consumed buffer, which is likely not what driver
->>>>> intended when it called virtqueue_enable_cb.
->>>> This will only happen when we want to delay the interrupt for next few
->>>> consumed buffers (virtqueue_enable_cb_delayed() was called). For the
->>>> other case, vq->last_used_idx should be ahead of previous used event. Do
->>>> you see any other case?
->>> Call virtqueue_enable_cb_delayed, later call virtqueue_enable_cb.  If
->>> event index is not updated in virtqueue_enable_cb, driver will not get
->>> an interrupt on the next buffer.
->> This is just what we want I think. The interrupt was not lost but fired
->> after 3/4 pending buffers were consumed. Do you see any real issue on this?
-> Yes, this violates the API. For example device might never
-> consume the rest of buffers.
+I think you mean unlikely(!enable_done) here?
+> +			virtqueue_disable_cb(sq->vq);
+> +			__napi_schedule(napi);
+> +			goto again;
+> +		}
+> +	} else {
+> +		__netif_tx_unlock(txq);
+> +	}
+> +
+> +	netif_wake_subqueue(vi->dev, vq2txq(sq->vq));
+> +	return sent;
+> +}
+> +
+>  #ifdef CONFIG_NET_RX_BUSY_POLL
+>  /* must be called with local_bh_disable()d */
+>  static int virtnet_busy_poll(struct napi_struct *napi)
+> @@ -822,30 +877,12 @@ static int virtnet_open(struct net_device *dev)
+>  			if (!try_fill_recv(&vi->rq[i], GFP_KERNEL))
+>  				schedule_delayed_work(&vi->refill, 0);
+>  		virtnet_napi_enable(&vi->rq[i]);
+> +		napi_enable(&vi->sq[i].napi);
+>  	}
+>  
+>  	return 0;
+>  }
+>  
+> -static void free_old_xmit_skbs(struct send_queue *sq)
+> -{
+> -	struct sk_buff *skb;
+> -	unsigned int len;
+> -	struct virtnet_info *vi = sq->vq->vdev->priv;
+> -	struct virtnet_stats *stats = this_cpu_ptr(vi->stats);
+> -
+> -	while ((skb = virtqueue_get_buf(sq->vq, &len)) != NULL) {
+> -		pr_debug("Sent skb %p\n", skb);
+> -
+> -		u64_stats_update_begin(&stats->tx_syncp);
+> -		stats->tx_bytes += skb->len;
+> -		stats->tx_packets++;
+> -		u64_stats_update_end(&stats->tx_syncp);
+> -
+> -		dev_kfree_skb_any(skb);
+> -	}
+> -}
+> -
+>  static int xmit_skb(struct send_queue *sq, struct sk_buff *skb)
+>  {
+>  	struct skb_vnet_hdr *hdr;
+> @@ -911,7 +948,9 @@ static int xmit_skb(struct send_queue *sq, struct sk_buff *skb)
+>  		sg_set_buf(sq->sg, hdr, hdr_len);
+>  		num_sg = skb_to_sgvec(skb, sq->sg + 1, 0, skb->len) + 1;
+>  	}
+> -	return virtqueue_add_outbuf(sq->vq, sq->sg, num_sg, skb, GFP_ATOMIC);
+> +
+> +	return virtqueue_add_outbuf(sq->vq, sq->sg, num_sg, skb,
+> +				    GFP_ATOMIC);
+>  }
+>  
+>  static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
+> @@ -919,12 +958,16 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
+>  	struct virtnet_info *vi = netdev_priv(dev);
+>  	int qnum = skb_get_queue_mapping(skb);
+>  	struct send_queue *sq = &vi->sq[qnum];
+> -	int err;
+> +	int err, qsize = virtqueue_get_vring_size(sq->vq);
+>  	struct netdev_queue *txq = netdev_get_tx_queue(dev, qnum);
+>  	bool kick = !skb->xmit_more;
+> +	bool stopped;
+> +
+> +	virtqueue_disable_cb(sq->vq);
+>  
+> -	/* Free up any pending old buffers before queueing new ones. */
+> -	free_old_xmit_skbs(sq);
+> +	/* We are going to push one skb.
+> +	 * Try to pop one off to free space for it. */
+> +	free_old_xmit_skbs(sq, 1);
 
-Then it should be a bug of device which is out of the control of guest.
-If not, device might never also consume 3/4 rest of buffers.
->
->>>>> Instead, how about we simply document the requirement that drivers either
->>>>> always call virtqueue_enable_cb_delayed or virtqueue_enable_cb
->>>>> but not both?
->>>> We need call them both when tx interrupt is enabled I believe.
->>> Can you pls reply to my patch and document issues you see?
->>>
->> In the previous reply you said you're using
->> virtuqueue_enable_cb_delayed(), so no race in your patch.
-> OK so you think my patch is also correct, but that yours gives better
-> efficiency?
->
+Looks like qsize instead of 1 is better? The more skbs freed in
+ndo_start_xmit() the less chance tx napi will be scheduled.
+>  
+>  	/* Try to transmit */
+>  	err = xmit_skb(sq, skb);
+> @@ -940,27 +983,25 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
+>  		return NETDEV_TX_OK;
+>  	}
+>  
+> -	/* Don't wait up for transmitted skbs to be freed. */
+> -	skb_orphan(skb);
+> -	nf_reset(skb);
+> -
+>  	/* Apparently nice girls don't return TX_BUSY; stop the queue
+>  	 * before it gets out of hand.  Naturally, this wastes entries. */
+>  	if (sq->vq->num_free < 2+MAX_SKB_FRAGS) {
+>  		netif_stop_subqueue(dev, qnum);
+> -		if (unlikely(!virtqueue_enable_cb_delayed(sq->vq))) {
+> -			/* More just got used, free them then recheck. */
+> -			free_old_xmit_skbs(sq);
+> -			if (sq->vq->num_free >= 2+MAX_SKB_FRAGS) {
+> -				netif_start_subqueue(dev, qnum);
+> -				virtqueue_disable_cb(sq->vq);
+> -			}
+> -		}
+> +		stopped = true;
+> +	} else {
+> +		stopped = false;
+>  	}
+>  
+>  	if (kick || netif_xmit_stopped(txq))
+>  		virtqueue_kick(sq->vq);
 
-Need some benchmark to see the difference I think.
+Looks like we'd better move this in the end in case the queue could be
+restarted by following lines?
+>  
+> +	if (unlikely(!virtqueue_enable_cb_delayed(sq->vq))) {
+> +		/* More just got used, free them then recheck. */
+> +		free_old_xmit_skbs(sq, qsize);
+> +		if (stopped && sq->vq->num_free >= 2+MAX_SKB_FRAGS)
+> +			netif_start_subqueue(dev, qnum);
+
+Why drop virtqueue_disable_cb() here?
+> +	}
+> +
+>  	return NETDEV_TX_OK;
+>  }
+>  
+> @@ -1137,8 +1178,10 @@ static int virtnet_close(struct net_device *dev)
+>  	/* Make sure refill_work doesn't re-enable napi! */
+>  	cancel_delayed_work_sync(&vi->refill);
+>  
+> -	for (i = 0; i < vi->max_queue_pairs; i++)
+> +	for (i = 0; i < vi->max_queue_pairs; i++) {
+>  		napi_disable(&vi->rq[i].napi);
+> +		napi_disable(&vi->sq[i].napi);
+> +	}
+>  
+>  	return 0;
+>  }
+> @@ -1457,8 +1500,10 @@ static void virtnet_free_queues(struct virtnet_info *vi)
+>  {
+>  	int i;
+>  
+> -	for (i = 0; i < vi->max_queue_pairs; i++)
+> +	for (i = 0; i < vi->max_queue_pairs; i++) {
+>  		netif_napi_del(&vi->rq[i].napi);
+> +		netif_napi_del(&vi->sq[i].napi);
+> +	}
+>  
+>  	kfree(vi->rq);
+>  	kfree(vi->sq);
+> @@ -1612,6 +1657,8 @@ static int virtnet_alloc_queues(struct virtnet_info *vi)
+>  		netif_napi_add(vi->dev, &vi->rq[i].napi, virtnet_poll,
+>  			       napi_weight);
+>  		napi_hash_add(&vi->rq[i].napi);
+> +		netif_napi_add(vi->dev, &vi->sq[i].napi, virtnet_poll_tx,
+> +			       napi_weight);
+>  
+>  		sg_init_table(vi->rq[i].sg, ARRAY_SIZE(vi->rq[i].sg));
+>  		ewma_init(&vi->rq[i].mrg_avg_pkt_len, 1, RECEIVE_AVG_WEIGHT);
+> @@ -1916,8 +1963,10 @@ static int virtnet_freeze(struct virtio_device *vdev)
+>  	if (netif_running(vi->dev)) {
+>  		for (i = 0; i < vi->max_queue_pairs; i++) {
+>  			napi_disable(&vi->rq[i].napi);
+> +			napi_disable(&vi->sq[i].napi);
+>  			napi_hash_del(&vi->rq[i].napi);
+>  			netif_napi_del(&vi->rq[i].napi);
+> +			netif_napi_del(&vi->sq[i].napi);
+>  		}
+>  	}
+>  
+> @@ -1942,8 +1991,10 @@ static int virtnet_restore(struct virtio_device *vdev)
+>  			if (!try_fill_recv(&vi->rq[i], GFP_KERNEL))
+>  				schedule_delayed_work(&vi->refill, 0);
+>  
+> -		for (i = 0; i < vi->max_queue_pairs; i++)
+> +		for (i = 0; i < vi->max_queue_pairs; i++) {
+>  			virtnet_napi_enable(&vi->rq[i]);
+> +			napi_enable(&vi->sq[i].napi);
+> +		}
+>  	}
+>  
+>  	netif_device_attach(vi->dev);
