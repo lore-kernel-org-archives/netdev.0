@@ -1,43 +1,56 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net] ipv6: introduce tcp_v6_iif()
-Date: Fri, 17 Oct 2014 16:26:51 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1C9D8C89@AcuExch.aculab.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] ipv6: introduce tcp_v6_iif()
+Date: Fri, 17 Oct 2014 09:52:38 -0700
+Message-ID: <1413564758.24709.5.camel@edumazet-glaptop2.roam.corp.google.com>
 References: <1413562640.24953.26.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <063D6719AE5E284EB5DD2968C1650D6D1C9D8C89@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev <netdev@vger.kernel.org>
-To: 'Eric Dumazet' <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:58817 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1753318AbaJQQ2d (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Oct 2014 12:28:33 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 21471-07 for <netdev@vger.kernel.org>;
- Fri, 17 Oct 2014 17:28:24 +0100 (BST)
-In-Reply-To: <1413562640.24953.26.camel@edumazet-glaptop2.roam.corp.google.com>
-Content-Language: en-US
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:38742 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752638AbaJQQwk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Oct 2014 12:52:40 -0400
+Received: by mail-pa0-f43.google.com with SMTP id lf10so1147003pab.16
+        for <netdev@vger.kernel.org>; Fri, 17 Oct 2014 09:52:39 -0700 (PDT)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1C9D8C89@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRXJpYyBEdW1hemV0DQo+IENvbW1pdCA5NzFmMTBlY2ExODYgKCJ0Y3A6IGJldHRlciBU
-Q1BfU0tCX0NCIGxheW91dCB0byByZWR1Y2UgY2FjaGUgbGluZQ0KPiBtaXNzZXMiKSBhZGRlZCBh
-IHJlZ3Jlc3Npb24gZm9yIFNPX0JJTkRUT0RFVklDRSBvbiBJUHY2Lg0KPiANCj4gVGhpcyBpcyBi
-ZWNhdXNlIHdlIHN0aWxsIHVzZSBpbmV0Nl9paWYoKSB3aGljaCBleHBlY3RzIHRoYXQgSVA2IGNv
-bnRyb2wNCj4gYmxvY2sgaXMgc3RpbGwgYXQgdGhlIGJlZ2lubmluZyBvZiBza2ItPmNiW10NCj4g
-DQo+IFRoaXMgcGF0Y2ggYWRkcyB0Y3BfdjZfaWlmKCkgaGVscGVyIGFuZCB1c2VzIGl0IHdoZXJl
-IG5lY2Vzc2FyeS4NCj4gDQo+IEJlY2F1c2UgX19pbmV0Nl9sb29rdXBfc2tiKCkgaXMgdXNlZCBi
-eSBUQ1AgYW5kIERDQ1AsIHdlIGFkZCBhbiBpaWYNCj4gcGFyYW1ldGVyIHRvIGl0Lg0KLi4uDQo+
-IGRpZmYgLS1naXQgYS9uZXQvaXB2Ni90Y3BfaXB2Ni5jIGIvbmV0L2lwdjYvdGNwX2lwdjYuYw0K
-PiBpbmRleCBjZjJlNDVhYjJmYTQuLjgzMTQ5NTUyOWI4MiAxMDA2NDQNCj4gLS0tIGEvbmV0L2lw
-djYvdGNwX2lwdjYuYw0KPiArKysgYi9uZXQvaXB2Ni90Y3BfaXB2Ni5jDQo+IEBAIC00MjQsNiAr
-NDI0LDcgQEAgc3RhdGljIHZvaWQgdGNwX3Y2X2VycihzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1
-Y3QgaW5ldDZfc2tiX3Bhcm0gKm9wdCwNCj4gIAkJaWYgKHNvY2tfb3duZWRfYnlfdXNlcihzaykp
-DQo+ICAJCQlnb3RvIG91dDsNCj4gDQo+ICsJCS8qIE5vdGUgOiBXZSB1c2UgaW5ldDZfaWlmKCkg
-aGVyZSwgbm90IHRjcF92Nl9paWYoKSAqLw0KPiAgCQlyZXEgPSBpbmV0Nl9jc2tfc2VhcmNoX3Jl
-cShzaywgJnByZXYsIHRoLT5kZXN0LCAmaGRyLT5kYWRkciwNCj4gIAkJCQkJICAgJmhkci0+c2Fk
-ZHIsIGluZXQ2X2lpZihza2IpKTsNCj4gIAkJaWYgKCFyZXEpDQoNClRoYXQgY29tbWVudCBpc24n
-dCBwYXJ0aWN1bGFybHkgaW5mb3JtYXRpdmUuLi4uDQoNCglEYXZpZA0KDQo=
+On Fri, 2014-10-17 at 16:26 +0000, David Laight wrote:
+> From: Eric Dumazet
+> > Commit 971f10eca186 ("tcp: better TCP_SKB_CB layout to reduce cache line
+> > misses") added a regression for SO_BINDTODEVICE on IPv6.
+> > 
+> > This is because we still use inet6_iif() which expects that IP6 control
+> > block is still at the beginning of skb->cb[]
+> > 
+> > This patch adds tcp_v6_iif() helper and uses it where necessary.
+> > 
+> > Because __inet6_lookup_skb() is used by TCP and DCCP, we add an iif
+> > parameter to it.
+> ...
+> > diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+> > index cf2e45ab2fa4..831495529b82 100644
+> > --- a/net/ipv6/tcp_ipv6.c
+> > +++ b/net/ipv6/tcp_ipv6.c
+> > @@ -424,6 +424,7 @@ static void tcp_v6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+> >  		if (sock_owned_by_user(sk))
+> >  			goto out;
+> > 
+> > +		/* Note : We use inet6_iif() here, not tcp_v6_iif() */
+> >  		req = inet6_csk_search_req(sk, &prev, th->dest, &hdr->daddr,
+> >  					   &hdr->saddr, inet6_iif(skb));
+> >  		if (!req)
+> 
+> That comment isn't particularly informative....
+
+It is showing I considered this spot, and the right thing here is to use
+inet6_iif()
+
+The commit changelog will give to curious people the reasons.
+
+Adding fat comments is superseded with good changelog.
