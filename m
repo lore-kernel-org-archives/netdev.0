@@ -1,27 +1,46 @@
-From: "Webmail Administrator " <uudeani@unilag.edu.ng>
-Subject: Mail Administrator
-Date: Fri, 17 Oct 2014 06:58:01 +0100 (WAT)
-Message-ID: <1416547321.163406.1413525481507.JavaMail.root@unilag.edu.ng>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: [PATCH net] r8152: use cancel_delayed_work for runtime suspend
+Date: Fri, 17 Oct 2014 13:55:29 +0800
+Message-ID: <1394712342-15778-64-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw.unilag.edu.ng ([196.45.48.7]:34713 "EHLO
-	mailgw.unilag.edu.ng" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750753AbaJQF2z convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Oct 2014 01:28:55 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
+	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
+To: <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Our records indicate that your E-mail=C2=AE Account could not be automa=
-tically updated with our F-Secure R-HTK4S new(2014) version anti-spam/a=
-nti-virus/anti-spyware. Please click this link below to update manually
+It would cause dead lock for runtime suspend, when the workqueue
+is running and runtime suspend occurs before the workqueue wakes
+up the device. The rtl8152_suspend() waits the workqueue to finish
+because of calling cancel_delayed_work_sync(). The workqueue waits
+the suspend function to finish for waking up the device because of
+calling usb_autopm_get_interface().
 
-http://www.contactme.com/543903bb8c730e0002008ccf
+Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+---
+ drivers/net/usb/r8152.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-We Are Sorry For Any Inconvenience.
-
-Regards,=20
-Technical Support Team
-Copyright =C2=A9 2014. All Rights Reserved
+diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+index 864159e..7d4e55a 100644
+--- a/drivers/net/usb/r8152.c
++++ b/drivers/net/usb/r8152.c
+@@ -3200,12 +3200,13 @@ static int rtl8152_suspend(struct usb_interface *intf, pm_message_t message)
+ 	if (netif_running(tp->netdev)) {
+ 		clear_bit(WORK_ENABLE, &tp->flags);
+ 		usb_kill_urb(tp->intr_urb);
+-		cancel_delayed_work_sync(&tp->schedule);
+ 		tasklet_disable(&tp->tl);
+ 		if (test_bit(SELECTIVE_SUSPEND, &tp->flags)) {
++			cancel_delayed_work(&tp->schedule);
+ 			rtl_stop_rx(tp);
+ 			rtl_runtime_suspend_enable(tp, true);
+ 		} else {
++			cancel_delayed_work_sync(&tp->schedule);
+ 			tp->rtl_ops.down(tp);
+ 		}
+ 		tasklet_enable(&tp->tl);
+-- 
+1.9.3
