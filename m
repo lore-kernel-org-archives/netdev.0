@@ -1,170 +1,144 @@
-From: Erik Kline <ek@google.com>
-Subject: [RFC PATCH net-next] net: ipv6: Add a sysctl to make optimistic addresses useful candidates
-Date: Fri, 17 Oct 2014 13:31:49 +0900
-Message-ID: <1413520309-13814-1-git-send-email-ek@google.com>
-Cc: hannes@stressinduktion.org, lorenzo@google.com,
-	edumazet@google.com, Erik Kline <ek@google.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f74.google.com ([209.85.220.74]:51568 "EHLO
-	mail-pa0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750753AbaJQEcN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Oct 2014 00:32:13 -0400
-Received: by mail-pa0-f74.google.com with SMTP id kq14so7826pab.3
-        for <netdev@vger.kernel.org>; Thu, 16 Oct 2014 21:32:12 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [RFC PATCH net-next 1/6] virtio: make sure used event never go
+	backwards
+Date: Fri, 17 Oct 2014 13:04:44 +0800
+Message-ID: <5440A36C.8050700@redhat.com>
+References: <1413357930-45302-1-git-send-email-jasowang@redhat.com>
+	<1413357930-45302-2-git-send-email-jasowang@redhat.com>
+	<20141015093432.GB25776@redhat.com> <543E48BF.4080502@redhat.com>
+	<20141015103232.GG25776@redhat.com> <543E5019.9020507@redhat.com>
+	<20141015113859.GA26918@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, davem@davemloft.net
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20141015113859.GA26918@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Add a sysctl that causes an interface's optimistic addresses
-to be considered equivalent to other non-deprecated addresses
-for source address selection purposes.  Preferred addresses
-will still take precendence over optimistic addresses, subject
-to other ranking in the source address selection algorithm.
+On 10/15/2014 07:38 PM, Michael S. Tsirkin wrote:
+> On Wed, Oct 15, 2014 at 06:44:41PM +0800, Jason Wang wrote:
+>> On 10/15/2014 06:32 PM, Michael S. Tsirkin wrote:
+>>> On Wed, Oct 15, 2014 at 06:13:19PM +0800, Jason Wang wrote:
+>>>> On 10/15/2014 05:34 PM, Michael S. Tsirkin wrote:
+>>>>> On Wed, Oct 15, 2014 at 03:25:25PM +0800, Jason Wang wrote:
+>>>>>> This patch checks the new event idx to make sure used event idx never
+>>>>>> goes back. This is used to synchronize the calls between
+>>>>>> virtqueue_enable_cb_delayed() and virtqueue_enable_cb().
+>>>>>>
+>>>>>> Cc: Rusty Russell <rusty@rustcorp.com.au>
+>>>>>> Cc: Michael S. Tsirkin <mst@redhat.com>
+>>>>>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+>>>>> the implication being that moving event idx back might cause some race
+>>>>> condition?  
+>>>> This will cause race condition when tx interrupt is enabled. Consider
+>>>> the following cases
+>>>>
+>>>> 1) tx napi was scheduled
+>>>> 2) start_xmit() call virtqueue_enable_cb_delayed() and disable cb, [used
+>>>> event is vq->last_used_idx + 3/4 pendg bufs]
+>>>> 3) tx napi enable the callback by virtqueue_enable_cb() [ used event is
+>>>> vq->last_used_idx ]
+>>>>  
+>>>> After step 3, used event was moved back, unnecessary tx interrupt was
+>>>> triggered.
+>>> Well unnecessary interrupts are safe.
+>> But it that is what we want to reduce.
+> It's all about correctness. I don't think mixing enable_cb
+> and enable_cb_delayed makes sense, let's just make
+> virtio behave correctly if that happens, no need to
+> optimize for that.
 
-This is useful where different interfaces are connected to
-different networks from different ISPs (e.g., a cell network
-and a home wifi network).
+Then as you said, need document or add WARN_ON() or BUG() in case both
+of the two are used.
+>
+>
+>>> With your patch caller of virtqueue_enable_cb will not get an
+>>> interrupt on the next buffer which is not safe.
+>>>
+>>> If you don't want an interrupt on the next buffer, don't
+>>> call virtqueue_enable_cb.
+>> So something like this patch should be done in virtio core somewhere
+>> else. Virtio-net can not do this since it does not have the knowledge of
+>> event index.
+> Take a look at my patch - no calls to enable_cb, only
+> enable_cb_delayed, so we should be fine.
+>
+>>>>> If yes but please describe the race explicitly.
+>>>>> Is there a bug we need to fix on stable?
+>>>> Looks not, current code does not have such race condition.
+>>>>> Please also explicitly describe a configuration that causes event idx
+>>>>> to go back.
+>>>>>
+>>>>> All this info should go in the commit log.
+>>>> Will do this.
+>>>>>> ---
+>>>>>>  drivers/virtio/virtio_ring.c |    7 +++++--
+>>>>>>  1 files changed, 5 insertions(+), 2 deletions(-)
+>>>>>>
+>>>>>> diff --git a/drivers/virtio/virtio_ring.c b/drivers/virtio/virtio_ring.c
+>>>>>> index 3b1f89b..1b3929f 100644
+>>>>>> --- a/drivers/virtio/virtio_ring.c
+>>>>>> +++ b/drivers/virtio/virtio_ring.c
+>>>>>> @@ -559,14 +559,17 @@ unsigned virtqueue_enable_cb_prepare(struct virtqueue *_vq)
+>>>>>>  	u16 last_used_idx;
+>>>>>>  
+>>>>>>  	START_USE(vq);
+>>>>>> -
+>>>>>> +	last_used_idx = vq->last_used_idx;
+>>>>>>  	/* We optimistically turn back on interrupts, then check if there was
+>>>>>>  	 * more to do. */
+>>>>>>  	/* Depending on the VIRTIO_RING_F_EVENT_IDX feature, we need to
+>>>>>>  	 * either clear the flags bit or point the event index at the next
+>>>>>>  	 * entry. Always do both to keep code simple. */
+>>>>>>  	vq->vring.avail->flags &= ~VRING_AVAIL_F_NO_INTERRUPT;
+>>>>>> -	vring_used_event(&vq->vring) = last_used_idx = vq->last_used_idx;
+>>>>>> +	/* Make sure used event never go backwards */
+>>>>> s/go/goes/
+>>>>>
+>>>>>> +	if (!vring_need_event(vring_used_event(&vq->vring),
+>>>>>> +			      vq->vring.avail->idx, last_used_idx))
+>>>>>> +		vring_used_event(&vq->vring) = last_used_idx;
+>>>>> The result will be that driver will *not* get an interrupt
+>>>>> on the next consumed buffer, which is likely not what driver
+>>>>> intended when it called virtqueue_enable_cb.
+>>>> This will only happen when we want to delay the interrupt for next few
+>>>> consumed buffers (virtqueue_enable_cb_delayed() was called). For the
+>>>> other case, vq->last_used_idx should be ahead of previous used event. Do
+>>>> you see any other case?
+>>> Call virtqueue_enable_cb_delayed, later call virtqueue_enable_cb.  If
+>>> event index is not updated in virtqueue_enable_cb, driver will not get
+>>> an interrupt on the next buffer.
+>> This is just what we want I think. The interrupt was not lost but fired
+>> after 3/4 pending buffers were consumed. Do you see any real issue on this?
+> Yes, this violates the API. For example device might never
+> consume the rest of buffers.
 
-The current behaviour complies with RFC 3484/6724, and it
-makes sense if the host has only one interface, or has
-multiple interfaces on the same network (same or cooperating
-administrative domain(s), but not in the multiple distinct
-networks case.
+Then it should be a bug of device which is out of the control of guest.
+If not, device might never also consume 3/4 rest of buffers.
+>
+>>>>> Instead, how about we simply document the requirement that drivers either
+>>>>> always call virtqueue_enable_cb_delayed or virtqueue_enable_cb
+>>>>> but not both?
+>>>> We need call them both when tx interrupt is enabled I believe.
+>>> Can you pls reply to my patch and document issues you see?
+>>>
+>> In the previous reply you said you're using
+>> virtuqueue_enable_cb_delayed(), so no race in your patch.
+> OK so you think my patch is also correct, but that yours gives better
+> efficiency?
+>
 
-For example, if a mobile device has an IPv6 address on an LTE
-network and then connects to IPv6-enabled wifi, while the wifi
-IPv6 address is undergoing DAD, IPv6 connections will try use
-the wifi default route with the LTE IPv6 address, and will get
-stuck until they time out.
-
-Also: add an entry in ip-sysctl.txt for optimistic_dad.
-
-Signed-off-by: Erik Kline <ek@google.com>
----
- Documentation/networking/ip-sysctl.txt | 13 +++++++++++++
- include/linux/ipv6.h                   |  1 +
- include/uapi/linux/ipv6.h              |  1 +
- net/ipv6/addrconf.c                    | 29 ++++++++++++++++++++++++++++-
- 4 files changed, 43 insertions(+), 1 deletion(-)
-
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index c7a81ac..9bf32bc 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -1458,6 +1458,19 @@ suppress_frag_ndisc - INTEGER
- 	1 - (default) discard fragmented neighbor discovery packets
- 	0 - allow fragmented neighbor discovery packets
- 
-+optimistic_dad - BOOLEAN
-+	Whether to perform Optimistic Duplicate Address Detection (RFC 4429).
-+		0: disabled (default)
-+		1: enabled
-+
-+use_optimistic - BOOLEAN
-+	If enabled, do not classify optimistic addresses as deprecated during
-+	source address selection.  Preferred addresses will still be chosen
-+	before optimistic addresses, subject to other ranking in the source
-+	address selection algorithm.
-+		0: disabled (default)
-+		1: enabled
-+
- icmp/*:
- ratelimit - INTEGER
- 	Limit the maximal rates for sending ICMPv6 packets.
-diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-index ff56053..7121a2e 100644
---- a/include/linux/ipv6.h
-+++ b/include/linux/ipv6.h
-@@ -42,6 +42,7 @@ struct ipv6_devconf {
- 	__s32		accept_ra_from_local;
- #ifdef CONFIG_IPV6_OPTIMISTIC_DAD
- 	__s32		optimistic_dad;
-+	__s32		use_optimistic;
- #endif
- #ifdef CONFIG_IPV6_MROUTE
- 	__s32		mc_forwarding;
-diff --git a/include/uapi/linux/ipv6.h b/include/uapi/linux/ipv6.h
-index efa2666..5b2c6d9 100644
---- a/include/uapi/linux/ipv6.h
-+++ b/include/uapi/linux/ipv6.h
-@@ -154,6 +154,7 @@ enum {
- 	DEVCONF_ACCEPT_RA_RT_INFO_MAX_PLEN,
- 	DEVCONF_PROXY_NDP,
- 	DEVCONF_OPTIMISTIC_DAD,
-+	DEVCONF_USE_OPTIMISTIC,
- 	DEVCONF_ACCEPT_SOURCE_ROUTE,
- 	DEVCONF_MC_FORWARDING,
- 	DEVCONF_DISABLE_IPV6,
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 725c763..fc8c08d 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -1169,6 +1169,9 @@ enum {
- 	IPV6_SADDR_RULE_LABEL,
- 	IPV6_SADDR_RULE_PRIVACY,
- 	IPV6_SADDR_RULE_ORCHID,
-+#ifdef CONFIG_IPV6_OPTIMISTIC_DAD
-+	IPV6_SADDR_RULE_NOT_OPTIMISTIC,
-+#endif
- 	IPV6_SADDR_RULE_PREFIX,
- 	IPV6_SADDR_RULE_MAX
- };
-@@ -1257,10 +1260,17 @@ static int ipv6_get_saddr_eval(struct net *net,
- 		score->scopedist = ret;
- 		break;
- 	case IPV6_SADDR_RULE_PREFERRED:
-+	    {
- 		/* Rule 3: Avoid deprecated and optimistic addresses */
-+		u8 avoid = IFA_F_DEPRECATED;
-+#ifdef CONFIG_IPV6_OPTIMISTIC_DAD
-+		if (!score->ifa->idev->cnf.use_optimistic)
-+			avoid |= IFA_F_OPTIMISTIC;
-+#endif
- 		ret = ipv6_saddr_preferred(score->addr_type) ||
--		      !(score->ifa->flags & (IFA_F_DEPRECATED|IFA_F_OPTIMISTIC));
-+		      !(score->ifa->flags & avoid);
- 		break;
-+	    }
- #ifdef CONFIG_IPV6_MIP6
- 	case IPV6_SADDR_RULE_HOA:
- 	    {
-@@ -1299,6 +1309,14 @@ static int ipv6_get_saddr_eval(struct net *net,
- 		ret = !(ipv6_addr_orchid(&score->ifa->addr) ^
- 			ipv6_addr_orchid(dst->addr));
- 		break;
-+#ifdef CONFIG_IPV6_OPTIMISTIC_DAD
-+	case IPV6_SADDR_RULE_NOT_OPTIMISTIC:
-+		/* Optimistic addresses still have lower precedence than other
-+		 * preferred addresses.
-+		 */
-+		ret = !(score->ifa->flags & IFA_F_OPTIMISTIC);
-+		break;
-+#endif
- 	case IPV6_SADDR_RULE_PREFIX:
- 		/* Rule 8: Use longest matching prefix */
- 		ret = ipv6_addr_diff(&score->ifa->addr, dst->addr);
-@@ -4330,6 +4348,7 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
- 	array[DEVCONF_ACCEPT_SOURCE_ROUTE] = cnf->accept_source_route;
- #ifdef CONFIG_IPV6_OPTIMISTIC_DAD
- 	array[DEVCONF_OPTIMISTIC_DAD] = cnf->optimistic_dad;
-+	array[DEVCONF_USE_OPTIMISTIC] = cnf->use_optimistic;
- #endif
- #ifdef CONFIG_IPV6_MROUTE
- 	array[DEVCONF_MC_FORWARDING] = cnf->mc_forwarding;
-@@ -5155,6 +5174,14 @@ static struct addrconf_sysctl_table
- 			.proc_handler   = proc_dointvec,
- 
- 		},
-+		{
-+			.procname       = "use_optimistic",
-+			.data           = &ipv6_devconf.use_optimistic,
-+			.maxlen         = sizeof(int),
-+			.mode           = 0644,
-+			.proc_handler   = proc_dointvec,
-+
-+		},
- #endif
- #ifdef CONFIG_IPV6_MROUTE
- 		{
--- 
-2.1.0.rc2.206.gedb03e5
+Need some benchmark to see the difference I think.
