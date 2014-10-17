@@ -1,7 +1,7 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH] net: use hardware buffer pool to allocate skb
-Date: Fri, 17 Oct 2014 11:53:00 -0700
-Message-ID: <1413571980.25949.9.camel@edumazet-glaptop2.roam.corp.google.com>
+Date: Fri, 17 Oct 2014 12:02:19 -0700
+Message-ID: <1413572539.25949.17.camel@edumazet-glaptop2.roam.corp.google.com>
 References: <1413343571-33231-1-git-send-email-Jiafei.Pan@freescale.com>
 	 <20141015.002514.384962932982389732.davem@davemloft.net>
 	 <c02005b9d8794d14bc2149f468ab571c@BY2PR03MB524.namprd03.prod.outlook.com>
@@ -36,20 +36,29 @@ List-Id: netdev.vger.kernel.org
 
 On Fri, 2014-10-17 at 11:28 -0700, Alexander Duyck wrote:
 
-> Yes, I am well aware of this bit.  That is my concern.  You increase the 
-> size for truesize, it will cut the amount of queueing in half, and then 
-> igb will start seeing drops when it has to deal with bursty traffic and 
-> people will start to complain about a performance regression.  That is 
-> the bit I want to avoid.
+> So long as it doesn't impact performance significantly I am fine with 
+> it.  My concern is that you are bringing up issues that none of the 
+> customers were brining up when I was at Intel, and the fixes you are 
+> proposing are likely to result in customers seeing things they will 
+> report as issues.
 
-Then, what about addressing the issue for good, instead of working
-around it ?
+We regularly hit these issues at Google.
 
-Don't worry, I will work on it.
+We have memory containers, and we detect quite easily if some layer is
+lying, because we cant afford having 20% of headroom on our servers.
 
-We also are working on a direct placement in memory for TCP receive
-path. (equivalent of sendfile() but for receiver), to avoid the need to 
-hold payload in kernel memory (out of order queues)
+I am not claiming IGB is the only offender.
+
+I am sorry if you believe it was an attack on IGB, or any network
+driver.
+
+truesize should really be the thing that protects us from OOM,
+and apparently driver authors hitting TCP performance problems
+thinks it is better to simply let TCP do no garbage collection.
+
+It seems that nobody cares or even understand what I am saying,
+so I should probably not care and suggest Google to buy PetaBytes of
+memory, right ?
 
 
 
