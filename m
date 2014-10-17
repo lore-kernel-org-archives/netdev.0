@@ -1,38 +1,61 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: something is wrong in commit 971f10eca1 - tcp: better
- TCP_SKB_CB layout to reduce cache line misses
-Date: Fri, 17 Oct 2014 12:48:05 -0700
-Message-ID: <1413575285.27176.7.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CAHA+R7OEvTcZOm-OepWYvGP+pC_CJRoSen351nw8VJGdLTo0uA@mail.gmail.com>
-	 <1413409168.17186.0.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1413409354.17186.2.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20141017.152923.678515861731659347.davem@davemloft.net>
+Subject: Re: [PATCH] net: use hardware buffer pool to allocate skb
+Date: Fri, 17 Oct 2014 12:51:55 -0700
+Message-ID: <1413575515.27176.10.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1413343571-33231-1-git-send-email-Jiafei.Pan@freescale.com>
+	 <20141015.002514.384962932982389732.davem@davemloft.net>
+	 <c02005b9d8794d14bc2149f468ab571c@BY2PR03MB524.namprd03.prod.outlook.com>
+	 <1413364533.12304.44.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <524626e093684abeba65839d26e94262@BLUPR03MB517.namprd03.prod.outlook.com>
+	 <1413432912.28798.7.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <aeef795129504782ae1e9f91467d243e@BLUPR03MB517.namprd03.prod.outlook.com>
+	 <543FE413.6030406@redhat.com>
+	 <1413478657.28798.22.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <543FFC03.1060207@redhat.com>
+	 <1413481529.28798.29.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <54400C6C.7010405@redhat.com>
+	 <063D6719AE5E284EB5DD2968C1650D6D1C9D895B@AcuExch.aculab.com>
+	 <54412A59.7070508@redhat.com>
+	 <1413564913.24709.7.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <54415FEA.5000705@redhat.com>
+	 <1413572539.25949.17.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <54417044.5090602@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: cwang@twopensource.com, kkolasa@winsoft.pl, edumazet@gmail.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: Alexander Duyck <alexander.h.duyck@redhat.com>,
+	David Laight <David.Laight@ACULAB.COM>,
+	"Jiafei.Pan@freescale.com" <Jiafei.Pan@freescale.com>,
+	David Miller <davem@davemloft.net>,
+	"jkosina@suse.cz" <jkosina@suse.cz>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"LeoLi@freescale.com" <LeoLi@freescale.com>,
+	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>
+To: Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f174.google.com ([209.85.192.174]:37796 "EHLO
-	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753762AbaJQTsH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Oct 2014 15:48:07 -0400
-Received: by mail-pd0-f174.google.com with SMTP id y13so1322694pdi.19
-        for <netdev@vger.kernel.org>; Fri, 17 Oct 2014 12:48:06 -0700 (PDT)
-In-Reply-To: <20141017.152923.678515861731659347.davem@davemloft.net>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:46668 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753877AbaJQTv5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Oct 2014 15:51:57 -0400
+In-Reply-To: <54417044.5090602@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-10-17 at 15:29 -0400, David Miller wrote:
-> So I applied Cong's patches, but if I am to understand the testing feedback
-> so far only the 64-bit case of the reporter's problems is fixed, and that
-> the 32-bit graphics corruption still happens.
-> 
-> Can I get some clarification of where we stand after Cong's fixes
-> which are already merged into 'net'?
+On Fri, 2014-10-17 at 12:38 -0700, Alexander Duyck wrote:
 
-I spent some time on the (awful) memmove() implementation on x86_32, and
-could not find a bug in it.
+> That's not what I am saying, but there is a trade-off we always have to
+> take into account.  Cutting memory overhead will likely have an impact
+> on performance.  I would like to make the best informed trade-off in
+> that regard rather than just assuming worst case always for the driver.
 
-It would be worth trying doing 2 memcpy() instead just in case...
+It seems you misunderstood me. You believe I suggested doing another
+allocation strategy in the drivers.
+
+This was not the case.
+
+This allocation strategy is wonderful. I repeat : This is wonderful.
+
+We only have to make sure we do not fool memory management layers, when
+they do not understand where the memory is.
+
+Apparently you think it is hard, while it really is not.
