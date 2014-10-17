@@ -1,42 +1,71 @@
-From: roy.qing.li@gmail.com
-Subject: [PATCH v2] vxlan: fix a free after use
-Date: Fri, 17 Oct 2014 14:06:16 +0800
-Message-ID: <1413525976-2624-1-git-send-email-roy.qing.li@gmail.com>
-Cc: edumazet@google.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f176.google.com ([209.85.192.176]:45274 "EHLO
-	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750828AbaJQGGW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Oct 2014 02:06:22 -0400
-Received: by mail-pd0-f176.google.com with SMTP id fp1so194805pdb.7
-        for <netdev@vger.kernel.org>; Thu, 16 Oct 2014 23:06:21 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH net-next] ipvs: Avoid null-pointer deref in debug code
+Date: Fri, 17 Oct 2014 08:27:18 +0200
+Message-ID: <20141017062718.GB8618@verge.net.au>
+References: <20141006073232.GA10073@verge.net.au>
+ <1412610379-6295-1-git-send-email-agartrell@fb.com>
+ <alpine.LFD.2.11.1410062159290.2258@ja.home.ssi.bg>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Alex Gartrell <agartrell@fb.com>, dan.carpenter@oracle.com,
+	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	kernel-team@fb.com
+To: Julian Anastasov <ja@ssi.bg>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.2.11.1410062159290.2258@ja.home.ssi.bg>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Li RongQing <roy.qing.li@gmail.com>
+On Mon, Oct 06, 2014 at 10:01:08PM +0300, Julian Anastasov wrote:
+> 
+> 	Hello,
+> 
+> On Mon, 6 Oct 2014, Alex Gartrell wrote:
+> 
+> > Use daddr instead of reaching into dest.
+> > 
+> > Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+> > Signed-off-by: Alex Gartrell <agartrell@fb.com>
+> 
+> 	Thanks!
+> 
+> Acked-by: Julian Anastasov <ja@ssi.bg>
 
-pskb_may_pull maybe change skb->data and make eth pointer oboslete,
-so eth needs to reload
+Thanks, I have applied this to the ipvs tree and will see about
+both getting it included in v3.18 and v3.17-stable.
 
-Fixes: 91269e390d062 ("vxlan: using pskb_may_pull as early as possible")
-Cc: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
----
- drivers/net/vxlan.c |    1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 855a81d..fabd514 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1885,6 +1885,7 @@ static netdev_tx_t vxlan_xmit(struct sk_buff *skb, struct net_device *dev)
- 				    msg->icmph.icmp6_type == NDISC_NEIGHBOUR_SOLICITATION)
- 					return neigh_reduce(dev, skb);
- 		}
-+		eth = eth_hdr(skb);
- #endif
- 	}
- 
--- 
-1.7.10.4
+> > ---
+> >  net/netfilter/ipvs/ip_vs_xmit.c | 4 ++--
+> >  1 file changed, 2 insertions(+), 2 deletions(-)
+> > 
+> > diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
+> > index 91f17c1..437a366 100644
+> > --- a/net/netfilter/ipvs/ip_vs_xmit.c
+> > +++ b/net/netfilter/ipvs/ip_vs_xmit.c
+> > @@ -316,7 +316,7 @@ __ip_vs_get_out_rt(int skb_af, struct sk_buff *skb, struct ip_vs_dest *dest,
+> >  	if (unlikely(crosses_local_route_boundary(skb_af, skb, rt_mode,
+> >  						  local))) {
+> >  		IP_VS_DBG_RL("We are crossing local and non-local addresses"
+> > -			     " daddr=%pI4\n", &dest->addr.ip);
+> > +			     " daddr=%pI4\n", &daddr);
+> >  		goto err_put;
+> >  	}
+> >  
+> > @@ -458,7 +458,7 @@ __ip_vs_get_out_rt_v6(int skb_af, struct sk_buff *skb, struct ip_vs_dest *dest,
+> >  	if (unlikely(crosses_local_route_boundary(skb_af, skb, rt_mode,
+> >  						  local))) {
+> >  		IP_VS_DBG_RL("We are crossing local and non-local addresses"
+> > -			     " daddr=%pI6\n", &dest->addr.in6);
+> > +			     " daddr=%pI6\n", daddr);
+> >  		goto err_put;
+> >  	}
+> >  
+> > -- 
+> > Alex Gartrell <agartrell@fb.com>
+> 
+> Regards
+> 
+> --
+> Julian Anastasov <ja@ssi.bg>
+> 
