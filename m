@@ -1,44 +1,50 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH] virtio_net: fix use after free
-Date: Fri, 17 Oct 2014 12:20:11 +0300
-Message-ID: <20141017092011.GA31313@redhat.com>
-References: <1413378878-28118-1-git-send-email-mst@redhat.com>
-	<20141015.164727.298073723527552510.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: use hardware buffer pool to allocate skb
+Date: Fri, 17 Oct 2014 07:05:09 -0700
+Message-ID: <1413554709.24953.5.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1413343571-33231-1-git-send-email-Jiafei.Pan@freescale.com>
+	 <20141015.002514.384962932982389732.davem@davemloft.net>
+	 <c02005b9d8794d14bc2149f468ab571c@BY2PR03MB524.namprd03.prod.outlook.com>
+	 <1413364533.12304.44.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <524626e093684abeba65839d26e94262@BLUPR03MB517.namprd03.prod.outlook.com>
+	 <1413432912.28798.7.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <aeef795129504782ae1e9f91467d243e@BLUPR03MB517.namprd03.prod.outlook.com>
+	 <543FE413.6030406@redhat.com>
+	 <92e45ba6015c4c48b21baeade3f9c929@BLUPR03MB517.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: David Miller <davem@davemloft.net>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <20141015.164727.298073723527552510.davem@davemloft.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Alexander Duyck <alexander.h.duyck@redhat.com>,
+	David Miller <davem@davemloft.net>,
+	"jkosina@suse.cz" <jkosina@suse.cz>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"LeoLi@freescale.com" <LeoLi@freescale.com>,
+	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>
+To: "Jiafei.Pan@freescale.com" <Jiafei.Pan@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f180.google.com ([209.85.192.180]:47188 "EHLO
+	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751408AbaJQOFL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Oct 2014 10:05:11 -0400
+In-Reply-To: <92e45ba6015c4c48b21baeade3f9c929@BLUPR03MB517.namprd03.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 15, 2014 at 04:47:27PM -0400, David Miller wrote:
-> From: "Michael S. Tsirkin" <mst@redhat.com>
-> Date: Wed, 15 Oct 2014 16:23:28 +0300
-> 
-> > You used __netif_subqueue_stopped but that seems to use
-> > a slightly more expensive test_bit internally.
-> 
-> More expensive in what sense?  It should be roughly the same
-> as "x & y" sans the volatile.
+On Fri, 2014-10-17 at 02:35 +0000, Jiafei.Pan@freescale.com wrote:
 
-I really just meant volatile - this might prevent some compiler
-optimizations. I have't actually checked the produced binary so
-I don't know for sure.
+> [Pan Jiafei] Hi, Alex, thanks for your comments. I don=E2=80=99t conf=
+irm that
+> you have catch my concerns. For example, I want to add igb net card=20
+> into my bridge, and want to igb net driver allocate skb by using
+> my specified memory address, but I don=E2=80=99t want to modify igb n=
+et driver
+> directly, how to do this in my bridge drivers?
 
-> Anyways I'm ambivalent and I want to see this bug fixes, so I'll
-> apply your patch.
-> 
-> Thanks!
+This is exactly our point : We do not want to modify all drivers so tha=
+t
+your bridge is happy with them.
+
+You'll have to make your bridge using standard infra instead.
+
+IGB has no way to know in advance that a particular frame should
+eventually reach your bridge anyway.
