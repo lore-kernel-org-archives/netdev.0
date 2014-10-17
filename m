@@ -1,33 +1,48 @@
-From: Lorenzo Colitti <lorenzo@google.com>
-Subject: Re: [RFC PATCH net-next] net: ipv6: Add a sysctl to make optimistic
- addresses useful candidates
-Date: Fri, 17 Oct 2014 17:31:43 +0900
-Message-ID: <CAKD1Yr0eUSmDAoU4fNrW17v1gq2srKQtxRnq_8Stt5LiGwNnbw@mail.gmail.com>
-References: <1413520309-13814-1-git-send-email-ek@google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Eric Dumazet <edumazet@google.com>
-To: Erik Kline <ek@google.com>
+From: roy.qing.li@gmail.com
+Subject: [PATCH] ipv4: fix a potential use after free
+Date: Fri, 17 Oct 2014 16:53:23 +0800
+Message-ID: <1413536003-15646-1-git-send-email-roy.qing.li@gmail.com>
+Cc: pshelar@nicira.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f178.google.com ([209.85.223.178]:45539 "EHLO
-	mail-ie0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750729AbaJQIcG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Oct 2014 04:32:06 -0400
-Received: by mail-ie0-f178.google.com with SMTP id rl12so305544iec.9
-        for <netdev@vger.kernel.org>; Fri, 17 Oct 2014 01:32:04 -0700 (PDT)
-In-Reply-To: <1413520309-13814-1-git-send-email-ek@google.com>
+Received: from mail-pd0-f180.google.com ([209.85.192.180]:53610 "EHLO
+	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750729AbaJQIx3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Oct 2014 04:53:29 -0400
+Received: by mail-pd0-f180.google.com with SMTP id fp1so421130pdb.25
+        for <netdev@vger.kernel.org>; Fri, 17 Oct 2014 01:53:28 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 17, 2014 at 1:31 PM, Erik Kline <ek@google.com> wrote:
-> Add a sysctl that causes an interface's optimistic addresses
-> to be considered equivalent to other non-deprecated addresses
-> for source address selection purposes.  Preferred addresses
-> will still take precendence over optimistic addresses, subject
-> to other ranking in the source address selection algorithm.
-> [...]
-> Signed-off-by: Erik Kline <ek@google.com>
+From: Li RongQing <roy.qing.li@gmail.com>
 
-Acked-by: Lorenzo Colitti <lorenzo@google.com>
+pskb_may_pull() maybe change skb->data and make eth pointer oboslete,
+so set eth after pskb_may_pull()
+
+Fixes:3d7b46cd("ip_tunnel: push generic protocol handling to ip_tunnel module")
+Cc: Pravin B Shelar <pshelar@nicira.com>
+Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+---
+ net/ipv4/ip_tunnel_core.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
+index f4c987b..88c386c 100644
+--- a/net/ipv4/ip_tunnel_core.c
++++ b/net/ipv4/ip_tunnel_core.c
+@@ -91,11 +91,12 @@ int iptunnel_pull_header(struct sk_buff *skb, int hdr_len, __be16 inner_proto)
+ 	skb_pull_rcsum(skb, hdr_len);
+ 
+ 	if (inner_proto == htons(ETH_P_TEB)) {
+-		struct ethhdr *eh = (struct ethhdr *)skb->data;
++		struct ethhdr *eh;
+ 
+ 		if (unlikely(!pskb_may_pull(skb, ETH_HLEN)))
+ 			return -ENOMEM;
+ 
++		eh = (struct ethhdr *)skb->data;
+ 		if (likely(ntohs(eh->h_proto) >= ETH_P_802_3_MIN))
+ 			skb->protocol = eh->h_proto;
+ 		else
+-- 
+1.7.10.4
