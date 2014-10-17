@@ -1,58 +1,63 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net v2] net: dsa: add includes for ethtool and phy_fixed definitions
-Date: Fri, 17 Oct 2014 16:02:13 -0700
-Message-ID: <1413586933-12090-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: Pravin B Shelar <pshelar@nicira.com>
+Subject: [PATCH net] openvswitch: Set flow-key members.
+Date: Fri, 17 Oct 2014 13:56:31 -0700
+Message-ID: <1413579391-1470-1-git-send-email-pshelar@nicira.com>
+Cc: netdev@vger.kernel.org, Pravin B Shelar <pshelar@nicira.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:52584 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751483AbaJQXCb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Oct 2014 19:02:31 -0400
-Received: by mail-pa0-f53.google.com with SMTP id kq14so1631235pab.40
-        for <netdev@vger.kernel.org>; Fri, 17 Oct 2014 16:02:31 -0700 (PDT)
+Received: from na3sys009aog137.obsmtp.com ([74.125.149.18]:44717 "HELO
+	na3sys009aog137.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751325AbaJQXWd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Oct 2014 19:22:33 -0400
+Received: by mail-pd0-f169.google.com with SMTP id w10so1580050pde.14
+        for <netdev@vger.kernel.org>; Fri, 17 Oct 2014 16:22:33 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-net/dsa/slave.c uses functions and structures declared in phy_fixed.h
-but does not explicitely include it, while dsa.h needs structure
-declarations for 'struct ethtool_wolinfo' and 'struct ethtool_eee', fix
-those by including the correct header files.
+This patch adds missing memset which are required to initialize
+flow key member. For example for IP flow we need to initialize
+ip.frag for all cases.
 
-Fixes: ec9436baedb6 ("net: dsa: allow drivers to do link adjustment")
-Fixes: ce31b31c68e7 ("net: dsa: allow updating fixed PHY link information")
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+Found by inspection.
+
+This bug is introduced by commit 0714812134d7dcadeb7ecfbfeb18788aa7e1eaac
+("openvswitch: Eliminate memset() from flow_extract").
+
+Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
 ---
-Changes in v2:
-- actually include the headers instead of using forward declarations
+ net/openvswitch/flow.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
- include/net/dsa.h | 1 +
- net/dsa/slave.c   | 1 +
- 2 files changed, 2 insertions(+)
-
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 58ad8c6492db..b76559293535 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -18,6 +18,7 @@
- #include <linux/of.h>
- #include <linux/phy.h>
- #include <linux/phy_fixed.h>
-+#include <linux/ethtool.h>
+diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
+index c5cfc72..2b78789 100644
+--- a/net/openvswitch/flow.c
++++ b/net/openvswitch/flow.c
+@@ -274,6 +274,8 @@ static int parse_ipv6hdr(struct sk_buff *skb, struct sw_flow_key *key)
+ 			key->ip.frag = OVS_FRAG_TYPE_LATER;
+ 		else
+ 			key->ip.frag = OVS_FRAG_TYPE_FIRST;
++	} else {
++		key->ip.frag = OVS_FRAG_TYPE_NONE;
+ 	}
  
- enum dsa_tag_protocol {
- 	DSA_TAG_PROTO_NONE = 0,
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 8030489d9cbe..a851e9f14118 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -11,6 +11,7 @@
- #include <linux/list.h>
- #include <linux/etherdevice.h>
- #include <linux/phy.h>
-+#include <linux/phy_fixed.h>
- #include <linux/of_net.h>
- #include <linux/of_mdio.h>
- #include "dsa_priv.h"
+ 	nh_len = payload_ofs - nh_ofs;
+@@ -358,6 +360,7 @@ static int parse_icmpv6(struct sk_buff *skb, struct sw_flow_key *key,
+ 	 */
+ 	key->tp.src = htons(icmp->icmp6_type);
+ 	key->tp.dst = htons(icmp->icmp6_code);
++	memset(&key->ipv6.nd, 0, sizeof(key->ipv6.nd));
+ 
+ 	if (icmp->icmp6_code == 0 &&
+ 	    (icmp->icmp6_type == NDISC_NEIGHBOUR_SOLICITATION ||
+@@ -674,9 +677,6 @@ int ovs_flow_key_extract(struct ovs_tunnel_info *tun_info,
+ 	key->ovs_flow_hash = 0;
+ 	key->recirc_id = 0;
+ 
+-	/* Flags are always used as part of stats */
+-	key->tp.flags = 0;
+-
+ 	return key_extract(skb, key);
+ }
+ 
 -- 
-1.9.1
+1.7.1
