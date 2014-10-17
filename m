@@ -1,63 +1,93 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net] net: dsa: remove phy.h and phy_fixed.h inclusions
-Date: Thu, 16 Oct 2014 17:55:55 -0700
-Message-ID: <1413507355-28837-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:45622 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751499AbaJQA5T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Oct 2014 20:57:19 -0400
-Received: by mail-pa0-f52.google.com with SMTP id fb1so4417730pad.25
-        for <netdev@vger.kernel.org>; Thu, 16 Oct 2014 17:57:18 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Jiafei.Pan@freescale.com" <Jiafei.Pan@freescale.com>
+Subject: RE: [PATCH] net: use hardware buffer pool to allocate skb
+Date: Fri, 17 Oct 2014 02:35:35 +0000
+Message-ID: <92e45ba6015c4c48b21baeade3f9c929@BLUPR03MB517.namprd03.prod.outlook.com>
+References: <1413343571-33231-1-git-send-email-Jiafei.Pan@freescale.com>
+	 <20141015.002514.384962932982389732.davem@davemloft.net>
+	 <c02005b9d8794d14bc2149f468ab571c@BY2PR03MB524.namprd03.prod.outlook.com>
+	 <1413364533.12304.44.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <524626e093684abeba65839d26e94262@BLUPR03MB517.namprd03.prod.outlook.com>
+ <1413432912.28798.7.camel@edumazet-glaptop2.roam.corp.google.com>
+ <aeef795129504782ae1e9f91467d243e@BLUPR03MB517.namprd03.prod.outlook.com>
+ <543FE413.6030406@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: David Miller <davem@davemloft.net>,
+	"jkosina@suse.cz" <jkosina@suse.cz>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"LeoLi@freescale.com" <LeoLi@freescale.com>,
+	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
+	"Jiafei.Pan@freescale.com" <Jiafei.Pan@freescale.com>
+To: Alexander Duyck <alexander.h.duyck@redhat.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <543FE413.6030406@redhat.com>
+Content-Language: en-US
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-There is no need to include phy.h nor phy_fixed.h when we can use
-forward declarations instead to keep the include chain smaller.
-
-Doing this unveiled that we were implicitely getting the definitions for
-struct ethtool_eee and struct ethtool_wolinfo, and that net/dsa/slave.c
-was missing an include of phy_fixed.h.
-
-Fixes: ec9436baedb6 ("net: dsa: allow drivers to do link adjustment")
-Fixes: ce31b31c68e7 ("net: dsa: allow updating fixed PHY link information")
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- include/net/dsa.h | 7 +++++--
- net/dsa/slave.c   | 1 +
- 2 files changed, 6 insertions(+), 2 deletions(-)
-
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 58ad8c6492db..0c38b083e6eb 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -16,8 +16,11 @@
- #include <linux/timer.h>
- #include <linux/workqueue.h>
- #include <linux/of.h>
--#include <linux/phy.h>
--#include <linux/phy_fixed.h>
-+
-+struct phy_device;
-+struct fixed_phy_status;
-+struct ethtool_eee;
-+struct ethtool_wolinfo;
- 
- enum dsa_tag_protocol {
- 	DSA_TAG_PROTO_NONE = 0,
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 8030489d9cbe..a851e9f14118 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -11,6 +11,7 @@
- #include <linux/list.h>
- #include <linux/etherdevice.h>
- #include <linux/phy.h>
-+#include <linux/phy_fixed.h>
- #include <linux/of_net.h>
- #include <linux/of_mdio.h>
- #include "dsa_priv.h"
--- 
-1.9.1
+DQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IEFsZXhhbmRlciBEdXljayBb
+bWFpbHRvOmFsZXhhbmRlci5oLmR1eWNrQHJlZGhhdC5jb21dDQo+IFNlbnQ6IFRodXJzZGF5LCBP
+Y3RvYmVyIDE2LCAyMDE0IDExOjI4IFBNDQo+IFRvOiBQYW4gSmlhZmVpLUIzNzAyMjsgRXJpYyBE
+dW1hemV0DQo+IENjOiBEYXZpZCBNaWxsZXI7IGprb3NpbmFAc3VzZS5jejsgbmV0ZGV2QHZnZXIu
+a2VybmVsLm9yZzsgTGkgWWFuZy1MZW8tUjU4NDcyOw0KPiBsaW51eC1kb2NAdmdlci5rZXJuZWwu
+b3JnDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0hdIG5ldDogdXNlIGhhcmR3YXJlIGJ1ZmZlciBwb29s
+IHRvIGFsbG9jYXRlIHNrYg0KPiANCj4gDQo+IE9uIDEwLzE1LzIwMTQgMTA6MTUgUE0sIEppYWZl
+aS5QYW5AZnJlZXNjYWxlLmNvbSB3cm90ZToNCj4gPj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0t
+LS0NCj4gPj4gRnJvbTogRXJpYyBEdW1hemV0IFttYWlsdG86ZXJpYy5kdW1hemV0QGdtYWlsLmNv
+bV0NCj4gPj4gU2VudDogVGh1cnNkYXksIE9jdG9iZXIgMTYsIDIwMTQgMTI6MTUgUE0NCj4gPj4g
+VG86IFBhbiBKaWFmZWktQjM3MDIyDQo+ID4+IENjOiBEYXZpZCBNaWxsZXI7IGprb3NpbmFAc3Vz
+ZS5jejsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgTGkgWWFuZy1MZW8tUjU4NDcyOw0KPiA+PiBs
+aW51eC1kb2NAdmdlci5rZXJuZWwub3JnDQo+ID4+IFN1YmplY3Q6IFJlOiBbUEFUQ0hdIG5ldDog
+dXNlIGhhcmR3YXJlIGJ1ZmZlciBwb29sIHRvIGFsbG9jYXRlIHNrYg0KPiA+Pg0KPiA+PiBPbiBU
+aHUsIDIwMTQtMTAtMTYgYXQgMDI6MTcgKzAwMDAsIEppYWZlaS5QYW5AZnJlZXNjYWxlLmNvbSB3
+cm90ZToNCj4gPj4NCj4gPj4+IFRoYW5rcyBmb3IgeW91ciBjb21tZW50cyBhbmQgc3VnZ2VzdGlv
+bi4gSW4gbXkgY2FzZSwgSSB3YW50IHRvIGJ1aWxkIHNrYg0KPiA+Pj4gZnJvbSBoYXJkd2FyZSBi
+bG9jayBzcGVjaWZpZWQgbWVtb3J5LCBJIG9ubHkgY2FuIHNlZSB0d28gd2F5cywgb25lIGlzDQo+
+IG1vZGlmaWVkDQo+ID4+PiBuZXQgY2FyZCBkcml2ZXIgcmVwbGFjZSBjb21tb24gc2tiIGFsbG9j
+YXRpb24gZnVuY3Rpb24gd2l0aCBteSBzcGVjaWFsbHkNCj4gPj4+IGZ1bmN0aW9ucywgYW5vdGhl
+ciB3YXkgaXMgdG8gaGFjayBjb21tb24gc2tiIGFsbG9jYXRpb24gZnVuY3Rpb24gaW4gd2hpY2gN
+Cj4gPj4+IHJlZGlyZWN0IHRvIG15IHNwZWNpYWxseSBmdW5jdGlvbnMuIE15IHBhdGNoIGlzIGp1
+c3QgZm9yIHRoZSBzZWNvbmQgd2F5Lg0KPiA+Pj4gRXhjZXB0IHRoZXNlIHR3byB3YXlzLCB3b3Vs
+ZCB5b3UgcGxlYXNlIGdpdmUgbWUgc29tZSBhZHZpY2UgZm9yIHNvbWUgb3RoZXINCj4gPj4+IHdh
+eXMgZm9yIG15IGNhc2U/IFRoYW5rcw0KPiA+PiBJIHN1Z2dlc3QgeW91IHJlYWQgZHJpdmVycy9u
+ZXQvZXRoZXJuZXQgbnVtZXJvdXMgZXhhbXBsZXMuDQo+ID4+DQo+ID4+IE5vIG5lZWQgdG8gY2hh
+bmdlIGFueXRoaW5nICBpbiBuZXQvKiBvciBpbmNsdWRlLyosIHJlYWxseS4NCj4gPj4NCj4gPj4g
+Rm9yIGEgc3RhcnQsIGxvb2sgYXQgZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaWdiL2lnYl9t
+YWluLmMNCj4gPj4NCj4gPj4gTWVudGlvbmluZyAnaGFjaycgaW4geW91ciBtYWlscyBzaW1wbHkg
+c2hvdWxkIGhpbnQgeW91IGFyZSBkb2luZw0KPiA+PiBzb21ldGhpbmcgdmVyeSB3cm9uZy4NCj4g
+Pj4NCj4gPj4gV2hhdCBtYWtlcyB5b3UgdGhpbmsgeW91ciBoYXJkd2FyZSBpcyBzbyBzcGVjaWFs
+ID8NCj4gPj4NCj4gPiBJbiBmYWN0LCBJIGFtIGRldmVsb3BpbmcgYSBicmlkZ2UgZHJpdmVyLCBp
+dCBjYW4gYnJpZGdlIGJldHdlZW4gYW55IG90aGVyIHRoZQ0KPiA+IHRoaXJkIHBhcnR5IG5ldCBj
+YXJkIGFuZCBteSBvd24gbmV0IGNhcmQuIE15IHRhcmdldCBpcyB0byBsZXQgYW55IG90aGVyIHRo
+ZQ0KPiA+IHRoaXJkIHBhcnR5IG5ldCBjYXJkIGNhbiBkaXJlY3RseSB1c2UgbXkgb3duIG5ldCBj
+YXJkIHNwZWNpZmllZCBidWZmZXIsIHRoZW4NCj4gPiB0aGVyZSB3aWxsIGJlIG5vIG1lbW9yeSBj
+b3B5IGluIHRoZSB3aG9sZSBicmlkZ2UgcHJvY2Vzcy4NCj4gPiBCeSB0aGUgd2F5LCBJIGRvbuKA
+mXQgc2VlIGFueSBzaW1pbGFyIGJldHdlZW4gaWdiX21haW4uYyBhbmQgbXkgY2FzZS4gQW5kIGFs
+c28NCj4gPiBNeSBicmlkZ2UgYWxzbyBjYW7igJl0IGltcGxlbWVudGVkIHdpdGggInNrYiBmcmFn
+IiBpbiBvcmRlciB0byBhaW0gYXQgemVybw0KPiBtZW1vcnkNCj4gPiBjb3B5Lg0KPiANCj4gSSB0
+aGluayB0aGUgcGFydCB5b3UgYXJlIG5vdCBnZXR0aW5nIGlzIHRoYXQgaXMgaG93IGJ1ZmZlcnMg
+YXJlDQo+IGVzc2VudGlhbGx5IGhhbmRsZWQgbm93LiAgDQoNCltQYW4gSmlhZmVpXSBIaSwgQWxl
+eCwgdGhhbmtzIGZvciB5b3VyIGNvbW1lbnRzLiBJIGRvbuKAmXQgY29uZmlybSB0aGF0DQp5b3Ug
+aGF2ZSBjYXRjaCBteSBjb25jZXJucy4gRm9yIGV4YW1wbGUsIEkgd2FudCB0byBhZGQgaWdiIG5l
+dCBjYXJkIA0KaW50byBteSBicmlkZ2UsIGFuZCB3YW50IHRvIGlnYiBuZXQgZHJpdmVyIGFsbG9j
+YXRlIHNrYiBieSB1c2luZw0KbXkgc3BlY2lmaWVkIG1lbW9yeSBhZGRyZXNzLCBidXQgSSBkb27i
+gJl0IHdhbnQgdG8gbW9kaWZ5IGlnYiBuZXQgZHJpdmVyDQpkaXJlY3RseSwgaG93IHRvIGRvIHRo
+aXMgaW4gbXkgYnJpZGdlIGRyaXZlcnM/DQoNClRoYW5rcywNCkppYWZlaS4NCg0KU28gZm9yIGV4
+YW1wbGUgaW4gdGhlIGNhc2UgaWYgaWdiIHRoZSBvbmx5DQo+IHBhcnQgd2UgaGF2ZSBjb3BpZWQg
+b3V0IGlzIHVzdWFsbHkgdGhlIGhlYWRlciwgb3IgdGhlIGVudGlyZSBmcmFtZSBpbg0KPiB0aGUg
+Y2FzZSBvZiBzbWFsbCBwYWNrZXRzLiAgVGhpcyBoYXMgdG8gaGFwcGVuIGluIG9yZGVyIHRvIGFs
+bG93IGZvcg0KPiBjaGFuZ2VzIHRvIHRoZSBoZWFkZXIgZm9yIHJvdXRpbmcgYW5kIHN1Y2guICBC
+ZXlvbmQgdGhhdCB0aGUgZnJhZ3MgdGhhdA0KPiBhcmUgcGFzc2VkIGFyZSB0aGUgYnVmZmVycyB0
+aGF0IGlnYiBpcyBzdGlsbCBob2xkaW5nIG9udG8uICBTbw0KPiBlZmZlY3RpdmVseSB3aGF0IHRo
+ZSBvdGhlciBkZXZpY2UgdHJhbnNtaXRzIGluIGEgYnJpZGdpbmcvcm91dGluZw0KPiBzY2VuYXJp
+byBpcyBteSBvd24gbmV0IGNhcmQgc3BlY2lmaWVkIGJ1ZmZlciBwbHVzIHRoZSBjb3BpZWQvbW9k
+aWZpZWQNCj4gaGVhZGVyLg0KPiANCj4gRm9yIGEgYnJpZWYgcGVyaW9kIGlnYiB1c2VkIGJ1aWxk
+X3NrYiBidXQgdGhhdCBpc24ndCB2YWxpZCBvbiBtb3N0DQo+IHN5c3RlbXMgYXMgbWVtb3J5IG1h
+cHBlZCBmb3IgYSBkZXZpY2UgY2FuIGJlIG92ZXJ3cml0dGVuIGlmIHRoZSBwYWdlIGlzDQo+IHVu
+bWFwcGVkIHJlc3VsdGluZyBpbiBhbnkgY2hhbmdlcyB0byB0aGUgaGVhZGVyIGZvciByb3V0aW5n
+L2JyaWRnaW5nDQo+IHB1cnBvc2VzIGJlaW5nIGludmFsaWRhdGVkLiAgVGh1cyB3ZSBjYW5ub3Qg
+dXNlIHRoZSBidWZmZXJzIGZvciBib3RoIHRoZQ0KPiBza2ItPmRhdGEgaGVhZGVyIHdoaWNoIG1h
+eSBiZSBjaGFuZ2VkIGFuZCBSeCBETUEgc2ltdWx0YW5lb3VzbHkuDQo+IA0KPiBUaGFua3MsDQo+
+IA0KPiBBbGV4DQo=
