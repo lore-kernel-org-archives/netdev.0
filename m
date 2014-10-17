@@ -1,80 +1,54 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net] r8152: return -EBUSY for runtime suspend
-Date: Fri, 17 Oct 2014 16:55:08 +0800
-Message-ID: <1394712342-15778-65-Taiwan-albertk@realtek.com>
-References: <87zjcvgn1x.fsf@nemi.mork.no>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] net: use hardware buffer pool to allocate skb
+Date: Fri, 17 Oct 2014 09:11:09 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1C9D895B@AcuExch.aculab.com>
+References: <1413343571-33231-1-git-send-email-Jiafei.Pan@freescale.com>
+	 <20141015.002514.384962932982389732.davem@davemloft.net>
+	 <c02005b9d8794d14bc2149f468ab571c@BY2PR03MB524.namprd03.prod.outlook.com>
+	 <1413364533.12304.44.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <524626e093684abeba65839d26e94262@BLUPR03MB517.namprd03.prod.outlook.com>
+	 <1413432912.28798.7.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <aeef795129504782ae1e9f91467d243e@BLUPR03MB517.namprd03.prod.outlook.com>
+	 <543FE413.6030406@redhat.com>
+	 <1413478657.28798.22.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <543FFC03.1060207@redhat.com>
+ <1413481529.28798.29.camel@edumazet-glaptop2.roam.corp.google.com>
+ <54400C6C.7010405@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
-	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87zjcvgn1x.fsf@nemi.mork.no>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Jiafei.Pan@freescale.com" <Jiafei.Pan@freescale.com>,
+	David Miller <davem@davemloft.net>,
+	"jkosina@suse.cz" <jkosina@suse.cz>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"LeoLi@freescale.com" <LeoLi@freescale.com>,
+	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>
+To: 'Alexander Duyck' <alexander.h.duyck@redhat.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:50994 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1750807AbaJQJMt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Oct 2014 05:12:49 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 22274-10 for <netdev@vger.kernel.org>;
+ Fri, 17 Oct 2014 10:12:40 +0100 (BST)
+In-Reply-To: <54400C6C.7010405@redhat.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Remove calling cancel_delayed_work_sync() for runtime suspend,
-because it would cause dead lock. Instead, return -EBUSY to
-avoid the device enters suspending if the net is running and
-the delayed work is pending or running. The delayed work would
-try to wake up the device later, so the suspending is not
-necessary.
-
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
----
- drivers/net/usb/r8152.c | 22 +++++++++++++++-------
- 1 file changed, 15 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index 864159e..e3d84c3 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -3189,31 +3189,39 @@ static void r8153_init(struct r8152 *tp)
- static int rtl8152_suspend(struct usb_interface *intf, pm_message_t message)
- {
- 	struct r8152 *tp = usb_get_intfdata(intf);
-+	struct net_device *netdev = tp->netdev;
-+	int ret = 0;
- 
- 	mutex_lock(&tp->control);
- 
--	if (PMSG_IS_AUTO(message))
-+	if (PMSG_IS_AUTO(message)) {
-+		if (netif_running(netdev) && work_busy(&tp->schedule.work)) {
-+			ret = -EBUSY;
-+			goto out1;
-+		}
-+
- 		set_bit(SELECTIVE_SUSPEND, &tp->flags);
--	else
--		netif_device_detach(tp->netdev);
-+	} else {
-+		netif_device_detach(netdev);
-+	}
- 
--	if (netif_running(tp->netdev)) {
-+	if (netif_running(netdev)) {
- 		clear_bit(WORK_ENABLE, &tp->flags);
- 		usb_kill_urb(tp->intr_urb);
--		cancel_delayed_work_sync(&tp->schedule);
- 		tasklet_disable(&tp->tl);
- 		if (test_bit(SELECTIVE_SUSPEND, &tp->flags)) {
- 			rtl_stop_rx(tp);
- 			rtl_runtime_suspend_enable(tp, true);
- 		} else {
-+			cancel_delayed_work_sync(&tp->schedule);
- 			tp->rtl_ops.down(tp);
- 		}
- 		tasklet_enable(&tp->tl);
- 	}
--
-+out1:
- 	mutex_unlock(&tp->control);
- 
--	return 0;
-+	return ret;
- }
- 
- static int rtl8152_resume(struct usb_interface *intf)
--- 
-1.9.3
+RnJvbTogQWxleGFuZGVyIER1eWNrDQouLi4NCj4gQWN0dWFsbHkgdGhlIGxpa2VsaWhvb2Qgb2Yg
+YW55dGhpbmcgaG9sZGluZyBvbnRvIHRoZSA0SyBwYWdlIGZvciB2ZXJ5DQo+IGxvbmcgZG9lc24n
+dCBzZWVtIHRvIG9jY3VyLCBhdCBsZWFzdCBmcm9tIHRoZSBkcml2ZXJzIHBlcnNwZWN0aXZlLiAg
+SXQNCj4gaXMgb25lIG9mIHRoZSByZWFzb25zIHdoeSBJIHdlbnQgZm9yIHRoZSBwYWdlIHJldXNl
+IGFwcHJvYWNoIHJhdGhlciB0aGFuDQo+IGp1c3QgcGFydGl0aW9uaW5nIGEgc2luZ2xlIGxhcmdl
+IHBhZ2UuICBJdCBhbGxvd3MgdXMgdG8gYXZvaWQgaGF2aW5nIHRvDQo+IGNhbGwgSU9NTVUgbWFw
+L3VubWFwIGZvciB0aGUgcGFnZXMgc2luY2UgdGhlIGVudGlyZSBwYWdlIGlzIHVzdWFsbHkgYmFj
+aw0KPiBpbiB0aGUgZHJpdmVyIG93bmVyc2hpcCBiZWZvcmUgd2UgbmVlZCB0byByZXVzZSB0aGUg
+cG9ydGlvbiBnaXZlbiB0byB0aGUNCj4gc3RhY2suDQoNClRoYXQgaXMgYWxtb3N0IGNlcnRhaW5s
+eSB0cnVlIGZvciBtb3N0IGJlbmNobWFya3MsIGJlbmNobWFyayBwcm9jZXNzZXMNCmNvbnN1bWUg
+cmVjZWl2ZSBkYXRhLg0KQnV0IHdoYXQgYWJvdXQgcmVhbCBsaWZlIHNpdHVhdGlvbnM/DQoNClRo
+ZXJlIG11c3QgYmUgc29tZSAnbm9ybWFsJyB3b3JrbG9hZHMgd2hlcmUgcmVjZWl2ZSBkYXRhIGRv
+ZXNuJ3QgZ2V0IGNvbnN1bWVkLg0KDQoJRGF2aWQNCg0K
