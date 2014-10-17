@@ -1,124 +1,389 @@
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: Re: [PATCH] net: use hardware buffer pool to allocate skb
-Date: Fri, 17 Oct 2014 11:28:58 -0700
-Message-ID: <54415FEA.5000705@redhat.com>
-References: <1413343571-33231-1-git-send-email-Jiafei.Pan@freescale.com>	 <20141015.002514.384962932982389732.davem@davemloft.net>	 <c02005b9d8794d14bc2149f468ab571c@BY2PR03MB524.namprd03.prod.outlook.com>	 <1413364533.12304.44.camel@edumazet-glaptop2.roam.corp.google.com>	 <524626e093684abeba65839d26e94262@BLUPR03MB517.namprd03.prod.outlook.com>	 <1413432912.28798.7.camel@edumazet-glaptop2.roam.corp.google.com>	 <aeef795129504782ae1e9f91467d243e@BLUPR03MB517.namprd03.prod.outlook.com>	 <543FE413.6030406@redhat.com>	 <1413478657.28798.22.camel@edumazet-glaptop2.roam.corp.google.com>	 <543FFC03.1060207@redhat.com>	 <1413481529.28798.29.camel@edumazet-glaptop2.roam.corp.google.com>	 <54400C6C.7010405@redhat.com>	 <063D6719AE5E284EB5DD2968C1650D6D1C9D895B@AcuExch.aculab.com>	 <54412A59.707050
- 8@redhat.com> <1413564913.24709.7.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Laight <David.Laight@ACULAB.COM>,
-	"Jiafei.Pan@freescale.com" <Jiafei.Pan@freescale.com>,
-	David Miller <davem@davemloft.net>,
-	"jkosina@suse.cz" <jkosina@suse.cz>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"LeoLi@freescale.com" <LeoLi@freescale.com>,
-	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <1413564913.24709.7.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-doc-owner@vger.kernel.org
+From: Eric B Munson <emunson@akamai.com>
+Subject: [PATCH] Move rlb table dump to procfs
+Date: Fri, 17 Oct 2014 14:41:52 -0400
+Message-ID: <1413571313-10137-1-git-send-email-emunson@akamai.com>
+Cc: Andy Gospodarek <andy@greyhouse.net>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Jay Vosburgh <j.vosburgh@gmail.com>,
+	linux-kernel@vger.kernel.org, Eric B Munson <emunson@akamai.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Because debugfs is not net namespace aware, it is currently not
+possible to dump the RLB hash table when network namespaces are enabled.
+This patch creates a second proc file called IFNAME_rlb_table for
+bonding interfaces that use adaptive load balancing which will expose
+this table to userspace.  It also removes all the debugfs code from the
+bonding module as the RLB hash was the only entry in debugfs.
 
-On 10/17/2014 09:55 AM, Eric Dumazet wrote:
-> On Fri, 2014-10-17 at 07:40 -0700, Alexander Duyck wrote:
->> On 10/17/2014 02:11 AM, David Laight wrote:
->>> From: Alexander Duyck
->>> ...
->>>> Actually the likelihood of anything holding onto the 4K page for very
->>>> long doesn't seem to occur, at least from the drivers perspective.  It
->>>> is one of the reasons why I went for the page reuse approach rather than
->>>> just partitioning a single large page.  It allows us to avoid having to
->>>> call IOMMU map/unmap for the pages since the entire page is usually back
->>>> in the driver ownership before we need to reuse the portion given to the
->>>> stack.
->>> That is almost certainly true for most benchmarks, benchmark processes
->>> consume receive data.
->>> But what about real life situations?
->>>
->>> There must be some 'normal' workloads where receive data doesn't get consumed.
->>>
->>> 	David
->>>
->> Yes, but for workloads where receive data doesn't get consumed it is
->> very unlikely that much receive data is generated.
-> This is very optimistic.
->
-> Any kind of flood can generate 5 or 6 Million packets per second.
+Signed-off-by: Eric B Munson <emunson@akamai.com>
+---
+ drivers/net/bonding/Makefile       |    2 +-
+ drivers/net/bonding/bond_debugfs.c |  141 ------------------------------------
+ drivers/net/bonding/bond_main.c    |   11 ---
+ drivers/net/bonding/bond_procfs.c  |   75 ++++++++++++++++++-
+ drivers/net/bonding/bonding.h      |   11 +--
+ 5 files changed, 74 insertions(+), 166 deletions(-)
+ delete mode 100644 drivers/net/bonding/bond_debugfs.c
 
-That is fine.  The first 256 (default descriptor ring size) might be 4K 
-while reporting truesize of 2K, after that each page is guaranteed to be 
-split in half so we get at least 2 uses per page.
-
-> So in stress condition, we possibly consume twice more ram than alloted
-> in tcp_mem.  (About 3GBytes per second, think about it)
-
-I see what you are trying to get at, but I don't see how my scenerio is 
-worse then the setups that use a large page and partition it.
-
-> This is fine, if admins are aware of that and can adjust tcp_mem
-> accordingly to this.
-
-I can say I have never had a single report of of us feeding too much 
-memory to the sockets, if anything the complaints I have seen have 
-always been that the socket is being starved due to too much memory 
-being used to move small packets.  That is one of the reasons I decided 
-we had to have a copy-break built in for packets 256B and smaller.  It 
-doesn't make much sense to allocate 2K + ~1K (skb + skb->head) for 256B 
-or less of payload data.
-
-> Apparently none of your customers suffered from this, maybe they had
-> enough headroom to absorb the over commit or they trusted us and could not
-> find culprit if they had issues.
-
-Correct.  I've never received complaints about memory overcommit. Like I 
-have said in most cases we are always getting the page back anyway so we 
-usually get a good ROI on the page recycling.
-
-> Open 50,000 tcp sockets, do not read data on 50% of them (pretend you
-> are busy on disk access or doing cpu intensive work). As traffic is interleaved
-> (between consumed data and non consumed data), you'll have the side
-> effect of consuming more ram than advertised.
-
-Yes, but in the case we are talking about it is only off by a factor of 
-2.  How do you account for the setups such as the code for allocating an 
-skb that is allocating a 32K page over multiple frames. In your setup I 
-would suspect it wouldn't be uncommon for the socket to end up with 
-multiple spots where only a few sockets are holding the entire 32K page 
-for some period of time.  So does that mean we should hit anybody that 
-uses netdev_alloc_skb with the overhead for 32K since there are 
-scenarios where that can happen?
-
-> Compare /proc/net/protocols (grep TCP /proc/net/protocols) and output of
-> 'free', and you'll see that we are not good citizens.
-
-I'm assuming there is some sort of test I should be running while I do 
-this?  Otherwise the current dump of those is not too interesting 
-currently because my system is idle.
-
-> I will work on TCP stack, to go beyond what I did in commit
-> b49960a05e3212 ("tcp: change tcp_adv_win_scale and tcp_rmem[2]")
->
-> So that TCP should not care if a driver chose to potentially use 4K per
-> MSS.
-
-So long as it doesn't impact performance significantly I am fine with 
-it.  My concern is that you are bringing up issues that none of the 
-customers were brining up when I was at Intel, and the fixes you are 
-proposing are likely to result in customers seeing things they will 
-report as issues.
-
-> Right now, it seems we can drop few packets, and get a slight reduction in
-> throughput (TCP is very sensitive to losses, even if we drop 0.1 % of packets)
-
-Yes, I am well aware of this bit.  That is my concern.  You increase the 
-size for truesize, it will cut the amount of queueing in half, and then 
-igb will start seeing drops when it has to deal with bursty traffic and 
-people will start to complain about a performance regression.  That is 
-the bit I want to avoid.
-
-Thanks,
-
-Alex
-
+diff --git a/drivers/net/bonding/Makefile b/drivers/net/bonding/Makefile
+index 6f4e808..409c5e3 100644
+--- a/drivers/net/bonding/Makefile
++++ b/drivers/net/bonding/Makefile
+@@ -4,7 +4,7 @@
+ 
+ obj-$(CONFIG_BONDING) += bonding.o
+ 
+-bonding-objs := bond_main.o bond_3ad.o bond_alb.o bond_sysfs.o bond_sysfs_slave.o bond_debugfs.o bond_netlink.o bond_options.o
++bonding-objs := bond_main.o bond_3ad.o bond_alb.o bond_sysfs.o bond_sysfs_slave.o bond_netlink.o bond_options.o
+ 
+ proc-$(CONFIG_PROC_FS) += bond_procfs.o
+ bonding-objs += $(proc-y)
+diff --git a/drivers/net/bonding/bond_debugfs.c b/drivers/net/bonding/bond_debugfs.c
+deleted file mode 100644
+index 8f99082..0000000
+--- a/drivers/net/bonding/bond_debugfs.c
++++ /dev/null
+@@ -1,141 +0,0 @@
+-#include <linux/kernel.h>
+-#include <linux/module.h>
+-#include <linux/device.h>
+-#include <linux/netdevice.h>
+-
+-#include "bonding.h"
+-#include "bond_alb.h"
+-
+-#if defined(CONFIG_DEBUG_FS) && !defined(CONFIG_NET_NS)
+-
+-#include <linux/debugfs.h>
+-#include <linux/seq_file.h>
+-
+-static struct dentry *bonding_debug_root;
+-
+-/* Show RLB hash table */
+-static int bond_debug_rlb_hash_show(struct seq_file *m, void *v)
+-{
+-	struct bonding *bond = m->private;
+-	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
+-	struct rlb_client_info *client_info;
+-	u32 hash_index;
+-
+-	if (BOND_MODE(bond) != BOND_MODE_ALB)
+-		return 0;
+-
+-	seq_printf(m, "SourceIP        DestinationIP   "
+-			"Destination MAC   DEV\n");
+-
+-	spin_lock_bh(&bond->mode_lock);
+-
+-	hash_index = bond_info->rx_hashtbl_used_head;
+-	for (; hash_index != RLB_NULL_INDEX;
+-	     hash_index = client_info->used_next) {
+-		client_info = &(bond_info->rx_hashtbl[hash_index]);
+-		seq_printf(m, "%-15pI4 %-15pI4 %-17pM %s\n",
+-			&client_info->ip_src,
+-			&client_info->ip_dst,
+-			&client_info->mac_dst,
+-			client_info->slave->dev->name);
+-	}
+-
+-	spin_unlock_bh(&bond->mode_lock);
+-
+-	return 0;
+-}
+-
+-static int bond_debug_rlb_hash_open(struct inode *inode, struct file *file)
+-{
+-	return single_open(file, bond_debug_rlb_hash_show, inode->i_private);
+-}
+-
+-static const struct file_operations bond_debug_rlb_hash_fops = {
+-	.owner		= THIS_MODULE,
+-	.open		= bond_debug_rlb_hash_open,
+-	.read		= seq_read,
+-	.llseek		= seq_lseek,
+-	.release	= single_release,
+-};
+-
+-void bond_debug_register(struct bonding *bond)
+-{
+-	if (!bonding_debug_root)
+-		return;
+-
+-	bond->debug_dir =
+-		debugfs_create_dir(bond->dev->name, bonding_debug_root);
+-
+-	if (!bond->debug_dir) {
+-		netdev_warn(bond->dev, "failed to register to debugfs\n");
+-		return;
+-	}
+-
+-	debugfs_create_file("rlb_hash_table", 0400, bond->debug_dir,
+-				bond, &bond_debug_rlb_hash_fops);
+-}
+-
+-void bond_debug_unregister(struct bonding *bond)
+-{
+-	if (!bonding_debug_root)
+-		return;
+-
+-	debugfs_remove_recursive(bond->debug_dir);
+-}
+-
+-void bond_debug_reregister(struct bonding *bond)
+-{
+-	struct dentry *d;
+-
+-	if (!bonding_debug_root)
+-		return;
+-
+-	d = debugfs_rename(bonding_debug_root, bond->debug_dir,
+-			   bonding_debug_root, bond->dev->name);
+-	if (d) {
+-		bond->debug_dir = d;
+-	} else {
+-		netdev_warn(bond->dev, "failed to reregister, so just unregister old one\n");
+-		bond_debug_unregister(bond);
+-	}
+-}
+-
+-void bond_create_debugfs(void)
+-{
+-	bonding_debug_root = debugfs_create_dir("bonding", NULL);
+-
+-	if (!bonding_debug_root) {
+-		pr_warn("Warning: Cannot create bonding directory in debugfs\n");
+-	}
+-}
+-
+-void bond_destroy_debugfs(void)
+-{
+-	debugfs_remove_recursive(bonding_debug_root);
+-	bonding_debug_root = NULL;
+-}
+-
+-
+-#else /* !CONFIG_DEBUG_FS */
+-
+-void bond_debug_register(struct bonding *bond)
+-{
+-}
+-
+-void bond_debug_unregister(struct bonding *bond)
+-{
+-}
+-
+-void bond_debug_reregister(struct bonding *bond)
+-{
+-}
+-
+-void bond_create_debugfs(void)
+-{
+-}
+-
+-void bond_destroy_debugfs(void)
+-{
+-}
+-
+-#endif /* CONFIG_DEBUG_FS */
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index c9ac06c..d6aea43 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -2778,8 +2778,6 @@ static int bond_event_changename(struct bonding *bond)
+ 	bond_remove_proc_entry(bond);
+ 	bond_create_proc_entry(bond);
+ 
+-	bond_debug_reregister(bond);
+-
+ 	return NOTIFY_DONE;
+ }
+ 
+@@ -4039,8 +4037,6 @@ static void bond_uninit(struct net_device *bond_dev)
+ 	}
+ 
+ 	list_del(&bond->bond_list);
+-
+-	bond_debug_unregister(bond);
+ }
+ 
+ /*------------------------- Module initialization ---------------------------*/
+@@ -4432,8 +4428,6 @@ static int bond_init(struct net_device *bond_dev)
+ 
+ 	bond_prepare_sysfs_group(bond);
+ 
+-	bond_debug_register(bond);
+-
+ 	/* Ensure valid dev_addr */
+ 	if (is_zero_ether_addr(bond_dev->dev_addr) &&
+ 	    bond_dev->addr_assign_type == NET_ADDR_PERM)
+@@ -4538,8 +4532,6 @@ static int __init bonding_init(void)
+ 	if (res)
+ 		goto err_link;
+ 
+-	bond_create_debugfs();
+-
+ 	for (i = 0; i < max_bonds; i++) {
+ 		res = bond_create(&init_net, NULL);
+ 		if (res)
+@@ -4550,7 +4542,6 @@ static int __init bonding_init(void)
+ out:
+ 	return res;
+ err:
+-	bond_destroy_debugfs();
+ 	bond_netlink_fini();
+ err_link:
+ 	unregister_pernet_subsys(&bond_net_ops);
+@@ -4562,8 +4553,6 @@ static void __exit bonding_exit(void)
+ {
+ 	unregister_netdevice_notifier(&bond_netdev_notifier);
+ 
+-	bond_destroy_debugfs();
+-
+ 	bond_netlink_fini();
+ 	unregister_pernet_subsys(&bond_net_ops);
+ 
+diff --git a/drivers/net/bonding/bond_procfs.c b/drivers/net/bonding/bond_procfs.c
+index a3948f8..30693bc 100644
+--- a/drivers/net/bonding/bond_procfs.c
++++ b/drivers/net/bonding/bond_procfs.c
+@@ -231,10 +231,55 @@ static const struct file_operations bond_info_fops = {
+ 	.release = seq_release,
+ };
+ 
++static int bond_table_seq_show(struct seq_file *seq, void *v)
++{
++	struct bonding *bond = seq->private;
++	struct alb_bond_info *bond_info;
++	struct rlb_client_info *client_info;
++	u32 hash_index;
++
++	/* make sure the bond won't be taken away */
++	rcu_read_lock();
++	bond_info = &(BOND_ALB_INFO(bond));
++
++	seq_printf(seq, "%-15s %-17s %-15s %-17s %s\n", "SourceIP",
++		   "Source MAC", "DestinationIP", "Destination MAC", "DEV");
++
++	spin_lock_bh(&bond->mode_lock);
++
++	hash_index = bond_info->rx_hashtbl_used_head;
++	for (; hash_index != RLB_NULL_INDEX;
++	     hash_index = client_info->used_next) {
++		client_info = &bond_info->rx_hashtbl[hash_index];
++		seq_printf(seq, "%-15pI4 %-17pM %-15pI4 %-17pM %s\n",
++			   &client_info->ip_src, client_info->mac_src,
++			   &client_info->ip_dst, client_info->mac_dst,
++			   client_info->slave->dev->name);
++	}
++
++	spin_unlock_bh(&bond->mode_lock);
++	rcu_read_unlock();
++	return 0;
++}
++
++static int bond_table_open(struct inode *inode, struct file *file)
++{
++	return single_open(file, bond_table_seq_show, PDE_DATA(inode));
++}
++
++static const struct file_operations bond_table_fops = {
++	.owner   = THIS_MODULE,
++	.open    = bond_table_open,
++	.read    = seq_read,
++	.llseek  = seq_lseek,
++	.release = seq_release,
++};
++
+ void bond_create_proc_entry(struct bonding *bond)
+ {
+ 	struct net_device *bond_dev = bond->dev;
+ 	struct bond_net *bn = net_generic(dev_net(bond_dev), bond_net_id);
++	char table_name[IFNAMSIZ + 10];
+ 
+ 	if (bn->proc_dir) {
+ 		bond->proc_entry = proc_create_data(bond_dev->name,
+@@ -245,6 +290,21 @@ void bond_create_proc_entry(struct bonding *bond)
+ 				    DRV_NAME, bond_dev->name);
+ 		else
+ 			memcpy(bond->proc_file_name, bond_dev->name, IFNAMSIZ);
++
++		if (bond->params.mode == BOND_MODE_ALB) {
++			snprintf(table_name, IFNAMSIZ + 10, "%s_rlb_table",
++				 bond_dev->name);
++			bond->proc_table = proc_create_data(table_name, S_IRUGO,
++							    bn->proc_dir,
++							    &bond_table_fops,
++							    bond);
++			if (bond->proc_table == NULL)
++				pr_warn("Warning: Cannot create /proc/net/%s/%s\n",
++					DRV_NAME, table_name);
++			else
++				memcpy(bond->proc_table_name, table_name,
++				       IFNAMSIZ + 10);
++		}
+ 	}
+ }
+ 
+@@ -253,10 +313,17 @@ void bond_remove_proc_entry(struct bonding *bond)
+ 	struct net_device *bond_dev = bond->dev;
+ 	struct bond_net *bn = net_generic(dev_net(bond_dev), bond_net_id);
+ 
+-	if (bn->proc_dir && bond->proc_entry) {
+-		remove_proc_entry(bond->proc_file_name, bn->proc_dir);
+-		memset(bond->proc_file_name, 0, IFNAMSIZ);
+-		bond->proc_entry = NULL;
++	if (bn->proc_dir) {
++		if (bond->proc_entry) {
++			remove_proc_entry(bond->proc_file_name, bn->proc_dir);
++			memset(bond->proc_file_name, 0, IFNAMSIZ);
++			bond->proc_entry = NULL;
++		}
++		if (bond->proc_table) {
++			remove_proc_entry(bond->proc_table_name, bn->proc_dir);
++			memset(bond->proc_table_name, 0, IFNAMSIZ + 10);
++			bond->proc_table = NULL;
++		}
+ 	}
+ }
+ 
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index 10920f0..714222a 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -217,6 +217,8 @@ struct bonding {
+ #ifdef CONFIG_PROC_FS
+ 	struct   proc_dir_entry *proc_entry;
+ 	char     proc_file_name[IFNAMSIZ];
++	struct   proc_dir_entry *proc_table;
++	char     proc_table_name[IFNAMSIZ + 10];
+ #endif /* CONFIG_PROC_FS */
+ 	struct   list_head bond_list;
+ 	u32      rr_tx_counter;
+@@ -230,10 +232,6 @@ struct bonding {
+ 	struct   delayed_work ad_work;
+ 	struct   delayed_work mcast_work;
+ 	struct   delayed_work slave_arr_work;
+-#ifdef CONFIG_DEBUG_FS
+-	/* debugging support via debugfs */
+-	struct	 dentry *debug_dir;
+-#endif /* CONFIG_DEBUG_FS */
+ 	struct rtnl_link_stats64 bond_stats;
+ };
+ 
+@@ -527,11 +525,6 @@ int bond_release(struct net_device *bond_dev, struct net_device *slave_dev);
+ u32 bond_xmit_hash(struct bonding *bond, struct sk_buff *skb);
+ void bond_select_active_slave(struct bonding *bond);
+ void bond_change_active_slave(struct bonding *bond, struct slave *new_active);
+-void bond_create_debugfs(void);
+-void bond_destroy_debugfs(void);
+-void bond_debug_register(struct bonding *bond);
+-void bond_debug_unregister(struct bonding *bond);
+-void bond_debug_reregister(struct bonding *bond);
+ const char *bond_mode_name(int mode);
+ void bond_setup(struct net_device *bond_dev);
+ unsigned int bond_get_num_tx_queues(void);
+-- 
+1.7.9.5
