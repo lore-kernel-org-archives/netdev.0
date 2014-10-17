@@ -1,16 +1,19 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH RFC v2 2/3] virtio_net: bql
-Date: Fri, 17 Oct 2014 13:16:27 +0800
-Message-ID: <5440A62B.9050006@redhat.com>
-References: <1413383116-30977-1-git-send-email-mst@redhat.com>
-	<1413383116-30977-3-git-send-email-mst@redhat.com>
+Subject: Re: [PATCH net-next RFC 1/3] virtio: support for urgent descriptors
+Date: Fri, 17 Oct 2014 13:23:42 +0800
+Message-ID: <5440A7DE.5030806@redhat.com>
+References: <1413011806-3813-1-git-send-email-jasowang@redhat.com>
+	<1413011806-3813-2-git-send-email-jasowang@redhat.com>
+	<877g01c2ml.fsf@rustcorp.com.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>, linux-kernel@vger.kernel.org
+Cc: linux-api@vger.kernel.org, kvm@vger.kernel.org
+To: Rusty Russell <rusty@rustcorp.com.au>, mst@redhat.com,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1413383116-30977-3-git-send-email-mst@redhat.com>
+In-Reply-To: <877g01c2ml.fsf@rustcorp.com.au>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
@@ -22,101 +25,30 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On 10/15/2014 10:32 PM, Michael S. Tsirkin wrote:
-> Improve tx batching using byte queue limits.
-> Should be especially effective for MQ.
+On 10/15/2014 01:40 PM, Rusty Russell wrote:
+> Jason Wang <jasowang@redhat.com> writes:
+>> Below should be useful for some experiments Jason is doing.
+>> I thought I'd send it out for early review/feedback.
+>>
+>> event idx feature allows us to defer interrupts until
+>> a specific # of descriptors were used.
+>> Sometimes it might be useful to get an interrupt after
+>> a specific descriptor, regardless.
+>> This adds a descriptor flag for this, and an API
+>> to create an urgent output descriptor.
+>> This is still an RFC:
+>> we'll need a feature bit for drivers to detect this,
+>> but we've run out of feature bits for virtio 0.X.
+>> For experimentation purposes, drivers can assume
+>> this is set, or add a driver-specific feature bit.
+>>
+>> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> The new VRING_DESC_F_URGENT bit is theoretically nicer, but for
+> networking (which tends to take packets in order) couldn't we just set
+> the event counter to give us a tx interrupt at the packet we want?
 >
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> ---
->  drivers/net/virtio_net.c | 20 ++++++++++++++++----
->  1 file changed, 16 insertions(+), 4 deletions(-)
->
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index a9bf178..8dea411 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -219,13 +219,15 @@ static struct page *get_a_page(struct receive_queue *rq, gfp_t gfp_mask)
->  	return p;
->  }
->  
-> -static unsigned int free_old_xmit_skbs(struct send_queue *sq, int budget)
-> +static unsigned int free_old_xmit_skbs(struct netdev_queue *txq,
-> +				       struct send_queue *sq, int budget)
->  {
->  	struct sk_buff *skb;
->  	unsigned int len;
->  	struct virtnet_info *vi = sq->vq->vdev->priv;
->  	struct virtnet_stats *stats = this_cpu_ptr(vi->stats);
->  	unsigned int packets = 0;
-> +	unsigned int bytes = 0;
->  
->  	while (packets < budget &&
->  	       (skb = virtqueue_get_buf(sq->vq, &len)) != NULL) {
-> @@ -233,6 +235,7 @@ static unsigned int free_old_xmit_skbs(struct send_queue *sq, int budget)
->  
->  		u64_stats_update_begin(&stats->tx_syncp);
->  		stats->tx_bytes += skb->len;
-> +		bytes += skb->len;
->  		stats->tx_packets++;
->  		u64_stats_update_end(&stats->tx_syncp);
->  
-> @@ -240,6 +243,8 @@ static unsigned int free_old_xmit_skbs(struct send_queue *sq, int budget)
->  		packets++;
->  	}
->  
-> +	netdev_tx_completed_queue(txq, packets, bytes);
-> +
->  	return packets;
->  }
->  
-> @@ -810,7 +815,7 @@ static int virtnet_poll_tx(struct napi_struct *napi, int budget)
->  again:
->  	__netif_tx_lock(txq, smp_processor_id());
->  	virtqueue_disable_cb(sq->vq);
-> -	sent += free_old_xmit_skbs(sq, budget - sent);
-> +	sent += free_old_xmit_skbs(txq, sq, budget - sent);
->  
->  	if (sent < budget) {
->  		enable_done = virtqueue_enable_cb_delayed(sq->vq);
-> @@ -962,12 +967,13 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
->  	struct netdev_queue *txq = netdev_get_tx_queue(dev, qnum);
->  	bool kick = !skb->xmit_more;
->  	bool stopped;
-> +	unsigned int bytes = skb->len;
->  
->  	virtqueue_disable_cb(sq->vq);
->  
->  	/* We are going to push one skb.
->  	 * Try to pop one off to free space for it. */
-> -	free_old_xmit_skbs(sq, 1);
-> +	free_old_xmit_skbs(txq, sq, 1);
->  
->  	/* Try to transmit */
->  	err = xmit_skb(sq, skb);
-> @@ -983,6 +989,12 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
->  		return NETDEV_TX_OK;
->  	}
->  
-> +	netdev_tx_sent_queue(txq, bytes);
-> +
-> +	/* Kick early so device can process descriptors in parallel with us. */
-> +	if (kick)
-> +		virtqueue_kick(sq->vq);
+> Cheers,
+> Rusty.
 
-Haven't figured out how this will help for bql, consider only a
-netif_stop_subqueue() may be called during two possible kicks. And since
-we don't add any buffer between the two kicks, the send kick is almost
-useless.
-> +
->  	/* Apparently nice girls don't return TX_BUSY; stop the queue
->  	 * before it gets out of hand.  Naturally, this wastes entries. */
->  	if (sq->vq->num_free < 2+MAX_SKB_FRAGS) {
-> @@ -997,7 +1009,7 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
->  
->  	if (unlikely(!virtqueue_enable_cb_delayed(sq->vq))) {
->  		/* More just got used, free them then recheck. */
-> -		free_old_xmit_skbs(sq, qsize);
-> +		free_old_xmit_skbs(txq, sq, qsize);
->  		if (stopped && sq->vq->num_free >= 2+MAX_SKB_FRAGS)
->  			netif_start_subqueue(dev, qnum);
->  	}
+Yes, we could. Recent RFC of enabling tx interrupt use this.
