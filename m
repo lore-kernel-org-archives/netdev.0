@@ -1,41 +1,57 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] staging: octeon: Replace memcpy with ETH_ALEN
-Date: Fri, 17 Oct 2014 12:40:48 -0700
-Message-ID: <1413574848.14629.6.camel@perches.com>
-References: <20141017184705.GA17944@vasu-Inspiron-3542>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] bna: fix skb->truesize underestimation
+Date: Fri, 17 Oct 2014 12:45:55 -0700
+Message-ID: <1413575155.27176.5.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Balavasu <kp.balavasu@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141017184705.GA17944@vasu-Inspiron-3542>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>,
+	Rasesh Mody <rasesh.mody@qlogic.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:59264 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753677AbaJQTp5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Oct 2014 15:45:57 -0400
+Received: by mail-pa0-f54.google.com with SMTP id ey11so1416003pad.13
+        for <netdev@vger.kernel.org>; Fri, 17 Oct 2014 12:45:57 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2014-10-18 at 00:17 +0530, Balavasu wrote:
-> This patch fixes the checkpatch.pl issue
-> WARNING: memcpy(dev->dev_addr, mac, ETH_ALEN);
+From: Eric Dumazet <edumazet@google.com>
 
-That is not the actual warning.
+skb->truesize is not meant to be tracking amount of used bytes
+in an skb, but amount of reserved/consumed bytes in memory.
 
-This is the warning:
+For instance, if we use a single byte in last page fragment,
+we have to account the full size of the fragment.
 
-Prefer ether_addr_copy() over memcpy() if the Ethernet addresses are __aligned(2)
+skb->truesize can be very different from skb->len, that has
+a very specific safety purpose.
 
-How have you made sure that mac can not have odd alignment?
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Rasesh Mody <rasesh.mody@qlogic.com>
+---
+ drivers/net/ethernet/brocade/bna/bnad.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Make sure your commit message shows how you know
-that mac is appropriately aligned.
-
-> diff --git a/drivers/staging/octeon/ethernet.c b/drivers/staging/octeon/ethernet.c
-[]
-> @@ -452,7 +452,7 @@ int cvm_oct_common_init(struct net_device *dev)
->  		mac = of_get_mac_address(priv->of_node);
->  
->  	if (mac)
-> -		memcpy(dev->dev_addr, mac, ETH_ALEN);
-> +		ether_addr_copy(dev->dev_addr, mac);
->  	else
->  		eth_hw_addr_random(dev);
->  
+diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
+index 153cafac323c..c3861de9dc81 100644
+--- a/drivers/net/ethernet/brocade/bna/bnad.c
++++ b/drivers/net/ethernet/brocade/bna/bnad.c
+@@ -552,6 +552,7 @@ bnad_cq_setup_skb_frags(struct bna_rcb *rcb, struct sk_buff *skb,
+ 
+ 		len = (vec == nvecs) ?
+ 			last_fraglen : unmap->vector.len;
++		skb->truesize += unmap->vector.len;
+ 		totlen += len;
+ 
+ 		skb_fill_page_desc(skb, skb_shinfo(skb)->nr_frags,
+@@ -563,7 +564,6 @@ bnad_cq_setup_skb_frags(struct bna_rcb *rcb, struct sk_buff *skb,
+ 
+ 	skb->len += totlen;
+ 	skb->data_len += totlen;
+-	skb->truesize += totlen;
+ }
+ 
+ static inline void
