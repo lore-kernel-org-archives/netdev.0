@@ -1,222 +1,55 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: [PATCH net-next] sfc: add support for skb->xmit_more
-Date: Fri, 17 Oct 2014 15:32:25 +0100
-Message-ID: <alpine.LFD.2.03.1410171512070.3218@solarflare.com>
-References: <1413219585-15854-1-git-send-email-dborkman@redhat.com> <543C13AE.80606@solarflare.com> <543C2588.6060604@redhat.com> <alpine.LFD.2.03.1410141933500.26972@solarflare.com> <543FF408.3000808@solarflare.com>
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Subject: Re: [PATCH] net: use hardware buffer pool to allocate skb
+Date: Fri, 17 Oct 2014 07:40:25 -0700
+Message-ID: <54412A59.7070508@redhat.com>
+References: <1413343571-33231-1-git-send-email-Jiafei.Pan@freescale.com>	 <20141015.002514.384962932982389732.davem@davemloft.net>	 <c02005b9d8794d14bc2149f468ab571c@BY2PR03MB524.namprd03.prod.outlook.com>	 <1413364533.12304.44.camel@edumazet-glaptop2.roam.corp.google.com>	 <524626e093684abeba65839d26e94262@BLUPR03MB517.namprd03.prod.outlook.com>	 <1413432912.28798.7.camel@edumazet-glaptop2.roam.corp.google.com>	 <aeef795129504782ae1e9f91467d243e@BLUPR03MB517.namprd03.prod.outlook.com>	 <543FE413.6030406@redhat.com>	 <1413478657.28798.22.camel@edumazet-glaptop2.roam.corp.google.com>	 <543FFC03.1060207@redhat.com> <1413481529.28798.29.camel@edumazet-glaptop2.roam.corp.google.com> <54400C6C.7010405@redhat.com> <063D6719AE5E284EB5DD2968C1650D6D1C9D895B@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: Edward Cree <ecree@solarflare.com>,
-	Daniel Borkmann <dborkman@redhat.com>, <davem@davemloft.net>,
-	<nikolay@redhat.com>, <netdev@vger.kernel.org>,
-	Shradha Shah <sshah@solarflare.com>,
-	Jon Cooper <jcooper@solarflare.com>,
-	linux-net-drivers <linux-net-drivers@solarflare.com>
-To: Robert Stonehouse <rstonehouse@solarflare.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Jiafei.Pan@freescale.com" <Jiafei.Pan@freescale.com>,
+	David Miller <davem@davemloft.net>,
+	"jkosina@suse.cz" <jkosina@suse.cz>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"LeoLi@freescale.com" <LeoLi@freescale.com>,
+	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>,
+	Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo03.seg.att.com ([209.65.160.84]:12671 "EHLO
-	nbfkord-smmo03.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751408AbaJQOci (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Oct 2014 10:32:38 -0400
-In-Reply-To: <543FF408.3000808@solarflare.com>
+Received: from mx1.redhat.com ([209.132.183.28]:63794 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751816AbaJQOkk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Oct 2014 10:40:40 -0400
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1C9D895B@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Don't ring the doorbell, and don't do PIO.  This will also prevent
- TX Push, because there will be more than one buffer waiting when
- the doorbell is rung.
 
-Signed-off-by: Edward Cree <ecree@solarflare.com>
----
- drivers/net/ethernet/sfc/nic.h | 29 +++++++++++++++++++++++-----
- drivers/net/ethernet/sfc/tx.c  | 43 +++++++++++++++++++-----------------------
- 2 files changed, 43 insertions(+), 29 deletions(-)
+On 10/17/2014 02:11 AM, David Laight wrote:
+> From: Alexander Duyck
+> ...
+>> Actually the likelihood of anything holding onto the 4K page for very
+>> long doesn't seem to occur, at least from the drivers perspective.  It
+>> is one of the reasons why I went for the page reuse approach rather than
+>> just partitioning a single large page.  It allows us to avoid having to
+>> call IOMMU map/unmap for the pages since the entire page is usually back
+>> in the driver ownership before we need to reuse the portion given to the
+>> stack.
+> That is almost certainly true for most benchmarks, benchmark processes
+> consume receive data.
+> But what about real life situations?
+>
+> There must be some 'normal' workloads where receive data doesn't get consumed.
+>
+> 	David
+>
 
-diff --git a/drivers/net/ethernet/sfc/nic.h b/drivers/net/ethernet/sfc/nic.h
-index 60f8514..f77cce0 100644
---- a/drivers/net/ethernet/sfc/nic.h
-+++ b/drivers/net/ethernet/sfc/nic.h
-@@ -71,9 +71,17 @@ efx_tx_desc(struct efx_tx_queue *tx_queue, unsigned int index)
- 	return ((efx_qword_t *) (tx_queue->txd.buf.addr)) + index;
- }
- 
--/* Report whether the NIC considers this TX queue empty, given the
-- * write_count used for the last doorbell push.  May return false
-- * negative.
-+/* Get partner of a TX queue, seen as part of the same net core queue */
-+static struct efx_tx_queue *efx_tx_queue_partner(struct efx_tx_queue *tx_queue)
-+{
-+	if (tx_queue->queue & EFX_TXQ_TYPE_OFFLOAD)
-+		return tx_queue - EFX_TXQ_TYPE_OFFLOAD;
-+	else
-+		return tx_queue + EFX_TXQ_TYPE_OFFLOAD;
-+}
-+
-+/* Report whether this TX queue would be empty for the given write_count.
-+ * May return false negative.
-  */
- static inline bool __efx_nic_tx_is_empty(struct efx_tx_queue *tx_queue,
- 					 unsigned int write_count)
-@@ -86,9 +94,18 @@ static inline bool __efx_nic_tx_is_empty(struct efx_tx_queue *tx_queue,
- 	return ((empty_read_count ^ write_count) & ~EFX_EMPTY_COUNT_VALID) == 0;
- }
- 
--static inline bool efx_nic_tx_is_empty(struct efx_tx_queue *tx_queue)
-+/* Decide whether we can use TX PIO, ie. write packet data directly into
-+ * a buffer on the device.  This can reduce latency at the expense of
-+ * throughput, so we only do this if both hardware and software TX rings
-+ * are empty.  This also ensures that only one packet at a time can be
-+ * using the PIO buffer.
-+ */
-+static inline bool efx_nic_may_tx_pio(struct efx_tx_queue *tx_queue)
- {
--	return __efx_nic_tx_is_empty(tx_queue, tx_queue->write_count);
-+	struct efx_tx_queue *partner = efx_tx_queue_partner(tx_queue);
-+	return tx_queue->piobuf &&
-+	       __efx_nic_tx_is_empty(tx_queue, tx_queue->insert_count) &&
-+	       __efx_nic_tx_is_empty(partner, partner->insert_count);
- }
- 
- /* Decide whether to push a TX descriptor to the NIC vs merely writing
-@@ -96,6 +113,8 @@ static inline bool efx_nic_tx_is_empty(struct efx_tx_queue *tx_queue)
-  * descriptor to an empty queue, but is otherwise pointless.  Further,
-  * Falcon and Siena have hardware bugs (SF bug 33851) that may be
-  * triggered if we don't check this.
-+ * We use the write_count used for the last doorbell push, to get the
-+ * NIC's view of the tx queue.
-  */
- static inline bool efx_nic_may_push_tx_desc(struct efx_tx_queue *tx_queue,
- 					    unsigned int write_count)
-diff --git a/drivers/net/ethernet/sfc/tx.c b/drivers/net/ethernet/sfc/tx.c
-index 3206098..ee84a90 100644
---- a/drivers/net/ethernet/sfc/tx.c
-+++ b/drivers/net/ethernet/sfc/tx.c
-@@ -132,15 +132,6 @@ unsigned int efx_tx_max_skb_descs(struct efx_nic *efx)
- 	return max_descs;
- }
- 
--/* Get partner of a TX queue, seen as part of the same net core queue */
--static struct efx_tx_queue *efx_tx_queue_partner(struct efx_tx_queue *tx_queue)
--{
--	if (tx_queue->queue & EFX_TXQ_TYPE_OFFLOAD)
--		return tx_queue - EFX_TXQ_TYPE_OFFLOAD;
--	else
--		return tx_queue + EFX_TXQ_TYPE_OFFLOAD;
--}
--
- static void efx_tx_maybe_stop_queue(struct efx_tx_queue *txq1)
- {
- 	/* We need to consider both queues that the net core sees as one */
-@@ -344,6 +335,7 @@ netdev_tx_t efx_enqueue_skb(struct efx_tx_queue *tx_queue, struct sk_buff *skb)
- 	struct efx_nic *efx = tx_queue->efx;
- 	struct device *dma_dev = &efx->pci_dev->dev;
- 	struct efx_tx_buffer *buffer;
-+	unsigned int old_insert_count = tx_queue->insert_count;
- 	skb_frag_t *fragment;
- 	unsigned int len, unmap_len = 0;
- 	dma_addr_t dma_addr, unmap_addr = 0;
-@@ -351,7 +343,7 @@ netdev_tx_t efx_enqueue_skb(struct efx_tx_queue *tx_queue, struct sk_buff *skb)
- 	unsigned short dma_flags;
- 	int i = 0;
- 
--	EFX_BUG_ON_PARANOID(tx_queue->write_count != tx_queue->insert_count);
-+	EFX_BUG_ON_PARANOID(tx_queue->write_count > tx_queue->insert_count);
- 
- 	if (skb_shinfo(skb)->gso_size)
- 		return efx_enqueue_skb_tso(tx_queue, skb);
-@@ -369,9 +361,8 @@ netdev_tx_t efx_enqueue_skb(struct efx_tx_queue *tx_queue, struct sk_buff *skb)
- 
- 	/* Consider using PIO for short packets */
- #ifdef EFX_USE_PIO
--	if (skb->len <= efx_piobuf_size && tx_queue->piobuf &&
--	    efx_nic_tx_is_empty(tx_queue) &&
--	    efx_nic_tx_is_empty(efx_tx_queue_partner(tx_queue))) {
-+	if (skb->len <= efx_piobuf_size && !skb->xmit_more &&
-+	    efx_nic_may_tx_pio(tx_queue)) {
- 		buffer = efx_enqueue_skb_pio(tx_queue, skb);
- 		dma_flags = EFX_TX_BUF_OPTION;
- 		goto finish_packet;
-@@ -439,13 +430,14 @@ finish_packet:
- 
- 	netdev_tx_sent_queue(tx_queue->core_txq, skb->len);
- 
-+	efx_tx_maybe_stop_queue(tx_queue);
-+
- 	/* Pass off to hardware */
--	efx_nic_push_buffers(tx_queue);
-+	if (!skb->xmit_more || netif_xmit_stopped(tx_queue->core_txq))
-+		efx_nic_push_buffers(tx_queue);
- 
- 	tx_queue->tx_packets++;
- 
--	efx_tx_maybe_stop_queue(tx_queue);
--
- 	return NETDEV_TX_OK;
- 
-  dma_err:
-@@ -458,7 +450,7 @@ finish_packet:
- 	dev_kfree_skb_any(skb);
- 
- 	/* Work backwards until we hit the original insert pointer value */
--	while (tx_queue->insert_count != tx_queue->write_count) {
-+	while (tx_queue->insert_count != old_insert_count) {
- 		unsigned int pkts_compl = 0, bytes_compl = 0;
- 		--tx_queue->insert_count;
- 		buffer = __efx_tx_queue_get_insert_buffer(tx_queue);
-@@ -989,12 +981,13 @@ static int efx_tso_put_header(struct efx_tx_queue *tx_queue,
- /* Remove buffers put into a tx_queue.  None of the buffers must have
-  * an skb attached.
-  */
--static void efx_enqueue_unwind(struct efx_tx_queue *tx_queue)
-+static void efx_enqueue_unwind(struct efx_tx_queue *tx_queue,
-+			       unsigned int insert_count)
- {
- 	struct efx_tx_buffer *buffer;
- 
- 	/* Work backwards until we hit the original insert pointer value */
--	while (tx_queue->insert_count != tx_queue->write_count) {
-+	while (tx_queue->insert_count != insert_count) {
- 		--tx_queue->insert_count;
- 		buffer = __efx_tx_queue_get_insert_buffer(tx_queue);
- 		efx_dequeue_buffer(tx_queue, buffer, NULL, NULL);
-@@ -1258,13 +1251,14 @@ static int efx_enqueue_skb_tso(struct efx_tx_queue *tx_queue,
- 			       struct sk_buff *skb)
- {
- 	struct efx_nic *efx = tx_queue->efx;
-+	unsigned int old_insert_count = tx_queue->insert_count;
- 	int frag_i, rc;
- 	struct tso_state state;
- 
- 	/* Find the packet protocol and sanity-check it */
- 	state.protocol = efx_tso_check_protocol(skb);
- 
--	EFX_BUG_ON_PARANOID(tx_queue->write_count != tx_queue->insert_count);
-+	EFX_BUG_ON_PARANOID(tx_queue->write_count > tx_queue->insert_count);
- 
- 	rc = tso_start(&state, efx, skb);
- 	if (rc)
-@@ -1308,11 +1302,12 @@ static int efx_enqueue_skb_tso(struct efx_tx_queue *tx_queue,
- 
- 	netdev_tx_sent_queue(tx_queue->core_txq, skb->len);
- 
--	/* Pass off to hardware */
--	efx_nic_push_buffers(tx_queue);
--
- 	efx_tx_maybe_stop_queue(tx_queue);
- 
-+	/* Pass off to hardware */
-+	if (!skb->xmit_more || netif_xmit_stopped(tx_queue->core_txq))
-+		efx_nic_push_buffers(tx_queue);
-+
- 	tx_queue->tso_bursts++;
- 	return NETDEV_TX_OK;
- 
-@@ -1336,6 +1331,6 @@ static int efx_enqueue_skb_tso(struct efx_tx_queue *tx_queue,
- 		dma_unmap_single(&efx->pci_dev->dev, state.header_dma_addr,
- 				 state.header_unmap_len, DMA_TO_DEVICE);
- 
--	efx_enqueue_unwind(tx_queue);
-+	efx_enqueue_unwind(tx_queue, old_insert_count);
- 	return NETDEV_TX_OK;
- }
--- 
-1.7.11.7
+Yes, but for workloads where receive data doesn't get consumed it is 
+very unlikely that much receive data is generated.  As such from the 
+device perspective the time the socket is holding the page is still not 
+all that long as the descriptor ring is not being looped through that 
+quickly.  The page has almost always been freed by the time we have 
+processed our way through the full descriptor ring.
+
+Thanks,
+
+Alex
