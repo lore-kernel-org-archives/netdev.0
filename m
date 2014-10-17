@@ -1,64 +1,54 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: use hardware buffer pool to allocate skb
-Date: Fri, 17 Oct 2014 12:02:19 -0700
-Message-ID: <1413572539.25949.17.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1413343571-33231-1-git-send-email-Jiafei.Pan@freescale.com>
-	 <20141015.002514.384962932982389732.davem@davemloft.net>
-	 <c02005b9d8794d14bc2149f468ab571c@BY2PR03MB524.namprd03.prod.outlook.com>
-	 <1413364533.12304.44.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <524626e093684abeba65839d26e94262@BLUPR03MB517.namprd03.prod.outlook.com>
-	 <1413432912.28798.7.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <aeef795129504782ae1e9f91467d243e@BLUPR03MB517.namprd03.prod.outlook.com>
-	 <543FE413.6030406@redhat.com>
-	 <1413478657.28798.22.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <543FFC03.1060207@redhat.com>
-	 <1413481529.28798.29.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <54400C6C.7010405@redhat.com>
-	 <063D6719AE5E284EB5DD2968C1650D6D1C9D895B@AcuExch.aculab.com>
-	 <54412A59.7070508@redhat.com>
-	 <1413564913.24709.7.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <54415FEA.5000705@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Laight <David.Laight@ACULAB.COM>,
-	"Jiafei.Pan@freescale.com" <Jiafei.Pan@freescale.com>,
-	David Miller <davem@davemloft.net>,
-	"jkosina@suse.cz" <jkosina@suse.cz>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"LeoLi@freescale.com" <LeoLi@freescale.com>,
-	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>
-To: Alexander Duyck <alexander.h.duyck@redhat.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <54415FEA.5000705@redhat.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: [PATCH net 1/1] tipc: fix bug in bundled buffer reception
+Date: Fri, 17 Oct 2014 15:25:28 -0400
+Message-ID: <1413573928-17954-1-git-send-email-jon.maloy@ericsson.com>
+Cc: netdev@vger.kernel.org,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
+	tipc-discussion@lists.sourceforge.net,
+	Jon Maloy <jon.maloy@ericsson.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp105.biz.mail.bf1.yahoo.com ([98.139.221.43]:42293 "EHLO
+	smtp105.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753298AbaJQTZg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Oct 2014 15:25:36 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-10-17 at 11:28 -0700, Alexander Duyck wrote:
+In commit ec8a2e5621db2da24badb3969eda7fd359e1869f ("tipc: same receive
+code path for connection protocol and data messages") we omitted the
+the possiblilty that an arriving message extracted from a bundle buffer
+may be a multicast message. Such messages need to be to be delivered to
+the socket via a separate function, tipc_sk_mcast_rcv(). As a result,
+small multicast messages arriving as members of a bundle buffer will be
+silently dropped.
 
-> So long as it doesn't impact performance significantly I am fine with 
-> it.  My concern is that you are bringing up issues that none of the 
-> customers were brining up when I was at Intel, and the fixes you are 
-> proposing are likely to result in customers seeing things they will 
-> report as issues.
+This commit corrects the error by considering this case in the function
+tipc_link_bundle_rcv().
 
-We regularly hit these issues at Google.
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+---
+ net/tipc/link.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
 
-We have memory containers, and we detect quite easily if some layer is
-lying, because we cant afford having 20% of headroom on our servers.
-
-I am not claiming IGB is the only offender.
-
-I am sorry if you believe it was an attack on IGB, or any network
-driver.
-
-truesize should really be the thing that protects us from OOM,
-and apparently driver authors hitting TCP performance problems
-thinks it is better to simply let TCP do no garbage collection.
-
-It seems that nobody cares or even understand what I am saying,
-so I should probably not care and suggest Google to buy PetaBytes of
-memory, right ?
-
-
-
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index 65410e1..1db162a 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -1924,7 +1924,12 @@ void tipc_link_bundle_rcv(struct sk_buff *buf)
+ 		}
+ 		omsg = buf_msg(obuf);
+ 		pos += align(msg_size(omsg));
+-		if (msg_isdata(omsg) || (msg_user(omsg) == CONN_MANAGER)) {
++		if (msg_isdata(omsg)) {
++			if (unlikely(msg_type(omsg) == TIPC_MCAST_MSG))
++				tipc_sk_mcast_rcv(obuf);
++			else
++				tipc_sk_rcv(obuf);
++		} else if (msg_user(omsg) == CONN_MANAGER) {
+ 			tipc_sk_rcv(obuf);
+ 		} else if (msg_user(omsg) == NAME_DISTRIBUTOR) {
+ 			tipc_named_rcv(obuf);
+-- 
+1.9.1
