@@ -1,46 +1,48 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net] r8152: use cancel_delayed_work for runtime suspend
-Date: Fri, 17 Oct 2014 13:55:29 +0800
-Message-ID: <1394712342-15778-64-Taiwan-albertk@realtek.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
-	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: roy.qing.li@gmail.com
+Subject: [PATCH] openvswitch: fix a use after free
+Date: Fri, 17 Oct 2014 14:03:08 +0800
+Message-ID: <1413525788-2272-1-git-send-email-roy.qing.li@gmail.com>
+Cc: edumazet@google.com, jesse@nicira.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:40868 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751396AbaJQGDO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Oct 2014 02:03:14 -0400
+Received: by mail-pa0-f48.google.com with SMTP id eu11so192216pac.21
+        for <netdev@vger.kernel.org>; Thu, 16 Oct 2014 23:03:14 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-It would cause dead lock for runtime suspend, when the workqueue
-is running and runtime suspend occurs before the workqueue wakes
-up the device. The rtl8152_suspend() waits the workqueue to finish
-because of calling cancel_delayed_work_sync(). The workqueue waits
-the suspend function to finish for waking up the device because of
-calling usb_autopm_get_interface().
+From: Li RongQing <roy.qing.li@gmail.com>
 
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+pskb_may_pull() called by arphdr_ok can change skb->data, so put the arp
+setting after arphdr_ok to avoid the use the freed memory
+
+Fixes: 0714812134d7d ("openvswitch: Eliminate memset() from flow_extract.")
+Cc: Jesse Gross <jesse@nicira.com>
+Cc: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
 ---
- drivers/net/usb/r8152.c | 3 ++-
+ net/openvswitch/flow.c |    3 ++-
  1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index 864159e..7d4e55a 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -3200,12 +3200,13 @@ static int rtl8152_suspend(struct usb_interface *intf, pm_message_t message)
- 	if (netif_running(tp->netdev)) {
- 		clear_bit(WORK_ENABLE, &tp->flags);
- 		usb_kill_urb(tp->intr_urb);
--		cancel_delayed_work_sync(&tp->schedule);
- 		tasklet_disable(&tp->tl);
- 		if (test_bit(SELECTIVE_SUSPEND, &tp->flags)) {
-+			cancel_delayed_work(&tp->schedule);
- 			rtl_stop_rx(tp);
- 			rtl_runtime_suspend_enable(tp, true);
- 		} else {
-+			cancel_delayed_work_sync(&tp->schedule);
- 			tp->rtl_ops.down(tp);
- 		}
- 		tasklet_enable(&tp->tl);
+diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
+index 62db02b..c5cfc72 100644
+--- a/net/openvswitch/flow.c
++++ b/net/openvswitch/flow.c
+@@ -557,10 +557,11 @@ static int key_extract(struct sk_buff *skb, struct sw_flow_key *key)
+ 	} else if (key->eth.type == htons(ETH_P_ARP) ||
+ 		   key->eth.type == htons(ETH_P_RARP)) {
+ 		struct arp_eth_header *arp;
++		bool arp_available = arphdr_ok(skb);
+ 
+ 		arp = (struct arp_eth_header *)skb_network_header(skb);
+ 
+-		if (arphdr_ok(skb) &&
++		if (arp_available &&
+ 		    arp->ar_hrd == htons(ARPHRD_ETHER) &&
+ 		    arp->ar_pro == htons(ETH_P_IP) &&
+ 		    arp->ar_hln == ETH_ALEN &&
 -- 
-1.9.3
+1.7.10.4
