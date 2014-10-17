@@ -1,121 +1,45 @@
-From: Fabian Frederick <fabf@skynet.be>
-Subject: [PATCH 1/1 net-next] netrom: use linux/uaccess.h
-Date: Fri, 17 Oct 2014 22:00:22 +0200
-Message-ID: <1413576023-26717-1-git-send-email-fabf@skynet.be>
-Cc: Fabian Frederick <fabf@skynet.be>,
-	Ralf Baechle <ralf@linux-mips.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-hams@vger.kernel.org, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-hams-owner@vger.kernel.org>
-Sender: linux-hams-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] net: dsa: remove phy.h and phy_fixed.h inclusions
+Date: Fri, 17 Oct 2014 16:19:18 -0400 (EDT)
+Message-ID: <20141017.161918.1724734268959521898.davem@davemloft.net>
+References: <1413507355-28837-1-git-send-email-f.fainelli@gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: f.fainelli@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42461 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753696AbaJQUTU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Oct 2014 16:19:20 -0400
+In-Reply-To: <1413507355-28837-1-git-send-email-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-replace asm/uaccess.h by linux/uaccess.h
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Thu, 16 Oct 2014 17:55:55 -0700
 
-Signed-off-by: Fabian Frederick <fabf@skynet.be>
----
- net/netrom/af_netrom.c | 2 +-
- net/netrom/nr_dev.c    | 2 +-
- net/netrom/nr_in.c     | 2 +-
- net/netrom/nr_out.c    | 2 +-
- net/netrom/nr_route.c  | 2 +-
- net/netrom/nr_subr.c   | 2 +-
- net/netrom/nr_timer.c  | 2 +-
- 7 files changed, 7 insertions(+), 7 deletions(-)
+> There is no need to include phy.h nor phy_fixed.h when we can use
+> forward declarations instead to keep the include chain smaller.
+> 
+> Doing this unveiled that we were implicitely getting the definitions for
+> struct ethtool_eee and struct ethtool_wolinfo, and that net/dsa/slave.c
+> was missing an include of phy_fixed.h.
+> 
+> Fixes: ec9436baedb6 ("net: dsa: allow drivers to do link adjustment")
+> Fixes: ce31b31c68e7 ("net: dsa: allow updating fixed PHY link information")
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 
-diff --git a/net/netrom/af_netrom.c b/net/netrom/af_netrom.c
-index 71cf1bf..1b06a1f 100644
---- a/net/netrom/af_netrom.c
-+++ b/net/netrom/af_netrom.c
-@@ -30,7 +30,7 @@
- #include <linux/skbuff.h>
- #include <net/net_namespace.h>
- #include <net/sock.h>
--#include <asm/uaccess.h>
-+#include <linux/uaccess.h>
- #include <linux/fcntl.h>
- #include <linux/termios.h>	/* For TIOCINQ/OUTQ */
- #include <linux/mm.h>
-diff --git a/net/netrom/nr_dev.c b/net/netrom/nr_dev.c
-index 743262b..6ae063c 100644
---- a/net/netrom/nr_dev.c
-+++ b/net/netrom/nr_dev.c
-@@ -20,8 +20,8 @@
- #include <linux/in.h>
- #include <linux/if_ether.h>	/* For the statistics structure. */
- #include <linux/slab.h>
-+#include <linux/uaccess.h>
- 
--#include <asm/uaccess.h>
- #include <asm/io.h>
- 
- #include <linux/inet.h>
-diff --git a/net/netrom/nr_in.c b/net/netrom/nr_in.c
-index c3073a2..80dbd0b 100644
---- a/net/netrom/nr_in.c
-+++ b/net/netrom/nr_in.c
-@@ -23,7 +23,7 @@
- #include <linux/skbuff.h>
- #include <net/sock.h>
- #include <net/tcp_states.h>
--#include <asm/uaccess.h>
-+#include <linux/uaccess.h>
- #include <linux/fcntl.h>
- #include <linux/mm.h>
- #include <linux/interrupt.h>
-diff --git a/net/netrom/nr_out.c b/net/netrom/nr_out.c
-index 0b4bcb2..00fbf14 100644
---- a/net/netrom/nr_out.c
-+++ b/net/netrom/nr_out.c
-@@ -22,7 +22,7 @@
- #include <linux/netdevice.h>
- #include <linux/skbuff.h>
- #include <net/sock.h>
--#include <asm/uaccess.h>
-+#include <linux/uaccess.h>
- #include <linux/fcntl.h>
- #include <linux/mm.h>
- #include <linux/interrupt.h>
-diff --git a/net/netrom/nr_route.c b/net/netrom/nr_route.c
-index b976d5e..96b64d2 100644
---- a/net/netrom/nr_route.c
-+++ b/net/netrom/nr_route.c
-@@ -25,7 +25,7 @@
- #include <linux/if_arp.h>
- #include <linux/skbuff.h>
- #include <net/sock.h>
--#include <asm/uaccess.h>
-+#include <linux/uaccess.h>
- #include <linux/fcntl.h>
- #include <linux/termios.h>	/* For TIOCINQ/OUTQ */
- #include <linux/mm.h>
-diff --git a/net/netrom/nr_subr.c b/net/netrom/nr_subr.c
-index ca40e22..029c8bb 100644
---- a/net/netrom/nr_subr.c
-+++ b/net/netrom/nr_subr.c
-@@ -22,7 +22,7 @@
- #include <linux/skbuff.h>
- #include <net/sock.h>
- #include <net/tcp_states.h>
--#include <asm/uaccess.h>
-+#include <linux/uaccess.h>
- #include <linux/fcntl.h>
- #include <linux/mm.h>
- #include <linux/interrupt.h>
-diff --git a/net/netrom/nr_timer.c b/net/netrom/nr_timer.c
-index ff2c1b1..94d0580 100644
---- a/net/netrom/nr_timer.c
-+++ b/net/netrom/nr_timer.c
-@@ -23,7 +23,7 @@
- #include <linux/skbuff.h>
- #include <net/sock.h>
- #include <net/tcp_states.h>
--#include <asm/uaccess.h>
-+#include <linux/uaccess.h>
- #include <linux/fcntl.h>
- #include <linux/mm.h>
- #include <linux/interrupt.h>
--- 
-1.9.3
+Please, don't do this.
 
+Get the definitions from the header file that provides them.
+
+The only situation where forward declarations done by hand like this
+make sense is when there is absolutely no way to avoid looping header
+includes.
+
+For example in A.h you want to provide a function that takes a pointer
+to foo, but foo is defined B.h which includes A.h first.
+
+Thanks.
