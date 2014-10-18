@@ -1,30 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] r8152: return -EBUSY for runtime suspend
-Date: Fri, 17 Oct 2014 23:46:53 -0400 (EDT)
-Message-ID: <20141017.234653.505926640053533707.davem@davemloft.net>
-References: <87zjcvgn1x.fsf@nemi.mork.no>
-	<1394712342-15778-65-Taiwan-albertk@realtek.com>
+Subject: Re: [PATCH net-next] sfc: add support for skb->xmit_more
+Date: Fri, 17 Oct 2014 23:47:43 -0400 (EDT)
+Message-ID: <20141017.234743.475679360135422258.davem@davemloft.net>
+References: <alpine.LFD.2.03.1410141933500.26972@solarflare.com>
+	<543FF408.3000808@solarflare.com>
+	<alpine.LFD.2.03.1410171512070.3218@solarflare.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
-	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
-To: hayeswang@realtek.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394712342-15778-65-Taiwan-albertk@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: rstonehouse@solarflare.com, dborkman@redhat.com,
+	nikolay@redhat.com, netdev@vger.kernel.org, sshah@solarflare.com,
+	jcooper@solarflare.com, linux-net-drivers@solarflare.com
+To: ecree@solarflare.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44340 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751483AbaJRDrp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Oct 2014 23:47:45 -0400
+In-Reply-To: <alpine.LFD.2.03.1410171512070.3218@solarflare.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Hayes Wang <hayeswang@realtek.com>
-Date: Fri, 17 Oct 2014 16:55:08 +0800
+From: Edward Cree <ecree@solarflare.com>
+Date: Fri, 17 Oct 2014 15:32:25 +0100
 
-> Remove calling cancel_delayed_work_sync() for runtime suspend,
-> because it would cause dead lock. Instead, return -EBUSY to
-> avoid the device enters suspending if the net is running and
-> the delayed work is pending or running. The delayed work would
-> try to wake up the device later, so the suspending is not
-> necessary.
+> Don't ring the doorbell, and don't do PIO.  This will also prevent
+>  TX Push, because there will be more than one buffer waiting when
+>  the doorbell is rung.
 > 
-> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+> Signed-off-by: Edward Cree <ecree@solarflare.com>
 
-Applied.
+Applied, thanks.
