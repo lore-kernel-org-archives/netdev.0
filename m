@@ -1,29 +1,29 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH] net: m_can: add CONFIG_HAS_IOMEM dependence
-Date: Sat, 18 Oct 2014 18:30:02 +0200
-Message-ID: <20141018163001.GA24931@pengutronix.de>
-References: <1413409310-14117-1-git-send-email-david.a.cohen@linux.intel.com>
+Subject: Re: [PATCH] net: can: esd_usb2: fix memory leak on disconnect
+Date: Sat, 18 Oct 2014 18:48:07 +0200
+Message-ID: <20141018164806.GA27828@pengutronix.de>
+References: <1412973067-29707-1-git-send-email-khoroshilov@ispras.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: wg@grandegger.com, linux-can@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	trivial@kernel.org
-To: David Cohen <david.a.cohen@linux.intel.com>
+Cc: Matthias Fuchs <matthias.fuchs@esd.eu>,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	linux-can@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
+To: Alexey Khoroshilov <khoroshilov@ispras.ru>
 Return-path: <linux-can-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1413409310-14117-1-git-send-email-david.a.cohen@linux.intel.com>
+In-Reply-To: <1412973067-29707-1-git-send-email-khoroshilov@ispras.ru>
 Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 15, 2014 at 02:41:50PM -0700, David Cohen wrote:
-> m_can uses io memory which makes it not compilable on architectures
-> without HAS_IOMEM such as UML:
+On Sat, Oct 11, 2014 at 12:31:07AM +0400, Alexey Khoroshilov wrote:
+> It seems struct esd_usb2 dev is not deallocated on disconnect.
 > 
-> drivers/built-in.o: In function `m_can_plat_probe':
-> m_can.c:(.text+0x218cc5): undefined reference to `devm_ioremap_resource'
-> m_can.c:(.text+0x218df9): undefined reference to `devm_ioremap'
+> The patch adds the deallocation.
 > 
-> Signed-off-by: David Cohen <david.a.cohen@linux.intel.com>
+> Found by Linux Driver Verification project (linuxtesting.org).
+> 
+> Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
 
 Applied to the can tree.
 
