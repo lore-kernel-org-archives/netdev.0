@@ -1,70 +1,35 @@
-From: Vinson Lee <vlee@twopensource.com>
-Subject: [stable request <= 3.11] net/mlx4_en: Fix BlueFlame race
-Date: Sat, 18 Oct 2014 14:14:51 -0700
-Message-ID: <CAHTgTXVn1479XCoh1-j=Xghtad3zA-hf0za5r_AyoaKuKeFZ2g@mail.gmail.com>
+From: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH net] r8152: use cancel_delayed_work for runtime suspend
+Date: Sat, 18 Oct 2014 21:48:19 +0200
+Message-ID: <1413661699.19391.2.camel@linux-0dmf.site>
+References: <1394712342-15778-64-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-	Amir Vadai <amirv@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Eugenia Emantayev <eugenia@mellanox.com>,
-	Matan Barak <matanb@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f182.google.com ([209.85.216.182]:41165 "EHLO
-	mail-qc0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750807AbaJRVOw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Oct 2014 17:14:52 -0400
-Received: by mail-qc0-f182.google.com with SMTP id i17so2143488qcy.13
-        for <netdev@vger.kernel.org>; Sat, 18 Oct 2014 14:14:51 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1394712342-15778-64-Taiwan-albertk-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi.
+On Fri, 2014-10-17 at 13:55 +0800, Hayes Wang wrote:
+> It would cause dead lock for runtime suspend, when the workqueue
+> is running and runtime suspend occurs before the workqueue wakes
+> up the device. The rtl8152_suspend() waits the workqueue to finish
+> because of calling cancel_delayed_work_sync(). The workqueue waits
+> the suspend function to finish for waking up the device because of
+> calling usb_autopm_get_interface().
 
-Please consider backporting upstream commit
-2d4b646613d6b12175b017aca18113945af1faf3 "net/mlx4_en: Fix BlueFlame
-race" to stable kernels <= 3.11.
+The diagnosis is good, the fix is not good. It opens a race
+during which the queued work can touch a suspended device.
 
-commit 2d4b646613d6b12175b017aca18113945af1faf3
-Author: Eugenia Emantayev <eugenia@mellanox.com>
-Date:   Thu Jul 25 19:21:23 2013 +0300
+	Regards
+		Oliver
 
-    net/mlx4_en: Fix BlueFlame race
 
-    Fix a race between BlueFlame flow and stamping in post send flow.
-    Example:
-        SW: Build WQE 0 on the TX buffer, except the ownership bit
-        SW: Set ownership for WQE 0 on the TX buffer
-        SW: Ring doorbell for WQE 0
-        SW: Build WQE 1 on the TX buffer, except the ownership bit
-        SW: Set ownership for WQE 1 on the TX buffer
-        HW: Read WQE 0 and then WQE 1, before doorbell was rung/BF was
-done for WQE 1
-        HW: Produce CQEs for WQE 0 and WQE 1
-        SW: Process the CQEs, and stamp WQE 0 and WQE 1 accordingly
-(on the TX buffer)
-        SW: Copy WQE 1 from the TX buffer to the BF register - ALREADY STAMPED!
-        HW: CQE error with index 0xFFFF  - the BF WQE's control
-segment is STAMPED,
-                so the BF index is 0xFFFF. Error: Invalid Opcode.
-    As a result QP enters the error state and no traffic can be sent.
-
-    Solution:
-    When stamping - do not stamp last completed wqe.
-
-    Signed-off-by: Eugenia Emantayev <eugenia@mellanox.com>
-    Signed-off-by: Amir Vadai <amirv@mellanox.com>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
-This patch fixes Mellanox network card packet send failures on Linux
-kernel 3.10.
-
-Tested-by: Chris Suttles <csuttles@twitter.com>
-Tested-by: David Mackey <tdmackey@twitter.com>
-Tested-by: Matthew Mullins <mmullins@twopensource.com>
-Tested-by: Vinson Lee <vlee@twitter.com>
-
-Cheers,
-Vinson
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
