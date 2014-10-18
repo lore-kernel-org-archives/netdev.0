@@ -1,58 +1,79 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH v2] vxlan: remove the dead codes
-Date: Sat, 18 Oct 2014 11:20:44 +0200
-Message-ID: <20141018112044.77939a2e@uryu.home.lan>
-References: <1413525844-2406-1-git-send-email-roy.qing.li@gmail.com>
-	<CAHA+R7O7Yyd2XMkMnv5b_TLFekPCRRtOGG7bHgHs2Qd+YRu3Hg@mail.gmail.com>
-	<20141017.162449.747433271390481594.davem@davemloft.net>
+From: Weiping Pan <panweiping3@gmail.com>
+Subject: Re: [PATCH] tcp: refine autocork condition check
+Date: Sat, 18 Oct 2014 17:22:09 +0800
+Message-ID: <54423141.2040800@gmail.com>
+References: <8e0610510498c7f6ecbe2e99ab6044030f93f792.1413369212.git.panweiping3@gmail.com> <1413373669.17365.25.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: cwang@twopensource.com, roy.qing.li@gmail.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, edumazet@google.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f46.google.com ([209.85.215.46]:64474 "EHLO
-	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750860AbaJRJVL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Oct 2014 05:21:11 -0400
-Received: by mail-la0-f46.google.com with SMTP id gi9so1832741lab.33
-        for <netdev@vger.kernel.org>; Sat, 18 Oct 2014 02:21:09 -0700 (PDT)
-In-Reply-To: <20141017.162449.747433271390481594.davem@davemloft.net>
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:53534 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750881AbaJRJWP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 18 Oct 2014 05:22:15 -0400
+Received: by mail-pd0-f173.google.com with SMTP id g10so2123999pdj.4
+        for <netdev@vger.kernel.org>; Sat, 18 Oct 2014 02:22:15 -0700 (PDT)
+In-Reply-To: <1413373669.17365.25.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 17 Oct 2014 16:24:49 -0400 (EDT)
-David Miller <davem@davemloft.net> wrote:
 
-> From: Cong Wang <cwang@twopensource.com>
-> Date: Fri, 17 Oct 2014 10:33:08 -0700
-> 
-> > On Thu, Oct 16, 2014 at 11:04 PM,  <roy.qing.li@gmail.com> wrote:
-> >> From: Li RongQing <roy.qing.li@gmail.com>
-> >>
-> >> remove the dead codes, no user uses vxlan_salt
-> >>
-> >> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
-> >> ---
-> >>  drivers/net/vxlan.c |    4 ----
-> >>  1 file changed, 4 deletions(-)
-> >>
-> >> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-> >> index 77ab844..855a81d 100644
-> >> --- a/drivers/net/vxlan.c
-> >> +++ b/drivers/net/vxlan.c
-> >> @@ -152,8 +152,6 @@ struct vxlan_dev {
-> >>         struct hlist_head fdb_head[FDB_HASH_SIZE];
-> >>  };
-> >>
-> >> -/* salt for hash table */
-> >> -static u32 vxlan_salt __read_mostly;
-> > 
-> > Hmm, it has never been used since it was born. Maybe we should
-> > really use for vxlan hash table?
-> 
-> Yes, agreed, and I am very sure that this was Stephen Hemminger's
-> original intention.
+On 10/15/2014 07:47 PM, Eric Dumazet wrote:
+> On Wed, 2014-10-15 at 18:34 +0800, Weiping Pan wrote:
+>> Inspired by commit b2532eb9abd8 (tcp: fix ooo_okay setting vs Small Queues).
+>>
+>> The last check in tcp_should_autocork() was meant to check that whether we
+>> only have an ACK in Qdisc/NIC queues, or if TX completion was delayed after we
+>> processed ACK packet, if so, we should push the packet immediately instead of
+>> corking it.
+>> Therefore we should compare sk_wmem_alloc with SKB_TRUESIZE(1) instead of
+>> skb->truesize.
+>>
+>> After this patch, tcp should have more chances to be corked, and the
+>> performance should be a little better.  And netperf shows that this patch
+>> works as expected.
+>>
+>> ./super_netperf.sh 300 -H 10.16.42.249 -t TCP_STREAM -- -m 1 -M 1
+>> 	      speed	TCPAutoCorking
+>> Before patch: 169.38    222278
+>> After patch:  173.27    232988
+>>
+> I do not see how this patch changes anything on this workload, I suspect
+> noise in your tests ? Full nstat output would give some hints maybe.
+>
+> TCP_STREAM netperfs send no ACK packets at all.
+>
+> I am concerned that this patch adds some latencies, and this wont be
+> seen with your TCP_STREAM test.
+>
+> Autocorking is a trade off between throughput and latencies.
+>
+> We need extensive tests, using TCP_RR with various sizes.
+With different packet size (1 128 1024 4096 10240 65536 131072),
+TCP_RR test shows that the throughput does not have much difference,
+and so with CPU usage and  TCPAutoCorking times.
 
-yes. never did rekeying, and it would have been hard.
+I thought pure ack would block the next data packet, but actually it is not.
+I think that is because  pure ack is sent out before the next data 
+packet is ready for transmit,
+or it can be piggybacked.
+
+>
+> Existing behavior is telling that if a prior packet is in qdisc, and
+> this skb has a bigger truesize, we do not autocork.
+>
+>
+> In practice, you might hold now packets that are quite big, (more than
+> SKB_WITH_OVERHEAD(2048 - MAX_TCP_HEADER) bytes of payload.
+>
+> Typical cases is applications using two writes, one to send a small
+> header, one for the body of the request/answer.
+
+> Existing code is better because we allow the second send() to be pushed
+> to the qdisc/NIC, before first send is TX completed.
+Agreed.
+
+thanks
+Weiping Pan
