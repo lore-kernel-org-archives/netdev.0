@@ -1,38 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/1] tipc: fix bug in bundled buffer reception
-Date: Fri, 17 Oct 2014 23:51:18 -0400 (EDT)
-Message-ID: <20141017.235118.952173064143384619.davem@davemloft.net>
-References: <1413573928-17954-1-git-send-email-jon.maloy@ericsson.com>
+Subject: Re: [PATCH] dsa: Fix conversion from host device to mii bus
+Date: Fri, 17 Oct 2014 23:52:34 -0400 (EDT)
+Message-ID: <20141017.235234.1984288210914297505.davem@davemloft.net>
+References: <1413574258-21766-1-git-send-email-linux@roeck-us.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, paul.gortmaker@windriver.com,
-	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
-	tipc-discussion@lists.sourceforge.net
-To: jon.maloy@ericsson.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44362 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751425AbaJRDvU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Oct 2014 23:51:20 -0400
-In-Reply-To: <1413573928-17954-1-git-send-email-jon.maloy@ericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: f.fainelli@gmail.com, alexander.h.duyck@intel.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux@roeck-us.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1413574258-21766-1-git-send-email-linux@roeck-us.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jon Maloy <jon.maloy@ericsson.com>
-Date: Fri, 17 Oct 2014 15:25:28 -0400
+From: Guenter Roeck <linux@roeck-us.net>
+Date: Fri, 17 Oct 2014 12:30:58 -0700
 
-> In commit ec8a2e5621db2da24badb3969eda7fd359e1869f ("tipc: same receive
-> code path for connection protocol and data messages") we omitted the
-> the possiblilty that an arriving message extracted from a bundle buffer
-> may be a multicast message. Such messages need to be to be delivered to
-> the socket via a separate function, tipc_sk_mcast_rcv(). As a result,
-> small multicast messages arriving as members of a bundle buffer will be
-> silently dropped.
+> Commit b4d2394d01bc ("dsa: Replace mii_bus with a generic host device")
+> replaces mii_bus with a generic host_dev, and introduces
+> dsa_host_dev_to_mii_bus() to support conversion from host_dev to mii_bus.
+> However, in some cases it uses to_mii_bus to perform that conversion.
+> Since host_dev is not the phy bus device but typically a platform device,
+> this fails and results in a crash with the affected drivers.
 > 
-> This commit corrects the error by considering this case in the function
-> tipc_link_bundle_rcv().
+> BUG: unable to handle kernel NULL pointer dereference at           (null)
+> IP: [<ffffffff81781d35>] __mutex_lock_slowpath+0x75/0x100
+> PGD 406783067 PUD 406784067 PMD 0
+> Oops: 0002 [#1] SMP
+> ...
+> Call Trace:
+> [<ffffffff810a538b>] ? pick_next_task_fair+0x61b/0x880
+> [<ffffffff81781de3>] mutex_lock+0x23/0x37
+> [<ffffffff81533244>] mdiobus_read+0x34/0x60
+> [<ffffffff8153b95a>] __mv88e6xxx_reg_read+0x8a/0xa0
+> [<ffffffff8153b9bc>] mv88e6xxx_reg_read+0x4c/0xa0
 > 
-> Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+> Fixes: b4d2394d01bc ("dsa: Replace mii_bus with a generic host device")
+> Cc: Alexander Duyck <alexander.h.duyck@intel.com>
+> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
 
-Applied and queued up for -stable.
+Applied, thanks.
