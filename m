@@ -1,34 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] openvswitch: Set flow-key members.
-Date: Fri, 17 Oct 2014 23:55:15 -0400 (EDT)
-Message-ID: <20141017.235515.1327759792955010942.davem@davemloft.net>
-References: <1413579391-1470-1-git-send-email-pshelar@nicira.com>
+Subject: Re: [PATCH net] bna: fix skb->truesize underestimation
+Date: Fri, 17 Oct 2014 23:56:58 -0400 (EDT)
+Message-ID: <20141017.235658.809511246236814038.davem@davemloft.net>
+References: <1413575155.27176.5.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: pshelar@nicira.com
+Cc: netdev@vger.kernel.org, rasesh.mody@qlogic.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44393 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44400 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751706AbaJRDzQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Oct 2014 23:55:16 -0400
-In-Reply-To: <1413579391-1470-1-git-send-email-pshelar@nicira.com>
+	with ESMTP id S1751569AbaJRD5A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Oct 2014 23:57:00 -0400
+In-Reply-To: <1413575155.27176.5.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pravin B Shelar <pshelar@nicira.com>
-Date: Fri, 17 Oct 2014 13:56:31 -0700
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 17 Oct 2014 12:45:55 -0700
 
-> This patch adds missing memset which are required to initialize
-> flow key member. For example for IP flow we need to initialize
-> ip.frag for all cases.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Found by inspection.
+> skb->truesize is not meant to be tracking amount of used bytes
+> in an skb, but amount of reserved/consumed bytes in memory.
 > 
-> This bug is introduced by commit 0714812134d7dcadeb7ecfbfeb18788aa7e1eaac
-> ("openvswitch: Eliminate memset() from flow_extract").
+> For instance, if we use a single byte in last page fragment,
+> we have to account the full size of the fragment.
 > 
-> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+> skb->truesize can be very different from skb->len, that has
+> a very specific safety purpose.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
 Applied.
