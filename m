@@ -1,53 +1,58 @@
-From: WEBMASTER <consu@ivss.gob.ve>
-Subject: =?UTF-8?Q?=D0=9F=D0=BE=D1=88=D1=82=D0=BE=D0=B2=D0=B0=D0=BD=D0=B8=20=D0=BA?=
- =?UTF-8?Q?=D0=BE=D1=80=D0=B8=D1=81=D0=BD=D0=B8=D1=87=D0=B5?=
-Date: Sat, 18 Oct 2014 03:47:31 -0430
-Message-ID: <4a9be585ff146e84205af40de0f1ab2d@ivss.gob.ve>
-Reply-To: weblinkss@qq.com
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH v2] vxlan: remove the dead codes
+Date: Sat, 18 Oct 2014 11:20:44 +0200
+Message-ID: <20141018112044.77939a2e@uryu.home.lan>
+References: <1413525844-2406-1-git-send-email-roy.qing.li@gmail.com>
+	<CAHA+R7O7Yyd2XMkMnv5b_TLFekPCRRtOGG7bHgHs2Qd+YRu3Hg@mail.gmail.com>
+	<20141017.162449.747433271390481594.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: cwang@twopensource.com, roy.qing.li@gmail.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from correo.ivss.gob.ve ([200.109.237.55]:48411 "HELO
-	srvcorreo.ivss.int" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with SMTP id S1750860AbaJRI1D convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Oct 2014 04:27:03 -0400
+Received: from mail-la0-f46.google.com ([209.85.215.46]:64474 "EHLO
+	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750860AbaJRJVL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 18 Oct 2014 05:21:11 -0400
+Received: by mail-la0-f46.google.com with SMTP id gi9so1832741lab.33
+        for <netdev@vger.kernel.org>; Sat, 18 Oct 2014 02:21:09 -0700 (PDT)
+In-Reply-To: <20141017.162449.747433271390481594.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, 17 Oct 2014 16:24:49 -0400 (EDT)
+David Miller <davem@davemloft.net> wrote:
 
+> From: Cong Wang <cwang@twopensource.com>
+> Date: Fri, 17 Oct 2014 10:33:08 -0700
+> 
+> > On Thu, Oct 16, 2014 at 11:04 PM,  <roy.qing.li@gmail.com> wrote:
+> >> From: Li RongQing <roy.qing.li@gmail.com>
+> >>
+> >> remove the dead codes, no user uses vxlan_salt
+> >>
+> >> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+> >> ---
+> >>  drivers/net/vxlan.c |    4 ----
+> >>  1 file changed, 4 deletions(-)
+> >>
+> >> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+> >> index 77ab844..855a81d 100644
+> >> --- a/drivers/net/vxlan.c
+> >> +++ b/drivers/net/vxlan.c
+> >> @@ -152,8 +152,6 @@ struct vxlan_dev {
+> >>         struct hlist_head fdb_head[FDB_HASH_SIZE];
+> >>  };
+> >>
+> >> -/* salt for hash table */
+> >> -static u32 vxlan_salt __read_mostly;
+> > 
+> > Hmm, it has never been used since it was born. Maybe we should
+> > really use for vxlan hash table?
+> 
+> Yes, agreed, and I am very sure that this was Stephen Hemminger's
+> original intention.
 
---=20
-=D0=9F=D0=BE=D1=88=D1=82=D0=BE=D0=B2=D0=B0=D0=BD=D0=B8 =D0=BA=D0=BE=D1=80=
-=D0=B8=D1=81=D0=BD=D0=B8=D1=87=D0=B5 ,
-=D0=92=D0=B0=D1=88=D0=B5 =D0=BF=D0=BE=D1=88=D1=82=D0=B0=D0=BD=D1=81=D0=BA=
-=D0=BE =D1=81=D0=B0=D0=BD=D0=B4=D1=83=D1=87=D0=B5 =D1=98=D0=B5 =D0=BF=D1=
-=80=D0=B5=D0=BC=D0=B0=D1=88=D0=B8=D0=BB=D0=B0 1=D0=93=D0=91 =D0=BE=D1=81=
-=D0=BD=D0=BE=D0=B2=D0=B0=D0=BD=D0=B0 =D1=83 =D0=BD=D0=B0=D1=88=D0=BE=D1=
-=98 =D0=BC=D0=B0=D0=B8=D0=BB =D1=81=D0=B5=D1=80=D0=B2=D0=B5=D1=80 .
-=D0=9A=D0=BE=D1=80=D0=B8=D1=81=D1=82=D0=B8=D1=82=D0=B5 =D0=B2=D0=B8=D1=88=
-=D0=B5 =D0=BE=D0=B4 1,5 =D0=93=D0=91 , =D0=B0 =D0=BC=D0=BE=D0=B6=D0=B4=D0=
-=B0 =D0=BD=D0=B5=D1=9B=D0=B5=D1=82=D0=B5 =D1=81=D0=BB=D0=B0=D1=82=D0=B8=
- =D0=B8=D0=BB=D0=B8 =D0=BF=D1=80=D0=B8=D0=BC=D0=B0=D1=82=D0=B8 =D0=BD=D0=
-=BE=D0=B2=D1=83 =D0=BF=D0=BE=D1=88=D1=82=D1=83 =D0=B4=D0=BE=D0=BA
-=D0=BD=D0=B0=D0=B4=D0=BE=D0=B3=D1=80=D0=B0=D1=92=D1=83=D1=98=D0=B5=D1=82=
-=D0=B5 2=D0=93=D0=91 =D0=BF=D0=BE=D1=88=D1=82=D0=B0=D0=BD=D1=81=D0=BA=D0=
-=BE =D1=81=D0=B0=D0=BD=D0=B4=D1=83=D1=87=D0=B5 .
-
-=D0=94=D0=B0 =D0=B1=D0=B8=D1=81=D1=82=D0=B5 =D0=B0=D0=B6=D1=83=D1=80=D0=
-=B8=D1=80=D0=B0=D0=BB=D0=B8 =D1=81=D0=B2=D0=BE=D1=98=D0=B5 =D0=BF=D0=BE=
-=D1=88=D1=82=D0=B0=D0=BD=D1=81=D0=BA=D0=BE =D1=81=D0=B0=D0=BD=D0=B4=D1=83=
-=D1=87=D0=B5 , =D1=83=D0=BD=D0=B5=D1=81=D0=B8=D1=82=D0=B5=D1=81=D0=BB=D0=
-=B5=D0=B4=D0=B5=D1=9B=D0=B5 :
-
-( 1 ) =D0=95 - =D0=BC=D0=B0=D0=B8=D0=BB :
-( 2 ) =D0=9A=D0=BE=D1=80=D0=B8=D1=81=D0=BD=D0=B8=D1=87=D0=BA=D0=BE =D0=98=
-=D0=BC=D0=B5 :
-( 3 ) =D0=9B=D0=BE=D0=B7=D0=B8=D0=BD=D0=BA=D0=B0 :
-( 4 ) =D0=9F=D0=BE=D1=82=D0=B2=D1=80=D0=B4=D0=B0 =D0=BB=D0=BE=D0=B7=D0=B8=
-=D0=BD=D0=BA=D0=B5 :
-
-=D1=85=D0=B2=D0=B0=D0=BB=D0=B0
-=D0=A1=D0=B8=D1=81=D1=82=D0=B5=D0=BC =D0=90=D0=B4=D0=BC=D0=B8=D0=BD=D0=B8=
-=D1=81=D1=82=D1=80=D0=B0=D1=82=D0=BE=D1=80
+yes. never did rekeying, and it would have been hard.
