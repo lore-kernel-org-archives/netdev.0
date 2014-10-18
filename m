@@ -1,50 +1,56 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 1/2] staging: lustre: lnet: lnet: do not initialise 0
-Date: Sat, 18 Oct 2014 21:04:43 +0400
-Message-ID: <54429DAB.4060906@cogentembedded.com>
-References: <20141018040330.GA23492@vasu-Inspiron-3542>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ipv6: fix a potential use after free in sit.c
+Date: Sat, 18 Oct 2014 13:07:20 -0400 (EDT)
+Message-ID: <20141018.130720.448065424567018228.davem@davemloft.net>
+References: <1413624818-20804-1-git-send-email-roy.qing.li@gmail.com>
+	<1413647540.27176.36.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org
-To: Balavasu <kp.balavasu@gmail.com>, netdev@vger.kernel.org
+Cc: roy.qing.li@gmail.com, netdev@vger.kernel.org,
+	ghorbel@pivasoftware.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f49.google.com ([209.85.215.49]:39321 "EHLO
-	mail-la0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751394AbaJRRFC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Oct 2014 13:05:02 -0400
-Received: by mail-la0-f49.google.com with SMTP id q1so2109431lam.36
-        for <netdev@vger.kernel.org>; Sat, 18 Oct 2014 10:05:00 -0700 (PDT)
-In-Reply-To: <20141018040330.GA23492@vasu-Inspiron-3542>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47745 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751268AbaJRRHW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 18 Oct 2014 13:07:22 -0400
+In-Reply-To: <1413647540.27176.36.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sat, 18 Oct 2014 08:52:20 -0700
 
-On 10/18/2014 8:03 AM, Balavasu wrote:
+> On Sat, 2014-10-18 at 17:33 +0800, roy.qing.li@gmail.com wrote:
+>> From: Li RongQing <roy.qing.li@gmail.com>
+>> 
+>> pskb_may_pull() maybe change skb->data and make iph pointer oboslete,
+>> fix it by geting ip header length directly.
+>> 
+>> Fixes: ca15a078 (sit: generate icmpv6 error when receiving icmpv4 error)
+>> Cc: Oussama Ghorbel <ghorbel@pivasoftware.com>
+>> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+>> ---
+>>  net/ipv6/sit.c |    6 +++---
+>>  1 file changed, 3 insertions(+), 3 deletions(-)
+> 
+> Acked-by: Eric Dumazet <edumazet@google.com>
+> 
+> Thanks for doing all these checks !
 
-> This patch fixes the checkpatch.pl issue
-> Error:do not initialise statics to 0 or NULL
+Indeed, I wish we could somehow automate this.
 
-> Signed-off-by: Balavasu <kp.balavasu@gmail.com>
-> ---
->   drivers/staging/lustre/lnet/lnet/router.c | 10 +++++-----
->   1 file changed, 5 insertions(+), 5 deletions(-)
+Yes, I'm sure we could construct some sparse et al. rules but
+I mean at run time.  For example, having a special pointer type
+that you can't dereference directly.  At the time of assignment
+the pointer gets some kind of state, and pskb_may_pull() et al.
+calls invalidate that "state".
 
-> diff --git a/drivers/staging/lustre/lnet/lnet/router.c b/drivers/staging/lustre/lnet/lnet/router.c
-> index b5b8fb5..b6edf1f 100644
-> --- a/drivers/staging/lustre/lnet/lnet/router.c
-> +++ b/drivers/staging/lustre/lnet/lnet/router.c
-[...]
-> @@ -80,7 +80,7 @@ lnet_peer_buffer_credits(lnet_ni_t *ni)
->
->   #endif
->
-> -static int check_routers_before_use = 0;
-> +static int check_routers_before_use = {0};
+It probably could just be a 2-bit counter which is incremented
+every time skb->data is reallocated.
 
-    Eh? I thought {} is only for arrays/structures...
+The captured 2-bit generation count could be stored in the low
+bits of the pointer.
 
-[...]
-
-WBR, Sergei
+Anyways, just throwing out ideas...
