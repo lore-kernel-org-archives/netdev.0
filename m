@@ -1,53 +1,36 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: use hardware buffer pool to allocate skb
-Date: Fri, 17 Oct 2014 17:26:00 -0700
-Message-ID: <1413591960.27176.26.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1413343571-33231-1-git-send-email-Jiafei.Pan@freescale.com>
-	 <20141015.002514.384962932982389732.davem@davemloft.net>
-	 <c02005b9d8794d14bc2149f468ab571c@BY2PR03MB524.namprd03.prod.outlook.com>
-	 <1413364533.12304.44.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <524626e093684abeba65839d26e94262@BLUPR03MB517.namprd03.prod.outlook.com>
-	 <1413432912.28798.7.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <aeef795129504782ae1e9f91467d243e@BLUPR03MB517.namprd03.prod.outlook.com>
-	 <543FE413.6030406@redhat.com>
-	 <1413478657.28798.22.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <543FFC03.1060207@redhat.com>
-	 <1413481529.28798.29.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <54400C6C.7010405@redhat.com>
-	 <063D6719AE5E284EB5DD2968C1650D6D1C9D895B@AcuExch.aculab.com>
-	 <54412A59.7070508@redhat.com>
-	 <1413564913.24709.7.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <54415FEA.5000705@redhat.com>
-	 <1413571980.25949.9.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next,v3] hyperv: Add handling of IP header with
+ option field in netvsc_set_hash()
+Date: Fri, 17 Oct 2014 23:43:58 -0400 (EDT)
+Message-ID: <20141017.234358.41209953117216295.davem@davemloft.net>
+References: <1413496078-25066-1-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: David Laight <David.Laight@ACULAB.COM>,
-	"Jiafei.Pan@freescale.com" <Jiafei.Pan@freescale.com>,
-	David Miller <davem@davemloft.net>,
-	"jkosina@suse.cz" <jkosina@suse.cz>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"LeoLi@freescale.com" <LeoLi@freescale.com>,
-	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>
-To: Alexander Duyck <alexander.h.duyck@redhat.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <1413571980.25949.9.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-doc-owner@vger.kernel.org
+Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
+ driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org
+To: haiyangz@microsoft.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1413496078-25066-1-git-send-email-haiyangz@microsoft.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2014-10-17 at 11:53 -0700, Eric Dumazet wrote:
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Date: Thu, 16 Oct 2014 14:47:58 -0700
 
-> Don't worry, I will work on it.
+> In case that the IP header has optional field at the end, this patch will
+> get the port numbers after that field, and compute the hash. The general
+> parser skb_flow_dissect() is used here.
+> 
+> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
 
-A very simple head drop strategy instead of tail drop on the socket
-backlog seems to do the trick :
-
-TCP behaves way better when there are head drops, as fast retransmits
-can usually close the gap without any added delay. Sender automatically
-adjusts its cwnd (or rate) according to the receiver skb->truesize /
-skb->len ratio
-
-
-
-
-
+Applied, thanks.
