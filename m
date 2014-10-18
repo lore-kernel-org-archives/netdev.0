@@ -1,81 +1,70 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: [PATCH iproute2] ss: Fixed broken output for Netlink 'Peer Address:Port' column
-Date: Sat, 18 Oct 2014 20:46:29 +0300
-Message-ID: <1413654389-8596-1-git-send-email-vadim4j@gmail.com>
-Cc: Vadim Kochan <vadim4j@gmail.com>
-To: netdev@vger.kernel.org
+From: Vinson Lee <vlee@twopensource.com>
+Subject: [stable request <= 3.11] net/mlx4_en: Fix BlueFlame race
+Date: Sat, 18 Oct 2014 14:14:51 -0700
+Message-ID: <CAHTgTXVn1479XCoh1-j=Xghtad3zA-hf0za5r_AyoaKuKeFZ2g@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	Amir Vadai <amirv@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Jack Morgenstein <jackm@dev.mellanox.co.il>,
+	Eugenia Emantayev <eugenia@mellanox.com>,
+	Matan Barak <matanb@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f46.google.com ([209.85.215.46]:56896 "EHLO
-	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751077AbaJRRzZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Oct 2014 13:55:25 -0400
-Received: by mail-la0-f46.google.com with SMTP id gi9so2139328lab.19
-        for <netdev@vger.kernel.org>; Sat, 18 Oct 2014 10:55:23 -0700 (PDT)
+Received: from mail-qc0-f182.google.com ([209.85.216.182]:41165 "EHLO
+	mail-qc0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750807AbaJRVOw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 18 Oct 2014 17:14:52 -0400
+Received: by mail-qc0-f182.google.com with SMTP id i17so2143488qcy.13
+        for <netdev@vger.kernel.org>; Sat, 18 Oct 2014 14:14:51 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When output the netlink sockets:
+Hi.
 
-    ss -A netlink state close
+Please consider backporting upstream commit
+2d4b646613d6b12175b017aca18113945af1faf3 "net/mlx4_en: Fix BlueFlame
+race" to stable kernels <= 3.11.
 
-the layout is a little broken with a shifted 'Peer Address:Port'
-stars and empty new lines. Fixed by making the port field to be
-wider for 'Local Address:Port' column.
+commit 2d4b646613d6b12175b017aca18113945af1faf3
+Author: Eugenia Emantayev <eugenia@mellanox.com>
+Date:   Thu Jul 25 19:21:23 2013 +0300
 
-Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
----
- misc/ss.c | 21 ++++++++++++++++++---
- 1 file changed, 18 insertions(+), 3 deletions(-)
+    net/mlx4_en: Fix BlueFlame race
 
-diff --git a/misc/ss.c b/misc/ss.c
-index 2420b51..0f89588 100644
---- a/misc/ss.c
-+++ b/misc/ss.c
-@@ -88,6 +88,8 @@ int state_width;
- int addrp_width;
- int addr_width;
- int serv_width;
-+int paddr_width;
-+int pserv_width;
- int screen_width;
- 
- static const char *TCP_PROTO = "tcp";
-@@ -3020,10 +3022,10 @@ static void netlink_show_one(struct filter *f,
- 
- 	if (state == NETLINK_CONNECTED) {
- 		printf("%*d:%-*d",
--		       addr_width, dst_group, serv_width, dst_pid);
-+		       paddr_width, dst_group, pserv_width, dst_pid);
- 	} else {
- 		printf("%*s*%-*s",
--		       addr_width, "", serv_width, "");
-+		       paddr_width, "", pserv_width, "");
- 	}
- 
- 	char *pid_context = NULL;
-@@ -3769,9 +3771,22 @@ int main(int argc, char *argv[])
- 		printf("%-*s ", state_width, "State");
- 	printf("%-6s %-6s ", "Recv-Q", "Send-Q");
- 
-+	paddr_width = addr_width;
-+	pserv_width = serv_width;
-+
-+	/* Netlink service column can be resolved as process name/pid thus it
-+	 * can be much wider than address column which is just a
-+	 * protocol name/id.
-+	 */
-+	if (current_filter.dbs & (1<<NETLINK_DB)) {
-+		serv_width = addr_width - 10;
-+		paddr_width = 13;
-+		pserv_width = 13;
-+	}
-+
- 	printf("%*s:%-*s %*s:%-*s\n",
- 	       addr_width, "Local Address", serv_width, "Port",
--	       addr_width, "Peer Address", serv_width, "Port");
-+	       paddr_width, "Peer Address", pserv_width, "Port");
- 
- 	fflush(stdout);
- 
--- 
-2.1.0
+    Fix a race between BlueFlame flow and stamping in post send flow.
+    Example:
+        SW: Build WQE 0 on the TX buffer, except the ownership bit
+        SW: Set ownership for WQE 0 on the TX buffer
+        SW: Ring doorbell for WQE 0
+        SW: Build WQE 1 on the TX buffer, except the ownership bit
+        SW: Set ownership for WQE 1 on the TX buffer
+        HW: Read WQE 0 and then WQE 1, before doorbell was rung/BF was
+done for WQE 1
+        HW: Produce CQEs for WQE 0 and WQE 1
+        SW: Process the CQEs, and stamp WQE 0 and WQE 1 accordingly
+(on the TX buffer)
+        SW: Copy WQE 1 from the TX buffer to the BF register - ALREADY STAMPED!
+        HW: CQE error with index 0xFFFF  - the BF WQE's control
+segment is STAMPED,
+                so the BF index is 0xFFFF. Error: Invalid Opcode.
+    As a result QP enters the error state and no traffic can be sent.
+
+    Solution:
+    When stamping - do not stamp last completed wqe.
+
+    Signed-off-by: Eugenia Emantayev <eugenia@mellanox.com>
+    Signed-off-by: Amir Vadai <amirv@mellanox.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+This patch fixes Mellanox network card packet send failures on Linux
+kernel 3.10.
+
+Tested-by: Chris Suttles <csuttles@twitter.com>
+Tested-by: David Mackey <tdmackey@twitter.com>
+Tested-by: Matthew Mullins <mmullins@twopensource.com>
+Tested-by: Vinson Lee <vlee@twitter.com>
+
+Cheers,
+Vinson
