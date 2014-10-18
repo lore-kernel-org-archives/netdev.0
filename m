@@ -1,36 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next,v3] hyperv: Add handling of IP header with
- option field in netvsc_set_hash()
-Date: Fri, 17 Oct 2014 23:43:58 -0400 (EDT)
-Message-ID: <20141017.234358.41209953117216295.davem@davemloft.net>
-References: <1413496078-25066-1-git-send-email-haiyangz@microsoft.com>
+Subject: Re: [PATCH] ipv4: fix a potential use after free
+Date: Fri, 17 Oct 2014 23:46:19 -0400 (EDT)
+Message-ID: <20141017.234619.2060902438346359137.davem@davemloft.net>
+References: <1413536003-15646-1-git-send-email-roy.qing.li@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
- driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org
-To: haiyangz@microsoft.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1413496078-25066-1-git-send-email-haiyangz@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, pshelar@nicira.com
+To: roy.qing.li@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44328 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751425AbaJRDqV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Oct 2014 23:46:21 -0400
+In-Reply-To: <1413536003-15646-1-git-send-email-roy.qing.li@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Date: Thu, 16 Oct 2014 14:47:58 -0700
+From: roy.qing.li@gmail.com
+Date: Fri, 17 Oct 2014 16:53:23 +0800
 
-> In case that the IP header has optional field at the end, this patch will
-> get the port numbers after that field, and compute the hash. The general
-> parser skb_flow_dissect() is used here.
+> From: Li RongQing <roy.qing.li@gmail.com>
 > 
-> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+> pskb_may_pull() maybe change skb->data and make eth pointer oboslete,
+> so set eth after pskb_may_pull()
+> 
+> Fixes:3d7b46cd("ip_tunnel: push generic protocol handling to ip_tunnel module")
+> Cc: Pravin B Shelar <pshelar@nicira.com>
+> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
 
-Applied, thanks.
+Applied and queued up for -stable.
