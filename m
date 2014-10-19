@@ -1,59 +1,68 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: Fw: [Bug 86531] New: Kernel panic when using nmap
-Date: Sun, 19 Oct 2014 18:52:00 +0200
-Message-ID: <CAADnVQ+WLjvdSha0_ooMDyfGOgwjtvaNcyCDzcW0rSMM44JkNg@mail.gmail.com>
-References: <20141019221149.2b590638@uryu.home.lan>
+From: David Miller <davem@davemloft.net>
+Subject: [GIT] Networking
+Date: Sun, 19 Oct 2014 13:23:14 -0400 (EDT)
+Message-ID: <20141019.132314.264021750039480460.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f175.google.com ([209.85.216.175]:38265 "EHLO
-	mail-qc0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751879AbaJSQwB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Oct 2014 12:52:01 -0400
-Received: by mail-qc0-f175.google.com with SMTP id b13so3012351qcw.34
-        for <netdev@vger.kernel.org>; Sun, 19 Oct 2014 09:52:00 -0700 (PDT)
-In-Reply-To: <20141019221149.2b590638@uryu.home.lan>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Oct 19, 2014 at 6:41 PM, Stephen Hemminger
-<stephen@networkplumber.org> wrote:
->
->
-> Begin forwarded message:
->
-> Date: Sun, 19 Oct 2014 08:02:37 -0700
-> From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
-> To: "stephen@networkplumber.org" <stephen@networkplumber.org>
-> Subject: [Bug 86531] New: Kernel panic when using nmap
->
->
-> https://bugzilla.kernel.org/show_bug.cgi?id=86531
->
->             Bug ID: 86531
->            Summary: Kernel panic when using nmap
->            Product: Networking
->            Version: 2.5
->     Kernel Version: 3.17.1
->           Hardware: x86-64
->                 OS: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: Other
->           Assignee: shemminger@linux-foundation.org
->           Reporter: alxchk@gmail.com
->         Regression: No
->
-> Created attachment 154181
->   --> https://bugzilla.kernel.org/attachment.cgi?id=154181&action=edit
-> Crash log #1
->
-> Strange crash appears the second time this day for me, when I starting nmap for
-> scanning. Couldn't find any dependency. Anyway, dumps attached.
 
-that's fixed in net tree and already in Linus's as well:
-https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=e0ee9c12157dc74e49e4731e0d07512e7d1ceb95
+A quick batch of bug fixes:
+
+1) Fix build with IPV6 disabled, from Eric Dumazet.
+
+2) Several more cases of caching SKB data pointers across
+   calls to pskb_may_pull(), thus referencing potentially
+   free'd memory.  From Li RongQing.
+
+3) DSA phy code tests operation presence improperly, instead
+   of going:
+
+	if (x->ops->foo)
+		r = x->ops->foo(args);
+
+   it was going:
+
+	if (x->ops->foo(args))
+		r = x->ops->foo(args);
+
+   Fix from Andew Lunn.
+
+Please pull, thanks a lot.
+
+The following changes since commit f2d9da1a8375cbe53df5b415d059429013a3a79f:
+
+  bna: fix skb->truesize underestimation (2014-10-17 23:56:33 -0400)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git master
+
+for you to fetch changes up to 228b16cb13dfa2f77354a9b144a07e86e2dda01c:
+
+  Net: DSA: Fix checking for get_phy_flags function (2014-10-19 12:46:31 -0400)
+
+----------------------------------------------------------------
+Andrew Lunn (1):
+      Net: DSA: Fix checking for get_phy_flags function
+
+Eric Dumazet (1):
+      tcp: fix build error if IPv6 is not enabled
+
+Li RongQing (3):
+      ipv4: fix a potential use after free in gre_offload.c
+      ipv6: fix a potential use after free in ip6_offload.c
+      ipv6: fix a potential use after free in sit.c
+
+ include/net/tcp.h      | 2 ++
+ net/dsa/slave.c        | 2 +-
+ net/ipv4/gre_offload.c | 6 +++---
+ net/ipv6/ip6_offload.c | 1 +
+ net/ipv6/sit.c         | 6 +++---
+ 5 files changed, 10 insertions(+), 7 deletions(-)
