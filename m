@@ -1,62 +1,25 @@
-From: Markus Trippelsdorf <markus@trippelsdorf.de>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [GIT] Networking
-Date: Sun, 19 Oct 2014 04:15:54 +0200
-Message-ID: <20141019021554.GD22068@x4>
+Date: Sat, 18 Oct 2014 22:48:59 -0400 (EDT)
+Message-ID: <20141018.224859.1970689329257045675.davem@davemloft.net>
 References: <20141018.001844.1317443518545745039.davem@davemloft.net>
+	<20141019021554.GD22068@x4>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
 Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: markus@trippelsdorf.de
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20141018.001844.1317443518545745039.davem@davemloft.net>
+In-Reply-To: <20141019021554.GD22068@x4>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 2014.10.18 at 00:18 -0400, David Miller wrote:
->=20
-> Please pull, thanks a lot.
-
-In file included from net/core/sock.c:140:0:
-include/net/tcp.h: In function =E2=80=98tcp_v6_iif=E2=80=99:
-include/net/tcp.h:738:32: error: =E2=80=98union <anonymous>=E2=80=99 ha=
-s no member named =E2=80=98h6=E2=80=99
-  return TCP_SKB_CB(skb)->header.h6.iif;
-                                ^
-scripts/Makefile.build:257: recipe for target 'net/core/sock.o' failed
-make[2]: *** [net/core/sock.o] Error 1
-scripts/Makefile.build:402: recipe for target 'net/core' failed
-make[1]: *** [net/core] Error 2
-Makefile:936: recipe for target 'net' failed
-make: *** [net] Error 2
-
- =E2=94=82 Symbol: IPV6 [=3Dn]                                         =
-                                                                       =
-                                       =E2=94=82
- =E2=94=82 Type  : tristate                                            =
-                                                                       =
-                                     =E2=94=82
- =E2=94=82 Prompt: The IPv6 protocol                                   =
-                                                                       =
-                                     =E2=94=82
- =E2=94=82   Location:                                                 =
-                                                                       =
-                                     =E2=94=82
- =E2=94=82     -> Networking support (NET [=3Dy])                      =
-                                                                       =
-                                       =E2=94=82
- =E2=94=82       -> Networking options                                 =
-                                                                       =
-                                     =E2=94=82
- =E2=94=82         -> TCP/IP networking (INET [=3Dy])                  =
-                                                                       =
-                                       =E2=94=82
- =E2=94=82   Defined at net/ipv6/Kconfig:6                             =
-                                                                       =
-                                     =E2=94=82
- =E2=94=82   Depends on: NET [=3Dy] && INET [=3Dy]
-
---=20
-Markus
+RnJvbTogTWFya3VzIFRyaXBwZWxzZG9yZiA8bWFya3VzQHRyaXBwZWxzZG9yZi5kZT4NCkRhdGU6
+IFN1biwgMTkgT2N0IDIwMTQgMDQ6MTU6NTQgKzAyMDANCg0KPiBPbiAyMDE0LjEwLjE4IGF0IDAw
+OjE4IC0wNDAwLCBEYXZpZCBNaWxsZXIgd3JvdGU6DQo+PiANCj4+IFBsZWFzZSBwdWxsLCB0aGFu
+a3MgYSBsb3QuDQo+IA0KPiBJbiBmaWxlIGluY2x1ZGVkIGZyb20gbmV0L2NvcmUvc29jay5jOjE0
+MDowOg0KPiBpbmNsdWRlL25ldC90Y3AuaDogSW4gZnVuY3Rpb24goXRjcF92Nl9paWaiOg0KPiBp
+bmNsdWRlL25ldC90Y3AuaDo3Mzg6MzI6IGVycm9yOiChdW5pb24gPGFub255bW91cz6iIGhhcyBu
+byBtZW1iZXIgbmFtZWQgoWg2og0KPiAgIHJldHVybiBUQ1BfU0tCX0NCKHNrYiktPmhlYWRlci5o
+Ni5paWY7DQoNCkFscmVhZHkgZml4ZWQgaW4gdGhlICduZXQnIHRyZWUuDQoNCg==
