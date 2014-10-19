@@ -1,38 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] ipv6: tcp_v6_iff: fix compilation error on CONFIG_IPV6=n
-Date: Sun, 19 Oct 2014 11:50:37 -0700
-Message-ID: <1413744637.27176.40.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <5443FD47.7040003@gmx.at>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: qdisc running
+Date: Sun, 19 Oct 2014 15:24:42 -0400
+Message-ID: <54440FFA.40307@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Manfred Schlaegl <manfred.schlaegl@ginzinger.com>
-To: Manfred Schlaegl <manfred.schlaegl@gmx.at>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5443FD47.7040003@gmx.at>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: john Fastabend <john.r.fastabend@intel.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	eric Dumazet <edumazet@google.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f178.google.com ([209.85.223.178]:63964 "EHLO
+	mail-ie0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751495AbaJSTYt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Oct 2014 15:24:49 -0400
+Received: by mail-ie0-f178.google.com with SMTP id rl12so3543420iec.9
+        for <netdev@vger.kernel.org>; Sun, 19 Oct 2014 12:24:49 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2014-10-19 at 20:04 +0200, Manfred Schlaegl wrote:
-> If CONFIG_IPV6=3Dn, then h6 in struct tcp_skb_cb.header is missing wh=
-ich
-> leads to compilation-errors on tcp_v6_iff like:
->=20
-> In file included from net/core/sock.c:140:0:
-> include/net/tcp.h: In function =E2=80=98tcp_v6_iif=E2=80=99:
-> include/net/tcp.h:738:32: error: =E2=80=98union <anonymous>=E2=80=99 =
-has no member named
-> =E2=80=98h6=E2=80=99
->=20
-> This fix solves the problem by removing tcp_v6_iif, in case of
-> CONFIG_IPV6=3Dn.
->=20
-> Signed-off-by: Manfred Schlaegl <manfred.schlaegl@gmx.at>
-> ---
 
-Yes, this was fixed yesterday, thanks.
+Jesper,
 
-http://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/?id=3D=
-815afe1785da727ee48cd8e63ac4a3ec6c7459b3
+You asked at the meeting the point to qdisc running.
+Original intent is to allow only one cpu to enter the lower half of the
+qdisc path. IOW, if one cpu was already in the qdisc then that guy
+could be used to dequeue packets. i.e this is good for batching.
+Original idea was Herbert's with major improvement from Eric
+and a small one from me.
+
+For history of different tried approaches look at:
+Look at slide 2: 
+http://vger.kernel.org/netconf2011_slides/jamal_netconf2011.pdf
+then download the **amazing** flash animations which describe
+that history.
+http://vger.kernel.org/netconf2011_slides/netconf-2011-flash.tgz
+
+Follow the bullets in slide2 and map to the flash animations.
+
+If you go over them, you'll see it is still needed.
+
+I think someone oughta put those **amazing** animations on some
+website;->
+
+cheers,
+jamal
