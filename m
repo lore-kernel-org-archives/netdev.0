@@ -1,47 +1,61 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH v2] Net: DSA: Fix checking for get_phy_flags function
-Date: Sun, 19 Oct 2014 16:41:47 +0200
-Message-ID: <1413729707-1682-1-git-send-email-andrew@lunn.ch>
-Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
-	Andrew Lunn <andrew@lunn.ch>
-To: davem@davemloft.net
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Fw: [Bug 86531] New: Kernel panic when using nmap
+Date: Sun, 19 Oct 2014 22:11:49 +0530
+Message-ID: <20141019221149.2b590638@uryu.home.lan>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:40545 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751942AbaJSOmk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 19 Oct 2014 10:42:40 -0400
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:40694 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751495AbaJSQnI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Oct 2014 12:43:08 -0400
+Received: by mail-pa0-f41.google.com with SMTP id eu11so3666258pac.14
+        for <netdev@vger.kernel.org>; Sun, 19 Oct 2014 09:43:08 -0700 (PDT)
+Received: from uryu.home.lan ([14.141.84.68])
+        by mx.google.com with ESMTPSA id sa6sm6932884pbb.29.2014.10.19.09.43.06
+        for <netdev@vger.kernel.org>
+        (version=TLSv1.2 cipher=RC4-SHA bits=128/128);
+        Sun, 19 Oct 2014 09:43:07 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The check for the presence or not of the optional switch function
-get_phy_flags() called the function, rather than checked to see if it
-is a NULL pointer. This causes a derefernce of a NULL pointer on all
-switch chips except the sf2, the only switch to implement this call.
-
-Signed-off-by: Andrew Lunn <andrew@lunn.ch>
-Fixes: 6819563e646a ("net: dsa: allow switch drivers to specify phy_device::dev_flags")
-Cc: Florian Fainelli <f.fainelli@gmail.com>
----
-
-v2: Don't truncate the Fixes subject.
 
 
- net/dsa/slave.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Begin forwarded message:
+
+Date: Sun, 19 Oct 2014 08:02:37 -0700
+From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
+To: "stephen@networkplumber.org" <stephen@networkplumber.org>
+Subject: [Bug 86531] New: Kernel panic when using nmap
 
 
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 9d3b12b4e03c..fbcba4bc4e08 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -596,7 +596,7 @@ dsa_slave_create(struct dsa_switch *ds, struct device *parent,
- 	netif_carrier_off(slave_dev);
- 
- 	if (p->phy != NULL) {
--		if (ds->drv->get_phy_flags(ds, port))
-+		if (ds->drv->get_phy_flags)
- 			p->phy->dev_flags |= ds->drv->get_phy_flags(ds, port);
- 
- 		phy_attach(slave_dev, dev_name(&p->phy->dev),
+https://bugzilla.kernel.org/show_bug.cgi?id=86531
+
+            Bug ID: 86531
+           Summary: Kernel panic when using nmap
+           Product: Networking
+           Version: 2.5
+    Kernel Version: 3.17.1
+          Hardware: x86-64
+                OS: Linux
+              Tree: Mainline
+            Status: NEW
+          Severity: normal
+          Priority: P1
+         Component: Other
+          Assignee: shemminger@linux-foundation.org
+          Reporter: alxchk@gmail.com
+        Regression: No
+
+Created attachment 154181
+  --> https://bugzilla.kernel.org/attachment.cgi?id=154181&action=edit
+Crash log #1
+
+Strange crash appears the second time this day for me, when I starting nmap for
+scanning. Couldn't find any dependency. Anyway, dumps attached.
+
 -- 
-2.1.1
+You are receiving this mail because:
+You are the assignee for the bug.
