@@ -1,72 +1,109 @@
-From: Ian Morgan <imorgan@primordial.ca>
-Subject: [PATCH net] ax88179_178a: fix bonding failure
-Date: Sun, 19 Oct 2014 08:05:13 -0400 (EDT)
-Message-ID: <alpine.LFD.2.11.1410190801050.5282@solo.int.primordial.ca>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: [PATCH iproute2] ip link: Allow to filter devices by master dev
+Date: Sun, 19 Oct 2014 17:04:48 +0300
+Message-ID: <1413727488-18032-1-git-send-email-vadim4j@gmail.com>
+Cc: Vadim Kochan <vadim4j@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f173.google.com ([209.85.213.173]:48236 "EHLO
-	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751828AbaJSMFU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Oct 2014 08:05:20 -0400
-Received: by mail-ig0-f173.google.com with SMTP id h18so3872985igc.12
-        for <netdev@vger.kernel.org>; Sun, 19 Oct 2014 05:05:19 -0700 (PDT)
-Received: from solo.int.primordial.ca (solo.int.primordial.ca. [2001:470:b117:0:a22b:b8ff:fe46:8fcc])
-        by mx.google.com with ESMTPSA id f8sm3114213iof.15.2014.10.19.05.05.18
-        for <netdev@vger.kernel.org>
-        (version=TLSv1 cipher=ECDHE-RSA-RC4-SHA bits=128/128);
-        Sun, 19 Oct 2014 05:05:18 -0700 (PDT)
+Received: from mail-la0-f45.google.com ([209.85.215.45]:38984 "EHLO
+	mail-la0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751916AbaJSONo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Oct 2014 10:13:44 -0400
+Received: by mail-la0-f45.google.com with SMTP id q1so2709633lam.32
+        for <netdev@vger.kernel.org>; Sun, 19 Oct 2014 07:13:42 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following patch fixes a bug which causes the ax88179_178a driver to be
-incapable of being added to a bond.
+Added 'master' option to 'ip link show' command
+to filter devices by master dev.
 
-When I brought up the issue with the bonding maintainers, they indicated
-that the real problem was with the NIC driver which must return zero for
-success (of setting the MAC address). I see that several other NIC drivers
-follow that pattern by either simply always returing zero, or by passing
-through a negative (error) result while rewriting any positive return code
-to zero. With that same philisophy applied to the ax88179_178a driver, it
-allows it to work correctly with the bonding driver.
+Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+---
+ ip/ipaddress.c        | 16 ++++++++++++++++
+ ip/iplink.c           |  2 +-
+ man/man8/ip-link.8.in |  9 ++++++++-
+ 3 files changed, 25 insertions(+), 2 deletions(-)
 
-I believe this is suitable for queuing in -stable, as it's a small, simple,
-and obvious fix that corrects a defect with no other known workaround.
-
-This patch is against vanilla 3.17(.0).
-
-Signed-off-by: Ian Morgan <imorgan@primordial.ca>
-
- drivers/net/usb/ax88179_178a.c |    7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
-
---- linux-3.17/drivers/net/usb/ax88179_178a.c.orig	2014-10-05 15:23:04.000000000 -0400
-+++ linux-3.17/drivers/net/usb/ax88179_178a.c	2014-10-15 09:07:31.217810217 -0400
-@@ -937,6 +937,7 @@ static int ax88179_set_mac_addr(struct n
- {
- 	struct usbnet *dev = netdev_priv(net);
- 	struct sockaddr *addr = p;
-+	int ret;
+diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+index 45729d8..8a0e2ab 100644
+--- a/ip/ipaddress.c
++++ b/ip/ipaddress.c
+@@ -56,6 +56,7 @@ static struct
+ 	int flushp;
+ 	int flushe;
+ 	int group;
++	int master;
+ } filter;
  
- 	if (netif_running(net))
- 		return -EBUSY;
-@@ -946,8 +947,12 @@ static int ax88179_set_mac_addr(struct n
- 	memcpy(net->dev_addr, addr->sa_data, ETH_ALEN);
+ static int do_link;
+@@ -480,6 +481,14 @@ int print_linkinfo(const struct sockaddr_nl *who,
+ 			return -1;
+ 	}
  
- 	/* Set the MAC address */
--	return ax88179_write_cmd(dev, AX_ACCESS_MAC, AX_NODE_ID, ETH_ALEN,
-+	ret = ax88179_write_cmd(dev, AX_ACCESS_MAC, AX_NODE_ID, ETH_ALEN,
- 				 ETH_ALEN, net->dev_addr);
-+	if (ret < 0)
-+		return ret;
++	if (tb[IFLA_MASTER]) {
++		int master = *(int*)RTA_DATA(tb[IFLA_MASTER]);
++		if (filter.master > 0 && master != filter.master)
++			return -1;
++	}
++	else if (filter.master > 0)
++		return -1;
 +
-+	return 0;
- }
+ 	if (n->nlmsg_type == RTM_DELLINK)
+ 		fprintf(fp, "Deleted ");
  
- static const struct net_device_ops ax88179_netdev_ops = {
-
-
-
+@@ -1215,6 +1224,13 @@ static int ipaddr_list_flush_or_save(int argc, char **argv, int action)
+ 			NEXT_ARG();
+ 			if (rtnl_group_a2n(&filter.group, *argv))
+ 				invarg("Invalid \"group\" value\n", *argv);
++		} else if (strcmp(*argv, "master") == 0) {
++			int ifindex;
++			NEXT_ARG();
++			ifindex = ll_name_to_index(*argv);
++			if (!ifindex)
++				invarg("Device does not exist\n", *argv);
++			filter.master = ifindex;
+ 		} else {
+ 			if (strcmp(*argv, "dev") == 0) {
+ 				NEXT_ARG();
+diff --git a/ip/iplink.c b/ip/iplink.c
+index 43b26f4..ce6eb3e 100644
+--- a/ip/iplink.c
++++ b/ip/iplink.c
+@@ -82,7 +82,7 @@ void iplink_usage(void)
+ 	fprintf(stderr, "			  [ master DEVICE ]\n");
+ 	fprintf(stderr, "			  [ nomaster ]\n");
+ 	fprintf(stderr, "			  [ addrgenmode { eui64 | none } ]\n");
+-	fprintf(stderr, "       ip link show [ DEVICE | group GROUP ] [up]\n");
++	fprintf(stderr, "       ip link show [ DEVICE | group GROUP ] [up] [master DEV]\n");
+ 
+ 	if (iplink_have_newlink()) {
+ 		fprintf(stderr, "       ip link help [ TYPE ]\n");
+diff --git a/man/man8/ip-link.8.in b/man/man8/ip-link.8.in
+index 383917a..279fe39 100644
+--- a/man/man8/ip-link.8.in
++++ b/man/man8/ip-link.8.in
+@@ -144,7 +144,9 @@ ip-link \- network device configuration
+ .B ip link show
+ .RI "[ " DEVICE " | "
+ .B group
+-.IR GROUP " ]"
++.IR GROUP " | "
++.B master
++.IR DEVICE " ]"
+ 
+ .SH "DESCRIPTION"
+ .SS ip link add - add virtual link
+@@ -658,6 +660,11 @@ specifies what group of devices to show.
+ .B up
+ only display running interfaces.
+ 
++.TP
++.BI master " DEVICE "
++.I DEVICE
++specifies the master device which enslaves devices to show.
++
+ .SH "EXAMPLES"
+ .PP
+ ip link show
 -- 
-Ian Morgan
+2.1.0
