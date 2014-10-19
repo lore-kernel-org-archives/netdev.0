@@ -1,42 +1,62 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH] Net: DSA: Fix checking for get_phy_flags function
-Date: Sun, 19 Oct 2014 02:13:26 +0200
-Message-ID: <1413677606-31031-1-git-send-email-andrew@lunn.ch>
-Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
-	Andrew Lunn <andrew@lunn.ch>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:40467 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751545AbaJSAOQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 18 Oct 2014 20:14:16 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Markus Trippelsdorf <markus@trippelsdorf.de>
+Subject: Re: [GIT] Networking
+Date: Sun, 19 Oct 2014 04:15:54 +0200
+Message-ID: <20141019021554.GD22068@x4>
+References: <20141018.001844.1317443518545745039.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20141018.001844.1317443518545745039.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The check for the presence or not of the optional switch function
-get_phy_flags() called the function, rather than checking to see if it
-is a NULL pointer. This causes a derefernce of a NULL pointer on all
-switch chips except the sf2, the only switch to implement this call.
+On 2014.10.18 at 00:18 -0400, David Miller wrote:
+>=20
+> Please pull, thanks a lot.
 
-Signed-off-by: Andrew Lunn <andrew@lunn.ch>
-Fixes: 6819563e646a "net: dsa: allow switch drivers to ...
-Cc: Florian Fainelli <f.fainelli@gmail.com>
----
- net/dsa/slave.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+In file included from net/core/sock.c:140:0:
+include/net/tcp.h: In function =E2=80=98tcp_v6_iif=E2=80=99:
+include/net/tcp.h:738:32: error: =E2=80=98union <anonymous>=E2=80=99 ha=
+s no member named =E2=80=98h6=E2=80=99
+  return TCP_SKB_CB(skb)->header.h6.iif;
+                                ^
+scripts/Makefile.build:257: recipe for target 'net/core/sock.o' failed
+make[2]: *** [net/core/sock.o] Error 1
+scripts/Makefile.build:402: recipe for target 'net/core' failed
+make[1]: *** [net/core] Error 2
+Makefile:936: recipe for target 'net' failed
+make: *** [net] Error 2
 
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 9d3b12b4e03c..fbcba4bc4e08 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -596,7 +596,7 @@ dsa_slave_create(struct dsa_switch *ds, struct device *parent,
- 	netif_carrier_off(slave_dev);
- 
- 	if (p->phy != NULL) {
--		if (ds->drv->get_phy_flags(ds, port))
-+		if (ds->drv->get_phy_flags)
- 			p->phy->dev_flags |= ds->drv->get_phy_flags(ds, port);
- 
- 		phy_attach(slave_dev, dev_name(&p->phy->dev),
--- 
-2.1.1
+ =E2=94=82 Symbol: IPV6 [=3Dn]                                         =
+                                                                       =
+                                       =E2=94=82
+ =E2=94=82 Type  : tristate                                            =
+                                                                       =
+                                     =E2=94=82
+ =E2=94=82 Prompt: The IPv6 protocol                                   =
+                                                                       =
+                                     =E2=94=82
+ =E2=94=82   Location:                                                 =
+                                                                       =
+                                     =E2=94=82
+ =E2=94=82     -> Networking support (NET [=3Dy])                      =
+                                                                       =
+                                       =E2=94=82
+ =E2=94=82       -> Networking options                                 =
+                                                                       =
+                                     =E2=94=82
+ =E2=94=82         -> TCP/IP networking (INET [=3Dy])                  =
+                                                                       =
+                                       =E2=94=82
+ =E2=94=82   Defined at net/ipv6/Kconfig:6                             =
+                                                                       =
+                                     =E2=94=82
+ =E2=94=82   Depends on: NET [=3Dy] && INET [=3Dy]
+
+--=20
+Markus
