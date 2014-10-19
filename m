@@ -1,34 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: s6gmac: remove driver
-Date: Sun, 19 Oct 2014 13:28:01 -0400 (EDT)
-Message-ID: <20141019.132801.424495087167944921.davem@davemloft.net>
-References: <1413672545-8535-1-git-send-email-dg@emlix.com>
-	<20141019.124542.141206969262552652.davem@davemloft.net>
-	<CAMo8BfJ-wvDoDmm+HLHvC3VRUshdqU4eJchOGYt_YJsUktap8Q@mail.gmail.com>
+From: Manfred Schlaegl <manfred.schlaegl@gmx.at>
+Subject: [PATCH] ipv6: tcp_v6_iff: fix compilation error on CONFIG_IPV6=n
+Date: Sun, 19 Oct 2014 20:04:55 +0200
+Message-ID: <5443FD47.7040003@gmx.at>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: dg@emlix.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: jcmvbkbc@gmail.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Manfred Schlaegl <manfred.schlaegl@ginzinger.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAMo8BfJ-wvDoDmm+HLHvC3VRUshdqU4eJchOGYt_YJsUktap8Q@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: Max Filippov <jcmvbkbc@gmail.com>
-Date: Sun, 19 Oct 2014 21:26:05 +0400
+If CONFIG_IPV6=3Dn, then h6 in struct tcp_skb_cb.header is missing whic=
+h
+leads to compilation-errors on tcp_v6_iff like:
 
-> On Sun, Oct 19, 2014 at 8:45 PM, David Miller <davem@davemloft.net> w=
-rote:
->> From: Daniel Gl=F6ckner <dg@emlix.com>
->> Date: Sun, 19 Oct 2014 00:49:05 +0200
->>
->>> The s6000 Xtensa support is removed from the kernel. There are no
->>> other chips using this driver.
->>
->> That's not what I see in Linus's current tree:
->=20
-> David, s6000 removal is queued for 3.18.
+In file included from net/core/sock.c:140:0:
+include/net/tcp.h: In function =E2=80=98tcp_v6_iif=E2=80=99:
+include/net/tcp.h:738:32: error: =E2=80=98union <anonymous>=E2=80=99 ha=
+s no member named
+=E2=80=98h6=E2=80=99
 
-Then there is zero reason for me to apply this to my networking
-tree.
+This fix solves the problem by removing tcp_v6_iif, in case of
+CONFIG_IPV6=3Dn.
+
+Signed-off-by: Manfred Schlaegl <manfred.schlaegl@gmx.at>
+---
+ include/net/tcp.h |    2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index c9766f8..4062b4f 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -730,6 +730,7 @@ struct tcp_skb_cb {
+ #define TCP_SKB_CB(__skb)      ((struct tcp_skb_cb *)&((__skb)->cb[0])=
+)
+
+
++#if IS_ENABLED(CONFIG_IPV6)
+ /* This is the variant of inet6_iif() that must be used by TCP,
+  * as TCP moves IP6CB into a different location in skb->cb[]
+  */
+@@ -737,6 +738,7 @@ static inline int tcp_v6_iif(const struct sk_buff *=
+skb)
+ {
+        return TCP_SKB_CB(skb)->header.h6.iif;
+ }
++#endif
+
+ /* Due to TSO, an SKB can be composed of multiple actual
+  * packets.  To keep these tracked properly, we use this.
+--=20
+1.7.10.4
