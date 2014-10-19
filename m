@@ -1,48 +1,39 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: qdisc running
-Date: Sun, 19 Oct 2014 15:24:42 -0400
-Message-ID: <54440FFA.40307@mojatatu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: john Fastabend <john.r.fastabend@intel.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	eric Dumazet <edumazet@google.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH 0/3] net: minor gso encapsulation fixes
+Date: Sun, 19 Oct 2014 22:42:17 +0200
+Message-ID: <1413751340-19621-1-git-send-email-fw@strlen.de>
+Cc: edumazet@google.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f178.google.com ([209.85.223.178]:63964 "EHLO
-	mail-ie0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751495AbaJSTYt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Oct 2014 15:24:49 -0400
-Received: by mail-ie0-f178.google.com with SMTP id rl12so3543420iec.9
-        for <netdev@vger.kernel.org>; Sun, 19 Oct 2014 12:24:49 -0700 (PDT)
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:41329 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750993AbaJSUmb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Oct 2014 16:42:31 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+The following series fixes a minor bug in the gro segmentation handlers
+when handling encapsulation offloads.
 
-Jesper,
+Theoretically this could cause kernel panic when the stack tries
+to software-segment such a GRE offload packet, but it looks like there
+is only one affected call site (tbf scheduler) and it handles NULL
+return value.
 
-You asked at the meeting the point to qdisc running.
-Original intent is to allow only one cpu to enter the lower half of the
-qdisc path. IOW, if one cpu was already in the qdisc then that guy
-could be used to dequeue packets. i.e this is good for batching.
-Original idea was Herbert's with major improvement from Eric
-and a small one from me.
+I've included a followup patch to add IS_ERR_OR_NULL checks to all
+the various skb_gso_segment call sites.
 
-For history of different tried approaches look at:
-Look at slide 2: 
-http://vger.kernel.org/netconf2011_slides/jamal_netconf2011.pdf
-then download the **amazing** flash animations which describe
-that history.
-http://vger.kernel.org/netconf2011_slides/netconf-2011-flash.tgz
+While looking into this, I also found that size computation of the individual
+segments is incorrect as we do not consider skb->encapsulation.
 
-Follow the bullets in slide2 and map to the flash animations.
-
-If you go over them, you'll see it is still needed.
-
-I think someone oughta put those **amazing** animations on some
-website;->
-
-cheers,
-jamal
+ core/skbuff.c                    |   13 ++++++++++---
+ ipv4/af_inet.c                   |    2 +-
+ ipv4/gre_offload.c               |    2 +-
+ ipv4/ip_output.c                 |    2 +-
+ ipv4/udp_offload.c               |    2 +-
+ ipv6/ip6_offload.c               |    2 +-
+ mpls/mpls_gso.c                  |    2 +-
+ netfilter/nfnetlink_queue_core.c |    2 +-
+ openvswitch/datapath.c           |    2 +-
+ xfrm/xfrm_output.c               |    2 +-
+ 10 files changed, 19 insertions(+), 12 deletions(-)
