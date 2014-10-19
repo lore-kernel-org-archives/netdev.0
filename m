@@ -1,63 +1,54 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] Net: DSA: Fix checking for get_phy_flags function
-Date: Sat, 18 Oct 2014 20:08:50 -0700
-Message-ID: <CAGVrzcY5CEA-o46ZoytY75H2pHHEPtCm22FtciUkFTPaRDcRHg@mail.gmail.com>
-References: <1413677606-31031-1-git-send-email-andrew@lunn.ch>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2] ss: Refactor to use macro for define diag nl
+ request
+Date: Sun, 19 Oct 2014 11:39:20 +0530
+Message-ID: <20141019113920.3f0fa575@uryu.home.lan>
+References: <1413676229-23258-1-git-send-email-vadim4j@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Vadim Kochan <vadim4j@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f179.google.com ([209.85.213.179]:57582 "EHLO
-	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751742AbaJSDJb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Oct 2014 23:09:31 -0400
-Received: by mail-ig0-f179.google.com with SMTP id h18so2868978igc.12
-        for <netdev@vger.kernel.org>; Sat, 18 Oct 2014 20:09:30 -0700 (PDT)
-In-Reply-To: <1413677606-31031-1-git-send-email-andrew@lunn.ch>
+Received: from mail-pd0-f178.google.com ([209.85.192.178]:53338 "EHLO
+	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750782AbaJSGJl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Oct 2014 02:09:41 -0400
+Received: by mail-pd0-f178.google.com with SMTP id y10so3042500pdj.37
+        for <netdev@vger.kernel.org>; Sat, 18 Oct 2014 23:09:40 -0700 (PDT)
+In-Reply-To: <1413676229-23258-1-git-send-email-vadim4j@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2014-10-18 17:13 GMT-07:00 Andrew Lunn <andrew@lunn.ch>:
-> The check for the presence or not of the optional switch function
-> get_phy_flags() called the function, rather than checking to see if it
-> is a NULL pointer. This causes a derefernce of a NULL pointer on all
-> switch chips except the sf2, the only switch to implement this call.
+On Sun, 19 Oct 2014 02:50:29 +0300
+Vadim Kochan <vadim4j@gmail.com> wrote:
 
-Sorry about this one, good catch.
-
->
-> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
-> Fixes: 6819563e646a "net: dsa=: allow switch drivers to ...
-
-Could you resubmit without stripping the "Fixes" subject?
-
-> Cc: Florian Fainelli <f.fainelli@gmail.com>
-
-Acked-by: Florian Fainelli <f.fainelli@gmail.com>
-
+> Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
 > ---
->  net/dsa/slave.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-> index 9d3b12b4e03c..fbcba4bc4e08 100644
-> --- a/net/dsa/slave.c
-> +++ b/net/dsa/slave.c
-> @@ -596,7 +596,7 @@ dsa_slave_create(struct dsa_switch *ds, struct device *parent,
->         netif_carrier_off(slave_dev);
->
->         if (p->phy != NULL) {
-> -               if (ds->drv->get_phy_flags(ds, port))
-> +               if (ds->drv->get_phy_flags)
->                         p->phy->dev_flags |= ds->drv->get_phy_flags(ds, port);
->
->                 phy_attach(slave_dev, dev_name(&p->phy->dev),
-> --
-> 2.1.1
->
+>  misc/ss.c | 57 ++++++++++++++++++---------------------------------------
+>  1 file changed, 18 insertions(+), 39 deletions(-)
+> 
+> diff --git a/misc/ss.c b/misc/ss.c
+> index 2420b51..261847b 100644
+> --- a/misc/ss.c
+> +++ b/misc/ss.c
+> @@ -41,6 +41,20 @@
+>  #include <linux/packet_diag.h>
+>  #include <linux/netlink_diag.h>
+>  
+> +#define DIAG_REQUEST(_req, _r)						    \
+> +	struct {							    \
+> +		struct nlmsghdr nlh;					    \
+> +		_r;							    \
+> +	} _req = {							    \
+> +		.nlh = {						    \
+> +			.nlmsg_type = SOCK_DIAG_BY_FAMILY,		    \
+> +			.nlmsg_flags = NLM_F_ROOT|NLM_F_MATCH|NLM_F_REQUEST,\
+> +			.nlmsg_seq = 123456,				    \
+> +			.nlmsg_len = sizeof(_req),			    \
+> +			.nlmsg_pid = 0,					    \
+> +		},							    \
+> +	}
 
-
-
--- 
-Florian
+No need to initialize to zero.
+Not a big fan of macro's but it does make the code more readable in this case.
