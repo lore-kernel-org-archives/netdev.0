@@ -1,29 +1,130 @@
 From: Govindarajulu Varadarajan <_govind@gmx.com>
-Subject: [PATCH net 0/2] enic: Bug fixes
-Date: Sun, 19 Oct 2014 14:20:26 +0530
-Message-ID: <1413708628-25690-1-git-send-email-_govind@gmx.com>
+Subject: [PATCH net 1/2] enic: fix possible deadlock in enic_stop/ enic_rfs_flw_tbl_free
+Date: Sun, 19 Oct 2014 14:20:27 +0530
+Message-ID: <1413708628-25690-2-git-send-email-_govind@gmx.com>
+References: <1413708628-25690-1-git-send-email-_govind@gmx.com>
 Cc: ssujith@cisco.com, benve@cisco.com,
 	Govindarajulu Varadarajan <_govind@gmx.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.com ([74.208.4.200]:53970 "EHLO mout.gmx.com"
+Received: from mout.gmx.com ([74.208.4.201]:54183 "EHLO mout.gmx.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750846AbaJSIuu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 19 Oct 2014 04:50:50 -0400
+	id S1751063AbaJSIvI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 19 Oct 2014 04:51:08 -0400
+In-Reply-To: <1413708628-25690-1-git-send-email-_govind@gmx.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series fixes the following problem.
+The following warning is shown when spinlock debug is enabled.
 
-Please apply this to net.
+This occurs when enic_flow_may_expire timer function is running and
+enic_stop is called on same CPU.
 
-Govindarajulu Varadarajan (2):
-  enic: fix possible deadlock in enic_stop/ enic_rfs_flw_tbl_free
-  enic: Do not call napi_disable when preemption is disabled.
+Fix this by using spink_lock_bh().
 
+=================================
+[ INFO: inconsistent lock state ]
+3.17.0-netnext-05504-g59f35b8 #268 Not tainted
+---------------------------------
+inconsistent {IN-SOFTIRQ-W} -> {SOFTIRQ-ON-W} usage.
+ifconfig/443 [HC0[0]:SC0[0]:HE1:SE1] takes:
+ (&(&enic->rfs_h.lock)->rlock){+.?...}, at:
+enic_rfs_flw_tbl_free+0x34/0xd0 [enic]
+{IN-SOFTIRQ-W} state was registered at:
+  [<ffffffff810a25af>] __lock_acquire+0x83f/0x21c0
+  [<ffffffff810a45f2>] lock_acquire+0xa2/0xd0
+  [<ffffffff814913fc>] _raw_spin_lock+0x3c/0x80
+  [<ffffffffa029c3d5>] enic_flow_may_expire+0x25/0x130[enic]
+  [<ffffffff810bcd07>] call_timer_fn+0x77/0x100
+  [<ffffffff810bd8e3>] run_timer_softirq+0x1e3/0x270
+  [<ffffffff8105f9ae>] __do_softirq+0x14e/0x280
+  [<ffffffff8105fdae>] irq_exit+0x8e/0xb0
+  [<ffffffff8103da0f>] smp_apic_timer_interrupt+0x3f/0x50
+  [<ffffffff81493742>] apic_timer_interrupt+0x72/0x80
+  [<ffffffff81018143>] default_idle+0x13/0x20
+  [<ffffffff81018a6a>] arch_cpu_idle+0xa/0x10
+  [<ffffffff81097676>] cpu_startup_entry+0x2c6/0x330
+  [<ffffffff8103b7ad>] start_secondary+0x21d/0x290
+irq event stamp: 2997
+hardirqs last  enabled at (2997): [<ffffffff81491865>] _raw_spin_unlock_irqrestore+0x65/0x90
+hardirqs last disabled at (2996): [<ffffffff814915e6>] _raw_spin_lock_irqsave+0x26/0x90
+softirqs last  enabled at (2968): [<ffffffff813b57a3>] dev_deactivate_many+0x213/0x260
+softirqs last disabled at (2966): [<ffffffff813b5783>] dev_deactivate_many+0x1f3/0x260
+
+other info that might help us debug this:
+ Possible unsafe locking scenario:
+
+       CPU0
+       ----
+  lock(&(&enic->rfs_h.lock)->rlock);
+  <Interrupt>
+    lock(&(&enic->rfs_h.lock)->rlock);
+
+ *** DEADLOCK ***
+
+Reported-by: Jan Stancek <jstancek@redhat.com>
+Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
+---
  drivers/net/ethernet/cisco/enic/enic_clsf.c | 12 ++++++------
- drivers/net/ethernet/cisco/enic/enic_main.c |  4 ++--
- 2 files changed, 8 insertions(+), 8 deletions(-)
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
+diff --git a/drivers/net/ethernet/cisco/enic/enic_clsf.c b/drivers/net/ethernet/cisco/enic/enic_clsf.c
+index 69dfd3c..0be6850 100644
+--- a/drivers/net/ethernet/cisco/enic/enic_clsf.c
++++ b/drivers/net/ethernet/cisco/enic/enic_clsf.c
+@@ -86,7 +86,7 @@ void enic_rfs_flw_tbl_free(struct enic *enic)
+ 	int i;
+ 
+ 	enic_rfs_timer_stop(enic);
+-	spin_lock(&enic->rfs_h.lock);
++	spin_lock_bh(&enic->rfs_h.lock);
+ 	enic->rfs_h.free = 0;
+ 	for (i = 0; i < (1 << ENIC_RFS_FLW_BITSHIFT); i++) {
+ 		struct hlist_head *hhead;
+@@ -100,7 +100,7 @@ void enic_rfs_flw_tbl_free(struct enic *enic)
+ 			kfree(n);
+ 		}
+ 	}
+-	spin_unlock(&enic->rfs_h.lock);
++	spin_unlock_bh(&enic->rfs_h.lock);
+ }
+ 
+ struct enic_rfs_fltr_node *htbl_fltr_search(struct enic *enic, u16 fltr_id)
+@@ -128,7 +128,7 @@ void enic_flow_may_expire(unsigned long data)
+ 	bool res;
+ 	int j;
+ 
+-	spin_lock(&enic->rfs_h.lock);
++	spin_lock_bh(&enic->rfs_h.lock);
+ 	for (j = 0; j < ENIC_CLSF_EXPIRE_COUNT; j++) {
+ 		struct hlist_head *hhead;
+ 		struct hlist_node *tmp;
+@@ -148,7 +148,7 @@ void enic_flow_may_expire(unsigned long data)
+ 			}
+ 		}
+ 	}
+-	spin_unlock(&enic->rfs_h.lock);
++	spin_unlock_bh(&enic->rfs_h.lock);
+ 	mod_timer(&enic->rfs_h.rfs_may_expire, jiffies + HZ/4);
+ }
+ 
+@@ -183,7 +183,7 @@ int enic_rx_flow_steer(struct net_device *dev, const struct sk_buff *skb,
+ 		return -EPROTONOSUPPORT;
+ 
+ 	tbl_idx = skb_get_hash_raw(skb) & ENIC_RFS_FLW_MASK;
+-	spin_lock(&enic->rfs_h.lock);
++	spin_lock_bh(&enic->rfs_h.lock);
+ 	n = htbl_key_search(&enic->rfs_h.ht_head[tbl_idx], &keys);
+ 
+ 	if (n) { /* entry already present  */
+@@ -277,7 +277,7 @@ int enic_rx_flow_steer(struct net_device *dev, const struct sk_buff *skb,
+ 	}
+ 
+ ret_unlock:
+-	spin_unlock(&enic->rfs_h.lock);
++	spin_unlock_bh(&enic->rfs_h.lock);
+ 	return res;
+ }
+ 
 -- 
 2.1.0
