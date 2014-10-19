@@ -1,81 +1,72 @@
-From: Govindarajulu Varadarajan <_govind@gmx.com>
-Subject: [PATCH net 2/2] enic: Do not call napi_disable when preemption is disabled.
-Date: Sun, 19 Oct 2014 14:20:28 +0530
-Message-ID: <1413708628-25690-3-git-send-email-_govind@gmx.com>
-References: <1413708628-25690-1-git-send-email-_govind@gmx.com>
-Cc: ssujith@cisco.com, benve@cisco.com,
-	Govindarajulu Varadarajan <_govind@gmx.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: Ian Morgan <imorgan@primordial.ca>
+Subject: [PATCH net] ax88179_178a: fix bonding failure
+Date: Sun, 19 Oct 2014 08:05:13 -0400 (EDT)
+Message-ID: <alpine.LFD.2.11.1410190801050.5282@solo.int.primordial.ca>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.com ([74.208.4.200]:55106 "EHLO mout.gmx.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750899AbaJSIvV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 19 Oct 2014 04:51:21 -0400
-In-Reply-To: <1413708628-25690-1-git-send-email-_govind@gmx.com>
+Received: from mail-ig0-f173.google.com ([209.85.213.173]:48236 "EHLO
+	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751828AbaJSMFU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Oct 2014 08:05:20 -0400
+Received: by mail-ig0-f173.google.com with SMTP id h18so3872985igc.12
+        for <netdev@vger.kernel.org>; Sun, 19 Oct 2014 05:05:19 -0700 (PDT)
+Received: from solo.int.primordial.ca (solo.int.primordial.ca. [2001:470:b117:0:a22b:b8ff:fe46:8fcc])
+        by mx.google.com with ESMTPSA id f8sm3114213iof.15.2014.10.19.05.05.18
+        for <netdev@vger.kernel.org>
+        (version=TLSv1 cipher=ECDHE-RSA-RC4-SHA bits=128/128);
+        Sun, 19 Oct 2014 05:05:18 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In enic_stop, we disable preemption using local_bh_disable(). We disable
-preemption to wait for busy_poll to finish.
+The following patch fixes a bug which causes the ax88179_178a driver to be
+incapable of being added to a bond.
 
-napi_disable should not be called here as it might sleep.
+When I brought up the issue with the bonding maintainers, they indicated
+that the real problem was with the NIC driver which must return zero for
+success (of setting the MAC address). I see that several other NIC drivers
+follow that pattern by either simply always returing zero, or by passing
+through a negative (error) result while rewriting any positive return code
+to zero. With that same philisophy applied to the ax88179_178a driver, it
+allows it to work correctly with the bonding driver.
 
-Moving napi_disable() call out side of local_bh_disable.
+I believe this is suitable for queuing in -stable, as it's a small, simple,
+and obvious fix that corrects a defect with no other known workaround.
 
-BUG: sleeping function called from invalid context at include/linux/netdevice.h:477
-in_atomic(): 1, irqs_disabled(): 0, pid: 443, name: ifconfig
-INFO: lockdep is turned off.
-Preemption disabled at:[<ffffffffa029c5c4>] enic_rfs_flw_tbl_free+0x34/0xd0 [enic]
+This patch is against vanilla 3.17(.0).
 
-CPU: 31 PID: 443 Comm: ifconfig Not tainted 3.17.0-netnext-05504-g59f35b8 #268
-Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
- ffff8800dac10000 ffff88020b8dfcb8 ffffffff8148a57c 0000000000000000
- ffff88020b8dfcd0 ffffffff8107e253 ffff8800dac12a40 ffff88020b8dfd10
- ffffffffa029305b ffff88020b8dfd48 ffff8800dac10000 ffff88020b8dfd48
-Call Trace:
- [<ffffffff8148a57c>] dump_stack+0x4e/0x7a
- [<ffffffff8107e253>] __might_sleep+0x123/0x1a0
- [<ffffffffa029305b>] enic_stop+0xdb/0x4d0 [enic]
- [<ffffffff8138ed7d>] __dev_close_many+0x9d/0xf0
- [<ffffffff8138ef81>] __dev_close+0x31/0x50
- [<ffffffff813974a8>] __dev_change_flags+0x98/0x160
- [<ffffffff81397594>] dev_change_flags+0x24/0x60
- [<ffffffff814085fd>] devinet_ioctl+0x63d/0x710
- [<ffffffff81139c16>] ? might_fault+0x56/0xc0
- [<ffffffff81409ef5>] inet_ioctl+0x65/0x90
- [<ffffffff813768e0>] sock_do_ioctl+0x20/0x50
- [<ffffffff81376ebb>] sock_ioctl+0x20b/0x2e0
- [<ffffffff81197250>] do_vfs_ioctl+0x2e0/0x500
- [<ffffffff81492619>] ? sysret_check+0x22/0x5d
- [<ffffffff81285f23>] ? __this_cpu_preempt_check+0x13/0x20
- [<ffffffff8109fe19>] ? trace_hardirqs_on_caller+0x119/0x270
- [<ffffffff811974ac>] SyS_ioctl+0x3c/0x80
- [<ffffffff814925ed>] system_call_fastpath+0x1a/0x1f
+Signed-off-by: Ian Morgan <imorgan@primordial.ca>
 
-Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
----
- drivers/net/ethernet/cisco/enic/enic_main.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/usb/ax88179_178a.c |    7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
-index 929bfe7..180e53f 100644
---- a/drivers/net/ethernet/cisco/enic/enic_main.c
-+++ b/drivers/net/ethernet/cisco/enic/enic_main.c
-@@ -1674,13 +1674,13 @@ static int enic_stop(struct net_device *netdev)
+--- linux-3.17/drivers/net/usb/ax88179_178a.c.orig	2014-10-05 15:23:04.000000000 -0400
++++ linux-3.17/drivers/net/usb/ax88179_178a.c	2014-10-15 09:07:31.217810217 -0400
+@@ -937,6 +937,7 @@ static int ax88179_set_mac_addr(struct n
+ {
+ 	struct usbnet *dev = netdev_priv(net);
+ 	struct sockaddr *addr = p;
++	int ret;
  
- 	enic_dev_disable(enic);
+ 	if (netif_running(net))
+ 		return -EBUSY;
+@@ -946,8 +947,12 @@ static int ax88179_set_mac_addr(struct n
+ 	memcpy(net->dev_addr, addr->sa_data, ETH_ALEN);
  
--	local_bh_disable();
- 	for (i = 0; i < enic->rq_count; i++) {
- 		napi_disable(&enic->napi[i]);
-+		local_bh_disable();
- 		while (!enic_poll_lock_napi(&enic->rq[i]))
- 			mdelay(1);
-+		local_bh_enable();
- 	}
--	local_bh_enable();
+ 	/* Set the MAC address */
+-	return ax88179_write_cmd(dev, AX_ACCESS_MAC, AX_NODE_ID, ETH_ALEN,
++	ret = ax88179_write_cmd(dev, AX_ACCESS_MAC, AX_NODE_ID, ETH_ALEN,
+ 				 ETH_ALEN, net->dev_addr);
++	if (ret < 0)
++		return ret;
++
++	return 0;
+ }
  
- 	netif_carrier_off(netdev);
- 	netif_tx_disable(netdev);
+ static const struct net_device_ops ax88179_netdev_ops = {
+
+
+
 -- 
-2.1.0
+Ian Morgan
