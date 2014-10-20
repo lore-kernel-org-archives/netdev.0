@@ -1,41 +1,42 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [GIT] Networking
-Date: Sun, 19 Oct 2014 17:32:15 -0700
-Message-ID: <CA+55aFz4UdVbZKPKwkesj0=1Yu7jLDP3Q3-jwe45b7gRU+0rog@mail.gmail.com>
-References: <20141019.132314.264021750039480460.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/4] net: make skb_gso_segment error handling more
+ robust
+Date: Sun, 19 Oct 2014 20:39:43 -0400 (EDT)
+Message-ID: <20141019.203943.579204096575757665.davem@davemloft.net>
+References: <1413751340-19621-1-git-send-email-fw@strlen.de>
+	<1413751340-19621-3-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>,
-	Pablo Neira Ayuso <pablo@netfilter.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, edumazet@google.com
+To: fw@strlen.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f177.google.com ([209.85.220.177]:46018 "EHLO
-	mail-vc0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751747AbaJTAcQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Oct 2014 20:32:16 -0400
-In-Reply-To: <20141019.132314.264021750039480460.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56974 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751888AbaJTBAI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Oct 2014 21:00:08 -0400
+In-Reply-To: <1413751340-19621-3-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Oct 19, 2014 at 10:23 AM, David Miller <davem@davemloft.net> wrote:
->
-> A quick batch of bug fixes:
+From: Florian Westphal <fw@strlen.de>
+Date: Sun, 19 Oct 2014 22:42:19 +0200
 
-Ho humm.. Here's another networking issue with the current kernel:
+> skb_gso_segment has three possible return values:
+> 1. a pointer to the first segmented skb
+> 2. an errno value (IS_ERR())
+> 3. NULL.  This can happen when GSO is used for header verification.
+> 
+> However, several callers currently test IS_ERR instead of IS_ERR_OR_NULL
+> and would oops when NULL is returned.
+> 
+> Note that these call sites should never actually see such a NULL return
+> value; all callers mask out the GSO bits in the feature argument.
+> 
+> However, in the past, there have been issues with some protocol handlers
+> erronously not respecting the specified feature mask in some cases.
+> 
+> Signed-off-by: Florian Westphal <fw@strlen.de>
 
-  nf_reject_ipv6: module license 'unspecified' taints kernel.
-  Disabling lock debugging due to kernel taint
-  nf_reject_ipv6: Unknown symbol ip6_local_out (err 0)
-
-Hmm? I'm not sure this is new, but I hadn't noticed it before. The
-"unknown symbol" seems to be simply because ip6_local_out is GPL-only,
-and without a proper license, 'nf_reject_ipv6' not only taints the
-kernel but doesn't link properly..
-
-Looks like the module license issue was just overlooked when moving
-the code out in commit c8d7b98bec43 ("netfilter: move nf_send_resetX()
-code to nf_reject_ipvX modules").
-
-                     Linus
+I don't think it makes sense to return PTR_ERR(p) when
+p is NULL.
