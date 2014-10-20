@@ -1,36 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH stable v3.2 v3.4] ipv4: disable bh while doing route gc
-Date: Mon, 20 Oct 2014 00:23:08 -0400 (EDT)
-Message-ID: <20141020.002308.1276148768580405795.davem@davemloft.net>
-References: <6c3d6eca5d6a15c01393b010f2116bd169477c5a.1413215324.git.mleitner@redhat.com>
-	<20141013.135127.1915115817707962111.davem@davemloft.net>
-	<1413774581.31953.12.camel@decadent.org.uk>
+Subject: Re: [PATCH net] ax88179_178a: fix bonding failure
+Date: Mon, 20 Oct 2014 00:55:26 -0400 (EDT)
+Message-ID: <20141020.005526.1789570582328212500.davem@davemloft.net>
+References: <alpine.LFD.2.11.1410190801050.5282@solo.int.primordial.ca>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mleitner@redhat.com, stable@vger.kernel.org,
-	netdev@vger.kernel.org, hannes@stressinduktion.org
-To: ben@decadent.org.uk
+Cc: netdev@vger.kernel.org
+To: imorgan@primordial.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57770 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:57909 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750868AbaJTEXN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Oct 2014 00:23:13 -0400
-In-Reply-To: <1413774581.31953.12.camel@decadent.org.uk>
+	with ESMTP id S1752272AbaJTE5d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Oct 2014 00:57:33 -0400
+In-Reply-To: <alpine.LFD.2.11.1410190801050.5282@solo.int.primordial.ca>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <ben@decadent.org.uk>
-Date: Mon, 20 Oct 2014 04:09:41 +0100
+From: Ian Morgan <imorgan@primordial.ca>
+Date: Sun, 19 Oct 2014 08:05:13 -0400 (EDT)
 
-> I've appplied this and the previous two patches mentioned ('ipv4: move
-> route garbage collector to work queue' and 'ipv4: avoid parallel route
-> cache gc executions').  But I didn't get the other two from you.  The
-> last batch of networking fixes I received and applied was dated
-> 2014-08-07, and the next one I've seen is dated 2014-10-11 and has
-> nothing for 3.2 or 3.4.  Did I miss one between these?
+> The following patch fixes a bug which causes the ax88179_178a driver to be
+> incapable of being added to a bond.
+> 
+> When I brought up the issue with the bonding maintainers, they indicated
+> that the real problem was with the NIC driver which must return zero for
+> success (of setting the MAC address). I see that several other NIC drivers
+> follow that pattern by either simply always returing zero, or by passing
+> through a negative (error) result while rewriting any positive return code
+> to zero. With that same philisophy applied to the ax88179_178a driver, it
+> allows it to work correctly with the bonding driver.
+> 
+> I believe this is suitable for queuing in -stable, as it's a small, simple,
+> and obvious fix that corrects a defect with no other known workaround.
+> 
+> This patch is against vanilla 3.17(.0).
+> 
+> Signed-off-by: Ian Morgan <imorgan@primordial.ca>
 
-I'm at the point where I'm personally not going to go back more than
-four releases, anything more than that is rediculous.
-
-And this time that was 3.17, 3.16, 3.14, and 3.10
+Applied and queued up for -stable, thanks.
