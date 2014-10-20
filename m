@@ -1,138 +1,105 @@
-From: James Carlson <carlsonj@workingcode.com>
-Subject: Re: Routing BUG with ppp over l2tp
-Date: Mon, 20 Oct 2014 16:22:45 -0400
-Message-ID: <54456F15.9070206@workingcode.com>
-References: <Pine.LNX.4.44L0.1410201414500.2403-100000@iolanthe.rowland.org>
+From: Kevin Fenzi <kevin@scrye.com>
+Subject: localed stuck in recent 3.18 git in copy_net_ns?
+Date: Mon, 20 Oct 2014 14:15:15 -0600
+Message-ID: <20141020141515.0688bf33@voldemort.scrye.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: James Chapman <jchapman@katalix.com>, linux-ppp@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Alan Stern <stern@rowland.harvard.edu>
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.44L0.1410201414500.2403-100000@iolanthe.rowland.org>
-Sender: linux-ppp-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ boundary="Sig_/W7ZX13_K_7qj34KKUNZZUec"; protocol="application/pgp-signature"
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/20/14 15:45, Alan Stern wrote:
-> On Mon, 20 Oct 2014, James Carlson wrote:
->> Indeed!  That's pretty darned lame behavior by that peer.  It would
->> probably be workable if you had a virtual router instance and were able
->> to put the L2TP connection in one routing instance and the PPP
->> connection in another routing instance, but that's likely not at all
->> simple to achieve.
-> 
-> I'd like to find the simplest solution.  Ideally it should "just work", 
-> like the Windows and OS-X clients do.
+--Sig_/W7ZX13_K_7qj34KKUNZZUec
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-I'm not an expert on Windows networking internals.  I assume OS X is BSD
-+ whatever the folks in Cupertino have done to it.  :-/
+Greetings.=20
 
-At a guess, it's living on the edge.  It works because the L2TP
-connection establishment caches a pointer to the output forwarding table
-entry ("route") and just keeps living with it no matter what actually
-happens down the line.
+I'm seeing suspend/resume failures with recent 3.18 git kernels.=20
 
-On Linux (and likely many other systems), the output computation is a
-bit more dynamic, and the establishment of a direct point-to-point link
-to a given IP address (as the PPP link represents) causes existing
-cached pointers to get flushed away.  Future packets to that destination
-(IP _always_ forwards based on destination, not source) go down the most
-direct path.  Point-to-point is as direct as you can get.
+Full dmesg at: http://paste.fedoraproject.org/143615/83287914/
 
-It may be possible to modify the L2TP code to use flags to avoid the PPP
-link (MSG_DONTROUTE?), but I suspect that's probably a bad rather than a
-good thing to do.
+The possibly interesting parts:=20
 
->>> Unfortunately, I can't work around this problem by reconfiguring the
->>> VPN server -- there's no way to tell it to use a different IP address
->>> for its end of the VPN tunnel.  Furthermore, the server works just fine
->>> with clients running Windows or OS-X.
->>
->> Really?  That seems ... improbable.
-> 
-> I guess that depends on how you judge probabilities.  :-)
+[   78.373144] PM: Syncing filesystems ... done.
+[   78.411180] PM: Preparing system for mem sleep
+[   78.411995] Freezing user space processes ...=20
+[   98.429955] Freezing of tasks failed after 20.001 seconds (1 tasks refus=
+ing to freeze, wq_busy=3D0):
+[   98.429971] (-localed)      D ffff88025f214c80     0  1866      1 0x0000=
+0084
+[   98.429975]  ffff88024e777df8 0000000000000086 ffff88009b4444b0 00000000=
+00014c80
+[   98.429978]  ffff88024e777fd8 0000000000014c80 ffff880250ffb110 ffff8800=
+9b4444b0
+[   98.429981]  0000000000000000 ffffffff81cec1a0 ffffffff81cec1a4 ffff8800=
+9b4444b0
+[   98.429983] Call Trace:
+[   98.429991]  [<ffffffff8175d619>] schedule_preempt_disabled+0x29/0x70
+[   98.429994]  [<ffffffff8175f433>] __mutex_lock_slowpath+0xb3/0x120
+[   98.429997]  [<ffffffff8175f4c3>] mutex_lock+0x23/0x40
+[   98.430001]  [<ffffffff8163e325>] copy_net_ns+0x75/0x140
+[   98.430005]  [<ffffffff810b8c2d>] create_new_namespaces+0xfd/0x1a0
+[   98.430008]  [<ffffffff810b8e5a>] unshare_nsproxy_namespaces+0x5a/0xc0
+[   98.430012]  [<ffffffff81098813>] SyS_unshare+0x193/0x340
+[   98.430015]  [<ffffffff817617a9>] system_call_fastpath+0x12/0x17
 
-:-/
+[   98.430032] Restarting tasks ... done.
+[   98.480361] PM: Syncing filesystems ... done.
+[   98.571645] PM: Preparing system for freeze sleep
+[   98.571779] Freezing user space processes ...=20
+[  118.592086] Freezing of tasks failed after 20.003 seconds (1 tasks refus=
+ing to freeze, wq_busy=3D0):
+[  118.592102] (-localed)      D ffff88025f214c80     0  1866      1 0x0000=
+0084
+[  118.592106]  ffff88024e777df8 0000000000000086 ffff88009b4444b0 00000000=
+00014c80
+[  118.592109]  ffff88024e777fd8 0000000000014c80 ffff880250ffb110 ffff8800=
+9b4444b0
+[  118.592111]  0000000000000000 ffffffff81cec1a0 ffffffff81cec1a4 ffff8800=
+9b4444b0
+[  118.592114] Call Trace:
+[  118.592121]  [<ffffffff8175d619>] schedule_preempt_disabled+0x29/0x70
+[  118.592125]  [<ffffffff8175f433>] __mutex_lock_slowpath+0xb3/0x120
+[  118.592127]  [<ffffffff8175f4c3>] mutex_lock+0x23/0x40
+[  118.592132]  [<ffffffff8163e325>] copy_net_ns+0x75/0x140
+[  118.592136]  [<ffffffff810b8c2d>] create_new_namespaces+0xfd/0x1a0
+[  118.592139]  [<ffffffff810b8e5a>] unshare_nsproxy_namespaces+0x5a/0xc0
+[  118.592143]  [<ffffffff81098813>] SyS_unshare+0x193/0x340
+[  118.592146]  [<ffffffff817617a9>] system_call_fastpath+0x12/0x17
 
-> Internet:
-> Destination        Gateway            Flags    Refs      Use  Netif Expire
-> default            140.247.233.37     UGSc        2        4   ppp0
-> 10                 ppp0               USc         1        0   ppp0
+[  118.592163] Restarting tasks ... done.
 
-That's *quite* interesting!  The PPP link doesn't have an interface
-route as you'd find on most other systems.  Instead, it has what appears
-to be an effectively unnumbered link.  Note the "ppp0" there instead of
-an actual output address and the happy use of "10" for the local address
-+ mask.
+root         6  0.0  0.0      0     0 ?        D    13:49   0:00 [kworker/u=
+16:0]
+root      1876  0.0  0.0  41460  5784 ?        Ds   13:49   0:00 (-localed)
 
-For what it's worth, the forced IP address option I've suggested is
-morally equivalent to what's being done here on OS X, so that's a fair
-reason to recommend it.
+I'll try and bisect this, but perhaps it rings bells already for folks.=20
 
-I checked out the pppd on Mac OS X (Darwin 13.4.0; Mavericks), and it
-looks to be a variant of the SAMBA/ANU/CMU pppd, but I'm not sure what's
-different with it, and I know of no contributions from them.  And the
-BSD support is long gone from the main source base ...
+kevin
 
-> I don't understand (and can't be bothered to look up) those arcane
-> symbols in the netstat output.  The IP address used for the ping test
-> (10.160.0.2) is a system on the VPN's private network.
 
-The flags aren't all that interesting.  "Up" "Gateway" "Static"
-"cloning" are all expected in this context.
+--Sig_/W7ZX13_K_7qj34KKUNZZUec
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Disposition: attachment; filename=signature.asc
 
->> As long as you don't need to contact that specific remote server using
->> the badly-assigned "internal" VPN address and can live with the fact
->> that you'll either go through the regular Internet to that address or be
->> forced to use some other address configured on that server, you should
->> be good.
->>
->> (The address I used above is 10.160.0.2.  That was one of the internal
->> DNS server addresses provided in the log you posted.  It's not necessary
->> that the address used here is exactly that, but it may well be helpful.)
-> 
-> That might work.  But using a nonstandard version of pppd would be
-> awkward, and I would prefer to avoid it.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
 
-What's "non-standard?"
+iQIcBAEBCgAGBQJURW1TAAoJEEs3sNgP+7te5v4QAJVLD5TPE35WjdwzjMY8nEJj
+Lnto+AJPEooKsUHuPvA6FEA6JEgb2K/32IizoHPp0VCopFbe0Dyp+S778r0XZMMT
+ZVOYFgF4AmfZ35kdrX7I3GgCExFcMnmOZxhDeEyVJYggwdhWaviVVakrimR7J113
+Ftxl6MUU7+80LwfzgmJJRA6UVRR8nesMsaaXZsLRbgRV/bqQ3LBTNj3lcIrmcSwL
+eVaIixvQ9tpwtuYXsXFz6zqL+gtq3xU4e0ds+kgFR1XKg7L/LegwzP0y9OFzZn6/
+fx93akzMMcTqtlhbJVikcdzolbBihYWGTYhypZJAgXwme7zUmDmsKoD6Yn1cWAuS
+7eXII8d5WVIfcq0sVO886J9Atfs3x+7WKoWBCkvHM24SCBh3DOGF/suzBrIhxfzE
+w7dOxtIa7+0YYE19ZKQWApZ2QQkxI4YXP2ersJB2U64nVzNx+vDMTztZuseSKiCA
+oBJEWyUIgXcxEz0w4Pk6pMacvzbbkoGVRC+J/ngNeAEsWN6jJZSTuVTnlq2JT//u
+2NANupMlwhrygY3MFTq5mxXW09YZEGgS/SfDDqROG0rQ43BNrWesnHWcM7XFFf9h
+Q57R56XcuGx2mSpJQgYMZ7/4HSrqBDdxNtIKYNh6mxRA4UwrpyiyLp7jOwfWdq4p
+9n0hFEuZz2aBh1M5z3Wc
+=L3U2
+-----END PGP SIGNATURE-----
 
-Having the ability to force a given remote IP address looks to me like a
-perfectly reasonable thing to do.  We allow the remote IP address to be
-set arbitrarily when the peer (for whatever reason) refuses to divulge
-its address, and this is just an extension of that idea.
-
->> If you can't do that for some reason, then I suppose it would be
->> possible to use IP Chains (or whatever the packet-modification tool du
->> jure is used in your Linux distribution) to nail up an exception so that
->> the outside packets go to the outside interface and the inside ones go
->> to the PPP interface.  Doing that likely requires selecting on (at
->> least!) source address, so it's messy and ugly and possibly error-prone,
->> but it might be doable.
-> 
-> That sounds like a fairly easy thing to try.  But it would still 
-> require manual intervention instead of just working.  Fixing the kernel 
-> would be preferable, IMO.
-
-I don't quite agree that it's necessarily "broken."
-
-I do agree that it's bad to crash due to this misconfiguration.  That's
-certainly a bug of some sort.  But making the kernel "naturally" accept
-that the same unicast remote IP address refers to different outputs
-depending on phase-of-moon in order to make this weird server happy
-sounds like adding a bug rather than fixing one.
-
-Routing based on destination is a good thing.
-
->> Otherwise, contact the maintainer of that VPN server.  It's just plain
->> old broken, and life's too short for broken software.
-> 
-> It is an old Cisco security appliance, no doubt well past End-Of-Life.  
-> I'm starting to think it might be preferable to throw the thing away 
-> and start up a VPN server on the department's firewall (which is a 
-> Linux box) instead.
-
-That sounds like a good (and easier to support) solution.
-
--- 
-James Carlson         42.703N 71.076W         <carlsonj@workingcode.com>
+--Sig_/W7ZX13_K_7qj34KKUNZZUec--
