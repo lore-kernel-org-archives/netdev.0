@@ -1,58 +1,40 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 1/7] netfilter: missing module license in the
- nf_reject_ipvX modules
-Date: Mon, 20 Oct 2014 12:54:44 +0200
-Message-ID: <20141020105444.GA15796@salvia>
-References: <1413792639-3954-1-git-send-email-pablo@netfilter.org>
- <1413792639-3954-2-git-send-email-pablo@netfilter.org>
- <5444E8BF.20904@cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@vger.kernel.org, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <5444E8BF.20904@cogentembedded.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH v2 0/3] net: minor gso encapsulation fixes
+Date: Mon, 20 Oct 2014 13:49:15 +0200
+Message-ID: <1413805758-30026-1-git-send-email-fw@strlen.de>
+Cc: edumazet@google.com, therbert@google.com
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:42239 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751109AbaJTLuJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Oct 2014 07:50:09 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 20, 2014 at 02:49:35PM +0400, Sergei Shtylyov wrote:
-> Hello.
-> 
-> On 10/20/2014 12:10 PM, Pablo Neira Ayuso wrote:
-> 
-> >[   23.545204] nf_reject_ipv4: module license 'unspecified' taints kernel.
-> 
-> >Fixes: c8d7b98 ("netfilter: move nf_send_resetX() code to nf_reject_ipvX modules")
-> >Reported-by: Dave Young <dyoung@redhat.com>
-> >Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
-> >---
-> >  net/ipv4/netfilter/nf_reject_ipv4.c |    3 +++
-> >  net/ipv6/netfilter/nf_reject_ipv6.c |    4 ++++
-> >  2 files changed, 7 insertions(+)
-> 
-> [...]
-> >diff --git a/net/ipv6/netfilter/nf_reject_ipv6.c b/net/ipv6/netfilter/nf_reject_ipv6.c
-> >index 5f5f043..20d9def 100644
-> >--- a/net/ipv6/netfilter/nf_reject_ipv6.c
-> >+++ b/net/ipv6/netfilter/nf_reject_ipv6.c
-> >@@ -5,6 +5,8 @@
-> >   * it under the terms of the GNU General Public License version 2 as
-> >   * published by the Free Software Foundation.
-> >   */
-> >+
-> >+#include <linux/module.h>
-> >  #include <net/ipv6.h>
-> >  #include <net/ip6_route.h>
-> >  #include <net/ip6_fib.h>
-> >@@ -161,3 +163,5 @@ void nf_send_reset6(struct net *net, struct sk_buff *oldskb, int hook)
-> >  		ip6_local_out(nskb);
-> >  }
-> >  EXPORT_SYMBOL_GPL(nf_send_reset6);
-> >+
-> >+MODULE_LICENSE("GPL");
-> 
->    Actually, "GPL v2" as follows from the comment above.
+The following series fixes a minor bug in the gso segmentation handlers
+when encapsulation offload is used.
 
-We use that in all of the netfilter modules.
+Theoretically this could cause kernel panic when the stack tries
+to software-segment such a GRE offload packet, but it looks like there
+is only one affected call site (tbf scheduler) and it handles NULL
+return value.
+
+I've included a followup patch to add IS_ERR_OR_NULL checks where needed.
+
+While looking into this, I also found that size computation of the individual
+segments is incorrect if skb->encapsulation is set.
+
+Please see individual patches for delta vs. v1.
+
+ core/skbuff.c                    |   13 ++++++++++---
+ ipv4/af_inet.c                   |    2 +-
+ ipv4/gre_offload.c               |    2 +-
+ ipv4/ip_output.c                 |    2 +-
+ ipv4/udp_offload.c               |    2 +-
+ ipv6/ip6_offload.c               |    2 +-
+ mpls/mpls_gso.c                  |    2 +-
+ netfilter/nfnetlink_queue_core.c |    2 +-
+ openvswitch/datapath.c           |    2 ++
+ xfrm/xfrm_output.c               |    2 ++
+ 10 files changed, 21 insertions(+), 10 deletions(-)
