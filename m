@@ -1,29 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT] Networking
-Date: Sun, 19 Oct 2014 21:03:14 -0400 (EDT)
-Message-ID: <20141019.210314.1388340101577924200.davem@davemloft.net>
-References: <20141019.132314.264021750039480460.davem@davemloft.net>
-	<CA+55aFz4UdVbZKPKwkesj0=1Yu7jLDP3Q3-jwe45b7gRU+0rog@mail.gmail.com>
+From: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+Subject: RE: [PATCH net] r8152: use cancel_delayed_work for runtime suspend
+Date: Mon, 20 Oct 2014 02:19:27 +0000
+Message-ID: <0835B3720019904CB8F7AA43166CEEB2EC81CA@RTITMBSV03.realtek.com.tw>
+References: <1394712342-15778-64-Taiwan-albertk@realtek.com>
+ <1413661699.19391.2.camel@linux-0dmf.site>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: pablo@netfilter.org, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+55aFz4UdVbZKPKwkesj0=1Yu7jLDP3Q3-jwe45b7gRU+0rog@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	nic_swsd <nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1413661699.19391.2.camel-AfvqVibwNMkMNNZnWhT/Jw@public.gmane.org>
+Content-Language: zh-TW
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Date: Sun, 19 Oct 2014 17:32:15 -0700
+ Oliver Neukum [mailto:oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org] 
+> Sent: Sunday, October 19, 2014 3:48 AM
+[...]
+> The diagnosis is good, the fix is not good. It opens a race
+> during which the queued work can touch a suspended device.
 
-> Looks like the module license issue was just overlooked when moving
-> the code out in commit c8d7b98bec43 ("netfilter: move nf_send_resetX()
-> code to nf_reject_ipvX modules").
-
-I think Pablo has a patch pending to address this, and indeed he does:
-
-	http://marc.info/?l=linux-netdev&m=141293491712312&w=2
-
-Pablo please push this to me soon, thanks.
+The delayed work would wake up the device by
+calling usb_autopm_get_interface() before
+accessing the device. Besides, there is a mutex
+to avoid the race.
+ 
+Best Regards,
+Hayes
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
