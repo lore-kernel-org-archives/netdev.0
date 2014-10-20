@@ -1,42 +1,41 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: Adding new packet scheduler
-Date: Mon, 20 Oct 2014 10:59:10 -0700
-Message-ID: <CAHA+R7P-dnBd=25_EtD8WY1qThtHRS1Rmu1Y0m0P2WdjoCrCBg@mail.gmail.com>
-References: <CAHmvzZQALDuwMPZC_ZncEP=BerniYis9Mx=oObUGNAY4wUGTZg@mail.gmail.com>
-	<CAHA+R7PScLKyhF7V+RWahL1Ovfjb7eCO+Hh-aDYchPrfvAUDHg@mail.gmail.com>
-	<CAHmvzZS3bN1qErryz7Mps-dOveBk1_d7MJo-sqbVDMaoeu7_HA@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 0/3] net: minor gso encapsulation fixes
+Date: Mon, 20 Oct 2014 14:04:09 -0400 (EDT)
+Message-ID: <20141020.140409.651849137033134113.davem@davemloft.net>
+References: <1413805758-30026-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: Josh Clark <jcinma@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, edumazet@google.com, therbert@google.com
+To: fw@strlen.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f179.google.com ([209.85.216.179]:63330 "EHLO
-	mail-qc0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751499AbaJTR7M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Oct 2014 13:59:12 -0400
-Received: by mail-qc0-f179.google.com with SMTP id x3so4047656qcv.38
-        for <netdev@vger.kernel.org>; Mon, 20 Oct 2014 10:59:11 -0700 (PDT)
-In-Reply-To: <CAHmvzZS3bN1qErryz7Mps-dOveBk1_d7MJo-sqbVDMaoeu7_HA@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37353 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751102AbaJTSEP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Oct 2014 14:04:15 -0400
+In-Reply-To: <1413805758-30026-1-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 20, 2014 at 10:51 AM, Josh Clark <jcinma@gmail.com> wrote:
->
-> That all makes a lot of sense. What do I need to do to apply these
-> patches on a live system? I have access to a network made of virtual
-> machines with standard Ubuntu 14.04, to which I have SSH access.
-> There's no way for me to upload a different image to use.
+From: Florian Westphal <fw@strlen.de>
+Date: Mon, 20 Oct 2014 13:49:15 +0200
 
-https://www.kernel.org/doc/Documentation/networking/netdev-FAQ.txt
+> The following series fixes a minor bug in the gso segmentation handlers
+> when encapsulation offload is used.
+> 
+> Theoretically this could cause kernel panic when the stack tries
+> to software-segment such a GRE offload packet, but it looks like there
+> is only one affected call site (tbf scheduler) and it handles NULL
+> return value.
+> 
+> I've included a followup patch to add IS_ERR_OR_NULL checks where needed.
+> 
+> While looking into this, I also found that size computation of the individual
+> segments is incorrect if skb->encapsulation is set.
+> 
+> Please see individual patches for delta vs. v1.
 
-Q: How do the changes posted to netdev make their way into Linux?
+Series applied, thanks Florian.
 
-A: There are always two trees (git repositories) in play.  Both are driven
-   by David Miller, the main network maintainer.  There is the "net" tree,
-   and the "net-next" tree.  As you can probably guess from the names, the
-   net tree is for fixes to existing code already in the mainline tree from
-   Linus, and net-next is where the new code goes for the future release.
-   You can find the trees here:
-
-http://git.kernel.org/?p=linux/kernel/git/davem/net.git
-http://git.kernel.org/?p=linux/kernel/git/davem/net-next.git
+Longer term I'd really like to see the ops->gso_segment() implementations not
+return NULL, but rather locally determinned pointer error codes instead.
