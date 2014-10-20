@@ -1,72 +1,71 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [RFC PATCH net-next] net: ipv6: Add a sysctl to make optimistic
- addresses useful candidates
-Date: Mon, 20 Oct 2014 23:40:15 +0100
-Message-ID: <1413844815.31953.32.camel@decadent.org.uk>
-References: <1413520309-13814-1-git-send-email-ek@google.com>
+From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+Subject: Re: [RFC v2 2/6] driver-core: add driver async_probe support
+Date: Tue, 21 Oct 2014 01:43:25 +0200
+Message-ID: <CAB=NE6VV97M=iXRQZpGUhEksrqE4JBVDSAU1Wjx_viqatsirmw@mail.gmail.com>
+References: <1409899047-13045-1-git-send-email-mcgrof@do-not-panic.com>
+ <1409899047-13045-3-git-send-email-mcgrof@do-not-panic.com> <20140905221029.GA35667@core.coreip.homeip.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-8t8A8pso8psRG3gJqIvE"
-Cc: netdev@vger.kernel.org, hannes@stressinduktion.org,
-	lorenzo@google.com, edumazet@google.com
-To: Erik Kline <ek@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:43284 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753380AbaJTWka (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Oct 2014 18:40:30 -0400
-In-Reply-To: <1413520309-13814-1-git-send-email-ek@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Wu Zhangjin <falcon@meizu.com>, Takashi Iwai <tiwai@suse.de>,
+	Tejun Heo <tj@kernel.org>,
+	Arjan van de Ven <arjan@linux.intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Oleg Nesterov <oleg@redhat.com>, hare <hare@suse.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
+	Joseph Salisbury <joseph.salisbury@canonical.com>,
+	Benjamin Poirier <bpoirier@suse.de>,
+	Santosh Rastapur <santosh@chelsio.com>,
+	Kay Sievers <kay@vrfy.org>,
+	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
+	Tim Gardner <tim.gardner@canonical.com>,
+	Pierre Fersing <pierre-fersing@pierref.org>,
+	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
+	Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
+	Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
+	Abhijit Mahajan <abhi
+To: Dmitry Torokhov <dmitry.torokhov@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140905221029.GA35667@core.coreip.homeip.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+> diff --git a/drivers/base/bus.c b/drivers/base/bus.c
+> index 83e910a..49fe573 100644
+> --- a/drivers/base/bus.c
+> +++ b/drivers/base/bus.c
+> @@ -10,6 +10,7 @@
+>   *
+>   */
+>
+> +#include <linux/async.h>
+>  #include <linux/device.h>
+>  #include <linux/module.h>
+>  #include <linux/errno.h>
+> @@ -547,15 +548,12 @@ void bus_probe_device(struct device *dev)
+>  {
+>         struct bus_type *bus = dev->bus;
+>         struct subsys_interface *sif;
+> -       int ret;
+>
+>         if (!bus)
+>                 return;
+>
+> -       if (bus->p->drivers_autoprobe) {
+> -               ret = device_attach(dev);
+> -               WARN_ON(ret < 0);
+> -       }
+> +       if (bus->p->drivers_autoprobe)
+> +               device_initial_probe(dev);
+>
+>         mutex_lock(&bus->p->mutex);
+>         list_for_each_entry(sif, &bus->p->interfaces, node)
+> @@ -657,6 +655,17 @@ static ssize_t uevent_store(struct device_driver *drv, const char *buf,
+>  }
+>  static DRIVER_ATTR_WO(uevent);
 
---=-8t8A8pso8psRG3gJqIvE
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Based on my review with my latest changes this is what I was missing,
+I'll be sure to address this.
 
-On Fri, 2014-10-17 at 13:31 +0900, Erik Kline wrote:
-[...]
-> --- a/include/uapi/linux/ipv6.h
-> +++ b/include/uapi/linux/ipv6.h
-> @@ -154,6 +154,7 @@ enum {
->  	DEVCONF_ACCEPT_RA_RT_INFO_MAX_PLEN,
->  	DEVCONF_PROXY_NDP,
->  	DEVCONF_OPTIMISTIC_DAD,
-> +	DEVCONF_USE_OPTIMISTIC,
->  	DEVCONF_ACCEPT_SOURCE_ROUTE,
->  	DEVCONF_MC_FORWARDING,
->  	DEVCONF_DISABLE_IPV6,
-[...]
-
-As this is UAPI, the new entry must be added at the end of the
-enumeration (well, before DEVCONF_MAX).
-
-Ben.
-
---=20
-Ben Hutchings
-Reality is just a crutch for people who can't handle science fiction.
-
---=-8t8A8pso8psRG3gJqIvE
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIVAwUAVEWPVOe/yOyVhhEJAQo8ExAAqu28RQflAUEWW0lnP3yIRJ5MO+OR/ghk
-GpANV6essdljWsRuZQ9JgMSi8o1bK5XqB3jLtUPdi4bC1hLi0nRLpTjmPpA+JGFf
-wMn9f1jZ0PstEI+jMBTS4epeeJxRtGkFE7SV+xA/PnT7HXO/YUnu1exDmGiWa617
-Zv9TDuuzvqZSuqCt1Qtf8EdVuFgxeEDlqHRhueFkc5R0PSfGF26k+3Th/H7XkYTu
-yGRafKtBJEUBMDbVDzGThGtyVWoMKPX4RGKDJhCAc3JsABggixmWjzStygVhoze7
-1F9OLsP0rxZFJJUmXZ2Su6NdXGGdFAG70w5lHCln6zWLiNwEYqgtCEmZUbEdgmm9
-TnFcO0y9Asmf8Ai5p++nEMn+q0UnATwq2eFOzPOIvhsVbVJbgEgAI/zNgTP1N3xb
-ms/uZbmJxBFnOl42lkZxJpaIC3u6KPUnjuo2tEodlXHk6N+wxiio5K/4rMMJ/N+t
-Q+dDS/T3yOtPbYMzpRXoHoQh7rB0mUK81FnLxkidCuy33gecCyQnirq+1GkN38Ly
-wjSD1zlSd4G1Mt/ZWV7NmRHHhMRKpLLa5JrYZfY9CHSqORiV0KeqRekWOKflAUCq
-+6MRoFoNgtPqHOSpfhmeAcSIRTDjj1ZCd4ScdvWxApP872fio7hNO/1r7HCJhYpH
-erf3ArY7qyQ=
-=KNFN
------END PGP SIGNATURE-----
-
---=-8t8A8pso8psRG3gJqIvE--
+ Luis
