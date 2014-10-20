@@ -1,185 +1,153 @@
 From: Ying Xue <ying.xue@windriver.com>
-Subject: [PATCH net] tipc: fix a potential deadlock
-Date: Mon, 20 Oct 2014 14:44:25 +0800
-Message-ID: <1413787465-14600-1-git-send-email-ying.xue@windriver.com>
+Subject: [PATCH net] tipc: fix lockdep warning when intra-node messages are delivered
+Date: Mon, 20 Oct 2014 14:46:35 +0800
+Message-ID: <1413787595-14700-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <jon.maloy@ericsson.com>, <erik.hugne@ericsson.com>,
 	<netdev@vger.kernel.org>, <tipc-discussion@lists.sourceforge.net>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:60973 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752455AbaJTGon (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Oct 2014 02:44:43 -0400
+Received: from mail1.windriver.com ([147.11.146.13]:65221 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752484AbaJTGqv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Oct 2014 02:46:51 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Locking dependency detected below possible unsafe locking scenario:
+When running tipcTC&tipcTS test suite, below lockdep unsafe locking
+scenario is reported:
 
-           CPU0                          CPU1
-T0:  tipc_named_rcv()                tipc_rcv()
-T1:  [grab nametble write lock]*     [grab node lock]*
-T2:  tipc_update_nametbl()           tipc_node_link_up()
-T3:  tipc_nodesub_subscribe()        tipc_nametbl_publish()
-T4:  [grab node lock]*               [grab nametble write lock]*
+[ 1109.997854]
+[ 1109.997988] =================================
+[ 1109.998290] [ INFO: inconsistent lock state ]
+[ 1109.998575] 3.17.0-rc1+ #113 Not tainted
+[ 1109.998762] ---------------------------------
+[ 1109.998762] inconsistent {SOFTIRQ-ON-W} -> {IN-SOFTIRQ-W} usage.
+[ 1109.998762] swapper/7/0 [HC0[0]:SC1[1]:HE1:SE0] takes:
+[ 1109.998762]  (slock-AF_TIPC){+.?...}, at: [<ffffffffa0011969>] tipc_sk_rcv+0x49/0x2b0 [tipc]
+[ 1109.998762] {SOFTIRQ-ON-W} state was registered at:
+[ 1109.998762]   [<ffffffff810a4770>] __lock_acquire+0x6a0/0x1d80
+[ 1109.998762]   [<ffffffff810a6555>] lock_acquire+0x95/0x1e0
+[ 1109.998762]   [<ffffffff81a2d1ce>] _raw_spin_lock+0x3e/0x80
+[ 1109.998762]   [<ffffffffa0011969>] tipc_sk_rcv+0x49/0x2b0 [tipc]
+[ 1109.998762]   [<ffffffffa0004fe8>] tipc_link_xmit+0xa8/0xc0 [tipc]
+[ 1109.998762]   [<ffffffffa000ec6f>] tipc_sendmsg+0x15f/0x550 [tipc]
+[ 1109.998762]   [<ffffffffa000f165>] tipc_connect+0x105/0x140 [tipc]
+[ 1109.998762]   [<ffffffff817676ee>] SYSC_connect+0xae/0xc0
+[ 1109.998762]   [<ffffffff81767b7e>] SyS_connect+0xe/0x10
+[ 1109.998762]   [<ffffffff817a9788>] compat_SyS_socketcall+0xb8/0x200
+[ 1109.998762]   [<ffffffff81a306e5>] sysenter_dispatch+0x7/0x1f
+[ 1109.998762] irq event stamp: 241060
+[ 1109.998762] hardirqs last  enabled at (241060): [<ffffffff8105a4ad>] __local_bh_enable_ip+0x6d/0xd0
+[ 1109.998762] hardirqs last disabled at (241059): [<ffffffff8105a46f>] __local_bh_enable_ip+0x2f/0xd0
+[ 1109.998762] softirqs last  enabled at (241020): [<ffffffff81059a52>] _local_bh_enable+0x22/0x50
+[ 1109.998762] softirqs last disabled at (241021): [<ffffffff8105a626>] irq_exit+0x96/0xc0
+[ 1109.998762]
+[ 1109.998762] other info that might help us debug this:
+[ 1109.998762]  Possible unsafe locking scenario:
+[ 1109.998762]
+[ 1109.998762]        CPU0
+[ 1109.998762]        ----
+[ 1109.998762]   lock(slock-AF_TIPC);
+[ 1109.998762]   <Interrupt>
+[ 1109.998762]     lock(slock-AF_TIPC);
+[ 1109.998762]
+[ 1109.998762]  *** DEADLOCK ***
+[ 1109.998762]
+[ 1109.998762] 2 locks held by swapper/7/0:
+[ 1109.998762]  #0:  (rcu_read_lock){......}, at: [<ffffffff81782dc9>] __netif_receive_skb_core+0x69/0xb70
+[ 1109.998762]  #1:  (rcu_read_lock){......}, at: [<ffffffffa0001c90>] tipc_l2_rcv_msg+0x40/0x260 [tipc]
+[ 1109.998762]
+[ 1109.998762] stack backtrace:
+[ 1109.998762] CPU: 7 PID: 0 Comm: swapper/7 Not tainted 3.17.0-rc1+ #113
+[ 1109.998762] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2007
+[ 1109.998762]  ffffffff82745830 ffff880016c03828 ffffffff81a209eb 0000000000000007
+[ 1109.998762]  ffff880017b3cac0 ffff880016c03888 ffffffff81a1c5ef 0000000000000001
+[ 1109.998762]  ffff880000000001 ffff880000000000 ffffffff81012d4f 0000000000000000
+[ 1109.998762] Call Trace:
+[ 1109.998762]  <IRQ>  [<ffffffff81a209eb>] dump_stack+0x4e/0x68
+[ 1109.998762]  [<ffffffff81a1c5ef>] print_usage_bug+0x1f1/0x202
+[ 1109.998762]  [<ffffffff81012d4f>] ? save_stack_trace+0x2f/0x50
+[ 1109.998762]  [<ffffffff810a406c>] mark_lock+0x28c/0x2f0
+[ 1109.998762]  [<ffffffff810a3440>] ? print_irq_inversion_bug.part.46+0x1f0/0x1f0
+[ 1109.998762]  [<ffffffff810a467d>] __lock_acquire+0x5ad/0x1d80
+[ 1109.998762]  [<ffffffff810a70dd>] ? trace_hardirqs_on+0xd/0x10
+[ 1109.998762]  [<ffffffff8108ace8>] ? sched_clock_cpu+0x98/0xc0
+[ 1109.998762]  [<ffffffff8108ad2b>] ? local_clock+0x1b/0x30
+[ 1109.998762]  [<ffffffff810a10dc>] ? lock_release_holdtime.part.29+0x1c/0x1a0
+[ 1109.998762]  [<ffffffff8108aa05>] ? sched_clock_local+0x25/0x90
+[ 1109.998762]  [<ffffffffa000dec0>] ? tipc_sk_get+0x60/0x80 [tipc]
+[ 1109.998762]  [<ffffffff810a6555>] lock_acquire+0x95/0x1e0
+[ 1109.998762]  [<ffffffffa0011969>] ? tipc_sk_rcv+0x49/0x2b0 [tipc]
+[ 1109.998762]  [<ffffffff810a6fb6>] ? trace_hardirqs_on_caller+0xa6/0x1c0
+[ 1109.998762]  [<ffffffff81a2d1ce>] _raw_spin_lock+0x3e/0x80
+[ 1109.998762]  [<ffffffffa0011969>] ? tipc_sk_rcv+0x49/0x2b0 [tipc]
+[ 1109.998762]  [<ffffffffa000dec0>] ? tipc_sk_get+0x60/0x80 [tipc]
+[ 1109.998762]  [<ffffffffa0011969>] tipc_sk_rcv+0x49/0x2b0 [tipc]
+[ 1109.998762]  [<ffffffffa00076bd>] tipc_rcv+0x5ed/0x960 [tipc]
+[ 1109.998762]  [<ffffffffa0001d1c>] tipc_l2_rcv_msg+0xcc/0x260 [tipc]
+[ 1109.998762]  [<ffffffffa0001c90>] ? tipc_l2_rcv_msg+0x40/0x260 [tipc]
+[ 1109.998762]  [<ffffffff81783345>] __netif_receive_skb_core+0x5e5/0xb70
+[ 1109.998762]  [<ffffffff81782dc9>] ? __netif_receive_skb_core+0x69/0xb70
+[ 1109.998762]  [<ffffffff81784eb9>] ? dev_gro_receive+0x259/0x4e0
+[ 1109.998762]  [<ffffffff817838f6>] __netif_receive_skb+0x26/0x70
+[ 1109.998762]  [<ffffffff81783acd>] netif_receive_skb_internal+0x2d/0x1f0
+[ 1109.998762]  [<ffffffff81785518>] napi_gro_receive+0xd8/0x240
+[ 1109.998762]  [<ffffffff815bf854>] e1000_clean_rx_irq+0x2c4/0x530
+[ 1109.998762]  [<ffffffff815c1a46>] e1000_clean+0x266/0x9c0
+[ 1109.998762]  [<ffffffff8108ad2b>] ? local_clock+0x1b/0x30
+[ 1109.998762]  [<ffffffff8108aa05>] ? sched_clock_local+0x25/0x90
+[ 1109.998762]  [<ffffffff817842b1>] net_rx_action+0x141/0x310
+[ 1109.998762]  [<ffffffff810bd710>] ? handle_fasteoi_irq+0xe0/0x150
+[ 1109.998762]  [<ffffffff81059fa6>] __do_softirq+0x116/0x4d0
+[ 1109.998762]  [<ffffffff8105a626>] irq_exit+0x96/0xc0
+[ 1109.998762]  [<ffffffff81a30d07>] do_IRQ+0x67/0x110
+[ 1109.998762]  [<ffffffff81a2ee2f>] common_interrupt+0x6f/0x6f
+[ 1109.998762]  <EOI>  [<ffffffff8100d2b7>] ? default_idle+0x37/0x250
+[ 1109.998762]  [<ffffffff8100d2b5>] ? default_idle+0x35/0x250
+[ 1109.998762]  [<ffffffff8100dd1f>] arch_cpu_idle+0xf/0x20
+[ 1109.998762]  [<ffffffff810999fd>] cpu_startup_entry+0x27d/0x4d0
+[ 1109.998762]  [<ffffffff81034c78>] start_secondary+0x188/0x1f0
 
-The opposite order of holding nametbl write lock and node lock on
-above two different paths may result in a deadlock. If we move the
-the updating of the name table after link state named out of node
-lock, the reverse order of holding locks will be eliminated, and
-as a result, the deadlock risk.
+When intra-node messages are delivered from one process to another
+process, tipc_link_xmit() doesn't disable BH before it directly calls
+tipc_sk_rcv() on process context to forward messages to destination
+socket. Meanwhile, if messages delivered by remote node arrive at the
+node and their destinations are also the same socket, tipc_sk_rcv()
+running on process context might be preempted by tipc_sk_rcv() running
+BH context. As a result, the latter cannot obtain the socket lock as
+the lock was obtained by the former, however, the former has no chance
+to be run as the latter is owning the CPU now, so headlock happens. To
+avoid it, BH should be always disabled in tipc_sk_rcv().
 
 Signed-off-by: Ying Xue <ying.xue@windriver.com>
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- net/tipc/node.c   |   46 ++++++++++++++++++++++++++++------------------
- net/tipc/node.h   |    7 ++++++-
- net/tipc/socket.c |    2 +-
- 3 files changed, 35 insertions(+), 20 deletions(-)
+ net/tipc/socket.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/tipc/node.c b/net/tipc/node.c
-index 90cee4a..5781634 100644
---- a/net/tipc/node.c
-+++ b/net/tipc/node.c
-@@ -219,11 +219,11 @@ void tipc_node_abort_sock_conns(struct list_head *conns)
- void tipc_node_link_up(struct tipc_node *n_ptr, struct tipc_link *l_ptr)
- {
- 	struct tipc_link **active = &n_ptr->active_links[0];
--	u32 addr = n_ptr->addr;
- 
- 	n_ptr->working_links++;
--	tipc_nametbl_publish(TIPC_LINK_STATE, addr, addr, TIPC_NODE_SCOPE,
--			     l_ptr->bearer_id, addr);
-+	n_ptr->action_flags |= TIPC_NOTIFY_LINK_UP;
-+	n_ptr->link_id = l_ptr->peer_bearer_id << 16 | l_ptr->bearer_id;
-+
- 	pr_info("Established link <%s> on network plane %c\n",
- 		l_ptr->name, l_ptr->net_plane);
- 
-@@ -284,10 +284,10 @@ static void node_select_active_links(struct tipc_node *n_ptr)
- void tipc_node_link_down(struct tipc_node *n_ptr, struct tipc_link *l_ptr)
- {
- 	struct tipc_link **active;
--	u32 addr = n_ptr->addr;
- 
- 	n_ptr->working_links--;
--	tipc_nametbl_withdraw(TIPC_LINK_STATE, addr, l_ptr->bearer_id, addr);
-+	n_ptr->action_flags |= TIPC_NOTIFY_LINK_DOWN;
-+	n_ptr->link_id = l_ptr->peer_bearer_id << 16 | l_ptr->bearer_id;
- 
- 	if (!tipc_link_is_active(l_ptr)) {
- 		pr_info("Lost standby link <%s> on network plane %c\n",
-@@ -552,28 +552,30 @@ void tipc_node_unlock(struct tipc_node *node)
- 	LIST_HEAD(conn_sks);
- 	struct sk_buff_head waiting_sks;
- 	u32 addr = 0;
--	unsigned int flags = node->action_flags;
-+	int flags = node->action_flags;
-+	u32 link_id = 0;
- 
--	if (likely(!node->action_flags)) {
-+	if (likely(!flags)) {
- 		spin_unlock_bh(&node->lock);
- 		return;
- 	}
- 
-+	addr = node->addr;
-+	link_id = node->link_id;
- 	__skb_queue_head_init(&waiting_sks);
--	if (node->action_flags & TIPC_WAKEUP_USERS) {
-+
-+	if (flags & TIPC_WAKEUP_USERS)
- 		skb_queue_splice_init(&node->waiting_sks, &waiting_sks);
--		node->action_flags &= ~TIPC_WAKEUP_USERS;
--	}
--	if (node->action_flags & TIPC_NOTIFY_NODE_DOWN) {
-+
-+	if (flags & TIPC_NOTIFY_NODE_DOWN) {
- 		list_replace_init(&node->nsub, &nsub_list);
- 		list_replace_init(&node->conn_sks, &conn_sks);
--		node->action_flags &= ~TIPC_NOTIFY_NODE_DOWN;
- 	}
--	if (node->action_flags & TIPC_NOTIFY_NODE_UP) {
--		node->action_flags &= ~TIPC_NOTIFY_NODE_UP;
--		addr = node->addr;
--	}
--	node->action_flags &= ~TIPC_WAKEUP_BCAST_USERS;
-+	node->action_flags &= ~(TIPC_WAKEUP_USERS | TIPC_NOTIFY_NODE_DOWN |
-+				TIPC_NOTIFY_NODE_UP | TIPC_NOTIFY_LINK_UP |
-+				TIPC_NOTIFY_LINK_DOWN |
-+				TIPC_WAKEUP_BCAST_USERS);
-+
- 	spin_unlock_bh(&node->lock);
- 
- 	while (!skb_queue_empty(&waiting_sks))
-@@ -588,6 +590,14 @@ void tipc_node_unlock(struct tipc_node *node)
- 	if (flags & TIPC_WAKEUP_BCAST_USERS)
- 		tipc_bclink_wakeup_users();
- 
--	if (addr)
-+	if (flags & TIPC_NOTIFY_NODE_UP)
- 		tipc_named_node_up(addr);
-+
-+	if (flags & TIPC_NOTIFY_LINK_UP)
-+		tipc_nametbl_publish(TIPC_LINK_STATE, addr, addr,
-+				     TIPC_NODE_SCOPE, link_id, addr);
-+
-+	if (flags & TIPC_NOTIFY_LINK_DOWN)
-+		tipc_nametbl_withdraw(TIPC_LINK_STATE, addr,
-+				      link_id, addr);
- }
-diff --git a/net/tipc/node.h b/net/tipc/node.h
-index 67513c3..04e9145 100644
---- a/net/tipc/node.h
-+++ b/net/tipc/node.h
-@@ -53,6 +53,7 @@
-  * TIPC_WAIT_OWN_LINKS_DOWN: wait until peer node is declared down
-  * TIPC_NOTIFY_NODE_DOWN: notify node is down
-  * TIPC_NOTIFY_NODE_UP: notify node is up
-+ * TIPC_DISTRIBUTE_NAME: publish or withdraw link state name type
-  */
- enum {
- 	TIPC_WAIT_PEER_LINKS_DOWN	= (1 << 1),
-@@ -60,7 +61,9 @@ enum {
- 	TIPC_NOTIFY_NODE_DOWN		= (1 << 3),
- 	TIPC_NOTIFY_NODE_UP		= (1 << 4),
- 	TIPC_WAKEUP_USERS		= (1 << 5),
--	TIPC_WAKEUP_BCAST_USERS		= (1 << 6)
-+	TIPC_WAKEUP_BCAST_USERS		= (1 << 6),
-+	TIPC_NOTIFY_LINK_UP		= (1 << 7),
-+	TIPC_NOTIFY_LINK_DOWN		= (1 << 8)
- };
- 
- /**
-@@ -100,6 +103,7 @@ struct tipc_node_bclink {
-  * @working_links: number of working links to node (both active and standby)
-  * @link_cnt: number of links to node
-  * @signature: node instance identifier
-+ * @link_id: local and remote bearer ids of changing link, if any
-  * @nsub: list of "node down" subscriptions monitoring node
-  * @rcu: rcu struct for tipc_node
-  */
-@@ -116,6 +120,7 @@ struct tipc_node {
- 	int link_cnt;
- 	int working_links;
- 	u32 signature;
-+	u32 link_id;
- 	struct list_head nsub;
- 	struct sk_buff_head waiting_sks;
- 	struct list_head conn_sks;
 diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index 75275c5..3043f10 100644
+index 3043f10..51bddc2 100644
 --- a/net/tipc/socket.c
 +++ b/net/tipc/socket.c
-@@ -2673,7 +2673,7 @@ static int tipc_ioctl(struct socket *sk, unsigned int cmd, unsigned long arg)
- 	case SIOCGETLINKNAME:
- 		if (copy_from_user(&lnr, argp, sizeof(lnr)))
- 			return -EFAULT;
--		if (!tipc_node_get_linkname(lnr.bearer_id, lnr.peer,
-+		if (!tipc_node_get_linkname(lnr.bearer_id & 0xffff, lnr.peer,
- 					    lnr.linkname, TIPC_MAX_LINK_NAME)) {
- 			if (copy_to_user(argp, &lnr, sizeof(lnr)))
- 				return -EFAULT;
+@@ -1776,7 +1776,7 @@ int tipc_sk_rcv(struct sk_buff *buf)
+ 	sk = &tsk->sk;
+ 
+ 	/* Queue message */
+-	bh_lock_sock(sk);
++	spin_lock_bh(&sk->sk_lock.slock);
+ 
+ 	if (!sock_owned_by_user(sk)) {
+ 		rc = filter_rcv(sk, buf);
+@@ -1787,7 +1787,7 @@ int tipc_sk_rcv(struct sk_buff *buf)
+ 		if (sk_add_backlog(sk, buf, limit))
+ 			rc = -TIPC_ERR_OVERLOAD;
+ 	}
+-	bh_unlock_sock(sk);
++	spin_unlock_bh(&sk->sk_lock.slock);
+ 	tipc_sk_put(tsk);
+ 	if (likely(!rc))
+ 		return 0;
 -- 
 1.7.9.5
