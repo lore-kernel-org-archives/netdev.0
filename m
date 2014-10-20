@@ -1,36 +1,39 @@
-From: Thomas Graf <tgraf@suug.ch>
+From: "Michael S. Tsirkin" <mst@redhat.com>
 Subject: Re: [PATCH v4 13/25] virtio_console: enable VQs early
-Date: Mon, 20 Oct 2014 14:10:52 +0100
-Message-ID: <20141020131052.GB18561@casper.infradead.org>
+Date: Mon, 20 Oct 2014 16:14:05 +0300
+Message-ID: <20141020131405.GA20582@redhat.com>
 References: <1413114332-626-1-git-send-email-mst-v4@redhat.com>
- <1413114332-626-14-git-send-email-mst-v4@redhat.com>
- <20141020120750.GA18561@casper.infradead.org>
- <20141020144223.5655dcbc.cornelia.huck@de.ibm.com>
+	<1413114332-626-14-git-send-email-mst-v4@redhat.com>
+	<20141020120750.GA18561@casper.infradead.org>
+	<20141020131016.GA20489@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	linux-kernel@vger.kernel.org,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	virtualization@lists.linux-foundation.org,
-	linux-scsi@vger.kernel.org, linux-s390@vger.kernel.org,
-	v9fs-developer@lists.sourceforge.net, netdev@vger.kernel.org,
-	kvm@vger.kernel.org, Amit Shah <amit.shah@redhat.com>,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linux-s390@vger.kernel.org, kvm@vger.kernel.org, linux-scsi@vger.kernel.org,
 	Christian Borntraeger <borntraeger@de.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Paolo Bonzini <pbonzini@redhat.com>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-To: Cornelia Huck <cornelia.huck@de.ibm.com>
-Return-path: <linux-scsi-owner@vger.kernel.org>
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Arnd Bergmann <arnd@arndb.de>, Paolo Bonzini <pbonzini@redhat.com>,
+	Amit Shah <amit.shah@redhat.com>, v9fs-developer@lists.sourceforge.net,
+	"David S. Miller" <davem@davemloft.net>
+To: Thomas Graf <tgraf@suug.ch>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <20141020144223.5655dcbc.cornelia.huck@de.ibm.com>
-Sender: linux-scsi-owner@vger.kernel.org
+In-Reply-To: <20141020131016.GA20489@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On 10/20/14 at 02:42pm, Cornelia Huck wrote:
-> On Mon, 20 Oct 2014 13:07:50 +0100
-> Thomas Graf <tgraf@suug.ch> wrote:
-> 
+On Mon, Oct 20, 2014 at 04:10:16PM +0300, Michael S. Tsirkin wrote:
+> On Mon, Oct 20, 2014 at 01:07:50PM +0100, Thomas Graf wrote:
 > > On 10/13/14 at 10:50am, Michael S. Tsirkin wrote:
 > > > virtio spec requires drivers to set DRIVER_OK before using VQs.
 > > > This is set automatically after probe returns, virtio console violated this
@@ -57,15 +60,17 @@ On 10/20/14 at 02:42pm, Cornelia Huck wrote:
 > > >  	/* Fill the in_vq with buffers so the host can send us data. */
 > > >  	nr_added_bufs = fill_queue(port->in_vq, &port->inbuf_lock);
 > > >  	if (!nr_added_bufs) {
-> > 
-> > Seems like probe and add_port() now both set VIRTIO_CONFIG_S_DRIVER_OK
 > 
-> I think we need to set this in the probe function instead, otherwise we
-> fail for multiqueue (which also wants to use the control queue early).
-> 
-> Completely untested patch below; I can send this with proper s-o-b if
-> it helps.
+> I see Cornelia sent a patch already.
+> I'd like to reproduce this though - could you send me
+> the command line please?
 
-virtio_dev_probe() already sets DRIVER_OK if ->probe() returned
-without an error. I assume Michael added it to add_port() because
-probing doesn't always occur first. Can we just remove the BUG_ON()?
+Nevermind, the trick is to add a port it seems:
+
+-device virtio-serial -chardev socket,path=/tmp/c1,server,nowait,id=foo
+-device virtserialport,chardev=foo,name=org.fedoraproject.port.0
+
+works fine without -device virtserialport.
+
+-- 
+MST
