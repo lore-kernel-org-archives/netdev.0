@@ -1,169 +1,138 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH] netlink: Re-add locking to netlink_lookup() and seq walker
-Date: Mon, 20 Oct 2014 20:53:55 +0100
-Message-ID: <20141020195355.GA2299@casper.infradead.org>
-References: <20141011083627.GB5074@osiris>
- <1413055964.9362.50.camel@edumazet-glaptop2.roam.corp.google.com>
- <20141011222514.GA14186@casper.infradead.org>
- <20141020082107.GB4268@osiris>
+From: James Carlson <carlsonj@workingcode.com>
+Subject: Re: Routing BUG with ppp over l2tp
+Date: Mon, 20 Oct 2014 16:22:45 -0400
+Message-ID: <54456F15.9070206@workingcode.com>
+References: <Pine.LNX.4.44L0.1410201414500.2403-100000@iolanthe.rowland.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Sasha Levin <sasha.levin@oracle.com>,
-	paulmck@linux.vnet.ibm.com,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Ursula Braun <braunu@de.ibm.com>
-To: Heiko Carstens <heiko.carstens@de.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20141020082107.GB4268@osiris>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: James Chapman <jchapman@katalix.com>, linux-ppp@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Alan Stern <stern@rowland.harvard.edu>
+Return-path: <linux-ppp-owner@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.44L0.1410201414500.2403-100000@iolanthe.rowland.org>
+Sender: linux-ppp-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Heiko,
+On 10/20/14 15:45, Alan Stern wrote:
+> On Mon, 20 Oct 2014, James Carlson wrote:
+>> Indeed!  That's pretty darned lame behavior by that peer.  It would
+>> probably be workable if you had a virtual router instance and were able
+>> to put the L2TP connection in one routing instance and the PPP
+>> connection in another routing instance, but that's likely not at all
+>> simple to achieve.
+> 
+> I'd like to find the simplest solution.  Ideally it should "just work", 
+> like the Windows and OS-X clients do.
 
-Can you test the following patch:
+I'm not an expert on Windows networking internals.  I assume OS X is BSD
++ whatever the folks in Cupertino have done to it.  :-/
 
-The synchronize_rcu() in netlink_release() introduces unacceptable
-latency. Reintroduce minimal lookup so we can drop the
-synchronize_rcu() until socket destruction has been RCUfied.
+At a guess, it's living on the edge.  It works because the L2TP
+connection establishment caches a pointer to the output forwarding table
+entry ("route") and just keeps living with it no matter what actually
+happens down the line.
 
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
----
- net/netlink/af_netlink.c | 37 +++++++++++++++++++++++++------------
- 1 file changed, 25 insertions(+), 12 deletions(-)
+On Linux (and likely many other systems), the output computation is a
+bit more dynamic, and the establishment of a direct point-to-point link
+to a given IP address (as the PPP link represents) causes existing
+cached pointers to get flushed away.  Future packets to that destination
+(IP _always_ forwards based on destination, not source) go down the most
+direct path.  Point-to-point is as direct as you can get.
 
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 7a186e7..f1de72d 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -96,6 +96,14 @@ static DECLARE_WAIT_QUEUE_HEAD(nl_table_wait);
- static int netlink_dump(struct sock *sk);
- static void netlink_skb_destructor(struct sk_buff *skb);
- 
-+/* nl_table locking explained:
-+ * Lookup and traversal are protected with nl_sk_hash_lock or nl_table_lock
-+ * combined with an RCU read-side lock. Insertion and removal are protected
-+ * with nl_sk_hash_lock while using RCU list modification primitives and may
-+ * run in parallel to nl_table_lock protected lookups. Destruction of the
-+ * Netlink socket may only occur *after* nl_table_lock has been acquired
-+ * either during or after the socket has been removed from the list.
-+ */
- DEFINE_RWLOCK(nl_table_lock);
- EXPORT_SYMBOL_GPL(nl_table_lock);
- static atomic_t nl_table_users = ATOMIC_INIT(0);
-@@ -109,10 +117,10 @@ EXPORT_SYMBOL_GPL(nl_sk_hash_lock);
- static int lockdep_nl_sk_hash_is_held(void)
- {
- #ifdef CONFIG_LOCKDEP
--	return (debug_locks) ? lockdep_is_held(&nl_sk_hash_lock) : 1;
--#else
--	return 1;
-+	if (debug_locks)
-+		return lockdep_is_held(&nl_sk_hash_lock) || lockdep_is_held(&nl_table_lock);
- #endif
-+	return 1;
- }
- 
- static ATOMIC_NOTIFIER_HEAD(netlink_chain);
-@@ -1028,11 +1036,13 @@ static struct sock *netlink_lookup(struct net *net, int protocol, u32 portid)
- 	struct netlink_table *table = &nl_table[protocol];
- 	struct sock *sk;
- 
-+	read_lock(&nl_table_lock);
- 	rcu_read_lock();
- 	sk = __netlink_lookup(table, portid, net);
- 	if (sk)
- 		sock_hold(sk);
- 	rcu_read_unlock();
-+	read_unlock(&nl_table_lock);
- 
- 	return sk;
- }
-@@ -1257,9 +1267,6 @@ static int netlink_release(struct socket *sock)
- 	}
- 	netlink_table_ungrab();
- 
--	/* Wait for readers to complete */
--	synchronize_net();
--
- 	kfree(nlk->groups);
- 	nlk->groups = NULL;
- 
-@@ -1281,6 +1288,7 @@ static int netlink_autobind(struct socket *sock)
- 
- retry:
- 	cond_resched();
-+	netlink_table_grab();
- 	rcu_read_lock();
- 	if (__netlink_lookup(table, portid, net)) {
- 		/* Bind collision, search negative portid values. */
-@@ -1288,9 +1296,11 @@ retry:
- 		if (rover > -4097)
- 			rover = -4097;
- 		rcu_read_unlock();
-+		netlink_table_ungrab();
- 		goto retry;
- 	}
- 	rcu_read_unlock();
-+	netlink_table_ungrab();
- 
- 	err = netlink_insert(sk, net, portid);
- 	if (err == -EADDRINUSE)
-@@ -2921,14 +2931,16 @@ static struct sock *netlink_seq_socket_idx(struct seq_file *seq, loff_t pos)
- }
- 
- static void *netlink_seq_start(struct seq_file *seq, loff_t *pos)
--	__acquires(RCU)
-+	__acquires(nl_table_lock) __acquires(RCU)
- {
-+	read_lock(&nl_table_lock);
- 	rcu_read_lock();
- 	return *pos ? netlink_seq_socket_idx(seq, *pos - 1) : SEQ_START_TOKEN;
- }
- 
- static void *netlink_seq_next(struct seq_file *seq, void *v, loff_t *pos)
- {
-+	struct rhashtable *ht;
- 	struct netlink_sock *nlk;
- 	struct nl_seq_iter *iter;
- 	struct net *net;
-@@ -2943,19 +2955,19 @@ static void *netlink_seq_next(struct seq_file *seq, void *v, loff_t *pos)
- 	iter = seq->private;
- 	nlk = v;
- 
--	rht_for_each_entry_rcu(nlk, nlk->node.next, node)
-+	i = iter->link;
-+	ht = &nl_table[i].hash;
-+	rht_for_each_entry(nlk, nlk->node.next, ht, node)
- 		if (net_eq(sock_net((struct sock *)nlk), net))
- 			return nlk;
- 
--	i = iter->link;
- 	j = iter->hash_idx + 1;
- 
- 	do {
--		struct rhashtable *ht = &nl_table[i].hash;
- 		const struct bucket_table *tbl = rht_dereference_rcu(ht->tbl, ht);
- 
- 		for (; j < tbl->size; j++) {
--			rht_for_each_entry_rcu(nlk, tbl->buckets[j], node) {
-+			rht_for_each_entry(nlk, tbl->buckets[j], ht, node) {
- 				if (net_eq(sock_net((struct sock *)nlk), net)) {
- 					iter->link = i;
- 					iter->hash_idx = j;
-@@ -2971,9 +2983,10 @@ static void *netlink_seq_next(struct seq_file *seq, void *v, loff_t *pos)
- }
- 
- static void netlink_seq_stop(struct seq_file *seq, void *v)
--	__releases(RCU)
-+	__releases(RCU) __releases(nl_table_lock)
- {
- 	rcu_read_unlock();
-+	read_unlock(&nl_table_lock);
- }
- 
- 
+It may be possible to modify the L2TP code to use flags to avoid the PPP
+link (MSG_DONTROUTE?), but I suspect that's probably a bad rather than a
+good thing to do.
+
+>>> Unfortunately, I can't work around this problem by reconfiguring the
+>>> VPN server -- there's no way to tell it to use a different IP address
+>>> for its end of the VPN tunnel.  Furthermore, the server works just fine
+>>> with clients running Windows or OS-X.
+>>
+>> Really?  That seems ... improbable.
+> 
+> I guess that depends on how you judge probabilities.  :-)
+
+:-/
+
+> Internet:
+> Destination        Gateway            Flags    Refs      Use  Netif Expire
+> default            140.247.233.37     UGSc        2        4   ppp0
+> 10                 ppp0               USc         1        0   ppp0
+
+That's *quite* interesting!  The PPP link doesn't have an interface
+route as you'd find on most other systems.  Instead, it has what appears
+to be an effectively unnumbered link.  Note the "ppp0" there instead of
+an actual output address and the happy use of "10" for the local address
++ mask.
+
+For what it's worth, the forced IP address option I've suggested is
+morally equivalent to what's being done here on OS X, so that's a fair
+reason to recommend it.
+
+I checked out the pppd on Mac OS X (Darwin 13.4.0; Mavericks), and it
+looks to be a variant of the SAMBA/ANU/CMU pppd, but I'm not sure what's
+different with it, and I know of no contributions from them.  And the
+BSD support is long gone from the main source base ...
+
+> I don't understand (and can't be bothered to look up) those arcane
+> symbols in the netstat output.  The IP address used for the ping test
+> (10.160.0.2) is a system on the VPN's private network.
+
+The flags aren't all that interesting.  "Up" "Gateway" "Static"
+"cloning" are all expected in this context.
+
+>> As long as you don't need to contact that specific remote server using
+>> the badly-assigned "internal" VPN address and can live with the fact
+>> that you'll either go through the regular Internet to that address or be
+>> forced to use some other address configured on that server, you should
+>> be good.
+>>
+>> (The address I used above is 10.160.0.2.  That was one of the internal
+>> DNS server addresses provided in the log you posted.  It's not necessary
+>> that the address used here is exactly that, but it may well be helpful.)
+> 
+> That might work.  But using a nonstandard version of pppd would be
+> awkward, and I would prefer to avoid it.
+
+What's "non-standard?"
+
+Having the ability to force a given remote IP address looks to me like a
+perfectly reasonable thing to do.  We allow the remote IP address to be
+set arbitrarily when the peer (for whatever reason) refuses to divulge
+its address, and this is just an extension of that idea.
+
+>> If you can't do that for some reason, then I suppose it would be
+>> possible to use IP Chains (or whatever the packet-modification tool du
+>> jure is used in your Linux distribution) to nail up an exception so that
+>> the outside packets go to the outside interface and the inside ones go
+>> to the PPP interface.  Doing that likely requires selecting on (at
+>> least!) source address, so it's messy and ugly and possibly error-prone,
+>> but it might be doable.
+> 
+> That sounds like a fairly easy thing to try.  But it would still 
+> require manual intervention instead of just working.  Fixing the kernel 
+> would be preferable, IMO.
+
+I don't quite agree that it's necessarily "broken."
+
+I do agree that it's bad to crash due to this misconfiguration.  That's
+certainly a bug of some sort.  But making the kernel "naturally" accept
+that the same unicast remote IP address refers to different outputs
+depending on phase-of-moon in order to make this weird server happy
+sounds like adding a bug rather than fixing one.
+
+Routing based on destination is a good thing.
+
+>> Otherwise, contact the maintainer of that VPN server.  It's just plain
+>> old broken, and life's too short for broken software.
+> 
+> It is an old Cisco security appliance, no doubt well past End-Of-Life.  
+> I'm starting to think it might be preferable to throw the thing away 
+> and start up a VPN server on the department's firewall (which is a 
+> Linux box) instead.
+
+That sounds like a good (and easier to support) solution.
+
 -- 
-1.9.3
+James Carlson         42.703N 71.076W         <carlsonj@workingcode.com>
