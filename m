@@ -1,38 +1,33 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
+From: Thomas Graf <tgraf@suug.ch>
 Subject: Re: [PATCH v4 13/25] virtio_console: enable VQs early
-Date: Mon, 20 Oct 2014 16:14:05 +0300
-Message-ID: <20141020131405.GA20582@redhat.com>
+Date: Mon, 20 Oct 2014 14:12:20 +0100
+Message-ID: <20141020131220.GC18561@casper.infradead.org>
 References: <1413114332-626-1-git-send-email-mst-v4@redhat.com>
-	<1413114332-626-14-git-send-email-mst-v4@redhat.com>
-	<20141020120750.GA18561@casper.infradead.org>
-	<20141020131016.GA20489@redhat.com>
+ <1413114332-626-14-git-send-email-mst-v4@redhat.com>
+ <20141020120750.GA18561@casper.infradead.org>
+ <20141020131016.GA20489@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linux-s390@vger.kernel.org, kvm@vger.kernel.org, linux-scsi@vger.kernel.org,
-	Christian Borntraeger <borntraeger@de.ibm.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org,
+	Rusty Russell <rusty@rustcorp.com.au>,
 	virtualization@lists.linux-foundation.org,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Arnd Bergmann <arnd@arndb.de>, Paolo Bonzini <pbonzini@redhat.com>,
-	Amit Shah <amit.shah@redhat.com>, v9fs-developer@lists.sourceforge.net,
-	"David S. Miller" <davem@davemloft.net>
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
+	linux-scsi@vger.kernel.org, linux-s390@vger.kernel.org,
+	v9fs-developer@lists.sourceforge.net, netdev@vger.kernel.org,
+	kvm@vger.kernel.org, Amit Shah <amit.shah@redhat.com>,
+	Cornelia Huck <cornelia.huck@de.ibm.com>,
+	Christian Borntraeger <borntraeger@de.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Paolo Bonzini <pbonzini@redhat.com>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-scsi-owner@vger.kernel.org>
 Content-Disposition: inline
 In-Reply-To: <20141020131016.GA20489@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 20, 2014 at 04:10:16PM +0300, Michael S. Tsirkin wrote:
+On 10/20/14 at 04:10pm, Michael S. Tsirkin wrote:
 > On Mon, Oct 20, 2014 at 01:07:50PM +0100, Thomas Graf wrote:
 > > On 10/13/14 at 10:50am, Michael S. Tsirkin wrote:
 > > > virtio spec requires drivers to set DRIVER_OK before using VQs.
@@ -65,12 +60,32 @@ On Mon, Oct 20, 2014 at 04:10:16PM +0300, Michael S. Tsirkin wrote:
 > I'd like to reproduce this though - could you send me
 > the command line please?
 
-Nevermind, the trick is to add a port it seems:
+1. Invoke qemu:
 
--device virtio-serial -chardev socket,path=/tmp/c1,server,nowait,id=foo
--device virtserialport,chardev=foo,name=org.fedoraproject.port.0
+/usr/bin/qemu-system-x86_64 -machine accel=kvm -name f20-2 -S -machine
+pc-i440fx-1.4,accel=kvm,usb=off -m 2048 -realtime mlock=off -smp
+4,sockets=4,cores=1,threads=1 -uuid
+dd45ec4c-7c26-4b73-9b6b-81f2912c5235 -no-user-config -nodefaults
+-chardev
+socket,id=charmonitor,path=/var/lib/libvirt/qemu/f20-2.monitor,server,nowait
+-mon chardev=charmonitor,id=monitor,mode=control -rtc base=utc
+-no-shutdown -device piix3-usb-uhci,id=usb,bus=pci.0,addr=0x1.0x2
+-device virtio-serial-pci,id=virtio-serial0,bus=pci.0,addr=0x5 -drive
+file=/virt/f20n2-clone,if=none,id=drive-virtio-disk0,format=raw
+-device
+virtio-blk-pci,scsi=off,bus=pci.0,addr=0x6,drive=drive-virtio-disk0,id=virtio-disk0,bootindex=1
+-netdev tap,fd=24,id=hostnet0,vhost=on,vhostfd=25 -device
+virtio-net-pci,netdev=hostnet0,id=net0,mac=52:54:00:ef:72:4e,bus=pci.0,addr=0x3
+-chardev pty,id=charserial0 -device
+isa-serial,chardev=charserial0,id=serial0 -chardev
+spicevmc,id=charchannel0,name=vdagent -device
+virtserialport,bus=virtio-serial0.0,nr=1,chardev=charchannel0,id=channel0,name=com.redhat.spice.0
+-device usb-tablet,id=input0 -spice
+port=5900,addr=127.0.0.1,disable-ticketing,seamless-migration=on
+-device
+qxl-vga,id=video0,ram_size=67108864,vram_size=67108864,bus=pci.0,addr=0x2
+-device intel-hda,id=sound0,bus=pci.0,addr=0x4 -device
+hda-duplex,id=sound0-codec0,bus=sound0.0,cad=0 -device
+virtio-balloon-pci,id=balloon0,bus=pci.0,addr=0x7
 
-works fine without -device virtserialport.
-
--- 
-MST
+2. Attach console right away: virsh console f20-2
