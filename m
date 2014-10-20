@@ -1,72 +1,45 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH RFC v3 3/3] virtio-net: optimize free_old_xmit_skbs stats
-Date: Mon, 20 Oct 2014 09:52:41 +0300
-Message-ID: <1413787824-16130-4-git-send-email-mst@redhat.com>
-References: <1413787824-16130-1-git-send-email-mst@redhat.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH 2/4] net: make skb_gso_segment error handling more robust
+Date: Mon, 20 Oct 2014 09:05:04 +0200
+Message-ID: <20141020070504.GC4626@breakpoint.cc>
+References: <1413751340-19621-1-git-send-email-fw@strlen.de>
+ <1413751340-19621-3-git-send-email-fw@strlen.de>
+ <20141019.203943.579204096575757665.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jason Wang <jasowang@redhat.com>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Cc: fw@strlen.de, netdev@vger.kernel.org, edumazet@google.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43995 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752484AbaJTGtL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Oct 2014 02:49:11 -0400
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:41762 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752480AbaJTHFH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Oct 2014 03:05:07 -0400
 Content-Disposition: inline
-In-Reply-To: <1413787824-16130-1-git-send-email-mst@redhat.com>
+In-Reply-To: <20141019.203943.579204096575757665.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jason Wang <jasowang@redhat.com>
+David Miller <davem@davemloft.net> wrote:
+> From: Florian Westphal <fw@strlen.de>
+> Date: Sun, 19 Oct 2014 22:42:19 +0200
+> 
+> > skb_gso_segment has three possible return values:
+> > 1. a pointer to the first segmented skb
+> > 2. an errno value (IS_ERR())
+> > 3. NULL.  This can happen when GSO is used for header verification.
+> > 
+> > However, several callers currently test IS_ERR instead of IS_ERR_OR_NULL
+> > and would oops when NULL is returned.
+> > 
+> > Note that these call sites should never actually see such a NULL return
+> > value; all callers mask out the GSO bits in the feature argument.
+> > 
+> > However, in the past, there have been issues with some protocol handlers
+> > erronously not respecting the specified feature mask in some cases.
+> > 
+> > Signed-off-by: Florian Westphal <fw@strlen.de>
+> 
+> I don't think it makes sense to return PTR_ERR(p) when
+> p is NULL.
 
-We already have counters for sent packets and sent bytes.
-Use them to reduce the number of u64_stats_update_begin/end().
-
-Take care not to bother with stats update when called
-speculatively.
-
-Based on a patch by Jason Wang.
-
-Cc: Rusty Russell <rusty@rustcorp.com.au>
-Signed-off-by: Jason Wang <jasowang@redhat.com>
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
----
- drivers/net/virtio_net.c | 16 +++++++++++-----
- 1 file changed, 11 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index b83d39d..c2b69f8 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -233,16 +233,22 @@ static unsigned int free_old_xmit_skbs(struct netdev_queue *txq,
- 	       (skb = virtqueue_get_buf(sq->vq, &len)) != NULL) {
- 		pr_debug("Sent skb %p\n", skb);
- 
--		u64_stats_update_begin(&stats->tx_syncp);
--		stats->tx_bytes += skb->len;
- 		bytes += skb->len;
--		stats->tx_packets++;
--		u64_stats_update_end(&stats->tx_syncp);
-+		packets++;
- 
- 		dev_kfree_skb_any(skb);
--		packets++;
- 	}
- 
-+	/* Avoid overhead when no packets have been processed
-+	 * happens when called speculatively from start_xmit. */
-+	if (!packets)
-+		return 0;
-+
-+	u64_stats_update_begin(&stats->tx_syncp);
-+	stats->tx_bytes += bytes;
-+	stats->tx_packets += packets;
-+	u64_stats_update_end(&stats->tx_syncp);
-+
- 	netdev_tx_completed_queue(txq, packets, bytes);
- 
- 	if (sq->vq->num_free >= 2+MAX_SKB_FRAGS)
--- 
-MST
+Good point. Will respin.
