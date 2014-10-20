@@ -1,123 +1,74 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH v4 13/25] virtio_console: enable VQs early
-Date: Mon, 20 Oct 2014 17:04:11 +0300
-Message-ID: <20141020140410.GA10994@redhat.com>
-References: <1413114332-626-1-git-send-email-mst-v4@redhat.com>
-	<1413114332-626-14-git-send-email-mst-v4@redhat.com>
-	<20141020120750.GA18561@casper.infradead.org>
-	<20141020144223.5655dcbc.cornelia.huck@de.ibm.com>
-	<20141020133555.GA27111@redhat.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: Queue with wait-free enqueue, blocking dequeue, splice
+Date: Mon, 20 Oct 2014 16:02:37 +0200
+Message-ID: <20141020160237.302aa17c@redhat.com>
+References: <1311316954.11157.1413631325000.JavaMail.zimbra@efficios.com>
+	<412768308.11171.1413632892841.JavaMail.zimbra@efficios.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-s390@vger.kernel.org, kvm@vger.kernel.org, linux-scsi@vger.kernel.org,
-	Christian Borntraeger <borntraeger@de.ibm.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	Amit Shah <amit.shah@redhat.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Paolo Bonzini <pbonzini@redhat.com>, Thomas Graf <tgraf@suug.ch>,
-	v9fs-developer@lists.sourceforge.net,
-	"David S. Miller" <davem@davemloft.net>
-To: Cornelia Huck <cornelia.huck@de.ibm.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <20141020133555.GA27111@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: brouer@redhat.com, "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	netdev@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>
+To: Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:23907 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752220AbaJTODM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Oct 2014 10:03:12 -0400
+In-Reply-To: <412768308.11171.1413632892841.JavaMail.zimbra@efficios.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 20, 2014 at 04:35:55PM +0300, Michael S. Tsirkin wrote:
-> On Mon, Oct 20, 2014 at 02:42:23PM +0200, Cornelia Huck wrote:
-> > On Mon, 20 Oct 2014 13:07:50 +0100
-> > Thomas Graf <tgraf@suug.ch> wrote:
-> > 
-> > > On 10/13/14 at 10:50am, Michael S. Tsirkin wrote:
-> > > > virtio spec requires drivers to set DRIVER_OK before using VQs.
-> > > > This is set automatically after probe returns, virtio console violated this
-> > > > rule by adding inbufs, which causes the VQ to be used directly within
-> > > > probe.
-> > > > 
-> > > > To fix, call virtio_device_ready before using VQs.
-> > > > 
-> > > > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> > > > ---
-> > > >  drivers/char/virtio_console.c | 2 ++
-> > > >  1 file changed, 2 insertions(+)
-> > > > 
-> > > > diff --git a/drivers/char/virtio_console.c b/drivers/char/virtio_console.c
-> > > > index b585b47..6ebe8f6 100644
-> > > > --- a/drivers/char/virtio_console.c
-> > > > +++ b/drivers/char/virtio_console.c
-> > > > @@ -1449,6 +1449,8 @@ static int add_port(struct ports_device *portdev, u32 id)
-> > > >  	spin_lock_init(&port->outvq_lock);
-> > > >  	init_waitqueue_head(&port->waitqueue);
-> > > >  
-> > > > +	virtio_device_ready(portdev->vdev);
-> > > > +
-> > > >  	/* Fill the in_vq with buffers so the host can send us data. */
-> > > >  	nr_added_bufs = fill_queue(port->in_vq, &port->inbuf_lock);
-> > > >  	if (!nr_added_bufs) {
-> > > 
-> > > Seems like probe and add_port() now both set VIRTIO_CONFIG_S_DRIVER_OK
-> > 
-> > I think we need to set this in the probe function instead, otherwise we
-> > fail for multiqueue (which also wants to use the control queue early).
-> > 
-> > Completely untested patch below; I can send this with proper s-o-b if
-> > it helps.
-> > 
-> > diff --git a/drivers/char/virtio_console.c b/drivers/char/virtio_console.c
-> > index bfa6400..cf7a561 100644
-> > --- a/drivers/char/virtio_console.c
-> > +++ b/drivers/char/virtio_console.c
-> > @@ -1449,8 +1449,6 @@ static int add_port(struct ports_device *portdev, u32 id)
-> >  	spin_lock_init(&port->outvq_lock);
-> >  	init_waitqueue_head(&port->waitqueue);
-> >  
-> > -	virtio_device_ready(portdev->vdev);
-> > -
-> >  	/* Fill the in_vq with buffers so the host can send us data. */
-> >  	nr_added_bufs = fill_queue(port->in_vq, &port->inbuf_lock);
-> >  	if (!nr_added_bufs) {
-> > @@ -2026,6 +2024,8 @@ static int virtcons_probe(struct virtio_device *vdev)
-> >  	spin_lock_init(&portdev->ports_lock);
-> >  	INIT_LIST_HEAD(&portdev->ports);
-> >  
-> > +	virtio_device_ready(portdev->vdev);
-> > +
-> >  	if (multiport) {
-> >  		unsigned int nr_added_bufs;
-> >  
-> 
-> I wanted to set DRIVER_OK as late as possible, to both reduce
-> the chance it can fail after DRIVER_OK and to reduce  the risk of
-> introducing a regression since old qemu might only start sending
-> interrupts after DRIVER_OK is set.
-> 
-> So I wanted everything completely initialized before DRIVER_OK.
-> 
-> You patch makes sense to me since nothing can fail,
-> and we won't get interrupts before we add inbufs.
-> 
-> Reviewed-by: Michael S. Tsirkin <mst@redhat.com>
-> 
-> Testig will report shortly, pls send with sob line.
 
-Sure enough, this helps:
+On Sat, 18 Oct 2014 11:48:12 +0000 (UTC) Mathieu Desnoyers <mathieu.desnoyers@efficios.com> wrote:
 
-Tested-by: Michael S. Tsirkin <mst@redhat.com>
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+> Following our LPC discussion on lock-free queue algorithms
+> for qdisc, here is some info on the wfcqueue implementation
+> found in Userspace RCU. See http://urcu.so for info and
+> git repository.
 
-Pls repost as a top-level patch.
+Thank for following up on our very interesting discussions.
 
-> -- 
-> MST
+I've started with the more simple variant "urcu/static/wfqueue.h" to
+understand the concepts.  And I'm now reading wfcqueue.h, which I guess
+it replacing wfqueue.h.
+
+ 
+> Here is the wfcqueue ported to the Linux kernel I sent last
+> year as RFC:
+> https://lkml.org/lkml/2013/3/14/289
+> 
+> I'm very interested to learn if it fits well for your
+> use-case,
+
+Does this wfcqueue API support bulk dequeue?  (A feature needed for the
+lock-less qdisc implementation, else it cannot compete with our new
+bulk dequeue strategy).
+
+AFAIK your queue implementation is a CAS-based, Wait-Free on enqueue,
+but Lock-Free on dequeue with the potential for waiting/blocking on
+a enqueue processes.
+ I'm not 100% sure, that we want this behavior for the qdisc system.
+
+I can certainly use the wfcq_empty() check, but I guess I need to
+maintain a separate counter to maintain the qdisc limit, right?
+(I would use the approximate/split counter API percpu_counter to keep
+this scalable, and wfcq_empty() would provide an accurate empty check)
+
+
+I think, we/I should start micro benchmarking the different approaches.
+As our time budget is only 67.2ns 
+ http://netoptimizer.blogspot.dk/2014/05/the-calculations-10gbits-wirespeed.html
+(or bulking tricks artificially "increase" this budget)
+
+
+The motivation behind this lockless qdisc is, the current qdisc locking
+cost 48ns, see slide 9/16 titled "Qdisc locking is nasty":
+ http://people.netfilter.org/hawk/presentations/LinuxPlumbers2014/performance_tx_qdisc_bulk_LPC2014.pdf
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
