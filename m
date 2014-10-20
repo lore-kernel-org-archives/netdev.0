@@ -1,59 +1,82 @@
-From: Ido Shamay <idos@dev.mellanox.co.il>
-Subject: Re: [PATCH net] net/mlx4_en: mlx4_en_netpoll shouldn't call napi_schedule
- when port is down
-Date: Mon, 20 Oct 2014 18:59:44 +0300
-Message-ID: <54453170.7080909@dev.mellanox.co.il>
-References: <1411988695-30547-1-git-send-email-amirv@mellanox.com> <20140929.134704.646626597842088240.davem@davemloft.net>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: qdisc running
+Date: Mon, 20 Oct 2014 18:17:56 +0200
+Message-ID: <20141020181756.2c8f33b9@redhat.com>
+References: <54440FFA.40307@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: idos@mellanox.com, netdev@vger.kernel.org, yevgenyp@mellanox.com,
-	ogerlitz@mellanox.com
-To: David Miller <davem@davemloft.net>, amirv@mellanox.com
+Cc: john Fastabend <john.r.fastabend@intel.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	eric Dumazet <edumazet@google.com>, brouer@redhat.com,
+	Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:46065 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750716AbaJTP7t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Oct 2014 11:59:49 -0400
-Received: by mail-wi0-f172.google.com with SMTP id n3so7577983wiv.5
-        for <netdev@vger.kernel.org>; Mon, 20 Oct 2014 08:59:47 -0700 (PDT)
-In-Reply-To: <20140929.134704.646626597842088240.davem@davemloft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:27866 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751181AbaJTQSR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Oct 2014 12:18:17 -0400
+In-Reply-To: <54440FFA.40307@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 9/29/2014 8:47 PM, David Miller wrote:
-> From: Amir Vadai <amirv@mellanox.com>
-> Date: Mon, 29 Sep 2014 14:04:55 +0300
->
->> From: Ido Shamay <idos@mellanox.com>
->>
->> mlx4_en_netpoll, which is mlx4_en ndo_poll_controller callback,
->> might be called when port is down, causing a napi_schedule when
->> napi->poll callback in NULL. mutex_trylock is needed to acquire
->> the port_state lock, since other threads may grab it and stop
->> the port while we are in napi scheduling. Using trylock since in atomic
->> context.
->>
->> Signed-off-by: Ido Shamay <idos@mellanox.com>
->> Signed-off-by: Amir Vadai <amirv@mellanox.com>
->
-> I don't think netpoll should 'variably succeed' on poll controller's
-> ability to immediately take a trylock.
->
-> You need to find a way to make this code always process the queues
-> when it is called, the approach you are taking here is not a correct.
->
-> If you've designed things in such a way that the locking here is
-> difficult, that's unfortunate but you still have to make this
-> function behave properly.
 
-Sorry about that, aborting this commit since the problem was already 
-fixed in commit 3484aac1, which added netif_device_detach to driver port 
-stop flow and that made netconsole not to call ndo_poll_controller callback.
+On Sun, 19 Oct 2014 15:24:42 -0400 Jamal Hadi Salim <jhs@mojatatu.com> wrote:
 
-Thanks.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+> Jesper,
+> 
+> You asked at the meeting the point to qdisc running.
+
+Talking about __QDISC___STATE_RUNNING see slide 9/16:
+ http://people.netfilter.org/hawk/presentations/LinuxPlumbers2014/performance_tx_qdisc_bulk_LPC2014.pdf
+
+> Original intent is to allow only one cpu to enter the lower half of the
+> qdisc path. IOW, if one cpu was already in the qdisc then that guy
+> could be used to dequeue packets. i.e this is good for batching.
+> Original idea was Herbert's with major improvement from Eric
+> and a small one from me.
+
+I guess it is good for our recent dequeue batching. But I think/hope we
+can come up with a scheme that does not requires 6 lock/unlock
+operations (as illustrated on slide 9).
+
+John and I have talked about doing a lockless qdisc, but maintaining
+this __QDISC___STATE_RUNNING in a lockless scenario, would cost us
+extra atomic ops...
+
+Are we still sure, that this model of only allowing a single CPU in the
+dequeue path, is still the best solution?  (The TXQ lock should already
+protect several CPUs in this code path).
+
+
+> For history of different tried approaches look at:
+> Look at slide 2: 
+> http://vger.kernel.org/netconf2011_slides/jamal_netconf2011.pdf
+
+I can see that you really needed the budget/fairness in the dequeue
+loop, that we recently mangled with.
+
+> then download the **amazing** flash animations which describe
+> that history.
+> http://vger.kernel.org/netconf2011_slides/netconf-2011-flash.tgz
+> 
+> Follow the bullets in slide2 and map to the flash animations.
+
+What tool do I use to play these SWF files? (I tried VLC but no luck).
+
+> If you go over them, you'll see it is still needed.
+
+Too bad, I would like to avoid the second 
+ 
+> I think someone oughta put those **amazing** animations on some
+> website;->
+
+I hope someone else can pick that up ;-)
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
