@@ -1,63 +1,72 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [linux-nics] [PATCH 1/1] e1000: unset IFF_UNICAST_FLT on WMware
- 82545EM
-Date: Mon, 20 Oct 2014 15:25:52 -0700
-Message-ID: <1413843952.2256.17.camel@jtkirshe-mobl>
-References: <20141020221115.1FC9B480090@fruggeri-Arora18.sjc.aristanetworks.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [RFC PATCH net-next] net: ipv6: Add a sysctl to make optimistic
+ addresses useful candidates
+Date: Mon, 20 Oct 2014 23:40:15 +0100
+Message-ID: <1413844815.31953.32.camel@decadent.org.uk>
+References: <1413520309-13814-1-git-send-email-ek@google.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-BifuTQxY63JdUpadR1R4"
-Cc: netdev@vger.kernel.org, linux.nics@intel.com,
-	pv-drivers@vmware.com, fruggeri@arista.com,
-	linux-kernel@vger.kernel.org, e1000-devel@lists.sourceforge.net,
-	davem@davemloft.net
-To: Francesco Ruggeri <fruggeri@aristanetworks.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141020221115.1FC9B480090@fruggeri-Arora18.sjc.aristanetworks.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	protocol="application/pgp-signature"; boundary="=-8t8A8pso8psRG3gJqIvE"
+Cc: netdev@vger.kernel.org, hannes@stressinduktion.org,
+	lorenzo@google.com, edumazet@google.com
+To: Erik Kline <ek@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:43284 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753380AbaJTWka (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Oct 2014 18:40:30 -0400
+In-Reply-To: <1413520309-13814-1-git-send-email-ek@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
---=-BifuTQxY63JdUpadR1R4
+--=-8t8A8pso8psRG3gJqIvE
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Mon, 2014-10-20 at 15:11 -0700, Francesco Ruggeri wrote:
-> VMWare's e1000 implementation does not seem to support unicast
-> filtering.
-> This can be observed by configuring a macvlan interface on eth0 in a
-> VM in
-> VMWare Fusion 5.0.5, and trying to use that interface instead of eth0.
-> Tested on 3.16.
->=20
-> Signed-off-by: Francesco Ruggeri <fruggeri@arista.com>
-> ---
->  drivers/net/ethernet/intel/e1000/e1000_main.c | 5 ++++-
->  1 file changed, 4 insertions(+), 1 deletion(-)
+On Fri, 2014-10-17 at 13:31 +0900, Erik Kline wrote:
+[...]
+> --- a/include/uapi/linux/ipv6.h
+> +++ b/include/uapi/linux/ipv6.h
+> @@ -154,6 +154,7 @@ enum {
+>  	DEVCONF_ACCEPT_RA_RT_INFO_MAX_PLEN,
+>  	DEVCONF_PROXY_NDP,
+>  	DEVCONF_OPTIMISTIC_DAD,
+> +	DEVCONF_USE_OPTIMISTIC,
+>  	DEVCONF_ACCEPT_SOURCE_ROUTE,
+>  	DEVCONF_MC_FORWARDING,
+>  	DEVCONF_DISABLE_IPV6,
+[...]
 
-Thanks Francesco, I will add your patch to my queue.
+As this is UAPI, the new entry must be added at the end of the
+enumeration (well, before DEVCONF_MAX).
 
---=-BifuTQxY63JdUpadR1R4
+Ben.
+
+--=20
+Ben Hutchings
+Reality is just a crutch for people who can't handle science fiction.
+
+--=-8t8A8pso8psRG3gJqIvE
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v2
 
-iQIcBAABCgAGBQJURYvwAAoJEOVv75VaS+3OsXsP/0getDYnCLhx2tz8PkUybwFE
-ZmWKkaKRmDcE7ov3gT9IjLkDDROCMR8RvdDJH8DHZiv0L9yCP7hOGfl/d9iQY+YG
-MvferI8c8do06Yl1Yniw9x8mL6ZZqhKbnDV8bB9V89GgymqK1UOXoOSTWnvFCGGN
-gG+UMw94bfHTTj5rvhsObn8zpbDYoLtPGsQfGT+6JpO0Jc0WTuRFBWaMXLxCq5nx
-mrN7QEjPhnSmedtm7sU0XdnkDEQwy35R5wzm4+L83iJYrL4SSXgsdjpfcT+D/EGd
-L2uGlWIYAxAQOcslhThaAyLImCEwk7i6XUV7e6oLTx+fzB1lwyUGfU/j7qlteo+c
-zJMMHdyA9pM3LRHUIQbY9TM709RIetGUTOF4I+ooglxyZkjRTAZ4OcYks8o/Y+wE
-ilqFOftLOW6OaglNX9t6UehrH8iU6fpzQftQoS9DeS6mxVl020CDbSf1wWUrDSZs
-whfE4OTo1T/MiA8vs5HMbzjn3WwubyBKaF1butgJbqR/tng3Zz+jRgZNLtJ70+OD
-YgppzRetqICpXHQC9Vw4uzgW8TylAyOatdOHLs7nb+rVzG7H1Qkxg56bi9r3MSB9
-CQ5ZJR2V4CaKRWw659096CZs9pODGNh5F1mQOAnVtIfnuWTYx2fVQiZeix8LD17J
-WgI4OXGj16/WDhsBvTRy
-=/QHM
+iQIVAwUAVEWPVOe/yOyVhhEJAQo8ExAAqu28RQflAUEWW0lnP3yIRJ5MO+OR/ghk
+GpANV6essdljWsRuZQ9JgMSi8o1bK5XqB3jLtUPdi4bC1hLi0nRLpTjmPpA+JGFf
+wMn9f1jZ0PstEI+jMBTS4epeeJxRtGkFE7SV+xA/PnT7HXO/YUnu1exDmGiWa617
+Zv9TDuuzvqZSuqCt1Qtf8EdVuFgxeEDlqHRhueFkc5R0PSfGF26k+3Th/H7XkYTu
+yGRafKtBJEUBMDbVDzGThGtyVWoMKPX4RGKDJhCAc3JsABggixmWjzStygVhoze7
+1F9OLsP0rxZFJJUmXZ2Su6NdXGGdFAG70w5lHCln6zWLiNwEYqgtCEmZUbEdgmm9
+TnFcO0y9Asmf8Ai5p++nEMn+q0UnATwq2eFOzPOIvhsVbVJbgEgAI/zNgTP1N3xb
+ms/uZbmJxBFnOl42lkZxJpaIC3u6KPUnjuo2tEodlXHk6N+wxiio5K/4rMMJ/N+t
+Q+dDS/T3yOtPbYMzpRXoHoQh7rB0mUK81FnLxkidCuy33gecCyQnirq+1GkN38Ly
+wjSD1zlSd4G1Mt/ZWV7NmRHHhMRKpLLa5JrYZfY9CHSqORiV0KeqRekWOKflAUCq
++6MRoFoNgtPqHOSpfhmeAcSIRTDjj1ZCd4ScdvWxApP872fio7hNO/1r7HCJhYpH
+erf3ArY7qyQ=
+=KNFN
 -----END PGP SIGNATURE-----
 
---=-BifuTQxY63JdUpadR1R4--
+--=-8t8A8pso8psRG3gJqIvE--
