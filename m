@@ -1,43 +1,38 @@
-From: Julian Calaby <julian.calaby@gmail.com>
-Subject: Re: [PATCHv4 3/4] sparc64: Avoid irqsave/restore on vio.lock if in_softirq()
-Date: Wed, 22 Oct 2014 09:42:13 +1100
-Message-ID: <CAGRGNgWev1kouJUx2JmPn6V+pvJ0ccE+TCMX=YVaBvAFRDFyQw@mail.gmail.com>
-References: <20141021141647.GF15405@oracle.com> <CAGRGNgXvKJBhOE1z3=_gZkE=X94HnoAvTN6Zv5G1h8JuFfS8Ng@mail.gmail.com>
- <20141021223952.GA26724@oracle.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [stable request <= 3.11] net/mlx4_en: Fix BlueFlame race
+Date: Tue, 21 Oct 2014 16:15:31 -0700
+Message-ID: <CAHA+R7MSiuazaAr-F5UGZ+DYv-8EE5mLmVtvjVvfC7iYY9+i=Q@mail.gmail.com>
+References: <CAHTgTXVn1479XCoh1-j=Xghtad3zA-hf0za5r_AyoaKuKeFZ2g@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: "David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	sparclinux <sparclinux@vger.kernel.org>
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Return-path: <sparclinux-owner@vger.kernel.org>
-In-Reply-To: <20141021223952.GA26724@oracle.com>
-Sender: sparclinux-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	Amir Vadai <amirv@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Jack Morgenstein <jackm@dev.mellanox.co.il>,
+	Eugenia Emantayev <eugenia@mellanox.com>,
+	Matan Barak <matanb@mellanox.com>,
+	netdev <netdev@vger.kernel.org>
+To: Vinson Lee <vlee@twopensource.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f49.google.com ([209.85.192.49]:62203 "EHLO
+	mail-qg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753369AbaJUXPc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2014 19:15:32 -0400
+Received: by mail-qg0-f49.google.com with SMTP id e89so1682206qgf.22
+        for <netdev@vger.kernel.org>; Tue, 21 Oct 2014 16:15:32 -0700 (PDT)
+In-Reply-To: <CAHTgTXVn1479XCoh1-j=Xghtad3zA-hf0za5r_AyoaKuKeFZ2g@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Sowmini,
-
-On Wed, Oct 22, 2014 at 9:39 AM, Sowmini Varadhan
-<sowmini.varadhan@oracle.com> wrote:
-> On (10/22/14 09:35), Julian Calaby wrote:
->> >  void vio_port_up(struct vio_driver_state *vio)
->> >  {
->> > -       unsigned long flags;
->> > +       unsigned long flags = 0;
->>
->> Is gcc not smart enough to know that this variable isn't used before
->> it's set? (I assume it isn't used elsewhere in this function)
+On Sat, Oct 18, 2014 at 2:14 PM, Vinson Lee <vlee@twopensource.com> wrote:
+> Hi.
 >
-> No, it's not used elsewhere in the function, and yes, I too was
-> surprised by the build warning, which is why I initialized it
-> as above.
+> Please consider backporting upstream commit
+> 2d4b646613d6b12175b017aca18113945af1faf3 "net/mlx4_en: Fix BlueFlame
+> race" to stable kernels <= 3.11.
+>
 
-Ok, fair enough then.
+David, could you take care of it if you have time? It fixes a real
+bug in production. :)
 
-Thanks,
-
--- 
-Julian Calaby
-
-Email: julian.calaby@gmail.com
-Profile: http://www.google.com/profiles/julian.calaby/
+Thanks a lot!
