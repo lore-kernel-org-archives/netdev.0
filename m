@@ -1,54 +1,51 @@
-From: Karl Beldan <karl.beldan@gmail.com>
-Subject: [PATCH] net: tso: fix unaligned access to crafted TCP header in helper API
-Date: Tue, 21 Oct 2014 16:06:05 +0200
-Message-ID: <1413900365-12289-1-git-send-email-karl.beldan@gmail.com>
-Cc: netdev@vger.kernel.org, Karl Beldan <karl.beldan@rivierawaves.com>,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f175.google.com ([209.85.212.175]:52214 "EHLO
-	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932442AbaJUOGb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2014 10:06:31 -0400
-Received: by mail-wi0-f175.google.com with SMTP id d1so10212949wiv.14
-        for <netdev@vger.kernel.org>; Tue, 21 Oct 2014 07:06:28 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alan Stern <stern@rowland.harvard.edu>
+Subject: Re: Routing BUG with ppp over l2tp
+Date: Tue, 21 Oct 2014 10:15:57 -0400 (EDT)
+Message-ID: <Pine.LNX.4.44L0.1410211007210.1159-100000@iolanthe.rowland.org>
+References: <54456F15.9070206@workingcode.com>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: James Chapman <jchapman@katalix.com>, <linux-ppp@vger.kernel.org>,
+	<netdev@vger.kernel.org>
+To: James Carlson <carlsonj@workingcode.com>
+Return-path: <linux-ppp-owner@vger.kernel.org>
+In-Reply-To: <54456F15.9070206@workingcode.com>
+Sender: linux-ppp-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Karl Beldan <karl.beldan@rivierawaves.com>
+On Mon, 20 Oct 2014, James Carlson wrote:
 
-The crafted header start address is from a driver supplied buffer, which
-one can reasonably expect to be aligned on a 4-bytes boundary.
-However ATM the TSO helper API is only used by ethernet drivers and
-the tcp header will then be aligned to a 2-bytes only boundary from the
-header start address.
+> >> Otherwise, contact the maintainer of that VPN server.  It's just plain
+> >> old broken, and life's too short for broken software.
+> > 
+> > It is an old Cisco security appliance, no doubt well past End-Of-Life.  
+> > I'm starting to think it might be preferable to throw the thing away 
+> > and start up a VPN server on the department's firewall (which is a 
+> > Linux box) instead.
+> 
+> That sounds like a good (and easier to support) solution.
 
-Signed-off-by: Karl Beldan <karl.beldan@rivierawaves.com>
-Cc: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
----
- net/core/tso.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+Okay.  I looked into iptables, but it doesn't seem to provide any way 
+to prevent a packet from being routed through a particular interface. 
+:-(
 
-diff --git a/net/core/tso.c b/net/core/tso.c
-index 8c3203c..630b30b 100644
---- a/net/core/tso.c
-+++ b/net/core/tso.c
-@@ -1,6 +1,7 @@
- #include <linux/export.h>
- #include <net/ip.h>
- #include <net/tso.h>
-+#include <asm/unaligned.h>
- 
- /* Calculate expected number of TX descriptors */
- int tso_count_descs(struct sk_buff *skb)
-@@ -23,7 +24,7 @@ void tso_build_hdr(struct sk_buff *skb, char *hdr, struct tso_t *tso,
- 	iph->id = htons(tso->ip_id);
- 	iph->tot_len = htons(size + hdr_len - mac_hdr_len);
- 	tcph = (struct tcphdr *)(hdr + skb_transport_offset(skb));
--	tcph->seq = htonl(tso->tcp_seq);
-+	put_unaligned_be32(tso->tcp_seq, &tcph->seq);
- 	tso->ip_id++;
- 
- 	if (!is_last) {
--- 
-2.0.1
+On the other hand, I tried writing a short /etc/ppp/ip-up.local script
+that changes the destination address of the ppp interface and adds a
+default route to the new, correct address.  It worked!  It's not a
+perfect solution, because there's still a short window in which the
+interface is up with the wrong address.  A few packets get lost and a
+deadlock could occur.  But at least it's simple and non-invasive, and
+it definitely proves the address conflict was indeed the cause of the
+problem.
+
+Changing pppd would be more foolproof.  But then I'd also have to 
+change the programs that call it (xl2tpd and then NetworkManager), and 
+doing all that doesn't seem worthwhile.
+
+In the end, I think the best solution will be to replace the VPN 
+server.
+
+Thanks for your help,
+
+Alan Stern
+
