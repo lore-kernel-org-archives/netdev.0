@@ -1,74 +1,59 @@
-From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: Re: [PATCH 4/5] ip link ipip: Add support to configure FOU and GUE
-Date: Tue, 21 Oct 2014 18:48:24 +0200
-Message-ID: <20141021164824.GA10224@kria>
-References: <1412351718-22921-1-git-send-email-therbert@google.com>
- <1412351718-22921-5-git-send-email-therbert@google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: davem@davemloft.net, stephen@networkplumber.org,
-	netdev@vger.kernel.org
-To: Tom Herbert <therbert@google.com>
+From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Subject: [PATCH 4/5] stmmac: pci: set default filter bins
+Date: Tue, 21 Oct 2014 19:35:32 +0300
+Message-ID: <1413909333-16380-5-git-send-email-andriy.shevchenko@linux.intel.com>
+References: <1413909333-16380-1-git-send-email-andriy.shevchenko@linux.intel.com>
+Cc: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	netdev@vger.kernel.org,
+	Kweh Hock Leong <hock.leong.kweh@intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Vince Bridgers <vbridgers2013@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp5-g21.free.fr ([212.27.42.5]:1672 "EHLO smtp5-g21.free.fr"
+Received: from mga11.intel.com ([192.55.52.93]:24314 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932304AbaJUQs3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Oct 2014 12:48:29 -0400
-Content-Disposition: inline
-In-Reply-To: <1412351718-22921-5-git-send-email-therbert@google.com>
+	id S932304AbaJUQuA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Oct 2014 12:50:00 -0400
+In-Reply-To: <1413909333-16380-1-git-send-email-andriy.shevchenko@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Tom,
+The commit 3b57de958e2a bring a support for different amount of filter bins,
+but didn't update PCI driver accordingly. This patch append default values when
+device is enumerated via PCI bus.
 
-2014-10-03, 08:55:17 -0700, Tom Herbert wrote:
-> [...]
-> 
-> @@ -345,6 +396,44 @@ static void iptunnel_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[
->  			       relayprefixlen);
->  		}
->  	}
-> +
-> +	if (tb[IFLA_IPTUN_ENCAP_TYPE] &&
-> +	    *(__u16 *)RTA_DATA(tb[IFLA_IPTUN_ENCAP_TYPE]) != TUNNEL_ENCAP_NONE) {
-> +		__u16 type = rta_getattr_u16(tb[IFLA_IPTUN_ENCAP_TYPE]);
-> +		__u16 flags = rta_getattr_u16(tb[IFLA_IPTUN_ENCAP_FLAGS]);
-> +		__u16 sport = rta_getattr_u16(tb[IFLA_IPTUN_ENCAP_SPORT]);
-> +		__u16 dport = rta_getattr_u16(tb[IFLA_IPTUN_ENCAP_DPORT]);
-> +
-> +		fputs("encap ", f);
-> +		switch (type) {
-> +		case TUNNEL_ENCAP_FOU:
-> +			fputs("fou ", f);
-> +			break;
-> +		case TUNNEL_ENCAP_GUE:
-> +			fputs("gue ", f);
-> +			break;
-> +		default:
-> +			fputs("unknown ", f);
-> +			break;
-> +		}
-> +
-> +		if (sport == 0)
-> +			fputs("encap-sport auto ", f);
-> +		else
-> +			fprintf(f, "encap-sport %u", sport);
-                                                ^^^
-                                       missing space?
+Fixes: 3b57de958e2a (net: stmmac: Support devicetree configs for mcast and ucast filter entries)
+Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
 
-> +
-> +		fprintf(f, "encap-dport %u ", dport);
-
-You're missing a few ntohs for source/dest ports here:
-
-./ip link add name tun1 type ipip remote 192.168.1.1 local 192.168.1.2 ttl 225 encap gue encap-sport auto encap-dport 9999 encap-csum
-./ip -d link show dev tun1
-7: tun1@NONE: <POINTOPOINT,NOARP> mtu 1468 qdisc noop state DOWN mode DEFAULT group default 
-    link/ipip 192.168.1.2 peer 192.168.1.1 promiscuity 0 
-    ipip remote 192.168.1.1 local 192.168.1.2 ttl 225 pmtudisc encap gue encap-sport auto encap-dport 3879 encap-csum noencap-csum6 
-                                                                                                      ^^^^
-
-Same comments for the next patch.
-
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
+index c16f74b..22cb5ff 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
+@@ -67,6 +67,7 @@ static int stmmac_pci_probe(struct pci_dev *pdev,
+ 	int ret = 0;
+ 	struct stmmac_priv *priv = NULL;
+ 	int pci_bar = 0;
++	struct plat_stmmacenet_data *plat = &plat_dat;
+ 
+ 	/* Enable pci device */
+ 	ret = pcim_enable_device(pdev);
+@@ -83,7 +84,13 @@ static int stmmac_pci_probe(struct pci_dev *pdev,
+ 
+ 	stmmac_default_data();
+ 
+-	priv = stmmac_dvr_probe(&pdev->dev, &plat_dat,
++	/* Set default value for multicast hash bins */
++	plat->multicast_filter_bins = HASH_TABLE_SIZE;
++
++	/* Set default value for unicast filter entries */
++	plat->unicast_filter_entries = 1;
++
++	priv = stmmac_dvr_probe(&pdev->dev, plat,
+ 				pcim_iomap_table(pdev)[pci_bar]);
+ 	if (IS_ERR(priv)) {
+ 		dev_err(&pdev->dev, "%s: main driver probe failed\n", __func__);
 -- 
-Sabrina
+2.1.1
