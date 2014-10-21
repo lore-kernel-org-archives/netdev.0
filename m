@@ -1,29 +1,62 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [PATCH net] net: sched: initialize bstats syncp
-Date: Tue, 21 Oct 2014 11:52:48 -0700
-Message-ID: <CAHA+R7OcT7U3+xUOYkGAucVmXUvjO6q5BmMw8MwB-6b4vbi_aA@mail.gmail.com>
-References: <20141021092330.GA9863@kria>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	John Fastabend <john.r.fastabend@intel.com>
-To: Sabrina Dubroca <sd@queasysnail.net>
+From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Subject: [PATCH 3/5] stmmac: pci: convert to use dev_* macros
+Date: Tue, 21 Oct 2014 19:35:31 +0300
+Message-ID: <1413909333-16380-4-git-send-email-andriy.shevchenko@linux.intel.com>
+References: <1413909333-16380-1-git-send-email-andriy.shevchenko@linux.intel.com>
+Cc: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	netdev@vger.kernel.org,
+	Kweh Hock Leong <hock.leong.kweh@intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Vince Bridgers <vbridgers2013@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f176.google.com ([209.85.216.176]:33930 "EHLO
-	mail-qc0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750930AbaJUSwy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2014 14:52:54 -0400
-Received: by mail-qc0-f176.google.com with SMTP id r5so1425933qcx.21
-        for <netdev@vger.kernel.org>; Tue, 21 Oct 2014 11:52:50 -0700 (PDT)
-In-Reply-To: <20141021092330.GA9863@kria>
+Received: from mga09.intel.com ([134.134.136.24]:16869 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932766AbaJUTAz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Oct 2014 15:00:55 -0400
+In-Reply-To: <1413909333-16380-1-git-send-email-andriy.shevchenko@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 21, 2014 at 2:23 AM, Sabrina Dubroca <sd@queasysnail.net> wrote:
-> Use netdev_alloc_pcpu_stats to allocate percpu stats and initialize syncp.
->
-> Fixes: 22e0f8b9322c "net: sched: make bstats per cpu and estimator RCU safe"
-> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+Instead of pr_* macros let's use dev_* macros which provide device name.
 
-Acked-by: Cong Wang <cwang@twopensource.com>
+Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
+index f8d4ce2..c16f74b 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
+@@ -71,8 +71,8 @@ static int stmmac_pci_probe(struct pci_dev *pdev,
+ 	/* Enable pci device */
+ 	ret = pcim_enable_device(pdev);
+ 	if (ret) {
+-		pr_err("%s : ERROR: failed to enable %s device\n", __func__,
+-		       pci_name(pdev));
++		dev_err(&pdev->dev, "%s: ERROR: failed to enable device\n",
++			__func__);
+ 		return ret;
+ 	}
+ 	ret = pcim_iomap_regions(pdev, BIT(pci_bar), pci_name(pdev));
+@@ -86,7 +86,7 @@ static int stmmac_pci_probe(struct pci_dev *pdev,
+ 	priv = stmmac_dvr_probe(&pdev->dev, &plat_dat,
+ 				pcim_iomap_table(pdev)[pci_bar]);
+ 	if (IS_ERR(priv)) {
+-		pr_err("%s: main driver probe failed", __func__);
++		dev_err(&pdev->dev, "%s: main driver probe failed\n", __func__);
+ 		return PTR_ERR(priv);
+ 	}
+ 	priv->dev->irq = pdev->irq;
+@@ -94,7 +94,7 @@ static int stmmac_pci_probe(struct pci_dev *pdev,
+ 
+ 	pci_set_drvdata(pdev, priv->dev);
+ 
+-	pr_debug("STMMAC platform driver registration completed");
++	dev_dbg(&pdev->dev, "STMMAC PCI driver registration completed\n");
+ 
+ 	return 0;
+ }
+-- 
+2.1.1
