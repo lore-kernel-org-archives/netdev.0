@@ -1,46 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Documentation: ptp: Fix build failure on MIPS cross
- builds
-Date: Tue, 21 Oct 2014 12:35:44 -0400 (EDT)
-Message-ID: <20141021.123544.9516812519754063.davem@davemloft.net>
-References: <1413794538-28465-1-git-send-email-markos.chandras@imgtec.com>
-	<20141021110724.GA16479@netboy>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: markos.chandras@imgtec.com, linux-mips@linux-mips.org,
-	corbet@lwn.net, netdev@vger.kernel.org, linux-doc@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: richardcochran@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141021110724.GA16479@netboy>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Subject: [PATCH 0/5] stmmac: pci: various cleanups and fixes
+Date: Tue, 21 Oct 2014 19:35:28 +0300
+Message-ID: <1413909333-16380-1-git-send-email-andriy.shevchenko@linux.intel.com>
+Cc: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	netdev@vger.kernel.org,
+	Kweh Hock Leong <hock.leong.kweh@intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Vince Bridgers <vbridgers2013@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:6978 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932769AbaJUQpE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Oct 2014 12:45:04 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Richard Cochran <richardcochran@gmail.com>
-Date: Tue, 21 Oct 2014 13:07:25 +0200
+There are few cleanups and fixes regarding to stmmac PCI driver.
+This has been tested on Intel Galileo board with 3.18-rc1 kernel.
 
-> On Mon, Oct 20, 2014 at 09:42:18AM +0100, Markos Chandras wrote:
->> diff --git a/Documentation/ptp/Makefile b/Documentation/ptp/Makefile
->> index 293d6c09a11f..397c1cd2eda7 100644
->> --- a/Documentation/ptp/Makefile
->> +++ b/Documentation/ptp/Makefile
->> @@ -1,5 +1,15 @@
->>  # List of programs to build
->> +ifndef CROSS_COMPILE
->>  hostprogs-y := testptp
->> +else
->> +# MIPS system calls are defined based on the -mabi that is passed
->> +# to the toolchain which may or may not be a valid option
->> +# for the host toolchain. So disable testptp if target architecture
->> +# is MIPS but the host isn't.
->> +ifndef CONFIG_MIPS
->> +hostprogs-y := testptp
->> +endif
->> +endif
-> 
-> It seems like a shame to simply give up and not compile this at all.
-> Is there no way to correctly cross compile this for MIPS?
+Andy Shevchenko (5):
+  stmmac: pci: convert to use dev_pm_ops
+  stmmac: pci: use managed resources
+  stmmac: pci: convert to use dev_* macros
+  stmmac: pci: set default filter bins
+  stmmac: pci: remove FSF address
 
-Yeah seriously, we should try to make this work instead of throwing our
-hands in the air.
+ drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c | 92 ++++++++----------------
+ 1 file changed, 30 insertions(+), 62 deletions(-)
+
+-- 
+2.1.1
