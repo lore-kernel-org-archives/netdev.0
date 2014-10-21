@@ -1,106 +1,74 @@
-From: Feng Gao <gfree.wind@gmail.com>
-Subject: [PATCH] netfilter: Fix wastful cleanup check for unconfirmed conn in get_next_corpse
-Date: Tue, 21 Oct 2014 08:31:51 +0800
-Message-ID: <CA+6hz4ouOLgFwHOM6xeXEaUQpm2xOasDowKLPfZWuG3sAssUvA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=089e01183b602276ec0505e3f54e
-Cc: Netfilter Developer Mailing List
-	<netfilter-devel@vger.kernel.org>, coreteam@netfilter.org,
-	netdev@vger.kernel.org, linux-kernel <linux-kernel@vger.kernel.org>
-To: Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>, kadlec@blackhole.kfki.hu,
-	davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: roy.qing.li@gmail.com
+Subject: [PATCH 2/2][V2] xfrm6: fix a potential use after free in xfrm6_policy.c
+Date: Tue, 21 Oct 2014 08:34:12 +0800
+Message-ID: <1413851652-22553-1-git-send-email-roy.qing.li@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:43738 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752177AbaJUAeO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Oct 2014 20:34:14 -0400
+Received: by mail-pa0-f47.google.com with SMTP id kq14so166624pab.20
+        for <netdev@vger.kernel.org>; Mon, 20 Oct 2014 17:34:14 -0700 (PDT)
+Received: from localhost ([106.120.101.38])
+        by mx.google.com with ESMTPSA id uh2sm6185006pbc.81.2014.10.20.17.34.12
+        for <netdev@vger.kernel.org>
+        (version=TLSv1.2 cipher=RC4-SHA bits=128/128);
+        Mon, 20 Oct 2014 17:34:13 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---089e01183b602276ec0505e3f54e
-Content-Type: text/plain; charset=UTF-8
+From: Li RongQing <roy.qing.li@gmail.com>
 
-Hi all,
+pskb_may_pull() maybe change skb->data and make nh and exthdr pointer
+oboslete, so recompute the nd and exthdr
 
-I am sorry to send the patch commit again because the last email is
-not plain text and is rejected by some servers.
+V2: insert a space between date type(like __be16) and * as suggested by
+Sergei Shtylyov
 
-This is the patch to branch master of kernel.
+Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+---
+ net/ipv6/xfrm6_policy.c |   11 ++++++++---
+ 1 file changed, 8 insertions(+), 3 deletions(-)
 
-The function get_next_corpse is only invoked by nf_ct_iterate_cleanup
-in one while loop, and it will check the per cpu unconfirmed conntrack
-list every time.
-
-I think the whole list of unconfirmed conntracks could be accessed by
-one call, so the others are not necessary.
-
-So I move the checks outside the get_next_corpse, and create one new
-function clean_up_unconfirmed_conntracks.
-Let the nf_ct_iterate_cleanup invokes the
-clean_up_unconfirmed_conntracks after the while loop.
-
-These codes have already exist for a long time. Firstly I think maybe
-there is some reason, but I fail to get it.
-
-
-Best Regards
-Feng
-
---089e01183b602276ec0505e3f54e
-Content-Type: application/octet-stream;
-	name="0001-netfilter-Fix-wastful-cleanup-check-for-unconfirmed-.patch"
-Content-Disposition: attachment;
-	filename="0001-netfilter-Fix-wastful-cleanup-check-for-unconfirmed-.patch"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_i1iioim60
-
-RnJvbSA1MmRlNDU3YjNjZmQxZTk0YTUyZGYxYzNkZmNkOWRiZjM1MTFmYTBkIE1vbiBTZXAgMTcg
-MDA6MDA6MDAgMjAwMQpGcm9tOiBmZ2FvIDxnZnJlZS53aW5kQGdtYWlsLmNvbT4KRGF0ZTogTW9u
-LCAyMCBPY3QgMjAxNCAwNzoxODowNSAtMDcwMApTdWJqZWN0OiBbUEFUQ0ggMS8xXSBuZXRmaWx0
-ZXI6IEZpeCB3YXN0ZnVsIGNsZWFudXAgY2hlY2sgZm9yIHVuY29uZmlybWVkIGNvbm4gaW4gZ2V0
-X25leHRfY29ycHNlCgpUaGUgZnVuY3Rpb24gZ2V0X25leHRfY29ycHNlIGlzIHVzZWQgdG8gaXRl
-cmF0ZSB0aGUgY29ubnRyYWNrcy4KSXQgd2lsbCBjaGVjayB0aGUgcGVyIGNwdSB1bmNvbmZpcm1l
-ZCBsaXN0IG9mIGV2ZXJ5IGNwdSB0b28uCk5vdyBpdCBpcyBvbmx5IGludm9rZWQgYnkgbmZfY3Rf
-aXRlcmF0ZV9jbGVhbnVwIGluIG9uZSB3aGlsZSBsb29wLgpBY3R1YWxseSB0aGUgdW5jb25maXJt
-ZWQgbGlzdCBjb3VsZCBiZSBhY2Nlc3NlZCBjb21wbGV0ZWx5IGJ5IG9uZSBjYWxsLCB0aGVuIHRo
-ZSBvdGhlcnMgYXJlIHdhc3RmdWwuCgpTbyBtb3ZlIHRoZSB1bmNvbmZpcm1lZCBsaXN0IGNoZWNr
-IG91dHNpZGUgdGhlIGZ1bmN0aW9uIGdldF9uZXh0X2NvcnBzZSBhbmQgY3JlYXRlIG9uZSBuZXcg
-ZnVuY3Rpb24KTGV0IHRoZSBuZl9jdF9pdGVyYXRlX2NsZWFudXAgaW52b2tlcyB0aGUgbmV3IGZ1
-bmN0aW9uIGNsZWFuX3VwX3VuY29uZmlybWVkX2Nvbm50cmFja3Mgb25jZSBhZnRlciB0aGUgbG9v
-cHMuCgpTaWduZWQtb2ZmLWJ5OiBmZ2FvIDxnZnJlZS53aW5kQGdtYWlsLmNvbT4KLS0tCiBuZXQv
-bmV0ZmlsdGVyL25mX2Nvbm50cmFja19jb3JlLmMgfCAzNiArKysrKysrKysrKysrKysrKysrKysr
-KystLS0tLS0tLS0tLS0KIDEgZmlsZSBjaGFuZ2VkLCAyNCBpbnNlcnRpb25zKCspLCAxMiBkZWxl
-dGlvbnMoLSkKCmRpZmYgLS1naXQgYS9uZXQvbmV0ZmlsdGVyL25mX2Nvbm50cmFja19jb3JlLmMg
-Yi9uZXQvbmV0ZmlsdGVyL25mX2Nvbm50cmFja19jb3JlLmMKaW5kZXggNTAxNmE2OS4uYWNlN2My
-YzIgMTAwNjQ0Ci0tLSBhL25ldC9uZXRmaWx0ZXIvbmZfY29ubnRyYWNrX2NvcmUuYworKysgYi9u
-ZXQvbmV0ZmlsdGVyL25mX2Nvbm50cmFja19jb3JlLmMKQEAgLTEzNDgsNiArMTM0OCwyOCBAQCBz
-dGF0aWMgdm9pZCBuZl9jb25udHJhY2tfYXR0YWNoKHN0cnVjdCBza19idWZmICpuc2tiLCBjb25z
-dCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiKQogCW5mX2Nvbm50cmFja19nZXQobnNrYi0+bmZjdCk7CiB9
-CiAKK3N0YXRpYyB2b2lkIGNsZWFuX3VwX3VuY29uZmlybWVkX2Nvbm50cmFja3Moc3RydWN0IG5l
-dCAqbmV0LAorCQlpbnQgKCppdGVyKShzdHJ1Y3QgbmZfY29ubiAqaSwgdm9pZCAqZGF0YSksCisJ
-CXZvaWQgKmRhdGEpCit7CisJc3RydWN0IG5mX2Nvbm50cmFja190dXBsZV9oYXNoICpoOworCXN0
-cnVjdCBuZl9jb25uICpjdDsKKwlzdHJ1Y3QgaGxpc3RfbnVsbHNfbm9kZSAqbjsKKwlpbnQgY3B1
-OworCisJZm9yX2VhY2hfcG9zc2libGVfY3B1KGNwdSkgeworCQlzdHJ1Y3QgY3RfcGNwdSAqcGNw
-dSA9IHBlcl9jcHVfcHRyKG5ldC0+Y3QucGNwdV9saXN0cywgY3B1KTsKKworCQlzcGluX2xvY2tf
-YmgoJnBjcHUtPmxvY2spOworCQlobGlzdF9udWxsc19mb3JfZWFjaF9lbnRyeShoLCBuLCAmcGNw
-dS0+dW5jb25maXJtZWQsIGhubm9kZSkgeworCQkJY3QgPSBuZl9jdF90dXBsZWhhc2hfdG9fY3Ry
-YWNrKGgpOworCQkJaWYgKGl0ZXIoY3QsIGRhdGEpKQorCQkJCXNldF9iaXQoSVBTX0RZSU5HX0JJ
-VCwgJmN0LT5zdGF0dXMpOworCQl9CisJCXNwaW5fdW5sb2NrX2JoKCZwY3B1LT5sb2NrKTsKKwl9
-Cit9CisKIC8qIEJyaW5nIG91dCB5YSBkZWFkISAqLwogc3RhdGljIHN0cnVjdCBuZl9jb25uICoK
-IGdldF9uZXh0X2NvcnBzZShzdHJ1Y3QgbmV0ICpuZXQsIGludCAoKml0ZXIpKHN0cnVjdCBuZl9j
-b25uICppLCB2b2lkICpkYXRhKSwKQEAgLTEzNTYsNyArMTM3OCw2IEBAIGdldF9uZXh0X2NvcnBz
-ZShzdHJ1Y3QgbmV0ICpuZXQsIGludCAoKml0ZXIpKHN0cnVjdCBuZl9jb25uICppLCB2b2lkICpk
-YXRhKSwKIAlzdHJ1Y3QgbmZfY29ubnRyYWNrX3R1cGxlX2hhc2ggKmg7CiAJc3RydWN0IG5mX2Nv
-bm4gKmN0OwogCXN0cnVjdCBobGlzdF9udWxsc19ub2RlICpuOwotCWludCBjcHU7CiAJc3Bpbmxv
-Y2tfdCAqbG9ja3A7CiAKIAlmb3IgKDsgKmJ1Y2tldCA8IG5ldC0+Y3QuaHRhYmxlX3NpemU7ICgq
-YnVja2V0KSsrKSB7CkBAIC0xMzc2LDE3ICsxMzk3LDYgQEAgZ2V0X25leHRfY29ycHNlKHN0cnVj
-dCBuZXQgKm5ldCwgaW50ICgqaXRlcikoc3RydWN0IG5mX2Nvbm4gKmksIHZvaWQgKmRhdGEpLAog
-CQlsb2NhbF9iaF9lbmFibGUoKTsKIAl9CiAKLQlmb3JfZWFjaF9wb3NzaWJsZV9jcHUoY3B1KSB7
-Ci0JCXN0cnVjdCBjdF9wY3B1ICpwY3B1ID0gcGVyX2NwdV9wdHIobmV0LT5jdC5wY3B1X2xpc3Rz
-LCBjcHUpOwotCi0JCXNwaW5fbG9ja19iaCgmcGNwdS0+bG9jayk7Ci0JCWhsaXN0X251bGxzX2Zv
-cl9lYWNoX2VudHJ5KGgsIG4sICZwY3B1LT51bmNvbmZpcm1lZCwgaG5ub2RlKSB7Ci0JCQljdCA9
-IG5mX2N0X3R1cGxlaGFzaF90b19jdHJhY2soaCk7Ci0JCQlpZiAoaXRlcihjdCwgZGF0YSkpCi0J
-CQkJc2V0X2JpdChJUFNfRFlJTkdfQklULCAmY3QtPnN0YXR1cyk7Ci0JCX0KLQkJc3Bpbl91bmxv
-Y2tfYmgoJnBjcHUtPmxvY2spOwotCX0KIAlyZXR1cm4gTlVMTDsKIGZvdW5kOgogCWF0b21pY19p
-bmMoJmN0LT5jdF9nZW5lcmFsLnVzZSk7CkBAIC0xNDExLDYgKzE0MjEsOCBAQCB2b2lkIG5mX2N0
-X2l0ZXJhdGVfY2xlYW51cChzdHJ1Y3QgbmV0ICpuZXQsCiAKIAkJbmZfY3RfcHV0KGN0KTsKIAl9
-CisKKwljbGVhbl91cF91bmNvbmZpcm1lZF9jb25udHJhY2tzKG5ldCwgaXRlciwgZGF0YSk7CiB9
-CiBFWFBPUlRfU1lNQk9MX0dQTChuZl9jdF9pdGVyYXRlX2NsZWFudXApOwogCi0tIAoxLjkuMQoK
---089e01183b602276ec0505e3f54e--
+diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
+index ac49f84..115fd3b 100644
+--- a/net/ipv6/xfrm6_policy.c
++++ b/net/ipv6/xfrm6_policy.c
+@@ -170,8 +170,10 @@ _decode_session6(struct sk_buff *skb, struct flowi *fl, int reverse)
+ 		case IPPROTO_DCCP:
+ 			if (!onlyproto && (nh + offset + 4 < skb->data ||
+ 			     pskb_may_pull(skb, nh + offset + 4 - skb->data))) {
+-				__be16 *ports = (__be16 *)exthdr;
++				__be16 *ports;
+ 
++				nh = skb_network_header(skb);
++				ports = (__be16 *)(nh + offset);
+ 				fl6->fl6_sport = ports[!!reverse];
+ 				fl6->fl6_dport = ports[!reverse];
+ 			}
+@@ -180,8 +182,10 @@ _decode_session6(struct sk_buff *skb, struct flowi *fl, int reverse)
+ 
+ 		case IPPROTO_ICMPV6:
+ 			if (!onlyproto && pskb_may_pull(skb, nh + offset + 2 - skb->data)) {
+-				u8 *icmp = (u8 *)exthdr;
++				u8 *icmp;
+ 
++				nh = skb_network_header(skb);
++				icmp = (u8 *)(nh + offset);
+ 				fl6->fl6_icmp_type = icmp[0];
+ 				fl6->fl6_icmp_code = icmp[1];
+ 			}
+@@ -192,8 +196,9 @@ _decode_session6(struct sk_buff *skb, struct flowi *fl, int reverse)
+ 		case IPPROTO_MH:
+ 			if (!onlyproto && pskb_may_pull(skb, nh + offset + 3 - skb->data)) {
+ 				struct ip6_mh *mh;
+-				mh = (struct ip6_mh *)exthdr;
+ 
++				nh = skb_network_header(skb);
++				mh = (struct ip6_mh *)(nh + offset);
+ 				fl6->fl6_mh_type = mh->ip6mh_type;
+ 			}
+ 			fl6->flowi6_proto = nexthdr;
+-- 
+1.7.10.4
