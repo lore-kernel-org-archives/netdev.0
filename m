@@ -1,87 +1,46 @@
-From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Subject: [PATCH 3/9] net: pxa168_eth: Prepare proper libphy handling
-Date: Tue, 21 Oct 2014 10:53:41 +0200
-Message-ID: <1413881627-21639-4-git-send-email-sebastian.hesselbarth@gmail.com>
-References: <1413881627-21639-1-git-send-email-sebastian.hesselbarth@gmail.com>
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: [PATCH nf] netfilter: nf_tables: check for NULL in
+ nf_tables_newchain pcpu stats allocation
+Date: Tue, 21 Oct 2014 11:08:21 +0200
+Message-ID: <20141021090821.GA31730@kria>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Florian Fainelli <f.fainelli@gmail.com>, Eric Miao <eric.y.miao@gmail.com>,
- netdev@vger.kernel.org,
- =?UTF-8?q?Antoine=20T=C3=A9nart?= <antoine.tenart@free-electrons.com>,
- linux-kernel@vger.kernel.org, Haojian Zhuang <haojian.zhuang@gmail.com>,
- "David S. Miller" <davem@davemloft.net>, linux-arm-kernel@lists.infradead.org
-To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1413881627-21639-1-git-send-email-sebastian.hesselbarth@gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org
+To: pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp5-g21.free.fr ([212.27.42.5]:2375 "EHLO smtp5-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752289AbaJUJI3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Oct 2014 05:08:29 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Q3VycmVudCBsaWJwaHkgaGFuZGxpbmcgaW4gcHhhMTY4X2V0aCBsYWNrcyBwcm9wZXIgcGh5X2Nv
-bm5lY3QuIFByZXBhcmUKdG8gZml4IHRoaXMgYnkgZmlyc3QgbW92aW5nIHBoeSBwcm9wZXJ0aWVz
-IGZyb20gcGxhdGZvcm1fZGF0YSB0byBwcml2YXRlCmRyaXZlciBkYXRhLgoKVGVzdGVkLWJ5OiBB
-bnRvaW5lIFTDqW5hcnQgPGFudG9pbmUudGVuYXJ0QGZyZWUtZWxlY3Ryb25zLmNvbT4KU2lnbmVk
-LW9mZi1ieTogU2ViYXN0aWFuIEhlc3NlbGJhcnRoIDxzZWJhc3RpYW4uaGVzc2VsYmFydGhAZ21h
-aWwuY29tPgotLS0KQ2M6ICJEYXZpZCBTLiBNaWxsZXIiIDxkYXZlbUBkYXZlbWxvZnQubmV0PgpD
-YzogIkFudG9pbmUgVMOpbmFydCIgPGFudG9pbmUudGVuYXJ0QGZyZWUtZWxlY3Ryb25zLmNvbT4K
-Q2M6IEZsb3JpYW4gRmFpbmVsbGkgPGYuZmFpbmVsbGlAZ21haWwuY29tPgpDYzogRXJpYyBNaWFv
-IDxlcmljLnkubWlhb0BnbWFpbC5jb20+CkNjOiBIYW9qaWFuIFpodWFuZyA8aGFvamlhbi56aHVh
-bmdAZ21haWwuY29tPgpDYzogbGludXgtYXJtLWtlcm5lbEBsaXN0cy5pbmZyYWRlYWQub3JnCkNj
-OiBuZXRkZXZAdmdlci5rZXJuZWwub3JnCkNjOiBsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3Jn
-Ci0tLQogZHJpdmVycy9uZXQvZXRoZXJuZXQvbWFydmVsbC9weGExNjhfZXRoLmMgfCAzOCArKysr
-KysrKysrKysrKysrKysrLS0tLS0tLS0tLS0tCiAxIGZpbGUgY2hhbmdlZCwgMjMgaW5zZXJ0aW9u
-cygrKSwgMTUgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQv
-bWFydmVsbC9weGExNjhfZXRoLmMgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9tYXJ2ZWxsL3B4YTE2
-OF9ldGguYwppbmRleCBjM2IyMDljZDA2NjAuLjMzMjcwMDE0NGQ4MSAxMDA2NDQKLS0tIGEvZHJp
-dmVycy9uZXQvZXRoZXJuZXQvbWFydmVsbC9weGExNjhfZXRoLmMKKysrIGIvZHJpdmVycy9uZXQv
-ZXRoZXJuZXQvbWFydmVsbC9weGExNjhfZXRoLmMKQEAgLTE5Nyw2ICsxOTcsOSBAQCBzdHJ1Y3Qg
-dHhfZGVzYyB7CiBzdHJ1Y3QgcHhhMTY4X2V0aF9wcml2YXRlIHsKIAlpbnQgcG9ydF9udW07CQkv
-KiBVc2VyIEV0aGVybmV0IHBvcnQgbnVtYmVyICAgICovCiAJaW50IHBoeV9hZGRyOworCWludCBw
-aHlfc3BlZWQ7CisJaW50IHBoeV9kdXBsZXg7CisJcGh5X2ludGVyZmFjZV90IHBoeV9pbnRmOwog
-CiAJaW50IHJ4X3Jlc291cmNlX2VycjsJLyogUnggcmluZyByZXNvdXJjZSBlcnJvciBmbGFnICov
-CiAKQEAgLTEzOTQsMTkgKzEzOTcsMTcgQEAgc3RhdGljIHZvaWQgcGh5X2luaXQoc3RydWN0IHB4
-YTE2OF9ldGhfcHJpdmF0ZSAqcGVwKQogewogCXN0cnVjdCBwaHlfZGV2aWNlICpwaHkgPSBwZXAt
-PnBoeTsKIAotCXBoeV9hdHRhY2gocGVwLT5kZXYsIGRldl9uYW1lKCZwaHktPmRldiksIFBIWV9J
-TlRFUkZBQ0VfTU9ERV9NSUkpOworCXBoeV9hdHRhY2gocGVwLT5kZXYsIGRldl9uYW1lKCZwaHkt
-PmRldiksIHBlcC0+cGh5X2ludGYpOwogCi0JaWYgKHBlcC0+cGQgJiYgcGVwLT5wZC0+c3BlZWQg
-IT0gMCkgeworCXBoeS0+c3BlZWQgPSBwZXAtPnBoeV9zcGVlZDsKKwlwaHktPmR1cGxleCA9IHBl
-cC0+cGh5X2R1cGxleDsKKwlwaHktPmF1dG9uZWcgPSBBVVRPTkVHX0VOQUJMRTsKKwlwaHktPnN1
-cHBvcnRlZCAmPSBQSFlfQkFTSUNfRkVBVFVSRVM7CisJcGh5LT5hZHZlcnRpc2luZyA9IHBoeS0+
-c3VwcG9ydGVkIHwgQURWRVJUSVNFRF9BdXRvbmVnOworCisJaWYgKHBlcC0+cGh5X3NwZWVkICE9
-IDApIHsKIAkJcGh5LT5hdXRvbmVnID0gQVVUT05FR19ESVNBQkxFOwogCQlwaHktPmFkdmVydGlz
-aW5nID0gMDsKLQkJcGh5LT5zcGVlZCA9IHBlcC0+cGQtPnNwZWVkOwotCQlwaHktPmR1cGxleCA9
-IHBlcC0+cGQtPmR1cGxleDsKLQl9IGVsc2UgewotCQlwaHktPmF1dG9uZWcgPSBBVVRPTkVHX0VO
-QUJMRTsKLQkJcGh5LT5zcGVlZCA9IDA7Ci0JCXBoeS0+ZHVwbGV4ID0gMDsKLQkJcGh5LT5zdXBw
-b3J0ZWQgJj0gUEhZX0JBU0lDX0ZFQVRVUkVTOwotCQlwaHktPmFkdmVydGlzaW5nID0gcGh5LT5z
-dXBwb3J0ZWQgfCBBRFZFUlRJU0VEX0F1dG9uZWc7CiAJfQogCiAJcGh5X3N0YXJ0X2FuZWcocGh5
-KTsKQEAgLTE0MTYsOSArMTQxNyw2IEBAIHN0YXRpYyBpbnQgZXRoZXJuZXRfcGh5X3NldHVwKHN0
-cnVjdCBuZXRfZGV2aWNlICpkZXYpCiB7CiAJc3RydWN0IHB4YTE2OF9ldGhfcHJpdmF0ZSAqcGVw
-ID0gbmV0ZGV2X3ByaXYoZGV2KTsKIAotCWlmIChwZXAtPnBkICYmIHBlcC0+cGQtPmluaXQpCi0J
-CXBlcC0+cGQtPmluaXQoKTsKLQogCXBlcC0+cGh5ID0gcGh5X3NjYW4ocGVwLCBwZXAtPnBoeV9h
-ZGRyICYgMHgxZik7CiAJaWYgKHBlcC0+cGh5ICE9IE5VTEwpCiAJCXBoeV9pbml0KHBlcCk7CkBA
-IC0xNTUyLDEzICsxNTUwLDIzIEBAIHN0YXRpYyBpbnQgcHhhMTY4X2V0aF9wcm9iZShzdHJ1Y3Qg
-cGxhdGZvcm1fZGV2aWNlICpwZGV2KQogCiAJCXBlcC0+cG9ydF9udW0gPSBwZXAtPnBkLT5wb3J0
-X251bWJlcjsKIAkJcGVwLT5waHlfYWRkciA9IHBlcC0+cGQtPnBoeV9hZGRyOworCQlwZXAtPnBo
-eV9zcGVlZCA9IHBlcC0+cGQtPnNwZWVkOworCQlwZXAtPnBoeV9kdXBsZXggPSBwZXAtPnBkLT5k
-dXBsZXg7CisJCXBlcC0+cGh5X2ludGYgPSBwZXAtPnBkLT5pbnRmOworCisJCWlmIChwZXAtPnBk
-LT5pbml0KQorCQkJcGVwLT5wZC0+aW5pdCgpOwogCX0gZWxzZSBpZiAocGRldi0+ZGV2Lm9mX25v
-ZGUpIHsKIAkJb2ZfcHJvcGVydHlfcmVhZF91MzIocGRldi0+ZGV2Lm9mX25vZGUsICJwb3J0LWlk
-IiwKIAkJCQkgICAgICZwZXAtPnBvcnRfbnVtKTsKIAogCQlucCA9IG9mX3BhcnNlX3BoYW5kbGUo
-cGRldi0+ZGV2Lm9mX25vZGUsICJwaHktaGFuZGxlIiwgMCk7Ci0JCWlmIChucCkKLQkJCW9mX3By
-b3BlcnR5X3JlYWRfdTMyKG5wLCAicmVnIiwgJnBlcC0+cGh5X2FkZHIpOworCQlpZiAoIW5wKSB7
-CisJCQlkZXZfZXJyKCZwZGV2LT5kZXYsICJtaXNzaW5nIHBoeS1oYW5kbGVcbiIpOworCQkJcmV0
-dXJuIC1FSU5WQUw7CisJCX0KKwkJb2ZfcHJvcGVydHlfcmVhZF91MzIobnAsICJyZWciLCAmcGVw
-LT5waHlfYWRkcik7CisJCXBlcC0+cGh5X2ludGYgPSBvZl9nZXRfcGh5X21vZGUobnApOwogCX0K
-IAogCS8qIEhhcmR3YXJlIHN1cHBvcnRzIG9ubHkgMyBwb3J0cyAqLwotLSAKMi4xLjEKCgpfX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpsaW51eC1hcm0ta2Vy
-bmVsIG1haWxpbmcgbGlzdApsaW51eC1hcm0ta2VybmVsQGxpc3RzLmluZnJhZGVhZC5vcmcKaHR0
-cDovL2xpc3RzLmluZnJhZGVhZC5vcmcvbWFpbG1hbi9saXN0aW5mby9saW51eC1hcm0ta2VybmVs
-Cg==
+alloc_percpu returns NULL on failure, not a negative error code.
+
+Fixes: ff3cd7b3c922 ("netfilter: nf_tables: refactor chain statistic routines")
+Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+---
+ net/netfilter/nf_tables_api.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
+index 556a0dfa4abc..eb123676e1ef 100644
+--- a/net/netfilter/nf_tables_api.c
++++ b/net/netfilter/nf_tables_api.c
+@@ -1328,10 +1328,10 @@ static int nf_tables_newchain(struct sock *nlsk, struct sk_buff *skb,
+ 			basechain->stats = stats;
+ 		} else {
+ 			stats = netdev_alloc_pcpu_stats(struct nft_stats);
+-			if (IS_ERR(stats)) {
++			if (stats == NULL) {
+ 				module_put(type->owner);
+ 				kfree(basechain);
+-				return PTR_ERR(stats);
++				return -ENOMEM;
+ 			}
+ 			rcu_assign_pointer(basechain->stats, stats);
+ 		}
+-- 
+2.1.2
