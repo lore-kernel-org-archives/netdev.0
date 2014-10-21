@@ -1,96 +1,37 @@
-From: Frank Blaschka <blaschka@linux.vnet.ibm.com>
-Subject: [PATCH 2/6] qeth: fix some trace formating issues
-Date: Tue, 21 Oct 2014 17:15:27 +0200
-Message-ID: <1413904531-55663-3-git-send-email-blaschka@linux.vnet.ibm.com>
-References: <1413904531-55663-1-git-send-email-blaschka@linux.vnet.ibm.com>
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-	Thomas Richter <tmricht@linux.vnet.ibm.com>,
-	Frank Blaschka <blaschka@linux.vnet.ibm.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp16.uk.ibm.com ([195.75.94.112]:58431 "EHLO
-	e06smtp16.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755851AbaJUPPr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2014 11:15:47 -0400
-Received: from /spool/local
-	by e06smtp16.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <blaschka@linux.vnet.ibm.com>;
-	Tue, 21 Oct 2014 16:15:46 +0100
-In-Reply-To: <1413904531-55663-1-git-send-email-blaschka@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH] netfilter: xt_hashlimit: Enhance the xt_hashlimit to
+ avoid duplicated codes
+Date: Tue, 21 Oct 2014 17:31:28 +0200
+Message-ID: <20141021153128.GA3657@salvia>
+References: <CA+6hz4o-2vSEzH+hjYAUfWRVqHQ3QfcCr8q11eoRpCTq2uTYtg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>, kadlec@blackhole.kfki.hu,
+	davem@davemloft.net,
+	Netfilter Developer Mailing List
+	<netfilter-devel@vger.kernel.org>, coreteam@netfilter.org,
+	netdev@vger.kernel.org, linux-kernel <linux-kernel@vger.kernel.org>
+To: Feng Gao <gfree.wind@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CA+6hz4o-2vSEzH+hjYAUfWRVqHQ3QfcCr8q11eoRpCTq2uTYtg@mail.gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Thomas Richter <tmricht@linux.vnet.ibm.com>
+On Tue, Oct 21, 2014 at 11:23:16PM +0800, Feng Gao wrote:
+> Hi all,
+> 
+> Enhance the functions "dsthash_alloc_init" and "hashlimit_mt" in file
+> "xt_hashlimit.c" to avoid two duplicated codes following:
+> 
+> -           dh->expires = now + msecs_to_jiffies(hinfo->cfg.expire);
+> -           rateinfo_recalc(dh, now, hinfo->cfg.mode);
+> 
+> 
+> The whole patch is following
 
-This patch fixes trace formatting issues using the
-QETH_CARD_TEXT_ macro. The total size of each trace entry
-is 8 bytes. Some of the sprintf formats exceed these 8
-bytes (for example using abcd:%d and the converted value
-needs more than 3 bytes). The solution is to shorten the
-text prepending the value or use a different format (%x).
+The patch seems mangled by your MUA.
 
-Signed-off-by: Thomas Richter <tmricht@linux.vnet.ibm.com>
-Signed-off-by: Frank Blaschka <blaschka@linux.vnet.ibm.com>
----
- drivers/s390/net/qeth_core_main.c | 6 +++---
- drivers/s390/net/qeth_l2_main.c   | 2 +-
- drivers/s390/net/qeth_l3_main.c   | 2 +-
- 3 files changed, 5 insertions(+), 5 deletions(-)
+BTW, you can just Cc netfilter patches to
+netfilter-devel@vger.kernel.org. No need to Cc that many people.
 
-diff --git a/drivers/s390/net/qeth_core_main.c b/drivers/s390/net/qeth_core_main.c
-index 098bb0f..f407e37 100644
---- a/drivers/s390/net/qeth_core_main.c
-+++ b/drivers/s390/net/qeth_core_main.c
-@@ -4134,7 +4134,7 @@ static int qeth_setadp_promisc_mode_cb(struct qeth_card *card,
- 
- 	qeth_default_setadapterparms_cb(card, reply, (unsigned long)cmd);
- 	if (cmd->hdr.return_code) {
--		QETH_CARD_TEXT_(card, 4, "prmrc%2.2x", cmd->hdr.return_code);
-+		QETH_CARD_TEXT_(card, 4, "prmrc%x", cmd->hdr.return_code);
- 		setparms->data.mode = SET_PROMISC_MODE_OFF;
- 	}
- 	card->info.promisc_mode = setparms->data.mode;
-@@ -4501,13 +4501,13 @@ static int qeth_snmp_command_cb(struct qeth_card *card,
- 	snmp = &cmd->data.setadapterparms.data.snmp;
- 
- 	if (cmd->hdr.return_code) {
--		QETH_CARD_TEXT_(card, 4, "scer1%i", cmd->hdr.return_code);
-+		QETH_CARD_TEXT_(card, 4, "scer1%x", cmd->hdr.return_code);
- 		return 0;
- 	}
- 	if (cmd->data.setadapterparms.hdr.return_code) {
- 		cmd->hdr.return_code =
- 			cmd->data.setadapterparms.hdr.return_code;
--		QETH_CARD_TEXT_(card, 4, "scer2%i", cmd->hdr.return_code);
-+		QETH_CARD_TEXT_(card, 4, "scer2%x", cmd->hdr.return_code);
- 		return 0;
- 	}
- 	data_len = *((__u16 *)QETH_IPA_PDU_LEN_PDU1(data));
-diff --git a/drivers/s390/net/qeth_l2_main.c b/drivers/s390/net/qeth_l2_main.c
-index c2679bf..d02cd1a 100644
---- a/drivers/s390/net/qeth_l2_main.c
-+++ b/drivers/s390/net/qeth_l2_main.c
-@@ -1512,7 +1512,7 @@ static void qeth_bridge_state_change(struct qeth_card *card,
- 
- 	QETH_CARD_TEXT(card, 2, "brstchng");
- 	if (qports->entry_length != sizeof(struct qeth_sbp_port_entry)) {
--		QETH_CARD_TEXT_(card, 2, "BPsz%.8d", qports->entry_length);
-+		QETH_CARD_TEXT_(card, 2, "BPsz%04x", qports->entry_length);
- 		return;
- 	}
- 	extrasize = sizeof(struct qeth_sbp_port_entry) * qports->num_entries;
-diff --git a/drivers/s390/net/qeth_l3_main.c b/drivers/s390/net/qeth_l3_main.c
-index afebb97..857a990 100644
---- a/drivers/s390/net/qeth_l3_main.c
-+++ b/drivers/s390/net/qeth_l3_main.c
-@@ -2502,7 +2502,7 @@ static int qeth_l3_arp_query(struct qeth_card *card, char __user *udata)
- 			rc = -EFAULT;
- 			goto free_and_out;
- 		}
--		QETH_CARD_TEXT_(card, 4, "qacts");
-+		QETH_CARD_TEXT(card, 4, "qacts");
- 	}
- free_and_out:
- 	kfree(qinfo.udata);
--- 
-1.8.5.5
