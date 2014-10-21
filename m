@@ -1,16 +1,16 @@
 From: "Alexey Andriyanov" <alan@al-an.info>
 Subject: [net-next 1/2] ip6_tunnel: put ip6tnl0 FB device into 'any' mode
-Date: Tue, 21 Oct 2014 12:11:27 +0400
-Message-ID: <1413879088-13513-1-git-send-email-alan@al-an.info>
+Date: Tue, 21 Oct 2014 12:19:55 +0400
+Message-ID: <1413879596-13726-1-git-send-email-alan@al-an.info>
 Cc: Alexey Andriyanov <alan@al-an.info>,
 	David Miller <davem@davemloft.net>,
 	Eric Dumazet <edumazet@google.com>
-To: netdev@vger.kernel.org
+To: Roman Gushchin <klamm@yandex-team.ru>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from forward7l.mail.yandex.net ([84.201.143.140]:55232 "EHLO
-	forward7l.mail.yandex.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753163AbaJUIUD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2014 04:20:03 -0400
+Received: from forward6l.mail.yandex.net ([84.201.143.139]:44335 "EHLO
+	forward6l.mail.yandex.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750750AbaJUIUB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2014 04:20:01 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
