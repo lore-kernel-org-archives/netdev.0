@@ -1,55 +1,56 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH] rtlwifi: rtl8821ae: Fix possible array overrun
-Date: Tue, 21 Oct 2014 10:52:51 -0500
-Message-ID: <1413906771-28599-1-git-send-email-Larry.Finger@lwfinger.net>
-Cc: linux-wireless@vger.kernel.org, troy_tan@realsil.com.cn,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	netdev@vger.kernel.org
-To: linville@tuxdriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:50274 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755271AbaJUPxV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2014 11:53:21 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Fabian Frederick <fabf@skynet.be>
+Subject: [PATCH 1/1 net-next] mac80211: remove unnecessary null test before debugfs_remove
+Date: Tue, 21 Oct 2014 18:20:12 +0200
+Message-ID: <1413908412-5177-1-git-send-email-fabf@skynet.be>
+Cc: Fabian Frederick <fabf@skynet.be>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The kbuild test robot reported a possible array overrun. The affected code
-checks for overruns, but fails to take the steps necessary to fix them.
+Fix checkpatch warnings:
 
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+    WARNING: debugfs_remove(NULL) is safe this check is probably not required
+
+Signed-off-by: Fabian Frederick <fabf@skynet.be>
 ---
- drivers/net/wireless/rtlwifi/rtl8821ae/phy.c | 15 +++++++++------
- 1 file changed, 9 insertions(+), 6 deletions(-)
+ net/mac80211/debugfs_key.c | 13 ++++---------
+ 1 file changed, 4 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/wireless/rtlwifi/rtl8821ae/phy.c b/drivers/net/wireless/rtlwifi/rtl8821ae/phy.c
-index 9786313..1e9570f 100644
---- a/drivers/net/wireless/rtlwifi/rtl8821ae/phy.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8821ae/phy.c
-@@ -1889,15 +1889,18 @@ static void _rtl8821ae_store_tx_power_by_rate(struct ieee80211_hw *hw,
- 	struct rtl_phy *rtlphy = &rtlpriv->phy;
- 	u8 rate_section = _rtl8821ae_get_rate_section_index(regaddr);
+diff --git a/net/mac80211/debugfs_key.c b/net/mac80211/debugfs_key.c
+index 1521cab..ec40f27 100644
+--- a/net/mac80211/debugfs_key.c
++++ b/net/mac80211/debugfs_key.c
+@@ -299,11 +299,8 @@ void ieee80211_debugfs_key_update_default(struct ieee80211_sub_if_data *sdata)
+ 		return;
  
--	if (band != BAND_ON_2_4G && band != BAND_ON_5G)
-+	if (band != BAND_ON_2_4G && band != BAND_ON_5G) {
- 		RT_TRACE(rtlpriv, COMP_INIT, DBG_WARNING, "Invalid Band %d\n", band);
+ 	lockdep_assert_held(&sdata->local->key_mtx);
 -
--	if (rfpath >= MAX_RF_PATH)
-+		band = BAND_ON_2_4G;
-+	}
-+	if (rfpath >= MAX_RF_PATH) {
- 		RT_TRACE(rtlpriv, COMP_INIT, DBG_WARNING, "Invalid RfPath %d\n", rfpath);
--
--	if (txnum >= MAX_RF_PATH)
-+		rfpath = MAX_RF_PATH - 1;
-+	}
-+	if (txnum >= MAX_RF_PATH) {
- 		RT_TRACE(rtlpriv, COMP_INIT, DBG_WARNING, "Invalid TxNum %d\n", txnum);
--
-+		txnum = MAX_RF_PATH - 1;
-+	}
- 	rtlphy->tx_power_by_rate_offset[band][rfpath][txnum][rate_section] = data;
- 	RT_TRACE(rtlpriv, COMP_INIT, DBG_LOUD,
- 		 "TxPwrByRateOffset[Band %d][RfPath %d][TxNum %d][RateSection %d] = 0x%x\n",
+-	if (sdata->debugfs.default_unicast_key) {
+-		debugfs_remove(sdata->debugfs.default_unicast_key);
+-		sdata->debugfs.default_unicast_key = NULL;
+-	}
++	debugfs_remove(sdata->debugfs.default_unicast_key);
++	sdata->debugfs.default_unicast_key = NULL;
+ 
+ 	if (sdata->default_unicast_key) {
+ 		key = key_mtx_dereference(sdata->local,
+@@ -314,10 +311,8 @@ void ieee80211_debugfs_key_update_default(struct ieee80211_sub_if_data *sdata)
+ 					       sdata->vif.debugfs_dir, buf);
+ 	}
+ 
+-	if (sdata->debugfs.default_multicast_key) {
+-		debugfs_remove(sdata->debugfs.default_multicast_key);
+-		sdata->debugfs.default_multicast_key = NULL;
+-	}
++	debugfs_remove(sdata->debugfs.default_multicast_key);
++	sdata->debugfs.default_multicast_key = NULL;
+ 
+ 	if (sdata->default_multicast_key) {
+ 		key = key_mtx_dereference(sdata->local,
 -- 
-1.8.4.5
+1.9.3
