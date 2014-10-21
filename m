@@ -1,62 +1,35 @@
-From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Subject: [PATCH 3/5] stmmac: pci: convert to use dev_* macros
-Date: Tue, 21 Oct 2014 19:35:31 +0300
-Message-ID: <1413909333-16380-4-git-send-email-andriy.shevchenko@linux.intel.com>
-References: <1413909333-16380-1-git-send-email-andriy.shevchenko@linux.intel.com>
-Cc: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	netdev@vger.kernel.org,
-	Kweh Hock Leong <hock.leong.kweh@intel.com>,
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 1/1 net-next] mac80211: remove unnecessary null test
+ before debugfs_remove
+Date: Tue, 21 Oct 2014 21:06:06 +0200
+Message-ID: <1413918366.1998.10.camel@jlt4.sipsolutions.net>
+References: <1413908412-5177-1-git-send-email-fabf@skynet.be>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
 	"David S. Miller" <davem@davemloft.net>,
-	Vince Bridgers <vbridgers2013@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:16869 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932766AbaJUTAz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Oct 2014 15:00:55 -0400
-In-Reply-To: <1413909333-16380-1-git-send-email-andriy.shevchenko@linux.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: Fabian Frederick <fabf@skynet.be>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1413908412-5177-1-git-send-email-fabf@skynet.be>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Instead of pr_* macros let's use dev_* macros which provide device name.
+On Tue, 2014-10-21 at 18:20 +0200, Fabian Frederick wrote:
+> Fix checkpatch warnings:
+> 
+>     WARNING: debugfs_remove(NULL) is safe this check is probably not required
 
-Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
----
- drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+I'll apply this; however, I think that checkpatch is a just tool, and
+the commit message should reflect why you're changing the code.
+Presumably you're not doing it to make the tool happy, but to address an
+issue that the tool pointed out, so I think in most cases the commit
+message should state the former, not the latter.
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
-index f8d4ce2..c16f74b 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
-@@ -71,8 +71,8 @@ static int stmmac_pci_probe(struct pci_dev *pdev,
- 	/* Enable pci device */
- 	ret = pcim_enable_device(pdev);
- 	if (ret) {
--		pr_err("%s : ERROR: failed to enable %s device\n", __func__,
--		       pci_name(pdev));
-+		dev_err(&pdev->dev, "%s: ERROR: failed to enable device\n",
-+			__func__);
- 		return ret;
- 	}
- 	ret = pcim_iomap_regions(pdev, BIT(pci_bar), pci_name(pdev));
-@@ -86,7 +86,7 @@ static int stmmac_pci_probe(struct pci_dev *pdev,
- 	priv = stmmac_dvr_probe(&pdev->dev, &plat_dat,
- 				pcim_iomap_table(pdev)[pci_bar]);
- 	if (IS_ERR(priv)) {
--		pr_err("%s: main driver probe failed", __func__);
-+		dev_err(&pdev->dev, "%s: main driver probe failed\n", __func__);
- 		return PTR_ERR(priv);
- 	}
- 	priv->dev->irq = pdev->irq;
-@@ -94,7 +94,7 @@ static int stmmac_pci_probe(struct pci_dev *pdev,
- 
- 	pci_set_drvdata(pdev, priv->dev);
- 
--	pr_debug("STMMAC platform driver registration completed");
-+	dev_dbg(&pdev->dev, "STMMAC PCI driver registration completed\n");
- 
- 	return 0;
- }
--- 
-2.1.1
+Note that in this particular case the NULL check check could be there to
+avoid a memory write (which can be significant depending on the context)
+so blindly doing what the tool suggested wouldn't always be a good idea.
+
+johannes
