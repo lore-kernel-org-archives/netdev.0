@@ -1,46 +1,40 @@
 From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: [PATCH nf] netfilter: nf_tables: check for NULL in
- nf_tables_newchain pcpu stats allocation
-Date: Tue, 21 Oct 2014 11:08:21 +0200
-Message-ID: <20141021090821.GA31730@kria>
+Subject: [PATCH net] net: sched: initialize bstats syncp
+Date: Tue, 21 Oct 2014 11:23:30 +0200
+Message-ID: <20141021092330.GA9863@kria>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Cc: netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org
-To: pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu
+Cc: netdev@vger.kernel.org, john.r.fastabend@intel.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp5-g21.free.fr ([212.27.42.5]:2375 "EHLO smtp5-g21.free.fr"
+Received: from smtp5-g21.free.fr ([212.27.42.5]:55785 "EHLO smtp5-g21.free.fr"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752289AbaJUJI3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Oct 2014 05:08:29 -0400
+	id S1754981AbaJUJXi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Oct 2014 05:23:38 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-alloc_percpu returns NULL on failure, not a negative error code.
+Use netdev_alloc_pcpu_stats to allocate percpu stats and initialize syncp.
 
-Fixes: ff3cd7b3c922 ("netfilter: nf_tables: refactor chain statistic routines")
+Fixes: 22e0f8b9322c "net: sched: make bstats per cpu and estimator RCU safe"
 Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
 ---
- net/netfilter/nf_tables_api.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/sched/sch_api.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
-index 556a0dfa4abc..eb123676e1ef 100644
---- a/net/netfilter/nf_tables_api.c
-+++ b/net/netfilter/nf_tables_api.c
-@@ -1328,10 +1328,10 @@ static int nf_tables_newchain(struct sock *nlsk, struct sk_buff *skb,
- 			basechain->stats = stats;
- 		} else {
- 			stats = netdev_alloc_pcpu_stats(struct nft_stats);
--			if (IS_ERR(stats)) {
-+			if (stats == NULL) {
- 				module_put(type->owner);
- 				kfree(basechain);
--				return PTR_ERR(stats);
-+				return -ENOMEM;
- 			}
- 			rcu_assign_pointer(basechain->stats, stats);
- 		}
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index 2cf61b3e633c..76f402e05bd6 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -947,7 +947,7 @@ qdisc_create(struct net_device *dev, struct netdev_queue *dev_queue,
+ 	if (!ops->init || (err = ops->init(sch, tca[TCA_OPTIONS])) == 0) {
+ 		if (qdisc_is_percpu_stats(sch)) {
+ 			sch->cpu_bstats =
+-				alloc_percpu(struct gnet_stats_basic_cpu);
++				netdev_alloc_pcpu_stats(struct gnet_stats_basic_cpu);
+ 			if (!sch->cpu_bstats)
+ 				goto err_out4;
+ 
 -- 
 2.1.2
