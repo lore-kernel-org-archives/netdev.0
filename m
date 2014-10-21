@@ -1,88 +1,96 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 2/5] stmmac: pci: use managed resources
-Date: Wed, 22 Oct 2014 00:55:03 +0400
-Message-ID: <5446C827.2040801@cogentembedded.com>
-References: <1413909333-16380-1-git-send-email-andriy.shevchenko@linux.intel.com> <1413909333-16380-3-git-send-email-andriy.shevchenko@linux.intel.com>
+From: Kevin Fenzi <kevin@scrye.com>
+Subject: Re: localed stuck in recent 3.18 git in copy_net_ns?
+Date: Tue, 21 Oct 2014 15:12:25 -0600
+Message-ID: <20141021151225.5df96645@voldemort.scrye.com>
+References: <20141020141515.0688bf33@voldemort.scrye.com>
+ <20141020204326.GA25668@redhat.com>
+ <20141020145359.565fe5e6@voldemort.scrye.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Andy Shevchenko <andriy.shevchenko@linux.intel.com>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	netdev@vger.kernel.org,
-	Kweh Hock Leong <hock.leong.kweh@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Vince Bridgers <vbridgers2013@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f169.google.com ([209.85.217.169]:40185 "EHLO
-	mail-lb0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932723AbaJUUzI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2014 16:55:08 -0400
-Received: by mail-lb0-f169.google.com with SMTP id 10so1745876lbg.14
-        for <netdev@vger.kernel.org>; Tue, 21 Oct 2014 13:55:06 -0700 (PDT)
-In-Reply-To: <1413909333-16380-3-git-send-email-andriy.shevchenko@linux.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ boundary="Sig_/8EpoeABSFT5aSPRhbEEQiaj"; protocol="application/pgp-signature"
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141020145359.565fe5e6@voldemort.scrye.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+--Sig_/8EpoeABSFT5aSPRhbEEQiaj
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-On 10/21/2014 08:35 PM, Andy Shevchenko wrote:
+On Mon, 20 Oct 2014 14:53:59 -0600
+Kevin Fenzi <kevin@scrye.com> wrote:
 
-> Migrate pci driver to managed resources to reduce boilerplate error handling
-> code.
+> On Mon, 20 Oct 2014 16:43:26 -0400
+> Dave Jones <davej@redhat.com> wrote:
+>=20
+> > I've seen similar soft lockup traces from the sys_unshare path when
+> > running my fuzz tester.  It seems that if you create enough network
+> > namespaces, it can take a huge amount of time for them to be
+> > iterated. (Running trinity with '-c unshare' you can see the slow
+> > down happen. In some cases, it takes so long that the watchdog
+> > process kills it -- though the SIGKILL won't get delivered until
+> > the unshare() completes)
+> >=20
+> > Any idea what this machine had been doing prior to this that may
+> > have involved creating lots of namespaces ?
+>=20
+> That was right after boot. ;)=20
+>=20
+> This is my main rawhide running laptop.
+>=20
+> A 'ip netns list' shows nothing.
 
-> Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-> ---
->   drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c | 46 +++++-------------------
->   1 file changed, 8 insertions(+), 38 deletions(-)
+Some more information:=20
 
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
-> index 5459a4e..f8d4ce2 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
-> @@ -65,45 +65,29 @@ static int stmmac_pci_probe(struct pci_dev *pdev,
->   			    const struct pci_device_id *id)
->   {
->   	int ret = 0;
-> -	void __iomem *addr = NULL;
->   	struct stmmac_priv *priv = NULL;
-> -	int i;
-> +	int pci_bar = 0;
+The problem started between:=20
 
-    I don't see this variable changing anywhere...
+v3.17-7872-g5ff0b9e1a1da and v3.17-8307-gf1d0d14120a8
 
->   	/* Enable pci device */
-> -	ret = pci_enable_device(pdev);
-> +	ret = pcim_enable_device(pdev);
->   	if (ret) {
->   		pr_err("%s : ERROR: failed to enable %s device\n", __func__,
->   		       pci_name(pdev));
->   		return ret;
->   	}
-> -	if (pci_request_regions(pdev, STMMAC_RESOURCE_NAME)) {
-> -		pr_err("%s: ERROR: failed to get PCI region\n", __func__);
-> -		ret = -ENODEV;
-> -		goto err_out_req_reg_failed;
-> -	}
-> +	ret = pcim_iomap_regions(pdev, BIT(pci_bar), pci_name(pdev));
-> +	if (ret)
-> +		return ret;
->
-> -	/* Get the base address of device */
-> -	for (i = 0; i <= 5; i++) {
-> -		if (pci_resource_len(pdev, i) == 0)
-> -			continue;
-> -		addr = pci_iomap(pdev, i, 0);
-> -		if (addr == NULL) {
-> -			pr_err("%s: ERROR: cannot map register memory aborting",
-> -			       __func__);
-> -			ret = -EIO;
-> -			goto err_out_map_failed;
-> -		}
-> -		break;
-> -	}
+(I can try and do a bisect, but have to head out on a trip tomorrow)
 
-    It's not an equivalent change: the old code mapped a first existing BAR, 
-you always map BAR0. Are you sure that's what you meant? If so, wouldn't hurt 
-to describe this in the changelog...
+In all the kernels with the problem, there is a kworker process in D.=20
 
-WBR, Sergei
+sysrq-t says:=20
+                                            Showing all locks held in the s=
+ystem:
+Oct 21 15:06:31 voldemort.scrye.com kernel: 4 locks held by kworker/u16:0/6:
+Oct 21 15:06:31 voldemort.scrye.com kernel:  #0:  ("%s""netns"){.+.+.+}, at=
+: [<ffffffff810ccbff>] process_one_work+0x17f/0x850
+Oct 21 15:06:31 voldemort.scrye.com kernel:  #1:  (net_cleanup_work){+.+.+.=
+}, at: [<ffffffff810ccbff>] process_one_work+0x17f/0x850
+Oct 21 15:06:31 voldemort.scrye.com kernel:  #2:  (net_mutex){+.+.+.}, at: =
+[<ffffffff817069fc>] cleanup_net+0x8c/0x1f0
+Oct 21 15:06:31 voldemort.scrye.com kernel:  #3:
+(rcu_sched_state.barrier_mutex){+.+...}, at: [<ffffffff8112a395>]
+_rcu_barrier+0x35/0x200
+
+On first running any of the systemd units that use PrivateNetwork, then
+run ok, but they are also set to timeout after a minute. On sucessive
+runs they hang in D also.
+
+kevin
+
+--Sig_/8EpoeABSFT5aSPRhbEEQiaj
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Disposition: attachment; filename=signature.asc
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCgAGBQJURsw8AAoJEEs3sNgP+7te26UQALzAA3CzNnsuGPbEcKl96MYi
+fU/INHD/fr1WL5cHQDVfUvhCQsdTNve3fgNxrlhoBSbTEgLFvoAnc0uyM9VKloYR
+TSXfVk7Uwo1BW0Y9Pi0Ezp23O2yRaUyPLpO0T/tk58E+wAb7aKENr+vRykfxJsQ8
+5g1hesLMlCb7Qwd7Es1/zdk3FSnXb+9VhP7WrOdktJnM4KmtP9YSM0O13MLtVOM0
+fjPDYOf2RpqLSX+UC7uOzDsACTuSBjOoilFQ34mx33Mm/3hgmyGI6LBTDt5B1Av3
+tAGYDSqS7WExy1wD2r+DwZpZBs9xGb8yA7I2iLLJJcu+fjL8PBcqWuf6AL/oxFGu
+XXfLFCqryM2R4yURLSvBdX07lieLs8DsMwr9Qp91yMwc48VLKuDj8o7Qz0XZ5tUn
++zJooaoIRY5IcNff9jQmwD27XfiObhkMNaoyFYHVhZeeAtNuXDx8XfUzEWfIU8eq
+FWluQzcDt/HZdavrf5YbtxD07SPIOw1jPWT+2DFwU5I0jAiqQw8/SEqn835B8NhI
+/d0Tqqf3dREkWoFzsrQGwd1L6DC8FH0oDT5f4wJwT9HkpWZRAzTdJpUgwPPz05t/
+M236oJ+sMaXw9f264EKJN68Zyh+Tl8vbTmugExewcJwb7UjeSMJv/ta9+EP8sxLi
+jw9OTAxtWJOzTrW4dV/b
+=yqgX
+-----END PGP SIGNATURE-----
+
+--Sig_/8EpoeABSFT5aSPRhbEEQiaj--
