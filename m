@@ -1,44 +1,125 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: RE: [PATCH net 1/1] hyperv: Fix a bug in netvsc_send()
-Date: Tue, 21 Oct 2014 21:25:01 +0000
-Message-ID: <19043471dd2242d993fbf4e22a8c246b@DFM-DB3MBX15-08.exchange.corp.microsoft.com>
-References: <1412530971-29897-1-git-send-email-kys@microsoft.com>
-	<20141005.211129.632749242463744635.davem@davemloft.net>
-	<20141009133200.GA17134@sucs.org>
-	<96f3d4f6b90a461686b23f64aedcb4fc@BL2PR03MB132.namprd03.prod.outlook.com>
-	<20141011103630.GA22272@sucs.org>	<1413911624662.86334@microsoft.com>
- <CALjAwxj1jHUugt+vtJL7duXfTpdoxmCrwTzRmNHGgOdj+Ju3Aw@mail.gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH 0/9] Marvell PXA168 libphy handling and Berlin Ethernet
+Date: Tue, 21 Oct 2014 15:03:31 -0700
+Message-ID: <5446D833.1030702@gmail.com>
+References: <1413881627-21639-1-git-send-email-sebastian.hesselbarth@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Miller <davem@davemloft.net>,
-	"olaf@aepfle.de" <olaf@aepfle.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"jasowang@redhat.com" <jasowang@redhat.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"apw@canonical.com" <apw@canonical.com>,
-	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>
-To: Sitsofe Wheeler <sitsofe@gmail.com>, Long Li <longli@microsoft.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	=?UTF-8?B?QW50b2luZSBUw6luYXI=?= =?UTF-8?B?dA==?=
+	<antoine.tenart@free-electrons.com>,
+	Eric Miao <eric.y.miao@gmail.com>,
+	Haojian Zhuang <haojian.zhuang@gmail.com>,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CALjAwxj1jHUugt+vtJL7duXfTpdoxmCrwTzRmNHGgOdj+Ju3Aw@mail.gmail.com>
-Content-Language: en-US
+In-Reply-To: <1413881627-21639-1-git-send-email-sebastian.hesselbarth@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogU2l0c29mZSBXaGVlbGVy
-IFttYWlsdG86c2l0c29mZUBnbWFpbC5jb21dDQo+IFNlbnQ6IFR1ZXNkYXksIE9jdG9iZXIgMjEs
-IDIwMTQgNToxNiBQTQ0KPiBUbzogTG9uZyBMaQ0KPiBDYzogRGF2aWQgTWlsbGVyOyBvbGFmQGFl
-cGZsZS5kZTsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsNCj4gamFzb3dhbmdAcmVkaGF0LmNvbTsg
-bGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZzsgYXB3QGNhbm9uaWNhbC5jb207DQo+IGRldmVs
-QGxpbnV4ZHJpdmVycHJvamVjdC5vcmc7IEhhaXlhbmcgWmhhbmcNCj4gU3ViamVjdDogUmU6IFtQ
-QVRDSCBuZXQgMS8xXSBoeXBlcnY6IEZpeCBhIGJ1ZyBpbiBuZXR2c2Nfc2VuZCgpDQo+IA0KPiBP
-biAyMSBPY3RvYmVyIDIwMTQgMTg6MTMsIExvbmcgTGkgPGxvbmdsaUBtaWNyb3NvZnQuY29tPiB3
-cm90ZToNCj4gPiBUaGFua3MgU2l0c29mZS4gVGhpcyBzaG91bGQgaGF2ZSBiZWVuIGZpeGVkIGJ5
-IHRoaXMgcGF0Y2g6DQo+ID4gaHR0cDovL2dpdC5rZXJuZWwub3JnL2NnaXQvbGludXgva2VybmVs
-L2dpdC9uZXh0L2xpbnV4LQ0KPiBuZXh0LmdpdC9jb21taXQvP2lkPWY4OGU2NzE0OWY5N2Q3M2M3
-MDRkNmZlNmY0OTJlZGRlOTc0NjMwMjUNCj4gPg0KPiA+IENhbiB5b3UgZ2l2ZSBpdCBhIHRyeT8N
-Cj4gDQo+IEFoIHRoaXMgb25lIHdlbnQgbWFpbmxpbmUgYSBmZXcgZGF5cyBhZ28gc28gSSd2ZSBh
-bHJlYWR5IGJlZW4gdHJ5aW5nDQo+IGl0LiBZZXMgaXQgcmVzb2x2ZXMgbXkgcHJvYmxlbSAodGhh
-dCBzeXN0ZW0gaXMgbm8gbG9uZ2VyIG9vcHNpbmcgb24NCj4gc3RhcnR1cCkuIEknZCBoYXZlIGFk
-ZGVkIG15IFRlc3RlZC1ieSBidXQgaXQncyBhbHJlYWR5IGJlZW4gY29tbWl0dGVkDQo+IDotKQ0K
-DQpUaGFuayB5b3UgZm9yIHRoZSB0ZXN0IQ0KDQotIEhhaXlhbmcNCg==
+Hi Sebastian,
+
+On 10/21/2014 01:53 AM, Sebastian Hesselbarth wrote:
+> This patch series deals with a removing a IP feature that can be foun=
+d
+> on all currently supported Marvell Ethernet IP (pxa168_eth, mv643xx_e=
+th,
+> mvneta). The MAC IP allows to automatically perform PHY auto-negotiat=
+ion
+> without software interaction.
+>=20
+> However, this feature (a) fundamentally clashes with the way libphy w=
+orks
+> and (b) is unable to deal with quirky PHYs that require special treat=
+ment.
+> In this series, pxa168_eth driver is rewritten to completely disable =
+that
+> feature and properly deal with libphy provided PHYs.
+>=20
+> This is the real patch set after an RFT sent earlier. Unfortunately, =
+there
+> was no testing from MMP/gplug but there was for BG2Q. However, it sti=
+ll
+> would be great to get a Tested-by on gplug. Also, this patch set is n=
+ow
+> rebased on v3.18-rc1. As usual, a branch on top of v3.18-rc1 can be f=
+ound at
+>=20
+> git://git.infradead.org/users/hesselba/linux-berlin.git devel/bg2-bg2=
+cd-eth-v1
+>=20
+> Patches 1-5 should go through David's net tree, I'll pick up the DT p=
+atches
+> 6-9.
+>=20
+> Compared to the RFT, there have been some changes:
+> - added phy-connection-type property to BG2Q PHY DT node
+> - bail out from pxa168_eth_adjust_link when there is no change in
+>   PHY parameters. Also, add a call to phy_print_status.
+>=20
+> Patch 1 adds support for Marvell 88E3016 FastEthernet PHY that is als=
+o
+> integrated in Marvell Berlin BG2/BG2CD SoCs.
+>=20
+> Patch 2 allows to pass phy_interface_t on pxa168_eth platform_data th=
+at
+> is only used by mach-mmp/gplug. From the board setup, I guessed gplug=
+'s
+> PHY is connected via RMII. The patch still isn't even compile tested.
+>=20
+> Patches 3-5 prepare proper libphy handling and finally remove all in-=
+driver
+> PHY mangling related to the feature explained above.
+>=20
+> Patches 6-9 add corresponding ethernet DT nodes to BG2, BG2CD, add a
+> phy-connection-type property to BG2Q and enable ethernet on BG2-based=
+ Sony
+> NSZ-GS7. I have tested all this on GS7 successfully with ip=3Ddhcp on=
+ 100M FD.
+
+Besides the misplacement of the 'phy-connection-type' as reported by
+Sergei, this looks good to me:
+
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+
+Thanks!
+
+>=20
+> Antoine T=C3=A9nart (1):
+>   ARM: berlin: Add phy-connection-type to BG2Q PHY
+>=20
+> Sebastian Hesselbarth (8):
+>   phy: marvell: Add support for 88E3016 FastEthernet PHY
+>   net: pxa168_eth: Provide phy_interface mode on platform_data
+>   net: pxa168_eth: Prepare proper libphy handling
+>   net: pxa168_eth: Remove HW auto-negotiaion
+>   net: pxa168_eth: Remove in-driver PHY mangling
+>   ARM: berlin: Add BG2 ethernet DT nodes
+>   ARM: berlin: Add BG2CD ethernet DT nodes
+>   ARM: berlin: Enable ethernet on Sony NSZ-GS7
+>=20
+>  arch/arm/boot/dts/berlin2-sony-nsz-gs7.dts |   2 +
+>  arch/arm/boot/dts/berlin2.dtsi             |  36 +++++
+>  arch/arm/boot/dts/berlin2cd.dtsi           |  36 +++++
+>  arch/arm/boot/dts/berlin2q.dtsi            |   1 +
+>  arch/arm/mach-mmp/gplugd.c                 |   2 +
+>  drivers/net/ethernet/marvell/pxa168_eth.c  | 248 ++++++++++++-------=
+----------
+>  drivers/net/phy/marvell.c                  |  46 ++++++
+>  include/linux/marvell_phy.h                |   1 +
+>  include/linux/pxa168_eth.h                 |   1 +
+>  9 files changed, 225 insertions(+), 148 deletions(-)
+>=20
+> ---
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: "Antoine T=C3=A9nart" <antoine.tenart@free-electrons.com>
+> Cc: Florian Fainelli <f.fainelli@gmail.com>
+> Cc: Eric Miao <eric.y.miao@gmail.com>
+> Cc: Haojian Zhuang <haojian.zhuang@gmail.com>
+> Cc: linux-arm-kernel@lists.infradead.org
+> Cc: netdev@vger.kernel.org
+> Cc: devicetree@vger.kernel.org
+> Cc: linux-kernel@vger.kernel.org
+>=20
