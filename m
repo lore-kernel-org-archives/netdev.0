@@ -1,96 +1,208 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH stable v3.2 v3.4] ipv4: disable bh while doing route gc
-Date: Tue, 21 Oct 2014 20:32:51 +0100
-Message-ID: <1413919971.31953.39.camel@decadent.org.uk>
-References: <6c3d6eca5d6a15c01393b010f2116bd169477c5a.1413215324.git.mleitner@redhat.com>
-		 <20141013.135127.1915115817707962111.davem@davemloft.net>
-	 <1413774581.31953.12.camel@decadent.org.uk> <5446AF2A.1030508@redhat.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [RFC PATCH v2 net-next] net: ipv6: Add a sysctl to make
+ optimistic addresses useful candidates
+Date: Tue, 21 Oct 2014 21:45:43 +0200
+Message-ID: <1413920743.32553.45.camel@localhost>
+References: <1413864306-20055-1-git-send-email-ek@google.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-zvb7HOHc3Xa+e3qr8dMb"
-Cc: David Miller <davem@davemloft.net>, stable@vger.kernel.org,
-	netdev@vger.kernel.org, hannes@stressinduktion.org
-To: Marcelo Ricardo Leitner <mleitner@redhat.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <5446AF2A.1030508@redhat.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-
---=-zvb7HOHc3Xa+e3qr8dMb
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ben@decadent.org.uk, lorenzo@google.com
+To: Erik Kline <ek@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:44874 "EHLO
+	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755330AbaJUTpp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2014 15:45:45 -0400
+Received: from compute6.internal (compute6.nyi.internal [10.202.2.46])
+	by gateway2.nyi.internal (Postfix) with ESMTP id 6627F20544
+	for <netdev@vger.kernel.org>; Tue, 21 Oct 2014 15:45:45 -0400 (EDT)
+In-Reply-To: <1413864306-20055-1-git-send-email-ek@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-10-21 at 17:08 -0200, Marcelo Ricardo Leitner wrote:
-> On 20-10-2014 01:09, Ben Hutchings wrote:
-> > On Mon, 2014-10-13 at 13:51 -0400, David Miller wrote:
-> >> From: Marcelo Ricardo Leitner <mleitner@redhat.com>
-> >> Date: Mon, 13 Oct 2014 14:03:30 -0300
-> >>
-> >>> Further tests revealed that after moving the garbage collector to a w=
-ork
-> >>> queue and protecting it with a spinlock may leave the system prone to
-> >>> soft lockups if bottom half gets very busy.
-> >>>
-> >>> It was reproced with a set of firewall rules that REJECTed packets. I=
-f
-> >>> the NIC bottom half handler ends up running on the same CPU that is
-> >>> running the garbage collector on a very large cache, the garbage
-> >>> collector will not be able to do its job due to the amount of work
-> >>> needed for handling the REJECTs and also won't reschedule.
-> >>>
-> >>> The fix is to disable bottom half during the garbage collecting, as i=
-t
-> >>> already was in the first place (most calls to it came from softirqs).
-> >>>
-> >>> Signed-off-by: Marcelo Ricardo Leitner <mleitner@redhat.com>
-> >>> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> >>> Acked-by: David S. Miller <davem@davemloft.net>
-> >>> Cc: stable@vger.kernel.org
-> >>
-> >> -stable folks, please integrate this directly, thanks!
-> >
-> > I've appplied this and the previous two patches mentioned ('ipv4: move
-> > route garbage collector to work queue' and 'ipv4: avoid parallel route
-> > cache gc executions').  But I didn't get the other two from you.  The
-> > last batch of networking fixes I received and applied was dated
-> > 2014-08-07, and the next one I've seen is dated 2014-10-11 and has
-> > nothing for 3.2 or 3.4.  Did I miss one between these?
->=20
-> Sorry to ask Ben but, where did you apply them? I'm not seeing the commit=
-s on=20
-> linux-stable.git and couldn't find their summaries anywhere else.
+Hi,
 
-They're in a patch queue that I've just pushed to:
+On Di, 2014-10-21 at 13:05 +0900, Erik Kline wrote:
+> Add a sysctl that causes an interface's optimistic addresses
+> to be considered equivalent to other non-deprecated addresses
+> for source address selection purposes.  Preferred addresses
+> will still take precedence over optimistic addresses, subject
+> to other ranking in the source address selection algorithm.
+> 
+> This is useful where different interfaces are connected to
+> different networks from different ISPs (e.g., a cell network
+> and a home wifi network).
+> 
+> The current behaviour complies with RFC 3484/6724, and it
+> makes sense if the host has only one interface, or has
+> multiple interfaces on the same network (same or cooperating
+> administrative domain(s), but not in the multiple distinct
+> networks case.
+> 
+> For example, if a mobile device has an IPv6 address on an LTE
+> network and then connects to IPv6-enabled wifi, while the wifi
+> IPv6 address is undergoing DAD, IPv6 connections will try use
+> the wifi default route with the LTE IPv6 address, and will get
+> stuck until they time out.
+> 
+> Also, because optimistic addresses can actually be used, issue
+> an RTM_NEWADDR as soon as DAD starts.  If DAD fails an separate
+> RTM_DELADDR will be sent.
+> 
+> Also: add an entry in ip-sysctl.txt for optimistic_dad.
+> 
+> Signed-off-by: Erik Kline <ek@google.com>
+> ---
+>  Documentation/networking/ip-sysctl.txt | 13 ++++++++++++
+>  include/linux/ipv6.h                   |  1 +
+>  include/uapi/linux/ipv6.h              |  1 +
+>  net/ipv6/addrconf.c                    | 36 ++++++++++++++++++++++++++++++++--
+>  4 files changed, 49 insertions(+), 2 deletions(-)
+> 
+> diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+> index 0307e28..e03cf49 100644
+> --- a/Documentation/networking/ip-sysctl.txt
+> +++ b/Documentation/networking/ip-sysctl.txt
+> @@ -1452,6 +1452,19 @@ suppress_frag_ndisc - INTEGER
+>  	1 - (default) discard fragmented neighbor discovery packets
+>  	0 - allow fragmented neighbor discovery packets
+>  
+> +optimistic_dad - BOOLEAN
+> +	Whether to perform Optimistic Duplicate Address Detection (RFC 4429).
+> +		0: disabled (default)
+> +		1: enabled
+> +
+> +use_optimistic - BOOLEAN
+> +	If enabled, do not classify optimistic addresses as deprecated during
+> +	source address selection.  Preferred addresses will still be chosen
+> +	before optimistic addresses, subject to other ranking in the source
+> +	address selection algorithm.
+> +		0: disabled (default)
+> +		1: enabled
+> +
+>  icmp/*:
+>  ratelimit - INTEGER
+>  	Limit the maximal rates for sending ICMPv6 packets.
+> diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+> index ff56053..7121a2e 100644
+> --- a/include/linux/ipv6.h
+> +++ b/include/linux/ipv6.h
+> @@ -42,6 +42,7 @@ struct ipv6_devconf {
+>  	__s32		accept_ra_from_local;
+>  #ifdef CONFIG_IPV6_OPTIMISTIC_DAD
+>  	__s32		optimistic_dad;
+> +	__s32		use_optimistic;
+>  #endif
+>  #ifdef CONFIG_IPV6_MROUTE
+>  	__s32		mc_forwarding;
+> diff --git a/include/uapi/linux/ipv6.h b/include/uapi/linux/ipv6.h
+> index efa2666..e863d08 100644
+> --- a/include/uapi/linux/ipv6.h
+> +++ b/include/uapi/linux/ipv6.h
+> @@ -164,6 +164,7 @@ enum {
+>  	DEVCONF_MLDV2_UNSOLICITED_REPORT_INTERVAL,
+>  	DEVCONF_SUPPRESS_FRAG_NDISC,
+>  	DEVCONF_ACCEPT_RA_FROM_LOCAL,
+> +	DEVCONF_USE_OPTIMISTIC,
+>  	DEVCONF_MAX
+>  };
+>  
+> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+> index 725c763..c2fddb7 100644
+> --- a/net/ipv6/addrconf.c
+> +++ b/net/ipv6/addrconf.c
+> @@ -1169,6 +1169,9 @@ enum {
+>  	IPV6_SADDR_RULE_LABEL,
+>  	IPV6_SADDR_RULE_PRIVACY,
+>  	IPV6_SADDR_RULE_ORCHID,
+> +#ifdef CONFIG_IPV6_OPTIMISTIC_DAD
+> +	IPV6_SADDR_RULE_NOT_OPTIMISTIC,
+> +#endif
+>  	IPV6_SADDR_RULE_PREFIX,
+>  	IPV6_SADDR_RULE_MAX
+>  };
+> @@ -1257,10 +1260,17 @@ static int ipv6_get_saddr_eval(struct net *net,
+>  		score->scopedist = ret;
+>  		break;
+>  	case IPV6_SADDR_RULE_PREFERRED:
+> +	    {
+>  		/* Rule 3: Avoid deprecated and optimistic addresses */
+> +		u8 avoid = IFA_F_DEPRECATED;
+> +#ifdef CONFIG_IPV6_OPTIMISTIC_DAD
+> +		if (!score->ifa->idev->cnf.use_optimistic)
+> +			avoid |= IFA_F_OPTIMISTIC;
+> +#endif
+>  		ret = ipv6_saddr_preferred(score->addr_type) ||
+> -		      !(score->ifa->flags & (IFA_F_DEPRECATED|IFA_F_OPTIMISTIC));
+> +		      !(score->ifa->flags & avoid);
+>  		break;
+> +	    }
+>  #ifdef CONFIG_IPV6_MIP6
+>  	case IPV6_SADDR_RULE_HOA:
+>  	    {
+> @@ -1299,6 +1309,14 @@ static int ipv6_get_saddr_eval(struct net *net,
+>  		ret = !(ipv6_addr_orchid(&score->ifa->addr) ^
+>  			ipv6_addr_orchid(dst->addr));
+>  		break;
+> +#ifdef CONFIG_IPV6_OPTIMISTIC_DAD
+> +	case IPV6_SADDR_RULE_NOT_OPTIMISTIC:
+> +		/* Optimistic addresses still have lower precedence than other
+> +		 * preferred addresses.
+> +		 */
+> +		ret = !(score->ifa->flags & IFA_F_OPTIMISTIC);
+> +		break;
+> +#endif
 
-git://git.kernel.org/pub/scm/linux/kernel/git/bwh/linux-3.2.y-queue.git
+I wonder a bit why this rule is not directly ordered after
+IPV6_SADDR_RULE_PREFERRED? This would e.g. matter for privacy addresses.
 
-Ben.
+>  	case IPV6_SADDR_RULE_PREFIX:
+>  		/* Rule 8: Use longest matching prefix */
+>  		ret = ipv6_addr_diff(&score->ifa->addr, dst->addr);
+> @@ -3222,8 +3240,13 @@ static void addrconf_dad_begin(struct inet6_ifaddr *ifp)
+>  	 * Optimistic nodes can start receiving
+>  	 * Frames right away
+>  	 */
+> -	if (ifp->flags & IFA_F_OPTIMISTIC)
+> +	if (ifp->flags & IFA_F_OPTIMISTIC) {
+>  		ip6_ins_rt(ifp->rt);
+> +		/* Because optimistic nodes can receive frames, notify
+> +		 * listeners. If DAD fails, RTM_DELADDR is sent.
+> +		 */
+> +		ipv6_ifa_notify(RTM_NEWADDR, ifp);
+> +	}
 
---=20
-Ben Hutchings
-Reality is just a crutch for people who can't handle science fiction.
+I wonder if we can now delete the ipv6_ifa_notify(RTM_NEWADDR, ifp) in
+addrconf_dad_completed.
 
---=-zvb7HOHc3Xa+e3qr8dMb
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+>  	addrconf_dad_kick(ifp);
+>  out:
+> @@ -4330,6 +4353,7 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
+>  	array[DEVCONF_ACCEPT_SOURCE_ROUTE] = cnf->accept_source_route;
+>  #ifdef CONFIG_IPV6_OPTIMISTIC_DAD
+>  	array[DEVCONF_OPTIMISTIC_DAD] = cnf->optimistic_dad;
+> +	array[DEVCONF_USE_OPTIMISTIC] = cnf->use_optimistic;
+>  #endif
+>  #ifdef CONFIG_IPV6_MROUTE
+>  	array[DEVCONF_MC_FORWARDING] = cnf->mc_forwarding;
+> @@ -5155,6 +5179,14 @@ static struct addrconf_sysctl_table
+>  			.proc_handler   = proc_dointvec,
+>  
+>  		},
+> +		{
+> +			.procname       = "use_optimistic",
+> +			.data           = &ipv6_devconf.use_optimistic,
+> +			.maxlen         = sizeof(int),
+> +			.mode           = 0644,
+> +			.proc_handler   = proc_dointvec,
+> +
+> +		},
+>  #endif
+>  #ifdef CONFIG_IPV6_MROUTE
+>  		{
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+Otherwise looks good.
 
-iQIVAwUAVEa06Oe/yOyVhhEJAQqNKQ//dTLrv5sZOSW44DQ36MyC9M5I8Df/gLMN
-7IlFlLhR+XUpA3UvrDAIeKqOU9PbbEf3ky+DuAw9uQVjkGAUlr7mEnxP2qa9RfkV
-mUdkVuO6vJ+JN2CtkOph9IvTn3zt3OXCMtmeW40c98iEwH4/aLuajjFYII+pPp39
-oc2BkALNwaCVjLkXM7jXYqJrk62LCM8oSGpxCptaqK4q3MevOE4O32rAZ5d2Sohy
-ZcnPlhkGg2uTNLBRxqFbJXLxTPJ+QuPLA6hpkR3audwk9c/wMSsPLZ7bMkMeVQRO
-3iIXFaY3s/CXTRHyTW5L0WvqWJnRLLw1ed6tnZwI6f7T7A1rZuRn+doX5X1JZxi0
-XTorgfaTttFhzaqTqNM3GO/N4HBErA8zuGusnW3/qOpmflpVOrfigIlFVSBG+/4W
-ouGTz9C9Drz0zM1yoUQkKaJzI1tdCpUo5KG0c/Is74LSu4d6/7MX/oKu2UxWG6uS
-PKJ7KI3GvyIDimEJdJrLXUIG+ilA9X1E+c9Bxu4pCP6OE16e1RwBqMx4mJigsg6t
-aDumc+Cj0UWff1OFBXunb+0K+2IHuOOBb8nDY5X0Av4b5Fp/mATcNEqU7gu8njMV
-hfQWrJynEqllvkRLagzAtkESMfNJtOA0ehsMsIifSyrtIzUFTEO2h5L7sZG2HHba
-6A0X0qAMxjI=
-=c5Bi
------END PGP SIGNATURE-----
-
---=-zvb7HOHc3Xa+e3qr8dMb--
+Thanks,
+Hannes
