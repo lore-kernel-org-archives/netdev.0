@@ -1,158 +1,44 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH] netlink: Re-add locking to netlink_lookup() and seq walker
-Date: Tue, 21 Oct 2014 22:05:38 +0200
-Message-ID: <14101d52c64e0d52176ca0d4b8888f8cf20ab9b0.1413921873.git.tgraf@suug.ch>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Subject: [PATCH 5/5] stmmac: pci: remove FSF address
+Date: Tue, 21 Oct 2014 19:35:33 +0300
+Message-ID: <1413909333-16380-6-git-send-email-andriy.shevchenko@linux.intel.com>
+References: <1413909333-16380-1-git-send-email-andriy.shevchenko@linux.intel.com>
+Cc: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	netdev@vger.kernel.org,
+	Kweh Hock Leong <hock.leong.kweh@intel.com>,
 	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: davem@davemloft.ne
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	Vince Bridgers <vbridgers2013@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:16292 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932520AbaJUUN7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Oct 2014 16:13:59 -0400
+In-Reply-To: <1413909333-16380-1-git-send-email-andriy.shevchenko@linux.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The synchronize_rcu() in netlink_release() introduces unacceptable
-latency. Reintroduce minimal lookup so we can drop the
-synchronize_rcu() until socket destruction has been RCUfied.
+The FSF address is subject to change, thus remove it from the file.
 
-Cc: David S. Miller <davem@davemloft.net>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Reported-by: Steinar H. Gunderson <sgunderson@bigfoot.com>
-Reported-and-tested-by: Heiko Carstens <heiko.carstens@de.ibm.com>
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
+Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
 ---
- net/netlink/af_netlink.c | 37 +++++++++++++++++++++++++------------
- 1 file changed, 25 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c | 4 ----
+ 1 file changed, 4 deletions(-)
 
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 7a186e7..f1de72d 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -96,6 +96,14 @@ static DECLARE_WAIT_QUEUE_HEAD(nl_table_wait);
- static int netlink_dump(struct sock *sk);
- static void netlink_skb_destructor(struct sk_buff *skb);
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
+index 22cb5ff..95eb195 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
+@@ -12,10 +12,6 @@
+   FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+   more details.
  
-+/* nl_table locking explained:
-+ * Lookup and traversal are protected with nl_sk_hash_lock or nl_table_lock
-+ * combined with an RCU read-side lock. Insertion and removal are protected
-+ * with nl_sk_hash_lock while using RCU list modification primitives and may
-+ * run in parallel to nl_table_lock protected lookups. Destruction of the
-+ * Netlink socket may only occur *after* nl_table_lock has been acquired
-+ * either during or after the socket has been removed from the list.
-+ */
- DEFINE_RWLOCK(nl_table_lock);
- EXPORT_SYMBOL_GPL(nl_table_lock);
- static atomic_t nl_table_users = ATOMIC_INIT(0);
-@@ -109,10 +117,10 @@ EXPORT_SYMBOL_GPL(nl_sk_hash_lock);
- static int lockdep_nl_sk_hash_is_held(void)
- {
- #ifdef CONFIG_LOCKDEP
--	return (debug_locks) ? lockdep_is_held(&nl_sk_hash_lock) : 1;
--#else
--	return 1;
-+	if (debug_locks)
-+		return lockdep_is_held(&nl_sk_hash_lock) || lockdep_is_held(&nl_table_lock);
- #endif
-+	return 1;
- }
- 
- static ATOMIC_NOTIFIER_HEAD(netlink_chain);
-@@ -1028,11 +1036,13 @@ static struct sock *netlink_lookup(struct net *net, int protocol, u32 portid)
- 	struct netlink_table *table = &nl_table[protocol];
- 	struct sock *sk;
- 
-+	read_lock(&nl_table_lock);
- 	rcu_read_lock();
- 	sk = __netlink_lookup(table, portid, net);
- 	if (sk)
- 		sock_hold(sk);
- 	rcu_read_unlock();
-+	read_unlock(&nl_table_lock);
- 
- 	return sk;
- }
-@@ -1257,9 +1267,6 @@ static int netlink_release(struct socket *sock)
- 	}
- 	netlink_table_ungrab();
- 
--	/* Wait for readers to complete */
--	synchronize_net();
+-  You should have received a copy of the GNU General Public License along with
+-  this program; if not, write to the Free Software Foundation, Inc.,
+-  51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
 -
- 	kfree(nlk->groups);
- 	nlk->groups = NULL;
- 
-@@ -1281,6 +1288,7 @@ static int netlink_autobind(struct socket *sock)
- 
- retry:
- 	cond_resched();
-+	netlink_table_grab();
- 	rcu_read_lock();
- 	if (__netlink_lookup(table, portid, net)) {
- 		/* Bind collision, search negative portid values. */
-@@ -1288,9 +1296,11 @@ retry:
- 		if (rover > -4097)
- 			rover = -4097;
- 		rcu_read_unlock();
-+		netlink_table_ungrab();
- 		goto retry;
- 	}
- 	rcu_read_unlock();
-+	netlink_table_ungrab();
- 
- 	err = netlink_insert(sk, net, portid);
- 	if (err == -EADDRINUSE)
-@@ -2921,14 +2931,16 @@ static struct sock *netlink_seq_socket_idx(struct seq_file *seq, loff_t pos)
- }
- 
- static void *netlink_seq_start(struct seq_file *seq, loff_t *pos)
--	__acquires(RCU)
-+	__acquires(nl_table_lock) __acquires(RCU)
- {
-+	read_lock(&nl_table_lock);
- 	rcu_read_lock();
- 	return *pos ? netlink_seq_socket_idx(seq, *pos - 1) : SEQ_START_TOKEN;
- }
- 
- static void *netlink_seq_next(struct seq_file *seq, void *v, loff_t *pos)
- {
-+	struct rhashtable *ht;
- 	struct netlink_sock *nlk;
- 	struct nl_seq_iter *iter;
- 	struct net *net;
-@@ -2943,19 +2955,19 @@ static void *netlink_seq_next(struct seq_file *seq, void *v, loff_t *pos)
- 	iter = seq->private;
- 	nlk = v;
- 
--	rht_for_each_entry_rcu(nlk, nlk->node.next, node)
-+	i = iter->link;
-+	ht = &nl_table[i].hash;
-+	rht_for_each_entry(nlk, nlk->node.next, ht, node)
- 		if (net_eq(sock_net((struct sock *)nlk), net))
- 			return nlk;
- 
--	i = iter->link;
- 	j = iter->hash_idx + 1;
- 
- 	do {
--		struct rhashtable *ht = &nl_table[i].hash;
- 		const struct bucket_table *tbl = rht_dereference_rcu(ht->tbl, ht);
- 
- 		for (; j < tbl->size; j++) {
--			rht_for_each_entry_rcu(nlk, tbl->buckets[j], node) {
-+			rht_for_each_entry(nlk, tbl->buckets[j], ht, node) {
- 				if (net_eq(sock_net((struct sock *)nlk), net)) {
- 					iter->link = i;
- 					iter->hash_idx = j;
-@@ -2971,9 +2983,10 @@ static void *netlink_seq_next(struct seq_file *seq, void *v, loff_t *pos)
- }
- 
- static void netlink_seq_stop(struct seq_file *seq, void *v)
--	__releases(RCU)
-+	__releases(RCU) __releases(nl_table_lock)
- {
- 	rcu_read_unlock();
-+	read_unlock(&nl_table_lock);
- }
- 
+   The full GNU General Public License is included in this distribution in
+   the file called "COPYING".
  
 -- 
-1.9.3
+2.1.1
