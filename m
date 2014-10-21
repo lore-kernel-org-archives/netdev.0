@@ -1,54 +1,30 @@
-From: Marcelo Ricardo Leitner <mleitner@redhat.com>
-Subject: Re: [PATCH stable v3.2 v3.4] ipv4: disable bh while doing route gc
-Date: Tue, 21 Oct 2014 17:08:26 -0200
-Message-ID: <5446AF2A.1030508@redhat.com>
-References: <6c3d6eca5d6a15c01393b010f2116bd169477c5a.1413215324.git.mleitner@redhat.com>	 <20141013.135127.1915115817707962111.davem@davemloft.net> <1413774581.31953.12.camel@decadent.org.uk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 0/2] enic: Bug fixes
+Date: Tue, 21 Oct 2014 15:25:08 -0400 (EDT)
+Message-ID: <20141021.152508.109889515050893062.davem@davemloft.net>
+References: <1413708628-25690-1-git-send-email-_govind@gmx.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: stable@vger.kernel.org, netdev@vger.kernel.org,
-	hannes@stressinduktion.org
-To: Ben Hutchings <ben@decadent.org.uk>,
-	David Miller <davem@davemloft.net>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1413774581.31953.12.camel@decadent.org.uk>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, ssujith@cisco.com, benve@cisco.com
+To: _govind@gmx.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51154 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932529AbaJUTZ1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2014 15:25:27 -0400
+In-Reply-To: <1413708628-25690-1-git-send-email-_govind@gmx.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 20-10-2014 01:09, Ben Hutchings wrote:
-> On Mon, 2014-10-13 at 13:51 -0400, David Miller wrote:
->> From: Marcelo Ricardo Leitner <mleitner@redhat.com>
->> Date: Mon, 13 Oct 2014 14:03:30 -0300
->>
->>> Further tests revealed that after moving the garbage collector to a work
->>> queue and protecting it with a spinlock may leave the system prone to
->>> soft lockups if bottom half gets very busy.
->>>
->>> It was reproced with a set of firewall rules that REJECTed packets. If
->>> the NIC bottom half handler ends up running on the same CPU that is
->>> running the garbage collector on a very large cache, the garbage
->>> collector will not be able to do its job due to the amount of work
->>> needed for handling the REJECTs and also won't reschedule.
->>>
->>> The fix is to disable bottom half during the garbage collecting, as it
->>> already was in the first place (most calls to it came from softirqs).
->>>
->>> Signed-off-by: Marcelo Ricardo Leitner <mleitner@redhat.com>
->>> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
->>> Acked-by: David S. Miller <davem@davemloft.net>
->>> Cc: stable@vger.kernel.org
->>
->> -stable folks, please integrate this directly, thanks!
->
-> I've appplied this and the previous two patches mentioned ('ipv4: move
-> route garbage collector to work queue' and 'ipv4: avoid parallel route
-> cache gc executions').  But I didn't get the other two from you.  The
-> last batch of networking fixes I received and applied was dated
-> 2014-08-07, and the next one I've seen is dated 2014-10-11 and has
-> nothing for 3.2 or 3.4.  Did I miss one between these?
+From: Govindarajulu Varadarajan <_govind@gmx.com>
+Date: Sun, 19 Oct 2014 14:20:26 +0530
 
-Sorry to ask Ben but, where did you apply them? I'm not seeing the commits on 
-linux-stable.git and couldn't find their summaries anywhere else.
+> This series fixes the following problem.
 
-Thanks,
-Marcelo
+??? This is a rather content free patch series header description
+if you ask me.
+
+> Please apply this to net.
+
+Applied, thanks.
