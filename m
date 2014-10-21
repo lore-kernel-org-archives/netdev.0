@@ -1,37 +1,55 @@
-From: Alexey Andrianov <alan@al-an.info>
-Subject: Re: [net-next 2/2] ip6_tunnel: allow to change mode for the ip6tnl0
-Date: Tue, 21 Oct 2014 19:46:16 +0400
-Message-ID: <54467FC8.4020103@al-an.info>
-References: <1413879088-13513-1-git-send-email-alan@al-an.info> <1413879088-13513-2-git-send-email-alan@al-an.info> <5446780C.7070004@6wind.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>
-To: nicolas.dichtel@6wind.com, netdev@vger.kernel.org
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH] rtlwifi: rtl8821ae: Fix possible array overrun
+Date: Tue, 21 Oct 2014 10:52:51 -0500
+Message-ID: <1413906771-28599-1-git-send-email-Larry.Finger@lwfinger.net>
+Cc: linux-wireless@vger.kernel.org, troy_tan@realsil.com.cn,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	netdev@vger.kernel.org
+To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from forward8l.mail.yandex.net ([84.201.143.141]:60080 "EHLO
-	forward8l.mail.yandex.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755271AbaJUPqW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2014 11:46:22 -0400
-In-Reply-To: <5446780C.7070004@6wind.com>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:50274 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755271AbaJUPxV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2014 11:53:21 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-No, you're right. My fault is I missed the cover letter explaining that=
-=20
-both patches together are overkill. One should be enough. It could be=20
-the 1st, but it may cause some compatibility issues. So the maintainer=20
-could choose either the second or both.
+The kbuild test robot reported a possible array overrun. The affected code
+checks for overruns, but fails to take the steps necessary to fix them.
 
-And I'm really sorry for duplicate messages.
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+---
+ drivers/net/wireless/rtlwifi/rtl8821ae/phy.c | 15 +++++++++------
+ 1 file changed, 9 insertions(+), 6 deletions(-)
 
-21.10.2014 19:13, Nicolas Dichtel wrote:
-> Le 21/10/2014 10:11, Alexey Andriyanov a =C3=A9crit :
->> The fallback device is in ipv6 mode by default.
-> After patch 1/2, this is not true. Am I missing something?
-
---=20
-Best regards,
-Alexey
+diff --git a/drivers/net/wireless/rtlwifi/rtl8821ae/phy.c b/drivers/net/wireless/rtlwifi/rtl8821ae/phy.c
+index 9786313..1e9570f 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8821ae/phy.c
++++ b/drivers/net/wireless/rtlwifi/rtl8821ae/phy.c
+@@ -1889,15 +1889,18 @@ static void _rtl8821ae_store_tx_power_by_rate(struct ieee80211_hw *hw,
+ 	struct rtl_phy *rtlphy = &rtlpriv->phy;
+ 	u8 rate_section = _rtl8821ae_get_rate_section_index(regaddr);
+ 
+-	if (band != BAND_ON_2_4G && band != BAND_ON_5G)
++	if (band != BAND_ON_2_4G && band != BAND_ON_5G) {
+ 		RT_TRACE(rtlpriv, COMP_INIT, DBG_WARNING, "Invalid Band %d\n", band);
+-
+-	if (rfpath >= MAX_RF_PATH)
++		band = BAND_ON_2_4G;
++	}
++	if (rfpath >= MAX_RF_PATH) {
+ 		RT_TRACE(rtlpriv, COMP_INIT, DBG_WARNING, "Invalid RfPath %d\n", rfpath);
+-
+-	if (txnum >= MAX_RF_PATH)
++		rfpath = MAX_RF_PATH - 1;
++	}
++	if (txnum >= MAX_RF_PATH) {
+ 		RT_TRACE(rtlpriv, COMP_INIT, DBG_WARNING, "Invalid TxNum %d\n", txnum);
+-
++		txnum = MAX_RF_PATH - 1;
++	}
+ 	rtlphy->tx_power_by_rate_offset[band][rfpath][txnum][rate_section] = data;
+ 	RT_TRACE(rtlpriv, COMP_INIT, DBG_LOUD,
+ 		 "TxPwrByRateOffset[Band %d][RfPath %d][TxNum %d][RateSection %d] = 0x%x\n",
+-- 
+1.8.4.5
