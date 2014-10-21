@@ -1,51 +1,48 @@
-From: Alan Stern <stern@rowland.harvard.edu>
-Subject: Re: Routing BUG with ppp over l2tp
-Date: Tue, 21 Oct 2014 10:15:57 -0400 (EDT)
-Message-ID: <Pine.LNX.4.44L0.1410211007210.1159-100000@iolanthe.rowland.org>
-References: <54456F15.9070206@workingcode.com>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: [PATCHv4 net-next 0/4] sunvnet: NAPIfy sunvnet
+Date: Tue, 21 Oct 2014 10:16:12 -0400
+Message-ID: <20141021141612.GC15405@oracle.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: James Chapman <jchapman@katalix.com>, <linux-ppp@vger.kernel.org>,
-	<netdev@vger.kernel.org>
-To: James Carlson <carlsonj@workingcode.com>
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <54456F15.9070206@workingcode.com>
-Sender: linux-ppp-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, sparclinux@vger.kernel.org
+To: davem@davemloft.net, bob.picco@oracle.com,
+	sowmini.varadhan@oracle.com, dwight.engen@oracle.com,
+	raghuram.kothakota@oracle.com, david.stevens@oracle.com
+Return-path: <sparclinux-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: sparclinux-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 20 Oct 2014, James Carlson wrote:
 
-> >> Otherwise, contact the maintainer of that VPN server.  It's just plain
-> >> old broken, and life's too short for broken software.
-> > 
-> > It is an old Cisco security appliance, no doubt well past End-Of-Life.  
-> > I'm starting to think it might be preferable to throw the thing away 
-> > and start up a VPN server on the department's firewall (which is a 
-> > Linux box) instead.
-> 
-> That sounds like a good (and easier to support) solution.
+This patchset converts the sunvnet driver to use the NAPI framework.
 
-Okay.  I looked into iptables, but it doesn't seem to provide any way 
-to prevent a packet from being routed through a particular interface. 
-:-(
+Patch 1 in the series addresses the packet-receive path- all
+the vnet_event() processing is moved into NAPI context.
+This patch is dependant on the sparc commit:
+  "sparc64: Add vio_set_intr() to enable/disable Rx interrupts"
+  (commit id ca605b7dd740c8909408d67911d8ddd272c2b320)
 
-On the other hand, I tried writing a short /etc/ppp/ip-up.local script
-that changes the destination address of the ppp interface and adds a
-default route to the new, correct address.  It worked!  It's not a
-perfect solution, because there's still a short window in which the
-interface is up with the wrong address.  A few packets get lost and a
-deadlock could occur.  But at least it's simple and non-invasive, and
-it definitely proves the address conflict was indeed the cause of the
-problem.
+Patch 2 uses RCU to fix race conditions between vnet_port_remove and
+paths that access/modify port-related state, such as vnet_start_xmit.
 
-Changing pppd would be more foolproof.  But then I'd also have to 
-change the programs that call it (xl2tpd and then NetworkManager), and 
-doing all that doesn't seem worthwhile.
+Patch 3 and Patch 4 in the series leverage from the NAPIfied Rx path, 
+dropping superfluous usage of the irqsave/irqrestores on the vio.lock
+where possible.
 
-In the end, I think the best solution will be to replace the VPN 
-server.
+Note: Patch 3 contains changes that target sparc-next, Patch 4 targets
+net-next.
 
-Thanks for your help,
+Sowmini Varadhan (4):
+  NAPIfy sunvnet
+  Use RCU to synchronize port usage with vnet_port_remove()
+  Avoid irqsave/restore on vio.lock if in_softirq()
+  Remove irqsave/irqrestore on vio.lock
 
-Alan Stern
+ arch/sparc/kernel/viohs.c          |   8 +-
+ drivers/net/ethernet/sun/sunvnet.c | 258 +++++++++++++++++++++++--------------
+ drivers/net/ethernet/sun/sunvnet.h |   6 +-
+ 3 files changed, 173 insertions(+), 99 deletions(-)
+
+-- 
+1.8.4.2
 
