@@ -1,37 +1,37 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] netfilter: xt_hashlimit: Enhance the xt_hashlimit to
- avoid duplicated codes
-Date: Tue, 21 Oct 2014 17:31:28 +0200
-Message-ID: <20141021153128.GA3657@salvia>
-References: <CA+6hz4o-2vSEzH+hjYAUfWRVqHQ3QfcCr8q11eoRpCTq2uTYtg@mail.gmail.com>
+From: Alexey Andrianov <alan@al-an.info>
+Subject: Re: [net-next 2/2] ip6_tunnel: allow to change mode for the ip6tnl0
+Date: Tue, 21 Oct 2014 19:46:16 +0400
+Message-ID: <54467FC8.4020103@al-an.info>
+References: <1413879088-13513-1-git-send-email-alan@al-an.info> <1413879088-13513-2-git-send-email-alan@al-an.info> <5446780C.7070004@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>, kadlec@blackhole.kfki.hu,
-	davem@davemloft.net,
-	Netfilter Developer Mailing List
-	<netfilter-devel@vger.kernel.org>, coreteam@netfilter.org,
-	netdev@vger.kernel.org, linux-kernel <linux-kernel@vger.kernel.org>
-To: Feng Gao <gfree.wind@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CA+6hz4o-2vSEzH+hjYAUfWRVqHQ3QfcCr8q11eoRpCTq2uTYtg@mail.gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>
+To: nicolas.dichtel@6wind.com, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from forward8l.mail.yandex.net ([84.201.143.141]:60080 "EHLO
+	forward8l.mail.yandex.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755271AbaJUPqW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2014 11:46:22 -0400
+In-Reply-To: <5446780C.7070004@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 21, 2014 at 11:23:16PM +0800, Feng Gao wrote:
-> Hi all,
-> 
-> Enhance the functions "dsthash_alloc_init" and "hashlimit_mt" in file
-> "xt_hashlimit.c" to avoid two duplicated codes following:
-> 
-> -           dh->expires = now + msecs_to_jiffies(hinfo->cfg.expire);
-> -           rateinfo_recalc(dh, now, hinfo->cfg.mode);
-> 
-> 
-> The whole patch is following
+No, you're right. My fault is I missed the cover letter explaining that=
+=20
+both patches together are overkill. One should be enough. It could be=20
+the 1st, but it may cause some compatibility issues. So the maintainer=20
+could choose either the second or both.
 
-The patch seems mangled by your MUA.
+And I'm really sorry for duplicate messages.
 
-BTW, you can just Cc netfilter patches to
-netfilter-devel@vger.kernel.org. No need to Cc that many people.
+21.10.2014 19:13, Nicolas Dichtel wrote:
+> Le 21/10/2014 10:11, Alexey Andriyanov a =C3=A9crit :
+>> The fallback device is in ipv6 mode by default.
+> After patch 1/2, this is not true. Am I missing something?
 
+--=20
+Best regards,
+Alexey
