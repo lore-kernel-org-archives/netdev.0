@@ -1,29 +1,63 @@
-From: Loughrey@vger.kernel.org, Empowerment@vger.kernel.org,
-	Project@vger.kernel.org
-Subject: =?utf-8?q?You_are_receiving_this_donation_newsletter_from_the_PR_officer_?=
- =?utf-8?q?to_Margaret_Loughrey=2E=E2=80=8F?=
-Date: Tue, 21 Oct 2014 22:54:29 +0300
-Message-ID: <62f480ac-073f-46d5-b620-5e2045b84598@EXCHYD1.csun.edu>
-Reply-To: <loughreyirish11@rogers.com>
+From: Fabian Frederick <fabf@skynet.be>
+Subject: Re: [PATCH 1/1 net-next] mac80211: remove unnecessary null test
+ before debugfs_remove
+Date: Tue, 21 Oct 2014 22:05:41 +0200 (CEST)
+Message-ID: <1473755457.212484.1413921941002.open-xchange@webmail.nmp.skynet.be>
+References: <1413908412-5177-1-git-send-email-fabf@skynet.be> <1413918366.1998.10.camel@jlt4.sipsolutions.net>
+Reply-To: Fabian Frederick <fabf@skynet.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [207.46.100.85] ([207.46.100.85]:8070 "EHLO
-	na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932478AbaJUT5L convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2014 15:57:11 -0400
-Content-Description: Mail message body
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	"John W. Linville" <linville@tuxdriver.com>
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1413918366.1998.10.camel@jlt4.sipsolutions.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-She is a renowned winner of the 27million pound jackpot.You are been informed that three(3) e-mail addresses including yours was recently selected by Google at the request of Margaret Loughrey to receive a $450,000.00USD donation each in the ongoing 2014 Email Donation Project.. Send Name, Country, Age, and Occupation and phone number for details. See my interview 
-http://www.bbc.com/news/uk-northern-ireland-25178018
 
-http://www.belfasttelegraph.co.uk/news/local-national/northern-ireland/strabanes-27m-euromillions-winner-margaret-loughrey-giving-away-millions-to-help-needy-and-town-30481234.html
+
+> On 21 October 2014 at 21:06 Johannes Berg <johannes@sipsolutions.net>=
+ wrote:
+>
+>
+> On Tue, 2014-10-21 at 18:20 +0200, Fabian Frederick wrote:
+> > Fix checkpatch warnings:
+> >
+> >=C2=A0 =C2=A0 =C2=A0WARNING: debugfs_remove(NULL) is safe this check=
+ is probably not
+> >required
+>
+> I'll apply this; however, I think that checkpatch is a just tool, and
+> the commit message should reflect why you're changing the code.
+> Presumably you're not doing it to make the tool happy, but to address=
+ an
+> issue that the tool pointed out, so I think in most cases the commit
+> message should state the former, not the latter.
+>
+> Note that in this particular case the NULL check check could be there=
+ to
+> avoid a memory write (which can be significant depending on the conte=
+xt)
+> so blindly doing what the tool suggested wouldn't always be a good id=
+ea.
+>
+> johannes
+>
+
+Thanks Johannes,
+
+Maybe you can replace commit message with:
+"
+This patch removes NULL check before debugfs_remove.
+That function already does that check and is
+only called during key management so we can add some memory writes.
+"
+
+I can also resubmit patch if necessary.
 
 Regards,
-Mark Worton,
-Margaret Loughrey Foudation.
+=46abian
