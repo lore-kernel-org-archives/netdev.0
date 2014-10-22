@@ -1,60 +1,41 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: Re: [PATCH net-next] tcp: Add TCP_FREEZE socket option
-Date: Wed, 22 Oct 2014 21:50:14 +0200
-Message-ID: <CAPh34mechU=aUS422OBFhHUt68Nk2PZBsMiLPw8eLwS_4PnRtw@mail.gmail.com>
-References: <1413992196-4891-1-git-send-email-kristian.evensen@gmail.com>
-	<20141022.121418.1477947755244353588.davem@davemloft.net>
-	<CAKfDRXgARYe3hw3vgpgup1X4bNjH0cpwYOfKUZK51HcOf2jeJA@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] drivers: net: xgene: Rewrite loop in
+ xgene_enet_ecc_init()
+Date: Wed, 22 Oct 2014 16:12:57 -0400 (EDT)
+Message-ID: <20141022.161257.290251379136182774.davem@davemloft.net>
+References: <1413963581-24019-1-git-send-email-geert@linux-m68k.org>
+	<20141022.153436.93475594748933547.davem@davemloft.net>
+	<CAMuHMdXJs=+SpB07t0a+LRWX_TGUnUmQi3P-aExFzmbm_j0fow@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>
-To: Kristian Evensen <kristian.evensen@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f178.google.com ([209.85.217.178]:35685 "EHLO
-	mail-lb0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932640AbaJVTuQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2014 15:50:16 -0400
-Received: by mail-lb0-f178.google.com with SMTP id w7so3478664lbi.37
-        for <netdev@vger.kernel.org>; Wed, 22 Oct 2014 12:50:15 -0700 (PDT)
-In-Reply-To: <CAKfDRXgARYe3hw3vgpgup1X4bNjH0cpwYOfKUZK51HcOf2jeJA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: isubramanian@apm.com, kchudgar@apm.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: geert@linux-m68k.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAMuHMdXJs=+SpB07t0a+LRWX_TGUnUmQi3P-aExFzmbm_j0fow@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 22 October 2014 19:08, Kristian Evensen <kristian.evensen@gmail.com> wrote:
-
-> Another approach I designed was to have a separate TCP Freeze module
-> and trigger the freeze/unfreeze through genetlink-messages. A user
-> space application will be responsible for monitoring the devices and
-> decide when to trigger the ZWAs. Would a design like that be
-> acceptable?
-
-At least better. But what userspace daemon would configure this?
-Likely NetworkManager and friends. But at what conditions?
-
-- When the WIFI signal strength is below some threshold?
-- When switched to another AP?
-- When switched from 802.11 to 802.3
-- ...
-
-In a NATed scenario there is no gain because IP addreses change and
-the connection is lost anyway. For the signal strength thing there
-might be an advantage but it has costs:
-
-a) how long did you freeze the connection? What if NetworkManager
-stops? The connection hang \infty
-b) is it not better to inform the upper layer - the application - that
-something happen with the link?
-
-I mean when the application experience disruptions, the application
-can decide what it do: reconnect, reconnect and resend or inform the
-user. This possibility is now lost/hidden. Maybe it is no problem -
-maybe it is for some applications.
-
-I have no fundamental problems with TCP Freeze, but what is missing is
-a complete story line. The use cases where it makes sense and if it is
-save.
-
-Do you have considered to bring this to the IETF (TCPM WG)?
-
-Hagen
+RnJvbTogR2VlcnQgVXl0dGVyaG9ldmVuIDxnZWVydEBsaW51eC1tNjhrLm9yZz4NCkRhdGU6IFdl
+ZCwgMjIgT2N0IDIwMTQgMjE6NTA6MDYgKzAyMDANCg0KPiBPbiBXZWQsIE9jdCAyMiwgMjAxNCBh
+dCA5OjM0IFBNLCBEYXZpZCBNaWxsZXIgPGRhdmVtQGRhdmVtbG9mdC5uZXQ+IHdyb3RlOg0KPj4g
+RnJvbTogR2VlcnQgVXl0dGVyaG9ldmVuIDxnZWVydEBsaW51eC1tNjhrLm9yZz4NCj4+IERhdGU6
+IFdlZCwgMjIgT2N0IDIwMTQgMDk6Mzk6NDEgKzAyMDANCj4+DQo+Pj4gZHJpdmVycy9uZXQvZXRo
+ZXJuZXQvYXBtL3hnZW5lL3hnZW5lX2VuZXRfc2dtYWMuYzogSW4gZnVuY3Rpb24goXhnZW5lX2Vu
+ZXRfZWNjX2luaXSiOg0KPj4+IGRyaXZlcnMvbmV0L2V0aGVybmV0L2FwbS94Z2VuZS94Z2VuZV9l
+bmV0X3NnbWFjLmM6MTI2OiB3YXJuaW5nOiChZGF0YaIgbWF5IGJlIHVzZWQgdW5pbml0aWFsaXpl
+ZCBpbiB0aGlzIGZ1bmN0aW9uDQo+Pj4NCj4+PiBEZXBlbmRpbmcgb24gdGhlIGFyYml0cmFyeSB2
+YWx1ZSBvbiB0aGUgc3RhY2ssIHRoZSBsb29wIG1heSB0ZXJtaW5hdGUNCj4+PiB0b28gZWFybHks
+IGFuZCBjYXVzZSBhIGJvZ3VzIC1FTk9ERVYgZmFpbHVyZS4NCj4+Pg0KPj4+IFNpZ25lZC1vZmYt
+Ynk6IEdlZXJ0IFV5dHRlcmhvZXZlbiA8Z2VlcnRAbGludXgtbTY4ay5vcmc+DQo+Pj4gLS0tDQo+
+Pj4gdjI6IFJld3JpdGUgdGhlIGxvb3AgaW5zdGVhZCBvZiBwcmUtaW5pdGlhbGl6aW5nIGRhdGEu
+DQo+Pg0KPj4gSSBoYXRlIHRvIGJlIGEgcGVzdCwgYnV0IGxpa2UgdGhlIG90aGVyIHBhdGNoIG9m
+IHlvdXIncyBJIHRoaW5rDQo+PiBhIGRvIHsgfSB3aGlsZSgpIHdvcmtzIGJlc3QgaGVyZSBiZWNh
+dXNlIHRoZSBpbnRlbnQgaXMgY2xlYXJseQ0KPj4gdG8gcnVuIHRoZSBsb29wIGF0IGxlYXN0IG9u
+Y2UsIHJpZ2h0Pw0KPiANCj4gSSB3YW50ZWQgdG8gYXZvaWQgY2hlY2tpbmcgZm9yICJkYXRhICE9
+IH4wVSIgdHdpY2U6IG9uY2UgdG8gYWJvcnQgdGhlIGxvb3AsDQo+IGFuZCBvbmNlIHRvIGNoZWNr
+IGlmIGEgdGltZW91dCBoYXBwZW5lZC4NCg0KSG1tbToNCg0KCWRvIHsNCgkJdXNsZWVwX3Jhbmdl
+KC4uLik7DQoJCWRhdGEgPSAuLi4oKTsNCgkJaWYgKGRhdGEgPT0gfjApDQoJCQlyZXR1cm4gMDsN
+Cgl9IHdoaWxlICgrK2kgPCAxMCk7DQoNCgluZXRkZXZfZXJyKC4uLik7DQoJcmV0dXJuIC1FTk9E
+RVY7DQoNCldoeSB3b3VsZCB5b3UgaGF2ZSB0byBjaGVjayBkYXRhIHR3aWNlPw0K
