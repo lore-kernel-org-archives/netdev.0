@@ -1,34 +1,57 @@
-From: Peter Foley <pefoley2@pefoley.com>
-Subject: Re: [PATCH net] ptp: restore the makefile for building the test program.
-Date: Wed, 22 Oct 2014 15:43:45 -0400
-Message-ID: <CAOFdcFO8ez8cGrR1=GtRUGD6mPtYxU-QMHDw8j-nn1t_=4qTsA@mail.gmail.com>
-References: <edb4b32ca0326b648d905620d95297cef5ed9391.1414006463.git.rcochran@linutronix.de>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [PATCH v2] drivers: net: xgene: Rewrite loop in xgene_enet_ecc_init()
+Date: Wed, 22 Oct 2014 21:50:06 +0200
+Message-ID: <CAMuHMdXJs=+SpB07t0a+LRWX_TGUnUmQi3P-aExFzmbm_j0fow@mail.gmail.com>
+References: <1413963581-24019-1-git-send-email-geert@linux-m68k.org>
+	<20141022.153436.93475594748933547.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f182.google.com ([209.85.220.182]:58638 "EHLO
-	mail-vc0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932465AbaJVToN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2014 15:44:13 -0400
-Received: by mail-vc0-f182.google.com with SMTP id la4so2494687vcb.13
-        for <netdev@vger.kernel.org>; Wed, 22 Oct 2014 12:44:11 -0700 (PDT)
-In-Reply-To: <edb4b32ca0326b648d905620d95297cef5ed9391.1414006463.git.rcochran@linutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: isubramanian@apm.com, kchudgar@apm.com,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141022.153436.93475594748933547.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 22, 2014 at 3:35 PM, Richard Cochran
-<richardcochran@gmail.com> wrote:
-> This patch brings back the makefile called testptp.mk which was removed
-> in commit adb19fb66eee (Documentation: add makefiles for more targets).
+On Wed, Oct 22, 2014 at 9:34 PM, David Miller <davem@davemloft.net> wro=
+te:
+> From: Geert Uytterhoeven <geert@linux-m68k.org>
+> Date: Wed, 22 Oct 2014 09:39:41 +0200
 >
-> While the idea of that commit was to improve build coverage of the
-> examples, the new Makefile is unable to cross compile the testptp program.
-> In contrast, the deleted makefile was able to do this just fine.
+>> drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.c: In function =E2=80=
+=98xgene_enet_ecc_init=E2=80=99:
+>> drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.c:126: warning: =E2=80=
+=98data=E2=80=99 may be used uninitialized in this function
+>>
+>> Depending on the arbitrary value on the stack, the loop may terminat=
+e
+>> too early, and cause a bogus -ENODEV failure.
+>>
+>> Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+>> ---
+>> v2: Rewrite the loop instead of pre-initializing data.
 >
-> This patch fixes the regression by restoring the original makefile.
->
-> Signed-off-by: Richard Cochran <richardcochran@gmail.com>
+> I hate to be a pest, but like the other patch of your's I think
+> a do { } while() works best here because the intent is clearly
+> to run the loop at least once, right?
 
-Acked-by: Peter Foley <pefoley2@pefoley.com>
+I wanted to avoid checking for "data !=3D ~0U" twice: once to abort the=
+ loop,
+and once to check if a timeout happened.
+
+Gr{oetje,eeting}s,
+
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-=
+m68k.org
+
+In personal conversations with technical people, I call myself a hacker=
+=2E But
+when I'm talking to journalists I just say "programmer" or something li=
+ke that.
+                                -- Linus Torvalds
