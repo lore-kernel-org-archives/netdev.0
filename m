@@ -1,43 +1,35 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH 1/2] net: dsa: Error out on tagging protocol mismatches
-Date: Thu, 23 Oct 2014 01:35:17 +0200
-Message-ID: <1414020918-20903-2-git-send-email-andrew@lunn.ch>
-References: <1414020918-20903-1-git-send-email-andrew@lunn.ch>
-Cc: netdev@vger.kernel.org, Andrew Lunn <andrew@lunn.ch>,
-	alexander.h.duyck@intel.com
-To: davem@davemloft.net
+From: Adecco UK <webrecruitment@job4u.com>
+Subject: Careers via Adecco UK
+Date: Thu, 23 Oct 2014 00:37:29 +0100
+Message-ID: <CADg_VCOgJrBjzxZkjCHH2EnF3zDtRDCh8+6ouXkVXGxJZGf1Kw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:42327 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932666AbaJVXgd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Oct 2014 19:36:33 -0400
-In-Reply-To: <1414020918-20903-1-git-send-email-andrew@lunn.ch>
+Received: from mail-qa0-f66.google.com ([209.85.216.66]:51842 "EHLO
+	mail-qa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751202AbaJVXha (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2014 19:37:30 -0400
+Received: by mail-qa0-f66.google.com with SMTP id cs9so727891qab.9
+        for <netdev@vger.kernel.org>; Wed, 22 Oct 2014 16:37:29 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If there is a mismatch between enabled tagging protocols and the
-protocol the switch supports, error out, rather than continue with a
-situation which is unlikely to work.
+Dear Expat,
 
-Signed-off-by: Andrew Lunn <andrew@lunn.ch>
-cc: alexander.h.duyck@intel.com
----
- net/dsa/dsa.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+Adecco is a recruitment provider that creates the opportunity for you
+to live in the UK and work with some of the most exciting companies
+that can take your career to the next level.
 
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index 22f34cf4cb27..8a31bd81a315 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -175,7 +175,8 @@ dsa_switch_setup(struct dsa_switch_tree *dst, int index,
- 			break;
- #endif
- 		default:
--			break;
-+			ret = -ENOPROTOOPT;
-+			goto out;
- 		}
- 
- 		dst->tag_protocol = drv->tag_protocol;
--- 
-2.1.1
+Our recruitment is vast, so regardless of your level of education and
+industry, we will have your Resume forwarded to the appropriate
+companies and considered for various openings.
+
+Please send us your Resume in reply to this notice and let us help you
+find a better job.
+
+Regards,
+
+Arlo Colston
+Snr. Recruitment Specialist
+Adecco UK
