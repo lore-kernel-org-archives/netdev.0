@@ -1,28 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bpf: fix bug in eBPF verifier
-Date: Tue, 21 Oct 2014 21:44:22 -0400 (EDT)
-Message-ID: <20141021.214422.448340967510694149.davem@davemloft.net>
-References: <1413842097-4380-1-git-send-email-ast@plumgrid.com>
+Subject: Re: [PATCH net] net: sched: initialize bstats syncp
+Date: Tue, 21 Oct 2014 21:46:12 -0400 (EDT)
+Message-ID: <20141021.214612.996846961347808396.davem@davemloft.net>
+References: <20141021092330.GA9863@kria>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hannes@stressinduktion.org, dborkman@redhat.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: ast@plumgrid.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1413842097-4380-1-git-send-email-ast@plumgrid.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, john.r.fastabend@intel.com
+To: sd@queasysnail.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54127 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752940AbaJVBqO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2014 21:46:14 -0400
+In-Reply-To: <20141021092330.GA9863@kria>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alexei Starovoitov <ast@plumgrid.com>
-Date: Mon, 20 Oct 2014 14:54:57 -0700
+From: Sabrina Dubroca <sd@queasysnail.net>
+Date: Tue, 21 Oct 2014 11:23:30 +0200
 
-> while comparing for verifier state equivalency the comparison
-> was missing a check for uninitialized register.
-> Make sure it does so and add a testcase.
+> Use netdev_alloc_pcpu_stats to allocate percpu stats and initialize syncp.
 > 
-> Fixes: f1bca824dabb ("bpf: add search pruning optimization to verifier")
-> Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+> Fixes: 22e0f8b9322c "net: sched: make bstats per cpu and estimator RCU safe"
+> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
 
-Applied, thanks.
+Applied, thank you.
