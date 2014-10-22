@@ -1,46 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netlink: don't copy over empty attribute data
-Date: Wed, 22 Oct 2014 02:15:08 -0400 (EDT)
-Message-ID: <20141022.021508.2011745433893496421.davem@davemloft.net>
-References: <1413924669-26732-1-git-send-email-sasha.levin@oracle.com>
-	<20141021.213908.1088381802543942481.davem@davemloft.net>
-	<54471438.1040907@oracle.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 1/1 net-next] mac80211: remove unnecessary null test
+ before debugfs_remove
+Date: Wed, 22 Oct 2014 08:36:04 +0200
+Message-ID: <1413959764.1958.0.camel@jlt4.sipsolutions.net>
+References: <1413908412-5177-1-git-send-email-fabf@skynet.be>
+	 <1413918366.1998.10.camel@jlt4.sipsolutions.net>
+	 <1473755457.212484.1413921941002.open-xchange@webmail.nmp.skynet.be>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: a.ryabinin@samsung.com, pablo@netfilter.org, mschmidt@redhat.com,
-	akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: sasha.levin@oracle.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54471438.1040907@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	"John W. Linville" <linville@tuxdriver.com>
+To: Fabian Frederick <fabf@skynet.be>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([5.9.151.49]:49048 "EHLO sipsolutions.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753362AbaJVGgR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Oct 2014 02:36:17 -0400
+In-Reply-To: <1473755457.212484.1413921941002.open-xchange@webmail.nmp.skynet.be>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sasha Levin <sasha.levin@oracle.com>
-Date: Tue, 21 Oct 2014 22:19:36 -0400
+On Tue, 2014-10-21 at 22:05 +0200, Fabian Frederick wrote:
 
-> On 10/21/2014 09:39 PM, David Miller wrote:
->> From: Sasha Levin <sasha.levin@oracle.com>
->> Date: Tue, 21 Oct 2014 16:51:09 -0400
->> 
->>> > netlink uses empty data to seperate different levels. However, we still
->>> > try to copy that data from a NULL ptr using memcpy, which is an undefined
->>> > behaviour.
->>> > 
->>> > Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
->> This isn't a POSIX C library, this it the Linux kernel, and as such
->> we can make sure none of our memcpy() implementations try to access
->> any bytes if the given length is NULL.
-> 
-> We can make *our* implementations work around that undefined behaviour if we
-> want, but right now our implementations is to call GCC's builtin memcpy(),
-> which follows the standards and doesn't allow you to call it with NULL 'from'
-> ptr.
-> 
-> The fact that it doesn't die and behaves properly is just "luck".
+> I can also resubmit patch if necessary.
 
-If GCC's internal memcpy() starts accessing past 'len', I'm going
-to report the bug rather than code around it.
+No worries, I've already applied the patch (with a modified commit
+message).
 
-That causes a page fault, you _can't_ do it.
+johannes
