@@ -1,31 +1,45 @@
-From: Peter Foley <pefoley2@pefoley.com>
-Subject: Re: [PATCH] Documentation: ptp: Fix build failure on MIPS cross builds
-Date: Wed, 22 Oct 2014 10:09:37 -0400
-Message-ID: <CAOFdcFO=aLHKtogCf3Sz+XFFcm56JSTi=Om7S+XLdr71YCnFaw@mail.gmail.com>
-References: <1413794538-28465-1-git-send-email-markos.chandras@imgtec.com>
- <20141021110724.GA16479@netboy> <20141021.123544.9516812519754063.davem@davemloft.net>
- <544690CB.4030307@gmail.com> <20141021182757.GA3960@localhost.localdomain>
- <CAOFdcFNYHgupvMChb4NedMsUMAOmE8k0D_F5eRjL-8H8ft=eRw@mail.gmail.com> <20141022080302.GA4037@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Daney <ddaney.cavm@gmail.com>,
-	David Miller <davem@davemloft.net>, markos.chandras@imgtec.com,
-	linux-mips@linux-mips.org, corbet@lwn.net, netdev@vger.kernel.org,
-	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141022080302.GA4037@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Subject: [PATCH] net: fec: ptp: fix NULL pointer dereference if ptp_clock is not set
+Date: Wed, 22 Oct 2014 16:34:35 +0200
+Message-ID: <1413988475-6565-1-git-send-email-p.zabel@pengutronix.de>
+Cc: netdev@vger.kernel.org, Philipp Zabel <p.zabel@pengutronix.de>
+To: "David S. Miller" <davem@davemloft.net>,
+	Luwei Zhou <b45643@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:55932 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752293AbaJVOej (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2014 10:34:39 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 22, 2014 at 4:03 AM, Richard Cochran
-<richardcochran@gmail.com> wrote:
-> In the mean time, I would like to restore the testptp.mk that *does*
-> cross compile, so that people may use the test program if they
-> want. In fact I use this all the time, and so I am a bit annoyed that
-> something working was deleted and replaced with something broken.
+Since commit 278d24047891 (net: fec: ptp: Enable PPS output based on ptp clock)
+fec_enet_interrupt calls fec_ptp_check_pps_event unconditionally, which calls
+into ptp_clock_event. If fep->ptp_clock is NULL, ptp_clock_event tries to
+dereference the NULL pointer.
+Since on i.MX53 fep->bufdesc_ex is not set, fec_ptp_init is never called,
+and fep->ptp_clock is NULL, which reliably causes a kernel panic.
 
-Sure, I didn't realize that anyone was actually using testptp.mk on a
-regular basis.
-Feel free to restore it.
+This patch adds a check for fep->ptp_clock == NULL in fec_enet_interrupt.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/net/ethernet/freescale/fec_main.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index 81b96cf..50a851d 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -1581,7 +1581,8 @@ fec_enet_interrupt(int irq, void *dev_id)
+ 		complete(&fep->mdio_done);
+ 	}
+ 
+-	fec_ptp_check_pps_event(fep);
++	if (fep->ptp_clock)
++		fec_ptp_check_pps_event(fep);
+ 
+ 	return ret;
+ }
+-- 
+2.1.1
