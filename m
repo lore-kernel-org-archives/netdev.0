@@ -1,40 +1,31 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [PATCHv4 3/4] sparc64: Avoid irqsave/restore on vio.lock if
- in_softirq()
-Date: Tue, 21 Oct 2014 20:16:12 -0400
-Message-ID: <20141022001612.GB26724@oracle.com>
-References: <20141021141647.GF15405@oracle.com>
- <CAGRGNgXvKJBhOE1z3=_gZkE=X94HnoAvTN6Zv5G1h8JuFfS8Ng@mail.gmail.com>
- <5446F291.1030400@oracle.com>
+From: "Parker Nick" <lozinsky@compet.ru>
+Subject: RE: Urgent Order
+Date: Wed, 22 Oct 2014 00:37:00 -0700
+Message-ID: <auto-000082988198@ng.pochemu.ru>
+Reply-To: <pvcpipe4ltd@hotmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Julian Calaby <julian.calaby@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	sparclinux <sparclinux@vger.kernel.org>
-To: Dave Kleikamp <dave.kleikamp@oracle.com>
-Return-path: <sparclinux-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <5446F291.1030400@oracle.com>
-Sender: sparclinux-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="_iso-2022-jp$ESC"
+Content-Transfer-Encoding: 7bit
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ng.pochemu.ru ([213.183.32.4]:53447 "EHLO ng.pochemu.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751023AbaJVA2e (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Oct 2014 20:28:34 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On (10/21/14 18:56), Dave Kleikamp wrote:
-> > 
-> > Is gcc not smart enough to know that this variable isn't used before
-> > it's set? (I assume it isn't used elsewhere in this function)
-> 
-> It probably assumes in_softirq() might evaluate differently in the each
-> case.
+Hello,
 
-yes, that's what I suspected too. I suppose it is possible
-from the compiler's point of view that something in between 
-might change the result of in_softirq() so that we may be 
-using an uninit variable in the second call.
+Please send me a price list and quotation for your products we want to import from your country this is a very large order for long term import and urgent request.
 
-anyway, the warning was annoying, and would only numb the
-user into ignoring other real issues, so I figured I might
-as well silence the warning.
+Thank you in advance for your prompt confirmation.
+Regards,
 
---Sowmini
+Parker Nick
 
+Equipos de Elevaci n , S.A. de C.V.Av. Texcoco #35,
+54070 Tlalnepantla , Edo . de M xico
+M xico
+Tels.+27840117769
