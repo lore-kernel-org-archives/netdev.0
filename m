@@ -1,7 +1,7 @@
 From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Subject: [PATCH v2 4/9] net: pxa168_eth: Remove HW auto-negotiaion
-Date: Wed, 22 Oct 2014 20:26:47 +0200
-Message-ID: <1414002412-13615-5-git-send-email-sebastian.hesselbarth@gmail.com>
+Subject: [PATCH v2 1/9] phy: marvell: Add support for 88E3016 FastEthernet PHY
+Date: Wed, 22 Oct 2014 20:26:44 +0200
+Message-ID: <1414002412-13615-2-git-send-email-sebastian.hesselbarth@gmail.com>
 References: <1414002412-13615-1-git-send-email-sebastian.hesselbarth@gmail.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=ISO-8859-1
@@ -10,24 +10,16 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	=?UTF-8?q?Antoine=20T=C3=A9nart?=
 	<antoine.tenart@free-electrons.com>,
 	Florian Fainelli <f.fainelli@gmail.com>,
-	Eric Miao <eric.y.miao@gmail.com>,
-	Haojian Zhuang <haojian.zhuang@gmail.com>,
 	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f180.google.com ([209.85.212.180]:46518 "EHLO
-	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754564AbaJVS1F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2014 14:27:05 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1414002412-13615-1-git-send-email-sebastian.hesselbarth@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Marvell Ethernet IP supports PHY negotiation driven by HW. This
-fundamentally clashes with libphy (software) driven negotiation and
-also cannot cope with quirky PHYs. Therefore, always disable any HW
-negotiation features and properly use libphy's phy_device.
+Marvell 88E3016 is a FastEthernet PHY that also can be found in Marvell
+Berlin SoCs as integrated PHY.
 
 Tested-by: Antoine T=C3=A9nart <antoine.tenart@free-electrons.com>
 Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
@@ -36,209 +28,115 @@ Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
 Cc: "David S. Miller" <davem@davemloft.net>
 Cc: "Antoine T=C3=A9nart" <antoine.tenart@free-electrons.com>
 Cc: Florian Fainelli <f.fainelli@gmail.com>
-Cc: Eric Miao <eric.y.miao@gmail.com>
-Cc: Haojian Zhuang <haojian.zhuang@gmail.com>
 Cc: linux-arm-kernel@lists.infradead.org
 Cc: netdev@vger.kernel.org
 Cc: linux-kernel@vger.kernel.org
 ---
- drivers/net/ethernet/marvell/pxa168_eth.c | 100 ++++++++++++++++++++++=
-+++-----
- 1 file changed, 85 insertions(+), 15 deletions(-)
+ drivers/net/phy/marvell.c   | 46 +++++++++++++++++++++++++++++++++++++=
+++++++++
+ include/linux/marvell_phy.h |  1 +
+ 2 files changed, 47 insertions(+)
 
-diff --git a/drivers/net/ethernet/marvell/pxa168_eth.c b/drivers/net/et=
-hernet/marvell/pxa168_eth.c
-index 3918887e09c5..ca60fa24d2ed 100644
---- a/drivers/net/ethernet/marvell/pxa168_eth.c
-+++ b/drivers/net/ethernet/marvell/pxa168_eth.c
-@@ -106,6 +106,7 @@
- #define SDMA_CMD_ERD		(1 << 7)
+diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
+index bd37e45c89c0..d2b2f2f795d5 100644
+--- a/drivers/net/phy/marvell.c
++++ b/drivers/net/phy/marvell.c
+@@ -118,6 +118,9 @@
 =20
- /* Bit definitions of the Port Config Reg */
-+#define PCR_DUPLEX_FULL		(1 << 15)
- #define PCR_HS			(1 << 12)
- #define PCR_EN			(1 << 7)
- #define PCR_PM			(1 << 0)
-@@ -113,11 +114,17 @@
- /* Bit definitions of the Port Config Extend Reg */
- #define PCXR_2BSM		(1 << 28)
- #define PCXR_DSCP_EN		(1 << 21)
-+#define PCXR_RMII_EN		(1 << 20)
-+#define PCXR_AN_SPEED_DIS	(1 << 19)
-+#define PCXR_SPEED_100		(1 << 18)
- #define PCXR_MFL_1518		(0 << 14)
- #define PCXR_MFL_1536		(1 << 14)
- #define PCXR_MFL_2048		(2 << 14)
- #define PCXR_MFL_64K		(3 << 14)
-+#define PCXR_FLOWCTL_DIS	(1 << 12)
- #define PCXR_FLP		(1 << 11)
-+#define PCXR_AN_FLOWCTL_DIS	(1 << 10)
-+#define PCXR_AN_DUPLEX_DIS	(1 << 9)
- #define PCXR_PRIO_TX_OFF	3
- #define PCXR_TX_HIGH_PRI	(7 << PCXR_PRIO_TX_OFF)
+ #define MII_M1116R_CONTROL_REG_MAC	21
 =20
-@@ -272,6 +279,7 @@ enum hash_table_entry {
- static int pxa168_get_settings(struct net_device *dev, struct ethtool_=
-cmd *cmd);
- static int pxa168_set_settings(struct net_device *dev, struct ethtool_=
-cmd *cmd);
- static int pxa168_init_hw(struct pxa168_eth_private *pep);
-+static int pxa168_init_phy(struct net_device *dev);
- static void eth_port_reset(struct net_device *dev);
- static void eth_port_start(struct net_device *dev);
- static int pxa168_eth_open(struct net_device *dev);
-@@ -658,14 +666,7 @@ static void eth_port_start(struct net_device *dev)
- 	struct pxa168_eth_private *pep =3D netdev_priv(dev);
- 	int tx_curr_desc, rx_curr_desc;
++#define MII_88E3016_PHY_SPEC_CTRL	0x10
++#define MII_88E3016_DISABLE_SCRAMBLER	0x0200
++#define MII_88E3016_AUTO_MDIX_CROSSOVER	0x0030
 =20
--	/* Perform PHY reset, if there is a PHY. */
--	if (pep->phy !=3D NULL) {
--		struct ethtool_cmd cmd;
--
--		pxa168_get_settings(pep->dev, &cmd);
--		phy_init_hw(pep->phy);
--		pxa168_set_settings(pep->dev, &cmd);
--	}
-+	phy_start(pep->phy);
-=20
- 	/* Assignment of Tx CTRP of given queue */
- 	tx_curr_desc =3D pep->tx_curr_desc_q;
-@@ -720,6 +721,8 @@ static void eth_port_reset(struct net_device *dev)
- 	val =3D rdl(pep, PORT_CONFIG);
- 	val &=3D ~PCR_EN;
- 	wrl(pep, PORT_CONFIG, val);
-+
-+	phy_stop(pep->phy);
- }
-=20
- /*
-@@ -981,8 +984,11 @@ static int set_port_config_ext(struct pxa168_eth_p=
-rivate *pep)
- 		skb_size =3D PCXR_MFL_64K;
-=20
- 	/* Extended Port Configuration */
--	wrl(pep,
--	    PORT_CONFIG_EXT, PCXR_2BSM | /* Two byte prefix aligns IP hdr */
-+	wrl(pep, PORT_CONFIG_EXT,
-+	    PCXR_AN_SPEED_DIS |		 /* Disable HW AN */
-+	    PCXR_AN_DUPLEX_DIS |
-+	    PCXR_AN_FLOWCTL_DIS |
-+	    PCXR_2BSM |			 /* Two byte prefix aligns IP hdr */
- 	    PCXR_DSCP_EN |		 /* Enable DSCP in IP */
- 	    skb_size | PCXR_FLP |	 /* do not force link pass */
- 	    PCXR_TX_HIGH_PRI);		 /* Transmit - high priority queue */
-@@ -990,6 +996,69 @@ static int set_port_config_ext(struct pxa168_eth_p=
-rivate *pep)
+ MODULE_DESCRIPTION("Marvell PHY driver");
+ MODULE_AUTHOR("Andy Fleming");
+@@ -434,6 +437,25 @@ static int m88e1116r_config_init(struct phy_device=
+ *phydev)
  	return 0;
  }
 =20
-+static void pxa168_eth_adjust_link(struct net_device *dev)
++static int m88e3016_config_init(struct phy_device *phydev)
 +{
-+	struct pxa168_eth_private *pep =3D netdev_priv(dev);
-+	struct phy_device *phy =3D pep->phy;
-+	u32 cfg, cfg_o =3D rdl(pep, PORT_CONFIG);
-+	u32 cfgext, cfgext_o =3D rdl(pep, PORT_CONFIG_EXT);
++	int reg;
 +
-+	cfg =3D cfg_o & ~PCR_DUPLEX_FULL;
-+	cfgext =3D cfgext_o & ~(PCXR_SPEED_100 | PCXR_FLOWCTL_DIS | PCXR_RMII=
-_EN);
++	/* Enable Scrambler and Auto-Crossover */
++	reg =3D phy_read(phydev, MII_88E3016_PHY_SPEC_CTRL);
++	if (reg < 0)
++		return reg;
 +
-+	if (phy->interface =3D=3D PHY_INTERFACE_MODE_RMII)
-+		cfgext |=3D PCXR_RMII_EN;
-+	if (phy->speed =3D=3D SPEED_100)
-+		cfgext |=3D PCXR_SPEED_100;
-+	if (phy->duplex)
-+		cfg |=3D PCR_DUPLEX_FULL;
-+	if (!phy->pause)
-+		cfgext |=3D PCXR_FLOWCTL_DIS;
++	reg &=3D ~MII_88E3016_DISABLE_SCRAMBLER;
++	reg |=3D MII_88E3016_AUTO_MDIX_CROSSOVER;
 +
-+	/* Bail out if there has nothing changed */
-+	if (cfg =3D=3D cfg_o && cfgext =3D=3D cfgext_o)
-+		return;
++	reg =3D phy_write(phydev, MII_88E3016_PHY_SPEC_CTRL, reg);
++	if (reg < 0)
++		return reg;
 +
-+	wrl(pep, PORT_CONFIG, cfg);
-+	wrl(pep, PORT_CONFIG_EXT, cfgext);
-+
-+	phy_print_status(phy);
++	return 0;
 +}
 +
-+static int pxa168_init_phy(struct net_device *dev)
-+{
-+	struct pxa168_eth_private *pep =3D netdev_priv(dev);
-+	struct ethtool_cmd cmd;
-+	int err;
-+
-+	if (pep->phy)
-+		return 0;
-+
-+	pep->phy =3D mdiobus_scan(pep->smi_bus, pep->phy_addr);
-+	if (!pep->phy)
-+		return -ENODEV;
-+
-+	err =3D phy_connect_direct(dev, pep->phy, pxa168_eth_adjust_link,
-+				 pep->phy_intf);
-+	if (err)
-+		return err;
-+
-+	err =3D pxa168_get_settings(dev, &cmd);
-+	if (err)
-+		return err;
-+
-+	cmd.phy_address =3D pep->phy_addr;
-+	cmd.speed =3D pep->phy_speed;
-+	cmd.duplex =3D pep->phy_duplex;
-+	cmd.advertising =3D PHY_BASIC_FEATURES;
-+	cmd.autoneg =3D AUTONEG_ENABLE;
-+
-+	if (cmd.speed !=3D 0)
-+		cmd.autoneg =3D AUTONEG_DISABLE;
-+
-+	return pxa168_set_settings(dev, &cmd);
-+}
-+
- static int pxa168_init_hw(struct pxa168_eth_private *pep)
+ static int m88e1111_config_init(struct phy_device *phydev)
  {
- 	int err =3D 0;
-@@ -1136,6 +1205,10 @@ static int pxa168_eth_open(struct net_device *de=
-v)
- 	struct pxa168_eth_private *pep =3D netdev_priv(dev);
  	int err;
+@@ -770,6 +792,12 @@ static int marvell_read_status(struct phy_device *=
+phydev)
+ 	return 0;
+ }
 =20
-+	err =3D pxa168_init_phy(dev);
-+	if (err)
-+		return err;
++static int marvell_aneg_done(struct phy_device *phydev)
++{
++	int retval =3D phy_read(phydev, MII_M1011_PHY_STATUS);
++	return (retval < 0) ? retval : (retval & MII_M1011_PHY_STATUS_RESOLVE=
+D);
++}
 +
- 	err =3D request_irq(dev->irq, pxa168_eth_int_handler, 0, dev->name, d=
-ev);
- 	if (err) {
- 		dev_err(&dev->dev, "can't assign irq\n");
-@@ -1596,9 +1669,6 @@ static int pxa168_eth_probe(struct platform_devic=
-e *pdev)
- 		goto err_free_mdio;
+ static int m88e1121_did_interrupt(struct phy_device *phydev)
+ {
+ 	int imask;
+@@ -1050,6 +1078,23 @@ static struct phy_driver marvell_drivers[] =3D {
+ 		.suspend =3D &genphy_suspend,
+ 		.driver =3D { .owner =3D THIS_MODULE },
+ 	},
++	{
++		.phy_id =3D MARVELL_PHY_ID_88E3016,
++		.phy_id_mask =3D MARVELL_PHY_ID_MASK,
++		.name =3D "Marvell 88E3016",
++		.features =3D PHY_BASIC_FEATURES,
++		.flags =3D PHY_HAS_INTERRUPT,
++		.config_aneg =3D &genphy_config_aneg,
++		.config_init =3D &m88e3016_config_init,
++		.aneg_done =3D &marvell_aneg_done,
++		.read_status =3D &marvell_read_status,
++		.ack_interrupt =3D &marvell_ack_interrupt,
++		.config_intr =3D &marvell_config_intr,
++		.did_interrupt =3D &m88e1121_did_interrupt,
++		.resume =3D &genphy_resume,
++		.suspend =3D &genphy_suspend,
++		.driver =3D { .owner =3D THIS_MODULE },
++	},
+ };
 =20
- 	pxa168_init_hw(pep);
--	err =3D ethernet_phy_setup(dev);
--	if (err)
--		goto err_mdiobus;
- 	SET_NETDEV_DEV(dev, &pdev->dev);
- 	err =3D register_netdev(dev);
- 	if (err)
-@@ -1629,13 +1699,13 @@ static int pxa168_eth_remove(struct platform_de=
-vice *pdev)
- 				  pep->htpr, pep->htpr_dma);
- 		pep->htpr =3D NULL;
- 	}
-+	if (pep->phy)
-+		phy_disconnect(pep->phy);
- 	if (pep->clk) {
- 		clk_disable(pep->clk);
- 		clk_put(pep->clk);
- 		pep->clk =3D NULL;
- 	}
--	if (pep->phy !=3D NULL)
--		phy_detach(pep->phy);
+ static int __init marvell_init(void)
+@@ -1079,6 +1124,7 @@ static struct mdio_device_id __maybe_unused marve=
+ll_tbl[] =3D {
+ 	{ MARVELL_PHY_ID_88E1318S, MARVELL_PHY_ID_MASK },
+ 	{ MARVELL_PHY_ID_88E1116R, MARVELL_PHY_ID_MASK },
+ 	{ MARVELL_PHY_ID_88E1510, MARVELL_PHY_ID_MASK },
++	{ MARVELL_PHY_ID_88E3016, MARVELL_PHY_ID_MASK },
+ 	{ }
+ };
 =20
- 	iounmap(pep->base);
- 	pep->base =3D NULL;
+diff --git a/include/linux/marvell_phy.h b/include/linux/marvell_phy.h
+index 8e9a029e093d..e6982ac3200d 100644
+--- a/include/linux/marvell_phy.h
++++ b/include/linux/marvell_phy.h
+@@ -16,6 +16,7 @@
+ #define MARVELL_PHY_ID_88E1318S		0x01410e90
+ #define MARVELL_PHY_ID_88E1116R		0x01410e40
+ #define MARVELL_PHY_ID_88E1510		0x01410dd0
++#define MARVELL_PHY_ID_88E3016		0x01410e60
+=20
+ /* struct phy_device dev_flags definitions */
+ #define MARVELL_PHY_M1145_FLAGS_RESISTANCE	0x00000001
 --=20
 2.1.1
