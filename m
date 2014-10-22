@@ -1,64 +1,66 @@
 From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Subject: [PATCH v2 8/9] ARM: berlin: Add phy-connection-type to BG2Q Ethernet
-Date: Wed, 22 Oct 2014 20:26:51 +0200
-Message-ID: <1414002412-13615-9-git-send-email-sebastian.hesselbarth@gmail.com>
+Subject: [PATCH v2 2/9] net: pxa168_eth: Provide phy_interface mode on
+ platform_data
+Date: Wed, 22 Oct 2014 20:26:45 +0200
+Message-ID: <1414002412-13615-3-git-send-email-sebastian.hesselbarth@gmail.com>
 References: <1414002412-13615-1-git-send-email-sebastian.hesselbarth@gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?q?Antoine=20T=C3=A9nart?=
-	<antoine.tenart@free-electrons.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Eric Miao <eric.y.miao@gmail.com>,
-	Haojian Zhuang <haojian.zhuang@gmail.com>,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	devicetree@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Florian Fainelli <f.fainelli@gmail.com>, Eric Miao <eric.y.miao@gmail.com>,
+ netdev@vger.kernel.org,
+ =?UTF-8?q?Antoine=20T=C3=A9nart?= <antoine.tenart@free-electrons.com>,
+ linux-kernel@vger.kernel.org, Haojian Zhuang <haojian.zhuang@gmail.com>,
+ "David S. Miller" <davem@davemloft.net>, linux-arm-kernel@lists.infradead.org
 To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 In-Reply-To: <1414002412-13615-1-git-send-email-sebastian.hesselbarth@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: Antoine T=C3=A9nart <antoine.tenart@free-electrons.com>
-
-Internal FastEthernet PHY on BG2Q is connected via MII, add a
-corresponding phy-connection-type property to the Ethernet node.
-
-Tested-by: Antoine T=C3=A9nart <antoine.tenart@free-electrons.com>
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
-Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
----
-Changelog:
-v1->v2:
-- add phy-connection-type to controller node instead of PHY node
-  (Reported by Sergei Shtylyov)
-
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: "Antoine T=C3=A9nart" <antoine.tenart@free-electrons.com>
-Cc: Florian Fainelli <f.fainelli@gmail.com>
-Cc: Eric Miao <eric.y.miao@gmail.com>
-Cc: Haojian Zhuang <haojian.zhuang@gmail.com>
-Cc: linux-arm-kernel@lists.infradead.org
-Cc: netdev@vger.kernel.org
-Cc: devicetree@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
----
- arch/arm/boot/dts/berlin2q.dtsi | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/arch/arm/boot/dts/berlin2q.dtsi b/arch/arm/boot/dts/berlin=
-2q.dtsi
-index 891d56b03922..6bd01add3984 100644
---- a/arch/arm/boot/dts/berlin2q.dtsi
-+++ b/arch/arm/boot/dts/berlin2q.dtsi
-@@ -123,6 +123,7 @@
- 			local-mac-address =3D [00 00 00 00 00 00];
- 			#address-cells =3D <1>;
- 			#size-cells =3D <0>;
-+			phy-connection-type =3D "mii";
- 			phy-handle =3D <&ethphy0>;
- 			status =3D "disabled";
-=20
---=20
-2.1.1
+VGhlIFBYQTE2OCBFdGhlcm5ldCBJUCBzdXBwb3J0IE1JSSBhbmQgUk1JSSBjb25uZWN0aW9uIHRv
+IGl0cyBQSFkuCkN1cnJlbnRseSwgcHhhMTY4IHBsYXRmb3JtX2RhdGEgZG9lcyBub3QgcHJvdmlk
+ZSBhIHdheSB0byBwYXNzIHRoYXQKYW5kIHRoZXJlIGlzIG9uZSB1c2VyIG9mIHB4YTE2OCBwbGF0
+Zm9ybV9kYXRhIChtYWNoLW1tcC9ncGx1ZykuCkdpdmVuIHRoZSBwaW5jdHJsIHNldHRpbmdzIG9m
+IGdwbHVnIGl0IHVzZXMgUk1JSSwgc28gYWRkIGFuZCBwYXNzCmEgY29ycmVzcG9uZGluZyBwaHlf
+aW50ZXJmYWNlX3QuCgpUZXN0ZWQtYnk6IEFudG9pbmUgVMOpbmFydCA8YW50b2luZS50ZW5hcnRA
+ZnJlZS1lbGVjdHJvbnMuY29tPgpSZXZpZXdlZC1ieTogRmxvcmlhbiBGYWluZWxsaSA8Zi5mYWlu
+ZWxsaUBnbWFpbC5jb20+ClNpZ25lZC1vZmYtYnk6IFNlYmFzdGlhbiBIZXNzZWxiYXJ0aCA8c2Vi
+YXN0aWFuLmhlc3NlbGJhcnRoQGdtYWlsLmNvbT4KLS0tCkNjOiAiRGF2aWQgUy4gTWlsbGVyIiA8
+ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4KQ2M6ICJBbnRvaW5lIFTDqW5hcnQiIDxhbnRvaW5lLnRlbmFy
+dEBmcmVlLWVsZWN0cm9ucy5jb20+CkNjOiBGbG9yaWFuIEZhaW5lbGxpIDxmLmZhaW5lbGxpQGdt
+YWlsLmNvbT4KQ2M6IEVyaWMgTWlhbyA8ZXJpYy55Lm1pYW9AZ21haWwuY29tPgpDYzogSGFvamlh
+biBaaHVhbmcgPGhhb2ppYW4uemh1YW5nQGdtYWlsLmNvbT4KQ2M6IGxpbnV4LWFybS1rZXJuZWxA
+bGlzdHMuaW5mcmFkZWFkLm9yZwpDYzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZwpDYzogbGludXgt
+a2VybmVsQHZnZXIua2VybmVsLm9yZwotLS0KIGFyY2gvYXJtL21hY2gtbW1wL2dwbHVnZC5jIHwg
+MiArKwogaW5jbHVkZS9saW51eC9weGExNjhfZXRoLmggfCAxICsKIDIgZmlsZXMgY2hhbmdlZCwg
+MyBpbnNlcnRpb25zKCspCgpkaWZmIC0tZ2l0IGEvYXJjaC9hcm0vbWFjaC1tbXAvZ3BsdWdkLmMg
+Yi9hcmNoL2FybS9tYWNoLW1tcC9ncGx1Z2QuYwppbmRleCBkODFiMjQ3NWU2N2UuLjNiNTc5NGNk
+MDM1NyAxMDA2NDQKLS0tIGEvYXJjaC9hcm0vbWFjaC1tbXAvZ3BsdWdkLmMKKysrIGIvYXJjaC9h
+cm0vbWFjaC1tbXAvZ3BsdWdkLmMKQEAgLTEyLDYgKzEyLDcgQEAKICNpbmNsdWRlIDxsaW51eC9w
+bGF0Zm9ybV9kZXZpY2UuaD4KICNpbmNsdWRlIDxsaW51eC9ncGlvLmg+CiAjaW5jbHVkZSA8bGlu
+dXgvZ3Bpby1weGEuaD4KKyNpbmNsdWRlIDxsaW51eC9waHkuaD4KIAogI2luY2x1ZGUgPGFzbS9t
+YWNoL2FyY2guaD4KICNpbmNsdWRlIDxhc20vbWFjaC10eXBlcy5oPgpAQCAtMTU4LDYgKzE1OSw3
+IEBAIHN0cnVjdCBweGExNjhfZXRoX3BsYXRmb3JtX2RhdGEgZ3BsdWdkX2V0aF9wbGF0Zm9ybV9k
+YXRhID0gewogCS5wb3J0X251bWJlciA9IDAsCiAJLnBoeV9hZGRyICAgID0gMCwKIAkuc3BlZWQg
+ICAgICAgPSAwLCAvKiBBdXRvbmFnb3RpYXRpb24gKi8KKwkuaW50ZiAgICAgICAgPSBQSFlfSU5U
+RVJGQUNFX01PREVfUk1JSSwKIAkuaW5pdCAgICAgICAgPSBncGx1Z2RfZXRoX2luaXQsCiB9Owog
+CmRpZmYgLS1naXQgYS9pbmNsdWRlL2xpbnV4L3B4YTE2OF9ldGguaCBiL2luY2x1ZGUvbGludXgv
+cHhhMTY4X2V0aC5oCmluZGV4IDE4ZDc1ZTc5NTYwNi4uMzdjMzgxMTIwYmM4IDEwMDY0NAotLS0g
+YS9pbmNsdWRlL2xpbnV4L3B4YTE2OF9ldGguaAorKysgYi9pbmNsdWRlL2xpbnV4L3B4YTE2OF9l
+dGguaApAQCAtMTMsNiArMTMsNyBAQCBzdHJ1Y3QgcHhhMTY4X2V0aF9wbGF0Zm9ybV9kYXRhIHsK
+IAkgKi8KIAlpbnQJc3BlZWQ7CQkvKiAwLCBTUEVFRF8xMCwgU1BFRURfMTAwICovCiAJaW50CWR1
+cGxleDsJCS8qIERVUExFWF9IQUxGIG9yIERVUExFWF9GVUxMICovCisJcGh5X2ludGVyZmFjZV90
+IGludGY7CiAKIAkvKgogCSAqIE92ZXJyaWRlIGRlZmF1bHQgUlgvVFggcXVldWUgc2l6ZXMgaWYg
+bm9uemVyby4KLS0gCjIuMS4xCgoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX18KbGludXgtYXJtLWtlcm5lbCBtYWlsaW5nIGxpc3QKbGludXgtYXJtLWtlcm5l
+bEBsaXN0cy5pbmZyYWRlYWQub3JnCmh0dHA6Ly9saXN0cy5pbmZyYWRlYWQub3JnL21haWxtYW4v
+bGlzdGluZm8vbGludXgtYXJtLWtlcm5lbAo=
