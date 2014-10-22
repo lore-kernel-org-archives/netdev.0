@@ -1,224 +1,420 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [RFC PATCH v2 net-next] net: ipv6: Add a sysctl to make
- optimistic addresses useful candidates
-Date: Wed, 22 Oct 2014 12:12:54 +0200
-Message-ID: <1413972774.2337.37.camel@localhost>
-References: <1413864306-20055-1-git-send-email-ek@google.com>
-	 <1413920743.32553.45.camel@localhost>
-	 <CAAedzxpsaEGt+oO0xJWLxcjapdRYauHP4rAsKkf_skcdzbGEmg@mail.gmail.com>
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: [PATCHv2 net-next] xen-netfront: always keep the Rx ring full of requests
+Date: Wed, 22 Oct 2014 11:17:06 +0100
+Message-ID: <1413973026-6475-1-git-send-email-david.vrabel@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	Lorenzo Colitti <lorenzo@google.com>
-To: Erik Kline <ek@google.com>
+Content-Type: text/plain
+Cc: David Vrabel <david.vrabel@citrix.com>,
+	<xen-devel@lists.xenproject.org>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	Boris Ostrovsky <boris.ostrovsky@oracle.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:41366 "EHLO
-	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932402AbaJVKM4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2014 06:12:56 -0400
-Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
-	by gateway2.nyi.internal (Postfix) with ESMTP id 33B2720AC7
-	for <netdev@vger.kernel.org>; Wed, 22 Oct 2014 06:12:56 -0400 (EDT)
-In-Reply-To: <CAAedzxpsaEGt+oO0xJWLxcjapdRYauHP4rAsKkf_skcdzbGEmg@mail.gmail.com>
+Received: from smtp.citrix.com ([66.165.176.89]:50566 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754558AbaJVKRM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Oct 2014 06:17:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mi, 2014-10-22 at 14:25 +0900, Erik Kline wrote:
-> Hello.
-> 
-> On Wed, Oct 22, 2014 at 4:45 AM, Hannes Frederic Sowa
-> <hannes@stressinduktion.org> wrote:
-> > Hi,
-> >
-> > On Di, 2014-10-21 at 13:05 +0900, Erik Kline wrote:
-> >> Add a sysctl that causes an interface's optimistic addresses
-> >> to be considered equivalent to other non-deprecated addresses
-> >> for source address selection purposes.  Preferred addresses
-> >> will still take precedence over optimistic addresses, subject
-> >> to other ranking in the source address selection algorithm.
-> >>
-> >> This is useful where different interfaces are connected to
-> >> different networks from different ISPs (e.g., a cell network
-> >> and a home wifi network).
-> >>
-> >> The current behaviour complies with RFC 3484/6724, and it
-> >> makes sense if the host has only one interface, or has
-> >> multiple interfaces on the same network (same or cooperating
-> >> administrative domain(s), but not in the multiple distinct
-> >> networks case.
-> >>
-> >> For example, if a mobile device has an IPv6 address on an LTE
-> >> network and then connects to IPv6-enabled wifi, while the wifi
-> >> IPv6 address is undergoing DAD, IPv6 connections will try use
-> >> the wifi default route with the LTE IPv6 address, and will get
-> >> stuck until they time out.
-> >>
-> >> Also, because optimistic addresses can actually be used, issue
-> >> an RTM_NEWADDR as soon as DAD starts.  If DAD fails an separate
-> >> RTM_DELADDR will be sent.
-> >>
-> >> Also: add an entry in ip-sysctl.txt for optimistic_dad.
-> >>
-> >> Signed-off-by: Erik Kline <ek@google.com>
-> >> ---
-> >>  Documentation/networking/ip-sysctl.txt | 13 ++++++++++++
-> >>  include/linux/ipv6.h                   |  1 +
-> >>  include/uapi/linux/ipv6.h              |  1 +
-> >>  net/ipv6/addrconf.c                    | 36 ++++++++++++++++++++++++++++++++--
-> >>  4 files changed, 49 insertions(+), 2 deletions(-)
-> >>
-> >> diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-> >> index 0307e28..e03cf49 100644
-> >> --- a/Documentation/networking/ip-sysctl.txt
-> >> +++ b/Documentation/networking/ip-sysctl.txt
-> >> @@ -1452,6 +1452,19 @@ suppress_frag_ndisc - INTEGER
-> >>       1 - (default) discard fragmented neighbor discovery packets
-> >>       0 - allow fragmented neighbor discovery packets
-> >>
-> >> +optimistic_dad - BOOLEAN
-> >> +     Whether to perform Optimistic Duplicate Address Detection (RFC 4429).
-> >> +             0: disabled (default)
-> >> +             1: enabled
-> >> +
-> >> +use_optimistic - BOOLEAN
-> >> +     If enabled, do not classify optimistic addresses as deprecated during
-> >> +     source address selection.  Preferred addresses will still be chosen
-> >> +     before optimistic addresses, subject to other ranking in the source
-> >> +     address selection algorithm.
-> >> +             0: disabled (default)
-> >> +             1: enabled
-> >> +
-> >>  icmp/*:
-> >>  ratelimit - INTEGER
-> >>       Limit the maximal rates for sending ICMPv6 packets.
-> >> diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-> >> index ff56053..7121a2e 100644
-> >> --- a/include/linux/ipv6.h
-> >> +++ b/include/linux/ipv6.h
-> >> @@ -42,6 +42,7 @@ struct ipv6_devconf {
-> >>       __s32           accept_ra_from_local;
-> >>  #ifdef CONFIG_IPV6_OPTIMISTIC_DAD
-> >>       __s32           optimistic_dad;
-> >> +     __s32           use_optimistic;
-> >>  #endif
-> >>  #ifdef CONFIG_IPV6_MROUTE
-> >>       __s32           mc_forwarding;
-> >> diff --git a/include/uapi/linux/ipv6.h b/include/uapi/linux/ipv6.h
-> >> index efa2666..e863d08 100644
-> >> --- a/include/uapi/linux/ipv6.h
-> >> +++ b/include/uapi/linux/ipv6.h
-> >> @@ -164,6 +164,7 @@ enum {
-> >>       DEVCONF_MLDV2_UNSOLICITED_REPORT_INTERVAL,
-> >>       DEVCONF_SUPPRESS_FRAG_NDISC,
-> >>       DEVCONF_ACCEPT_RA_FROM_LOCAL,
-> >> +     DEVCONF_USE_OPTIMISTIC,
-> >>       DEVCONF_MAX
-> >>  };
-> >>
-> >> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-> >> index 725c763..c2fddb7 100644
-> >> --- a/net/ipv6/addrconf.c
-> >> +++ b/net/ipv6/addrconf.c
-> >> @@ -1169,6 +1169,9 @@ enum {
-> >>       IPV6_SADDR_RULE_LABEL,
-> >>       IPV6_SADDR_RULE_PRIVACY,
-> >>       IPV6_SADDR_RULE_ORCHID,
-> >> +#ifdef CONFIG_IPV6_OPTIMISTIC_DAD
-> >> +     IPV6_SADDR_RULE_NOT_OPTIMISTIC,
-> >> +#endif
-> >>       IPV6_SADDR_RULE_PREFIX,
-> >>       IPV6_SADDR_RULE_MAX
-> >>  };
-> >> @@ -1257,10 +1260,17 @@ static int ipv6_get_saddr_eval(struct net *net,
-> >>               score->scopedist = ret;
-> >>               break;
-> >>       case IPV6_SADDR_RULE_PREFERRED:
-> >> +         {
-> >>               /* Rule 3: Avoid deprecated and optimistic addresses */
-> >> +             u8 avoid = IFA_F_DEPRECATED;
-> >> +#ifdef CONFIG_IPV6_OPTIMISTIC_DAD
-> >> +             if (!score->ifa->idev->cnf.use_optimistic)
-> >> +                     avoid |= IFA_F_OPTIMISTIC;
-> >> +#endif
-> >>               ret = ipv6_saddr_preferred(score->addr_type) ||
-> >> -                   !(score->ifa->flags & (IFA_F_DEPRECATED|IFA_F_OPTIMISTIC));
-> >> +                   !(score->ifa->flags & avoid);
-> >>               break;
-> >> +         }
-> >>  #ifdef CONFIG_IPV6_MIP6
-> >>       case IPV6_SADDR_RULE_HOA:
-> >>           {
-> >> @@ -1299,6 +1309,14 @@ static int ipv6_get_saddr_eval(struct net *net,
-> >>               ret = !(ipv6_addr_orchid(&score->ifa->addr) ^
-> >>                       ipv6_addr_orchid(dst->addr));
-> >>               break;
-> >> +#ifdef CONFIG_IPV6_OPTIMISTIC_DAD
-> >> +     case IPV6_SADDR_RULE_NOT_OPTIMISTIC:
-> >> +             /* Optimistic addresses still have lower precedence than other
-> >> +              * preferred addresses.
-> >> +              */
-> >> +             ret = !(score->ifa->flags & IFA_F_OPTIMISTIC);
-> >> +             break;
-> >> +#endif
-> >
-> > I wonder a bit why this rule is not directly ordered after
-> > IPV6_SADDR_RULE_PREFERRED? This would e.g. matter for privacy addresses.
-> 
-> Privacy addresses ("tempaddrs") that win in earlier checks are
-> preferred before optimistic in this code (i.e. a tempaddr on the same
-> outgoing interface is preferred before an optimistic address).
-> 
-> Similarly, a non-tentative non-privacy address (same outgoing
-> interface, same label, ...) will match before an optimistic address,
-> but only until DAD completes and the address is no longer optimistic.
-> I think this is in keeping with the spirit of the RFC 3484/6724 rules.
+A full Rx ring only requires 1 MiB of memory.  This is not enough
+memory that it is useful to dynamically scale the number of Rx
+requests in the ring based on traffic rates, because:
 
-Oh yes, I see. I had the evaluation order messed up. ;)
+a) Even the full 1 MiB is a tiny fraction of a typically modern Linux
+   VM (for example, the AWS micro instance still has 1 GiB of memory).
 
-So the question I should be asking would be. AFAIR optimistic addresses
-should be handled like deprecated ones, so I am a bit concerned adding a
-non-conditional rule before the RULE_PREFIX check.
+b) Netfront would have used up to 1 MiB already even with moderate
+   data rates (there was no adjustment of target based on memory
+   pressure).
 
-Shouldn't we only break the tie *after* longest prefix match then? If
-you do that before longest prefix match I would prefer ret being masked
-by use_optimisitic flag.
+c) Small VMs are going to typically have one VCPU and hence only one
+   queue.
 
-> After there's an RFC 7217 implementation, EUI-64-based SLAAC could be
-> disabled by folks.
+Keeping the ring full of Rx requests handles bursty traffic better
+than trying to converge on an optimal number of requests to keep
+filled.
 
-Ack.
+On a 4 core host, an iperf -P 64 -t 60 run from dom0 to a 4 VCPU guest
+improved from 5.1 Gbit/s to 5.6 Gbit/s.  Gains with more bursty
+traffic are expected to be higher.
 
-> 
-> >>       case IPV6_SADDR_RULE_PREFIX:
-> >>               /* Rule 8: Use longest matching prefix */
-> >>               ret = ipv6_addr_diff(&score->ifa->addr, dst->addr);
-> >> @@ -3222,8 +3240,13 @@ static void addrconf_dad_begin(struct inet6_ifaddr *ifp)
-> >>        * Optimistic nodes can start receiving
-> >>        * Frames right away
-> >>        */
-> >> -     if (ifp->flags & IFA_F_OPTIMISTIC)
-> >> +     if (ifp->flags & IFA_F_OPTIMISTIC) {
-> >>               ip6_ins_rt(ifp->rt);
-> >> +             /* Because optimistic nodes can receive frames, notify
-> >> +              * listeners. If DAD fails, RTM_DELADDR is sent.
-> >> +              */
-> >> +             ipv6_ifa_notify(RTM_NEWADDR, ifp);
-> >> +     }
-> >
-> > I wonder if we can now delete the ipv6_ifa_notify(RTM_NEWADDR, ifp) in
-> > addrconf_dad_completed.
-> 
-> I don't know what everyone's general preference would be, but mine
-> would be to err on the side of notifying on state changes.  It seems
-> harmless to me to keep it in, and something in userspace might want to
-> know if/when DAD completes.
+Signed-off-by: David Vrabel <david.vrabel@citrix.com>
+---
+Changes in v2:
+- Keep rxbuf_* sysfs files.
+---
+ drivers/net/xen-netfront.c |  255 +++++++++++---------------------------------
+ 1 file changed, 63 insertions(+), 192 deletions(-)
 
-Userspace expects to communicate with an address which gets announced
-via RTM_NEWADDR, so I would make the RTM_NEWADDR notifications
-conditional on use_optimistic flag in both, the completed and the
-dad_begin function. This sounds like the best option to me, no?
-
-Bye && thanks,
-Hannes
+diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+index cca8713..83e39a1 100644
+--- a/drivers/net/xen-netfront.c
++++ b/drivers/net/xen-netfront.c
+@@ -77,7 +77,9 @@ struct netfront_cb {
+ 
+ #define NET_TX_RING_SIZE __CONST_RING_SIZE(xen_netif_tx, PAGE_SIZE)
+ #define NET_RX_RING_SIZE __CONST_RING_SIZE(xen_netif_rx, PAGE_SIZE)
+-#define TX_MAX_TARGET min_t(int, NET_TX_RING_SIZE, 256)
++
++/* Minimum number of Rx slots (includes slot for GSO metadata). */
++#define NET_RX_SLOTS_MIN (XEN_NETIF_NR_SLOTS_MIN + 1)
+ 
+ /* Queue name is interface name with "-qNNN" appended */
+ #define QUEUE_NAME_SIZE (IFNAMSIZ + 6)
+@@ -137,13 +139,6 @@ struct netfront_queue {
+ 	struct xen_netif_rx_front_ring rx;
+ 	int rx_ring_ref;
+ 
+-	/* Receive-ring batched refills. */
+-#define RX_MIN_TARGET 8
+-#define RX_DFL_MIN_TARGET 64
+-#define RX_MAX_TARGET min_t(int, NET_RX_RING_SIZE, 256)
+-	unsigned rx_min_target, rx_max_target, rx_target;
+-	struct sk_buff_head rx_batch;
+-
+ 	struct timer_list rx_refill_timer;
+ 
+ 	struct sk_buff *rx_skbs[NET_RX_RING_SIZE];
+@@ -251,7 +246,7 @@ static void rx_refill_timeout(unsigned long data)
+ static int netfront_tx_slot_available(struct netfront_queue *queue)
+ {
+ 	return (queue->tx.req_prod_pvt - queue->tx.rsp_cons) <
+-		(TX_MAX_TARGET - MAX_SKB_FRAGS - 2);
++		(NET_TX_RING_SIZE - MAX_SKB_FRAGS - 2);
+ }
+ 
+ static void xennet_maybe_wake_tx(struct netfront_queue *queue)
+@@ -265,77 +260,55 @@ static void xennet_maybe_wake_tx(struct netfront_queue *queue)
+ 		netif_tx_wake_queue(netdev_get_tx_queue(dev, queue->id));
+ }
+ 
+-static void xennet_alloc_rx_buffers(struct netfront_queue *queue)
++
++static struct sk_buff *xennet_alloc_one_rx_buffer(struct netfront_queue *queue)
+ {
+-	unsigned short id;
+ 	struct sk_buff *skb;
+ 	struct page *page;
+-	int i, batch_target, notify;
+-	RING_IDX req_prod = queue->rx.req_prod_pvt;
+-	grant_ref_t ref;
+-	unsigned long pfn;
+-	void *vaddr;
+-	struct xen_netif_rx_request *req;
+ 
+-	if (unlikely(!netif_carrier_ok(queue->info->netdev)))
+-		return;
++	skb = __netdev_alloc_skb(queue->info->netdev,
++				 RX_COPY_THRESHOLD + NET_IP_ALIGN,
++				 GFP_ATOMIC | __GFP_NOWARN);
++	if (unlikely(!skb))
++		return NULL;
+ 
+-	/*
+-	 * Allocate skbuffs greedily, even though we batch updates to the
+-	 * receive ring. This creates a less bursty demand on the memory
+-	 * allocator, so should reduce the chance of failed allocation requests
+-	 * both for ourself and for other kernel subsystems.
+-	 */
+-	batch_target = queue->rx_target - (req_prod - queue->rx.rsp_cons);
+-	for (i = skb_queue_len(&queue->rx_batch); i < batch_target; i++) {
+-		skb = __netdev_alloc_skb(queue->info->netdev,
+-					 RX_COPY_THRESHOLD + NET_IP_ALIGN,
+-					 GFP_ATOMIC | __GFP_NOWARN);
+-		if (unlikely(!skb))
+-			goto no_skb;
+-
+-		/* Align ip header to a 16 bytes boundary */
+-		skb_reserve(skb, NET_IP_ALIGN);
+-
+-		page = alloc_page(GFP_ATOMIC | __GFP_NOWARN);
+-		if (!page) {
+-			kfree_skb(skb);
+-no_skb:
+-			/* Could not allocate any skbuffs. Try again later. */
+-			mod_timer(&queue->rx_refill_timer,
+-				  jiffies + (HZ/10));
+-
+-			/* Any skbuffs queued for refill? Force them out. */
+-			if (i != 0)
+-				goto refill;
+-			break;
+-		}
+-
+-		skb_add_rx_frag(skb, 0, page, 0, 0, PAGE_SIZE);
+-		__skb_queue_tail(&queue->rx_batch, skb);
++	page = alloc_page(GFP_ATOMIC | __GFP_NOWARN);
++	if (!page) {
++		kfree_skb(skb);
++		return NULL;
+ 	}
++	skb_add_rx_frag(skb, 0, page, 0, 0, PAGE_SIZE);
+ 
+-	/* Is the batch large enough to be worthwhile? */
+-	if (i < (queue->rx_target/2)) {
+-		if (req_prod > queue->rx.sring->req_prod)
+-			goto push;
++	/* Align ip header to a 16 bytes boundary */
++	skb_reserve(skb, NET_IP_ALIGN);
++	skb->dev = queue->info->netdev;
++
++	return skb;
++}
++	
++
++static void xennet_alloc_rx_buffers(struct netfront_queue *queue)
++{
++	RING_IDX req_prod = queue->rx.req_prod_pvt;
++	int notify;
++
++	if (unlikely(!netif_carrier_ok(queue->info->netdev)))
+ 		return;
+-	}
+ 
+-	/* Adjust our fill target if we risked running out of buffers. */
+-	if (((req_prod - queue->rx.sring->rsp_prod) < (queue->rx_target / 4)) &&
+-	    ((queue->rx_target *= 2) > queue->rx_max_target))
+-		queue->rx_target = queue->rx_max_target;
++	for (req_prod = queue->rx.req_prod_pvt;
++	     req_prod - queue->rx.rsp_cons < NET_RX_RING_SIZE;
++	     req_prod++) {
++		struct sk_buff *skb;
++		unsigned short id;
++		grant_ref_t ref;
++		unsigned long pfn;
++		struct xen_netif_rx_request *req;
+ 
+- refill:
+-	for (i = 0; ; i++) {
+-		skb = __skb_dequeue(&queue->rx_batch);
+-		if (skb == NULL)
++		skb = xennet_alloc_one_rx_buffer(queue);
++		if (!skb)
+ 			break;
+ 
+-		skb->dev = queue->info->netdev;
+-
+-		id = xennet_rxidx(req_prod + i);
++		id = xennet_rxidx(req_prod);
+ 
+ 		BUG_ON(queue->rx_skbs[id]);
+ 		queue->rx_skbs[id] = skb;
+@@ -345,9 +318,8 @@ no_skb:
+ 		queue->grant_rx_ref[id] = ref;
+ 
+ 		pfn = page_to_pfn(skb_frag_page(&skb_shinfo(skb)->frags[0]));
+-		vaddr = page_address(skb_frag_page(&skb_shinfo(skb)->frags[0]));
+ 
+-		req = RING_GET_REQUEST(&queue->rx, req_prod + i);
++		req = RING_GET_REQUEST(&queue->rx, req_prod);
+ 		gnttab_grant_foreign_access_ref(ref,
+ 						queue->info->xbdev->otherend_id,
+ 						pfn_to_mfn(pfn),
+@@ -357,11 +329,16 @@ no_skb:
+ 		req->gref = ref;
+ 	}
+ 
++	queue->rx.req_prod_pvt = req_prod;
++
++	/* Not enough requests? Try again later. */
++	if (req_prod - queue->rx.rsp_cons < NET_RX_SLOTS_MIN) {
++		mod_timer(&queue->rx_refill_timer, jiffies + (HZ/10));
++		return;
++	}
++
+ 	wmb();		/* barrier so backend seens requests */
+ 
+-	/* Above is a suitable barrier to ensure backend will see requests. */
+-	queue->rx.req_prod_pvt = req_prod + i;
+- push:
+ 	RING_PUSH_REQUESTS_AND_CHECK_NOTIFY(&queue->rx, notify);
+ 	if (notify)
+ 		notify_remote_via_irq(queue->rx_irq);
+@@ -1070,13 +1047,6 @@ err:
+ 
+ 	work_done -= handle_incoming_queue(queue, &rxq);
+ 
+-	/* If we get a callback with very few responses, reduce fill target. */
+-	/* NB. Note exponential increase, linear decrease. */
+-	if (((queue->rx.req_prod_pvt - queue->rx.sring->rsp_prod) >
+-	     ((3*queue->rx_target) / 4)) &&
+-	    (--queue->rx_target < queue->rx_min_target))
+-		queue->rx_target = queue->rx_min_target;
+-
+ 	xennet_alloc_rx_buffers(queue);
+ 
+ 	if (work_done < budget) {
+@@ -1643,11 +1613,6 @@ static int xennet_init_queue(struct netfront_queue *queue)
+ 	spin_lock_init(&queue->tx_lock);
+ 	spin_lock_init(&queue->rx_lock);
+ 
+-	skb_queue_head_init(&queue->rx_batch);
+-	queue->rx_target     = RX_DFL_MIN_TARGET;
+-	queue->rx_min_target = RX_DFL_MIN_TARGET;
+-	queue->rx_max_target = RX_MAX_TARGET;
+-
+ 	init_timer(&queue->rx_refill_timer);
+ 	queue->rx_refill_timer.data = (unsigned long)queue;
+ 	queue->rx_refill_timer.function = rx_refill_timeout;
+@@ -1670,7 +1635,7 @@ static int xennet_init_queue(struct netfront_queue *queue)
+ 	}
+ 
+ 	/* A grant for every tx ring slot */
+-	if (gnttab_alloc_grant_references(TX_MAX_TARGET,
++	if (gnttab_alloc_grant_references(NET_TX_RING_SIZE,
+ 					  &queue->gref_tx_head) < 0) {
+ 		pr_alert("can't alloc tx grant refs\n");
+ 		err = -ENOMEM;
+@@ -1678,7 +1643,7 @@ static int xennet_init_queue(struct netfront_queue *queue)
+ 	}
+ 
+ 	/* A grant for every rx ring slot */
+-	if (gnttab_alloc_grant_references(RX_MAX_TARGET,
++	if (gnttab_alloc_grant_references(NET_RX_RING_SIZE,
+ 					  &queue->gref_rx_head) < 0) {
+ 		pr_alert("can't alloc rx grant refs\n");
+ 		err = -ENOMEM;
+@@ -2146,129 +2111,35 @@ static const struct ethtool_ops xennet_ethtool_ops =
+ };
+ 
+ #ifdef CONFIG_SYSFS
+-static ssize_t show_rxbuf_min(struct device *dev,
+-			      struct device_attribute *attr, char *buf)
+-{
+-	struct net_device *netdev = to_net_dev(dev);
+-	struct netfront_info *info = netdev_priv(netdev);
+-	unsigned int num_queues = netdev->real_num_tx_queues;
+-
+-	if (num_queues)
+-		return sprintf(buf, "%u\n", info->queues[0].rx_min_target);
+-	else
+-		return sprintf(buf, "%u\n", RX_MIN_TARGET);
+-}
+-
+-static ssize_t store_rxbuf_min(struct device *dev,
+-			       struct device_attribute *attr,
+-			       const char *buf, size_t len)
++static ssize_t show_rxbuf(struct device *dev,
++			  struct device_attribute *attr, char *buf)
+ {
+-	struct net_device *netdev = to_net_dev(dev);
+-	struct netfront_info *np = netdev_priv(netdev);
+-	unsigned int num_queues = netdev->real_num_tx_queues;
+-	char *endp;
+-	unsigned long target;
+-	unsigned int i;
+-	struct netfront_queue *queue;
+-
+-	if (!capable(CAP_NET_ADMIN))
+-		return -EPERM;
+-
+-	target = simple_strtoul(buf, &endp, 0);
+-	if (endp == buf)
+-		return -EBADMSG;
+-
+-	if (target < RX_MIN_TARGET)
+-		target = RX_MIN_TARGET;
+-	if (target > RX_MAX_TARGET)
+-		target = RX_MAX_TARGET;
+-
+-	for (i = 0; i < num_queues; ++i) {
+-		queue = &np->queues[i];
+-		spin_lock_bh(&queue->rx_lock);
+-		if (target > queue->rx_max_target)
+-			queue->rx_max_target = target;
+-		queue->rx_min_target = target;
+-		if (target > queue->rx_target)
+-			queue->rx_target = target;
+-
+-		xennet_alloc_rx_buffers(queue);
+-
+-		spin_unlock_bh(&queue->rx_lock);
+-	}
+-	return len;
+-}
+-
+-static ssize_t show_rxbuf_max(struct device *dev,
+-			      struct device_attribute *attr, char *buf)
+-{
+-	struct net_device *netdev = to_net_dev(dev);
+-	struct netfront_info *info = netdev_priv(netdev);
+-	unsigned int num_queues = netdev->real_num_tx_queues;
+-
+-	if (num_queues)
+-		return sprintf(buf, "%u\n", info->queues[0].rx_max_target);
+-	else
+-		return sprintf(buf, "%u\n", RX_MAX_TARGET);
++	return sprintf(buf, "%lu\n", NET_RX_RING_SIZE);
+ }
+ 
+-static ssize_t store_rxbuf_max(struct device *dev,
+-			       struct device_attribute *attr,
+-			       const char *buf, size_t len)
++static ssize_t store_rxbuf(struct device *dev,
++			   struct device_attribute *attr,
++			   const char *buf, size_t len)
+ {
+-	struct net_device *netdev = to_net_dev(dev);
+-	struct netfront_info *np = netdev_priv(netdev);
+-	unsigned int num_queues = netdev->real_num_tx_queues;
+ 	char *endp;
+ 	unsigned long target;
+-	unsigned int i = 0;
+-	struct netfront_queue *queue = NULL;
+ 
+ 	if (!capable(CAP_NET_ADMIN))
+ 		return -EPERM;
+-
++ 
+ 	target = simple_strtoul(buf, &endp, 0);
+ 	if (endp == buf)
+ 		return -EBADMSG;
+ 
+-	if (target < RX_MIN_TARGET)
+-		target = RX_MIN_TARGET;
+-	if (target > RX_MAX_TARGET)
+-		target = RX_MAX_TARGET;
+-
+-	for (i = 0; i < num_queues; ++i) {
+-		queue = &np->queues[i];
+-		spin_lock_bh(&queue->rx_lock);
+-		if (target < queue->rx_min_target)
+-			queue->rx_min_target = target;
+-		queue->rx_max_target = target;
+-		if (target < queue->rx_target)
+-			queue->rx_target = target;
+-
+-		xennet_alloc_rx_buffers(queue);
++	/* rxbuf_min and rxbuf_max are no longer configurable. */
+ 
+-		spin_unlock_bh(&queue->rx_lock);
+-	}
+ 	return len;
+ }
+ 
+-static ssize_t show_rxbuf_cur(struct device *dev,
+-			      struct device_attribute *attr, char *buf)
+-{
+-	struct net_device *netdev = to_net_dev(dev);
+-	struct netfront_info *info = netdev_priv(netdev);
+-	unsigned int num_queues = netdev->real_num_tx_queues;
+-
+-	if (num_queues)
+-		return sprintf(buf, "%u\n", info->queues[0].rx_target);
+-	else
+-		return sprintf(buf, "0\n");
+-}
+-
+ static struct device_attribute xennet_attrs[] = {
+-	__ATTR(rxbuf_min, S_IRUGO|S_IWUSR, show_rxbuf_min, store_rxbuf_min),
+-	__ATTR(rxbuf_max, S_IRUGO|S_IWUSR, show_rxbuf_max, store_rxbuf_max),
+-	__ATTR(rxbuf_cur, S_IRUGO, show_rxbuf_cur, NULL),
++	__ATTR(rxbuf_min, S_IRUGO|S_IWUSR, show_rxbuf, store_rxbuf),
++	__ATTR(rxbuf_max, S_IRUGO|S_IWUSR, show_rxbuf, store_rxbuf),
++	__ATTR(rxbuf_cur, S_IRUGO, show_rxbuf, NULL),
+ };
+ 
+ static int xennet_sysfs_addif(struct net_device *netdev)
+-- 
+1.7.10.4
