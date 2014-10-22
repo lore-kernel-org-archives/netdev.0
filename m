@@ -1,19 +1,19 @@
 From: Frank Blaschka <blaschka@linux.vnet.ibm.com>
-Subject: [PATCH 2/6] qeth: fix some trace formating issues
-Date: Wed, 22 Oct 2014 12:18:03 +0200
-Message-ID: <1413973087-18740-3-git-send-email-blaschka@linux.vnet.ibm.com>
+Subject: [PATCH 3/6] qeth: make local functions static in qeth_l3 module
+Date: Wed, 22 Oct 2014 12:18:04 +0200
+Message-ID: <1413973087-18740-4-git-send-email-blaschka@linux.vnet.ibm.com>
 References: <1413973087-18740-1-git-send-email-blaschka@linux.vnet.ibm.com>
 Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
 	Thomas Richter <tmricht@linux.vnet.ibm.com>,
 	Frank Blaschka <blaschka@linux.vnet.ibm.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp14.uk.ibm.com ([195.75.94.110]:55238 "EHLO
-	e06smtp14.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755099AbaJVKSQ (ORCPT
+Received: from e06smtp17.uk.ibm.com ([195.75.94.113]:38259 "EHLO
+	e06smtp17.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755114AbaJVKSQ (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2014 06:18:16 -0400
 Received: from /spool/local
-	by e06smtp14.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	by e06smtp17.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
 	for <netdev@vger.kernel.org> from <blaschka@linux.vnet.ibm.com>;
 	Wed, 22 Oct 2014 11:18:15 +0100
 In-Reply-To: <1413973087-18740-1-git-send-email-blaschka@linux.vnet.ibm.com>
@@ -22,75 +22,64 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Thomas Richter <tmricht@linux.vnet.ibm.com>
 
-This patch fixes trace formatting issues using the
-QETH_CARD_TEXT_ macro. The total size of each trace entry
-is 8 bytes. Some of the sprintf formats exceed these 8
-bytes (for example using abcd:%d and the converted value
-needs more than 3 bytes). The solution is to shorten the
-text prepending the value or use a different format (%x).
+This patch makes 4 local functions static and removes
+the prototypes from the header file.
 
 Signed-off-by: Thomas Richter <tmricht@linux.vnet.ibm.com>
 Signed-off-by: Frank Blaschka <blaschka@linux.vnet.ibm.com>
 ---
- drivers/s390/net/qeth_core_main.c | 6 +++---
- drivers/s390/net/qeth_l2_main.c   | 2 +-
- drivers/s390/net/qeth_l3_main.c   | 2 +-
- 3 files changed, 5 insertions(+), 5 deletions(-)
+ drivers/s390/net/qeth_l3.h      | 4 ----
+ drivers/s390/net/qeth_l3_main.c | 8 ++++----
+ 2 files changed, 4 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/s390/net/qeth_core_main.c b/drivers/s390/net/qeth_core_main.c
-index 098bb0f..f407e37 100644
---- a/drivers/s390/net/qeth_core_main.c
-+++ b/drivers/s390/net/qeth_core_main.c
-@@ -4134,7 +4134,7 @@ static int qeth_setadp_promisc_mode_cb(struct qeth_card *card,
+diff --git a/drivers/s390/net/qeth_l3.h b/drivers/s390/net/qeth_l3.h
+index 29c1c00..551a4b4 100644
+--- a/drivers/s390/net/qeth_l3.h
++++ b/drivers/s390/net/qeth_l3.h
+@@ -42,10 +42,6 @@ struct qeth_ipato_entry {
+ };
  
- 	qeth_default_setadapterparms_cb(card, reply, (unsigned long)cmd);
- 	if (cmd->hdr.return_code) {
--		QETH_CARD_TEXT_(card, 4, "prmrc%2.2x", cmd->hdr.return_code);
-+		QETH_CARD_TEXT_(card, 4, "prmrc%x", cmd->hdr.return_code);
- 		setparms->data.mode = SET_PROMISC_MODE_OFF;
- 	}
- 	card->info.promisc_mode = setparms->data.mode;
-@@ -4501,13 +4501,13 @@ static int qeth_snmp_command_cb(struct qeth_card *card,
- 	snmp = &cmd->data.setadapterparms.data.snmp;
  
- 	if (cmd->hdr.return_code) {
--		QETH_CARD_TEXT_(card, 4, "scer1%i", cmd->hdr.return_code);
-+		QETH_CARD_TEXT_(card, 4, "scer1%x", cmd->hdr.return_code);
- 		return 0;
- 	}
- 	if (cmd->data.setadapterparms.hdr.return_code) {
- 		cmd->hdr.return_code =
- 			cmd->data.setadapterparms.hdr.return_code;
--		QETH_CARD_TEXT_(card, 4, "scer2%i", cmd->hdr.return_code);
-+		QETH_CARD_TEXT_(card, 4, "scer2%x", cmd->hdr.return_code);
- 		return 0;
- 	}
- 	data_len = *((__u16 *)QETH_IPA_PDU_LEN_PDU1(data));
-diff --git a/drivers/s390/net/qeth_l2_main.c b/drivers/s390/net/qeth_l2_main.c
-index c2679bf..d02cd1a 100644
---- a/drivers/s390/net/qeth_l2_main.c
-+++ b/drivers/s390/net/qeth_l2_main.c
-@@ -1512,7 +1512,7 @@ static void qeth_bridge_state_change(struct qeth_card *card,
- 
- 	QETH_CARD_TEXT(card, 2, "brstchng");
- 	if (qports->entry_length != sizeof(struct qeth_sbp_port_entry)) {
--		QETH_CARD_TEXT_(card, 2, "BPsz%.8d", qports->entry_length);
-+		QETH_CARD_TEXT_(card, 2, "BPsz%04x", qports->entry_length);
- 		return;
- 	}
- 	extrasize = sizeof(struct qeth_sbp_port_entry) * qports->num_entries;
+-void qeth_l3_ipaddr4_to_string(const __u8 *, char *);
+-int qeth_l3_string_to_ipaddr4(const char *, __u8 *);
+-void qeth_l3_ipaddr6_to_string(const __u8 *, char *);
+-int qeth_l3_string_to_ipaddr6(const char *, __u8 *);
+ void qeth_l3_ipaddr_to_string(enum qeth_prot_versions, const __u8 *, char *);
+ int qeth_l3_string_to_ipaddr(const char *, enum qeth_prot_versions, __u8 *);
+ int qeth_l3_create_device_attributes(struct device *);
 diff --git a/drivers/s390/net/qeth_l3_main.c b/drivers/s390/net/qeth_l3_main.c
-index afebb97..857a990 100644
+index 857a990..625227ad 100644
 --- a/drivers/s390/net/qeth_l3_main.c
 +++ b/drivers/s390/net/qeth_l3_main.c
-@@ -2502,7 +2502,7 @@ static int qeth_l3_arp_query(struct qeth_card *card, char __user *udata)
- 			rc = -EFAULT;
- 			goto free_and_out;
- 		}
--		QETH_CARD_TEXT_(card, 4, "qacts");
-+		QETH_CARD_TEXT(card, 4, "qacts");
- 	}
- free_and_out:
- 	kfree(qinfo.udata);
+@@ -55,12 +55,12 @@ static int qeth_l3_isxdigit(char *buf)
+ 	return 1;
+ }
+ 
+-void qeth_l3_ipaddr4_to_string(const __u8 *addr, char *buf)
++static void qeth_l3_ipaddr4_to_string(const __u8 *addr, char *buf)
+ {
+ 	sprintf(buf, "%i.%i.%i.%i", addr[0], addr[1], addr[2], addr[3]);
+ }
+ 
+-int qeth_l3_string_to_ipaddr4(const char *buf, __u8 *addr)
++static int qeth_l3_string_to_ipaddr4(const char *buf, __u8 *addr)
+ {
+ 	int count = 0, rc = 0;
+ 	unsigned int in[4];
+@@ -78,12 +78,12 @@ int qeth_l3_string_to_ipaddr4(const char *buf, __u8 *addr)
+ 	return 0;
+ }
+ 
+-void qeth_l3_ipaddr6_to_string(const __u8 *addr, char *buf)
++static void qeth_l3_ipaddr6_to_string(const __u8 *addr, char *buf)
+ {
+ 	sprintf(buf, "%pI6", addr);
+ }
+ 
+-int qeth_l3_string_to_ipaddr6(const char *buf, __u8 *addr)
++static int qeth_l3_string_to_ipaddr6(const char *buf, __u8 *addr)
+ {
+ 	const char *end, *end_tmp, *start;
+ 	__u16 *in;
 -- 
 1.8.5.5
