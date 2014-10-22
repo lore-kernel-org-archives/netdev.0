@@ -1,59 +1,63 @@
-From: Christophe Leroy <christophe.leroy@c-s.fr>
-Subject: [PATCH] net: fs_enet: set back promiscuity mode after restart
-Date: Wed, 22 Oct 2014 09:05:47 +0200 (CEST)
-Message-ID: <20141022070547.83AAB1A5E63@localhost.localdomain>
-Cc: linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-	netdev@vger.kernel.org, Germain Montoies <germain.montoies@c-s.fr>
-To: Pantelis Antoniou <pantelis.antoniou@gmail.com>,
-	Vitaly Bordug <vbordug@ru.mvista.com>, davem@davemloft.net
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: [PATCH v2] drivers: net: xgene: Rewrite loop in xgene_enet_ecc_init()
+Date: Wed, 22 Oct 2014 09:39:41 +0200
+Message-ID: <1413963581-24019-1-git-send-email-geert@linux-m68k.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Geert Uytterhoeven <geert@linux-m68k.org>
+To: "David S. Miller" <davem@davemloft.net>,
+	Iyappan Subramanian <isubramanian@apm.com>,
+	Keyur Chudgar <kchudgar@apm.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-After interface restart (eg: after link disconnection/reconnection), the bridge
-function doesn't work anymore. This is due to the promiscuous mode being cleared
-by the restart.
+drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.c: In function =E2=80=98=
+xgene_enet_ecc_init=E2=80=99:
+drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.c:126: warning: =E2=80=98=
+data=E2=80=99 may be used uninitialized in this function
 
-The mac-fcc already includes code to set the promiscuous mode back during the restart.
-This patch adds the same handling to mac-fec and mac-scc.
+Depending on the arbitrary value on the stack, the loop may terminate
+too early, and cause a bogus -ENODEV failure.
 
-Tested with bridge function on MPC885 with FEC.
-
-Reported-by: Germain Montoies <germain.montoies@c-s.fr>
-Signed-off-by: Christophe Leroy <christophe.leroy@c-s.fr>
-
+Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
 ---
- drivers/net/ethernet/freescale/fs_enet/mac-fec.c | 3 +++
- drivers/net/ethernet/freescale/fs_enet/mac-scc.c | 3 +++
- 2 files changed, 6 insertions(+)
+v2: Rewrite the loop instead of pre-initializing data.
 
-diff --git a/drivers/net/ethernet/freescale/fs_enet/mac-fec.c b/drivers/net/ethernet/freescale/fs_enet/mac-fec.c
-index 3d4e08b..b34214e 100644
---- a/drivers/net/ethernet/freescale/fs_enet/mac-fec.c
-+++ b/drivers/net/ethernet/freescale/fs_enet/mac-fec.c
-@@ -341,6 +341,9 @@ static void restart(struct net_device *dev)
- 		FC(fecp, x_cntrl, FEC_TCNTRL_FDEN);	/* FD disable */
+ drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.c | 12 +++++-------
+ 1 file changed, 5 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.c b/driver=
+s/net/ethernet/apm/xgene/xgene_enet_sgmac.c
+index e6d24c2101982444..2a497b38ed420495 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.c
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.c
+@@ -127,17 +127,15 @@ static int xgene_enet_ecc_init(struct xgene_enet_=
+pdata *p)
+ 	int i;
+=20
+ 	xgene_enet_wr_diag_csr(p, ENET_CFG_MEM_RAM_SHUTDOWN_ADDR, 0);
+-	for (i =3D 0; i < 10 && data !=3D ~0U ; i++) {
++	for (i =3D 0; i < 10; i++) {
+ 		usleep_range(100, 110);
+ 		data =3D xgene_enet_rd_diag_csr(p, ENET_BLOCK_MEM_RDY_ADDR);
++		if (data =3D=3D ~0U)
++			return 0;
  	}
- 
-+	/* Restore multicast and promiscuous settings */
-+	set_multicast_list(dev);
-+
- 	/*
- 	 * Enable interrupts we wish to service.
- 	 */
-diff --git a/drivers/net/ethernet/freescale/fs_enet/mac-scc.c b/drivers/net/ethernet/freescale/fs_enet/mac-scc.c
-index f30411f..7a184e8 100644
---- a/drivers/net/ethernet/freescale/fs_enet/mac-scc.c
-+++ b/drivers/net/ethernet/freescale/fs_enet/mac-scc.c
-@@ -355,6 +355,9 @@ static void restart(struct net_device *dev)
- 	if (fep->phydev->duplex)
- 		S16(sccp, scc_psmr, SCC_PSMR_LPB | SCC_PSMR_FDE);
- 
-+	/* Restore multicast and promiscuous settings */
-+	set_multicast_list(dev);
-+
- 	S32(sccp, scc_gsmrl, SCC_GSMRL_ENR | SCC_GSMRL_ENT);
+=20
+-	if (data !=3D ~0U) {
+-		netdev_err(ndev, "Failed to release memory from shutdown\n");
+-		return -ENODEV;
+-	}
+-
+-	return 0;
++	netdev_err(ndev, "Failed to release memory from shutdown\n");
++	return -ENODEV;
  }
- 
--- 
-2.1.0
+=20
+ static void xgene_enet_config_ring_if_assoc(struct xgene_enet_pdata *p=
+)
+--=20
+1.9.1
