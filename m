@@ -1,140 +1,162 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH RFC v2 10/16] virtio_net: use v1.0 endian.
-Date: Wed, 22 Oct 2014 18:50:51 +0300
-Message-ID: <1413992894-22976-11-git-send-email-mst@redhat.com>
-References: <1413992894-22976-1-git-send-email-mst@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] tcp: Add TCP_FREEZE socket option
+Date: Wed, 22 Oct 2014 08:54:32 -0700
+Message-ID: <1413993272.9031.3.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1413992196-4891-1-git-send-email-kristian.evensen@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org
-To: linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1413992894-22976-1-git-send-email-mst@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Kristian Evensen <kristian.evensen@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:60414 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932343AbaJVPye (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2014 11:54:34 -0400
+Received: by mail-pd0-f173.google.com with SMTP id g10so3770385pdj.4
+        for <netdev@vger.kernel.org>; Wed, 22 Oct 2014 08:54:33 -0700 (PDT)
+In-Reply-To: <1413992196-4891-1-git-send-email-kristian.evensen@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Rusty Russell <rusty@rustcorp.com.au>
+On Wed, 2014-10-22 at 17:36 +0200, Kristian Evensen wrote:
+> From: Kristian Evensen <kristian.evensen@gmail.com>
+> 
+> This patch introduces support for Freeze-TCP [1].
+> 
+> Devices that are mobile frequently experience temporary disconnects, for example
+> due to signal fading or a technology change. These changes can last for a
+> substantial amount of time (>10 seconds), potentially causing multiple RTOs to
+> expire and the sender to enter slow start. Even though a device has
+> reconnected, it can take a long time for the TCP connection to recover.
+> 
+> Operators of mobile broadband networks mitigate this issue by placing TCP
+> splitters at the edge of their networks. However, the splitters typically only
+> operate on some ports (mostly only port 80) and violate the end-to-end
+> principle. The operator's TCP splitter receives a notification when a temporary
+> disconnect occurs and starts sending Zero Window Announcements (ZWA) to the
+> remote part of the connection. When a devices regains connectivity, the window
+> is reopened.
+> 
+> Freeze-TCP is a client-side only approach for enabling application developers to
+> trigger sending ZWAs. It is implemented as a socket option and accepts three
+> different values. If the value is set to one, the connection is frozen. A ZWA is
+> sent and the window size set to 0 in any reply to additional packets arriving
+> from remote party. If the value is set to two, the connection is unfrozen and a
+> window update announcement is sent. If the value is set to three, two additional
+> window update announcements are sent. This is referred to as TR-ACK in the paper
+> and is used to increase probability that a window update announcement will be
+> received.
+> 
+> When to trigger Freeze-TCP depends on the application requirements and
+> underlaying network, is not the responsibility of the kernel. One approach is to
+> have the application, or a daemon, analyze the meta data exported from a mobile
+> broadband modem. A temporary disconnect can often be detected in advance by
+> looking at different statistics.
+> 
+> [1] - T. Goff, J. Moronski, D. S. Phatak, and V. Gupta, "Freeze-TCP: a True
+> End-to-end TCP Enhancement Mechanism for Mobile Environments," In Proceedings of
+> IEEE INFOCOM 2000. URL: http://www.csee.umbc.edu/~phatak/publications/ftcp.pdf
+> 
+> Signed-off-by: Kristian Evensen <kristian.evensen@gmail.com>
+> ---
+>  include/linux/tcp.h      |  3 ++-
+>  include/uapi/linux/tcp.h |  1 +
+>  net/ipv4/tcp.c           | 33 +++++++++++++++++++++++++++++++++
+>  net/ipv4/tcp_output.c    |  8 +++++++-
+>  4 files changed, 43 insertions(+), 2 deletions(-)
+> 
+> diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+> index c2dee7d..7ed26c1 100644
+> --- a/include/linux/tcp.h
+> +++ b/include/linux/tcp.h
+> @@ -187,7 +187,8 @@ struct tcp_sock {
+>  		syn_data:1,	/* SYN includes data */
+>  		syn_fastopen:1,	/* SYN includes Fast Open option */
+>  		syn_data_acked:1,/* data in SYN is acked by SYN-ACK */
+> -		is_cwnd_limited:1;/* forward progress limited by snd_cwnd? */
+> +		is_cwnd_limited:1,/* forward progress limited by snd_cwnd? */
+> +		frozen:1;	/* Artifically deflate announced window to 0 */
+>  	u32	tlp_high_seq;	/* snd_nxt at the time of TLP retransmit. */
+>  
+>  /* RTT measurement */
+> diff --git a/include/uapi/linux/tcp.h b/include/uapi/linux/tcp.h
+> index 3b97183..bc0684d 100644
+> --- a/include/uapi/linux/tcp.h
+> +++ b/include/uapi/linux/tcp.h
+> @@ -112,6 +112,7 @@ enum {
+>  #define TCP_FASTOPEN		23	/* Enable FastOpen on listeners */
+>  #define TCP_TIMESTAMP		24
+>  #define TCP_NOTSENT_LOWAT	25	/* limit number of unsent bytes in write queue */
+> +#define TCP_FREEZE		26	/* Freeze TCP connection by sending ZWA */
+>  
+>  struct tcp_repair_opt {
+>  	__u32	opt_code;
+> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+> index 1bec4e7..5bf30d0 100644
+> --- a/net/ipv4/tcp.c
+> +++ b/net/ipv4/tcp.c
+> @@ -2339,6 +2339,7 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
+>  	struct inet_connection_sock *icsk = inet_csk(sk);
+>  	int val;
+>  	int err = 0;
+> +	u8 itr = 0;
+>  
+>  	/* These are data/string values, all the others are ints */
+>  	switch (optname) {
+> @@ -2600,6 +2601,35 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
+>  		tp->notsent_lowat = val;
+>  		sk->sk_write_space(sk);
+>  		break;
+> +	case TCP_FREEZE:
+> +		if (val < 1 || val > 3 ||
+> +		    !((1 << sk->sk_state) & TCPF_ESTABLISHED)) {
+> +			err = -EINVAL;
+> +			break;
+> +		}
+> +
+> +		if (val == 1) {
+> +			tp->frozen = 1;
+> +			tcp_send_ack(sk);
+> +			break;
+> +		} else if (!tp->frozen) {
+> +			err = -EINVAL;
+> +			break;
+> +		}
+> +
+> +		tp->frozen = 0;
+> +		tcp_send_ack(sk);
+> +
+> +		if (val == 2)
+> +			break;
+> +
+> +		/* If val is three, send two additional reconnection ACKs to
+> +		 * increase chance of a non-zero windows announcement arriving.
+> +		 */
+> +		for (itr = 0; itr < 2; itr++)
+> +			tcp_send_ack(sk);
+> +
+> +		break;
+>  	default:
+>  		err = -ENOPROTOOPT;
+>  		break;
+> @@ -2832,6 +2862,9 @@ static int do_tcp_getsockopt(struct sock *sk, int level,
+>  	case TCP_NOTSENT_LOWAT:
+>  		val = tp->notsent_lowat;
+>  		break;
+> +	case TCP_FREEZE:
+> +		val = tp->frozen;
+> +		break;
+>  	default:
+>  		return -ENOPROTOOPT;
+>  	}
 
-[Cornelia Huck: converted some missed fields]
-Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
-Signed-off-by: Cornelia Huck <cornelia.huck@de.ibm.com>
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
----
- drivers/net/virtio_net.c | 31 +++++++++++++++++++------------
- 1 file changed, 19 insertions(+), 12 deletions(-)
+This asymmetry looks strange
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index d75256bd..2e6561e 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -347,13 +347,14 @@ err:
- }
- 
- static struct sk_buff *receive_mergeable(struct net_device *dev,
-+					 struct virtnet_info *vi,
- 					 struct receive_queue *rq,
- 					 unsigned long ctx,
- 					 unsigned int len)
- {
- 	void *buf = mergeable_ctx_to_buf_address(ctx);
- 	struct skb_vnet_hdr *hdr = buf;
--	int num_buf = hdr->mhdr.num_buffers;
-+	u16 num_buf = virtio16_to_cpu(rq->vq->vdev, hdr->mhdr.num_buffers);
- 	struct page *page = virt_to_head_page(buf);
- 	int offset = buf - page_address(page);
- 	unsigned int truesize = max(len, mergeable_ctx_to_buf_truesize(ctx));
-@@ -369,7 +370,9 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
- 		ctx = (unsigned long)virtqueue_get_buf(rq->vq, &len);
- 		if (unlikely(!ctx)) {
- 			pr_debug("%s: rx error: %d buffers out of %d missing\n",
--				 dev->name, num_buf, hdr->mhdr.num_buffers);
-+				 dev->name, num_buf,
-+				 virtio16_to_cpu(rq->vq->vdev,
-+						 hdr->mhdr.num_buffers));
- 			dev->stats.rx_length_errors++;
- 			goto err_buf;
- 		}
-@@ -454,7 +457,7 @@ static void receive_buf(struct receive_queue *rq, void *buf, unsigned int len)
- 	}
- 
- 	if (vi->mergeable_rx_bufs)
--		skb = receive_mergeable(dev, rq, (unsigned long)buf, len);
-+		skb = receive_mergeable(dev, vi, rq, (unsigned long)buf, len);
- 	else if (vi->big_packets)
- 		skb = receive_big(dev, rq, buf, len);
- 	else
-@@ -473,8 +476,8 @@ static void receive_buf(struct receive_queue *rq, void *buf, unsigned int len)
- 	if (hdr->hdr.flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) {
- 		pr_debug("Needs csum!\n");
- 		if (!skb_partial_csum_set(skb,
--					  hdr->hdr.csum_start,
--					  hdr->hdr.csum_offset))
-+			  virtio16_to_cpu(vi->vdev, hdr->hdr.csum_start),
-+			  virtio16_to_cpu(vi->vdev, hdr->hdr.csum_offset)))
- 			goto frame_err;
- 	} else if (hdr->hdr.flags & VIRTIO_NET_HDR_F_DATA_VALID) {
- 		skb->ip_summed = CHECKSUM_UNNECESSARY;
-@@ -505,7 +508,8 @@ static void receive_buf(struct receive_queue *rq, void *buf, unsigned int len)
- 		if (hdr->hdr.gso_type & VIRTIO_NET_HDR_GSO_ECN)
- 			skb_shinfo(skb)->gso_type |= SKB_GSO_TCP_ECN;
- 
--		skb_shinfo(skb)->gso_size = hdr->hdr.gso_size;
-+		skb_shinfo(skb)->gso_size = virtio16_to_cpu(vi->vdev,
-+							    hdr->hdr.gso_size);
- 		if (skb_shinfo(skb)->gso_size == 0) {
- 			net_warn_ratelimited("%s: zero gso size.\n", dev->name);
- 			goto frame_err;
-@@ -867,16 +871,19 @@ static int xmit_skb(struct send_queue *sq, struct sk_buff *skb)
- 
- 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
- 		hdr->hdr.flags = VIRTIO_NET_HDR_F_NEEDS_CSUM;
--		hdr->hdr.csum_start = skb_checksum_start_offset(skb);
--		hdr->hdr.csum_offset = skb->csum_offset;
-+		hdr->hdr.csum_start = cpu_to_virtio16(vi->vdev,
-+						skb_checksum_start_offset(skb));
-+		hdr->hdr.csum_offset = cpu_to_virtio16(vi->vdev,
-+							 skb->csum_offset);
- 	} else {
- 		hdr->hdr.flags = 0;
- 		hdr->hdr.csum_offset = hdr->hdr.csum_start = 0;
- 	}
- 
- 	if (skb_is_gso(skb)) {
--		hdr->hdr.hdr_len = skb_headlen(skb);
--		hdr->hdr.gso_size = skb_shinfo(skb)->gso_size;
-+		hdr->hdr.hdr_len = cpu_to_virtio16(vi->vdev, skb_headlen(skb));
-+		hdr->hdr.gso_size = cpu_to_virtio16(vi->vdev,
-+						    skb_shinfo(skb)->gso_size);
- 		if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV4)
- 			hdr->hdr.gso_type = VIRTIO_NET_HDR_GSO_TCPV4;
- 		else if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6)
-@@ -1182,7 +1189,7 @@ static void virtnet_set_rx_mode(struct net_device *dev)
- 	sg_init_table(sg, 2);
- 
- 	/* Store the unicast list and count in the front of the buffer */
--	mac_data->entries = uc_count;
-+	mac_data->entries = cpu_to_virtio32(vi->vdev, uc_count);
- 	i = 0;
- 	netdev_for_each_uc_addr(ha, dev)
- 		memcpy(&mac_data->macs[i++][0], ha->addr, ETH_ALEN);
-@@ -1193,7 +1200,7 @@ static void virtnet_set_rx_mode(struct net_device *dev)
- 	/* multicast list and count fill the end */
- 	mac_data = (void *)&mac_data->macs[uc_count][0];
- 
--	mac_data->entries = mc_count;
-+	mac_data->entries = cpu_to_virtio32(vi->vdev, mc_count);
- 	i = 0;
- 	netdev_for_each_mc_addr(ha, dev)
- 		memcpy(&mac_data->macs[i++][0], ha->addr, ETH_ALEN);
--- 
-MST
+Following sequence should be allowed :
+
+getsockopt(...  TCP_FREEZE, &val, ...)
+setsockopt(...  TCP_FREEZE, &val, ...)
+
+So setsockopt() should accept val = 0
