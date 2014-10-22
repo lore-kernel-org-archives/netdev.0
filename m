@@ -1,31 +1,36 @@
-From: "Parker Nick" <lozinsky@compet.ru>
-Subject: RE: Urgent Order
-Date: Wed, 22 Oct 2014 00:37:00 -0700
-Message-ID: <auto-000082988198@ng.pochemu.ru>
-Reply-To: <pvcpipe4ltd@hotmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] netlink: Re-add locking to netlink_lookup() and seq
+ walker
+Date: Tue, 21 Oct 2014 21:36:04 -0400 (EDT)
+Message-ID: <20141021.213604.498626106621926349.davem@davemloft.net>
+References: <14101d52c64e0d52176ca0d4b8888f8cf20ab9b0.1413921873.git.tgraf@suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="_iso-2022-jp$ESC"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ng.pochemu.ru ([213.183.32.4]:53447 "EHLO ng.pochemu.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751023AbaJVA2e (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Oct 2014 20:28:34 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem@davemloft.ne, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, eric.dumazet@gmail.com
+To: tgraf@suug.ch
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <14101d52c64e0d52176ca0d4b8888f8cf20ab9b0.1413921873.git.tgraf@suug.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
+From: Thomas Graf <tgraf@suug.ch>
+Date: Tue, 21 Oct 2014 22:05:38 +0200
 
-Please send me a price list and quotation for your products we want to import from your country this is a very large order for long term import and urgent request.
+> The synchronize_rcu() in netlink_release() introduces unacceptable
+> latency. Reintroduce minimal lookup so we can drop the
+> synchronize_rcu() until socket destruction has been RCUfied.
+> 
+> Cc: David S. Miller <davem@davemloft.net>
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Reported-by: Steinar H. Gunderson <sgunderson@bigfoot.com>
+> Reported-and-tested-by: Heiko Carstens <heiko.carstens@de.ibm.com>
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-Thank you in advance for your prompt confirmation.
-Regards,
+Applied and queued up for -stable.
 
-Parker Nick
+Please use an appropriate "Fixes: " tag in the future, this is
+especially important for an issue as serious as this one.
 
-Equipos de Elevaci n , S.A. de C.V.Av. Texcoco #35,
-54070 Tlalnepantla , Edo . de M xico
-M xico
-Tels.+27840117769
+Thanks.
