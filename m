@@ -1,73 +1,50 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH net] ptp: restore the makefile for building the test program.
-Date: Wed, 22 Oct 2014 21:35:15 +0200
-Message-ID: <edb4b32ca0326b648d905620d95297cef5ed9391.1414006463.git.rcochran@linutronix.de>
-Cc: David Miller <davem@davemloft.net>,
-	Peter Foley <pefoley2@pefoley.com>
-To: <netdev@vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2 v2] xfrm: fix a potential use after free in
+ xfrm4_policy.c
+Date: Wed, 22 Oct 2014 15:35:46 -0400 (EDT)
+Message-ID: <20141022.153546.1208352838031672211.davem@davemloft.net>
+References: <1413968993-13528-1-git-send-email-roy.qing.li@gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: roy.qing.li@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f180.google.com ([209.85.212.180]:59927 "EHLO
-	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932493AbaJVTfg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2014 15:35:36 -0400
-Received: by mail-wi0-f180.google.com with SMTP id em10so146631wid.1
-        for <netdev@vger.kernel.org>; Wed, 22 Oct 2014 12:35:35 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:60815 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932493AbaJVTfr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2014 15:35:47 -0400
+In-Reply-To: <1413968993-13528-1-git-send-email-roy.qing.li@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch brings back the makefile called testptp.mk which was removed
-in commit adb19fb66eee (Documentation: add makefiles for more targets).
+From: roy.qing.li@gmail.com
+Date: Wed, 22 Oct 2014 17:09:52 +0800
 
-While the idea of that commit was to improve build coverage of the
-examples, the new Makefile is unable to cross compile the testptp program.
-In contrast, the deleted makefile was able to do this just fine.
+> From: Li RongQing <roy.qing.li@gmail.com>
+> 
+> pskb_may_pull() maybe change skb->data and make xprth pointer oboslete,
+> so recompute the xprth
+> 
+> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+> ---
+> Diff with v1: NEXT_HEAD add a length parameter, which hide on v1
+> 
+>  net/ipv4/xfrm4_policy.c |   21 +++++++++++++--------
+>  1 file changed, 13 insertions(+), 8 deletions(-)
+> 
+> diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
+> index 6156f68..d7b33c5 100644
+> --- a/net/ipv4/xfrm4_policy.c
+> +++ b/net/ipv4/xfrm4_policy.c
+> @@ -98,11 +98,14 @@ static int xfrm4_fill_dst(struct xfrm_dst *xdst, struct net_device *dev,
+>  	return 0;
+>  }
+>  
+> +#define NEXT_HEAD(skb, length) (skb_network_header(skb) + length)
+> +
 
-This patch fixes the regression by restoring the original makefile.
+If you're going to properly have arguments, use an inline function
+rather a macro so you get type checking.
 
-Signed-off-by: Richard Cochran <richardcochran@gmail.com>
----
- Documentation/ptp/testptp.mk |   33 +++++++++++++++++++++++++++++++++
- 1 file changed, 33 insertions(+)
- create mode 100644 Documentation/ptp/testptp.mk
-
-diff --git a/Documentation/ptp/testptp.mk b/Documentation/ptp/testptp.mk
-new file mode 100644
-index 0000000..4ef2d97
---- /dev/null
-+++ b/Documentation/ptp/testptp.mk
-@@ -0,0 +1,33 @@
-+# PTP 1588 clock support - User space test program
-+#
-+# Copyright (C) 2010 OMICRON electronics GmbH
-+#
-+#  This program is free software; you can redistribute it and/or modify
-+#  it under the terms of the GNU General Public License as published by
-+#  the Free Software Foundation; either version 2 of the License, or
-+#  (at your option) any later version.
-+#
-+#  This program is distributed in the hope that it will be useful,
-+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+#  GNU General Public License for more details.
-+#
-+#  You should have received a copy of the GNU General Public License
-+#  along with this program; if not, write to the Free Software
-+#  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-+
-+CC        = $(CROSS_COMPILE)gcc
-+INC       = -I$(KBUILD_OUTPUT)/usr/include
-+CFLAGS    = -Wall $(INC)
-+LDLIBS    = -lrt
-+PROGS     = testptp
-+
-+all: $(PROGS)
-+
-+testptp: testptp.o
-+
-+clean:
-+	rm -f testptp.o
-+
-+distclean: clean
-+	rm -f $(PROGS)
--- 
-1.7.10.4
+THanks.
