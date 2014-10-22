@@ -1,7 +1,7 @@
-From: Josh Boyer <jwboyer@fedoraproject.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
 Subject: Re: localed stuck in recent 3.18 git in copy_net_ns?
-Date: Wed, 22 Oct 2014 13:49:38 -0400
-Message-ID: <CA+5PVA4Lw51vNw0HJ2h-KJNH2kn8wdc8ymn-oGrK_8fcGzpO0A@mail.gmail.com>
+Date: Wed, 22 Oct 2014 12:53:24 -0500
+Message-ID: <8738aghtyj.fsf@x220.int.ebiederm.org>
 References: <20141020141515.0688bf33@voldemort.scrye.com>
 	<20141020204326.GA25668@redhat.com>
 	<20141020145359.565fe5e6@voldemort.scrye.com>
@@ -9,31 +9,23 @@ References: <20141020141515.0688bf33@voldemort.scrye.com>
 	<CA+5PVA7Ro_ejBUqsZ9StWVeu59==fGnj6e4Gx8zM4_3+Lq5s4A@mail.gmail.com>
 	<CAHA+R7OUHy8XFPoip5gPvr1uqwkxgKxoSMf_pSgB1aFx=XCs8g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Kevin Fenzi <kevin@scrye.com>, netdev <netdev@vger.kernel.org>,
-	"Linux-Kernel@Vger. Kernel. Org" <linux-kernel@vger.kernel.org>,
-	Paul McKenney <paulmck@linux.vnet.ibm.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain
+Cc: Josh Boyer <jwboyer@fedoraproject.org>,
+	Kevin Fenzi <kevin@scrye.com>, netdev <netdev@vger.kernel.org>,
+	"Linux-Kernel\@Vger. Kernel. Org" <linux-kernel@vger.kernel.org>,
+	Paul McKenney <paulmck@linux.vnet.ibm.com>
 To: Cong Wang <cwang@twopensource.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <CAHA+R7OUHy8XFPoip5gPvr1uqwkxgKxoSMf_pSgB1aFx=XCs8g@mail.gmail.com>
+	(Cong Wang's message of "Wed, 22 Oct 2014 10:37:53 -0700")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 22, 2014 at 1:37 PM, Cong Wang <cwang@twopensource.com> wrote:
+Cong Wang <cwang@twopensource.com> writes:
+
 > (Adding Paul and Eric in Cc)
 >
-> I am not aware of any change in net/core/dev.c related here,
-> so I guess it's a bug in rcu_barrier().
-
-Possibly.  The person that reported the issue below said it showed up
-between Linux v3.17-7872-g5ff0b9e1a1da and Linux
-v3.17-8307-gf1d0d14120a8 for them.  Which is a slightly older window
-than the on that Kevin reported.  I haven't had a chance to dig
-through the commits yet.
-
-josh
-
+>
 > On Wed, Oct 22, 2014 at 10:12 AM, Josh Boyer <jwboyer@fedoraproject.org> wrote:
 >>
 >> Someone else is seeing this when they try and modprobe ppp_generic:
@@ -148,9 +140,17 @@ josh
 >>
 >> Has nobody else run into this with the pre-3.18 kernels?  Fedora isn't
 >> carrying any patches in this area.
->>
->> josh
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+> I am not aware of any change in net/core/dev.c related here,
+> so I guess it's a bug in rcu_barrier().
+
+>From the limited trace data I see in this email I have to agree.
+
+It looks like for some reason rcu_barrier is taking forever
+while the rtnl_lock is held in cleanup_net.  Because the
+rtnl_lock is held modprobe of the ppp driver is getting stuck.
+
+Is it possible we have an AB BA deadlock between the rtnl_lock
+and rcu.  With something the module loading code assumes?
+
+Eric
