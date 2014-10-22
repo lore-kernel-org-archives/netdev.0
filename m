@@ -1,86 +1,61 @@
-From: Kristian Evensen <kristian.evensen@gmail.com>
-Subject: Re: [PATCH net-next] tcp: Add TCP_FREEZE socket option
-Date: Wed, 22 Oct 2014 22:33:39 +0200
-Message-ID: <CAKfDRXhJ9c+AqqrD38e7RcUSXn21pNMWskRs38H+PnSEwXac+Q@mail.gmail.com>
-References: <1413992196-4891-1-git-send-email-kristian.evensen@gmail.com>
-	<20141022.121418.1477947755244353588.davem@davemloft.net>
-	<CAKfDRXgARYe3hw3vgpgup1X4bNjH0cpwYOfKUZK51HcOf2jeJA@mail.gmail.com>
-	<CAPh34mechU=aUS422OBFhHUt68Nk2PZBsMiLPw8eLwS_4PnRtw@mail.gmail.com>
+From: Jonathan Toppins <jtoppins@cumulusnetworks.com>
+Subject: Re: [RFC] tcp md5 use of alloc_percpu
+Date: Wed, 22 Oct 2014 17:35:12 -0400
+Message-ID: <54482310.5090406@cumulusnetworks.com>
+References: <5447FDB2.2010906@gmail.com> <1414005158.9031.22.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>
-To: Hagen Paul Pfeifer <hagen@jauu.net>
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Crestez Dan Leonard <cdleonard@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f51.google.com ([209.85.213.51]:37730 "EHLO
-	mail-yh0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932336AbaJVUdk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2014 16:33:40 -0400
-Received: by mail-yh0-f51.google.com with SMTP id t59so4227074yho.10
-        for <netdev@vger.kernel.org>; Wed, 22 Oct 2014 13:33:39 -0700 (PDT)
-In-Reply-To: <CAPh34mechU=aUS422OBFhHUt68Nk2PZBsMiLPw8eLwS_4PnRtw@mail.gmail.com>
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:42460 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933443AbaJVVfP convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2014 17:35:15 -0400
+In-Reply-To: <1414005158.9031.22.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On 10/22/14, 3:12 PM, Eric Dumazet wrote:
+> On Wed, 2014-10-22 at 21:55 +0300, Crestez Dan Leonard wrote:
+>> Hello,
+>>
+>> It seems that the TCP MD5 feature allocates a percpu struct
+>> tcp_md5sig_pool and uses part of that memory for a scratch buffer to
+>> do crypto on. Here is the relevant code:
+>>
+>> static int tcp_v4_md5_hash_pseudoheader(struct tcp_md5sig_pool *hp,
+>>                                         __be32 daddr, __be32 saddr,
+>> int nbytes)
+>> {
+>>         struct tcp4_pseudohdr *bp;
+>>         struct scatterlist sg;
+>>
+>>         bp = &hp->md5_blk.ip4;
+>>
+>>         /*
+>>          * 1. the TCP pseudo-header (in the order: source IP address,
+>>          * destination IP address, zero-padded protocol number, and
+>>          * segment length)
+>>          */
+>>         bp->saddr = saddr;
+>>         bp->daddr = daddr;
+>>         bp->pad = 0;
+>>         bp->protocol = IPPROTO_TCP;
+>>         bp->len = cpu_to_be16(nbytes);
+>>
+>>         sg_init_one(&sg, bp, sizeof(*bp));
+>>         return crypto_hash_update(&hp->md5_desc, &sg, sizeof(*bp));
+>> }
+>>
+>> sg_init_one does virt_addr on the pointer which assumes it is directly
+>> accessible. But the tcp_md5sig_pool pointer comes from alloc_percpu
+>> which can return memory from the vmalloc area after the
+>> pcpu_first_chunk is exhausted. This looks wrong to me. I'm am getting
+>> crashes on mips and I believe this to be the cause.
 
-I am very sorry for not explaining the scenario/use-case properly.
-Freeze-TCP is mostly targeted at TCP connections established through
-mobile broadband networks. One example scenario is that of when a user
-moves outside of an area with LTE coverage. The mobile broadband
-connection will then be downgraded to 2G/3G and this process takes
-10-15 seconds in the networks I have been able to measure. During this
-handover, the modem/device will in most cases report that it is still
-connected to LTE. So just looking at the state of the link is not good
-enough, as it will appear to be working fine (except for no data
-coming through it). The device does not change IP address, so TCP
-connections will resume normal operation as soon as the network
-connection is re-established and packet is retransmitted. However,
-because of the large "idle" period, this can take another 10-15
-seconds.
-
-On Wed, Oct 22, 2014 at 9:50 PM, Hagen Paul Pfeifer <hagen@jauu.net> wrote:
-> At least better. But what userspace daemon would configure this?
-> Likely NetworkManager and friends. But at what conditions?
-
-Yes, that would be my suggestion for tools too. The conditions would
-depend on the kind of network, available information and so on.
-
-> In a NATed scenario there is no gain because IP addreses change and
-> the connection is lost anyway. For the signal strength thing there
-> might be an advantage but it has costs:
->
-> a) how long did you freeze the connection? What if NetworkManager
-> stops? The connection hang \infty
-> b) is it not better to inform the upper layer - the application - that
-> something happen with the link?
->
-> I mean when the application experience disruptions, the application
-> can decide what it do: reconnect, reconnect and resend or inform the
-> user. This possibility is now lost/hidden. Maybe it is no problem -
-> maybe it is for some applications.
-
-This is the main reason why I went with a socket option. While I
-worked on this patch I wrote a small daemon for testing purposes. This
-daemon analyses data exported from a mobile broadband modem (QMI),
-looks at total interface throughput and then multicasts a netlink
-message when it determines that a handover might happen. This message
-is only a hint and then it is up to the application developer to
-decide what to do. Another solution would be a hybrid, the module will
-works as I described and the socket option will be used as an opt-in
-for Freeze-TCP.
-
->
-> Do you have considered to bring this to the IETF (TCPM WG)?
->
-
-Yes, I am currently considering it, or if I should look into different
-solutions before bringing it up for discussion. The ideal solution
-would be if there was a way to force a retransmit when the handover
-period is over, but that opens a whole net set of problems, potential
-security problems and changes TCP semantics a bit. An advantage of
-Freeze-TCP is that it works fine with what we have today.
-
-Thanks for your detailed comments!
-
-Kristian
+I can confirm this created an issue on our powerpc based switches. My
+solution in our 3.2 kernel was to allocate the buffer on the stack. I
+like this solution better.
