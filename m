@@ -1,57 +1,60 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH v2] drivers: net: xgene: Rewrite loop in xgene_enet_ecc_init()
-Date: Wed, 22 Oct 2014 21:50:06 +0200
-Message-ID: <CAMuHMdXJs=+SpB07t0a+LRWX_TGUnUmQi3P-aExFzmbm_j0fow@mail.gmail.com>
-References: <1413963581-24019-1-git-send-email-geert@linux-m68k.org>
-	<20141022.153436.93475594748933547.davem@davemloft.net>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: Re: [PATCH net-next] tcp: Add TCP_FREEZE socket option
+Date: Wed, 22 Oct 2014 21:50:14 +0200
+Message-ID: <CAPh34mechU=aUS422OBFhHUt68Nk2PZBsMiLPw8eLwS_4PnRtw@mail.gmail.com>
+References: <1413992196-4891-1-git-send-email-kristian.evensen@gmail.com>
+	<20141022.121418.1477947755244353588.davem@davemloft.net>
+	<CAKfDRXgARYe3hw3vgpgup1X4bNjH0cpwYOfKUZK51HcOf2jeJA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: isubramanian@apm.com, kchudgar@apm.com,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141022.153436.93475594748933547.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>
+To: Kristian Evensen <kristian.evensen@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f178.google.com ([209.85.217.178]:35685 "EHLO
+	mail-lb0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932640AbaJVTuQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2014 15:50:16 -0400
+Received: by mail-lb0-f178.google.com with SMTP id w7so3478664lbi.37
+        for <netdev@vger.kernel.org>; Wed, 22 Oct 2014 12:50:15 -0700 (PDT)
+In-Reply-To: <CAKfDRXgARYe3hw3vgpgup1X4bNjH0cpwYOfKUZK51HcOf2jeJA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 22, 2014 at 9:34 PM, David Miller <davem@davemloft.net> wro=
-te:
-> From: Geert Uytterhoeven <geert@linux-m68k.org>
-> Date: Wed, 22 Oct 2014 09:39:41 +0200
->
->> drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.c: In function =E2=80=
-=98xgene_enet_ecc_init=E2=80=99:
->> drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.c:126: warning: =E2=80=
-=98data=E2=80=99 may be used uninitialized in this function
->>
->> Depending on the arbitrary value on the stack, the loop may terminat=
-e
->> too early, and cause a bogus -ENODEV failure.
->>
->> Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
->> ---
->> v2: Rewrite the loop instead of pre-initializing data.
->
-> I hate to be a pest, but like the other patch of your's I think
-> a do { } while() works best here because the intent is clearly
-> to run the loop at least once, right?
+On 22 October 2014 19:08, Kristian Evensen <kristian.evensen@gmail.com> wrote:
 
-I wanted to avoid checking for "data !=3D ~0U" twice: once to abort the=
- loop,
-and once to check if a timeout happened.
+> Another approach I designed was to have a separate TCP Freeze module
+> and trigger the freeze/unfreeze through genetlink-messages. A user
+> space application will be responsible for monitoring the devices and
+> decide when to trigger the ZWAs. Would a design like that be
+> acceptable?
 
-Gr{oetje,eeting}s,
+At least better. But what userspace daemon would configure this?
+Likely NetworkManager and friends. But at what conditions?
 
-                        Geert
+- When the WIFI signal strength is below some threshold?
+- When switched to another AP?
+- When switched from 802.11 to 802.3
+- ...
 
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-=
-m68k.org
+In a NATed scenario there is no gain because IP addreses change and
+the connection is lost anyway. For the signal strength thing there
+might be an advantage but it has costs:
 
-In personal conversations with technical people, I call myself a hacker=
-=2E But
-when I'm talking to journalists I just say "programmer" or something li=
-ke that.
-                                -- Linus Torvalds
+a) how long did you freeze the connection? What if NetworkManager
+stops? The connection hang \infty
+b) is it not better to inform the upper layer - the application - that
+something happen with the link?
+
+I mean when the application experience disruptions, the application
+can decide what it do: reconnect, reconnect and resend or inform the
+user. This possibility is now lost/hidden. Maybe it is no problem -
+maybe it is for some applications.
+
+I have no fundamental problems with TCP Freeze, but what is missing is
+a complete story line. The use cases where it makes sense and if it is
+save.
+
+Do you have considered to bring this to the IETF (TCPM WG)?
+
+Hagen
