@@ -1,41 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] drivers: net: xgene: Rewrite loop in
- xgene_enet_ecc_init()
-Date: Wed, 22 Oct 2014 16:12:57 -0400 (EDT)
-Message-ID: <20141022.161257.290251379136182774.davem@davemloft.net>
-References: <1413963581-24019-1-git-send-email-geert@linux-m68k.org>
-	<20141022.153436.93475594748933547.davem@davemloft.net>
-	<CAMuHMdXJs=+SpB07t0a+LRWX_TGUnUmQi3P-aExFzmbm_j0fow@mail.gmail.com>
+Subject: Re: [PATCH] net: fix saving TX flow hash in sock for outgoing
+ connections
+Date: Wed, 22 Oct 2014 16:14:02 -0400 (EDT)
+Message-ID: <20141022.161402.119032019463935567.davem@davemloft.net>
+References: <1413999542.9031.13.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CF9D1877D81D214CB0CA0669EFAE020C68CA2FAA@CMEXMB1.ad.emulex.com>
+	<1414004996.9031.20.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: isubramanian@apm.com, kchudgar@apm.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: geert@linux-m68k.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAMuHMdXJs=+SpB07t0a+LRWX_TGUnUmQi3P-aExFzmbm_j0fow@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Sathya.Perla@Emulex.Com, netdev@vger.kernel.org,
+	therbert@google.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:32955 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932328AbaJVUOD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2014 16:14:03 -0400
+In-Reply-To: <1414004996.9031.20.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogR2VlcnQgVXl0dGVyaG9ldmVuIDxnZWVydEBsaW51eC1tNjhrLm9yZz4NCkRhdGU6IFdl
-ZCwgMjIgT2N0IDIwMTQgMjE6NTA6MDYgKzAyMDANCg0KPiBPbiBXZWQsIE9jdCAyMiwgMjAxNCBh
-dCA5OjM0IFBNLCBEYXZpZCBNaWxsZXIgPGRhdmVtQGRhdmVtbG9mdC5uZXQ+IHdyb3RlOg0KPj4g
-RnJvbTogR2VlcnQgVXl0dGVyaG9ldmVuIDxnZWVydEBsaW51eC1tNjhrLm9yZz4NCj4+IERhdGU6
-IFdlZCwgMjIgT2N0IDIwMTQgMDk6Mzk6NDEgKzAyMDANCj4+DQo+Pj4gZHJpdmVycy9uZXQvZXRo
-ZXJuZXQvYXBtL3hnZW5lL3hnZW5lX2VuZXRfc2dtYWMuYzogSW4gZnVuY3Rpb24goXhnZW5lX2Vu
-ZXRfZWNjX2luaXSiOg0KPj4+IGRyaXZlcnMvbmV0L2V0aGVybmV0L2FwbS94Z2VuZS94Z2VuZV9l
-bmV0X3NnbWFjLmM6MTI2OiB3YXJuaW5nOiChZGF0YaIgbWF5IGJlIHVzZWQgdW5pbml0aWFsaXpl
-ZCBpbiB0aGlzIGZ1bmN0aW9uDQo+Pj4NCj4+PiBEZXBlbmRpbmcgb24gdGhlIGFyYml0cmFyeSB2
-YWx1ZSBvbiB0aGUgc3RhY2ssIHRoZSBsb29wIG1heSB0ZXJtaW5hdGUNCj4+PiB0b28gZWFybHks
-IGFuZCBjYXVzZSBhIGJvZ3VzIC1FTk9ERVYgZmFpbHVyZS4NCj4+Pg0KPj4+IFNpZ25lZC1vZmYt
-Ynk6IEdlZXJ0IFV5dHRlcmhvZXZlbiA8Z2VlcnRAbGludXgtbTY4ay5vcmc+DQo+Pj4gLS0tDQo+
-Pj4gdjI6IFJld3JpdGUgdGhlIGxvb3AgaW5zdGVhZCBvZiBwcmUtaW5pdGlhbGl6aW5nIGRhdGEu
-DQo+Pg0KPj4gSSBoYXRlIHRvIGJlIGEgcGVzdCwgYnV0IGxpa2UgdGhlIG90aGVyIHBhdGNoIG9m
-IHlvdXIncyBJIHRoaW5rDQo+PiBhIGRvIHsgfSB3aGlsZSgpIHdvcmtzIGJlc3QgaGVyZSBiZWNh
-dXNlIHRoZSBpbnRlbnQgaXMgY2xlYXJseQ0KPj4gdG8gcnVuIHRoZSBsb29wIGF0IGxlYXN0IG9u
-Y2UsIHJpZ2h0Pw0KPiANCj4gSSB3YW50ZWQgdG8gYXZvaWQgY2hlY2tpbmcgZm9yICJkYXRhICE9
-IH4wVSIgdHdpY2U6IG9uY2UgdG8gYWJvcnQgdGhlIGxvb3AsDQo+IGFuZCBvbmNlIHRvIGNoZWNr
-IGlmIGEgdGltZW91dCBoYXBwZW5lZC4NCg0KSG1tbToNCg0KCWRvIHsNCgkJdXNsZWVwX3Jhbmdl
-KC4uLik7DQoJCWRhdGEgPSAuLi4oKTsNCgkJaWYgKGRhdGEgPT0gfjApDQoJCQlyZXR1cm4gMDsN
-Cgl9IHdoaWxlICgrK2kgPCAxMCk7DQoNCgluZXRkZXZfZXJyKC4uLik7DQoJcmV0dXJuIC1FTk9E
-RVY7DQoNCldoeSB3b3VsZCB5b3UgaGF2ZSB0byBjaGVjayBkYXRhIHR3aWNlPw0K
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 22 Oct 2014 12:09:56 -0700
+
+> On Wed, 2014-10-22 at 18:35 +0000, Sathya Perla wrote:
+>> Agree. Are you suggesting that drivers should automatically
+>> register an XPS configuration? I thought it was upto the user
+>> to enable it...
+> 
+> Yep, search for netif_set_xps_queue()
+> 
+> (commit 537c00de1c9ba9876b9)
+> 
+> Look at commit d03a68f8217ea0349 for an example of how it can be done,
+> if user do not override this later.
+
+Very few people know about this :-/
+
+I only see 4 drivers adjusted to do this, it would be nice if this
+was more widespread.
