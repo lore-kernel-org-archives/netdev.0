@@ -1,47 +1,43 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH 2/2] dsa: mv88e6171: Fix tagging protocol/Kconfig
-Date: Thu, 23 Oct 2014 01:35:18 +0200
-Message-ID: <1414020918-20903-3-git-send-email-andrew@lunn.ch>
+Subject: [PATCH 1/2] net: dsa: Error out on tagging protocol mismatches
+Date: Thu, 23 Oct 2014 01:35:17 +0200
+Message-ID: <1414020918-20903-2-git-send-email-andrew@lunn.ch>
 References: <1414020918-20903-1-git-send-email-andrew@lunn.ch>
-Cc: netdev@vger.kernel.org, Andrew Lunn <andrew@lunn.ch>
+Cc: netdev@vger.kernel.org, Andrew Lunn <andrew@lunn.ch>,
+	alexander.h.duyck@intel.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:42324 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:42327 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932666AbaJVXgY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Oct 2014 19:36:24 -0400
+	id S932666AbaJVXgd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Oct 2014 19:36:33 -0400
 In-Reply-To: <1414020918-20903-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The mv88e6171 can support two different tagging protocols, DSA and
-EDSA. The switch driver structure only allows one protocol to be
-enumerated, and DSA was chosen. However the Kconfig entry ensures the
-EDSA tagging code is built. With a minimal configuration, we then end
-up with a mismatch. The probe is successful, EDSA tagging is used, but
-the switch is configured for DSA, resulting in mangled packets.
-
-Change the switch driver structure to enumerate EDSA, fixing the
-mismatch.
+If there is a mismatch between enabled tagging protocols and the
+protocol the switch supports, error out, rather than continue with a
+situation which is unlikely to work.
 
 Signed-off-by: Andrew Lunn <andrew@lunn.ch>
-Fixes: 42f272539487 ("net: DSA: Marvell mv88e6171 switch driver")
+cc: alexander.h.duyck@intel.com
 ---
- drivers/net/dsa/mv88e6171.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/dsa/dsa.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
-index 1020a7af67cf..78d8e876f3aa 100644
---- a/drivers/net/dsa/mv88e6171.c
-+++ b/drivers/net/dsa/mv88e6171.c
-@@ -395,7 +395,7 @@ static int mv88e6171_get_sset_count(struct dsa_switch *ds)
- }
+diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+index 22f34cf4cb27..8a31bd81a315 100644
+--- a/net/dsa/dsa.c
++++ b/net/dsa/dsa.c
+@@ -175,7 +175,8 @@ dsa_switch_setup(struct dsa_switch_tree *dst, int index,
+ 			break;
+ #endif
+ 		default:
+-			break;
++			ret = -ENOPROTOOPT;
++			goto out;
+ 		}
  
- struct dsa_switch_driver mv88e6171_switch_driver = {
--	.tag_protocol		= DSA_TAG_PROTO_DSA,
-+	.tag_protocol		= DSA_TAG_PROTO_EDSA,
- 	.priv_size		= sizeof(struct mv88e6xxx_priv_state),
- 	.probe			= mv88e6171_probe,
- 	.setup			= mv88e6171_setup,
+ 		dst->tag_protocol = drv->tag_protocol;
 -- 
 2.1.1
