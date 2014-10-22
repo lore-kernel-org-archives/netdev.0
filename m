@@ -1,27 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] drivers: net: xgene: Add missing initialization in
- xgene_enet_ecc_init()
-Date: Tue, 21 Oct 2014 21:41:30 -0400 (EDT)
-Message-ID: <20141021.214130.4297137048867034.davem@davemloft.net>
-References: <1413792496-8558-1-git-send-email-geert@linux-m68k.org>
+Subject: Re: [PATCH 1/2] xfrm: fix a potential use after free in
+ xfrm4_policy.c
+Date: Tue, 21 Oct 2014 21:42:52 -0400 (EDT)
+Message-ID: <20141021.214252.1991608537444325198.davem@davemloft.net>
+References: <1413794954-16967-1-git-send-email-roy.qing.li@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: isubramanian@apm.com, kchudgar@apm.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: geert@linux-m68k.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1413792496-8558-1-git-send-email-geert@linux-m68k.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, steffen.klassert@secunet.com
+To: roy.qing.li@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54088 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752810AbaJVBmx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Oct 2014 21:42:53 -0400
+In-Reply-To: <1413794954-16967-1-git-send-email-roy.qing.li@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogR2VlcnQgVXl0dGVyaG9ldmVuIDxnZWVydEBsaW51eC1tNjhrLm9yZz4NCkRhdGU6IE1v
-biwgMjAgT2N0IDIwMTQgMTA6MDg6MTYgKzAyMDANCg0KPiBkcml2ZXJzL25ldC9ldGhlcm5ldC9h
-cG0veGdlbmUveGdlbmVfZW5ldF9zZ21hYy5jOiBJbiBmdW5jdGlvbiCheGdlbmVfZW5ldF9lY2Nf
-aW5pdKI6DQo+IGRyaXZlcnMvbmV0L2V0aGVybmV0L2FwbS94Z2VuZS94Z2VuZV9lbmV0X3NnbWFj
-LmM6MTI2OiB3YXJuaW5nOiChZGF0YaIgbWF5IGJlIHVzZWQgdW5pbml0aWFsaXplZCBpbiB0aGlz
-IGZ1bmN0aW9uDQo+IA0KPiBEZXBlbmRpbmcgb24gdGhlIGFyYml0cmFyeSB2YWx1ZSBvbiB0aGUg
-c3RhY2ssIHRoZSBsb29wIG1heSB0ZXJtaW5hdGUNCj4gdG9vIGVhcmx5LCBhbmQgY2F1c2UgYSBi
-b2d1cyAtRU5PREVWIGZhaWx1cmUuDQo+IA0KPiBTaWduZWQtb2ZmLWJ5OiBHZWVydCBVeXR0ZXJo
-b2V2ZW4gPGdlZXJ0QGxpbnV4LW02OGsub3JnPg0KDQpQbGVhc2UsIHVzZSBhIGRvIHsgfSB3aGls
-ZSgwKSBsb29wIHRvIGZpeCB0aGlzLCB0aGFua3MuDQo=
+From: roy.qing.li@gmail.com
+Date: Mon, 20 Oct 2014 16:49:13 +0800
+
+> From: Li RongQing <roy.qing.li@gmail.com>
+> 
+> pskb_may_pull() maybe change skb->data and make xprth pointer oboslete,
+> so recompute the xprth
+> 
+> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+
+Please don't use macros that hide uses of local variables.
+
+That is almost as bad as hiding control flow inside of
+a macro.
