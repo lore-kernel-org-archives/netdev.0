@@ -1,31 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v1 0/2] amd-xgbe: AMD XGBE driver fixes 2014-10-22
-Date: Wed, 22 Oct 2014 17:51:01 -0400 (EDT)
-Message-ID: <20141022.175101.764882957256655558.davem@davemloft.net>
-References: <20141022162605.31495.98889.stgit@tlendack-t1.amdoffice.net>
+Subject: Re: [RFC] tcp md5 use of alloc_percpu
+Date: Wed, 22 Oct 2014 17:53:24 -0400 (EDT)
+Message-ID: <20141022.175324.351857495227075331.davem@davemloft.net>
+References: <5447FDB2.2010906@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: thomas.lendacky@amd.com
+To: cdleonard@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33616 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:33632 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932942AbaJVVvD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2014 17:51:03 -0400
-In-Reply-To: <20141022162605.31495.98889.stgit@tlendack-t1.amdoffice.net>
+	with ESMTP id S932542AbaJVVx0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2014 17:53:26 -0400
+In-Reply-To: <5447FDB2.2010906@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Date: Wed, 22 Oct 2014 11:26:05 -0500
+From: Crestez Dan Leonard <cdleonard@gmail.com>
+Date: Wed, 22 Oct 2014 21:55:46 +0300
 
-> The following series of patches includes fixes to the driver.
-> 
-> - Properly handle feature changes via ethtool by using correctly sized
->   variables
-> - Perform proper napi packet counting and budget checking
-> 
-> This patch series is based on net.
+>  static int tcp_v4_md5_hash_pseudoheader(struct tcp_md5sig_pool *hp,
+>  					__be32 daddr, __be32 saddr, int nbytes)
+>  {
+> -	struct tcp4_pseudohdr *bp;
+> +	struct tcp4_pseudohdr bp;
+...
+> +	sg_init_one(&sg, &bp, sizeof(bp));
+> +	return crypto_hash_update(&hp->md5_desc, &sg, sizeof(bp));
 
-Series applied, thanks Tom.
+As others have mentioned, you cannot do this.
+
+On some architectures the kernel stack comes from vmalloc()
+memory too.
