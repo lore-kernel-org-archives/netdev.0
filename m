@@ -1,49 +1,58 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [RFC PATCH v2 net-next] net: ipv6: Add a sysctl to make
- optimistic addresses useful candidates
-Date: Wed, 22 Oct 2014 14:13:42 +0200
-Message-ID: <1413980022.2337.60.camel@localhost>
-References: <1413864306-20055-1-git-send-email-ek@google.com>
-	 <1413920743.32553.45.camel@localhost>
-	 <CAAedzxpsaEGt+oO0xJWLxcjapdRYauHP4rAsKkf_skcdzbGEmg@mail.gmail.com>
-	 <1413972774.2337.37.camel@localhost>
-	 <CAAedzxpG1TEVVm_kHgRJcOO7qkFmyyYnfPL0ONN7GcypmtRq1g@mail.gmail.com>
-	 <1413977771.2337.50.camel@localhost>
-	 <CAKD1Yr08muZ0Dwwt5Xmi+mEFP9OBBYe9CceswsEzpm5PkMUCMg@mail.gmail.com>
+From: Varka Bhadram <varkabhadram@gmail.com>
+Subject: Re: [PATCH net-next 5/6] ethernet: renesas: remove unnecessary check
+Date: Wed, 22 Oct 2014 17:52:28 +0530
+Message-ID: <5447A184.6080505@gmail.com>
+References: <N> <1413951386-29645-1-git-send-email-varkab@cdac.in> <1413951386-29645-6-git-send-email-varkab@cdac.in> <5447995F.5080602@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Erik Kline <ek@google.com>, netdev <netdev@vger.kernel.org>,
-	Ben Hutchings <ben@decadent.org.uk>
-To: Lorenzo Colitti <lorenzo@google.com>
+Cc: Varka Bhadram <varkab@cdac.in>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:34553 "EHLO
-	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933052AbaJVMNp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2014 08:13:45 -0400
-Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
-	by gateway2.nyi.internal (Postfix) with ESMTP id B3C00206C1
-	for <netdev@vger.kernel.org>; Wed, 22 Oct 2014 08:13:44 -0400 (EDT)
-In-Reply-To: <CAKD1Yr08muZ0Dwwt5Xmi+mEFP9OBBYe9CceswsEzpm5PkMUCMg@mail.gmail.com>
+Received: from mail-pd0-f182.google.com ([209.85.192.182]:63242 "EHLO
+	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933172AbaJVMZ1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2014 08:25:27 -0400
+Received: by mail-pd0-f182.google.com with SMTP id y10so3446519pdj.13
+        for <netdev@vger.kernel.org>; Wed, 22 Oct 2014 05:25:27 -0700 (PDT)
+In-Reply-To: <5447995F.5080602@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mi, 2014-10-22 at 20:50 +0900, Lorenzo Colitti wrote:
-> On Wed, Oct 22, 2014 at 8:36 PM, Hannes Frederic Sowa
-> <hannes@stressinduktion.org> wrote:
-> > In the near future we also must introduce specific DAD events needed for
-> > RFC7217 addresses (to count DAD progress and safe the information per
-> > prefix in user space). I would prefer to keep the logic for RTM_NEWADDR
-> > that the kernel will definitely allow the use of the address but
-> > RTM_NEWADDR should be handled idempotent by user space.
-> 
-> Duplicate RTM_NEWADDR notifications aren't a problem though, right?
-> The current code send RTM_NEWADDR every time an RA increases the
-> lifetime of an address, so I think it's reasonable to assume that apps
-> have to be able to deal with it, because it's pretty frequent.
+On 10/22/2014 05:17 PM, Sergei Shtylyov wrote:
+> On 10/22/2014 8:16 AM, Varka Bhadram wrote:
+>
+>> devm_ioremap_resource checks platform_get_resource() return value.
+>> We can remove the duplicate check here.
+>
+>> Signed-off-by: Varka Bhadram <varkab@cdac.in>
+>> ---
+>>   drivers/net/ethernet/renesas/sh_eth.c |    4 ----
+>>   1 file changed, 4 deletions(-)
+>
+>> diff --git a/drivers/net/ethernet/renesas/sh_eth.c 
+>> b/drivers/net/ethernet/renesas/sh_eth.c
+>> index 60e9c2c..d824ba5 100644
+>> --- a/drivers/net/ethernet/renesas/sh_eth.c
+>> +++ b/drivers/net/ethernet/renesas/sh_eth.c
+>> @@ -2769,10 +2769,6 @@ static int sh_eth_drv_probe(struct 
+>> platform_device *pdev)
+>>
+>>       /* get base addr */
+>>       res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+>> -    if (unlikely(res == NULL)) {
+>> -        dev_err(&pdev->dev, "invalid resource\n");
+>> -        return -EINVAL;
+>> -    }
+>
+>    The driver dereferences 'res' further on, so you can't remove this 
+> check.
+>
+Yes its my mistake . I will fix it . Thankx
 
-I don't think it is a serious problem (or a problem at all). I would
-just try to reduce the number of notifications, that's all.
-
-Bye,
-Hannes
+> WBR, Sergei
+>
+-- 
+Regards,
+Varka Bhadram.
