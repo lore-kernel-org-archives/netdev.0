@@ -1,7 +1,7 @@
 From: David Vrabel <david.vrabel@citrix.com>
-Subject: [PATCH 3/3] xen-netback: reintroduce guest Rx stall detection
-Date: Wed, 22 Oct 2014 14:08:55 +0100
-Message-ID: <1413983335-8307-4-git-send-email-david.vrabel@citrix.com>
+Subject: [PATCH 1/3] xen-netback: make feature-rx-notify mandatory
+Date: Wed, 22 Oct 2014 14:08:53 +0100
+Message-ID: <1413983335-8307-2-git-send-email-david.vrabel@citrix.com>
 References: <1413983335-8307-1-git-send-email-david.vrabel@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,219 +11,104 @@ Cc: David Vrabel <david.vrabel@citrix.com>,
 	Wei Liu <wei.liu2@citrix.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:20565 "EHLO
+Received: from smtp02.citrix.com ([66.165.176.63]:19173 "EHLO
 	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933186AbaJVNJX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2014 09:09:23 -0400
+	with ESMTP id S933186AbaJVNJZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2014 09:09:25 -0400
 In-Reply-To: <1413983335-8307-1-git-send-email-david.vrabel@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If a frontend not receiving packets it is useful to detect this and
-turn off the carrier so packets are dropped early instead of being
-queued and drained when they expire.
+Frontends that do not provide feature-rx-notify may stall because
+netback depends on the notification from frontend to wake the guest Rx
+thread (even if can_queue is false).
 
-A to-guest queue is stalled if it doesn't have enough free slots for a
-an extended period of time (default 60 s).
-
-If at least one queue is stalled, the carrier is turned off (in the
-expectation that the other queues will soon stall as well).  The
-carrier is only turned on once all queues are ready.
-
-When the frontend connects, all the queues start in the stalled state
-and only become ready once the frontend queues enough Rx requests.
+This could be fixed but feature-rx-notify was introduced in 2006 and I
+am not aware of any frontends that do not implement this.
 
 Signed-off-by: David Vrabel <david.vrabel@citrix.com>
 ---
- drivers/net/xen-netback/common.h    |    5 +++
- drivers/net/xen-netback/interface.c |    5 ++-
- drivers/net/xen-netback/netback.c   |   76 +++++++++++++++++++++++++++++++++++
- drivers/net/xen-netback/xenbus.c    |    1 +
- 4 files changed, 86 insertions(+), 1 deletion(-)
+ drivers/net/xen-netback/common.h    |    5 -----
+ drivers/net/xen-netback/interface.c |   12 +-----------
+ drivers/net/xen-netback/xenbus.c    |   13 ++++---------
+ 3 files changed, 5 insertions(+), 25 deletions(-)
 
 diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
-index c264240..083ecc9 100644
+index d4eb8d2..93ca77c 100644
 --- a/drivers/net/xen-netback/common.h
 +++ b/drivers/net/xen-netback/common.h
-@@ -179,6 +179,8 @@ struct xenvif_queue { /* Per-queue data for xenvif */
+@@ -228,9 +228,6 @@ struct xenvif {
+ 	u8 ip_csum:1;
+ 	u8 ipv6_csum:1;
  
- 	unsigned int rx_queue_max;
- 	unsigned int rx_queue_len;
-+	unsigned long last_rx_time;
-+	bool stalled;
+-	/* Internal feature information. */
+-	u8 can_queue:1;	    /* can queue packets for receiver? */
+-
+ 	/* Is this interface disabled? True when backend discovers
+ 	 * frontend is rogue.
+ 	 */
+@@ -272,8 +269,6 @@ void xenvif_xenbus_fini(void);
  
- 	struct gnttab_copy grant_copy_op[MAX_GRANT_COPY_OPS];
+ int xenvif_schedulable(struct xenvif *vif);
  
-@@ -232,6 +234,9 @@ struct xenvif {
- 	/* Queues */
- 	struct xenvif_queue *queues;
- 	unsigned int num_queues; /* active queues, resource allocated */
-+	unsigned int stalled_queues;
-+
-+	spinlock_t lock;
+-int xenvif_must_stop_queue(struct xenvif_queue *queue);
+-
+ int xenvif_queue_stopped(struct xenvif_queue *queue);
+ void xenvif_wake_queue(struct xenvif_queue *queue);
  
- #ifdef CONFIG_DEBUG_FS
- 	struct dentry *xenvif_dbg_root;
 diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
-index a134d52..895fe84 100644
+index f379689..c6759b1 100644
 --- a/drivers/net/xen-netback/interface.c
 +++ b/drivers/net/xen-netback/interface.c
-@@ -419,6 +419,8 @@ struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
- 	vif->queues = NULL;
- 	vif->num_queues = 0;
- 
-+	spin_lock_init(&vif->lock);
-+
- 	dev->netdev_ops	= &xenvif_netdev_ops;
- 	dev->hw_features = NETIF_F_SG |
- 		NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
-@@ -505,7 +507,6 @@ void xenvif_carrier_on(struct xenvif *vif)
- 		dev_set_mtu(vif->dev, ETH_DATA_LEN);
- 	netdev_update_features(vif->dev);
- 	set_bit(VIF_STATUS_CONNECTED, &vif->status);
--	netif_carrier_on(vif->dev);
- 	if (netif_running(vif->dev))
- 		xenvif_up(vif);
- 	rtnl_unlock();
-@@ -565,6 +566,8 @@ int xenvif_connect(struct xenvif_queue *queue, unsigned long tx_ring_ref,
- 		disable_irq(queue->rx_irq);
- 	}
- 
-+	queue->stalled = true;
-+
- 	task = kthread_create(xenvif_kthread_guest_rx,
- 			      (void *)queue, "%s-guest-rx", queue->name);
- 	if (IS_ERR(task)) {
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index 15893dc..25f4c06 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -62,6 +62,13 @@ unsigned int rx_drain_timeout_msecs = 10000;
- module_param(rx_drain_timeout_msecs, uint, 0444);
- unsigned int rx_drain_timeout_jiffies;
- 
-+/* The length of time before the frontend is considered unresponsive
-+ * because it isn't providing Rx slots.
-+ */
-+static unsigned int rx_stall_timeout_msecs = 60000;
-+module_param(rx_stall_timeout_msecs, uint, 0444);
-+static unsigned int rx_stall_timeout_jiffies;
-+
- unsigned int xenvif_max_queues;
- module_param_named(max_queues, xenvif_max_queues, uint, 0644);
- MODULE_PARM_DESC(max_queues,
-@@ -649,6 +656,8 @@ static void xenvif_rx_action(struct xenvif_queue *queue)
- 		RING_IDX ring_slots_used;
- 		int i;
- 
-+		queue->last_rx_time = jiffies;
-+
- 		/* We need a cheap worse case estimate for the number of
- 		 * slots we'll use.
- 		 */
-@@ -1972,10 +1981,67 @@ err:
- 	return err;
+@@ -60,16 +60,6 @@ void xenvif_skb_zerocopy_complete(struct xenvif_queue *queue)
+ 	atomic_dec(&queue->inflight_packets);
  }
  
-+static void xenvif_queue_carrier_off(struct xenvif_queue *queue)
-+{
-+	struct xenvif *vif = queue->vif;
-+
-+	queue->stalled = true;
-+
-+	/* At least one queue has stalled? Disable the carrier. */
-+	spin_lock(&vif->lock);
-+	if (vif->stalled_queues++ == 0) {
-+		netdev_info(vif->dev, "Guest Rx stalled");
-+		netif_carrier_off(vif->dev);
-+	}
-+	spin_unlock(&vif->lock);
-+}
-+
-+static void xenvif_queue_carrier_on(struct xenvif_queue *queue)
-+{
-+	struct xenvif *vif = queue->vif;
-+
-+	queue->last_rx_time = jiffies; /* Reset Rx stall detection. */
-+	queue->stalled = false;
-+
-+	/* All queues are ready? Enable the carrier. */
-+	spin_lock(&vif->lock);
-+	if (--vif->stalled_queues == 0) {
-+		netdev_info(vif->dev, "Guest Rx ready");
-+		netif_carrier_on(vif->dev);
-+	}
-+	spin_unlock(&vif->lock);
-+}
-+
-+static bool xenvif_rx_queue_stalled(struct xenvif_queue *queue)
-+{
-+	RING_IDX prod, cons;
-+
-+	prod = queue->rx.sring->req_prod;
-+	cons = queue->rx.req_cons;
-+
-+	return !queue->stalled
-+		&& prod - cons < XEN_NETBK_RX_SLOTS_MAX
-+		&& time_after(jiffies,
-+			      queue->last_rx_time + rx_stall_timeout_jiffies);
-+}
-+ 
-+static bool xenvif_rx_queue_ready(struct xenvif_queue *queue)
-+{
-+	RING_IDX prod, cons;
-+
-+	prod = queue->rx.sring->req_prod;
-+	cons = queue->rx.req_cons;
-+
-+	return queue->stalled
-+		&& prod - cons >= XEN_NETBK_RX_SLOTS_MAX;
-+}
-+
- static bool xenvif_have_rx_work(struct xenvif_queue *queue)
+-static inline void xenvif_stop_queue(struct xenvif_queue *queue)
+-{
+-	struct net_device *dev = queue->vif->dev;
+-
+-	if (!queue->vif->can_queue)
+-		return;
+-
+-	netif_tx_stop_queue(netdev_get_tx_queue(dev, queue->id));
+-}
+-
+ int xenvif_schedulable(struct xenvif *vif)
  {
- 	return (!skb_queue_empty(&queue->rx_queue)
- 		&& xenvif_rx_ring_slots_available(queue, XEN_NETBK_RX_SLOTS_MAX))
-+		|| xenvif_rx_queue_stalled(queue)
-+		|| xenvif_rx_queue_ready(queue)
- 		|| kthread_should_stop()
- 		|| queue->vif->disabled;
- }
-@@ -2050,6 +2116,15 @@ int xenvif_kthread_guest_rx(void *data)
- 		if (!skb_queue_empty(&queue->rx_queue))
- 			xenvif_rx_action(queue);
- 
-+		/* If the guest hasn't provided any Rx slots for a
-+		 * while it's probably not responsive, drop the
-+		 * carrier so packets are dropped earlier.
-+		 */
-+		if (xenvif_rx_queue_stalled(queue))
-+			xenvif_queue_carrier_off(queue);
-+		else if (xenvif_rx_queue_ready(queue))
-+			xenvif_queue_carrier_on(queue);
-+
- 		/* Queued packets may have foreign pages from other
- 		 * domains.  These cannot be queued indefinitely as
- 		 * this would starve guests of grant refs and transmit
-@@ -2120,6 +2195,7 @@ static int __init netback_init(void)
- 		goto failed_init;
- 
- 	rx_drain_timeout_jiffies = msecs_to_jiffies(rx_drain_timeout_msecs);
-+	rx_stall_timeout_jiffies = msecs_to_jiffies(rx_stall_timeout_msecs);
- 
- #ifdef CONFIG_DEBUG_FS
- 	xen_netback_dbg_root = debugfs_create_dir("xen-netback", NULL);
+ 	return netif_running(vif->dev) &&
+@@ -209,7 +199,7 @@ static int xenvif_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	if (!xenvif_rx_ring_slots_available(queue, min_slots_needed)) {
+ 		queue->rx_stalled.function = xenvif_rx_stalled;
+ 		queue->rx_stalled.data = (unsigned long)queue;
+-		xenvif_stop_queue(queue);
++		netif_tx_stop_queue(netdev_get_tx_queue(dev, queue->id));
+ 		mod_timer(&queue->rx_stalled,
+ 			  jiffies + rx_drain_timeout_jiffies);
+ 	}
 diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
-index 96a754d..4e56a27 100644
+index 8079c31..9060857 100644
 --- a/drivers/net/xen-netback/xenbus.c
 +++ b/drivers/net/xen-netback/xenbus.c
-@@ -711,6 +711,7 @@ static void connect(struct backend_info *be)
- 	be->vif->queues = vzalloc(requested_num_queues *
- 				  sizeof(struct xenvif_queue));
- 	be->vif->num_queues = requested_num_queues;
-+	be->vif->stalled_queues = requested_num_queues;
+@@ -873,15 +873,10 @@ static int read_xenbus_vif_flags(struct backend_info *be)
+ 	if (!rx_copy)
+ 		return -EOPNOTSUPP;
  
- 	for (queue_index = 0; queue_index < requested_num_queues; ++queue_index) {
- 		queue = &be->vif->queues[queue_index];
+-	if (vif->dev->tx_queue_len != 0) {
+-		if (xenbus_scanf(XBT_NIL, dev->otherend,
+-				 "feature-rx-notify", "%d", &val) < 0)
+-			val = 0;
+-		if (val)
+-			vif->can_queue = 1;
+-		else
+-			/* Must be non-zero for pfifo_fast to work. */
+-			vif->dev->tx_queue_len = 1;
++	if (xenbus_scanf(XBT_NIL, dev->otherend,
++			 "feature-rx-notify", "%d", &val) < 0 || val == 0) {
++		xenbus_dev_fatal(dev, -EINVAL, "feature-rx-notify is mandatory");
++		return -EINVAL;
+ 	}
+ 
+ 	if (xenbus_scanf(XBT_NIL, dev->otherend, "feature-sg",
 -- 
 1.7.10.4
