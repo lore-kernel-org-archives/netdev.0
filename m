@@ -1,66 +1,224 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: IPv6 UFO for VMs
-Date: Wed, 22 Oct 2014 11:35:41 +0200
-Message-ID: <1413970541.2337.16.camel@localhost>
-References: <1413935045.5994.2.camel@decadent.org.uk>
+Subject: Re: [RFC PATCH v2 net-next] net: ipv6: Add a sysctl to make
+ optimistic addresses useful candidates
+Date: Wed, 22 Oct 2014 12:12:54 +0200
+Message-ID: <1413972774.2337.37.camel@localhost>
+References: <1413864306-20055-1-git-send-email-ek@google.com>
+	 <1413920743.32553.45.camel@localhost>
+	 <CAAedzxpsaEGt+oO0xJWLxcjapdRYauHP4rAsKkf_skcdzbGEmg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev <netdev@vger.kernel.org>,
-	virtualization@lists.linux-foundation.org
-To: Ben Hutchings <ben@decadent.org.uk>
+	Ben Hutchings <ben@decadent.org.uk>,
+	Lorenzo Colitti <lorenzo@google.com>
+To: Erik Kline <ek@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:43125 "EHLO
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:41366 "EHLO
 	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754333AbaJVJfn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2014 05:35:43 -0400
-Received: from compute6.internal (compute6.nyi.internal [10.202.2.46])
-	by gateway2.nyi.internal (Postfix) with ESMTP id AC72B20A3B
-	for <netdev@vger.kernel.org>; Wed, 22 Oct 2014 05:35:42 -0400 (EDT)
-In-Reply-To: <1413935045.5994.2.camel@decadent.org.uk>
+	by vger.kernel.org with ESMTP id S932402AbaJVKM4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2014 06:12:56 -0400
+Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
+	by gateway2.nyi.internal (Postfix) with ESMTP id 33B2720AC7
+	for <netdev@vger.kernel.org>; Wed, 22 Oct 2014 06:12:56 -0400 (EDT)
+In-Reply-To: <CAAedzxpsaEGt+oO0xJWLxcjapdRYauHP4rAsKkf_skcdzbGEmg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mi, 2014-10-22 at 00:44 +0100, Ben Hutchings wrote:
-> There are several ways that VMs can take advantage of UFO and get the
-> host to do fragmentation for them:
+On Mi, 2014-10-22 at 14:25 +0900, Erik Kline wrote:
+> Hello.
 > 
-> drivers/net/macvtap.c:                  gso_type = SKB_GSO_UDP;
-> drivers/net/tun.c:                      skb_shinfo(skb)->gso_type = SKB_GSO_UDP;
-> drivers/net/virtio_net.c:                       skb_shinfo(skb)->gso_type = SKB_GSO_UDP;
+> On Wed, Oct 22, 2014 at 4:45 AM, Hannes Frederic Sowa
+> <hannes@stressinduktion.org> wrote:
+> > Hi,
+> >
+> > On Di, 2014-10-21 at 13:05 +0900, Erik Kline wrote:
+> >> Add a sysctl that causes an interface's optimistic addresses
+> >> to be considered equivalent to other non-deprecated addresses
+> >> for source address selection purposes.  Preferred addresses
+> >> will still take precedence over optimistic addresses, subject
+> >> to other ranking in the source address selection algorithm.
+> >>
+> >> This is useful where different interfaces are connected to
+> >> different networks from different ISPs (e.g., a cell network
+> >> and a home wifi network).
+> >>
+> >> The current behaviour complies with RFC 3484/6724, and it
+> >> makes sense if the host has only one interface, or has
+> >> multiple interfaces on the same network (same or cooperating
+> >> administrative domain(s), but not in the multiple distinct
+> >> networks case.
+> >>
+> >> For example, if a mobile device has an IPv6 address on an LTE
+> >> network and then connects to IPv6-enabled wifi, while the wifi
+> >> IPv6 address is undergoing DAD, IPv6 connections will try use
+> >> the wifi default route with the LTE IPv6 address, and will get
+> >> stuck until they time out.
+> >>
+> >> Also, because optimistic addresses can actually be used, issue
+> >> an RTM_NEWADDR as soon as DAD starts.  If DAD fails an separate
+> >> RTM_DELADDR will be sent.
+> >>
+> >> Also: add an entry in ip-sysctl.txt for optimistic_dad.
+> >>
+> >> Signed-off-by: Erik Kline <ek@google.com>
+> >> ---
+> >>  Documentation/networking/ip-sysctl.txt | 13 ++++++++++++
+> >>  include/linux/ipv6.h                   |  1 +
+> >>  include/uapi/linux/ipv6.h              |  1 +
+> >>  net/ipv6/addrconf.c                    | 36 ++++++++++++++++++++++++++++++++--
+> >>  4 files changed, 49 insertions(+), 2 deletions(-)
+> >>
+> >> diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+> >> index 0307e28..e03cf49 100644
+> >> --- a/Documentation/networking/ip-sysctl.txt
+> >> +++ b/Documentation/networking/ip-sysctl.txt
+> >> @@ -1452,6 +1452,19 @@ suppress_frag_ndisc - INTEGER
+> >>       1 - (default) discard fragmented neighbor discovery packets
+> >>       0 - allow fragmented neighbor discovery packets
+> >>
+> >> +optimistic_dad - BOOLEAN
+> >> +     Whether to perform Optimistic Duplicate Address Detection (RFC 4429).
+> >> +             0: disabled (default)
+> >> +             1: enabled
+> >> +
+> >> +use_optimistic - BOOLEAN
+> >> +     If enabled, do not classify optimistic addresses as deprecated during
+> >> +     source address selection.  Preferred addresses will still be chosen
+> >> +     before optimistic addresses, subject to other ranking in the source
+> >> +     address selection algorithm.
+> >> +             0: disabled (default)
+> >> +             1: enabled
+> >> +
+> >>  icmp/*:
+> >>  ratelimit - INTEGER
+> >>       Limit the maximal rates for sending ICMPv6 packets.
+> >> diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+> >> index ff56053..7121a2e 100644
+> >> --- a/include/linux/ipv6.h
+> >> +++ b/include/linux/ipv6.h
+> >> @@ -42,6 +42,7 @@ struct ipv6_devconf {
+> >>       __s32           accept_ra_from_local;
+> >>  #ifdef CONFIG_IPV6_OPTIMISTIC_DAD
+> >>       __s32           optimistic_dad;
+> >> +     __s32           use_optimistic;
+> >>  #endif
+> >>  #ifdef CONFIG_IPV6_MROUTE
+> >>       __s32           mc_forwarding;
+> >> diff --git a/include/uapi/linux/ipv6.h b/include/uapi/linux/ipv6.h
+> >> index efa2666..e863d08 100644
+> >> --- a/include/uapi/linux/ipv6.h
+> >> +++ b/include/uapi/linux/ipv6.h
+> >> @@ -164,6 +164,7 @@ enum {
+> >>       DEVCONF_MLDV2_UNSOLICITED_REPORT_INTERVAL,
+> >>       DEVCONF_SUPPRESS_FRAG_NDISC,
+> >>       DEVCONF_ACCEPT_RA_FROM_LOCAL,
+> >> +     DEVCONF_USE_OPTIMISTIC,
+> >>       DEVCONF_MAX
+> >>  };
+> >>
+> >> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+> >> index 725c763..c2fddb7 100644
+> >> --- a/net/ipv6/addrconf.c
+> >> +++ b/net/ipv6/addrconf.c
+> >> @@ -1169,6 +1169,9 @@ enum {
+> >>       IPV6_SADDR_RULE_LABEL,
+> >>       IPV6_SADDR_RULE_PRIVACY,
+> >>       IPV6_SADDR_RULE_ORCHID,
+> >> +#ifdef CONFIG_IPV6_OPTIMISTIC_DAD
+> >> +     IPV6_SADDR_RULE_NOT_OPTIMISTIC,
+> >> +#endif
+> >>       IPV6_SADDR_RULE_PREFIX,
+> >>       IPV6_SADDR_RULE_MAX
+> >>  };
+> >> @@ -1257,10 +1260,17 @@ static int ipv6_get_saddr_eval(struct net *net,
+> >>               score->scopedist = ret;
+> >>               break;
+> >>       case IPV6_SADDR_RULE_PREFERRED:
+> >> +         {
+> >>               /* Rule 3: Avoid deprecated and optimistic addresses */
+> >> +             u8 avoid = IFA_F_DEPRECATED;
+> >> +#ifdef CONFIG_IPV6_OPTIMISTIC_DAD
+> >> +             if (!score->ifa->idev->cnf.use_optimistic)
+> >> +                     avoid |= IFA_F_OPTIMISTIC;
+> >> +#endif
+> >>               ret = ipv6_saddr_preferred(score->addr_type) ||
+> >> -                   !(score->ifa->flags & (IFA_F_DEPRECATED|IFA_F_OPTIMISTIC));
+> >> +                   !(score->ifa->flags & avoid);
+> >>               break;
+> >> +         }
+> >>  #ifdef CONFIG_IPV6_MIP6
+> >>       case IPV6_SADDR_RULE_HOA:
+> >>           {
+> >> @@ -1299,6 +1309,14 @@ static int ipv6_get_saddr_eval(struct net *net,
+> >>               ret = !(ipv6_addr_orchid(&score->ifa->addr) ^
+> >>                       ipv6_addr_orchid(dst->addr));
+> >>               break;
+> >> +#ifdef CONFIG_IPV6_OPTIMISTIC_DAD
+> >> +     case IPV6_SADDR_RULE_NOT_OPTIMISTIC:
+> >> +             /* Optimistic addresses still have lower precedence than other
+> >> +              * preferred addresses.
+> >> +              */
+> >> +             ret = !(score->ifa->flags & IFA_F_OPTIMISTIC);
+> >> +             break;
+> >> +#endif
+> >
+> > I wonder a bit why this rule is not directly ordered after
+> > IPV6_SADDR_RULE_PREFERRED? This would e.g. matter for privacy addresses.
 > 
-> Our implementation of UFO for IPv6 does:
+> Privacy addresses ("tempaddrs") that win in earlier checks are
+> preferred before optimistic in this code (i.e. a tempaddr on the same
+> outgoing interface is preferred before an optimistic address).
 > 
-> 		fptr = (struct frag_hdr *)(skb_network_header(skb) + unfrag_ip6hlen);
-> 		fptr->nexthdr = nexthdr;
-> 		fptr->reserved = 0;
-> 		fptr->identification = skb_shinfo(skb)->ip6_frag_id;
-> 
-> which assumes ip6_frag_id has been set.  That's only true if the local
-> stack constructed the skb; otherwise it appears we get zero.
-> 
-> This seems to be a regression as a result of:
-> 
-> commit 916e4cf46d0204806c062c8c6c4d1f633852c5b6
-> Author: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Date:   Fri Feb 21 02:55:35 2014 +0100
-> 
->     ipv6: reuse ip6_frag_id from ip6_ufo_append_data
-> 
-> However, that change seems reasonable - we *shouldn't* be choosing IDs
-> for any other stack.  Any paravirt net driver that can use IPv6 UFO
-> needs to have some way of passing a fragmentation ID to put in
-> skb_shared_info::ip6_frag_id.
+> Similarly, a non-tentative non-privacy address (same outgoing
+> interface, same label, ...) will match before an optimistic address,
+> but only until DAD completes and the address is no longer optimistic.
+> I think this is in keeping with the spirit of the RFC 3484/6724 rules.
 
-Do we really gain a lot of performance by enabling UFO on those devices
-or would it make sense to just drop support? It only helps fragmenting
-large UDP packets, so I don't think it is worth it.
+Oh yes, I see. I had the evaluation order messed up. ;)
 
-Otherwise I agree with Ben, we need to pass a fragmentation id from the
-host over to the system segmenting the gso frame. Fragmentation ids must
-be generated by the end system.
+So the question I should be asking would be. AFAIR optimistic addresses
+should be handled like deprecated ones, so I am a bit concerned adding a
+non-conditional rule before the RULE_PREFIX check.
 
-Hmm...
+Shouldn't we only break the tie *after* longest prefix match then? If
+you do that before longest prefix match I would prefer ret being masked
+by use_optimisitic flag.
 
-Bye,
+> After there's an RFC 7217 implementation, EUI-64-based SLAAC could be
+> disabled by folks.
+
+Ack.
+
+> 
+> >>       case IPV6_SADDR_RULE_PREFIX:
+> >>               /* Rule 8: Use longest matching prefix */
+> >>               ret = ipv6_addr_diff(&score->ifa->addr, dst->addr);
+> >> @@ -3222,8 +3240,13 @@ static void addrconf_dad_begin(struct inet6_ifaddr *ifp)
+> >>        * Optimistic nodes can start receiving
+> >>        * Frames right away
+> >>        */
+> >> -     if (ifp->flags & IFA_F_OPTIMISTIC)
+> >> +     if (ifp->flags & IFA_F_OPTIMISTIC) {
+> >>               ip6_ins_rt(ifp->rt);
+> >> +             /* Because optimistic nodes can receive frames, notify
+> >> +              * listeners. If DAD fails, RTM_DELADDR is sent.
+> >> +              */
+> >> +             ipv6_ifa_notify(RTM_NEWADDR, ifp);
+> >> +     }
+> >
+> > I wonder if we can now delete the ipv6_ifa_notify(RTM_NEWADDR, ifp) in
+> > addrconf_dad_completed.
+> 
+> I don't know what everyone's general preference would be, but mine
+> would be to err on the side of notifying on state changes.  It seems
+> harmless to me to keep it in, and something in userspace might want to
+> know if/when DAD completes.
+
+Userspace expects to communicate with an address which gets announced
+via RTM_NEWADDR, so I would make the RTM_NEWADDR notifications
+conditional on use_optimistic flag in both, the completed and the
+dad_begin function. This sounds like the best option to me, no?
+
+Bye && thanks,
 Hannes
