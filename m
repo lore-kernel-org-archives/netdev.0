@@ -1,34 +1,24 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2 v2] xfrm6: fix a potential use after free in
- xfrm6_policy.c
-Date: Wed, 22 Oct 2014 15:39:00 -0400 (EDT)
-Message-ID: <20141022.153900.831129482311515617.davem@davemloft.net>
-References: <1413968993-13528-1-git-send-email-roy.qing.li@gmail.com>
-	<1413968993-13528-2-git-send-email-roy.qing.li@gmail.com>
+Subject: Re: [PATCHv3 RFC net-next 0/4] sunvnet: NAPIfy sunvnet
+Date: Wed, 22 Oct 2014 15:39:53 -0400 (EDT)
+Message-ID: <20141022.153953.731678013980885432.davem@davemloft.net>
+References: <20141015164234.GA11840@oracle.com>
+	<20141022185757.GA8134@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: roy.qing.li@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60872 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754331AbaJVTjC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2014 15:39:02 -0400
-In-Reply-To: <1413968993-13528-2-git-send-email-roy.qing.li@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: bob.picco@oracle.com, dwight.engen@oracle.com,
+	raghuram.kothakota@oracle.com, netdev@vger.kernel.org,
+	sparclinux@vger.kernel.org
+To: sowmini.varadhan@oracle.com
+Return-path: <sparclinux-owner@vger.kernel.org>
+In-Reply-To: <20141022185757.GA8134@oracle.com>
+Sender: sparclinux-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: roy.qing.li@gmail.com
-Date: Wed, 22 Oct 2014 17:09:53 +0800
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Date: Wed, 22 Oct 2014 14:57:57 -0400
 
-> From: Li RongQing <roy.qing.li@gmail.com>
-> 
-> pskb_may_pull() maybe change skb->data and make nh and exthdr pointer
-> oboslete, so recompute the nd and exthdr
-> 
-> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
-> ---
-> Diff v1: add space between the date type and *, like (__be16 *)
+> Please hold off on this patch-set for the moment.
 
-Applied, thanks.
+Ok, no problem.
