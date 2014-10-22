@@ -1,44 +1,133 @@
-From: Sathya Perla <Sathya.Perla@Emulex.Com>
-Subject: RE: [PATCH] net: fix saving TX flow hash in sock for outgoing
- connections
-Date: Wed, 22 Oct 2014 18:35:59 +0000
-Message-ID: <CF9D1877D81D214CB0CA0669EFAE020C68CA2FAA@CMEXMB1.ad.emulex.com>
-References: <1413994321-20435-1-git-send-email-sathya.perla@emulex.com>
- <1413999542.9031.13.camel@edumazet-glaptop2.roam.corp.google.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH RFC v3 10/16] virtio_net: use v1.0 endian.
+Date: Wed, 22 Oct 2014 21:44:48 +0300
+Message-ID: <1414003404-505-11-git-send-email-mst@redhat.com>
+References: <1414003404-505-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"therbert@google.com" <therbert@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.emulex.com ([138.239.224.100]:29485 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752079AbaJVSgc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2014 14:36:32 -0400
-In-Reply-To: <1413999542.9031.13.camel@edumazet-glaptop2.roam.corp.google.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Rusty Russell <rusty@rustcorp.com.au>,
+	Cornelia Huck <cornelia.huck@de.ibm.com>,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1414003404-505-1-git-send-email-mst@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0
-bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXQ0KPiANCj4gT24gV2VkLCAyMDE0LTEwLTIyIGF0IDIx
-OjQyICswNTMwLCBTYXRoeWEgUGVybGEgd3JvdGU6DQo+ID4gVGhlIGNvbW1pdCAibmV0OiBTYXZl
-IFRYIGZsb3cgaGFzaCBpbiBzb2NrIGFuZCBzZXQgaW4gc2tidWYgb24geG1pdCINCj4gPiBpbnRy
-b2R1Y2VkIHRoZSBpbmV0X3NldF90eGhhc2goKSBhbmQgaXA2X3NldF90eGhhc2goKSByb3V0aW5l
-cyB0bw0KPiBjYWxjdWxhdGUNCj4gPiBhbmQgcmVjb3JkIGZsb3cgaGFzaChza190eGhhc2gpIGlu
-IHRoZSBzb2NrZXQgc3RydWN0dXJlLiBza190eGhhc2ggaXMgdXNlZA0KPiA+IHRvIHNldCBza2It
-Pmhhc2ggd2hpY2ggaXMgdXNlZCB0byBzcHJlYWQgZmxvd3MgYWNyb3NzIG11bHRpcGxlIFRYUXMu
-DQo+ID4NCj4gPiBCdXQsIHRoZSBhYm92ZSByb3V0aW5lcyBhcmUgaW52b2tlZCBiZWZvcmUgdGhl
-IHNvdXJjZSBwb3J0IG9mIHRoZQ0KPiBjb25uZWN0aW9uDQo+ID4gaXMgY3JlYXRlZC4gQmVjYXVz
-ZSBvZiB0aGlzIGFsbCBvdXRnb2luZyBjb25uZWN0aW9ucyB0aGF0IGp1c3QgZGlmZmVyIGluIHRo
-ZQ0KPiA+IHNvdXJjZSBwb3J0IGdldCBoYXNoZWQgaW50byB0aGUgc2FtZSBUWFEuDQo+IA0KPiBB
-Y2tlZC1ieTogRXJpYyBEdW1hemV0IDxlZHVtYXpldEBnb29nbGUuY29tPg0KPiANCj4gQXJlIHlv
-dSByZWFsbHkgdXNpbmcgdGhlIHNvY2tldC9mbG93IGhhc2ggdG8gc2VsZWN0IGEgVFhRID8NClll
-cywgYXMgSSBkb24ndCBoYXZlIFhQUyBjb25maWd1cmVkIG9uIG15IHNldHVwLg0KbmV0ZGV2X3Bp
-Y2tfdHgoKSB1c2VzIHRoZSBzb2NrZXQvZmxvdyBoYXNoIHdoZW4gWFBTIGlzIG5vdCB1c2VkLg0K
-DQo+IA0KPiBFdmVuIHdpdGggdGhpcyBwYXRjaCwgeW91IGhhdmUgYSBnb29kIHByb2JhYmlsaXR5
-IG9mIG11bHRpcGxlDQo+IGNwdXMgaGl0dGluZyBzYW1lIFRYUS4NCkFncmVlLiBBcmUgeW91IHN1
-Z2dlc3RpbmcgdGhhdCBkcml2ZXJzIHNob3VsZCBhdXRvbWF0aWNhbGx5DQpyZWdpc3RlciBhbiBY
-UFMgY29uZmlndXJhdGlvbj8gSSB0aG91Z2h0IGl0IHdhcyB1cHRvIHRoZSB1c2VyDQp0byBlbmFi
-bGUgaXQuLi4NCg==
+From: Rusty Russell <rusty@rustcorp.com.au>
+
+[Cornelia Huck: converted some missed fields]
+Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+Signed-off-by: Cornelia Huck <cornelia.huck@de.ibm.com>
+
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+---
+ drivers/net/virtio_net.c | 31 +++++++++++++++++++------------
+ 1 file changed, 19 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index d75256bd..2e6561e 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -347,13 +347,14 @@ err:
+ }
+ 
+ static struct sk_buff *receive_mergeable(struct net_device *dev,
++					 struct virtnet_info *vi,
+ 					 struct receive_queue *rq,
+ 					 unsigned long ctx,
+ 					 unsigned int len)
+ {
+ 	void *buf = mergeable_ctx_to_buf_address(ctx);
+ 	struct skb_vnet_hdr *hdr = buf;
+-	int num_buf = hdr->mhdr.num_buffers;
++	u16 num_buf = virtio16_to_cpu(rq->vq->vdev, hdr->mhdr.num_buffers);
+ 	struct page *page = virt_to_head_page(buf);
+ 	int offset = buf - page_address(page);
+ 	unsigned int truesize = max(len, mergeable_ctx_to_buf_truesize(ctx));
+@@ -369,7 +370,9 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
+ 		ctx = (unsigned long)virtqueue_get_buf(rq->vq, &len);
+ 		if (unlikely(!ctx)) {
+ 			pr_debug("%s: rx error: %d buffers out of %d missing\n",
+-				 dev->name, num_buf, hdr->mhdr.num_buffers);
++				 dev->name, num_buf,
++				 virtio16_to_cpu(rq->vq->vdev,
++						 hdr->mhdr.num_buffers));
+ 			dev->stats.rx_length_errors++;
+ 			goto err_buf;
+ 		}
+@@ -454,7 +457,7 @@ static void receive_buf(struct receive_queue *rq, void *buf, unsigned int len)
+ 	}
+ 
+ 	if (vi->mergeable_rx_bufs)
+-		skb = receive_mergeable(dev, rq, (unsigned long)buf, len);
++		skb = receive_mergeable(dev, vi, rq, (unsigned long)buf, len);
+ 	else if (vi->big_packets)
+ 		skb = receive_big(dev, rq, buf, len);
+ 	else
+@@ -473,8 +476,8 @@ static void receive_buf(struct receive_queue *rq, void *buf, unsigned int len)
+ 	if (hdr->hdr.flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) {
+ 		pr_debug("Needs csum!\n");
+ 		if (!skb_partial_csum_set(skb,
+-					  hdr->hdr.csum_start,
+-					  hdr->hdr.csum_offset))
++			  virtio16_to_cpu(vi->vdev, hdr->hdr.csum_start),
++			  virtio16_to_cpu(vi->vdev, hdr->hdr.csum_offset)))
+ 			goto frame_err;
+ 	} else if (hdr->hdr.flags & VIRTIO_NET_HDR_F_DATA_VALID) {
+ 		skb->ip_summed = CHECKSUM_UNNECESSARY;
+@@ -505,7 +508,8 @@ static void receive_buf(struct receive_queue *rq, void *buf, unsigned int len)
+ 		if (hdr->hdr.gso_type & VIRTIO_NET_HDR_GSO_ECN)
+ 			skb_shinfo(skb)->gso_type |= SKB_GSO_TCP_ECN;
+ 
+-		skb_shinfo(skb)->gso_size = hdr->hdr.gso_size;
++		skb_shinfo(skb)->gso_size = virtio16_to_cpu(vi->vdev,
++							    hdr->hdr.gso_size);
+ 		if (skb_shinfo(skb)->gso_size == 0) {
+ 			net_warn_ratelimited("%s: zero gso size.\n", dev->name);
+ 			goto frame_err;
+@@ -867,16 +871,19 @@ static int xmit_skb(struct send_queue *sq, struct sk_buff *skb)
+ 
+ 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
+ 		hdr->hdr.flags = VIRTIO_NET_HDR_F_NEEDS_CSUM;
+-		hdr->hdr.csum_start = skb_checksum_start_offset(skb);
+-		hdr->hdr.csum_offset = skb->csum_offset;
++		hdr->hdr.csum_start = cpu_to_virtio16(vi->vdev,
++						skb_checksum_start_offset(skb));
++		hdr->hdr.csum_offset = cpu_to_virtio16(vi->vdev,
++							 skb->csum_offset);
+ 	} else {
+ 		hdr->hdr.flags = 0;
+ 		hdr->hdr.csum_offset = hdr->hdr.csum_start = 0;
+ 	}
+ 
+ 	if (skb_is_gso(skb)) {
+-		hdr->hdr.hdr_len = skb_headlen(skb);
+-		hdr->hdr.gso_size = skb_shinfo(skb)->gso_size;
++		hdr->hdr.hdr_len = cpu_to_virtio16(vi->vdev, skb_headlen(skb));
++		hdr->hdr.gso_size = cpu_to_virtio16(vi->vdev,
++						    skb_shinfo(skb)->gso_size);
+ 		if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV4)
+ 			hdr->hdr.gso_type = VIRTIO_NET_HDR_GSO_TCPV4;
+ 		else if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6)
+@@ -1182,7 +1189,7 @@ static void virtnet_set_rx_mode(struct net_device *dev)
+ 	sg_init_table(sg, 2);
+ 
+ 	/* Store the unicast list and count in the front of the buffer */
+-	mac_data->entries = uc_count;
++	mac_data->entries = cpu_to_virtio32(vi->vdev, uc_count);
+ 	i = 0;
+ 	netdev_for_each_uc_addr(ha, dev)
+ 		memcpy(&mac_data->macs[i++][0], ha->addr, ETH_ALEN);
+@@ -1193,7 +1200,7 @@ static void virtnet_set_rx_mode(struct net_device *dev)
+ 	/* multicast list and count fill the end */
+ 	mac_data = (void *)&mac_data->macs[uc_count][0];
+ 
+-	mac_data->entries = mc_count;
++	mac_data->entries = cpu_to_virtio32(vi->vdev, mc_count);
+ 	i = 0;
+ 	netdev_for_each_mc_addr(ha, dev)
+ 		memcpy(&mac_data->macs[i++][0], ha->addr, ETH_ALEN);
+-- 
+MST
