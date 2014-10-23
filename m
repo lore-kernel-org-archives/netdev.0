@@ -1,46 +1,41 @@
-From: Roman Gushchin <klamm@yandex-team.ru>
-Subject: Re: [PATCH] igb: don't reuse pages with pfmemalloc flag
-Date: Thu, 23 Oct 2014 15:21:12 +0400
-Message-ID: <1811414063272@webcorp02e.yandex-team.ru>
-References: <1413985819-9553-1-git-send-email-klamm@yandex-team.ru> <1413992737.9031.1.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [PATCH 1/3] xen-netback: make feature-rx-notify mandatory
+Date: Thu, 23 Oct 2014 12:32:06 +0100
+Message-ID: <20141023113206.GF9188@zion.uk.xensource.com>
+References: <1413983335-8307-1-git-send-email-david.vrabel@citrix.com>
+ <1413983335-8307-2-git-send-email-david.vrabel@citrix.com>
+ <20141023111629.GE9188@zion.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
-	"jesse.brandeburg@intel.com" <jesse.brandeburg@intel.com>,
-	"bruce.w.allan@intel.com" <bruce.w.allan@intel.com>,
-	"carolyn.wyborny@intel.com" <carolyn.wyborny@intel.com>,
-	"donald.c.skidmore@intel.com" <donald.c.skidmore@intel.com>,
-	"gregory.v.rose@intel.com" <gregory.v.rose@intel.com>,
-	"peter.p.waskiewicz.jr@intel.com" <peter.p.waskiewicz.jr@intel.com>,
-	"alexander.h.duyck@intel.com" <alexander.h.duyck@intel.com>,
-	"john.ronciak@intel.com" <john.ronciak@intel.com>,
-	"tushar.n.dave@intel.com" <tushar.n.dave@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"sassmann@kpanic.de" <sassmann@kpanic.de>,
-	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.or
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1413992737.9031.1.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>
+To: David Vrabel <david.vrabel@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp02.citrix.com ([66.165.176.63]:42782 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932402AbaJWLcH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Oct 2014 07:32:07 -0400
+Content-Disposition: inline
+In-Reply-To: <20141023111629.GE9188@zion.uk.xensource.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->
-> Interesting...
->
-> It seems we also need to clear skb->pfmemalloc in napi_reuse_skb()
+On Thu, Oct 23, 2014 at 12:16:29PM +0100, Wei Liu wrote:
+> On Wed, Oct 22, 2014 at 02:08:53PM +0100, David Vrabel wrote:
+> > Frontends that do not provide feature-rx-notify may stall because
+> > netback depends on the notification from frontend to wake the guest Rx
+> > thread (even if can_queue is false).
+> > 
+> > This could be fixed but feature-rx-notify was introduced in 2006 and I
+> > am not aware of any frontends that do not implement this.
+> > 
+> > Signed-off-by: David Vrabel <david.vrabel@citrix.com>
+> 
+> Acked-by: Wei Liu <wei.liu2@citrix.com>
 
-Sounds reasonable, but are you sure, that we can just drop skb->pfmemal=
-loc flag in napi_reuse_skb()?
+While I can understand this patch by itself, can you elaborate a little
+bit on how it affects later patches? Because what I'm thinking is that
+this patch is not for stable while other two should go to stable.
 
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kerne=
-l" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =9Ahttp://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at =9Ahttp://www.tux.org/lkml/
+Wei.
