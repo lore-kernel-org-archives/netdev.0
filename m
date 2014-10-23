@@ -1,58 +1,58 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: irq disable in __netdev_alloc_frag() ?
-Date: Wed, 22 Oct 2014 20:19:59 -0700
-Message-ID: <544873DF.1040403@gmail.com>
-References: <CAMEtUuwsUqd-U8ZSEXCB+a7cvLpbuRjPU2m0Ux84q6cxoWSx+g@mail.gmail.com> <1414029160.2094.8.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [net] i40e: _MASK vs _SHIFT typo in i40e_handle_mdd_event()
+Date: Wed, 22 Oct 2014 20:22:24 -0700
+Message-ID: <1414034544.15751.2.camel@perches.com>
+References: <1414033589-7544-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-	Network Development <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Alexei Starovoitov <ast@plumgrid.com>
+Cc: davem@davemloft.net, Dan Carpenter <dan.carpenter@oracle.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f175.google.com ([209.85.192.175]:61003 "EHLO
-	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932381AbaJWDT6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2014 23:19:58 -0400
-Received: by mail-pd0-f175.google.com with SMTP id y13so214949pdi.34
-        for <netdev@vger.kernel.org>; Wed, 22 Oct 2014 20:19:58 -0700 (PDT)
-In-Reply-To: <1414029160.2094.8.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from smtprelay0227.hostedemail.com ([216.40.44.227]:38329 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S932381AbaJWDW2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2014 23:22:28 -0400
+In-Reply-To: <1414033589-7544-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/22/2014 06:52 PM, Eric Dumazet wrote:
-> On Wed, 2014-10-22 at 17:15 -0700, Alexei Starovoitov wrote:
->> Hi Eric,
->>
->> in the commit 6f532612cc24 ("net: introduce netdev_alloc_frag()")
->> you mentioned that the reason to disable interrupts
->> in __netdev_alloc_frag() is:
->> "- Must be IRQ safe (non NAPI drivers can use it)"
->>
->> Is there a way to do this conditionally?
->>
->> Without it I see 10% performance gain for my RX tests
->> (from 6.9Mpps to 7.7Mpps) and __netdev_alloc_frag()
->> itself goes from 6.6% to 2.1%
->> (popf seems to be quite costly)
-> Well, your driver is probably a NAPI one, so you need to
-> mask irqs, or to remove all non NAPI drivers from linux.
->
-> __netdev_alloc_frag() (__netdev_alloc_skb()) is used by all.
->
-> Problem is __netdev_alloc_frag() is generally deep inside caller
-> chain, so using a private pool might have quite an overhead.
->
-> Same could be said for skb_queue_head() /skb_queue_tail() /
-> sock_queue_rcv_skb() :
-> Many callers don't need to block irq.
+On Wed, 2014-10-22 at 20:06 -0700, Jeff Kirsher wrote:
+> We accidentally mask by the _SHIFT variable.  It means that "event" is
+> always zero.
+[]
+> diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+[]
+> @@ -6151,7 +6151,7 @@ static void i40e_handle_mdd_event(struct i40e_pf *pf)
+>  				I40E_GL_MDET_TX_PF_NUM_SHIFT;
+>  		u8 vf_num = (reg & I40E_GL_MDET_TX_VF_NUM_MASK) >>
+>  				I40E_GL_MDET_TX_VF_NUM_SHIFT;
+> -		u8 event = (reg & I40E_GL_MDET_TX_EVENT_SHIFT) >>
+> +		u8 event = (reg & I40E_GL_MDET_TX_EVENT_MASK) >>
+>  				I40E_GL_MDET_TX_EVENT_SHIFT;
+>  		u8 queue = (reg & I40E_GL_MDET_TX_QUEUE_MASK) >>
+>  				I40E_GL_MDET_TX_QUEUE_SHIFT;
+> @@ -6165,7 +6165,7 @@ static void i40e_handle_mdd_event(struct i40e_pf *pf)
+>  	if (reg & I40E_GL_MDET_RX_VALID_MASK) {
+>  		u8 func = (reg & I40E_GL_MDET_RX_FUNCTION_MASK) >>
+>  				I40E_GL_MDET_RX_FUNCTION_SHIFT;
+> -		u8 event = (reg & I40E_GL_MDET_RX_EVENT_SHIFT) >>
+> +		u8 event = (reg & I40E_GL_MDET_RX_EVENT_MASK) >>
+>  				I40E_GL_MDET_RX_EVENT_SHIFT;
+>  		u8 queue = (reg & I40E_GL_MDET_RX_QUEUE_MASK) >>
+>  				I40E_GL_MDET_RX_QUEUE_SHIFT;
 
-Couldn't __netdev_alloc_frag() be forked into two functions, one that is
-only called from inside the NAPI context and one that is called for all
-other contexts?  It would mean having to double the number of pages
-being held per CPU, but I would think something like that would be doable.
+It might be useful to have a macro for that.
+Something like:
 
-Thanks,
+#define GET_REG_VAL(reg, type)			\
+	((reg & type##_MASK) >> type##_SHIFT)
 
-Alex
+so these could become:
+
+	u8 vf_num = GET_REG_VAL(reg, I40E_GL_MDET_TX_VF_NUM);
+	u8 event = GET_REG_VAL(reg, I40E_GL_MDET_TX_EVENT);
+
+etc...
