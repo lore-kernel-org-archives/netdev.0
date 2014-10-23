@@ -1,58 +1,36 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH 1/1 net-next] Bluetooth: fix shadow warning in hci_disconnect()
-Date: Thu, 23 Oct 2014 15:09:36 -0700
-Message-ID: <AB7C94CC-9608-4BE7-B5C6-B89B64403D83@holtmann.org>
-References: <1414081365-6461-1-git-send-email-fabf@skynet.be> <2F67F6E8-CA99-4998-AE68-89E60D62C39D@holtmann.org> <20326343.74480.1414085453988.open-xchange@webmail.nmp.skynet.be>
-Mime-Version: 1.0 (Mac OS X Mail 8.0 \(1990.1\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "Gustavo F. Padovan" <gustavo@padovan.org>,
-	Network Development <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	BlueZ development <linux-bluetooth@vger.kernel.org>,
-	Johan Hedberg <johan.hedberg@gmail.com>
-To: Fabian Frederick <fabf@skynet.be>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20326343.74480.1414085453988.open-xchange@webmail.nmp.skynet.be>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "Birger Harzenetter" <WIMPy@yeti.dk>
+Subject: [bug] sunhme unable to receive IPv4 unicasts
+Date: Fri, 24 Oct 2014 00:04:42 +0200
+Message-ID: <op.xn7d94v644i3fq@lx3.fl.yeti.dk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII;
+	format=flowed	delsp=yes
+Content-Transfer-Encoding: 7BIT
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e183095026.adsl.alicedsl.de ([85.183.95.26]:57149 "EHLO
+	lx3.fl.yeti.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750799AbaJWWSM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Oct 2014 18:18:12 -0400
+Received: from lx3.fl.yeti.dk (IDENT:502@lx3.fl.yeti.dk [192.168.7.23])
+	by lx3.fl.yeti.dk (8.14.9/8.11.4) with ESMTP id s9NM4g7B009772
+	for <netdev@vger.kernel.org>; Fri, 24 Oct 2014 00:04:42 +0200
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Fabian,
+ from https://bugzilla.kernel.org/show_bug.cgi?id=86731
 
->>> use cpr for hci_cp_read_clock_offset instead of cp
->>> (already defined above).
->>> 
->>> Signed-off-by: Fabian Frederick <fabf@skynet.be>
->>> ---
->>> net/bluetooth/hci_conn.c | 6 +++---
->>> 1 file changed, 3 insertions(+), 3 deletions(-)
->>> 
->>> diff --git a/net/bluetooth/hci_conn.c b/net/bluetooth/hci_conn.c
->>> index b9517bd..6151e09 100644
->>> --- a/net/bluetooth/hci_conn.c
->>> +++ b/net/bluetooth/hci_conn.c
->>> @@ -141,10 +141,10 @@ int hci_disconnect(struct hci_conn *conn, __u8 reason)
->>>       */
->>>      if (conn->type == ACL_LINK && conn->role == HCI_ROLE_MASTER) {
->>>              struct hci_dev *hdev = conn->hdev;
->>> -           struct hci_cp_read_clock_offset cp;
->>> +           struct hci_cp_read_clock_offset cpr;
->>> 
->>> -           cp.handle = cpu_to_le16(conn->handle);
->>> -           hci_send_cmd(hdev, HCI_OP_READ_CLOCK_OFFSET, sizeof(cp), &cp);
->>> +           cpr.handle = cpu_to_le16(conn->handle);
->>> +           hci_send_cmd(hdev, HCI_OP_READ_CLOCK_OFFSET, sizeof(cpr), &cpr);
->> 
->> valid change, but I do not like cpr as variable name. We need to come up with
->> a better one. There are other places in the code where we had the same thing.
->> Please have a look there.
-> 
->   Maybe read_cp (like commit c1f23a2bfc89 with struct hci_cp_auth_requested
-> auth_cp) ?
+Any kind of transmission is fine.
+Reception of IPv4 broadcast works
+Reception of non-IP works (pppoe tested)
+But IPv4 unicasts don't show up at all.
+IPv6 not tested
 
-lets use clkoff_cp unless someone comes up with a better name.
+Additional tests:
+I tried to set promiscous mode, but still no trace of unicasts seen with  
+tcpdump.
 
-Regards
+Last known working version: 3.15.10
 
-Marcel
+   Greetings,
+     WIMPy
