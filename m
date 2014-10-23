@@ -1,82 +1,55 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH 06/14] net: dsa: Add support for hardware monitoring
-Date: Thu, 23 Oct 2014 21:55:26 +0200
-Message-ID: <20141023195526.GH25190@lunn.ch>
-References: <1414037002-25528-1-git-send-email-linux@roeck-us.net>
- <1414037002-25528-7-git-send-email-linux@roeck-us.net>
- <CAGVrzcYjPJWai9bxkh+WRrEEAzBKBd-LQm7zDeeouxngr_v9SQ@mail.gmail.com>
- <54488CE1.2000106@roeck-us.net>
- <20141023134706.GB25190@lunn.ch>
- <20141023162754.GA21343@roeck-us.net>
- <20141023165459.GE25190@lunn.ch>
- <20141023173847.GA22988@roeck-us.net>
- <20141023180357.GG25190@lunn.ch>
- <20141023184322.GA24281@roeck-us.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Lunn <andrew@lunn.ch>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Guenter Roeck <linux@roeck-us.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20141023184322.GA24281@roeck-us.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Michele Baldessari <michele@acksyn.org>
+Subject: [net 1/2] sctp: add transport state in /proc/net/sctp/remaddr
+Date: Thu, 23 Oct 2014 21:48:40 +0200
+Message-ID: <1414093721-14921-1-git-send-email-michele@acksyn.org>
+Cc: Vlad Yasevich <vyasevich@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org,
+	dborkman@redhat.com, Michele Baldessari <michele@acksyn.org>
+To: linux-sctp@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from palahniuk.acksyn.org ([5.9.7.26]:55134 "EHLO
+	palahniuk.acksyn.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932619AbaJWT4c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Oct 2014 15:56:32 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 23, 2014 at 11:43:22AM -0700, Guenter Roeck wrote:
-> On Thu, Oct 23, 2014 at 08:03:57PM +0200, Andrew Lunn wrote:
-> > > No, I am not saying that. The hwmon device's parent device will tell,
-> > > which is how it works for all other hwmon devices.
-> > 
-> > O.K, so parent is important.
-> > 
-> > > Not really. Again, the parent device provides that information. libsensors,
-> > > which is the preferred way of accessing sensors information from user space,
-> > > provides the parent device instance as part of the logical sensor device
-> > > name. In this case, the names will end up being dsa-isa-0000, dsa-isa-0001,
-> > > and so on. With your added tags it would be dsa.0.0-isa-0000, dsa.0.1-isa-0001,
-> > > and so on. I don't see how this would add any value.
-> > 
-> > isa is the name of the ethernet device? Why is it not eth0? Most
-> 
-> isa is just an internal name made up by libsensors, and pretty much just
-> indicates something like "neither i2c nor spi". It is mostly historic,
-> but nowadays almost part of the ABI. It is made up by user space,
-> based on the parent device type, not by the kernel.
+It is often quite helpful to be able to know the state of a transport
+outside of the application itself (for troubleshooting purposes or for
+monitoring purposes). Add it under /proc/net/sctp/remaddr.
 
-So for DSA, since it is not i2c or spi, the parent is actually
-irrelevant, because libsensor ignores it and says "IsSomethingAlien".
-So the name alone needs to identify it.
+Signed-off-by: Michele Baldessari <michele@acksyn.org>
+---
+ net/sctp/proc.c | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
 
- > You have convinced me that 'dsa' as hwmon attribute name is insufficient,
-> so let's see what we have.
-> 
-> - the parent network device in dst->master_netdev
-> - the dsa device in 'parent'
-> - the host device in host_dev
-> - the switch index in 'index'
-> 
-> First question is what should be the parent device.
-
-Does it even matter, given the observation above?  I would probably go
-for dsa, since as you said, the Ethernet device may have a temperature
-sensor of its own. DSA is a virtual device...
-
-> Second is what to choose for the hwmon device 'name' attribute.
-> 'dsa' is not sufficient, but what to choose instead ? dsa.X or dsa_X,
-> where X is the switch index ? At this point I am open to suggestions.
-> Note that we can not use the name returned from the switch probe
-> functions as it may contain spaces and other invalid characters.
-> Including the ethernet device name (eg as in eth0_dsa_0) may also be
-> problematic if it can contain '-', which is illegal for hwmon devices.
-
-Does hwmon offer a function to sanitise a string?
-
-The switch index definitely should be used and i would probably
-combine that with a sanitised version of the ethernet device name and
-"dsa".
-
-	Andrew
+diff --git a/net/sctp/proc.c b/net/sctp/proc.c
+index 34229ee7f379..bfb242af06ab 100644
+--- a/net/sctp/proc.c
++++ b/net/sctp/proc.c
+@@ -417,7 +417,7 @@ static void *sctp_remaddr_seq_start(struct seq_file *seq, loff_t *pos)
+ 
+ 	if (*pos == 0)
+ 		seq_printf(seq, "ADDR ASSOC_ID HB_ACT RTO MAX_PATH_RTX "
+-				"REM_ADDR_RTX  START\n");
++				"REM_ADDR_RTX START STATE\n");
+ 
+ 	return (void *)pos;
+ }
+@@ -497,7 +497,13 @@ static int sctp_remaddr_seq_show(struct seq_file *seq, void *v)
+ 			 * currently implemented, but we can record it with a
+ 			 * jiffies marker in a subsequent patch
+ 			 */
+-			seq_printf(seq, "0");
++			seq_printf(seq, "0 ");
++
++			/*
++			 * The current state of this destination. I.e.
++			 * SCTP_ACTIVE, SCTP_INACTIVE, ...
++			 */
++			seq_printf(seq, "%d", tsp->state);
+ 
+ 			seq_printf(seq, "\n");
+ 		}
+-- 
+2.1.0
