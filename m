@@ -1,65 +1,56 @@
-From: Varka Bhadram <varkabhadram@gmail.com>
-Subject: [PATCH net-next v2 3/6] ethernet: apm: xgene: remove unnecessary check
-Date: Thu, 23 Oct 2014 07:28:48 +0530
-Message-ID: <1414029531-5067-4-git-send-email-varkab@cdac.in>
-References: <1414029531-5067-1-git-send-email-varkab@cdac.in>
-Cc: davem@davemloft.net, Varka Bhadram <varkab@cdac.in>
-To: netdev@vger.kernel.org
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: irq disable in __netdev_alloc_frag() ?
+Date: Wed, 22 Oct 2014 19:22:29 -0700
+Message-ID: <CAMEtUuxo7TT+9S1KSHxyTKR+pD6HWJKaTOO=A_VGsZVji3YU2w@mail.gmail.com>
+References: <CAMEtUuwsUqd-U8ZSEXCB+a7cvLpbuRjPU2m0Ux84q6cxoWSx+g@mail.gmail.com>
+	<1414029160.2094.8.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <edumazet@google.com>,
+	Network Development <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f176.google.com ([209.85.192.176]:41864 "EHLO
-	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932192AbaJWB7P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2014 21:59:15 -0400
-Received: by mail-pd0-f176.google.com with SMTP id fp1so105737pdb.21
-        for <netdev@vger.kernel.org>; Wed, 22 Oct 2014 18:59:14 -0700 (PDT)
-In-Reply-To: <1414029531-5067-1-git-send-email-varkab@cdac.in>
+Received: from mail-wg0-f51.google.com ([74.125.82.51]:35124 "EHLO
+	mail-wg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932206AbaJWCWa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2014 22:22:30 -0400
+Received: by mail-wg0-f51.google.com with SMTP id b13so103085wgh.10
+        for <netdev@vger.kernel.org>; Wed, 22 Oct 2014 19:22:29 -0700 (PDT)
+In-Reply-To: <1414029160.2094.8.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-devm_ioremap_resource checks platform_get_resource() return value.
-We can remove the duplicate check here.
+On Wed, Oct 22, 2014 at 6:52 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>
+> On Wed, 2014-10-22 at 17:15 -0700, Alexei Starovoitov wrote:
+>> Hi Eric,
+>>
+>> in the commit 6f532612cc24 ("net: introduce netdev_alloc_frag()")
+>> you mentioned that the reason to disable interrupts
+>> in __netdev_alloc_frag() is:
+>> "- Must be IRQ safe (non NAPI drivers can use it)"
+>>
+>> Is there a way to do this conditionally?
+>>
+>> Without it I see 10% performance gain for my RX tests
+>> (from 6.9Mpps to 7.7Mpps) and __netdev_alloc_frag()
+>> itself goes from 6.6% to 2.1%
+>> (popf seems to be quite costly)
+>
+> Well, your driver is probably a NAPI one, so you need to
+> mask irqs, or to remove all non NAPI drivers from linux.
 
-Signed-off-by: Varka Bhadram <varkab@cdac.in>
----
- drivers/net/ethernet/apm/xgene/xgene_enet_main.c |   12 ------------
- 1 file changed, 12 deletions(-)
+yeah, the 10G+ nics I care about are all napi :)
 
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-index 3c208cc..f226594 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-@@ -761,10 +761,6 @@ static int xgene_enet_get_resources(struct xgene_enet_pdata *pdata)
- 	ndev = pdata->ndev;
- 
- 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "enet_csr");
--	if (!res) {
--		dev_err(dev, "Resource enet_csr not defined\n");
--		return -ENODEV;
--	}
- 	pdata->base_addr = devm_ioremap_resource(dev, res);
- 	if (IS_ERR(pdata->base_addr)) {
- 		dev_err(dev, "Unable to retrieve ENET Port CSR region\n");
-@@ -772,10 +768,6 @@ static int xgene_enet_get_resources(struct xgene_enet_pdata *pdata)
- 	}
- 
- 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "ring_csr");
--	if (!res) {
--		dev_err(dev, "Resource ring_csr not defined\n");
--		return -ENODEV;
--	}
- 	pdata->ring_csr_addr = devm_ioremap_resource(dev, res);
- 	if (IS_ERR(pdata->ring_csr_addr)) {
- 		dev_err(dev, "Unable to retrieve ENET Ring CSR region\n");
-@@ -783,10 +775,6 @@ static int xgene_enet_get_resources(struct xgene_enet_pdata *pdata)
- 	}
- 
- 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "ring_cmd");
--	if (!res) {
--		dev_err(dev, "Resource ring_cmd not defined\n");
--		return -ENODEV;
--	}
- 	pdata->ring_cmd_addr = devm_ioremap_resource(dev, res);
- 	if (IS_ERR(pdata->ring_cmd_addr)) {
- 		dev_err(dev, "Unable to retrieve ENET Ring command region\n");
--- 
-1.7.9.5
+> __netdev_alloc_frag() (__netdev_alloc_skb()) is used by all.
+>
+> Problem is __netdev_alloc_frag() is generally deep inside caller
+> chain, so using a private pool might have quite an overhead.
+
+yes. I was thinking, since dev is already passed
+into __netdev_alloc_skb(), we can check whether
+dev registered with napi via dev->napi_list and if so,
+tell inner __netdev_alloc_frag() to skip irq disabling...
+
+don't know about skb_queue_head() and friends.
+I'm only looking at pure rx now. One challenge at a time.
