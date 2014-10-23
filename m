@@ -1,41 +1,49 @@
-From: Fabian Frederick <fabf@skynet.be>
-Subject: [PATCH 1/1 net-next] libceph: remove unused variable in handle_reply()
-Date: Thu, 23 Oct 2014 18:15:59 +0200
-Message-ID: <1414080959-6053-1-git-send-email-fabf@skynet.be>
-Cc: Fabian Frederick <fabf@skynet.be>, Sage Weil <sage@inktank.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	ceph-devel@vger.kernel.org, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Crestez Dan Leonard <cdleonard@gmail.com>
+Subject: Re: [RFC] tcp md5 use of alloc_percpu
+Date: Thu, 23 Oct 2014 19:17:47 +0300
+Message-ID: <54492A2B.2090209@gmail.com>
+References: <5447FDB2.2010906@gmail.com> <544886C4.4020702@gmail.com>	 <1414041833.2094.28.camel@edumazet-glaptop2.roam.corp.google.com>	 <1414042688.2094.30.camel@edumazet-glaptop2.roam.corp.google.com>	 <5448A72D.1050806@cumulusnetworks.com>	 <1414070490.2094.39.camel@edumazet-glaptop2.roam.corp.google.com> <1414075405.20845.6.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Jonathan Toppins <jtoppins@cumulusnetworks.com>,
+	David Ahern <dsahern@gmail.com>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f181.google.com ([209.85.212.181]:63484 "EHLO
+	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750928AbaJWQRv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Oct 2014 12:17:51 -0400
+Received: by mail-wi0-f181.google.com with SMTP id n3so2455655wiv.8
+        for <netdev@vger.kernel.org>; Thu, 23 Oct 2014 09:17:50 -0700 (PDT)
+In-Reply-To: <1414075405.20845.6.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-osdmap_epoch is redundant with reassert_epoch and unused.
+On 10/23/2014 05:43 PM, Eric Dumazet wrote:
+> On Thu, 2014-10-23 at 06:21 -0700, Eric Dumazet wrote:
+>> On Thu, 2014-10-23 at 02:58 -0400, Jonathan Toppins wrote:
+>>
+>>>> +		if (!pool) {
+>>>> +			pool = kzalloc_node(sizeof(*pool), GFP_KERNEL,
+>>> GFP_DMA | GFP_KERNEL
+>>> This memory will possibly be used in a DMA correct? (thinking crypto
+>>> hardware offload)
+>>
+>> I am not sure this is the case, but this certainly can be added.
+>>
+> 
+> Yes, this is not the case.
+> 
+> 
+> The real problem is because sg_set_buf() does the following :
+> sg_set_page(sg, virt_to_page(buf), buflen, offset_in_page(buf));
+> 
+> So it assumes a memory range is not spanning multiple pages.
+Doesn't virt_to_page also assume that the memory is not from vmalloc?
 
-Signed-off-by: Fabian Frederick <fabf@skynet.be>
----
- net/ceph/osd_client.c | 2 --
- 1 file changed, 2 deletions(-)
+Making this portable would require checking if is_vmalloc_addr and doing
+vmalloc_to_page instead. Easier to just kmalloc instead.
 
-diff --git a/net/ceph/osd_client.c b/net/ceph/osd_client.c
-index f3fc54e..432bd75 100644
---- a/net/ceph/osd_client.c
-+++ b/net/ceph/osd_client.c
-@@ -1700,7 +1700,6 @@ static void handle_reply(struct ceph_osd_client *osdc, struct ceph_msg *msg,
- 	int err;
- 	u32 reassert_epoch;
- 	u64 reassert_version;
--	u32 osdmap_epoch;
- 	int already_completed;
- 	u32 bytes;
- 	unsigned int i;
-@@ -1725,7 +1724,6 @@ static void handle_reply(struct ceph_osd_client *osdc, struct ceph_msg *msg,
- 	result = ceph_decode_32(&p);
- 	reassert_epoch = ceph_decode_32(&p);
- 	reassert_version = ceph_decode_64(&p);
--	osdmap_epoch = ceph_decode_32(&p);
- 
- 	/* lookup */
- 	down_read(&osdc->map_sem);
--- 
-1.9.3
+Regards,
+Leonard
