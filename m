@@ -1,90 +1,367 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH 06/14] net: dsa: Add support for hardware monitoring
-Date: Thu, 23 Oct 2014 18:54:59 +0200
-Message-ID: <20141023165459.GE25190@lunn.ch>
-References: <1414037002-25528-1-git-send-email-linux@roeck-us.net>
- <1414037002-25528-7-git-send-email-linux@roeck-us.net>
- <CAGVrzcYjPJWai9bxkh+WRrEEAzBKBd-LQm7zDeeouxngr_v9SQ@mail.gmail.com>
- <54488CE1.2000106@roeck-us.net>
- <20141023134706.GB25190@lunn.ch>
- <20141023162754.GA21343@roeck-us.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Lunn <andrew@lunn.ch>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Guenter Roeck <linux@roeck-us.net>
+From: Roberto Medina <robertoxmed@gmail.com>
+Subject: [PATCH] net: ethernet: realtek: atp: checkpatch errors and warnings corrected
+Date: Thu, 23 Oct 2014 19:10:00 +0200
+Message-ID: <1414084200-5377-1-git-send-email-robertoxmed@gmail.com>
+Cc: linux-kernel@vger.kernel.org,
+	Roberto Medina <robertoxmed@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20141023162754.GA21343@roeck-us.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 23, 2014 at 09:27:55AM -0700, Guenter Roeck wrote:
-> On Thu, Oct 23, 2014 at 03:47:06PM +0200, Andrew Lunn wrote:
-> > > >>+static DEVICE_ATTR_RO(temp1_input);
-> > > >
-> > > >You probably want the number of temperature sensors to come from the
-> > > >switch driver, and support arbitrary number of temperature sensors?
-> > > 
-> > > In that case we would need the number of sensors, pass a sensor index,
-> > > and create a dynamic number of attributes. The code would get much more
-> > > complex without real benefit unless there is such a chip 
-> > 
-> > We are two different use cases here:
-> > 
-> > One switch chip with multiple temperature sensors
-> 
-> I understand this case. However, quite frankly, I consider this quite
-> unlikely to happen.
-> 
-> > Multiple switch chips, each with its own temperature sensor.
-> > 
-> I don't really see the problem. My understanding is that each of those
-> switch chips will instantiate itself, dsa_switch_setup will be called,
-> which will create a new hwmon device with its own sensors. That is
-> how all other hwmon devices do it, and it works just fine.
-> Why would that approach not work for switches in the dsa infrastructure ?
-> Am I missing something ?
-> 
-> If the concern or assumption is that there can not be more than one
-> "temp1_input" attribute, here is an example from a system with a large
-> number of chips with temperature sensors.
-> 
-> root@evo-xb49:/sys/class/hwmon# ls hwmon*/temp1_input
-> hwmon1/temp1_input   hwmon22/temp1_input  hwmon35/temp1_input
-> hwmon10/temp1_input  hwmon23/temp1_input  hwmon36/temp1_input
-> hwmon11/temp1_input  hwmon24/temp1_input  hwmon37/temp1_input
-> hwmon12/temp1_input  hwmon25/temp1_input  hwmon38/temp1_input
-> hwmon13/temp1_input  hwmon26/temp1_input  hwmon39/temp1_input
-> hwmon14/temp1_input  hwmon27/temp1_input  hwmon4/temp1_input
-> hwmon15/temp1_input  hwmon28/temp1_input  hwmon40/temp1_input
-> hwmon16/temp1_input  hwmon29/temp1_input  hwmon5/temp1_input
-> hwmon17/temp1_input  hwmon3/temp1_input   hwmon6/temp1_input
-> hwmon18/temp1_input  hwmon30/temp1_input  hwmon7/temp1_input
-> hwmon19/temp1_input  hwmon31/temp1_input  hwmon8/temp1_input
-> hwmon2/temp1_input   hwmon32/temp1_input  hwmon9/temp1_input
-> hwmon20/temp1_input  hwmon33/temp1_input
-> hwmon21/temp1_input  hwmon34/temp1_input
+From: Roberto Medina <robertoxmed@gmail.com>
 
-So are you saying it is impossible to map a hwmon device to a physical
-sensor? I can know there is a hotspot somewhere in my machine, but it
-is impossible to figure where that hot spot is using hwmon?
+Several warnings and errors of coding style errors corrected.
 
-> > If we are not doing the generic implementation now, how about avoiding
-> > an ABI break in the future, by hard coding the sensors with .0.0 on
-> > the end?
-> 
-> I am a little lost. What would that be for, and what would the ABI breakage
-> be ?
+Signed-off-by: Roberto Medina <robertoxmed@gmail.com>
 
-I assumed you would want to be able to map a temperature sensor to a
-switch package. You want a unique identifier, maybe its hwman name? So
-name "dsa.0.0" would be the temperature sensor 0 on switch 0. If we
-don't name them like this now, whenever somebody does add support for
-this will cause that name to change and we have an ABI break.
+---
+ drivers/net/ethernet/realtek/atp.h | 242 +++++++++++++++++++------------------
+ 1 file changed, 124 insertions(+), 118 deletions(-)
 
-
-     Andrew
+diff --git a/drivers/net/ethernet/realtek/atp.h b/drivers/net/ethernet/realtek/atp.h
+index 040b137..1e08a24 100644
+--- a/drivers/net/ethernet/realtek/atp.h
++++ b/drivers/net/ethernet/realtek/atp.h
+@@ -6,10 +6,10 @@
+ 
+ /* The header prepended to received packets. */
+ struct rx_header {
+-    ushort pad;			/* Pad. */
+-    ushort rx_count;
+-    ushort rx_status;		/* Unknown bit assignments :-<.  */
+-    ushort cur_addr;		/* Apparently the current buffer address(?) */
++	ushort pad;		/* Pad. */
++	ushort rx_count;
++	ushort rx_status;	/* Unknown bit assignments :-<.  */
++	ushort cur_addr;	/* Apparently the current buffer address(?) */
+ };
+ 
+ #define PAR_DATA	0
+@@ -29,22 +29,23 @@ struct rx_header {
+ #define RdAddr	0xC0
+ #define HNib	0x10
+ 
+-enum page0_regs
+-{
++enum page0_regs {
+     /* The first six registers hold the ethernet physical station address. */
+-    PAR0 = 0, PAR1 = 1, PAR2 = 2, PAR3 = 3, PAR4 = 4, PAR5 = 5,
+-    TxCNT0 = 6, TxCNT1 = 7,		/* The transmit byte count. */
+-    TxSTAT = 8, RxSTAT = 9,		/* Tx and Rx status. */
+-    ISR = 10, IMR = 11,			/* Interrupt status and mask. */
+-    CMR1 = 12,				/* Command register 1. */
+-    CMR2 = 13,				/* Command register 2. */
+-    MODSEL = 14,			/* Mode select register. */
+-    MAR = 14,				/* Memory address register (?). */
+-    CMR2_h = 0x1d, };
+-
+-enum eepage_regs
+-{ PROM_CMD = 6, PROM_DATA = 7 };	/* Note that PROM_CMD is in the "high" bits. */
++	PAR0 = 0, PAR1 = 1, PAR2 = 2, PAR3 = 3, PAR4 = 4, PAR5 = 5,
++	TxCNT0 = 6, TxCNT1 = 7,		/* The transmit byte count. */
++	TxSTAT = 8, RxSTAT = 9,		/* Tx and Rx status. */
++	ISR = 10, IMR = 11,		/* Interrupt status and mask. */
++	CMR1 = 12,			/* Command register 1. */
++	CMR2 = 13,			/* Command register 2. */
++	MODSEL = 14,			/* Mode select register. */
++	MAR = 14,			/* Memory address register (?). */
++	CMR2_h = 0x1d,
++};
+ 
++enum eepage_regs {
++	PROM_CMD = 6,	/* Note that PROM_CMD is in the "high" bits. */
++	PROM_DATA = 7
++}
+ 
+ #define ISR_TxOK	0x01
+ #define ISR_RxOK	0x04
+@@ -72,141 +73,146 @@ enum eepage_regs
+ #define CMR2h_Normal	2	/* Accept physical and broadcast address. */
+ #define CMR2h_PROMISC	3	/* Promiscuous mode. */
+ 
+-/* An inline function used below: it differs from inb() by explicitly return an unsigned
+-   char, saving a truncation. */
++/* An inline function used below: it differs from inb() by explicitly
++ * return an unsigned char, saving a truncation.
++ */
+ static inline unsigned char inbyte(unsigned short port)
+ {
+-    unsigned char _v;
+-    __asm__ __volatile__ ("inb %w1,%b0" :"=a" (_v):"d" (port));
+-    return _v;
++	unsigned char _v;
++
++	__asm__ __volatile__ ("inb %w1,%b0" : "=a" (_v) : "d" (port));
++	return _v;
+ }
+ 
+ /* Read register OFFSET.
+-   This command should always be terminated with read_end(). */
++ * This command should always be terminated with read_end().
++ */
+ static inline unsigned char read_nibble(short port, unsigned char offset)
+ {
+-    unsigned char retval;
+-    outb(EOC+offset, port + PAR_DATA);
+-    outb(RdAddr+offset, port + PAR_DATA);
+-    inbyte(port + PAR_STATUS);		/* Settling time delay */
+-    retval = inbyte(port + PAR_STATUS);
+-    outb(EOC+offset, port + PAR_DATA);
+-
+-    return retval;
++	unsigned char retval;
++
++	outb(EOC+offset, port + PAR_DATA);
++	outb(RdAddr+offset, port + PAR_DATA);
++	inbyte(port + PAR_STATUS);		/* Settling time delay */
++	retval = inbyte(port + PAR_STATUS);
++	outb(EOC+offset, port + PAR_DATA);
++
++	return retval;
+ }
+ 
+ /* Functions for bulk data read.  The interrupt line is always disabled. */
+ /* Get a byte using read mode 0, reading data from the control lines. */
+ static inline unsigned char read_byte_mode0(short ioaddr)
+ {
+-    unsigned char low_nib;
+-
+-    outb(Ctrl_LNibRead, ioaddr + PAR_CONTROL);
+-    inbyte(ioaddr + PAR_STATUS);
+-    low_nib = (inbyte(ioaddr + PAR_STATUS) >> 3) & 0x0f;
+-    outb(Ctrl_HNibRead, ioaddr + PAR_CONTROL);
+-    inbyte(ioaddr + PAR_STATUS);	/* Settling time delay -- needed!  */
+-    inbyte(ioaddr + PAR_STATUS);	/* Settling time delay -- needed!  */
+-    return low_nib | ((inbyte(ioaddr + PAR_STATUS) << 1) & 0xf0);
++	unsigned char low_nib;
++
++	outb(Ctrl_LNibRead, ioaddr + PAR_CONTROL);
++	inbyte(ioaddr + PAR_STATUS);
++	low_nib = (inbyte(ioaddr + PAR_STATUS) >> 3) & 0x0f;
++	outb(Ctrl_HNibRead, ioaddr + PAR_CONTROL);
++	inbyte(ioaddr + PAR_STATUS);	/* Settling time delay -- needed!  */
++	inbyte(ioaddr + PAR_STATUS);	/* Settling time delay -- needed!  */
++	return low_nib | ((inbyte(ioaddr + PAR_STATUS) << 1) & 0xf0);
+ }
+ 
+ /* The same as read_byte_mode0(), but does multiple inb()s for stability. */
+ static inline unsigned char read_byte_mode2(short ioaddr)
+ {
+-    unsigned char low_nib;
+-
+-    outb(Ctrl_LNibRead, ioaddr + PAR_CONTROL);
+-    inbyte(ioaddr + PAR_STATUS);
+-    low_nib = (inbyte(ioaddr + PAR_STATUS) >> 3) & 0x0f;
+-    outb(Ctrl_HNibRead, ioaddr + PAR_CONTROL);
+-    inbyte(ioaddr + PAR_STATUS);	/* Settling time delay -- needed!  */
+-    return low_nib | ((inbyte(ioaddr + PAR_STATUS) << 1) & 0xf0);
++	unsigned char low_nib;
++
++	outb(Ctrl_LNibRead, ioaddr + PAR_CONTROL);
++	inbyte(ioaddr + PAR_STATUS);
++	low_nib = (inbyte(ioaddr + PAR_STATUS) >> 3) & 0x0f;
++	outb(Ctrl_HNibRead, ioaddr + PAR_CONTROL);
++	inbyte(ioaddr + PAR_STATUS);	/* Settling time delay -- needed!  */
++	return low_nib | ((inbyte(ioaddr + PAR_STATUS) << 1) & 0xf0);
+ }
+ 
+ /* Read a byte through the data register. */
+ static inline unsigned char read_byte_mode4(short ioaddr)
+ {
+-    unsigned char low_nib;
++	unsigned char low_nib;
+ 
+-    outb(RdAddr | MAR, ioaddr + PAR_DATA);
+-    low_nib = (inbyte(ioaddr + PAR_STATUS) >> 3) & 0x0f;
+-    outb(RdAddr | HNib | MAR, ioaddr + PAR_DATA);
+-    return low_nib | ((inbyte(ioaddr + PAR_STATUS) << 1) & 0xf0);
++	outb(RdAddr | MAR, ioaddr + PAR_DATA);
++	low_nib = (inbyte(ioaddr + PAR_STATUS) >> 3) & 0x0f;
++	outb(RdAddr | HNib | MAR, ioaddr + PAR_DATA);
++	return low_nib | ((inbyte(ioaddr + PAR_STATUS) << 1) & 0xf0);
+ }
+ 
+ /* Read a byte through the data register, double reading to allow settling. */
+ static inline unsigned char read_byte_mode6(short ioaddr)
+ {
+-    unsigned char low_nib;
+-
+-    outb(RdAddr | MAR, ioaddr + PAR_DATA);
+-    inbyte(ioaddr + PAR_STATUS);
+-    low_nib = (inbyte(ioaddr + PAR_STATUS) >> 3) & 0x0f;
+-    outb(RdAddr | HNib | MAR, ioaddr + PAR_DATA);
+-    inbyte(ioaddr + PAR_STATUS);
+-    return low_nib | ((inbyte(ioaddr + PAR_STATUS) << 1) & 0xf0);
++	unsigned char low_nib;
++
++	outb(RdAddr | MAR, ioaddr + PAR_DATA);
++	inbyte(ioaddr + PAR_STATUS);
++	low_nib = (inbyte(ioaddr + PAR_STATUS) >> 3) & 0x0f;
++	outb(RdAddr | HNib | MAR, ioaddr + PAR_DATA);
++	inbyte(ioaddr + PAR_STATUS);
++	return low_nib | ((inbyte(ioaddr + PAR_STATUS) << 1) & 0xf0);
+ }
+ 
+ static inline void
+ write_reg(short port, unsigned char reg, unsigned char value)
+ {
+-    unsigned char outval;
+-    outb(EOC | reg, port + PAR_DATA);
+-    outval = WrAddr | reg;
+-    outb(outval, port + PAR_DATA);
+-    outb(outval, port + PAR_DATA);	/* Double write for PS/2. */
+-
+-    outval &= 0xf0;
+-    outval |= value;
+-    outb(outval, port + PAR_DATA);
+-    outval &= 0x1f;
+-    outb(outval, port + PAR_DATA);
+-    outb(outval, port + PAR_DATA);
+-
+-    outb(EOC | outval, port + PAR_DATA);
++	unsigned char outval;
++
++	outb(EOC | reg, port + PAR_DATA);
++	outval = WrAddr | reg;
++	outb(outval, port + PAR_DATA);
++	outb(outval, port + PAR_DATA);	/* Double write for PS/2. */
++
++	outval &= 0xf0;
++	outval |= value;
++	outb(outval, port + PAR_DATA);
++	outval &= 0x1f;
++	outb(outval, port + PAR_DATA);
++	outb(outval, port + PAR_DATA);
++
++	outb(EOC | outval, port + PAR_DATA);
+ }
+ 
+ static inline void
+ write_reg_high(short port, unsigned char reg, unsigned char value)
+ {
+-    unsigned char outval = EOC | HNib | reg;
++	unsigned char outval = EOC | HNib | reg;
+ 
+-    outb(outval, port + PAR_DATA);
+-    outval &= WrAddr | HNib | 0x0f;
+-    outb(outval, port + PAR_DATA);
+-    outb(outval, port + PAR_DATA);	/* Double write for PS/2. */
++	outb(outval, port + PAR_DATA);
++	outval &= WrAddr | HNib | 0x0f;
++	outb(outval, port + PAR_DATA);
++	outb(outval, port + PAR_DATA);	/* Double write for PS/2. */
+ 
+-    outval = WrAddr | HNib | value;
+-    outb(outval, port + PAR_DATA);
+-    outval &= HNib | 0x0f;		/* HNib | value */
+-    outb(outval, port + PAR_DATA);
+-    outb(outval, port + PAR_DATA);
++	outval = WrAddr | HNib | value;
++	outb(outval, port + PAR_DATA);
++	outval &= HNib | 0x0f;		/* HNib | value */
++	outb(outval, port + PAR_DATA);
++	outb(outval, port + PAR_DATA);
+ 
+-    outb(EOC | HNib | outval, port + PAR_DATA);
++	outb(EOC | HNib | outval, port + PAR_DATA);
+ }
+ 
+ /* Write a byte out using nibble mode.  The low nibble is written first. */
+ static inline void
+ write_reg_byte(short port, unsigned char reg, unsigned char value)
+ {
+-    unsigned char outval;
+-    outb(EOC | reg, port + PAR_DATA); 	/* Reset the address register. */
+-    outval = WrAddr | reg;
+-    outb(outval, port + PAR_DATA);
+-    outb(outval, port + PAR_DATA);	/* Double write for PS/2. */
+-
+-    outb((outval & 0xf0) | (value & 0x0f), port + PAR_DATA);
+-    outb(value & 0x0f, port + PAR_DATA);
+-    value >>= 4;
+-    outb(value, port + PAR_DATA);
+-    outb(0x10 | value, port + PAR_DATA);
+-    outb(0x10 | value, port + PAR_DATA);
+-
+-    outb(EOC  | value, port + PAR_DATA); 	/* Reset the address register. */
++	unsigned char outval;
++
++	outb(EOC | reg, port + PAR_DATA);  /* Reset the address register. */
++	outval = WrAddr | reg;
++	outb(outval, port + PAR_DATA);
++	outb(outval, port + PAR_DATA);	/* Double write for PS/2. */
++
++	outb((outval & 0xf0) | (value & 0x0f), port + PAR_DATA);
++	outb(value & 0x0f, port + PAR_DATA);
++	value >>= 4;
++	outb(value, port + PAR_DATA);
++	outb(0x10 | value, port + PAR_DATA);
++	outb(0x10 | value, port + PAR_DATA);
++
++	outb(EOC  | value, port + PAR_DATA);  /* Reset the address register. */
+ }
+ 
+-/*
+- * Bulk data writes to the packet buffer.  The interrupt line remains enabled.
++/* Bulk data writes to the packet buffer.  The interrupt line remains enabled.
+  * The first, faster method uses only the dataport (data modes 0, 2 & 4).
+  * The second (backup) method uses data and control regs (modes 1, 3 & 5).
+  * It should only be needed when there is skew between the individual data
+@@ -214,28 +220,28 @@ write_reg_byte(short port, unsigned char reg, unsigned char value)
+  */
+ static inline void write_byte_mode0(short ioaddr, unsigned char value)
+ {
+-    outb(value & 0x0f, ioaddr + PAR_DATA);
+-    outb((value>>4) | 0x10, ioaddr + PAR_DATA);
++	outb(value & 0x0f, ioaddr + PAR_DATA);
++	outb((value>>4) | 0x10, ioaddr + PAR_DATA);
+ }
+ 
+ static inline void write_byte_mode1(short ioaddr, unsigned char value)
+ {
+-    outb(value & 0x0f, ioaddr + PAR_DATA);
+-    outb(Ctrl_IRQEN | Ctrl_LNibWrite, ioaddr + PAR_CONTROL);
+-    outb((value>>4) | 0x10, ioaddr + PAR_DATA);
+-    outb(Ctrl_IRQEN | Ctrl_HNibWrite, ioaddr + PAR_CONTROL);
++	outb(value & 0x0f, ioaddr + PAR_DATA);
++	outb(Ctrl_IRQEN | Ctrl_LNibWrite, ioaddr + PAR_CONTROL);
++	outb((value>>4) | 0x10, ioaddr + PAR_DATA);
++	outb(Ctrl_IRQEN | Ctrl_HNibWrite, ioaddr + PAR_CONTROL);
+ }
+ 
+ /* Write 16bit VALUE to the packet buffer: the same as above just doubled. */
+ static inline void write_word_mode0(short ioaddr, unsigned short value)
+ {
+-    outb(value & 0x0f, ioaddr + PAR_DATA);
+-    value >>= 4;
+-    outb((value & 0x0f) | 0x10, ioaddr + PAR_DATA);
+-    value >>= 4;
+-    outb(value & 0x0f, ioaddr + PAR_DATA);
+-    value >>= 4;
+-    outb((value & 0x0f) | 0x10, ioaddr + PAR_DATA);
++	outb(value & 0x0f, ioaddr + PAR_DATA);
++	value >>= 4;
++	outb((value & 0x0f) | 0x10, ioaddr + PAR_DATA);
++	value >>= 4;
++	outb(value & 0x0f, ioaddr + PAR_DATA);
++	value >>= 4;
++	outb((value & 0x0f) | 0x10, ioaddr + PAR_DATA);
+ }
+ 
+ /*  EEPROM_Ctrl bits. */
+@@ -248,10 +254,10 @@ static inline void write_word_mode0(short ioaddr, unsigned short value)
+ 
+ /* Delay between EEPROM clock transitions. */
+ #define eeprom_delay(ticks) \
+-do { int _i = 40; while (--_i > 0) { __SLOW_DOWN_IO; }} while (0)
++do { int _i = 40; while (--_i > 0) { __SLOW_DOWN_IO; } } while (0)
+ 
+ /* The EEPROM commands include the alway-set leading bit. */
+ #define EE_WRITE_CMD(offset)	(((5 << 6) + (offset)) << 17)
+-#define EE_READ(offset) 	(((6 << 6) + (offset)) << 17)
++#define EE_READ(offset)		(((6 << 6) + (offset)) << 17)
+ #define EE_ERASE(offset)	(((7 << 6) + (offset)) << 17)
+ #define EE_CMD_SIZE	27	/* The command+address+data size. */
+-- 
+2.1.2
