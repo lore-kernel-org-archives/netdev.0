@@ -1,91 +1,74 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 00/14] net: dsa: Fixes and enhancements
-Date: Wed, 22 Oct 2014 21:45:41 -0700
-Message-ID: <CAGVrzcbohXf09pvrzayZEfcpjr8U-h-hyuYMnU0yTBJny0U27A@mail.gmail.com>
-References: <1414037002-25528-1-git-send-email-linux@roeck-us.net>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: [PATCH 06/14] net: dsa: Add support for hardware monitoring
+Date: Wed, 22 Oct 2014 22:06:41 -0700
+Message-ID: <54488CE1.2000106@roeck-us.net>
+References: <1414037002-25528-1-git-send-email-linux@roeck-us.net> <1414037002-25528-7-git-send-email-linux@roeck-us.net> <CAGVrzcYjPJWai9bxkh+WRrEEAzBKBd-LQm7zDeeouxngr_v9SQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: netdev <netdev@vger.kernel.org>,
 	"David S. Miller" <davem@davemloft.net>,
 	Andrew Lunn <andrew@lunn.ch>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Guenter Roeck <linux@roeck-us.net>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1414037002-25528-1-git-send-email-linux@roeck-us.net>
+In-Reply-To: <CAGVrzcYjPJWai9bxkh+WRrEEAzBKBd-LQm7zDeeouxngr_v9SQ@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-2014-10-22 21:03 GMT-07:00 Guenter Roeck <linux@roeck-us.net>:
-> Patch 01/14 addresses an annoying and unhelpful log message.
+On 10/22/2014 09:37 PM, Florian Fainelli wrote:
+> 2014-10-22 21:03 GMT-07:00 Guenter Roeck <linux@roeck-us.net>:
+>> Some Marvell switches provide chip temperature data.
+>> Add support for reporting it to the dsa infrastructure.
+>>
+>> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+>> ---
+> [snip]
 >
-> Patches 02/14 and 03/14 are minor enhancements, adding support for
-> known switch revisions.
+>> +/* hwmon support ************************************************************/
+>> +
+>> +#if defined(CONFIG_HWMON) || (defined(MODULE) && defined(CONFIG_HWMON_MODULE))
 >
-> Patches 04/14 and 05/14 add support for MV88E6352 and MV88E6176.
+> IS_ENABLED(CONFIG_HWMON)?
 >
-> Patch 06/14 adds support for hardware monitoring, specifically for
-> reporting the chip temperature, to the dsa subsystem.
->
-> Patches 07/14 and 08/14 implement hardware monitoring for MV88E6352,
-> MV88E6176, MV88E6123, MV88E6161, and MV88E6165.
->
-> Patch 09/14 adds support for EEPROM access to the DSA subsystem.
->
-> Patch 10/14 implements EEPROM access for MV88E6352 and MV88E6176.
->
-> Patch 11/14 adds support for reading switch registers to the DSA
-> subsystem.
->
-> Patches 12/14 amd 13/14 implement support for reading switch registers
-> to the drivers for MV88E6352, MV88E6176, MV88E6123, MV88E6161, and MV88E6165.
->
-> Patch 14/14 adds support for reading additional RMON registers to the drivers
-> for  MV88E6352, MV88E6176, MV88E6123, MV88E6161, and MV88E6165.
->
-> The series resides and was tested on top of v3.18-rc1 in a system
-> with MV88E6352. Testing in systems with 88E6131, 88E6060 and MV88E6165
-> was done earlier (I don't have access to those systems right now).
-> The series applies cleanly to net-next as of today (10/22).
 
-Besides the two nitpicking comments, this looks really good to me, thanks!
+Hi Florian,
 
+unfortunately, that won't work; I had it initially and got a nice error message
+from Fengguang's build test bot.
+
+Problem is that hwmon can be built as module and the dsa subsystem can be built
+into the kernel. In that case, hwmon functionality in the driver must be disabled.
+The above condition covers that case. The nouveau graphics driver has the same
+problem and uses the same conditional to solve it.
+
+An alternative would be to select HWMON in the NET_DSA Kconfig entry; the
+Broadcom Tigon3 driver does that. I just don't know if that is a good idea.
+I am open to suggestions.
+
+>> +
+>> +static ssize_t temp1_input_show(struct device *dev,
+>> +                               struct device_attribute *attr, char *buf)
+>> +{
+>> +       struct dsa_switch *ds = dev_get_drvdata(dev);
+>> +       int temp, ret;
+>> +
+>> +       ret = ds->drv->get_temp(ds, &temp);
+>> +       if (ret < 0)
+>> +               return ret;
+>> +
+>> +       return sprintf(buf, "%d\n", temp * 1000);
+>> +}
+>> +static DEVICE_ATTR_RO(temp1_input);
 >
-> ----------------------------------------------------------------
-> Guenter Roeck (14):
->       net: dsa: Don't set skb->protocol on outgoing tagged packets
->       net: dsa: Report known silicon revisions for Marvell 88E6060
->       net: dsa: Report known silicon revisions for Marvell 88E6131
->       net: dsa: Add support for Marvell 88E6352
->       net: dsa/mv88e6352: Add support for MV88E6176
->       net: dsa: Add support for hardware monitoring
->       net: dsa/mv88e6352: Report chip temperature
->       net: dsa/mv88e6123_61_65: Report chip temperature
->       net: dsa: Add support for switch EEPROM access
->       net: dsa/mv88e6352: Implement EEPROM access functions
->       net: dsa: Add support for reading switch registers with ethtool
->       net: dsa/mv88e6123_61_65: Add support for reading switch registers
->       net: dsa/mv88e6352: Add support for reading switch registers
->       net: dsa: Provide additional RMON statistics
->
->  MAINTAINERS                       |   5 +
->  drivers/net/dsa/Kconfig           |   9 +
->  drivers/net/dsa/Makefile          |   3 +
->  drivers/net/dsa/mv88e6060.c       |   5 +-
->  drivers/net/dsa/mv88e6123_61_65.c |  68 +++-
->  drivers/net/dsa/mv88e6131.c       |  12 +-
->  drivers/net/dsa/mv88e6352.c       | 789 ++++++++++++++++++++++++++++++++++++++
->  drivers/net/dsa/mv88e6xxx.c       |  53 ++-
->  drivers/net/dsa/mv88e6xxx.h       |  15 +
->  include/net/dsa.h                 |  20 +
->  net/dsa/dsa.c                     | 111 ++++++
->  net/dsa/slave.c                   |  60 +++
->  net/dsa/tag_dsa.c                 |   2 -
->  net/dsa/tag_edsa.c                |   2 -
->  net/dsa/tag_trailer.c             |   2 -
->  15 files changed, 1138 insertions(+), 18 deletions(-)
->  create mode 100644 drivers/net/dsa/mv88e6352.c
+> You probably want the number of temperature sensors to come from the
+> switch driver, and support arbitrary number of temperature sensors?
 
+In that case we would need the number of sensors, pass a sensor index,
+and create a dynamic number of attributes. The code would get much more
+complex without real benefit unless there is such a chip - and if there is,
+we can still change the code at that time. I would prefer to keep it simple
+for now.
 
-
--- 
-Florian
+Thanks,
+Guenter
