@@ -1,36 +1,44 @@
-From: "Birger Harzenetter" <WIMPy@yeti.dk>
-Subject: [bug] sunhme unable to receive IPv4 unicasts
-Date: Fri, 24 Oct 2014 00:04:42 +0200
-Message-ID: <op.xn7d94v644i3fq@lx3.fl.yeti.dk>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 net] tcp: md5: do not use alloc_percpu()
+Date: Thu, 23 Oct 2014 15:57:48 -0700
+Message-ID: <1414105068.20845.38.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <5447FDB2.2010906@gmail.com> <544886C4.4020702@gmail.com>
+	 <1414041833.2094.28.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1414042688.2094.30.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <5448A72D.1050806@cumulusnetworks.com>
+	 <1414070490.2094.39.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1414075405.20845.6.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1414081998.20845.18.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1414094338.20845.30.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <5449689B.9040806@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
-	format=flowed	delsp=yes
-Content-Transfer-Encoding: 7BIT
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Crestez Dan Leonard <cdleonard@gmail.com>,
+	netdev@vger.kernel.org,
+	Jonathan Toppins <jtoppins@cumulusnetworks.com>
+To: David Ahern <dsahern@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e183095026.adsl.alicedsl.de ([85.183.95.26]:57149 "EHLO
-	lx3.fl.yeti.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750799AbaJWWSM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Oct 2014 18:18:12 -0400
-Received: from lx3.fl.yeti.dk (IDENT:502@lx3.fl.yeti.dk [192.168.7.23])
-	by lx3.fl.yeti.dk (8.14.9/8.11.4) with ESMTP id s9NM4g7B009772
-	for <netdev@vger.kernel.org>; Fri, 24 Oct 2014 00:04:42 +0200
+Received: from mail-pd0-f169.google.com ([209.85.192.169]:46211 "EHLO
+	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750890AbaJWW5t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Oct 2014 18:57:49 -0400
+Received: by mail-pd0-f169.google.com with SMTP id w10so307403pde.14
+        for <netdev@vger.kernel.org>; Thu, 23 Oct 2014 15:57:49 -0700 (PDT)
+In-Reply-To: <5449689B.9040806@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- from https://bugzilla.kernel.org/show_bug.cgi?id=86731
+On Thu, 2014-10-23 at 14:44 -0600, David Ahern wrote:
 
-Any kind of transmission is fine.
-Reception of IPv4 broadcast works
-Reception of non-IP works (pppoe tested)
-But IPv4 unicasts don't show up at all.
-IPv6 not tested
+> global variables do not need to be initialized to 0.
+> 
 
-Additional tests:
-I tried to set promiscous mode, but still no trace of unicasts seen with  
-tcpdump.
+Compilers are generating the same code nowadays.
+They place such zero variables in bss anyway.
+They finally got this right, maybe years ago.
 
-Last known working version: 3.15.10
 
-   Greetings,
-     WIMPy
+$ nm -v net/ipv4/tcp.o | grep populated
+0000000000000078 b tcp_md5sig_pool_populated
