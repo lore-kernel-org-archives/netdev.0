@@ -1,239 +1,215 @@
-From: Yanko Kaneti <yaneti@declera.com>
-Subject: Re: localed stuck in recent 3.18 git in copy_net_ns?
-Date: Fri, 24 Oct 2014 00:45:40 +0300
-Message-ID: <1414100740.2065.2.camel@declera.com>
-References: <20141022181135.GH4977@linux.vnet.ibm.com>
-	 <87d29kezby.fsf@x220.int.ebiederm.org>
-	 <20141022185511.GI4977@linux.vnet.ibm.com>
-	 <CA+5PVA56ajrBQ-C9orSb9-_qhMKe994QL2x0FcKbe6BYmaWFBw@mail.gmail.com>
-	 <20141022224032.GA1240@declera.com>
-	 <20141022232421.GN4977@linux.vnet.ibm.com>
-	 <1414044566.2031.1.camel@declera.com>
-	 <20141023122750.GP4977@linux.vnet.ibm.com>
-	 <20141023153333.GA19278@linux.vnet.ibm.com>
-	 <20141023195159.GA2331@declera.com>
-	 <20141023200507.GC4977@linux.vnet.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Josh Boyer <jwboyer@fedoraproject.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Cong Wang <cwang@twopensource.com>,
-	Kevin Fenzi <kevin@scrye.com>, netdev <netdev@vger.kernel.org>,
-	"Linux-Kernel@Vger. Kernel. Org" <linux-kernel@vger.kernel.org>
-To: paulmck@linux.vnet.ibm.com
+From: Kyeyoon Park <kyeyoonp@qca.qualcomm.com>
+Subject: [PATCH] bridge: Add support for IEEE 802.11 Proxy ARP
+Date: Thu, 23 Oct 2014 14:49:17 -0700
+Message-ID: <1414100957-8288-1-git-send-email-kyeyoonp@qca.qualcomm.com>
+Cc: kyeyoonp@qca.qualcomm.com, jouni@qca.qualcomm.com,
+	netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.declera.com ([87.118.141.5]:59614 "HELO mail.declera.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1750928AbaJWVpn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Oct 2014 17:45:43 -0400
-In-Reply-To: <20141023200507.GC4977@linux.vnet.ibm.com>
+Received: from smtp.codeaurora.org ([198.145.11.231]:47410 "EHLO
+	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751362AbaJWVt3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Oct 2014 17:49:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Kyeyoon Park <kyeyoonp@codeaurora.org>
 
-On Thu, 2014-10-23 at 13:05 -0700, Paul E. McKenney wrote:
-> On Thu, Oct 23, 2014 at 10:51:59PM +0300, Yanko Kaneti wrote:
-> > On Thu-10/23/14-2014 08:33, Paul E. McKenney wrote:
-> > > On Thu, Oct 23, 2014 at 05:27:50AM -0700, Paul E. McKenney wrote:
-> > > > On Thu, Oct 23, 2014 at 09:09:26AM +0300, Yanko Kaneti wrote:
-> > > > > On Wed, 2014-10-22 at 16:24 -0700, Paul E. McKenney wrote:
-> > > > > > On Thu, Oct 23, 2014 at 01:40:32AM +0300, Yanko Kaneti 
-> > > > > > wrote:
-> > > > > > > On Wed-10/22/14-2014 15:33, Josh Boyer wrote:
-> > > > > > > > On Wed, Oct 22, 2014 at 2:55 PM, Paul E. McKenney
-> > > > > > > > <paulmck@linux.vnet.ibm.com> wrote:
-> > > > > > 
-> > > > > > [ . . . ]
-> > > > > > 
-> > > > > > > > > Don't get me wrong -- the fact that this kthread 
-> > > > > > > > > appears to
-> > > > > > > > > have
-> > > > > > > > > blocked within rcu_barrier() for 120 seconds means 
-> > > > > > > > > that
-> > > > > > > > > something is
-> > > > > > > > > most definitely wrong here.  I am surprised that 
-> > > > > > > > > there are no
-> > > > > > > > > RCU CPU
-> > > > > > > > > stall warnings, but perhaps the blockage is in the 
-> > > > > > > > > callback
-> > > > > > > > > execution
-> > > > > > > > > rather than grace-period completion.  Or something is
-> > > > > > > > > preventing this
-> > > > > > > > > kthread from starting up after the wake-up callback 
-> > > > > > > > > executes.
-> > > > > > > > > Or...
-> > > > > > > > > 
-> > > > > > > > > Is this thing reproducible?
-> > > > > > > > 
-> > > > > > > > I've added Yanko on CC, who reported the backtrace 
-> > > > > > > > above and can
-> > > > > > > > recreate it reliably.  Apparently reverting the RCU 
-> > > > > > > > merge commit
-> > > > > > > > (d6dd50e) and rebuilding the latest after that does 
-> > > > > > > > not show the
-> > > > > > > > issue.  I'll let Yanko explain more and answer any 
-> > > > > > > > questions you
-> > > > > > > > have.
-> > > > > > > 
-> > > > > > > - It is reproducible
-> > > > > > > - I've done another build here to double check and its 
-> > > > > > > definitely
-> > > > > > > the rcu merge
-> > > > > > >   that's causing it.
-> > > > > > > 
-> > > > > > > Don't think I'll be able to dig deeper, but I can do 
-> > > > > > > testing if
-> > > > > > > needed.
-> > > > > > 
-> > > > > > Please!  Does the following patch help?
-> > > > > 
-> > > > > Nope, doesn't seem to make a difference to the modprobe 
-> > > > > ppp_generic
-> > > > > test
-> > > > 
-> > > > Well, I was hoping.  I will take a closer look at the RCU 
-> > > > merge commit
-> > > > and see what suggests itself.  I am likely to ask you to 
-> > > > revert specific
-> > > > commits, if that works for you.
-> > > 
-> > > Well, rather than reverting commits, could you please try 
-> > > testing the
-> > > following commits?
-> > > 
-> > > 11ed7f934cb8 (rcu: Make nocb leader kthreads process pending 
-> > > callbacks after spawning)
-> > > 
-> > > 73a860cd58a1 (rcu: Replace flush_signals() with 
-> > > WARN_ON(signal_pending()))
-> > > 
-> > > c847f14217d5 (rcu: Avoid misordering in nocb_leader_wait())
-> > > 
-> > >         For whatever it is worth, I am guessing this one.
-> > 
-> > Indeed, c847f14217d5 it is.
-> > 
-> > Much to my embarrasment I just noticed that in addition to the
-> > rcu merge, triggering the bug "requires" my specific Fedora 
-> > rawhide network
-> > setup. Booting in single mode and modprobe ppp_generic is fine. 
-> > The bug
-> > appears when starting with my regular fedora network setup, which 
-> > in my case
-> > includes 3 ethernet adapters and a libvirt birdge+nat setup.
-> > 
-> > Hope that helps.
-> > 
-> > I am attaching the config.
-> 
-> It does help a lot, thank you!!!
-> 
-> The following patch is a bit of a shot in the dark, and assumes that
-> commit 1772947bd012 (rcu: Handle NOCB callbacks from irq-disabled 
-> idle
-> code) introduced the problem.  Does this patch fix things up?
+This feature is defined in IEEE Std 802.11-2012, 10.23.13. It allows
+the AP devices to keep track of the hardware-address-to-IP-address
+mapping of the mobile devices within the WLAN network.
 
-Unfortunately not, This is linus-tip + patch
+The AP will learn this mapping via observing DHCP, ARP, and NS/NA
+frames. When a request for such information is made (i.e. ARP request,
+Neighbor Solicitation), the AP will respond on behalf of the
+associated mobile device. In the process of doing so, the AP will drop
+the multicast request frame that was intended to go out to the wireless
+medium.
 
+It was recommended at the LKS workshop to do this implementation in
+the bridge layer. vxlan.c is already doing something very similar.
+The DHCP snooping code will be added to the userspace application
+(hostapd) per the recommendation.
 
-INFO: task kworker/u16:6:96 blocked for more than 120 seconds.
-      Not tainted 3.18.0-rc1+ #4
-"echo 0 > /proc/sys/kernel/hung_task_timeout_secs" disables this message.
-kworker/u16:6   D ffff8800ca84cec0 11168    96      2 0x00000000
-Workqueue: netns cleanup_net
- ffff8802218339e8 0000000000000096 ffff8800ca84cec0 00000000001d5f00
- ffff880221833fd8 00000000001d5f00 ffff880223264ec0 ffff8800ca84cec0
- ffffffff82c52040 7fffffffffffffff ffffffff81ee2658 ffffffff81ee2650
-Call Trace:
- [<ffffffff8185b8e9>] schedule+0x29/0x70
- [<ffffffff81860b0c>] schedule_timeout+0x26c/0x410
- [<ffffffff81028bea>] ? native_sched_clock+0x2a/0xa0
- [<ffffffff8110759c>] ? mark_held_locks+0x7c/0xb0
- [<ffffffff81861b90>] ? _raw_spin_unlock_irq+0x30/0x50
- [<ffffffff8110772d>] ? trace_hardirqs_on_caller+0x15d/0x200
- [<ffffffff8185d31c>] wait_for_completion+0x10c/0x150
- [<ffffffff810e4ed0>] ? wake_up_state+0x20/0x20
- [<ffffffff8112a219>] _rcu_barrier+0x159/0x200
- [<ffffffff8112a315>] rcu_barrier+0x15/0x20
- [<ffffffff8171657f>] netdev_run_todo+0x6f/0x310
- [<ffffffff8170b145>] ? rollback_registered_many+0x265/0x2e0
- [<ffffffff817235ee>] rtnl_unlock+0xe/0x10
- [<ffffffff8170cfa6>] default_device_exit_batch+0x156/0x180
- [<ffffffff810fd390>] ? abort_exclusive_wait+0xb0/0xb0
- [<ffffffff81705053>] ops_exit_list.isra.1+0x53/0x60
- [<ffffffff81705c00>] cleanup_net+0x100/0x1f0
- [<ffffffff810cca98>] process_one_work+0x218/0x850
- [<ffffffff810cc9ff>] ? process_one_work+0x17f/0x850
- [<ffffffff810cd1b7>] ? worker_thread+0xe7/0x4a0
- [<ffffffff810cd13b>] worker_thread+0x6b/0x4a0
- [<ffffffff810cd0d0>] ? process_one_work+0x850/0x850
- [<ffffffff810d348b>] kthread+0x10b/0x130
- [<ffffffff81028c69>] ? sched_clock+0x9/0x10
- [<ffffffff810d3380>] ? kthread_create_on_node+0x250/0x250
- [<ffffffff818628bc>] ret_from_fork+0x7c/0xb0
- [<ffffffff810d3380>] ? kthread_create_on_node+0x250/0x250
-4 locks held by kworker/u16:6/96:
- #0:  ("%s""netns"){.+.+.+}, at: [<ffffffff810cc9ff>] process_one_work+0x17f/0x850
- #1:  (net_cleanup_work){+.+.+.}, at: [<ffffffff810cc9ff>] process_one_work+0x17f/0x850
- #2:  (net_mutex){+.+.+.}, at: [<ffffffff81705b8c>] cleanup_net+0x8c/0x1f0
- #3:  (rcu_sched_state.barrier_mutex){+.+...}, at: [<ffffffff8112a0f5>] _rcu_barrier+0x35/0x200
-INFO: task modprobe:1045 blocked for more than 120 seconds.
-      Not tainted 3.18.0-rc1+ #4
-"echo 0 > /proc/sys/kernel/hung_task_timeout_secs" disables this message.
-modprobe        D ffff880218343480 12920  1045   1044 0x00000080
- ffff880218353bf8 0000000000000096 ffff880218343480 00000000001d5f00
- ffff880218353fd8 00000000001d5f00 ffffffff81e1b580 ffff880218343480
- ffff880218343480 ffffffff81f8f748 0000000000000246 ffff880218343480
-Call Trace:
- [<ffffffff8185be91>] schedule_preempt_disabled+0x31/0x80
- [<ffffffff8185d6e3>] mutex_lock_nested+0x183/0x440
- [<ffffffff81705a1f>] ? register_pernet_subsys+0x1f/0x50
- [<ffffffff81705a1f>] ? register_pernet_subsys+0x1f/0x50
- [<ffffffffa0673000>] ? 0xffffffffa0673000
- [<ffffffff81705a1f>] register_pernet_subsys+0x1f/0x50
- [<ffffffffa0673048>] br_init+0x48/0xd3 [bridge]
- [<ffffffff81002148>] do_one_initcall+0xd8/0x210
- [<ffffffff81153052>] load_module+0x20c2/0x2870
- [<ffffffff8114e030>] ? store_uevent+0x70/0x70
- [<ffffffff81278717>] ? kernel_read+0x57/0x90
- [<ffffffff811539e6>] SyS_finit_module+0xa6/0xe0
- [<ffffffff81862969>] system_call_fastpath+0x12/0x17
-1 lock held by modprobe/1045:
- #0:  (net_mutex){+.+.+.}, at: [<ffffffff81705a1f>] register_pernet_subsys+0x1f/0x50
+This RFC commit is only for IPv4. A similar approach in the bridge
+layer will be taken for IPv6 as well.
 
+Signed-off-by: Kyeyoon Park <kyeyoonp@codeaurora.org>
+---
+ include/uapi/linux/if_link.h |  1 +
+ net/bridge/br_forward.c      |  5 ++++
+ net/bridge/br_input.c        | 60 ++++++++++++++++++++++++++++++++++++++++++++
+ net/bridge/br_netlink.c      |  4 ++-
+ net/bridge/br_private.h      |  1 +
+ net/bridge/br_sysfs_if.c     |  2 ++
+ 6 files changed, 72 insertions(+), 1 deletion(-)
 
->                 Thanx, Paul
-> 
-> ---------------------------------------------------------------------
-> ---
-> 
-> rcu: Kick rcuo kthreads after their CPU goes offline
-> 
-> If a no-CBs CPU were to post an RCU callback with interrupts disabled
-> after it entered the idle loop for the last time, there might be no
-> deferred wakeup for the corresponding rcuo kthreads.  This commit
-> therefore adds a set of calls to do_nocb_deferred_wakeup() after the
-> CPU has gone completely offline.
-> 
-> Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
-> 
-> diff --git a/kernel/rcu/tree.c b/kernel/rcu/tree.c
-> index 84b41b3c6ebd..4f3d25a58786 100644
-> --- a/kernel/rcu/tree.c
-> +++ b/kernel/rcu/tree.c
-> @@ -3493,8 +3493,10 @@ static int rcu_cpu_notify(struct 
-> notifier_block *self,
->         case CPU_DEAD_FROZEN:
->         case CPU_UP_CANCELED:
->         case CPU_UP_CANCELED_FROZEN:
-> -       for_each_rcu_flavor(rsp)
-> +       for_each_rcu_flavor(rsp) {
->         rcu_cleanup_dead_cpu(cpu, rsp);
-> +       do_nocb_deferred_wakeup(this_cpu_ptr(rsp->rda));
-> +       }
->         break;
->         default:
->         break;
-> 
-> 
+diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+index ff95760..62a17e0 100644
+--- a/include/uapi/linux/if_link.h
++++ b/include/uapi/linux/if_link.h
+@@ -231,6 +231,7 @@ enum {
+ 	IFLA_BRPORT_FAST_LEAVE,	/* multicast fast leave    */
+ 	IFLA_BRPORT_LEARNING,	/* mac learning */
+ 	IFLA_BRPORT_UNICAST_FLOOD, /* flood unicast traffic */
++	IFLA_BRPORT_PROXYARP,	/* proxy ARP */
+ 	__IFLA_BRPORT_MAX
+ };
+ #define IFLA_BRPORT_MAX (__IFLA_BRPORT_MAX - 1)
+diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
+index 056b67b..61d9edf 100644
+--- a/net/bridge/br_forward.c
++++ b/net/bridge/br_forward.c
+@@ -181,6 +181,11 @@ static void br_flood(struct net_bridge *br, struct sk_buff *skb,
+ 		/* Do not flood unicast traffic to ports that turn it off */
+ 		if (unicast && !(p->flags & BR_FLOOD))
+ 			continue;
++
++		/* Do not flood to ports that enable proxy ARP */
++		if (p->flags & BR_PROXYARP)
++			continue;
++
+ 		prev = maybe_deliver(prev, p, skb, __packet_hook);
+ 		if (IS_ERR(prev))
+ 			goto out;
+diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
+index 366c436..a548fbf 100644
+--- a/net/bridge/br_input.c
++++ b/net/bridge/br_input.c
+@@ -16,6 +16,8 @@
+ #include <linux/netdevice.h>
+ #include <linux/etherdevice.h>
+ #include <linux/netfilter_bridge.h>
++#include <linux/neighbour.h>
++#include <net/arp.h>
+ #include <linux/export.h>
+ #include <linux/rculist.h>
+ #include "br_private.h"
+@@ -57,6 +59,60 @@ static int br_pass_frame_up(struct sk_buff *skb)
+ 		       netif_receive_skb);
+ }
+ 
++static void br_do_proxy_arp(struct sk_buff *skb, struct net_bridge *br,
++			    u16 vid)
++{
++	struct net_device *dev = br->dev;
++	struct neighbour *n;
++	struct arphdr *parp;
++	u8 *arpptr, *sha;
++	__be32 sip, tip;
++
++	if (dev->flags & IFF_NOARP)
++		return;
++
++	if (!pskb_may_pull(skb, arp_hdr_len(dev))) {
++		dev->stats.tx_dropped++;
++		return;
++	}
++	parp = arp_hdr(skb);
++
++	if (parp->ar_pro != htons(ETH_P_IP) ||
++	    parp->ar_op != htons(ARPOP_REQUEST) ||
++	    parp->ar_hln != dev->addr_len ||
++	    parp->ar_pln != 4)
++		return;
++
++	arpptr = (u8 *)parp + sizeof(struct arphdr);
++	sha = arpptr;
++	arpptr += dev->addr_len;	/* sha */
++	memcpy(&sip, arpptr, sizeof(sip));
++	arpptr += sizeof(sip);
++	arpptr += dev->addr_len;	/* tha */
++	memcpy(&tip, arpptr, sizeof(tip));
++
++	if (ipv4_is_loopback(tip) ||
++	    ipv4_is_multicast(tip))
++		return;
++
++	n = neigh_lookup(&arp_tbl, &tip, dev);
++	if (n) {
++		struct net_bridge_fdb_entry *f;
++
++		if (!(n->nud_state & NUD_VALID)) {
++			neigh_release(n);
++			return;
++		}
++
++		f = __br_fdb_get(br, n->ha, vid);
++		if (f)
++			arp_send(ARPOP_REPLY, ETH_P_ARP, sip, skb->dev, tip,
++				 sha, n->ha, sha);
++
++		neigh_release(n);
++	}
++}
++
+ /* note: already called with rcu_read_lock */
+ int br_handle_frame_finish(struct sk_buff *skb)
+ {
+@@ -98,6 +154,10 @@ int br_handle_frame_finish(struct sk_buff *skb)
+ 	dst = NULL;
+ 
+ 	if (is_broadcast_ether_addr(dest)) {
++		if (p->flags & BR_PROXYARP &&
++		    skb->protocol == htons(ETH_P_ARP))
++			br_do_proxy_arp(skb, br, vid);
++
+ 		skb2 = skb;
+ 		unicast = false;
+ 	} else if (is_multicast_ether_addr(dest)) {
+diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+index cb5fcf6..caa6857 100644
+--- a/net/bridge/br_netlink.c
++++ b/net/bridge/br_netlink.c
+@@ -60,7 +60,8 @@ static int br_port_fill_attrs(struct sk_buff *skb,
+ 	    nla_put_u8(skb, IFLA_BRPORT_PROTECT, !!(p->flags & BR_ROOT_BLOCK)) ||
+ 	    nla_put_u8(skb, IFLA_BRPORT_FAST_LEAVE, !!(p->flags & BR_MULTICAST_FAST_LEAVE)) ||
+ 	    nla_put_u8(skb, IFLA_BRPORT_LEARNING, !!(p->flags & BR_LEARNING)) ||
+-	    nla_put_u8(skb, IFLA_BRPORT_UNICAST_FLOOD, !!(p->flags & BR_FLOOD)))
++	    nla_put_u8(skb, IFLA_BRPORT_UNICAST_FLOOD, !!(p->flags & BR_FLOOD)) ||
++	    nla_put_u8(skb, IFLA_BRPORT_PROXYARP, !!(p->flags & BR_PROXYARP)))
+ 		return -EMSGSIZE;
+ 
+ 	return 0;
+@@ -335,6 +336,7 @@ static int br_setport(struct net_bridge_port *p, struct nlattr *tb[])
+ 	br_set_port_flag(p, tb, IFLA_BRPORT_PROTECT, BR_ROOT_BLOCK);
+ 	br_set_port_flag(p, tb, IFLA_BRPORT_LEARNING, BR_LEARNING);
+ 	br_set_port_flag(p, tb, IFLA_BRPORT_UNICAST_FLOOD, BR_FLOOD);
++	br_set_port_flag(p, tb, IFLA_BRPORT_PROXYARP, BR_PROXYARP);
+ 
+ 	if (tb[IFLA_BRPORT_COST]) {
+ 		err = br_stp_set_path_cost(p, nla_get_u32(tb[IFLA_BRPORT_COST]));
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index b6c04cb..666c6bc 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -172,6 +172,7 @@ struct net_bridge_port
+ #define BR_FLOOD		0x00000040
+ #define BR_AUTO_MASK (BR_FLOOD | BR_LEARNING)
+ #define BR_PROMISC		0x00000080
++#define BR_PROXYARP		0x00000100
+ 
+ #ifdef CONFIG_BRIDGE_IGMP_SNOOPING
+ 	struct bridge_mcast_own_query	ip4_own_query;
+diff --git a/net/bridge/br_sysfs_if.c b/net/bridge/br_sysfs_if.c
+index e561cd5..2de5d91 100644
+--- a/net/bridge/br_sysfs_if.c
++++ b/net/bridge/br_sysfs_if.c
+@@ -170,6 +170,7 @@ BRPORT_ATTR_FLAG(bpdu_guard, BR_BPDU_GUARD);
+ BRPORT_ATTR_FLAG(root_block, BR_ROOT_BLOCK);
+ BRPORT_ATTR_FLAG(learning, BR_LEARNING);
+ BRPORT_ATTR_FLAG(unicast_flood, BR_FLOOD);
++BRPORT_ATTR_FLAG(proxyarp, BR_PROXYARP);
+ 
+ #ifdef CONFIG_BRIDGE_IGMP_SNOOPING
+ static ssize_t show_multicast_router(struct net_bridge_port *p, char *buf)
+@@ -213,6 +214,7 @@ static const struct brport_attribute *brport_attrs[] = {
+ 	&brport_attr_multicast_router,
+ 	&brport_attr_multicast_fast_leave,
+ #endif
++	&brport_attr_proxyarp,
+ 	NULL
+ };
+ 
+-- 
+1.9.1
