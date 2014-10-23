@@ -1,43 +1,56 @@
-From: Fabian Frederick <fabf@skynet.be>
-Subject: [PATCH 1/1 net-next] Bluetooth: fix shadow warning in hci_disconnect()
-Date: Thu, 23 Oct 2014 18:22:45 +0200
-Message-ID: <1414081365-6461-1-git-send-email-fabf@skynet.be>
-Cc: Fabian Frederick <fabf@skynet.be>,
-	Marcel Holtmann <marcel@holtmann.org>,
-	Gustavo Padovan <gustavo@padovan.org>,
-	Johan Hedberg <johan.hedberg@gmail.com>,
+From: Ilya Dryomov <ilya.dryomov@inktank.com>
+Subject: Re: [PATCH 1/1 net-next] libceph: remove unused variable in handle_reply()
+Date: Thu, 23 Oct 2014 20:25:35 +0400
+Message-ID: <CALFYKtD222g32njwF8nHz0Fbjj4p2512ka9bkADmB6S2QibgYA@mail.gmail.com>
+References: <1414080959-6053-1-git-send-email-fabf@skynet.be>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Sage Weil <sage@inktank.com>,
 	"David S. Miller" <davem@davemloft.net>,
-	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
+	Ceph Development <ceph-devel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Fabian Frederick <fabf@skynet.be>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1414080959-6053-1-git-send-email-fabf@skynet.be>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-use cpr for hci_cp_read_clock_offset instead of cp
-(already defined above).
+On Thu, Oct 23, 2014 at 8:15 PM, Fabian Frederick <fabf@skynet.be> wrote:
+> osdmap_epoch is redundant with reassert_epoch and unused.
+>
+> Signed-off-by: Fabian Frederick <fabf@skynet.be>
+> ---
+>  net/ceph/osd_client.c | 2 --
+>  1 file changed, 2 deletions(-)
+>
+> diff --git a/net/ceph/osd_client.c b/net/ceph/osd_client.c
+> index f3fc54e..432bd75 100644
+> --- a/net/ceph/osd_client.c
+> +++ b/net/ceph/osd_client.c
+> @@ -1700,7 +1700,6 @@ static void handle_reply(struct ceph_osd_client *osdc, struct ceph_msg *msg,
+>         int err;
+>         u32 reassert_epoch;
+>         u64 reassert_version;
+> -       u32 osdmap_epoch;
+>         int already_completed;
+>         u32 bytes;
+>         unsigned int i;
+> @@ -1725,7 +1724,6 @@ static void handle_reply(struct ceph_osd_client *osdc, struct ceph_msg *msg,
+>         result = ceph_decode_32(&p);
+>         reassert_epoch = ceph_decode_32(&p);
+>         reassert_version = ceph_decode_64(&p);
+> -       osdmap_epoch = ceph_decode_32(&p);
+>
+>         /* lookup */
+>         down_read(&osdc->map_sem);
 
-Signed-off-by: Fabian Frederick <fabf@skynet.be>
----
- net/bluetooth/hci_conn.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+Hi Fabian,
 
-diff --git a/net/bluetooth/hci_conn.c b/net/bluetooth/hci_conn.c
-index b9517bd..6151e09 100644
---- a/net/bluetooth/hci_conn.c
-+++ b/net/bluetooth/hci_conn.c
-@@ -141,10 +141,10 @@ int hci_disconnect(struct hci_conn *conn, __u8 reason)
- 	 */
- 	if (conn->type == ACL_LINK && conn->role == HCI_ROLE_MASTER) {
- 		struct hci_dev *hdev = conn->hdev;
--		struct hci_cp_read_clock_offset cp;
-+		struct hci_cp_read_clock_offset cpr;
- 
--		cp.handle = cpu_to_le16(conn->handle);
--		hci_send_cmd(hdev, HCI_OP_READ_CLOCK_OFFSET, sizeof(cp), &cp);
-+		cpr.handle = cpu_to_le16(conn->handle);
-+		hci_send_cmd(hdev, HCI_OP_READ_CLOCK_OFFSET, sizeof(cpr), &cpr);
- 	}
- 
- 	conn->state = BT_DISCONN;
--- 
-1.9.3
+osdmap_epoch is useful for debugging, but this is wrong anyway -
+ceph_decode_32() has side effects.  Removing it and not adjusting *p
+would make the whole thing blow up pretty fast..
+
+Thanks,
+
+                Ilya
