@@ -1,59 +1,45 @@
 From: Guenter Roeck <linux@roeck-us.net>
-Subject: [PATCH 05/14] net: dsa/mv88e6352: Add support for MV88E6176
-Date: Wed, 22 Oct 2014 21:03:13 -0700
-Message-ID: <1414037002-25528-6-git-send-email-linux@roeck-us.net>
+Subject: [PATCH 13/14] net: dsa/mv88e6352: Add support for reading switch registers
+Date: Wed, 22 Oct 2014 21:03:21 -0700
+Message-ID: <1414037002-25528-14-git-send-email-linux@roeck-us.net>
 References: <1414037002-25528-1-git-send-email-linux@roeck-us.net>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Florian Fainelli <f.fainelli@gmail.com>,
 	Andrew Lunn <andrew@lunn.ch>, linux-kernel@vger.kernel.org,
 	Guenter Roeck <linux@roeck-us.net>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bh-25.webhostbox.net ([208.91.199.152]:49497 "EHLO
+	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751308AbaJWEEA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Oct 2014 00:04:00 -0400
+Received: from mailnull by bh-25.webhostbox.net with sa-checked (Exim 4.82)
+	(envelope-from <linux@roeck-us.net>)
+	id 1Xh9d2-002c7f-Bv
+	for netdev@vger.kernel.org; Thu, 23 Oct 2014 04:04:00 +0000
 In-Reply-To: <1414037002-25528-1-git-send-email-linux@roeck-us.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-MV88E6176 is mostly compatible to MV88E6352 and is documented
-in the same functional specification. Add support for it.
+Report switch register values to ethtool.
 
 Signed-off-by: Guenter Roeck <linux@roeck-us.net>
 ---
- drivers/net/dsa/Kconfig     | 5 +++--
  drivers/net/dsa/mv88e6352.c | 2 ++
- 2 files changed, 5 insertions(+), 2 deletions(-)
+ 1 file changed, 2 insertions(+)
 
-diff --git a/drivers/net/dsa/Kconfig b/drivers/net/dsa/Kconfig
-index 0987c33..2d1a55e 100644
---- a/drivers/net/dsa/Kconfig
-+++ b/drivers/net/dsa/Kconfig
-@@ -46,12 +46,13 @@ config NET_DSA_MV88E6171
- 	  chip.
- 
- config NET_DSA_MV88E6352
--	tristate "Marvell 88E6352 ethernet switch chip support"
-+	tristate "Marvell 88E6176/88E6352 ethernet switch chip support"
- 	select NET_DSA
- 	select NET_DSA_MV88E6XXX
- 	select NET_DSA_TAG_EDSA
- 	---help---
--	  This enables support for the Marvell 88E6352 ethernet switch chip.
-+	  This enables support for the Marvell 88E6176 and 88E6352 ethernet
-+	  switch chips.
- 
- config NET_DSA_BCM_SF2
- 	tristate "Broadcom Starfighter 2 Ethernet switch support"
 diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
-index 43a5826..f17364f 100644
+index 9dddcba..2f31e28 100644
 --- a/drivers/net/dsa/mv88e6352.c
 +++ b/drivers/net/dsa/mv88e6352.c
-@@ -73,6 +73,8 @@ static char *mv88e6352_probe(struct device *host_dev, int sw_addr)
+@@ -779,6 +779,8 @@ struct dsa_switch_driver mv88e6352_switch_driver = {
+ 	.get_eeprom_len		= mv88e6352_get_eeprom_len,
+ 	.get_eeprom		= mv88e6352_get_eeprom,
+ 	.set_eeprom		= mv88e6352_set_eeprom,
++	.get_regs_len		= mv88e6xxx_get_regs_len,
++	.get_regs		= mv88e6xxx_get_regs,
+ };
  
- 	ret = __mv88e6xxx_reg_read(bus, sw_addr, REG_PORT(0), 0x03);
- 	if (ret >= 0) {
-+		if ((ret & 0xfff0) == 0x1760)
-+			return "Marvell 88E6176";
- 		if (ret == 0x3521)
- 			return "Marvell 88E6352 (A0)";
- 		if (ret == 0x3522)
+ MODULE_ALIAS("platform:mv88e6352");
 -- 
 1.9.1
