@@ -1,146 +1,146 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH RFC] tun: fix sparse warnings for virtio headers
-Date: Thu, 23 Oct 2014 23:03:27 +0300
-Message-ID: <1414094496-26646-1-git-send-email-mst@redhat.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: localed stuck in recent 3.18 git in copy_net_ns?
+Date: Thu, 23 Oct 2014 13:05:07 -0700
+Message-ID: <20141023200507.GC4977@linux.vnet.ibm.com>
+References: <20141022181135.GH4977@linux.vnet.ibm.com>
+ <87d29kezby.fsf@x220.int.ebiederm.org>
+ <20141022185511.GI4977@linux.vnet.ibm.com>
+ <CA+5PVA56ajrBQ-C9orSb9-_qhMKe994QL2x0FcKbe6BYmaWFBw@mail.gmail.com>
+ <20141022224032.GA1240@declera.com>
+ <20141022232421.GN4977@linux.vnet.ibm.com>
+ <1414044566.2031.1.camel@declera.com>
+ <20141023122750.GP4977@linux.vnet.ibm.com>
+ <20141023153333.GA19278@linux.vnet.ibm.com>
+ <20141023195159.GA2331@declera.com>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Xi Wang <xii@google.com>,
-	Masatake YAMATO <yamato@redhat.com>,
-	virtualization@lists.linux-foundation.org,
-	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>, Tom Herbert <therbert@google.com>
-To: linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Josh Boyer <jwboyer@fedoraproject.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Cong Wang <cwang@twopensource.com>,
+	Kevin Fenzi <kevin@scrye.com>, netdev <netdev@vger.kernel.org>,
+	"Linux-Kernel@Vger. Kernel. Org" <linux-kernel@vger.kernel.org>
+To: Yanko Kaneti <yaneti@declera.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e9.ny.us.ibm.com ([32.97.182.139]:39574 "EHLO e9.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932449AbaJWUJH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Oct 2014 16:09:07 -0400
+Received: from /spool/local
+	by e9.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <paulmck@linux.vnet.ibm.com>;
+	Thu, 23 Oct 2014 16:09:02 -0400
 Content-Disposition: inline
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20141023195159.GA2331@declera.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Note: stub out endian-ness conversion for now.
-We'll add a flag to control it for BE guests later.
+On Thu, Oct 23, 2014 at 10:51:59PM +0300, Yanko Kaneti wrote:
+> On Thu-10/23/14-2014 08:33, Paul E. McKenney wrote:
+> > On Thu, Oct 23, 2014 at 05:27:50AM -0700, Paul E. McKenney wrote:
+> > > On Thu, Oct 23, 2014 at 09:09:26AM +0300, Yanko Kaneti wrote:
+> > > > On Wed, 2014-10-22 at 16:24 -0700, Paul E. McKenney wrote:
+> > > > > On Thu, Oct 23, 2014 at 01:40:32AM +0300, Yanko Kaneti wrote:
+> > > > > > On Wed-10/22/14-2014 15:33, Josh Boyer wrote:
+> > > > > > > On Wed, Oct 22, 2014 at 2:55 PM, Paul E. McKenney
+> > > > > > > <paulmck@linux.vnet.ibm.com> wrote:
+> > > > > 
+> > > > > [ . . . ]
+> > > > > 
+> > > > > > > > Don't get me wrong -- the fact that this kthread appears to 
+> > > > > > > > have
+> > > > > > > > blocked within rcu_barrier() for 120 seconds means that 
+> > > > > > > > something is
+> > > > > > > > most definitely wrong here.  I am surprised that there are no 
+> > > > > > > > RCU CPU
+> > > > > > > > stall warnings, but perhaps the blockage is in the callback 
+> > > > > > > > execution
+> > > > > > > > rather than grace-period completion.  Or something is 
+> > > > > > > > preventing this
+> > > > > > > > kthread from starting up after the wake-up callback executes.  
+> > > > > > > > Or...
+> > > > > > > > 
+> > > > > > > > Is this thing reproducible?
+> > > > > > > 
+> > > > > > > I've added Yanko on CC, who reported the backtrace above and can
+> > > > > > > recreate it reliably.  Apparently reverting the RCU merge commit
+> > > > > > > (d6dd50e) and rebuilding the latest after that does not show the
+> > > > > > > issue.  I'll let Yanko explain more and answer any questions you 
+> > > > > > > have.
+> > > > > > 
+> > > > > > - It is reproducible
+> > > > > > - I've done another build here to double check and its definitely 
+> > > > > > the rcu merge
+> > > > > >   that's causing it.
+> > > > > > 
+> > > > > > Don't think I'll be able to dig deeper, but I can do testing if 
+> > > > > > needed.
+> > > > > 
+> > > > > Please!  Does the following patch help?
+> > > > 
+> > > > Nope, doesn't seem to make a difference to the modprobe ppp_generic 
+> > > > test
+> > > 
+> > > Well, I was hoping.  I will take a closer look at the RCU merge commit
+> > > and see what suggests itself.  I am likely to ask you to revert specific
+> > > commits, if that works for you.
+> > 
+> > Well, rather than reverting commits, could you please try testing the
+> > following commits?
+> > 
+> > 11ed7f934cb8 (rcu: Make nocb leader kthreads process pending callbacks after spawning)
+> > 
+> > 73a860cd58a1 (rcu: Replace flush_signals() with WARN_ON(signal_pending()))
+> > 
+> > c847f14217d5 (rcu: Avoid misordering in nocb_leader_wait())
+> > 
+> > 	For whatever it is worth, I am guessing this one.
+> 
+> Indeed, c847f14217d5 it is.
+> 
+> Much to my embarrasment I just noticed that in addition to the
+> rcu merge, triggering the bug "requires" my specific Fedora rawhide network
+> setup. Booting in single mode and modprobe ppp_generic is fine. The bug
+> appears when starting with my regular fedora network setup, which in my case 
+> includes 3 ethernet adapters and a libvirt birdge+nat setup.
+> 
+> Hope that helps. 
+> 
+> I am attaching the config.
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
----
+It does help a lot, thank you!!!
 
-This will be needed once __virtio16 typedefs come in.
+The following patch is a bit of a shot in the dark, and assumes that
+commit 1772947bd012 (rcu: Handle NOCB callbacks from irq-disabled idle
+code) introduced the problem.  Does this patch fix things up?
 
- drivers/net/tun.c | 34 +++++++++++++++++-----------------
- 1 file changed, 17 insertions(+), 17 deletions(-)
+							Thanx, Paul
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 186ce54..ee27ecb 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -1043,10 +1043,10 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 			return -EFAULT;
- 
- 		if ((gso.flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) &&
--		    gso.csum_start + gso.csum_offset + 2 > gso.hdr_len)
--			gso.hdr_len = gso.csum_start + gso.csum_offset + 2;
-+		    __virtio16_to_cpu(false, gso.csum_start) + __virtio16_to_cpu(false, gso.csum_offset) + 2 > __virtio16_to_cpu(false, gso.hdr_len))
-+			gso.hdr_len = __cpu_to_virtio16(false, __virtio16_to_cpu(false, gso.csum_start) + __virtio16_to_cpu(false, gso.csum_offset) + 2);
- 
--		if (gso.hdr_len > len)
-+		if (__virtio16_to_cpu(false, gso.hdr_len) > len)
- 			return -EINVAL;
- 		offset += tun->vnet_hdr_sz;
- 	}
-@@ -1054,7 +1054,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 	if ((tun->flags & TUN_TYPE_MASK) == TUN_TAP_DEV) {
- 		align += NET_IP_ALIGN;
- 		if (unlikely(len < ETH_HLEN ||
--			     (gso.hdr_len && gso.hdr_len < ETH_HLEN)))
-+			     (gso.hdr_len && __virtio16_to_cpu(false, gso.hdr_len) < ETH_HLEN)))
- 			return -EINVAL;
- 	}
- 
-@@ -1065,7 +1065,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 		 * enough room for skb expand head in case it is used.
- 		 * The rest of the buffer is mapped from userspace.
- 		 */
--		copylen = gso.hdr_len ? gso.hdr_len : GOODCOPY_LEN;
-+		copylen = gso.hdr_len ? __virtio16_to_cpu(false, gso.hdr_len) : GOODCOPY_LEN;
- 		if (copylen > good_linear)
- 			copylen = good_linear;
- 		linear = copylen;
-@@ -1075,10 +1075,10 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 
- 	if (!zerocopy) {
- 		copylen = len;
--		if (gso.hdr_len > good_linear)
-+		if (__virtio16_to_cpu(false, gso.hdr_len) > good_linear)
- 			linear = good_linear;
- 		else
--			linear = gso.hdr_len;
-+			linear = __virtio16_to_cpu(false, gso.hdr_len);
- 	}
- 
- 	skb = tun_alloc_skb(tfile, align, copylen, linear, noblock);
-@@ -1105,8 +1105,8 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 	}
- 
- 	if (gso.flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) {
--		if (!skb_partial_csum_set(skb, gso.csum_start,
--					  gso.csum_offset)) {
-+		if (!skb_partial_csum_set(skb, __virtio16_to_cpu(false, gso.csum_start),
-+					  __virtio16_to_cpu(false, gso.csum_offset))) {
- 			tun->dev->stats.rx_frame_errors++;
- 			kfree_skb(skb);
- 			return -EINVAL;
-@@ -1160,7 +1160,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 		if (gso.gso_type & VIRTIO_NET_HDR_GSO_ECN)
- 			skb_shinfo(skb)->gso_type |= SKB_GSO_TCP_ECN;
- 
--		skb_shinfo(skb)->gso_size = gso.gso_size;
-+		skb_shinfo(skb)->gso_size = __virtio16_to_cpu(false, gso.gso_size);
- 		if (skb_shinfo(skb)->gso_size == 0) {
- 			tun->dev->stats.rx_frame_errors++;
- 			kfree_skb(skb);
-@@ -1245,8 +1245,8 @@ static ssize_t tun_put_user(struct tun_struct *tun,
- 			struct skb_shared_info *sinfo = skb_shinfo(skb);
- 
- 			/* This is a hint as to how much should be linear. */
--			gso.hdr_len = skb_headlen(skb);
--			gso.gso_size = sinfo->gso_size;
-+			gso.hdr_len = __cpu_to_virtio16(false, skb_headlen(skb));
-+			gso.gso_size = __cpu_to_virtio16(false, sinfo->gso_size);
- 			if (sinfo->gso_type & SKB_GSO_TCPV4)
- 				gso.gso_type = VIRTIO_NET_HDR_GSO_TCPV4;
- 			else if (sinfo->gso_type & SKB_GSO_TCPV6)
-@@ -1256,12 +1256,12 @@ static ssize_t tun_put_user(struct tun_struct *tun,
- 			else {
- 				pr_err("unexpected GSO type: "
- 				       "0x%x, gso_size %d, hdr_len %d\n",
--				       sinfo->gso_type, gso.gso_size,
--				       gso.hdr_len);
-+				       sinfo->gso_type, __virtio16_to_cpu(false, gso.gso_size),
-+				       __virtio16_to_cpu(false, gso.hdr_len));
- 				print_hex_dump(KERN_ERR, "tun: ",
- 					       DUMP_PREFIX_NONE,
- 					       16, 1, skb->head,
--					       min((int)gso.hdr_len, 64), true);
-+					       min((int)__virtio16_to_cpu(false, gso.hdr_len), 64), true);
- 				WARN_ON_ONCE(1);
- 				return -EINVAL;
- 			}
-@@ -1272,8 +1272,8 @@ static ssize_t tun_put_user(struct tun_struct *tun,
- 
- 		if (skb->ip_summed == CHECKSUM_PARTIAL) {
- 			gso.flags = VIRTIO_NET_HDR_F_NEEDS_CSUM;
--			gso.csum_start = skb_checksum_start_offset(skb);
--			gso.csum_offset = skb->csum_offset;
-+			gso.csum_start = __cpu_to_virtio16(false, skb_checksum_start_offset(skb));
-+			gso.csum_offset = __cpu_to_virtio16(false, skb->csum_offset);
- 		} else if (skb->ip_summed == CHECKSUM_UNNECESSARY) {
- 			gso.flags = VIRTIO_NET_HDR_F_DATA_VALID;
- 		} /* else everything is zero */
--- 
-MST
+------------------------------------------------------------------------
+
+rcu: Kick rcuo kthreads after their CPU goes offline
+
+If a no-CBs CPU were to post an RCU callback with interrupts disabled
+after it entered the idle loop for the last time, there might be no
+deferred wakeup for the corresponding rcuo kthreads.  This commit
+therefore adds a set of calls to do_nocb_deferred_wakeup() after the
+CPU has gone completely offline.
+
+Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+
+diff --git a/kernel/rcu/tree.c b/kernel/rcu/tree.c
+index 84b41b3c6ebd..4f3d25a58786 100644
+--- a/kernel/rcu/tree.c
++++ b/kernel/rcu/tree.c
+@@ -3493,8 +3493,10 @@ static int rcu_cpu_notify(struct notifier_block *self,
+ 	case CPU_DEAD_FROZEN:
+ 	case CPU_UP_CANCELED:
+ 	case CPU_UP_CANCELED_FROZEN:
+-		for_each_rcu_flavor(rsp)
++		for_each_rcu_flavor(rsp) {
+ 			rcu_cleanup_dead_cpu(cpu, rsp);
++			do_nocb_deferred_wakeup(this_cpu_ptr(rsp->rda));
++		}
+ 		break;
+ 	default:
+ 		break;
