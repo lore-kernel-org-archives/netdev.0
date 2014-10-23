@@ -1,56 +1,68 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: irq disable in __netdev_alloc_frag() ?
-Date: Wed, 22 Oct 2014 19:22:29 -0700
-Message-ID: <CAMEtUuxo7TT+9S1KSHxyTKR+pD6HWJKaTOO=A_VGsZVji3YU2w@mail.gmail.com>
-References: <CAMEtUuwsUqd-U8ZSEXCB+a7cvLpbuRjPU2m0Ux84q6cxoWSx+g@mail.gmail.com>
-	<1414029160.2094.8.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] macvlan: fix a race on port dismantle and possible skb
+ leaks
+Date: Wed, 22 Oct 2014 19:43:46 -0700
+Message-ID: <1414032226.2094.14.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <edumazet@google.com>,
-	Network Development <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f51.google.com ([74.125.82.51]:35124 "EHLO
-	mail-wg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932206AbaJWCWa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2014 22:22:30 -0400
-Received: by mail-wg0-f51.google.com with SMTP id b13so103085wgh.10
-        for <netdev@vger.kernel.org>; Wed, 22 Oct 2014 19:22:29 -0700 (PDT)
-In-Reply-To: <1414029160.2094.8.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:54260 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932353AbaJWCnr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2014 22:43:47 -0400
+Received: by mail-pa0-f49.google.com with SMTP id hz1so177835pad.22
+        for <netdev@vger.kernel.org>; Wed, 22 Oct 2014 19:43:47 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 22, 2014 at 6:52 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->
-> On Wed, 2014-10-22 at 17:15 -0700, Alexei Starovoitov wrote:
->> Hi Eric,
->>
->> in the commit 6f532612cc24 ("net: introduce netdev_alloc_frag()")
->> you mentioned that the reason to disable interrupts
->> in __netdev_alloc_frag() is:
->> "- Must be IRQ safe (non NAPI drivers can use it)"
->>
->> Is there a way to do this conditionally?
->>
->> Without it I see 10% performance gain for my RX tests
->> (from 6.9Mpps to 7.7Mpps) and __netdev_alloc_frag()
->> itself goes from 6.6% to 2.1%
->> (popf seems to be quite costly)
->
-> Well, your driver is probably a NAPI one, so you need to
-> mask irqs, or to remove all non NAPI drivers from linux.
+From: Eric Dumazet <edumazet@google.com>
 
-yeah, the 10G+ nics I care about are all napi :)
+We need to cancel the work queue after rcu grace period,
+otherwise it can be rescheduled by incoming packets.
 
-> __netdev_alloc_frag() (__netdev_alloc_skb()) is used by all.
->
-> Problem is __netdev_alloc_frag() is generally deep inside caller
-> chain, so using a private pool might have quite an overhead.
+We need to purge queue if some skbs are still in it.
 
-yes. I was thinking, since dev is already passed
-into __netdev_alloc_skb(), we can check whether
-dev registered with napi via dev->napi_list and if so,
-tell inner __netdev_alloc_frag() to skip irq disabling...
+We can use __skb_queue_head_init() variant in
+macvlan_process_broadcast()
 
-don't know about skb_queue_head() and friends.
-I'm only looking at pure rx now. One challenge at a time.
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Fixes: 412ca1550cbec ("macvlan: Move broadcasts into a work queue")
+Cc: Herbert Xu <herbert@gondor.apana.org.au>
+---
+ drivers/net/macvlan.c |   10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index 29b3bb410781..98c2732755ea 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -272,7 +272,7 @@ static void macvlan_process_broadcast(struct work_struct *w)
+ 	struct sk_buff *skb;
+ 	struct sk_buff_head list;
+ 
+-	skb_queue_head_init(&list);
++	__skb_queue_head_init(&list);
+ 
+ 	spin_lock_bh(&port->bc_queue.lock);
+ 	skb_queue_splice_tail_init(&port->bc_queue, &list);
+@@ -1082,9 +1082,15 @@ static void macvlan_port_destroy(struct net_device *dev)
+ {
+ 	struct macvlan_port *port = macvlan_port_get_rtnl(dev);
+ 
+-	cancel_work_sync(&port->bc_work);
+ 	dev->priv_flags &= ~IFF_MACVLAN_PORT;
+ 	netdev_rx_handler_unregister(dev);
++
++	/* After this point, no packet can schedule bc_work anymore,
++	 * but we need to cancel it and purge left skbs if any.
++	 */
++	cancel_work_sync(&port->bc_work);
++	__skb_queue_purge(&port->bc_queue);
++
+ 	kfree_rcu(port, rcu);
+ }
+ 
