@@ -1,271 +1,216 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [net-next] iptunnel: Fix iptunnel_xmit return code for stats maintenance
-Date: Thu, 23 Oct 2014 14:49:41 -0700
-Message-ID: <CALnjE+pNp8on=2q_MMoVL52Nb3zH4rEJXWRia2UXvvJvOToj4Q@mail.gmail.com>
-References: <1413858156-31763-1-git-send-email-azhou@nicira.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: localed stuck in recent 3.18 git in copy_net_ns?
+Date: Thu, 23 Oct 2014 15:04:06 -0700
+Message-ID: <20141023220406.GJ4977@linux.vnet.ibm.com>
+References: <20141022185511.GI4977@linux.vnet.ibm.com>
+ <CA+5PVA56ajrBQ-C9orSb9-_qhMKe994QL2x0FcKbe6BYmaWFBw@mail.gmail.com>
+ <20141022224032.GA1240@declera.com>
+ <20141022232421.GN4977@linux.vnet.ibm.com>
+ <1414044566.2031.1.camel@declera.com>
+ <20141023122750.GP4977@linux.vnet.ibm.com>
+ <20141023153333.GA19278@linux.vnet.ibm.com>
+ <20141023195159.GA2331@declera.com>
+ <20141023200507.GC4977@linux.vnet.ibm.com>
+ <1414100740.2065.2.camel@declera.com>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Andy Zhou <azhou@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na6sys009bog029.obsmtp.com ([74.125.150.103]:35229 "HELO
-	na6sys009bog029.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752704AbaJWVtm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Oct 2014 17:49:42 -0400
-Received: by mail-ie0-f174.google.com with SMTP id x19so1796418ier.33
-        for <netdev@vger.kernel.org>; Thu, 23 Oct 2014 14:49:41 -0700 (PDT)
-In-Reply-To: <1413858156-31763-1-git-send-email-azhou@nicira.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Josh Boyer <jwboyer@fedoraproject.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Cong Wang <cwang@twopensource.com>,
+	Kevin Fenzi <kevin@scrye.com>, netdev <netdev@vger.kernel.org>,
+	"Linux-Kernel@Vger. Kernel. Org" <linux-kernel@vger.kernel.org>
+To: Yanko Kaneti <yaneti@declera.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1414100740.2065.2.camel@declera.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 20, 2014 at 7:22 PM, Andy Zhou <azhou@nicira.com> wrote:
-> iptunnel_xmit() currently always return >= 0 instead of proper error
-> code, that is used to maintain stats. For example, current return code
-> conflicts with how iptunnel_xmit_stats() maintains stats.
->
-> Unfortunately, the return code can not be changed without readjusting
-> how SKB memory is managed through the call chain.  The following two
-> rules are adopted for this patch:
->
-> 1) Proper error code are always propagate back through the call chain
->    so that the caller can maintain stats.
->
-> 2) Tunnel xmit functions always free resources, e.g. skb and route
->    entry.
->
-> Signed-off-by: Andy Zhou <azhou@nicira.com>
-> ---
->  drivers/net/vxlan.c            |   21 +++++++++++++--------
->  include/net/ip_tunnels.h       |    7 +++++++
->  net/ipv4/geneve.c              |    8 ++++++--
->  net/ipv4/ip_tunnel_core.c      |   14 +++++++++++---
->  net/openvswitch/vport-geneve.c |    5 ++---
->  net/openvswitch/vport-gre.c    |    1 +
->  net/openvswitch/vport-vxlan.c  |    6 +++---
->  net/openvswitch/vport.c        |    8 ++++----
->  8 files changed, 47 insertions(+), 23 deletions(-)
->
-> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-> index ca30982..93348cb 100644
-> --- a/drivers/net/vxlan.c
-> +++ b/drivers/net/vxlan.c
-> @@ -1626,8 +1626,10 @@ int vxlan_xmit_skb(struct vxlan_sock *vs,
->         bool udp_sum = !vs->sock->sk->sk_no_check_tx;
->
->         skb = udp_tunnel_handle_offloads(skb, udp_sum);
-> -       if (IS_ERR(skb))
-> -               return -EINVAL;
-> +       if (IS_ERR(skb)) {
-> +               err = -EINVAL;
-> +               goto error;
-> +       }
->
->         min_headroom = LL_RESERVED_SPACE(rt->dst.dev) + rt->dst.header_len
->                         + VXLAN_HLEN + sizeof(struct iphdr)
-> @@ -1636,13 +1638,15 @@ int vxlan_xmit_skb(struct vxlan_sock *vs,
->         /* Need space for new headers (invalidates iph ptr) */
->         err = skb_cow_head(skb, min_headroom);
->         if (unlikely(err))
-> -               return err;
-> +               goto error;
->
->         if (vlan_tx_tag_present(skb)) {
->                 if (WARN_ON(!__vlan_put_tag(skb,
->                                             skb->vlan_proto,
-> -                                           vlan_tx_tag_get(skb))))
-> -                       return -ENOMEM;
-> +                                           vlan_tx_tag_get(skb)))) {
-> +                       err = -ENOMEM;
-> +                       goto error;
-> +               }
->
->                 skb->vlan_tci = 0;
->         }
-> @@ -1655,6 +1659,10 @@ int vxlan_xmit_skb(struct vxlan_sock *vs,
->
->         return udp_tunnel_xmit_skb(vs->sock, rt, skb, src, dst, tos,
->                                    ttl, df, src_port, dst_port, xnet);
-> +error:
-> +       kfree_skb(skb);
-> +       ip_rt_put(rt);
-> +       return err;
->  }
->  EXPORT_SYMBOL_GPL(vxlan_xmit_skb);
->
-> @@ -1786,9 +1794,6 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
->                                      tos, ttl, df, src_port, dst_port,
->                                      htonl(vni << 8),
->                                      !net_eq(vxlan->net, dev_net(vxlan->dev)));
-> -
-> -               if (err < 0)
-> -                       goto rt_tx_error;
->                 iptunnel_xmit_stats(err, &dev->stats, dev->tstats);
->  #if IS_ENABLED(CONFIG_IPV6)
->         } else {
-> diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
-> index 5bc6ede..80bcf2e 100644
-> --- a/include/net/ip_tunnels.h
-> +++ b/include/net/ip_tunnels.h
-> @@ -174,6 +174,13 @@ static inline u8 ip_tunnel_ecn_encap(u8 tos, const struct iphdr *iph,
->  }
->
->  int iptunnel_pull_header(struct sk_buff *skb, int hdr_len, __be16 inner_proto);
-> +
-> +/* Transmit a packet over IP tunnel
-> + * Returns:
-> + *     0 Congestion notification received
-> + *     >0  Number of bytes in the packet successfully sent
-> + *     <0 packet dropped due to error
-> + */
->  int iptunnel_xmit(struct sock *sk, struct rtable *rt, struct sk_buff *skb,
->                   __be32 src, __be32 dst, __u8 proto,
->                   __u8 tos, __u8 ttl, __be16 df, bool xnet);
-> diff --git a/net/ipv4/geneve.c b/net/ipv4/geneve.c
-> index 065cd94..90fea48 100644
-> --- a/net/ipv4/geneve.c
-> +++ b/net/ipv4/geneve.c
-> @@ -129,14 +129,14 @@ int geneve_xmit_skb(struct geneve_sock *gs, struct rtable *rt,
->
->         err = skb_cow_head(skb, min_headroom);
->         if (unlikely(err))
-> -               return err;
-> +               goto error;
->
->         if (vlan_tx_tag_present(skb)) {
->                 if (unlikely(!__vlan_put_tag(skb,
->                                              skb->vlan_proto,
->                                              vlan_tx_tag_get(skb)))) {
->                         err = -ENOMEM;
-> -                       return err;
-> +                       goto error;
->                 }
->                 skb->vlan_tci = 0;
->         }
-> @@ -146,6 +146,10 @@ int geneve_xmit_skb(struct geneve_sock *gs, struct rtable *rt,
->
->         return udp_tunnel_xmit_skb(gs->sock, rt, skb, src, dst,
->                                    tos, ttl, df, src_port, dst_port, xnet);
-> +error:
-> +       kfree_skb(skb);
-> +       ip_rt_put(rt);
-> +       return err;
->  }
->  EXPORT_SYMBOL_GPL(geneve_xmit_skb);
->
-> diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
-> index 88c386c..b3ba4a3 100644
-> --- a/net/ipv4/ip_tunnel_core.c
-> +++ b/net/ipv4/ip_tunnel_core.c
-> @@ -77,9 +77,17 @@ int iptunnel_xmit(struct sock *sk, struct rtable *rt, struct sk_buff *skb,
->         __ip_select_ident(iph, skb_shinfo(skb)->gso_segs ?: 1);
->
->         err = ip_local_out_sk(sk, skb);
-> -       if (unlikely(net_xmit_eval(err)))
-> -               pkt_len = 0;
-> -       return pkt_len;
-> +
-> +       /* Deal with positive error numbers. Filter out NET_XMIT_CN */
-> +       if (err > 0)
-> +               return net_xmit_errno(err);
-> +
-> +       /* Success, return number of bytes transmitted */
-> +       if (err == 0)
-> +               err = pkt_len;
-> +
-> +       /* Return pkt_len or an error code */
-> +       return err;
->  }
->  EXPORT_SYMBOL_GPL(iptunnel_xmit);
->
-> diff --git a/net/openvswitch/vport-geneve.c b/net/openvswitch/vport-geneve.c
-> index 106a9d8..34276fb 100644
-> --- a/net/openvswitch/vport-geneve.c
-> +++ b/net/openvswitch/vport-geneve.c
-> @@ -206,15 +206,14 @@ static int geneve_tnl_send(struct vport *vport, struct sk_buff *skb)
->         tunnel_id_to_vni(tun_key->tun_id, vni);
->         skb->ignore_df = 1;
->
-> -       err = geneve_xmit_skb(geneve_port->gs, rt, skb, fl.saddr,
-> +       return  geneve_xmit_skb(geneve_port->gs, rt, skb, fl.saddr,
->                               tun_key->ipv4_dst, tun_key->ipv4_tos,
->                               tun_key->ipv4_ttl, df, sport, dport,
->                               tun_key->tun_flags, vni,
->                               tun_info->options_len, (u8 *)tun_info->options,
->                               false);
-> -       if (err < 0)
-> -               ip_rt_put(rt);
->  error:
-> +       kfree_skb(skb);
->         return err;
->  }
->
-> diff --git a/net/openvswitch/vport-gre.c b/net/openvswitch/vport-gre.c
-> index 108b82d..8721b30 100644
-> --- a/net/openvswitch/vport-gre.c
-> +++ b/net/openvswitch/vport-gre.c
-> @@ -200,6 +200,7 @@ static int gre_tnl_send(struct vport *vport, struct sk_buff *skb)
->  err_free_rt:
->         ip_rt_put(rt);
->  error:
-> +       kfree_skb(skb);
->         return err;
->  }
->
-There is one error case where gre_tnl_send() leaks skb.
+On Fri, Oct 24, 2014 at 12:45:40AM +0300, Yanko Kaneti wrote:
+> 
+> On Thu, 2014-10-23 at 13:05 -0700, Paul E. McKenney wrote:
+> > On Thu, Oct 23, 2014 at 10:51:59PM +0300, Yanko Kaneti wrote:
+> > > On Thu-10/23/14-2014 08:33, Paul E. McKenney wrote:
+> > > > On Thu, Oct 23, 2014 at 05:27:50AM -0700, Paul E. McKenney wrote:
+> > > > > On Thu, Oct 23, 2014 at 09:09:26AM +0300, Yanko Kaneti wrote:
+> > > > > > On Wed, 2014-10-22 at 16:24 -0700, Paul E. McKenney wrote:
+> > > > > > > On Thu, Oct 23, 2014 at 01:40:32AM +0300, Yanko Kaneti 
+> > > > > > > wrote:
+> > > > > > > > On Wed-10/22/14-2014 15:33, Josh Boyer wrote:
+> > > > > > > > > On Wed, Oct 22, 2014 at 2:55 PM, Paul E. McKenney
+> > > > > > > > > <paulmck@linux.vnet.ibm.com> wrote:
+> > > > > > > 
+> > > > > > > [ . . . ]
+> > > > > > > 
+> > > > > > > > > > Don't get me wrong -- the fact that this kthread 
+> > > > > > > > > > appears to
+> > > > > > > > > > have
+> > > > > > > > > > blocked within rcu_barrier() for 120 seconds means 
+> > > > > > > > > > that
+> > > > > > > > > > something is
+> > > > > > > > > > most definitely wrong here.  I am surprised that 
+> > > > > > > > > > there are no
+> > > > > > > > > > RCU CPU
+> > > > > > > > > > stall warnings, but perhaps the blockage is in the 
+> > > > > > > > > > callback
+> > > > > > > > > > execution
+> > > > > > > > > > rather than grace-period completion.  Or something is
+> > > > > > > > > > preventing this
+> > > > > > > > > > kthread from starting up after the wake-up callback 
+> > > > > > > > > > executes.
+> > > > > > > > > > Or...
+> > > > > > > > > > 
+> > > > > > > > > > Is this thing reproducible?
+> > > > > > > > > 
+> > > > > > > > > I've added Yanko on CC, who reported the backtrace 
+> > > > > > > > > above and can
+> > > > > > > > > recreate it reliably.  Apparently reverting the RCU 
+> > > > > > > > > merge commit
+> > > > > > > > > (d6dd50e) and rebuilding the latest after that does 
+> > > > > > > > > not show the
+> > > > > > > > > issue.  I'll let Yanko explain more and answer any 
+> > > > > > > > > questions you
+> > > > > > > > > have.
+> > > > > > > > 
+> > > > > > > > - It is reproducible
+> > > > > > > > - I've done another build here to double check and its 
+> > > > > > > > definitely
+> > > > > > > > the rcu merge
+> > > > > > > >   that's causing it.
+> > > > > > > > 
+> > > > > > > > Don't think I'll be able to dig deeper, but I can do 
+> > > > > > > > testing if
+> > > > > > > > needed.
+> > > > > > > 
+> > > > > > > Please!  Does the following patch help?
+> > > > > > 
+> > > > > > Nope, doesn't seem to make a difference to the modprobe 
+> > > > > > ppp_generic
+> > > > > > test
+> > > > > 
+> > > > > Well, I was hoping.  I will take a closer look at the RCU 
+> > > > > merge commit
+> > > > > and see what suggests itself.  I am likely to ask you to 
+> > > > > revert specific
+> > > > > commits, if that works for you.
+> > > > 
+> > > > Well, rather than reverting commits, could you please try 
+> > > > testing the
+> > > > following commits?
+> > > > 
+> > > > 11ed7f934cb8 (rcu: Make nocb leader kthreads process pending 
+> > > > callbacks after spawning)
+> > > > 
+> > > > 73a860cd58a1 (rcu: Replace flush_signals() with 
+> > > > WARN_ON(signal_pending()))
+> > > > 
+> > > > c847f14217d5 (rcu: Avoid misordering in nocb_leader_wait())
+> > > > 
+> > > >         For whatever it is worth, I am guessing this one.
+> > > 
+> > > Indeed, c847f14217d5 it is.
+> > > 
+> > > Much to my embarrasment I just noticed that in addition to the
+> > > rcu merge, triggering the bug "requires" my specific Fedora 
+> > > rawhide network
+> > > setup. Booting in single mode and modprobe ppp_generic is fine. 
+> > > The bug
+> > > appears when starting with my regular fedora network setup, which 
+> > > in my case
+> > > includes 3 ethernet adapters and a libvirt birdge+nat setup.
+> > > 
+> > > Hope that helps.
+> > > 
+> > > I am attaching the config.
+> > 
+> > It does help a lot, thank you!!!
+> > 
+> > The following patch is a bit of a shot in the dark, and assumes that
+> > commit 1772947bd012 (rcu: Handle NOCB callbacks from irq-disabled 
+> > idle
+> > code) introduced the problem.  Does this patch fix things up?
+> 
+> Unfortunately not, This is linus-tip + patch
 
-> diff --git a/net/openvswitch/vport-vxlan.c b/net/openvswitch/vport-vxlan.c
-> index 2735e01..ace849a 100644
-> --- a/net/openvswitch/vport-vxlan.c
-> +++ b/net/openvswitch/vport-vxlan.c
-> @@ -174,15 +174,15 @@ static int vxlan_tnl_send(struct vport *vport, struct sk_buff *skb)
->
->         src_port = udp_flow_src_port(net, skb, 0, 0, true);
->
-> -       err = vxlan_xmit_skb(vxlan_port->vs, rt, skb,
-> +       return vxlan_xmit_skb(vxlan_port->vs, rt, skb,
->                              fl.saddr, tun_key->ipv4_dst,
->                              tun_key->ipv4_tos, tun_key->ipv4_ttl, df,
->                              src_port, dst_port,
->                              htonl(be64_to_cpu(tun_key->tun_id) << 8),
->                              false);
-> -       if (err < 0)
-> -               ip_rt_put(rt);
-> +
->  error:
-> +       kfree_skb(skb);
->         return err;
->  }
->
-> diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
-> index 6015802..eb0a72f 100644
-> --- a/net/openvswitch/vport.c
-> +++ b/net/openvswitch/vport.c
-> @@ -480,11 +480,11 @@ int ovs_vport_send(struct vport *vport, struct sk_buff *skb)
->                 stats->tx_packets++;
->                 stats->tx_bytes += sent;
->                 u64_stats_update_end(&stats->syncp);
-> -       } else if (sent < 0) {
-> -               ovs_vport_record_error(vport, VPORT_E_TX_ERROR);
-> -               kfree_skb(skb);
-> -       } else
-> +       } else if (sent == -ENOBUFS || sent == -ENOMEM || sent == 0) {
->                 ovs_vport_record_error(vport, VPORT_E_TX_DROPPED);
-> +       } else {
-> +               ovs_vport_record_error(vport, VPORT_E_TX_ERROR);
-> +       }
->
-vport-send() and iptunnel_xmit_stats() doe not interpret xmit return
-value in same way. iptunnel_xmit_stats() treats all negative values as
-error and zero as dropped. But ovs-vport send records selective
-negative values as dropped.
+OK.  Can't have everything, I guess.
 
+> INFO: task kworker/u16:6:96 blocked for more than 120 seconds.
+>       Not tainted 3.18.0-rc1+ #4
+> "echo 0 > /proc/sys/kernel/hung_task_timeout_secs" disables this message.
+> kworker/u16:6   D ffff8800ca84cec0 11168    96      2 0x00000000
+> Workqueue: netns cleanup_net
+>  ffff8802218339e8 0000000000000096 ffff8800ca84cec0 00000000001d5f00
+>  ffff880221833fd8 00000000001d5f00 ffff880223264ec0 ffff8800ca84cec0
+>  ffffffff82c52040 7fffffffffffffff ffffffff81ee2658 ffffffff81ee2650
+> Call Trace:
+>  [<ffffffff8185b8e9>] schedule+0x29/0x70
+>  [<ffffffff81860b0c>] schedule_timeout+0x26c/0x410
+>  [<ffffffff81028bea>] ? native_sched_clock+0x2a/0xa0
+>  [<ffffffff8110759c>] ? mark_held_locks+0x7c/0xb0
+>  [<ffffffff81861b90>] ? _raw_spin_unlock_irq+0x30/0x50
+>  [<ffffffff8110772d>] ? trace_hardirqs_on_caller+0x15d/0x200
+>  [<ffffffff8185d31c>] wait_for_completion+0x10c/0x150
+>  [<ffffffff810e4ed0>] ? wake_up_state+0x20/0x20
+>  [<ffffffff8112a219>] _rcu_barrier+0x159/0x200
+>  [<ffffffff8112a315>] rcu_barrier+0x15/0x20
+>  [<ffffffff8171657f>] netdev_run_todo+0x6f/0x310
+>  [<ffffffff8170b145>] ? rollback_registered_many+0x265/0x2e0
+>  [<ffffffff817235ee>] rtnl_unlock+0xe/0x10
+>  [<ffffffff8170cfa6>] default_device_exit_batch+0x156/0x180
+>  [<ffffffff810fd390>] ? abort_exclusive_wait+0xb0/0xb0
+>  [<ffffffff81705053>] ops_exit_list.isra.1+0x53/0x60
+>  [<ffffffff81705c00>] cleanup_net+0x100/0x1f0
+>  [<ffffffff810cca98>] process_one_work+0x218/0x850
+>  [<ffffffff810cc9ff>] ? process_one_work+0x17f/0x850
+>  [<ffffffff810cd1b7>] ? worker_thread+0xe7/0x4a0
+>  [<ffffffff810cd13b>] worker_thread+0x6b/0x4a0
+>  [<ffffffff810cd0d0>] ? process_one_work+0x850/0x850
+>  [<ffffffff810d348b>] kthread+0x10b/0x130
+>  [<ffffffff81028c69>] ? sched_clock+0x9/0x10
+>  [<ffffffff810d3380>] ? kthread_create_on_node+0x250/0x250
+>  [<ffffffff818628bc>] ret_from_fork+0x7c/0xb0
+>  [<ffffffff810d3380>] ? kthread_create_on_node+0x250/0x250
+> 4 locks held by kworker/u16:6/96:
+>  #0:  ("%s""netns"){.+.+.+}, at: [<ffffffff810cc9ff>] process_one_work+0x17f/0x850
+>  #1:  (net_cleanup_work){+.+.+.}, at: [<ffffffff810cc9ff>] process_one_work+0x17f/0x850
+>  #2:  (net_mutex){+.+.+.}, at: [<ffffffff81705b8c>] cleanup_net+0x8c/0x1f0
+>  #3:  (rcu_sched_state.barrier_mutex){+.+...}, at: [<ffffffff8112a0f5>] _rcu_barrier+0x35/0x200
+> INFO: task modprobe:1045 blocked for more than 120 seconds.
+>       Not tainted 3.18.0-rc1+ #4
+> "echo 0 > /proc/sys/kernel/hung_task_timeout_secs" disables this message.
+> modprobe        D ffff880218343480 12920  1045   1044 0x00000080
+>  ffff880218353bf8 0000000000000096 ffff880218343480 00000000001d5f00
+>  ffff880218353fd8 00000000001d5f00 ffffffff81e1b580 ffff880218343480
+>  ffff880218343480 ffffffff81f8f748 0000000000000246 ffff880218343480
+> Call Trace:
+>  [<ffffffff8185be91>] schedule_preempt_disabled+0x31/0x80
+>  [<ffffffff8185d6e3>] mutex_lock_nested+0x183/0x440
+>  [<ffffffff81705a1f>] ? register_pernet_subsys+0x1f/0x50
+>  [<ffffffff81705a1f>] ? register_pernet_subsys+0x1f/0x50
+>  [<ffffffffa0673000>] ? 0xffffffffa0673000
+>  [<ffffffff81705a1f>] register_pernet_subsys+0x1f/0x50
+>  [<ffffffffa0673048>] br_init+0x48/0xd3 [bridge]
+>  [<ffffffff81002148>] do_one_initcall+0xd8/0x210
+>  [<ffffffff81153052>] load_module+0x20c2/0x2870
+>  [<ffffffff8114e030>] ? store_uevent+0x70/0x70
+>  [<ffffffff81278717>] ? kernel_read+0x57/0x90
+>  [<ffffffff811539e6>] SyS_finit_module+0xa6/0xe0
+>  [<ffffffff81862969>] system_call_fastpath+0x12/0x17
+> 1 lock held by modprobe/1045:
+>  #0:  (net_mutex){+.+.+.}, at: [<ffffffff81705a1f>] register_pernet_subsys+0x1f/0x50
 
->         return sent;
->  }
-> --
-> 1.7.9.5
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Presumably the kworker/u16:6 completed, then modprobe hung?
+
+If not, I have some very hard questions about why net_mutex can be
+held by two tasks concurrently, given that it does not appear to be a
+reader-writer lock...
+
+Either way, my patch assumed that 39953dfd4007 (rcu: Avoid misordering in
+__call_rcu_nocb_enqueue()) would work and that 1772947bd012 (rcu: Handle
+NOCB callbacks from irq-disabled idle code) would fail.  Is that the case?
+If not, could you please bisect the commits between 11ed7f934cb8 (rcu:
+Make nocb leader kthreads process pending callbacks after spawning)
+and c847f14217d5 (rcu: Avoid misordering in nocb_leader_wait())?
+
+						Thanx, Paul
