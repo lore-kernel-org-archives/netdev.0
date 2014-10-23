@@ -1,153 +1,146 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH v2 net] tcp: md5: do not use alloc_percpu()
-Date: Thu, 23 Oct 2014 12:58:58 -0700
-Message-ID: <1414094338.20845.30.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <5447FDB2.2010906@gmail.com> <544886C4.4020702@gmail.com>
-	 <1414041833.2094.28.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1414042688.2094.30.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <5448A72D.1050806@cumulusnetworks.com>
-	 <1414070490.2094.39.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1414075405.20845.6.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1414081998.20845.18.camel@edumazet-glaptop2.roam.corp.google.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH RFC] tun: fix sparse warnings for virtio headers
+Date: Thu, 23 Oct 2014 23:03:27 +0300
+Message-ID: <1414094496-26646-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: David Ahern <dsahern@gmail.com>,
-	Crestez Dan Leonard <cdleonard@gmail.com>,
-	netdev@vger.kernel.org,
-	Jonathan Toppins <jtoppins@cumulusnetworks.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:52688 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754070AbaJWT7A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Oct 2014 15:59:00 -0400
-Received: by mail-pa0-f49.google.com with SMTP id hz1so1686325pad.36
-        for <netdev@vger.kernel.org>; Thu, 23 Oct 2014 12:58:59 -0700 (PDT)
-In-Reply-To: <1414081998.20845.18.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, Xi Wang <xii@google.com>,
+	Masatake YAMATO <yamato@redhat.com>,
+	virtualization@lists.linux-foundation.org,
+	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>, Tom Herbert <therbert@google.com>
+To: linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+Note: stub out endian-ness conversion for now.
+We'll add a flag to control it for BE guests later.
 
-percpu tcp_md5sig_pool contains memory blobs that ultimately
-go through sg_set_buf().
-
--> sg_set_page(sg, virt_to_page(buf), buflen, offset_in_page(buf));
-
-This requires that whole area is in a physically contiguous portion
-of memory. And that @buf is not backed by vmalloc().
-
-Given that alloc_percpu() can use vmalloc() areas, this does not
-fit the requirements.
-
-Replace alloc_percpu() by a static DEFINE_PER_CPU() as tcp_md5sig_pool
-is small anyway, there is no gain to dynamically allocate it.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Fixes: 765cf9976e93 ("tcp: md5: remove one indirection level in tcp_md5sig_pool")
-Reported-by: Crestez Dan Leonard <cdleonard@gmail.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
- net/ipv4/tcp.c |   59 +++++++++++++++--------------------------------
- 1 file changed, 20 insertions(+), 39 deletions(-)
 
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 1bec4e76d88c..39ec0c379545 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -2868,61 +2868,42 @@ EXPORT_SYMBOL(compat_tcp_getsockopt);
- #endif
+This will be needed once __virtio16 typedefs come in.
+
+ drivers/net/tun.c | 34 +++++++++++++++++-----------------
+ 1 file changed, 17 insertions(+), 17 deletions(-)
+
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 186ce54..ee27ecb 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -1043,10 +1043,10 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 			return -EFAULT;
  
- #ifdef CONFIG_TCP_MD5SIG
--static struct tcp_md5sig_pool __percpu *tcp_md5sig_pool __read_mostly;
-+static DEFINE_PER_CPU(struct tcp_md5sig_pool, tcp_md5sig_pool);
- static DEFINE_MUTEX(tcp_md5sig_mutex);
--
--static void __tcp_free_md5sig_pool(struct tcp_md5sig_pool __percpu *pool)
--{
--	int cpu;
--
--	for_each_possible_cpu(cpu) {
--		struct tcp_md5sig_pool *p = per_cpu_ptr(pool, cpu);
--
--		if (p->md5_desc.tfm)
--			crypto_free_hash(p->md5_desc.tfm);
--	}
--	free_percpu(pool);
--}
-+static bool tcp_md5sig_pool_populated = false;
+ 		if ((gso.flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) &&
+-		    gso.csum_start + gso.csum_offset + 2 > gso.hdr_len)
+-			gso.hdr_len = gso.csum_start + gso.csum_offset + 2;
++		    __virtio16_to_cpu(false, gso.csum_start) + __virtio16_to_cpu(false, gso.csum_offset) + 2 > __virtio16_to_cpu(false, gso.hdr_len))
++			gso.hdr_len = __cpu_to_virtio16(false, __virtio16_to_cpu(false, gso.csum_start) + __virtio16_to_cpu(false, gso.csum_offset) + 2);
  
- static void __tcp_alloc_md5sig_pool(void)
- {
- 	int cpu;
--	struct tcp_md5sig_pool __percpu *pool;
--
--	pool = alloc_percpu(struct tcp_md5sig_pool);
--	if (!pool)
--		return;
- 
- 	for_each_possible_cpu(cpu) {
--		struct crypto_hash *hash;
--
--		hash = crypto_alloc_hash("md5", 0, CRYPTO_ALG_ASYNC);
--		if (IS_ERR_OR_NULL(hash))
--			goto out_free;
-+		if (!per_cpu(tcp_md5sig_pool, cpu).md5_desc.tfm) {
-+			struct crypto_hash *hash;
- 
--		per_cpu_ptr(pool, cpu)->md5_desc.tfm = hash;
-+			hash = crypto_alloc_hash("md5", 0, CRYPTO_ALG_ASYNC);
-+			if (IS_ERR_OR_NULL(hash))
-+				return;
-+			per_cpu(tcp_md5sig_pool, cpu).md5_desc.tfm = hash;
-+		}
+-		if (gso.hdr_len > len)
++		if (__virtio16_to_cpu(false, gso.hdr_len) > len)
+ 			return -EINVAL;
+ 		offset += tun->vnet_hdr_sz;
  	}
--	/* before setting tcp_md5sig_pool, we must commit all writes
--	 * to memory. See ACCESS_ONCE() in tcp_get_md5sig_pool()
-+	/* before setting tcp_md5sig_pool_populated, we must commit all writes
-+	 * to memory. See smp_rmb() in tcp_get_md5sig_pool()
- 	 */
- 	smp_wmb();
--	tcp_md5sig_pool = pool;
--	return;
--out_free:
--	__tcp_free_md5sig_pool(pool);
-+	tcp_md5sig_pool_populated = true;
- }
- 
- bool tcp_alloc_md5sig_pool(void)
- {
--	if (unlikely(!tcp_md5sig_pool)) {
-+	if (unlikely(!tcp_md5sig_pool_populated)) {
- 		mutex_lock(&tcp_md5sig_mutex);
- 
--		if (!tcp_md5sig_pool)
-+		if (!tcp_md5sig_pool_populated)
- 			__tcp_alloc_md5sig_pool();
- 
- 		mutex_unlock(&tcp_md5sig_mutex);
+@@ -1054,7 +1054,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 	if ((tun->flags & TUN_TYPE_MASK) == TUN_TAP_DEV) {
+ 		align += NET_IP_ALIGN;
+ 		if (unlikely(len < ETH_HLEN ||
+-			     (gso.hdr_len && gso.hdr_len < ETH_HLEN)))
++			     (gso.hdr_len && __virtio16_to_cpu(false, gso.hdr_len) < ETH_HLEN)))
+ 			return -EINVAL;
  	}
--	return tcp_md5sig_pool != NULL;
-+	return tcp_md5sig_pool_populated;
- }
- EXPORT_SYMBOL(tcp_alloc_md5sig_pool);
  
-@@ -2936,13 +2917,13 @@ EXPORT_SYMBOL(tcp_alloc_md5sig_pool);
-  */
- struct tcp_md5sig_pool *tcp_get_md5sig_pool(void)
- {
--	struct tcp_md5sig_pool __percpu *p;
--
- 	local_bh_disable();
--	p = ACCESS_ONCE(tcp_md5sig_pool);
--	if (p)
--		return raw_cpu_ptr(p);
+@@ -1065,7 +1065,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 		 * enough room for skb expand head in case it is used.
+ 		 * The rest of the buffer is mapped from userspace.
+ 		 */
+-		copylen = gso.hdr_len ? gso.hdr_len : GOODCOPY_LEN;
++		copylen = gso.hdr_len ? __virtio16_to_cpu(false, gso.hdr_len) : GOODCOPY_LEN;
+ 		if (copylen > good_linear)
+ 			copylen = good_linear;
+ 		linear = copylen;
+@@ -1075,10 +1075,10 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
  
-+	if (tcp_md5sig_pool_populated) {
-+		/* coupled with smp_wmb() in __tcp_alloc_md5sig_pool() */
-+		smp_rmb();
-+		return this_cpu_ptr(&tcp_md5sig_pool);
-+	}
- 	local_bh_enable();
- 	return NULL;
- }
+ 	if (!zerocopy) {
+ 		copylen = len;
+-		if (gso.hdr_len > good_linear)
++		if (__virtio16_to_cpu(false, gso.hdr_len) > good_linear)
+ 			linear = good_linear;
+ 		else
+-			linear = gso.hdr_len;
++			linear = __virtio16_to_cpu(false, gso.hdr_len);
+ 	}
+ 
+ 	skb = tun_alloc_skb(tfile, align, copylen, linear, noblock);
+@@ -1105,8 +1105,8 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 	}
+ 
+ 	if (gso.flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) {
+-		if (!skb_partial_csum_set(skb, gso.csum_start,
+-					  gso.csum_offset)) {
++		if (!skb_partial_csum_set(skb, __virtio16_to_cpu(false, gso.csum_start),
++					  __virtio16_to_cpu(false, gso.csum_offset))) {
+ 			tun->dev->stats.rx_frame_errors++;
+ 			kfree_skb(skb);
+ 			return -EINVAL;
+@@ -1160,7 +1160,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 		if (gso.gso_type & VIRTIO_NET_HDR_GSO_ECN)
+ 			skb_shinfo(skb)->gso_type |= SKB_GSO_TCP_ECN;
+ 
+-		skb_shinfo(skb)->gso_size = gso.gso_size;
++		skb_shinfo(skb)->gso_size = __virtio16_to_cpu(false, gso.gso_size);
+ 		if (skb_shinfo(skb)->gso_size == 0) {
+ 			tun->dev->stats.rx_frame_errors++;
+ 			kfree_skb(skb);
+@@ -1245,8 +1245,8 @@ static ssize_t tun_put_user(struct tun_struct *tun,
+ 			struct skb_shared_info *sinfo = skb_shinfo(skb);
+ 
+ 			/* This is a hint as to how much should be linear. */
+-			gso.hdr_len = skb_headlen(skb);
+-			gso.gso_size = sinfo->gso_size;
++			gso.hdr_len = __cpu_to_virtio16(false, skb_headlen(skb));
++			gso.gso_size = __cpu_to_virtio16(false, sinfo->gso_size);
+ 			if (sinfo->gso_type & SKB_GSO_TCPV4)
+ 				gso.gso_type = VIRTIO_NET_HDR_GSO_TCPV4;
+ 			else if (sinfo->gso_type & SKB_GSO_TCPV6)
+@@ -1256,12 +1256,12 @@ static ssize_t tun_put_user(struct tun_struct *tun,
+ 			else {
+ 				pr_err("unexpected GSO type: "
+ 				       "0x%x, gso_size %d, hdr_len %d\n",
+-				       sinfo->gso_type, gso.gso_size,
+-				       gso.hdr_len);
++				       sinfo->gso_type, __virtio16_to_cpu(false, gso.gso_size),
++				       __virtio16_to_cpu(false, gso.hdr_len));
+ 				print_hex_dump(KERN_ERR, "tun: ",
+ 					       DUMP_PREFIX_NONE,
+ 					       16, 1, skb->head,
+-					       min((int)gso.hdr_len, 64), true);
++					       min((int)__virtio16_to_cpu(false, gso.hdr_len), 64), true);
+ 				WARN_ON_ONCE(1);
+ 				return -EINVAL;
+ 			}
+@@ -1272,8 +1272,8 @@ static ssize_t tun_put_user(struct tun_struct *tun,
+ 
+ 		if (skb->ip_summed == CHECKSUM_PARTIAL) {
+ 			gso.flags = VIRTIO_NET_HDR_F_NEEDS_CSUM;
+-			gso.csum_start = skb_checksum_start_offset(skb);
+-			gso.csum_offset = skb->csum_offset;
++			gso.csum_start = __cpu_to_virtio16(false, skb_checksum_start_offset(skb));
++			gso.csum_offset = __cpu_to_virtio16(false, skb->csum_offset);
+ 		} else if (skb->ip_summed == CHECKSUM_UNNECESSARY) {
+ 			gso.flags = VIRTIO_NET_HDR_F_DATA_VALID;
+ 		} /* else everything is zero */
+-- 
+MST
