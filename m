@@ -1,153 +1,107 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: Possible wireless issue introduced in next-20140930
-Date: Thu, 23 Oct 2014 11:32:02 -0500
-Message-ID: <54492D82.30402@lwfinger.net>
-References: <54487346.4080604@gmail.com> <1414041815.5228.37.camel@marge.simpson.net> <54491E1E.6090001@gmail.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: localed stuck in recent 3.18 git in copy_net_ns?
+Date: Thu, 23 Oct 2014 09:28:48 -0700
+Message-ID: <20141023162848.GU4977@linux.vnet.ibm.com>
+References: <20141022181135.GH4977@linux.vnet.ibm.com>
+ <87d29kezby.fsf@x220.int.ebiederm.org>
+ <20141022185511.GI4977@linux.vnet.ibm.com>
+ <CA+5PVA56ajrBQ-C9orSb9-_qhMKe994QL2x0FcKbe6BYmaWFBw@mail.gmail.com>
+ <20141022224032.GA1240@declera.com>
+ <20141022232421.GN4977@linux.vnet.ibm.com>
+ <1414044566.2031.1.camel@declera.com>
+ <20141023122750.GP4977@linux.vnet.ibm.com>
+ <20141023153333.GA19278@linux.vnet.ibm.com>
+ <CA+5PVA4H6EAf6cBc4a_8W8x4Mgppjc5GsskKaCRry2jq+LP+FA@mail.gmail.com>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------030801030304040608010406"
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Thadeu Cascardo <cascardo@cascardo.eti.br>
-To: Murilo Opsfelder Araujo <mopsfelder@gmail.com>,
-	Mike Galbraith <umgwanakikbuti@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Linux-Kernel@Vger. Kernel. Org" <linux-kernel@vger.kernel.org>,
+	Kevin Fenzi <kevin@scrye.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Yanko Kaneti <yaneti@declera.com>,
+	netdev <netdev@vger.kernel.org>,
+	Cong Wang <cwang@twopensource.com>
+To: Josh Boyer <jwboyer@fedoraproject.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54491E1E.6090001@gmail.com>
+Content-Disposition: inline
+In-Reply-To: <CA+5PVA4H6EAf6cBc4a_8W8x4Mgppjc5GsskKaCRry2jq+LP+FA@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------030801030304040608010406
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
+On Thu, Oct 23, 2014 at 12:11:26PM -0400, Josh Boyer wrote:
+> On Oct 23, 2014 11:37 AM, "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+> wrote:
+> >
+> > On Thu, Oct 23, 2014 at 05:27:50AM -0700, Paul E. McKenney wrote:
+> > > On Thu, Oct 23, 2014 at 09:09:26AM +0300, Yanko Kaneti wrote:
+> > > > On Wed, 2014-10-22 at 16:24 -0700, Paul E. McKenney wrote:
+> > > > > On Thu, Oct 23, 2014 at 01:40:32AM +0300, Yanko Kaneti wrote:
+> > > > > > On Wed-10/22/14-2014 15:33, Josh Boyer wrote:
+> > > > > > > On Wed, Oct 22, 2014 at 2:55 PM, Paul E. McKenney
+> > > > > > > <paulmck@linux.vnet.ibm.com> wrote:
+> > > > >
+> > > > > [ . . . ]
+> > > > >
+> > > > > > > > Don't get me wrong -- the fact that this kthread appears to
+> > > > > > > > have
+> > > > > > > > blocked within rcu_barrier() for 120 seconds means that
+> > > > > > > > something is
+> > > > > > > > most definitely wrong here.  I am surprised that there are no
+> > > > > > > > RCU CPU
+> > > > > > > > stall warnings, but perhaps the blockage is in the callback
+> > > > > > > > execution
+> > > > > > > > rather than grace-period completion.  Or something is
+> > > > > > > > preventing this
+> > > > > > > > kthread from starting up after the wake-up callback executes.
+> > > > > > > > Or...
+> > > > > > > >
+> > > > > > > > Is this thing reproducible?
+> > > > > > >
+> > > > > > > I've added Yanko on CC, who reported the backtrace above and can
+> > > > > > > recreate it reliably.  Apparently reverting the RCU merge commit
+> > > > > > > (d6dd50e) and rebuilding the latest after that does not show the
+> > > > > > > issue.  I'll let Yanko explain more and answer any questions you
+> > > > > > > have.
+> > > > > >
+> > > > > > - It is reproducible
+> > > > > > - I've done another build here to double check and its definitely
+> > > > > > the rcu merge
+> > > > > >   that's causing it.
+> > > > > >
+> > > > > > Don't think I'll be able to dig deeper, but I can do testing if
+> > > > > > needed.
+> > > > >
+> > > > > Please!  Does the following patch help?
+> > > >
+> > > > Nope, doesn't seem to make a difference to the modprobe ppp_generic
+> > > > test
+> > >
+> > > Well, I was hoping.  I will take a closer look at the RCU merge commit
+> > > and see what suggests itself.  I am likely to ask you to revert specific
+> > > commits, if that works for you.
+> >
+> > Well, rather than reverting commits, could you please try testing the
+> > following commits?
+> >
+> > 11ed7f934cb8 (rcu: Make nocb leader kthreads process pending callbacks
+> after spawning)
+> >
+> > 73a860cd58a1 (rcu: Replace flush_signals() with WARN_ON(signal_pending()))
+> >
+> > c847f14217d5 (rcu: Avoid misordering in nocb_leader_wait())
+> >
+> >         For whatever it is worth, I am guessing this one.
+> >
+> > a53dd6a65668 (rcutorture: Add RCU-tasks tests to default rcutorture list)
+> >
+> >         If any of the above fail, this one should also fail.
+> >
+> > Also, could you please send along your .config?
+> 
+> Which tree are those in?
 
-On 10/23/2014 10:26 AM, Murilo Opsfelder Araujo wrote:
-> On 10/23/2014 03:23 AM, Mike Galbraith wrote:
->> On Thu, 2014-10-23 at 01:17 -0200, Murilo Opsfelder Araujo wrote:
->>> Hello, everyone.
->>>
->>> With next-20140930 my laptop does not work, i.e. after I enter my login
->>> and password in KDM, the entire system becomes unresponsive and I need
->>> to reset it in order to reboot (it does not even show the KDE splash
->>> screen).
->>>
->>> It was working pretty fine with next-20140926.
->>>
->>> I've also tested with next-20141022 and v3.18-rc1 and no luck.
->>>
->>> git bisect pointed me to the commit below [1].  My wireless card is a
->>> RTL8191SEvA [2].
->>
->> Mine is RTL8191SEvB.
->>
->> I was going to bisect RTL8191SE regression when I got a chance, but you
->> beat me to it.
->>
->>> commit 38506ecefab911785d5e1aa5889f6eeb462e0954
->>> Author: Larry Finger <Larry.Finger@lwfinger.net>
->>> Date:   Mon Sep 22 09:39:19 2014 -0500
->>>
->>>       rtlwifi: rtl_pci: Start modification for new drivers
->>
->> Did you confirm that bisection result, ie revert it at HEAD of whichever
->> tree you bisected?
->>
->> The revert (master) removed some warnings on the way to kaboom here, but
->> the drivers is still toxic.  My log follows in case it's the same thing.
->> I can't go hunting atm, maybe during the weekend if the problem hasn't
->> evaporate by then.
->
-> next-20141023 does not work as well.
->
-> With commit 38506ecefab911785d5e1aa5889f6eeb462e0954 reverted, kernel blows up
-> very early in boot.
->
-> Cascardo (CC:) helped me to investigate and it seems that when
-> rtlpriv->cfg->ops->get_btc_status() is called, it is pointing to a NULL function.
->
-> With the changes below, written by Cascardo, I could get rid of oops/panic and
-> system booted normally.  But there was no wifi network available (like if wifi
-> card was disabled).
->
-> diff --git a/drivers/net/wireless/rtlwifi/rtl8192se/sw.c
-> b/drivers/net/wireless/rtlwifi/rtl8192se/sw.c
-> index 1bff2a0..807f0f7 100644
-> --- a/drivers/net/wireless/rtlwifi/rtl8192se/sw.c
-> +++ b/drivers/net/wireless/rtlwifi/rtl8192se/sw.c
-> @@ -253,6 +253,11 @@ static void rtl92s_deinit_sw_vars(struct ieee80211_hw *hw)
->          }
->   }
->
-> +static bool rtl92s_get_btc_status(void)
-> +{
-> +       return false;
-> +}
-> +
->   static struct rtl_hal_ops rtl8192se_hal_ops = {
->          .init_sw_vars = rtl92s_init_sw_vars,
->          .deinit_sw_vars = rtl92s_deinit_sw_vars,
-> @@ -294,6 +299,7 @@ static struct rtl_hal_ops rtl8192se_hal_ops = {
->          .set_bbreg = rtl92s_phy_set_bb_reg,
->          .get_rfreg = rtl92s_phy_query_rf_reg,
->          .set_rfreg = rtl92s_phy_set_rf_reg,
-> +       .get_btc_status = rtl92s_get_btc_status,
->   };
->
->   static struct rtl_mod_params rtl92se_mod_params = {
+They are all in Linus's tree.  They are topic branches of the RCU merge
+commit (d6dd50e), and the test results will hopefully give me more of a
+clue where to look.  As would the .config file.  ;-)
 
-The above patch is correct; however, the one I just submitted will fix several 
-drivers rather than just this one. For your convenience, I have attached a copy 
-to this message.
-
-Larry
-
-
-
---------------030801030304040608010406
-Content-Type: text/x-patch;
- name="0001-rtlwifi-Add-check-for-get_btc_status-callback.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename="0001-rtlwifi-Add-check-for-get_btc_status-callback.patch"
-
->From 9fee70e0af554bc7827d13ef8cfb22ce95f61514 Mon Sep 17 00:00:00 2001
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Date: Thu, 23 Oct 2014 11:18:05 -0500
-Subject: [PATCH] rtlwifi: Add check for get_btc_status callback
-To: Marcel Holtmann <marcel@holtmann.org>,
-    Gustavo Padovan <gustavo@padovan.org>,
-    Johan Hedberg <johan.hedberg@gmail.com>
-Cc: linux-bluetooth@vger.kernel.org,
-    netdev@vger.kernel.org
-
-Drivers that do not use the get_btc_status() callback may not define a
-dummy routine. The caller needs to check before making the call.
-
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-Cc: Murilo Opsfelder Araujo <mopsfelder@gmail.com>
-Cc: Mike Galbraith <umgwanakikbuti@gmail.com>
-Thadeu Cascardo <cascardo@cascardo.eti.br>
----
- drivers/net/wireless/rtlwifi/pci.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/wireless/rtlwifi/pci.c b/drivers/net/wireless/rtlwifi/pci.c
-index 667aba8..25daa87 100644
---- a/drivers/net/wireless/rtlwifi/pci.c
-+++ b/drivers/net/wireless/rtlwifi/pci.c
-@@ -1796,7 +1796,8 @@ static int rtl_pci_start(struct ieee80211_hw *hw)
- 	rtl_pci_reset_trx_ring(hw);
- 
- 	rtlpci->driver_is_goingto_unload = false;
--	if (rtlpriv->cfg->ops->get_btc_status()) {
-+	if (rtlpriv->cfg->ops->get_btc_status &&
-+	    rtlpriv->cfg->ops->get_btc_status()) {
- 		rtlpriv->btcoexist.btc_ops->btc_init_variables(rtlpriv);
- 		rtlpriv->btcoexist.btc_ops->btc_init_hal_vars(rtlpriv);
- 	}
--- 
-1.8.4.5
-
-
---------------030801030304040608010406--
+							Thanx, Paul
