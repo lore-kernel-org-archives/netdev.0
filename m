@@ -1,367 +1,82 @@
-From: Roberto Medina <robertoxmed@gmail.com>
-Subject: [PATCH] net: ethernet: realtek: atp: checkpatch errors and warnings corrected
-Date: Thu, 23 Oct 2014 19:10:00 +0200
-Message-ID: <1414084200-5377-1-git-send-email-robertoxmed@gmail.com>
-Cc: linux-kernel@vger.kernel.org,
-	Roberto Medina <robertoxmed@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Fabian Frederick <fabf-AgBVmzD5pcezQB+pC5nmwQ@public.gmane.org>
+Subject: Re: [PATCH 1/1 net-next] Bluetooth: fix shadow warning in
+ hci_disconnect()
+Date: Thu, 23 Oct 2014 19:30:53 +0200 (CEST)
+Message-ID: <20326343.74480.1414085453988.open-xchange@webmail.nmp.skynet.be>
+References: <1414081365-6461-1-git-send-email-fabf@skynet.be> <2F67F6E8-CA99-4998-AE68-89E60D62C39D@holtmann.org>
+Reply-To: Fabian Frederick <fabf-AgBVmzD5pcezQB+pC5nmwQ@public.gmane.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Gustavo F. Padovan" <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	BlueZ development <linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <2F67F6E8-CA99-4998-AE68-89E60D62C39D-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Roberto Medina <robertoxmed@gmail.com>
 
-Several warnings and errors of coding style errors corrected.
 
-Signed-off-by: Roberto Medina <robertoxmed@gmail.com>
+> On 23 October 2014 at 18:29 Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org> wro=
+te:
+>
+>
+> Hi Fabian,
+>
+> > use cpr for hci_cp_read_clock_offset instead of cp
+> > (already defined above).
+> >
+> > Signed-off-by: Fabian Frederick <fabf-AgBVmzD5pcezQB+pC5nmwQ@public.gmane.org>
+> > ---
+> > net/bluetooth/hci_conn.c | 6 +++---
+> > 1 file changed, 3 insertions(+), 3 deletions(-)
+> >
+> > diff --git a/net/bluetooth/hci_conn.c b/net/bluetooth/hci_conn.c
+> > index b9517bd..6151e09 100644
+> > --- a/net/bluetooth/hci_conn.c
+> > +++ b/net/bluetooth/hci_conn.c
+> > @@ -141,10 +141,10 @@ int hci_disconnect(struct hci_conn *conn, __u=
+8 reason)
+> >=C2=A0 =C2=A0 =C2=A0 */
+> >=C2=A0 =C2=A0 =C2=A0if (conn->type =3D=3D ACL_LINK && conn->role =3D=
+=3D HCI_ROLE_MASTER) {
+> >=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0struct hci_dev *hdev=
+ =3D conn->hdev;
+> > -=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0struct hci_cp_read_clock_=
+offset cp;
+> > +=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0struct hci_cp_read_clock_=
+offset cpr;
+> >
+> > -=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0cp.handle =3D cpu_to_le16=
+(conn->handle);
+> > -=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0hci_send_cmd(hdev, HCI_OP=
+_READ_CLOCK_OFFSET, sizeof(cp), &cp);
+> > +=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0cpr.handle =3D cpu_to_le1=
+6(conn->handle);
+> > +=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0hci_send_cmd(hdev, HCI_OP=
+_READ_CLOCK_OFFSET, sizeof(cpr), &cpr);
+>
+> valid change, but I do not like cpr as variable name. We need to come=
+ up with
+> a better one. There are other places in the code where we had the sam=
+e thing.
+> Please have a look there.
+>
+> Regards
+>
+> Marcel
+>
 
----
- drivers/net/ethernet/realtek/atp.h | 242 +++++++++++++++++++------------------
- 1 file changed, 124 insertions(+), 118 deletions(-)
+Hi Marcel,
 
-diff --git a/drivers/net/ethernet/realtek/atp.h b/drivers/net/ethernet/realtek/atp.h
-index 040b137..1e08a24 100644
---- a/drivers/net/ethernet/realtek/atp.h
-+++ b/drivers/net/ethernet/realtek/atp.h
-@@ -6,10 +6,10 @@
- 
- /* The header prepended to received packets. */
- struct rx_header {
--    ushort pad;			/* Pad. */
--    ushort rx_count;
--    ushort rx_status;		/* Unknown bit assignments :-<.  */
--    ushort cur_addr;		/* Apparently the current buffer address(?) */
-+	ushort pad;		/* Pad. */
-+	ushort rx_count;
-+	ushort rx_status;	/* Unknown bit assignments :-<.  */
-+	ushort cur_addr;	/* Apparently the current buffer address(?) */
- };
- 
- #define PAR_DATA	0
-@@ -29,22 +29,23 @@ struct rx_header {
- #define RdAddr	0xC0
- #define HNib	0x10
- 
--enum page0_regs
--{
-+enum page0_regs {
-     /* The first six registers hold the ethernet physical station address. */
--    PAR0 = 0, PAR1 = 1, PAR2 = 2, PAR3 = 3, PAR4 = 4, PAR5 = 5,
--    TxCNT0 = 6, TxCNT1 = 7,		/* The transmit byte count. */
--    TxSTAT = 8, RxSTAT = 9,		/* Tx and Rx status. */
--    ISR = 10, IMR = 11,			/* Interrupt status and mask. */
--    CMR1 = 12,				/* Command register 1. */
--    CMR2 = 13,				/* Command register 2. */
--    MODSEL = 14,			/* Mode select register. */
--    MAR = 14,				/* Memory address register (?). */
--    CMR2_h = 0x1d, };
--
--enum eepage_regs
--{ PROM_CMD = 6, PROM_DATA = 7 };	/* Note that PROM_CMD is in the "high" bits. */
-+	PAR0 = 0, PAR1 = 1, PAR2 = 2, PAR3 = 3, PAR4 = 4, PAR5 = 5,
-+	TxCNT0 = 6, TxCNT1 = 7,		/* The transmit byte count. */
-+	TxSTAT = 8, RxSTAT = 9,		/* Tx and Rx status. */
-+	ISR = 10, IMR = 11,		/* Interrupt status and mask. */
-+	CMR1 = 12,			/* Command register 1. */
-+	CMR2 = 13,			/* Command register 2. */
-+	MODSEL = 14,			/* Mode select register. */
-+	MAR = 14,			/* Memory address register (?). */
-+	CMR2_h = 0x1d,
-+};
- 
-+enum eepage_regs {
-+	PROM_CMD = 6,	/* Note that PROM_CMD is in the "high" bits. */
-+	PROM_DATA = 7
-+}
- 
- #define ISR_TxOK	0x01
- #define ISR_RxOK	0x04
-@@ -72,141 +73,146 @@ enum eepage_regs
- #define CMR2h_Normal	2	/* Accept physical and broadcast address. */
- #define CMR2h_PROMISC	3	/* Promiscuous mode. */
- 
--/* An inline function used below: it differs from inb() by explicitly return an unsigned
--   char, saving a truncation. */
-+/* An inline function used below: it differs from inb() by explicitly
-+ * return an unsigned char, saving a truncation.
-+ */
- static inline unsigned char inbyte(unsigned short port)
- {
--    unsigned char _v;
--    __asm__ __volatile__ ("inb %w1,%b0" :"=a" (_v):"d" (port));
--    return _v;
-+	unsigned char _v;
-+
-+	__asm__ __volatile__ ("inb %w1,%b0" : "=a" (_v) : "d" (port));
-+	return _v;
- }
- 
- /* Read register OFFSET.
--   This command should always be terminated with read_end(). */
-+ * This command should always be terminated with read_end().
-+ */
- static inline unsigned char read_nibble(short port, unsigned char offset)
- {
--    unsigned char retval;
--    outb(EOC+offset, port + PAR_DATA);
--    outb(RdAddr+offset, port + PAR_DATA);
--    inbyte(port + PAR_STATUS);		/* Settling time delay */
--    retval = inbyte(port + PAR_STATUS);
--    outb(EOC+offset, port + PAR_DATA);
--
--    return retval;
-+	unsigned char retval;
-+
-+	outb(EOC+offset, port + PAR_DATA);
-+	outb(RdAddr+offset, port + PAR_DATA);
-+	inbyte(port + PAR_STATUS);		/* Settling time delay */
-+	retval = inbyte(port + PAR_STATUS);
-+	outb(EOC+offset, port + PAR_DATA);
-+
-+	return retval;
- }
- 
- /* Functions for bulk data read.  The interrupt line is always disabled. */
- /* Get a byte using read mode 0, reading data from the control lines. */
- static inline unsigned char read_byte_mode0(short ioaddr)
- {
--    unsigned char low_nib;
--
--    outb(Ctrl_LNibRead, ioaddr + PAR_CONTROL);
--    inbyte(ioaddr + PAR_STATUS);
--    low_nib = (inbyte(ioaddr + PAR_STATUS) >> 3) & 0x0f;
--    outb(Ctrl_HNibRead, ioaddr + PAR_CONTROL);
--    inbyte(ioaddr + PAR_STATUS);	/* Settling time delay -- needed!  */
--    inbyte(ioaddr + PAR_STATUS);	/* Settling time delay -- needed!  */
--    return low_nib | ((inbyte(ioaddr + PAR_STATUS) << 1) & 0xf0);
-+	unsigned char low_nib;
-+
-+	outb(Ctrl_LNibRead, ioaddr + PAR_CONTROL);
-+	inbyte(ioaddr + PAR_STATUS);
-+	low_nib = (inbyte(ioaddr + PAR_STATUS) >> 3) & 0x0f;
-+	outb(Ctrl_HNibRead, ioaddr + PAR_CONTROL);
-+	inbyte(ioaddr + PAR_STATUS);	/* Settling time delay -- needed!  */
-+	inbyte(ioaddr + PAR_STATUS);	/* Settling time delay -- needed!  */
-+	return low_nib | ((inbyte(ioaddr + PAR_STATUS) << 1) & 0xf0);
- }
- 
- /* The same as read_byte_mode0(), but does multiple inb()s for stability. */
- static inline unsigned char read_byte_mode2(short ioaddr)
- {
--    unsigned char low_nib;
--
--    outb(Ctrl_LNibRead, ioaddr + PAR_CONTROL);
--    inbyte(ioaddr + PAR_STATUS);
--    low_nib = (inbyte(ioaddr + PAR_STATUS) >> 3) & 0x0f;
--    outb(Ctrl_HNibRead, ioaddr + PAR_CONTROL);
--    inbyte(ioaddr + PAR_STATUS);	/* Settling time delay -- needed!  */
--    return low_nib | ((inbyte(ioaddr + PAR_STATUS) << 1) & 0xf0);
-+	unsigned char low_nib;
-+
-+	outb(Ctrl_LNibRead, ioaddr + PAR_CONTROL);
-+	inbyte(ioaddr + PAR_STATUS);
-+	low_nib = (inbyte(ioaddr + PAR_STATUS) >> 3) & 0x0f;
-+	outb(Ctrl_HNibRead, ioaddr + PAR_CONTROL);
-+	inbyte(ioaddr + PAR_STATUS);	/* Settling time delay -- needed!  */
-+	return low_nib | ((inbyte(ioaddr + PAR_STATUS) << 1) & 0xf0);
- }
- 
- /* Read a byte through the data register. */
- static inline unsigned char read_byte_mode4(short ioaddr)
- {
--    unsigned char low_nib;
-+	unsigned char low_nib;
- 
--    outb(RdAddr | MAR, ioaddr + PAR_DATA);
--    low_nib = (inbyte(ioaddr + PAR_STATUS) >> 3) & 0x0f;
--    outb(RdAddr | HNib | MAR, ioaddr + PAR_DATA);
--    return low_nib | ((inbyte(ioaddr + PAR_STATUS) << 1) & 0xf0);
-+	outb(RdAddr | MAR, ioaddr + PAR_DATA);
-+	low_nib = (inbyte(ioaddr + PAR_STATUS) >> 3) & 0x0f;
-+	outb(RdAddr | HNib | MAR, ioaddr + PAR_DATA);
-+	return low_nib | ((inbyte(ioaddr + PAR_STATUS) << 1) & 0xf0);
- }
- 
- /* Read a byte through the data register, double reading to allow settling. */
- static inline unsigned char read_byte_mode6(short ioaddr)
- {
--    unsigned char low_nib;
--
--    outb(RdAddr | MAR, ioaddr + PAR_DATA);
--    inbyte(ioaddr + PAR_STATUS);
--    low_nib = (inbyte(ioaddr + PAR_STATUS) >> 3) & 0x0f;
--    outb(RdAddr | HNib | MAR, ioaddr + PAR_DATA);
--    inbyte(ioaddr + PAR_STATUS);
--    return low_nib | ((inbyte(ioaddr + PAR_STATUS) << 1) & 0xf0);
-+	unsigned char low_nib;
-+
-+	outb(RdAddr | MAR, ioaddr + PAR_DATA);
-+	inbyte(ioaddr + PAR_STATUS);
-+	low_nib = (inbyte(ioaddr + PAR_STATUS) >> 3) & 0x0f;
-+	outb(RdAddr | HNib | MAR, ioaddr + PAR_DATA);
-+	inbyte(ioaddr + PAR_STATUS);
-+	return low_nib | ((inbyte(ioaddr + PAR_STATUS) << 1) & 0xf0);
- }
- 
- static inline void
- write_reg(short port, unsigned char reg, unsigned char value)
- {
--    unsigned char outval;
--    outb(EOC | reg, port + PAR_DATA);
--    outval = WrAddr | reg;
--    outb(outval, port + PAR_DATA);
--    outb(outval, port + PAR_DATA);	/* Double write for PS/2. */
--
--    outval &= 0xf0;
--    outval |= value;
--    outb(outval, port + PAR_DATA);
--    outval &= 0x1f;
--    outb(outval, port + PAR_DATA);
--    outb(outval, port + PAR_DATA);
--
--    outb(EOC | outval, port + PAR_DATA);
-+	unsigned char outval;
-+
-+	outb(EOC | reg, port + PAR_DATA);
-+	outval = WrAddr | reg;
-+	outb(outval, port + PAR_DATA);
-+	outb(outval, port + PAR_DATA);	/* Double write for PS/2. */
-+
-+	outval &= 0xf0;
-+	outval |= value;
-+	outb(outval, port + PAR_DATA);
-+	outval &= 0x1f;
-+	outb(outval, port + PAR_DATA);
-+	outb(outval, port + PAR_DATA);
-+
-+	outb(EOC | outval, port + PAR_DATA);
- }
- 
- static inline void
- write_reg_high(short port, unsigned char reg, unsigned char value)
- {
--    unsigned char outval = EOC | HNib | reg;
-+	unsigned char outval = EOC | HNib | reg;
- 
--    outb(outval, port + PAR_DATA);
--    outval &= WrAddr | HNib | 0x0f;
--    outb(outval, port + PAR_DATA);
--    outb(outval, port + PAR_DATA);	/* Double write for PS/2. */
-+	outb(outval, port + PAR_DATA);
-+	outval &= WrAddr | HNib | 0x0f;
-+	outb(outval, port + PAR_DATA);
-+	outb(outval, port + PAR_DATA);	/* Double write for PS/2. */
- 
--    outval = WrAddr | HNib | value;
--    outb(outval, port + PAR_DATA);
--    outval &= HNib | 0x0f;		/* HNib | value */
--    outb(outval, port + PAR_DATA);
--    outb(outval, port + PAR_DATA);
-+	outval = WrAddr | HNib | value;
-+	outb(outval, port + PAR_DATA);
-+	outval &= HNib | 0x0f;		/* HNib | value */
-+	outb(outval, port + PAR_DATA);
-+	outb(outval, port + PAR_DATA);
- 
--    outb(EOC | HNib | outval, port + PAR_DATA);
-+	outb(EOC | HNib | outval, port + PAR_DATA);
- }
- 
- /* Write a byte out using nibble mode.  The low nibble is written first. */
- static inline void
- write_reg_byte(short port, unsigned char reg, unsigned char value)
- {
--    unsigned char outval;
--    outb(EOC | reg, port + PAR_DATA); 	/* Reset the address register. */
--    outval = WrAddr | reg;
--    outb(outval, port + PAR_DATA);
--    outb(outval, port + PAR_DATA);	/* Double write for PS/2. */
--
--    outb((outval & 0xf0) | (value & 0x0f), port + PAR_DATA);
--    outb(value & 0x0f, port + PAR_DATA);
--    value >>= 4;
--    outb(value, port + PAR_DATA);
--    outb(0x10 | value, port + PAR_DATA);
--    outb(0x10 | value, port + PAR_DATA);
--
--    outb(EOC  | value, port + PAR_DATA); 	/* Reset the address register. */
-+	unsigned char outval;
-+
-+	outb(EOC | reg, port + PAR_DATA);  /* Reset the address register. */
-+	outval = WrAddr | reg;
-+	outb(outval, port + PAR_DATA);
-+	outb(outval, port + PAR_DATA);	/* Double write for PS/2. */
-+
-+	outb((outval & 0xf0) | (value & 0x0f), port + PAR_DATA);
-+	outb(value & 0x0f, port + PAR_DATA);
-+	value >>= 4;
-+	outb(value, port + PAR_DATA);
-+	outb(0x10 | value, port + PAR_DATA);
-+	outb(0x10 | value, port + PAR_DATA);
-+
-+	outb(EOC  | value, port + PAR_DATA);  /* Reset the address register. */
- }
- 
--/*
-- * Bulk data writes to the packet buffer.  The interrupt line remains enabled.
-+/* Bulk data writes to the packet buffer.  The interrupt line remains enabled.
-  * The first, faster method uses only the dataport (data modes 0, 2 & 4).
-  * The second (backup) method uses data and control regs (modes 1, 3 & 5).
-  * It should only be needed when there is skew between the individual data
-@@ -214,28 +220,28 @@ write_reg_byte(short port, unsigned char reg, unsigned char value)
-  */
- static inline void write_byte_mode0(short ioaddr, unsigned char value)
- {
--    outb(value & 0x0f, ioaddr + PAR_DATA);
--    outb((value>>4) | 0x10, ioaddr + PAR_DATA);
-+	outb(value & 0x0f, ioaddr + PAR_DATA);
-+	outb((value>>4) | 0x10, ioaddr + PAR_DATA);
- }
- 
- static inline void write_byte_mode1(short ioaddr, unsigned char value)
- {
--    outb(value & 0x0f, ioaddr + PAR_DATA);
--    outb(Ctrl_IRQEN | Ctrl_LNibWrite, ioaddr + PAR_CONTROL);
--    outb((value>>4) | 0x10, ioaddr + PAR_DATA);
--    outb(Ctrl_IRQEN | Ctrl_HNibWrite, ioaddr + PAR_CONTROL);
-+	outb(value & 0x0f, ioaddr + PAR_DATA);
-+	outb(Ctrl_IRQEN | Ctrl_LNibWrite, ioaddr + PAR_CONTROL);
-+	outb((value>>4) | 0x10, ioaddr + PAR_DATA);
-+	outb(Ctrl_IRQEN | Ctrl_HNibWrite, ioaddr + PAR_CONTROL);
- }
- 
- /* Write 16bit VALUE to the packet buffer: the same as above just doubled. */
- static inline void write_word_mode0(short ioaddr, unsigned short value)
- {
--    outb(value & 0x0f, ioaddr + PAR_DATA);
--    value >>= 4;
--    outb((value & 0x0f) | 0x10, ioaddr + PAR_DATA);
--    value >>= 4;
--    outb(value & 0x0f, ioaddr + PAR_DATA);
--    value >>= 4;
--    outb((value & 0x0f) | 0x10, ioaddr + PAR_DATA);
-+	outb(value & 0x0f, ioaddr + PAR_DATA);
-+	value >>= 4;
-+	outb((value & 0x0f) | 0x10, ioaddr + PAR_DATA);
-+	value >>= 4;
-+	outb(value & 0x0f, ioaddr + PAR_DATA);
-+	value >>= 4;
-+	outb((value & 0x0f) | 0x10, ioaddr + PAR_DATA);
- }
- 
- /*  EEPROM_Ctrl bits. */
-@@ -248,10 +254,10 @@ static inline void write_word_mode0(short ioaddr, unsigned short value)
- 
- /* Delay between EEPROM clock transitions. */
- #define eeprom_delay(ticks) \
--do { int _i = 40; while (--_i > 0) { __SLOW_DOWN_IO; }} while (0)
-+do { int _i = 40; while (--_i > 0) { __SLOW_DOWN_IO; } } while (0)
- 
- /* The EEPROM commands include the alway-set leading bit. */
- #define EE_WRITE_CMD(offset)	(((5 << 6) + (offset)) << 17)
--#define EE_READ(offset) 	(((6 << 6) + (offset)) << 17)
-+#define EE_READ(offset)		(((6 << 6) + (offset)) << 17)
- #define EE_ERASE(offset)	(((7 << 6) + (offset)) << 17)
- #define EE_CMD_SIZE	27	/* The command+address+data size. */
--- 
-2.1.2
+=C2=A0 Maybe read_cp (like commit c1f23a2bfc89 with struct hci_cp_auth_=
+requested
+auth_cp) ?
+
+Regards,
+=46abian
