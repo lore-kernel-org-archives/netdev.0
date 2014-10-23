@@ -1,58 +1,35 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [PATCH 02/14] net: dsa: Report known silicon revisions for Marvell
- 88E6060
-Date: Thu, 23 Oct 2014 06:20:12 -0700
-Message-ID: <5449008C.4050505@roeck-us.net>
-References: <1414037002-25528-1-git-send-email-linux@roeck-us.net> <1414037002-25528-3-git-send-email-linux@roeck-us.net> <5448F9B4.9010209@cogentembedded.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] tcp md5 use of alloc_percpu
+Date: Thu, 23 Oct 2014 06:21:30 -0700
+Message-ID: <1414070490.2094.39.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <5447FDB2.2010906@gmail.com> <544886C4.4020702@gmail.com>
+	 <1414041833.2094.28.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1414042688.2094.30.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <5448A72D.1050806@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>, linux-kernel@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+Cc: David Ahern <dsahern@gmail.com>,
+	Crestez Dan Leonard <cdleonard@gmail.com>,
 	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5448F9B4.9010209@cogentembedded.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Jonathan Toppins <jtoppins@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f171.google.com ([209.85.192.171]:40233 "EHLO
+	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753140AbaJWNVb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Oct 2014 09:21:31 -0400
+Received: by mail-pd0-f171.google.com with SMTP id r10so282291pdi.16
+        for <netdev@vger.kernel.org>; Thu, 23 Oct 2014 06:21:31 -0700 (PDT)
+In-Reply-To: <5448A72D.1050806@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/23/2014 05:51 AM, Sergei Shtylyov wrote:
-> Hello.
->
-> On 10/23/2014 8:03 AM, Guenter Roeck wrote:
->
->> Report known silicon revisions when probing Marvell 88E6060 switches.
->
->> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
->> ---
->>   drivers/net/dsa/mv88e6060.c | 5 ++++-
->>   1 file changed, 4 insertions(+), 1 deletion(-)
->
->> diff --git a/drivers/net/dsa/mv88e6060.c b/drivers/net/dsa/mv88e6060.c
->> index 05b0ca3..c29aebe 100644
->> --- a/drivers/net/dsa/mv88e6060.c
->> +++ b/drivers/net/dsa/mv88e6060.c
->> @@ -69,8 +69,11 @@ static char *mv88e6060_probe(struct device *host_dev, int sw_addr)
->>
->>       ret = mdiobus_read(bus, sw_addr + REG_PORT(0), 0x03);
->>       if (ret >= 0) {
->> -        ret &= 0xfff0;
->>           if (ret == 0x0600)
->> +            return "Marvell 88E6060 (A0)";
->> +        if (ret == 0x0601 || ret == 0x0602)
->
->     *else* *if*.
->
->> +            return "Marvell 88E6060 (B0)";
->> +        if ((ret & 0xfff0) == 0x0600)
->
->     Likewise?
->
+On Thu, 2014-10-23 at 02:58 -0400, Jonathan Toppins wrote:
 
-The if case returns, so the else would just introduce an unnecessary
-additional level of indentation. I think nowadays even checkpatch
-complains about an unnecessary else after return.
+> > +		if (!pool) {
+> > +			pool = kzalloc_node(sizeof(*pool), GFP_KERNEL,
+> GFP_DMA | GFP_KERNEL
+> This memory will possibly be used in a DMA correct? (thinking crypto
+> hardware offload)
 
-Thanks,
-Guenter
+I am not sure this is the case, but this certainly can be added.
