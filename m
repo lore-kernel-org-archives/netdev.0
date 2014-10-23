@@ -1,215 +1,271 @@
-From: Kyeyoon Park <kyeyoonp@qca.qualcomm.com>
-Subject: [PATCH] bridge: Add support for IEEE 802.11 Proxy ARP
-Date: Thu, 23 Oct 2014 14:49:17 -0700
-Message-ID: <1414100957-8288-1-git-send-email-kyeyoonp@qca.qualcomm.com>
-Cc: kyeyoonp@qca.qualcomm.com, jouni@qca.qualcomm.com,
-	netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [net-next] iptunnel: Fix iptunnel_xmit return code for stats maintenance
+Date: Thu, 23 Oct 2014 14:49:41 -0700
+Message-ID: <CALnjE+pNp8on=2q_MMoVL52Nb3zH4rEJXWRia2UXvvJvOToj4Q@mail.gmail.com>
+References: <1413858156-31763-1-git-send-email-azhou@nicira.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Andy Zhou <azhou@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.11.231]:47410 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751362AbaJWVt3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Oct 2014 17:49:29 -0400
+Received: from na6sys009bog029.obsmtp.com ([74.125.150.103]:35229 "HELO
+	na6sys009bog029.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752704AbaJWVtm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Oct 2014 17:49:42 -0400
+Received: by mail-ie0-f174.google.com with SMTP id x19so1796418ier.33
+        for <netdev@vger.kernel.org>; Thu, 23 Oct 2014 14:49:41 -0700 (PDT)
+In-Reply-To: <1413858156-31763-1-git-send-email-azhou@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kyeyoon Park <kyeyoonp@codeaurora.org>
+On Mon, Oct 20, 2014 at 7:22 PM, Andy Zhou <azhou@nicira.com> wrote:
+> iptunnel_xmit() currently always return >= 0 instead of proper error
+> code, that is used to maintain stats. For example, current return code
+> conflicts with how iptunnel_xmit_stats() maintains stats.
+>
+> Unfortunately, the return code can not be changed without readjusting
+> how SKB memory is managed through the call chain.  The following two
+> rules are adopted for this patch:
+>
+> 1) Proper error code are always propagate back through the call chain
+>    so that the caller can maintain stats.
+>
+> 2) Tunnel xmit functions always free resources, e.g. skb and route
+>    entry.
+>
+> Signed-off-by: Andy Zhou <azhou@nicira.com>
+> ---
+>  drivers/net/vxlan.c            |   21 +++++++++++++--------
+>  include/net/ip_tunnels.h       |    7 +++++++
+>  net/ipv4/geneve.c              |    8 ++++++--
+>  net/ipv4/ip_tunnel_core.c      |   14 +++++++++++---
+>  net/openvswitch/vport-geneve.c |    5 ++---
+>  net/openvswitch/vport-gre.c    |    1 +
+>  net/openvswitch/vport-vxlan.c  |    6 +++---
+>  net/openvswitch/vport.c        |    8 ++++----
+>  8 files changed, 47 insertions(+), 23 deletions(-)
+>
+> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+> index ca30982..93348cb 100644
+> --- a/drivers/net/vxlan.c
+> +++ b/drivers/net/vxlan.c
+> @@ -1626,8 +1626,10 @@ int vxlan_xmit_skb(struct vxlan_sock *vs,
+>         bool udp_sum = !vs->sock->sk->sk_no_check_tx;
+>
+>         skb = udp_tunnel_handle_offloads(skb, udp_sum);
+> -       if (IS_ERR(skb))
+> -               return -EINVAL;
+> +       if (IS_ERR(skb)) {
+> +               err = -EINVAL;
+> +               goto error;
+> +       }
+>
+>         min_headroom = LL_RESERVED_SPACE(rt->dst.dev) + rt->dst.header_len
+>                         + VXLAN_HLEN + sizeof(struct iphdr)
+> @@ -1636,13 +1638,15 @@ int vxlan_xmit_skb(struct vxlan_sock *vs,
+>         /* Need space for new headers (invalidates iph ptr) */
+>         err = skb_cow_head(skb, min_headroom);
+>         if (unlikely(err))
+> -               return err;
+> +               goto error;
+>
+>         if (vlan_tx_tag_present(skb)) {
+>                 if (WARN_ON(!__vlan_put_tag(skb,
+>                                             skb->vlan_proto,
+> -                                           vlan_tx_tag_get(skb))))
+> -                       return -ENOMEM;
+> +                                           vlan_tx_tag_get(skb)))) {
+> +                       err = -ENOMEM;
+> +                       goto error;
+> +               }
+>
+>                 skb->vlan_tci = 0;
+>         }
+> @@ -1655,6 +1659,10 @@ int vxlan_xmit_skb(struct vxlan_sock *vs,
+>
+>         return udp_tunnel_xmit_skb(vs->sock, rt, skb, src, dst, tos,
+>                                    ttl, df, src_port, dst_port, xnet);
+> +error:
+> +       kfree_skb(skb);
+> +       ip_rt_put(rt);
+> +       return err;
+>  }
+>  EXPORT_SYMBOL_GPL(vxlan_xmit_skb);
+>
+> @@ -1786,9 +1794,6 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+>                                      tos, ttl, df, src_port, dst_port,
+>                                      htonl(vni << 8),
+>                                      !net_eq(vxlan->net, dev_net(vxlan->dev)));
+> -
+> -               if (err < 0)
+> -                       goto rt_tx_error;
+>                 iptunnel_xmit_stats(err, &dev->stats, dev->tstats);
+>  #if IS_ENABLED(CONFIG_IPV6)
+>         } else {
+> diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
+> index 5bc6ede..80bcf2e 100644
+> --- a/include/net/ip_tunnels.h
+> +++ b/include/net/ip_tunnels.h
+> @@ -174,6 +174,13 @@ static inline u8 ip_tunnel_ecn_encap(u8 tos, const struct iphdr *iph,
+>  }
+>
+>  int iptunnel_pull_header(struct sk_buff *skb, int hdr_len, __be16 inner_proto);
+> +
+> +/* Transmit a packet over IP tunnel
+> + * Returns:
+> + *     0 Congestion notification received
+> + *     >0  Number of bytes in the packet successfully sent
+> + *     <0 packet dropped due to error
+> + */
+>  int iptunnel_xmit(struct sock *sk, struct rtable *rt, struct sk_buff *skb,
+>                   __be32 src, __be32 dst, __u8 proto,
+>                   __u8 tos, __u8 ttl, __be16 df, bool xnet);
+> diff --git a/net/ipv4/geneve.c b/net/ipv4/geneve.c
+> index 065cd94..90fea48 100644
+> --- a/net/ipv4/geneve.c
+> +++ b/net/ipv4/geneve.c
+> @@ -129,14 +129,14 @@ int geneve_xmit_skb(struct geneve_sock *gs, struct rtable *rt,
+>
+>         err = skb_cow_head(skb, min_headroom);
+>         if (unlikely(err))
+> -               return err;
+> +               goto error;
+>
+>         if (vlan_tx_tag_present(skb)) {
+>                 if (unlikely(!__vlan_put_tag(skb,
+>                                              skb->vlan_proto,
+>                                              vlan_tx_tag_get(skb)))) {
+>                         err = -ENOMEM;
+> -                       return err;
+> +                       goto error;
+>                 }
+>                 skb->vlan_tci = 0;
+>         }
+> @@ -146,6 +146,10 @@ int geneve_xmit_skb(struct geneve_sock *gs, struct rtable *rt,
+>
+>         return udp_tunnel_xmit_skb(gs->sock, rt, skb, src, dst,
+>                                    tos, ttl, df, src_port, dst_port, xnet);
+> +error:
+> +       kfree_skb(skb);
+> +       ip_rt_put(rt);
+> +       return err;
+>  }
+>  EXPORT_SYMBOL_GPL(geneve_xmit_skb);
+>
+> diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
+> index 88c386c..b3ba4a3 100644
+> --- a/net/ipv4/ip_tunnel_core.c
+> +++ b/net/ipv4/ip_tunnel_core.c
+> @@ -77,9 +77,17 @@ int iptunnel_xmit(struct sock *sk, struct rtable *rt, struct sk_buff *skb,
+>         __ip_select_ident(iph, skb_shinfo(skb)->gso_segs ?: 1);
+>
+>         err = ip_local_out_sk(sk, skb);
+> -       if (unlikely(net_xmit_eval(err)))
+> -               pkt_len = 0;
+> -       return pkt_len;
+> +
+> +       /* Deal with positive error numbers. Filter out NET_XMIT_CN */
+> +       if (err > 0)
+> +               return net_xmit_errno(err);
+> +
+> +       /* Success, return number of bytes transmitted */
+> +       if (err == 0)
+> +               err = pkt_len;
+> +
+> +       /* Return pkt_len or an error code */
+> +       return err;
+>  }
+>  EXPORT_SYMBOL_GPL(iptunnel_xmit);
+>
+> diff --git a/net/openvswitch/vport-geneve.c b/net/openvswitch/vport-geneve.c
+> index 106a9d8..34276fb 100644
+> --- a/net/openvswitch/vport-geneve.c
+> +++ b/net/openvswitch/vport-geneve.c
+> @@ -206,15 +206,14 @@ static int geneve_tnl_send(struct vport *vport, struct sk_buff *skb)
+>         tunnel_id_to_vni(tun_key->tun_id, vni);
+>         skb->ignore_df = 1;
+>
+> -       err = geneve_xmit_skb(geneve_port->gs, rt, skb, fl.saddr,
+> +       return  geneve_xmit_skb(geneve_port->gs, rt, skb, fl.saddr,
+>                               tun_key->ipv4_dst, tun_key->ipv4_tos,
+>                               tun_key->ipv4_ttl, df, sport, dport,
+>                               tun_key->tun_flags, vni,
+>                               tun_info->options_len, (u8 *)tun_info->options,
+>                               false);
+> -       if (err < 0)
+> -               ip_rt_put(rt);
+>  error:
+> +       kfree_skb(skb);
+>         return err;
+>  }
+>
+> diff --git a/net/openvswitch/vport-gre.c b/net/openvswitch/vport-gre.c
+> index 108b82d..8721b30 100644
+> --- a/net/openvswitch/vport-gre.c
+> +++ b/net/openvswitch/vport-gre.c
+> @@ -200,6 +200,7 @@ static int gre_tnl_send(struct vport *vport, struct sk_buff *skb)
+>  err_free_rt:
+>         ip_rt_put(rt);
+>  error:
+> +       kfree_skb(skb);
+>         return err;
+>  }
+>
+There is one error case where gre_tnl_send() leaks skb.
 
-This feature is defined in IEEE Std 802.11-2012, 10.23.13. It allows
-the AP devices to keep track of the hardware-address-to-IP-address
-mapping of the mobile devices within the WLAN network.
+> diff --git a/net/openvswitch/vport-vxlan.c b/net/openvswitch/vport-vxlan.c
+> index 2735e01..ace849a 100644
+> --- a/net/openvswitch/vport-vxlan.c
+> +++ b/net/openvswitch/vport-vxlan.c
+> @@ -174,15 +174,15 @@ static int vxlan_tnl_send(struct vport *vport, struct sk_buff *skb)
+>
+>         src_port = udp_flow_src_port(net, skb, 0, 0, true);
+>
+> -       err = vxlan_xmit_skb(vxlan_port->vs, rt, skb,
+> +       return vxlan_xmit_skb(vxlan_port->vs, rt, skb,
+>                              fl.saddr, tun_key->ipv4_dst,
+>                              tun_key->ipv4_tos, tun_key->ipv4_ttl, df,
+>                              src_port, dst_port,
+>                              htonl(be64_to_cpu(tun_key->tun_id) << 8),
+>                              false);
+> -       if (err < 0)
+> -               ip_rt_put(rt);
+> +
+>  error:
+> +       kfree_skb(skb);
+>         return err;
+>  }
+>
+> diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
+> index 6015802..eb0a72f 100644
+> --- a/net/openvswitch/vport.c
+> +++ b/net/openvswitch/vport.c
+> @@ -480,11 +480,11 @@ int ovs_vport_send(struct vport *vport, struct sk_buff *skb)
+>                 stats->tx_packets++;
+>                 stats->tx_bytes += sent;
+>                 u64_stats_update_end(&stats->syncp);
+> -       } else if (sent < 0) {
+> -               ovs_vport_record_error(vport, VPORT_E_TX_ERROR);
+> -               kfree_skb(skb);
+> -       } else
+> +       } else if (sent == -ENOBUFS || sent == -ENOMEM || sent == 0) {
+>                 ovs_vport_record_error(vport, VPORT_E_TX_DROPPED);
+> +       } else {
+> +               ovs_vport_record_error(vport, VPORT_E_TX_ERROR);
+> +       }
+>
+vport-send() and iptunnel_xmit_stats() doe not interpret xmit return
+value in same way. iptunnel_xmit_stats() treats all negative values as
+error and zero as dropped. But ovs-vport send records selective
+negative values as dropped.
 
-The AP will learn this mapping via observing DHCP, ARP, and NS/NA
-frames. When a request for such information is made (i.e. ARP request,
-Neighbor Solicitation), the AP will respond on behalf of the
-associated mobile device. In the process of doing so, the AP will drop
-the multicast request frame that was intended to go out to the wireless
-medium.
 
-It was recommended at the LKS workshop to do this implementation in
-the bridge layer. vxlan.c is already doing something very similar.
-The DHCP snooping code will be added to the userspace application
-(hostapd) per the recommendation.
-
-This RFC commit is only for IPv4. A similar approach in the bridge
-layer will be taken for IPv6 as well.
-
-Signed-off-by: Kyeyoon Park <kyeyoonp@codeaurora.org>
----
- include/uapi/linux/if_link.h |  1 +
- net/bridge/br_forward.c      |  5 ++++
- net/bridge/br_input.c        | 60 ++++++++++++++++++++++++++++++++++++++++++++
- net/bridge/br_netlink.c      |  4 ++-
- net/bridge/br_private.h      |  1 +
- net/bridge/br_sysfs_if.c     |  2 ++
- 6 files changed, 72 insertions(+), 1 deletion(-)
-
-diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index ff95760..62a17e0 100644
---- a/include/uapi/linux/if_link.h
-+++ b/include/uapi/linux/if_link.h
-@@ -231,6 +231,7 @@ enum {
- 	IFLA_BRPORT_FAST_LEAVE,	/* multicast fast leave    */
- 	IFLA_BRPORT_LEARNING,	/* mac learning */
- 	IFLA_BRPORT_UNICAST_FLOOD, /* flood unicast traffic */
-+	IFLA_BRPORT_PROXYARP,	/* proxy ARP */
- 	__IFLA_BRPORT_MAX
- };
- #define IFLA_BRPORT_MAX (__IFLA_BRPORT_MAX - 1)
-diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
-index 056b67b..61d9edf 100644
---- a/net/bridge/br_forward.c
-+++ b/net/bridge/br_forward.c
-@@ -181,6 +181,11 @@ static void br_flood(struct net_bridge *br, struct sk_buff *skb,
- 		/* Do not flood unicast traffic to ports that turn it off */
- 		if (unicast && !(p->flags & BR_FLOOD))
- 			continue;
-+
-+		/* Do not flood to ports that enable proxy ARP */
-+		if (p->flags & BR_PROXYARP)
-+			continue;
-+
- 		prev = maybe_deliver(prev, p, skb, __packet_hook);
- 		if (IS_ERR(prev))
- 			goto out;
-diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
-index 366c436..a548fbf 100644
---- a/net/bridge/br_input.c
-+++ b/net/bridge/br_input.c
-@@ -16,6 +16,8 @@
- #include <linux/netdevice.h>
- #include <linux/etherdevice.h>
- #include <linux/netfilter_bridge.h>
-+#include <linux/neighbour.h>
-+#include <net/arp.h>
- #include <linux/export.h>
- #include <linux/rculist.h>
- #include "br_private.h"
-@@ -57,6 +59,60 @@ static int br_pass_frame_up(struct sk_buff *skb)
- 		       netif_receive_skb);
- }
- 
-+static void br_do_proxy_arp(struct sk_buff *skb, struct net_bridge *br,
-+			    u16 vid)
-+{
-+	struct net_device *dev = br->dev;
-+	struct neighbour *n;
-+	struct arphdr *parp;
-+	u8 *arpptr, *sha;
-+	__be32 sip, tip;
-+
-+	if (dev->flags & IFF_NOARP)
-+		return;
-+
-+	if (!pskb_may_pull(skb, arp_hdr_len(dev))) {
-+		dev->stats.tx_dropped++;
-+		return;
-+	}
-+	parp = arp_hdr(skb);
-+
-+	if (parp->ar_pro != htons(ETH_P_IP) ||
-+	    parp->ar_op != htons(ARPOP_REQUEST) ||
-+	    parp->ar_hln != dev->addr_len ||
-+	    parp->ar_pln != 4)
-+		return;
-+
-+	arpptr = (u8 *)parp + sizeof(struct arphdr);
-+	sha = arpptr;
-+	arpptr += dev->addr_len;	/* sha */
-+	memcpy(&sip, arpptr, sizeof(sip));
-+	arpptr += sizeof(sip);
-+	arpptr += dev->addr_len;	/* tha */
-+	memcpy(&tip, arpptr, sizeof(tip));
-+
-+	if (ipv4_is_loopback(tip) ||
-+	    ipv4_is_multicast(tip))
-+		return;
-+
-+	n = neigh_lookup(&arp_tbl, &tip, dev);
-+	if (n) {
-+		struct net_bridge_fdb_entry *f;
-+
-+		if (!(n->nud_state & NUD_VALID)) {
-+			neigh_release(n);
-+			return;
-+		}
-+
-+		f = __br_fdb_get(br, n->ha, vid);
-+		if (f)
-+			arp_send(ARPOP_REPLY, ETH_P_ARP, sip, skb->dev, tip,
-+				 sha, n->ha, sha);
-+
-+		neigh_release(n);
-+	}
-+}
-+
- /* note: already called with rcu_read_lock */
- int br_handle_frame_finish(struct sk_buff *skb)
- {
-@@ -98,6 +154,10 @@ int br_handle_frame_finish(struct sk_buff *skb)
- 	dst = NULL;
- 
- 	if (is_broadcast_ether_addr(dest)) {
-+		if (p->flags & BR_PROXYARP &&
-+		    skb->protocol == htons(ETH_P_ARP))
-+			br_do_proxy_arp(skb, br, vid);
-+
- 		skb2 = skb;
- 		unicast = false;
- 	} else if (is_multicast_ether_addr(dest)) {
-diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-index cb5fcf6..caa6857 100644
---- a/net/bridge/br_netlink.c
-+++ b/net/bridge/br_netlink.c
-@@ -60,7 +60,8 @@ static int br_port_fill_attrs(struct sk_buff *skb,
- 	    nla_put_u8(skb, IFLA_BRPORT_PROTECT, !!(p->flags & BR_ROOT_BLOCK)) ||
- 	    nla_put_u8(skb, IFLA_BRPORT_FAST_LEAVE, !!(p->flags & BR_MULTICAST_FAST_LEAVE)) ||
- 	    nla_put_u8(skb, IFLA_BRPORT_LEARNING, !!(p->flags & BR_LEARNING)) ||
--	    nla_put_u8(skb, IFLA_BRPORT_UNICAST_FLOOD, !!(p->flags & BR_FLOOD)))
-+	    nla_put_u8(skb, IFLA_BRPORT_UNICAST_FLOOD, !!(p->flags & BR_FLOOD)) ||
-+	    nla_put_u8(skb, IFLA_BRPORT_PROXYARP, !!(p->flags & BR_PROXYARP)))
- 		return -EMSGSIZE;
- 
- 	return 0;
-@@ -335,6 +336,7 @@ static int br_setport(struct net_bridge_port *p, struct nlattr *tb[])
- 	br_set_port_flag(p, tb, IFLA_BRPORT_PROTECT, BR_ROOT_BLOCK);
- 	br_set_port_flag(p, tb, IFLA_BRPORT_LEARNING, BR_LEARNING);
- 	br_set_port_flag(p, tb, IFLA_BRPORT_UNICAST_FLOOD, BR_FLOOD);
-+	br_set_port_flag(p, tb, IFLA_BRPORT_PROXYARP, BR_PROXYARP);
- 
- 	if (tb[IFLA_BRPORT_COST]) {
- 		err = br_stp_set_path_cost(p, nla_get_u32(tb[IFLA_BRPORT_COST]));
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index b6c04cb..666c6bc 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -172,6 +172,7 @@ struct net_bridge_port
- #define BR_FLOOD		0x00000040
- #define BR_AUTO_MASK (BR_FLOOD | BR_LEARNING)
- #define BR_PROMISC		0x00000080
-+#define BR_PROXYARP		0x00000100
- 
- #ifdef CONFIG_BRIDGE_IGMP_SNOOPING
- 	struct bridge_mcast_own_query	ip4_own_query;
-diff --git a/net/bridge/br_sysfs_if.c b/net/bridge/br_sysfs_if.c
-index e561cd5..2de5d91 100644
---- a/net/bridge/br_sysfs_if.c
-+++ b/net/bridge/br_sysfs_if.c
-@@ -170,6 +170,7 @@ BRPORT_ATTR_FLAG(bpdu_guard, BR_BPDU_GUARD);
- BRPORT_ATTR_FLAG(root_block, BR_ROOT_BLOCK);
- BRPORT_ATTR_FLAG(learning, BR_LEARNING);
- BRPORT_ATTR_FLAG(unicast_flood, BR_FLOOD);
-+BRPORT_ATTR_FLAG(proxyarp, BR_PROXYARP);
- 
- #ifdef CONFIG_BRIDGE_IGMP_SNOOPING
- static ssize_t show_multicast_router(struct net_bridge_port *p, char *buf)
-@@ -213,6 +214,7 @@ static const struct brport_attribute *brport_attrs[] = {
- 	&brport_attr_multicast_router,
- 	&brport_attr_multicast_fast_leave,
- #endif
-+	&brport_attr_proxyarp,
- 	NULL
- };
- 
--- 
-1.9.1
+>         return sent;
+>  }
+> --
+> 1.7.9.5
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
