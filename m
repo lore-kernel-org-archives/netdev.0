@@ -1,39 +1,72 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH 06/14] net: dsa: Add support for hardware monitoring
-Date: Thu, 23 Oct 2014 10:24:44 +0200
-Message-ID: <20141023082444.GA4122@localhost.localdomain>
-References: <1414037002-25528-1-git-send-email-linux@roeck-us.net>
- <1414037002-25528-7-git-send-email-linux@roeck-us.net>
- <CAGVrzcYjPJWai9bxkh+WRrEEAzBKBd-LQm7zDeeouxngr_v9SQ@mail.gmail.com>
- <54488CE1.2000106@roeck-us.net>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: [PATCH v3] drivers: net: xgene: Rewrite buggy loop in xgene_enet_ecc_init()
+Date: Thu, 23 Oct 2014 10:25:53 +0200
+Message-ID: <1414052753-10183-1-git-send-email-geert@linux-m68k.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Guenter Roeck <linux@roeck-us.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Geert Uytterhoeven <geert@linux-m68k.org>
+To: "David S. Miller" <davem@davemloft.net>,
+	Iyappan Subramanian <isubramanian@apm.com>,
+	Keyur Chudgar <kchudgar@apm.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <54488CE1.2000106@roeck-us.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 22, 2014 at 10:06:41PM -0700, Guenter Roeck wrote:
-> On 10/22/2014 09:37 PM, Florian Fainelli wrote:
-> >You probably want the number of temperature sensors to come from the
-> >switch driver, and support arbitrary number of temperature sensors?
-> 
-> In that case we would need the number of sensors, pass a sensor index,
-> and create a dynamic number of attributes. The code would get much more
-> complex without real benefit unless there is such a chip - and if there is,
-> we can still change the code at that time. I would prefer to keep it simple
-> for now.
+drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.c: In function =E2=80=98=
+xgene_enet_ecc_init=E2=80=99:
+drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.c:126: warning: =E2=80=98=
+data=E2=80=99 may be used uninitialized in this function
 
-Better to do it correctly, right from the start. There *will* be such
-a chip one day, and the person wanting to add it will appreciate the
-solid foundation (even if that person ends up being you ;).
+Depending on the arbitrary value on the stack, the loop may terminate
+too early, and cause a bogus -ENODEV failure.
 
-Thanks,
-Richard
+Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+---
+v3:
+  - Use "do { ... } while (...);" instead of "for (...) { ... }",
+v2:
+  - Rewrite the loop instead of pre-initializing data.
+
+ drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.c | 16 +++++++--------=
+-
+ 1 file changed, 7 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.c b/driver=
+s/net/ethernet/apm/xgene/xgene_enet_sgmac.c
+index e6d24c2101982444..c22f32622fa9a50a 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.c
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.c
+@@ -124,20 +124,18 @@ static int xgene_enet_ecc_init(struct xgene_enet_=
+pdata *p)
+ {
+ 	struct net_device *ndev =3D p->ndev;
+ 	u32 data;
+-	int i;
++	int i =3D 0;
+=20
+ 	xgene_enet_wr_diag_csr(p, ENET_CFG_MEM_RAM_SHUTDOWN_ADDR, 0);
+-	for (i =3D 0; i < 10 && data !=3D ~0U ; i++) {
++	do {
+ 		usleep_range(100, 110);
+ 		data =3D xgene_enet_rd_diag_csr(p, ENET_BLOCK_MEM_RDY_ADDR);
+-	}
++		if (data =3D=3D ~0U)
++			return 0;
++	} while (++i < 10);
+=20
+-	if (data !=3D ~0U) {
+-		netdev_err(ndev, "Failed to release memory from shutdown\n");
+-		return -ENODEV;
+-	}
+-
+-	return 0;
++	netdev_err(ndev, "Failed to release memory from shutdown\n");
++	return -ENODEV;
+ }
+=20
+ static void xgene_enet_config_ring_if_assoc(struct xgene_enet_pdata *p=
+)
+--=20
+1.9.1
