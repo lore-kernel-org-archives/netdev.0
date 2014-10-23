@@ -1,56 +1,64 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [PATCH v2 net] tcp: md5: do not use alloc_percpu()
-Date: Thu, 23 Oct 2014 14:44:11 -0600
-Message-ID: <5449689B.9040806@gmail.com>
-References: <5447FDB2.2010906@gmail.com> <544886C4.4020702@gmail.com>	 <1414041833.2094.28.camel@edumazet-glaptop2.roam.corp.google.com>	 <1414042688.2094.30.camel@edumazet-glaptop2.roam.corp.google.com>	 <5448A72D.1050806@cumulusnetworks.com>	 <1414070490.2094.39.camel@edumazet-glaptop2.roam.corp.google.com>	 <1414075405.20845.6.camel@edumazet-glaptop2.roam.corp.google.com>	 <1414081998.20845.18.camel@edumazet-glaptop2.roam.corp.google.com> <1414094338.20845.30.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [net 1/2] sctp: add transport state in /proc/net/sctp/remaddr
+Date: Thu, 23 Oct 2014 16:51:42 -0400
+Message-ID: <20141023205142.GA26825@hmsreliant.think-freely.org>
+References: <1414093721-14921-1-git-send-email-michele@acksyn.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Crestez Dan Leonard <cdleonard@gmail.com>, netdev@vger.kernel.org,
-	Jonathan Toppins <jtoppins@cumulusnetworks.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-sctp@vger.kernel.org, Vlad Yasevich <vyasevich@gmail.com>,
+	netdev@vger.kernel.org, dborkman@redhat.com
+To: Michele Baldessari <michele@acksyn.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:39758 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753641AbaJWUoT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Oct 2014 16:44:19 -0400
-Received: by mail-pa0-f49.google.com with SMTP id hz1so1755409pad.8
-        for <netdev@vger.kernel.org>; Thu, 23 Oct 2014 13:44:19 -0700 (PDT)
-In-Reply-To: <1414094338.20845.30.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:34391 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755523AbaJWUvv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Oct 2014 16:51:51 -0400
+Content-Disposition: inline
+In-Reply-To: <1414093721-14921-1-git-send-email-michele@acksyn.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/23/14, 1:58 PM, Eric Dumazet wrote:
-> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-> index 1bec4e76d88c..39ec0c379545 100644
-> --- a/net/ipv4/tcp.c
-> +++ b/net/ipv4/tcp.c
-> @@ -2868,61 +2868,42 @@ EXPORT_SYMBOL(compat_tcp_getsockopt);
->   #endif
->
->   #ifdef CONFIG_TCP_MD5SIG
-> -static struct tcp_md5sig_pool __percpu *tcp_md5sig_pool __read_mostly;
-> +static DEFINE_PER_CPU(struct tcp_md5sig_pool, tcp_md5sig_pool);
->   static DEFINE_MUTEX(tcp_md5sig_mutex);
-> -
-> -static void __tcp_free_md5sig_pool(struct tcp_md5sig_pool __percpu *pool)
-> -{
-> -	int cpu;
-> -
-> -	for_each_possible_cpu(cpu) {
-> -		struct tcp_md5sig_pool *p = per_cpu_ptr(pool, cpu);
-> -
-> -		if (p->md5_desc.tfm)
-> -			crypto_free_hash(p->md5_desc.tfm);
-> -	}
-> -	free_percpu(pool);
-> -}
-> +static bool tcp_md5sig_pool_populated = false;
+On Thu, Oct 23, 2014 at 09:48:40PM +0200, Michele Baldessari wrote:
+> It is often quite helpful to be able to know the state of a transport
+> outside of the application itself (for troubleshooting purposes or for
+> monitoring purposes). Add it under /proc/net/sctp/remaddr.
+> 
+> Signed-off-by: Michele Baldessari <michele@acksyn.org>
+> ---
+>  net/sctp/proc.c | 10 ++++++++--
+>  1 file changed, 8 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/sctp/proc.c b/net/sctp/proc.c
+> index 34229ee7f379..bfb242af06ab 100644
+> --- a/net/sctp/proc.c
+> +++ b/net/sctp/proc.c
+> @@ -417,7 +417,7 @@ static void *sctp_remaddr_seq_start(struct seq_file *seq, loff_t *pos)
+>  
+>  	if (*pos == 0)
+>  		seq_printf(seq, "ADDR ASSOC_ID HB_ACT RTO MAX_PATH_RTX "
+> -				"REM_ADDR_RTX  START\n");
+> +				"REM_ADDR_RTX START STATE\n");
+>  
+>  	return (void *)pos;
+>  }
+> @@ -497,7 +497,13 @@ static int sctp_remaddr_seq_show(struct seq_file *seq, void *v)
+>  			 * currently implemented, but we can record it with a
+>  			 * jiffies marker in a subsequent patch
+>  			 */
+> -			seq_printf(seq, "0");
+> +			seq_printf(seq, "0 ");
+> +
+> +			/*
+> +			 * The current state of this destination. I.e.
+> +			 * SCTP_ACTIVE, SCTP_INACTIVE, ...
+> +			 */
+> +			seq_printf(seq, "%d", tsp->state);
+>  
+>  			seq_printf(seq, "\n");
+>  		}
+> -- 
+> 2.1.0
+> 
+> 
 
-global variables do not need to be initialized to 0.
-
-I'll see how this applies to v3.4 and build an image.
-
-Thanks,
-David
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
