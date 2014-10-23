@@ -1,175 +1,85 @@
-From: Jonathan Toppins <jtoppins@cumulusnetworks.com>
-Subject: Re: [RFC] tcp md5 use of alloc_percpu
-Date: Thu, 23 Oct 2014 02:58:53 -0400
-Message-ID: <5448A72D.1050806@cumulusnetworks.com>
-References: <5447FDB2.2010906@gmail.com> <544886C4.4020702@gmail.com>	 <1414041833.2094.28.camel@edumazet-glaptop2.roam.corp.google.com> <1414042688.2094.30.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [PATCH v2] drivers: net: xgene: Rewrite loop in xgene_enet_ecc_init()
+Date: Thu, 23 Oct 2014 09:05:27 +0200
+Message-ID: <CAMuHMdW9W962ofhQYCEZY4OWpDLSYFEZknN5nz6OwaWnTKzEQw@mail.gmail.com>
+References: <1413963581-24019-1-git-send-email-geert@linux-m68k.org>
+	<20141022.153436.93475594748933547.davem@davemloft.net>
+	<CAMuHMdXJs=+SpB07t0a+LRWX_TGUnUmQi3P-aExFzmbm_j0fow@mail.gmail.com>
+	<20141022.161257.290251379136182774.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Crestez Dan Leonard <cdleonard@gmail.com>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Ahern <dsahern@gmail.com>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Iyappan Subramanian <isubramanian@apm.com>, kchudgar@apm.com,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:41278 "EHLO
-	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751296AbaJWG65 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Oct 2014 02:58:57 -0400
-In-Reply-To: <1414042688.2094.30.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-la0-f46.google.com ([209.85.215.46]:53181 "EHLO
+	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751296AbaJWHF3 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Oct 2014 03:05:29 -0400
+In-Reply-To: <20141022.161257.290251379136182774.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/23/14, 1:38 AM, Eric Dumazet wrote:
-> On Wed, 2014-10-22 at 22:23 -0700, Eric Dumazet wrote:
->> On Wed, 2014-10-22 at 22:40 -0600, David Ahern wrote:
->>> On 10/22/14, 12:55 PM, Crestez Dan Leonard wrote:
->>>> Hello,
+On Wed, Oct 22, 2014 at 10:12 PM, David Miller <davem@davemloft.net> wr=
+ote:
+> From: Geert Uytterhoeven <geert@linux-m68k.org>
+> Date: Wed, 22 Oct 2014 21:50:06 +0200
+>
+>> On Wed, Oct 22, 2014 at 9:34 PM, David Miller <davem@davemloft.net> =
+wrote:
+>>> From: Geert Uytterhoeven <geert@linux-m68k.org>
+>>> Date: Wed, 22 Oct 2014 09:39:41 +0200
+>>>
+>>>> drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.c: In function =E2=
+=80=98xgene_enet_ecc_init=E2=80=99:
+>>>> drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.c:126: warning: =E2=
+=80=98data=E2=80=99 may be used uninitialized in this function
 >>>>
->>>> It seems that the TCP MD5 feature allocates a percpu struct tcp_md5sig_pool and uses part of that memory for a scratch buffer to do crypto on. Here is the relevant code:
+>>>> Depending on the arbitrary value on the stack, the loop may termin=
+ate
+>>>> too early, and cause a bogus -ENODEV failure.
+>>>>
+>>>> Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+>>>> ---
+>>>> v2: Rewrite the loop instead of pre-initializing data.
 >>>
->>> This is a forward port of a local change to address the problem (local 
->>> kernel version is 3.4 so perhaps my quick bump to top of tree is off but 
->>> it shows the general idea). Been on my to-do list to figure out why this 
->>> is needed, but it seems related to your problem:
->>>
->>> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
->>> index 1bec4e76d88c..833a676bd4b0 100644
->>> --- a/net/ipv4/tcp.c
->>> +++ b/net/ipv4/tcp.c
->>> @@ -2941,7 +2941,7 @@ struct tcp_md5sig_pool *tcp_get_md5sig_pool(void)
->>>      local_bh_disable();
->>>      p = ACCESS_ONCE(tcp_md5sig_pool);
->>>      if (p)
->>> -       return raw_cpu_ptr(p);
->>> +       return __va(per_cpu_ptr_to_phys(raw_cpu_ptr(p)));
->>>
->>>      local_bh_enable();
->>>      return NULL;
+>>> I hate to be a pest, but like the other patch of your's I think
+>>> a do { } while() works best here because the intent is clearly
+>>> to run the loop at least once, right?
 >>
->> per_cpu_ptr_to_phys() can be pretty expensive and should not be called
->> in fast path.
->>
-> 
-> My updated patch would be :
-> 
->  net/ipv4/tcp.c |   66 +++++++++++++++++++----------------------------
->  1 file changed, 28 insertions(+), 38 deletions(-)
-> 
-> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-> index 1bec4e76d88c..af4dc16b61f6 100644
-> --- a/net/ipv4/tcp.c
-> +++ b/net/ipv4/tcp.c
-> @@ -2868,61 +2868,51 @@ EXPORT_SYMBOL(compat_tcp_getsockopt);
->  #endif
->  
->  #ifdef CONFIG_TCP_MD5SIG
-> -static struct tcp_md5sig_pool __percpu *tcp_md5sig_pool __read_mostly;
-> +static DEFINE_PER_CPU(struct tcp_md5sig_pool, *tcp_md5sig_pool);
->  static DEFINE_MUTEX(tcp_md5sig_mutex);
-> -
-> -static void __tcp_free_md5sig_pool(struct tcp_md5sig_pool __percpu *pool)
-> -{
-> -	int cpu;
-> -
-> -	for_each_possible_cpu(cpu) {
-> -		struct tcp_md5sig_pool *p = per_cpu_ptr(pool, cpu);
-> -
-> -		if (p->md5_desc.tfm)
-> -			crypto_free_hash(p->md5_desc.tfm);
-> -	}
-> -	free_percpu(pool);
-> -}
-> +static bool tcp_md5sig_pool_populated = false;
->  
->  static void __tcp_alloc_md5sig_pool(void)
->  {
->  	int cpu;
-> -	struct tcp_md5sig_pool __percpu *pool;
-> -
-> -	pool = alloc_percpu(struct tcp_md5sig_pool);
-> -	if (!pool)
-> -		return;
->  
->  	for_each_possible_cpu(cpu) {
-> +		struct tcp_md5sig_pool *pool;
->  		struct crypto_hash *hash;
->  
-> -		hash = crypto_alloc_hash("md5", 0, CRYPTO_ALG_ASYNC);
-> -		if (IS_ERR_OR_NULL(hash))
-> -			goto out_free;
-> -
-> -		per_cpu_ptr(pool, cpu)->md5_desc.tfm = hash;
-> +		pool = per_cpu(tcp_md5sig_pool, cpu);
-> +		if (!pool) {
-> +			pool = kzalloc_node(sizeof(*pool), GFP_KERNEL,
-GFP_DMA | GFP_KERNEL
-This memory will possibly be used in a DMA correct? (thinking crypto
-hardware offload)
-> +					    cpu_to_node(cpu));
-> +			if (!pool)
-> +				return;
-> +			per_cpu(tcp_md5sig_pool, cpu) = pool;
-> +		}
-> +		if (!pool->md5_desc.tfm) {
-> +			hash = crypto_alloc_hash("md5", 0, CRYPTO_ALG_ASYNC);
-> +			if (IS_ERR_OR_NULL(hash))
-> +				return;
-> +			pool->md5_desc.tfm = hash;
-> +		}
->  	}
-> -	/* before setting tcp_md5sig_pool, we must commit all writes
-> -	 * to memory. See ACCESS_ONCE() in tcp_get_md5sig_pool()
-> +	/* before setting tcp_md5sig_pool_populated, we must commit all writes
-> +	 * to memory. See smp_rmb() in tcp_get_md5sig_pool()
->  	 */
->  	smp_wmb();
-> -	tcp_md5sig_pool = pool;
-> -	return;
-> -out_free:
-> -	__tcp_free_md5sig_pool(pool);
-> +	tcp_md5sig_pool_populated = true;
->  }
->  
->  bool tcp_alloc_md5sig_pool(void)
->  {
-> -	if (unlikely(!tcp_md5sig_pool)) {
-> +	if (unlikely(!tcp_md5sig_pool_populated)) {
->  		mutex_lock(&tcp_md5sig_mutex);
->  
-> -		if (!tcp_md5sig_pool)
-> +		if (!tcp_md5sig_pool_populated)
->  			__tcp_alloc_md5sig_pool();
->  
->  		mutex_unlock(&tcp_md5sig_mutex);
->  	}
-> -	return tcp_md5sig_pool != NULL;
-> +	return tcp_md5sig_pool_populated;
->  }
->  EXPORT_SYMBOL(tcp_alloc_md5sig_pool);
->  
-> @@ -2936,13 +2926,13 @@ EXPORT_SYMBOL(tcp_alloc_md5sig_pool);
->   */
->  struct tcp_md5sig_pool *tcp_get_md5sig_pool(void)
->  {
-> -	struct tcp_md5sig_pool __percpu *p;
-> -
->  	local_bh_disable();
-> -	p = ACCESS_ONCE(tcp_md5sig_pool);
-> -	if (p)
-> -		return raw_cpu_ptr(p);
->  
-> +	if (tcp_md5sig_pool_populated) {
-> +		/* coupled with smp_wmb() in __tcp_alloc_md5sig_pool */
-> +		smp_rmb();
-> +		return this_cpu_read(tcp_md5sig_pool);
-> +	}
->  	local_bh_enable();
->  	return NULL;
->  }
-> 
-> 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+>> I wanted to avoid checking for "data !=3D ~0U" twice: once to abort =
+the loop,
+>> and once to check if a timeout happened.
+>
+> Hmmm:
+>
+>         do {
+>                 usleep_range(...);
+>                 data =3D ...();
+>                 if (data =3D=3D ~0)
+>                         return 0;
+>         } while (++i < 10);
+>
+>         netdev_err(...);
+>         return -ENODEV;
+>
+> Why would you have to check data twice?
+
+
+
+--=20
+Gr{oetje,eeting}s,
+
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-=
+m68k.org
+
+In personal conversations with technical people, I call myself a hacker=
+=2E But
+when I'm talking to journalists I just say "programmer" or something li=
+ke that.
+                                -- Linus Torvalds
