@@ -1,46 +1,62 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [PATCH 06/14] net: dsa: Add support for hardware monitoring
-Date: Thu, 23 Oct 2014 06:27:55 -0700
-Message-ID: <5449025B.4080600@roeck-us.net>
-References: <1414037002-25528-1-git-send-email-linux@roeck-us.net> <1414037002-25528-7-git-send-email-linux@roeck-us.net> <CAGVrzcYjPJWai9bxkh+WRrEEAzBKBd-LQm7zDeeouxngr_v9SQ@mail.gmail.com> <54488CE1.2000106@roeck-us.net> <20141023082444.GA4122@localhost.localdomain>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATHC] net: napi_reuse_skb() should check pfmemalloc
+Date: Thu, 23 Oct 2014 06:30:30 -0700
+Message-ID: <1414071030.2094.46.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1413985819-9553-1-git-send-email-klamm@yandex-team.ru>
+	 <1413992737.9031.1.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1811414063272@webcorp02e.yandex-team.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141023082444.GA4122@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
+	"jesse.brandeburg@intel.com" <jesse.brandeburg@intel.com>,
+	"bruce.w.allan@intel.com" <bruce.w.allan@intel.com>,
+	"carolyn.wyborny@intel.com" <carolyn.wyborny@intel.com>,
+	"donald.c.skidmore@intel.com" <donald.c.skidmore@intel.com>,
+	"gregory.v.rose@intel.com" <gregory.v.rose@intel.com>,
+	"peter.p.waskiewicz.jr@intel.com" <peter.p.waskiewicz.jr@intel.com>,
+	"alexander.h.duyck@intel.com" <alexander.h.duyck@intel.com>,
+	"john.ronciak@intel.com" <john.ronciak@intel.com>,
+	"tushar.n.dave@intel.com" <tushar.n.dave@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"sassmann@kpanic.de" <sassmann@kpanic.de>,
+	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.or
+To: Roman Gushchin <klamm@yandex-team.ru>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:47163 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753960AbaJWNac (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Oct 2014 09:30:32 -0400
+In-Reply-To: <1811414063272@webcorp02e.yandex-team.ru>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/23/2014 01:24 AM, Richard Cochran wrote:
-> On Wed, Oct 22, 2014 at 10:06:41PM -0700, Guenter Roeck wrote:
->> On 10/22/2014 09:37 PM, Florian Fainelli wrote:
->>> You probably want the number of temperature sensors to come from the
->>> switch driver, and support arbitrary number of temperature sensors?
->>
->> In that case we would need the number of sensors, pass a sensor index,
->> and create a dynamic number of attributes. The code would get much more
->> complex without real benefit unless there is such a chip - and if there is,
->> we can still change the code at that time. I would prefer to keep it simple
->> for now.
->
-> Better to do it correctly, right from the start. There *will* be such
-> a chip one day, and the person wanting to add it will appreciate the
-> solid foundation (even if that person ends up being you ;).
->
+From: Eric Dumazet <edumazet@google.com>
 
-That is really a matter of opinion; others say one should only introduce
-complex infrastructure into the kernel if and when needed. I don't mind
-changing the code to anticipate multiple sensors, but as I said it would
-be more complex, obviously I would only have limited means to test it,
-and, yes, by nature I tend to be one of the people who prefer to keep
-things simple. Before I jump into doing this, I would prefer to get
-guidance from the maintainer. David ?
+Do not reuse skb if it was pfmemalloc tainted, otherwise
+future frame might be dropped anyway.
 
-Thanks,
-Guenter
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/core/dev.c |    4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index b793e3521a36..945bbd001359 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4157,6 +4157,10 @@ EXPORT_SYMBOL(napi_gro_receive);
+ 
+ static void napi_reuse_skb(struct napi_struct *napi, struct sk_buff *skb)
+ {
++	if (unlikely(skb->pfmemalloc)) {
++		consume_skb(skb);
++		return;
++	}
+ 	__skb_pull(skb, skb_headlen(skb));
+ 	/* restore the reserve we had after netdev_alloc_skb_ip_align() */
+ 	skb_reserve(skb, NET_SKB_PAD + NET_IP_ALIGN - skb_headroom(skb));
