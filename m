@@ -1,53 +1,34 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 02/14] net: dsa: Report known silicon revisions for Marvell
- 88E6060
-Date: Thu, 23 Oct 2014 16:51:00 +0400
-Message-ID: <5448F9B4.9010209@cogentembedded.com>
-References: <1414037002-25528-1-git-send-email-linux@roeck-us.net> <1414037002-25528-3-git-send-email-linux@roeck-us.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>, linux-kernel@vger.kernel.org
-To: Guenter Roeck <linux@roeck-us.net>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1414037002-25528-3-git-send-email-linux@roeck-us.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eli Cohen <eli@dev.mellanox.co.il>
+Subject: [PATCH for-net 0/2] irq sync fixes
+Date: Thu, 23 Oct 2014 15:57:25 +0300
+Message-ID: <1414069047-30865-1-git-send-email-eli@mellanox.com>
+Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com,
+	Eli Cohen <eli@mellanox.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f171.google.com ([209.85.212.171]:62744 "EHLO
+	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755741AbaJWM5d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Oct 2014 08:57:33 -0400
+Received: by mail-wi0-f171.google.com with SMTP id em10so4034683wid.10
+        for <netdev@vger.kernel.org>; Thu, 23 Oct 2014 05:57:32 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Hi Dave,
 
-On 10/23/2014 8:03 AM, Guenter Roeck wrote:
+This two patch series fixes a race where an interrupt handler could access a
+freed memory.
 
-> Report known silicon revisions when probing Marvell 88E6060 switches.
+Eli
 
-> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
-> ---
->   drivers/net/dsa/mv88e6060.c | 5 ++++-
->   1 file changed, 4 insertions(+), 1 deletion(-)
+Eli Cohen (2):
+  net/mlx5_core: Call synchronize_irq() before freeing EQ buffer
+  net/mlx4_core: Call synchronize_irq() before freeing EQ buffer
 
-> diff --git a/drivers/net/dsa/mv88e6060.c b/drivers/net/dsa/mv88e6060.c
-> index 05b0ca3..c29aebe 100644
-> --- a/drivers/net/dsa/mv88e6060.c
-> +++ b/drivers/net/dsa/mv88e6060.c
-> @@ -69,8 +69,11 @@ static char *mv88e6060_probe(struct device *host_dev, int sw_addr)
->
->   	ret = mdiobus_read(bus, sw_addr + REG_PORT(0), 0x03);
->   	if (ret >= 0) {
-> -		ret &= 0xfff0;
->   		if (ret == 0x0600)
-> +			return "Marvell 88E6060 (A0)";
-> +		if (ret == 0x0601 || ret == 0x0602)
+ drivers/net/ethernet/mellanox/mlx4/eq.c      | 1 +
+ drivers/net/ethernet/mellanox/mlx5/core/eq.c | 1 +
+ 2 files changed, 2 insertions(+)
 
-    *else* *if*.
-
-> +			return "Marvell 88E6060 (B0)";
-> +		if ((ret & 0xfff0) == 0x0600)
-
-    Likewise?
-
->   			return "Marvell 88E6060";
->   	}
-
-WBR, Sergei
+-- 
+2.1.2
