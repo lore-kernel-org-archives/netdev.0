@@ -1,74 +1,50 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [PATCH 06/14] net: dsa: Add support for hardware monitoring
-Date: Wed, 22 Oct 2014 22:06:41 -0700
-Message-ID: <54488CE1.2000106@roeck-us.net>
-References: <1414037002-25528-1-git-send-email-linux@roeck-us.net> <1414037002-25528-7-git-send-email-linux@roeck-us.net> <CAGVrzcYjPJWai9bxkh+WRrEEAzBKBd-LQm7zDeeouxngr_v9SQ@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: irq disable in __netdev_alloc_frag() ?
+Date: Wed, 22 Oct 2014 22:14:04 -0700
+Message-ID: <1414041244.2094.26.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CAMEtUuwsUqd-U8ZSEXCB+a7cvLpbuRjPU2m0Ux84q6cxoWSx+g@mail.gmail.com>
+	 <1414029160.2094.8.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <544873DF.1040403@gmail.com>
+	 <1414036276.2094.18.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1414036570.2094.19.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAMEtUuytvhHJEGCmwkgH9EesCJdDhOn=5AujFymWPxg7g+E3og@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAGVrzcYjPJWai9bxkh+WRrEEAzBKBd-LQm7zDeeouxngr_v9SQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Alexander Duyck <alexander.duyck@gmail.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Network Development <netdev@vger.kernel.org>
+To: Alexei Starovoitov <ast@plumgrid.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f175.google.com ([209.85.192.175]:64608 "EHLO
+	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750813AbaJWFOG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Oct 2014 01:14:06 -0400
+Received: by mail-pd0-f175.google.com with SMTP id y13so380470pdi.6
+        for <netdev@vger.kernel.org>; Wed, 22 Oct 2014 22:14:05 -0700 (PDT)
+In-Reply-To: <CAMEtUuytvhHJEGCmwkgH9EesCJdDhOn=5AujFymWPxg7g+E3og@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/22/2014 09:37 PM, Florian Fainelli wrote:
-> 2014-10-22 21:03 GMT-07:00 Guenter Roeck <linux@roeck-us.net>:
->> Some Marvell switches provide chip temperature data.
->> Add support for reporting it to the dsa infrastructure.
->>
->> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
->> ---
-> [snip]
->
->> +/* hwmon support ************************************************************/
->> +
->> +#if defined(CONFIG_HWMON) || (defined(MODULE) && defined(CONFIG_HWMON_MODULE))
->
-> IS_ENABLED(CONFIG_HWMON)?
->
+On Wed, 2014-10-22 at 21:29 -0700, Alexei Starovoitov wrote:
 
-Hi Florian,
+> my numbers were from just released Xeon E5-1630 v3
+> which is haswell-ep
+> I think Alexander's idea is worth pursuing.
+> Code-wise the bloat is minimal: one extra netdev_alloc_cache
+> and few 'if' which one to choose.
 
-unfortunately, that won't work; I had it initially and got a nice error message
-from Fengguang's build test bot.
 
-Problem is that hwmon can be built as module and the dsa subsystem can be built
-into the kernel. In that case, hwmon functionality in the driver must be disabled.
-The above condition covers that case. The nouveau graphics driver has the same
-problem and uses the same conditional to solve it.
+> Most of the time only one of them is used, since
+> systems with napi and not-napi nics are very rare.
 
-An alternative would be to select HWMON in the NET_DSA Kconfig entry; the
-Broadcom Tigon3 driver does that. I just don't know if that is a good idea.
-I am open to suggestions.
 
->> +
->> +static ssize_t temp1_input_show(struct device *dev,
->> +                               struct device_attribute *attr, char *buf)
->> +{
->> +       struct dsa_switch *ds = dev_get_drvdata(dev);
->> +       int temp, ret;
->> +
->> +       ret = ds->drv->get_temp(ds, &temp);
->> +       if (ret < 0)
->> +               return ret;
->> +
->> +       return sprintf(buf, "%d\n", temp * 1000);
->> +}
->> +static DEVICE_ATTR_RO(temp1_input);
->
-> You probably want the number of temperature sensors to come from the
-> switch driver, and support arbitrary number of temperature sensors?
+> I think it should help virtualization case as well,
+> since virtio_net is napi already.
 
-In that case we would need the number of sensors, pass a sensor index,
-and create a dynamic number of attributes. The code would get much more
-complex without real benefit unless there is such a chip - and if there is,
-we can still change the code at that time. I would prefer to keep it simple
-for now.
+Really, I doubt this will make any difference in real workloads
+where bottleneck is memory bandwidth, not the time taken by
+pushf/cli/popf.
 
-Thanks,
-Guenter
+What difference do you have on a real workload like : netperf TCP_RR or
+UDP_RR ?
