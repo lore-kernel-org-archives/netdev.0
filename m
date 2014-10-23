@@ -1,102 +1,75 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: [PATCH 14/14] net: dsa: Provide additional RMON statistics
-Date: Wed, 22 Oct 2014 21:03:22 -0700
-Message-ID: <1414037002-25528-15-git-send-email-linux@roeck-us.net>
-References: <1414037002-25528-1-git-send-email-linux@roeck-us.net>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>, linux-kernel@vger.kernel.org,
-	Guenter Roeck <linux@roeck-us.net>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1414037002-25528-1-git-send-email-linux@roeck-us.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Joe Perches <joe@perches.com>
+Subject: Re: [net] i40e: _MASK vs _SHIFT typo in i40e_handle_mdd_event()
+Date: Wed, 22 Oct 2014 21:05:07 -0700
+Message-ID: <1414037107.15751.5.camel@perches.com>
+References: <1414033589-7544-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1414034544.15751.2.camel@perches.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, Dan Carpenter <dan.carpenter@oracle.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay0222.hostedemail.com ([216.40.44.222]:37412 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750850AbaJWEFK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Oct 2014 00:05:10 -0400
+In-Reply-To: <1414034544.15751.2.camel@perches.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Display sw_in_discards, sw_in_filtered, and sw_out_filtered for chips
-supported by mv88e6123_61_65 and mv88e6352 drivers.
+On Wed, 2014-10-22 at 20:22 -0700, Joe Perches wrote:
+> On Wed, 2014-10-22 at 20:06 -0700, Jeff Kirsher wrote:
+> > We accidentally mask by the _SHIFT variable.  It means that "event" is
+> > always zero.
+> []
+> > diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+> []
+> > @@ -6151,7 +6151,7 @@ static void i40e_handle_mdd_event(struct i40e_pf *pf)
+> >  				I40E_GL_MDET_TX_PF_NUM_SHIFT;
+> >  		u8 vf_num = (reg & I40E_GL_MDET_TX_VF_NUM_MASK) >>
+> >  				I40E_GL_MDET_TX_VF_NUM_SHIFT;
+> > -		u8 event = (reg & I40E_GL_MDET_TX_EVENT_SHIFT) >>
+> > +		u8 event = (reg & I40E_GL_MDET_TX_EVENT_MASK) >>
+> >  				I40E_GL_MDET_TX_EVENT_SHIFT;
+> >  		u8 queue = (reg & I40E_GL_MDET_TX_QUEUE_MASK) >>
+> >  				I40E_GL_MDET_TX_QUEUE_SHIFT;
+> > @@ -6165,7 +6165,7 @@ static void i40e_handle_mdd_event(struct i40e_pf *pf)
+> >  	if (reg & I40E_GL_MDET_RX_VALID_MASK) {
+> >  		u8 func = (reg & I40E_GL_MDET_RX_FUNCTION_MASK) >>
+> >  				I40E_GL_MDET_RX_FUNCTION_SHIFT;
+> > -		u8 event = (reg & I40E_GL_MDET_RX_EVENT_SHIFT) >>
+> > +		u8 event = (reg & I40E_GL_MDET_RX_EVENT_MASK) >>
+> >  				I40E_GL_MDET_RX_EVENT_SHIFT;
+> >  		u8 queue = (reg & I40E_GL_MDET_RX_QUEUE_MASK) >>
+> >  				I40E_GL_MDET_RX_QUEUE_SHIFT;
+> 
+> It might be useful to have a macro for that.
+> Something like:
+> 
+> #define GET_REG_VAL(reg, type)			\
+> 	((reg & type##_MASK) >> type##_SHIFT)
+> 
+> so these could become:
+> 
+> 	u8 vf_num = GET_REG_VAL(reg, I40E_GL_MDET_TX_VF_NUM);
+> 	u8 event = GET_REG_VAL(reg, I40E_GL_MDET_TX_EVENT);
+> 
+> etc...
 
-The variables are provided in port registers, not the normal status registers.
-Mark by adding 0x100 to the register offset and add special handling code
-to mv88e6xxx_get_ethtool_stats.
+btw:  Here's a defect:
 
-Signed-off-by: Guenter Roeck <linux@roeck-us.net>
----
- drivers/net/dsa/mv88e6123_61_65.c |  3 +++
- drivers/net/dsa/mv88e6352.c       |  3 +++
- drivers/net/dsa/mv88e6xxx.c       | 26 +++++++++++++++++++++-----
- 3 files changed, 27 insertions(+), 5 deletions(-)
+Using the macro would also prevent this sort of precedence defect
 
-diff --git a/drivers/net/dsa/mv88e6123_61_65.c b/drivers/net/dsa/mv88e6123_61_65.c
-index a3aeba4..18c026f 100644
---- a/drivers/net/dsa/mv88e6123_61_65.c
-+++ b/drivers/net/dsa/mv88e6123_61_65.c
-@@ -430,6 +430,9 @@ static struct mv88e6xxx_hw_stat mv88e6123_61_65_hw_stats[] = {
- 	{ "hist_256_511bytes", 4, 0x0b, },
- 	{ "hist_512_1023bytes", 4, 0x0c, },
- 	{ "hist_1024_max_bytes", 4, 0x0d, },
-+	{ "sw_in_discards", 4, 0x110, },
-+	{ "sw_in_filtered", 2, 0x112, },
-+	{ "sw_out_filtered", 2, 0x113, },
- };
- 
- static void
-diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
-index 2f31e28..85dabd9 100644
---- a/drivers/net/dsa/mv88e6352.c
-+++ b/drivers/net/dsa/mv88e6352.c
-@@ -536,6 +536,9 @@ static struct mv88e6xxx_hw_stat mv88e6352_hw_stats[] = {
- 	{ "hist_256_511bytes", 4, 0x0b, },
- 	{ "hist_512_1023bytes", 4, 0x0c, },
- 	{ "hist_1024_max_bytes", 4, 0x0d, },
-+	{ "sw_in_discards", 4, 0x110, },
-+	{ "sw_in_filtered", 2, 0x112, },
-+	{ "sw_out_filtered", 2, 0x113, },
- };
- 
- static int mv88e6352_get_eeprom_len(struct dsa_switch *ds)
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index c071fde..da558d8 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -485,17 +485,33 @@ void mv88e6xxx_get_ethtool_stats(struct dsa_switch *ds,
- 	for (i = 0; i < nr_stats; i++) {
- 		struct mv88e6xxx_hw_stat *s = stats + i;
- 		u32 low;
--		u32 high;
--
-+		u32 high = 0;
-+
-+		if (s->reg >= 0x100) {
-+			int ret;
-+
-+			ret = mv88e6xxx_reg_read(ds, REG_PORT(port),
-+						 s->reg - 0x100);
-+			if (ret < 0)
-+				goto error;
-+			low = ret;
-+			if (s->sizeof_stat == 4) {
-+				ret = mv88e6xxx_reg_read(ds, REG_PORT(port),
-+							 s->reg - 0x100 + 1);
-+				if (ret < 0)
-+					goto error;
-+				high = ret;
-+			}
-+			data[i] = (((u64)high) << 16) | low;
-+			continue;
-+		}
- 		mv88e6xxx_stats_read(ds, s->reg, &low);
- 		if (s->sizeof_stat == 8)
- 			mv88e6xxx_stats_read(ds, s->reg + 1, &high);
--		else
--			high = 0;
- 
- 		data[i] = (((u64)high) << 32) | low;
- 	}
--
-+error:
- 	mutex_unlock(&ps->stats_mutex);
- }
- 
--- 
-1.9.1
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
+[]
+@@ -809,8 +809,8 @@ i40e_status i40e_pf_reset(struct i40e_hw *hw)
+         * The grst delay value is in 100ms units, and we'll wait a
+         * couple counts longer to be sure we don't just miss the end.
+         */
+-       grst_del = rd32(hw, I40E_GLGEN_RSTCTL) & I40E_GLGEN_RSTCTL_GRSTDEL_MASK
+-                       >> I40E_GLGEN_RSTCTL_GRSTDEL_SHIFT;
+
+bit shift has higher precedence than bitwise &
