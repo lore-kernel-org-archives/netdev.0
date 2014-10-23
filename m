@@ -1,7 +1,7 @@
 From: Geert Uytterhoeven <geert@linux-m68k.org>
 Subject: Re: [PATCH v2] drivers: net: xgene: Rewrite loop in xgene_enet_ecc_init()
-Date: Thu, 23 Oct 2014 09:05:27 +0200
-Message-ID: <CAMuHMdW9W962ofhQYCEZY4OWpDLSYFEZknN5nz6OwaWnTKzEQw@mail.gmail.com>
+Date: Thu, 23 Oct 2014 09:06:48 +0200
+Message-ID: <CAMuHMdXwc1nBJx_uq4NxueF67bFLkF3XnPgpW-X6pYom1fHTUQ@mail.gmail.com>
 References: <1413963581-24019-1-git-send-email-geert@linux-m68k.org>
 	<20141022.153436.93475594748933547.davem@davemloft.net>
 	<CAMuHMdXJs=+SpB07t0a+LRWX_TGUnUmQi3P-aExFzmbm_j0fow@mail.gmail.com>
@@ -13,14 +13,10 @@ Cc: Iyappan Subramanian <isubramanian@apm.com>, kchudgar@apm.com,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f46.google.com ([209.85.215.46]:53181 "EHLO
-	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751296AbaJWHF3 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Oct 2014 03:05:29 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20141022.161257.290251379136182774.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 On Wed, Oct 22, 2014 at 10:12 PM, David Miller <davem@davemloft.net> wr=
 ote:
@@ -67,9 +63,11 @@ the loop,
 >
 > Why would you have to check data twice?
 
+Yes, that would work to.
 
+=46eel free to do s/for (i =3D 0; i < 10; i++)/do/ and s/}/} while (++i=
+ < 10);/
 
---=20
 Gr{oetje,eeting}s,
 
                         Geert
