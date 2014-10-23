@@ -1,59 +1,96 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [RFC PATCH v3 net-next] net: ipv6: Add a sysctl to make optimistic
- addresses useful candidates
-Date: Thu, 23 Oct 2014 17:12:50 +0200
-Message-ID: <54491AF2.3070400@6wind.com>
-References: <1414058399-19695-1-git-send-email-ek@google.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Murilo Opsfelder Araujo <mopsfelder@gmail.com>
+Subject: Re: Possible wireless issue introduced in next-20140930
+Date: Thu, 23 Oct 2014 13:26:22 -0200
+Message-ID: <54491E1E.6090001@gmail.com>
+References: <54487346.4080604@gmail.com> <1414041815.5228.37.camel@marge.simpson.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ben@decadent.org.uk, lorenzo@google.com, hannes@stressinduktion.org
-To: Erik Kline <ek@google.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f48.google.com ([74.125.82.48]:52648 "EHLO
-	mail-wg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751469AbaJWPMy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Oct 2014 11:12:54 -0400
-Received: by mail-wg0-f48.google.com with SMTP id k14so1368644wgh.7
-        for <netdev@vger.kernel.org>; Thu, 23 Oct 2014 08:12:52 -0700 (PDT)
-In-Reply-To: <1414058399-19695-1-git-send-email-ek@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Thadeu Cascardo <cascardo@cascardo.eti.br>
+To: Mike Galbraith <umgwanakikbuti@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1414041815.5228.37.camel@marge.simpson.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le 23/10/2014 11:59, Erik Kline a =C3=A9crit :
-> Add a sysctl that causes an interface's optimistic addresses
-> to be considered equivalent to other non-deprecated addresses
-> for source address selection purposes.  Preferred addresses
-> will still take precedence over optimistic addresses, subject
-> to other ranking in the source address selection algorithm.
+On 10/23/2014 03:23 AM, Mike Galbraith wrote:
+> On Thu, 2014-10-23 at 01:17 -0200, Murilo Opsfelder Araujo wrote:
+>> Hello, everyone.
+>>
+>> With next-20140930 my laptop does not work, i.e. after I enter my login
+>> and password in KDM, the entire system becomes unresponsive and I need
+>> to reset it in order to reboot (it does not even show the KDE splash
+>> screen).
+>>
+>> It was working pretty fine with next-20140926.
+>>
+>> I've also tested with next-20141022 and v3.18-rc1 and no luck.
+>>
+>> git bisect pointed me to the commit below [1].  My wireless card is a
+>> RTL8191SEvA [2].
 >
-> This is useful where different interfaces are connected to
-> different networks from different ISPs (e.g., a cell network
-> and a home wifi network).
+> Mine is RTL8191SEvB.
 >
-> The current behaviour complies with RFC 3484/6724, and it
-> makes sense if the host has only one interface, or has
-> multiple interfaces on the same network (same or cooperating
-> administrative domain(s), but not in the multiple distinct
-> networks case.
+> I was going to bisect RTL8191SE regression when I got a chance, but you
+> beat me to it.
 >
-> For example, if a mobile device has an IPv6 address on an LTE
-> network and then connects to IPv6-enabled wifi, while the wifi
-> IPv6 address is undergoing DAD, IPv6 connections will try use
-> the wifi default route with the LTE IPv6 address, and will get
-> stuck until they time out.
+>> commit 38506ecefab911785d5e1aa5889f6eeb462e0954
+>> Author: Larry Finger <Larry.Finger@lwfinger.net>
+>> Date:   Mon Sep 22 09:39:19 2014 -0500
+>>
+>>       rtlwifi: rtl_pci: Start modification for new drivers
 >
-> Also, because optimistic nodes can receive frames, issue
-> an RTM_NEWADDR as soon as DAD starts.  If DAD fails, a separate
-> RTM_DELADDR is always sent.
+> Did you confirm that bisection result, ie revert it at HEAD of whichever
+> tree you bisected?
 >
-> Also: add an entry in ip-sysctl.txt for optimistic_dad.
->
-> Signed-off-by: Erik Kline <ek@google.com>
-I agree with the principle of the patch. This option is useful.
+> The revert (master) removed some warnings on the way to kaboom here, but
+> the drivers is still toxic.  My log follows in case it's the same thing.
+> I can't go hunting atm, maybe during the weekend if the problem hasn't
+> evaporate by then.
 
+next-20141023 does not work as well.
 
-Thank you,
-Nicolas
+With commit 38506ecefab911785d5e1aa5889f6eeb462e0954 reverted, kernel 
+blows up very early in boot.
+
+Cascardo (CC:) helped me to investigate and it seems that when 
+rtlpriv->cfg->ops->get_btc_status() is called, it is pointing to a NULL 
+function.
+
+With the changes below, written by Cascardo, I could get rid of 
+oops/panic and system booted normally.  But there was no wifi network 
+available (like if wifi card was disabled).
+
+diff --git a/drivers/net/wireless/rtlwifi/rtl8192se/sw.c 
+b/drivers/net/wireless/rtlwifi/rtl8192se/sw.c
+index 1bff2a0..807f0f7 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8192se/sw.c
++++ b/drivers/net/wireless/rtlwifi/rtl8192se/sw.c
+@@ -253,6 +253,11 @@ static void rtl92s_deinit_sw_vars(struct 
+ieee80211_hw *hw)
+         }
+  }
+
++static bool rtl92s_get_btc_status(void)
++{
++       return false;
++}
++
+  static struct rtl_hal_ops rtl8192se_hal_ops = {
+         .init_sw_vars = rtl92s_init_sw_vars,
+         .deinit_sw_vars = rtl92s_deinit_sw_vars,
+@@ -294,6 +299,7 @@ static struct rtl_hal_ops rtl8192se_hal_ops = {
+         .set_bbreg = rtl92s_phy_set_bb_reg,
+         .get_rfreg = rtl92s_phy_query_rf_reg,
+         .set_rfreg = rtl92s_phy_set_rf_reg,
++       .get_btc_status = rtl92s_get_btc_status,
+  };
+
+  static struct rtl_mod_params rtl92se_mod_params = {
+
+-- 
+Murilo
