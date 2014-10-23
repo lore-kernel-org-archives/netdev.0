@@ -1,68 +1,52 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] macvlan: fix a race on port dismantle and possible skb
- leaks
-Date: Wed, 22 Oct 2014 19:43:46 -0700
-Message-ID: <1414032226.2094.14.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: David Miller <davem@davemloft.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net] i40e: _MASK vs _SHIFT typo in i40e_handle_mdd_event()
+Date: Wed, 22 Oct 2014 20:06:29 -0700
+Message-ID: <1414033589-7544-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Dan Carpenter <dan.carpenter@oracle.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:54260 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932353AbaJWCnr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Oct 2014 22:43:47 -0400
-Received: by mail-pa0-f49.google.com with SMTP id hz1so177835pad.22
-        for <netdev@vger.kernel.org>; Wed, 22 Oct 2014 19:43:47 -0700 (PDT)
+Received: from mga11.intel.com ([192.55.52.93]:17198 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932379AbaJWDGc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Oct 2014 23:06:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
 
-We need to cancel the work queue after rcu grace period,
-otherwise it can be rescheduled by incoming packets.
+We accidentally mask by the _SHIFT variable.  It means that "event" is
+always zero.
 
-We need to purge queue if some skbs are still in it.
-
-We can use __skb_queue_head_init() variant in
-macvlan_process_broadcast()
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Fixes: 412ca1550cbec ("macvlan: Move broadcasts into a work queue")
-Cc: Herbert Xu <herbert@gondor.apana.org.au>
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Tested-by: Jim Young <jamesx.m.young@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/macvlan.c |   10 ++++++++--
- 1 file changed, 8 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index 29b3bb410781..98c2732755ea 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -272,7 +272,7 @@ static void macvlan_process_broadcast(struct work_struct *w)
- 	struct sk_buff *skb;
- 	struct sk_buff_head list;
- 
--	skb_queue_head_init(&list);
-+	__skb_queue_head_init(&list);
- 
- 	spin_lock_bh(&port->bc_queue.lock);
- 	skb_queue_splice_tail_init(&port->bc_queue, &list);
-@@ -1082,9 +1082,15 @@ static void macvlan_port_destroy(struct net_device *dev)
- {
- 	struct macvlan_port *port = macvlan_port_get_rtnl(dev);
- 
--	cancel_work_sync(&port->bc_work);
- 	dev->priv_flags &= ~IFF_MACVLAN_PORT;
- 	netdev_rx_handler_unregister(dev);
-+
-+	/* After this point, no packet can schedule bc_work anymore,
-+	 * but we need to cancel it and purge left skbs if any.
-+	 */
-+	cancel_work_sync(&port->bc_work);
-+	__skb_queue_purge(&port->bc_queue);
-+
- 	kfree_rcu(port, rcu);
- }
- 
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index ed5f1c1..c3a7f4a 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -6151,7 +6151,7 @@ static void i40e_handle_mdd_event(struct i40e_pf *pf)
+ 				I40E_GL_MDET_TX_PF_NUM_SHIFT;
+ 		u8 vf_num = (reg & I40E_GL_MDET_TX_VF_NUM_MASK) >>
+ 				I40E_GL_MDET_TX_VF_NUM_SHIFT;
+-		u8 event = (reg & I40E_GL_MDET_TX_EVENT_SHIFT) >>
++		u8 event = (reg & I40E_GL_MDET_TX_EVENT_MASK) >>
+ 				I40E_GL_MDET_TX_EVENT_SHIFT;
+ 		u8 queue = (reg & I40E_GL_MDET_TX_QUEUE_MASK) >>
+ 				I40E_GL_MDET_TX_QUEUE_SHIFT;
+@@ -6165,7 +6165,7 @@ static void i40e_handle_mdd_event(struct i40e_pf *pf)
+ 	if (reg & I40E_GL_MDET_RX_VALID_MASK) {
+ 		u8 func = (reg & I40E_GL_MDET_RX_FUNCTION_MASK) >>
+ 				I40E_GL_MDET_RX_FUNCTION_SHIFT;
+-		u8 event = (reg & I40E_GL_MDET_RX_EVENT_SHIFT) >>
++		u8 event = (reg & I40E_GL_MDET_RX_EVENT_MASK) >>
+ 				I40E_GL_MDET_RX_EVENT_SHIFT;
+ 		u8 queue = (reg & I40E_GL_MDET_RX_QUEUE_MASK) >>
+ 				I40E_GL_MDET_RX_QUEUE_SHIFT;
+-- 
+1.9.3
