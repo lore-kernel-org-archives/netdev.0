@@ -1,95 +1,62 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: localed stuck in recent 3.18 git in copy_net_ns?
-Date: Thu, 23 Oct 2014 08:33:33 -0700
-Message-ID: <20141023153333.GA19278@linux.vnet.ibm.com>
-References: <CAHA+R7OUHy8XFPoip5gPvr1uqwkxgKxoSMf_pSgB1aFx=XCs8g@mail.gmail.com>
- <8738aghtyj.fsf@x220.int.ebiederm.org>
- <20141022181135.GH4977@linux.vnet.ibm.com>
- <87d29kezby.fsf@x220.int.ebiederm.org>
- <20141022185511.GI4977@linux.vnet.ibm.com>
- <CA+5PVA56ajrBQ-C9orSb9-_qhMKe994QL2x0FcKbe6BYmaWFBw@mail.gmail.com>
- <20141022224032.GA1240@declera.com>
- <20141022232421.GN4977@linux.vnet.ibm.com>
- <1414044566.2031.1.camel@declera.com>
- <20141023122750.GP4977@linux.vnet.ibm.com>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 02/14] net: dsa: Report known silicon revisions for Marvell
+ 88E6060
+Date: Thu, 23 Oct 2014 20:00:41 +0400
+Message-ID: <54492629.7030501@cogentembedded.com>
+References: <1414037002-25528-1-git-send-email-linux@roeck-us.net> <1414037002-25528-3-git-send-email-linux@roeck-us.net> <5448F9B4.9010209@cogentembedded.com> <5449008C.4050505@roeck-us.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Josh Boyer <jwboyer@fedoraproject.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Cong Wang <cwang@twopensource.com>,
-	Kevin Fenzi <kevin@scrye.com>, netdev <netdev@vger.kernel.org>,
-	"Linux-Kernel@Vger. Kernel. Org" <linux-kernel@vger.kernel.org>
-To: Yanko Kaneti <yaneti@declera.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>, linux-kernel@vger.kernel.org
+To: Guenter Roeck <linux@roeck-us.net>, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20141023122750.GP4977@linux.vnet.ibm.com>
+In-Reply-To: <5449008C.4050505@roeck-us.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 23, 2014 at 05:27:50AM -0700, Paul E. McKenney wrote:
-> On Thu, Oct 23, 2014 at 09:09:26AM +0300, Yanko Kaneti wrote:
-> > On Wed, 2014-10-22 at 16:24 -0700, Paul E. McKenney wrote:
-> > > On Thu, Oct 23, 2014 at 01:40:32AM +0300, Yanko Kaneti wrote:
-> > > > On Wed-10/22/14-2014 15:33, Josh Boyer wrote:
-> > > > > On Wed, Oct 22, 2014 at 2:55 PM, Paul E. McKenney
-> > > > > <paulmck@linux.vnet.ibm.com> wrote:
-> > > 
-> > > [ . . . ]
-> > > 
-> > > > > > Don't get me wrong -- the fact that this kthread appears to 
-> > > > > > have
-> > > > > > blocked within rcu_barrier() for 120 seconds means that 
-> > > > > > something is
-> > > > > > most definitely wrong here.  I am surprised that there are no 
-> > > > > > RCU CPU
-> > > > > > stall warnings, but perhaps the blockage is in the callback 
-> > > > > > execution
-> > > > > > rather than grace-period completion.  Or something is 
-> > > > > > preventing this
-> > > > > > kthread from starting up after the wake-up callback executes.  
-> > > > > > Or...
-> > > > > > 
-> > > > > > Is this thing reproducible?
-> > > > > 
-> > > > > I've added Yanko on CC, who reported the backtrace above and can
-> > > > > recreate it reliably.  Apparently reverting the RCU merge commit
-> > > > > (d6dd50e) and rebuilding the latest after that does not show the
-> > > > > issue.  I'll let Yanko explain more and answer any questions you 
-> > > > > have.
-> > > > 
-> > > > - It is reproducible
-> > > > - I've done another build here to double check and its definitely 
-> > > > the rcu merge
-> > > >   that's causing it.
-> > > > 
-> > > > Don't think I'll be able to dig deeper, but I can do testing if 
-> > > > needed.
-> > > 
-> > > Please!  Does the following patch help?
-> > 
-> > Nope, doesn't seem to make a difference to the modprobe ppp_generic 
-> > test
-> 
-> Well, I was hoping.  I will take a closer look at the RCU merge commit
-> and see what suggests itself.  I am likely to ask you to revert specific
-> commits, if that works for you.
+On 10/23/2014 05:20 PM, Guenter Roeck wrote:
 
-Well, rather than reverting commits, could you please try testing the
-following commits?
+>>> Report known silicon revisions when probing Marvell 88E6060 switches.
 
-11ed7f934cb8 (rcu: Make nocb leader kthreads process pending callbacks after spawning)
+>>> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+>>> ---
+>>>   drivers/net/dsa/mv88e6060.c | 5 ++++-
+>>>   1 file changed, 4 insertions(+), 1 deletion(-)
 
-73a860cd58a1 (rcu: Replace flush_signals() with WARN_ON(signal_pending()))
+>>> diff --git a/drivers/net/dsa/mv88e6060.c b/drivers/net/dsa/mv88e6060.c
+>>> index 05b0ca3..c29aebe 100644
+>>> --- a/drivers/net/dsa/mv88e6060.c
+>>> +++ b/drivers/net/dsa/mv88e6060.c
+>>> @@ -69,8 +69,11 @@ static char *mv88e6060_probe(struct device *host_dev,
+>>> int sw_addr)
+>>>
+>>>       ret = mdiobus_read(bus, sw_addr + REG_PORT(0), 0x03);
+>>>       if (ret >= 0) {
+>>> -        ret &= 0xfff0;
+>>>           if (ret == 0x0600)
+>>> +            return "Marvell 88E6060 (A0)";
+>>> +        if (ret == 0x0601 || ret == 0x0602)
 
-c847f14217d5 (rcu: Avoid misordering in nocb_leader_wait())
+>>     *else* *if*.
 
-	For whatever it is worth, I am guessing this one.
+>>> +            return "Marvell 88E6060 (B0)";
+>>> +        if ((ret & 0xfff0) == 0x0600)
 
-a53dd6a65668 (rcutorture: Add RCU-tasks tests to default rcutorture list)
+>>     Likewise?
 
-	If any of the above fail, this one should also fail.
+> The if case returns, so the else would just introduce an unnecessary
+> additional level of indentation.
 
-Also, could you please send along your .config?
+    Not really.
 
-							Thanx, Paul
+> I think nowadays even checkpatch
+> complains about an unnecessary else after return.
+
+    You're right about the *return* though. I should have stayed silent.
+
+> Thanks,
+> Guenter
+
+WBR, Sergei
