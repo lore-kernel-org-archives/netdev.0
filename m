@@ -1,50 +1,73 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH RFC 4/4] virtio_net: bigger header when VERSION_1 is set
-Date: Fri, 24 Oct 2014 00:28:10 +0300
-Message-ID: <1414099656-28090-4-git-send-email-mst@redhat.com>
-References: <1414099656-28090-1-git-send-email-mst@redhat.com>
-	<1414099656-28090-2-git-send-email-mst@redhat.com>
-	<1414099656-28090-3-git-send-email-mst@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org
-To: linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1414099656-28090-3-git-send-email-mst@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Anish Bhatt <anish@chelsio.com>
+Subject: [PATCH net 2/2] cxgb4 : Handle dcb enable correctly
+Date: Thu, 23 Oct 2014 14:37:31 -0700
+Message-ID: <1414100251-15702-3-git-send-email-anish@chelsio.com>
+References: <1414100251-15702-1-git-send-email-anish@chelsio.com>
+Cc: davem@davemloft.net, hariprasad@chelsio.com, leedom@chelsio.com,
+	Anish Bhatt <anish@chelsio.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:33433
+	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751860AbaJWVh6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Oct 2014 17:37:58 -0400
+In-Reply-To: <1414100251-15702-1-git-send-email-anish@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-With VERSION_1 virtio_net uses same header size
-whether mergeable buffers are enabled or not.
+Disabling DCBx in firmware automatically enables DCBx for control via host
+lldp agents. Wait for an explicit setstate call from an lldp agents to enable
+ DCBx instead.
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+Fixes: 76bcb31efc06 ("cxgb4 : Add DCBx support codebase and dcbnl_ops")
+
+Signed-off-by: Anish Bhatt <anish@chelsio.com>
 ---
- drivers/net/virtio_net.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c  | 7 ++++++-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 6 +++++-
+ 2 files changed, 11 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 9c6d50f..a2fe340 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -1764,7 +1764,8 @@ static int virtnet_probe(struct virtio_device *vdev)
- 	if (virtio_has_feature(vdev, VIRTIO_NET_F_MRG_RXBUF))
- 		vi->mergeable_rx_bufs = true;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c
+index ee819fd..6fe300e 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c
+@@ -116,7 +116,6 @@ void cxgb4_dcb_state_fsm(struct net_device *dev,
+ 			/* we're going to use Host DCB */
+ 			dcb->state = CXGB4_DCB_STATE_HOST;
+ 			dcb->supported = CXGB4_DCBX_HOST_SUPPORT;
+-			dcb->enabled = 1;
+ 			break;
+ 		}
  
--	if (virtio_has_feature(vdev, VIRTIO_NET_F_MRG_RXBUF))
-+	if (virtio_has_feature(vdev, VIRTIO_NET_F_MRG_RXBUF) ||
-+	    virtio_has_feature(vdev, VIRTIO_F_VERSION_1))
- 		vi->hdr_len = sizeof(struct virtio_net_hdr_mrg_rxbuf);
- 	else
- 		vi->hdr_len = sizeof(struct virtio_net_hdr);
+@@ -386,6 +385,12 @@ static u8 cxgb4_setstate(struct net_device *dev, u8 enabled)
+ {
+ 	struct port_info *pi = netdev2pinfo(dev);
+ 
++	/* If DCBx is host-managed, dcb is enabled by outside lldp agents */
++	if (pi->dcb.state == CXGB4_DCB_STATE_HOST) {
++		pi->dcb.enabled = enabled;
++		return 0;
++	}
++
+ 	/* Firmware doesn't provide any mechanism to control the DCB state.
+ 	 */
+ 	if (enabled != (pi->dcb.state == CXGB4_DCB_STATE_FW_ALLSYNCED))
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 3f60070..97683c1 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -694,7 +694,11 @@ int cxgb4_dcb_enabled(const struct net_device *dev)
+ #ifdef CONFIG_CHELSIO_T4_DCB
+ 	struct port_info *pi = netdev_priv(dev);
+ 
+-	return pi->dcb.state == CXGB4_DCB_STATE_FW_ALLSYNCED;
++	if (!pi->dcb.enabled)
++		return 0;
++
++	return ((pi->dcb.state == CXGB4_DCB_STATE_FW_ALLSYNCED) ||
++		(pi->dcb.state == CXGB4_DCB_STATE_HOST));
+ #else
+ 	return 0;
+ #endif
 -- 
-MST
+2.1.2
