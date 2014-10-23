@@ -1,56 +1,56 @@
-From: Ilya Dryomov <ilya.dryomov@inktank.com>
-Subject: Re: [PATCH 1/1 net-next] libceph: remove unused variable in handle_reply()
-Date: Thu, 23 Oct 2014 20:25:35 +0400
-Message-ID: <CALFYKtD222g32njwF8nHz0Fbjj4p2512ka9bkADmB6S2QibgYA@mail.gmail.com>
-References: <1414080959-6053-1-git-send-email-fabf@skynet.be>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Sage Weil <sage@inktank.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ceph Development <ceph-devel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Fabian Frederick <fabf@skynet.be>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1414080959-6053-1-git-send-email-fabf@skynet.be>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: [PATCH V3.18] rtlwifi: Add check for get_btc_status callback
+Date: Thu, 23 Oct 2014 11:27:09 -0500
+Message-ID: <1414081629-23002-1-git-send-email-Larry.Finger@lwfinger.net>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, troy_tan-kXabqFNEczNtrwSWzY7KCg@public.gmane.org,
+	Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Murilo Opsfelder Araujo <mopsfelder-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Mike Galbraith <umgwanakikbuti-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Thadeu Cascardo <cascardo-s4Flwc3xefXVny7hquFfmQ@public.gmane.org>
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 23, 2014 at 8:15 PM, Fabian Frederick <fabf@skynet.be> wrote:
-> osdmap_epoch is redundant with reassert_epoch and unused.
->
-> Signed-off-by: Fabian Frederick <fabf@skynet.be>
-> ---
->  net/ceph/osd_client.c | 2 --
->  1 file changed, 2 deletions(-)
->
-> diff --git a/net/ceph/osd_client.c b/net/ceph/osd_client.c
-> index f3fc54e..432bd75 100644
-> --- a/net/ceph/osd_client.c
-> +++ b/net/ceph/osd_client.c
-> @@ -1700,7 +1700,6 @@ static void handle_reply(struct ceph_osd_client *osdc, struct ceph_msg *msg,
->         int err;
->         u32 reassert_epoch;
->         u64 reassert_version;
-> -       u32 osdmap_epoch;
->         int already_completed;
->         u32 bytes;
->         unsigned int i;
-> @@ -1725,7 +1724,6 @@ static void handle_reply(struct ceph_osd_client *osdc, struct ceph_msg *msg,
->         result = ceph_decode_32(&p);
->         reassert_epoch = ceph_decode_32(&p);
->         reassert_version = ceph_decode_64(&p);
-> -       osdmap_epoch = ceph_decode_32(&p);
->
->         /* lookup */
->         down_read(&osdc->map_sem);
+Drivers that do not use the get_btc_status() callback may not define a
+dummy routine. The caller needs to check before making the call.
 
-Hi Fabian,
+Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Cc: Murilo Opsfelder Araujo <mopsfelder-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Cc: Mike Galbraith <umgwanakikbuti-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Cc: Thadeu Cascardo <cascardo-s4Flwc3xefXVny7hquFfmQ@public.gmane.org>
+---
 
-osdmap_epoch is useful for debugging, but this is wrong anyway -
-ceph_decode_32() has side effects.  Removing it and not adjusting *p
-would make the whole thing blow up pretty fast..
+John,
 
-Thanks,
+This missing statement is causing kernel crashes for several of the drivers.
+This patch should be applied ASAP.
 
-                Ilya
+Larry
+---
+
+ drivers/net/wireless/rtlwifi/pci.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/wireless/rtlwifi/pci.c b/drivers/net/wireless/rtlwifi/pci.c
+index 667aba8..25daa87 100644
+--- a/drivers/net/wireless/rtlwifi/pci.c
++++ b/drivers/net/wireless/rtlwifi/pci.c
+@@ -1796,7 +1796,8 @@ static int rtl_pci_start(struct ieee80211_hw *hw)
+ 	rtl_pci_reset_trx_ring(hw);
+ 
+ 	rtlpci->driver_is_goingto_unload = false;
+-	if (rtlpriv->cfg->ops->get_btc_status()) {
++	if (rtlpriv->cfg->ops->get_btc_status &&
++	    rtlpriv->cfg->ops->get_btc_status()) {
+ 		rtlpriv->btcoexist.btc_ops->btc_init_variables(rtlpriv);
+ 		rtlpriv->btcoexist.btc_ops->btc_init_hal_vars(rtlpriv);
+ 	}
+-- 
+1.8.4.5
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
