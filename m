@@ -1,56 +1,166 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [net 2/2] sctp: replace seq_printf with seq_puts
-Date: Thu, 23 Oct 2014 16:52:32 -0400
-Message-ID: <20141023205232.GB26825@hmsreliant.think-freely.org>
-References: <1414093721-14921-1-git-send-email-michele@acksyn.org>
- <1414093721-14921-2-git-send-email-michele@acksyn.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH RFC 1/4] virtio_net: pass vi around
+Date: Fri, 24 Oct 2014 00:27:53 +0300
+Message-ID: <1414099656-28090-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-sctp@vger.kernel.org, Vlad Yasevich <vyasevich@gmail.com>,
-	netdev@vger.kernel.org, dborkman@redhat.com
-To: Michele Baldessari <michele@acksyn.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:34436 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753641AbaJWUwk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Oct 2014 16:52:40 -0400
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org
+To: linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <1414093721-14921-2-git-send-email-michele@acksyn.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 23, 2014 at 09:48:41PM +0200, Michele Baldessari wrote:
-> Fixes checkpatch warning:
-> "WARNING: Prefer seq_puts to seq_printf"
-> 
-> Signed-off-by: Michele Baldessari <michele@acksyn.org>
-> ---
->  net/sctp/proc.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/sctp/proc.c b/net/sctp/proc.c
-> index bfb242af06ab..0697eda5aed8 100644
-> --- a/net/sctp/proc.c
-> +++ b/net/sctp/proc.c
-> @@ -490,14 +490,14 @@ static int sctp_remaddr_seq_show(struct seq_file *seq, void *v)
->  			 * Note: We don't have a way to tally this at the moment
->  			 * so lets just leave it as zero for the moment
->  			 */
-> -			seq_printf(seq, "0 ");
-> +			seq_puts(seq, "0 ");
->  
->  			/*
->  			 * remote address start time (START).  This is also not
->  			 * currently implemented, but we can record it with a
->  			 * jiffies marker in a subsequent patch
->  			 */
-> -			seq_printf(seq, "0 ");
-> +			seq_puts(seq, "0 ");
->  
->  			/*
->  			 * The current state of this destination. I.e.
-> -- 
-> 2.1.0
-> 
-> 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+Too many places poke at [rs]q->vq->vdev->priv just to get
+the the vi structure.  Let's just pass the pointer around: seems
+cleaner, and might even be faster.
+
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+---
+ drivers/net/virtio_net.c | 36 +++++++++++++++++++-----------------
+ 1 file changed, 19 insertions(+), 17 deletions(-)
+
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 57cbc7d..36f3dfc 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -241,11 +241,11 @@ static unsigned long mergeable_buf_to_ctx(void *buf, unsigned int truesize)
+ }
+ 
+ /* Called from bottom half context */
+-static struct sk_buff *page_to_skb(struct receive_queue *rq,
++static struct sk_buff *page_to_skb(struct virtnet_info *vi,
++				   struct receive_queue *rq,
+ 				   struct page *page, unsigned int offset,
+ 				   unsigned int len, unsigned int truesize)
+ {
+-	struct virtnet_info *vi = rq->vq->vdev->priv;
+ 	struct sk_buff *skb;
+ 	struct skb_vnet_hdr *hdr;
+ 	unsigned int copy, hdr_len, hdr_padded_len;
+@@ -328,12 +328,13 @@ static struct sk_buff *receive_small(void *buf, unsigned int len)
+ }
+ 
+ static struct sk_buff *receive_big(struct net_device *dev,
++				   struct virtnet_info *vi,
+ 				   struct receive_queue *rq,
+ 				   void *buf,
+ 				   unsigned int len)
+ {
+ 	struct page *page = buf;
+-	struct sk_buff *skb = page_to_skb(rq, page, 0, len, PAGE_SIZE);
++	struct sk_buff *skb = page_to_skb(vi, rq, page, 0, len, PAGE_SIZE);
+ 
+ 	if (unlikely(!skb))
+ 		goto err;
+@@ -359,7 +360,8 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
+ 	int offset = buf - page_address(page);
+ 	unsigned int truesize = max(len, mergeable_ctx_to_buf_truesize(ctx));
+ 
+-	struct sk_buff *head_skb = page_to_skb(rq, page, offset, len, truesize);
++	struct sk_buff *head_skb = page_to_skb(vi, rq, page, offset, len,
++					       truesize);
+ 	struct sk_buff *curr_skb = head_skb;
+ 
+ 	if (unlikely(!curr_skb))
+@@ -433,9 +435,9 @@ err_buf:
+ 	return NULL;
+ }
+ 
+-static void receive_buf(struct receive_queue *rq, void *buf, unsigned int len)
++static void receive_buf(struct virtnet_info *vi, struct receive_queue *rq,
++			void *buf, unsigned int len)
+ {
+-	struct virtnet_info *vi = rq->vq->vdev->priv;
+ 	struct net_device *dev = vi->dev;
+ 	struct virtnet_stats *stats = this_cpu_ptr(vi->stats);
+ 	struct sk_buff *skb;
+@@ -459,9 +461,9 @@ static void receive_buf(struct receive_queue *rq, void *buf, unsigned int len)
+ 	if (vi->mergeable_rx_bufs)
+ 		skb = receive_mergeable(dev, vi, rq, (unsigned long)buf, len);
+ 	else if (vi->big_packets)
+-		skb = receive_big(dev, rq, buf, len);
++		skb = receive_big(dev, vi, rq, buf, len);
+ 	else
+-		skb = receive_small(buf, len);
++		skb = receive_small(vi, buf, len);
+ 
+ 	if (unlikely(!skb))
+ 		return;
+@@ -530,9 +532,9 @@ frame_err:
+ 	dev_kfree_skb(skb);
+ }
+ 
+-static int add_recvbuf_small(struct receive_queue *rq, gfp_t gfp)
++static int add_recvbuf_small(struct virtnet_info *vi, struct receive_queue *rq,
++			     gfp_t gfp)
+ {
+-	struct virtnet_info *vi = rq->vq->vdev->priv;
+ 	struct sk_buff *skb;
+ 	struct skb_vnet_hdr *hdr;
+ 	int err;
+@@ -655,9 +657,9 @@ static int add_recvbuf_mergeable(struct receive_queue *rq, gfp_t gfp)
+  * before we're receiving packets, or from refill_work which is
+  * careful to disable receiving (using napi_disable).
+  */
+-static bool try_fill_recv(struct receive_queue *rq, gfp_t gfp)
++static bool try_fill_recv(struct virtnet_info *vi, struct receive_queue *rq,
++			  gfp_t gfp)
+ {
+-	struct virtnet_info *vi = rq->vq->vdev->priv;
+ 	int err;
+ 	bool oom;
+ 
+@@ -668,7 +670,7 @@ static bool try_fill_recv(struct receive_queue *rq, gfp_t gfp)
+ 		else if (vi->big_packets)
+ 			err = add_recvbuf_big(rq, gfp);
+ 		else
+-			err = add_recvbuf_small(rq, gfp);
++			err = add_recvbuf_small(vi, rq, gfp);
+ 
+ 		oom = err == -ENOMEM;
+ 		if (err)
+@@ -717,7 +719,7 @@ static void refill_work(struct work_struct *work)
+ 		struct receive_queue *rq = &vi->rq[i];
+ 
+ 		napi_disable(&rq->napi);
+-		still_empty = !try_fill_recv(rq, GFP_KERNEL);
++		still_empty = !try_fill_recv(vi, rq, GFP_KERNEL);
+ 		virtnet_napi_enable(rq);
+ 
+ 		/* In theory, this can happen: if we don't get any buffers in
+@@ -736,12 +738,12 @@ static int virtnet_receive(struct receive_queue *rq, int budget)
+ 
+ 	while (received < budget &&
+ 	       (buf = virtqueue_get_buf(rq->vq, &len)) != NULL) {
+-		receive_buf(rq, buf, len);
++		receive_buf(vi, rq, buf, len);
+ 		received++;
+ 	}
+ 
+ 	if (rq->vq->num_free > virtqueue_get_vring_size(rq->vq) / 2) {
+-		if (!try_fill_recv(rq, GFP_ATOMIC))
++		if (!try_fill_recv(vi, rq, GFP_ATOMIC))
+ 			schedule_delayed_work(&vi->refill, 0);
+ 	}
+ 
+@@ -817,7 +819,7 @@ static int virtnet_open(struct net_device *dev)
+ 	for (i = 0; i < vi->max_queue_pairs; i++) {
+ 		if (i < vi->curr_queue_pairs)
+ 			/* Make sure we have some buffers: if oom use wq. */
+-			if (!try_fill_recv(&vi->rq[i], GFP_KERNEL))
++			if (!try_fill_recv(vi, &vi->rq[i], GFP_KERNEL))
+ 				schedule_delayed_work(&vi->refill, 0);
+ 		virtnet_napi_enable(&vi->rq[i]);
+ 	}
+-- 
+MST
