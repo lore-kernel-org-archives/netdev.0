@@ -1,62 +1,41 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 02/14] net: dsa: Report known silicon revisions for Marvell
- 88E6060
-Date: Thu, 23 Oct 2014 20:00:41 +0400
-Message-ID: <54492629.7030501@cogentembedded.com>
-References: <1414037002-25528-1-git-send-email-linux@roeck-us.net> <1414037002-25528-3-git-send-email-linux@roeck-us.net> <5448F9B4.9010209@cogentembedded.com> <5449008C.4050505@roeck-us.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>, linux-kernel@vger.kernel.org
-To: Guenter Roeck <linux@roeck-us.net>, netdev@vger.kernel.org
+From: Fabian Frederick <fabf@skynet.be>
+Subject: [PATCH 1/1 net-next] libceph: remove unused variable in handle_reply()
+Date: Thu, 23 Oct 2014 18:15:59 +0200
+Message-ID: <1414080959-6053-1-git-send-email-fabf@skynet.be>
+Cc: Fabian Frederick <fabf@skynet.be>, Sage Weil <sage@inktank.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	ceph-devel@vger.kernel.org, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5449008C.4050505@roeck-us.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/23/2014 05:20 PM, Guenter Roeck wrote:
+osdmap_epoch is redundant with reassert_epoch and unused.
 
->>> Report known silicon revisions when probing Marvell 88E6060 switches.
+Signed-off-by: Fabian Frederick <fabf@skynet.be>
+---
+ net/ceph/osd_client.c | 2 --
+ 1 file changed, 2 deletions(-)
 
->>> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
->>> ---
->>>   drivers/net/dsa/mv88e6060.c | 5 ++++-
->>>   1 file changed, 4 insertions(+), 1 deletion(-)
-
->>> diff --git a/drivers/net/dsa/mv88e6060.c b/drivers/net/dsa/mv88e6060.c
->>> index 05b0ca3..c29aebe 100644
->>> --- a/drivers/net/dsa/mv88e6060.c
->>> +++ b/drivers/net/dsa/mv88e6060.c
->>> @@ -69,8 +69,11 @@ static char *mv88e6060_probe(struct device *host_dev,
->>> int sw_addr)
->>>
->>>       ret = mdiobus_read(bus, sw_addr + REG_PORT(0), 0x03);
->>>       if (ret >= 0) {
->>> -        ret &= 0xfff0;
->>>           if (ret == 0x0600)
->>> +            return "Marvell 88E6060 (A0)";
->>> +        if (ret == 0x0601 || ret == 0x0602)
-
->>     *else* *if*.
-
->>> +            return "Marvell 88E6060 (B0)";
->>> +        if ((ret & 0xfff0) == 0x0600)
-
->>     Likewise?
-
-> The if case returns, so the else would just introduce an unnecessary
-> additional level of indentation.
-
-    Not really.
-
-> I think nowadays even checkpatch
-> complains about an unnecessary else after return.
-
-    You're right about the *return* though. I should have stayed silent.
-
-> Thanks,
-> Guenter
-
-WBR, Sergei
+diff --git a/net/ceph/osd_client.c b/net/ceph/osd_client.c
+index f3fc54e..432bd75 100644
+--- a/net/ceph/osd_client.c
++++ b/net/ceph/osd_client.c
+@@ -1700,7 +1700,6 @@ static void handle_reply(struct ceph_osd_client *osdc, struct ceph_msg *msg,
+ 	int err;
+ 	u32 reassert_epoch;
+ 	u64 reassert_version;
+-	u32 osdmap_epoch;
+ 	int already_completed;
+ 	u32 bytes;
+ 	unsigned int i;
+@@ -1725,7 +1724,6 @@ static void handle_reply(struct ceph_osd_client *osdc, struct ceph_msg *msg,
+ 	result = ceph_decode_32(&p);
+ 	reassert_epoch = ceph_decode_32(&p);
+ 	reassert_version = ceph_decode_64(&p);
+-	osdmap_epoch = ceph_decode_32(&p);
+ 
+ 	/* lookup */
+ 	down_read(&osdc->map_sem);
+-- 
+1.9.3
