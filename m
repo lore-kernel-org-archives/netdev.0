@@ -1,9 +1,8 @@
 From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [PATCH 11/14] net: dsa: Add support for reading switch registers
- with ethtool
-Date: Wed, 22 Oct 2014 22:21:29 -0700
-Message-ID: <54489059.8010606@roeck-us.net>
-References: <1414037002-25528-1-git-send-email-linux@roeck-us.net> <1414037002-25528-12-git-send-email-linux@roeck-us.net> <CAGVrzcbfkSK58iCPouMc4g8MBrAPBemi8QyP6_33xtYiRWFCHg@mail.gmail.com>
+Subject: Re: [PATCH 00/14] net: dsa: Fixes and enhancements
+Date: Wed, 22 Oct 2014 22:22:45 -0700
+Message-ID: <544890A5.5090807@roeck-us.net>
+References: <1414037002-25528-1-git-send-email-linux@roeck-us.net> <CAGVrzcbohXf09pvrzayZEfcpjr8U-h-hyuYMnU0yTBJny0U27A@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -13,54 +12,47 @@ Cc: netdev <netdev@vger.kernel.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAGVrzcbfkSK58iCPouMc4g8MBrAPBemi8QyP6_33xtYiRWFCHg@mail.gmail.com>
+In-Reply-To: <CAGVrzcbohXf09pvrzayZEfcpjr8U-h-hyuYMnU0yTBJny0U27A@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/22/2014 09:40 PM, Florian Fainelli wrote:
+On 10/22/2014 09:45 PM, Florian Fainelli wrote:
 > 2014-10-22 21:03 GMT-07:00 Guenter Roeck <linux@roeck-us.net>:
->> Add support for reading switch registers with 'ethtool -d'.
+>> Patch 01/14 addresses an annoying and unhelpful log message.
 >>
->> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
->> ---
->
-> [snip]
->
+>> Patches 02/14 and 03/14 are minor enhancements, adding support for
+>> known switch revisions.
 >>
->> +static int dsa_slave_get_regs_len(struct net_device *dev)
->> +{
->> +       struct dsa_slave_priv *p = netdev_priv(dev);
->> +       struct dsa_switch *ds = p->parent;
->> +
->> +       if (ds->drv->get_regs_len != NULL)
->> +               return ds->drv->get_regs_len(ds, p->port);
+>> Patches 04/14 and 05/14 add support for MV88E6352 and MV88E6176.
+>>
+>> Patch 06/14 adds support for hardware monitoring, specifically for
+>> reporting the chip temperature, to the dsa subsystem.
+>>
+>> Patches 07/14 and 08/14 implement hardware monitoring for MV88E6352,
+>> MV88E6176, MV88E6123, MV88E6161, and MV88E6165.
+>>
+>> Patch 09/14 adds support for EEPROM access to the DSA subsystem.
+>>
+>> Patch 10/14 implements EEPROM access for MV88E6352 and MV88E6176.
+>>
+>> Patch 11/14 adds support for reading switch registers to the DSA
+>> subsystem.
+>>
+>> Patches 12/14 amd 13/14 implement support for reading switch registers
+>> to the drivers for MV88E6352, MV88E6176, MV88E6123, MV88E6161, and MV88E6165.
+>>
+>> Patch 14/14 adds support for reading additional RMON registers to the drivers
+>> for  MV88E6352, MV88E6176, MV88E6123, MV88E6161, and MV88E6165.
+>>
+>> The series resides and was tested on top of v3.18-rc1 in a system
+>> with MV88E6352. Testing in systems with 88E6131, 88E6060 and MV88E6165
+>> was done earlier (I don't have access to those systems right now).
+>> The series applies cleanly to net-next as of today (10/22).
 >
-> Most of the checks in this file are just:
+> Besides the two nitpicking comments, this looks really good to me, thanks!
 >
-> if (ds->drv->callback)
->       return ds->drv->callback(...)
->
-Hi Florian,
+Thanks a lot for the quick review!
 
-To be fair, that wasn't the case when I wrote the code ;-).
-No problem, I'll do the same.
+I'll wait a couple of days for additional feedback before I resubmit.
 
->> +
->> +       return -EOPNOTSUPP;
->> +}
->> +
->> +static void
->> +dsa_slave_get_regs(struct net_device *dev, struct ethtool_regs *regs, void *_p)
->> +{
->> +       struct dsa_slave_priv *p = netdev_priv(dev);
->> +       struct dsa_switch *ds = p->parent;
->> +
->> +       ds->drv->get_regs(ds, p->port, regs, _p);
->
-> We need to check that the driver does implement this callback here as well.
->
-
-Obviously, and embarrassing ;-).
-
-Thanks a lot for the review!
 Guenter
