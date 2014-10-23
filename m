@@ -1,107 +1,81 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: localed stuck in recent 3.18 git in copy_net_ns?
-Date: Thu, 23 Oct 2014 09:28:48 -0700
-Message-ID: <20141023162848.GU4977@linux.vnet.ibm.com>
-References: <20141022181135.GH4977@linux.vnet.ibm.com>
- <87d29kezby.fsf@x220.int.ebiederm.org>
- <20141022185511.GI4977@linux.vnet.ibm.com>
- <CA+5PVA56ajrBQ-C9orSb9-_qhMKe994QL2x0FcKbe6BYmaWFBw@mail.gmail.com>
- <20141022224032.GA1240@declera.com>
- <20141022232421.GN4977@linux.vnet.ibm.com>
- <1414044566.2031.1.camel@declera.com>
- <20141023122750.GP4977@linux.vnet.ibm.com>
- <20141023153333.GA19278@linux.vnet.ibm.com>
- <CA+5PVA4H6EAf6cBc4a_8W8x4Mgppjc5GsskKaCRry2jq+LP+FA@mail.gmail.com>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] tcp: md5: percpu tcp_md5sig_pool must not span pages
+Date: Thu, 23 Oct 2014 09:33:18 -0700
+Message-ID: <1414081998.20845.18.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <5447FDB2.2010906@gmail.com> <544886C4.4020702@gmail.com>
+	 <1414041833.2094.28.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1414042688.2094.30.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <5448A72D.1050806@cumulusnetworks.com>
+	 <1414070490.2094.39.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1414075405.20845.6.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Linux-Kernel@Vger. Kernel. Org" <linux-kernel@vger.kernel.org>,
-	Kevin Fenzi <kevin@scrye.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Yanko Kaneti <yaneti@declera.com>,
-	netdev <netdev@vger.kernel.org>,
-	Cong Wang <cwang@twopensource.com>
-To: Josh Boyer <jwboyer@fedoraproject.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CA+5PVA4H6EAf6cBc4a_8W8x4Mgppjc5GsskKaCRry2jq+LP+FA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Ahern <dsahern@gmail.com>,
+	Crestez Dan Leonard <cdleonard@gmail.com>,
+	netdev@vger.kernel.org
+To: Jonathan Toppins <jtoppins@cumulusnetworks.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:44948 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751102AbaJWQdV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Oct 2014 12:33:21 -0400
+Received: by mail-pa0-f50.google.com with SMTP id eu11so1356895pac.37
+        for <netdev@vger.kernel.org>; Thu, 23 Oct 2014 09:33:21 -0700 (PDT)
+In-Reply-To: <1414075405.20845.6.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 23, 2014 at 12:11:26PM -0400, Josh Boyer wrote:
-> On Oct 23, 2014 11:37 AM, "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-> wrote:
-> >
-> > On Thu, Oct 23, 2014 at 05:27:50AM -0700, Paul E. McKenney wrote:
-> > > On Thu, Oct 23, 2014 at 09:09:26AM +0300, Yanko Kaneti wrote:
-> > > > On Wed, 2014-10-22 at 16:24 -0700, Paul E. McKenney wrote:
-> > > > > On Thu, Oct 23, 2014 at 01:40:32AM +0300, Yanko Kaneti wrote:
-> > > > > > On Wed-10/22/14-2014 15:33, Josh Boyer wrote:
-> > > > > > > On Wed, Oct 22, 2014 at 2:55 PM, Paul E. McKenney
-> > > > > > > <paulmck@linux.vnet.ibm.com> wrote:
-> > > > >
-> > > > > [ . . . ]
-> > > > >
-> > > > > > > > Don't get me wrong -- the fact that this kthread appears to
-> > > > > > > > have
-> > > > > > > > blocked within rcu_barrier() for 120 seconds means that
-> > > > > > > > something is
-> > > > > > > > most definitely wrong here.  I am surprised that there are no
-> > > > > > > > RCU CPU
-> > > > > > > > stall warnings, but perhaps the blockage is in the callback
-> > > > > > > > execution
-> > > > > > > > rather than grace-period completion.  Or something is
-> > > > > > > > preventing this
-> > > > > > > > kthread from starting up after the wake-up callback executes.
-> > > > > > > > Or...
-> > > > > > > >
-> > > > > > > > Is this thing reproducible?
-> > > > > > >
-> > > > > > > I've added Yanko on CC, who reported the backtrace above and can
-> > > > > > > recreate it reliably.  Apparently reverting the RCU merge commit
-> > > > > > > (d6dd50e) and rebuilding the latest after that does not show the
-> > > > > > > issue.  I'll let Yanko explain more and answer any questions you
-> > > > > > > have.
-> > > > > >
-> > > > > > - It is reproducible
-> > > > > > - I've done another build here to double check and its definitely
-> > > > > > the rcu merge
-> > > > > >   that's causing it.
-> > > > > >
-> > > > > > Don't think I'll be able to dig deeper, but I can do testing if
-> > > > > > needed.
-> > > > >
-> > > > > Please!  Does the following patch help?
-> > > >
-> > > > Nope, doesn't seem to make a difference to the modprobe ppp_generic
-> > > > test
-> > >
-> > > Well, I was hoping.  I will take a closer look at the RCU merge commit
-> > > and see what suggests itself.  I am likely to ask you to revert specific
-> > > commits, if that works for you.
-> >
-> > Well, rather than reverting commits, could you please try testing the
-> > following commits?
-> >
-> > 11ed7f934cb8 (rcu: Make nocb leader kthreads process pending callbacks
-> after spawning)
-> >
-> > 73a860cd58a1 (rcu: Replace flush_signals() with WARN_ON(signal_pending()))
-> >
-> > c847f14217d5 (rcu: Avoid misordering in nocb_leader_wait())
-> >
-> >         For whatever it is worth, I am guessing this one.
-> >
-> > a53dd6a65668 (rcutorture: Add RCU-tasks tests to default rcutorture list)
-> >
-> >         If any of the above fail, this one should also fail.
-> >
-> > Also, could you please send along your .config?
-> 
-> Which tree are those in?
+From: Eric Dumazet <edumazet@google.com>
 
-They are all in Linus's tree.  They are topic branches of the RCU merge
-commit (d6dd50e), and the test results will hopefully give me more of a
-clue where to look.  As would the .config file.  ;-)
+percpu tcp_md5sig_pool contains memory blobs that ultimately
+go through sg_set_buf().
 
-							Thanx, Paul
+-> sg_set_page(sg, virt_to_page(buf), buflen, offset_in_page(buf));
+
+This requires that whole area is in a physically contiguous portion
+of memory.
+
+Given that alloc_percpu() can use vmalloc() areas, we need to make sure
+tcp_md5sig_pool is allocated from a single page.
+
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Fixes: 765cf9976e93 ("tcp: md5: remove one indirection level in tcp_md5sig_pool")
+Reported-by: Crestez Dan Leonard <cdleonard@gmail.com>
+---
+
+Jonathan, David and Crestez, please test this patch fixes
+the issue for good. We might in future kernels avoid the dynamic
+memory allocations, but a simple fix for stable kernels is better IMO.
+
+Thanks !
+
+ net/ipv4/tcp.c |   11 +++++++++--
+ 1 file changed, 9 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 1bec4e76d88c5852d8ba3392b22aa58d6453ab4d..1f59e4130db99f129279c13f89b3c058ed6167e2 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -2886,10 +2886,17 @@ static void __tcp_free_md5sig_pool(struct tcp_md5sig_pool __percpu *pool)
+ 
+ static void __tcp_alloc_md5sig_pool(void)
+ {
+-	int cpu;
+ 	struct tcp_md5sig_pool __percpu *pool;
++	size_t align;
++	int cpu;
+ 
+-	pool = alloc_percpu(struct tcp_md5sig_pool);
++	/* sg_set_buf() assumes a contiguous memory area, but alloc_percpu()
++	 * can use vmalloc(). So make sure we request an alignment so that
++	 * whole tcp_md5sig_pool is contained in a single page.
++	 */
++	BUILD_BUG_ON(sizeof(struct tcp_md5sig_pool) > PAGE_SIZE);
++	align = roundup_pow_of_two(sizeof(struct tcp_md5sig_pool));
++	pool = __alloc_percpu(sizeof(struct tcp_md5sig_pool), align);
+ 	if (!pool)
+ 		return;
+ 
