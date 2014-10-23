@@ -1,68 +1,38 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: Re: [PATCH 1/3] xen-netback: make feature-rx-notify mandatory
-Date: Thu, 23 Oct 2014 12:52:29 +0100
-Message-ID: <5448EBFD.7070004@citrix.com>
-References: <1413983335-8307-1-git-send-email-david.vrabel@citrix.com> <1413983335-8307-2-git-send-email-david.vrabel@citrix.com> <20141023111629.GE9188@zion.uk.xensource.com> <20141023113206.GF9188@zion.uk.xensource.com> <5448E892.9010307@citrix.com> <20141023114453.GH9188@zion.uk.xensource.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next v2 2/6] ethernet: wiznet: remove unnecessary
+ check
+Date: Thu, 23 Oct 2014 16:23:43 +0400
+Message-ID: <5448F34F.30608@cogentembedded.com>
+References: <1414029531-5067-1-git-send-email-varkab@cdac.in> <1414029531-5067-3-git-send-email-varkab@cdac.in>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>,
-	Ian Campbell <ian.campbell@citrix.com>
-To: Wei Liu <wei.liu2@citrix.com>
+Cc: davem@davemloft.net, Varka Bhadram <varkab@cdac.in>
+To: Varka Bhadram <varkabhadram@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:56213 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754630AbaJWLwc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Oct 2014 07:52:32 -0400
-In-Reply-To: <20141023114453.GH9188@zion.uk.xensource.com>
+Received: from mail-la0-f44.google.com ([209.85.215.44]:65323 "EHLO
+	mail-la0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755357AbaJWMXr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Oct 2014 08:23:47 -0400
+Received: by mail-la0-f44.google.com with SMTP id hs14so744908lab.3
+        for <netdev@vger.kernel.org>; Thu, 23 Oct 2014 05:23:45 -0700 (PDT)
+In-Reply-To: <1414029531-5067-3-git-send-email-varkab@cdac.in>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 23/10/14 12:44, Wei Liu wrote:
-> On Thu, Oct 23, 2014 at 12:37:54PM +0100, David Vrabel wrote:
->> On 23/10/14 12:32, Wei Liu wrote:
->>> On Thu, Oct 23, 2014 at 12:16:29PM +0100, Wei Liu wrote:
->>>> On Wed, Oct 22, 2014 at 02:08:53PM +0100, David Vrabel wrote:
->>>>> Frontends that do not provide feature-rx-notify may stall because
->>>>> netback depends on the notification from frontend to wake the guest Rx
->>>>> thread (even if can_queue is false).
->>>>>
->>>>> This could be fixed but feature-rx-notify was introduced in 2006 and I
->>>>> am not aware of any frontends that do not implement this.
->>>>>
->>>>> Signed-off-by: David Vrabel <david.vrabel@citrix.com>
->>>>
->>>> Acked-by: Wei Liu <wei.liu2@citrix.com>
->>>
->>> While I can understand this patch by itself, can you elaborate a little
->>> bit on how it affects later patches? Because what I'm thinking is that
->>> this patch is not for stable while other two should go to stable.
->>
->> >From the cover letter:
->>
->> "The first patch is a prerequite.  Removing support for frontends with
->> feature-rx-notify makes it easier to reason about the correctness of
->> netback since it no longer has to support this outdated and broken
->> mode."
->>
-> 
-> I saw that.
-> 
-> I think you should make it a little bit clearer.
+Hello.
 
-I'm not sure how I can make this any clearer.  Perhaps you should wander
-over to my desk to discuss this in person?
+On 10/23/2014 5:58 AM, Varka Bhadram wrote:
 
-> The queue is not guaranteed to stop if we keep this feature.
-> 
->> The other patches do not meet the stable kernel requirements (they're
->> too long one thing).
->>
-> 
-> Does length matter? I surely had written long patch for stable.
+> devm_ioremap_resource checks platform_get_resource() return value.
+> We can remove the duplicate check here.
 
->From Documentation/stable_kernel_rules.txt:
+> Signed-off-by: Varka Bhadram <varkab@cdac.in>
+> ---
+>   drivers/net/ethernet/wiznet/w5300.c |    6 ++----
+>   1 file changed, 2 insertions(+), 4 deletions(-)
 
-"- It cannot be bigger than 100 lines, with context."
+    Don't do 2 patches with the same subject. Either merge them, or include 
+the driver name (which is different in both cases) in the subject.
 
-David
+WBR, Sergei
