@@ -1,72 +1,65 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: [PATCH v3] drivers: net: xgene: Rewrite buggy loop in xgene_enet_ecc_init()
-Date: Thu, 23 Oct 2014 10:25:53 +0200
-Message-ID: <1414052753-10183-1-git-send-email-geert@linux-m68k.org>
+From: Matei Pavaluca <matei.pavaluca@freescale.com>
+Subject: [PATCH net-next 1/3] gianfar: Add flow control support flags
+Date: Thu, 23 Oct 2014 10:57:55 +0300
+Message-ID: <1414051077-4330-1-git-send-email-matei.pavaluca@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Geert Uytterhoeven <geert@linux-m68k.org>
-To: "David S. Miller" <davem@davemloft.net>,
-	Iyappan Subramanian <isubramanian@apm.com>,
-	Keyur Chudgar <kchudgar@apm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Claudiu Manoil <claudiu.manoil@freescale.com>,
+	Pavaluca Matei <matei.pavaluca@freescale.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-by2on0141.outbound.protection.outlook.com ([207.46.100.141]:29685
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752216AbaJWIbp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Oct 2014 04:31:45 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.c: In function =E2=80=98=
-xgene_enet_ecc_init=E2=80=99:
-drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.c:126: warning: =E2=80=98=
-data=E2=80=99 may be used uninitialized in this function
+From: Pavaluca Matei <matei.pavaluca@freescale.com>
 
-Depending on the arbitrary value on the stack, the loop may terminate
-too early, and cause a bogus -ENODEV failure.
+The phy device supports 802.3x flow control, but the specific flags are not set
+in the phy initialisation code. Flow control flags need to be added to the
+supported capabilities of the phydev by the driver.
 
-Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+This is needed in order for ethtool to work ('ethtool -A' code checks for these
+flags)
+
+Signed-off-by: Pavaluca Matei <matei.pavaluca@freescale.com>
 ---
-v3:
-  - Use "do { ... } while (...);" instead of "for (...) { ... }",
-v2:
-  - Rewrite the loop instead of pre-initializing data.
+ drivers/net/ethernet/freescale/gianfar.c | 3 +++
+ drivers/net/ethernet/freescale/gianfar.h | 4 +---
+ 2 files changed, 4 insertions(+), 3 deletions(-)
 
- drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.c | 16 +++++++--------=
--
- 1 file changed, 7 insertions(+), 9 deletions(-)
-
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.c b/driver=
-s/net/ethernet/apm/xgene/xgene_enet_sgmac.c
-index e6d24c2101982444..c22f32622fa9a50a 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.c
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.c
-@@ -124,20 +124,18 @@ static int xgene_enet_ecc_init(struct xgene_enet_=
-pdata *p)
- {
- 	struct net_device *ndev =3D p->ndev;
- 	u32 data;
--	int i;
-+	int i =3D 0;
-=20
- 	xgene_enet_wr_diag_csr(p, ENET_CFG_MEM_RAM_SHUTDOWN_ADDR, 0);
--	for (i =3D 0; i < 10 && data !=3D ~0U ; i++) {
-+	do {
- 		usleep_range(100, 110);
- 		data =3D xgene_enet_rd_diag_csr(p, ENET_BLOCK_MEM_RDY_ADDR);
--	}
-+		if (data =3D=3D ~0U)
-+			return 0;
-+	} while (++i < 10);
-=20
--	if (data !=3D ~0U) {
--		netdev_err(ndev, "Failed to release memory from shutdown\n");
--		return -ENODEV;
--	}
--
--	return 0;
-+	netdev_err(ndev, "Failed to release memory from shutdown\n");
-+	return -ENODEV;
+diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
+index 4fdf0aa..2485b74 100644
+--- a/drivers/net/ethernet/freescale/gianfar.c
++++ b/drivers/net/ethernet/freescale/gianfar.c
+@@ -1687,6 +1687,9 @@ static int init_phy(struct net_device *dev)
+ 	priv->phydev->supported &= (GFAR_SUPPORTED | gigabit_support);
+ 	priv->phydev->advertising = priv->phydev->supported;
+ 
++	/* Add support for flow control, but don't advertise it by default */
++	priv->phydev->supported |= (SUPPORTED_Pause | SUPPORTED_Asym_Pause);
++
+ 	return 0;
  }
-=20
- static void xgene_enet_config_ring_if_assoc(struct xgene_enet_pdata *p=
-)
---=20
-1.9.1
+ 
+diff --git a/drivers/net/ethernet/freescale/gianfar.h b/drivers/net/ethernet/freescale/gianfar.h
+index 2805cfb..6b00868 100644
+--- a/drivers/net/ethernet/freescale/gianfar.h
++++ b/drivers/net/ethernet/freescale/gianfar.h
+@@ -145,9 +145,7 @@ extern const char gfar_driver_version[];
+ 		| SUPPORTED_Autoneg \
+ 		| SUPPORTED_MII)
+ 
+-#define GFAR_SUPPORTED_GBIT (SUPPORTED_1000baseT_Full \
+-		| SUPPORTED_Pause \
+-		| SUPPORTED_Asym_Pause)
++#define GFAR_SUPPORTED_GBIT SUPPORTED_1000baseT_Full
+ 
+ /* TBI register addresses */
+ #define MII_TBICON		0x11
+-- 
+1.7.11.7
