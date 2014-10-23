@@ -1,34 +1,58 @@
-From: Crestez Dan Leonard <cdleonard@gmail.com>
-Subject: Re: [RFC] tcp md5 use of alloc_percpu
-Date: Thu, 23 Oct 2014 16:03:13 +0300
-Message-ID: <5448FC91.6010206@gmail.com>
-References: <5447FDB2.2010906@gmail.com> <544886C4.4020702@gmail.com>	 <1414041833.2094.28.camel@edumazet-glaptop2.roam.corp.google.com> <1414042688.2094.30.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: [PATCH 02/14] net: dsa: Report known silicon revisions for Marvell
+ 88E6060
+Date: Thu, 23 Oct 2014 06:20:12 -0700
+Message-ID: <5449008C.4050505@roeck-us.net>
+References: <1414037002-25528-1-git-send-email-linux@roeck-us.net> <1414037002-25528-3-git-send-email-linux@roeck-us.net> <5448F9B4.9010209@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Ahern <dsahern@gmail.com>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f42.google.com ([74.125.82.42]:58051 "EHLO
-	mail-wg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755445AbaJWNDR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Oct 2014 09:03:17 -0400
-Received: by mail-wg0-f42.google.com with SMTP id z12so1043450wgg.13
-        for <netdev@vger.kernel.org>; Thu, 23 Oct 2014 06:03:16 -0700 (PDT)
-In-Reply-To: <1414042688.2094.30.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>, linux-kernel@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5448F9B4.9010209@cogentembedded.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/23/2014 08:38 AM, Eric Dumazet wrote:
-> On Wed, 2014-10-22 at 22:23 -0700, Eric Dumazet wrote:
-> My updated patch would be :
-> 
->  net/ipv4/tcp.c |   66 +++++++++++++++++++----------------------------
->  1 file changed, 28 insertions(+), 38 deletions(-)
-> 
-I can confirm that this patch fixes my original issue.
+On 10/23/2014 05:51 AM, Sergei Shtylyov wrote:
+> Hello.
+>
+> On 10/23/2014 8:03 AM, Guenter Roeck wrote:
+>
+>> Report known silicon revisions when probing Marvell 88E6060 switches.
+>
+>> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+>> ---
+>>   drivers/net/dsa/mv88e6060.c | 5 ++++-
+>>   1 file changed, 4 insertions(+), 1 deletion(-)
+>
+>> diff --git a/drivers/net/dsa/mv88e6060.c b/drivers/net/dsa/mv88e6060.c
+>> index 05b0ca3..c29aebe 100644
+>> --- a/drivers/net/dsa/mv88e6060.c
+>> +++ b/drivers/net/dsa/mv88e6060.c
+>> @@ -69,8 +69,11 @@ static char *mv88e6060_probe(struct device *host_dev, int sw_addr)
+>>
+>>       ret = mdiobus_read(bus, sw_addr + REG_PORT(0), 0x03);
+>>       if (ret >= 0) {
+>> -        ret &= 0xfff0;
+>>           if (ret == 0x0600)
+>> +            return "Marvell 88E6060 (A0)";
+>> +        if (ret == 0x0601 || ret == 0x0602)
+>
+>     *else* *if*.
+>
+>> +            return "Marvell 88E6060 (B0)";
+>> +        if ((ret & 0xfff0) == 0x0600)
+>
+>     Likewise?
+>
 
-I am working with a kernel based on 3.10 so I had to integrate 71cea17ed39fdf1c0634f530ddc6a2c2fc601c2b as well.
+The if case returns, so the else would just introduce an unnecessary
+additional level of indentation. I think nowadays even checkpatch
+complains about an unnecessary else after return.
 
-Regards,
-Leonard
+Thanks,
+Guenter
