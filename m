@@ -1,83 +1,108 @@
 From: Guenter Roeck <linux@roeck-us.net>
-Subject: [PATCH 11/14] net: dsa: Add support for reading switch registers with ethtool
-Date: Wed, 22 Oct 2014 21:03:19 -0700
-Message-ID: <1414037002-25528-12-git-send-email-linux@roeck-us.net>
+Subject: [PATCH 09/14] net: dsa: Add support for switch EEPROM access
+Date: Wed, 22 Oct 2014 21:03:17 -0700
+Message-ID: <1414037002-25528-10-git-send-email-linux@roeck-us.net>
 References: <1414037002-25528-1-git-send-email-linux@roeck-us.net>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Florian Fainelli <f.fainelli@gmail.com>,
 	Andrew Lunn <andrew@lunn.ch>, linux-kernel@vger.kernel.org,
 	Guenter Roeck <linux@roeck-us.net>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bh-25.webhostbox.net ([208.91.199.152]:49464 "EHLO
+	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751410AbaJWEDs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Oct 2014 00:03:48 -0400
+Received: from mailnull by bh-25.webhostbox.net with sa-checked (Exim 4.82)
+	(envelope-from <linux@roeck-us.net>)
+	id 1Xh9cq-002c18-BE
+	for netdev@vger.kernel.org; Thu, 23 Oct 2014 04:03:48 +0000
 In-Reply-To: <1414037002-25528-1-git-send-email-linux@roeck-us.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add support for reading switch registers with 'ethtool -d'.
+On some chips it is possible to access the switch eeprom.
+Add infrastructure support for it.
 
 Signed-off-by: Guenter Roeck <linux@roeck-us.net>
 ---
  include/net/dsa.h |  7 +++++++
- net/dsa/slave.c   | 22 ++++++++++++++++++++++
- 2 files changed, 29 insertions(+)
+ net/dsa/slave.c   | 38 ++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 45 insertions(+)
 
 diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 73146b7..edc5e71 100644
+index d8b3057..73146b7 100644
 --- a/include/net/dsa.h
 +++ b/include/net/dsa.h
-@@ -255,6 +255,13 @@ struct dsa_switch_driver {
- 			      struct ethtool_eeprom *eeprom, u8 *data);
- 	int	(*set_eeprom)(struct dsa_switch *ds,
- 			      struct ethtool_eeprom *eeprom, u8 *data);
+@@ -248,6 +248,13 @@ struct dsa_switch_driver {
+ 	int	(*get_temp_limit)(struct dsa_switch *ds, int *temp);
+ 	int	(*set_temp_limit)(struct dsa_switch *ds, int temp);
+ 	int	(*get_temp_alarm)(struct dsa_switch *ds, bool *alarm);
 +
-+	/*
-+	 * Register access.
-+	 */
-+	int	(*get_regs_len)(struct dsa_switch *ds, int port);
-+	void	(*get_regs)(struct dsa_switch *ds, int port,
-+			    struct ethtool_regs *regs, void *p);
++	/* EEPROM access */
++	int	(*get_eeprom_len)(struct dsa_switch *ds);
++	int	(*get_eeprom)(struct dsa_switch *ds,
++			      struct ethtool_eeprom *eeprom, u8 *data);
++	int	(*set_eeprom)(struct dsa_switch *ds,
++			      struct ethtool_eeprom *eeprom, u8 *data);
  };
  
  void register_switch_driver(struct dsa_switch_driver *type);
 diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index a54ee43..e988d07 100644
+index 6d18174..a54ee43 100644
 --- a/net/dsa/slave.c
 +++ b/net/dsa/slave.c
-@@ -249,6 +249,26 @@ static void dsa_slave_get_drvinfo(struct net_device *dev,
- 	strlcpy(drvinfo->bus_info, "platform", sizeof(drvinfo->bus_info));
+@@ -271,6 +271,41 @@ static u32 dsa_slave_get_link(struct net_device *dev)
+ 	return -EOPNOTSUPP;
  }
  
-+static int dsa_slave_get_regs_len(struct net_device *dev)
++static int dsa_slave_get_eeprom_len(struct net_device *dev)
 +{
 +	struct dsa_slave_priv *p = netdev_priv(dev);
 +	struct dsa_switch *ds = p->parent;
 +
-+	if (ds->drv->get_regs_len != NULL)
-+		return ds->drv->get_regs_len(ds, p->port);
++	if (ds->drv->get_eeprom_len != NULL)
++		return ds->drv->get_eeprom_len(ds);
++
++	return 0;
++}
++
++static int dsa_slave_get_eeprom(struct net_device *dev,
++				struct ethtool_eeprom *eeprom, u8 *data)
++{
++	struct dsa_slave_priv *p = netdev_priv(dev);
++	struct dsa_switch *ds = p->parent;
++
++	if (ds->drv->get_eeprom != NULL)
++		return ds->drv->get_eeprom(ds, eeprom, data);
 +
 +	return -EOPNOTSUPP;
 +}
 +
-+static void
-+dsa_slave_get_regs(struct net_device *dev, struct ethtool_regs *regs, void *_p)
++static int dsa_slave_set_eeprom(struct net_device *dev,
++				struct ethtool_eeprom *eeprom, u8 *data)
 +{
 +	struct dsa_slave_priv *p = netdev_priv(dev);
 +	struct dsa_switch *ds = p->parent;
 +
-+	ds->drv->get_regs(ds, p->port, regs, _p);
++	if (ds->drv->set_eeprom != NULL)
++		return ds->drv->set_eeprom(ds, eeprom, data);
++
++	return -EOPNOTSUPP;
 +}
 +
- static int dsa_slave_nway_reset(struct net_device *dev)
+ static void dsa_slave_get_strings(struct net_device *dev,
+ 				  uint32_t stringset, uint8_t *data)
  {
- 	struct dsa_slave_priv *p = netdev_priv(dev);
-@@ -420,6 +440,8 @@ static const struct ethtool_ops dsa_slave_ethtool_ops = {
- 	.get_settings		= dsa_slave_get_settings,
- 	.set_settings		= dsa_slave_set_settings,
+@@ -387,6 +422,9 @@ static const struct ethtool_ops dsa_slave_ethtool_ops = {
  	.get_drvinfo		= dsa_slave_get_drvinfo,
-+	.get_regs_len		= dsa_slave_get_regs_len,
-+	.get_regs		= dsa_slave_get_regs,
  	.nway_reset		= dsa_slave_nway_reset,
  	.get_link		= dsa_slave_get_link,
- 	.get_eeprom_len		= dsa_slave_get_eeprom_len,
++	.get_eeprom_len		= dsa_slave_get_eeprom_len,
++	.get_eeprom		= dsa_slave_get_eeprom,
++	.set_eeprom		= dsa_slave_set_eeprom,
+ 	.get_strings		= dsa_slave_get_strings,
+ 	.get_ethtool_stats	= dsa_slave_get_ethtool_stats,
+ 	.get_sset_count		= dsa_slave_get_sset_count,
 -- 
 1.9.1
