@@ -1,35 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC] tcp md5 use of alloc_percpu
-Date: Thu, 23 Oct 2014 06:21:30 -0700
-Message-ID: <1414070490.2094.39.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <5447FDB2.2010906@gmail.com> <544886C4.4020702@gmail.com>
-	 <1414041833.2094.28.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1414042688.2094.30.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <5448A72D.1050806@cumulusnetworks.com>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: [PATCH 06/14] net: dsa: Add support for hardware monitoring
+Date: Thu, 23 Oct 2014 06:27:55 -0700
+Message-ID: <5449025B.4080600@roeck-us.net>
+References: <1414037002-25528-1-git-send-email-linux@roeck-us.net> <1414037002-25528-7-git-send-email-linux@roeck-us.net> <CAGVrzcYjPJWai9bxkh+WRrEEAzBKBd-LQm7zDeeouxngr_v9SQ@mail.gmail.com> <54488CE1.2000106@roeck-us.net> <20141023082444.GA4122@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Ahern <dsahern@gmail.com>,
-	Crestez Dan Leonard <cdleonard@gmail.com>,
-	netdev@vger.kernel.org
-To: Jonathan Toppins <jtoppins@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f171.google.com ([209.85.192.171]:40233 "EHLO
-	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753140AbaJWNVb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Oct 2014 09:21:31 -0400
-Received: by mail-pd0-f171.google.com with SMTP id r10so282291pdi.16
-        for <netdev@vger.kernel.org>; Thu, 23 Oct 2014 06:21:31 -0700 (PDT)
-In-Reply-To: <5448A72D.1050806@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141023082444.GA4122@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2014-10-23 at 02:58 -0400, Jonathan Toppins wrote:
+On 10/23/2014 01:24 AM, Richard Cochran wrote:
+> On Wed, Oct 22, 2014 at 10:06:41PM -0700, Guenter Roeck wrote:
+>> On 10/22/2014 09:37 PM, Florian Fainelli wrote:
+>>> You probably want the number of temperature sensors to come from the
+>>> switch driver, and support arbitrary number of temperature sensors?
+>>
+>> In that case we would need the number of sensors, pass a sensor index,
+>> and create a dynamic number of attributes. The code would get much more
+>> complex without real benefit unless there is such a chip - and if there is,
+>> we can still change the code at that time. I would prefer to keep it simple
+>> for now.
+>
+> Better to do it correctly, right from the start. There *will* be such
+> a chip one day, and the person wanting to add it will appreciate the
+> solid foundation (even if that person ends up being you ;).
+>
 
-> > +		if (!pool) {
-> > +			pool = kzalloc_node(sizeof(*pool), GFP_KERNEL,
-> GFP_DMA | GFP_KERNEL
-> This memory will possibly be used in a DMA correct? (thinking crypto
-> hardware offload)
+That is really a matter of opinion; others say one should only introduce
+complex infrastructure into the kernel if and when needed. I don't mind
+changing the code to anticipate multiple sensors, but as I said it would
+be more complex, obviously I would only have limited means to test it,
+and, yes, by nature I tend to be one of the people who prefer to keep
+things simple. Before I jump into doing this, I would prefer to get
+guidance from the maintainer. David ?
 
-I am not sure this is the case, but this certainly can be added.
+Thanks,
+Guenter
