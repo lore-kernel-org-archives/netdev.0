@@ -1,71 +1,74 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: [PATCH 1/1] drivers: net:cpsw: fix probe_dt when only slave 1 is pinned out
-Date: Fri, 24 Oct 2014 18:51:33 +0530
-Message-ID: <1414156893-1884-1-git-send-email-mugunthanvnm@ti.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH RFC 1/4] virtio_net: pass vi around
+Date: Fri, 24 Oct 2014 17:10:23 +0300
+Message-ID: <20141024141023.GA7939@redhat.com>
+References: <1414099656-28090-1-git-send-email-mst@redhat.com>
+	<063D6719AE5E284EB5DD2968C1650D6D1C9DE6C2@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, Mugunthan V N <mugunthanvnm@ti.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from devils.ext.ti.com ([198.47.26.153]:48876 "EHLO
-	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756605AbaJXNVi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Oct 2014 09:21:38 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"virtualization@lists.linux-foundation.org"
+	<virtualization@lists.linux-foundation.org>
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1C9DE6C2@AcuExch.aculab.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-when slave 0 has no phy and slave 1 connected to phy, driver probe will
-fail as there is no phy id present for slave 0 device tree, so continuing
-even though no phy-id found, also moving mac-id read later to ensure
-mac-id is read from device tree even when phy-id entry in not found.
+On Fri, Oct 24, 2014 at 10:02:15AM +0000, David Laight wrote:
+> From: Michael S. Tsirkin
+>  
+> > Too many places poke at [rs]q->vq->vdev->priv just to get
+> > the the vi structure.  Let's just pass the pointer around: seems
+> > cleaner, and might even be faster.
+> > 
+> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> > ---
+> >  drivers/net/virtio_net.c | 36 +++++++++++++++++++-----------------
+> >  1 file changed, 19 insertions(+), 17 deletions(-)
+> > 
+> > diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> > index 57cbc7d..36f3dfc 100644
+> > --- a/drivers/net/virtio_net.c
+> > +++ b/drivers/net/virtio_net.c
+> ...
+> >  static struct sk_buff *receive_big(struct net_device *dev,
+> > +				   struct virtnet_info *vi,
+> 
+> Do you need to pass 'dev' here?
+> Looks like it is obtainable from vi->dev (as below).
+> 
+> 	David
+> 
+> >  				   struct receive_queue *rq,
+> >  				   void *buf,
+> >  				   unsigned int len)
+> >  {
+> >  	struct page *page = buf;
+> > -	struct sk_buff *skb = page_to_skb(rq, page, 0, len, PAGE_SIZE);
+> > +	struct sk_buff *skb = page_to_skb(vi, rq, page, 0, len, PAGE_SIZE);
+> ...
+> > -static void receive_buf(struct receive_queue *rq, void *buf, unsigned int len)
+> > +static void receive_buf(struct virtnet_info *vi, struct receive_queue *rq,
+> > +			void *buf, unsigned int len)
+> >  {
+> > -	struct virtnet_info *vi = rq->vq->vdev->priv;
+> >  	struct net_device *dev = vi->dev;
+> ...
 
-Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
----
- drivers/net/ethernet/ti/cpsw.c | 18 +++++++++---------
- 1 file changed, 9 insertions(+), 9 deletions(-)
+It's a matter of style, isn't it?
+We have dev to hand, it seems cleaner to just pass it around.
 
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index 952e1e4..d81b84b 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -2006,7 +2006,7 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
- 		parp = of_get_property(slave_node, "phy_id", &lenp);
- 		if ((parp == NULL) || (lenp != (sizeof(void *) * 2))) {
- 			dev_err(&pdev->dev, "Missing slave[%d] phy_id property\n", i);
--			return -EINVAL;
-+			goto no_phy_slave;
- 		}
- 		mdio_node = of_find_node_by_phandle(be32_to_cpup(parp));
- 		phyid = be32_to_cpup(parp+1);
-@@ -2019,6 +2019,14 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
- 		snprintf(slave_data->phy_id, sizeof(slave_data->phy_id),
- 			 PHY_ID_FMT, mdio->name, phyid);
- 
-+		slave_data->phy_if = of_get_phy_mode(slave_node);
-+		if (slave_data->phy_if < 0) {
-+			dev_err(&pdev->dev, "Missing or malformed slave[%d] phy-mode property\n",
-+				i);
-+			return slave_data->phy_if;
-+		}
-+
-+no_phy_slave:
- 		mac_addr = of_get_mac_address(slave_node);
- 		if (mac_addr) {
- 			memcpy(slave_data->mac_addr, mac_addr, ETH_ALEN);
-@@ -2030,14 +2038,6 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
- 					return ret;
- 			}
- 		}
--
--		slave_data->phy_if = of_get_phy_mode(slave_node);
--		if (slave_data->phy_if < 0) {
--			dev_err(&pdev->dev, "Missing or malformed slave[%d] phy-mode property\n",
--				i);
--			return slave_data->phy_if;
--		}
--
- 		if (data->dual_emac) {
- 			if (of_property_read_u32(slave_node, "dual_emac_res_vlan",
- 						 &prop)) {
 -- 
-2.1.2.484.g13da0fc
+MST
