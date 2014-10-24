@@ -1,90 +1,75 @@
-From: Petri Gynther <pgynther@google.com>
-Subject: Re: [PATCH net-next 4/4] net: bcmgenet: update ring producer index
- and buffer count in xmit
-Date: Fri, 24 Oct 2014 15:39:10 -0700
-Message-ID: <CAGXr9JE1MLvYnRBCv0DWNvUwBeEqxnugvoY5P8a69sddBhNn-g@mail.gmail.com>
-References: <1414180942-2132-1-git-send-email-f.fainelli@gmail.com>
-	<1414180942-2132-5-git-send-email-f.fainelli@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Florian Fainelli <f.fainelli@gmail.com>
+From: Jay Vosburgh <jay.vosburgh@canonical.com>
+Subject: Re: localed stuck in recent 3.18 git in copy_net_ns?
+Date: Fri, 24 Oct 2014 15:41:31 -0700
+Message-ID: <8988.1414190491@famine>
+References: <20141024154006.GP4977@linux.vnet.ibm.com> <20141024162943.GA16621@declera.com> <20141024165454.GS4977@linux.vnet.ibm.com> <20141024170931.GA21849@declera.com> <20141024172009.GV4977@linux.vnet.ibm.com> <20141024173526.GA26058@declera.com> <20141024183226.GW4977@linux.vnet.ibm.com> <20141024212557.GA15537@declera.com> <20141024214927.GA4977@linux.vnet.ibm.com> <8451.1414188124@famine> <20141024221602.GB4977@linux.vnet.ibm.com>
+Cc: Yanko Kaneti <yaneti@declera.com>,
+	Josh Boyer <jwboyer@fedoraproject.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Cong Wang <cwang@twopensource.com>,
+	Kevin Fenzi <kevin@scrye.com>, netdev <netdev@vger.kernel.org>,
+	"Linux-Kernel@Vger. Kernel. Org" <linux-kernel@vger.kernel.org>,
+	mroos@linux.ee, tj@kernel.org
+To: paulmck@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f52.google.com ([209.85.216.52]:40367 "EHLO
-	mail-qa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932622AbaJXWjL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Oct 2014 18:39:11 -0400
-Received: by mail-qa0-f52.google.com with SMTP id v10so1635628qac.11
-        for <netdev@vger.kernel.org>; Fri, 24 Oct 2014 15:39:10 -0700 (PDT)
-In-Reply-To: <1414180942-2132-5-git-send-email-f.fainelli@gmail.com>
+Received: from youngberry.canonical.com ([91.189.89.112]:36006 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754757AbaJXWln (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Oct 2014 18:41:43 -0400
+In-reply-to: <20141024221602.GB4977@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Looks good.
+Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
 
-On Fri, Oct 24, 2014 at 1:02 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
-> There is no need to have both bcmgenet_xmit_single() and
-> bcmgenet_xmit_frag() perform a free_bds decrement and a prod_index
-> increment by one. In case one of these functions fails to map a SKB or
-> fragment for transmit, we will return and exit bcmgenet_xmit() with an
-> error.
+>On Fri, Oct 24, 2014 at 03:02:04PM -0700, Jay Vosburgh wrote:
+>> Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
+>> 
+[...]
+>> 	I've got an ftrace capture from unmodified -net, it looks like
+>> this:
+>> 
+>>     ovs-vswitchd-902   [000] ....   471.778441: rcu_barrier: rcu_sched Begin cpu -1 remaining 0 # 0
+>>     ovs-vswitchd-902   [000] ....   471.778452: rcu_barrier: rcu_sched Check cpu -1 remaining 0 # 0
+>>     ovs-vswitchd-902   [000] ....   471.778452: rcu_barrier: rcu_sched Inc1 cpu -1 remaining 0 # 1
+>>     ovs-vswitchd-902   [000] ....   471.778453: rcu_barrier: rcu_sched OnlineNoCB cpu 0 remaining 1 # 1
+>>     ovs-vswitchd-902   [000] ....   471.778453: rcu_barrier: rcu_sched OnlineNoCB cpu 1 remaining 2 # 1
+>>     ovs-vswitchd-902   [000] ....   471.778453: rcu_barrier: rcu_sched OnlineNoCB cpu 2 remaining 3 # 1
+>>     ovs-vswitchd-902   [000] ....   471.778454: rcu_barrier: rcu_sched OnlineNoCB cpu 3 remaining 4 # 1
 >
-> We can therefore safely use our local copy of nr_frags to know by how
-> much we should decrement the number of free buffers available, and by
-> how much the producer count must be incremented and do this in the tail
-> of bcmgenet_xmit().
->
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+>OK, so it looks like your system has four CPUs, and rcu_barrier() placed
+>callbacks on them all.
 
-Acked-by: Petri Gynther <pgynther@google.com>
+	No, the system has only two CPUs.  It's an Intel Core 2 Duo
+E8400, and /proc/cpuinfo agrees that there are only 2.  There is a
+potentially relevant-sounding message early in dmesg that says:
 
-> ---
->  drivers/net/ethernet/broadcom/genet/bcmgenet.c | 18 +++++-------------
->  1 file changed, 5 insertions(+), 13 deletions(-)
+[    0.000000] smpboot: Allowing 4 CPUs, 2 hotplug CPUs
+
+>>     ovs-vswitchd-902   [000] ....   471.778454: rcu_barrier: rcu_sched Inc2 cpu -1 remaining 4 # 2
 >
-> diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-> index d6f4a7ace05e..3cd8c25a1120 100644
-> --- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-> +++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-> @@ -1012,11 +1012,6 @@ static int bcmgenet_xmit_single(struct net_device *dev,
+>The above removes the extra count used to avoid races between posting new
+>callbacks and completion of previously posted callbacks.
 >
->         dmadesc_set(priv, tx_cb_ptr->bd_addr, mapping, length_status);
+>>          rcuos/0-9     [000] ..s.   471.793150: rcu_barrier: rcu_sched CB cpu -1 remaining 3 # 2
+>>          rcuos/1-18    [001] ..s.   471.793308: rcu_barrier: rcu_sched CB cpu -1 remaining 2 # 2
 >
-> -       /* Decrement total BD count and advance our write pointer */
-> -       ring->free_bds -= 1;
-> -       ring->prod_index += 1;
-> -       ring->prod_index &= DMA_P_INDEX_MASK;
-> -
->         return 0;
->  }
+>Two of the four callbacks fired, but the other two appear to be AWOL.
+>And rcu_barrier() won't return until they all fire.
 >
-> @@ -1054,11 +1049,6 @@ static int bcmgenet_xmit_frag(struct net_device *dev,
->                     (frag->size << DMA_BUFLENGTH_SHIFT) | dma_desc_flags |
->                     (priv->hw_params->qtag_mask << DMA_TX_QTAG_SHIFT));
+>> 	I let it sit through several "hung task" cycles but that was all
+>> there was for rcu:rcu_barrier.
+>> 
+>> 	I should have ftrace with the patch as soon as the kernel is
+>> done building, then I can try the below patch (I'll start it building
+>> now).
 >
-> -
-> -       ring->free_bds -= 1;
-> -       ring->prod_index += 1;
-> -       ring->prod_index &= DMA_P_INDEX_MASK;
-> -
->         return 0;
->  }
->
-> @@ -1202,9 +1192,11 @@ static netdev_tx_t bcmgenet_xmit(struct sk_buff *skb, struct net_device *dev)
->
->         skb_tx_timestamp(skb);
->
-> -       /* we kept a software copy of how much we should advance the TDMA
-> -        * producer index, now write it down to the hardware
-> -        */
-> +       /* Decrement total BD count and advance our write pointer */
-> +       ring->free_bds -= nr_frags + 1;
-> +       ring->prod_index += nr_frags + 1;
-> +       ring->prod_index &= DMA_P_INDEX_MASK;
-> +
->         bcmgenet_tdma_ring_writel(priv, ring->index,
->                                   ring->prod_index, TDMA_PROD_INDEX);
->
-> --
-> 1.9.1
->
+>Sounds very good, looking forward to hearing of the results.
+
+	Going to bounce it for ftrace now, but the cpu count mismatch
+seemed important enough to mention separately.
+
+	-J
+
+---
+	-Jay Vosburgh, jay.vosburgh@canonical.com
