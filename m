@@ -1,40 +1,50 @@
-From: Murilo Opsfelder Araujo <mopsfelder@gmail.com>
-Subject: Re: [PATCH V3.18] rtlwifi: Add check for get_btc_status callback
-Date: Fri, 24 Oct 2014 16:13:20 -0200
-Message-ID: <544A96C0.8030107@gmail.com>
-References: <1414081629-23002-1-git-send-email-Larry.Finger@lwfinger.net>	 <1414087731.5231.19.camel@marge.simpson.net>	 <5449478B.4070908@lwfinger.net> <1414116580.23080.10.camel@marge.simpson.net> <544A80B5.1090604@lwfinger.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
-	troy_tan@realsil.com.cn, netdev@vger.kernel.org,
-	Thadeu Cascardo <cascardo@cascardo.eti.br>
-To: Larry Finger <Larry.Finger@lwfinger.net>,
-	Mike Galbraith <umgwanakikbuti@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f53.google.com ([209.85.216.53]:36785 "EHLO
-	mail-qa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756735AbaJXSPH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Oct 2014 14:15:07 -0400
-In-Reply-To: <544A80B5.1090604@lwfinger.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jay Vosburgh <jay.vosburgh@canonical.com>
+Subject: Re: localed stuck in recent 3.18 git in copy_net_ns?
+Date: Fri, 24 Oct 2014 11:20:11 -0700
+Message-ID: <5677.1414174811@famine>
+References: <20141022224032.GA1240@declera.com> <20141022232421.GN4977@linux.vnet.ibm.com> <1414044566.2031.1.camel@declera.com> <20141023122750.GP4977@linux.vnet.ibm.com> <20141023153333.GA19278@linux.vnet.ibm.com> <20141023195159.GA2331@declera.com> <20141023200507.GC4977@linux.vnet.ibm.com> <1414100740.2065.2.camel@declera.com> <20141023220406.GJ4977@linux.vnet.ibm.com> <31920.1414126114@famine> <20141024145028.GN4977@linux.vnet.ibm.com>
+Cc: Yanko Kaneti <yaneti@declera.com>,
+	Josh Boyer <jwboyer@fedoraproject.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Cong Wang <cwang@twopensource.com>,
+	Kevin Fenzi <kevin@scrye.com>, netdev <netdev@vger.kernel.org>,
+	"Linux-Kernel@Vger. Kernel. Org" <linux-kernel@vger.kernel.org>
+To: paulmck@linux.vnet.ibm.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-reply-to: <20141024145028.GN4977@linux.vnet.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/24/2014 02:39 PM, Larry Finger wrote:
+Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
+
+>On Thu, Oct 23, 2014 at 09:48:34PM -0700, Jay Vosburgh wrote:
+>> Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
 [...]
+>> >Either way, my patch assumed that 39953dfd4007 (rcu: Avoid misordering in
+>> >__call_rcu_nocb_enqueue()) would work and that 1772947bd012 (rcu: Handle
+>> >NOCB callbacks from irq-disabled idle code) would fail.  Is that the case?
+>> >If not, could you please bisect the commits between 11ed7f934cb8 (rcu:
+>> >Make nocb leader kthreads process pending callbacks after spawning)
+>> >and c847f14217d5 (rcu: Avoid misordering in nocb_leader_wait())?
+>> 
+>> 	Just a note to add that I am also reliably inducing what appears
+>> to be this issue on a current -net tree, when configuring openvswitch
+>> via script.  I am available to test patches or bisect tomorrow (Friday)
+>> US time if needed.
 >
-> Please try the attached patch. It replaces the second one I sent you. I
-> will probably redo it before submitting the final copy, but this should
-> work.
+>Thank you, Jay!  Could you please check to see if reverting this commit
+>fixes things for you?
 >
-> Larry
+>35ce7f29a44a rcu: Create rcuo kthreads only for onlined CPUs
 >
-Hi, Larry.
+>Reverting is not a long-term fix, as this commit is itself a bug fix,
+>but would be good to check to see if you are seeing the same thing that
+>Yanko is.  ;-)
 
-I've tried your patch on top of next-20141023 and it is still crashing 
-on my laptop:
+	Just to confirm what Yanko found, reverting this commit makes
+the problem go away for me.
 
-http://opsfelder.com/~murilo/lkml/next-20141023_plus_larry_patch_v2.jpg
+	-J
 
--- 
-Murilo
+---
+	-Jay Vosburgh, jay.vosburgh@canonical.com
