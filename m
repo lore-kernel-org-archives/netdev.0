@@ -1,81 +1,90 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 1/4] net: bcmgenet: consistently use UMAC_IRQ_RXDMA_MASK
-Date: Fri, 24 Oct 2014 13:02:19 -0700
-Message-ID: <1414180942-2132-2-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net-next 2/4] net: bcmgenet: return number of packets completed in TX reclaim
+Date: Fri, 24 Oct 2014 13:02:20 -0700
+Message-ID: <1414180942-2132-3-git-send-email-f.fainelli@gmail.com>
 References: <1414180942-2132-1-git-send-email-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, pgynther@google.com,
 	Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f179.google.com ([209.85.192.179]:62328 "EHLO
+Received: from mail-pd0-f179.google.com ([209.85.192.179]:64116 "EHLO
 	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751615AbaJXUCv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Oct 2014 16:02:51 -0400
-Received: by mail-pd0-f179.google.com with SMTP id g10so2040123pdj.10
-        for <netdev@vger.kernel.org>; Fri, 24 Oct 2014 13:02:51 -0700 (PDT)
+	with ESMTP id S1752160AbaJXUCw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Oct 2014 16:02:52 -0400
+Received: by mail-pd0-f179.google.com with SMTP id g10so2008427pdj.24
+        for <netdev@vger.kernel.org>; Fri, 24 Oct 2014 13:02:52 -0700 (PDT)
 In-Reply-To: <1414180942-2132-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Define a constant which sets all RXDMA interrupts bits, and use it
-consistently throughout the driver to check for RX DMA interrupt bits.
+In preparation for reclaiming transmitted buffers in NAPI context,
+update __bcmgenet_tx_reclaim() and bcmgenet_tx_reclaim() to return the
+number of packets completed per call.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/ethernet/broadcom/genet/bcmgenet.c | 14 +++++++++-----
- 1 file changed, 9 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c | 20 +++++++++++++-------
+ 1 file changed, 13 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-index fdc9ec09e453..ee4d5baf09b6 100644
+index ee4d5baf09b6..70f2fb366375 100644
 --- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
 +++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-@@ -47,6 +47,10 @@
+@@ -876,14 +876,14 @@ static inline void bcmgenet_tx_ring_int_disable(struct bcmgenet_priv *priv,
+ }
  
- #include "bcmgenet.h"
+ /* Unlocked version of the reclaim routine */
+-static void __bcmgenet_tx_reclaim(struct net_device *dev,
+-				  struct bcmgenet_tx_ring *ring)
++static unsigned int __bcmgenet_tx_reclaim(struct net_device *dev,
++					  struct bcmgenet_tx_ring *ring)
+ {
+ 	struct bcmgenet_priv *priv = netdev_priv(dev);
+ 	int last_tx_cn, last_c_index, num_tx_bds;
+ 	struct enet_cb *tx_cb_ptr;
+ 	struct netdev_queue *txq;
+-	unsigned int bds_compl;
++	unsigned int bds_compl, pkts_compl = 0;
+ 	unsigned int c_index;
  
-+#define UMAC_IRQ_RXDMA_MASK	(UMAC_IRQ_RXDMA_BDONE | UMAC_IRQ_RXDMA_PDONE)
-+#define UMAC_IRQ_TXDMA_MASK	(UMAC_IRQ_TXDMA_BDONE | UMAC_IRQ_TXDMA_PDONE)
-+#define UMAC_IRQ_RX_TX_MASK	(UMAC_IRQ_RXDMA_MASK | UMAC_IRQ_TXDMA_MASK)
-+
- /* Maximum number of hardware queues, downsized if needed */
- #define GENET_MAX_MQ_CNT	4
- 
-@@ -1543,9 +1547,9 @@ static int init_umac(struct bcmgenet_priv *priv)
- 
- 	bcmgenet_intr_disable(priv);
- 
--	cpu_mask_clear = UMAC_IRQ_RXDMA_BDONE;
-+	cpu_mask_clear = UMAC_IRQ_RXDMA_MASK;
- 
--	dev_dbg(kdev, "%s:Enabling RXDMA_BDONE interrupt\n", __func__);
-+	dev_dbg(kdev, "%s:Enabling RXDMA interrupts\n", __func__);
- 
- 	/* Monitor cable plug/unplugged event for internal PHY */
- 	if (phy_is_internal(priv->phydev)) {
-@@ -1883,7 +1887,7 @@ static int bcmgenet_poll(struct napi_struct *napi, int budget)
- 				  priv->rx_c_index, RDMA_CONS_INDEX);
- 	if (work_done < budget) {
- 		napi_complete(napi);
--		bcmgenet_intrl2_0_writel(priv, UMAC_IRQ_RXDMA_BDONE,
-+		bcmgenet_intrl2_0_writel(priv, UMAC_IRQ_RXDMA_MASK,
- 					 INTRL2_CPU_MASK_CLEAR);
- 	}
- 
-@@ -1958,13 +1962,13 @@ static irqreturn_t bcmgenet_isr0(int irq, void *dev_id)
- 	netif_dbg(priv, intr, priv->dev,
- 		  "IRQ=0x%x\n", priv->irq0_stat);
- 
--	if (priv->irq0_stat & (UMAC_IRQ_RXDMA_BDONE | UMAC_IRQ_RXDMA_PDONE)) {
-+	if (priv->irq0_stat & UMAC_IRQ_RXDMA_MASK) {
- 		/* We use NAPI(software interrupt throttling, if
- 		 * Rx Descriptor throttling is not used.
- 		 * Disable interrupt, will be enabled in the poll method.
- 		 */
- 		if (likely(napi_schedule_prep(&priv->napi))) {
--			bcmgenet_intrl2_0_writel(priv, UMAC_IRQ_RXDMA_BDONE,
-+			bcmgenet_intrl2_0_writel(priv, UMAC_IRQ_RXDMA_MASK,
- 						 INTRL2_CPU_MASK_SET);
- 			__napi_schedule(&priv->napi);
+ 	/* Compute how many buffers are transmitted since last xmit call */
+@@ -928,6 +928,7 @@ static void __bcmgenet_tx_reclaim(struct net_device *dev,
  		}
+ 		dev->stats.tx_packets++;
+ 		ring->free_bds += bds_compl;
++		pkts_compl += bds_compl;
+ 
+ 		last_c_index++;
+ 		last_c_index &= (num_tx_bds - 1);
+@@ -936,20 +937,25 @@ static void __bcmgenet_tx_reclaim(struct net_device *dev,
+ 	if (ring->free_bds > (MAX_SKB_FRAGS + 1))
+ 		ring->int_disable(priv, ring);
+ 
+-	if (netif_tx_queue_stopped(txq))
++	if (netif_tx_queue_stopped(txq) && pkts_compl)
+ 		netif_tx_wake_queue(txq);
+ 
+ 	ring->c_index = c_index;
++
++	return pkts_compl;
+ }
+ 
+-static void bcmgenet_tx_reclaim(struct net_device *dev,
+-				struct bcmgenet_tx_ring *ring)
++static unsigned int bcmgenet_tx_reclaim(struct net_device *dev,
++					struct bcmgenet_tx_ring *ring)
+ {
+ 	unsigned long flags;
++	unsigned int pkts_compl;
+ 
+ 	spin_lock_irqsave(&ring->lock, flags);
+-	__bcmgenet_tx_reclaim(dev, ring);
++	pkts_compl = __bcmgenet_tx_reclaim(dev, ring);
+ 	spin_unlock_irqrestore(&ring->lock, flags);
++
++	return pkts_compl;
+ }
+ 
+ static void bcmgenet_tx_reclaim_all(struct net_device *dev)
 -- 
 1.9.1
