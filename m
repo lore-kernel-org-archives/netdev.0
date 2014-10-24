@@ -1,66 +1,52 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH RFC 1/4] virtio_net: pass vi around
-Date: Fri, 24 Oct 2014 10:02:15 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1C9DE6C2@AcuExch.aculab.com>
-References: <1414099656-28090-1-git-send-email-mst@redhat.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: bridge: Do not compile options in br_parse_ip_options
+Date: Fri, 24 Oct 2014 12:41:49 +0200
+Message-ID: <20141024104149.GA7401@breakpoint.cc>
+References: <1412384670-17794-1-git-send-email-fw@strlen.de>
+ <20141004035606.GA8228@gondor.apana.org.au>
+ <20141004100413.GA1241@breakpoint.cc>
+ <20141004135508.GA10705@gondor.apana.org.au>
+ <20141004141802.GA10878@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"virtualization@lists.linux-foundation.org"
-	<virtualization@lists.linux-foundation.org>
-To: "'Michael S. Tsirkin'" <mst@redhat.com>, "linux-kernel@vger.kernel.org"
-	<linux-kernel@vger.kernel.org>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1414099656-28090-1-git-send-email-mst@redhat.com>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw@strlen.de>, netfilter-devel@vger.kernel.org,
+	bsd@redhat.com, stephen@networkplumber.org, netdev@vger.kernel.org,
+	eric.dumazet@gmail.com, davidn@davidnewall.com,
+	"David S. Miller" <davem@davemloft.net>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:51710 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756104AbaJXKmF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Oct 2014 06:42:05 -0400
+Content-Disposition: inline
+In-Reply-To: <20141004141802.GA10878@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Michael S. Tsirkin
- 
-> Too many places poke at [rs]q->vq->vdev->priv just to get
-> the the vi structure.  Let's just pass the pointer around: seems
-> cleaner, and might even be faster.
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
+> bridge: Do not compile options in br_parse_ip_options
 > 
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> ---
->  drivers/net/virtio_net.c | 36 +++++++++++++++++++-----------------
->  1 file changed, 19 insertions(+), 17 deletions(-)
+> Commit 462fb2af9788a82a534f8184abfde31574e1cfa0
 > 
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index 57cbc7d..36f3dfc 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-...
->  static struct sk_buff *receive_big(struct net_device *dev,
-> +				   struct virtnet_info *vi,
+> 	bridge : Sanitize skb before it enters the IP stack
+> 
+> broke when IP options are actually used because it mangles the
+> skb as if it entered the IP stack which is wrong because the
+> bridge is supposed to operate below the IP stack.
+> 
+> Since nobody has actually requested for parsing of IP options
+> this patch fixes it by simply reverting to the previous approach
+> of ignoring all IP options, i.e., zeroing the IPCB.
+> 
+> If and when somebody who uses IP options and actually needs them
+> to be parsed by the bridge complains then we can revisit this.
+> 
+> Reported-by: David Newall <davidn@davidnewall.com>
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Do you need to pass 'dev' here?
-Looks like it is obtainable from vi->dev (as below).
+Tested-by: Florian Westphal <fw@strlen.de>
 
-	David
+Pablo, could you please apply this?
 
->  				   struct receive_queue *rq,
->  				   void *buf,
->  				   unsigned int len)
->  {
->  	struct page *page = buf;
-> -	struct sk_buff *skb = page_to_skb(rq, page, 0, len, PAGE_SIZE);
-> +	struct sk_buff *skb = page_to_skb(vi, rq, page, 0, len, PAGE_SIZE);
-...
-> -static void receive_buf(struct receive_queue *rq, void *buf, unsigned int len)
-> +static void receive_buf(struct virtnet_info *vi, struct receive_queue *rq,
-> +			void *buf, unsigned int len)
->  {
-> -	struct virtnet_info *vi = rq->vq->vdev->priv;
->  	struct net_device *dev = vi->dev;
-...
+Thanks!
