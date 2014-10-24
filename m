@@ -1,140 +1,64 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: localed stuck in recent 3.18 git in copy_net_ns?
-Date: Fri, 24 Oct 2014 11:57:53 -0700
-Message-ID: <20141024185753.GY4977@linux.vnet.ibm.com>
-References: <20141023220406.GJ4977@linux.vnet.ibm.com>
- <20141024090857.GA4083@declera.com>
- <20141024154006.GP4977@linux.vnet.ibm.com>
- <20141024162943.GA16621@declera.com>
- <20141024165454.GS4977@linux.vnet.ibm.com>
- <20141024170931.GA21849@declera.com>
- <20141024172009.GV4977@linux.vnet.ibm.com>
- <20141024173526.GA26058@declera.com>
- <20141024183226.GW4977@linux.vnet.ibm.com>
- <6050.1414176588@famine>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Murilo Opsfelder Araujo <mopsfelder-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH V3.18] rtlwifi: Add check for get_btc_status callback
+Date: Fri, 24 Oct 2014 17:09:34 -0200
+Message-ID: <544AA3EE.7080806@gmail.com>
+References: <1414081629-23002-1-git-send-email-Larry.Finger@lwfinger.net>	 <1414087731.5231.19.camel@marge.simpson.net>	 <5449478B.4070908@lwfinger.net> <1414116580.23080.10.camel@marge.simpson.net> <544A80B5.1090604@lwfinger.net> <544A96C0.8030107@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Yanko Kaneti <yaneti@declera.com>,
-	Josh Boyer <jwboyer@fedoraproject.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Cong Wang <cwang@twopensource.com>,
-	Kevin Fenzi <kevin@scrye.com>, netdev <netdev@vger.kernel.org>,
-	"Linux-Kernel@Vger. Kernel. Org" <linux-kernel@vger.kernel.org>,
-	mroos@linux.ee
-To: Jay Vosburgh <jay.vosburgh@canonical.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <6050.1414176588@famine>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	troy_tan-kXabqFNEczNtrwSWzY7KCg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Thadeu Cascardo <cascardo-s4Flwc3xefXVny7hquFfmQ@public.gmane.org>
+To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
+	Mike Galbraith <umgwanakikbuti-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <544A96C0.8030107-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 24, 2014 at 11:49:48AM -0700, Jay Vosburgh wrote:
-> Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
-> 
-> >On Fri, Oct 24, 2014 at 08:35:26PM +0300, Yanko Kaneti wrote:
-> >> On Fri-10/24/14-2014 10:20, Paul E. McKenney wrote:
-> >> > On Fri, Oct 24, 2014 at 08:09:31PM +0300, Yanko Kaneti wrote:
-> >> > > On Fri-10/24/14-2014 09:54, Paul E. McKenney wrote:
-> >> > > > On Fri, Oct 24, 2014 at 07:29:43PM +0300, Yanko Kaneti wrote:
-> >> > > > > On Fri-10/24/14-2014 08:40, Paul E. McKenney wrote:
-> >> > > > > > On Fri, Oct 24, 2014 at 12:08:57PM +0300, Yanko Kaneti wrote:
-> >> > > > > > > On Thu-10/23/14-2014 15:04, Paul E. McKenney wrote:
-> >> > > > > > > > On Fri, Oct 24, 2014 at 12:45:40AM +0300, Yanko Kaneti wrote:
-> >> > > > > > > > > 
-> >> > > > > > > > > On Thu, 2014-10-23 at 13:05 -0700, Paul E. McKenney wrote:
-> >> > > > > > > > > > On Thu, Oct 23, 2014 at 10:51:59PM +0300, Yanko Kaneti wrote:
-> >> > > > 
-> >> > > > [ . . . ]
-> >> > > > 
-> >> > > > > > > Ok, unless I've messsed up something major, bisecting points to:
-> >> > > > > > > 
-> >> > > > > > > 35ce7f29a44a rcu: Create rcuo kthreads only for onlined CPUs
-> >> > > > > > > 
-> >> > > > > > > Makes any sense ?
-> >> > > > > > 
-> >> > > > > > Good question.  ;-)
-> >> > > > > > 
-> >> > > > > > Are any of your online CPUs missing rcuo kthreads?  There should be
-> >> > > > > > kthreads named rcuos/0, rcuos/1, rcuos/2, and so on for each online CPU.
-> >> > > > > 
-> >> > > > > Its a Phenom II X6. With 3.17 and linux-tip with 35ce7f29a44a reverted, the rcuos are 8
-> >> > > > > and the modprobe ppp_generic testcase reliably works, libvirt also manages
-> >> > > > > to setup its bridge.
-> >> > > > > 
-> >> > > > > Just with linux-tip , the rcuos are 6 but the failure is as reliable as
-> >> > > > > before.
-> >> > > 
-> >> > > > Thank you, very interesting.  Which 6 of the rcuos are present?
-> >> > > 
-> >> > > Well, the rcuos are 0 to 5. Which sounds right for a 6 core CPU like this   
-> >> > > Phenom II.
-> >> > 
-> >> > Ah, you get 8 without the patch because it creates them for potential
-> >> > CPUs as well as real ones.  OK, got it.
-> >> > 
-> >> > > > > Awating instructions: :)
-> >> > > > 
-> >> > > > Well, I thought I understood the problem until you found that only 6 of
-> >> > > > the expected 8 rcuos are present with linux-tip without the revert.  ;-)
-> >> > > > 
-> >> > > > I am putting together a patch for the part of the problem that I think
-> >> > > > I understand, of course, but it would help a lot to know which two of
-> >> > > > the rcuos are missing.  ;-)
-> >> > > 
-> >> > > Ready to test
-> >> > 
-> >> > Well, if you are feeling aggressive, give the following patch a spin.
-> >> > I am doing sanity tests on it in the meantime.
-> >> 
-> >> Doesn't seem to make a difference here
-> >
-> >OK, inspection isn't cutting it, so time for tracing.  Does the system
-> >respond to user input?  If so, please enable rcu:rcu_barrier ftrace before
-> >the problem occurs, then dump the trace buffer after the problem occurs.
-> 
-> 	My system is up and responsive when the problem occurs, so this
-> shouldn't be a problem.
+On 10/24/2014 04:13 PM, Murilo Opsfelder Araujo wrote:
+> On 10/24/2014 02:39 PM, Larry Finger wrote:
+> [...]
+>>
+>> Please try the attached patch. It replaces the second one I sent you. I
+>> will probably redo it before submitting the final copy, but this should
+>> work.
+>>
+>> Larry
+>>
+> Hi, Larry.
+>
+> I've tried your patch on top of next-20141023 and it is still crashing
+> on my laptop:
+>
+> http://opsfelder.com/~murilo/lkml/next-20141023_plus_larry_patch_v2.jpg
+>
+It seems a get_btc_status() check was still missing:
 
-Nice!  ;-)
+diff --git a/drivers/net/wireless/rtlwifi/pci.c 
+b/drivers/net/wireless/rtlwifi/pci.c
+index a5a350a..ed3364d 100644
+--- a/drivers/net/wireless/rtlwifi/pci.c
++++ b/drivers/net/wireless/rtlwifi/pci.c
+@@ -1796,7 +1796,8 @@ static int rtl_pci_start(struct ieee80211_hw *hw)
+         rtl_pci_reset_trx_ring(hw);
 
-> 	Do you want the ftrace with your patch below, or unmodified tip
-> of tree?
+         rtlpci->driver_is_goingto_unload = false;
+-       if (rtlpriv->cfg->ops->get_btc_status()) {
++       if (rtlpriv->cfg->ops->get_btc_status &&
++           rtlpriv->cfg->ops->get_btc_status()) {
+                 rtlpriv->btcoexist.btc_ops->btc_init_variables(rtlpriv);
+                 rtlpriv->btcoexist.btc_ops->btc_init_hal_vars(rtlpriv);
+         }
 
-Let's please start with the patch.
+With this minor change and Larry's latest fix_misc_desc patch, 
+next-20141023 booted normally and kernel panic disappeared.
 
-							Thanx, Paul
+Now, there is no wifi network available or found by wlan0.
 
-> 	-J
-> 
-> 
-> >							Thanx, Paul
-> >
-> >> > ------------------------------------------------------------------------
-> >> > 
-> >> > diff --git a/kernel/rcu/tree_plugin.h b/kernel/rcu/tree_plugin.h
-> >> > index 29fb23f33c18..927c17b081c7 100644
-> >> > --- a/kernel/rcu/tree_plugin.h
-> >> > +++ b/kernel/rcu/tree_plugin.h
-> >> > @@ -2546,9 +2546,13 @@ static void rcu_spawn_one_nocb_kthread(struct rcu_state *rsp, int cpu)
-> >> >  			rdp->nocb_leader = rdp_spawn;
-> >> >  			if (rdp_last && rdp != rdp_spawn)
-> >> >  				rdp_last->nocb_next_follower = rdp;
-> >> > -			rdp_last = rdp;
-> >> > -			rdp = rdp->nocb_next_follower;
-> >> > -			rdp_last->nocb_next_follower = NULL;
-> >> > +			if (rdp == rdp_spawn) {
-> >> > +				rdp = rdp->nocb_next_follower;
-> >> > +			} else {
-> >> > +				rdp_last = rdp;
-> >> > +				rdp = rdp->nocb_next_follower;
-> >> > +				rdp_last->nocb_next_follower = NULL;
-> >> > +			}
-> >> >  		} while (rdp);
-> >> >  		rdp_spawn->nocb_next_follower = rdp_old_leader;
-> >> >  	}
-> >> > 
-> 
-> ---
-> 	-Jay Vosburgh, jay.vosburgh@canonical.com
-> 
+-- 
+Murilo
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
