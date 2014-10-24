@@ -1,64 +1,43 @@
-From: Murilo Opsfelder Araujo <mopsfelder-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH V3.18] rtlwifi: Add check for get_btc_status callback
-Date: Fri, 24 Oct 2014 17:09:34 -0200
-Message-ID: <544AA3EE.7080806@gmail.com>
-References: <1414081629-23002-1-git-send-email-Larry.Finger@lwfinger.net>	 <1414087731.5231.19.camel@marge.simpson.net>	 <5449478B.4070908@lwfinger.net> <1414116580.23080.10.camel@marge.simpson.net> <544A80B5.1090604@lwfinger.net> <544A96C0.8030107@gmail.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH net] net/sched: Fix use of wild pointer in mq_destroy()
+ when qdisc_alloc fail
+Date: Fri, 24 Oct 2014 20:14:19 +0100
+Message-ID: <20141024191418.GA8842@acer.localdomain>
+References: <OF7A403C69.2C35464E-ON48257D7B.002E24AA-48257D7B.002F2A62@zte.com.cn>
+ <544A913A.1060100@gmail.com>
+ <CAHA+R7P+nGXc93e_-u5Bvmr5Ri8CCg9FAgc+R7fJT7mJ5sBFwQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	troy_tan-kXabqFNEczNtrwSWzY7KCg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Thadeu Cascardo <cascardo-s4Flwc3xefXVny7hquFfmQ@public.gmane.org>
-To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
-	Mike Galbraith <umgwanakikbuti-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <544A96C0.8030107-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: John Fastabend <john.fastabend@gmail.com>, wang.bo116@zte.com.cn,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, cui.yunfeng@zte.com.cn
+To: Cong Wang <cwang@twopensource.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:39576 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751086AbaJXTU0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Oct 2014 15:20:26 -0400
+Content-Disposition: inline
+In-Reply-To: <CAHA+R7P+nGXc93e_-u5Bvmr5Ri8CCg9FAgc+R7fJT7mJ5sBFwQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/24/2014 04:13 PM, Murilo Opsfelder Araujo wrote:
-> On 10/24/2014 02:39 PM, Larry Finger wrote:
-> [...]
->>
->> Please try the attached patch. It replaces the second one I sent you. I
->> will probably redo it before submitting the final copy, but this should
->> work.
->>
->> Larry
->>
-> Hi, Larry.
->
-> I've tried your patch on top of next-20141023 and it is still crashing
-> on my laptop:
->
-> http://opsfelder.com/~murilo/lkml/next-20141023_plus_larry_patch_v2.jpg
->
-It seems a get_btc_status() check was still missing:
+On Fri, Oct 24, 2014 at 11:13:56AM -0700, Cong Wang wrote:
+> On Fri, Oct 24, 2014 at 10:49 AM, John Fastabend
+> <john.fastabend@gmail.com> wrote:
+> >
+> > Patch looks fine, another way to fix this would be drop the
+> > mq_destroy() call in the error path. I'm not convinced one
+> > is any better than the other but maybe some other folks have
+> > opinions, it seems a bit wrong to call mq_destroy twice so in
+> > that sense it may be a bit nicer to drop the mq_destroy().
+> 
+> Dropping mq_destroy() in error path is indeed better,
+> because upper layer does cleanup intentionally.
+> Look at what other qdisc's do. :)
 
-diff --git a/drivers/net/wireless/rtlwifi/pci.c 
-b/drivers/net/wireless/rtlwifi/pci.c
-index a5a350a..ed3364d 100644
---- a/drivers/net/wireless/rtlwifi/pci.c
-+++ b/drivers/net/wireless/rtlwifi/pci.c
-@@ -1796,7 +1796,8 @@ static int rtl_pci_start(struct ieee80211_hw *hw)
-         rtl_pci_reset_trx_ring(hw);
+I would argue that the qdisc_destroy() call in qdisc_create_dflt()
+is wrong, it should instead free the qdisc and release the module
+reference manually as done in qdisc_create().
 
-         rtlpci->driver_is_goingto_unload = false;
--       if (rtlpriv->cfg->ops->get_btc_status()) {
-+       if (rtlpriv->cfg->ops->get_btc_status &&
-+           rtlpriv->cfg->ops->get_btc_status()) {
-                 rtlpriv->btcoexist.btc_ops->btc_init_variables(rtlpriv);
-                 rtlpriv->btcoexist.btc_ops->btc_init_hal_vars(rtlpriv);
-         }
-
-With this minor change and Larry's latest fix_misc_desc patch, 
-next-20141023 booted normally and kernel panic disappeared.
-
-Now, there is no wifi network available or found by wlan0.
-
--- 
-Murilo
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+qdisc_destroy() should only be called for fully initialized qdiscs.
