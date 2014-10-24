@@ -1,144 +1,64 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: localed stuck in recent 3.18 git in copy_net_ns?
-Date: Fri, 24 Oct 2014 13:15:04 -0700
-Message-ID: <20141024201504.GA18134@linux.vnet.ibm.com>
-References: <20141024090857.GA4083@declera.com>
- <20141024154006.GP4977@linux.vnet.ibm.com>
- <20141024162943.GA16621@declera.com>
- <20141024165454.GS4977@linux.vnet.ibm.com>
- <20141024170931.GA21849@declera.com>
- <20141024172009.GV4977@linux.vnet.ibm.com>
- <20141024173526.GA26058@declera.com>
- <20141024183226.GW4977@linux.vnet.ibm.com>
- <6050.1414176588@famine>
- <20141024185753.GY4977@linux.vnet.ibm.com>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 0/9][pull request] Intel Wired LAN Driver Updates
+ 2014-10-23
+Date: Fri, 24 Oct 2014 16:43:27 -0400 (EDT)
+Message-ID: <20141024.164327.535125094046571848.davem@davemloft.net>
+References: <1414123806-20049-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Yanko Kaneti <yaneti@declera.com>,
-	Josh Boyer <jwboyer@fedoraproject.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Cong Wang <cwang@twopensource.com>,
-	Kevin Fenzi <kevin@scrye.com>, netdev <netdev@vger.kernel.org>,
-	"Linux-Kernel@Vger. Kernel. Org" <linux-kernel@vger.kernel.org>,
-	mroos@linux.ee
-To: Jay Vosburgh <jay.vosburgh@canonical.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20141024185753.GY4977@linux.vnet.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52977 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752076AbaJXUnc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Oct 2014 16:43:32 -0400
+In-Reply-To: <1414123806-20049-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 24, 2014 at 11:57:53AM -0700, Paul E. McKenney wrote:
-> On Fri, Oct 24, 2014 at 11:49:48AM -0700, Jay Vosburgh wrote:
-> > Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
-> > 
-> > >On Fri, Oct 24, 2014 at 08:35:26PM +0300, Yanko Kaneti wrote:
-> > >> On Fri-10/24/14-2014 10:20, Paul E. McKenney wrote:
-> > >> > On Fri, Oct 24, 2014 at 08:09:31PM +0300, Yanko Kaneti wrote:
-> > >> > > On Fri-10/24/14-2014 09:54, Paul E. McKenney wrote:
-> > >> > > > On Fri, Oct 24, 2014 at 07:29:43PM +0300, Yanko Kaneti wrote:
-> > >> > > > > On Fri-10/24/14-2014 08:40, Paul E. McKenney wrote:
-> > >> > > > > > On Fri, Oct 24, 2014 at 12:08:57PM +0300, Yanko Kaneti wrote:
-> > >> > > > > > > On Thu-10/23/14-2014 15:04, Paul E. McKenney wrote:
-> > >> > > > > > > > On Fri, Oct 24, 2014 at 12:45:40AM +0300, Yanko Kaneti wrote:
-> > >> > > > > > > > > 
-> > >> > > > > > > > > On Thu, 2014-10-23 at 13:05 -0700, Paul E. McKenney wrote:
-> > >> > > > > > > > > > On Thu, Oct 23, 2014 at 10:51:59PM +0300, Yanko Kaneti wrote:
-> > >> > > > 
-> > >> > > > [ . . . ]
-> > >> > > > 
-> > >> > > > > > > Ok, unless I've messsed up something major, bisecting points to:
-> > >> > > > > > > 
-> > >> > > > > > > 35ce7f29a44a rcu: Create rcuo kthreads only for onlined CPUs
-> > >> > > > > > > 
-> > >> > > > > > > Makes any sense ?
-> > >> > > > > > 
-> > >> > > > > > Good question.  ;-)
-> > >> > > > > > 
-> > >> > > > > > Are any of your online CPUs missing rcuo kthreads?  There should be
-> > >> > > > > > kthreads named rcuos/0, rcuos/1, rcuos/2, and so on for each online CPU.
-> > >> > > > > 
-> > >> > > > > Its a Phenom II X6. With 3.17 and linux-tip with 35ce7f29a44a reverted, the rcuos are 8
-> > >> > > > > and the modprobe ppp_generic testcase reliably works, libvirt also manages
-> > >> > > > > to setup its bridge.
-> > >> > > > > 
-> > >> > > > > Just with linux-tip , the rcuos are 6 but the failure is as reliable as
-> > >> > > > > before.
-> > >> > > 
-> > >> > > > Thank you, very interesting.  Which 6 of the rcuos are present?
-> > >> > > 
-> > >> > > Well, the rcuos are 0 to 5. Which sounds right for a 6 core CPU like this   
-> > >> > > Phenom II.
-> > >> > 
-> > >> > Ah, you get 8 without the patch because it creates them for potential
-> > >> > CPUs as well as real ones.  OK, got it.
-> > >> > 
-> > >> > > > > Awating instructions: :)
-> > >> > > > 
-> > >> > > > Well, I thought I understood the problem until you found that only 6 of
-> > >> > > > the expected 8 rcuos are present with linux-tip without the revert.  ;-)
-> > >> > > > 
-> > >> > > > I am putting together a patch for the part of the problem that I think
-> > >> > > > I understand, of course, but it would help a lot to know which two of
-> > >> > > > the rcuos are missing.  ;-)
-> > >> > > 
-> > >> > > Ready to test
-> > >> > 
-> > >> > Well, if you are feeling aggressive, give the following patch a spin.
-> > >> > I am doing sanity tests on it in the meantime.
-> > >> 
-> > >> Doesn't seem to make a difference here
-> > >
-> > >OK, inspection isn't cutting it, so time for tracing.  Does the system
-> > >respond to user input?  If so, please enable rcu:rcu_barrier ftrace before
-> > >the problem occurs, then dump the trace buffer after the problem occurs.
-> > 
-> > 	My system is up and responsive when the problem occurs, so this
-> > shouldn't be a problem.
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Thu, 23 Oct 2014 21:09:57 -0700
+
+> This series contains updates to i40e and i40evf.
 > 
-> Nice!  ;-)
+> Jesse modifies the i40e driver to only notify the firmware on link up/down
+> and qualified module events.  Also simplified the job of managing link
+> state by using the admin queue receive event for link events as a signal
+> to tell the driver to update link state.
 > 
-> > 	Do you want the ftrace with your patch below, or unmodified tip
-> > of tree?
+> Jeff (me) cleans up the inconsistent use of tabs for indentation in the admin
+> queue command header file.
 > 
-> Let's please start with the patch.
+> Neerav converts the use of udelay() to usleep_range().
+> 
+> Anjali fixes a bug where receive would stop after some stress by adding
+> a sleep and restart as well as moving the setting of flow control because
+> it should be done at a PF level and not a VSI level.
+> 
+> Mitch adds code to handle link events when updating the PF switch, which
+> allows link information to be properly provided to VFS in all cases.
+> 
+> Catherine adds driver support for 10GBaseT and bumps driver version.
 
-And I should hasten to add that you need to set CONFIG_RCU_TRACE=y
-for these tracepoints to be enabled.
+I've pulled, but I absolutely don't like that change that moved the
+variables out of the loop.
 
-							Thanx, Paul
+Putting variables in the inner-most scope of their use is always the
+best choice because:
 
-> > 	-J
-> > 
-> > 
-> > >							Thanx, Paul
-> > >
-> > >> > ------------------------------------------------------------------------
-> > >> > 
-> > >> > diff --git a/kernel/rcu/tree_plugin.h b/kernel/rcu/tree_plugin.h
-> > >> > index 29fb23f33c18..927c17b081c7 100644
-> > >> > --- a/kernel/rcu/tree_plugin.h
-> > >> > +++ b/kernel/rcu/tree_plugin.h
-> > >> > @@ -2546,9 +2546,13 @@ static void rcu_spawn_one_nocb_kthread(struct rcu_state *rsp, int cpu)
-> > >> >  			rdp->nocb_leader = rdp_spawn;
-> > >> >  			if (rdp_last && rdp != rdp_spawn)
-> > >> >  				rdp_last->nocb_next_follower = rdp;
-> > >> > -			rdp_last = rdp;
-> > >> > -			rdp = rdp->nocb_next_follower;
-> > >> > -			rdp_last->nocb_next_follower = NULL;
-> > >> > +			if (rdp == rdp_spawn) {
-> > >> > +				rdp = rdp->nocb_next_follower;
-> > >> > +			} else {
-> > >> > +				rdp_last = rdp;
-> > >> > +				rdp = rdp->nocb_next_follower;
-> > >> > +				rdp_last->nocb_next_follower = NULL;
-> > >> > +			}
-> > >> >  		} while (rdp);
-> > >> >  		rdp_spawn->nocb_next_follower = rdp_old_leader;
-> > >> >  	}
-> > >> > 
-> > 
-> > ---
-> > 	-Jay Vosburgh, jay.vosburgh@canonical.com
-> > 
+1) Auditing is easier, because you are constraining the scope in
+   which you have to check if the variable is setup properly
+   before it is used.
+
+2) You are helping the compiler out, because you have done the
+   majority of solving the graph coloring problem for it and the
+   compiler therefore has less work to do.
+
+Please don't make changes like this in the future, and instead do the
+opposite, by moving more variable declarations into their innermost
+possible scope.
+
+Thanks.
