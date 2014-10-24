@@ -1,112 +1,148 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: localed stuck in recent 3.18 git in copy_net_ns?
-Date: Fri, 24 Oct 2014 15:16:02 -0700
-Message-ID: <20141024221602.GB4977@linux.vnet.ibm.com>
-References: <20141024154006.GP4977@linux.vnet.ibm.com>
- <20141024162943.GA16621@declera.com>
- <20141024165454.GS4977@linux.vnet.ibm.com>
- <20141024170931.GA21849@declera.com>
- <20141024172009.GV4977@linux.vnet.ibm.com>
- <20141024173526.GA26058@declera.com>
- <20141024183226.GW4977@linux.vnet.ibm.com>
- <20141024212557.GA15537@declera.com>
- <20141024214927.GA4977@linux.vnet.ibm.com>
- <8451.1414188124@famine>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Petri Gynther <pgynther@google.com>
+Subject: Re: [PATCH net-next 2/4] net: bcmgenet: return number of packets
+ completed in TX reclaim
+Date: Fri, 24 Oct 2014 15:20:18 -0700
+Message-ID: <CAGXr9JHNRFsXXT+_tfM=ye5k5YwjmJ6s5YP+qaTdGMOLKZxPwA@mail.gmail.com>
+References: <1414180942-2132-1-git-send-email-f.fainelli@gmail.com>
+	<1414180942-2132-3-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Yanko Kaneti <yaneti@declera.com>,
-	Josh Boyer <jwboyer@fedoraproject.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Cong Wang <cwang@twopensource.com>,
-	Kevin Fenzi <kevin@scrye.com>, netdev <netdev@vger.kernel.org>,
-	"Linux-Kernel@Vger. Kernel. Org" <linux-kernel@vger.kernel.org>,
-	mroos@linux.ee, tj@kernel.org
-To: Jay Vosburgh <jay.vosburgh@canonical.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <8451.1414188124@famine>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qc0-f171.google.com ([209.85.216.171]:45068 "EHLO
+	mail-qc0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755906AbaJXWUT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Oct 2014 18:20:19 -0400
+Received: by mail-qc0-f171.google.com with SMTP id m20so1488528qcx.2
+        for <netdev@vger.kernel.org>; Fri, 24 Oct 2014 15:20:18 -0700 (PDT)
+In-Reply-To: <1414180942-2132-3-git-send-email-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 24, 2014 at 03:02:04PM -0700, Jay Vosburgh wrote:
-> Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
-> 
-> >On Sat, Oct 25, 2014 at 12:25:57AM +0300, Yanko Kaneti wrote:
-> >> On Fri-10/24/14-2014 11:32, Paul E. McKenney wrote:
-> >> > On Fri, Oct 24, 2014 at 08:35:26PM +0300, Yanko Kaneti wrote:
-> >> > > On Fri-10/24/14-2014 10:20, Paul E. McKenney wrote:
-> >
-> >[ . . . ]
-> >
-> >> > > > Well, if you are feeling aggressive, give the following patch a spin.
-> >> > > > I am doing sanity tests on it in the meantime.
-> >> > > 
-> >> > > Doesn't seem to make a difference here
-> >> > 
-> >> > OK, inspection isn't cutting it, so time for tracing.  Does the system
-> >> > respond to user input?  If so, please enable rcu:rcu_barrier ftrace before
-> >> > the problem occurs, then dump the trace buffer after the problem occurs.
-> >> 
-> >> Sorry for being unresposive here, but I know next to nothing about tracing
-> >> or most things about the kernel, so I have some cathing up to do.
-> >> 
-> >> In the meantime some layman observations while I tried to find what exactly
-> >> triggers the problem.
-> >> - Even in runlevel 1 I can reliably trigger the problem by starting libvirtd
-> >> - libvirtd seems to be very active in using all sorts of kernel facilities
-> >>   that are modules on fedora so it seems to cause many simultaneous kworker 
-> >>   calls to modprobe
-> >> - there are 8 kworker/u16 from 0 to 7
-> >> - one of these kworkers always deadlocks, while there appear to be two
-> >>   kworker/u16:6 - the seventh
-> >
-> >Adding Tejun on CC in case this duplication of kworker/u16:6 is important.
-> >
-> >>   6 vs 8 as in 6 rcuos where before they were always 8
-> >> 
-> >> Just observations from someone who still doesn't know what the u16
-> >> kworkers are..
-> >
-> >Could you please run the following diagnostic patch?  This will help
-> >me see if I have managed to miswire the rcuo kthreads.  It should
-> >print some information at task-hang time.
-> 
-> 	I can give this a spin after the ftrace (now that I've got
-> CONFIG_RCU_TRACE turned on).
-> 
-> 	I've got an ftrace capture from unmodified -net, it looks like
-> this:
-> 
->     ovs-vswitchd-902   [000] ....   471.778441: rcu_barrier: rcu_sched Begin cpu -1 remaining 0 # 0
->     ovs-vswitchd-902   [000] ....   471.778452: rcu_barrier: rcu_sched Check cpu -1 remaining 0 # 0
->     ovs-vswitchd-902   [000] ....   471.778452: rcu_barrier: rcu_sched Inc1 cpu -1 remaining 0 # 1
->     ovs-vswitchd-902   [000] ....   471.778453: rcu_barrier: rcu_sched OnlineNoCB cpu 0 remaining 1 # 1
->     ovs-vswitchd-902   [000] ....   471.778453: rcu_barrier: rcu_sched OnlineNoCB cpu 1 remaining 2 # 1
->     ovs-vswitchd-902   [000] ....   471.778453: rcu_barrier: rcu_sched OnlineNoCB cpu 2 remaining 3 # 1
->     ovs-vswitchd-902   [000] ....   471.778454: rcu_barrier: rcu_sched OnlineNoCB cpu 3 remaining 4 # 1
+Hi Florian,
 
-OK, so it looks like your system has four CPUs, and rcu_barrier() placed
-callbacks on them all.
+On Fri, Oct 24, 2014 at 1:02 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+> In preparation for reclaiming transmitted buffers in NAPI context,
+> update __bcmgenet_tx_reclaim() and bcmgenet_tx_reclaim() to return the
+> number of packets completed per call.
+>
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> ---
+>  drivers/net/ethernet/broadcom/genet/bcmgenet.c | 20 +++++++++++++-------
+>  1 file changed, 13 insertions(+), 7 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+> index ee4d5baf09b6..70f2fb366375 100644
+> --- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+> +++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+> @@ -876,14 +876,14 @@ static inline void bcmgenet_tx_ring_int_disable(struct bcmgenet_priv *priv,
+>  }
+>
+>  /* Unlocked version of the reclaim routine */
+> -static void __bcmgenet_tx_reclaim(struct net_device *dev,
+> -                                 struct bcmgenet_tx_ring *ring)
+> +static unsigned int __bcmgenet_tx_reclaim(struct net_device *dev,
+> +                                         struct bcmgenet_tx_ring *ring)
+>  {
+>         struct bcmgenet_priv *priv = netdev_priv(dev);
+>         int last_tx_cn, last_c_index, num_tx_bds;
+>         struct enet_cb *tx_cb_ptr;
+>         struct netdev_queue *txq;
+> -       unsigned int bds_compl;
+> +       unsigned int bds_compl, pkts_compl = 0;
 
->     ovs-vswitchd-902   [000] ....   471.778454: rcu_barrier: rcu_sched Inc2 cpu -1 remaining 4 # 2
+bcmgenet_desc_rx() uses "rxpktprocessed", so I'd go with "txpktprocessed" here.
 
-The above removes the extra count used to avoid races between posting new
-callbacks and completion of previously posted callbacks.
+>         unsigned int c_index;
+>
+>         /* Compute how many buffers are transmitted since last xmit call */
+> @@ -928,6 +928,7 @@ static void __bcmgenet_tx_reclaim(struct net_device *dev,
+>                 }
+>                 dev->stats.tx_packets++;
+>                 ring->free_bds += bds_compl;
+> +               pkts_compl += bds_compl;
 
->          rcuos/0-9     [000] ..s.   471.793150: rcu_barrier: rcu_sched CB cpu -1 remaining 3 # 2
->          rcuos/1-18    [001] ..s.   471.793308: rcu_barrier: rcu_sched CB cpu -1 remaining 2 # 2
+This change doesn't look correct. The number of cleaned packets is not
+necessarily equal to the number of cleaned TxBDs.
 
-Two of the four callbacks fired, but the other two appear to be AWOL.
-And rcu_barrier() won't return until they all fire.
+I think that the while-loop should be:
 
-> 	I let it sit through several "hung task" cycles but that was all
-> there was for rcu:rcu_barrier.
-> 
-> 	I should have ftrace with the patch as soon as the kernel is
-> done building, then I can try the below patch (I'll start it building
-> now).
+        while (last_tx_cn-- > 0) {
+                tx_cb_ptr = ring->cbs + last_c_index;
 
-Sounds very good, looking forward to hearing of the results.
+                if (tx_cb_ptr->skb) {
+                        pkts_compl++;
+                        dev->stats.tx_packets++;
+                        dev->stats.tx_bytes += tx_cb_ptr->skb->len;
+                        dma_unmap_single(&dev->dev,
+                                         dma_unmap_addr(tx_cb_ptr, dma_addr),
+                                         tx_cb_ptr->skb->len,
+                                         DMA_TO_DEVICE);
+                        bcmgenet_free_cb(tx_cb_ptr);
+                } else if (dma_unmap_addr(tx_cb_ptr, dma_addr)) {
+                        dev->stats.tx_bytes +=
+                                dma_unmap_len(tx_cb_ptr, dma_len);
+                        dma_unmap_page(&dev->dev,
+                                       dma_unmap_addr(tx_cb_ptr, dma_addr),
+                                       dma_unmap_len(tx_cb_ptr, dma_len),
+                                       DMA_TO_DEVICE);
+                        dma_unmap_addr_set(tx_cb_ptr, dma_addr, 0);
+                }
+                ring->free_bds++;
+                last_c_index++;
+                last_c_index &= (num_tx_bds - 1);
+        }
 
-							Thanx, Paul
+>
+>                 last_c_index++;
+>                 last_c_index &= (num_tx_bds - 1);
+> @@ -936,20 +937,25 @@ static void __bcmgenet_tx_reclaim(struct net_device *dev,
+>         if (ring->free_bds > (MAX_SKB_FRAGS + 1))
+>                 ring->int_disable(priv, ring);
+>
+> -       if (netif_tx_queue_stopped(txq))
+> +       if (netif_tx_queue_stopped(txq) && pkts_compl)
+
+bcmgenet_xmit() stops the Tx queue when:
+ring->free_bds <= (MAX_SKB_FRAGS + 1)
+
+So, shouldn't this check be:
+netif_tx_queue_stopped(txq) && (ring->free_bds > (MAX_SKB_FRAGS + 1))
+
+Having said that --
+Why does the driver stop the Tx queue when there are still
+(MAX_SKB_FRAGS + 1) TxBDs left?
+It leaves 17 or so TxBDs unused on the Tx ring, and most of the
+packets are not fragmented.
+
+I feel that bcmgenet_xmit() should stop the Tx queue only when there
+is 1 TxBD left after putting a new packet on the ring.
+
+>                 netif_tx_wake_queue(txq);
+>
+>         ring->c_index = c_index;
+> +
+> +       return pkts_compl;
+>  }
+>
+> -static void bcmgenet_tx_reclaim(struct net_device *dev,
+> -                               struct bcmgenet_tx_ring *ring)
+> +static unsigned int bcmgenet_tx_reclaim(struct net_device *dev,
+> +                                       struct bcmgenet_tx_ring *ring)
+>  {
+>         unsigned long flags;
+> +       unsigned int pkts_compl;
+>
+>         spin_lock_irqsave(&ring->lock, flags);
+> -       __bcmgenet_tx_reclaim(dev, ring);
+> +       pkts_compl = __bcmgenet_tx_reclaim(dev, ring);
+>         spin_unlock_irqrestore(&ring->lock, flags);
+> +
+> +       return pkts_compl;
+>  }
+>
+>  static void bcmgenet_tx_reclaim_all(struct net_device *dev)
+> --
+> 1.9.1
+>
