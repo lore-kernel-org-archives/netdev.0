@@ -1,81 +1,77 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [PATCH 10/14] net: dsa/mv88e6352: Implement EEPROM accessfunctions
-Date: Thu, 23 Oct 2014 20:59:10 -0700
-Message-ID: <5449CE8E.8000304@roeck-us.net>
-References: <1414037002-25528-1-git-send-email-linux@roeck-us.net><141403700	2-25528-11-git-send-email-linux@roeck-us.net><20141023135412.GC25190@lunn.ch>,<20141023164052.GB21343@roeck-us.net> <724F6C6CDC8C86478473775085778C4E0A465931@ImsEx1.ims.dom> <54494F2A.10509@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-	Chris Healy <chealy@imsco-us.com>, Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54494F2A.10509@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 0/9][pull request] Intel Wired LAN Driver Updates 2014-10-23
+Date: Thu, 23 Oct 2014 21:09:57 -0700
+Message-ID: <1414123806-20049-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([134.134.136.65]:57054 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751437AbaJXEKP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 24 Oct 2014 00:10:15 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/23/2014 11:55 AM, Florian Fainelli wrote:
-> On 10/23/2014 11:41 AM, Chris Healy wrote:
->> Hi Guenter,
->>
->> I do not believe it is possible to know if an EEPROM is attached or not.
->
-> If we cannot do this, how about a DT/platform data set of properties
-> that describes the EEPROM when present?
->
-Yes, I think that is a good idea.
+This series contains updates to i40e and i40evf.
 
-Thanks,
-Guenter
+Jesse modifies the i40e driver to only notify the firmware on link up/down
+and qualified module events.  Also simplified the job of managing link
+state by using the admin queue receive event for link events as a signal
+to tell the driver to update link state.
 
->>
->> Chris
->> ________________________________________
->> From: Guenter Roeck [linux@roeck-us.net]
->> Sent: Thursday, October 23, 2014 9:40 AM
->> To: Andrew Lunn
->> Cc: netdev@vger.kernel.org; David S. Miller; Florian Fainelli; linux-kernel@vger.kernel.org; Chris Healy
->> Subject: Re: [PATCH 10/14] net: dsa/mv88e6352: Implement EEPROM         accessfunctions
->>
->> On Thu, Oct 23, 2014 at 03:54:12PM +0200, Andrew Lunn wrote:
->>> On Wed, Oct 22, 2014 at 09:03:18PM -0700, Guenter Roeck wrote:
->>>> MV88E6352 supports read and write access to its configuration eeprom.
->>>
->>> Hi Guenter
->>>
->>> I don't have the datasheet for the MV88E6352. Is the EEPROM built in,
->>> or external on an i2c bus?
->>>
->> External.
->>
->>>> +static int mv88e6352_get_eeprom_len(struct dsa_switch *ds)
->>>> +{
->>>> +   return 0x200;
->>>> +}
->>>
->>> How do you handle the case of it being external and not populated.
->>> Would it not be better to try to detect it here, and return 0 if it
->>> does not exist?
->>>
->> Makes sense, if it is detectable that it the EEPROM not there. Browsing
->> through the datasheet, I don't see how I could detect it; there does not
->> seem to be a status bit indicating if the EEPROM is there or not. There
->> are sw_mode pins which determine if the eeprom should be loaded after
->> reset or not, but I don't see anything in the register set which would
->> tell me.
->>
->> Chris, do you know if there is a means to detect if the EEPROM is present
->> on the MV88E6352 ?
->>
->> Thanks,
->> Guenter
->>
->> ________________________________
->>
->>
->> This email and any files transmitted with it are confidential & proprietary to Systems and Software Enterprises, LLC. This information is intended solely for the use of the individual or entity to which it is addressed. Access or transmittal of the information contained in this e-mail, in full or in part, to any other organization or persons is not authorized.
->>
->
->
+Jeff (me) cleans up the inconsistent use of tabs for indentation in the admin
+queue command header file.
+
+Neerav converts the use of udelay() to usleep_range().
+
+Anjali fixes a bug where receive would stop after some stress by adding
+a sleep and restart as well as moving the setting of flow control because
+it should be done at a PF level and not a VSI level.
+
+Mitch adds code to handle link events when updating the PF switch, which
+allows link information to be properly provided to VFS in all cases.
+
+Catherine adds driver support for 10GBaseT and bumps driver version.
+
+The following are changes since commit 61ed53deb1c6a4386d8710dbbfcee8779c381931:
+  Merge tag 'ntb-3.18' of git://github.com/jonmason/ntb
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+
+Akeem G Abodunrin (1):
+  i40e: Moving variable declaration out of the loops
+
+Anjali Singhai Jain (1):
+  i40e: Fix a bug where Rx would stop after some time
+
+Catherine Sullivan (1):
+  i40e: Bump version
+
+Jeff Kirsher (1):
+  i40e/i40evf: Fix whitespace indentation
+
+Jesse Brandeburg (2):
+  i40e: mask phy events
+  i40e: enable LSE poke and simplify link state
+
+Mitch Williams (2):
+  i40e: process link events when setting up switch
+  i40e: Add 10GBaseT support
+
+Neerav Parikh (1):
+  i40e/i40evf: Use usleep_range() instead of udelay()
+
+ drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h  | 2139 ++++++++++----------
+ drivers/net/ethernet/intel/i40e/i40e_common.c      |   28 +
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c     |   33 +-
+ drivers/net/ethernet/intel/i40e/i40e_main.c        |  108 +-
+ drivers/net/ethernet/intel/i40e/i40e_prototype.h   |    2 +
+ drivers/net/ethernet/intel/i40e/i40e_type.h        |    1 +
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |    2 +-
+ .../net/ethernet/intel/i40evf/i40e_adminq_cmd.h    | 2136 ++++++++++---------
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c    |    4 +-
+ 9 files changed, 2268 insertions(+), 2185 deletions(-)
+
+-- 
+1.9.3
