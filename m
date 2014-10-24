@@ -1,265 +1,138 @@
-From: Andy Zhou <azhou@nicira.com>
-Subject: [net v2] iptunnel: Fix iptunnel_xmit return code for stats maintenance
-Date: Thu, 23 Oct 2014 22:10:59 -0700
-Message-ID: <1414127459-16128-1-git-send-email-azhou@nicira.com>
-Cc: netdev@vger.kernel.org, Andy Zhou <azhou@nicira.com>
-To: davem@davemloft.net
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH net] bpf: split eBPF out of NET
+Date: Thu, 23 Oct 2014 22:32:50 -0700
+Message-ID: <CAMEtUuxsk=iLDsD4XXZ8EcurFXgFxD-9iePv=NbBZn+b3YOXJA@mail.gmail.com>
+References: <1414114868-28228-1-git-send-email-ast@plumgrid.com>
+	<20141024032355.GB7879@thin>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Geert Uytterhoeven <geert@linux-m68k.org>,
+	Ingo Molnar <mingo@kernel.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Josh Triplett <josh@joshtriplett.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog137.obsmtp.com ([74.125.149.18]:47643 "HELO
-	na3sys009aog137.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752602AbaJXFRc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Oct 2014 01:17:32 -0400
-Received: by mail-pd0-f169.google.com with SMTP id w10so806748pde.28
-        for <netdev@vger.kernel.org>; Thu, 23 Oct 2014 22:17:31 -0700 (PDT)
+Received: from mail-wi0-f169.google.com ([209.85.212.169]:52319 "EHLO
+	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752092AbaJXFcv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Oct 2014 01:32:51 -0400
+Received: by mail-wi0-f169.google.com with SMTP id q5so331568wiv.0
+        for <netdev@vger.kernel.org>; Thu, 23 Oct 2014 22:32:50 -0700 (PDT)
+In-Reply-To: <20141024032355.GB7879@thin>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-iptunnel_xmit() currently always return >= 0 instead of proper error
-code, that is used to maintain stats. For example, current return code
-conflicts with how iptunnel_xmit_stats() maintains stats.
+On Thu, Oct 23, 2014 at 8:23 PM, Josh Triplett <josh@joshtriplett.org> wrote:
+> On Thu, Oct 23, 2014 at 06:41:08PM -0700, Alexei Starovoitov wrote:
+>> introduce two configs:
+>> - hidden CONFIG_BPF to select eBPF interpreter that classic socket filters
+>>   depend on
+>> - visible CONFIG_BPF_SYSCALL (default off) that tracing and sockets can use
+>>
+>> that solves several problems:
+>> - tracing and others that wish to use eBPF don't need to depend on NET.
+>>   They can use BPF_SYSCALL to allow loading from userspace or select BPF
+>>   to use it directly from kernel in NET-less configs.
+>> - in 3.18 programs cannot be attached to events yet, so don't force it on
+>> - when the rest of eBPF infra is there in 3.19+, it's still useful to
+>>   switch it off to minimize kernel size
+>>
+>> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+>
+> Thanks for working on this!  A few nits below, but otherwise this looks
+> good to me.  Once this gets appropriate reviews from net and bpf folks,
+> please let me know if you want this to go through the net tree, the tiny
+> tree, or some other tree.
 
-Unfortunately, the return code can not be changed without readjusting
-how SKB memory is managed through the call chain.  The following two
-rules are adopted for this patch:
+Thanks :)
+I've sent it to Dave and marked it as 'net', so it's for
+his net tree. I don't mind if he decides to steer it into net-next
+when it opens, since changing Kconfig is always tricky.
+I just felt that this patch deserves to be in 'net' and in 3.18-rc
 
-1) Proper error code are always propagate back through the call chain
-   so that the caller can maintain stats.
+>> bloat-o-meter on x64 shows:
+>> add/remove: 0/60 grow/shrink: 0/2 up/down: 0/-15601 (-15601)
+>
+> Very nice!  Please do include the bloat-o-meter stats in the commit
+> message.
 
-2) Tunnel xmit functions always free resources, e.g. skb and route
-   entry.
+I don't think that's necessary. eBPF is in early stages of adoption.
+More things to come, so bloat-o-meter stats will be obsolete
+very quickly.
 
-Signed-off-by: Andy Zhou <azhou@nicira.com>
+>> +# interpreter that classic socket filters depend on
+>> +config BPF
+>> +     boolean
+>
+> s/boolean/bool/
 
------
-V1->v2:  Address pravin's review comments:
-	 * fix error path memory leak in gre_tnl_send()
-	 * Keep error counting consistent between openvswitch vport
-	   and iptunnel_xmit_stats()
-	 Sending out for net, rather than net-next, as a bug fix.
----
- drivers/net/vxlan.c            |   21 +++++++++++++--------
- include/net/ip_tunnels.h       |    7 +++++++
- net/ipv4/geneve.c              |    8 ++++++--
- net/ipv4/ip_tunnel_core.c      |   14 +++++++++++---
- net/openvswitch/vport-geneve.c |    5 ++---
- net/openvswitch/vport-gre.c    |    7 +++++--
- net/openvswitch/vport-vxlan.c  |    6 +++---
- net/openvswitch/vport.c        |    1 -
- 8 files changed, 47 insertions(+), 22 deletions(-)
+Is there a difference? I thought it's an alias.
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index ca30982..93348cb 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1626,8 +1626,10 @@ int vxlan_xmit_skb(struct vxlan_sock *vs,
- 	bool udp_sum = !vs->sock->sk->sk_no_check_tx;
- 
- 	skb = udp_tunnel_handle_offloads(skb, udp_sum);
--	if (IS_ERR(skb))
--		return -EINVAL;
-+	if (IS_ERR(skb)) {
-+		err = -EINVAL;
-+		goto error;
-+	}
- 
- 	min_headroom = LL_RESERVED_SPACE(rt->dst.dev) + rt->dst.header_len
- 			+ VXLAN_HLEN + sizeof(struct iphdr)
-@@ -1636,13 +1638,15 @@ int vxlan_xmit_skb(struct vxlan_sock *vs,
- 	/* Need space for new headers (invalidates iph ptr) */
- 	err = skb_cow_head(skb, min_headroom);
- 	if (unlikely(err))
--		return err;
-+		goto error;
- 
- 	if (vlan_tx_tag_present(skb)) {
- 		if (WARN_ON(!__vlan_put_tag(skb,
- 					    skb->vlan_proto,
--					    vlan_tx_tag_get(skb))))
--			return -ENOMEM;
-+					    vlan_tx_tag_get(skb)))) {
-+			err = -ENOMEM;
-+			goto error;
-+		}
- 
- 		skb->vlan_tci = 0;
- 	}
-@@ -1655,6 +1659,10 @@ int vxlan_xmit_skb(struct vxlan_sock *vs,
- 
- 	return udp_tunnel_xmit_skb(vs->sock, rt, skb, src, dst, tos,
- 				   ttl, df, src_port, dst_port, xnet);
-+error:
-+	kfree_skb(skb);
-+	ip_rt_put(rt);
-+	return err;
- }
- EXPORT_SYMBOL_GPL(vxlan_xmit_skb);
- 
-@@ -1786,9 +1794,6 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 				     tos, ttl, df, src_port, dst_port,
- 				     htonl(vni << 8),
- 				     !net_eq(vxlan->net, dev_net(vxlan->dev)));
--
--		if (err < 0)
--			goto rt_tx_error;
- 		iptunnel_xmit_stats(err, &dev->stats, dev->tstats);
- #if IS_ENABLED(CONFIG_IPV6)
- 	} else {
-diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
-index 5bc6ede..80bcf2e 100644
---- a/include/net/ip_tunnels.h
-+++ b/include/net/ip_tunnels.h
-@@ -174,6 +174,13 @@ static inline u8 ip_tunnel_ecn_encap(u8 tos, const struct iphdr *iph,
- }
- 
- int iptunnel_pull_header(struct sk_buff *skb, int hdr_len, __be16 inner_proto);
-+
-+/* Transmit a packet over IP tunnel
-+ * Returns:
-+ *	0 Congestion notification received
-+ *	>0  Number of bytes in the packet successfully sent
-+ *	<0 packet dropped due to error
-+ */
- int iptunnel_xmit(struct sock *sk, struct rtable *rt, struct sk_buff *skb,
- 		  __be32 src, __be32 dst, __u8 proto,
- 		  __u8 tos, __u8 ttl, __be16 df, bool xnet);
-diff --git a/net/ipv4/geneve.c b/net/ipv4/geneve.c
-index 065cd94..90fea48 100644
---- a/net/ipv4/geneve.c
-+++ b/net/ipv4/geneve.c
-@@ -129,14 +129,14 @@ int geneve_xmit_skb(struct geneve_sock *gs, struct rtable *rt,
- 
- 	err = skb_cow_head(skb, min_headroom);
- 	if (unlikely(err))
--		return err;
-+		goto error;
- 
- 	if (vlan_tx_tag_present(skb)) {
- 		if (unlikely(!__vlan_put_tag(skb,
- 					     skb->vlan_proto,
- 					     vlan_tx_tag_get(skb)))) {
- 			err = -ENOMEM;
--			return err;
-+			goto error;
- 		}
- 		skb->vlan_tci = 0;
- 	}
-@@ -146,6 +146,10 @@ int geneve_xmit_skb(struct geneve_sock *gs, struct rtable *rt,
- 
- 	return udp_tunnel_xmit_skb(gs->sock, rt, skb, src, dst,
- 				   tos, ttl, df, src_port, dst_port, xnet);
-+error:
-+	kfree_skb(skb);
-+	ip_rt_put(rt);
-+	return err;
- }
- EXPORT_SYMBOL_GPL(geneve_xmit_skb);
- 
-diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
-index 88c386c..b3ba4a3 100644
---- a/net/ipv4/ip_tunnel_core.c
-+++ b/net/ipv4/ip_tunnel_core.c
-@@ -77,9 +77,17 @@ int iptunnel_xmit(struct sock *sk, struct rtable *rt, struct sk_buff *skb,
- 	__ip_select_ident(iph, skb_shinfo(skb)->gso_segs ?: 1);
- 
- 	err = ip_local_out_sk(sk, skb);
--	if (unlikely(net_xmit_eval(err)))
--		pkt_len = 0;
--	return pkt_len;
-+
-+	/* Deal with positive error numbers. Filter out NET_XMIT_CN */
-+	if (err > 0)
-+		return net_xmit_errno(err);
-+
-+	/* Success, return number of bytes transmitted */
-+	if (err == 0)
-+		err = pkt_len;
-+
-+	/* Return pkt_len or an error code */
-+	return err;
- }
- EXPORT_SYMBOL_GPL(iptunnel_xmit);
- 
-diff --git a/net/openvswitch/vport-geneve.c b/net/openvswitch/vport-geneve.c
-index 106a9d8..34276fb 100644
---- a/net/openvswitch/vport-geneve.c
-+++ b/net/openvswitch/vport-geneve.c
-@@ -206,15 +206,14 @@ static int geneve_tnl_send(struct vport *vport, struct sk_buff *skb)
- 	tunnel_id_to_vni(tun_key->tun_id, vni);
- 	skb->ignore_df = 1;
- 
--	err = geneve_xmit_skb(geneve_port->gs, rt, skb, fl.saddr,
-+	return  geneve_xmit_skb(geneve_port->gs, rt, skb, fl.saddr,
- 			      tun_key->ipv4_dst, tun_key->ipv4_tos,
- 			      tun_key->ipv4_ttl, df, sport, dport,
- 			      tun_key->tun_flags, vni,
- 			      tun_info->options_len, (u8 *)tun_info->options,
- 			      false);
--	if (err < 0)
--		ip_rt_put(rt);
- error:
-+	kfree_skb(skb);
- 	return err;
- }
- 
-diff --git a/net/openvswitch/vport-gre.c b/net/openvswitch/vport-gre.c
-index 108b82d..c0ec43f 100644
---- a/net/openvswitch/vport-gre.c
-+++ b/net/openvswitch/vport-gre.c
-@@ -154,8 +154,10 @@ static int gre_tnl_send(struct vport *vport, struct sk_buff *skb)
- 	fl.flowi4_proto = IPPROTO_GRE;
- 
- 	rt = ip_route_output_key(net, &fl);
--	if (IS_ERR(rt))
--		return PTR_ERR(rt);
-+	if (IS_ERR(rt)) {
-+		err = PTR_ERR(rt);
-+		goto error;
-+	}
- 
- 	tunnel_hlen = ip_gre_calc_hlen(tun_key->tun_flags);
- 
-@@ -200,6 +202,7 @@ static int gre_tnl_send(struct vport *vport, struct sk_buff *skb)
- err_free_rt:
- 	ip_rt_put(rt);
- error:
-+	kfree_skb(skb);
- 	return err;
- }
- 
-diff --git a/net/openvswitch/vport-vxlan.c b/net/openvswitch/vport-vxlan.c
-index 2735e01..ace849a 100644
---- a/net/openvswitch/vport-vxlan.c
-+++ b/net/openvswitch/vport-vxlan.c
-@@ -174,15 +174,15 @@ static int vxlan_tnl_send(struct vport *vport, struct sk_buff *skb)
- 
- 	src_port = udp_flow_src_port(net, skb, 0, 0, true);
- 
--	err = vxlan_xmit_skb(vxlan_port->vs, rt, skb,
-+	return vxlan_xmit_skb(vxlan_port->vs, rt, skb,
- 			     fl.saddr, tun_key->ipv4_dst,
- 			     tun_key->ipv4_tos, tun_key->ipv4_ttl, df,
- 			     src_port, dst_port,
- 			     htonl(be64_to_cpu(tun_key->tun_id) << 8),
- 			     false);
--	if (err < 0)
--		ip_rt_put(rt);
-+
- error:
-+	kfree_skb(skb);
- 	return err;
- }
- 
-diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
-index 6015802..da24d32 100644
---- a/net/openvswitch/vport.c
-+++ b/net/openvswitch/vport.c
-@@ -482,7 +482,6 @@ int ovs_vport_send(struct vport *vport, struct sk_buff *skb)
- 		u64_stats_update_end(&stats->syncp);
- 	} else if (sent < 0) {
- 		ovs_vport_record_error(vport, VPORT_E_TX_ERROR);
--		kfree_skb(skb);
- 	} else
- 		ovs_vport_record_error(vport, VPORT_E_TX_DROPPED);
- 
--- 
-1.7.9.5
+>> +config BPF_SYSCALL
+>> +     bool "Enable bpf() system call" if EXPERT
+>> +     select ANON_INODES
+>> +     select BPF
+>> +     default n
+>> +     help
+>> +       Enable the bpf() system call that allows to manipulate eBPF
+>> +       programs and maps via file descriptors.
+>
+> Not sure this one goes under EXPERT, especially since it currently has
+> "default n".
+
+I followed the same style as EPOLL, EVENTFD and others
+in the same category.
+
+>> +/* To execute LD_ABS/LD_IND instructions __bpf_prog_run() may call
+>> + * skb_copy_bits(), so provide a weak definition of it for NET-less config.
+>> + */
+>> +int __weak skb_copy_bits(const struct sk_buff *skb, int offset, void *to,
+>> +                      int len)
+>> +{
+>> +     return -EFAULT;
+>> +}
+>
+> Please discuss this in the commit message.  What are the implications of
+> ending up with this implementation that always returns -EFAULT?
+
+because that's what real skb_copy_bits() would return.
+In this case it's actually irrelevant, since non-socket programs
+are not allowed to have LD_ABS/LD_IND instructions and
+I'm only resolving linker error here.
+But returning negative error helps prevent bugs in cases
+where verifier or some in-kernel generated program uses
+LD_ABS by mistake.
+I don't think these type of explanations are necessary in
+commit logs.
+
+>> @@ -6,7 +6,7 @@ menuconfig NET
+>>       bool "Networking support"
+>>       select NLATTR
+>>       select GENERIC_NET_UTILS
+>> -     select ANON_INODES
+>> +     select BPF
+>
+> Why does this not need to select ANON_INODES anymore?  Did *only* BPF
+> use that, so it only needs to occur via BPF_SYSCALL?  If so, can you
+> document that in the commit message?
+
+I hope that folks who were following this work on netdev
+remember commit 38b3629adb8c04 that added it.
+So here I'm actually removing this ANON_INODES dependency
+from NET and moving it into BPF_SYSCALL where it belongs.
+
+btw, the goal of this patch is not tinification, but rather being
+good citizen and not forcing new syscall on everyone.
+It was tested with upcoming tracing patches that select
+BPF instead of NET.
+It will also help parallelize the development, since my old
+predicate-tree into eBPF optimization for vanilla tracing filters:
+http://lwn.net/Articles/598545/
+can potentially go into tip tree a release earlier.
+Back then full NET dependency was a show stopper.
+This patch finally addresses it.
