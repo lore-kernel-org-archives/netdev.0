@@ -1,91 +1,279 @@
-From: Petri Gynther <pgynther@google.com>
-Subject: Re: [PATCH net-next 1/4] net: bcmgenet: consistently use UMAC_IRQ_RXDMA_MASK
-Date: Fri, 24 Oct 2014 14:39:03 -0700
-Message-ID: <CAGXr9JFy7pE4kkRCCstGcmUJ0FdojYoh1XDTXtFj7-9UfAuO4g@mail.gmail.com>
-References: <1414180942-2132-1-git-send-email-f.fainelli@gmail.com>
-	<1414180942-2132-2-git-send-email-f.fainelli@gmail.com>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [net v2] iptunnel: Fix iptunnel_xmit return code for stats maintenance
+Date: Fri, 24 Oct 2014 14:41:20 -0700
+Message-ID: <CALnjE+rVpGsr_1cG1qSNQqRM7h7nG8SjZRujD_-pxGwrFY=Cmg@mail.gmail.com>
+References: <1414127459-16128-1-git-send-email-azhou@nicira.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Florian Fainelli <f.fainelli@gmail.com>
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Andy Zhou <azhou@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f48.google.com ([209.85.192.48]:54948 "EHLO
-	mail-qg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751615AbaJXVjF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Oct 2014 17:39:05 -0400
-Received: by mail-qg0-f48.google.com with SMTP id i50so1660018qgf.21
-        for <netdev@vger.kernel.org>; Fri, 24 Oct 2014 14:39:04 -0700 (PDT)
-In-Reply-To: <1414180942-2132-2-git-send-email-f.fainelli@gmail.com>
+Received: from na3sys009aog122.obsmtp.com ([74.125.149.147]:40233 "HELO
+	na3sys009aog122.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753347AbaJXVlW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Oct 2014 17:41:22 -0400
+Received: by mail-ie0-f169.google.com with SMTP id tr6so3192735ieb.14
+        for <netdev@vger.kernel.org>; Fri, 24 Oct 2014 14:41:21 -0700 (PDT)
+In-Reply-To: <1414127459-16128-1-git-send-email-azhou@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Florian,
-
-On Fri, Oct 24, 2014 at 1:02 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
-> Define a constant which sets all RXDMA interrupts bits, and use it
-> consistently throughout the driver to check for RX DMA interrupt bits.
+On Thu, Oct 23, 2014 at 10:10 PM, Andy Zhou <azhou@nicira.com> wrote:
+> iptunnel_xmit() currently always return >= 0 instead of proper error
+> code, that is used to maintain stats. For example, current return code
+> conflicts with how iptunnel_xmit_stats() maintains stats.
 >
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> Unfortunately, the return code can not be changed without readjusting
+> how SKB memory is managed through the call chain.  The following two
+> rules are adopted for this patch:
+>
+> 1) Proper error code are always propagate back through the call chain
+>    so that the caller can maintain stats.
+>
+> 2) Tunnel xmit functions always free resources, e.g. skb and route
+>    entry.
+>
+> Signed-off-by: Andy Zhou <azhou@nicira.com>
+>
+> -----
+> V1->v2:  Address pravin's review comments:
+>          * fix error path memory leak in gre_tnl_send()
+>          * Keep error counting consistent between openvswitch vport
+>            and iptunnel_xmit_stats()
+>          Sending out for net, rather than net-next, as a bug fix.
 > ---
->  drivers/net/ethernet/broadcom/genet/bcmgenet.c | 14 +++++++++-----
->  1 file changed, 9 insertions(+), 5 deletions(-)
+>  drivers/net/vxlan.c            |   21 +++++++++++++--------
+>  include/net/ip_tunnels.h       |    7 +++++++
+>  net/ipv4/geneve.c              |    8 ++++++--
+>  net/ipv4/ip_tunnel_core.c      |   14 +++++++++++---
+>  net/openvswitch/vport-geneve.c |    5 ++---
+>  net/openvswitch/vport-gre.c    |    7 +++++--
+>  net/openvswitch/vport-vxlan.c  |    6 +++---
+>  net/openvswitch/vport.c        |    1 -
+>  8 files changed, 47 insertions(+), 22 deletions(-)
 >
-> diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-> index fdc9ec09e453..ee4d5baf09b6 100644
-> --- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-> +++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-> @@ -47,6 +47,10 @@
+> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+> index ca30982..93348cb 100644
+> --- a/drivers/net/vxlan.c
+> +++ b/drivers/net/vxlan.c
+> @@ -1626,8 +1626,10 @@ int vxlan_xmit_skb(struct vxlan_sock *vs,
+>         bool udp_sum = !vs->sock->sk->sk_no_check_tx;
 >
->  #include "bcmgenet.h"
+>         skb = udp_tunnel_handle_offloads(skb, udp_sum);
+> -       if (IS_ERR(skb))
+> -               return -EINVAL;
+> +       if (IS_ERR(skb)) {
+> +               err = -EINVAL;
+> +               goto error;
+> +       }
 >
-> +#define UMAC_IRQ_RXDMA_MASK    (UMAC_IRQ_RXDMA_BDONE | UMAC_IRQ_RXDMA_PDONE)
-> +#define UMAC_IRQ_TXDMA_MASK    (UMAC_IRQ_TXDMA_BDONE | UMAC_IRQ_TXDMA_PDONE)
-> +#define UMAC_IRQ_RX_TX_MASK    (UMAC_IRQ_RXDMA_MASK | UMAC_IRQ_TXDMA_MASK)
-> +
+>         min_headroom = LL_RESERVED_SPACE(rt->dst.dev) + rt->dst.header_len
+>                         + VXLAN_HLEN + sizeof(struct iphdr)
+> @@ -1636,13 +1638,15 @@ int vxlan_xmit_skb(struct vxlan_sock *vs,
+>         /* Need space for new headers (invalidates iph ptr) */
+>         err = skb_cow_head(skb, min_headroom);
+>         if (unlikely(err))
+> -               return err;
+> +               goto error;
+>
+>         if (vlan_tx_tag_present(skb)) {
+>                 if (WARN_ON(!__vlan_put_tag(skb,
+>                                             skb->vlan_proto,
+> -                                           vlan_tx_tag_get(skb))))
+> -                       return -ENOMEM;
+> +                                           vlan_tx_tag_get(skb)))) {
+> +                       err = -ENOMEM;
+> +                       goto error;
+> +               }
+>
+I just noticed that __vlan_put_tag() frees skb in case of error, so
+goto results in double free.
+maybe it is time we improve __vlan_put_tag() API, so that it is easier to use.
 
-How about putting these in bcmgenet.h, just below the other UMAC_IRQ_*
-definitions?
-
->  /* Maximum number of hardware queues, downsized if needed */
->  #define GENET_MAX_MQ_CNT       4
->
-> @@ -1543,9 +1547,9 @@ static int init_umac(struct bcmgenet_priv *priv)
->
->         bcmgenet_intr_disable(priv);
->
-> -       cpu_mask_clear = UMAC_IRQ_RXDMA_BDONE;
-> +       cpu_mask_clear = UMAC_IRQ_RXDMA_MASK;
->
-> -       dev_dbg(kdev, "%s:Enabling RXDMA_BDONE interrupt\n", __func__);
-> +       dev_dbg(kdev, "%s:Enabling RXDMA interrupts\n", __func__);
->
->         /* Monitor cable plug/unplugged event for internal PHY */
->         if (phy_is_internal(priv->phydev)) {
-> @@ -1883,7 +1887,7 @@ static int bcmgenet_poll(struct napi_struct *napi, int budget)
->                                   priv->rx_c_index, RDMA_CONS_INDEX);
->         if (work_done < budget) {
->                 napi_complete(napi);
-> -               bcmgenet_intrl2_0_writel(priv, UMAC_IRQ_RXDMA_BDONE,
-> +               bcmgenet_intrl2_0_writel(priv, UMAC_IRQ_RXDMA_MASK,
->                                          INTRL2_CPU_MASK_CLEAR);
+>                 skb->vlan_tci = 0;
 >         }
+> @@ -1655,6 +1659,10 @@ int vxlan_xmit_skb(struct vxlan_sock *vs,
 >
-> @@ -1958,13 +1962,13 @@ static irqreturn_t bcmgenet_isr0(int irq, void *dev_id)
->         netif_dbg(priv, intr, priv->dev,
->                   "IRQ=0x%x\n", priv->irq0_stat);
+>         return udp_tunnel_xmit_skb(vs->sock, rt, skb, src, dst, tos,
+>                                    ttl, df, src_port, dst_port, xnet);
+> +error:
+> +       kfree_skb(skb);
+> +       ip_rt_put(rt);
+> +       return err;
+>  }
+>  EXPORT_SYMBOL_GPL(vxlan_xmit_skb);
 >
-> -       if (priv->irq0_stat & (UMAC_IRQ_RXDMA_BDONE | UMAC_IRQ_RXDMA_PDONE)) {
-> +       if (priv->irq0_stat & UMAC_IRQ_RXDMA_MASK) {
->                 /* We use NAPI(software interrupt throttling, if
->                  * Rx Descriptor throttling is not used.
->                  * Disable interrupt, will be enabled in the poll method.
->                  */
->                 if (likely(napi_schedule_prep(&priv->napi))) {
-> -                       bcmgenet_intrl2_0_writel(priv, UMAC_IRQ_RXDMA_BDONE,
-> +                       bcmgenet_intrl2_0_writel(priv, UMAC_IRQ_RXDMA_MASK,
->                                                  INTRL2_CPU_MASK_SET);
->                         __napi_schedule(&priv->napi);
+> @@ -1786,9 +1794,6 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+>                                      tos, ttl, df, src_port, dst_port,
+>                                      htonl(vni << 8),
+>                                      !net_eq(vxlan->net, dev_net(vxlan->dev)));
+> -
+> -               if (err < 0)
+> -                       goto rt_tx_error;
+>                 iptunnel_xmit_stats(err, &dev->stats, dev->tstats);
+>  #if IS_ENABLED(CONFIG_IPV6)
+>         } else {
+> diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
+> index 5bc6ede..80bcf2e 100644
+> --- a/include/net/ip_tunnels.h
+> +++ b/include/net/ip_tunnels.h
+> @@ -174,6 +174,13 @@ static inline u8 ip_tunnel_ecn_encap(u8 tos, const struct iphdr *iph,
+>  }
+>
+>  int iptunnel_pull_header(struct sk_buff *skb, int hdr_len, __be16 inner_proto);
+> +
+> +/* Transmit a packet over IP tunnel
+> + * Returns:
+> + *     0 Congestion notification received
+> + *     >0  Number of bytes in the packet successfully sent
+> + *     <0 packet dropped due to error
+> + */
+>  int iptunnel_xmit(struct sock *sk, struct rtable *rt, struct sk_buff *skb,
+>                   __be32 src, __be32 dst, __u8 proto,
+>                   __u8 tos, __u8 ttl, __be16 df, bool xnet);
+> diff --git a/net/ipv4/geneve.c b/net/ipv4/geneve.c
+> index 065cd94..90fea48 100644
+> --- a/net/ipv4/geneve.c
+> +++ b/net/ipv4/geneve.c
+> @@ -129,14 +129,14 @@ int geneve_xmit_skb(struct geneve_sock *gs, struct rtable *rt,
+>
+>         err = skb_cow_head(skb, min_headroom);
+>         if (unlikely(err))
+> -               return err;
+> +               goto error;
+>
+>         if (vlan_tx_tag_present(skb)) {
+>                 if (unlikely(!__vlan_put_tag(skb,
+>                                              skb->vlan_proto,
+>                                              vlan_tx_tag_get(skb)))) {
+>                         err = -ENOMEM;
+> -                       return err;
+> +                       goto error;
 >                 }
-> --
-> 1.9.1
+>                 skb->vlan_tci = 0;
+>         }
+> @@ -146,6 +146,10 @@ int geneve_xmit_skb(struct geneve_sock *gs, struct rtable *rt,
 >
+>         return udp_tunnel_xmit_skb(gs->sock, rt, skb, src, dst,
+>                                    tos, ttl, df, src_port, dst_port, xnet);
+> +error:
+> +       kfree_skb(skb);
+> +       ip_rt_put(rt);
+> +       return err;
+>  }
+>  EXPORT_SYMBOL_GPL(geneve_xmit_skb);
+>
+> diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
+> index 88c386c..b3ba4a3 100644
+> --- a/net/ipv4/ip_tunnel_core.c
+> +++ b/net/ipv4/ip_tunnel_core.c
+> @@ -77,9 +77,17 @@ int iptunnel_xmit(struct sock *sk, struct rtable *rt, struct sk_buff *skb,
+>         __ip_select_ident(iph, skb_shinfo(skb)->gso_segs ?: 1);
+>
+>         err = ip_local_out_sk(sk, skb);
+> -       if (unlikely(net_xmit_eval(err)))
+> -               pkt_len = 0;
+> -       return pkt_len;
+> +
+> +       /* Deal with positive error numbers. Filter out NET_XMIT_CN */
+> +       if (err > 0)
+> +               return net_xmit_errno(err);
+> +
+> +       /* Success, return number of bytes transmitted */
+> +       if (err == 0)
+> +               err = pkt_len;
+> +
+> +       /* Return pkt_len or an error code */
+> +       return err;
+>  }
+>  EXPORT_SYMBOL_GPL(iptunnel_xmit);
+>
+> diff --git a/net/openvswitch/vport-geneve.c b/net/openvswitch/vport-geneve.c
+> index 106a9d8..34276fb 100644
+> --- a/net/openvswitch/vport-geneve.c
+> +++ b/net/openvswitch/vport-geneve.c
+> @@ -206,15 +206,14 @@ static int geneve_tnl_send(struct vport *vport, struct sk_buff *skb)
+>         tunnel_id_to_vni(tun_key->tun_id, vni);
+>         skb->ignore_df = 1;
+>
+> -       err = geneve_xmit_skb(geneve_port->gs, rt, skb, fl.saddr,
+> +       return  geneve_xmit_skb(geneve_port->gs, rt, skb, fl.saddr,
+>                               tun_key->ipv4_dst, tun_key->ipv4_tos,
+>                               tun_key->ipv4_ttl, df, sport, dport,
+>                               tun_key->tun_flags, vni,
+>                               tun_info->options_len, (u8 *)tun_info->options,
+>                               false);
+> -       if (err < 0)
+> -               ip_rt_put(rt);
+>  error:
+> +       kfree_skb(skb);
+>         return err;
+>  }
+>
+> diff --git a/net/openvswitch/vport-gre.c b/net/openvswitch/vport-gre.c
+> index 108b82d..c0ec43f 100644
+> --- a/net/openvswitch/vport-gre.c
+> +++ b/net/openvswitch/vport-gre.c
+> @@ -154,8 +154,10 @@ static int gre_tnl_send(struct vport *vport, struct sk_buff *skb)
+>         fl.flowi4_proto = IPPROTO_GRE;
+>
+>         rt = ip_route_output_key(net, &fl);
+> -       if (IS_ERR(rt))
+> -               return PTR_ERR(rt);
+> +       if (IS_ERR(rt)) {
+> +               err = PTR_ERR(rt);
+> +               goto error;
+> +       }
+>
+>         tunnel_hlen = ip_gre_calc_hlen(tun_key->tun_flags);
+>
+> @@ -200,6 +202,7 @@ static int gre_tnl_send(struct vport *vport, struct sk_buff *skb)
+>  err_free_rt:
+>         ip_rt_put(rt);
+>  error:
+> +       kfree_skb(skb);
+>         return err;
+>  }
+>
+> diff --git a/net/openvswitch/vport-vxlan.c b/net/openvswitch/vport-vxlan.c
+> index 2735e01..ace849a 100644
+> --- a/net/openvswitch/vport-vxlan.c
+> +++ b/net/openvswitch/vport-vxlan.c
+> @@ -174,15 +174,15 @@ static int vxlan_tnl_send(struct vport *vport, struct sk_buff *skb)
+>
+>         src_port = udp_flow_src_port(net, skb, 0, 0, true);
+>
+> -       err = vxlan_xmit_skb(vxlan_port->vs, rt, skb,
+> +       return vxlan_xmit_skb(vxlan_port->vs, rt, skb,
+>                              fl.saddr, tun_key->ipv4_dst,
+>                              tun_key->ipv4_tos, tun_key->ipv4_ttl, df,
+>                              src_port, dst_port,
+>                              htonl(be64_to_cpu(tun_key->tun_id) << 8),
+>                              false);
+> -       if (err < 0)
+> -               ip_rt_put(rt);
+> +
+>  error:
+> +       kfree_skb(skb);
+>         return err;
+>  }
+>
+> diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
+> index 6015802..da24d32 100644
+> --- a/net/openvswitch/vport.c
+> +++ b/net/openvswitch/vport.c
+> @@ -482,7 +482,6 @@ int ovs_vport_send(struct vport *vport, struct sk_buff *skb)
+>                 u64_stats_update_end(&stats->syncp);
+>         } else if (sent < 0) {
+>                 ovs_vport_record_error(vport, VPORT_E_TX_ERROR);
+> -               kfree_skb(skb);
+>         } else
+>                 ovs_vport_record_error(vport, VPORT_E_TX_DROPPED);
+>
+> --
+> 1.7.9.5
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
