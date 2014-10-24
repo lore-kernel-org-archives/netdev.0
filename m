@@ -1,90 +1,112 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [PATCH net] net/sched: Fix use of wild pointer in mq_destroy()
- when qdisc_alloc fail
-Date: Fri, 24 Oct 2014 15:17:41 -0700
-Message-ID: <CAHA+R7PxvW6umBJMxGk0h=ht4RhoDRcrxr5WSTEUBa80TxU5GQ@mail.gmail.com>
-References: <OF7A403C69.2C35464E-ON48257D7B.002E24AA-48257D7B.002F2A62@zte.com.cn>
-	<544A913A.1060100@gmail.com>
-	<CAHA+R7P+nGXc93e_-u5Bvmr5Ri8CCg9FAgc+R7fJT7mJ5sBFwQ@mail.gmail.com>
-	<20141024191418.GA8842@acer.localdomain>
-	<CAHA+R7PDxYeVuQZz=VSci8_7sZ9smb5c59ivOS=B6GemJwtcCg@mail.gmail.com>
-	<20141024214511.GA10290@acer.localdomain>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: localed stuck in recent 3.18 git in copy_net_ns?
+Date: Fri, 24 Oct 2014 15:16:02 -0700
+Message-ID: <20141024221602.GB4977@linux.vnet.ibm.com>
+References: <20141024154006.GP4977@linux.vnet.ibm.com>
+ <20141024162943.GA16621@declera.com>
+ <20141024165454.GS4977@linux.vnet.ibm.com>
+ <20141024170931.GA21849@declera.com>
+ <20141024172009.GV4977@linux.vnet.ibm.com>
+ <20141024173526.GA26058@declera.com>
+ <20141024183226.GW4977@linux.vnet.ibm.com>
+ <20141024212557.GA15537@declera.com>
+ <20141024214927.GA4977@linux.vnet.ibm.com>
+ <8451.1414188124@famine>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: John Fastabend <john.fastabend@gmail.com>, wang.bo116@zte.com.cn,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, cui.yunfeng@zte.com.cn
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f170.google.com ([209.85.216.170]:39715 "EHLO
-	mail-qc0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755189AbaJXWRn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Oct 2014 18:17:43 -0400
-Received: by mail-qc0-f170.google.com with SMTP id l6so1501270qcy.29
-        for <netdev@vger.kernel.org>; Fri, 24 Oct 2014 15:17:43 -0700 (PDT)
-In-Reply-To: <20141024214511.GA10290@acer.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Yanko Kaneti <yaneti@declera.com>,
+	Josh Boyer <jwboyer@fedoraproject.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Cong Wang <cwang@twopensource.com>,
+	Kevin Fenzi <kevin@scrye.com>, netdev <netdev@vger.kernel.org>,
+	"Linux-Kernel@Vger. Kernel. Org" <linux-kernel@vger.kernel.org>,
+	mroos@linux.ee, tj@kernel.org
+To: Jay Vosburgh <jay.vosburgh@canonical.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <8451.1414188124@famine>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 24, 2014 at 2:45 PM, Patrick McHardy <kaber@trash.net> wrote:
-> On Fri, Oct 24, 2014 at 01:52:00PM -0700, Cong Wang wrote:
->> On Fri, Oct 24, 2014 at 12:14 PM, Patrick McHardy <kaber@trash.net> wrote:
->> > On Fri, Oct 24, 2014 at 11:13:56AM -0700, Cong Wang wrote:
->> >> On Fri, Oct 24, 2014 at 10:49 AM, John Fastabend
->> >> <john.fastabend@gmail.com> wrote:
->> >> >
->> >> > Patch looks fine, another way to fix this would be drop the
->> >> > mq_destroy() call in the error path. I'm not convinced one
->> >> > is any better than the other but maybe some other folks have
->> >> > opinions, it seems a bit wrong to call mq_destroy twice so in
->> >> > that sense it may be a bit nicer to drop the mq_destroy().
->> >>
->> >> Dropping mq_destroy() in error path is indeed better,
->> >> because upper layer does cleanup intentionally.
->> >> Look at what other qdisc's do. :)
->> >
->> > I would argue that the qdisc_destroy() call in qdisc_create_dflt()
->> > is wrong, it should instead free the qdisc and release the module
->> > reference manually as done in qdisc_create().
->> >
->> > qdisc_destroy() should only be called for fully initialized qdiscs.
->>
->> Probably, but at least ->destroy() should be called, looking at
->> those calling qdisc_watchdog_init(), they are supposed to call
->> qdisc_watchdog_cancel() when >init() fails after that.
->
-> In which cases does it actually fail after that? Usually this is
-> called once initialization is complete.
+On Fri, Oct 24, 2014 at 03:02:04PM -0700, Jay Vosburgh wrote:
+> Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
+> 
+> >On Sat, Oct 25, 2014 at 12:25:57AM +0300, Yanko Kaneti wrote:
+> >> On Fri-10/24/14-2014 11:32, Paul E. McKenney wrote:
+> >> > On Fri, Oct 24, 2014 at 08:35:26PM +0300, Yanko Kaneti wrote:
+> >> > > On Fri-10/24/14-2014 10:20, Paul E. McKenney wrote:
+> >
+> >[ . . . ]
+> >
+> >> > > > Well, if you are feeling aggressive, give the following patch a spin.
+> >> > > > I am doing sanity tests on it in the meantime.
+> >> > > 
+> >> > > Doesn't seem to make a difference here
+> >> > 
+> >> > OK, inspection isn't cutting it, so time for tracing.  Does the system
+> >> > respond to user input?  If so, please enable rcu:rcu_barrier ftrace before
+> >> > the problem occurs, then dump the trace buffer after the problem occurs.
+> >> 
+> >> Sorry for being unresposive here, but I know next to nothing about tracing
+> >> or most things about the kernel, so I have some cathing up to do.
+> >> 
+> >> In the meantime some layman observations while I tried to find what exactly
+> >> triggers the problem.
+> >> - Even in runlevel 1 I can reliably trigger the problem by starting libvirtd
+> >> - libvirtd seems to be very active in using all sorts of kernel facilities
+> >>   that are modules on fedora so it seems to cause many simultaneous kworker 
+> >>   calls to modprobe
+> >> - there are 8 kworker/u16 from 0 to 7
+> >> - one of these kworkers always deadlocks, while there appear to be two
+> >>   kworker/u16:6 - the seventh
+> >
+> >Adding Tejun on CC in case this duplication of kworker/u16:6 is important.
+> >
+> >>   6 vs 8 as in 6 rcuos where before they were always 8
+> >> 
+> >> Just observations from someone who still doesn't know what the u16
+> >> kworkers are..
+> >
+> >Could you please run the following diagnostic patch?  This will help
+> >me see if I have managed to miswire the rcuo kthreads.  It should
+> >print some information at task-hang time.
+> 
+> 	I can give this a spin after the ftrace (now that I've got
+> CONFIG_RCU_TRACE turned on).
+> 
+> 	I've got an ftrace capture from unmodified -net, it looks like
+> this:
+> 
+>     ovs-vswitchd-902   [000] ....   471.778441: rcu_barrier: rcu_sched Begin cpu -1 remaining 0 # 0
+>     ovs-vswitchd-902   [000] ....   471.778452: rcu_barrier: rcu_sched Check cpu -1 remaining 0 # 0
+>     ovs-vswitchd-902   [000] ....   471.778452: rcu_barrier: rcu_sched Inc1 cpu -1 remaining 0 # 1
+>     ovs-vswitchd-902   [000] ....   471.778453: rcu_barrier: rcu_sched OnlineNoCB cpu 0 remaining 1 # 1
+>     ovs-vswitchd-902   [000] ....   471.778453: rcu_barrier: rcu_sched OnlineNoCB cpu 1 remaining 2 # 1
+>     ovs-vswitchd-902   [000] ....   471.778453: rcu_barrier: rcu_sched OnlineNoCB cpu 2 remaining 3 # 1
+>     ovs-vswitchd-902   [000] ....   471.778454: rcu_barrier: rcu_sched OnlineNoCB cpu 3 remaining 4 # 1
 
-How about tbf_change() in tbf_init()? If tbf_change() fails,
-watchdog is still there if we don't call ->destroy(). Yes,
-I know the timer is started, the point is we do miss something
-clean up, even trivial.
+OK, so it looks like your system has four CPUs, and rcu_barrier() placed
+callbacks on them all.
 
-tbf is not the only one who calls xxx_change() in xxx_init().
+>     ovs-vswitchd-902   [000] ....   471.778454: rcu_barrier: rcu_sched Inc2 cpu -1 remaining 4 # 2
 
->
->> ->destroy() is supposed to be able to clean up even partially
->> initialized qdisc's. So, for qdisc_create_dflt() we should probably
->> just call ->destroy().
->
-> No, why do you think that? ->init() is supposed to clean up after
-> itself if it fails, both qdisc_destroy() and ->destroy are only
-> supposed to be called after ->init() succeeded.
+The above removes the extra count used to avoid races between posting new
+callbacks and completion of previously posted callbacks.
 
+>          rcuos/0-9     [000] ..s.   471.793150: rcu_barrier: rcu_sched CB cpu -1 remaining 3 # 2
+>          rcuos/1-18    [001] ..s.   471.793308: rcu_barrier: rcu_sched CB cpu -1 remaining 2 # 2
 
-Why? This would end up with calling xxx_destroy() in every
-failure path in ->init(). Moving it up to caller makes the code cleaner
-and smaller.
+Two of the four callbacks fired, but the other two appear to be AWOL.
+And rcu_barrier() won't return until they all fire.
 
->
-> Its simply symetrical, as everywhere else in the kernel. If a sub-init
-> funtion fails, it should clean up and return an error. We don't
-> destroy things we've never successfully initialized, they're supposed
-> to clean up after themselves.
+> 	I let it sit through several "hung task" cycles but that was all
+> there was for rcu:rcu_barrier.
+> 
+> 	I should have ftrace with the patch as soon as the kernel is
+> done building, then I can try the below patch (I'll start it building
+> now).
 
-Most (if not all) ->destroy() are able to clean partially initialized qdisc,
-I don't see why it  could be a problem here.
+Sounds very good, looking forward to hearing of the results.
 
-We don't have to keep with other kernel subsystem as long as it makes
-sense, net_sched subsystem is pretty much self-contained.
+							Thanx, Paul
