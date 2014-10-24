@@ -1,40 +1,66 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC] tcp md5 use of alloc_percpu
-Date: Fri, 24 Oct 2014 17:33:15 +0800
-Message-ID: <20141024093315.GA18290@gondor.apana.org.au>
-References: <5448383A.4090908@gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH RFC 1/4] virtio_net: pass vi around
+Date: Fri, 24 Oct 2014 10:02:15 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1C9DE6C2@AcuExch.aculab.com>
+References: <1414099656-28090-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	linux-crypto@vger.kernel.org
-To: Crestez Dan Leonard <cdleonard@gmail.com>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <5448383A.4090908@gmail.com>
-Sender: linux-crypto-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"virtualization@lists.linux-foundation.org"
+	<virtualization@lists.linux-foundation.org>
+To: "'Michael S. Tsirkin'" <mst@redhat.com>, "linux-kernel@vger.kernel.org"
+	<linux-kernel@vger.kernel.org>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1414099656-28090-1-git-send-email-mst@redhat.com>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Crestez Dan Leonard <cdleonard@gmail.com> wrote:
->
->> Yep, but the sg stuff does not allow for stack variables. Because of
->> possible offloading and DMA, I dont know...
-> A stack buffer is used in tcp_md5_hash_header to add a tcphdr to the 
-> hash. A quick grep for sg_init_one find a couple of additional instances 
-> of what looks like doing crypto on small stack buffers:
+From: Michael S. Tsirkin
+ 
+> Too many places poke at [rs]q->vq->vdev->priv just to get
+> the the vi structure.  Let's just pass the pointer around: seems
+> cleaner, and might even be faster.
+> 
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> ---
+>  drivers/net/virtio_net.c | 36 +++++++++++++++++++-----------------
+>  1 file changed, 19 insertions(+), 17 deletions(-)
+> 
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index 57cbc7d..36f3dfc 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+...
+>  static struct sk_buff *receive_big(struct net_device *dev,
+> +				   struct virtnet_info *vi,
 
-First of all crypto_hash_update is obsolete, don't use it in any
-new code.  Thanks for reminding me to get rid of existing users.
+Do you need to pass 'dev' here?
+Looks like it is obtainable from vi->dev (as below).
 
-You should either use crypto_shash_update for small data, e.g., headers
-or crypto_ahash_update for large data such as whole packets.
+	David
 
-If you use shash then you may allocate your buffer on the stack.  With
-ahash stack memory is not allowed.
-
-I hope this clears things up for you.
-
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+>  				   struct receive_queue *rq,
+>  				   void *buf,
+>  				   unsigned int len)
+>  {
+>  	struct page *page = buf;
+> -	struct sk_buff *skb = page_to_skb(rq, page, 0, len, PAGE_SIZE);
+> +	struct sk_buff *skb = page_to_skb(vi, rq, page, 0, len, PAGE_SIZE);
+...
+> -static void receive_buf(struct receive_queue *rq, void *buf, unsigned int len)
+> +static void receive_buf(struct virtnet_info *vi, struct receive_queue *rq,
+> +			void *buf, unsigned int len)
+>  {
+> -	struct virtnet_info *vi = rq->vq->vdev->priv;
+>  	struct net_device *dev = vi->dev;
+...
