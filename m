@@ -1,65 +1,77 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [PATCH net] net/sched: Fix use of wild pointer in mq_destroy()
- when qdisc_alloc fail
-Date: Fri, 24 Oct 2014 10:49:46 -0700
-Message-ID: <544A913A.1060100@gmail.com>
-References: <OF7A403C69.2C35464E-ON48257D7B.002E24AA-48257D7B.002F2A62@zte.com.cn>
+From: Olivier Blin <olivier.blin@softathome.com>
+Subject: [PATCH net 3/3] cdc-ether: handle promiscuous mode with a set_rx_mode callback
+Date: Fri, 24 Oct 2014 19:43:02 +0200
+Message-ID: <1414172582-30844-4-git-send-email-olivier.blin@softathome.com>
+References: <1414172582-30844-1-git-send-email-olivier.blin@softathome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, kaber@trash.net, netdev@vger.kernel.org,
-	cui.yunfeng@zte.com.cn
-To: wang.bo116@zte.com.cn
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: oneukum@suse.de, hayeswang@realtek.com, bjorn@mork.no,
+	davem@davemloft.net, Olivier Blin <olivier.blin@softathome.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f48.google.com ([209.85.218.48]:50786 "EHLO
-	mail-oi0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756065AbaJXRuE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Oct 2014 13:50:04 -0400
-Received: by mail-oi0-f48.google.com with SMTP id g201so688219oib.35
-        for <netdev@vger.kernel.org>; Fri, 24 Oct 2014 10:50:03 -0700 (PDT)
-In-Reply-To: <OF7A403C69.2C35464E-ON48257D7B.002E24AA-48257D7B.002F2A62@zte.com.cn>
+Received: from 92-137-167-83.reverse.alphalink.fr ([83.167.137.92]:39351 "EHLO
+	mtantr1.softathome.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757036AbaJXRwJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Oct 2014 13:52:09 -0400
+In-Reply-To: <1414172582-30844-1-git-send-email-olivier.blin@softathome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/24/2014 01:34 AM, wang.bo116@zte.com.cn wrote:
->
+Promiscuous mode was not supported anymore with my Lenovo adapters
+(RTL8153) since commit c472ab68ad67db23c9907a27649b7dc0899b61f9
+(cdc-ether: clean packet filter upon probe).
 
-[...]
+It was not possible to use them in a bridge anymore.
 
->
-> --------------------------------------------------------------------------------
->
-> This patch  fix this problem, base on linux 3.18-rc-1:
->
-> Signed-off-by: Wang Bo <wang.bo116@zte.com.cn>
-> Tested-by: Ma Chenggong <ma.chenggong@zte.com.cn>
-> diff --git a/net/sched/sch_mq.c b/net/sched/sch_mq.c
-> index 42f72f1..a0c90e7 100755
-> --- a/net/sched/sch_mq.c
-> +++ b/net/sched/sch_mq.c
-> @@ -33,6 +33,7 @@ static void mq_destroy(struct Qdisc *sch)
->   	for (ntx = 0; ntx < dev->num_tx_queues && priv->qdiscs[ntx]; ntx++)
->   		qdisc_destroy(priv->qdiscs[ntx]);
->   	kfree(priv->qdiscs);
-> +	priv->qdiscs = NULL;
->   }
->
->   static int mq_init(struct Qdisc *sch, struct nlattr *opt)
->
+Signed-off-by: Olivier Blin <olivier.blin@softathome.com>
+Also-analyzed-by: Lo=C3=AFc Yhuel <loic.yhuel@softathome.com>
+---
+ drivers/net/usb/cdc_ether.c | 5 +++++
+ 1 file changed, 5 insertions(+)
 
-Acked-by: John Fastabend <john.r.fastabend@intel.com>
+diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
+index bee3689..d3920b5 100644
+--- a/drivers/net/usb/cdc_ether.c
++++ b/drivers/net/usb/cdc_ether.c
+@@ -76,6 +76,9 @@ static void usbnet_cdc_update_filter(struct usbnet *d=
+ev)
+ 	    USB_CDC_PACKET_TYPE_ALL_MULTICAST | USB_CDC_PACKET_TYPE_DIRECTED =
+|
+ 	    USB_CDC_PACKET_TYPE_BROADCAST;
+=20
++	if (dev->net->flags & IFF_PROMISC)
++		cdc_filter |=3D USB_CDC_PACKET_TYPE_PROMISCUOUS;
++
+ 	/* FIXME cdc-ether has some multicast code too, though it complains
+ 	 * in routine cases.  info->ether describes the multicast support.
+ 	 * Implement that here, manipulating the cdc filter as needed.
+@@ -496,6 +499,7 @@ static const struct driver_info	cdc_info =3D {
+ 	.bind =3D		usbnet_cdc_bind,
+ 	.unbind =3D	usbnet_cdc_unbind,
+ 	.status =3D	usbnet_cdc_status,
++	.set_rx_mode =3D	usbnet_cdc_update_filter,
+ 	.manage_power =3D	usbnet_manage_power,
+ };
+=20
+@@ -505,6 +509,7 @@ static const struct driver_info wwan_info =3D {
+ 	.bind =3D		usbnet_cdc_bind,
+ 	.unbind =3D	usbnet_cdc_unbind,
+ 	.status =3D	usbnet_cdc_status,
++	.set_rx_mode =3D	usbnet_cdc_update_filter,
+ 	.manage_power =3D	usbnet_manage_power,
+ };
+=20
+--=20
+2.1.2
 
-Patch looks fine, another way to fix this would be drop the
-mq_destroy() call in the error path. I'm not convinced one
-is any better than the other but maybe some other folks have
-opinions, it seems a bit wrong to call mq_destroy twice so in
-that sense it may be a bit nicer to drop the mq_destroy().
-
-Also same bug in mqprio do you want to submit a patch for
-that qdisc as well? Otherwise I can.
-
-Thanks!
-
-
--- 
-John Fastabend         Intel Corporation
+-- This message and any attachments herein are confidential, intended s=
+olely for the addressees and are SoftAtHome.s ownership. Any unauthoriz=
+ed use or dissemination is prohibited. If you are not the intended addr=
+essee of this message, please cancel it immediately and inform the send=
+er.
+-- This message and any attachments herein are confidential, intended s=
+olely for the addressees and are SoftAtHome.s ownership. Any unauthoriz=
+ed use or dissemination is prohibited. If you are not the intended addr=
+essee of this message, please cancel it immediately and inform the send=
+er.
