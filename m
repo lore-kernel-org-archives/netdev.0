@@ -1,36 +1,40 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [PATCH net] net/sched: Fix use of wild pointer in mq_destroy()
- when qdisc_alloc fail
-Date: Fri, 24 Oct 2014 11:13:56 -0700
-Message-ID: <CAHA+R7P+nGXc93e_-u5Bvmr5Ri8CCg9FAgc+R7fJT7mJ5sBFwQ@mail.gmail.com>
-References: <OF7A403C69.2C35464E-ON48257D7B.002E24AA-48257D7B.002F2A62@zte.com.cn>
-	<544A913A.1060100@gmail.com>
+From: Murilo Opsfelder Araujo <mopsfelder@gmail.com>
+Subject: Re: [PATCH V3.18] rtlwifi: Add check for get_btc_status callback
+Date: Fri, 24 Oct 2014 16:13:20 -0200
+Message-ID: <544A96C0.8030107@gmail.com>
+References: <1414081629-23002-1-git-send-email-Larry.Finger@lwfinger.net>	 <1414087731.5231.19.camel@marge.simpson.net>	 <5449478B.4070908@lwfinger.net> <1414116580.23080.10.camel@marge.simpson.net> <544A80B5.1090604@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: wang.bo116@zte.com.cn, David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	netdev <netdev@vger.kernel.org>, cui.yunfeng@zte.com.cn
-To: John Fastabend <john.fastabend@gmail.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
+	troy_tan@realsil.com.cn, netdev@vger.kernel.org,
+	Thadeu Cascardo <cascardo@cascardo.eti.br>
+To: Larry Finger <Larry.Finger@lwfinger.net>,
+	Mike Galbraith <umgwanakikbuti@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f45.google.com ([209.85.216.45]:46834 "EHLO
-	mail-qa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756379AbaJXSN5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Oct 2014 14:13:57 -0400
-Received: by mail-qa0-f45.google.com with SMTP id dc16so1320259qab.32
-        for <netdev@vger.kernel.org>; Fri, 24 Oct 2014 11:13:57 -0700 (PDT)
-In-Reply-To: <544A913A.1060100@gmail.com>
+Received: from mail-qa0-f53.google.com ([209.85.216.53]:36785 "EHLO
+	mail-qa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756735AbaJXSPH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Oct 2014 14:15:07 -0400
+In-Reply-To: <544A80B5.1090604@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 24, 2014 at 10:49 AM, John Fastabend
-<john.fastabend@gmail.com> wrote:
+On 10/24/2014 02:39 PM, Larry Finger wrote:
+[...]
 >
-> Patch looks fine, another way to fix this would be drop the
-> mq_destroy() call in the error path. I'm not convinced one
-> is any better than the other but maybe some other folks have
-> opinions, it seems a bit wrong to call mq_destroy twice so in
-> that sense it may be a bit nicer to drop the mq_destroy().
+> Please try the attached patch. It replaces the second one I sent you. I
+> will probably redo it before submitting the final copy, but this should
+> work.
+>
+> Larry
+>
+Hi, Larry.
 
-Dropping mq_destroy() in error path is indeed better,
-because upper layer does cleanup intentionally.
-Look at what other qdisc's do. :)
+I've tried your patch on top of next-20141023 and it is still crashing 
+on my laptop:
+
+http://opsfelder.com/~murilo/lkml/next-20141023_plus_larry_patch_v2.jpg
+
+-- 
+Murilo
