@@ -1,29 +1,23 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] Removed unused function sctp_addr_is_valid()
-Date: Fri, 24 Oct 2014 00:37:52 -0400 (EDT)
-Message-ID: <20141024.003752.1635302723338136912.davem@davemloft.net>
-References: <1413897975-6066-1-git-send-email-sebastien.barre@uclouvain.be>
+From: "Liliane Bettencourt." <ponce@utm.edu.ec>
+Subject: Please Resend Your Message.
+Date: Fri, 24 Oct 2014 03:29:48 +0100
+Message-ID: <20141024023418.A03279980F__11117.1365868815$1414125724$gmane$org@correo.an.gob.ve>
+Reply-To: hmil@live.in
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: vyasevich@gmail.com, nhorman@tuxdriver.com,
-	linux-sctp@vger.kernel.org, netdev@vger.kernel.org
-To: sebastien.barre@uclouvain.be
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Me <ponce@utm.edu.ec>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46341 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750720AbaJXEhy convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Oct 2014 00:37:54 -0400
-In-Reply-To: <1413897975-6066-1-git-send-email-sebastien.barre@uclouvain.be>
+Received: from correo.an.gob.ve ([190.202.87.219]:51420 "EHLO correo.an.gob.ve"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752065AbaJXElw convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Oct 2014 00:41:52 -0400
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: S=E9bastien Barr=E9 <sebastien.barre@uclouvain.be>
-Date: Tue, 21 Oct 2014 15:26:15 +0200
+I, Liliane authenticate this email to you. You can read about me on: fr.wikipedia.org/wiki/Liliane_Bettencourt I intend to give to you a portion of my Net-worth which I have been banking. Click reply for confirmation and more details.
 
-> sctp_addr_is_valid() only appeared in its definition.
->=20
-> Acked-by: Neil Horman <nhorman@tuxdriver.com>
-> Signed-off-by: S=E9bastien Barr=E9 <sebastien.barre@uclouvain.be>
-
-Applied, thanks.
+---
+This email is free from viruses and malware because avast! Antivirus protection is active.
+http://www.avast.com
