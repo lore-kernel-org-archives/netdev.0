@@ -1,52 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 net-next] xen-netfront: always keep the Rx ring full
- of requests
-Date: Fri, 24 Oct 2014 00:50:58 -0400 (EDT)
-Message-ID: <20141024.005058.2073408669277403704.davem@davemloft.net>
-References: <1413973026-6475-1-git-send-email-david.vrabel@citrix.com>
+Subject: Re: [PATCH 06/14] net: dsa: Add support for hardware monitoring
+Date: Fri, 24 Oct 2014 01:03:06 -0400 (EDT)
+Message-ID: <20141024.010306.1939269479587208896.davem@davemloft.net>
+References: <1414037002-25528-7-git-send-email-linux@roeck-us.net>
+	<CAGVrzcYjPJWai9bxkh+WRrEEAzBKBd-LQm7zDeeouxngr_v9SQ@mail.gmail.com>
+	<54488CE1.2000106@roeck-us.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xen-devel@lists.xenproject.org,
-	konrad.wilk@oracle.com, boris.ostrovsky@oracle.com
-To: david.vrabel@citrix.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46472 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750720AbaJXEvA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Oct 2014 00:51:00 -0400
-In-Reply-To: <1413973026-6475-1-git-send-email-david.vrabel@citrix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org, andrew@lunn.ch,
+	linux-kernel@vger.kernel.org
+To: linux@roeck-us.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <54488CE1.2000106@roeck-us.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Vrabel <david.vrabel@citrix.com>
-Date: Wed, 22 Oct 2014 11:17:06 +0100
+From: Guenter Roeck <linux@roeck-us.net>
+Date: Wed, 22 Oct 2014 22:06:41 -0700
 
-> A full Rx ring only requires 1 MiB of memory.  This is not enough
-> memory that it is useful to dynamically scale the number of Rx
-> requests in the ring based on traffic rates, because:
+> On 10/22/2014 09:37 PM, Florian Fainelli wrote:
+>> 2014-10-22 21:03 GMT-07:00 Guenter Roeck <linux@roeck-us.net>:
+>>> Some Marvell switches provide chip temperature data.
+>>> Add support for reporting it to the dsa infrastructure.
+>>>
+>>> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+>>> ---
+>> [snip]
+>>
+>>> +/* hwmon support
+>>> ************************************************************/
+>>> +
+>>> +#if defined(CONFIG_HWMON) || (defined(MODULE) &&
+>>> defined(CONFIG_HWMON_MODULE))
+>>
+>> IS_ENABLED(CONFIG_HWMON)?
+>>
 > 
-> a) Even the full 1 MiB is a tiny fraction of a typically modern Linux
->    VM (for example, the AWS micro instance still has 1 GiB of memory).
+> Hi Florian,
 > 
-> b) Netfront would have used up to 1 MiB already even with moderate
->    data rates (there was no adjustment of target based on memory
->    pressure).
-> 
-> c) Small VMs are going to typically have one VCPU and hence only one
->    queue.
-> 
-> Keeping the ring full of Rx requests handles bursty traffic better
-> than trying to converge on an optimal number of requests to keep
-> filled.
-> 
-> On a 4 core host, an iperf -P 64 -t 60 run from dom0 to a 4 VCPU guest
-> improved from 5.1 Gbit/s to 5.6 Gbit/s.  Gains with more bursty
-> traffic are expected to be higher.
-> 
-> Signed-off-by: David Vrabel <david.vrabel@citrix.com>
-> ---
-> Changes in v2:
-> - Keep rxbuf_* sysfs files.
+> unfortunately, that won't work; I had it initially and got a nice
+> error message
+> from Fengguang's build test bot.
 
-Applied.
+Then the Kconfig dependencies are broken.
+
+Fix Kconfig to only allow legal combinations.
