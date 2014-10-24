@@ -1,72 +1,72 @@
-From: Varka Bhadram <varkabhadram@gmail.com>
-Subject: Re: [PATCH net-next v2 5/6] ethernet: renesas: remove unnecessary
- check
-Date: Fri, 24 Oct 2014 07:45:11 +0530
-Message-ID: <5449B62F.4020002@gmail.com>
-References: <1414029531-5067-1-git-send-email-varkab@cdac.in> <1414029531-5067-6-git-send-email-varkab@cdac.in> <5448F4AE.1080901@cogentembedded.com>
+From: <vndao@altera.com>
+Subject: [net-next] net: phy: Adding SGMII support for Marvell 88ee1145 driver
+Date: Thu, 23 Oct 2014 19:47:57 -0700
+Message-ID: <1414118877-12837-1-git-send-email-vndao@altera.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, Varka Bhadram <varkab@cdac.in>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f177.google.com ([209.85.192.177]:65422 "EHLO
-	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753078AbaJXCPl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Oct 2014 22:15:41 -0400
-Received: by mail-pd0-f177.google.com with SMTP id v10so562964pde.22
-        for <netdev@vger.kernel.org>; Thu, 23 Oct 2014 19:15:41 -0700 (PDT)
-In-Reply-To: <5448F4AE.1080901@cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<ngachi86@gmail.com>, Viet Nga Dao <vndao@altera.com>
+To: <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Viet Nga Dao <vndao@altera.com>
 
-On Thursday 23 October 2014 05:59 PM, Sergei Shtylyov wrote:
-> On 10/23/2014 5:58 AM, Varka Bhadram wrote:
->
->> devm_ioremap_resource checks platform_get_resource() return value.
->> We can remove the duplicate check here.
->
->> Signed-off-by: Varka Bhadram <varkab@cdac.in>
->> ---
->>   drivers/net/ethernet/renesas/sh_eth.c |    9 +++------
->>   1 file changed, 3 insertions(+), 6 deletions(-)
->
->> diff --git a/drivers/net/ethernet/renesas/sh_eth.c 
->> b/drivers/net/ethernet/renesas/sh_eth.c
->> index 60e9c2c..ffb49f3 100644
->> --- a/drivers/net/ethernet/renesas/sh_eth.c
->> +++ b/drivers/net/ethernet/renesas/sh_eth.c
-> [...]
->> @@ -2781,8 +2777,6 @@ static int sh_eth_drv_probe(struct 
->> platform_device *pdev)
->>       pm_runtime_enable(&pdev->dev);
->>       pm_runtime_get_sync(&pdev->dev);
->>
->> -    /* The sh Ether-specific entries in the device structure. */
->> -    ndev->base_addr = res->start;
->>       devno = pdev->id;
->>       if (devno < 0)
->>           devno = 0;
->> @@ -2806,6 +2800,9 @@ static int sh_eth_drv_probe(struct 
->> platform_device *pdev)
->>           goto out_release;
->>       }
->>
->> +    /* The sh Ether-specific entries in the device structure. */
->
->    No need to move the comment, at least not there.
->
->> +    ndev->base_addr = res->start;
->> +
->>       spin_lock_init(&mdp->lock);
->>       mdp->pdev = pdev;
->
-> WBR, Sergei
->
-thanks for the review. In v3 i will address these issues.
+Additional code to m88e1145_config_init function to allow the driver to
+support SGMII mode.
 
+Signed-off-by: Viet Nga Dao <vndao@altera.com>
+---
+ drivers/net/phy/marvell.c |   19 +++++++++++++++++++
+ 1 files changed, 19 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
+index bd37e45..b14cb10 100644
+--- a/drivers/net/phy/marvell.c
++++ b/drivers/net/phy/marvell.c
+@@ -50,9 +50,13 @@
+ #define MII_M1011_PHY_SCR		0x10
+ #define MII_M1011_PHY_SCR_AUTO_CROSS	0x0060
+ 
++#define MII_M1145_PHY_EXT_SR		0x1b
+ #define MII_M1145_PHY_EXT_CR		0x14
+ #define MII_M1145_RGMII_RX_DELAY	0x0080
+ #define MII_M1145_RGMII_TX_DELAY	0x0002
++#define MII_M1145_HWCFG_MODE_SGMII_NO_CLK	0x4
++#define MII_M1145_HWCFG_MODE_MASK		0xf
++#define MII_M1145_HWCFG_FIBER_COPPER_AUTO	0x8000
+ 
+ #define MII_M1111_PHY_LED_CONTROL	0x18
+ #define MII_M1111_PHY_LED_DIRECT	0x4100
+@@ -620,6 +624,7 @@ static int m88e1149_config_init(struct phy_device *phydev)
+ static int m88e1145_config_init(struct phy_device *phydev)
+ {
+ 	int err;
++	int temp;
+ 
+ 	/* Take care of errata E0 & E1 */
+ 	err = phy_write(phydev, 0x1d, 0x001b);
+@@ -676,6 +681,20 @@ static int m88e1145_config_init(struct phy_device *phydev)
+ 		}
+ 	}
+ 
++	if (phydev->interface == PHY_INTERFACE_MODE_SGMII) {
++		temp = phy_read(phydev, MII_M1145_PHY_EXT_SR);
++		if (temp < 0)
++			return temp;
++
++		temp &= ~(MII_M1145_HWCFG_MODE_MASK);
++		temp |= MII_M1145_HWCFG_MODE_SGMII_NO_CLK;
++		temp |= MII_M1145_HWCFG_FIBER_COPPER_AUTO;
++
++		err = phy_write(phydev, MII_M1145_PHY_EXT_SR, temp);
++		if (err < 0)
++			return err;
++	}
++
+ 	err = marvell_of_reg_init(phydev);
+ 	if (err < 0)
+ 		return err;
 -- 
-Thanks and Regards,
-Varka Bhadram.
+1.7.7.4
