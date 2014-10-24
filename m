@@ -1,18 +1,18 @@
 From: Varka Bhadram <varkabhadram@gmail.com>
-Subject: [PATCH net-next v3 1/5] ethernet: wiznet: remove unnecessary check
-Date: Fri, 24 Oct 2014 07:42:06 +0530
-Message-ID: <1414116730-4590-2-git-send-email-varkab@cdac.in>
+Subject: [PATCH net-next v3 2/5] ethernet: apm: xgene: remove unnecessary check
+Date: Fri, 24 Oct 2014 07:42:07 +0530
+Message-ID: <1414116730-4590-3-git-send-email-varkab@cdac.in>
 References: <1414116730-4590-1-git-send-email-varkab@cdac.in>
 Cc: davem@davemloft.net, sergei.shtylyov@cogentembedded.com,
 	Varka Bhadram <varkab@cdac.in>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f182.google.com ([209.85.192.182]:57726 "EHLO
-	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932181AbaJXCOA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Oct 2014 22:14:00 -0400
-Received: by mail-pd0-f182.google.com with SMTP id y10so561643pdj.27
-        for <netdev@vger.kernel.org>; Thu, 23 Oct 2014 19:14:00 -0700 (PDT)
+Received: from mail-pd0-f171.google.com ([209.85.192.171]:49706 "EHLO
+	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754764AbaJXCOV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Oct 2014 22:14:21 -0400
+Received: by mail-pd0-f171.google.com with SMTP id r10so560739pdi.30
+        for <netdev@vger.kernel.org>; Thu, 23 Oct 2014 19:14:20 -0700 (PDT)
 In-Reply-To: <1414116730-4590-1-git-send-email-varkab@cdac.in>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -22,51 +22,45 @@ We can remove the duplicate check here.
 
 Signed-off-by: Varka Bhadram <varkab@cdac.in>
 ---
- drivers/net/ethernet/wiznet/w5100.c |    6 ++----
- drivers/net/ethernet/wiznet/w5300.c |    6 ++----
- 2 files changed, 4 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.c |   12 ------------
+ 1 file changed, 12 deletions(-)
 
-diff --git a/drivers/net/ethernet/wiznet/w5100.c b/drivers/net/ethernet/wiznet/w5100.c
-index 0f56b1c..70a930a 100644
---- a/drivers/net/ethernet/wiznet/w5100.c
-+++ b/drivers/net/ethernet/wiznet/w5100.c
-@@ -638,14 +638,12 @@ static int w5100_hw_probe(struct platform_device *pdev)
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+index 3c208cc..f226594 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+@@ -761,10 +761,6 @@ static int xgene_enet_get_resources(struct xgene_enet_pdata *pdata)
+ 	ndev = pdata->ndev;
+ 
+ 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "enet_csr");
+-	if (!res) {
+-		dev_err(dev, "Resource enet_csr not defined\n");
+-		return -ENODEV;
+-	}
+ 	pdata->base_addr = devm_ioremap_resource(dev, res);
+ 	if (IS_ERR(pdata->base_addr)) {
+ 		dev_err(dev, "Unable to retrieve ENET Port CSR region\n");
+@@ -772,10 +768,6 @@ static int xgene_enet_get_resources(struct xgene_enet_pdata *pdata)
  	}
  
- 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
--	if (!mem)
--		return -ENXIO;
--	mem_size = resource_size(mem);
--
- 	priv->base = devm_ioremap_resource(&pdev->dev, mem);
- 	if (IS_ERR(priv->base))
- 		return PTR_ERR(priv->base);
- 
-+	mem_size = resource_size(mem);
-+
- 	spin_lock_init(&priv->reg_lock);
- 	priv->indirect = mem_size < W5100_BUS_DIRECT_SIZE;
- 	if (priv->indirect) {
-diff --git a/drivers/net/ethernet/wiznet/w5300.c b/drivers/net/ethernet/wiznet/w5300.c
-index f961f14..7974b7d 100644
---- a/drivers/net/ethernet/wiznet/w5300.c
-+++ b/drivers/net/ethernet/wiznet/w5300.c
-@@ -558,14 +558,12 @@ static int w5300_hw_probe(struct platform_device *pdev)
+ 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "ring_csr");
+-	if (!res) {
+-		dev_err(dev, "Resource ring_csr not defined\n");
+-		return -ENODEV;
+-	}
+ 	pdata->ring_csr_addr = devm_ioremap_resource(dev, res);
+ 	if (IS_ERR(pdata->ring_csr_addr)) {
+ 		dev_err(dev, "Unable to retrieve ENET Ring CSR region\n");
+@@ -783,10 +775,6 @@ static int xgene_enet_get_resources(struct xgene_enet_pdata *pdata)
  	}
  
- 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
--	if (!mem)
--		return -ENXIO;
--	mem_size = resource_size(mem);
--
- 	priv->base = devm_ioremap_resource(&pdev->dev, mem);
- 	if (IS_ERR(priv->base))
- 		return PTR_ERR(priv->base);
- 
-+	mem_size = resource_size(mem);
-+
- 	spin_lock_init(&priv->reg_lock);
- 	priv->indirect = mem_size < W5300_BUS_DIRECT_SIZE;
- 	if (priv->indirect) {
+ 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "ring_cmd");
+-	if (!res) {
+-		dev_err(dev, "Resource ring_cmd not defined\n");
+-		return -ENODEV;
+-	}
+ 	pdata->ring_cmd_addr = devm_ioremap_resource(dev, res);
+ 	if (IS_ERR(pdata->ring_cmd_addr)) {
+ 		dev_err(dev, "Unable to retrieve ENET Ring command region\n");
 -- 
 1.7.9.5
