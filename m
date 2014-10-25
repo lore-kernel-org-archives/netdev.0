@@ -1,40 +1,69 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [PATCH 06/14] net: dsa: Add support for hardware monitoring
-Date: Sat, 25 Oct 2014 12:44:37 -0700
-Message-ID: <544BFDA5.2010404@roeck-us.net>
-References: <CAGVrzcYjPJWai9bxkh+WRrEEAzBKBd-LQm7zDeeouxngr_v9SQ@mail.gmail.com> <54488CE1.2000106@roeck-us.net> <20141023134706.GB25190@lunn.ch> <20141023162754.GA21343@roeck-us.net> <20141023165459.GE25190@lunn.ch> <20141023173847.GA22988@roeck-us.net> <20141023180357.GG25190@lunn.ch> <20141023184322.GA24281@roeck-us.net> <20141023195526.GH25190@lunn.ch> <20141024161919.GA29600@roeck-us.net> <20141025140116.GA12051@lunn.ch>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Fw: [Bug 86851] New: Reproducible panic on heavy UDP traffic
+Date: Sat, 25 Oct 2014 14:10:38 +0530
+Message-ID: <20141025141038.26fa5ac2@uryu.home.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bh-25.webhostbox.net ([208.91.199.152]:50082 "EHLO
-	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752566AbaJYTon (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Oct 2014 15:44:43 -0400
-Received: from mailnull by bh-25.webhostbox.net with sa-checked (Exim 4.82)
-	(envelope-from <linux@roeck-us.net>)
-	id 1Xi7GV-003t2p-60
-	for netdev@vger.kernel.org; Sat, 25 Oct 2014 19:44:43 +0000
-In-Reply-To: <20141025140116.GA12051@lunn.ch>
+Received: from mail-lb0-f176.google.com ([209.85.217.176]:39806 "EHLO
+	mail-lb0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751679AbaJYTtK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Oct 2014 15:49:10 -0400
+Received: by mail-lb0-f176.google.com with SMTP id p9so3951677lbv.7
+        for <netdev@vger.kernel.org>; Sat, 25 Oct 2014 12:49:08 -0700 (PDT)
+Received: from uryu.home.lan ([88.128.80.74])
+        by mx.google.com with ESMTPSA id m2sm2679099lam.41.2014.10.25.01.40.55
+        for <netdev@vger.kernel.org>
+        (version=TLSv1.2 cipher=RC4-SHA bits=128/128);
+        Sat, 25 Oct 2014 01:40:56 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/25/2014 07:01 AM, Andrew Lunn wrote:
->> Here is another naming option:
->>
->> em1dsa0-virtual-0
->
-> I prefer this over isa.
->
-> However, i think there should be some sort of separator between the
-> network device name and dsa.
->
 
-Fine with me. Any preference ? Note that '-' is not permitted.
 
-Guenter
+Begin forwarded message:
+
+Date: Fri, 24 Oct 2014 11:34:08 -0700
+From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
+To: "stephen@networkplumber.org" <stephen@networkplumber.org>
+Subject: [Bug 86851] New: Reproducible panic on heavy UDP traffic
+
+
+https://bugzilla.kernel.org/show_bug.cgi?id=86851
+
+            Bug ID: 86851
+           Summary: Reproducible panic on heavy UDP traffic
+           Product: Networking
+           Version: 2.5
+    Kernel Version: 3.18-rc1
+          Hardware: x86-64
+                OS: Linux
+              Tree: Mainline
+            Status: NEW
+          Severity: normal
+          Priority: P1
+         Component: IPV4
+          Assignee: shemminger@linux-foundation.org
+          Reporter: chutzpah@gentoo.org
+        Regression: No
+
+Created attachment 154861
+  --> https://bugzilla.kernel.org/attachment.cgi?id=154861&action=edit
+Panic message captured over serial console
+
+This bug is being encountered on a machine with 6 ixgbe interfaces configured
+as 3 bonded pairs. Currently using netperf for testing UDP throughput from ~136
+client machines connected via 1G interfaces.
+
+This is the command being run on the clients:
+netperf -H XX.XX.XX.XX -t OMNI -l 60 -- -d send -T UDP -O throughput,direction
+-m 16384
+
+This is the command being run on the server:
+netserver -4
+
+-- 
+You are receiving this mail because:
+You are the assignee for the bug.
