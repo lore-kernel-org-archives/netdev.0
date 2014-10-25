@@ -1,56 +1,78 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH net] net/sched: Fix use of wild pointer in mq_destroy()
- when qdisc_alloc fail
-Date: Sat, 25 Oct 2014 02:33:52 +0100
-Message-ID: <20141025013352.GE11289@acer.localdomain>
-References: <OF7A403C69.2C35464E-ON48257D7B.002E24AA-48257D7B.002F2A62@zte.com.cn>
- <544A913A.1060100@gmail.com>
- <CAHA+R7P+nGXc93e_-u5Bvmr5Ri8CCg9FAgc+R7fJT7mJ5sBFwQ@mail.gmail.com>
- <20141024191418.GA8842@acer.localdomain>
- <CAHA+R7PDxYeVuQZz=VSci8_7sZ9smb5c59ivOS=B6GemJwtcCg@mail.gmail.com>
- <20141024214511.GA10290@acer.localdomain>
- <CAHA+R7PxvW6umBJMxGk0h=ht4RhoDRcrxr5WSTEUBa80TxU5GQ@mail.gmail.com>
- <20141025003348.GA11289@acer.localdomain>
- <CAHA+R7MW-kP0uO2+00+pbx1y=LQynLWy9diznccY69+8nZ5mwQ@mail.gmail.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: localed stuck in recent 3.18 git in copy_net_ns?
+Date: Fri, 24 Oct 2014 19:03:24 -0700
+Message-ID: <20141025020324.GA28247@linux.vnet.ibm.com>
+References: <20141024170931.GA21849@declera.com>
+ <20141024172009.GV4977@linux.vnet.ibm.com>
+ <20141024173526.GA26058@declera.com>
+ <20141024183226.GW4977@linux.vnet.ibm.com>
+ <20141024212557.GA15537@declera.com>
+ <20141024214927.GA4977@linux.vnet.ibm.com>
+ <8915.1414190047@famine>
+ <20141024225931.GC4977@linux.vnet.ibm.com>
+ <20141024230524.GA16023@linux.vnet.ibm.com>
+ <10136.1414196448@famine>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: John Fastabend <john.fastabend@gmail.com>,
-	Wang Bo <wang.bo116@zte.com.cn>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, cui.yunfeng@zte.com.cn
-To: Cong Wang <cwang@twopensource.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:43287 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756014AbaJYBd6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Oct 2014 21:33:58 -0400
+Cc: Yanko Kaneti <yaneti@declera.com>,
+	Josh Boyer <jwboyer@fedoraproject.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Cong Wang <cwang@twopensource.com>,
+	Kevin Fenzi <kevin@scrye.com>, netdev <netdev@vger.kernel.org>,
+	"Linux-Kernel@Vger. Kernel. Org" <linux-kernel@vger.kernel.org>,
+	mroos@linux.ee, tj@kernel.org
+To: Jay Vosburgh <jay.vosburgh@canonical.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <CAHA+R7MW-kP0uO2+00+pbx1y=LQynLWy9diznccY69+8nZ5mwQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <10136.1414196448@famine>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 24, 2014 at 05:57:59PM -0700, Cong Wang wrote:
-> On Fri, Oct 24, 2014 at 5:33 PM, Patrick McHardy <kaber@trash.net> wrote:
-> >
-> > Its about having a sane API.
+On Fri, Oct 24, 2014 at 05:20:48PM -0700, Jay Vosburgh wrote:
+> Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
 > 
-> I don't see why calling ->destroy() on failure is not sane in qdisc case.
-> I never want to argue general case.
+> >On Fri, Oct 24, 2014 at 03:59:31PM -0700, Paul E. McKenney wrote:
+> [...]
+> >> Hmmm...  It sure looks like we have some callbacks stuck here.  I clearly
+> >> need to take a hard look at the sleep/wakeup code.
+> >> 
+> >> Thank you for running this!!!
+> >
+> >Could you please try the following patch?  If no joy, could you please
+> >add rcu:rcu_nocb_wake to the list of ftrace events?
+> 
+> 	I tried the patch, it did not change the behavior.
+> 
+> 	I enabled the rcu:rcu_barrier and rcu:rcu_nocb_wake tracepoints
+> and ran it again (with this patch and the first patch from earlier
+> today); the trace output is a bit on the large side so I put it and the
+> dmesg log at:
+> 
+> http://people.canonical.com/~jvosburgh/nocb-wake-dmesg.txt
+> 
+> http://people.canonical.com/~jvosburgh/nocb-wake-trace.txt
 
-Because it makes things more complicated. You need to keep track of what
-was actually initialized since you can't assume a consistent state in
-->destroy() anymore. If ->init() fails, it knows where it failed,
-->destroy() can't know that.
+Thank you again!
 
-Look at htb_destroy() for an example. It starts with
+Very strange part of the trace.  The only sign of CPU 2 and 3 are:
 
-	cancel_work_sync(&q->work);
+    ovs-vswitchd-902   [000] ....   109.896840: rcu_barrier: rcu_sched Begin cpu -1 remaining 0 # 0
+    ovs-vswitchd-902   [000] ....   109.896840: rcu_barrier: rcu_sched Check cpu -1 remaining 0 # 0
+    ovs-vswitchd-902   [000] ....   109.896841: rcu_barrier: rcu_sched Inc1 cpu -1 remaining 0 # 1
+    ovs-vswitchd-902   [000] ....   109.896841: rcu_barrier: rcu_sched OnlineNoCB cpu 0 remaining 1 # 1
+    ovs-vswitchd-902   [000] d...   109.896841: rcu_nocb_wake: rcu_sched 0 WakeNot
+    ovs-vswitchd-902   [000] ....   109.896841: rcu_barrier: rcu_sched OnlineNoCB cpu 1 remaining 2 # 1
+    ovs-vswitchd-902   [000] d...   109.896841: rcu_nocb_wake: rcu_sched 1 WakeNot
+    ovs-vswitchd-902   [000] ....   109.896842: rcu_barrier: rcu_sched OnlineNoCB cpu 2 remaining 3 # 1
+    ovs-vswitchd-902   [000] d...   109.896842: rcu_nocb_wake: rcu_sched 2 WakeNotPoll
+    ovs-vswitchd-902   [000] ....   109.896842: rcu_barrier: rcu_sched OnlineNoCB cpu 3 remaining 4 # 1
+    ovs-vswitchd-902   [000] d...   109.896842: rcu_nocb_wake: rcu_sched 3 WakeNotPoll
+    ovs-vswitchd-902   [000] ....   109.896843: rcu_barrier: rcu_sched Inc2 cpu -1 remaining 4 # 2
 
-Was that actually initialized and can be cancled? You don't know.
-Next comes
+The pair of WakeNotPoll trace entries says that at that point, RCU believed
+that the CPU 2's and CPU 3's rcuo kthreads did not exist.  :-/
 
-	qdisc_watchdog_cancel(&q->watchdog);
+More diagnostics in order...
 
-Same here, if the error happened before it was initialized, crash.
-
-These are just the first two lines. You get the problem.
+							Thanx, Paul
