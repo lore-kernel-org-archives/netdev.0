@@ -1,50 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv1 0/3 net-next] xen-netback: guest Rx queue
- drain and stall fixes
-Date: Sat, 25 Oct 2014 14:17:22 -0400 (EDT)
-Message-ID: <20141025.141722.676662059744635254.davem@davemloft.net>
-References: <1413983335-8307-1-git-send-email-david.vrabel@citrix.com>
-	<20141025.141401.1122447572448682731.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, wei.liu2@citrix.com, ian.campbell@citrix.com,
-	xen-devel@lists.xenproject.org
-To: david.vrabel@citrix.com
-Return-path: <xen-devel-bounces@lists.xen.org>
-In-Reply-To: <20141025.141401.1122447572448682731.davem@davemloft.net>
-List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Sender: xen-devel-bounces@lists.xen.org
-Errors-To: xen-devel-bounces@lists.xen.org
+From: Fabian Frederick <fabf@skynet.be>
+Subject: [PATCH V2 net-next] Bluetooth: fix shadow warning in hci_disconnect()
+Date: Sat, 25 Oct 2014 10:48:58 +0200
+Message-ID: <1414226938-7478-1-git-send-email-fabf@skynet.be>
+Cc: Fabian Frederick <fabf@skynet.be>,
+	Marcel Holtmann <marcel@holtmann.org>,
+	Gustavo Padovan <gustavo@padovan.org>,
+	Johan Hedberg <johan.hedberg@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: David Miller <davem@davemloft.net>
-Date: Sat, 25 Oct 2014 14:14:01 -0400 (EDT)
+use clkoff_cp for hci_cp_read_clock_offset instead of cp
+(already defined above).
 
-> From: David Vrabel <david.vrabel@citrix.com>
-> Date: Wed, 22 Oct 2014 14:08:52 +0100
-> 
->> This series fixes two critical xen-netback bugs.
->> 
->> 1. Netback may consume all of host memory by queuing an unlimited
->>    number of skb on the internal guest Rx queue.  This behaviour is
->>    guest triggerable.
->> 
->> 2. Carrier flapping under high traffic rates which reduces
->>    performance.
->> 
->> The first patch is a prerequite.  Removing support for frontends with
->> feature-rx-notify makes it easier to reason about the correctness of
->> netback since it no longer has to support this outdated and broken
->> mode.
-> 
-> Series applied to net-next, thanks.
+Suggested-by: Marcel Holtmann <marcel@holtmann.org>
+Signed-off-by: Fabian Frederick <fabf@skynet.be>
+---
+V2: use clkoff_cp instead of cpr (suggested by Marcel Holtmann)
 
-Correction, as these are critical bug fixes, I applied the series to 'net'.
+ net/bluetooth/hci_conn.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-Sorry for the confusion.
+diff --git a/net/bluetooth/hci_conn.c b/net/bluetooth/hci_conn.c
+index b9517bd..62f4ac6 100644
+--- a/net/bluetooth/hci_conn.c
++++ b/net/bluetooth/hci_conn.c
+@@ -141,10 +141,11 @@ int hci_disconnect(struct hci_conn *conn, __u8 reason)
+ 	 */
+ 	if (conn->type == ACL_LINK && conn->role == HCI_ROLE_MASTER) {
+ 		struct hci_dev *hdev = conn->hdev;
+-		struct hci_cp_read_clock_offset cp;
++		struct hci_cp_read_clock_offset clkoff_cp;
+ 
+-		cp.handle = cpu_to_le16(conn->handle);
+-		hci_send_cmd(hdev, HCI_OP_READ_CLOCK_OFFSET, sizeof(cp), &cp);
++		clkoff_cp.handle = cpu_to_le16(conn->handle);
++		hci_send_cmd(hdev, HCI_OP_READ_CLOCK_OFFSET, sizeof(clkoff_cp),
++			     &clkoff_cp);
+ 	}
+ 
+ 	conn->state = BT_DISCONN;
+-- 
+1.9.3
