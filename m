@@ -1,69 +1,96 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH net] net/sched: Fix use of wild pointer in mq_destroy()
- when qdisc_alloc fail
-Date: Sat, 25 Oct 2014 01:33:49 +0100
-Message-ID: <20141025003348.GA11289@acer.localdomain>
-References: <OF7A403C69.2C35464E-ON48257D7B.002E24AA-48257D7B.002F2A62@zte.com.cn>
- <544A913A.1060100@gmail.com>
- <CAHA+R7P+nGXc93e_-u5Bvmr5Ri8CCg9FAgc+R7fJT7mJ5sBFwQ@mail.gmail.com>
- <20141024191418.GA8842@acer.localdomain>
- <CAHA+R7PDxYeVuQZz=VSci8_7sZ9smb5c59ivOS=B6GemJwtcCg@mail.gmail.com>
- <20141024214511.GA10290@acer.localdomain>
- <CAHA+R7PxvW6umBJMxGk0h=ht4RhoDRcrxr5WSTEUBa80TxU5GQ@mail.gmail.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [Patch net 2/2] net_sched: always call ->destroy when ->init() fails
+Date: Fri, 24 Oct 2014 17:36:09 -0700
+Message-ID: <CAHA+R7N3jJCgOJjnDUxsTaH7ZCvPydDT60qkcqSPsEyFbp=UQg@mail.gmail.com>
+References: <1414194959-28006-1-git-send-email-xiyou.wangcong@gmail.com>
+	<1414194959-28006-2-git-send-email-xiyou.wangcong@gmail.com>
+	<1414196053.20845.45.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: John Fastabend <john.fastabend@gmail.com>, wang.bo116@zte.com.cn,
+Content-Type: text/plain; charset=UTF-8
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
 	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, cui.yunfeng@zte.com.cn
-To: Cong Wang <cwang@twopensource.com>
+	Wang Bo <wang.bo116@zte.com.cn>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Patrick McHardy <kaber@trash.net>, Terry Lam <vtlam@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:42936 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932111AbaJYAdy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Oct 2014 20:33:54 -0400
-Content-Disposition: inline
-In-Reply-To: <CAHA+R7PxvW6umBJMxGk0h=ht4RhoDRcrxr5WSTEUBa80TxU5GQ@mail.gmail.com>
+Received: from mail-qa0-f48.google.com ([209.85.216.48]:33930 "EHLO
+	mail-qa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932111AbaJYAgK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Oct 2014 20:36:10 -0400
+Received: by mail-qa0-f48.google.com with SMTP id x12so1695374qac.21
+        for <netdev@vger.kernel.org>; Fri, 24 Oct 2014 17:36:09 -0700 (PDT)
+In-Reply-To: <1414196053.20845.45.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 24, 2014 at 03:17:41PM -0700, Cong Wang wrote:
-> On Fri, Oct 24, 2014 at 2:45 PM, Patrick McHardy <kaber@trash.net> wrote:
-> >> >
-> >> > I would argue that the qdisc_destroy() call in qdisc_create_dflt()
-> >> > is wrong, it should instead free the qdisc and release the module
-> >> > reference manually as done in qdisc_create().
-> >> >
-> >> > qdisc_destroy() should only be called for fully initialized qdiscs.
-> >>
-> >> Probably, but at least ->destroy() should be called, looking at
-> >> those calling qdisc_watchdog_init(), they are supposed to call
-> >> qdisc_watchdog_cancel() when >init() fails after that.
-> >
-> > In which cases does it actually fail after that? Usually this is
-> > called once initialization is complete.
-> 
-> How about tbf_change() in tbf_init()? If tbf_change() fails,
-> watchdog is still there if we don't call ->destroy(). Yes,
-> I know the timer is started, the point is we do miss something
-> clean up, even trivial.
-> 
-> tbf is not the only one who calls xxx_change() in xxx_init().
+On Fri, Oct 24, 2014 at 5:14 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Fri, 2014-10-24 at 16:55 -0700, Cong Wang wrote:
+>> In qdisc_create(), when ->init() exists and it fails, we should
+>> call ->destroy() to clean up the potentially partially initialized
+>> qdisc's. This will also make the ->init() implementation easier.
+>>
+>
+> Why is this patch needed ?
+>
+> You are adding bugs, its not clear what bug you are fixing.
 
-Then these are bugs. On failure we exit with the same state as we
-entered, there's nothing new about that.
 
-This in fact is *no* bug though since qdisc_watchdog_init() merely
-initializes the timer and doesn't require cleanup.
+You missed what Wang Bo reported, we could double free
+mq qdisc on failure path, one in mq_init() and one in qdisc_create_dflt().
 
-> > Its simply symetrical, as everywhere else in the kernel. If a sub-init
-> > funtion fails, it should clean up and return an error. We don't
-> > destroy things we've never successfully initialized, they're supposed
-> > to clean up after themselves.
-> 
-> Most (if not all) ->destroy() are able to clean partially initialized qdisc,
-> I don't see why it  could be a problem here.
-> 
-> We don't have to keep with other kernel subsystem as long as it makes
-> sense, net_sched subsystem is pretty much self-contained.
 
-Its about having a sane API.
+>
+> I really do not like the idea of ->init() relying on a ->destroy() to
+> cleanup a failed ->init().
+>
+> This is not what most management functions do in our stack.
+>
+> I very much prefer that a function returning an error has no side
+> effect, like if it hadnt be called at all.
+
+
+If you would like to fix all qdisc_create_dflt() callers, yes, and good
+luck with even more complex error handling there.
+
+Read the diffstat, if we could fix a bug with less code, why not....
+
+>
+>> qdisc_create_dflt() already does that. Most callers of qdisc_create_dflt()
+>> simply use noop_qdisc when it fails.
+>>
+>> And, most of the ->destroy() implementations are already able to clean up
+>> partially initialization, we don't need to worry.
+>>
+>> The following ->init()'s need to catch up:
+>> fq_codel_init(), hhf_init(), multiq_init(),  sfq_init(), mq_init(),
+>> mqprio_init().
+>>
+>
+> ...
+>
+>>
+>>  static int multiq_dump(struct Qdisc *sch, struct sk_buff *skb)
+>> diff --git a/net/sched/sch_qfq.c b/net/sched/sch_qfq.c
+>> index 3ec7e88..55ac6a4 100644
+>> --- a/net/sched/sch_qfq.c
+>> +++ b/net/sched/sch_qfq.c
+>> @@ -522,7 +522,6 @@ static int qfq_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
+>>       return 0;
+>>
+>>  destroy_class:
+>> -     qdisc_destroy(cl->qdisc);
+>>       kfree(cl);
+>>       return err;
+>>  }
+>
+>
+> Really ? I am calling this a leak of cl->qdisc.
+>
+>
+
+How? I already added a comment on qdisc_create_dflt(), callers don't
+need to clean up
+on failure path.
