@@ -1,51 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net] tcp: md5: do not use alloc_percpu()
-Date: Sat, 25 Oct 2014 16:11:09 -0400 (EDT)
-Message-ID: <20141025.161109.291627513614647003.davem@davemloft.net>
-References: <1414075405.20845.6.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1414081998.20845.18.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1414094338.20845.30.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCHv6 net-next 0/3] sunvnet: NAPIfy sunvnet
+Date: Sat, 25 Oct 2014 16:21:22 -0400 (EDT)
+Message-ID: <20141025.162122.1889567772198459311.davem@davemloft.net>
+References: <20141025191152.GA31334@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dsahern@gmail.com, cdleonard@gmail.com, netdev@vger.kernel.org,
-	jtoppins@cumulusnetworks.com
-To: eric.dumazet@gmail.com
+Cc: bob.picco@oracle.com, dwight.engen@oracle.com,
+	raghuram.kothakota@oracle.com, netdev@vger.kernel.org
+To: sowmini.varadhan@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33440 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:33520 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750964AbaJYULO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Oct 2014 16:11:14 -0400
-In-Reply-To: <1414094338.20845.30.camel@edumazet-glaptop2.roam.corp.google.com>
+	with ESMTP id S1751410AbaJYUVZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Oct 2014 16:21:25 -0400
+In-Reply-To: <20141025191152.GA31334@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 23 Oct 2014 12:58:58 -0700
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Date: Sat, 25 Oct 2014 15:11:52 -0400
 
-> From: Eric Dumazet <edumazet@google.com>
+> This patchset converts the sunvnet driver to use the NAPI framework.
+> Changes since v4 to Patch1: 
+>   vnet_event accumulates LDC_EVENT_* bits into rx_event. 
+>   vnet_event_napi() unrolls send_events() logic to process all rx_event bits.
+> Changes since v5: 
+>   Patch 1: use net_device.h definition for NAPI_POLL_WEIGHT.
+>   Drop sparclinux changes (patch3) per David Miller feedback 
 > 
-> percpu tcp_md5sig_pool contains memory blobs that ultimately
-> go through sg_set_buf().
+> Patch 1 in the series addresses the packet-receive path- all
+> the vnet_event() processing is moved into NAPI context.
+> This patch is dependant on the sparc-next commit:
+>   "sparc64: Add vio_set_intr() to enable/disable Rx interrupts"
+>   (sparc commit id ca605b7dd740c8909408d67911d8ddd272c2b320)
 > 
-> -> sg_set_page(sg, virt_to_page(buf), buflen, offset_in_page(buf));
+> Patch 2 uses RCU to fix race conditions between vnet_port_remove and
+> paths that access/modify port-related state, such as vnet_start_xmit.
 > 
-> This requires that whole area is in a physically contiguous portion
-> of memory. And that @buf is not backed by vmalloc().
-> 
-> Given that alloc_percpu() can use vmalloc() areas, this does not
-> fit the requirements.
-> 
-> Replace alloc_percpu() by a static DEFINE_PER_CPU() as tcp_md5sig_pool
-> is small anyway, there is no gain to dynamically allocate it.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Fixes: 765cf9976e93 ("tcp: md5: remove one indirection level in tcp_md5sig_pool")
-> Reported-by: Crestez Dan Leonard <cdleonard@gmail.com>
+> Patch 3 leverages from the NAPIfied Rx path, 
+> dropping superfluous usage of the irqsave/irqrestores on the vio.lock
+> where possible.
 
-Applied and queued up for -stable, thanks Eric.
-
-Longer term we should do a proper shash/ahash conversion of the tcp md5
-code, using the rules provided by Herbert Xu.
-
-Thanks.
+Series applied, thanks.
