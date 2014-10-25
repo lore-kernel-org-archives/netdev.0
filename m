@@ -1,51 +1,59 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Patch net 1/2] sch_pie: schedule the timer after all init
- succeed
-Date: Fri, 24 Oct 2014 17:39:23 -0700
-Message-ID: <1414197563.20845.50.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [Patch net 2/2] net_sched: always call ->destroy when ->init()
+ fails
+Date: Fri, 24 Oct 2014 17:40:26 -0700
+Message-ID: <1414197626.20845.51.camel@edumazet-glaptop2.roam.corp.google.com>
 References: <1414194959-28006-1-git-send-email-xiyou.wangcong@gmail.com>
-	 <1414196222.20845.48.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAHA+R7PFSCACHyrU8fa4PVLOF1OtJiFiw4peLmFPzEu6-adaeQ@mail.gmail.com>
+	 <1414194959-28006-2-git-send-email-xiyou.wangcong@gmail.com>
+	 <1414196053.20845.45.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAHA+R7N3jJCgOJjnDUxsTaH7ZCvPydDT60qkcqSPsEyFbp=UQg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: Cong Wang <xiyou.wangcong@gmail.com>,
 	netdev <netdev@vger.kernel.org>,
 	David Miller <davem@davemloft.net>,
-	Vijay Subramanian <vijaynsu@cisco.com>
+	Wang Bo <wang.bo116@zte.com.cn>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Patrick McHardy <kaber@trash.net>, Terry Lam <vtlam@google.com>
 To: Cong Wang <cwang@twopensource.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:59543 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932111AbaJYAjZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Oct 2014 20:39:25 -0400
-Received: by mail-pa0-f52.google.com with SMTP id fa1so345556pad.25
-        for <netdev@vger.kernel.org>; Fri, 24 Oct 2014 17:39:25 -0700 (PDT)
-In-Reply-To: <CAHA+R7PFSCACHyrU8fa4PVLOF1OtJiFiw4peLmFPzEu6-adaeQ@mail.gmail.com>
+Received: from mail-pd0-f175.google.com ([209.85.192.175]:61387 "EHLO
+	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932111AbaJYAk2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Oct 2014 20:40:28 -0400
+Received: by mail-pd0-f175.google.com with SMTP id y13so2336380pdi.20
+        for <netdev@vger.kernel.org>; Fri, 24 Oct 2014 17:40:28 -0700 (PDT)
+In-Reply-To: <CAHA+R7N3jJCgOJjnDUxsTaH7ZCvPydDT60qkcqSPsEyFbp=UQg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-10-24 at 17:28 -0700, Cong Wang wrote:
-> On Fri, Oct 24, 2014 at 5:17 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On Fri, 2014-10-24 at 17:36 -0700, Cong Wang wrote:
+
+> >>  static int multiq_dump(struct Qdisc *sch, struct sk_buff *skb)
+> >> diff --git a/net/sched/sch_qfq.c b/net/sched/sch_qfq.c
+> >> index 3ec7e88..55ac6a4 100644
+> >> --- a/net/sched/sch_qfq.c
+> >> +++ b/net/sched/sch_qfq.c
+> >> @@ -522,7 +522,6 @@ static int qfq_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
+> >>       return 0;
+> >>
+> >>  destroy_class:
+> >> -     qdisc_destroy(cl->qdisc);
+> >>       kfree(cl);
+> >>       return err;
+> >>  }
 > >
-> > Not sure why you use "Cc: David S. Miller <davem@davemloft.net>",
-> > given that all networking patches have "Signed-off-by: David S. Miller
-> > <davem@davemloft.net>" ???
+> >
+> > Really ? I am calling this a leak of cl->qdisc.
+> >
 > >
 > 
-> I don't understand what you are talking about:
-> 
-> If you are suggesting DaveM is too obvious to Cc, well, Cc'ing him
-> doesn't harm anything. I know he is on netdev list, but just in case
-> vger.kernel.org is broken or etc...
-> 
-> If you are suggesting to Cc his another email address, please update
-> MAINTAINERS.
+> How? I already added a comment on qdisc_create_dflt(), callers don't
+> need to clean up
+> on failure path.
 
+Seriously, can you read the function again ?
 
-You send the patch to David Miller, as a recipient, so that he can read
-it, and apply it.
-
-You don't need to add one line in the changelog.
-
-Why would it be needed ? Think about it.
+What happens if gen_new_estimator() fails ?
