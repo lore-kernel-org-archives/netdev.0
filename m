@@ -1,442 +1,290 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: [PATCHv6 net-next 1/3] sunvnet: NAPIfy sunvnet
-Date: Sat, 25 Oct 2014 15:12:12 -0400
-Message-ID: <20141025191212.GB31334@oracle.com>
+From: Yanko Kaneti <yaneti@declera.com>
+Subject: Re: localed stuck in recent 3.18 git in copy_net_ns?
+Date: Sat, 25 Oct 2014 15:09:36 +0300
+Message-ID: <20141025120936.GA27000@declera.com>
+References: <20141024090857.GA4083@declera.com>
+ <20141024154006.GP4977@linux.vnet.ibm.com>
+ <20141024162943.GA16621@declera.com>
+ <20141024165454.GS4977@linux.vnet.ibm.com>
+ <20141024170931.GA21849@declera.com>
+ <20141024172009.GV4977@linux.vnet.ibm.com>
+ <20141024173526.GA26058@declera.com>
+ <20141024183226.GW4977@linux.vnet.ibm.com>
+ <20141024212557.GA15537@declera.com>
+ <20141024214927.GA4977@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net, bob.picco@oracle.com,
-	sowmini.varadhan@oracle.com, dwight.engen@oracle.com,
-	raghuram.kothakota@oracle.com, david.stevens@oracle.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:23514 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751699AbaJYTMr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Oct 2014 15:12:47 -0400
+Cc: Josh Boyer <jwboyer@fedoraproject.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Cong Wang <cwang@twopensource.com>,
+	Kevin Fenzi <kevin@scrye.com>, netdev <netdev@vger.kernel.org>,
+	"Linux-Kernel@Vger. Kernel. Org" <linux-kernel@vger.kernel.org>,
+	jay.vosburgh@canonical.com, mroos@linux.ee, tj@kernel.org
+To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20141024214927.GA4977@linux.vnet.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+On Fri-10/24/14-2014 14:49, Paul E. McKenney wrote:
+> On Sat, Oct 25, 2014 at 12:25:57AM +0300, Yanko Kaneti wrote:
+> > On Fri-10/24/14-2014 11:32, Paul E. McKenney wrote:
+> > > On Fri, Oct 24, 2014 at 08:35:26PM +0300, Yanko Kaneti wrote:
+> > > > On Fri-10/24/14-2014 10:20, Paul E. McKenney wrote:
+> 
+> [ . . . ]
+> 
+> > > > > Well, if you are feeling aggressive, give the following patch a spin.
+> > > > > I am doing sanity tests on it in the meantime.
+> > > > 
+> > > > Doesn't seem to make a difference here
+> > > 
+> > > OK, inspection isn't cutting it, so time for tracing.  Does the system
+> > > respond to user input?  If so, please enable rcu:rcu_barrier ftrace before
+> > > the problem occurs, then dump the trace buffer after the problem occurs.
+> > 
+> > Sorry for being unresposive here, but I know next to nothing about tracing
+> > or most things about the kernel, so I have some cathing up to do.
+> > 
+> > In the meantime some layman observations while I tried to find what exactly
+> > triggers the problem.
+> > - Even in runlevel 1 I can reliably trigger the problem by starting libvirtd
+> > - libvirtd seems to be very active in using all sorts of kernel facilities
+> >   that are modules on fedora so it seems to cause many simultaneous kworker 
+> >   calls to modprobe
+> > - there are 8 kworker/u16 from 0 to 7
+> > - one of these kworkers always deadlocks, while there appear to be two
+> >   kworker/u16:6 - the seventh
+> 
+> Adding Tejun on CC in case this duplication of kworker/u16:6 is important.
+> 
+> >   6 vs 8 as in 6 rcuos where before they were always 8
+> > 
+> > Just observations from someone who still doesn't know what the u16
+> > kworkers are..
+> 
+> Could you please run the following diagnostic patch?  This will help
+> me see if I have managed to miswire the rcuo kthreads.  It should
+> print some information at task-hang time.
+
+So here the output with todays linux tip and the diagnostic patch.
+This is the case with just starting libvird in runlevel 1.
+Also a snapshot  of the kworker/u16 s
+
+    6 ?        S      0:00  \_ [kworker/u16:0]
+  553 ?        S      0:00  |   \_ [kworker/u16:0]
+  554 ?        D      0:00  |       \_ /sbin/modprobe -q -- bridge
+   78 ?        S      0:00  \_ [kworker/u16:1]
+   92 ?        S      0:00  \_ [kworker/u16:2]
+   93 ?        S      0:00  \_ [kworker/u16:3]
+   94 ?        S      0:00  \_ [kworker/u16:4]
+   95 ?        S      0:00  \_ [kworker/u16:5]
+   96 ?        D      0:00  \_ [kworker/u16:6]
+  105 ?        S      0:00  \_ [kworker/u16:7]
+  108 ?        S      0:00  \_ [kworker/u16:8]
 
 
-Move Rx packet procssing to the NAPI poll callback.
-Disable VIO interrupt and unconditioanlly go into NAPI
-context from vnet_event.
+INFO: task kworker/u16:6:96 blocked for more than 120 seconds.
+      Not tainted 3.18.0-rc1+ #16
+"echo 0 > /proc/sys/kernel/hung_task_timeout_secs" disables this message.
+kworker/u16:6   D ffff8800ca9ecec0 11552    96      2 0x00000000
+Workqueue: netns cleanup_net
+ ffff880221fff9c8 0000000000000096 ffff8800ca9ecec0 00000000001d5f00
+ ffff880221ffffd8 00000000001d5f00 ffff880223260000 ffff8800ca9ecec0
+ ffffffff82c44010 7fffffffffffffff ffffffff81ee3798 ffffffff81ee3790
+Call Trace:
+ [<ffffffff81866219>] schedule+0x29/0x70
+ [<ffffffff8186b43c>] schedule_timeout+0x26c/0x410
+ [<ffffffff81028bea>] ? native_sched_clock+0x2a/0xa0
+ [<ffffffff8110748c>] ? mark_held_locks+0x7c/0xb0
+ [<ffffffff8186c4c0>] ? _raw_spin_unlock_irq+0x30/0x50
+ [<ffffffff8110761d>] ? trace_hardirqs_on_caller+0x15d/0x200
+ [<ffffffff81867c4c>] wait_for_completion+0x10c/0x150
+ [<ffffffff810e4dc0>] ? wake_up_state+0x20/0x20
+ [<ffffffff81133627>] _rcu_barrier+0x677/0xcd0
+ [<ffffffff81133cd5>] rcu_barrier+0x15/0x20
+ [<ffffffff81720edf>] netdev_run_todo+0x6f/0x310
+ [<ffffffff81715aa5>] ? rollback_registered_many+0x265/0x2e0
+ [<ffffffff8172df4e>] rtnl_unlock+0xe/0x10
+ [<ffffffff81717906>] default_device_exit_batch+0x156/0x180
+ [<ffffffff810fd280>] ? abort_exclusive_wait+0xb0/0xb0
+ [<ffffffff8170f9b3>] ops_exit_list.isra.1+0x53/0x60
+ [<ffffffff81710560>] cleanup_net+0x100/0x1f0
+ [<ffffffff810cc988>] process_one_work+0x218/0x850
+ [<ffffffff810cc8ef>] ? process_one_work+0x17f/0x850
+ [<ffffffff810cd0a7>] ? worker_thread+0xe7/0x4a0
+ [<ffffffff810cd02b>] worker_thread+0x6b/0x4a0
+ [<ffffffff810ccfc0>] ? process_one_work+0x850/0x850
+ [<ffffffff810d337b>] kthread+0x10b/0x130
+ [<ffffffff81028c69>] ? sched_clock+0x9/0x10
+ [<ffffffff810d3270>] ? kthread_create_on_node+0x250/0x250
+ [<ffffffff8186d1fc>] ret_from_fork+0x7c/0xb0
+ [<ffffffff810d3270>] ? kthread_create_on_node+0x250/0x250
+4 locks held by kworker/u16:6/96:
+ #0:  ("%s""netns"){.+.+.+}, at: [<ffffffff810cc8ef>]
+ #process_one_work+0x17f/0x850
+ #1:  (net_cleanup_work){+.+.+.}, at: [<ffffffff810cc8ef>]
+ #process_one_work+0x17f/0x850
+ #2:  (net_mutex){+.+.+.}, at: [<ffffffff817104ec>] cleanup_net+0x8c/0x1f0
+ #3:  (rcu_sched_state.barrier_mutex){+.+...}, at: [<ffffffff81133025>]
+ #_rcu_barrier+0x75/0xcd0
+rcu_show_nocb_setup(): rcu_sched nocb state:
+  0: ffff8802267ced40 l:ffff8802267ced40 n:ffff8802269ced40 .G.
+  1: ffff8802269ced40 l:ffff8802267ced40 n:          (null) ...
+  2: ffff880226bced40 l:ffff880226bced40 n:ffff880226dced40 .G.
+  3: ffff880226dced40 l:ffff880226bced40 n:          (null) N..
+  4: ffff880226fced40 l:ffff880226fced40 n:ffff8802271ced40 .G.
+  5: ffff8802271ced40 l:ffff880226fced40 n:          (null) ...
+  6: ffff8802273ced40 l:ffff8802273ced40 n:ffff8802275ced40 N..
+  7: ffff8802275ced40 l:ffff8802273ced40 n:          (null) N..
+rcu_show_nocb_setup(): rcu_bh nocb state:
+  0: ffff8802267ceac0 l:ffff8802267ceac0 n:ffff8802269ceac0 ...
+  1: ffff8802269ceac0 l:ffff8802267ceac0 n:          (null) ...
+  2: ffff880226bceac0 l:ffff880226bceac0 n:ffff880226dceac0 ...
+  3: ffff880226dceac0 l:ffff880226bceac0 n:          (null) ...
+  4: ffff880226fceac0 l:ffff880226fceac0 n:ffff8802271ceac0 ...
+  5: ffff8802271ceac0 l:ffff880226fceac0 n:          (null) ...
+  6: ffff8802273ceac0 l:ffff8802273ceac0 n:ffff8802275ceac0 ...
+  7: ffff8802275ceac0 l:ffff8802273ceac0 n:          (null) ...
+INFO: task modprobe:554 blocked for more than 120 seconds.
+      Not tainted 3.18.0-rc1+ #16
+"echo 0 > /proc/sys/kernel/hung_task_timeout_secs" disables this message.
+modprobe        D ffff8800c85dcec0 12456   554    553 0x00000000
+ ffff8802178afbf8 0000000000000096 ffff8800c85dcec0 00000000001d5f00
+ ffff8802178affd8 00000000001d5f00 ffffffff81e1b580 ffff8800c85dcec0
+ ffff8800c85dcec0 ffffffff81f90c08 0000000000000246 ffff8800c85dcec0
+Call Trace:
+ [<ffffffff818667c1>] schedule_preempt_disabled+0x31/0x80
+ [<ffffffff81868013>] mutex_lock_nested+0x183/0x440
+ [<ffffffff8171037f>] ? register_pernet_subsys+0x1f/0x50
+ [<ffffffff8171037f>] ? register_pernet_subsys+0x1f/0x50
+ [<ffffffffa0619000>] ? 0xffffffffa0619000
+ [<ffffffff8171037f>] register_pernet_subsys+0x1f/0x50
+ [<ffffffffa0619048>] br_init+0x48/0xd3 [bridge]
+ [<ffffffff81002148>] do_one_initcall+0xd8/0x210
+ [<ffffffff8115bc22>] load_module+0x20c2/0x2870
+ [<ffffffff81156c00>] ? store_uevent+0x70/0x70
+ [<ffffffff81281327>] ? kernel_read+0x57/0x90
+ [<ffffffff8115c5b6>] SyS_finit_module+0xa6/0xe0
+ [<ffffffff8186d2d5>] ? sysret_check+0x22/0x5d
+ [<ffffffff8186d2a9>] system_call_fastpath+0x12/0x17
+1 lock held by modprobe/554:
+ #0:  (net_mutex){+.+.+.}, at: [<ffffffff8171037f>]
+ #register_pernet_subsys+0x1f/0x50
+rcu_show_nocb_setup(): rcu_sched nocb state:
+  0: ffff8802267ced40 l:ffff8802267ced40 n:ffff8802269ced40 .G.
+  1: ffff8802269ced40 l:ffff8802267ced40 n:          (null) ...
+  2: ffff880226bced40 l:ffff880226bced40 n:ffff880226dced40 .G.
+  3: ffff880226dced40 l:ffff880226bced40 n:          (null) N..
+  4: ffff880226fced40 l:ffff880226fced40 n:ffff8802271ced40 .G.
+  5: ffff8802271ced40 l:ffff880226fced40 n:          (null) ...
+  6: ffff8802273ced40 l:ffff8802273ced40 n:ffff8802275ced40 N..
+  7: ffff8802275ced40 l:ffff8802273ced40 n:          (null) N..
+rcu_show_nocb_setup(): rcu_bh nocb state:
+  0: ffff8802267ceac0 l:ffff8802267ceac0 n:ffff8802269ceac0 ...
+  1: ffff8802269ceac0 l:ffff8802267ceac0 n:          (null) ...
+  2: ffff880226bceac0 l:ffff880226bceac0 n:ffff880226dceac0 ...
+  3: ffff880226dceac0 l:ffff880226bceac0 n:          (null) ...
+  4: ffff880226fceac0 l:ffff880226fceac0 n:ffff8802271ceac0 ...
+  5: ffff8802271ceac0 l:ffff880226fceac0 n:          (null) ...
+  6: ffff8802273ceac0 l:ffff8802273ceac0 n:ffff8802275ceac0 ...
+  7: ffff8802275ceac0 l:ffff8802273ceac0 n:          (null) ...
 
-Note that we want to minimize the number of LDC
-STOP/START messages sent. Specifically, do not send a STOP
-message if vnet_walk_rx does not read all the available descriptors
-because of the NAPI budget limitation. Instead, note the end index
-as part of port state, and resume from this index when the
-next poll callback is triggered.
 
-Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Acked-by: Raghuram Kothakota <raghuram.kothakota@oracle.com>
-Acked-by: Dwight Engen <dwight.engen@oracle.com>
----
-changes since v2: use NAPI.
-changes since v3: David Stevens comments.
-Changes since v4: vnet_event() must accumulate LDC_EVENT_* bits into rx_event
-                  and all these bits should be processed in vnet_event_api()
-		  in the same order as send_events()
-changes since v5: use netdevice.h definition for NAPI_POLL_WEIGHT
-
- drivers/net/ethernet/sun/sunvnet.c | 173 ++++++++++++++++++++++++++++---------
- drivers/net/ethernet/sun/sunvnet.h |   6 +-
- 2 files changed, 135 insertions(+), 44 deletions(-)
-
-diff --git a/drivers/net/ethernet/sun/sunvnet.c b/drivers/net/ethernet/sun/sunvnet.c
-index 3652afd..9e048f5 100644
---- a/drivers/net/ethernet/sun/sunvnet.c
-+++ b/drivers/net/ethernet/sun/sunvnet.c
-@@ -311,9 +311,7 @@ static int vnet_rx_one(struct vnet_port *port, unsigned int len,
  
- 	dev->stats.rx_packets++;
- 	dev->stats.rx_bytes += len;
--
--	netif_rx(skb);
--
-+	napi_gro_receive(&port->napi, skb);
- 	return 0;
- 
- out_free_skb:
-@@ -430,6 +428,7 @@ static int vnet_walk_rx_one(struct vnet_port *port,
- 	struct vio_driver_state *vio = &port->vio;
- 	int err;
- 
-+	BUG_ON(desc == NULL);
- 	if (IS_ERR(desc))
- 		return PTR_ERR(desc);
- 
-@@ -456,10 +455,11 @@ static int vnet_walk_rx_one(struct vnet_port *port,
- }
- 
- static int vnet_walk_rx(struct vnet_port *port, struct vio_dring_state *dr,
--			u32 start, u32 end)
-+			u32 start, u32 end, int *npkts, int budget)
- {
- 	struct vio_driver_state *vio = &port->vio;
- 	int ack_start = -1, ack_end = -1;
-+	bool send_ack = true;
- 
- 	end = (end == (u32) -1) ? prev_idx(start, dr) : next_idx(end, dr);
- 
-@@ -471,6 +471,7 @@ static int vnet_walk_rx(struct vnet_port *port, struct vio_dring_state *dr,
- 			return err;
- 		if (err != 0)
- 			break;
-+		(*npkts)++;
- 		if (ack_start == -1)
- 			ack_start = start;
- 		ack_end = start;
-@@ -482,13 +483,26 @@ static int vnet_walk_rx(struct vnet_port *port, struct vio_dring_state *dr,
- 				return err;
- 			ack_start = -1;
- 		}
-+		if ((*npkts) >= budget) {
-+			send_ack = false;
-+			break;
-+		}
- 	}
- 	if (unlikely(ack_start == -1))
- 		ack_start = ack_end = prev_idx(start, dr);
--	return vnet_send_ack(port, dr, ack_start, ack_end, VIO_DRING_STOPPED);
-+	if (send_ack) {
-+		port->napi_resume = false;
-+		return vnet_send_ack(port, dr, ack_start, ack_end,
-+				     VIO_DRING_STOPPED);
-+	} else  {
-+		port->napi_resume = true;
-+		port->napi_stop_idx = ack_end;
-+		return 1;
-+	}
- }
- 
--static int vnet_rx(struct vnet_port *port, void *msgbuf)
-+static int vnet_rx(struct vnet_port *port, void *msgbuf, int *npkts,
-+		   int budget)
- {
- 	struct vio_dring_data *pkt = msgbuf;
- 	struct vio_dring_state *dr = &port->vio.drings[VIO_DRIVER_RX_RING];
-@@ -505,11 +519,13 @@ static int vnet_rx(struct vnet_port *port, void *msgbuf)
- 		return 0;
- 	}
- 
--	dr->rcv_nxt++;
-+	if (!port->napi_resume)
-+		dr->rcv_nxt++;
- 
- 	/* XXX Validate pkt->start_idx and pkt->end_idx XXX */
- 
--	return vnet_walk_rx(port, dr, pkt->start_idx, pkt->end_idx);
-+	return vnet_walk_rx(port, dr, pkt->start_idx, pkt->end_idx,
-+			    npkts, budget);
- }
- 
- static int idx_is_pending(struct vio_dring_state *dr, u32 end)
-@@ -542,9 +558,12 @@ static int vnet_ack(struct vnet_port *port, void *msgbuf)
- 	if (unlikely(!idx_is_pending(dr, end)))
- 		return 0;
- 
-+	vp = port->vp;
-+	dev = vp->dev;
- 	/* sync for race conditions with vnet_start_xmit() and tell xmit it
- 	 * is time to send a trigger.
- 	 */
-+	netif_tx_lock(dev);
- 	dr->cons = next_idx(end, dr);
- 	desc = vio_dring_entry(dr, dr->cons);
- 	if (desc->hdr.state == VIO_DESC_READY && port->start_cons) {
-@@ -559,10 +578,8 @@ static int vnet_ack(struct vnet_port *port, void *msgbuf)
- 	} else {
- 		port->start_cons = true;
- 	}
-+	netif_tx_unlock(dev);
- 
--
--	vp = port->vp;
--	dev = vp->dev;
- 	if (unlikely(netif_queue_stopped(dev) &&
- 		     vnet_tx_dring_avail(dr) >= VNET_TX_WAKEUP_THRESH(dr)))
- 		return 1;
-@@ -591,9 +608,8 @@ static int handle_mcast(struct vnet_port *port, void *msgbuf)
- 	return 0;
- }
- 
--static void maybe_tx_wakeup(unsigned long param)
-+static void maybe_tx_wakeup(struct vnet *vp)
- {
--	struct vnet *vp = (struct vnet *)param;
- 	struct net_device *dev = vp->dev;
- 
- 	netif_tx_lock(dev);
-@@ -617,32 +633,43 @@ static void maybe_tx_wakeup(unsigned long param)
- 	netif_tx_unlock(dev);
- }
- 
--static void vnet_event(void *arg, int event)
-+static inline bool port_is_up(struct vnet_port *vnet)
-+{
-+	struct vio_driver_state *vio = &vnet->vio;
-+
-+	return !!(vio->hs_state & VIO_HS_COMPLETE);
-+}
-+
-+static int vnet_event_napi(struct vnet_port *port, int budget)
- {
--	struct vnet_port *port = arg;
- 	struct vio_driver_state *vio = &port->vio;
--	unsigned long flags;
- 	int tx_wakeup, err;
-+	int npkts = 0;
-+	int event = (port->rx_event & LDC_EVENT_RESET);
- 
--	spin_lock_irqsave(&vio->lock, flags);
--
-+ldc_ctrl:
- 	if (unlikely(event == LDC_EVENT_RESET ||
- 		     event == LDC_EVENT_UP)) {
- 		vio_link_state_change(vio, event);
--		spin_unlock_irqrestore(&vio->lock, flags);
- 
- 		if (event == LDC_EVENT_RESET) {
- 			port->rmtu = 0;
- 			vio_port_up(vio);
- 		}
--		return;
-+		port->rx_event = 0;
-+		return 0;
- 	}
-+	/* We may have multiple LDC events in rx_event. Unroll send_events() */
-+	event = (port->rx_event & LDC_EVENT_UP);
-+	port->rx_event &= ~(LDC_EVENT_RESET|LDC_EVENT_UP);
-+	if (event == LDC_EVENT_UP)
-+		goto ldc_ctrl;
-+	event = port->rx_event;
-+	if (!(event & LDC_EVENT_DATA_READY))
-+		return 0;
- 
--	if (unlikely(event != LDC_EVENT_DATA_READY)) {
--		pr_warn("Unexpected LDC event %d\n", event);
--		spin_unlock_irqrestore(&vio->lock, flags);
--		return;
--	}
-+	/* we dont expect any other bits than RESET, UP, DATA_READY */
-+	BUG_ON(event != LDC_EVENT_DATA_READY);
- 
- 	tx_wakeup = err = 0;
- 	while (1) {
-@@ -651,6 +678,21 @@ static void vnet_event(void *arg, int event)
- 			u64 raw[8];
- 		} msgbuf;
- 
-+		if (port->napi_resume) {
-+			struct vio_dring_data *pkt =
-+				(struct vio_dring_data *)&msgbuf;
-+			struct vio_dring_state *dr =
-+				&port->vio.drings[VIO_DRIVER_RX_RING];
-+
-+			pkt->tag.type = VIO_TYPE_DATA;
-+			pkt->tag.stype = VIO_SUBTYPE_INFO;
-+			pkt->tag.stype_env = VIO_DRING_DATA;
-+			pkt->seq = dr->rcv_nxt;
-+			pkt->start_idx = next_idx(port->napi_stop_idx, dr);
-+			pkt->end_idx = -1;
-+			goto napi_resume;
-+		}
-+ldc_read:
- 		err = ldc_read(vio->lp, &msgbuf, sizeof(msgbuf));
- 		if (unlikely(err < 0)) {
- 			if (err == -ECONNRESET)
-@@ -667,10 +709,22 @@ static void vnet_event(void *arg, int event)
- 		err = vio_validate_sid(vio, &msgbuf.tag);
- 		if (err < 0)
- 			break;
--
-+napi_resume:
- 		if (likely(msgbuf.tag.type == VIO_TYPE_DATA)) {
- 			if (msgbuf.tag.stype == VIO_SUBTYPE_INFO) {
--				err = vnet_rx(port, &msgbuf);
-+				if (!port_is_up(port)) {
-+					/* failures like handshake_failure()
-+					 * may have cleaned up dring, but
-+					 * NAPI polling may bring us here.
-+					 */
-+					err = -ECONNRESET;
-+					break;
-+				}
-+				err = vnet_rx(port, &msgbuf, &npkts, budget);
-+				if (npkts >= budget)
-+					break;
-+				if (npkts == 0 && err != -ECONNRESET)
-+					goto ldc_read;
- 			} else if (msgbuf.tag.stype == VIO_SUBTYPE_ACK) {
- 				err = vnet_ack(port, &msgbuf);
- 				if (err > 0)
-@@ -691,15 +745,33 @@ static void vnet_event(void *arg, int event)
- 		if (err == -ECONNRESET)
- 			break;
- 	}
--	spin_unlock(&vio->lock);
--	/* Kick off a tasklet to wake the queue.  We cannot call
--	 * maybe_tx_wakeup directly here because we could deadlock on
--	 * netif_tx_lock() with dev_watchdog()
--	 */
- 	if (unlikely(tx_wakeup && err != -ECONNRESET))
--		tasklet_schedule(&port->vp->vnet_tx_wakeup);
-+		maybe_tx_wakeup(port->vp);
-+	return npkts;
-+}
-+
-+static int vnet_poll(struct napi_struct *napi, int budget)
-+{
-+	struct vnet_port *port = container_of(napi, struct vnet_port, napi);
-+	struct vio_driver_state *vio = &port->vio;
-+	int processed = vnet_event_napi(port, budget);
-+
-+	if (processed < budget) {
-+		napi_complete(napi);
-+		vio_set_intr(vio->vdev->rx_ino, HV_INTR_ENABLED);
-+	}
-+	return processed;
-+}
-+
-+static void vnet_event(void *arg, int event)
-+{
-+	struct vnet_port *port = arg;
-+	struct vio_driver_state *vio = &port->vio;
-+
-+	port->rx_event |= event;
-+	vio_set_intr(vio->vdev->rx_ino, HV_INTR_DISABLED);
-+	napi_schedule(&port->napi);
- 
--	local_irq_restore(flags);
- }
- 
- static int __vnet_tx_trigger(struct vnet_port *port, u32 start)
-@@ -746,13 +818,6 @@ static int __vnet_tx_trigger(struct vnet_port *port, u32 start)
- 	return err;
- }
- 
--static inline bool port_is_up(struct vnet_port *vnet)
--{
--	struct vio_driver_state *vio = &vnet->vio;
--
--	return !!(vio->hs_state & VIO_HS_COMPLETE);
--}
--
- struct vnet_port *__tx_port_find(struct vnet *vp, struct sk_buff *skb)
- {
- 	unsigned int hash = vnet_hashfn(skb->data);
-@@ -1342,6 +1407,21 @@ err_out:
- 	return err;
- }
- 
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+static void vnet_poll_controller(struct net_device *dev)
-+{
-+	struct vnet *vp = netdev_priv(dev);
-+	struct vnet_port *port;
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&vp->lock, flags);
-+	if (!list_empty(&vp->port_list)) {
-+		port = list_entry(vp->port_list.next, struct vnet_port, list);
-+		napi_schedule(&port->napi);
-+	}
-+	spin_unlock_irqrestore(&vp->lock, flags);
-+}
-+#endif
- static LIST_HEAD(vnet_list);
- static DEFINE_MUTEX(vnet_list_mutex);
- 
-@@ -1354,6 +1434,9 @@ static const struct net_device_ops vnet_ops = {
- 	.ndo_tx_timeout		= vnet_tx_timeout,
- 	.ndo_change_mtu		= vnet_change_mtu,
- 	.ndo_start_xmit		= vnet_start_xmit,
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	.ndo_poll_controller	= vnet_poll_controller,
-+#endif
- };
- 
- static struct vnet *vnet_new(const u64 *local_mac)
-@@ -1374,7 +1457,6 @@ static struct vnet *vnet_new(const u64 *local_mac)
- 	vp = netdev_priv(dev);
- 
- 	spin_lock_init(&vp->lock);
--	tasklet_init(&vp->vnet_tx_wakeup, maybe_tx_wakeup, (unsigned long)vp);
- 	vp->dev = dev;
- 
- 	INIT_LIST_HEAD(&vp->port_list);
-@@ -1434,7 +1516,6 @@ static void vnet_cleanup(void)
- 		vp = list_first_entry(&vnet_list, struct vnet, list);
- 		list_del(&vp->list);
- 		dev = vp->dev;
--		tasklet_kill(&vp->vnet_tx_wakeup);
- 		/* vio_unregister_driver() should have cleaned up port_list */
- 		BUG_ON(!list_empty(&vp->port_list));
- 		unregister_netdev(dev);
-@@ -1536,6 +1617,8 @@ static int vnet_port_probe(struct vio_dev *vdev, const struct vio_device_id *id)
- 	if (err)
- 		goto err_out_free_port;
- 
-+	netif_napi_add(port->vp->dev, &port->napi, vnet_poll, NAPI_POLL_WEIGHT);
-+
- 	err = vnet_port_alloc_tx_bufs(port);
- 	if (err)
- 		goto err_out_free_ldc;
-@@ -1564,6 +1647,7 @@ static int vnet_port_probe(struct vio_dev *vdev, const struct vio_device_id *id)
- 	setup_timer(&port->clean_timer, vnet_clean_timer_expire,
- 		    (unsigned long)port);
- 
-+	napi_enable(&port->napi);
- 	vio_port_up(&port->vio);
- 
- 	mdesc_release(hp);
-@@ -1571,6 +1655,7 @@ static int vnet_port_probe(struct vio_dev *vdev, const struct vio_device_id *id)
- 	return 0;
- 
- err_out_free_ldc:
-+	netif_napi_del(&port->napi);
- 	vio_ldc_free(&port->vio);
- 
- err_out_free_port:
-@@ -1592,11 +1677,13 @@ static int vnet_port_remove(struct vio_dev *vdev)
- 		del_timer_sync(&port->vio.timer);
- 		del_timer_sync(&port->clean_timer);
- 
-+		napi_disable(&port->napi);
- 		spin_lock_irqsave(&vp->lock, flags);
- 		list_del(&port->list);
- 		hlist_del(&port->hash);
- 		spin_unlock_irqrestore(&vp->lock, flags);
- 
-+		netif_napi_del(&port->napi);
- 		vnet_port_free_tx_bufs(port);
- 		vio_ldc_free(&port->vio);
- 
-diff --git a/drivers/net/ethernet/sun/sunvnet.h b/drivers/net/ethernet/sun/sunvnet.h
-index c911045..c8a862e 100644
---- a/drivers/net/ethernet/sun/sunvnet.h
-+++ b/drivers/net/ethernet/sun/sunvnet.h
-@@ -56,6 +56,11 @@ struct vnet_port {
- 	struct timer_list	clean_timer;
- 
- 	u64			rmtu;
-+
-+	struct napi_struct	napi;
-+	u32			napi_stop_idx;
-+	bool			napi_resume;
-+	int			rx_event;
- };
- 
- static inline struct vnet_port *to_vnet_port(struct vio_driver_state *vio)
-@@ -97,7 +102,6 @@ struct vnet {
- 	struct list_head	list;
- 	u64			local_mac;
- 
--	struct tasklet_struct	vnet_tx_wakeup;
- };
- 
- #endif /* _SUNVNET_H */
--- 
-1.8.4.2
+> 							Thanx, Paul
+> 
+> ------------------------------------------------------------------------
+> 
+> rcu: Dump no-CBs CPU state at task-hung time
+> 
+> Strictly diagnostic commit for rcu_barrier() hang.  Not for inclusion.
+> 
+> Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+> 
+> diff --git a/include/linux/rcutiny.h b/include/linux/rcutiny.h
+> index 0e5366200154..34048140577b 100644
+> --- a/include/linux/rcutiny.h
+> +++ b/include/linux/rcutiny.h
+> @@ -157,4 +157,8 @@ static inline bool rcu_is_watching(void)
+>  
+>  #endif /* #else defined(CONFIG_DEBUG_LOCK_ALLOC) || defined(CONFIG_RCU_TRACE) */
+>  
+> +static inline void rcu_show_nocb_setup(void)
+> +{
+> +}
+> +
+>  #endif /* __LINUX_RCUTINY_H */
+> diff --git a/include/linux/rcutree.h b/include/linux/rcutree.h
+> index 52953790dcca..0b813bdb971b 100644
+> --- a/include/linux/rcutree.h
+> +++ b/include/linux/rcutree.h
+> @@ -97,4 +97,6 @@ extern int rcu_scheduler_active __read_mostly;
+>  
+>  bool rcu_is_watching(void);
+>  
+> +void rcu_show_nocb_setup(void);
+> +
+>  #endif /* __LINUX_RCUTREE_H */
+> diff --git a/kernel/hung_task.c b/kernel/hung_task.c
+> index 06db12434d72..e6e4d0f6b063 100644
+> --- a/kernel/hung_task.c
+> +++ b/kernel/hung_task.c
+> @@ -118,6 +118,7 @@ static void check_hung_task(struct task_struct *t, unsigned long timeout)
+>  		" disables this message.\n");
+>  	sched_show_task(t);
+>  	debug_show_held_locks(t);
+> +	rcu_show_nocb_setup();
+>  
+>  	touch_nmi_watchdog();
+>  
+> diff --git a/kernel/rcu/rcutorture.c b/kernel/rcu/rcutorture.c
+> index 240fa9094f83..6b373e79ce0e 100644
+> --- a/kernel/rcu/rcutorture.c
+> +++ b/kernel/rcu/rcutorture.c
+> @@ -1513,6 +1513,7 @@ rcu_torture_cleanup(void)
+>  {
+>  	int i;
+>  
+> +	rcu_show_nocb_setup();
+>  	rcutorture_record_test_transition();
+>  	if (torture_cleanup_begin()) {
+>  		if (cur_ops->cb_barrier != NULL)
+> diff --git a/kernel/rcu/tree_plugin.h b/kernel/rcu/tree_plugin.h
+> index 927c17b081c7..285b3f6fb229 100644
+> --- a/kernel/rcu/tree_plugin.h
+> +++ b/kernel/rcu/tree_plugin.h
+> @@ -2699,6 +2699,31 @@ static bool init_nocb_callback_list(struct rcu_data *rdp)
+>  
+>  #endif /* #else #ifdef CONFIG_RCU_NOCB_CPU */
+>  
+> +void rcu_show_nocb_setup(void)
+> +{
+> +#ifdef CONFIG_RCU_NOCB_CPU
+> +	int cpu;
+> +	struct rcu_data *rdp;
+> +	struct rcu_state *rsp;
+> +
+> +	for_each_rcu_flavor(rsp) {
+> +		pr_alert("rcu_show_nocb_setup(): %s nocb state:\n", rsp->name);
+> +		for_each_possible_cpu(cpu) {
+> +			if (!rcu_is_nocb_cpu(cpu))
+> +				continue;
+> +			rdp = per_cpu_ptr(rsp->rda, cpu);
+> +			pr_alert("%3d: %p l:%p n:%p %c%c%c\n",
+> +				 cpu,
+> +				 rdp, rdp->nocb_leader, rdp->nocb_next_follower,
+> +				 ".N"[!!rdp->nocb_head],
+> +				 ".G"[!!rdp->nocb_gp_head],
+> +				 ".F"[!!rdp->nocb_follower_head]);
+> +		}
+> +	}
+> +#endif /* #ifdef CONFIG_RCU_NOCB_CPU */
+> +}
+> +EXPORT_SYMBOL_GPL(rcu_show_nocb_setup);
+> +
+>  /*
+>   * An adaptive-ticks CPU can potentially execute in kernel mode for an
+>   * arbitrarily long period of time with the scheduling-clock tick turned
+> 
