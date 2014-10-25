@@ -1,38 +1,73 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [Patch net 1/2] sch_pie: schedule the timer after all init succeed
-Date: Fri, 24 Oct 2014 17:42:50 -0700
-Message-ID: <CAHA+R7M0ErNCMMtU5brJpQdCSW4+epniDHg__s=B2uqX0UZT0w@mail.gmail.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [Patch net 2/2] net_sched: always call ->destroy when ->init()
+ fails
+Date: Sat, 25 Oct 2014 01:44:04 +0100
+Message-ID: <20141025004403.GC11289@acer.localdomain>
 References: <1414194959-28006-1-git-send-email-xiyou.wangcong@gmail.com>
-	<1414196222.20845.48.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAHA+R7PFSCACHyrU8fa4PVLOF1OtJiFiw4peLmFPzEu6-adaeQ@mail.gmail.com>
-	<1414197563.20845.50.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1414194959-28006-2-git-send-email-xiyou.wangcong@gmail.com>
+ <1414196053.20845.45.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20141025003644.GB11289@acer.localdomain>
+ <CAHA+R7M3y=Mj_L3yL0UM41mfGa+go+Kq4wYga7D6epY3uq_yWQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
 	netdev <netdev@vger.kernel.org>,
 	David Miller <davem@davemloft.net>,
-	Vijay Subramanian <vijaynsu@cisco.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+	Wang Bo <wang.bo116@zte.com.cn>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Terry Lam <vtlam@google.com>
+To: Cong Wang <cwang@twopensource.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f43.google.com ([209.85.192.43]:58947 "EHLO
-	mail-qg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932402AbaJYAmv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Oct 2014 20:42:51 -0400
-Received: by mail-qg0-f43.google.com with SMTP id j107so1811140qga.30
-        for <netdev@vger.kernel.org>; Fri, 24 Oct 2014 17:42:50 -0700 (PDT)
-In-Reply-To: <1414197563.20845.50.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from stinky.trash.net ([213.144.137.162]:43003 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933095AbaJYAoL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Oct 2014 20:44:11 -0400
+Content-Disposition: inline
+In-Reply-To: <CAHA+R7M3y=Mj_L3yL0UM41mfGa+go+Kq4wYga7D6epY3uq_yWQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 24, 2014 at 5:39 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->
-> You don't need to add one line in the changelog.
->
-> Why would it be needed ? Think about it.
+On Fri, Oct 24, 2014 at 05:38:48PM -0700, Cong Wang wrote:
+> On Fri, Oct 24, 2014 at 5:36 PM, Patrick McHardy <kaber@trash.net> wrote:
+> >
+> > Again, the correct fix is to make qdisc_create_dflt() not call
+> > qdisc_destroy() but clean up the qdisc manually as done in
+> > qdisc_create().
+> 
+> I kindly wish you a good luck with fixing all callers of qdisc_create_dflt().
+> Go ahead. :)
 
+Here you go:
 
-Simply because git-send-email reads Cc: so that I don't have to
-specify in cmdline.
-That's all.
-
-OMG, first time to hear people complaining on Cc'ing too much! lol :)
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index fc04fe9..3a71e51 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -590,18 +590,21 @@ struct Qdisc *qdisc_create_dflt(struct netdev_queue *dev_queue,
+ 	struct Qdisc *sch;
+ 
+ 	if (!try_module_get(ops->owner))
+-		goto errout;
++		goto err1;
+ 
+ 	sch = qdisc_alloc(dev_queue, ops);
+ 	if (IS_ERR(sch))
+-		goto errout;
++		goto err2;
+ 	sch->parent = parentid;
+ 
+ 	if (!ops->init || ops->init(sch, NULL) == 0)
+ 		return sch;
+ 
+-	qdisc_destroy(sch);
+-errout:
++	dev_put(sch->dev_queue->dev);
++	kfree((char *)sch - sch->padded);
++err2:
++	module_put(ops->owner);
++err1:
+ 	return NULL;
+ }
+ EXPORT_SYMBOL(qdisc_create_dflt);
