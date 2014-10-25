@@ -1,78 +1,108 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: localed stuck in recent 3.18 git in copy_net_ns?
-Date: Fri, 24 Oct 2014 19:03:24 -0700
-Message-ID: <20141025020324.GA28247@linux.vnet.ibm.com>
-References: <20141024170931.GA21849@declera.com>
- <20141024172009.GV4977@linux.vnet.ibm.com>
- <20141024173526.GA26058@declera.com>
- <20141024183226.GW4977@linux.vnet.ibm.com>
- <20141024212557.GA15537@declera.com>
- <20141024214927.GA4977@linux.vnet.ibm.com>
- <8915.1414190047@famine>
- <20141024225931.GC4977@linux.vnet.ibm.com>
- <20141024230524.GA16023@linux.vnet.ibm.com>
- <10136.1414196448@famine>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Mike Galbraith <umgwanakikbuti@gmail.com>
+Subject: Re: [PATCH V3.18] rtlwifi: Add check for get_btc_status callback
+Date: Sat, 25 Oct 2014 04:57:05 +0200
+Message-ID: <1414205825.5196.5.camel@marge.simpson.net>
+References: <1414081629-23002-1-git-send-email-Larry.Finger@lwfinger.net>
+	 <1414087731.5231.19.camel@marge.simpson.net>
+	 <5449478B.4070908@lwfinger.net>
+	 <1414116580.23080.10.camel@marge.simpson.net>
+	 <544A80B5.1090604@lwfinger.net> <544A96C0.8030107@gmail.com>
+	 <544AA3EE.7080806@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Yanko Kaneti <yaneti@declera.com>,
-	Josh Boyer <jwboyer@fedoraproject.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Cong Wang <cwang@twopensource.com>,
-	Kevin Fenzi <kevin@scrye.com>, netdev <netdev@vger.kernel.org>,
-	"Linux-Kernel@Vger. Kernel. Org" <linux-kernel@vger.kernel.org>,
-	mroos@linux.ee, tj@kernel.org
-To: Jay Vosburgh <jay.vosburgh@canonical.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <10136.1414196448@famine>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Larry Finger <Larry.Finger@lwfinger.net>, linville@tuxdriver.com,
+	linux-wireless@vger.kernel.org, troy_tan@realsil.com.cn,
+	netdev@vger.kernel.org, Thadeu Cascardo <cascardo@cascardo.eti.br>
+To: Murilo Opsfelder Araujo <mopsfelder@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f54.google.com ([209.85.215.54]:46135 "EHLO
+	mail-la0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751102AbaJYC5L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Oct 2014 22:57:11 -0400
+In-Reply-To: <544AA3EE.7080806@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 24, 2014 at 05:20:48PM -0700, Jay Vosburgh wrote:
-> Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
-> 
-> >On Fri, Oct 24, 2014 at 03:59:31PM -0700, Paul E. McKenney wrote:
-> [...]
-> >> Hmmm...  It sure looks like we have some callbacks stuck here.  I clearly
-> >> need to take a hard look at the sleep/wakeup code.
-> >> 
-> >> Thank you for running this!!!
+On Fri, 2014-10-24 at 17:09 -0200, Murilo Opsfelder Araujo wrote: 
+> On 10/24/2014 04:13 PM, Murilo Opsfelder Araujo wrote:
+> > On 10/24/2014 02:39 PM, Larry Finger wrote:
+> > [...]
+> >>
+> >> Please try the attached patch. It replaces the second one I sent you. I
+> >> will probably redo it before submitting the final copy, but this should
+> >> work.
+> >>
+> >> Larry
+> >>
+> > Hi, Larry.
 > >
-> >Could you please try the following patch?  If no joy, could you please
-> >add rcu:rcu_nocb_wake to the list of ftrace events?
+> > I've tried your patch on top of next-20141023 and it is still crashing
+> > on my laptop:
+> >
+> > http://opsfelder.com/~murilo/lkml/next-20141023_plus_larry_patch_v2.jpg
+> >
+> It seems a get_btc_status() check was still missing:
 > 
-> 	I tried the patch, it did not change the behavior.
+> diff --git a/drivers/net/wireless/rtlwifi/pci.c 
+> b/drivers/net/wireless/rtlwifi/pci.c
+> index a5a350a..ed3364d 100644
+> --- a/drivers/net/wireless/rtlwifi/pci.c
+> +++ b/drivers/net/wireless/rtlwifi/pci.c
+> @@ -1796,7 +1796,8 @@ static int rtl_pci_start(struct ieee80211_hw *hw)
+>          rtl_pci_reset_trx_ring(hw);
 > 
-> 	I enabled the rcu:rcu_barrier and rcu:rcu_nocb_wake tracepoints
-> and ran it again (with this patch and the first patch from earlier
-> today); the trace output is a bit on the large side so I put it and the
-> dmesg log at:
+>          rtlpci->driver_is_goingto_unload = false;
+> -       if (rtlpriv->cfg->ops->get_btc_status()) {
+> +       if (rtlpriv->cfg->ops->get_btc_status &&
+> +           rtlpriv->cfg->ops->get_btc_status()) {
+>                  rtlpriv->btcoexist.btc_ops->btc_init_variables(rtlpriv);
+>                  rtlpriv->btcoexist.btc_ops->btc_init_hal_vars(rtlpriv);
+>          }
 > 
-> http://people.canonical.com/~jvosburgh/nocb-wake-dmesg.txt
+> With this minor change and Larry's latest fix_misc_desc patch, 
+> next-20141023 booted normally and kernel panic disappeared.
 > 
-> http://people.canonical.com/~jvosburgh/nocb-wake-trace.txt
+> Now, there is no wifi network available or found by wlan0.
 
-Thank you again!
+I don't need your addition, but our end results are the same.
 
-Very strange part of the trace.  The only sign of CPU 2 and 3 are:
+[  312.126598] cfg80211: Calling CRDA to update world regulatory domain
+[  312.131076] cfg80211: World regulatory domain updated:
+[  312.131107] cfg80211:  DFS Master region: unset                                                                                                                                                                                          
+[  312.131112] cfg80211:   (start_freq - end_freq @ bandwidth), (max_antenna_gain, max_eirp), (dfs_cac_time)                                                                                                                                
+[  312.131123] cfg80211:   (2402000 KHz - 2472000 KHz @ 40000 KHz), (300 mBi, 2000 mBm), (N/A)                                                                                                                                              
+[  312.131129] cfg80211:   (2457000 KHz - 2482000 KHz @ 40000 KHz), (300 mBi, 2000 mBm), (N/A)                                                                                                                                              
+[  312.131136] cfg80211:   (2474000 KHz - 2494000 KHz @ 20000 KHz), (300 mBi, 2000 mBm), (N/A)                                                                                                                                              
+[  312.131142] cfg80211:   (5170000 KHz - 5250000 KHz @ 40000 KHz), (300 mBi, 2000 mBm), (N/A)                                                                                                                                              
+[  312.131149] cfg80211:   (5735000 KHz - 5835000 KHz @ 40000 KHz), (300 mBi, 2000 mBm), (N/A)                                                                                                                                              
+[  312.210452] rtl8192se: FW Power Save off (module option)                                                                                                                                                                                 
+[  312.210561] rtl8192se: Driver for Realtek RTL8192SE/RTL8191SE                                                                                                                                                                            
+[  312.210561] Loading firmware rtlwifi/rtl8192sefw.bin                                                                                                                                                                                     
+[  312.212496] ieee80211 phy0: Selected rate control algorithm 'rtl_rc'
+[  312.758613] IPv6: ADDRCONF(NETDEV_UP): wlan0: link is not ready
 
-    ovs-vswitchd-902   [000] ....   109.896840: rcu_barrier: rcu_sched Begin cpu -1 remaining 0 # 0
-    ovs-vswitchd-902   [000] ....   109.896840: rcu_barrier: rcu_sched Check cpu -1 remaining 0 # 0
-    ovs-vswitchd-902   [000] ....   109.896841: rcu_barrier: rcu_sched Inc1 cpu -1 remaining 0 # 1
-    ovs-vswitchd-902   [000] ....   109.896841: rcu_barrier: rcu_sched OnlineNoCB cpu 0 remaining 1 # 1
-    ovs-vswitchd-902   [000] d...   109.896841: rcu_nocb_wake: rcu_sched 0 WakeNot
-    ovs-vswitchd-902   [000] ....   109.896841: rcu_barrier: rcu_sched OnlineNoCB cpu 1 remaining 2 # 1
-    ovs-vswitchd-902   [000] d...   109.896841: rcu_nocb_wake: rcu_sched 1 WakeNot
-    ovs-vswitchd-902   [000] ....   109.896842: rcu_barrier: rcu_sched OnlineNoCB cpu 2 remaining 3 # 1
-    ovs-vswitchd-902   [000] d...   109.896842: rcu_nocb_wake: rcu_sched 2 WakeNotPoll
-    ovs-vswitchd-902   [000] ....   109.896842: rcu_barrier: rcu_sched OnlineNoCB cpu 3 remaining 4 # 1
-    ovs-vswitchd-902   [000] d...   109.896842: rcu_nocb_wake: rcu_sched 3 WakeNotPoll
-    ovs-vswitchd-902   [000] ....   109.896843: rcu_barrier: rcu_sched Inc2 cpu -1 remaining 4 # 2
+Interface doesn't associate.
 
-The pair of WakeNotPoll trace entries says that at that point, RCU believed
-that the CPU 2's and CPU 3's rcuo kthreads did not exist.  :-/
-
-More diagnostics in order...
-
-							Thanx, Paul
+3.17.1
+[  266.849622] cfg80211: Calling CRDA to update world regulatory domain
+[  266.853632] cfg80211: World regulatory domain updated:
+[  266.853661] cfg80211:  DFS Master region: unset
+[  266.853667] cfg80211:   (start_freq - end_freq @ bandwidth), (max_antenna_gain, max_eirp), (dfs_cac_time)
+[  266.853680] cfg80211:   (2402000 KHz - 2472000 KHz @ 40000 KHz), (300 mBi, 2000 mBm), (N/A)
+[  266.853686] cfg80211:   (2457000 KHz - 2482000 KHz @ 40000 KHz), (300 mBi, 2000 mBm), (N/A)
+[  266.853691] cfg80211:   (2474000 KHz - 2494000 KHz @ 20000 KHz), (300 mBi, 2000 mBm), (N/A)
+[  266.853697] cfg80211:   (5170000 KHz - 5250000 KHz @ 40000 KHz), (300 mBi, 2000 mBm), (N/A)
+[  266.853704] cfg80211:   (5735000 KHz - 5835000 KHz @ 40000 KHz), (300 mBi, 2000 mBm), (N/A)
+[  266.926560] rtl8192se: FW Power Save off (module option)
+[  266.926661] rtl8192se: Driver for Realtek RTL8192SE/RTL8191SE
+[  266.926661] Loading firmware rtlwifi/rtl8192sefw.bin
+[  266.927054] ieee80211 phy0: Selected rate control algorithm 'rtl_rc'
+[  267.437850] IPv6: ADDRCONF(NETDEV_UP): wlan0: link is not ready
+[  268.389049] wlan0: authenticate with 20:4e:7f:86:09:40
+[  268.410174] wlan0: send auth to 20:4e:7f:86:09:40 (try 1/3)
+[  268.411974] wlan0: authenticated
+[  268.416222] wlan0: associate with 20:4e:7f:86:09:40 (try 1/3)
+[  268.420555] wlan0: RX AssocResp from 20:4e:7f:86:09:40 (capab=0x431 status=0 aid=1)
+[  268.423403] wlan0: associated
+[  268.423427] IPv6: ADDRCONF(NETDEV_CHANGE): wlan0: link becomes ready
