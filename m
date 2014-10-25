@@ -1,42 +1,85 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [PATCH 06/14] net: dsa: Add support for hardware monitoring
-Date: Fri, 24 Oct 2014 06:53:57 -0700
-Message-ID: <544A59F5.4070705@roeck-us.net>
-References: <1414037002-25528-1-git-send-email-linux@roeck-us.net> <1414037002-25528-7-git-send-email-linux@roeck-us.net> <CAGVrzcYjPJWai9bxkh+WRrEEAzBKBd-LQm7zDeeouxngr_v9SQ@mail.gmail.com> <54488CE1.2000106@roeck-us.net> <20141023134706.GB25190@lunn.ch> <20141023162754.GA21343@roeck-us.net> <20141023165459.GE25190@lunn.ch> <20141023173847.GA22988@roeck-us.net> <20141023180357.GG25190@lunn.ch> <20141023184322.GA24281@roeck-us.net> <20141023195526.GH25190@lunn.ch>
+From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Subject: [PATCH] fixup! net: pxa168_eth: Provide phy_interface mode on
+ platform_data
+Date: Sat, 25 Oct 2014 12:08:59 +0200
+Message-ID: <1414231739-7447-1-git-send-email-sebastian.hesselbarth@gmail.com>
+References: <1414002412-13615-3-git-send-email-sebastian.hesselbarth@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141023195526.GH25190@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Florian Fainelli <f.fainelli@gmail.com>, Eric Miao <eric.y.miao@gmail.com>,
+ netdev@vger.kernel.org, Antoine Tenart <antoine.tenart@free-electrons.com>,
+ linux-kernel@vger.kernel.org, Haojian Zhuang <haojian.zhuang@gmail.com>,
+ linux-arm-kernel@lists.infradead.org
+To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+ "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1414002412-13615-3-git-send-email-sebastian.hesselbarth@gmail.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-On 10/23/2014 12:55 PM, Andrew Lunn wrote:
-[ ... ]
->
-> Does hwmon offer a function to sanitise a string?
->
-No, that wasn't necessary so far. The 'name' string is a constant strin=
-g
-provided by the driver.
+Do not add phy include to the board file but platform_data include
+instead.
 
-> The switch index definitely should be used and i would probably
-> combine that with a sanitised version of the ethernet device name and
-> "dsa".
->
+Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+---
+David,
 
-How is this ?
+I should have compile tested this patch earlier. I did now on
+pxa168_defconfig right after I received an 0-day kbuild error
+on this patch.
 
-em1dsa0-isa-0000
-Adapter: ISA adapter
-temp1:        +38.0=B0C  (high =3D +100.0=B0C)
+This is the corresponding fix, can you please squash it in?
 
-This is the sanitized network device name + 'dsa' + index.
+Thanks and sorry for the noise,
 
-Guenter
+Sebastian
+
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Antoine Tenart <antoine.tenart@free-electrons.com>
+Cc: Florian Fainelli <f.fainelli@gmail.com>
+Cc: Eric Miao <eric.y.miao@gmail.com>
+Cc: Haojian Zhuang <haojian.zhuang@gmail.com>
+Cc: linux-arm-kernel@lists.infradead.org
+Cc: netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+---
+ arch/arm/mach-mmp/gplugd.c | 1 -
+ include/linux/pxa168_eth.h | 2 ++
+ 2 files changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm/mach-mmp/gplugd.c b/arch/arm/mach-mmp/gplugd.c
+index 3b5794cd0357..22762a1f9f72 100644
+--- a/arch/arm/mach-mmp/gplugd.c
++++ b/arch/arm/mach-mmp/gplugd.c
+@@ -12,7 +12,6 @@
+ #include <linux/platform_device.h>
+ #include <linux/gpio.h>
+ #include <linux/gpio-pxa.h>
+-#include <linux/phy.h>
+ 
+ #include <asm/mach/arch.h>
+ #include <asm/mach-types.h>
+diff --git a/include/linux/pxa168_eth.h b/include/linux/pxa168_eth.h
+index 37c381120bc8..e1ab6e86cdb3 100644
+--- a/include/linux/pxa168_eth.h
++++ b/include/linux/pxa168_eth.h
+@@ -4,6 +4,8 @@
+ #ifndef __LINUX_PXA168_ETH_H
+ #define __LINUX_PXA168_ETH_H
+ 
++#include <linux/phy.h>
++
+ struct pxa168_eth_platform_data {
+ 	int	port_number;
+ 	int	phy_addr;
+-- 
+1.9.1
