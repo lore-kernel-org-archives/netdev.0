@@ -1,69 +1,51 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Fw: [Bug 86851] New: Reproducible panic on heavy UDP traffic
-Date: Sat, 25 Oct 2014 14:10:38 +0530
-Message-ID: <20141025141038.26fa5ac2@uryu.home.lan>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net] tcp: md5: do not use alloc_percpu()
+Date: Sat, 25 Oct 2014 16:11:09 -0400 (EDT)
+Message-ID: <20141025.161109.291627513614647003.davem@davemloft.net>
+References: <1414075405.20845.6.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1414081998.20845.18.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1414094338.20845.30.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: dsahern@gmail.com, cdleonard@gmail.com, netdev@vger.kernel.org,
+	jtoppins@cumulusnetworks.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f176.google.com ([209.85.217.176]:39806 "EHLO
-	mail-lb0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751679AbaJYTtK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Oct 2014 15:49:10 -0400
-Received: by mail-lb0-f176.google.com with SMTP id p9so3951677lbv.7
-        for <netdev@vger.kernel.org>; Sat, 25 Oct 2014 12:49:08 -0700 (PDT)
-Received: from uryu.home.lan ([88.128.80.74])
-        by mx.google.com with ESMTPSA id m2sm2679099lam.41.2014.10.25.01.40.55
-        for <netdev@vger.kernel.org>
-        (version=TLSv1.2 cipher=RC4-SHA bits=128/128);
-        Sat, 25 Oct 2014 01:40:56 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:33440 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750964AbaJYULO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Oct 2014 16:11:14 -0400
+In-Reply-To: <1414094338.20845.30.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 23 Oct 2014 12:58:58 -0700
 
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> percpu tcp_md5sig_pool contains memory blobs that ultimately
+> go through sg_set_buf().
+> 
+> -> sg_set_page(sg, virt_to_page(buf), buflen, offset_in_page(buf));
+> 
+> This requires that whole area is in a physically contiguous portion
+> of memory. And that @buf is not backed by vmalloc().
+> 
+> Given that alloc_percpu() can use vmalloc() areas, this does not
+> fit the requirements.
+> 
+> Replace alloc_percpu() by a static DEFINE_PER_CPU() as tcp_md5sig_pool
+> is small anyway, there is no gain to dynamically allocate it.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Fixes: 765cf9976e93 ("tcp: md5: remove one indirection level in tcp_md5sig_pool")
+> Reported-by: Crestez Dan Leonard <cdleonard@gmail.com>
 
-Begin forwarded message:
+Applied and queued up for -stable, thanks Eric.
 
-Date: Fri, 24 Oct 2014 11:34:08 -0700
-From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
-To: "stephen@networkplumber.org" <stephen@networkplumber.org>
-Subject: [Bug 86851] New: Reproducible panic on heavy UDP traffic
+Longer term we should do a proper shash/ahash conversion of the tcp md5
+code, using the rules provided by Herbert Xu.
 
-
-https://bugzilla.kernel.org/show_bug.cgi?id=86851
-
-            Bug ID: 86851
-           Summary: Reproducible panic on heavy UDP traffic
-           Product: Networking
-           Version: 2.5
-    Kernel Version: 3.18-rc1
-          Hardware: x86-64
-                OS: Linux
-              Tree: Mainline
-            Status: NEW
-          Severity: normal
-          Priority: P1
-         Component: IPV4
-          Assignee: shemminger@linux-foundation.org
-          Reporter: chutzpah@gentoo.org
-        Regression: No
-
-Created attachment 154861
-  --> https://bugzilla.kernel.org/attachment.cgi?id=154861&action=edit
-Panic message captured over serial console
-
-This bug is being encountered on a machine with 6 ixgbe interfaces configured
-as 3 bonded pairs. Currently using netperf for testing UDP throughput from ~136
-client machines connected via 1G interfaces.
-
-This is the command being run on the clients:
-netperf -H XX.XX.XX.XX -t OMNI -l 60 -- -d send -T UDP -O throughput,direction
--m 16384
-
-This is the command being run on the server:
-netserver -4
-
--- 
-You are receiving this mail because:
-You are the assignee for the bug.
+Thanks.
