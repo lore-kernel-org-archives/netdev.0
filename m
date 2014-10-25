@@ -1,97 +1,88 @@
-From: Jay Vosburgh <jay.vosburgh@canonical.com>
-Subject: Re: localed stuck in recent 3.18 git in copy_net_ns?
-Date: Fri, 24 Oct 2014 21:33:33 -0700
-Message-ID: <11813.1414211613@famine>
-References: <20141024170931.GA21849@declera.com> <20141024172009.GV4977@linux.vnet.ibm.com> <20141024173526.GA26058@declera.com> <20141024183226.GW4977@linux.vnet.ibm.com> <20141024212557.GA15537@declera.com> <20141024214927.GA4977@linux.vnet.ibm.com> <8915.1414190047@famine> <20141024225931.GC4977@linux.vnet.ibm.com> <20141024230524.GA16023@linux.vnet.ibm.com> <10136.1414196448@famine> <20141025020324.GA28247@linux.vnet.ibm.com>
-Cc: Yanko Kaneti <yaneti@declera.com>,
-	Josh Boyer <jwboyer@fedoraproject.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Cong Wang <cwang@twopensource.com>,
-	Kevin Fenzi <kevin@scrye.com>, netdev <netdev@vger.kernel.org>,
-	"Linux-Kernel@Vger. Kernel. Org" <linux-kernel@vger.kernel.org>,
-	mroos@linux.ee, tj@kernel.org
-To: paulmck@linux.vnet.ibm.com
+From: Fabian Frederick <fabf@skynet.be>
+Subject: Re: [PATCH 1/1 net-next] libceph: remove unused variable in
+ handle_reply()
+Date: Sat, 25 Oct 2014 11:12:16 +0200 (CEST)
+Message-ID: <1805780944.182558.1414228336940.open-xchange@webmail.nmp.skynet.be>
+References: <1414080959-6053-1-git-send-email-fabf@skynet.be> <CALFYKtD222g32njwF8nHz0Fbjj4p2512ka9bkADmB6S2QibgYA@mail.gmail.com>
+Reply-To: Fabian Frederick <fabf@skynet.be>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Ceph Development <ceph-devel@vger.kernel.org>,
+	Sage Weil <sage@inktank.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Ilya Dryomov <ilya.dryomov@inktank.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:40442 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750978AbaJYSk5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Oct 2014 14:40:57 -0400
-In-reply-to: <20141025020324.GA28247@linux.vnet.ibm.com>
+Received: from mailsec102.isp.belgacom.be ([195.238.20.98]:23487 "EHLO
+	mailsec102.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750978AbaJYSl0 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 25 Oct 2014 14:41:26 -0400
+In-Reply-To: <CALFYKtD222g32njwF8nHz0Fbjj4p2512ka9bkADmB6S2QibgYA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
 
->On Fri, Oct 24, 2014 at 05:20:48PM -0700, Jay Vosburgh wrote:
->> Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
->> 
->> >On Fri, Oct 24, 2014 at 03:59:31PM -0700, Paul E. McKenney wrote:
->> [...]
->> >> Hmmm...  It sure looks like we have some callbacks stuck here.  I clearly
->> >> need to take a hard look at the sleep/wakeup code.
->> >> 
->> >> Thank you for running this!!!
->> >
->> >Could you please try the following patch?  If no joy, could you please
->> >add rcu:rcu_nocb_wake to the list of ftrace events?
->> 
->> 	I tried the patch, it did not change the behavior.
->> 
->> 	I enabled the rcu:rcu_barrier and rcu:rcu_nocb_wake tracepoints
->> and ran it again (with this patch and the first patch from earlier
->> today); the trace output is a bit on the large side so I put it and the
->> dmesg log at:
->> 
->> http://people.canonical.com/~jvosburgh/nocb-wake-dmesg.txt
->> 
->> http://people.canonical.com/~jvosburgh/nocb-wake-trace.txt
+
+> On 23 October 2014 at 18:25 Ilya Dryomov <ilya.dryomov@inktank.com> w=
+rote:
 >
->Thank you again!
 >
->Very strange part of the trace.  The only sign of CPU 2 and 3 are:
+> On Thu, Oct 23, 2014 at 8:15 PM, Fabian Frederick <fabf@skynet.be> wr=
+ote:
+> > osdmap_epoch is redundant with reassert_epoch and unused.
+> >
+> > Signed-off-by: Fabian Frederick <fabf@skynet.be>
+> > ---
+> >=C2=A0 net/ceph/osd_client.c | 2 --
+> >=C2=A0 1 file changed, 2 deletions(-)
+> >
+> > diff --git a/net/ceph/osd_client.c b/net/ceph/osd_client.c
+> > index f3fc54e..432bd75 100644
+> > --- a/net/ceph/osd_client.c
+> > +++ b/net/ceph/osd_client.c
+> > @@ -1700,7 +1700,6 @@ static void handle_reply(struct ceph_osd_clie=
+nt *osdc,
+> > struct ceph_msg *msg,
+> >=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0int err;
+> >=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0u32 reassert_epoch;
+> >=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0u64 reassert_version;
+> > -=C2=A0 =C2=A0 =C2=A0 =C2=A0u32 osdmap_epoch;
+> >=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0int already_completed;
+> >=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0u32 bytes;
+> >=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0unsigned int i;
+> > @@ -1725,7 +1724,6 @@ static void handle_reply(struct ceph_osd_clie=
+nt *osdc,
+> > struct ceph_msg *msg,
+> >=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0result =3D ceph_decode_32(&p);
+> >=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0reassert_epoch =3D ceph_decode_32(=
+&p);
+> >=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0reassert_version =3D ceph_decode_6=
+4(&p);
+> > -=C2=A0 =C2=A0 =C2=A0 =C2=A0osdmap_epoch =3D ceph_decode_32(&p);
+> >
+> >=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0/* lookup */
+> >=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0down_read(&osdc->map_sem);
 >
->    ovs-vswitchd-902   [000] ....   109.896840: rcu_barrier: rcu_sched Begin cpu -1 remaining 0 # 0
->    ovs-vswitchd-902   [000] ....   109.896840: rcu_barrier: rcu_sched Check cpu -1 remaining 0 # 0
->    ovs-vswitchd-902   [000] ....   109.896841: rcu_barrier: rcu_sched Inc1 cpu -1 remaining 0 # 1
->    ovs-vswitchd-902   [000] ....   109.896841: rcu_barrier: rcu_sched OnlineNoCB cpu 0 remaining 1 # 1
->    ovs-vswitchd-902   [000] d...   109.896841: rcu_nocb_wake: rcu_sched 0 WakeNot
->    ovs-vswitchd-902   [000] ....   109.896841: rcu_barrier: rcu_sched OnlineNoCB cpu 1 remaining 2 # 1
->    ovs-vswitchd-902   [000] d...   109.896841: rcu_nocb_wake: rcu_sched 1 WakeNot
->    ovs-vswitchd-902   [000] ....   109.896842: rcu_barrier: rcu_sched OnlineNoCB cpu 2 remaining 3 # 1
->    ovs-vswitchd-902   [000] d...   109.896842: rcu_nocb_wake: rcu_sched 2 WakeNotPoll
->    ovs-vswitchd-902   [000] ....   109.896842: rcu_barrier: rcu_sched OnlineNoCB cpu 3 remaining 4 # 1
->    ovs-vswitchd-902   [000] d...   109.896842: rcu_nocb_wake: rcu_sched 3 WakeNotPoll
->    ovs-vswitchd-902   [000] ....   109.896843: rcu_barrier: rcu_sched Inc2 cpu -1 remaining 4 # 2
+> Hi Fabian,
 >
->The pair of WakeNotPoll trace entries says that at that point, RCU believed
->that the CPU 2's and CPU 3's rcuo kthreads did not exist.  :-/
+> osdmap_epoch is useful for debugging, but this is wrong anyway -
+> ceph_decode_32() has side effects.=C2=A0 Removing it and not adjustin=
+g *p
+> would make the whole thing blow up pretty fast..
+>
+> Thanks,
+>
+>=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0Ilya
 
-	On the test system I'm using, CPUs 2 and 3 really do not exist;
-it is a 2 CPU system (Intel Core 2 Duo E8400). I mentioned this in an
-earlier message, but perhaps you missed it in the flurry.
+Hi Ilya,
 
-	Looking at the dmesg, the early boot messages seem to be
-confused as to how many CPUs there are, e.g.,
+=C2=A0 =C2=A0 =C2=A0 =C2=A0 osdmap_epoch generates a warning with -Wunu=
+sed-but-set-variable.
+Maybe we could just do ceph_decode_32(&p) and remove it
+(it doesn't seem to add a warning) and/or add some comment ?
 
-[    0.000000] SLUB: HWalign=64, Order=0-3, MinObjects=0, CPUs=4, Nodes=1
-[    0.000000] Hierarchical RCU implementation.
-[    0.000000]  RCU debugfs-based tracing is enabled.
-[    0.000000]  RCU dyntick-idle grace-period acceleration is enabled.
-[    0.000000]  RCU restricting CPUs from NR_CPUS=256 to nr_cpu_ids=4.
-[    0.000000] RCU: Adjusting geometry for rcu_fanout_leaf=16, nr_cpu_ids=4
-[    0.000000] NR_IRQS:16640 nr_irqs:456 0
-[    0.000000]  Offload RCU callbacks from all CPUs
-[    0.000000]  Offload RCU callbacks from CPUs: 0-3.
-
-	but later shows 2:
-
-[    0.233703] x86: Booting SMP configuration:
-[    0.236003] .... node  #0, CPUs:      #1
-[    0.255528] x86: Booted up 1 node, 2 CPUs
-
-	In any event, the E8400 is a 2 core CPU with no hyperthreading.
-
-	-J
-
----
-	-Jay Vosburgh, jay.vosburgh@canonical.com
+Regards,
+=46abian
