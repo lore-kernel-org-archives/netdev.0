@@ -1,37 +1,40 @@
-From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Subject: Re: [PATCH V2 net-next] Bluetooth: fix shadow warning in hci_disconnect()
-Date: Sat, 25 Oct 2014 09:57:33 -0700
-Message-ID: <336B40DB-747D-40B8-B418-16DF5F9AC619@holtmann.org>
-References: <1414226938-7478-1-git-send-email-fabf@skynet.be>
-Mime-Version: 1.0 (Mac OS X Mail 8.0 \(1990.1\))
-Content-Type: text/plain; charset=us-ascii
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: [PATCH 06/14] net: dsa: Add support for hardware monitoring
+Date: Sat, 25 Oct 2014 12:44:37 -0700
+Message-ID: <544BFDA5.2010404@roeck-us.net>
+References: <CAGVrzcYjPJWai9bxkh+WRrEEAzBKBd-LQm7zDeeouxngr_v9SQ@mail.gmail.com> <54488CE1.2000106@roeck-us.net> <20141023134706.GB25190@lunn.ch> <20141023162754.GA21343@roeck-us.net> <20141023165459.GE25190@lunn.ch> <20141023173847.GA22988@roeck-us.net> <20141023180357.GG25190@lunn.ch> <20141023184322.GA24281@roeck-us.net> <20141023195526.GH25190@lunn.ch> <20141024161919.GA29600@roeck-us.net> <20141025140116.GA12051@lunn.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"Gustavo F. Padovan" <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
-	Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Fabian Frederick <fabf-AgBVmzD5pcezQB+pC5nmwQ@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1414226938-7478-1-git-send-email-fabf-AgBVmzD5pcezQB+pC5nmwQ@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bh-25.webhostbox.net ([208.91.199.152]:50082 "EHLO
+	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752566AbaJYTon (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Oct 2014 15:44:43 -0400
+Received: from mailnull by bh-25.webhostbox.net with sa-checked (Exim 4.82)
+	(envelope-from <linux@roeck-us.net>)
+	id 1Xi7GV-003t2p-60
+	for netdev@vger.kernel.org; Sat, 25 Oct 2014 19:44:43 +0000
+In-Reply-To: <20141025140116.GA12051@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Fabian,
+On 10/25/2014 07:01 AM, Andrew Lunn wrote:
+>> Here is another naming option:
+>>
+>> em1dsa0-virtual-0
+>
+> I prefer this over isa.
+>
+> However, i think there should be some sort of separator between the
+> network device name and dsa.
+>
 
-> use clkoff_cp for hci_cp_read_clock_offset instead of cp
-> (already defined above).
-> 
-> Suggested-by: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-> Signed-off-by: Fabian Frederick <fabf-AgBVmzD5pcezQB+pC5nmwQ@public.gmane.org>
-> ---
-> V2: use clkoff_cp instead of cpr (suggested by Marcel Holtmann)
-> 
-> net/bluetooth/hci_conn.c | 7 ++++---
-> 1 file changed, 4 insertions(+), 3 deletions(-)
+Fine with me. Any preference ? Note that '-' is not permitted.
 
-patch has been applied to bluetooth-next tree.
-
-Regards
-
-Marcel
+Guenter
