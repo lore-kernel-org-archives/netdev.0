@@ -1,56 +1,68 @@
-From: Sasha Levin <sasha.levin@oracle.com>
-Subject: Re: [PATCH] netlink: don't copy over empty attribute data
-Date: Sun, 26 Oct 2014 19:32:42 -0400
-Message-ID: <544D849A.4040304@oracle.com>
-References: <1413924669-26732-1-git-send-email-sasha.levin@oracle.com>	<20141021.213908.1088381802543942481.davem@davemloft.net>	<54471438.1040907@oracle.com> <20141022.021508.2011745433893496421.davem@davemloft.net>
+From: Vince Bridgers <vbridger@opensource.altera.com>
+Subject: [PATCH net] net: phy: Add SGMII Configuration for Marvell 88E1145 Initialization
+Date: Sun, 26 Oct 2014 14:22:24 -0500
+Message-ID: <1414351344-24042-1-git-send-email-vbridger@opensource.altera.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 8bit
-Cc: a.ryabinin@samsung.com, pablo@netfilter.org, mschmidt@redhat.com,
-	akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141022.021508.2011745433893496421.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <vbridger@altera.com>, <vbridger@opensource.altera.com>
+To: <f.fainelli@gmail.com>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn1bon0078.outbound.protection.outlook.com ([157.56.111.78]:3946
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751844AbaJZXmy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 26 Oct 2014 19:42:54 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/22/2014 02:15 AM, David Miller wrote:
-> From: Sasha Levin <sasha.levin@oracle.com>
-> Date: Tue, 21 Oct 2014 22:19:36 -0400
-> 
->> On 10/21/2014 09:39 PM, David Miller wrote:
->>> From: Sasha Levin <sasha.levin@oracle.com>
->>> Date: Tue, 21 Oct 2014 16:51:09 -0400
->>>
->>>>> netlink uses empty data to seperate different levels. However, we still
->>>>> try to copy that data from a NULL ptr using memcpy, which is an undefined
->>>>> behaviour.
->>>>>
->>>>> Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
->>> This isn't a POSIX C library, this it the Linux kernel, and as such
->>> we can make sure none of our memcpy() implementations try to access
->>> any bytes if the given length is NULL.
->>
->> We can make *our* implementations work around that undefined behaviour if we
->> want, but right now our implementations is to call GCC's builtin memcpy(),
->> which follows the standards and doesn't allow you to call it with NULL 'from'
->> ptr.
->>
->> The fact that it doesn't die and behaves properly is just "luck".
-> 
-> If GCC's internal memcpy() starts accessing past 'len', I'm going
-> to report the bug rather than code around it.
+Marvell phy 88E1145 configuration & initialization was missing a case
+for initializing SGMII mode. This patch adds that case.
 
-How so? GCC states clearly that you should *never* pass a NULL pointer there:
+Signed-off-by: Vince Bridgers <vbridger@opensource.altera.com>
+---
+ drivers/net/phy/marvell.c | 19 +++++++++++++++++++
+ 1 file changed, 19 insertions(+)
 
-"The pointers passed to memmove (and similar functions in <string.h>) must
-be non-null even when nbytes==0" (https://gcc.gnu.org/gcc-4.9/porting_to.html).
-
-Even if it doesn't dereference it, it can break somehow in a subtle way. Leaving
-the kernel code assuming that gcc (or any other compiler) would always behave
-the same in a situation that shouldn't occur.
-
-
-Thanks,
-Sasha
+diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
+index bd37e45..225c033 100644
+--- a/drivers/net/phy/marvell.c
++++ b/drivers/net/phy/marvell.c
+@@ -50,10 +50,15 @@
+ #define MII_M1011_PHY_SCR		0x10
+ #define MII_M1011_PHY_SCR_AUTO_CROSS	0x0060
+ 
++#define MII_M1145_PHY_EXT_SR		0x1b
+ #define MII_M1145_PHY_EXT_CR		0x14
+ #define MII_M1145_RGMII_RX_DELAY	0x0080
+ #define MII_M1145_RGMII_TX_DELAY	0x0002
+ 
++#define MII_M1145_HWCFG_MODE_SGMII_NO_CLK	0x4
++#define MII_M1145_HWCFG_MODE_MASK		0xf
++#define MII_M1145_HWCFG_FIBER_COPPER_AUTO	0x8000
++
+ #define MII_M1111_PHY_LED_CONTROL	0x18
+ #define MII_M1111_PHY_LED_DIRECT	0x4100
+ #define MII_M1111_PHY_LED_COMBINE	0x411c
+@@ -676,6 +681,20 @@ static int m88e1145_config_init(struct phy_device *phydev)
+ 		}
+ 	}
+ 
++	if (phydev->interface == PHY_INTERFACE_MODE_SGMII) {
++		int temp = phy_read(phydev, MII_M1145_PHY_EXT_SR);
++		if (temp < 0)
++			return temp;
++
++		temp &= ~MII_M1145_HWCFG_MODE_MASK;
++		temp |= MII_M1145_HWCFG_MODE_SGMII_NO_CLK;
++		temp |= MII_M1145_HWCFG_FIBER_COPPER_AUTO;
++
++		err = phy_write(phydev, MII_M1145_PHY_EXT_SR, temp);
++		if (err < 0)
++			return err;
++	}
++
+ 	err = marvell_of_reg_init(phydev);
+ 	if (err < 0)
+ 		return err;
+-- 
+1.9.1
