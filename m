@@ -1,62 +1,80 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: [PATCH v2 05/15] net: dsa/mv88e6352: Add support for MV88E6176
-Date: Sun, 26 Oct 2014 09:52:35 -0700
-Message-ID: <1414342365-27191-6-git-send-email-linux@roeck-us.net>
-References: <1414342365-27191-1-git-send-email-linux@roeck-us.net>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>, linux-kernel@vger.kernel.org,
-	Guenter Roeck <linux@roeck-us.net>
+From: Denis Kirjanov <kda@linux-powerpc.org>
+Subject: [PATCH] PPC: bpf_jit_comp: add SKF_AD_PKTTYPE instruction
+Date: Sun, 26 Oct 2014 22:23:26 +0300
+Message-ID: <1414351406-4122-1-git-send-email-kda@linux-powerpc.org>
+Cc: linuxppc-dev@ozlabs.org, Denis Kirjanov <kda@linux-powerpc.org>,
+	Matt Evans <matt@ozlabs.org>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1414342365-27191-1-git-send-email-linux@roeck-us.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f54.google.com ([209.85.215.54]:40983 "EHLO
+	mail-la0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751536AbaJZTu5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 26 Oct 2014 15:50:57 -0400
+Received: by mail-la0-f54.google.com with SMTP id gm9so4851232lab.27
+        for <netdev@vger.kernel.org>; Sun, 26 Oct 2014 12:50:55 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-MV88E6176 is mostly compatible to MV88E6352 and is documented
-in the same functional specification. Add support for it.
-
-Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+Cc: Matt Evans <matt@ozlabs.org>
+Signed-off-by: Denis Kirjanov <kda@linux-powerpc.org>
 ---
-v2:
-- No change
+ arch/powerpc/include/asm/ppc-opcode.h | 1 +
+ arch/powerpc/net/bpf_jit.h            | 7 +++++++
+ arch/powerpc/net/bpf_jit_comp.c       | 5 +++++
+ 3 files changed, 13 insertions(+)
 
- drivers/net/dsa/Kconfig     | 5 +++--
- drivers/net/dsa/mv88e6352.c | 2 ++
- 2 files changed, 5 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/dsa/Kconfig b/drivers/net/dsa/Kconfig
-index 0987c33..2d1a55e 100644
---- a/drivers/net/dsa/Kconfig
-+++ b/drivers/net/dsa/Kconfig
-@@ -46,12 +46,13 @@ config NET_DSA_MV88E6171
- 	  chip.
+diff --git a/arch/powerpc/include/asm/ppc-opcode.h b/arch/powerpc/include/asm/ppc-opcode.h
+index 6f85362..1a52877 100644
+--- a/arch/powerpc/include/asm/ppc-opcode.h
++++ b/arch/powerpc/include/asm/ppc-opcode.h
+@@ -204,6 +204,7 @@
+ #define PPC_INST_ERATSX_DOT		0x7c000127
  
- config NET_DSA_MV88E6352
--	tristate "Marvell 88E6352 ethernet switch chip support"
-+	tristate "Marvell 88E6176/88E6352 ethernet switch chip support"
- 	select NET_DSA
- 	select NET_DSA_MV88E6XXX
- 	select NET_DSA_TAG_EDSA
- 	---help---
--	  This enables support for the Marvell 88E6352 ethernet switch chip.
-+	  This enables support for the Marvell 88E6176 and 88E6352 ethernet
-+	  switch chips.
+ /* Misc instructions for BPF compiler */
++#define PPC_INST_LBZ			0x88000000
+ #define PPC_INST_LD			0xe8000000
+ #define PPC_INST_LHZ			0xa0000000
+ #define PPC_INST_LHBRX			0x7c00062c
+diff --git a/arch/powerpc/net/bpf_jit.h b/arch/powerpc/net/bpf_jit.h
+index 9aee27c..c406aa9 100644
+--- a/arch/powerpc/net/bpf_jit.h
++++ b/arch/powerpc/net/bpf_jit.h
+@@ -87,6 +87,9 @@ DECLARE_LOAD_FUNC(sk_load_byte_msh);
+ #define PPC_STD(r, base, i)	EMIT(PPC_INST_STD | ___PPC_RS(r) |	      \
+ 				     ___PPC_RA(base) | ((i) & 0xfffc))
  
- config NET_DSA_BCM_SF2
- 	tristate "Broadcom Starfighter 2 Ethernet switch support"
-diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
-index 43a5826..f17364f 100644
---- a/drivers/net/dsa/mv88e6352.c
-+++ b/drivers/net/dsa/mv88e6352.c
-@@ -73,6 +73,8 @@ static char *mv88e6352_probe(struct device *host_dev, int sw_addr)
- 
- 	ret = __mv88e6xxx_reg_read(bus, sw_addr, REG_PORT(0), 0x03);
- 	if (ret >= 0) {
-+		if ((ret & 0xfff0) == 0x1760)
-+			return "Marvell 88E6176";
- 		if (ret == 0x3521)
- 			return "Marvell 88E6352 (A0)";
- 		if (ret == 0x3522)
++
++#define PPC_LBZ(r, base, i)	EMIT(PPC_INST_LBZ | ___PPC_RT(r) |	      \
++				     ___PPC_RA(base) | IMM_L(i))
+ #define PPC_LD(r, base, i)	EMIT(PPC_INST_LD | ___PPC_RT(r) |	      \
+ 				     ___PPC_RA(base) | IMM_L(i))
+ #define PPC_LWZ(r, base, i)	EMIT(PPC_INST_LWZ | ___PPC_RT(r) |	      \
+@@ -96,6 +99,10 @@ DECLARE_LOAD_FUNC(sk_load_byte_msh);
+ #define PPC_LHBRX(r, base, b)	EMIT(PPC_INST_LHBRX | ___PPC_RT(r) |	      \
+ 				     ___PPC_RA(base) | ___PPC_RB(b))
+ /* Convenience helpers for the above with 'far' offsets: */
++#define PPC_LBZ_OFFS(r, base, i) do { if ((i) < 32768) PPC_LBZ(r, base, i);   \
++		else {	PPC_ADDIS(r, base, IMM_HA(i));			      \
++			PPC_LBZ(r, r, IMM_L(i)); } } while(0)
++
+ #define PPC_LD_OFFS(r, base, i) do { if ((i) < 32768) PPC_LD(r, base, i);     \
+ 		else {	PPC_ADDIS(r, base, IMM_HA(i));			      \
+ 			PPC_LD(r, r, IMM_L(i)); } } while(0)
+diff --git a/arch/powerpc/net/bpf_jit_comp.c b/arch/powerpc/net/bpf_jit_comp.c
+index cbae2df..d110e28 100644
+--- a/arch/powerpc/net/bpf_jit_comp.c
++++ b/arch/powerpc/net/bpf_jit_comp.c
+@@ -407,6 +407,11 @@ static int bpf_jit_build_body(struct bpf_prog *fp, u32 *image,
+ 			PPC_LHZ_OFFS(r_A, r_skb, offsetof(struct sk_buff,
+ 							  queue_mapping));
+ 			break;
++		case BPF_ANC | SKF_AD_PKTTYPE:
++			PPC_LBZ_OFFS(r_A, r_skb, PKT_TYPE_OFFSET());
++			PPC_ANDI(r_A, r_A, PKT_TYPE_MAX);
++			PPC_SRWI(r_A, r_A, 5);
++			break;
+ 		case BPF_ANC | SKF_AD_CPU:
+ #ifdef CONFIG_SMP
+ 			/*
 -- 
-1.9.1
+2.1.0
