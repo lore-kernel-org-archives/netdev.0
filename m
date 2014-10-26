@@ -1,49 +1,59 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: some failures with vxlan offloads..
-Date: Mon, 27 Oct 2014 00:23:14 +0200
-Message-ID: <CAJ3xEMi6UuCT+6iriX02qjS6trhEaoYh39UBL+p_i995MvZc2Q@mail.gmail.com>
-References: <544CF8E3.8070207@mellanox.com>
-	<CA+mtBx-Jp5Kps5WycYwN0PuyXLDtGM0s8USxdQoSLPRDVS19xw@mail.gmail.com>
+From: Lubomir Rintel <lkundrak@v3.sk>
+Subject: Re: [PATCH] ipv6: notify userspace when we added or changed an ipv6
+ token
+Date: Sun, 26 Oct 2014 23:28:31 +0100
+Message-ID: <1414362511.29980.4.camel@belphegor.lan>
+References: <1412950112-15593-1-git-send-email-lkundrak@v3.sk>
+	 <543B9F5A.8070909@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Or Gerlitz <ogerlitz@mellanox.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: Tom Herbert <therbert@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f179.google.com ([209.85.214.179]:60385 "EHLO
-	mail-ob0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751605AbaJZWXP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 26 Oct 2014 18:23:15 -0400
-Received: by mail-ob0-f179.google.com with SMTP id m8so418427obr.24
-        for <netdev@vger.kernel.org>; Sun, 26 Oct 2014 15:23:14 -0700 (PDT)
-In-Reply-To: <CA+mtBx-Jp5Kps5WycYwN0PuyXLDtGM0s8USxdQoSLPRDVS19xw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Daniel Borkmann <dborkman@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <543B9F5A.8070909@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Oct 26, 2014 at 5:29 PM, Tom Herbert <therbert@google.com> wrote:
-> On Sun, Oct 26, 2014 at 6:36 AM, Or Gerlitz <ogerlitz@mellanox.com> wrote:
+On Mon, 2014-10-13 at 11:46 +0200, Daniel Borkmann wrote:
+> On 10/10/2014 04:08 PM, Lubomir Rintel wrote:
+> > NetworkManager might want to know that it changed when the router advertisement
+> > arrives.
+> >
+> > Signed-off-by: Lubomir Rintel <lkundrak@v3.sk>
+> > Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> > Cc: Daniel Borkmann <dborkman@redhat.com>
+> > ---
+> >   net/ipv6/addrconf.c | 1 +
+> >   1 file changed, 1 insertion(+)
+> >
+> > diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+> > index 3e118df..3d11390 100644
+> > --- a/net/ipv6/addrconf.c
+> > +++ b/net/ipv6/addrconf.c
+> > @@ -4528,6 +4528,7 @@ static int inet6_set_iftoken(struct inet6_dev *idev, struct in6_addr *token)
+> >   	}
+> >
+> >   	write_unlock_bh(&idev->lock);
+> > +	netdev_state_change(dev);
+> 
+> I'm wondering why netdev_state_change()? You are probably
+> only after the netlink notification that is being invoked,
+> i.e. rtmsg_ifinfo(RTM_NEWLINK, ...), and don't strictly want
+> to call the device notifier chain.
 
->> In the cases where it breaks I can see
->>         UDP: bad checksum. From 192.168.31.18:54748 to 192.168.31.17:4789
->> ulen 726
->> prints from __udp4_lib_rcv() in the kernel log of the node where offloads
->> are OFF, where the bad packet is sent from the host where offloading is
->> enabled. I guess the packet is just dropped:
+Correct. I'll change it to just rtmsg_ifinfo().
 
-> Can you determine what the TSO HW engine is setting in UDP checksum
-> field? tcpdump -vv might be able to show this. The symptoms seem to
-> indicate that it may not be zero.
+> Perhaps it might be better to define a new RTM_SETTOKEN, and
+> just call inet6_ifinfo_notify(RTM_SETTOKEN, idev) as this is
+> only idev specific anyway?
 
-Thanks for the quick response. I'll check what is placed in the UDP
-checksum field for packets that went through the offloading HW and let
-you know.
+I'm not really sure as that would require more userspace changes than
+necessary.
 
-BTW, if following the direction you proposed, I wonder why this works
-(e.g the kernel doesn't drops the encapsulated TCP packets) when both
-sides are offloaded?
-
-Tomorrow (Monday) I am OOO so will be able to do these further tests Tuesday.
-
-Or.
+> >   	addrconf_verify_rtnl();
+> >   	return 0;
+> >   }
+> >
