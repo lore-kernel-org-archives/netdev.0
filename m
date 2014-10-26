@@ -1,66 +1,33 @@
-From: Paul Barker <paul@paulbarker.me.uk>
-Subject: [ethtool][PATCH] Fix build with musl by using more common typedefs
-Date: Sun, 26 Oct 2014 11:44:09 +0000
-Message-ID: <1414323849-5739-2-git-send-email-paul@paulbarker.me.uk>
-References: <1414323849-5739-1-git-send-email-paul@paulbarker.me.uk>
-Cc: Paul Barker <paul@paulbarker.me.uk>,
-	John Spencer <maillist-linux@barfooze.de>
-To: Ben Hutchings <bwh@kernel.org>, netdev@vger.kernel.org
+From: samantha.mohamed@outlook.com
+Subject: Check out this video at RightThisMinute.com!
+Date: Sun, 26 Oct 2014 04:59:15 -0700
+Message-ID: <201410261159.s9QBxFLI009696@runinga.do>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed; delsp=yes
+Content-Transfer-Encoding: 8Bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f171.google.com ([209.85.217.171]:65388 "EHLO
-	mail-lb0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751049AbaJZLo3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 26 Oct 2014 07:44:29 -0400
-Received: by mail-lb0-f171.google.com with SMTP id z11so997282lbi.2
-        for <netdev@vger.kernel.org>; Sun, 26 Oct 2014 04:44:27 -0700 (PDT)
-In-Reply-To: <1414323849-5739-1-git-send-email-paul@paulbarker.me.uk>
+Received: from runinga.do ([162.243.33.154]:35029 "EHLO runinga.do"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751013AbaJZNBi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 26 Oct 2014 09:01:38 -0400
+Received: from runinga.do (localhost [127.0.0.1])
+	by runinga.do (8.14.4/8.14.4/Debian-4.1ubuntu1) with ESMTP id s9QBxFWf009701
+	for <netdev@vger.kernel.org>; Sun, 26 Oct 2014 04:59:15 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When using musl as the standard C library, type names such as '__int32_t' are
-not defined. Instead we must use the more commonly defined type names such as
-'int32_t', which are defined in <stdint.h>.
+My dear friend,
+AM Miss Samantha ABDUL From Kuwait:
 
-Signed-off-by: John Spencer <maillist-linux@barfooze.de>
-Signed-off-by: Paul Barker <paul@paulbarker.me.uk>
----
- internal.h | 13 +++++++------
- 1 file changed, 7 insertions(+), 6 deletions(-)
+I am writing this mail to call for your collaboration in a partnership
+business in your country, Sorry for contacting you through this medium
+without a previouse notice: Although this massage might meet you in
+utmost surprise as both of us has never see each other before but i
+had to use email communication with you because its is an official and
+more confidential way of making contact with people around the
+world.In receipt of your respond i want you to tell me something about
+your company if (any).
 
-diff --git a/internal.h b/internal.h
-index a9dfae0..262a39f 100644
---- a/internal.h
-+++ b/internal.h
-@@ -7,6 +7,7 @@
- #include "ethtool-config.h"
- #endif
- #include <stdio.h>
-+#include <stdint.h>
- #include <stdlib.h>
- #include <string.h>
- #include <sys/types.h>
-@@ -17,16 +18,16 @@
- 
- /* ethtool.h expects these to be defined by <linux/types.h> */
- #ifndef HAVE_BE_TYPES
--typedef __uint16_t __be16;
--typedef __uint32_t __be32;
-+typedef uint16_t __be16;
-+typedef uint32_t __be32;
- typedef unsigned long long __be64;
- #endif
- 
- typedef unsigned long long u64;
--typedef __uint32_t u32;
--typedef __uint16_t u16;
--typedef __uint8_t u8;
--typedef __int32_t s32;
-+typedef uint32_t u32;
-+typedef uint16_t u16;
-+typedef uint8_t u8;
-+typedef int32_t s32;
- 
- #include "ethtool-copy.h"
- #include "net_tstamp-copy.h"
--- 
-2.1.2
+Samantha ABDUL
+Email: samantha.mohamed@outlook.com
