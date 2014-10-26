@@ -1,7 +1,7 @@
 From: Guenter Roeck <linux@roeck-us.net>
-Subject: [PATCH v2 11/15] net: dsa/mv88e6352: Implement EEPROM access functions
-Date: Sun, 26 Oct 2014 09:52:41 -0700
-Message-ID: <1414342365-27191-12-git-send-email-linux@roeck-us.net>
+Subject: [PATCH v2 09/15] net: dsa: Add support for switch EEPROM access
+Date: Sun, 26 Oct 2014 09:52:39 -0700
+Message-ID: <1414342365-27191-10-git-send-email-linux@roeck-us.net>
 References: <1414342365-27191-1-git-send-email-linux@roeck-us.net>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Florian Fainelli <f.fainelli@gmail.com>,
@@ -13,308 +13,130 @@ In-Reply-To: <1414342365-27191-1-git-send-email-linux@roeck-us.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-MV88E6352 supports read and write access to its configuration eeprom.
-
-There is no means to detect if an EEPROM is connected to the switch.
-Also, the switch supports EEPROMs with different sizes, but can not detect
-or report the type or size of connected EEPROMs. Therefore, do not implement
-the get_eeprom_len callback but depend on platform or devicetree data to
-provide information about EEPROM presence and size.
+On some chips it is possible to access the switch eeprom.
+Add infrastructure support for it.
 
 Signed-off-by: Guenter Roeck <linux@roeck-us.net>
 ---
 v2:
-- EEPROM length must now be provided through platform or devicetree data
+- Add support for configuring switch EEPROM size through platform data
+  or devicetree data
+- Do not compare new pointers against NULL
+- Check if get_eeprom pointer is set before calling it
 
- drivers/net/dsa/mv88e6352.c | 222 +++++++++++++++++++++++++++++++++++++++++++-
- drivers/net/dsa/mv88e6xxx.h |   5 +
- 2 files changed, 224 insertions(+), 3 deletions(-)
+ include/net/dsa.h | 10 ++++++++++
+ net/dsa/dsa.c     |  4 ++++
+ net/dsa/slave.c   | 41 +++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 55 insertions(+)
 
-diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
-index 744e6fa..8a956f9 100644
---- a/drivers/net/dsa/mv88e6352.c
-+++ b/drivers/net/dsa/mv88e6352.c
-@@ -22,18 +22,18 @@
- #include <net/dsa.h>
- #include "mv88e6xxx.h"
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index 55e75e7..37856a2 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -38,6 +38,9 @@ struct dsa_chip_data {
+ 	struct device	*host_dev;
+ 	int		sw_addr;
  
--static int mv88e6352_phy_wait(struct dsa_switch *ds)
-+static int mv88e6352_wait(struct dsa_switch *ds, int reg, u16 mask)
- {
- 	unsigned long timeout = jiffies + HZ / 10;
++	/* set to size of eeprom if supported by the switch */
++	int		eeprom_len;
++
+ 	/* Device tree node pointer for this specific switch chip
+ 	 * used during switch setup in case additional properties
+ 	 * and resources needs to be used
+@@ -258,6 +261,13 @@ struct dsa_switch_driver {
+ 	int	(*set_temp_limit)(struct dsa_switch *ds, int temp);
+ 	int	(*get_temp_alarm)(struct dsa_switch *ds, bool *alarm);
+ #endif
++
++	/* EEPROM access */
++	int	(*get_eeprom_len)(struct dsa_switch *ds);
++	int	(*get_eeprom)(struct dsa_switch *ds,
++			      struct ethtool_eeprom *eeprom, u8 *data);
++	int	(*set_eeprom)(struct dsa_switch *ds,
++			      struct ethtool_eeprom *eeprom, u8 *data);
+ };
  
- 	while (time_before(jiffies, timeout)) {
- 		int ret;
+ void register_switch_driver(struct dsa_switch_driver *type);
+diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+index 5edbbca..1c1b925 100644
+--- a/net/dsa/dsa.c
++++ b/net/dsa/dsa.c
+@@ -575,6 +575,7 @@ static int dsa_of_probe(struct platform_device *pdev)
+ 	const char *port_name;
+ 	int chip_index, port_index;
+ 	const unsigned int *sw_addr, *port_reg;
++	u32 eeprom_length;
+ 	int ret;
  
--		ret = REG_READ(REG_GLOBAL2, 0x18);
-+		ret = REG_READ(REG_GLOBAL2, reg);
- 		if (ret < 0)
- 			return ret;
+ 	mdio = of_parse_phandle(np, "dsa,mii-bus", 0);
+@@ -603,6 +604,9 @@ static int dsa_of_probe(struct platform_device *pdev)
+ 	if (pd->nr_chips > DSA_MAX_SWITCHES)
+ 		pd->nr_chips = DSA_MAX_SWITCHES;
  
--		if (!(ret & 0x8000))
-+		if (!(ret & mask))
- 			return 0;
- 
- 		usleep_range(1000, 2000);
-@@ -41,6 +41,21 @@ static int mv88e6352_phy_wait(struct dsa_switch *ds)
- 	return -ETIMEDOUT;
++	if (!of_property_read_u32(np, "eeprom-length", &eeprom_length))
++		pd->eeprom_length = eeprom_length;
++
+ 	pd->chip = kzalloc(pd->nr_chips * sizeof(struct dsa_chip_data),
+ 			GFP_KERNEL);
+ 	if (!pd->chip) {
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 6d18174..ff2fbe7 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -271,6 +271,44 @@ static u32 dsa_slave_get_link(struct net_device *dev)
+ 	return -EOPNOTSUPP;
  }
  
-+static inline int mv88e6352_phy_wait(struct dsa_switch *ds)
++static int dsa_slave_get_eeprom_len(struct net_device *dev)
 +{
-+	return mv88e6352_wait(ds, 0x18, 0x8000);
++	struct dsa_slave_priv *p = netdev_priv(dev);
++	struct dsa_switch *ds = p->parent;
++
++	if (ds->pd->eeprom_len)
++		return ds->pd->eeprom_len;
++
++	if (ds->drv->get_eeprom_len)
++		return ds->drv->get_eeprom_len(ds);
++
++	return 0;
 +}
 +
-+static inline int mv88e6352_eeprom_load_wait(struct dsa_switch *ds)
-+{
-+	return mv88e6352_wait(ds, 0x14, 0x0800);
-+}
-+
-+static inline int mv88e6352_eeprom_busy_wait(struct dsa_switch *ds)
-+{
-+	return mv88e6352_wait(ds, 0x14, 0x8000);
-+}
-+
- static int __mv88e6352_phy_read(struct dsa_switch *ds, int addr, int regnum)
- {
- 	int ret;
-@@ -429,6 +444,7 @@ static int mv88e6352_setup(struct dsa_switch *ds)
- 	mutex_init(&ps->smi_mutex);
- 	mutex_init(&ps->stats_mutex);
- 	mutex_init(&ps->phy_mutex);
-+	mutex_init(&ps->eeprom_mutex);
- 
- 	ps->id = REG_READ(REG_PORT(0), 0x03) & 0xfff0;
- 
-@@ -525,6 +541,204 @@ static struct mv88e6xxx_hw_stat mv88e6352_hw_stats[] = {
- 	{ "hist_1024_max_bytes", 4, 0x0d, },
- };
- 
-+static int mv88e6352_read_eeprom_word(struct dsa_switch *ds, int addr)
-+{
-+	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-+	int ret;
-+
-+	mutex_lock(&ps->eeprom_mutex);
-+
-+	ret = mv88e6xxx_reg_write(ds, REG_GLOBAL2, 0x14,
-+				  0xc000 | (addr & 0xff));
-+	if (ret < 0)
-+		goto error;
-+
-+	ret = mv88e6352_eeprom_busy_wait(ds);
-+	if (ret < 0)
-+		goto error;
-+
-+	ret = mv88e6xxx_reg_read(ds, REG_GLOBAL2, 0x15);
-+error:
-+	mutex_unlock(&ps->eeprom_mutex);
-+	return ret;
-+}
-+
-+static int mv88e6352_get_eeprom(struct dsa_switch *ds,
++static int dsa_slave_get_eeprom(struct net_device *dev,
 +				struct ethtool_eeprom *eeprom, u8 *data)
 +{
-+	int offset;
-+	int len;
-+	int ret;
++	struct dsa_slave_priv *p = netdev_priv(dev);
++	struct dsa_switch *ds = p->parent;
 +
-+	offset = eeprom->offset;
-+	len = eeprom->len;
-+	eeprom->len = 0;
++	if (ds->drv->get_eeprom)
++		return ds->drv->get_eeprom(ds, eeprom, data);
 +
-+	eeprom->magic = 0xc3ec4951;
-+
-+	ret = mv88e6352_eeprom_load_wait(ds);
-+	if (ret < 0)
-+		return ret;
-+
-+	if (offset & 1) {
-+		int word;
-+
-+		word = mv88e6352_read_eeprom_word(ds, offset >> 1);
-+		if (word < 0)
-+			return word;
-+
-+		*data++ = (word >> 8) & 0xff;
-+
-+		offset++;
-+		len--;
-+		eeprom->len++;
-+	}
-+
-+	while (len >= 2) {
-+		int word;
-+
-+		word = mv88e6352_read_eeprom_word(ds, offset >> 1);
-+		if (word < 0)
-+			return word;
-+
-+		*data++ = word & 0xff;
-+		*data++ = (word >> 8) & 0xff;
-+
-+		offset += 2;
-+		len -= 2;
-+		eeprom->len += 2;
-+	}
-+
-+	if (len) {
-+		int word;
-+
-+		word = mv88e6352_read_eeprom_word(ds, offset >> 1);
-+		if (word < 0)
-+			return word;
-+
-+		*data++ = word & 0xff;
-+
-+		offset++;
-+		len--;
-+		eeprom->len++;
-+	}
-+
-+	return 0;
++	return -EOPNOTSUPP;
 +}
 +
-+static int mv88e6352_eeprom_is_readonly(struct dsa_switch *ds)
-+{
-+	int ret;
-+
-+	ret = mv88e6xxx_reg_read(ds, REG_GLOBAL2, 0x14);
-+	if (ret < 0)
-+		return ret;
-+
-+	if (!(ret & 0x0400))
-+		return -EROFS;
-+
-+	return 0;
-+}
-+
-+static int mv88e6352_write_eeprom_word(struct dsa_switch *ds, int addr,
-+				       u16 data)
-+{
-+	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-+	int ret;
-+
-+	mutex_lock(&ps->eeprom_mutex);
-+
-+	ret = mv88e6xxx_reg_write(ds, REG_GLOBAL2, 0x15, data);
-+	if (ret < 0)
-+		goto error;
-+
-+	ret = mv88e6xxx_reg_write(ds, REG_GLOBAL2, 0x14,
-+				  0xb000 | (addr & 0xff));
-+	if (ret < 0)
-+		goto error;
-+
-+	ret = mv88e6352_eeprom_busy_wait(ds);
-+error:
-+	mutex_unlock(&ps->eeprom_mutex);
-+	return ret;
-+}
-+
-+static int mv88e6352_set_eeprom(struct dsa_switch *ds,
++static int dsa_slave_set_eeprom(struct net_device *dev,
 +				struct ethtool_eeprom *eeprom, u8 *data)
 +{
-+	int offset;
-+	int ret;
-+	int len;
++	struct dsa_slave_priv *p = netdev_priv(dev);
++	struct dsa_switch *ds = p->parent;
 +
-+	if (eeprom->magic != 0xc3ec4951)
-+		return -EINVAL;
++	if (ds->drv->set_eeprom)
++		return ds->drv->set_eeprom(ds, eeprom, data);
 +
-+	ret = mv88e6352_eeprom_is_readonly(ds);
-+	if (ret)
-+		return ret;
-+
-+	offset = eeprom->offset;
-+	len = eeprom->len;
-+	eeprom->len = 0;
-+
-+	ret = mv88e6352_eeprom_load_wait(ds);
-+	if (ret < 0)
-+		return ret;
-+
-+	if (offset & 1) {
-+		int word;
-+
-+		word = mv88e6352_read_eeprom_word(ds, offset >> 1);
-+		if (word < 0)
-+			return word;
-+
-+		word = (*data++ << 8) | (word & 0xff);
-+
-+		ret = mv88e6352_write_eeprom_word(ds, offset >> 1, word);
-+		if (ret < 0)
-+			return ret;
-+
-+		offset++;
-+		len--;
-+		eeprom->len++;
-+	}
-+
-+	while (len >= 2) {
-+		int word;
-+
-+		word = *data++;
-+		word |= *data++ << 8;
-+
-+		ret = mv88e6352_write_eeprom_word(ds, offset >> 1, word);
-+		if (ret < 0)
-+			return ret;
-+
-+		offset += 2;
-+		len -= 2;
-+		eeprom->len += 2;
-+	}
-+
-+	if (len) {
-+		int word;
-+
-+		word = mv88e6352_read_eeprom_word(ds, offset >> 1);
-+		if (word < 0)
-+			return word;
-+
-+		word = (word & 0xff00) | *data++;
-+
-+		ret = mv88e6352_write_eeprom_word(ds, offset >> 1, word);
-+		if (ret < 0)
-+			return ret;
-+
-+		offset++;
-+		len--;
-+		eeprom->len++;
-+	}
-+
-+	return 0;
++	return -EOPNOTSUPP;
 +}
 +
- static void
- mv88e6352_get_strings(struct dsa_switch *ds, int port, uint8_t *data)
+ static void dsa_slave_get_strings(struct net_device *dev,
+ 				  uint32_t stringset, uint8_t *data)
  {
-@@ -562,6 +776,8 @@ struct dsa_switch_driver mv88e6352_switch_driver = {
- 	.set_temp_limit		= mv88e6352_set_temp_limit,
- 	.get_temp_alarm		= mv88e6352_get_temp_alarm,
- #endif
-+	.get_eeprom		= mv88e6352_get_eeprom,
-+	.set_eeprom		= mv88e6352_set_eeprom,
- };
- 
- MODULE_ALIAS("platform:mv88e6352");
-diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-index c0ce133..29feed0 100644
---- a/drivers/net/dsa/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx.h
-@@ -43,6 +43,11 @@ struct mv88e6xxx_priv_state {
- 	 */
- 	struct mutex	phy_mutex;
- 
-+	/* This mutex serializes eeprom access for chips with
-+	 * eeprom support.
-+	 */
-+	struct mutex eeprom_mutex;
-+
- 	int		id; /* switch product id */
- };
- 
+@@ -387,6 +425,9 @@ static const struct ethtool_ops dsa_slave_ethtool_ops = {
+ 	.get_drvinfo		= dsa_slave_get_drvinfo,
+ 	.nway_reset		= dsa_slave_nway_reset,
+ 	.get_link		= dsa_slave_get_link,
++	.get_eeprom_len		= dsa_slave_get_eeprom_len,
++	.get_eeprom		= dsa_slave_get_eeprom,
++	.set_eeprom		= dsa_slave_set_eeprom,
+ 	.get_strings		= dsa_slave_get_strings,
+ 	.get_ethtool_stats	= dsa_slave_get_ethtool_stats,
+ 	.get_sset_count		= dsa_slave_get_sset_count,
 -- 
 1.9.1
