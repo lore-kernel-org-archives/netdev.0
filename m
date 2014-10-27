@@ -1,76 +1,56 @@
-From: Andrey Ryabinin <a.ryabinin@samsung.com>
-Subject: Re: [PATCH] netlink: don't copy over empty attribute data
-Date: Mon, 27 Oct 2014 19:46:33 +0300
-Message-ID: <544E76E9.3090909@samsung.com>
-References: <54471438.1040907@oracle.com>
- <20141022.021508.2011745433893496421.davem@davemloft.net>
- <544D849A.4040304@oracle.com>
- <20141026.220350.2098346782596904995.davem@davemloft.net>
- <544E59DC.3060906@oracle.com>
+From: Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH] ovs: Turn vports with dependencies into
+	separate modules
+Date: Mon, 27 Oct 2014 10:14:47 -0700
+Message-ID: <CALnjE+opCLA9KJ5RHaUs1vbx41p6=iUi9B59Q7G0TeSTmWm7_w@mail.gmail.com>
+References: <ab9438abe3e23289db6f850eea9626fe8bd0a969.1413991519.git.tgraf@suug.ch>
+ <CALnjE+o+aSE0cGnS60p_4ff6mhddK8oB0e0xMi+L0p1aa-P9vA@mail.gmail.com>
+ <20141024215758.GA25640@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: pablo@netfilter.org, mschmidt@redhat.com,
-	akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Sasha Levin <sasha.levin@oracle.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-reply-to: <544E59DC.3060906@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20141024215758.GA25640-FZi0V3Vbi30CUdFEqe4BF2D2FQJk+8+b@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-On 10/27/2014 05:42 PM, Sasha Levin wrote:
-> On 10/26/2014 10:03 PM, David Miller wrote:
->> From: Sasha Levin <sasha.levin@oracle.com>
->> Date: Sun, 26 Oct 2014 19:32:42 -0400
->>
->>> How so? GCC states clearly that you should *never* pass a NULL
->>> pointer there:
->>>
->>> "The pointers passed to memmove (and similar functions in <string.h>) must
->>> be non-null even when nbytes==0" (https://gcc.gnu.org/gcc-4.9/porting_to.html).
->>>
->>> Even if it doesn't dereference it, it can break somehow in a subtle way. Leaving
->>> the kernel code assuming that gcc (or any other compiler) would always behave
->>> the same in a situation that shouldn't occur.
->>
->> Show me a legal way in which one could legally dereference the pointer
->> when length is zero, and I'll entertain this patch.
-> 
-> The moment you've triggered an undefined behaviour you have GCC license to
-> dereference anything it wants. GCC would be well within it's rights
-> dereferencing a NULL "from".
-> 
-> They even state it clearly in that GCC 4.9 porting guide I've linked above:
-> 
-> """
-> Calling copy(p, NULL, 0) can therefore deference a null pointer and crash.
-> 
-> The example above needs to be fixed to avoid the invalid memmove call, for example:
-> 
-> 
->     if (nbytes != 0)
->       memmove (dest, src, nbytes);
-> """
-> 
-
-
-In example from link null ptr deref could happen because GCC will optimize away null pointer check after
-memmove():
-
-int copy (int* dest, int* src, size_t nbytes) {
-    memmove (dest, src, nbytes);
-    if (src != NULL)  <---- GCC will eliminate this check because src can't be null.
-      return *src; <-- NULL ptr deref
-    return 0;
-  }
-
-Even though GCC and C standard treats such code ( memmove(dest, NULL, 0); ) as invalid, it probably will not crash in linux kernel case,
-because that kind of optimization disabled via -fno-delete-null-pointer-checks option.
-
-
-> 
-> Thanks,
-> Sasha
-> 
+T24gRnJpLCBPY3QgMjQsIDIwMTQgYXQgMjo1NyBQTSwgVGhvbWFzIEdyYWYgPHRncmFmQHN1dWcu
+Y2g+IHdyb3RlOgo+IE9uIDEwLzI0LzE0IGF0IDEwOjQ3YW0sIFByYXZpbiBTaGVsYXIgd3JvdGU6
+Cj4+IE9uIFdlZCwgT2N0IDIyLCAyMDE0IGF0IDg6MjkgQU0sIFRob21hcyBHcmFmIDx0Z3JhZkBz
+dXVnLmNoPiB3cm90ZToKPj4gPiBUaGUgaW50ZXJuYWwgYW5kIG5ldGRldiB2cG9ydCByZW1haW4g
+cGFydCBvZiBvcGVudnN3aXRjaC5rby4gRW5jYXAKPj4gPiB2cG9ydHMgaW5jbHVkaW5nIHZ4bGFu
+LCBncmUsIGFuZCBnZW5ldmUgY2FuIGJlIGJ1aWx0IGFzIHNlcGFyYXRlCj4+ID4gbW9kdWxlcyBh
+bmQgYXJlIGxvYWRlZCBvbiBkZW1hbmQuIE1vZHVsZXMgY2FuIGJlIHVubG9hZGVkIGFmdGVyIHVz
+ZS4KPj4gPiBEYXRhcGF0aCBwb3J0cyBrZWVwIGEgcmVmZXJlbmNlIHRvIHRoZSB2cG9ydCBtb2R1
+bGUgZHVyaW5nIHRoZWlyCj4+ID4gbGlmZXRpbWUuCj4+ID4KPj4gPiBBbGxvd3MgdG8gcmVtb3Zl
+IHRoZSBlcnJvciBwcm9uZSBtYWludGVuYW5jZSBvZiB0aGUgZ2xvYmFsIGxpc3QKPj4gPiB2cG9y
+dF9vcHNfbGlzdC4KPj4gPgo+PiBIb3cgZXJyb3IgcHJvbmUgaXMgdGhpcyBpbnRlcmZhY2UsIGNh
+biB5b3UgZ2l2ZSBleGFtcGxlPyBTZXQgb2Ygb3ZzCj4+IHZwb3J0IHR5cGUgaXMgYmVlbiBwcmV0
+dHkgc3RhYmxlLCBzbyBhbSBub3Qgc3VyZSBpZiB3ZSBuZWVkIGxvYWRhYmxlCj4+IG1vZHVsZSBz
+dXBwb3J0IGZvciB2cG9ydHMgaW1wbGVtZW50YXRpb25zLgo+Cj4gSSB3YXMgcmVmZXJpbmcgdG8g
+aG93IG1hbnkgb3RoZXIga2VybmVsIEFQSXMgaGF2ZSBiZWVuIGRlc2lnbmVkLCBhCj4gcmVnaXN0
+cmF0aW9uIEFQSSBhbGxvd2luZyBhIHZwb3J0IHRvIGJlIGltcGxlbWVudGVkIGV4Y2x1c2l2ZWx5
+IGluIHRoZQo+IHNjb3BlIG9mIGEgc2luZ2xlIGZpbGUgdGVuZHMgdG8gYmUgY2xlYW5lciB0aGFu
+IGhhdmluZyB0byB0b3VjaCBtdWx0aXBsZQo+IGZpbGVzIGFuZCBtYWludGFpbmluZyBhbiBpbml0
+IGxpc3QuCj4KVGhpcyBoYXMgbmV2ZXIgYmVlbiBpc3N1ZSBpbiBvcGVudnN3aXRjaC4gUGx1cyB3
+ZSBkbyBub3QgbmVlZCBsb2FkYWJsZQp2cG9ydCBtb2R1bGUgdG8gZml4IHRoaXMgaXNzdWUuCgo+
+IEl0IGFsc28gYWxsb3dzIGZvciBPVlMgdG8gYmUgYnVpbHQgaW50byB2bWxpbnV6IHdoaWxlIHZw
+b3J0cyBjYW4KPiByZW1haW4gYXMgbW9kdWxlcyBldmVuIGlmIHZ4bGFuIGl0c2VsZiBpcyBidWls
+dCBhcyBhIG1vZHVsZS4KPgoKV2hhdCBpcyBwcm9ibGVtIHdpdGggY3VycmVudCBPVlMgYnVpbHQg
+aW50byBrZXJuZWw/Cgo+IEFzIGZvciBuZXcgdnBvcnRzLCBHVUUgYW5kIExJUyBhcmUgY2FuZGlk
+YXRlcywgZW5jcnlwdGVkIFZYTEFOIG1pZ2h0Cj4gbG9vayBmb3Igc3VwcG9ydCBhbmQgdGhlcmUg
+YXJlIHNldmVyYWwgVlhMQU4gZXh0ZW5zaW9ucyBjdXJyZW50bHkKPiBwcm9wb3NlZCBhcyBJRVRG
+IGRyYWZ0cyB3aGljaCBtaWdodCByZXF1aXJlIG5ldyB2cG9ydHMuCl9fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52
+c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
