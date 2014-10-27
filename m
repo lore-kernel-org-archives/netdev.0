@@ -1,26 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/8] Netfilter fixes for net
-Date: Mon, 27 Oct 2014 18:49:50 -0400 (EDT)
-Message-ID: <20141027.184950.1117527965271410115.davem@davemloft.net>
-References: <1414445887-5108-1-git-send-email-pablo@netfilter.org>
+Subject: Re: [PATCH] net: ethernet: realtek: atp: checkpatch errors and
+ warnings corrected
+Date: Mon, 27 Oct 2014 18:52:11 -0400 (EDT)
+Message-ID: <20141027.185211.1433818002293610983.davem@davemloft.net>
+References: <1414084200-5377-1-git-send-email-robertoxmed@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1414445887-5108-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: robertoxmed@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1414084200-5377-1-git-send-email-robertoxmed@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Mon, 27 Oct 2014 22:37:59 +0100
+From: Roberto Medina <robertoxmed@gmail.com>
+Date: Thu, 23 Oct 2014 19:10:00 +0200
 
-> The following patchset contains Netfilter fixes for your net tree,
-> they are:
- ...
-> You can pull these changes from:
+> From: Roberto Medina <robertoxmed@gmail.com>
 > 
->   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
+> Several warnings and errors of coding style errors corrected.
+> 
+> Signed-off-by: Roberto Medina <robertoxmed@gmail.com>
 
-Pulled, thanks a lot Pablo!
+Applied, thanks.
