@@ -1,115 +1,40 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Poor UDP throughput with virtual devices and UFO
-Date: Mon, 27 Oct 2014 08:01:29 -0700
-Message-ID: <1414422089.16231.8.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1414405781.4492.38.camel@ubuntu-vm-makita>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH 2/5] stmmac: pci: use managed resources
+Date: Mon, 27 Oct 2014 16:28:06 +0100
+Message-ID: <544E6486.6040502@st.com>
+References: <1413909333-16380-1-git-send-email-andriy.shevchenko@linux.intel.com>	 <1413909333-16380-3-git-send-email-andriy.shevchenko@linux.intel.com>	 <5446C827.2040801@cogentembedded.com> <1413966993.2396.26.camel@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="UTF-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>,
-	Eric Dumazet <edumazet@google.com>
-To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Cc: <netdev@vger.kernel.org>,
+	Kweh Hock Leong <hock.leong.kweh@intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Vince Bridgers <vbridgers2013@gmail.com>,
+	Rayagond K <rayagond@vayavyalabs.com>
+To: Andy Shevchenko <andriy.shevchenko@linux.intel.com>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:41778 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751363AbaJ0PBa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Oct 2014 11:01:30 -0400
-Received: by mail-pa0-f46.google.com with SMTP id lf10so3977362pab.19
-        for <netdev@vger.kernel.org>; Mon, 27 Oct 2014 08:01:30 -0700 (PDT)
-In-Reply-To: <1414405781.4492.38.camel@ubuntu-vm-makita>
+Received: from mx08-00178001.pphosted.com ([91.207.212.93]:53175 "EHLO
+	mx08-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750824AbaJ0P20 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Oct 2014 11:28:26 -0400
+In-Reply-To: <1413966993.2396.26.camel@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-10-27 at 19:29 +0900, Toshiaki Makita wrote:
-> Hi,
+On 10/22/2014 10:36 AM, Andy Shevchenko wrote:
+> So, I was trying to find any specification on public regarding to boards
+> that have this IP, no luck so far. I guess that that code was created
+> due to XILINX FPGA usage which probably can provide any BAR user wants
+> to. Thus, I imply that in real applications the BAR most probably will
+> be 0. However, I left variable which can be overridden in future
+> (regarding to PCI ID).
+>
+> It would be nice to hear someone from ST about this. Giuseppe?
 
-...
+Hello Andy
 
-> I wrote a patch to increase sk_wmem_alloc in skb_segment(), but I'm wondering
-> if we can do this change since it has been this way for years and only TCP
-> handles it so far (d6a4a1041176 "tcp: GSO should be TSQ friendly").
+this chip is on ST SoCs since long time but embedded. I have no PCI
+card. Added Rayagond on copy too
 
-Thats probably because UFO is kind of strange : No NIC actually does UDP
-segmentation.
-
-> ----
-> Subject: [PATCH net] gso: Inherit sk_wmem_alloc
-> 
-> Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-> ---
->  net/core/skbuff.c      |  6 +++++-
->  net/ipv4/tcp_offload.c | 13 ++++---------
->  2 files changed, 9 insertions(+), 10 deletions(-)
-> 
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index c16615b..29dc763 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -3020,7 +3020,7 @@ struct sk_buff *skb_segment(struct sk_buff *head_skb,
->  							    len, 0);
->  			SKB_GSO_CB(nskb)->csum_start =
->  			    skb_headroom(nskb) + doffset;
-> -			continue;
-> +			goto set_owner;
->  		}
->  
->  		nskb_frag = skb_shinfo(nskb)->frags;
-> @@ -3092,6 +3092,10 @@ perform_csum_check:
->  			SKB_GSO_CB(nskb)->csum_start =
->  			    skb_headroom(nskb) + doffset;
->  		}
-> +
-> +set_owner:
-> +		if (head_skb->sk)
-> +			skb_set_owner_w(nskb, head_skb->sk);
->  	} while ((offset += len) < head_skb->len);
->  
->  	/* Some callers want to get the end of the list.
-> diff --git a/net/ipv4/tcp_offload.c b/net/ipv4/tcp_offload.c
-> index 5b90f2f..93758a8 100644
-> --- a/net/ipv4/tcp_offload.c
-> +++ b/net/ipv4/tcp_offload.c
-> @@ -139,11 +139,8 @@ struct sk_buff *tcp_gso_segment(struct sk_buff *skb,
->  			th->check = gso_make_checksum(skb, ~th->check);
->  
->  		seq += mss;
-> -		if (copy_destructor) {
-> +		if (copy_destructor)
->  			skb->destructor = gso_skb->destructor;
-> -			skb->sk = gso_skb->sk;
-> -			sum_truesize += skb->truesize;
-> -		}
->  		skb = skb->next;
->  		th = tcp_hdr(skb);
->  
-> @@ -157,11 +154,9 @@ struct sk_buff *tcp_gso_segment(struct sk_buff *skb,
->  	 * is freed by GSO engine
->  	 */
->  	if (copy_destructor) {
-> -		swap(gso_skb->sk, skb->sk);
-> -		swap(gso_skb->destructor, skb->destructor);
-> -		sum_truesize += skb->truesize;
-> -		atomic_add(sum_truesize - gso_skb->truesize,
-> -			   &skb->sk->sk_wmem_alloc);
-> +		skb->destructor = gso_skb->destructor;
-> +		gso_skb->destructor = NULL;
-> +		atomic_sub(gso_skb->truesize, &skb->sk->sk_wmem_alloc);
->  	}
->  
->  	delta = htonl(oldlen + (skb_tail_pointer(skb) -
-
-
-Please rewrite your patch to move the code out of tcp_gso_segment() into
-skb_segment()
-
-Look how I carefully avoided many atomic operations on
-sk->sk_wmem_alloc, but how you removed it. :(
-
-Alternative would be to use a single skb_set_owner_w() on the last
-segment, and tweak its truesize to not corrupt sk->sk_wmem_alloc
-
-d6a4a1041176 was needed for people using GSO=off TSO=off on a bonding
-device, while best performance is reached with TSO=on so that
-segmentation is performed later on the slave device.
-
-Thanks
+peppe
