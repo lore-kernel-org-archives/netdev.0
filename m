@@ -1,7 +1,7 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next 05/13] ethtool,net/mlx4_en: Add 100M, 20G, 56G speeds ethtool reporting support
-Date: Mon, 27 Oct 2014 11:37:39 +0200
-Message-ID: <1414402667-8841-6-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next 09/13] net/mlx4_en: Add ethtool support for [rx|tx]vlan offload set to OFF/ON
+Date: Mon, 27 Oct 2014 11:37:43 +0200
+Message-ID: <1414402667-8841-10-git-send-email-amirv@mellanox.com>
 References: <1414402667-8841-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
@@ -9,161 +9,225 @@ Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:34953 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:40636 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752258AbaJ0Jia (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Oct 2014 05:38:30 -0400
+	id S1752408AbaJ0Jis (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Oct 2014 05:38:48 -0400
 In-Reply-To: <1414402667-8841-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Saeed Mahameed <saeedm@mellanox.com>
 
-Added 100M, 20G and 56G ethtool speed reporting support.
-Update mlx4_en_test_speed self test with the new speeds.
-
-Defined new link speeds in include/uapi/linux/ethtool.h:
-+#define SPEED_20000	20000
-+#define SPEED_40000	40000
-+#define SPEED_56000	56000
+Move mlx4_en_reset_config to en_netdev.c as it now serves more general purpose.
+Add support for turning OFF/ON the rx/tx vlan offlad.
 
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_port.c     | 15 ++++++++++++---
- drivers/net/ethernet/mellanox/mlx4/en_port.h     |  9 ++++++---
- drivers/net/ethernet/mellanox/mlx4/en_selftest.c | 12 ++++++++----
- include/uapi/linux/ethtool.h                     | 14 +++++++++++++-
- 4 files changed, 39 insertions(+), 11 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_clock.c  | 77 ----------------------
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 90 +++++++++++++++++++++++++-
+ 2 files changed, 89 insertions(+), 78 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_port.c b/drivers/net/ethernet/mellanox/mlx4/en_port.c
-index 0a0261d..afd3036 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_port.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_port.c
-@@ -91,15 +91,24 @@ int mlx4_en_QUERY_PORT(struct mlx4_en_dev *mdev, u8 port)
- 	 * already synchronized, no need in locking */
- 	state->link_state = !!(qport_context->link_up & MLX4_EN_LINK_UP_MASK);
- 	switch (qport_context->link_speed & MLX4_EN_SPEED_MASK) {
-+	case MLX4_EN_100M_SPEED:
-+		state->link_speed = SPEED_100;
-+		break;
- 	case MLX4_EN_1G_SPEED:
--		state->link_speed = 1000;
-+		state->link_speed = SPEED_1000;
- 		break;
- 	case MLX4_EN_10G_SPEED_XAUI:
- 	case MLX4_EN_10G_SPEED_XFI:
--		state->link_speed = 10000;
-+		state->link_speed = SPEED_10000;
-+		break;
-+	case MLX4_EN_20G_SPEED:
-+		state->link_speed = SPEED_20000;
- 		break;
- 	case MLX4_EN_40G_SPEED:
--		state->link_speed = 40000;
-+		state->link_speed = SPEED_40000;
-+		break;
-+	case MLX4_EN_56G_SPEED:
-+		state->link_speed = SPEED_56000;
- 		break;
- 	default:
- 		state->link_speed = -1;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_port.h b/drivers/net/ethernet/mellanox/mlx4/en_port.h
-index 745090b..a5fc93b 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_port.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_port.h
-@@ -54,10 +54,13 @@ enum {
- };
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_clock.c b/drivers/net/ethernet/mellanox/mlx4/en_clock.c
+index 285fccf..9990144 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_clock.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_clock.c
+@@ -35,83 +35,6 @@
  
- enum {
--	MLX4_EN_1G_SPEED	= 0x02,
--	MLX4_EN_10G_SPEED_XFI	= 0x01,
-+	MLX4_EN_100M_SPEED	= 0x04,
- 	MLX4_EN_10G_SPEED_XAUI	= 0x00,
-+	MLX4_EN_10G_SPEED_XFI	= 0x01,
-+	MLX4_EN_1G_SPEED	= 0x02,
-+	MLX4_EN_20G_SPEED	= 0x08,
- 	MLX4_EN_40G_SPEED	= 0x40,
-+	MLX4_EN_56G_SPEED	= 0x20,
- 	MLX4_EN_OTHER_SPEED	= 0x0f,
- };
+ #include "mlx4_en.h"
  
-@@ -68,7 +71,7 @@ struct mlx4_en_query_port_context {
- 	__be16 mtu;
- 	u8 reserved2;
- 	u8 link_speed;
--#define MLX4_EN_SPEED_MASK	0x43
-+#define MLX4_EN_SPEED_MASK	0x6f
- 	u16 reserved3[5];
- 	__be64 mac;
- 	u8 transceiver;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_selftest.c b/drivers/net/ethernet/mellanox/mlx4/en_selftest.c
-index 49d5afc..2d8ee66 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_selftest.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_selftest.c
-@@ -129,11 +129,15 @@ static int mlx4_en_test_speed(struct mlx4_en_priv *priv)
- 	if (mlx4_en_QUERY_PORT(priv->mdev, priv->port))
- 		return -ENOMEM;
- 
--	/* The device supports 1G, 10G and 40G speeds */
--	if (priv->port_state.link_speed != 1000 &&
--	    priv->port_state.link_speed != 10000 &&
--	    priv->port_state.link_speed != 40000)
-+	/* The device supports 100M, 1G, 10G, 20G, 40G and 56G speed */
-+	if (priv->port_state.link_speed != SPEED_100 &&
-+	    priv->port_state.link_speed != SPEED_1000 &&
-+	    priv->port_state.link_speed != SPEED_10000 &&
-+	    priv->port_state.link_speed != SPEED_20000 &&
-+	    priv->port_state.link_speed != SPEED_40000 &&
-+	    priv->port_state.link_speed != SPEED_56000)
- 		return priv->port_state.link_speed;
+-int mlx4_en_reset_config(struct net_device *dev,
+-			 struct hwtstamp_config ts_config,
+-			 netdev_features_t features)
+-{
+-	struct mlx4_en_priv *priv = netdev_priv(dev);
+-	struct mlx4_en_dev *mdev = priv->mdev;
+-	int port_up = 0;
+-	int err = 0;
+-
+-	if (priv->hwtstamp_config.tx_type == ts_config.tx_type &&
+-	    priv->hwtstamp_config.rx_filter == ts_config.rx_filter &&
+-	    !DEV_FEATURE_CHANGED(dev, features, NETIF_F_HW_VLAN_CTAG_RX))
+-		return 0; /* Nothing to change */
+-
+-	if (DEV_FEATURE_CHANGED(dev, features, NETIF_F_HW_VLAN_CTAG_RX) &&
+-	    (features & NETIF_F_HW_VLAN_CTAG_RX) &&
+-	    (priv->hwtstamp_config.rx_filter != HWTSTAMP_FILTER_NONE)) {
+-		en_warn(priv, "Can't turn ON rx vlan offload while time-stamping rx filter is ON\n");
+-		return -EINVAL;
+-	}
+-
+-	mutex_lock(&mdev->state_lock);
+-	if (priv->port_up) {
+-		port_up = 1;
+-		mlx4_en_stop_port(dev, 1);
+-	}
+-
+-	mlx4_en_free_resources(priv);
+-
+-	en_warn(priv, "Changing device configuration rx filter(%x) rx vlan(%x)\n",
+-		ts_config.rx_filter, !!(features & NETIF_F_HW_VLAN_CTAG_RX));
+-
+-	priv->hwtstamp_config.tx_type = ts_config.tx_type;
+-	priv->hwtstamp_config.rx_filter = ts_config.rx_filter;
+-
+-	if (DEV_FEATURE_CHANGED(dev, features, NETIF_F_HW_VLAN_CTAG_RX)) {
+-		if (features & NETIF_F_HW_VLAN_CTAG_RX)
+-			dev->features |= NETIF_F_HW_VLAN_CTAG_RX;
+-		else
+-			dev->features &= ~NETIF_F_HW_VLAN_CTAG_RX;
+-	} else if (ts_config.rx_filter == HWTSTAMP_FILTER_NONE) {
+-		/* RX time-stamping is OFF, update the RX vlan offload
+-		 * to the latest wanted state
+-		 */
+-		if (dev->wanted_features & NETIF_F_HW_VLAN_CTAG_RX)
+-			dev->features |= NETIF_F_HW_VLAN_CTAG_RX;
+-		else
+-			dev->features &= ~NETIF_F_HW_VLAN_CTAG_RX;
+-	}
+-
+-	/* RX vlan offload and RX time-stamping can't co-exist !
+-	 * Regardless of the caller's choice,
+-	 * Turn Off RX vlan offload in case of time-stamping is ON
+-	 */
+-	if (ts_config.rx_filter != HWTSTAMP_FILTER_NONE) {
+-		if (dev->features & NETIF_F_HW_VLAN_CTAG_RX)
+-			en_warn(priv, "Turning off RX vlan offload since RX time-stamping is ON\n");
+-		dev->features &= ~NETIF_F_HW_VLAN_CTAG_RX;
+-	}
+-
+-	err = mlx4_en_alloc_resources(priv);
+-	if (err) {
+-		en_err(priv, "Failed reallocating port resources\n");
+-		goto out;
+-	}
+-	if (port_up) {
+-		err = mlx4_en_start_port(dev);
+-		if (err)
+-			en_err(priv, "Failed starting port\n");
+-	}
+-
+-out:
+-	mutex_unlock(&mdev->state_lock);
+-	netdev_features_change(dev);
+-	return err;
+-}
+-
+ /* mlx4_en_read_clock - read raw cycle counter (to be used by time counter)
+  */
+ static cycle_t mlx4_en_read_clock(const struct cyclecounter *tc)
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index c4bd2c7..5d60882 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -2190,6 +2190,16 @@ static int mlx4_en_set_features(struct net_device *netdev,
+ 		netdev_features_t features)
+ {
+ 	struct mlx4_en_priv *priv = netdev_priv(netdev);
++	int ret = 0;
 +
- 	return 0;
++	if (DEV_FEATURE_CHANGED(netdev, features, NETIF_F_HW_VLAN_CTAG_RX)) {
++		en_info(priv, "Turn %s RX vlan strip offload\n",
++			(features & NETIF_F_HW_VLAN_CTAG_RX) ? "ON" : "OFF");
++		ret = mlx4_en_reset_config(netdev, priv->hwtstamp_config,
++					   features);
++		if (ret)
++			return ret;
++	}
+ 
+ 	if (features & NETIF_F_LOOPBACK)
+ 		priv->ctrl_flags |= cpu_to_be32(MLX4_WQE_CTRL_FORCE_LOOPBACK);
+@@ -2559,7 +2569,8 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
+ 	dev->features = dev->hw_features | NETIF_F_HIGHDMA |
+ 			NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_CTAG_RX |
+ 			NETIF_F_HW_VLAN_CTAG_FILTER;
+-	dev->hw_features |= NETIF_F_LOOPBACK;
++	dev->hw_features |= NETIF_F_LOOPBACK |
++			NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_CTAG_RX;
+ 
+ 	if (mdev->dev->caps.steering_mode ==
+ 	    MLX4_STEERING_MODE_DEVICE_MANAGED)
+@@ -2633,3 +2644,80 @@ out:
+ 	return err;
  }
  
-diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
-index b6acd78..eb2095b 100644
---- a/include/uapi/linux/ethtool.h
-+++ b/include/uapi/linux/ethtool.h
-@@ -1213,6 +1213,10 @@ enum ethtool_sfeatures_retval_bits {
- #define SUPPORTED_40000baseCR4_Full	(1 << 24)
- #define SUPPORTED_40000baseSR4_Full	(1 << 25)
- #define SUPPORTED_40000baseLR4_Full	(1 << 26)
-+#define SUPPORTED_56000baseKR4_Full	(1 << 27)
-+#define SUPPORTED_56000baseCR4_Full	(1 << 28)
-+#define SUPPORTED_56000baseSR4_Full	(1 << 29)
-+#define SUPPORTED_56000baseLR4_Full	(1 << 30)
- 
- #define ADVERTISED_10baseT_Half		(1 << 0)
- #define ADVERTISED_10baseT_Full		(1 << 1)
-@@ -1241,6 +1245,10 @@ enum ethtool_sfeatures_retval_bits {
- #define ADVERTISED_40000baseCR4_Full	(1 << 24)
- #define ADVERTISED_40000baseSR4_Full	(1 << 25)
- #define ADVERTISED_40000baseLR4_Full	(1 << 26)
-+#define ADVERTISED_56000baseKR4_Full	(1 << 27)
-+#define ADVERTISED_56000baseCR4_Full	(1 << 28)
-+#define ADVERTISED_56000baseSR4_Full	(1 << 29)
-+#define ADVERTISED_56000baseLR4_Full	(1 << 30)
- 
- /* The following are all involved in forcing a particular link
-  * mode for the device for setting things.  When getting the
-@@ -1248,12 +1256,16 @@ enum ethtool_sfeatures_retval_bits {
-  * it was forced up into this mode or autonegotiated.
-  */
- 
--/* The forced speed, 10Mb, 100Mb, gigabit, 2.5Gb, 10GbE. */
-+/* The forced speed, 10Mb, 100Mb, gigabit, [2.5|10|20|40|56]GbE. */
- #define SPEED_10		10
- #define SPEED_100		100
- #define SPEED_1000		1000
- #define SPEED_2500		2500
- #define SPEED_10000		10000
-+#define SPEED_20000		20000
-+#define SPEED_40000		40000
-+#define SPEED_56000		56000
++int mlx4_en_reset_config(struct net_device *dev,
++			 struct hwtstamp_config ts_config,
++			 netdev_features_t features)
++{
++	struct mlx4_en_priv *priv = netdev_priv(dev);
++	struct mlx4_en_dev *mdev = priv->mdev;
++	int port_up = 0;
++	int err = 0;
 +
- #define SPEED_UNKNOWN		-1
- 
- /* Duplex, half or full. */
++	if (priv->hwtstamp_config.tx_type == ts_config.tx_type &&
++	    priv->hwtstamp_config.rx_filter == ts_config.rx_filter &&
++	    !DEV_FEATURE_CHANGED(dev, features, NETIF_F_HW_VLAN_CTAG_RX))
++		return 0; /* Nothing to change */
++
++	if (DEV_FEATURE_CHANGED(dev, features, NETIF_F_HW_VLAN_CTAG_RX) &&
++	    (features & NETIF_F_HW_VLAN_CTAG_RX) &&
++	    (priv->hwtstamp_config.rx_filter != HWTSTAMP_FILTER_NONE)) {
++		en_warn(priv, "Can't turn ON rx vlan offload while time-stamping rx filter is ON\n");
++		return -EINVAL;
++	}
++
++	mutex_lock(&mdev->state_lock);
++	if (priv->port_up) {
++		port_up = 1;
++		mlx4_en_stop_port(dev, 1);
++	}
++
++	mlx4_en_free_resources(priv);
++
++	en_warn(priv, "Changing device configuration rx filter(%x) rx vlan(%x)\n",
++		ts_config.rx_filter, !!(features & NETIF_F_HW_VLAN_CTAG_RX));
++
++	priv->hwtstamp_config.tx_type = ts_config.tx_type;
++	priv->hwtstamp_config.rx_filter = ts_config.rx_filter;
++
++	if (DEV_FEATURE_CHANGED(dev, features, NETIF_F_HW_VLAN_CTAG_RX)) {
++		if (features & NETIF_F_HW_VLAN_CTAG_RX)
++			dev->features |= NETIF_F_HW_VLAN_CTAG_RX;
++		else
++			dev->features &= ~NETIF_F_HW_VLAN_CTAG_RX;
++	} else if (ts_config.rx_filter == HWTSTAMP_FILTER_NONE) {
++		/* RX time-stamping is OFF, update the RX vlan offload
++		 * to the latest wanted state
++		 */
++		if (dev->wanted_features & NETIF_F_HW_VLAN_CTAG_RX)
++			dev->features |= NETIF_F_HW_VLAN_CTAG_RX;
++		else
++			dev->features &= ~NETIF_F_HW_VLAN_CTAG_RX;
++	}
++
++	/* RX vlan offload and RX time-stamping can't co-exist !
++	 * Regardless of the caller's choice,
++	 * Turn Off RX vlan offload in case of time-stamping is ON
++	 */
++	if (ts_config.rx_filter != HWTSTAMP_FILTER_NONE) {
++		if (dev->features & NETIF_F_HW_VLAN_CTAG_RX)
++			en_warn(priv, "Turning off RX vlan offload since RX time-stamping is ON\n");
++		dev->features &= ~NETIF_F_HW_VLAN_CTAG_RX;
++	}
++
++	err = mlx4_en_alloc_resources(priv);
++	if (err) {
++		en_err(priv, "Failed reallocating port resources\n");
++		goto out;
++	}
++	if (port_up) {
++		err = mlx4_en_start_port(dev);
++		if (err)
++			en_err(priv, "Failed starting port\n");
++	}
++
++out:
++	mutex_unlock(&mdev->state_lock);
++	netdev_features_change(dev);
++	return err;
++}
++
 -- 
 1.8.3.4
