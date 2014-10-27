@@ -1,49 +1,53 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v2 09/15] net: dsa: Add support for switch EEPROM access
-Date: Mon, 27 Oct 2014 14:59:17 +0100
-Message-ID: <20141027135917.GA12627@lunn.ch>
-References: <1414342365-27191-1-git-send-email-linux@roeck-us.net>
- <1414342365-27191-10-git-send-email-linux@roeck-us.net>
- <20141027024121.GA16998@lunn.ch>
- <544DC264.9020600@roeck-us.net>
+From: Sasha Levin <sasha.levin@oracle.com>
+Subject: Re: [PATCH] netlink: don't copy over empty attribute data
+Date: Mon, 27 Oct 2014 10:42:36 -0400
+Message-ID: <544E59DC.3060906@oracle.com>
+References: <54471438.1040907@oracle.com>	<20141022.021508.2011745433893496421.davem@davemloft.net>	<544D849A.4040304@oracle.com> <20141026.220350.2098346782596904995.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	linux-kernel@vger.kernel.org
-To: Guenter Roeck <linux@roeck-us.net>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: a.ryabinin@samsung.com, pablo@netfilter.org, mschmidt@redhat.com,
+	akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <544DC264.9020600@roeck-us.net>
+In-Reply-To: <20141026.220350.2098346782596904995.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> So lets take a step back: For the Marvell chips, I have to provide both length
-> and presence in devicetree or platform data. Presence seemed to be implied by
-> length, so I used only a single property and variable to indicate both.
+On 10/26/2014 10:03 PM, David Miller wrote:
+> From: Sasha Levin <sasha.levin@oracle.com>
+> Date: Sun, 26 Oct 2014 19:32:42 -0400
+> 
+>> How so? GCC states clearly that you should *never* pass a NULL
+>> pointer there:
+>>
+>> "The pointers passed to memmove (and similar functions in <string.h>) must
+>> be non-null even when nbytes==0" (https://gcc.gnu.org/gcc-4.9/porting_to.html).
+>>
+>> Even if it doesn't dereference it, it can break somehow in a subtle way. Leaving
+>> the kernel code assuming that gcc (or any other compiler) would always behave
+>> the same in a situation that shouldn't occur.
+> 
+> Show me a legal way in which one could legally dereference the pointer
+> when length is zero, and I'll entertain this patch.
 
-Hi Guenter
+The moment you've triggered an undefined behaviour you have GCC license to
+dereference anything it wants. GCC would be well within it's rights
+dereferencing a NULL "from".
 
-What i was thinking, is that you don't need length in device tree. The
-datasheet specifies how big the EEPROM needs to be.
+They even state it clearly in that GCC 4.9 porting guide I've linked above:
 
-However, i read the datasheet for the 6060, the only public datasheet
-from Marvell. It does not work as i expected. Rather than being a
-fixed list of register values, it is a variable length list of
-command/value pairs.
+"""
+Calling copy(p, NULL, 0) can therefore deference a null pointer and crash.
 
-In this situation, yes, you do need the length in DT.
+The example above needs to be fixed to avoid the invalid memmove call, for example:
 
-I had a quick look at some other switch chips. e.g. the RTL8100. It
-has a fixed layout of its EEPROM, consisting of 0x80 bytes. In this
-case, the switch driver could be hard coded with 0x80, and all DT
-needs to indicate is if the EEPROM is present or not.
 
-So, what you have proposed will work. It is maybe not optimal in the
-case of a well defined in the datasheet fixed size EEPROM, but it
-still works.
+    if (nbytes != 0)
+      memmove (dest, src, nbytes);
+"""
 
-Acked-by: Andrew Lunn <andrew@lunn.ch>
 
-	  Andrew
+Thanks,
+Sasha
