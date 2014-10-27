@@ -1,77 +1,55 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 7/8] netfilter: nf_log: release skbuff on nlmsg put failure
-Date: Mon, 27 Oct 2014 22:38:06 +0100
-Message-ID: <1414445887-5108-8-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 5/8] netfilter: nf_log: account for size of NLMSG_DONE attribute
+Date: Mon, 27 Oct 2014 22:38:04 +0100
+Message-ID: <1414445887-5108-6-git-send-email-pablo@netfilter.org>
 References: <1414445887-5108-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:35989 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752668AbaJ0Vgm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Oct 2014 17:36:42 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1414445887-5108-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Houcheng Lin <houcheng@gmail.com>
+From: Florian Westphal <fw@strlen.de>
 
-The kernel should reserve enough room in the skb so that the DONE
-message can always be appended.  However, in case of e.g. new attribute
-erronously not being size-accounted for, __nfulnl_send() will still
-try to put next nlmsg into this full skbuf, causing the skb to be stuck
-forever and blocking delivery of further messages.
+We currently neither account for the nlattr size, nor do we consider
+the size of the trailing NLMSG_DONE when allocating nlmsg skb.
 
-Fix issue by releasing skb immediately after nlmsg_put error and
-WARN() so we can track down the cause of such size mismatch.
+This can result in nflog to stop working, as __nfulnl_send() re-tries
+sending forever if it failed to append NLMSG_DONE (which will never
+work if buffer is not large enough).
 
-[ fw@strlen.de: add tailroom/len info to WARN ]
-
-Signed-off-by: Houcheng Lin <houcheng@gmail.com>
+Reported-by: Houcheng Lin <houcheng@gmail.com>
 Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nfnetlink_log.c |   17 ++++++++---------
- 1 file changed, 8 insertions(+), 9 deletions(-)
+ net/netfilter/nfnetlink_log.c |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
-index 2d02eac3..5f1be5b 100644
+index b1e3a05..8117fba 100644
 --- a/net/netfilter/nfnetlink_log.c
 +++ b/net/netfilter/nfnetlink_log.c
-@@ -346,26 +346,25 @@ nfulnl_alloc_skb(struct net *net, u32 peer_portid, unsigned int inst_size,
- 	return skb;
- }
+@@ -649,7 +649,8 @@ nfulnl_log_packet(struct net *net,
+ 		+ nla_total_size(sizeof(u_int32_t))	/* gid */
+ 		+ nla_total_size(plen)			/* prefix */
+ 		+ nla_total_size(sizeof(struct nfulnl_msg_packet_hw))
+-		+ nla_total_size(sizeof(struct nfulnl_msg_packet_timestamp));
++		+ nla_total_size(sizeof(struct nfulnl_msg_packet_timestamp))
++		+ nla_total_size(sizeof(struct nfgenmsg));	/* NLMSG_DONE */
  
--static int
-+static void
- __nfulnl_send(struct nfulnl_instance *inst)
- {
--	int status = -1;
--
- 	if (inst->qlen > 1) {
- 		struct nlmsghdr *nlh = nlmsg_put(inst->skb, 0, 0,
- 						 NLMSG_DONE,
- 						 sizeof(struct nfgenmsg),
- 						 0);
--		if (!nlh)
-+		if (WARN_ONCE(!nlh, "bad nlskb size: %u, tailroom %d\n",
-+			      inst->skb->len, skb_tailroom(inst->skb))) {
-+			kfree_skb(inst->skb);
- 			goto out;
-+		}
+ 	if (in && skb_mac_header_was_set(skb)) {
+ 		size +=   nla_total_size(skb->dev->hard_header_len)
+@@ -692,8 +693,7 @@ nfulnl_log_packet(struct net *net,
+ 		goto unlock_and_release;
  	}
--	status = nfnetlink_unicast(inst->skb, inst->net, inst->peer_portid,
--				   MSG_DONTWAIT);
--
-+	nfnetlink_unicast(inst->skb, inst->net, inst->peer_portid,
-+			  MSG_DONTWAIT);
-+out:
- 	inst->qlen = 0;
- 	inst->skb = NULL;
--out:
--	return status;
- }
  
- static void
+-	if (inst->skb &&
+-	    size > skb_tailroom(inst->skb) - sizeof(struct nfgenmsg)) {
++	if (inst->skb && size > skb_tailroom(inst->skb)) {
+ 		/* either the queue len is too high or we don't have
+ 		 * enough room in the skb left. flush to userspace. */
+ 		__nfulnl_flush(inst);
 -- 
 1.7.10.4
+
