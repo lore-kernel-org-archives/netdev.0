@@ -1,55 +1,44 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 5/8] netfilter: nf_log: account for size of NLMSG_DONE attribute
-Date: Mon, 27 Oct 2014 22:38:04 +0100
-Message-ID: <1414445887-5108-6-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 2/8] netfilter: ipset: off by one in ip_set_nfnl_get_byindex()
+Date: Mon, 27 Oct 2014 22:38:01 +0100
+Message-ID: <1414445887-5108-3-git-send-email-pablo@netfilter.org>
 References: <1414445887-5108-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:35971 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752646AbaJ0Vgi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Oct 2014 17:36:38 -0400
 In-Reply-To: <1414445887-5108-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
+From: Dan Carpenter <dan.carpenter@oracle.com>
 
-We currently neither account for the nlattr size, nor do we consider
-the size of the trailing NLMSG_DONE when allocating nlmsg skb.
+The ->ip_set_list[] array is initialized in ip_set_net_init() and it
+has ->ip_set_max elements so this check should be >= instead of >
+otherwise we are off by one.
 
-This can result in nflog to stop working, as __nfulnl_send() re-tries
-sending forever if it failed to append NLMSG_DONE (which will never
-work if buffer is not large enough).
-
-Reported-by: Houcheng Lin <houcheng@gmail.com>
-Signed-off-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Acked-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nfnetlink_log.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ net/netfilter/ipset/ip_set_core.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
-index b1e3a05..8117fba 100644
---- a/net/netfilter/nfnetlink_log.c
-+++ b/net/netfilter/nfnetlink_log.c
-@@ -649,7 +649,8 @@ nfulnl_log_packet(struct net *net,
- 		+ nla_total_size(sizeof(u_int32_t))	/* gid */
- 		+ nla_total_size(plen)			/* prefix */
- 		+ nla_total_size(sizeof(struct nfulnl_msg_packet_hw))
--		+ nla_total_size(sizeof(struct nfulnl_msg_packet_timestamp));
-+		+ nla_total_size(sizeof(struct nfulnl_msg_packet_timestamp))
-+		+ nla_total_size(sizeof(struct nfgenmsg));	/* NLMSG_DONE */
+diff --git a/net/netfilter/ipset/ip_set_core.c b/net/netfilter/ipset/ip_set_core.c
+index 912e5a0..86f9d76 100644
+--- a/net/netfilter/ipset/ip_set_core.c
++++ b/net/netfilter/ipset/ip_set_core.c
+@@ -659,7 +659,7 @@ ip_set_nfnl_get_byindex(struct net *net, ip_set_id_t index)
+ 	struct ip_set *set;
+ 	struct ip_set_net *inst = ip_set_pernet(net);
  
- 	if (in && skb_mac_header_was_set(skb)) {
- 		size +=   nla_total_size(skb->dev->hard_header_len)
-@@ -692,8 +693,7 @@ nfulnl_log_packet(struct net *net,
- 		goto unlock_and_release;
- 	}
+-	if (index > inst->ip_set_max)
++	if (index >= inst->ip_set_max)
+ 		return IPSET_INVALID_ID;
  
--	if (inst->skb &&
--	    size > skb_tailroom(inst->skb) - sizeof(struct nfgenmsg)) {
-+	if (inst->skb && size > skb_tailroom(inst->skb)) {
- 		/* either the queue len is too high or we don't have
- 		 * enough room in the skb left. flush to userspace. */
- 		__nfulnl_flush(inst);
+ 	nfnl_lock(NFNL_SUBSYS_IPSET);
 -- 
 1.7.10.4
-
