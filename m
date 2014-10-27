@@ -1,44 +1,55 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 2/8] netfilter: ipset: off by one in ip_set_nfnl_get_byindex()
-Date: Mon, 27 Oct 2014 22:38:01 +0100
-Message-ID: <1414445887-5108-3-git-send-email-pablo@netfilter.org>
-References: <1414445887-5108-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH] ovs: Turn vports with dependencies into separate modules
+Date: Mon, 27 Oct 2014 21:47:22 +0000
+Message-ID: <20141027214722.GA2783@casper.infradead.org>
+References: <ab9438abe3e23289db6f850eea9626fe8bd0a969.1413991519.git.tgraf@suug.ch>
+ <CALnjE+o+aSE0cGnS60p_4ff6mhddK8oB0e0xMi+L0p1aa-P9vA@mail.gmail.com>
+ <20141024215758.GA25640@casper.infradead.org>
+ <CALnjE+opCLA9KJ5RHaUs1vbx41p6=iUi9B59Q7G0TeSTmWm7_w@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
+	netdev <netdev@vger.kernel.org>
+To: Pravin Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:35971 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752646AbaJ0Vgi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Oct 2014 17:36:38 -0400
-In-Reply-To: <1414445887-5108-1-git-send-email-pablo@netfilter.org>
+Received: from casper.infradead.org ([85.118.1.10]:53001 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752318AbaJ0VrX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Oct 2014 17:47:23 -0400
+Content-Disposition: inline
+In-Reply-To: <CALnjE+opCLA9KJ5RHaUs1vbx41p6=iUi9B59Q7G0TeSTmWm7_w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
+On 10/27/14 at 10:14am, Pravin Shelar wrote:
+> On Fri, Oct 24, 2014 at 2:57 PM, Thomas Graf <tgraf@suug.ch> wrote:
+> > I was refering to how many other kernel APIs have been designed, a
+> > registration API allowing a vport to be implemented exclusively in the
+> > scope of a single file tends to be cleaner than having to touch multiple
+> > files and maintaining an init list.
+> >
+> This has never been issue in openvswitch. Plus we do not need loadable
+> vport module to fix this issue.
+> 
+> > It also allows for OVS to be built into vmlinuz while vports can
+> > remain as modules even if vxlan itself is built as a module.
+> >
+> 
+> What is problem with current OVS built into kernel?
 
-The ->ip_set_list[] array is initialized in ip_set_net_init() and it
-has ->ip_set_max elements so this check should be >= instead of >
-otherwise we are off by one.
+What I mean specifically is the following dependency logic which will
+no longer be required:
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-Acked-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/netfilter/ipset/ip_set_core.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+depends on NET_IPGRE_DEMUX && !(OPENVSWITCH=y && NET_IPGRE_DEMUX=m)
 
-diff --git a/net/netfilter/ipset/ip_set_core.c b/net/netfilter/ipset/ip_set_core.c
-index 912e5a0..86f9d76 100644
---- a/net/netfilter/ipset/ip_set_core.c
-+++ b/net/netfilter/ipset/ip_set_core.c
-@@ -659,7 +659,7 @@ ip_set_nfnl_get_byindex(struct net *net, ip_set_id_t index)
- 	struct ip_set *set;
- 	struct ip_set_net *inst = ip_set_pernet(net);
- 
--	if (index > inst->ip_set_max)
-+	if (index >= inst->ip_set_max)
- 		return IPSET_INVALID_ID;
- 
- 	nfnl_lock(NFNL_SUBSYS_IPSET);
--- 
-1.7.10.4
+The patch also brings additional flexibility to users of
+distributions. Distros typically ship something like an allmodconfig
+so a user can either run openvswitch.ko with all encaps compiled in
+or not run openvswitch.ko. With vports as module, a user can blacklist
+a certain encap type.
+
+Another advantage is obviously that users can run additional vport
+types on top of their distribution kernels.
+
+Is there anything specific that you are concerned with in regard
+to this proposed change?
