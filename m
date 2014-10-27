@@ -1,55 +1,64 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Fw: [Bug 86851] New: Reproducible panic on heavy UDP traffic
-Date: Sun, 26 Oct 2014 17:47:06 -0700
-Message-ID: <1414370826.16231.1.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20141025141038.26fa5ac2@uryu.home.lan>
-	 <20141025214448.GB28407@breakpoint.cc> <544D8386.9030609@redhat.com>
+From: "Zhangjie (HZ)" <zhangjie14@huawei.com>
+Subject: Re: [QA-TCP] How to send tcp small packages immediately?
+Date: Mon, 27 Oct 2014 09:08:16 +0800
+Message-ID: <544D9B00.4040603@huawei.com>
+References: <544A029D.3080508@huawei.com> <544A6E12.2000007@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Florian Westphal <fw@strlen.de>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	netdev@vger.kernel.org
-To: Nikolay Aleksandrov <nikolay@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f178.google.com ([209.85.192.178]:58114 "EHLO
-	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751769AbaJ0ArI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 26 Oct 2014 20:47:08 -0400
-Received: by mail-pd0-f178.google.com with SMTP id fp1so1328933pdb.9
-        for <netdev@vger.kernel.org>; Sun, 26 Oct 2014 17:47:07 -0700 (PDT)
-In-Reply-To: <544D8386.9030609@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Rick Jones <rick.jones2@hp.com>, <kvm@vger.kernel.org>,
+	Jason Wang <jasowang@redhat.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<liuyongan@huawei.com>, <qinchuanyu@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <544A6E12.2000007@hp.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2014-10-27 at 00:28 +0100, Nikolay Aleksandrov wrote:
 
+Thanks!
+On 2014/10/24 23:19, Rick Jones wrote:
+> On 10/24/2014 12:41 AM, Zhangjie (HZ) wrote:
+>> Hi,
+>>
+>> I use netperf to test the performance of small tcp package, with TCP_NODELAY set :
+>>
+>> netperf -H 129.9.7.164 -l 100 -- -m 512 -D
+>>
+>> Among the packages I got by tcpdump, there is not only small packages, also lost of
+>> big ones (skb->len=65160).
+>>
+>> IP 129.9.7.186.60840 > 129.9.7.164.34607: tcp 65160
+>> IP 129.9.7.164.34607 > 129.9.7.186.60840: tcp 0
+>> IP 129.9.7.164.34607 > 129.9.7.186.60840: tcp 0
+>> IP 129.9.7.164.34607 > 129.9.7.186.60840: tcp 0
+>> IP 129.9.7.186.60840 > 129.9.7.164.34607: tcp 65160
+>> IP 129.9.7.164.34607 > 129.9.7.186.60840: tcp 0
+>> IP 129.9.7.164.34607 > 129.9.7.186.60840: tcp 0
+>> IP 129.9.7.164.34607 > 129.9.7.186.60840: tcp 0
+>> IP 129.9.7.186.60840 > 129.9.7.164.34607: tcp 80
+>> IP 129.9.7.186.60840 > 129.9.7.164.34607: tcp 512
+>> IP 129.9.7.186.60840 > 129.9.7.164.34607: tcp 512
+>>
+>> SO, how to test small tcp packages? Including TCP_NODELAY, What else should be set?
 > 
-> Thanks for CCing me.
-> I'll dig in the code tomorrow but my first thought when I saw this was
-> could it be possible that we have a race condition between
-> ip_frag_queue() and inet_frag_evict(), more precisely between the
-> ipq_kill() calls from ip_frag_queue and inet_frag_evict since the frag
-> could be found before we have entered the evictor which then can add it to
-> its expire list but the ipq_kill() from ip_frag_queue() can do a list_del
-> after we release the chain lock in the evictor so we may end up like this ?
+> Well, I don't think there is anything else you can set.  Even with TCP_NODELAY set, segment size with TCP will still be controlled by factors such as congestion window.
+> 
+> I am ass-u-me-ing your packet trace is at the sender.  I suppose if your sender were fast enough compared to the path that might combine with congestion window to result in the very large segments.
+> 
+> Not to say there cannot be a bug somewhere with TSO overriding TCP_NODELAY, but in broad terms, even TCP_NODELAY does not guarantee small TCP segments.  That has been something of a bane on my attempts to use TCP for aggregate small-packet performance measurements via netperf for quite some time.
+> 
+> And since you seem to have included a virtualization mailing list I would also ass-u-me that virtualization is involved somehow.  Knuth only knows how that will affect the timing of events, which will be very much involved in matters of congestion window and such.  I suppose it is even possible that if the packet trace is on a VM receiver that some delays in getting the VM running could mean that GRO would end-up making large segments being pushed up the stack.
+> 
+> happy benchmarking,
+Yes. Using netperf to send tcp packages frome physical nic has the same problems.
+Thanks for your explanation!
+> 
+> rick jones
+> .
+> 
 
-Yes, either we use hlist_del_init() but loose poison aid, or test if
-frag was evicted :
-
-Not sure about refcount.
-
-diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
-index 9eb89f3f0ee4..894ec30c5896 100644
---- a/net/ipv4/inet_fragment.c
-+++ b/net/ipv4/inet_fragment.c
-@@ -285,7 +285,8 @@ static inline void fq_unlink(struct inet_frag_queue *fq, struct inet_frags *f)
- 	struct inet_frag_bucket *hb;
- 
- 	hb = get_frag_bucket_locked(fq, f);
--	hlist_del(&fq->list);
-+	if (!(fq->flags & INET_FRAG_EVICTED))
-+		hlist_del(&fq->list);
- 	spin_unlock(&hb->chain_lock);
- }
- 
+-- 
+Best Wishes!
+Zhang Jie
