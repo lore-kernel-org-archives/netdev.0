@@ -1,97 +1,64 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 0/8] Netfilter fixes for net
-Date: Mon, 27 Oct 2014 22:37:59 +0100
-Message-ID: <1414445887-5108-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 1/8] netfilter: nf_conntrack: allow server to become a client in TW handling
+Date: Mon, 27 Oct 2014 22:38:00 +0100
+Message-ID: <1414445887-5108-2-git-send-email-pablo@netfilter.org>
+References: <1414445887-5108-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:35961 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:35969 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752309AbaJ0Vge (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Oct 2014 17:36:34 -0400
+	id S1752628AbaJ0Vgh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Oct 2014 17:36:37 -0400
+In-Reply-To: <1414445887-5108-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+From: Marcelo Leitner <mleitner@redhat.com>
 
-The following patchset contains Netfilter fixes for your net tree,
-they are:
+When a port that was used to listen for inbound connections gets closed
+and reused for outgoing connections (like rsh ends up doing for stderr
+flow), current we may reject the SYN/ACK packet for the new connection
+because tcp_conntracks states forbirds a port to become a client while
+there is still a TIME_WAIT entry in there for it.
 
-1) Allow to recycle a TCP port in conntrack when the change role from
-   server to client, from Marcelo Leitner.
+As TCP may expire the TIME_WAIT socket in 60s and conntrack's timeout
+for it is 120s, there is a ~60s window that the application can end up
+opening a port that conntrack will end up blocking.
 
-2) Fix possible off by one access in ip_set_nfnl_get_byindex(), patch
-   from Dan Carpenter.
+This patch fixes this by simply allowing such state transition: if we
+see a SYN, in TIME_WAIT state, on REPLY direction, move it to sSS. Note
+that the rest of the code already handles this situation, more
+specificly in tcp_packet(), first switch clause.
 
-3) alloc_percpu returns NULL on error, no need for IS_ERR() in nf_tables
-   chain statistic updates. From Sabrina Dubroca.
-
-4) Don't compile ip options in bridge netfilter, this mangles the packet
-   and bridge should not alter layer >= 3 headers when forwarding packets.
-   Patch from Herbert Xu and tested by Florian Westphal.
-
-5) Account the final NLMSG_DONE message when calculating the size of the
-   nflog netlink batches. Patch from Florian Westphal.
-
-6) Fix a possible netlink attribute length overflow with large packets.
-   Again from Florian Westphal.
-
-7) Release the skbuff if nfnetlink_log fails to put the final
-   NLMSG_DONE message. This fixes a leak on error. This shouldn't ever
-   happen though, otherwise this means we miscalculate the netlink batch
-   size, so spot a warning if this ever happens so we can track down the
-   problem. This patch from Houcheng Lin.
-
-8) Look at the right list when recycling targets in the nft_compat,
-   patch from Arturo Borrero.
-
-You can pull these changes from:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
-
-Thanks!
-
-----------------------------------------------------------------
-
-The following changes since commit 7c1c97d54f9bfc810908d3903cb8bcacf734df18:
-
-  net: sched: initialize bstats syncp (2014-10-21 21:45:21 -0400)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git master
-
-for you to fetch changes up to 7965ee93719921ea5978f331da653dfa2d7b99f5:
-
-  netfilter: nft_compat: fix wrong target lookup in nft_target_select_ops() (2014-10-27 22:17:46 +0100)
-
-----------------------------------------------------------------
-Arturo Borrero (1):
-      netfilter: nft_compat: fix wrong target lookup in nft_target_select_ops()
-
-Dan Carpenter (1):
-      netfilter: ipset: off by one in ip_set_nfnl_get_byindex()
-
-Florian Westphal (2):
-      netfilter: nf_log: account for size of NLMSG_DONE attribute
-      netfilter: nfnetlink_log: fix maximum packet length logged to userspace
-
-Herbert Xu (1):
-      bridge: Do not compile options in br_parse_ip_options
-
-Houcheng Lin (1):
-      netfilter: nf_log: release skbuff on nlmsg put failure
-
-Marcelo Leitner (1):
-      netfilter: nf_conntrack: allow server to become a client in TW handling
-
-Sabrina Dubroca (1):
-      netfilter: nf_tables: check for NULL in nf_tables_newchain pcpu stats allocation
-
- net/bridge/br_netfilter.c              |   24 +++++-------------------
- net/netfilter/ipset/ip_set_core.c      |    2 +-
+Signed-off-by: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Acked-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
  net/netfilter/nf_conntrack_proto_tcp.c |    4 ++--
- net/netfilter/nf_tables_api.c          |    4 ++--
- net/netfilter/nfnetlink_log.c          |   31 ++++++++++++++++---------------
- net/netfilter/nft_compat.c             |    2 +-
- 6 files changed, 27 insertions(+), 40 deletions(-)
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack_proto_tcp.c
+index 44d1ea3..d87b642 100644
+--- a/net/netfilter/nf_conntrack_proto_tcp.c
++++ b/net/netfilter/nf_conntrack_proto_tcp.c
+@@ -213,7 +213,7 @@ static const u8 tcp_conntracks[2][6][TCP_CONNTRACK_MAX] = {
+ 	{
+ /* REPLY */
+ /* 	     sNO, sSS, sSR, sES, sFW, sCW, sLA, sTW, sCL, sS2	*/
+-/*syn*/	   { sIV, sS2, sIV, sIV, sIV, sIV, sIV, sIV, sIV, sS2 },
++/*syn*/	   { sIV, sS2, sIV, sIV, sIV, sIV, sIV, sSS, sIV, sS2 },
+ /*
+  *	sNO -> sIV	Never reached.
+  *	sSS -> sS2	Simultaneous open
+@@ -223,7 +223,7 @@ static const u8 tcp_conntracks[2][6][TCP_CONNTRACK_MAX] = {
+  *	sFW -> sIV
+  *	sCW -> sIV
+  *	sLA -> sIV
+- *	sTW -> sIV	Reopened connection, but server may not do it.
++ *	sTW -> sSS	Reopened connection, but server may have switched role
+  *	sCL -> sIV
+  */
+ /* 	     sNO, sSS, sSR, sES, sFW, sCW, sLA, sTW, sCL, sS2	*/
+-- 
+1.7.10.4
