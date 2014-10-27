@@ -1,253 +1,82 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next 01/13] net/mlx4_core: Introduce mlx4_get_module_info for cable module info reading
-Date: Mon, 27 Oct 2014 11:37:35 +0200
-Message-ID: <1414402667-8841-2-git-send-email-amirv@mellanox.com>
-References: <1414402667-8841-1-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next 00/13] Mellanox ethernet driver update Oct-27-2014
+Date: Mon, 27 Oct 2014 11:37:34 +0200
+Message-ID: <1414402667-8841-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>
+	Amir Vadai <amirv@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:34928 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:32826 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751518AbaJ0JiZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751149AbaJ0JiZ (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 27 Oct 2014 05:38:25 -0400
-In-Reply-To: <1414402667-8841-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Saeed Mahameed <saeedm@mellanox.com>
+Hi,
 
-Added new MAD_IFC command to read cable module info with attribute id (0xFF60).
-Update include/linux/mlx4/device.h with function declaration (mlx4_get_module_info)
-and the needed defines/enums for future use.
+This patchset introduces some small bug fixes, support in get/set of
+vlan offload and get/set/capabilities of the link.
 
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/port.c | 156 ++++++++++++++++++++++++++++++
- include/linux/mlx4/device.h               |  30 ++++++
- 2 files changed, 186 insertions(+)
+First 7 patches by Saeed, add support in setting/getting link speed and getting
+cable capabilities.
+Next 2 patches also by Saeed, enable the user to turn rx/tx vlan offloading on
+and off.
+Jenni fixed a bug in error flow during device initalization.
+Ido and Jack fixed some code duplication and errors discovered by static checker.
+last patch by me is a fix to make ethtool report the actual rings used by
+indirection QP.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/port.c b/drivers/net/ethernet/mellanox/mlx4/port.c
-index 94eeb2c..30eb1ea 100644
---- a/drivers/net/ethernet/mellanox/mlx4/port.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/port.c
-@@ -1311,3 +1311,159 @@ int mlx4_get_roce_gid_from_slave(struct mlx4_dev *dev, int port, int slave_id,
- 	return 0;
- }
- EXPORT_SYMBOL(mlx4_get_roce_gid_from_slave);
-+
-+/* Cable Module Info */
-+#define MODULE_INFO_MAX_READ 48
-+
-+#define I2C_ADDR_LOW  0x50
-+#define I2C_ADDR_HIGH 0x51
-+#define I2C_PAGE_SIZE 256
-+
-+/* Module Info Data */
-+struct mlx4_cable_info {
-+	u8	i2c_addr;
-+	u8	page_num;
-+	__be16	dev_mem_address;
-+	__be16	reserved1;
-+	__be16	size;
-+	__be32	reserved2[2];
-+	u8	data[MODULE_INFO_MAX_READ];
-+};
-+
-+enum cable_info_err {
-+	 CABLE_INF_INV_PORT      = 0x1,
-+	 CABLE_INF_OP_NOSUP      = 0x2,
-+	 CABLE_INF_NOT_CONN      = 0x3,
-+	 CABLE_INF_NO_EEPRM      = 0x4,
-+	 CABLE_INF_PAGE_ERR      = 0x5,
-+	 CABLE_INF_INV_ADDR      = 0x6,
-+	 CABLE_INF_I2C_ADDR      = 0x7,
-+	 CABLE_INF_QSFP_VIO      = 0x8,
-+	 CABLE_INF_I2C_BUSY      = 0x9,
-+};
-+
-+#define MAD_STATUS_2_CABLE_ERR(mad_status) ((mad_status >> 8) & 0xFF)
-+
-+static inline const char *cable_info_mad_err_str(u16 mad_status)
-+{
-+	u8 err = MAD_STATUS_2_CABLE_ERR(mad_status);
-+
-+	switch (err) {
-+	case CABLE_INF_INV_PORT:
-+		return "invalid port selected";
-+	case CABLE_INF_OP_NOSUP:
-+		return "operation not supported for this port (the port is of type CX4 or internal)";
-+	case CABLE_INF_NOT_CONN:
-+		return "cable is not connected";
-+	case CABLE_INF_NO_EEPRM:
-+		return "the connected cable has no EPROM (passive copper cable)";
-+	case CABLE_INF_PAGE_ERR:
-+		return "page number is greater than 15";
-+	case CABLE_INF_INV_ADDR:
-+		return "invalid device_address or size (that is, size equals 0 or address+size is greater than 256)";
-+	case CABLE_INF_I2C_ADDR:
-+		return "invalid I2C slave address";
-+	case CABLE_INF_QSFP_VIO:
-+		return "at least one cable violates the QSFP specification and ignores the modsel signal";
-+	case CABLE_INF_I2C_BUSY:
-+		return "I2C bus is constantly busy";
-+	}
-+	return "Unknown Error";
-+}
-+
-+/**
-+ * mlx4_get_module_info - Read cable module eeprom data
-+ * @dev: mlx4_dev.
-+ * @port: port number.
-+ * @offset: byte offset in eeprom to start reading data from.
-+ * @size: num of bytes to read.
-+ * @data: output buffer to put the requested data into.
-+ *
-+ * Reads cable module eeprom data, puts the outcome data into
-+ * data pointer paramer.
-+ * Returns num of read bytes on success or a negative error
-+ * code.
-+ */
-+int mlx4_get_module_info(struct mlx4_dev *dev, u8 port,
-+			 u16 offset, u16 size, u8 *data)
-+{
-+	struct mlx4_cmd_mailbox *inbox, *outbox;
-+	struct mlx4_mad_ifc *inmad, *outmad;
-+	struct mlx4_cable_info *cable_info;
-+	u16 i2c_addr;
-+	int ret;
-+
-+	if (size > MODULE_INFO_MAX_READ)
-+		size = MODULE_INFO_MAX_READ;
-+
-+	inbox = mlx4_alloc_cmd_mailbox(dev);
-+	if (IS_ERR(inbox))
-+		return PTR_ERR(inbox);
-+
-+	outbox = mlx4_alloc_cmd_mailbox(dev);
-+	if (IS_ERR(outbox)) {
-+		mlx4_free_cmd_mailbox(dev, inbox);
-+		return PTR_ERR(outbox);
-+	}
-+
-+	inmad = (struct mlx4_mad_ifc *)(inbox->buf);
-+	outmad = (struct mlx4_mad_ifc *)(outbox->buf);
-+
-+	inmad->method = 0x1; /* Get */
-+	inmad->class_version = 0x1;
-+	inmad->mgmt_class = 0x1;
-+	inmad->base_version = 0x1;
-+	inmad->attr_id = cpu_to_be16(0xFF60); /* Module Info */
-+
-+	if (offset < I2C_PAGE_SIZE && offset + size > I2C_PAGE_SIZE)
-+		/* Cross pages reads are not allowed
-+		 * read until offset 256 in low page
-+		 */
-+		size -= offset + size - I2C_PAGE_SIZE;
-+
-+	i2c_addr = I2C_ADDR_LOW;
-+	if (offset >= I2C_PAGE_SIZE) {
-+		/* Reset offset to high page */
-+		i2c_addr = I2C_ADDR_HIGH;
-+		offset -= I2C_PAGE_SIZE;
-+	}
-+
-+	cable_info = (struct mlx4_cable_info *)inmad->data;
-+	cable_info->dev_mem_address = cpu_to_be16(offset);
-+	cable_info->page_num = 0;
-+	cable_info->i2c_addr = i2c_addr;
-+	cable_info->size = cpu_to_be16(size);
-+
-+	ret = mlx4_cmd_box(dev, inbox->dma, outbox->dma, port, 3,
-+			   MLX4_CMD_MAD_IFC, MLX4_CMD_TIME_CLASS_C,
-+			   MLX4_CMD_NATIVE);
-+	if (ret)
-+		goto out;
-+
-+	if (be16_to_cpu(outmad->status)) {
-+		/* Mad returned with bad status */
-+		ret = be16_to_cpu(outmad->status);
-+		mlx4_warn(dev,
-+			  "MLX4_CMD_MAD_IFC Get Module info attr(%x) port(%d) i2c_addr(%x) offset(%d) size(%d): Response Mad Status(%x) - %s\n",
-+			  0xFF60, port, i2c_addr, offset, size,
-+			  ret, cable_info_mad_err_str(ret));
-+
-+		if (i2c_addr == I2C_ADDR_HIGH &&
-+		    MAD_STATUS_2_CABLE_ERR(ret) == CABLE_INF_I2C_ADDR)
-+			/* Some SFP cables do not support i2c slave
-+			 * address 0x51 (high page), abort silently.
-+			 */
-+			ret = 0;
-+		else
-+			ret = -ret;
-+		goto out;
-+	}
-+	cable_info = (struct mlx4_cable_info *)outmad->data;
-+	memcpy(data, cable_info->data, size);
-+	ret = size;
-+out:
-+	mlx4_free_cmd_mailbox(dev, inbox);
-+	mlx4_free_cmd_mailbox(dev, outbox);
-+	return ret;
-+}
-+EXPORT_SYMBOL(mlx4_get_module_info);
-diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
-index 37e4404..73910da 100644
---- a/include/linux/mlx4/device.h
-+++ b/include/linux/mlx4/device.h
-@@ -379,6 +379,13 @@ enum {
- #define MSTR_SM_CHANGE_MASK (MLX4_EQ_PORT_INFO_MSTR_SM_SL_CHANGE_MASK | \
- 			     MLX4_EQ_PORT_INFO_MSTR_SM_LID_CHANGE_MASK)
- 
-+enum mlx4_module_id {
-+	MLX4_MODULE_ID_SFP              = 0x3,
-+	MLX4_MODULE_ID_QSFP             = 0xC,
-+	MLX4_MODULE_ID_QSFP_PLUS        = 0xD,
-+	MLX4_MODULE_ID_QSFP28           = 0x11,
-+};
-+
- static inline u64 mlx4_fw_ver(u64 major, u64 minor, u64 subminor)
- {
- 	return (major << 32) | (minor << 16) | subminor;
-@@ -799,6 +806,26 @@ struct mlx4_init_port_param {
- 	u64			si_guid;
- };
- 
-+#define MAD_IFC_DATA_SZ 192
-+/* MAD IFC Mailbox */
-+struct mlx4_mad_ifc {
-+	u8	base_version;
-+	u8	mgmt_class;
-+	u8	class_version;
-+	u8	method;
-+	__be16	status;
-+	__be16	class_specific;
-+	__be64	tid;
-+	__be16	attr_id;
-+	__be16	resv;
-+	__be32	attr_mod;
-+	__be64	mkey;
-+	__be16	dr_slid;
-+	__be16	dr_dlid;
-+	u8	reserved[28];
-+	u8	data[MAD_IFC_DATA_SZ];
-+} __packed;
-+
- #define mlx4_foreach_port(port, dev, type)				\
- 	for ((port) = 1; (port) <= (dev)->caps.num_ports; (port)++)	\
- 		if ((type) == (dev)->caps.port_mask[(port)])
-@@ -1283,6 +1310,9 @@ int mlx4_mr_rereg_mem_write(struct mlx4_dev *dev, struct mlx4_mr *mr,
- 			    u64 iova, u64 size, int npages,
- 			    int page_shift, struct mlx4_mpt_entry *mpt_entry);
- 
-+int mlx4_get_module_info(struct mlx4_dev *dev, u8 port,
-+			 u16 offset, u16 size, u8 *data);
-+
- /* Returns true if running in low memory profile (kdump kernel) */
- static inline bool mlx4_low_memory_profile(void)
- {
+Patches were applied and tested against commit 61ed53d ("Merge tag 'ntb-3.18'
+of git://github.com/jonmason/ntb")
+
+Thanks,
+Amir
+
+Amir Vadai (1):
+  net/mlx4_en: Report actual number of rings in indirection table
+
+Eugenia Emantayev (1):
+  net/mlx4_en: Move spinlocks and work initalizations to beginning of
+    init_netdev
+
+Ido Shamay (1):
+  net/mlx4_en: Call napi_synchronize on stop_port
+
+Jack Morgenstein (1):
+  net/mlx4_en: Cleanups suggested by clang static checker
+
+Saeed Mahameed (9):
+  net/mlx4_core: Introduce mlx4_get_module_info for cable module info
+    reading
+  ethtool,net/mlx4_en: Cable info, get_module_info/eeprom ethtool
+    support
+  net/mlx4_core: Introduce ACCESS_REG CMD and eth_prot_ctrl dev cap
+  net/mlx4_core: Add ethernet backplane autoneg device capability
+  ethtool,net/mlx4_en: Add 100M, 20G, 56G speeds ethtool reporting
+    support
+  net/mlx4_en: Use PTYS register to query ethtool settings
+  net/mlx4_en: Use PTYS register to set ethtool settings (Speed)
+  net/mlx4_en: Add support for setting rxvlan offload OFF/ON
+  net/mlx4_en: Add ethtool support for [rx|tx]vlan offload set to OFF/ON
+
+ drivers/net/ethernet/mellanox/mlx4/cmd.c         |   9 +
+ drivers/net/ethernet/mellanox/mlx4/en_clock.c    |  46 ---
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c  | 503 ++++++++++++++++++++++-
+ drivers/net/ethernet/mellanox/mlx4/en_main.c     |  12 +-
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c   | 127 +++++-
+ drivers/net/ethernet/mellanox/mlx4/en_port.c     |  24 +-
+ drivers/net/ethernet/mellanox/mlx4/en_port.h     |  35 +-
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c       |   1 -
+ drivers/net/ethernet/mellanox/mlx4/en_selftest.c |  12 +-
+ drivers/net/ethernet/mellanox/mlx4/fw.c          | 123 +++++-
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h     |  18 +-
+ drivers/net/ethernet/mellanox/mlx4/port.c        | 156 +++++++
+ include/linux/mlx4/cmd.h                         |   2 +
+ include/linux/mlx4/device.h                      |  71 +++-
+ include/uapi/linux/ethtool.h                     |  18 +-
+ 15 files changed, 1044 insertions(+), 113 deletions(-)
+
 -- 
 1.8.3.4
