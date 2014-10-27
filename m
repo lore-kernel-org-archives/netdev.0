@@ -1,58 +1,60 @@
-From: Matei Pavaluca <matei.pavaluca@freescale.com>
-Subject: [PATCH net-next v2 2/3] Fix the way the local advertising flow options are determined
-Date: Mon, 27 Oct 2014 10:42:43 +0200
-Message-ID: <1414399364-22308-2-git-send-email-matei.pavaluca@freescale.com>
-References: <1414399364-22308-1-git-send-email-matei.pavaluca@freescale.com>
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: Re: Fw: [Bug 86851] New: Reproducible panic on heavy UDP traffic
+Date: Mon, 27 Oct 2014 09:48:15 +0100
+Message-ID: <544E06CF.30709@redhat.com>
+References: <20141025141038.26fa5ac2@uryu.home.lan>	 <20141025214448.GB28407@breakpoint.cc> <544D8386.9030609@redhat.com> <1414370826.16231.1.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Claudiu Manoil <claudiu.manoil@freescale.com>,
-	Pavaluca Matei-B46610 <matei.pavaluca@freescale.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Florian Westphal <fw@strlen.de>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	netdev@vger.kernel.org, chutzpah@gentoo.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0107.outbound.protection.outlook.com ([65.55.169.107]:11399
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751761AbaJ0InC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Oct 2014 04:43:02 -0400
-In-Reply-To: <1414399364-22308-1-git-send-email-matei.pavaluca@freescale.com>
+Received: from mx1.redhat.com ([209.132.183.28]:56465 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750761AbaJ0Isi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Oct 2014 04:48:38 -0400
+In-Reply-To: <1414370826.16231.1.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pavaluca Matei-B46610 <matei.pavaluca@freescale.com>
+On 10/27/2014 01:47 AM, Eric Dumazet wrote:
+> On Mon, 2014-10-27 at 00:28 +0100, Nikolay Aleksandrov wrote:
+> 
+>>
+>> Thanks for CCing me.
+>> I'll dig in the code tomorrow but my first thought when I saw this was
+>> could it be possible that we have a race condition between
+>> ip_frag_queue() and inet_frag_evict(), more precisely between the
+>> ipq_kill() calls from ip_frag_queue and inet_frag_evict since the frag
+>> could be found before we have entered the evictor which then can add it to
+>> its expire list but the ipq_kill() from ip_frag_queue() can do a list_del
+>> after we release the chain lock in the evictor so we may end up like this ?
+> 
+> Yes, either we use hlist_del_init() but loose poison aid, or test if
+> frag was evicted :
+> 
+> Not sure about refcount.
+> 
+> diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
+> index 9eb89f3f0ee4..894ec30c5896 100644
+> --- a/net/ipv4/inet_fragment.c
+> +++ b/net/ipv4/inet_fragment.c
+> @@ -285,7 +285,8 @@ static inline void fq_unlink(struct inet_frag_queue *fq, struct inet_frags *f)
+>  	struct inet_frag_bucket *hb;
+>  
+>  	hb = get_frag_bucket_locked(fq, f);
+> -	hlist_del(&fq->list);
+> +	if (!(fq->flags & INET_FRAG_EVICTED))
+> +		hlist_del(&fq->list);
+>  	spin_unlock(&hb->chain_lock);
+>  }
+>  
+> 
+> 
 
-Local flow control options needed in order to resolve the negotiation
-are incorrectly calculated.
-
-Previously 'mii_advertise_flowctrl' was called to determine the local advertising
-options, but these were determined based on FLOW_CTRL_RX/TX flags which are
-never set through ethtool.
-The patch simply translates from ethtool flow options to mii flow options.
-
-Signed-off-by: Pavaluca Matei <matei.pavaluca@freescale.com>
----
-
- - none
-
- drivers/net/ethernet/freescale/gianfar.c | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-index 2485b74..329efca 100644
---- a/drivers/net/ethernet/freescale/gianfar.c
-+++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -3373,7 +3373,11 @@ static u32 gfar_get_flowctrl_cfg(struct gfar_private *priv)
- 		if (phydev->asym_pause)
- 			rmt_adv |= LPA_PAUSE_ASYM;
- 
--		lcl_adv = mii_advertise_flowctrl(phydev->advertising);
-+		lcl_adv = 0;
-+		if (phydev->advertising & ADVERTISED_Pause)
-+			lcl_adv |= ADVERTISE_PAUSE_CAP;
-+		if (phydev->advertising & ADVERTISED_Asym_Pause)
-+			lcl_adv |= ADVERTISE_PAUSE_ASYM;
- 
- 		flowctrl = mii_resolve_flowctrl_fdx(lcl_adv, rmt_adv);
- 		if (flowctrl & FLOW_CTRL_TX)
--- 
-1.7.11.7
+Exactly, I was thinking about a similar fix since the evict flag is only
+set with the chain lock. IMO the refcount should be fine.
+CCing the reporter.
+Patrick could you please try Eric's patch ?
