@@ -1,55 +1,32 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH] ovs: Turn vports with dependencies into separate modules
-Date: Mon, 27 Oct 2014 21:47:22 +0000
-Message-ID: <20141027214722.GA2783@casper.infradead.org>
-References: <ab9438abe3e23289db6f850eea9626fe8bd0a969.1413991519.git.tgraf@suug.ch>
- <CALnjE+o+aSE0cGnS60p_4ff6mhddK8oB0e0xMi+L0p1aa-P9vA@mail.gmail.com>
- <20141024215758.GA25640@casper.infradead.org>
- <CALnjE+opCLA9KJ5RHaUs1vbx41p6=iUi9B59Q7G0TeSTmWm7_w@mail.gmail.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH v3] ipv6: notify userspace when we added or changed an
+ ipv6 token
+Date: Mon, 27 Oct 2014 23:25:38 +0100
+Message-ID: <544EC662.4060607@redhat.com>
+References: <544D8234.5060504@redhat.com> <1414427956-20056-1-git-send-email-lkundrak@v3.sk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
-	netdev <netdev@vger.kernel.org>
-To: Pravin Shelar <pshelar@nicira.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Lubomir Rintel <lkundrak@v3.sk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:53001 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752318AbaJ0VrX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Oct 2014 17:47:23 -0400
-Content-Disposition: inline
-In-Reply-To: <CALnjE+opCLA9KJ5RHaUs1vbx41p6=iUi9B59Q7G0TeSTmWm7_w@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:48839 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752731AbaJ0WZt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Oct 2014 18:25:49 -0400
+In-Reply-To: <1414427956-20056-1-git-send-email-lkundrak@v3.sk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/27/14 at 10:14am, Pravin Shelar wrote:
-> On Fri, Oct 24, 2014 at 2:57 PM, Thomas Graf <tgraf@suug.ch> wrote:
-> > I was refering to how many other kernel APIs have been designed, a
-> > registration API allowing a vport to be implemented exclusively in the
-> > scope of a single file tends to be cleaner than having to touch multiple
-> > files and maintaining an init list.
-> >
-> This has never been issue in openvswitch. Plus we do not need loadable
-> vport module to fix this issue.
-> 
-> > It also allows for OVS to be built into vmlinuz while vports can
-> > remain as modules even if vxlan itself is built as a module.
-> >
-> 
-> What is problem with current OVS built into kernel?
+On 10/27/2014 05:39 PM, Lubomir Rintel wrote:
+> NetworkManager might want to know that it changed when the router advertisement
+> arrives.
+>
+> Signed-off-by: Lubomir Rintel <lkundrak@v3.sk>
+> Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Cc: Daniel Borkmann <dborkman@redhat.com>
 
-What I mean specifically is the following dependency logic which will
-no longer be required:
+Looks better, thanks!
 
-depends on NET_IPGRE_DEMUX && !(OPENVSWITCH=y && NET_IPGRE_DEMUX=m)
-
-The patch also brings additional flexibility to users of
-distributions. Distros typically ship something like an allmodconfig
-so a user can either run openvswitch.ko with all encaps compiled in
-or not run openvswitch.ko. With vports as module, a user can blacklist
-a certain encap type.
-
-Another advantage is obviously that users can run additional vport
-types on top of their distribution kernels.
-
-Is there anything specific that you are concerned with in regard
-to this proposed change?
+Acked-by: Daniel Borkmann <dborkman@redhat.com>
