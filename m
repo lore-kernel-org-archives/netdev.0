@@ -1,53 +1,115 @@
-From: Sasha Levin <sasha.levin@oracle.com>
-Subject: Re: [PATCH] netlink: don't copy over empty attribute data
-Date: Mon, 27 Oct 2014 10:42:36 -0400
-Message-ID: <544E59DC.3060906@oracle.com>
-References: <54471438.1040907@oracle.com>	<20141022.021508.2011745433893496421.davem@davemloft.net>	<544D849A.4040304@oracle.com> <20141026.220350.2098346782596904995.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Poor UDP throughput with virtual devices and UFO
+Date: Mon, 27 Oct 2014 08:01:29 -0700
+Message-ID: <1414422089.16231.8.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1414405781.4492.38.camel@ubuntu-vm-makita>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: a.ryabinin@samsung.com, pablo@netfilter.org, mschmidt@redhat.com,
-	akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141026.220350.2098346782596904995.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>,
+	Eric Dumazet <edumazet@google.com>
+To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:41778 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751363AbaJ0PBa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Oct 2014 11:01:30 -0400
+Received: by mail-pa0-f46.google.com with SMTP id lf10so3977362pab.19
+        for <netdev@vger.kernel.org>; Mon, 27 Oct 2014 08:01:30 -0700 (PDT)
+In-Reply-To: <1414405781.4492.38.camel@ubuntu-vm-makita>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/26/2014 10:03 PM, David Miller wrote:
-> From: Sasha Levin <sasha.levin@oracle.com>
-> Date: Sun, 26 Oct 2014 19:32:42 -0400
+On Mon, 2014-10-27 at 19:29 +0900, Toshiaki Makita wrote:
+> Hi,
+
+...
+
+> I wrote a patch to increase sk_wmem_alloc in skb_segment(), but I'm wondering
+> if we can do this change since it has been this way for years and only TCP
+> handles it so far (d6a4a1041176 "tcp: GSO should be TSQ friendly").
+
+Thats probably because UFO is kind of strange : No NIC actually does UDP
+segmentation.
+
+> ----
+> Subject: [PATCH net] gso: Inherit sk_wmem_alloc
 > 
->> How so? GCC states clearly that you should *never* pass a NULL
->> pointer there:
->>
->> "The pointers passed to memmove (and similar functions in <string.h>) must
->> be non-null even when nbytes==0" (https://gcc.gnu.org/gcc-4.9/porting_to.html).
->>
->> Even if it doesn't dereference it, it can break somehow in a subtle way. Leaving
->> the kernel code assuming that gcc (or any other compiler) would always behave
->> the same in a situation that shouldn't occur.
+> Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+> ---
+>  net/core/skbuff.c      |  6 +++++-
+>  net/ipv4/tcp_offload.c | 13 ++++---------
+>  2 files changed, 9 insertions(+), 10 deletions(-)
 > 
-> Show me a legal way in which one could legally dereference the pointer
-> when length is zero, and I'll entertain this patch.
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index c16615b..29dc763 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -3020,7 +3020,7 @@ struct sk_buff *skb_segment(struct sk_buff *head_skb,
+>  							    len, 0);
+>  			SKB_GSO_CB(nskb)->csum_start =
+>  			    skb_headroom(nskb) + doffset;
+> -			continue;
+> +			goto set_owner;
+>  		}
+>  
+>  		nskb_frag = skb_shinfo(nskb)->frags;
+> @@ -3092,6 +3092,10 @@ perform_csum_check:
+>  			SKB_GSO_CB(nskb)->csum_start =
+>  			    skb_headroom(nskb) + doffset;
+>  		}
+> +
+> +set_owner:
+> +		if (head_skb->sk)
+> +			skb_set_owner_w(nskb, head_skb->sk);
+>  	} while ((offset += len) < head_skb->len);
+>  
+>  	/* Some callers want to get the end of the list.
+> diff --git a/net/ipv4/tcp_offload.c b/net/ipv4/tcp_offload.c
+> index 5b90f2f..93758a8 100644
+> --- a/net/ipv4/tcp_offload.c
+> +++ b/net/ipv4/tcp_offload.c
+> @@ -139,11 +139,8 @@ struct sk_buff *tcp_gso_segment(struct sk_buff *skb,
+>  			th->check = gso_make_checksum(skb, ~th->check);
+>  
+>  		seq += mss;
+> -		if (copy_destructor) {
+> +		if (copy_destructor)
+>  			skb->destructor = gso_skb->destructor;
+> -			skb->sk = gso_skb->sk;
+> -			sum_truesize += skb->truesize;
+> -		}
+>  		skb = skb->next;
+>  		th = tcp_hdr(skb);
+>  
+> @@ -157,11 +154,9 @@ struct sk_buff *tcp_gso_segment(struct sk_buff *skb,
+>  	 * is freed by GSO engine
+>  	 */
+>  	if (copy_destructor) {
+> -		swap(gso_skb->sk, skb->sk);
+> -		swap(gso_skb->destructor, skb->destructor);
+> -		sum_truesize += skb->truesize;
+> -		atomic_add(sum_truesize - gso_skb->truesize,
+> -			   &skb->sk->sk_wmem_alloc);
+> +		skb->destructor = gso_skb->destructor;
+> +		gso_skb->destructor = NULL;
+> +		atomic_sub(gso_skb->truesize, &skb->sk->sk_wmem_alloc);
+>  	}
+>  
+>  	delta = htonl(oldlen + (skb_tail_pointer(skb) -
 
-The moment you've triggered an undefined behaviour you have GCC license to
-dereference anything it wants. GCC would be well within it's rights
-dereferencing a NULL "from".
 
-They even state it clearly in that GCC 4.9 porting guide I've linked above:
+Please rewrite your patch to move the code out of tcp_gso_segment() into
+skb_segment()
 
-"""
-Calling copy(p, NULL, 0) can therefore deference a null pointer and crash.
+Look how I carefully avoided many atomic operations on
+sk->sk_wmem_alloc, but how you removed it. :(
 
-The example above needs to be fixed to avoid the invalid memmove call, for example:
+Alternative would be to use a single skb_set_owner_w() on the last
+segment, and tweak its truesize to not corrupt sk->sk_wmem_alloc
 
+d6a4a1041176 was needed for people using GSO=off TSO=off on a bonding
+device, while best performance is reached with TSO=on so that
+segmentation is performed later on the slave device.
 
-    if (nbytes != 0)
-      memmove (dest, src, nbytes);
-"""
-
-
-Thanks,
-Sasha
+Thanks
