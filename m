@@ -1,82 +1,459 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next 00/13] Mellanox ethernet driver update Oct-27-2014
-Date: Mon, 27 Oct 2014 11:37:34 +0200
-Message-ID: <1414402667-8841-1-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next 06/13] net/mlx4_en: Use PTYS register to query ethtool settings
+Date: Mon, 27 Oct 2014 11:37:40 +0200
+Message-ID: <1414402667-8841-7-git-send-email-amirv@mellanox.com>
+References: <1414402667-8841-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>
+	Amir Vadai <amirv@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:32826 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:32858 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751149AbaJ0JiZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Oct 2014 05:38:25 -0400
+	id S1752226AbaJ0Jia (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Oct 2014 05:38:30 -0400
+In-Reply-To: <1414402667-8841-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Saeed Mahameed <saeedm@mellanox.com>
 
-This patchset introduces some small bug fixes, support in get/set of
-vlan offload and get/set/capabilities of the link.
+- If dev cap MLX4_DEV_CAP_FLAG2_ETH_PROT_CTRL is ON, query PTYS register to fill ethtool settings.
+else use default values.
+- Use autoneg port cap and dev backplane autoneg cap to reprort autoneg interface capbilities.
+- Fix typo in mlx4_en_port_state struct field (transciver to transceiver).
 
-First 7 patches by Saeed, add support in setting/getting link speed and getting
-cable capabilities.
-Next 2 patches also by Saeed, enable the user to turn rx/tx vlan offloading on
-and off.
-Jenni fixed a bug in error flow during device initalization.
-Ido and Jack fixed some code duplication and errors discovered by static checker.
-last patch by me is a fix to make ethtool report the actual rings used by
-indirection QP.
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c | 311 +++++++++++++++++++++++-
+ drivers/net/ethernet/mellanox/mlx4/en_port.c    |   9 +-
+ drivers/net/ethernet/mellanox/mlx4/en_port.h    |  26 +-
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    |   8 +-
+ 4 files changed, 338 insertions(+), 16 deletions(-)
 
-Patches were applied and tested against commit 61ed53d ("Merge tag 'ntb-3.18'
-of git://github.com/jonmason/ntb")
-
-Thanks,
-Amir
-
-Amir Vadai (1):
-  net/mlx4_en: Report actual number of rings in indirection table
-
-Eugenia Emantayev (1):
-  net/mlx4_en: Move spinlocks and work initalizations to beginning of
-    init_netdev
-
-Ido Shamay (1):
-  net/mlx4_en: Call napi_synchronize on stop_port
-
-Jack Morgenstein (1):
-  net/mlx4_en: Cleanups suggested by clang static checker
-
-Saeed Mahameed (9):
-  net/mlx4_core: Introduce mlx4_get_module_info for cable module info
-    reading
-  ethtool,net/mlx4_en: Cable info, get_module_info/eeprom ethtool
-    support
-  net/mlx4_core: Introduce ACCESS_REG CMD and eth_prot_ctrl dev cap
-  net/mlx4_core: Add ethernet backplane autoneg device capability
-  ethtool,net/mlx4_en: Add 100M, 20G, 56G speeds ethtool reporting
-    support
-  net/mlx4_en: Use PTYS register to query ethtool settings
-  net/mlx4_en: Use PTYS register to set ethtool settings (Speed)
-  net/mlx4_en: Add support for setting rxvlan offload OFF/ON
-  net/mlx4_en: Add ethtool support for [rx|tx]vlan offload set to OFF/ON
-
- drivers/net/ethernet/mellanox/mlx4/cmd.c         |   9 +
- drivers/net/ethernet/mellanox/mlx4/en_clock.c    |  46 ---
- drivers/net/ethernet/mellanox/mlx4/en_ethtool.c  | 503 ++++++++++++++++++++++-
- drivers/net/ethernet/mellanox/mlx4/en_main.c     |  12 +-
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c   | 127 +++++-
- drivers/net/ethernet/mellanox/mlx4/en_port.c     |  24 +-
- drivers/net/ethernet/mellanox/mlx4/en_port.h     |  35 +-
- drivers/net/ethernet/mellanox/mlx4/en_rx.c       |   1 -
- drivers/net/ethernet/mellanox/mlx4/en_selftest.c |  12 +-
- drivers/net/ethernet/mellanox/mlx4/fw.c          | 123 +++++-
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h     |  18 +-
- drivers/net/ethernet/mellanox/mlx4/port.c        | 156 +++++++
- include/linux/mlx4/cmd.h                         |   2 +
- include/linux/mlx4/device.h                      |  71 +++-
- include/uapi/linux/ethtool.h                     |  18 +-
- 15 files changed, 1044 insertions(+), 113 deletions(-)
-
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+index 279f423..64b6743 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+@@ -375,7 +375,277 @@ static void mlx4_en_get_strings(struct net_device *dev,
+ 	}
+ }
+ 
+-static int mlx4_en_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
++static u32 mlx4_en_autoneg_get(struct net_device *dev)
++{
++	struct mlx4_en_priv *priv = netdev_priv(dev);
++	struct mlx4_en_dev *mdev = priv->mdev;
++	u32 autoneg = AUTONEG_DISABLE;
++
++	if ((mdev->dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_ETH_BACKPL_AN_REP) &&
++	    (priv->port_state.flags & MLX4_EN_PORT_ANE))
++		autoneg = AUTONEG_ENABLE;
++
++	return autoneg;
++}
++
++static u32 ptys_get_supported_port(struct mlx4_ptys_reg *ptys_reg)
++{
++	u32 eth_proto = be32_to_cpu(ptys_reg->eth_proto_cap);
++
++	if (eth_proto & (MLX4_PROT_MASK(MLX4_10GBASE_T)
++			 | MLX4_PROT_MASK(MLX4_1000BASE_T)
++			 | MLX4_PROT_MASK(MLX4_100BASE_TX))) {
++			return SUPPORTED_TP;
++	}
++
++	if (eth_proto & (MLX4_PROT_MASK(MLX4_10GBASE_CR)
++			 | MLX4_PROT_MASK(MLX4_10GBASE_SR)
++			 | MLX4_PROT_MASK(MLX4_56GBASE_SR4)
++			 | MLX4_PROT_MASK(MLX4_40GBASE_CR4)
++			 | MLX4_PROT_MASK(MLX4_40GBASE_SR4)
++			 | MLX4_PROT_MASK(MLX4_1000BASE_CX_SGMII))) {
++			return SUPPORTED_FIBRE;
++	}
++
++	if (eth_proto & (MLX4_PROT_MASK(MLX4_56GBASE_KR4)
++			 | MLX4_PROT_MASK(MLX4_40GBASE_KR4)
++			 | MLX4_PROT_MASK(MLX4_20GBASE_KR2)
++			 | MLX4_PROT_MASK(MLX4_10GBASE_KR)
++			 | MLX4_PROT_MASK(MLX4_10GBASE_KX4)
++			 | MLX4_PROT_MASK(MLX4_1000BASE_KX))) {
++			return SUPPORTED_Backplane;
++	}
++	return 0;
++}
++
++static u32 ptys_get_active_port(struct mlx4_ptys_reg *ptys_reg)
++{
++	u32 eth_proto = be32_to_cpu(ptys_reg->eth_proto_oper);
++
++	if (!eth_proto) /* link down */
++		eth_proto = be32_to_cpu(ptys_reg->eth_proto_cap);
++
++	if (eth_proto & (MLX4_PROT_MASK(MLX4_10GBASE_T)
++			 | MLX4_PROT_MASK(MLX4_1000BASE_T)
++			 | MLX4_PROT_MASK(MLX4_100BASE_TX))) {
++			return PORT_TP;
++	}
++
++	if (eth_proto & (MLX4_PROT_MASK(MLX4_10GBASE_SR)
++			 | MLX4_PROT_MASK(MLX4_56GBASE_SR4)
++			 | MLX4_PROT_MASK(MLX4_40GBASE_SR4)
++			 | MLX4_PROT_MASK(MLX4_1000BASE_CX_SGMII))) {
++			return PORT_FIBRE;
++	}
++
++	if (eth_proto & (MLX4_PROT_MASK(MLX4_10GBASE_CR)
++			 | MLX4_PROT_MASK(MLX4_56GBASE_CR4)
++			 | MLX4_PROT_MASK(MLX4_40GBASE_CR4))) {
++			return PORT_DA;
++	}
++
++	if (eth_proto & (MLX4_PROT_MASK(MLX4_56GBASE_KR4)
++			 | MLX4_PROT_MASK(MLX4_40GBASE_KR4)
++			 | MLX4_PROT_MASK(MLX4_20GBASE_KR2)
++			 | MLX4_PROT_MASK(MLX4_10GBASE_KR)
++			 | MLX4_PROT_MASK(MLX4_10GBASE_KX4)
++			 | MLX4_PROT_MASK(MLX4_1000BASE_KX))) {
++			return PORT_NONE;
++	}
++	return PORT_OTHER;
++}
++
++#define MLX4_LINK_MODES_SZ \
++	(FIELD_SIZEOF(struct mlx4_ptys_reg, eth_proto_cap) * 8)
++
++enum ethtool_report {
++	SUPPORTED = 0,
++	ADVERTISED = 1,
++	SPEED = 2
++};
++
++/* Translates mlx4 link mode to equivalent ethtool Link modes/speed */
++static u32 ptys2ethtool_map[MLX4_LINK_MODES_SZ][3] = {
++	[MLX4_100BASE_TX] = {
++		SUPPORTED_100baseT_Full,
++		ADVERTISED_100baseT_Full,
++		SPEED_100
++		},
++
++	[MLX4_1000BASE_T] = {
++		SUPPORTED_1000baseT_Full,
++		ADVERTISED_1000baseT_Full,
++		SPEED_1000
++		},
++	[MLX4_1000BASE_CX_SGMII] = {
++		SUPPORTED_1000baseKX_Full,
++		ADVERTISED_1000baseKX_Full,
++		SPEED_1000
++		},
++	[MLX4_1000BASE_KX] = {
++		SUPPORTED_1000baseKX_Full,
++		ADVERTISED_1000baseKX_Full,
++		SPEED_1000
++		},
++
++	[MLX4_10GBASE_T] = {
++		SUPPORTED_10000baseT_Full,
++		ADVERTISED_10000baseT_Full,
++		SPEED_10000
++		},
++	[MLX4_10GBASE_CX4] = {
++		SUPPORTED_10000baseKX4_Full,
++		ADVERTISED_10000baseKX4_Full,
++		SPEED_10000
++		},
++	[MLX4_10GBASE_KX4] = {
++		SUPPORTED_10000baseKX4_Full,
++		ADVERTISED_10000baseKX4_Full,
++		SPEED_10000
++		},
++	[MLX4_10GBASE_KR] = {
++		SUPPORTED_10000baseKR_Full,
++		ADVERTISED_10000baseKR_Full,
++		SPEED_10000
++		},
++	[MLX4_10GBASE_CR] = {
++		SUPPORTED_10000baseKR_Full,
++		ADVERTISED_10000baseKR_Full,
++		SPEED_10000
++		},
++	[MLX4_10GBASE_SR] = {
++		SUPPORTED_10000baseKR_Full,
++		ADVERTISED_10000baseKR_Full,
++		SPEED_10000
++		},
++
++	[MLX4_20GBASE_KR2] = {
++		SUPPORTED_20000baseMLD2_Full | SUPPORTED_20000baseKR2_Full,
++		ADVERTISED_20000baseMLD2_Full | ADVERTISED_20000baseKR2_Full,
++		SPEED_20000
++		},
++
++	[MLX4_40GBASE_CR4] = {
++		SUPPORTED_40000baseCR4_Full,
++		ADVERTISED_40000baseCR4_Full,
++		SPEED_40000
++		},
++	[MLX4_40GBASE_KR4] = {
++		SUPPORTED_40000baseKR4_Full,
++		ADVERTISED_40000baseKR4_Full,
++		SPEED_40000
++		},
++	[MLX4_40GBASE_SR4] = {
++		SUPPORTED_40000baseSR4_Full,
++		ADVERTISED_40000baseSR4_Full,
++		SPEED_40000
++		},
++
++	[MLX4_56GBASE_KR4] = {
++		SUPPORTED_56000baseKR4_Full,
++		ADVERTISED_56000baseKR4_Full,
++		SPEED_56000
++		},
++	[MLX4_56GBASE_CR4] = {
++		SUPPORTED_56000baseCR4_Full,
++		ADVERTISED_56000baseCR4_Full,
++		SPEED_56000
++		},
++	[MLX4_56GBASE_SR4] = {
++		SUPPORTED_56000baseSR4_Full,
++		ADVERTISED_56000baseSR4_Full,
++		SPEED_56000
++		},
++};
++
++static u32 ptys2ethtool_link_modes(u32 eth_proto, enum ethtool_report report)
++{
++	int i;
++	u32 link_modes = 0;
++
++	for (i = 0; i < MLX4_LINK_MODES_SZ; i++) {
++		if (eth_proto & MLX4_PROT_MASK(i))
++			link_modes |= ptys2ethtool_map[i][report];
++	}
++	return link_modes;
++}
++
++static int ethtool_get_ptys_settings(struct net_device *dev,
++				     struct ethtool_cmd *cmd)
++{
++	struct mlx4_en_priv *priv = netdev_priv(dev);
++	struct mlx4_ptys_reg ptys_reg;
++	u32 eth_proto;
++	int ret;
++
++	memset(&ptys_reg, 0, sizeof(ptys_reg));
++	ptys_reg.local_port = priv->port;
++	ptys_reg.proto_mask = MLX4_PTYS_EN;
++	ret = mlx4_ACCESS_PTYS_REG(priv->mdev->dev,
++				   MLX4_ACCESS_REG_QUERY, &ptys_reg);
++	if (ret) {
++		en_warn(priv, "Failed to run mlx4_ACCESS_PTYS_REG status(%x)",
++			ret);
++		return ret;
++	}
++	en_dbg(DRV, priv, "ptys_reg.proto_mask       %x\n",
++	       ptys_reg.proto_mask);
++	en_dbg(DRV, priv, "ptys_reg.eth_proto_cap    %x\n",
++	       be32_to_cpu(ptys_reg.eth_proto_cap));
++	en_dbg(DRV, priv, "ptys_reg.eth_proto_admin  %x\n",
++	       be32_to_cpu(ptys_reg.eth_proto_admin));
++	en_dbg(DRV, priv, "ptys_reg.eth_proto_oper   %x\n",
++	       be32_to_cpu(ptys_reg.eth_proto_oper));
++	en_dbg(DRV, priv, "ptys_reg.eth_proto_lp_adv %x\n",
++	       be32_to_cpu(ptys_reg.eth_proto_lp_adv));
++
++	cmd->supported = 0;
++	cmd->advertising = 0;
++
++	cmd->supported |= ptys_get_supported_port(&ptys_reg);
++
++	eth_proto = be32_to_cpu(ptys_reg.eth_proto_cap);
++	cmd->supported |= ptys2ethtool_link_modes(eth_proto, SUPPORTED);
++
++	eth_proto = be32_to_cpu(ptys_reg.eth_proto_admin);
++	cmd->advertising |= ptys2ethtool_link_modes(eth_proto, ADVERTISED);
++
++	cmd->supported |= SUPPORTED_Pause | SUPPORTED_Asym_Pause;
++	cmd->advertising |= (priv->prof->tx_pause) ? ADVERTISED_Pause : 0;
++
++	cmd->advertising |= (priv->prof->tx_pause ^ priv->prof->rx_pause) ?
++		ADVERTISED_Asym_Pause : 0;
++
++	cmd->port = ptys_get_active_port(&ptys_reg);
++	cmd->transceiver = (SUPPORTED_TP & cmd->supported) ?
++		XCVR_EXTERNAL : XCVR_INTERNAL;
++
++	if (mlx4_en_autoneg_get(dev)) {
++		cmd->supported |= SUPPORTED_Autoneg;
++		cmd->advertising |= ADVERTISED_Autoneg;
++	}
++
++	cmd->autoneg = (priv->port_state.flags & MLX4_EN_PORT_ANC) ?
++		AUTONEG_ENABLE : AUTONEG_DISABLE;
++
++	eth_proto = be32_to_cpu(ptys_reg.eth_proto_lp_adv);
++	cmd->lp_advertising = ptys2ethtool_link_modes(eth_proto, ADVERTISED);
++
++	cmd->lp_advertising |= (priv->port_state.flags & MLX4_EN_PORT_ANC) ?
++			ADVERTISED_Autoneg : 0;
++
++	cmd->phy_address = 0;
++	cmd->mdio_support = 0;
++	cmd->maxtxpkt = 0;
++	cmd->maxrxpkt = 0;
++	cmd->eth_tp_mdix = ETH_TP_MDI_INVALID;
++	cmd->eth_tp_mdix_ctrl = ETH_TP_MDI_AUTO;
++
++	return ret;
++}
++
++static void ethtool_get_default_settings(struct net_device *dev,
++					 struct ethtool_cmd *cmd)
+ {
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
+ 	int trans_type;
+@@ -383,18 +653,7 @@ static int mlx4_en_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ 	cmd->autoneg = AUTONEG_DISABLE;
+ 	cmd->supported = SUPPORTED_10000baseT_Full;
+ 	cmd->advertising = ADVERTISED_10000baseT_Full;
+-
+-	if (mlx4_en_QUERY_PORT(priv->mdev, priv->port))
+-		return -ENOMEM;
+-
+-	trans_type = priv->port_state.transciver;
+-	if (netif_carrier_ok(dev)) {
+-		ethtool_cmd_speed_set(cmd, priv->port_state.link_speed);
+-		cmd->duplex = DUPLEX_FULL;
+-	} else {
+-		ethtool_cmd_speed_set(cmd, SPEED_UNKNOWN);
+-		cmd->duplex = DUPLEX_UNKNOWN;
+-	}
++	trans_type = priv->port_state.transceiver;
+ 
+ 	if (trans_type > 0 && trans_type <= 0xC) {
+ 		cmd->port = PORT_FIBRE;
+@@ -410,6 +669,32 @@ static int mlx4_en_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ 		cmd->port = -1;
+ 		cmd->transceiver = -1;
+ 	}
++}
++
++static int mlx4_en_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
++{
++	struct mlx4_en_priv *priv = netdev_priv(dev);
++	int ret = -EINVAL;
++
++	if (mlx4_en_QUERY_PORT(priv->mdev, priv->port))
++		return -ENOMEM;
++
++	en_dbg(DRV, priv, "query port state.flags ANC(%x) ANE(%x)\n",
++	       priv->port_state.flags & MLX4_EN_PORT_ANC,
++	       priv->port_state.flags & MLX4_EN_PORT_ANE);
++
++	if (priv->mdev->dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_ETH_PROT_CTRL)
++		ret = ethtool_get_ptys_settings(dev, cmd);
++	if (ret) /* ETH PROT CRTL is not supported or PTYS CMD failed */
++		ethtool_get_default_settings(dev, cmd);
++
++	if (netif_carrier_ok(dev)) {
++		ethtool_cmd_speed_set(cmd, priv->port_state.link_speed);
++		cmd->duplex = DUPLEX_FULL;
++	} else {
++		ethtool_cmd_speed_set(cmd, SPEED_UNKNOWN);
++		cmd->duplex = DUPLEX_UNKNOWN;
++	}
+ 	return 0;
+ }
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_port.c b/drivers/net/ethernet/mellanox/mlx4/en_port.c
+index afd3036..134b12e 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_port.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_port.c
+@@ -114,7 +114,14 @@ int mlx4_en_QUERY_PORT(struct mlx4_en_dev *mdev, u8 port)
+ 		state->link_speed = -1;
+ 		break;
+ 	}
+-	state->transciver = qport_context->transceiver;
++
++	state->transceiver = qport_context->transceiver;
++
++	state->flags = 0; /* Reset and recalculate the port flags */
++	state->flags |= (qport_context->link_up & MLX4_EN_ANC_MASK) ?
++		MLX4_EN_PORT_ANC : 0;
++	state->flags |= (qport_context->autoneg & MLX4_EN_AUTONEG_MASK) ?
++		MLX4_EN_PORT_ANE : 0;
+ 
+ out:
+ 	mlx4_free_cmd_mailbox(mdev->dev, mailbox);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_port.h b/drivers/net/ethernet/mellanox/mlx4/en_port.h
+index a5fc93b..040da4b 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_port.h
++++ b/drivers/net/ethernet/mellanox/mlx4/en_port.h
+@@ -53,6 +53,28 @@ enum {
+ 	MLX4_MCAST_ENABLE       = 2,
+ };
+ 
++enum mlx4_link_mode {
++	MLX4_1000BASE_CX_SGMII	 = 0,
++	MLX4_1000BASE_KX	 = 1,
++	MLX4_10GBASE_CX4	 = 2,
++	MLX4_10GBASE_KX4	 = 3,
++	MLX4_10GBASE_KR		 = 4,
++	MLX4_20GBASE_KR2	 = 5,
++	MLX4_40GBASE_CR4	 = 6,
++	MLX4_40GBASE_KR4	 = 7,
++	MLX4_56GBASE_KR4	 = 8,
++	MLX4_10GBASE_CR		 = 12,
++	MLX4_10GBASE_SR		 = 13,
++	MLX4_40GBASE_SR4	 = 15,
++	MLX4_56GBASE_CR4	 = 17,
++	MLX4_56GBASE_SR4	 = 18,
++	MLX4_100BASE_TX		 = 24,
++	MLX4_1000BASE_T		 = 25,
++	MLX4_10GBASE_T		 = 26,
++};
++
++#define MLX4_PROT_MASK(link_mode) (1<<link_mode)
++
+ enum {
+ 	MLX4_EN_100M_SPEED	= 0x04,
+ 	MLX4_EN_10G_SPEED_XAUI	= 0x00,
+@@ -67,7 +89,9 @@ enum {
+ struct mlx4_en_query_port_context {
+ 	u8 link_up;
+ #define MLX4_EN_LINK_UP_MASK	0x80
+-	u8 reserved;
++#define MLX4_EN_ANC_MASK	0x40
++	u8 autoneg;
++#define MLX4_EN_AUTONEG_MASK	0x80
+ 	__be16 mtu;
+ 	u8 reserved2;
+ 	u8 link_speed;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+index 8fef658..946754e 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+@@ -421,10 +421,16 @@ struct mlx4_en_rss_map {
+ 	enum mlx4_qp_state indir_state;
+ };
+ 
++enum mlx4_en_port_flag {
++	MLX4_EN_PORT_ANC = 1<<0, /* Auto-negotiation complete */
++	MLX4_EN_PORT_ANE = 1<<1, /* Auto-negotiation enabled */
++};
++
+ struct mlx4_en_port_state {
+ 	int link_state;
+ 	int link_speed;
+-	int transciver;
++	int transceiver;
++	u32 flags;
+ };
+ 
+ struct mlx4_en_pkt_stats {
 -- 
 1.8.3.4
