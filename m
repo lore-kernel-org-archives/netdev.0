@@ -1,26 +1,34 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH] net: ethernet: realtek: atp: checkpatch errors and
  warnings corrected
-Date: Mon, 27 Oct 2014 18:52:11 -0400 (EDT)
-Message-ID: <20141027.185211.1433818002293610983.davem@davemloft.net>
+Date: Mon, 27 Oct 2014 18:53:55 -0400 (EDT)
+Message-ID: <20141027.185355.1412632964802440855.davem@davemloft.net>
 References: <1414084200-5377-1-git-send-email-robertoxmed@gmail.com>
+	<20141027.185211.1433818002293610983.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: robertoxmed@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1414084200-5377-1-git-send-email-robertoxmed@gmail.com>
+In-Reply-To: <20141027.185211.1433818002293610983.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Roberto Medina <robertoxmed@gmail.com>
-Date: Thu, 23 Oct 2014 19:10:00 +0200
-
-> From: Roberto Medina <robertoxmed@gmail.com>
-> 
-> Several warnings and errors of coding style errors corrected.
-> 
-> Signed-off-by: Roberto Medina <robertoxmed@gmail.com>
-
-Applied, thanks.
+RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogTW9uLCAyNyBP
+Y3QgMjAxNCAxODo1MjoxMSAtMDQwMCAoRURUKQ0KDQo+IEZyb206IFJvYmVydG8gTWVkaW5hIDxy
+b2JlcnRveG1lZEBnbWFpbC5jb20+DQo+IERhdGU6IFRodSwgMjMgT2N0IDIwMTQgMTk6MTA6MDAg
+KzAyMDANCj4gDQo+PiBGcm9tOiBSb2JlcnRvIE1lZGluYSA8cm9iZXJ0b3htZWRAZ21haWwuY29t
+Pg0KPj4gDQo+PiBTZXZlcmFsIHdhcm5pbmdzIGFuZCBlcnJvcnMgb2YgY29kaW5nIHN0eWxlIGVy
+cm9ycyBjb3JyZWN0ZWQuDQo+PiANCj4+IFNpZ25lZC1vZmYtYnk6IFJvYmVydG8gTWVkaW5hIDxy
+b2JlcnRveG1lZEBnbWFpbC5jb20+DQo+IA0KPiBBcHBsaWVkLCB0aGFua3MuDQoNCldhaXQsIGFy
+ZSB5b3Ugc2VyaW91cywgeW91IGRpZG4ndCBldmVuIGNvbXBpbGUgdGVzdCB0aGlzIGNoYW5nZT8N
+Cg0KRm9yIHJlYWw/DQoNCkluIGZpbGUgaW5jbHVkZWQgZnJvbSBkcml2ZXJzL25ldC9ldGhlcm5l
+dC9yZWFsdGVrL2F0cC5jOjE0NjowOg0KZHJpdmVycy9uZXQvZXRoZXJuZXQvcmVhbHRlay9hdHAu
+aDo3OToxNTogZXJyb3I6IGV4cGVjdGVkIKE7oiwgaWRlbnRpZmllciBvciChKKIgYmVmb3JlIKF1
+bnNpZ25lZKINCiBzdGF0aWMgaW5saW5lIHVuc2lnbmVkIGNoYXIgaW5ieXRlKHVuc2lnbmVkIHNo
+b3J0IHBvcnQpDQogICAgICAgICAgICAgICBeDQpkcml2ZXJzL25ldC9ldGhlcm5ldC9yZWFsdGVr
+L2F0cC5oOjc5OjE1OiBlcnJvcjogoWlubGluZaIgaW4gZW1wdHkgZGVjbGFyYXRpb24NCg0KRG9u
+J3QgZXZlbiBzdWJtaXQgY2hhbmdlcyBtZWFudCBmb3IgaW5jbHVzaW9uIGlmIHlvdSdyZSBub3Qg
+ZXZlbg0Kd2lsbGluZyB0byBidWlsZCB0ZXN0IHRoZW0uDQoNCkFuZCBJJ20gdmVyeSBzZXJpb3Vz
+IGFib3V0IHRoaXMuDQo=
