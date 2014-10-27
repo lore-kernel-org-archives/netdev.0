@@ -1,130 +1,62 @@
-From: Varka Bhadram <varkabhadram@gmail.com>
-Subject: Re: [PATCH net 1/2] drivers/net: Disable UFO through virtio
-Date: Mon, 27 Oct 2014 10:15:56 +0530
-Message-ID: <544DCE04.50403@gmail.com>
-References: <1414383425.16849.18.camel@decadent.org.uk>
-	<1414383748.16849.21.camel@decadent.org.uk>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 00/11] treewide: mask then shift defects and style updates
+Date: Sun, 26 Oct 2014 22:24:56 -0700
+Message-ID: <cover.1414387334.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	virtualization@lists.linux-foundation.org
-To: Ben Hutchings <ben@decadent.org.uk>, netdev@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1414383748.16849.21.camel@decadent.org.uk>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: alsa-devel@alsa-project.org, linux-wireless@vger.kernel.org,
+ linux-input@vger.kernel.org
+To: linux-kernel@vger.kernel.org, linux-nvme@lists.infradead.org,
+ dri-devel@lists.freedesktop.org, ivtv-devel@ivtvdriver.org,
+ linux-media@vger.kernel.org, patches@opensource.wolfsonmicro.com,
+ netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+ linux-parisc@vger.kernel.org
+Return-path: <dri-devel-bounces@lists.freedesktop.org>
+List-Unsubscribe: <http://lists.freedesktop.org/mailman/options/dri-devel>,
+ <mailto:dri-devel-request@lists.freedesktop.org?subject=unsubscribe>
+List-Archive: <http://lists.freedesktop.org/archives/dri-devel>
+List-Post: <mailto:dri-devel@lists.freedesktop.org>
+List-Help: <mailto:dri-devel-request@lists.freedesktop.org?subject=help>
+List-Subscribe: <http://lists.freedesktop.org/mailman/listinfo/dri-devel>,
+ <mailto:dri-devel-request@lists.freedesktop.org?subject=subscribe>
+Errors-To: dri-devel-bounces@lists.freedesktop.org
+Sender: "dri-devel" <dri-devel-bounces@lists.freedesktop.org>
 List-Id: netdev.vger.kernel.org
 
-On 10/27/2014 09:52 AM, Ben Hutchings wrote:
-> IPv6 does not allow fragmentation by routers, so there is no
-> fragmentation ID in the fixed header.  UFO for IPv6 requires the ID to
-> be passed separately, but there is no provision for this in the virtio
-> net protocol.
->
-> Until recently our software implementation of UFO/IPv6 generated a new
-> ID, but this was a bug.  Now we will use ID=0 for any UFO/IPv6 packet
-> passed through a tap, which is even worse.
->
-> Unfortunately there is no distinction between UFO/IPv4 and v6
-> features, so disable UFO on taps and virtio_net completely until we
-> have a proper solution.
->
-> We cannot depend on VM managers respecting the tap feature flags, so
-> keep accepting UFO packets but log a warning the first time we do
-> this.
+logical mask has lower precedence than shift but should be
+done before the shift so parentheses are generally required.
 
-(...)
+And when masking with a fixed value after a shift, normal kernel
+style has the shift on the left, then the shift on the right so
+convert a few non-conforming uses.
 
-> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> index 186ce54..e8b949a 100644
-> --- a/drivers/net/tun.c
-> +++ b/drivers/net/tun.c
-> @@ -174,7 +174,7 @@ struct tun_struct {
->   	struct net_device	*dev;
->   	netdev_features_t	set_features;
->   #define TUN_USER_FEATURES (NETIF_F_HW_CSUM|NETIF_F_TSO_ECN|NETIF_F_TSO| \
-> -			  NETIF_F_TSO6|NETIF_F_UFO)
-> +			  NETIF_F_TSO6)
->   
->   	int			vnet_hdr_sz;
->   	int			sndbuf;
-> @@ -1149,8 +1149,17 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
->   			skb_shinfo(skb)->gso_type = SKB_GSO_TCPV6;
->   			break;
->   		case VIRTIO_NET_HDR_GSO_UDP:
-> +		{
-> +			static bool warned;
+Joe Perches (11):
+  block: nvme-scsi: Fix probable mask then right shift defects
+  radeon: evergreen: Fix probable mask then right shift defects
+  aiptek: Fix probable mask then right shift defects
+  dvb-net: Fix probable mask then right shift defects
+  cx25840/cx18: Use standard ordering of mask and shift
+  wm8350-core: Fix probable mask then right shift defect
+  iwlwifi: dvm: Fix probable mask then right shift defect
+  ssb: driver_chip_comon_pmu: Fix probable mask then right shift defect
+  tty: ipwireless: Fix probable mask then right shift defects
+  hwa-hc: Fix probable mask then right shift defect
+  sound: ad1889: Fix probable mask then right shift defects
 
-one line space after declaration..
+ drivers/block/nvme-scsi.c                | 12 ++++++------
+ drivers/gpu/drm/radeon/evergreen.c       |  3 ++-
+ drivers/input/tablet/aiptek.c            |  6 +++---
+ drivers/media/dvb-core/dvb_net.c         |  4 +++-
+ drivers/media/i2c/cx25840/cx25840-core.c | 12 ++++++------
+ drivers/media/pci/cx18/cx18-av-core.c    | 16 ++++++++--------
+ drivers/mfd/wm8350-core.c                |  2 +-
+ drivers/net/wireless/iwlwifi/dvm/lib.c   |  4 ++--
+ drivers/ssb/driver_chipcommon_pmu.c      |  4 ++--
+ drivers/tty/ipwireless/hardware.c        | 12 ++++++------
+ drivers/usb/host/hwa-hc.c                |  2 +-
+ sound/pci/ad1889.c                       |  8 ++++----
+ 12 files changed, 44 insertions(+), 41 deletions(-)
 
-> +			if (!warned) {
-> +				warned = true;
-> +				netdev_warn(tun->dev,
-> +					    "%s: using disabled UFO feature; please fix this program\n",
-> +					    current->comm);
-> +			}
->   			skb_shinfo(skb)->gso_type = SKB_GSO_UDP;
->   			break;
-> +		}
->   		default:
->   			tun->dev->stats.rx_frame_errors++;
->   			kfree_skb(skb);
-> @@ -1251,8 +1260,6 @@ static ssize_t tun_put_user(struct tun_struct *tun,
->   				gso.gso_type = VIRTIO_NET_HDR_GSO_TCPV4;
->   			else if (sinfo->gso_type & SKB_GSO_TCPV6)
->   				gso.gso_type = VIRTIO_NET_HDR_GSO_TCPV6;
-> -			else if (sinfo->gso_type & SKB_GSO_UDP)
-> -				gso.gso_type = VIRTIO_NET_HDR_GSO_UDP;
->   			else {
->   				pr_err("unexpected GSO type: "
->   				       "0x%x, gso_size %d, hdr_len %d\n",
-> @@ -1762,11 +1769,6 @@ static int set_offload(struct tun_struct *tun, unsigned long arg)
->   				features |= NETIF_F_TSO6;
->   			arg &= ~(TUN_F_TSO4|TUN_F_TSO6);
->   		}
-> -
-> -		if (arg & TUN_F_UFO) {
-> -			features |= NETIF_F_UFO;
-> -			arg &= ~TUN_F_UFO;
-> -		}
->   	}
->   
->   	/* This gives the user a way to test for new features in future by
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index d75256bd..e9e269d 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -491,8 +491,16 @@ static void receive_buf(struct receive_queue *rq, void *buf, unsigned int len)
->   			skb_shinfo(skb)->gso_type = SKB_GSO_TCPV4;
->   			break;
->   		case VIRTIO_NET_HDR_GSO_UDP:
-> +		{
-> +			static bool warned;
-
-dto...
-
-> +			if (!warned) {
-> +				warned = true;
-> +				netdev_warn(dev,
-> +					    "host using disabled UFO feature; please fix it\n");
-> +			}
->   			skb_shinfo(skb)->gso_type = SKB_GSO_UDP;
->   			break;
-> +		}
->   
-
-(...)
-
->
->
 -- 
-Thanks and Regards,
-Varka Bhadram.
+2.1.2
