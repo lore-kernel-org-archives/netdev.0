@@ -1,56 +1,91 @@
-From: Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH] ovs: Turn vports with dependencies into
-	separate modules
-Date: Mon, 27 Oct 2014 10:14:47 -0700
-Message-ID: <CALnjE+opCLA9KJ5RHaUs1vbx41p6=iUi9B59Q7G0TeSTmWm7_w@mail.gmail.com>
-References: <ab9438abe3e23289db6f850eea9626fe8bd0a969.1413991519.git.tgraf@suug.ch>
- <CALnjE+o+aSE0cGnS60p_4ff6mhddK8oB0e0xMi+L0p1aa-P9vA@mail.gmail.com>
- <20141024215758.GA25640@casper.infradead.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net: skb_segment() should preserve backpressure
+Date: Mon, 27 Oct 2014 10:30:51 -0700
+Message-ID: <1414431051.16231.23.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1414405781.4492.38.camel@ubuntu-vm-makita>
+	 <1414422089.16231.8.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1414424388.16231.13.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20141024215758.GA25640-FZi0V3Vbi30CUdFEqe4BF2D2FQJk+8+b@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>
+To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:36347 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750824AbaJ0RbE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Oct 2014 13:31:04 -0400
+Received: by mail-pa0-f44.google.com with SMTP id bj1so2319084pad.17
+        for <netdev@vger.kernel.org>; Mon, 27 Oct 2014 10:31:03 -0700 (PDT)
+In-Reply-To: <1414424388.16231.13.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gRnJpLCBPY3QgMjQsIDIwMTQgYXQgMjo1NyBQTSwgVGhvbWFzIEdyYWYgPHRncmFmQHN1dWcu
-Y2g+IHdyb3RlOgo+IE9uIDEwLzI0LzE0IGF0IDEwOjQ3YW0sIFByYXZpbiBTaGVsYXIgd3JvdGU6
-Cj4+IE9uIFdlZCwgT2N0IDIyLCAyMDE0IGF0IDg6MjkgQU0sIFRob21hcyBHcmFmIDx0Z3JhZkBz
-dXVnLmNoPiB3cm90ZToKPj4gPiBUaGUgaW50ZXJuYWwgYW5kIG5ldGRldiB2cG9ydCByZW1haW4g
-cGFydCBvZiBvcGVudnN3aXRjaC5rby4gRW5jYXAKPj4gPiB2cG9ydHMgaW5jbHVkaW5nIHZ4bGFu
-LCBncmUsIGFuZCBnZW5ldmUgY2FuIGJlIGJ1aWx0IGFzIHNlcGFyYXRlCj4+ID4gbW9kdWxlcyBh
-bmQgYXJlIGxvYWRlZCBvbiBkZW1hbmQuIE1vZHVsZXMgY2FuIGJlIHVubG9hZGVkIGFmdGVyIHVz
-ZS4KPj4gPiBEYXRhcGF0aCBwb3J0cyBrZWVwIGEgcmVmZXJlbmNlIHRvIHRoZSB2cG9ydCBtb2R1
-bGUgZHVyaW5nIHRoZWlyCj4+ID4gbGlmZXRpbWUuCj4+ID4KPj4gPiBBbGxvd3MgdG8gcmVtb3Zl
-IHRoZSBlcnJvciBwcm9uZSBtYWludGVuYW5jZSBvZiB0aGUgZ2xvYmFsIGxpc3QKPj4gPiB2cG9y
-dF9vcHNfbGlzdC4KPj4gPgo+PiBIb3cgZXJyb3IgcHJvbmUgaXMgdGhpcyBpbnRlcmZhY2UsIGNh
-biB5b3UgZ2l2ZSBleGFtcGxlPyBTZXQgb2Ygb3ZzCj4+IHZwb3J0IHR5cGUgaXMgYmVlbiBwcmV0
-dHkgc3RhYmxlLCBzbyBhbSBub3Qgc3VyZSBpZiB3ZSBuZWVkIGxvYWRhYmxlCj4+IG1vZHVsZSBz
-dXBwb3J0IGZvciB2cG9ydHMgaW1wbGVtZW50YXRpb25zLgo+Cj4gSSB3YXMgcmVmZXJpbmcgdG8g
-aG93IG1hbnkgb3RoZXIga2VybmVsIEFQSXMgaGF2ZSBiZWVuIGRlc2lnbmVkLCBhCj4gcmVnaXN0
-cmF0aW9uIEFQSSBhbGxvd2luZyBhIHZwb3J0IHRvIGJlIGltcGxlbWVudGVkIGV4Y2x1c2l2ZWx5
-IGluIHRoZQo+IHNjb3BlIG9mIGEgc2luZ2xlIGZpbGUgdGVuZHMgdG8gYmUgY2xlYW5lciB0aGFu
-IGhhdmluZyB0byB0b3VjaCBtdWx0aXBsZQo+IGZpbGVzIGFuZCBtYWludGFpbmluZyBhbiBpbml0
-IGxpc3QuCj4KVGhpcyBoYXMgbmV2ZXIgYmVlbiBpc3N1ZSBpbiBvcGVudnN3aXRjaC4gUGx1cyB3
-ZSBkbyBub3QgbmVlZCBsb2FkYWJsZQp2cG9ydCBtb2R1bGUgdG8gZml4IHRoaXMgaXNzdWUuCgo+
-IEl0IGFsc28gYWxsb3dzIGZvciBPVlMgdG8gYmUgYnVpbHQgaW50byB2bWxpbnV6IHdoaWxlIHZw
-b3J0cyBjYW4KPiByZW1haW4gYXMgbW9kdWxlcyBldmVuIGlmIHZ4bGFuIGl0c2VsZiBpcyBidWls
-dCBhcyBhIG1vZHVsZS4KPgoKV2hhdCBpcyBwcm9ibGVtIHdpdGggY3VycmVudCBPVlMgYnVpbHQg
-aW50byBrZXJuZWw/Cgo+IEFzIGZvciBuZXcgdnBvcnRzLCBHVUUgYW5kIExJUyBhcmUgY2FuZGlk
-YXRlcywgZW5jcnlwdGVkIFZYTEFOIG1pZ2h0Cj4gbG9vayBmb3Igc3VwcG9ydCBhbmQgdGhlcmUg
-YXJlIHNldmVyYWwgVlhMQU4gZXh0ZW5zaW9ucyBjdXJyZW50bHkKPiBwcm9wb3NlZCBhcyBJRVRG
-IGRyYWZ0cyB3aGljaCBtaWdodCByZXF1aXJlIG5ldyB2cG9ydHMuCl9fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52
-c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+
+This patch generalizes commit d6a4a1041176 ("tcp: GSO should be TSQ
+friendly") to protocols using skb_set_owner_w()
+
+TCP uses its own destructor (tcp_wfree) and needs a more complex scheme
+as explained in commit 6ff50cd55545 ("tcp: gso: do not generate out of
+order packets")
+
+This allows UDP sockets using UFO to get proper backpressure,
+thus avoiding qdisc drops and excessive cpu usage.
+
+Here are performance test results (macvlan on vlan):
+
+- Before
+# netperf -t UDP_STREAM ...
+Socket  Message  Elapsed      Messages
+Size    Size     Time         Okay Errors   Throughput
+bytes   bytes    secs            #      #   10^6bits/sec
+
+212992   65507   60.00      144096 1224195    1258.56
+212992           60.00          51              0.45
+
+Average:        CPU     %user     %nice   %system   %iowait    %steal     %idle
+Average:        all      0.23      0.00     25.26      0.08      0.00     74.43
+
+- After
+# netperf -t UDP_STREAM ...
+Socket  Message  Elapsed      Messages
+Size    Size     Time         Okay Errors   Throughput
+bytes   bytes    secs            #      #   10^6bits/sec
+
+212992   65507   60.00      109593      0     957.20
+212992           60.00      109593            957.20
+
+Average:        CPU     %user     %nice   %system   %iowait    %steal     %idle
+Average:        all      0.18      0.00      8.38      0.02      0.00     91.43
+
+[edumazet] Rewrote patch and changelog.
+
+Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/core/skbuff.c |   10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index c16615bfb61edd2a1dae9ef7935a3153d78dc4df..e48e5c02e877d9a9389ea54f0e015ba041d3f2a7 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -3099,6 +3099,16 @@ perform_csum_check:
+ 	 * (see validate_xmit_skb_list() for example)
+ 	 */
+ 	segs->prev = tail;
++
++	/* Following permits correct backpressure, for protocols
++	 * using skb_set_owner_w().
++	 * Idea is to tranfert ownership from head_skb to last segment.
++	 */
++	if (head_skb->destructor == sock_wfree) {
++		swap(tail->truesize, head_skb->truesize);
++		swap(tail->destructor, head_skb->destructor);
++		swap(tail->sk, head_skb->sk);
++	}
+ 	return segs;
+ 
+ err:
