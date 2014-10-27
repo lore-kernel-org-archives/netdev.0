@@ -1,56 +1,48 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [PATCH v2 09/15] net: dsa: Add support for switch EEPROM access
-Date: Mon, 27 Oct 2014 08:42:10 -0700
-Message-ID: <20141027154210.GA7677@roeck-us.net>
-References: <1414342365-27191-1-git-send-email-linux@roeck-us.net>
- <1414342365-27191-10-git-send-email-linux@roeck-us.net>
- <20141027024121.GA16998@lunn.ch>
- <544DC264.9020600@roeck-us.net>
- <20141027135917.GA12627@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	linux-kernel@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20141027135917.GA12627@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Lubomir Rintel <lkundrak@v3.sk>
+Subject: [PATCH v3] ipv6: notify userspace when we added or changed an ipv6 token
+Date: Mon, 27 Oct 2014 17:39:16 +0100
+Message-ID: <1414427956-20056-1-git-send-email-lkundrak@v3.sk>
+References: <544D8234.5060504@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Lubomir Rintel <lkundrak@v3.sk>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Daniel Borkmann <dborkman@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:41559 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752636AbaJ0Qkx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Oct 2014 12:40:53 -0400
+In-Reply-To: <544D8234.5060504@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 27, 2014 at 02:59:17PM +0100, Andrew Lunn wrote:
-> > So lets take a step back: For the Marvell chips, I have to provide both length
-> > and presence in devicetree or platform data. Presence seemed to be implied by
-> > length, so I used only a single property and variable to indicate both.
-> 
-> Hi Guenter
-> 
-> What i was thinking, is that you don't need length in device tree. The
-> datasheet specifies how big the EEPROM needs to be.
-> 
-> However, i read the datasheet for the 6060, the only public datasheet
-> from Marvell. It does not work as i expected. Rather than being a
-> fixed list of register values, it is a variable length list of
-> command/value pairs.
-> 
-> In this situation, yes, you do need the length in DT.
-> 
-Correct. The 6352 supports "2K bit (93C56) or 4K bit (93C66) 4-wire EEPROM
-devices as well as 1K bit (24C01), 2K bit (24C02) or 4K bit (24C04) 2-wire
-EEPROM", so the length can be anything from 128 to 512 bytes.
+NetworkManager might want to know that it changed when the router advertisement
+arrives.
 
-> I had a quick look at some other switch chips. e.g. the RTL8100. It
-> has a fixed layout of its EEPROM, consisting of 0x80 bytes. In this
-> case, the switch driver could be hard coded with 0x80, and all DT
-> needs to indicate is if the EEPROM is present or not.
-> 
-> So, what you have proposed will work. It is maybe not optimal in the
-> case of a well defined in the datasheet fixed size EEPROM, but it
-> still works.
-> 
-> Acked-by: Andrew Lunn <andrew@lunn.ch>
-> 
-Thanks!
+Signed-off-by: Lubomir Rintel <lkundrak@v3.sk>
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Cc: Daniel Borkmann <dborkman@redhat.com>
+---
+Changes since v1:
+    - Do not call device notifier chain with netdev_state_change()
+Changes since v2:
+    - inet6_ifinfo_notify() instead of rtmsg_ifinfo()
 
-Guenter
+ net/ipv6/addrconf.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 3e118df..d9269ef 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -4528,6 +4528,7 @@ static int inet6_set_iftoken(struct inet6_dev *idev, struct in6_addr *token)
+ 	}
+ 
+ 	write_unlock_bh(&idev->lock);
++	inet6_ifinfo_notify(RTM_NEWLINK, idev);
+ 	addrconf_verify_rtnl();
+ 	return 0;
+ }
+-- 
+1.9.3
