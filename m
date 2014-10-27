@@ -1,39 +1,33 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH 08/11] ssb: driver_chip_comon_pmu: Fix probable mask then right shift defect
-Date: Sun, 26 Oct 2014 22:25:04 -0700
-Message-ID: <e68a49a228d8d2495630b4ef03a1f32b33fce7fe.1414387334.git.joe@perches.com>
+From: "Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>
+Subject: RE: [PATCH 07/11] iwlwifi: dvm: Fix probable mask then right shift
+ defect
+Date: Mon, 27 Oct 2014 06:14:29 +0000
+Message-ID: <0BA3FCBA62E2DC44AF3030971E174FB31B556ABD@hasmsx107.ger.corp.intel.com>
 References: <cover.1414387334.git.joe@perches.com>
-Cc: netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org, Michael Buesch <m@bues.ch>
+ <83c3bfdd0c8f21fbbcbd9ebb5746a8fb04494fac.1414387334.git.joe@perches.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Berg, Johannes" <johannes.berg@intel.com>,
+	Intel Linux Wireless <ilw@linux.intel.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Joe Perches <joe@perches.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1414387334.git.joe@perches.com>
+In-Reply-To: <83c3bfdd0c8f21fbbcbd9ebb5746a8fb04494fac.1414387334.git.joe@perches.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Precedence of & and >> is not the same and is not left to right.
-shift has higher precedence and should be done after the mask.
+> 
+> Precedence of & and >> is not the same and is not left to right.
+> shift has higher precedence and should be done after the mask.
+> 
+> Add parentheses around the mask.
+> 
+> Signed-off-by: Joe Perches <joe@perches.com>
+> ---
 
-Add parentheses around the mask.
-
-Signed-off-by: Joe Perches <joe@perches.com>
----
- drivers/ssb/driver_chipcommon_pmu.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/ssb/driver_chipcommon_pmu.c b/drivers/ssb/driver_chipcommon_pmu.c
-index 1173a09..bc71583 100644
---- a/drivers/ssb/driver_chipcommon_pmu.c
-+++ b/drivers/ssb/driver_chipcommon_pmu.c
-@@ -621,8 +621,8 @@ static u32 ssb_pmu_get_alp_clock_clk0(struct ssb_chipcommon *cc)
- 	u32 crystalfreq;
- 	const struct pmu0_plltab_entry *e = NULL;
- 
--	crystalfreq = chipco_read32(cc, SSB_CHIPCO_PMU_CTL) &
--		      SSB_CHIPCO_PMU_CTL_XTALFREQ >> SSB_CHIPCO_PMU_CTL_XTALFREQ_SHIFT;
-+	crystalfreq = (chipco_read32(cc, SSB_CHIPCO_PMU_CTL) &
-+		       SSB_CHIPCO_PMU_CTL_XTALFREQ) >> SSB_CHIPCO_PMU_CTL_XTALFREQ_SHIFT;
- 	e = pmu0_plltab_find_entry(crystalfreq);
- 	BUG_ON(!e);
- 	return e->freq * 1000;
--- 
-2.1.2
+Applied - thanks.
