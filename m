@@ -1,40 +1,38 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH 2/5] stmmac: pci: use managed resources
-Date: Mon, 27 Oct 2014 16:28:06 +0100
-Message-ID: <544E6486.6040502@st.com>
-References: <1413909333-16380-1-git-send-email-andriy.shevchenko@linux.intel.com>	 <1413909333-16380-3-git-send-email-andriy.shevchenko@linux.intel.com>	 <5446C827.2040801@cogentembedded.com> <1413966993.2396.26.camel@linux.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>,
-	Kweh Hock Leong <hock.leong.kweh@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Vince Bridgers <vbridgers2013@gmail.com>,
-	Rayagond K <rayagond@vayavyalabs.com>
-To: Andy Shevchenko <andriy.shevchenko@linux.intel.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: [PATCH iproute2] man ip: Add missing '-details' option
+Date: Mon, 27 Oct 2014 17:22:58 +0200
+Message-ID: <1414423378-30064-1-git-send-email-vadim4j@gmail.com>
+Cc: Vadim Kochan <vadim4j@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx08-00178001.pphosted.com ([91.207.212.93]:53175 "EHLO
-	mx08-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750824AbaJ0P20 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Oct 2014 11:28:26 -0400
-In-Reply-To: <1413966993.2396.26.camel@linux.intel.com>
+Received: from mail-la0-f46.google.com ([209.85.215.46]:63999 "EHLO
+	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751755AbaJ0PcE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Oct 2014 11:32:04 -0400
+Received: by mail-la0-f46.google.com with SMTP id gi9so6172313lab.33
+        for <netdev@vger.kernel.org>; Mon, 27 Oct 2014 08:32:02 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/22/2014 10:36 AM, Andy Shevchenko wrote:
-> So, I was trying to find any specification on public regarding to boards
-> that have this IP, no luck so far. I guess that that code was created
-> due to XILINX FPGA usage which probably can provide any BAR user wants
-> to. Thus, I imply that in real applications the BAR most probably will
-> be 0. However, I left variable which can be overridden in future
-> (regarding to PCI ID).
->
-> It would be nice to hear someone from ST about this. Giuseppe?
+Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+---
+ man/man8/ip.8 | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-Hello Andy
-
-this chip is on ST SoCs since long time but embedded. I have no PCI
-card. Added Rayagond on copy too
-
-peppe
+diff --git a/man/man8/ip.8 b/man/man8/ip.8
+index 9065b3a..2d42e98 100644
+--- a/man/man8/ip.8
++++ b/man/man8/ip.8
+@@ -59,6 +59,10 @@ appears twice or more, the amount of information increases.
+ As a rule, the information is statistics or some time values.
+ 
+ .TP
++.BR "\-d" , " \-details"
++Output more detailed information.
++
++.TP
+ .BR "\-l" , " \-loops " <COUNT>
+ Specify maximum number of loops the 'ip addr flush' logic
+ will attempt before giving up.  The default is 10.
+-- 
+2.1.0
