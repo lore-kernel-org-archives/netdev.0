@@ -1,62 +1,43 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 00/11] treewide: mask then shift defects and style updates
-Date: Sun, 26 Oct 2014 22:24:56 -0700
-Message-ID: <cover.1414387334.git.joe@perches.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: alsa-devel@alsa-project.org, linux-wireless@vger.kernel.org,
- linux-input@vger.kernel.org
-To: linux-kernel@vger.kernel.org, linux-nvme@lists.infradead.org,
- dri-devel@lists.freedesktop.org, ivtv-devel@ivtvdriver.org,
- linux-media@vger.kernel.org, patches@opensource.wolfsonmicro.com,
- netdev@vger.kernel.org, linux-usb@vger.kernel.org,
- linux-parisc@vger.kernel.org
-Return-path: <dri-devel-bounces@lists.freedesktop.org>
-List-Unsubscribe: <http://lists.freedesktop.org/mailman/options/dri-devel>,
- <mailto:dri-devel-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <http://lists.freedesktop.org/archives/dri-devel>
-List-Post: <mailto:dri-devel@lists.freedesktop.org>
-List-Help: <mailto:dri-devel-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <http://lists.freedesktop.org/mailman/listinfo/dri-devel>,
- <mailto:dri-devel-request@lists.freedesktop.org?subject=subscribe>
-Errors-To: dri-devel-bounces@lists.freedesktop.org
-Sender: "dri-devel" <dri-devel-bounces@lists.freedesktop.org>
+Subject: [PATCH 07/11] iwlwifi: dvm: Fix probable mask then right shift defect
+Date: Sun, 26 Oct 2014 22:25:03 -0700
+Message-ID: <83c3bfdd0c8f21fbbcbd9ebb5746a8fb04494fac.1414387334.git.joe@perches.com>
+References: <cover.1414387334.git.joe@perches.com>
+Cc: Johannes Berg <johannes.berg@intel.com>,
+	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
+	Intel Linux Wireless <ilw@linux.intel.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1414387334.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-logical mask has lower precedence than shift but should be
-done before the shift so parentheses are generally required.
+Precedence of & and >> is not the same and is not left to right.
+shift has higher precedence and should be done after the mask.
 
-And when masking with a fixed value after a shift, normal kernel
-style has the shift on the left, then the shift on the right so
-convert a few non-conforming uses.
+Add parentheses around the mask.
 
-Joe Perches (11):
-  block: nvme-scsi: Fix probable mask then right shift defects
-  radeon: evergreen: Fix probable mask then right shift defects
-  aiptek: Fix probable mask then right shift defects
-  dvb-net: Fix probable mask then right shift defects
-  cx25840/cx18: Use standard ordering of mask and shift
-  wm8350-core: Fix probable mask then right shift defect
-  iwlwifi: dvm: Fix probable mask then right shift defect
-  ssb: driver_chip_comon_pmu: Fix probable mask then right shift defect
-  tty: ipwireless: Fix probable mask then right shift defects
-  hwa-hc: Fix probable mask then right shift defect
-  sound: ad1889: Fix probable mask then right shift defects
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ drivers/net/wireless/iwlwifi/dvm/lib.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
- drivers/block/nvme-scsi.c                | 12 ++++++------
- drivers/gpu/drm/radeon/evergreen.c       |  3 ++-
- drivers/input/tablet/aiptek.c            |  6 +++---
- drivers/media/dvb-core/dvb_net.c         |  4 +++-
- drivers/media/i2c/cx25840/cx25840-core.c | 12 ++++++------
- drivers/media/pci/cx18/cx18-av-core.c    | 16 ++++++++--------
- drivers/mfd/wm8350-core.c                |  2 +-
- drivers/net/wireless/iwlwifi/dvm/lib.c   |  4 ++--
- drivers/ssb/driver_chipcommon_pmu.c      |  4 ++--
- drivers/tty/ipwireless/hardware.c        | 12 ++++++------
- drivers/usb/host/hwa-hc.c                |  2 +-
- sound/pci/ad1889.c                       |  8 ++++----
- 12 files changed, 44 insertions(+), 41 deletions(-)
-
+diff --git a/drivers/net/wireless/iwlwifi/dvm/lib.c b/drivers/net/wireless/iwlwifi/dvm/lib.c
+index 2191621..02e4ede 100644
+--- a/drivers/net/wireless/iwlwifi/dvm/lib.c
++++ b/drivers/net/wireless/iwlwifi/dvm/lib.c
+@@ -418,8 +418,8 @@ void iwlagn_bt_adjust_rssi_monitor(struct iwl_priv *priv, bool rssi_ena)
+ 
+ static bool iwlagn_bt_traffic_is_sco(struct iwl_bt_uart_msg *uart_msg)
+ {
+-	return BT_UART_MSG_FRAME3SCOESCO_MSK & uart_msg->frame3 >>
+-			BT_UART_MSG_FRAME3SCOESCO_POS;
++	return (BT_UART_MSG_FRAME3SCOESCO_MSK & uart_msg->frame3) >>
++		BT_UART_MSG_FRAME3SCOESCO_POS;
+ }
+ 
+ static void iwlagn_bt_traffic_change_work(struct work_struct *work)
 -- 
 2.1.2
