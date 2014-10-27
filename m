@@ -1,91 +1,87 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net: skb_segment() should preserve backpressure
-Date: Mon, 27 Oct 2014 10:30:51 -0700
-Message-ID: <1414431051.16231.23.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1414405781.4492.38.camel@ubuntu-vm-makita>
-	 <1414422089.16231.8.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1414424388.16231.13.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Michael =?UTF-8?B?QsO8c2No?= <m@bues.ch>
+Subject: Re: [PATCH 08/11] ssb: driver_chip_comon_pmu: Fix probable mask
+ then right shift defect
+Date: Mon, 27 Oct 2014 18:32:31 +0100
+Message-ID: <20141027183231.2a9abbb4@wiggum>
+References: <cover.1414387334.git.joe@perches.com>
+	<e68a49a228d8d2495630b4ef03a1f32b33fce7fe.1414387334.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>
-To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:36347 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750824AbaJ0RbE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Oct 2014 13:31:04 -0400
-Received: by mail-pa0-f44.google.com with SMTP id bj1so2319084pad.17
-        for <netdev@vger.kernel.org>; Mon, 27 Oct 2014 10:31:03 -0700 (PDT)
-In-Reply-To: <1414424388.16231.13.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ boundary="Sig_/CAj/qyhiMumS69DuPDRPde2"; protocol="application/pgp-signature"
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <e68a49a228d8d2495630b4ef03a1f32b33fce7fe.1414387334.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+--Sig_/CAj/qyhiMumS69DuPDRPde2
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-This patch generalizes commit d6a4a1041176 ("tcp: GSO should be TSQ
-friendly") to protocols using skb_set_owner_w()
+On Sun, 26 Oct 2014 22:25:04 -0700
+Joe Perches <joe@perches.com> wrote:
 
-TCP uses its own destructor (tcp_wfree) and needs a more complex scheme
-as explained in commit 6ff50cd55545 ("tcp: gso: do not generate out of
-order packets")
+> Precedence of & and >> is not the same and is not left to right.
+> shift has higher precedence and should be done after the mask.
+>=20
+> Add parentheses around the mask.
+>=20
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-This allows UDP sockets using UFO to get proper backpressure,
-thus avoiding qdisc drops and excessive cpu usage.
+Good catch.
 
-Here are performance test results (macvlan on vlan):
+Reviewed-by: Michael B=C3=BCsch <m@bues.ch>
 
-- Before
-# netperf -t UDP_STREAM ...
-Socket  Message  Elapsed      Messages
-Size    Size     Time         Okay Errors   Throughput
-bytes   bytes    secs            #      #   10^6bits/sec
+> ---
+>  drivers/ssb/driver_chipcommon_pmu.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+>=20
+> diff --git a/drivers/ssb/driver_chipcommon_pmu.c b/drivers/ssb/driver_chi=
+pcommon_pmu.c
+> index 1173a09..bc71583 100644
+> --- a/drivers/ssb/driver_chipcommon_pmu.c
+> +++ b/drivers/ssb/driver_chipcommon_pmu.c
+> @@ -621,8 +621,8 @@ static u32 ssb_pmu_get_alp_clock_clk0(struct ssb_chip=
+common *cc)
+>  	u32 crystalfreq;
+>  	const struct pmu0_plltab_entry *e =3D NULL;
+> =20
+> -	crystalfreq =3D chipco_read32(cc, SSB_CHIPCO_PMU_CTL) &
+> -		      SSB_CHIPCO_PMU_CTL_XTALFREQ >> SSB_CHIPCO_PMU_CTL_XTALFREQ_SHIFT;
+> +	crystalfreq =3D (chipco_read32(cc, SSB_CHIPCO_PMU_CTL) &
+> +		       SSB_CHIPCO_PMU_CTL_XTALFREQ) >> SSB_CHIPCO_PMU_CTL_XTALFREQ_SHI=
+FT;
+>  	e =3D pmu0_plltab_find_entry(crystalfreq);
+>  	BUG_ON(!e);
+>  	return e->freq * 1000;
 
-212992   65507   60.00      144096 1224195    1258.56
-212992           60.00          51              0.45
 
-Average:        CPU     %user     %nice   %system   %iowait    %steal     %idle
-Average:        all      0.23      0.00     25.26      0.08      0.00     74.43
 
-- After
-# netperf -t UDP_STREAM ...
-Socket  Message  Elapsed      Messages
-Size    Size     Time         Okay Errors   Throughput
-bytes   bytes    secs            #      #   10^6bits/sec
 
-212992   65507   60.00      109593      0     957.20
-212992           60.00      109593            957.20
+--=20
+Michael
 
-Average:        CPU     %user     %nice   %system   %iowait    %steal     %idle
-Average:        all      0.18      0.00      8.38      0.02      0.00     91.43
+--Sig_/CAj/qyhiMumS69DuPDRPde2
+Content-Type: application/pgp-signature
+Content-Description: OpenPGP digital signature
 
-[edumazet] Rewrote patch and changelog.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
 
-Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/core/skbuff.c |   10 ++++++++++
- 1 file changed, 10 insertions(+)
+iQIcBAEBAgAGBQJUToGxAAoJEPUyvh2QjYsOMegP/RvSLPksqP6l7dXDkcVr9jpK
+s7ns/qqO0CVYWFoEFKmkPe5B5IIKaX8YHhJSL8A+SZhT/GDd0KEKjhNjJJUXZt6j
+ZNSVsrW4jQyxQO+Z6a3TML5UQMg3NZeaeooeLrLQwuja4ViZmc0NjhZiZp3y6Hda
+NxaaUE5lh7O6BUJfJf16oizheFz7koTqJigyrflJ4Al5XhxALgIt7w8dzq5rnlog
+1jsr5r/Pp5BytUOorL3+6f8iDPHOfg9sJyDsGwHl1/pXL+KTdEkvmSzC3VaKDNot
+JbpJFR0wvroQzj56dFcULIa2fa2bcF9+oUHKw2mGITYZqDY8umwkPSNi0oC7+mZl
+/HJGk+SGrfFdkUjweAXymjkSfjHfKGeJNvfF5ndr5ijY+rHJG4uRte6W1JlDvZtF
+HDzpAv3N4PPsPmQzFrVxdDhbPEjGUDIDGum3QkpiK5w2rnOqncaXq3caH6LDRFYS
+gsV6j1pv1kXaQFKlQea5K1DxQcA9phXwHq3XVfhQ4uVAyUqP9JuAT+z2VlF4jEPH
+9dfOURbBJDj2brp7PDm+548R3TGnvcL4zOWlgYdcGZLfwoy9sScynZbFxf8ll5/C
+IFLxuza9YOTHaIUlr1l14+1850we5KKkZuS6iYELaJMXwlCj3G1ciFKqXB4g0dJO
+0p/2mx3T8kxxkg6Yd7Pg
+=qznj
+-----END PGP SIGNATURE-----
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index c16615bfb61edd2a1dae9ef7935a3153d78dc4df..e48e5c02e877d9a9389ea54f0e015ba041d3f2a7 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -3099,6 +3099,16 @@ perform_csum_check:
- 	 * (see validate_xmit_skb_list() for example)
- 	 */
- 	segs->prev = tail;
-+
-+	/* Following permits correct backpressure, for protocols
-+	 * using skb_set_owner_w().
-+	 * Idea is to tranfert ownership from head_skb to last segment.
-+	 */
-+	if (head_skb->destructor == sock_wfree) {
-+		swap(tail->truesize, head_skb->truesize);
-+		swap(tail->destructor, head_skb->destructor);
-+		swap(tail->sk, head_skb->sk);
-+	}
- 	return segs;
- 
- err:
+--Sig_/CAj/qyhiMumS69DuPDRPde2--
