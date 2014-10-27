@@ -1,57 +1,69 @@
-From: "Stefan Bottelier | Ocius.nl" <stefan@ocius.nl>
-Subject: Re: Problem with 10Gbit Broadcom NetXtreme II 5771x/578xx 10/20-Gigabit
- Ethernet Driver
-Date: Mon, 27 Oct 2014 09:42:36 +0100
-Message-ID: <544E057C.2070204@ocius.nl>
-References: <544A110C.4030402@ocius.nl> <B5657A6538887040AD3A81F1008BEC63B85038@avmb3.qlogic.org>
+From: Matei Pavaluca <matei.pavaluca@freescale.com>
+Subject: [PATCH net-next v2 1/3] Add flow control support flags to gianfar's capabilities
+Date: Mon, 27 Oct 2014 10:42:42 +0200
+Message-ID: <1414399364-22308-1-git-send-email-matei.pavaluca@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Content-Type: text/plain
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Claudiu Manoil <claudiu.manoil@freescale.com>,
+	Pavaluca Matei-B46610 <matei.pavaluca@freescale.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Axlion.ocius.nl ([178.18.143.21]:15465 "EHLO Axlion.ocius.nl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751230AbaJ0Iml (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Oct 2014 04:42:41 -0400
-In-Reply-To: <B5657A6538887040AD3A81F1008BEC63B85038@avmb3.qlogic.org>
+Received: from mail-by2on0132.outbound.protection.outlook.com ([207.46.100.132]:14819
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751761AbaJ0Imy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Oct 2014 04:42:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Yuval,
+From: Pavaluca Matei-B46610 <matei.pavaluca@freescale.com>
 
-Thanks for this messages.
+The phy device supports 802.3x flow control, but the specific flags are not set
+in the phy initialisation code. Flow control flags need to be added to the
+supported capabilities of the phydev by the driver.
 
-We use now the kernel 3.10.57 and then the interface working, only we 
-must back to the kernel we always use 3.2.63 , its work better with use 
-systems.
-I have compiler the kernel by my self on a Suse system.
+This is needed in order for ethtool to work ('ethtool -A' code checks for these
+flags)
 
-I hope we can fix it, that this working with the kernel 3.2.63.
+Signed-off-by: Pavaluca Matei <matei.pavaluca@freescale.com>
+---
 
->> We are using Dell Blade Centers, but we get a error on the 10Gbit
->> Broadcom adapter bnx2x
->> bnx2x 0000:01:00.0: part number 394D4342-31383735-30315430-473030
->> WARNING: at drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c:9410
-> Hi Stefan,
->
-> Which distro & linux kernel are you using?
-> [Obviously not net-next]
->
-> Thanks,
-> Yuval
->
-> ________________________________
->
-> This message and any attached documents contain information from the sending company or its parent company(s), subsidiaries, divisions or branch offices that may be confidential. If you are not the intended recipient, you may not read, copy, distribute, or use this information. If you have received this transmission in error, please notify the sender immediately by reply e-mail and then delete this message.
+v2:
+  - none
+ 
+ drivers/net/ethernet/freescale/gianfar.c | 3 +++
+ drivers/net/ethernet/freescale/gianfar.h | 4 +---
+ 2 files changed, 4 insertions(+), 3 deletions(-)
 
-
+diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
+index 4fdf0aa..2485b74 100644
+--- a/drivers/net/ethernet/freescale/gianfar.c
++++ b/drivers/net/ethernet/freescale/gianfar.c
+@@ -1687,6 +1687,9 @@ static int init_phy(struct net_device *dev)
+ 	priv->phydev->supported &= (GFAR_SUPPORTED | gigabit_support);
+ 	priv->phydev->advertising = priv->phydev->supported;
+ 
++	/* Add support for flow control, but don't advertise it by default */
++	priv->phydev->supported |= (SUPPORTED_Pause | SUPPORTED_Asym_Pause);
++
+ 	return 0;
+ }
+ 
+diff --git a/drivers/net/ethernet/freescale/gianfar.h b/drivers/net/ethernet/freescale/gianfar.h
+index 2805cfb..6b00868 100644
+--- a/drivers/net/ethernet/freescale/gianfar.h
++++ b/drivers/net/ethernet/freescale/gianfar.h
+@@ -145,9 +145,7 @@ extern const char gfar_driver_version[];
+ 		| SUPPORTED_Autoneg \
+ 		| SUPPORTED_MII)
+ 
+-#define GFAR_SUPPORTED_GBIT (SUPPORTED_1000baseT_Full \
+-		| SUPPORTED_Pause \
+-		| SUPPORTED_Asym_Pause)
++#define GFAR_SUPPORTED_GBIT SUPPORTED_1000baseT_Full
+ 
+ /* TBI register addresses */
+ #define MII_TBICON		0x11
 -- 
-Met vriendelijke groet,
-
-Stefan Bottelier
-Ocius Internet Services
-
-E: Stefan.Bottelier@ocius.nl
-T: +31 (0)20 716 39 09
-W: http://www.ocius.nl
+1.7.11.7
