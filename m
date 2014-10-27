@@ -1,7 +1,7 @@
 From: Jeff Layton <jeff.layton-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>
 Subject: nfs stalls over loopback interface (no sk_data_ready events?)
-Date: Mon, 27 Oct 2014 15:26:10 -0400
-Message-ID: <20141027152610.3568616f@tlielax.poochiereds.net>
+Date: Mon, 27 Oct 2014 15:29:00 -0400
+Message-ID: <20141027152900.4e81a9d5@tlielax.poochiereds.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -9,10 +9,12 @@ Cc: Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
 	Linux NFS Mailing List <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
 	Bruce Fields <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
 	Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>
-To: netdev-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
+
+(sorry for resend -- I got the netdev address wrong)
 
 Sending this to netdev since I think I've now determined that this is
 not a NFS specific problem. Recently Christoph mentioned that he was
