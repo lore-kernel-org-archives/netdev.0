@@ -1,64 +1,62 @@
-From: "Zhangjie (HZ)" <zhangjie14@huawei.com>
-Subject: Re: [QA-TCP] How to send tcp small packages immediately?
-Date: Mon, 27 Oct 2014 09:08:16 +0800
-Message-ID: <544D9B00.4040603@huawei.com>
-References: <544A029D.3080508@huawei.com> <544A6E12.2000007@hp.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: some failures with vxlan offloads..
+Date: Sun, 26 Oct 2014 18:23:07 -0700
+Message-ID: <CA+mtBx9g6MYpFv83av1YdRpZRBcBKvsqzSnhs5C7iV+kP8cWDA@mail.gmail.com>
+References: <544CF8E3.8070207@mellanox.com>
+	<CA+mtBx-Jp5Kps5WycYwN0PuyXLDtGM0s8USxdQoSLPRDVS19xw@mail.gmail.com>
+	<CAJ3xEMi6UuCT+6iriX02qjS6trhEaoYh39UBL+p_i995MvZc2Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-To: Rick Jones <rick.jones2@hp.com>, <kvm@vger.kernel.org>,
-	Jason Wang <jasowang@redhat.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<liuyongan@huawei.com>, <qinchuanyu@huawei.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <544A6E12.2000007@hp.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Or Gerlitz <ogerlitz@mellanox.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: Or Gerlitz <gerlitz.or@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f170.google.com ([209.85.213.170]:39423 "EHLO
+	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751728AbaJ0BXI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 26 Oct 2014 21:23:08 -0400
+Received: by mail-ig0-f170.google.com with SMTP id hn18so4958522igb.1
+        for <netdev@vger.kernel.org>; Sun, 26 Oct 2014 18:23:07 -0700 (PDT)
+In-Reply-To: <CAJ3xEMi6UuCT+6iriX02qjS6trhEaoYh39UBL+p_i995MvZc2Q@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+On Sun, Oct 26, 2014 at 3:23 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+> On Sun, Oct 26, 2014 at 5:29 PM, Tom Herbert <therbert@google.com> wrote:
+>> On Sun, Oct 26, 2014 at 6:36 AM, Or Gerlitz <ogerlitz@mellanox.com> wrote:
+>
+>>> In the cases where it breaks I can see
+>>>         UDP: bad checksum. From 192.168.31.18:54748 to 192.168.31.17:4789
+>>> ulen 726
+>>> prints from __udp4_lib_rcv() in the kernel log of the node where offloads
+>>> are OFF, where the bad packet is sent from the host where offloading is
+>>> enabled. I guess the packet is just dropped:
+>
+>> Can you determine what the TSO HW engine is setting in UDP checksum
+>> field? tcpdump -vv might be able to show this. The symptoms seem to
+>> indicate that it may not be zero.
+>
+> Thanks for the quick response. I'll check what is placed in the UDP
+> checksum field for packets that went through the offloading HW and let
+> you know.
+>
+> BTW, if following the direction you proposed, I wonder why this works
+> (e.g the kernel doesn't drops the encapsulated TCP packets) when both
+> sides are offloaded?
+>
+I'm just speculating, but the device may be returning checksum
+unnecessary for the UDP checksum without actually checking it.
+Technically, VXLAN RFC7348 allows an implementation to ignore the UDP
+checksum, although this clearly violates RFC1122 UDP checksum
+requirements. In the stack we now checksum all non-zero checksums
+including UDP checksum in VXLAN if it's not marked
+checksum-unnecessary.
+
+Tom
 
 
-Thanks!
-On 2014/10/24 23:19, Rick Jones wrote:
-> On 10/24/2014 12:41 AM, Zhangjie (HZ) wrote:
->> Hi,
->>
->> I use netperf to test the performance of small tcp package, with TCP_NODELAY set :
->>
->> netperf -H 129.9.7.164 -l 100 -- -m 512 -D
->>
->> Among the packages I got by tcpdump, there is not only small packages, also lost of
->> big ones (skb->len=65160).
->>
->> IP 129.9.7.186.60840 > 129.9.7.164.34607: tcp 65160
->> IP 129.9.7.164.34607 > 129.9.7.186.60840: tcp 0
->> IP 129.9.7.164.34607 > 129.9.7.186.60840: tcp 0
->> IP 129.9.7.164.34607 > 129.9.7.186.60840: tcp 0
->> IP 129.9.7.186.60840 > 129.9.7.164.34607: tcp 65160
->> IP 129.9.7.164.34607 > 129.9.7.186.60840: tcp 0
->> IP 129.9.7.164.34607 > 129.9.7.186.60840: tcp 0
->> IP 129.9.7.164.34607 > 129.9.7.186.60840: tcp 0
->> IP 129.9.7.186.60840 > 129.9.7.164.34607: tcp 80
->> IP 129.9.7.186.60840 > 129.9.7.164.34607: tcp 512
->> IP 129.9.7.186.60840 > 129.9.7.164.34607: tcp 512
->>
->> SO, how to test small tcp packages? Including TCP_NODELAY, What else should be set?
-> 
-> Well, I don't think there is anything else you can set.  Even with TCP_NODELAY set, segment size with TCP will still be controlled by factors such as congestion window.
-> 
-> I am ass-u-me-ing your packet trace is at the sender.  I suppose if your sender were fast enough compared to the path that might combine with congestion window to result in the very large segments.
-> 
-> Not to say there cannot be a bug somewhere with TSO overriding TCP_NODELAY, but in broad terms, even TCP_NODELAY does not guarantee small TCP segments.  That has been something of a bane on my attempts to use TCP for aggregate small-packet performance measurements via netperf for quite some time.
-> 
-> And since you seem to have included a virtualization mailing list I would also ass-u-me that virtualization is involved somehow.  Knuth only knows how that will affect the timing of events, which will be very much involved in matters of congestion window and such.  I suppose it is even possible that if the packet trace is on a VM receiver that some delays in getting the VM running could mean that GRO would end-up making large segments being pushed up the stack.
-> 
-> happy benchmarking,
-Yes. Using netperf to send tcp packages frome physical nic has the same problems.
-Thanks for your explanation!
-> 
-> rick jones
-> .
-> 
-
--- 
-Best Wishes!
-Zhang Jie
+> Tomorrow (Monday) I am OOO so will be able to do these further tests Tuesday.
+>
+> Or.
