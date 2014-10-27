@@ -1,64 +1,57 @@
-From: Fabian Frederick <fabf@skynet.be>
-Subject: [PATCH 1/1 net-next] ipx: move extern sysctl_ipx_pprop_broadcasting to header file
-Date: Mon, 27 Oct 2014 20:00:41 +0100
-Message-ID: <1414436441-4784-1-git-send-email-fabf@skynet.be>
-Cc: Fabian Frederick <fabf@skynet.be>,
-	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailrelay009.isp.belgacom.be ([195.238.6.176]:51199 "EHLO
-	mailrelay009.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752915AbaJ0TAt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Oct 2014 15:00:49 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jeff Layton <jeff.layton-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>
+Subject: nfs stalls over loopback interface (no sk_data_ready events?)
+Date: Mon, 27 Oct 2014 15:26:10 -0400
+Message-ID: <20141027152610.3568616f@tlielax.poochiereds.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Linux NFS Mailing List <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Bruce Fields <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>
+To: netdev-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-include ipx.h from sysctl_net_ipx.c
+Sending this to netdev since I think I've now determined that this is
+not a NFS specific problem. Recently Christoph mentioned that he was
+seeing stalls when running xfstests generic/075 test on NFS over the
+loopback interface with v3.18-rc1-ish kernel.
 
-Signed-off-by: Fabian Frederick <fabf@skynet.be>
----
- include/net/ipx.h        | 3 +++
- net/ipx/sysctl_net_ipx.c | 4 +---
- 2 files changed, 4 insertions(+), 3 deletions(-)
+The configuration in this case is the nfs server and client on same box
+communicating over the lo interface.
 
-diff --git a/include/net/ipx.h b/include/net/ipx.h
-index 0143180..320f47b 100644
---- a/include/net/ipx.h
-+++ b/include/net/ipx.h
-@@ -42,6 +42,9 @@ struct ipxhdr {
- 	struct ipx_address	ipx_source __packed;
- };
- 
-+/* From af_ipx.c */
-+extern int sysctl_ipx_pprop_broadcasting;
-+
- static __inline__ struct ipxhdr *ipx_hdr(struct sk_buff *skb)
- {
- 	return (struct ipxhdr *)skb_transport_header(skb);
-diff --git a/net/ipx/sysctl_net_ipx.c b/net/ipx/sysctl_net_ipx.c
-index ad7c03d..0dafcc5 100644
---- a/net/ipx/sysctl_net_ipx.c
-+++ b/net/ipx/sysctl_net_ipx.c
-@@ -9,14 +9,12 @@
- #include <linux/mm.h>
- #include <linux/sysctl.h>
- #include <net/net_namespace.h>
-+#include <net/ipx.h>
- 
- #ifndef CONFIG_SYSCTL
- #error This file should not be compiled without CONFIG_SYSCTL defined
- #endif
- 
--/* From af_ipx.c */
--extern int sysctl_ipx_pprop_broadcasting;
--
- static struct ctl_table ipx_table[] = {
- 	{
- 		.procname	= "ipx_pprop_broadcasting",
+Here's are tracepoints from a typical request as it's supposed to work:
+
+       mount.nfs-906   [002] ...1 22711.996969: xprt_transmit: xprt=0xffff8800ce961000 xid=0xa8a34513 status=0
+            nfsd-678   [000] ...1 22711.997082: svc_recv: rq_xid=0xa8a34513 status=164
+            nfsd-678   [000] ..s8 22711.997185: xprt_lookup_rqst: xprt=0xffff8800ce961000 xid=0xa8a34513 status=0
+            nfsd-678   [000] ..s8 22711.997186: xprt_complete_rqst: xprt=0xffff8800ce961000 xid=0xa8a34513 status=140
+            nfsd-678   [000] ...1 22711.997236: svc_send: rq_xid=0xa8a34513 dropme=0 status=144
+            nfsd-678   [000] ...1 22711.997236: svc_process: rq_xid=0xa8a34513 dropme=0 status=144
+
+...basically, we send a request to the server. Server picks it up and
+sends the reply, and then the client IDs that reply and processes it.
+This runs along just fine for ~ a minute or so. At some point, the
+client stops seeing replies come in:
+
+     kworker/2:2-107   [002] ...1 22741.696070: xprt_transmit: xprt=0xffff8800ce961000 xid=0xc3a84513 status=0
+            nfsd-678   [002] .N.1 22741.696917: svc_recv: rq_xid=0xc3a84513 status=208
+            nfsd-678   [002] ...1 22741.699890: svc_send: rq_xid=0xc3a84513 dropme=0 status=262252
+            nfsd-678   [002] ...1 22741.699891: svc_process: rq_xid=0xc3a84513 dropme=0 status=262252
+
+
+...a bit more tracepoint work seems to show that we just stop getting
+sk_data_ready callbacks on the socket at all. I'm not terribly familiar
+with the lower-level socket code, so I figured I'd email here and ask...
+
+Anyone have insight into why this might be happening?
+
+Thanks,
 -- 
-1.9.1
+Jeff Layton <jlayton-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
