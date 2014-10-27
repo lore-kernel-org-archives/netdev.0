@@ -1,38 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [bug] sunhme unable to receive IPv4 unicasts
-Date: Mon, 27 Oct 2014 19:03:46 -0400 (EDT)
-Message-ID: <20141027.190346.920863541819947249.davem@davemloft.net>
-References: <op.xn7d94v644i3fq@lx3.fl.yeti.dk>
+From: Roberto Medina <robertoxmed@gmail.com>
+Subject: Re: [PATCH] net: ethernet: realtek: atp: checkpatch errors and warnings
+ corrected
+Date: Tue, 28 Oct 2014 00:04:36 +0100
+Message-ID: <544ECF84.80208@gmail.com>
+References: <1414084200-5377-1-git-send-email-robertoxmed@gmail.com>	<20141027.185211.1433818002293610983.davem@davemloft.net> <20141027.185355.1412632964802440855.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: WIMPy@yeti.dk
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51693 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751949AbaJ0XDr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Oct 2014 19:03:47 -0400
-In-Reply-To: <op.xn7d94v644i3fq@lx3.fl.yeti.dk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-7;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141027.185355.1412632964802440855.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Birger Harzenetter" <WIMPy@yeti.dk>
-Date: Fri, 24 Oct 2014 00:04:42 +0200
+On 10/27/2014 11:53 PM, David Miller wrote:
+> From: David Miller <davem@davemloft.net>
+> Date: Mon, 27 Oct 2014 18:52:11 -0400 (EDT)
+>
+>> From: Roberto Medina <robertoxmed@gmail.com>
+>> Date: Thu, 23 Oct 2014 19:10:00 +0200
+>>
+>>> From: Roberto Medina <robertoxmed@gmail.com>
+>>>
+>>> Several warnings and errors of coding style errors corrected.
+>>>
+>>> Signed-off-by: Roberto Medina <robertoxmed@gmail.com>
+>>
+>> Applied, thanks.
+>
+> Wait, are you serious, you didn't even compile test this change?
+>
+> For real?
+>
+> In file included from drivers/net/ethernet/realtek/atp.c:146:0:
+> drivers/net/ethernet/realtek/atp.h:79:15: error: expected =A1;=A2, id=
+entifier or =A1(=A2 before =A1unsigned=A2
+>   static inline unsigned char inbyte(unsigned short port)
+>                 ^
+> drivers/net/ethernet/realtek/atp.h:79:15: error: =A1inline=A2 in empt=
+y declaration
+>
 
->  from https://bugzilla.kernel.org/show_bug.cgi?id=86731
-> 
-> Any kind of transmission is fine.
-> Reception of IPv4 broadcast works
-> Reception of non-IP works (pppoe tested)
-> But IPv4 unicasts don't show up at all.
-> IPv6 not tested
-> 
-> Additional tests:
-> I tried to set promiscous mode, but still no trace of unicasts seen with  
-> tcpdump.
-> 
-> Last known working version: 3.15.10
+Wow I'm really sorry for that, I did compile my changes, or at least=20
+that's what I thought when I compiled the directory.
 
-Unfortunately there have been zero functional changes to this driver
-since v3.15 :-/
+Will submit another patch. Sorry for the inconvenience again.
+
+> Don't even submit changes meant for inclusion if you're not even
+> willing to build test them.
+>
+> And I'm very serious about this.
+>
