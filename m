@@ -1,162 +1,43 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next 07/13] net/mlx4_en: Use PTYS register to set ethtool settings (Speed)
-Date: Mon, 27 Oct 2014 11:37:41 +0200
-Message-ID: <1414402667-8841-8-git-send-email-amirv@mellanox.com>
-References: <1414402667-8841-1-git-send-email-amirv@mellanox.com>
-Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Oliver Neukum <oneukum@suse.de>
+Subject: Re: [PATCH net 0/3] cdc-ether: handle promiscuous mode
+Date: Mon, 27 Oct 2014 11:02:28 +0100
+Message-ID: <1414404148.26910.0.camel@linux-0dmf.site>
+References: <1414172582-30844-1-git-send-email-olivier.blin@softathome.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, hayeswang@realtek.com, bjorn@mork.no,
+	davem@davemloft.net
+To: Olivier Blin <olivier.blin@softathome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:34960 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752275AbaJ0Jic (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Oct 2014 05:38:32 -0400
-In-Reply-To: <1414402667-8841-1-git-send-email-amirv@mellanox.com>
+Received: from cantor2.suse.de ([195.135.220.15]:48585 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751184AbaJ0KCT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Oct 2014 06:02:19 -0400
+In-Reply-To: <1414172582-30844-1-git-send-email-olivier.blin@softathome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Saeed Mahameed <saeedm@mellanox.com>
+On Fri, 2014-10-24 at 19:42 +0200, Olivier Blin wrote:
+> Hi,
+> 
+> Since kernel 3.16, my Lenovo USB network adapters (RTL8153) using
+> cdc-ether are not working anymore in a bridge.
+> 
+> This is due to commit c472ab68ad67db23c9907a27649b7dc0899b61f9, which
+> resets the packet filter when the device is bound.
+> 
+> The default packet filter set by cdc-ether does not include
+> promiscuous, while the adapter seemed to have promiscuous enabled by
+> default.
+> 
+> This patch series allows to support promiscuous mode for cdc-ether, by
+> hooking into set_rx_mode.
+> 
+> Incidentally, maybe this device should be handled by the r8152 driver,
+> but this patch series is still nice for other adapters.
 
-Added Support to set speed or advertised link modes via ethtool:
-ethtool -s <ifname> [speed <speed>] [advertise <link modes>]
+Acked-by: Oliver Neukum <oneukum@suse.de>
 
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/en_ethtool.c | 108 +++++++++++++++++++++++-
- 1 file changed, 104 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-index 64b6743..144d6bd 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-@@ -570,6 +570,31 @@ static u32 ptys2ethtool_link_modes(u32 eth_proto, enum ethtool_report report)
- 	return link_modes;
- }
- 
-+static u32 ethtool2ptys_link_modes(u32 link_modes, enum ethtool_report report)
-+{
-+	int i;
-+	u32 ptys_modes = 0;
-+
-+	for (i = 0; i < MLX4_LINK_MODES_SZ; i++) {
-+		if (ptys2ethtool_map[i][report] & link_modes)
-+			ptys_modes |= 1 << i;
-+	}
-+	return ptys_modes;
-+}
-+
-+/* Convert actual speed (SPEED_XXX) to ptys link modes */
-+static u32 speed2ptys_link_modes(u32 speed)
-+{
-+	int i;
-+	u32 ptys_modes = 0;
-+
-+	for (i = 0; i < MLX4_LINK_MODES_SZ; i++) {
-+		if (ptys2ethtool_map[i][SPEED] == speed)
-+			ptys_modes |= 1 << i;
-+	}
-+	return ptys_modes;
-+}
-+
- static int ethtool_get_ptys_settings(struct net_device *dev,
- 				     struct ethtool_cmd *cmd)
- {
-@@ -698,14 +723,89 @@ static int mlx4_en_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 	return 0;
- }
- 
-+/* Calculate PTYS admin according ethtool speed (SPEED_XXX) */
-+static __be32 speed_set_ptys_admin(struct mlx4_en_priv *priv, u32 speed,
-+				   __be32 proto_cap)
-+{
-+	__be32 proto_admin = 0;
-+
-+	if (!speed) { /* Speed = 0 ==> Reset Link modes */
-+		proto_admin = proto_cap;
-+		en_info(priv, "Speed was set to 0, Reset advertised Link Modes to default (%x)\n",
-+			be32_to_cpu(proto_cap));
-+	} else {
-+		u32 ptys_link_modes = speed2ptys_link_modes(speed);
-+
-+		proto_admin = cpu_to_be32(ptys_link_modes) & proto_cap;
-+		en_info(priv, "Setting Speed to %d\n", speed);
-+	}
-+	return proto_admin;
-+}
-+
- static int mlx4_en_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- {
--	if ((cmd->autoneg == AUTONEG_ENABLE) ||
--	    (ethtool_cmd_speed(cmd) != SPEED_10000) ||
--	    (cmd->duplex != DUPLEX_FULL))
-+	struct mlx4_en_priv *priv = netdev_priv(dev);
-+	struct mlx4_ptys_reg ptys_reg;
-+	__be32 proto_admin;
-+	int ret;
-+
-+	u32 ptys_adv = ethtool2ptys_link_modes(cmd->advertising, ADVERTISED);
-+	int speed = ethtool_cmd_speed(cmd);
-+
-+	en_dbg(DRV, priv, "Set Speed=%d adv=0x%x autoneg=%d duplex=%d\n",
-+	       speed, cmd->advertising, cmd->autoneg, cmd->duplex);
-+
-+	if (!(priv->mdev->dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_ETH_PROT_CTRL) ||
-+	    (cmd->autoneg == AUTONEG_ENABLE) || (cmd->duplex == DUPLEX_HALF))
- 		return -EINVAL;
- 
--	/* Nothing to change */
-+	memset(&ptys_reg, 0, sizeof(ptys_reg));
-+	ptys_reg.local_port = priv->port;
-+	ptys_reg.proto_mask = MLX4_PTYS_EN;
-+	ret = mlx4_ACCESS_PTYS_REG(priv->mdev->dev,
-+				   MLX4_ACCESS_REG_QUERY, &ptys_reg);
-+	if (ret) {
-+		en_warn(priv, "Failed to QUERY mlx4_ACCESS_PTYS_REG status(%x)\n",
-+			ret);
-+		return 0;
-+	}
-+
-+	proto_admin = cpu_to_be32(ptys_adv);
-+	if (speed >= 0 && speed != priv->port_state.link_speed)
-+		/* If speed was set then speed decides :-) */
-+		proto_admin = speed_set_ptys_admin(priv, speed,
-+						   ptys_reg.eth_proto_cap);
-+
-+	proto_admin &= ptys_reg.eth_proto_cap;
-+
-+	if (proto_admin == ptys_reg.eth_proto_admin)
-+		return 0; /* Nothing to change */
-+
-+	if (!proto_admin) {
-+		en_warn(priv, "Not supported link mode(s) requested, check supported link modes.\n");
-+		return -EINVAL; /* nothing to change due to bad input */
-+	}
-+
-+	en_dbg(DRV, priv, "mlx4_ACCESS_PTYS_REG SET: ptys_reg.eth_proto_admin = 0x%x\n",
-+	       be32_to_cpu(proto_admin));
-+
-+	ptys_reg.eth_proto_admin = proto_admin;
-+	ret = mlx4_ACCESS_PTYS_REG(priv->mdev->dev, MLX4_ACCESS_REG_WRITE,
-+				   &ptys_reg);
-+	if (ret) {
-+		en_warn(priv, "Failed to write mlx4_ACCESS_PTYS_REG eth_proto_admin(0x%x) status(0x%x)",
-+			be32_to_cpu(ptys_reg.eth_proto_admin), ret);
-+		return ret;
-+	}
-+
-+	en_warn(priv, "Port link mode changed, restarting port...\n");
-+	mutex_lock(&priv->mdev->state_lock);
-+	if (priv->port_up) {
-+		mlx4_en_stop_port(dev, 1);
-+		if (mlx4_en_start_port(dev))
-+			en_err(priv, "Failed restarting port %d\n", priv->port);
-+	}
-+	mutex_unlock(&priv->mdev->state_lock);
- 	return 0;
- }
- 
--- 
-1.8.3.4
+	Regards
+		Oliver
