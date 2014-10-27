@@ -1,7 +1,7 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 6/8] netfilter: nfnetlink_log: fix maximum packet length logged to userspace
-Date: Mon, 27 Oct 2014 22:38:05 +0100
-Message-ID: <1414445887-5108-7-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 8/8] netfilter: nft_compat: fix wrong target lookup in nft_target_select_ops()
+Date: Mon, 27 Oct 2014 22:38:07 +0100
+Message-ID: <1414445887-5108-9-git-send-email-pablo@netfilter.org>
 References: <1414445887-5108-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -10,54 +10,30 @@ In-Reply-To: <1414445887-5108-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Florian Westphal <fw@strlen.de>
+From: Arturo Borrero <arturo.borrero.glez@gmail.com>
 
-don't try to queue payloads > 0xffff - NLA_HDRLEN, it does not work.
-The nla length includes the size of the nla struct, so anything larger
-results in u16 integer overflow.
+The code looks for an already loaded target, and the correct list to search
+is nft_target_list, not nft_match_list.
 
-This patch is similar to
-9cefbbc9c8f9abe (netfilter: nfnetlink_queue: cleanup copy_range usage).
-
-Signed-off-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Arturo Borrero Gonzalez <arturo.borrero.glez@gmail.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nfnetlink_log.c |    8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
+ net/netfilter/nft_compat.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
-index 8117fba..2d02eac3 100644
---- a/net/netfilter/nfnetlink_log.c
-+++ b/net/netfilter/nfnetlink_log.c
-@@ -43,7 +43,8 @@
- #define NFULNL_NLBUFSIZ_DEFAULT	NLMSG_GOODSIZE
- #define NFULNL_TIMEOUT_DEFAULT 	100	/* every second */
- #define NFULNL_QTHRESH_DEFAULT 	100	/* 100 packets */
--#define NFULNL_COPY_RANGE_MAX	0xFFFF	/* max packet size is limited by 16-bit struct nfattr nfa_len field */
-+/* max packet size is limited by 16-bit struct nfattr nfa_len field */
-+#define NFULNL_COPY_RANGE_MAX	(0xFFFF - NLA_HDRLEN)
+diff --git a/net/netfilter/nft_compat.c b/net/netfilter/nft_compat.c
+index 0480f57..9d6d6f6 100644
+--- a/net/netfilter/nft_compat.c
++++ b/net/netfilter/nft_compat.c
+@@ -672,7 +672,7 @@ nft_target_select_ops(const struct nft_ctx *ctx,
+ 	family = ctx->afi->family;
  
- #define PRINTR(x, args...)	do { if (net_ratelimit()) \
- 				     printk(x, ## args); } while (0);
-@@ -252,6 +253,8 @@ nfulnl_set_mode(struct nfulnl_instance *inst, u_int8_t mode,
+ 	/* Re-use the existing target if it's already loaded. */
+-	list_for_each_entry(nft_target, &nft_match_list, head) {
++	list_for_each_entry(nft_target, &nft_target_list, head) {
+ 		struct xt_target *target = nft_target->ops.data;
  
- 	case NFULNL_COPY_PACKET:
- 		inst->copy_mode = mode;
-+		if (range == 0)
-+			range = NFULNL_COPY_RANGE_MAX;
- 		inst->copy_range = min_t(unsigned int,
- 					 range, NFULNL_COPY_RANGE_MAX);
- 		break;
-@@ -679,8 +682,7 @@ nfulnl_log_packet(struct net *net,
- 		break;
- 
- 	case NFULNL_COPY_PACKET:
--		if (inst->copy_range == 0
--		    || inst->copy_range > skb->len)
-+		if (inst->copy_range > skb->len)
- 			data_len = skb->len;
- 		else
- 			data_len = inst->copy_range;
+ 		if (strcmp(target->name, tg_name) == 0 &&
 -- 
 1.7.10.4
 
