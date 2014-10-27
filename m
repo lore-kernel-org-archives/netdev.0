@@ -1,13 +1,10 @@
 From: Fabian Frederick <fabf@skynet.be>
-Subject: [PATCH 1/1 net-next] ipv6: include linux/uaccess.h instead of asm/uaccess.h
-Date: Mon, 27 Oct 2014 19:12:58 +0100
-Message-ID: <1414433578-29321-1-git-send-email-fabf@skynet.be>
+Subject: [PATCH 1/1 net-next] ipx: replace __inline__ by inline
+Date: Mon, 27 Oct 2014 19:09:12 +0100
+Message-ID: <1414433352-29210-1-git-send-email-fabf@skynet.be>
 Cc: Fabian Frederick <fabf@skynet.be>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
@@ -15,21 +12,21 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Fabian Frederick <fabf@skynet.be>
 ---
- net/ipv6/exthdrs.c | 2 +-
+ net/ipx/af_ipx.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
-index bfde361..601d896 100644
---- a/net/ipv6/exthdrs.c
-+++ b/net/ipv6/exthdrs.c
-@@ -47,7 +47,7 @@
- #include <net/xfrm.h>
- #endif
+diff --git a/net/ipx/af_ipx.c b/net/ipx/af_ipx.c
+index 91729b8..61ffe3c 100644
+--- a/net/ipx/af_ipx.c
++++ b/net/ipx/af_ipx.c
+@@ -306,7 +306,7 @@ void ipxitf_down(struct ipx_interface *intrfc)
+ 	spin_unlock_bh(&ipx_interfaces_lock);
+ }
  
--#include <asm/uaccess.h>
-+#include <linux/uaccess.h>
- 
- /*
-  *	Parsing tlv encoded headers.
+-static __inline__ void __ipxitf_put(struct ipx_interface *intrfc)
++static inline void __ipxitf_put(struct ipx_interface *intrfc)
+ {
+ 	if (atomic_dec_and_test(&intrfc->refcnt))
+ 		__ipxitf_down(intrfc);
 -- 
 1.9.1
