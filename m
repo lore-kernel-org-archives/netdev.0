@@ -1,73 +1,64 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 1/2] udp: Record RPS flow in socket operations
-Date: Mon, 27 Oct 2014 11:50:38 -0700
-Message-ID: <1414435838.32624.6.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1414432875-23795-1-git-send-email-therbert@google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Tom Herbert <therbert@google.com>
+From: Fabian Frederick <fabf@skynet.be>
+Subject: [PATCH 1/1 net-next] ipx: move extern sysctl_ipx_pprop_broadcasting to header file
+Date: Mon, 27 Oct 2014 20:00:41 +0100
+Message-ID: <1414436441-4784-1-git-send-email-fabf@skynet.be>
+Cc: Fabian Frederick <fabf@skynet.be>,
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:62700 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751602AbaJ0Suk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Oct 2014 14:50:40 -0400
-Received: by mail-pa0-f48.google.com with SMTP id ey11so5985556pad.7
-        for <netdev@vger.kernel.org>; Mon, 27 Oct 2014 11:50:40 -0700 (PDT)
-In-Reply-To: <1414432875-23795-1-git-send-email-therbert@google.com>
+Received: from mailrelay009.isp.belgacom.be ([195.238.6.176]:51199 "EHLO
+	mailrelay009.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752915AbaJ0TAt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Oct 2014 15:00:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-10-27 at 11:01 -0700, Tom Herbert wrote:
-> Add calls to sock_rps_record_flow for udp_sendmsg, udp_sendpage
-> and udp_recvmsg. This enables RFS for connected UDP sockets.
-> 
-> Tested:
+include ipx.h from sysctl_net_ipx.c
 
-...
+Signed-off-by: Fabian Frederick <fabf@skynet.be>
+---
+ include/net/ipx.h        | 3 +++
+ net/ipx/sysctl_net_ipx.c | 4 +---
+ 2 files changed, 4 insertions(+), 3 deletions(-)
 
-> 
-> Signed-off-by: Tom Herbert <therbert@google.com>
-> ---
->  net/ipv4/udp.c | 6 ++++++
->  1 file changed, 6 insertions(+)
-> 
-> diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-> index cd0db54..9a0d346 100644
-> --- a/net/ipv4/udp.c
-> +++ b/net/ipv4/udp.c
-> @@ -881,6 +881,8 @@ int udp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
->  	struct sk_buff *skb;
->  	struct ip_options_data opt_copy;
->  
-> +	sock_rps_record_flow(sk);
-> +
->  	if (len > 0xFFFF)
->  		return -EMSGSIZE;
->  
-> @@ -1113,6 +1115,8 @@ int udp_sendpage(struct sock *sk, struct page *page, int offset,
->  	struct udp_sock *up = udp_sk(sk);
->  	int ret;
->  
-> +	sock_rps_record_flow(sk);
-> +
->  	if (flags & MSG_SENDPAGE_NOTLAST)
->  		flags |= MSG_MORE;
->  
-> @@ -1253,6 +1257,8 @@ int udp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
->  	int is_udplite = IS_UDPLITE(sk);
->  	bool slow;
->  
-> +	sock_rps_record_flow(sk);
-> +
->  	if (flags & MSG_ERRQUEUE)
->  		return ip_recv_error(sk, msg, len, addr_len);
->  
-
-This patch is not needed.
-
-All these paths go through af_inet.c and calls to sock_rps_record_flow()
-are already done in inet_sendmsg(), inet_sendpage(), inet_recvmsg()
-
-I wonder what you actually tested.
+diff --git a/include/net/ipx.h b/include/net/ipx.h
+index 0143180..320f47b 100644
+--- a/include/net/ipx.h
++++ b/include/net/ipx.h
+@@ -42,6 +42,9 @@ struct ipxhdr {
+ 	struct ipx_address	ipx_source __packed;
+ };
+ 
++/* From af_ipx.c */
++extern int sysctl_ipx_pprop_broadcasting;
++
+ static __inline__ struct ipxhdr *ipx_hdr(struct sk_buff *skb)
+ {
+ 	return (struct ipxhdr *)skb_transport_header(skb);
+diff --git a/net/ipx/sysctl_net_ipx.c b/net/ipx/sysctl_net_ipx.c
+index ad7c03d..0dafcc5 100644
+--- a/net/ipx/sysctl_net_ipx.c
++++ b/net/ipx/sysctl_net_ipx.c
+@@ -9,14 +9,12 @@
+ #include <linux/mm.h>
+ #include <linux/sysctl.h>
+ #include <net/net_namespace.h>
++#include <net/ipx.h>
+ 
+ #ifndef CONFIG_SYSCTL
+ #error This file should not be compiled without CONFIG_SYSCTL defined
+ #endif
+ 
+-/* From af_ipx.c */
+-extern int sysctl_ipx_pprop_broadcasting;
+-
+ static struct ctl_table ipx_table[] = {
+ 	{
+ 		.procname	= "ipx_pprop_broadcasting",
+-- 
+1.9.1
