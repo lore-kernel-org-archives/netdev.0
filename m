@@ -1,283 +1,97 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: localed stuck in recent 3.18 git in copy_net_ns?
-Date: Mon, 27 Oct 2014 14:07:36 -0700
-Message-ID: <20141027210736.GI5718@linux.vnet.ibm.com>
-References: <20141024225931.GC4977@linux.vnet.ibm.com>
- <20141024230524.GA16023@linux.vnet.ibm.com>
- <10136.1414196448@famine>
- <20141025020324.GA28247@linux.vnet.ibm.com>
- <11813.1414211613@famine>
- <20141025051602.GB28247@linux.vnet.ibm.com>
- <15891.1414255096@famine>
- <20141025181827.GE28247@linux.vnet.ibm.com>
- <20141027174539.GC27568@linux.vnet.ibm.com>
- <25166.1414442601@famine>
-Reply-To: paulmck@linux.vnet.ibm.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Yanko Kaneti <yaneti@declera.com>,
-	Josh Boyer <jwboyer@fedoraproject.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Cong Wang <cwang@twopensource.com>,
-	Kevin Fenzi <kevin@scrye.com>, netdev <netdev@vger.kernel.org>,
-	"Linux-Kernel@Vger. Kernel. Org" <linux-kernel@vger.kernel.org>,
-	mroos@linux.ee, tj@kernel.org
-To: Jay Vosburgh <jay.vosburgh@canonical.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <25166.1414442601@famine>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 0/8] Netfilter fixes for net
+Date: Mon, 27 Oct 2014 22:37:59 +0100
+Message-ID: <1414445887-5108-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:35961 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752309AbaJ0Vge (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Oct 2014 17:36:34 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 27, 2014 at 01:43:21PM -0700, Jay Vosburgh wrote:
-> Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
-> 
-> >On Sat, Oct 25, 2014 at 11:18:27AM -0700, Paul E. McKenney wrote:
-> >> On Sat, Oct 25, 2014 at 09:38:16AM -0700, Jay Vosburgh wrote:
-> >> > Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
-> >> > 
-> >> > >On Fri, Oct 24, 2014 at 09:33:33PM -0700, Jay Vosburgh wrote:
-> >> > >> 	Looking at the dmesg, the early boot messages seem to be
-> >> > >> confused as to how many CPUs there are, e.g.,
-> >> > >> 
-> >> > >> [    0.000000] SLUB: HWalign=64, Order=0-3, MinObjects=0, CPUs=4, Nodes=1
-> >> > >> [    0.000000] Hierarchical RCU implementation.
-> >> > >> [    0.000000]  RCU debugfs-based tracing is enabled.
-> >> > >> [    0.000000]  RCU dyntick-idle grace-period acceleration is enabled.
-> >> > >> [    0.000000]  RCU restricting CPUs from NR_CPUS=256 to nr_cpu_ids=4.
-> >> > >> [    0.000000] RCU: Adjusting geometry for rcu_fanout_leaf=16, nr_cpu_ids=4
-> >> > >> [    0.000000] NR_IRQS:16640 nr_irqs:456 0
-> >> > >> [    0.000000]  Offload RCU callbacks from all CPUs
-> >> > >> [    0.000000]  Offload RCU callbacks from CPUs: 0-3.
-> >> > >> 
-> >> > >> 	but later shows 2:
-> >> > >> 
-> >> > >> [    0.233703] x86: Booting SMP configuration:
-> >> > >> [    0.236003] .... node  #0, CPUs:      #1
-> >> > >> [    0.255528] x86: Booted up 1 node, 2 CPUs
-> >> > >> 
-> >> > >> 	In any event, the E8400 is a 2 core CPU with no hyperthreading.
-> >> > >
-> >> > >Well, this might explain some of the difficulties.  If RCU decides to wait
-> >> > >on CPUs that don't exist, we will of course get a hang.  And rcu_barrier()
-> >> > >was definitely expecting four CPUs.
-> >> > >
-> >> > >So what happens if you boot with maxcpus=2?  (Or build with
-> >> > >CONFIG_NR_CPUS=2.) I suspect that this might avoid the hang.  If so,
-> >> > >I might have some ideas for a real fix.
-> >> > 
-> >> > 	Booting with maxcpus=2 makes no difference (the dmesg output is
-> >> > the same).
-> >> > 
-> >> > 	Rebuilding with CONFIG_NR_CPUS=2 makes the problem go away, and
-> >> > dmesg has different CPU information at boot:
-> >> > 
-> >> > [    0.000000] smpboot: 4 Processors exceeds NR_CPUS limit of 2
-> >> > [    0.000000] smpboot: Allowing 2 CPUs, 0 hotplug CPUs
-> >> >  [...]
-> >> > [    0.000000] setup_percpu: NR_CPUS:2 nr_cpumask_bits:2 nr_cpu_ids:2 nr_node_ids:1
-> >> >  [...]
-> >> > [    0.000000] Hierarchical RCU implementation.
-> >> > [    0.000000] 	RCU debugfs-based tracing is enabled.
-> >> > [    0.000000] 	RCU dyntick-idle grace-period acceleration is enabled.
-> >> > [    0.000000] NR_IRQS:4352 nr_irqs:440 0
-> >> > [    0.000000] 	Offload RCU callbacks from all CPUs
-> >> > [    0.000000] 	Offload RCU callbacks from CPUs: 0-1.
-> >> 
-> >> Thank you -- this confirms my suspicions on the fix, though I must admit
-> >> to being surprised that maxcpus made no difference.
-> >
-> >And here is an alleged fix, lightly tested at this end.  Does this patch
-> >help?
-> 
-> 	This patch appears to make the problem go away; I've run about
-> 10 iterations.  I applied this patch to the same -net tree I was using
-> previously (-net as of Oct 22), with all other test patches removed.
+Hi David,
 
-So I finally produced a patch that helps!  It was bound to happen sooner
-or later, I guess.  ;-)
+The following patchset contains Netfilter fixes for your net tree,
+they are:
 
-> 	FWIW, dmesg is unchanged, and still shows messages like:
-> 
-> [    0.000000]  Offload RCU callbacks from CPUs: 0-3.
+1) Allow to recycle a TCP port in conntrack when the change role from
+   server to client, from Marcelo Leitner.
 
-Yep, at that point in boot, RCU has no way of knowing that the firmware
-is lying to it about the number of CPUs.  ;-)
+2) Fix possible off by one access in ip_set_nfnl_get_byindex(), patch
+   from Dan Carpenter.
 
-> Tested-by: Jay Vosburgh <jay.vosburgh@canonical.com>
+3) alloc_percpu returns NULL on error, no need for IS_ERR() in nf_tables
+   chain statistic updates. From Sabrina Dubroca.
 
-Thank you for your testing efforts!!!
+4) Don't compile ip options in bridge netfilter, this mangles the packet
+   and bridge should not alter layer >= 3 headers when forwarding packets.
+   Patch from Herbert Xu and tested by Florian Westphal.
 
-							Thanx, Paul
+5) Account the final NLMSG_DONE message when calculating the size of the
+   nflog netlink batches. Patch from Florian Westphal.
 
-> 	-J
-> >
-> >------------------------------------------------------------------------
-> >
-> >rcu: Make rcu_barrier() understand about missing rcuo kthreads
-> >
-> >Commit 35ce7f29a44a (rcu: Create rcuo kthreads only for onlined CPUs)
-> >avoids creating rcuo kthreads for CPUs that never come online.  This
-> >fixes a bug in many instances of firmware: Instead of lying about their
-> >age, these systems instead lie about the number of CPUs that they have.
-> >Before commit 35ce7f29a44a, this could result in huge numbers of useless
-> >rcuo kthreads being created.
-> >
-> >It appears that experience indicates that I should have told the
-> >people suffering from this problem to fix their broken firmware, but
-> >I instead produced what turned out to be a partial fix.   The missing
-> >piece supplied by this commit makes sure that rcu_barrier() knows not to
-> >post callbacks for no-CBs CPUs that have not yet come online, because
-> >otherwise rcu_barrier() will hang on systems having firmware that lies
-> >about the number of CPUs.
-> >
-> >It is tempting to simply have rcu_barrier() refuse to post a callback on
-> >any no-CBs CPU that does not have an rcuo kthread.  This unfortunately
-> >does not work because rcu_barrier() is required to wait for all pending
-> >callbacks.  It is therefore required to wait even for those callbacks
-> >that cannot possibly be invoked.  Even if doing so hangs the system.
-> >
-> >Given that posting a callback to a no-CBs CPU that does not yet have an
-> >rcuo kthread can hang rcu_barrier(), It is tempting to report an error
-> >in this case.  Unfortunately, this will result in false positives at
-> >boot time, when it is perfectly legal to post callbacks to the boot CPU
-> >before the scheduler has started, in other words, before it is legal
-> >to invoke rcu_barrier().
-> >
-> >So this commit instead has rcu_barrier() avoid posting callbacks to
-> >CPUs having neither rcuo kthread nor pending callbacks, and has it
-> >complain bitterly if it finds CPUs having no rcuo kthread but some
-> >pending callbacks.  And when rcu_barrier() does find CPUs having no rcuo
-> >kthread but pending callbacks, as noted earlier, it has no choice but
-> >to hang indefinitely.
-> >
-> >Reported-by: Yanko Kaneti <yaneti@declera.com>
-> >Reported-by: Jay Vosburgh <jay.vosburgh@canonical.com>
-> >Reported-by: Meelis Roos <mroos@linux.ee>
-> >Reported-by: Eric B Munson <emunson@akamai.com>
-> >Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
-> >
-> >diff --git a/include/trace/events/rcu.h b/include/trace/events/rcu.h
-> >index aa8e5eea3ab4..c78e88ce5ea3 100644
-> >--- a/include/trace/events/rcu.h
-> >+++ b/include/trace/events/rcu.h
-> >@@ -660,18 +660,18 @@ TRACE_EVENT(rcu_torture_read,
-> > /*
-> >  * Tracepoint for _rcu_barrier() execution.  The string "s" describes
-> >  * the _rcu_barrier phase:
-> >- *	"Begin": rcu_barrier_callback() started.
-> >- *	"Check": rcu_barrier_callback() checking for piggybacking.
-> >- *	"EarlyExit": rcu_barrier_callback() piggybacked, thus early exit.
-> >- *	"Inc1": rcu_barrier_callback() piggyback check counter incremented.
-> >- *	"Offline": rcu_barrier_callback() found offline CPU
-> >- *	"OnlineNoCB": rcu_barrier_callback() found online no-CBs CPU.
-> >- *	"OnlineQ": rcu_barrier_callback() found online CPU with callbacks.
-> >- *	"OnlineNQ": rcu_barrier_callback() found online CPU, no callbacks.
-> >+ *	"Begin": _rcu_barrier() started.
-> >+ *	"Check": _rcu_barrier() checking for piggybacking.
-> >+ *	"EarlyExit": _rcu_barrier() piggybacked, thus early exit.
-> >+ *	"Inc1": _rcu_barrier() piggyback check counter incremented.
-> >+ *	"OfflineNoCB": _rcu_barrier() found callback on never-online CPU
-> >+ *	"OnlineNoCB": _rcu_barrier() found online no-CBs CPU.
-> >+ *	"OnlineQ": _rcu_barrier() found online CPU with callbacks.
-> >+ *	"OnlineNQ": _rcu_barrier() found online CPU, no callbacks.
-> >  *	"IRQ": An rcu_barrier_callback() callback posted on remote CPU.
-> >  *	"CB": An rcu_barrier_callback() invoked a callback, not the last.
-> >  *	"LastCB": An rcu_barrier_callback() invoked the last callback.
-> >- *	"Inc2": rcu_barrier_callback() piggyback check counter incremented.
-> >+ *	"Inc2": _rcu_barrier() piggyback check counter incremented.
-> >  * The "cpu" argument is the CPU or -1 if meaningless, the "cnt" argument
-> >  * is the count of remaining callbacks, and "done" is the piggybacking count.
-> >  */
-> >diff --git a/kernel/rcu/tree.c b/kernel/rcu/tree.c
-> >index f6880052b917..7680fc275036 100644
-> >--- a/kernel/rcu/tree.c
-> >+++ b/kernel/rcu/tree.c
-> >@@ -3312,11 +3312,16 @@ static void _rcu_barrier(struct rcu_state *rsp)
-> > 			continue;
-> > 		rdp = per_cpu_ptr(rsp->rda, cpu);
-> > 		if (rcu_is_nocb_cpu(cpu)) {
-> >-			_rcu_barrier_trace(rsp, "OnlineNoCB", cpu,
-> >-					   rsp->n_barrier_done);
-> >-			atomic_inc(&rsp->barrier_cpu_count);
-> >-			__call_rcu(&rdp->barrier_head, rcu_barrier_callback,
-> >-				   rsp, cpu, 0);
-> >+			if (!rcu_nocb_cpu_needs_barrier(rsp, cpu)) {
-> >+				_rcu_barrier_trace(rsp, "OfflineNoCB", cpu,
-> >+						   rsp->n_barrier_done);
-> >+			} else {
-> >+				_rcu_barrier_trace(rsp, "OnlineNoCB", cpu,
-> >+						   rsp->n_barrier_done);
-> >+				atomic_inc(&rsp->barrier_cpu_count);
-> >+				__call_rcu(&rdp->barrier_head,
-> >+					   rcu_barrier_callback, rsp, cpu, 0);
-> >+			}
-> > 		} else if (ACCESS_ONCE(rdp->qlen)) {
-> > 			_rcu_barrier_trace(rsp, "OnlineQ", cpu,
-> > 					   rsp->n_barrier_done);
-> >diff --git a/kernel/rcu/tree.h b/kernel/rcu/tree.h
-> >index 4beab3d2328c..8e7b1843896e 100644
-> >--- a/kernel/rcu/tree.h
-> >+++ b/kernel/rcu/tree.h
-> >@@ -587,6 +587,7 @@ static void print_cpu_stall_info(struct rcu_state *rsp, int cpu);
-> > static void print_cpu_stall_info_end(void);
-> > static void zero_cpu_stall_ticks(struct rcu_data *rdp);
-> > static void increment_cpu_stall_ticks(void);
-> >+static bool rcu_nocb_cpu_needs_barrier(struct rcu_state *rsp, int cpu);
-> > static void rcu_nocb_gp_set(struct rcu_node *rnp, int nrq);
-> > static void rcu_nocb_gp_cleanup(struct rcu_state *rsp, struct rcu_node *rnp);
-> > static void rcu_init_one_nocb(struct rcu_node *rnp);
-> >diff --git a/kernel/rcu/tree_plugin.h b/kernel/rcu/tree_plugin.h
-> >index 927c17b081c7..68c5b23b7173 100644
-> >--- a/kernel/rcu/tree_plugin.h
-> >+++ b/kernel/rcu/tree_plugin.h
-> >@@ -2050,6 +2050,33 @@ static void wake_nocb_leader(struct rcu_data *rdp, bool force)
-> > }
-> > 
-> > /*
-> >+ * Does the specified CPU need an RCU callback for the specified flavor
-> >+ * of rcu_barrier()?
-> >+ */
-> >+static bool rcu_nocb_cpu_needs_barrier(struct rcu_state *rsp, int cpu)
-> >+{
-> >+	struct rcu_data *rdp = per_cpu_ptr(rsp->rda, cpu);
-> >+	struct rcu_head *rhp;
-> >+
-> >+	/* No-CBs CPUs might have callbacks on any of three lists. */
-> >+	rhp = ACCESS_ONCE(rdp->nocb_head);
-> >+	if (!rhp)
-> >+		rhp = ACCESS_ONCE(rdp->nocb_gp_head);
-> >+	if (!rhp)
-> >+		rhp = ACCESS_ONCE(rdp->nocb_follower_head);
-> >+
-> >+	/* Having no rcuo kthread but CBs after scheduler starts is bad! */
-> >+	if (!ACCESS_ONCE(rdp->nocb_kthread) && rhp) {
-> >+		/* RCU callback enqueued before CPU first came online??? */
-> >+		pr_err("RCU: Never-onlined no-CBs CPU %d has CB %p\n",
-> >+		       cpu, rhp->func);
-> >+		WARN_ON_ONCE(1);
-> >+	}
-> >+
-> >+	return !!rhp;
-> >+}
-> >+
-> >+/*
-> >  * Enqueue the specified string of rcu_head structures onto the specified
-> >  * CPU's no-CBs lists.  The CPU is specified by rdp, the head of the
-> >  * string by rhp, and the tail of the string by rhtp.  The non-lazy/lazy
-> >@@ -2646,6 +2673,10 @@ static bool init_nocb_callback_list(struct rcu_data *rdp)
-> > 
-> > #else /* #ifdef CONFIG_RCU_NOCB_CPU */
-> > 
-> >+static bool rcu_nocb_cpu_needs_barrier(struct rcu_state *rsp, int cpu)
-> >+{
-> >+}
-> >+
-> > static void rcu_nocb_gp_cleanup(struct rcu_state *rsp, struct rcu_node *rnp)
-> > {
-> > }
-> >
-> 
-> ---
-> 	-Jay Vosburgh, jay.vosburgh@canonical.com
-> 
+6) Fix a possible netlink attribute length overflow with large packets.
+   Again from Florian Westphal.
+
+7) Release the skbuff if nfnetlink_log fails to put the final
+   NLMSG_DONE message. This fixes a leak on error. This shouldn't ever
+   happen though, otherwise this means we miscalculate the netlink batch
+   size, so spot a warning if this ever happens so we can track down the
+   problem. This patch from Houcheng Lin.
+
+8) Look at the right list when recycling targets in the nft_compat,
+   patch from Arturo Borrero.
+
+You can pull these changes from:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
+
+Thanks!
+
+----------------------------------------------------------------
+
+The following changes since commit 7c1c97d54f9bfc810908d3903cb8bcacf734df18:
+
+  net: sched: initialize bstats syncp (2014-10-21 21:45:21 -0400)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git master
+
+for you to fetch changes up to 7965ee93719921ea5978f331da653dfa2d7b99f5:
+
+  netfilter: nft_compat: fix wrong target lookup in nft_target_select_ops() (2014-10-27 22:17:46 +0100)
+
+----------------------------------------------------------------
+Arturo Borrero (1):
+      netfilter: nft_compat: fix wrong target lookup in nft_target_select_ops()
+
+Dan Carpenter (1):
+      netfilter: ipset: off by one in ip_set_nfnl_get_byindex()
+
+Florian Westphal (2):
+      netfilter: nf_log: account for size of NLMSG_DONE attribute
+      netfilter: nfnetlink_log: fix maximum packet length logged to userspace
+
+Herbert Xu (1):
+      bridge: Do not compile options in br_parse_ip_options
+
+Houcheng Lin (1):
+      netfilter: nf_log: release skbuff on nlmsg put failure
+
+Marcelo Leitner (1):
+      netfilter: nf_conntrack: allow server to become a client in TW handling
+
+Sabrina Dubroca (1):
+      netfilter: nf_tables: check for NULL in nf_tables_newchain pcpu stats allocation
+
+ net/bridge/br_netfilter.c              |   24 +++++-------------------
+ net/netfilter/ipset/ip_set_core.c      |    2 +-
+ net/netfilter/nf_conntrack_proto_tcp.c |    4 ++--
+ net/netfilter/nf_tables_api.c          |    4 ++--
+ net/netfilter/nfnetlink_log.c          |   31 ++++++++++++++++---------------
+ net/netfilter/nft_compat.c             |    2 +-
+ 6 files changed, 27 insertions(+), 40 deletions(-)
