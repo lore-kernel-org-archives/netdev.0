@@ -1,32 +1,34 @@
-From: Fabian Frederick <fabf@skynet.be>
-Subject: [PATCH 1/1 net-next] ipx: replace __inline__ by inline
-Date: Mon, 27 Oct 2014 19:09:12 +0100
-Message-ID: <1414433352-29210-1-git-send-email-fabf@skynet.be>
-Cc: Fabian Frederick <fabf@skynet.be>,
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 1/1 net-next] ipx: replace long unsigned int by unsigned
+ long
+Date: Mon, 27 Oct 2014 11:22:11 -0700
+Message-ID: <1414434131.18896.4.camel@perches.com>
+References: <1414433133-29161-1-git-send-email-fabf@skynet.be>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org,
 	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
 	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
+To: Fabian Frederick <fabf@skynet.be>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1414433133-29161-1-git-send-email-fabf@skynet.be>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Fabian Frederick <fabf@skynet.be>
----
- net/ipx/af_ipx.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+On Mon, 2014-10-27 at 19:05 +0100, Fabian Frederick wrote:
+> Use standard unsigned long.
+[]
+> diff --git a/net/ipx/ipx_proc.c b/net/ipx/ipx_proc.c
+[]
+> @@ -90,7 +90,7 @@ static int ipx_seq_route_show(struct seq_file *seq, void *v)
+>  	seq_printf(seq, "%08lX   ", (unsigned long int)ntohl(rt->ir_net));
+>  	if (rt->ir_routed)
+>  		seq_printf(seq, "%08lX     %02X%02X%02X%02X%02X%02X\n",
+> -			   (long unsigned int)ntohl(rt->ir_intrfc->if_netnum),
+> +			   (unsigned long)ntohl(rt->ir_intrfc->if_netnum),
 
-diff --git a/net/ipx/af_ipx.c b/net/ipx/af_ipx.c
-index 91729b8..61ffe3c 100644
---- a/net/ipx/af_ipx.c
-+++ b/net/ipx/af_ipx.c
-@@ -306,7 +306,7 @@ void ipxitf_down(struct ipx_interface *intrfc)
- 	spin_unlock_bh(&ipx_interfaces_lock);
- }
- 
--static __inline__ void __ipxitf_put(struct ipx_interface *intrfc)
-+static inline void __ipxitf_put(struct ipx_interface *intrfc)
- {
- 	if (atomic_dec_and_test(&intrfc->refcnt))
- 		__ipxitf_down(intrfc);
--- 
-1.9.1
+Maybe better to use no cast at all
+
+		seq_printf(seq, "%08X     %02X%02X%02X%02X%02X%02X\n",
+			   ntohl(etc...),
