@@ -1,174 +1,35 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v2 09/15] net: dsa: Add support for switch EEPROM access
-Date: Mon, 27 Oct 2014 03:41:21 +0100
-Message-ID: <20141027024121.GA16998@lunn.ch>
-References: <1414342365-27191-1-git-send-email-linux@roeck-us.net>
- <1414342365-27191-10-git-send-email-linux@roeck-us.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATHC] net: napi_reuse_skb() should check pfmemalloc
+Date: Sun, 26 Oct 2014 22:47:50 -0400 (EDT)
+Message-ID: <20141026.224750.69834261666003874.davem@davemloft.net>
+References: <1413992737.9031.1.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1811414063272@webcorp02e.yandex-team.ru>
+	<1414071030.2094.46.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>, linux-kernel@vger.kernel.org
-To: Guenter Roeck <linux@roeck-us.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:43967 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752037AbaJ0CmW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 26 Oct 2014 22:42:22 -0400
-Content-Disposition: inline
-In-Reply-To: <1414342365-27191-10-git-send-email-linux@roeck-us.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: klamm@yandex-team.ru, jeffrey.t.kirsher@intel.com,
+	jesse.brandeburg@intel.com, bruce.w.allan@intel.com,
+	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
+	gregory.v.rose@intel.com, peter.p.waskiewicz.jr@intel.com,
+	alexander.h.duyck@intel.com, john.ronciak@intel.com,
+	tushar.n.dave@intel.com, sassmann@kpanic.de,
+	gregkh@linuxfoundation.org, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1414071030.2094.46.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Oct 26, 2014 at 09:52:39AM -0700, Guenter Roeck wrote:
-> On some chips it is possible to access the switch eeprom.
-> Add infrastructure support for it.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 23 Oct 2014 06:30:30 -0700
+
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
-> ---
-> v2:
-> - Add support for configuring switch EEPROM size through platform data
->   or devicetree data
-> - Do not compare new pointers against NULL
-> - Check if get_eeprom pointer is set before calling it
+> Do not reuse skb if it was pfmemalloc tainted, otherwise
+> future frame might be dropped anyway.
 > 
->  include/net/dsa.h | 10 ++++++++++
->  net/dsa/dsa.c     |  4 ++++
->  net/dsa/slave.c   | 41 +++++++++++++++++++++++++++++++++++++++++
->  3 files changed, 55 insertions(+)
-> 
-> diff --git a/include/net/dsa.h b/include/net/dsa.h
-> index 55e75e7..37856a2 100644
-> --- a/include/net/dsa.h
-> +++ b/include/net/dsa.h
-> @@ -38,6 +38,9 @@ struct dsa_chip_data {
->  	struct device	*host_dev;
->  	int		sw_addr;
->  
-> +	/* set to size of eeprom if supported by the switch */
-> +	int		eeprom_len;
-> +
->  	/* Device tree node pointer for this specific switch chip
->  	 * used during switch setup in case additional properties
->  	 * and resources needs to be used
-> @@ -258,6 +261,13 @@ struct dsa_switch_driver {
->  	int	(*set_temp_limit)(struct dsa_switch *ds, int temp);
->  	int	(*get_temp_alarm)(struct dsa_switch *ds, bool *alarm);
->  #endif
-> +
-> +	/* EEPROM access */
-> +	int	(*get_eeprom_len)(struct dsa_switch *ds);
-> +	int	(*get_eeprom)(struct dsa_switch *ds,
-> +			      struct ethtool_eeprom *eeprom, u8 *data);
-> +	int	(*set_eeprom)(struct dsa_switch *ds,
-> +			      struct ethtool_eeprom *eeprom, u8 *data);
->  };
->  
->  void register_switch_driver(struct dsa_switch_driver *type);
-> diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-> index 5edbbca..1c1b925 100644
-> --- a/net/dsa/dsa.c
-> +++ b/net/dsa/dsa.c
-> @@ -575,6 +575,7 @@ static int dsa_of_probe(struct platform_device *pdev)
->  	const char *port_name;
->  	int chip_index, port_index;
->  	const unsigned int *sw_addr, *port_reg;
-> +	u32 eeprom_length;
->  	int ret;
->  
->  	mdio = of_parse_phandle(np, "dsa,mii-bus", 0);
-> @@ -603,6 +604,9 @@ static int dsa_of_probe(struct platform_device *pdev)
->  	if (pd->nr_chips > DSA_MAX_SWITCHES)
->  		pd->nr_chips = DSA_MAX_SWITCHES;
->  
-> +	if (!of_property_read_u32(np, "eeprom-length", &eeprom_length))
-> +		pd->eeprom_length = eeprom_length;
-> +
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Hi Guenter
-
-I would of expected a property to indicate the eeprom is present, not
-a length value. The switch determines the length, or at least the
-minimum length. So the switch driver can return the length, if the
-eeprom is indicated to be present.
-
-Also, all device tree properties need to be documented. I've not
-looked through all the patches, so maybe it is in a separate patch?
-
-> +static int dsa_slave_get_eeprom_len(struct net_device *dev)
-> +{
-> +	struct dsa_slave_priv *p = netdev_priv(dev);
-> +	struct dsa_switch *ds = p->parent;
-> +
-> +	if (ds->pd->eeprom_len)
-> +		return ds->pd->eeprom_len;
-> +
-> +	if (ds->drv->get_eeprom_len)
-> +		return ds->drv->get_eeprom_len(ds);
-> +
-> +	return 0;
-> +}
-
-This also does not look right. The default is that there is no
-property in DT, meaning the EEPROM is not present. So
-ds->pd->eeprom_len is zero. So the first if is not taken. It then
-calls into the driver which is return a length, independent of if it
-is populated or not.
-
-If we are going with your suggested binding, no value in DT, or a
-value of 0 mean no EEPROM. If there is a value in DT
-dsa_slave_get_eeprom_len() should return that value. Asking the driver
-is redundant, you can remove the get_eeprom_len() call.
-
-However, if DT just indicates the eeprom is populated or not, you
-should call the driver get_eeprom_len() is the eeprom property is
-present.
-
-> +static int dsa_slave_get_eeprom(struct net_device *dev,
-> +				struct ethtool_eeprom *eeprom, u8 *data)
-> +{
-> +	struct dsa_slave_priv *p = netdev_priv(dev);
-> +	struct dsa_switch *ds = p->parent;
-> +
-> +	if (ds->drv->get_eeprom)
-> +		return ds->drv->get_eeprom(ds, eeprom, data);
-
-This should be conditional on the length/present.
-
-> +
-> +	return -EOPNOTSUPP;
-> +}
-> +
-> +static int dsa_slave_set_eeprom(struct net_device *dev,
-> +				struct ethtool_eeprom *eeprom, u8 *data)
-> +{
-> +	struct dsa_slave_priv *p = netdev_priv(dev);
-> +	struct dsa_switch *ds = p->parent;
-> +
-> +	if (ds->drv->set_eeprom)
-> +		return ds->drv->set_eeprom(ds, eeprom, data);
-
-Same again.
-
-     Andrew
-
-
-> +	return -EOPNOTSUPP;
-> +}
-> +
->  static void dsa_slave_get_strings(struct net_device *dev,
->  				  uint32_t stringset, uint8_t *data)
->  {
-> @@ -387,6 +425,9 @@ static const struct ethtool_ops dsa_slave_ethtool_ops = {
->  	.get_drvinfo		= dsa_slave_get_drvinfo,
->  	.nway_reset		= dsa_slave_nway_reset,
->  	.get_link		= dsa_slave_get_link,
-> +	.get_eeprom_len		= dsa_slave_get_eeprom_len,
-> +	.get_eeprom		= dsa_slave_get_eeprom,
-> +	.set_eeprom		= dsa_slave_set_eeprom,
->  	.get_strings		= dsa_slave_get_strings,
->  	.get_ethtool_stats	= dsa_slave_get_ethtool_stats,
->  	.get_sset_count		= dsa_slave_get_sset_count,
-> -- 
-> 1.9.1
-> 
+Applied, thanks Eric.
