@@ -1,43 +1,40 @@
-From: Oliver Neukum <oneukum@suse.de>
-Subject: Re: [PATCH net 0/3] cdc-ether: handle promiscuous mode
-Date: Mon, 27 Oct 2014 11:02:28 +0100
-Message-ID: <1414404148.26910.0.camel@linux-0dmf.site>
-References: <1414172582-30844-1-git-send-email-olivier.blin@softathome.com>
+From: Thomas Graf <tgraf@noironetworks.com>
+Subject: Re: [ovs-dev] [PATCH net-next] datapath: Rename last_action() as
+ nla_is_last() and move to netlink.h
+Date: Mon, 27 Oct 2014 11:08:26 +0100
+Message-ID: <20141027100826.GA25339@pox.localdomain>
+References: <1414393936-14463-1-git-send-email-simon.horman@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hayeswang@realtek.com, bjorn@mork.no,
-	davem@davemloft.net
-To: Olivier Blin <olivier.blin@softathome.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Pravin Shelar <pshelar@nicira.com>, dev@openvswitch.org
+To: Simon Horman <simon.horman@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:48585 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751184AbaJ0KCT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Oct 2014 06:02:19 -0400
-In-Reply-To: <1414172582-30844-1-git-send-email-olivier.blin@softathome.com>
+Received: from mail-wg0-f41.google.com ([74.125.82.41]:33255 "EHLO
+	mail-wg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750785AbaJ0KI3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Oct 2014 06:08:29 -0400
+Received: by mail-wg0-f41.google.com with SMTP id b13so5238644wgh.0
+        for <netdev@vger.kernel.org>; Mon, 27 Oct 2014 03:08:28 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1414393936-14463-1-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-10-24 at 19:42 +0200, Olivier Blin wrote:
-> Hi,
+On 10/27/14 at 04:12pm, Simon Horman wrote:
+> The original motivation for this change was to allow the helper to be used
+> in files other than actions.c as part of work on an odp select group
+> action.
 > 
-> Since kernel 3.16, my Lenovo USB network adapters (RTL8153) using
-> cdc-ether are not working anymore in a bridge.
+> It was as pointed out by Thomas Graf that this helper would be best off
+> living in netlink.h. Furthermore, I think that the generic nature of this
+> helper means it is best off in netlink.h regardless of if it is used more
+> than one .c file or not. Thus, I would like it considered independent of
+> the work on an odp select group action.
 > 
-> This is due to commit c472ab68ad67db23c9907a27649b7dc0899b61f9, which
-> resets the packet filter when the device is bound.
-> 
-> The default packet filter set by cdc-ether does not include
-> promiscuous, while the adapter seemed to have promiscuous enabled by
-> default.
-> 
-> This patch series allows to support promiscuous mode for cdc-ether, by
-> hooking into set_rx_mode.
-> 
-> Incidentally, maybe this device should be handled by the r8152 driver,
-> but this patch series is still nice for other adapters.
+> Cc: Thomas Graf <tgraf@suug.ch>
+> Cc: Pravin Shelar <pshelar@nicira.com>
+> Cc: Andy Zhou <azhou@nicira.com>
+> Signed-off-by: Simon Horman <simon.horman@netronome.com>
 
-Acked-by: Oliver Neukum <oneukum@suse.de>
-
-	Regards
-		Oliver
+Acked-by: Thomas Graf <tgraf@noironetworks.com>
