@@ -1,33 +1,34 @@
-From: Linus Walleij <linus.walleij@linaro.org>
-Subject: Re: [PATCH] [trivial] treewide: Fix company name in module descriptions
-Date: Tue, 28 Oct 2014 15:44:37 +0100
-Message-ID: <CACRpkdbALMZvLT+h1YswhsBWdYU-MY-eCVPndWndbARCoaF7gg@mail.gmail.com>
-References: <1413472164-22366-1-git-send-email-standby24x7@gmail.com>
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: Re: [PATCH v2 net-next] net: ipv6: Add a sysctl to make optimistic
+ addresses useful candidates
+Date: Wed, 29 Oct 2014 00:15:39 +0900
+Message-ID: <CAKD1Yr2PSJ0=YV4m5jPyvt6cvNv8+-joft6L2DxO_5YLH6C7AQ@mail.gmail.com>
+References: <1414487474-18201-1-git-send-email-ek@google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Mike Turquette <mturquette@linaro.org>,
-	Jiri Kosina <trivial@kernel.org>,
-	Alexandre Courbot <gnurou@gmail.com>, jcliburn@gmail.com,
-	chris.snook@gmail.com, Viresh Kumar <viresh.linux@gmail.com>,
-	inki.dae@samsung.com, leedonghwa <dh09.lee@samsung.com>,
-	Kukjin Kim <kgene.kim@samsung.com>,
-	Randy Dunlap <rdunlap@infradead.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Masanari Iida <standby24x7@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1413472164-22366-1-git-send-email-standby24x7@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Erik Kline <ek@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f182.google.com ([209.85.213.182]:60233 "EHLO
+	mail-ig0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750925AbaJ1PP7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Oct 2014 11:15:59 -0400
+Received: by mail-ig0-f182.google.com with SMTP id hn18so1228444igb.3
+        for <netdev@vger.kernel.org>; Tue, 28 Oct 2014 08:15:59 -0700 (PDT)
+In-Reply-To: <1414487474-18201-1-git-send-email-ek@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 16, 2014 at 5:09 PM, Masanari Iida <standby24x7@gmail.com> wrote:
+On Tue, Oct 28, 2014 at 6:11 PM, Erik Kline <ek@google.com> wrote:
+> Add a sysctl that causes an interface's optimistic addresses
+> to be considered equivalent to other non-deprecated addresses
+> for source address selection purposes.  Preferred addresses
+> will still take precedence over optimistic addresses, subject
+> to other ranking in the source address selection algorithm.
+> ...
+> Signed-off-by: Erik Kline <ek@google.com>
 
-> This patch fix company name's spelling typo in module descriptions
-> and a Kconfig.
->
-> Signed-off-by: Masanari Iida <standby24x7@gmail.com>
-
-Acked-by: Linus Walleij <linus.walleij@linaro.org>
-
-Yours,
-Linus Walleij
+Acked-by: Lorenzo Colitti <lorenzo@google.com>
