@@ -1,46 +1,33 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: [PATCH 5/7] fs: Convert show_fdinfo functions to void
-Date: Tue, 28 Oct 2014 10:43:12 -0400
-Message-ID: <20141028104312.28168609@gandalf.local.home>
-References: <20140929124246.3e39dac8@gandalf.local.home>
-	<cover.1412031505.git.joe@perches.com>
-	<e37e6e7b76acbdcc3bb4ab2a57c8f8ca1ae11b9a.1412031505.git.joe@perches.com>
-	<20141028101158.3dde9880@gandalf.local.home>
-	<1414506692.6643.2.camel@perches.com>
+From: Linus Walleij <linus.walleij@linaro.org>
+Subject: Re: [PATCH] [trivial] treewide: Fix company name in module descriptions
+Date: Tue, 28 Oct 2014 15:44:37 +0100
+Message-ID: <CACRpkdbALMZvLT+h1YswhsBWdYU-MY-eCVPndWndbARCoaF7gg@mail.gmail.com>
+References: <1413472164-22366-1-git-send-email-standby24x7@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Al Viro <viro@ZenIV.linux.org.uk>, Petr Mladek <pmladek@suse.cz>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Jiri Kosina <jkosina@suse.cz>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Jeff Layton <jlayton@poochiereds.net>,
-	"J. Bruce Fields" <bfields@fieldses.org>,
-	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <1414506692.6643.2.camel@perches.com>
-Sender: linux-doc-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Mike Turquette <mturquette@linaro.org>,
+	Jiri Kosina <trivial@kernel.org>,
+	Alexandre Courbot <gnurou@gmail.com>, jcliburn@gmail.com,
+	chris.snook@gmail.com, Viresh Kumar <viresh.linux@gmail.com>,
+	inki.dae@samsung.com, leedonghwa <dh09.lee@samsung.com>,
+	Kukjin Kim <kgene.kim@samsung.com>,
+	Randy Dunlap <rdunlap@infradead.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Masanari Iida <standby24x7@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1413472164-22366-1-git-send-email-standby24x7@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 28 Oct 2014 07:31:32 -0700
-Joe Perches <joe@perches.com> wrote:
+On Thu, Oct 16, 2014 at 5:09 PM, Masanari Iida <standby24x7@gmail.com> wrote:
 
- 
-> > I wouldn't change logic on this. There's no reason to call this
-> > function if it isn't doing anything.
-> > 
-> > I'll change this to just do the update and not change logic like this.
-> 
-> Fewer #ifdefs
-> 
+> This patch fix company name's spelling typo in module descriptions
+> and a Kconfig.
+>
+> Signed-off-by: Masanari Iida <standby24x7@gmail.com>
 
-And there's other ways to fix it (like using an #else), but that is
-off-topic to the current change set. In other words, that change should
-be separate, as I don't want discussions on what's the best use of
-#ifdefs distracting from getting in the "void seq_printf()" changes.
+Acked-by: Linus Walleij <linus.walleij@linaro.org>
 
--- Steve
-
+Yours,
+Linus Walleij
