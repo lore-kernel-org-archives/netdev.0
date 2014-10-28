@@ -1,62 +1,64 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH net] bpf: split eBPF out of NET
-Date: Mon, 27 Oct 2014 17:18:36 -0700
-Message-ID: <CAMEtUux7q93hD7xr+DUDk3btYR+A7NXEMcu6YVWAHSNuLUhNJA@mail.gmail.com>
-References: <1414114868-28228-1-git-send-email-ast@plumgrid.com>
-	<20141027.191043.246099210901442100.davem@davemloft.net>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH] ovs: Turn vports with dependencies into separate modules
+Date: Mon, 27 Oct 2014 17:27:11 -0700
+Message-ID: <CALnjE+p5b5EzLkY6_6J7jvwyf9rUdu-JGbdf5r3bDuhgndoeeg@mail.gmail.com>
+References: <ab9438abe3e23289db6f850eea9626fe8bd0a969.1413991519.git.tgraf@suug.ch>
+	<CALnjE+o+aSE0cGnS60p_4ff6mhddK8oB0e0xMi+L0p1aa-P9vA@mail.gmail.com>
+	<20141024215758.GA25640@casper.infradead.org>
+	<CALnjE+opCLA9KJ5RHaUs1vbx41p6=iUi9B59Q7G0TeSTmWm7_w@mail.gmail.com>
+	<20141027214722.GA2783@casper.infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Geert Uytterhoeven <geert@linux-m68k.org>,
-	Josh Triplett <josh@joshtriplett.org>,
-	Ingo Molnar <mingo@kernel.org>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Network Development <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
+	netdev <netdev@vger.kernel.org>
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:37125 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753174AbaJ1ASi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Oct 2014 20:18:38 -0400
-Received: by mail-wi0-f178.google.com with SMTP id q5so96908wiv.11
-        for <netdev@vger.kernel.org>; Mon, 27 Oct 2014 17:18:36 -0700 (PDT)
-In-Reply-To: <20141027.191043.246099210901442100.davem@davemloft.net>
+Received: from na3sys009aog124.obsmtp.com ([74.125.149.151]:47948 "HELO
+	na3sys009aog124.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752315AbaJ1A1M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Oct 2014 20:27:12 -0400
+Received: by mail-ig0-f178.google.com with SMTP id a13so83441igq.17
+        for <netdev@vger.kernel.org>; Mon, 27 Oct 2014 17:27:12 -0700 (PDT)
+In-Reply-To: <20141027214722.GA2783@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 27, 2014 at 4:10 PM, David Miller <davem@davemloft.net> wrote:
-> From: Alexei Starovoitov <ast@plumgrid.com>
-> Date: Thu, 23 Oct 2014 18:41:08 -0700
->
->> introduce two configs:
->> - hidden CONFIG_BPF to select eBPF interpreter that classic socket filters
->>   depend on
->> - visible CONFIG_BPF_SYSCALL (default off) that tracing and sockets can use
+On Mon, Oct 27, 2014 at 2:47 PM, Thomas Graf <tgraf@suug.ch> wrote:
+> On 10/27/14 at 10:14am, Pravin Shelar wrote:
+>> On Fri, Oct 24, 2014 at 2:57 PM, Thomas Graf <tgraf@suug.ch> wrote:
+>> > I was refering to how many other kernel APIs have been designed, a
+>> > registration API allowing a vport to be implemented exclusively in the
+>> > scope of a single file tends to be cleaner than having to touch multiple
+>> > files and maintaining an init list.
+>> >
+>> This has never been issue in openvswitch. Plus we do not need loadable
+>> vport module to fix this issue.
 >>
->> that solves several problems:
->> - tracing and others that wish to use eBPF don't need to depend on NET.
->>   They can use BPF_SYSCALL to allow loading from userspace or select BPF
->>   to use it directly from kernel in NET-less configs.
->> - in 3.18 programs cannot be attached to events yet, so don't force it on
->> - when the rest of eBPF infra is there in 3.19+, it's still useful to
->>   switch it off to minimize kernel size
+>> > It also allows for OVS to be built into vmlinuz while vports can
+>> > remain as modules even if vxlan itself is built as a module.
+>> >
 >>
->> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
->> ---
->>
->> bloat-o-meter on x64 shows:
->> add/remove: 0/60 grow/shrink: 0/2 up/down: 0/-15601 (-15601)
->>
->> tested with many different config combinations. Hopefully didn't miss anything.
+>> What is problem with current OVS built into kernel?
 >
-> Applied with two changes:
+> What I mean specifically is the following dependency logic which will
+> no longer be required:
 >
-> 1) boolean --> bool
-> 2) Moved bloat-o-meter and testing information into commit message.
+> depends on NET_IPGRE_DEMUX && !(OPENVSWITCH=y && NET_IPGRE_DEMUX=m)
 >
-> Thanks.
+> The patch also brings additional flexibility to users of
+> distributions. Distros typically ship something like an allmodconfig
+> so a user can either run openvswitch.ko with all encaps compiled in
+> or not run openvswitch.ko. With vports as module, a user can blacklist
+> a certain encap type.
+>
+> Another advantage is obviously that users can run additional vport
+> types on top of their distribution kernels.
+>
+> Is there anything specific that you are concerned with in regard
+> to this proposed change?
 
-Thank you for taking care of it!
+OVS vport code is not alot and making it plugable module does not save
+much space. Even with this patch user can not load any vport type
+since we still need to define the type in kernel interface and add the
+support in userspace netdev layer. Therefore this patch adds
+complexity without much gain.
