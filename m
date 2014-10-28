@@ -1,35 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ovs: Turn vports with dependencies into separate
- modules
-Date: Tue, 28 Oct 2014 14:43:44 -0400 (EDT)
-Message-ID: <20141028.144344.398016097830457432.davem@davemloft.net>
-References: <ab9438abe3e23289db6f850eea9626fe8bd0a969.1413991519.git.tgraf@suug.ch>
+Subject: Re: [net-next] net: phy: Adding SGMII support for Marvell 88ee1145
+ driver
+Date: Tue, 28 Oct 2014 14:50:05 -0400 (EDT)
+Message-ID: <20141028.145005.360870681646781420.davem@davemloft.net>
+References: <1414118877-12837-1-git-send-email-vndao@altera.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dev@openvswitch.org, netdev@vger.kernel.org
-To: tgraf@suug.ch
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33879 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752617AbaJ1Snq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Oct 2014 14:43:46 -0400
-In-Reply-To: <ab9438abe3e23289db6f850eea9626fe8bd0a969.1413991519.git.tgraf@suug.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ngachi86@gmail.com
+To: vndao@altera.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1414118877-12837-1-git-send-email-vndao@altera.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Thomas Graf <tgraf@suug.ch>
-Date: Wed, 22 Oct 2014 17:29:06 +0200
+From: <vndao@altera.com>
+Date: Thu, 23 Oct 2014 19:47:57 -0700
 
-> The internal and netdev vport remain part of openvswitch.ko. Encap
-> vports including vxlan, gre, and geneve can be built as separate
-> modules and are loaded on demand. Modules can be unloaded after use.
-> Datapath ports keep a reference to the vport module during their
-> lifetime.
+> From: Viet Nga Dao <vndao@altera.com>
 > 
-> Allows to remove the error prone maintenance of the global list
-> vport_ops_list.
+> Additional code to m88e1145_config_init function to allow the driver to
+> support SGMII mode.
 > 
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> Signed-off-by: Viet Nga Dao <vndao@altera.com>
 
-Applied, thanks a lot Thomas.
+Applied.
