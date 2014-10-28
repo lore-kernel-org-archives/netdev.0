@@ -1,44 +1,64 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH] ovs: Turn vports with dependencies into separate modules
-Date: Tue, 28 Oct 2014 13:57:13 -0700
-Message-ID: <CAADnVQ+Z6-7sdWAEvHkKR==Nds6hqBfbfPmtUDiZXOTE9DRnGw@mail.gmail.com>
-References: <ab9438abe3e23289db6f850eea9626fe8bd0a969.1413991519.git.tgraf@suug.ch>
-	<20141028.144344.398016097830457432.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH -next 0/2] net: allow setting ecn via routing table
+Date: Tue, 28 Oct 2014 16:57:37 -0400 (EDT)
+Message-ID: <20141028.165737.2009356944765978630.davem@davemloft.net>
+References: <1414276729-17871-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Thomas Graf <tgraf@suug.ch>,
-	"dev@openvswitch.org" <dev@openvswitch.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: fw@strlen.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f178.google.com ([209.85.216.178]:33112 "EHLO
-	mail-qc0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751872AbaJ1U5O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Oct 2014 16:57:14 -0400
-Received: by mail-qc0-f178.google.com with SMTP id b13so1443384qcw.37
-        for <netdev@vger.kernel.org>; Tue, 28 Oct 2014 13:57:13 -0700 (PDT)
-In-Reply-To: <20141028.144344.398016097830457432.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35884 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754062AbaJ1U5k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Oct 2014 16:57:40 -0400
+In-Reply-To: <1414276729-17871-1-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 28, 2014 at 11:43 AM, David Miller <davem@davemloft.net> wrote:
-> From: Thomas Graf <tgraf@suug.ch>
-> Date: Wed, 22 Oct 2014 17:29:06 +0200
->
->> The internal and netdev vport remain part of openvswitch.ko. Encap
->> vports including vxlan, gre, and geneve can be built as separate
->> modules and are loaded on demand. Modules can be unloaded after use.
->> Datapath ports keep a reference to the vport module during their
->> lifetime.
->>
->> Allows to remove the error prone maintenance of the global list
->> vport_ops_list.
->>
->> Signed-off-by: Thomas Graf <tgraf@suug.ch>
->
-> Applied, thanks a lot Thomas.
+From: Florian Westphal <fw@strlen.de>
+Date: Sun, 26 Oct 2014 00:38:47 +0200
 
-Thomas,
+> These two patches allow turing on explicit congestion notification
+> based on the destination network.
+> 
+> For example, assuming the default tcp_ecn sysctl '2', the following will
+> enable ecn (tcp_ecn=1 behaviour, i.e. request ecn to be enabled for a
+> tcp connection) for all connections to hosts inside the 192.168.2/24 network:
+> 
+> ip route change 192.168.2.0/24 dev eth0 features ecn
+> 
+> Having a more fine-grained per-route setting can be beneficial for
+> various reasons, for example 1) within data centers, or 2) local ISPs
+> may deploy ECN support for their own video/streaming services [1], etc.
+> 
+> Joint work with Daniel Borkmann, feature suggested by Hannes Frederic Sowa.
+> 
+> The patch to enable this in iproute2 will be posted shortly, it is currently
+> also available here:
+> http://git.breakpoint.cc/cgit/fw/iproute2.git/commit/?h=iproute_features&id=8843d2d8973fb81c78a7efe6d42e3a17d739003e
+> 
+> [1] http://www.ietf.org/proceedings/89/slides/slides-89-tsvarea-1.pdf, p.15
 
-it fails the build when lockdep is on:
-ERROR: "lockdep_ovsl_is_held" [net/openvswitch/vport-gre.ko] undefined!
+I don't like how the route metric gives less control than the sysctl.
+
+If the tcp_ecn cases of '1' and '2' make sense for the sysctl, I do not
+see why they wouldn't make sense for the per-route knob to.
+
+Implement the following policy, if per-route metric is non-zero use it
+instead of the sysctl setting.
+
+Then you have a helper:
+
+static int tcp_ecn_enabled(struct net *net, struct dst_entry *dst)
+{
+	u32 val = dst_metric(dst, RTAX_ECN);
+
+	if (val)
+		return val;
+	return net->ipv4.sysctl_tcp_ecn;
+}
+
+Then there is no other change to make other than an absolute
+strict substitution of sysctl_tcp_ecn with tcp_ecn_enabled().
