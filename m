@@ -1,51 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] fixup! net: pxa168_eth: Provide phy_interface mode on
- platform_data
-Date: Tue, 28 Oct 2014 16:49:39 -0400 (EDT)
-Message-ID: <20141028.164939.509353257563688482.davem@davemloft.net>
-References: <1414002412-13615-3-git-send-email-sebastian.hesselbarth@gmail.com>
-	<1414231739-7447-1-git-send-email-sebastian.hesselbarth@gmail.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH] ovs: Turn vports with dependencies into separate modules
+Date: Tue, 28 Oct 2014 13:57:13 -0700
+Message-ID: <CAADnVQ+Z6-7sdWAEvHkKR==Nds6hqBfbfPmtUDiZXOTE9DRnGw@mail.gmail.com>
+References: <ab9438abe3e23289db6f850eea9626fe8bd0a969.1413991519.git.tgraf@suug.ch>
+	<20141028.144344.398016097830457432.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: antoine.tenart@free-electrons.com, f.fainelli@gmail.com,
-	eric.y.miao@gmail.com, haojian.zhuang@gmail.com,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: sebastian.hesselbarth@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1414231739-7447-1-git-send-email-sebastian.hesselbarth@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Thomas Graf <tgraf@suug.ch>,
+	"dev@openvswitch.org" <dev@openvswitch.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qc0-f178.google.com ([209.85.216.178]:33112 "EHLO
+	mail-qc0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751872AbaJ1U5O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Oct 2014 16:57:14 -0400
+Received: by mail-qc0-f178.google.com with SMTP id b13so1443384qcw.37
+        for <netdev@vger.kernel.org>; Tue, 28 Oct 2014 13:57:13 -0700 (PDT)
+In-Reply-To: <20141028.144344.398016097830457432.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Date: Sat, 25 Oct 2014 12:08:59 +0200
+On Tue, Oct 28, 2014 at 11:43 AM, David Miller <davem@davemloft.net> wrote:
+> From: Thomas Graf <tgraf@suug.ch>
+> Date: Wed, 22 Oct 2014 17:29:06 +0200
+>
+>> The internal and netdev vport remain part of openvswitch.ko. Encap
+>> vports including vxlan, gre, and geneve can be built as separate
+>> modules and are loaded on demand. Modules can be unloaded after use.
+>> Datapath ports keep a reference to the vport module during their
+>> lifetime.
+>>
+>> Allows to remove the error prone maintenance of the global list
+>> vport_ops_list.
+>>
+>> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+>
+> Applied, thanks a lot Thomas.
 
-> Do not add phy include to the board file but platform_data include
-> instead.
-> 
-> Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-> ---
-> David,
-> 
-> I should have compile tested this patch earlier. I did now on
-> pxa168_defconfig right after I received an 0-day kbuild error
-> on this patch.
-> 
-> This is the corresponding fix, can you please squash it in?
-> 
-> Thanks and sorry for the noise,
+Thomas,
 
-Patch applied to net-next, but:
-
-1) There is never any way for me to "squash" a patch into an old
-   one.  Once I apply a patch it is a permanent commit in my tree
-   and cannot be undone and/or modified.
-
-   Therefore the only thing you can do is send me a relative fix
-   and that's what shows up in my tree as yet another later commit.
-
-2) Always be specific about the target tree in you subject,
-   line.  Never assume I can figure it out by context.
-
-Thanks.
+it fails the build when lockdep is on:
+ERROR: "lockdep_ovsl_is_held" [net/openvswitch/vport-gre.ko] undefined!
