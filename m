@@ -1,94 +1,45 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: netfilter: nf_conntrack: there maybe a bug in
- __nf_conntrack_confirm, when it race against get_next_corpse
-Date: Tue, 28 Oct 2014 11:11:09 +0100
-Message-ID: <20141028111109.1f64f76e@redhat.com>
-References: <02ef01cff25f$29887f60$7c997e20$@gmail.com>
-	<02f201cff260$8622e610$9268b230$@gmail.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [net 1/2] sctp: add transport state in /proc/net/sctp/remaddr
+Date: Tue, 28 Oct 2014 06:27:41 -0400
+Message-ID: <20141028102741.GA18365@hmsreliant.think-freely.org>
+References: <1414093721-14921-1-git-send-email-michele@acksyn.org>
+ <20141027.185545.551457974536550723.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>,
-	"'Netfilter Developer Mailing List'"
-	<netfilter-devel@vger.kernel.org>,
-	"'Pablo Neira Ayuso'" <pablo@netfilter.org>,
-	"'Patrick McHardy'" <kaber@trash.net>, <kadlec@blackhole.kfki.hu>,
-	<davem@davemloft.net>, "'Changli Gao'" <xiaosuo@gmail.com>,
-	"'Andrey Vagin'" <avagin@openvz.org>, brouer@redhat.com,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "billbonaparte" <programme110@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <02f201cff260$8622e610$9268b230$@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: michele@acksyn.org, linux-sctp@vger.kernel.org,
+	vyasevich@gmail.com, netdev@vger.kernel.org, dborkman@redhat.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:35207 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751985AbaJ1K1z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Oct 2014 06:27:55 -0400
+Content-Disposition: inline
+In-Reply-To: <20141027.185545.551457974536550723.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-On Tue, 28 Oct 2014 11:37:31 +0800 "billbonaparte" <programme110@gmail.com> wrote:
-
-> Hi, all:
-> sorry for sending this mail again, the last mail doesn't show text
-> clearly.
-
-This one also mangles the text, so I cannot follow the race you are
-describing.  I'll try to reconstruct...
-
-> In function __nf_conntrack_confirm, we check the conntrack if it was
-> already dead, before insert it into hash-table. 
-> We do this because if we insert an already 'dead' hash,  it will
-> block further use of that particular connection.
-
-Have you run into this problem in practice, or is this based on a
-theory?
-
-> but we don't do that right.
-> let's consider the following case:
+On Mon, Oct 27, 2014 at 06:55:45PM -0400, David Miller wrote:
+> From: Michele Baldessari <michele@acksyn.org>
+> Date: Thu, 23 Oct 2014 21:48:40 +0200
 > 
-[tried to reconstruct]
-
-> 	cpu1                             cpu2
-> __nf_conntrack_confirm             get_next_corpse
->   lock corresponding hash-list      ....
->   check nf_ct_is_dying(ct)          ....
->    .....                           for_each_possible_cpu(cpu) {
->    .....                           (processing &pcpu->unconfirmed)
->    .....                           spin_lock_bh(&pcpu->lock);
->    .....                           set_bit(IPS_DYING_BIT, &ct->status);
->    .....                           spin_unlock_bh(&pcpu_lock);
->  spin_lock_bh(&pcpu->lock);
->  nf_ct_del_from_dying_or_unconfirmed_list(ct);
->  spin_unlock_bh(&pcpu_lock);
->
->  add_timer(&ct->timeout);
->  ct->status |= IPS_CONFIRMED;
->  __nf_conntrack_hash_insert(ct);
->   /* the conntrack has been seted as dying*/
-
-Yes, I think you are correct.  There is a race.  As we are modifying
-the ct->status, without holding the hash bucket lock.
-
-
-> The above case reveal two problems:
-> 	1. we may insert a dead conntrack to hash-table, it will block
-> further use of that particular connection.
-> 	2. operation on ct->status should be atomic, because it race aginst
-> get_next_corpse.
-> 	  due to this reason, the operation on ct->status in
-> nf_nat_setup_info should be atomic as well.
+> > It is often quite helpful to be able to know the state of a transport
+> > outside of the application itself (for troubleshooting purposes or for
+> > monitoring purposes). Add it under /proc/net/sctp/remaddr.
+> > 
+> > Signed-off-by: Michele Baldessari <michele@acksyn.org>
 > 
-> 	if we want to resolve the first problem, we must delete the
-> unconfirmed conntrack from unconfirmed-list first, then check if it is
-> already dead.
+> You can't change the layout of procfs files, applications parse
+> these files and any modification can potentially break such tools.
+> 
+> Secondly, even if this change were acceptable, targetting this
+> change at anything other than the net-next tree is not appropriate
+> because it is a new feature.
+> 
 
-Guess that would be one approach.
+Agree on the net-next submission, though there is precident for extending this
+procfile, as we've done it a few times in the past to this, and other files in
+the sctp area (see commits f406c8b9693f2f71ef2caeb0b68521a7d22d00f0 and
+58fbbed4fbc0094fc808a568fe99a915f85402ee)
 
-> 	Am I right to do this ?
-> 	Appreciate any comments and reply.
-
-Perhaps we could get rid of unconfirmed list handling in get_next_corpse?
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+Neil
