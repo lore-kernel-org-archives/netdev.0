@@ -1,40 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] datapath: Rename last_action() as
- nla_is_last() and move to netlink.h
-Date: Tue, 28 Oct 2014 17:08:08 -0400 (EDT)
-Message-ID: <20141028.170808.1107344256534933398.davem@davemloft.net>
-References: <1414393936-14463-1-git-send-email-simon.horman@netronome.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Subject: Re: [PATCH] fixup! net: pxa168_eth: Provide phy_interface mode on
+ platform_data
+Date: Tue, 28 Oct 2014 22:11:09 +0100
+Message-ID: <5450066D.2010600@gmail.com>
+References: <1414002412-13615-3-git-send-email-sebastian.hesselbarth@gmail.com> <1414231739-7447-1-git-send-email-sebastian.hesselbarth@gmail.com> <20141028.164939.509353257563688482.davem@davemloft.net>
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, pshelar@nicira.com, dev@openvswitch.org,
-	tgraf@suug.ch, azhou@nicira.com
-To: simon.horman@netronome.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36011 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751400AbaJ1VIL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Oct 2014 17:08:11 -0400
-In-Reply-To: <1414393936-14463-1-git-send-email-simon.horman@netronome.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: antoine.tenart@free-electrons.com, f.fainelli@gmail.com,
+	eric.y.miao@gmail.com, haojian.zhuang@gmail.com,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141028.164939.509353257563688482.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Simon Horman <simon.horman@netronome.com>
-Date: Mon, 27 Oct 2014 16:12:16 +0900
+On 28.10.2014 21:49, David Miller wrote:
+> From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+> Date: Sat, 25 Oct 2014 12:08:59 +0200
+>
+>> Do not add phy include to the board file but platform_data include
+>> instead.
+>>
+>> Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+>> ---
+>> David,
+>>
+>> I should have compile tested this patch earlier. I did now on
+>> pxa168_defconfig right after I received an 0-day kbuild error
+>> on this patch.
+>>
+>> This is the corresponding fix, can you please squash it in?
+>>
+>> Thanks and sorry for the noise,
+>
+> Patch applied to net-next, but:
+>
+> 1) There is never any way for me to "squash" a patch into an old
+>     one.  Once I apply a patch it is a permanent commit in my tree
+>     and cannot be undone and/or modified.
+>
+>     Therefore the only thing you can do is send me a relative fix
+>     and that's what shows up in my tree as yet another later commit.
 
-> The original motivation for this change was to allow the helper to be used
-> in files other than actions.c as part of work on an odp select group
-> action.
-> 
-> It was as pointed out by Thomas Graf that this helper would be best off
-> living in netlink.h. Furthermore, I think that the generic nature of this
-> helper means it is best off in netlink.h regardless of if it is used more
-> than one .c file or not. Thus, I would like it considered independent of
-> the work on an odp select group action.
-> 
-> Cc: Thomas Graf <tgraf@suug.ch>
-> Cc: Pravin Shelar <pshelar@nicira.com>
-> Cc: Andy Zhou <azhou@nicira.com>
-> Signed-off-by: Simon Horman <simon.horman@netronome.com>
+Ok, good to know and sorry for the crippled fixup patch. I was assuming
+that net-next is also rebased until pulled/moved to some stable state.
 
-Applied, thanks Simon.
+> 2) Always be specific about the target tree in you subject,
+>     line.  Never assume I can figure it out by context.
+
+Also, sorry for the little information given.
+
+Thanks,
+
+Sebastian
