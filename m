@@ -1,51 +1,167 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH] bridge: Add support for IEEE 802.11 Proxy ARP
-Date: Mon, 27 Oct 2014 18:20:32 -0700
-Message-ID: <20141027182032.1c5dcffa@urahara>
-References: <1414100957-8288-1-git-send-email-kyeyoonp@qca.qualcomm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, jouni@qca.qualcomm.com, netdev@vger.kernel.org
-To: Kyeyoon Park <kyeyoonp@qca.qualcomm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:36483 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753024AbaJ1BUo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Oct 2014 21:20:44 -0400
-Received: by mail-pa0-f47.google.com with SMTP id kx10so6599324pab.34
-        for <netdev@vger.kernel.org>; Mon, 27 Oct 2014 18:20:44 -0700 (PDT)
-In-Reply-To: <1414100957-8288-1-git-send-email-kyeyoonp@qca.qualcomm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Junjie Mao <eternal.n08@gmail.com>
+Subject: [PATCH] mac80211_hwsim: release driver when ieee80211_register_hw fails
+Date: Tue, 28 Oct 2014 09:31:47 +0800
+Message-ID: <1414459907-7509-1-git-send-email-eternal.n08@gmail.com>
+Cc: Junjie Mao <eternal.n08@gmail.com>,
+	Fengguang Wu <fengguang.wu@intel.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Martin Pitt <martin.pitt@ubuntu.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 23 Oct 2014 14:49:17 -0700
-Kyeyoon Park <kyeyoonp@qca.qualcomm.com> wrote:
+The driver is not released when ieee80211_register_hw fails in
+mac80211_hwsim_create_radio, leading to the access to the unregistered (and
+possibly freed) device in platform_driver_unregister:
 
-> From: Kyeyoon Park <kyeyoonp@codeaurora.org>
-> 
-> This feature is defined in IEEE Std 802.11-2012, 10.23.13. It allows
-> the AP devices to keep track of the hardware-address-to-IP-address
-> mapping of the mobile devices within the WLAN network.
-> 
-> The AP will learn this mapping via observing DHCP, ARP, and NS/NA
-> frames. When a request for such information is made (i.e. ARP request,
-> Neighbor Solicitation), the AP will respond on behalf of the
-> associated mobile device. In the process of doing so, the AP will drop
-> the multicast request frame that was intended to go out to the wireless
-> medium.
-> 
-> It was recommended at the LKS workshop to do this implementation in
-> the bridge layer. vxlan.c is already doing something very similar.
-> The DHCP snooping code will be added to the userspace application
-> (hostapd) per the recommendation.
-> 
-> This RFC commit is only for IPv4. A similar approach in the bridge
-> layer will be taken for IPv6 as well.
-> 
-> Signed-off-by: Kyeyoon Park <kyeyoonp@codeaurora.org>
+[    0.447547] mac80211_hwsim: ieee80211_register_hw failed (-2)
+[    0.448292] ------------[ cut here ]------------
+[    0.448854] WARNING: CPU: 0 PID: 1 at ../include/linux/kref.h:47 kobject_get+0x33/0x50()
+[    0.449839] CPU: 0 PID: 1 Comm: swapper Not tainted 3.17.0-00001-gdd46990-dirty #2
+[    0.450813] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
+[    0.451512]  00000000 00000000 78025e38 7967c6c6 78025e68 7905e09b 7988b480 00000000
+[    0.452579]  00000001 79887d62 0000002f 79170bb3 79170bb3 78397008 79ac9d74 00000001
+[    0.453614]  78025e78 7905e15d 00000009 00000000 78025e84 79170bb3 78397000 78025e8c
+[    0.454632] Call Trace:
+[    0.454921]  [<7967c6c6>] dump_stack+0x16/0x18
+[    0.455453]  [<7905e09b>] warn_slowpath_common+0x6b/0x90
+[    0.456067]  [<79170bb3>] ? kobject_get+0x33/0x50
+[    0.456612]  [<79170bb3>] ? kobject_get+0x33/0x50
+[    0.457155]  [<7905e15d>] warn_slowpath_null+0x1d/0x20
+[    0.457748]  [<79170bb3>] kobject_get+0x33/0x50
+[    0.458274]  [<7925824f>] get_device+0xf/0x20
+[    0.458779]  [<7925b5cd>] driver_detach+0x3d/0xa0
+[    0.459331]  [<7925a3ff>] bus_remove_driver+0x8f/0xb0
+[    0.459927]  [<7925bf80>] ? class_unregister+0x40/0x80
+[    0.460660]  [<7925bad7>] driver_unregister+0x47/0x50
+[    0.461248]  [<7925c033>] ? class_destroy+0x13/0x20
+[    0.461824]  [<7925d07b>] platform_driver_unregister+0xb/0x10
+[    0.462507]  [<79b51ba0>] init_mac80211_hwsim+0x3e8/0x3f9
+[    0.463161]  [<79b30c58>] do_one_initcall+0x106/0x1a9
+[    0.463758]  [<79b517b8>] ? if_spi_init_module+0xac/0xac
+[    0.464393]  [<79b517b8>] ? if_spi_init_module+0xac/0xac
+[    0.465001]  [<79071935>] ? parse_args+0x2f5/0x480
+[    0.465569]  [<7906b41e>] ? __usermodehelper_set_disable_depth+0x3e/0x50
+[    0.466345]  [<79b30dd9>] kernel_init_freeable+0xde/0x17d
+[    0.466972]  [<79b304d6>] ? do_early_param+0x7a/0x7a
+[    0.467546]  [<79677b1b>] kernel_init+0xb/0xe0
+[    0.468072]  [<79075f42>] ? schedule_tail+0x12/0x40
+[    0.468658]  [<79686580>] ret_from_kernel_thread+0x20/0x30
+[    0.469303]  [<79677b10>] ? rest_init+0xc0/0xc0
+[    0.469829] ---[ end trace ad8ac403ff8aef5c ]---
+[    0.470509] ------------[ cut here ]------------
+[    0.471047] WARNING: CPU: 0 PID: 1 at ../kernel/locking/lockdep.c:3161 __lock_acquire.isra.22+0x7aa/0xb00()
+[    0.472163] DEBUG_LOCKS_WARN_ON(id >= MAX_LOCKDEP_KEYS)
+[    0.472774] CPU: 0 PID: 1 Comm: swapper Tainted: G        W      3.17.0-00001-gdd46990-dirty #2
+[    0.473815] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
+[    0.474492]  78025de0 78025de0 78025da0 7967c6c6 78025dd0 7905e09b 79888931 78025dfc
+[    0.475515]  00000001 79888a93 00000c59 7907f33a 7907f33a 78028000 fffe9d09 00000000
+[    0.476519]  78025de8 7905e10e 00000009 78025de0 79888931 78025dfc 78025e24 7907f33a
+[    0.477523] Call Trace:
+[    0.477821]  [<7967c6c6>] dump_stack+0x16/0x18
+[    0.478352]  [<7905e09b>] warn_slowpath_common+0x6b/0x90
+[    0.478976]  [<7907f33a>] ? __lock_acquire.isra.22+0x7aa/0xb00
+[    0.479658]  [<7907f33a>] ? __lock_acquire.isra.22+0x7aa/0xb00
+[    0.480417]  [<7905e10e>] warn_slowpath_fmt+0x2e/0x30
+[    0.480479]  [<7907f33a>] __lock_acquire.isra.22+0x7aa/0xb00
+[    0.480479]  [<79078aa5>] ? sched_clock_cpu+0xb5/0xf0
+[    0.480479]  [<7907fd06>] lock_acquire+0x56/0x70
+[    0.480479]  [<7925b5e8>] ? driver_detach+0x58/0xa0
+[    0.480479]  [<79682d11>] mutex_lock_nested+0x61/0x2a0
+[    0.480479]  [<7925b5e8>] ? driver_detach+0x58/0xa0
+[    0.480479]  [<7925b5e8>] ? driver_detach+0x58/0xa0
+[    0.480479]  [<7925b5e8>] driver_detach+0x58/0xa0
+[    0.480479]  [<7925a3ff>] bus_remove_driver+0x8f/0xb0
+[    0.480479]  [<7925bf80>] ? class_unregister+0x40/0x80
+[    0.480479]  [<7925bad7>] driver_unregister+0x47/0x50
+[    0.480479]  [<7925c033>] ? class_destroy+0x13/0x20
+[    0.480479]  [<7925d07b>] platform_driver_unregister+0xb/0x10
+[    0.480479]  [<79b51ba0>] init_mac80211_hwsim+0x3e8/0x3f9
+[    0.480479]  [<79b30c58>] do_one_initcall+0x106/0x1a9
+[    0.480479]  [<79b517b8>] ? if_spi_init_module+0xac/0xac
+[    0.480479]  [<79b517b8>] ? if_spi_init_module+0xac/0xac
+[    0.480479]  [<79071935>] ? parse_args+0x2f5/0x480
+[    0.480479]  [<7906b41e>] ? __usermodehelper_set_disable_depth+0x3e/0x50
+[    0.480479]  [<79b30dd9>] kernel_init_freeable+0xde/0x17d
+[    0.480479]  [<79b304d6>] ? do_early_param+0x7a/0x7a
+[    0.480479]  [<79677b1b>] kernel_init+0xb/0xe0
+[    0.480479]  [<79075f42>] ? schedule_tail+0x12/0x40
+[    0.480479]  [<79686580>] ret_from_kernel_thread+0x20/0x30
+[    0.480479]  [<79677b10>] ? rest_init+0xc0/0xc0
+[    0.480479] ---[ end trace ad8ac403ff8aef5d ]---
+[    0.495478] BUG: unable to handle kernel paging request at 00200200
+[    0.496257] IP: [<79682de5>] mutex_lock_nested+0x135/0x2a0
+[    0.496923] *pde = 00000000
+[    0.497290] Oops: 0002 [#1]
+[    0.497653] CPU: 0 PID: 1 Comm: swapper Tainted: G        W      3.17.0-00001-gdd46990-dirty #2
+[    0.498659] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
+[    0.499321] task: 78028000 ti: 78024000 task.ti: 78024000
+[    0.499955] EIP: 0060:[<79682de5>] EFLAGS: 00010097 CPU: 0
+[    0.500620] EIP is at mutex_lock_nested+0x135/0x2a0
+[    0.501145] EAX: 00200200 EBX: 78397434 ECX: 78397460 EDX: 78025e70
+[    0.501816] ESI: 00000246 EDI: 78028000 EBP: 78025e8c ESP: 78025e54
+[    0.502497]  DS: 007b ES: 007b FS: 0000 GS: 0000 SS: 0068
+[    0.503076] CR0: 8005003b CR2: 00200200 CR3: 01b9d000 CR4: 00000690
+[    0.503773] Stack:
+[    0.503998]  00000000 00000001 00000000 7925b5e8 78397460 7925b5e8 78397474 78397460
+[    0.504944]  00200200 11111111 78025e70 78397000 79ac9d74 00000001 78025ea0 7925b5e8
+[    0.505451]  79ac9d74 fffffffe 00000001 78025ebc 7925a3ff 7a251398 78025ec8 7925bf80
+[    0.505451] Call Trace:
+[    0.505451]  [<7925b5e8>] ? driver_detach+0x58/0xa0
+[    0.505451]  [<7925b5e8>] ? driver_detach+0x58/0xa0
+[    0.505451]  [<7925b5e8>] driver_detach+0x58/0xa0
+[    0.505451]  [<7925a3ff>] bus_remove_driver+0x8f/0xb0
+[    0.505451]  [<7925bf80>] ? class_unregister+0x40/0x80
+[    0.505451]  [<7925bad7>] driver_unregister+0x47/0x50
+[    0.505451]  [<7925c033>] ? class_destroy+0x13/0x20
+[    0.505451]  [<7925d07b>] platform_driver_unregister+0xb/0x10
+[    0.505451]  [<79b51ba0>] init_mac80211_hwsim+0x3e8/0x3f9
+[    0.505451]  [<79b30c58>] do_one_initcall+0x106/0x1a9
+[    0.505451]  [<79b517b8>] ? if_spi_init_module+0xac/0xac
+[    0.505451]  [<79b517b8>] ? if_spi_init_module+0xac/0xac
+[    0.505451]  [<79071935>] ? parse_args+0x2f5/0x480
+[    0.505451]  [<7906b41e>] ? __usermodehelper_set_disable_depth+0x3e/0x50
+[    0.505451]  [<79b30dd9>] kernel_init_freeable+0xde/0x17d
+[    0.505451]  [<79b304d6>] ? do_early_param+0x7a/0x7a
+[    0.505451]  [<79677b1b>] kernel_init+0xb/0xe0
+[    0.505451]  [<79075f42>] ? schedule_tail+0x12/0x40
+[    0.505451]  [<79686580>] ret_from_kernel_thread+0x20/0x30
+[    0.505451]  [<79677b10>] ? rest_init+0xc0/0xc0
+[    0.505451] Code: 89 d8 e8 cf 9b 9f ff 8b 4f 04 8d 55 e4 89 d8 e8 72 9d 9f ff 8d 43 2c 89 c1 89 45 d8 8b 43 30 8d 55 e4 89 53 30 89 4d e4 89 45 e8 <89> 10 8b 55 dc 8b 45 e0 89 7d ec e8 db af 9f ff eb 11 90 31 c0
+[    0.505451] EIP: [<79682de5>] mutex_lock_nested+0x135/0x2a0 SS:ESP 0068:78025e54
+[    0.505451] CR2: 0000000000200200
+[    0.505451] ---[ end trace ad8ac403ff8aef5e ]---
+[    0.505451] Kernel panic - not syncing: Fatal exception
 
-Looks good. Maybe at some point VXLAN and bridge should share
-more code or at least the same options.
+Fixes: 9ea927748ced ("mac80211_hwsim: Register and bind to driver")
+Reported-by: Fengguang Wu <fengguang.wu@intel.com>
+Signed-off-by: Junjie Mao <eternal.n08@gmail.com>
+---
+ drivers/net/wireless/mac80211_hwsim.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-I a little worried that this could be DoS'd.
+diff --git a/drivers/net/wireless/mac80211_hwsim.c b/drivers/net/wireless/mac80211_hwsim.c
+index babbdc1ce741..c9ad4cf1adfb 100644
+--- a/drivers/net/wireless/mac80211_hwsim.c
++++ b/drivers/net/wireless/mac80211_hwsim.c
+@@ -1987,7 +1987,7 @@ static int mac80211_hwsim_create_radio(int channels, const char *reg_alpha2,
+ 	if (err != 0) {
+ 		printk(KERN_DEBUG "mac80211_hwsim: device_bind_driver failed (%d)\n",
+ 		       err);
+-		goto failed_hw;
++		goto failed_bind;
+ 	}
+
+ 	skb_queue_head_init(&data->pending);
+@@ -2183,6 +2183,8 @@ static int mac80211_hwsim_create_radio(int channels, const char *reg_alpha2,
+ 	return idx;
+
+ failed_hw:
++	device_release_driver(data->dev);
++failed_bind:
+ 	device_unregister(data->dev);
+ failed_drvdata:
+ 	ieee80211_free_hw(hw);
+--
+1.9.3
