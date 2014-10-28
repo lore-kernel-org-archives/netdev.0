@@ -1,208 +1,75 @@
-From: Erik Kline <ek@google.com>
-Subject: [PATCH v2 net-next] net: ipv6: Add a sysctl to make optimistic addresses useful candidates
-Date: Tue, 28 Oct 2014 18:11:14 +0900
-Message-ID: <1414487474-18201-1-git-send-email-ek@google.com>
-Cc: davem@davemloft.net, ben@decadent.org.uk, lorenzo@google.com,
-	hannes@stressinduktion.org, Erik Kline <ek@google.com>
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: [PATCH net] inet: frags: fix a race between inet_evict_bucket and inet_frag_kill
+Date: Tue, 28 Oct 2014 10:30:34 +0100
+Message-ID: <1414488634-28412-1-git-send-email-nikolay@redhat.com>
+References: <1414455409.4845.1.camel@edumazet-glaptop2.roam.corp.google.com>
+Cc: Nikolay Aleksandrov <nikolay@redhat.com>,
+	Florian Westphal <fw@strlen.de>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Patrick McLean <chutzpah@gentoo.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f202.google.com ([209.85.192.202]:53357 "EHLO
-	mail-pd0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751591AbaJ1JLZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Oct 2014 05:11:25 -0400
-Received: by mail-pd0-f202.google.com with SMTP id ft15so33545pdb.5
-        for <netdev@vger.kernel.org>; Tue, 28 Oct 2014 02:11:25 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:58506 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751206AbaJ1JbE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Oct 2014 05:31:04 -0400
+In-Reply-To: <1414455409.4845.1.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a sysctl that causes an interface's optimistic addresses
-to be considered equivalent to other non-deprecated addresses
-for source address selection purposes.  Preferred addresses
-will still take precedence over optimistic addresses, subject
-to other ranking in the source address selection algorithm.
+When the evictor is running it adds some chosen frags to a local list to
+be evicted once the chain lock has been released but at the same time
+the *frag_queue can be running for some of the same queues and it
+may call inet_frag_kill which will wait on the chain lock and
+will then delete the queue from the wrong list since it was added in the
+eviction one. The fix is simple - check if the queue has the evict flag
+set under the chain lock before deleting it, this is safe because the
+evict flag is set only under that lock and having the flag set also means
+that the queue has been detached from the chain list, so no need to delete
+it again.
+An important note to make is that we're safe w.r.t refcnt because
+inet_frag_kill and inet_evict_bucket will sync on the del_timer operation
+where only one of the two can succeed (or if the timer is executing -
+none of them), the cases are:
+1. inet_frag_kill succeeds in del_timer
+ - then the timer ref is removed, but inet_evict_bucket will not add
+   this queue to its expire list but will restart eviction in that chain
+2. inet_evict_bucket succeeds in del_timer
+ - then the timer ref is kept until the evictor "expires" the queue, but
+   inet_frag_kill will remove the initial ref and will set
+   INET_FRAG_COMPLETE which will make the frag_expire fn just to remove
+   its ref.
+In the end all of the queue users will do an inet_frag_put and the one
+that reaches 0 will free it. The refcount balance should be okay.
 
-This is useful where different interfaces are connected to
-different networks from different ISPs (e.g., a cell network
-and a home wifi network).
+CC: Florian Westphal <fw@strlen.de>
+CC: Eric Dumazet <eric.dumazet@gmail.com>
+CC: Patrick McLean <chutzpah@gentoo.org>
 
-The current behaviour complies with RFC 3484/6724, and it
-makes sense if the host has only one interface, or has
-multiple interfaces on the same network (same or cooperating
-administrative domain(s), but not in the multiple distinct
-networks case.
-
-For example, if a mobile device has an IPv6 address on an LTE
-network and then connects to IPv6-enabled wifi, while the wifi
-IPv6 address is undergoing DAD, IPv6 connections will try use
-the wifi default route with the LTE IPv6 address, and will get
-stuck until they time out.
-
-Also, because optimistic nodes can receive frames, issue
-an RTM_NEWADDR as soon as DAD starts (with the IFA_F_OPTIMSTIC
-flag appropriately set).  A second RTM_NEWADDR is sent if DAD
-completes (the address flags have changed), otherwise an
-RTM_DELADDR is sent.
-
-Also: add an entry in ip-sysctl.txt for optimistic_dad.
-
-Signed-off-by: Erik Kline <ek@google.com>
+Fixes: b13d3cbfb8e8 ("inet: frag: move eviction of queues to work queue")
+Suggested-by: Eric Dumazet <eric.dumazet@gmail.com>
+Reported-by: Patrick McLean <chutzpah@gentoo.org>
+Tested-by: Patrick McLean <chutzpah@gentoo.org>
+Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
 ---
- Documentation/networking/ip-sysctl.txt | 13 ++++++++++
- include/linux/ipv6.h                   |  1 +
- include/uapi/linux/ipv6.h              |  1 +
- net/ipv6/addrconf.c                    | 46 ++++++++++++++++++++++++++++++++--
- 4 files changed, 59 insertions(+), 2 deletions(-)
+A few more eyes to confirm all of this would be much appreciated.
 
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index 0307e28..e03cf49 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -1452,6 +1452,19 @@ suppress_frag_ndisc - INTEGER
- 	1 - (default) discard fragmented neighbor discovery packets
- 	0 - allow fragmented neighbor discovery packets
+ net/ipv4/inet_fragment.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
+index 9eb89f3f0ee4..894ec30c5896 100644
+--- a/net/ipv4/inet_fragment.c
++++ b/net/ipv4/inet_fragment.c
+@@ -285,7 +285,8 @@ static inline void fq_unlink(struct inet_frag_queue *fq, struct inet_frags *f)
+ 	struct inet_frag_bucket *hb;
  
-+optimistic_dad - BOOLEAN
-+	Whether to perform Optimistic Duplicate Address Detection (RFC 4429).
-+		0: disabled (default)
-+		1: enabled
-+
-+use_optimistic - BOOLEAN
-+	If enabled, do not classify optimistic addresses as deprecated during
-+	source address selection.  Preferred addresses will still be chosen
-+	before optimistic addresses, subject to other ranking in the source
-+	address selection algorithm.
-+		0: disabled (default)
-+		1: enabled
-+
- icmp/*:
- ratelimit - INTEGER
- 	Limit the maximal rates for sending ICMPv6 packets.
-diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-index ff56053..7121a2e 100644
---- a/include/linux/ipv6.h
-+++ b/include/linux/ipv6.h
-@@ -42,6 +42,7 @@ struct ipv6_devconf {
- 	__s32		accept_ra_from_local;
- #ifdef CONFIG_IPV6_OPTIMISTIC_DAD
- 	__s32		optimistic_dad;
-+	__s32		use_optimistic;
- #endif
- #ifdef CONFIG_IPV6_MROUTE
- 	__s32		mc_forwarding;
-diff --git a/include/uapi/linux/ipv6.h b/include/uapi/linux/ipv6.h
-index efa2666..e863d08 100644
---- a/include/uapi/linux/ipv6.h
-+++ b/include/uapi/linux/ipv6.h
-@@ -164,6 +164,7 @@ enum {
- 	DEVCONF_MLDV2_UNSOLICITED_REPORT_INTERVAL,
- 	DEVCONF_SUPPRESS_FRAG_NDISC,
- 	DEVCONF_ACCEPT_RA_FROM_LOCAL,
-+	DEVCONF_USE_OPTIMISTIC,
- 	DEVCONF_MAX
- };
- 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 50b95b2..8d12b7c 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -1170,6 +1170,9 @@ enum {
- 	IPV6_SADDR_RULE_PRIVACY,
- 	IPV6_SADDR_RULE_ORCHID,
- 	IPV6_SADDR_RULE_PREFIX,
-+#ifdef CONFIG_IPV6_OPTIMISTIC_DAD
-+	IPV6_SADDR_RULE_NOT_OPTIMISTIC,
-+#endif
- 	IPV6_SADDR_RULE_MAX
- };
- 
-@@ -1197,6 +1200,15 @@ static inline int ipv6_saddr_preferred(int type)
- 	return 0;
+ 	hb = get_frag_bucket_locked(fq, f);
+-	hlist_del(&fq->list);
++	if (!(fq->flags & INET_FRAG_EVICTED))
++		hlist_del(&fq->list);
+ 	spin_unlock(&hb->chain_lock);
  }
  
-+static inline bool ipv6_use_optimistic_addr(struct inet6_dev *idev)
-+{
-+#ifdef CONFIG_IPV6_OPTIMISTIC_DAD
-+	return idev && idev->cnf.optimistic_dad && idev->cnf.use_optimistic;
-+#else
-+	return false;
-+#endif
-+}
-+
- static int ipv6_get_saddr_eval(struct net *net,
- 			       struct ipv6_saddr_score *score,
- 			       struct ipv6_saddr_dst *dst,
-@@ -1257,10 +1269,16 @@ static int ipv6_get_saddr_eval(struct net *net,
- 		score->scopedist = ret;
- 		break;
- 	case IPV6_SADDR_RULE_PREFERRED:
-+	    {
- 		/* Rule 3: Avoid deprecated and optimistic addresses */
-+		u8 avoid = IFA_F_DEPRECATED;
-+
-+		if (!ipv6_use_optimistic_addr(score->ifa->idev))
-+			avoid |= IFA_F_OPTIMISTIC;
- 		ret = ipv6_saddr_preferred(score->addr_type) ||
--		      !(score->ifa->flags & (IFA_F_DEPRECATED|IFA_F_OPTIMISTIC));
-+		      !(score->ifa->flags & avoid);
- 		break;
-+	    }
- #ifdef CONFIG_IPV6_MIP6
- 	case IPV6_SADDR_RULE_HOA:
- 	    {
-@@ -1306,6 +1324,14 @@ static int ipv6_get_saddr_eval(struct net *net,
- 			ret = score->ifa->prefix_len;
- 		score->matchlen = ret;
- 		break;
-+#ifdef CONFIG_IPV6_OPTIMISTIC_DAD
-+	case IPV6_SADDR_RULE_NOT_OPTIMISTIC:
-+		/* Optimistic addresses still have lower precedence than other
-+		 * preferred addresses.
-+		 */
-+		ret = !(score->ifa->flags & IFA_F_OPTIMISTIC);
-+		break;
-+#endif
- 	default:
- 		ret = 0;
- 	}
-@@ -3222,8 +3248,15 @@ static void addrconf_dad_begin(struct inet6_ifaddr *ifp)
- 	 * Optimistic nodes can start receiving
- 	 * Frames right away
- 	 */
--	if (ifp->flags & IFA_F_OPTIMISTIC)
-+	if (ifp->flags & IFA_F_OPTIMISTIC) {
- 		ip6_ins_rt(ifp->rt);
-+		if (ipv6_use_optimistic_addr(idev)) {
-+			/* Because optimistic nodes can use this address,
-+			 * notify listeners. If DAD fails, RTM_DELADDR is sent.
-+			 */
-+			ipv6_ifa_notify(RTM_NEWADDR, ifp);
-+		}
-+	}
- 
- 	addrconf_dad_kick(ifp);
- out:
-@@ -4330,6 +4363,7 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
- 	array[DEVCONF_ACCEPT_SOURCE_ROUTE] = cnf->accept_source_route;
- #ifdef CONFIG_IPV6_OPTIMISTIC_DAD
- 	array[DEVCONF_OPTIMISTIC_DAD] = cnf->optimistic_dad;
-+	array[DEVCONF_USE_OPTIMISTIC] = cnf->use_optimistic;
- #endif
- #ifdef CONFIG_IPV6_MROUTE
- 	array[DEVCONF_MC_FORWARDING] = cnf->mc_forwarding;
-@@ -5155,6 +5189,14 @@ static struct addrconf_sysctl_table
- 			.proc_handler   = proc_dointvec,
- 
- 		},
-+		{
-+			.procname       = "use_optimistic",
-+			.data           = &ipv6_devconf.use_optimistic,
-+			.maxlen         = sizeof(int),
-+			.mode           = 0644,
-+			.proc_handler   = proc_dointvec,
-+
-+		},
- #endif
- #ifdef CONFIG_IPV6_MROUTE
- 		{
 -- 
-2.1.0.rc2.206.gedb03e5
+1.9.3
