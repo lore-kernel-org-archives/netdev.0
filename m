@@ -1,7 +1,7 @@
 From: =?UTF-8?q?Lothar=20Wa=C3=9Fmann?= <LW@KARO-electronics.de>
-Subject: [PATCHv3 1/9] net: fec: indentation cleanup
-Date: Tue, 28 Oct 2014 14:22:56 +0100
-Message-ID: <1414502584-10583-2-git-send-email-LW@KARO-electronics.de>
+Subject: [PATCHv3 4/9] net: fec: declare bufdesc_ex flag as bool
+Date: Tue, 28 Oct 2014 14:22:59 +0100
+Message-ID: <1414502584-10583-5-git-send-email-LW@KARO-electronics.de>
 References: <1414494104-27943-1-git-send-email-LW@KARO-electronics.de>
  <1414502584-10583-1-git-send-email-LW@KARO-electronics.de>
 Mime-Version: 1.0
@@ -20,177 +20,51 @@ In-Reply-To: <1414502584-10583-1-git-send-email-LW@KARO-electronics.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-consistently use TABs for indentation
+fep->bufdesc_ex is used as boolean flag; thus declare it as such.
+Also remove an unnecessary initialization to 0.
 
 Signed-off-by: Lothar Wa=C3=9Fmann <LW@KARO-electronics.de>
 ---
- drivers/net/ethernet/freescale/fec.h |  108 +++++++++++++++++---------=
---------
- 1 file changed, 54 insertions(+), 54 deletions(-)
+ drivers/net/ethernet/freescale/fec.h      |    2 +-
+ drivers/net/ethernet/freescale/fec_main.c |    4 +---
+ 2 files changed, 2 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/etherne=
 t/freescale/fec.h
-index 9af296a..3047db4 100644
+index 27e75cf..1418813 100644
 --- a/drivers/net/ethernet/freescale/fec.h
 +++ b/drivers/net/ethernet/freescale/fec.h
-@@ -213,60 +213,60 @@ struct bufdesc_ex {
-  *	The following definitions courtesy of commproc.h, which where
-  *	Copyright (c) 1997 Dan Malek (dmalek@jlc.net).
-  */
--#define BD_SC_EMPTY     ((ushort)0x8000)        /* Receive is empty */
--#define BD_SC_READY     ((ushort)0x8000)        /* Transmit is ready *=
-/
--#define BD_SC_WRAP      ((ushort)0x2000)        /* Last buffer descrip=
-tor */
--#define BD_SC_INTRPT    ((ushort)0x1000)        /* Interrupt on change=
- */
--#define BD_SC_CM        ((ushort)0x0200)        /* Continuous mode */
--#define BD_SC_ID        ((ushort)0x0100)        /* Rec'd too many idle=
-s */
--#define BD_SC_P         ((ushort)0x0100)        /* xmt preamble */
--#define BD_SC_BR        ((ushort)0x0020)        /* Break received */
--#define BD_SC_FR        ((ushort)0x0010)        /* Framing error */
--#define BD_SC_PR        ((ushort)0x0008)        /* Parity error */
--#define BD_SC_OV        ((ushort)0x0002)        /* Overrun */
--#define BD_SC_CD        ((ushort)0x0001)        /* ?? */
-+#define BD_SC_EMPTY	((ushort)0x8000)	/* Receive is empty */
-+#define BD_SC_READY	((ushort)0x8000)	/* Transmit is ready */
-+#define BD_SC_WRAP	((ushort)0x2000)	/* Last buffer descriptor */
-+#define BD_SC_INTRPT	((ushort)0x1000)	/* Interrupt on change */
-+#define BD_SC_CM	((ushort)0x0200)	/* Continuous mode */
-+#define BD_SC_ID	((ushort)0x0100)	/* Rec'd too many idles */
-+#define BD_SC_P		((ushort)0x0100)	/* xmt preamble */
-+#define BD_SC_BR	((ushort)0x0020)	/* Break received */
-+#define BD_SC_FR	((ushort)0x0010)	/* Framing error */
-+#define BD_SC_PR	((ushort)0x0008)	/* Parity error */
-+#define BD_SC_OV	((ushort)0x0002)	/* Overrun */
-+#define BD_SC_CD	((ushort)0x0001)	/* ?? */
+@@ -502,7 +502,7 @@ struct fec_enet_private {
+ 	int	speed;
+ 	struct	completion mdio_done;
+ 	int	irq[FEC_IRQ_NUM];
+-	int	bufdesc_ex;
++	bool	bufdesc_ex;
+ 	int	pause_flag;
 =20
- /* Buffer descriptor control/status used by Ethernet receive.
--*/
--#define BD_ENET_RX_EMPTY        ((ushort)0x8000)
--#define BD_ENET_RX_WRAP         ((ushort)0x2000)
--#define BD_ENET_RX_INTR         ((ushort)0x1000)
--#define BD_ENET_RX_LAST         ((ushort)0x0800)
--#define BD_ENET_RX_FIRST        ((ushort)0x0400)
--#define BD_ENET_RX_MISS         ((ushort)0x0100)
--#define BD_ENET_RX_LG           ((ushort)0x0020)
--#define BD_ENET_RX_NO           ((ushort)0x0010)
--#define BD_ENET_RX_SH           ((ushort)0x0008)
--#define BD_ENET_RX_CR           ((ushort)0x0004)
--#define BD_ENET_RX_OV           ((ushort)0x0002)
--#define BD_ENET_RX_CL           ((ushort)0x0001)
--#define BD_ENET_RX_STATS        ((ushort)0x013f)        /* All status =
-bits */
-+ */
-+#define BD_ENET_RX_EMPTY	((ushort)0x8000)
-+#define BD_ENET_RX_WRAP		((ushort)0x2000)
-+#define BD_ENET_RX_INTR		((ushort)0x1000)
-+#define BD_ENET_RX_LAST		((ushort)0x0800)
-+#define BD_ENET_RX_FIRST	((ushort)0x0400)
-+#define BD_ENET_RX_MISS		((ushort)0x0100)
-+#define BD_ENET_RX_LG		((ushort)0x0020)
-+#define BD_ENET_RX_NO		((ushort)0x0010)
-+#define BD_ENET_RX_SH		((ushort)0x0008)
-+#define BD_ENET_RX_CR		((ushort)0x0004)
-+#define BD_ENET_RX_OV		((ushort)0x0002)
-+#define BD_ENET_RX_CL		((ushort)0x0001)
-+#define BD_ENET_RX_STATS	((ushort)0x013f)	/* All status bits */
+ 	struct	napi_struct napi;
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/et=
+hernet/freescale/fec_main.c
+index 50a851d..bb006e1 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -3169,8 +3169,6 @@ fec_probe(struct platform_device *pdev)
+ 	fep->pdev =3D pdev;
+ 	fep->dev_id =3D dev_id++;
 =20
- /* Enhanced buffer descriptor control/status used by Ethernet receive =
-*/
--#define BD_ENET_RX_VLAN         0x00000004
-+#define BD_ENET_RX_VLAN		0x00000004
-=20
- /* Buffer descriptor control/status used by Ethernet transmit.
--*/
--#define BD_ENET_TX_READY        ((ushort)0x8000)
--#define BD_ENET_TX_PAD          ((ushort)0x4000)
--#define BD_ENET_TX_WRAP         ((ushort)0x2000)
--#define BD_ENET_TX_INTR         ((ushort)0x1000)
--#define BD_ENET_TX_LAST         ((ushort)0x0800)
--#define BD_ENET_TX_TC           ((ushort)0x0400)
--#define BD_ENET_TX_DEF          ((ushort)0x0200)
--#define BD_ENET_TX_HB           ((ushort)0x0100)
--#define BD_ENET_TX_LC           ((ushort)0x0080)
--#define BD_ENET_TX_RL           ((ushort)0x0040)
--#define BD_ENET_TX_RCMASK       ((ushort)0x003c)
--#define BD_ENET_TX_UN           ((ushort)0x0002)
--#define BD_ENET_TX_CSL          ((ushort)0x0001)
--#define BD_ENET_TX_STATS        ((ushort)0x0fff)        /* All status =
-bits */
+-	fep->bufdesc_ex =3D 0;
 -
--/*enhanced buffer descriptor control/status used by Ethernet transmit*=
-/
--#define BD_ENET_TX_INT          0x40000000
--#define BD_ENET_TX_TS           0x20000000
--#define BD_ENET_TX_PINS         0x10000000
--#define BD_ENET_TX_IINS         0x08000000
-+ */
-+#define BD_ENET_TX_READY	((ushort)0x8000)
-+#define BD_ENET_TX_PAD		((ushort)0x4000)
-+#define BD_ENET_TX_WRAP		((ushort)0x2000)
-+#define BD_ENET_TX_INTR		((ushort)0x1000)
-+#define BD_ENET_TX_LAST		((ushort)0x0800)
-+#define BD_ENET_TX_TC		((ushort)0x0400)
-+#define BD_ENET_TX_DEF		((ushort)0x0200)
-+#define BD_ENET_TX_HB		((ushort)0x0100)
-+#define BD_ENET_TX_LC		((ushort)0x0080)
-+#define BD_ENET_TX_RL		((ushort)0x0040)
-+#define BD_ENET_TX_RCMASK	((ushort)0x003c)
-+#define BD_ENET_TX_UN		((ushort)0x0002)
-+#define BD_ENET_TX_CSL		((ushort)0x0001)
-+#define BD_ENET_TX_STATS	((ushort)0x0fff)	/* All status bits */
-+
-+/* enhanced buffer descriptor control/status used by Ethernet transmit=
- */
-+#define BD_ENET_TX_INT		0x40000000
-+#define BD_ENET_TX_TS		0x20000000
-+#define BD_ENET_TX_PINS		0x10000000
-+#define BD_ENET_TX_IINS		0x08000000
+ 	platform_set_drvdata(pdev, ndev);
 =20
+ 	phy_node =3D of_parse_phandle(np, "phy-handle", 0);
+@@ -3228,7 +3226,7 @@ fec_probe(struct platform_device *pdev)
+ 		pdev->id_entry->driver_data & FEC_QUIRK_HAS_BUFDESC_EX;
+ 	if (IS_ERR(fep->clk_ptp)) {
+ 		fep->clk_ptp =3D NULL;
+-		fep->bufdesc_ex =3D 0;
++		fep->bufdesc_ex =3D false;
+ 	}
 =20
- /* This device has up to three irqs on some platforms */
-@@ -301,7 +301,7 @@ struct bufdesc_ex {
- #define IDLE_SLOPE_2		0x200 /* BW fraction: 0.5 */
- #define IDLE_SLOPE(X)		((X =3D=3D 1) ? (IDLE_SLOPE_1 & IDLE_SLOPE_MASK=
-) : \
- 				(IDLE_SLOPE_2 & IDLE_SLOPE_MASK))
--#define RCMR_MATCHEN            (0x1 << 16)
-+#define RCMR_MATCHEN		(0x1 << 16)
- #define RCMR_CMP_CFG(v, n)	((v & 0x7) <<  (n << 2))
- #define RCMR_CMP_1		(RCMR_CMP_CFG(0, 0) | RCMR_CMP_CFG(1, 1) | \
- 				RCMR_CMP_CFG(2, 2) | RCMR_CMP_CFG(3, 3))
-@@ -326,8 +326,8 @@ struct bufdesc_ex {
- #define TX_RING_SIZE		512	/* Must be power of two */
- #define TX_RING_MOD_MASK	511	/*   for this to work */
-=20
--#define BD_ENET_RX_INT          0x00800000
--#define BD_ENET_RX_PTP          ((ushort)0x0400)
-+#define BD_ENET_RX_INT		0x00800000
-+#define BD_ENET_RX_PTP		((ushort)0x0400)
- #define BD_ENET_RX_ICE		0x00000020
- #define BD_ENET_RX_PCR		0x00000010
- #define FLAG_RX_CSUM_ENABLED	(BD_ENET_RX_ICE | BD_ENET_RX_PCR)
-@@ -364,8 +364,8 @@ struct bufdesc_ex {
- #define FEC_ITR_ICFT_DEFAULT	200  /* Set 200 frame count threshold */
- #define FEC_ITR_ICTT_DEFAULT	1000 /* Set 1000us timer threshold */
-=20
--#define FEC_VLAN_TAG_LEN       0x04
--#define FEC_ETHTYPE_LEN                0x02
-+#define FEC_VLAN_TAG_LEN	0x04
-+#define FEC_ETHTYPE_LEN		0x02
-=20
- /* Controller is ENET-MAC */
- #define FEC_QUIRK_ENET_MAC		(1 << 0)
-@@ -390,7 +390,7 @@ struct bufdesc_ex {
-  * frames not being transmitted until there is a 0-to-1 transition on
-  * ENET_TDAR[TDAR].
-  */
--#define FEC_QUIRK_ERR006358            (1 << 7)
-+#define FEC_QUIRK_ERR006358		(1 << 7)
- /* ENET IP hw AVB
-  *
-  * i.MX6SX ENET IP add Audio Video Bridging (AVB) feature support.
+ 	ret =3D fec_enet_clk_enable(ndev, true);
 --=20
 1.7.10.4
