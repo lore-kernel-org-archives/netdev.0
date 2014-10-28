@@ -1,7 +1,7 @@
 From: =?UTF-8?q?Lothar=20Wa=C3=9Fmann?= <LW@KARO-electronics.de>
-Subject: [PATCHv3 4/9] net: fec: declare bufdesc_ex flag as bool
-Date: Tue, 28 Oct 2014 14:22:59 +0100
-Message-ID: <1414502584-10583-5-git-send-email-LW@KARO-electronics.de>
+Subject: [PATCHv3 8/9] net: fec: remove unused return value from swap_buffer()
+Date: Tue, 28 Oct 2014 14:23:03 +0100
+Message-ID: <1414502584-10583-9-git-send-email-LW@KARO-electronics.de>
 References: <1414494104-27943-1-git-send-email-LW@KARO-electronics.de>
  <1414502584-10583-1-git-send-email-LW@KARO-electronics.de>
 Mime-Version: 1.0
@@ -20,51 +20,34 @@ In-Reply-To: <1414502584-10583-1-git-send-email-LW@KARO-electronics.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-fep->bufdesc_ex is used as boolean flag; thus declare it as such.
-Also remove an unnecessary initialization to 0.
 
 Signed-off-by: Lothar Wa=C3=9Fmann <LW@KARO-electronics.de>
 ---
- drivers/net/ethernet/freescale/fec.h      |    2 +-
- drivers/net/ethernet/freescale/fec_main.c |    4 +---
- 2 files changed, 2 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/freescale/fec_main.c |    3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/etherne=
-t/freescale/fec.h
-index 27e75cf..1418813 100644
---- a/drivers/net/ethernet/freescale/fec.h
-+++ b/drivers/net/ethernet/freescale/fec.h
-@@ -502,7 +502,7 @@ struct fec_enet_private {
- 	int	speed;
- 	struct	completion mdio_done;
- 	int	irq[FEC_IRQ_NUM];
--	int	bufdesc_ex;
-+	bool	bufdesc_ex;
- 	int	pause_flag;
-=20
- 	struct	napi_struct napi;
 diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/et=
 hernet/freescale/fec_main.c
-index 50a851d..bb006e1 100644
+index ddfc57d..e52864c 100644
 --- a/drivers/net/ethernet/freescale/fec_main.c
 +++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -3169,8 +3169,6 @@ fec_probe(struct platform_device *pdev)
- 	fep->pdev =3D pdev;
- 	fep->dev_id =3D dev_id++;
+@@ -287,7 +287,7 @@ static int fec_enet_get_free_txdesc_num(struct fec_=
+enet_private *fep,
+ 	return entries > 0 ? entries : entries + txq->tx_ring_size;
+ }
 =20
--	fep->bufdesc_ex =3D 0;
--
- 	platform_set_drvdata(pdev, ndev);
+-static void *swap_buffer(void *bufaddr, int len)
++static void swap_buffer(void *bufaddr, int len)
+ {
+ 	int i;
+ 	unsigned int *buf =3D bufaddr;
+@@ -295,7 +295,6 @@ static void *swap_buffer(void *bufaddr, int len)
+ 	for (i =3D 0; i < len; i +=3D 4, buf++)
+ 		swab32s(buf);
 =20
- 	phy_node =3D of_parse_phandle(np, "phy-handle", 0);
-@@ -3228,7 +3226,7 @@ fec_probe(struct platform_device *pdev)
- 		pdev->id_entry->driver_data & FEC_QUIRK_HAS_BUFDESC_EX;
- 	if (IS_ERR(fep->clk_ptp)) {
- 		fep->clk_ptp =3D NULL;
--		fep->bufdesc_ex =3D 0;
-+		fep->bufdesc_ex =3D false;
- 	}
+-	return bufaddr;
+ }
 =20
- 	ret =3D fec_enet_clk_enable(ndev, true);
+ static void fec_dump(struct net_device *ndev)
 --=20
 1.7.10.4
