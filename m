@@ -1,42 +1,81 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: localed stuck in recent 3.18 git in copy_net_ns?
-Date: Tue, 28 Oct 2014 09:15:02 -0700
-Message-ID: <20141028161502.GS5718@linux.vnet.ibm.com>
-References: <20141025020324.GA28247@linux.vnet.ibm.com>
- <11813.1414211613@famine>
- <20141025051602.GB28247@linux.vnet.ibm.com>
- <15891.1414255096@famine>
- <20141025181827.GE28247@linux.vnet.ibm.com>
- <20141027174539.GC27568@linux.vnet.ibm.com>
- <20141028081243.GA32082@declera.com>
- <20141028125059.GO5718@linux.vnet.ibm.com>
- <20141028130002.GA1682@declera.com>
- <20141028095428.15cadd01@voldemort.scrye.com>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Pramod Gurav <pramod.gurav.etc@gmail.com>
+Subject: Re: [PATCH v2] ssb: Fix Sparse error in main
+Date: Tue, 28 Oct 2014 22:03:02 +0530
+Message-ID: <CAMf-jSk4GH=8+Cpk4dCzUhbwoKxMOsJPPrURP5-ktAvqXfhsjw@mail.gmail.com>
+References: <1412184482-2603-1-git-send-email-pramod.gurav@smartplayin.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Yanko Kaneti <yaneti@declera.com>,
-	Jay Vosburgh <jay.vosburgh@canonical.com>,
-	Josh Boyer <jwboyer@fedoraproject.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Cong Wang <cwang@twopensource.com>,
-	netdev <netdev@vger.kernel.org>,
-	"Linux-Kernel@Vger. Kernel. Org" <linux-kernel@vger.kernel.org>,
-	mroos@linux.ee, tj@kernel.org
-To: Kevin Fenzi <kevin@scrye.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Michael Buesch <m@bues.ch>, netdev@vger.kernel.org
+To: Pramod Gurav <pramod.gurav@smartplayin.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20141028095428.15cadd01@voldemort.scrye.com>
+In-Reply-To: <1412184482-2603-1-git-send-email-pramod.gurav@smartplayin.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 28, 2014 at 09:54:28AM -0600, Kevin Fenzi wrote:
-> Just FYI, this solves the orig issue for me as well. ;) 
-> 
-> Thanks for all the work in tracking it down... 
-> 
-> Tested-by: Kevin Fenzi <kevin@scrye.com>
+Michael had suggested to do away with this function if not being used.
+Good to go?
 
-And thank you for testing as well!
+Michale can you provide acked-by?
 
-							Thanx, Paul
+On Wed, Oct 1, 2014 at 10:58 PM, Pramod Gurav
+<pramod.gurav@smartplayin.com> wrote:
+> This change fixes below sparse error:
+> drivers/ssb/main.c:94:16: warning: symbol 'ssb_sdio_func_to_bus'
+> was not declared. Should it be static?
+>
+> Cc: Michael Buesch <m@bues.ch>
+> Cc: netdev@vger.kernel.org
+> Signed-off-by: Pramod Gurav <pramod.gurav@smartplayin.com>
+> ---
+> Changes since v1:
+> Removed the function as it is not called anywhere in the kernel
+> as per suggestion from Michael Buesch.
+>
+>  drivers/ssb/main.c | 19 -------------------
+>  1 file changed, 19 deletions(-)
+>
+> diff --git a/drivers/ssb/main.c b/drivers/ssb/main.c
+> index 2fead38..1e180c4 100644
+> --- a/drivers/ssb/main.c
+> +++ b/drivers/ssb/main.c
+> @@ -90,25 +90,6 @@ found:
+>  }
+>  #endif /* CONFIG_SSB_PCMCIAHOST */
+>
+> -#ifdef CONFIG_SSB_SDIOHOST
+> -struct ssb_bus *ssb_sdio_func_to_bus(struct sdio_func *func)
+> -{
+> -       struct ssb_bus *bus;
+> -
+> -       ssb_buses_lock();
+> -       list_for_each_entry(bus, &buses, list) {
+> -               if (bus->bustype == SSB_BUSTYPE_SDIO &&
+> -                   bus->host_sdio == func)
+> -                       goto found;
+> -       }
+> -       bus = NULL;
+> -found:
+> -       ssb_buses_unlock();
+> -
+> -       return bus;
+> -}
+> -#endif /* CONFIG_SSB_SDIOHOST */
+> -
+>  int ssb_for_each_bus_call(unsigned long data,
+>                           int (*func)(struct ssb_bus *bus, unsigned long data))
+>  {
+> --
+> 1.8.3.2
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
+
+
+
+-- 
+Thanks and Regards
+Pramod
