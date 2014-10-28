@@ -1,39 +1,38 @@
-From: Lorenzo Colitti <lorenzo@google.com>
-Subject: Re: [PATCH net-next] net: ipv6: Add a sysctl to make optimistic
- addresses useful candidates
-Date: Tue, 28 Oct 2014 17:19:44 +0900
-Message-ID: <CAKD1Yr13oLyBsbuh92F91Fjno3Xv4vBQ1B__8Csoi0XUjJv9nw@mail.gmail.com>
-References: <1414482141-27912-1-git-send-email-ek@google.com>
+From: Rongqing Li <rongqing.li@windriver.com>
+Subject: Re: [PATCH iproute2] xfrm: add support of ESN and anti-replay window
+Date: Tue, 28 Oct 2014 16:30:12 +0800
+Message-ID: <544F5414.4080607@windriver.com>
+References: <1413796984-9867-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: Erik Kline <ek@google.com>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <shemminger@vyatta.com>, <netdev@vger.kernel.org>,
+	dingzhi <zhi.ding@6wind.com>,
+	Adrien Mazarguil <adrien.mazarguil@6wind.com>
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f182.google.com ([209.85.213.182]:46829 "EHLO
-	mail-ig0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756586AbaJ1IUG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Oct 2014 04:20:06 -0400
-Received: by mail-ig0-f182.google.com with SMTP id hn18so571942igb.9
-        for <netdev@vger.kernel.org>; Tue, 28 Oct 2014 01:20:04 -0700 (PDT)
-In-Reply-To: <1414482141-27912-1-git-send-email-ek@google.com>
+Received: from mail.windriver.com ([147.11.1.11]:51252 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752800AbaJ1IaP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Oct 2014 04:30:15 -0400
+In-Reply-To: <1413796984-9867-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 28, 2014 at 4:42 PM, Erik Kline <ek@google.com> wrote:
->          *      Configure the address for reception. Now it is valid.
->          */
->
-> -       ipv6_ifa_notify(RTM_NEWADDR, ifp);
-> +       /* If optimistic DAD is in use, the notification was already sent
-> +        * in addrconf_dad_begin().
-> +        */
-> +       if (!ipv6_use_optimistic_addr(ifp->idev))
-> +               ipv6_ifa_notify(RTM_NEWADDR, ifp);
 
-Won't this result in not sending RTM_NEWADDR messages if
-use_optimistic is enabled on the interface, but the IP address that
-has just completed DAD is not an optimistic address (e.g., if it's a
-manually-configured address)?
+
+On 10/20/2014 05:23 PM, Nicolas Dichtel wrote:
+> From: dingzhi <zhi.ding@6wind.com>
+>
+> This patch allows to configure ESN and anti-replay window.
+>
+> Signed-off-by: dingzhi <zhi.ding@6wind.com>
+> Signed-off-by: Adrien Mazarguil <adrien.mazarguil@6wind.com>
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> ---
+>   ip/ipxfrm.c     | 57 +++++++++++++++++++++++++++++++++++++++++++++++++++++++
+>   ip/xfrm_state.c | 59 ++++++++++++++++++++++++++++++++++++++++++++++++++-------
+
+Docs or man needs to be updated.
+
+-Roy
