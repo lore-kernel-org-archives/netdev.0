@@ -1,7 +1,7 @@
 From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next 2/2] r8152: support nway_reset of ethtool
-Date: Tue, 28 Oct 2014 14:05:52 +0800
-Message-ID: <1394712342-15778-68-Taiwan-albertk@realtek.com>
+Subject: [PATCH net-next 1/2] r8152: rename tx_underun
+Date: Tue, 28 Oct 2014 14:05:51 +0800
+Message-ID: <1394712342-15778-67-Taiwan-albertk@realtek.com>
 References: <1394712342-15778-66-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,50 +13,34 @@ In-Reply-To: <1394712342-15778-66-Taiwan-albertk@realtek.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Support the nway_reset() function for ethtool.
+Replace tx_underun with tx_underrun for checkpatch.pl.
 
 Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 ---
- drivers/net/usb/r8152.c | 22 ++++++++++++++++++++++
- 1 file changed, 22 insertions(+)
+ drivers/net/usb/r8152.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index fdea194..e1810bc 100644
+index e3d84c3..fdea194 100644
 --- a/drivers/net/usb/r8152.c
 +++ b/drivers/net/usb/r8152.c
-@@ -3558,11 +3558,33 @@ out:
- 	return ret;
+@@ -486,7 +486,7 @@ struct tally_counter {
+ 	__le64	rx_broadcast;
+ 	__le32	rx_multicast;
+ 	__le16	tx_aborted;
+-	__le16	tx_underun;
++	__le16	tx_underrun;
+ };
+ 
+ struct rx_desc {
+@@ -3420,7 +3420,7 @@ static void rtl8152_get_ethtool_stats(struct net_device *dev,
+ 	data[9] = le64_to_cpu(tally.rx_broadcast);
+ 	data[10] = le32_to_cpu(tally.rx_multicast);
+ 	data[11] = le16_to_cpu(tally.tx_aborted);
+-	data[12] = le16_to_cpu(tally.tx_underun);
++	data[12] = le16_to_cpu(tally.tx_underrun);
  }
  
-+static int rtl8152_nway_reset(struct net_device *dev)
-+{
-+	struct r8152 *tp = netdev_priv(dev);
-+	int ret;
-+
-+	ret = usb_autopm_get_interface(tp->intf);
-+	if (ret < 0)
-+		goto out;
-+
-+	mutex_lock(&tp->control);
-+
-+	ret = mii_nway_restart(&tp->mii);
-+
-+	mutex_unlock(&tp->control);
-+
-+	usb_autopm_put_interface(tp->intf);
-+
-+out:
-+	return ret;
-+}
-+
- static struct ethtool_ops ops = {
- 	.get_drvinfo = rtl8152_get_drvinfo,
- 	.get_settings = rtl8152_get_settings,
- 	.set_settings = rtl8152_set_settings,
- 	.get_link = ethtool_op_get_link,
-+	.nway_reset = rtl8152_nway_reset,
- 	.get_msglevel = rtl8152_get_msglevel,
- 	.set_msglevel = rtl8152_set_msglevel,
- 	.get_wol = rtl8152_get_wol,
+ static void rtl8152_get_strings(struct net_device *dev, u32 stringset, u8 *data)
 -- 
 1.9.3
