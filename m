@@ -1,33 +1,50 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH] ovs: Turn vports with dependencies into separate modules
-Date: Tue, 28 Oct 2014 14:42:19 -0700
-Message-ID: <CAADnVQK2HRn=XyqF==tuDPFgA5gamVCZmxg5ELVjBX2i0dYwfA@mail.gmail.com>
-References: <ab9438abe3e23289db6f850eea9626fe8bd0a969.1413991519.git.tgraf@suug.ch>
-	<20141028.144344.398016097830457432.davem@davemloft.net>
-	<CAADnVQ+Z6-7sdWAEvHkKR==Nds6hqBfbfPmtUDiZXOTE9DRnGw@mail.gmail.com>
-	<20141028.172743.459865270069950735.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 0/3] cdc-ether: handle promiscuous mode
+Date: Tue, 28 Oct 2014 17:30:32 -0400 (EDT)
+Message-ID: <20141028.173032.834085511529381633.davem@davemloft.net>
+References: <1414172582-30844-1-git-send-email-olivier.blin@softathome.com>
+	<20141028.154926.273240718595756465.davem@davemloft.net>
+	<1414530625.29018.1.camel@linux-0dmf.site>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Thomas Graf <tgraf@suug.ch>,
-	"dev@openvswitch.org" <dev@openvswitch.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: olivier.blin@softathome.com, netdev@vger.kernel.org,
+	hayeswang@realtek.com, bjorn@mork.no
+To: oneukum@suse.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f54.google.com ([209.85.192.54]:33251 "EHLO
-	mail-qg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755914AbaJ1VmU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Oct 2014 17:42:20 -0400
-Received: by mail-qg0-f54.google.com with SMTP id q108so1277879qgd.41
-        for <netdev@vger.kernel.org>; Tue, 28 Oct 2014 14:42:19 -0700 (PDT)
-In-Reply-To: <20141028.172743.459865270069950735.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36196 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932065AbaJ1Vae (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Oct 2014 17:30:34 -0400
+In-Reply-To: <1414530625.29018.1.camel@linux-0dmf.site>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 28, 2014 at 2:27 PM, David Miller <davem@davemloft.net> wrote:
->>
->> it fails the build when lockdep is on:
->> ERROR: "lockdep_ovsl_is_held" [net/openvswitch/vport-gre.ko] undefined!
->
-> I've fixed it thusly:
+From: Oliver Neukum <oneukum@suse.de>
+Date: Tue, 28 Oct 2014 22:10:25 +0100
 
-thanks! that was quick. the fix looks good.
+> On Tue, 2014-10-28 at 15:49 -0400, David Miller wrote:
+>> From: Olivier Blin <olivier.blin@softathome.com>
+>> Date: Fri, 24 Oct 2014 19:42:59 +0200
+>> 
+>> > Since kernel 3.16, my Lenovo USB network adapters (RTL8153) using
+>> > cdc-ether are not working anymore in a bridge.
+>> > 
+>> > This is due to commit c472ab68ad67db23c9907a27649b7dc0899b61f9, which
+>> > resets the packet filter when the device is bound.
+>> > 
+>> > The default packet filter set by cdc-ether does not include
+>> > promiscuous, while the adapter seemed to have promiscuous enabled by
+>> > default.
+>> > 
+>> > This patch series allows to support promiscuous mode for cdc-ether, by
+>> > hooking into set_rx_mode.
+>> > 
+>> > Incidentally, maybe this device should be handled by the r8152 driver,
+>> > but this patch series is still nice for other adapters.
+>> 
+>> Can a usbnet expert please review this series?
+> 
+> Acked-by: Oliver Neukum <oneukum@suse.de>
+
+Series applied, thanks!
