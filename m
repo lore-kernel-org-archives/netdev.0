@@ -1,64 +1,47 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCHv2 6/6] net: fec: fix regression on i.MX28 introduced by
- rx_copybreak support
-Date: Tue, 28 Oct 2014 13:01:57 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1C9E06B0@AcuExch.aculab.com>
+From: =?UTF-8?q?Lothar=20Wa=C3=9Fmann?= <LW@KARO-electronics.de>
+Subject: [PATCHv3 7/9] net: fec: simplify loop counter handling in swap_buffer()
+Date: Tue, 28 Oct 2014 14:23:02 +0100
+Message-ID: <1414502584-10583-8-git-send-email-LW@KARO-electronics.de>
 References: <1414494104-27943-1-git-send-email-LW@KARO-electronics.de>
-	<1414494104-27943-7-git-send-email-LW@KARO-electronics.de>
-	<063D6719AE5E284EB5DD2968C1650D6D1C9E04C0@AcuExch.aculab.com>
- <20141028133609.2bf6c745@ipc1.ka-ro>
+ <1414502584-10583-1-git-send-email-LW@KARO-electronics.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
 	Russell King <rmk+kernel@arm.linux.org.uk>,
 	Frank Li <Frank.Li@freescale.com>,
 	Fabio Estevam <fabio.estevam@freescale.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
+	linux-kernel@vger.kernel.org,
+	=?UTF-8?q?Lothar=20Wa=C3=9Fmann?= <LW@KARO-electronics.de>,
 	<linux-arm-kernel@lists.infradead.org>
-To: =?utf-8?B?J0xvdGhhciBXYcOfbWFubic=?= <LW@KARO-electronics.de>
+To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141028133609.2bf6c745@ipc1.ka-ro>
-Content-Language: en-US
+In-Reply-To: <1414502584-10583-1-git-send-email-LW@KARO-electronics.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-RnJvbTogTG90aGFyIFdhw59tYW5uDQo+IERhdmlkIExhaWdodCB3cm90ZToNCj4gPiBGcm9tOiBM
-b3RoYXIgV2HDn21hbm4NCj4gPiA+IGNvbW1pdCAxYjdiZGU2ZDY1OWQgKCJuZXQ6IGZlYzogaW1w
-bGVtZW50IHJ4X2NvcHlicmVhayB0byBpbXByb3ZlIHJ4IHBlcmZvcm1hbmNlIikNCj4gPiA+IGlu
-dHJvZHVjZWQgYSByZWdyZXNzaW9uIGZvciBpLk1YMjguIFRoZSBzd2FwX2J1ZmZlcigpIGZ1bmN0
-aW9uIGRvaW5nDQo+ID4gPiB0aGUgZW5kaWFuIGNvbnZlcnNpb24gb2YgdGhlIHJlY2VpdmVkIGRh
-dGEgb24gaS5NWDI4IG1heSBhY2Nlc3MgbWVtb3J5DQo+ID4gPiBiZXlvbmQgdGhlIGFjdHVhbCBw
-YWNrZXQgc2l6ZSBpbiB0aGUgRE1BIGJ1ZmZlci4gZmVjX2VuZXRfY29weWJyZWFrKCkNCj4gPiA+
-IGRvZXMgbm90IGNvcHkgdGhvc2UgYnl0ZXMsIHNvIHRoYXQgdGhlIGxhc3QgYnl0ZXMgb2YgYSBw
-YWNrZXQgbWF5IGJlDQo+ID4gPiBmaWxsZWQgd2l0aCBpbnZhbGlkIGRhdGEgYWZ0ZXIgc3dhcHBp
-bmcuDQo+ID4gPiBUaGlzIHdpbGwgbGlrZWx5IGxlYWQgdG8gY2hlY2tzdW0gZXJyb3JzIG9uIHJl
-Y2VpdmVkIHBhY2tldHMuDQo+ID4gPiBFLmcuIHdoZW4gdHJ5aW5nIHRvIG1vdW50IGFuIE5GUyBy
-b290ZnM6DQo+ID4gPiBVRFA6IGJhZCBjaGVja3N1bS4gRnJvbSAxOTIuMTY4LjEuMjI1OjExMSB0
-byAxOTIuMTY4LjEwMC43Mzo0NDY2MiB1bGVuIDM2DQo+ID4gPg0KPiA+ID4gRG8gdGhlIGJ5dGUg
-c3dhcHBpbmcgYW5kIGNvcHlpbmcgdG8gdGhlIG5ldyBza2IgaW4gb25lIGdvIGlmDQo+ID4gPiBu
-ZWNlc3NhcnkuDQo+ID4gPg0KPiA+ID4gU2lnbmVkLW9mZi1ieTogTG90aGFyIFdhbWFubiA8TFdA
-S0FSTy1lbGVjdHJvbmljcy5kZT4NCj4gPiA+IC0tLQ0KPiA+ID4gIGRyaXZlcnMvbmV0L2V0aGVy
-bmV0L2ZyZWVzY2FsZS9mZWNfbWFpbi5jIHwgICAyNSArKysrKysrKysrKysrKysrKysrKystLS0t
-DQo+ID4gPiAgMSBmaWxlIGNoYW5nZWQsIDIxIGluc2VydGlvbnMoKyksIDQgZGVsZXRpb25zKC0p
-DQo+ID4gPg0KPiA+ID4gQEAgLTE0NTUsNyArMTQ3Miw3IEBAIGZlY19lbmV0X3J4X3F1ZXVlKHN0
-cnVjdCBuZXRfZGV2aWNlICpuZGV2LCBpbnQgYnVkZ2V0LCB1MTYgcXVldWVfaWQpDQo+ID4gPiAg
-CQlwcmVmZXRjaChza2ItPmRhdGEgLSBORVRfSVBfQUxJR04pOw0KPiA+ID4gIAkJc2tiX3B1dChz
-a2IsIHBrdF9sZW4gLSA0KTsNCj4gPiA+ICAJCWRhdGEgPSBza2ItPmRhdGE7DQo+ID4gPiAtCQlp
-ZiAoZmVwLT5xdWlya3MgJiBGRUNfUVVJUktfU1dBUF9GUkFNRSkNCj4gPiA+ICsJCWlmICghaXNf
-Y29weWJyZWFrICYmIG5lZWRfc3dhcCkNCj4gPiA+ICAJCQlzd2FwX2J1ZmZlcihkYXRhLCBwa3Rf
-bGVuKTsNCj4gPg0KPiA+IEl0IGhhcyB0byBiZSBiZXR0ZXIgdG8gc2V0IHRoZSAnY29weWJyZWFr
-JyBsaW1pdCB0byBiZSBsYXJnZXIgdGhhbiB0aGUNCj4gPiBtYXhpbXVtIGZyYW1lIHNpemUgYW5k
-IHNvIGFsd2F5cyBnbyB0aHJvdWdoIHRoZSAnY29weWJyZWFrJyBwYXRocy4NCj4gPg0KPiBTaW5j
-ZSB0aGUgY29weWJyZWFrIHN1cHBvcnQgaXMgYWxsIGFib3V0IHBlcmZvcm1hbmNlIG9wdGltaXN0
-YXRpb24sIHdlDQo+IHNob3VsZCBJTU8gYnV5IHRoZSBhZGRpdGlvbmFsIGFkdmFudGFnZSBmb3Ig
-aS5NWDI4IGJ5IG5vdCBoYXZpbmcgdG8NCj4gYWNjZXNzIHRoZSBidWZmZXIgdHdpY2UgKG9uY2Ug
-Zm9yIGNvcHlpbmcgYW5kIG9uY2UgYWdhaW4gZm9yIHN3YXBwaW5nKS4NCg0KWW91IGRlZmluaXRl
-bHkgd2FudCB0byBkbyB0aGUgYnl0ZXN3YXAgYXQgdGhlIHNhbWUgdGltZSBhcyB0aGUgY29weS4N
-Cg0KVGhlIHBvaW50IEknbSB0cnlpbmcgdG8gbWFrZSB0aGF0IGlmIHlvdSBuZWVkIHRvIGRvIHRo
-ZSBieXRlc3dhcCB5b3UNCnByb2JhYmx5IG1pZ2h0IGFzIHdlbGwgY29weSB0aGUgZGF0YSB0byBh
-biBza2Igb2YgdGhlIGNvcnJlY3Qgc2l6ZSBhdA0KdGhlIHNhbWUgdGltZS4NCkNlcnRhaW5seSBJ
-J2QgZXhwZWN0IHRoZSAnYnJlYWsgZXZlbicgbGVuZ3RoIHdpbGwgYmUgbXVjaCBoaWdoZXIuDQoN
-CglEYXZpZA0KDQoNCg==
+Eliminate the DIV_ROUND_UP() and change the loop counter increment to
+4 instead. This results in saving 6 instructions in the functions
+assembly code.
+
+Signed-off-by: Lothar Wa=C3=9Fmann <LW@KARO-electronics.de>
+---
+ drivers/net/ethernet/freescale/fec_main.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/et=
+hernet/freescale/fec_main.c
+index 5b76cdc..ddfc57d 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -292,7 +292,7 @@ static void *swap_buffer(void *bufaddr, int len)
+ 	int i;
+ 	unsigned int *buf =3D bufaddr;
+=20
+-	for (i =3D 0; i < DIV_ROUND_UP(len, 4); i++, buf++)
++	for (i =3D 0; i < len; i +=3D 4, buf++)
+ 		swab32s(buf);
+=20
+ 	return bufaddr;
+--=20
+1.7.10.4
