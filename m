@@ -1,53 +1,51 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 2/2] udp: Reset flow table for flows over
- unconnected sockets
-Date: Tue, 28 Oct 2014 12:59:58 -0700
-Message-ID: <1414526398.631.23.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CA+mtBx_V3WT1bbXY9F731GNdDdb3+ebHwj9hRyVEFynAPYhSXg@mail.gmail.com>
-	 <1414451970.2922.27.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+mtBx_eQKOkM-0PEXG2WEMosXDtqHgwT3j7NnQpP62KdZeJKQ@mail.gmail.com>
-	 <20141028.005121.1715627351754245965.davem@davemloft.net>
-	 <CA+mtBx9=xTyqTXrZODi9dyN1H0W51uqvHR4YT3DhFXpdc4FMbw@mail.gmail.com>
-	 <1414517910.631.14.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+mtBx_+cxm9DgH2WHJWeHMBx9oxnRFNRunBcy32Jz4yj_DYuA@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] fixup! net: pxa168_eth: Provide phy_interface mode on
+ platform_data
+Date: Tue, 28 Oct 2014 16:49:39 -0400 (EDT)
+Message-ID: <20141028.164939.509353257563688482.davem@davemloft.net>
+References: <1414002412-13615-3-git-send-email-sebastian.hesselbarth@gmail.com>
+	<1414231739-7447-1-git-send-email-sebastian.hesselbarth@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Tom Herbert <therbert@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f175.google.com ([209.85.192.175]:40106 "EHLO
-	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751153AbaJ1T77 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Oct 2014 15:59:59 -0400
-Received: by mail-pd0-f175.google.com with SMTP id y13so1410932pdi.6
-        for <netdev@vger.kernel.org>; Tue, 28 Oct 2014 12:59:59 -0700 (PDT)
-In-Reply-To: <CA+mtBx_+cxm9DgH2WHJWeHMBx9oxnRFNRunBcy32Jz4yj_DYuA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: antoine.tenart@free-electrons.com, f.fainelli@gmail.com,
+	eric.y.miao@gmail.com, haojian.zhuang@gmail.com,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: sebastian.hesselbarth@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1414231739-7447-1-git-send-email-sebastian.hesselbarth@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2014-10-28 at 12:07 -0700, Tom Herbert wrote:
+From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Date: Sat, 25 Oct 2014 12:08:59 +0200
 
-> As I said, for some applications (like DNS which I suspect you're
-> basically emulating) it is infeasible to size the table. Try disabling
-> RFS for your test.
+> Do not add phy include to the board file but platform_data include
+> instead.
+> 
+> Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+> ---
+> David,
+> 
+> I should have compile tested this patch earlier. I did now on
+> pxa168_defconfig right after I received an 0-day kbuild error
+> on this patch.
+> 
+> This is the corresponding fix, can you please squash it in?
+> 
+> Thanks and sorry for the noise,
 
-Well, we already did experiments.
+Patch applied to net-next, but:
 
-- DNS servers are using kernel bypass.
-  Damn faster than SO_REUSEPORT on UDP anyway (Ying Cai is working on
-this problem, since QUIC does not yet use kernel bypass and wants
-FQ/pacing)
+1) There is never any way for me to "squash" a patch into an old
+   one.  Once I apply a patch it is a permanent commit in my tree
+   and cannot be undone and/or modified.
 
-- Disable RFS for non TCP flows.
+   Therefore the only thing you can do is send me a relative fix
+   and that's what shows up in my tree as yet another later commit.
 
-- Or have separate hash tables for TCP/UDP (slightly same effect, as UDP
-table is mostly empty in our case)
+2) Always be specific about the target tree in you subject,
+   line.  Never assume I can figure it out by context.
 
-
-Disabling RFS is the on/off behavior you seem to push, nice for
-benchmarks without hassle.
-
-I will no longer comment on this thread, it appears we disagree and wont
-find an agreement.
+Thanks.
