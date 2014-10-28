@@ -1,53 +1,84 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCHv2 6/6] net: fec: fix regression on i.MX28 introduced by
+From: Lothar =?UTF-8?B?V2HDn21hbm4=?= <LW@KARO-electronics.de>
+Subject: Re: [PATCHv2 6/6] net: fec: fix regression on i.MX28 introduced by
  rx_copybreak support
-Date: Tue, 28 Oct 2014 11:14:15 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1C9E04DB@AcuExch.aculab.com>
+Date: Tue, 28 Oct 2014 13:10:51 +0100
+Message-ID: <20141028131051.6d214ae0@ipc1.ka-ro>
 References: <1414494104-27943-1-git-send-email-LW@KARO-electronics.de>
- <1414494104-27943-7-git-send-email-LW@KARO-electronics.de>
+	<1414494104-27943-7-git-send-email-LW@KARO-electronics.de>
+	<063D6719AE5E284EB5DD2968C1650D6D1C9E04DB@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "David S. Miller" <davem@davemloft.net>,
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
 	Russell King <rmk+kernel@arm.linux.org.uk>,
 	Frank Li <Frank.Li@freescale.com>,
 	"Fabio Estevam" <fabio.estevam@freescale.com>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
 	"linux-arm-kernel@lists.infradead.org"
 	<linux-arm-kernel@lists.infradead.org>
-To: =?utf-8?B?J0xvdGhhciBXYcOfbWFubic=?= <LW@KARO-electronics.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1414494104-27943-7-git-send-email-LW@KARO-electronics.de>
-Content-Language: en-US
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1C9E04DB@AcuExch.aculab.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-RnJvbTogIExvdGhhciBXYcOfbWFubg0KPiBjb21taXQgMWI3YmRlNmQ2NTlkICgibmV0OiBmZWM6
-IGltcGxlbWVudCByeF9jb3B5YnJlYWsgdG8gaW1wcm92ZSByeCBwZXJmb3JtYW5jZSIpDQo+IGlu
-dHJvZHVjZWQgYSByZWdyZXNzaW9uIGZvciBpLk1YMjguIFRoZSBzd2FwX2J1ZmZlcigpIGZ1bmN0
-aW9uIGRvaW5nDQo+IHRoZSBlbmRpYW4gY29udmVyc2lvbiBvZiB0aGUgcmVjZWl2ZWQgZGF0YSBv
-biBpLk1YMjggbWF5IGFjY2VzcyBtZW1vcnkNCj4gYmV5b25kIHRoZSBhY3R1YWwgcGFja2V0IHNp
-emUgaW4gdGhlIERNQSBidWZmZXIuIGZlY19lbmV0X2NvcHlicmVhaygpDQo+IGRvZXMgbm90IGNv
-cHkgdGhvc2UgYnl0ZXMsIHNvIHRoYXQgdGhlIGxhc3QgYnl0ZXMgb2YgYSBwYWNrZXQgbWF5IGJl
-DQo+IGZpbGxlZCB3aXRoIGludmFsaWQgZGF0YSBhZnRlciBzd2FwcGluZy4NCj4gVGhpcyB3aWxs
-IGxpa2VseSBsZWFkIHRvIGNoZWNrc3VtIGVycm9ycyBvbiByZWNlaXZlZCBwYWNrZXRzLg0KPiBF
-LmcuIHdoZW4gdHJ5aW5nIHRvIG1vdW50IGFuIE5GUyByb290ZnM6DQo+IFVEUDogYmFkIGNoZWNr
-c3VtLiBGcm9tIDE5Mi4xNjguMS4yMjU6MTExIHRvIDE5Mi4xNjguMTAwLjczOjQ0NjYyIHVsZW4g
-MzYNCj4gDQo+IERvIHRoZSBieXRlIHN3YXBwaW5nIGFuZCBjb3B5aW5nIHRvIHRoZSBuZXcgc2ti
-IGluIG9uZSBnbyBpZg0KPiBuZWNlc3NhcnkuDQo+IA0KPiBTaWduZWQtb2ZmLWJ5OiBMb3RoYXIg
-V2FtYW5uIDxMV0BLQVJPLWVsZWN0cm9uaWNzLmRlPg0KPiAtLS0NCj4gIGRyaXZlcnMvbmV0L2V0
-aGVybmV0L2ZyZWVzY2FsZS9mZWNfbWFpbi5jIHwgICAyNSArKysrKysrKysrKysrKysrKysrKyst
-LS0tDQo+ICAxIGZpbGUgY2hhbmdlZCwgMjEgaW5zZXJ0aW9ucygrKSwgNCBkZWxldGlvbnMoLSkN
-Cj4gDQo+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZmVjX21h
-aW4uYyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mZWNfbWFpbi5jDQo+IGluZGV4
-IDQwNGZiOWQuLmI5MjMyNGMgMTAwNjQ0DQo+IC0tLSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2Zy
-ZWVzY2FsZS9mZWNfbWFpbi5jDQo+ICsrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2Fs
-ZS9mZWNfbWFpbi5jDQo+IEBAIC0zMzksNiArMzM5LDE4IEBAIHN0YXRpYyB2b2lkICpzd2FwX2J1
-ZmZlcih2b2lkICpidWZhZGRyLCBpbnQgbGVuKQ0KPiAgCXJldHVybiBidWZhZGRyOw0KPiAgfQ0K
-PiANCj4gK3N0YXRpYyB2b2lkICpzd2FwX2J1ZmZlcjIodm9pZCAqZHN0X2J1Ziwgdm9pZCAqc3Jj
-X2J1ZiwgaW50IGxlbikNCj4gK3sNCj4gKwlpbnQgaTsNCj4gKwl1bnNpZ25lZCBpbnQgKnNyYyA9
-IHNyY19idWY7DQo+ICsJdW5zaWduZWQgaW50ICpkc3QgPSBkc3RfYnVmOw0KPiArDQo+ICsJZm9y
-IChpID0gMDsgaSA8IGxlbjsgaSArPSA0LCBzcmMrKywgZHN0KyspDQo+ICsJCXN3YWIzMnMoc3Jj
-KTsNCj4gKw0KPiArCXJldHVybiBkc3RfYnVmOw0KPiArfQ0KPiArDQoNCkFjdHVhbGx5IHRoYXQg
-aXMgY29tcGxldGVseSBmKmNrZWQuLi4uDQoNCglEYXZpZA0KDQo=
+Hi,
+
+David Laight wrote:
+> From:  Lothar Wa=C3=9Fmann
+> > commit 1b7bde6d659d ("net: fec: implement rx_copybreak to improve r=
+x performance")
+> > introduced a regression for i.MX28. The swap_buffer() function doin=
+g
+> > the endian conversion of the received data on i.MX28 may access mem=
+ory
+> > beyond the actual packet size in the DMA buffer. fec_enet_copybreak=
+()
+> > does not copy those bytes, so that the last bytes of a packet may b=
+e
+> > filled with invalid data after swapping.
+> > This will likely lead to checksum errors on received packets.
+> > E.g. when trying to mount an NFS rootfs:
+> > UDP: bad checksum. From 192.168.1.225:111 to 192.168.100.73:44662 u=
+len 36
+> >=20
+> > Do the byte swapping and copying to the new skb in one go if
+> > necessary.
+> >=20
+> > Signed-off-by: Lothar Wamann <LW@KARO-electronics.de>
+> > ---
+> >  drivers/net/ethernet/freescale/fec_main.c |   25 +++++++++++++++++=
+++++----
+> >  1 file changed, 21 insertions(+), 4 deletions(-)
+> >=20
+> > diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/ne=
+t/ethernet/freescale/fec_main.c
+> > index 404fb9d..b92324c 100644
+> > --- a/drivers/net/ethernet/freescale/fec_main.c
+> > +++ b/drivers/net/ethernet/freescale/fec_main.c
+> > @@ -339,6 +339,18 @@ static void *swap_buffer(void *bufaddr, int le=
+n)
+> >  	return bufaddr;
+> >  }
+> >=20
+> > +static void *swap_buffer2(void *dst_buf, void *src_buf, int len)
+> > +{
+> > +	int i;
+> > +	unsigned int *src =3D src_buf;
+> > +	unsigned int *dst =3D dst_buf;
+> > +
+> > +	for (i =3D 0; i < len; i +=3D 4, src++, dst++)
+> > +		swab32s(src);
+> > +
+> > +	return dst_buf;
+> > +}
+> > +
+>=20
+> Actually that is completely f*cked....
+>=20
+Yeah, noticed that shortly after sending out. :(
+One change too many...
+
+
+Lothar Wa=C3=9Fmann
