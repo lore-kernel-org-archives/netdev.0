@@ -1,46 +1,52 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next 1/2] r8152: rename tx_underun
-Date: Tue, 28 Oct 2014 14:05:51 +0800
-Message-ID: <1394712342-15778-67-Taiwan-albertk@realtek.com>
-References: <1394712342-15778-66-Taiwan-albertk@realtek.com>
+From: Michele Baldessari <michele@acksyn.org>
+Subject: Re: [net 1/2] sctp: add transport state in /proc/net/sctp/remaddr
+Date: Tue, 28 Oct 2014 08:20:40 +0100
+Message-ID: <20141028072040.GA6825@marquez.int.rhx>
+References: <1414093721-14921-1-git-send-email-michele@acksyn.org>
+ <20141027.185545.551457974536550723.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
-	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394712342-15778-66-Taiwan-albertk@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-sctp@vger.kernel.org, vyasevich@gmail.com,
+	nhorman@tuxdriver.com, netdev@vger.kernel.org, dborkman@redhat.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from palahniuk.acksyn.org ([5.9.7.26]:40535 "EHLO
+	palahniuk.acksyn.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757775AbaJ1HUq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Oct 2014 03:20:46 -0400
+Content-Disposition: inline
+In-Reply-To: <20141027.185545.551457974536550723.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Replace tx_underun with tx_underrun for checkpatch.pl.
+Hi David,
 
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
----
- drivers/net/usb/r8152.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+On Mon, Oct 27, 2014 at 06:55:45PM -0400, David Miller wrote:
+> From: Michele Baldessari <michele@acksyn.org>
+> Date: Thu, 23 Oct 2014 21:48:40 +0200
+> 
+> > It is often quite helpful to be able to know the state of a transport
+> > outside of the application itself (for troubleshooting purposes or for
+> > monitoring purposes). Add it under /proc/net/sctp/remaddr.
+> > 
+> > Signed-off-by: Michele Baldessari <michele@acksyn.org>
+> 
+> You can't change the layout of procfs files, applications parse
+> these files and any modification can potentially break such tools.
 
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index e3d84c3..fdea194 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -486,7 +486,7 @@ struct tally_counter {
- 	__le64	rx_broadcast;
- 	__le32	rx_multicast;
- 	__le16	tx_aborted;
--	__le16	tx_underun;
-+	__le16	tx_underrun;
- };
- 
- struct rx_desc {
-@@ -3420,7 +3420,7 @@ static void rtl8152_get_ethtool_stats(struct net_device *dev,
- 	data[9] = le64_to_cpu(tally.rx_broadcast);
- 	data[10] = le32_to_cpu(tally.rx_multicast);
- 	data[11] = le16_to_cpu(tally.tx_aborted);
--	data[12] = le16_to_cpu(tally.tx_underun);
-+	data[12] = le16_to_cpu(tally.tx_underrun);
- }
- 
- static void rtl8152_get_strings(struct net_device *dev, u32 stringset, u8 *data)
+Thanks for the review. I assumed that extending a procfile by adding
+a column at the end is ok and that tools must cope with that anyway.
+(i.e. like it's been done in f19c29e3e391a66a273e9afebaf01917245148cd)
+
+> Secondly, even if this change were acceptable, targetting this
+> change at anything other than the net-next tree is not appropriate
+> because it is a new feature.
+
+Ok. Unless you are against adding a column, I'll resubmit to net-next
+later this week.
+
+Thanks,
+Michele
 -- 
-1.9.3
+Michele Baldessari            <michele@acksyn.org>
+C2A5 9DA3 9961 4FFB E01B  D0BC DDD4 DCCB 7515 5C6D
