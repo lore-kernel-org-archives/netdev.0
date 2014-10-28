@@ -1,38 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net 2/2] net_sched: always call ->destroy when ->init()
- fails
-Date: Tue, 28 Oct 2014 15:58:26 -0400 (EDT)
-Message-ID: <20141028.155826.702750675122810384.davem@davemloft.net>
-References: <20141025004403.GC11289@acer.localdomain>
-	<CAHA+R7NBr_K4fZ-nr2hi+isbxJt92D9o-q+n9xq5Y1rHv14F7Q@mail.gmail.com>
-	<20141025010359.GD11289@acer.localdomain>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 2/2] udp: Reset flow table for flows over
+ unconnected sockets
+Date: Tue, 28 Oct 2014 12:59:58 -0700
+Message-ID: <1414526398.631.23.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CA+mtBx_V3WT1bbXY9F731GNdDdb3+ebHwj9hRyVEFynAPYhSXg@mail.gmail.com>
+	 <1414451970.2922.27.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+mtBx_eQKOkM-0PEXG2WEMosXDtqHgwT3j7NnQpP62KdZeJKQ@mail.gmail.com>
+	 <20141028.005121.1715627351754245965.davem@davemloft.net>
+	 <CA+mtBx9=xTyqTXrZODi9dyN1H0W51uqvHR4YT3DhFXpdc4FMbw@mail.gmail.com>
+	 <1414517910.631.14.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+mtBx_+cxm9DgH2WHJWeHMBx9oxnRFNRunBcy32Jz4yj_DYuA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: cwang@twopensource.com, eric.dumazet@gmail.com,
-	xiyou.wangcong@gmail.com, netdev@vger.kernel.org,
-	wang.bo116@zte.com.cn, john.r.fastabend@intel.com,
-	edumazet@google.com, vtlam@google.com
-To: kaber@trash.net
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34930 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750810AbaJ1T63 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Oct 2014 15:58:29 -0400
-In-Reply-To: <20141025010359.GD11289@acer.localdomain>
+Received: from mail-pd0-f175.google.com ([209.85.192.175]:40106 "EHLO
+	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751153AbaJ1T77 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Oct 2014 15:59:59 -0400
+Received: by mail-pd0-f175.google.com with SMTP id y13so1410932pdi.6
+        for <netdev@vger.kernel.org>; Tue, 28 Oct 2014 12:59:59 -0700 (PDT)
+In-Reply-To: <CA+mtBx_+cxm9DgH2WHJWeHMBx9oxnRFNRunBcy32Jz4yj_DYuA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Sat, 25 Oct 2014 02:04:00 +0100
+On Tue, 2014-10-28 at 12:07 -0700, Tom Herbert wrote:
 
->> Really, we don't have to make all ->init() doing cleanup by itself.
-> 
-> Are you seriously suggesting that it would be better to have ->destroy()
-> check what parts were actually initialized and what needs to be cleaned
-> up instead of assuming a consistent state and have the only function that
-> actually knows the current state on error (->init()) do its own cleanup?
-> 
-> That's not even worth arguing about, its utterly and completely wrong.
+> As I said, for some applications (like DNS which I suspect you're
+> basically emulating) it is infeasible to size the table. Try disabling
+> RFS for your test.
 
-I agree with Patrick here.
+Well, we already did experiments.
+
+- DNS servers are using kernel bypass.
+  Damn faster than SO_REUSEPORT on UDP anyway (Ying Cai is working on
+this problem, since QUIC does not yet use kernel bypass and wants
+FQ/pacing)
+
+- Disable RFS for non TCP flows.
+
+- Or have separate hash tables for TCP/UDP (slightly same effect, as UDP
+table is mostly empty in our case)
+
+
+Disabling RFS is the on/off behavior you seem to push, nice for
+benchmarks without hassle.
+
+I will no longer comment on this thread, it appears we disagree and wont
+find an agreement.
