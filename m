@@ -1,81 +1,71 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: [PATCH v3 01/15] net: dsa: Don't set skb->protocol on outgoing tagged packets
-Date: Wed, 29 Oct 2014 10:44:53 -0700
-Message-ID: <1414604707-22407-2-git-send-email-linux@roeck-us.net>
-References: <1414604707-22407-1-git-send-email-linux@roeck-us.net>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>, linux-kernel@vger.kernel.org,
-	Guenter Roeck <linux@roeck-us.net>
+From: Loganaden Velvindron <logan@elandsys.com>
+Subject: [PATCH] Add missing descriptions for fwmark_reflect for ipv4 and
+ ipv6.
+Date: Wed, 29 Oct 2014 10:56:41 -0700
+Message-ID: <20141029175641.GA27727@mx.elandsys.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1414604707-22407-1-git-send-email-linux@roeck-us.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ns1.qubic.net ([208.69.177.116]:60707 "EHLO mx.elandsys.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755952AbaJ2R4n (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Oct 2014 13:56:43 -0400
+Received: from mx.elandsys.com (IDENT:logan@localhost [127.0.0.1])
+	by mx.elandsys.com (8.14.5/8.14.5) with ESMTP id s9THugXb026144
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Wed, 29 Oct 2014 10:56:42 -0700 (PDT)
+Received: (from logan@localhost)
+	by mx.elandsys.com (8.14.5/8.14.5/Submit) id s9THufFc013035
+	for netdev@vger.kernel.org; Wed, 29 Oct 2014 10:56:41 -0700 (PDT)
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Setting skb->protocol to a private protocol type may result in warning
-messages such as
-	e1000e 0000:00:19.0 em1: checksum_partial proto=dada!
+Hi All,
 
-This happens if the L3 protocol is IP or IPv6 and skb->ip_summed is set
-to CHECKSUM_PARTIAL. Looking through the code, it appears that changing
-skb->protocol for transmitted packets is not necessary and may actually
-be harmful. For example, it prevents purposely unmodified (from a DSA
-perspective) network drivers from properly setting up their transmit
-checksum offload pointers since they inspect skb->protocol to set up the
-IPv4 header or IPv6 header pointers. So don't unnecessarily change the
-protocol field.
+It was initially sent by Lorenzo Colitti, but was subsequently
+lost in the final diff he submitted.
 
-Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+(It's my first diff, please let me know if I screwed up in the submission
+process)
+
+Signed-off-by: Loganaden Velvindron <logan@elandsys.com>
 ---
-v3:
-- Updated description
-v2:
-- No change
+ Documentation/networking/ip-sysctl.txt | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
 
- net/dsa/tag_dsa.c     | 2 --
- net/dsa/tag_edsa.c    | 2 --
- net/dsa/tag_trailer.c | 2 --
- 3 files changed, 6 deletions(-)
-
-diff --git a/net/dsa/tag_dsa.c b/net/dsa/tag_dsa.c
-index ce90c8b..2dab270 100644
---- a/net/dsa/tag_dsa.c
-+++ b/net/dsa/tag_dsa.c
-@@ -63,8 +63,6 @@ static netdev_tx_t dsa_xmit(struct sk_buff *skb, struct net_device *dev)
- 		dsa_header[3] = 0x00;
- 	}
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index 0307e28..a476b08 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -56,6 +56,13 @@ ip_forward_use_pmtu - BOOLEAN
+ 	0 - disabled
+ 	1 - enabled
  
--	skb->protocol = htons(ETH_P_DSA);
--
- 	skb->dev = p->parent->dst->master_netdev;
- 	dev_queue_xmit(skb);
++fwmark_reflect - BOOLEAN
++	Controls the fwmark of kernel-generated IPv4 reply packets that are not
++	associated with a socket for example, TCP RSTs or ICMP echo replies).
++	If unset, these packets have a fwmark of zero. If set, they have the
++	fwmark of the packet they are replying to.
++	Default: 0
++
+ route/max_size - INTEGER
+ 	Maximum number of routes allowed in the kernel.  Increase
+ 	this when using large numbers of interfaces and/or routes.
+@@ -1201,6 +1208,13 @@ conf/all/forwarding - BOOLEAN
+ proxy_ndp - BOOLEAN
+ 	Do proxy ndp.
  
-diff --git a/net/dsa/tag_edsa.c b/net/dsa/tag_edsa.c
-index 94fcce7..9aeda59 100644
---- a/net/dsa/tag_edsa.c
-+++ b/net/dsa/tag_edsa.c
-@@ -76,8 +76,6 @@ static netdev_tx_t edsa_xmit(struct sk_buff *skb, struct net_device *dev)
- 		edsa_header[7] = 0x00;
- 	}
- 
--	skb->protocol = htons(ETH_P_EDSA);
--
- 	skb->dev = p->parent->dst->master_netdev;
- 	dev_queue_xmit(skb);
- 
-diff --git a/net/dsa/tag_trailer.c b/net/dsa/tag_trailer.c
-index 115fdca..e268f9d 100644
---- a/net/dsa/tag_trailer.c
-+++ b/net/dsa/tag_trailer.c
-@@ -57,8 +57,6 @@ static netdev_tx_t trailer_xmit(struct sk_buff *skb, struct net_device *dev)
- 	trailer[2] = 0x10;
- 	trailer[3] = 0x00;
- 
--	nskb->protocol = htons(ETH_P_TRAILER);
--
- 	nskb->dev = p->parent->dst->master_netdev;
- 	dev_queue_xmit(nskb);
++fwmark_reflect - BOOLEAN
++	Controls the fwmark of kernel-generated IPv6 reply packets that are not
++	associated with a socket for example, TCP RSTs or ICMPv6 echo replies).
++	If unset, these packets have a fwmark of zero. If set, they have the
++	fwmark of the packet they are replying to.
++	Default: 0
++
+ conf/interface/*:
+ 	Change special settings per interface.
  
 -- 
 1.9.1
