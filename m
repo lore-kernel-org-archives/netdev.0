@@ -1,34 +1,34 @@
 From: Loganaden Velvindron <logan@elandsys.com>
 Subject: [PATCH] Add missing descriptions for fwmark_reflect for ipv4 and
  ipv6.
-Date: Wed, 29 Oct 2014 10:56:41 -0700
-Message-ID: <20141029175641.GA27727@mx.elandsys.com>
+Date: Wed, 29 Oct 2014 10:29:15 -0700
+Message-ID: <20141029172915.GA15714@mx.elandsys.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns1.qubic.net ([208.69.177.116]:60707 "EHLO mx.elandsys.com"
+Received: from ns1.qubic.net ([208.69.177.116]:60691 "EHLO mx.elandsys.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755952AbaJ2R4n (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Oct 2014 13:56:43 -0400
+	id S932482AbaJ2SAB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Oct 2014 14:00:01 -0400
 Received: from mx.elandsys.com (IDENT:logan@localhost [127.0.0.1])
-	by mx.elandsys.com (8.14.5/8.14.5) with ESMTP id s9THugXb026144
+	by mx.elandsys.com (8.14.5/8.14.5) with ESMTP id s9THTI5s027901
 	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Wed, 29 Oct 2014 10:56:42 -0700 (PDT)
+	for <netdev@vger.kernel.org>; Wed, 29 Oct 2014 10:29:18 -0700 (PDT)
 Received: (from logan@localhost)
-	by mx.elandsys.com (8.14.5/8.14.5/Submit) id s9THufFc013035
-	for netdev@vger.kernel.org; Wed, 29 Oct 2014 10:56:41 -0700 (PDT)
+	by mx.elandsys.com (8.14.5/8.14.5/Submit) id s9THTFAW005661
+	for netdev@vger.kernel.org; Wed, 29 Oct 2014 10:29:15 -0700 (PDT)
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi All,
+Hi guys,
 
 It was initially sent by Lorenzo Colitti, but was subsequently
 lost in the final diff he submitted.
 
-(It's my first diff, please let me know if I screwed up in the submission
-process)
+(It's my first time sending a diff to netdev, please let me know if
+I made a mistake)
 
 Signed-off-by: Loganaden Velvindron <logan@elandsys.com>
 ---
