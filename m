@@ -1,29 +1,29 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: smc91x: Fix gpios for device tree based booting
-Date: Wed, 29 Oct 2014 14:51:32 -0400 (EDT)
-Message-ID: <20141029.145132.1881832564707108447.davem@davemloft.net>
-References: <20141027202556.GT2560@atomide.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] neigh: optimize neigh_parms_release()
+Date: Wed, 29 Oct 2014 12:01:03 -0700
+Message-ID: <1414609263.631.90.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1414607371-4246-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
-	linux-omap@vger.kernel.org, khilman@linaro.org
-To: tony@atomide.com
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <20141027202556.GT2560@atomide.com>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:52132 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754748AbaJ2TBC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2014 15:01:02 -0400
+Received: by mail-pd0-f177.google.com with SMTP id v10so3466415pde.8
+        for <netdev@vger.kernel.org>; Wed, 29 Oct 2014 12:01:01 -0700 (PDT)
+In-Reply-To: <1414607371-4246-1-git-send-email-nicolas.dichtel@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Tony Lindgren <tony@atomide.com>
-Date: Mon, 27 Oct 2014 13:25:56 -0700
+On Wed, 2014-10-29 at 19:29 +0100, Nicolas Dichtel wrote:
+> In neigh_parms_release() we loop over all entries to find the entry given in
+> argument and being able to remove it from the list. By using a double linked
+> list, we can avoid this loop.
 
-> +/**
-> + * of_try_set_control_gpio - configure a gpio if it exists
-> + */
-> +static int try_toggle_control_gpio(struct device *dev,
-> +				   struct gpio_desc **desc,
-> +				   const char *name, int index,
-> +				   int value, unsigned int nsdelay)
+Acked-by: Eric Dumazet <edumazet@google.com>
 
-This needs to be under CONFIG_OF cpp protection just like the code that
-calls it.
+Thanks !
