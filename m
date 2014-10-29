@@ -1,72 +1,41 @@
-From: Fabian Frederick <fabf@skynet.be>
-Subject: [PATCH 1/1 net-next] ipx: remove all unnecessary castings on ntohl
-Date: Wed, 29 Oct 2014 09:31:42 +0100
-Message-ID: <1414571502-9231-1-git-send-email-fabf@skynet.be>
-Cc: Fabian Frederick <fabf@skynet.be>,
-	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Subject: [patch] SUNRPC: off by one in BUG_ON()
+Date: Wed, 29 Oct 2014 11:44:16 +0300
+Message-ID: <20141029084416.GC8939@mwanda>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Apply commit e0f36310f793
-("ipx: remove unnecessary casting on ntohl")
-to all seq_printf/08lX
+The m->pool_to[] array has "maxpools" number of elements.  It's
+allocated in svc_pool_map_alloc_arrays() which we called earlier in the
+function.  This test should be >= instead of >.
 
-Inspired-by: "David S. Miller" <davem@davemloft.net>
-Inspired-by: Joe Perches <joe@perches.com>
-Signed-off-by: Fabian Frederick <fabf@skynet.be>
+Signed-off-by: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
 ---
- net/ipx/ipx_proc.c | 14 +++++++-------
- 1 file changed, 7 insertions(+), 7 deletions(-)
+This is very old code, but hopefully the off by one doesn't affect
+runtime.
 
-diff --git a/net/ipx/ipx_proc.c b/net/ipx/ipx_proc.c
-index 8391191..c1d247e 100644
---- a/net/ipx/ipx_proc.c
-+++ b/net/ipx/ipx_proc.c
-@@ -45,7 +45,7 @@ static int ipx_seq_interface_show(struct seq_file *seq, void *v)
- 	}
+diff --git a/net/sunrpc/svc.c b/net/sunrpc/svc.c
+index ca8a795..349c98f 100644
+--- a/net/sunrpc/svc.c
++++ b/net/sunrpc/svc.c
+@@ -189,7 +189,7 @@ svc_pool_map_init_percpu(struct svc_pool_map *m)
+ 		return err;
  
- 	i = list_entry(v, struct ipx_interface, node);
--	seq_printf(seq, "%08lX   ", (unsigned long int)ntohl(i->if_netnum));
-+	seq_printf(seq, "%08X   ", ntohl(i->if_netnum));
- 	seq_printf(seq, "%02X%02X%02X%02X%02X%02X   ",
- 			i->if_node[0], i->if_node[1], i->if_node[2],
- 			i->if_node[3], i->if_node[4], i->if_node[5]);
-@@ -87,7 +87,7 @@ static int ipx_seq_route_show(struct seq_file *seq, void *v)
- 
- 	rt = list_entry(v, struct ipx_route, node);
- 
--	seq_printf(seq, "%08lX   ", (unsigned long int)ntohl(rt->ir_net));
-+	seq_printf(seq, "%08X   ", ntohl(rt->ir_net));
- 	if (rt->ir_routed)
- 		seq_printf(seq, "%08X     %02X%02X%02X%02X%02X%02X\n",
- 			   ntohl(rt->ir_intrfc->if_netnum),
-@@ -194,19 +194,19 @@ static int ipx_seq_socket_show(struct seq_file *seq, void *v)
- 	s = v;
- 	ipxs = ipx_sk(s);
- #ifdef CONFIG_IPX_INTERN
--	seq_printf(seq, "%08lX:%02X%02X%02X%02X%02X%02X:%04X  ",
--		   (unsigned long)ntohl(ipxs->intrfc->if_netnum),
-+	seq_printf(seq, "%08X:%02X%02X%02X%02X%02X%02X:%04X  ",
-+		   ntohl(ipxs->intrfc->if_netnum),
- 		   ipxs->node[0], ipxs->node[1], ipxs->node[2], ipxs->node[3],
- 		   ipxs->node[4], ipxs->node[5], ntohs(ipxs->port));
- #else
--	seq_printf(seq, "%08lX:%04X  ", (unsigned long) ntohl(ipxs->intrfc->if_netnum),
-+	seq_printf(seq, "%08X:%04X  ", ntohl(ipxs->intrfc->if_netnum),
- 		   ntohs(ipxs->port));
- #endif	/* CONFIG_IPX_INTERN */
- 	if (s->sk_state != TCP_ESTABLISHED)
- 		seq_printf(seq, "%-28s", "Not_Connected");
- 	else {
--		seq_printf(seq, "%08lX:%02X%02X%02X%02X%02X%02X:%04X  ",
--			   (unsigned long)ntohl(ipxs->dest_addr.net),
-+		seq_printf(seq, "%08X:%02X%02X%02X%02X%02X%02X:%04X  ",
-+			   ntohl(ipxs->dest_addr.net),
- 			   ipxs->dest_addr.node[0], ipxs->dest_addr.node[1],
- 			   ipxs->dest_addr.node[2], ipxs->dest_addr.node[3],
- 			   ipxs->dest_addr.node[4], ipxs->dest_addr.node[5],
--- 
-1.9.3
+ 	for_each_online_cpu(cpu) {
+-		BUG_ON(pidx > maxpools);
++		BUG_ON(pidx >= maxpools);
+ 		m->to_pool[cpu] = pidx;
+ 		m->pool_to[pidx] = cpu;
+ 		pidx++;
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
