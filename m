@@ -1,71 +1,78 @@
-From: Loganaden Velvindron <logan@elandsys.com>
-Subject: [PATCH] Add missing descriptions for fwmark_reflect for ipv4 and
- ipv6.
-Date: Wed, 29 Oct 2014 10:29:15 -0700
-Message-ID: <20141029172915.GA15714@mx.elandsys.com>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: e1000_netpoll(): disable_irq() triggers might_sleep() on
+ linux-next
+Date: Wed, 29 Oct 2014 19:07:34 +0100
+Message-ID: <20141029180734.GQ12706@worktop.programming.kicks-ass.net>
+References: <20141029155620.GA4886@kria>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns1.qubic.net ([208.69.177.116]:60691 "EHLO mx.elandsys.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932482AbaJ2SAB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Oct 2014 14:00:01 -0400
-Received: from mx.elandsys.com (IDENT:logan@localhost [127.0.0.1])
-	by mx.elandsys.com (8.14.5/8.14.5) with ESMTP id s9THTI5s027901
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Wed, 29 Oct 2014 10:29:18 -0700 (PDT)
-Received: (from logan@localhost)
-	by mx.elandsys.com (8.14.5/8.14.5/Submit) id s9THTFAW005661
-	for netdev@vger.kernel.org; Wed, 29 Oct 2014 10:29:15 -0700 (PDT)
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jeffrey.t.kirsher@intel.com, Thomas Gleixner <tglx@linutronix.de>
+To: Sabrina Dubroca <sd@queasysnail.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20141029155620.GA4886@kria>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi guys,
+On Wed, Oct 29, 2014 at 04:56:20PM +0100, Sabrina Dubroca wrote:
+> commit e22b886a8a43b ("sched/wait: Add might_sleep() checks") included
+> in today's linux-next added a check that fires on e1000 with netpoll:
+> 
+> 
+> BUG: sleeping function called from invalid context at kernel/irq/manage.c:104
+> in_atomic(): 1, irqs_disabled(): 1, pid: 1, name: systemd
+> no locks held by systemd/1.
+> irq event stamp: 10102965
+> hardirqs last  enabled at (10102965): [<ffffffff810cbafd>] vprintk_emit+0x2dd/0x6a0
+> hardirqs last disabled at (10102964): [<ffffffff810cb897>] vprintk_emit+0x77/0x6a0
+> softirqs last  enabled at (10102342): [<ffffffff810666aa>] __do_softirq+0x27a/0x6f0
+> softirqs last disabled at (10102337): [<ffffffff81066e86>] irq_exit+0x56/0xe0
+> Preemption disabled at:[<ffffffff817de50d>] printk_emit+0x31/0x33
+> 
+> CPU: 1 PID: 1 Comm: systemd Not tainted 3.18.0-rc2-next-20141029-dirty #222
+> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS 1.7.5-20140617_173321-var-lib-archbuild-testing-x86_64-tobias 04/01/2014
+>  ffffffff81a82291 ffff88001e743978 ffffffff817df31d 0000000000000000
+>  0000000000000000 ffff88001e7439a8 ffffffff8108dfa2 ffff88001e7439a8
+>  ffffffff81a82291 0000000000000068 0000000000000000 ffff88001e7439d8
+> Call Trace:
+>  [<ffffffff817df31d>] dump_stack+0x4f/0x7c
+>  [<ffffffff8108dfa2>] ___might_sleep+0x182/0x2b0
+>  [<ffffffff8108e10a>] __might_sleep+0x3a/0xc0
+>  [<ffffffff810ce358>] synchronize_irq+0x38/0xa0
+>  [<ffffffff810ce690>] disable_irq+0x20/0x30
+>  [<ffffffff815d7253>] e1000_netpoll+0x23/0x60
+>  [<ffffffff81678d02>] netpoll_poll_dev+0x72/0x3a0
+>  [<ffffffff816791e7>] netpoll_send_skb_on_dev+0x1b7/0x2e0
+>  [<ffffffff816795f3>] netpoll_send_udp+0x2e3/0x490
 
-It was initially sent by Lorenzo Colitti, but was subsequently
-lost in the final diff he submitted.
+Oh cute.. not entirely sure what to do there. This only works if you
+_know_ desc->threads_active will never be !0.
 
-(It's my first time sending a diff to netdev, please let me know if
-I made a mistake)
+The best I can come up with is something like this, which avoids the
+might_sleep() in the one special case.
 
-Signed-off-by: Loganaden Velvindron <logan@elandsys.com>
+Thomas?
+
 ---
- Documentation/networking/ip-sysctl.txt | 14 ++++++++++++++
- 1 file changed, 14 insertions(+)
+ kernel/irq/manage.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
 
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index 0307e28..a476b08 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -56,6 +56,13 @@ ip_forward_use_pmtu - BOOLEAN
- 	0 - disabled
- 	1 - enabled
- 
-+fwmark_reflect - BOOLEAN
-+	Controls the fwmark of kernel-generated IPv4 reply packets that are not
-+	associated with a socket for example, TCP RSTs or ICMP echo replies).
-+	If unset, these packets have a fwmark of zero. If set, they have the
-+	fwmark of the packet they are replying to.
-+	Default: 0
-+
- route/max_size - INTEGER
- 	Maximum number of routes allowed in the kernel.  Increase
- 	this when using large numbers of interfaces and/or routes.
-@@ -1201,6 +1208,13 @@ conf/all/forwarding - BOOLEAN
- proxy_ndp - BOOLEAN
- 	Do proxy ndp.
- 
-+fwmark_reflect - BOOLEAN
-+	Controls the fwmark of kernel-generated IPv6 reply packets that are not
-+	associated with a socket for example, TCP RSTs or ICMPv6 echo replies).
-+	If unset, these packets have a fwmark of zero. If set, they have the
-+	fwmark of the packet they are replying to.
-+	Default: 0
-+
- conf/interface/*:
- 	Change special settings per interface.
- 
--- 
-1.9.1
+diff --git a/kernel/irq/manage.c b/kernel/irq/manage.c
+index 0a9104b4608b..b7cb736a8b32 100644
+--- a/kernel/irq/manage.c
++++ b/kernel/irq/manage.c
+@@ -100,8 +100,11 @@ void synchronize_irq(unsigned int irq)
+ 		 * running. Now verify that no threaded handlers are
+ 		 * active.
+ 		 */
+-		wait_event(desc->wait_for_threads,
+-			   !atomic_read(&desc->threads_active));
++		if (atomic_read(&desc->threads_active)) {
++			might_sleep();
++			__wait_event(desc->wait_for_threads,
++				     !atomic_read(&desc->threads_active));
++		}
+ 	}
+ }
+ EXPORT_SYMBOL(synchronize_irq);
