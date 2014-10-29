@@ -1,150 +1,72 @@
 From: Guenter Roeck <linux@roeck-us.net>
-Subject: [PATCH v3 07/15] net: dsa/mv88e6352: Report chip temperature
-Date: Wed, 29 Oct 2014 10:44:59 -0700
-Message-ID: <1414604707-22407-8-git-send-email-linux@roeck-us.net>
+Subject: [PATCH v3 10/15] dsa: Add new optional devicetree property to describe EEPROM size
+Date: Wed, 29 Oct 2014 10:45:02 -0700
+Message-ID: <1414604707-22407-11-git-send-email-linux@roeck-us.net>
 References: <1414604707-22407-1-git-send-email-linux@roeck-us.net>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Florian Fainelli <f.fainelli@gmail.com>,
 	Andrew Lunn <andrew@lunn.ch>, linux-kernel@vger.kernel.org,
-	Guenter Roeck <linux@roeck-us.net>
+	Guenter Roeck <linux@roeck-us.net>, devicetree@vger.kernel.org,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Rob Herring <robh+dt@kernel.org>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bh-25.webhostbox.net ([208.91.199.152]:51789 "EHLO
+	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755932AbaJ2Rpj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2014 13:45:39 -0400
+Received: from mailnull by bh-25.webhostbox.net with sa-checked (Exim 4.82)
+	(envelope-from <linux@roeck-us.net>)
+	id 1XjXJS-0049Ue-Dg
+	for netdev@vger.kernel.org; Wed, 29 Oct 2014 17:45:38 +0000
 In-Reply-To: <1414604707-22407-1-git-send-email-linux@roeck-us.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-MV88E6352 supports reading the chip temperature from two PHY registers,
-6:26 and 6:27. Report it using the more accurate register 6:27.
-Also report temperature limit and alarm.
+The dsa core now supports reading from and writing to a switch EEPROM
+if connected. Describe optional devicetree property indicating that
+an EEPROM is present and its size.
 
 Signed-off-by: Guenter Roeck <linux@roeck-us.net>
 ---
 v3:
-- No change
+- eeprom-length property is attached to switch devicetree node,
+  not to dsa node.
 v2:
-- Make new functionality optional, depending on CONFIG_NET_DSA_HWMON
+- Added patch
 
- drivers/net/dsa/mv88e6352.c | 101 ++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 101 insertions(+)
+ Documentation/devicetree/bindings/net/dsa/dsa.txt | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
-index f17364f..744e6fa 100644
---- a/drivers/net/dsa/mv88e6352.c
-+++ b/drivers/net/dsa/mv88e6352.c
-@@ -325,6 +325,101 @@ static int mv88e6352_setup_port(struct dsa_switch *ds, int p)
- 	return 0;
- }
+diff --git a/Documentation/devicetree/bindings/net/dsa/dsa.txt b/Documentation/devicetree/bindings/net/dsa/dsa.txt
+index a62c889..e124847 100644
+--- a/Documentation/devicetree/bindings/net/dsa/dsa.txt
++++ b/Documentation/devicetree/bindings/net/dsa/dsa.txt
+@@ -10,7 +10,7 @@ Required properties:
+ - dsa,ethernet		: Should be a phandle to a valid Ethernet device node
+ - dsa,mii-bus		: Should be a phandle to a valid MDIO bus device node
  
-+#ifdef CONFIG_NET_DSA_HWMON
-+
-+static int mv88e6352_phy_page_read(struct dsa_switch *ds,
-+				   int port, int page, int reg)
-+{
-+	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-+	int ret;
-+
-+	mutex_lock(&ps->phy_mutex);
-+	ret = __mv88e6352_phy_write(ds, port, 0x16, page);
-+	if (ret < 0)
-+		goto error;
-+	ret = __mv88e6352_phy_read(ds, port, reg);
-+error:
-+	__mv88e6352_phy_write(ds, port, 0x16, 0x0);
-+	mutex_unlock(&ps->phy_mutex);
-+	return ret;
-+}
-+
-+static int mv88e6352_phy_page_write(struct dsa_switch *ds,
-+				    int port, int page, int reg, int val)
-+{
-+	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-+	int ret;
-+
-+	mutex_lock(&ps->phy_mutex);
-+	ret = __mv88e6352_phy_write(ds, port, 0x16, page);
-+	if (ret < 0)
-+		goto error;
-+
-+	ret = __mv88e6352_phy_write(ds, port, reg, val);
-+error:
-+	__mv88e6352_phy_write(ds, port, 0x16, 0x0);
-+	mutex_unlock(&ps->phy_mutex);
-+	return ret;
-+}
-+
-+static int mv88e6352_get_temp(struct dsa_switch *ds, int *temp)
-+{
-+	int ret;
-+
-+	*temp = 0;
-+
-+	ret = mv88e6352_phy_page_read(ds, 0, 6, 27);
-+	if (ret < 0)
-+		return ret;
-+
-+	*temp = (ret & 0xff) - 25;
-+
-+	return 0;
-+}
-+
-+static int mv88e6352_get_temp_limit(struct dsa_switch *ds, int *temp)
-+{
-+	int ret;
-+
-+	*temp = 0;
-+
-+	ret = mv88e6352_phy_page_read(ds, 0, 6, 26);
-+	if (ret < 0)
-+		return ret;
-+
-+	*temp = (((ret >> 8) & 0x1f) * 5) - 25;
-+
-+	return 0;
-+}
-+
-+static int mv88e6352_set_temp_limit(struct dsa_switch *ds, int temp)
-+{
-+	int ret;
-+
-+	ret = mv88e6352_phy_page_read(ds, 0, 6, 26);
-+	if (ret < 0)
-+		return ret;
-+	temp = clamp_val(DIV_ROUND_CLOSEST(temp, 5) + 5, 0, 0x1f);
-+	return mv88e6352_phy_page_write(ds, 0, 6, 26,
-+					(ret & 0xe0ff) | (temp << 8));
-+}
-+
-+static int mv88e6352_get_temp_alarm(struct dsa_switch *ds, bool *alarm)
-+{
-+	int ret;
-+
-+	*alarm = false;
-+
-+	ret = mv88e6352_phy_page_read(ds, 0, 6, 26);
-+	if (ret < 0)
-+		return ret;
-+
-+	*alarm = !!(ret & 0x40);
-+
-+	return 0;
-+}
-+#endif /* CONFIG_NET_DSA_HWMON */
-+
- static int mv88e6352_setup(struct dsa_switch *ds)
- {
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-@@ -461,6 +556,12 @@ struct dsa_switch_driver mv88e6352_switch_driver = {
- 	.get_strings		= mv88e6352_get_strings,
- 	.get_ethtool_stats	= mv88e6352_get_ethtool_stats,
- 	.get_sset_count		= mv88e6352_get_sset_count,
-+#ifdef CONFIG_NET_DSA_HWMON
-+	.get_temp		= mv88e6352_get_temp,
-+	.get_temp_limit		= mv88e6352_get_temp_limit,
-+	.set_temp_limit		= mv88e6352_set_temp_limit,
-+	.get_temp_alarm		= mv88e6352_get_temp_alarm,
-+#endif
- };
+-Optionnal properties:
++Optional properties:
+ - interrupts		: property with a value describing the switch
+ 			  interrupt number (not supported by the driver)
  
- MODULE_ALIAS("platform:mv88e6352");
+@@ -23,6 +23,13 @@ Each of these switch child nodes should have the following required properties:
+ - #address-cells	: Must be 1
+ - #size-cells		: Must be 0
+ 
++A switch child node has the following optional property:
++
++- eeprom-length		: Set to the length of an EEPROM connected to the
++			  switch. Must be set if the switch can not detect
++			  the presence and/or size of a connected EEPROM,
++			  otherwise optional.
++
+ A switch may have multiple "port" children nodes
+ 
+ Each port children node must have the following mandatory properties:
 -- 
 1.9.1
