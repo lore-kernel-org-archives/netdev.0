@@ -1,58 +1,100 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the net tree
-Date: Wed, 29 Oct 2014 11:14:53 +1100
-Message-ID: <20141029111453.32165a2e@canb.auug.org.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net: introduce napi_schedule_irqoff()
+Date: Tue, 28 Oct 2014 18:05:13 -0700
+Message-ID: <1414544713.631.30.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/wiQZoDvmjQdL2I7LrqNiQ5q"; protocol="application/pgp-signature"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Vince Bridgers <vbridger@opensource.altera.com>,
-	Viet Nga Dao <vndao@altera.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:38453 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751575AbaJ2BFW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Oct 2014 21:05:22 -0400
+Received: by mail-pa0-f53.google.com with SMTP id kx10so1983835pab.12
+        for <netdev@vger.kernel.org>; Tue, 28 Oct 2014 18:05:22 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Sig_/wiQZoDvmjQdL2I7LrqNiQ5q
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+From: Eric Dumazet <edumazet@google.com>
 
-Hi all,
+napi_schedule() can be called from any context and has to mask hard
+irqs.
 
-Today's linux-next merge of the net-next tree got a conflict in
-drivers/net/phy/marvell.c between commit 99d881f993f0 ("net: phy: Add
-SGMII Configuration for Marvell 88E1145 Initialization") from the net
-tree and commit b02241755d0e ("net: phy: Adding SGMII support for
-Marvell 88ee1145 driver") from the net-next tree.
+Add a variant that can only be called from hard interrupts handlers
+or when irqs are already masked.
 
-I fixed it up (they are basically the same patch :-( so I just fixed up
-the differences and basically used the net tree version) and can carry
-the fix as necessary (no action is required).
+Many NIC drivers can use it from their hard IRQ handler instead of
+generic variant.
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ include/linux/netdevice.h |   13 +++++++++++++
+ net/core/dev.c            |   15 ++++++++++++++-
+ 2 files changed, 27 insertions(+), 1 deletion(-)
 
---Sig_/wiQZoDvmjQdL2I7LrqNiQ5q
-Content-Type: application/pgp-signature
-Content-Description: OpenPGP digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAEBCAAGBQJUUDGBAAoJEMDTa8Ir7ZwVT8YP/3uMfozo5hj3ZC62a+O7hn2X
-0iD9ytLL7wc+WJjlFDoNj+SRvaHb5JIaGX57ny1oboGNmO8SvhLcuVDdBNA9Sv6N
-BSHwqv/H5bydQVtsJLc8YTat78ib8wugN4nPu/lkOFYRZdHbarmryDn3SjGmDjtx
-SSqPzx70ghFWbyo/2vOdzJ78nKO17sJUY4lGUk8jhOyl3y3jcDrY3nnllRUUwFN1
-ja7yA5tRclkIalYGW0A/9i5/rH/gN7Ug5PXfu/MadvAbNs1C3HKVAN7NvgM9LScC
-Wy/mTBt8z232AUpiAK9S64Aiyy1G2m9UKAcddFb/5Y37sngNG7MaEh5AhFz7C0Kg
-Qx5A9yfWVIZCNCt4I4ZpUS1pSkw4csTM56dP1Ue5N1Ptw1zkcCUpb0mA9aaBgO/v
-E62oz32fuuQGVRt8wAHoIo88wJCnY3347+/2G+tRzoUbnUPXmDhLuD5C6k6+LjDH
-P0ThbEA+7dEy8oZ7QIbabPDcK9hXJ0M4FWtllmB8RCgNWy2IUs5vlH1VwKxyc72y
-rLxaQmKrpbhghklawJY6Jj3udzctfP5ygW6uWSdjjJEWvf/ms5ezV9uhfxklSVt3
-oPzoILkuJKuwEAhojoJ3zAXMGWJskbOIbkQTXqm7JAkTy3oGVJoNWUUn9FJ5rk7Z
-O6LqFvvwhGSr0Lfk2OwB
-=/2Io
------END PGP SIGNATURE-----
-
---Sig_/wiQZoDvmjQdL2I7LrqNiQ5q--
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 74fd5d37f15a472239c1c63cebe7ce9e59fc4c90..c85e065122460e9f077bcb6788018be38e1d7ddf 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -386,6 +386,7 @@ typedef enum rx_handler_result rx_handler_result_t;
+ typedef rx_handler_result_t rx_handler_func_t(struct sk_buff **pskb);
+ 
+ void __napi_schedule(struct napi_struct *n);
++void __napi_schedule_irqoff(struct napi_struct *n);
+ 
+ static inline bool napi_disable_pending(struct napi_struct *n)
+ {
+@@ -420,6 +421,18 @@ static inline void napi_schedule(struct napi_struct *n)
+ 		__napi_schedule(n);
+ }
+ 
++/**
++ *	napi_schedule_irqoff - schedule NAPI poll
++ *	@n: napi context
++ *
++ * Variant of napi_schedule(), assuming hard irqs are masked.
++ */
++static inline void napi_schedule_irqoff(struct napi_struct *n)
++{
++	if (napi_schedule_prep(n))
++		__napi_schedule_irqoff(n);
++}
++
+ /* Try to reschedule poll. Called by dev->poll() after napi_complete().  */
+ static inline bool napi_reschedule(struct napi_struct *napi)
+ {
+diff --git a/net/core/dev.c b/net/core/dev.c
+index b793e3521a3631319bf4d0e7c17c0c9a933331da..759940cdf89635d58778502276d9914e47f837f9 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4372,7 +4372,8 @@ static int process_backlog(struct napi_struct *napi, int quota)
+  * __napi_schedule - schedule for receive
+  * @n: entry to schedule
+  *
+- * The entry's receive function will be scheduled to run
++ * The entry's receive function will be scheduled to run.
++ * Consider using __napi_schedule_irqoff() if hard irqs are masked.
+  */
+ void __napi_schedule(struct napi_struct *n)
+ {
+@@ -4384,6 +4385,18 @@ void __napi_schedule(struct napi_struct *n)
+ }
+ EXPORT_SYMBOL(__napi_schedule);
+ 
++/**
++ * __napi_schedule_irqoff - schedule for receive
++ * @n: entry to schedule
++ *
++ * Variant of __napi_schedule() assuming hard irqs are masked
++ */
++void __napi_schedule_irqoff(struct napi_struct *n)
++{
++	____napi_schedule(this_cpu_ptr(&softnet_data), n);
++}
++EXPORT_SYMBOL(__napi_schedule_irqoff);
++
+ void __napi_complete(struct napi_struct *n)
+ {
+ 	BUG_ON(!test_bit(NAPI_STATE_SCHED, &n->state));
