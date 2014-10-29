@@ -1,66 +1,66 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH net-next 2/2] udp: Reset flow table for flows over
- unconnected sockets
-Date: Tue, 28 Oct 2014 18:35:54 -0700
-Message-ID: <CA+mtBx8S2goUtzGoVqFtLP-8_8N=V4pPfWcdaUny5L-4wn+ZfA@mail.gmail.com>
-References: <CA+mtBx_V3WT1bbXY9F731GNdDdb3+ebHwj9hRyVEFynAPYhSXg@mail.gmail.com>
-	<1414451970.2922.27.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CA+mtBx_eQKOkM-0PEXG2WEMosXDtqHgwT3j7NnQpP62KdZeJKQ@mail.gmail.com>
-	<20141028.005121.1715627351754245965.davem@davemloft.net>
-	<CA+mtBx9=xTyqTXrZODi9dyN1H0W51uqvHR4YT3DhFXpdc4FMbw@mail.gmail.com>
-	<1414517910.631.14.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Murilo Opsfelder Araujo <mopsfelder@gmail.com>
+Subject: Re: [PATCH V3.18] rtlwifi: Add check for get_btc_status callback
+Date: Tue, 28 Oct 2014 23:43:44 -0200
+Message-ID: <54504650.6060905@gmail.com>
+References: <1414081629-23002-1-git-send-email-Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless@vger.kernel.org, troy_tan@realsil.com.cn,
+	netdev@vger.kernel.org, Mike Galbraith <umgwanakikbuti@gmail.com>,
+	Thadeu Cascardo <cascardo@cascardo.eti.br>
+To: Larry Finger <Larry.Finger@lwfinger.net>, linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f170.google.com ([209.85.223.170]:61746 "EHLO
-	mail-ie0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751515AbaJ2Bfz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Oct 2014 21:35:55 -0400
-Received: by mail-ie0-f170.google.com with SMTP id tp5so2071098ieb.1
-        for <netdev@vger.kernel.org>; Tue, 28 Oct 2014 18:35:54 -0700 (PDT)
-In-Reply-To: <1414517910.631.14.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-qc0-f173.google.com ([209.85.216.173]:54785 "EHLO
+	mail-qc0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751619AbaJ2Bp0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Oct 2014 21:45:26 -0400
+In-Reply-To: <1414081629-23002-1-git-send-email-Larry.Finger@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 28, 2014 at 10:38 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Tue, 2014-10-28 at 08:18 -0700, Tom Herbert wrote:
+On 10/23/2014 02:27 PM, Larry Finger wrote:
+> Drivers that do not use the get_btc_status() callback may not define a
+> dummy routine. The caller needs to check before making the call.
 >
->> UDP tunnels are becoming increasingly common. VXLAN, FOU, GUE, geneve,
->> l2tp, esp/UDP, GRE/UDP, nvgre, etc. all rely on steering based on the
->> outer header without deep inspection. When the source port is set to
->> inner hash RFS works as is and steering is effectively done based
->> inner TCP connections. If aRFS supports UDP, then this should just
->> work also for UDP tunnels (another instance where we don't need
->> protocol specific support in devices for tunneling).
+> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+> Cc: Murilo Opsfelder Araujo <mopsfelder@gmail.com>
+> Cc: Mike Galbraith <umgwanakikbuti@gmail.com>
+> Cc: Thadeu Cascardo <cascardo@cascardo.eti.br>
+> ---
 >
+> John,
 >
-> If you really wanted to solve this, you would need to change RFS to be
-> aware of the tunnel and find L4 information, instead of current
-> implementation stopping at first UDP layer.
+> This missing statement is causing kernel crashes for several of the drivers.
+> This patch should be applied ASAP.
 >
-> But as get_rps_cpu() / __skb_flow_dissect() have no way to find this,
-> you instead chose to invalidate RFS and maybe rely on RPS, because it
-> might help your workload.
+> Larry
+> ---
 >
-> Just to be clear : I tested the patch and saw a regression in my tests,
-> sending as little as one million UDP packets per second on the target.
+>   drivers/net/wireless/rtlwifi/pci.c | 3 ++-
+>   1 file changed, 2 insertions(+), 1 deletion(-)
 >
-Can you describe this test so that I can try to reproduce and maybe
-debug the issue you're seeing with the patch?
+> diff --git a/drivers/net/wireless/rtlwifi/pci.c b/drivers/net/wireless/rtlwifi/pci.c
+> index 667aba8..25daa87 100644
+> --- a/drivers/net/wireless/rtlwifi/pci.c
+> +++ b/drivers/net/wireless/rtlwifi/pci.c
+> @@ -1796,7 +1796,8 @@ static int rtl_pci_start(struct ieee80211_hw *hw)
+>   	rtl_pci_reset_trx_ring(hw);
+>
+>   	rtlpci->driver_is_goingto_unload = false;
+> -	if (rtlpriv->cfg->ops->get_btc_status()) {
+> +	if (rtlpriv->cfg->ops->get_btc_status &&
+> +	    rtlpriv->cfg->ops->get_btc_status()) {
+>   		rtlpriv->btcoexist.btc_ops->btc_init_variables(rtlpriv);
+>   		rtlpriv->btcoexist.btc_ops->btc_init_hal_vars(rtlpriv);
+>   	}
+>
+Hi, Larry & everyone.
 
-Thanks,
-Tom
+This patch didn't solve and next-20141028 is still crashing on my laptop 
+with rtl8192se device:
 
-> Not only UDP rx processing was slower, but TCP flows were impacted.
->
-> With a table of 65536 slots, each slot was written 16 times per second
-> in average.
->
-> Google kernels have RFS_Hit/FRS_Miss snmp counters to catch this kind of
-> problems. Maybe I should upstream this part.
->
->
->
+http://opsfelder.com/~murilo/lkml/next-20141028_crashing.jpg
+
+-- 
+Murilo
