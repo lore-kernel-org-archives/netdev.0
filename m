@@ -1,44 +1,88 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] neigh: optimize neigh_parms_release()
-Date: Wed, 29 Oct 2014 16:12:11 -0400 (EDT)
-Message-ID: <20141029.161211.1100245948317543289.davem@davemloft.net>
-References: <1414607371-4246-1-git-send-email-nicolas.dichtel@6wind.com>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: e1000_netpoll(): disable_irq() triggers might_sleep() on
+ linux-next
+Date: Wed, 29 Oct 2014 21:23:42 +0100 (CET)
+Message-ID: <alpine.DEB.2.11.1410292119350.5308@nanos>
+References: <20141029155620.GA4886@kria> <20141029180734.GQ12706@worktop.programming.kicks-ass.net> <alpine.DEB.2.11.1410291918060.5308@nanos> <20141029193603.GS12706@worktop.programming.kicks-ass.net> <alpine.DEB.2.11.1410292046270.5308@nanos>
+ <20141029195054.GH10501@worktop.programming.kicks-ass.net> <alpine.DEB.2.11.1410292053430.5308@nanos>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: nicolas.dichtel@6wind.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46346 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757067AbaJ2UMN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2014 16:12:13 -0400
-In-Reply-To: <1414607371-4246-1-git-send-email-nicolas.dichtel@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Sabrina Dubroca <sd@queasysnail.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, jeffrey.t.kirsher@intel.com
+To: Peter Zijlstra <peterz@infradead.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.11.1410292053430.5308@nanos>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date: Wed, 29 Oct 2014 19:29:31 +0100
+On Wed, 29 Oct 2014, Thomas Gleixner wrote:
+> On Wed, 29 Oct 2014, Peter Zijlstra wrote:
+> 
+> > On Wed, Oct 29, 2014 at 08:49:03PM +0100, Thomas Gleixner wrote:
+> > > On Wed, 29 Oct 2014, Peter Zijlstra wrote:
+> > > 
+> > > > On Wed, Oct 29, 2014 at 07:33:00PM +0100, Thomas Gleixner wrote:
+> > > > > Yuck. No. You are just papering over the problem.
+> > > > > 
+> > > > > What happens if you add 'threadirqs' to the kernel command line? Or if
+> > > > > the interrupt line is shared with a real threaded interrupt user?
+> > > > > 
+> > > > > The proper solution is to have a poll_lock for e1000 which serializes
+> > > > > the hardware interrupt against netpoll instead of using
+> > > > > disable/enable_irq().
+> > > > > 
+> > > > > In fact that's less expensive than the disable/enable_irq() dance and
+> > > > > the chance of contention is pretty low. If done right it will be a
+> > > > > NOOP for the CONFIG_NET_POLL_CONTROLLER=n case.
+> > > > > 
+> > > > 
+> > > > OK a little something like so then I suppose.. But I suspect most all
+> > > > the network drivers will need this and maybe more, disable_irq() is a
+> > > > popular little thing and we 'just' changed semantics on them.
+> > > 
+> > > We changed that almost 4 years ago :) What we 'just' did was to add a
+> > > prominent warning into the code.
+> > 
+> > You know that is the same right... they didn't know it was broken
+> > therefore it wasn't :-), but now they need to go actually do stuff about
+> > it, an entirely different proposition.
+> 
+> Right, and of course the world and some more has the very same code
+> there:
+> 
+> poll_controller()
+> {
+> 	disable_irq();
+> 	dev_interrupt_handler();
+> 	enable_irq();
+> }
+> 
+> Trying to twist my brain to come up with a solution which avoids the
+> spinlock, but I have a hard time to come up with one.
+> 
+> The only thing I came up with so far is to avoid adding locks to every
+> driver incarnation and instead put it into struct net_device and
+> provide helper functions for the lock/unlock case.
+> 
+> That does not change the fact that we need to deal with that on a per
+> driver basis :(
 
-> In neigh_parms_release() we loop over all entries to find the entry given in
-> argument and being able to remove it from the list. By using a double linked
-> list, we can avoid this loop.
-> 
-> Here are some numbers with 30 000 dummy interfaces configured:
-> 
-> Before the patch:
-> $ time rmmod dummy
-> real	2m0.118s
-> user	0m0.000s
-> sys	1m50.048s
-> 
-> After the patch:
-> $ time rmmod dummy
-> real	1m9.970s
-> user	0m0.000s
-> sys	0m47.976s
-> 
-> Suggested-by: Thierry Herbelot <thierry.herbelot@6wind.com>
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+But at least it allows to mitigate the impact by making it conditional
+at a central point.
 
-Looks great, applied, thanks Nicolas.
+static inline void netpoll_lock(struct net_device *nd)
+{
+	if (netpoll_active(nd))
+		spin_lock(&nd->netpoll_lock);
+}
+
+and let the core code make sure that activation/deactivation of
+netpoll on a particular interface is serialized against the interrupt
+and netpoll calls.
+
+Not sure if it's worth the trouble, but at least it allows to deal
+with it in the core instead of dealing with it on a per driver base.
+
+Thanks,
+
+	tglx
