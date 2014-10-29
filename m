@@ -1,7 +1,7 @@
 From: Dong Aisheng <b29396@freescale.com>
-Subject: [PATCH 3/7] can: m_can: add .ndo_change_mtu function
-Date: Wed, 29 Oct 2014 18:45:23 +0800
-Message-ID: <1414579527-31100-3-git-send-email-b29396@freescale.com>
+Subject: [PATCH 5/7] can: clear ctrlmode when close candev
+Date: Wed, 29 Oct 2014 18:45:25 +0800
+Message-ID: <1414579527-31100-5-git-send-email-b29396@freescale.com>
 References: <1414579527-31100-1-git-send-email-b29396@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,24 +23,36 @@ Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-Use common can_change_mtu function.
+Currently priv->ctrlmode is not cleared when close_candev, so next time
+the driver will still use this value to set controller even user
+does not set any ctrl mode.
+e.g.
+Step 1. ip link set can0 up type can0 bitrate 1000000 loopback on
+Controller will be in loopback mode
+Step 2. ip link set can0 down
+Step 3. ip link set can0 up type can0 bitrate 1000000
+Controller will still be set to loopback mode in driver due to saved
+priv->ctrlmode.
+
+This patch clears priv->ctrlmode when the CAN interface is closed,
+and set it to correct mode according to next user setting.
 
 Signed-off-by: Dong Aisheng <b29396@freescale.com>
 ---
- drivers/net/can/m_can/m_can.c | 1 +
+ drivers/net/can/dev.c | 1 +
  1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/can/m_can/m_can.c b/drivers/net/can/m_can/m_can.c
-index 2784423..e4ef146 100644
---- a/drivers/net/can/m_can/m_can.c
-+++ b/drivers/net/can/m_can/m_can.c
-@@ -1002,6 +1002,7 @@ static const struct net_device_ops m_can_netdev_ops = {
- 	.ndo_open = m_can_open,
- 	.ndo_stop = m_can_close,
- 	.ndo_start_xmit = m_can_start_xmit,
-+	.ndo_change_mtu = can_change_mtu,
- };
+diff --git a/drivers/net/can/dev.c b/drivers/net/can/dev.c
+index 02492d2..1fce485 100644
+--- a/drivers/net/can/dev.c
++++ b/drivers/net/can/dev.c
+@@ -671,6 +671,7 @@ void close_candev(struct net_device *dev)
  
- static int register_m_can_dev(struct net_device *dev)
+ 	del_timer_sync(&priv->restart_timer);
+ 	can_flush_echo_skb(dev);
++	priv->ctrlmode = 0;
+ }
+ EXPORT_SYMBOL_GPL(close_candev);
+ 
 -- 
 1.9.1
