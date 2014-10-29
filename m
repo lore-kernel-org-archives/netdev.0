@@ -1,37 +1,100 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: Re: some failures with vxlan offloads..
-Date: Wed, 29 Oct 2014 07:50:24 +0200
-Message-ID: <54508020.1040305@mellanox.com>
-References: <544CF8E3.8070207@mellanox.com>	<CA+mtBx-Jp5Kps5WycYwN0PuyXLDtGM0s8USxdQoSLPRDVS19xw@mail.gmail.com>	<CAJ3xEMi6UuCT+6iriX02qjS6trhEaoYh39UBL+p_i995MvZc2Q@mail.gmail.com>	<CA+mtBx9g6MYpFv83av1YdRpZRBcBKvsqzSnhs5C7iV+kP8cWDA@mail.gmail.com>	<544FB5CA.2060003@mellanox.com> <CA+mtBx_ncYrp_fbp8ucXfBaCoPpv_X+TEsmofCnpzTyPPfLXnw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Tom Herbert <therbert@google.com>
+From: "Alexey Andriyanov" <alan@al-an.info>
+Subject: [PATCH] iproute2: ip6_tunnel mode bugfixes: any,vti6
+Date: Wed, 29 Oct 2014 09:19:30 +0300
+Message-ID: <1414563570-9858-1-git-send-email-alan@al-an.info>
+Cc: Alexey Andriyanov <alan@al-an.info>,
+	Stephen Hemminger <shemming@brocade.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog132.obsmtp.com ([207.126.144.207]:33771 "EHLO
-	eu1sys200aog132.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751226AbaJ2Fu3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2014 01:50:29 -0400
-In-Reply-To: <CA+mtBx_ncYrp_fbp8ucXfBaCoPpv_X+TEsmofCnpzTyPPfLXnw@mail.gmail.com>
+Received: from forward2m.mail.yandex.net ([37.140.138.2]:60784 "EHLO
+	forward2m.mail.yandex.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753578AbaJ2GUI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2014 02:20:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/28/2014 5:36 PM, Tom Herbert wrote:
->> I wonder if we have another bug somewhere... when both sides were offloaded,
->> >it works even with the mlx4 bug, canyou explain that?is it possible that the
->> >GRO stack somehow covers on the bug when both sides are offloaded and
->> >GRO/VXLAN comes into play?
->>
-> Look at the receive side. As I mentioned, if the device is returning
-> checksum-unnecessary and setting csum_level to 1 (inner checksum was
-> validated) then stack won't try to verify the outer checksum. So in
-> this case if outer checksum is incorrect nobody complains about it.
+- any ipv6 tunnel mode (proto == 0) could not be set
+due to incomplete set of cases in do_add, do_del.
+- vti6 logic was inverted: it was using "ip6_vti0" basedev
+UNLESS mode is set to vti6.
 
-OK, I'll look there. Anything that should worries us at that stack trace 
-I sent in my initial email of this thread, or you think this is related 
-to the mlx4 driver checksum bug?
+We don't need a switch by p.proto in do_add()/do_del(): it
+already exists in parse_args(). So if parse_args() call
+was successful, no need to check tunnel mode again.
 
-Or.
+CC: Stephen Hemminger <shemming@brocade.com>
+Signed-off-by: Alexey Andriyanov <alan@al-an.info>
+---
+ ip/ip6tunnel.c | 40 ++++++++++++++--------------------------
+ 1 file changed, 14 insertions(+), 26 deletions(-)
 
->
+diff --git a/ip/ip6tunnel.c b/ip/ip6tunnel.c
+index b83534e..62a8240 100644
+--- a/ip/ip6tunnel.c
++++ b/ip/ip6tunnel.c
+@@ -453,49 +453,37 @@ static int do_show(int argc, char **argv)
+ static int do_add(int cmd, int argc, char **argv)
+ {
+ 	struct ip6_tnl_parm2 p;
++	const char *basedev = "ip6tnl0";
+ 
+ 	ip6_tnl_parm_init(&p, 1);
+ 
+ 	if (parse_args(argc, argv, cmd, &p) < 0)
+ 		return -1;
+ 
+-	switch (p.proto) {
+-	case IPPROTO_IPIP:
+-	case IPPROTO_IPV6:
+-	if (p.i_flags != VTI_ISVTI)
+-		return tnl_add_ioctl(cmd, "ip6_vti0", p.name, &p);
+-	else
+-		return tnl_add_ioctl(cmd, "ip6tnl0", p.name, &p);
+-	case IPPROTO_GRE:
+-		return tnl_add_ioctl(cmd, "ip6gre0", p.name, &p);
+-	default:
+-		fprintf(stderr, "cannot determine tunnel mode (ip6ip6, ipip6, vti6 or gre)\n");
+-	}
+-	return -1;
++	if (p.proto == IPPROTO_GRE)
++		basedev = "ip6gre0";
++	else if (p.i_flags & VTI_ISVTI)
++		basedev = "ip6_vti0";
++
++	return tnl_add_ioctl(cmd, basedev, p.name, &p);
+ }
+ 
+ static int do_del(int argc, char **argv)
+ {
+ 	struct ip6_tnl_parm2 p;
++	const char *basedev = "ip6tnl0";
+ 
+ 	ip6_tnl_parm_init(&p, 1);
+ 
+ 	if (parse_args(argc, argv, SIOCDELTUNNEL, &p) < 0)
+ 		return -1;
+ 
+-	switch (p.proto) {
+-	case IPPROTO_IPIP:
+-	case IPPROTO_IPV6:
+-	if (p.i_flags != VTI_ISVTI)
+-		return tnl_del_ioctl("ip6_vti0", p.name, &p);
+-	else
+-		return tnl_del_ioctl("ip6tnl0", p.name, &p);
+-	case IPPROTO_GRE:
+-		return tnl_del_ioctl("ip6gre0", p.name, &p);
+-	default:
+-		return tnl_del_ioctl(p.name, p.name, &p);
+-	}
+-	return -1;
++	if (p.proto == IPPROTO_GRE)
++		basedev = "ip6gre0";
++	else if (p.i_flags & VTI_ISVTI)
++		basedev = "ip6_vti0";
++
++	return tnl_del_ioctl(basedev, p.name, &p);
+ }
+ 
+ int do_ip6tunnel(int argc, char **argv)
+-- 
+1.9.1
