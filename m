@@ -1,31 +1,109 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] ipv6: notify userspace when we added or changed an
- ipv6 token
-Date: Wed, 29 Oct 2014 14:35:56 -0400 (EDT)
-Message-ID: <20141029.143556.557247523788216981.davem@davemloft.net>
-References: <544D8234.5060504@redhat.com>
-	<1414427956-20056-1-git-send-email-lkundrak@v3.sk>
+From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Subject: Re: [PATCH v2 6/9] ARM: berlin: Add BG2 ethernet DT nodes
+Date: Wed, 29 Oct 2014 19:38:45 +0100
+Message-ID: <54513435.9050803@gmail.com>
+References: <1414002412-13615-1-git-send-email-sebastian.hesselbarth@gmail.com> <1414002412-13615-7-git-send-email-sebastian.hesselbarth@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hannes@stressinduktion.org,
-	dborkman@redhat.com
-To: lkundrak@v3.sk
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45318 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750709AbaJ2Sf6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2014 14:35:58 -0400
-In-Reply-To: <1414427956-20056-1-git-send-email-lkundrak@v3.sk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	=?UTF-8?B?QW50b2luZSBUw6luYXI=?= =?UTF-8?B?dA==?=
+	<antoine.tenart@free-electrons.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Eric Miao <eric.y.miao@gmail.com>,
+	Haojian Zhuang <haojian.zhuang@gmail.com>,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org, linux-kernel@vger.kernel.org
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1414002412-13615-7-git-send-email-sebastian.hesselbarth@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Lubomir Rintel <lkundrak@v3.sk>
-Date: Mon, 27 Oct 2014 17:39:16 +0100
+On 22.10.2014 20:26, Sebastian Hesselbarth wrote:
+> Marvell BG2 has two fast ethernet controllers with internal PHY,
+> add the corresponding nodes to SoC dtsi.
+>
+> Tested-by: Antoine T=C3=A9nart <antoine.tenart@free-electrons.com>
+> Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+> Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com=
+>
 
-> NetworkManager might want to know that it changed when the router advertisement
-> arrives.
-> 
-> Signed-off-by: Lubomir Rintel <lkundrak@v3.sk>
+Applied the four DT patches to berlin/dt.
 
-Applied, thanks.
+Sebastian
+
+> ---
+> Changelog:
+> v1->v2:
+> - move phy-connection-type to controller node instead of PHY node
+>    (Reported by Sergei Shtylyov)
+>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: "Antoine T=C3=A9nart" <antoine.tenart@free-electrons.com>
+> Cc: Florian Fainelli <f.fainelli@gmail.com>
+> Cc: Eric Miao <eric.y.miao@gmail.com>
+> Cc: Haojian Zhuang <haojian.zhuang@gmail.com>
+> Cc: linux-arm-kernel@lists.infradead.org
+> Cc: netdev@vger.kernel.org
+> Cc: devicetree@vger.kernel.org
+> Cc: linux-kernel@vger.kernel.org
+> ---
+>   arch/arm/boot/dts/berlin2.dtsi | 36 +++++++++++++++++++++++++++++++=
++++++
+>   1 file changed, 36 insertions(+)
+>
+> diff --git a/arch/arm/boot/dts/berlin2.dtsi b/arch/arm/boot/dts/berli=
+n2.dtsi
+> index 9d7c810ebd0b..dc0227dfc691 100644
+> --- a/arch/arm/boot/dts/berlin2.dtsi
+> +++ b/arch/arm/boot/dts/berlin2.dtsi
+> @@ -79,11 +79,47 @@
+>   			clocks =3D <&chip CLKID_TWD>;
+>   		};
+>
+> +		eth1: ethernet@b90000 {
+> +			compatible =3D "marvell,pxa168-eth";
+> +			reg =3D <0xb90000 0x10000>;
+> +			clocks =3D <&chip CLKID_GETH1>;
+> +			interrupts =3D <GIC_SPI 24 IRQ_TYPE_LEVEL_HIGH>;
+> +			/* set by bootloader */
+> +			local-mac-address =3D [00 00 00 00 00 00];
+> +			#address-cells =3D <1>;
+> +			#size-cells =3D <0>;
+> +			phy-connection-type =3D "mii";
+> +			phy-handle =3D <&ethphy1>;
+> +			status =3D "disabled";
+> +
+> +			ethphy1: ethernet-phy@0 {
+> +				reg =3D <0>;
+> +			};
+> +		};
+> +
+>   		cpu-ctrl@dd0000 {
+>   			compatible =3D "marvell,berlin-cpu-ctrl";
+>   			reg =3D <0xdd0000 0x10000>;
+>   		};
+>
+> +		eth0: ethernet@e50000 {
+> +			compatible =3D "marvell,pxa168-eth";
+> +			reg =3D <0xe50000 0x10000>;
+> +			clocks =3D <&chip CLKID_GETH0>;
+> +			interrupts =3D <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>;
+> +			/* set by bootloader */
+> +			local-mac-address =3D [00 00 00 00 00 00];
+> +			#address-cells =3D <1>;
+> +			#size-cells =3D <0>;
+> +			phy-connection-type =3D "mii";
+> +			phy-handle =3D <&ethphy0>;
+> +			status =3D "disabled";
+> +
+> +			ethphy0: ethernet-phy@0 {
+> +				reg =3D <0>;
+> +			};
+> +		};
+> +
+>   		apb@e80000 {
+>   			compatible =3D "simple-bus";
+>   			#address-cells =3D <1>;
+>
