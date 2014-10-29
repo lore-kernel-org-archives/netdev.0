@@ -1,144 +1,75 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net-next] neigh: optimize neigh_parms_release()
-Date: Wed, 29 Oct 2014 19:29:31 +0100
-Message-ID: <1414607371-4246-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: davem@davemloft.net, Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:52741 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751145AbaJ2SaG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2014 14:30:06 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: e1000_netpoll(): disable_irq() triggers might_sleep() on
+ linux-next
+Date: Wed, 29 Oct 2014 19:33:00 +0100 (CET)
+Message-ID: <alpine.DEB.2.11.1410291918060.5308@nanos>
+References: <20141029155620.GA4886@kria> <20141029180734.GQ12706@worktop.programming.kicks-ass.net>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Sabrina Dubroca <sd@queasysnail.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, jeffrey.t.kirsher@intel.com
+To: Peter Zijlstra <peterz@infradead.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141029180734.GQ12706@worktop.programming.kicks-ass.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In neigh_parms_release() we loop over all entries to find the entry given in
-argument and being able to remove it from the list. By using a double linked
-list, we can avoid this loop.
+On Wed, 29 Oct 2014, Peter Zijlstra wrote:
 
-Here are some numbers with 30 000 dummy interfaces configured:
+> On Wed, Oct 29, 2014 at 04:56:20PM +0100, Sabrina Dubroca wrote:
+> > commit e22b886a8a43b ("sched/wait: Add might_sleep() checks") included
+> > in today's linux-next added a check that fires on e1000 with netpoll:
+> > 
+> > 
+> > BUG: sleeping function called from invalid context at kernel/irq/manage.c:104
+> > in_atomic(): 1, irqs_disabled(): 1, pid: 1, name: systemd
+> > no locks held by systemd/1.
+> > irq event stamp: 10102965
+> > hardirqs last  enabled at (10102965): [<ffffffff810cbafd>] vprintk_emit+0x2dd/0x6a0
+> > hardirqs last disabled at (10102964): [<ffffffff810cb897>] vprintk_emit+0x77/0x6a0
+> > softirqs last  enabled at (10102342): [<ffffffff810666aa>] __do_softirq+0x27a/0x6f0
+> > softirqs last disabled at (10102337): [<ffffffff81066e86>] irq_exit+0x56/0xe0
+> > Preemption disabled at:[<ffffffff817de50d>] printk_emit+0x31/0x33
+> > 
+> > CPU: 1 PID: 1 Comm: systemd Not tainted 3.18.0-rc2-next-20141029-dirty #222
+> > Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS 1.7.5-20140617_173321-var-lib-archbuild-testing-x86_64-tobias 04/01/2014
+> >  ffffffff81a82291 ffff88001e743978 ffffffff817df31d 0000000000000000
+> >  0000000000000000 ffff88001e7439a8 ffffffff8108dfa2 ffff88001e7439a8
+> >  ffffffff81a82291 0000000000000068 0000000000000000 ffff88001e7439d8
+> > Call Trace:
+> >  [<ffffffff817df31d>] dump_stack+0x4f/0x7c
+> >  [<ffffffff8108dfa2>] ___might_sleep+0x182/0x2b0
+> >  [<ffffffff8108e10a>] __might_sleep+0x3a/0xc0
+> >  [<ffffffff810ce358>] synchronize_irq+0x38/0xa0
+> >  [<ffffffff810ce690>] disable_irq+0x20/0x30
+> >  [<ffffffff815d7253>] e1000_netpoll+0x23/0x60
+> >  [<ffffffff81678d02>] netpoll_poll_dev+0x72/0x3a0
+> >  [<ffffffff816791e7>] netpoll_send_skb_on_dev+0x1b7/0x2e0
+> >  [<ffffffff816795f3>] netpoll_send_udp+0x2e3/0x490
+> 
+> Oh cute.. not entirely sure what to do there. This only works if you
+> _know_ desc->threads_active will never be !0.
+> 
+> The best I can come up with is something like this, which avoids the
+> might_sleep() in the one special case.
+>  
+> Thomas?
 
-Before the patch:
-$ time rmmod dummy
-real	2m0.118s
-user	0m0.000s
-sys	1m50.048s
+Yuck. No. You are just papering over the problem.
 
-After the patch:
-$ time rmmod dummy
-real	1m9.970s
-user	0m0.000s
-sys	0m47.976s
+What happens if you add 'threadirqs' to the kernel command line? Or if
+the interrupt line is shared with a real threaded interrupt user?
 
-Suggested-by: Thierry Herbelot <thierry.herbelot@6wind.com>
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- include/net/neighbour.h |  3 ++-
- net/core/neighbour.c    | 32 +++++++++++++-------------------
- 2 files changed, 15 insertions(+), 20 deletions(-)
+The proper solution is to have a poll_lock for e1000 which serializes
+the hardware interrupt against netpoll instead of using
+disable/enable_irq().
 
-diff --git a/include/net/neighbour.h b/include/net/neighbour.h
-index f60558d0254c..dedfb188b1a7 100644
---- a/include/net/neighbour.h
-+++ b/include/net/neighbour.h
-@@ -69,7 +69,7 @@ struct neigh_parms {
- 	struct net *net;
- #endif
- 	struct net_device *dev;
--	struct neigh_parms *next;
-+	struct list_head list;
- 	int	(*neigh_setup)(struct neighbour *);
- 	void	(*neigh_cleanup)(struct neighbour *);
- 	struct neigh_table *tbl;
-@@ -203,6 +203,7 @@ struct neigh_table {
- 	void			(*proxy_redo)(struct sk_buff *skb);
- 	char			*id;
- 	struct neigh_parms	parms;
-+	struct list_head	parms_list;
- 	int			gc_interval;
- 	int			gc_thresh1;
- 	int			gc_thresh2;
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index ef31fef25e5a..edd04116ecb7 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -773,7 +773,7 @@ static void neigh_periodic_work(struct work_struct *work)
- 	if (time_after(jiffies, tbl->last_rand + 300 * HZ)) {
- 		struct neigh_parms *p;
- 		tbl->last_rand = jiffies;
--		for (p = &tbl->parms; p; p = p->next)
-+		list_for_each_entry(p, &tbl->parms_list, list)
- 			p->reachable_time =
- 				neigh_rand_reach_time(NEIGH_VAR(p, BASE_REACHABLE_TIME));
- 	}
-@@ -1446,7 +1446,7 @@ static inline struct neigh_parms *lookup_neigh_parms(struct neigh_table *tbl,
- {
- 	struct neigh_parms *p;
+In fact that's less expensive than the disable/enable_irq() dance and
+the chance of contention is pretty low. If done right it will be a
+NOOP for the CONFIG_NET_POLL_CONTROLLER=n case.
+
+Thanks,
+
+	tglx
+
  
--	for (p = &tbl->parms; p; p = p->next) {
-+	list_for_each_entry(p, &tbl->parms_list, list) {
- 		if ((p->dev && p->dev->ifindex == ifindex && net_eq(neigh_parms_net(p), net)) ||
- 		    (!p->dev && !ifindex && net_eq(net, &init_net)))
- 			return p;
-@@ -1481,8 +1481,7 @@ struct neigh_parms *neigh_parms_alloc(struct net_device *dev,
- 		}
- 
- 		write_lock_bh(&tbl->lock);
--		p->next		= tbl->parms.next;
--		tbl->parms.next = p;
-+		list_add(&p->list, &tbl->parms.list);
- 		write_unlock_bh(&tbl->lock);
- 
- 		neigh_parms_data_state_cleanall(p);
-@@ -1501,24 +1500,15 @@ static void neigh_rcu_free_parms(struct rcu_head *head)
- 
- void neigh_parms_release(struct neigh_table *tbl, struct neigh_parms *parms)
- {
--	struct neigh_parms **p;
--
- 	if (!parms || parms == &tbl->parms)
- 		return;
- 	write_lock_bh(&tbl->lock);
--	for (p = &tbl->parms.next; *p; p = &(*p)->next) {
--		if (*p == parms) {
--			*p = parms->next;
--			parms->dead = 1;
--			write_unlock_bh(&tbl->lock);
--			if (parms->dev)
--				dev_put(parms->dev);
--			call_rcu(&parms->rcu_head, neigh_rcu_free_parms);
--			return;
--		}
--	}
-+	list_del(&parms->list);
-+	parms->dead = 1;
- 	write_unlock_bh(&tbl->lock);
--	neigh_dbg(1, "%s: not found\n", __func__);
-+	if (parms->dev)
-+		dev_put(parms->dev);
-+	call_rcu(&parms->rcu_head, neigh_rcu_free_parms);
- }
- EXPORT_SYMBOL(neigh_parms_release);
- 
-@@ -1535,6 +1525,8 @@ static void neigh_table_init_no_netlink(struct neigh_table *tbl)
- 	unsigned long now = jiffies;
- 	unsigned long phsize;
- 
-+	INIT_LIST_HEAD(&tbl->parms_list);
-+	list_add(&tbl->parms.list, &tbl->parms_list);
- 	write_pnet(&tbl->parms.net, &init_net);
- 	atomic_set(&tbl->parms.refcnt, 1);
- 	tbl->parms.reachable_time =
-@@ -2154,7 +2146,9 @@ static int neightbl_dump_info(struct sk_buff *skb, struct netlink_callback *cb)
- 				       NLM_F_MULTI) <= 0)
- 			break;
- 
--		for (nidx = 0, p = tbl->parms.next; p; p = p->next) {
-+		nidx = 0;
-+		p = list_next_entry(&tbl->parms, list);
-+		list_for_each_entry_from(p, &tbl->parms_list, list) {
- 			if (!net_eq(neigh_parms_net(p), net))
- 				continue;
- 
--- 
-2.1.0
