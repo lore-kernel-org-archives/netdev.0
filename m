@@ -1,88 +1,46 @@
-From: Thomas Gleixner <tglx@linutronix.de>
+From: Peter Zijlstra <peterz@infradead.org>
 Subject: Re: e1000_netpoll(): disable_irq() triggers might_sleep() on
  linux-next
-Date: Wed, 29 Oct 2014 21:23:42 +0100 (CET)
-Message-ID: <alpine.DEB.2.11.1410292119350.5308@nanos>
-References: <20141029155620.GA4886@kria> <20141029180734.GQ12706@worktop.programming.kicks-ass.net> <alpine.DEB.2.11.1410291918060.5308@nanos> <20141029193603.GS12706@worktop.programming.kicks-ass.net> <alpine.DEB.2.11.1410292046270.5308@nanos>
- <20141029195054.GH10501@worktop.programming.kicks-ass.net> <alpine.DEB.2.11.1410292053430.5308@nanos>
+Date: Wed, 29 Oct 2014 21:51:31 +0100
+Message-ID: <20141029205131.GI10501@worktop.programming.kicks-ass.net>
+References: <20141029155620.GA4886@kria>
+ <20141029180734.GQ12706@worktop.programming.kicks-ass.net>
+ <alpine.DEB.2.11.1410291918060.5308@nanos>
+ <20141029193603.GS12706@worktop.programming.kicks-ass.net>
+ <alpine.DEB.2.11.1410292046270.5308@nanos>
+ <20141029195054.GH10501@worktop.programming.kicks-ass.net>
+ <alpine.DEB.2.11.1410292053430.5308@nanos>
+ <alpine.DEB.2.11.1410292119350.5308@nanos>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
 Cc: Sabrina Dubroca <sd@queasysnail.net>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, jeffrey.t.kirsher@intel.com
-To: Peter Zijlstra <peterz@infradead.org>
+To: Thomas Gleixner <tglx@linutronix.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.11.1410292053430.5308@nanos>
+Content-Disposition: inline
+In-Reply-To: <alpine.DEB.2.11.1410292119350.5308@nanos>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 29 Oct 2014, Thomas Gleixner wrote:
-> On Wed, 29 Oct 2014, Peter Zijlstra wrote:
+On Wed, Oct 29, 2014 at 09:23:42PM +0100, Thomas Gleixner wrote:
+> But at least it allows to mitigate the impact by making it conditional
+> at a central point.
 > 
-> > On Wed, Oct 29, 2014 at 08:49:03PM +0100, Thomas Gleixner wrote:
-> > > On Wed, 29 Oct 2014, Peter Zijlstra wrote:
-> > > 
-> > > > On Wed, Oct 29, 2014 at 07:33:00PM +0100, Thomas Gleixner wrote:
-> > > > > Yuck. No. You are just papering over the problem.
-> > > > > 
-> > > > > What happens if you add 'threadirqs' to the kernel command line? Or if
-> > > > > the interrupt line is shared with a real threaded interrupt user?
-> > > > > 
-> > > > > The proper solution is to have a poll_lock for e1000 which serializes
-> > > > > the hardware interrupt against netpoll instead of using
-> > > > > disable/enable_irq().
-> > > > > 
-> > > > > In fact that's less expensive than the disable/enable_irq() dance and
-> > > > > the chance of contention is pretty low. If done right it will be a
-> > > > > NOOP for the CONFIG_NET_POLL_CONTROLLER=n case.
-> > > > > 
-> > > > 
-> > > > OK a little something like so then I suppose.. But I suspect most all
-> > > > the network drivers will need this and maybe more, disable_irq() is a
-> > > > popular little thing and we 'just' changed semantics on them.
-> > > 
-> > > We changed that almost 4 years ago :) What we 'just' did was to add a
-> > > prominent warning into the code.
-> > 
-> > You know that is the same right... they didn't know it was broken
-> > therefore it wasn't :-), but now they need to go actually do stuff about
-> > it, an entirely different proposition.
-> 
-> Right, and of course the world and some more has the very same code
-> there:
-> 
-> poll_controller()
+> static inline void netpoll_lock(struct net_device *nd)
 > {
-> 	disable_irq();
-> 	dev_interrupt_handler();
-> 	enable_irq();
+> 	if (netpoll_active(nd))
+> 		spin_lock(&nd->netpoll_lock);
 > }
+
+branch fail vs lock might be a toss on most machines, but if we're
+hitting cold cachelines we loose big.
+
+> and let the core code make sure that activation/deactivation of
+> netpoll on a particular interface is serialized against the interrupt
+> and netpoll calls.
 > 
-> Trying to twist my brain to come up with a solution which avoids the
-> spinlock, but I have a hard time to come up with one.
-> 
-> The only thing I came up with so far is to avoid adding locks to every
-> driver incarnation and instead put it into struct net_device and
-> provide helper functions for the lock/unlock case.
-> 
-> That does not change the fact that we need to deal with that on a per
-> driver basis :(
+> Not sure if it's worth the trouble, but at least it allows to deal
+> with it in the core instead of dealing with it on a per driver base.
 
-But at least it allows to mitigate the impact by making it conditional
-at a central point.
-
-static inline void netpoll_lock(struct net_device *nd)
-{
-	if (netpoll_active(nd))
-		spin_lock(&nd->netpoll_lock);
-}
-
-and let the core code make sure that activation/deactivation of
-netpoll on a particular interface is serialized against the interrupt
-and netpoll calls.
-
-Not sure if it's worth the trouble, but at least it allows to deal
-with it in the core instead of dealing with it on a per driver base.
-
-Thanks,
-
-	tglx
+Does multi-queue have one netdev per queue or does that need moar
+logicz?
