@@ -1,81 +1,69 @@
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: Re: [RFC] use smp_load_acquire()/smp_store_release()
-Date: Wed, 29 Oct 2014 14:13:51 -0700
-Message-ID: <5451588F.6020505@redhat.com>
-References: <1414594159.631.85.camel@edumazet-glaptop2.roam.corp.google.com>	 <545112E0.40106@redhat.com> <1414610868.2420.52.camel@jtkirshe-mobl> <1414612620.631.98.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: [PATCH v3 00/15] net: dsa: Fixes and enhancements
+Date: Wed, 29 Oct 2014 14:39:28 -0700
+Message-ID: <20141029213928.GA28498@roeck-us.net>
+References: <1414604707-22407-1-git-send-email-linux@roeck-us.net>
+ <5451305B.7010303@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Andrew Lunn <andrew@lunn.ch>, linux-kernel@vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46622 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756291AbaJ2VNz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Oct 2014 17:13:55 -0400
-In-Reply-To: <1414612620.631.98.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from bh-25.webhostbox.net ([208.91.199.152]:50018 "EHLO
+	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755312AbaJ2Vje (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2014 17:39:34 -0400
+Received: from mailnull by bh-25.webhostbox.net with sa-checked (Exim 4.82)
+	(envelope-from <linux@roeck-us.net>)
+	id 1Xjaxp-003m7v-6i
+	for netdev@vger.kernel.org; Wed, 29 Oct 2014 21:39:33 +0000
+Content-Disposition: inline
+In-Reply-To: <5451305B.7010303@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, Oct 29, 2014 at 11:22:19AM -0700, Florian Fainelli wrote:
+> On 10/29/2014 10:44 AM, Guenter Roeck wrote:
+> > Patch 01/15 addresses a bug indicated by an an annoying and unhelpful
+> > log message.
+> > 
+> > Patches 02/15 and 03/15 are minor enhancements, adding support for
+> > known switch revisions.
+> > 
+> > Patches 04/15 and 05/15 add support for MV88E6352 and MV88E6176.
+> > 
+> > Patch 06/15 adds support for hardware monitoring, specifically for
+> > reporting the chip temperature, to the dsa subsystem.
+> > 
+> > Patches 07/15 and 08/15 implement hardware monitoring for MV88E6352,
+> > MV88E6176, MV88E6123, MV88E6161, and MV88E6165.
+> > 
+> > Patch 09/15 and 10/15 add support for EEPROM access to the DSA subsystem.
+> > 
+> > Patch 11/15 implements EEPROM access for MV88E6352 and MV88E6176.
+> > 
+> > Patch 12/15 adds support for reading switch registers to the DSA
+> > subsystem.
+> > 
+> > Patches 13/15 amd 14/15 implement support for reading switch registers
+> > to the drivers for MV88E6352, MV88E6176, MV88E6123, MV88E6161, and MV88E6165.
+> > 
+> > Patch 15/15 adds support for reading additional RMON registers to the drivers
+> > for  MV88E6352, MV88E6176, MV88E6123, MV88E6161, and MV88E6165.
+> > 
+> > The series was tested on top of v3.18-rc2 in an x86 system with MV88E6352.
+> > Testing in systems with 88E6131, 88E6060 and MV88E6165 was done earlier
+> > (I don't have access to those systems right now). The series was also build
+> > tested using my build system at http://server.roeck-us.net:8010/builders.
+> > Look into the 'dsa' column for build results.
+> > 
+> > The series merges cleanly into net-next as of today (10/29).
+> 
+> Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+> 
+> Thanks Guenter!
+> 
+Thanks a lot for the review!
 
-On 10/29/2014 12:57 PM, Eric Dumazet wrote:
-> On Wed, 2014-10-29 at 12:27 -0700, Jeff Kirsher wrote:
->> On Wed, 2014-10-29 at 09:16 -0700, Alexander Duyck wrote:
->>> On 10/29/2014 07:49 AM, Eric Dumazet wrote:
->>>> Hi Alexander
->>>>
->>>> The memory barriers added in commit
->>>> b37c0fbe3f6dfba1f8ad2aed47fb40578a254635
->>>> ("net: Add memory barriers to prevent possible race in byte queue
->>>> limits")
->>>>
->>>> have heavy cost.
->>>>
->>>> It seems we could use smp_load_acquire() and smp_store_release()
->>>> instead ?
->>>>
->>>> I'll post a patch later today. I would be interested if someone wa=
-s able
->>>> to test it, as your commit apparently was tested and known to fix =
-a
->>>> reproducible race.
->>>>
->>>> Thanks !
->> Eric- just CC me on the patch you post and I will see what I can do
->> about getting validation eyes on it.
-> Thanks guys, will do, and will CC Paul as well.
->
-> Alexander, here is the following profile showing the cost of the
-> 'mfence', in a typical rpc workload (a lot of IRQ are generated for T=
-X
-> completions, because RPC tend to send small packets)
->
->    0.11 =E2=94=82       je     33a
->         =E2=94=82       mov    -0x3c(%rbp),%esi
->    0.06 =E2=94=82       lea    0xc0(%rbx),%rdi
->    0.06 =E2=94=82       callq  dql_completed
->    0.06 =E2=94=82       mfence
->   38.68 =E2=94=82       mov    0xc4(%rbx),%edx
->    1.83 =E2=94=82       mov    0xc0(%rbx),%eax
->         =E2=94=82       cmp    %eax,%edx
->    0.22 =E2=94=82       js     333
->    0.11 =E2=94=82       lock   btrl $0x1,0x98(%rbx)
-
-It might be worthwhile to see if it would be possible to combine BQL=20
-with the mechanism the drivers have for handling descriptors/packets. =20
-Otherwise you are going to be pulling one barrier just to hit another=20
-right after it.
-
-Also depending on what driver it is that the trace is from you may want=
-=20
-to check and see if you have any MMIO transactions occurring right=20
-before you make the call, otherwise that may be the actual cause for th=
-e=20
-significant cost as you are having to flush non-coherent memory before=20
-you can resume operation.
-
-Thanks,
-
-Alex
+Guenter
