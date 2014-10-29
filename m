@@ -1,37 +1,66 @@
-From: Emmanuel Grumbach <egrumbach@gmail.com>
-Subject: Re: [patch] iwlwifi: cleanup a mask shift in iwlagn_bt_traffic_is_sco()
-Date: Wed, 29 Oct 2014 18:16:18 +0200
-Message-ID: <CANUX_P1QCfB5JXptesgzqNtBFjGmzmTxNO=Z6sSZup373w-DAw@mail.gmail.com>
-References: <20141029160827.GD5290@mwanda>
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Subject: Re: [RFC] use smp_load_acquire()/smp_store_release()
+Date: Wed, 29 Oct 2014 09:16:32 -0700
+Message-ID: <545112E0.40106@redhat.com>
+References: <1414594159.631.85.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Johannes Berg <johannes.berg@intel.com>,
-	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
-	Intel Linux Wireless <ilw@linux.intel.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141029160827.GD5290@mwanda>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, jeffrey.t.kirsher@intel.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:49108 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932994AbaJ2QQf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Oct 2014 12:16:35 -0400
+In-Reply-To: <1414594159.631.85.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 29, 2014 at 6:08 PM, Dan Carpenter <dan.carpenter@oracle.com> wrote:
-> The shift operation is higher precedence so the code is wrong and it
-> sets of a static checker warning.  But it doesn't affect real life
-> because BT_UART_MSG_FRAME3SCOESCO_POS is zero so the shift is a no-op.
->
-> I have re-written it in normal style and with parenthesis as a cleanup
-> and to silence the static checker warning.
->
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
->
 
-In my tree already - I got it from Joe.
+On 10/29/2014 07:49 AM, Eric Dumazet wrote:
+> Hi Alexander
+>
+> The memory barriers added in commit
+> b37c0fbe3f6dfba1f8ad2aed47fb40578a254635
+> ("net: Add memory barriers to prevent possible race in byte queue
+> limits")
+>
+> have heavy cost.
+>
+> It seems we could use smp_load_acquire() and smp_store_release()
+> instead ?
+>
+> I'll post a patch later today. I would be interested if someone was able
+> to test it, as your commit apparently was tested and known to fix a
+> reproducible race.
+>
+> Thanks !
 
-https://git.kernel.org/cgit/linux/kernel/git/iwlwifi/iwlwifi-next.git/commit/?id=50f6635afe565a0e1c5ab78f040294fe1dc41de0
+Unfortunately Stephen left Intel before I did, so we will need to find 
+someone else in the validation team to test this if possible. I have 
+added Jeff to the CC so that he can give the appropriate validation 
+people a heads up that this patch might be coming.
+
+As I recall what was seen was random Tx hangs on systems with the 
+original BQL code when interfaces were stressed.  It has been a while so 
+I don't recall the exact set-up for all of it.  Also some less 
+used/tested architectures such as PowerPC can be more susceptible to 
+synchronization issues such as these as the memory model is more weakly 
+ordered.
+
+I'm wondering where you are seeing the barrier show up?  In 
+netdev_tx_send_queue you should only hit the barrier if you actually are 
+triggering the XOFF condition, and in netdev_tx_completed_queue the 
+barrier should be coalesced in amongst a number of frames reducing the cost.
+
+My concern with this would be that we are actually syncronizing multiple 
+things, the __QUEUE_STATE_STACK_XOFF flag, dql->adj_limit, and 
+dql->num_queued, and we might be trading off reducing the cost on x86 to 
+result in it being increased on other architectures as we may have to 
+actually add additional synchronization as I suspect we would need to 
+use acquire/release on both adj_limit and num_queued.
+
+Thanks,
+
+Alex
