@@ -1,7 +1,7 @@
 From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net 3/3] r8152: check WORK_ENABLE in suspend function
-Date: Wed, 29 Oct 2014 11:12:17 +0800
-Message-ID: <1394712342-15778-72-Taiwan-albertk@realtek.com>
+Subject: [PATCH net 1/3] r8152: clear SELECTIVE_SUSPEND when autoresuming
+Date: Wed, 29 Oct 2014 11:12:15 +0800
+Message-ID: <1394712342-15778-70-Taiwan-albertk@realtek.com>
 References: <1394712342-15778-69-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,26 +13,43 @@ In-Reply-To: <1394712342-15778-69-Taiwan-albertk@realtek.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Avoid unnecessary behavior when autosuspend occurs during open().
-The relative processes should only be run after finishing open().
+The flag of SELECTIVE_SUSPEND should be cleared when autoresuming.
+Otherwise, when the system suspend and resume occur, it may have
+the wrong flow.
+
+Besides, because the flag of SELECTIVE_SUSPEND couldn't be used
+to check if the hw enables the relative feature, it should alwayes
+be disabled in close().
 
 Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 ---
- drivers/net/usb/r8152.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/usb/r8152.c | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index f224231..ca3c5d5 100644
+index e3d84c3..a17ca58 100644
 --- a/drivers/net/usb/r8152.c
 +++ b/drivers/net/usb/r8152.c
-@@ -3207,7 +3207,7 @@ static int rtl8152_suspend(struct usb_interface *intf, pm_message_t message)
- 		netif_device_detach(netdev);
+@@ -2955,10 +2955,7 @@ static int rtl8152_close(struct net_device *netdev)
+ 		 * be disable when autoresume occurs, because the
+ 		 * netif_running() would be false.
+ 		 */
+-		if (test_bit(SELECTIVE_SUSPEND, &tp->flags)) {
+-			rtl_runtime_suspend_enable(tp, false);
+-			clear_bit(SELECTIVE_SUSPEND, &tp->flags);
+-		}
++		rtl_runtime_suspend_enable(tp, false);
+ 
+ 		tasklet_disable(&tp->tl);
+ 		tp->rtl_ops.down(tp);
+@@ -3253,6 +3250,8 @@ static int rtl8152_resume(struct usb_interface *intf)
+ 			set_bit(WORK_ENABLE, &tp->flags);
+ 		}
+ 		usb_submit_urb(tp->intr_urb, GFP_KERNEL);
++	} else if (test_bit(SELECTIVE_SUSPEND, &tp->flags)) {
++		clear_bit(SELECTIVE_SUSPEND, &tp->flags);
  	}
  
--	if (netif_running(netdev)) {
-+	if (netif_running(netdev) && test_bit(WORK_ENABLE, &tp->flags)) {
- 		clear_bit(WORK_ENABLE, &tp->flags);
- 		usb_kill_urb(tp->intr_urb);
- 		tasklet_disable(&tp->tl);
+ 	mutex_unlock(&tp->control);
 -- 
 1.9.3
