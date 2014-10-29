@@ -1,144 +1,135 @@
-From: "Alexey Andriyanov" <alan@al-an.info>
-Subject: [PATCH v2] ip6_tunnel: allow to change mode for the ip6tnl0
-Date: Wed, 29 Oct 2014 10:54:52 +0300
-Message-ID: <1414569292-15384-1-git-send-email-alan@al-an.info>
-References: <1414563898-10347-1-git-send-email-alan@al-an.info>
-Cc: Alexey Andriyanov <alan@al-an.info>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>
-To: netdev@vger.kernel.org
+From: Pierre Pfister <pierre@darou.fr>
+Subject: Re: ipv6 mld: packets are not looped back to/from kernel/querier
+Date: Wed, 29 Oct 2014 09:14:11 +0100
+Message-ID: <4F039FC5-0FE5-4944-8371-75F927B185C6@darou.fr>
+References: <CFCF0BD4-80F5-48B1-AA03-D0066DEC6B11@darou.fr> <544FDDA7.8020007@redhat.com>
+Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.6\))
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, liuhangbin@gmail.com
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from forward10l.mail.yandex.net ([84.201.143.143]:38367 "EHLO
-	forward10l.mail.yandex.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755830AbaJ2HzJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2014 03:55:09 -0400
-In-Reply-To: <1414563898-10347-1-git-send-email-alan@al-an.info>
+Received: from mx1.polytechnique.org ([129.104.30.34]:37808 "EHLO
+	mx1.polytechnique.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932102AbaJ2IWl convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2014 04:22:41 -0400
+In-Reply-To: <544FDDA7.8020007@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The fallback device is in ipv6 mode by default.
-The mode can not be changed in runtime, so there
-is no way to decapsulate ip4in6 packets coming from
-various sources without creating the specific tunnel
-ifaces for each peer.
+Thanks for the quick answer,
 
-This allows to update the fallback tunnel device, but only
-the mode could be changed. Usual command should work for the
-fallback device: `ip -6 tun change ip6tnl0 mode any`
+See inline,
 
-The fallback device can not be hidden from the packet receiver
-as a regular tunnel, but there is no need for synchronization
-as long as we do single assignment.
+Le 28 oct. 2014 =E0 19:17, Daniel Borkmann <dborkman@redhat.com> a =E9c=
+rit :
 
-Cc: David S. Miller <davem@davemloft.net>
-Cc: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Alexey Andriyanov <alan@al-an.info>
----
- net/ipv6/ip6_tunnel.c | 32 +++++++++++++++++++++++++-------
- 1 file changed, 25 insertions(+), 7 deletions(-)
+> On 10/28/2014 05:32 PM, Pierre Pfister wrote:
+>> Hello,
+>>=20
+>> I=92m implementing a dual-stack multicast querier (IGMPv3 and MLDv2)=
+ along with the PIM protocol.
+>> So I=92ve got two multicast sockets, one for each protocol.
+>>=20
+>> I open the two sockets like this:
+>>=20
+>> =97=97=97=97=97=97=97=97=97=97=97=97=97=97=97=97=97=97
+>> fd =3D socket(AF_INET, SOCK_RAW, IPPROTO_IGMP);
+>> val =3D 1;
+>> setsockopt(fd, IPPROTO_IP, MRT_INIT, &val, sizeof(val));
+>> setsockopt(fd, IPPROTO_IP, IP_PKTINFO, &val, sizeof(val));
+>> setsockopt(fd, IPPROTO_IP, IP_MULTICAST_TTL, &val, sizeof(val));
+>> val =3D 0xc0;
+>> setsockopt(fd, IPPROTO_IP, IP_TOS, &val, sizeof(val));
+>> setsockopt(fd, IPPROTO_IP, IP_OPTIONS, &ipv4_rtr_alert, sizeof(ipv4_=
+rtr_alert))
+>>=20
+>> fd =3D socket(AF_INET6, SOCK_RAW, IPPROTO_ICMPV6);
+>> val =3D 1;
+>> setsockopt(fd, IPPROTO_IPV6, MRT6_INIT, &val, sizeof(val));
+>> setsockopt(fd, IPPROTO_IPV6, IPV6_RECVHOPOPTS, &val, sizeof(val));
+>> setsockopt(fd, IPPROTO_IPV6, IPV6_RECVHOPLIMIT, &val, sizeof(val));
+>> setsockopt(fd, IPPROTO_IPV6, IPV6_MULTICAST_HOPS, &val, sizeof(val))=
+;
+>> val =3D 2;
+>> setsockopt(fd, IPPROTO_RAW, IPV6_CHECKSUM, &val, sizeof(val));
+>> setsockopt(fd, IPPROTO_IPV6, IPV6_HOPOPTS, &ipv6_rtr_alert, sizeof(i=
+pv6_rtr_alert));
+>=20
+> What kernel are you using? How do you setup ipv6_rtr_alert here?
+>=20
+> For inbound queries in IPv6, the kernel might be more picky after
+> [correct] commit e940f5d6ba6a ("ipv6: Fix MLD Query message check"),
+> so you need to make sure you have hop limit of 1 and a proper set
+> up RA option =85
 
-diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
-index 9409887..8c97cd1 100644
---- a/net/ipv6/ip6_tunnel.c
-+++ b/net/ipv6/ip6_tunnel.c
-@@ -477,6 +477,7 @@ ip6_tnl_err(struct sk_buff *skb, __u8 ipproto, struct inet6_skb_parm *opt,
- 	int rel_msg = 0;
- 	u8 rel_type = ICMPV6_DEST_UNREACH;
- 	u8 rel_code = ICMPV6_ADDR_UNREACH;
-+	u8 tproto;
- 	__u32 rel_info = 0;
- 	__u16 len;
- 	int err = -ENOENT;
-@@ -490,7 +491,8 @@ ip6_tnl_err(struct sk_buff *skb, __u8 ipproto, struct inet6_skb_parm *opt,
- 					&ipv6h->saddr)) == NULL)
- 		goto out;
- 
--	if (t->parms.proto != ipproto && t->parms.proto != 0)
-+	tproto = ACCESS_ONCE(t->parms.proto);
-+	if (tproto != ipproto && tproto != 0)
- 		goto out;
- 
- 	err = 0;
-@@ -791,6 +793,7 @@ static int ip6_tnl_rcv(struct sk_buff *skb, __u16 protocol,
- {
- 	struct ip6_tnl *t;
- 	const struct ipv6hdr *ipv6h = ipv6_hdr(skb);
-+	u8 tproto;
- 	int err;
- 
- 	rcu_read_lock();
-@@ -799,7 +802,8 @@ static int ip6_tnl_rcv(struct sk_buff *skb, __u16 protocol,
- 					&ipv6h->daddr)) != NULL) {
- 		struct pcpu_sw_netstats *tstats;
- 
--		if (t->parms.proto != ipproto && t->parms.proto != 0) {
-+		tproto = ACCESS_ONCE(t->parms.proto);
-+		if (tproto != ipproto && tproto != 0) {
- 			rcu_read_unlock();
- 			goto discard;
- 		}
-@@ -1078,9 +1082,11 @@ ip4ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
- 	struct flowi6 fl6;
- 	__u8 dsfield;
- 	__u32 mtu;
-+	u8 tproto;
- 	int err;
- 
--	if ((t->parms.proto != IPPROTO_IPIP && t->parms.proto != 0) ||
-+	tproto = ACCESS_ONCE(t->parms.proto);
-+	if ((tproto != IPPROTO_IPIP && tproto != 0) ||
- 	    !ip6_tnl_xmit_ctl(t))
- 		return -1;
- 
-@@ -1120,9 +1126,11 @@ ip6ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
- 	struct flowi6 fl6;
- 	__u8 dsfield;
- 	__u32 mtu;
-+	u8 tproto;
- 	int err;
- 
--	if ((t->parms.proto != IPPROTO_IPV6 && t->parms.proto != 0) ||
-+	tproto = ACCESS_ONCE(t->parms.proto);
-+	if ((tproto != IPPROTO_IPV6 && tproto != 0) ||
- 	    !ip6_tnl_xmit_ctl(t) || ip6_tnl_addr_conflict(t, ipv6h))
- 		return -1;
- 
-@@ -1285,6 +1293,14 @@ static int ip6_tnl_update(struct ip6_tnl *t, struct __ip6_tnl_parm *p)
- 	return err;
- }
- 
-+static int ip6_tnl0_update(struct ip6_tnl *t, struct __ip6_tnl_parm *p)
-+{
-+	/* for default tnl0 device allow to change only the proto */
-+	t->parms.proto = p->proto;
-+	netdev_state_change(t->dev);
-+	return 0;
-+}
-+
- static void
- ip6_tnl_parm_from_user(struct __ip6_tnl_parm *p, const struct ip6_tnl_parm *u)
- {
-@@ -1384,7 +1400,7 @@ ip6_tnl_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- 			break;
- 		ip6_tnl_parm_from_user(&p1, &p);
- 		t = ip6_tnl_locate(net, &p1, cmd == SIOCADDTUNNEL);
--		if (dev != ip6n->fb_tnl_dev && cmd == SIOCCHGTUNNEL) {
-+		if (cmd == SIOCCHGTUNNEL) {
- 			if (t != NULL) {
- 				if (t->dev != dev) {
- 					err = -EEXIST;
-@@ -1392,8 +1408,10 @@ ip6_tnl_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- 				}
- 			} else
- 				t = netdev_priv(dev);
--
--			err = ip6_tnl_update(t, &p1);
-+			if (dev == ip6n->fb_tnl_dev)
-+				err = ip6_tnl0_update(t, &p1);
-+			else
-+				err = ip6_tnl_update(t, &p1);
- 		}
- 		if (t) {
- 			err = 0;
--- 
-1.9.1
+I can reproduce the problem with both 3.10.28 and 3.14-0. I will try to=
+ try a later version.
+I don=92t think the packet itself can be a problem as other routers cor=
+rectly receive it.
+The problem comes with loopbacking to kernel and userspace (Depending w=
+hether the kernel or querier sent it).
+
+Here is the router alert struct.
+static struct {
+	struct ip6_hbh hdr;
+	struct ip6_opt_router rt;
+	uint8_t pad[2];
+} ipv6_rtr_alert =3D {
+	.hdr =3D {0, 0},
+	.rt =3D {IP6OPT_ROUTER_ALERT, 2, {0, IP6_ALERT_MLD}},
+	.pad =3D {0, 0}
+}
+
+I also checked what that commit checks (wiresharked), and everything se=
+ems correct.
+
+Thanks,
+
+- Pierre
+
+
+
+>=20
+>> struct icmp6_filter flt;
+>> ICMP6_FILTER_SETBLOCKALL(&flt);
+>> ICMP6_FILTER_SETPASS(ICMPV6_MGM_QUERY, &flt);
+>> ICMP6_FILTER_SETPASS(ICMPV6_MGM_REPORT, &flt);
+>> ICMP6_FILTER_SETPASS(ICMPV6_MGM_REDUCTION, &flt);
+>> ICMP6_FILTER_SETPASS(ICMPV6_MLD2_REPORT, &flt);
+>> setsockopt(fd, IPPROTO_ICMPV6, ICMP6_FILTER, &flt, sizeof(flt));
+>> =97=97=97=97=97=97=97=97=97=97=97=97=97=97=97=97=97=97=97=97=97=97
+>>=20
+>> I=92ve got two issues with the IPv6 socket.
+>> When I send an MLD query, it is sent on the wire, but the kernel doe=
+sn=92t interpret it (It doesn=92t send MLD Reports as reply).
+>> Similarly, when the kernel sends a Report, my MLD Querier socket doe=
+sn=92t receive the message.
+>>=20
+>> The resulting problem is that everything works fine as long as the r=
+outer doesn=92t want to join a group. When it does, my Querier can=92t =
+know it, and the kernel doesn=92t reply to Querier=92s requests.
+>>=20
+>> It works well in IPv4.
+>>=20
+>> I tried removing the ICMPV6 filter as well as using IPV6_MULTICAST_L=
+OOP.
+>>=20
+>> Am I doing something wrong or is it an actual bug ?
+>> If you need more information, please ask.
+>>=20
+>> Thanks,
+>>=20
+>>=20
+>> Pierre
+>>=20
+>>=20
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>=20
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
