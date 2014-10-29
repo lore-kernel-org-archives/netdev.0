@@ -1,114 +1,47 @@
-From: Dong Aisheng <b29396@freescale.com>
-Subject: [PATCH 1/7] can: m_can: fix possible sleep in napi poll
-Date: Wed, 29 Oct 2014 18:45:21 +0800
-Message-ID: <1414579527-31100-1-git-send-email-b29396@freescale.com>
+From: Stanislaw Gruszka <sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH] wireless: rt2x00: add new rt2800usb
+	device
+Date: Wed, 29 Oct 2014 12:48:46 +0100
+Message-ID: <20141029114846.GC2021@redhat.com>
+References: <1414510961-28920-1-git-send-email-kibi@debian.org>
+	<20141029110214.GB2021@redhat.com>
+	<20141029111224.GC29720@mraw.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <mkl@pengutronix.de>, <wg@grandegger.com>,
-	<varkabhadram@gmail.com>, <netdev@vger.kernel.org>,
-	<socketcan@hartkopp.net>, <b29396@freescale.com>,
-	<linux-arm-kernel@lists.infradead.org>
-To: <linux-can@vger.kernel.org>
-Return-path: <linux-can-owner@vger.kernel.org>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	users-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Cyril Brulebois <kibi-8fiUuRrzOP0dnm+yROfE0A@public.gmane.org>
+Return-path: <users-bounces-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20141029111224.GC29720-xazfMhTT2R0@public.gmane.org>
+List-Unsubscribe: <http://rt2x00.serialmonkey.com/mailman/options/users_rt2x00.serialmonkey.com>,
+	<mailto:users-request-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://rt2x00.serialmonkey.com/pipermail/users_rt2x00.serialmonkey.com/>
+List-Post: <mailto:users-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org>
+List-Help: <mailto:users-request-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org?subject=help>
+List-Subscribe: <http://rt2x00.serialmonkey.com/mailman/listinfo/users_rt2x00.serialmonkey.com>,
+	<mailto:users-request-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org?subject=subscribe>
+Errors-To: users-bounces-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org
+Sender: "users" <users-bounces-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-The m_can_get_berr_counter function can sleep and it may be called in napi poll function.
-Rework it to fix the following warning.
-root@imx6qdlsolo:~# cangen can0 -f -L 12 -D 112233445566778899001122
-[ 1846.017565] m_can 20e8000.can can0: entered error warning state
-[ 1846.023551] ------------[ cut here ]------------
-[ 1846.028216] WARNING: CPU: 0 PID: 560 at kernel/locking/mutex.c:867 mutex_trylock+0x218/0x23c()
-[ 1846.036889] DEBUG_LOCKS_WARN_ON(in_interrupt())
-[ 1846.041263] Modules linked in:
-[ 1846.044594] CPU: 0 PID: 560 Comm: cangen Not tainted 3.17.0-rc4-next-20140915-00010-g032d018-dirty #477
-[ 1846.054033] Backtrace:
-[ 1846.056557] [<80012448>] (dump_backtrace) from [<80012728>] (show_stack+0x18/0x1c)
-[ 1846.064180]  r6:809a07ec r5:809a07ec r4:00000000 r3:00000000
-[ 1846.069966] [<80012710>] (show_stack) from [<806c9ee0>] (dump_stack+0x8c/0xa4)
-[ 1846.077264] [<806c9e54>] (dump_stack) from [<8002aa78>] (warn_slowpath_common+0x70/0x94)
-[ 1846.085403]  r6:806cd1b0 r5:00000009 r4:be1d5c20 r3:be07b0c0
-[ 1846.091204] [<8002aa08>] (warn_slowpath_common) from [<8002aad4>] (warn_slowpath_fmt+0x38/0x40)
-[ 1846.099951]  r8:8119106c r7:80515aa4 r6:be027000 r5:00000001 r4:809d1df4
-[ 1846.106830] [<8002aaa0>] (warn_slowpath_fmt) from [<806cd1b0>] (mutex_trylock+0x218/0x23c)
-[ 1846.115141]  r3:80851c88 r2:8084fb74
-[ 1846.118804] [<806ccf98>] (mutex_trylock) from [<80515aa4>] (clk_prepare_lock+0x14/0xf4)
-[ 1846.126859]  r8:00000040 r7:be1d5cec r6:be027000 r5:be255800 r4:be027000
-[ 1846.133737] [<80515a90>] (clk_prepare_lock) from [<80517660>] (clk_prepare+0x14/0x2c)
-[ 1846.141583]  r5:be255800 r4:be027000
-[ 1846.145272] [<8051764c>] (clk_prepare) from [<8041ff14>] (m_can_get_berr_counter+0x20/0xd4)
-[ 1846.153672]  r4:be255800 r3:be07b0c0
-[ 1846.157325] [<8041fef4>] (m_can_get_berr_counter) from [<80420428>] (m_can_poll+0x310/0x8fc)
-[ 1846.165809]  r7:bd4dc540 r6:00000744 r5:11300000 r4:be255800
-[ 1846.171590] [<80420118>] (m_can_poll) from [<8056a468>] (net_rx_action+0xcc/0x1b4)
-[ 1846.179204]  r10:00000101 r9:be255ebc r8:00000040 r7:be7c3208 r6:8097c100 r5:be7c3200
-[ 1846.187192]  r4:0000012c
-[ 1846.189779] [<8056a39c>] (net_rx_action) from [<8002deec>] (__do_softirq+0xfc/0x2c4)
-[ 1846.197568]  r10:00000101 r9:8097c088 r8:00000003 r7:8097c080 r6:40000001 r5:8097c08c
-[ 1846.205559]  r4:00000020
-[ 1846.208144] [<8002ddf0>] (__do_softirq) from [<8002e194>] (do_softirq+0x7c/0x88)
-[ 1846.215588]  r10:00000000 r9:bd516a60 r8:be18ce00 r7:00000000 r6:be255800 r5:8056c0ec
-[ 1846.223578]  r4:60000093
-[ 1846.226163] [<8002e118>] (do_softirq) from [<8002e288>] (__local_bh_enable_ip+0xe8/0x10c)
-[ 1846.234386]  r4:00000200 r3:be1d4000
-[ 1846.238036] [<8002e1a0>] (__local_bh_enable_ip) from [<8056c108>] (__dev_queue_xmit+0x314/0x6b0)
-[ 1846.246868]  r6:be255800 r5:bd516a00 r4:00000000 r3:be07b0c0
-[ 1846.252645] [<8056bdf4>] (__dev_queue_xmit) from [<8056c4b8>] (dev_queue_xmit+0x14/0x18)
+On Wed, Oct 29, 2014 at 12:12:24PM +0100, Cyril Brulebois wrote:
+> Stanislaw Gruszka <sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> (2014-10-29):
+> > On Tue, Oct 28, 2014 at 04:42:41PM +0100, Cyril Brulebois wrote:
+> > > 0x1b75 0xa200 AirLive WN-200USB wireless 11b/g/n dongle
+> > > 
+> > > References: https://bugs.debian.org/766802
+> > > Reported-by: Martin Mokrejs <mmokrejs-08dBlVkRsZWoiTQjSSYKZesEoJ4y9sgM@public.gmane.org>
+> > 
+> > Was this patch tested by reporter? I would rather see Reported-and-tested-by tag :-)
+> 
+> The reporter confirmed the following trick worked:
+> 
+>   # echo rt2800usb >> /etc/modules
+>   # echo 'install rt2800usb /sbin/modprobe --ignore-install rt2800usb $CMDLINE_OPTS && echo 1b75 a200 > /sys/bus/usb/drivers/rt2800usb/new_id' > /etc/modprobe.d/ralink.conf
+>   # modprobe -r rt2800usb ; modprobe rt2800usb
 
-Signed-off-by: Dong Aisheng <b29396@freescale.com>
----
- drivers/net/can/m_can/m_can.c | 20 +++++++++++++++-----
- 1 file changed, 15 insertions(+), 5 deletions(-)
+Ok, that's fine .
 
-diff --git a/drivers/net/can/m_can/m_can.c b/drivers/net/can/m_can/m_can.c
-index 10d571e..8692848 100644
---- a/drivers/net/can/m_can/m_can.c
-+++ b/drivers/net/can/m_can/m_can.c
-@@ -481,11 +481,23 @@ static int m_can_handle_lec_err(struct net_device *dev,
- 	return 1;
- }
- 
-+static int __m_can_get_berr_counter(const struct net_device *dev,
-+				    struct can_berr_counter *bec)
-+{
-+	struct m_can_priv *priv = netdev_priv(dev);
-+	unsigned int ecr;
-+
-+	ecr = m_can_read(priv, M_CAN_ECR);
-+	bec->rxerr = (ecr & ECR_REC_MASK) >> ECR_REC_SHIFT;
-+	bec->txerr = ecr & ECR_TEC_MASK;
-+
-+	return 0;
-+}
-+
- static int m_can_get_berr_counter(const struct net_device *dev,
- 				  struct can_berr_counter *bec)
- {
- 	struct m_can_priv *priv = netdev_priv(dev);
--	unsigned int ecr;
- 	int err;
- 
- 	err = clk_prepare_enable(priv->hclk);
-@@ -498,9 +510,7 @@ static int m_can_get_berr_counter(const struct net_device *dev,
- 		return err;
- 	}
- 
--	ecr = m_can_read(priv, M_CAN_ECR);
--	bec->rxerr = (ecr & ECR_REC_MASK) >> ECR_REC_SHIFT;
--	bec->txerr = ecr & ECR_TEC_MASK;
-+	__m_can_get_berr_counter(dev, bec);
- 
- 	clk_disable_unprepare(priv->cclk);
- 	clk_disable_unprepare(priv->hclk);
-@@ -544,7 +554,7 @@ static int m_can_handle_state_change(struct net_device *dev,
- 	if (unlikely(!skb))
- 		return 0;
- 
--	m_can_get_berr_counter(dev, &bec);
-+	__m_can_get_berr_counter(dev, &bec);
- 
- 	switch (new_state) {
- 	case CAN_STATE_ERROR_ACTIVE:
--- 
-1.9.1
-
+Acked-by: Stanislaw Gruszka <sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
