@@ -1,53 +1,48 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: some failures with vxlan offloads..
-Date: Wed, 29 Oct 2014 07:59:59 -0700
-Message-ID: <CA+mtBx9TCtHgW=TegUgjZ6Se=mP+0CNiNHYmbYHPd1cJJGYoBQ@mail.gmail.com>
-References: <544CF8E3.8070207@mellanox.com>
-	<CA+mtBx-Jp5Kps5WycYwN0PuyXLDtGM0s8USxdQoSLPRDVS19xw@mail.gmail.com>
-	<CAJ3xEMi6UuCT+6iriX02qjS6trhEaoYh39UBL+p_i995MvZc2Q@mail.gmail.com>
-	<CA+mtBx9g6MYpFv83av1YdRpZRBcBKvsqzSnhs5C7iV+kP8cWDA@mail.gmail.com>
-	<544FB5CA.2060003@mellanox.com>
-	<CA+mtBx_ncYrp_fbp8ucXfBaCoPpv_X+TEsmofCnpzTyPPfLXnw@mail.gmail.com>
-	<54508020.1040305@mellanox.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH net-next] net: introduce napi_schedule_irqoff()
+Date: Wed, 29 Oct 2014 08:26:16 -0700
+Message-ID: <CAADnVQLFZopMmFFpu3B-wBT=8vOWG=Oy3PO+pGcykZsfKd3sBg@mail.gmail.com>
+References: <1414544713.631.30.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CAADnVQJ0XD6YmUi_MBpoEgkScxp2ictQepY2YqtvfbXzF=voZQ@mail.gmail.com>
+	<1414553435.631.41.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CAADnVQJVizFA_Tpf0FpyH0uoKZa4TMiBaNPmD_-5Z5+Vg+hV8Q@mail.gmail.com>
+	<1414557621.631.52.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CAADnVQJzk2_Kx=BGpYnNzpQb7OqSZ+KaeKFbUZxJ27WKC+DZww@mail.gmail.com>
+	<1414563627.631.75.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Or Gerlitz <ogerlitz@mellanox.com>
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f182.google.com ([209.85.223.182]:42150 "EHLO
-	mail-ie0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933114AbaJ2PAA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2014 11:00:00 -0400
-Received: by mail-ie0-f182.google.com with SMTP id rd18so3154249iec.27
-        for <netdev@vger.kernel.org>; Wed, 29 Oct 2014 07:59:59 -0700 (PDT)
-In-Reply-To: <54508020.1040305@mellanox.com>
+Received: from mail-qg0-f42.google.com ([209.85.192.42]:48715 "EHLO
+	mail-qg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932962AbaJ2P0e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2014 11:26:34 -0400
+Received: by mail-qg0-f42.google.com with SMTP id i50so1508504qgf.29
+        for <netdev@vger.kernel.org>; Wed, 29 Oct 2014 08:26:33 -0700 (PDT)
+In-Reply-To: <1414563627.631.75.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 28, 2014 at 10:50 PM, Or Gerlitz <ogerlitz@mellanox.com> wrote:
-> On 10/28/2014 5:36 PM, Tom Herbert wrote:
->>>
->>> I wonder if we have another bug somewhere... when both sides were
->>> offloaded,
->>> >it works even with the mlx4 bug, canyou explain that?is it possible that
->>> > the
->>> >GRO stack somehow covers on the bug when both sides are offloaded and
->>> >GRO/VXLAN comes into play?
->>>
->> Look at the receive side. As I mentioned, if the device is returning
->> checksum-unnecessary and setting csum_level to 1 (inner checksum was
->> validated) then stack won't try to verify the outer checksum. So in
->> this case if outer checksum is incorrect nobody complains about it.
+On Tue, Oct 28, 2014 at 11:20 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Tue, 2014-10-28 at 22:13 -0700, Alexei Starovoitov wrote:
 >
+>> tried 50 parallel netperf -t TCP_RR over ixgbe
+>> and perf top were tcp stack bits, qdisc locks and netperf itself.
+>> What do you see?
 >
-> OK, I'll look there. Anything that should worries us at that stack trace I
-> sent in my initial email of this thread, or you think this is related to the
-> mlx4 driver checksum bug?
+> You are kidding right ?
 >
-The trace doesn't seem like it would be related to a checksum bug. Do
-you only see this with offload enabled?
+> If you save 30 nsec ( 2 * 15 nsec) per transaction, and rtt is about 20
+> usec, its a 0.15 % gain. Not bad for a trivial patch.
 
-> Or.
->
->>
->
+agreed.
+I wasn't arguing against the patch at all. Was just curious
+what performance gain we'll see. 0.15% is tiny and some might
+say the code bloat is not worth it, but imo it's a good one. ack.
+
+> Every atomic op we remove/avoid, every irq masking unmasking we remove,
+> every cache line miss or extra bus transaction we remove, TLB miss, is
+> the path for better latency.
+
+yes. We're saying the same thing.
