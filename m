@@ -1,67 +1,38 @@
-From: Dong Aisheng <b29396@freescale.com>
-Subject: [PATCH 7/7] can: m_can: workaround for transmit data less than 4 bytes
-Date: Wed, 29 Oct 2014 18:45:27 +0800
-Message-ID: <1414579527-31100-7-git-send-email-b29396@freescale.com>
-References: <1414579527-31100-1-git-send-email-b29396@freescale.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, varkabhadram@gmail.com, mkl@pengutronix.de,
- linux-arm-kernel@lists.infradead.org, socketcan@hartkopp.net,
- b29396@freescale.com, wg@grandegger.com
-To: <linux-can@vger.kernel.org>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1414579527-31100-1-git-send-email-b29396@freescale.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+From: Fabian Frederick <fabf@skynet.be>
+Subject: [PATCH 1/1 net-next] ipv6: remove assignment in if condition
+Date: Wed, 29 Oct 2014 12:57:51 +0100
+Message-ID: <1414583871-14196-1-git-send-email-fabf@skynet.be>
+Cc: Fabian Frederick <fabf@skynet.be>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We meet an IC issue that we have to write the full 8 bytes (whatever
-value for the second word) in Message RAM to avoid bit error for transmit
-data less than 4 bytes.
+Do assignment before if condition and test !skb like in rawv6_recvmsg()
 
-Without the workaround, we can easily see the following errors:
-root@imx6qdlsolo:~# ip link set can0 up type can bitrate 1000000
-[   66.882520] IPv6: ADDRCONF(NETDEV_CHANGE): can0: link becomes ready
-root@imx6qdlsolo:~# cansend can0 123#112233
-[   66.935640] m_can 20e8000.can can0: Bit Error Uncorrected
-
-Signed-off-by: Dong Aisheng <b29396@freescale.com>
+Signed-off-by: Fabian Frederick <fabf@skynet.be>
 ---
- drivers/net/can/m_can/m_can.c | 11 ++++++++++-
- 1 file changed, 10 insertions(+), 1 deletion(-)
+ net/ipv6/raw.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/can/m_can/m_can.c b/drivers/net/can/m_can/m_can.c
-index 219e0e3..f2d9ebe 100644
---- a/drivers/net/can/m_can/m_can.c
-+++ b/drivers/net/can/m_can/m_can.c
-@@ -1058,10 +1058,19 @@ static netdev_tx_t m_can_start_xmit(struct sk_buff *skb,
- 	m_can_fifo_write(priv, 0, M_CAN_FIFO_ID, id);
- 	m_can_fifo_write(priv, 0, M_CAN_FIFO_DLC, can_len2dlc(cf->len) << 16);
+diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
+index 896af88..075a0fb 100644
+--- a/net/ipv6/raw.c
++++ b/net/ipv6/raw.c
+@@ -548,7 +548,8 @@ static int rawv6_push_pending_frames(struct sock *sk, struct flowi6 *fl6,
+ 	if (!rp->checksum)
+ 		goto send;
  
--	for (i = 0; i < cf->len; i += 4)
-+	for (i = 0; i < cf->len; i += 4) {
- 		m_can_fifo_write(priv, 0, M_CAN_FIFO_DATA(i / 4),
- 				 *(u32 *)(cf->data + i));
+-	if ((skb = skb_peek(&sk->sk_write_queue)) == NULL)
++	skb = skb_peek(&sk->sk_write_queue);
++	if (!skb)
+ 		goto out;
  
-+		/* FIXME: we meet an IC issue that we have to write the full 8
-+		 * bytes (whatever value for the second word) in Message RAM to
-+		 * avoid bit error for transmit data less than 4 bytes
-+		 */
-+		if (cf->len <= 4)
-+			m_can_fifo_write(priv, 0, M_CAN_FIFO_DATA(i / 4 + 1),
-+					 0x0);
-+	}
-+
- 	can_put_echo_skb(skb, dev, 0);
- 
- 	if (priv->can.ctrlmode & CAN_CTRLMODE_FD) {
+ 	offset = rp->offset;
 -- 
-1.9.1
+1.9.3
