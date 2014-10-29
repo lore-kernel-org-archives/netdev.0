@@ -1,7 +1,7 @@
 From: Guenter Roeck <linux@roeck-us.net>
-Subject: [PATCH v3 05/15] net: dsa/mv88e6352: Add support for MV88E6176
-Date: Wed, 29 Oct 2014 10:44:57 -0700
-Message-ID: <1414604707-22407-6-git-send-email-linux@roeck-us.net>
+Subject: [PATCH v3 08/15] net: dsa/mv88e6123_61_65: Report chip temperature
+Date: Wed, 29 Oct 2014 10:45:00 -0700
+Message-ID: <1414604707-22407-9-git-send-email-linux@roeck-us.net>
 References: <1414604707-22407-1-git-send-email-linux@roeck-us.net>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Florian Fainelli <f.fainelli@gmail.com>,
@@ -9,64 +9,138 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	Guenter Roeck <linux@roeck-us.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bh-25.webhostbox.net ([208.91.199.152]:51747 "EHLO
+Received: from bh-25.webhostbox.net ([208.91.199.152]:51774 "EHLO
 	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755741AbaJ2Rp1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2014 13:45:27 -0400
+	with ESMTP id S1755779AbaJ2Rpe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2014 13:45:34 -0400
 Received: from mailnull by bh-25.webhostbox.net with sa-checked (Exim 4.82)
 	(envelope-from <linux@roeck-us.net>)
-	id 1XjXJG-0049NK-UI
-	for netdev@vger.kernel.org; Wed, 29 Oct 2014 17:45:27 +0000
+	id 1XjXJN-0049Rj-Vb
+	for netdev@vger.kernel.org; Wed, 29 Oct 2014 17:45:34 +0000
 In-Reply-To: <1414604707-22407-1-git-send-email-linux@roeck-us.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-MV88E6176 is mostly compatible to MV88E6352 and is documented
-in the same functional specification. Add support for it.
+MV88E6123 and compatible chips support reading the chip temperature
+from PHY register 6:26.
 
 Signed-off-by: Guenter Roeck <linux@roeck-us.net>
 ---
 v3:
 - No change
 v2:
-- No change
+- Make new functionality optional, depending on CONFIG_NET_DSA_HWMON
 
- drivers/net/dsa/Kconfig     | 5 +++--
- drivers/net/dsa/mv88e6352.c | 2 ++
- 2 files changed, 5 insertions(+), 2 deletions(-)
+ drivers/net/dsa/mv88e6123_61_65.c | 68 +++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 66 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/dsa/Kconfig b/drivers/net/dsa/Kconfig
-index 0987c33..2d1a55e 100644
---- a/drivers/net/dsa/Kconfig
-+++ b/drivers/net/dsa/Kconfig
-@@ -46,12 +46,13 @@ config NET_DSA_MV88E6171
- 	  chip.
+diff --git a/drivers/net/dsa/mv88e6123_61_65.c b/drivers/net/dsa/mv88e6123_61_65.c
+index a332c53..9f43c9b 100644
+--- a/drivers/net/dsa/mv88e6123_61_65.c
++++ b/drivers/net/dsa/mv88e6123_61_65.c
+@@ -291,6 +291,54 @@ static int mv88e6123_61_65_setup_port(struct dsa_switch *ds, int p)
+ 	return 0;
+ }
  
- config NET_DSA_MV88E6352
--	tristate "Marvell 88E6352 ethernet switch chip support"
-+	tristate "Marvell 88E6176/88E6352 ethernet switch chip support"
- 	select NET_DSA
- 	select NET_DSA_MV88E6XXX
- 	select NET_DSA_TAG_EDSA
- 	---help---
--	  This enables support for the Marvell 88E6352 ethernet switch chip.
-+	  This enables support for the Marvell 88E6176 and 88E6352 ethernet
-+	  switch chips.
++#ifdef CONFIG_NET_DSA_HWMON
++
++static int  mv88e6123_61_65_get_temp(struct dsa_switch *ds, int *temp)
++{
++	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
++	int ret;
++	int val;
++
++	*temp = 0;
++
++	mutex_lock(&ps->phy_mutex);
++
++	ret = mv88e6xxx_phy_write(ds, 0x0, 0x16, 0x6);
++	if (ret < 0)
++		goto error;
++
++	/* Enable temperature sensor */
++	ret = mv88e6xxx_phy_read(ds, 0x0, 0x1a);
++	if (ret < 0)
++		goto error;
++
++	ret = mv88e6xxx_phy_write(ds, 0x0, 0x1a, ret | (1 << 5));
++	if (ret < 0)
++		goto error;
++
++	/* Wait for temperature to stabilize */
++	usleep_range(10000, 12000);
++
++	val = mv88e6xxx_phy_read(ds, 0x0, 0x1a);
++	if (val < 0) {
++		ret = val;
++		goto error;
++	}
++
++	/* Disable temperature sensor */
++	ret = mv88e6xxx_phy_write(ds, 0x0, 0x1a, ret & ~(1 << 5));
++	if (ret < 0)
++		goto error;
++
++	*temp = ((val & 0x1f) - 5) * 5;
++
++error:
++	mv88e6xxx_phy_write(ds, 0x0, 0x16, 0x0);
++	mutex_unlock(&ps->phy_mutex);
++	return ret;
++}
++#endif /* CONFIG_NET_DSA_HWMON */
++
+ static int mv88e6123_61_65_setup(struct dsa_switch *ds)
+ {
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+@@ -299,6 +347,7 @@ static int mv88e6123_61_65_setup(struct dsa_switch *ds)
  
- config NET_DSA_BCM_SF2
- 	tristate "Broadcom Starfighter 2 Ethernet switch support"
-diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
-index 43a5826..f17364f 100644
---- a/drivers/net/dsa/mv88e6352.c
-+++ b/drivers/net/dsa/mv88e6352.c
-@@ -73,6 +73,8 @@ static char *mv88e6352_probe(struct device *host_dev, int sw_addr)
+ 	mutex_init(&ps->smi_mutex);
+ 	mutex_init(&ps->stats_mutex);
++	mutex_init(&ps->phy_mutex);
  
- 	ret = __mv88e6xxx_reg_read(bus, sw_addr, REG_PORT(0), 0x03);
- 	if (ret >= 0) {
-+		if ((ret & 0xfff0) == 0x1760)
-+			return "Marvell 88E6176";
- 		if (ret == 0x3521)
- 			return "Marvell 88E6352 (A0)";
- 		if (ret == 0x3522)
+ 	ret = mv88e6123_61_65_switch_reset(ds);
+ 	if (ret < 0)
+@@ -329,16 +378,28 @@ static int mv88e6123_61_65_port_to_phy_addr(int port)
+ static int
+ mv88e6123_61_65_phy_read(struct dsa_switch *ds, int port, int regnum)
+ {
++	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+ 	int addr = mv88e6123_61_65_port_to_phy_addr(port);
+-	return mv88e6xxx_phy_read(ds, addr, regnum);
++	int ret;
++
++	mutex_lock(&ps->phy_mutex);
++	ret = mv88e6xxx_phy_read(ds, addr, regnum);
++	mutex_unlock(&ps->phy_mutex);
++	return ret;
+ }
+ 
+ static int
+ mv88e6123_61_65_phy_write(struct dsa_switch *ds,
+ 			      int port, int regnum, u16 val)
+ {
++	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+ 	int addr = mv88e6123_61_65_port_to_phy_addr(port);
+-	return mv88e6xxx_phy_write(ds, addr, regnum, val);
++	int ret;
++
++	mutex_lock(&ps->phy_mutex);
++	ret = mv88e6xxx_phy_write(ds, addr, regnum, val);
++	mutex_unlock(&ps->phy_mutex);
++	return ret;
+ }
+ 
+ static struct mv88e6xxx_hw_stat mv88e6123_61_65_hw_stats[] = {
+@@ -406,6 +467,9 @@ struct dsa_switch_driver mv88e6123_61_65_switch_driver = {
+ 	.get_strings		= mv88e6123_61_65_get_strings,
+ 	.get_ethtool_stats	= mv88e6123_61_65_get_ethtool_stats,
+ 	.get_sset_count		= mv88e6123_61_65_get_sset_count,
++#ifdef CONFIG_NET_DSA_HWMON
++	.get_temp		= mv88e6123_61_65_get_temp,
++#endif
+ };
+ 
+ MODULE_ALIAS("platform:mv88e6123");
 -- 
 1.9.1
