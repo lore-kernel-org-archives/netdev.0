@@ -1,7 +1,7 @@
 From: Dong Aisheng <b29396@freescale.com>
-Subject: [PATCH 2/7] can: m_can: fix the incorrect error messages
-Date: Wed, 29 Oct 2014 18:45:22 +0800
-Message-ID: <1414579527-31100-2-git-send-email-b29396@freescale.com>
+Subject: [PATCH 4/7] can: m_can: add a bit delay after setting CCCR_INIT bit
+Date: Wed, 29 Oct 2014 18:45:24 +0800
+Message-ID: <1414579527-31100-4-git-send-email-b29396@freescale.com>
 References: <1414579527-31100-1-git-send-email-b29396@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,42 +23,30 @@ Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-Fix a few error messages.
+The spec mentions there may be a delay until the value written to
+INIT can be read back due to the synchronization mechanism between the
+two clock domains. But it does not indicate the exact clock cycles needed.
+The 5us delay is a test value and seems ok.
+
+Without the delay, CCCR.CCE bit may fail to be set and then the
+initialization fail sometimes when do repeatly up and down.
 
 Signed-off-by: Dong Aisheng <b29396@freescale.com>
 ---
- drivers/net/can/m_can/m_can.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/can/m_can/m_can.c | 1 +
+ 1 file changed, 1 insertion(+)
 
 diff --git a/drivers/net/can/m_can/m_can.c b/drivers/net/can/m_can/m_can.c
-index 8692848..2784423 100644
+index e4ef146..6160b9c 100644
 --- a/drivers/net/can/m_can/m_can.c
 +++ b/drivers/net/can/m_can/m_can.c
-@@ -606,14 +606,14 @@ static int m_can_handle_state_errors(struct net_device *dev, u32 psr)
- 
- 	if ((psr & PSR_EP) &&
- 	    (priv->can.state != CAN_STATE_ERROR_PASSIVE)) {
--		netdev_dbg(dev, "entered error warning state\n");
-+		netdev_dbg(dev, "entered error passive state\n");
- 		work_done += m_can_handle_state_change(dev,
- 						       CAN_STATE_ERROR_PASSIVE);
- 	}
- 
- 	if ((psr & PSR_BO) &&
- 	    (priv->can.state != CAN_STATE_BUS_OFF)) {
--		netdev_dbg(dev, "entered error warning state\n");
-+		netdev_dbg(dev, "entered error bus off state\n");
- 		work_done += m_can_handle_state_change(dev,
- 						       CAN_STATE_BUS_OFF);
- 	}
-@@ -625,7 +625,7 @@ static void m_can_handle_other_err(struct net_device *dev, u32 irqstatus)
- {
- 	if (irqstatus & IR_WDI)
- 		netdev_err(dev, "Message RAM Watchdog event due to missing READY\n");
--	if (irqstatus & IR_BEU)
-+	if (irqstatus & IR_ELO)
- 		netdev_err(dev, "Error Logging Overflow\n");
- 	if (irqstatus & IR_BEU)
- 		netdev_err(dev, "Bit Error Uncorrected\n");
+@@ -296,6 +296,7 @@ static inline void m_can_config_endisable(const struct m_can_priv *priv,
+ 	if (enable) {
+ 		/* enable m_can configuration */
+ 		m_can_write(priv, M_CAN_CCCR, cccr | CCCR_INIT);
++		udelay(5);
+ 		/* CCCR.CCE can only be set/reset while CCCR.INIT = '1' */
+ 		m_can_write(priv, M_CAN_CCCR, cccr | CCCR_INIT | CCCR_CCE);
+ 	} else {
 -- 
 1.9.1
