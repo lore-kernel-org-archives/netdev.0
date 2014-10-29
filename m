@@ -1,151 +1,63 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH 6/7] can: m_can: update to support CAN FD features
-Date: Wed, 29 Oct 2014 20:21:28 +0100
-Message-ID: <54513E38.4020703@hartkopp.net>
-References: <1414579527-31100-1-git-send-email-b29396@freescale.com> <1414579527-31100-6-git-send-email-b29396@freescale.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] inet: frags: fix a race between inet_evict_bucket
+ and inet_frag_kill
+Date: Wed, 29 Oct 2014 15:21:57 -0400 (EDT)
+Message-ID: <20141029.152157.1976213048955675679.davem@davemloft.net>
+References: <1414455409.4845.1.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1414488634-28412-1-git-send-email-nikolay@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mkl@pengutronix.de, wg@grandegger.com, varkabhadram@gmail.com,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: Dong Aisheng <b29396@freescale.com>, linux-can@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1414579527-31100-6-git-send-email-b29396@freescale.com>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, fw@strlen.de, eric.dumazet@gmail.com,
+	chutzpah@gentoo.org
+To: nikolay@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45769 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755394AbaJ2TWA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2014 15:22:00 -0400
+In-Reply-To: <1414488634-28412-1-git-send-email-nikolay@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello Dong,
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Date: Tue, 28 Oct 2014 10:30:34 +0100
 
-thanks for your update to support CAN FD with the 3.0.x M_CAN IP core.
+> When the evictor is running it adds some chosen frags to a local list to
+> be evicted once the chain lock has been released but at the same time
+> the *frag_queue can be running for some of the same queues and it
+> may call inet_frag_kill which will wait on the chain lock and
+> will then delete the queue from the wrong list since it was added in the
+> eviction one. The fix is simple - check if the queue has the evict flag
+> set under the chain lock before deleting it, this is safe because the
+> evict flag is set only under that lock and having the flag set also means
+> that the queue has been detached from the chain list, so no need to delete
+> it again.
+> An important note to make is that we're safe w.r.t refcnt because
+> inet_frag_kill and inet_evict_bucket will sync on the del_timer operation
+> where only one of the two can succeed (or if the timer is executing -
+> none of them), the cases are:
+> 1. inet_frag_kill succeeds in del_timer
+>  - then the timer ref is removed, but inet_evict_bucket will not add
+>    this queue to its expire list but will restart eviction in that chain
+> 2. inet_evict_bucket succeeds in del_timer
+>  - then the timer ref is kept until the evictor "expires" the queue, but
+>    inet_frag_kill will remove the initial ref and will set
+>    INET_FRAG_COMPLETE which will make the frag_expire fn just to remove
+>    its ref.
+> In the end all of the queue users will do an inet_frag_put and the one
+> that reaches 0 will free it. The refcount balance should be okay.
+> 
+> CC: Florian Westphal <fw@strlen.de>
+> CC: Eric Dumazet <eric.dumazet@gmail.com>
+> CC: Patrick McLean <chutzpah@gentoo.org>
+> 
+> Fixes: b13d3cbfb8e8 ("inet: frag: move eviction of queues to work queue")
+> Suggested-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Reported-by: Patrick McLean <chutzpah@gentoo.org>
+> Tested-by: Patrick McLean <chutzpah@gentoo.org>
+> Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+> ---
+> A few more eyes to confirm all of this would be much appreciated.
 
-AFAIK from the last CAN in Automation (CiA) Plugfest which took place in
-Nuremberg yesterday, there are two more IP cores on the way:
-
-v3.0.1 / v3.0.2 (the current spec from the Bosch website)
-
-v3.1.0 which will support per-frame CAN/CANFD switching in the tx path
-(the FDF/(former)EDL bit and the BRS bit appear in the TX buffer element at
-the bit position you know from reading the RX FIFO element)
-
-v3.2.0 which will support the final(?) ISO specification with a bitstuffing
-counter before the CRC in the frame on the wire.
-
-So first I would suggest to check the core release register (CREL) to be
-version 3.0.x and quit the driver initialization if it doesn't fit this
-version. I would suggest to provide a separate patch for that check. What
-about printing the core release version into the kernel log at driver
-initialization time?
-
-Regarding the CAN FD support in this patch I have some remarks in the text ...
-
-On 10/29/2014 11:45 AM, Dong Aisheng wrote:
-
->  /* Rx Buffer Element */
-> +/* R0 */
->  #define RX_BUF_ESI		BIT(31)
->  #define RX_BUF_XTD		BIT(30)
->  #define RX_BUF_RTR		BIT(29)
-> +/* R1 */
-> +#define RX_BUF_ANMF		BIT(31)
-> +#define RX_BUF_EDL		BIT(21)
-> +#define RX_BUF_BRS		BIT(20)
->  
->  /* Tx Buffer Element */
-> +/* R0 */
->  #define TX_BUF_XTD		BIT(30)
->  #define TX_BUF_RTR		BIT(29)
->  
-> @@ -327,11 +357,12 @@ static inline void m_can_disable_all_interrupts(const struct m_can_priv *priv)
->  	m_can_write(priv, M_CAN_ILE, 0x0);
->  }
->  
-> -static void m_can_read_fifo(const struct net_device *dev, struct can_frame *cf,
-> +static void m_can_read_fifo(const struct net_device *dev, struct canfd_frame *cf,
->  			    u32 rxfs)
->  {
->  	struct m_can_priv *priv = netdev_priv(dev);
->  	u32 id, fgi;
-> +	int i;
->  
->  	/* calculate the fifo get index for where to read data */
->  	fgi = (rxfs & RXFS_FGI_MASK) >> RXFS_FGI_OFF;
-> @@ -341,15 +372,23 @@ static void m_can_read_fifo(const struct net_device *dev, struct can_frame *cf,
->  	else
->  		cf->can_id = (id >> 18) & CAN_SFF_MASK;
->  
-> +	if (id & RX_BUF_ESI) {
-> +		cf->flags |= CANFD_ESI;
-> +		netdev_dbg(dev, "ESI Error\n");
-> +	}
-> +
->  	if (id & RX_BUF_RTR) {
->  		cf->can_id |= CAN_RTR_FLAG;
-
-When RX_BUF_EDL is set you should not check for RX_BUF_RTR as RTR is not
-allowed for CAN FD.
-
->  	} else {
->  		id = m_can_fifo_read(priv, fgi, M_CAN_FIFO_DLC);
-> -		cf->can_dlc = get_can_dlc((id >> 16) & 0x0F);
-> -		*(u32 *)(cf->data + 0) = m_can_fifo_read(priv, fgi,
-> -							 M_CAN_FIFO_DATA(0));
-> -		*(u32 *)(cf->data + 4) = m_can_fifo_read(priv, fgi,
-> -							 M_CAN_FIFO_DATA(1));
-> +		cf->len = can_dlc2len(get_canfd_dlc((id >> 16) & 0x0F));
-> +
-> +		if (id & RX_BUF_BRS)
-> +			cf->flags |= CANFD_BRS;
-> +
-> +		for (i = 0; i < cf->len; i += 4)
-> +			*(u32 *)(cf->data + i) =
-> +				m_can_fifo_read(priv, fgi, M_CAN_FIFO_DATA(i / 4));
->  	}
->  
->  	/* acknowledge rx fifo 0 */
-> @@ -361,7 +400,7 @@ static int m_can_do_rx_poll(struct net_device *dev, int quota)
->  	struct m_can_priv *priv = netdev_priv(dev);
->  	struct net_device_stats *stats = &dev->stats;
->  	struct sk_buff *skb;
-> -	struct can_frame *frame;
-> +	struct canfd_frame *frame;
->  	u32 pkts = 0;
->  	u32 rxfs;
->  
-> @@ -375,7 +414,7 @@ static int m_can_do_rx_poll(struct net_device *dev, int quota)
->  		if (rxfs & RXFS_RFL)
->  			netdev_warn(dev, "Rx FIFO 0 Message Lost\n");
->  
-> -		skb = alloc_can_skb(dev, &frame);
-> +		skb = alloc_canfd_skb(dev, &frame);
-
-You are *always* allocating CAN FD frames now?
-
-Depending on RX_BUF_EDL in the RX FIFO message you should create a CAN or CAN
-FD frame.
-
-Of course you can use the struct canfd_frame in m_can_read_fifo() as the
-layout of the struct can_frame is identical when filled with 'normal' CAN
-frame content.
-
-But you need to distinguish whether it is a CAN or CAN FD frame when
-allocating the skb based on the RX_BUF_EDL value.
-
->  		if (!skb) {
->  			stats->rx_dropped++;
->  			return pkts;
-> @@ -384,7 +423,7 @@ static int m_can_do_rx_poll(struct net_device *dev, int quota)
->  		m_can_read_fifo(dev, frame, rxfs);
->  
->  		stats->rx_packets++;
-> -		stats->rx_bytes += frame->can_dlc;
-> +		stats->rx_bytes += frame->len;
->  
->  		netif_receive_skb(skb);
->  
-
-The rest of your entire patch set looks very good from my perspective.
-
-Best regards,
-Oliver
-
-
+I've applied this and tentatively scheduled it for -stable, thanks.
