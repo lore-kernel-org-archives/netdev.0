@@ -1,53 +1,80 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net: introduce napi_schedule_irqoff()
-Date: Tue, 28 Oct 2014 23:20:27 -0700
-Message-ID: <1414563627.631.75.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1414544713.631.30.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAADnVQJ0XD6YmUi_MBpoEgkScxp2ictQepY2YqtvfbXzF=voZQ@mail.gmail.com>
-	 <1414553435.631.41.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAADnVQJVizFA_Tpf0FpyH0uoKZa4TMiBaNPmD_-5Z5+Vg+hV8Q@mail.gmail.com>
-	 <1414557621.631.52.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAADnVQJzk2_Kx=BGpYnNzpQb7OqSZ+KaeKFbUZxJ27WKC+DZww@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+From: "Alexey Andriyanov" <alan@al-an.info>
+Subject: [PATCH] ip6_tunnel: allow to change mode for the ip6tnl0
+Date: Wed, 29 Oct 2014 09:24:58 +0300
+Message-ID: <1414563898-10347-1-git-send-email-alan@al-an.info>
+Cc: Alexey Andriyanov <alan@al-an.info>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:55996 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753578AbaJ2GU2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2014 02:20:28 -0400
-Received: by mail-pa0-f49.google.com with SMTP id lj1so2472029pab.36
-        for <netdev@vger.kernel.org>; Tue, 28 Oct 2014 23:20:27 -0700 (PDT)
-In-Reply-To: <CAADnVQJzk2_Kx=BGpYnNzpQb7OqSZ+KaeKFbUZxJ27WKC+DZww@mail.gmail.com>
+Received: from forward8l.mail.yandex.net ([84.201.143.141]:45220 "EHLO
+	forward8l.mail.yandex.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751502AbaJ2GZH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2014 02:25:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-10-28 at 22:13 -0700, Alexei Starovoitov wrote:
+The fallback device is in ipv6 mode by default.
+The mode can not be changed in runtime, so there
+is no way to decapsulate ip4in6 packets coming from
+various sources without creating the specific tunnel
+ifaces for each peer.
 
-> tried 50 parallel netperf -t TCP_RR over ixgbe
-> and perf top were tcp stack bits, qdisc locks and netperf itself.
-> What do you see?
+This allows to update the fallback tunnel device, but only
+the mode could be changed. Usual command should work for the
+fallback device: `ip -6 tun change ip6tnl0 mode any`
 
-You are kidding right ?
+The fallback device can not be hidden from the packet receiver
+as a regular tunnel, but there is no need for synchronization
+as long as we do single assignment.
 
-If you save 30 nsec ( 2 * 15 nsec) per transaction, and rtt is about 20
-usec, its a 0.15 % gain. Not bad for a trivial patch.
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Alexey Andriyanov <alan@al-an.info>
+---
+ net/ipv6/ip6_tunnel.c | 16 +++++++++++++---
+ 1 file changed, 13 insertions(+), 3 deletions(-)
 
-Why are you using 50 parallel netperf, instead of trying a single
-netperf, as I mentioned latency impact, not overall throughput ?
-
-Do you believe typical servers in data centers are only sending &
-receiving bulk packets, with no interrupt, and one cpu busy polling in
-NAPI handler ?
-
-
-Every atomic op we remove/avoid, every irq masking unmasking we remove,
-every cache line miss or extra bus transaction we remove, TLB miss, is
-the path for better latency.
-
-You should take a look at recent commits I did, you'll get the general
-picture if you missed it.
-
-git log --oneline --author dumazet | head -100
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index 9409887..303c4dd 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -1285,6 +1285,14 @@ static int ip6_tnl_update(struct ip6_tnl *t, struct __ip6_tnl_parm *p)
+ 	return err;
+ }
+ 
++static int ip6_tnl0_update(struct ip6_tnl *t, struct __ip6_tnl_parm *p)
++{
++	/* for default tnl0 device allow to change only the proto */
++	t->parms.proto = p->proto;
++	netdev_state_change(t->dev);
++	return 0;
++}
++
+ static void
+ ip6_tnl_parm_from_user(struct __ip6_tnl_parm *p, const struct ip6_tnl_parm *u)
+ {
+@@ -1384,7 +1392,7 @@ ip6_tnl_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ 			break;
+ 		ip6_tnl_parm_from_user(&p1, &p);
+ 		t = ip6_tnl_locate(net, &p1, cmd == SIOCADDTUNNEL);
+-		if (dev != ip6n->fb_tnl_dev && cmd == SIOCCHGTUNNEL) {
++		if (cmd == SIOCCHGTUNNEL) {
+ 			if (t != NULL) {
+ 				if (t->dev != dev) {
+ 					err = -EEXIST;
+@@ -1392,8 +1400,10 @@ ip6_tnl_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ 				}
+ 			} else
+ 				t = netdev_priv(dev);
+-
+-			err = ip6_tnl_update(t, &p1);
++			if (dev == ip6n->fb_tnl_dev)
++				err = ip6_tnl0_update(t, &p1);
++			else
++				err = ip6_tnl_update(t, &p1);
+ 		}
+ 		if (t) {
+ 			err = 0;
+-- 
+1.9.1
