@@ -1,55 +1,65 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net 1/3] r8152: clear SELECTIVE_SUSPEND when autoresuming
-Date: Wed, 29 Oct 2014 11:12:15 +0800
-Message-ID: <1394712342-15778-70-Taiwan-albertk@realtek.com>
-References: <1394712342-15778-69-Taiwan-albertk@realtek.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] net: introduce napi_schedule_irqoff()
+Date: Tue, 28 Oct 2014 20:30:35 -0700
+Message-ID: <1414553435.631.41.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1414544713.631.30.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAADnVQJ0XD6YmUi_MBpoEgkScxp2ictQepY2YqtvfbXzF=voZQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
-	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394712342-15778-69-Taiwan-albertk@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f170.google.com ([209.85.192.170]:34853 "EHLO
+	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751680AbaJ2Dag (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Oct 2014 23:30:36 -0400
+Received: by mail-pd0-f170.google.com with SMTP id z10so2085950pdj.29
+        for <netdev@vger.kernel.org>; Tue, 28 Oct 2014 20:30:36 -0700 (PDT)
+In-Reply-To: <CAADnVQJ0XD6YmUi_MBpoEgkScxp2ictQepY2YqtvfbXzF=voZQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The flag of SELECTIVE_SUSPEND should be cleared when autoresuming.
-Otherwise, when the system suspend and resume occur, it may have
-the wrong flow.
+On Tue, 2014-10-28 at 18:17 -0700, Alexei Starovoitov wrote:
 
-Besides, because the flag of SELECTIVE_SUSPEND couldn't be used
-to check if the hw enables the relative feature, it should alwayes
-be disabled in close().
+> Interesting! Are you trying to optimize some of such NIC drivers? ;)
 
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
----
- drivers/net/usb/r8152.c | 7 +++----
- 1 file changed, 3 insertions(+), 4 deletions(-)
+??
 
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index e3d84c3..a17ca58 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -2955,10 +2955,7 @@ static int rtl8152_close(struct net_device *netdev)
- 		 * be disable when autoresume occurs, because the
- 		 * netif_running() would be false.
- 		 */
--		if (test_bit(SELECTIVE_SUSPEND, &tp->flags)) {
--			rtl_runtime_suspend_enable(tp, false);
--			clear_bit(SELECTIVE_SUSPEND, &tp->flags);
--		}
-+		rtl_runtime_suspend_enable(tp, false);
+> but all of 10G+ and virtio won't apply, right?
+
+
+Which 10G+ driver could not use this ?
+
+mlx4 patch would be :
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+index c8e75dab80553c876b195361456fb49587231055..c562c1468944f9ad4319e5faaf19bf9e66d15eaf 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+@@ -878,8 +878,8 @@ void mlx4_en_rx_irq(struct mlx4_cq *mcq)
+ 	struct mlx4_en_cq *cq = container_of(mcq, struct mlx4_en_cq, mcq);
+ 	struct mlx4_en_priv *priv = netdev_priv(cq->dev);
  
- 		tasklet_disable(&tp->tl);
- 		tp->rtl_ops.down(tp);
-@@ -3253,6 +3250,8 @@ static int rtl8152_resume(struct usb_interface *intf)
- 			set_bit(WORK_ENABLE, &tp->flags);
- 		}
- 		usb_submit_urb(tp->intr_urb, GFP_KERNEL);
-+	} else if (test_bit(SELECTIVE_SUSPEND, &tp->flags)) {
-+		clear_bit(SELECTIVE_SUSPEND, &tp->flags);
- 	}
+-	if (priv->port_up)
+-		napi_schedule(&cq->napi);
++	if (likely(priv->port_up))
++		napi_schedule_irqoff(&cq->napi);
+ 	else
+ 		mlx4_en_arm_cq(priv, cq);
+ }
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+index 34c137878545fc672dad1a3d86e11c034c0ac368..5c4062921cdf46f1a7021a39705275c33ca4de77 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+@@ -479,8 +479,8 @@ void mlx4_en_tx_irq(struct mlx4_cq *mcq)
+ 	struct mlx4_en_cq *cq = container_of(mcq, struct mlx4_en_cq, mcq);
+ 	struct mlx4_en_priv *priv = netdev_priv(cq->dev);
  
- 	mutex_unlock(&tp->control);
--- 
-1.9.3
+-	if (priv->port_up)
+-		napi_schedule(&cq->napi);
++	if (likely(priv->port_up))
++		napi_schedule_irqoff(&cq->napi);
+ 	else
+ 		mlx4_en_arm_cq(priv, cq);
+ }
