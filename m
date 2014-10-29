@@ -1,100 +1,53 @@
-From: "Alexey Andriyanov" <alan@al-an.info>
-Subject: [PATCH] iproute2: ip6_tunnel mode bugfixes: any,vti6
-Date: Wed, 29 Oct 2014 09:19:30 +0300
-Message-ID: <1414563570-9858-1-git-send-email-alan@al-an.info>
-Cc: Alexey Andriyanov <alan@al-an.info>,
-	Stephen Hemminger <shemming@brocade.com>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] net: introduce napi_schedule_irqoff()
+Date: Tue, 28 Oct 2014 23:20:27 -0700
+Message-ID: <1414563627.631.75.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1414544713.631.30.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAADnVQJ0XD6YmUi_MBpoEgkScxp2ictQepY2YqtvfbXzF=voZQ@mail.gmail.com>
+	 <1414553435.631.41.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAADnVQJVizFA_Tpf0FpyH0uoKZa4TMiBaNPmD_-5Z5+Vg+hV8Q@mail.gmail.com>
+	 <1414557621.631.52.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAADnVQJzk2_Kx=BGpYnNzpQb7OqSZ+KaeKFbUZxJ27WKC+DZww@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from forward2m.mail.yandex.net ([37.140.138.2]:60784 "EHLO
-	forward2m.mail.yandex.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753578AbaJ2GUI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2014 02:20:08 -0400
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:55996 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753578AbaJ2GU2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2014 02:20:28 -0400
+Received: by mail-pa0-f49.google.com with SMTP id lj1so2472029pab.36
+        for <netdev@vger.kernel.org>; Tue, 28 Oct 2014 23:20:27 -0700 (PDT)
+In-Reply-To: <CAADnVQJzk2_Kx=BGpYnNzpQb7OqSZ+KaeKFbUZxJ27WKC+DZww@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-- any ipv6 tunnel mode (proto == 0) could not be set
-due to incomplete set of cases in do_add, do_del.
-- vti6 logic was inverted: it was using "ip6_vti0" basedev
-UNLESS mode is set to vti6.
+On Tue, 2014-10-28 at 22:13 -0700, Alexei Starovoitov wrote:
 
-We don't need a switch by p.proto in do_add()/do_del(): it
-already exists in parse_args(). So if parse_args() call
-was successful, no need to check tunnel mode again.
+> tried 50 parallel netperf -t TCP_RR over ixgbe
+> and perf top were tcp stack bits, qdisc locks and netperf itself.
+> What do you see?
 
-CC: Stephen Hemminger <shemming@brocade.com>
-Signed-off-by: Alexey Andriyanov <alan@al-an.info>
----
- ip/ip6tunnel.c | 40 ++++++++++++++--------------------------
- 1 file changed, 14 insertions(+), 26 deletions(-)
+You are kidding right ?
 
-diff --git a/ip/ip6tunnel.c b/ip/ip6tunnel.c
-index b83534e..62a8240 100644
---- a/ip/ip6tunnel.c
-+++ b/ip/ip6tunnel.c
-@@ -453,49 +453,37 @@ static int do_show(int argc, char **argv)
- static int do_add(int cmd, int argc, char **argv)
- {
- 	struct ip6_tnl_parm2 p;
-+	const char *basedev = "ip6tnl0";
- 
- 	ip6_tnl_parm_init(&p, 1);
- 
- 	if (parse_args(argc, argv, cmd, &p) < 0)
- 		return -1;
- 
--	switch (p.proto) {
--	case IPPROTO_IPIP:
--	case IPPROTO_IPV6:
--	if (p.i_flags != VTI_ISVTI)
--		return tnl_add_ioctl(cmd, "ip6_vti0", p.name, &p);
--	else
--		return tnl_add_ioctl(cmd, "ip6tnl0", p.name, &p);
--	case IPPROTO_GRE:
--		return tnl_add_ioctl(cmd, "ip6gre0", p.name, &p);
--	default:
--		fprintf(stderr, "cannot determine tunnel mode (ip6ip6, ipip6, vti6 or gre)\n");
--	}
--	return -1;
-+	if (p.proto == IPPROTO_GRE)
-+		basedev = "ip6gre0";
-+	else if (p.i_flags & VTI_ISVTI)
-+		basedev = "ip6_vti0";
-+
-+	return tnl_add_ioctl(cmd, basedev, p.name, &p);
- }
- 
- static int do_del(int argc, char **argv)
- {
- 	struct ip6_tnl_parm2 p;
-+	const char *basedev = "ip6tnl0";
- 
- 	ip6_tnl_parm_init(&p, 1);
- 
- 	if (parse_args(argc, argv, SIOCDELTUNNEL, &p) < 0)
- 		return -1;
- 
--	switch (p.proto) {
--	case IPPROTO_IPIP:
--	case IPPROTO_IPV6:
--	if (p.i_flags != VTI_ISVTI)
--		return tnl_del_ioctl("ip6_vti0", p.name, &p);
--	else
--		return tnl_del_ioctl("ip6tnl0", p.name, &p);
--	case IPPROTO_GRE:
--		return tnl_del_ioctl("ip6gre0", p.name, &p);
--	default:
--		return tnl_del_ioctl(p.name, p.name, &p);
--	}
--	return -1;
-+	if (p.proto == IPPROTO_GRE)
-+		basedev = "ip6gre0";
-+	else if (p.i_flags & VTI_ISVTI)
-+		basedev = "ip6_vti0";
-+
-+	return tnl_del_ioctl(basedev, p.name, &p);
- }
- 
- int do_ip6tunnel(int argc, char **argv)
--- 
-1.9.1
+If you save 30 nsec ( 2 * 15 nsec) per transaction, and rtt is about 20
+usec, its a 0.15 % gain. Not bad for a trivial patch.
+
+Why are you using 50 parallel netperf, instead of trying a single
+netperf, as I mentioned latency impact, not overall throughput ?
+
+Do you believe typical servers in data centers are only sending &
+receiving bulk packets, with no interrupt, and one cpu busy polling in
+NAPI handler ?
+
+
+Every atomic op we remove/avoid, every irq masking unmasking we remove,
+every cache line miss or extra bus transaction we remove, TLB miss, is
+the path for better latency.
+
+You should take a look at recent commits I did, you'll get the general
+picture if you missed it.
+
+git log --oneline --author dumazet | head -100
