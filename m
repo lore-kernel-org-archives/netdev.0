@@ -1,135 +1,72 @@
-From: Pierre Pfister <pierre@darou.fr>
-Subject: Re: ipv6 mld: packets are not looped back to/from kernel/querier
-Date: Wed, 29 Oct 2014 09:14:11 +0100
-Message-ID: <4F039FC5-0FE5-4944-8371-75F927B185C6@darou.fr>
-References: <CFCF0BD4-80F5-48B1-AA03-D0066DEC6B11@darou.fr> <544FDDA7.8020007@redhat.com>
-Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.6\))
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, liuhangbin@gmail.com
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.polytechnique.org ([129.104.30.34]:37808 "EHLO
-	mx1.polytechnique.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932102AbaJ2IWl convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2014 04:22:41 -0400
-In-Reply-To: <544FDDA7.8020007@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Fabian Frederick <fabf@skynet.be>
+Subject: [PATCH 1/1 net-next] ipx: remove all unnecessary castings on ntohl
+Date: Wed, 29 Oct 2014 09:31:42 +0100
+Message-ID: <1414571502-9231-1-git-send-email-fabf@skynet.be>
+Cc: Fabian Frederick <fabf@skynet.be>,
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Thanks for the quick answer,
+Apply commit e0f36310f793
+("ipx: remove unnecessary casting on ntohl")
+to all seq_printf/08lX
 
-See inline,
+Inspired-by: "David S. Miller" <davem@davemloft.net>
+Inspired-by: Joe Perches <joe@perches.com>
+Signed-off-by: Fabian Frederick <fabf@skynet.be>
+---
+ net/ipx/ipx_proc.c | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
 
-Le 28 oct. 2014 =E0 19:17, Daniel Borkmann <dborkman@redhat.com> a =E9c=
-rit :
-
-> On 10/28/2014 05:32 PM, Pierre Pfister wrote:
->> Hello,
->>=20
->> I=92m implementing a dual-stack multicast querier (IGMPv3 and MLDv2)=
- along with the PIM protocol.
->> So I=92ve got two multicast sockets, one for each protocol.
->>=20
->> I open the two sockets like this:
->>=20
->> =97=97=97=97=97=97=97=97=97=97=97=97=97=97=97=97=97=97
->> fd =3D socket(AF_INET, SOCK_RAW, IPPROTO_IGMP);
->> val =3D 1;
->> setsockopt(fd, IPPROTO_IP, MRT_INIT, &val, sizeof(val));
->> setsockopt(fd, IPPROTO_IP, IP_PKTINFO, &val, sizeof(val));
->> setsockopt(fd, IPPROTO_IP, IP_MULTICAST_TTL, &val, sizeof(val));
->> val =3D 0xc0;
->> setsockopt(fd, IPPROTO_IP, IP_TOS, &val, sizeof(val));
->> setsockopt(fd, IPPROTO_IP, IP_OPTIONS, &ipv4_rtr_alert, sizeof(ipv4_=
-rtr_alert))
->>=20
->> fd =3D socket(AF_INET6, SOCK_RAW, IPPROTO_ICMPV6);
->> val =3D 1;
->> setsockopt(fd, IPPROTO_IPV6, MRT6_INIT, &val, sizeof(val));
->> setsockopt(fd, IPPROTO_IPV6, IPV6_RECVHOPOPTS, &val, sizeof(val));
->> setsockopt(fd, IPPROTO_IPV6, IPV6_RECVHOPLIMIT, &val, sizeof(val));
->> setsockopt(fd, IPPROTO_IPV6, IPV6_MULTICAST_HOPS, &val, sizeof(val))=
-;
->> val =3D 2;
->> setsockopt(fd, IPPROTO_RAW, IPV6_CHECKSUM, &val, sizeof(val));
->> setsockopt(fd, IPPROTO_IPV6, IPV6_HOPOPTS, &ipv6_rtr_alert, sizeof(i=
-pv6_rtr_alert));
->=20
-> What kernel are you using? How do you setup ipv6_rtr_alert here?
->=20
-> For inbound queries in IPv6, the kernel might be more picky after
-> [correct] commit e940f5d6ba6a ("ipv6: Fix MLD Query message check"),
-> so you need to make sure you have hop limit of 1 and a proper set
-> up RA option =85
-
-I can reproduce the problem with both 3.10.28 and 3.14-0. I will try to=
- try a later version.
-I don=92t think the packet itself can be a problem as other routers cor=
-rectly receive it.
-The problem comes with loopbacking to kernel and userspace (Depending w=
-hether the kernel or querier sent it).
-
-Here is the router alert struct.
-static struct {
-	struct ip6_hbh hdr;
-	struct ip6_opt_router rt;
-	uint8_t pad[2];
-} ipv6_rtr_alert =3D {
-	.hdr =3D {0, 0},
-	.rt =3D {IP6OPT_ROUTER_ALERT, 2, {0, IP6_ALERT_MLD}},
-	.pad =3D {0, 0}
-}
-
-I also checked what that commit checks (wiresharked), and everything se=
-ems correct.
-
-Thanks,
-
-- Pierre
-
-
-
->=20
->> struct icmp6_filter flt;
->> ICMP6_FILTER_SETBLOCKALL(&flt);
->> ICMP6_FILTER_SETPASS(ICMPV6_MGM_QUERY, &flt);
->> ICMP6_FILTER_SETPASS(ICMPV6_MGM_REPORT, &flt);
->> ICMP6_FILTER_SETPASS(ICMPV6_MGM_REDUCTION, &flt);
->> ICMP6_FILTER_SETPASS(ICMPV6_MLD2_REPORT, &flt);
->> setsockopt(fd, IPPROTO_ICMPV6, ICMP6_FILTER, &flt, sizeof(flt));
->> =97=97=97=97=97=97=97=97=97=97=97=97=97=97=97=97=97=97=97=97=97=97
->>=20
->> I=92ve got two issues with the IPv6 socket.
->> When I send an MLD query, it is sent on the wire, but the kernel doe=
-sn=92t interpret it (It doesn=92t send MLD Reports as reply).
->> Similarly, when the kernel sends a Report, my MLD Querier socket doe=
-sn=92t receive the message.
->>=20
->> The resulting problem is that everything works fine as long as the r=
-outer doesn=92t want to join a group. When it does, my Querier can=92t =
-know it, and the kernel doesn=92t reply to Querier=92s requests.
->>=20
->> It works well in IPv4.
->>=20
->> I tried removing the ICMPV6 filter as well as using IPV6_MULTICAST_L=
-OOP.
->>=20
->> Am I doing something wrong or is it an actual bug ?
->> If you need more information, please ask.
->>=20
->> Thanks,
->>=20
->>=20
->> Pierre
->>=20
->>=20
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>=20
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/ipx/ipx_proc.c b/net/ipx/ipx_proc.c
+index 8391191..c1d247e 100644
+--- a/net/ipx/ipx_proc.c
++++ b/net/ipx/ipx_proc.c
+@@ -45,7 +45,7 @@ static int ipx_seq_interface_show(struct seq_file *seq, void *v)
+ 	}
+ 
+ 	i = list_entry(v, struct ipx_interface, node);
+-	seq_printf(seq, "%08lX   ", (unsigned long int)ntohl(i->if_netnum));
++	seq_printf(seq, "%08X   ", ntohl(i->if_netnum));
+ 	seq_printf(seq, "%02X%02X%02X%02X%02X%02X   ",
+ 			i->if_node[0], i->if_node[1], i->if_node[2],
+ 			i->if_node[3], i->if_node[4], i->if_node[5]);
+@@ -87,7 +87,7 @@ static int ipx_seq_route_show(struct seq_file *seq, void *v)
+ 
+ 	rt = list_entry(v, struct ipx_route, node);
+ 
+-	seq_printf(seq, "%08lX   ", (unsigned long int)ntohl(rt->ir_net));
++	seq_printf(seq, "%08X   ", ntohl(rt->ir_net));
+ 	if (rt->ir_routed)
+ 		seq_printf(seq, "%08X     %02X%02X%02X%02X%02X%02X\n",
+ 			   ntohl(rt->ir_intrfc->if_netnum),
+@@ -194,19 +194,19 @@ static int ipx_seq_socket_show(struct seq_file *seq, void *v)
+ 	s = v;
+ 	ipxs = ipx_sk(s);
+ #ifdef CONFIG_IPX_INTERN
+-	seq_printf(seq, "%08lX:%02X%02X%02X%02X%02X%02X:%04X  ",
+-		   (unsigned long)ntohl(ipxs->intrfc->if_netnum),
++	seq_printf(seq, "%08X:%02X%02X%02X%02X%02X%02X:%04X  ",
++		   ntohl(ipxs->intrfc->if_netnum),
+ 		   ipxs->node[0], ipxs->node[1], ipxs->node[2], ipxs->node[3],
+ 		   ipxs->node[4], ipxs->node[5], ntohs(ipxs->port));
+ #else
+-	seq_printf(seq, "%08lX:%04X  ", (unsigned long) ntohl(ipxs->intrfc->if_netnum),
++	seq_printf(seq, "%08X:%04X  ", ntohl(ipxs->intrfc->if_netnum),
+ 		   ntohs(ipxs->port));
+ #endif	/* CONFIG_IPX_INTERN */
+ 	if (s->sk_state != TCP_ESTABLISHED)
+ 		seq_printf(seq, "%-28s", "Not_Connected");
+ 	else {
+-		seq_printf(seq, "%08lX:%02X%02X%02X%02X%02X%02X:%04X  ",
+-			   (unsigned long)ntohl(ipxs->dest_addr.net),
++		seq_printf(seq, "%08X:%02X%02X%02X%02X%02X%02X:%04X  ",
++			   ntohl(ipxs->dest_addr.net),
+ 			   ipxs->dest_addr.node[0], ipxs->dest_addr.node[1],
+ 			   ipxs->dest_addr.node[2], ipxs->dest_addr.node[3],
+ 			   ipxs->dest_addr.node[4], ipxs->dest_addr.node[5],
+-- 
+1.9.3
