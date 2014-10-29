@@ -1,66 +1,87 @@
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: Re: [RFC] use smp_load_acquire()/smp_store_release()
-Date: Wed, 29 Oct 2014 09:16:32 -0700
-Message-ID: <545112E0.40106@redhat.com>
-References: <1414594159.631.85.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH] netdev: Fix sleeping inside wait event
+Date: Wed, 29 Oct 2014 09:29:55 -0700
+Message-ID: <CAM_iQpXTyBT_4TrnYAoAuAE_jMto=2B=cutFggpHRMhvSrG7qg@mail.gmail.com>
+References: <20141028142541.GA19097@wfg-t540p.sh.intel.com>
+	<20141029161657.GF3337@twins.programming.kicks-ass.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, jeffrey.t.kirsher@intel.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49108 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932994AbaJ2QQf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Oct 2014 12:16:35 -0400
-In-Reply-To: <1414594159.631.85.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Fengguang Wu <fengguang.wu@intel.com>, LKP <lkp@01.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	"oleg@redhat.com" <oleg@redhat.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	David Miller <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Peter Zijlstra <peterz@infradead.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141029161657.GF3337@twins.programming.kicks-ass.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+(Adding netdev@...)
 
-On 10/29/2014 07:49 AM, Eric Dumazet wrote:
-> Hi Alexander
+On Wed, Oct 29, 2014 at 9:16 AM, Peter Zijlstra <peterz@infradead.org> wrote:
 >
-> The memory barriers added in commit
-> b37c0fbe3f6dfba1f8ad2aed47fb40578a254635
-> ("net: Add memory barriers to prevent possible race in byte queue
-> limits")
+> Dave, this relies on bits currently in tip/sched/core, if you're ok I'll
+> merge it through that tree.
 >
-> have heavy cost.
+> ---
+> Subject: netdev: Fix sleeping inside wait event
+> From: Peter Zijlstra <peterz@infradead.org>
+> Date: Wed Oct 29 17:04:56 CET 2014
 >
-> It seems we could use smp_load_acquire() and smp_store_release()
-> instead ?
+> rtnl_lock_unregistering() takes rtnl_lock() -- a mutex -- inside a
+> wait loop. The wait loop relies on current->state to function, but so
+> does mutex_lock(), nesting them makes for the inner to destroy the
+> outer state.
 >
-> I'll post a patch later today. I would be interested if someone was able
-> to test it, as your commit apparently was tested and known to fix a
-> reproducible race.
+
+While you are on it, please fix rtnl_lock_unregistering_all() too?
+
+Thanks!
+
+> Fix this using the new wait_woken() bits.
 >
-> Thanks !
-
-Unfortunately Stephen left Intel before I did, so we will need to find 
-someone else in the validation team to test this if possible. I have 
-added Jeff to the CC so that he can give the appropriate validation 
-people a heads up that this patch might be coming.
-
-As I recall what was seen was random Tx hangs on systems with the 
-original BQL code when interfaces were stressed.  It has been a while so 
-I don't recall the exact set-up for all of it.  Also some less 
-used/tested architectures such as PowerPC can be more susceptible to 
-synchronization issues such as these as the memory model is more weakly 
-ordered.
-
-I'm wondering where you are seeing the barrier show up?  In 
-netdev_tx_send_queue you should only hit the barrier if you actually are 
-triggering the XOFF condition, and in netdev_tx_completed_queue the 
-barrier should be coalesced in amongst a number of frames reducing the cost.
-
-My concern with this would be that we are actually syncronizing multiple 
-things, the __QUEUE_STATE_STACK_XOFF flag, dql->adj_limit, and 
-dql->num_queued, and we might be trading off reducing the cost on x86 to 
-result in it being increased on other architectures as we may have to 
-actually add additional synchronization as I suspect we would need to 
-use acquire/release on both adj_limit and num_queued.
-
-Thanks,
-
-Alex
+> Cc: Oleg Nesterov <oleg@redhat.com>
+> Cc: Eric Biederman <ebiederm@xmission.com>
+> Cc: David Miller <davem@davemloft.net>
+> Reported-by: Fengguang Wu <fengguang.wu@intel.com>
+> Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
+> ---
+>  net/core/dev.c |   10 +++++-----
+>  1 file changed, 5 insertions(+), 5 deletions(-)
+>
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -7196,11 +7196,10 @@ static void __net_exit rtnl_lock_unregis
+>          */
+>         struct net *net;
+>         bool unregistering;
+> -       DEFINE_WAIT(wait);
+> +       DEFINE_WAIT_FUNC(wait, woken_wake_function);
+>
+> +       add_wait_queue(&netdev_unregistering_wq, &wait);
+>         for (;;) {
+> -               prepare_to_wait(&netdev_unregistering_wq, &wait,
+> -                               TASK_UNINTERRUPTIBLE);
+>                 unregistering = false;
+>                 rtnl_lock();
+>                 list_for_each_entry(net, net_list, exit_list) {
+> @@ -7212,9 +7211,10 @@ static void __net_exit rtnl_lock_unregis
+>                 if (!unregistering)
+>                         break;
+>                 __rtnl_unlock();
+> -               schedule();
+> +
+> +               wait_woken(&wait, TASK_UNINTERRUPTIBLE, MAX_SCHEDULE_TIMEOUT);
+>         }
+> -       finish_wait(&netdev_unregistering_wq, &wait);
+> +       remove_wait_queue(&netdev_unregistering_wq, &wait);
+>  }
+>
+>  static void __net_exit default_device_exit_batch(struct list_head *net_list)
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
