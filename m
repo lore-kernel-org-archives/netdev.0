@@ -1,7 +1,7 @@
 From: Guenter Roeck <linux@roeck-us.net>
-Subject: [PATCH v3 09/15] net: dsa: Add support for switch EEPROM access
-Date: Wed, 29 Oct 2014 10:45:01 -0700
-Message-ID: <1414604707-22407-10-git-send-email-linux@roeck-us.net>
+Subject: [PATCH v3 06/15] net: dsa: Add support for reporting switch chip temperatures
+Date: Wed, 29 Oct 2014 10:44:58 -0700
+Message-ID: <1414604707-22407-7-git-send-email-linux@roeck-us.net>
 References: <1414604707-22407-1-git-send-email-linux@roeck-us.net>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Florian Fainelli <f.fainelli@gmail.com>,
@@ -13,133 +13,253 @@ In-Reply-To: <1414604707-22407-1-git-send-email-linux@roeck-us.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On some chips it is possible to access the switch eeprom.
-Add infrastructure support for it.
+Some switches provide chip temperature data.
+Add support for reporting it through the hwmon subsystem.
 
 Signed-off-by: Guenter Roeck <linux@roeck-us.net>
 ---
 v3:
-- Fix bug seen if devicetree is enabled; eeprom-length property is
-  attached to switch devicetree node, not to dsa node.
+- No change
 v2:
-- Add support for configuring switch EEPROM size through platform data
-  or devicetree data
-- Do not compare new pointers against NULL
-- Check if get_eeprom pointer is set before calling it
+- Updated headline to reflect what is reported, not how.
+- Make added functionality optional with new Kconfig flag
+- Register with hwmon subsystem as virtual device (no parent)
+- Generate hwmon 'name' attribute from sanitized master network device
+  name plus _dsaX, where X is the DSA switch index and 'sanitized'
+  means to pick all characters and digits from the network device name
+- Do not use devm_ function to register hwmon device, since the hwmon
+  device is not associated with a device and thus can not be auto-removed.
 
- include/net/dsa.h | 10 ++++++++++
- net/dsa/dsa.c     |  4 ++++
- net/dsa/slave.c   | 41 +++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 55 insertions(+)
+ include/net/dsa.h |  16 +++++++
+ net/dsa/Kconfig   |  11 +++++
+ net/dsa/dsa.c     | 131 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 158 insertions(+)
 
 diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 55e75e7..37856a2 100644
+index b765592..55e75e7 100644
 --- a/include/net/dsa.h
 +++ b/include/net/dsa.h
-@@ -38,6 +38,9 @@ struct dsa_chip_data {
- 	struct device	*host_dev;
- 	int		sw_addr;
+@@ -139,6 +139,14 @@ struct dsa_switch {
+ 	 */
+ 	struct device		*master_dev;
  
-+	/* set to size of eeprom if supported by the switch */
-+	int		eeprom_len;
++#ifdef CONFIG_NET_DSA_HWMON
++	/*
++	 * Hardware monitoring information
++	 */
++	char			hwmon_name[IFNAMSIZ + 8];
++	struct device		*hwmon_dev;
++#endif
 +
- 	/* Device tree node pointer for this specific switch chip
- 	 * used during switch setup in case additional properties
- 	 * and resources needs to be used
-@@ -258,6 +261,13 @@ struct dsa_switch_driver {
- 	int	(*set_temp_limit)(struct dsa_switch *ds, int temp);
- 	int	(*get_temp_alarm)(struct dsa_switch *ds, bool *alarm);
- #endif
+ 	/*
+ 	 * Slave mii_bus and devices for the individual ports.
+ 	 */
+@@ -242,6 +250,14 @@ struct dsa_switch_driver {
+ 			   struct ethtool_eee *e);
+ 	int	(*get_eee)(struct dsa_switch *ds, int port,
+ 			   struct ethtool_eee *e);
 +
-+	/* EEPROM access */
-+	int	(*get_eeprom_len)(struct dsa_switch *ds);
-+	int	(*get_eeprom)(struct dsa_switch *ds,
-+			      struct ethtool_eeprom *eeprom, u8 *data);
-+	int	(*set_eeprom)(struct dsa_switch *ds,
-+			      struct ethtool_eeprom *eeprom, u8 *data);
++#ifdef CONFIG_NET_DSA_HWMON
++	/* Hardware monitoring */
++	int	(*get_temp)(struct dsa_switch *ds, int *temp);
++	int	(*get_temp_limit)(struct dsa_switch *ds, int *temp);
++	int	(*set_temp_limit)(struct dsa_switch *ds, int temp);
++	int	(*get_temp_alarm)(struct dsa_switch *ds, bool *alarm);
++#endif
  };
  
  void register_switch_driver(struct dsa_switch_driver *type);
+diff --git a/net/dsa/Kconfig b/net/dsa/Kconfig
+index a585fd6..5f8ac40 100644
+--- a/net/dsa/Kconfig
++++ b/net/dsa/Kconfig
+@@ -11,6 +11,17 @@ config NET_DSA
+ 
+ if NET_DSA
+ 
++config NET_DSA_HWMON
++	bool "Distributed Switch Architecture HWMON support"
++	default y
++	depends on HWMON && !(NET_DSA=y && HWMON=m)
++	---help---
++	  Say Y if you want to expose thermal sensor data on switches supported
++	  by the Distributed Switch Architecture.
++
++	  Some of those switches contain thermal sensors. This data is available
++	  via the hwmon sysfs interface and exposes the onboard sensors.
++
+ # tagging formats
+ config NET_DSA_TAG_BRCM
+ 	bool
 diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index 5edbbca..b51ef592 100644
+index 22f34cf..5edbbca 100644
 --- a/net/dsa/dsa.c
 +++ b/net/dsa/dsa.c
-@@ -575,6 +575,7 @@ static int dsa_of_probe(struct platform_device *pdev)
- 	const char *port_name;
- 	int chip_index, port_index;
- 	const unsigned int *sw_addr, *port_reg;
-+	u32 eeprom_len;
- 	int ret;
+@@ -9,6 +9,9 @@
+  * (at your option) any later version.
+  */
  
- 	mdio = of_parse_phandle(np, "dsa,mii-bus", 0);
-@@ -626,6 +627,9 @@ static int dsa_of_probe(struct platform_device *pdev)
- 		if (cd->sw_addr > PHY_MAX_ADDR)
- 			continue;
++#include <linux/ctype.h>
++#include <linux/device.h>
++#include <linux/hwmon.h>
+ #include <linux/list.h>
+ #include <linux/platform_device.h>
+ #include <linux/slab.h>
+@@ -17,6 +20,7 @@
+ #include <linux/of.h>
+ #include <linux/of_mdio.h>
+ #include <linux/of_platform.h>
++#include <linux/sysfs.h>
+ #include "dsa_priv.h"
  
-+		if (!of_property_read_u32(np, "eeprom-length", &eeprom_len))
-+			cd->eeprom_len = eeprom_len;
-+
- 		for_each_available_child_of_node(child, port) {
- 			port_reg = of_get_property(port, "reg", NULL);
- 			if (!port_reg)
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 6d18174..ff2fbe7 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -271,6 +271,44 @@ static u32 dsa_slave_get_link(struct net_device *dev)
- 	return -EOPNOTSUPP;
+ char dsa_driver_version[] = "0.1";
+@@ -71,6 +75,104 @@ dsa_switch_probe(struct device *host_dev, int sw_addr, char **_name)
+ 	return ret;
  }
  
-+static int dsa_slave_get_eeprom_len(struct net_device *dev)
++/* hwmon support ************************************************************/
++
++#ifdef CONFIG_NET_DSA_HWMON
++
++static ssize_t temp1_input_show(struct device *dev,
++				struct device_attribute *attr, char *buf)
 +{
-+	struct dsa_slave_priv *p = netdev_priv(dev);
-+	struct dsa_switch *ds = p->parent;
++	struct dsa_switch *ds = dev_get_drvdata(dev);
++	int temp, ret;
 +
-+	if (ds->pd->eeprom_len)
-+		return ds->pd->eeprom_len;
++	ret = ds->drv->get_temp(ds, &temp);
++	if (ret < 0)
++		return ret;
 +
-+	if (ds->drv->get_eeprom_len)
-+		return ds->drv->get_eeprom_len(ds);
++	return sprintf(buf, "%d\n", temp * 1000);
++}
++static DEVICE_ATTR_RO(temp1_input);
 +
-+	return 0;
++static ssize_t temp1_max_show(struct device *dev,
++			      struct device_attribute *attr, char *buf)
++{
++	struct dsa_switch *ds = dev_get_drvdata(dev);
++	int temp, ret;
++
++	ret = ds->drv->get_temp_limit(ds, &temp);
++	if (ret < 0)
++		return ret;
++
++	return sprintf(buf, "%d\n", temp * 1000);
 +}
 +
-+static int dsa_slave_get_eeprom(struct net_device *dev,
-+				struct ethtool_eeprom *eeprom, u8 *data)
++static ssize_t temp1_max_store(struct device *dev,
++			       struct device_attribute *attr, const char *buf,
++			       size_t count)
 +{
-+	struct dsa_slave_priv *p = netdev_priv(dev);
-+	struct dsa_switch *ds = p->parent;
++	struct dsa_switch *ds = dev_get_drvdata(dev);
++	int temp, ret;
 +
-+	if (ds->drv->get_eeprom)
-+		return ds->drv->get_eeprom(ds, eeprom, data);
++	ret = kstrtoint(buf, 0, &temp);
++	if (ret < 0)
++		return ret;
 +
-+	return -EOPNOTSUPP;
++	ret = ds->drv->set_temp_limit(ds, DIV_ROUND_CLOSEST(temp, 1000));
++	if (ret < 0)
++		return ret;
++
++	return count;
++}
++static DEVICE_ATTR(temp1_max, S_IRUGO, temp1_max_show, temp1_max_store);
++
++static ssize_t temp1_max_alarm_show(struct device *dev,
++				    struct device_attribute *attr, char *buf)
++{
++	struct dsa_switch *ds = dev_get_drvdata(dev);
++	bool alarm;
++	int ret;
++
++	ret = ds->drv->get_temp_alarm(ds, &alarm);
++	if (ret < 0)
++		return ret;
++
++	return sprintf(buf, "%d\n", alarm);
++}
++static DEVICE_ATTR_RO(temp1_max_alarm);
++
++static struct attribute *dsa_hwmon_attrs[] = {
++	&dev_attr_temp1_input.attr,	/* 0 */
++	&dev_attr_temp1_max.attr,	/* 1 */
++	&dev_attr_temp1_max_alarm.attr,	/* 2 */
++	NULL
++};
++
++static umode_t dsa_hwmon_attrs_visible(struct kobject *kobj,
++				       struct attribute *attr, int index)
++{
++	struct device *dev = container_of(kobj, struct device, kobj);
++	struct dsa_switch *ds = dev_get_drvdata(dev);
++	struct dsa_switch_driver *drv = ds->drv;
++	umode_t mode = attr->mode;
++
++	if (index == 1) {
++		if (!drv->get_temp_limit)
++			mode = 0;
++		else if (drv->set_temp_limit)
++			mode |= S_IWUSR;
++	} else if (index == 2 && !drv->get_temp_alarm) {
++		mode = 0;
++	}
++	return mode;
 +}
 +
-+static int dsa_slave_set_eeprom(struct net_device *dev,
-+				struct ethtool_eeprom *eeprom, u8 *data)
-+{
-+	struct dsa_slave_priv *p = netdev_priv(dev);
-+	struct dsa_switch *ds = p->parent;
++static const struct attribute_group dsa_hwmon_group = {
++	.attrs = dsa_hwmon_attrs,
++	.is_visible = dsa_hwmon_attrs_visible,
++};
++__ATTRIBUTE_GROUPS(dsa_hwmon);
 +
-+	if (ds->drv->set_eeprom)
-+		return ds->drv->set_eeprom(ds, eeprom, data);
++#endif /* CONFIG_NET_DSA_HWMON */
+ 
+ /* basic switch operations **************************************************/
+ static struct dsa_switch *
+@@ -225,6 +327,31 @@ dsa_switch_setup(struct dsa_switch_tree *dst, int index,
+ 		ds->ports[i] = slave_dev;
+ 	}
+ 
++#ifdef CONFIG_NET_DSA_HWMON
++	/* If the switch provides a temperature sensor,
++	 * register with hardware monitoring subsystem.
++	 * Treat registration error as non-fatal and ignore it.
++	 */
++	if (drv->get_temp) {
++		const char *netname = netdev_name(dst->master_netdev);
++		char hname[IFNAMSIZ + 1];
++		int i, j;
 +
-+	return -EOPNOTSUPP;
-+}
++		/* Create valid hwmon 'name' attribute */
++		for (i = j = 0; i < IFNAMSIZ && netname[i]; i++) {
++			if (isalnum(netname[i]))
++				hname[j++] = netname[i];
++		}
++		hname[j] = '\0';
++		scnprintf(ds->hwmon_name, sizeof(ds->hwmon_name), "%s_dsa%d",
++			  hname, index);
++		ds->hwmon_dev = hwmon_device_register_with_groups(NULL,
++					ds->hwmon_name, ds, dsa_hwmon_groups);
++		if (IS_ERR(ds->hwmon_dev))
++			ds->hwmon_dev = NULL;
++	}
++#endif /* CONFIG_NET_DSA_HWMON */
 +
- static void dsa_slave_get_strings(struct net_device *dev,
- 				  uint32_t stringset, uint8_t *data)
+ 	return ds;
+ 
+ out_free:
+@@ -236,6 +363,10 @@ out:
+ 
+ static void dsa_switch_destroy(struct dsa_switch *ds)
  {
-@@ -387,6 +425,9 @@ static const struct ethtool_ops dsa_slave_ethtool_ops = {
- 	.get_drvinfo		= dsa_slave_get_drvinfo,
- 	.nway_reset		= dsa_slave_nway_reset,
- 	.get_link		= dsa_slave_get_link,
-+	.get_eeprom_len		= dsa_slave_get_eeprom_len,
-+	.get_eeprom		= dsa_slave_get_eeprom,
-+	.set_eeprom		= dsa_slave_set_eeprom,
- 	.get_strings		= dsa_slave_get_strings,
- 	.get_ethtool_stats	= dsa_slave_get_ethtool_stats,
- 	.get_sset_count		= dsa_slave_get_sset_count,
++#ifdef CONFIG_NET_DSA_HWMON
++	if (ds->hwmon_dev)
++		hwmon_device_unregister(ds->hwmon_dev);
++#endif
+ }
+ 
+ #ifdef CONFIG_PM_SLEEP
 -- 
 1.9.1
