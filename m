@@ -1,78 +1,124 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: e1000_netpoll(): disable_irq() triggers might_sleep() on
- linux-next
-Date: Wed, 29 Oct 2014 19:07:34 +0100
-Message-ID: <20141029180734.GQ12706@worktop.programming.kicks-ass.net>
-References: <20141029155620.GA4886@kria>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH v3 00/15] net: dsa: Fixes and enhancements
+Date: Wed, 29 Oct 2014 11:22:19 -0700
+Message-ID: <5451305B.7010303@gmail.com>
+References: <1414604707-22407-1-git-send-email-linux@roeck-us.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jeffrey.t.kirsher@intel.com, Thomas Gleixner <tglx@linutronix.de>
-To: Sabrina Dubroca <sd@queasysnail.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20141029155620.GA4886@kria>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Andrew Lunn <andrew@lunn.ch>, linux-kernel@vger.kernel.org
+To: Guenter Roeck <linux@roeck-us.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:64647 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756004AbaJ2SWr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2014 14:22:47 -0400
+In-Reply-To: <1414604707-22407-1-git-send-email-linux@roeck-us.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 29, 2014 at 04:56:20PM +0100, Sabrina Dubroca wrote:
-> commit e22b886a8a43b ("sched/wait: Add might_sleep() checks") included
-> in today's linux-next added a check that fires on e1000 with netpoll:
+On 10/29/2014 10:44 AM, Guenter Roeck wrote:
+> Patch 01/15 addresses a bug indicated by an an annoying and unhelpful
+> log message.
 > 
+> Patches 02/15 and 03/15 are minor enhancements, adding support for
+> known switch revisions.
 > 
-> BUG: sleeping function called from invalid context at kernel/irq/manage.c:104
-> in_atomic(): 1, irqs_disabled(): 1, pid: 1, name: systemd
-> no locks held by systemd/1.
-> irq event stamp: 10102965
-> hardirqs last  enabled at (10102965): [<ffffffff810cbafd>] vprintk_emit+0x2dd/0x6a0
-> hardirqs last disabled at (10102964): [<ffffffff810cb897>] vprintk_emit+0x77/0x6a0
-> softirqs last  enabled at (10102342): [<ffffffff810666aa>] __do_softirq+0x27a/0x6f0
-> softirqs last disabled at (10102337): [<ffffffff81066e86>] irq_exit+0x56/0xe0
-> Preemption disabled at:[<ffffffff817de50d>] printk_emit+0x31/0x33
+> Patches 04/15 and 05/15 add support for MV88E6352 and MV88E6176.
 > 
-> CPU: 1 PID: 1 Comm: systemd Not tainted 3.18.0-rc2-next-20141029-dirty #222
-> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS 1.7.5-20140617_173321-var-lib-archbuild-testing-x86_64-tobias 04/01/2014
->  ffffffff81a82291 ffff88001e743978 ffffffff817df31d 0000000000000000
->  0000000000000000 ffff88001e7439a8 ffffffff8108dfa2 ffff88001e7439a8
->  ffffffff81a82291 0000000000000068 0000000000000000 ffff88001e7439d8
-> Call Trace:
->  [<ffffffff817df31d>] dump_stack+0x4f/0x7c
->  [<ffffffff8108dfa2>] ___might_sleep+0x182/0x2b0
->  [<ffffffff8108e10a>] __might_sleep+0x3a/0xc0
->  [<ffffffff810ce358>] synchronize_irq+0x38/0xa0
->  [<ffffffff810ce690>] disable_irq+0x20/0x30
->  [<ffffffff815d7253>] e1000_netpoll+0x23/0x60
->  [<ffffffff81678d02>] netpoll_poll_dev+0x72/0x3a0
->  [<ffffffff816791e7>] netpoll_send_skb_on_dev+0x1b7/0x2e0
->  [<ffffffff816795f3>] netpoll_send_udp+0x2e3/0x490
+> Patch 06/15 adds support for hardware monitoring, specifically for
+> reporting the chip temperature, to the dsa subsystem.
+> 
+> Patches 07/15 and 08/15 implement hardware monitoring for MV88E6352,
+> MV88E6176, MV88E6123, MV88E6161, and MV88E6165.
+> 
+> Patch 09/15 and 10/15 add support for EEPROM access to the DSA subsystem.
+> 
+> Patch 11/15 implements EEPROM access for MV88E6352 and MV88E6176.
+> 
+> Patch 12/15 adds support for reading switch registers to the DSA
+> subsystem.
+> 
+> Patches 13/15 amd 14/15 implement support for reading switch registers
+> to the drivers for MV88E6352, MV88E6176, MV88E6123, MV88E6161, and MV88E6165.
+> 
+> Patch 15/15 adds support for reading additional RMON registers to the drivers
+> for  MV88E6352, MV88E6176, MV88E6123, MV88E6161, and MV88E6165.
+> 
+> The series was tested on top of v3.18-rc2 in an x86 system with MV88E6352.
+> Testing in systems with 88E6131, 88E6060 and MV88E6165 was done earlier
+> (I don't have access to those systems right now). The series was also build
+> tested using my build system at http://server.roeck-us.net:8010/builders.
+> Look into the 'dsa' column for build results.
+> 
+> The series merges cleanly into net-next as of today (10/29).
 
-Oh cute.. not entirely sure what to do there. This only works if you
-_know_ desc->threads_active will never be !0.
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 
-The best I can come up with is something like this, which avoids the
-might_sleep() in the one special case.
+Thanks Guenter!
 
-Thomas?
-
----
- kernel/irq/manage.c | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
-
-diff --git a/kernel/irq/manage.c b/kernel/irq/manage.c
-index 0a9104b4608b..b7cb736a8b32 100644
---- a/kernel/irq/manage.c
-+++ b/kernel/irq/manage.c
-@@ -100,8 +100,11 @@ void synchronize_irq(unsigned int irq)
- 		 * running. Now verify that no threaded handlers are
- 		 * active.
- 		 */
--		wait_event(desc->wait_for_threads,
--			   !atomic_read(&desc->threads_active));
-+		if (atomic_read(&desc->threads_active)) {
-+			might_sleep();
-+			__wait_event(desc->wait_for_threads,
-+				     !atomic_read(&desc->threads_active));
-+		}
- 	}
- }
- EXPORT_SYMBOL(synchronize_irq);
+> 
+> v3:
+> - Fix bug in eeprom patches seen if devicetree is enabled:
+>   eeprom-length property is attached to switch devicetree node,
+>   not to dsa node, and there was a compile error.
+> v2:
+> - Made reporting chip temperatures through the hwmon subsystem optional
+>   with new Kconfig option
+> - Changed the hwmon chip name to <network device name>_dsa<index>
+> - Made EEPROM presence and size configurable through platform and devicetree
+>   data
+> - Various minor changes and fixes (see individual patches for details)
+> 
+> ----------------------------------------------------------------
+> The following changes since commit cac7f2429872d3733dc3f9915857b1691da2eb2f:
+> 
+>   Linux 3.18-rc2 (2014-10-26 16:48:41 -0700)
+> 
+> are available in the git repository at:
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/groeck/linux-staging.git dsa
+> 
+> for you to fetch changes up to 245472a4f3ca2a68c5632f2c37da41aa2d3fb2f0:
+> 
+>   net: dsa: Provide additional RMON statistics (2014-10-29 08:55:37 -0700)
+> 
+> ----------------------------------------------------------------
+> Guenter Roeck (15):
+>       net: dsa: Don't set skb->protocol on outgoing tagged packets
+>       net: dsa: Report known silicon revisions for Marvell 88E6060
+>       net: dsa: Report known silicon revisions for Marvell 88E6131
+>       net: dsa: Add support for Marvell 88E6352
+>       net: dsa/mv88e6352: Add support for MV88E6176
+>       net: dsa: Add support for reporting switch chip temperatures
+>       net: dsa/mv88e6352: Report chip temperature
+>       net: dsa/mv88e6123_61_65: Report chip temperature
+>       net: dsa: Add support for switch EEPROM access
+>       dsa: Add new optional devicetree property to describe EEPROM size
+>       net: dsa/mv88e6352: Implement EEPROM access functions
+>       net: dsa: Add support for reading switch registers with ethtool
+>       net: dsa/mv88e6123_61_65: Add support for reading switch registers
+>       net: dsa/mv88e6352: Add support for reading switch registers
+>       net: dsa: Provide additional RMON statistics
+> 
+>  Documentation/devicetree/bindings/net/dsa/dsa.txt |   9 +-
+>  MAINTAINERS                                       |   5 +
+>  drivers/net/dsa/Kconfig                           |   9 +
+>  drivers/net/dsa/Makefile                          |   3 +
+>  drivers/net/dsa/mv88e6060.c                       |   5 +-
+>  drivers/net/dsa/mv88e6123_61_65.c                 |  73 +-
+>  drivers/net/dsa/mv88e6131.c                       |  12 +-
+>  drivers/net/dsa/mv88e6352.c                       | 788 ++++++++++++++++++++++
+>  drivers/net/dsa/mv88e6xxx.c                       |  53 +-
+>  drivers/net/dsa/mv88e6xxx.h                       |  15 +
+>  include/net/dsa.h                                 |  33 +
+>  net/dsa/Kconfig                                   |  11 +
+>  net/dsa/dsa.c                                     | 135 ++++
+>  net/dsa/slave.c                                   |  64 ++
+>  net/dsa/tag_dsa.c                                 |   2 -
+>  net/dsa/tag_edsa.c                                |   2 -
+>  net/dsa/tag_trailer.c                             |   2 -
+>  17 files changed, 1202 insertions(+), 19 deletions(-)
+>  create mode 100644 drivers/net/dsa/mv88e6352.c
+> 
