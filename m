@@ -1,73 +1,36 @@
-From: Cyril Brulebois <kibi@debian.org>
-Subject: Re: [PATCH] wireless: rt2x00: add new rt2800usb device
-Date: Wed, 29 Oct 2014 12:12:24 +0100
-Message-ID: <20141029111224.GC29720@mraw.org>
-References: <1414510961-28920-1-git-send-email-kibi@debian.org>
- <20141029110214.GB2021@redhat.com>
+From: Fabio Estevam <festevam@gmail.com>
+Subject: Re: suspend/resume broken on 3.18-rc2
+Date: Wed, 29 Oct 2014 09:47:46 -0200
+Message-ID: <CAOMZO5C9tcL9K79rwWbYkYcpRMPkpvHS+v2kYyRpY4bt7h=Cgw@mail.gmail.com>
+References: <CAOMZO5C5znc2ZD5GoPKC7qQPoFGaJf47BoTMY0HQtEbW46d4dw@mail.gmail.com>
+	<6278a77cdc594b3488b0ebc043f7d17b@BLUPR03MB373.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="5G06lTa6Jq83wMTw"
-Cc: Helmut Schaa <helmut.schaa@googlemail.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, users@rt2x00.serialmonkey.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Stanislaw Gruszka <sgruszka@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20141029110214.GB2021@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "Frank.Li@freescale.com" <Frank.Li@freescale.com>,
+	Russell King <linux@arm.linux.org.uk>,
+	Shawn Guo <shawn.guo@linaro.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "fugang.duan@freescale.com" <fugang.duan@freescale.com>,
+	Anson Huang <b20788@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f48.google.com ([209.85.215.48]:57494 "EHLO
+	mail-la0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932384AbaJ2Lrs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2014 07:47:48 -0400
+Received: by mail-la0-f48.google.com with SMTP id gq15so2388481lab.35
+        for <netdev@vger.kernel.org>; Wed, 29 Oct 2014 04:47:46 -0700 (PDT)
+In-Reply-To: <6278a77cdc594b3488b0ebc043f7d17b@BLUPR03MB373.namprd03.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Wed, Oct 29, 2014 at 3:46 AM, fugang.duan@freescale.com
+<fugang.duan@freescale.com> wrote:
 
---5G06lTa6Jq83wMTw
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+> Hi, Fabio,
+>
+> I test 3.18.0-rc2, and has some problems:
+> - most of time, imx6sx-sdb cannot resume back regardless of nfs or SD rootfs, and power key also cannnot resume back.
+> - when do "echo core > /sys/power/pm_test", and then do suspend/resume test, console key can wake up system, but no broken issue found in nfs.
 
-Stanislaw Gruszka <sgruszka@redhat.com> (2014-10-29):
-> On Tue, Oct 28, 2014 at 04:42:41PM +0100, Cyril Brulebois wrote:
-> > 0x1b75 0xa200 AirLive WN-200USB wireless 11b/g/n dongle
-> >=20
-> > References: https://bugs.debian.org/766802
-> > Reported-by: Martin Mokrejs <mmokrejs@fold.natur.cuni.cz>
->=20
-> Was this patch tested by reporter? I would rather see Reported-and-tested=
--by tag :-)
-
-The reporter confirmed the following trick worked:
-
-  # echo rt2800usb >> /etc/modules
-  # echo 'install rt2800usb /sbin/modprobe --ignore-install rt2800usb $CMDL=
-INE_OPTS && echo 1b75 a200 > /sys/bus/usb/drivers/rt2800usb/new_id' > /etc/=
-modprobe.d/ralink.conf
-  # modprobe -r rt2800usb ; modprobe rt2800usb
-
-but I'll try and get this patch tested on top of 3.16.x (which is what
-we have in Debian at the moment) if that's good enough for you.
-
-Mraw,
-KiBi.
-
---5G06lTa6Jq83wMTw
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQIcBAEBAgAGBQJUUMuYAAoJEP+RSvDCs1UgqXoP/ir73I8VkEWvHsLs56Wc2Jo5
-Wf4Zpr19uj1KGuktexF8UpaIdzi84Ot3DWW3L0Jxb8GtBE3yr1MNDKGCQ+yncQcw
-RGqkbYb3DuAPfPb3ecg21er5dBZNZ+anu2uKcyd5nxeNh4U5N+Brr4qLapPHoNp+
-FtDE68+6b1W9HmEnSMz2uZdXLUTKOYPR4je34eIt8x1pULlRpRUEUtM090q9D94s
-lx2hmDxrMxTigkpJUJ2NCSen4uklS/pPpF1yd5Htst5l7TaXXxHTf+gh3Y5B+a77
-VC3P/+rWbJamYtUD2jvYDUS5VlL0PaMAFYEOdoU8wFP528SJi9woVIB2WbFrULQY
-mVvdsMDpn2lk+MkFy3kbHqLNTsJZvmTrvSvbOnYTmFGaVoHt/OTQDrRHHWXHyIve
-RtHGdrK+qjVexHfHT4xrjnYC1Mw5/2fJOO14oCq4E/v8I/AADVCedg41pAtusKrS
-hd1EQ7cLH/ewxsWXY97aRolqQNqIb842UVVANir648dIkT72CLDuialK3OLVvUNI
-In+iTlEFhkJrbctPJ7Mk6fOOcuzPU9+kv3pdJgwhh7VhPzNYANsZZG7fquuyg1Pk
-cTGTHaIzQP/pZhp9WlVk+ghpoL4PJmH2kWCbomZAK2vQOCQu8O5aQKQ/mloYVH0r
-MIP0hb1J8kEsVOtAwR/M
-=VB1b
------END PGP SIGNATURE-----
-
---5G06lTa6Jq83wMTw--
+Adding Anson in case he could look into this problem from a power
+management perspective.
