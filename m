@@ -1,34 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netdev: Fix sleeping inside wait event
-Date: Wed, 29 Oct 2014 13:38:43 -0400 (EDT)
-Message-ID: <20141029.133843.1944866828262153726.davem@davemloft.net>
-References: <CAM_iQpXTyBT_4TrnYAoAuAE_jMto=2B=cutFggpHRMhvSrG7qg@mail.gmail.com>
-	<20141029171345.GO12706@worktop.programming.kicks-ass.net>
-	<20141029173110.GE15602@worktop.programming.kicks-ass.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: xiyou.wangcong@gmail.com, fengguang.wu@intel.com, lkp@01.org,
-	linux-kernel@vger.kernel.org, oleg@redhat.com,
-	ebiederm@xmission.com, netdev@vger.kernel.org
-To: peterz@infradead.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141029173110.GE15602@worktop.programming.kicks-ass.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: [PATCH v3 02/15] net: dsa: Report known silicon revisions for Marvell 88E6060
+Date: Wed, 29 Oct 2014 10:44:54 -0700
+Message-ID: <1414604707-22407-3-git-send-email-linux@roeck-us.net>
+References: <1414604707-22407-1-git-send-email-linux@roeck-us.net>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>, linux-kernel@vger.kernel.org,
+	Guenter Roeck <linux@roeck-us.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bh-25.webhostbox.net ([208.91.199.152]:51717 "EHLO
+	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755452AbaJ2RpT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2014 13:45:19 -0400
+Received: from mailnull by bh-25.webhostbox.net with sa-checked (Exim 4.82)
+	(envelope-from <linux@roeck-us.net>)
+	id 1XjXJ9-00491b-1f
+	for netdev@vger.kernel.org; Wed, 29 Oct 2014 17:45:19 +0000
+In-Reply-To: <1414604707-22407-1-git-send-email-linux@roeck-us.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Peter Zijlstra <peterz@infradead.org>
-Date: Wed, 29 Oct 2014 18:31:10 +0100
+Report known silicon revisions when probing Marvell 88E6060 switches.
 
-> On Wed, Oct 29, 2014 at 06:13:45PM +0100, Peter Zijlstra wrote:
->> On Wed, Oct 29, 2014 at 09:29:55AM -0700, Cong Wang wrote:
->> > While you are on it, please fix rtnl_lock_unregistering_all() too?
->> 
->> Ah, that's hidden someplace else, sure I can do that. Thanks for
->> pointing it out.
-> 
-> Here goes..
+Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+---
+v3:
+- No change
+v2:
+- No change
 
-For this as well:
+ drivers/net/dsa/mv88e6060.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-Acked-by: David S. Miller <davem@davemloft.net>
+diff --git a/drivers/net/dsa/mv88e6060.c b/drivers/net/dsa/mv88e6060.c
+index 05b0ca3..c29aebe 100644
+--- a/drivers/net/dsa/mv88e6060.c
++++ b/drivers/net/dsa/mv88e6060.c
+@@ -69,8 +69,11 @@ static char *mv88e6060_probe(struct device *host_dev, int sw_addr)
+ 
+ 	ret = mdiobus_read(bus, sw_addr + REG_PORT(0), 0x03);
+ 	if (ret >= 0) {
+-		ret &= 0xfff0;
+ 		if (ret == 0x0600)
++			return "Marvell 88E6060 (A0)";
++		if (ret == 0x0601 || ret == 0x0602)
++			return "Marvell 88E6060 (B0)";
++		if ((ret & 0xfff0) == 0x0600)
+ 			return "Marvell 88E6060";
+ 	}
+ 
+-- 
+1.9.1
