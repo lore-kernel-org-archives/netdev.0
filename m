@@ -1,43 +1,74 @@
-From: Junjie Mao <eternal.n08@gmail.com>
-Subject: Re: [PATCH] mac80211_hwsim: release driver when ieee80211_register_hw fails
-Date: Wed, 29 Oct 2014 18:23:02 +0800
-Message-ID: <8638a718ft.fsf@MJJ-LAPTOP.i-did-not-set--mail-host-address--so-tickle-me>
-References: <1414459907-7509-1-git-send-email-eternal.n08@gmail.com>
-	<20141029064501.GB2985@piware.de>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Junjie Mao <eternal.n08@gmail.com>,
-	Fengguang Wu <fengguang.wu@intel.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Martin Pitt <martin.pitt@ubuntu.com>
+From: Fabian Frederick <fabf@skynet.be>
+Subject: [PATCH 1/1 net-next] ipv6: remove inline on static in c file
+Date: Wed, 29 Oct 2014 11:38:17 +0100
+Message-ID: <1414579097-11659-1-git-send-email-fabf@skynet.be>
+Cc: Fabian Frederick <fabf@skynet.be>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141029064501.GB2985@piware.de> (Martin Pitt's message of "Wed,
-	29 Oct 2014 07:45:01 +0100")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I was not familiar with the acquiring/releasing API either, until I met
-with this bug...
+remove __inline__ / inline and let compiler decide what to do
+with static functions
 
-Perhaps we can use static checkers to avoid these issues as early as
-possible. Any suggestions?
+Inspired-by: "David S. Miller" <davem@davemloft.net>
+Signed-off-by: Fabian Frederick <fabf@skynet.be>
+---
+ net/ipv6/reassembly.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
-Best Regards
-Junjie Mao
-
-Martin Pitt <martin.pitt@ubuntu.com> writes:
-
-> Acked-By: Martin Pitt <martin.pitt@ubuntu.com>
->
-> Hello Junjie,
->
-> Junjie Mao [2014-10-28  9:31 +0800]:
->> The driver is not released when ieee80211_register_hw fails in
->> mac80211_hwsim_create_radio, leading to the access to the unregistered (and
->> possibly freed) device in platform_driver_unregister:
->
-> Many thanks for fixing this! Sorry about that, I don't know these bits
-> very well.
->
-> Martin
+diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
+index 1a157ca..51ab096 100644
+--- a/net/ipv6/reassembly.c
++++ b/net/ipv6/reassembly.c
+@@ -69,7 +69,7 @@ struct ip6frag_skb_cb {
+ 
+ #define FRAG6_CB(skb)	((struct ip6frag_skb_cb *)((skb)->cb))
+ 
+-static inline u8 ip6_frag_ecn(const struct ipv6hdr *ipv6h)
++static u8 ip6_frag_ecn(const struct ipv6hdr *ipv6h)
+ {
+ 	return 1 << (ipv6_get_dsfield(ipv6h) & INET_ECN_MASK);
+ }
+@@ -178,7 +178,7 @@ static void ip6_frag_expire(unsigned long data)
+ 	ip6_expire_frag_queue(net, fq, &ip6_frags);
+ }
+ 
+-static __inline__ struct frag_queue *
++static struct frag_queue *
+ fq_find(struct net *net, __be32 id, const struct in6_addr *src,
+ 	const struct in6_addr *dst, u8 ecn)
+ {
+@@ -684,21 +684,21 @@ static void ip6_frags_sysctl_unregister(void)
+ 	unregister_net_sysctl_table(ip6_ctl_header);
+ }
+ #else
+-static inline int ip6_frags_ns_sysctl_register(struct net *net)
++static int ip6_frags_ns_sysctl_register(struct net *net)
+ {
+ 	return 0;
+ }
+ 
+-static inline void ip6_frags_ns_sysctl_unregister(struct net *net)
++static void ip6_frags_ns_sysctl_unregister(struct net *net)
+ {
+ }
+ 
+-static inline int ip6_frags_sysctl_register(void)
++static int ip6_frags_sysctl_register(void)
+ {
+ 	return 0;
+ }
+ 
+-static inline void ip6_frags_sysctl_unregister(void)
++static void ip6_frags_sysctl_unregister(void)
+ {
+ }
+ #endif
+-- 
+1.9.3
