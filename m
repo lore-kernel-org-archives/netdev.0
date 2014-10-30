@@ -1,46 +1,53 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH net] gre: Fix regression in gretap TSO support
-Date: Thu, 30 Oct 2014 09:51:13 -0400
-Message-ID: <CADVnQykSY_Q3HL0T1uNO4iUheWTpTsLLF7gCnM4SbJyGp3x6Wg@mail.gmail.com>
-References: <20141030032430.4452.46388.stgit@ahduyck-workstation.home>
-	<CALnjE+oK-O-PJH_u50HqQQLnvh+GyeCnv6tNQf5qzL0o1RiPQg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: alexander.duyck@gmail.com, netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	"H.K. Jerry Chu" <hkchu@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Alexander Duyck <alexander.h.duyck@redhat.com>
-To: Pravin Shelar <pshelar@nicira.com>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net 1/2] net/mlx4_en: Don't attempt to TX offload the outer UDP checksum for VXLAN
+Date: Thu, 30 Oct 2014 15:59:27 +0200
+Message-ID: <1414677568-28409-2-git-send-email-ogerlitz@mellanox.com>
+References: <1414677568-28409-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, Matan Barak <matanb@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f182.google.com ([209.85.216.182]:33451 "EHLO
-	mail-qc0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759765AbaJ3NvO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2014 09:51:14 -0400
-Received: by mail-qc0-f182.google.com with SMTP id m20so4239410qcx.27
-        for <netdev@vger.kernel.org>; Thu, 30 Oct 2014 06:51:13 -0700 (PDT)
-In-Reply-To: <CALnjE+oK-O-PJH_u50HqQQLnvh+GyeCnv6tNQf5qzL0o1RiPQg@mail.gmail.com>
+Received: from mailp.voltaire.com ([193.47.165.129]:40204 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1758423AbaJ3N7d (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Oct 2014 09:59:33 -0400
+In-Reply-To: <1414677568-28409-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 30, 2014 at 1:14 AM, Pravin Shelar <pshelar@nicira.com> wrote:
-> On Wed, Oct 29, 2014 at 8:26 PM,  <alexander.duyck@gmail.com> wrote:
->> From: Alexander Duyck <alexander.h.duyck@redhat.com>
->>
->> On recent kernels I found that TSO on gretap interfaces didn't work.  After
->> bisecting it I found that commit b884b1a4 had introduced a regression in
->> which the Ethernet header was being included in the GRE header length.
->>
->> This change corrects that by basing the GRE header length on the inner mac
->> header in the case of GRE tunnels using transparent Ethernet bridging, and
->> uses the network header for all other GRE tunnel types.
->>
->> Fixes: b884b1a4 ("gre_offload: simplify GRE header length calculation in gre_gso_segment()")
+For VXLAN/NVGRE encapsulation, the current HW doesn't support offloading
+both the outer UDP TX checksum and the inner TCP/UDP TX checksum. 
 
-Hmm. There may be other protocols, either now or in the future, where
-we want to be able to have a mac header inside the GRE header, rather
-than a network header. AFAICT it would be safer to revert b884b1a4,
-and go back to the previous code (from c50cd357), where we parse the
-GRE header to figure out its length.
+The driver doesn't advertize SKB_GSO_UDP_TUNNEL_CSUM, however we are wrongly
+telling the HW to offload the outer UDP checksum for encapsulated packets,
+fix that.
 
-neal
+Fixes: 837052d0ccc5 ('net/mlx4_en: Add netdev support for TCP/IP
+		     offloads of vxlan tunneling')
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c |    7 +++++--
+ 1 files changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+index 34c1378..454d9fe 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+@@ -836,8 +836,11 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	 * whether LSO is used */
+ 	tx_desc->ctrl.srcrb_flags = priv->ctrl_flags;
+ 	if (likely(skb->ip_summed == CHECKSUM_PARTIAL)) {
+-		tx_desc->ctrl.srcrb_flags |= cpu_to_be32(MLX4_WQE_CTRL_IP_CSUM |
+-							 MLX4_WQE_CTRL_TCP_UDP_CSUM);
++		if (!skb->encapsulation)
++			tx_desc->ctrl.srcrb_flags |= cpu_to_be32(MLX4_WQE_CTRL_IP_CSUM |
++								 MLX4_WQE_CTRL_TCP_UDP_CSUM);
++		else
++			tx_desc->ctrl.srcrb_flags |= cpu_to_be32(MLX4_WQE_CTRL_IP_CSUM);
+ 		ring->tx_csum++;
+ 	}
+ 
+-- 
+1.7.1
