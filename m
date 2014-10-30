@@ -1,32 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: net: fec: fix regression on i.MX28 introduced by rx_copybreak
- support
-Date: Thu, 30 Oct 2014 12:17:10 -0400 (EDT)
-Message-ID: <20141030.121710.1524000348187962764.davem@davemloft.net>
-References: <1414502584-10583-1-git-send-email-LW@KARO-electronics.de>
-	<20141029.153430.1036004676442879956.davem@davemloft.net>
-	<20141030075104.05e44b43@ipc1.ka-ro>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, rmk+kernel@arm.linux.org.uk,
-	Frank.Li@freescale.com, fabio.estevam@freescale.com,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: LW@KARO-electronics.de
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [patch] Bluetooth: 6lowpan: use after free in disconnect_devices()
+Date: Thu, 30 Oct 2014 09:24:23 -0700
+Message-ID: <3DFF075B-22A1-4E52-8675-00207AE385C4@holtmann.org>
+References: <20141029161057.GF5290@mwanda>
+Mime-Version: 1.0 (Mac OS X Mail 8.0 \(1990.1\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: "Gustavo F. Padovan" <gustavo@padovan.org>,
+	Johan Hedberg <johan.hedberg@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	BlueZ development <linux-bluetooth@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Dan Carpenter <dan.carpenter@oracle.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141030075104.05e44b43@ipc1.ka-ro>
+In-Reply-To: <20141029161057.GF5290@mwanda>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: Lothar Wa=DFmann <LW@KARO-electronics.de>
-Date: Thu, 30 Oct 2014 07:51:04 +0100
+Hi Dan,
 
->> Also, I don't thnk your DIV_ROUND_UP() eliminate for the loop
->> in swap_buffer() is valid.  The whole point is that the current
->> code handles buffers which have a length which is not a multiple
->> of 4 properly, after your change it will no longer do so.
->>
-> Do you really think so?
+> This was accidentally changed from list_for_each_entry_safe() to
+> list_for_each_entry() so now it has a use after free bug.  I've changed
+> it back.
+> 
+> Fixes: 90305829635d ('Bluetooth: 6lowpan: Converting rwlocks to use RCU')
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-Yes, because you're rounding down so you'll miss the final
-partial word (if any).
+patch has been applied to bluetooth-next tree.
+
+Regards
+
+Marcel
