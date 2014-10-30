@@ -1,41 +1,43 @@
-From: vadim4j@gmail.com
-Subject: Re: [PATCH iproute2] ss: Identify a lot of netlink protocol names
-Date: Thu, 30 Oct 2014 17:26:30 +0200
-Message-ID: <20141030152630.GA31115@angus-think.wlc.globallogic.com>
-References: <1413478018-12373-1-git-send-email-vadim4j@gmail.com>
- <20141029224932.0df2edba@urahara>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+From: Tom Herbert <therbert@google.com>
+Subject: [PATCH net] gre: Use inner mac length when computing tunnel length
+Date: Thu, 30 Oct 2014 08:40:56 -0700
+Message-ID: <1414683656-26493-1-git-send-email-therbert@google.com>
+To: davem@davemloft.net, alexander.duyck@gmail.com,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f179.google.com ([209.85.212.179]:51013 "EHLO
-	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934668AbaJ3Pfp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2014 11:35:45 -0400
-Received: by mail-wi0-f179.google.com with SMTP id h11so7770382wiw.0
-        for <netdev@vger.kernel.org>; Thu, 30 Oct 2014 08:35:44 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20141029224932.0df2edba@urahara>
+Received: from mail-pd0-f170.google.com ([209.85.192.170]:54248 "EHLO
+	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933861AbaJ3PlB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2014 11:41:01 -0400
+Received: by mail-pd0-f170.google.com with SMTP id z10so5363483pdj.15
+        for <netdev@vger.kernel.org>; Thu, 30 Oct 2014 08:41:01 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 29, 2014 at 10:49:32PM -0700, Stephen Hemminger wrote:
-> On Thu, 16 Oct 2014 19:46:58 +0300
-> Vadim Kochan <vadim4j@gmail.com> wrote:
-> 
-> > There were only few Netlink protocol names:
-> > 
-> >     rtnl, fw, tcpdiag
-> > 
-> > which were printed on output.
-> > So added the other ones.
-> > 
-> > Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
-> 
-> Please make this driven off of a file in /etc/iproute2/ rather than
-> hard coding a big switch in the code.
-> 
-Yes, good idea, will do.
+Currently, skb_inner_network_header is used but this does not account
+for Ethernet header for ETH_P_TEB. Use skb_inner_mac_header which
+handles TEB and also should work with IP encapsulation in which case
+inner mac and inner network headers are the same.
 
-Regards,
+Tested: Ran TCP_STREAM over GRE, worked as expected.
+
+Signed-off-by: Tom Herbert <therbert@google.com>
+---
+ net/ipv4/gre_offload.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/ipv4/gre_offload.c b/net/ipv4/gre_offload.c
+index f6e345c..bb5947b 100644
+--- a/net/ipv4/gre_offload.c
++++ b/net/ipv4/gre_offload.c
+@@ -47,7 +47,7 @@ static struct sk_buff *gre_gso_segment(struct sk_buff *skb,
+ 
+ 	greh = (struct gre_base_hdr *)skb_transport_header(skb);
+ 
+-	ghl = skb_inner_network_header(skb) - skb_transport_header(skb);
++	ghl = skb_inner_mac_header(skb) - skb_transport_header(skb);
+ 	if (unlikely(ghl < sizeof(*greh)))
+ 		goto out;
+ 
+-- 
+2.1.0.rc2.206.gedb03e5
