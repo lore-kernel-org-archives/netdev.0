@@ -1,60 +1,43 @@
-From: Murilo Opsfelder Araujo <mopsfelder-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 0/6 3.18] Fixes for iwlwifi drivers
-Date: Thu, 30 Oct 2014 20:44:27 -0200
-Message-ID: <5452BF4B.5070009@gmail.com>
-References: <1414642633-3700-1-git-send-email-Larry.Finger@lwfinger.net>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [PATCH net-next 4/8] net/mlx4_en: Add __GFP_COLD gfp flags in alloc_pages
+Date: Fri, 31 Oct 2014 00:49:45 +0200
+Message-ID: <CAJ3xEMiVTDY5diY=tpcHbOdmqseFyajrcfo9Gh3Cd=kHqYQ-tg@mail.gmail.com>
+References: <1414685216-28907-1-git-send-email-ogerlitz@mellanox.com>
+	<1414685216-28907-5-git-send-email-ogerlitz@mellanox.com>
+	<1414689333.9028.0.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1414642633-3700-1-git-send-email-Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Or Gerlitz <ogerlitz@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Matan Barak <matanb@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Shani Michaeli <shanim@mellanox.com>,
+	Ido Shamay <idos@mellanox.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f51.google.com ([209.85.218.51]:58397 "EHLO
+	mail-oi0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161345AbaJ3Wtq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2014 18:49:46 -0400
+Received: by mail-oi0-f51.google.com with SMTP id g201so4795008oib.38
+        for <netdev@vger.kernel.org>; Thu, 30 Oct 2014 15:49:45 -0700 (PDT)
+In-Reply-To: <1414689333.9028.0.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/30/2014 02:17 AM, Larry Finger wrote:
-> Some late changes to rtlwifi made some of the older drivers not start correctly.
-> These patches should be applied to 3.18.
->
-> Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-> Cc: Murilo Opsfelder Araujo <mopsfelder-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
->
-> Larry Finger (6):
->    rtlwifi: rtl8192ce: rtl8192de: rtl8192se: Fix handling for missing
->      get_btc_status
->    rtlwifi: rtl8192se: Fix duplicate calls to ieee80211_register_hw()
->    rtlwifi: rtl8192se: Add missing section to read descriptor setting
->    rtlwifi: rtl8192ce: Add missing section to read descriptor setting
->    rtlwifi: rtl8821ae: Remove extra semicolons
->    rtlwifi: rtl8192se: Fix firmware loading
->
->   drivers/net/wireless/rtlwifi/core.c          |  6 ++++++
->   drivers/net/wireless/rtlwifi/core.h          |  1 +
->   drivers/net/wireless/rtlwifi/rtl8192ce/def.h |  2 ++
->   drivers/net/wireless/rtlwifi/rtl8192ce/sw.c  |  1 +
->   drivers/net/wireless/rtlwifi/rtl8192ce/trx.c |  3 +++
->   drivers/net/wireless/rtlwifi/rtl8192de/sw.c  |  1 +
->   drivers/net/wireless/rtlwifi/rtl8192se/def.h |  2 ++
->   drivers/net/wireless/rtlwifi/rtl8192se/sw.c  | 22 +++-------------------
->   drivers/net/wireless/rtlwifi/rtl8192se/trx.c |  3 +++
->   drivers/net/wireless/rtlwifi/rtl8821ae/phy.c | 12 ++++++------
->   10 files changed, 28 insertions(+), 25 deletions(-)
->
-Hi, Larry.
+On Thu, Oct 30, 2014 at 7:15 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> @@ -54,7 +54,7 @@ static int mlx4_alloc_pages(struct mlx4_en_priv *priv,
+>>       dma_addr_t dma;
+>>
+>>       for (order = MLX4_EN_ALLOC_PREFER_ORDER; ;) {
+>> -             gfp_t gfp = _gfp;
+>> +             gfp_t gfp = _gfp | __GFP_COLD;
 
-I've applied this patchset on top of next-20141030 and got the same 
-result: kernel panic went away but the rtl8192se device does not associate.
+> This should be set by callers, to avoid extra code
+> GFP_ATOMIC | __GFP_COLD
+> or
+> GFP_KERNEL | __GFP_COLD
 
-Thanks anyway for dedicating your family time to trying to get this fixed.
-
-We can talk about that later when you're back on regular schedule.
-
-Appreciated!
-
--- 
-Murilo
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I guess we can do that, sure.
