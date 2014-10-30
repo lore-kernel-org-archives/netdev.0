@@ -1,106 +1,90 @@
 From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: [PATCH v1 1/2] dtb: xgene: fix: Disable 10GbE and SGMII based 1GbE by default
-Date: Wed, 29 Oct 2014 17:56:19 -0700
-Message-ID: <1414630580-24640-2-git-send-email-isubramanian@apm.com>
+Subject: [PATCH v1 2/2] drivers: net: xgene: fix: Use separate resources
+Date: Wed, 29 Oct 2014 17:56:20 -0700
+Message-ID: <1414630580-24640-3-git-send-email-isubramanian@apm.com>
 References: <1414630580-24640-1-git-send-email-isubramanian@apm.com>
 Cc: linux-arm-kernel@lists.infradead.org, patches@apm.com,
 	kchudgar@apm.com, Iyappan Subramanian <isubramanian@apm.com>
 To: davem@davemloft.net, netdev@vger.kernel.org,
 	devicetree@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod5og112.obsmtp.com ([64.18.0.24]:55014 "HELO
-	exprod5og112.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1757300AbaJ3Aze (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2014 20:55:34 -0400
-Received: by mail-pa0-f42.google.com with SMTP id bj1so4312907pad.29
-        for <netdev@vger.kernel.org>; Wed, 29 Oct 2014 17:55:33 -0700 (PDT)
+Received: from exprod5og110.obsmtp.com ([64.18.0.20]:40880 "HELO
+	exprod5og110.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1758020AbaJ3Azg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2014 20:55:36 -0400
+Received: by mail-pa0-f46.google.com with SMTP id lf10so4267847pab.19
+        for <netdev@vger.kernel.org>; Wed, 29 Oct 2014 17:55:36 -0700 (PDT)
 In-Reply-To: <1414630580-24640-1-git-send-email-isubramanian@apm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch disables 10GbE and SGMII based 1GbE interfaces by default
-for backward compatibility with older firmware, which don't support
-these interfaces.
+This patch fixes the following kernel crash during SGMII based 1GbE probe.
 
-The following kernel crash was reported when using older firmware (<= 1.13.28).
+	BUG: Bad page state in process swapper/0  pfn:40fe6ad
+	page:ffffffbee37a75d8 count:-1 mapcount:0 mapping:          (null) index:0x0
+	flags: 0x0()
+	page dumped because: nonzero _count
+	Modules linked in:
+	CPU: 0 PID: 0 Comm: swapper/0 Not tainted 3.17.0+ #7
+	Call trace:
+	[<ffffffc000087fa0>] dump_backtrace+0x0/0x12c
+	[<ffffffc0000880dc>] show_stack+0x10/0x1c
+	[<ffffffc0004d981c>] dump_stack+0x74/0xc4
+	[<ffffffc00012fe70>] bad_page+0xd8/0x128
+	[<ffffffc000133000>] get_page_from_freelist+0x4b8/0x640
+	[<ffffffc000133260>] __alloc_pages_nodemask+0xd8/0x834
+	[<ffffffc0004194f8>] __netdev_alloc_frag+0x124/0x1b8
+	[<ffffffc00041bfdc>] __netdev_alloc_skb+0x90/0x10c
+	[<ffffffc00039ff30>] xgene_enet_refill_bufpool+0x11c/0x280
+	[<ffffffc0003a11a4>] xgene_enet_process_ring+0x168/0x340
+	[<ffffffc0003a1498>] xgene_enet_napi+0x1c/0x50
+	[<ffffffc00042b454>] net_rx_action+0xc8/0x18c
+	[<ffffffc0000b0880>] __do_softirq+0x114/0x24c
+	[<ffffffc0000b0c34>] irq_exit+0x94/0xc8
+	[<ffffffc0000e68a0>] __handle_domain_irq+0x8c/0xf4
+	[<ffffffc000081288>] gic_handle_irq+0x30/0x7c
 
-[    0.980000] libphy: APM X-Gene MDIO bus: probed
-[    1.130000] Unhandled fault: synchronous external abort (0x96000010) at 0xffffff800009a17c
-[    1.140000] Internal error: : 96000010 [#1] SMP
-[    1.140000] Modules linked in:
-[    1.140000] CPU: 0 PID: 1 Comm: swapper/0 Not tainted 3.17.0+ #21
-[    1.140000] task: ffffffc3f0110000 ti: ffffffc3f0064000 task.ti: ffffffc3f0064000
-[    1.140000] PC is at ioread32+0x58/0x68
-[    1.140000] LR is at xgene_enet_setup_ring+0x18c/0x1cc
-[    1.140000] pc : [<ffffffc0003cec68>] lr : [<ffffffc00053dad8>] pstate: a0000045
-[    1.140000] sp : ffffffc3f0067b20
-[    1.140000] x29: ffffffc3f0067b20 x28: ffffffc000aa8ea0
-[    1.140000] x27: ffffffc000bb2000 x26: ffffffc000a64270
-[    1.140000] x25: ffffffc000b05ad8 x24: ffffffc0ff99ba58
-[    1.140000] x23: 0000000000004000 x22: 0000000000004000
-[    1.140000] x21: 0000000000000200 x20: 0000000000200000
-[    1.140000] x19: ffffffc0ff99ba18 x18: ffffffc0007a6000
-[    1.140000] x17: 0000000000000007 x16: 000000000000000e
-[    1.140000] x15: 0000000000000001 x14: 0000000000000000
-[    1.140000] x13: ffffffbeedb71320 x12: 00000000ffffff80
-[    1.140000] x11: 0000000000000002 x10: 0000000000000000
-[    1.140000] x9 : 0000000000000000 x8 : ffffffc3eb2a4000
-[    1.140000] x7 : 0000000000000000 x6 : 0000000000000000
-[    1.140000] x5 : 0000000001080000 x4 : 000000007d654010
-[    1.140000] x3 : ffffffffffffffff x2 : 000000000003ffff
-[    1.140000] x1 : ffffff800009a17c x0 : ffffff800009a17c
-
-The issue was that the older firmware does not support 10GbE and
-SGMII based 1GBE interfaces.
-
-The newer firmware (version 1.13.29) will support 10GbE and SGMII based 1GbE
-and it will patch the dtb to enable these nodes on the fly.
+This was due to hardware resource sharing conflict with the firmware. This
+patch fixes this crash by using resources (descriptor ring, prefetch buffer)
+that are not shared.
 
 Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
 Signed-off-by: Keyur Chudgar <kchudgar@apm.com>
-Reported-by: Dann Frazier <dann.frazier@canonical.com>
 ---
- arch/arm64/boot/dts/apm-mustang.dts | 8 --------
- arch/arm64/boot/dts/apm-storm.dtsi  | 4 ++--
- 2 files changed, 2 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.c | 6 +++---
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.h | 3 +++
+ 2 files changed, 6 insertions(+), 3 deletions(-)
 
-diff --git a/arch/arm64/boot/dts/apm-mustang.dts b/arch/arm64/boot/dts/apm-mustang.dts
-index 2e25de0..f649000 100644
---- a/arch/arm64/boot/dts/apm-mustang.dts
-+++ b/arch/arm64/boot/dts/apm-mustang.dts
-@@ -40,11 +40,3 @@
- &menet {
- 	status = "ok";
- };
--
--&sgenet0 {
--	status = "ok";
--};
--
--&xgenet {
--	status = "ok";
--};
-diff --git a/arch/arm64/boot/dts/apm-storm.dtsi b/arch/arm64/boot/dts/apm-storm.dtsi
-index 295c72d..52488c8 100644
---- a/arch/arm64/boot/dts/apm-storm.dtsi
-+++ b/arch/arm64/boot/dts/apm-storm.dtsi
-@@ -621,7 +621,7 @@
- 			};
- 		};
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+index 3c208cc..ac37e26 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+@@ -639,9 +639,9 @@ static int xgene_enet_create_desc_rings(struct net_device *ndev)
+ 	struct device *dev = ndev_to_dev(ndev);
+ 	struct xgene_enet_desc_ring *rx_ring, *tx_ring, *cp_ring;
+ 	struct xgene_enet_desc_ring *buf_pool = NULL;
+-	u8 cpu_bufnum = 0, eth_bufnum = 0;
+-	u8 bp_bufnum = 0x20;
+-	u16 ring_id, ring_num = 0;
++	u8 cpu_bufnum = 0, eth_bufnum = START_ETH_BUFNUM;
++	u8 bp_bufnum = START_BP_BUFNUM;
++	u16 ring_id, ring_num = START_RING_NUM;
+ 	int ret;
  
--		sgenet0: ethernet@1f210000 {
-+		sgenet0: sgenet@1f210000 {
- 			compatible = "apm,xgene-enet";
- 			status = "disabled";
- 			reg = <0x0 0x1f210000 0x0 0x10000>,
-@@ -635,7 +635,7 @@
- 			phy-connection-type = "sgmii";
- 		};
+ 	/* allocate rx descriptor ring */
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.h b/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
+index 874e5a0..7d8b6ea 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
+@@ -38,6 +38,9 @@
+ #define SKB_BUFFER_SIZE		(XGENE_ENET_MAX_MTU - NET_IP_ALIGN)
+ #define NUM_PKT_BUF	64
+ #define NUM_BUFPOOL	32
++#define START_ETH_BUFNUM	2
++#define START_BP_BUFNUM		0x22
++#define START_RING_NUM		8
  
--		xgenet: ethernet@1f610000 {
-+		xgenet: xgenet@1f610000 {
- 			compatible = "apm,xgene-enet";
- 			status = "disabled";
- 			reg = <0x0 0x1f610000 0x0 0xd100>,
+ #define PHY_POLL_LINK_ON	(10 * HZ)
+ #define PHY_POLL_LINK_OFF	(PHY_POLL_LINK_ON / 5)
 -- 
 1.9.1
