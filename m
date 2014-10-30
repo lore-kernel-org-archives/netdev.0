@@ -1,25 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] r8152: set RTL8152_UNPLUG when finding -ENODEV
-Date: Thu, 30 Oct 2014 16:55:44 -0400 (EDT)
-Message-ID: <20141030.165544.2129434076908845307.davem@davemloft.net>
-References: <1394712342-15778-73-Taiwan-albertk@realtek.com>
+Subject: Re: [PATCH net-next] tipc: spelling errors
+Date: Thu, 30 Oct 2014 16:56:55 -0400 (EDT)
+Message-ID: <20141030.165655.1933648118080731147.davem@davemloft.net>
+References: <20141029225851.03651f3f@urahara>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
-	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
-To: hayeswang@realtek.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394712342-15778-73-Taiwan-albertk@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: jon.maloy@ericsson.com, allan.stephens@windriver.com,
+	netdev@vger.kernel.org
+To: stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:59330 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161109AbaJ3U44 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2014 16:56:56 -0400
+In-Reply-To: <20141029225851.03651f3f@urahara>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Hayes Wang <hayeswang@realtek.com>
-Date: Thu, 30 Oct 2014 11:46:40 +0800
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Wed, 29 Oct 2014 22:58:51 -0700
 
-> Set RTL8152_UNPLUG when finding -ENODEV. This could accelerate
-> unloading the driver when the device is unplugged.
-> 
-> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
-Applied.
+Applied, thanks Stephen.
