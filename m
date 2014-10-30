@@ -1,41 +1,37 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH -next 0/2] net: allow setting ecn via routing table
-Date: Fri, 31 Oct 2014 00:16:37 +0100
-Message-ID: <20141030231637.GF10069@breakpoint.cc>
-References: <1414276729-17871-1-git-send-email-fw@strlen.de>
- <20141028.165737.2009356944765978630.davem@davemloft.net>
- <20141029122307.GA29253@breakpoint.cc>
- <20141030.155958.156984068627586090.davem@davemloft.net>
- <20141030205204.GE10069@breakpoint.cc>
- <1414703260.15352.9.camel@edumazet-glaptop2.roam.corp.google.com>
- <20141030221501.GA9416@breakpoint.cc>
- <1414710342.15352.14.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH RESEND v2] ipv4: Do not cache routing failures due to
+ disabled forwarding.
+Date: Thu, 30 Oct 2014 19:21:15 -0400 (EDT)
+Message-ID: <20141030.192115.918754566952396661.davem@davemloft.net>
+References: <20141029.150328.530876391340346443.davem@davemloft.net>
+	<1414660193-4177-1-git-send-email-nicolas.cavallari@green-communications.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:39876 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1161432AbaJ3XQk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2014 19:16:40 -0400
-Content-Disposition: inline
-In-Reply-To: <1414710342.15352.14.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: nicolas.cavallari@green-communications.fr
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1414660193-4177-1-git-send-email-nicolas.cavallari@green-communications.fr>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Thu, 2014-10-30 at 23:15 +0100, Florian Westphal wrote:
+From: Nicolas Cavallari <nicolas.cavallari@green-communications.fr>
+Date: Thu, 30 Oct 2014 10:09:53 +0100
+
+> If we cache them, the kernel will reuse them, independently of
+> whether forwarding is enabled or not.  Which means that if forwarding is
+> disabled on the input interface where the first routing request comes
+> from, then that unreachable result will be cached and reused for
+> other interfaces, even if forwarding is enabled on them.  The opposite
+> is also true.
 > 
-> > Do you think a fallback to non-ecn for retransmitted syns would help?
+> This can be verified with two interfaces A and B and an output interface
+> C, where B has forwarding enabled, but not A and trying
+> ip route get $dst iif A from $src && ip route get $dst iif B from $src
 > 
-> Unfortunately some firewalls are buggy and accept a single SYN per flow.
-[..]
-> Note that ECN problems are not only contained in SYN packets being
-> eventually dropped. You might have a success to establish a flow, and
-> later get CE marks for all packets and cwnd converges to 1.
+> Signed-off-by: Nicolas Cavallari <nicolas.cavallari@green-communications.fr>
+> Reviewed-by: Julian Anastasov <ja@ssi.bg>
 
-I see. So that makes ecn=1 default a pure fantasy.
-
-Thanks for explaining this.
+Applied and queued up for -stable, thanks.
