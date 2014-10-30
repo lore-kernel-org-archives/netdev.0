@@ -1,50 +1,71 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 8/8] net/mlx4_en: Extend checksum offloading by
- CHECKSUM COMPLETE
-Date: Thu, 30 Oct 2014 11:22:19 -0700
-Message-ID: <1414693339.14647.1.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1414685216-28907-1-git-send-email-ogerlitz@mellanox.com>
-	 <1414685216-28907-9-git-send-email-ogerlitz@mellanox.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: [PATCH v2 net 0/2] drivers/net,ipv6: Fix IPv6 fragment ID selection
+ for virtio
+Date: Thu, 30 Oct 2014 18:26:32 +0000
+Message-ID: <1414693592.16849.61.camel@decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Matan Barak <matanb@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Shani Michaeli <shanim@mellanox.com>,
-	Jerry Chu <hkchu@google.com>
-To: Or Gerlitz <ogerlitz@mellanox.com>,
-	Tom Herbert <therbert@google.com>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-ENpuRQMmnWEC8ORQlhJI"
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	virtualization@lists.linux-foundation.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f176.google.com ([209.85.192.176]:35187 "EHLO
-	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758593AbaJ3SWU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2014 14:22:20 -0400
-Received: by mail-pd0-f176.google.com with SMTP id ft15so5611232pdb.35
-        for <netdev@vger.kernel.org>; Thu, 30 Oct 2014 11:22:20 -0700 (PDT)
-In-Reply-To: <1414685216-28907-9-git-send-email-ogerlitz@mellanox.com>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:47688 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758593AbaJ3S0p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2014 14:26:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-10-30 at 18:06 +0200, Or Gerlitz wrote:
-> From: Shani Michaeli <shanim@mellanox.com>
-> 
-> When processing received traffic, pass CHECKSUM_COMPLETE status to the
-> stack, with calculated checksum for non TCP/UDP packets (such
-> as GRE or ICMP).
-> 
-> Although the stack expects checksum which doesn't include the pseudo
-> header, the HW adds it. To address that, we are subtracting the pseudo
-> header checksum from the checksum value provided by the HW.
-> 
-> In the IPv6 case, we also compute/add the IP header checksum which
-> is not added by the HW for such packets.
-> 
-> Cc: Jerry Chu <hkchu@google.com>
-> Signed-off-by: Shani Michaeli <shanim@mellanox.com>
-> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-> ---
 
+--=-ENpuRQMmnWEC8ORQlhJI
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Awesome !
+The virtio net protocol supports UFO but does not provide for passing a
+fragment ID for fragmentation of IPv6 packets.  We used to generate a
+fragment ID wherever such a packet was fragmented, but currently we
+always use ID=3D0!
+
+v2: Add blank lines after declarations
+
+Ben.
+
+Ben Hutchings (2):
+  drivers/net: Disable UFO through virtio
+  drivers/net,ipv6: Select IPv6 fragment idents for virtio UFO packets
+
+ drivers/net/macvtap.c    | 16 ++++++++--------
+ drivers/net/tun.c        | 25 ++++++++++++++++---------
+ drivers/net/virtio_net.c | 24 ++++++++++++++----------
+ include/net/ipv6.h       |  2 ++
+ net/ipv6/output_core.c   | 34 ++++++++++++++++++++++++++++++++++
+ 5 files changed, 74 insertions(+), 27 deletions(-)
+
+--=20
+Ben Hutchings
+The program is absolutely right; therefore, the computer must be wrong.
+
+--=-ENpuRQMmnWEC8ORQlhJI
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIVAwUAVFKC3ee/yOyVhhEJAQouJA/8DDnny3CmqaJVX4ZazV3Xck2xMGRVaIYD
+o394JZdrGTBZBrrQ1JNy98+yOHpydoe2eQK3DuGKAEIaDXdaURVUDISjb5xRZvoM
+Cfm/tyXrZ/Nif+vgLfgBgVcQBN8bvRV9XnjHr2kUoXS/RnDE0Nhp5E28Q6s5UNKS
+iXn0FtX1jgKGgHWtq1LzBM2EUCH8bCpQoSd5KSPqechYutTGVPC6iyJuxs4PBrvc
+ydsNhLuHCqmrStrKbv63XOSLEQZZq8hVX4V26HWzJLDyAnhL+Y8g1dUj91kXdWny
+bk4hA2ENR6MT6YmiqyWb+DQBwP2WfRn2Jz20yltkbhmOGQFHXPd/oK4p8oOVRuvb
+QYdTwa6vK/HQeqWCyMP0lRhjJypnbDtjAXayrXiODHMLzb7ujbxWT6Wvp88QIxSk
+2vCeFTQj7k+pjACrdBx3vFldYLWlg8j9g83zozwZ61NKZWr9a1SroztrORbr41w7
+QZsNXcVmvlalngUjwUx8tcBkmkiO9GknmTy8lH92kMs9BsDDJFptyixqtOxTE/Qg
+QPukGE6CZtGX+AMb1iD7+lS9ZwDqD6JNYw+2RS52w8VWdnRxhYwCim4kADH98gS/
+HLNypkp9lAqNzmBwhPn46M1hgOPTqkfWPYXxjSyDoQ41vR215XGsNEAqESItFBqs
+EgLMbpxVWRc=
+=Hqcq
+-----END PGP SIGNATURE-----
+
+--=-ENpuRQMmnWEC8ORQlhJI--
