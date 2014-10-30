@@ -1,64 +1,44 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [Patch net 2/2] net_sched: always call ->destroy when ->init()
- fails
-Date: Wed, 29 Oct 2014 20:09:02 -0700
-Message-ID: <5451ABCE.90504@gmail.com>
-References: <1414194959-28006-1-git-send-email-xiyou.wangcong@gmail.com> <1414194959-28006-2-git-send-email-xiyou.wangcong@gmail.com> <20141029.142934.1722309776700951536.davem@davemloft.net>
+From: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
+Subject: RE: suspend/resume broken on 3.18-rc2
+Date: Thu, 30 Oct 2014 03:11:32 +0000
+Message-ID: <69f3cd5a2961445ebab0f2652ffa60bd@BLUPR03MB373.namprd03.prod.outlook.com>
+References: <CAOMZO5C5znc2ZD5GoPKC7qQPoFGaJf47BoTMY0HQtEbW46d4dw@mail.gmail.com>
+	<6278a77cdc594b3488b0ebc043f7d17b@BLUPR03MB373.namprd03.prod.outlook.com>
+ <CAOMZO5C9tcL9K79rwWbYkYcpRMPkpvHS+v2kYyRpY4bt7h=Cgw@mail.gmail.com>
+ <8bbe5cec19124e1cae128cc39d249148@BN1PR0301MB0628.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	john.r.fastabend@intel.com, edumazet@google.com, kaber@trash.net,
-	vtlam@google.com
-To: xiyou.wangcong@gmail.com, wang.bo116@zte.com.cn
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Frank.Li@freescale.com" <Frank.Li@freescale.com>,
+	Russell King <linux@arm.linux.org.uk>,
+	Shawn Guo <shawn.guo@linaro.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Anson.Huang@freescale.com" <Anson.Huang@freescale.com>,
+	Fabio Estevam <festevam@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:52202 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752169AbaJ3DJU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2014 23:09:20 -0400
-Received: by mail-ob0-f174.google.com with SMTP id uz6so3500331obc.33
-        for <netdev@vger.kernel.org>; Wed, 29 Oct 2014 20:09:19 -0700 (PDT)
-In-Reply-To: <20141029.142934.1722309776700951536.davem@davemloft.net>
+Received: from mail-bn1on0132.outbound.protection.outlook.com ([157.56.110.132]:19776
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751531AbaJ3DLf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Oct 2014 23:11:35 -0400
+In-Reply-To: <8bbe5cec19124e1cae128cc39d249148@BN1PR0301MB0628.namprd03.prod.outlook.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/29/2014 11:29 AM, David Miller wrote:
-> From: Cong Wang <xiyou.wangcong@gmail.com>
-> Date: Fri, 24 Oct 2014 16:55:59 -0700
->
->> In qdisc_create(), when ->init() exists and it fails, we should
->> call ->destroy() to clean up the potentially partially initialized
->> qdisc's. This will also make the ->init() implementation easier.
->>
->> qdisc_create_dflt() already does that. Most callers of qdisc_create_dflt()
->> simply use noop_qdisc when it fails.
->>
->> And, most of the ->destroy() implementations are already able to clean up
->> partially initialization, we don't need to worry.
->>
->> The following ->init()'s need to catch up:
->> fq_codel_init(), hhf_init(), multiq_init(),  sfq_init(), mq_init(),
->> mqprio_init().
->>
->> Reported-by: Wang Bo <wang.bo116@zte.com.cn>
->> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
->
-> As discussed, I really want to see ->init() clean up it's own crap.
->
-> There are certain kinds of initializations that cannot be tested for,
-> such as setting up a workqueue etc.
->
-> Therefore, the mere idea that we can call ->destroy() to handle this
-> is a pure non-starter as far as I am concerned.
->
-> Thanks.
-> --
-
-Cong/Wang, anyone working on this? Otherwise I'll take a stab
-at it tomorrow.
-
-Thanks!
-John
-
--- 
-John Fastabend         Intel Corporation
+RnJvbTogSHVhbmcgWW9uZ2NhaS1CMjA3ODggU2VudDogVGh1cnNkYXksIE9jdG9iZXIgMzAsIDIw
+MTQgMTA6MzUgQU0NCj5UbzogRmFiaW8gRXN0ZXZhbTsgRHVhbiBGdWdhbmctQjM4NjExDQo+Q2M6
+IExpIEZyYW5rLUIyMDU5NjsgUnVzc2VsbCBLaW5nOyBTaGF3biBHdW87IG5ldGRldkB2Z2VyLmtl
+cm5lbC5vcmcNCj5TdWJqZWN0OiBSRTogc3VzcGVuZC9yZXN1bWUgYnJva2VuIG9uIDMuMTgtcmMy
+DQo+DQo+SGksIGFsbA0KPglJIGp1c3QgdHJpZWQgdGhlIDMuMTguMC1yYzIgb24gb3VyIGkuTVg2
+U1gtU0RCIGJvYXJkLCBhdHRhY2hlZCBpcyBteQ0KPmxvZywgc2VlbXMgbGlrZSB0aGUgaXNzdWUg
+aXMgaW5zaWRlIHRoZSBFTkVUIGRyaXZlciwgSSBndWVzcyB5b3UgZGlkIE5PVA0KPmFkZCAibm9f
+Y29uc29sZV9zdXNwZW5kIiBpbiB0aGUgY21kbGluZSwgc28gd2hlbiBmYWlsZWQsIHlvdSBjYW4g
+Tk9UIHNlZQ0KPmFueSBsb2csIHBsZWFzZSBjaGVjayB0aGUgYXR0YWNoZWQgbG9nLCBJIGNhbiBz
+ZWUgdGhlIGZhaWx1cmUgaXMgaW4gRkVDDQo+d2hlbiByZXVzbWUuDQo+DQo+CUkgYWxzbyB0cmll
+ZCB1c2luZyBzZCByb290ZnMgYW5kIHVucGx1ZyB0aGUgZW5ldCBjYWJsZSwgdGhlDQo+c3VzcGVu
+ZC9yZXN1bWUgaXMgT0sgd2l0aG91dCBGRUMgZHJpdmVyLiBTbyBwbGVhc2UgYWRkDQo+Im5vX2Nv
+bnNvbGVfc3VzcGVuZCIgaW50byBjbWRsaW5lIGFuZCBkbyBkZWJ1ZyBmb3IgRkVDIGRyaXZlci4N
+Cj4NCj4NCj5CZXN0IHJlZ2FyZHMhDQo+QW5zb24gSHVhbmcNCj4NCkkgdHJpZWQgaXQgeWVzdGVy
+ZGF5IHdpdGggRkVDIGNsb3NlLCByZXN1bWUgY2Fubm90IGJhY2suDQpJIHdpbGwgdHJ5IGl0IGFn
+YWluLg0KDQpSZWdhcmRzLA0KQW5keQ0K
