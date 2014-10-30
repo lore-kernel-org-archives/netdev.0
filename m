@@ -1,7 +1,7 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 7/8] net: Add calaulation of non folded IPV6 pseudo header checksum
-Date: Thu, 30 Oct 2014 18:06:55 +0200
-Message-ID: <1414685216-28907-8-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next 1/8] net/mlx4_core: Prevent VF from changing port configuration
+Date: Thu, 30 Oct 2014 18:06:49 +0200
+Message-ID: <1414685216-28907-2-git-send-email-ogerlitz@mellanox.com>
 References: <1414685216-28907-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Matan Barak <matanb@mellanox.com>,
 	Amir Vadai <amirv@mellanox.com>,
@@ -9,56 +9,104 @@ Cc: netdev@vger.kernel.org, Matan Barak <matanb@mellanox.com>,
 	Shani Michaeli <shanim@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:39649 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:39616 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1759393AbaJ3QHG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Oct 2014 12:07:06 -0400
+	id S1759251AbaJ3QHB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Oct 2014 12:07:01 -0400
 In-Reply-To: <1414685216-28907-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shani Michaeli <shanim@mellanox.com>
+From: Saeed Mahameed <saeedm@mellanox.com>
 
-Compute IPV6 pseudo header checksum without folding it to a 16 bit
-return value.
+Added wrapper to the ACCESS_REG command for handling guest HW
+registers access, preventing write operations, but do allow reads.
 
-Signed-off-by: Shani Michaeli <shanim@mellanox.com>
-Signed-off-by: Matan Barak <matanb@mellanox.com>
+This will prevent SRIOV guests to change port PTYS configuration,
+such as speed/advertised link modes.
+
+Fixes: adbc7ac5c15e ('net/mlx4_core: Introduce ACCESS_REG CMD [...]')
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- include/net/ip6_checksum.h |   21 +++++++++++++++++++++
- 1 files changed, 21 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/cmd.c  |    2 +-
+ drivers/net/ethernet/mellanox/mlx4/fw.c   |   30 ++++++++++++++++++++++++++++-
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h |    5 ++++
+ 3 files changed, 35 insertions(+), 2 deletions(-)
 
-diff --git a/include/net/ip6_checksum.h b/include/net/ip6_checksum.h
-index 1a49b73..c45d690 100644
---- a/include/net/ip6_checksum.h
-+++ b/include/net/ip6_checksum.h
-@@ -41,6 +41,27 @@ __sum16 csum_ipv6_magic(const struct in6_addr *saddr,
- 			__wsum csum);
- #endif
+diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+index 916459e..1312ccf 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
++++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+@@ -1345,7 +1345,7 @@ static struct mlx4_cmd_info cmd_info[] = {
+ 		.out_is_imm = false,
+ 		.encode_slave_id = false,
+ 		.verify = NULL,
+-		.wrapper = NULL,
++		.wrapper = mlx4_ACCESS_REG_wrapper,
+ 	},
+ 	/* Native multicast commands are not available for guests */
+ 	{
+diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
+index 72289ef..e7639e3 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/fw.c
++++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
+@@ -2220,7 +2220,7 @@ static int mlx4_ACCESS_REG(struct mlx4_dev *dev, u16 reg_id,
+ 	memcpy(inbuf->reg_data, reg_data, reg_len);
+ 	err = mlx4_cmd_box(dev, inbox->dma, outbox->dma, 0, 0,
+ 			   MLX4_CMD_ACCESS_REG, MLX4_CMD_TIME_CLASS_C,
+-			   MLX4_CMD_NATIVE);
++			   MLX4_CMD_WRAPPED);
+ 	if (err)
+ 		goto out;
  
-+static inline __wsum csum_ipv6_magic_nofold(const struct in6_addr *saddr,
-+					    const struct in6_addr *daddr,
-+					    __u32 len, unsigned short proto,
-+					    __wsum sum)
+@@ -2263,3 +2263,31 @@ int mlx4_ACCESS_PTYS_REG(struct mlx4_dev *dev,
+ 			       method, sizeof(*ptys_reg), ptys_reg);
+ }
+ EXPORT_SYMBOL_GPL(mlx4_ACCESS_PTYS_REG);
++
++int mlx4_ACCESS_REG_wrapper(struct mlx4_dev *dev, int slave,
++			    struct mlx4_vhcr *vhcr,
++			    struct mlx4_cmd_mailbox *inbox,
++			    struct mlx4_cmd_mailbox *outbox,
++			    struct mlx4_cmd_info *cmd)
 +{
-+	__wsum res = sum;
++	struct mlx4_access_reg *inbuf = inbox->buf;
++	u8 method = inbuf->method & MLX4_ACCESS_REG_METHOD_MASK;
++	u16 reg_id = be16_to_cpu(inbuf->reg_id);
 +
-+	res = csum_add(res, (__force __wsum)saddr->in6_u.u6_addr32[0]);
-+	res = csum_add(res, (__force __wsum)saddr->in6_u.u6_addr32[1]);
-+	res = csum_add(res, (__force __wsum)saddr->in6_u.u6_addr32[2]);
-+	res = csum_add(res, (__force __wsum)saddr->in6_u.u6_addr32[3]);
-+	res = csum_add(res, (__force __wsum)daddr->in6_u.u6_addr32[0]);
-+	res = csum_add(res, (__force __wsum)daddr->in6_u.u6_addr32[1]);
-+	res = csum_add(res, (__force __wsum)daddr->in6_u.u6_addr32[2]);
-+	res = csum_add(res, (__force __wsum)daddr->in6_u.u6_addr32[3]);
-+	res = csum_add(res, (__force __wsum)htonl(len));
-+	res = csum_add(res, (__force __wsum)htonl(proto));
++	if (slave != mlx4_master_func_num(dev) &&
++	    method == MLX4_ACCESS_REG_WRITE)
++		return -EPERM;
 +
-+	return res;
++	if (reg_id == MLX4_REG_ID_PTYS) {
++		struct mlx4_ptys_reg *ptys_reg =
++			(struct mlx4_ptys_reg *)inbuf->reg_data;
++
++		ptys_reg->local_port =
++			mlx4_slave_convert_port(dev, slave,
++						ptys_reg->local_port);
++	}
++
++	return mlx4_cmd_box(dev, inbox->dma, outbox->dma, vhcr->in_modifier,
++			    0, MLX4_CMD_ACCESS_REG, MLX4_CMD_TIME_CLASS_C,
++			    MLX4_CMD_NATIVE);
 +}
-+
- static inline __wsum ip6_compute_pseudo(struct sk_buff *skb, int proto)
- {
- 	return ~csum_unfold(csum_ipv6_magic(&ipv6_hdr(skb)->saddr,
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+index de10dbb..254ec7b 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+@@ -1273,6 +1273,11 @@ int mlx4_QP_FLOW_STEERING_DETACH_wrapper(struct mlx4_dev *dev, int slave,
+ 					 struct mlx4_cmd_mailbox *inbox,
+ 					 struct mlx4_cmd_mailbox *outbox,
+ 					 struct mlx4_cmd_info *cmd);
++int mlx4_ACCESS_REG_wrapper(struct mlx4_dev *dev, int slave,
++			    struct mlx4_vhcr *vhcr,
++			    struct mlx4_cmd_mailbox *inbox,
++			    struct mlx4_cmd_mailbox *outbox,
++			    struct mlx4_cmd_info *cmd);
+ 
+ int mlx4_get_mgm_entry_size(struct mlx4_dev *dev);
+ int mlx4_get_qp_per_mgm(struct mlx4_dev *dev);
 -- 
 1.7.1
