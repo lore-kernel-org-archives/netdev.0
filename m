@@ -1,59 +1,97 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next] tipc: spelling errors
-Date: Wed, 29 Oct 2014 22:58:51 -0700
-Message-ID: <20141029225851.03651f3f@urahara>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jon Maloy <jon.maloy@ericsson.com>,
-	Allan Stephens <allan.stephens@windriver.com>
+From: Denis Kirjanov <kda@linux-powerpc.org>
+Subject: [PATCH v2] PPC: bpf_jit_comp: add SKF_AD_PKTTYPE instruction
+Date: Thu, 30 Oct 2014 09:12:15 +0300
+Message-ID: <1414649535-3956-1-git-send-email-kda@linux-powerpc.org>
+Cc: linuxppc-dev@ozlabs.org, Denis Kirjanov <kda@linux-powerpc.org>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Michael Ellerman <mpe@ellerman.id.au>,
+	Matt Evans <matt@ozlabs.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:33980 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752590AbaJ3F7B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2014 01:59:01 -0400
-Received: by mail-pa0-f44.google.com with SMTP id bj1so4755262pad.17
-        for <netdev@vger.kernel.org>; Wed, 29 Oct 2014 22:59:01 -0700 (PDT)
+Received: from mail-la0-f46.google.com ([209.85.215.46]:64916 "EHLO
+	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758299AbaJ3Gjl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2014 02:39:41 -0400
+Received: by mail-la0-f46.google.com with SMTP id hs14so3834164lab.19
+        for <netdev@vger.kernel.org>; Wed, 29 Oct 2014 23:39:40 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Add BPF extension SKF_AD_PKTTYPE to ppc JIT to load
+skb->pkt_type field.
 
-Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+Before:
+[   88.262622] test_bpf: #11 LD_IND_NET 86 97 99 PASS
+[   88.265740] test_bpf: #12 LD_PKTTYPE 109 107 PASS
 
+After:
+[   80.605964] test_bpf: #11 LD_IND_NET 44 40 39 PASS
+[   80.607370] test_bpf: #12 LD_PKTTYPE 9 9 PASS
+
+CC: Alexei Starovoitov<alexei.starovoitov@gmail.com>
+CC: Michael Ellerman<mpe@ellerman.id.au>
+Cc: Matt Evans <matt@ozlabs.org>
+Signed-off-by: Denis Kirjanov <kda@linux-powerpc.org>
+
+v2: Added test rusults
 ---
- net/tipc/msg.c    |    4 ++--
- net/tipc/socket.c |    2 +-
- 2 files changed, 3 insertions(+), 3 deletions(-)
+ arch/powerpc/include/asm/ppc-opcode.h | 1 +
+ arch/powerpc/net/bpf_jit.h            | 7 +++++++
+ arch/powerpc/net/bpf_jit_comp.c       | 5 +++++
+ 3 files changed, 13 insertions(+)
 
---- a/net/tipc/socket.c	2014-10-27 21:06:04.243288996 -0700
-+++ b/net/tipc/socket.c	2014-10-27 21:06:04.239288981 -0700
-@@ -1556,7 +1556,7 @@ static void tipc_data_ready(struct sock
-  * @tsk: TIPC socket
-  * @msg: message
-  *
-- * Returns 0 (TIPC_OK) if everyting ok, -TIPC_ERR_NO_PORT otherwise
-+ * Returns 0 (TIPC_OK) if everything ok, -TIPC_ERR_NO_PORT otherwise
-  */
- static int filter_connect(struct tipc_sock *tsk, struct sk_buff **buf)
- {
---- a/net/tipc/msg.c	2014-10-27 21:06:04.243288996 -0700
-+++ b/net/tipc/msg.c	2014-10-27 21:06:04.239288981 -0700
-@@ -91,7 +91,7 @@ struct sk_buff *tipc_msg_create(uint use
-  * @*headbuf: in:  NULL for first frag, otherwise value returned from prev call
-  *            out: set when successful non-complete reassembly, otherwise NULL
-  * @*buf:     in:  the buffer to append. Always defined
-- *            out: head buf after sucessful complete reassembly, otherwise NULL
-+ *            out: head buf after successful complete reassembly, otherwise NULL
-  * Returns 1 when reassembly complete, otherwise 0
-  */
- int tipc_buf_append(struct sk_buff **headbuf, struct sk_buff **buf)
-@@ -311,7 +311,7 @@ bool tipc_msg_bundle(struct sk_buff *bbu
-  * @mtu:  max allowable size for the bundle buffer, inclusive header
-  * @dnode: destination node for message. (Not always present in header)
-  * Replaces buffer if successful
-- * Returns true if sucess, otherwise false
-+ * Returns true if success, otherwise false
-  */
- bool tipc_msg_make_bundle(struct sk_buff **buf, u32 mtu, u32 dnode)
- {
+diff --git a/arch/powerpc/include/asm/ppc-opcode.h b/arch/powerpc/include/asm/ppc-opcode.h
+index 6f85362..1a52877 100644
+--- a/arch/powerpc/include/asm/ppc-opcode.h
++++ b/arch/powerpc/include/asm/ppc-opcode.h
+@@ -204,6 +204,7 @@
+ #define PPC_INST_ERATSX_DOT		0x7c000127
+ 
+ /* Misc instructions for BPF compiler */
++#define PPC_INST_LBZ			0x88000000
+ #define PPC_INST_LD			0xe8000000
+ #define PPC_INST_LHZ			0xa0000000
+ #define PPC_INST_LHBRX			0x7c00062c
+diff --git a/arch/powerpc/net/bpf_jit.h b/arch/powerpc/net/bpf_jit.h
+index 9aee27c..c406aa9 100644
+--- a/arch/powerpc/net/bpf_jit.h
++++ b/arch/powerpc/net/bpf_jit.h
+@@ -87,6 +87,9 @@ DECLARE_LOAD_FUNC(sk_load_byte_msh);
+ #define PPC_STD(r, base, i)	EMIT(PPC_INST_STD | ___PPC_RS(r) |	      \
+ 				     ___PPC_RA(base) | ((i) & 0xfffc))
+ 
++
++#define PPC_LBZ(r, base, i)	EMIT(PPC_INST_LBZ | ___PPC_RT(r) |	      \
++				     ___PPC_RA(base) | IMM_L(i))
+ #define PPC_LD(r, base, i)	EMIT(PPC_INST_LD | ___PPC_RT(r) |	      \
+ 				     ___PPC_RA(base) | IMM_L(i))
+ #define PPC_LWZ(r, base, i)	EMIT(PPC_INST_LWZ | ___PPC_RT(r) |	      \
+@@ -96,6 +99,10 @@ DECLARE_LOAD_FUNC(sk_load_byte_msh);
+ #define PPC_LHBRX(r, base, b)	EMIT(PPC_INST_LHBRX | ___PPC_RT(r) |	      \
+ 				     ___PPC_RA(base) | ___PPC_RB(b))
+ /* Convenience helpers for the above with 'far' offsets: */
++#define PPC_LBZ_OFFS(r, base, i) do { if ((i) < 32768) PPC_LBZ(r, base, i);   \
++		else {	PPC_ADDIS(r, base, IMM_HA(i));			      \
++			PPC_LBZ(r, r, IMM_L(i)); } } while(0)
++
+ #define PPC_LD_OFFS(r, base, i) do { if ((i) < 32768) PPC_LD(r, base, i);     \
+ 		else {	PPC_ADDIS(r, base, IMM_HA(i));			      \
+ 			PPC_LD(r, r, IMM_L(i)); } } while(0)
+diff --git a/arch/powerpc/net/bpf_jit_comp.c b/arch/powerpc/net/bpf_jit_comp.c
+index cbae2df..d110e28 100644
+--- a/arch/powerpc/net/bpf_jit_comp.c
++++ b/arch/powerpc/net/bpf_jit_comp.c
+@@ -407,6 +407,11 @@ static int bpf_jit_build_body(struct bpf_prog *fp, u32 *image,
+ 			PPC_LHZ_OFFS(r_A, r_skb, offsetof(struct sk_buff,
+ 							  queue_mapping));
+ 			break;
++		case BPF_ANC | SKF_AD_PKTTYPE:
++			PPC_LBZ_OFFS(r_A, r_skb, PKT_TYPE_OFFSET());
++			PPC_ANDI(r_A, r_A, PKT_TYPE_MAX);
++			PPC_SRWI(r_A, r_A, 5);
++			break;
+ 		case BPF_ANC | SKF_AD_CPU:
+ #ifdef CONFIG_SMP
+ 			/*
+-- 
+2.1.0
