@@ -1,36 +1,59 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2] xfrm: add support of ESN and anti-replay
- window
-Date: Wed, 29 Oct 2014 22:54:00 -0700
-Message-ID: <20141029225400.2d953503@urahara>
-References: <1413796984-9867-1-git-send-email-nicolas.dichtel@6wind.com>
+Subject: [PATCH net-next] tipc: spelling errors
+Date: Wed, 29 Oct 2014 22:58:51 -0700
+Message-ID: <20141029225851.03651f3f@urahara>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org,
-	dingzhi <zhi.ding@6wind.com>,
-	Adrien Mazarguil <adrien.mazarguil@6wind.com>
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Cc: netdev@vger.kernel.org
+To: Jon Maloy <jon.maloy@ericsson.com>,
+	Allan Stephens <allan.stephens@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:35033 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756050AbaJ3FyN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2014 01:54:13 -0400
-Received: by mail-pa0-f53.google.com with SMTP id kx10so4740481pab.40
-        for <netdev@vger.kernel.org>; Wed, 29 Oct 2014 22:54:13 -0700 (PDT)
-In-Reply-To: <1413796984-9867-1-git-send-email-nicolas.dichtel@6wind.com>
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:33980 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752590AbaJ3F7B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2014 01:59:01 -0400
+Received: by mail-pa0-f44.google.com with SMTP id bj1so4755262pad.17
+        for <netdev@vger.kernel.org>; Wed, 29 Oct 2014 22:59:01 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 20 Oct 2014 11:23:04 +0200
-Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
 
-> From: dingzhi <zhi.ding@6wind.com>
-> 
-> This patch allows to configure ESN and anti-replay window.
-> 
-> Signed-off-by: dingzhi <zhi.ding@6wind.com>
-> Signed-off-by: Adrien Mazarguil <adrien.mazarguil@6wind.com>
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
-Applied, but please also send patch to ma
+---
+ net/tipc/msg.c    |    4 ++--
+ net/tipc/socket.c |    2 +-
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+--- a/net/tipc/socket.c	2014-10-27 21:06:04.243288996 -0700
++++ b/net/tipc/socket.c	2014-10-27 21:06:04.239288981 -0700
+@@ -1556,7 +1556,7 @@ static void tipc_data_ready(struct sock
+  * @tsk: TIPC socket
+  * @msg: message
+  *
+- * Returns 0 (TIPC_OK) if everyting ok, -TIPC_ERR_NO_PORT otherwise
++ * Returns 0 (TIPC_OK) if everything ok, -TIPC_ERR_NO_PORT otherwise
+  */
+ static int filter_connect(struct tipc_sock *tsk, struct sk_buff **buf)
+ {
+--- a/net/tipc/msg.c	2014-10-27 21:06:04.243288996 -0700
++++ b/net/tipc/msg.c	2014-10-27 21:06:04.239288981 -0700
+@@ -91,7 +91,7 @@ struct sk_buff *tipc_msg_create(uint use
+  * @*headbuf: in:  NULL for first frag, otherwise value returned from prev call
+  *            out: set when successful non-complete reassembly, otherwise NULL
+  * @*buf:     in:  the buffer to append. Always defined
+- *            out: head buf after sucessful complete reassembly, otherwise NULL
++ *            out: head buf after successful complete reassembly, otherwise NULL
+  * Returns 1 when reassembly complete, otherwise 0
+  */
+ int tipc_buf_append(struct sk_buff **headbuf, struct sk_buff **buf)
+@@ -311,7 +311,7 @@ bool tipc_msg_bundle(struct sk_buff *bbu
+  * @mtu:  max allowable size for the bundle buffer, inclusive header
+  * @dnode: destination node for message. (Not always present in header)
+  * Replaces buffer if successful
+- * Returns true if sucess, otherwise false
++ * Returns true if success, otherwise false
+  */
+ bool tipc_msg_make_bundle(struct sk_buff **buf, u32 mtu, u32 dnode)
+ {
