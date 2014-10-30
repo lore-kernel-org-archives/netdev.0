@@ -1,32 +1,41 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net 1/2] drivers/net: Disable UFO through virtio
-Date: Thu, 30 Oct 2014 16:16:26 -0700
-Message-ID: <1414710986.15352.15.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1414693592.16849.61.camel@decadent.org.uk>
-	<1414693632.16849.62.camel@decadent.org.uk>
-	<1414694849.15352.3.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1414707602.16849.70.camel@decadent.org.uk>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH -next 0/2] net: allow setting ecn via routing table
+Date: Fri, 31 Oct 2014 00:16:37 +0100
+Message-ID: <20141030231637.GF10069@breakpoint.cc>
+References: <1414276729-17871-1-git-send-email-fw@strlen.de>
+ <20141028.165737.2009356944765978630.davem@davemloft.net>
+ <20141029122307.GA29253@breakpoint.cc>
+ <20141030.155958.156984068627586090.davem@davemloft.net>
+ <20141030205204.GE10069@breakpoint.cc>
+ <1414703260.15352.9.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20141030221501.GA9416@breakpoint.cc>
+ <1414710342.15352.14.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	virtualization@lists.linux-foundation.org
-To: Ben Hutchings <ben@decadent.org.uk>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1414707602.16849.70.camel@decadent.org.uk>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw@strlen.de>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:39876 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1161432AbaJ3XQk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2014 19:16:40 -0400
+Content-Disposition: inline
+In-Reply-To: <1414710342.15352.14.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-10-30 at 22:20 +0000, Ben Hutchings wrote:
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Thu, 2014-10-30 at 23:15 +0100, Florian Westphal wrote:
+> 
+> > Do you think a fallback to non-ecn for retransmitted syns would help?
+> 
+> Unfortunately some firewalls are buggy and accept a single SYN per flow.
+[..]
+> Note that ECN problems are not only contained in SYN packets being
+> eventually dropped. You might have a success to establish a flow, and
+> later get CE marks for all packets and cwnd converges to 1.
 
-> Could do.  I'm trying to make small fixes that are suitable for stable.
+I see. So that makes ecn=1 default a pure fantasy.
 
-Oh right, makes sense ;)
+Thanks for explaining this.
