@@ -1,50 +1,56 @@
 From: Michele Baldessari <michele@acksyn.org>
-Subject: [net-next 2/2] sctp: replace seq_printf with seq_puts
-Date: Thu, 30 Oct 2014 10:29:16 +0100
-Message-ID: <1414661356-17255-2-git-send-email-michele@acksyn.org>
-References: <1414661356-17255-1-git-send-email-michele@acksyn.org>
+Subject: [net-next 1/2] sctp: add transport state in /proc/net/sctp/remaddr
+Date: Thu, 30 Oct 2014 10:29:15 +0100
+Message-ID: <1414661356-17255-1-git-send-email-michele@acksyn.org>
 Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
 	"David S. Miller" <davem@davemloft.net>,
 	Michele Baldessari <michele@acksyn.org>
 To: Vlad Yasevich <vyasevich@gmail.com>,
 	Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palahniuk.acksyn.org ([5.9.7.26]:32792 "EHLO
+Received: from palahniuk.acksyn.org ([5.9.7.26]:32789 "EHLO
 	palahniuk.acksyn.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758524AbaJ3J3r (ORCPT
+	with ESMTP id S1758493AbaJ3J3r (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2014 05:29:47 -0400
-In-Reply-To: <1414661356-17255-1-git-send-email-michele@acksyn.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fixes checkpatch warning:
-"WARNING: Prefer seq_puts to seq_printf"
+It is often quite helpful to be able to know the state of a transport
+outside of the application itself (for troubleshooting purposes or for
+monitoring purposes). Add it under /proc/net/sctp/remaddr.
 
 Signed-off-by: Michele Baldessari <michele@acksyn.org>
 ---
- net/sctp/proc.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/sctp/proc.c | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
 
 diff --git a/net/sctp/proc.c b/net/sctp/proc.c
-index bfb242af06ab..0697eda5aed8 100644
+index 34229ee7f379..bfb242af06ab 100644
 --- a/net/sctp/proc.c
 +++ b/net/sctp/proc.c
-@@ -490,14 +490,14 @@ static int sctp_remaddr_seq_show(struct seq_file *seq, void *v)
- 			 * Note: We don't have a way to tally this at the moment
- 			 * so lets just leave it as zero for the moment
- 			 */
--			seq_printf(seq, "0 ");
-+			seq_puts(seq, "0 ");
+@@ -417,7 +417,7 @@ static void *sctp_remaddr_seq_start(struct seq_file *seq, loff_t *pos)
  
- 			/*
- 			 * remote address start time (START).  This is also not
+ 	if (*pos == 0)
+ 		seq_printf(seq, "ADDR ASSOC_ID HB_ACT RTO MAX_PATH_RTX "
+-				"REM_ADDR_RTX  START\n");
++				"REM_ADDR_RTX START STATE\n");
+ 
+ 	return (void *)pos;
+ }
+@@ -497,7 +497,13 @@ static int sctp_remaddr_seq_show(struct seq_file *seq, void *v)
  			 * currently implemented, but we can record it with a
  			 * jiffies marker in a subsequent patch
  			 */
--			seq_printf(seq, "0 ");
-+			seq_puts(seq, "0 ");
+-			seq_printf(seq, "0");
++			seq_printf(seq, "0 ");
++
++			/*
++			 * The current state of this destination. I.e.
++			 * SCTP_ACTIVE, SCTP_INACTIVE, ...
++			 */
++			seq_printf(seq, "%d", tsp->state);
  
- 			/*
- 			 * The current state of this destination. I.e.
+ 			seq_printf(seq, "\n");
+ 		}
 -- 
 2.1.0
