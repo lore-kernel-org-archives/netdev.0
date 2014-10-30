@@ -1,45 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: PATCH: Add IFF_ALLMULTI support to cpsw (and fix IFF_PROMISC
- support too)
-Date: Thu, 30 Oct 2014 16:12:52 -0400 (EDT)
-Message-ID: <20141030.161252.246867972287253209.davem@davemloft.net>
-References: <20141029190612.GH24110@csclub.uwaterloo.ca>
+Subject: Re: [PATCH net-next] tcp: allow for bigger reordering level
+Date: Thu, 30 Oct 2014 16:14:17 -0400 (EDT)
+Message-ID: <20141030.161417.325550902152268177.davem@davemloft.net>
+References: <1414471524.13259.14.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20141029.150624.878155212768758630.davem@davemloft.net>
+	<1414610869.631.94.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, mugunthanvnm@ti.com,
-	netdev@vger.kernel.org
-To: lsorense@csclub.uwaterloo.ca
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141029190612.GH24110@csclub.uwaterloo.ca>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, wygivan@google.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58889 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933358AbaJ3UOT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2014 16:14:19 -0400
+In-Reply-To: <1414610869.631.94.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Lennart Sorensen" <lsorense@csclub.uwaterloo.ca>
-Date: Wed, 29 Oct 2014 15:06:12 -0400
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 29 Oct 2014 12:27:49 -0700
 
-> The cpsw driver did not support the IFF_ALLMULTI flag which makes dynamic
-> multicast routing rather hard to handle.  Related to this, when enabling
-> IFF_PROMISC in non dual_emac mode, all registered vlans are flushed,
-> and only broadcast and unicast are allowed which isn't what you would
-> want from IFF_PROMISC.
+> Yuchung and othres are working on a new way to handle reorders (RACK),
+> and should present the concept in next IETF meeting.
 > 
-> A new cpsw_ale_set_allmulti function now scans through the ALE entry
-> table and adds or removes the host port from the unregistered multicast
-> port mask depending on the state of IFF_ALLMULTI.  In promisc mode,
-> it is also called to enable reception of all multicast traffic.
+> A linux patch should follow shortly.
 > 
-> With this change I am now able to run dynamic multicast routing and also
-> use tcpdump and actually see multicast traffic.
+> High level idea is :
 > 
-> Signed-off-by: Len Sorensen <lsorense@csclub.uwaterloo.ca>
+> Decide when and what to retransmit based on the timing, instead of
+> sequence, relationships. This covers both original or retransmitted
+> packets.
+> 
+> On dupacks, wait a fraction of RTT before the repair process to both
+> allow reordering and relieve the network
 
-Please fix your Subject line and resubmit this patch.
-
-Subject lines end up as the commit message header text, and
-therefore must be of the form:
-
-subsystem: Description.
-
-In this case "cpsw: " is probably an appropriate subsystem
-prefix.
+My instint says that this delay will increase recovery time, but I
+guess they've taken that into consideration :-)
