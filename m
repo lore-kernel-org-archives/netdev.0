@@ -1,91 +1,66 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next 7/8] net: Add calaulation of non folded IPV6
- pseudo header checksum
-Date: Thu, 30 Oct 2014 16:25:25 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1C9E2415@AcuExch.aculab.com>
-References: <1414685216-28907-1-git-send-email-ogerlitz@mellanox.com>
- <1414685216-28907-8-git-send-email-ogerlitz@mellanox.com>
+From: Claudiu Manoil <claudiu.manoil@freescale.com>
+Subject: Re: [PATCH] net: gianfar: fix dma check map error when DMA_API_DEBUG
+ is enabled
+Date: Thu, 30 Oct 2014 18:28:01 +0200
+Message-ID: <54526711.1080505@freescale.com>
+References: <1414664727-21988-1-git-send-email-haokexin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Matan Barak <matanb@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Shani Michaeli <shanim@mellanox.com>
-To: 'Or Gerlitz' <ogerlitz@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Kevin Hao <haokexin@gmail.com>, <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:43359 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1759604AbaJ3Q15 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2014 12:27:57 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 12133-01 for <netdev@vger.kernel.org>;
- Thu, 30 Oct 2014 16:27:44 +0000 (GMT)
-In-Reply-To: <1414685216-28907-8-git-send-email-ogerlitz@mellanox.com>
-Content-Language: en-US
+Received: from mail-bn1on0112.outbound.protection.outlook.com ([157.56.110.112]:15410
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1759765AbaJ3Q2d (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Oct 2014 12:28:33 -0400
+In-Reply-To: <1414664727-21988-1-git-send-email-haokexin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz
-> From: Shani Michaeli <shanim@mellanox.com>
-> 
-> Compute IPV6 pseudo header checksum without folding it to a 16 bit
-> return value.
-> 
-> Signed-off-by: Shani Michaeli <shanim@mellanox.com>
-> Signed-off-by: Matan Barak <matanb@mellanox.com>
-> ---
->  include/net/ip6_checksum.h |   21 +++++++++++++++++++++
->  1 files changed, 21 insertions(+), 0 deletions(-)
-> 
-> diff --git a/include/net/ip6_checksum.h b/include/net/ip6_checksum.h
-> index 1a49b73..c45d690 100644
-> --- a/include/net/ip6_checksum.h
-> +++ b/include/net/ip6_checksum.h
-> @@ -41,6 +41,27 @@ __sum16 csum_ipv6_magic(const struct in6_addr *saddr,
->  			__wsum csum);
->  #endif
-> 
-> +static inline __wsum csum_ipv6_magic_nofold(const struct in6_addr *saddr,
-> +					    const struct in6_addr *daddr,
-> +					    __u32 len, unsigned short proto,
-> +					    __wsum sum)
-> +{
-> +	__wsum res = sum;
+On 10/30/2014 12:25 PM, Kevin Hao wrote:
+
+[...]
+
+> @@ -2406,6 +2416,25 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
+>   	spin_unlock_irqrestore(&tx_queue->txlock, flags);
+>
+>   	return NETDEV_TX_OK;
 > +
-> +	res = csum_add(res, (__force __wsum)saddr->in6_u.u6_addr32[0]);
-> +	res = csum_add(res, (__force __wsum)saddr->in6_u.u6_addr32[1]);
-> +	res = csum_add(res, (__force __wsum)saddr->in6_u.u6_addr32[2]);
-> +	res = csum_add(res, (__force __wsum)saddr->in6_u.u6_addr32[3]);
-> +	res = csum_add(res, (__force __wsum)daddr->in6_u.u6_addr32[0]);
-> +	res = csum_add(res, (__force __wsum)daddr->in6_u.u6_addr32[1]);
-> +	res = csum_add(res, (__force __wsum)daddr->in6_u.u6_addr32[2]);
-> +	res = csum_add(res, (__force __wsum)daddr->in6_u.u6_addr32[3]);
-
-That probably generates a very long dependency chain.
-
-> +	res = csum_add(res, (__force __wsum)htonl(len));
-> +	res = csum_add(res, (__force __wsum)htonl(proto));
-
-htonl() doesn't look right for a 16bit value.
-It might not matter (because the final checksum is 16bits).
-
-	David
-
+> +dma_map_err:
+> +	txbdp = next_txbd(txbdp_start, base, tx_queue->tx_ring_size);
+> +	if (do_tstamp)
+> +		txbdp = next_txbd(txbdp, base, tx_queue->tx_ring_size);
+> +	for (i = 0; i < nr_frags; i++) {
+> +		lstatus = txbdp->lstatus;
+> +		if (!(lstatus & BD_LFLAG(TXBD_READY)))
+> +			break;
 > +
-> +	return res;
-> +}
-> +
->  static inline __wsum ip6_compute_pseudo(struct sk_buff *skb, int proto)
->  {
->  	return ~csum_unfold(csum_ipv6_magic(&ipv6_hdr(skb)->saddr,
-> --
-> 1.7.1
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> +		txbdp->lstatus = lstatus & ~BD_LFLAG(TXBD_READY);
+> +		bufaddr = txbdp->bufPtr;
+> +		dma_unmap_page(priv->dev, bufaddr, txbdp->length,
+> +			       DMA_TO_DEVICE);
+> +		txbdp = next_txbd(txbdp, base, tx_queue->tx_ring_size);
+> +	}
+> +	gfar_wmb();
+
+Why use the wmb() memory barrier here?
+
+> +	dev_kfree_skb_any(skb);
+> +	return NETDEV_TX_OK;
+>   }
+>
+
+[...]
+
+Hi Dave,
+
+The patch seems ok at first glance (except a minor comment) but I'd like 
+to have it tested first because it modifies sensitive code.
+I can re-send it to netdev later, after we're done testing it.
+Maybe it would be better to stack up a few more gianfar fixes in the 
+meantime and send them all to netdev as a pull request, later on.
+
+Thanks,
+Claudiu
