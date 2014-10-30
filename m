@@ -1,35 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] gre: Use inner mac length when computing tunnel
- length
-Date: Thu, 30 Oct 2014 19:52:57 -0400 (EDT)
-Message-ID: <20141030.195257.507246809929761699.davem@davemloft.net>
-References: <1414683656-26493-1-git-send-email-therbert@google.com>
+From: Jerry Chu <hkchu@google.com>
+Subject: Re: [PATCH net-next 8/8] net/mlx4_en: Extend checksum offloading by
+ CHECKSUM COMPLETE
+Date: Thu, 30 Oct 2014 16:53:19 -0700
+Message-ID: <CAPshTCi6Jd=mQ1x1mtnBFAqS10fX5TMgLEJiZkLASTtHzygO+Q@mail.gmail.com>
+References: <1414685216-28907-1-git-send-email-ogerlitz@mellanox.com>
+	<1414685216-28907-9-git-send-email-ogerlitz@mellanox.com>
+	<CAPshTChwewGiP712ki-BGu6VWhZTVOfZDzFm8NEqvon7uLhEWA@mail.gmail.com>
+	<CAJ3xEMgC75anCmeKie8NZBZHfR8OW67pBiPQhyLUPK9cNJZHMg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: alexander.duyck@gmail.com, netdev@vger.kernel.org
-To: therbert@google.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Or Gerlitz <ogerlitz@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Matan Barak <matanb@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Shani Michaeli <shanim@mellanox.com>
+To: Or Gerlitz <gerlitz.or@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:32839 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161360AbaJ3Xw7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2014 19:52:59 -0400
-In-Reply-To: <1414683656-26493-1-git-send-email-therbert@google.com>
+Received: from mail-yh0-f50.google.com ([209.85.213.50]:44010 "EHLO
+	mail-yh0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161019AbaJ3XxU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2014 19:53:20 -0400
+Received: by mail-yh0-f50.google.com with SMTP id b6so2171628yha.9
+        for <netdev@vger.kernel.org>; Thu, 30 Oct 2014 16:53:19 -0700 (PDT)
+In-Reply-To: <CAJ3xEMgC75anCmeKie8NZBZHfR8OW67pBiPQhyLUPK9cNJZHMg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <therbert@google.com>
-Date: Thu, 30 Oct 2014 08:40:56 -0700
+On Thu, Oct 30, 2014 at 4:28 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+>
+> On Thu, Oct 30, 2014 at 11:20 PM, Jerry Chu <hkchu@google.com> wrote:
+> > Acked-by: H.K. Jerry Chu <hkchu@google.com>
+> >
+> > BTW, will the patch work for all versions of the chip?
+>
+> If you'll look carefully, you'll see we go that path only when
+> priv->flags & MLX4_EN_FLAG_RX_CSUM_NON_TCP_UDP is true. This currently
+> holds only for ConnectX3 and not ConnectX3-pro. Down the road, the
+> feature will also be available for the -pro too.
 
-> Currently, skb_inner_network_header is used but this does not account
-> for Ethernet header for ETH_P_TEB. Use skb_inner_mac_header which
-> handles TEB and also should work with IP encapsulation in which case
-> inner mac and inner network headers are the same.
-> 
-> Tested: Ran TCP_STREAM over GRE, worked as expected.
-> 
-> Signed-off-by: Tom Herbert <therbert@google.com>
+It didn't dawn on me that flag will be tied to CX3 but this makes sense.
 
-Applied and queued up for -stable.
+Thanks,
 
-Thanks everyone.
+Jerry
