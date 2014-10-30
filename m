@@ -1,177 +1,56 @@
-From: Kevin Hao <haokexin@gmail.com>
-Subject: [PATCH] net: gianfar: fix dma check map error when DMA_API_DEBUG is enabled
-Date: Thu, 30 Oct 2014 18:25:27 +0800
-Message-ID: <1414664727-21988-1-git-send-email-haokexin@gmail.com>
-Cc: David Miller <davem@davemloft.net>,
-	Claudiu Manoil <claudiu.manoil@freescale.com>
-To: netdev@vger.kernel.org
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [net-next 2/2] sctp: replace seq_printf with seq_puts
+Date: Thu, 30 Oct 2014 06:26:22 -0400
+Message-ID: <20141030102622.GD24783@hmsreliant.think-freely.org>
+References: <1414661356-17255-1-git-send-email-michele@acksyn.org>
+ <1414661356-17255-2-git-send-email-michele@acksyn.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Vlad Yasevich <vyasevich@gmail.com>, linux-sctp@vger.kernel.org,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Michele Baldessari <michele@acksyn.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:41694 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758111AbaJ3KZx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2014 06:25:53 -0400
-Received: by mail-pa0-f54.google.com with SMTP id rd3so5140002pab.41
-        for <netdev@vger.kernel.org>; Thu, 30 Oct 2014 03:25:53 -0700 (PDT)
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:43803 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758847AbaJ3K0b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2014 06:26:31 -0400
+Content-Disposition: inline
+In-Reply-To: <1414661356-17255-2-git-send-email-michele@acksyn.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We need to use dma_mapping_error() to check the dma address returned
-by dma_map_single/page(). Otherwise we would get warning like this:
-  WARNING: at lib/dma-debug.c:1140
-  Modules linked in:
-  CPU: 0 PID: 0 Comm: swapper/0 Not tainted 3.18.0-rc2-next-20141029 #196
-  task: c0834300 ti: effe6000 task.ti: c0874000
-  NIP: c02b2c98 LR: c02b2c98 CTR: c030abc4
-  REGS: effe7d70 TRAP: 0700   Not tainted  (3.18.0-rc2-next-20141029)
-  MSR: 00021000 <CE,ME>  CR: 22044022  XER: 20000000
-
-  GPR00: c02b2c98 effe7e20 c0834300 00000098 00021000 00000000 c030b898 00000003
-  GPR08: 00000001 00000000 00000001 749eec9d 22044022 1001abe0 00000020 ef278678
-  GPR16: ef278670 ef278668 ef278660 070a8040 c087f99c c08cdc60 00029000 c0840d44
-  GPR24: c08be6e8 c0840000 effe7e78 ef041340 00000600 ef114e10 00000000 c08be6e0
-  NIP [c02b2c98] check_unmap+0x51c/0x9e4
-  LR [c02b2c98] check_unmap+0x51c/0x9e4
-  Call Trace:
-  [effe7e20] [c02b2c98] check_unmap+0x51c/0x9e4 (unreliable)
-  [effe7e70] [c02b31d8] debug_dma_unmap_page+0x78/0x8c
-  [effe7ed0] [c03d1640] gfar_clean_rx_ring+0x208/0x488
-  [effe7f40] [c03d1a9c] gfar_poll_rx_sq+0x3c/0xa8
-  [effe7f60] [c04f8714] net_rx_action+0xc0/0x178
-  [effe7f90] [c00435a0] __do_softirq+0x100/0x1fc
-  [effe7fe0] [c0043958] irq_exit+0xa4/0xc8
-  [effe7ff0] [c000d14c] call_do_irq+0x24/0x3c
-  [c0875e90] [c00048a0] do_IRQ+0x8c/0xf8
-  [c0875eb0] [c000ed10] ret_from_except+0x0/0x18
-
-For TX, we need to unmap the pages which has already been mapped and
-free the skb before return. For RX, just let the rxbdp as unempty.
-We can retry to initialize it to empty in next round.
-
-Signed-off-by: Kevin Hao <haokexin@gmail.com>
----
- drivers/net/ethernet/freescale/gianfar.c | 58 ++++++++++++++++++++++++++------
- 1 file changed, 47 insertions(+), 11 deletions(-)
-
-diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-index 4fdf0aa16978..04b647c4cef6 100644
---- a/drivers/net/ethernet/freescale/gianfar.c
-+++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -117,8 +117,8 @@ static void gfar_reset_task(struct work_struct *work);
- static void gfar_timeout(struct net_device *dev);
- static int gfar_close(struct net_device *dev);
- struct sk_buff *gfar_new_skb(struct net_device *dev);
--static void gfar_new_rxbdp(struct gfar_priv_rx_q *rx_queue, struct rxbd8 *bdp,
--			   struct sk_buff *skb);
-+static int gfar_new_rxbdp(struct gfar_priv_rx_q *rx_queue, struct rxbd8 *bdp,
-+			  struct sk_buff *skb);
- static int gfar_set_mac_address(struct net_device *dev);
- static int gfar_change_mtu(struct net_device *dev, int new_mtu);
- static irqreturn_t gfar_error(int irq, void *dev_id);
-@@ -219,9 +219,13 @@ static int gfar_init_bds(struct net_device *ndev)
- 					netdev_err(ndev, "Can't allocate RX buffers\n");
- 					return -ENOMEM;
- 				}
--				rx_queue->rx_skbuff[j] = skb;
- 
--				gfar_new_rxbdp(rx_queue, rxbdp, skb);
-+				if (gfar_new_rxbdp(rx_queue, rxbdp, skb)) {
-+					dev_kfree_skb_any(skb);
-+					skb = NULL;
-+				}
-+
-+				rx_queue->rx_skbuff[j] = skb;
- 			}
- 
- 			rxbdp++;
-@@ -2290,6 +2294,8 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 						   0,
- 						   frag_len,
- 						   DMA_TO_DEVICE);
-+			if (unlikely(dma_mapping_error(priv->dev, bufaddr)))
-+				goto dma_map_err;
- 
- 			/* set the TxBD length and buffer pointer */
- 			txbdp->bufPtr = bufaddr;
-@@ -2339,8 +2345,12 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		fcb->ptp = 1;
- 	}
- 
--	txbdp_start->bufPtr = dma_map_single(priv->dev, skb->data,
--					     skb_headlen(skb), DMA_TO_DEVICE);
-+	bufaddr = dma_map_single(priv->dev, skb->data, skb_headlen(skb),
-+				 DMA_TO_DEVICE);
-+	if (unlikely(dma_mapping_error(priv->dev, bufaddr)))
-+		goto dma_map_err;
-+
-+	txbdp_start->bufPtr = bufaddr;
- 
- 	/* If time stamping is requested one additional TxBD must be set up. The
- 	 * first TxBD points to the FCB and must have a data length of
-@@ -2406,6 +2416,25 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	spin_unlock_irqrestore(&tx_queue->txlock, flags);
- 
- 	return NETDEV_TX_OK;
-+
-+dma_map_err:
-+	txbdp = next_txbd(txbdp_start, base, tx_queue->tx_ring_size);
-+	if (do_tstamp)
-+		txbdp = next_txbd(txbdp, base, tx_queue->tx_ring_size);
-+	for (i = 0; i < nr_frags; i++) {
-+		lstatus = txbdp->lstatus;
-+		if (!(lstatus & BD_LFLAG(TXBD_READY)))
-+			break;
-+
-+		txbdp->lstatus = lstatus & ~BD_LFLAG(TXBD_READY);
-+		bufaddr = txbdp->bufPtr;
-+		dma_unmap_page(priv->dev, bufaddr, txbdp->length,
-+			       DMA_TO_DEVICE);
-+		txbdp = next_txbd(txbdp, base, tx_queue->tx_ring_size);
-+	}
-+	gfar_wmb();
-+	dev_kfree_skb_any(skb);
-+	return NETDEV_TX_OK;
- }
- 
- /* Stops the kernel queue, and halts the controller */
-@@ -2606,8 +2635,8 @@ static void gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue)
- 	netdev_tx_completed_queue(txq, howmany, bytes_sent);
- }
- 
--static void gfar_new_rxbdp(struct gfar_priv_rx_q *rx_queue, struct rxbd8 *bdp,
--			   struct sk_buff *skb)
-+static int gfar_new_rxbdp(struct gfar_priv_rx_q *rx_queue, struct rxbd8 *bdp,
-+			  struct sk_buff *skb)
- {
- 	struct net_device *dev = rx_queue->dev;
- 	struct gfar_private *priv = netdev_priv(dev);
-@@ -2615,7 +2644,11 @@ static void gfar_new_rxbdp(struct gfar_priv_rx_q *rx_queue, struct rxbd8 *bdp,
- 
- 	buf = dma_map_single(priv->dev, skb->data,
- 			     priv->rx_buffer_size, DMA_FROM_DEVICE);
-+	if (dma_mapping_error(priv->dev, buf))
-+		return -1;
-+
- 	gfar_init_rxbdp(rx_queue, bdp, buf);
-+	return 0;
- }
- 
- static struct sk_buff *gfar_alloc_skb(struct net_device *dev)
-@@ -2851,10 +2884,13 @@ int gfar_clean_rx_ring(struct gfar_priv_rx_q *rx_queue, int rx_work_limit)
- 
- 		}
- 
--		rx_queue->rx_skbuff[rx_queue->skb_currx] = newskb;
--
- 		/* Setup the new bdp */
--		gfar_new_rxbdp(rx_queue, bdp, newskb);
-+		if (gfar_new_rxbdp(rx_queue, bdp, newskb)) {
-+			dev_kfree_skb_any(newskb);
-+			newskb = NULL;
-+		}
-+
-+		rx_queue->rx_skbuff[rx_queue->skb_currx] = newskb;
- 
- 		/* Update to the next pointer */
- 		bdp = next_bd(bdp, base, rx_queue->rx_ring_size);
--- 
-1.9.3
+On Thu, Oct 30, 2014 at 10:29:16AM +0100, Michele Baldessari wrote:
+> Fixes checkpatch warning:
+> "WARNING: Prefer seq_puts to seq_printf"
+> 
+> Signed-off-by: Michele Baldessari <michele@acksyn.org>
+> ---
+>  net/sctp/proc.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/sctp/proc.c b/net/sctp/proc.c
+> index bfb242af06ab..0697eda5aed8 100644
+> --- a/net/sctp/proc.c
+> +++ b/net/sctp/proc.c
+> @@ -490,14 +490,14 @@ static int sctp_remaddr_seq_show(struct seq_file *seq, void *v)
+>  			 * Note: We don't have a way to tally this at the moment
+>  			 * so lets just leave it as zero for the moment
+>  			 */
+> -			seq_printf(seq, "0 ");
+> +			seq_puts(seq, "0 ");
+>  
+>  			/*
+>  			 * remote address start time (START).  This is also not
+>  			 * currently implemented, but we can record it with a
+>  			 * jiffies marker in a subsequent patch
+>  			 */
+> -			seq_printf(seq, "0 ");
+> +			seq_puts(seq, "0 ");
+>  
+>  			/*
+>  			 * The current state of this destination. I.e.
+> -- 
+> 2.1.0
+> 
+> 
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
