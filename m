@@ -1,56 +1,58 @@
-From: Michele Baldessari <michele@acksyn.org>
-Subject: [net-next 1/2] sctp: add transport state in /proc/net/sctp/remaddr
-Date: Thu, 30 Oct 2014 10:29:15 +0100
-Message-ID: <1414661356-17255-1-git-send-email-michele@acksyn.org>
-Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Michele Baldessari <michele@acksyn.org>
-To: Vlad Yasevich <vyasevich@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>
+From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Subject: [PATCH] stmmac: pci: set default of the filter bins
+Date: Thu, 30 Oct 2014 11:39:25 +0200
+Message-ID: <1414661965-1140-1-git-send-email-andriy.shevchenko@linux.intel.com>
+Cc: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	netdev@vger.kernel.org,
+	Kweh Hock Leong <hock.leong.kweh@intel.com>,
+	"David S . Miller" <davem@davemloft.net>,
+	Vince Bridgers <vbridgers2013@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palahniuk.acksyn.org ([5.9.7.26]:32789 "EHLO
-	palahniuk.acksyn.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758493AbaJ3J3r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2014 05:29:47 -0400
+Received: from mga11.intel.com ([192.55.52.93]:30935 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758162AbaJ3Jj3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Oct 2014 05:39:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It is often quite helpful to be able to know the state of a transport
-outside of the application itself (for troubleshooting purposes or for
-monitoring purposes). Add it under /proc/net/sctp/remaddr.
+The commit 3b57de958e2a brought the support for a different amount of the
+filter bins, but didn't update the PCI driver accordingly. This patch appends
+the default values when the device is enumerated via PCI bus.
 
-Signed-off-by: Michele Baldessari <michele@acksyn.org>
+Fixes: 3b57de958e2a (net: stmmac: Support devicetree configs for mcast and ucast filter entries)
+Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
 ---
- net/sctp/proc.c | 10 ++++++++--
- 1 file changed, 8 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
 
-diff --git a/net/sctp/proc.c b/net/sctp/proc.c
-index 34229ee7f379..bfb242af06ab 100644
---- a/net/sctp/proc.c
-+++ b/net/sctp/proc.c
-@@ -417,7 +417,7 @@ static void *sctp_remaddr_seq_start(struct seq_file *seq, loff_t *pos)
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
+index 655a23b..7fc1bbf 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
+@@ -32,7 +32,10 @@ static struct stmmac_dma_cfg dma_cfg;
  
- 	if (*pos == 0)
- 		seq_printf(seq, "ADDR ASSOC_ID HB_ACT RTO MAX_PATH_RTX "
--				"REM_ADDR_RTX  START\n");
-+				"REM_ADDR_RTX START STATE\n");
- 
- 	return (void *)pos;
- }
-@@ -497,7 +497,13 @@ static int sctp_remaddr_seq_show(struct seq_file *seq, void *v)
- 			 * currently implemented, but we can record it with a
- 			 * jiffies marker in a subsequent patch
- 			 */
--			seq_printf(seq, "0");
-+			seq_printf(seq, "0 ");
+ static void stmmac_default_data(void)
+ {
++	struct plat_stmmacenet_data *plat = &plat_dat;
 +
-+			/*
-+			 * The current state of this destination. I.e.
-+			 * SCTP_ACTIVE, SCTP_INACTIVE, ...
-+			 */
-+			seq_printf(seq, "%d", tsp->state);
+ 	memset(&plat_dat, 0, sizeof(struct plat_stmmacenet_data));
++
+ 	plat_dat.bus_id = 1;
+ 	plat_dat.phy_addr = 0;
+ 	plat_dat.interface = PHY_INTERFACE_MODE_GMII;
+@@ -47,6 +50,12 @@ static void stmmac_default_data(void)
+ 	dma_cfg.pbl = 32;
+ 	dma_cfg.burst_len = DMA_AXI_BLEN_256;
+ 	plat_dat.dma_cfg = &dma_cfg;
++
++	/* Set default value for multicast hash bins */
++	plat->multicast_filter_bins = HASH_TABLE_SIZE;
++
++	/* Set default value for unicast filter entries */
++	plat->unicast_filter_entries = 1;
+ }
  
- 			seq_printf(seq, "\n");
- 		}
+ /**
 -- 
-2.1.0
+2.1.1
