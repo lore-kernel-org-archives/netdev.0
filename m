@@ -1,27 +1,23 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] reduce verifier memory consumption and
- add tests
-Date: Thu, 30 Oct 2014 15:45:15 -0400 (EDT)
-Message-ID: <20141030.154515.250654452794791308.davem@davemloft.net>
-References: <1414534303-9906-1-git-send-email-ast@plumgrid.com>
+Subject: Re: [PATCH net 0/3] r8152: patches for autosuspend
+Date: Thu, 30 Oct 2014 15:49:25 -0400 (EDT)
+Message-ID: <20141030.154925.1859926243537953604.davem@davemloft.net>
+References: <1394712342-15778-69-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hannes@stressinduktion.org, edumazet@google.com,
-	dborkman@redhat.com, luto@amacapital.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: ast@plumgrid.com
+Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
+	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
+To: hayeswang@realtek.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1414534303-9906-1-git-send-email-ast@plumgrid.com>
+In-Reply-To: <1394712342-15778-69-Taiwan-albertk@realtek.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Alexei Starovoitov <ast@plumgrid.com>
-Date: Tue, 28 Oct 2014 15:11:40 -0700
+From: Hayes Wang <hayeswang@realtek.com>
+Date: Wed, 29 Oct 2014 11:12:14 +0800
 
-> Small set of cleanups:
->  - reduce verifier memory consumption
->  - add verifier test to check register state propagation and state equivalence
->  - add JIT test reduced from recent nmap triggered crash
+> There are unexpected processes when enabling autosuspend.
+> These patches are used to fix them.
 
-Series applied, thanks.
+Series applied, thank you.
