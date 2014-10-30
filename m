@@ -1,75 +1,60 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [PATCH v3 09/15] net: dsa: Add support for switch EEPROM access
-Date: Thu, 30 Oct 2014 15:39:51 -0700
-Message-ID: <20141030223951.GA19489@roeck-us.net>
-References: <1414604707-22407-1-git-send-email-linux@roeck-us.net>
- <1414604707-22407-10-git-send-email-linux@roeck-us.net>
- <20141030211131.GB32139@lunn.ch>
+From: Murilo Opsfelder Araujo <mopsfelder-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 0/6 3.18] Fixes for iwlwifi drivers
+Date: Thu, 30 Oct 2014 20:44:27 -0200
+Message-ID: <5452BF4B.5070009@gmail.com>
+References: <1414642633-3700-1-git-send-email-Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	linux-kernel@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20141030211131.GB32139@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1414642633-3700-1-git-send-email-Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 30, 2014 at 10:11:31PM +0100, Andrew Lunn wrote:
-> > +static int dsa_slave_get_eeprom_len(struct net_device *dev)
-> > +{
-> > +	struct dsa_slave_priv *p = netdev_priv(dev);
-> > +	struct dsa_switch *ds = p->parent;
-> > +
-> > +	if (ds->pd->eeprom_len)
-> > +		return ds->pd->eeprom_len;
-> > +
-> > +	if (ds->drv->get_eeprom_len)
-> > +		return ds->drv->get_eeprom_len(ds);
-> > +
-> > +	return 0;
-> > +}
-> > +
-> 
-> Hi Guenter
-> 
-> I just started doing some testing with this patchset. A bit late since
-> David just accepted it, but...
-> 
-> root@dir665:~# ethtool -e lan4
-> Cannot get EEPROM data: Invalid argument
-> root@dir665:~# ethtool -e eth0
-> Cannot get EEPROM data: Operation not supported
-> 
-> There is no eeprom for the hardware i'm testing. Operation not
-> supported seems like a better error code and Invalid argument, and is
-> what other network drivers i tried returned.
-> 
-Hi Andrew,
+On 10/30/2014 02:17 AM, Larry Finger wrote:
+> Some late changes to rtlwifi made some of the older drivers not start correctly.
+> These patches should be applied to 3.18.
+>
+> Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+> Cc: Murilo Opsfelder Araujo <mopsfelder-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+>
+> Larry Finger (6):
+>    rtlwifi: rtl8192ce: rtl8192de: rtl8192se: Fix handling for missing
+>      get_btc_status
+>    rtlwifi: rtl8192se: Fix duplicate calls to ieee80211_register_hw()
+>    rtlwifi: rtl8192se: Add missing section to read descriptor setting
+>    rtlwifi: rtl8192ce: Add missing section to read descriptor setting
+>    rtlwifi: rtl8821ae: Remove extra semicolons
+>    rtlwifi: rtl8192se: Fix firmware loading
+>
+>   drivers/net/wireless/rtlwifi/core.c          |  6 ++++++
+>   drivers/net/wireless/rtlwifi/core.h          |  1 +
+>   drivers/net/wireless/rtlwifi/rtl8192ce/def.h |  2 ++
+>   drivers/net/wireless/rtlwifi/rtl8192ce/sw.c  |  1 +
+>   drivers/net/wireless/rtlwifi/rtl8192ce/trx.c |  3 +++
+>   drivers/net/wireless/rtlwifi/rtl8192de/sw.c  |  1 +
+>   drivers/net/wireless/rtlwifi/rtl8192se/def.h |  2 ++
+>   drivers/net/wireless/rtlwifi/rtl8192se/sw.c  | 22 +++-------------------
+>   drivers/net/wireless/rtlwifi/rtl8192se/trx.c |  3 +++
+>   drivers/net/wireless/rtlwifi/rtl8821ae/phy.c | 12 ++++++------
+>   10 files changed, 28 insertions(+), 25 deletions(-)
+>
+Hi, Larry.
 
-I think the problem is that the infrastructure code (net/core/ethtool.c)
-does not accept an error from the get_eeprom_len function, but instead
-assumes that reporting eeprom data is supported if a driver provides
-the access functions. The get_eeprom_len function returns 0 in your case,
-which in ethtool_get_any_eeprom() translates to -EINVAL because user space
-either requests no data or more data than available. I wonder why user
-space requests anything in the first place; I would have assumed that it
-reads the driver information first and is told that the eeprom length is 0,
-but I guess that is a different question.
+I've applied this patchset on top of next-20141030 and got the same 
+result: kernel panic went away but the rtl8192se device does not associate.
 
-I quickly browsed through a couple of other drivers supporting get_eprom_len,
-and they all return 0 if there is no eeprom. Doesn't that mean that they all
-end up reporting -EINVAL if an attempt is made to read the eeprom ?
+Thanks anyway for dedicating your family time to trying to get this fixed.
 
-The only solution that comes to my mind would be to have the infrastructure
-code check the return value from get_eeprom_len and return -EOPNOTSUPP
-if the reported eeprom length is 0. That would be an infrastructure change,
-though. Does that sound reasonable, or do you have a better idea ?
+We can talk about that later when you're back on regular schedule.
 
-In parallel, I'll have a look into the ethtool command to see why it
-requests eeprom data even though the reported eeprom length is 0.
+Appreciated!
 
-Thanks,
-Guenter
+-- 
+Murilo
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
