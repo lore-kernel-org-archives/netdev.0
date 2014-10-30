@@ -1,51 +1,63 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 1/4] e1000: unset IFF_UNICAST_FLT on WMware 82545EM
-Date: Thu, 30 Oct 2014 05:33:53 -0700
-Message-ID: <1414672436-20616-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net 4/4] ixgbe: fix race when setting advertised speed
+Date: Thu, 30 Oct 2014 05:33:56 -0700
+Message-ID: <1414672436-20616-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1414672436-20616-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Francesco Ruggeri <fruggeri@aristanetworks.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Francesco Ruggeri <fruggeri@arista.com>,
+Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:7296 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:19001 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759212AbaJ3Md7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S932975AbaJ3Md7 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 30 Oct 2014 08:33:59 -0400
 In-Reply-To: <1414672436-20616-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Francesco Ruggeri <fruggeri@aristanetworks.com>
+From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-VMWare's e1000 implementation does not seem to support unicast filtering.
-This can be observed by configuring a macvlan interface on eth0 in a VM in
-VMWare Fusion 5.0.5, and trying to use that interface instead of eth0.
-Tested on 3.16.
+Following commands:
 
-Signed-off-by: Francesco Ruggeri <fruggeri@arista.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+modprobe ixgbe
+ifconfig ethX up
+ethtool -s ethX advertise 0x020
+
+can lead to "setup link failed with code -14" error due to the setup_link
+call racing with the SFP detection routine in the watchdog.
+
+This patch resolves this issue by protecting the setup_link call with check
+for __IXGBE_IN_SFP_INIT.
+
+Reported-by: Scott Harrison <scoharr2@cisco.com>
+Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000/e1000_main.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
-index 5f6aded..24f3986 100644
---- a/drivers/net/ethernet/intel/e1000/e1000_main.c
-+++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
-@@ -1075,7 +1075,10 @@ static int e1000_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 				  NETIF_F_HW_CSUM |
- 				  NETIF_F_SG);
- 
--	netdev->priv_flags |= IFF_UNICAST_FLT;
-+	/* Do not set IFF_UNICAST_FLT for VMWare's 82545EM */
-+	if (hw->device_id != E1000_DEV_ID_82545EM_COPPER ||
-+	    hw->subsystem_vendor_id != PCI_VENDOR_ID_VMWARE)
-+		netdev->priv_flags |= IFF_UNICAST_FLT;
- 
- 	adapter->en_mng_pt = e1000_enable_mng_pass_thru(hw);
- 
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+index 3ce4a25..0ae038b 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+@@ -342,12 +342,16 @@ static int ixgbe_set_settings(struct net_device *netdev,
+ 		if (old == advertised)
+ 			return err;
+ 		/* this sets the link speed and restarts auto-neg */
++		while (test_and_set_bit(__IXGBE_IN_SFP_INIT, &adapter->state))
++			usleep_range(1000, 2000);
++
+ 		hw->mac.autotry_restart = true;
+ 		err = hw->mac.ops.setup_link(hw, advertised, true);
+ 		if (err) {
+ 			e_info(probe, "setup link failed with code %d\n", err);
+ 			hw->mac.ops.setup_link(hw, old, true);
+ 		}
++		clear_bit(__IXGBE_IN_SFP_INIT, &adapter->state);
+ 	} else {
+ 		/* in this case we currently only support 10Gb/FULL */
+ 		u32 speed = ethtool_cmd_speed(ecmd);
 -- 
 1.9.3
