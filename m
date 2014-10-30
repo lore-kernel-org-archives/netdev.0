@@ -1,37 +1,64 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH v1 1/2] dtb: xgene: fix: Disable 10GbE and SGMII based 1GbE by default
-Date: Thu, 30 Oct 2014 11:13:49 +0100
-Message-ID: <1991367.DGHysZpQVP@wuerfel>
-References: <1414630580-24640-1-git-send-email-isubramanian@apm.com> <1414630580-24640-2-git-send-email-isubramanian@apm.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [net-next 1/2] sctp: add transport state in
+ /proc/net/sctp/remaddr
+Date: Thu, 30 Oct 2014 06:24:26 -0400
+Message-ID: <20141030102426.GC24783@hmsreliant.think-freely.org>
+References: <1414661356-17255-1-git-send-email-michele@acksyn.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Iyappan Subramanian <isubramanian@apm.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, devicetree@vger.kernel.org,
-	kchudgar@apm.com, patches@apm.com
-To: linux-arm-kernel@lists.infradead.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Vlad Yasevich <vyasevich@gmail.com>, linux-sctp@vger.kernel.org,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Michele Baldessari <michele@acksyn.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.126.131]:63136 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758433AbaJ3KOS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2014 06:14:18 -0400
-In-Reply-To: <1414630580-24640-2-git-send-email-isubramanian@apm.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:43758 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932852AbaJ3KYg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2014 06:24:36 -0400
+Content-Disposition: inline
+In-Reply-To: <1414661356-17255-1-git-send-email-michele@acksyn.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 29 October 2014 17:56:19 Iyappan Subramanian wrote:
-> @@ -621,7 +621,7 @@
->                         };
->                 };
->  
-> -               sgenet0: ethernet@1f210000 {
-> +               sgenet0: sgenet@1f210000 {
->                         compatible = "apm,xgene-enet";
->                         status = "disabled";
->                         reg = <0x0 0x1f210000 0x0 0x10000>,
+On Thu, Oct 30, 2014 at 10:29:15AM +0100, Michele Baldessari wrote:
+> It is often quite helpful to be able to know the state of a transport
+> outside of the application itself (for troubleshooting purposes or for
+> monitoring purposes). Add it under /proc/net/sctp/remaddr.
 > 
-
-This looks like you accidentally reverted a bug fix made earlier.
-Network devices should always have the name 'ethernet@...'.
-
-	Arnd
+> Signed-off-by: Michele Baldessari <michele@acksyn.org>
+> ---
+>  net/sctp/proc.c | 10 ++++++++--
+>  1 file changed, 8 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/sctp/proc.c b/net/sctp/proc.c
+> index 34229ee7f379..bfb242af06ab 100644
+> --- a/net/sctp/proc.c
+> +++ b/net/sctp/proc.c
+> @@ -417,7 +417,7 @@ static void *sctp_remaddr_seq_start(struct seq_file *seq, loff_t *pos)
+>  
+>  	if (*pos == 0)
+>  		seq_printf(seq, "ADDR ASSOC_ID HB_ACT RTO MAX_PATH_RTX "
+> -				"REM_ADDR_RTX  START\n");
+> +				"REM_ADDR_RTX START STATE\n");
+>  
+>  	return (void *)pos;
+>  }
+> @@ -497,7 +497,13 @@ static int sctp_remaddr_seq_show(struct seq_file *seq, void *v)
+>  			 * currently implemented, but we can record it with a
+>  			 * jiffies marker in a subsequent patch
+>  			 */
+> -			seq_printf(seq, "0");
+> +			seq_printf(seq, "0 ");
+> +
+> +			/*
+> +			 * The current state of this destination. I.e.
+> +			 * SCTP_ACTIVE, SCTP_INACTIVE, ...
+> +			 */
+> +			seq_printf(seq, "%d", tsp->state);
+>  
+>  			seq_printf(seq, "\n");
+>  		}
+> -- 
+> 2.1.0
+> 
+> 
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
