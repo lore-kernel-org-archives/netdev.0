@@ -1,28 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 00/15] net: dsa: Fixes and enhancements
-Date: Thu, 30 Oct 2014 14:54:44 -0400 (EDT)
-Message-ID: <20141030.145444.566008845280635855.davem@davemloft.net>
-References: <1414604707-22407-1-git-send-email-linux@roeck-us.net>
-	<5451305B.7010303@gmail.com>
-	<20141029213928.GA28498@roeck-us.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 5/8] net/mlx4_en: Remove redundant code from
+ RX/GRO path
+Date: Thu, 30 Oct 2014 12:00:31 -0700
+Message-ID: <1414695631.15352.5.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1414685216-28907-1-git-send-email-ogerlitz@mellanox.com>
+	 <1414685216-28907-6-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, netdev@vger.kernel.org, andrew@lunn.ch,
-	linux-kernel@vger.kernel.org
-To: linux@roeck-us.net
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Matan Barak <matanb@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Shani Michaeli <shanim@mellanox.com>
+To: Or Gerlitz <ogerlitz@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58012 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751226AbaJ3Syt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2014 14:54:49 -0400
-In-Reply-To: <20141029213928.GA28498@roeck-us.net>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:64306 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752318AbaJ3TAc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2014 15:00:32 -0400
+Received: by mail-pa0-f50.google.com with SMTP id eu11so5994921pac.23
+        for <netdev@vger.kernel.org>; Thu, 30 Oct 2014 12:00:32 -0700 (PDT)
+In-Reply-To: <1414685216-28907-6-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Guenter Roeck <linux@roeck-us.net>
-Date: Wed, 29 Oct 2014 14:39:28 -0700
+On Thu, 2014-10-30 at 18:06 +0200, Or Gerlitz wrote:
+> Remove the code which goes through napi_gro_frags() on the RX path,
+> use only napi_gro_receive().
+> 
+> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+> ---
 
-> Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+Hmpff... napi_gro_frags() should be faster.
 
-Series applied, thanks everyone.
+Have you benchmarked this ?
