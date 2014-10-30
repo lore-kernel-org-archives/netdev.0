@@ -1,70 +1,52 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH net] gre: Fix regression in gretap TSO support
-Date: Wed, 29 Oct 2014 22:14:57 -0700
-Message-ID: <CALnjE+oK-O-PJH_u50HqQQLnvh+GyeCnv6tNQf5qzL0o1RiPQg@mail.gmail.com>
-References: <20141030032430.4452.46388.stgit@ahduyck-workstation.home>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCHv2 1/1] ip-link: add switch to show human readable output
+Date: Wed, 29 Oct 2014 22:47:38 -0700
+Message-ID: <20141029224738.263e27bd@urahara>
+References: <1412980056-7643-1-git-send-email-mail@eworm.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	"H.K. Jerry Chu" <hkchu@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Alexander Duyck <alexander.h.duyck@redhat.com>,
-	Neal Cardwell <ncardwell@google.com>
-To: alexander.duyck@gmail.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Christian Hesse <mail@eworm.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog102.obsmtp.com ([74.125.149.69]:46555 "HELO
-	na3sys009aog102.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1750974AbaJ3FO6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2014 01:14:58 -0400
-Received: by mail-ie0-f173.google.com with SMTP id tr6so4495333ieb.4
-        for <netdev@vger.kernel.org>; Wed, 29 Oct 2014 22:14:58 -0700 (PDT)
-In-Reply-To: <20141030032430.4452.46388.stgit@ahduyck-workstation.home>
+Received: from mail-pd0-f171.google.com ([209.85.192.171]:60855 "EHLO
+	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755855AbaJ3Frt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2014 01:47:49 -0400
+Received: by mail-pd0-f171.google.com with SMTP id r10so4470654pdi.2
+        for <netdev@vger.kernel.org>; Wed, 29 Oct 2014 22:47:49 -0700 (PDT)
+In-Reply-To: <1412980056-7643-1-git-send-email-mail@eworm.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 29, 2014 at 8:26 PM,  <alexander.duyck@gmail.com> wrote:
-> From: Alexander Duyck <alexander.h.duyck@redhat.com>
->
-> On recent kernels I found that TSO on gretap interfaces didn't work.  After
-> bisecting it I found that commit b884b1a4 had introduced a regression in
-> which the Ethernet header was being included in the GRE header length.
->
-> This change corrects that by basing the GRE header length on the inner mac
-> header in the case of GRE tunnels using transparent Ethernet bridging, and
-> uses the network header for all other GRE tunnel types.
->
-> Fixes: b884b1a4 ("gre_offload: simplify GRE header length calculation in gre_gso_segment()")
-> Cc: Neal Cardwell <ncardwell@google.com>
-> Cc: Eric Dumazet <edumazet@google.com>
-> Cc: H.K. Jerry Chu <hkchu@google.com>
-> Cc: Pravin B Shelar <pshelar@nicira.com>
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
+On Sat, 11 Oct 2014 00:27:36 +0200
+Christian Hesse <mail@eworm.de> wrote:
 
-Patch also fixed problem with ovs-gre.
-
-Acked-by: Pravin B Shelar <pshelar@nicira.com>
-
-Thanks.
-
+> Byte and packet count can increase to really big numbers. This adds a
+> switch to show human readable output.
+> 
+> % ip -s link ls wl
+> 4: wl: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP mode DORMANT group default qlen 1000
+>     link/ether 00:de:ad:be:ee:ef brd ff:ff:ff:ff:ff:ff
+>     RX: bytes  packets  errors  dropped overrun mcast
+>     113570876  156975   0       0       0       0
+>     TX: bytes  packets  errors  dropped carrier collsns
+>     27290790   94313    0       0       0       0
+> % ip -s -h link ls wl
+> 4: wl: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP mode DORMANT group default qlen 1000
+>     link/ether 00:de:ad:be:ee:ef brd ff:ff:ff:ff:ff:ff
+>     RX: bytes  packets  errors  dropped overrun mcast
+>     122368888  169840   0       0       0       0
+>     116.7Mi    165.8Ki  0       0       0       0
+>     TX: bytes  packets  errors  dropped carrier collsns
+>     29087507   102309   0       0       0       0
+>     27.7Mi     99.9Ki   0       0       0       0
 > ---
->  net/ipv4/gre_offload.c |    5 ++++-
->  1 file changed, 4 insertions(+), 1 deletion(-)
->
-> diff --git a/net/ipv4/gre_offload.c b/net/ipv4/gre_offload.c
-> index f6e345c..67a1f66 100644
-> --- a/net/ipv4/gre_offload.c
-> +++ b/net/ipv4/gre_offload.c
-> @@ -47,7 +47,10 @@ static struct sk_buff *gre_gso_segment(struct sk_buff *skb,
->
->         greh = (struct gre_base_hdr *)skb_transport_header(skb);
->
-> -       ghl = skb_inner_network_header(skb) - skb_transport_header(skb);
-> +       if (greh->protocol == htons(ETH_P_TEB))
-> +               ghl = skb_inner_mac_header(skb) - skb_transport_header(skb);
-> +       else
-> +               ghl = skb_inner_network_header(skb) - skb_transport_header(skb);
->         if (unlikely(ghl < sizeof(*greh)))
->                 goto out;
->
->
+
+I like the idea as a concept but there are two issues:
+  1. The IEC suffix is a rarely used thing and is non-standard
+     for communications where K = 1000 M = 1000000 etc.
+     Please just use standard suffices
+
+  2. Don't double print the data, if the user asks for human
+     format, only show the human format.
