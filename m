@@ -1,130 +1,186 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: [PATCH iproute2 v3] ss: Refactor to use macro for define diag nl request
-Date: Thu, 30 Oct 2014 18:49:25 +0200
-Message-ID: <1414687765-21112-1-git-send-email-vadim4j@gmail.com>
-Cc: Vadim Kochan <vadim4j@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f46.google.com ([74.125.82.46]:43286 "EHLO
-	mail-wg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934023AbaJ3Q6d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2014 12:58:33 -0400
-Received: by mail-wg0-f46.google.com with SMTP id x13so4741098wgg.19
-        for <netdev@vger.kernel.org>; Thu, 30 Oct 2014 09:58:32 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Tony Lindgren <tony@atomide.com>
+Subject: Re: [PATCH] net: smc91x: Fix gpios for device tree based booting
+Date: Thu, 30 Oct 2014 09:59:27 -0700
+Message-ID: <20141030165926.GB31454@atomide.com>
+References: <20141027202556.GT2560@atomide.com>
+ <20141029.145132.1881832564707108447.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
+	linux-omap@vger.kernel.org, khilman@linaro.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-omap-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20141029.145132.1881832564707108447.davem@davemloft.net>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
----
- misc/ss.c | 56 +++++++++++++++++---------------------------------------
- 1 file changed, 17 insertions(+), 39 deletions(-)
+* David Miller <davem@davemloft.net> [141029 11:53]:
+> From: Tony Lindgren <tony@atomide.com>
+> Date: Mon, 27 Oct 2014 13:25:56 -0700
+> 
+> > +/**
+> > + * of_try_set_control_gpio - configure a gpio if it exists
+> > + */
+> > +static int try_toggle_control_gpio(struct device *dev,
+> > +				   struct gpio_desc **desc,
+> > +				   const char *name, int index,
+> > +				   int value, unsigned int nsdelay)
+> 
+> This needs to be under CONFIG_OF cpp protection just like the code that
+> calls it.
 
-diff --git a/misc/ss.c b/misc/ss.c
-index b7e0ef0..240d36b 100644
---- a/misc/ss.c
-+++ b/misc/ss.c
-@@ -41,6 +41,19 @@
- #include <linux/packet_diag.h>
- #include <linux/netlink_diag.h>
+Oops thanks for catching that, updated patch below. The code
+for try_toggle_control_gpio() is now within the existing
+IS_BUILTIN(CONFIG_OF) block. Compile and boot tested on omap1
+that's not yet booting with device tree.
+
+Regards,
+
+Tony
+
+8< ----------------------
+From: Tony Lindgren <tony@atomide.com>
+Date: Wed, 29 Oct 2014 16:06:11 -0700
+Subject: [PATCH] net: smc91x: Fix gpios for device tree based booting
+
+With legacy booting, the platform init code was taking care of
+the configuring of GPIOs. With device tree based booting, things
+may or may not work depending what bootloader has configured or
+if the legacy platform code gets called.
+
+Let's add support for the pwrdn and reset GPIOs to the smc91x
+driver to fix the issues of smc91x not working properly when
+booted in device tree mode.
+
+And let's change n900 to use these settings as some versions
+of the bootloader do not configure things properly causing
+errors.
+
+Reported-by: Kevin Hilman <khilman@linaro.org>
+Signed-off-by: Tony Lindgren <tony@atomide.com>
+
+--- a/Documentation/devicetree/bindings/net/smsc-lan91c111.txt
++++ b/Documentation/devicetree/bindings/net/smsc-lan91c111.txt
+@@ -11,3 +11,5 @@ Optional properties:
+   are supported on the device.  Valid value for SMSC LAN91c111 are
+   1, 2 or 4.  If it's omitted or invalid, the size would be 2 meaning
+   16-bit access only.
++- power-gpios: GPIO to control the PWRDWN pin
++- reset-gpios: GPIO to control the RESET pin
+--- a/arch/arm/boot/dts/omap3-n900.dts
++++ b/arch/arm/boot/dts/omap3-n900.dts
+@@ -668,6 +668,8 @@
+ 		bank-width = <2>;
+ 		pinctrl-names = "default";
+ 		pinctrl-0 = <&ethernet_pins>;
++		power-gpios = <&gpio3 22 GPIO_ACTIVE_HIGH>;	/* gpio86 */
++		reset-gpios = <&gpio6 4 GPIO_ACTIVE_HIGH>;	/* gpio164 */
+ 		gpmc,device-width = <2>;
+ 		gpmc,sync-clk-ps = <0>;
+ 		gpmc,cs-on-ns = <0>;
+--- a/arch/arm/mach-omap2/pdata-quirks.c
++++ b/arch/arm/mach-omap2/pdata-quirks.c
+@@ -252,9 +252,6 @@ static void __init nokia_n900_legacy_init(void)
+ 		platform_device_register(&omap3_rom_rng_device);
  
-+#define DIAG_REQUEST(_req, _r)						    \
-+	struct {							    \
-+		struct nlmsghdr nlh;					    \
-+		_r;							    \
-+	} _req = {							    \
-+		.nlh = {						    \
-+			.nlmsg_type = SOCK_DIAG_BY_FAMILY,		    \
-+			.nlmsg_flags = NLM_F_ROOT|NLM_F_MATCH|NLM_F_REQUEST,\
-+			.nlmsg_seq = 123456,				    \
-+			.nlmsg_len = sizeof(_req),			    \
-+		},							    \
-+	}
+ 	}
+-
+-	/* Only on some development boards */
+-	gpio_request_one(164, GPIOF_OUT_INIT_LOW, "smc91x reset");
+ }
+ 
+ static void __init omap3_tao3530_legacy_init(void)
+--- a/drivers/net/ethernet/smsc/smc91x.c
++++ b/drivers/net/ethernet/smsc/smc91x.c
+@@ -81,6 +81,7 @@ static const char version[] =
+ #include <linux/workqueue.h>
+ #include <linux/of.h>
+ #include <linux/of_device.h>
++#include <linux/of_gpio.h>
+ 
+ #include <linux/netdevice.h>
+ #include <linux/etherdevice.h>
+@@ -2188,6 +2189,41 @@ static const struct of_device_id smc91x_match[] = {
+ 	{},
+ };
+ MODULE_DEVICE_TABLE(of, smc91x_match);
 +
- #if HAVE_SELINUX
- #include <selinux/selinux.h>
- #else
-@@ -1808,10 +1821,7 @@ static int tcpdiag_send(int fd, int protocol, struct filter *f)
- static int sockdiag_send(int family, int fd, int protocol, struct filter *f)
- {
- 	struct sockaddr_nl nladdr;
--	struct {
--		struct nlmsghdr nlh;
--		struct inet_diag_req_v2 r;
--	} req;
-+	DIAG_REQUEST(req, struct inet_diag_req_v2 r);
- 	char    *bc = NULL;
- 	int	bclen;
- 	struct msghdr msg;
-@@ -1824,11 +1834,6 @@ static int sockdiag_send(int family, int fd, int protocol, struct filter *f)
- 	memset(&nladdr, 0, sizeof(nladdr));
- 	nladdr.nl_family = AF_NETLINK;
++/**
++ * of_try_set_control_gpio - configure a gpio if it exists
++ */
++static int try_toggle_control_gpio(struct device *dev,
++				   struct gpio_desc **desc,
++				   const char *name, int index,
++				   int value, unsigned int nsdelay)
++{
++	struct gpio_desc *gpio = *desc;
++	int res;
++
++	gpio = devm_gpiod_get_index(dev, name, index);
++	if (IS_ERR(gpio)) {
++		if (PTR_ERR(gpio) == -ENOENT) {
++			*desc = NULL;
++			return 0;
++		}
++
++		return PTR_ERR(gpio);
++	}
++	res = gpiod_direction_output(gpio, !value);
++	if (res) {
++		dev_err(dev, "unable to toggle gpio %s: %i\n", name, res);
++		devm_gpiod_put(dev, gpio);
++		gpio = NULL;
++		return res;
++	}
++	if (nsdelay)
++		usleep_range(nsdelay, 2 * nsdelay);
++	gpiod_set_value_cansleep(gpio, value);
++	*desc = gpio;
++
++	return 0;
++}
+ #endif
  
--	req.nlh.nlmsg_len = sizeof(req);
--	req.nlh.nlmsg_type = SOCK_DIAG_BY_FAMILY;
--	req.nlh.nlmsg_flags = NLM_F_ROOT|NLM_F_MATCH|NLM_F_REQUEST;
--	req.nlh.nlmsg_pid = 0;
--	req.nlh.nlmsg_seq = 123456;
- 	memset(&req.r, 0, sizeof(req.r));
- 	req.r.sdiag_family = family;
- 	req.r.sdiag_protocol = protocol;
-@@ -2590,16 +2595,7 @@ close_it:
+ /*
+@@ -2237,6 +2273,28 @@ static int smc_drv_probe(struct platform_device *pdev)
+ 		struct device_node *np = pdev->dev.of_node;
+ 		u32 val;
  
- static int unix_show_netlink(struct filter *f, FILE *dump_fp)
- {
--	struct {
--		struct nlmsghdr nlh;
--		struct unix_diag_req r;
--	} req;
--
--	memset(&req, 0, sizeof(req));
--	req.nlh.nlmsg_len = sizeof(req);
--	req.nlh.nlmsg_type = SOCK_DIAG_BY_FAMILY;
--	req.nlh.nlmsg_flags = NLM_F_ROOT|NLM_F_MATCH|NLM_F_REQUEST;
--	req.nlh.nlmsg_seq = 123456;
-+	DIAG_REQUEST(req, struct unix_diag_req r);
++		/* Optional pwrdwn GPIO configured? */
++		ret = try_toggle_control_gpio(&pdev->dev, &lp->power_gpio,
++					      "power", 0, 0, 100);
++		if (ret)
++			return ret;
++
++		/*
++		 * Optional reset GPIO configured? Minimum 100 ns reset needed
++		 * according to LAN91C96 datasheet page 14.
++		 */
++		ret = try_toggle_control_gpio(&pdev->dev, &lp->reset_gpio,
++					      "reset", 0, 0, 100);
++		if (ret)
++			return ret;
++
++		/*
++		 * Need to wait for optional EEPROM to load, max 750 us according
++		 * to LAN91C96 datasheet page 55.
++		 */
++		if (lp->reset_gpio)
++			usleep_range(750, 1000);
++
+ 		/* Combination of IO widths supported, default to 16-bit */
+ 		if (!of_property_read_u32(np, "reg-io-width", &val)) {
+ 			if (val & 1)
+--- a/drivers/net/ethernet/smsc/smc91x.h
++++ b/drivers/net/ethernet/smsc/smc91x.h
+@@ -298,6 +298,9 @@ struct smc_local {
+ 	struct sk_buff *pending_tx_skb;
+ 	struct tasklet_struct tx_task;
  
- 	req.r.sdiag_family = AF_UNIX;
- 	req.r.udiag_states = f->states;
-@@ -2791,21 +2787,12 @@ static int packet_show_sock(struct nlmsghdr *nlh, struct filter *f)
- static int packet_show_netlink(struct filter *f, FILE *dump_fp)
- {
- 	int fd;
--	struct {
--		struct nlmsghdr nlh;
--		struct packet_diag_req r;
--	} req;
-+	DIAG_REQUEST(req, struct packet_diag_req r);
- 	char	buf[16384];
++	struct gpio_desc *power_gpio;
++	struct gpio_desc *reset_gpio;
++
+ 	/* version/revision of the SMC91x chip */
+ 	int	version;
  
- 	if ((fd = socket(AF_NETLINK, SOCK_RAW, NETLINK_INET_DIAG)) < 0)
- 		return -1;
- 
--	memset(&req, 0, sizeof(req));
--	req.nlh.nlmsg_len = sizeof(req);
--	req.nlh.nlmsg_type = SOCK_DIAG_BY_FAMILY;
--	req.nlh.nlmsg_flags = NLM_F_ROOT|NLM_F_MATCH|NLM_F_REQUEST;
--	req.nlh.nlmsg_seq = 123456;
--
- 	req.r.sdiag_family = AF_PACKET;
- 	req.r.pdiag_show = PACKET_SHOW_INFO | PACKET_SHOW_MEMINFO | PACKET_SHOW_FILTER;
- 
-@@ -3104,16 +3091,7 @@ static int netlink_show_sock(struct nlmsghdr *nlh, struct filter *f)
- 
- static int netlink_show_netlink(struct filter *f, FILE *dump_fp)
- {
--	struct {
--		struct nlmsghdr nlh;
--		struct netlink_diag_req r;
--	} req;
--
--	memset(&req, 0, sizeof(req));
--	req.nlh.nlmsg_len = sizeof(req);
--	req.nlh.nlmsg_type = SOCK_DIAG_BY_FAMILY;
--	req.nlh.nlmsg_flags = NLM_F_ROOT|NLM_F_MATCH|NLM_F_REQUEST;
--	req.nlh.nlmsg_seq = 123456;
-+	DIAG_REQUEST(req, struct netlink_diag_req r);
- 
- 	req.r.sdiag_family = AF_NETLINK;
- 	req.r.sdiag_protocol = NDIAG_PROTO_ALL;
--- 
-2.1.0
