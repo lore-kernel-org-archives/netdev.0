@@ -1,7 +1,7 @@
 From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH 3/6i V3.18] rtlwifi: rtl8192se: Add missing section to read descriptor setting
-Date: Wed, 29 Oct 2014 23:17:10 -0500
-Message-ID: <1414642633-3700-4-git-send-email-Larry.Finger@lwfinger.net>
+Subject: [PATCH 6/6 V3.18] rtlwifi: rtl8192se: Fix firmware loading
+Date: Wed, 29 Oct 2014 23:17:13 -0500
+Message-ID: <1414642633-3700-7-git-send-email-Larry.Finger@lwfinger.net>
 References: <1414642633-3700-1-git-send-email-Larry.Finger@lwfinger.net>
 Cc: linux-wireless@vger.kernel.org,
 	Larry Finger <Larry.Finger@lwfinger.net>,
@@ -9,50 +9,37 @@ Cc: linux-wireless@vger.kernel.org,
 	Murilo Opsfelder Araujo <mopsfelder@gmail.com>
 To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f175.google.com ([209.85.192.175]:57008 "EHLO
-	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751965AbaJ3ER1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2014 00:17:27 -0400
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:62250 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752421AbaJ3ERb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2014 00:17:31 -0400
 In-Reply-To: <1414642633-3700-1-git-send-email-Larry.Finger@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The new version of rtlwifi needs code in rtl92se_get_desc() that returns
-the buffer address for read operations.
+An error in the code makes the allocated space for firmware to be too
+small.
 
 Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
 Cc: Murilo Opsfelder Araujo <mopsfelder@gmail.com>
 ---
- drivers/net/wireless/rtlwifi/rtl8192se/def.h | 2 ++
- drivers/net/wireless/rtlwifi/rtl8192se/trx.c | 3 +++
- 2 files changed, 5 insertions(+)
+ drivers/net/wireless/rtlwifi/rtl8192se/sw.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/wireless/rtlwifi/rtl8192se/def.h b/drivers/net/wireless/rtlwifi/rtl8192se/def.h
-index 83c9867..6e7a70b 100644
---- a/drivers/net/wireless/rtlwifi/rtl8192se/def.h
-+++ b/drivers/net/wireless/rtlwifi/rtl8192se/def.h
-@@ -446,6 +446,8 @@
- /* DWORD 6 */
- #define SET_RX_STATUS__DESC_BUFF_ADDR(__pdesc, __val)	\
- 	SET_BITS_OFFSET_LE(__pdesc + 24, 0, 32, __val)
-+#define GET_RX_STATUS_DESC_BUFF_ADDR(__pdesc)			\
-+	SHIFT_AND_MASK_LE(__pdesc + 24, 0, 32)
+diff --git a/drivers/net/wireless/rtlwifi/rtl8192se/sw.c b/drivers/net/wireless/rtlwifi/rtl8192se/sw.c
+index 1fd2208..aadba29 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8192se/sw.c
++++ b/drivers/net/wireless/rtlwifi/rtl8192se/sw.c
+@@ -209,8 +209,8 @@ static int rtl92s_init_sw_vars(struct ieee80211_hw *hw)
+ 	if (!rtlpriv->rtlhal.pfirmware)
+ 		return 1;
  
- #define SE_RX_HAL_IS_CCK_RATE(_pdesc)\
- 	(GET_RX_STATUS_DESC_RX_MCS(_pdesc) == DESC92_RATE1M ||	\
-diff --git a/drivers/net/wireless/rtlwifi/rtl8192se/trx.c b/drivers/net/wireless/rtlwifi/rtl8192se/trx.c
-index b358ebc..672fd3b 100644
---- a/drivers/net/wireless/rtlwifi/rtl8192se/trx.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8192se/trx.c
-@@ -640,6 +640,9 @@ u32 rtl92se_get_desc(u8 *desc, bool istx, u8 desc_name)
- 		case HW_DESC_RXPKT_LEN:
- 			ret = GET_RX_STATUS_DESC_PKT_LEN(desc);
- 			break;
-+		case HW_DESC_RXBUFF_ADDR:
-+			ret = GET_RX_STATUS_DESC_BUFF_ADDR(desc);
-+			break;
- 		default:
- 			RT_ASSERT(false, "ERR rxdesc :%d not process\n",
- 				  desc_name);
+-	rtlpriv->max_fw_size = RTL8190_MAX_RAW_FIRMWARE_CODE_SIZE;
+-
++	rtlpriv->max_fw_size = RTL8190_MAX_FIRMWARE_CODE_SIZE*2 +
++			       sizeof(struct fw_hdr);
+ 	pr_info("Driver for Realtek RTL8192SE/RTL8191SE\n"
+ 		"Loading firmware %s\n", rtlpriv->cfg->fw_name);
+ 	/* request fw */
 -- 
 2.1.1
