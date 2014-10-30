@@ -1,37 +1,38 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 5/8] net/mlx4_en: Remove redundant code from
- RX/GRO path
-Date: Thu, 30 Oct 2014 12:00:31 -0700
-Message-ID: <1414695631.15352.5.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1414685216-28907-1-git-send-email-ogerlitz@mellanox.com>
-	 <1414685216-28907-6-git-send-email-ogerlitz@mellanox.com>
+From: Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+Subject: Re: nfs stalls over loopback interface (no sk_data_ready events?)
+Date: Thu, 30 Oct 2014 12:00:35 -0700
+Message-ID: <20141030190035.GA23129@infradead.org>
+References: <20141027152900.4e81a9d5@tlielax.poochiereds.net>
+ <20141029102123.58f6c960@tlielax.poochiereds.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Matan Barak <matanb@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Shani Michaeli <shanim@mellanox.com>
-To: Or Gerlitz <ogerlitz@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:64306 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752318AbaJ3TAc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2014 15:00:32 -0400
-Received: by mail-pa0-f50.google.com with SMTP id eu11so5994921pac.23
-        for <netdev@vger.kernel.org>; Thu, 30 Oct 2014 12:00:32 -0700 (PDT)
-In-Reply-To: <1414685216-28907-6-git-send-email-ogerlitz@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Linux NFS Mailing List <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Bruce Fields <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>
+To: Jeff Layton <jeff.layton-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20141029102123.58f6c960-9yPaYZwiELC+kQycOl6kW4xkIHaj4LzF@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2014-10-30 at 18:06 +0200, Or Gerlitz wrote:
-> Remove the code which goes through napi_gro_frags() on the RX path,
-> use only napi_gro_receive().
-> 
-> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-> ---
+On Wed, Oct 29, 2014 at 10:21:23AM -0400, Jeff Layton wrote:
+> Looks some change that went into -rc2 has fixed the problem for me.
+> Christoph, can you confirm that this no longer occurs with -rc2?
 
-Hmpff... napi_gro_frags() should be faster.
+I can't reproduce it anymore on -rc2.
 
-Have you benchmarked this ?
+
+However:
+
+generic/133 fails fairly reliably with:
+
+	 Buffered writer, buffered reader
+	+pread64: Device or resource busy
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
