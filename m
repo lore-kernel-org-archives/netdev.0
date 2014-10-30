@@ -1,38 +1,66 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: Re: [PATCH net-next] mlx4: use napi_schedule_irqoff()
-Date: Thu, 30 Oct 2014 09:30:10 +0200
-Message-ID: <5451E902.5090003@mellanox.com>
-References: <1414626885.631.102.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Jukka Rissanen <jukka.rissanen@linux.intel.com>
+Subject: Re: [patch] Bluetooth: 6lowpan: use after free in
+ disconnect_devices()
+Date: Thu, 30 Oct 2014 09:54:31 +0200
+Message-ID: <1414655671.2918.2.camel@jrissane-mobl.ger.corp.intel.com>
+References: <20141029161057.GF5290@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog111.obsmtp.com ([207.126.144.131]:43839 "EHLO
-	eu1sys200aog111.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751388AbaJ3HaQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2014 03:30:16 -0400
-In-Reply-To: <1414626885.631.102.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Marcel Holtmann <marcel@holtmann.org>,
+	Gustavo Padovan <gustavo@padovan.org>,
+	Johan Hedberg <johan.hedberg@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Dan Carpenter <dan.carpenter@oracle.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141029161057.GF5290@mwanda>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/30/2014 1:54 AM, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> mlx4_en_rx_irq() and mlx4_en_tx_irq() run from hard interrupt context.
-> 
-> They can use napi_schedule_irqoff() instead of napi_schedule()
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> ---
->  drivers/net/ethernet/mellanox/mlx4/en_rx.c |    4 ++--
->  drivers/net/ethernet/mellanox/mlx4/en_tx.c |    4 ++--
->  2 files changed, 4 insertions(+), 4 deletions(-)
-> 
+Hi Dan,
 
-Acked-By: Amir Vadai <amirv@mellanox.com>
+On ke, 2014-10-29 at 19:10 +0300, Dan Carpenter wrote:
+> This was accidentally changed from list_for_each_entry_safe() to
+> list_for_each_entry() so now it has a use after free bug.  I've changed
+> it back.
 
-Thanks,
-Amir
+Good catch! Thanks for the patch.
+
+Acked-by: Jukka Rissanen <jukka.rissanen@linux.intel.com>
+
+> 
+> Fixes: 90305829635d ('Bluetooth: 6lowpan: Converting rwlocks to use RCU')
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> 
+> diff --git a/net/bluetooth/6lowpan.c b/net/bluetooth/6lowpan.c
+> index 7254bdd..eef298d 100644
+> --- a/net/bluetooth/6lowpan.c
+> +++ b/net/bluetooth/6lowpan.c
+> @@ -1383,7 +1383,7 @@ static const struct file_operations lowpan_control_fops = {
+>  
+>  static void disconnect_devices(void)
+>  {
+> -	struct lowpan_dev *entry, *new_dev;
+> +	struct lowpan_dev *entry, *tmp, *new_dev;
+>  	struct list_head devices;
+>  
+>  	INIT_LIST_HEAD(&devices);
+> @@ -1408,7 +1408,7 @@ static void disconnect_devices(void)
+>  
+>  	rcu_read_unlock();
+>  
+> -	list_for_each_entry(entry, &devices, list) {
+> +	list_for_each_entry_safe(entry, tmp, &devices, list) {
+>  		ifdown(entry->netdev);
+>  		BT_DBG("Unregistering netdev %s %p",
+>  		       entry->netdev->name, entry->netdev);
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-bluetooth" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
+Cheers,
+Jukka
