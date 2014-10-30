@@ -1,66 +1,42 @@
-From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Subject: Re: [PATCH] net: gianfar: fix dma check map error when DMA_API_DEBUG
- is enabled
-Date: Thu, 30 Oct 2014 18:28:01 +0200
-Message-ID: <54526711.1080505@freescale.com>
-References: <1414664727-21988-1-git-send-email-haokexin@gmail.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [GIT PULL nf-next] IPVS Updates for v3.19
+Date: Thu, 30 Oct 2014 17:30:39 +0100
+Message-ID: <20141030163039.GA2270@salvia>
+References: <1414457960-20864-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Kevin Hao <haokexin@gmail.com>, <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1on0112.outbound.protection.outlook.com ([157.56.110.112]:15410
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1759765AbaJ3Q2d (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Oct 2014 12:28:33 -0400
-In-Reply-To: <1414664727-21988-1-git-send-email-haokexin@gmail.com>
+Received: from mail.us.es ([193.147.175.20]:33941 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933047AbaJ3Q3A (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Oct 2014 12:29:00 -0400
+Content-Disposition: inline
+In-Reply-To: <1414457960-20864-1-git-send-email-horms@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/30/2014 12:25 PM, Kevin Hao wrote:
+On Tue, Oct 28, 2014 at 09:59:19AM +0900, Simon Horman wrote:
+> Hi Pablo,
+> 
+> please consider these IPVS updates for v3.19.
+> 
+> The single patch in this series fixes some minor fallout from adding
+> support IPv6 real servers in IPv4 virtual-services and vice versa.
+> 
+> It should not have any run-time affect other than perhaps saving a few cycles.
+> 
+> 
+> The following changes since commit 61ed53deb1c6a4386d8710dbbfcee8779c381931:
+> 
+>   Merge tag 'ntb-3.18' of git://github.com/jonmason/ntb (2014-10-19 12:58:22 -0700)
+> 
+> are available in the git repository at:
+> 
+>   https://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next.git tags/ipvs-for-v3.19
 
-[...]
-
-> @@ -2406,6 +2416,25 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
->   	spin_unlock_irqrestore(&tx_queue->txlock, flags);
->
->   	return NETDEV_TX_OK;
-> +
-> +dma_map_err:
-> +	txbdp = next_txbd(txbdp_start, base, tx_queue->tx_ring_size);
-> +	if (do_tstamp)
-> +		txbdp = next_txbd(txbdp, base, tx_queue->tx_ring_size);
-> +	for (i = 0; i < nr_frags; i++) {
-> +		lstatus = txbdp->lstatus;
-> +		if (!(lstatus & BD_LFLAG(TXBD_READY)))
-> +			break;
-> +
-> +		txbdp->lstatus = lstatus & ~BD_LFLAG(TXBD_READY);
-> +		bufaddr = txbdp->bufPtr;
-> +		dma_unmap_page(priv->dev, bufaddr, txbdp->length,
-> +			       DMA_TO_DEVICE);
-> +		txbdp = next_txbd(txbdp, base, tx_queue->tx_ring_size);
-> +	}
-> +	gfar_wmb();
-
-Why use the wmb() memory barrier here?
-
-> +	dev_kfree_skb_any(skb);
-> +	return NETDEV_TX_OK;
->   }
->
-
-[...]
-
-Hi Dave,
-
-The patch seems ok at first glance (except a minor comment) but I'd like 
-to have it tested first because it modifies sensitive code.
-I can re-send it to netdev later, after we're done testing it.
-Maybe it would be better to stack up a few more gianfar fixes in the 
-meantime and send them all to netdev as a pull request, later on.
-
-Thanks,
-Claudiu
+Pulled, thanks Simon.
