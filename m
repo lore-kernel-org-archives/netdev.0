@@ -1,60 +1,41 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] bnx2x: use napi_schedule_irqoff()
-Date: Wed, 29 Oct 2014 17:07:50 -0700
-Message-ID: <1414627670.631.105.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Ariel Elior <ariel.elior@qlogic.com>
-To: David Miller <davem@davemloft.net>
+From: Anish Bhatt <anish@chelsio.com>
+Subject: [PATCH net] cxgb4 : Fix missing initialization of win0_lock
+Date: Wed, 29 Oct 2014 17:54:03 -0700
+Message-ID: <1414630443-6412-1-git-send-email-anish@chelsio.com>
+Cc: davem@davemloft.net, hariprasad@chelsio.com, leedom@chelsio.com,
+	Anish Bhatt <anish@chelsio.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f181.google.com ([209.85.192.181]:48607 "EHLO
-	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932231AbaJ3AHs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2014 20:07:48 -0400
-Received: by mail-pd0-f181.google.com with SMTP id y10so3918488pdj.26
-        for <netdev@vger.kernel.org>; Wed, 29 Oct 2014 17:07:48 -0700 (PDT)
+Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:43818
+	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1756773AbaJ3Ay0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2014 20:54:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+win0_lock was being used un-initialized, resulting in warning traces
+being seen when lock debugging is enabled (and just wrong)
 
-bnx2x_msix_fp_int() and bnx2x_interrupt() run from hard interrupt
-context.
+Fixes : fc5ab0209650 ('cxgb4: Replaced the backdoor mechanism to access the HW
+ memory with PCIe Window method')
 
-They can use napi_schedule_irqoff() instead of napi_schedule()
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Ariel Elior <ariel.elior@qlogic.com>
+Signed-off-by: Anish Bhatt <anish@chelsio.com>
+Signed-off-by: Casey Leedom <leedom@chelsio.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c  |    2 +-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-index 40beef5bca88ade51dd5248550c45059b8774476..e9af4af5edbaf2e464a2250038e0505aafbbcd06 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-@@ -1139,7 +1139,7 @@ static irqreturn_t bnx2x_msix_fp_int(int irq, void *fp_cookie)
- 		prefetch(fp->txdata_ptr[cos]->tx_cons_sb);
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 97683c1..8520d55 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -6614,6 +6614,7 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
  
- 	prefetch(&fp->sb_running_index[SM_RX_ID]);
--	napi_schedule(&bnx2x_fp(bp, fp->index, napi));
-+	napi_schedule_irqoff(&bnx2x_fp(bp, fp->index, napi));
+ 	spin_lock_init(&adapter->stats_lock);
+ 	spin_lock_init(&adapter->tid_release_lock);
++	spin_lock_init(&adapter->win0_lock);
  
- 	return IRQ_HANDLED;
- }
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index 74fbf9ea7bd878e4ee3f7d1561f4b74afe46ca54..c4bd025c74c96496a4709a4505da8a2d0f028df4 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -1931,7 +1931,7 @@ irqreturn_t bnx2x_interrupt(int irq, void *dev_instance)
- 			for_each_cos_in_tx_queue(fp, cos)
- 				prefetch(fp->txdata_ptr[cos]->tx_cons_sb);
- 			prefetch(&fp->sb_running_index[SM_RX_ID]);
--			napi_schedule(&bnx2x_fp(bp, fp->index, napi));
-+			napi_schedule_irqoff(&bnx2x_fp(bp, fp->index, napi));
- 			status &= ~mask;
- 		}
- 	}
+ 	INIT_WORK(&adapter->tid_release_task, process_tid_release_list);
+ 	INIT_WORK(&adapter->db_full_task, process_db_full);
+-- 
+2.1.2
