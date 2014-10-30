@@ -1,52 +1,35 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCHv2 1/1] ip-link: add switch to show human readable output
-Date: Wed, 29 Oct 2014 22:47:38 -0700
-Message-ID: <20141029224738.263e27bd@urahara>
-References: <1412980056-7643-1-git-send-email-mail@eworm.de>
+Subject: Re: [PATCH iproute2] ss: Identify a lot of netlink protocol names
+Date: Wed, 29 Oct 2014 22:49:32 -0700
+Message-ID: <20141029224932.0df2edba@urahara>
+References: <1413478018-12373-1-git-send-email-vadim4j@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Christian Hesse <mail@eworm.de>
+To: Vadim Kochan <vadim4j@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f171.google.com ([209.85.192.171]:60855 "EHLO
-	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755855AbaJ3Frt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2014 01:47:49 -0400
-Received: by mail-pd0-f171.google.com with SMTP id r10so4470654pdi.2
-        for <netdev@vger.kernel.org>; Wed, 29 Oct 2014 22:47:49 -0700 (PDT)
-In-Reply-To: <1412980056-7643-1-git-send-email-mail@eworm.de>
+Received: from mail-pd0-f176.google.com ([209.85.192.176]:47503 "EHLO
+	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751248AbaJ3Fto (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2014 01:49:44 -0400
+Received: by mail-pd0-f176.google.com with SMTP id ft15so4450331pdb.7
+        for <netdev@vger.kernel.org>; Wed, 29 Oct 2014 22:49:43 -0700 (PDT)
+In-Reply-To: <1413478018-12373-1-git-send-email-vadim4j@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 11 Oct 2014 00:27:36 +0200
-Christian Hesse <mail@eworm.de> wrote:
+On Thu, 16 Oct 2014 19:46:58 +0300
+Vadim Kochan <vadim4j@gmail.com> wrote:
 
-> Byte and packet count can increase to really big numbers. This adds a
-> switch to show human readable output.
+> There were only few Netlink protocol names:
 > 
-> % ip -s link ls wl
-> 4: wl: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP mode DORMANT group default qlen 1000
->     link/ether 00:de:ad:be:ee:ef brd ff:ff:ff:ff:ff:ff
->     RX: bytes  packets  errors  dropped overrun mcast
->     113570876  156975   0       0       0       0
->     TX: bytes  packets  errors  dropped carrier collsns
->     27290790   94313    0       0       0       0
-> % ip -s -h link ls wl
-> 4: wl: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP mode DORMANT group default qlen 1000
->     link/ether 00:de:ad:be:ee:ef brd ff:ff:ff:ff:ff:ff
->     RX: bytes  packets  errors  dropped overrun mcast
->     122368888  169840   0       0       0       0
->     116.7Mi    165.8Ki  0       0       0       0
->     TX: bytes  packets  errors  dropped carrier collsns
->     29087507   102309   0       0       0       0
->     27.7Mi     99.9Ki   0       0       0       0
-> ---
+>     rtnl, fw, tcpdiag
+> 
+> which were printed on output.
+> So added the other ones.
+> 
+> Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
 
-I like the idea as a concept but there are two issues:
-  1. The IEC suffix is a rarely used thing and is non-standard
-     for communications where K = 1000 M = 1000000 etc.
-     Please just use standard suffices
-
-  2. Don't double print the data, if the user asks for human
-     format, only show the human format.
+Please make this driven off of a file in /etc/iproute2/ rather than
+hard coding a big switch in the code.
