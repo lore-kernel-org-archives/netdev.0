@@ -1,85 +1,55 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net 2/2] mlx4: Avoid leaking steering rules on flow creation error flow
-Date: Thu, 30 Oct 2014 15:59:28 +0200
-Message-ID: <1414677568-28409-3-git-send-email-ogerlitz@mellanox.com>
-References: <1414677568-28409-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org, Matan Barak <matanb@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Subject: Re: [PATCH net] gre: Fix regression in gretap TSO support
+Date: Thu, 30 Oct 2014 07:30:02 -0700
+Message-ID: <54524B6A.3000503@redhat.com>
+References: <20141030032430.4452.46388.stgit@ahduyck-workstation.home>	<CALnjE+oK-O-PJH_u50HqQQLnvh+GyeCnv6tNQf5qzL0o1RiPQg@mail.gmail.com> <CADVnQykSY_Q3HL0T1uNO4iUheWTpTsLLF7gCnM4SbJyGp3x6Wg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: alexander.duyck@gmail.com, netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	"H.K. Jerry Chu" <hkchu@google.com>,
+	Eric Dumazet <edumazet@google.com>
+To: Neal Cardwell <ncardwell@google.com>,
+	Pravin Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:53771 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1757996AbaJ3N7d (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Oct 2014 09:59:33 -0400
-In-Reply-To: <1414677568-28409-1-git-send-email-ogerlitz@mellanox.com>
+Received: from mx1.redhat.com ([209.132.183.28]:47575 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758147AbaJ3OaP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Oct 2014 10:30:15 -0400
+In-Reply-To: <CADVnQykSY_Q3HL0T1uNO4iUheWTpTsLLF7gCnM4SbJyGp3x6Wg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If mlx4_ib_create_flow() attempts to create > 1 rules with the
-firmware, and one of these registrations fail, we leaked the
-already created flow rules.
 
-One example of the leak is when the registration of the VXLAN ghost
-steering rule fails, we didn't unregister the original rule requested
-by the user, introduced in commit d2fce8a9060d "mlx4: Set
-user-space raw Ethernet QPs to properly handle VXLAN traffic".
+On 10/30/2014 06:51 AM, Neal Cardwell wrote:
+> On Thu, Oct 30, 2014 at 1:14 AM, Pravin Shelar <pshelar@nicira.com> wrote:
+>> On Wed, Oct 29, 2014 at 8:26 PM,  <alexander.duyck@gmail.com> wrote:
+>>> From: Alexander Duyck <alexander.h.duyck@redhat.com>
+>>>
+>>> On recent kernels I found that TSO on gretap interfaces didn't work.  After
+>>> bisecting it I found that commit b884b1a4 had introduced a regression in
+>>> which the Ethernet header was being included in the GRE header length.
+>>>
+>>> This change corrects that by basing the GRE header length on the inner mac
+>>> header in the case of GRE tunnels using transparent Ethernet bridging, and
+>>> uses the network header for all other GRE tunnel types.
+>>>
+>>> Fixes: b884b1a4 ("gre_offload: simplify GRE header length calculation in gre_gso_segment()")
+> Hmm. There may be other protocols, either now or in the future, where
+> we want to be able to have a mac header inside the GRE header, rather
+> than a network header. AFAICT it would be safer to revert b884b1a4,
+> and go back to the previous code (from c50cd357), where we parse the
+> GRE header to figure out its length.
+>
+> neal
 
-While here, add dump of the VXLAN portion of steering rules
-so it can actually be seen when flow creation fails.
+The change is consistent with how we handle this in other spots 
+throughout the kernel.  If nothing else you can just search for 
+ETH_P_TEB and you will find multiple spots in the kernel where IP 
+tunnels differentiate between transparent Ethernet bridging and regular 
+IP in IP tunnels by checking for the protocol ETH_P_TEB.
 
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
----
- drivers/infiniband/hw/mlx4/main.c        |   10 ++++++++--
- drivers/net/ethernet/mellanox/mlx4/mcg.c |    4 ++++
- 2 files changed, 12 insertions(+), 2 deletions(-)
+Thanks,
 
-diff --git a/drivers/infiniband/hw/mlx4/main.c b/drivers/infiniband/hw/mlx4/main.c
-index bda5994..8b72cf3 100644
---- a/drivers/infiniband/hw/mlx4/main.c
-+++ b/drivers/infiniband/hw/mlx4/main.c
-@@ -1173,18 +1173,24 @@ static struct ib_flow *mlx4_ib_create_flow(struct ib_qp *qp,
- 		err = __mlx4_ib_create_flow(qp, flow_attr, domain, type[i],
- 					    &mflow->reg_id[i]);
- 		if (err)
--			goto err_free;
-+			goto err_create_flow;
- 		i++;
- 	}
- 
- 	if (i < ARRAY_SIZE(type) && flow_attr->type == IB_FLOW_ATTR_NORMAL) {
- 		err = mlx4_ib_tunnel_steer_add(qp, flow_attr, &mflow->reg_id[i]);
- 		if (err)
--			goto err_free;
-+			goto err_create_flow;
-+		i++;
- 	}
- 
- 	return &mflow->ibflow;
- 
-+err_create_flow:
-+	while (i) {
-+		(void)__mlx4_ib_destroy_flow(to_mdev(qp->device)->dev, mflow->reg_id[i]);
-+		i--;
-+	}
- err_free:
- 	kfree(mflow);
- 	return ERR_PTR(err);
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mcg.c b/drivers/net/ethernet/mellanox/mlx4/mcg.c
-index ca0f98c..8728431 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mcg.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/mcg.c
-@@ -955,6 +955,10 @@ static void mlx4_err_rule(struct mlx4_dev *dev, char *str,
- 					cur->ib.dst_gid_msk);
- 			break;
- 
-+		case MLX4_NET_TRANS_RULE_ID_VXLAN:
-+			len += snprintf(buf + len, BUF_SIZE - len,
-+					"VNID = %d ", be32_to_cpu(cur->vxlan.vni));
-+			break;
- 		case MLX4_NET_TRANS_RULE_ID_IPV6:
- 			break;
- 
--- 
-1.7.1
+Alex
