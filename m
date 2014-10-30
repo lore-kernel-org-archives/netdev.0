@@ -1,30 +1,27 @@
-From: "Mrs Birgit Rausing" <info@mail.com>
-Subject: DONATION!!!
-Date: Thu, 30 Oct 2014 18:53:48 -0500
-Message-ID: <617d9093080d93203acca4d4c9d301ee.squirrel__49924.1562364206$1414713255$gmane$org@virtwebmail.nhvt.net>
-Reply-To: mrs_BirgitRausin0@qq.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] tcp: Correction to RFC number in comment
+Date: Thu, 30 Oct 2014 19:54:58 -0400 (EDT)
+Message-ID: <20141030.195458.1934947274120422055.davem@davemloft.net>
+References: <20141030164808.GH650@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: sowmini.varadhan@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.nhvt.net ([216.107.205.95]:36583 "EHLO mx1.nhvt.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161019AbaJ3XyC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Oct 2014 19:54:02 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:32877 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161361AbaJ3XzA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2014 19:55:00 -0400
+In-Reply-To: <20141030164808.GH650@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Date: Thu, 30 Oct 2014 12:48:08 -0400
 
+> Challenge ACK is described in RFC 5961, fix typo.
+> 
+> Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
 
-
-I,Birgit authenticate this email, you can read about me on:
-http://en.wikipedia.org/wiki/Birgit_Rausing
-I have funds for you to manage and disburse to various charities of your
-choice. If you are sure you can handle this, it will be of help to you and
-others. Please reply if you are interested  for more details.please
-Contact my private  email;( mrs_BirgitRausin0@qq.com ) for more
-information
-
-With love,
-Mrs Birgit Rausing
+Applied, thanks.
