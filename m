@@ -1,49 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -next 0/2] net: allow setting ecn via routing table
-Date: Thu, 30 Oct 2014 15:59:58 -0400 (EDT)
-Message-ID: <20141030.155958.156984068627586090.davem@davemloft.net>
-References: <1414276729-17871-1-git-send-email-fw@strlen.de>
-	<20141028.165737.2009356944765978630.davem@davemloft.net>
-	<20141029122307.GA29253@breakpoint.cc>
+Subject: Re: [PATCH v2] ip6_tunnel: allow to change mode for the ip6tnl0
+Date: Thu, 30 Oct 2014 16:09:36 -0400 (EDT)
+Message-ID: <20141030.160936.373944710383391596.davem@davemloft.net>
+References: <1414563898-10347-1-git-send-email-alan@al-an.info>
+	<1414569292-15384-1-git-send-email-alan@al-an.info>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: fw@strlen.de
+Cc: netdev@vger.kernel.org, edumazet@google.com
+To: alan@al-an.info
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58735 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58818 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161145AbaJ3UAA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2014 16:00:00 -0400
-In-Reply-To: <20141029122307.GA29253@breakpoint.cc>
+	with ESMTP id S932513AbaJ3UJi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2014 16:09:38 -0400
+In-Reply-To: <1414569292-15384-1-git-send-email-alan@al-an.info>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
-Date: Wed, 29 Oct 2014 13:23:07 +0100
+From: "Alexey Andriyanov" <alan@al-an.info>
+Date: Wed, 29 Oct 2014 10:54:52 +0300
 
-> We could do that, if you prefer.
+> The fallback device is in ipv6 mode by default.
+> The mode can not be changed in runtime, so there
+> is no way to decapsulate ip4in6 packets coming from
+> various sources without creating the specific tunnel
+> ifaces for each peer.
 > 
-> I tried to come up with a scenario though, where sysctl_tcp_ecn=0, and
-> then we want to enable 'passive' ecn for incoming connections only on
-> a particular route without announcing ecn to the peer. I haven't been
-> able to find any -- I think if you deem 'route to x' safe for ecn it
-> might as well be enabled for both initiator and responder.  The original
-> patch would be sufficient for that.
+> This allows to update the fallback tunnel device, but only
+> the mode could be changed. Usual command should work for the
+> fallback device: `ip -6 tun change ip6tnl0 mode any`
 > 
-> IOW, is 'ecn from a to b but not b to a' a sensible requirement?
+> The fallback device can not be hidden from the packet receiver
+> as a regular tunnel, but there is no need for synchronization
+> as long as we do single assignment.
+> 
+> Cc: David S. Miller <davem@davemloft.net>
+> Cc: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Alexey Andriyanov <alan@al-an.info>
 
-I think you have to apply the same logic for the sysctl (there's a
-reason to only support ECN passively) as you do for the route feature
-because you can logically look at the sysctl as applying to the
-default route.
-
-> Unrelated to this patch, but I'd like to see sysctl_tcp_ecn=1 as a
-> default at one point (almost no routers set CE bit at this time, perhaps
-> that would change if ecn usage is more widespread).
-
-Now you're talking.
-
-So, either passive ECN support makes sense or it does not.  To me, no
-matter what the argument, it doesn't matter what realm (whole system,
-specific routes) you apply that argument to.
+Applied to net-next, thanks.
