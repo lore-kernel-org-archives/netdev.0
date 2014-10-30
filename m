@@ -1,63 +1,49 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: [PATCH net-next] hyperv: Add IPv6 into the hash computation for vRSS
-Date: Thu, 30 Oct 2014 14:07:17 -0700
-Message-ID: <1414703237-11510-1-git-send-email-haiyangz@microsoft.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH -next 0/2] net: allow setting ecn via routing table
+Date: Thu, 30 Oct 2014 15:59:58 -0400 (EDT)
+Message-ID: <20141030.155958.156984068627586090.davem@davemloft.net>
+References: <1414276729-17871-1-git-send-email-fw@strlen.de>
+	<20141028.165737.2009356944765978630.davem@davemloft.net>
+	<20141029122307.GA29253@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, jasowang@redhat.com, driverdev-devel@linuxdriverproject.org,
- linux-kernel@vger.kernel.org, haiyangz@microsoft.com
-To: davem@davemloft.net,
-	netdev@vger.kernel.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: fw@strlen.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58735 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161145AbaJ3UAA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2014 16:00:00 -0400
+In-Reply-To: <20141029122307.GA29253@breakpoint.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This will allow the workload spreading via vRSS for IPv6.
+From: Florian Westphal <fw@strlen.de>
+Date: Wed, 29 Oct 2014 13:23:07 +0100
 
-Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
----
- drivers/net/hyperv/netvsc_drv.c   |    4 +++-
- drivers/net/hyperv/rndis_filter.c |    3 ++-
- 2 files changed, 5 insertions(+), 2 deletions(-)
+> We could do that, if you prefer.
+> 
+> I tried to come up with a scenario though, where sysctl_tcp_ecn=0, and
+> then we want to enable 'passive' ecn for incoming connections only on
+> a particular route without announcing ecn to the peer. I haven't been
+> able to find any -- I think if you deem 'route to x' safe for ecn it
+> might as well be enabled for both initiator and responder.  The original
+> patch would be sufficient for that.
+> 
+> IOW, is 'ecn from a to b but not b to a' a sensible requirement?
 
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 78ec33f..3295e4e 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -193,7 +193,9 @@ static bool netvsc_set_hash(u32 *hash, struct sk_buff *skb)
- 	struct flow_keys flow;
- 	int data_len;
- 
--	if (!skb_flow_dissect(skb, &flow) || flow.n_proto != htons(ETH_P_IP))
-+	if (!skb_flow_dissect(skb, &flow) ||
-+	    !(flow.n_proto == htons(ETH_P_IP) ||
-+	      flow.n_proto == htons(ETH_P_IPV6)))
- 		return false;
- 
- 	if (flow.ip_proto == IPPROTO_TCP)
-diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
-index 2b86f0b..ccce6f2 100644
---- a/drivers/net/hyperv/rndis_filter.c
-+++ b/drivers/net/hyperv/rndis_filter.c
-@@ -728,7 +728,8 @@ int rndis_filter_set_rss_param(struct rndis_device *rdev, int num_queue)
- 	rssp->hdr.size = sizeof(struct ndis_recv_scale_param);
- 	rssp->flag = 0;
- 	rssp->hashinfo = NDIS_HASH_FUNC_TOEPLITZ | NDIS_HASH_IPV4 |
--			 NDIS_HASH_TCP_IPV4;
-+			 NDIS_HASH_TCP_IPV4 | NDIS_HASH_IPV6 |
-+			 NDIS_HASH_TCP_IPV6;
- 	rssp->indirect_tabsize = 4*ITAB_NUM;
- 	rssp->indirect_taboffset = sizeof(struct ndis_recv_scale_param);
- 	rssp->hashkey_size = HASH_KEYLEN;
--- 
-1.7.1
+I think you have to apply the same logic for the sysctl (there's a
+reason to only support ECN passively) as you do for the route feature
+because you can logically look at the sysctl as applying to the
+default route.
+
+> Unrelated to this patch, but I'd like to see sysctl_tcp_ecn=1 as a
+> default at one point (almost no routers set CE bit at this time, perhaps
+> that would change if ecn usage is more widespread).
+
+Now you're talking.
+
+So, either passive ECN support makes sense or it does not.  To me, no
+matter what the argument, it doesn't matter what realm (whole system,
+specific routes) you apply that argument to.
