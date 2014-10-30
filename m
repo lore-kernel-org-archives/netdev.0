@@ -1,97 +1,66 @@
-From: Denis Kirjanov <kda@linux-powerpc.org>
-Subject: [PATCH v2] PPC: bpf_jit_comp: add SKF_AD_PKTTYPE instruction
-Date: Thu, 30 Oct 2014 09:12:15 +0300
-Message-ID: <1414649535-3956-1-git-send-email-kda@linux-powerpc.org>
-Cc: linuxppc-dev@ozlabs.org, Denis Kirjanov <kda@linux-powerpc.org>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Michael Ellerman <mpe@ellerman.id.au>,
-	Matt Evans <matt@ozlabs.org>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f46.google.com ([209.85.215.46]:64916 "EHLO
-	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758299AbaJ3Gjl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2014 02:39:41 -0400
-Received: by mail-la0-f46.google.com with SMTP id hs14so3834164lab.19
-        for <netdev@vger.kernel.org>; Wed, 29 Oct 2014 23:39:40 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Lothar =?UTF-8?B?V2HDn21hbm4=?= <LW@KARO-electronics.de>
+Subject: Re: net: fec: fix regression on i.MX28 introduced by rx_copybreak
+ support
+Date: Thu, 30 Oct 2014 07:51:04 +0100
+Message-ID: <20141030075104.05e44b43@ipc1.ka-ro>
+References: <1414494104-27943-1-git-send-email-LW@KARO-electronics.de>
+	<1414502584-10583-1-git-send-email-LW@KARO-electronics.de>
+	<20141029.153430.1036004676442879956.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, rmk+kernel@arm.linux.org.uk,
+	Frank.Li@freescale.com, fabio.estevam@freescale.com,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141029.153430.1036004676442879956.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Add BPF extension SKF_AD_PKTTYPE to ppc JIT to load
-skb->pkt_type field.
+Hi,
 
-Before:
-[   88.262622] test_bpf: #11 LD_IND_NET 86 97 99 PASS
-[   88.265740] test_bpf: #12 LD_PKTTYPE 109 107 PASS
+David Miller wrote:
+> From: Lothar Wa=C3=9Fmann <LW@KARO-electronics.de>
+> Date: Tue, 28 Oct 2014 14:22:55 +0100
+>=20
+> > Changes wrt. v1:
+> > - added some cleanup patches
+> > - simplify handling of 'quirks' flags as suggested by Russell King.
+> > - remove DIV_ROUND_UP() from byte swapping loop as suggested by
+> >   Eric Dumazet
+> >=20
+> > Changes wrt. v2:
+> > - rebased against next-20141028
+> > - added some more cleanups in fec.h
+> > - removed unused return value from swap_buffer()
+> > - fixed messed swab32s() call in swap_buffer2()
+> > - fixed messed up setup of fep->quirks
+> >=20
+>=20
+> It is not appropriate to mix cleanups and bonafide bug fixes.
+>=20
+> I want to see only bug fixes targetted at 'net'.  You can later
+> submit the cleanups to 'net-next'.
+>=20
+OK.
 
-After:
-[   80.605964] test_bpf: #11 LD_IND_NET 44 40 39 PASS
-[   80.607370] test_bpf: #12 LD_PKTTYPE 9 9 PASS
+> Also, I don't thnk your DIV_ROUND_UP() eliminate for the loop
+> in swap_buffer() is valid.  The whole point is that the current
+> code handles buffers which have a length which is not a multiple
+> of 4 properly, after your change it will no longer do so.
+>
+Do you really think so?
 
-CC: Alexei Starovoitov<alexei.starovoitov@gmail.com>
-CC: Michael Ellerman<mpe@ellerman.id.au>
-Cc: Matt Evans <matt@ozlabs.org>
-Signed-off-by: Denis Kirjanov <kda@linux-powerpc.org>
 
-v2: Added test rusults
----
- arch/powerpc/include/asm/ppc-opcode.h | 1 +
- arch/powerpc/net/bpf_jit.h            | 7 +++++++
- arch/powerpc/net/bpf_jit_comp.c       | 5 +++++
- 3 files changed, 13 insertions(+)
+Lothar Wa=C3=9Fmann
+--=20
+___________________________________________________________
 
-diff --git a/arch/powerpc/include/asm/ppc-opcode.h b/arch/powerpc/include/asm/ppc-opcode.h
-index 6f85362..1a52877 100644
---- a/arch/powerpc/include/asm/ppc-opcode.h
-+++ b/arch/powerpc/include/asm/ppc-opcode.h
-@@ -204,6 +204,7 @@
- #define PPC_INST_ERATSX_DOT		0x7c000127
- 
- /* Misc instructions for BPF compiler */
-+#define PPC_INST_LBZ			0x88000000
- #define PPC_INST_LD			0xe8000000
- #define PPC_INST_LHZ			0xa0000000
- #define PPC_INST_LHBRX			0x7c00062c
-diff --git a/arch/powerpc/net/bpf_jit.h b/arch/powerpc/net/bpf_jit.h
-index 9aee27c..c406aa9 100644
---- a/arch/powerpc/net/bpf_jit.h
-+++ b/arch/powerpc/net/bpf_jit.h
-@@ -87,6 +87,9 @@ DECLARE_LOAD_FUNC(sk_load_byte_msh);
- #define PPC_STD(r, base, i)	EMIT(PPC_INST_STD | ___PPC_RS(r) |	      \
- 				     ___PPC_RA(base) | ((i) & 0xfffc))
- 
-+
-+#define PPC_LBZ(r, base, i)	EMIT(PPC_INST_LBZ | ___PPC_RT(r) |	      \
-+				     ___PPC_RA(base) | IMM_L(i))
- #define PPC_LD(r, base, i)	EMIT(PPC_INST_LD | ___PPC_RT(r) |	      \
- 				     ___PPC_RA(base) | IMM_L(i))
- #define PPC_LWZ(r, base, i)	EMIT(PPC_INST_LWZ | ___PPC_RT(r) |	      \
-@@ -96,6 +99,10 @@ DECLARE_LOAD_FUNC(sk_load_byte_msh);
- #define PPC_LHBRX(r, base, b)	EMIT(PPC_INST_LHBRX | ___PPC_RT(r) |	      \
- 				     ___PPC_RA(base) | ___PPC_RB(b))
- /* Convenience helpers for the above with 'far' offsets: */
-+#define PPC_LBZ_OFFS(r, base, i) do { if ((i) < 32768) PPC_LBZ(r, base, i);   \
-+		else {	PPC_ADDIS(r, base, IMM_HA(i));			      \
-+			PPC_LBZ(r, r, IMM_L(i)); } } while(0)
-+
- #define PPC_LD_OFFS(r, base, i) do { if ((i) < 32768) PPC_LD(r, base, i);     \
- 		else {	PPC_ADDIS(r, base, IMM_HA(i));			      \
- 			PPC_LD(r, r, IMM_L(i)); } } while(0)
-diff --git a/arch/powerpc/net/bpf_jit_comp.c b/arch/powerpc/net/bpf_jit_comp.c
-index cbae2df..d110e28 100644
---- a/arch/powerpc/net/bpf_jit_comp.c
-+++ b/arch/powerpc/net/bpf_jit_comp.c
-@@ -407,6 +407,11 @@ static int bpf_jit_build_body(struct bpf_prog *fp, u32 *image,
- 			PPC_LHZ_OFFS(r_A, r_skb, offsetof(struct sk_buff,
- 							  queue_mapping));
- 			break;
-+		case BPF_ANC | SKF_AD_PKTTYPE:
-+			PPC_LBZ_OFFS(r_A, r_skb, PKT_TYPE_OFFSET());
-+			PPC_ANDI(r_A, r_A, PKT_TYPE_MAX);
-+			PPC_SRWI(r_A, r_A, 5);
-+			break;
- 		case BPF_ANC | SKF_AD_CPU:
- #ifdef CONFIG_SMP
- 			/*
--- 
-2.1.0
+Ka-Ro electronics GmbH | Pascalstra=C3=9Fe 22 | D - 52076 Aachen
+Phone: +49 2408 1402-0 | Fax: +49 2408 1402-10
+Gesch=C3=A4ftsf=C3=BChrer: Matthias Kaussen
+Handelsregistereintrag: Amtsgericht Aachen, HRB 4996
+
+www.karo-electronics.de | info@karo-electronics.de
+___________________________________________________________
