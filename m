@@ -1,58 +1,62 @@
 From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Subject: [PATCH] stmmac: pci: set default of the filter bins
-Date: Thu, 30 Oct 2014 11:39:25 +0200
-Message-ID: <1414661965-1140-1-git-send-email-andriy.shevchenko@linux.intel.com>
-Cc: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	netdev@vger.kernel.org,
+Subject: Re: [PATCH 0/5] stmmac: pci: various cleanups and fixes
+Date: Thu, 30 Oct 2014 11:41:41 +0200
+Message-ID: <1414662101.2396.72.camel@linux.intel.com>
+References: <1413909333-16380-1-git-send-email-andriy.shevchenko@linux.intel.com>
+	 <5451F32C.8060403@st.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
 	Kweh Hock Leong <hock.leong.kweh@intel.com>,
-	"David S . Miller" <davem@davemloft.net>,
+	"David S. Miller" <davem@davemloft.net>,
 	Vince Bridgers <vbridgers2013@gmail.com>
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:30935 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:15807 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758162AbaJ3Jj3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Oct 2014 05:39:29 -0400
+	id S1757246AbaJ3JmC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Oct 2014 05:42:02 -0400
+In-Reply-To: <5451F32C.8060403@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The commit 3b57de958e2a brought the support for a different amount of the
-filter bins, but didn't update the PCI driver accordingly. This patch appends
-the default values when the device is enumerated via PCI bus.
+On Thu, 2014-10-30 at 09:13 +0100, Giuseppe CAVALLARO wrote:
+> On 10/21/2014 6:35 PM, Andy Shevchenko wrote:
+> > There are few cleanups and fixes regarding to stmmac PCI driver.
+> > This has been tested on Intel Galileo board with 3.18-rc1 kernel.
+> 
+> Hello Andy,
+> 
+> for your next version I think that the patches should be for net-next
+> tree.
+> Maybe the following for net.git: "stmmac: pci: set default filter bins"
+> 
+> I kindly ask you to detail fix and cleanup.
 
-Fixes: 3b57de958e2a (net: stmmac: Support devicetree configs for mcast and ucast filter entries)
-Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
----
- drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c | 9 +++++++++
- 1 file changed, 9 insertions(+)
+I just send the fix as a separate patch.
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
-index 655a23b..7fc1bbf 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
-@@ -32,7 +32,10 @@ static struct stmmac_dma_cfg dma_cfg;
- 
- static void stmmac_default_data(void)
- {
-+	struct plat_stmmacenet_data *plat = &plat_dat;
-+
- 	memset(&plat_dat, 0, sizeof(struct plat_stmmacenet_data));
-+
- 	plat_dat.bus_id = 1;
- 	plat_dat.phy_addr = 0;
- 	plat_dat.interface = PHY_INTERFACE_MODE_GMII;
-@@ -47,6 +50,12 @@ static void stmmac_default_data(void)
- 	dma_cfg.pbl = 32;
- 	dma_cfg.burst_len = DMA_AXI_BLEN_256;
- 	plat_dat.dma_cfg = &dma_cfg;
-+
-+	/* Set default value for multicast hash bins */
-+	plat->multicast_filter_bins = HASH_TABLE_SIZE;
-+
-+	/* Set default value for unicast filter entries */
-+	plat->unicast_filter_entries = 1;
- }
- 
- /**
+I'm going to reshuffle the others and maybe introduce few more. I would
+like to get this soon since it would be a good base to go with Quark
+support further.
+
+> 
+> peppe
+> 
+> >
+> > Andy Shevchenko (5):
+> >    stmmac: pci: convert to use dev_pm_ops
+> >    stmmac: pci: use managed resources
+> >    stmmac: pci: convert to use dev_* macros
+> >    stmmac: pci: set default filter bins
+> >    stmmac: pci: remove FSF address
+> >
+> >   drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c | 92 ++++++++----------------
+> >   1 file changed, 30 insertions(+), 62 deletions(-)
+> >
+> 
+
+
 -- 
-2.1.1
+Andy Shevchenko <andriy.shevchenko@intel.com>
+Intel Finland Oy
