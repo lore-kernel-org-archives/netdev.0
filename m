@@ -1,64 +1,125 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH ipsec-next] xfrm: add XFRMA_REPLAY_VAL attribute to SA messages
-Date: Thu, 30 Oct 2014 09:39:36 +0100
-Message-ID: <1414658376-4207-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	dingzhi <zhi.ding@6wind.com>,
-	Adrien Mazarguil <adrien.mazarguil@6wind.com>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: steffen.klassert@secunet.com
+From: vadim4j@gmail.com
+Subject: Re: [PATCH iproute2] ip link: Allow to filter devices by master dev
+Date: Thu, 30 Oct 2014 10:54:29 +0200
+Message-ID: <20141030085429.GA22884@angus-think.wlc.globallogic.com>
+References: <1413727488-18032-1-git-send-email-vadim4j@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:53442 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754378AbaJ3Ijt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2014 04:39:49 -0400
+Received: from mail-wi0-f176.google.com ([209.85.212.176]:64572 "EHLO
+	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758242AbaJ3JDs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2014 05:03:48 -0400
+Received: by mail-wi0-f176.google.com with SMTP id h11so3856223wiw.9
+        for <netdev@vger.kernel.org>; Thu, 30 Oct 2014 02:03:47 -0700 (PDT)
+Received: from angus-think.wlc.globallogic.com ([195.234.75.250])
+        by mx.google.com with ESMTPSA id bv17sm21468400wib.13.2014.10.30.02.03.45
+        for <netdev@vger.kernel.org>
+        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Thu, 30 Oct 2014 02:03:46 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1413727488-18032-1-git-send-email-vadim4j@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: dingzhi <zhi.ding@6wind.com>
+On Sun, Oct 19, 2014 at 05:04:48PM +0300, Vadim Kochan wrote:
+> Added 'master' option to 'ip link show' command
+> to filter devices by master dev.
+> 
+> Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+> ---
+>  ip/ipaddress.c        | 16 ++++++++++++++++
+>  ip/iplink.c           |  2 +-
+>  man/man8/ip-link.8.in |  9 ++++++++-
+>  3 files changed, 25 insertions(+), 2 deletions(-)
+> 
+> diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+> index 45729d8..8a0e2ab 100644
+> --- a/ip/ipaddress.c
+> +++ b/ip/ipaddress.c
+> @@ -56,6 +56,7 @@ static struct
+>  	int flushp;
+>  	int flushe;
+>  	int group;
+> +	int master;
+>  } filter;
+>  
+>  static int do_link;
+> @@ -480,6 +481,14 @@ int print_linkinfo(const struct sockaddr_nl *who,
+>  			return -1;
+>  	}
+>  
+> +	if (tb[IFLA_MASTER]) {
+> +		int master = *(int*)RTA_DATA(tb[IFLA_MASTER]);
+> +		if (filter.master > 0 && master != filter.master)
+> +			return -1;
+> +	}
+> +	else if (filter.master > 0)
+> +		return -1;
+> +
+>  	if (n->nlmsg_type == RTM_DELLINK)
+>  		fprintf(fp, "Deleted ");
+>  
+> @@ -1215,6 +1224,13 @@ static int ipaddr_list_flush_or_save(int argc, char **argv, int action)
+>  			NEXT_ARG();
+>  			if (rtnl_group_a2n(&filter.group, *argv))
+>  				invarg("Invalid \"group\" value\n", *argv);
+> +		} else if (strcmp(*argv, "master") == 0) {
+> +			int ifindex;
+> +			NEXT_ARG();
+> +			ifindex = ll_name_to_index(*argv);
+> +			if (!ifindex)
+> +				invarg("Device does not exist\n", *argv);
+> +			filter.master = ifindex;
+>  		} else {
+>  			if (strcmp(*argv, "dev") == 0) {
+>  				NEXT_ARG();
+> diff --git a/ip/iplink.c b/ip/iplink.c
+> index 43b26f4..ce6eb3e 100644
+> --- a/ip/iplink.c
+> +++ b/ip/iplink.c
+> @@ -82,7 +82,7 @@ void iplink_usage(void)
+>  	fprintf(stderr, "			  [ master DEVICE ]\n");
+>  	fprintf(stderr, "			  [ nomaster ]\n");
+>  	fprintf(stderr, "			  [ addrgenmode { eui64 | none } ]\n");
+> -	fprintf(stderr, "       ip link show [ DEVICE | group GROUP ] [up]\n");
+> +	fprintf(stderr, "       ip link show [ DEVICE | group GROUP ] [up] [master DEV]\n");
+>  
+>  	if (iplink_have_newlink()) {
+>  		fprintf(stderr, "       ip link help [ TYPE ]\n");
+> diff --git a/man/man8/ip-link.8.in b/man/man8/ip-link.8.in
+> index 383917a..279fe39 100644
+> --- a/man/man8/ip-link.8.in
+> +++ b/man/man8/ip-link.8.in
+> @@ -144,7 +144,9 @@ ip-link \- network device configuration
+>  .B ip link show
+>  .RI "[ " DEVICE " | "
+>  .B group
+> -.IR GROUP " ]"
+> +.IR GROUP " | "
+> +.B master
+> +.IR DEVICE " ]"
+>  
+>  .SH "DESCRIPTION"
+>  .SS ip link add - add virtual link
+> @@ -658,6 +660,11 @@ specifies what group of devices to show.
+>  .B up
+>  only display running interfaces.
+>  
+> +.TP
+> +.BI master " DEVICE "
+> +.I DEVICE
+> +specifies the master device which enslaves devices to show.
+> +
+>  .SH "EXAMPLES"
+>  .PP
+>  ip link show
+> -- 
+> 2.1.0
+> 
 
-After this commit, the attribute XFRMA_REPLAY_VAL is added when no ESN replay
-value is defined. Thus sequence number values are always notified to userspace.
+Please reject this patch, I will send v2 because of conflicts with
+'master' branch.
 
-Signed-off-by: dingzhi <zhi.ding@6wind.com>
-Signed-off-by: Adrien Mazarguil <adrien.mazarguil@6wind.com>
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- net/xfrm/xfrm_user.c | 12 ++++++++----
- 1 file changed, 8 insertions(+), 4 deletions(-)
-
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index e812e988c111..8128594ab379 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -824,13 +824,15 @@ static int copy_to_user_state_extra(struct xfrm_state *x,
- 	ret = xfrm_mark_put(skb, &x->mark);
- 	if (ret)
- 		goto out;
--	if (x->replay_esn) {
-+	if (x->replay_esn)
- 		ret = nla_put(skb, XFRMA_REPLAY_ESN_VAL,
- 			      xfrm_replay_state_esn_len(x->replay_esn),
- 			      x->replay_esn);
--		if (ret)
--			goto out;
--	}
-+	else
-+		ret = nla_put(skb, XFRMA_REPLAY_VAL, sizeof(x->replay),
-+			      &x->replay);
-+	if (ret)
-+		goto out;
- 	if (x->security)
- 		ret = copy_sec_ctx(x->security, skb);
- out:
-@@ -2569,6 +2571,8 @@ static inline size_t xfrm_sa_len(struct xfrm_state *x)
- 		l += nla_total_size(sizeof(x->tfcpad));
- 	if (x->replay_esn)
- 		l += nla_total_size(xfrm_replay_state_esn_len(x->replay_esn));
-+	else
-+		l += nla_total_size(sizeof(struct xfrm_replay_state));
- 	if (x->security)
- 		l += nla_total_size(sizeof(struct xfrm_user_sec_ctx) +
- 				    x->security->ctx_len);
--- 
-2.1.0
+Regards,
