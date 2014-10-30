@@ -1,90 +1,104 @@
-From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: [PATCH v1 2/2] drivers: net: xgene: fix: Use separate resources
-Date: Wed, 29 Oct 2014 17:56:20 -0700
-Message-ID: <1414630580-24640-3-git-send-email-isubramanian@apm.com>
-References: <1414630580-24640-1-git-send-email-isubramanian@apm.com>
-Cc: linux-arm-kernel@lists.infradead.org, patches@apm.com,
-	kchudgar@apm.com, Iyappan Subramanian <isubramanian@apm.com>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	devicetree@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod5og110.obsmtp.com ([64.18.0.20]:40880 "HELO
-	exprod5og110.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1758020AbaJ3Azg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2014 20:55:36 -0400
-Received: by mail-pa0-f46.google.com with SMTP id lf10so4267847pab.19
-        for <netdev@vger.kernel.org>; Wed, 29 Oct 2014 17:55:36 -0700 (PDT)
-In-Reply-To: <1414630580-24640-1-git-send-email-isubramanian@apm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sasha Levin <sasha.levin@oracle.com>
+Subject: [PATCH] Bluetooth: Revert "Bluetooth: rfcomm: Remove unnecessary krfcommd event"
+Date: Wed, 29 Oct 2014 21:32:16 -0400
+Message-ID: <1414632736-18782-1-git-send-email-sasha.levin@oracle.com>
+Cc: peter@hurleysoftware.com, davem@davemloft.net,
+	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Sasha Levin <sasha.levin@oracle.com>
+To: marcel@holtmann.org, gustavo@padovan.org, johan.hedberg@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch fixes the following kernel crash during SGMII based 1GbE probe.
+This reverts commit e5842cdb0f4f2c68f6acd39e286e5d10d8c073e8.
 
-	BUG: Bad page state in process swapper/0  pfn:40fe6ad
-	page:ffffffbee37a75d8 count:-1 mapcount:0 mapping:          (null) index:0x0
-	flags: 0x0()
-	page dumped because: nonzero _count
-	Modules linked in:
-	CPU: 0 PID: 0 Comm: swapper/0 Not tainted 3.17.0+ #7
-	Call trace:
-	[<ffffffc000087fa0>] dump_backtrace+0x0/0x12c
-	[<ffffffc0000880dc>] show_stack+0x10/0x1c
-	[<ffffffc0004d981c>] dump_stack+0x74/0xc4
-	[<ffffffc00012fe70>] bad_page+0xd8/0x128
-	[<ffffffc000133000>] get_page_from_freelist+0x4b8/0x640
-	[<ffffffc000133260>] __alloc_pages_nodemask+0xd8/0x834
-	[<ffffffc0004194f8>] __netdev_alloc_frag+0x124/0x1b8
-	[<ffffffc00041bfdc>] __netdev_alloc_skb+0x90/0x10c
-	[<ffffffc00039ff30>] xgene_enet_refill_bufpool+0x11c/0x280
-	[<ffffffc0003a11a4>] xgene_enet_process_ring+0x168/0x340
-	[<ffffffc0003a1498>] xgene_enet_napi+0x1c/0x50
-	[<ffffffc00042b454>] net_rx_action+0xc8/0x18c
-	[<ffffffc0000b0880>] __do_softirq+0x114/0x24c
-	[<ffffffc0000b0c34>] irq_exit+0x94/0xc8
-	[<ffffffc0000e68a0>] __handle_domain_irq+0x8c/0xf4
-	[<ffffffc000081288>] gic_handle_irq+0x30/0x7c
+We can't call rfcomm_process_sessions() while our task state is not
+TASK_RUNNING since rfcomm_process_sessions() tries to lock mutexes
+and sleep. The scheduler even complains about it:
 
-This was due to hardware resource sharing conflict with the firmware. This
-patch fixes this crash by using resources (descriptor ring, prefetch buffer)
-that are not shared.
+[   21.683959] WARNING: CPU: 13 PID: 8165 at kernel/sched/core.c:7305 __might_sleep+0xe5/0x1b0()
+[   21.683962] do not call blocking ops when !TASK_RUNNING; state=1 set at rfcomm_run (net/bluetooth/rfcomm/core.c:2096)
+[   21.683963] Modules linked in:
+[   21.683966] CPU: 13 PID: 8165 Comm: krfcommd Tainted: G        W      3.18.0-rc2-next-20141029-sasha-00035-gd14bbcb-dirty #1425
+[   21.683969]  ffffffffae2b4d0e 0000000000000000 ffff8805c0b23c00 ffff8805c0b23b98
+[   21.683972]  ffffffffad010b76 0000000000000000 ffff8805c0b23bf8 ffff8805c0b23be8
+[   21.683975]  ffffffffa3298dd8 ffffffffad0a0910 ffffffffa3309f95 ffff8805c0b23bc8
+[   21.683976] Call Trace:
+[   21.683979] dump_stack (lib/dump_stack.c:52)
+[   21.683982] warn_slowpath_common (kernel/panic.c:432)
+[   21.683985] ? __schedule (kernel/sched/core.c:2840)
+[   21.683987] ? __might_sleep (kernel/sched/core.c:7311)
+[   21.683990] warn_slowpath_fmt (kernel/panic.c:446)
+[   21.683993] ? rfcomm_run (net/bluetooth/rfcomm/core.c:2096)
+[   21.683996] ? rfcomm_run (net/bluetooth/rfcomm/core.c:2096)
+[   21.683999] __might_sleep (kernel/sched/core.c:7311)
+[   21.684002] mutex_lock_nested (kernel/locking/mutex.c:508 kernel/locking/mutex.c:622)
+[   21.684004] ? __schedule (./arch/x86/include/asm/bitops.h:311 include/linux/thread_info.h:91 include/linux/sched.h:2937 kernel/sched/core.c:2845)
+[   21.684008] ? __this_cpu_preempt_check (lib/smp_processor_id.c:63)
+[   21.684011] rfcomm_run (net/bluetooth/rfcomm/core.c:1990 net/bluetooth/rfcomm/core.c:2102)
+[   21.684014] ? preempt_count_sub (kernel/sched/core.c:2641)
+[   21.684017] ? __schedule (./arch/x86/include/asm/bitops.h:311 include/linux/thread_info.h:91 include/linux/sched.h:2937 kernel/sched/core.c:2845)
+[   21.684020] ? rfcomm_process_rx (net/bluetooth/rfcomm/core.c:2088)
+[   21.684023] ? rfcomm_process_rx (net/bluetooth/rfcomm/core.c:2088)
+[   21.684025] kthread (kernel/kthread.c:207)
+[   21.684029] ? trace_hardirqs_on_caller (kernel/locking/lockdep.c:2559 kernel/locking/lockdep.c:2601)
+[   21.684032] ? flush_kthread_work (kernel/kthread.c:176)
+[   21.684035] ret_from_fork (arch/x86/kernel/entry_64.S:348)
+[   21.684038] ? flush_kthread_work (kernel/kthread.c:176)
 
-Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
-Signed-off-by: Keyur Chudgar <kchudgar@apm.com>
+Instead, just go to the old way oftracking wakeups.
+
+Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
 ---
- drivers/net/ethernet/apm/xgene/xgene_enet_main.c | 6 +++---
- drivers/net/ethernet/apm/xgene/xgene_enet_main.h | 3 +++
- 2 files changed, 6 insertions(+), 3 deletions(-)
+ net/bluetooth/rfcomm/core.c |   17 ++++++++++-------
+ 1 file changed, 10 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-index 3c208cc..ac37e26 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-@@ -639,9 +639,9 @@ static int xgene_enet_create_desc_rings(struct net_device *ndev)
- 	struct device *dev = ndev_to_dev(ndev);
- 	struct xgene_enet_desc_ring *rx_ring, *tx_ring, *cp_ring;
- 	struct xgene_enet_desc_ring *buf_pool = NULL;
--	u8 cpu_bufnum = 0, eth_bufnum = 0;
--	u8 bp_bufnum = 0x20;
--	u16 ring_id, ring_num = 0;
-+	u8 cpu_bufnum = 0, eth_bufnum = START_ETH_BUFNUM;
-+	u8 bp_bufnum = START_BP_BUFNUM;
-+	u16 ring_id, ring_num = START_RING_NUM;
- 	int ret;
+diff --git a/net/bluetooth/rfcomm/core.c b/net/bluetooth/rfcomm/core.c
+index bce9c3d..942de7765 100644
+--- a/net/bluetooth/rfcomm/core.c
++++ b/net/bluetooth/rfcomm/core.c
+@@ -48,6 +48,7 @@ static DEFINE_MUTEX(rfcomm_mutex);
+ #define rfcomm_lock()	mutex_lock(&rfcomm_mutex)
+ #define rfcomm_unlock()	mutex_unlock(&rfcomm_mutex)
  
- 	/* allocate rx descriptor ring */
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.h b/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
-index 874e5a0..7d8b6ea 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
-@@ -38,6 +38,9 @@
- #define SKB_BUFFER_SIZE		(XGENE_ENET_MAX_MTU - NET_IP_ALIGN)
- #define NUM_PKT_BUF	64
- #define NUM_BUFPOOL	32
-+#define START_ETH_BUFNUM	2
-+#define START_BP_BUFNUM		0x22
-+#define START_RING_NUM		8
++static unsigned long rfcomm_event;
  
- #define PHY_POLL_LINK_ON	(10 * HZ)
- #define PHY_POLL_LINK_OFF	(PHY_POLL_LINK_ON / 5)
+ static LIST_HEAD(session_list);
+ 
+@@ -105,6 +106,7 @@ static void rfcomm_schedule(void)
+ {
+ 	if (!rfcomm_thread)
+ 		return;
++	set_bit(RFCOMM_SCHED_WAKEUP, &rfcomm_event);
+ 	wake_up_process(rfcomm_thread);
+ }
+ 
+@@ -2092,18 +2094,19 @@ static int rfcomm_run(void *unused)
+ 
+ 	rfcomm_add_listener(BDADDR_ANY);
+ 
+-	while (1) {
++	while (!kthread_should_stop()) {
+ 		set_current_state(TASK_INTERRUPTIBLE);
+-
+-		if (kthread_should_stop())
+-			break;
++		if (!test_bit(RFCOMM_SCHED_WAKEUP, &rfcomm_event)) {
++			/* No pending events. Let's sleep.
++			 * Incoming connections and data will wake us up. */
++			schedule();
++		}
++		set_current_state(TASK_RUNNING);
+ 
+ 		/* Process stuff */
++		clear_bit(RFCOMM_SCHED_WAKEUP, &rfcomm_event);
+ 		rfcomm_process_sessions();
+-
+-		schedule();
+ 	}
+-	__set_current_state(TASK_RUNNING);
+ 
+ 	rfcomm_kill_listener();
+ 
 -- 
-1.9.1
+1.7.10.4
