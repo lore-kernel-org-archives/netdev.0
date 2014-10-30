@@ -1,186 +1,59 @@
-From: Dong Aisheng <b29396@freescale.com>
-Subject: Re: [PATCH 6/7] can: m_can: update to support CAN FD features
-Date: Thu, 30 Oct 2014 10:42:29 +0800
-Message-ID: <20141030024226.GA29572@shlinux1.ap.freescale.net>
-References: <1414579527-31100-1-git-send-email-b29396@freescale.com>
- <1414579527-31100-6-git-send-email-b29396@freescale.com>
- <54513E38.4020703@hartkopp.net>
+From: alexander.duyck@gmail.com
+Subject: [PATCH net] gre: Fix regression in gretap TSO support
+Date: Wed, 29 Oct 2014 20:26:42 -0700
+Message-ID: <20141030032430.4452.46388.stgit@ahduyck-workstation.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <linux-can@vger.kernel.org>, <mkl@pengutronix.de>,
-	<wg@grandegger.com>, <varkabhadram@gmail.com>,
-	<netdev@vger.kernel.org>, <linux-arm-kernel@lists.infradead.org>
-To: Oliver Hartkopp <socketcan@hartkopp.net>
-Return-path: <linux-can-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <54513E38.4020703@hartkopp.net>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: "H.K. Jerry Chu" <hkchu@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Alexander Duyck <alexander.h.duyck@redhat.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Pravin B Shelar <pshelar@nicira.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:37345 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752297AbaJ3DfU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Oct 2014 23:35:20 -0400
+Received: by mail-pa0-f49.google.com with SMTP id lj1so4512688pab.22
+        for <netdev@vger.kernel.org>; Wed, 29 Oct 2014 20:35:19 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 29, 2014 at 08:21:28PM +0100, Oliver Hartkopp wrote:
-> Hello Dong,
-> 
-> thanks for your update to support CAN FD with the 3.0.x M_CAN IP core.
-> 
-> AFAIK from the last CAN in Automation (CiA) Plugfest which took place in
-> Nuremberg yesterday, there are two more IP cores on the way:
-> 
-> v3.0.1 / v3.0.2 (the current spec from the Bosch website)
-> 
-> v3.1.0 which will support per-frame CAN/CANFD switching in the tx path
-> (the FDF/(former)EDL bit and the BRS bit appear in the TX buffer element at
-> the bit position you know from reading the RX FIFO element)
-> 
-> v3.2.0 which will support the final(?) ISO specification with a bitstuffing
-> counter before the CRC in the frame on the wire.
-> 
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
 
-Sounds good.
+On recent kernels I found that TSO on gretap interfaces didn't work.  After
+bisecting it I found that commit b884b1a4 had introduced a regression in
+which the Ethernet header was being included in the GRE header length.
 
-> So first I would suggest to check the core release register (CREL) to be
-> version 3.0.x and quit the driver initialization if it doesn't fit this
-> version. I would suggest to provide a separate patch for that check. What
-> about printing the core release version into the kernel log at driver
-> initialization time?
-> 
+This change corrects that by basing the GRE header length on the inner mac
+header in the case of GRE tunnels using transparent Ethernet bridging, and
+uses the network header for all other GRE tunnel types.
 
-One question is that if v3.1.0 and v3.2.0 will be backward compatible with
-v3.0.1, if yes, how about let the driver still work for them instead of
-simply quit?
-And then we can add new features according new released IP version.
+Fixes: b884b1a4 ("gre_offload: simplify GRE header length calculation in gre_gso_segment()")
+Cc: Neal Cardwell <ncardwell@google.com>
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: H.K. Jerry Chu <hkchu@google.com>
+Cc: Pravin B Shelar <pshelar@nicira.com>
+Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
+---
+ net/ipv4/gre_offload.c |    5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-> Regarding the CAN FD support in this patch I have some remarks in the text ...
-> 
-> On 10/29/2014 11:45 AM, Dong Aisheng wrote:
-> 
-> >  /* Rx Buffer Element */
-> > +/* R0 */
-> >  #define RX_BUF_ESI		BIT(31)
-> >  #define RX_BUF_XTD		BIT(30)
-> >  #define RX_BUF_RTR		BIT(29)
-> > +/* R1 */
-> > +#define RX_BUF_ANMF		BIT(31)
-> > +#define RX_BUF_EDL		BIT(21)
-> > +#define RX_BUF_BRS		BIT(20)
-> >  
-> >  /* Tx Buffer Element */
-> > +/* R0 */
-> >  #define TX_BUF_XTD		BIT(30)
-> >  #define TX_BUF_RTR		BIT(29)
-> >  
-> > @@ -327,11 +357,12 @@ static inline void m_can_disable_all_interrupts(const struct m_can_priv *priv)
-> >  	m_can_write(priv, M_CAN_ILE, 0x0);
-> >  }
-> >  
-> > -static void m_can_read_fifo(const struct net_device *dev, struct can_frame *cf,
-> > +static void m_can_read_fifo(const struct net_device *dev, struct canfd_frame *cf,
-> >  			    u32 rxfs)
-> >  {
-> >  	struct m_can_priv *priv = netdev_priv(dev);
-> >  	u32 id, fgi;
-> > +	int i;
-> >  
-> >  	/* calculate the fifo get index for where to read data */
-> >  	fgi = (rxfs & RXFS_FGI_MASK) >> RXFS_FGI_OFF;
-> > @@ -341,15 +372,23 @@ static void m_can_read_fifo(const struct net_device *dev, struct can_frame *cf,
-> >  	else
-> >  		cf->can_id = (id >> 18) & CAN_SFF_MASK;
-> >  
-> > +	if (id & RX_BUF_ESI) {
-> > +		cf->flags |= CANFD_ESI;
-> > +		netdev_dbg(dev, "ESI Error\n");
-> > +	}
-> > +
-> >  	if (id & RX_BUF_RTR) {
-> >  		cf->can_id |= CAN_RTR_FLAG;
-> 
-> When RX_BUF_EDL is set you should not check for RX_BUF_RTR as RTR is not
-> allowed for CAN FD.
-> 
-
-Right, will change it.
-
-> >  	} else {
-> >  		id = m_can_fifo_read(priv, fgi, M_CAN_FIFO_DLC);
-> > -		cf->can_dlc = get_can_dlc((id >> 16) & 0x0F);
-> > -		*(u32 *)(cf->data + 0) = m_can_fifo_read(priv, fgi,
-> > -							 M_CAN_FIFO_DATA(0));
-> > -		*(u32 *)(cf->data + 4) = m_can_fifo_read(priv, fgi,
-> > -							 M_CAN_FIFO_DATA(1));
-> > +		cf->len = can_dlc2len(get_canfd_dlc((id >> 16) & 0x0F));
-> > +
-> > +		if (id & RX_BUF_BRS)
-> > +			cf->flags |= CANFD_BRS;
-> > +
-> > +		for (i = 0; i < cf->len; i += 4)
-> > +			*(u32 *)(cf->data + i) =
-> > +				m_can_fifo_read(priv, fgi, M_CAN_FIFO_DATA(i / 4));
-> >  	}
-> >  
-> >  	/* acknowledge rx fifo 0 */
-> > @@ -361,7 +400,7 @@ static int m_can_do_rx_poll(struct net_device *dev, int quota)
-> >  	struct m_can_priv *priv = netdev_priv(dev);
-> >  	struct net_device_stats *stats = &dev->stats;
-> >  	struct sk_buff *skb;
-> > -	struct can_frame *frame;
-> > +	struct canfd_frame *frame;
-> >  	u32 pkts = 0;
-> >  	u32 rxfs;
-> >  
-> > @@ -375,7 +414,7 @@ static int m_can_do_rx_poll(struct net_device *dev, int quota)
-> >  		if (rxfs & RXFS_RFL)
-> >  			netdev_warn(dev, "Rx FIFO 0 Message Lost\n");
-> >  
-> > -		skb = alloc_can_skb(dev, &frame);
-> > +		skb = alloc_canfd_skb(dev, &frame);
-> 
-> You are *always* allocating CAN FD frames now?
-> 
-
-Yes, currently it is.
-The test seemed ok using CAN FD frames even receive normal frame.
-
-The issue i know is that candump seemed can not recognize remote frame reported
-by the driver.
-Not sure if it's caused by canfd_frame used.
-Will test and check.
-
-> Depending on RX_BUF_EDL in the RX FIFO message you should create a CAN or CAN
-> FD frame.
-> 
-> Of course you can use the struct canfd_frame in m_can_read_fifo() as the
-> layout of the struct can_frame is identical when filled with 'normal' CAN
-> frame content.
-> 
-> But you need to distinguish whether it is a CAN or CAN FD frame when
-> allocating the skb based on the RX_BUF_EDL value.
-> 
-
-Yes, i think it's good to do that.
-One obvious benefit is it saves memory at least.
-
-> >  		if (!skb) {
-> >  			stats->rx_dropped++;
-> >  			return pkts;
-> > @@ -384,7 +423,7 @@ static int m_can_do_rx_poll(struct net_device *dev, int quota)
-> >  		m_can_read_fifo(dev, frame, rxfs);
-> >  
-> >  		stats->rx_packets++;
-> > -		stats->rx_bytes += frame->can_dlc;
-> > +		stats->rx_bytes += frame->len;
-> >  
-> >  		netif_receive_skb(skb);
-> >  
-> 
-> The rest of your entire patch set looks very good from my perspective.
-> 
-
-Thanks for the review. :-)
-
-> Best regards,
-> Oliver
-> 
-> 
-
-Regards
-Dong Aisheng
+diff --git a/net/ipv4/gre_offload.c b/net/ipv4/gre_offload.c
+index f6e345c..67a1f66 100644
+--- a/net/ipv4/gre_offload.c
++++ b/net/ipv4/gre_offload.c
+@@ -47,7 +47,10 @@ static struct sk_buff *gre_gso_segment(struct sk_buff *skb,
+ 
+ 	greh = (struct gre_base_hdr *)skb_transport_header(skb);
+ 
+-	ghl = skb_inner_network_header(skb) - skb_transport_header(skb);
++	if (greh->protocol == htons(ETH_P_TEB))
++		ghl = skb_inner_mac_header(skb) - skb_transport_header(skb);
++	else
++		ghl = skb_inner_network_header(skb) - skb_transport_header(skb);
+ 	if (unlikely(ghl < sizeof(*greh)))
+ 		goto out;
+ 
