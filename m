@@ -1,56 +1,57 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [net-next 2/2] sctp: replace seq_printf with seq_puts
-Date: Thu, 30 Oct 2014 06:26:22 -0400
-Message-ID: <20141030102622.GD24783@hmsreliant.think-freely.org>
-References: <1414661356-17255-1-git-send-email-michele@acksyn.org>
- <1414661356-17255-2-git-send-email-michele@acksyn.org>
+From: Luca Coelho <luca-XPOmlcxoEMv1KXRcyAk9cg@public.gmane.org>
+Subject: Re: [PATCH 0/6 3.18] Fixes for iwlwifi drivers
+Date: Thu, 30 Oct 2014 13:08:32 +0200
+Message-ID: <1414667312.27833.22.camel@coelho.fi>
+References: <1414642633-3700-1-git-send-email-Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vlad Yasevich <vyasevich@gmail.com>, linux-sctp@vger.kernel.org,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Michele Baldessari <michele@acksyn.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:43803 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758847AbaJ3K0b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2014 06:26:31 -0400
-Content-Disposition: inline
-In-Reply-To: <1414661356-17255-2-git-send-email-michele@acksyn.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Murilo Opsfelder Araujo <mopsfelder-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1414642633-3700-1-git-send-email-Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 30, 2014 at 10:29:16AM +0100, Michele Baldessari wrote:
-> Fixes checkpatch warning:
-> "WARNING: Prefer seq_puts to seq_printf"
+The cover-letter subject is wrong. :) I guess you meant
+s/iwlwifi/rtlwifi/ ;)
+
+--
+Luca.
+
+On Wed, 2014-10-29 at 23:17 -0500, Larry Finger wrote:
+> Some late changes to rtlwifi made some of the older drivers not start correctly.
+> These patches should be applied to 3.18.
 > 
-> Signed-off-by: Michele Baldessari <michele@acksyn.org>
-> ---
->  net/sctp/proc.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
+> Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+> Cc: Murilo Opsfelder Araujo <mopsfelder-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 > 
-> diff --git a/net/sctp/proc.c b/net/sctp/proc.c
-> index bfb242af06ab..0697eda5aed8 100644
-> --- a/net/sctp/proc.c
-> +++ b/net/sctp/proc.c
-> @@ -490,14 +490,14 @@ static int sctp_remaddr_seq_show(struct seq_file *seq, void *v)
->  			 * Note: We don't have a way to tally this at the moment
->  			 * so lets just leave it as zero for the moment
->  			 */
-> -			seq_printf(seq, "0 ");
-> +			seq_puts(seq, "0 ");
->  
->  			/*
->  			 * remote address start time (START).  This is also not
->  			 * currently implemented, but we can record it with a
->  			 * jiffies marker in a subsequent patch
->  			 */
-> -			seq_printf(seq, "0 ");
-> +			seq_puts(seq, "0 ");
->  
->  			/*
->  			 * The current state of this destination. I.e.
-> -- 
-> 2.1.0
+> Larry Finger (6):
+>   rtlwifi: rtl8192ce: rtl8192de: rtl8192se: Fix handling for missing
+>     get_btc_status
+>   rtlwifi: rtl8192se: Fix duplicate calls to ieee80211_register_hw()
+>   rtlwifi: rtl8192se: Add missing section to read descriptor setting
+>   rtlwifi: rtl8192ce: Add missing section to read descriptor setting
+>   rtlwifi: rtl8821ae: Remove extra semicolons
+>   rtlwifi: rtl8192se: Fix firmware loading
 > 
+>  drivers/net/wireless/rtlwifi/core.c          |  6 ++++++
+>  drivers/net/wireless/rtlwifi/core.h          |  1 +
+>  drivers/net/wireless/rtlwifi/rtl8192ce/def.h |  2 ++
+>  drivers/net/wireless/rtlwifi/rtl8192ce/sw.c  |  1 +
+>  drivers/net/wireless/rtlwifi/rtl8192ce/trx.c |  3 +++
+>  drivers/net/wireless/rtlwifi/rtl8192de/sw.c  |  1 +
+>  drivers/net/wireless/rtlwifi/rtl8192se/def.h |  2 ++
+>  drivers/net/wireless/rtlwifi/rtl8192se/sw.c  | 22 +++-------------------
+>  drivers/net/wireless/rtlwifi/rtl8192se/trx.c |  3 +++
+>  drivers/net/wireless/rtlwifi/rtl8821ae/phy.c | 12 ++++++------
+>  10 files changed, 28 insertions(+), 25 deletions(-)
 > 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
