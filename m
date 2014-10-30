@@ -1,102 +1,75 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH v2 net 1/2] drivers/net: Disable UFO through virtio
-Date: Thu, 30 Oct 2014 22:20:02 +0000
-Message-ID: <1414707602.16849.70.camel@decadent.org.uk>
-References: <1414693592.16849.61.camel@decadent.org.uk>
-	<1414693632.16849.62.camel@decadent.org.uk>
-	<1414694849.15352.3.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: [PATCH v3 09/15] net: dsa: Add support for switch EEPROM access
+Date: Thu, 30 Oct 2014 15:39:51 -0700
+Message-ID: <20141030223951.GA19489@roeck-us.net>
+References: <1414604707-22407-1-git-send-email-linux@roeck-us.net>
+ <1414604707-22407-10-git-send-email-linux@roeck-us.net>
+ <20141030211131.GB32139@lunn.ch>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============4443335699894482832=="
-Cc: netdev@vger.kernel.org, Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	virtualization@lists.linux-foundation.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1414694849.15352.3.camel@edumazet-glaptop2.roam.corp.google.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	linux-kernel@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20141030211131.GB32139@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
---===============4443335699894482832==
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-qc+puuwzD+2wgq2cHdXT"
-
-
---=-qc+puuwzD+2wgq2cHdXT
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Thu, 2014-10-30 at 11:47 -0700, Eric Dumazet wrote:
-> On Thu, 2014-10-30 at 18:27 +0000, Ben Hutchings wrote:
->=20
->=20
-> > +		{
-> > +			static bool warned;
+On Thu, Oct 30, 2014 at 10:11:31PM +0100, Andrew Lunn wrote:
+> > +static int dsa_slave_get_eeprom_len(struct net_device *dev)
+> > +{
+> > +	struct dsa_slave_priv *p = netdev_priv(dev);
+> > +	struct dsa_switch *ds = p->parent;
 > > +
-> > +			if (!warned) {
-> > +				warned =3D true;
-> > +				netdev_warn(tun->dev,
-> > +					    "%s: using disabled UFO feature; please fix this program\n",
-> > +					    current->comm);
-> > +			}
-> >
->=20
-> It might be time to add netdev_warn_once() ;)
+> > +	if (ds->pd->eeprom_len)
+> > +		return ds->pd->eeprom_len;
+> > +
+> > +	if (ds->drv->get_eeprom_len)
+> > +		return ds->drv->get_eeprom_len(ds);
+> > +
+> > +	return 0;
+> > +}
+> > +
+> 
+> Hi Guenter
+> 
+> I just started doing some testing with this patchset. A bit late since
+> David just accepted it, but...
+> 
+> root@dir665:~# ethtool -e lan4
+> Cannot get EEPROM data: Invalid argument
+> root@dir665:~# ethtool -e eth0
+> Cannot get EEPROM data: Operation not supported
+> 
+> There is no eeprom for the hardware i'm testing. Operation not
+> supported seems like a better error code and Invalid argument, and is
+> what other network drivers i tried returned.
+> 
+Hi Andrew,
 
-Could do.  I'm trying to make small fixes that are suitable for stable.
+I think the problem is that the infrastructure code (net/core/ethtool.c)
+does not accept an error from the get_eeprom_len function, but instead
+assumes that reporting eeprom data is supported if a driver provides
+the access functions. The get_eeprom_len function returns 0 in your case,
+which in ethtool_get_any_eeprom() translates to -EINVAL because user space
+either requests no data or more data than available. I wonder why user
+space requests anything in the first place; I would have assumed that it
+reads the driver information first and is told that the eeprom length is 0,
+but I guess that is a different question.
 
-> Alternatively, you could use=20
-> 	pr_warn_once("%s: using disabled UFO feature; please fix this program\n"=
-,
-> 		     tun->dev->name, current->comm);
+I quickly browsed through a couple of other drivers supporting get_eprom_len,
+and they all return 0 if there is no eeprom. Doesn't that mean that they all
+end up reporting -EINVAL if an attempt is made to read the eeprom ?
 
-That's missing a "%s: ", but yes that would also work.
+The only solution that comes to my mind would be to have the infrastructure
+code check the return value from get_eeprom_len and return -EOPNOTSUPP
+if the reported eeprom length is 0. That would be an infrastructure change,
+though. Does that sound reasonable, or do you have a better idea ?
 
-Ben.
+In parallel, I'll have a look into the ethtool command to see why it
+requests eeprom data even though the reported eeprom length is 0.
 
---=20
-Ben Hutchings
-The program is absolutely right; therefore, the computer must be wrong.
-
---=-qc+puuwzD+2wgq2cHdXT
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIVAwUAVFK5l+e/yOyVhhEJAQqjzA//TXb1rN4MzFmENQ0GOhIwO9D6Fxb/8UuR
-ioVfFX37pU7MZSEAbRG7goaK303qNMcfg9dZqFGu1Zwny1hkfewWTE/ODNdhkflL
-Eu52XuAzSkB2D8LpwX9HCfvHeuWwiCLpeyBrxyR8QdayjxVEJ+ACRAk3BNAXAOpY
-Z+LhGXH7emoOC4urt8Qs93D/V3nXQKahqTAixlTCwdvmkZIQw5ndh9amfcoLIDFp
-LG/Eg/8czgpFwkg3nASuCvSjxG9lwaQltTAB5nS32COVtQ80ePMnQI2jkVSM4jpp
-x1CxXZo6DEqnffe1Rqx8/yWUcGRzH4N6Sy06bXhatils6WhefkuS0g0lrHFCTSRf
-PevZjW40bM0fDT2hSgqw2pK0MlN2Apdfe0QvZKU+73fIlp4sLzx/wAlReaFf1U+V
-s64JR+WZDmRAUsnUMMxTGxDq+QQXXZqsLNZ0tVFaF1W9nss3wWTk18lOPa5JJIwH
-vT8Z111katoPq4qnUVZNL3pK3TMW2/jpcKhTwE93n+/GX2mvHzH+amb2fJpsqSki
-qZxgQW9NYPCW7G7eAoxcDh4dECqsKZkMENHhL1V2R04OHE+k8OAouDGUWhrEVXu0
-7Siez3BqgSW0zcpwmbqAu+oIMavrZlNb8Fa0YE4rGfetPDJe8A/7MLzLRC1nkRPj
-2R/ZGo98Ick=
-=qnNN
------END PGP SIGNATURE-----
-
---=-qc+puuwzD+2wgq2cHdXT--
-
---===============4443335699894482832==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-Virtualization mailing list
-Virtualization@lists.linux-foundation.org
-https://lists.linuxfoundation.org/mailman/listinfo/virtualization
---===============4443335699894482832==--
+Thanks,
+Guenter
