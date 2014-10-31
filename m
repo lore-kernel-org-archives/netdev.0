@@ -1,7 +1,7 @@
 From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next v2 3/3] r8152: check RTL8152_UNPLUG and netif_running before autoresume
-Date: Fri, 31 Oct 2014 17:56:42 +0800
-Message-ID: <1394712342-15778-82-Taiwan-albertk@realtek.com>
+Subject: [PATCH net-next v2 1/3] r8152: remove the duplicate init for the list of rx_done
+Date: Fri, 31 Oct 2014 17:56:40 +0800
+Message-ID: <1394712342-15778-80-Taiwan-albertk@realtek.com>
 References: <1394712342-15778-75-Taiwan-albertk@realtek.com>
  <1394712342-15778-79-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
@@ -14,39 +14,25 @@ In-Reply-To: <1394712342-15778-79-Taiwan-albertk@realtek.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-If the device is unplugged or !netif_running(), the workqueue
-doesn't need to wake the device, and could return directly.
+The INIT_LIST_HEAD(&tp->rx_done) would be done in rtl_start_rx(),
+so remove the unnecessary one in alloc_all_mem().
 
 Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 ---
- drivers/net/usb/r8152.c | 9 ++++++---
- 1 file changed, 6 insertions(+), 3 deletions(-)
+ drivers/net/usb/r8152.c | 1 -
+ 1 file changed, 1 deletion(-)
 
 diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index 670279a..90cc89c 100644
+index f116335..ff54098 100644
 --- a/drivers/net/usb/r8152.c
 +++ b/drivers/net/usb/r8152.c
-@@ -2859,15 +2859,18 @@ static void rtl_work_func_t(struct work_struct *work)
- {
- 	struct r8152 *tp = container_of(work, struct r8152, schedule.work);
+@@ -1256,7 +1256,6 @@ static int alloc_all_mem(struct r8152 *tp)
  
-+	/* If the device is unplugged or !netif_running(), the workqueue
-+	 * doesn't need to wake the device, and could return directly.
-+	 */
-+	if (test_bit(RTL8152_UNPLUG, &tp->flags) || !netif_running(tp->netdev))
-+		return;
-+
- 	if (usb_autopm_get_interface(tp->intf) < 0)
- 		return;
+ 	spin_lock_init(&tp->rx_lock);
+ 	spin_lock_init(&tp->tx_lock);
+-	INIT_LIST_HEAD(&tp->rx_done);
+ 	INIT_LIST_HEAD(&tp->tx_free);
+ 	skb_queue_head_init(&tp->tx_queue);
  
- 	if (!test_bit(WORK_ENABLE, &tp->flags))
- 		goto out1;
- 
--	if (test_bit(RTL8152_UNPLUG, &tp->flags))
--		goto out1;
--
- 	if (!mutex_trylock(&tp->control)) {
- 		schedule_delayed_work(&tp->schedule, 0);
- 		goto out1;
 -- 
 1.9.3
