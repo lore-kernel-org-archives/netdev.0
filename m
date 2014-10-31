@@ -1,11 +1,11 @@
 From: "Lennart Sorensen" <lsorense@csclub.uwaterloo.ca>
-Subject: drivers: net: cpsw: Fix broken loop condition in switch mode
-Date: Fri, 31 Oct 2014 13:28:54 -0400
-Message-ID: <20141031172854.GJ24110@csclub.uwaterloo.ca>
+Subject: drivers: net: cpsw: Support ALLMULTI and fix IFF_PROMISC in switch
+ mode
+Date: Fri, 31 Oct 2014 13:38:52 -0400
+Message-ID: <20141031173852.GK24110@csclub.uwaterloo.ca>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Heiko Schocher <hs@denx.de>,
-	Len Sorensen <lsorense@csclub.uwaterloo.ca>,
+Cc: Len Sorensen <lsorense@csclub.uwaterloo.ca>,
 	Mugunthan V N <mugunthanvnm@ti.com>,
 	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
@@ -14,56 +14,146 @@ Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-0d961b3b52f566f823070ce2366511a7f64b928c (drivers: net: cpsw: fix buggy
-loop condition) accidentally fixed a loop comparison in too many places
-while fixing a real bug.
+The cpsw driver did not support the IFF_ALLMULTI flag which makes dynamic
+multicast routing not work.  Related to this, when enabling IFF_PROMISC
+in switch mode, all registered multicast addresses are flushed, resulting
+in only broadcast and unicast traffic being received.
 
-It was correct to fix the dual_emac mode section since there 'i' is used
-as an index into priv->slaves which is a 0 based array.
+A new cpsw_ale_set_allmulti function now scans through the ALE entry
+table and adds/removes the host port from the unregistered multicast
+port mask of each vlan entry depending on the state of IFF_ALLMULTI.
+In promiscious mode, cpsw_ale_set_allmulti is used to force reception
+of all multicast traffic in addition to the unicast and broadcast traffic.
 
-However the other two changes (which are only used in switch mode)
-are wrong since there 'i' is actually the ALE port number, and port 0
-is the host port, while port 1 and up are the slave ports.
-
-Putting the loop condition back in the switch mode section fixes it.
-
-A comment has been added to point out the intent clearly to avoid future
-confusion.  Also a comment is fixed that said the opposite of what was
-actually happening.
+With this change dynamic multicast and promiscious mode both work in
+switch mode.
 
 Signed-off-by: Len Sorensen <lsorense@csclub.uwaterloo.ca>
-Acked-by: Heiko Schocher <hs@denx.de>
 
 diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index 952e1e4..4683196 100644
+index 952e1e4..96a61d1 100644
 --- a/drivers/net/ethernet/ti/cpsw.c
 +++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -591,8 +591,8 @@ static void cpsw_set_promiscious(struct net_device *ndev, bool enable)
- 		if (enable) {
- 			unsigned long timeout = jiffies + HZ;
+@@ -638,12 +638,16 @@ static void cpsw_ndo_set_rx_mode(struct net_device *ndev)
+ 	if (ndev->flags & IFF_PROMISC) {
+ 		/* Enable promiscuous mode */
+ 		cpsw_set_promiscious(ndev, true);
++		cpsw_ale_set_allmulti(priv->ale, IFF_ALLMULTI);
+ 		return;
+ 	} else {
+ 		/* Disable promiscuous mode */
+ 		cpsw_set_promiscious(ndev, false);
+ 	}
  
--			/* Disable Learn for all ports */
--			for (i = 0; i < priv->data.slaves; i++) {
-+			/* Disable Learn for all ports (host is port 0 and slaves are port 1 and up */
-+			for (i = 0; i <= priv->data.slaves; i++) {
- 				cpsw_ale_control_set(ale, i,
- 						     ALE_PORT_NOLEARN, 1);
- 				cpsw_ale_control_set(ale, i,
-@@ -616,11 +616,11 @@ static void cpsw_set_promiscious(struct net_device *ndev, bool enable)
- 			cpsw_ale_control_set(ale, 0, ALE_P0_UNI_FLOOD, 1);
- 			dev_dbg(&ndev->dev, "promiscuity enabled\n");
- 		} else {
--			/* Flood All Unicast Packets to Host port */
-+			/* Don't Flood All Unicast Packets to Host port */
- 			cpsw_ale_control_set(ale, 0, ALE_P0_UNI_FLOOD, 0);
++	/* Restore allmulti on vlans if necessary */
++	cpsw_ale_set_allmulti(priv->ale, priv->ndev->flags & IFF_ALLMULTI);
++
+ 	/* Clear all mcast from ALE */
+ 	cpsw_ale_flush_multicast(priv->ale, ALE_ALL_PORTS << priv->host_port);
  
--			/* Enable Learn for all ports */
--			for (i = 0; i < priv->data.slaves; i++) {
-+			/* Enable Learn for all ports (host is port 0 and slaves are port 1 and up */
-+			for (i = 0; i <= priv->data.slaves; i++) {
- 				cpsw_ale_control_set(ale, i,
- 						     ALE_PORT_NOLEARN, 0);
- 				cpsw_ale_control_set(ale, i,
+@@ -1149,6 +1153,7 @@ static inline void cpsw_add_default_vlan(struct cpsw_priv *priv)
+ 	const int port = priv->host_port;
+ 	u32 reg;
+ 	int i;
++	int unreg_mcast_mask;
+ 
+ 	reg = (priv->version == CPSW_VERSION_1) ? CPSW1_PORT_VLAN :
+ 	       CPSW2_PORT_VLAN;
+@@ -1158,9 +1163,14 @@ static inline void cpsw_add_default_vlan(struct cpsw_priv *priv)
+ 	for (i = 0; i < priv->data.slaves; i++)
+ 		slave_write(priv->slaves + i, vlan, reg);
+ 
++	if (priv->ndev->flags & IFF_ALLMULTI)
++		unreg_mcast_mask = ALE_ALL_PORTS;
++	else
++		unreg_mcast_mask = ALE_PORT_1 | ALE_PORT_2;
++
+ 	cpsw_ale_add_vlan(priv->ale, vlan, ALE_ALL_PORTS << port,
+ 			  ALE_ALL_PORTS << port, ALE_ALL_PORTS << port,
+-			  (ALE_PORT_1 | ALE_PORT_2) << port);
++			  unreg_mcast_mask << port);
+ }
+ 
+ static void cpsw_init_host_port(struct cpsw_priv *priv)
+@@ -1620,11 +1630,17 @@ static inline int cpsw_add_vlan_ale_entry(struct cpsw_priv *priv,
+ 				unsigned short vid)
+ {
+ 	int ret;
++	int unreg_mcast_mask;
++
++	if (priv->ndev->flags & IFF_ALLMULTI)
++		unreg_mcast_mask = ALE_ALL_PORTS;
++	else
++		unreg_mcast_mask = ALE_PORT_1 | ALE_PORT_2;
+ 
+ 	ret = cpsw_ale_add_vlan(priv->ale, vid,
+ 				ALE_ALL_PORTS << priv->host_port,
+ 				0, ALE_ALL_PORTS << priv->host_port,
+-				(ALE_PORT_1 | ALE_PORT_2) << priv->host_port);
++				unreg_mcast_mask << priv->host_port);
+ 	if (ret != 0)
+ 		return ret;
+ 
+diff --git a/drivers/net/ethernet/ti/cpsw_ale.c b/drivers/net/ethernet/ti/cpsw_ale.c
+index 0579b22..3ae8387 100644
+--- a/drivers/net/ethernet/ti/cpsw_ale.c
++++ b/drivers/net/ethernet/ti/cpsw_ale.c
+@@ -443,6 +443,35 @@ int cpsw_ale_del_vlan(struct cpsw_ale *ale, u16 vid, int port_mask)
+ 	return 0;
+ }
+ 
++void cpsw_ale_set_allmulti(struct cpsw_ale *ale, int allmulti)
++{
++	u32 ale_entry[ALE_ENTRY_WORDS];
++	int type, idx;
++	int unreg_mcast = 0;
++
++	/* Only bother doing the work if the setting is actually changing */
++	if (ale->allmulti == allmulti)
++		return;
++
++	/* Remember the new setting to check against next time */
++	ale->allmulti = allmulti;
++
++	for (idx = 0; idx < ale->params.ale_entries; idx++) {
++		cpsw_ale_read(ale, idx, ale_entry);
++		type = cpsw_ale_get_entry_type(ale_entry);
++		if (type != ALE_TYPE_VLAN)
++			continue;
++
++		unreg_mcast = cpsw_ale_get_vlan_unreg_mcast(ale_entry);
++		if (allmulti)
++			unreg_mcast |= 1;
++		else
++			unreg_mcast &= ~1;
++		cpsw_ale_set_vlan_unreg_mcast(ale_entry, unreg_mcast);
++		cpsw_ale_write(ale, idx, ale_entry);
++	}
++}
++
+ struct ale_control_info {
+ 	const char	*name;
+ 	int		offset, port_offset;
+diff --git a/drivers/net/ethernet/ti/cpsw_ale.h b/drivers/net/ethernet/ti/cpsw_ale.h
+index 31cf43c..c0d4127 100644
+--- a/drivers/net/ethernet/ti/cpsw_ale.h
++++ b/drivers/net/ethernet/ti/cpsw_ale.h
+@@ -27,6 +27,7 @@ struct cpsw_ale {
+ 	struct cpsw_ale_params	params;
+ 	struct timer_list	timer;
+ 	unsigned long		ageout;
++	int			allmulti;
+ };
+ 
+ enum cpsw_ale_control {
+@@ -103,6 +104,7 @@ int cpsw_ale_del_mcast(struct cpsw_ale *ale, u8 *addr, int port_mask,
+ int cpsw_ale_add_vlan(struct cpsw_ale *ale, u16 vid, int port, int untag,
+ 			int reg_mcast, int unreg_mcast);
+ int cpsw_ale_del_vlan(struct cpsw_ale *ale, u16 vid, int port);
++void cpsw_ale_set_allmulti(struct cpsw_ale *ale, int allmulti);
+ 
+ int cpsw_ale_control_get(struct cpsw_ale *ale, int port, int control);
+ int cpsw_ale_control_set(struct cpsw_ale *ale, int port,
 
 -- 
 Len Sorensen
