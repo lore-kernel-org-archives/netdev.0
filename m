@@ -1,131 +1,80 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH -next v2 2/2] net: allow setting ecn via routing table
-Date: Fri, 31 Oct 2014 13:13:22 +0100
-Message-ID: <1414757602-27637-3-git-send-email-fw@strlen.de>
-References: <1414757602-27637-1-git-send-email-fw@strlen.de>
-Cc: Florian Westphal <fw@strlen.de>,
-	Daniel Borkmann <dborkman@redhat.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:40924 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759338AbaJaMNh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Oct 2014 08:13:37 -0400
-In-Reply-To: <1414757602-27637-1-git-send-email-fw@strlen.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 0/6] netfilter/ipvs fixes for net
+Date: Fri, 31 Oct 2014 13:18:26 +0100
+Message-ID: <1414757912-29150-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Allows to set ECN on a per-route basis in case the sysctl tcp_ecn is not set to 1.
-IOW, when ECN is set for specific routes, it provides a tcp_ecn=1 behaviour for that
-route while the rest of the stack acts according to the global settings.
+Hi David,
 
-Having a more fine-grained per-route setting can be beneficial for various reasons,
-for example a) within data centers, or b) local ISPs may deploy ECN support for
-their own video/streaming services [1], etc.
+The following patchset contains fixes for netfilter/ipvs. This round of
+fixes is larger than usual at this stage, specifically because of the
+nf_tables bridge reject fixes that I would like to see in 3.18. The
+patches are:
 
-One can use 'ip route change dev $dev $net features ecn' to toggle this.
+1) Fix a null-pointer dereference that may occur when logging
+   errors. This problem was introduced by 4a4739d56b0 ("ipvs: Pull
+   out crosses_local_route_boundary logic") in v3.17-rc5.
 
-[1] http://www.ietf.org/proceedings/89/slides/slides-89-tsvarea-1.pdf, p.15
+2) Update hook mask in nft_reject_bridge so we can also filter out
+   packets from there. This fixes 36d2af5 ("netfilter: nf_tables: allow
+   to filter from prerouting and postrouting"), which needs this chunk
+   to work.
 
-Joint work with Daniel Borkmann.
+3) Two patches to refactor common code to forge the IPv4 and IPv6
+   reject packets from the bridge. These are required by the nf_tables
+   reject bridge fix.
 
-Reference: http://thread.gmane.org/gmane.linux.network/335797
-Suggested-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
- Changes since v1:
- reword commit message and add reference to the discussion of the v1 patchset
+4) Fix nft_reject_bridge by avoiding the use of the IP stack to reject
+   packets from the bridge. The idea is to forge the reject packets and
+   inject them to the original port via br_deliver() which is now
+   exported for that purpose.
 
- net/ipv4/tcp_input.c  | 25 +++++++++++++++----------
- net/ipv4/tcp_output.c | 12 ++++++++++--
- 2 files changed, 25 insertions(+), 12 deletions(-)
+5) Restrict nft_reject_bridge to bridge prerouting and input hooks.
+   the original skbuff may cloned after prerouting when the bridge stack
+   needs to flood it to several bridge ports, it is too late to reject
+   the traffic.
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 4e4617e..9db942a 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -5876,20 +5876,22 @@ static inline void pr_drop_req(struct request_sock *req, __u16 port, int family)
-  */
- static void tcp_ecn_create_request(struct request_sock *req,
- 				   const struct sk_buff *skb,
--				   const struct sock *listen_sk)
-+				   const struct sock *listen_sk,
-+				   struct dst_entry *dst)
- {
- 	const struct tcphdr *th = tcp_hdr(skb);
- 	const struct net *net = sock_net(listen_sk);
- 	bool th_ecn = th->ece && th->cwr;
--	bool ect, need_ecn;
-+	bool ect, need_ecn, ecn_ok;
- 
- 	if (!th_ecn)
- 		return;
- 
- 	ect = !INET_ECN_is_not_ect(TCP_SKB_CB(skb)->ip_dsfield);
- 	need_ecn = tcp_ca_needs_ecn(listen_sk);
-+	ecn_ok = net->ipv4.sysctl_tcp_ecn || dst_feature(dst, RTAX_FEATURE_ECN);
- 
--	if (!ect && !need_ecn && net->ipv4.sysctl_tcp_ecn)
-+	if (!ect && !need_ecn && ecn_ok)
- 		inet_rsk(req)->ecn_ok = 1;
- 	else if (ect && need_ecn)
- 		inet_rsk(req)->ecn_ok = 1;
-@@ -5954,13 +5956,7 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
- 	if (security_inet_conn_request(sk, skb, req))
- 		goto drop_and_free;
- 
--	if (!want_cookie || tmp_opt.tstamp_ok)
--		tcp_ecn_create_request(req, skb, sk);
--
--	if (want_cookie) {
--		isn = cookie_init_sequence(af_ops, sk, skb, &req->mss);
--		req->cookie_ts = tmp_opt.tstamp_ok;
--	} else if (!isn) {
-+	if (!want_cookie && !isn) {
- 		/* VJ's idea. We save last timestamp seen
- 		 * from the destination in peer table, when entering
- 		 * state TIME-WAIT, and check against it before
-@@ -6008,6 +6004,15 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
- 			goto drop_and_free;
- 	}
- 
-+	tcp_ecn_create_request(req, skb, sk, dst);
-+
-+	if (want_cookie) {
-+		isn = cookie_init_sequence(af_ops, sk, skb, &req->mss);
-+		req->cookie_ts = tmp_opt.tstamp_ok;
-+		if (!tmp_opt.tstamp_ok)
-+			inet_rsk(req)->ecn_ok = 0;
-+	}
-+
- 	tcp_rsk(req)->snt_isn = isn;
- 	tcp_openreq_init_rwin(req, sk, dst);
- 	fastopen = !want_cookie &&
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 3af2129..b1c6296 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -333,10 +333,18 @@ static void tcp_ecn_send_synack(struct sock *sk, struct sk_buff *skb)
- static void tcp_ecn_send_syn(struct sock *sk, struct sk_buff *skb)
- {
- 	struct tcp_sock *tp = tcp_sk(sk);
-+	bool use_ecn = sock_net(sk)->ipv4.sysctl_tcp_ecn == 1 ||
-+		       tcp_ca_needs_ecn(sk);
-+
-+	if (!use_ecn) {
-+		const struct dst_entry *dst = __sk_dst_get(sk);
-+		if (dst && dst_feature(dst, RTAX_FEATURE_ECN))
-+			use_ecn = true;
-+	}
- 
- 	tp->ecn_flags = 0;
--	if (sock_net(sk)->ipv4.sysctl_tcp_ecn == 1 ||
--	    tcp_ca_needs_ecn(sk)) {
-+
-+	if (use_ecn) {
- 		TCP_SKB_CB(skb)->tcp_flags |= TCPHDR_ECE | TCPHDR_CWR;
- 		tp->ecn_flags = TCP_ECN_OK;
- 		if (tcp_ca_needs_ecn(sk))
--- 
-2.0.4
+You can pull these changes from:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
+
+Thanks!
+
+----------------------------------------------------------------
+
+The following changes since commit 7965ee93719921ea5978f331da653dfa2d7b99f5:
+
+  netfilter: nft_compat: fix wrong target lookup in nft_target_select_ops() (2014-10-27 22:17:46 +0100)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git master
+
+for you to fetch changes up to 127917c29a432c3b798e014a1714e9c1af0f87fe:
+
+  netfilter: nft_reject_bridge: restrict reject to prerouting and input (2014-10-31 12:50:09 +0100)
+
+----------------------------------------------------------------
+Alex Gartrell (1):
+      ipvs: Avoid null-pointer deref in debug code
+
+Pablo Neira Ayuso (5):
+      netfilter: nf_tables_bridge: update hook_mask to allow {pre,post}routing
+      netfilter: nf_reject_ipv4: split nf_send_reset() in smaller functions
+      netfilter: nf_reject_ipv6: split nf_send_reset6() in smaller functions
+      netfilter: nft_reject_bridge: don't use IP stack to reject traffic
+      netfilter: nft_reject_bridge: restrict reject to prerouting and input
+
+ include/net/netfilter/ipv4/nf_reject.h   |   10 +
+ include/net/netfilter/ipv6/nf_reject.h   |   10 +
+ net/bridge/br_forward.c		  |    1 +
+ net/bridge/netfilter/nf_tables_bridge.c  |    6 +-
+ net/bridge/netfilter/nft_reject_bridge.c |  296 ++++++++++++++++++++++++++++--
+ net/ipv4/netfilter/nf_reject_ipv4.c	  |   88 ++++++---
+ net/ipv6/netfilter/nf_reject_ipv6.c	  |  175 +++++++++++-------
+ net/netfilter/ipvs/ip_vs_xmit.c	  |    4 +-
+ 8 files changed, 483 insertions(+), 107 deletions(-)
