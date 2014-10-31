@@ -1,50 +1,99 @@
 From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH -next v2 0/2] net: allow setting ecn via routing table
-Date: Fri, 31 Oct 2014 13:13:20 +0100
-Message-ID: <1414757602-27637-1-git-send-email-fw@strlen.de>
+Subject: [PATCH -next v2 1/2] syncookies: remove ecn_ok validation when decoding option timestamp
+Date: Fri, 31 Oct 2014 13:13:21 +0100
+Message-ID: <1414757602-27637-2-git-send-email-fw@strlen.de>
+References: <1414757602-27637-1-git-send-email-fw@strlen.de>
+Cc: Florian Westphal <fw@strlen.de>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:40919 "EHLO
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:40920 "EHLO
 	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758257AbaJaMNX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Oct 2014 08:13:23 -0400
+	by vger.kernel.org with ESMTP id S1759338AbaJaMN3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Oct 2014 08:13:29 -0400
+In-Reply-To: <1414757602-27637-1-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Here is the resend of the v1 patchset, as requested.
-Thanks again for all the valuable comments and the feedback received for
-the original submission.
+Won't work anymore when tcp_ecn=0 and RTAX_FEATURES route attribute did
+allow ecn.
 
-I did a quick re-test, with a 'feature ecn' route ecn set and tcp_ecn != 1
-and the various combinations look ok:
+Just turn on ecn if the client ts says so.
 
-host with ecnroute is initiator
-- connect to host with tcp_ecn != 0: connection uses ecn
-- connect to host with tcp_ecn == 0: ecn is announced but not used
+This means that while syn cookies are in use clients can turn on ecn
+even if it is off on the server.
 
-host with ecnroute is responder:
-- connect from host with tcp_ecn == 1: connection uses ecn
-- connect from host with tcp_ecn != 1: connection does not uses ecn
+However, there seems to be no harm in permitting this.
 
-original cover letter below:
+Alternatively one can extend the test to also perform route lookup and
+check RTAX_FEATURES, but it simply doesn't appear to be worth the effort.
 
-These two patches allow turning on explicit congestion notification
-based on the destination network.
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+ Changes since v1:
+  - reword commit message
 
-For example, assuming the default tcp_ecn sysctl '2', the following will
-enable ecn (tcp_ecn=1 behaviour, i.e. request ecn to be enabled for a
-tcp connection) for all connections to hosts inside the 192.168.2/24 network:
+ include/net/tcp.h     | 3 +--
+ net/ipv4/syncookies.c | 6 ++----
+ net/ipv6/syncookies.c | 2 +-
+ 3 files changed, 4 insertions(+), 7 deletions(-)
 
-ip route change 192.168.2.0/24 dev eth0 features ecn
-
-Having a more fine-grained per-route setting can be beneficial for
-various reasons, for example 1) within data centers, or 2) local ISPs
-may deploy ECN support for their own video/streaming services [1], etc.
-
-Joint work with Daniel Borkmann, feature suggested by Hannes Frederic Sowa.
-
-The patch to enable this in iproute2 will be posted shortly, it is currently
-also available here:
-http://git.breakpoint.cc/cgit/fw/iproute2.git/commit/?h=iproute_features&id=8843d2d8973fb81c78a7efe6d42e3a17d739003e
-
-[1] http://www.ietf.org/proceedings/89/slides/slides-89-tsvarea-1.pdf, p.15
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 3a35b15..57521de 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -493,8 +493,7 @@ __u32 cookie_v4_init_sequence(struct sock *sk, const struct sk_buff *skb,
+ #endif
+ 
+ __u32 cookie_init_timestamp(struct request_sock *req);
+-bool cookie_check_timestamp(struct tcp_options_received *opt, struct net *net,
+-			    bool *ecn_ok);
++bool cookie_check_timestamp(struct tcp_options_received *opt, bool *ecn_ok);
+ 
+ /* From net/ipv6/syncookies.c */
+ int __cookie_v6_check(const struct ipv6hdr *iph, const struct tcphdr *th,
+diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
+index 4ac7bca..c4e5e2d 100644
+--- a/net/ipv4/syncookies.c
++++ b/net/ipv4/syncookies.c
+@@ -225,7 +225,7 @@ static inline struct sock *get_cookie_sock(struct sock *sk, struct sk_buff *skb,
+  * return false if we decode an option that should not be.
+  */
+ bool cookie_check_timestamp(struct tcp_options_received *tcp_opt,
+-			struct net *net, bool *ecn_ok)
++			    bool *ecn_ok)
+ {
+ 	/* echoed timestamp, lowest bits contain options */
+ 	u32 options = tcp_opt->rcv_tsecr & TSMASK;
+@@ -240,8 +240,6 @@ bool cookie_check_timestamp(struct tcp_options_received *tcp_opt,
+ 
+ 	tcp_opt->sack_ok = (options & (1 << 4)) ? TCP_SACK_SEEN : 0;
+ 	*ecn_ok = (options >> 5) & 1;
+-	if (*ecn_ok && !net->ipv4.sysctl_tcp_ecn)
+-		return false;
+ 
+ 	if (tcp_opt->sack_ok && !sysctl_tcp_sack)
+ 		return false;
+@@ -290,7 +288,7 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb)
+ 	memset(&tcp_opt, 0, sizeof(tcp_opt));
+ 	tcp_parse_options(skb, &tcp_opt, 0, NULL);
+ 
+-	if (!cookie_check_timestamp(&tcp_opt, sock_net(sk), &ecn_ok))
++	if (!cookie_check_timestamp(&tcp_opt, &ecn_ok))
+ 		goto out;
+ 
+ 	ret = NULL;
+diff --git a/net/ipv6/syncookies.c b/net/ipv6/syncookies.c
+index be291ba..a08062c 100644
+--- a/net/ipv6/syncookies.c
++++ b/net/ipv6/syncookies.c
+@@ -186,7 +186,7 @@ struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
+ 	memset(&tcp_opt, 0, sizeof(tcp_opt));
+ 	tcp_parse_options(skb, &tcp_opt, 0, NULL);
+ 
+-	if (!cookie_check_timestamp(&tcp_opt, sock_net(sk), &ecn_ok))
++	if (!cookie_check_timestamp(&tcp_opt, &ecn_ok))
+ 		goto out;
+ 
+ 	ret = NULL;
+-- 
+2.0.4
