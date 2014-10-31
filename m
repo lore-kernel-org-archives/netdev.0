@@ -1,33 +1,35 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v3 09/15] net: dsa: Add support for switch EEPROM access
-Date: Fri, 31 Oct 2014 03:40:44 +0100
-Message-ID: <20141031024044.GA4082@lunn.ch>
-References: <1414604707-22407-1-git-send-email-linux@roeck-us.net>
- <1414604707-22407-10-git-send-email-linux@roeck-us.net>
- <20141030211131.GB32139@lunn.ch>
- <20141030223951.GA19489@roeck-us.net>
- <20141031010039.GA29492@roeck-us.net>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH] VNIC: Adding support for Cavium ThunderX network
+ controller
+Date: Thu, 30 Oct 2014 19:45:13 -0700
+Message-ID: <20141030194513.089d27ec@urahara>
+References: <20141030165434.GW20170@rric.localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	linux-kernel@vger.kernel.org
-To: Guenter Roeck <linux@roeck-us.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Sunil Goutham <sgoutham@cavium.com>,
+	Robert Richter <rrichter@cavium.com>,
+	Stefan Assmann <sassmann@redhat.com>,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	netdev@vger.kernel.org
+To: Robert Richter <rric@kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20141031010039.GA29492@roeck-us.net>
+In-Reply-To: <20141030165434.GW20170@rric.localhost>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> As suspected, ethtool will attempt to read a zero-length eeprom.
-> 
-> The following patch should solve the problem. Not sure if it is worth it,
-> though, since this will change behavior for existing drivers.
+On Thu, 30 Oct 2014 17:54:34 +0100
+Robert Richter <rric@kernel.org> wrote:
 
-Yes, it changes behaviour, but it does make it more consistent.
+> diff --git a/include/linux/pci_ids.h b/include/linux/pci_ids.h
+> index 1fa99a301817..80bd3336691e 100644
+> --- a/include/linux/pci_ids.h
+> +++ b/include/linux/pci_ids.h
+> @@ -2324,6 +2324,8 @@
+>  #define PCI_DEVICE_ID_ALTIMA_AC9100	0x03ea
+>  #define PCI_DEVICE_ID_ALTIMA_AC1003	0x03eb
+>  
+> +#define PCI_VENDOR_ID_CAVIUM		0x177d
 
-Probably it should be up to core network people to decide if this is
-the write fix or leave it as is.
-
-    Andrew
+I don't think PCI folks want this updated with every id anymore.
