@@ -1,25 +1,40 @@
-From: Meelis Roos <mroos@linux.ee>
-Subject: Re: DMA-API warning from sunhme - unchecked dma_map_single error
-Date: Fri, 31 Oct 2014 23:01:09 +0200 (EET)
-Message-ID: <alpine.DEB.2.03.1410312258170.17220@cyber.ee>
-References: <20141031205258.C3A2F7FE2E@ilves.cyber.ee>
+From: Maxime Bizon <mbizon@freebox.fr>
+Subject: Re: DMA allocations from CMA and fatal_signal_pending check
+Date: Fri, 31 Oct 2014 22:07:10 +0100
+Message-ID: <1414789630.14835.49.camel@sakura.staff.proxad.net>
+References: <544FE9BE.6040503@gmail.com>
+	 <20141031082818.GB14642@js1304-P5Q-DELUXE>
+Reply-To: mbizon@freebox.fr
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; format=flowed; charset=US-ASCII
-Cc: netdev@vger.kernel.org, sparclinux@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <sparclinux-owner@vger.kernel.org>
-In-Reply-To: <20141031205258.C3A2F7FE2E@ilves.cyber.ee>
-Sender: sparclinux-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Florian Fainelli <f.fainelli@gmail.com>, lauraa@codeaurora.org,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ linux-kernel@vger.kernel.org, mina86@mina86.com,  linux-mm@kvack.org,
+ aneesh.kumar@linux.vnet.ibm.com, Gregory Fong <gregory.0xf0@gmail.com>,
+ gioh.kim@lge.com, akpm@linux-foundation.org, Brian Norris
+ <computersforpeace@gmail.com>, linux-arm-kernel@lists.infradead.org,
+ m.szyprowski@samsung.com
+To: Joonsoo Kim <iamjoonsoo.kim@lge.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20141031082818.GB14642@js1304-P5Q-DELUXE>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
->> It seems to be correct warning - dma_map_single is used unchecked in
->> sunhme.c. I can try fixing it - the error handling will be the only
->> problem. Is it considered worthwile?
->
-> Can you test this patch?
 
-It works fine on E3500 where I had many debugging options on and caught 
-it. No warnings, network still works.
+On Fri, 2014-10-31 at 17:28 +0900, Joonsoo Kim wrote:
+
+> I guess that it is okay that bcm_sysport_open() return -EINTR?
+
+actually, since CMA alloc is hidden behind dma_alloc_coherent(), all you
+get back is NULL and then return ENOMEM.
 
 -- 
-Meelis Roos (mroos@linux.ee)
+Maxime
+
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
