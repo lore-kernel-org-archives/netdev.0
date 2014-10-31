@@ -1,56 +1,61 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH -next 0/2] net: allow setting ecn via routing table
-Date: Fri, 31 Oct 2014 10:24:05 +0100
-Message-ID: <54535535.3040900@redhat.com>
-References: <1414276729-17871-1-git-send-email-fw@strlen.de>  <20141028.165737.2009356944765978630.davem@davemloft.net>  <20141029122307.GA29253@breakpoint.cc>  <20141030.155958.156984068627586090.davem@davemloft.net>  <20141030205204.GE10069@breakpoint.cc>  <1414703260.15352.9.camel@edumazet-glaptop2.roam.corp.google.com>  <20141030221501.GA9416@breakpoint.cc> <1414710342.15352.14.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next v4 1/4] netns: add genl cmd to add and get peer
+ netns ids
+Date: Fri, 31 Oct 2014 10:41:24 +0100
+Message-ID: <54535944.6050405@6wind.com>
+References: <1412257690-31253-1-git-send-email-nicolas.dichtel@6wind.com>	<1414682728-4532-1-git-send-email-nicolas.dichtel@6wind.com>	<1414682728-4532-2-git-send-email-nicolas.dichtel@6wind.com> <874mulh0cs.fsf@x220.int.ebiederm.org>
+Reply-To: nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Florian Westphal <fw@strlen.de>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47715 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756368AbaJaJYR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 31 Oct 2014 05:24:17 -0400
-In-Reply-To: <1414710342.15352.14.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org,
+	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org,
+	cwang-xCSkyg8dI+0RB7SZvlqPiA@public.gmane.org
+To: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <874mulh0cs.fsf-JOvCrm2gF+uungPnsOpG7nhyD016LWXt@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 10/31/2014 12:05 AM, Eric Dumazet wrote:
-> On Thu, 2014-10-30 at 23:15 +0100, Florian Westphal wrote:
+Le 30/10/2014 19:35, Eric W. Biederman a =C3=A9crit :
+> Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org> writes:
 >
->> Do you think a fallback to non-ecn for retransmitted syns would help?
->> If not, do you think having ecn tunable available via route is helpful?
+>> With this patch, a user can define an id for a peer netns by providi=
+ng a FD or a
+>> PID. These ids are local to netns (ie valid only into one netns).
 >
-> Unfortunately some firewalls are buggy and accept a single SYN per flow.
+> Scratches head.  Do you actually find value in using the pid instead =
+of
+> a file descriptor?
+I copied the mechanism from rtnl_link_get_net():
+=46irst check if the user provides a PID, if not, check for a FD.
+
 >
-> You would need to blacklist ecn at first sign of a possible ecn problem,
-> for all following connections attempts.
->
-> Note that ECN problems are not only contained in SYN packets being
-> eventually dropped. You might have a success to establish a flow, and
-> later get CE marks for all packets and cwnd converges to 1.
+> Doing things by pid was an early attempt to make things work, and has
+> been a bit clutsy.  If you don't find value in it I would recommend j=
+ust
+> supporting getting/setting the network namespace by file descriptor.
+Hmm, if I understand well, it's what is done in the patch:
 
-Wow, that is buggy! Btw, fwiw, there was a recent study [1] (paper
-not public yet) which scanned the Alexa's publicly available top
-million websites list from a vantage point in US, Europe and Asia:
+[snip]
+>> +static int netns_nl_cmd_newid(struct sk_buff *skb, struct genl_info=
+ *info)
+>> +{
+[snip]
+>> +	if (info->attrs[NETNSA_PID])
+>> +		peer =3D get_net_ns_by_pid(nla_get_u32(info->attrs[NETNSA_PID]));
+>> +	else if (info->attrs[NETNSA_FD])
+>> +		peer =3D get_net_ns_by_fd(nla_get_u32(info->attrs[NETNSA_FD]));
+>> +	else
+>> +		return -EINVAL;
+>> +	if (IS_ERR(peer))
+>> +		return PTR_ERR(peer);
 
-Half of the Alexa list will now happily use ECN (tcp_ecn=2, most
-likely blamed to commit 255cac91c3c9 ;)), the break in connectivity
-on-path was found is about 1 in 10,000 cases. Timeouts rather than
-receiving back RSTs were much more common in the negotiation phase
-(and mostly seen in the Alexa middle band, ranks around 50k-150k):
-from 12-thousand hosts on which there _may_ be ECN-linked connection
-failures, only 79 failed with RST when _not_ failing with RST when
-ECN is not requested.
+Am I right?
 
-It's unclear though, how much equipment actually marks the CE, and
-as you mention above, marks it correctly ...
 
-> This is really a lot of work to get all sorted out.
-
-Yep, you are right.
-
-  [1] http://ecn.ethz.ch/
+Regards,
+Nicolas
