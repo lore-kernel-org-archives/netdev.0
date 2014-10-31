@@ -1,27 +1,96 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [PATCH 2/2] staging: lustre: lnet: lnet: trailing statements
- should be on next line
-Date: Fri, 31 Oct 2014 13:50:36 -0700
-Message-ID: <20141031205036.GC20417@kroah.com>
-References: <20141031182040.GA7916@vasu-Inspiron-3542>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: DMA allocations from CMA and fatal_signal_pending check
+Date: Fri, 31 Oct 2014 13:58:52 -0700
+Message-ID: <5453F80C.4090006@gmail.com>
+References: <544FE9BE.6040503@gmail.com> <20141031082818.GB14642@js1304-P5Q-DELUXE>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	andreas.dilger@intel.com, oleg.drokin@intel.com
-To: Balavasu <kp.balavasu@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20141031182040.GA7916@vasu-Inspiron-3542>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: linux-arm-kernel@lists.infradead.org,
+ Brian Norris <computersforpeace@gmail.com>,
+ Gregory Fong <gregory.0xf0@gmail.com>, linux-kernel@vger.kernel.org,
+ linux-mm@kvack.org, lauraa@codeaurora.org, gioh.kim@lge.com,
+ aneesh.kumar@linux.vnet.ibm.com, mina86@mina86.com,
+ m.szyprowski@samsung.com, akpm@linux-foundation.org,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Joonsoo Kim <iamjoonsoo.kim@lge.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20141031082818.GB14642@js1304-P5Q-DELUXE>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 31, 2014 at 11:50:40PM +0530, Balavasu wrote:
-> This patch fixes the checkpatch.pl issue
-> Error: trailing statements should be on next line
-> 
-> Signed-off-by: Balavasu <kp.balavasu@gmail.com>
-> ---
->  drivers/staging/lustre/lnet/lnet/router.c | 9 ++++++---
->  1 file changed, 6 insertions(+), 3 deletions(-)
+Hi Joonsoo,
 
-Same comments as 1/2
+On 10/31/2014 01:28 AM, Joonsoo Kim wrote:
+> On Tue, Oct 28, 2014 at 12:08:46PM -0700, Florian Fainelli wrote:
+>> Hello,
+>>
+>> While debugging why some dma_alloc_coherent() allocations where
+>> returning NULL on our brcmstb platform, specifically with
+>> drivers/net/ethernet/broadcom/bcmcsysport.c, I came across the
+>> fatal_signal_pending() check in mm/page_alloc.c which is there.
+>>
+>> This driver calls dma_alloc_coherent(, GFP_KERNEL) which ends up making
+>> a coherent allocation from a CMA region on our platform. Since that
+>> allocation is allowed to sleep, and because we are in bcm_syport_open(),
+>> executed from process context, a pending signal makes
+>> dma_alloc_coherent() return NULL.
+> 
+> Hello, Florian.
+> 
+> fatal_signal_pending means that there is SIGKILL on that process.
+> I guess that caller of dma_alloc_coherent() will die soon.
+> In this case, why CMA should be succeed?
+
+I agree that the CMA allocation should not be allowed to succeed, but
+the dma_alloc_coherent() allocation should succeed. If we look at the
+sysport driver, there are kmalloc() calls to initialize private
+structures, those will succeed (except under high memory pressure), so
+by the same token, a driver expects DMA allocations to succeed (unless
+we are under high memory pressure)
+
+What are we trying to solve exactly with the fatal_signal_pending()
+check here? Are we just optimizing for the case where a process has
+allocated from a CMA region to allow this region to be returned to the
+pool of free pages when it gets killed? Could there be another mechanism
+used to reclaim those pages if we know the process is getting killed anyway?
+
+> 
+>>
+>> There are two ways I could fix this:
+>>
+>> - use a GFP_ATOMIC allocation, which would avoid this sensitivity to a
+>> pending signal being fatal (we suffer from the same issue in
+>> bcm_sysport_resume)
+>>
+>> - move the DMA coherent allocation before bcm_sysport_open(), in the
+>> driver's probe function, but if the network interface is never used, we
+>> would be waisting precious DMA coherent memory for nothing (it is only 4
+>> bytes times 32 but still
+> 
+> I guess that it is okay that bcm_sysport_open() return -EINTR?
+
+Well, not really. This driver is not an isolated case, there are tons of
+other networking drivers that do exactly the same thing, and we do
+expect these dma_alloc_* calls to succeed.
+
+I think we would want to ignore the fatal_signal_pending() check for
+allocations coming through the dma_alloc_* API, although I agree this
+could be a tough one when they are done from process context.
+
+Updating all drivers to switch to GFP_ATOMIC allocations is not a good
+idea, since that would exhaust the atomic DMA coherent pool for no good
+reason.
+
+FYI, we are hitting the same problem during suspend/resume, if you are
+unlucky enough the suspending process get interrupted, you can get a lot
+of crashes from drivers that do not expect their dma_alloc_coherent()
+allocation to be sensible to signals.
+--
+Florian
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
