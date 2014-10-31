@@ -1,39 +1,32 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [Patch net-next] neigh: remove dynamic neigh table registration support
-Date: Fri, 31 Oct 2014 13:39:23 -0700
-Message-ID: <CAHA+R7MvCkS1p6CDgL9=DocTDDM-ZvC6A7vM8Z8sYGj45gX2-Q@mail.gmail.com>
-References: <1414787651-8499-1-git-send-email-xiyou.wangcong@gmail.com>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH 1/2] staging: lustre: lnet: lnet: do not initialise
+ statics to 0 or NULL
+Date: Fri, 31 Oct 2014 13:50:24 -0700
+Message-ID: <20141031205024.GB20417@kroah.com>
+References: <20141031181808.GA7830@vasu-Inspiron-3542>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f46.google.com ([209.85.215.46]:59273 "EHLO
-	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750889AbaJaUjY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Oct 2014 16:39:24 -0400
-Received: by mail-la0-f46.google.com with SMTP id hs14so7014212lab.33
-        for <netdev@vger.kernel.org>; Fri, 31 Oct 2014 13:39:23 -0700 (PDT)
-In-Reply-To: <1414787651-8499-1-git-send-email-xiyou.wangcong@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	andreas.dilger@intel.com, oleg.drokin@intel.com
+To: Balavasu <kp.balavasu@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20141031181808.GA7830@vasu-Inspiron-3542>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 31, 2014 at 1:34 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> +       switch (family) {
-> +       case AF_INET:
-> +               tbl = neigh_tables[NEIGH_ARP_TABLE];
-> +               break;
-> +#if IS_ENABLED(CONFIG_IPV6)
-> +       case AF_INET6:
-> +               tbl = neigh_tables[NEIGH_ND_TABLE];
-> +               break;
-> +#endif
-> +#if IS_ENABLED(CONFIG_DECNET)
-> +       case AF_DECnet:
-> +               tbl = neigh_tables[NEIGH_DN_TABLE];
-> +               break;
-> +#endif
+On Fri, Oct 31, 2014 at 11:48:08PM +0530, Balavasu wrote:
+> This patch fixes the checkpatch.pl issue
+> Error: do not initialise statics to 0 or NULL for time
+> 
+> Signed-off-by: Balavasu <kp.balavasu@gmail.com>
+> ---
+>  drivers/staging/lustre/lnet/lnet/do not instalise 0 | 10 +++++-----
 
-These #ifdef's are not necessary, I will update it after getting other
-feedbacks.
+That line doesn't look right, does it?
+
+And why netdev and not the mailing list for the drivers/staging/ tree?
+
+And again, I need a full name.
+
+greg k-h
