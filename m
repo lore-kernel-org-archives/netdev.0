@@ -1,81 +1,54 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH] virtio_net: fix use after free
-Date: Fri, 31 Oct 2014 14:07:11 +0800
-Message-ID: <5453270F.3090300@redhat.com>
-References: <1413378878-28118-1-git-send-email-mst@redhat.com>
-	<1414726609.499.6.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Denis Kirjanov <kirjanov@gmail.com>
+Subject: Re: [PATCH v2] PPC: bpf_jit_comp: add SKF_AD_PKTTYPE instruction
+Date: Fri, 31 Oct 2014 10:09:43 +0400
+Message-ID: <CAHj3AVkpouHa1y0jt9c5dyYvnd6dctociTMW1ORdxaKdsFEbhQ@mail.gmail.com>
+References: <1414649535-3956-1-git-send-email-kda@linux-powerpc.org>
+	<CAADnVQKvfay7zC-kNGXz7uAjVrhqL80xQ=zvmAsSz4pNhD=9NQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1414726609.499.6.camel@edumazet-glaptop2.roam.corp.google.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Denis Kirjanov <kda@linux-powerpc.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linuxppc-dev@ozlabs.org, Michael Ellerman <mpe@ellerman.id.au>,
+	Matt Evans <matt@ozlabs.org>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vc0-f180.google.com ([209.85.220.180]:37438 "EHLO
+	mail-vc0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758785AbaJaGJo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Oct 2014 02:09:44 -0400
+Received: by mail-vc0-f180.google.com with SMTP id hy10so3522144vcb.11
+        for <netdev@vger.kernel.org>; Thu, 30 Oct 2014 23:09:43 -0700 (PDT)
+In-Reply-To: <CAADnVQKvfay7zC-kNGXz7uAjVrhqL80xQ=zvmAsSz4pNhD=9NQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/31/2014 11:36 AM, Eric Dumazet wrote:
-> On Wed, 2014-10-15 at 16:23 +0300, Michael S. Tsirkin wrote:
->> commit 0b725a2ca61bedc33a2a63d0451d528b268cf975
->>     net: Remove ndo_xmit_flush netdev operation, use signalling instead.
+On 10/30/14, Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
+> On Wed, Oct 29, 2014 at 11:12 PM, Denis Kirjanov <kda@linux-powerpc.org>
+> wrote:
+>> Add BPF extension SKF_AD_PKTTYPE to ppc JIT to load
+>> skb->pkt_type field.
 >>
->> added code that looks at skb->xmit_more after the skb has
->> been put in TX VQ. Since some paths process the ring and free the skb
->> immediately, this can cause use after free.
+>> Before:
+>> [   88.262622] test_bpf: #11 LD_IND_NET 86 97 99 PASS
+>> [   88.265740] test_bpf: #12 LD_PKTTYPE 109 107 PASS
 >>
->> Fix by storing xmit_more in a local variable.
->>
->> Cc: David S. Miller <davem@davemloft.net>
->> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
->> ---
->>
->> David, am I using the API correctly?
->> Seems to work for me.
->> You used __netif_subqueue_stopped but that seems to use
->> a slightly more expensive test_bit internally.
->> The reason I added a variable for the txq here is because it's handy for
->> BQL patch later on.
->>
->>
->>  drivers/net/virtio_net.c | 4 +++-
->>  1 file changed, 3 insertions(+), 1 deletion(-)
->>
->> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
->> index 3d0ce44..13d0a8b 100644
->> --- a/drivers/net/virtio_net.c
->> +++ b/drivers/net/virtio_net.c
->> @@ -920,6 +920,8 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
->>  	int qnum = skb_get_queue_mapping(skb);
->>  	struct send_queue *sq = &vi->sq[qnum];
->>  	int err;
->> +	struct netdev_queue *txq = netdev_get_tx_queue(dev, qnum);
->> +	bool kick = !skb->xmit_more;
->>  
->>  	/* Free up any pending old buffers before queueing new ones. */
->>  	free_old_xmit_skbs(sq);
->> @@ -956,7 +958,7 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
->>  		}
->>  	}
->>  
->> -	if (__netif_subqueue_stopped(dev, qnum) || !skb->xmit_more)
->> +	if (kick || netif_xmit_stopped(txq))
->>  		virtqueue_kick(sq->vq);
->>  
->>  	return NETDEV_TX_OK;
-> I must say I am kind of confused by this patch.
+>> After:
+>> [   80.605964] test_bpf: #11 LD_IND_NET 44 40 39 PASS
+>> [   80.607370] test_bpf: #12 LD_PKTTYPE 9 9 PASS
 >
-> Why the skb_orphan(skb) & nf_reset(skb) do not have the same issue ?
+> if you'd only quoted #12, it would all make sense ;)
+> but #11 test is not using PKTTYPE. So your patch shouldn't
+> make a difference. Are these numbers with JIT on and off?
+
+Right.
+
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 >
 
-Since they are called before the possible free_old_xmit_skbs(), skb
-won't get freed at this time.
+
+-- 
+Regards,
+Denis
