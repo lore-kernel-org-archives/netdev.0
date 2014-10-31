@@ -1,159 +1,54 @@
-From: "Lennart Sorensen" <lsorense@csclub.uwaterloo.ca>
-Subject: drivers: net: cpsw: Support ALLMULTI and fix IFF_PROMISC in switch
- mode
-Date: Fri, 31 Oct 2014 13:38:52 -0400
-Message-ID: <20141031173852.GK24110@csclub.uwaterloo.ca>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] ipv4: avoid divide 0 error in tcp_incr_quickack
+Date: Fri, 31 Oct 2014 10:40:42 -0700
+Message-ID: <1414777242.27538.22.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1414767047-8972-1-git-send-email-chenweilong@huawei.com>
+	 <CAADnVQLe+Xs22sbdy7=8KW2+LscFOiFWdKxSFFuPTWSPTHbSow@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Len Sorensen <lsorense@csclub.uwaterloo.ca>,
-	Mugunthan V N <mugunthanvnm@ti.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Chen Weilong <chenweilong@huawei.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
+In-Reply-To: <CAADnVQLe+Xs22sbdy7=8KW2+LscFOiFWdKxSFFuPTWSPTHbSow@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The cpsw driver did not support the IFF_ALLMULTI flag which makes dynamic
-multicast routing not work.  Related to this, when enabling IFF_PROMISC
-in switch mode, all registered multicast addresses are flushed, resulting
-in only broadcast and unicast traffic being received.
+On Fri, 2014-10-31 at 09:24 -0700, Alexei Starovoitov wrote:
+> cc-ing netdev
+> 
+> On Fri, Oct 31, 2014 at 7:50 AM, Chen Weilong <chenweilong@huawei.com> wrote:
+> > From: Weilong Chen <chenweilong@huawei.com>
+> >
+> > We got a problem like this:
+> >  [ffff8801c1a05570] machine_kexec at ffffffff81025039
+> >  [ffff8801c1a055d0] crash_kexec at ffffffff8109b253
+> >  [ffff8801c1a056a0] oops_end at ffffffff81442aed
+> >  [ffff8801c1a056d0] die at ffffffff81005603
+> >  [ffff8801c1a05700] do_trap at ffffffff81442448
+> >  [ffff8801c1a05760] do_divide_error at ffffffff81002c10
+> >  [ffff8801c1a05888] tcp_send_dupack at ffffffff81385e44
+> >  [ffff8801c1a058c8] tcp_validate_incoming at ffffffff813886b5
+> >  [ffff8801c1a05908] tcp_rcv_state_process at ffffffff8138d0b7
+> >  [ffff8801c1a05958] tcp_child_process at ffffffff81397255
+> >  [ffff8801c1a05988] tcp_v4_do_rcv at ffffffff81395a70
+> >  [ffff8801c1a059d8] tcp_v4_rcv at ffffffff81396fc8
+> >  [ffff8801c1a05a48] ip_local_deliver_finish at ffffffff813746e9
+> >  [ffff8801c1a05a78] ip_local_deliver at ffffffff81374a20
+> >  [ffff8801c1a05aa8] ip_rcv_finish at ffffffff81374389
+> >  [ffff8801c1a05ad8] ip_rcv at ffffffff81374c78
+> > There was a wrong ack packet coming during TCP handshake. The socket's state
+> > was TCP_SYN_RECV, its rcv_mss was not initialize yet. So
+> > tcp_send_dupack -> tcp_enter_quickack_mode got a divide 0 error.
+> > This patch add a state check before tcp_enter_quickack_mode.
+> 
+> ouch. Is it remote exploitable?
 
-A new cpsw_ale_set_allmulti function now scans through the ALE entry
-table and adds/removes the host port from the unregistered multicast
-port mask of each vlan entry depending on the state of IFF_ALLMULTI.
-In promiscious mode, cpsw_ale_set_allmulti is used to force reception
-of all multicast traffic in addition to the unicast and broadcast traffic.
-
-With this change dynamic multicast and promiscious mode both work in
-switch mode.
-
-Signed-off-by: Len Sorensen <lsorense@csclub.uwaterloo.ca>
-
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index 952e1e4..96a61d1 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -638,12 +638,16 @@ static void cpsw_ndo_set_rx_mode(struct net_device *ndev)
- 	if (ndev->flags & IFF_PROMISC) {
- 		/* Enable promiscuous mode */
- 		cpsw_set_promiscious(ndev, true);
-+		cpsw_ale_set_allmulti(priv->ale, IFF_ALLMULTI);
- 		return;
- 	} else {
- 		/* Disable promiscuous mode */
- 		cpsw_set_promiscious(ndev, false);
- 	}
- 
-+	/* Restore allmulti on vlans if necessary */
-+	cpsw_ale_set_allmulti(priv->ale, priv->ndev->flags & IFF_ALLMULTI);
-+
- 	/* Clear all mcast from ALE */
- 	cpsw_ale_flush_multicast(priv->ale, ALE_ALL_PORTS << priv->host_port);
- 
-@@ -1149,6 +1153,7 @@ static inline void cpsw_add_default_vlan(struct cpsw_priv *priv)
- 	const int port = priv->host_port;
- 	u32 reg;
- 	int i;
-+	int unreg_mcast_mask;
- 
- 	reg = (priv->version == CPSW_VERSION_1) ? CPSW1_PORT_VLAN :
- 	       CPSW2_PORT_VLAN;
-@@ -1158,9 +1163,14 @@ static inline void cpsw_add_default_vlan(struct cpsw_priv *priv)
- 	for (i = 0; i < priv->data.slaves; i++)
- 		slave_write(priv->slaves + i, vlan, reg);
- 
-+	if (priv->ndev->flags & IFF_ALLMULTI)
-+		unreg_mcast_mask = ALE_ALL_PORTS;
-+	else
-+		unreg_mcast_mask = ALE_PORT_1 | ALE_PORT_2;
-+
- 	cpsw_ale_add_vlan(priv->ale, vlan, ALE_ALL_PORTS << port,
- 			  ALE_ALL_PORTS << port, ALE_ALL_PORTS << port,
--			  (ALE_PORT_1 | ALE_PORT_2) << port);
-+			  unreg_mcast_mask << port);
- }
- 
- static void cpsw_init_host_port(struct cpsw_priv *priv)
-@@ -1620,11 +1630,17 @@ static inline int cpsw_add_vlan_ale_entry(struct cpsw_priv *priv,
- 				unsigned short vid)
- {
- 	int ret;
-+	int unreg_mcast_mask;
-+
-+	if (priv->ndev->flags & IFF_ALLMULTI)
-+		unreg_mcast_mask = ALE_ALL_PORTS;
-+	else
-+		unreg_mcast_mask = ALE_PORT_1 | ALE_PORT_2;
- 
- 	ret = cpsw_ale_add_vlan(priv->ale, vid,
- 				ALE_ALL_PORTS << priv->host_port,
- 				0, ALE_ALL_PORTS << priv->host_port,
--				(ALE_PORT_1 | ALE_PORT_2) << priv->host_port);
-+				unreg_mcast_mask << priv->host_port);
- 	if (ret != 0)
- 		return ret;
- 
-diff --git a/drivers/net/ethernet/ti/cpsw_ale.c b/drivers/net/ethernet/ti/cpsw_ale.c
-index 0579b22..3ae8387 100644
---- a/drivers/net/ethernet/ti/cpsw_ale.c
-+++ b/drivers/net/ethernet/ti/cpsw_ale.c
-@@ -443,6 +443,35 @@ int cpsw_ale_del_vlan(struct cpsw_ale *ale, u16 vid, int port_mask)
- 	return 0;
- }
- 
-+void cpsw_ale_set_allmulti(struct cpsw_ale *ale, int allmulti)
-+{
-+	u32 ale_entry[ALE_ENTRY_WORDS];
-+	int type, idx;
-+	int unreg_mcast = 0;
-+
-+	/* Only bother doing the work if the setting is actually changing */
-+	if (ale->allmulti == allmulti)
-+		return;
-+
-+	/* Remember the new setting to check against next time */
-+	ale->allmulti = allmulti;
-+
-+	for (idx = 0; idx < ale->params.ale_entries; idx++) {
-+		cpsw_ale_read(ale, idx, ale_entry);
-+		type = cpsw_ale_get_entry_type(ale_entry);
-+		if (type != ALE_TYPE_VLAN)
-+			continue;
-+
-+		unreg_mcast = cpsw_ale_get_vlan_unreg_mcast(ale_entry);
-+		if (allmulti)
-+			unreg_mcast |= 1;
-+		else
-+			unreg_mcast &= ~1;
-+		cpsw_ale_set_vlan_unreg_mcast(ale_entry, unreg_mcast);
-+		cpsw_ale_write(ale, idx, ale_entry);
-+	}
-+}
-+
- struct ale_control_info {
- 	const char	*name;
- 	int		offset, port_offset;
-diff --git a/drivers/net/ethernet/ti/cpsw_ale.h b/drivers/net/ethernet/ti/cpsw_ale.h
-index 31cf43c..c0d4127 100644
---- a/drivers/net/ethernet/ti/cpsw_ale.h
-+++ b/drivers/net/ethernet/ti/cpsw_ale.h
-@@ -27,6 +27,7 @@ struct cpsw_ale {
- 	struct cpsw_ale_params	params;
- 	struct timer_list	timer;
- 	unsigned long		ageout;
-+	int			allmulti;
- };
- 
- enum cpsw_ale_control {
-@@ -103,6 +104,7 @@ int cpsw_ale_del_mcast(struct cpsw_ale *ale, u8 *addr, int port_mask,
- int cpsw_ale_add_vlan(struct cpsw_ale *ale, u16 vid, int port, int untag,
- 			int reg_mcast, int unreg_mcast);
- int cpsw_ale_del_vlan(struct cpsw_ale *ale, u16 vid, int port);
-+void cpsw_ale_set_allmulti(struct cpsw_ale *ale, int allmulti);
- 
- int cpsw_ale_control_get(struct cpsw_ale *ale, int port, int control);
- int cpsw_ale_control_set(struct cpsw_ale *ale, int port,
-
--- 
-Len Sorensen
+Seems to be SYN crossing. Quite hard, but possible.
