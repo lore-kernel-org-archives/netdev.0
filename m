@@ -1,55 +1,70 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [PATCH net 1/2] mpls: Fix mpls_gso handler.
-Date: Fri, 31 Oct 2014 15:41:08 +0900
-Message-ID: <20141031064105.GA16156@vergenet.net>
-References: <1414655397-1541-1-git-send-email-pshelar@nicira.com>
+From: Heiko Schocher <hs@denx.de>
+Subject: Re: Mistake in commit 0d961b3b52f566f823070ce2366511a7f64b928c breaks
+ cpsw non dual_emac mode.
+Date: Fri, 31 Oct 2014 07:49:14 +0100
+Message-ID: <545330EA.60303@denx.de>
+References: <20141028170242.GA24112@csclub.uwaterloo.ca> <20141030.154323.1702996635200338108.davem@davemloft.net>
+Reply-To: hs@denx.de
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Pravin B Shelar <pshelar@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:60215 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753276AbaJaGlS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Oct 2014 02:41:18 -0400
-Received: by mail-pd0-f169.google.com with SMTP id y10so6746202pdj.0
-        for <netdev@vger.kernel.org>; Thu, 30 Oct 2014 23:41:18 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1414655397-1541-1-git-send-email-pshelar@nicira.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: lsorense@csclub.uwaterloo.ca, linux-kernel@vger.kernel.org,
+	mugunthanvnm@ti.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141030.154323.1702996635200338108.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 30, 2014 at 12:49:57AM -0700, Pravin B Shelar wrote:
-> mpls gso handler needs to pull skb after segmenting skb.
-> 
-> CC: Simon Horman <simon.horman@netronome.com>
-> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+Hello David, Lennart,
 
-Apologies for messing that up, your change does seem to match the comment
-above it.
+Am 30.10.2014 20:43, schrieb David Miller:
+> From: "Lennart Sorensen"<lsorense@csclub.uwaterloo.ca>
+> Date: Tue, 28 Oct 2014 13:02:42 -0400
+>
+>> I believe commit 0d961b3b52f566f823070ce2366511a7f64b928c made a mistake
+>> while correcting a bug.
 
-So, assuming that this has been tested:
+Seems I missed your original patch ... looked in it here:
 
-Acked-by: Simon Horman <simon.horman@netronome.com>
+https://lkml.org/lkml/2014/10/28/837
 
-> ---
->  net/mpls/mpls_gso.c |    3 +--
->  1 files changed, 1 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/mpls/mpls_gso.c b/net/mpls/mpls_gso.c
-> index f0f5309..e3545f2 100644
-> --- a/net/mpls/mpls_gso.c
-> +++ b/net/mpls/mpls_gso.c
-> @@ -59,8 +59,7 @@ static struct sk_buff *mpls_gso_segment(struct sk_buff *skb,
->  	 * above pulled.  It will be re-pushed after returning
->  	 * skb_mac_gso_segment(), an indirect caller of this function.
->  	 */
-> -	__skb_push(skb, skb->data - skb_mac_header(skb));
-> -
-> +	__skb_pull(skb, skb->data - skb_mac_header(skb));
->  out:
->  	return segs;
->  }
-> -- 
-> 1.7.1
-> 
+and I think you are correct, thanks for this fix. You can add my
+Acked-by: Heiko Schocher <hs@denx.de>
+if you post a corrected v2, as David suggested.
+
+bye,
+Heiko
+
+> This patch submission is not properly formed.
+>
+> You subject line should be of the form:
+>
+> subsystem: Description.
+>
+> "subsystem" here would be "cpsw: " or something like that.
+>
+> Secondly, you should not refer to a commit ID in the patch
+> Subject line, instead just describe exactly what is being
+> fixed in the most succinct yet complete manner that is
+> possible.
+>
+> Thirdly, when you do refer to commit ID's in your commit
+> message body you must do so in the following format:
+>
+> ${SHA1_ID} ("Commit message header line text.")
+>
+> The commit message body is also not a place to have a general
+> discussion.  Please avoid saying things like "I think", for example.
+> State facts, and be exact about what the problem is and exactly
+> how you are fixing it.
+>
+> Because this commit message will be read by others looking at your
+> change days, weeks, years from now.
+>
+> Thanks.
+>
+
+-- 
+DENX Software Engineering GmbH,     MD: Wolfgang Denk & Detlev Zundel
+HRB 165235 Munich, Office: Kirchenstr.5, D-82194 Groebenzell, Germany
