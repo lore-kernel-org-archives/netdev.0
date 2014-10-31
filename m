@@ -1,56 +1,59 @@
-From: Lothar =?UTF-8?B?V2HDn21hbm4=?= <LW@KARO-electronics.de>
-Subject: Re: net: fec: fix regression on i.MX28 introduced by rx_copybreak
- support
-Date: Fri, 31 Oct 2014 06:32:10 +0100
-Message-ID: <20141031063210.69004315@ipc1.ka-ro>
-References: <1414502584-10583-1-git-send-email-LW@KARO-electronics.de>
-	<20141029.153430.1036004676442879956.davem@davemloft.net>
-	<20141030075104.05e44b43@ipc1.ka-ro>
-	<20141030.121710.1524000348187962764.davem@davemloft.net>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: [PATCH net] r8152: stop submitting intr for -EPROTO
+Date: Fri, 31 Oct 2014 13:35:57 +0800
+Message-ID: <1394712342-15778-74-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, rmk+kernel@arm.linux.org.uk,
-	Frank.Li@freescale.com, fabio.estevam@freescale.com,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
+	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
+To: <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141030.121710.1524000348187962764.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+For Renesas USB 3.0 host controller, when unplugging the usb hub which
+has the RTL8153 plugged, the driver would get -EPROTO for interrupt
+transfer. There is high probability to get the information of "HC died;
+cleaning up", if the driver continues to submit the interrupt transfer
+before the disconnect() is called.
 
-David Miller wrote:
-> From: Lothar Wa=C3=9Fmann <LW@KARO-electronics.de>
-> Date: Thu, 30 Oct 2014 07:51:04 +0100
->=20
-> >> Also, I don't thnk your DIV_ROUND_UP() eliminate for the loop
-> >> in swap_buffer() is valid.  The whole point is that the current
-> >> code handles buffers which have a length which is not a multiple
-> >> of 4 properly, after your change it will no longer do so.
-> >>
-> > Do you really think so?
->=20
-> Yes, because you're rounding down so you'll miss the final
-> partial word (if any).
->
-Nope. DIV_ROUND_UP() would give '1' as upper bound for lengths from 1 t=
-o
-4, '2' for lengths from 5 to 8 and so on.
+[ 1024.197678] r8152 9-1.4:1.0 eth0: intr status -71
+[ 1024.213673] r8152 9-1.4:1.0 eth0: intr status -71
+[ 1024.229668] r8152 9-1.4:1.0 eth0: intr status -71
+[ 1024.245661] r8152 9-1.4:1.0 eth0: intr status -71
+[ 1024.261653] r8152 9-1.4:1.0 eth0: intr status -71
+[ 1024.277648] r8152 9-1.4:1.0 eth0: intr status -71
+[ 1024.293642] r8152 9-1.4:1.0 eth0: intr status -71
+[ 1024.309638] r8152 9-1.4:1.0 eth0: intr status -71
+[ 1024.325633] r8152 9-1.4:1.0 eth0: intr status -71
+[ 1024.341627] r8152 9-1.4:1.0 eth0: intr status -71
+[ 1024.357621] r8152 9-1.4:1.0 eth0: intr status -71
+[ 1024.373615] r8152 9-1.4:1.0 eth0: intr status -71
+[ 1024.383097] usb 9-1: USB disconnect, device number 2
+[ 1024.383103] usb 9-1.4: USB disconnect, device number 6
+[ 1029.391010] xhci_hcd 0000:04:00.0: xHCI host not responding to stop endpoint command.
+[ 1029.391016] xhci_hcd 0000:04:00.0: Assuming host is dying, halting host.
+[ 1029.392551] xhci_hcd 0000:04:00.0: HC died; cleaning up
+[ 1029.421480] usb 8-1: USB disconnect, device number 2
 
-The loop with increment 4 and i < len does exactly the same.
-Try it for yourself, if you don't believe it.
+Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+---
+ drivers/net/usb/r8152.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-
-Lothar Wa=C3=9Fmann
---=20
-___________________________________________________________
-
-Ka-Ro electronics GmbH | Pascalstra=C3=9Fe 22 | D - 52076 Aachen
-Phone: +49 2408 1402-0 | Fax: +49 2408 1402-10
-Gesch=C3=A4ftsf=C3=BChrer: Matthias Kaussen
-Handelsregistereintrag: Amtsgericht Aachen, HRB 4996
-
-www.karo-electronics.de | info@karo-electronics.de
-___________________________________________________________
+diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+index ca3c5d5..c6554c7 100644
+--- a/drivers/net/usb/r8152.c
++++ b/drivers/net/usb/r8152.c
+@@ -1162,6 +1162,9 @@ static void intr_callback(struct urb *urb)
+ 	case -ESHUTDOWN:
+ 		netif_device_detach(tp->netdev);
+ 	case -ENOENT:
++	case -EPROTO:
++		netif_info(tp, intr, tp->netdev,
++			   "Stop submitting intr, status %d\n", status);
+ 		return;
+ 	case -EOVERFLOW:
+ 		netif_info(tp, intr, tp->netdev, "intr status -EOVERFLOW\n");
+-- 
+1.9.3
