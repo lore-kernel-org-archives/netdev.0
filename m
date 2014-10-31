@@ -1,36 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net 0/2] drivers/net,ipv6: Fix IPv6 fragment ID
-	selection for virtio
-Date: Thu, 30 Oct 2014 20:02:04 -0400 (EDT)
-Message-ID: <20141030.200204.1241966215662909080.davem@davemloft.net>
-References: <1414693592.16849.61.camel@decadent.org.uk>
+Subject: Re: [PATCH net-next] hyperv: Add IPv6 into the hash computation
+ for vRSS
+Date: Thu, 30 Oct 2014 20:02:22 -0400 (EDT)
+Message-ID: <20141030.200222.2270135496909856909.davem@davemloft.net>
+References: <1414703237-11510-1-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hannes@stressinduktion.org,
-	virtualization@lists.linux-foundation.org
-To: ben@decadent.org.uk
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1414693592.16849.61.camel@decadent.org.uk>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
+ driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org
+To: haiyangz@microsoft.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1414703237-11510-1-git-send-email-haiyangz@microsoft.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-From: Ben Hutchings <ben@decadent.org.uk>
-Date: Thu, 30 Oct 2014 18:26:32 +0000
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Date: Thu, 30 Oct 2014 14:07:17 -0700
 
-> The virtio net protocol supports UFO but does not provide for passing a
-> fragment ID for fragmentation of IPv6 packets.  We used to generate a
-> fragment ID wherever such a packet was fragmented, but currently we
-> always use ID=0!
+> This will allow the workload spreading via vRSS for IPv6.
 > 
-> v2: Add blank lines after declarations
+> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
 
-Series applied and queued up for -stable, thanks Ben.
+Applied.
