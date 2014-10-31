@@ -1,54 +1,55 @@
-From: Denis Kirjanov <kirjanov@gmail.com>
-Subject: Re: [PATCH v2] PPC: bpf_jit_comp: add SKF_AD_PKTTYPE instruction
-Date: Fri, 31 Oct 2014 10:09:43 +0400
-Message-ID: <CAHj3AVkpouHa1y0jt9c5dyYvnd6dctociTMW1ORdxaKdsFEbhQ@mail.gmail.com>
-References: <1414649535-3956-1-git-send-email-kda@linux-powerpc.org>
-	<CAADnVQKvfay7zC-kNGXz7uAjVrhqL80xQ=zvmAsSz4pNhD=9NQ@mail.gmail.com>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [PATCH net 1/2] mpls: Fix mpls_gso handler.
+Date: Fri, 31 Oct 2014 15:41:08 +0900
+Message-ID: <20141031064105.GA16156@vergenet.net>
+References: <1414655397-1541-1-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Denis Kirjanov <kda@linux-powerpc.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linuxppc-dev@ozlabs.org, Michael Ellerman <mpe@ellerman.id.au>,
-	Matt Evans <matt@ozlabs.org>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Pravin B Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f180.google.com ([209.85.220.180]:37438 "EHLO
-	mail-vc0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758785AbaJaGJo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Oct 2014 02:09:44 -0400
-Received: by mail-vc0-f180.google.com with SMTP id hy10so3522144vcb.11
-        for <netdev@vger.kernel.org>; Thu, 30 Oct 2014 23:09:43 -0700 (PDT)
-In-Reply-To: <CAADnVQKvfay7zC-kNGXz7uAjVrhqL80xQ=zvmAsSz4pNhD=9NQ@mail.gmail.com>
+Received: from mail-pd0-f169.google.com ([209.85.192.169]:60215 "EHLO
+	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753276AbaJaGlS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Oct 2014 02:41:18 -0400
+Received: by mail-pd0-f169.google.com with SMTP id y10so6746202pdj.0
+        for <netdev@vger.kernel.org>; Thu, 30 Oct 2014 23:41:18 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1414655397-1541-1-git-send-email-pshelar@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/30/14, Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
-> On Wed, Oct 29, 2014 at 11:12 PM, Denis Kirjanov <kda@linux-powerpc.org>
-> wrote:
->> Add BPF extension SKF_AD_PKTTYPE to ppc JIT to load
->> skb->pkt_type field.
->>
->> Before:
->> [   88.262622] test_bpf: #11 LD_IND_NET 86 97 99 PASS
->> [   88.265740] test_bpf: #12 LD_PKTTYPE 109 107 PASS
->>
->> After:
->> [   80.605964] test_bpf: #11 LD_IND_NET 44 40 39 PASS
->> [   80.607370] test_bpf: #12 LD_PKTTYPE 9 9 PASS
->
-> if you'd only quoted #12, it would all make sense ;)
-> but #11 test is not using PKTTYPE. So your patch shouldn't
-> make a difference. Are these numbers with JIT on and off?
+On Thu, Oct 30, 2014 at 12:49:57AM -0700, Pravin B Shelar wrote:
+> mpls gso handler needs to pull skb after segmenting skb.
+> 
+> CC: Simon Horman <simon.horman@netronome.com>
+> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
 
-Right.
+Apologies for messing that up, your change does seem to match the comment
+above it.
 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+So, assuming that this has been tested:
 
+Acked-by: Simon Horman <simon.horman@netronome.com>
 
--- 
-Regards,
-Denis
+> ---
+>  net/mpls/mpls_gso.c |    3 +--
+>  1 files changed, 1 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/mpls/mpls_gso.c b/net/mpls/mpls_gso.c
+> index f0f5309..e3545f2 100644
+> --- a/net/mpls/mpls_gso.c
+> +++ b/net/mpls/mpls_gso.c
+> @@ -59,8 +59,7 @@ static struct sk_buff *mpls_gso_segment(struct sk_buff *skb,
+>  	 * above pulled.  It will be re-pushed after returning
+>  	 * skb_mac_gso_segment(), an indirect caller of this function.
+>  	 */
+> -	__skb_push(skb, skb->data - skb_mac_header(skb));
+> -
+> +	__skb_pull(skb, skb->data - skb_mac_header(skb));
+>  out:
+>  	return segs;
+>  }
+> -- 
+> 1.7.1
+> 
