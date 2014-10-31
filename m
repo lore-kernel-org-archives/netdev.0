@@ -1,54 +1,45 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH net-next 5/8] net/mlx4_en: Remove redundant code from
- RX/GRO path
-Date: Fri, 31 Oct 2014 16:00:07 +0200
-Message-ID: <CAJ3xEMiDnv9=nvvJ1m7_taoSncdmgv4GJVR8DiD5t5GCsFig1A@mail.gmail.com>
-References: <1414685216-28907-1-git-send-email-ogerlitz@mellanox.com>
-	<1414685216-28907-6-git-send-email-ogerlitz@mellanox.com>
-	<1414695631.15352.5.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAJ3xEMjw9rRLBTEXT3cw0+CPRyvJgNbKVHpnmsukas-r=QwmyA@mail.gmail.com>
-	<1414725541.499.3.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH -next v2 1/2] syncookies: remove ecn_ok validation when
+ decoding option timestamp
+Date: Fri, 31 Oct 2014 07:04:47 -0700
+Message-ID: <1414764287.27538.1.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1414757602-27637-1-git-send-email-fw@strlen.de>
+	 <1414757602-27637-2-git-send-email-fw@strlen.de>
+	 <1414762333.499.16.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20141031133948.GJ10069@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Or Gerlitz <ogerlitz@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Matan Barak <matanb@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Shani Michaeli <shanim@mellanox.com>,
-	Ido Shamay <idos@mellanox.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f47.google.com ([209.85.218.47]:50975 "EHLO
-	mail-oi0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758896AbaJaOAI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Oct 2014 10:00:08 -0400
-Received: by mail-oi0-f47.google.com with SMTP id a3so5017709oib.6
-        for <netdev@vger.kernel.org>; Fri, 31 Oct 2014 07:00:07 -0700 (PDT)
-In-Reply-To: <1414725541.499.3.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-ie0-f169.google.com ([209.85.223.169]:34061 "EHLO
+	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759357AbaJaOEt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Oct 2014 10:04:49 -0400
+Received: by mail-ie0-f169.google.com with SMTP id tr6so1314279ieb.14
+        for <netdev@vger.kernel.org>; Fri, 31 Oct 2014 07:04:48 -0700 (PDT)
+In-Reply-To: <20141031133948.GJ10069@breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 31, 2014 at 5:19 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Fri, 2014-10-31 at 01:25 +0200, Or Gerlitz wrote:
->> On Thu, Oct 30, 2014 at 9:00 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> > On Thu, 2014-10-30 at 18:06 +0200, Or Gerlitz wrote:
->> >> Remove the code which goes through napi_gro_frags() on the RX path,
->> >> use only napi_gro_receive().
->>
->> > Hmpff... napi_gro_frags() should be faster.
->> > Have you benchmarked this ?
->>
->>
->> yep we did, napi_gro_frags() was somehow better for single stream. Do
->> you think we need to do it the other way around, e.g converge to use
->> napi_gro_frags()?
+On Fri, 2014-10-31 at 14:39 +0100, Florian Westphal wrote:
 
-> napi_gro_frags() is faster because the napi->skb is reused fast (not
-> going through kfree_skb()/alloc_skb() for every fragment)
+> It would only get enabled if the echoed timestamp (ie the timestamp we
+> sent in the synack) indicates that ecn was enabled, i.e. the client or
+> a middlebox would have to munge/modify it to set the 'ecn on' bit in the
+> timestamp.
+> 
+> If that is too fragile in your opinion I will respin the patch to include
+> the additional validation via dst.  We already need to fetch the dst
+> object anyway to fetch certain route attributes not in the timestamp or
+> cookie, so its only a matter of reorganizing code first to avoid two lookups.
 
-I see. Is this a strong vote to convert the code to use napi_gro_frags
-on it's usual track?
+Well, your changelog is so confusing, I have no idea what is your
+intent.
 
-Or.
+I do not really understand why you need to change something.
+
+Maybe this is because I have not yet took my coffee ;)
+
+Thanks
