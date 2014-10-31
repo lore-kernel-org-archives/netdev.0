@@ -1,9 +1,8 @@
 From: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next v4 1/4] netns: add genl cmd to add and get peer
- netns ids
-Date: Fri, 31 Oct 2014 10:41:24 +0100
-Message-ID: <54535944.6050405@6wind.com>
-References: <1412257690-31253-1-git-send-email-nicolas.dichtel@6wind.com>	<1414682728-4532-1-git-send-email-nicolas.dichtel@6wind.com>	<1414682728-4532-2-git-send-email-nicolas.dichtel@6wind.com> <874mulh0cs.fsf@x220.int.ebiederm.org>
+Subject: Re: [PATCH net-next v4 0/4] netns: allow to identify peer netns
+Date: Fri, 31 Oct 2014 10:48:48 +0100
+Message-ID: <54535B00.5090708@6wind.com>
+References: <1412257690-31253-1-git-send-email-nicolas.dichtel@6wind.com>	<1414682728-4532-1-git-send-email-nicolas.dichtel@6wind.com> <871tpph03k.fsf@x220.int.ebiederm.org>
 Reply-To: nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8;
@@ -16,46 +15,71 @@ Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy
 	cwang-xCSkyg8dI+0RB7SZvlqPiA@public.gmane.org
 To: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
 Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <874mulh0cs.fsf-JOvCrm2gF+uungPnsOpG7nhyD016LWXt@public.gmane.org>
+In-Reply-To: <871tpph03k.fsf-JOvCrm2gF+uungPnsOpG7nhyD016LWXt@public.gmane.org>
 Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Le 30/10/2014 19:35, Eric W. Biederman a =C3=A9crit :
+Le 30/10/2014 19:41, Eric W. Biederman a =C3=A9crit :
 > Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org> writes:
 >
->> With this patch, a user can define an id for a peer netns by providi=
-ng a FD or a
->> PID. These ids are local to netns (ie valid only into one netns).
+>> The goal of this serie is to be able to multicast netlink messages w=
+ith an
+>> attribute that identify a peer netns.
+>> This is needed by the userland to interpret some informations contai=
+ned in
+>> netlink messages (like IFLA_LINK value, but also some other attribut=
+es in case
+>> of x-netns netdevice (see also
+>> http://thread.gmane.org/gmane.linux.network/315933/focus=3D316064 an=
+d
+>> http://thread.gmane.org/gmane.linux.kernel.containers/28301/focus=3D=
+4239)).
+>>
+>> Ids of peer netns are set by userland via a new genl messages. These=
+ ids are
+>> stored per netns and are local (ie only valid in the netns where the=
+y are set).
+>> To avoid allocating an int for each peer netns, I use idr_for_each()=
+ to retrieve
+>> the id of a peer netns. Note that it will be possible to add a table=
+ (struct net
+>> -> id) later to optimize this lookup if needed.
+>>
+>> Patch 1/4 introduces the netlink API mechanism to set and get these =
+ids.
+>> Patch 2/4 and 3/4 implements an example of how to use these ids in r=
+tnetlink
+>> messages. And patch 4/4 shows that the netlink messages can be symet=
+ric between
+>> a GET and a SET.
+>>
+>> iproute2 patches are available, I can send them on demand.
 >
-> Scratches head.  Do you actually find value in using the pid instead =
-of
-> a file descriptor?
-I copied the mechanism from rtnl_link_get_net():
-=46irst check if the user provides a PID, if not, check for a FD.
+> A quick reply.  I think this patchset is in the right general directi=
+on.
+> There are some oddball details that seem odd/awkward to me such as us=
+ing
+> genetlink instead of rtnetlink to get and set the ids, and not having
+> ids if they are not set (that feels like a maintenance/usability chal=
+lenge).
+No problem to use rtnetlink, in fact, I hesitated.
+
+=46or the second point, I'm not sure to follow you: how to have an id, =
+which will
+not break migration, without asking the user to set it?
+Note that if the user does not provide an id, you still have a magic va=
+lue to
+say "it's a peer netns but we don't know which one".
 
 >
-> Doing things by pid was an early attempt to make things work, and has
-> been a bit clutsy.  If you don't find value in it I would recommend j=
-ust
-> supporting getting/setting the network namespace by file descriptor.
-Hmm, if I understand well, it's what is done in the patch:
+> I would like to give your patches a deep review, but I won't be able =
+to
+> do that for a couple of weeks.  I am deep in the process of moving,
+> and will be mostly offline until about the Nov 11th.
 
-[snip]
->> +static int netns_nl_cmd_newid(struct sk_buff *skb, struct genl_info=
- *info)
->> +{
-[snip]
->> +	if (info->attrs[NETNSA_PID])
->> +		peer =3D get_net_ns_by_pid(nla_get_u32(info->attrs[NETNSA_PID]));
->> +	else if (info->attrs[NETNSA_FD])
->> +		peer =3D get_net_ns_by_fd(nla_get_u32(info->attrs[NETNSA_FD]));
->> +	else
->> +		return -EINVAL;
->> +	if (IS_ERR(peer))
->> +		return PTR_ERR(peer);
-
-Am I right?
+No problem, I will wait.
+I would be great to get a final version for the 3.19 ;-)
 
 
-Regards,
+Thank you,
 Nicolas
