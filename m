@@ -1,139 +1,79 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] bonding: add bond_tx_drop() helper
-Date: Fri, 31 Oct 2014 11:47:54 -0700
-Message-ID: <1414781274.27538.32.camel@edumazet-glaptop2.roam.corp.google.com>
+From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
+Subject: Re: [PATCH net-next v4 0/4] netns: allow to identify peer netns
+Date: Fri, 31 Oct 2014 12:14:40 -0700
+Message-ID: <87wq7g831b.fsf@x220.int.ebiederm.org>
+References: <1412257690-31253-1-git-send-email-nicolas.dichtel@6wind.com>
+	<1414682728-4532-1-git-send-email-nicolas.dichtel@6wind.com>
+	<871tpph03k.fsf@x220.int.ebiederm.org> <54535B00.5090708@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Mahesh Bandewar <maheshb@google.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f180.google.com ([209.85.213.180]:44517 "EHLO
-	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751417AbaJaSr5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Oct 2014 14:47:57 -0400
-Received: by mail-ig0-f180.google.com with SMTP id h3so1472815igd.13
-        for <netdev@vger.kernel.org>; Fri, 31 Oct 2014 11:47:56 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org,
+	stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, cwang-xCSkyg8dI+0RB7SZvlqPiA@public.gmane.org,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <54535B00.5090708-pdR9zngts4EAvxtiuMwx3w@public.gmane.org> (Nicolas Dichtel's message of "Fri,
+	31 Oct 2014 10:48:48 +0100")
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
-
-Because bonding stats are usually sum of slave stats, it was
-not easy to account for tx drops at bonding layer.
-
-We can use dev->tx_dropped for this, as this counter is later
-added to the device stats (in dev_get_stats())
-
-This extends the idea we had in commit ee6377147409a ("bonding: Simplify
-the xmit function for modes that use xmit_hash") for bond_3ad_xor_xmit()
-to other bonding modes.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Mahesh Bandewar <maheshb@google.com>
----
- drivers/net/bonding/bond_alb.c  |    2 +-
- drivers/net/bonding/bond_main.c |   15 +++++++--------
- drivers/net/bonding/bonding.h   |    6 ++++++
- 3 files changed, 14 insertions(+), 9 deletions(-)
-
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index d2eadab787c55d8fc0f361755409a880d64abfb3..baa58e79256a8b804e6ab683af6665f0730b86de 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -1326,7 +1326,7 @@ static int bond_do_alb_xmit(struct sk_buff *skb, struct bonding *bond,
- 	}
- 
- 	/* no suitable interface, frame not sent */
--	dev_kfree_skb_any(skb);
-+	bond_tx_drop(bond->dev, skb);
- out:
- 	return NETDEV_TX_OK;
- }
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index c9ac06cfe6b7b3a8f62568b70a6ad6d7ca9b44d0..c7520082fb0d7bfbc34ac00b4f4186a30197ad74 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -3522,7 +3522,7 @@ static void bond_xmit_slave_id(struct bonding *bond, struct sk_buff *skb, int sl
- 		}
- 	}
- 	/* no slave that can tx has been found */
--	dev_kfree_skb_any(skb);
-+	bond_tx_drop(bond->dev, skb);
- }
- 
- /**
-@@ -3584,7 +3584,7 @@ static int bond_xmit_roundrobin(struct sk_buff *skb, struct net_device *bond_dev
- 			slave_id = bond_rr_gen_slave_id(bond);
- 			bond_xmit_slave_id(bond, skb, slave_id % slave_cnt);
- 		} else {
--			dev_kfree_skb_any(skb);
-+			bond_tx_drop(bond_dev, skb);
- 		}
- 	}
- 
-@@ -3603,7 +3603,7 @@ static int bond_xmit_activebackup(struct sk_buff *skb, struct net_device *bond_d
- 	if (slave)
- 		bond_dev_queue_xmit(bond, skb, slave->dev);
- 	else
--		dev_kfree_skb_any(skb);
-+		bond_tx_drop(bond_dev, skb);
- 
- 	return NETDEV_TX_OK;
- }
-@@ -3747,8 +3747,7 @@ int bond_3ad_xor_xmit(struct sk_buff *skb, struct net_device *dev)
- 		slave = slaves->arr[bond_xmit_hash(bond, skb) % count];
- 		bond_dev_queue_xmit(bond, skb, slave->dev);
- 	} else {
--		dev_kfree_skb_any(skb);
--		atomic_long_inc(&dev->tx_dropped);
-+		bond_tx_drop(dev, skb);
- 	}
- 
- 	return NETDEV_TX_OK;
-@@ -3778,7 +3777,7 @@ static int bond_xmit_broadcast(struct sk_buff *skb, struct net_device *bond_dev)
- 	if (slave && bond_slave_is_up(slave) && slave->link == BOND_LINK_UP)
- 		bond_dev_queue_xmit(bond, skb, slave->dev);
- 	else
--		dev_kfree_skb_any(skb);
-+		bond_tx_drop(bond_dev, skb);
- 
- 	return NETDEV_TX_OK;
- }
-@@ -3858,7 +3857,7 @@ static netdev_tx_t __bond_start_xmit(struct sk_buff *skb, struct net_device *dev
- 		/* Should never happen, mode already checked */
- 		netdev_err(dev, "Unknown bonding mode %d\n", BOND_MODE(bond));
- 		WARN_ON_ONCE(1);
--		dev_kfree_skb_any(skb);
-+		bond_tx_drop(dev, skb);
- 		return NETDEV_TX_OK;
- 	}
- }
-@@ -3878,7 +3877,7 @@ static netdev_tx_t bond_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	if (bond_has_slaves(bond))
- 		ret = __bond_start_xmit(skb, dev);
- 	else
--		dev_kfree_skb_any(skb);
-+		bond_tx_drop(dev, skb);
- 	rcu_read_unlock();
- 
- 	return ret;
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index 10920f0686e2f0222203359751581d1b728c6617..bfb0b51c081a27fbbbe64deda058f70860aac49d 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -645,4 +645,10 @@ extern struct bond_parm_tbl ad_select_tbl[];
- /* exported from bond_netlink.c */
- extern struct rtnl_link_ops bond_link_ops;
- 
-+static inline void bond_tx_drop(struct net_device *dev, struct sk_buff *skb)
-+{
-+	atomic_long_inc(&dev->tx_dropped);
-+	dev_kfree_skb_any(skb);
-+}
-+
- #endif /* _LINUX_BONDING_H */
+Tmljb2xhcyBEaWNodGVsIDxuaWNvbGFzLmRpY2h0ZWxANndpbmQuY29tPiB3cml0ZXM6Cgo+IExl
+IDMwLzEwLzIwMTQgMTk6NDEsIEVyaWMgVy4gQmllZGVybWFuIGEgw6ljcml0IDoKPj4gTmljb2xh
+cyBEaWNodGVsIDxuaWNvbGFzLmRpY2h0ZWxANndpbmQuY29tPiB3cml0ZXM6Cj4+Cj4+PiBUaGUg
+Z29hbCBvZiB0aGlzIHNlcmllIGlzIHRvIGJlIGFibGUgdG8gbXVsdGljYXN0IG5ldGxpbmsgbWVz
+c2FnZXMgd2l0aCBhbgo+Pj4gYXR0cmlidXRlIHRoYXQgaWRlbnRpZnkgYSBwZWVyIG5ldG5zLgo+
+Pj4gVGhpcyBpcyBuZWVkZWQgYnkgdGhlIHVzZXJsYW5kIHRvIGludGVycHJldCBzb21lIGluZm9y
+bWF0aW9ucyBjb250YWluZWQgaW4KPj4+IG5ldGxpbmsgbWVzc2FnZXMgKGxpa2UgSUZMQV9MSU5L
+IHZhbHVlLCBidXQgYWxzbyBzb21lIG90aGVyIGF0dHJpYnV0ZXMgaW4gY2FzZQo+Pj4gb2YgeC1u
+ZXRucyBuZXRkZXZpY2UgKHNlZSBhbHNvCj4+PiBodHRwOi8vdGhyZWFkLmdtYW5lLm9yZy9nbWFu
+ZS5saW51eC5uZXR3b3JrLzMxNTkzMy9mb2N1cz0zMTYwNjQgYW5kCj4+PiBodHRwOi8vdGhyZWFk
+LmdtYW5lLm9yZy9nbWFuZS5saW51eC5rZXJuZWwuY29udGFpbmVycy8yODMwMS9mb2N1cz00MjM5
+KSkuCj4+Pgo+Pj4gSWRzIG9mIHBlZXIgbmV0bnMgYXJlIHNldCBieSB1c2VybGFuZCB2aWEgYSBu
+ZXcgZ2VubCBtZXNzYWdlcy4gVGhlc2UgaWRzIGFyZQo+Pj4gc3RvcmVkIHBlciBuZXRucyBhbmQg
+YXJlIGxvY2FsIChpZSBvbmx5IHZhbGlkIGluIHRoZSBuZXRucyB3aGVyZSB0aGV5IGFyZSBzZXQp
+Lgo+Pj4gVG8gYXZvaWQgYWxsb2NhdGluZyBhbiBpbnQgZm9yIGVhY2ggcGVlciBuZXRucywgSSB1
+c2UgaWRyX2Zvcl9lYWNoKCkgdG8gcmV0cmlldmUKPj4+IHRoZSBpZCBvZiBhIHBlZXIgbmV0bnMu
+IE5vdGUgdGhhdCBpdCB3aWxsIGJlIHBvc3NpYmxlIHRvIGFkZCBhIHRhYmxlIChzdHJ1Y3QgbmV0
+Cj4+PiAtPiBpZCkgbGF0ZXIgdG8gb3B0aW1pemUgdGhpcyBsb29rdXAgaWYgbmVlZGVkLgo+Pj4K
+Pj4+IFBhdGNoIDEvNCBpbnRyb2R1Y2VzIHRoZSBuZXRsaW5rIEFQSSBtZWNoYW5pc20gdG8gc2V0
+IGFuZCBnZXQgdGhlc2UgaWRzLgo+Pj4gUGF0Y2ggMi80IGFuZCAzLzQgaW1wbGVtZW50cyBhbiBl
+eGFtcGxlIG9mIGhvdyB0byB1c2UgdGhlc2UgaWRzIGluIHJ0bmV0bGluawo+Pj4gbWVzc2FnZXMu
+IEFuZCBwYXRjaCA0LzQgc2hvd3MgdGhhdCB0aGUgbmV0bGluayBtZXNzYWdlcyBjYW4gYmUgc3lt
+ZXRyaWMgYmV0d2Vlbgo+Pj4gYSBHRVQgYW5kIGEgU0VULgo+Pj4KPj4+IGlwcm91dGUyIHBhdGNo
+ZXMgYXJlIGF2YWlsYWJsZSwgSSBjYW4gc2VuZCB0aGVtIG9uIGRlbWFuZC4KPj4KPj4gQSBxdWlj
+ayByZXBseS4gIEkgdGhpbmsgdGhpcyBwYXRjaHNldCBpcyBpbiB0aGUgcmlnaHQgZ2VuZXJhbCBk
+aXJlY3Rpb24uCj4+IFRoZXJlIGFyZSBzb21lIG9kZGJhbGwgZGV0YWlscyB0aGF0IHNlZW0gb2Rk
+L2F3a3dhcmQgdG8gbWUgc3VjaCBhcyB1c2luZwo+PiBnZW5ldGxpbmsgaW5zdGVhZCBvZiBydG5l
+dGxpbmsgdG8gZ2V0IGFuZCBzZXQgdGhlIGlkcywgYW5kIG5vdCBoYXZpbmcKPj4gaWRzIGlmIHRo
+ZXkgYXJlIG5vdCBzZXQgKHRoYXQgZmVlbHMgbGlrZSBhIG1haW50ZW5hbmNlL3VzYWJpbGl0eSBj
+aGFsbGVuZ2UpLgo+IE5vIHByb2JsZW0gdG8gdXNlIHJ0bmV0bGluaywgaW4gZmFjdCwgSSBoZXNp
+dGF0ZWQuCj4KPiBGb3IgdGhlIHNlY29uZCBwb2ludCwgSSdtIG5vdCBzdXJlIHRvIGZvbGxvdyB5
+b3U6IGhvdyB0byBoYXZlIGFuIGlkLCB3aGljaCB3aWxsCj4gbm90IGJyZWFrIG1pZ3JhdGlvbiwg
+d2l0aG91dCBhc2tpbmcgdGhlIHVzZXIgdG8gc2V0IGl0PwoKV2UgaGF2ZSB0aGF0IHNpdHV0YXRp
+b24gd2l0aCBpZmluZGV4IGFscmVhZHkuICBCYXNpY2FsbHkgdGhlIHRob3VnaHQgaXMKdG8gYWxs
+b3cgYW4gaWQgdG8gYmUgc2V0LCBidXQgYWxzbyBhbGxvdyBhbiBpZCB0byBiZSBhdXRvLWdlbmVy
+YXRlZCBpZgp3ZSB1c2UgYW4gbmFtZXNwYWNlIHdpdGhvdXQgYW4gaWQgYmVpbmcgc2V0LgoKTXkg
+Z3V0IHNheXMgaWYgd2UgY2FuIGZpZ3VyZSB0aGF0IG91dCB3ZSB3aWxsIGhhdmUgYW4gaW50ZXJm
+YWNlIHdpdGgKbXVjaCBtb3JlIHV0aWxpdHkuCgo+IE5vdGUgdGhhdCBpZiB0aGUgdXNlciBkb2Vz
+IG5vdCBwcm92aWRlIGFuIGlkLCB5b3Ugc3RpbGwgaGF2ZSBhIG1hZ2ljIHZhbHVlIHRvCj4gc2F5
+ICJpdCdzIGEgcGVlciBuZXRucyBidXQgd2UgZG9uJ3Qga25vdyB3aGljaCBvbmUiLgoKVGhhdCBp
+cyBjZXJ0YWlubHkgYW4gaW1wcm92ZW1lbnQgaW4gY2xhcml0eSBvdmVyIHdoZXJlIHdlIGFyZSB0
+b2RheS4KCj4+IEkgd291bGQgbGlrZSB0byBnaXZlIHlvdXIgcGF0Y2hlcyBhIGRlZXAgcmV2aWV3
+LCBidXQgSSB3b24ndCBiZSBhYmxlIHRvCj4+IGRvIHRoYXQgZm9yIGEgY291cGxlIG9mIHdlZWtz
+LiAgSSBhbSBkZWVwIGluIHRoZSBwcm9jZXNzIG9mIG1vdmluZywKPj4gYW5kIHdpbGwgYmUgbW9z
+dGx5IG9mZmxpbmUgdW50aWwgYWJvdXQgdGhlIE5vdiAxMXRoLgo+Cj4gTm8gcHJvYmxlbSwgSSB3
+aWxsIHdhaXQuCj4gSSB3b3VsZCBiZSBncmVhdCB0byBnZXQgYSBmaW5hbCB2ZXJzaW9uIGZvciB0
+aGUgMy4xOSA7LSkKCkVyaWMKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX18KQ29udGFpbmVycyBtYWlsaW5nIGxpc3QKQ29udGFpbmVyc0BsaXN0cy5saW51eC1m
+b3VuZGF0aW9uLm9yZwpodHRwczovL2xpc3RzLmxpbnV4Zm91bmRhdGlvbi5vcmcvbWFpbG1hbi9s
+aXN0aW5mby9jb250YWluZXJz
