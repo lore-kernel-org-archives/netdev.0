@@ -1,39 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bonding: add bond_tx_drop() helper
-Date: Fri, 31 Oct 2014 16:09:22 -0400 (EDT)
-Message-ID: <20141031.160922.1328924214385970387.davem@davemloft.net>
-References: <1414781274.27538.32.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH v2] stmmac: pci: set default of the filter bins
+Date: Fri, 31 Oct 2014 16:10:50 -0400 (EDT)
+Message-ID: <20141031.161050.1067629196847570490.davem@davemloft.net>
+References: <1414772883-29503-1-git-send-email-andriy.shevchenko@linux.intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, j.vosburgh@gmail.com, vfalico@gmail.com,
-	andy@greyhouse.net, maheshb@google.com
-To: eric.dumazet@gmail.com
+Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org,
+	hock.leong.kweh@intel.com, vbridgers2013@gmail.com,
+	stable@vger.kernel.org
+To: andriy.shevchenko@linux.intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43154 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:43184 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750889AbaJaUJ0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Oct 2014 16:09:26 -0400
-In-Reply-To: <1414781274.27538.32.camel@edumazet-glaptop2.roam.corp.google.com>
+	with ESMTP id S1756003AbaJaULA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Oct 2014 16:11:00 -0400
+In-Reply-To: <1414772883-29503-1-git-send-email-andriy.shevchenko@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 31 Oct 2014 11:47:54 -0700
+From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Date: Fri, 31 Oct 2014 18:28:03 +0200
 
-> From: Eric Dumazet <edumazet@google.com>
+> The commit 3b57de958e2a brought the support for a different amount of the
+> filter bins, but didn't update the PCI driver accordingly. This patch appends
+> the default values when the device is enumerated via PCI bus.
 > 
-> Because bonding stats are usually sum of slave stats, it was
-> not easy to account for tx drops at bonding layer.
-> 
-> We can use dev->tx_dropped for this, as this counter is later
-> added to the device stats (in dev_get_stats())
-> 
-> This extends the idea we had in commit ee6377147409a ("bonding: Simplify
-> the xmit function for modes that use xmit_hash") for bond_3ad_xor_xmit()
-> to other bonding modes.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Mahesh Bandewar <maheshb@google.com>
+> Fixes: 3b57de958e2a (net: stmmac: Support devicetree configs for mcast and ucast filter entries)
+> Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+> Cc: stable@vger.kernel.org
 
-Applied, thanks Eric.
+Applied, thanks.
