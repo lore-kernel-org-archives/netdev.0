@@ -1,36 +1,32 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [PATCH v3 09/15] net: dsa: Add support for switch EEPROM access
-Date: Thu, 30 Oct 2014 19:53:17 -0700
-Message-ID: <5452F99D.5080201@roeck-us.net>
-References: <1414604707-22407-1-git-send-email-linux@roeck-us.net> <1414604707-22407-10-git-send-email-linux@roeck-us.net> <20141030211131.GB32139@lunn.ch> <20141030223951.GA19489@roeck-us.net> <20141031010039.GA29492@roeck-us.net> <20141031024044.GA4082@lunn.ch>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH] VNIC: Adding support for Cavium ThunderX network
+ controller
+Date: Thu, 30 Oct 2014 19:54:58 -0700
+Message-ID: <20141030195458.2958d88a@urahara>
+References: <20141030165434.GW20170@rric.localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	linux-kernel@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Sunil Goutham <sgoutham@cavium.com>,
+	Robert Richter <rrichter@cavium.com>,
+	Stefan Assmann <sassmann@redhat.com>,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	netdev@vger.kernel.org
+To: Robert Richter <rric@kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141031024044.GA4082@lunn.ch>
+In-Reply-To: <20141030165434.GW20170@rric.localhost>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/30/2014 07:40 PM, Andrew Lunn wrote:
->> As suspected, ethtool will attempt to read a zero-length eeprom.
->>
->> The following patch should solve the problem. Not sure if it is worth it,
->> though, since this will change behavior for existing drivers.
->
-> Yes, it changes behaviour, but it does make it more consistent.
->
-> Probably it should be up to core network people to decide if this is
-> the write fix or leave it as is.
->
+On Thu, 30 Oct 2014 17:54:34 +0100
+Robert Richter <rric@kernel.org> wrote:
 
-s/write/right/.
+> +#ifdef	VNIC_RSS_SUPPORT
+> +static int rss_config = RSS_IP_HASH_ENA | RSS_TCP_HASH_ENA | RSS_UDP_HASH_ENA;
+> +module_param(rss_config, int, S_IRUGO);
+> +MODULE_PARM_DESC(rss_config,
+> +		 "RSS hash config [bits 8:0] (Bit0:L2 extended, 1:IP, 2:TCP, 3:TCP SYN, 4:UDP, 5:L4 extended, 6:ROCE 7:L3 bi-directional, 8:L4 bi-directional)");
+> +#endif
 
-The patch shows up in the netdev patchwork. David marked it as RFC,
-so we'll see where it goes.
-
-Thanks,
-Guenter
+This should managed  be via ethtool ETHTOOL_GRXFH rather than a module parameter.
