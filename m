@@ -1,32 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/6] netfilter/ipvs fixes for net
-Date: Fri, 31 Oct 2014 12:30:05 -0400 (EDT)
-Message-ID: <20141031.123005.838907102679848705.davem@davemloft.net>
-References: <1414757912-29150-1-git-send-email-pablo@netfilter.org>
+From: "Lennart Sorensen" <lsorense@csclub.uwaterloo.ca>
+Subject: Re: Mistake in commit 0d961b3b52f566f823070ce2366511a7f64b928c
+ breaks cpsw non dual_emac mode.
+Date: Fri, 31 Oct 2014 13:10:36 -0400
+Message-ID: <20141031171035.GI24110@csclub.uwaterloo.ca>
+References: <20141028170242.GA24112@csclub.uwaterloo.ca>
+ <20141030.154323.1702996635200338108.davem@davemloft.net>
+ <545330EA.60303@denx.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41188 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751417AbaJaQaI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Oct 2014 12:30:08 -0400
-In-Reply-To: <1414757912-29150-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	mugunthanvnm@ti.com, netdev@vger.kernel.org
+To: Heiko Schocher <hs@denx.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <545330EA.60303@denx.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Fri, 31 Oct 2014 13:18:26 +0100
-
-> The following patchset contains fixes for netfilter/ipvs. This round of
-> fixes is larger than usual at this stage, specifically because of the
-> nf_tables bridge reject fixes that I would like to see in 3.18. The
-> patches are:
- ...
-> You can pull these changes from:
+On Fri, Oct 31, 2014 at 07:49:14AM +0100, Heiko Schocher wrote:
+> Seems I missed your original patch ... looked in it here:
 > 
->   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
+> https://lkml.org/lkml/2014/10/28/837
+> 
+> and I think you are correct, thanks for this fix. You can add my
+> Acked-by: Heiko Schocher <hs@denx.de>
+> if you post a corrected v2, as David suggested.
 
-Pulled, thanks Pablo.
+Will do.  I noticed a wrong word in one of the messages too so good
+thing it gets fixed before getting commited.
+
+-- 
+Len Sorensen
