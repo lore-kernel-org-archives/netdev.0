@@ -1,46 +1,50 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH -next v2 1/2] syncookies: remove ecn_ok validation when
- decoding option timestamp
-Date: Fri, 31 Oct 2014 17:00:39 +0100
-Message-ID: <20141031160039.GM10069@breakpoint.cc>
-References: <1414757602-27637-1-git-send-email-fw@strlen.de>
- <1414757602-27637-2-git-send-email-fw@strlen.de>
- <1414762333.499.16.camel@edumazet-glaptop2.roam.corp.google.com>
- <20141031133948.GJ10069@breakpoint.cc>
- <1414764287.27538.1.camel@edumazet-glaptop2.roam.corp.google.com>
- <20141031141503.GL10069@breakpoint.cc>
- <1414770460.27538.9.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Robert Richter <robert.richter@caviumnetworks.com>
+Subject: Re: [PATCH] VNIC: Adding support for Cavium ThunderX network
+ controller
+Date: Fri, 31 Oct 2014 17:17:24 +0100
+Message-ID: <20141031161724.GC31556@rric.localhost>
+References: <20141030165434.GW20170@rric.localhost>
+ <20141030194513.089d27ec@urahara>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:41278 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751271AbaJaQAk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Oct 2014 12:00:40 -0400
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Robert Richter <rric@kernel.org>, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, Stefan Assmann <sassmann@redhat.com>,
+ Sunil Goutham <sgoutham@cavium.com>, "David S. Miller" <davem@davemloft.net>,
+ linux-arm-kernel@lists.infradead.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 Content-Disposition: inline
-In-Reply-To: <1414770460.27538.9.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20141030194513.089d27ec@urahara>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Fri, 2014-10-31 at 15:15 +0100, Florian Westphal wrote:
+On 30.10.14 19:45:13, Stephen Hemminger wrote:
+> On Thu, 30 Oct 2014 17:54:34 +0100
+> Robert Richter <rric@kernel.org> wrote:
 > 
-> > So if you have a per route ecn setting, and syncookies are used,
-> > and tcp_ecn sysctl is 0:
+> > diff --git a/include/linux/pci_ids.h b/include/linux/pci_ids.h
+> > index 1fa99a301817..80bd3336691e 100644
+> > --- a/include/linux/pci_ids.h
+> > +++ b/include/linux/pci_ids.h
+> > @@ -2324,6 +2324,8 @@
+> >  #define PCI_DEVICE_ID_ALTIMA_AC9100	0x03ea
+> >  #define PCI_DEVICE_ID_ALTIMA_AC1003	0x03eb
+> >  
+> > +#define PCI_VENDOR_ID_CAVIUM		0x177d
 > 
-> This part I do not understand.
-> 
-> Why should tcp_ecn be 0 here, and not 2 (default value) ?
+> I don't think PCI folks want this updated with every id anymore.
 
-Because admin might have changed it.
-There is no problem if tcp_ecn sysctl is nonzero (1 or 2).
+This is just the vendor id, the device id is part of the driver.
 
-This problem will only manifest itself iff tcp_ecn sysctl was set to 0,
-and the remote peer requests ecn and a route specific setting enabled
-ecn for the source network and syncookies are used.
+Since there will be multiple drivers I put the vendor id here.
 
-Current timestamp cookie validation will think "client is lying about
-ecn in the timestamp as sysctl is off", since it does not consider a
-per-route ecn knob.
+-Robert
