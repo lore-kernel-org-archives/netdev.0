@@ -1,44 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: skb_fclone_busy() needs to detect orphaned skb
-Date: Thu, 30 Oct 2014 19:59:47 -0400 (EDT)
-Message-ID: <20141030.195947.399658939004489177.davem@davemloft.net>
-References: <1414690354.9028.9.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH v2 net 0/2] drivers/net,ipv6: Fix IPv6 fragment ID
+	selection for virtio
+Date: Thu, 30 Oct 2014 20:02:04 -0400 (EDT)
+Message-ID: <20141030.200204.1241966215662909080.davem@davemloft.net>
+References: <1414693592.16849.61.camel@decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ncardwell@google.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:32919 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161211AbaJ3X7u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2014 19:59:50 -0400
-In-Reply-To: <1414690354.9028.9.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, hannes@stressinduktion.org,
+	virtualization@lists.linux-foundation.org
+To: ben@decadent.org.uk
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1414693592.16849.61.camel@decadent.org.uk>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 30 Oct 2014 10:32:34 -0700
+From: Ben Hutchings <ben@decadent.org.uk>
+Date: Thu, 30 Oct 2014 18:26:32 +0000
 
-> From: Eric Dumazet <edumazet@google.com>
+> The virtio net protocol supports UFO but does not provide for passing a
+> fragment ID for fragmentation of IPv6 packets.  We used to generate a
+> fragment ID wherever such a packet was fragmented, but currently we
+> always use ID=0!
 > 
-> Some drivers are unable to perform TX completions in a bound time.
-> They instead call skb_orphan()
-> 
-> Problem is skb_fclone_busy() has to detect this case, otherwise
-> we block TCP retransmits and can freeze unlucky tcp sessions on
-> mostly idle hosts.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Fixes: 1f3279ae0c13 ("tcp: avoid retransmits of TCP packets hanging in host queues")
+> v2: Add blank lines after declarations
 
-Applied, and queued up for -stable, thanks Eric.
-
->  This problem is known to hurt users of linux-3.16 kernels used by guests kernels.
->  David, I can provide backports if you want.
-
-Since 3.16 is no longer active, I'll only need to put this into 3.17-stable
-which I should be able to handle on my own.
-
-But thanks for offering, sometimes difficult backports take up a lot
-of time.
+Series applied and queued up for -stable, thanks Ben.
