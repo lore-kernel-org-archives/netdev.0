@@ -1,38 +1,33 @@
-From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH net 2/2] mpls: Allow mpls_gso to be built as module
-Date: Thu, 30 Oct 2014 00:50:04 -0700
-Message-ID: <1414655404-1572-1-git-send-email-pshelar@nicira.com>
-Cc: netdev@vger.kernel.org, Pravin B Shelar <pshelar@nicira.com>,
-	Simon Horman <simon.horman@netronome.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog133.obsmtp.com ([74.125.149.82]:36559 "HELO
-	na3sys009aog133.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1161430AbaJaBu2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Oct 2014 21:50:28 -0400
-Received: by mail-pd0-f180.google.com with SMTP id ft15so6261398pdb.11
-        for <netdev@vger.kernel.org>; Thu, 30 Oct 2014 18:50:27 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v3 09/15] net: dsa: Add support for switch EEPROM access
+Date: Fri, 31 Oct 2014 03:40:44 +0100
+Message-ID: <20141031024044.GA4082@lunn.ch>
+References: <1414604707-22407-1-git-send-email-linux@roeck-us.net>
+ <1414604707-22407-10-git-send-email-linux@roeck-us.net>
+ <20141030211131.GB32139@lunn.ch>
+ <20141030223951.GA19489@roeck-us.net>
+ <20141031010039.GA29492@roeck-us.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	linux-kernel@vger.kernel.org
+To: Guenter Roeck <linux@roeck-us.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20141031010039.GA29492@roeck-us.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Kconfig already allows mpls to be built as module. Following patch
-fixes Makefile to do same.
+> As suspected, ethtool will attempt to read a zero-length eeprom.
+> 
+> The following patch should solve the problem. Not sure if it is worth it,
+> though, since this will change behavior for existing drivers.
 
-CC: Simon Horman <simon.horman@netronome.com>
-Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
----
- net/mpls/Makefile |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Yes, it changes behaviour, but it does make it more consistent.
 
-diff --git a/net/mpls/Makefile b/net/mpls/Makefile
-index 0a3c171..6dec088 100644
---- a/net/mpls/Makefile
-+++ b/net/mpls/Makefile
-@@ -1,4 +1,4 @@
- #
- # Makefile for MPLS.
- #
--obj-y += mpls_gso.o
-+obj-$(CONFIG_NET_MPLS_GSO) += mpls_gso.o
--- 
-1.7.1
+Probably it should be up to core network people to decide if this is
+the write fix or leave it as is.
+
+    Andrew
