@@ -1,7 +1,8 @@
 From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-Subject: [PATCH 0/1] mv643xx_eth: Disable TSO by default
-Date: Sat,  1 Nov 2014 12:30:19 -0300
-Message-ID: <1414855820-15094-1-git-send-email-ezequiel.garcia@free-electrons.com>
+Subject: [PATCH 1/1] net: mv643xx_eth: Make TSO disabled by default
+Date: Sat,  1 Nov 2014 12:30:20 -0300
+Message-ID: <1414855820-15094-2-git-send-email-ezequiel.garcia@free-electrons.com>
+References: <1414855820-15094-1-git-send-email-ezequiel.garcia@free-electrons.com>
 Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
 	Gregory Clement <gregory.clement@free-electrons.com>,
 	Tawfik Bayouk <tawfik@marvell.com>,
@@ -10,35 +11,50 @@ Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
 	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
 To: <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from down.free-electrons.com ([37.187.137.238]:46883 "EHLO
+Received: from down.free-electrons.com ([37.187.137.238]:46887 "EHLO
 	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751626AbaKAPcC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Nov 2014 11:32:02 -0400
+	with ESMTP id S1752580AbaKAPcE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Nov 2014 11:32:04 -0400
+In-Reply-To: <1414855820-15094-1-git-send-email-ezequiel.garcia@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Several users ([1], [2]) have been reporting data corruption with TSO on
-Kirkwood platforms (i.e. using the mv643xx_eth driver).
+Data corruption has been observed to be produced by TSO. For instance,
+accessing files on a NFS-server with TSO enabled results in different data
+transferred each time.
 
-Until we manage to find what's causing this, this simple patch will make
-the TSO path disabled by default. This patch should be queued for stable,
-fixing the TSO feature introduced in v3.16.
+This has been observed only on Kirkwood platforms, i.e. with the mv643xx_eth
+driver. Same tests on platforms using the mvneta ethernet driver have
+passed without errors.
 
-The corruption itself is very easy to reproduce: checking md5sum on a mounted
-NFS directory gives a different result each time. Same tests using the mvneta
-driver (Armada 370/38x/XP SoC) pass with no issues.
+Make TSO disabled by default for now, until we can found a proper fix
+for the regression.
 
-Frankly, I'm a bit puzzled about this, and so any ideas or debugging hints
-are well received.
-
-[1] https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=764162
-[2] http://archlinuxarm.org/forum/viewtopic.php?f=9&t=7692
-
-Ezequiel Garcia (1):
-  net: mv643xx_eth: Make TSO disabled by default
-
+Fixes: 3ae8f4e0b98 ('net: mv643xx_eth: Implement software TSO')
+Reported-by: Slawomir Gajzner <slawomir.gajzner@gmail.com>
+Reported-by: Julien D'Ascenzio <jdascenzio@yahoo.fr>
+Signed-off-by: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+---
  drivers/net/ethernet/marvell/mv643xx_eth.c | 4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
 
+diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
+index b151a94..8b72780 100644
+--- a/drivers/net/ethernet/marvell/mv643xx_eth.c
++++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
+@@ -3110,11 +3110,11 @@ static int mv643xx_eth_probe(struct platform_device *pdev)
+ 	dev->watchdog_timeo = 2 * HZ;
+ 	dev->base_addr = 0;
+ 
+-	dev->features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO;
++	dev->features = NETIF_F_SG | NETIF_F_IP_CSUM;
+ 	dev->vlan_features = dev->features;
+ 
+ 	dev->features |= NETIF_F_RXCSUM;
+-	dev->hw_features = dev->features;
++	dev->hw_features = dev->features  | NETIF_F_TSO;
+ 
+ 	dev->priv_flags |= IFF_UNICAST_FLT;
+ 	dev->gso_max_segs = MV643XX_MAX_TSO_SEGS;
 -- 
 2.1.0
