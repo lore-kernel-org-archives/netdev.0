@@ -1,29 +1,67 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: DMA-API warning from sunhme - unchecked dma_map_single error
-Date: Sat, 01 Nov 2014 00:24:19 -0400 (EDT)
-Message-ID: <20141101.002419.1322142980143770680.davem@davemloft.net>
-References: <20141031205258.C3A2F7FE2E@ilves.cyber.ee>
-	<alpine.DEB.2.03.1410312258170.17220@cyber.ee>
+From: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
+Subject: RE: suspend/resume broken on 3.18-rc2
+Date: Sat, 1 Nov 2014 07:25:07 +0000
+Message-ID: <0c0af69d06ed45b3bb95663319e44a9e@BLUPR03MB373.namprd03.prod.outlook.com>
+References: <CAOMZO5C5znc2ZD5GoPKC7qQPoFGaJf47BoTMY0HQtEbW46d4dw@mail.gmail.com>
+	<6278a77cdc594b3488b0ebc043f7d17b@BLUPR03MB373.namprd03.prod.outlook.com>
+	<CAOMZO5C9tcL9K79rwWbYkYcpRMPkpvHS+v2kYyRpY4bt7h=Cgw@mail.gmail.com>
+	<8bbe5cec19124e1cae128cc39d249148@BN1PR0301MB0628.namprd03.prod.outlook.com>
+	<69f3cd5a2961445ebab0f2652ffa60bd@BLUPR03MB373.namprd03.prod.outlook.com>
+ <CAOMZO5AeBSusV=xHgy8KJOb9po9WbS=DkaKXnS8iOpW8t-Y_Fw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sparclinux@vger.kernel.org
-To: mroos@linux.ee
-Return-path: <sparclinux-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.03.1410312258170.17220@cyber.ee>
-Sender: sparclinux-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Anson.Huang@freescale.com" <Anson.Huang@freescale.com>,
+	"Frank.Li@freescale.com" <Frank.Li@freescale.com>,
+	Russell King <linux@arm.linux.org.uk>,
+	Shawn Guo <shawn.guo@linaro.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Fabio Estevam <festevam@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bl2on0102.outbound.protection.outlook.com ([65.55.169.102]:32944
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751388AbaKAHZQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 1 Nov 2014 03:25:16 -0400
+In-Reply-To: <CAOMZO5AeBSusV=xHgy8KJOb9po9WbS=DkaKXnS8iOpW8t-Y_Fw@mail.gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Meelis Roos <mroos@linux.ee>
-Date: Fri, 31 Oct 2014 23:01:09 +0200 (EET)
-
->>> It seems to be correct warning - dma_map_single is used unchecked in
->>> sunhme.c. I can try fixing it - the error handling will be the only
->>> problem. Is it considered worthwile?
->>
->> Can you test this patch?
-> 
-> It works fine on E3500 where I had many debugging options on and
-> caught it. No warnings, network still works.
-
-Thanks for testing, I'll push this to Linus and -stable soon.
+RnJvbTogRmFiaW8gRXN0ZXZhbSA8ZmVzdGV2YW1AZ21haWwuY29tPiBTZW50OiBTYXR1cmRheSwg
+Tm92ZW1iZXIgMDEsIDIwMTQgMzozNiBBTQ0KPlRvOiBEdWFuIEZ1Z2FuZy1CMzg2MTENCj5DYzog
+SHVhbmcgWW9uZ2NhaS1CMjA3ODg7IExpIEZyYW5rLUIyMDU5NjsgUnVzc2VsbCBLaW5nOyBTaGF3
+biBHdW87DQo+bmV0ZGV2QHZnZXIua2VybmVsLm9yZw0KPlN1YmplY3Q6IFJlOiBzdXNwZW5kL3Jl
+c3VtZSBicm9rZW4gb24gMy4xOC1yYzINCj4NCj5BbmR5LA0KPg0KPk9uIFRodSwgT2N0IDMwLCAy
+MDE0IGF0IDE6MTEgQU0sIGZ1Z2FuZy5kdWFuQGZyZWVzY2FsZS5jb20NCj48ZnVnYW5nLmR1YW5A
+ZnJlZXNjYWxlLmNvbT4gd3JvdGU6DQo+DQo+PiBJIHRyaWVkIGl0IHllc3RlcmRheSB3aXRoIEZF
+QyBjbG9zZSwgcmVzdW1lIGNhbm5vdCBiYWNrLg0KPj4gSSB3aWxsIHRyeSBpdCBhZ2Fpbi4NCj4N
+Cj5XZSBoYXZlIGEgcmVncmVzc2lvbiBpbiAzLjE4LXJjMTogaWYgSSB1c2UgdGhlIGlteDZzeC1z
+ZGIuZHRiIGZyb20NCj4zLjE3LjEgdGhlbiBJIGdldDoNCj4NCj5yb290QGZyZWVzY2FsZSAvJCBl
+Y2hvIGVuYWJsZWQgPiAvc3lzL2NsYXNzL3R0eS90dHlteGMwL3Bvd2VyL3dha2V1cA0KPnJvb3RA
+ZnJlZXNjYWxlIC8kIGVjaG8gbWVtID4gL3N5cy9wb3dlci9zdGF0ZQ0KPlsgICAxMy44ODMwOTRd
+IFBNOiBTeW5jaW5nIGZpbGVzeXN0ZW1zIC4uLiBkb25lLg0KPlsgICAxMy45MzIxODRdIEZyZWV6
+aW5nIHVzZXIgc3BhY2UgcHJvY2Vzc2VzIC4uLiAoZWxhcHNlZCAwLjAwMyBzZWNvbmRzKQ0KPmRv
+bmUuDQo+WyAgIDEzLjk0MjkyOF0gRnJlZXppbmcgcmVtYWluaW5nIGZyZWV6YWJsZSB0YXNrcyAu
+Li4gKGVsYXBzZWQgMC4wMDMNCj5zZWNvbmRzKSBkLg0KPlsgICAxNC4wMTQ4MjNdIFBNOiBzdXNw
+ZW5kIG9mIGRldmljZXMgY29tcGxldGUgYWZ0ZXIgNTQuNTcyIG1zZWNzDQo+WyAgIDE0LjAyMDcz
+MF0gUE06IHN1c3BlbmQgZGV2aWNlcyB0b29rIDAuMDYwIHNlY29uZHMNCj5bICAgMTQuMDM1MjQx
+XSBQTTogbGF0ZSBzdXNwZW5kIG9mIGRldmljZXMgY29tcGxldGUgYWZ0ZXIgOS41NDUgbXNlY3MN
+Cj5bICAgMTQuMDUwOTAxXSBQTTogbm9pcnEgc3VzcGVuZCBvZiBkZXZpY2VzIGNvbXBsZXRlIGFm
+dGVyIDkuMzgzIG1zZWNzDQo+WyAgIDE0LjA1NzYyNl0gRGlzYWJsaW5nIG5vbi1ib290IENQVXMg
+Li4uDQo+WyAgIDE0LjA3MTUxNF0gUE06IG5vaXJxIHJlc3VtZSBvZiBkZXZpY2VzIGNvbXBsZXRl
+IGFmdGVyIDguMzM4IG1zZWNzDQo+WyAgIDE0LjA4NTY0NV0gUE06IGVhcmx5IHJlc3VtZSBvZiBk
+ZXZpY2VzIGNvbXBsZXRlIGFmdGVyIDYuNDE3IG1zZWNzDQo+WyAgIDE0LjA5NzcyMF0gZmVjIDIx
+ODgwMDAuZXRoZXJuZXQgZXRoMDogcmN2IGlzIG5vdCArbGFzdA0KPlsgICAxNC4xODc0OTFdIFBN
+OiByZXN1bWUgb2YgZGV2aWNlcyBjb21wbGV0ZSBhZnRlciA5NS40OTQgbXNlY3MNCj5bICAgMTQu
+MTk5MDM5XSBQTTogcmVzdW1lIGRldmljZXMgdG9vayAwLjEwMCBzZWNvbmRzDQo+WyAgIDE0LjIw
+MzgzMV0gUmVzdGFydGluZyB0YXNrcyAuLi4gZG9uZS4NCj5bICAgMTUuODkyMzE4XSBmZWMgMjE4
+ODAwMC5ldGhlcm5ldCBldGgwOiByY3YgaXMgbm90ICtsYXN0DQo+WyAgIDE1Ljg5NzY4OF0gZmVj
+IDIxODgwMDAuZXRoZXJuZXQgZXRoMDogcmN2IGlzIG5vdCArbGFzdA0KPlsgICAxNS45MDMwMTBd
+IGZlYyAyMTg4MDAwLmV0aGVybmV0IGV0aDA6IHJjdiBpcyBub3QgK2xhc3QNCj5bICAgMTUuOTA4
+MzI2XSBmZWMgMjE4ODAwMC5ldGhlcm5ldCBldGgwOiByY3YgaXMgbm90ICtsYXN0DQo+WyAgIDE1
+LjkxMzYzNV0gZmVjIDIxODgwMDAuZXRoZXJuZXQgZXRoMDogcmN2IGlzIG5vdCArbGFzdA0KPlsg
+ICAxNS45MTg5NDVdIGZlYyAyMTg4MDAwLmV0aGVybmV0IGV0aDA6IHJjdiBpcyBub3QgK2xhc3QN
+Cj4NCj5TbyBmZWMgc3VzcGVuZC9yZXN1bWUgaXMgYnJva2VuIGZvciBteDZzeC4NCj4NCj5QbGVh
+c2UgdGFrZSBhIGxvb2sgYXQgaXQuDQpIaSwgRmFiaW8sDQoNClRoYW5rcywgSSB3aWxsIGZpeCBp
+dC4NCg0KUmVnYXJkcywNCkFuZHkNCg==
