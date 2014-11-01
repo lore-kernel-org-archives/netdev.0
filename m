@@ -1,262 +1,220 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [PATCH net-next 7/7] gue: Receive side of remote checksum offload
-Date: Sat,  1 Nov 2014 15:58:03 -0700
-Message-ID: <1414882683-25484-8-git-send-email-therbert@google.com>
+Subject: [PATCH net-next 4/7] udp: Changes to udp_offload to support remote checksum offload
+Date: Sat,  1 Nov 2014 15:58:00 -0700
+Message-ID: <1414882683-25484-5-git-send-email-therbert@google.com>
 References: <1414882683-25484-1-git-send-email-therbert@google.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f180.google.com ([209.85.213.180]:48986 "EHLO
-	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752479AbaKAW6h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Nov 2014 18:58:37 -0400
-Received: by mail-ig0-f180.google.com with SMTP id h3so2827192igd.13
-        for <netdev@vger.kernel.org>; Sat, 01 Nov 2014 15:58:36 -0700 (PDT)
+Received: from mail-ig0-f179.google.com ([209.85.213.179]:56968 "EHLO
+	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752687AbaKAW6a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Nov 2014 18:58:30 -0400
+Received: by mail-ig0-f179.google.com with SMTP id r10so2839360igi.6
+        for <netdev@vger.kernel.org>; Sat, 01 Nov 2014 15:58:29 -0700 (PDT)
 In-Reply-To: <1414882683-25484-1-git-send-email-therbert@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add processing of the remote checksum offload option in both the normal
-path as well as the GRO path. The implements patching the affected
-checksum to derive the offloaded checksum.
+Add a new GSO type, SKB_GSO_TUNNEL_REMCSUM, which indicates remote
+checksum offload being done (in this case inner checksum must not
+be offloaded to the NIC).
+
+Added logic in __skb_udp_tunnel_segment to handle remote checksum
+offload case.
 
 Signed-off-by: Tom Herbert <therbert@google.com>
 ---
- net/ipv4/fou.c | 170 ++++++++++++++++++++++++++++++++++++++++++++++++++++++---
- 1 file changed, 161 insertions(+), 9 deletions(-)
+ include/linux/netdev_features.h |  4 +++-
+ include/linux/netdevice.h       |  1 +
+ include/linux/skbuff.h          |  4 +++-
+ net/core/skbuff.c               |  4 ++--
+ net/ipv4/af_inet.c              |  1 +
+ net/ipv4/tcp_offload.c          |  1 +
+ net/ipv4/udp_offload.c          | 18 ++++++++++++++++--
+ net/ipv6/ip6_offload.c          |  1 +
+ net/ipv6/udp_offload.c          |  1 +
+ 9 files changed, 29 insertions(+), 6 deletions(-)
 
-diff --git a/net/ipv4/fou.c b/net/ipv4/fou.c
-index fb0db99..740ae09 100644
---- a/net/ipv4/fou.c
-+++ b/net/ipv4/fou.c
-@@ -63,6 +63,59 @@ static int fou_udp_recv(struct sock *sk, struct sk_buff *skb)
- 	return -fou->protocol;
+diff --git a/include/linux/netdev_features.h b/include/linux/netdev_features.h
+index dcfdecb..8c94b07 100644
+--- a/include/linux/netdev_features.h
++++ b/include/linux/netdev_features.h
+@@ -48,8 +48,9 @@ enum {
+ 	NETIF_F_GSO_UDP_TUNNEL_BIT,	/* ... UDP TUNNEL with TSO */
+ 	NETIF_F_GSO_UDP_TUNNEL_CSUM_BIT,/* ... UDP TUNNEL with TSO & CSUM */
+ 	NETIF_F_GSO_MPLS_BIT,		/* ... MPLS segmentation */
++	NETIF_F_GSO_TUNNEL_REMCSUM_BIT, /* ... TUNNEL with TSO & REMCSUM */
+ 	/**/NETIF_F_GSO_LAST =		/* last bit, see GSO_MASK */
+-		NETIF_F_GSO_MPLS_BIT,
++		NETIF_F_GSO_TUNNEL_REMCSUM_BIT,
+ 
+ 	NETIF_F_FCOE_CRC_BIT,		/* FCoE CRC32 */
+ 	NETIF_F_SCTP_CSUM_BIT,		/* SCTP checksum offload */
+@@ -119,6 +120,7 @@ enum {
+ #define NETIF_F_GSO_UDP_TUNNEL	__NETIF_F(GSO_UDP_TUNNEL)
+ #define NETIF_F_GSO_UDP_TUNNEL_CSUM __NETIF_F(GSO_UDP_TUNNEL_CSUM)
+ #define NETIF_F_GSO_MPLS	__NETIF_F(GSO_MPLS)
++#define NETIF_F_GSO_TUNNEL_REMCSUM __NETIF_F(GSO_TUNNEL_REMCSUM)
+ #define NETIF_F_HW_VLAN_STAG_FILTER __NETIF_F(HW_VLAN_STAG_FILTER)
+ #define NETIF_F_HW_VLAN_STAG_RX	__NETIF_F(HW_VLAN_STAG_RX)
+ #define NETIF_F_HW_VLAN_STAG_TX	__NETIF_F(HW_VLAN_STAG_TX)
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index c85e065..b2364f0 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -3583,6 +3583,7 @@ static inline bool net_gso_ok(netdev_features_t features, int gso_type)
+ 	BUILD_BUG_ON(SKB_GSO_UDP_TUNNEL != (NETIF_F_GSO_UDP_TUNNEL >> NETIF_F_GSO_SHIFT));
+ 	BUILD_BUG_ON(SKB_GSO_UDP_TUNNEL_CSUM != (NETIF_F_GSO_UDP_TUNNEL_CSUM >> NETIF_F_GSO_SHIFT));
+ 	BUILD_BUG_ON(SKB_GSO_MPLS    != (NETIF_F_GSO_MPLS >> NETIF_F_GSO_SHIFT));
++	BUILD_BUG_ON(SKB_GSO_TUNNEL_REMCSUM != (NETIF_F_GSO_TUNNEL_REMCSUM >> NETIF_F_GSO_SHIFT));
+ 
+ 	return (features & feature) == feature;
  }
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index a59d934..a41e101 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -372,6 +372,7 @@ enum {
  
-+static struct guehdr *gue_remcsum(struct sk_buff *skb, struct guehdr *guehdr,
-+				  void *data, int hdrlen, u8 ipproto)
-+{
-+	__be16 *pd = data;
-+	u16 start = ntohs(pd[0]);
-+	u16 offset = ntohs(pd[1]);
-+	u16 poffset = 0;
-+	u16 plen;
-+	__wsum csum, delta;
-+	__sum16 *psum;
-+
-+	if (skb->remcsum_offload) {
-+		/* Already processed in GRO path */
-+		skb->remcsum_offload = 0;
-+		return guehdr;
-+	}
-+
-+	if (start > skb->len - hdrlen ||
-+	    offset > skb->len - hdrlen - sizeof(u16))
-+		return NULL;
-+
-+	if (unlikely(skb->ip_summed != CHECKSUM_COMPLETE))
-+		__skb_checksum_complete(skb);
-+
-+	plen = hdrlen + offset + sizeof(u16);
-+	if (!pskb_may_pull(skb, plen))
-+		return NULL;
-+	guehdr = (struct guehdr *)&udp_hdr(skb)[1];
-+
-+	if (ipproto == IPPROTO_IP && sizeof(struct iphdr) < plen) {
-+		struct iphdr *ip = (struct iphdr *)(skb->data + hdrlen);
-+
-+		/* If next header happens to be IP we can skip that for the
-+		 * checksum calculation since the IP header checksum is zero
-+		 * if correct.
-+		 */
-+		poffset = ip->ihl * 4;
-+	}
-+
-+	csum = csum_sub(skb->csum, skb_checksum(skb, poffset + hdrlen,
-+						start - poffset - hdrlen, 0));
-+
-+	/* Set derived checksum in packet */
-+	psum = (__sum16 *)(skb->data + hdrlen + offset);
-+	delta = csum_sub(csum_fold(csum), *psum);
-+	*psum = csum_fold(csum);
-+
-+	/* Adjust skb->csum since we changed the packet */
-+	skb->csum = csum_add(skb->csum, delta);
-+
-+	return guehdr;
-+}
-+
- static int gue_control_message(struct sk_buff *skb, struct guehdr *guehdr)
- {
- 	/* No support yet */
-@@ -76,6 +129,7 @@ static int gue_udp_recv(struct sock *sk, struct sk_buff *skb)
- 	size_t len, optlen, hdrlen;
- 	struct guehdr *guehdr;
- 	void *data;
-+	u16 doffset = 0;
+ 	SKB_GSO_MPLS = 1 << 12,
  
- 	if (!fou)
- 		return 1;
-@@ -100,20 +154,43 @@ static int gue_udp_recv(struct sock *sk, struct sk_buff *skb)
- 	if (guehdr->version != 0 || validate_gue_flags(guehdr, optlen))
- 		goto drop;
++	SKB_GSO_TUNNEL_REMCSUM = 1 << 13,
+ };
  
--	/* Pull UDP and GUE headers */
--	fou_recv_pull(skb, len);
-+	hdrlen = sizeof(struct guehdr) + optlen;
-+
-+	ip_hdr(skb)->tot_len = htons(ntohs(ip_hdr(skb)->tot_len) - len);
-+
-+	/* Pull UDP header now, skb->data points to guehdr */
-+	__skb_pull(skb, sizeof(struct udphdr));
-+
-+	/* Pull csum through the guehdr now . This can be used if
-+	 * there is a remote checksum offload.
-+	 */
-+	skb_postpull_rcsum(skb, udp_hdr(skb), len);
+ #if BITS_PER_LONG > 32
+@@ -595,7 +596,8 @@ struct sk_buff {
+ #endif
+ 	__u8			ipvs_property:1;
+ 	__u8			inner_protocol_type:1;
+-	/* 4 or 6 bit hole */
++	__u8			remcsum_offload:1;
++	/* 3 or 5 bit hole */
  
- 	data = &guehdr[1];
+ #ifdef CONFIG_NET_SCHED
+ 	__u16			tc_index;	/* traffic control index */
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index e48e5c0..7001896 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -3013,7 +3013,7 @@ struct sk_buff *skb_segment(struct sk_buff *head_skb,
+ 		if (nskb->len == len + doffset)
+ 			goto perform_csum_check;
  
- 	if (guehdr->flags & GUE_FLAG_PRIV) {
--		data += GUE_LEN_PRIV;
-+		__be32 flags = *(__be32 *)(data + doffset);
-+
-+		doffset += GUE_LEN_PRIV;
+-		if (!sg) {
++		if (!sg && !nskb->remcsum_offload) {
+ 			nskb->ip_summed = CHECKSUM_NONE;
+ 			nskb->csum = skb_copy_and_csum_bits(head_skb, offset,
+ 							    skb_put(nskb, len),
+@@ -3085,7 +3085,7 @@ skip_fraglist:
+ 		nskb->truesize += nskb->data_len;
  
--		/* Process private flags */
-+		if (flags & GUE_PFLAG_REMCSUM) {
-+			guehdr = gue_remcsum(skb, guehdr, data + doffset,
-+					     hdrlen, guehdr->proto_ctype);
-+			if (!guehdr)
-+				goto drop;
-+
-+			data = &guehdr[1];
-+
-+			doffset += GUE_PLEN_REMCSUM;
-+		}
- 	}
+ perform_csum_check:
+-		if (!csum) {
++		if (!csum && !nskb->remcsum_offload) {
+ 			nskb->csum = skb_checksum(nskb, doffset,
+ 						  nskb->len - doffset, 0);
+ 			nskb->ip_summed = CHECKSUM_NONE;
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index 8b7fe5b..ed2c672 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -1222,6 +1222,7 @@ static struct sk_buff *inet_gso_segment(struct sk_buff *skb,
+ 		       SKB_GSO_TCPV6 |
+ 		       SKB_GSO_UDP_TUNNEL |
+ 		       SKB_GSO_UDP_TUNNEL_CSUM |
++		       SKB_GSO_TUNNEL_REMCSUM |
+ 		       SKB_GSO_MPLS |
+ 		       0)))
+ 		goto out;
+diff --git a/net/ipv4/tcp_offload.c b/net/ipv4/tcp_offload.c
+index 5b90f2f..a1b2a56 100644
+--- a/net/ipv4/tcp_offload.c
++++ b/net/ipv4/tcp_offload.c
+@@ -97,6 +97,7 @@ struct sk_buff *tcp_gso_segment(struct sk_buff *skb,
+ 			       SKB_GSO_MPLS |
+ 			       SKB_GSO_UDP_TUNNEL |
+ 			       SKB_GSO_UDP_TUNNEL_CSUM |
++			       SKB_GSO_TUNNEL_REMCSUM |
+ 			       0) ||
+ 			     !(type & (SKB_GSO_TCPV4 | SKB_GSO_TCPV6))))
+ 			goto out;
+diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
+index a774711..0a5a70d 100644
+--- a/net/ipv4/udp_offload.c
++++ b/net/ipv4/udp_offload.c
+@@ -41,7 +41,8 @@ static struct sk_buff *__skb_udp_tunnel_segment(struct sk_buff *skb,
+ 	unsigned int oldlen;
+ 	bool need_csum = !!(skb_shinfo(skb)->gso_type &
+ 			    SKB_GSO_UDP_TUNNEL_CSUM);
+-	bool offload_csum = false, dont_encap = need_csum;
++	bool remcsum = !!(skb_shinfo(skb)->gso_type & SKB_GSO_TUNNEL_REMCSUM);
++	bool offload_csum = false, dont_encap = (need_csum || remcsum);
  
- 	if (unlikely(guehdr->control))
- 		return gue_control_message(skb, guehdr);
+ 	oldlen = (u16)~skb->len;
  
-+	__skb_pull(skb, hdrlen);
-+	skb_reset_transport_header(skb);
-+
- 	return -guehdr->proto_ctype;
+@@ -55,6 +56,7 @@ static struct sk_buff *__skb_udp_tunnel_segment(struct sk_buff *skb,
+ 	skb->mac_len = skb_inner_network_offset(skb);
+ 	skb->protocol = new_protocol;
+ 	skb->encap_hdr_csum = need_csum;
++	skb->remcsum_offload = remcsum;
  
- drop:
-@@ -164,6 +241,66 @@ out_unlock:
- 	return err;
- }
- 
-+static struct guehdr *gue_gro_remcsum(struct sk_buff *skb, unsigned int off,
-+				      struct guehdr *guehdr, void *data,
-+				      size_t hdrlen, u8 ipproto)
-+{
-+	__be16 *pd = data;
-+	u16 start = ntohs(pd[0]);
-+	u16 offset = ntohs(pd[1]);
-+	u16 poffset = 0;
-+	u16 plen;
-+	void *ptr;
-+	__wsum csum, delta;
-+	__sum16 *psum;
-+
-+	if (skb->remcsum_offload)
-+		return guehdr;
-+
-+	if (start > skb_gro_len(skb) - hdrlen ||
-+	    offset > skb_gro_len(skb) - hdrlen - sizeof(u16) ||
-+	    !NAPI_GRO_CB(skb)->csum_valid || skb->remcsum_offload)
-+		return NULL;
-+
-+	plen = hdrlen + offset + sizeof(u16);
-+
-+	/* Pull checksum that will be written */
-+	if (skb_gro_header_hard(skb, off + plen)) {
-+		guehdr = skb_gro_header_slow(skb, off + plen, off);
-+		if (!guehdr)
-+			return NULL;
-+	}
-+
-+	ptr = (void *)guehdr + hdrlen;
-+
-+	if (ipproto == IPPROTO_IP &&
-+	    (hdrlen + sizeof(struct iphdr) < plen)) {
-+		struct iphdr *ip = (struct iphdr *)(ptr + hdrlen);
-+
-+		/* If next header happens to be IP we can skip
-+		 * that for the checksum calculation since the
-+		 * IP header checksum is zero if correct.
-+		 */
-+		poffset = ip->ihl * 4;
-+	}
-+
-+	csum = csum_sub(NAPI_GRO_CB(skb)->csum,
-+			csum_partial(ptr + poffset, start - poffset, 0));
-+
-+	/* Set derived checksum in packet */
-+	psum = (__sum16 *)(ptr + offset);
-+	delta = csum_sub(csum_fold(csum), *psum);
-+	*psum = csum_fold(csum);
-+
-+	/* Adjust skb->csum since we changed the packet */
-+	skb->csum = csum_add(skb->csum, delta);
-+	NAPI_GRO_CB(skb)->csum = csum_add(NAPI_GRO_CB(skb)->csum, delta);
-+
-+	skb->remcsum_offload = 1;
-+
-+	return guehdr;
-+}
-+
- static struct sk_buff **gue_gro_receive(struct sk_buff **head,
- 					struct sk_buff *skb)
- {
-@@ -174,6 +311,7 @@ static struct sk_buff **gue_gro_receive(struct sk_buff **head,
- 	struct guehdr *guehdr;
- 	size_t len, optlen, hdrlen, off;
- 	void *data;
-+	u16 doffset = 0;
- 	int flush = 1;
- 
- 	off = skb_gro_offset(skb);
-@@ -201,19 +339,33 @@ static struct sk_buff **gue_gro_receive(struct sk_buff **head,
- 
- 	hdrlen = sizeof(*guehdr) + optlen;
- 
--	skb_gro_pull(skb, hdrlen);
+ 	/* Try to offload checksum if possible */
+ 	offload_csum = !!(need_csum &&
+@@ -108,11 +110,22 @@ static struct sk_buff *__skb_udp_tunnel_segment(struct sk_buff *skb,
+ 		uh->check = ~csum_fold((__force __wsum)
+ 				       ((__force u32)uh->check +
+ 					(__force u32)delta));
 -
--	/* Adjusted NAPI_GRO_CB(skb)->csum after skb_gro_pull()*/
-+	/* Adjust NAPI_GRO_CB(skb)->csum to account for guehdr,
-+	 * this is needed if there is a remote checkcsum offload.
-+	 */
- 	skb_gro_postpull_rcsum(skb, guehdr, hdrlen);
- 
- 	data = &guehdr[1];
- 
- 	if (guehdr->flags & GUE_FLAG_PRIV) {
--		data += GUE_LEN_PRIV;
-+		__be32 flags = *(__be32 *)(data + doffset);
- 
--		/* Process private flags */
-+		doffset += GUE_LEN_PRIV;
+ 		if (offload_csum) {
+ 			skb->ip_summed = CHECKSUM_PARTIAL;
+ 			skb->csum_start = skb_transport_header(skb) - skb->head;
+ 			skb->csum_offset = offsetof(struct udphdr, check);
++		} else if (remcsum) {
++			/* Need to calculate checksum from scratch,
++			 * inner checksums are never when doing
++			 * remote_checksum_offload.
++			 */
 +
-+		if (flags & GUE_PFLAG_REMCSUM) {
-+			guehdr = gue_gro_remcsum(skb, off, guehdr,
-+						 data + doffset, hdrlen,
-+						 guehdr->proto_ctype);
-+			if (!guehdr)
-+				goto out;
-+
-+			data = &guehdr[1];
-+
-+			doffset += GUE_PLEN_REMCSUM;
-+		}
- 	}
++			skb->csum = skb_checksum(skb, udp_offset,
++						 skb->len - udp_offset,
++						 0);
++			uh->check = csum_fold(skb->csum);
++			if (uh->check == 0)
++				uh->check = CSUM_MANGLED_0;
+ 		} else {
+ 			uh->check = gso_make_checksum(skb, ~uh->check);
  
-+	skb_gro_pull(skb, hdrlen);
-+
- 	flush = 0;
- 
- 	for (p = *head; p; p = p->next) {
+@@ -192,6 +205,7 @@ static struct sk_buff *udp4_ufo_fragment(struct sk_buff *skb,
+ 		if (unlikely(type & ~(SKB_GSO_UDP | SKB_GSO_DODGY |
+ 				      SKB_GSO_UDP_TUNNEL |
+ 				      SKB_GSO_UDP_TUNNEL_CSUM |
++				      SKB_GSO_TUNNEL_REMCSUM |
+ 				      SKB_GSO_IPIP |
+ 				      SKB_GSO_GRE | SKB_GSO_GRE_CSUM |
+ 				      SKB_GSO_MPLS) ||
+diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
+index a071563..e976707 100644
+--- a/net/ipv6/ip6_offload.c
++++ b/net/ipv6/ip6_offload.c
+@@ -78,6 +78,7 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb,
+ 		       SKB_GSO_SIT |
+ 		       SKB_GSO_UDP_TUNNEL |
+ 		       SKB_GSO_UDP_TUNNEL_CSUM |
++		       SKB_GSO_TUNNEL_REMCSUM |
+ 		       SKB_GSO_MPLS |
+ 		       SKB_GSO_TCPV6 |
+ 		       0)))
+diff --git a/net/ipv6/udp_offload.c b/net/ipv6/udp_offload.c
+index 6b8f543..637ba2e 100644
+--- a/net/ipv6/udp_offload.c
++++ b/net/ipv6/udp_offload.c
+@@ -42,6 +42,7 @@ static struct sk_buff *udp6_ufo_fragment(struct sk_buff *skb,
+ 				      SKB_GSO_DODGY |
+ 				      SKB_GSO_UDP_TUNNEL |
+ 				      SKB_GSO_UDP_TUNNEL_CSUM |
++				      SKB_GSO_TUNNEL_REMCSUM |
+ 				      SKB_GSO_GRE |
+ 				      SKB_GSO_GRE_CSUM |
+ 				      SKB_GSO_IPIP |
 -- 
 2.1.0.rc2.206.gedb03e5
