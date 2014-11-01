@@ -1,91 +1,61 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH] net: fix saving TX flow hash in sock for outgoing
- connections
-Date: Sat, 01 Nov 2014 01:30:11 +0000
-Message-ID: <1414805411.16849.104.camel@decadent.org.uk>
-References: <1413999542.9031.13.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CF9D1877D81D214CB0CA0669EFAE020C68CA2FAA@CMEXMB1.ad.emulex.com>
-	 <1414004996.9031.20.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20141022.161402.119032019463935567.davem@davemloft.net>
+From: Chen Gang <gang.chen.5i5j@gmail.com>
+Subject: [PATCH] drivers: net: ethernet: xilinx: xilinx_emaclite: Compatible
+ with 'xlnx,xps-ethernetlite-2.00.b' for QEMU using
+Date: Sat, 01 Nov 2014 11:08:08 +0800
+Message-ID: <54544E98.4060007@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-A7CA1SCAS4VRuXZUD50V"
-Cc: eric.dumazet@gmail.com, Sathya.Perla@Emulex.Com,
-	netdev@vger.kernel.org, therbert@google.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:55318 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756643AbaKABaV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Oct 2014 21:30:21 -0400
-In-Reply-To: <20141022.161402.119032019463935567.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, sthokal@xilinx.com, manuel.schoelling@gmx.de,
+	paul.gortmaker@windriver.com, f.fainelli@gmail.com,
+	ebiederm@xmission.com, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: michal.simek@xilinx.com, soren.brinkmann@xilinx.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+When use current latest upstream qemu (current version: 2.1.2), need let
+driver compatible with 'xlnx,xps-ethernetlite-2.00.b', or can not find
+net device in microblaze qemu. Related QEMU commands under fedora 20:
 
---=-A7CA1SCAS4VRuXZUD50V
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+  yum install libvirt
+  yum install tunctl
+  tunctl -b
+  ip link set tap0 up
+  brctl addif virbr0 tap0
+  ./microblaze-softmmu/qemu-system-microblaze -M petalogix-s3adsp1800 \
+    -kernel ../linux-stable.microblaze/arch/microblaze/boot/linux.bin \
+    -no-reboot -append "console=ttyUL0,115200 doreboot" -nographic \
+    -net nic,vlan=0,model=xlnx.xps-ethernetlite,macaddr=00:16:35:AF:94:00 \
+    -net tap,vlan=0,ifname=tap0,script=no,downscript=no
 
-On Wed, 2014-10-22 at 16:14 -0400, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Wed, 22 Oct 2014 12:09:56 -0700
->=20
-> > On Wed, 2014-10-22 at 18:35 +0000, Sathya Perla wrote:
-> >> Agree. Are you suggesting that drivers should automatically
-> >> register an XPS configuration? I thought it was upto the user
-> >> to enable it...
-> >=20
-> > Yep, search for netif_set_xps_queue()
-> >=20
-> > (commit 537c00de1c9ba9876b9)
-> >=20
-> > Look at commit d03a68f8217ea0349 for an example of how it can be done,
-> > if user do not override this later.
->=20
-> Very few people know about this :-/
->=20
-> I only see 4 drivers adjusted to do this, it would be nice if this
-> was more widespread.
+  in microblaze qemu bash (guest machine):
 
-It seems to require that the driver also sets IRQ affinity hints, which
-I've never been very comfortable with.  Drivers either set queue n =3D CPU
-n without regard for topology, or optimise for whichever
-micro-architecture the vendor most cares about.  irqbalance then
-slavishly follows these hints, so we have each driver (rather than the
-administrator) setting policy.
+    ifconfig eth0 add 192.168.122.1 netmask 255.255.255.0
+    ifconfig eth0 up
 
-Alternately the driver could create an irq_cpu_rmap for its TX interupts
-and that could be used to select queues based on current affinity
-(<http://thread.gmane.org/gmane.linux.network/186698>).  But we already
-seem to have too many ways to do TX queue selection.
+After add this patch, can find the device, and can be used by 'telnetd'
+(need cross-build busybox with glibc for it), then outside can telnet to
+it without password.
 
-Ben.
+Signed-off-by: Chen Gang <gang.chen.5i5j@gmail.com>
+---
+ drivers/net/ethernet/xilinx/xilinx_emaclite.c | 1 +
+ 1 file changed, 1 insertion(+)
 
---=20
-Ben Hutchings
-The world is coming to an end.	Please log off.
-
---=-A7CA1SCAS4VRuXZUD50V
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIVAwUAVFQ3pOe/yOyVhhEJAQoMDhAAn2/t3mUJ2KR3m0fXG4JH1BrWvt03JGwq
-dPOhL3u/J1n5F1I9hNj+mTVAClwe1vBUn9okrlGuRxlQIZorMRrF3xw0X2t3mbST
-2q7T+8D5iZqabNXqOVwvYMrUDfERkC8/x5pK0h2HoCWImLGboxlnINdFtyeAVHj2
-6Q8FoDUiA4UEE+k4NrroNdpbS7ijSz/8iaH6p12IYtX1tUNoJxu4d1plBP5BNScM
-h93EJM6ALEcywzu0h35YRS6XnLRXRc0MIheOKfZNNG1l6TpPZsyYHu04r2rZTa5g
-gAtivTD2AtjpoUizo+4oAkLeQHE73Xh16j5cE0j/LZB4mdKdIZQ7sYacjJyRPMo0
-XnmmoWcVBoiIfc2IU44jZ5Y3kjy29qJHS42Wq9WzPMe95rzseujZZRZn1CTsCVeX
-mN0lmXPL2MpVf+YJnYoGPc3mkrgW0R+11gQqHtthtH61fbWjsJBdsqAiXEk+aHxz
-lwDUYqlqk21OMjVjeMKSCEn/rJnilAWtfEJyeSNIq49y4Mfq5rbttauXHjOMKmEq
-3vvyivQljroqzUDv74PmsXZbYU7qNEa1BZTEMHg696Xkd0+Dgv6iNVgwc3f9H1oN
-Zx9cPwnhuFQiRsyoM1VIZRbrbpcSaqeqls/kzRsLZ708ztp1I6FhPUr6QXgipi00
-zhNP9fsNt1c=
-=Sjai
------END PGP SIGNATURE-----
-
---=-A7CA1SCAS4VRuXZUD50V--
+diff --git a/drivers/net/ethernet/xilinx/xilinx_emaclite.c b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
+index 28dbbdc..298fad3 100644
+--- a/drivers/net/ethernet/xilinx/xilinx_emaclite.c
++++ b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
+@@ -1236,6 +1236,7 @@ static struct of_device_id xemaclite_of_match[] = {
+ 	{ .compatible = "xlnx,opb-ethernetlite-1.01.b", },
+ 	{ .compatible = "xlnx,xps-ethernetlite-1.00.a", },
+ 	{ .compatible = "xlnx,xps-ethernetlite-2.00.a", },
++	{ .compatible = "xlnx,xps-ethernetlite-2.00.b", },
+ 	{ .compatible = "xlnx,xps-ethernetlite-2.01.a", },
+ 	{ .compatible = "xlnx,xps-ethernetlite-3.00.a", },
+ 	{ /* end of list */ },
+-- 
+1.9.3
