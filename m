@@ -1,60 +1,59 @@
-From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-Subject: [PATCH 1/1] net: mv643xx_eth: Make TSO disabled by default
-Date: Sat,  1 Nov 2014 12:30:20 -0300
-Message-ID: <1414855820-15094-2-git-send-email-ezequiel.garcia@free-electrons.com>
-References: <1414855820-15094-1-git-send-email-ezequiel.garcia@free-electrons.com>
-Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Tawfik Bayouk <tawfik@marvell.com>,
-	Lior Amsalem <alior@marvell.com>,
-	Nadav Haklai <nadavh@marvell.com>,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-To: <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
+From: Denis Kirjanov <kda@linux-powerpc.org>
+Subject: Re: [PATCH v2] PPC: bpf_jit_comp: add SKF_AD_PKTTYPE instruction
+Date: Sat, 1 Nov 2014 20:19:09 +0400
+Message-ID: <CAOJe8K31iB9+7c1BnS=6DdriU08WUisM7sYgj8nOBo4Fg=XUBg@mail.gmail.com>
+References: <1414649535-3956-1-git-send-email-kda@linux-powerpc.org>
+	<CAADnVQKvfay7zC-kNGXz7uAjVrhqL80xQ=zvmAsSz4pNhD=9NQ@mail.gmail.com>
+	<CAHj3AVkpouHa1y0jt9c5dyYvnd6dctociTMW1ORdxaKdsFEbhQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linuxppc-dev@ozlabs.org, Michael Ellerman <mpe@ellerman.id.au>,
+	Matt Evans <matt@ozlabs.org>
+To: Denis Kirjanov <kirjanov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from down.free-electrons.com ([37.187.137.238]:46887 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752580AbaKAPcE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Nov 2014 11:32:04 -0400
-In-Reply-To: <1414855820-15094-1-git-send-email-ezequiel.garcia@free-electrons.com>
+Received: from mail-oi0-f46.google.com ([209.85.218.46]:36196 "EHLO
+	mail-oi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754100AbaKAQTK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Nov 2014 12:19:10 -0400
+Received: by mail-oi0-f46.google.com with SMTP id g201so7014414oib.33
+        for <netdev@vger.kernel.org>; Sat, 01 Nov 2014 09:19:09 -0700 (PDT)
+In-Reply-To: <CAHj3AVkpouHa1y0jt9c5dyYvnd6dctociTMW1ORdxaKdsFEbhQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Data corruption has been observed to be produced by TSO. For instance,
-accessing files on a NFS-server with TSO enabled results in different data
-transferred each time.
+ping
 
-This has been observed only on Kirkwood platforms, i.e. with the mv643xx_eth
-driver. Same tests on platforms using the mvneta ethernet driver have
-passed without errors.
-
-Make TSO disabled by default for now, until we can found a proper fix
-for the regression.
-
-Fixes: 3ae8f4e0b98 ('net: mv643xx_eth: Implement software TSO')
-Reported-by: Slawomir Gajzner <slawomir.gajzner@gmail.com>
-Reported-by: Julien D'Ascenzio <jdascenzio@yahoo.fr>
-Signed-off-by: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
----
- drivers/net/ethernet/marvell/mv643xx_eth.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
-index b151a94..8b72780 100644
---- a/drivers/net/ethernet/marvell/mv643xx_eth.c
-+++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
-@@ -3110,11 +3110,11 @@ static int mv643xx_eth_probe(struct platform_device *pdev)
- 	dev->watchdog_timeo = 2 * HZ;
- 	dev->base_addr = 0;
- 
--	dev->features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO;
-+	dev->features = NETIF_F_SG | NETIF_F_IP_CSUM;
- 	dev->vlan_features = dev->features;
- 
- 	dev->features |= NETIF_F_RXCSUM;
--	dev->hw_features = dev->features;
-+	dev->hw_features = dev->features  | NETIF_F_TSO;
- 
- 	dev->priv_flags |= IFF_UNICAST_FLT;
- 	dev->gso_max_segs = MV643XX_MAX_TSO_SEGS;
--- 
-2.1.0
+On 10/31/14, Denis Kirjanov <kirjanov@gmail.com> wrote:
+> On 10/30/14, Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
+>> On Wed, Oct 29, 2014 at 11:12 PM, Denis Kirjanov <kda@linux-powerpc.org>
+>> wrote:
+>>> Add BPF extension SKF_AD_PKTTYPE to ppc JIT to load
+>>> skb->pkt_type field.
+>>>
+>>> Before:
+>>> [   88.262622] test_bpf: #11 LD_IND_NET 86 97 99 PASS
+>>> [   88.265740] test_bpf: #12 LD_PKTTYPE 109 107 PASS
+>>>
+>>> After:
+>>> [   80.605964] test_bpf: #11 LD_IND_NET 44 40 39 PASS
+>>> [   80.607370] test_bpf: #12 LD_PKTTYPE 9 9 PASS
+>>
+>> if you'd only quoted #12, it would all make sense ;)
+>> but #11 test is not using PKTTYPE. So your patch shouldn't
+>> make a difference. Are these numbers with JIT on and off?
+>
+> Right.
+>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>
+>
+>
+> --
+> Regards,
+> Denis
+>
