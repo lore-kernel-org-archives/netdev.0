@@ -1,57 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] drivers: net: ethernet: xilinx: xilinx_emaclite:
- Compatible with 'xlnx,xps-ethernetlite-2.00.b' for QEMU using
-Date: Sat, 01 Nov 2014 17:03:34 -0400 (EDT)
-Message-ID: <20141101.170334.1183930795197912809.davem@davemloft.net>
-References: <54544E98.4060007@gmail.com>
-	<54545AB9.70206@gmail.com>
+Subject: Re: [PATCH] smc91x: retrieve IRQ and trigger flags in a modern way
+Date: Sat, 01 Nov 2014 17:04:39 -0400 (EDT)
+Message-ID: <20141101.170439.601714821948738788.davem@davemloft.net>
+References: <1414787526-11197-1-git-send-email-linus.walleij@linaro.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: michal.simek@xilinx.com, soren.brinkmann@xilinx.com,
-	sthokal@xilinx.com, manuel.schoelling@gmx.de,
-	paul.gortmaker@windriver.com, f.fainelli@gmail.com,
-	ebiederm@xmission.com, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
-To: gang.chen.5i5j@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54545AB9.70206@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, nico@fluxnic.net
+To: linus.walleij@linaro.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56058 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760399AbaKAVEl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Nov 2014 17:04:41 -0400
+In-Reply-To: <1414787526-11197-1-git-send-email-linus.walleij@linaro.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Chen Gang <gang.chen.5i5j@gmail.com>
-Date: Sat, 01 Nov 2014 11:59:53 +0800
+From: Linus Walleij <linus.walleij@linaro.org>
+Date: Fri, 31 Oct 2014 21:32:06 +0100
 
-> On 11/1/14 11:08, Chen Gang wrote:
->> When use current latest upstream qemu (current version: 2.1.2), need let
->> driver compatible with 'xlnx,xps-ethernetlite-2.00.b', or can not find
->> net device in microblaze qemu. Related QEMU commands under fedora 20:
->> 
->>   yum install libvirt
->>   yum install tunctl
->>   tunctl -b
->>   ip link set tap0 up
->>   brctl addif virbr0 tap0
->>   ./microblaze-softmmu/qemu-system-microblaze -M petalogix-s3adsp1800 \
->>     -kernel ../linux-stable.microblaze/arch/microblaze/boot/linux.bin \
->>     -no-reboot -append "console=ttyUL0,115200 doreboot" -nographic \
->>     -net nic,vlan=0,model=xlnx.xps-ethernetlite,macaddr=00:16:35:AF:94:00 \
->>     -net tap,vlan=0,ifname=tap0,script=no,downscript=no
->> 
->>   in microblaze qemu bash (guest machine):
->> 
->>     ifconfig eth0 add 192.168.122.1 netmask 255.255.255.0
+> The SMC91x is written to explicitly look up the IRQ resource
+> from the platform device and extract the IRQ and flags, however
+> the platform_get_irq() does additional things, like call
+> of_irq_get() in the device tree case, which will translate
+> the IRQ using the irqdomain and defer the probe if the
+> IRQ host cannot be found.
 > 
-> Oh, sorry, it is 192.168.122.2 (192.168.122.1 is the router address).
+> As we're not looking up the resource, this will not retrieve
+> the IRQ flags, but that is better done using
+> irqd_get_trigger_type(), as the trigger is what the driver
+> wants to modify. We take care to preserve the semantics that
+> will make the trigger type provided from the resource
+> override any local specifier.
 > 
-> Thanks.
+> Tested on the Nomadik NHK15 which has its SMC91x IRQ line
+> connected to a STMPE2401 GPIO expander on I2C.
 > 
->>     ifconfig eth0 up
->> 
->> After add this patch, can find the device, and can be used by 'telnetd'
->> (need cross-build busybox with glibc for it), then outside can telnet to
->> it without password.
->> 
->> Signed-off-by: Chen Gang <gang.chen.5i5j@gmail.com>
+> Signed-off-by: Linus Walleij <linus.walleij@linaro.org>
 
-Applied with correct commit message, thanks.
+Applied, thanks.
