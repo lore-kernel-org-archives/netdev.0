@@ -1,55 +1,78 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net 2/2] net: systemport: do not crash freeing an unitialized TX ring
-Date: Fri, 31 Oct 2014 15:51:35 -0700
-Message-ID: <1414795895-31612-3-git-send-email-f.fainelli@gmail.com>
-References: <1414795895-31612-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [stable request <= 3.11] net/mlx4_en: Fix BlueFlame race
+Date: Sat, 01 Nov 2014 01:29:13 +0000
+Message-ID: <1414805353.16849.98.camel@decadent.org.uk>
+References: <CAHTgTXVn1479XCoh1-j=Xghtad3zA-hf0za5r_AyoaKuKeFZ2g@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-fzRKpeqwBGMdrJTpgfD4"
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Amir Vadai <amirv@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Jack Morgenstein <jackm@dev.mellanox.co.il>,
+	Eugenia Emantayev <eugenia@mellanox.com>,
+	Matan Barak <matanb@mellanox.com>, netdev@vger.kernel.org
+To: Vinson Lee <vlee@twopensource.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:47009 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757265AbaJaWwd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Oct 2014 18:52:33 -0400
-Received: by mail-pa0-f41.google.com with SMTP id rd3so8571831pab.14
-        for <netdev@vger.kernel.org>; Fri, 31 Oct 2014 15:52:33 -0700 (PDT)
-In-Reply-To: <1414795895-31612-1-git-send-email-f.fainelli@gmail.com>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:55277 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750808AbaKAB3h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Oct 2014 21:29:37 -0400
+In-Reply-To: <CAHTgTXVn1479XCoh1-j=Xghtad3zA-hf0za5r_AyoaKuKeFZ2g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Callers of bcm_sysport_init_tx_ring() can currently fail, and will
-always call bcm_sysport_fini_tx_ring() in a loop ending at the number of
-TX queues (32) without checking if the TX ring was successfully
-initialized or not.
 
-Update bcm_sysport_fini_tx_ring() to return early and avoid a crash
-de-referencing ring->cbs if the TX ring was not initialized, since
-ring->cbs is the last part of the initialization done by
-bcm_sysport_init_tx_ring() that could fail.
+--=-fzRKpeqwBGMdrJTpgfD4
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Fixes: 80105befdb4b ("net: systemport: add Broadcom SYSTEMPORT Ethernet MAC driver")
-Reported-by: Maxime Bizon <mbizon@freebox.fr>
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/ethernet/broadcom/bcmsysport.c | 7 +++++++
- 1 file changed, 7 insertions(+)
+On Sat, 2014-10-18 at 14:14 -0700, Vinson Lee wrote:
+> Hi.
+>=20
+> Please consider backporting upstream commit
+> 2d4b646613d6b12175b017aca18113945af1faf3 "net/mlx4_en: Fix BlueFlame
+> race" to stable kernels <=3D 3.11.
+>=20
+> commit 2d4b646613d6b12175b017aca18113945af1faf3
+> Author: Eugenia Emantayev <eugenia@mellanox.com>
+> Date:   Thu Jul 25 19:21:23 2013 +0300
+>=20
+>     net/mlx4_en: Fix BlueFlame race
+[...]
 
-diff --git a/drivers/net/ethernet/broadcom/bcmsysport.c b/drivers/net/ethernet/broadcom/bcmsysport.c
-index c81bf74685c0..531bb7c57531 100644
---- a/drivers/net/ethernet/broadcom/bcmsysport.c
-+++ b/drivers/net/ethernet/broadcom/bcmsysport.c
-@@ -1175,6 +1175,13 @@ static void bcm_sysport_fini_tx_ring(struct bcm_sysport_priv *priv,
- 	if (!(reg & TDMA_DISABLED))
- 		netdev_warn(priv->netdev, "TDMA not stopped!\n");
- 
-+	/* ring->cbs is the last part in bcm_sysport_init_tx_ring which could
-+	 * fail, so by checking this pointer we know whether the TX ring was
-+	 * fully initialized or not.
-+	 */
-+	if (!ring->cbs)
-+		return;
-+
- 	napi_disable(&ring->napi);
- 	netif_napi_del(&ring->napi);
- 
--- 
-1.9.1
+David doesn't support anything older than 3.12 now, so you should send
+requests for older stable branches directly to the stable list.
+
+I tried to apply this one to 3.2-stable, but it failed.  If it's needed
+there you'll have to provide a backport.
+
+Ben.
+
+--=20
+Ben Hutchings
+The world is coming to an end.	Please log off.
+
+--=-fzRKpeqwBGMdrJTpgfD4
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIVAwUAVFQ3dee/yOyVhhEJAQpI7xAAqr5bAmRIP1w7BbC7LGAhHvQjTdkUe2bQ
+njMIcVkl0/9704MjI2OmQ34l73ddhyfow6DpdrIizK+zmEusrYCGqxaqxsotOPKF
+QwZJLXgtRJKrZNBBX6JLalrU2qipSJ+FD6Cx9xm4yh3UvMvJihsEuK8r2y0QAbm4
+4BAHhFTIr947niQOT+uTmIxNoD9XYAML0K5rOv/lNbLdDeLcEqIw1ytFRUU9I0Da
+LrFIhCiURFPjZKcp/Y8kZPg07ecZwF5AULkAeTFK+JyB70PPhHAayUNDgO5efHFN
+2zpT8+QEAud0Sas8HoU8OlLyclwA3+gSfUF7kmbIbpqmGGVtNSpvkO4PpUfcL79W
++wwAHlsVa67GaRDic6o8n6vwF8lsLYN+3OUn1wR9/x8+TVtthNQyuZmKWz/H0j5P
+y077sU1/FYbMeWqrAkI1FapcdB8f/o4S1NvUc6xtDbO6c4fqA/sVG+NQ4fomXYLc
+rIxrWfKZumgbDokCagcnYuY49VvaqJtn6F263FBMhbaDFVQsVQe5OlvJcKUW7s3s
+BoPFoyhkXbGLYSx+KYQkgd4fjYRzeiJHcZUms9KW0nimHQFAguSSaBDhOO3AQS+W
+bjCcX4EbzGQ01AIFr5mH2DeSDS5/b/BMK7K/+nUNPpSjie/QhrvPgiI4Lq8VDwRp
+AmkRVweDXV8=
+=deFx
+-----END PGP SIGNATURE-----
+
+--=-fzRKpeqwBGMdrJTpgfD4--
