@@ -1,53 +1,56 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] net: mv643xx_eth: Make TSO disabled by default
-Date: Sat, 01 Nov 2014 13:40:40 -0400 (EDT)
-Message-ID: <20141101.134040.2199591301326553094.davem@davemloft.net>
-References: <1414855820-15094-1-git-send-email-ezequiel.garcia@free-electrons.com>
-	<1414855820-15094-2-git-send-email-ezequiel.garcia@free-electrons.com>
-	<20141101180037.087b7a95@free-electrons.com>
+Subject: Re: [stable request <= 3.11] net/mlx4_en: Fix BlueFlame race
+Date: Sat, 01 Nov 2014 13:41:42 -0400 (EDT)
+Message-ID: <20141101.134142.888127846627939710.davem@davemloft.net>
+References: <CAHTgTXVn1479XCoh1-j=Xghtad3zA-hf0za5r_AyoaKuKeFZ2g@mail.gmail.com>
+	<1414805353.16849.98.camel@decadent.org.uk>
+	<CAHA+R7OyLv2YO8AduNhnEgW3RyYZwWNEHY6W-v_HXgVT9AOaKw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ezequiel.garcia@free-electrons.com, netdev@vger.kernel.org,
-	gregory.clement@free-electrons.com, tawfik@marvell.com,
-	alior@marvell.com, nadavh@marvell.com
-To: thomas.petazzoni@free-electrons.com
+Cc: ben@decadent.org.uk, vlee@twopensource.com, amirv@mellanox.com,
+	ogerlitz@mellanox.com, jackm@dev.mellanox.co.il,
+	eugenia@mellanox.com, matanb@mellanox.com, netdev@vger.kernel.org
+To: cwang@twopensource.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54404 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54415 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752499AbaKARkm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Nov 2014 13:40:42 -0400
-In-Reply-To: <20141101180037.087b7a95@free-electrons.com>
+	with ESMTP id S1752464AbaKARlo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Nov 2014 13:41:44 -0400
+In-Reply-To: <CAHA+R7OyLv2YO8AduNhnEgW3RyYZwWNEHY6W-v_HXgVT9AOaKw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Date: Sat, 1 Nov 2014 18:00:37 +0100
+From: Cong Wang <cwang@twopensource.com>
+Date: Sat, 1 Nov 2014 10:17:43 -0700
 
-> Dear Ezequiel Garcia,
+> On Fri, Oct 31, 2014 at 6:29 PM, Ben Hutchings <ben@decadent.org.uk> wrote:
+>> On Sat, 2014-10-18 at 14:14 -0700, Vinson Lee wrote:
+>>> Hi.
+>>>
+>>> Please consider backporting upstream commit
+>>> 2d4b646613d6b12175b017aca18113945af1faf3 "net/mlx4_en: Fix BlueFlame
+>>> race" to stable kernels <= 3.11.
+>>>
+>>> commit 2d4b646613d6b12175b017aca18113945af1faf3
+>>> Author: Eugenia Emantayev <eugenia@mellanox.com>
+>>> Date:   Thu Jul 25 19:21:23 2013 +0300
+>>>
+>>>     net/mlx4_en: Fix BlueFlame race
+>> [...]
+>>
+>> David doesn't support anything older than 3.12 now, so you should send
+>> requests for older stable branches directly to the stable list.
 > 
-> On Sat,  1 Nov 2014 12:30:20 -0300, Ezequiel Garcia wrote:
->> Data corruption has been observed to be produced by TSO. For instance,
->> accessing files on a NFS-server with TSO enabled results in different data
->> transferred each time.
->> 
->> This has been observed only on Kirkwood platforms, i.e. with the mv643xx_eth
->> driver. Same tests on platforms using the mvneta ethernet driver have
->> passed without errors.
->> 
->> Make TSO disabled by default for now, until we can found a proper fix
->> for the regression.
->> 
->> Fixes: 3ae8f4e0b98 ('net: mv643xx_eth: Implement software TSO')
->> Reported-by: Slawomir Gajzner <slawomir.gajzner@gmail.com>
->> Reported-by: Julien D'Ascenzio <jdascenzio@yahoo.fr>
->> Signed-off-by: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+> Interesting, is there a document saying which stable kernels netdev
+> supports? and how are they chosen?
 > 
-> Shouldn't you have a:
+> I thought netdev supports all -stable maintainers support.
 > 
->    Cc: <stable@vger.kernel.org> # v3.16+
+> Anyway, we will send the request directly to Greg then.
 
-Networking patches do not get sent to -stable that way.
+There is no documented way nor do I wish to state anything so strictly.
+I want maximum flexibility for such a time consuming task.
 
-Instead, people specifically request that I queue up the change
-for -stable and I submit it by hand at the appropriate time.
+I tend to go back 3 or 4 releases at most, and it really depends upon
+the difficulty of the backports and my own time constraints.
