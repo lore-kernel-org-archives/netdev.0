@@ -1,67 +1,60 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: Connection with Smart Z hangs
-Date: Sun, 2 Nov 2014 10:20:22 -0800
-Message-ID: <CA+55aFzB+d8+pjvuPo-n5G7X9MK9vh9ER5zYLCXZBzjMD4bseA@mail.gmail.com>
-References: <544782AF.2060406@gmx.de>
-	<544D4DBB.9050103@libdivecomputer.org>
-	<54566950.5080206@gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH net] uapi: add missing network related headers to kbuild
+Date: Sun, 2 Nov 2014 11:31:41 -0800
+Message-ID: <20141102113141.7aa1065c@urahara>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: devel <devel@libdivecomputer.org>,
-	Network Development <netdev@vger.kernel.org>
-To: Martin Lang <mlg.hessigheim@gmail.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f176.google.com ([209.85.220.176]:45553 "EHLO
-	mail-vc0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751168AbaKBSUX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Nov 2014 13:20:23 -0500
-Received: by mail-vc0-f176.google.com with SMTP id hq12so1564633vcb.21
-        for <netdev@vger.kernel.org>; Sun, 02 Nov 2014 10:20:22 -0800 (PST)
-In-Reply-To: <54566950.5080206@gmail.com>
+Received: from mail-pd0-f170.google.com ([209.85.192.170]:48818 "EHLO
+	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751254AbaKBTbx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Nov 2014 14:31:53 -0500
+Received: by mail-pd0-f170.google.com with SMTP id z10so10260595pdj.15
+        for <netdev@vger.kernel.org>; Sun, 02 Nov 2014 11:31:52 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Nov 2, 2014 at 9:26 AM, Martin Lang <mlg.hessigheim@gmail.com> wrote:
->
-> I debugged a little bit and got the impression that the problem is with the
-> IRDA driver and not libdivecomputer.
+The makefile for sanitizing kernel headers uses the kbuild file
+to determine which files to do. Several networking related headers
+were missing. Without these headers iproute2 build would break.
 
-Looks that way.
+Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
-> [  767.319321] BUG: unable to handle kernel NULL pointer dereference at (null)
-> [  767.320541] CPU: 0 PID: 3093 Comm: smart Not tainted 3.13.0-37-generic #64-Ubuntu
 
-Ugh. 3.13. I guess you can't get anything newer through Ubuntu without
-going through some big upgrade of everything.
-
-Not that I see any likely fixes since 3.13. Irda is basically dead
-technology, the only user we ever see any more are a very few dive
-computers. So nobody maintains it any more.
-
-In fact, we had this very bug reported last *year*, and I debugged it,
-and sent my
-
-> [  767.322008]  [<ffffffffa02c75c6>] ? irda_connect+0x156/0x480 [irda]
-> [  767.322540] Code:  Bad RIP value.
-
-Ok, it's a call to a NULL pointer, which is bad. The only such call is the
-
-    sk->sk_prot->disconnect()
-
-call, and the "disconnect" function for irda is NULL, always has been
-and probably always will be. And nobody has ever fixed this. There was
-a thread in late december last year (and early January this year about
-this particular oops and another one) where I reported this, and
-people agreed that it was all bogus. There was a separate locking
-issue too, which wasn't as simple.
-
-David, I'm just going to remove that whole bogus disconnect call. It
-won't make things *work* for Martin (because this is all in the
-"connect failed" path), but that call as-is is just wrong, wrong,
-wrong. And apparently nobody cares about irda any more.
-
-If anybody is at all interested in helping maintain irda code, holler
-to David and to the netdev mailing list. The position is up for grabs.
-
-                          Linus
+--- a/include/uapi/linux/Kbuild	2014-11-02 11:18:59.918650081 -0800
++++ b/include/uapi/linux/Kbuild	2014-11-02 11:24:32.304658688 -0800
+@@ -125,6 +125,7 @@ header-y += filter.h
+ header-y += firewire-cdev.h
+ header-y += firewire-constants.h
+ header-y += flat.h
++header-y += fou.h
+ header-y += fs.h
+ header-y += fsl_hypervisor.h
+ header-y += fuse.h
+@@ -141,6 +142,7 @@ header-y += hid.h
+ header-y += hiddev.h
+ header-y += hidraw.h
+ header-y += hpet.h
++header-y += hsr_netlink.h
+ header-y += hyperv.h
+ header-y += hysdn_if.h
+ header-y += i2c-dev.h
+@@ -251,6 +253,7 @@ header-y += mii.h
+ header-y += minix_fs.h
+ header-y += mman.h
+ header-y += mmtimer.h
++header-y += mpls.h
+ header-y += mqueue.h
+ header-y += mroute.h
+ header-y += mroute6.h
+@@ -424,6 +427,7 @@ header-y += virtio_net.h
+ header-y += virtio_pci.h
+ header-y += virtio_ring.h
+ header-y += virtio_rng.h
++header=y += vm_sockets.h
+ header-y += vt.h
+ header-y += wait.h
+ header-y += wanrouter.h
