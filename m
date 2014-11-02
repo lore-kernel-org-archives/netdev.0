@@ -1,49 +1,73 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 2/5] ip fou: Support to configure foo-over-udp
- RX
-Date: Sun, 2 Nov 2014 12:53:36 -0800
-Message-ID: <20141102125336.47792bd2@urahara>
-References: <1412351718-22921-1-git-send-email-therbert@google.com>
- <1412351718-22921-3-git-send-email-therbert@google.com>
- <20141102113610.785543ff@urahara>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] bridge: fix netfilter/NF_BR_LOCAL_OUT for own,
+ locally generated queries
+Date: Mon, 3 Nov 2014 06:01:46 +0800
+Message-ID: <20141102220145.GA25604@gondor.apana.org.au>
+References: <1411342364-4791-1-git-send-email-linus.luessing@web.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Tom Herbert <therbert@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:51684 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751599AbaKBUxt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Nov 2014 15:53:49 -0500
-Received: by mail-pa0-f43.google.com with SMTP id eu11so10933562pac.16
-        for <netdev@vger.kernel.org>; Sun, 02 Nov 2014 12:53:48 -0800 (PST)
-In-Reply-To: <20141102113610.785543ff@urahara>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Stephen Hemminger <stephen@networkplumber.org>, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, "David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org
+To: Linus =?iso-8859-1?Q?L=FCssing?= <linus.luessing@web.de>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1411342364-4791-1-git-send-email-linus.luessing@web.de>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2 Nov 2014 11:36:10 -0800
-Stephen Hemminger <stephen@networkplumber.org> wrote:
+On Mon, Sep 22, 2014 at 01:32:44AM +0200, Linus L=C3=BCssing wrote:
+> Ebtables on the OUTPUT chain (NF_BR_LOCAL_OUT) would not work as expect=
+ed
+> for both locally generated IGMP and MLD queries. The IP header specific
+> filter options are off by 14 Bytes for netfilter (actual output on
+> interfaces is fine).
+>=20
+> NF_HOOK()=E2=80=AFexpects the skb->data to point to the IP header, not =
+the
+> ethernet one (while dev_queue_xmit()=E2=80=AFdoes not). Luckily there i=
+s an
+> br_dev_queue_push_xmit() helper function already - let's just use that.
+>=20
+> Introduced by eb1d16414339a6e113d89e2cca2556005d7ce919
+> ("bridge: Add core IGMP snooping support")
+>=20
+> Ebtables example:
+>=20
+> $ ebtables -I OUTPUT -p IPv6 -o eth1 --logical-out br0 \
+> 	--log --log-level 6 --log-ip6 --log-prefix=3D"~EBT: " -j DROP
+>=20
+> before (broken):
+>=20
+> ~EBT:  IN=3D OUT=3Deth1 MAC source =3D 02:04:64:a4:39:c2 \
+> 	MAC dest =3D 33:33:00:00:00:01 proto =3D 0x86dd IPv6 \
+> 	SRC=3D64a4:39c2:86dd:6000:0000:0020:0001:fe80 IPv6 \
+> 	DST=3D0000:0000:0000:0004:64ff:fea4:39c2:ff02, \
+> 	IPv6 priority=3D0x3, Next Header=3D2
+>=20
+> after (working):
+>=20
+> ~EBT:  IN=3D OUT=3Deth1 MAC source =3D 02:04:64:a4:39:c2 \
+> 	MAC dest =3D 33:33:00:00:00:01 proto =3D 0x86dd IPv6 \
+> 	SRC=3Dfe80:0000:0000:0000:0004:64ff:fea4:39c2 IPv6 \
+> 	DST=3Dff02:0000:0000:0000:0000:0000:0000:0001, \
+> 	IPv6 priority=3D0x0, Next Header=3D0
+>=20
+> Signed-off-by: Linus L=C3=BCssing <linus.luessing@web.de>
 
-> On Fri,  3 Oct 2014 08:55:15 -0700
-> Tom Herbert <therbert@google.com> wrote:
-> 
-> > Added 'ip fou...' commands to enable/disable UDP ports for doing
-> > foo-over-udp and Generic UDP Encapsulation variant. Arguments are port
-> > number to bind to and IP protocol to map to port (for direct FOU).
-> > 
-> > Examples:
-> > 
-> > ip fou add port 7777 gue
-> > ip fou add port 8888 ipproto 4
-> > 
-> > The first command creates a GUE port, the second creates a direct FOU
-> > port for IPIP (receive payload is a assumed to be an IPv4 packet).
-> > 
-> > Signed-off-by: Tom Herbert <therbert@google.com>
-> 
-> Accepted.
-> Also discovered that fou.h was missing from kernel Kbuild uapi.
+Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-I backed out the change since the rest of the patch series has
-issues. Please fix and r
+Cheers,
+--=20
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
