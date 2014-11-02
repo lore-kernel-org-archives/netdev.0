@@ -1,112 +1,77 @@
-From: Alexander Aring <alex.aring@gmail.com>
-Subject: IEEE 802.15.4 6LoWPAN need to change netdev type UAPI - How we can
- do it right now?
-Date: Sun, 2 Nov 2014 13:41:13 +0100
-Message-ID: <20141102124111.GA10216@omega>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] net: shrink struct softnet_data
+Date: Sun, 02 Nov 2014 06:00:12 -0800
+Message-ID: <1414936812.31792.31.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: linux-wpan@vger.kernel.org, linux-bluetooth@vger.kernel.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f176.google.com ([209.85.212.176]:52597 "EHLO
-	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752466AbaKBMlX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Nov 2014 07:41:23 -0500
-Content-Disposition: inline
+Received: from mail-ig0-f176.google.com ([209.85.213.176]:59922 "EHLO
+	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751820AbaKBOAP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Nov 2014 09:00:15 -0500
+Received: by mail-ig0-f176.google.com with SMTP id l13so3696424iga.9
+        for <netdev@vger.kernel.org>; Sun, 02 Nov 2014 06:00:14 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Eric Dumazet <edumazet@google.com>
 
-The IEEE 802.15.4 with 6LoWPAN has a big problem. We have two interfaces
-one "wpan" interface which belongs the IEEE 802.15.4 subsystem and the
-"lowpan" interface for IEEE 802.15.4 6LoWPAN layer.
+flow_limit in struct softnet_data is only read from local cpu
+and can be moved to fill a hole, reducing softnet_data size by
+64 bytes on x86_64
 
-The big problem is that "wpan" and "lowpan" interfaces use the same
-ARPHRD type. This is "ARPHRD_IEEE802154".
+While we are at it, move output_queue, output_queue_tailp and
+completion_queue, so that rx / tx paths touch a single cache line.
 
-In kernelspace we can't decide if I handle now a "wpan" interface or
-"lowpan" interface and there exist two problems which I know.
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ include/linux/netdevice.h |   15 ++++++++-------
+ 1 file changed, 8 insertions(+), 7 deletions(-)
 
-These are:
-
-1. Freeing resources
-
-If we create a "wpan" interface we allocate some private data, etc.
-which the "lowpan" doesn't allocate. If we free/unregister a wpan
-interface over netlink we will free these private resources. Now if
-we call the netlink with an "lowpan" interface we try to freeing the
-same resources. Of course this will fail because on allocation we don't
-allocate the "wpan" resources. We can't decide at netlink interface if
-it's a "wpan" or "lowpan" interface. On a "lowpan" interface we could
-return -EINVAL then, but we can't decide that.
-
-Possible hacking solution would be to remember the ifindex of all "wpan"
-registrated interfaces and check if it fits. I don't know if this
-solution could be 100% save.
-
-2. Confusing userspace applications
-
-Userspace applications can't also decide between "wpan" and "lowpan"
-interfaces. Currently applications like "wireshark" will decode all
-"packets" on "lowpan" as IEEE 802.15.4 frames by default. Correct
-should be IPv6 packets decoding. Changing wireshark to decode
-ARPHRD_IEEE802154 as IPv6 by default will occur that a "wpan" interface
-will have a wrong default decoding.
-
-Possible hacking solution would here to try to create a IPv6 socket if
-it's fail it's an wpan interface, if succesful we have a lowpan interface.
-
-
-In my opinion we need to change this behaviour, but it's an UAPI change
-and I will do it right the first time. Possible types we could change to
-is "ARPHRD_6LOWPAN" which is also used by bluetooth.
-
-
-Two solutions:
-
-- Changing type to "ARPHRD_6LOWPAN":
-
-Furthermore we need to make "small" runtime decisions in IPv6. The
-ARPHRD_6LOWPAN is used by bluetooth and maybe possible IEEE 802.15.4.
-These "small" runtime decisions needs L2 informations from bluetooth or
-IEEE 802.15.4. If we change now to "ARPHRD_6LOWPAN" we have a much
-similar issue that we can't decide between a 6LoWPAN bluetooth interface
-or 6LoWPAN 802.15.4 interface. At userspace this should make no
-difference. It's only to decide interface types inside upper layers
-inside kernelspace.
-
-Possible solution could be to introduce a ARPHRD_SUBTYPE and place it to
-the beginning of netdev_priv(dev) structure. This structure could look
-like:
-
-struct lowpan_netdev_priv {
-	/* subtype of ARPHRD_6LOWPAN */
-	enum lowpan_subtype subtype;
-	/* private data of L2 subtype */
-	void *priv;
-};
-
-In upper layers like IPv6 we could first check if it's a ARPHRD_6LOWPAN
-type. After that and we need really L2 different handling we can check
-on the lowpan_subtype subtype which is placed in netdev_priv.
-
-This solution require that all ARPHRD_6LOWPAN interfaces use the
-lowpan_netdev_priv structure in netdev_priv. I am also not 100% sure if
-we need such information in userspace, maybe we can introduce also a
-subtype netlink type to get the ARPHRD_6LOWPAN subtype.
-
-
-- introduce new ARPHRD "ARPHRD_6LOWPAN_IEEE802154"
-
-Just add another type without complicated subtype mechanism.
-
-
-
-I hope it's clear that I run into several issues because "wpan" and
-"lowpan" uses the same ARPHRD. This code is already 4 years old and
-there exists already userspace software which checks on
-ARPHRD_IEEE802154 for lowpan interfaces. I need some help how we can
-deal now with this "just change the dev->type?". If yes, to which type?
-
-- Alex
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index c85e065122460e9f077bcb6788018be38e1d7ddf..5ed05bd764dcf3699afdd9a7b17600246de22d1d 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2329,10 +2329,7 @@ extern int netdev_flow_limit_table_len;
+  * Incoming packets are placed on per-cpu queues
+  */
+ struct softnet_data {
+-	struct Qdisc		*output_queue;
+-	struct Qdisc		**output_queue_tailp;
+ 	struct list_head	poll_list;
+-	struct sk_buff		*completion_queue;
+ 	struct sk_buff_head	process_queue;
+ 
+ 	/* stats */
+@@ -2340,10 +2337,17 @@ struct softnet_data {
+ 	unsigned int		time_squeeze;
+ 	unsigned int		cpu_collision;
+ 	unsigned int		received_rps;
+-
+ #ifdef CONFIG_RPS
+ 	struct softnet_data	*rps_ipi_list;
++#endif
++#ifdef CONFIG_NET_FLOW_LIMIT
++	struct sd_flow_limit __rcu *flow_limit;
++#endif
++	struct Qdisc		*output_queue;
++	struct Qdisc		**output_queue_tailp;
++	struct sk_buff		*completion_queue;
+ 
++#ifdef CONFIG_RPS
+ 	/* Elements below can be accessed between CPUs for RPS */
+ 	struct call_single_data	csd ____cacheline_aligned_in_smp;
+ 	struct softnet_data	*rps_ipi_next;
+@@ -2355,9 +2359,6 @@ struct softnet_data {
+ 	struct sk_buff_head	input_pkt_queue;
+ 	struct napi_struct	backlog;
+ 
+-#ifdef CONFIG_NET_FLOW_LIMIT
+-	struct sd_flow_limit __rcu *flow_limit;
+-#endif
+ };
+ 
+ static inline void input_queue_head_incr(struct softnet_data *sd)
