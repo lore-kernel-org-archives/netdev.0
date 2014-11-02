@@ -1,135 +1,67 @@
-From: Tom Herbert <therbert@google.com>
-Subject: [PATCH net-next 2/7] udp: Offload outer UDP tunnel csum if available
-Date: Sat,  1 Nov 2014 15:57:58 -0700
-Message-ID: <1414882683-25484-3-git-send-email-therbert@google.com>
-References: <1414882683-25484-1-git-send-email-therbert@google.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: Alexander Aring <alex.aring@gmail.com>
+Subject: [PATCH bluetooth-next] netdevice: add ieee802154_ptr to net_device
+Date: Sun,  2 Nov 2014 06:44:54 +0100
+Message-ID: <1414907094-9623-1-git-send-email-alex.aring@gmail.com>
+Cc: kernel@pengutronix.de, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org,
+	Alexander Aring <alex.aring@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: linux-wpan@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f173.google.com ([209.85.213.173]:46920 "EHLO
-	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752557AbaKAW6Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Nov 2014 18:58:25 -0400
-Received: by mail-ig0-f173.google.com with SMTP id r10so2879419igi.6
-        for <netdev@vger.kernel.org>; Sat, 01 Nov 2014 15:58:24 -0700 (PDT)
-In-Reply-To: <1414882683-25484-1-git-send-email-therbert@google.com>
+Received: from mail-wi0-f179.google.com ([209.85.212.179]:57243 "EHLO
+	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750745AbaKBFp6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Nov 2014 01:45:58 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In __skb_udp_tunnel_segment if outer UDP checksums are enabled and
-ip_summed is not already CHECKSUM_PARTIAL, set up checksum offload
-if device features allow it.
+This patch adds an ieee802154_ptr to the net_device structure.
+Furthermore the 802.15.4 subsystem will introduce a nl802154 framework
+which is similar like the nl80211 framework and a wpan_dev structure.
+The wpan_dev structure will hold additional net_device attributes like
+address options which are 802.15.4 specific. In the upcoming nl802154
+implementation we will introduce a NL802154_FLAG_NEED_WPAN_DEV like
+NL80211_FLAG_NEED_WDEV. For this flag an ieee802154_ptr in net_device is
+needed. Additional we can access the wpan_dev attributes in upper layers
+like IEEE 802.15.4 6LoWPAN easily. Current solution is a complicated
+callback interface and getting these values over subif data structure
+in mac802154.
 
-Signed-off-by: Tom Herbert <therbert@google.com>
+Signed-off-by: Alexander Aring <alex.aring@gmail.com>
+Cc: David S. Miller <davem@davemloft.net>
 ---
- net/ipv4/udp_offload.c | 52 ++++++++++++++++++++++++++++++++++----------------
- 1 file changed, 36 insertions(+), 16 deletions(-)
+Another option would be to combine ieee80211_ptr and ieee802154_ptr in
+an union. These pointer can't be used twice at the same time and the
+union solution will not make the struct net_device bigger.
 
-diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
-index 6480cea..a774711 100644
---- a/net/ipv4/udp_offload.c
-+++ b/net/ipv4/udp_offload.c
-@@ -29,7 +29,7 @@ static struct sk_buff *__skb_udp_tunnel_segment(struct sk_buff *skb,
- 	netdev_features_t features,
- 	struct sk_buff *(*gso_inner_segment)(struct sk_buff *skb,
- 					     netdev_features_t features),
--	__be16 new_protocol)
-+	__be16 new_protocol, bool is_ipv6)
- {
- 	struct sk_buff *segs = ERR_PTR(-EINVAL);
- 	u16 mac_offset = skb->mac_header;
-@@ -39,7 +39,9 @@ static struct sk_buff *__skb_udp_tunnel_segment(struct sk_buff *skb,
- 	netdev_features_t enc_features;
- 	int udp_offset, outer_hlen;
- 	unsigned int oldlen;
--	bool need_csum;
-+	bool need_csum = !!(skb_shinfo(skb)->gso_type &
-+			    SKB_GSO_UDP_TUNNEL_CSUM);
-+	bool offload_csum = false, dont_encap = need_csum;
+My working repository is bluetooth-next. Marcel will apply all 802.15.4
+changes. That's why this patch should go into bluetooth-next. Then I can
+send new patches which depends on this patch for introducing wpan_dev and
+nl802154.
+
+ include/linux/netdevice.h | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 74fd5d3..c9bcf33 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -57,6 +57,8 @@ struct device;
+ struct phy_device;
+ /* 802.11 specific */
+ struct wireless_dev;
++/* 802.15.4 specific */
++struct wpan_dev;
  
- 	oldlen = (u16)~skb->len;
+ void netdev_set_default_ethtool_ops(struct net_device *dev,
+ 				    const struct ethtool_ops *ops);
+@@ -1572,6 +1574,7 @@ struct net_device {
+ 	struct inet6_dev __rcu	*ip6_ptr;
+ 	void			*ax25_ptr;
+ 	struct wireless_dev	*ieee80211_ptr;
++	struct wpan_dev		*ieee802154_ptr;
  
-@@ -52,10 +54,12 @@ static struct sk_buff *__skb_udp_tunnel_segment(struct sk_buff *skb,
- 	skb_set_network_header(skb, skb_inner_network_offset(skb));
- 	skb->mac_len = skb_inner_network_offset(skb);
- 	skb->protocol = new_protocol;
-+	skb->encap_hdr_csum = need_csum;
- 
--	need_csum = !!(skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL_CSUM);
--	if (need_csum)
--		skb->encap_hdr_csum = 1;
-+	/* Try to offload checksum if possible */
-+	offload_csum = !!(need_csum &&
-+			  (skb->dev->features &
-+			   (is_ipv6 ? NETIF_F_V6_CSUM : NETIF_F_V4_CSUM)));
- 
- 	/* segment inner packet. */
- 	enc_features = skb->dev->hw_enc_features & features;
-@@ -72,11 +76,21 @@ static struct sk_buff *__skb_udp_tunnel_segment(struct sk_buff *skb,
- 	do {
- 		struct udphdr *uh;
- 		int len;
--
--		skb_reset_inner_headers(skb);
--		skb->encapsulation = 1;
-+		__be32 delta;
-+
-+		if (dont_encap) {
-+			skb->encapsulation = 0;
-+			skb->ip_summed = CHECKSUM_NONE;
-+		} else {
-+			/* Only set up inner headers if we might be offloading
-+			 * inner checksum.
-+			 */
-+			skb_reset_inner_headers(skb);
-+			skb->encapsulation = 1;
-+		}
- 
- 		skb->mac_len = mac_len;
-+		skb->protocol = protocol;
- 
- 		skb_push(skb, outer_hlen);
- 		skb_reset_mac_header(skb);
-@@ -86,19 +100,25 @@ static struct sk_buff *__skb_udp_tunnel_segment(struct sk_buff *skb,
- 		uh = udp_hdr(skb);
- 		uh->len = htons(len);
- 
--		if (need_csum) {
--			__be32 delta = htonl(oldlen + len);
-+		if (!need_csum)
-+			continue;
-+
-+		delta = htonl(oldlen + len);
-+
-+		uh->check = ~csum_fold((__force __wsum)
-+				       ((__force u32)uh->check +
-+					(__force u32)delta));
- 
--			uh->check = ~csum_fold((__force __wsum)
--					       ((__force u32)uh->check +
--						(__force u32)delta));
-+		if (offload_csum) {
-+			skb->ip_summed = CHECKSUM_PARTIAL;
-+			skb->csum_start = skb_transport_header(skb) - skb->head;
-+			skb->csum_offset = offsetof(struct udphdr, check);
-+		} else {
- 			uh->check = gso_make_checksum(skb, ~uh->check);
- 
- 			if (uh->check == 0)
- 				uh->check = CSUM_MANGLED_0;
- 		}
--
--		skb->protocol = protocol;
- 	} while ((skb = skb->next));
- out:
- 	return segs;
-@@ -134,7 +154,7 @@ struct sk_buff *skb_udp_tunnel_segment(struct sk_buff *skb,
- 	}
- 
- 	segs = __skb_udp_tunnel_segment(skb, features, gso_inner_segment,
--					protocol);
-+					protocol, is_ipv6);
- 
- out_unlock:
- 	rcu_read_unlock();
+ /*
+  * Cache lines mostly used on receive path (including eth_type_trans())
 -- 
-2.1.0.rc2.206.gedb03e5
+2.1.3
