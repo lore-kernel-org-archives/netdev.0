@@ -1,113 +1,47 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH V1 net-next 1/5] net/mlx4_core: Prevent VF from changing port configuration
-Date: Sun,  2 Nov 2014 16:26:13 +0200
-Message-ID: <1414938377-421-2-git-send-email-ogerlitz@mellanox.com>
-References: <1414938377-421-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org, Matan Barak <matanb@mellanox.com>,
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 5/8] net/mlx4_en: Remove redundant code from
+ RX/GRO path
+Date: Sun, 02 Nov 2014 06:28:12 -0800
+Message-ID: <1414938492.31792.39.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1414685216-28907-1-git-send-email-ogerlitz@mellanox.com>
+	 <1414685216-28907-6-git-send-email-ogerlitz@mellanox.com>
+	 <1414695631.15352.5.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAJ3xEMjw9rRLBTEXT3cw0+CPRyvJgNbKVHpnmsukas-r=QwmyA@mail.gmail.com>
+	 <1414725541.499.3.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAJ3xEMiDnv9=nvvJ1m7_taoSncdmgv4GJVR8DiD5t5GCsFig1A@mail.gmail.com>
+	 <1414770362.27538.7.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <54563B12.1040905@mellanox.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Matan Barak <matanb@mellanox.com>,
 	Amir Vadai <amirv@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>,
 	Shani Michaeli <shanim@mellanox.com>,
 	Ido Shamay <idos@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+To: Or Gerlitz <ogerlitz@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:41636 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751103AbaKBO01 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 2 Nov 2014 09:26:27 -0500
-In-Reply-To: <1414938377-421-1-git-send-email-ogerlitz@mellanox.com>
+Received: from mail-ie0-f176.google.com ([209.85.223.176]:62638 "EHLO
+	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751103AbaKBO2P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Nov 2014 09:28:15 -0500
+Received: by mail-ie0-f176.google.com with SMTP id rd18so3755853iec.7
+        for <netdev@vger.kernel.org>; Sun, 02 Nov 2014 06:28:14 -0800 (PST)
+In-Reply-To: <54563B12.1040905@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Saeed Mahameed <saeedm@mellanox.com>
+On Sun, 2014-11-02 at 16:09 +0200, Or Gerlitz wrote:
 
-Added wrapper to the ACCESS_REG command for handling guest HW
-registers access, preventing write operations, but do allow reads.
+> Hi Eric,
+> 
+> For the time being, I'll drop from this series thischange and the 
+> following ones which depend on it. So can pick in the earlier patches of 
+> the series, and investigate in parallel thevarious optionsw.r.t GRO here.
 
-This will prevent SRIOV guests to change port PTYS configuration,
-such as speed/advertised link modes.
+Thanks Or !
 
-Fixes: adbc7ac5c15e ('net/mlx4_core: Introduce ACCESS_REG CMD [...]')
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/cmd.c  |    2 +-
- drivers/net/ethernet/mellanox/mlx4/fw.c   |   30 ++++++++++++++++++++++++++++-
- drivers/net/ethernet/mellanox/mlx4/mlx4.h |    5 ++++
- 3 files changed, 35 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-index 916459e..1312ccf 100644
---- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-@@ -1345,7 +1345,7 @@ static struct mlx4_cmd_info cmd_info[] = {
- 		.out_is_imm = false,
- 		.encode_slave_id = false,
- 		.verify = NULL,
--		.wrapper = NULL,
-+		.wrapper = mlx4_ACCESS_REG_wrapper,
- 	},
- 	/* Native multicast commands are not available for guests */
- 	{
-diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
-index 72289ef..e7639e3 100644
---- a/drivers/net/ethernet/mellanox/mlx4/fw.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
-@@ -2220,7 +2220,7 @@ static int mlx4_ACCESS_REG(struct mlx4_dev *dev, u16 reg_id,
- 	memcpy(inbuf->reg_data, reg_data, reg_len);
- 	err = mlx4_cmd_box(dev, inbox->dma, outbox->dma, 0, 0,
- 			   MLX4_CMD_ACCESS_REG, MLX4_CMD_TIME_CLASS_C,
--			   MLX4_CMD_NATIVE);
-+			   MLX4_CMD_WRAPPED);
- 	if (err)
- 		goto out;
- 
-@@ -2263,3 +2263,31 @@ int mlx4_ACCESS_PTYS_REG(struct mlx4_dev *dev,
- 			       method, sizeof(*ptys_reg), ptys_reg);
- }
- EXPORT_SYMBOL_GPL(mlx4_ACCESS_PTYS_REG);
-+
-+int mlx4_ACCESS_REG_wrapper(struct mlx4_dev *dev, int slave,
-+			    struct mlx4_vhcr *vhcr,
-+			    struct mlx4_cmd_mailbox *inbox,
-+			    struct mlx4_cmd_mailbox *outbox,
-+			    struct mlx4_cmd_info *cmd)
-+{
-+	struct mlx4_access_reg *inbuf = inbox->buf;
-+	u8 method = inbuf->method & MLX4_ACCESS_REG_METHOD_MASK;
-+	u16 reg_id = be16_to_cpu(inbuf->reg_id);
-+
-+	if (slave != mlx4_master_func_num(dev) &&
-+	    method == MLX4_ACCESS_REG_WRITE)
-+		return -EPERM;
-+
-+	if (reg_id == MLX4_REG_ID_PTYS) {
-+		struct mlx4_ptys_reg *ptys_reg =
-+			(struct mlx4_ptys_reg *)inbuf->reg_data;
-+
-+		ptys_reg->local_port =
-+			mlx4_slave_convert_port(dev, slave,
-+						ptys_reg->local_port);
-+	}
-+
-+	return mlx4_cmd_box(dev, inbox->dma, outbox->dma, vhcr->in_modifier,
-+			    0, MLX4_CMD_ACCESS_REG, MLX4_CMD_TIME_CLASS_C,
-+			    MLX4_CMD_NATIVE);
-+}
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-index de10dbb..254ec7b 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-@@ -1273,6 +1273,11 @@ int mlx4_QP_FLOW_STEERING_DETACH_wrapper(struct mlx4_dev *dev, int slave,
- 					 struct mlx4_cmd_mailbox *inbox,
- 					 struct mlx4_cmd_mailbox *outbox,
- 					 struct mlx4_cmd_info *cmd);
-+int mlx4_ACCESS_REG_wrapper(struct mlx4_dev *dev, int slave,
-+			    struct mlx4_vhcr *vhcr,
-+			    struct mlx4_cmd_mailbox *inbox,
-+			    struct mlx4_cmd_mailbox *outbox,
-+			    struct mlx4_cmd_info *cmd);
- 
- int mlx4_get_mgm_entry_size(struct mlx4_dev *dev);
- int mlx4_get_qp_per_mgm(struct mlx4_dev *dev);
--- 
-1.7.1
+I posted first patch to allow implementing this better GRO strategy
+(https://patchwork.ozlabs.org/patch/405892/ )
