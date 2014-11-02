@@ -1,47 +1,67 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 5/8] net/mlx4_en: Remove redundant code from
- RX/GRO path
-Date: Sun, 02 Nov 2014 06:28:12 -0800
-Message-ID: <1414938492.31792.39.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1414685216-28907-1-git-send-email-ogerlitz@mellanox.com>
-	 <1414685216-28907-6-git-send-email-ogerlitz@mellanox.com>
-	 <1414695631.15352.5.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAJ3xEMjw9rRLBTEXT3cw0+CPRyvJgNbKVHpnmsukas-r=QwmyA@mail.gmail.com>
-	 <1414725541.499.3.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAJ3xEMiDnv9=nvvJ1m7_taoSncdmgv4GJVR8DiD5t5GCsFig1A@mail.gmail.com>
-	 <1414770362.27538.7.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <54563B12.1040905@mellanox.com>
+From: Alexander Aring <alex.aring@gmail.com>
+Subject: IEEE 802.15.4 - Realization interframe spacing time after each
+ ndo_start_xmit
+Date: Sun, 2 Nov 2014 15:33:48 +0100
+Message-ID: <20141102143345.GA15591@omega>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Matan Barak <matanb@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Shani Michaeli <shanim@mellanox.com>,
-	Ido Shamay <idos@mellanox.com>
-To: Or Gerlitz <ogerlitz@mellanox.com>
+Content-Type: text/plain; charset=utf-8
+Cc: linux-wpan@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f176.google.com ([209.85.223.176]:62638 "EHLO
-	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751103AbaKBO2P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Nov 2014 09:28:15 -0500
-Received: by mail-ie0-f176.google.com with SMTP id rd18so3755853iec.7
-        for <netdev@vger.kernel.org>; Sun, 02 Nov 2014 06:28:14 -0800 (PST)
-In-Reply-To: <54563B12.1040905@mellanox.com>
+Received: from mail-wg0-f41.google.com ([74.125.82.41]:62450 "EHLO
+	mail-wg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751074AbaKBOdz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Nov 2014 09:33:55 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2014-11-02 at 16:09 +0200, Or Gerlitz wrote:
+Hi,
 
-> Hi Eric,
-> 
-> For the time being, I'll drop from this series thischange and the 
-> following ones which depend on it. So can pick in the earlier patches of 
-> the series, and investigate in parallel thevarious optionsw.r.t GRO here.
+the IEEE 802.15.4 standard describes an interframe spacing time.
 
-Thanks Or !
+This spacing time describes that after each transmit we need to wait
+some microseconds before we doing the next transmit.
 
-I posted first patch to allow implementing this better GRO strategy
-(https://patchwork.ozlabs.org/patch/405892/ )
+The current workaround is a udelay in driver layer for the at86rf230
+driver. [0]
+
+This is a very terrible solution and I need some better one. If I don't
+do this wait time I got fragmentation issues at 6LoWPAN layer.
+
+To do a interframe spacing time depends on payload. If the payload is
+below 18 bytes we need to wait the "sifs - short interframe spacing time".
+If the payload is above or equal 18 bytes we need to wait "lifs - long
+interframe spacing time".
+
+Also some transceiver do the interframe spacing time on transceiver level.
+For example the at86rf230 do the interframe spacing time on his own when
+max_frame_retries parameter is above 1. (Then automatic retransmission
+is activated).
+
+I need some solution which I can turn on/off at runtime while running
+'ieee802154_xmit_complete". The function "ieee802154_xmit_complete" will
+consume the skb and wake the netdev queue again. 
+
+
+
+Possible better solution would be:
+
+Better solution would be to take some timestamps after each transmit
+complete and wait "if necessary" the calculated lifs/sifs delta time
+inside of "ndo_start_xmit" - means before doing next transmit. If we see
+in "ndo_start_xmit" that we need some time because the next transmit is
+inside the lifs/sifs time of the last transmit we wait the delta time
+of last completed transmit timestamp and now to hold the lifs/sifs
+timing contraints. But I don't feeling well to do a "udelay" inside of
+ndo_start_xmit.
+
+
+
+I would be grateful for any suggestion how we can deal which such
+interframe spacing time. Maybe there exist already some other L2 layer
+which have already a solution for something like that.
+
+- Alex
+
+[0] http://git.kernel.org/cgit/linux/kernel/git/bluetooth/bluetooth-next.git/tree/drivers/net/ieee802154/at86rf230.c?id=fe58d016e396fc685364b5a1743faf83c1fb8103#n722
