@@ -1,78 +1,43 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 2/2] tun: Fix TUN_PKT_STRIP setting
-Date: Mon, 03 Nov 2014 04:30:14 +0800
-Message-ID: <E1Xl1mw-0006VA-L1@gondolin.me.apana.org.au>
-References: <20141102202929.GA24935@gondor.apana.org.au>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH v4 1/1] ip-link: add switch to show human readable
+ output
+Date: Sun, 2 Nov 2014 12:51:59 -0800
+Message-ID: <20141102125159.02efa974@urahara>
+References: <20141031123115.4cd13371@urahara>
+	<1414791193-25192-1-git-send-email-mail@eworm.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Christian Hesse <mail@eworm.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:44516 "EHLO
-	helcar.apana.org.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751454AbaKBUaR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Nov 2014 15:30:17 -0500
+Received: from mail-pd0-f180.google.com ([209.85.192.180]:64884 "EHLO
+	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750810AbaKBUwL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Nov 2014 15:52:11 -0500
+Received: by mail-pd0-f180.google.com with SMTP id ft15so10353687pdb.39
+        for <netdev@vger.kernel.org>; Sun, 02 Nov 2014 12:52:10 -0800 (PST)
+In-Reply-To: <1414791193-25192-1-git-send-email-mail@eworm.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We set the flag TUN_PKT_STRIP if the user buffer provided is too
-small to contain the entire packet plus meta-data.  However, this
-has been broken ever since we added GSO meta-data.  VLAN acceleration
-also has the same problem.
+On Fri, 31 Oct 2014 22:33:13 +0100
+Christian Hesse <mail@eworm.de> wrote:
 
-This patch fixes this by taking both into account when setting the
-TUN_PKT_STRIP flag.
+> Byte and packet count can increase to really big numbers. This adds a
+> switch to show human readable output.
+> 
+> 4: wl: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP mode DORMANT group default qlen 1000
+>     link/ether 00:de:ad:be:ee:ef brd ff:ff:ff:ff:ff:ff
+>     RX: bytes  packets  errors  dropped overrun mcast
+>     1523846973 3969051  0       0       0       0
+>     TX: bytes  packets  errors  dropped carrier collsns
+>     8710088361 6077735  0       0       0       0
+> 4: wl: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP mode DORMANT group default qlen 1000
+>     link/ether 00:de:ad:be:ee:ef brd ff:ff:ff:ff:ff:ff
+>     RX: bytes  packets  errors  dropped overrun mcast
+>     1.5G       3.9M     0       0       0       0
+>     TX: bytes  packets  errors  dropped carrier collsns
+>     8.7G       6.0M     0       0       0       0
 
-The fact that this has been broken for six years without anyone
-realising means that nobody actually uses this flag.
-
-Fixes: f43798c27684 ("tun: Allow GSO using virtio_net_hdr")
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
----
-
- drivers/net/tun.c |   12 ++++++++----
- 1 file changed, 8 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 57e6bf7..9dd3746 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -1236,15 +1236,19 @@ static ssize_t tun_put_user(struct tun_struct *tun,
- 	ssize_t total = 0;
- 	int vlan_offset = 0, copied;
- 	int vlan_hlen = 0;
-+	int vnet_hdr_sz = 0;
- 
- 	if (vlan_tx_tag_present(skb))
- 		vlan_hlen = VLAN_HLEN;
- 
-+	if (tun->flags & TUN_VNET_HDR)
-+		vnet_hdr_sz = tun->vnet_hdr_sz;
-+
- 	if (!(tun->flags & TUN_NO_PI)) {
- 		if ((len -= sizeof(pi)) < 0)
- 			return -EINVAL;
- 
--		if (len < skb->len) {
-+		if (len < skb->len + vlan_hlen + vnet_hdr_sz) {
- 			/* Packet will be striped */
- 			pi.flags |= TUN_PKT_STRIP;
- 		}
-@@ -1254,9 +1258,9 @@ static ssize_t tun_put_user(struct tun_struct *tun,
- 		total += sizeof(pi);
- 	}
- 
--	if (tun->flags & TUN_VNET_HDR) {
-+	if (vnet_hdr_sz) {
- 		struct virtio_net_hdr gso = { 0 }; /* no info leak */
--		if ((len -= tun->vnet_hdr_sz) < 0)
-+		if ((len -= vnet_hdr_sz) < 0)
- 			return -EINVAL;
- 
- 		if (skb_is_gso(skb)) {
-@@ -1298,7 +1302,7 @@ static ssize_t tun_put_user(struct tun_struct *tun,
- 		if (unlikely(memcpy_toiovecend(iv, (void *)&gso, total,
- 					       sizeof(gso))))
- 			return -EFAULT;
--		total += tun->vnet_hdr_sz;
-+		total += vnet_hdr_sz;
- 	}
- 
- 	copied = total;
+Applied, then I did a code cleanup and added -iec as a option (similar to tc).
