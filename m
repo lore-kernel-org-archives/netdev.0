@@ -1,77 +1,85 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] net: shrink struct softnet_data
-Date: Sun, 02 Nov 2014 06:00:12 -0800
-Message-ID: <1414936812.31792.31.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: Re: [PATCH net-next 5/8] net/mlx4_en: Remove redundant code from
+ RX/GRO path
+Date: Sun, 2 Nov 2014 16:09:22 +0200
+Message-ID: <54563B12.1040905@mellanox.com>
+References: <1414685216-28907-1-git-send-email-ogerlitz@mellanox.com>	 <1414685216-28907-6-git-send-email-ogerlitz@mellanox.com>	 <1414695631.15352.5.camel@edumazet-glaptop2.roam.corp.google.com>	 <CAJ3xEMjw9rRLBTEXT3cw0+CPRyvJgNbKVHpnmsukas-r=QwmyA@mail.gmail.com>	 <1414725541.499.3.camel@edumazet-glaptop2.roam.corp.google.com>	 <CAJ3xEMiDnv9=nvvJ1m7_taoSncdmgv4GJVR8DiD5t5GCsFig1A@mail.gmail.com> <1414770362.27538.7.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Matan Barak <matanb@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Shani Michaeli <shanim@mellanox.com>,
+	Ido Shamay <idos@mellanox.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f176.google.com ([209.85.213.176]:59922 "EHLO
-	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751820AbaKBOAP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Nov 2014 09:00:15 -0500
-Received: by mail-ig0-f176.google.com with SMTP id l13so3696424iga.9
-        for <netdev@vger.kernel.org>; Sun, 02 Nov 2014 06:00:14 -0800 (PST)
+Received: from eu1sys200aog117.obsmtp.com ([207.126.144.143]:40027 "EHLO
+	eu1sys200aog117.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751244AbaKBOJc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Nov 2014 09:09:32 -0500
+In-Reply-To: <1414770362.27538.7.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On 10/31/2014 5:46 PM, Eric Dumazet wrote:
+> On Fri, 2014-10-31 at 16:00 +0200, Or Gerlitz wrote:
+>> On Fri, Oct 31, 2014 at 5:19 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>>> On Fri, 2014-10-31 at 01:25 +0200, Or Gerlitz wrote:
+>>>> On Thu, Oct 30, 2014 at 9:00 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>>>>> On Thu, 2014-10-30 at 18:06 +0200, Or Gerlitz wrote:
+>>>>>> Remove the code which goes through napi_gro_frags() on the RX path,
+>>>>>> use only napi_gro_receive().
+>>>>> Hmpff... napi_gro_frags() should be faster. Have you benchmarked this ?
+>>>>
+>>>> yep we did, napi_gro_frags() was somehow better for single stream. Do
+>>>> you think we need to do it the other way around, e.g converge to use napi_gro_frags()?
+>>> napi_gro_frags() is faster because the napi->skb is reused fast (not
+>>> going through kfree_skb()/alloc_skb() for every fragment)
+>> I see. Is this a strong vote to convert the code to use napi_gro_frags
+>> on it's usual track?
+> I don't know yet. In some cases, actually slowing down the rx path can
+> help by building bigger GRO packets. But instead of inserting delays,
+> we can simply force napi to be run another time, with a nanosec based
+> timer.
+>
+> I've tested this kind of heuristic :
+>
+>         /* If some packets are waiting in GRO engine and timeout is not expired,
+>          * reschedule a NAPI poll. We allow servicing other softirqs
+>          * before repoll, we do not rearm CQ.
+>          */
+>         if (rx_nsecs && napi->gro_list && !need_resched()) {
+>                 u64 now = local_clock();
+>                 unsigned long flags;
+>
+>                 /* If we got packets in this round, restart timeout */
+>                 if (done)
+>                         cq->tstart = now;
+>                 else if (now - cq->tstart >= (u64)rx_nsecs)
+>                         goto complete;
+>
+>                 /* Since we might need one skb very soon, build it now */
+>                 napi_get_frags(napi);
+>
+>                 local_irq_save(flags);
+>                 list_del(&napi->poll_list);
+>                 __napi_schedule_irqoff(napi);
+>                 local_irq_restore(flags);
+>
+>          } else {
+> complete:
+>                  napi_complete(napi);
+>                  mlx4_en_arm_cq(priv, cq);
+>          }
+> 	return done;
 
-flow_limit in struct softnet_data is only read from local cpu
-and can be moved to fill a hole, reducing softnet_data size by
-64 bytes on x86_64
+Hi Eric,
 
-While we are at it, move output_queue, output_queue_tailp and
-completion_queue, so that rx / tx paths touch a single cache line.
+For the time being, I'll drop from this series thischange and the 
+following ones which depend on it. So can pick in the earlier patches of 
+the series, and investigate in parallel thevarious optionsw.r.t GRO here.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- include/linux/netdevice.h |   15 ++++++++-------
- 1 file changed, 8 insertions(+), 7 deletions(-)
-
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index c85e065122460e9f077bcb6788018be38e1d7ddf..5ed05bd764dcf3699afdd9a7b17600246de22d1d 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2329,10 +2329,7 @@ extern int netdev_flow_limit_table_len;
-  * Incoming packets are placed on per-cpu queues
-  */
- struct softnet_data {
--	struct Qdisc		*output_queue;
--	struct Qdisc		**output_queue_tailp;
- 	struct list_head	poll_list;
--	struct sk_buff		*completion_queue;
- 	struct sk_buff_head	process_queue;
- 
- 	/* stats */
-@@ -2340,10 +2337,17 @@ struct softnet_data {
- 	unsigned int		time_squeeze;
- 	unsigned int		cpu_collision;
- 	unsigned int		received_rps;
--
- #ifdef CONFIG_RPS
- 	struct softnet_data	*rps_ipi_list;
-+#endif
-+#ifdef CONFIG_NET_FLOW_LIMIT
-+	struct sd_flow_limit __rcu *flow_limit;
-+#endif
-+	struct Qdisc		*output_queue;
-+	struct Qdisc		**output_queue_tailp;
-+	struct sk_buff		*completion_queue;
- 
-+#ifdef CONFIG_RPS
- 	/* Elements below can be accessed between CPUs for RPS */
- 	struct call_single_data	csd ____cacheline_aligned_in_smp;
- 	struct softnet_data	*rps_ipi_next;
-@@ -2355,9 +2359,6 @@ struct softnet_data {
- 	struct sk_buff_head	input_pkt_queue;
- 	struct napi_struct	backlog;
- 
--#ifdef CONFIG_NET_FLOW_LIMIT
--	struct sd_flow_limit __rcu *flow_limit;
--#endif
- };
- 
- static inline void input_queue_head_incr(struct softnet_data *sd)
+Or.
