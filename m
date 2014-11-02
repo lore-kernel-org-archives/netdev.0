@@ -1,35 +1,27 @@
-From: Stephen Hemminger <shemming@brocade.com>
-Subject: Re: [PATCH] iproute2: ip6_tunnel mode bugfixes: any,vti6
-Date: Sun, 2 Nov 2014 11:49:17 -0800
-Message-ID: <20141102114917.5529d99a@urahara>
-References: <1414563570-9858-1-git-send-email-alan@al-an.info>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [0/2] tun: Fix csum_start and TUN_PKT_STRIP
+Date: Mon, 3 Nov 2014 04:29:30 +0800
+Message-ID: <20141102202929.GA24935@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Alexey Andriyanov <alan@al-an.info>
+Content-Type: text/plain; charset=us-ascii
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:17645 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751760AbaKBUWr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Nov 2014 15:22:47 -0500
-In-Reply-To: <1414563570-9858-1-git-send-email-alan@al-an.info>
+Received: from helcar.apana.org.au ([209.40.204.226]:46620 "EHLO
+	helcar.apana.org.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751206AbaKBU3e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Nov 2014 15:29:34 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 29 Oct 2014 09:19:30 +0300
-"Alexey Andriyanov" <alan@al-an.info> wrote:
+Hi:
 
-> - any ipv6 tunnel mode (proto == 0) could not be set
-> due to incomplete set of cases in do_add, do_del.
-> - vti6 logic was inverted: it was using "ip6_vti0" basedev
-> UNLESS mode is set to vti6.
-> 
-> We don't need a switch by p.proto in do_add()/do_del(): it
-> already exists in parse_args(). So if parse_args() call
-> was successful, no need to check tunnel mode again.
-> 
-> CC: Stephen Hemminger <shemming@brocade.com>
-> Signed-off-by: Alexey Andriyanov <alan@al-an.info>
+The first patch fixes a serious problem that breaks checksum offload
+in VMs while the second patch fixes a problem that probably affects
+no one.
 
-Accepted
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
