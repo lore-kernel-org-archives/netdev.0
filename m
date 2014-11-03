@@ -1,42 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] PPC: bpf_jit_comp: add SKF_AD_PKTTYPE instruction
-Date: Mon, 03 Nov 2014 12:06:33 -0500 (EST)
-Message-ID: <20141103.120633.183870310578884991.davem@davemloft.net>
-References: <1414649535-3956-1-git-send-email-kda@linux-powerpc.org>
+Subject: Re: [PATCH net-next 3/7] gue: Add infrastructure for flags and
+ options
+Date: Mon, 03 Nov 2014 12:18:56 -0500 (EST)
+Message-ID: <20141103.121856.1307429117331581815.davem@davemloft.net>
+References: <1414882683-25484-1-git-send-email-therbert@google.com>
+	<1414882683-25484-4-git-send-email-therbert@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	alexei.starovoitov@gmail.com, mpe@ellerman.id.au, matt@ozlabs.org
-To: kda@linux-powerpc.org
+Cc: netdev@vger.kernel.org
+To: therbert@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47511 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47582 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752352AbaKCRGh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2014 12:06:37 -0500
-In-Reply-To: <1414649535-3956-1-git-send-email-kda@linux-powerpc.org>
+	with ESMTP id S1751436AbaKCRS7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2014 12:18:59 -0500
+In-Reply-To: <1414882683-25484-4-git-send-email-therbert@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Denis Kirjanov <kda@linux-powerpc.org>
-Date: Thu, 30 Oct 2014 09:12:15 +0300
+From: Tom Herbert <therbert@google.com>
+Date: Sat,  1 Nov 2014 15:57:59 -0700
 
-> Add BPF extension SKF_AD_PKTTYPE to ppc JIT to load
-> skb->pkt_type field.
-> 
-> Before:
-> [   88.262622] test_bpf: #11 LD_IND_NET 86 97 99 PASS
-> [   88.265740] test_bpf: #12 LD_PKTTYPE 109 107 PASS
-> 
-> After:
-> [   80.605964] test_bpf: #11 LD_IND_NET 44 40 39 PASS
-> [   80.607370] test_bpf: #12 LD_PKTTYPE 9 9 PASS
-> 
-> CC: Alexei Starovoitov<alexei.starovoitov@gmail.com>
-> CC: Michael Ellerman<mpe@ellerman.id.au>
-> Cc: Matt Evans <matt@ozlabs.org>
-> Signed-off-by: Denis Kirjanov <kda@linux-powerpc.org>
-> 
-> v2: Added test rusults
+> @@ -20,7 +20,16 @@ static size_t fou_encap_hlen(struct ip_tunnel_encap *e)
+>  
+>  static size_t gue_encap_hlen(struct ip_tunnel_encap *e)
+>  {
+> -	return sizeof(struct udphdr) + sizeof(struct guehdr);
+> +	size_t len;
+> +	bool need_priv = false;
+> +
+> +	len = sizeof(struct udphdr) + sizeof(struct guehdr);
+> +
+> +	/* Add in lengths flags */
+> +
+> +	len += need_priv ? GUE_LEN_PRIV : 0;
 
-So, can I apply this now?
+Add this need_priv logic in patch #6, not here.
