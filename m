@@ -1,41 +1,44 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Sporadic ESP payload corruption when using IPSec in NAT-T
- Transport Mode
-Date: Mon, 3 Nov 2014 15:18:56 +0800
-Message-ID: <20141103071856.GA28745@gondor.apana.org.au>
-References: <CALEwOppDfAHV2rghk_nO2Xbjqxd=cbUeW7oWOkAgZtcmjPdHuQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: steffen.klassert@secunet.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, mwoodson@redhat.com
-To: Evan Gilman <evan@pagerduty.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CALEwOppDfAHV2rghk_nO2Xbjqxd=cbUeW7oWOkAgZtcmjPdHuQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Christian Hesse <mail@eworm.de>
+Subject: [PATCH 1/1] ip-link: fix column alignment
+Date: Mon,  3 Nov 2014 08:21:11 +0100
+Message-ID: <1414999271-18155-1-git-send-email-mail@eworm.de>
+Cc: netdev@vger.kernel.org, Christian Hesse <mail@eworm.de>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx.mylinuxtime.de ([148.251.109.235]:50102 "EHLO
+	mx.mylinuxtime.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750795AbaKCHVV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2014 02:21:21 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Evan Gilman <evan@pagerduty.com> wrote:
->
-> I tried to find a reference to the previous report of aesni-intel
-> causing IPSec corruption under Xen - I'd be interested to read it if
-> anyone here has it on hand. For now, we are looking to blacklist
-> aesni-intel as we have no other suitable solution, and when combined
-> with our other bug, has a detrimental effect on our infrastructure.
+Width is the maximum number of characters used for the value, excluding a
+field separator. So append a single whitespace.
+---
+ ip/ipaddress.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Unfortunately the bug is marked as private but it's
-
-https://bugzilla.redhat.com/show_bug.cgi?id=1085025
-
-FWIW it was also observed on AWS.  There is speculation that
-switching to HVM may fix it.  If that were the case, then it's
-highly likely that this is a bug in the Xen paravirt code.
-
-It would also mean that if you cannot switch over to HVM then
-the most appropriate fix would be to not use aesni-intel.
-
-Cheers,
+diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+index efea88c..e240bb5 100644
+--- a/ip/ipaddress.c
++++ b/ip/ipaddress.c
+@@ -327,7 +327,7 @@ static void print_num(FILE *fp, unsigned width, uint64_t count)
+ 	char buf[64];
+ 
+ 	if (!human_readable || count < base) {
+-		fprintf(fp, "%-*"PRIu64, width, count);
++		fprintf(fp, "%-*"PRIu64" ", width, count);
+ 		return;
+ 	}
+ 
+@@ -346,7 +346,7 @@ static void print_num(FILE *fp, unsigned width, uint64_t count)
+ 	snprintf(buf, sizeof(buf), "%.1f%c%s", (double) count / powi, 
+ 		 *prefix, use_iec ? "i" : "");
+ 
+-	fprintf(fp, "%-*s", width, buf);
++	fprintf(fp, "%-*s ", width, buf);
+ }
+ 
+ static void print_link_stats64(FILE *fp, const struct rtnl_link_stats64 *s,
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+2.1.3
