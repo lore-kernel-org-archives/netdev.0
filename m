@@ -1,58 +1,59 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 0/1] mv643xx_eth: Disable TSO by default
-Date: Mon, 3 Nov 2014 14:51:50 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1C9E44F5@AcuExch.aculab.com>
-References: <1414855820-15094-1-git-send-email-ezequiel.garcia@free-electrons.com>
- <1414862766.31792.7.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Tawfik Bayouk <tawfik@marvell.com>,
-	Lior Amsalem <alior@marvell.com>,
-	Nadav Haklai <nadavh@marvell.com>
-To: 'Eric Dumazet' <eric.dumazet@gmail.com>,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 01/11] i40e: Add condition to enter fdir flush and reinit
+Date: Mon,  3 Nov 2014 06:56:29 -0800
+Message-ID: <1415026599-16232-2-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1415026599-16232-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Patrick Lu <patrick.lu@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:48786 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752300AbaKCOyd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Nov 2014 09:54:33 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 11781-07 for <netdev@vger.kernel.org>;
- Mon,  3 Nov 2014 14:54:25 +0000 (GMT)
-In-Reply-To: <1414862766.31792.7.camel@edumazet-glaptop2.roam.corp.google.com>
-Content-Language: en-US
+Received: from mga01.intel.com ([192.55.52.88]:44867 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752603AbaKCO4y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Nov 2014 09:56:54 -0500
+In-Reply-To: <1415026599-16232-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRXJpYyBEdW1hemV0DQo+IE9uIFNhdCwgMjAxNC0xMS0wMSBhdCAxMjozMCAtMDMwMCwg
-RXplcXVpZWwgR2FyY2lhIHdyb3RlOg0KPiA+IFNldmVyYWwgdXNlcnMgKFsxXSwgWzJdKSBoYXZl
-IGJlZW4gcmVwb3J0aW5nIGRhdGEgY29ycnVwdGlvbiB3aXRoIFRTTyBvbg0KPiA+IEtpcmt3b29k
-IHBsYXRmb3JtcyAoaS5lLiB1c2luZyB0aGUgbXY2NDN4eF9ldGggZHJpdmVyKS4NCj4gPg0KPiA+
-IFVudGlsIHdlIG1hbmFnZSB0byBmaW5kIHdoYXQncyBjYXVzaW5nIHRoaXMsIHRoaXMgc2ltcGxl
-IHBhdGNoIHdpbGwgbWFrZQ0KPiA+IHRoZSBUU08gcGF0aCBkaXNhYmxlZCBieSBkZWZhdWx0LiBU
-aGlzIHBhdGNoIHNob3VsZCBiZSBxdWV1ZWQgZm9yIHN0YWJsZSwNCj4gPiBmaXhpbmcgdGhlIFRT
-TyBmZWF0dXJlIGludHJvZHVjZWQgaW4gdjMuMTYuDQo+ID4NCj4gPiBUaGUgY29ycnVwdGlvbiBp
-dHNlbGYgaXMgdmVyeSBlYXN5IHRvIHJlcHJvZHVjZTogY2hlY2tpbmcgbWQ1c3VtIG9uIGEgbW91
-bnRlZA0KPiA+IE5GUyBkaXJlY3RvcnkgZ2l2ZXMgYSBkaWZmZXJlbnQgcmVzdWx0IGVhY2ggdGlt
-ZS4gU2FtZSB0ZXN0cyB1c2luZyB0aGUgbXZuZXRhDQo+ID4gZHJpdmVyIChBcm1hZGEgMzcwLzM4
-eC9YUCBTb0MpIHBhc3Mgd2l0aCBubyBpc3N1ZXMuDQo+ID4NCj4gPiBGcmFua2x5LCBJJ20gYSBi
-aXQgcHV6emxlZCBhYm91dCB0aGlzLCBhbmQgc28gYW55IGlkZWFzIG9yIGRlYnVnZ2luZyBoaW50
-cw0KPiA+IGFyZSB3ZWxsIHJlY2VpdmVkLg0KPiANCj4gbGFjayBvZiBiYXJyaWVycyBtYXliZSA/
-DQo+IA0KPiBJdCBzZWVtcyB5b3UgbWlnaHQgbmVlZCB0byBwb3B1bGF0ZSBhbGwgVFggZGVzY3Jp
-cHRvcnMgYnV0IGRlbGF5IHRoZQ0KPiBmaXJzdCwgbGlrZSBkb2luZyB0aGUgcG9wdWxhdGUgaW4g
-ZGVzY2VuZGluZyBvcmRlci4NCj4gDQo+IElmIHlvdSB0YWtlIGEgbG9vayBhdCB0eHFfc3VibWl0
-X3NrYigpLCB5b3UnbGwgc2VlIHRoZSBmaW5hbA0KPiBkZXNjLT5jbWRfc3RzID0gY21kX3N0cyAo
-bGluZSA5NTkpIGlzIGRvbmUgX2FmdGVyXyBmcmFncyB3ZXJlIGNvb2tlZCBieQ0KPiB0eHFfc3Vi
-bWl0X2ZyYWdfc2tiKCkNCj4gDQo+IFlvdSBzaG91bGQga2ljayB0aGUgbmljayBvbmx5IHdoZW4g
-YWxsIFRYIGRlc2NyaXB0b3JzIGFyZSByZWFkeSBhbmQNCj4gY29tbWl0dGVkIHRvIG1lbW9yeS4N
-Cg0KRG9uJ3QgZm9yZ2V0IHRoYXQgdGhlIG5pY2sgbWlnaHQgcHJvY2VzcyB0aGUgZmlyc3QgZGVz
-Y3JpcHRvciB3aXRob3V0DQpiZWluZyBnaXZlbiBhICdraWNrJyAtIGl0IHdpbGwgcmVhZCBpdCB3
-aGVuIGl0IGZpbmlzaGVzIHByb2Nlc3NpbmcgdGhlDQpwcmV2aW91cyBmcmFtZS4NClRoaXMgYWxz
-byBtZWFucyB0aGF0IHlvdSBoYXZlIHRvIGJlIGNhcmVmdWwgYWJvdXQgdGhlIG9yZGVyIG9mIHRo
-ZSB3cml0ZXMNCnRvIHRoZSBmaXJzdCBkZXNjcmlwdG9yLg0KDQoJRGF2aWQNCg0K
+From: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>
+
+When FD_SB/ATR are not enabled, do not allow flow director flush
+and reinit.
+
+Change-ID: Iafe261c1862992981615815551abd1ed9fada0a8
+Signed-off-by: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>
+Signed-off-by: Patrick Lu <patrick.lu@intel.com>
+Tested-by: <jamesx.m.young@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 834c9ff..0eccd82 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -5211,6 +5211,9 @@ static void i40e_fdir_flush_and_replay(struct i40e_pf *pf)
+ 	int flush_wait_retry = 50;
+ 	int reg;
+ 
++	if (!(pf->flags & (I40E_FLAG_FD_SB_ENABLED | I40E_FLAG_FD_ATR_ENABLED)))
++		return;
++
+ 	if (time_after(jiffies, pf->fd_flush_timestamp +
+ 				(I40E_MIN_FD_FLUSH_INTERVAL * HZ))) {
+ 		set_bit(__I40E_FD_FLUSH_REQUESTED, &pf->state);
+@@ -5272,6 +5275,9 @@ static void i40e_fdir_reinit_subtask(struct i40e_pf *pf)
+ 	if (test_bit(__I40E_DOWN, &pf->state))
+ 		return;
+ 
++	if (!(pf->flags & (I40E_FLAG_FD_SB_ENABLED | I40E_FLAG_FD_ATR_ENABLED)))
++		return;
++
+ 	if ((pf->fd_add_err >= I40E_MAX_FD_PROGRAM_ERROR) &&
+ 	    (i40e_get_current_atr_cnt(pf) >= pf->fd_atr_cnt) &&
+ 	    (i40e_get_current_atr_cnt(pf) > pf->fdir_pf_filter_count))
+-- 
+1.9.3
