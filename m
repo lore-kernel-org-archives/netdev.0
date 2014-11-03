@@ -1,49 +1,53 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH net-next 0/7] gue: Remote checksum offload
-Date: Mon, 3 Nov 2014 14:39:31 -0800
-Message-ID: <CA+mtBx-t2a80VhYypH8d0pjWh7FqT8GRGZt1F=o23GC3BZm-sA@mail.gmail.com>
-References: <1414882683-25484-1-git-send-email-therbert@google.com>
-	<CAEP_g=88Q155PxTm9qbNVuxevqDneH3bed0nRfw1nKnZEKvMfQ@mail.gmail.com>
+From: Stefan Wahren <stefan.wahren@i2se.com>
+Subject: Re: [PATCHv3 9/9] net: fec: fix regression on i.MX28 introduced by
+ rx_copybreak support
+Date: Mon, 3 Nov 2014 23:58:23 +0100 (CET)
+Message-ID: <1415672191.1021851.1415055503664.JavaMail.open-xchange@oxbsltgw07.schlund.de>
+References: <1414494104-27943-1-git-send-email-LW@KARO-electronics.de> <1414502584-10583-1-git-send-email-LW@KARO-electronics.de> <1414502584-10583-10-git-send-email-LW@KARO-electronics.de>
+Reply-To: Stefan Wahren <stefan.wahren@i2se.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Jesse Gross <jesse@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f176.google.com ([209.85.213.176]:51599 "EHLO
-	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751197AbaKCWjg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2014 17:39:36 -0500
-Received: by mail-ig0-f176.google.com with SMTP id l13so6112361iga.9
-        for <netdev@vger.kernel.org>; Mon, 03 Nov 2014 14:39:36 -0800 (PST)
-In-Reply-To: <CAEP_g=88Q155PxTm9qbNVuxevqDneH3bed0nRfw1nKnZEKvMfQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, Frank Li <Frank.Li@freescale.com>,
+	Russell King <rmk+kernel@arm.linux.org.uk>,
+	Fabio Estevam <fabio.estevam@freescale.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-arm-kernel@lists.infradead.org
+To: netdev@vger.kernel.org,
+	=?UTF-8?Q?=22Lothar_Wa=C3=9Fmann=22?= <LW@KARO-electronics.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1414502584-10583-10-git-send-email-LW@KARO-electronics.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 3, 2014 at 1:26 PM, Jesse Gross <jesse@nicira.com> wrote:
-> On Sat, Nov 1, 2014 at 3:57 PM, Tom Herbert <therbert@google.com> wrote:
->> This patch set implements remote checksum offload for
->> GUE, which is a mechanism that provides checksum offload of
->> encapsulated packets using rudimentary offload capabilities found in
->> most Network Interface Card (NIC) devices. The outer header checksum
->> for UDP is enabled in packets and, with some additional meta
->> information in the GUE header, a receiver is able to deduce the
->> checksum to be set for an inner encapsulated packet. Effectively this
->> offloads the computation of the inner checksum. Enabling the outer
->> checksum in encapsulation has the additional advantage that it covers
->> more of the packet than the inner checksum including the encapsulation
->> headers.
+Hi Lothar,
+
+> Lothar Wa=C3=9Fmann <LW@KARO-electronics.de> hat am 28. Oktober 2014 =
+um 14:23
+> geschrieben:
 >
-> Tom, I have a pretty hard time squaring this with your previous
-> comments on hardware offload. This looks almost identical to a
-> protocol-specific hardware offload to me in terms of the implications
-> on the stack. It actually is more invasive and less likely to scale
-> across protocols, so the relative cost/benefit doesn't really add up
-> in my mind.
+>
+> commit 1b7bde6d659d ("net: fec: implement rx_copybreak to improve rx
+> performance")
+> introduced a regression for i.MX28. The swap_buffer() function doing
+> the endian conversion of the received data on i.MX28 may access memor=
+y
+> beyond the actual packet size in the DMA buffer. fec_enet_copybreak()
+> does not copy those bytes, so that the last bytes of a packet may be
+> filled with invalid data after swapping.
+> This will likely lead to checksum errors on received packets.
+> E.g. when trying to mount an NFS rootfs:
+> UDP: bad checksum. From 192.168.1.225:111 to 192.168.100.73:44662 ule=
+n 36
 
-With this patch and checksum-unnecessary conversion we can provide
-checksum offload for encapsulation on millions of already deployed
-NICs without any HW or FW change.  Why do you think this is not a good
-cost/benefit tradeoff?
+i think i experience the same problem with 3.18-rc2 on my mx28 board. I=
+ get
+strange warnings about unexpected bytes from ping on my mx28 board and =
+ping to
+my mx28 board fails because of no response.
 
-Thanks,
-Tom
+After applying the complete patch series these problems disappear. I'm =
+looking
+forward to see V4.
+
+Thanks Stefan
