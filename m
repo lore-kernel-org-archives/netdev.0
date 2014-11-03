@@ -1,108 +1,66 @@
-From: Tomasz Mloduchowski <q@qdot.me>
-Subject: TCP out of memory - possible bug [3.18.0-rc3] / sched?
-Date: Mon, 03 Nov 2014 19:59:33 +0100
-Message-ID: <5457D095.9070502@qdot.me>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 0/1] mv643xx_eth: Disable TSO by default
+Date: Mon, 03 Nov 2014 11:04:08 -0800
+Message-ID: <1415041448.31570.0.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1414855820-15094-1-git-send-email-ezequiel.garcia@free-electrons.com>
+	 <1414862766.31792.7.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <063D6719AE5E284EB5DD2968C1650D6D1C9E44F5@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	Tawfik Bayouk <tawfik@marvell.com>,
+	Lior Amsalem <alior@marvell.com>,
+	Nadav Haklai <nadavh@marvell.com>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f41.google.com ([74.125.82.41]:60753 "EHLO
-	mail-wg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752329AbaKCTAV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2014 14:00:21 -0500
-Received: by mail-wg0-f41.google.com with SMTP id k14so11835722wgh.14
-        for <netdev@vger.kernel.org>; Mon, 03 Nov 2014 11:00:20 -0800 (PST)
-Received: from [192.168.15.126] (my83-216-94-251.cust.relish.net. [83.216.94.251])
-        by mx.google.com with ESMTPSA id q10sm23128711wjq.35.2014.11.03.11.00.19
-        for <netdev@vger.kernel.org>
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Mon, 03 Nov 2014 11:00:19 -0800 (PST)
+Received: from mail-ig0-f177.google.com ([209.85.213.177]:65415 "EHLO
+	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751971AbaKCTEO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2014 14:04:14 -0500
+Received: by mail-ig0-f177.google.com with SMTP id hl2so5186017igb.10
+        for <netdev@vger.kernel.org>; Mon, 03 Nov 2014 11:04:13 -0800 (PST)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1C9E44F5@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi List,
+On Mon, 2014-11-03 at 14:51 +0000, David Laight wrote:
+> From: Eric Dumazet
+> > On Sat, 2014-11-01 at 12:30 -0300, Ezequiel Garcia wrote:
+> > > Several users ([1], [2]) have been reporting data corruption with TSO on
+> > > Kirkwood platforms (i.e. using the mv643xx_eth driver).
+> > >
+> > > Until we manage to find what's causing this, this simple patch will make
+> > > the TSO path disabled by default. This patch should be queued for stable,
+> > > fixing the TSO feature introduced in v3.16.
+> > >
+> > > The corruption itself is very easy to reproduce: checking md5sum on a mounted
+> > > NFS directory gives a different result each time. Same tests using the mvneta
+> > > driver (Armada 370/38x/XP SoC) pass with no issues.
+> > >
+> > > Frankly, I'm a bit puzzled about this, and so any ideas or debugging hints
+> > > are well received.
+> > 
+> > lack of barriers maybe ?
+> > 
+> > It seems you might need to populate all TX descriptors but delay the
+> > first, like doing the populate in descending order.
+> > 
+> > If you take a look at txq_submit_skb(), you'll see the final
+> > desc->cmd_sts = cmd_sts (line 959) is done _after_ frags were cooked by
+> > txq_submit_frag_skb()
+> > 
+> > You should kick the nick only when all TX descriptors are ready and
+> > committed to memory.
+> 
+> Don't forget that the nick might process the first descriptor without
+> being given a 'kick' - it will read it when it finishes processing the
+> previous frame.
+> This also means that you have to be careful about the order of the writes
+> to the first descriptor.
 
-I hope this is the right place to report a networking issue with
-3.18.0-rc2 and 3.18.0-rc3 - under heavy P2P load (tested both
-rtorrent/libtorrent and bitcoind, so not protocol-specific), the system
-quickly exhausts tcp_mem limits in a very strange sequence of events.
-
-It might be scheduler or networking subsystem related.
-
-It's 100% reproducible on my system, first observed under 3.18.0-rc2.
-
-Neither terminating the offending application, nor removing the network
-card seems to bring the 'mem' item in /proc/net/sockstat down from it's
-extreme values.
-
-http://static.qdot.me/tcp_mem_issue.png contains the plot of the 'mem'
-and 'sockets' fields from sockstat - violet is the 'mem', quickly
-exhausting the default 512k pages limit after a short period of reliable
-operation.
-
-
-Best Regards,
-Tomasz
-
--- snip --
-
-sched: RT throttling activated
-kworker/dying (792) used greatest stack depth: 11984 bytes left
-TCP: out of memory -- consider tuning tcp_mem
-TCP: out of memory -- consider tuning tcp_mem
-------------[ cut here ]------------
-WARNING: CPU: 0 PID: 5802 at net/core/stream.c:201
-sk_stream_kill_queues+0x12c/0x130()
-Modules linked in:
-CPU: 0 PID: 5802 Comm: main Not tainted 3.18.0-rc3 #2
-Hardware name: LENOVO 37023L0/37023L0, BIOS GFET48WW (1.27 ) 07/01/2014
- 0000000000000009 ffff8800cae2fd88 ffffffff81b6c0ff 0000000000000000
- 0000000000000000 ffff8800cae2fdc8 ffffffff810c235c ffff8800cae2fda8
- ffff8800bd996580 ffff8800bd996700 0000000000000004 ffff8800bd996610
-Call Trace:
- [<ffffffff81b6c0ff>] dump_stack+0x46/0x58
- [<ffffffff810c235c>] warn_slowpath_common+0x7c/0xa0
- [<ffffffff810c2425>] warn_slowpath_null+0x15/0x20
- [<ffffffff81954fbc>] sk_stream_kill_queues+0x12c/0x130
- [<ffffffff819b8b45>] inet_csk_destroy_sock+0x55/0x140
- [<ffffffff819bd9ee>] tcp_close+0x22e/0x430
- [<ffffffff819e3b82>] inet_release+0x72/0x80
- [<ffffffff819455fa>] sock_release+0x1a/0x90
- [<ffffffff8194567d>] sock_close+0xd/0x20
- [<ffffffff811dfdf6>] __fput+0xc6/0x1d0
- [<ffffffff811dff49>] ____fput+0x9/0x10
- [<ffffffff810db94f>] task_work_run+0x8f/0xd0
- [<ffffffff81046b12>] do_notify_resume+0x82/0xa0
- [<ffffffff81b7613f>] int_signal+0x12/0x17
----[ end trace 080b1124407d2571 ]---
-------------[ cut here ]------------
-WARNING: CPU: 0 PID: 5802 at net/ipv4/af_inet.c:153
-inet_sock_destruct+0x1d9/0x1e0()
-Modules linked in:
-CPU: 0 PID: 5802 Comm: main Tainted: G        W      3.18.0-rc3 #2
-Hardware name: LENOVO 37023L0/37023L0, BIOS GFET48WW (1.27 ) 07/01/2014
- 0000000000000009 ffff8800cae2fd68 ffffffff81b6c0ff 0000000000000000
- 0000000000000000 ffff8800cae2fda8 ffffffff810c235c ffff8800cae2fd88
- ffff8800bd996580 ffff8800bd996700 0000000000000004 ffff8800bd996610
-Call Trace:
- [<ffffffff81b6c0ff>] dump_stack+0x46/0x58
- [<ffffffff810c235c>] warn_slowpath_common+0x7c/0xa0
- [<ffffffff810c2425>] warn_slowpath_null+0x15/0x20
- [<ffffffff819e5179>] inet_sock_destruct+0x1d9/0x1e0
- [<ffffffff81949e7e>] __sk_free+0x1e/0x100
- [<ffffffff81949f79>] sk_free+0x19/0x20
- [<ffffffff819bd918>] tcp_close+0x158/0x430
- [<ffffffff819e3b82>] inet_release+0x72/0x80
- [<ffffffff819455fa>] sock_release+0x1a/0x90
- [<ffffffff8194567d>] sock_close+0xd/0x20
- [<ffffffff811dfdf6>] __fput+0xc6/0x1d0
- [<ffffffff811dff49>] ____fput+0x9/0x10
- [<ffffffff810db94f>] task_work_run+0x8f/0xd0
- [<ffffffff81046b12>] do_notify_resume+0x82/0xa0
- [<ffffffff81b7613f>] int_signal+0x12/0x17
----[ end trace 080b1124407d2572 ]---
-kworker/dying (679) used greatest stack depth: 11784 bytes left
-TCP: out of memory -- consider tuning tcp_mem
-
--- snip --
+This is what I implied and implemented in the patch ;)
