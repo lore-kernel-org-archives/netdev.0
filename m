@@ -1,36 +1,40 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [PATCH net-next] net: add rbnode to struct sk_buff
-Date: Mon, 3 Nov 2014 13:41:51 -0800
-Message-ID: <CAHA+R7P9PgkitLZAZrEoFfXT290rVr4oFibPyODPWhSVitA1WA@mail.gmail.com>
-References: <1415031593.14083.25.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAHA+R7M0--G=znvqQwy5Qmnm5po9yApcn4LjSSv8+-5c1D7RwQ@mail.gmail.com>
-	<20141103.163748.929657552226178600.davem@davemloft.net>
+From: Andrew Collins <bsderandrew@gmail.com>
+Subject: Missed stable line commit (upstream 859828c0ea476b42f3a93d69d117aaba90994b6f)
+Date: Mon, 3 Nov 2014 15:11:01 -0700
+Message-ID: <CAKTPYJQQprPnN1bUPxy32YREb8WARQztQYWL9-Qfhm6wLqbD0A@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	Yaogong Wang <wygivan@google.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f42.google.com ([209.85.215.42]:37001 "EHLO
-	mail-la0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752456AbaKCVlw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2014 16:41:52 -0500
-Received: by mail-la0-f42.google.com with SMTP id gq15so10446235lab.1
-        for <netdev@vger.kernel.org>; Mon, 03 Nov 2014 13:41:51 -0800 (PST)
-In-Reply-To: <20141103.163748.929657552226178600.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	stable@vger.kernel.org, gregkh@linuxfoundation.org
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 3, 2014 at 1:37 PM, David Miller <davem@davemloft.net> wrote:
-> From: Cong Wang <cwang@twopensource.com>
-> Date: Mon, 3 Nov 2014 13:34:33 -0800
->
->> No objections, but this is hacky, rbnode is larger than ->next + ->prev,
->> this means ->tstamp is always overwritten. This is why netem saves it
->> to its CB. This isn't flexible.
->
-> It's the size of next+prev+tstamp.  Eric is showing exactly what is
-> shared with what with the struct/union layout.
+I ran into an issue today on latest 3.10 stable line that looks to
+have been resolved upstream and tagged for stable:
 
-I knew, I meant saving tstamp is not flexible, or at least not pretty. :)
+commit 859828c0ea476b42f3a93d69d117aaba90994b6f
+Author: Jiri Pirko <jiri@resnulli.us>
+Date:   Thu Dec 5 16:27:37 2013 +0100
+
+    br: fix use of ->rx_handler_data in code executed on non-rx_handler path
+    ...
+    Please apply to stable trees as well. Thanks.
+
+The commit did make it into the 3.12 stable line, but seems to have
+been missed in 3.10.  The commit that causes the issue *did* make it
+into 3.10.16 so 3.10 is exposed to the issue:
+
+commit 960b8e5018a552f62cfbc0dfe94be7b6ba178f13
+Author: Hong Zhiguo <zhiguohong@tencent.com>
+Date:   Sat Sep 14 22:42:28 2013 +0800
+
+    bridge: fix NULL pointer deref of br_port_get_rcu
+
+    [ Upstream commit 716ec052d2280d511e10e90ad54a86f5b5d4dcc2 ]
+
+Any chance 859828c0ea476b42f3a93d69d117aaba90994b6f could be pulled
+into the next 3.10 stable?
+
+Thanks,
+Andrew Collins
