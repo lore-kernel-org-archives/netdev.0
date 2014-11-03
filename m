@@ -1,40 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: build failure in Linus' tree
-Date: Sun, 02 Nov 2014 23:16:37 -0500 (EST)
-Message-ID: <20141102.231637.506197393349958573.davem@davemloft.net>
-References: <20141103150930.70a260c7@canb.auug.org.au>
+Subject: Re: [PATCH] netfilter: nft_reject_bridge: Fix powerpc
+	build error
+Date: Sun, 02 Nov 2014 23:17:30 -0500 (EST)
+Message-ID: <20141102.231730.2267020727414912465.davem@davemloft.net>
+References: <1414981155-27155-1-git-send-email-linux@roeck-us.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: torvalds@linux-foundation.org, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	pablo@netfilter.org
-To: sfr@canb.auug.org.au
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20141103150930.70a260c7@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	stephen@networkplumber.org, coreteam@netfilter.org,
+	netfilter-devel@vger.kernel.org, kaber@trash.net, pablo@netfilter.org
+To: linux@roeck-us.net
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1414981155-27155-1-git-send-email-linux@roeck-us.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Mon, 3 Nov 2014 15:09:30 +1100
+From: Guenter Roeck <linux@roeck-us.net>
+Date: Sun,  2 Nov 2014 18:19:15 -0800
 
-> Hi Linus,
-> 
-> With Linus' tree, today's linux-next build (powerpc allyesconfig)
-> failed like this:
-> 
-> net/bridge/netfilter/nft_reject_bridge.c: In function 'nft_reject_br_send_v6_unreach':
-> net/bridge/netfilter/nft_reject_bridge.c:240:3: error: implicit declaration of function 'csum_ipv6_magic' [-Werror=implicit-function-declaration]
+> Fix:
+> net/bridge/netfilter/nft_reject_bridge.c:
+> In function 'nft_reject_br_send_v6_unreach':
+> net/bridge/netfilter/nft_reject_bridge.c:240:3:
+> 	error: implicit declaration of function 'csum_ipv6_magic'
 >    csum_ipv6_magic(&nip6h->saddr, &nip6h->daddr,
 >    ^
+> make[3]: *** [net/bridge/netfilter/nft_reject_bridge.o] Error 1
 > 
-> Caused by commit 523b929d5446 ("netfilter: nft_reject_bridge: don't use
-> IP stack to reject traffic") from Linus' tree.
+> Seen with powerpc:allmodconfig.
 > 
-> I applied the following patch for today:
+> Fixes: 523b929d5446 ("netfilter: nft_reject_bridge: don't use IP stack to reject traffic")
+> Cc: Pablo Neira Ayuso <pablo@netfilter.org>
+> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
 
-Yep, another person hit this today and submitted a patch too:
-
-http://patchwork.ozlabs.org/patch/406003/
-
-I'll get this into the net tree ASAP.
+Applied, thanks.
