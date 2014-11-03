@@ -1,90 +1,55 @@
-From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: [PATCH v2 3/3] drivers: net: xgene: fix: Use separate resources
-Date: Mon,  3 Nov 2014 11:59:56 -0800
-Message-ID: <1415044796-5081-4-git-send-email-isubramanian@apm.com>
-References: <1415044796-5081-1-git-send-email-isubramanian@apm.com>
-Cc: linux-arm-kernel@lists.infradead.org, patches@apm.com,
-	kchudgar@apm.com, Iyappan Subramanian <isubramanian@apm.com>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	devicetree@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod5og112.obsmtp.com ([64.18.0.24]:38941 "HELO
-	exprod5og112.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1752509AbaKCT7S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2014 14:59:18 -0500
-Received: by mail-pa0-f48.google.com with SMTP id ey11so12727430pad.7
-        for <netdev@vger.kernel.org>; Mon, 03 Nov 2014 11:59:17 -0800 (PST)
-In-Reply-To: <1415044796-5081-1-git-send-email-isubramanian@apm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [0/3] net: Kill skb_copy_datagram_const_iovec
+Date: Mon, 03 Nov 2014 15:05:53 -0500 (EST)
+Message-ID: <20141103.150553.633529234958324183.davem@davemloft.net>
+References: <20141103002207.GA26588@gondor.apana.org.au>
+	<20141103004503.GX7996@ZenIV.linux.org.uk>
+	<20141103053751.GA27845@gondor.apana.org.au>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: viro@ZenIV.linux.org.uk, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, bcrl@kvack.org
+To: herbert@gondor.apana.org.au
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141103053751.GA27845@gondor.apana.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch fixes the following kernel crash during SGMII based 1GbE probe.
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Mon, 3 Nov 2014 13:37:51 +0800
 
-	BUG: Bad page state in process swapper/0  pfn:40fe6ad
-	page:ffffffbee37a75d8 count:-1 mapcount:0 mapping:          (null) index:0x0
-	flags: 0x0()
-	page dumped because: nonzero _count
-	Modules linked in:
-	CPU: 0 PID: 0 Comm: swapper/0 Not tainted 3.17.0+ #7
-	Call trace:
-	[<ffffffc000087fa0>] dump_backtrace+0x0/0x12c
-	[<ffffffc0000880dc>] show_stack+0x10/0x1c
-	[<ffffffc0004d981c>] dump_stack+0x74/0xc4
-	[<ffffffc00012fe70>] bad_page+0xd8/0x128
-	[<ffffffc000133000>] get_page_from_freelist+0x4b8/0x640
-	[<ffffffc000133260>] __alloc_pages_nodemask+0xd8/0x834
-	[<ffffffc0004194f8>] __netdev_alloc_frag+0x124/0x1b8
-	[<ffffffc00041bfdc>] __netdev_alloc_skb+0x90/0x10c
-	[<ffffffc00039ff30>] xgene_enet_refill_bufpool+0x11c/0x280
-	[<ffffffc0003a11a4>] xgene_enet_process_ring+0x168/0x340
-	[<ffffffc0003a1498>] xgene_enet_napi+0x1c/0x50
-	[<ffffffc00042b454>] net_rx_action+0xc8/0x18c
-	[<ffffffc0000b0880>] __do_softirq+0x114/0x24c
-	[<ffffffc0000b0c34>] irq_exit+0x94/0xc8
-	[<ffffffc0000e68a0>] __handle_domain_irq+0x8c/0xf4
-	[<ffffffc000081288>] gic_handle_irq+0x30/0x7c
+> On Mon, Nov 03, 2014 at 12:45:03AM +0000, Al Viro wrote:
+>>
+>> Note, BTW, that there's a damn good reason to convert the socket side of
+>> things to iov_iter - as it is, ->splice_write() there is basically done with
+>> page-by-page mapping and doing kernel_sendmsg(); being able to deal with
+>> "map and copy" stuff *inside* ->sendmsg() would not only reduce the overhead,
+>> it would allow to get rid of ->sendpage() completely.  Basically, let
+>> ->sendmsg() instances check the iov_iter type and play zerocopy games if
+>> it's an "array of kernel pages" kind.  Compare ->sendpage() and ->sendmsg()
+>> instances for the protocols that have nontrivial ->sendpage(); you'll see
+>> that there's a lot of duplication.  Merging them looks very feasible, with
+>> divergence happening only very deep in the call chain.
+> 
+> Honestly I don't really care which way we end up going as long as
+> we pick one solution and stick with it.  Right now we have an
+> abomination in the form of skb_copy_datagram_const_iovec which is
+> the worst of both worlds, plus it duplicates tons of code.
+> 
+> So here's a few patches to kill this crap.
 
-This was due to hardware resource sharing conflict with the firmware. This
-patch fixes this crash by using resources (descriptor ring, prefetch buffer)
-that are not shared.
+To pick one direction and go with it, I totally agree with.
 
-Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
-Signed-off-by: Keyur Chudgar <kchudgar@apm.com>
----
- drivers/net/ethernet/apm/xgene/xgene_enet_main.c | 6 +++---
- drivers/net/ethernet/apm/xgene/xgene_enet_main.h | 3 +++
- 2 files changed, 6 insertions(+), 3 deletions(-)
+But a patch set like this as an interim solution, I am not so happy
+with.
 
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-index cc3f955..1236696 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-@@ -639,9 +639,9 @@ static int xgene_enet_create_desc_rings(struct net_device *ndev)
- 	struct device *dev = ndev_to_dev(ndev);
- 	struct xgene_enet_desc_ring *rx_ring, *tx_ring, *cp_ring;
- 	struct xgene_enet_desc_ring *buf_pool = NULL;
--	u8 cpu_bufnum = 0, eth_bufnum = 0;
--	u8 bp_bufnum = 0x20;
--	u16 ring_id, ring_num = 0;
-+	u8 cpu_bufnum = 0, eth_bufnum = START_ETH_BUFNUM;
-+	u8 bp_bufnum = START_BP_BUFNUM;
-+	u16 ring_id, ring_num = START_RING_NUM;
- 	int ret;
- 
- 	/* allocate rx descriptor ring */
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.h b/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
-index dba647d..f9958fa 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
-@@ -38,6 +38,9 @@
- #define SKB_BUFFER_SIZE		(XGENE_ENET_MAX_MTU - NET_IP_ALIGN)
- #define NUM_PKT_BUF	64
- #define NUM_BUFPOOL	32
-+#define START_ETH_BUFNUM	2
-+#define START_BP_BUFNUM		0x22
-+#define START_RING_NUM		8
- 
- #define PHY_POLL_LINK_ON	(10 * HZ)
- #define PHY_POLL_LINK_OFF	(PHY_POLL_LINK_ON / 5)
--- 
-1.9.1
+If the method says const, we have a contract with the caller to not
+modify the iovec.  That caller can assume that we have not done so.
+
+So this patch set violated that contract and can result in real bugs
+either now or in the future.
+
+I'll see if I can make some progress converting the networking over
+to iov_iter.  It can't be that difficult... albeit perhaps a little
+time consuming.
