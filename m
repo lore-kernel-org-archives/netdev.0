@@ -1,44 +1,45 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH 5/7] can: clear ctrlmode when close candev
-Date: Mon, 03 Nov 2014 21:47:22 +0100
-Message-ID: <5457E9DA.6090702@pengutronix.de>
-References: <1414579527-31100-1-git-send-email-b29396@freescale.com> <1414579527-31100-5-git-send-email-b29396@freescale.com>
+Subject: Re: [PATCH 1/7] can: m_can: fix possible sleep in napi poll
+Date: Mon, 03 Nov 2014 21:49:38 +0100
+Message-ID: <5457EA62.5040906@pengutronix.de>
+References: <1414579527-31100-1-git-send-email-b29396@freescale.com> <5457B517.8030805@pengutronix.de> <5457CB6B.3080002@hartkopp.net>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
  protocol="application/pgp-signature";
- boundary="hFohDBA3SqpKSSSSUw6muxnL7H5LtuXRb"
+ boundary="SA9RjBfS4K5ROf2NLDpgiT2QTa1fOuGST"
 Cc: wg@grandegger.com, varkabhadram@gmail.com, netdev@vger.kernel.org,
-	socketcan@hartkopp.net, linux-arm-kernel@lists.infradead.org
-To: Dong Aisheng <b29396@freescale.com>, linux-can@vger.kernel.org
+	linux-arm-kernel@lists.infradead.org
+To: Oliver Hartkopp <socketcan@hartkopp.net>,
+	Dong Aisheng <b29396@freescale.com>, linux-can@vger.kernel.org
 Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1414579527-31100-5-git-send-email-b29396@freescale.com>
+In-Reply-To: <5457CB6B.3080002@hartkopp.net>
 Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---hFohDBA3SqpKSSSSUw6muxnL7H5LtuXRb
+--SA9RjBfS4K5ROf2NLDpgiT2QTa1fOuGST
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: quoted-printable
 
-On 10/29/2014 11:45 AM, Dong Aisheng wrote:
-> Currently priv->ctrlmode is not cleared when close_candev, so next time=
+On 11/03/2014 07:37 PM, Oliver Hartkopp wrote:
+> you can omit the 'stable' tag as this driver just emerged in 3.18 - whi=
+ch is
+> currently in 3.18-rc3 state.
 
-> the driver will still use this value to set controller even user
-> does not set any ctrl mode.
-> e.g.
-> Step 1. ip link set can0 up type can0 bitrate 1000000 loopback on
-> Controller will be in loopback mode
-> Step 2. ip link set can0 down
-> Step 3. ip link set can0 up type can0 bitrate 1000000
-> Controller will still be set to loopback mode in driver due to saved
-> priv->ctrlmode.
->=20
-> This patch clears priv->ctrlmode when the CAN interface is closed,
-> and set it to correct mode according to next user setting.
->=20
-> Signed-off-by: Dong Aisheng <b29396@freescale.com>
+Thanks! fixed.
 
-NACK, as discussed with Oliver.
+> If possible I would suggest to push all 7 patches via can/master as it =
+is
+> pretty bad to say "M_CAN was introduced in 3.18 but M_CAN with CAN FD i=
+s
+> working since 3.19".
+
+Sorry, probably not, as CAN FD is a new feature. However we may talk to
+David, as the m_can driver was introduced in 3.18 anyways, so it's
+unlikely to break anything with this patch.
+
+> This will produce confusion as the M_CAN core has built-in CAN FD suppo=
+rt.
 
 Marc
 
@@ -49,7 +50,7 @@ Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
 Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
 
---hFohDBA3SqpKSSSSUw6muxnL7H5LtuXRb
+--SA9RjBfS4K5ROf2NLDpgiT2QTa1fOuGST
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: OpenPGP digital signature
 Content-Disposition: attachment; filename="signature.asc"
@@ -57,19 +58,19 @@ Content-Disposition: attachment; filename="signature.asc"
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1
 
-iQIcBAEBAgAGBQJUV+naAAoJECte4hHFiupUew8P/Asf0rKCMRQwo4r/2sSiQ3sw
-T3nMo6UaHOXhEULE0IWYcvWr1i+qimPgwqPgORyls2DkAXN+hyNQMjMbkoQQz53T
-THIZanssnNAAjTk/yipLA4EuibMoJ95pdHuIxq9J+Ld5pkNwLO++HxKqqI3f7HuU
-YbZ9M/5SvAPsiIfPss4IxBNzaTHOn2Fa1C84w65QbbzUwHAPpvYRFGU66mca11iH
-uSAMnR4Yb3yg+Crq4tTqqs04ZNp988XBia5jNq7/Xx4nPkrPeSSNRti2G+lJ1bsV
-8wuW3Ct1s/QCsWVll+8BTE8YwS5WaSchCTwPxJ2X1Tet12b9TWsb3iTr6PNbj9qq
-qeSG/VNebva6anlaKfebyYGZQ2iygmNklXGCEwhIerWb3rBDP1f3qjg7ppkePsVO
-ryQSguyVIHhy7CEqh5Ld/WbtTBcLVaz3fEXZYJEJTlMxgTbeiqZ+Ls/f8tu6mcf6
-o5N92y4pDLDZxGJs21lcyg7MPvH+d6/FeCycPPANYOQ5hylnvF80EZ3wjkOSA54f
-46Zc+3cPzV0/q9t1NsKBzSbCoLC51m8VRmBjsMYqK/UaWgoJ/NW9opXJT/l6rLUD
-0BjAJ6JzhKc3Mj3vk6BlLv/E67kjDntfg8dVE34tJnLBHDxZZpwdFW2xD0EeaclM
-6PaqGNQ7p9u0ZdslnyiM
-=dcS2
+iQIcBAEBAgAGBQJUV+piAAoJECte4hHFiupUjtsQAKxZ25Y2W2dSg2dDwt1vSuqz
+9zUjQEEH4eauW2WRog970igpehf7bZD3H9L8vhlXdmvah2uWT++ekg5r7oB8+rJj
+86jSkma+LH7k/NZCkrEcwhz0huEEaRxSQMqF++Vb2GWxdbeOaBDSfNEs/DXOTU7F
+moYRJ13eSpDJqT2ROm8eg/f+EfTgPIcUfP0NGxzksAX04HN6cwE4w0LG6Ska4DTT
+IO2VdhO4XL7E8d3JwzBatXLBFf1HW/krll7U+Avlp5Fx/qPV4ANB31U7wt+vQGdk
+qGWS1gjOgxoBMA36akrPUWVC1hQ08ZI+m25Sv3kp9MT1EPQkedbHGJthLbmmUm/g
+gfE3OOWhkbcMlxquxwwt4EvUt+GeDg/xkBqjjlZbcZceJkWBmxTFswg52c0eKbw3
+3UjYWtblacIHr3Az/ypaDAMhbOQSkCcKQ89SAS4KDIheLnZ2/7gGN6GX6tNs6rPO
+sjRjHupOJQiqgq6F+Urr2GfdBj48PMlaWBdHEqWNUIQE3CdXU/ZB0+QP6ZMXgQ5P
+7ppAGG3fIdesrBQgikNjt4pIb+8s4V+88ZtJyS37cqIVVunk3aAjAkB/E+3Q8nYs
+waQDPOp1Iw9ZQDVM1jleV6hwE8JT5vPFFkb3PVli5h8gGDnewGyBCNnNUec0cl6L
+NhJWAxYDBANax7yOobVV
+=mK10
 -----END PGP SIGNATURE-----
 
---hFohDBA3SqpKSSSSUw6muxnL7H5LtuXRb--
+--SA9RjBfS4K5ROf2NLDpgiT2QTa1fOuGST--
