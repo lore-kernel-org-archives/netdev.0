@@ -1,41 +1,54 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH bluetooth-next] netdevice: add ieee802154_ptr to
- net_device
-Date: Mon, 03 Nov 2014 12:20:24 -0500 (EST)
-Message-ID: <20141103.122024.541066618529355652.davem@davemloft.net>
-References: <1414907094-9623-1-git-send-email-alex.aring@gmail.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH v2] PPC: bpf_jit_comp: add SKF_AD_PKTTYPE instruction
+Date: Mon, 3 Nov 2014 09:21:03 -0800
+Message-ID: <CAADnVQJYNB15cQvDi0+AcL==n+f8PAb1=Dnp_vBWku4SA-Q_6Q@mail.gmail.com>
+References: <1414649535-3956-1-git-send-email-kda@linux-powerpc.org>
+	<20141103.120633.183870310578884991.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1414907094-9623-1-git-send-email-alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Denis Kirjanov <kda@linux-powerpc.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linuxppc-dev@ozlabs.org, Michael Ellerman <mpe@ellerman.id.au>,
+	Matt Evans <matt@ozlabs.org>
+To: David Miller <davem@davemloft.net>, felix@linux.vnet.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qc0-f169.google.com ([209.85.216.169]:39337 "EHLO
+	mail-qc0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751906AbaKCRVE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2014 12:21:04 -0500
+Received: by mail-qc0-f169.google.com with SMTP id i17so9561160qcy.28
+        for <netdev@vger.kernel.org>; Mon, 03 Nov 2014 09:21:03 -0800 (PST)
+In-Reply-To: <20141103.120633.183870310578884991.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Sun,  2 Nov 2014 06:44:54 +0100
+On Mon, Nov 3, 2014 at 9:06 AM, David Miller <davem@davemloft.net> wrote:
+> From: Denis Kirjanov <kda@linux-powerpc.org>
+> Date: Thu, 30 Oct 2014 09:12:15 +0300
+>
+>> Add BPF extension SKF_AD_PKTTYPE to ppc JIT to load
+>> skb->pkt_type field.
+>>
+>> Before:
+>> [   88.262622] test_bpf: #11 LD_IND_NET 86 97 99 PASS
+>> [   88.265740] test_bpf: #12 LD_PKTTYPE 109 107 PASS
+>>
+>> After:
+>> [   80.605964] test_bpf: #11 LD_IND_NET 44 40 39 PASS
+>> [   80.607370] test_bpf: #12 LD_PKTTYPE 9 9 PASS
+>>
+>> CC: Alexei Starovoitov<alexei.starovoitov@gmail.com>
+>> CC: Michael Ellerman<mpe@ellerman.id.au>
+>> Cc: Matt Evans <matt@ozlabs.org>
+>> Signed-off-by: Denis Kirjanov <kda@linux-powerpc.org>
+>>
+>> v2: Added test rusults
+>
+> So, can I apply this now?
 
-> This patch adds an ieee802154_ptr to the net_device structure.
-> Furthermore the 802.15.4 subsystem will introduce a nl802154 framework
-> which is similar like the nl80211 framework and a wpan_dev structure.
-> The wpan_dev structure will hold additional net_device attributes like
-> address options which are 802.15.4 specific. In the upcoming nl802154
-> implementation we will introduce a NL802154_FLAG_NEED_WPAN_DEV like
-> NL80211_FLAG_NEED_WDEV. For this flag an ieee802154_ptr in net_device is
-> needed. Additional we can access the wpan_dev attributes in upper layers
-> like IEEE 802.15.4 6LoWPAN easily. Current solution is a complicated
-> callback interface and getting these values over subif data structure
-> in mac802154.
-> 
-> Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-
-No objections, and you can merge this via the bluetooth tree:
-
-Acked-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I think this question is more towards ppc folks,
+since both Daniel and myself said before that it looks ok.
+Philippe just tested the previous version of this patch on ppc64le...
+I'm guessing that Matt (original author of bpf jit for ppc) is not replying,
+because he has no objections.
+Either way the addition is tiny and contained, so can go in now.
