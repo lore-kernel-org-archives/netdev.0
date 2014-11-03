@@ -1,72 +1,59 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH -next v3 1/3] syncookies: avoid magic values and document
- which-bit-is-what-option
-Date: Mon, 03 Nov 2014 16:27:55 +0100
-Message-ID: <54579EFB.2070705@redhat.com>
-References: <1415019720-17106-1-git-send-email-fw@strlen.de> <1415019720-17106-2-git-send-email-fw@strlen.de> <063D6719AE5E284EB5DD2968C1650D6D1C9E44B1@AcuExch.aculab.com> <54579240.8060309@redhat.com> <063D6719AE5E284EB5DD2968C1650D6D1C9E44D6@AcuExch.aculab.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] ipv4: avoid divide 0 error in tcp_incr_quickack
+Date: Mon, 03 Nov 2014 07:30:56 -0800
+Message-ID: <1415028656.14083.15.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1414978173-6948-1-git-send-email-chenweilong@huawei.com>
+	 <1414986126.31792.43.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <54571335.2060709@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "'Florian Westphal'" <fw@strlen.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48707 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752651AbaKCP2G (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Nov 2014 10:28:06 -0500
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1C9E44D6@AcuExch.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: chenweilong <chenweilong@huawei.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Neal Cardwell <ncardwell@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <54571335.2060709@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 11/03/2014 03:41 PM, David Laight wrote:
-...
->>>> +/* TCP Timestamp: 6 lowest bits of timestamp sent in the cookie SYN-ACK
->>>> + * stores TCP options:
->>>> + *
->>>> + * MSB                               LSB
->>>> + * | 31 ...   6 |  5  |  4   | 3 2 1 0 |
->>>> + * |  Timestamp | ECN | SACK | WScale  |
->>>> + *
->>>> + * When we receive a valid cookie-ACK, we look at the echoed tsval (if
->>>> + * any) to figure out which TCP options we should use for the rebuilt
->>>> + * connection.
->>>> + *
->>>> + * A WScale setting of '0xf' (which is an invalid scaling value)
->>>> + * means that original syn did not include the TCP window scaling option.
->>>> + */
->>>> +#define TS_OPT_WSCALE_MASK	0xf
->>>> +#define TS_OPT_SACK		BIT(4)
->>>> +#define TS_OPT_ECN		BIT(5)
->>>> +/* There is no TS_OPT_TIMESTAMP:
->>>> + * if ACK contains timestamp option, we already know it was
->>>> + * requested/supported by the syn/synack exchange.
->>>> + */
->>>> +#define TSBITS	6
->>>> +#define TSMASK	(((__u32)1 << TSBITS) - 1)
->>>
->>> Personally I'd define all the values as hex constants instead of mixing
->>> and matching the defines.
->>>
->>> So probably just:
->>> #define TS_OPT_WSCALE_MASK	0x0f
->>> #define TS_OPT_SACK		0x10
->>> #define TS_OPT_ECN		0x20
->>> #define TSMASK                0x3f
->>
->> If you look at the above comment and then take a peek at the actual TS_OPT_*,
->> it is much easier to follow. Moreover, how is having TSMASK as 0x3f better?!
->> Currently, it is a constant calculated based upon TSBITS.
->
-> TSMASK is also (TS_OPT_WSCALE_MASK | TS_OPT_SACK | TS_OPT_ECN) defining
-> the values in hex makes this even more clear.
+On Mon, 2014-11-03 at 13:31 +0800, chenweilong wrote:
 
-Right, that's your personal taste. ;) Besides, the definition of TSBITS/TSMASK
-itself is not even altered here.
+> Hi Eric,
+> 
+> I check the code and find that:
+> 
+> 1.In function "tcp_rcv_state_process",
+> the "tcp_initialize_rcv_mss" is called at "step 5: check the ACK field" when the sk->sk_state is TCP_SYN_RECV
+> and there is a "tcp_validate_incoming" just before it.
+> So when we call "tcp_validate_incoming", the rcv_mss may not been initialized.
+> 
+> 2.In function "tcp_validate_incoming",
+> the "Step 1: check sequence number", according to RFC793 page 69,
+> If an incoming segment is not acceptable,an acknowledgment should be sent in reply (unless the RST
+> bit is set, if so drop the segment and return).
+> So we may call "tcp_send_dupack" while the rcv_mss hasn't been initialized.
+> 
+> 3.In function "tcp_send_dupack",
+> when the condition is suitable, it'll enter quick ack mode. Notice it only check the seq !
+> So I think add another state check should be OK.
+> 
+> Any suggestion ?
+> 
 
-> Defining TSBITS from the mask would save the extra definition - which might
-> be easier done by replacing the shifts with multiply/divide by (TSMASK + 1)
-> (probably in a #define/inline function to make the code easier to read.
+You did find what immediate conditions for the crash (rcv_mss = 0, state
+= TCP_SYN_RCV) were.
 
-Sure, lets make it more complicated than it actually needs to be ... again,
-I think the code is fine as is, sorry.
+Your patch avoids the zero divide, but leaves other issues. rcv_mss = 0
+here is a sign some logic is wrong in the stack.
+
+Given this potential zero divide had been there for years, I believe we
+should take the time for a more complete fix, instead of papering over
+the immediate problem.
+
+We have been working with Neal to reproduce the issue with packetdrill,
+we'll post our results when we manage to get our first crash ;)
+
+Thanks !
