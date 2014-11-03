@@ -1,44 +1,73 @@
-From: Christian Hesse <mail@eworm.de>
-Subject: [PATCH 1/1] ip-link: fix column alignment
-Date: Mon,  3 Nov 2014 08:21:11 +0100
-Message-ID: <1414999271-18155-1-git-send-email-mail@eworm.de>
-Cc: netdev@vger.kernel.org, Christian Hesse <mail@eworm.de>
-To: Stephen Hemminger <stephen@networkplumber.org>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: [PATCH net 2/4] vti6: Use vti6_dev_init as the ndo_init function.
+Date: Mon, 3 Nov 2014 09:19:28 +0100
+Message-ID: <1415002770-5797-3-git-send-email-steffen.klassert@secunet.com>
+References: <1415002770-5797-1-git-send-email-steffen.klassert@secunet.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Steffen Klassert <steffen.klassert@secunet.com>,
+	<netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.mylinuxtime.de ([148.251.109.235]:50102 "EHLO
-	mx.mylinuxtime.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750795AbaKCHVV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2014 02:21:21 -0500
+Received: from a.mx.secunet.com ([195.81.216.161]:35453 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750925AbaKCIUB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Nov 2014 03:20:01 -0500
+In-Reply-To: <1415002770-5797-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Width is the maximum number of characters used for the value, excluding a
-field separator. So append a single whitespace.
----
- ip/ipaddress.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+vti6_dev_init() sets the dev->iflink via a call to
+vti6_link_config(). After that, register_netdevice()
+sets dev->iflink = -1. So we loose the iflink configuration
+for vti6 tunnels. Fix this by using vti6_dev_init() as the
+ndo_init function. Then vti6_dev_init() is called after
+dev->iflink is set to -1 from register_netdevice().
 
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index efea88c..e240bb5 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -327,7 +327,7 @@ static void print_num(FILE *fp, unsigned width, uint64_t count)
- 	char buf[64];
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+---
+ net/ipv6/ip6_vti.c | 11 +----------
+ 1 file changed, 1 insertion(+), 10 deletions(-)
+
+diff --git a/net/ipv6/ip6_vti.c b/net/ipv6/ip6_vti.c
+index d440bb5..31089d1 100644
+--- a/net/ipv6/ip6_vti.c
++++ b/net/ipv6/ip6_vti.c
+@@ -172,10 +172,6 @@ static int vti6_tnl_create2(struct net_device *dev)
+ 	struct vti6_net *ip6n = net_generic(net, vti6_net_id);
+ 	int err;
  
- 	if (!human_readable || count < base) {
--		fprintf(fp, "%-*"PRIu64, width, count);
-+		fprintf(fp, "%-*"PRIu64" ", width, count);
- 		return;
- 	}
- 
-@@ -346,7 +346,7 @@ static void print_num(FILE *fp, unsigned width, uint64_t count)
- 	snprintf(buf, sizeof(buf), "%.1f%c%s", (double) count / powi, 
- 		 *prefix, use_iec ? "i" : "");
- 
--	fprintf(fp, "%-*s", width, buf);
-+	fprintf(fp, "%-*s ", width, buf);
+-	err = vti6_dev_init(dev);
+-	if (err < 0)
+-		goto out;
+-
+ 	err = register_netdevice(dev);
+ 	if (err < 0)
+ 		goto out;
+@@ -783,6 +779,7 @@ static int vti6_change_mtu(struct net_device *dev, int new_mtu)
  }
  
- static void print_link_stats64(FILE *fp, const struct rtnl_link_stats64 *s,
+ static const struct net_device_ops vti6_netdev_ops = {
++	.ndo_init	= vti6_dev_init,
+ 	.ndo_uninit	= vti6_dev_uninit,
+ 	.ndo_start_xmit = vti6_tnl_xmit,
+ 	.ndo_do_ioctl	= vti6_ioctl,
+@@ -852,16 +849,10 @@ static int __net_init vti6_fb_tnl_dev_init(struct net_device *dev)
+ 	struct ip6_tnl *t = netdev_priv(dev);
+ 	struct net *net = dev_net(dev);
+ 	struct vti6_net *ip6n = net_generic(net, vti6_net_id);
+-	int err = vti6_dev_init_gen(dev);
+-
+-	if (err)
+-		return err;
+ 
+ 	t->parms.proto = IPPROTO_IPV6;
+ 	dev_hold(dev);
+ 
+-	vti6_link_config(t);
+-
+ 	rcu_assign_pointer(ip6n->tnls_wc[0], t);
+ 	return 0;
+ }
 -- 
-2.1.3
+1.9.1
