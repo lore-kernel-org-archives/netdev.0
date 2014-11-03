@@ -1,206 +1,222 @@
 From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH -next v4 2/3] syncookies: split cookie_check_timestamp() into two functions
-Date: Mon,  3 Nov 2014 17:35:02 +0100
-Message-ID: <1415032503-4936-3-git-send-email-fw@strlen.de>
+Subject: [PATCH -next v4 3/3] net: allow setting ecn via routing table
+Date: Mon,  3 Nov 2014 17:35:03 +0100
+Message-ID: <1415032503-4936-4-git-send-email-fw@strlen.de>
 References: <1415032503-4936-1-git-send-email-fw@strlen.de>
 Cc: Florian Westphal <fw@strlen.de>,
 	Daniel Borkmann <dborkman@redhat.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:45436 "EHLO
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:45440 "EHLO
 	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753118AbaKCQfO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2014 11:35:14 -0500
+	by vger.kernel.org with ESMTP id S1752205AbaKCQfT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2014 11:35:19 -0500
 In-Reply-To: <1415032503-4936-1-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The function cookie_check_timestamp(), both called from IPv4/6 context,
-is being used to decode the echoed timestamp from the SYN/ACK into TCP
-options used for follow-up communication with the peer.
+This patch allows to set ECN on a per-route basis in case the sysctl
+tcp_ecn is not set to 1. In other words, when ECN is set for specific
+routes, it provides a tcp_ecn=1 behaviour for that route while the rest
+of the stack acts according to the global settings.
 
-We can remove ECN handling from that function, split it into a separate
-one, and simply rename the original function into cookie_decode_options().
-cookie_decode_options() just fills in tcp_option struct based on the
-echoed timestamp received from the peer. Anything that fails in this
-function will actually discard the request socket.
+One can use 'ip route change dev $dev $net features ecn' to toggle this.
 
-While this is the natural place for decoding options such as ECN which
-commit 172d69e63c7f ("syncookies: add support for ECN") added, we argue
-that in particular for ECN handling, it can be checked at a later point
-in time as the request sock would actually not need to be dropped from
-this, but just ECN support turned off.
+Having a more fine-grained per-route setting can be beneficial for various
+reasons, for example, 1) within data centers, or 2) local ISPs may deploy
+ECN support for their own video/streaming services [1], etc.
 
-Therefore, we split this functionality into cookie_ecn_ok(), which tells
-us if the timestamp indicates ECN support AND the tcp_ecn sysctl is enabled.
+There was a recent measurement study/paper [2] which scanned the Alexa's
+publicly available top million websites list from a vantage point in US,
+Europe and Asia:
 
-This prepares for per-route ECN support: just looking at the tcp_ecn sysctl
-won't be enough anymore at that point; if the timestamp indicates ECN
-and sysctl tcp_ecn == 0, we will also need to check the ECN dst metric.
+Half of the Alexa list will now happily use ECN (tcp_ecn=2, most likely
+blamed to commit 255cac91c3 ("tcp: extend ECN sysctl to allow server-side
+only ECN") ;)); the break in connectivity on-path was found is about
+1 in 10,000 cases. Timeouts rather than receiving back RSTs were much
+more common in the negotiation phase (and mostly seen in the Alexa
+middle band, ranks around 50k-150k): from 12-thousand hosts on which
+there _may_ be ECN-linked connection failures, only 79 failed with RST
+when _not_ failing with RST when ECN is not requested.
 
-This would mean adding a route lookup to cookie_check_timestamp(), which
-we definitely want to avoid. As we already do a route lookup at a later
-point in cookie_{v4,v6}_check(), we can simply make use of that as well
-for the new cookie_ecn_ok() function w/o any additional cost.
+It's unclear though, how much equipment in the wild actually marks CE
+when buffers start to fill up.
+
+We thought about a fallback to non-ECN for retransmitted SYNs as another
+global option (which could perhaps one day be made default), but as Eric
+points out, there's much more work needed to detect broken middleboxes.
+
+Two examples Eric mentioned are buggy firewalls that accept only a single
+SYN per flow, and middleboxes that successfully let an ECN flow establish,
+but later mark CE for all packets (so cwnd converges to 1).
+
+ [1] http://www.ietf.org/proceedings/89/slides/slides-89-tsvarea-1.pdf, p.15
+ [2] http://ecn.ethz.ch/
 
 Joint work with Daniel Borkmann.
 
+Reference: http://thread.gmane.org/gmane.linux.network/335797
+Suggested-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Acked-by: Eric Dumazet <edumazet@google.com>
 Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 Signed-off-by: Florian Westphal <fw@strlen.de>
 ---
- No changes since v3, preserved Erics Acked-by tag.
+ Changes since v3:
+ tcp_ecn_create_request() can have 'struct dst_entry *' can be 'const', spotted by Eric.
+ Changes since v2:
+  - alter new cookie_ecn_ok() ok function to also evaluate
+  RTAX_FEATURE_ECN if timestamp-ecn-bit is set and the ecn sysctl
+  is off.
+  - extra blank line in tcp_output.c to appease checkpatch.pl
 
- include/net/tcp.h     |  9 ++++-----
- net/ipv4/syncookies.c | 31 +++++++++++++++++++++----------
- net/ipv6/syncookies.c |  5 ++---
- 3 files changed, 27 insertions(+), 18 deletions(-)
+ include/net/tcp.h     |  2 +-
+ net/ipv4/syncookies.c |  6 +++---
+ net/ipv4/tcp_input.c  | 25 +++++++++++++++----------
+ net/ipv4/tcp_output.c | 13 +++++++++++--
+ net/ipv6/syncookies.c |  2 +-
+ 5 files changed, 31 insertions(+), 17 deletions(-)
 
 diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 3a35b15..36c5084 100644
+index 36c5084..f50f29faf 100644
 --- a/include/net/tcp.h
 +++ b/include/net/tcp.h
-@@ -490,17 +490,16 @@ u32 __cookie_v4_init_sequence(const struct iphdr *iph, const struct tcphdr *th,
- 			      u16 *mssp);
- __u32 cookie_v4_init_sequence(struct sock *sk, const struct sk_buff *skb,
- 			      __u16 *mss);
--#endif
--
+@@ -493,7 +493,7 @@ __u32 cookie_v4_init_sequence(struct sock *sk, const struct sk_buff *skb,
  __u32 cookie_init_timestamp(struct request_sock *req);
--bool cookie_check_timestamp(struct tcp_options_received *opt, struct net *net,
--			    bool *ecn_ok);
-+bool cookie_timestamp_decode(struct tcp_options_received *opt);
-+bool cookie_ecn_ok(const struct tcp_options_received *opt,
-+		   const struct net *net);
+ bool cookie_timestamp_decode(struct tcp_options_received *opt);
+ bool cookie_ecn_ok(const struct tcp_options_received *opt,
+-		   const struct net *net);
++		   const struct net *net, const struct dst_entry *dst);
  
  /* From net/ipv6/syncookies.c */
  int __cookie_v6_check(const struct ipv6hdr *iph, const struct tcphdr *th,
- 		      u32 cookie);
- struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb);
--#ifdef CONFIG_SYN_COOKIES
-+
- u32 __cookie_v6_init_sequence(const struct ipv6hdr *iph,
- 			      const struct tcphdr *th, u16 *mssp);
- __u32 cookie_v6_init_sequence(struct sock *sk, const struct sk_buff *skb,
 diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
-index c3792c0..6de7725 100644
+index 6de7725..45fe60c 100644
 --- a/net/ipv4/syncookies.c
 +++ b/net/ipv4/syncookies.c
-@@ -241,10 +241,10 @@ static inline struct sock *get_cookie_sock(struct sock *sk, struct sk_buff *skb,
-  * additional tcp options in the timestamp.
-  * This extracts these options from the timestamp echo.
-  *
-- * return false if we decode an option that should not be.
-+ * return false if we decode a tcp option that is disabled
-+ * on the host.
-  */
--bool cookie_check_timestamp(struct tcp_options_received *tcp_opt,
--			struct net *net, bool *ecn_ok)
-+bool cookie_timestamp_decode(struct tcp_options_received *tcp_opt)
+@@ -273,7 +273,7 @@ bool cookie_timestamp_decode(struct tcp_options_received *tcp_opt)
+ EXPORT_SYMBOL(cookie_timestamp_decode);
+ 
+ bool cookie_ecn_ok(const struct tcp_options_received *tcp_opt,
+-		   const struct net *net)
++		   const struct net *net, const struct dst_entry *dst)
  {
- 	/* echoed timestamp, lowest bits contain options */
- 	u32 options = tcp_opt->rcv_tsecr;
-@@ -258,9 +258,6 @@ bool cookie_check_timestamp(struct tcp_options_received *tcp_opt,
- 		return false;
+ 	bool ecn_ok = tcp_opt->rcv_tsecr & TS_OPT_ECN;
  
- 	tcp_opt->sack_ok = (options & TS_OPT_SACK) ? TCP_SACK_SEEN : 0;
--	*ecn_ok = options & TS_OPT_ECN;
--	if (*ecn_ok && !net->ipv4.sysctl_tcp_ecn)
--		return false;
+@@ -283,7 +283,7 @@ bool cookie_ecn_ok(const struct tcp_options_received *tcp_opt,
+ 	if (net->ipv4.sysctl_tcp_ecn)
+ 		return true;
  
- 	if (tcp_opt->sack_ok && !sysctl_tcp_sack)
- 		return false;
-@@ -273,7 +270,22 @@ bool cookie_check_timestamp(struct tcp_options_received *tcp_opt,
- 
- 	return sysctl_tcp_window_scaling != 0;
+-	return false;
++	return dst_feature(dst, RTAX_FEATURE_ECN);
  }
--EXPORT_SYMBOL(cookie_check_timestamp);
-+EXPORT_SYMBOL(cookie_timestamp_decode);
-+
-+bool cookie_ecn_ok(const struct tcp_options_received *tcp_opt,
-+		   const struct net *net)
-+{
-+	bool ecn_ok = tcp_opt->rcv_tsecr & TS_OPT_ECN;
-+
-+	if (!ecn_ok)
-+		return false;
-+
-+	if (net->ipv4.sysctl_tcp_ecn)
-+		return true;
-+
-+	return false;
-+}
-+EXPORT_SYMBOL(cookie_ecn_ok);
+ EXPORT_SYMBOL(cookie_ecn_ok);
  
- struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb)
- {
-@@ -289,7 +301,6 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb)
- 	int mss;
- 	struct rtable *rt;
- 	__u8 rcv_wscale;
--	bool ecn_ok = false;
- 	struct flowi4 fl4;
- 
- 	if (!sysctl_tcp_syncookies || !th->ack || th->rst)
-@@ -310,7 +321,7 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb)
- 	memset(&tcp_opt, 0, sizeof(tcp_opt));
- 	tcp_parse_options(skb, &tcp_opt, 0, NULL);
- 
--	if (!cookie_check_timestamp(&tcp_opt, sock_net(sk), &ecn_ok))
-+	if (!cookie_timestamp_decode(&tcp_opt))
- 		goto out;
- 
- 	ret = NULL;
-@@ -328,7 +339,6 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb)
- 	ireq->ir_loc_addr	= ip_hdr(skb)->daddr;
- 	ireq->ir_rmt_addr	= ip_hdr(skb)->saddr;
- 	ireq->ir_mark		= inet_request_mark(sk, skb);
--	ireq->ecn_ok		= ecn_ok;
- 	ireq->snd_wscale	= tcp_opt.snd_wscale;
- 	ireq->sack_ok		= tcp_opt.sack_ok;
- 	ireq->wscale_ok		= tcp_opt.wscale_ok;
-@@ -377,6 +387,7 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb)
+@@ -387,7 +387,7 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb)
  				  dst_metric(&rt->dst, RTAX_INITRWND));
  
  	ireq->rcv_wscale  = rcv_wscale;
-+	ireq->ecn_ok = cookie_ecn_ok(&tcp_opt, sock_net(sk));
+-	ireq->ecn_ok = cookie_ecn_ok(&tcp_opt, sock_net(sk));
++	ireq->ecn_ok = cookie_ecn_ok(&tcp_opt, sock_net(sk), &rt->dst);
  
  	ret = get_cookie_sock(sk, skb, req, &rt->dst);
  	/* ip_queue_xmit() depends on our flow being setup
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 4e4617e..196b438 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -5876,20 +5876,22 @@ static inline void pr_drop_req(struct request_sock *req, __u16 port, int family)
+  */
+ static void tcp_ecn_create_request(struct request_sock *req,
+ 				   const struct sk_buff *skb,
+-				   const struct sock *listen_sk)
++				   const struct sock *listen_sk,
++				   const struct dst_entry *dst)
+ {
+ 	const struct tcphdr *th = tcp_hdr(skb);
+ 	const struct net *net = sock_net(listen_sk);
+ 	bool th_ecn = th->ece && th->cwr;
+-	bool ect, need_ecn;
++	bool ect, need_ecn, ecn_ok;
+ 
+ 	if (!th_ecn)
+ 		return;
+ 
+ 	ect = !INET_ECN_is_not_ect(TCP_SKB_CB(skb)->ip_dsfield);
+ 	need_ecn = tcp_ca_needs_ecn(listen_sk);
++	ecn_ok = net->ipv4.sysctl_tcp_ecn || dst_feature(dst, RTAX_FEATURE_ECN);
+ 
+-	if (!ect && !need_ecn && net->ipv4.sysctl_tcp_ecn)
++	if (!ect && !need_ecn && ecn_ok)
+ 		inet_rsk(req)->ecn_ok = 1;
+ 	else if (ect && need_ecn)
+ 		inet_rsk(req)->ecn_ok = 1;
+@@ -5954,13 +5956,7 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
+ 	if (security_inet_conn_request(sk, skb, req))
+ 		goto drop_and_free;
+ 
+-	if (!want_cookie || tmp_opt.tstamp_ok)
+-		tcp_ecn_create_request(req, skb, sk);
+-
+-	if (want_cookie) {
+-		isn = cookie_init_sequence(af_ops, sk, skb, &req->mss);
+-		req->cookie_ts = tmp_opt.tstamp_ok;
+-	} else if (!isn) {
++	if (!want_cookie && !isn) {
+ 		/* VJ's idea. We save last timestamp seen
+ 		 * from the destination in peer table, when entering
+ 		 * state TIME-WAIT, and check against it before
+@@ -6008,6 +6004,15 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
+ 			goto drop_and_free;
+ 	}
+ 
++	tcp_ecn_create_request(req, skb, sk, dst);
++
++	if (want_cookie) {
++		isn = cookie_init_sequence(af_ops, sk, skb, &req->mss);
++		req->cookie_ts = tmp_opt.tstamp_ok;
++		if (!tmp_opt.tstamp_ok)
++			inet_rsk(req)->ecn_ok = 0;
++	}
++
+ 	tcp_rsk(req)->snt_isn = isn;
+ 	tcp_openreq_init_rwin(req, sk, dst);
+ 	fastopen = !want_cookie &&
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index a3d453b..0b88158 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -333,10 +333,19 @@ static void tcp_ecn_send_synack(struct sock *sk, struct sk_buff *skb)
+ static void tcp_ecn_send_syn(struct sock *sk, struct sk_buff *skb)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
++	bool use_ecn = sock_net(sk)->ipv4.sysctl_tcp_ecn == 1 ||
++		       tcp_ca_needs_ecn(sk);
++
++	if (!use_ecn) {
++		const struct dst_entry *dst = __sk_dst_get(sk);
++
++		if (dst && dst_feature(dst, RTAX_FEATURE_ECN))
++			use_ecn = true;
++	}
+ 
+ 	tp->ecn_flags = 0;
+-	if (sock_net(sk)->ipv4.sysctl_tcp_ecn == 1 ||
+-	    tcp_ca_needs_ecn(sk)) {
++
++	if (use_ecn) {
+ 		TCP_SKB_CB(skb)->tcp_flags |= TCPHDR_ECE | TCPHDR_CWR;
+ 		tp->ecn_flags = TCP_ECN_OK;
+ 		if (tcp_ca_needs_ecn(sk))
 diff --git a/net/ipv6/syncookies.c b/net/ipv6/syncookies.c
-index be291ba..52cc8cb 100644
+index 52cc8cb..7337fc7 100644
 --- a/net/ipv6/syncookies.c
 +++ b/net/ipv6/syncookies.c
-@@ -166,7 +166,6 @@ struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
- 	int mss;
- 	struct dst_entry *dst;
- 	__u8 rcv_wscale;
--	bool ecn_ok = false;
- 
- 	if (!sysctl_tcp_syncookies || !th->ack || th->rst)
- 		goto out;
-@@ -186,7 +185,7 @@ struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
- 	memset(&tcp_opt, 0, sizeof(tcp_opt));
- 	tcp_parse_options(skb, &tcp_opt, 0, NULL);
- 
--	if (!cookie_check_timestamp(&tcp_opt, sock_net(sk), &ecn_ok))
-+	if (!cookie_timestamp_decode(&tcp_opt))
- 		goto out;
- 
- 	ret = NULL;
-@@ -223,7 +222,6 @@ struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
- 
- 	req->expires = 0UL;
- 	req->num_retrans = 0;
--	ireq->ecn_ok		= ecn_ok;
- 	ireq->snd_wscale	= tcp_opt.snd_wscale;
- 	ireq->sack_ok		= tcp_opt.sack_ok;
- 	ireq->wscale_ok		= tcp_opt.wscale_ok;
-@@ -264,6 +262,7 @@ struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
+@@ -262,7 +262,7 @@ struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
  				  dst_metric(dst, RTAX_INITRWND));
  
  	ireq->rcv_wscale = rcv_wscale;
-+	ireq->ecn_ok = cookie_ecn_ok(&tcp_opt, sock_net(sk));
+-	ireq->ecn_ok = cookie_ecn_ok(&tcp_opt, sock_net(sk));
++	ireq->ecn_ok = cookie_ecn_ok(&tcp_opt, sock_net(sk), dst);
  
  	ret = get_cookie_sock(sk, skb, req, dst);
  out:
