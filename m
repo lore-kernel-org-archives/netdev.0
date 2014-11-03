@@ -1,74 +1,72 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 08/11] i40e: better wording for resource tracking errors
-Date: Mon,  3 Nov 2014 06:56:36 -0800
-Message-ID: <1415026599-16232-9-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1415026599-16232-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Patrick Lu <patrick.lu@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH -next v3 1/3] syncookies: avoid magic values and document
+ which-bit-is-what-option
+Date: Mon, 03 Nov 2014 16:27:55 +0100
+Message-ID: <54579EFB.2070705@redhat.com>
+References: <1415019720-17106-1-git-send-email-fw@strlen.de> <1415019720-17106-2-git-send-email-fw@strlen.de> <063D6719AE5E284EB5DD2968C1650D6D1C9E44B1@AcuExch.aculab.com> <54579240.8060309@redhat.com> <063D6719AE5E284EB5DD2968C1650D6D1C9E44D6@AcuExch.aculab.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "'Florian Westphal'" <fw@strlen.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:44867 "EHLO mga01.intel.com"
+Received: from mx1.redhat.com ([209.132.183.28]:48707 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752694AbaKCO4z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Nov 2014 09:56:55 -0500
-In-Reply-To: <1415026599-16232-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1752651AbaKCP2G (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Nov 2014 10:28:06 -0500
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1C9E44D6@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+On 11/03/2014 03:41 PM, David Laight wrote:
+...
+>>>> +/* TCP Timestamp: 6 lowest bits of timestamp sent in the cookie SYN-ACK
+>>>> + * stores TCP options:
+>>>> + *
+>>>> + * MSB                               LSB
+>>>> + * | 31 ...   6 |  5  |  4   | 3 2 1 0 |
+>>>> + * |  Timestamp | ECN | SACK | WScale  |
+>>>> + *
+>>>> + * When we receive a valid cookie-ACK, we look at the echoed tsval (if
+>>>> + * any) to figure out which TCP options we should use for the rebuilt
+>>>> + * connection.
+>>>> + *
+>>>> + * A WScale setting of '0xf' (which is an invalid scaling value)
+>>>> + * means that original syn did not include the TCP window scaling option.
+>>>> + */
+>>>> +#define TS_OPT_WSCALE_MASK	0xf
+>>>> +#define TS_OPT_SACK		BIT(4)
+>>>> +#define TS_OPT_ECN		BIT(5)
+>>>> +/* There is no TS_OPT_TIMESTAMP:
+>>>> + * if ACK contains timestamp option, we already know it was
+>>>> + * requested/supported by the syn/synack exchange.
+>>>> + */
+>>>> +#define TSBITS	6
+>>>> +#define TSMASK	(((__u32)1 << TSBITS) - 1)
+>>>
+>>> Personally I'd define all the values as hex constants instead of mixing
+>>> and matching the defines.
+>>>
+>>> So probably just:
+>>> #define TS_OPT_WSCALE_MASK	0x0f
+>>> #define TS_OPT_SACK		0x10
+>>> #define TS_OPT_ECN		0x20
+>>> #define TSMASK                0x3f
+>>
+>> If you look at the above comment and then take a peek at the actual TS_OPT_*,
+>> it is much easier to follow. Moreover, how is having TSMASK as 0x3f better?!
+>> Currently, it is a constant calculated based upon TSBITS.
+>
+> TSMASK is also (TS_OPT_WSCALE_MASK | TS_OPT_SACK | TS_OPT_ECN) defining
+> the values in hex makes this even more clear.
 
-Tweak and homogenize the error reporting for get_lump() resource
-tracking errors.
+Right, that's your personal taste. ;) Besides, the definition of TSBITS/TSMASK
+itself is not even altered here.
 
-Change-ID: I11330161cc6ad8d04371c499c63071c816171c3b
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
-Signed-off-by: Patrick Lu <patrick.lu@intel.com>
-Tested-by: Jim Young <jamesx.m.young@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_main.c | 14 ++++++++------
- 1 file changed, 8 insertions(+), 6 deletions(-)
+> Defining TSBITS from the mask would save the extra definition - which might
+> be easier done by replacing the shifts with multiply/divide by (TSMASK + 1)
+> (probably in a #define/inline function to make the code easier to read.
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 83fee7f..6a481bf 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -7957,8 +7957,8 @@ static int i40e_vsi_setup_vectors(struct i40e_vsi *vsi)
- 						 vsi->num_q_vectors, vsi->idx);
- 	if (vsi->base_vector < 0) {
- 		dev_info(&pf->pdev->dev,
--			 "failed to get queue tracking for VSI %d, err=%d\n",
--			 vsi->seid, vsi->base_vector);
-+			 "failed to get tracking for %d vectors for VSI %d, err=%d\n",
-+			 vsi->num_q_vectors, vsi->seid, vsi->base_vector);
- 		i40e_vsi_free_q_vectors(vsi);
- 		ret = -ENOENT;
- 		goto vector_setup_out;
-@@ -7994,8 +7994,9 @@ static struct i40e_vsi *i40e_vsi_reinit_setup(struct i40e_vsi *vsi)
- 
- 	ret = i40e_get_lump(pf, pf->qp_pile, vsi->alloc_queue_pairs, vsi->idx);
- 	if (ret < 0) {
--		dev_info(&pf->pdev->dev, "VSI %d get_lump failed %d\n",
--			 vsi->seid, ret);
-+		dev_info(&pf->pdev->dev,
-+			 "failed to get tracking for %d queues for VSI %d err=%d\n",
-+			 vsi->alloc_queue_pairs, vsi->seid, ret);
- 		goto err_vsi;
- 	}
- 	vsi->base_queue = ret;
-@@ -8124,8 +8125,9 @@ struct i40e_vsi *i40e_vsi_setup(struct i40e_pf *pf, u8 type,
- 	ret = i40e_get_lump(pf, pf->qp_pile, vsi->alloc_queue_pairs,
- 				vsi->idx);
- 	if (ret < 0) {
--		dev_info(&pf->pdev->dev, "VSI %d get_lump failed %d\n",
--			 vsi->seid, ret);
-+		dev_info(&pf->pdev->dev,
-+			 "failed to get tracking for %d queues for VSI %d err=%d\n",
-+			 vsi->alloc_queue_pairs, vsi->seid, ret);
- 		goto err_vsi;
- 	}
- 	vsi->base_queue = ret;
--- 
-1.9.3
+Sure, lets make it more complicated than it actually needs to be ... again,
+I think the code is fine as is, sorry.
