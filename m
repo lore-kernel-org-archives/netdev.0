@@ -1,59 +1,80 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/11] i40e: Add condition to enter fdir flush and reinit
-Date: Mon,  3 Nov 2014 06:56:29 -0800
-Message-ID: <1415026599-16232-2-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1415026599-16232-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Patrick Lu <patrick.lu@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/11][pull request] Intel Wired LAN Driver Updates 2014-11-03
+Date: Mon,  3 Nov 2014 06:56:28 -0800
+Message-ID: <1415026599-16232-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:44867 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:44876 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752603AbaKCO4y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752519AbaKCO4y (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 3 Nov 2014 09:56:54 -0500
-In-Reply-To: <1415026599-16232-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>
+This series contains updates to i40e and i40evf.
 
-When FD_SB/ATR are not enabled, do not allow flow director flush
-and reinit.
+Akeem adds a check for i40e so that flow director flush and reinit are
+not done when flow director is not enabled.
 
-Change-ID: Iafe261c1862992981615815551abd1ed9fada0a8
-Signed-off-by: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>
-Signed-off-by: Patrick Lu <patrick.lu@intel.com>
-Tested-by: <jamesx.m.young@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_main.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+Mitch fixes the i40evf driver to properly handle multiple admin queue
+messages, by reinit the msg_size field each time we go through the loop.
+Without this, we may receive truncated messages due to the firmware
+thinking we have insufficient buffer size.  Also fixes the link checking
+logic to only check the carrier state if the interface is actually
+open, which allows link changes to be reported correctly without spamming
+the VFs.  Updates i40e to inset the VSI ID in the QTX_CTL register
+when configuring queues for VMDq VSIs.
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 834c9ff..0eccd82 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -5211,6 +5211,9 @@ static void i40e_fdir_flush_and_replay(struct i40e_pf *pf)
- 	int flush_wait_retry = 50;
- 	int reg;
- 
-+	if (!(pf->flags & (I40E_FLAG_FD_SB_ENABLED | I40E_FLAG_FD_ATR_ENABLED)))
-+		return;
-+
- 	if (time_after(jiffies, pf->fd_flush_timestamp +
- 				(I40E_MIN_FD_FLUSH_INTERVAL * HZ))) {
- 		set_bit(__I40E_FD_FLUSH_REQUESTED, &pf->state);
-@@ -5272,6 +5275,9 @@ static void i40e_fdir_reinit_subtask(struct i40e_pf *pf)
- 	if (test_bit(__I40E_DOWN, &pf->state))
- 		return;
- 
-+	if (!(pf->flags & (I40E_FLAG_FD_SB_ENABLED | I40E_FLAG_FD_ATR_ENABLED)))
-+		return;
-+
- 	if ((pf->fd_add_err >= I40E_MAX_FD_PROGRAM_ERROR) &&
- 	    (i40e_get_current_atr_cnt(pf) >= pf->fd_atr_cnt) &&
- 	    (i40e_get_current_atr_cnt(pf) > pf->fdir_pf_filter_count))
+Paul adds support for 10G-base-T in i40evf.
+
+Jesse fixes i40e where the call to irq_dynamic_disable() was turning off
+the interrupt completely when trying to set ITR to 0 (for lowest
+moderation).
+
+Shannon removes debugfs dump stats function, since it was not being
+kept up-to-date and was redundant with the ethtool output.  Also, scales
+back the LAN MSIx usage to force queue/vector sharing and leave some
+vectors for Flow Director, VMDq, etc. when there are more cores than
+vectors available to the PF.  Cleans up the error reporting for
+get_lump() resource tracking errors.  Also adds a check for the
+debug module parameter earlier to be able to catch the early configuration
+phase admin queue messages.
+
+The following are changes since commit 55b42b5ca2dcf143465968697fe6c6503b05fca1:
+  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+
+Akeem G Abodunrin (1):
+  i40e: Add condition to enter fdir flush and reinit
+
+Jesse Brandeburg (1):
+  i40e: avoid disable of interrupt when changing ITR
+
+Mitch Williams (4):
+  i40evf: properly handle multiple AQ messages
+  i40e: fix link checking logic
+  i40e: configure VM ID in qtx_ctl
+  i40e: properly parse MDET registers
+
+Paul M Stillwell Jr (1):
+  i40evf: Add support for 10G base T parts
+
+Shannon Nelson (4):
+  i40e: remove debugfs dump stats
+  i40e: scale msix vector use when more cores than vectors
+  i40e: better wording for resource tracking errors
+  i40e: enable debug earlier
+
+ drivers/net/ethernet/intel/i40e/i40e_debugfs.c  | 93 +------------------------
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c  |  2 -
+ drivers/net/ethernet/intel/i40e/i40e_main.c     | 67 ++++++++++++------
+ drivers/net/ethernet/intel/i40evf/i40e_common.c |  1 +
+ drivers/net/ethernet/intel/i40evf/i40e_type.h   |  1 +
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c |  4 +-
+ 6 files changed, 51 insertions(+), 117 deletions(-)
+
 -- 
 1.9.3
