@@ -1,102 +1,34 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: [PATCHv1 net-next] xen-netback: remove unconditional pull_skb_tail in guest Tx path
-Date: Mon, 3 Nov 2014 17:23:51 +0000
-Message-ID: <1415035431-27485-1-git-send-email-david.vrabel@citrix.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: shrink struct softnet_data
+Date: Mon, 03 Nov 2014 12:25:29 -0500 (EST)
+Message-ID: <20141103.122529.1666622093277377387.davem@davemloft.net>
+References: <1414936812.31792.31.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: David Vrabel <david.vrabel@citrix.com>,
-	<xen-devel@lists.xenproject.org>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	Malcolm Crossley <malcolm.crossley@citrix.com>
-To: <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:16926 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751739AbaKCRYB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2014 12:24:01 -0500
+Received: from shards.monkeyblade.net ([149.20.54.216]:47642 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751041AbaKCRZb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2014 12:25:31 -0500
+In-Reply-To: <1414936812.31792.31.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Malcolm Crossley <malcolm.crossley@citrix.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sun, 02 Nov 2014 06:00:12 -0800
 
-Unconditionally pulling 128 bytes into the linear buffer is not
-required. Netback has already grant copied up-to 128 bytes from the
-first slot of a packet into the linear buffer. The first slot normally
-contain all the IPv4/IPv6 and TCP/UDP headers.
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> flow_limit in struct softnet_data is only read from local cpu
+> and can be moved to fill a hole, reducing softnet_data size by
+> 64 bytes on x86_64
+> 
+> While we are at it, move output_queue, output_queue_tailp and
+> completion_queue, so that rx / tx paths touch a single cache line.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-The unconditional pull would often copy frag data unnecessarily.  This
-is a performance problem when running on a version of Xen where grant
-unmap avoids TLB flushes for pages which are not accessed.  TLB
-flushes can now be avoided for > 99% of unmaps (it was 0% before).
-
-Grant unmap TLB flush avoidance will be available in a future version
-of Xen (probably 4.6).
-
-Signed-off-by: Malcolm Crossley <malcolm.crossley@citrix.com>
-Signed-off-by: David Vrabel <david.vrabel@citrix.com>
----
- drivers/net/xen-netback/netback.c |   26 ++++++++++++--------------
- 1 file changed, 12 insertions(+), 14 deletions(-)
-
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index 730252c..14e18bb 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -82,6 +82,16 @@ MODULE_PARM_DESC(max_queues,
- static unsigned int fatal_skb_slots = FATAL_SKB_SLOTS_DEFAULT;
- module_param(fatal_skb_slots, uint, 0444);
- 
-+/* The amount to copy out of the first guest Tx slot into the skb's
-+ * linear area.  If the first slot has more data, it will be mapped
-+ * and put into the first frag.
-+ *
-+ * This is sized to avoid pulling headers from the frags for most
-+ * TCP/IP packets.
-+ */
-+#define XEN_NETBACK_TX_COPY_LEN 128
-+
-+
- static void xenvif_idx_release(struct xenvif_queue *queue, u16 pending_idx,
- 			       u8 status);
- 
-@@ -125,13 +135,6 @@ static inline struct xenvif_queue *ubuf_to_queue(const struct ubuf_info *ubuf)
- 			    pending_tx_info[0]);
- }
- 
--/* This is a miniumum size for the linear area to avoid lots of
-- * calls to __pskb_pull_tail() as we set up checksum offsets. The
-- * value 128 was chosen as it covers all IPv4 and most likely
-- * IPv6 headers.
-- */
--#define PKT_PROT_LEN 128
--
- static u16 frag_get_pending_idx(skb_frag_t *frag)
- {
- 	return (u16)frag->page_offset;
-@@ -1446,9 +1449,9 @@ static void xenvif_tx_build_gops(struct xenvif_queue *queue,
- 		index = pending_index(queue->pending_cons);
- 		pending_idx = queue->pending_ring[index];
- 
--		data_len = (txreq.size > PKT_PROT_LEN &&
-+		data_len = (txreq.size > XEN_NETBACK_TX_COPY_LEN &&
- 			    ret < XEN_NETBK_LEGACY_SLOTS_MAX) ?
--			PKT_PROT_LEN : txreq.size;
-+			XEN_NETBACK_TX_COPY_LEN : txreq.size;
- 
- 		skb = xenvif_alloc_skb(data_len);
- 		if (unlikely(skb == NULL)) {
-@@ -1653,11 +1656,6 @@ static int xenvif_tx_submit(struct xenvif_queue *queue)
- 			}
- 		}
- 
--		if (skb_is_nonlinear(skb) && skb_headlen(skb) < PKT_PROT_LEN) {
--			int target = min_t(int, skb->len, PKT_PROT_LEN);
--			__pskb_pull_tail(skb, target - skb_headlen(skb));
--		}
--
- 		skb->dev      = queue->vif->dev;
- 		skb->protocol = eth_type_trans(skb, skb->dev);
- 		skb_reset_network_header(skb);
--- 
-1.7.10.4
+Applied.
