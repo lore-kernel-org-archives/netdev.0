@@ -1,44 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net: add rbnode to struct sk_buff
-Date: Mon, 03 Nov 2014 14:36:04 -0800
-Message-ID: <1415054164.1005.2.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1415031593.14083.25.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAHA+R7M0--G=znvqQwy5Qmnm5po9yApcn4LjSSv8+-5c1D7RwQ@mail.gmail.com>
-	 <20141103.163748.929657552226178600.davem@davemloft.net>
-	 <CAHA+R7P9PgkitLZAZrEoFfXT290rVr4oFibPyODPWhSVitA1WA@mail.gmail.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH net-next 0/7] gue: Remote checksum offload
+Date: Mon, 3 Nov 2014 14:39:31 -0800
+Message-ID: <CA+mtBx-t2a80VhYypH8d0pjWh7FqT8GRGZt1F=o23GC3BZm-sA@mail.gmail.com>
+References: <1414882683-25484-1-git-send-email-therbert@google.com>
+	<CAEP_g=88Q155PxTm9qbNVuxevqDneH3bed0nRfw1nKnZEKvMfQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Yaogong Wang <wygivan@google.com>
-To: Cong Wang <cwang@twopensource.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Jesse Gross <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f177.google.com ([209.85.213.177]:54237 "EHLO
-	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751033AbaKCWgH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2014 17:36:07 -0500
-Received: by mail-ig0-f177.google.com with SMTP id hl2so5538526igb.10
-        for <netdev@vger.kernel.org>; Mon, 03 Nov 2014 14:36:05 -0800 (PST)
-In-Reply-To: <CAHA+R7P9PgkitLZAZrEoFfXT290rVr4oFibPyODPWhSVitA1WA@mail.gmail.com>
+Received: from mail-ig0-f176.google.com ([209.85.213.176]:51599 "EHLO
+	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751197AbaKCWjg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2014 17:39:36 -0500
+Received: by mail-ig0-f176.google.com with SMTP id l13so6112361iga.9
+        for <netdev@vger.kernel.org>; Mon, 03 Nov 2014 14:39:36 -0800 (PST)
+In-Reply-To: <CAEP_g=88Q155PxTm9qbNVuxevqDneH3bed0nRfw1nKnZEKvMfQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-11-03 at 13:41 -0800, Cong Wang wrote:
-> On Mon, Nov 3, 2014 at 1:37 PM, David Miller <davem@davemloft.net> wrote:
-> > From: Cong Wang <cwang@twopensource.com>
-> > Date: Mon, 3 Nov 2014 13:34:33 -0800
-> >
-> >> No objections, but this is hacky, rbnode is larger than ->next + ->prev,
-> >> this means ->tstamp is always overwritten. This is why netem saves it
-> >> to its CB. This isn't flexible.
-> >
-> > It's the size of next+prev+tstamp.  Eric is showing exactly what is
-> > shared with what with the struct/union layout.
-> 
-> I knew, I meant saving tstamp is not flexible, or at least not pretty. :)
+On Mon, Nov 3, 2014 at 1:26 PM, Jesse Gross <jesse@nicira.com> wrote:
+> On Sat, Nov 1, 2014 at 3:57 PM, Tom Herbert <therbert@google.com> wrote:
+>> This patch set implements remote checksum offload for
+>> GUE, which is a mechanism that provides checksum offload of
+>> encapsulated packets using rudimentary offload capabilities found in
+>> most Network Interface Card (NIC) devices. The outer header checksum
+>> for UDP is enabled in packets and, with some additional meta
+>> information in the GUE header, a receiver is able to deduce the
+>> checksum to be set for an inner encapsulated packet. Effectively this
+>> offloads the computation of the inner checksum. Enabling the outer
+>> checksum in encapsulation has the additional advantage that it covers
+>> more of the packet than the inner checksum including the encapsulation
+>> headers.
+>
+> Tom, I have a pretty hard time squaring this with your previous
+> comments on hardware offload. This looks almost identical to a
+> protocol-specific hardware offload to me in terms of the implications
+> on the stack. It actually is more invasive and less likely to scale
+> across protocols, so the relative cost/benefit doesn't really add up
+> in my mind.
 
-Note that TCP stack doesn't care saving tstamp for packets in out of
-order queue.
+With this patch and checksum-unnecessary conversion we can provide
+checksum offload for encapsulation on millions of already deployed
+NICs without any HW or FW change.  Why do you think this is not a good
+cost/benefit tradeoff?
 
-Even for netem, I am not sure it is needed at all.
+Thanks,
+Tom
