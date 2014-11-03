@@ -1,30 +1,28 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/4] ipv6: Fix iflink setting for ipv6 tunnels
-Date: Mon, 03 Nov 2014 15:43:05 -0500 (EST)
-Message-ID: <20141103.154305.242200539181988126.davem@davemloft.net>
-References: <1415002770-5797-1-git-send-email-steffen.klassert@secunet.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] uapi: resort Kbuild entries
+Date: Mon, 03 Nov 2014 15:45:04 -0500 (EST)
+Message-ID: <20141103.154504.160451242438664597.davem@davemloft.net>
+References: <20141103124234.77377274@urahara>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: steffen.klassert@secunet.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49284 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752772AbaKCUnI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2014 15:43:08 -0500
-In-Reply-To: <1415002770-5797-1-git-send-email-steffen.klassert@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: gregkh-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20141103124234.77377274@urahara>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Date: Mon, 3 Nov 2014 09:19:26 +0100
+From: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
+Date: Mon, 3 Nov 2014 12:42:34 -0800
 
-> The ipv6 tunnels do the dev->iflink setting too early, it gets
-> overwritten by register_netdev(). So set dev->iflink from within
-> a ndo_init function to keep the configured setting.
+> The entries in the Kbuild files are incorrectly sorted.
+> Matters for aesthetics only.
 > 
-> This patchset fixes this for ip6_tunnel, vti6, sit and gre6.
+> Signed-off-by: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
+> 
+> ---
+> Patch against -net tree since that is where my last change was.
 
-Series applied, good catch, and thanks for checking all of the ipv6
-tunnel drivers for this problem.
+As such, I'll apply to this to net-next after my next merge.
