@@ -1,85 +1,512 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] stmmac: remove custom implementation of print_hex_dump()
-Date: Mon, 03 Nov 2014 10:11:43 -0800
-Message-ID: <1415038303.17743.27.camel@perches.com>
-References: <1415035734-24163-1-git-send-email-andriy.shevchenko@linux.intel.com>
-	 <1415035734-24163-2-git-send-email-andriy.shevchenko@linux.intel.com>
-	 <1415036355.17743.22.camel@perches.com>
-	 <1415037237.472.1.camel@linux.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	netdev@vger.kernel.org,
-	Kweh Hock Leong <hock.leong.kweh@intel.com>,
-	"David S . Miller" <davem@davemloft.net>,
-	Vince Bridgers <vbridgers2013@gmail.com>
-To: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net-next v2] neigh: remove dynamic neigh table registration support
+Date: Mon,  3 Nov 2014 10:14:14 -0800
+Message-ID: <1415038454-8150-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Cong Wang <xiyou.wangcong@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0023.hostedemail.com ([216.40.44.23]:59607 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753947AbaKCSLs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2014 13:11:48 -0500
-In-Reply-To: <1415037237.472.1.camel@linux.intel.com>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:39613 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752667AbaKCSOV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2014 13:14:21 -0500
+Received: by mail-pa0-f43.google.com with SMTP id eu11so12650875pac.2
+        for <netdev@vger.kernel.org>; Mon, 03 Nov 2014 10:14:21 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-11-03 at 19:53 +0200, Andy Shevchenko wrote:
-> On Mon, 2014-11-03 at 09:39 -0800, Joe Perches wrote:
-> > On Mon, 2014-11-03 at 19:28 +0200, Andy Shevchenko wrote:
-> > > There is a kernel helper to dump buffers in a hexdecimal format. This patch
-> > > substitutes the open coded function by calling that helper.
-> > []
-> > > diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> > []
-> > > @@ -191,14 +191,8 @@ static void stmmac_clk_csr_set(struct stmmac_priv *priv)
-> > >  
-> > >  static void print_pkt(unsigned char *buf, int len)
-> > >  {
-> > > -	int j;
-> > > -	pr_debug("len = %d byte, buf addr: 0x%p", len, buf);
-> > > -	for (j = 0; j < len; j++) {
-> > > -		if ((j % 16) == 0)
-> > > -			pr_debug("\n %03x:", j);
-> > > -		pr_debug(" %02x", buf[j]);
-> > > -	}
-> > > -	pr_debug("\n");
-> > > +	pr_debug("len = %d byte, buf addr: 0x%p\n", len, buf);
-> > > +	print_hex_dump(KERN_DEBUG, " ", DUMP_PREFIX_OFFSET, 16, 1, buf, len, 0);
-> > 
-> > Prefix should be ""
-> 
-> Oh, initially there is an indentation in one space.
-> Maybe Giuseppe would comment on this.
+Currently there are only three neigh tables in the whole kernel:
+arp table, ndisc table and decnet neigh table. What's more,
+we don't support registering multiple tables per family.
+Therefore we can just make these tables statically built-in.
 
-I think that's not particularly important.
+Cc: David S. Miller <davem@davemloft.net>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+---
+v2: remove useless #ifdef's
+    move the assignment to the end of neigh_table_init()
 
-This changes the output anyway as the the printed offset
-is now 8 chars wide not 3.
+ include/net/neighbour.h |   9 +-
+ net/core/neighbour.c    | 244 ++++++++++++++++++++++--------------------------
+ net/decnet/dn_neigh.c   |   2 +-
+ net/ipv4/arp.c          |   2 +-
+ net/ipv6/ndisc.c        |   2 +-
+ 5 files changed, 121 insertions(+), 138 deletions(-)
 
-> > Another (better?) option would be to use:
-> > 
-> > 	print_hex_dump_bytes("", DUMP_PREFIX_OFFSET, buf, len);
-> 
-> > so that it can be dynamically controlled like
-> > the pr_debug statements.
-> 
-> Ah, yes, but unfortunately it will print ASCII part always. Giuseppe,
-> what do you think?
-
-I'm not bothered by logging message output changes.
-It's not a guaranteed stable output.
-
-> P.S. [off topic] Joe, just would like to know if you have you seen my
-> last version of the patch series against hexdump.c which adds
-> seq_hex_dump() call [1]. If so, could you comment on it?
-> [1] https://lkml.org/lkml/2014/9/4/309
-
-seq_<foo> output however is guaranteed.
-
-So any conversion to the seq_hex_dump function
-would need to be exactly the same.
-
-New code could use seq_hex_dump.
-
-Other than that, it seems sensible enough.
+diff --git a/include/net/neighbour.h b/include/net/neighbour.h
+index dedfb18..1e65c68 100644
+--- a/include/net/neighbour.h
++++ b/include/net/neighbour.h
+@@ -220,6 +220,13 @@ struct neigh_table {
+ 	struct pneigh_entry	**phash_buckets;
+ };
+ 
++enum {
++	NEIGH_ARP_TABLE = 0,
++	NEIGH_ND_TABLE = 1,
++	NEIGH_DN_TABLE = 2,
++	NEIGH_NR_TABLES,
++};
++
+ static inline int neigh_parms_family(struct neigh_parms *p)
+ {
+ 	return p->tbl->family;
+@@ -240,7 +247,7 @@ static inline void *neighbour_priv(const struct neighbour *n)
+ #define NEIGH_UPDATE_F_ISROUTER			0x40000000
+ #define NEIGH_UPDATE_F_ADMIN			0x80000000
+ 
+-void neigh_table_init(struct neigh_table *tbl);
++void neigh_table_init(int index, struct neigh_table *tbl);
+ int neigh_table_clear(struct neigh_table *tbl);
+ struct neighbour *neigh_lookup(struct neigh_table *tbl, const void *pkey,
+ 			       struct net_device *dev);
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index edd0411..55b7e0b 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -56,7 +56,6 @@ static void __neigh_notify(struct neighbour *n, int type, int flags);
+ static void neigh_update_notify(struct neighbour *neigh);
+ static int pneigh_ifdown(struct neigh_table *tbl, struct net_device *dev);
+ 
+-static struct neigh_table *neigh_tables;
+ #ifdef CONFIG_PROC_FS
+ static const struct file_operations neigh_stat_seq_fops;
+ #endif
+@@ -87,13 +86,8 @@ static const struct file_operations neigh_stat_seq_fops;
+    the most complicated procedure, which we allow is dev->hard_header.
+    It is supposed, that dev->hard_header is simplistic and does
+    not make callbacks to neighbour tables.
+-
+-   The last lock is neigh_tbl_lock. It is pure SMP lock, protecting
+-   list of neighbour tables. This list is used only in process context,
+  */
+ 
+-static DEFINE_RWLOCK(neigh_tbl_lock);
+-
+ static int neigh_blackhole(struct neighbour *neigh, struct sk_buff *skb)
+ {
+ 	kfree_skb(skb);
+@@ -1520,7 +1514,9 @@ static void neigh_parms_destroy(struct neigh_parms *parms)
+ 
+ static struct lock_class_key neigh_table_proxy_queue_class;
+ 
+-static void neigh_table_init_no_netlink(struct neigh_table *tbl)
++static struct neigh_table *neigh_tables[NEIGH_NR_TABLES] __read_mostly;
++
++void neigh_table_init(int index, struct neigh_table *tbl)
+ {
+ 	unsigned long now = jiffies;
+ 	unsigned long phsize;
+@@ -1566,34 +1562,13 @@ static void neigh_table_init_no_netlink(struct neigh_table *tbl)
+ 
+ 	tbl->last_flush = now;
+ 	tbl->last_rand	= now + tbl->parms.reachable_time * 20;
+-}
+-
+-void neigh_table_init(struct neigh_table *tbl)
+-{
+-	struct neigh_table *tmp;
+ 
+-	neigh_table_init_no_netlink(tbl);
+-	write_lock(&neigh_tbl_lock);
+-	for (tmp = neigh_tables; tmp; tmp = tmp->next) {
+-		if (tmp->family == tbl->family)
+-			break;
+-	}
+-	tbl->next	= neigh_tables;
+-	neigh_tables	= tbl;
+-	write_unlock(&neigh_tbl_lock);
+-
+-	if (unlikely(tmp)) {
+-		pr_err("Registering multiple tables for family %d\n",
+-		       tbl->family);
+-		dump_stack();
+-	}
++	neigh_tables[index] = tbl;
+ }
+ EXPORT_SYMBOL(neigh_table_init);
+ 
+ int neigh_table_clear(struct neigh_table *tbl)
+ {
+-	struct neigh_table **tp;
+-
+ 	/* It is not clean... Fix it to unload IPv6 module safely */
+ 	cancel_delayed_work_sync(&tbl->gc_work);
+ 	del_timer_sync(&tbl->proxy_timer);
+@@ -1601,14 +1576,6 @@ int neigh_table_clear(struct neigh_table *tbl)
+ 	neigh_ifdown(tbl, NULL);
+ 	if (atomic_read(&tbl->entries))
+ 		pr_crit("neighbour leakage\n");
+-	write_lock(&neigh_tbl_lock);
+-	for (tp = &neigh_tables; *tp; tp = &(*tp)->next) {
+-		if (*tp == tbl) {
+-			*tp = tbl->next;
+-			break;
+-		}
+-	}
+-	write_unlock(&neigh_tbl_lock);
+ 
+ 	call_rcu(&rcu_dereference_protected(tbl->nht, 1)->rcu,
+ 		 neigh_hash_free_rcu);
+@@ -1626,12 +1593,32 @@ int neigh_table_clear(struct neigh_table *tbl)
+ }
+ EXPORT_SYMBOL(neigh_table_clear);
+ 
++static struct neigh_table *neigh_find_table(int family)
++{
++	struct neigh_table *tbl = NULL;
++
++	switch (family) {
++	case AF_INET:
++		tbl = neigh_tables[NEIGH_ARP_TABLE];
++		break;
++	case AF_INET6:
++		tbl = neigh_tables[NEIGH_ND_TABLE];
++		break;
++	case AF_DECnet:
++		tbl = neigh_tables[NEIGH_DN_TABLE];
++		break;
++	}
++
++	return tbl;
++}
++
+ static int neigh_delete(struct sk_buff *skb, struct nlmsghdr *nlh)
+ {
+ 	struct net *net = sock_net(skb->sk);
+ 	struct ndmsg *ndm;
+ 	struct nlattr *dst_attr;
+ 	struct neigh_table *tbl;
++	struct neighbour *neigh;
+ 	struct net_device *dev = NULL;
+ 	int err = -EINVAL;
+ 
+@@ -1652,39 +1639,31 @@ static int neigh_delete(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 		}
+ 	}
+ 
+-	read_lock(&neigh_tbl_lock);
+-	for (tbl = neigh_tables; tbl; tbl = tbl->next) {
+-		struct neighbour *neigh;
+-
+-		if (tbl->family != ndm->ndm_family)
+-			continue;
+-		read_unlock(&neigh_tbl_lock);
+-
+-		if (nla_len(dst_attr) < tbl->key_len)
+-			goto out;
++	tbl = neigh_find_table(ndm->ndm_family);
++	if (tbl == NULL)
++		return -EAFNOSUPPORT;
+ 
+-		if (ndm->ndm_flags & NTF_PROXY) {
+-			err = pneigh_delete(tbl, net, nla_data(dst_attr), dev);
+-			goto out;
+-		}
++	if (nla_len(dst_attr) < tbl->key_len)
++		goto out;
+ 
+-		if (dev == NULL)
+-			goto out;
++	if (ndm->ndm_flags & NTF_PROXY) {
++		err = pneigh_delete(tbl, net, nla_data(dst_attr), dev);
++		goto out;
++	}
+ 
+-		neigh = neigh_lookup(tbl, nla_data(dst_attr), dev);
+-		if (neigh == NULL) {
+-			err = -ENOENT;
+-			goto out;
+-		}
++	if (dev == NULL)
++		goto out;
+ 
+-		err = neigh_update(neigh, NULL, NUD_FAILED,
+-				   NEIGH_UPDATE_F_OVERRIDE |
+-				   NEIGH_UPDATE_F_ADMIN);
+-		neigh_release(neigh);
++	neigh = neigh_lookup(tbl, nla_data(dst_attr), dev);
++	if (neigh == NULL) {
++		err = -ENOENT;
+ 		goto out;
+ 	}
+-	read_unlock(&neigh_tbl_lock);
+-	err = -EAFNOSUPPORT;
++
++	err = neigh_update(neigh, NULL, NUD_FAILED,
++			   NEIGH_UPDATE_F_OVERRIDE |
++			   NEIGH_UPDATE_F_ADMIN);
++	neigh_release(neigh);
+ 
+ out:
+ 	return err;
+@@ -1692,11 +1671,14 @@ static int neigh_delete(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 
+ static int neigh_add(struct sk_buff *skb, struct nlmsghdr *nlh)
+ {
++	int flags = NEIGH_UPDATE_F_ADMIN | NEIGH_UPDATE_F_OVERRIDE;
+ 	struct net *net = sock_net(skb->sk);
+ 	struct ndmsg *ndm;
+ 	struct nlattr *tb[NDA_MAX+1];
+ 	struct neigh_table *tbl;
+ 	struct net_device *dev = NULL;
++	struct neighbour *neigh;
++	void *dst, *lladdr;
+ 	int err;
+ 
+ 	ASSERT_RTNL();
+@@ -1720,70 +1702,60 @@ static int neigh_add(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 			goto out;
+ 	}
+ 
+-	read_lock(&neigh_tbl_lock);
+-	for (tbl = neigh_tables; tbl; tbl = tbl->next) {
+-		int flags = NEIGH_UPDATE_F_ADMIN | NEIGH_UPDATE_F_OVERRIDE;
+-		struct neighbour *neigh;
+-		void *dst, *lladdr;
++	tbl = neigh_find_table(ndm->ndm_family);
++	if (tbl == NULL)
++		return -EAFNOSUPPORT;
+ 
+-		if (tbl->family != ndm->ndm_family)
+-			continue;
+-		read_unlock(&neigh_tbl_lock);
++	if (nla_len(tb[NDA_DST]) < tbl->key_len)
++		goto out;
++	dst = nla_data(tb[NDA_DST]);
++	lladdr = tb[NDA_LLADDR] ? nla_data(tb[NDA_LLADDR]) : NULL;
+ 
+-		if (nla_len(tb[NDA_DST]) < tbl->key_len)
+-			goto out;
+-		dst = nla_data(tb[NDA_DST]);
+-		lladdr = tb[NDA_LLADDR] ? nla_data(tb[NDA_LLADDR]) : NULL;
++	if (ndm->ndm_flags & NTF_PROXY) {
++		struct pneigh_entry *pn;
++
++		err = -ENOBUFS;
++		pn = pneigh_lookup(tbl, net, dst, dev, 1);
++		if (pn) {
++			pn->flags = ndm->ndm_flags;
++			err = 0;
++		}
++		goto out;
++	}
+ 
+-		if (ndm->ndm_flags & NTF_PROXY) {
+-			struct pneigh_entry *pn;
++	if (dev == NULL)
++		goto out;
+ 
+-			err = -ENOBUFS;
+-			pn = pneigh_lookup(tbl, net, dst, dev, 1);
+-			if (pn) {
+-				pn->flags = ndm->ndm_flags;
+-				err = 0;
+-			}
++	neigh = neigh_lookup(tbl, dst, dev);
++	if (neigh == NULL) {
++		if (!(nlh->nlmsg_flags & NLM_F_CREATE)) {
++			err = -ENOENT;
+ 			goto out;
+ 		}
+ 
+-		if (dev == NULL)
++		neigh = __neigh_lookup_errno(tbl, dst, dev);
++		if (IS_ERR(neigh)) {
++			err = PTR_ERR(neigh);
++			goto out;
++		}
++	} else {
++		if (nlh->nlmsg_flags & NLM_F_EXCL) {
++			err = -EEXIST;
++			neigh_release(neigh);
+ 			goto out;
+-
+-		neigh = neigh_lookup(tbl, dst, dev);
+-		if (neigh == NULL) {
+-			if (!(nlh->nlmsg_flags & NLM_F_CREATE)) {
+-				err = -ENOENT;
+-				goto out;
+-			}
+-
+-			neigh = __neigh_lookup_errno(tbl, dst, dev);
+-			if (IS_ERR(neigh)) {
+-				err = PTR_ERR(neigh);
+-				goto out;
+-			}
+-		} else {
+-			if (nlh->nlmsg_flags & NLM_F_EXCL) {
+-				err = -EEXIST;
+-				neigh_release(neigh);
+-				goto out;
+-			}
+-
+-			if (!(nlh->nlmsg_flags & NLM_F_REPLACE))
+-				flags &= ~NEIGH_UPDATE_F_OVERRIDE;
+ 		}
+ 
+-		if (ndm->ndm_flags & NTF_USE) {
+-			neigh_event_send(neigh, NULL);
+-			err = 0;
+-		} else
+-			err = neigh_update(neigh, lladdr, ndm->ndm_state, flags);
+-		neigh_release(neigh);
+-		goto out;
++		if (!(nlh->nlmsg_flags & NLM_F_REPLACE))
++			flags &= ~NEIGH_UPDATE_F_OVERRIDE;
+ 	}
+ 
+-	read_unlock(&neigh_tbl_lock);
+-	err = -EAFNOSUPPORT;
++	if (ndm->ndm_flags & NTF_USE) {
++		neigh_event_send(neigh, NULL);
++		err = 0;
++	} else
++		err = neigh_update(neigh, lladdr, ndm->ndm_state, flags);
++	neigh_release(neigh);
++
+ out:
+ 	return err;
+ }
+@@ -1982,7 +1954,8 @@ static int neightbl_set(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 	struct neigh_table *tbl;
+ 	struct ndtmsg *ndtmsg;
+ 	struct nlattr *tb[NDTA_MAX+1];
+-	int err;
++	bool found = false;
++	int err, tidx;
+ 
+ 	err = nlmsg_parse(nlh, sizeof(*ndtmsg), tb, NDTA_MAX,
+ 			  nl_neightbl_policy);
+@@ -1995,19 +1968,21 @@ static int neightbl_set(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 	}
+ 
+ 	ndtmsg = nlmsg_data(nlh);
+-	read_lock(&neigh_tbl_lock);
+-	for (tbl = neigh_tables; tbl; tbl = tbl->next) {
++
++	for (tidx = 0; tidx < NEIGH_NR_TABLES; tidx++) {
++		tbl = neigh_tables[tidx];
++		if (!tbl)
++			continue;
+ 		if (ndtmsg->ndtm_family && tbl->family != ndtmsg->ndtm_family)
+ 			continue;
+-
+-		if (nla_strcmp(tb[NDTA_NAME], tbl->id) == 0)
++		if (nla_strcmp(tb[NDTA_NAME], tbl->id) == 0) {
++			found = true;
+ 			break;
++		}
+ 	}
+ 
+-	if (tbl == NULL) {
+-		err = -ENOENT;
+-		goto errout_locked;
+-	}
++	if (!found)
++		return -ENOENT;
+ 
+ 	/*
+ 	 * We acquire tbl->lock to be nice to the periodic timers and
+@@ -2118,8 +2093,6 @@ static int neightbl_set(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 
+ errout_tbl_lock:
+ 	write_unlock_bh(&tbl->lock);
+-errout_locked:
+-	read_unlock(&neigh_tbl_lock);
+ errout:
+ 	return err;
+ }
+@@ -2134,10 +2107,13 @@ static int neightbl_dump_info(struct sk_buff *skb, struct netlink_callback *cb)
+ 
+ 	family = ((struct rtgenmsg *) nlmsg_data(cb->nlh))->rtgen_family;
+ 
+-	read_lock(&neigh_tbl_lock);
+-	for (tbl = neigh_tables, tidx = 0; tbl; tbl = tbl->next, tidx++) {
++	for (tidx = 0; tidx < NEIGH_NR_TABLES; tidx++) {
+ 		struct neigh_parms *p;
+ 
++		tbl = neigh_tables[tidx];
++		if (!tbl)
++			continue;
++
+ 		if (tidx < tbl_skip || (family && tbl->family != family))
+ 			continue;
+ 
+@@ -2168,7 +2144,6 @@ static int neightbl_dump_info(struct sk_buff *skb, struct netlink_callback *cb)
+ 		neigh_skip = 0;
+ 	}
+ out:
+-	read_unlock(&neigh_tbl_lock);
+ 	cb->args[0] = tidx;
+ 	cb->args[1] = nidx;
+ 
+@@ -2351,7 +2326,6 @@ static int neigh_dump_info(struct sk_buff *skb, struct netlink_callback *cb)
+ 	int proxy = 0;
+ 	int err;
+ 
+-	read_lock(&neigh_tbl_lock);
+ 	family = ((struct rtgenmsg *) nlmsg_data(cb->nlh))->rtgen_family;
+ 
+ 	/* check for full ndmsg structure presence, family member is
+@@ -2363,8 +2337,11 @@ static int neigh_dump_info(struct sk_buff *skb, struct netlink_callback *cb)
+ 
+ 	s_t = cb->args[0];
+ 
+-	for (tbl = neigh_tables, t = 0; tbl;
+-	     tbl = tbl->next, t++) {
++	for (t = 0; t < NEIGH_NR_TABLES; t++) {
++		tbl = neigh_tables[t];
++
++		if (!tbl)
++			continue;
+ 		if (t < s_t || (family && tbl->family != family))
+ 			continue;
+ 		if (t > s_t)
+@@ -2377,7 +2354,6 @@ static int neigh_dump_info(struct sk_buff *skb, struct netlink_callback *cb)
+ 		if (err < 0)
+ 			break;
+ 	}
+-	read_unlock(&neigh_tbl_lock);
+ 
+ 	cb->args[0] = t;
+ 	return skb->len;
+diff --git a/net/decnet/dn_neigh.c b/net/decnet/dn_neigh.c
+index c8121ce..845957a 100644
+--- a/net/decnet/dn_neigh.c
++++ b/net/decnet/dn_neigh.c
+@@ -591,7 +591,7 @@ static const struct file_operations dn_neigh_seq_fops = {
+ 
+ void __init dn_neigh_init(void)
+ {
+-	neigh_table_init(&dn_neigh_table);
++	neigh_table_init(NEIGH_DN_TABLE, &dn_neigh_table);
+ 	proc_create("decnet_neigh", S_IRUGO, init_net.proc_net,
+ 		    &dn_neigh_seq_fops);
+ }
+diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+index 16acb59..205e147 100644
+--- a/net/ipv4/arp.c
++++ b/net/ipv4/arp.c
+@@ -1292,7 +1292,7 @@ static int arp_proc_init(void);
+ 
+ void __init arp_init(void)
+ {
+-	neigh_table_init(&arp_tbl);
++	neigh_table_init(NEIGH_ARP_TABLE, &arp_tbl);
+ 
+ 	dev_add_pack(&arp_packet_type);
+ 	arp_proc_init();
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index 4cb45c1..c67f339 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -1763,7 +1763,7 @@ int __init ndisc_init(void)
+ 	/*
+ 	 * Initialize the neighbour table
+ 	 */
+-	neigh_table_init(&nd_tbl);
++	neigh_table_init(NEIGH_ND_TABLE, &nd_tbl);
+ 
+ #ifdef CONFIG_SYSCTL
+ 	err = neigh_sysctl_register(NULL, &nd_tbl.parms,
