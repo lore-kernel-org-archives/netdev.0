@@ -1,82 +1,45 @@
-From: chenweilong <chenweilong@huawei.com>
-Subject: Re: [PATCH] ipv4: avoid divide 0 error in tcp_incr_quickack
-Date: Mon, 3 Nov 2014 13:31:33 +0800
-Message-ID: <54571335.2060709@huawei.com>
-References: <1414978173-6948-1-git-send-email-chenweilong@huawei.com> <1414986126.31792.43.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [0/3] net: Kill skb_copy_datagram_const_iovec
+Date: Mon, 3 Nov 2014 13:37:51 +0800
+Message-ID: <20141103053751.GA27845@gondor.apana.org.au>
+References: <20141102230552.GA26095@gondor.apana.org.au>
+ <20141103001634.GV7996@ZenIV.linux.org.uk>
+ <20141103002207.GA26588@gondor.apana.org.au>
+ <20141103004503.GX7996@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <kuznet@ms2.inr.ac.ru>, <jmorris@namei.org>,
-	<yoshfuji@linux-ipv6.org>, <kaber@trash.net>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Benjamin LaHaise <bcrl@kvack.org>
+To: Al Viro <viro@ZenIV.linux.org.uk>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1414986126.31792.43.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Disposition: inline
+In-Reply-To: <20141103004503.GX7996@ZenIV.linux.org.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 2014/11/3 11:42, Eric Dumazet wrote:
-> On Mon, 2014-11-03 at 09:29 +0800, Chen Weilong wrote:
->> From: Weilong Chen <chenweilong@huawei.com>
->>
->> We got a problem like this:
-> 
->> There was a wrong ack packet coming during TCP handshake. The socket's state
->> was TCP_SYN_RECV, its rcv_mss was not initialize yet. So
->> tcp_send_dupack -> tcp_enter_quickack_mode got a divide 0 error.
->> This patch add a state check before tcp_enter_quickack_mode.
->>
->> Signed-off-by: Weilong Chen <chenweilong@huawei.com>
->> ---
->>  net/ipv4/tcp_input.c | 3 ++-
->>  1 file changed, 2 insertions(+), 1 deletion(-)
->>
->> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
->> index 4e4617e..9eb56dc 100644
->> --- a/net/ipv4/tcp_input.c
->> +++ b/net/ipv4/tcp_input.c
->> @@ -3986,7 +3986,8 @@ static void tcp_send_dupack(struct sock *sk, const struct sk_buff *skb)
->>  	if (TCP_SKB_CB(skb)->end_seq != TCP_SKB_CB(skb)->seq &&
->>  	    before(TCP_SKB_CB(skb)->seq, tp->rcv_nxt)) {
->>  		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_DELAYEDACKLOST);
->> -		tcp_enter_quickack_mode(sk);
->> +		if (sk->sk_state != TCP_SYN_RECV)
->> +			tcp_enter_quickack_mode(sk);
->>  
->>  		if (tcp_is_sack(tp) && sysctl_tcp_dsack) {
->>  			u32 end_seq = TCP_SKB_CB(skb)->end_seq;
-> 
-> 
-> Sorry I do not think this is the right fix.
-> 
-> We have to not simply avoid the divide, but fix this issue by
-> understanding the missing steps.
-> 
-Hi Eric,
+On Mon, Nov 03, 2014 at 12:45:03AM +0000, Al Viro wrote:
+>
+> Note, BTW, that there's a damn good reason to convert the socket side of
+> things to iov_iter - as it is, ->splice_write() there is basically done with
+> page-by-page mapping and doing kernel_sendmsg(); being able to deal with
+> "map and copy" stuff *inside* ->sendmsg() would not only reduce the overhead,
+> it would allow to get rid of ->sendpage() completely.  Basically, let
+> ->sendmsg() instances check the iov_iter type and play zerocopy games if
+> it's an "array of kernel pages" kind.  Compare ->sendpage() and ->sendmsg()
+> instances for the protocols that have nontrivial ->sendpage(); you'll see
+> that there's a lot of duplication.  Merging them looks very feasible, with
+> divergence happening only very deep in the call chain.
 
-I check the code and find that:
+Honestly I don't really care which way we end up going as long as
+we pick one solution and stick with it.  Right now we have an
+abomination in the form of skb_copy_datagram_const_iovec which is
+the worst of both worlds, plus it duplicates tons of code.
 
-1.In function "tcp_rcv_state_process",
-the "tcp_initialize_rcv_mss" is called at "step 5: check the ACK field" when the sk->sk_state is TCP_SYN_RECV
-and there is a "tcp_validate_incoming" just before it.
-So when we call "tcp_validate_incoming", the rcv_mss may not been initialized.
+So here's a few patches to kill this crap.
 
-2.In function "tcp_validate_incoming",
-the "Step 1: check sequence number", according to RFC793 page 69,
-If an incoming segment is not acceptable,an acknowledgment should be sent in reply (unless the RST
-bit is set, if so drop the segment and return).
-So we may call "tcp_send_dupack" while the rcv_mss hasn't been initialized.
-
-3.In function "tcp_send_dupack",
-when the condition is suitable, it'll enter quick ack mode. Notice it only check the seq !
-So I think add another state check should be OK.
-
-Any suggestion ?
-
-Thanks,
-Weilong
-> 
-> 
-> 
-> .
-> 
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
