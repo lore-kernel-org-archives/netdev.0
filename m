@@ -1,32 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 00/11][pull request] Intel Wired LAN Driver Updates
- 2014-11-03
-Date: Mon, 03 Nov 2014 16:10:36 -0500 (EST)
-Message-ID: <20141103.161036.1827054377748377114.davem@davemloft.net>
-References: <1415026599-16232-1-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH 1/7] can: m_can: fix possible sleep in napi poll
+Date: Mon, 03 Nov 2014 22:12:10 +0100
+Message-ID: <5457EFAA.5010804@hartkopp.net>
+References: <1414579527-31100-1-git-send-email-b29396@freescale.com> <5457B517.8030805@pengutronix.de> <5457CB6B.3080002@hartkopp.net> <5457EA62.5040906@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49556 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751591AbaKCVKj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2014 16:10:39 -0500
-In-Reply-To: <1415026599-16232-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: wg@grandegger.com, varkabhadram@gmail.com, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org
+To: Marc Kleine-Budde <mkl@pengutronix.de>,
+	Dong Aisheng <b29396@freescale.com>, linux-can@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <5457EA62.5040906@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Mon,  3 Nov 2014 06:56:28 -0800
+On 11/03/2014 09:49 PM, Marc Kleine-Budde wrote:
+> On 11/03/2014 07:37 PM, Oliver Hartkopp wrote:
 
-> This series contains updates to i40e and i40evf.
- ...
-> The following are changes since commit 55b42b5ca2dcf143465968697fe6c6503b05fca1:
->   Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
-> and are available in the git repository at:
->   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+>> If possible I would suggest to push all 7 patches via can/master as it is
+>> pretty bad to say "M_CAN was introduced in 3.18 but M_CAN with CAN FD is
+>> working since 3.19".
+> 
+> Sorry, probably not, as CAN FD is a new feature. However we may talk to
+> David, as the m_can driver was introduced in 3.18 anyways, so it's
+> unlikely to break anything with this patch.
+> 
 
-Pulled, thanks a lot Jeff.
+Yes. It's just to be 'feature complete' for the FD enabled M_CAN driver.
+Hopefully it's ok for Dave ...
+
+Thanks,
+Oliver
+
