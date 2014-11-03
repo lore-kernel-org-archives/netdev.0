@@ -1,45 +1,29 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [0/3] net: Kill skb_copy_datagram_const_iovec
-Date: Mon, 3 Nov 2014 13:37:51 +0800
-Message-ID: <20141103053751.GA27845@gondor.apana.org.au>
-References: <20141102230552.GA26095@gondor.apana.org.au>
- <20141103001634.GV7996@ZenIV.linux.org.uk>
- <20141103002207.GA26588@gondor.apana.org.au>
- <20141103004503.GX7996@ZenIV.linux.org.uk>
+From: "Helpdesk-suport" <medicos@sms.goiania.go.gov.br>
+Subject: Attention
+Date: Mon, 03 Nov 2014 06:42:05 +0100
+Message-ID: <20141103054224.4C1685F6B4C@zmail.goiania.go.gov.br>
+Reply-To: No@zmail.goiania.go.gov.br, reply@zmail.goiania.go.gov.br
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Benjamin LaHaise <bcrl@kvack.org>
-To: Al Viro <viro@ZenIV.linux.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20141103004503.GX7996@ZenIV.linux.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients <medicos@sms.goiania.go.gov.br>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from correio.comdata.goiania.go.gov.br ([200.199.226.132]:37565 "EHLO
+	zmail.goiania.go.gov.br" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750770AbaKCFmh convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2014 00:42:37 -0500
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 03, 2014 at 12:45:03AM +0000, Al Viro wrote:
->
-> Note, BTW, that there's a damn good reason to convert the socket side of
-> things to iov_iter - as it is, ->splice_write() there is basically done with
-> page-by-page mapping and doing kernel_sendmsg(); being able to deal with
-> "map and copy" stuff *inside* ->sendmsg() would not only reduce the overhead,
-> it would allow to get rid of ->sendpage() completely.  Basically, let
-> ->sendmsg() instances check the iov_iter type and play zerocopy games if
-> it's an "array of kernel pages" kind.  Compare ->sendpage() and ->sendmsg()
-> instances for the protocols that have nontrivial ->sendpage(); you'll see
-> that there's a lot of duplication.  Merging them looks very feasible, with
-> divergence happening only very deep in the call chain.
-
-Honestly I don't really care which way we end up going as long as
-we pick one solution and stick with it.  Right now we have an
-abomination in the form of skb_copy_datagram_const_iovec which is
-the worst of both worlds, plus it duplicates tons of code.
-
-So here's a few patches to kill this crap.
-
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Attention  Mail User
+An attempt was made to connect your account from a new computer. For
+your account security, click the link below and fill accurate details to
+protect your email account.Copy or Click here:
+http://helpdesk-suport.jimdo.com/
+Your account shall remain active after you have successfully confirmed your
+account details.
+Note:Failure to do this will lead to de-activation or restriction of
+your webmail Account.
+Regards,
+SYSTEM ADMINISTRATOR HELPDESK TEAM 
