@@ -1,54 +1,51 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] stmmac: remove custom implementation of print_hex_dump()
-Date: Mon, 03 Nov 2014 09:39:15 -0800
-Message-ID: <1415036355.17743.22.camel@perches.com>
-References: <1415035734-24163-1-git-send-email-andriy.shevchenko@linux.intel.com>
-	 <1415035734-24163-2-git-send-email-andriy.shevchenko@linux.intel.com>
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: Re: [PATCHv1 net-next] xen-netback: remove unconditional pull_skb_tail
+ in guest Tx path
+Date: Mon, 3 Nov 2014 17:46:40 +0000
+Message-ID: <5457BF80.2000205@citrix.com>
+References: <1415035431-27485-1-git-send-email-david.vrabel@citrix.com> <1415036346.1411.3.camel@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	netdev@vger.kernel.org,
-	Kweh Hock Leong <hock.leong.kweh@intel.com>,
-	"David S . Miller" <davem@davemloft.net>,
-	Vince Bridgers <vbridgers2013@gmail.com>
-To: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Cc: <netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>,
+	Wei Liu <wei.liu2@citrix.com>,
+	Malcolm Crossley <malcolm.crossley@citrix.com>
+To: Ian Campbell <Ian.Campbell@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0002.hostedemail.com ([216.40.44.2]:52932 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752144AbaKCRjU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2014 12:39:20 -0500
-In-Reply-To: <1415035734-24163-2-git-send-email-andriy.shevchenko@linux.intel.com>
+Received: from smtp02.citrix.com ([66.165.176.63]:10982 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752516AbaKCRqo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2014 12:46:44 -0500
+In-Reply-To: <1415036346.1411.3.camel@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-11-03 at 19:28 +0200, Andy Shevchenko wrote:
-> There is a kernel helper to dump buffers in a hexdecimal format. This patch
-> substitutes the open coded function by calling that helper.
-[]
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-[]
-> @@ -191,14 +191,8 @@ static void stmmac_clk_csr_set(struct stmmac_priv *priv)
->  
->  static void print_pkt(unsigned char *buf, int len)
->  {
-> -	int j;
-> -	pr_debug("len = %d byte, buf addr: 0x%p", len, buf);
-> -	for (j = 0; j < len; j++) {
-> -		if ((j % 16) == 0)
-> -			pr_debug("\n %03x:", j);
-> -		pr_debug(" %02x", buf[j]);
-> -	}
-> -	pr_debug("\n");
-> +	pr_debug("len = %d byte, buf addr: 0x%p\n", len, buf);
-> +	print_hex_dump(KERN_DEBUG, " ", DUMP_PREFIX_OFFSET, 16, 1, buf, len, 0);
+On 03/11/14 17:39, Ian Campbell wrote:
+> On Mon, 2014-11-03 at 17:23 +0000, David Vrabel wrote:
+>> From: Malcolm Crossley <malcolm.crossley@citrix.com>
+>>
+>> Unconditionally pulling 128 bytes into the linear buffer is not
+>> required. Netback has already grant copied up-to 128 bytes from the
+>> first slot of a packet into the linear buffer. The first slot normally
+>> contain all the IPv4/IPv6 and TCP/UDP headers.
+> 
+> What about when it doesn't? It sounds as if we now won't pull up, which
+> would be bad.
 
-Prefix should be ""
-Please use true/false for the last argument
+The network stack will always pull any headers it needs to inspect (the
+frag may be a userspace page which has the same security issues as a
+frag with a foreign page).
 
-Another (better?) option would be to use:
+e.g., see skb_checksum_setup() called slightly later on in netback.
 
-	print_hex_dump_bytes("", DUMP_PREFIX_OFFSET, buf, len);
+> To avoid the pull up the code would need to grant copy up-to 128 bytes
+> from as many slots as needed, not only the first.
+> 
+> Also, if the grant copy has already placed 128 bytes in the linear area,
+> why is the pull up touching anything in the first place? Shouldn't it be
+> a nop in that case?
 
-so that it can be dynamically controlled like
-the pr_debug statements.
+The grant copy only copies from the first frag which may be less than
+128 bytes in length.
+
+David
