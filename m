@@ -1,41 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V1 net-next 0/5] Mellanox ethernet driver update
- Oct-30-2014
-Date: Mon, 03 Nov 2014 12:28:48 -0500 (EST)
-Message-ID: <20141103.122848.1987980023754200495.davem@davemloft.net>
-References: <1414938377-421-1-git-send-email-ogerlitz@mellanox.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, matanb@mellanox.com, amirv@mellanox.com,
-	saeedm@mellanox.com, shanim@mellanox.com, idos@mellanox.com
-To: ogerlitz@mellanox.com
+From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Subject: [PATCH] stmmac: remove custom implementation of print_hex_dump()
+Date: Mon,  3 Nov 2014 19:28:54 +0200
+Message-ID: <1415035734-24163-2-git-send-email-andriy.shevchenko@linux.intel.com>
+References: <1415035734-24163-1-git-send-email-andriy.shevchenko@linux.intel.com>
+Cc: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	netdev@vger.kernel.org,
+	Kweh Hock Leong <hock.leong.kweh@intel.com>,
+	"David S . Miller" <davem@davemloft.net>,
+	Vince Bridgers <vbridgers2013@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47662 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751908AbaKCR2w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2014 12:28:52 -0500
-In-Reply-To: <1414938377-421-1-git-send-email-ogerlitz@mellanox.com>
+Received: from mga03.intel.com ([134.134.136.65]:38380 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751908AbaKCR25 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Nov 2014 12:28:57 -0500
+In-Reply-To: <1415035734-24163-1-git-send-email-andriy.shevchenko@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Date: Sun,  2 Nov 2014 16:26:12 +0200
+There is a kernel helper to dump buffers in a hexdecimal format. This patch
+substitutes the open coded function by calling that helper.
 
-> The 1st patch from Saeed fixes a bug in the last net-next batch where
-> a VF could get access to set port configuration, the next patch from Amir
-> fixes a race in the port VPI logic. Next are two performance patches from Ido.
-> 
-> The patch to add checksum complete status on GRE and such packets was 
-> preceded with a patch that converted the driver to only use napi_gro_receive 
-> vs. the current code which goes through napi_gro_frags on it's usual track.
-> Eric D. has some thoughts and suggestions on that change for which we 
-> want to take the time and consider, so for the time being dropped that
-> patch and the ones that depend on it.
- ...
-> Changes from V0:
->   - have the caller to provide the __GFP_COLD hint to the service function
->   - dropped the patch that changes the GRO logic and the subsequent dependent
->     patches. 
+Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 10 ++--------
+ 1 file changed, 2 insertions(+), 8 deletions(-)
 
-Series applied, thanks.
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 6f77a46..5fb87f5 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -191,14 +191,8 @@ static void stmmac_clk_csr_set(struct stmmac_priv *priv)
+ 
+ static void print_pkt(unsigned char *buf, int len)
+ {
+-	int j;
+-	pr_debug("len = %d byte, buf addr: 0x%p", len, buf);
+-	for (j = 0; j < len; j++) {
+-		if ((j % 16) == 0)
+-			pr_debug("\n %03x:", j);
+-		pr_debug(" %02x", buf[j]);
+-	}
+-	pr_debug("\n");
++	pr_debug("len = %d byte, buf addr: 0x%p\n", len, buf);
++	print_hex_dump(KERN_DEBUG, " ", DUMP_PREFIX_OFFSET, 16, 1, buf, len, 0);
+ }
+ 
+ /* minimum number of free TX descriptors required to wake up TX process */
+-- 
+2.1.1
