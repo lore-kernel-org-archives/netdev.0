@@ -1,41 +1,102 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [stable request <= 3.11] net/mlx4_en: Fix BlueFlame race
-Date: Mon, 3 Nov 2014 09:22:18 -0800
-Message-ID: <CAHA+R7OMgOpnWyy5E55OtLS4naOcZ5EhzViE14Yffu=K=TqNcA@mail.gmail.com>
-References: <CAHTgTXVn1479XCoh1-j=Xghtad3zA-hf0za5r_AyoaKuKeFZ2g@mail.gmail.com>
-	<1414805353.16849.98.camel@decadent.org.uk>
-	<CAHA+R7OyLv2YO8AduNhnEgW3RyYZwWNEHY6W-v_HXgVT9AOaKw@mail.gmail.com>
-	<20141101.134142.888127846627939710.davem@davemloft.net>
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: [PATCHv1 net-next] xen-netback: remove unconditional pull_skb_tail in guest Tx path
+Date: Mon, 3 Nov 2014 17:23:51 +0000
+Message-ID: <1415035431-27485-1-git-send-email-david.vrabel@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Ben Hutchings <ben@decadent.org.uk>,
-	Vinson Lee <vlee@twopensource.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Eugenia Emantayev <eugenia@mellanox.com>,
-	Matan Barak <matanb@mellanox.com>,
-	netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: David Vrabel <david.vrabel@citrix.com>,
+	<xen-devel@lists.xenproject.org>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	Malcolm Crossley <malcolm.crossley@citrix.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f180.google.com ([209.85.217.180]:59060 "EHLO
-	mail-lb0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750819AbaKCRWU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2014 12:22:20 -0500
-Received: by mail-lb0-f180.google.com with SMTP id u10so1305304lbd.11
-        for <netdev@vger.kernel.org>; Mon, 03 Nov 2014 09:22:18 -0800 (PST)
-In-Reply-To: <20141101.134142.888127846627939710.davem@davemloft.net>
+Received: from smtp02.citrix.com ([66.165.176.63]:16926 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751739AbaKCRYB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2014 12:24:01 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Nov 1, 2014 at 10:41 AM, David Miller <davem@davemloft.net> wrote:
->
-> There is no documented way nor do I wish to state anything so strictly.
-> I want maximum flexibility for such a time consuming task.
->
-> I tend to go back 3 or 4 releases at most, and it really depends upon
-> the difficulty of the backports and my own time constraints.
+From: Malcolm Crossley <malcolm.crossley@citrix.com>
 
-You should really offload to developers, otherwise too much work for you. :)
+Unconditionally pulling 128 bytes into the linear buffer is not
+required. Netback has already grant copied up-to 128 bytes from the
+first slot of a packet into the linear buffer. The first slot normally
+contain all the IPv4/IPv6 and TCP/UDP headers.
 
-Thanks!
+The unconditional pull would often copy frag data unnecessarily.  This
+is a performance problem when running on a version of Xen where grant
+unmap avoids TLB flushes for pages which are not accessed.  TLB
+flushes can now be avoided for > 99% of unmaps (it was 0% before).
+
+Grant unmap TLB flush avoidance will be available in a future version
+of Xen (probably 4.6).
+
+Signed-off-by: Malcolm Crossley <malcolm.crossley@citrix.com>
+Signed-off-by: David Vrabel <david.vrabel@citrix.com>
+---
+ drivers/net/xen-netback/netback.c |   26 ++++++++++++--------------
+ 1 file changed, 12 insertions(+), 14 deletions(-)
+
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index 730252c..14e18bb 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -82,6 +82,16 @@ MODULE_PARM_DESC(max_queues,
+ static unsigned int fatal_skb_slots = FATAL_SKB_SLOTS_DEFAULT;
+ module_param(fatal_skb_slots, uint, 0444);
+ 
++/* The amount to copy out of the first guest Tx slot into the skb's
++ * linear area.  If the first slot has more data, it will be mapped
++ * and put into the first frag.
++ *
++ * This is sized to avoid pulling headers from the frags for most
++ * TCP/IP packets.
++ */
++#define XEN_NETBACK_TX_COPY_LEN 128
++
++
+ static void xenvif_idx_release(struct xenvif_queue *queue, u16 pending_idx,
+ 			       u8 status);
+ 
+@@ -125,13 +135,6 @@ static inline struct xenvif_queue *ubuf_to_queue(const struct ubuf_info *ubuf)
+ 			    pending_tx_info[0]);
+ }
+ 
+-/* This is a miniumum size for the linear area to avoid lots of
+- * calls to __pskb_pull_tail() as we set up checksum offsets. The
+- * value 128 was chosen as it covers all IPv4 and most likely
+- * IPv6 headers.
+- */
+-#define PKT_PROT_LEN 128
+-
+ static u16 frag_get_pending_idx(skb_frag_t *frag)
+ {
+ 	return (u16)frag->page_offset;
+@@ -1446,9 +1449,9 @@ static void xenvif_tx_build_gops(struct xenvif_queue *queue,
+ 		index = pending_index(queue->pending_cons);
+ 		pending_idx = queue->pending_ring[index];
+ 
+-		data_len = (txreq.size > PKT_PROT_LEN &&
++		data_len = (txreq.size > XEN_NETBACK_TX_COPY_LEN &&
+ 			    ret < XEN_NETBK_LEGACY_SLOTS_MAX) ?
+-			PKT_PROT_LEN : txreq.size;
++			XEN_NETBACK_TX_COPY_LEN : txreq.size;
+ 
+ 		skb = xenvif_alloc_skb(data_len);
+ 		if (unlikely(skb == NULL)) {
+@@ -1653,11 +1656,6 @@ static int xenvif_tx_submit(struct xenvif_queue *queue)
+ 			}
+ 		}
+ 
+-		if (skb_is_nonlinear(skb) && skb_headlen(skb) < PKT_PROT_LEN) {
+-			int target = min_t(int, skb->len, PKT_PROT_LEN);
+-			__pskb_pull_tail(skb, target - skb_headlen(skb));
+-		}
+-
+ 		skb->dev      = queue->vif->dev;
+ 		skb->protocol = eth_type_trans(skb, skb->dev);
+ 		skb_reset_network_header(skb);
+-- 
+1.7.10.4
