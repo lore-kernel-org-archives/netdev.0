@@ -1,76 +1,34 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH 1/7] can: m_can: fix possible sleep in napi poll
-Date: Mon, 03 Nov 2014 21:49:38 +0100
-Message-ID: <5457EA62.5040906@pengutronix.de>
-References: <1414579527-31100-1-git-send-email-b29396@freescale.com> <5457B517.8030805@pengutronix.de> <5457CB6B.3080002@hartkopp.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/3] RDMA/cxgb4,cxgb4vf,cxgb4i,csiostor:
+ Cleanup macros
+Date: Mon, 03 Nov 2014 15:51:22 -0500 (EST)
+Message-ID: <20141103.155122.1976522983563377609.davem@davemloft.net>
+References: <1415017014-12701-1-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="SA9RjBfS4K5ROf2NLDpgiT2QTa1fOuGST"
-Cc: wg@grandegger.com, varkabhadram@gmail.com, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org
-To: Oliver Hartkopp <socketcan@hartkopp.net>,
-	Dong Aisheng <b29396@freescale.com>, linux-can@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <5457CB6B.3080002@hartkopp.net>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
+	linux-scsi@vger.kernel.org, roland@purestorage.com,
+	JBottomley@parallels.com, hch@infradead.org,
+	swise@opengridcomputing.com, leedom@chelsio.com, anish@chelsio.com,
+	praveenm@chelsio.com, nirranjan@chelsio.com, kumaras@chelsio.com
+To: hariprasad@chelsio.com
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <1415017014-12701-1-git-send-email-hariprasad@chelsio.com>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---SA9RjBfS4K5ROf2NLDpgiT2QTa1fOuGST
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Date: Mon,  3 Nov 2014 17:46:51 +0530
 
-On 11/03/2014 07:37 PM, Oliver Hartkopp wrote:
-> you can omit the 'stable' tag as this driver just emerged in 3.18 - whi=
-ch is
-> currently in 3.18-rc3 state.
+> This series moves the debugfs code to a new file debugfs.c, Cleans up macros so
+> that they match the hardware generated one.
 
-Thanks! fixed.
+How does "hardware generate the macros"?
 
-> If possible I would suggest to push all 7 patches via can/master as it =
-is
-> pretty bad to say "M_CAN was introduced in 3.18 but M_CAN with CAN FD i=
-s
-> working since 3.19".
+I don't understand what this means at all.
 
-Sorry, probably not, as CAN FD is a new feature. However we may talk to
-David, as the m_can driver was introduced in 3.18 anyways, so it's
-unlikely to break anything with this patch.
+Whatever your better explanation is, you'll have include it in a respun
+version of this patch series.
 
-> This will produce confusion as the M_CAN core has built-in CAN FD suppo=
-rt.
-
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---SA9RjBfS4K5ROf2NLDpgiT2QTa1fOuGST
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJUV+piAAoJECte4hHFiupUjtsQAKxZ25Y2W2dSg2dDwt1vSuqz
-9zUjQEEH4eauW2WRog970igpehf7bZD3H9L8vhlXdmvah2uWT++ekg5r7oB8+rJj
-86jSkma+LH7k/NZCkrEcwhz0huEEaRxSQMqF++Vb2GWxdbeOaBDSfNEs/DXOTU7F
-moYRJ13eSpDJqT2ROm8eg/f+EfTgPIcUfP0NGxzksAX04HN6cwE4w0LG6Ska4DTT
-IO2VdhO4XL7E8d3JwzBatXLBFf1HW/krll7U+Avlp5Fx/qPV4ANB31U7wt+vQGdk
-qGWS1gjOgxoBMA36akrPUWVC1hQ08ZI+m25Sv3kp9MT1EPQkedbHGJthLbmmUm/g
-gfE3OOWhkbcMlxquxwwt4EvUt+GeDg/xkBqjjlZbcZceJkWBmxTFswg52c0eKbw3
-3UjYWtblacIHr3Az/ypaDAMhbOQSkCcKQ89SAS4KDIheLnZ2/7gGN6GX6tNs6rPO
-sjRjHupOJQiqgq6F+Urr2GfdBj48PMlaWBdHEqWNUIQE3CdXU/ZB0+QP6ZMXgQ5P
-7ppAGG3fIdesrBQgikNjt4pIb+8s4V+88ZtJyS37cqIVVunk3aAjAkB/E+3Q8nYs
-waQDPOp1Iw9ZQDVM1jleV6hwE8JT5vPFFkb3PVli5h8gGDnewGyBCNnNUec0cl6L
-NhJWAxYDBANax7yOobVV
-=mK10
------END PGP SIGNATURE-----
-
---SA9RjBfS4K5ROf2NLDpgiT2QTa1fOuGST--
+Thanks.
