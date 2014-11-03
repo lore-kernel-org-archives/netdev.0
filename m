@@ -1,125 +1,59 @@
-From: Marcelo Ricardo Leitner <mleitner@redhat.com>
-Subject: Re: TCP NewReno and single retransmit
-Date: Mon, 03 Nov 2014 14:38:05 -0200
-Message-ID: <5457AF6D.6010105@redhat.com>
-References: <544E93BD.50202@redhat.com> <CADVnQynu7+wgkNTkdY=XDBeyWjFxpYYBjx=n98g1_awdG2OpnA@mail.gmail.com> <54521FD6.70403@redhat.com> <CAK6E8=dYfJw16Q0D40QD7RLr=wq=y+5W59zHmZ24L49OPS9O5A@mail.gmail.com>
+From: Michal Nazarewicz <mina86@mina86.com>
+Subject: Re: DMA allocations from CMA and fatal_signal_pending check
+Date: Mon, 03 Nov 2014 17:45:31 +0100
+Message-ID: <xa1tlhnsw7v8.fsf@mina86.com>
+References: <544FE9BE.6040503@gmail.com> <20141031082818.GB14642@js1304-P5Q-DELUXE> <5453F80C.4090006@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Neal Cardwell <ncardwell@google.com>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>
-To: Yuchung Cheng <ycheng@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50216 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751739AbaKCQiJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Nov 2014 11:38:09 -0500
-In-Reply-To: <CAK6E8=dYfJw16Q0D40QD7RLr=wq=y+5W59zHmZ24L49OPS9O5A@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Cc: linux-arm-kernel@lists.infradead.org, Brian Norris <computersforpeace@gmail.com>, Gregory Fong <gregory.0xf0@gmail.com>, linux-kernel@vger.kernel.org, linux-mm@kvack.org, lauraa@codeaurora.org, gioh.kim@lge.com, aneesh.kumar@linux.vnet.ibm.com, m.szyprowski@samsung.com, akpm@linux-foundation.org, "netdev\@vger.kernel.org" <netdev@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>, Joonsoo Kim <iamjoonsoo.kim@lge.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <5453F80C.4090006@gmail.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On 31-10-2014 01:51, Yuchung Cheng wrote:
-> On Thu, Oct 30, 2014 at 7:24 PM, Marcelo Ricardo Leitner
-> <mleitner@redhat.com> wrote:
->> On 30-10-2014 00:03, Neal Cardwell wrote:
->>>
->>> On Mon, Oct 27, 2014 at 2:49 PM, Marcelo Ricardo Leitner
->>> <mleitner@redhat.com> wrote:
->>>>
->>>> Hi,
->>>>
->>>> We have a report from a customer saying that on a very calm connection,
->>>> like
->>>> having only a single data packet within some minutes, if this packet gets
->>>> to
->>>> be re-transmitted, retrans_stamp is only cleared when the next acked
->>>> packet
->>>> is received. But this may make we abort the connection too soon if this
->>>> next
->>>> packet also gets lost, because the reference for the initial loss is
->>>> still
->>>> for a big while ago..
->>>
->>> ...
->>>>
->>>> @@ -2382,31 +2382,32 @@ static inline bool tcp_may_undo(const struct
->>>> tcp_sock *tp)
->>>>    static bool tcp_try_undo_recovery(struct sock *sk)
->>>
->>> ...
->>>>
->>>>           if (tp->snd_una == tp->high_seq && tcp_is_reno(tp)) {
->>>>                   /* Hold old state until something *above* high_seq
->>>>                    * is ACKed. For Reno it is MUST to prevent false
->>>>                    * fast retransmits (RFC2582). SACK TCP is safe. */
-> Or we can just remove this strange state-holding logic?
+On Fri, Oct 31 2014, Florian Fainelli wrote:
+> I agree that the CMA allocation should not be allowed to succeed, but
+> the dma_alloc_coherent() allocation should succeed. If we look at the
+> sysport driver, there are kmalloc() calls to initialize private
+> structures, those will succeed (except under high memory pressure), so
+> by the same token, a driver expects DMA allocations to succeed (unless
+> we are under high memory pressure)
 >
-> I couldn't find such a "MUST" statement in RFC2582. RFC2582 section 3
-> step 5 suggests exiting the recovery procedure when an ACK acknowledges
-> the "recover" variable (== tp->high_seq - 1).
->
-> Since we've called tcp_reset_reno_sack() before tcp_try_undo_recovery(),
-> I couldn't see how false fast retransmits can be triggered without
-> this state-holding.
->
-> Any insights?
+> What are we trying to solve exactly with the fatal_signal_pending()
+> check here? Are we just optimizing for the case where a process has
+> allocated from a CMA region to allow this region to be returned to the
+> pool of free pages when it gets killed? Could there be another mechanism
+> used to reclaim those pages if we know the process is getting killed
+> anyway?
 
-Nice one, me neither. Neal?
+We're guarding against situations where process may hang around
+arbitrarily long time after receiving SIGKILL.  If user does =E2=80=9Ckill =
+-9
+$pid=E2=80=9D the usual expectation is that the $pid process will die within
+seconds and anything longer is perceived by user as a bug.
 
- From RFC2582, Section 5, Avoiding Multiple Fast Retransmits:
+What problem are *you* trying to solve?  If user sent SIGKILL to
+a process that imitated device initialisation, what is the point of
+continuing initialising the device?  Just recover and return -EINTR.
 
-    Nevertheless, unnecessary Fast Retransmits can occur with Reno or
-    NewReno TCP, particularly if a Retransmit Timeout occurs during Fast
-    Recovery.  (This is illustrated for Reno on page 6 of [F98], and for
-    NewReno on page 8 of [F98].)  With NewReno, the data sender remains
-    in Fast Recovery until either a Retransmit Timeout, or *until all of
-    the data outstanding when Fast Retransmit was entered has been
-    acknowledged*.  Thus with NewReno, the problem of multiple Fast
-    Retransmits from a single window of data can only occur after a
-    Retransmit Timeout.
+> Well, not really. This driver is not an isolated case, there are tons of
+> other networking drivers that do exactly the same thing, and we do
+> expect these dma_alloc_* calls to succeed.
 
-Bolding mark is mine. If I didn't miss anything, as that condition was met, we 
-should be good to keep that cwnd reduction (required by section 3 step 5) and 
-but get back to Open state right away.
+Again, why do you expect them to succeed?  The code must handle failures
+correctly anyway so why do you wish to ignore fatal signal?
 
-Marcelo
+--=20
+Best regards,                                         _     _
+.o. | Liege of Serenely Enlightened Majesty of      o' \,=3D./ `o
+..o | Computer Science,  Micha=C5=82 =E2=80=9Cmina86=E2=80=9D Nazarewicz   =
+ (o o)
+ooo +--<mpn@google.com>--<xmpp:mina86@jabber.org>--ooO--(_)--Ooo--
 
->>>>                   tcp_moderate_cwnd(tp);
->>>> +               tp->retrans_stamp = 0;
->>>>                   return true;
->>>>           }
->>>>           tcp_set_ca_state(sk, TCP_CA_Open);
->>>>           return false;
->>>>    }
->>>>
->>>> We would still hold state, at least part of it.. WDYT?
->>>
->>>
->>> This approach sounds OK to me as long as we include a check of
->>> tcp_any_retrans_done(), as we do in the similar code paths (for
->>> motivation, see the comment above tcp_any_retrans_done()).
->>
->>
->> Yes, okay. I thought that this would be taken care of already by then but
->> reading the code again now after your comment, I can see what you're saying.
->> Thanks.
->>
->>> So it sounds fine to me if you change that one new line to the following
->>> 2:
->>>
->>> +  if (!tcp_any_retrans_done(sk))
->>> +    tp->retrans_stamp = 0;
->>
->>
->> Will do.
->>
->>> Nice catch!
->>
->>
->> A good part of it (including the diagram) was done by customer. :)
->> I'll post the patch as soon as we sync with them (credits).
->>
->> Marcelo
->>
->
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
