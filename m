@@ -1,35 +1,32 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH 1/7] can: m_can: fix possible sleep in napi poll
-Date: Mon, 03 Nov 2014 22:12:10 +0100
-Message-ID: <5457EFAA.5010804@hartkopp.net>
-References: <1414579527-31100-1-git-send-email-b29396@freescale.com> <5457B517.8030805@pengutronix.de> <5457CB6B.3080002@hartkopp.net> <5457EA62.5040906@pengutronix.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: add rbnode to struct sk_buff
+Date: Mon, 03 Nov 2014 16:12:48 -0500 (EST)
+Message-ID: <20141103.161248.1708433612392521582.davem@davemloft.net>
+References: <1415031593.14083.25.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: wg@grandegger.com, varkabhadram@gmail.com, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org
-To: Marc Kleine-Budde <mkl@pengutronix.de>,
-	Dong Aisheng <b29396@freescale.com>, linux-can@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <5457EA62.5040906@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, wygivan@google.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49571 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752325AbaKCVMv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2014 16:12:51 -0500
+In-Reply-To: <1415031593.14083.25.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/03/2014 09:49 PM, Marc Kleine-Budde wrote:
-> On 11/03/2014 07:37 PM, Oliver Hartkopp wrote:
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 03 Nov 2014 08:19:53 -0800
 
->> If possible I would suggest to push all 7 patches via can/master as it is
->> pretty bad to say "M_CAN was introduced in 3.18 but M_CAN with CAN FD is
->> working since 3.19".
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Sorry, probably not, as CAN FD is a new feature. However we may talk to
-> David, as the m_can driver was introduced in 3.18 anyways, so it's
-> unlikely to break anything with this patch.
+> Yaogong replaces TCP out of order receive queue by an RB tree.
 > 
+> As netem already does a private skb->{next/prev/tstamp} union
+> with a 'struct rb_node', lets do this in a cleaner way.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Yes. It's just to be 'feature complete' for the FD enabled M_CAN driver.
-Hopefully it's ok for Dave ...
-
-Thanks,
-Oliver
-
+This looks fine, and I'll apply it, thanks.
