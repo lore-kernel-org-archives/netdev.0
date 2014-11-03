@@ -1,48 +1,82 @@
-From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Subject: [PATCH] ipv6: do xfrm transform after nat if necessary
-Date: Mon, 3 Nov 2014 12:53:03 +0800
-Message-ID: <54570A2F.2070206@cn.fujitsu.com>
+From: chenweilong <chenweilong@huawei.com>
+Subject: Re: [PATCH] ipv4: avoid divide 0 error in tcp_incr_quickack
+Date: Mon, 3 Nov 2014 13:31:33 +0800
+Message-ID: <54571335.2060709@huawei.com>
+References: <1414978173-6948-1-git-send-email-chenweilong@huawei.com> <1414986126.31792.43.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([59.151.112.132]:33121 "EHLO
-	heian.cn.fujitsu.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750834AbaKCEzI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Nov 2014 23:55:08 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <davem@davemloft.net>, <kuznet@ms2.inr.ac.ru>, <jmorris@namei.org>,
+	<yoshfuji@linux-ipv6.org>, <kaber@trash.net>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1414986126.31792.43.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On 2014/11/3 11:42, Eric Dumazet wrote:
+> On Mon, 2014-11-03 at 09:29 +0800, Chen Weilong wrote:
+>> From: Weilong Chen <chenweilong@huawei.com>
+>>
+>> We got a problem like this:
+> 
+>> There was a wrong ack packet coming during TCP handshake. The socket's state
+>> was TCP_SYN_RECV, its rcv_mss was not initialize yet. So
+>> tcp_send_dupack -> tcp_enter_quickack_mode got a divide 0 error.
+>> This patch add a state check before tcp_enter_quickack_mode.
+>>
+>> Signed-off-by: Weilong Chen <chenweilong@huawei.com>
+>> ---
+>>  net/ipv4/tcp_input.c | 3 ++-
+>>  1 file changed, 2 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+>> index 4e4617e..9eb56dc 100644
+>> --- a/net/ipv4/tcp_input.c
+>> +++ b/net/ipv4/tcp_input.c
+>> @@ -3986,7 +3986,8 @@ static void tcp_send_dupack(struct sock *sk, const struct sk_buff *skb)
+>>  	if (TCP_SKB_CB(skb)->end_seq != TCP_SKB_CB(skb)->seq &&
+>>  	    before(TCP_SKB_CB(skb)->seq, tp->rcv_nxt)) {
+>>  		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_DELAYEDACKLOST);
+>> -		tcp_enter_quickack_mode(sk);
+>> +		if (sk->sk_state != TCP_SYN_RECV)
+>> +			tcp_enter_quickack_mode(sk);
+>>  
+>>  		if (tcp_is_sack(tp) && sysctl_tcp_dsack) {
+>>  			u32 end_seq = TCP_SKB_CB(skb)->end_seq;
+> 
+> 
+> Sorry I do not think this is the right fix.
+> 
+> We have to not simply avoid the divide, but fix this issue by
+> understanding the missing steps.
+> 
+Hi Eric,
 
+I check the code and find that:
 
-In function nf_nat_ipv6_out, after nat is done, nf_xfrm_me_harder()
-will be called to look up xfrm dst.
+1.In function "tcp_rcv_state_process",
+the "tcp_initialize_rcv_mss" is called at "step 5: check the ACK field" when the sk->sk_state is TCP_SYN_RECV
+and there is a "tcp_validate_incoming" just before it.
+So when we call "tcp_validate_incoming", the rcv_mss may not been initialized.
 
-Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
----
- net/ipv6/ip6_output.c | 8 ++++++++
- 1 file changed, 8 insertions(+)
+2.In function "tcp_validate_incoming",
+the "Step 1: check sequence number", according to RFC793 page 69,
+If an incoming segment is not acceptable,an acknowledgment should be sent in reply (unless the RST
+bit is set, if so drop the segment and return).
+So we may call "tcp_send_dupack" while the rcv_mss hasn't been initialized.
 
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 8e950c2..742a845 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -124,6 +124,14 @@ static int ip6_finish_output2(struct sk_buff *skb)
- 
- static int ip6_finish_output(struct sk_buff *skb)
- {
-+#if defined(CONFIG_NETFILTER) && defined(CONFIG_XFRM)
-+	/* Just like ipv4, policy lookup after nat yielded a new policy */
-+	if (skb_dst(skb)->xfrm != NULL) {
-+		IP6CB(skb)->flags |= IP6SKB_REROUTED;
-+		return dst_output(skb);
-+	}
-+#endif
-+
- 	if ((skb->len > ip6_skb_dst_mtu(skb) && !skb_is_gso(skb)) ||
- 	    dst_allfrag(skb_dst(skb)) ||
- 	    (IP6CB(skb)->frag_max_size && skb->len > IP6CB(skb)->frag_max_size))
--- 
-1.8.3.1
+3.In function "tcp_send_dupack",
+when the condition is suitable, it'll enter quick ack mode. Notice it only check the seq !
+So I think add another state check should be OK.
+
+Any suggestion ?
+
+Thanks,
+Weilong
+> 
+> 
+> 
+> .
+> 
