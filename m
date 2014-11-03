@@ -1,54 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 3/7] gue: Add infrastructure for flags and
- options
-Date: Mon, 03 Nov 2014 15:12:48 -0500 (EST)
-Message-ID: <20141103.151248.1183539988304355806.davem@davemloft.net>
-References: <1414882683-25484-4-git-send-email-therbert@google.com>
-	<20141103.121856.1307429117331581815.davem@davemloft.net>
-	<CA+mtBx8QZn8M8mnU84w2+sc4bt98kf-_SuW0jz15qYNX21vCag@mail.gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH] VNIC: Adding support for Cavium ThunderX network
+ controller
+Date: Mon, 3 Nov 2014 12:25:25 -0800
+Message-ID: <20141103122525.22679b68@urahara>
+References: <20141030165434.GW20170@rric.localhost>
+	<20141030195458.2958d88a@urahara>
+	<CA+sq2CfV-90CRvo-FCizkzoxHq-AsfOEDW2Z5pXtnNLNXCfTUg@mail.gmail.com>
+	<20141103101651.1d664cc3@urahara>
+	<20141103183345.GK31556@rric.localhost>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: therbert@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49082 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753634AbaKCUMv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2014 15:12:51 -0500
-In-Reply-To: <CA+mtBx8QZn8M8mnU84w2+sc4bt98kf-_SuW0jz15qYNX21vCag@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Sunil Kovvuri <sunil.kovvuri@gmail.com>,
+	Robert Richter <rric@kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Sunil Goutham <sgoutham@cavium.com>,
+	Stefan Assmann <sassmann@redhat.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	LAKML <linux-arm-kernel@lists.infradead.org>,
+	<netdev@vger.kernel.org>
+To: Robert Richter <robert.richter@caviumnetworks.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141103183345.GK31556@rric.localhost>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tom Herbert <therbert@google.com>
-Date: Mon, 3 Nov 2014 10:39:14 -0800
+On Mon, 3 Nov 2014 19:33:45 +0100
+Robert Richter <robert.richter@caviumnetworks.com> wrote:
 
-> On Mon, Nov 3, 2014 at 9:18 AM, David Miller <davem@davemloft.net> wrote:
->> From: Tom Herbert <therbert@google.com>
->> Date: Sat,  1 Nov 2014 15:57:59 -0700
->>
->>> @@ -20,7 +20,16 @@ static size_t fou_encap_hlen(struct ip_tunnel_encap *e)
->>>
->>>  static size_t gue_encap_hlen(struct ip_tunnel_encap *e)
->>>  {
->>> -     return sizeof(struct udphdr) + sizeof(struct guehdr);
->>> +     size_t len;
->>> +     bool need_priv = false;
->>> +
->>> +     len = sizeof(struct udphdr) + sizeof(struct guehdr);
->>> +
->>> +     /* Add in lengths flags */
->>> +
->>> +     len += need_priv ? GUE_LEN_PRIV : 0;
->>
->> Add this need_priv logic in patch #6, not here.
+> On 03.11.14 10:16:51, Stephen Hemminger wrote:
+> > On Fri, 31 Oct 2014 22:44:11 +0530
+> > Sunil Kovvuri <sunil.kovvuri@gmail.com> wrote:
+> > 
+> > > On Fri, Oct 31, 2014 at 8:24 AM, Stephen Hemminger
+> > > <stephen@networkplumber.org> wrote:
+> > > > On Thu, 30 Oct 2014 17:54:34 +0100
+> > > > Robert Richter <rric@kernel.org> wrote:
+> > > >
+> > > >> +#ifdef       VNIC_RSS_SUPPORT
+> > > >> +static int rss_config = RSS_IP_HASH_ENA | RSS_TCP_HASH_ENA | RSS_UDP_HASH_ENA;
+> > > >> +module_param(rss_config, int, S_IRUGO);
+> > > >> +MODULE_PARM_DESC(rss_config,
+> > > >> +              "RSS hash config [bits 8:0] (Bit0:L2 extended, 1:IP, 2:TCP, 3:TCP SYN, 4:UDP, 5:L4 extended, 6:ROCE 7:L3 bi-directional, 8:L4 bi-directional)");
+> > > >> +#endif
+> > > >
+> > > > This should managed  be via ethtool ETHTOOL_GRXFH rather than a module parameter.
+> > > Thanks, i will add setting hash options via ETHTOOL_SRXFH as well.
+> > > The idea here is to have a choice of hash while module load (through
+> > > module params) and if it needs to be changed runtime then
+> > > via Ethtool.
+> > > 
+> > > Sunil.
+> > 
+> > Network developers do not like vendor unique module parameters.
+> > Anything device specific doesn't work in a generic distro environment.
 > 
-> I would rather keep it in this patch. This is adding the common
-> infrastructure to support private option field, remote checksum
-> offload is an instance that uses that.
+> Do you accept unique module parameters in parallel to ethtool support
+> or should this be removed?
 
-Tom, it evaluates always to a constant boolean, and contextually makes
-no sense to someone reviewing this change in isolation.
-
-Please, as I have asked, put this in the patch where the logic
-actually matters.
+If there is ethtool support the module parameters are not needed.
+Unneeded code is to be avoided.
