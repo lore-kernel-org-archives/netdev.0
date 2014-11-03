@@ -1,186 +1,90 @@
 From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: [PATCH v2 2/3] drivers: net: xgene: Backward compatibility with older firmware
-Date: Mon,  3 Nov 2014 11:59:55 -0800
-Message-ID: <1415044796-5081-3-git-send-email-isubramanian@apm.com>
+Subject: [PATCH v2 3/3] drivers: net: xgene: fix: Use separate resources
+Date: Mon,  3 Nov 2014 11:59:56 -0800
+Message-ID: <1415044796-5081-4-git-send-email-isubramanian@apm.com>
 References: <1415044796-5081-1-git-send-email-isubramanian@apm.com>
 Cc: linux-arm-kernel@lists.infradead.org, patches@apm.com,
 	kchudgar@apm.com, Iyappan Subramanian <isubramanian@apm.com>
 To: davem@davemloft.net, netdev@vger.kernel.org,
 	devicetree@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod5og108.obsmtp.com ([64.18.0.186]:42689 "HELO
-	exprod5og108.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1752348AbaKCT7Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2014 14:59:16 -0500
-Received: by mail-pa0-f46.google.com with SMTP id lf10so12740969pab.19
-        for <netdev@vger.kernel.org>; Mon, 03 Nov 2014 11:59:15 -0800 (PST)
+Received: from exprod5og112.obsmtp.com ([64.18.0.24]:38941 "HELO
+	exprod5og112.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1752509AbaKCT7S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2014 14:59:18 -0500
+Received: by mail-pa0-f48.google.com with SMTP id ey11so12727430pad.7
+        for <netdev@vger.kernel.org>; Mon, 03 Nov 2014 11:59:17 -0800 (PST)
 In-Reply-To: <1415044796-5081-1-git-send-email-isubramanian@apm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds support when used with older firmware (<= 1.13.28).
+This patch fixes the following kernel crash during SGMII based 1GbE probe.
 
-- Added xgene_ring_mgr_init() to check whether ring manager is initialized
-- Calling xgene_ring_mgr_init() from xgene_port_ops.reset()
-- To handle errors, changed the return type of xgene_port_ops.reset()
+	BUG: Bad page state in process swapper/0  pfn:40fe6ad
+	page:ffffffbee37a75d8 count:-1 mapcount:0 mapping:          (null) index:0x0
+	flags: 0x0()
+	page dumped because: nonzero _count
+	Modules linked in:
+	CPU: 0 PID: 0 Comm: swapper/0 Not tainted 3.17.0+ #7
+	Call trace:
+	[<ffffffc000087fa0>] dump_backtrace+0x0/0x12c
+	[<ffffffc0000880dc>] show_stack+0x10/0x1c
+	[<ffffffc0004d981c>] dump_stack+0x74/0xc4
+	[<ffffffc00012fe70>] bad_page+0xd8/0x128
+	[<ffffffc000133000>] get_page_from_freelist+0x4b8/0x640
+	[<ffffffc000133260>] __alloc_pages_nodemask+0xd8/0x834
+	[<ffffffc0004194f8>] __netdev_alloc_frag+0x124/0x1b8
+	[<ffffffc00041bfdc>] __netdev_alloc_skb+0x90/0x10c
+	[<ffffffc00039ff30>] xgene_enet_refill_bufpool+0x11c/0x280
+	[<ffffffc0003a11a4>] xgene_enet_process_ring+0x168/0x340
+	[<ffffffc0003a1498>] xgene_enet_napi+0x1c/0x50
+	[<ffffffc00042b454>] net_rx_action+0xc8/0x18c
+	[<ffffffc0000b0880>] __do_softirq+0x114/0x24c
+	[<ffffffc0000b0c34>] irq_exit+0x94/0xc8
+	[<ffffffc0000e68a0>] __handle_domain_irq+0x8c/0xf4
+	[<ffffffc000081288>] gic_handle_irq+0x30/0x7c
+
+This was due to hardware resource sharing conflict with the firmware. This
+patch fixes this crash by using resources (descriptor ring, prefetch buffer)
+that are not shared.
 
 Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
 Signed-off-by: Keyur Chudgar <kchudgar@apm.com>
 ---
- drivers/net/ethernet/apm/xgene/xgene_enet_hw.c    | 18 +++++++++++++++++-
- drivers/net/ethernet/apm/xgene/xgene_enet_hw.h    |  4 ++++
- drivers/net/ethernet/apm/xgene/xgene_enet_main.c  |  5 ++++-
- drivers/net/ethernet/apm/xgene/xgene_enet_main.h  |  2 +-
- drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.c |  7 ++++++-
- drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c |  7 ++++++-
- 6 files changed, 38 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.c | 6 +++---
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.h | 3 +++
+ 2 files changed, 6 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
-index 63ea194..7ba83ff 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
-@@ -575,10 +575,24 @@ static void xgene_gmac_tx_disable(struct xgene_enet_pdata *pdata)
- 	xgene_enet_wr_mcx_mac(pdata, MAC_CONFIG_1_ADDR, data & ~TX_EN);
- }
- 
--static void xgene_enet_reset(struct xgene_enet_pdata *pdata)
-+bool xgene_ring_mgr_init(struct xgene_enet_pdata *p)
-+{
-+	if (!ioread32(p->ring_csr_addr + CLKEN_ADDR))
-+		return false;
-+
-+	if (ioread32(p->ring_csr_addr + SRST_ADDR))
-+		return false;
-+
-+	return true;
-+}
-+
-+static int xgene_enet_reset(struct xgene_enet_pdata *pdata)
- {
- 	u32 val;
- 
-+	if (!xgene_ring_mgr_init(pdata))
-+		return -ENODEV;
-+
- 	clk_prepare_enable(pdata->clk);
- 	clk_disable_unprepare(pdata->clk);
- 	clk_prepare_enable(pdata->clk);
-@@ -590,6 +604,8 @@ static void xgene_enet_reset(struct xgene_enet_pdata *pdata)
- 	val |= SCAN_AUTO_INCR;
- 	MGMT_CLOCK_SEL_SET(&val, 1);
- 	xgene_enet_wr_mcx_mac(pdata, MII_MGMT_CONFIG_ADDR, val);
-+
-+	return 0;
- }
- 
- static void xgene_gport_shutdown(struct xgene_enet_pdata *pdata)
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
-index 3855858..ec45f32 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
-@@ -104,6 +104,9 @@ enum xgene_enet_rm {
- #define BLOCK_ETH_MAC_OFFSET		0x0000
- #define BLOCK_ETH_MAC_CSR_OFFSET	0x2800
- 
-+#define CLKEN_ADDR			0xc208
-+#define SRST_ADDR			0xc200
-+
- #define MAC_ADDR_REG_OFFSET		0x00
- #define MAC_COMMAND_REG_OFFSET		0x04
- #define MAC_WRITE_REG_OFFSET		0x08
-@@ -318,6 +321,7 @@ void xgene_enet_parse_error(struct xgene_enet_desc_ring *ring,
- 
- int xgene_enet_mdio_config(struct xgene_enet_pdata *pdata);
- void xgene_enet_mdio_remove(struct xgene_enet_pdata *pdata);
-+bool xgene_ring_mgr_init(struct xgene_enet_pdata *p);
- 
- extern struct xgene_mac_ops xgene_gmac_ops;
- extern struct xgene_port_ops xgene_gport_ops;
 diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-index 3c208cc..cc3f955 100644
+index cc3f955..1236696 100644
 --- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
 +++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-@@ -852,7 +852,9 @@ static int xgene_enet_init_hw(struct xgene_enet_pdata *pdata)
- 	u16 dst_ring_num;
+@@ -639,9 +639,9 @@ static int xgene_enet_create_desc_rings(struct net_device *ndev)
+ 	struct device *dev = ndev_to_dev(ndev);
+ 	struct xgene_enet_desc_ring *rx_ring, *tx_ring, *cp_ring;
+ 	struct xgene_enet_desc_ring *buf_pool = NULL;
+-	u8 cpu_bufnum = 0, eth_bufnum = 0;
+-	u8 bp_bufnum = 0x20;
+-	u16 ring_id, ring_num = 0;
++	u8 cpu_bufnum = 0, eth_bufnum = START_ETH_BUFNUM;
++	u8 bp_bufnum = START_BP_BUFNUM;
++	u16 ring_id, ring_num = START_RING_NUM;
  	int ret;
  
--	pdata->port_ops->reset(pdata);
-+	ret = pdata->port_ops->reset(pdata);
-+	if (ret)
-+		return ret;
- 
- 	ret = xgene_enet_create_desc_rings(ndev);
- 	if (ret) {
-@@ -954,6 +956,7 @@ static int xgene_enet_probe(struct platform_device *pdev)
- 
- 	return ret;
- err:
-+	unregister_netdev(ndev);
- 	free_netdev(ndev);
- 	return ret;
- }
+ 	/* allocate rx descriptor ring */
 diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.h b/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
-index 874e5a0..dba647d 100644
+index dba647d..f9958fa 100644
 --- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
 +++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
-@@ -83,7 +83,7 @@ struct xgene_mac_ops {
- };
+@@ -38,6 +38,9 @@
+ #define SKB_BUFFER_SIZE		(XGENE_ENET_MAX_MTU - NET_IP_ALIGN)
+ #define NUM_PKT_BUF	64
+ #define NUM_BUFPOOL	32
++#define START_ETH_BUFNUM	2
++#define START_BP_BUFNUM		0x22
++#define START_RING_NUM		8
  
- struct xgene_port_ops {
--	void (*reset)(struct xgene_enet_pdata *pdata);
-+	int (*reset)(struct xgene_enet_pdata *pdata);
- 	void (*cle_bypass)(struct xgene_enet_pdata *pdata,
- 			   u32 dst_ring_num, u16 bufpool_id);
- 	void (*shutdown)(struct xgene_enet_pdata *pdata);
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.c b/drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.c
-index c22f326..f5d4f68 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.c
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.c
-@@ -311,14 +311,19 @@ static void xgene_sgmac_tx_disable(struct xgene_enet_pdata *p)
- 	xgene_sgmac_rxtx(p, TX_EN, false);
- }
- 
--static void xgene_enet_reset(struct xgene_enet_pdata *p)
-+static int xgene_enet_reset(struct xgene_enet_pdata *p)
- {
-+	if (!xgene_ring_mgr_init(p))
-+		return -ENODEV;
-+
- 	clk_prepare_enable(p->clk);
- 	clk_disable_unprepare(p->clk);
- 	clk_prepare_enable(p->clk);
- 
- 	xgene_enet_ecc_init(p);
- 	xgene_enet_config_ring_if_assoc(p);
-+
-+	return 0;
- }
- 
- static void xgene_enet_cle_bypass(struct xgene_enet_pdata *p,
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c b/drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c
-index 67d0720..a18a9d1 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c
-@@ -252,14 +252,19 @@ static void xgene_xgmac_tx_disable(struct xgene_enet_pdata *pdata)
- 	xgene_enet_wr_mac(pdata, AXGMAC_CONFIG_1, data & ~HSTTFEN);
- }
- 
--static void xgene_enet_reset(struct xgene_enet_pdata *pdata)
-+static int xgene_enet_reset(struct xgene_enet_pdata *pdata)
- {
-+	if (!xgene_ring_mgr_init(pdata))
-+		return -ENODEV;
-+
- 	clk_prepare_enable(pdata->clk);
- 	clk_disable_unprepare(pdata->clk);
- 	clk_prepare_enable(pdata->clk);
- 
- 	xgene_enet_ecc_init(pdata);
- 	xgene_enet_config_ring_if_assoc(pdata);
-+
-+	return 0;
- }
- 
- static void xgene_enet_xgcle_bypass(struct xgene_enet_pdata *pdata,
+ #define PHY_POLL_LINK_ON	(10 * HZ)
+ #define PHY_POLL_LINK_OFF	(PHY_POLL_LINK_ON / 5)
 -- 
 1.9.1
