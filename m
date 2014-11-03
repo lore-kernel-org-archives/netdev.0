@@ -1,51 +1,75 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: Re: [PATCHv1 net-next] xen-netback: remove unconditional pull_skb_tail
- in guest Tx path
-Date: Mon, 3 Nov 2014 17:46:40 +0000
-Message-ID: <5457BF80.2000205@citrix.com>
-References: <1415035431-27485-1-git-send-email-david.vrabel@citrix.com> <1415036346.1411.3.camel@citrix.com>
+From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Subject: Re: [PATCH] stmmac: remove custom implementation of print_hex_dump()
+Date: Mon, 03 Nov 2014 19:53:57 +0200
+Message-ID: <1415037237.472.1.camel@linux.intel.com>
+References: <1415035734-24163-1-git-send-email-andriy.shevchenko@linux.intel.com>
+	 <1415035734-24163-2-git-send-email-andriy.shevchenko@linux.intel.com>
+	 <1415036355.17743.22.camel@perches.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>,
-	Wei Liu <wei.liu2@citrix.com>,
-	Malcolm Crossley <malcolm.crossley@citrix.com>
-To: Ian Campbell <Ian.Campbell@citrix.com>
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	netdev@vger.kernel.org,
+	Kweh Hock Leong <hock.leong.kweh@intel.com>,
+	"David S . Miller" <davem@davemloft.net>,
+	Vince Bridgers <vbridgers2013@gmail.com>
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:10982 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752516AbaKCRqo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2014 12:46:44 -0500
-In-Reply-To: <1415036346.1411.3.camel@citrix.com>
+Received: from mga01.intel.com ([192.55.52.88]:20365 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753246AbaKCRx7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Nov 2014 12:53:59 -0500
+In-Reply-To: <1415036355.17743.22.camel@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/11/14 17:39, Ian Campbell wrote:
-> On Mon, 2014-11-03 at 17:23 +0000, David Vrabel wrote:
->> From: Malcolm Crossley <malcolm.crossley@citrix.com>
->>
->> Unconditionally pulling 128 bytes into the linear buffer is not
->> required. Netback has already grant copied up-to 128 bytes from the
->> first slot of a packet into the linear buffer. The first slot normally
->> contain all the IPv4/IPv6 and TCP/UDP headers.
+On Mon, 2014-11-03 at 09:39 -0800, Joe Perches wrote:
+> On Mon, 2014-11-03 at 19:28 +0200, Andy Shevchenko wrote:
+> > There is a kernel helper to dump buffers in a hexdecimal format. This patch
+> > substitutes the open coded function by calling that helper.
+> []
+> > diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> []
+> > @@ -191,14 +191,8 @@ static void stmmac_clk_csr_set(struct stmmac_priv *priv)
+> >  
+> >  static void print_pkt(unsigned char *buf, int len)
+> >  {
+> > -	int j;
+> > -	pr_debug("len = %d byte, buf addr: 0x%p", len, buf);
+> > -	for (j = 0; j < len; j++) {
+> > -		if ((j % 16) == 0)
+> > -			pr_debug("\n %03x:", j);
+> > -		pr_debug(" %02x", buf[j]);
+> > -	}
+> > -	pr_debug("\n");
+> > +	pr_debug("len = %d byte, buf addr: 0x%p\n", len, buf);
+> > +	print_hex_dump(KERN_DEBUG, " ", DUMP_PREFIX_OFFSET, 16, 1, buf, len, 0);
 > 
-> What about when it doesn't? It sounds as if we now won't pull up, which
-> would be bad.
+> Prefix should be ""
 
-The network stack will always pull any headers it needs to inspect (the
-frag may be a userspace page which has the same security issues as a
-frag with a foreign page).
+Oh, initially there is an indentation in one space.
+Maybe Giuseppe would comment on this.
 
-e.g., see skb_checksum_setup() called slightly later on in netback.
+> Please use true/false for the last argument
 
-> To avoid the pull up the code would need to grant copy up-to 128 bytes
-> from as many slots as needed, not only the first.
+Okay.
+
 > 
-> Also, if the grant copy has already placed 128 bytes in the linear area,
-> why is the pull up touching anything in the first place? Shouldn't it be
-> a nop in that case?
+> Another (better?) option would be to use:
+> 
+> 	print_hex_dump_bytes("", DUMP_PREFIX_OFFSET, buf, len);
 
-The grant copy only copies from the first frag which may be less than
-128 bytes in length.
+> so that it can be dynamically controlled like
+> the pr_debug statements.
 
-David
+Ah, yes, but unfortunately it will print ASCII part always. Giuseppe,
+what do you think?
+
+P.S. [off topic] Joe, just would like to know if you have you seen my
+last version of the patch series against hexdump.c which adds
+seq_hex_dump() call [1]. If so, could you comment on it?
+[1] https://lkml.org/lkml/2014/9/4/309
+
+-- 
+Andy Shevchenko <andriy.shevchenko@intel.com>
+Intel Finland Oy
