@@ -1,34 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: fec: fix suspend broken on multiple MACs sillicons
-Date: Mon, 03 Nov 2014 14:50:38 -0500 (EST)
-Message-ID: <20141103.145038.1224937667378001886.davem@davemloft.net>
-References: <1414992410-27886-1-git-send-email-b38611@freescale.com>
+Subject: Re: macvtap: Fix csum_start when VLAN tags are present
+Date: Mon, 03 Nov 2014 14:52:42 -0500 (EST)
+Message-ID: <20141103.145242.1681559211164468290.davem@davemloft.net>
+References: <20141103060125.GA28295@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, festevam@gmail.com
-To: b38611@freescale.com
+Cc: netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48863 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:48871 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753155AbaKCTum (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2014 14:50:42 -0500
-In-Reply-To: <1414992410-27886-1-git-send-email-b38611@freescale.com>
+	with ESMTP id S1752340AbaKCTwo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2014 14:52:44 -0500
+In-Reply-To: <20141103060125.GA28295@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Fugang Duan <b38611@freescale.com>
-Date: Mon, 3 Nov 2014 13:26:50 +0800
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Mon, 3 Nov 2014 14:01:25 +0800
 
-> On i.MX6SX sdb platform, there has two same enet MACs, after system up,
-> just eth0 is up, and then do suspend/resume test:
- ...
-> The root cause is that eth1 is not opened and clock is not enabled, and .suspend() still
-> call .fec_enet_clk_enable() to disable clock.
+> When VLAN is in use in macvtap_put_user, we end up setting
+> csum_start to the wrong place.  The result is that the whoever
+> ends up doing the checksum setting will corrupt the packet instead
+> of writing the checksum to the expected location, usually this
+> means writing the checksum with an offset of -4.
 > 
-> To avoid the broken, let it check network device up status by calling .netif_running()
-> before disable/enable clocks.
+> This patch fixes this by adjusting csum_start when VLAN tags are
+> detected.
 > 
-> Signed-off-by: Fugang Duan <B38611@freescale.com>
+> Fixes: f09e2249c4f5 ("macvtap: restore vlan header on user read")
+> Cc: stable@vger.kernel.org
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Applied, thanks!
+Applied, thanks Herbert.
