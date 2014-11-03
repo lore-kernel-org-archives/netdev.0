@@ -1,48 +1,136 @@
 From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH -next v3 0/3] net: allow setting ecn via routing table
-Date: Mon,  3 Nov 2014 14:01:57 +0100
-Message-ID: <1415019720-17106-1-git-send-email-fw@strlen.de>
+Subject: [PATCH -next v3 1/3] syncookies: avoid magic values and document which-bit-is-what-option
+Date: Mon,  3 Nov 2014 14:01:58 +0100
+Message-ID: <1415019720-17106-2-git-send-email-fw@strlen.de>
+References: <1415019720-17106-1-git-send-email-fw@strlen.de>
+Cc: Florian Westphal <fw@strlen.de>,
+	Daniel Borkmann <dborkman@redhat.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:44860 "EHLO
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:44863 "EHLO
 	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751169AbaKCNB6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2014 08:01:58 -0500
+	by vger.kernel.org with ESMTP id S1751169AbaKCNCE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2014 08:02:04 -0500
+In-Reply-To: <1415019720-17106-1-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Here is v3 of the patchset, addressing Erics comments wrt. validating vs.
-tcp_ecn sysctl when decoding cookie timestamp.
+Was a bit more difficult to read than needed due to magic shifts;
+add defines and document the used encoding scheme.
 
-When using syn cookies, then do not simply trust that the echoed timestamp
-was not modified to make sure that ecn is not turned on magically when it
-is disabled on the host.
+Joint work with Daniel Borkmann.
 
-The first two patches, which were not part of earlier series, prepare
-the cookie code for the ecn route metrics change by allowing is to
-more easily use the existing dst object for ecn validation.
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+ This patch was not part of earlier versions of the set.
 
-The 3rd patch adds the ecn route metric feature support.
-It is almost the same as in v2, except that we'll now also test the
-dst_features when decoding a syn cookie timestamp that indicates ecn support.
+ net/ipv4/syncookies.c | 50 +++++++++++++++++++++++++++++++++++---------------
+ 1 file changed, 35 insertions(+), 15 deletions(-)
 
-These three patches then allow turning on explicit congestion notification
-based on the destination network.
-
-For example, assuming the default tcp_ecn sysctl '2', the following will
-enable ecn (tcp_ecn=1 behaviour, i.e. request ecn to be enabled for a
-tcp connection) for all connections to hosts inside the 192.168.2/24 network:
-
-ip route change 192.168.2.0/24 dev eth0 features ecn
-
-Having a more fine-grained per-route setting can be beneficial for
-various reasons, for example 1) within data centers, or 2) local ISPs
-may deploy ECN support for their own video/streaming services [1], etc.
-
-Joint work with Daniel Borkmann, feature suggested by Hannes Frederic Sowa.
-
-The patch to enable this in iproute2 will be posted shortly, it is currently
-also available here:
-http://git.breakpoint.cc/cgit/fw/iproute2.git/commit/?h=iproute_features&id=8843d2d8973fb81c78a7efe6d42e3a17d739003e
-
-[1] http://www.ietf.org/proceedings/89/slides/slides-89-tsvarea-1.pdf, p.15
+diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
+index 4ac7bca..c3792c0 100644
+--- a/net/ipv4/syncookies.c
++++ b/net/ipv4/syncookies.c
+@@ -19,10 +19,6 @@
+ #include <net/tcp.h>
+ #include <net/route.h>
+ 
+-/* Timestamps: lowest bits store TCP options */
+-#define TSBITS 6
+-#define TSMASK (((__u32)1 << TSBITS) - 1)
+-
+ extern int sysctl_tcp_syncookies;
+ 
+ static u32 syncookie_secret[2][16-4+SHA_DIGEST_WORDS] __read_mostly;
+@@ -30,6 +26,30 @@ static u32 syncookie_secret[2][16-4+SHA_DIGEST_WORDS] __read_mostly;
+ #define COOKIEBITS 24	/* Upper bits store count */
+ #define COOKIEMASK (((__u32)1 << COOKIEBITS) - 1)
+ 
++/* TCP Timestamp: 6 lowest bits of timestamp sent in the cookie SYN-ACK
++ * stores TCP options:
++ *
++ * MSB                               LSB
++ * | 31 ...   6 |  5  |  4   | 3 2 1 0 |
++ * |  Timestamp | ECN | SACK | WScale  |
++ *
++ * When we receive a valid cookie-ACK, we look at the echoed tsval (if
++ * any) to figure out which TCP options we should use for the rebuilt
++ * connection.
++ *
++ * A WScale setting of '0xf' (which is an invalid scaling value)
++ * means that original syn did not include the TCP window scaling option.
++ */
++#define TS_OPT_WSCALE_MASK	0xf
++#define TS_OPT_SACK		BIT(4)
++#define TS_OPT_ECN		BIT(5)
++/* There is no TS_OPT_TIMESTAMP:
++ * if ACK contains timestamp option, we already know it was
++ * requested/supported by the syn/synack exchange.
++ */
++#define TSBITS	6
++#define TSMASK	(((__u32)1 << TSBITS) - 1)
++
+ static DEFINE_PER_CPU(__u32 [16 + 5 + SHA_WORKSPACE_WORDS],
+ 		      ipv4_cookie_scratch);
+ 
+@@ -67,9 +87,11 @@ __u32 cookie_init_timestamp(struct request_sock *req)
+ 
+ 	ireq = inet_rsk(req);
+ 
+-	options = ireq->wscale_ok ? ireq->snd_wscale : 0xf;
+-	options |= ireq->sack_ok << 4;
+-	options |= ireq->ecn_ok << 5;
++	options = ireq->wscale_ok ? ireq->snd_wscale : TS_OPT_WSCALE_MASK;
++	if (ireq->sack_ok)
++		options |= TS_OPT_SACK;
++	if (ireq->ecn_ok)
++		options |= TS_OPT_ECN;
+ 
+ 	ts = ts_now & ~TSMASK;
+ 	ts |= options;
+@@ -219,16 +241,13 @@ static inline struct sock *get_cookie_sock(struct sock *sk, struct sk_buff *skb,
+  * additional tcp options in the timestamp.
+  * This extracts these options from the timestamp echo.
+  *
+- * The lowest 4 bits store snd_wscale.
+- * next 2 bits indicate SACK and ECN support.
+- *
+  * return false if we decode an option that should not be.
+  */
+ bool cookie_check_timestamp(struct tcp_options_received *tcp_opt,
+ 			struct net *net, bool *ecn_ok)
+ {
+ 	/* echoed timestamp, lowest bits contain options */
+-	u32 options = tcp_opt->rcv_tsecr & TSMASK;
++	u32 options = tcp_opt->rcv_tsecr;
+ 
+ 	if (!tcp_opt->saw_tstamp)  {
+ 		tcp_clear_options(tcp_opt);
+@@ -238,19 +257,20 @@ bool cookie_check_timestamp(struct tcp_options_received *tcp_opt,
+ 	if (!sysctl_tcp_timestamps)
+ 		return false;
+ 
+-	tcp_opt->sack_ok = (options & (1 << 4)) ? TCP_SACK_SEEN : 0;
+-	*ecn_ok = (options >> 5) & 1;
++	tcp_opt->sack_ok = (options & TS_OPT_SACK) ? TCP_SACK_SEEN : 0;
++	*ecn_ok = options & TS_OPT_ECN;
+ 	if (*ecn_ok && !net->ipv4.sysctl_tcp_ecn)
+ 		return false;
+ 
+ 	if (tcp_opt->sack_ok && !sysctl_tcp_sack)
+ 		return false;
+ 
+-	if ((options & 0xf) == 0xf)
++	if ((options & TS_OPT_WSCALE_MASK) == TS_OPT_WSCALE_MASK)
+ 		return true; /* no window scaling */
+ 
+ 	tcp_opt->wscale_ok = 1;
+-	tcp_opt->snd_wscale = options & 0xf;
++	tcp_opt->snd_wscale = options & TS_OPT_WSCALE_MASK;
++
+ 	return sysctl_tcp_window_scaling != 0;
+ }
+ EXPORT_SYMBOL(cookie_check_timestamp);
+-- 
+2.0.4
