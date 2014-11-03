@@ -1,45 +1,80 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Connection with Smart Z hangs
-Date: Mon, 03 Nov 2014 12:32:49 -0500 (EST)
-Message-ID: <20141103.123249.877120069157206947.davem@davemloft.net>
-References: <544D4DBB.9050103@libdivecomputer.org>
-	<54566950.5080206@gmail.com>
-	<CA+55aFzB+d8+pjvuPo-n5G7X9MK9vh9ER5zYLCXZBzjMD4bseA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mlg.hessigheim@gmail.com, devel@libdivecomputer.org,
-	netdev@vger.kernel.org
-To: torvalds@linux-foundation.org
+From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Subject: [PATCH] stmmac: fix sparse warnings
+Date: Mon,  3 Nov 2014 19:28:53 +0200
+Message-ID: <1415035734-24163-1-git-send-email-andriy.shevchenko@linux.intel.com>
+Cc: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	netdev@vger.kernel.org,
+	Kweh Hock Leong <hock.leong.kweh@intel.com>,
+	"David S . Miller" <davem@davemloft.net>,
+	Vince Bridgers <vbridgers2013@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47691 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751908AbaKCRcw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2014 12:32:52 -0500
-In-Reply-To: <CA+55aFzB+d8+pjvuPo-n5G7X9MK9vh9ER5zYLCXZBzjMD4bseA@mail.gmail.com>
+Received: from mga01.intel.com ([192.55.52.88]:32617 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752252AbaKCRdh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Nov 2014 12:33:37 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Date: Sun, 2 Nov 2014 10:20:22 -0800
+This patch fixes the following sparse warnings.
 
-> David, I'm just going to remove that whole bogus disconnect call. It
-> won't make things *work* for Martin (because this is all in the
-> "connect failed" path), but that call as-is is just wrong, wrong,
-> wrong. And apparently nobody cares about irda any more.
+drivers/net/ethernet/stmicro/stmmac/enh_desc.c:381:30: warning: symbol 'enh_desc_ops' was not declared. Should it be static?
+drivers/net/ethernet/stmicro/stmmac/norm_desc.c:253:30: warning: symbol 'ndesc_ops' was not declared. Should it be static?
+drivers/net/ethernet/stmicro/stmmac/stmmac_hwtstamp.c:141:33: warning: symbol 'stmmac_ptp' was not declared. Should it be static?
 
-I totally agree, just kill it.  For the record this got added in:
+There is no functional change.
 
-commit 5b40964eadea40509d353318d2c82e8b7bf5e8a5
-Author: Samuel Ortiz <samuel@sortiz.org>
-Date:   Mon Oct 11 00:46:51 2010 +0200
+Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/enh_desc.c        | 2 ++
+ drivers/net/ethernet/stmicro/stmmac/norm_desc.c       | 2 ++
+ drivers/net/ethernet/stmicro/stmmac/stmmac_hwtstamp.c | 2 ++
+ 3 files changed, 6 insertions(+)
 
-    irda: Remove BKL instances from af_irda.c
-
-which claims to be just a locking change, but obviously added
-this bogus ->disconnect() call as well.
-
-> If anybody is at all interested in helping maintain irda code, holler
-> to David and to the netdev mailing list. The position is up for grabs.
-
-Seriously... :-)
+diff --git a/drivers/net/ethernet/stmicro/stmmac/enh_desc.c b/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
+index 1e2bcf5..ddd4272 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
++++ b/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
+@@ -23,8 +23,10 @@
+ *******************************************************************************/
+ 
+ #include <linux/stmmac.h>
++
+ #include "common.h"
+ #include "descs_com.h"
++#include "stmmac.h"
+ 
+ static int enh_desc_get_tx_status(void *data, struct stmmac_extra_stats *x,
+ 				  struct dma_desc *p, void __iomem *ioaddr)
+diff --git a/drivers/net/ethernet/stmicro/stmmac/norm_desc.c b/drivers/net/ethernet/stmicro/stmmac/norm_desc.c
+index 35ad4f4..46b882c 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/norm_desc.c
++++ b/drivers/net/ethernet/stmicro/stmmac/norm_desc.c
+@@ -23,8 +23,10 @@
+ *******************************************************************************/
+ 
+ #include <linux/stmmac.h>
++
+ #include "common.h"
+ #include "descs_com.h"
++#include "stmmac.h"
+ 
+ static int ndesc_get_tx_status(void *data, struct stmmac_extra_stats *x,
+ 			       struct dma_desc *p, void __iomem *ioaddr)
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_hwtstamp.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_hwtstamp.c
+index 76ad214..88e0da3 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_hwtstamp.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_hwtstamp.c
+@@ -25,8 +25,10 @@
+ 
+ #include <linux/io.h>
+ #include <linux/delay.h>
++
+ #include "common.h"
+ #include "stmmac_ptp.h"
++#include "stmmac.h"
+ 
+ static void stmmac_config_hw_tstamping(void __iomem *ioaddr, u32 data)
+ {
+-- 
+2.1.1
