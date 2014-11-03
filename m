@@ -1,46 +1,47 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH 1/7] can: m_can: fix possible sleep in napi poll
-Date: Mon, 03 Nov 2014 19:37:31 +0100
-Message-ID: <5457CB6B.3080002@hartkopp.net>
-References: <1414579527-31100-1-git-send-email-b29396@freescale.com> <5457B517.8030805@pengutronix.de>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH net-next 3/7] gue: Add infrastructure for flags and options
+Date: Mon, 3 Nov 2014 10:39:14 -0800
+Message-ID: <CA+mtBx8QZn8M8mnU84w2+sc4bt98kf-_SuW0jz15qYNX21vCag@mail.gmail.com>
+References: <1414882683-25484-1-git-send-email-therbert@google.com>
+	<1414882683-25484-4-git-send-email-therbert@google.com>
+	<20141103.121856.1307429117331581815.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: wg@grandegger.com, varkabhadram@gmail.com, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org
-To: Marc Kleine-Budde <mkl@pengutronix.de>,
-	Dong Aisheng <b29396@freescale.com>, linux-can@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <5457B517.8030805@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f170.google.com ([209.85.213.170]:58987 "EHLO
+	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752484AbaKCSjP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2014 13:39:15 -0500
+Received: by mail-ig0-f170.google.com with SMTP id h15so5055087igd.3
+        for <netdev@vger.kernel.org>; Mon, 03 Nov 2014 10:39:15 -0800 (PST)
+In-Reply-To: <20141103.121856.1307429117331581815.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello Marc,
+On Mon, Nov 3, 2014 at 9:18 AM, David Miller <davem@davemloft.net> wrote:
+> From: Tom Herbert <therbert@google.com>
+> Date: Sat,  1 Nov 2014 15:57:59 -0700
+>
+>> @@ -20,7 +20,16 @@ static size_t fou_encap_hlen(struct ip_tunnel_encap *e)
+>>
+>>  static size_t gue_encap_hlen(struct ip_tunnel_encap *e)
+>>  {
+>> -     return sizeof(struct udphdr) + sizeof(struct guehdr);
+>> +     size_t len;
+>> +     bool need_priv = false;
+>> +
+>> +     len = sizeof(struct udphdr) + sizeof(struct guehdr);
+>> +
+>> +     /* Add in lengths flags */
+>> +
+>> +     len += need_priv ? GUE_LEN_PRIV : 0;
+>
+> Add this need_priv logic in patch #6, not here.
 
-you can omit the 'stable' tag as this driver just emerged in 3.18 - which is
-currently in 3.18-rc3 state.
+I would rather keep it in this patch. This is adding the common
+infrastructure to support private option field, remote checksum
+offload is an instance that uses that.
 
-If possible I would suggest to push all 7 patches via can/master as it is
-pretty bad to say "M_CAN was introduced in 3.18 but M_CAN with CAN FD is
-working since 3.19".
-
-This will produce confusion as the M_CAN core has built-in CAN FD support.
-
-Regards,
-Oliver
-
-On 11/03/2014 06:02 PM, Marc Kleine-Budde wrote:
-> Hey Dong Aisheng,
-> 
-> the state of the patches are:
-> 
-> 1: can/master + stable
-> 2: can/mster
-> 3: can/mster
-> 4: can/master + stable
-> 5: waiting for Oliver's opinion due to the user space change
-> 6: waiting for your input
-> 7: waiting for your input
-> 
-> Marc
-> 
+Tom
