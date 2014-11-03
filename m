@@ -1,75 +1,115 @@
-From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Subject: Re: [PATCH] stmmac: remove custom implementation of print_hex_dump()
-Date: Mon, 03 Nov 2014 19:53:57 +0200
-Message-ID: <1415037237.472.1.camel@linux.intel.com>
-References: <1415035734-24163-1-git-send-email-andriy.shevchenko@linux.intel.com>
-	 <1415035734-24163-2-git-send-email-andriy.shevchenko@linux.intel.com>
-	 <1415036355.17743.22.camel@perches.com>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCHv1 net-next] xen-netback: remove unconditional
+ pull_skb_tail in guest Tx path
+Date: Mon, 3 Nov 2014 17:39:06 +0000
+Message-ID: <1415036346.1411.3.camel@citrix.com>
+References: <1415035431-27485-1-git-send-email-david.vrabel@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	netdev@vger.kernel.org,
-	Kweh Hock Leong <hock.leong.kweh@intel.com>,
-	"David S . Miller" <davem@davemloft.net>,
-	Vince Bridgers <vbridgers2013@gmail.com>
-To: Joe Perches <joe@perches.com>
+Cc: <netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>,
+	Wei Liu <wei.liu2@citrix.com>,
+	Malcolm Crossley <malcolm.crossley@citrix.com>
+To: David Vrabel <david.vrabel@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:20365 "EHLO mga01.intel.com"
+Received: from smtp.citrix.com ([66.165.176.89]:55752 "EHLO SMTP.CITRIX.COM"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753246AbaKCRx7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Nov 2014 12:53:59 -0500
-In-Reply-To: <1415036355.17743.22.camel@perches.com>
+	id S1753571AbaKCR4M (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Nov 2014 12:56:12 -0500
+In-Reply-To: <1415035431-27485-1-git-send-email-david.vrabel@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-11-03 at 09:39 -0800, Joe Perches wrote:
-> On Mon, 2014-11-03 at 19:28 +0200, Andy Shevchenko wrote:
-> > There is a kernel helper to dump buffers in a hexdecimal format. This patch
-> > substitutes the open coded function by calling that helper.
-> []
-> > diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> []
-> > @@ -191,14 +191,8 @@ static void stmmac_clk_csr_set(struct stmmac_priv *priv)
-> >  
-> >  static void print_pkt(unsigned char *buf, int len)
-> >  {
-> > -	int j;
-> > -	pr_debug("len = %d byte, buf addr: 0x%p", len, buf);
-> > -	for (j = 0; j < len; j++) {
-> > -		if ((j % 16) == 0)
-> > -			pr_debug("\n %03x:", j);
-> > -		pr_debug(" %02x", buf[j]);
-> > -	}
-> > -	pr_debug("\n");
-> > +	pr_debug("len = %d byte, buf addr: 0x%p\n", len, buf);
-> > +	print_hex_dump(KERN_DEBUG, " ", DUMP_PREFIX_OFFSET, 16, 1, buf, len, 0);
+On Mon, 2014-11-03 at 17:23 +0000, David Vrabel wrote:
+> From: Malcolm Crossley <malcolm.crossley@citrix.com>
 > 
-> Prefix should be ""
+> Unconditionally pulling 128 bytes into the linear buffer is not
+> required. Netback has already grant copied up-to 128 bytes from the
+> first slot of a packet into the linear buffer. The first slot normally
+> contain all the IPv4/IPv6 and TCP/UDP headers.
 
-Oh, initially there is an indentation in one space.
-Maybe Giuseppe would comment on this.
+What about when it doesn't? It sounds as if we now won't pull up, which
+would be bad.
 
-> Please use true/false for the last argument
+To avoid the pull up the code would need to grant copy up-to 128 bytes
+from as many slots as needed, not only the first.
 
-Okay.
+Also, if the grant copy has already placed 128 bytes in the linear area,
+why is the pull up touching anything in the first place? Shouldn't it be
+a nop in that case?
 
+> The unconditional pull would often copy frag data unnecessarily.  This
+> is a performance problem when running on a version of Xen where grant
+> unmap avoids TLB flushes for pages which are not accessed.  TLB
+> flushes can now be avoided for > 99% of unmaps (it was 0% before).
 > 
-> Another (better?) option would be to use:
+> Grant unmap TLB flush avoidance will be available in a future version
+> of Xen (probably 4.6).
 > 
-> 	print_hex_dump_bytes("", DUMP_PREFIX_OFFSET, buf, len);
+> Signed-off-by: Malcolm Crossley <malcolm.crossley@citrix.com>
+> Signed-off-by: David Vrabel <david.vrabel@citrix.com>
+> ---
+>  drivers/net/xen-netback/netback.c |   26 ++++++++++++--------------
+>  1 file changed, 12 insertions(+), 14 deletions(-)
+> 
+> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+> index 730252c..14e18bb 100644
+> --- a/drivers/net/xen-netback/netback.c
+> +++ b/drivers/net/xen-netback/netback.c
+> @@ -82,6 +82,16 @@ MODULE_PARM_DESC(max_queues,
+>  static unsigned int fatal_skb_slots = FATAL_SKB_SLOTS_DEFAULT;
+>  module_param(fatal_skb_slots, uint, 0444);
+>  
+> +/* The amount to copy out of the first guest Tx slot into the skb's
+> + * linear area.  If the first slot has more data, it will be mapped
+> + * and put into the first frag.
+> + *
+> + * This is sized to avoid pulling headers from the frags for most
+> + * TCP/IP packets.
+> + */
+> +#define XEN_NETBACK_TX_COPY_LEN 128
 
-> so that it can be dynamically controlled like
-> the pr_debug statements.
+Was it strictly necessary to both move and rename this? I can see why
+the comment needed to change.
 
-Ah, yes, but unfortunately it will print ASCII part always. Giuseppe,
-what do you think?
-
-P.S. [off topic] Joe, just would like to know if you have you seen my
-last version of the patch series against hexdump.c which adds
-seq_hex_dump() call [1]. If so, could you comment on it?
-[1] https://lkml.org/lkml/2014/9/4/309
-
--- 
-Andy Shevchenko <andriy.shevchenko@intel.com>
-Intel Finland Oy
+>  static void xenvif_idx_release(struct xenvif_queue *queue, u16 pending_idx,
+>  			       u8 status);
+>  
+> @@ -125,13 +135,6 @@ static inline struct xenvif_queue *ubuf_to_queue(const struct ubuf_info *ubuf)
+>  			    pending_tx_info[0]);
+>  }
+>  
+> -/* This is a miniumum size for the linear area to avoid lots of
+> - * calls to __pskb_pull_tail() as we set up checksum offsets. The
+> - * value 128 was chosen as it covers all IPv4 and most likely
+> - * IPv6 headers.
+> - */
+> -#define PKT_PROT_LEN 128
+> -
+>  static u16 frag_get_pending_idx(skb_frag_t *frag)
+>  {
+>  	return (u16)frag->page_offset;
+> @@ -1446,9 +1449,9 @@ static void xenvif_tx_build_gops(struct xenvif_queue *queue,
+>  		index = pending_index(queue->pending_cons);
+>  		pending_idx = queue->pending_ring[index];
+>  
+> -		data_len = (txreq.size > PKT_PROT_LEN &&
+> +		data_len = (txreq.size > XEN_NETBACK_TX_COPY_LEN &&
+>  			    ret < XEN_NETBK_LEGACY_SLOTS_MAX) ?
+> -			PKT_PROT_LEN : txreq.size;
+> +			XEN_NETBACK_TX_COPY_LEN : txreq.size;
+>  
+>  		skb = xenvif_alloc_skb(data_len);
+>  		if (unlikely(skb == NULL)) {
+> @@ -1653,11 +1656,6 @@ static int xenvif_tx_submit(struct xenvif_queue *queue)
+>  			}
+>  		}
+>  
+> -		if (skb_is_nonlinear(skb) && skb_headlen(skb) < PKT_PROT_LEN) {
+> -			int target = min_t(int, skb->len, PKT_PROT_LEN);
+> -			__pskb_pull_tail(skb, target - skb_headlen(skb));
+> -		}
+> -
+>  		skb->dev      = queue->vif->dev;
+>  		skb->protocol = eth_type_trans(skb, skb->dev);
+>  		skb_reset_network_header(skb);
