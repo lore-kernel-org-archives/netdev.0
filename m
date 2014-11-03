@@ -1,118 +1,63 @@
-From: Denis Kirjanov <kda@linux-powerpc.org>
-Subject: Re: [PATCH] PPC: bpf_jit_comp: add SKF_AD_PKTTYPE instruction
-Date: Mon, 3 Nov 2014 22:04:38 +0400
-Message-ID: <CAOJe8K2hEfMe0T3xu9oF024nXvgyZ2ctAYR63mzdOX87HbYvPA@mail.gmail.com>
-References: <1414351406-4122-1-git-send-email-kda@linux-powerpc.org>
-	<CAOJe8K0t3G-bHm_24GjrTp9mmKnYZS1_bdGgrwQBLjC_s5is6w@mail.gmail.com>
-	<5457A306.4040302@linux.vnet.ibm.com>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCHv1 net-next] xen-netback: remove unconditional
+ pull_skb_tail in guest Tx path
+Date: Mon, 3 Nov 2014 17:55:37 +0000
+Message-ID: <1415037337.1411.9.camel@citrix.com>
+References: <1415035431-27485-1-git-send-email-david.vrabel@citrix.com>
+	 <1415036346.1411.3.camel@citrix.com> <5457BF80.2000205@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
-	Matt Evans <matt@ozlabs.org>, mpe@ellerman.id.au
-To: Philippe Bergheaud <felix@linux.vnet.ibm.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>,
+	Wei Liu <wei.liu2@citrix.com>,
+	Malcolm Crossley <malcolm.crossley@citrix.com>
+To: David Vrabel <david.vrabel@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f170.google.com ([209.85.214.170]:41741 "EHLO
-	mail-ob0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751536AbaKCSEj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2014 13:04:39 -0500
-Received: by mail-ob0-f170.google.com with SMTP id nt9so10539963obb.1
-        for <netdev@vger.kernel.org>; Mon, 03 Nov 2014 10:04:39 -0800 (PST)
-In-Reply-To: <5457A306.4040302@linux.vnet.ibm.com>
+Received: from smtp.citrix.com ([66.165.176.89]:19287 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753554AbaKCSGr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Nov 2014 13:06:47 -0500
+In-Reply-To: <5457BF80.2000205@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/3/14, Philippe Bergheaud <felix@linux.vnet.ibm.com> wrote:
-> Denis Kirjanov wrote:
->> Any feedback from PPC folks?
->
-> I have reviewed the patch and it looks fine to me.
-> I have tested successfuly on ppc64le.
-> I could not test it on ppc64.
+On Mon, 2014-11-03 at 17:46 +0000, David Vrabel wrote:
+> On 03/11/14 17:39, Ian Campbell wrote:
+> > On Mon, 2014-11-03 at 17:23 +0000, David Vrabel wrote:
+> >> From: Malcolm Crossley <malcolm.crossley@citrix.com>
+> >>
+> >> Unconditionally pulling 128 bytes into the linear buffer is not
+> >> required. Netback has already grant copied up-to 128 bytes from the
+> >> first slot of a packet into the linear buffer. The first slot normally
+> >> contain all the IPv4/IPv6 and TCP/UDP headers.
+> > 
+> > What about when it doesn't? It sounds as if we now won't pull up, which
+> > would be bad.
+> 
+> The network stack will always pull any headers it needs to inspect (the
+> frag may be a userspace page which has the same security issues as a
+> frag with a foreign page).
 
-Nice, I've tested it on PPC64be
->
-> Philippe
->
->> On 10/26/14, Denis Kirjanov <kda@linux-powerpc.org> wrote:
->>
->>>Cc: Matt Evans <matt@ozlabs.org>
->>>Signed-off-by: Denis Kirjanov <kda@linux-powerpc.org>
->>>---
->>> arch/powerpc/include/asm/ppc-opcode.h | 1 +
->>> arch/powerpc/net/bpf_jit.h            | 7 +++++++
->>> arch/powerpc/net/bpf_jit_comp.c       | 5 +++++
->>> 3 files changed, 13 insertions(+)
->>>
->>>diff --git a/arch/powerpc/include/asm/ppc-opcode.h
->>>b/arch/powerpc/include/asm/ppc-opcode.h
->>>index 6f85362..1a52877 100644
->>>--- a/arch/powerpc/include/asm/ppc-opcode.h
->>>+++ b/arch/powerpc/include/asm/ppc-opcode.h
->>>@@ -204,6 +204,7 @@
->>> #define PPC_INST_ERATSX_DOT		0x7c000127
->>>
->>> /* Misc instructions for BPF compiler */
->>>+#define PPC_INST_LBZ			0x88000000
->>> #define PPC_INST_LD			0xe8000000
->>> #define PPC_INST_LHZ			0xa0000000
->>> #define PPC_INST_LHBRX			0x7c00062c
->>>diff --git a/arch/powerpc/net/bpf_jit.h b/arch/powerpc/net/bpf_jit.h
->>>index 9aee27c..c406aa9 100644
->>>--- a/arch/powerpc/net/bpf_jit.h
->>>+++ b/arch/powerpc/net/bpf_jit.h
->>>@@ -87,6 +87,9 @@ DECLARE_LOAD_FUNC(sk_load_byte_msh);
->>> #define PPC_STD(r, base, i)	EMIT(PPC_INST_STD | ___PPC_RS(r) |	      \
->>> 				     ___PPC_RA(base) | ((i) & 0xfffc))
->>>
->>>+
->>>+#define PPC_LBZ(r, base, i)	EMIT(PPC_INST_LBZ | ___PPC_RT(r) |	      \
->>>+				     ___PPC_RA(base) | IMM_L(i))
->>> #define PPC_LD(r, base, i)	EMIT(PPC_INST_LD | ___PPC_RT(r) |	      \
->>> 				     ___PPC_RA(base) | IMM_L(i))
->>> #define PPC_LWZ(r, base, i)	EMIT(PPC_INST_LWZ | ___PPC_RT(r) |	      \
->>>@@ -96,6 +99,10 @@ DECLARE_LOAD_FUNC(sk_load_byte_msh);
->>> #define PPC_LHBRX(r, base, b)	EMIT(PPC_INST_LHBRX | ___PPC_RT(r) |	
->>> \
->>> 				     ___PPC_RA(base) | ___PPC_RB(b))
->>> /* Convenience helpers for the above with 'far' offsets: */
->>>+#define PPC_LBZ_OFFS(r, base, i) do { if ((i) < 32768) PPC_LBZ(r, base,
->>> i);
->>>  \
->>>+		else {	PPC_ADDIS(r, base, IMM_HA(i));			      \
->>>+			PPC_LBZ(r, r, IMM_L(i)); } } while(0)
->>>+
->>> #define PPC_LD_OFFS(r, base, i) do { if ((i) < 32768) PPC_LD(r, base,
->>> i);
->>>  \
->>> 		else {	PPC_ADDIS(r, base, IMM_HA(i));			      \
->>> 			PPC_LD(r, r, IMM_L(i)); } } while(0)
->>>diff --git a/arch/powerpc/net/bpf_jit_comp.c
->>>b/arch/powerpc/net/bpf_jit_comp.c
->>>index cbae2df..d110e28 100644
->>>--- a/arch/powerpc/net/bpf_jit_comp.c
->>>+++ b/arch/powerpc/net/bpf_jit_comp.c
->>>@@ -407,6 +407,11 @@ static int bpf_jit_build_body(struct bpf_prog *fp,
->>> u32
->>>*image,
->>> 			PPC_LHZ_OFFS(r_A, r_skb, offsetof(struct sk_buff,
->>> 							  queue_mapping));
->>> 			break;
->>>+		case BPF_ANC | SKF_AD_PKTTYPE:
->>>+			PPC_LBZ_OFFS(r_A, r_skb, PKT_TYPE_OFFSET());
->>>+			PPC_ANDI(r_A, r_A, PKT_TYPE_MAX);
->>>+			PPC_SRWI(r_A, r_A, 5);
->>>+			break;
->>> 		case BPF_ANC | SKF_AD_CPU:
->>> #ifdef CONFIG_SMP
->>> 			/*
->>>--
->>>2.1.0
->>>
->>>
->>
->> _______________________________________________
->> Linuxppc-dev mailing list
->> Linuxppc-dev@lists.ozlabs.org
->> https://lists.ozlabs.org/listinfo/linuxppc-dev
->
->
+I don't believe it will, unless something changed since I last looked.
+The kernel assumes that it has been sensible enough to put the headers
+in the linear area, since it is the one which generates them in most
+cases. In other cases its up to the relevant driver to make sure this is
+true.
+
+> e.g., see skb_checksum_setup() called slightly later on in netback.
+
+This however is what will make things safe for us (note that this is
+only used by xen-net* in practice), it is this which should be mentioned
+in the commit message I think.
+
+> > To avoid the pull up the code would need to grant copy up-to 128 bytes
+> > from as many slots as needed, not only the first.
+> > 
+> > Also, if the grant copy has already placed 128 bytes in the linear area,
+> > why is the pull up touching anything in the first place? Shouldn't it be
+> > a nop in that case?
+> 
+> The grant copy only copies from the first frag which may be less than
+> 128 bytes in length.
+> 
+> David
