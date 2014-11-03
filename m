@@ -1,45 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netfilter: nft_reject_bridge: Fix powerpc
-	build error
-Date: Sun, 02 Nov 2014 23:17:30 -0500 (EST)
-Message-ID: <20141102.231730.2267020727414912465.davem@davemloft.net>
-References: <1414981155-27155-1-git-send-email-linux@roeck-us.net>
+From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Subject: [PATCH] ipv6: do xfrm transform after nat if necessary
+Date: Mon, 3 Nov 2014 12:53:03 +0800
+Message-ID: <54570A2F.2070206@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	stephen@networkplumber.org, coreteam@netfilter.org,
-	netfilter-devel@vger.kernel.org, kaber@trash.net, pablo@netfilter.org
-To: linux@roeck-us.net
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1414981155-27155-1-git-send-email-linux@roeck-us.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([59.151.112.132]:33121 "EHLO
+	heian.cn.fujitsu.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750834AbaKCEzI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Nov 2014 23:55:08 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Guenter Roeck <linux@roeck-us.net>
-Date: Sun,  2 Nov 2014 18:19:15 -0800
 
-> Fix:
-> net/bridge/netfilter/nft_reject_bridge.c:
-> In function 'nft_reject_br_send_v6_unreach':
-> net/bridge/netfilter/nft_reject_bridge.c:240:3:
-> 	error: implicit declaration of function 'csum_ipv6_magic'
->    csum_ipv6_magic(&nip6h->saddr, &nip6h->daddr,
->    ^
-> make[3]: *** [net/bridge/netfilter/nft_reject_bridge.o] Error 1
-> 
-> Seen with powerpc:allmodconfig.
-> 
-> Fixes: 523b929d5446 ("netfilter: nft_reject_bridge: don't use IP stack to reject traffic")
-> Cc: Pablo Neira Ayuso <pablo@netfilter.org>
-> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
 
-Applied, thanks.
+In function nf_nat_ipv6_out, after nat is done, nf_xfrm_me_harder()
+will be called to look up xfrm dst.
+
+Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+---
+ net/ipv6/ip6_output.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 8e950c2..742a845 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -124,6 +124,14 @@ static int ip6_finish_output2(struct sk_buff *skb)
+ 
+ static int ip6_finish_output(struct sk_buff *skb)
+ {
++#if defined(CONFIG_NETFILTER) && defined(CONFIG_XFRM)
++	/* Just like ipv4, policy lookup after nat yielded a new policy */
++	if (skb_dst(skb)->xfrm != NULL) {
++		IP6CB(skb)->flags |= IP6SKB_REROUTED;
++		return dst_output(skb);
++	}
++#endif
++
+ 	if ((skb->len > ip6_skb_dst_mtu(skb) && !skb_is_gso(skb)) ||
+ 	    dst_allfrag(skb_dst(skb)) ||
+ 	    (IP6CB(skb)->frag_max_size && skb->len > IP6CB(skb)->frag_max_size))
+-- 
+1.8.3.1
