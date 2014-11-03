@@ -1,59 +1,127 @@
-From: Michal Nazarewicz <mina86@mina86.com>
-Subject: Re: DMA allocations from CMA and fatal_signal_pending check
-Date: Mon, 03 Nov 2014 17:45:31 +0100
-Message-ID: <xa1tlhnsw7v8.fsf@mina86.com>
-References: <544FE9BE.6040503@gmail.com> <20141031082818.GB14642@js1304-P5Q-DELUXE> <5453F80C.4090006@gmail.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH 7/7] can: m_can: workaround for transmit data less than
+ 4 bytes
+Date: Mon, 03 Nov 2014 17:48:17 +0100
+Message-ID: <5457B1D1.6080301@pengutronix.de>
+References: <1414579527-31100-1-git-send-email-b29396@freescale.com> <1414579527-31100-7-git-send-email-b29396@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="206uA6wgHj6i1fqxnTNkFsUomGXXx2M8l"
+Cc: wg@grandegger.com, varkabhadram@gmail.com, netdev@vger.kernel.org,
+	socketcan@hartkopp.net, linux-arm-kernel@lists.infradead.org
+To: Dong Aisheng <b29396@freescale.com>, linux-can@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:36780 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752826AbaKCQs3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2014 11:48:29 -0500
+In-Reply-To: <1414579527-31100-7-git-send-email-b29396@freescale.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--206uA6wgHj6i1fqxnTNkFsUomGXXx2M8l
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: quoted-printable
-Cc: linux-arm-kernel@lists.infradead.org, Brian Norris <computersforpeace@gmail.com>, Gregory Fong <gregory.0xf0@gmail.com>, linux-kernel@vger.kernel.org, linux-mm@kvack.org, lauraa@codeaurora.org, gioh.kim@lge.com, aneesh.kumar@linux.vnet.ibm.com, m.szyprowski@samsung.com, akpm@linux-foundation.org, "netdev\@vger.kernel.org" <netdev@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>, Joonsoo Kim <iamjoonsoo.kim@lge.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <5453F80C.4090006@gmail.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 31 2014, Florian Fainelli wrote:
-> I agree that the CMA allocation should not be allowed to succeed, but
-> the dma_alloc_coherent() allocation should succeed. If we look at the
-> sysport driver, there are kmalloc() calls to initialize private
-> structures, those will succeed (except under high memory pressure), so
-> by the same token, a driver expects DMA allocations to succeed (unless
-> we are under high memory pressure)
->
-> What are we trying to solve exactly with the fatal_signal_pending()
-> check here? Are we just optimizing for the case where a process has
-> allocated from a CMA region to allow this region to be returned to the
-> pool of free pages when it gets killed? Could there be another mechanism
-> used to reclaim those pages if we know the process is getting killed
-> anyway?
+On 10/29/2014 11:45 AM, Dong Aisheng wrote:
+> We meet an IC issue that we have to write the full 8 bytes (whatever
+> value for the second word) in Message RAM to avoid bit error for transm=
+it
+> data less than 4 bytes.
 
-We're guarding against situations where process may hang around
-arbitrarily long time after receiving SIGKILL.  If user does =E2=80=9Ckill =
--9
-$pid=E2=80=9D the usual expectation is that the $pid process will die within
-seconds and anything longer is perceived by user as a bug.
+Is this a SoC or a m_can problem? Are all versions of the SoC/m_can
+affected? Is there a m_can version register somewhere?
 
-What problem are *you* trying to solve?  If user sent SIGKILL to
-a process that imitated device initialisation, what is the point of
-continuing initialising the device?  Just recover and return -EINTR.
+> Without the workaround, we can easily see the following errors:
+> root@imx6qdlsolo:~# ip link set can0 up type can bitrate 1000000
+> [   66.882520] IPv6: ADDRCONF(NETDEV_CHANGE): can0: link becomes ready
+> root@imx6qdlsolo:~# cansend can0 123#112233
+> [   66.935640] m_can 20e8000.can can0: Bit Error Uncorrected
+>=20
+> Signed-off-by: Dong Aisheng <b29396@freescale.com>
+> ---
+>  drivers/net/can/m_can/m_can.c | 11 ++++++++++-
+>  1 file changed, 10 insertions(+), 1 deletion(-)
+>=20
+> diff --git a/drivers/net/can/m_can/m_can.c b/drivers/net/can/m_can/m_ca=
+n.c
+> index 219e0e3..f2d9ebe 100644
+> --- a/drivers/net/can/m_can/m_can.c
+> +++ b/drivers/net/can/m_can/m_can.c
+> @@ -1058,10 +1058,19 @@ static netdev_tx_t m_can_start_xmit(struct sk_b=
+uff *skb,
+>  	m_can_fifo_write(priv, 0, M_CAN_FIFO_ID, id);
+>  	m_can_fifo_write(priv, 0, M_CAN_FIFO_DLC, can_len2dlc(cf->len) << 16)=
+;
+> =20
+> -	for (i =3D 0; i < cf->len; i +=3D 4)
+> +	for (i =3D 0; i < cf->len; i +=3D 4) {
+>  		m_can_fifo_write(priv, 0, M_CAN_FIFO_DATA(i / 4),
+>  				 *(u32 *)(cf->data + i));
+> =20
+> +		/* FIXME: we meet an IC issue that we have to write the full 8
 
-> Well, not really. This driver is not an isolated case, there are tons of
-> other networking drivers that do exactly the same thing, and we do
-> expect these dma_alloc_* calls to succeed.
+FIXME usually indicates that the driver needs some work here. Just
+describe your hardware bug, you might add a reference to an errata if
+available, though.
 
-Again, why do you expect them to succeed?  The code must handle failures
-correctly anyway so why do you wish to ignore fatal signal?
+> +		 * bytes (whatever value for the second word) in Message RAM to
+> +		 * avoid bit error for transmit data less than 4 bytes
+> +		 */
+> +		if (cf->len <=3D 4)
+> +			m_can_fifo_write(priv, 0, M_CAN_FIFO_DATA(i / 4 + 1),
+> +					 0x0);
+
+This workaround doesn't handle the dlc =3D=3D 0 case, your error descript=
+ion
+isn't completely if this is a problem, too.
+
+It should be possible to change the for loop to go always to 8, or
+simply unroll the loop:
+
+/* errata description goes here */
+m_can_fifo_write(priv, 0, M_CAN_FIFO_DATA(0), *(u32 *)(cf->data + 0));
+m_can_fifo_write(priv, 0, M_CAN_FIFO_DATA(1), *(u32 *)(cf->data + 4));
+
+> +	}
+> +
+>  	can_put_echo_skb(skb, dev, 0);
+> =20
+>  	if (priv->can.ctrlmode & CAN_CTRLMODE_FD) {
+>=20
+
+Marc
 
 --=20
-Best regards,                                         _     _
-.o. | Liege of Serenely Enlightened Majesty of      o' \,=3D./ `o
-..o | Computer Science,  Micha=C5=82 =E2=80=9Cmina86=E2=80=9D Nazarewicz   =
- (o o)
-ooo +--<mpn@google.com>--<xmpp:mina86@jabber.org>--ooO--(_)--Ooo--
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+
+--206uA6wgHj6i1fqxnTNkFsUomGXXx2M8l
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJUV7HRAAoJECte4hHFiupUZqIP/1wukuQNrs+up8EJya2d0HWK
+wKRsG6Ehojae8D7vsixYPtUYIHSBXmSfBFUMxFMWcVgtAr89+EWoYGXFr7NHCHZw
+uZdMknhuwFDuPspKuIeVNQvCW71l6ATX2ETW9nM2IlPIvP9fn2Tdyz4vLR34P+hC
+J0H3o8O4R7WhK1+uqedlEVgHVviSuUAteAre9jI23mUPVo0ujdbr3G4C85GyU4wv
+S9JK1vFjsz+b8XjqxWCcJmgSJUQ+p4D+morXad7TmeYTGEFqiIC/FVbEj5dA7I+j
+ctvFRKhZgj11qQMeS/u2wEBeZW6+qV7XOwCMxjjDyLUAzpsv7VmPai7KqqtXeT+1
+7FvTEsYPKLP9KTg9DwP5X2oh9U6kkqqBrjn+OHXrdtIWuxulau0mAr4jk93A2Wv6
+2qI9Tj4+/GN8ekBVhunATtb0KJi/+uu4MD7X3OMCOb4vy3YbKK7QULblgYvWu/Kh
+A0nXRQ5Ipg5Cse7FKh7LOFJk3a6esC4hh1hQEsfbzjpwxHpFmr679ebU83eIdqd2
+bDiBJkqW+wHfoIAvr9OySX8l/yjady5t0IgB6A3F69MZLlA0MYYqweA1wq4R+n9b
+pknbikRKobUzoDgnmRGa37UWxsBorDvGWRYOCljichWcHH7hF30UHChrAfy/ieud
+V+toLgj06yKv4LZNFklL
+=XiLs
+-----END PGP SIGNATURE-----
+
+--206uA6wgHj6i1fqxnTNkFsUomGXXx2M8l--
