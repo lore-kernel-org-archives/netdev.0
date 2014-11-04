@@ -1,406 +1,220 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [PATCH v2 net-next 3/7] gue: Add infrastructure for flags and options
-Date: Tue,  4 Nov 2014 09:06:53 -0800
-Message-ID: <1415120817-2105-4-git-send-email-therbert@google.com>
+Subject: [PATCH v2 net-next 4/7] udp: Changes to udp_offload to support remote checksum offload
+Date: Tue,  4 Nov 2014 09:06:54 -0800
+Message-ID: <1415120817-2105-5-git-send-email-therbert@google.com>
 References: <1415120817-2105-1-git-send-email-therbert@google.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f180.google.com ([209.85.223.180]:62230 "EHLO
-	mail-ie0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751261AbaKDRH2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Nov 2014 12:07:28 -0500
-Received: by mail-ie0-f180.google.com with SMTP id y20so7962330ier.39
-        for <netdev@vger.kernel.org>; Tue, 04 Nov 2014 09:07:28 -0800 (PST)
+Received: from mail-ie0-f182.google.com ([209.85.223.182]:50554 "EHLO
+	mail-ie0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752372AbaKDRHa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Nov 2014 12:07:30 -0500
+Received: by mail-ie0-f182.google.com with SMTP id rd18so8050434iec.13
+        for <netdev@vger.kernel.org>; Tue, 04 Nov 2014 09:07:30 -0800 (PST)
 In-Reply-To: <1415120817-2105-1-git-send-email-therbert@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add functions and basic definitions for processing standard flags,
-private flags, and control messages. This includes definitions
-to compute length of optional fields corresponding to a set of flags.
-Flag validation is in validate_gue_flags function. This checks for
-unknown flags, and that length of optional fields is <= length
-in guehdr hlen.
+Add a new GSO type, SKB_GSO_TUNNEL_REMCSUM, which indicates remote
+checksum offload being done (in this case inner checksum must not
+be offloaded to the NIC).
+
+Added logic in __skb_udp_tunnel_segment to handle remote checksum
+offload case.
 
 Signed-off-by: Tom Herbert <therbert@google.com>
 ---
- include/net/gue.h | 100 ++++++++++++++++++++++++++++++++++++--
- net/ipv4/fou.c    | 142 ++++++++++++++++++++++++++++++++++++------------------
- 2 files changed, 189 insertions(+), 53 deletions(-)
+ include/linux/netdev_features.h |  4 +++-
+ include/linux/netdevice.h       |  1 +
+ include/linux/skbuff.h          |  4 +++-
+ net/core/skbuff.c               |  4 ++--
+ net/ipv4/af_inet.c              |  1 +
+ net/ipv4/tcp_offload.c          |  1 +
+ net/ipv4/udp_offload.c          | 18 ++++++++++++++++--
+ net/ipv6/ip6_offload.c          |  1 +
+ net/ipv6/udp_offload.c          |  1 +
+ 9 files changed, 29 insertions(+), 6 deletions(-)
 
-diff --git a/include/net/gue.h b/include/net/gue.h
-index b6c3327..cb68ae8 100644
---- a/include/net/gue.h
-+++ b/include/net/gue.h
-@@ -1,23 +1,113 @@
- #ifndef __NET_GUE_H
- #define __NET_GUE_H
+diff --git a/include/linux/netdev_features.h b/include/linux/netdev_features.h
+index dcfdecb..8c94b07 100644
+--- a/include/linux/netdev_features.h
++++ b/include/linux/netdev_features.h
+@@ -48,8 +48,9 @@ enum {
+ 	NETIF_F_GSO_UDP_TUNNEL_BIT,	/* ... UDP TUNNEL with TSO */
+ 	NETIF_F_GSO_UDP_TUNNEL_CSUM_BIT,/* ... UDP TUNNEL with TSO & CSUM */
+ 	NETIF_F_GSO_MPLS_BIT,		/* ... MPLS segmentation */
++	NETIF_F_GSO_TUNNEL_REMCSUM_BIT, /* ... TUNNEL with TSO & REMCSUM */
+ 	/**/NETIF_F_GSO_LAST =		/* last bit, see GSO_MASK */
+-		NETIF_F_GSO_MPLS_BIT,
++		NETIF_F_GSO_TUNNEL_REMCSUM_BIT,
  
-+/* Definitions for the GUE header, standard and private flags, lengths
-+ * of optional fields are below.
-+ *
-+ * Diagram of GUE header:
-+ *
-+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-+ * |Ver|C|  Hlen   | Proto/ctype   |        Standard flags       |P|
-+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-+ * |                                                               |
-+ * ~                      Fields (optional)                        ~
-+ * |                                                               |
-+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-+ * |            Private flags (optional, P bit is set)             |
-+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-+ * |                                                               |
-+ * ~                   Private fields (optional)                   ~
-+ * |                                                               |
-+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-+ *
-+ * C bit indicates contol message when set, data message when unset.
-+ * For a control message, proto/ctype is interpreted as a type of
-+ * control message. For data messages, proto/ctype is the IP protocol
-+ * of the next header.
-+ *
-+ * P bit indicates private flags field is present. The private flags
-+ * may refer to options placed after this field.
-+ */
-+
- struct guehdr {
- 	union {
- 		struct {
- #if defined(__LITTLE_ENDIAN_BITFIELD)
--			__u8	hlen:4,
--			version:4;
-+			__u8	hlen:5,
-+				control:1,
-+				version:2;
- #elif defined (__BIG_ENDIAN_BITFIELD)
--			__u8	version:4,
--				hlen:4;
-+			__u8	version:2,
-+				control:1,
-+				hlen:5;
- #else
- #error  "Please fix <asm/byteorder.h>"
- #endif
--			__u8    next_hdr;
-+			__u8    proto_ctype;
- 			__u16   flags;
- 		};
- 		__u32 word;
- 	};
+ 	NETIF_F_FCOE_CRC_BIT,		/* FCoE CRC32 */
+ 	NETIF_F_SCTP_CSUM_BIT,		/* SCTP checksum offload */
+@@ -119,6 +120,7 @@ enum {
+ #define NETIF_F_GSO_UDP_TUNNEL	__NETIF_F(GSO_UDP_TUNNEL)
+ #define NETIF_F_GSO_UDP_TUNNEL_CSUM __NETIF_F(GSO_UDP_TUNNEL_CSUM)
+ #define NETIF_F_GSO_MPLS	__NETIF_F(GSO_MPLS)
++#define NETIF_F_GSO_TUNNEL_REMCSUM __NETIF_F(GSO_TUNNEL_REMCSUM)
+ #define NETIF_F_HW_VLAN_STAG_FILTER __NETIF_F(HW_VLAN_STAG_FILTER)
+ #define NETIF_F_HW_VLAN_STAG_RX	__NETIF_F(HW_VLAN_STAG_RX)
+ #define NETIF_F_HW_VLAN_STAG_TX	__NETIF_F(HW_VLAN_STAG_TX)
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 5ed05bd..4767f54 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -3584,6 +3584,7 @@ static inline bool net_gso_ok(netdev_features_t features, int gso_type)
+ 	BUILD_BUG_ON(SKB_GSO_UDP_TUNNEL != (NETIF_F_GSO_UDP_TUNNEL >> NETIF_F_GSO_SHIFT));
+ 	BUILD_BUG_ON(SKB_GSO_UDP_TUNNEL_CSUM != (NETIF_F_GSO_UDP_TUNNEL_CSUM >> NETIF_F_GSO_SHIFT));
+ 	BUILD_BUG_ON(SKB_GSO_MPLS    != (NETIF_F_GSO_MPLS >> NETIF_F_GSO_SHIFT));
++	BUILD_BUG_ON(SKB_GSO_TUNNEL_REMCSUM != (NETIF_F_GSO_TUNNEL_REMCSUM >> NETIF_F_GSO_SHIFT));
+ 
+ 	return (features & feature) == feature;
+ }
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 5ad9675..74ed344 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -373,6 +373,7 @@ enum {
+ 
+ 	SKB_GSO_MPLS = 1 << 12,
+ 
++	SKB_GSO_TUNNEL_REMCSUM = 1 << 13,
  };
  
-+/* Standard flags in GUE header */
-+
-+#define GUE_FLAG_PRIV	htons(1<<0)	/* Private flags are in options */
-+#define GUE_LEN_PRIV	4
-+
-+#define GUE_FLAGS_ALL	(GUE_FLAG_PRIV)
-+
-+/* Private flags in the private option extension */
-+
-+#define GUE_PFLAGS_ALL	(0)
-+
-+/* Functions to compute options length corresponding to flags.
-+ * If we ever have a lot of flags this can be potentially be
-+ * converted to a more optimized algorithm (table lookup
-+ * for instance).
-+ */
-+static inline size_t guehdr_flags_len(__be16 flags)
-+{
-+	return ((flags & GUE_FLAG_PRIV) ? GUE_LEN_PRIV : 0);
-+}
-+
-+static inline size_t guehdr_priv_flags_len(__be32 flags)
-+{
-+	return 0;
-+}
-+
-+/* Validate standard and private flags. Returns non-zero (meaning invalid)
-+ * if there is an unknown standard or private flags, or the options length for
-+ * the flags exceeds the options length specific in hlen of the GUE header.
-+ */
-+static inline int validate_gue_flags(struct guehdr *guehdr,
-+				     size_t optlen)
-+{
-+	size_t len;
-+	__be32 flags = guehdr->flags;
-+
-+	if (flags & ~GUE_FLAGS_ALL)
-+		return 1;
-+
-+	len = guehdr_flags_len(flags);
-+	if (len > optlen)
-+		return 1;
-+
-+	if (flags & GUE_FLAG_PRIV) {
-+		/* Private flags are last four bytes accounted in
-+		 * guehdr_flags_len
-+		 */
-+		flags = *(__be32 *)((void *)&guehdr[1] + len - GUE_LEN_PRIV);
-+
-+		if (flags & ~GUE_PFLAGS_ALL)
-+			return 1;
-+
-+		len += guehdr_priv_flags_len(flags);
-+		if (len > optlen)
-+			return 1;
-+	}
-+
-+	return 0;
-+}
-+
+ #if BITS_PER_LONG > 32
+@@ -603,7 +604,8 @@ struct sk_buff {
  #endif
-diff --git a/net/ipv4/fou.c b/net/ipv4/fou.c
-index 5446c1c..a3b8c5b 100644
---- a/net/ipv4/fou.c
-+++ b/net/ipv4/fou.c
-@@ -38,21 +38,17 @@ static inline struct fou *fou_from_sock(struct sock *sk)
- 	return sk->sk_user_data;
- }
+ 	__u8			ipvs_property:1;
+ 	__u8			inner_protocol_type:1;
+-	/* 4 or 6 bit hole */
++	__u8			remcsum_offload:1;
++	/* 3 or 5 bit hole */
  
--static int fou_udp_encap_recv_deliver(struct sk_buff *skb,
--				      u8 protocol, size_t len)
-+static void fou_recv_pull(struct sk_buff *skb, size_t len)
- {
- 	struct iphdr *iph = ip_hdr(skb);
+ #ifdef CONFIG_NET_SCHED
+ 	__u16			tc_index;	/* traffic control index */
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index e48e5c0..7001896 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -3013,7 +3013,7 @@ struct sk_buff *skb_segment(struct sk_buff *head_skb,
+ 		if (nskb->len == len + doffset)
+ 			goto perform_csum_check;
  
- 	/* Remove 'len' bytes from the packet (UDP header and
--	 * FOU header if present), modify the protocol to the one
--	 * we found, and then call rcv_encap.
-+	 * FOU header if present).
- 	 */
- 	iph->tot_len = htons(ntohs(iph->tot_len) - len);
- 	__skb_pull(skb, len);
- 	skb_postpull_rcsum(skb, udp_hdr(skb), len);
- 	skb_reset_transport_header(skb);
--
--	return -protocol;
- }
+-		if (!sg) {
++		if (!sg && !nskb->remcsum_offload) {
+ 			nskb->ip_summed = CHECKSUM_NONE;
+ 			nskb->csum = skb_copy_and_csum_bits(head_skb, offset,
+ 							    skb_put(nskb, len),
+@@ -3085,7 +3085,7 @@ skip_fraglist:
+ 		nskb->truesize += nskb->data_len;
  
- static int fou_udp_recv(struct sock *sk, struct sk_buff *skb)
-@@ -62,16 +58,24 @@ static int fou_udp_recv(struct sock *sk, struct sk_buff *skb)
- 	if (!fou)
- 		return 1;
- 
--	return fou_udp_encap_recv_deliver(skb, fou->protocol,
--					  sizeof(struct udphdr));
-+	fou_recv_pull(skb, sizeof(struct udphdr));
-+
-+	return -fou->protocol;
-+}
-+
-+static int gue_control_message(struct sk_buff *skb, struct guehdr *guehdr)
-+{
-+	/* No support yet */
-+	kfree_skb(skb);
-+	return 0;
- }
- 
- static int gue_udp_recv(struct sock *sk, struct sk_buff *skb)
- {
- 	struct fou *fou = fou_from_sock(sk);
--	size_t len;
-+	size_t len, optlen, hdrlen;
- 	struct guehdr *guehdr;
--	struct udphdr *uh;
-+	void *data;
- 
- 	if (!fou)
- 		return 1;
-@@ -80,25 +84,38 @@ static int gue_udp_recv(struct sock *sk, struct sk_buff *skb)
- 	if (!pskb_may_pull(skb, len))
- 		goto drop;
- 
--	uh = udp_hdr(skb);
--	guehdr = (struct guehdr *)&uh[1];
-+	guehdr = (struct guehdr *)&udp_hdr(skb)[1];
-+
-+	optlen = guehdr->hlen << 2;
-+	len += optlen;
- 
--	len += guehdr->hlen << 2;
- 	if (!pskb_may_pull(skb, len))
- 		goto drop;
- 
--	uh = udp_hdr(skb);
--	guehdr = (struct guehdr *)&uh[1];
-+	/* guehdr may change after pull */
-+	guehdr = (struct guehdr *)&udp_hdr(skb)[1];
- 
--	if (guehdr->version != 0)
--		goto drop;
-+	hdrlen = sizeof(struct guehdr) + optlen;
- 
--	if (guehdr->flags) {
--		/* No support yet */
-+	if (guehdr->version != 0 || validate_gue_flags(guehdr, optlen))
- 		goto drop;
-+
-+	/* Pull UDP and GUE headers */
-+	fou_recv_pull(skb, len);
-+
-+	data = &guehdr[1];
-+
-+	if (guehdr->flags & GUE_FLAG_PRIV) {
-+		data += GUE_LEN_PRIV;
-+
-+		/* Process private flags */
- 	}
- 
--	return fou_udp_encap_recv_deliver(skb, guehdr->next_hdr, len);
-+	if (unlikely(guehdr->control))
-+		return gue_control_message(skb, guehdr);
-+
-+	return -guehdr->proto_ctype;
-+
- drop:
- 	kfree_skb(skb);
- 	return 0;
-@@ -154,36 +171,47 @@ static struct sk_buff **gue_gro_receive(struct sk_buff **head,
- 	const struct net_offload *ops;
- 	struct sk_buff **pp = NULL;
- 	struct sk_buff *p;
--	u8 proto;
- 	struct guehdr *guehdr;
--	unsigned int hlen, guehlen;
--	unsigned int off;
-+	size_t len, optlen, hdrlen, off;
-+	void *data;
- 	int flush = 1;
- 
- 	off = skb_gro_offset(skb);
--	hlen = off + sizeof(*guehdr);
-+	len = off + sizeof(*guehdr);
-+
- 	guehdr = skb_gro_header_fast(skb, off);
--	if (skb_gro_header_hard(skb, hlen)) {
--		guehdr = skb_gro_header_slow(skb, hlen, off);
-+	if (skb_gro_header_hard(skb, len)) {
-+		guehdr = skb_gro_header_slow(skb, len, off);
- 		if (unlikely(!guehdr))
+ perform_csum_check:
+-		if (!csum) {
++		if (!csum && !nskb->remcsum_offload) {
+ 			nskb->csum = skb_checksum(nskb, doffset,
+ 						  nskb->len - doffset, 0);
+ 			nskb->ip_summed = CHECKSUM_NONE;
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index 8b7fe5b..ed2c672 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -1222,6 +1222,7 @@ static struct sk_buff *inet_gso_segment(struct sk_buff *skb,
+ 		       SKB_GSO_TCPV6 |
+ 		       SKB_GSO_UDP_TUNNEL |
+ 		       SKB_GSO_UDP_TUNNEL_CSUM |
++		       SKB_GSO_TUNNEL_REMCSUM |
+ 		       SKB_GSO_MPLS |
+ 		       0)))
+ 		goto out;
+diff --git a/net/ipv4/tcp_offload.c b/net/ipv4/tcp_offload.c
+index 5b90f2f..a1b2a56 100644
+--- a/net/ipv4/tcp_offload.c
++++ b/net/ipv4/tcp_offload.c
+@@ -97,6 +97,7 @@ struct sk_buff *tcp_gso_segment(struct sk_buff *skb,
+ 			       SKB_GSO_MPLS |
+ 			       SKB_GSO_UDP_TUNNEL |
+ 			       SKB_GSO_UDP_TUNNEL_CSUM |
++			       SKB_GSO_TUNNEL_REMCSUM |
+ 			       0) ||
+ 			     !(type & (SKB_GSO_TCPV4 | SKB_GSO_TCPV6))))
  			goto out;
- 	}
+diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
+index a774711..0a5a70d 100644
+--- a/net/ipv4/udp_offload.c
++++ b/net/ipv4/udp_offload.c
+@@ -41,7 +41,8 @@ static struct sk_buff *__skb_udp_tunnel_segment(struct sk_buff *skb,
+ 	unsigned int oldlen;
+ 	bool need_csum = !!(skb_shinfo(skb)->gso_type &
+ 			    SKB_GSO_UDP_TUNNEL_CSUM);
+-	bool offload_csum = false, dont_encap = need_csum;
++	bool remcsum = !!(skb_shinfo(skb)->gso_type & SKB_GSO_TUNNEL_REMCSUM);
++	bool offload_csum = false, dont_encap = (need_csum || remcsum);
  
--	proto = guehdr->next_hdr;
-+	optlen = guehdr->hlen << 2;
-+	len += optlen;
+ 	oldlen = (u16)~skb->len;
  
--	rcu_read_lock();
--	offloads = NAPI_GRO_CB(skb)->is_ipv6 ? inet6_offloads : inet_offloads;
--	ops = rcu_dereference(offloads[proto]);
--	if (WARN_ON(!ops || !ops->callbacks.gro_receive))
--		goto out_unlock;
-+	if (skb_gro_header_hard(skb, len)) {
-+		guehdr = skb_gro_header_slow(skb, len, off);
-+		if (unlikely(!guehdr))
-+			goto out;
-+	}
+@@ -55,6 +56,7 @@ static struct sk_buff *__skb_udp_tunnel_segment(struct sk_buff *skb,
+ 	skb->mac_len = skb_inner_network_offset(skb);
+ 	skb->protocol = new_protocol;
+ 	skb->encap_hdr_csum = need_csum;
++	skb->remcsum_offload = remcsum;
  
--	guehlen = sizeof(*guehdr) + (guehdr->hlen << 2);
-+	if (unlikely(guehdr->control) || guehdr->version != 0 ||
-+	    validate_gue_flags(guehdr, optlen))
-+		goto out;
- 
--	hlen = off + guehlen;
--	if (skb_gro_header_hard(skb, hlen)) {
--		guehdr = skb_gro_header_slow(skb, hlen, off);
--		if (unlikely(!guehdr))
--			goto out_unlock;
-+	hdrlen = sizeof(*guehdr) + optlen;
-+
-+	skb_gro_pull(skb, hdrlen);
-+
-+	/* Adjusted NAPI_GRO_CB(skb)->csum after skb_gro_pull()*/
-+	skb_gro_postpull_rcsum(skb, guehdr, hdrlen);
-+
-+	data = &guehdr[1];
-+
-+	if (guehdr->flags & GUE_FLAG_PRIV) {
-+		data += GUE_LEN_PRIV;
-+
-+		/* Process private flags */
- 	}
- 
- 	flush = 0;
-@@ -197,7 +225,7 @@ static struct sk_buff **gue_gro_receive(struct sk_buff **head,
- 		guehdr2 = (struct guehdr *)(p->data + off);
- 
- 		/* Compare base GUE header to be equal (covers
--		 * hlen, version, next_hdr, and flags.
-+		 * hlen, version, proto_ctype, and flags.
- 		 */
- 		if (guehdr->word != guehdr2->word) {
- 			NAPI_GRO_CB(p)->same_flow = 0;
-@@ -212,10 +240,11 @@ static struct sk_buff **gue_gro_receive(struct sk_buff **head,
- 		}
- 	}
- 
--	skb_gro_pull(skb, guehlen);
+ 	/* Try to offload checksum if possible */
+ 	offload_csum = !!(need_csum &&
+@@ -108,11 +110,22 @@ static struct sk_buff *__skb_udp_tunnel_segment(struct sk_buff *skb,
+ 		uh->check = ~csum_fold((__force __wsum)
+ 				       ((__force u32)uh->check +
+ 					(__force u32)delta));
 -
--	/* Adjusted NAPI_GRO_CB(skb)->csum after skb_gro_pull()*/
--	skb_gro_postpull_rcsum(skb, guehdr, guehlen);
-+	rcu_read_lock();
-+	offloads = NAPI_GRO_CB(skb)->is_ipv6 ? inet6_offloads : inet_offloads;
-+	ops = rcu_dereference(offloads[guehdr->proto_ctype]);
-+	if (WARN_ON(!ops || !ops->callbacks.gro_receive))
-+		goto out_unlock;
- 
- 	pp = ops->callbacks.gro_receive(head, skb);
- 
-@@ -236,7 +265,7 @@ static int gue_gro_complete(struct sk_buff *skb, int nhoff)
- 	u8 proto;
- 	int err = -ENOENT;
- 
--	proto = guehdr->next_hdr;
-+	proto = guehdr->proto_ctype;
- 
- 	guehlen = sizeof(*guehdr) + (guehdr->hlen << 2);
- 
-@@ -533,8 +562,12 @@ int gue_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
- 	bool csum = !!(e->flags & TUNNEL_ENCAP_FLAG_CSUM);
- 	int type = csum ? SKB_GSO_UDP_TUNNEL_CSUM : SKB_GSO_UDP_TUNNEL;
- 	struct guehdr *guehdr;
--	size_t hdr_len = sizeof(struct guehdr);
-+	size_t optlen = 0;
- 	__be16 sport;
-+	void *data;
-+	bool need_priv = false;
+ 		if (offload_csum) {
+ 			skb->ip_summed = CHECKSUM_PARTIAL;
+ 			skb->csum_start = skb_transport_header(skb) - skb->head;
+ 			skb->csum_offset = offsetof(struct udphdr, check);
++		} else if (remcsum) {
++			/* Need to calculate checksum from scratch,
++			 * inner checksums are never when doing
++			 * remote_checksum_offload.
++			 */
 +
-+	optlen += need_priv ? GUE_LEN_PRIV : 0;
++			skb->csum = skb_checksum(skb, udp_offset,
++						 skb->len - udp_offset,
++						 0);
++			uh->check = csum_fold(skb->csum);
++			if (uh->check == 0)
++				uh->check = CSUM_MANGLED_0;
+ 		} else {
+ 			uh->check = gso_make_checksum(skb, ~uh->check);
  
- 	skb = iptunnel_handle_offloads(skb, csum, type);
- 
-@@ -545,14 +578,27 @@ int gue_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
- 	sport = e->sport ? : udp_flow_src_port(dev_net(skb->dev),
- 					       skb, 0, 0, false);
- 
--	skb_push(skb, hdr_len);
-+	skb_push(skb, sizeof(struct guehdr) + optlen);
- 
- 	guehdr = (struct guehdr *)skb->data;
- 
-+	guehdr->control = 0;
- 	guehdr->version = 0;
--	guehdr->hlen = 0;
-+	guehdr->hlen = optlen >> 2;
- 	guehdr->flags = 0;
--	guehdr->next_hdr = *protocol;
-+	guehdr->proto_ctype = *protocol;
-+
-+	data = &guehdr[1];
-+
-+	if (need_priv) {
-+		__be32 *flags = data;
-+
-+		guehdr->flags |= GUE_FLAG_PRIV;
-+		*flags = 0;
-+		data += GUE_LEN_PRIV;
-+
-+		/* Add private flags */
-+	}
- 
- 	fou_build_udp(skb, e, fl4, protocol, sport);
- 
+@@ -192,6 +205,7 @@ static struct sk_buff *udp4_ufo_fragment(struct sk_buff *skb,
+ 		if (unlikely(type & ~(SKB_GSO_UDP | SKB_GSO_DODGY |
+ 				      SKB_GSO_UDP_TUNNEL |
+ 				      SKB_GSO_UDP_TUNNEL_CSUM |
++				      SKB_GSO_TUNNEL_REMCSUM |
+ 				      SKB_GSO_IPIP |
+ 				      SKB_GSO_GRE | SKB_GSO_GRE_CSUM |
+ 				      SKB_GSO_MPLS) ||
+diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
+index a071563..e976707 100644
+--- a/net/ipv6/ip6_offload.c
++++ b/net/ipv6/ip6_offload.c
+@@ -78,6 +78,7 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb,
+ 		       SKB_GSO_SIT |
+ 		       SKB_GSO_UDP_TUNNEL |
+ 		       SKB_GSO_UDP_TUNNEL_CSUM |
++		       SKB_GSO_TUNNEL_REMCSUM |
+ 		       SKB_GSO_MPLS |
+ 		       SKB_GSO_TCPV6 |
+ 		       0)))
+diff --git a/net/ipv6/udp_offload.c b/net/ipv6/udp_offload.c
+index 6b8f543..637ba2e 100644
+--- a/net/ipv6/udp_offload.c
++++ b/net/ipv6/udp_offload.c
+@@ -42,6 +42,7 @@ static struct sk_buff *udp6_ufo_fragment(struct sk_buff *skb,
+ 				      SKB_GSO_DODGY |
+ 				      SKB_GSO_UDP_TUNNEL |
+ 				      SKB_GSO_UDP_TUNNEL_CSUM |
++				      SKB_GSO_TUNNEL_REMCSUM |
+ 				      SKB_GSO_GRE |
+ 				      SKB_GSO_GRE_CSUM |
+ 				      SKB_GSO_IPIP |
 -- 
 2.1.0.rc2.206.gedb03e5
