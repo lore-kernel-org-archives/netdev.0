@@ -1,66 +1,31 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net-next] ipv6: move INET6_MATCH() to include/net/inet6_hashtables.h
-Date: Tue,  4 Nov 2014 10:59:47 -0800
-Message-ID: <1415127587-29030-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH net] tcp: zero retrans_stamp if all retrans were acked
+Date: Tue, 4 Nov 2014 14:03:30 -0500
+Message-ID: <CADVnQykbFjodAyJomX8E5HZhOrP7kDxDS7vPNiam858B84vqCQ@mail.gmail.com>
+References: <66a8a101a2bfe645432ec393d22b9da44b9739cf.1415110605.git.mleitner@redhat.com>
+	<CADVnQynOfg6PDe0XYW+0uM+Kbqhv7RRTrEAJCrCEEY54Q6U8Eg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>, Yuchung Cheng <ycheng@google.com>,
+	Eric Dumazet <edumazet@google.com>
+To: Marcelo Ricardo Leitner <mleitner@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f175.google.com ([209.85.192.175]:39610 "EHLO
-	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751084AbaKDS76 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Nov 2014 13:59:58 -0500
-Received: by mail-pd0-f175.google.com with SMTP id y13so14199063pdi.20
-        for <netdev@vger.kernel.org>; Tue, 04 Nov 2014 10:59:57 -0800 (PST)
+Received: from mail-qc0-f173.google.com ([209.85.216.173]:63444 "EHLO
+	mail-qc0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751188AbaKDTDb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Nov 2014 14:03:31 -0500
+Received: by mail-qc0-f173.google.com with SMTP id x3so11436916qcv.18
+        for <netdev@vger.kernel.org>; Tue, 04 Nov 2014 11:03:31 -0800 (PST)
+In-Reply-To: <CADVnQynOfg6PDe0XYW+0uM+Kbqhv7RRTrEAJCrCEEY54Q6U8Eg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It is only used in net/ipv6/inet6_hashtables.c.
+On Tue, Nov 4, 2014 at 1:51 PM, Neal Cardwell <ncardwell@google.com> wrote:
+> In the meantime, Yuchung put together a nice packetdrill test case for
+> this, so I'll run it on that version of the patch.
 
-Cc: David S. Miller <davem@davemloft.net>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
----
- include/linux/ipv6.h           | 10 ----------
- include/net/inet6_hashtables.h | 10 ++++++++++
- 2 files changed, 10 insertions(+), 10 deletions(-)
+With the compilation issue fixed, Yuchung's packetdrill test passes.
+So this looks good to me once the compilation issue with
+tcp_any_retrans_done() is fixed.
 
-diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-index 7121a2e..c694e7b 100644
---- a/include/linux/ipv6.h
-+++ b/include/linux/ipv6.h
-@@ -317,14 +317,4 @@ static inline struct raw6_sock *raw6_sk(const struct sock *sk)
- #define tcp_twsk_ipv6only(__sk)		0
- #define inet_v6_ipv6only(__sk)		0
- #endif /* IS_ENABLED(CONFIG_IPV6) */
--
--#define INET6_MATCH(__sk, __net, __saddr, __daddr, __ports, __dif)	\
--	(((__sk)->sk_portpair == (__ports))			&&	\
--	 ((__sk)->sk_family == AF_INET6)			&&	\
--	 ipv6_addr_equal(&(__sk)->sk_v6_daddr, (__saddr))		&&	\
--	 ipv6_addr_equal(&(__sk)->sk_v6_rcv_saddr, (__daddr))	&&	\
--	 (!(__sk)->sk_bound_dev_if	||				\
--	   ((__sk)->sk_bound_dev_if == (__dif))) 		&&	\
--	 net_eq(sock_net(__sk), (__net)))
--
- #endif /* _IPV6_H */
-diff --git a/include/net/inet6_hashtables.h b/include/net/inet6_hashtables.h
-index d1d2728..9201afe0 100644
---- a/include/net/inet6_hashtables.h
-+++ b/include/net/inet6_hashtables.h
-@@ -99,4 +99,14 @@ struct sock *inet6_lookup(struct net *net, struct inet_hashinfo *hashinfo,
- 			  const struct in6_addr *daddr, const __be16 dport,
- 			  const int dif);
- #endif /* IS_ENABLED(CONFIG_IPV6) */
-+
-+#define INET6_MATCH(__sk, __net, __saddr, __daddr, __ports, __dif)	\
-+	(((__sk)->sk_portpair == (__ports))			&&	\
-+	 ((__sk)->sk_family == AF_INET6)			&&	\
-+	 ipv6_addr_equal(&(__sk)->sk_v6_daddr, (__saddr))		&&	\
-+	 ipv6_addr_equal(&(__sk)->sk_v6_rcv_saddr, (__daddr))	&&	\
-+	 (!(__sk)->sk_bound_dev_if	||				\
-+	   ((__sk)->sk_bound_dev_if == (__dif))) 		&&	\
-+	 net_eq(sock_net(__sk), (__net)))
-+
- #endif /* _INET6_HASHTABLES_H */
--- 
-1.8.3.1
+neal
