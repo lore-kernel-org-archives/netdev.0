@@ -1,48 +1,63 @@
-From: Christian Hesse <mail@eworm.de>
-Subject: [PATCH v2 1/1] ip-link: in human readable output use dynamic precision length
-Date: Tue,  4 Nov 2014 11:50:08 +0100
-Message-ID: <1415098208-17942-1-git-send-email-mail@eworm.de>
-References: <20141104114421.6a7f9de5@leda.localdomain>
-Cc: netdev@vger.kernel.org, Christian Hesse <mail@eworm.de>
-To: Stephen Hemminger <stephen@networkplumber.org>
+From: Loganaden Velvindron <logan@elandsys.com>
+Subject: Re: [PATCH] Add missing descriptions for fwmark_reflect for ipv4 and
+ ipv6.
+Date: Tue, 4 Nov 2014 02:56:50 -0800
+Message-ID: <20141104105650.GA5233@mx.elandsys.com>
+References: <20141029172915.GA15714@mx.elandsys.com>
+ <20141030.161137.1421672304905070027.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.mylinuxtime.de ([148.251.109.235]:59168 "EHLO
-	mx.mylinuxtime.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750870AbaKDKvJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Nov 2014 05:51:09 -0500
-In-Reply-To: <20141104114421.6a7f9de5@leda.localdomain>
+Received: from ns1.qubic.net ([208.69.177.116]:55385 "EHLO mx.elandsys.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752841AbaKDK46 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Nov 2014 05:56:58 -0500
+Content-Disposition: inline
+In-Reply-To: <20141030.161137.1421672304905070027.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
----
- ip/ipaddress.c | 8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
+t was initially sent by Lorenzo Colitti, but was subsequently
+lost in the final diff he submitted.
 
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index e240bb5..55cbc77 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -324,6 +324,7 @@ static void print_num(FILE *fp, unsigned width, uint64_t count)
- 	const char *prefix = "kMGTPE";
- 	const unsigned int base = use_iec ? 1024 : 1000;
- 	uint64_t powi = 1;
-+	int precision;
- 	char buf[64];
+Signed-off-by: Loganaden Velvindron <logan@elandsys.com>
+---
+ Documentation/networking/ip-sysctl.txt | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
+
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index 0307e28..a476b08 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -56,6 +56,13 @@ ip_forward_use_pmtu - BOOLEAN
+ 	0 - disabled
+ 	1 - enabled
  
- 	if (!human_readable || count < base) {
-@@ -343,8 +344,11 @@ static void print_num(FILE *fp, unsigned width, uint64_t count)
- 		++prefix;
- 	}
- 
--	snprintf(buf, sizeof(buf), "%.1f%c%s", (double) count / powi, 
--		 *prefix, use_iec ? "i" : "");
-+	if ((precision = 3 - snprintf(NULL, 0, "%"PRIu64, count / powi)) < 0)
-+		precision = 0;
++fwmark_reflect - BOOLEAN
++	Controls the fwmark of kernel-generated IPv4 reply packets that are not
++	associated with a socket for example, TCP RSTs or ICMP echo replies).
++	If unset, these packets have a fwmark of zero. If set, they have the
++	fwmark of the packet they are replying to.
++	Default: 0
 +
-+	snprintf(buf, sizeof(buf), "%.*f%c%s", precision,
-+		(double) count / powi, *prefix, use_iec ? "i" : "");
+ route/max_size - INTEGER
+ 	Maximum number of routes allowed in the kernel.  Increase
+ 	this when using large numbers of interfaces and/or routes.
+@@ -1201,6 +1208,13 @@ conf/all/forwarding - BOOLEAN
+ proxy_ndp - BOOLEAN
+ 	Do proxy ndp.
  
- 	fprintf(fp, "%-*s ", width, buf);
- }
++fwmark_reflect - BOOLEAN
++	Controls the fwmark of kernel-generated IPv6 reply packets that are not
++	associated with a socket for example, TCP RSTs or ICMPv6 echo replies).
++	If unset, these packets have a fwmark of zero. If set, they have the
++	fwmark of the packet they are replying to.
++	Default: 0
++
+ conf/interface/*:
+ 	Change special settings per interface.
+ 
 -- 
-2.1.3
+1.9.1
