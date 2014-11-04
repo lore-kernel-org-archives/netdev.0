@@ -1,7 +1,7 @@
 From: Shuah Khan <shuahkh@osg.samsung.com>
-Subject: [PATCH 18/20] selftests/timers: add install target to enable installing test
-Date: Tue,  4 Nov 2014 10:11:14 -0700
-Message-ID: <bec2beda6c834a49bd9c24479ab167156c10b8c9.1415117102.git.shuahkh@osg.samsung.com>
+Subject: [PATCH 09/20] selftests/ipc: add install target to enable installing test
+Date: Tue,  4 Nov 2014 10:11:05 -0700
+Message-ID: <3b90e49219f215a333306778fe2683e997b44ec9.1415117102.git.shuahkh@osg.samsung.com>
 References: <cover.1415117102.git.shuahkh@osg.samsung.com>
 Cc: Shuah Khan <shuahkh@osg.samsung.com>, linux-kbuild@vger.kernel.org,
 	linux-kernel@vger.kernel.org, linux-api@vger.kernel.org,
@@ -24,26 +24,30 @@ kselftest script to run the test.
 
 Signed-off-by: Shuah Khan <shuahkh@osg.samsung.com>
 ---
- tools/testing/selftests/timers/Makefile | 7 +++++++
- 1 file changed, 7 insertions(+)
+ tools/testing/selftests/ipc/Makefile | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
 
-diff --git a/tools/testing/selftests/timers/Makefile b/tools/testing/selftests/timers/Makefile
-index eb2859f..5fce7ae 100644
---- a/tools/testing/selftests/timers/Makefile
-+++ b/tools/testing/selftests/timers/Makefile
-@@ -1,6 +1,13 @@
- all:
- 	gcc posix_timers.c -o posix_timers -lrt
+diff --git a/tools/testing/selftests/ipc/Makefile b/tools/testing/selftests/ipc/Makefile
+index 74bbefd..cd1c5af 100644
+--- a/tools/testing/selftests/ipc/Makefile
++++ b/tools/testing/selftests/ipc/Makefile
+@@ -18,6 +18,17 @@ else
+ 	echo "Not an x86 target, can't build msgque selftest"
+ endif
  
 +install: all
-+	install ./posix_timers $(INSTALL_KSFT_PATH)
-+	echo "\necho \"Start timers test ....\"" >> $(KSELFTEST)
-+	echo "./posix_timers" >> $(KSELFTEST)
-+	echo "echo \"End timers test ....\"" >> $(KSELFTEST)
++ifeq ($(ARCH),x86)
++	install ./msgque_test $(INSTALL_KSFT_PATH)
++	echo "\necho \"Start ipc msgque test ....\"" >> $(KSELFTEST)
++	echo "./msgque_test || echo \"ipc msgque test: [FAIL]\"" >> $(KSELFTEST)
++	echo "echo \"End msgque test ....\"" >> $(KSELFTEST)
 +	echo "echo \"==============================\"" >> $(KSELFTEST)
++else
++	echo "Not an x86 target, can't install ipc msgque selftests"
++endif
 +
  run_tests: all
- 	./posix_timers
+ 	./msgque_test
  
 -- 
 1.9.1
