@@ -1,48 +1,40 @@
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH  net-next v1  09/12] amd-xgbe: Fix a spelling error
-Date: Tue, 4 Nov 2014 16:07:29 -0600
-Message-ID: <20141104220729.24738.15936.stgit@tlendack-t1.amdoffice.net>
-References: <20141104220620.24738.10070.stgit@tlendack-t1.amdoffice.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
+From: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
+Subject: [PATCH net-next] ipv6: trivial, add bracket for the if block
+Date: Tue,  4 Nov 2014 23:01:00 +0100
+Message-ID: <1415138460-24971-1-git-send-email-florent.fourcot@enst-bretagne.fr>
+Cc: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1on0140.outbound.protection.outlook.com ([157.56.110.140]:51729
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752263AbaKDWHe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Nov 2014 17:07:34 -0500
-In-Reply-To: <20141104220620.24738.10070.stgit@tlendack-t1.amdoffice.net>
+Received: from fourcot.fr ([217.70.191.14]:40154 "EHLO olfflo.fourcot.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752018AbaKDWIR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Nov 2014 17:08:17 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes the spelling of the word "descriptor" in a couple
-of locations.
+The "else" block is on several lines and use bracket.
 
-Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
+Signed-off-by: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
 ---
- drivers/net/ethernet/amd/xgbe/xgbe-drv.c |    4 ++--
+ net/ipv6/ip6_flowlabel.c | 4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-index 6c5a707..ced9f52 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-@@ -1185,13 +1185,13 @@ static void xgbe_packet_info(struct xgbe_prv_data *pdata,
- 	packet->rdesc_count = 0;
- 
- 	if (xgbe_is_tso(skb)) {
--		/* TSO requires an extra desriptor if mss is different */
-+		/* TSO requires an extra descriptor if mss is different */
- 		if (skb_shinfo(skb)->gso_size != ring->tx.cur_mss) {
- 			context_desc = 1;
- 			packet->rdesc_count++;
- 		}
- 
--		/* TSO requires an extra desriptor for TSO header */
-+		/* TSO requires an extra descriptor for TSO header */
- 		packet->rdesc_count++;
- 
- 		XGMAC_SET_BITS(packet->attributes, TX_PACKET_ATTRIBUTES,
+diff --git a/net/ipv6/ip6_flowlabel.c b/net/ipv6/ip6_flowlabel.c
+index 3dd7d4e..c143437 100644
+--- a/net/ipv6/ip6_flowlabel.c
++++ b/net/ipv6/ip6_flowlabel.c
+@@ -769,10 +769,10 @@ static void ip6fl_seq_stop(struct seq_file *seq, void *v)
+ static int ip6fl_seq_show(struct seq_file *seq, void *v)
+ {
+ 	struct ip6fl_iter_state *state = ip6fl_seq_private(seq);
+-	if (v == SEQ_START_TOKEN)
++	if (v == SEQ_START_TOKEN) {
+ 		seq_printf(seq, "%-5s %-1s %-6s %-6s %-6s %-8s %-32s %s\n",
+ 			   "Label", "S", "Owner", "Users", "Linger", "Expires", "Dst", "Opt");
+-	else {
++	} else {
+ 		struct ip6_flowlabel *fl = v;
+ 		seq_printf(seq,
+ 			   "%05X %-1d %-6d %-6d %-6ld %-8ld %pi6 %-4d\n",
+-- 
+2.1.1
