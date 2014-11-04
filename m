@@ -1,77 +1,66 @@
-From: Roger Quadros <rogerq@ti.com>
-Subject: [PATCH v3 7/8] net: can: c_can: Add support for TI DRA7 DCAN
-Date: Tue, 4 Nov 2014 12:21:00 +0200
-Message-ID: <1415096461-25576-8-git-send-email-rogerq@ti.com>
-References: <1415096461-25576-1-git-send-email-rogerq@ti.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] net: eth: realtek: atp: checkpatch errors and warnings
+ corrected
+Date: Tue, 4 Nov 2014 10:19:58 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1C9E71E4@AcuExch.aculab.com>
+References: <1415039073-20164-1-git-send-email-robertoxmed@gmail.com>
+ <1415040686.17743.31.camel@perches.com> <5457D2DF.5000508@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <wsa@the-dreams.de>, <tony@atomide.com>, <tglx@linutronix.de>,
-	<mugunthanvnm@ti.com>, <george.cherian@ti.com>, <balbi@ti.com>,
-	<nsekhar@ti.com>, <nm@ti.com>,
-	<sergei.shtylyov@cogentembedded.com>, <linux-omap@vger.kernel.org>,
-	<linux-can@vger.kernel.org>, <netdev@vger.kernel.org>,
-	Roger Quadros <rogerq@ti.com>
-To: <wg@grandegger.com>, <mkl@pengutronix.de>
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <1415096461-25576-1-git-send-email-rogerq@ti.com>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: 'Roberto Medina' <robertoxmed@gmail.com>,
+	Joe Perches <joe@perches.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:35469 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1753055AbaKDKWp convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Nov 2014 05:22:45 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 08393-02 for <netdev@vger.kernel.org>;
+ Tue,  4 Nov 2014 10:22:34 +0000 (GMT)
+In-Reply-To: <5457D2DF.5000508@gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-DRA7 SoC has 2 CAN IPs. Provide compatible IDs and RAMINIT
-register data for both.
+From: Roberto Medina
+> On 11/03/2014 07:51 PM, Joe Perches wrote:
+> >
+> > Some ancient drivers could be regarded as neolithic
+> > curiosities that never need updating.  This may be one.
+> >
+> > But if you really want to change it, could you please
+> > make sure that objdiff shows no changes?
+> >
+> 
+> I see some changes with objdiff, maybe this is caused by the include
+> file that I changed to linux/io.h instead of asm/io.h
+> 
+> ---
+> /home/vov/Git/linux-next/.tmp_objdiff/a641d0e/drivers/net/ethernet/realtek/atp.dis
+> 2014-11-03 19:59:18.723954900 +0100
+> +++
+> /home/vov/Git/linux-next/.tmp_objdiff/5f19b70/drivers/net/ethernet/realtek/atp.dis
+> 2014-11-03 20:00:34.133954217 +0100
+> @@ -1753,9 +1753,8 @@
+>   	...
+>   :	e3 0a                	jrcxz  4c4 <__gcov_.atp_probe1+0x14>
+>   :	00 00                	add    %al,(%rax)
+> -:	e2 e2                	loop   4a0 <__gcov_.atp_init+0x20>
+> -:	9c                   	pushfq
+> -:	9a                   	(bad)
+> +:	4b b4 98             	rex.WXB mov $0x98,%r12b
+> +:	ac                   	lods   %ds:(%rsi),%al
+>   :	67 2f                	addr32 (bad)
+>   :	e4 e3                	in     $0xe3,%al
+>   :	00 00                	add    %al,(%rax)
 
-Signed-off-by: Roger Quadros <rogerq@ti.com>
----
- Documentation/devicetree/bindings/net/can/c_can.txt |  1 +
- drivers/net/can/c_can/c_can_platform.c              | 16 ++++++++++++++++
- 2 files changed, 17 insertions(+)
+That code (and all the ones below) are gibberish, neither the old or new
+sequences make any sense.
 
-diff --git a/Documentation/devicetree/bindings/net/can/c_can.txt b/Documentation/devicetree/bindings/net/can/c_can.txt
-index 917ac0e..746cc07 100644
---- a/Documentation/devicetree/bindings/net/can/c_can.txt
-+++ b/Documentation/devicetree/bindings/net/can/c_can.txt
-@@ -4,6 +4,7 @@ Bosch C_CAN/D_CAN controller Device Tree Bindings
- Required properties:
- - compatible		: Should be "bosch,c_can" for C_CAN controllers and
- 			  "bosch,d_can" for D_CAN controllers.
-+			  Can be "ti,dra7-d_can1" or "ti,dra7-d_can2".
- - reg			: physical base address and size of the C_CAN/D_CAN
- 			  registers map
- - interrupts		: property with a value describing the interrupt
-diff --git a/drivers/net/can/c_can/c_can_platform.c b/drivers/net/can/c_can/c_can_platform.c
-index d058820..dc618ce 100644
---- a/drivers/net/can/c_can/c_can_platform.c
-+++ b/drivers/net/can/c_can/c_can_platform.c
-@@ -195,6 +195,20 @@ static struct c_can_driver_data d_can_drvdata = {
- 	.id = BOSCH_D_CAN,
- };
- 
-+static struct c_can_driver_data dra7_dcan1_drvdata = {
-+	.id = BOSCH_D_CAN,
-+	.raminit_start_bit = 3,
-+	.raminit_done_bit = 1,
-+	.raminit_pulse = true,
-+};
-+
-+static struct c_can_driver_data dra7_dcan2_drvdata = {
-+	.id = BOSCH_D_CAN,
-+	.raminit_start_bit = 5,
-+	.raminit_done_bit = 2,
-+	.raminit_pulse = true,
-+};
-+
- static struct platform_device_id c_can_id_table[] = {
- 	{
- 		.name = KBUILD_MODNAME,
-@@ -215,6 +229,8 @@ MODULE_DEVICE_TABLE(platform, c_can_id_table);
- static const struct of_device_id c_can_of_table[] = {
- 	{ .compatible = "bosch,c_can", .data = &c_can_drvdata },
- 	{ .compatible = "bosch,d_can", .data = &d_can_drvdata },
-+	{ .compatible = "ti,dra7-d_can1", .data = &dra7_dcan1_drvdata },
-+	{ .compatible = "ti,dra7-d_can2", .data = &dra7_dcan2_drvdata },
- 	{ /* sentinel */ },
- };
- MODULE_DEVICE_TABLE(of, c_can_of_table);
--- 
-1.8.3.2
+Almost as though you used the wrong instruction set!
 
+	David
