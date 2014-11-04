@@ -1,67 +1,66 @@
-From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH net-next 1/7] bpf: add 'flags' attribute to
- BPF_MAP_UPDATE_ELEM command
-Date: Tue, 4 Nov 2014 15:04:34 -0800
-Message-ID: <CAMEtUuy5gJbeLqiSr1=SiNQ7WyqocUVV-siwhEnpBVqmzYzzCQ@mail.gmail.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH net-next 6/7] bpf: allow eBPF programs to use maps
+Date: Tue, 4 Nov 2014 15:08:03 -0800
+Message-ID: <CAMEtUuwgSDdMPeRSWGiVAXb4DfwxoBVvd2TgHdruczq2mVbM=A@mail.gmail.com>
 References: <1415069656-14138-1-git-send-email-ast@plumgrid.com>
-	<1415069656-14138-2-git-send-email-ast@plumgrid.com>
-	<54589B89.5000309@redhat.com>
+	<1415069656-14138-7-git-send-email-ast@plumgrid.com>
+	<5458A17B.7030904@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
-	Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <54589B89.5000309-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ingo Molnar <mingo@kernel.org>,
+	Andy Lutomirski <luto@amacapital.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Linux API <linux-api@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Daniel Borkmann <dborkman@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5458A17B.7030904@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 4, 2014 at 1:25 AM, Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+On Tue, Nov 4, 2014 at 1:50 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
+> These WARN_ON_ONCE(!rcu_read_lock_held()) seem odd. While I see the point
+> that
+> you're holding RCU read lock on the lookup, can you elaborate on your RCU
+> usage
+> here and why it's necessary for delete/update?
 >
-> On 11/04/2014 03:54 AM, Alexei Starovoitov wrote:
->>
->> the current meaning of BPF_MAP_UPDATE_ELEM syscall command is:
->> either update existing map element or create a new one.
->> Initially the plan was to add a new command to handle the case of
->> 'create new element if it didn't exist', but 'flags' style looks
->> cleaner and overall diff is much smaller (more code reused), so add 'flags'
->> attribute to BPF_MAP_UPDATE_ELEM command with the following meaning:
->> enum {
->>    BPF_MAP_UPDATE_OR_CREATE = 0, /* add new element or update existing */
->>    BPF_MAP_CREATE_ONLY,          /* add new element if it didn't exist */
->>    BPF_MAP_UPDATE_ONLY           /* update existing element */
->> };
->
->
-> From you commit message/code I currently don't see an explanation why
-> it cannot be done in typical ``flags style'' as various syscalls do,
-> i.e. BPF_MAP_UPDATE_OR_CREATE rather represented as ...
->
->   BPF_MAP_CREATE | BPF_MAP_UPDATE
->
-> Do you expect more than 64 different flags to be passed from user space
-> for BPF_MAP?
+> I suspect due to the synchronize_rcu() you're using and not using any RCU
+> accessors but plain memcpy() e.g. in case of the array ...?
 
-several reasons:
-- preserve flags==0 as default behavior
-- avoid holes and extra checks for invalid combinations, so
-  if (flags > BPF_MAP_UPDATE_ONLY) goto err, is enough.
-- it looks much neater when user space uses
-  BPF_MAP_UPDATE_OR_CREATE instead of ORing bits.
+Correct in case of array.
+Also hash delete/update() call into lookup() internally
+that is using _rcu() helpers...
+Future map types might have much more
+complex implementations (like LPM), so it helps
+to state the rules early.
 
-Note this choice doesn't prevent adding bit-like flags
-in the future. Today I cannot think of any new flags
-for the update() command, but if somebody comes up with
-a new selector that can apply to all three combinations,
-we can add it as 3rd bit that can be ORed.
-Default will stay zero and 'if >' check in older
-kernels will seamlessly work with new userspace.
-I don't like holes in flags and combinatorial
-explosion of bits and checks for them unless
-absolutely necessary.
+Another reason is more complex to explain:
+A program that intends to access maps has to be one
+rcu critical section. So all lookup/update/delete calls
+are under rcu_lock_held.
+Since programs by themselves cannot have WARN_ON
+inside them, I've added WARN_ON in these three
+functions that will be called from the programs to make
+sure that kernel subsystems don't do (*prog->bpf_func)(...)
+without taking rcu_lock if they intend to let programs
+access maps.
+
+Having said that in the future we might have a case
+for programs that don't call into these functions at all
+and execute instructions only. Those won't need
+rcu_lock() wrap. I experimented with that for the
+patch where I replaced pred-tree walker with eBPF
+program. There is no rcu there. And no calls
+to map accessors.
+
+Has to be noted, that socket filters use rcu to
+protect sk_filter pointer and program itself. So for that
+use case we'll keep using rcu for foreseeable future.
+For tracing filters I had to add rcu_lock() around
+BPF_PROG_RUN() invocation and these WARN_ON
+checks saved me a lot of headache, so I prefer to
+keep them since they cost nothing when lockdep is off.
