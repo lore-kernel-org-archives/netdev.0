@@ -1,148 +1,78 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH 7/7] can: m_can: workaround for transmit data less than
- 4 bytes
-Date: Tue, 04 Nov 2014 11:33:09 +0100
-Message-ID: <5458AB65.7000500@pengutronix.de>
-References: <1414579527-31100-1-git-send-email-b29396@freescale.com> <1414579527-31100-7-git-send-email-b29396@freescale.com> <5457B1D1.6080301@pengutronix.de> <20141104082505.GA8060@shlinux1.ap.freescale.net> <54589AC8.4010106@pengutronix.de> <20141104092651.GC8060@shlinux1.ap.freescale.net>
+From: Christian Hesse <mail@eworm.de>
+Subject: Re: [PATCH 1/1] ip-link: in human readable output use dynamic
+ precision length
+Date: Tue, 4 Nov 2014 11:44:21 +0100
+Message-ID: <20141104114421.6a7f9de5@leda.localdomain>
+References: <1415093990-22632-1-git-send-email-mail@eworm.de>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="a0lWMEpNaQ0Mq0BXIjWj328fHfLwQhoQB"
-Cc: linux-can@vger.kernel.org, wg@grandegger.com,
-	varkabhadram@gmail.com, netdev@vger.kernel.org,
-	socketcan@hartkopp.net, linux-arm-kernel@lists.infradead.org
-To: Dong Aisheng <b29396@freescale.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <20141104092651.GC8060@shlinux1.ap.freescale.net>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+ boundary="Sig_/WN+NKVznVYpoGii3D5DERRZ"; protocol="application/pgp-signature"
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx.mylinuxtime.de ([148.251.109.235]:58485 "EHLO
+	mx.mylinuxtime.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752661AbaKDKoc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Nov 2014 05:44:32 -0500
+In-Reply-To: <1415093990-22632-1-git-send-email-mail@eworm.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---a0lWMEpNaQ0Mq0BXIjWj328fHfLwQhoQB
-Content-Type: text/plain; charset=UTF-8
+--Sig_/WN+NKVznVYpoGii3D5DERRZ
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: quoted-printable
 
-On 11/04/2014 10:27 AM, Dong Aisheng wrote:
->>>> It should be possible to change the for loop to go always to 8, or
->>>> simply unroll the loop:
->>>>
->>>> /* errata description goes here */
->>>> m_can_fifo_write(priv, 0, M_CAN_FIFO_DATA(0), *(u32 *)(cf->data + 0)=
-);
->>>> m_can_fifo_write(priv, 0, M_CAN_FIFO_DATA(1), *(u32 *)(cf->data + 4)=
-);
->>>>
->>>
->>> Yes, i tried to fix it as follows.
->>>
->>> /* FIXME: we meet an IC issue that we have to write the full 8
->>>  * bytes (whatever value for the second word) in Message RAM to
->>>  * avoid bit error for transmit data less than 4 bytes
->>>  */
->>> if (cf->len <=3D 4) {
->>>         m_can_fifo_write(priv, 0, M_CAN_FIFO_DATA(0),
->>>                          *(u32 *)(cf->data + 0));
->>>         m_can_fifo_write(priv, 0, M_CAN_FIFO_DATA(1),
->>>                          *(u32 *)(cf->data + 4));
->>> } else {
->>>         for (i =3D 0; i < cf->len; i +=3D 4)
->>>                 m_can_fifo_write(priv, 0, M_CAN_FIFO_DATA(i / 4),
->>>                                  *(u32 *)(cf->data + i));
->>>
->>> Will update the patch.
->>
->> Both branches of the above if are doing the same thing, I think you ca=
-n
->> replace the while if ... else ... for with this:
->>
+Christian Hesse <mail@eworm.de> on Tue, 2014/11/04 10:39:
+> Now that we use floating point numbers for human readable output we can
+> calculate precision length on the fly.
+> ---
+>  ip/ipaddress.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
 >=20
-> Not the same thing.
-> The later one will cover payload up to 64 bytes.
-
-Doh! I'm not used to CAN-FD, yet :) However, I'll apply this fix before
-adding the CAN-FD support.
-
->> /* errata description goes here */
->> m_can_fifo_write(priv, 0, M_CAN_FIFO_DATA(0), *(u32 *)(cf->data + 0));=
-
->> m_can_fifo_write(priv, 0, M_CAN_FIFO_DATA(1), *(u32 *)(cf->data + 4));=
-
->>
->> However if writing to DATA(0) and DATA(1) once in the open() function =
-is
->> enough this code should stay as it is.
->=20
-> I tried put them into open() function and the quick test showed it work=
-ed.
->=20
-> Do you think it's ok to put things into open() function for this issue
-> as follows?
->=20
-> diff --git a/drivers/net/can/m_can/m_can.c b/drivers/net/can/m_can/m_ca=
-n.c
-> index 065e4f1..ca55988 100644
-> --- a/drivers/net/can/m_can/m_can.c
-> +++ b/drivers/net/can/m_can/m_can.c
-> @@ -901,6 +901,15 @@ static void m_can_chip_config(struct net_device *d=
-ev)
->         /* set bittiming params */
->         m_can_set_bittiming(dev);
->=20
-> +       /* We meet an IC issue that we have to write the full 8
-
-At least on the *insert SoC name here*, an issue with the Message RAM
-was discovered. Sending CAN frames with dlc less than 4 bytes will lead
-to bit errors, when the first 8 bytes of the Message RAM have not been
-initialized (i.e. written to). To work around this issue, the first 8
-bytes are initialized here.
-
-> +        * bytes (whatever value for the second word) in Message RAM to=
-
-> +        * avoid bit error for transmit data less than 4 bytes at the f=
-irst
-> +        * time. By initializing the first 8 bytes of tx buffer before =
-using
-> +        * it can avoid such issue.
-> +        */
-> +       m_can_fifo_write(priv, 0, M_CAN_FIFO_DATA(0), 0x0);
-> +       m_can_fifo_write(priv, 0, M_CAN_FIFO_DATA(1), 0x0);
-> +
->         m_can_config_endisable(priv, false);
+> diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+> index e240bb5..0ddcb0d 100644
+> --- a/ip/ipaddress.c
+> +++ b/ip/ipaddress.c
+> @@ -343,8 +343,8 @@ static void print_num(FILE *fp, unsigned width,
+> uint64_t count) ++prefix;
+>  	}
+> =20
+> -	snprintf(buf, sizeof(buf), "%.1f%c%s", (double) count / powi,=20
+> -		 *prefix, use_iec ? "i" : "");
+> +	snprintf(buf, sizeof(buf), "%.*f%c%s", 3 - snprintf(NULL, 0,
+> "%"PRIu64, count / powi),
+> +		(double) count / powi, *prefix, use_iec ? "i" : "");
+> =20
+>  	fprintf(fp, "%-*s ", width, buf);
 >  }
 
-Can you trigger the issue when sending CAN-FD frames with dlc > 8 && dlc
-< 64?
-
-Marc
-
+Damn... In IEC mode we have negative precision length for values between 10=
+00
+and 1024. Will send a new patch.
 --=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+Best Regards,
+Christian Hesse
 
-
---a0lWMEpNaQ0Mq0BXIjWj328fHfLwQhoQB
-Content-Type: application/pgp-signature; name="signature.asc"
+--Sig_/WN+NKVznVYpoGii3D5DERRZ
+Content-Type: application/pgp-signature
 Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
 
 -----BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
+Version: GnuPG v2
 
-iQIcBAEBAgAGBQJUWKtlAAoJECte4hHFiupUYngP/jfVxTk6mIicW3B0P6tHeGgX
-+Wpuj3Fy5uv6uhFuW4aLY4pehL4NAxgH4IkuGF6jtKEp89hOnhVU7tdIz/+YVyAe
-T5NBu5Kw/zZ2/mvi2mGmTalJMOyJnK78frYfb7R3pzTtFvwuZinyhTQYczTgoDii
-q4Ivd0yX6H55OK4RrlbLKYKZAeGCIgOxA5Sfx4QVBqh4WLd3yoxBEKr5O4a0O/zF
-d2VPHvq0foo4X274ezNqPmg0OKBBKPc6v5L7F1UlrSntpw5OPIzl249qBamgp7MT
-I0TRC2FUfr1O1n7IySp7uTcSbg+eKo7tlkbqWPt7OjSGT5iB2dV8ezvt2v6Gxw8o
-HhKSSTnmLBmU/gFDT6HiznTJqTtrjBkyzZMEQz8bj6zNSprq76lRR1kIMjcXUZej
-JqCyoV+HNEub6EjGNPzJBADZsJgJ3eRddh6Fi77psyxYZk+tu3/uVkY+5Ag32StI
-/eNrvZwLFNKW0IY8ekdKTmF3e8wwNnDi0tUrtKondN3eTicEYoMPRpi3zM/bj2/g
-E6wQqv3IIhntXXRn8bPP3CZclfzfoCYbYsGwSUuEmcCHFWE2DXchwMZIu/6hzuug
-BxG5cxh4JaIW0A2lxmp0HS7RzuHg3cqxDCyy9DW6CSc4agmI7oR+tRJYy0aIWOgF
-Z7+F9oAB3I9zWBe5MA0p
-=5D60
+iQIcBAEBAgAGBQJUWK4JAAoJEFTtyRYJvJGD7wEP/1IbMT7XDjwoIQ2JrMPFAPUo
+uTAQBs6aRDaVNLbp/0vaX7t+UPorx0HIvnpmzJDsvaZgUiL4sh9/z2Ov06YfC2Gf
+ElHD1z+BZD+jVQa0MckWzs8n7OHTWeyoEt9g2opBO79+GWi+QG6e11MVYwuOOCdz
+RwHzwOktAjRYSi9exdvV6iTgU50gGWpto8GJp+EZHKCBv7XnaeFJsA0uGBwJUHt9
+E31WhnCw0ahXDjTL3VWmiITDipf31q7bpf2Il6os7AJCq14qsovWEYHYTNaWa3fd
+6c49F6o7SkVBezNaSVrR38X/3gxUKIjFMPhWjssaEgsvOawrA0qoRWRRANbr4sAl
+FAmm5ag53uPj2WZWIJoktfiWlzgMmr3WuzCXrCe8lTq6mEyAZU9I8BE1ez4WbX4v
+JgBodZjyKC28ejlmWByKPUb+aQg5nuM+t6FnOzLwTazkHOb8M5AqApLcg7hNoocG
+BqMYjROkquVpfsOWZbC/u4EF9MX+eUQRdQL13/mJSZ0gMEPjIjH3D5N8WL/DgrN2
+oHrEp8V0X34AnaUNmlcaATX7nNvguPoND+EOUhILiwU3IFSMUVT6lGgXG2+htSvy
+Wo8HXO2XjDGr4CuLCBpy/eph8lhpraQTSkGe9jFLU5sxN0YpcUpN2EFGF9WLhGqv
+10b8cNm5N0mymr7aH/Jc
+=47Y4
 -----END PGP SIGNATURE-----
 
---a0lWMEpNaQ0Mq0BXIjWj328fHfLwQhoQB--
+--Sig_/WN+NKVznVYpoGii3D5DERRZ--
