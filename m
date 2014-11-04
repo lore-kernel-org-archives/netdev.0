@@ -1,111 +1,196 @@
-From: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH net-next 6/7] bpf: allow eBPF programs to use maps
-Date: Tue, 04 Nov 2014 10:50:51 +0100
-Message-ID: <5458A17B.7030904@redhat.com>
-References: <1415069656-14138-1-git-send-email-ast@plumgrid.com> <1415069656-14138-7-git-send-email-ast@plumgrid.com>
+From: Dong Aisheng <b29396@freescale.com>
+Subject: Re: [PATCH 7/7] can: m_can: workaround for transmit data less than
+ 4 bytes
+Date: Tue, 4 Nov 2014 17:27:14 +0800
+Message-ID: <20141104092651.GC8060@shlinux1.ap.freescale.net>
+References: <1414579527-31100-1-git-send-email-b29396@freescale.com>
+ <1414579527-31100-7-git-send-email-b29396@freescale.com>
+ <5457B1D1.6080301@pengutronix.de>
+ <20141104082505.GA8060@shlinux1.ap.freescale.net>
+ <54589AC8.4010106@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
-	Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1415069656-14138-7-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: <linux-can@vger.kernel.org>, <wg@grandegger.com>,
+	<varkabhadram@gmail.com>, <netdev@vger.kernel.org>,
+	<socketcan@hartkopp.net>, <linux-arm-kernel@lists.infradead.org>
+To: Marc Kleine-Budde <mkl@pengutronix.de>
+Return-path: <linux-can-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <54589AC8.4010106@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11/04/2014 03:54 AM, Alexei Starovoitov wrote:
-> expose bpf_map_lookup_elem(), bpf_map_update_elem(), bpf_map_delete_elem()
-> map accessors to eBPF programs
->
-> Signed-off-by: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-...
-> +#include <linux/bpf.h>
-> +#include <linux/rcupdate.h>
-> +
-> +/* called from eBPF program under rcu lock
-> + *
-> + * if kernel subsystem is allowing eBPF programs to call this function,
-> + * inside its own verifier_ops->get_func_proto() callback it should return
-> + * bpf_map_lookup_elem_proto, so that verifier can properly checks the arguments
-> + */
-> +static u64 bpf_map_lookup_elem(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
-> +{
-> +	/* verifier checked that R1 contains a valid pointer to bpf_map
-> +	 * and R2 points to a program stack and map->key_size bytes were
-> +	 * initialized
-> +	 */
-> +	struct bpf_map *map = (struct bpf_map *) (unsigned long) r1;
-> +	void *key = (void *) (unsigned long) r2;
-> +	void *value;
-> +
-> +	WARN_ON_ONCE(!rcu_read_lock_held());
-> +
-> +	value = map->ops->map_lookup_elem(map, key);
-> +
-> +	/* lookup() returns either pointer to element value or NULL
-> +	 * which is the meaning of PTR_TO_MAP_VALUE_OR_NULL type
-> +	 */
-> +	return (unsigned long) value;
-> +}
-> +
-> +struct bpf_func_proto bpf_map_lookup_elem_proto = {
-> +	.func = bpf_map_lookup_elem,
-> +	.gpl_only = false,
-> +	.ret_type = RET_PTR_TO_MAP_VALUE_OR_NULL,
-> +	.arg1_type = ARG_CONST_MAP_PTR,
-> +	.arg2_type = ARG_PTR_TO_MAP_KEY,
-> +};
-> +
-> +/* called from eBPF program under rcu lock */
-> +static u64 bpf_map_update_elem(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
-> +{
-> +	struct bpf_map *map = (struct bpf_map *) (unsigned long) r1;
-> +	void *key = (void *) (unsigned long) r2;
-> +	void *value = (void *) (unsigned long) r3;
-> +
-> +	WARN_ON_ONCE(!rcu_read_lock_held());
-> +
-> +	return map->ops->map_update_elem(map, key, value, r4);
-> +}
-> +
-> +struct bpf_func_proto bpf_map_update_elem_proto = {
-> +	.func = bpf_map_update_elem,
-> +	.gpl_only = false,
-> +	.ret_type = RET_INTEGER,
-> +	.arg1_type = ARG_CONST_MAP_PTR,
-> +	.arg2_type = ARG_PTR_TO_MAP_KEY,
-> +	.arg3_type = ARG_PTR_TO_MAP_VALUE,
-> +	.arg4_type = ARG_ANYTHING,
-> +};
-> +
-> +/* called from eBPF program under rcu lock */
-> +static u64 bpf_map_delete_elem(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
-> +{
-> +	struct bpf_map *map = (struct bpf_map *) (unsigned long) r1;
-> +	void *key = (void *) (unsigned long) r2;
-> +
-> +	WARN_ON_ONCE(!rcu_read_lock_held());
-> +
-> +	return map->ops->map_delete_elem(map, key);
-> +}
+On Tue, Nov 04, 2014 at 10:22:16AM +0100, Marc Kleine-Budde wrote:
+> On 11/04/2014 09:25 AM, Dong Aisheng wrote:
+> >>> We meet an IC issue that we have to write the full 8 bytes (whatever
+> >>> value for the second word) in Message RAM to avoid bit error for transmit
+> >>> data less than 4 bytes.
+> >>
+> >> Is this a SoC or a m_can problem? Are all versions of the SoC/m_can
+> >> affected? Is there a m_can version register somewhere?
+> 
+> > I'm still not sure it's SoC or m_can problem.
+> > Our IC guys ran the simulation code and found this issue.
+> > But due to some reasons, it may be very slow for they to investigate
+> > and get the conclusion.
+> 
+> Let's hope they will find the root cause of this problem.
+> 
+> >>> Without the workaround, we can easily see the following errors:
+> >>> root@imx6qdlsolo:~# ip link set can0 up type can bitrate 1000000
+> >>> [   66.882520] IPv6: ADDRCONF(NETDEV_CHANGE): can0: link becomes ready
+> >>> root@imx6qdlsolo:~# cansend can0 123#112233
+> >>> [   66.935640] m_can 20e8000.can can0: Bit Error Uncorrected
+> >>>
+> >>> Signed-off-by: Dong Aisheng <b29396@freescale.com>
+> >>> ---
+> >>>  drivers/net/can/m_can/m_can.c | 11 ++++++++++-
+> >>>  1 file changed, 10 insertions(+), 1 deletion(-)
+> >>>
+> >>> diff --git a/drivers/net/can/m_can/m_can.c b/drivers/net/can/m_can/m_can.c
+> >>> index 219e0e3..f2d9ebe 100644
+> >>> --- a/drivers/net/can/m_can/m_can.c
+> >>> +++ b/drivers/net/can/m_can/m_can.c
+> >>> @@ -1058,10 +1058,19 @@ static netdev_tx_t m_can_start_xmit(struct sk_buff *skb,
+> >>>  	m_can_fifo_write(priv, 0, M_CAN_FIFO_ID, id);
+> >>>  	m_can_fifo_write(priv, 0, M_CAN_FIFO_DLC, can_len2dlc(cf->len) << 16);
+> >>>  
+> >>> -	for (i = 0; i < cf->len; i += 4)
+> >>> +	for (i = 0; i < cf->len; i += 4) {
+> >>>  		m_can_fifo_write(priv, 0, M_CAN_FIFO_DATA(i / 4),
+> >>>  				 *(u32 *)(cf->data + i));
+> >>>  
+> >>> +		/* FIXME: we meet an IC issue that we have to write the full 8
+> >>
+> >> FIXME usually indicates that the driver needs some work here. Just
+> >> describe your hardware bug, you might add a reference to an errata if
+> >> available, though.
+> >
+> > We don't have an errata for it now.
+> > Because i'm not sure this is the final workaround and also not sure if other
+> > SoC vendors having the same issue, so i used FIXME here firstly.
+> > Since the code is harmless, so i wish we could put it here first
+> > until we find evidence no need for other SoC or only belong to specific
+> > IP version.
+> 
+> It's better to write this in the comment than a FIXME, which is much
+> harder to interpret....
+> 
+> >>> +		 * bytes (whatever value for the second word) in Message RAM to
+> >>> +		 * avoid bit error for transmit data less than 4 bytes
+> >>> +		 */
+> >>> +		if (cf->len <= 4)
+> >>> +			m_can_fifo_write(priv, 0, M_CAN_FIFO_DATA(i / 4 + 1),
+> >>> +					 0x0);
+> >>
+> >> This workaround doesn't handle the dlc == 0 case, your error description
+> >> isn't completely if this is a problem, too.
+> 
+> > You're right.
+> > I just checked the dlc == 0 case also had such issue and it also needs
+> > the extra 8 bytes write to avoid such issue.
+> > 
+> > BTW the issue only happened on the first time when you send a frame with no
+> > data(dlc == 0) at the first time.
+> > e.g.
+> > root@imx6sxsabresd:~# ip link set can0 up type can bitrate 1000000
+> > [   62.326014] IPv6: ADDRCONF(NETDEV_CHANGE): can0: link becomes ready
+> > root@imx6sxsabresd:~# cansend can0 123#R
+> > [   69.233645] m_can 20e8000.can can0: Bit Error Uncorrected
+> > [   69.239167] m_can 20e8000.can can0: Bit Error Corrected
+> > 
+> > If we send a frame success first (e.g. 5 bytes data), it will not fail
+> > again even you send no data frame (dlc == 0) later.
+> > 
+> > The former failure of sending data less than 4 bytes is similar.
+> > 
+> > Looks like the first 8 bytes of message ram has to be initialised
+> > for the first using.
+> 
+> What about putting
+> 
+> /* errata description goes here */
+> m_can_fifo_write(priv, 0, M_CAN_FIFO_DATA(0), 0x0);
+> m_can_fifo_write(priv, 0, M_CAN_FIFO_DATA(1), 0x0);
+> 
+> into the open() function? Can you ask the hardware colleges if this is a
+> functional workaround.
+> 
+> >> It should be possible to change the for loop to go always to 8, or
+> >> simply unroll the loop:
+> >>
+> >> /* errata description goes here */
+> >> m_can_fifo_write(priv, 0, M_CAN_FIFO_DATA(0), *(u32 *)(cf->data + 0));
+> >> m_can_fifo_write(priv, 0, M_CAN_FIFO_DATA(1), *(u32 *)(cf->data + 4));
+> >>
+> > 
+> > Yes, i tried to fix it as follows.
+> > 
+> > /* FIXME: we meet an IC issue that we have to write the full 8
+> >  * bytes (whatever value for the second word) in Message RAM to
+> >  * avoid bit error for transmit data less than 4 bytes
+> >  */
+> > if (cf->len <= 4) {
+> >         m_can_fifo_write(priv, 0, M_CAN_FIFO_DATA(0),
+> >                          *(u32 *)(cf->data + 0));
+> >         m_can_fifo_write(priv, 0, M_CAN_FIFO_DATA(1),
+> >                          *(u32 *)(cf->data + 4));
+> > } else {
+> >         for (i = 0; i < cf->len; i += 4)
+> >                 m_can_fifo_write(priv, 0, M_CAN_FIFO_DATA(i / 4),
+> >                                  *(u32 *)(cf->data + i));
+> > 
+> > Will update the patch.
+> 
+> Both branches of the above if are doing the same thing, I think you can
+> replace the while if ... else ... for with this:
+> 
 
-These WARN_ON_ONCE(!rcu_read_lock_held()) seem odd. While I see the point that
-you're holding RCU read lock on the lookup, can you elaborate on your RCU usage
-here and why it's necessary for delete/update?
+Not the same thing.
+The later one will cover payload up to 64 bytes.
 
-I suspect due to the synchronize_rcu() you're using and not using any RCU
-accessors but plain memcpy() e.g. in case of the array ...?
+> /* errata description goes here */
+> m_can_fifo_write(priv, 0, M_CAN_FIFO_DATA(0), *(u32 *)(cf->data + 0));
+> m_can_fifo_write(priv, 0, M_CAN_FIFO_DATA(1), *(u32 *)(cf->data + 4));
+> 
+> However if writing to DATA(0) and DATA(1) once in the open() function is
+> enough this code should stay as it is.
 
-> +struct bpf_func_proto bpf_map_delete_elem_proto = {
-> +	.func = bpf_map_delete_elem,
-> +	.gpl_only = false,
-> +	.ret_type = RET_INTEGER,
-> +	.arg1_type = ARG_CONST_MAP_PTR,
-> +	.arg2_type = ARG_PTR_TO_MAP_KEY,
-> +};
->
+I tried put them into open() function and the quick test showed it worked.
+
+Do you think it's ok to put things into open() function for this issue
+as follows?
+
+diff --git a/drivers/net/can/m_can/m_can.c b/drivers/net/can/m_can/m_can.c
+index 065e4f1..ca55988 100644
+--- a/drivers/net/can/m_can/m_can.c
++++ b/drivers/net/can/m_can/m_can.c
+@@ -901,6 +901,15 @@ static void m_can_chip_config(struct net_device *dev)
+        /* set bittiming params */
+        m_can_set_bittiming(dev);
+
++       /* We meet an IC issue that we have to write the full 8
++        * bytes (whatever value for the second word) in Message RAM to
++        * avoid bit error for transmit data less than 4 bytes at the first
++        * time. By initializing the first 8 bytes of tx buffer before using
++        * it can avoid such issue.
++        */
++       m_can_fifo_write(priv, 0, M_CAN_FIFO_DATA(0), 0x0);
++       m_can_fifo_write(priv, 0, M_CAN_FIFO_DATA(1), 0x0);
++
+        m_can_config_endisable(priv, false);
+ }
+
+Regards
+Dong Aisheng
+
+> 
+> Marc
+> -- 
+> Pengutronix e.K.                  | Marc Kleine-Budde           |
+> Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+> Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+> Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+> 
+
+
