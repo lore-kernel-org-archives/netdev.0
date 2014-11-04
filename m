@@ -1,33 +1,49 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: [PATCH 1/4] inet: Add skb_copy_datagram_iter
-Date: Tue, 4 Nov 2014 14:35:36 +0000
-Message-ID: <20141104143536.GD7996@ZenIV.linux.org.uk>
-References: <20141104033818.GA11149@gondor.apana.org.au>
- <E1XlZWY-0003HZ-Ef@gondolin.me.apana.org.au>
- <20141104143200.GC7996@ZenIV.linux.org.uk>
+From: Chen Gang <gang.chen.5i5j@gmail.com>
+Subject: [PATCH] drivers: net: ethernet: xilinx: xilinx_emaclite: revert the
+ original commit "1db3ddff1602edf2390b7667dcbaa0f71512e3ea"
+Date: Tue, 04 Nov 2014 22:43:17 +0800
+Message-ID: <5458E605.6070801@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Benjamin LaHaise <bcrl@kvack.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: michal.simek@xilinx.com, soren.brinkmann@xilinx.com,
+	davem@davemloft.net, sthokal@xilinx.com, manuel.schoelling@gmx.de,
+	f.fainelli@gmail.com, paul.gortmaker@windriver.com,
+	ebiederm@xmission.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20141104143200.GC7996@ZenIV.linux.org.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 04, 2014 at 02:32:00PM +0000, Al Viro wrote:
-> On Tue, Nov 04, 2014 at 04:31:34PM +0800, Herbert Xu wrote:
-> > This patch adds skb_copy_datagram_iter, which is identical to
-> > skb_copy_datagram_iovec except that it operates on iov_iter
-> > instead of iovec.
-> > 
-> > Eventually all users of skb_copy_datagram_iovec should switch
-> > over to iov_iter and then we can remove skb_copy_datagram_iovec.
-> 
-> Too noisy, IMO.  How about skb_copy_datagram_msg() first?  The fewer
-> places have to even think of iovec or iov_iter, the better...
+Microblaze is a fpga soft core, it can be customized easily, which may
+cause many various hardware version strings.
 
-PS: "too noisy" is about turning every callsite of skb_copy_datagram_iovec
-into that of skb_copy_datagram_iter; the helper itself is just fine.
+So the original fix patch based on hard-coded compatible version strings
+is not a good idea (although it is correct for current issue). For it,
+there will be a new solving way soon (which based on the device tree).
+
+The original issue is related with qemu, so can only change the hardware
+version string in qemu for it, then keep the original driver no touch (
+qemu is for virtualization which has much easier life than real world).
+
+
+Signed-off-by: Chen Gang <gang.chen.5i5j@gmail.com>
+---
+ drivers/net/ethernet/xilinx/xilinx_emaclite.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/xilinx/xilinx_emaclite.c b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
+index 298fad3..28dbbdc 100644
+--- a/drivers/net/ethernet/xilinx/xilinx_emaclite.c
++++ b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
+@@ -1236,7 +1236,6 @@ static struct of_device_id xemaclite_of_match[] = {
+ 	{ .compatible = "xlnx,opb-ethernetlite-1.01.b", },
+ 	{ .compatible = "xlnx,xps-ethernetlite-1.00.a", },
+ 	{ .compatible = "xlnx,xps-ethernetlite-2.00.a", },
+-	{ .compatible = "xlnx,xps-ethernetlite-2.00.b", },
+ 	{ .compatible = "xlnx,xps-ethernetlite-2.01.a", },
+ 	{ .compatible = "xlnx,xps-ethernetlite-3.00.a", },
+ 	{ /* end of list */ },
+-- davem@davemloft.net
+1.9.3
