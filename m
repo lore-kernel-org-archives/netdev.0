@@ -1,7 +1,8 @@
 From: Shuah Khan <shuahkh@osg.samsung.com>
-Subject: [PATCH 00/20] kselftest install target feature
-Date: Tue,  4 Nov 2014 10:10:56 -0700
-Message-ID: <cover.1415117102.git.shuahkh@osg.samsung.com>
+Subject: [PATCH 12/20] selftests/memory-hotplug: add install target to enable installing test
+Date: Tue,  4 Nov 2014 10:11:08 -0700
+Message-ID: <cb8e21ac88a65469be34aa1d41117cb6ee6f328a.1415117102.git.shuahkh@osg.samsung.com>
+References: <cover.1415117102.git.shuahkh@osg.samsung.com>
 Cc: Shuah Khan <shuahkh@osg.samsung.com>, linux-kbuild@vger.kernel.org,
 	linux-kernel@vger.kernel.org, linux-api@vger.kernel.org,
 	netdev@vger.kernel.org
@@ -11,81 +12,39 @@ To: gregkh@linuxfoundation.org, akpm@linux-foundation.org,
 	bobby.prani@gmail.com, ebiederm@xmission.com,
 	serge.hallyn@ubuntu.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1415117102.git.shuahkh@osg.samsung.com>
+In-Reply-To: <cover.1415117102.git.shuahkh@osg.samsung.com>
+References: <cover.1415117102.git.shuahkh@osg.samsung.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch series adds a new kselftest_install make target
-to enable selftest install. When make kselftest_install is
-run, selftests are installed on the system. A new install
-target is added to selftests Makefile which will install
-targets for the tests that are specified in INSTALL_TARGETS.
-During install, a script is generated to run tests that are
-installed. This script will be installed in the selftest install
-directory. Individual test Makefiles are changed to add to the
-script. This will allow new tests to add install and run test
-commands to the generated kselftest script.
+Add a new make target to enable installing test. This target
+installs test in the kselftest install location and add to the
+kselftest script to run the test.
 
-Approach:
+Signed-off-by: Shuah Khan <shuahkh@osg.samsung.com>
+---
+ tools/testing/selftests/memory-hotplug/Makefile | 9 +++++++++
+ 1 file changed, 9 insertions(+)
 
-make kselftest_target:
--- exports kselftest INSTALL_KSFT_PATH
-   default $(INSTALL_MOD_PATH)/lib/kselftest/$(KERNELRELEASE)
--- exports path for ksefltest.sh
--- runs selftests make install target:
-
-selftests make install target
--- creates kselftest.sh script in install install dir
--- runs install targets for all INSTALL_TARGETS
-
-Individual test make install targets:
--- install test programs and/or scripts in install dir
--- append to the ksefltest.sh file to add commands to run test
-
-Shuah Khan (20):
-  selftests/user: move test out of Makefile into a shell script
-  selftests/net: move test out of Makefile into a shell script
-  kbuild: kselftest_install - add a new make target to install selftests
-  selftests: add install target to enable installing selftests
-  selftests/breakpoints: add install target to enable installing test
-  selftests/cpu-hotplug: add install target to enable installing test
-  selftests/efivarfs: add install target to enable installing test
-  selftests/firmware: add install target to enable installing test
-  selftests/ipc: add install target to enable installing test
-  selftests/kcmp: add install target to enable installing test
-  selftests/memfd: add install target to enable installing test
-  selftests/memory-hotplug: add install target to enable installing test
-  selftests/mount: add install target to enable installing test
-  selftests/mqueue: add install target to enable installing test
-  selftests/net: add install target to enable installing test
-  selftests/ptrace: add install target to enable installing test
-  selftests/sysctl: add install target to enable installing test
-  selftests/timers: add install target to enable installing test
-  selftests/vm: add install target to enable installing test
-  selftests/user: add install target to enable installing test
-
- Makefile                                        | 17 +++++++++++++++++
- tools/testing/selftests/Makefile                | 14 ++++++++++++++
- tools/testing/selftests/breakpoints/Makefile    | 12 ++++++++++++
- tools/testing/selftests/cpu-hotplug/Makefile    |  9 +++++++++
- tools/testing/selftests/efivarfs/Makefile       | 13 ++++++++++++-
- tools/testing/selftests/firmware/Makefile       | 20 ++++++++++++++++++++
- tools/testing/selftests/ipc/Makefile            | 11 +++++++++++
- tools/testing/selftests/kcmp/Makefile           | 12 ++++++++++++
- tools/testing/selftests/memfd/Makefile          | 10 ++++++++++
- tools/testing/selftests/memory-hotplug/Makefile |  9 +++++++++
- tools/testing/selftests/mount/Makefile          |  7 +++++++
- tools/testing/selftests/mqueue/Makefile         |  8 ++++++++
- tools/testing/selftests/net/Makefile            | 18 +++++++++++-------
- tools/testing/selftests/net/test_bpf.sh         | 10 ++++++++++
- tools/testing/selftests/ptrace/Makefile         | 11 +++++++++--
- tools/testing/selftests/sysctl/Makefile         | 10 ++++++++++
- tools/testing/selftests/timers/Makefile         |  7 +++++++
- tools/testing/selftests/user/Makefile           | 15 ++++++++-------
- tools/testing/selftests/user/test_user_copy.sh  | 10 ++++++++++
- tools/testing/selftests/vm/Makefile             |  7 +++++++
- 20 files changed, 213 insertions(+), 17 deletions(-)
- create mode 100755 tools/testing/selftests/net/test_bpf.sh
- create mode 100755 tools/testing/selftests/user/test_user_copy.sh
-
+diff --git a/tools/testing/selftests/memory-hotplug/Makefile b/tools/testing/selftests/memory-hotplug/Makefile
+index d46b8d4..3c32820 100644
+--- a/tools/testing/selftests/memory-hotplug/Makefile
++++ b/tools/testing/selftests/memory-hotplug/Makefile
+@@ -1,5 +1,14 @@
++TEST_STR="/bin/bash ./mem-on-off-test.sh -r 2 || echo \"memory-hotplug selftests: [FAIL]\""
++
+ all:
+ 
++install:
++	install ./on-off-test.sh $(INSTALL_KSFT_PATH)/mem-on-off-test.sh
++	echo "\necho \"Start memory hotplug test ....\"" >> $(KSELFTEST)
++	echo $(TEST_STR) >> $(KSELFTEST)
++	echo "echo \"End memory hotplug test ....\"" >> $(KSELFTEST)
++	echo "echo \"==============================\"" >> $(KSELFTEST)
++
+ run_tests:
+ 	@/bin/bash ./on-off-test.sh -r 2 || echo "memory-hotplug selftests: [FAIL]"
+ 
 -- 
 1.9.1
