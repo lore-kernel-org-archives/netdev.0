@@ -1,25 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1 net-next] igmp: remove camel case definitions
-Date: Tue, 04 Nov 2014 15:14:01 -0500 (EST)
-Message-ID: <20141104.151401.2124551890345854272.davem@davemloft.net>
-References: <1415130734-17124-1-git-send-email-fabf@skynet.be>
+Subject: Re: [PATCH v2 5/5] stmmac: pci: remove FSF address
+Date: Tue, 04 Nov 2014 15:15:04 -0500 (EST)
+Message-ID: <20141104.151504.197433296248263241.davem@davemloft.net>
+References: <54593285.3030201@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	netdev@vger.kernel.org
-To: fabf@skynet.be
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1415130734-17124-1-git-send-email-fabf@skynet.be>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, andriy.shevchenko@intel.com
+To: xose.vazquez@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58950 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751562AbaKDUPH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Nov 2014 15:15:07 -0500
+In-Reply-To: <54593285.3030201@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Fabian Frederick <fabf@skynet.be>
-Date: Tue,  4 Nov 2014 20:52:14 +0100
+From: Xose Vazquez Perez <xose.vazquez@gmail.com>
+Date: Tue, 04 Nov 2014 21:09:41 +0100
 
-> use standard uppercase for definitions
+> David Miller wrote:
 > 
-> Signed-off-by: Fabian Frederick <fabf@skynet.be>
+>> Andy Shevchenko wrote:
+>>> The FSF address is subject to change, thus remove it from the file.
+>>> 
+>>> Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+>> 
+>> I cound 90t instances of this under drivers/net, therefore if this change is
+>           ^^^^^^^^^^^^^
+>> appropriate I'd rather someone script this and kill it across entire
+>> subdirectories.
+> 
+> It's a bit more, 555:
 
-Applied.
+I meant "nine hundred something", the 't' it my finger slipping down
+one row on my keyboard :-)
