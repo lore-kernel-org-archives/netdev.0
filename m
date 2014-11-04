@@ -1,63 +1,70 @@
-From: Joe Stringer <joestringer@nicira.com>
-Subject: [PATCH net 3/5] fm10k: Implement ndo_gso_check()
-Date: Tue,  4 Nov 2014 13:56:40 -0800
-Message-ID: <1415138202-1197-4-git-send-email-joestringer@nicira.com>
-References: <1415138202-1197-1-git-send-email-joestringer@nicira.com>
-Cc: sathya.perla@emulex.com, jeffrey.t.kirsher@intel.com,
-	linux.nics@intel.com, amirv@mellanox.com, shahed.shaikh@qlogic.com,
-	Dept-GELinuxNICDev@qlogic.com, therbert@google.com,
-	linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1415138202-1197-1-git-send-email-joestringer@nicira.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Subject: [PATCH net-next v1 00/12] amd-xgbe: AMD XGBE driver updates
+ 2014-11-04
+Date: Tue, 4 Nov 2014 16:06:20 -0600
+Message-ID: <20141104220620.24738.10070.stgit@tlendack-t1.amdoffice.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn1on0134.outbound.protection.outlook.com ([157.56.110.134]:35698
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751129AbaKDWG1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Nov 2014 17:06:27 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-ndo_gso_check() was recently introduced to allow NICs to report the
-offloading support that they have on a per-skb basis. Add an
-implementation for this driver which checks for something that looks
-like VXLAN.
+The following series of patches includes functional updates to the
+driver as well as some trivial changes for function renaming and
+spelling fixes.
 
-Implementation shamelessly stolen from Tom Herbert:
-http://thread.gmane.org/gmane.linux.network/332428/focus=333111
+- Move channel and ring structure allocation into the device open path
+- Rename the pre_xmit function to dev_xmit
+- Explicitly use the u32 data type for the device descriptors
+- Use page allocation for the receive buffers
+- Add support for split header/payload receive
+- Add support for per DMA channel interrupts
+- Add support for receive side scaling (RSS)
+- Add support for ethtool receive side scaling commands
+- Fix the spelling of descriptors
+- After a PCS reset, sync the PCS and PHY modes
+- Add dependency on HAS_IOMEM to both the amd-xgbe and amd-xgbe-phy
+  drivers
 
-Signed-off-by: Joe Stringer <joestringer@nicira.com>
+This patch series is based on net-next.
+
 ---
-Should this driver report support for GSO on packets with tunnel headers
-up to 64B like the i40e driver does?
----
- drivers/net/ethernet/intel/fm10k/fm10k_netdev.c |   12 ++++++++++++
- 1 file changed, 12 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
-index 8811364..b9ef622 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
-@@ -1350,6 +1350,17 @@ static void fm10k_dfwd_del_station(struct net_device *dev, void *priv)
- 	}
- }
- 
-+static bool fm10k_gso_check(struct sk_buff *skb, struct net_device *dev)
-+{
-+	if ((skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL) &&
-+	    (skb->inner_protocol_type != ENCAP_TYPE_ETHER ||
-+	     skb->inner_protocol != htons(ETH_P_TEB) ||
-+	     skb_inner_mac_header(skb) - skb_transport_header(skb) != 16))
-+		return false;
-+
-+	return true;
-+}
-+
- static const struct net_device_ops fm10k_netdev_ops = {
- 	.ndo_open		= fm10k_open,
- 	.ndo_stop		= fm10k_close,
-@@ -1372,6 +1383,7 @@ static const struct net_device_ops fm10k_netdev_ops = {
- 	.ndo_do_ioctl		= fm10k_ioctl,
- 	.ndo_dfwd_add_station	= fm10k_dfwd_add_station,
- 	.ndo_dfwd_del_station	= fm10k_dfwd_del_station,
-+	.ndo_gso_check		= fm10k_gso_check,
- };
- 
- #define DEFAULT_DEBUG_LEVEL_SHIFT 3
+Tom Lendacky (12):
+      amd-xgbe: Move ring allocation to device open
+      amd-xgbe: Rename pre_xmit function to dev_xmit
+      amd-xgbe: Use the u32 data type for descriptors
+      amd-xgbe: Use page allocations for Rx buffers
+      amd-xgbe: Implement split header receive support
+      amd-xgbe: Add support for per DMA channel interrupts
+      amd-xgbe: Provide support for receive side scaling
+      amd-xgbe: Add receive side scaling ethtool support
+      amd-xgbe: Fix a spelling error
+      amd-xgbe-phy: Sync PCS and PHY modes after reset
+      amd-xgbe: Let AMD_XGBE depend on HAS_IOMEM
+      amd-xgbe-phy: Let AMD_XGBE_PHY depend on HAS_IOMEM
+
+
+ Documentation/devicetree/bindings/net/amd-xgbe.txt |   12 -
+ drivers/net/ethernet/amd/Kconfig                   |    2 
+ drivers/net/ethernet/amd/xgbe/xgbe-common.h        |   42 ++
+ drivers/net/ethernet/amd/xgbe/xgbe-desc.c          |  193 +++++++--
+ drivers/net/ethernet/amd/xgbe/xgbe-dev.c           |  288 ++++++++++---
+ drivers/net/ethernet/amd/xgbe/xgbe-drv.c           |  445 ++++++++++++++++----
+ drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c       |   82 ++++
+ drivers/net/ethernet/amd/xgbe/xgbe-main.c          |   86 +---
+ drivers/net/ethernet/amd/xgbe/xgbe.h               |   77 +++
+ drivers/net/phy/Kconfig                            |    2 
+ drivers/net/phy/amd-xgbe-phy.c                     |    3 
+ 11 files changed, 955 insertions(+), 277 deletions(-)
+
 -- 
-1.7.10.4
+Tom Lendacky
