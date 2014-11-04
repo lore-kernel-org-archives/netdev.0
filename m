@@ -1,94 +1,47 @@
-From: Shuah Khan <shuahkh@osg.samsung.com>
-Subject: Re: [PATCH 00/20] kselftest install target feature
-Date: Tue, 04 Nov 2014 16:45:18 -0700
-Message-ID: <5459650E.6070201@osg.samsung.com>
-References: <cover.1415117102.git.shuahkh@osg.samsung.com> <CAGXu5jK9-TpOF4SFX2bkU2UJMXk-3W+-_we0BTxu4Ga+7bYXSQ@mail.gmail.com>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH net 2/5] i40e: Implement ndo_gso_check()
+Date: Tue, 4 Nov 2014 15:45:22 -0800
+Message-ID: <CAEP_g=8rbJF5z92LV_c14KooU=i3x=9WpikocctcEUOdw5-oLA@mail.gmail.com>
+References: <1415138202-1197-1-git-send-email-joestringer@nicira.com> <1415138202-1197-3-git-send-email-joestringer@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Greg KH <gregkh@linuxfoundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Michal Marek <mmarek@suse.cz>,
-	"David S. Miller" <davem@davemloft.net>, tranmanphong@gmail.com,
-	David Herrmann <dh.herrmann@gmail.com>,
-	Hugh Dickins <hughd@google.com>, bobby.prani@gmail.com,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	"Serge E. Hallyn" <serge.hallyn@ubuntu.com>,
-	linux-kbuild <linux-kbuild@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Linux API <linux-api@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>
-To: Kees Cook <keescook@chromium.org>
-Return-path: <linux-kbuild-owner@vger.kernel.org>
-In-Reply-To: <CAGXu5jK9-TpOF4SFX2bkU2UJMXk-3W+-_we0BTxu4Ga+7bYXSQ@mail.gmail.com>
-Sender: linux-kbuild-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	Sathya Perla <sathya.perla@emulex.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	linux.nics@intel.com, amirv@mellanox.com, shahed.shaikh@qlogic.com,
+	Dept-GELinuxNICDev@qlogic.com, Tom Herbert <therbert@google.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Joe Stringer <joestringer@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na6sys009bog006.obsmtp.com ([74.125.150.52]:40949 "HELO
+	na6sys009bog006.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751804AbaKDXpo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Nov 2014 18:45:44 -0500
+Received: by mail-qg0-f45.google.com with SMTP id z107so11214476qgd.4
+        for <netdev@vger.kernel.org>; Tue, 04 Nov 2014 15:45:43 -0800 (PST)
+In-Reply-To: <1415138202-1197-3-git-send-email-joestringer@nicira.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/04/2014 12:22 PM, Kees Cook wrote:
-> On Tue, Nov 4, 2014 at 9:10 AM, Shuah Khan <shuahkh@osg.samsung.com> wrote:
->> This patch series adds a new kselftest_install make target
->> to enable selftest install. When make kselftest_install is
->> run, selftests are installed on the system. A new install
->> target is added to selftests Makefile which will install
->> targets for the tests that are specified in INSTALL_TARGETS.
->> During install, a script is generated to run tests that are
->> installed. This script will be installed in the selftest install
->> directory. Individual test Makefiles are changed to add to the
->> script. This will allow new tests to add install and run test
->> commands to the generated kselftest script.
-> 
-> I'm all for making the self tests more available, but I don't think
-> this is the right approach. My primary objection is that it creates a
-> second way to run tests, and that means any changes and additions need
-> to be updated in two places. I'd much rather just maintain the single
-> "make" targets instead. Having "make" available on the target device
-> doesn't seem too bad to me. Is there a reason that doesn't work for
-> your situation?
+On Tue, Nov 4, 2014 at 1:56 PM, Joe Stringer <joestringer@nicira.com> wrote:
+> diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+> index c3a7f4a..21829b5 100644
+> --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
+> +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+> +static bool i40e_gso_check(struct sk_buff *skb, struct net_device *dev)
+> +{
+> +       if ((skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL) &&
+> +           (skb->inner_protocol_type != ENCAP_TYPE_ETHER ||
+> +            skb->inner_protocol != htons(ETH_P_TEB) ||
+> +            skb_inner_mac_header(skb) - skb_transport_header(skb) > 64))
+> +               return false;
 
-Kees,
+I think it may be possible to even support a few more things here.
+According to the datasheet here:
+http://www.intel.com/content/dam/www/public/us/en/documents/datasheets/xl710-10-40-controller-datasheet.pdf
 
-My primary objective is to provide a way to install selftests for a
-specific kernel release. This will allow developers to run tests for
-a specific release and look for regressions. Adding an install target
-will also help support local execution of tests in a virtualized
-environments. In some cases such as qemu, it is not practical to
-expect the target to have support for "make". Once tests are installed
-to be run outside the git environment, we need a master script that
-can run the tests. Hence the need for a master script that can run
-tests.
+This can actually support 64 bytes beyond the tunnel header, which
+would make for a total of 80 bytes. It looks like it can also support
+IPv4 or IPv6 beyond just Ethernet as the encapsulated protocol.
 
-We have the ability to run all tests via make kselftest target or
-run a specific test using the individual test's run_tests target.
-Both of above are necessary to support running tests from the tree.
-Embedding run_tests logic in the makefiles doesn't work very well
-in the long run.
-
-We also need a way to run them outside tree. I agree with you that
-the way I added the script generation, duplicates the code in individual
-run_tests targets and that changes/updates need to be made in both
-places.
-
-Would you be ok with the approach if I fixed the duplicating
-problem? I can address the duplication concern easily.
-
-> 
-> I would, however, like to see some better standardization of the test
-> "framework" that we've got in there already. (For example, some
-> failures fail the "make", some don't, there are various reporting
-> methods for success/failure depending on the test, etc.)
-
-This is being addressed and I have the framework in linux-kselftest
-git next branch at the moment. I do think the above work is part of
-addressing the larger framework issues such as being able to run tests
-on a target system that might not have "make" support and makes it
-easier to use.
-
-thanks,
--- Shuah
-
-
--- 
-Shuah Khan
-Sr. Linux Kernel Developer
-Samsung Research America (Silicon Valley)
-shuahkh@osg.samsung.com | (970) 217-8978
+Intel guys, can you confirm that this is correct?
