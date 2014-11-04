@@ -1,121 +1,81 @@
 From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH net-next 05/14] openvswitch: Additional logging for -EINVAL on flow setups.
-Date: Mon,  3 Nov 2014 22:01:14 -0800
-Message-ID: <1415080874-1779-1-git-send-email-pshelar@nicira.com>
-Cc: netdev@vger.kernel.org, Jesse Gross <jesse@nicira.com>,
-	Federico Iezzi <fiezzi@enter.it>,
+Subject: [PATCH net-next 06/14] openvswitch: refactor do_output() to move NULL check out of fast path
+Date: Mon,  3 Nov 2014 22:01:20 -0800
+Message-ID: <1415080880-1808-1-git-send-email-pshelar@nicira.com>
+Cc: netdev@vger.kernel.org, Andy Zhou <azhou@nicira.com>,
 	Pravin B Shelar <pshelar@nicira.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na6sys009bog011.obsmtp.com ([74.125.150.62]:43477 "HELO
-	na6sys009bog011.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752001AbaKEUB2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2014 15:01:28 -0500
-Received: by mail-pa0-f51.google.com with SMTP id kq14so1455574pab.10
-        for <netdev@vger.kernel.org>; Wed, 05 Nov 2014 12:01:26 -0800 (PST)
+Received: from na6sys009bog001.obsmtp.com ([74.125.150.42]:58701 "HELO
+	na6sys009bog001.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752091AbaKEUBj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2014 15:01:39 -0500
+Received: by mail-pd0-f170.google.com with SMTP id z10so1375548pdj.15
+        for <netdev@vger.kernel.org>; Wed, 05 Nov 2014 12:01:38 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Gross <jesse@nicira.com>
+From: Andy Zhou <azhou@nicira.com>
 
-There are many possible ways that a flow can be invalid so we've
-added logging for most of them. This adds logs for the remaining
-possible cases so there isn't any ambiguity while debugging.
+skb_clone() NULL check is implemented in do_output(), as past of the
+common (fast) path. Refactoring so that NULL check is done in the
+slow path, immediately after skb_clone() is called.
 
-CC: Federico Iezzi <fiezzi@enter.it>
-Signed-off-by: Jesse Gross <jesse@nicira.com>
-Acked-by: Thomas Graf <tgraf@noironetworks.com>
+Besides optimization, this change also improves code readability by
+making the skb_clone() NULL check consistent within OVS datapath
+module.
+
+Signed-off-by: Andy Zhou <azhou@nicira.com>
 Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
 ---
- net/openvswitch/datapath.c     | 12 +++++++++---
- net/openvswitch/flow_netlink.c | 17 +++++++++++++----
- 2 files changed, 22 insertions(+), 7 deletions(-)
+ net/openvswitch/actions.c | 25 +++++++++++--------------
+ 1 file changed, 11 insertions(+), 14 deletions(-)
 
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index a532a9c..04a26ae 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -817,10 +817,14 @@ static int ovs_flow_cmd_new(struct sk_buff *skb, struct genl_info *info)
- 
- 	/* Must have key and actions. */
- 	error = -EINVAL;
--	if (!a[OVS_FLOW_ATTR_KEY])
-+	if (!a[OVS_FLOW_ATTR_KEY]) {
-+		OVS_NLERR("Flow key attribute not present in new flow.\n");
- 		goto error;
--	if (!a[OVS_FLOW_ATTR_ACTIONS])
-+	}
-+	if (!a[OVS_FLOW_ATTR_ACTIONS]) {
-+		OVS_NLERR("Flow actions attribute not present in new flow.\n");
- 		goto error;
-+	}
- 
- 	/* Most of the time we need to allocate a new flow, do it before
- 	 * locking.
-@@ -979,8 +983,10 @@ static int ovs_flow_cmd_set(struct sk_buff *skb, struct genl_info *info)
- 
- 	/* Extract key. */
- 	error = -EINVAL;
--	if (!a[OVS_FLOW_ATTR_KEY])
-+	if (!a[OVS_FLOW_ATTR_KEY]) {
-+		OVS_NLERR("Flow key attribute not present in set flow.\n");
- 		goto error;
-+	}
- 
- 	ovs_match_init(&match, &key, &mask);
- 	error = ovs_nla_get_match(&match,
-diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
-index 5a91d79..1b29ea7 100644
---- a/net/openvswitch/flow_netlink.c
-+++ b/net/openvswitch/flow_netlink.c
-@@ -581,10 +581,13 @@ static int metadata_from_nlattrs(struct sw_flow_match *match,  u64 *attrs,
- 	if (*attrs & (1 << OVS_KEY_ATTR_IN_PORT)) {
- 		u32 in_port = nla_get_u32(a[OVS_KEY_ATTR_IN_PORT]);
- 
--		if (is_mask)
-+		if (is_mask) {
- 			in_port = 0xffffffff; /* Always exact match in_port. */
--		else if (in_port >= DP_MAX_PORTS)
-+		} else if (in_port >= DP_MAX_PORTS) {
-+			OVS_NLERR("Port (%d) exceeds maximum allowable (%d).\n",
-+				  in_port, DP_MAX_PORTS);
- 			return -EINVAL;
-+		}
- 
- 		SW_FLOW_KEY_PUT(match, phy.in_port, in_port, is_mask);
- 		*attrs &= ~(1 << OVS_KEY_ATTR_IN_PORT);
-@@ -824,8 +827,11 @@ static int ovs_key_from_nlattrs(struct sw_flow_match *match, u64 attrs,
- 		attrs &= ~(1 << OVS_KEY_ATTR_ND);
- 	}
- 
--	if (attrs != 0)
-+	if (attrs != 0) {
-+		OVS_NLERR("Unknown key attributes (%llx).\n",
-+			  (unsigned long long)attrs);
- 		return -EINVAL;
-+	}
- 
+diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
+index 930b1b6..9fd33c0 100644
+--- a/net/openvswitch/actions.c
++++ b/net/openvswitch/actions.c
+@@ -551,21 +551,14 @@ static int set_sctp(struct sk_buff *skb,
  	return 0;
  }
-@@ -1250,8 +1256,10 @@ struct sw_flow_actions *ovs_nla_alloc_flow_actions(int size)
+ 
+-static int do_output(struct datapath *dp, struct sk_buff *skb, int out_port)
++static void do_output(struct datapath *dp, struct sk_buff *skb, int out_port)
  {
- 	struct sw_flow_actions *sfa;
+-	struct vport *vport;
++	struct vport *vport = ovs_vport_rcu(dp, out_port);
  
--	if (size > MAX_ACTIONS_BUFSIZE)
-+	if (size > MAX_ACTIONS_BUFSIZE) {
-+		OVS_NLERR("Flow action size (%u bytes) exceeds maximum", size);
- 		return ERR_PTR(-EINVAL);
-+	}
+-	if (unlikely(!skb))
+-		return -ENOMEM;
+-
+-	vport = ovs_vport_rcu(dp, out_port);
+-	if (unlikely(!vport)) {
++	if (likely(vport))
++		ovs_vport_send(vport, skb);
++	else
+ 		kfree_skb(skb);
+-		return -ENODEV;
+-	}
+-
+-	ovs_vport_send(vport, skb);
+-	return 0;
+ }
  
- 	sfa = kmalloc(sizeof(*sfa) + size, GFP_KERNEL);
- 	if (!sfa)
-@@ -1786,6 +1794,7 @@ static int ovs_nla_copy_actions__(const struct nlattr *attr,
- 			break;
+ static int output_userspace(struct datapath *dp, struct sk_buff *skb,
+@@ -768,8 +761,12 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
+ 	     a = nla_next(a, &rem)) {
+ 		int err = 0;
  
- 		default:
-+			OVS_NLERR("Unknown tunnel attribute (%d).\n", type);
- 			return -EINVAL;
+-		if (prev_port != -1) {
+-			do_output(dp, skb_clone(skb, GFP_ATOMIC), prev_port);
++		if (unlikely(prev_port != -1)) {
++			struct sk_buff *out_skb = skb_clone(skb, GFP_ATOMIC);
++
++			if (out_skb)
++				do_output(dp, out_skb, prev_port);
++
+ 			prev_port = -1;
  		}
- 		if (!skip_copy) {
+ 
 -- 
 1.9.3
