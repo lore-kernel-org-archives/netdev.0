@@ -1,105 +1,148 @@
-From: "Stam, Michel [FINT]" <M.Stam@fugro.nl>
-Subject: RE: "asix: Don't reset PHY on if_up for ASIX 88772" breaks net on arndale platform
-Date: Tue, 4 Nov 2014 09:19:26 +0100
-Message-ID: <C89EFD3CD56F64468D3D206D683A8D2203985F49@ldam-msx2.fugro-nl.local>
-References: <20141104072236.GA559@afflict.kos.to>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <linux-usb@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <linux-samsung-soc@vger.kernel.org>
-To: "Riku Voipio" <riku.voipio@iki.fi>, <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.eu1.fugro.com ([46.34.88.151]:59701 "EHLO
-	smtp.eu1.fugro.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750901AbaKDIT3 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Nov 2014 03:19:29 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <20141104072236.GA559@afflict.kos.to>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [PATCH 1/4] inet: Add skb_copy_datagram_iter
+Date: Tue, 04 Nov 2014 16:31:34 +0800
+Message-ID: <E1XlZWY-0003HZ-Ef@gondolin.me.apana.org.au>
+References: <20141104033818.GA11149@gondor.apana.org.au>
+To: Al Viro <viro@ZenIV.linux.org.uk>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Benjamin LaHaise <bcrl@kvack.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello Riku,
+This patch adds skb_copy_datagram_iter, which is identical to
+skb_copy_datagram_iovec except that it operates on iov_iter
+instead of iovec.
 
-Interesting, as the commit itself is a revert from a kernel back to 2.6
-somewhere. The problem I had is related to the PHY being reset on
-interface-up, can you confirm that you require this? Reverting this
-breaks ethtool support in turn.
+Eventually all users of skb_copy_datagram_iovec should switch
+over to iov_iter and then we can remove skb_copy_datagram_iovec.
 
-Kind regards,
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+---
 
-Michel Stam
+ include/linux/skbuff.h |    3 +
+ net/core/datagram.c    |   82 +++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 85 insertions(+)
 
------Original Message-----
-From: Riku Voipio [mailto:riku.voipio@iki.fi] 
-Sent: Tuesday, November 04, 2014 8:23 AM
-To: davem@davemloft.net; Stam, Michel [FINT]
-Cc: linux-usb@vger.kernel.org; netdev@vger.kernel.org;
-linux-kernel@vger.kernel.org; linux-samsung-soc@vger.kernel.org
-Subject: "asix: Don't reset PHY on if_up for ASIX 88772" breaks net on
-arndale platform
-
-Hi,
-
-With 3.18-rc3, asix on arndale (samsung exynos 5250 based board), fails
-to work. Interface is initialized but network traffic seem not to pass
-through. With kernel IP config the result looks like:
-
-[    3.323275] usb 3-3.2.4: new high-speed USB device number 4 using
-exynos-ehci
-[    3.419151] usb 3-3.2.4: New USB device found, idVendor=0b95,
-idProduct=772a
-[    3.424735] usb 3-3.2.4: New USB device strings: Mfr=1, Product=2,
-SerialNumber=3
-[    3.432196] usb 3-3.2.4: Product: AX88772 
-[    3.436279] usb 3-3.2.4: Manufacturer: ASIX Elec. Corp.
-[    3.441486] usb 3-3.2.4: SerialNumber: 000001
-[    3.447530] asix 3-3.2.4:1.0 (unnamed net_device) (uninitialized):
-invalid hw address, using random
-[    3.764352] asix 3-3.2.4:1.0 eth0: register 'asix' at
-usb-12110000.usb-3.2.4, ASIX AX88772 USB 2.0 Ethernet, de:a2:66:bf:ca:4f
-[    4.488773] asix 3-3.2.4:1.0 eth0: link down
-[    5.690025] asix 3-3.2.4:1.0 eth0: link up, 100Mbps, full-duplex, lpa
-0xC5E1
-[    5.712947] Sending DHCP requests ...... timed out!
-[   83.165303] IP-Config: Retrying forever (NFS root)...
-[   83.170397] asix 3-3.2.4:1.0 eth0: link up, 100Mbps, full-duplex, lpa
-0xC5E1
-[   83.192944] Sending DHCP requests .....
-
-Similar results also with dhclient. Git bisect identified the breaking
-commit as:
-
-commit 3cc81d85ee01e5a0b7ea2f4190e2ed1165f53c31
-Author: Michel Stam <m.stam@fugro.nl>
-Date:   Thu Oct 2 10:22:02 2014 +0200
-
-    asix: Don't reset PHY on if_up for ASIX 88772
-
-Taking 3.18-rc3 and that commit reverted, network works again:
-
-[    3.303500] usb 3-3.2.4: new high-speed USB device number 4 using
-exynos-ehci
-[    3.399375] usb 3-3.2.4: New USB device found, idVendor=0b95,
-idProduct=772a
-[    3.404963] usb 3-3.2.4: New USB device strings: Mfr=1, Product=2,
-SerialNumber=3
-[    3.412424] usb 3-3.2.4: Product: AX88772 
-[    3.416508] usb 3-3.2.4: Manufacturer: ASIX Elec. Corp.
-[    3.421715] usb 3-3.2.4: SerialNumber: 000001
-[    3.427755] asix 3-3.2.4:1.0 (unnamed net_device) (uninitialized):
-invalid hw address, using random
-[    3.744837] asix 3-3.2.4:1.0 eth0: register 'asix' at
-usb-12110000.usb-3.2.4, ASIX AX88772 USB 2.0 Ethernet, 12:59:f1:a8:43:90
-[    7.098998] asix 3-3.2.4:1.0 eth0: link up, 100Mbps, full-duplex, lpa
-0xC5E1
-[    7.118258] Sending DHCP requests ., OK
-[    9.753259] IP-Config: Got DHCP answer from 192.168.1.1, my address
-is 192.168.1.111
-
-There might something wrong on the samsung platform code (I understand
-the USB on arndale is "funny"), but this is still an regression from
-3.17.
-
-Riku
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 6c8b6f6..5ff7054 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -148,6 +148,7 @@
+ struct net_device;
+ struct scatterlist;
+ struct pipe_inode_info;
++struct iov_iter;
+ 
+ #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
+ struct nf_conntrack {
+@@ -2641,6 +2642,8 @@ int zerocopy_sg_from_iovec(struct sk_buff *skb, const struct iovec *frm,
+ int skb_copy_datagram_const_iovec(const struct sk_buff *from, int offset,
+ 				  const struct iovec *to, int to_offset,
+ 				  int size);
++int skb_copy_datagram_iter(const struct sk_buff *from, int offset,
++			   struct iov_iter *to, int size);
+ void skb_free_datagram(struct sock *sk, struct sk_buff *skb);
+ void skb_free_datagram_locked(struct sock *sk, struct sk_buff *skb);
+ int skb_kill_datagram(struct sock *sk, struct sk_buff *skb, unsigned int flags);
+diff --git a/net/core/datagram.c b/net/core/datagram.c
+index fdbc9a8..45a9d4d 100644
+--- a/net/core/datagram.c
++++ b/net/core/datagram.c
+@@ -49,6 +49,7 @@
+ #include <linux/spinlock.h>
+ #include <linux/slab.h>
+ #include <linux/pagemap.h>
++#include <linux/uio.h>
+ 
+ #include <net/protocol.h>
+ #include <linux/skbuff.h>
+@@ -482,6 +483,87 @@ fault:
+ EXPORT_SYMBOL(skb_copy_datagram_const_iovec);
+ 
+ /**
++ *	skb_copy_datagram_iter - Copy a datagram to an iovec iterator.
++ *	@skb: buffer to copy
++ *	@offset: offset in the buffer to start copying from
++ *	@to: iovec iterator to copy to
++ *	@len: amount of data to copy from buffer to iovec
++ */
++int skb_copy_datagram_iter(const struct sk_buff *skb, int offset,
++			   struct iov_iter *to, int len)
++{
++	int start = skb_headlen(skb);
++	int i, copy = start - offset;
++	struct sk_buff *frag_iter;
++
++	trace_skb_copy_datagram_iovec(skb, len);
++
++	/* Copy header. */
++	if (copy > 0) {
++		if (copy > len)
++			copy = len;
++		if (copy_to_iter(skb->data + offset, copy, to))
++			goto fault;
++		if ((len -= copy) == 0)
++			return 0;
++		offset += copy;
++	}
++
++	/* Copy paged appendix. Hmm... why does this look so complicated? */
++	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
++		int end;
++		const skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
++
++		WARN_ON(start > offset + len);
++
++		end = start + skb_frag_size(frag);
++		if ((copy = end - offset) > 0) {
++			int err;
++			u8  *vaddr;
++			struct page *page = skb_frag_page(frag);
++
++			if (copy > len)
++				copy = len;
++			vaddr = kmap(page);
++			err = copy_to_iter(vaddr + frag->page_offset +
++					   offset - start, copy, to);
++			kunmap(page);
++			if (err)
++				goto fault;
++			if (!(len -= copy))
++				return 0;
++			offset += copy;
++		}
++		start = end;
++	}
++
++	skb_walk_frags(skb, frag_iter) {
++		int end;
++
++		WARN_ON(start > offset + len);
++
++		end = start + frag_iter->len;
++		if ((copy = end - offset) > 0) {
++			if (copy > len)
++				copy = len;
++			if (skb_copy_datagram_iter(frag_iter, offset - start,
++						   to, copy))
++				goto fault;
++			if ((len -= copy) == 0)
++				return 0;
++			offset += copy;
++		}
++		start = end;
++	}
++	if (!len)
++		return 0;
++
++fault:
++	return -EFAULT;
++}
++EXPORT_SYMBOL(skb_copy_datagram_iter);
++
++/**
+  *	skb_copy_datagram_from_iovec - Copy a datagram from an iovec.
+  *	@skb: buffer to copy
+  *	@offset: offset in the buffer to start copying to
