@@ -1,38 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Xen-devel] [PATCHv1 net-next] xen-netback: remove
- unconditional pull_skb_tail in guest Tx path
-Date: Tue, 04 Nov 2014 13:43:17 -0800
-Message-ID: <1415137397.25370.7.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1415036346.1411.3.camel@citrix.com>
-	 <5457BF80.2000205@citrix.com> <5457C807.5080509@linaro.org>
-	 <20141104.161704.1690311989900127361.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: zoltan.kiss@linaro.org, david.vrabel@citrix.com,
-	Ian.Campbell@citrix.com, netdev@vger.kernel.org,
-	malcolm.crossley@citrix.com, wei.liu2@citrix.com,
-	xen-devel@lists.xenproject.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f180.google.com ([209.85.223.180]:36663 "EHLO
-	mail-ie0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752232AbaKDVnU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Nov 2014 16:43:20 -0500
-Received: by mail-ie0-f180.google.com with SMTP id y20so8223268ier.25
-        for <netdev@vger.kernel.org>; Tue, 04 Nov 2014 13:43:19 -0800 (PST)
-In-Reply-To: <20141104.161704.1690311989900127361.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Fabian Frederick <fabf@skynet.be>
+Subject: [PATCH V2 net-next] esp4: remove assignment in if condition
+Date: Tue,  4 Nov 2014 22:54:36 +0100
+Message-ID: <1415138076-7036-1-git-send-email-fabf@skynet.be>
+Cc: Joe Perches <joe@perches.com>, Fabian Frederick <fabf@skynet.be>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2014-11-04 at 16:17 -0500, David Miller wrote:
+Signed-off-by: Fabian Frederick <fabf@skynet.be>
+---
+V2: remove blank line between set and test (suggested by Joe Perches).
 
+ net/ipv4/esp4.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-> 
-> Every protocol demux starts with pskb_may_pull() to pull frag data
-> into the linear area, if necessary, before looking at headers.
-
-eth_get_headlen() might be relevant as well, to perform a single copy of
-exactly all headers.
-
-This is known to help a bit.
+diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
+index 360b565..d2bf02e 100644
+--- a/net/ipv4/esp4.c
++++ b/net/ipv4/esp4.c
+@@ -392,8 +392,10 @@ static int esp_input(struct xfrm_state *x, struct sk_buff *skb)
+ 	if (elen <= 0)
+ 		goto out;
+ 
+-	if ((err = skb_cow_data(skb, 0, &trailer)) < 0)
++	err = skb_cow_data(skb, 0, &trailer);
++	if (err < 0)
+ 		goto out;
++
+ 	nfrags = err;
+ 
+ 	assoclen = sizeof(*esph);
+-- 
+1.9.3
