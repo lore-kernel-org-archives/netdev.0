@@ -1,62 +1,52 @@
-From: Shuah Khan <shuahkh-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
-Subject: [PATCH 08/20] selftests/firmware: add install target to enable installing test
-Date: Tue,  4 Nov 2014 10:11:04 -0700
-Message-ID: <a2ce2a487fda9cb4ffe45bf96325b2f9ebd4c215.1415117102.git.shuahkh@osg.samsung.com>
+From: Shuah Khan <shuahkh@osg.samsung.com>
+Subject: [PATCH 16/20] selftests/ptrace: add install target to enable installing test
+Date: Tue,  4 Nov 2014 10:11:12 -0700
+Message-ID: <c29ba0f8dcdd2bf345a7e92496d17413c7a4acb4.1415117102.git.shuahkh@osg.samsung.com>
 References: <cover.1415117102.git.shuahkh@osg.samsung.com>
-Cc: Shuah Khan <shuahkh-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>, linux-kbuild-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	mmarek-AlSwsSmVLrQ@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org,
-	tranmanphong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, dh.herrmann-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, hughd-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
-	bobby.prani-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org,
-	serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <cover.1415117102.git.shuahkh-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
-In-Reply-To: <cover.1415117102.git.shuahkh-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
-References: <cover.1415117102.git.shuahkh-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Shuah Khan <shuahkh@osg.samsung.com>, linux-kbuild@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-api@vger.kernel.org,
+	netdev@vger.kernel.org
+To: gregkh@linuxfoundation.org, akpm@linux-foundation.org,
+	mmarek@suse.cz, davem@davemloft.net, keescook@chromium.org,
+	tranmanphong@gmail.com, dh.herrmann@gmail.com, hughd@google.com,
+	bobby.prani@gmail.com, ebiederm@xmission.com,
+	serge.hallyn@ubuntu.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1415117102.git.shuahkh@osg.samsung.com>
+In-Reply-To: <cover.1415117102.git.shuahkh@osg.samsung.com>
+References: <cover.1415117102.git.shuahkh@osg.samsung.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Add a new make target to enable installing test. This target
 installs test in the kselftest install location and add to the
 kselftest script to run the test.
 
-Signed-off-by: Shuah Khan <shuahkh-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
+Signed-off-by: Shuah Khan <shuahkh@osg.samsung.com>
 ---
- tools/testing/selftests/firmware/Makefile | 20 ++++++++++++++++++++
- 1 file changed, 20 insertions(+)
+ tools/testing/selftests/ptrace/Makefile | 11 +++++++++--
+ 1 file changed, 9 insertions(+), 2 deletions(-)
 
-diff --git a/tools/testing/selftests/firmware/Makefile b/tools/testing/selftests/firmware/Makefile
-index e23cce0..d5008ec 100644
---- a/tools/testing/selftests/firmware/Makefile
-+++ b/tools/testing/selftests/firmware/Makefile
-@@ -19,6 +19,26 @@ fw_userhelper:
-                 exit 1; \
-         fi
+diff --git a/tools/testing/selftests/ptrace/Makefile b/tools/testing/selftests/ptrace/Makefile
+index 47ae2d3..7826045 100644
+--- a/tools/testing/selftests/ptrace/Makefile
++++ b/tools/testing/selftests/ptrace/Makefile
+@@ -1,7 +1,14 @@
+ CFLAGS += -iquote../../../../include/uapi -Wall
+-peeksiginfo: peeksiginfo.c
  
+-all: peeksiginfo
++all:
++	gcc peeksiginfo.c -o peeksiginfo
++
 +install: all
-+	install ./fw_filesystem.sh ./fw_userhelper.sh $(INSTALL_KSFT_PATH)
-+	echo "\necho \"Start firmware filesystem test ....\"" >> $(KSELFTEST)
-+	echo "if /bin/sh ./fw_filesystem.sh ; then \\" >> $(KSELFTEST)
-+	echo "\techo \"fw_filesystem: ok \"; \\" >> $(KSELFTEST)
-+	echo "else \\" >> $(KSELFTEST)
-+	echo "\techo \"fw_filesystem: [FAIL] \"; \\" >> $(KSELFTEST)
-+	echo "fi" >> $(KSELFTEST)
-+	echo "echo \"End firmware filesystem test ....\"" >> $(KSELFTEST)
-+	echo "echo \"--------------------\"" >> $(KSELFTEST)
-+
-+	echo "echo \"Start firmware userhelper test ....\"" >> $(KSELFTEST)
-+	echo "if /bin/sh ./fw_userhelper.sh ; then \\" >> $(KSELFTEST)
-+	echo "\techo \"fw_userhelper: ok\"; \\" >> $(KSELFTEST)
-+	echo "else \\" >> $(KSELFTEST)
-+	echo "\techo \"fw_userhelper: [FAIL] \"; \\" >> $(KSELFTEST)
-+	echo "fi" >> $(KSELFTEST)
-+	echo "echo \"End firmware userhelper test ....\"" >> $(KSELFTEST)
++	install ./peeksiginfo $(INSTALL_KSFT_PATH)
++	echo "\necho \"Start ptrace test ....\"" >> $(KSELFTEST)
++	echo "./peeksiginfo || echo \"peeksiginfo selftests: [FAIL]\"" >> $(KSELFTEST)
++	echo "echo \"End ptrace test ....\"" >> $(KSELFTEST)
 +	echo "echo \"==============================\"" >> $(KSELFTEST)
-+
- run_tests: all fw_filesystem fw_userhelper
  
- # Nothing to clean up.
+ clean:
+ 	rm -f peeksiginfo
 -- 
 1.9.1
