@@ -1,7 +1,7 @@
 From: Shuah Khan <shuahkh@osg.samsung.com>
-Subject: [PATCH 06/20] selftests/cpu-hotplug: add install target to enable installing test
-Date: Tue,  4 Nov 2014 10:11:02 -0700
-Message-ID: <7b618c4c81043fc6cc8d7b218069100262e544a2.1415117102.git.shuahkh@osg.samsung.com>
+Subject: [PATCH 01/20] selftests/user: move test out of Makefile into a shell script
+Date: Tue,  4 Nov 2014 10:10:57 -0700
+Message-ID: <76f92b5a7f05a6da6bfc1724716882a859d69c4c.1415117102.git.shuahkh@osg.samsung.com>
 References: <cover.1415117102.git.shuahkh@osg.samsung.com>
 Cc: Shuah Khan <shuahkh@osg.samsung.com>, linux-kbuild@vger.kernel.org,
 	linux-kernel@vger.kernel.org, linux-api@vger.kernel.org,
@@ -11,41 +11,56 @@ To: gregkh@linuxfoundation.org, akpm@linux-foundation.org,
 	tranmanphong@gmail.com, dh.herrmann@gmail.com, hughd@google.com,
 	bobby.prani@gmail.com, ebiederm@xmission.com,
 	serge.hallyn@ubuntu.com
-Return-path: <linux-kbuild-owner@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1415117102.git.shuahkh@osg.samsung.com>
 In-Reply-To: <cover.1415117102.git.shuahkh@osg.samsung.com>
 References: <cover.1415117102.git.shuahkh@osg.samsung.com>
-Sender: linux-kbuild-owner@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add a new make target to enable installing test. This target
-installs test in the kselftest install location and add to the
-kselftest script to run the test.
+Currently user copy test is run from the Makefile. Move it out
+of the Makefile to be run from a shell script to allow the test
+to be run as stand-alone test, in addition to allowing the test
+run from a make target.
 
 Signed-off-by: Shuah Khan <shuahkh@osg.samsung.com>
 ---
- tools/testing/selftests/cpu-hotplug/Makefile | 9 +++++++++
- 1 file changed, 9 insertions(+)
+ tools/testing/selftests/user/Makefile          |  8 +-------
+ tools/testing/selftests/user/test_user_copy.sh | 10 ++++++++++
+ 2 files changed, 11 insertions(+), 7 deletions(-)
+ create mode 100755 tools/testing/selftests/user/test_user_copy.sh
 
-diff --git a/tools/testing/selftests/cpu-hotplug/Makefile b/tools/testing/selftests/cpu-hotplug/Makefile
-index e9c28d8..3075d3a 100644
---- a/tools/testing/selftests/cpu-hotplug/Makefile
-+++ b/tools/testing/selftests/cpu-hotplug/Makefile
-@@ -1,5 +1,14 @@
-+TEST_STR="/bin/bash ./cpu-on-off-test.sh || echo \"cpu-hotplug selftests: [FAIL]\""
-+
+diff --git a/tools/testing/selftests/user/Makefile b/tools/testing/selftests/user/Makefile
+index 396255b..12c9d15 100644
+--- a/tools/testing/selftests/user/Makefile
++++ b/tools/testing/selftests/user/Makefile
+@@ -4,10 +4,4 @@
  all:
  
-+install:
-+	install ./on-off-test.sh $(INSTALL_KSFT_PATH)/cpu-on-off-test.sh
-+	echo "\necho \"Start cpu hotplug test ....\"" >> $(KSELFTEST)
-+	echo $(TEST_STR) >> $(KSELFTEST)
-+	echo "echo \"End cpu hotplug test ....\"" >> $(KSELFTEST)
-+	echo "echo \"==============================\"" >> $(KSELFTEST)
+ run_tests: all
+-	@if /sbin/modprobe test_user_copy ; then \
+-		rmmod test_user_copy; \
+-		echo "user_copy: ok"; \
+-	else \
+-		echo "user_copy: [FAIL]"; \
+-		exit 1; \
+-	fi
++	./test_user_copy.sh
+diff --git a/tools/testing/selftests/user/test_user_copy.sh b/tools/testing/selftests/user/test_user_copy.sh
+new file mode 100755
+index 0000000..350107f
+--- /dev/null
++++ b/tools/testing/selftests/user/test_user_copy.sh
+@@ -0,0 +1,10 @@
++#!/bin/sh
++# Runs copy_to/from_user infrastructure using test_user_copy kernel module
 +
- run_tests:
- 	@/bin/bash ./on-off-test.sh || echo "cpu-hotplug selftests: [FAIL]"
- 
++if /sbin/modprobe -q test_user_copy; then
++	/sbin/modprobe -q -r test_user_copy
++	echo "user_copy: ok"
++else
++	echo "user_copy: [FAIL]"
++	exit 1
++fi
 -- 
 1.9.1
-
