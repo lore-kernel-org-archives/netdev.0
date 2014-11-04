@@ -1,197 +1,151 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 2/4] tun: Use iovec iterators
-Date: Tue, 4 Nov 2014 16:37:21 +0800
-Message-ID: <20141104083721.GA12691@gondor.apana.org.au>
-References: <20141104033818.GA11149@gondor.apana.org.au>
- <E1XlZWY-0003Hk-Qu@gondolin.me.apana.org.au>
+From: Dong Aisheng <b29396@freescale.com>
+Subject: Re: [PATCH 7/7] can: m_can: workaround for transmit data less than
+ 4 bytes
+Date: Tue, 4 Nov 2014 16:25:11 +0800
+Message-ID: <20141104082505.GA8060@shlinux1.ap.freescale.net>
+References: <1414579527-31100-1-git-send-email-b29396@freescale.com>
+ <1414579527-31100-7-git-send-email-b29396@freescale.com>
+ <5457B1D1.6080301@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Al Viro <viro@ZenIV.linux.org.uk>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Benjamin LaHaise <bcrl@kvack.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:51789 "EHLO
-	helcar.apana.org.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752261AbaKDIhb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Nov 2014 03:37:31 -0500
+Content-Type: text/plain; charset="us-ascii"
+Cc: <linux-can@vger.kernel.org>, <wg@grandegger.com>,
+	<varkabhadram@gmail.com>, <netdev@vger.kernel.org>,
+	<socketcan@hartkopp.net>, <linux-arm-kernel@lists.infradead.org>
+To: Marc Kleine-Budde <mkl@pengutronix.de>
+Return-path: <linux-can-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <E1XlZWY-0003Hk-Qu@gondolin.me.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <5457B1D1.6080301@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Oops, this patch had a left-over skb_pull which made it broken.
-Here is a fixed version.
+On Mon, Nov 03, 2014 at 05:48:17PM +0100, Marc Kleine-Budde wrote:
+> On 10/29/2014 11:45 AM, Dong Aisheng wrote:
+> > We meet an IC issue that we have to write the full 8 bytes (whatever
+> > value for the second word) in Message RAM to avoid bit error for transmit
+> > data less than 4 bytes.
+> 
+> Is this a SoC or a m_can problem? Are all versions of the SoC/m_can
+> affected? Is there a m_can version register somewhere?
+> 
 
-tun: Use iovec iterators
+I'm still not sure it's SoC or m_can problem.
+Our IC guys ran the simulation code and found this issue.
+But due to some reasons, it may be very slow for they to investigate
+and get the conclusion.
 
-This patch removes the use of skb_copy_datagram_const_iovec in
-favour of the iovec iterator-based skb_copy_datagram_iter.
+> > Without the workaround, we can easily see the following errors:
+> > root@imx6qdlsolo:~# ip link set can0 up type can bitrate 1000000
+> > [   66.882520] IPv6: ADDRCONF(NETDEV_CHANGE): can0: link becomes ready
+> > root@imx6qdlsolo:~# cansend can0 123#112233
+> > [   66.935640] m_can 20e8000.can can0: Bit Error Uncorrected
+> > 
+> > Signed-off-by: Dong Aisheng <b29396@freescale.com>
+> > ---
+> >  drivers/net/can/m_can/m_can.c | 11 ++++++++++-
+> >  1 file changed, 10 insertions(+), 1 deletion(-)
+> > 
+> > diff --git a/drivers/net/can/m_can/m_can.c b/drivers/net/can/m_can/m_can.c
+> > index 219e0e3..f2d9ebe 100644
+> > --- a/drivers/net/can/m_can/m_can.c
+> > +++ b/drivers/net/can/m_can/m_can.c
+> > @@ -1058,10 +1058,19 @@ static netdev_tx_t m_can_start_xmit(struct sk_buff *skb,
+> >  	m_can_fifo_write(priv, 0, M_CAN_FIFO_ID, id);
+> >  	m_can_fifo_write(priv, 0, M_CAN_FIFO_DLC, can_len2dlc(cf->len) << 16);
+> >  
+> > -	for (i = 0; i < cf->len; i += 4)
+> > +	for (i = 0; i < cf->len; i += 4) {
+> >  		m_can_fifo_write(priv, 0, M_CAN_FIFO_DATA(i / 4),
+> >  				 *(u32 *)(cf->data + i));
+> >  
+> > +		/* FIXME: we meet an IC issue that we have to write the full 8
+> 
+> FIXME usually indicates that the driver needs some work here. Just
+> describe your hardware bug, you might add a reference to an errata if
+> available, though.
+> 
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+We don't have an errata for it now.
+Because i'm not sure this is the final workaround and also not sure if other
+SoC vendors having the same issue, so i used FIXME here firstly.
+Since the code is harmless, so i wish we could put it here first
+until we find evidence no need for other SoC or only belong to specific
+IP version.
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 9dd3746..ff955cdb 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -71,6 +71,7 @@
- #include <net/rtnetlink.h>
- #include <net/sock.h>
- #include <linux/seq_file.h>
-+#include <linux/uio.h>
- 
- #include <asm/uaccess.h>
- 
-@@ -1230,11 +1231,11 @@ static ssize_t tun_chr_aio_write(struct kiocb *iocb, const struct iovec *iv,
- static ssize_t tun_put_user(struct tun_struct *tun,
- 			    struct tun_file *tfile,
- 			    struct sk_buff *skb,
--			    const struct iovec *iv, int len)
-+			    struct iov_iter *iter)
- {
- 	struct tun_pi pi = { 0, skb->protocol };
--	ssize_t total = 0;
--	int vlan_offset = 0, copied;
-+	ssize_t total;
-+	int vlan_offset;
- 	int vlan_hlen = 0;
- 	int vnet_hdr_sz = 0;
- 
-@@ -1244,23 +1245,25 @@ static ssize_t tun_put_user(struct tun_struct *tun,
- 	if (tun->flags & TUN_VNET_HDR)
- 		vnet_hdr_sz = tun->vnet_hdr_sz;
- 
-+	total = skb->len + vlan_hlen + vnet_hdr_sz;
-+
- 	if (!(tun->flags & TUN_NO_PI)) {
--		if ((len -= sizeof(pi)) < 0)
-+		if (iov_iter_count(iter) < sizeof(pi))
- 			return -EINVAL;
- 
--		if (len < skb->len + vlan_hlen + vnet_hdr_sz) {
-+		if (iov_iter_count(iter) < total) {
- 			/* Packet will be striped */
- 			pi.flags |= TUN_PKT_STRIP;
- 		}
- 
--		if (memcpy_toiovecend(iv, (void *) &pi, 0, sizeof(pi)))
-+		if (copy_to_iter(&pi, sizeof(pi), iter))
- 			return -EFAULT;
- 		total += sizeof(pi);
- 	}
- 
- 	if (vnet_hdr_sz) {
- 		struct virtio_net_hdr gso = { 0 }; /* no info leak */
--		if ((len -= vnet_hdr_sz) < 0)
-+		if (iov_iter_count(iter) < vnet_hdr_sz)
- 			return -EINVAL;
- 
- 		if (skb_is_gso(skb)) {
-@@ -1299,17 +1302,12 @@ static ssize_t tun_put_user(struct tun_struct *tun,
- 			gso.flags = VIRTIO_NET_HDR_F_DATA_VALID;
- 		} /* else everything is zero */
- 
--		if (unlikely(memcpy_toiovecend(iv, (void *)&gso, total,
--					       sizeof(gso))))
-+		if (copy_to_iter(&gso, sizeof(gso), iter))
- 			return -EFAULT;
--		total += vnet_hdr_sz;
- 	}
- 
--	copied = total;
--	len = min_t(int, skb->len + vlan_hlen, len);
--	total += skb->len + vlan_hlen;
- 	if (vlan_hlen) {
--		int copy, ret;
-+		int ret;
- 		struct {
- 			__be16 h_vlan_proto;
- 			__be16 h_vlan_TCI;
-@@ -1320,36 +1318,32 @@ static ssize_t tun_put_user(struct tun_struct *tun,
- 
- 		vlan_offset = offsetof(struct vlan_ethhdr, h_vlan_proto);
- 
--		copy = min_t(int, vlan_offset, len);
--		ret = skb_copy_datagram_const_iovec(skb, 0, iv, copied, copy);
--		len -= copy;
--		copied += copy;
--		if (ret || !len)
-+		ret = skb_copy_datagram_iter(skb, 0, iter, vlan_offset);
-+		if (ret || !iov_iter_count(iter))
- 			goto done;
- 
--		copy = min_t(int, sizeof(veth), len);
--		ret = memcpy_toiovecend(iv, (void *)&veth, copied, copy);
--		len -= copy;
--		copied += copy;
--		if (ret || !len)
-+		ret = copy_to_iter(&veth, sizeof(veth), iter);
-+		if (ret || !iov_iter_count(iter))
- 			goto done;
- 	}
- 
--	skb_copy_datagram_const_iovec(skb, vlan_offset, iv, copied, len);
-+	skb_copy_datagram_iter(skb, vlan_offset, iter, skb->len - vlan_offset);
- 
- done:
- 	tun->dev->stats.tx_packets++;
--	tun->dev->stats.tx_bytes += len;
-+	tun->dev->stats.tx_bytes += skb->len + vlan_hlen;
- 
- 	return total;
- }
- 
- static ssize_t tun_do_read(struct tun_struct *tun, struct tun_file *tfile,
--			   const struct iovec *iv, ssize_t len, int noblock)
-+			   const struct iovec *iv, unsigned long segs,
-+			   ssize_t len, int noblock)
- {
- 	struct sk_buff *skb;
- 	ssize_t ret = 0;
- 	int peeked, err, off = 0;
-+	struct iov_iter iter;
- 
- 	tun_debug(KERN_INFO, tun, "tun_do_read\n");
- 
-@@ -1362,11 +1356,12 @@ static ssize_t tun_do_read(struct tun_struct *tun, struct tun_file *tfile,
- 	/* Read frames from queue */
- 	skb = __skb_recv_datagram(tfile->socket.sk, noblock ? MSG_DONTWAIT : 0,
- 				  &peeked, &off, &err);
--	if (skb) {
--		ret = tun_put_user(tun, tfile, skb, iv, len);
--		kfree_skb(skb);
--	} else
--		ret = err;
-+	if (!skb)
-+		return ret;
-+
-+	iov_iter_init(&iter, READ, iv, segs, len);
-+	ret = tun_put_user(tun, tfile, skb, &iter);
-+	kfree_skb(skb);
- 
- 	return ret;
- }
-@@ -1387,7 +1382,7 @@ static ssize_t tun_chr_aio_read(struct kiocb *iocb, const struct iovec *iv,
- 		goto out;
- 	}
- 
--	ret = tun_do_read(tun, tfile, iv, len,
-+	ret = tun_do_read(tun, tfile, iv, count, len,
- 			  file->f_flags & O_NONBLOCK);
- 	ret = min_t(ssize_t, ret, len);
- 	if (ret > 0)
-@@ -1488,7 +1483,7 @@ static int tun_recvmsg(struct kiocb *iocb, struct socket *sock,
- 					 SOL_PACKET, TUN_TX_TIMESTAMP);
- 		goto out;
- 	}
--	ret = tun_do_read(tun, tfile, m->msg_iov, total_len,
-+	ret = tun_do_read(tun, tfile, m->msg_iov, m->msg_iovlen, total_len,
- 			  flags & MSG_DONTWAIT);
- 	if (ret > total_len) {
- 		m->msg_flags |= MSG_TRUNC;
+> > +		 * bytes (whatever value for the second word) in Message RAM to
+> > +		 * avoid bit error for transmit data less than 4 bytes
+> > +		 */
+> > +		if (cf->len <= 4)
+> > +			m_can_fifo_write(priv, 0, M_CAN_FIFO_DATA(i / 4 + 1),
+> > +					 0x0);
+> 
+> This workaround doesn't handle the dlc == 0 case, your error description
+> isn't completely if this is a problem, too.
+> 
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+You're right.
+I just checked the dlc == 0 case also had such issue and it also needs
+the extra 8 bytes write to avoid such issue.
+
+BTW the issue only happened on the first time when you send a frame with no
+data(dlc == 0) at the first time.
+e.g.
+root@imx6sxsabresd:~# ip link set can0 up type can bitrate 1000000
+[   62.326014] IPv6: ADDRCONF(NETDEV_CHANGE): can0: link becomes ready
+root@imx6sxsabresd:~# cansend can0 123#R
+[   69.233645] m_can 20e8000.can can0: Bit Error Uncorrected
+[   69.239167] m_can 20e8000.can can0: Bit Error Corrected
+
+If we send a frame success first (e.g. 5 bytes data), it will not fail
+again even you send no data frame (dlc == 0) later.
+
+The former failure of sending data less than 4 bytes is similar.
+
+Looks like the first 8 bytes of message ram has to be initialised
+for the first using.
+
+> It should be possible to change the for loop to go always to 8, or
+> simply unroll the loop:
+> 
+> /* errata description goes here */
+> m_can_fifo_write(priv, 0, M_CAN_FIFO_DATA(0), *(u32 *)(cf->data + 0));
+> m_can_fifo_write(priv, 0, M_CAN_FIFO_DATA(1), *(u32 *)(cf->data + 4));
+> 
+
+Yes, i tried to fix it as follows.
+
+/* FIXME: we meet an IC issue that we have to write the full 8
+ * bytes (whatever value for the second word) in Message RAM to
+ * avoid bit error for transmit data less than 4 bytes
+ */
+if (cf->len <= 4) {
+        m_can_fifo_write(priv, 0, M_CAN_FIFO_DATA(0),
+                         *(u32 *)(cf->data + 0));
+        m_can_fifo_write(priv, 0, M_CAN_FIFO_DATA(1),
+                         *(u32 *)(cf->data + 4));
+} else {
+        for (i = 0; i < cf->len; i += 4)
+                m_can_fifo_write(priv, 0, M_CAN_FIFO_DATA(i / 4),
+                                 *(u32 *)(cf->data + i));
+
+Will update the patch.
+
+Regards
+Dong Aisheng
+
+> > +	}
+> > +
+> >  	can_put_echo_skb(skb, dev, 0);
+> >  
+> >  	if (priv->can.ctrlmode & CAN_CTRLMODE_FD) {
+> > 
+> 
+> Marc
+> 
+> -- 
+> Pengutronix e.K.                  | Marc Kleine-Budde           |
+> Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+> Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+> Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+> 
+
+
