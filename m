@@ -1,7 +1,7 @@
 From: Fabian Frederick <fabf@skynet.be>
-Subject: [PATCH 1/1 net-next] ipv4: include linux/bug.h instead of asm/bug.h
-Date: Tue,  4 Nov 2014 20:13:50 +0100
-Message-ID: <1415128430-10674-1-git-send-email-fabf@skynet.be>
+Subject: [PATCH 1/1 net-next] cipso: include linux/bug.h instead of asm/bug.h
+Date: Tue,  4 Nov 2014 20:15:41 +0100
+Message-ID: <1415128541-10891-1-git-send-email-fabf@skynet.be>
 Cc: Fabian Frederick <fabf@skynet.be>,
 	"David S. Miller" <davem@davemloft.net>,
 	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
