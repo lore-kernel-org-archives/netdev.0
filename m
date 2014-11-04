@@ -1,55 +1,56 @@
-From: Shuah Khan <shuahkh-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
-Subject: [PATCH 11/20] selftests/memfd: add install target to enable installing test
-Date: Tue,  4 Nov 2014 10:11:07 -0700
-Message-ID: <4217a6df43d64f55fb275adb2925d0618955ea46.1415117102.git.shuahkh@osg.samsung.com>
+From: Shuah Khan <shuahkh@osg.samsung.com>
+Subject: [PATCH 07/20] selftests/efivarfs: add install target to enable installing test
+Date: Tue,  4 Nov 2014 10:11:03 -0700
+Message-ID: <3d28ab3098e26044a5ef7f60b620c7dfe66cc3fa.1415117102.git.shuahkh@osg.samsung.com>
 References: <cover.1415117102.git.shuahkh@osg.samsung.com>
-Cc: Shuah Khan <shuahkh-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>, linux-kbuild-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	mmarek-AlSwsSmVLrQ@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org,
-	tranmanphong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, dh.herrmann-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, hughd-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
-	bobby.prani-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org,
-	serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <cover.1415117102.git.shuahkh-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
-In-Reply-To: <cover.1415117102.git.shuahkh-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
-References: <cover.1415117102.git.shuahkh-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Shuah Khan <shuahkh@osg.samsung.com>, linux-kbuild@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-api@vger.kernel.org,
+	netdev@vger.kernel.org
+To: gregkh@linuxfoundation.org, akpm@linux-foundation.org,
+	mmarek@suse.cz, davem@davemloft.net, keescook@chromium.org,
+	tranmanphong@gmail.com, dh.herrmann@gmail.com, hughd@google.com,
+	bobby.prani@gmail.com, ebiederm@xmission.com,
+	serge.hallyn@ubuntu.com
+Return-path: <linux-kbuild-owner@vger.kernel.org>
+In-Reply-To: <cover.1415117102.git.shuahkh@osg.samsung.com>
+In-Reply-To: <cover.1415117102.git.shuahkh@osg.samsung.com>
+References: <cover.1415117102.git.shuahkh@osg.samsung.com>
+Sender: linux-kbuild-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Add a new make target to enable installing test. This target
 installs test in the kselftest install location and add to the
 kselftest script to run the test.
 
-Signed-off-by: Shuah Khan <shuahkh-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
+Signed-off-by: Shuah Khan <shuahkh@osg.samsung.com>
 ---
- tools/testing/selftests/memfd/Makefile | 10 ++++++++++
- 1 file changed, 10 insertions(+)
+ tools/testing/selftests/efivarfs/Makefile | 13 ++++++++++++-
+ 1 file changed, 12 insertions(+), 1 deletion(-)
 
-diff --git a/tools/testing/selftests/memfd/Makefile b/tools/testing/selftests/memfd/Makefile
-index b80cd10..bf03ec03 100644
---- a/tools/testing/selftests/memfd/Makefile
-+++ b/tools/testing/selftests/memfd/Makefile
-@@ -2,9 +2,19 @@ CFLAGS += -D_FILE_OFFSET_BITS=64
- CFLAGS += -I../../../../include/uapi/
- CFLAGS += -I../../../../include/
+diff --git a/tools/testing/selftests/efivarfs/Makefile b/tools/testing/selftests/efivarfs/Makefile
+index 29e8c6b..a668728 100644
+--- a/tools/testing/selftests/efivarfs/Makefile
++++ b/tools/testing/selftests/efivarfs/Makefile
+@@ -3,7 +3,18 @@ CFLAGS = -Wall
  
-+INSTALL_PROGS = memfd_test fuse_test run_fuse_test.sh
+ test_objs = open-unlink create-read
+ 
+-all: $(test_objs)
++TEST_STR = "/bin/bash ./efivarfs.sh || echo \"efivarfs selftests: [FAIL]\""
 +
- all:
- 	gcc $(CFLAGS) memfd_test.c -o memfd_test
- 
-+install: all build_fuse
-+	install $(INSTALL_PROGS) $(INSTALL_KSFT_PATH)
-+	echo "\necho \"Start memfd test ....\"" >> $(KSELFTEST)
-+	echo "./memfd_test || echo \"memfd_test: [FAIL]\"" >> $(KSELFTEST)
-+	echo "./run_fuse_test.sh || echo \"fuse_test: [FAIL]\"" >> $(KSELFTEST)
-+	echo "echo \"End memfd test ....\"" >> $(KSELFTEST)
++all:
++	gcc open-unlink.c -o open-unlink
++	gcc create-read.c -o create-read
++
++install: all
++	install ./efivarfs.sh $(test_objs) $(INSTALL_KSFT_PATH)
++	echo "\necho \"Start efivarfs test ....\"" >> $(KSELFTEST)
++	echo $(TEST_STR) >> $(KSELFTEST)
++	echo "echo \"End efivarfs test ....\"" >> $(KSELFTEST)
 +	echo "echo \"==============================\"" >> $(KSELFTEST)
-+
+ 
  run_tests: all
- 	gcc $(CFLAGS) memfd_test.c -o memfd_test
- 	@./memfd_test || echo "memfd_test: [FAIL]"
+ 	@/bin/bash ./efivarfs.sh || echo "efivarfs selftests: [FAIL]"
 -- 
 1.9.1
+
