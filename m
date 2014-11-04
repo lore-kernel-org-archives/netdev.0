@@ -1,36 +1,25 @@
-From: Fabian Frederick <fabf@skynet.be>
-Subject: [PATCH/TRIVIAL 1/1 net-next] udp: remove blank line between set and test
-Date: Tue,  4 Nov 2014 23:11:19 +0100
-Message-ID: <1415139079-7931-1-git-send-email-fabf@skynet.be>
-Cc: Joe Perches <joe@perches.com>, Fabian Frederick <fabf@skynet.be>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jiri Kosina <trivial@kernel.org>, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH/TRIVIAL 1/1 net-next] udp: remove blank line between
+ set and test
+Date: Tue, 04 Nov 2014 17:12:26 -0500 (EST)
+Message-ID: <20141104.171226.305579955210610472.davem@davemloft.net>
+References: <1415139079-7931-1-git-send-email-fabf@skynet.be>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, joe@perches.com,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, trivial@kernel.org, netdev@vger.kernel.org
+To: fabf@skynet.be
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1415139079-7931-1-git-send-email-fabf@skynet.be>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Suggested-by: Joe Perches <joe@perches.com>
-Signed-off-by: Fabian Frederick <fabf@skynet.be>
----
- net/ipv4/udp.c | 1 -
- 1 file changed, 1 deletion(-)
+From: Fabian Frederick <fabf@skynet.be>
+Date: Tue,  4 Nov 2014 23:11:19 +0100
 
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index cf0cece..3f001db 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1784,7 +1784,6 @@ int __udp4_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
- 				saddr, daddr, udptable);
- 
- 	sk = __udp4_lib_lookup_skb(skb, uh->source, uh->dest, udptable);
--
- 	if (sk != NULL) {
- 		int ret;
- 
--- 
-1.9.3
+> Suggested-by: Joe Perches <joe@perches.com>
+> Signed-off-by: Fabian Frederick <fabf@skynet.be>
+
+Applied.
