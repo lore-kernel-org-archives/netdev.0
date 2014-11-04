@@ -1,119 +1,37 @@
-From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Subject: [PATCH (net.git) 4/5] stmmac: fix concurrency in eee initialization.
-Date: Tue, 4 Nov 2014 17:08:08 +0100
-Message-ID: <1415117289-7733-5-git-send-email-peppe.cavallaro@st.com>
-References: <1415117289-7733-1-git-send-email-peppe.cavallaro@st.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 5/5] stmmac: pci: remove FSF address
+Date: Tue, 04 Nov 2014 11:25:13 -0500 (EST)
+Message-ID: <20141104.112513.304387600104748236.davem@davemloft.net>
+References: <1415019737-32736-6-git-send-email-andriy.shevchenko@linux.intel.com>
+	<20141103.155708.1102581898193715225.davem@davemloft.net>
+	<1415091984.472.3.camel@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-To: <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org,
+	hock.leong.kweh@intel.com, vbridgers2013@gmail.com,
+	rayagond@vayavyalabs.com
+To: andriy.shevchenko@linux.intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx07-00178001.pphosted.com ([62.209.51.94]:47617 "EHLO
-	mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752977AbaKDQUH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Nov 2014 11:20:07 -0500
-In-Reply-To: <1415117289-7733-1-git-send-email-peppe.cavallaro@st.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56825 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753863AbaKDQZS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Nov 2014 11:25:18 -0500
+In-Reply-To: <1415091984.472.3.camel@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch aims to fix the concurrency in eee initialization
-inside the stmmac driver and related warnings when enable
-DEBUG_ATOMIC_SLEEP.
+From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Date: Tue, 04 Nov 2014 11:06:24 +0200
 
-Prior this patch, the stmmac_eee_init could be called in several places
-as shown below:
+> On Mon, 2014-11-03 at 15:57 -0500, David Miller wrote:
+>> I'd rather someone script this and kill it across entire
+>> subdirectories.
+> 
+> I'm okay if you don't apply this patch now.
 
-stmmac_open  stmmac_resume         PHY Layer
-    |            |                     |
-  stmmac_hw_setup           stmmac_adjust_link
-    |                                  |           stmmac ethtool
-    |__________________________|______________|
-                                       |
-                                 stmmac_eee_init
+Then please resubmit this series with it ommitted, you'll have
+to update your cover letter as well if the patch is mentioned
+there.
 
-The patch removes the stmmac_eee_init call inside the stmmac_hw_setup
-that is unnecessary. It is sufficient to call it in the adjust_link to
-always guarantee that EEE is always configured at mac level too.
-
-Fixing the lock protection now it is covered another case (not
-considered before). The stmmac_eee_init could be called by the ethtool
-so critical sections must be protected inside this function too.
-
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Cc: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
----
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   15 +++++++++------
- 1 files changed, 9 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 2759873..9c79bf2 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -276,6 +276,7 @@ static void stmmac_eee_ctrl_timer(unsigned long arg)
- bool stmmac_eee_init(struct stmmac_priv *priv)
- {
- 	char *phy_bus_name = priv->plat->phy_bus_name;
-+	unsigned long flags;
- 	bool ret = false;
- 
- 	/* Using PCS we cannot dial with the phy registers at this stage
-@@ -300,6 +301,7 @@ bool stmmac_eee_init(struct stmmac_priv *priv)
- 			 * changed).
- 			 * In that case the driver disable own timers.
- 			 */
-+			spin_lock_irqsave(&priv->lock, flags);
- 			if (priv->eee_active) {
- 				pr_debug("stmmac: disable EEE\n");
- 				del_timer_sync(&priv->eee_ctrl_timer);
-@@ -307,9 +309,11 @@ bool stmmac_eee_init(struct stmmac_priv *priv)
- 							     tx_lpi_timer);
- 			}
- 			priv->eee_active = 0;
-+			spin_unlock_irqrestore(&priv->lock, flags);
- 			goto out;
- 		}
- 		/* Activate the EEE and start timers */
-+		spin_lock_irqsave(&priv->lock, flags);
- 		if (!priv->eee_active) {
- 			priv->eee_active = 1;
- 			init_timer(&priv->eee_ctrl_timer);
-@@ -325,9 +329,10 @@ bool stmmac_eee_init(struct stmmac_priv *priv)
- 		/* Set HW EEE according to the speed */
- 		priv->hw->mac->set_eee_pls(priv->hw, priv->phydev->link);
- 
--		pr_debug("stmmac: Energy-Efficient Ethernet initialized\n");
--
- 		ret = true;
-+		spin_unlock_irqrestore(&priv->lock, flags);
-+
-+		pr_debug("stmmac: Energy-Efficient Ethernet initialized\n");
- 	}
- out:
- 	return ret;
-@@ -760,12 +765,12 @@ static void stmmac_adjust_link(struct net_device *dev)
- 	if (new_state && netif_msg_link(priv))
- 		phy_print_status(phydev);
- 
-+	spin_unlock_irqrestore(&priv->lock, flags);
-+
- 	/* At this stage, it could be needed to setup the EEE or adjust some
- 	 * MAC related HW registers.
- 	 */
- 	priv->eee_enabled = stmmac_eee_init(priv);
--
--	spin_unlock_irqrestore(&priv->lock, flags);
- }
- 
- /**
-@@ -1705,8 +1710,6 @@ static int stmmac_hw_setup(struct net_device *dev)
- 	}
- 	priv->tx_lpi_timer = STMMAC_DEFAULT_TWT_LS;
- 
--	priv->eee_enabled = stmmac_eee_init(priv);
--
- 	stmmac_init_tx_coalesce(priv);
- 
- 	if ((priv->use_riwt) && (priv->hw->dma->rx_watchdog)) {
--- 
-1.7.4.4
+Thanks.
