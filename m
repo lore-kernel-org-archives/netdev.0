@@ -1,220 +1,53 @@
-From: Charles Keepax <ckeepax@opensource.wolfsonmicro.com>
-Subject: Re: "asix: Don't reset PHY on if_up for ASIX 88772" breaks net on
-	arndale platform
-Date: Tue, 4 Nov 2014 20:09:14 +0000
-Message-ID: <20141104200914.GN23178@opensource.wolfsonmicro.com>
-References: <20141104072236.GA559@afflict.kos.to> <C89EFD3CD56F64468D3D206D683A8D2203985F49@ldam-msx2.fugro-nl.local> <20141104094336.GA3145@afflict.kos.to> <C89EFD3CD56F64468D3D206D683A8D2203985FA9@ldam-msx2.fugro-nl.local>
+From: Xose Vazquez Perez <xose.vazquez@gmail.com>
+Subject: Re: [PATCH v2 5/5] stmmac: pci: remove FSF address
+Date: Tue, 04 Nov 2014 21:09:41 +0100
+Message-ID: <54593285.3030201@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Riku Voipio <riku.voipio@iki.fi>, davem@davemloft.net,
-	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-samsung-soc@vger.kernel.org
-To: "Stam, Michel [FINT]" <M.Stam@fugro.nl>
-Return-path: <linux-samsung-soc-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <C89EFD3CD56F64468D3D206D683A8D2203985FA9@ldam-msx2.fugro-nl.local>
-Sender: linux-samsung-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, davem@davemloft.net,
+	andriy.shevchenko@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f177.google.com ([209.85.212.177]:52156 "EHLO
+	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752816AbaKDUJp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Nov 2014 15:09:45 -0500
+Received: by mail-wi0-f177.google.com with SMTP id ex7so92762wid.16
+        for <netdev@vger.kernel.org>; Tue, 04 Nov 2014 12:09:44 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 04, 2014 at 11:23:06AM +0100, Stam, Michel [FINT] wrote:
-> Hello Riku,
-> 
-> >Fixing a bug (ethtool support) must not cause breakage elsewhere (in
-> this case on arndale). This is now a regression of functionality from
-> 3.17.
-> >
-> >I think it would better to revert the change now and with less hurry
-> introduce a ethtool fix that doesn't break arndale.
-> 
-> I don't fully agree here; 
-> I would like to point out that this commit is a revert itself. Fixing
-> the armdale will then cause breakage in other implementations, such as
-> ours. Blankly reverting breaks other peoples' implementations.
-> 
-> The PHY reset is the thing that breaks ethtool support, so any fix that
-> appeases all would have to take existing PHY state into account. 
-> 
-> I'm not an expert on the ASIX driver, nor the MII, but I think this is
-> the cause;
-> drivers/net/usb/asix_devices.c:
->    361      asix_mdio_write(dev->net, dev->mii.phy_id, MII_BMCR,
-> BMCR_RESET);
->    362      asix_mdio_write(dev->net, dev->mii.phy_id, MII_ADVERTISE,
->    363              ADVERTISE_ALL | ADVERTISE_CSMA);
->    364      mii_nway_restart(&dev->mii);
-> 
-> I would think that the ADVERTISE_ALL is the cause here, as it will reset
-> the MII back to default, thus overriding ethtool settings.
-> Would an:
-> Int reg;
-> reg = asix_mdio_read(dev->net,dev->mii.phy_id,MII_ADVERTISE);
-> 
-> prior to the offending lines, and then;
-> 
->    362      asix_mdio_write(dev->net, dev->mii.phy_id, MII_ADVERTISE,
->    363             reg);
-> 
-> solve the problem for you guys?
+David Miller wrote:
 
-If I revert the patch in question and add this in:
+> Andy Shevchenko wrote:
+>> The FSF address is subject to change, thus remove it from the file.
+>> 
+>> Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+> 
+> I cound 90t instances of this under drivers/net, therefore if this change is
+          ^^^^^^^^^^^^^
+> appropriate I'd rather someone script this and kill it across entire
+> subdirectories.
 
---- a/drivers/net/usb/asix_devices.c
-+++ b/drivers/net/usb/asix_devices.c
-@@ -299,6 +299,7 @@ static int ax88772_reset(struct usbnet *dev)
- {
-        struct asix_data *data = (struct asix_data *)&dev->data;
-        int ret, embd_phy;
-+       int reg;
-        u16 rx_ctl;
+It's a bit more, 555:
 
-        ret = asix_write_gpio(dev,
-@@ -359,8 +360,10 @@ static int ax88772_reset(struct usbnet *dev)
-        msleep(150);
-
-        asix_mdio_write(dev->net, dev->mii.phy_id, MII_BMCR, BMCR_RESET);
--       asix_mdio_write(dev->net, dev->mii.phy_id, MII_ADVERTISE,
--                       ADVERTISE_ALL | ADVERTISE_CSMA);
-+       reg = asix_mdio_read(dev->net, dev->mii.phy_id, MII_ADVERTISE);
-+       if (!reg)
-+               reg = ADVERTISE_ALL | ADVERTISE_CSMA;
-+       asix_mdio_write(dev->net, dev->mii.phy_id, MII_ADVERTISE, reg);
-        mii_nway_restart(&dev->mii);
-
-        ret = asix_write_medium_mode(dev, AX88772_MEDIUM_DEFAULT);
-
-Then things work on Arndale for me. Does that work for you?
-Whether that is a sensible fix I don't know however.
-
-> 
-> Mind, maybe the read function should take into account the reset value
-> of the MII, and set it to ADVERTISE_ALL | ADVERTISE_CSMA. I don't have
-> any documention here at the moment.
-
-Yeah I also have no documentation.
-
-Thanks,
-Charles
-
-> 
-> Is anyone able to confirm my suspicions?
-> 
-> Kind regards,
-> 
-> Michel Stam
-> -----Original Message-----
-> From: Riku Voipio [mailto:riku.voipio@iki.fi] 
-> Sent: Tuesday, November 04, 2014 10:44 AM
-> To: Stam, Michel [FINT]
-> Cc: Riku Voipio; davem@davemloft.net; linux-usb@vger.kernel.org;
-> netdev@vger.kernel.org; linux-kernel@vger.kernel.org;
-> linux-samsung-soc@vger.kernel.org; ckeepax@opensource.wolfsonmicro.com
-> Subject: Re: "asix: Don't reset PHY on if_up for ASIX 88772" breaks net
-> on arndale platform
-> 
-> On Tue, Nov 04, 2014 at 09:19:26AM +0100, Stam, Michel [FINT] wrote:
-> > Interesting, as the commit itself is a revert from a kernel back to 
-> > 2.6 somewhere. The problem I had is related to the PHY being reset on 
-> > interface-up, can you confirm that you require this?
-> 
-> I can't confirm what exactly is needed on arndale. I'm neither expert in
-> USB or ethernet. However, I can confirm that without the PHY reset,
-> networking doesn't work on arndale.
-> 
-> I now see someone else has the same problem, adding Charles to CC.
-> 
-> http://www.spinics.net/lists/linux-usb/msg116656.html
-> 
-> > Reverting this
-> > breaks ethtool support in turn.
-> 
-> Fixing a bug (ethtool support) must not cause breakage elsewhere (in
-> this case on arndale). This is now a regression of functionality from
-> 3.17.
-> 
-> I think it would better to revert the change now and with less hurry
-> introduce a ethtool fix that doesn't break arndale.
->  
-> > Kind regards,
-> > 
-> > Michel Stam
-> > 
-> > -----Original Message-----
-> > From: Riku Voipio [mailto:riku.voipio@iki.fi]
-> > Sent: Tuesday, November 04, 2014 8:23 AM
-> > To: davem@davemloft.net; Stam, Michel [FINT]
-> > Cc: linux-usb@vger.kernel.org; netdev@vger.kernel.org; 
-> > linux-kernel@vger.kernel.org; linux-samsung-soc@vger.kernel.org
-> > Subject: "asix: Don't reset PHY on if_up for ASIX 88772" breaks net on
-> 
-> > arndale platform
-> > 
-> > Hi,
-> > 
-> > With 3.18-rc3, asix on arndale (samsung exynos 5250 based board), 
-> > fails to work. Interface is initialized but network traffic seem not 
-> > to pass through. With kernel IP config the result looks like:
-> > 
-> > [    3.323275] usb 3-3.2.4: new high-speed USB device number 4 using
-> > exynos-ehci
-> > [    3.419151] usb 3-3.2.4: New USB device found, idVendor=0b95,
-> > idProduct=772a
-> > [    3.424735] usb 3-3.2.4: New USB device strings: Mfr=1, Product=2,
-> > SerialNumber=3
-> > [    3.432196] usb 3-3.2.4: Product: AX88772 
-> > [    3.436279] usb 3-3.2.4: Manufacturer: ASIX Elec. Corp.
-> > [    3.441486] usb 3-3.2.4: SerialNumber: 000001
-> > [    3.447530] asix 3-3.2.4:1.0 (unnamed net_device) (uninitialized):
-> > invalid hw address, using random
-> > [    3.764352] asix 3-3.2.4:1.0 eth0: register 'asix' at
-> > usb-12110000.usb-3.2.4, ASIX AX88772 USB 2.0 Ethernet,
-> de:a2:66:bf:ca:4f
-> > [    4.488773] asix 3-3.2.4:1.0 eth0: link down
-> > [    5.690025] asix 3-3.2.4:1.0 eth0: link up, 100Mbps, full-duplex,
-> lpa
-> > 0xC5E1
-> > [    5.712947] Sending DHCP requests ...... timed out!
-> > [   83.165303] IP-Config: Retrying forever (NFS root)...
-> > [   83.170397] asix 3-3.2.4:1.0 eth0: link up, 100Mbps, full-duplex,
-> lpa
-> > 0xC5E1
-> > [   83.192944] Sending DHCP requests .....
-> > 
-> > Similar results also with dhclient. Git bisect identified the breaking
-> 
-> > commit as:
-> > 
-> > commit 3cc81d85ee01e5a0b7ea2f4190e2ed1165f53c31
-> > Author: Michel Stam <m.stam@fugro.nl>
-> > Date:   Thu Oct 2 10:22:02 2014 +0200
-> > 
-> >     asix: Don't reset PHY on if_up for ASIX 88772
-> > 
-> > Taking 3.18-rc3 and that commit reverted, network works again:
-> > 
-> > [    3.303500] usb 3-3.2.4: new high-speed USB device number 4 using
-> > exynos-ehci
-> > [    3.399375] usb 3-3.2.4: New USB device found, idVendor=0b95,
-> > idProduct=772a
-> > [    3.404963] usb 3-3.2.4: New USB device strings: Mfr=1, Product=2,
-> > SerialNumber=3
-> > [    3.412424] usb 3-3.2.4: Product: AX88772 
-> > [    3.416508] usb 3-3.2.4: Manufacturer: ASIX Elec. Corp.
-> > [    3.421715] usb 3-3.2.4: SerialNumber: 000001
-> > [    3.427755] asix 3-3.2.4:1.0 (unnamed net_device) (uninitialized):
-> > invalid hw address, using random
-> > [    3.744837] asix 3-3.2.4:1.0 eth0: register 'asix' at
-> > usb-12110000.usb-3.2.4, ASIX AX88772 USB 2.0 Ethernet,
-> 12:59:f1:a8:43:90
-> > [    7.098998] asix 3-3.2.4:1.0 eth0: link up, 100Mbps, full-duplex,
-> lpa
-> > 0xC5E1
-> > [    7.118258] Sending DHCP requests ., OK
-> > [    9.753259] IP-Config: Got DHCP answer from 192.168.1.1, my address
-> > is 192.168.1.111
-> > 
-> > There might something wrong on the samsung platform code (I understand
-> 
-> > the USB on arndale is "funny"), but this is still an regression from 
-> > 3.17.
-> > 
-> > Riku
+    134  * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
+     96  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
+     89   51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
+     86  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110,
+     44  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
+     43   Boston, MA 02110-1301, USA.
+     19  * Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+     10   Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+      8  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+      5  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+      5  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+      5 # 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
+      3  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+      2 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
+      1  *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301,
+      1 * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110,
+      1 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+      1  * Boston, MA  02110-1301, USA.
+      1  *  Boston, MA 02110-1301, USA.
+      1  * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
