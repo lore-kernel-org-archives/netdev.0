@@ -1,141 +1,182 @@
 From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [PATCH 06/13] net_sched: move some qdisc flag into qdisc ops
-Date: Tue,  4 Nov 2014 09:56:29 -0800
-Message-ID: <1415123796-8093-7-git-send-email-xiyou.wangcong@gmail.com>
+Subject: [PATCH 10/13] net_sched: forbid setting default qdisc to inappropriate ones
+Date: Tue,  4 Nov 2014 09:56:33 -0800
+Message-ID: <1415123796-8093-11-git-send-email-xiyou.wangcong@gmail.com>
 References: <1415123796-8093-1-git-send-email-xiyou.wangcong@gmail.com>
 Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jamal Hadi Salim <jhs@mojatatu.com>
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:54390 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751738AbaKDR4x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Nov 2014 12:56:53 -0500
-Received: by mail-pd0-f170.google.com with SMTP id z10so14080022pdj.15
-        for <netdev@vger.kernel.org>; Tue, 04 Nov 2014 09:56:52 -0800 (PST)
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:40743 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752127AbaKDR45 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Nov 2014 12:56:57 -0500
+Received: by mail-pd0-f173.google.com with SMTP id v10so14062145pde.18
+        for <netdev@vger.kernel.org>; Tue, 04 Nov 2014 09:56:57 -0800 (PST)
 In-Reply-To: <1415123796-8093-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For those static flags, that is never changed dynamically,
-we could just move them into qdisc->ops. This will be used
-by some following patch.
+Instead of just documentation, we should explicitly prohibit
+setting the default qdisc to inappropriate ones. That is,
+setting a flag for appropriate ones.
 
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+Cc: Stephen Hemminger <stephen@networkplumber.org>
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: David S. Miller <davem@davemloft.net>
 Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 ---
- include/net/sch_generic.h |  3 ++-
- net/sched/sch_api.c       |  4 ++--
- net/sched/sch_generic.c   | 10 +++++-----
- 3 files changed, 9 insertions(+), 8 deletions(-)
+ include/net/sch_generic.h |  1 +
+ net/sched/sch_api.c       | 12 ++++++++++--
+ net/sched/sch_fifo.c      |  6 +++---
+ net/sched/sch_fq.c        |  1 +
+ net/sched/sch_fq_codel.c  |  1 +
+ net/sched/sch_generic.c   |  2 +-
+ net/sched/sch_mq.c        |  2 +-
+ net/sched/sch_sfq.c       |  1 +
+ 8 files changed, 19 insertions(+), 7 deletions(-)
 
 diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index 119e129..f552c4c 100644
+index ba3b6bf..89c3f37 100644
 --- a/include/net/sch_generic.h
 +++ b/include/net/sch_generic.h
-@@ -48,7 +48,6 @@ struct Qdisc {
- 	int 			(*enqueue)(struct sk_buff *skb, struct Qdisc *dev);
- 	struct sk_buff *	(*dequeue)(struct Qdisc *dev);
+@@ -185,6 +185,7 @@ struct Qdisc_ops {
+ #define QDISC_F_BUILTIN		1
+ #define QDISC_F_MQ		2
+ #define QDISC_F_FIFO		4
++#define QDISC_F_PARAM_LESS	8
  	unsigned int		flags;
--#define TCQ_F_BUILTIN		1
- #define TCQ_F_INGRESS		2
- #define TCQ_F_CAN_BYPASS	4
- #define TCQ_F_MQROOT		8
-@@ -184,6 +183,8 @@ struct Qdisc_ops {
- 	const struct Qdisc_class_ops	*cl_ops;
- 	char			id[IFNAMSIZ];
- 	int			priv_size;
-+#define QDISC_F_BUILTIN		1
-+	unsigned int		flags;
  
  	int 			(*enqueue)(struct sk_buff *, struct Qdisc *);
- 	struct sk_buff *	(*dequeue)(struct Qdisc *);
 diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index 2276b15..b6cad91 100644
+index 98b315f..f57d3c6 100644
 --- a/net/sched/sch_api.c
 +++ b/net/sched/sch_api.c
-@@ -260,7 +260,7 @@ static struct Qdisc *qdisc_match_from_root(struct Qdisc *root, u32 handle)
+@@ -227,6 +227,7 @@ static struct Qdisc_ops *qdisc_lookup_default(const char *name)
+ int qdisc_set_default(const char *name)
  {
- 	struct Qdisc *q;
+ 	const struct Qdisc_ops *ops;
++	int err = 0;
  
--	if (!(root->flags & TCQ_F_BUILTIN) &&
-+	if (!(root->ops->flags & QDISC_F_BUILTIN) &&
- 	    root->handle == handle)
- 		return root;
+ 	if (!capable(CAP_NET_ADMIN))
+ 		return -EPERM;
+@@ -243,13 +244,20 @@ int qdisc_set_default(const char *name)
+ 	}
  
-@@ -1372,7 +1372,7 @@ static int tc_fill_qdisc(struct sk_buff *skb, struct Qdisc *q, u32 clid,
+ 	if (ops) {
++		if (!(ops->flags & QDISC_F_PARAM_LESS)) {
++			err = -EINVAL;
++			goto unlock;
++		}
+ 		/* Set new default */
+ 		module_put(default_qdisc_ops->owner);
+ 		default_qdisc_ops = ops;
++	} else {
++		err = -ENOENT;
+ 	}
+-	write_unlock(&qdisc_mod_lock);
  
- static bool tc_qdisc_dump_ignore(struct Qdisc *q)
- {
--	return (q->flags & TCQ_F_BUILTIN) ? true : false;
-+	return (q->ops->flags & QDISC_F_BUILTIN) ? true : false;
+-	return ops ? 0 : -ENOENT;
++unlock:
++	write_unlock(&qdisc_mod_lock);
++	return err;
  }
  
- static int qdisc_notify(struct net *net, struct sk_buff *oskb,
+ /* We know handle. Find qdisc among all qdisc's attached to device
+diff --git a/net/sched/sch_fifo.c b/net/sched/sch_fifo.c
+index c21a037..6bed08b 100644
+--- a/net/sched/sch_fifo.c
++++ b/net/sched/sch_fifo.c
+@@ -96,7 +96,7 @@ static int fifo_dump(struct Qdisc *sch, struct sk_buff *skb)
+ struct Qdisc_ops pfifo_qdisc_ops __read_mostly = {
+ 	.id		=	"pfifo",
+ 	.priv_size	=	0,
+-	.flags 		=	QDISC_F_FIFO,
++	.flags 		=	QDISC_F_FIFO | QDISC_F_PARAM_LESS,
+ 	.enqueue	=	pfifo_enqueue,
+ 	.dequeue	=	qdisc_dequeue_head,
+ 	.peek		=	qdisc_peek_head,
+@@ -112,7 +112,7 @@ EXPORT_SYMBOL(pfifo_qdisc_ops);
+ struct Qdisc_ops bfifo_qdisc_ops __read_mostly = {
+ 	.id		=	"bfifo",
+ 	.priv_size	=	0,
+-	.flags 		=	QDISC_F_FIFO,
++	.flags 		=	QDISC_F_FIFO | QDISC_F_PARAM_LESS,
+ 	.enqueue	=	bfifo_enqueue,
+ 	.dequeue	=	qdisc_dequeue_head,
+ 	.peek		=	qdisc_peek_head,
+@@ -128,7 +128,7 @@ EXPORT_SYMBOL(bfifo_qdisc_ops);
+ struct Qdisc_ops pfifo_head_drop_qdisc_ops __read_mostly = {
+ 	.id		=	"pfifo_head_drop",
+ 	.priv_size	=	0,
+-	.flags 		=	QDISC_F_FIFO,
++	.flags 		=	QDISC_F_FIFO | QDISC_F_PARAM_LESS,
+ 	.enqueue	=	pfifo_tail_enqueue,
+ 	.dequeue	=	qdisc_dequeue_head,
+ 	.peek		=	qdisc_peek_head,
+diff --git a/net/sched/sch_fq.c b/net/sched/sch_fq.c
+index 34ec70c..7c359b2 100644
+--- a/net/sched/sch_fq.c
++++ b/net/sched/sch_fq.c
+@@ -805,6 +805,7 @@ static int fq_dump_stats(struct Qdisc *sch, struct gnet_dump *d)
+ 
+ static struct Qdisc_ops fq_qdisc_ops __read_mostly = {
+ 	.id		=	"fq",
++	.flags		=	QDISC_F_PARAM_LESS,
+ 	.priv_size	=	sizeof(struct fq_sched_data),
+ 
+ 	.enqueue	=	fq_enqueue,
+diff --git a/net/sched/sch_fq_codel.c b/net/sched/sch_fq_codel.c
+index b9ca32e..acc06bf 100644
+--- a/net/sched/sch_fq_codel.c
++++ b/net/sched/sch_fq_codel.c
+@@ -594,6 +594,7 @@ static const struct Qdisc_class_ops fq_codel_class_ops = {
+ static struct Qdisc_ops fq_codel_qdisc_ops __read_mostly = {
+ 	.cl_ops		=	&fq_codel_class_ops,
+ 	.id		=	"fq_codel",
++	.flags		=	QDISC_F_PARAM_LESS,
+ 	.priv_size	=	sizeof(struct fq_codel_sched_data),
+ 	.enqueue	=	fq_codel_enqueue,
+ 	.dequeue	=	fq_codel_dequeue,
 diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index cd4ba53..3ab44a2 100644
+index 2b1931d..29db9c8 100644
 --- a/net/sched/sch_generic.c
 +++ b/net/sched/sch_generic.c
-@@ -392,6 +392,7 @@ static struct sk_buff *noop_dequeue(struct Qdisc *qdisc)
- 
- struct Qdisc_ops noop_qdisc_ops __read_mostly = {
- 	.id		=	"noop",
-+	.flags		=	QDISC_F_BUILTIN,
- 	.priv_size	=	0,
- 	.enqueue	=	noop_enqueue,
- 	.dequeue	=	noop_dequeue,
-@@ -407,7 +408,6 @@ static struct netdev_queue noop_netdev_queue = {
- struct Qdisc noop_qdisc = {
- 	.enqueue	=	noop_enqueue,
- 	.dequeue	=	noop_dequeue,
--	.flags		=	TCQ_F_BUILTIN,
- 	.ops		=	&noop_qdisc_ops,
- 	.list		=	LIST_HEAD_INIT(noop_qdisc.list),
- 	.q.lock		=	__SPIN_LOCK_UNLOCKED(noop_qdisc.q.lock),
-@@ -418,6 +418,7 @@ EXPORT_SYMBOL(noop_qdisc);
- 
- static struct Qdisc_ops noqueue_qdisc_ops __read_mostly = {
- 	.id		=	"noqueue",
-+	.flags		=	QDISC_F_BUILTIN,
- 	.priv_size	=	0,
- 	.enqueue	=	noop_enqueue,
- 	.dequeue	=	noop_dequeue,
-@@ -434,7 +435,6 @@ static struct netdev_queue noqueue_netdev_queue = {
- static struct Qdisc noqueue_qdisc = {
- 	.enqueue	=	NULL,
- 	.dequeue	=	noop_dequeue,
--	.flags		=	TCQ_F_BUILTIN,
- 	.ops		=	&noqueue_qdisc_ops,
- 	.list		=	LIST_HEAD_INIT(noqueue_qdisc.list),
- 	.q.lock		=	__SPIN_LOCK_UNLOCKED(noqueue_qdisc.q.lock),
-@@ -676,7 +676,7 @@ void qdisc_destroy(struct Qdisc *qdisc)
- {
- 	const struct Qdisc_ops  *ops = qdisc->ops;
- 
--	if (qdisc->flags & TCQ_F_BUILTIN ||
-+	if (ops->flags & QDISC_F_BUILTIN ||
- 	    !atomic_dec_and_test(&qdisc->refcnt))
- 		return;
- 
-@@ -775,7 +775,7 @@ static void transition_one_qdisc(struct net_device *dev,
- 	struct Qdisc *new_qdisc = dev_queue->qdisc_sleeping;
- 	int *need_watchdog_p = _need_watchdog;
- 
--	if (!(new_qdisc->flags & TCQ_F_BUILTIN))
-+	if (!(new_qdisc->ops->flags & QDISC_F_BUILTIN))
- 		clear_bit(__QDISC_STATE_DEACTIVATED, &new_qdisc->state);
- 
- 	rcu_assign_pointer(dev_queue->qdisc, new_qdisc);
-@@ -824,7 +824,7 @@ static void dev_deactivate_queue(struct net_device *dev,
- 	if (qdisc) {
- 		spin_lock_bh(qdisc_lock(qdisc));
- 
--		if (!(qdisc->flags & TCQ_F_BUILTIN))
-+		if (!(qdisc->ops->flags & QDISC_F_BUILTIN))
- 			set_bit(__QDISC_STATE_DEACTIVATED, &qdisc->state);
- 
- 		rcu_assign_pointer(dev_queue->qdisc, qdisc_default);
+@@ -567,7 +567,7 @@ static int pfifo_fast_init(struct Qdisc *qdisc, struct nlattr *opt)
+ struct Qdisc_ops pfifo_fast_ops __read_mostly = {
+ 	.id		=	"pfifo_fast",
+ 	.priv_size	=	sizeof(struct pfifo_fast_priv),
+-	.flags		=	QDISC_F_FIFO,
++	.flags		=	QDISC_F_FIFO | QDISC_F_PARAM_LESS,
+ 	.enqueue	=	pfifo_fast_enqueue,
+ 	.dequeue	=	pfifo_fast_dequeue,
+ 	.peek		=	pfifo_fast_peek,
+diff --git a/net/sched/sch_mq.c b/net/sched/sch_mq.c
+index 03b8069..43f9dc8 100644
+--- a/net/sched/sch_mq.c
++++ b/net/sched/sch_mq.c
+@@ -236,7 +236,7 @@ static const struct Qdisc_class_ops mq_class_ops = {
+ struct Qdisc_ops mq_qdisc_ops __read_mostly = {
+ 	.cl_ops		= &mq_class_ops,
+ 	.id		= "mq",
+-	.flags		= QDISC_F_MQ,
++	.flags		= QDISC_F_MQ | QDISC_F_PARAM_LESS,
+ 	.priv_size	= sizeof(struct mq_sched),
+ 	.init		= mq_init,
+ 	.destroy	= mq_destroy,
+diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
+index 6212652..0d88d52 100644
+--- a/net/sched/sch_sfq.c
++++ b/net/sched/sch_sfq.c
+@@ -913,6 +913,7 @@ static const struct Qdisc_class_ops sfq_class_ops = {
+ static struct Qdisc_ops sfq_qdisc_ops __read_mostly = {
+ 	.cl_ops		=	&sfq_class_ops,
+ 	.id		=	"sfq",
++	.flags		=	QDISC_F_PARAM_LESS,
+ 	.priv_size	=	sizeof(struct sfq_sched_data),
+ 	.enqueue	=	sfq_enqueue,
+ 	.dequeue	=	sfq_dequeue,
 -- 
 1.8.3.1
