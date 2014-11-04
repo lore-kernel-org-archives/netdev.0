@@ -1,60 +1,101 @@
-From: Joe Perches <realty@perches.com>
-Subject: Convert net_msg_warn, NETDEBUG, & LIMIT_NETDEBUG?
-Date: Tue, 04 Nov 2014 12:46:40 -0800
-Message-ID: <1415134000.23168.7.camel@perches.com>
+From: Christian Hesse <mail@eworm.de>
+Subject: Re: [PATCH v2 1/1] ip-link: in human readable output use dynamic
+ precision length
+Date: Tue, 4 Nov 2014 22:10:38 +0100
+Message-ID: <20141104221038.440fd9d7@leda.localdomain>
+References: <20141104114421.6a7f9de5@leda.localdomain>
+	<1415098208-17942-1-git-send-email-mail@eworm.de>
+	<063D6719AE5E284EB5DD2968C1650D6D1C9E72A7@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ boundary="Sig_/sGH+r_pn2c30JGfDT7_VASF"; protocol="application/pgp-signature"
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0246.hostedemail.com ([216.40.44.246]:39753 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751732AbaKDUxR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Nov 2014 15:53:17 -0500
-Received: from smtprelay.hostedemail.com (10.5.19.251.rfc1918.com [10.5.19.251])
-	by smtpgrave01.hostedemail.com (Postfix) with ESMTP id 5BA0F5DFF6
-	for <netdev@vger.kernel.org>; Tue,  4 Nov 2014 20:46:45 +0000 (UTC)
-Received: from filter.hostedemail.com (unknown [216.40.38.60])
-	by smtprelay07.hostedemail.com (Postfix) with ESMTP id 657FDC2129
-	for <netdev@vger.kernel.org>; Tue,  4 Nov 2014 20:46:44 +0000 (UTC)
-Received: from joe-X200MA.home (pool-71-103-235-196.lsanca.fios.verizon.net [71.103.235.196])
-	(Authenticated sender: joe@perches.com)
-	by omf12.hostedemail.com (Postfix) with ESMTPA
-	for <netdev@vger.kernel.org>; Tue,  4 Nov 2014 20:46:41 +0000 (UTC)
+Received: from mx.mylinuxtime.de ([148.251.109.235]:44152 "EHLO
+	mx.mylinuxtime.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751084AbaKDVKv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Nov 2014 16:10:51 -0500
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1C9E72A7@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-net_msg_warn is a sysctl used to control the printk
-of a bundle of mostly ipv4/ipv6 logging messages.
+--Sig_/sGH+r_pn2c30JGfDT7_VASF
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-Does anyone use it?
+David Laight <David.Laight@ACULAB.COM> on Tue, 2014/11/04 11:06:
+> From: Christian Hesse
+> ...
+> > ...
+> > @@ -343,8 +344,11 @@ static void print_num(FILE *fp, unsigned width,
+> > uint64_t count) ++prefix;
+> >  	}
+> >=20
+> > -	snprintf(buf, sizeof(buf), "%.1f%c%s", (double) count / powi,
+> > -		 *prefix, use_iec ? "i" : "");
+> > +	if ((precision =3D 3 - snprintf(NULL, 0, "%"PRIu64, count / powi))
+> > < 0)
+>=20
+> Don't put assignments in conditionals.
 
-NETDEBUG is used 4 times, 2 of which seem senseless
-as they are allocation failures messages after an
-alloc_skb.  These already get stack dumps.
+Ok. :D
 
-The other NETDEBUG uses are ESP crypto descriptions.
+I do not like this at all... snprintf() would be nice for a catch-all, but =
+we
+have to take care of negative values. So let's try something different.
+I will think about it and send a new patch.
 
-LIMIT_NETDEBUG is used a lot more.
+> > +		precision =3D 0;
+> > +
+> > +	snprintf(buf, sizeof(buf), "%.*f%c%s", precision,
+> > +		(double) count / powi, *prefix, use_iec ? "i" : "");
+> >=20
+> >  	fprintf(fp, "%-*s ", width, buf);
+> >  }
+>=20
+> The above will go wrong in all sorts of horrid ways....
+> For instance you are doing a truncating integer divide, but the FP
+> value will get rounded for display.
+>=20
+> It would be safer to use integers throughout.
 
-include/net/sock.h:#define LIMIT_NETDEBUG(fmt, args...) \
-include/net/sock.h-     do { if (net_msg_warn && net_ratelimit()) printk(fmt,##args); } while(0)
+My implementation used integers, but Stephen changes this to floating point
+with his cleanups.
 
-Most of the LIMIT_NETDEBUG uses are emitted at KERN_DEBUG.
+IMHO the rounding is ok. This is for *human* readability. ;)
+Whoever wants correct values should not ask ip to print human readable valu=
+es
+but rely on pure numbers.
 
-Here is the count of each type of use:
-     31 KERN_DEBUG
-      2 KERN_ERR
-      3 KERN_INFO
-     11 KERN_WARNING
+> Oh, and a 2Mbit E1 link is actually 2048000 :-)
 
-Should those KERN_DEBUG uses be converted to
-net_dbg_ratelimited so that these uses could be
-controlled via dynamic_debug instead of the
-net_msg_warn sysctl?
+Sorry? Did not get the point.
+--=20
+Best regards,
+Chris
 
-net/dccp/ uses LIMIT_NETDEBUG via DCCP_WARN to
-control another 38 KERN_WARNING messages.
+--Sig_/sGH+r_pn2c30JGfDT7_VASF
+Content-Type: application/pgp-signature
+Content-Description: OpenPGP digital signature
 
-The others LIMIT_NETDEBUG uses could be converted
-to net_<level>_ratelimited if appropriate.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBAgAGBQJUWUDTAAoJEFTtyRYJvJGDeNMP/i62VxTinzTrqLxiMkAD2CrT
+xiHcuCvOUIvw/OW7GMXeoBfDf6ttR5WFevChy9BhSQV4fx86d3ZJOJ9rZlJCSsmr
+wbLM636naNYRZ7WQa/vyjYEQBUhdtRPEeiD9RvD9jbTCk9Ci5vOAww8kZ8Vo4ok/
+PY5+Y9Is/BpI0uNxxjKKruS6E2oMM7NF/zPnvmTdxyg6ZuN45nG9aTzniaRnjKym
+CoT9qw8JYvPg/KvPgb0/O2n7x8pryL6cpZ7GErMUwNErWSBW8DcQB4IWYwY7vCEn
+PMCdWDGVcGhGSWbGp647qGSJogEn5zoNuxs7bfGCOQnrezsM1khm5WO06mU/aEdk
+762eR72MiLwl+GvwUf45PLDcX+1qdc1cOvo5dMSF7Rj5418licaSvjUQ1aIRxnVn
+vVm1lwitsu82wZsU0NUjyzjuIR+rCBVA4AFXFUb1xuZjeExMUgXLqVHb3WxI0CRV
+uuYWVjUSHsWXzbJ5fF44ssqZwC4hCiOZM0p8UYcWVhv1FfLhk3UxcFJrx5dCX9cs
+4MBNLYJaAmfZxXgAs73Kv4z9UweeFZBAh2agKssMyB+5CCSCcU6NH/ghjQkOCnDg
+vpybVZgyHVk8eD0ARPwh9gC3rR4VvJUtZ2scOeXypiMLuZRsw0usDlMwXRir0JJy
+EjK8GT/AFYAHKDRFOyTQ
+=Vlna
+-----END PGP SIGNATURE-----
+
+--Sig_/sGH+r_pn2c30JGfDT7_VASF--
