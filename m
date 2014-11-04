@@ -1,7 +1,7 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCHv2 net-next 1/3] cxgb4: Add cxgb4_debugfs.c, move all debugfs code to new file
-Date: Tue,  4 Nov 2014 08:20:55 +0530
-Message-ID: <1415069457-22277-2-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCHv2 net-next 2/3] cxgb4: Cleanup macros so they follow the same style and look consistent
+Date: Tue,  4 Nov 2014 08:20:56 +0530
+Message-ID: <1415069457-22277-3-git-send-email-hariprasad@chelsio.com>
 References: <1415069457-22277-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, roland@purestorage.com,
 	JBottomley@parallels.com, hch@infradead.org,
@@ -10,390 +10,338 @@ Cc: davem@davemloft.net, roland@purestorage.com,
 	kumaras@chelsio.com, Hariprasad Shenai <hariprasad@chelsio.com>
 To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
 	linux-scsi@vger.kernel.org
-Return-path: <linux-scsi-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:54617
+	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751322AbaKDCpx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Nov 2014 21:45:53 -0500
 In-Reply-To: <1415069457-22277-1-git-send-email-hariprasad@chelsio.com>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+Various patches have ended up changing the style of the symbolic macros/register
+defines and some of them used the macros/register defines that matches the
+output of the script from the hardware team.
+
+As a result, the current kernel.org files are a mix of different macro styles.
+Since this macro/register defines is used by different drivers a
+few patch series have ended up adding duplicate macro/register define entries
+with different styles. This makes these register define/macro files a complete
+mess and we want to make them clean and consistent. This patch cleans up a part
+of it.
 
 Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/Makefile        |    1 +
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h         |    1 +
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c |  158 ++++++++++++++++++++
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.h |   52 +++++++
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    |   97 +------------
- 5 files changed, 217 insertions(+), 92 deletions(-)
- create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
- create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.h
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c |   32 +++++-----
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    |   16 +++--
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c         |    6 +-
+ drivers/net/ethernet/chelsio/cxgb4/t4_regs.h       |   72 +++++++++++++++-----
+ drivers/scsi/csiostor/csio_hw_t4.c                 |   15 ++--
+ drivers/scsi/csiostor/csio_hw_t5.c                 |   21 +++---
+ drivers/scsi/csiostor/csio_init.c                  |    6 +-
+ 7 files changed, 106 insertions(+), 62 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/Makefile b/drivers/net/ethernet/chelsio/cxgb4/Makefile
-index 1df65c9..b852807 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/Makefile
-+++ b/drivers/net/ethernet/chelsio/cxgb4/Makefile
-@@ -6,3 +6,4 @@ obj-$(CONFIG_CHELSIO_T4) += cxgb4.o
- 
- cxgb4-objs := cxgb4_main.o l2t.o t4_hw.o sge.o
- cxgb4-$(CONFIG_CHELSIO_T4_DCB) +=  cxgb4_dcb.o
-+cxgb4-$(CONFIG_DEBUG_FS) += cxgb4_debugfs.o
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-index 3c481b2..dad1ea9 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-@@ -1085,4 +1085,5 @@ void t4_db_dropped(struct adapter *adapter);
- int t4_fwaddrspace_write(struct adapter *adap, unsigned int mbox,
- 			 u32 addr, u32 val);
- void t4_sge_decode_idma_state(struct adapter *adapter, int state);
-+void t4_free_mem(void *addr);
- #endif /* __CXGB4_H__ */
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
-new file mode 100644
-index 0000000..e86b5fe
---- /dev/null
+index e86b5fe..aa75c91 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
-@@ -0,0 +1,158 @@
-+/*
-+ * This file is part of the Chelsio T4 Ethernet driver for Linux.
-+ *
-+ * Copyright (c) 2003-2014 Chelsio Communications, Inc. All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+
-+#include <linux/seq_file.h>
-+#include <linux/debugfs.h>
-+#include <linux/string_helpers.h>
-+#include <linux/sort.h>
-+
-+#include "cxgb4.h"
-+#include "t4_regs.h"
-+#include "t4fw_api.h"
-+#include "cxgb4_debugfs.h"
-+#include "l2t.h"
-+
-+static ssize_t mem_read(struct file *file, char __user *buf, size_t count,
-+			loff_t *ppos)
-+{
-+	loff_t pos = *ppos;
-+	loff_t avail = file_inode(file)->i_size;
-+	unsigned int mem = (uintptr_t)file->private_data & 3;
-+	struct adapter *adap = file->private_data - mem;
-+	__be32 *data;
-+	int ret;
-+
-+	if (pos < 0)
-+		return -EINVAL;
-+	if (pos >= avail)
-+		return 0;
-+	if (count > avail - pos)
-+		count = avail - pos;
-+
-+	data = t4_alloc_mem(count);
-+	if (!data)
-+		return -ENOMEM;
-+
-+	spin_lock(&adap->win0_lock);
-+	ret = t4_memory_rw(adap, 0, mem, pos, count, data, T4_MEMORY_READ);
-+	spin_unlock(&adap->win0_lock);
-+	if (ret) {
-+		t4_free_mem(data);
-+		return ret;
-+	}
-+	ret = copy_to_user(buf, data, count);
-+
-+	t4_free_mem(data);
-+	if (ret)
-+		return -EFAULT;
-+
-+	*ppos = pos + count;
-+	return count;
-+}
-+
-+static const struct file_operations mem_debugfs_fops = {
-+	.owner   = THIS_MODULE,
-+	.open    = simple_open,
-+	.read    = mem_read,
-+	.llseek  = default_llseek,
-+};
-+
-+static void add_debugfs_mem(struct adapter *adap, const char *name,
-+			    unsigned int idx, unsigned int size_mb)
-+{
-+	struct dentry *de;
-+
-+	de = debugfs_create_file(name, S_IRUSR, adap->debugfs_root,
-+				 (void *)adap + idx, &mem_debugfs_fops);
-+	if (de && de->d_inode)
-+		de->d_inode->i_size = size_mb << 20;
-+}
-+
-+/* Add an array of Debug FS files.
-+ */
-+void add_debugfs_files(struct adapter *adap,
-+		       struct t4_debugfs_entry *files,
-+		       unsigned int nfiles)
-+{
-+	int i;
-+
-+	/* debugfs support is best effort */
-+	for (i = 0; i < nfiles; i++)
-+		debugfs_create_file(files[i].name, files[i].mode,
-+				    adap->debugfs_root,
-+				    (void *)adap + files[i].data,
-+				    files[i].ops);
-+}
-+
-+int t4_setup_debugfs(struct adapter *adap)
-+{
-+	int i;
-+	u32 size;
-+
-+	static struct t4_debugfs_entry t4_debugfs_files[] = {
-+		{ "l2t", &t4_l2t_fops, S_IRUSR, 0},
-+	};
-+
-+	add_debugfs_files(adap,
-+			  t4_debugfs_files,
-+			  ARRAY_SIZE(t4_debugfs_files));
-+
-+	i = t4_read_reg(adap, MA_TARGET_MEM_ENABLE);
-+	if (i & EDRAM0_ENABLE) {
-+		size = t4_read_reg(adap, MA_EDRAM0_BAR);
-+		add_debugfs_mem(adap, "edc0", MEM_EDC0, EDRAM_SIZE_GET(size));
-+	}
-+	if (i & EDRAM1_ENABLE) {
-+		size = t4_read_reg(adap, MA_EDRAM1_BAR);
-+		add_debugfs_mem(adap, "edc1", MEM_EDC1, EDRAM_SIZE_GET(size));
-+	}
-+	if (is_t4(adap->params.chip)) {
-+		size = t4_read_reg(adap, MA_EXT_MEMORY_BAR);
-+		if (i & EXT_MEM_ENABLE)
-+			add_debugfs_mem(adap, "mc", MEM_MC,
-+					EXT_MEM_SIZE_GET(size));
-+	} else {
-+		if (i & EXT_MEM_ENABLE) {
-+			size = t4_read_reg(adap, MA_EXT_MEMORY_BAR);
-+			add_debugfs_mem(adap, "mc0", MEM_MC0,
-+					EXT_MEM_SIZE_GET(size));
-+		}
-+		if (i & EXT_MEM1_ENABLE) {
-+			size = t4_read_reg(adap, MA_EXT_MEMORY1_BAR);
-+			add_debugfs_mem(adap, "mc1", MEM_MC1,
-+					EXT_MEM_SIZE_GET(size));
-+		}
-+	}
-+	return 0;
-+}
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.h
-new file mode 100644
-index 0000000..a3d8867
---- /dev/null
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.h
-@@ -0,0 +1,52 @@
-+/*
-+ * This file is part of the Chelsio T4 Ethernet driver for Linux.
-+ *
-+ * Copyright (c) 2003-2014 Chelsio Communications, Inc. All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+
-+#ifndef __CXGB4_DEBUGFS_H
-+#define __CXGB4_DEBUGFS_H
-+
-+#include <linux/export.h>
-+
-+struct t4_debugfs_entry {
-+	const char *name;
-+	const struct file_operations *ops;
-+	mode_t mode;
-+	unsigned char data;
-+};
-+
-+int t4_setup_debugfs(struct adapter *adap);
-+void add_debugfs_files(struct adapter *adap,
-+		       struct t4_debugfs_entry *files,
-+		       unsigned int nfiles);
-+
-+#endif
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 8520d55..172f68b 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -68,6 +68,7 @@
- #include "t4_msg.h"
- #include "t4fw_api.h"
- #include "cxgb4_dcb.h"
-+#include "cxgb4_debugfs.h"
- #include "l2t.h"
- 
- #include <../drivers/net/bonding/bonding.h>
-@@ -1287,7 +1288,7 @@ void *t4_alloc_mem(size_t size)
- /*
-  * Free memory allocated through alloc_mem().
-  */
--static void t4_free_mem(void *addr)
-+void t4_free_mem(void *addr)
- {
- 	if (is_vmalloc_addr(addr))
- 		vfree(addr);
-@@ -3127,102 +3128,14 @@ static const struct ethtool_ops cxgb_ethtool_ops = {
- 	.flash_device      = set_flash,
- };
- 
--/*
-- * debugfs support
-- */
--static ssize_t mem_read(struct file *file, char __user *buf, size_t count,
--			loff_t *ppos)
--{
--	loff_t pos = *ppos;
--	loff_t avail = file_inode(file)->i_size;
--	unsigned int mem = (uintptr_t)file->private_data & 3;
--	struct adapter *adap = file->private_data - mem;
--	__be32 *data;
--	int ret;
--
--	if (pos < 0)
--		return -EINVAL;
--	if (pos >= avail)
--		return 0;
--	if (count > avail - pos)
--		count = avail - pos;
--
--	data = t4_alloc_mem(count);
--	if (!data)
--		return -ENOMEM;
--
--	spin_lock(&adap->win0_lock);
--	ret = t4_memory_rw(adap, 0, mem, pos, count, data, T4_MEMORY_READ);
--	spin_unlock(&adap->win0_lock);
--	if (ret) {
--		t4_free_mem(data);
--		return ret;
--	}
--	ret = copy_to_user(buf, data, count);
--
--	t4_free_mem(data);
--	if (ret)
--		return -EFAULT;
--
--	*ppos = pos + count;
--	return count;
--}
--
--static const struct file_operations mem_debugfs_fops = {
--	.owner   = THIS_MODULE,
--	.open    = simple_open,
--	.read    = mem_read,
--	.llseek  = default_llseek,
--};
--
--static void add_debugfs_mem(struct adapter *adap, const char *name,
--			    unsigned int idx, unsigned int size_mb)
--{
--	struct dentry *de;
--
--	de = debugfs_create_file(name, S_IRUSR, adap->debugfs_root,
--				 (void *)adap + idx, &mem_debugfs_fops);
--	if (de && de->d_inode)
--		de->d_inode->i_size = size_mb << 20;
--}
--
- static int setup_debugfs(struct adapter *adap)
- {
--	int i;
--	u32 size;
--
- 	if (IS_ERR_OR_NULL(adap->debugfs_root))
- 		return -1;
+@@ -128,30 +128,30 @@ int t4_setup_debugfs(struct adapter *adap)
+ 			  t4_debugfs_files,
+ 			  ARRAY_SIZE(t4_debugfs_files));
  
 -	i = t4_read_reg(adap, MA_TARGET_MEM_ENABLE);
 -	if (i & EDRAM0_ENABLE) {
 -		size = t4_read_reg(adap, MA_EDRAM0_BAR);
--		add_debugfs_mem(adap, "edc0", MEM_EDC0,	EDRAM_SIZE_GET(size));
--	}
+-		add_debugfs_mem(adap, "edc0", MEM_EDC0, EDRAM_SIZE_GET(size));
++	i = t4_read_reg(adap, A_MA_TARGET_MEM_ENABLE);
++	if (i & F_EDRAM0_ENABLE) {
++		size = t4_read_reg(adap, A_MA_EDRAM0_BAR);
++		add_debugfs_mem(adap, "edc0", MEM_EDC0, G_EDRAM0_SIZE(size));
+ 	}
 -	if (i & EDRAM1_ENABLE) {
 -		size = t4_read_reg(adap, MA_EDRAM1_BAR);
 -		add_debugfs_mem(adap, "edc1", MEM_EDC1, EDRAM_SIZE_GET(size));
--	}
--	if (is_t4(adap->params.chip)) {
++	if (i & F_EDRAM1_ENABLE) {
++		size = t4_read_reg(adap, A_MA_EDRAM1_BAR);
++		add_debugfs_mem(adap, "edc1", MEM_EDC1, G_EDRAM1_SIZE(size));
+ 	}
+ 	if (is_t4(adap->params.chip)) {
 -		size = t4_read_reg(adap, MA_EXT_MEMORY_BAR);
 -		if (i & EXT_MEM_ENABLE)
--			add_debugfs_mem(adap, "mc", MEM_MC,
++		size = t4_read_reg(adap, A_MA_EXT_MEMORY_BAR);
++		if (i & F_EXT_MEM_ENABLE)
+ 			add_debugfs_mem(adap, "mc", MEM_MC,
 -					EXT_MEM_SIZE_GET(size));
--	} else {
++					G_EXT_MEM_SIZE(size));
+ 	} else {
 -		if (i & EXT_MEM_ENABLE) {
 -			size = t4_read_reg(adap, MA_EXT_MEMORY_BAR);
--			add_debugfs_mem(adap, "mc0", MEM_MC0,
++		if (i & F_EXT_MEM0_ENABLE) {
++			size = t4_read_reg(adap, A_MA_EXT_MEMORY0_BAR);
+ 			add_debugfs_mem(adap, "mc0", MEM_MC0,
 -					EXT_MEM_SIZE_GET(size));
--		}
++					G_EXT_MEM0_SIZE(size));
+ 		}
 -		if (i & EXT_MEM1_ENABLE) {
 -			size = t4_read_reg(adap, MA_EXT_MEMORY1_BAR);
--			add_debugfs_mem(adap, "mc1", MEM_MC1,
++		if (i & F_EXT_MEM1_ENABLE) {
++			size = t4_read_reg(adap, A_MA_EXT_MEMORY1_BAR);
+ 			add_debugfs_mem(adap, "mc1", MEM_MC1,
 -					EXT_MEM_SIZE_GET(size));
--		}
--	}
--	if (adap->l2t)
--		debugfs_create_file("l2t", S_IRUSR, adap->debugfs_root, adap,
--				    &t4_l2t_fops);
-+#ifdef CONFIG_DEBUG_FS
-+	t4_setup_debugfs(adap);
-+#endif
++					G_EXT_MEM1_SIZE(size));
+ 		}
+ 	}
  	return 0;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 172f68b..65ce937 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -3802,7 +3802,7 @@ int cxgb4_read_tpte(struct net_device *dev, u32 stag, __be32 *tpte)
+ {
+ 	struct adapter *adap;
+ 	u32 offset, memtype, memaddr;
+-	u32 edc0_size, edc1_size, mc0_size, mc1_size;
++	u32 edc0_size, edc1_size, mc0_size, mc1_size, size;
+ 	u32 edc0_end, edc1_end, mc0_end, mc1_end;
+ 	int ret;
+ 
+@@ -3816,9 +3816,12 @@ int cxgb4_read_tpte(struct net_device *dev, u32 stag, __be32 *tpte)
+ 	 * and EDC1.  Some cards will have neither MC0 nor MC1, most cards have
+ 	 * MC0, and some have both MC0 and MC1.
+ 	 */
+-	edc0_size = EDRAM_SIZE_GET(t4_read_reg(adap, MA_EDRAM0_BAR)) << 20;
+-	edc1_size = EDRAM_SIZE_GET(t4_read_reg(adap, MA_EDRAM1_BAR)) << 20;
+-	mc0_size = EXT_MEM_SIZE_GET(t4_read_reg(adap, MA_EXT_MEMORY_BAR)) << 20;
++	size = t4_read_reg(adap, A_MA_EDRAM0_BAR);
++	edc0_size = G_EDRAM0_SIZE(size) << 20;
++	size = t4_read_reg(adap, A_MA_EDRAM1_BAR);
++	edc1_size = G_EDRAM1_SIZE(size) << 20;
++	size = t4_read_reg(adap, A_MA_EXT_MEMORY0_BAR);
++	mc0_size = G_EXT_MEM0_SIZE(size) << 20;
+ 
+ 	edc0_end = edc0_size;
+ 	edc1_end = edc0_end + edc1_size;
+@@ -3838,9 +3841,8 @@ int cxgb4_read_tpte(struct net_device *dev, u32 stag, __be32 *tpte)
+ 			/* T4 only has a single memory channel */
+ 			goto err;
+ 		} else {
+-			mc1_size = EXT_MEM_SIZE_GET(
+-					t4_read_reg(adap,
+-						    MA_EXT_MEMORY1_BAR)) << 20;
++			size = t4_read_reg(adap, A_MA_EXT_MEMORY1_BAR);
++			mc1_size = G_EXT_MEM1_SIZE(size) << 20;
+ 			mc1_end = mc0_end + mc1_size;
+ 			if (offset < mc1_end) {
+ 				memtype = MEM_MC1;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+index a9d9d74..0343e35 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+@@ -483,12 +483,12 @@ int t4_memory_rw(struct adapter *adap, int win, int mtype, u32 addr,
+ 	 * MEM_MC0  = 2 -- For T5
+ 	 * MEM_MC1  = 3 -- For T5
+ 	 */
+-	edc_size  = EDRAM_SIZE_GET(t4_read_reg(adap, MA_EDRAM0_BAR));
++	edc_size  = G_EDRAM0_SIZE(t4_read_reg(adap, A_MA_EDRAM0_BAR));
+ 	if (mtype != MEM_MC1)
+ 		memoffset = (mtype * (edc_size * 1024 * 1024));
+ 	else {
+-		mc_size = EXT_MEM_SIZE_GET(t4_read_reg(adap,
+-						       MA_EXT_MEMORY_BAR));
++		mc_size = G_EXT_MEM0_SIZE(t4_read_reg(adap,
++						      A_MA_EXT_MEMORY1_BAR));
+ 		memoffset = (MEM_MC0 * edc_size + mc_size) * 1024 * 1024;
+ 	}
+ 
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
+index a1024db..6e30695 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
+@@ -501,21 +501,62 @@
+ 
+ #define MC_BIST_STATUS_RDATA 0x7688
+ 
+-#define MA_EDRAM0_BAR 0x77c0
+-#define MA_EDRAM1_BAR 0x77c4
+-#define EDRAM_SIZE_MASK   0xfffU
+-#define EDRAM_SIZE_GET(x) ((x) & EDRAM_SIZE_MASK)
+-
+-#define MA_EXT_MEMORY_BAR 0x77c8
+-#define  EXT_MEM_SIZE_MASK   0x00000fffU
+-#define  EXT_MEM_SIZE_SHIFT  0
+-#define  EXT_MEM_SIZE_GET(x) (((x) & EXT_MEM_SIZE_MASK) >> EXT_MEM_SIZE_SHIFT)
+-
+-#define MA_TARGET_MEM_ENABLE 0x77d8
+-#define  EXT_MEM1_ENABLE 0x00000010U
+-#define  EXT_MEM_ENABLE 0x00000004U
+-#define  EDRAM1_ENABLE  0x00000002U
+-#define  EDRAM0_ENABLE  0x00000001U
++#define A_MA_EDRAM0_BAR 0x77c0
++
++#define S_EDRAM0_SIZE    0
++#define M_EDRAM0_SIZE    0xfffU
++#define V_EDRAM0_SIZE(x) ((x) << S_EDRAM0_SIZE)
++#define G_EDRAM0_SIZE(x) (((x) >> S_EDRAM0_SIZE) & M_EDRAM0_SIZE)
++
++#define A_MA_EDRAM1_BAR 0x77c4
++
++#define S_EDRAM1_SIZE    0
++#define M_EDRAM1_SIZE    0xfffU
++#define V_EDRAM1_SIZE(x) ((x) << S_EDRAM1_SIZE)
++#define G_EDRAM1_SIZE(x) (((x) >> S_EDRAM1_SIZE) & M_EDRAM1_SIZE)
++
++#define A_MA_EXT_MEMORY_BAR 0x77c8
++
++#define S_EXT_MEM_SIZE    0
++#define M_EXT_MEM_SIZE    0xfffU
++#define V_EXT_MEM_SIZE(x) ((x) << S_EXT_MEM_SIZE)
++#define G_EXT_MEM_SIZE(x) (((x) >> S_EXT_MEM_SIZE) & M_EXT_MEM_SIZE)
++
++#define A_MA_EXT_MEMORY1_BAR 0x7808
++
++#define S_EXT_MEM1_SIZE    0
++#define M_EXT_MEM1_SIZE    0xfffU
++#define V_EXT_MEM1_SIZE(x) ((x) << S_EXT_MEM1_SIZE)
++#define G_EXT_MEM1_SIZE(x) (((x) >> S_EXT_MEM1_SIZE) & M_EXT_MEM1_SIZE)
++
++#define A_MA_EXT_MEMORY0_BAR 0x77c8
++
++#define S_EXT_MEM0_SIZE    0
++#define M_EXT_MEM0_SIZE    0xfffU
++#define V_EXT_MEM0_SIZE(x) ((x) << S_EXT_MEM0_SIZE)
++#define G_EXT_MEM0_SIZE(x) (((x) >> S_EXT_MEM0_SIZE) & M_EXT_MEM0_SIZE)
++
++#define A_MA_TARGET_MEM_ENABLE 0x77d8
++
++#define S_EXT_MEM_ENABLE    2
++#define V_EXT_MEM_ENABLE(x) ((x) << S_EXT_MEM_ENABLE)
++#define F_EXT_MEM_ENABLE    V_EXT_MEM_ENABLE(1U)
++
++#define S_EDRAM1_ENABLE    1
++#define V_EDRAM1_ENABLE(x) ((x) << S_EDRAM1_ENABLE)
++#define F_EDRAM1_ENABLE    V_EDRAM1_ENABLE(1U)
++
++#define S_EDRAM0_ENABLE    0
++#define V_EDRAM0_ENABLE(x) ((x) << S_EDRAM0_ENABLE)
++#define F_EDRAM0_ENABLE    V_EDRAM0_ENABLE(1U)
++
++#define S_EXT_MEM1_ENABLE    4
++#define V_EXT_MEM1_ENABLE(x) ((x) << S_EXT_MEM1_ENABLE)
++#define F_EXT_MEM1_ENABLE    V_EXT_MEM1_ENABLE(1U)
++
++#define S_EXT_MEM0_ENABLE    2
++#define V_EXT_MEM0_ENABLE(x) ((x) << S_EXT_MEM0_ENABLE)
++#define F_EXT_MEM0_ENABLE    V_EXT_MEM0_ENABLE(1U)
+ 
+ #define MA_INT_CAUSE 0x77e0
+ #define  MEM_PERR_INT_CAUSE 0x00000002U
+@@ -532,7 +573,6 @@
+ #define MA_PARITY_ERROR_STATUS 0x77f4
+ #define MA_PARITY_ERROR_STATUS2 0x7804
+ 
+-#define MA_EXT_MEMORY1_BAR 0x7808
+ #define EDC_0_BASE_ADDR 0x7900
+ 
+ #define EDC_BIST_CMD 0x7904
+diff --git a/drivers/scsi/csiostor/csio_hw_t4.c b/drivers/scsi/csiostor/csio_hw_t4.c
+index 89ecbac..d83765d 100644
+--- a/drivers/scsi/csiostor/csio_hw_t4.c
++++ b/drivers/scsi/csiostor/csio_hw_t4.c
+@@ -307,12 +307,12 @@ csio_t4_memory_rw(struct csio_hw *hw, u32 win, int mtype, u32 addr,
+ 	 * MEM_EDC1 = 1
+ 	 * MEM_MC   = 2 -- T4
+ 	 */
+-	edc_size  = EDRAM_SIZE_GET(csio_rd_reg32(hw, MA_EDRAM0_BAR));
++	edc_size  = G_EDRAM0_SIZE(csio_rd_reg32(hw, A_MA_EDRAM0_BAR));
+ 	if (mtype != MEM_MC1)
+ 		memoffset = (mtype * (edc_size * 1024 * 1024));
+ 	else {
+-		mc_size = EXT_MEM_SIZE_GET(csio_rd_reg32(hw,
+-							 MA_EXT_MEMORY_BAR));
++		mc_size = G_EXT_MEM_SIZE(csio_rd_reg32(hw,
++						       A_MA_EXT_MEMORY_BAR));
+ 		memoffset = (MEM_MC0 * edc_size + mc_size) * 1024 * 1024;
+ 	}
+ 
+@@ -383,11 +383,12 @@ static void
+ csio_t4_dfs_create_ext_mem(struct csio_hw *hw)
+ {
+ 	u32 size;
+-	int i = csio_rd_reg32(hw, MA_TARGET_MEM_ENABLE);
+-	if (i & EXT_MEM_ENABLE) {
+-		size = csio_rd_reg32(hw, MA_EXT_MEMORY_BAR);
++	int i = csio_rd_reg32(hw, A_MA_TARGET_MEM_ENABLE);
++
++	if (i & F_EXT_MEM_ENABLE) {
++		size = csio_rd_reg32(hw, A_MA_EXT_MEMORY_BAR);
+ 		csio_add_debugfs_mem(hw, "mc", MEM_MC,
+-				     EXT_MEM_SIZE_GET(size));
++				     G_EXT_MEM_SIZE(size));
+ 	}
  }
  
+diff --git a/drivers/scsi/csiostor/csio_hw_t5.c b/drivers/scsi/csiostor/csio_hw_t5.c
+index 27745c1..ab0ac9a 100644
+--- a/drivers/scsi/csiostor/csio_hw_t5.c
++++ b/drivers/scsi/csiostor/csio_hw_t5.c
+@@ -298,12 +298,12 @@ csio_t5_memory_rw(struct csio_hw *hw, u32 win, int mtype, u32 addr,
+ 	 * MEM_MC0  = 2 -- For T5
+ 	 * MEM_MC1  = 3 -- For T5
+ 	 */
+-	edc_size  = EDRAM_SIZE_GET(csio_rd_reg32(hw, MA_EDRAM0_BAR));
++	edc_size  = G_EDRAM0_SIZE(csio_rd_reg32(hw, A_MA_EDRAM0_BAR));
+ 	if (mtype != MEM_MC1)
+ 		memoffset = (mtype * (edc_size * 1024 * 1024));
+ 	else {
+-		mc_size = EXT_MEM_SIZE_GET(csio_rd_reg32(hw,
+-							 MA_EXT_MEMORY_BAR));
++		mc_size = G_EXT_MEM_SIZE(csio_rd_reg32(hw,
++						       A_MA_EXT_MEMORY_BAR));
+ 		memoffset = (MEM_MC0 * edc_size + mc_size) * 1024 * 1024;
+ 	}
+ 
+@@ -372,16 +372,17 @@ static void
+ csio_t5_dfs_create_ext_mem(struct csio_hw *hw)
+ {
+ 	u32 size;
+-	int i = csio_rd_reg32(hw, MA_TARGET_MEM_ENABLE);
+-	if (i & EXT_MEM_ENABLE) {
+-		size = csio_rd_reg32(hw, MA_EXT_MEMORY_BAR);
++	int i = csio_rd_reg32(hw, A_MA_TARGET_MEM_ENABLE);
++
++	if (i & F_EXT_MEM_ENABLE) {
++		size = csio_rd_reg32(hw, A_MA_EXT_MEMORY_BAR);
+ 		csio_add_debugfs_mem(hw, "mc0", MEM_MC0,
+-				     EXT_MEM_SIZE_GET(size));
++				     G_EXT_MEM_SIZE(size));
+ 	}
+-	if (i & EXT_MEM1_ENABLE) {
+-		size = csio_rd_reg32(hw, MA_EXT_MEMORY1_BAR);
++	if (i & F_EXT_MEM1_ENABLE) {
++		size = csio_rd_reg32(hw, A_MA_EXT_MEMORY1_BAR);
+ 		csio_add_debugfs_mem(hw, "mc1", MEM_MC1,
+-				     EXT_MEM_SIZE_GET(size));
++				     G_EXT_MEM_SIZE(size));
+ 	}
+ }
+ 
+diff --git a/drivers/scsi/csiostor/csio_init.c b/drivers/scsi/csiostor/csio_init.c
+index 17794ad..757a406 100644
+--- a/drivers/scsi/csiostor/csio_init.c
++++ b/drivers/scsi/csiostor/csio_init.c
+@@ -128,10 +128,10 @@ static int csio_setup_debugfs(struct csio_hw *hw)
+ 	if (IS_ERR_OR_NULL(hw->debugfs_root))
+ 		return -1;
+ 
+-	i = csio_rd_reg32(hw, MA_TARGET_MEM_ENABLE);
+-	if (i & EDRAM0_ENABLE)
++	i = csio_rd_reg32(hw, A_MA_TARGET_MEM_ENABLE);
++	if (i & F_EDRAM0_ENABLE)
+ 		csio_add_debugfs_mem(hw, "edc0", MEM_EDC0, 5);
+-	if (i & EDRAM1_ENABLE)
++	if (i & F_EDRAM1_ENABLE)
+ 		csio_add_debugfs_mem(hw, "edc1", MEM_EDC1, 5);
+ 
+ 	hw->chip_ops->chip_dfs_create_ext_mem(hw);
 -- 
 1.7.1
-
