@@ -1,135 +1,141 @@
 From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH net-next 11/14] openvswitch: Remove flow member from struct ovs_skb_cb
-Date: Mon,  3 Nov 2014 22:01:56 -0800
-Message-ID: <1415080916-1953-1-git-send-email-pshelar@nicira.com>
-Cc: netdev@vger.kernel.org, Lorand Jakab <lojakab@cisco.com>,
+Subject: [PATCH net-next 12/14] openvswitch: Move key_attr_size() to flow_netlink.h.
+Date: Mon,  3 Nov 2014 22:02:00 -0800
+Message-ID: <1415080920-1982-1-git-send-email-pshelar@nicira.com>
+Cc: netdev@vger.kernel.org, Joe Stringer <joestringer@nicira.com>,
 	Pravin B Shelar <pshelar@nicira.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na6sys009bog002.obsmtp.com ([74.125.150.44]:54765 "HELO
-	na6sys009bog002.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752167AbaKEUCJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2014 15:02:09 -0500
-Received: by mail-pd0-f177.google.com with SMTP id v10so1364892pde.36
-        for <netdev@vger.kernel.org>; Wed, 05 Nov 2014 12:02:08 -0800 (PST)
+Received: from na6sys009bog029.obsmtp.com ([74.125.150.103]:48355 "HELO
+	na6sys009bog029.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752167AbaKEUCN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2014 15:02:13 -0500
+Received: by mail-pd0-f174.google.com with SMTP id p10so1370530pdj.19
+        for <netdev@vger.kernel.org>; Wed, 05 Nov 2014 12:02:12 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Lorand Jakab <lojakab@cisco.com>
+From: Joe Stringer <joestringer@nicira.com>
 
-The 'flow' memeber was chosen for removal because it's only used
-in ovs_execute_actions() we can pass it as argument to this
-function.
+flow-netlink has netlink related code.
 
-Signed-off-by: Lorand Jakab <lojakab@cisco.com>
+Signed-off-by: Joe Stringer <joestringer@nicira.com>
 Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
 ---
- net/openvswitch/actions.c  |  5 +----
- net/openvswitch/datapath.c | 12 +++++++-----
- net/openvswitch/datapath.h |  4 +---
- 3 files changed, 9 insertions(+), 12 deletions(-)
+ net/openvswitch/datapath.c     | 31 +++----------------------------
+ net/openvswitch/flow_netlink.c | 32 ++++++++++++++++++++++++++++++++
+ net/openvswitch/flow_netlink.h |  2 ++
+ 3 files changed, 37 insertions(+), 28 deletions(-)
 
-diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
-index 9fd33c0..f7e5891 100644
---- a/net/openvswitch/actions.c
-+++ b/net/openvswitch/actions.c
-@@ -865,14 +865,11 @@ static void process_deferred_actions(struct datapath *dp)
- 
- /* Execute a list of actions against 'skb'. */
- int ovs_execute_actions(struct datapath *dp, struct sk_buff *skb,
--			struct sw_flow_key *key)
-+			struct sw_flow_actions *acts, struct sw_flow_key *key)
- {
- 	int level = this_cpu_read(exec_actions_level);
--	struct sw_flow_actions *acts;
- 	int err;
- 
--	acts = rcu_dereference(OVS_CB(skb)->flow->sf_acts);
--
- 	this_cpu_inc(exec_actions_level);
- 	OVS_CB(skb)->egress_tun_info = NULL;
- 	err = do_execute_actions(dp, skb, key,
 diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index cdbc44c..4fd8a45 100644
+index 4fd8a45..5101780 100644
 --- a/net/openvswitch/datapath.c
 +++ b/net/openvswitch/datapath.c
-@@ -257,6 +257,7 @@ void ovs_dp_process_packet(struct sk_buff *skb, struct sw_flow_key *key)
- 	const struct vport *p = OVS_CB(skb)->input_vport;
- 	struct datapath *dp = p->dp;
- 	struct sw_flow *flow;
-+	struct sw_flow_actions *sf_acts;
- 	struct dp_stats_percpu *stats;
- 	u64 *stats_counter;
- 	u32 n_mask_hit;
-@@ -282,10 +283,10 @@ void ovs_dp_process_packet(struct sk_buff *skb, struct sw_flow_key *key)
- 		goto out;
- 	}
+@@ -375,37 +375,12 @@ static int queue_gso_packets(struct datapath *dp, struct sk_buff *skb,
+ 	return err;
+ }
  
--	OVS_CB(skb)->flow = flow;
-+	ovs_flow_stats_update(flow, key->tp.flags, skb);
-+	sf_acts = rcu_dereference(flow->sf_acts);
-+	ovs_execute_actions(dp, skb, sf_acts, key);
+-static size_t key_attr_size(void)
+-{
+-	return    nla_total_size(4)   /* OVS_KEY_ATTR_PRIORITY */
+-		+ nla_total_size(0)   /* OVS_KEY_ATTR_TUNNEL */
+-		  + nla_total_size(8)   /* OVS_TUNNEL_KEY_ATTR_ID */
+-		  + nla_total_size(4)   /* OVS_TUNNEL_KEY_ATTR_IPV4_SRC */
+-		  + nla_total_size(4)   /* OVS_TUNNEL_KEY_ATTR_IPV4_DST */
+-		  + nla_total_size(1)   /* OVS_TUNNEL_KEY_ATTR_TOS */
+-		  + nla_total_size(1)   /* OVS_TUNNEL_KEY_ATTR_TTL */
+-		  + nla_total_size(0)   /* OVS_TUNNEL_KEY_ATTR_DONT_FRAGMENT */
+-		  + nla_total_size(0)   /* OVS_TUNNEL_KEY_ATTR_CSUM */
+-		  + nla_total_size(0)   /* OVS_TUNNEL_KEY_ATTR_OAM */
+-		  + nla_total_size(256)   /* OVS_TUNNEL_KEY_ATTR_GENEVE_OPTS */
+-		+ nla_total_size(4)   /* OVS_KEY_ATTR_IN_PORT */
+-		+ nla_total_size(4)   /* OVS_KEY_ATTR_SKB_MARK */
+-		+ nla_total_size(12)  /* OVS_KEY_ATTR_ETHERNET */
+-		+ nla_total_size(2)   /* OVS_KEY_ATTR_ETHERTYPE */
+-		+ nla_total_size(4)   /* OVS_KEY_ATTR_8021Q */
+-		+ nla_total_size(0)   /* OVS_KEY_ATTR_ENCAP */
+-		+ nla_total_size(2)   /* OVS_KEY_ATTR_ETHERTYPE */
+-		+ nla_total_size(40)  /* OVS_KEY_ATTR_IPV6 */
+-		+ nla_total_size(2)   /* OVS_KEY_ATTR_ICMPV6 */
+-		+ nla_total_size(28); /* OVS_KEY_ATTR_ND */
+-}
+-
+ static size_t upcall_msg_size(const struct nlattr *userdata,
+ 			      unsigned int hdrlen)
+ {
+ 	size_t size = NLMSG_ALIGN(sizeof(struct ovs_header))
+ 		+ nla_total_size(hdrlen) /* OVS_PACKET_ATTR_PACKET */
+-		+ nla_total_size(key_attr_size()); /* OVS_PACKET_ATTR_KEY */
++		+ nla_total_size(ovs_key_attr_size()); /* OVS_PACKET_ATTR_KEY */
  
--	ovs_flow_stats_update(OVS_CB(skb)->flow, key->tp.flags, skb);
--	ovs_execute_actions(dp, skb, key);
- 	stats_counter = &stats->n_hit;
+ 	/* OVS_PACKET_ATTR_USERDATA */
+ 	if (userdata)
+@@ -678,8 +653,8 @@ static void get_dp_stats(struct datapath *dp, struct ovs_dp_stats *stats,
+ static size_t ovs_flow_cmd_msg_size(const struct sw_flow_actions *acts)
+ {
+ 	return NLMSG_ALIGN(sizeof(struct ovs_header))
+-		+ nla_total_size(key_attr_size()) /* OVS_FLOW_ATTR_KEY */
+-		+ nla_total_size(key_attr_size()) /* OVS_FLOW_ATTR_MASK */
++		+ nla_total_size(ovs_key_attr_size()) /* OVS_FLOW_ATTR_KEY */
++		+ nla_total_size(ovs_key_attr_size()) /* OVS_FLOW_ATTR_MASK */
+ 		+ nla_total_size(sizeof(struct ovs_flow_stats)) /* OVS_FLOW_ATTR_STATS */
+ 		+ nla_total_size(1) /* OVS_FLOW_ATTR_TCP_FLAGS */
+ 		+ nla_total_size(8) /* OVS_FLOW_ATTR_USED */
+diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
+index 1b29ea7..1050b28 100644
+--- a/net/openvswitch/flow_netlink.c
++++ b/net/openvswitch/flow_netlink.c
+@@ -252,6 +252,38 @@ static bool match_validate(const struct sw_flow_match *match,
+ 	return true;
+ }
  
- out:
-@@ -524,6 +525,7 @@ static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
- 	struct sw_flow_actions *acts;
- 	struct sk_buff *packet;
- 	struct sw_flow *flow;
-+	struct sw_flow_actions *sf_acts;
- 	struct datapath *dp;
- 	struct ethhdr *eth;
- 	struct vport *input_vport;
-@@ -579,7 +581,6 @@ static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
- 	rcu_assign_pointer(flow->sf_acts, acts);
++size_t ovs_key_attr_size(void)
++{
++	/* Whenever adding new OVS_KEY_ FIELDS, we should consider
++	 * updating this function.
++	 */
++	BUILD_BUG_ON(OVS_KEY_ATTR_TUNNEL_INFO != 22);
++
++	return    nla_total_size(4)   /* OVS_KEY_ATTR_PRIORITY */
++		+ nla_total_size(0)   /* OVS_KEY_ATTR_TUNNEL */
++		  + nla_total_size(8)   /* OVS_TUNNEL_KEY_ATTR_ID */
++		  + nla_total_size(4)   /* OVS_TUNNEL_KEY_ATTR_IPV4_SRC */
++		  + nla_total_size(4)   /* OVS_TUNNEL_KEY_ATTR_IPV4_DST */
++		  + nla_total_size(1)   /* OVS_TUNNEL_KEY_ATTR_TOS */
++		  + nla_total_size(1)   /* OVS_TUNNEL_KEY_ATTR_TTL */
++		  + nla_total_size(0)   /* OVS_TUNNEL_KEY_ATTR_DONT_FRAGMENT */
++		  + nla_total_size(0)   /* OVS_TUNNEL_KEY_ATTR_CSUM */
++		  + nla_total_size(0)   /* OVS_TUNNEL_KEY_ATTR_OAM */
++		  + nla_total_size(256) /* OVS_TUNNEL_KEY_ATTR_GENEVE_OPTS */
++		+ nla_total_size(4)   /* OVS_KEY_ATTR_IN_PORT */
++		+ nla_total_size(4)   /* OVS_KEY_ATTR_SKB_MARK */
++		+ nla_total_size(4)   /* OVS_KEY_ATTR_DP_HASH */
++		+ nla_total_size(4)   /* OVS_KEY_ATTR_RECIRC_ID */
++		+ nla_total_size(12)  /* OVS_KEY_ATTR_ETHERNET */
++		+ nla_total_size(2)   /* OVS_KEY_ATTR_ETHERTYPE */
++		+ nla_total_size(4)   /* OVS_KEY_ATTR_VLAN */
++		+ nla_total_size(0)   /* OVS_KEY_ATTR_ENCAP */
++		+ nla_total_size(2)   /* OVS_KEY_ATTR_ETHERTYPE */
++		+ nla_total_size(40)  /* OVS_KEY_ATTR_IPV6 */
++		+ nla_total_size(2)   /* OVS_KEY_ATTR_ICMPV6 */
++		+ nla_total_size(28); /* OVS_KEY_ATTR_ND */
++}
++
+ /* The size of the argument for each %OVS_KEY_ATTR_* Netlink attribute.  */
+ static const int ovs_key_lens[OVS_KEY_ATTR_MAX + 1] = {
+ 	[OVS_KEY_ATTR_ENCAP] = -1,
+diff --git a/net/openvswitch/flow_netlink.h b/net/openvswitch/flow_netlink.h
+index 6355b1d..4f03706 100644
+--- a/net/openvswitch/flow_netlink.h
++++ b/net/openvswitch/flow_netlink.h
+@@ -37,6 +37,8 @@
  
- 	OVS_CB(packet)->egress_tun_info = NULL;
--	OVS_CB(packet)->flow = flow;
- 	packet->priority = flow->key.phy.priority;
- 	packet->mark = flow->key.phy.skb_mark;
+ #include "flow.h"
  
-@@ -597,9 +598,10 @@ static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
- 		goto err_unlock;
- 
- 	OVS_CB(packet)->input_vport = input_vport;
-+	sf_acts = rcu_dereference(flow->sf_acts);
- 
- 	local_bh_disable();
--	err = ovs_execute_actions(dp, packet, &flow->key);
-+	err = ovs_execute_actions(dp, packet, sf_acts, &flow->key);
- 	local_bh_enable();
- 	rcu_read_unlock();
- 
-diff --git a/net/openvswitch/datapath.h b/net/openvswitch/datapath.h
-index 9741354..1c56a80 100644
---- a/net/openvswitch/datapath.h
-+++ b/net/openvswitch/datapath.h
-@@ -94,14 +94,12 @@ struct datapath {
- 
- /**
-  * struct ovs_skb_cb - OVS data in skb CB
-- * @flow: The flow associated with this packet.  May be %NULL if no flow.
-  * @egress_tun_key: Tunnel information about this packet on egress path.
-  * NULL if the packet is not being tunneled.
-  * @input_vport: The original vport packet came in on. This value is cached
-  * when a packet is received by OVS.
-  */
- struct ovs_skb_cb {
--	struct sw_flow		*flow;
- 	struct ovs_tunnel_info  *egress_tun_info;
- 	struct vport		*input_vport;
- };
-@@ -194,7 +192,7 @@ struct sk_buff *ovs_vport_cmd_build_info(struct vport *, u32 pid, u32 seq,
- 					 u8 cmd);
- 
- int ovs_execute_actions(struct datapath *dp, struct sk_buff *skb,
--			struct sw_flow_key *);
-+			struct sw_flow_actions *acts, struct sw_flow_key *);
- 
- void ovs_dp_notify_wq(struct work_struct *work);
++size_t ovs_key_attr_size(void);
++
+ void ovs_match_init(struct sw_flow_match *match,
+ 		    struct sw_flow_key *key, struct sw_flow_mask *mask);
  
 -- 
 1.9.3
