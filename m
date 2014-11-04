@@ -1,27 +1,37 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 2/4] tun: Use iovec iterators
-Date: Tue, 04 Nov 2014 16:31:34 +0800
-Message-ID: <E1XlZWY-0003Hk-Qu@gondolin.me.apana.org.au>
+Subject: Re: [PATCH 2/4] tun: Use iovec iterators
+Date: Tue, 4 Nov 2014 16:37:21 +0800
+Message-ID: <20141104083721.GA12691@gondor.apana.org.au>
 References: <20141104033818.GA11149@gondor.apana.org.au>
+ <E1XlZWY-0003Hk-Qu@gondolin.me.apana.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
 To: Al Viro <viro@ZenIV.linux.org.uk>,
 	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
 	Benjamin LaHaise <bcrl@kvack.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.apana.org.au ([209.40.204.226]:51789 "EHLO
+	helcar.apana.org.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752261AbaKDIhb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Nov 2014 03:37:31 -0500
+Content-Disposition: inline
+In-Reply-To: <E1XlZWY-0003Hk-Qu@gondolin.me.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+Oops, this patch had a left-over skb_pull which made it broken.
+Here is a fixed version.
+
+tun: Use iovec iterators
 
 This patch removes the use of skb_copy_datagram_const_iovec in
 favour of the iovec iterator-based skb_copy_datagram_iter.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
----
-
- drivers/net/tun.c |   65 +++++++++++++++++++++++++-----------------------------
- 1 file changed, 31 insertions(+), 34 deletions(-)
 
 diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 9dd3746..cfb81ca 100644
+index 9dd3746..ff955cdb 100644
 --- a/drivers/net/tun.c
 +++ b/drivers/net/tun.c
 @@ -71,6 +71,7 @@
@@ -97,7 +107,7 @@ index 9dd3746..cfb81ca 100644
  		struct {
  			__be16 h_vlan_proto;
  			__be16 h_vlan_TCI;
-@@ -1320,36 +1318,34 @@ static ssize_t tun_put_user(struct tun_struct *tun,
+@@ -1320,36 +1318,32 @@ static ssize_t tun_put_user(struct tun_struct *tun,
  
  		vlan_offset = offsetof(struct vlan_ethhdr, h_vlan_proto);
  
@@ -118,8 +128,6 @@ index 9dd3746..cfb81ca 100644
 +		ret = copy_to_iter(&veth, sizeof(veth), iter);
 +		if (ret || !iov_iter_count(iter))
  			goto done;
-+
-+		__skb_pull(skb, vlan_offset);
  	}
  
 -	skb_copy_datagram_const_iovec(skb, vlan_offset, iv, copied, len);
@@ -145,7 +153,7 @@ index 9dd3746..cfb81ca 100644
  
  	tun_debug(KERN_INFO, tun, "tun_do_read\n");
  
-@@ -1362,11 +1358,12 @@ static ssize_t tun_do_read(struct tun_struct *tun, struct tun_file *tfile,
+@@ -1362,11 +1356,12 @@ static ssize_t tun_do_read(struct tun_struct *tun, struct tun_file *tfile,
  	/* Read frames from queue */
  	skb = __skb_recv_datagram(tfile->socket.sk, noblock ? MSG_DONTWAIT : 0,
  				  &peeked, &off, &err);
@@ -163,7 +171,7 @@ index 9dd3746..cfb81ca 100644
  
  	return ret;
  }
-@@ -1387,7 +1384,7 @@ static ssize_t tun_chr_aio_read(struct kiocb *iocb, const struct iovec *iv,
+@@ -1387,7 +1382,7 @@ static ssize_t tun_chr_aio_read(struct kiocb *iocb, const struct iovec *iv,
  		goto out;
  	}
  
@@ -172,7 +180,7 @@ index 9dd3746..cfb81ca 100644
  			  file->f_flags & O_NONBLOCK);
  	ret = min_t(ssize_t, ret, len);
  	if (ret > 0)
-@@ -1488,7 +1485,7 @@ static int tun_recvmsg(struct kiocb *iocb, struct socket *sock,
+@@ -1488,7 +1483,7 @@ static int tun_recvmsg(struct kiocb *iocb, struct socket *sock,
  					 SOL_PACKET, TUN_TX_TIMESTAMP);
  		goto out;
  	}
@@ -181,3 +189,9 @@ index 9dd3746..cfb81ca 100644
  			  flags & MSG_DONTWAIT);
  	if (ret > total_len) {
  		m->msg_flags |= MSG_TRUNC;
+
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
