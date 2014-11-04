@@ -1,48 +1,48 @@
 From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH net-next 09/14] openvswitch: Drop packets when interdev is not up
-Date: Mon,  3 Nov 2014 22:01:46 -0800
-Message-ID: <1415080906-1895-1-git-send-email-pshelar@nicira.com>
-Cc: netdev@vger.kernel.org, Chunhe Li <lichunhe@huawei.com>,
+Subject: [PATCH net-next 10/14] openvswitch: Fix the type of struct ovs_key_nd nd_target field.
+Date: Mon,  3 Nov 2014 22:01:52 -0800
+Message-ID: <1415080912-1924-1-git-send-email-pshelar@nicira.com>
+Cc: netdev@vger.kernel.org, Jarno Rajahalme <jrajahalme@nicira.com>,
 	Pravin B Shelar <pshelar@nicira.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na6sys009bog018.obsmtp.com ([74.125.150.76]:42019 "HELO
-	na6sys009bog018.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752091AbaKEUB7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2014 15:01:59 -0500
-Received: by mail-pa0-f53.google.com with SMTP id kx10so1400913pab.40
-        for <netdev@vger.kernel.org>; Wed, 05 Nov 2014 12:01:58 -0800 (PST)
+Received: from na6sys009bog028.obsmtp.com ([74.125.150.102]:60204 "HELO
+	na6sys009bog028.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752151AbaKEUCE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2014 15:02:04 -0500
+Received: by mail-pa0-f44.google.com with SMTP id bj1so1438501pad.17
+        for <netdev@vger.kernel.org>; Wed, 05 Nov 2014 12:02:03 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Chunhe Li <lichunhe@huawei.com>
+From: Jarno Rajahalme <jrajahalme@nicira.com>
 
-If the internal device is not up, it should drop received
-packets. Sometimes it receive the broadcast or multicast
-packets, and the ip protocol stack will casue more cpu
-usage wasted.
+Should be the same as other IPv6 address fields.
 
-Signed-off-by: Chunhe Li <lichunhe@huawei.com>
+Current master produces sparse warnings without this change.
+
+Signed-off-by: Jarno Rajahalme <jrajahalme@nicira.com>
 Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
 ---
- net/openvswitch/vport-internal_dev.c | 5 +++++
- 1 file changed, 5 insertions(+)
+ include/uapi/linux/openvswitch.h | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/net/openvswitch/vport-internal_dev.c b/net/openvswitch/vport-internal_dev.c
-index 10dc07e..6a55f71 100644
---- a/net/openvswitch/vport-internal_dev.c
-+++ b/net/openvswitch/vport-internal_dev.c
-@@ -224,6 +224,11 @@ static int internal_dev_recv(struct vport *vport, struct sk_buff *skb)
- 	struct net_device *netdev = netdev_vport_priv(vport)->dev;
- 	int len;
+diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
+index 631056b..26c36c4 100644
+--- a/include/uapi/linux/openvswitch.h
++++ b/include/uapi/linux/openvswitch.h
+@@ -400,9 +400,9 @@ struct ovs_key_arp {
+ };
  
-+	if (unlikely(!(netdev->flags & IFF_UP))) {
-+		kfree_skb(skb);
-+		return 0;
-+	}
-+
- 	len = skb->len;
+ struct ovs_key_nd {
+-	__u32 nd_target[4];
+-	__u8  nd_sll[ETH_ALEN];
+-	__u8  nd_tll[ETH_ALEN];
++	__be32	nd_target[4];
++	__u8	nd_sll[ETH_ALEN];
++	__u8	nd_tll[ETH_ALEN];
+ };
  
- 	skb_dst_drop(skb);
+ /**
 -- 
 1.9.3
