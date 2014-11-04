@@ -1,7 +1,7 @@
 From: Shuah Khan <shuahkh@osg.samsung.com>
-Subject: [PATCH 13/20] selftests/mount: add install target to enable installing test
-Date: Tue,  4 Nov 2014 10:11:09 -0700
-Message-ID: <313d51c298bb13b7cd9187555ee8a70ee966e397.1415117102.git.shuahkh@osg.samsung.com>
+Subject: [PATCH 06/20] selftests/cpu-hotplug: add install target to enable installing test
+Date: Tue,  4 Nov 2014 10:11:02 -0700
+Message-ID: <7b618c4c81043fc6cc8d7b218069100262e544a2.1415117102.git.shuahkh@osg.samsung.com>
 References: <cover.1415117102.git.shuahkh@osg.samsung.com>
 Cc: Shuah Khan <shuahkh@osg.samsung.com>, linux-kbuild@vger.kernel.org,
 	linux-kernel@vger.kernel.org, linux-api@vger.kernel.org,
@@ -24,27 +24,28 @@ kselftest script to run the test.
 
 Signed-off-by: Shuah Khan <shuahkh@osg.samsung.com>
 ---
- tools/testing/selftests/mount/Makefile | 7 +++++++
- 1 file changed, 7 insertions(+)
+ tools/testing/selftests/cpu-hotplug/Makefile | 9 +++++++++
+ 1 file changed, 9 insertions(+)
 
-diff --git a/tools/testing/selftests/mount/Makefile b/tools/testing/selftests/mount/Makefile
-index 337d853..3bcb112 100644
---- a/tools/testing/selftests/mount/Makefile
-+++ b/tools/testing/selftests/mount/Makefile
-@@ -9,6 +9,13 @@ unprivileged-remount-test: unprivileged-remount-test.c
- test_unprivileged_remount: unprivileged-remount-test
- 	@if [ -f /proc/self/uid_map ] ; then ./unprivileged-remount-test ; fi
+diff --git a/tools/testing/selftests/cpu-hotplug/Makefile b/tools/testing/selftests/cpu-hotplug/Makefile
+index e9c28d8..3075d3a 100644
+--- a/tools/testing/selftests/cpu-hotplug/Makefile
++++ b/tools/testing/selftests/cpu-hotplug/Makefile
+@@ -1,5 +1,14 @@
++TEST_STR="/bin/bash ./cpu-on-off-test.sh || echo \"cpu-hotplug selftests: [FAIL]\""
++
+ all:
  
-+install: all
-+	install ./unprivileged-remount-test $(INSTALL_KSFT_PATH)
-+	echo "\necho \"Start mount test ....\"" >> $(KSELFTEST)
-+	echo "if [ -f /proc/self/uid_map ] ; then ./unprivileged-remount-test ; fi" >> $(KSELFTEST)
-+	echo "echo \"End mount test ....\"" >> $(KSELFTEST)
++install:
++	install ./on-off-test.sh $(INSTALL_KSFT_PATH)/cpu-on-off-test.sh
++	echo "\necho \"Start cpu hotplug test ....\"" >> $(KSELFTEST)
++	echo $(TEST_STR) >> $(KSELFTEST)
++	echo "echo \"End cpu hotplug test ....\"" >> $(KSELFTEST)
 +	echo "echo \"==============================\"" >> $(KSELFTEST)
 +
- run_tests: all test_unprivileged_remount
+ run_tests:
+ 	@/bin/bash ./on-off-test.sh || echo "cpu-hotplug selftests: [FAIL]"
  
- clean:
 -- 
 1.9.1
 
