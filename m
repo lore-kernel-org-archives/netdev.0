@@ -1,43 +1,50 @@
-From: Tom Herbert <therbert@google.com>
-Subject: [PATCH v2 net-next 5/7] gue: Protocol constants for remote checksum offload
-Date: Tue,  4 Nov 2014 09:06:55 -0800
-Message-ID: <1415120817-2105-6-git-send-email-therbert@google.com>
-References: <1415120817-2105-1-git-send-email-therbert@google.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f181.google.com ([209.85.223.181]:57244 "EHLO
-	mail-ie0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752386AbaKDRHd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Nov 2014 12:07:33 -0500
-Received: by mail-ie0-f181.google.com with SMTP id rp18so7885874iec.40
-        for <netdev@vger.kernel.org>; Tue, 04 Nov 2014 09:07:32 -0800 (PST)
-In-Reply-To: <1415120817-2105-1-git-send-email-therbert@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Shuah Khan <shuahkh@osg.samsung.com>
+Subject: [PATCH 19/20] selftests/vm: add install target to enable installing test
+Date: Tue,  4 Nov 2014 10:11:15 -0700
+Message-ID: <271b880cb8efb17078c090715c6b0c729c61dbbc.1415117102.git.shuahkh@osg.samsung.com>
+References: <cover.1415117102.git.shuahkh@osg.samsung.com>
+Cc: Shuah Khan <shuahkh@osg.samsung.com>, linux-kbuild@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-api@vger.kernel.org,
+	netdev@vger.kernel.org
+To: gregkh@linuxfoundation.org, akpm@linux-foundation.org,
+	mmarek@suse.cz, davem@davemloft.net, keescook@chromium.org,
+	tranmanphong@gmail.com, dh.herrmann@gmail.com, hughd@google.com,
+	bobby.prani@gmail.com, ebiederm@xmission.com,
+	serge.hallyn@ubuntu.com
+Return-path: <linux-kbuild-owner@vger.kernel.org>
+In-Reply-To: <cover.1415117102.git.shuahkh@osg.samsung.com>
+In-Reply-To: <cover.1415117102.git.shuahkh@osg.samsung.com>
+References: <cover.1415117102.git.shuahkh@osg.samsung.com>
+Sender: linux-kbuild-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Define a private flag for remote checksun offload as well as a length
-for the option.
+Add a new make target to enable installing test. This target
+installs test in the kselftest install location and add to the
+kselftest script to run the test.
 
-Signed-off-by: Tom Herbert <therbert@google.com>
+Signed-off-by: Shuah Khan <shuahkh@osg.samsung.com>
 ---
- include/net/gue.h | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+ tools/testing/selftests/vm/Makefile | 7 +++++++
+ 1 file changed, 7 insertions(+)
 
-diff --git a/include/net/gue.h b/include/net/gue.h
-index cb68ae8..3f28ec7 100644
---- a/include/net/gue.h
-+++ b/include/net/gue.h
-@@ -59,7 +59,10 @@ struct guehdr {
+diff --git a/tools/testing/selftests/vm/Makefile b/tools/testing/selftests/vm/Makefile
+index 4c4b1f6..254ce92 100644
+--- a/tools/testing/selftests/vm/Makefile
++++ b/tools/testing/selftests/vm/Makefile
+@@ -9,6 +9,13 @@ all: $(BINARIES)
+ %: %.c
+ 	$(CC) $(CFLAGS) -o $@ $^
  
- /* Private flags in the private option extension */
- 
--#define GUE_PFLAGS_ALL	(0)
-+#define GUE_PFLAG_REMCSUM	htonl(1 << 31)
-+#define GUE_PLEN_REMCSUM	4
++install: all
++	install run_vmtests $(BINARIES) $(INSTALL_KSFT_PATH)
++	echo "\necho \"Start vm test ....\"" >> $(KSELFTEST)
++	echo "/bin/sh ./run_vmtests || echo \"vmtests: [FAIL]\"" >> $(KSELFTEST)
++	echo "echo \"End vm test ....\"" >> $(KSELFTEST)
++	echo "echo \"==============================\"" >> $(KSELFTEST)
 +
-+#define GUE_PFLAGS_ALL	(GUE_PFLAG_REMCSUM)
+ run_tests: all
+ 	@/bin/sh ./run_vmtests || (echo "vmtests: [FAIL]"; exit 1)
  
- /* Functions to compute options length corresponding to flags.
-  * If we ever have a lot of flags this can be potentially be
 -- 
-2.1.0.rc2.206.gedb03e5
+1.9.1
+
