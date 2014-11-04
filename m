@@ -1,52 +1,60 @@
-From: Marcelo Ricardo Leitner <mleitner@redhat.com>
-Subject: Re: [PATCH v2 net] tcp: zero retrans_stamp if all retrans were acked
-Date: Tue, 04 Nov 2014 18:51:37 -0200
-Message-ID: <54593C59.6070004@redhat.com>
-References: <CADVnQykbFjodAyJomX8E5HZhOrP7kDxDS7vPNiam858B84vqCQ@mail.gmail.com>	<f58c4b02028e0750e583518608891d20742c0f38.1415128437.git.mleitner@redhat.com> <CADVnQymMioK0USNpaOF2Kb4+zMTDrjJ7r=5Bu51LbirVQPnzyw@mail.gmail.com>
+From: Joe Perches <realty@perches.com>
+Subject: Convert net_msg_warn, NETDEBUG, & LIMIT_NETDEBUG?
+Date: Tue, 04 Nov 2014 12:46:40 -0800
+Message-ID: <1415134000.23168.7.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>, Yuchung Cheng <ycheng@google.com>,
-	Eric Dumazet <edumazet@google.com>
-To: Neal Cardwell <ncardwell@google.com>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45176 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751235AbaKDUvn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Nov 2014 15:51:43 -0500
-In-Reply-To: <CADVnQymMioK0USNpaOF2Kb4+zMTDrjJ7r=5Bu51LbirVQPnzyw@mail.gmail.com>
+Received: from smtprelay0246.hostedemail.com ([216.40.44.246]:39753 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751732AbaKDUxR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Nov 2014 15:53:17 -0500
+Received: from smtprelay.hostedemail.com (10.5.19.251.rfc1918.com [10.5.19.251])
+	by smtpgrave01.hostedemail.com (Postfix) with ESMTP id 5BA0F5DFF6
+	for <netdev@vger.kernel.org>; Tue,  4 Nov 2014 20:46:45 +0000 (UTC)
+Received: from filter.hostedemail.com (unknown [216.40.38.60])
+	by smtprelay07.hostedemail.com (Postfix) with ESMTP id 657FDC2129
+	for <netdev@vger.kernel.org>; Tue,  4 Nov 2014 20:46:44 +0000 (UTC)
+Received: from joe-X200MA.home (pool-71-103-235-196.lsanca.fios.verizon.net [71.103.235.196])
+	(Authenticated sender: joe@perches.com)
+	by omf12.hostedemail.com (Postfix) with ESMTPA
+	for <netdev@vger.kernel.org>; Tue,  4 Nov 2014 20:46:41 +0000 (UTC)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04-11-2014 18:10, Neal Cardwell wrote:
-> On Tue, Nov 4, 2014 at 2:15 PM, Marcelo Ricardo Leitner
-> <mleitner@redhat.com> wrote:
-> ...
->> Therefore, now we clear retrans_stamp as soon as all data during the
->> loss window is fully acked.
->>
->> Reported-by: Ueki Kohei
->> Cc: Neal Cardwell <ncardwell@google.com>
->> Cc: Yuchung Cheng <ycheng@google.com>
->> Signed-off-by: Marcelo Ricardo Leitner <mleitner@redhat.com>
->> ---
->>
->> Notes:
->>      v1->v2: fixed compilation issue noticed by Neal
->>
->>   net/ipv4/tcp_input.c | 60 +++++++++++++++++++++++++++-------------------------
->>   1 file changed, 31 insertions(+), 29 deletions(-)
->
-> Acked-by: Neal Cardwell <ncardwell@google.com>
-> Tested-by: Neal Cardwell <ncardwell@google.com>
->
-> Code looks fine, and it passes Yuchung's packetdrill test case for this.
->
-> Thanks for finding and fixing this, Marcelo.
+net_msg_warn is a sysctl used to control the printk
+of a bundle of mostly ipv4/ipv6 logging messages.
 
-And thank you guys for all the assistance on it. Btw, would you send me that 
-packetdrill script? I'm curious to see how such corner case could be written 
-on it.
+Does anyone use it?
 
-Regards,
-Marcelo
+NETDEBUG is used 4 times, 2 of which seem senseless
+as they are allocation failures messages after an
+alloc_skb.  These already get stack dumps.
+
+The other NETDEBUG uses are ESP crypto descriptions.
+
+LIMIT_NETDEBUG is used a lot more.
+
+include/net/sock.h:#define LIMIT_NETDEBUG(fmt, args...) \
+include/net/sock.h-     do { if (net_msg_warn && net_ratelimit()) printk(fmt,##args); } while(0)
+
+Most of the LIMIT_NETDEBUG uses are emitted at KERN_DEBUG.
+
+Here is the count of each type of use:
+     31 KERN_DEBUG
+      2 KERN_ERR
+      3 KERN_INFO
+     11 KERN_WARNING
+
+Should those KERN_DEBUG uses be converted to
+net_dbg_ratelimited so that these uses could be
+controlled via dynamic_debug instead of the
+net_msg_warn sysctl?
+
+net/dccp/ uses LIMIT_NETDEBUG via DCCP_WARN to
+control another 38 KERN_WARNING messages.
+
+The others LIMIT_NETDEBUG uses could be converted
+to net_<level>_ratelimited if appropriate.
