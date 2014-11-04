@@ -1,64 +1,54 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net-next 1/7] bpf: add 'flags' attribute to BPF_MAP_UPDATE_ELEM
- command
-Date: Tue, 04 Nov 2014 10:25:29 +0100
-Message-ID: <54589B89.5000309@redhat.com>
-References: <1415069656-14138-1-git-send-email-ast@plumgrid.com> <1415069656-14138-2-git-send-email-ast@plumgrid.com>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: Re: [PATCH v1 1/2] dtb: xgene: fix: Disable 10GbE and SGMII based 1GbE by default
+Date: Tue, 04 Nov 2014 10:40:18 +0100
+Message-ID: <2461768.hHqNmTQE9x@wuerfel>
+References: <1414630580-24640-1-git-send-email-isubramanian@apm.com> <1991367.DGHysZpQVP@wuerfel> <CAKh23FkVrPdCuR6dn1S4RvW14_f4Xq8MWaChUh9DyVp44kVtSg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Ingo Molnar <mingo@kernel.org>,
-	Andy Lutomirski <luto@amacapital.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Eric Dumazet <edumazet@google.com>, linux-api@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:34627 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751160AbaKDJZn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Nov 2014 04:25:43 -0500
-In-Reply-To: <1415069656-14138-2-git-send-email-ast@plumgrid.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, patches <patches-qTEPVZfXA3Y@public.gmane.org>,
+	Keyur Chudgar <kchudgar-qTEPVZfXA3Y@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAKh23FkVrPdCuR6dn1S4RvW14_f4Xq8MWaChUh9DyVp44kVtSg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 11/04/2014 03:54 AM, Alexei Starovoitov wrote:
-> the current meaning of BPF_MAP_UPDATE_ELEM syscall command is:
-> either update existing map element or create a new one.
-> Initially the plan was to add a new command to handle the case of
-> 'create new element if it didn't exist', but 'flags' style looks
-> cleaner and overall diff is much smaller (more code reused), so add 'flags'
-> attribute to BPF_MAP_UPDATE_ELEM command with the following meaning:
-> enum {
->    BPF_MAP_UPDATE_OR_CREATE = 0, /* add new element or update existing */
->    BPF_MAP_CREATE_ONLY,          /* add new element if it didn't exist */
->    BPF_MAP_UPDATE_ONLY           /* update existing element */
-> };
+On Monday 03 November 2014 11:45:44 Iyappan Subramanian wrote:
+> 
+> On Thu, Oct 30, 2014 at 3:13 AM, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org> wrote:
+> > On Wednesday 29 October 2014 17:56:19 Iyappan Subramanian wrote:
+> >> @@ -621,7 +621,7 @@
+> >>                         };
+> >>                 };
+> >>
+> >> -               sgenet0: ethernet@1f210000 {
+> >> +               sgenet0: sgenet@1f210000 {
+> >>                         compatible = "apm,xgene-enet";
+> >>                         status = "disabled";
+> >>                         reg = <0x0 0x1f210000 0x0 0x10000>,
+> >>
+> >
+> > This looks like you accidentally reverted a bug fix made earlier.
+> > Network devices should always have the name 'ethernet@...'.
+> 
+> Thanks for the review.  Since our firmware was patching the dtb, based
+> on the node-name, we thought by changing node-name, we can avoid the
+> patching and maintain backward compatibility.
+> 
+> Now we know that network devices should have 'ethernet@...', we will
+> handle the backward compatibility in a different way and will post the
+> patch v2 shortly.
 
- From you commit message/code I currently don't see an explanation why
-it cannot be done in typical ``flags style'' as various syscalls do,
-i.e. BPF_MAP_UPDATE_OR_CREATE rather represented as ...
+It's not important enough to break backwards compatibility over this.
+If you can't find a better way to handle compatibility with the old
+firmware, just add a comment explaining the node name.
 
-   BPF_MAP_CREATE | BPF_MAP_UPDATE
-
-Do you expect more than 64 different flags to be passed from user space
-for BPF_MAP?
-
-> BPF_MAP_CREATE_ONLY can fail with EEXIST if element already exists.
-> BPF_MAP_UPDATE_ONLY can fail with ENOENT if element doesn't exist.
->
-> Userspace will call it as:
-> int bpf_update_elem(int fd, void *key, void *value, __u64 flags)
-> {
->      union bpf_attr attr = {
->          .map_fd = fd,
->          .key = ptr_to_u64(key),
->          .value = ptr_to_u64(value),
->          .flags = flags;
->      };
->
->      return bpf(BPF_MAP_UPDATE_ELEM, &attr, sizeof(attr));
-> }
->
-> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+	Arnd
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
