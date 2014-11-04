@@ -1,64 +1,70 @@
-From: Loganaden Velvindron <logan@elandsys.com>
-Subject: Re: [PATCH] Add missing descriptions for fwmark_reflect for ipv4 and
- ipv6.
-Date: Tue, 4 Nov 2014 03:02:49 -0800
-Message-ID: <20141104110249.GA25828@mx.elandsys.com>
-References: <20141029172915.GA15714@mx.elandsys.com>
- <20141030.161137.1421672304905070027.davem@davemloft.net>
- <20141104105650.GA5233@mx.elandsys.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v2 1/1] ip-link: in human readable output use dynamic
+ precision length
+Date: Tue, 4 Nov 2014 11:06:50 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1C9E72A7@AcuExch.aculab.com>
+References: <20141104114421.6a7f9de5@leda.localdomain>
+ <1415098208-17942-1-git-send-email-mail@eworm.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'Christian Hesse' <mail@eworm.de>,
+	Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns1.qubic.net ([208.69.177.116]:55290 "EHLO mx.elandsys.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752676AbaKDLCv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Nov 2014 06:02:51 -0500
-Content-Disposition: inline
-In-Reply-To: <20141104105650.GA5233@mx.elandsys.com>
+Received: from mx0.aculab.com ([213.249.233.131]:41884 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752557AbaKDLJj convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Nov 2014 06:09:39 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 24979-01 for <netdev@vger.kernel.org>;
+ Tue,  4 Nov 2014 11:09:26 +0000 (GMT)
+In-Reply-To: <1415098208-17942-1-git-send-email-mail@eworm.de>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It was initially sent by Lorenzo Colitti, but was subsequently
-lost in the final diff he submitted.
+From: Christian Hesse
+...
+> diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+> index e240bb5..55cbc77 100644
+> --- a/ip/ipaddress.c
+> +++ b/ip/ipaddress.c
+> @@ -324,6 +324,7 @@ static void print_num(FILE *fp, unsigned width, uint64_t count)
+>  	const char *prefix = "kMGTPE";
+>  	const unsigned int base = use_iec ? 1024 : 1000;
+>  	uint64_t powi = 1;
+> +	int precision;
+>  	char buf[64];
+> 
+>  	if (!human_readable || count < base) {
+> @@ -343,8 +344,11 @@ static void print_num(FILE *fp, unsigned width, uint64_t count)
+>  		++prefix;
+>  	}
+> 
+> -	snprintf(buf, sizeof(buf), "%.1f%c%s", (double) count / powi,
+> -		 *prefix, use_iec ? "i" : "");
+> +	if ((precision = 3 - snprintf(NULL, 0, "%"PRIu64, count / powi)) < 0)
 
-Signed-off-by: Loganaden Velvindron <logan@elandsys.com>
----
- Documentation/networking/ip-sysctl.txt | 14 ++++++++++++++
- 1 file changed, 14 insertions(+)
+Don't put assignments in conditionals.
 
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index 0307e28..a476b08 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -56,6 +56,13 @@ ip_forward_use_pmtu - BOOLEAN
- 	0 - disabled
- 	1 - enabled
- 
-+fwmark_reflect - BOOLEAN
-+	Controls the fwmark of kernel-generated IPv4 reply packets that are not
-+	associated with a socket for example, TCP RSTs or ICMP echo replies).
-+	If unset, these packets have a fwmark of zero. If set, they have the
-+	fwmark of the packet they are replying to.
-+	Default: 0
-+
- route/max_size - INTEGER
- 	Maximum number of routes allowed in the kernel.  Increase
- 	this when using large numbers of interfaces and/or routes.
-@@ -1201,6 +1208,13 @@ conf/all/forwarding - BOOLEAN
- proxy_ndp - BOOLEAN
- 	Do proxy ndp.
- 
-+fwmark_reflect - BOOLEAN
-+	Controls the fwmark of kernel-generated IPv6 reply packets that are not
-+	associated with a socket for example, TCP RSTs or ICMPv6 echo replies).
-+	If unset, these packets have a fwmark of zero. If set, they have the
-+	fwmark of the packet they are replying to.
-+	Default: 0
-+
- conf/interface/*:
- 	Change special settings per interface.
- 
--- 
-1.9.1
+> +		precision = 0;
+> +
+> +	snprintf(buf, sizeof(buf), "%.*f%c%s", precision,
+> +		(double) count / powi, *prefix, use_iec ? "i" : "");
+> 
+>  	fprintf(fp, "%-*s ", width, buf);
+>  }
+> --
+> 2.1.3
+
+The above will go wrong in all sorts of horrid ways....
+For instance you are doing a truncating integer divide, but the FP
+value will get rounded for display.
+
+It would be safer to use integers throughout.
+
+Oh, and a 2Mbit E1 link is actually 2048000 :-)
+
+	David
