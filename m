@@ -1,72 +1,72 @@
 From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Subject: [PATCH (net.git) 1/5] stmmac: fix stmmac_tx_avail should be called with TX locked
-Date: Tue, 4 Nov 2014 17:08:05 +0100
-Message-ID: <1415117289-7733-2-git-send-email-peppe.cavallaro@st.com>
+Subject: [PATCH (net.git) 3/5] stmmac: fix lock in stmmac_set_rx_mode
+Date: Tue, 4 Nov 2014 17:08:07 +0100
+Message-ID: <1415117289-7733-4-git-send-email-peppe.cavallaro@st.com>
 References: <1415117289-7733-1-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Fabrice Gasnier <fabrice.gasnier@st.com>
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	Emilio Lopez <emilio@elopez.com.ar>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx07-00178001.pphosted.com ([62.209.51.94]:47601 "EHLO
+Received: from mx07-00178001.pphosted.com ([62.209.51.94]:47605 "EHLO
 	mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751999AbaKDQT7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Nov 2014 11:19:59 -0500
-Received: from pps.filterd (m0046670.ppops.net [127.0.0.1])
-	by mx07-00178001.pphosted.com (8.14.5/8.14.5) with SMTP id sA4GFnLF014618
-	for <netdev@vger.kernel.org>; Tue, 4 Nov 2014 17:19:58 +0100
-Received: from beta.dmz-eu.st.com (beta.dmz-eu.st.com [164.129.1.35])
-	by mx07-00178001.pphosted.com with ESMTP id 1qetgejbvv-1
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Tue, 04 Nov 2014 17:19:58 +0100
-Received: from zeta.dmz-eu.st.com (zeta.dmz-eu.st.com [164.129.230.9])
-	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 103873D
-	for <netdev@vger.kernel.org>; Tue,  4 Nov 2014 16:19:29 +0000 (GMT)
-Received: from Webmail-eu.st.com (Safex1hubcas21.st.com [10.75.90.44])
-	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 32DCF2C2F4
-	for <netdev@vger.kernel.org>; Tue,  4 Nov 2014 16:19:54 +0000 (GMT)
+	by vger.kernel.org with ESMTP id S1753041AbaKDQUC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Nov 2014 11:20:02 -0500
 In-Reply-To: <1415117289-7733-1-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Fabrice Gasnier <fabrice.gasnier@st.com>
+When compile with CONFIG_PROVE_LOCKING the following warnings happen:
 
-stmmac_tx_avail() may lie if used unprotected. It's using cur_tx
-and dirty_tx index. These index may be already in use by tx_clean
-when entering xmit routine. So, this should be called locked.
+[snip]
 
-This can cause transmit queue to be stuck, with following message:
-NETDEV WATCHDOG: eth0 (stmmaceth): transmit queue 0 timed out
+    HARDIRQ-ON-W at:
+                        [<c0480c1c>] _raw_spin_lock+0x3c/0x4c
+                        [<c02c2828>] stmmac_set_rx_mode+0x18/0x3c
+                        [<c038b2cc>] dev_set_rx_mode+0x1c/0x28
+                        [<c038b38c>] __dev_open+0xb4/0xf8
+                        [<c038b5a8>] __dev_change_flags+0x94/0x128
+                        [<c038b6a8>] dev_change_flags+0x10/0x48
+                        [<c062afe0>] ip_auto_config+0x1d4/0x1084
+                        [<c000873c>] do_one_initcall+0x108/0x15c
+                        [<c060ec50>] kernel_init_freeable+0x1a8/0x248
+                        [<c0472cc0>] kernel_init+0x8/0x160
+                        [<c000dfc8>] ret_from_fork+0x14/0x2c
+     INITIAL USE at:
+                       [<c0480c1c>] _raw_spin_lock+0x3c/0x4c
+                       [<c02c2828>] stmmac_set_rx_mode+0x18/0x3c
+                       [<c038b2cc>] dev_set_rx_mode+0x1c/0x28
+                       [<c038b38c>] __dev_open+0xb4/0xf8
+                       [<c038b5a8>] __dev_change_flags+0x94/0x128
+                       [<c038b6a8>] dev_change_flags+0x10/0x48
+                       [<c062afe0>] ip_auto_config+0x1d4/0x1084
+                       [<c000873c>] do_one_initcall+0x108/0x15c
+                       [<c060ec50>] kernel_init_freeable+0x1a8/0x248
+                       [<c0472cc0>] kernel_init+0x8/0x160
+                       [<c000dfc8>] ret_from_fork+0x14/0x2c
 
-Signed-off-by: Fabrice Gasnier <fabrice.gasnier@st.com>
-Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+so the patch just removes the lock protection in the stmmac_set_rx_mode
+
+Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Cc: Emilio Lopez <emilio@elopez.com.ar>
 ---
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |    2 --
+ 1 files changed, 0 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 6f77a46..bcd8a34 100644
+index ee07e7e..2759873 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
 +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -1894,7 +1894,10 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
- 	unsigned int nopaged_len = skb_headlen(skb);
- 	unsigned int enh_desc = priv->plat->enh_desc;
+@@ -2283,9 +2283,7 @@ static void stmmac_set_rx_mode(struct net_device *dev)
+ {
+ 	struct stmmac_priv *priv = netdev_priv(dev);
  
-+	spin_lock(&priv->tx_lock);
-+
- 	if (unlikely(stmmac_tx_avail(priv) < nfrags + 1)) {
-+		spin_unlock(&priv->tx_lock);
- 		if (!netif_queue_stopped(dev)) {
- 			netif_stop_queue(dev);
- 			/* This is a hard error, log it. */
-@@ -1903,8 +1906,6 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
- 		return NETDEV_TX_BUSY;
- 	}
+-	spin_lock(&priv->lock);
+ 	priv->hw->mac->set_filter(priv->hw, dev);
+-	spin_unlock(&priv->lock);
+ }
  
--	spin_lock(&priv->tx_lock);
--
- 	if (priv->tx_path_in_lpi_mode)
- 		stmmac_disable_eee_mode(priv);
- 
+ /**
 -- 
 1.7.4.4
