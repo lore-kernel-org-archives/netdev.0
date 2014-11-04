@@ -1,41 +1,37 @@
-From: Joe Stringer <joestringer@nicira.com>
-Subject: [PATCH net 0/5] Implement ndo_gso_check() for vxlan nics
-Date: Tue,  4 Nov 2014 13:56:37 -0800
-Message-ID: <1415138202-1197-1-git-send-email-joestringer@nicira.com>
-Cc: sathya.perla@emulex.com, jeffrey.t.kirsher@intel.com,
-	linux.nics@intel.com, amirv@mellanox.com, shahed.shaikh@qlogic.com,
-	Dept-GELinuxNICDev@qlogic.com, therbert@google.com,
-	linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Patch net-next v2] neigh: remove dynamic neigh table
+ registration support
+Date: Tue, 04 Nov 2014 17:02:51 -0500 (EST)
+Message-ID: <20141104.170251.950859328398615616.davem@davemloft.net>
+References: <1415038454-8150-1-git-send-email-xiyou.wangcong@gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: xiyou.wangcong@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:59757 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751688AbaKDWCx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Nov 2014 17:02:53 -0500
+In-Reply-To: <1415038454-8150-1-git-send-email-xiyou.wangcong@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Most NICs that report NETIF_F_GSO_UDP_TUNNEL support VXLAN, and not other
-UDP-based encapsulation protocols where the format and size of the header may
-differ. This patch series implements ndo_gso_check() for these NICs,
-restricting the GSO handling to something that looks and smells like VXLAN.
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Mon,  3 Nov 2014 10:14:14 -0800
 
-Implementation shamelessly stolen from Tom Herbert (with minor fixups):
-http://thread.gmane.org/gmane.linux.network/332428/focus=333111
+> Currently there are only three neigh tables in the whole kernel:
+> arp table, ndisc table and decnet neigh table. What's more,
+> we don't support registering multiple tables per family.
+> Therefore we can just make these tables statically built-in.
+> 
+> Cc: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> ---
+> v2: remove useless #ifdef's
+>     move the assignment to the end of neigh_table_init()
 
-If there are particular differences for your driver on actual support, I'd like
-to hear about it. I adjusted the i40e driver to report support with tunnel
-headers of up to 64 octets, perhaps there are other specifics that I've missed.
-
-Joe Stringer (5):
-  be2net: Implement ndo_gso_check()
-  i40e: Implement ndo_gso_check()
-  fm10k: Implement ndo_gso_check()
-  net/mlx4_en: Implement ndo_gso_check()
-  qlcnic: Implement ndo_gso_check()
-
- drivers/net/ethernet/emulex/benet/be_main.c      |   12 ++++++++++++
- drivers/net/ethernet/intel/fm10k/fm10k_netdev.c  |   12 ++++++++++++
- drivers/net/ethernet/intel/i40e/i40e_main.c      |   14 +++++++++++++-
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c   |   12 ++++++++++++
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |   12 ++++++++++++
- 5 files changed, 61 insertions(+), 1 deletion(-)
-
---
-1.7.10.4
+neigh_table_clear should definitely NULL out the slot, otherwise
+we hold in there a pointer to module memory which is about to
+be released.
