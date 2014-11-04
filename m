@@ -1,53 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Xen-devel] [PATCHv1 net-next] xen-netback: remove
- unconditional pull_skb_tail in guest Tx path
-Date: Tue, 04 Nov 2014 16:17:04 -0500 (EST)
-Message-ID: <20141104.161704.1690311989900127361.davem@davemloft.net>
-References: <1415036346.1411.3.camel@citrix.com>
-	<5457BF80.2000205@citrix.com>
-	<5457C807.5080509@linaro.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: david.vrabel@citrix.com, Ian.Campbell@citrix.com,
-	netdev@vger.kernel.org, malcolm.crossley@citrix.com,
-	wei.liu2@citrix.com, xen-devel@lists.xenproject.org
-To: zoltan.kiss@linaro.org
+From: Christian Hesse <mail@eworm.de>
+Subject: [PATCH v3 1/1] ip-link: in human readable output use dynamic precision length
+Date: Tue,  4 Nov 2014 22:17:15 +0100
+Message-ID: <1415135835-17297-1-git-send-email-mail@eworm.de>
+References: <20141104221038.440fd9d7@leda.localdomain>
+Cc: netdev@vger.kernel.org, Christian Hesse <mail@eworm.de>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59500 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751176AbaKDVRH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Nov 2014 16:17:07 -0500
-In-Reply-To: <5457C807.5080509@linaro.org>
+Received: from mx.mylinuxtime.de ([148.251.109.235]:44853 "EHLO
+	mx.mylinuxtime.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751118AbaKDVRc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Nov 2014 16:17:32 -0500
+In-Reply-To: <20141104221038.440fd9d7@leda.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Zoltan Kiss <zoltan.kiss@linaro.org>
-Date: Mon, 03 Nov 2014 18:23:03 +0000
+---
+ ip/ipaddress.c | 13 +++++++++++--
+ 1 file changed, 11 insertions(+), 2 deletions(-)
 
-> 
-> 
-> On 03/11/14 17:46, David Vrabel wrote:
->> On 03/11/14 17:39, Ian Campbell wrote:
->>> On Mon, 2014-11-03 at 17:23 +0000, David Vrabel wrote:
->>>> From: Malcolm Crossley <malcolm.crossley@citrix.com>
->>>>
->>>> Unconditionally pulling 128 bytes into the linear buffer is not
->>>> required. Netback has already grant copied up-to 128 bytes from the
->>>> first slot of a packet into the linear buffer. The first slot normally
->>>> contain all the IPv4/IPv6 and TCP/UDP headers.
->>>
->>> What about when it doesn't? It sounds as if we now won't pull up,
->>> which
->>> would be bad.
->>
->> The network stack will always pull any headers it needs to inspect
->> (the
->> frag may be a userspace page which has the same security issues as a
->> frag with a foreign page).
-> I wouldn't bet my life on this, but indeed it should always happen.
-
-I would bet my life on it.
-
-Every protocol demux starts with pskb_may_pull() to pull frag data
-into the linear area, if necessary, before looking at headers.
+diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+index e240bb5..db39437 100644
+--- a/ip/ipaddress.c
++++ b/ip/ipaddress.c
+@@ -324,6 +324,8 @@ static void print_num(FILE *fp, unsigned width, uint64_t count)
+ 	const char *prefix = "kMGTPE";
+ 	const unsigned int base = use_iec ? 1024 : 1000;
+ 	uint64_t powi = 1;
++	uint16_t powj = 1;
++	uint8_t precision = 2;
+ 	char buf[64];
+ 
+ 	if (!human_readable || count < base) {
+@@ -343,8 +345,15 @@ static void print_num(FILE *fp, unsigned width, uint64_t count)
+ 		++prefix;
+ 	}
+ 
+-	snprintf(buf, sizeof(buf), "%.1f%c%s", (double) count / powi, 
+-		 *prefix, use_iec ? "i" : "");
++	/* try to guess a good number of digits for precision */
++	for (; precision > 0; precision--) {
++		powj *= 10;
++		if (count / powi < powj)
++			break;
++	}
++
++	snprintf(buf, sizeof(buf), "%.*f%c%s", precision,
++		(double) count / powi, *prefix, use_iec ? "i" : "");
+ 
+ 	fprintf(fp, "%-*s ", width, buf);
+ }
+-- 
+2.1.3
