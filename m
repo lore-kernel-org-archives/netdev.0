@@ -1,73 +1,37 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net-next 3/7] bpf: add array type of eBPF maps
-Date: Tue, 04 Nov 2014 10:58:33 +0100
-Message-ID: <5458A349.5020401@redhat.com>
-References: <1415069656-14138-1-git-send-email-ast@plumgrid.com> <1415069656-14138-4-git-send-email-ast@plumgrid.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: TCP NewReno and single retransmit
+Date: Tue, 4 Nov 2014 09:56:49 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1C9E7159@AcuExch.aculab.com>
+References: <544E93BD.50202@redhat.com>
+	<CADVnQynu7+wgkNTkdY=XDBeyWjFxpYYBjx=n98g1_awdG2OpnA@mail.gmail.com>
+	<54521FD6.70403@redhat.com>
+	<CAK6E8=dYfJw16Q0D40QD7RLr=wq=y+5W59zHmZ24L49OPS9O5A@mail.gmail.com>
+	<5457AF6D.6010105@redhat.com>
+ <CADVnQykXpA_A87+bFOCdbb-QLTRf-5TEgspCzE-STO49N+6waw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Ingo Molnar <mingo@kernel.org>,
-	Andy Lutomirski <luto@amacapital.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Eric Dumazet <edumazet@google.com>, linux-api@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1415069656-14138-4-git-send-email-ast@plumgrid.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Yuchung Cheng <ycheng@google.com>, netdev <netdev@vger.kernel.org>,
+	"Eric Dumazet" <edumazet@google.com>
+To: 'Neal Cardwell' <ncardwell@google.com>,
+	Marcelo Ricardo Leitner <mleitner@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:34735 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1753245AbaKDJ7h (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Nov 2014 04:59:37 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 06527-03 for <netdev@vger.kernel.org>;
+ Tue,  4 Nov 2014 09:59:26 +0000 (GMT)
+In-Reply-To: <CADVnQykXpA_A87+bFOCdbb-QLTRf-5TEgspCzE-STO49N+6waw@mail.gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/04/2014 03:54 AM, Alexei Starovoitov wrote:
-> add new map type BPF_MAP_TYPE_ARRAY and its implementation
->
-> - optimized for fastest possible lookup()
->    . in the future verifier/JIT may recognize lookup() with constant key
->      and optimize it into constant pointer. Can optimize non-constant
->      key into direct pointer arithmetic as well, since pointers and
->      value_size are constant for the life of the eBPF program.
->      In other words array_map_lookup_elem() may be 'inlined' by verifier/JIT
->      while preserving concurrent access to this map from user space
->
-> - two main use cases for array type:
->    . 'global' eBPF variables: array of 1 element with key=0 and value is a
->      collection of 'global' variables which programs can use to keep the state
->      between events
->    . aggregation of tracing events into fixed set of buckets
->
-> - all array elements pre-allocated and zero initialized at init time
->
-> - key as an index in array and can only be 4 byte
->
-> - map_delete_elem() returns EINVAL, since elements cannot be deleted
->
-> - map_update_elem() replaces elements in an non-atomic way
->    (for atomic updates hashtable type should be used instead)
->
-> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
-
-...
-> +/* Called from syscall or from eBPF program */
-> +static int array_map_update_elem(struct bpf_map *map, void *key, void *value,
-> +				 u64 map_flags)
-> +{
-> +	struct bpf_array *array = container_of(map, struct bpf_array, map);
-> +	u32 index = *(u32 *)key;
-> +
-> +	if (map_flags > BPF_MAP_UPDATE_ONLY)
-> +		/* unknown flags */
-> +		return -EINVAL;
-> +
-> +	if (map_flags == BPF_MAP_CREATE_ONLY)
-> +		return -EINVAL;
-> +
-> +	if (index >= array->map.max_entries)
-> +		/* all elements were pre-allocated, cannot insert a new one */
-> +		return -E2BIG;
-> +
-> +	memcpy(array->value + array->elem_size * index, value, array->elem_size);
-
-What would protect this from concurrent updates?
-
-> +	return 0;
-> +}
+PiBTaW5jZSB0aGVyZSBhcmUgbm8gbGl0ZXJhbCBJRVRGLXN0eWxlICJNVVNUIiBzdGF0ZW1lbnRz
+IGluIFJGQzI1ODIsIEkNCj4gdGhpbmsgdGhlICJNVVNUIiBpbiB0aGUgY29kZSBoZXJlIGlzIGV4
+cHJlc3NpbmcgdGhlIGRlc2lnbiBwaGlsb3NvcGh5DQo+IGJlaGluZCB0aGUgYXV0aG9yLiA6LSkN
+Cg0KSSB3b3VsZG4ndCBndWFyYW50ZWUgdGhhdCB0aGUgYXV0aG9ycyBvZiBhbnkgUkZDIChvciBv
+dGhlcg0Kc3RhbmRhcmRzIGRvY3VtZW50KSBtYW5hZ2VkIHRvIGNvdmVyIGFsbCBwb3NzaWJsZSBj
+YXNlcy4NCg0KCURhdmlkDQoNCg==
