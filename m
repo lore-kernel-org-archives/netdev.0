@@ -1,82 +1,128 @@
 From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Subject: [net-next.git 3/3 (V2)] stmmac: remove BUS_MODE_DA
-Date: Tue, 4 Nov 2014 15:49:34 +0100
-Message-ID: <1415112574-21321-4-git-send-email-peppe.cavallaro@st.com>
+Subject: [net-next.git 2/3 (V2)] stmmac: remove STMMAC_DEBUG_FS
+Date: Tue, 4 Nov 2014 15:49:33 +0100
+Message-ID: <1415112574-21321-3-git-send-email-peppe.cavallaro@st.com>
 References: <1415112574-21321-1-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx08-00178001.pphosted.com ([91.207.212.93]:34294 "EHLO
+Received: from mx08-00178001.pphosted.com ([91.207.212.93]:60192 "EHLO
 	mx08-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754351AbaKDPBY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Nov 2014 10:01:24 -0500
-Received: from pps.filterd (m0046661.ppops.net [127.0.0.1])
-	by mx08-00178001.pphosted.com (8.14.5/8.14.5) with SMTP id sA4ExDG6014297
-	for <netdev@vger.kernel.org>; Tue, 4 Nov 2014 16:01:23 +0100
+	by vger.kernel.org with ESMTP id S1754359AbaKDPB2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Nov 2014 10:01:28 -0500
+Received: from pps.filterd (m0046660.ppops.net [127.0.0.1])
+	by mx08-00178001.pphosted.com (8.14.5/8.14.5) with SMTP id sA4EwYXT006181
+	for <netdev@vger.kernel.org>; Tue, 4 Nov 2014 16:01:21 +0100
 Received: from beta.dmz-eu.st.com (beta.dmz-eu.st.com [164.129.1.35])
-	by mx08-00178001.pphosted.com with ESMTP id 1qe8mep943-1
+	by mx08-00178001.pphosted.com with ESMTP id 1qeymsre5x-1
 	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Tue, 04 Nov 2014 16:01:23 +0100
+	for <netdev@vger.kernel.org>; Tue, 04 Nov 2014 16:01:21 +0100
 Received: from zeta.dmz-eu.st.com (zeta.dmz-eu.st.com [164.129.230.9])
-	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id A8BFF34
-	for <netdev@vger.kernel.org>; Tue,  4 Nov 2014 15:00:54 +0000 (GMT)
+	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 8835B3A
+	for <netdev@vger.kernel.org>; Tue,  4 Nov 2014 15:00:53 +0000 (GMT)
 Received: from Webmail-eu.st.com (Safex1hubcas21.st.com [10.75.90.44])
-	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 0A1EDB4D96
-	for <netdev@vger.kernel.org>; Tue,  4 Nov 2014 15:01:21 +0000 (GMT)
+	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id DCB69B4D96
+	for <netdev@vger.kernel.org>; Tue,  4 Nov 2014 15:01:19 +0000 (GMT)
 In-Reply-To: <1415112574-21321-1-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a very old and often unused option to configure
-a bit in a register inside the DMA. This support should
-not stay under Koption and should be extended for new chips too.
-This will be do later maybe via device-tree parameters.
-Also no performance impact when remove this setting on STi platforms.
+the STMMAC_DEBUG_FS Koption is now removed from the
+driver configuration and this support will be built
+by default when DEBUG_FS is present. This can also be
+useful on building driver verification.
 
 Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 ---
 
 V2: re-based on top of the latest updates for net-next
 
- drivers/net/ethernet/stmicro/stmmac/Kconfig        |   10 ----------
- .../net/ethernet/stmicro/stmmac/dwmac1000_dma.c    |    4 ----
- 2 files changed, 0 insertions(+), 14 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/Kconfig       |    8 --------
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   14 +++++++-------
+ 2 files changed, 7 insertions(+), 15 deletions(-)
 
 diff --git a/drivers/net/ethernet/stmicro/stmmac/Kconfig b/drivers/net/ethernet/stmicro/stmmac/Kconfig
-index af5228a..33b85ba 100644
+index 40f356d..af5228a 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/Kconfig
 +++ b/drivers/net/ethernet/stmicro/stmmac/Kconfig
-@@ -37,14 +37,4 @@ config STMMAC_PCI
- 	  D1215994A VIRTEX FPGA board.
+@@ -38,14 +38,6 @@ config STMMAC_PCI
  
  	  If unsure, say N.
--
--config STMMAC_DA
--	bool "STMMAC DMA arbitration scheme"
+ 
+-config STMMAC_DEBUG_FS
+-	bool "Enable monitoring via sysFS "
 -	default n
+-	depends on STMMAC_ETH && DEBUG_FS
 -	---help---
--	  Selecting this option, rx has priority over Tx (only for Giga
--	  Ethernet device).
--	  By default, the DMA arbitration scheme is based on Round-robin
--	  (rx:tx priority is 1:1).
+-	  The stmmac entry in /sys reports DMA TX/RX rings
+-	  or (if supported) the HW cap register.
 -
- endif
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
-index 0c2058a..59d92e8 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
-@@ -70,10 +70,6 @@ static int dwmac1000_dma_init(void __iomem *ioaddr, int pbl, int fb, int mb,
- 	if (mb)
- 		value |= DMA_BUS_MODE_MB;
+ config STMMAC_DA
+ 	bool "STMMAC DMA arbitration scheme"
+ 	default n
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 6f77a46..a34754b 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -44,10 +44,10 @@
+ #include <linux/slab.h>
+ #include <linux/prefetch.h>
+ #include <linux/pinctrl/consumer.h>
+-#ifdef CONFIG_STMMAC_DEBUG_FS
++#ifdef CONFIG_DEBUG_FS
+ #include <linux/debugfs.h>
+ #include <linux/seq_file.h>
+-#endif /* CONFIG_STMMAC_DEBUG_FS */
++#endif /* CONFIG_DEBUG_FS */
+ #include <linux/net_tstamp.h>
+ #include "stmmac_ptp.h"
+ #include "stmmac.h"
+@@ -116,7 +116,7 @@ MODULE_PARM_DESC(chain_mode, "To use chain instead of ring mode");
  
--#ifdef CONFIG_STMMAC_DA
--	value |= DMA_BUS_MODE_DA;	/* Rx has priority over tx */
--#endif
--
- 	if (atds)
- 		value |= DMA_BUS_MODE_ATDS;
+ static irqreturn_t stmmac_interrupt(int irq, void *dev_id);
  
+-#ifdef CONFIG_STMMAC_DEBUG_FS
++#ifdef CONFIG_DEBUG_FS
+ static int stmmac_init_fs(struct net_device *dev);
+ static void stmmac_exit_fs(void);
+ #endif
+@@ -1688,7 +1688,7 @@ static int stmmac_hw_setup(struct net_device *dev)
+ 	if (ret && ret != -EOPNOTSUPP)
+ 		pr_warn("%s: failed PTP initialisation\n", __func__);
+ 
+-#ifdef CONFIG_STMMAC_DEBUG_FS
++#ifdef CONFIG_DEBUG_FS
+ 	ret = stmmac_init_fs(dev);
+ 	if (ret < 0)
+ 		pr_warn("%s: failed debugFS registration\n", __func__);
+@@ -1866,7 +1866,7 @@ static int stmmac_release(struct net_device *dev)
+ 
+ 	netif_carrier_off(dev);
+ 
+-#ifdef CONFIG_STMMAC_DEBUG_FS
++#ifdef CONFIG_DEBUG_FS
+ 	stmmac_exit_fs();
+ #endif
+ 
+@@ -2453,7 +2453,7 @@ static int stmmac_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ 	return ret;
+ }
+ 
+-#ifdef CONFIG_STMMAC_DEBUG_FS
++#ifdef CONFIG_DEBUG_FS
+ static struct dentry *stmmac_fs_dir;
+ static struct dentry *stmmac_rings_status;
+ static struct dentry *stmmac_dma_cap;
+@@ -2638,7 +2638,7 @@ static void stmmac_exit_fs(void)
+ 	debugfs_remove(stmmac_dma_cap);
+ 	debugfs_remove(stmmac_fs_dir);
+ }
+-#endif /* CONFIG_STMMAC_DEBUG_FS */
++#endif /* CONFIG_DEBUG_FS */
+ 
+ static const struct net_device_ops stmmac_netdev_ops = {
+ 	.ndo_open = stmmac_open,
 -- 
 1.7.4.4
