@@ -1,33 +1,55 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH ipsec-next] xfrm: add XFRMA_REPLAY_VAL attribute to SA
- messages
-Date: Tue, 4 Nov 2014 12:33:17 +0100
-Message-ID: <20141104113316.GB6390@secunet.com>
-References: <1414658376-4207-1-git-send-email-nicolas.dichtel@6wind.com>
+From: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Subject: Re: TCP NewReno and single retransmit
+Date: Tue, 04 Nov 2014 11:12:50 -0200
+Message-ID: <5458D0D2.6010308@redhat.com>
+References: <544E93BD.50202@redhat.com> <CADVnQynu7+wgkNTkdY=XDBeyWjFxpYYBjx=n98g1_awdG2OpnA@mail.gmail.com> <54521FD6.70403@redhat.com> <CAK6E8=dYfJw16Q0D40QD7RLr=wq=y+5W59zHmZ24L49OPS9O5A@mail.gmail.com> <5457AF6D.6010105@redhat.com> <CADVnQykXpA_A87+bFOCdbb-QLTRf-5TEgspCzE-STO49N+6waw@mail.gmail.com> <5457F52F.8060002@redhat.com> <CADVnQykePToQ-MatwFV=o7iYw_1T7L_jg_3NtaXRueyMA=GAuw@mail.gmail.com> <CAK6E8=cgkznkAWTps7aA+txuETpZ2RNiU3rbQf9WxLjawhgNog@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	dingzhi <zhi.ding@6wind.com>,
-	Adrien Mazarguil <adrien.mazarguil@6wind.com>
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Eric Dumazet <edumazet@google.com>
+To: Yuchung Cheng <ycheng@google.com>,
+	Neal Cardwell <ncardwell@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:57321 "EHLO a.mx.secunet.com"
+Received: from mx1.redhat.com ([209.132.183.28]:50989 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750706AbaKDLdZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Nov 2014 06:33:25 -0500
-Content-Disposition: inline
-In-Reply-To: <1414658376-4207-1-git-send-email-nicolas.dichtel@6wind.com>
+	id S1751711AbaKDNMy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Nov 2014 08:12:54 -0500
+In-Reply-To: <CAK6E8=cgkznkAWTps7aA+txuETpZ2RNiU3rbQf9WxLjawhgNog@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 30, 2014 at 09:39:36AM +0100, Nicolas Dichtel wrote:
-> From: dingzhi <zhi.ding@6wind.com>
-> 
-> After this commit, the attribute XFRMA_REPLAY_VAL is added when no ESN replay
-> value is defined. Thus sequence number values are always notified to userspace.
-> 
-> Signed-off-by: dingzhi <zhi.ding@6wind.com>
-> Signed-off-by: Adrien Mazarguil <adrien.mazarguil@6wind.com>
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+On 04-11-2014 05:59, Yuchung Cheng wrote:
+> On Tue, Nov 4, 2014 at 7:17 AM, Neal Cardwell <ncardwell@google.com> wrote:
+>> On Mon, Nov 3, 2014 at 4:35 PM, Marcelo Ricardo Leitner
+>> <mleitner@redhat.com> wrote:
+>>> So by sticking with the recovery for a bit longer will help disambiguate the
+>>> 3 dupacks on high_seq, if they ever happen, and with that avoid re-entering
+>>> Fast Retransmit if initial (2) happen. It's at the cost of leaving the fast
+>>> retransmit an ack later but if (2) happens the impact would be much worse,
+>>> AFAICS.
+>>
+>> Yes, that's my sense.
+>>
+>>> Cool, thanks Neal. If Yuchung is okay with it, I'll proceed with just
+>>> zeroing that tstamp as initially proposed.
+>>
+>> Yes, that sounds good to me for a short-term fix for the "net" branch,
+>> as long as it's:
+>>
+>> +  if (!tcp_any_retrans_done(sk))
+>> +    tp->retrans_stamp = 0;
+>>
+>> Longer-term ("net-next"?) perhaps it makes sense to remove the hold
+>> state and protect against this spurious FR situation at the time we
+>> decide to enter Fast Recovery, which seems to be the model the RFC is
+>> suggesting.
+> Thanks for checking. So my suggested fix of removing the hold state is
+> the "less careful variant" that RFC does not recommend. I would rather
+> have the proposed 2-liner fix than implementing the section 6
+> heuristics to detect spurious retransmit. It's not worth the effort.
+> Everyone should use SACK.
 
-Applied to ipsec-next, thanks!
+Yup, agreed.
+
+Thanks,
+Marcelo
