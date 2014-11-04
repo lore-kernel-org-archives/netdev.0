@@ -1,46 +1,55 @@
-From: Fabian Frederick <fabf@skynet.be>
-Subject: [PATCH 1/1 net-next] cipso: remove NULL assignment on static
-Date: Tue,  4 Nov 2014 20:19:19 +0100
-Message-ID: <1415128759-11264-1-git-send-email-fabf@skynet.be>
-Cc: Fabian Frederick <fabf@skynet.be>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
+From: Gregory Fong <gregory.0xf0@gmail.com>
+Subject: [PATCH] bridge: include in6.h in if_bridge.h for struct in6_addr
+Date: Tue,  4 Nov 2014 11:21:21 -0800
+Message-ID: <1415128881-30183-1-git-send-email-gregory.0xf0@gmail.com>
+Cc: linux-api@vger.kernel.org, linux-kernel@vger.kernel.org,
+	carlos@redhat.com, eblake@redhat.com,
+	Kumar Gala <galak@codeaurora.org>,
+	Gregory Fong <gregory.0xf0@gmail.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Also add blank line after structure declarations
+if_bridge.h uses struct in6_addr ip6, but wasn't including the in6.h
+header.  Thomas Backlund originally sent a patch to do this, but this
+revealed a redefinition issue: https://lkml.org/lkml/2013/1/13/116
 
-Signed-off-by: Fabian Frederick <fabf@skynet.be>
+The redefinition issue should have been fixed by the following Linux
+commits:
+ee262ad827f89e2dc7851ec2986953b5b125c6bc inet: defines IPPROTO_* needed for module alias generation
+cfd280c91253cc28e4919e349fa7a813b63e71e8 net: sync some IP headers with glibc
+
+and the following glibc commit:
+6c82a2f8d7c8e21e39237225c819f182ae438db3 Coordinate IPv6 definitions for Linux and glibc
+
+so actually include the header now.
+
+Reported-by: Colin Guthrie <colin@mageia.org>
+Reported-by: Christiaan Welvaart <cjw@daneel.dyndns.org>
+Reported-by: Thomas Backlund <tmb@mageia.org>
+Cc: Florian Fainelli <f.fainelli@gmail.com>
+Cc: Cong Wang <xiyou.wangcong@gmail.com>
+Cc: David Miller <davem@davemloft.net>
+Signed-off-by: Gregory Fong <gregory.0xf0@gmail.com>
 ---
- net/ipv4/cipso_ipv4.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ include/uapi/linux/if_bridge.h | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/net/ipv4/cipso_ipv4.c b/net/ipv4/cipso_ipv4.c
-index 4715f25..dd3746a 100644
---- a/net/ipv4/cipso_ipv4.c
-+++ b/net/ipv4/cipso_ipv4.c
-@@ -72,6 +72,7 @@ struct cipso_v4_map_cache_bkt {
- 	u32 size;
- 	struct list_head list;
- };
-+
- struct cipso_v4_map_cache_entry {
- 	u32 hash;
- 	unsigned char *key;
-@@ -82,7 +83,8 @@ struct cipso_v4_map_cache_entry {
- 	u32 activity;
- 	struct list_head list;
- };
--static struct cipso_v4_map_cache_bkt *cipso_v4_cache = NULL;
-+
-+static struct cipso_v4_map_cache_bkt *cipso_v4_cache;
+diff --git a/include/uapi/linux/if_bridge.h b/include/uapi/linux/if_bridge.h
+index 39f621a..da17e45 100644
+--- a/include/uapi/linux/if_bridge.h
++++ b/include/uapi/linux/if_bridge.h
+@@ -15,6 +15,7 @@
  
- /* Restricted bitmap (tag #1) flags */
- int cipso_v4_rbm_optfmt = 0;
+ #include <linux/types.h>
+ #include <linux/if_ether.h>
++#include <linux/in6.h>
+ 
+ #define SYSFS_BRIDGE_ATTR	"bridge"
+ #define SYSFS_BRIDGE_FDB	"brforward"
 -- 
-1.9.3
+1.9.1
