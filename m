@@ -1,97 +1,69 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH] stmmac: fix sparse warnings
-Date: Tue, 4 Nov 2014 17:35:17 +0100
-Message-ID: <54590045.3050305@st.com>
-References: <1415035734-24163-1-git-send-email-andriy.shevchenko@linux.intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH V1 net-next 5/5] net/mlx4_core: Add retrieval of
+ CONFIG_DEV parameters
+Date: Tue, 04 Nov 2014 08:48:34 -0800
+Message-ID: <1415119714.1005.3.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1414938377-421-1-git-send-email-ogerlitz@mellanox.com>
+	 <1414938377-421-6-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: Andy Shevchenko <andriy.shevchenko@linux.intel.com>,
-	<netdev@vger.kernel.org>,
-	Kweh Hock Leong <hock.leong.kweh@intel.com>,
-	"David S . Miller" <davem@davemloft.net>,
-	Vince Bridgers <vbridgers2013@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Matan Barak <matanb@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Shani Michaeli <shanim@mellanox.com>,
+	Ido Shamay <idos@mellanox.com>
+To: Or Gerlitz <ogerlitz@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx08-00178001.pphosted.com ([91.207.212.93]:42770 "EHLO
-	mx08-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751999AbaKDQfb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Nov 2014 11:35:31 -0500
-In-Reply-To: <1415035734-24163-1-git-send-email-andriy.shevchenko@linux.intel.com>
+Received: from mail-ie0-f174.google.com ([209.85.223.174]:36974 "EHLO
+	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752126AbaKDQsg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Nov 2014 11:48:36 -0500
+Received: by mail-ie0-f174.google.com with SMTP id x19so7905281ier.33
+        for <netdev@vger.kernel.org>; Tue, 04 Nov 2014 08:48:36 -0800 (PST)
+In-Reply-To: <1414938377-421-6-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/3/2014 6:28 PM, Andy Shevchenko wrote:
-> This patch fixes the following sparse warnings.
->
-> drivers/net/ethernet/stmicro/stmmac/enh_desc.c:381:30: warning: symbol 'enh_desc_ops' was not declared. Should it be static?
-> drivers/net/ethernet/stmicro/stmmac/norm_desc.c:253:30: warning: symbol 'ndesc_ops' was not declared. Should it be static?
-> drivers/net/ethernet/stmicro/stmmac/stmmac_hwtstamp.c:141:33: warning: symbol 'stmmac_ptp' was not declared. Should it be static?
->
-> There is no functional change.
-
-Hello Andy
-
-I have never seen this kind of warnings. I prefer to not include the
-stmmac.h in enh_desc.c and norm_desc.c but eventually to move the
-following from stmmac.h to common.h:
-   extern const struct stmmac_desc_ops enh_desc_ops;
-   extern const struct stmmac_desc_ops ndesc_ops;
-what do you think?
-
-peppe
-
-
->
-> Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+On Sun, 2014-11-02 at 16:26 +0200, Or Gerlitz wrote:
+> From: Matan Barak <matanb@mellanox.com>
+> 
+> Add code to issue CONFIG_DEV "get" firmware command.
+> 
+> This command is used in order to obtain certain parameters used for
+> supporting various RX checksumming options and vxlan UDP port.
+> 
+> The GET operation is allowed for VFs too.
+> 
+> Signed-off-by: Matan Barak <matanb@mellanox.com>
+> Signed-off-by: Shani Michaeli <shanim@mellanox.com>
+> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 > ---
->   drivers/net/ethernet/stmicro/stmmac/enh_desc.c        | 2 ++
->   drivers/net/ethernet/stmicro/stmmac/norm_desc.c       | 2 ++
->   drivers/net/ethernet/stmicro/stmmac/stmmac_hwtstamp.c | 2 ++
->   3 files changed, 6 insertions(+)
->
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/enh_desc.c b/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
-> index 1e2bcf5..ddd4272 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
-> @@ -23,8 +23,10 @@
->   *******************************************************************************/
->
->   #include <linux/stmmac.h>
-> +
->   #include "common.h"
->   #include "descs_com.h"
-> +#include "stmmac.h"
->
->   static int enh_desc_get_tx_status(void *data, struct stmmac_extra_stats *x,
->   				  struct dma_desc *p, void __iomem *ioaddr)
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/norm_desc.c b/drivers/net/ethernet/stmicro/stmmac/norm_desc.c
-> index 35ad4f4..46b882c 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/norm_desc.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/norm_desc.c
-> @@ -23,8 +23,10 @@
->   *******************************************************************************/
->
->   #include <linux/stmmac.h>
-> +
->   #include "common.h"
->   #include "descs_com.h"
-> +#include "stmmac.h"
->
->   static int ndesc_get_tx_status(void *data, struct stmmac_extra_stats *x,
->   			       struct dma_desc *p, void __iomem *ioaddr)
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_hwtstamp.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_hwtstamp.c
-> index 76ad214..88e0da3 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_hwtstamp.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_hwtstamp.c
-> @@ -25,8 +25,10 @@
->
->   #include <linux/io.h>
->   #include <linux/delay.h>
-> +
->   #include "common.h"
->   #include "stmmac_ptp.h"
-> +#include "stmmac.h"
->
->   static void stmmac_config_hw_tstamping(void __iomem *ioaddr, u32 data)
->   {
->
+>  drivers/net/ethernet/mellanox/mlx4/cmd.c           |    4 +-
+>  drivers/net/ethernet/mellanox/mlx4/fw.c            |   88 +++++++++++++++++++-
+>  drivers/net/ethernet/mellanox/mlx4/mlx4.h          |    5 +
+>  .../net/ethernet/mellanox/mlx4/resource_tracker.c  |   17 ++++
+>  include/linux/mlx4/cmd.h                           |   29 +++++++
+>  include/linux/mlx4/device.h                        |    3 +-
+>  6 files changed, 139 insertions(+), 7 deletions(-)
+
+This added following warnings :
+
+  CC      drivers/net/ethernet/mellanox/mlx4/fw.o
+drivers/net/ethernet/mellanox/mlx4/fw.c: In function 'mlx4_config_dev_retrieval':
+drivers/net/ethernet/mellanox/mlx4/fw.c:1944:12: warning: 'config_dev.rx_checksum_val' may be used uninitialized in this function [-Wmaybe-uninitialized]
+In file included from include/linux/swab.h:4:0,
+                 from include/uapi/linux/byteorder/little_endian.h:12,
+                 from include/linux/byteorder/little_endian.h:4,
+                 from ./arch/x86/include/uapi/asm/byteorder.h:4,
+                 from include/asm-generic/bitops/le.h:5,
+                 from ./arch/x86/include/asm/bitops.h:504,
+                 from include/linux/bitops.h:33,
+                 from include/linux/kernel.h:10,
+                 from include/linux/skbuff.h:17,
+                 from include/linux/if_ether.h:23,
+                 from include/linux/etherdevice.h:25,
+                 from drivers/net/ethernet/mellanox/mlx4/fw.c:35:
+include/uapi/linux/swab.h:53:93: warning: 'config_dev.vxlan_udp_dport' may be used uninitialized in this function [-Wmaybe-uninitialized]
+drivers/net/ethernet/mellanox/mlx4/fw.c:1922:25: note: 'config_dev.vxlan_udp_dport' was declared here
