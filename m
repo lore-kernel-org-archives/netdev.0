@@ -1,7 +1,7 @@
 From: Shuah Khan <shuahkh@osg.samsung.com>
-Subject: [PATCH 07/20] selftests/efivarfs: add install target to enable installing test
-Date: Tue,  4 Nov 2014 10:11:03 -0700
-Message-ID: <3d28ab3098e26044a5ef7f60b620c7dfe66cc3fa.1415117102.git.shuahkh@osg.samsung.com>
+Subject: [PATCH 02/20] selftests/net: move test out of Makefile into a shell script
+Date: Tue,  4 Nov 2014 10:10:58 -0700
+Message-ID: <51d57725e89809806bd8af5555af341296cc4dd7.1415117102.git.shuahkh@osg.samsung.com>
 References: <cover.1415117102.git.shuahkh@osg.samsung.com>
 Cc: Shuah Khan <shuahkh@osg.samsung.com>, linux-kbuild@vger.kernel.org,
 	linux-kernel@vger.kernel.org, linux-api@vger.kernel.org,
@@ -18,39 +18,52 @@ References: <cover.1415117102.git.shuahkh@osg.samsung.com>
 Sender: linux-kbuild-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add a new make target to enable installing test. This target
-installs test in the kselftest install location and add to the
-kselftest script to run the test.
+Currently bpf test run from the Makefile. Move it out of the
+Makefile to be run from a shell script to allow the test to
+be run as stand-alone test, in addition to allowing the test
+run from a make target.
 
 Signed-off-by: Shuah Khan <shuahkh@osg.samsung.com>
 ---
- tools/testing/selftests/efivarfs/Makefile | 13 ++++++++++++-
- 1 file changed, 12 insertions(+), 1 deletion(-)
+ tools/testing/selftests/net/Makefile    |  8 +-------
+ tools/testing/selftests/net/test_bpf.sh | 10 ++++++++++
+ 2 files changed, 11 insertions(+), 7 deletions(-)
+ create mode 100755 tools/testing/selftests/net/test_bpf.sh
 
-diff --git a/tools/testing/selftests/efivarfs/Makefile b/tools/testing/selftests/efivarfs/Makefile
-index 29e8c6b..a668728 100644
---- a/tools/testing/selftests/efivarfs/Makefile
-+++ b/tools/testing/selftests/efivarfs/Makefile
-@@ -3,7 +3,18 @@ CFLAGS = -Wall
- 
- test_objs = open-unlink create-read
- 
--all: $(test_objs)
-+TEST_STR = "/bin/bash ./efivarfs.sh || echo \"efivarfs selftests: [FAIL]\""
-+
-+all:
-+	gcc open-unlink.c -o open-unlink
-+	gcc create-read.c -o create-read
-+
-+install: all
-+	install ./efivarfs.sh $(test_objs) $(INSTALL_KSFT_PATH)
-+	echo "\necho \"Start efivarfs test ....\"" >> $(KSELFTEST)
-+	echo $(TEST_STR) >> $(KSELFTEST)
-+	echo "echo \"End efivarfs test ....\"" >> $(KSELFTEST)
-+	echo "echo \"==============================\"" >> $(KSELFTEST)
- 
+diff --git a/tools/testing/selftests/net/Makefile b/tools/testing/selftests/net/Makefile
+index c7493b8..62f22cc 100644
+--- a/tools/testing/selftests/net/Makefile
++++ b/tools/testing/selftests/net/Makefile
+@@ -14,12 +14,6 @@ all: $(NET_PROGS)
  run_tests: all
- 	@/bin/bash ./efivarfs.sh || echo "efivarfs selftests: [FAIL]"
+ 	@/bin/sh ./run_netsocktests || echo "sockettests: [FAIL]"
+ 	@/bin/sh ./run_afpackettests || echo "afpackettests: [FAIL]"
+-	@if /sbin/modprobe test_bpf ; then \
+-		/sbin/rmmod test_bpf; \
+-		echo "test_bpf: ok"; \
+-	else \
+-		echo "test_bpf: [FAIL]"; \
+-		exit 1; \
+-	fi
++	./test_bpf.sh
+ clean:
+ 	$(RM) $(NET_PROGS)
+diff --git a/tools/testing/selftests/net/test_bpf.sh b/tools/testing/selftests/net/test_bpf.sh
+new file mode 100755
+index 0000000..8b29796
+--- /dev/null
++++ b/tools/testing/selftests/net/test_bpf.sh
+@@ -0,0 +1,10 @@
++#!/bin/sh
++# Runs bpf test using test_bpf kernel module
++
++if /sbin/modprobe -q test_bpf ; then
++	/sbin/modprobe -q -r test_bpf;
++	echo "test_bpf: ok";
++else
++	echo "test_bpf: [FAIL]";
++	exit 1;
++fi
 -- 
 1.9.1
 
