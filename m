@@ -1,25 +1,26 @@
 From: Loganaden Velvindron <logan@elandsys.com>
 Subject: Re: [PATCH] Add missing descriptions for fwmark_reflect for ipv4 and
  ipv6.
-Date: Tue, 4 Nov 2014 02:56:50 -0800
-Message-ID: <20141104105650.GA5233@mx.elandsys.com>
+Date: Tue, 4 Nov 2014 03:02:49 -0800
+Message-ID: <20141104110249.GA25828@mx.elandsys.com>
 References: <20141029172915.GA15714@mx.elandsys.com>
  <20141030.161137.1421672304905070027.davem@davemloft.net>
+ <20141104105650.GA5233@mx.elandsys.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns1.qubic.net ([208.69.177.116]:55385 "EHLO mx.elandsys.com"
+Received: from ns1.qubic.net ([208.69.177.116]:55290 "EHLO mx.elandsys.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752841AbaKDK46 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Nov 2014 05:56:58 -0500
+	id S1752676AbaKDLCv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Nov 2014 06:02:51 -0500
 Content-Disposition: inline
-In-Reply-To: <20141030.161137.1421672304905070027.davem@davemloft.net>
+In-Reply-To: <20141104105650.GA5233@mx.elandsys.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-t was initially sent by Lorenzo Colitti, but was subsequently
+It was initially sent by Lorenzo Colitti, but was subsequently
 lost in the final diff he submitted.
 
 Signed-off-by: Loganaden Velvindron <logan@elandsys.com>
