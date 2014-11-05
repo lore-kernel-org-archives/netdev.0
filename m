@@ -1,7 +1,8 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH 0/3] Add support for switch on Armanda 370 RD
-Date: Wed,  5 Nov 2014 20:01:58 +0100
-Message-ID: <1415214121-29286-1-git-send-email-andrew@lunn.ch>
+Subject: [PATCH 2/3] mvebu: 370 RD: Add support for the switch
+Date: Wed,  5 Nov 2014 20:02:00 +0100
+Message-ID: <1415214121-29286-3-git-send-email-andrew@lunn.ch>
+References: <1415214121-29286-1-git-send-email-andrew@lunn.ch>
 Cc: netdev@vger.kernel.org,
 	linux ARM <linux-arm-kernel@lists.infradead.org>,
 	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
@@ -9,33 +10,111 @@ Cc: netdev@vger.kernel.org,
 	Andrew Lunn <andrew@lunn.ch>
 To: davem@davemloft.net, Jason Cooper <jason@lakedaemon.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:49042 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:49049 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751043AbaKETDT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Nov 2014 14:03:19 -0500
+	id S1751043AbaKETD1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Nov 2014 14:03:27 -0500
+In-Reply-To: <1415214121-29286-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patchset adds support for the switch chip found on the Marvell
-370 RD board. The first patch extends the current mv88e6171 driver to
-also support the mv88e6172. The second patch described the switch in
-the device tree of the board, and the last patch enables require build
-options in mvebu_v7_defconfig.
+The 370 rd has a 7 port, mv88E6182 switch, connected to eth1.  Add a
+fixed-link subnode to the ethernet device tree node, to force
+gigabit/full duplex.  Add a dsa node, with describing the four used
+ports. This requires adding an alias to the mdio node, so it can be
+referenced as a phandle.
 
-Davem should take patch #1
-Jason Cooper should take patch #2 and #3.
-
-Andrew Lunn (3):
-  dsa: mv88e6171: Add support for mv88e6172
-  mvebu: 370 RD: Add support for the switch
-  mvebu: defconfig: Enable the mv88E6171 switch driver
-
+Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+---
  arch/arm/boot/dts/armada-370-rd.dts  | 49 ++++++++++++++++++++++++++++++++----
  arch/arm/boot/dts/armada-370-xp.dtsi |  2 +-
- arch/arm/configs/mvebu_v7_defconfig  |  2 ++
- drivers/net/dsa/Kconfig              |  6 ++---
- drivers/net/dsa/mv88e6171.c          |  5 +++-
- 5 files changed, 54 insertions(+), 10 deletions(-)
+ 2 files changed, 45 insertions(+), 6 deletions(-)
 
+diff --git a/arch/arm/boot/dts/armada-370-rd.dts b/arch/arm/boot/dts/armada-370-rd.dts
+index f57a8f841498..2bb671a778db 100644
+--- a/arch/arm/boot/dts/armada-370-rd.dts
++++ b/arch/arm/boot/dts/armada-370-rd.dts
+@@ -85,10 +85,6 @@
+ 				phy0: ethernet-phy@0 {
+ 					reg = <0>;
+ 				};
+-
+-				phy1: ethernet-phy@1 {
+-					reg = <1>;
+-				};
+ 			};
+ 
+ 			ethernet@70000 {
+@@ -100,8 +96,11 @@
+ 				pinctrl-0 = <&ge1_rgmii_pins>;
+ 				pinctrl-names = "default";
+ 				status = "okay";
+-				phy = <&phy1>;
+ 				phy-mode = "rgmii-id";
++				fixed-link {
++					   speed = <1000>;
++					   full-duplex;
++				};
+ 			};
+ 
+ 			mvsdio@d4000 {
+@@ -173,4 +172,44 @@
+ 			};
+ 		};
+ 	};
++
++	dsa@0 {
++		compatible = "marvell,dsa";
++		#address-cells = <2>;
++		#size-cells = <0>;
++
++		dsa,ethernet = <&eth1>;
++		dsa,mii-bus = <&mdio>;
++
++		switch@0 {
++			#address-cells = <1>;
++			#size-cells = <0>;
++			reg = <0x10 0>;	/* MDIO address 16, switch 0 in tree */
++
++			port@0 {
++				reg = <0>;
++				label = "lan0";
++			};
++
++			port@1 {
++			       reg = <1>;
++			       label = "lan1";
++			};
++
++			port@2 {
++			       reg = <2>;
++			       label = "lan2";
++			};
++
++			port@3 {
++			       reg = <3>;
++			       label = "lan3";
++			};
++
++			port@5 {
++			      reg = <5>;
++			      label = "cpu";
++			};
++		};
++	 };
+  };
+diff --git a/arch/arm/boot/dts/armada-370-xp.dtsi b/arch/arm/boot/dts/armada-370-xp.dtsi
+index 83286ec9702c..4d84ca981fe0 100644
+--- a/arch/arm/boot/dts/armada-370-xp.dtsi
++++ b/arch/arm/boot/dts/armada-370-xp.dtsi
+@@ -232,7 +232,7 @@
+ 				status = "disabled";
+ 			};
+ 
+-			mdio {
++			mdio: mdio {
+ 				#address-cells = <1>;
+ 				#size-cells = <0>;
+ 				compatible = "marvell,orion-mdio";
 -- 
 2.1.3
