@@ -1,74 +1,46 @@
-From: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next v4 0/4] netns: allow to identify peer netns
-Date: Wed, 05 Nov 2014 15:23:00 +0100
-Message-ID: <545A32C4.7070108@6wind.com>
-References: <1412257690-31253-1-git-send-email-nicolas.dichtel@6wind.com>	<1414682728-4532-1-git-send-email-nicolas.dichtel@6wind.com>	<871tpph03k.fsf@x220.int.ebiederm.org>
-	<54535B00.5090708@6wind.com> <87wq7g831b.fsf@x220.int.ebiederm.org>
-Reply-To: nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org
+From: Dong Aisheng <b29396@freescale.com>
+Subject: [PATCH V3 1/3] can: add can_is_canfd_skb() API
+Date: Wed, 5 Nov 2014 21:16:31 +0800
+Message-ID: <1415193393-30023-1-git-send-email-b29396@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org,
-	stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, cwang-xCSkyg8dI+0RB7SZvlqPiA@public.gmane.org,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <87wq7g831b.fsf-JOvCrm2gF+uungPnsOpG7nhyD016LWXt@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Content-Type: text/plain
+Cc: <mkl@pengutronix.de>, <wg@grandegger.com>,
+	<varkabhadram@gmail.com>, <netdev@vger.kernel.org>,
+	<socketcan@hartkopp.net>, <b29396@freescale.com>,
+	<linux-arm-kernel@lists.infradead.org>
+To: <linux-can@vger.kernel.org>
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-TGUgMzEvMTAvMjAxNCAyMDoxNCwgRXJpYyBXLiBCaWVkZXJtYW4gYSDDqWNyaXQgOgo+IE5pY29s
-YXMgRGljaHRlbCA8bmljb2xhcy5kaWNodGVsQDZ3aW5kLmNvbT4gd3JpdGVzOgo+Cj4+IExlIDMw
-LzEwLzIwMTQgMTk6NDEsIEVyaWMgVy4gQmllZGVybWFuIGEgw6ljcml0IDoKPj4+IE5pY29sYXMg
-RGljaHRlbCA8bmljb2xhcy5kaWNodGVsQDZ3aW5kLmNvbT4gd3JpdGVzOgo+Pj4KPj4+PiBUaGUg
-Z29hbCBvZiB0aGlzIHNlcmllIGlzIHRvIGJlIGFibGUgdG8gbXVsdGljYXN0IG5ldGxpbmsgbWVz
-c2FnZXMgd2l0aCBhbgo+Pj4+IGF0dHJpYnV0ZSB0aGF0IGlkZW50aWZ5IGEgcGVlciBuZXRucy4K
-Pj4+PiBUaGlzIGlzIG5lZWRlZCBieSB0aGUgdXNlcmxhbmQgdG8gaW50ZXJwcmV0IHNvbWUgaW5m
-b3JtYXRpb25zIGNvbnRhaW5lZCBpbgo+Pj4+IG5ldGxpbmsgbWVzc2FnZXMgKGxpa2UgSUZMQV9M
-SU5LIHZhbHVlLCBidXQgYWxzbyBzb21lIG90aGVyIGF0dHJpYnV0ZXMgaW4gY2FzZQo+Pj4+IG9m
-IHgtbmV0bnMgbmV0ZGV2aWNlIChzZWUgYWxzbwo+Pj4+IGh0dHA6Ly90aHJlYWQuZ21hbmUub3Jn
-L2dtYW5lLmxpbnV4Lm5ldHdvcmsvMzE1OTMzL2ZvY3VzPTMxNjA2NCBhbmQKPj4+PiBodHRwOi8v
-dGhyZWFkLmdtYW5lLm9yZy9nbWFuZS5saW51eC5rZXJuZWwuY29udGFpbmVycy8yODMwMS9mb2N1
-cz00MjM5KSkuCj4+Pj4KPj4+PiBJZHMgb2YgcGVlciBuZXRucyBhcmUgc2V0IGJ5IHVzZXJsYW5k
-IHZpYSBhIG5ldyBnZW5sIG1lc3NhZ2VzLiBUaGVzZSBpZHMgYXJlCj4+Pj4gc3RvcmVkIHBlciBu
-ZXRucyBhbmQgYXJlIGxvY2FsIChpZSBvbmx5IHZhbGlkIGluIHRoZSBuZXRucyB3aGVyZSB0aGV5
-IGFyZSBzZXQpLgo+Pj4+IFRvIGF2b2lkIGFsbG9jYXRpbmcgYW4gaW50IGZvciBlYWNoIHBlZXIg
-bmV0bnMsIEkgdXNlIGlkcl9mb3JfZWFjaCgpIHRvIHJldHJpZXZlCj4+Pj4gdGhlIGlkIG9mIGEg
-cGVlciBuZXRucy4gTm90ZSB0aGF0IGl0IHdpbGwgYmUgcG9zc2libGUgdG8gYWRkIGEgdGFibGUg
-KHN0cnVjdCBuZXQKPj4+PiAtPiBpZCkgbGF0ZXIgdG8gb3B0aW1pemUgdGhpcyBsb29rdXAgaWYg
-bmVlZGVkLgo+Pj4+Cj4+Pj4gUGF0Y2ggMS80IGludHJvZHVjZXMgdGhlIG5ldGxpbmsgQVBJIG1l
-Y2hhbmlzbSB0byBzZXQgYW5kIGdldCB0aGVzZSBpZHMuCj4+Pj4gUGF0Y2ggMi80IGFuZCAzLzQg
-aW1wbGVtZW50cyBhbiBleGFtcGxlIG9mIGhvdyB0byB1c2UgdGhlc2UgaWRzIGluIHJ0bmV0bGlu
-awo+Pj4+IG1lc3NhZ2VzLiBBbmQgcGF0Y2ggNC80IHNob3dzIHRoYXQgdGhlIG5ldGxpbmsgbWVz
-c2FnZXMgY2FuIGJlIHN5bWV0cmljIGJldHdlZW4KPj4+PiBhIEdFVCBhbmQgYSBTRVQuCj4+Pj4K
-Pj4+PiBpcHJvdXRlMiBwYXRjaGVzIGFyZSBhdmFpbGFibGUsIEkgY2FuIHNlbmQgdGhlbSBvbiBk
-ZW1hbmQuCj4+Pgo+Pj4gQSBxdWljayByZXBseS4gIEkgdGhpbmsgdGhpcyBwYXRjaHNldCBpcyBp
-biB0aGUgcmlnaHQgZ2VuZXJhbCBkaXJlY3Rpb24uCj4+PiBUaGVyZSBhcmUgc29tZSBvZGRiYWxs
-IGRldGFpbHMgdGhhdCBzZWVtIG9kZC9hd2t3YXJkIHRvIG1lIHN1Y2ggYXMgdXNpbmcKPj4+IGdl
-bmV0bGluayBpbnN0ZWFkIG9mIHJ0bmV0bGluayB0byBnZXQgYW5kIHNldCB0aGUgaWRzLCBhbmQg
-bm90IGhhdmluZwo+Pj4gaWRzIGlmIHRoZXkgYXJlIG5vdCBzZXQgKHRoYXQgZmVlbHMgbGlrZSBh
-IG1haW50ZW5hbmNlL3VzYWJpbGl0eSBjaGFsbGVuZ2UpLgo+PiBObyBwcm9ibGVtIHRvIHVzZSBy
-dG5ldGxpbmssIGluIGZhY3QsIEkgaGVzaXRhdGVkLgo+Pgo+PiBGb3IgdGhlIHNlY29uZCBwb2lu
-dCwgSSdtIG5vdCBzdXJlIHRvIGZvbGxvdyB5b3U6IGhvdyB0byBoYXZlIGFuIGlkLCB3aGljaCB3
-aWxsCj4+IG5vdCBicmVhayBtaWdyYXRpb24sIHdpdGhvdXQgYXNraW5nIHRoZSB1c2VyIHRvIHNl
-dCBpdD8KPgo+IFdlIGhhdmUgdGhhdCBzaXR1dGF0aW9uIHdpdGggaWZpbmRleCBhbHJlYWR5LiAg
-QmFzaWNhbGx5IHRoZSB0aG91Z2h0IGlzCj4gdG8gYWxsb3cgYW4gaWQgdG8gYmUgc2V0LCBidXQg
-YWxzbyBhbGxvdyBhbiBpZCB0byBiZSBhdXRvLWdlbmVyYXRlZCBpZgo+IHdlIHVzZSBhbiBuYW1l
-c3BhY2Ugd2l0aG91dCBhbiBpZCBiZWluZyBzZXQuCklmIG15IHVuZGVyc3RhbmRpbmcgaXMgY29y
-cmVjdCwgdGhlIGRpZmZlcmVuY2UgaXMgdGhhdCB3ZSB3YW50IHRvIGhpZGUgc29tZQpuZXRucy4K
-RG8geW91IHRoaW5rIHdlIGNhbiBnZW5lcmF0ZSBhbiBpZCBmb3IgZWFjaCBuZXRucyB0aGF0IGRv
-ZXMgbm90IGhhdmUgb25lIGFuZApyZWx5aW5nIG9uIHRoZSBmYWN0IHRoYXQgdGhpcyBpZCBoYXMg
-bm8gbWVhbmluZyB1bmxlc3MgeW91IGhhdmUgYSBuZXRucyBmaWxlCmRlc2NyaXB0b3IgdGhhdCBh
-bGxvdyB5b3UgdG8gZ2V0IHRoZSBpZCBvZiB0aGlzIG5ldG5zPwoKClJlZ2FyZHMsCk5pY29sYXMK
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KQ29udGFpbmVy
-cyBtYWlsaW5nIGxpc3QKQ29udGFpbmVyc0BsaXN0cy5saW51eC1mb3VuZGF0aW9uLm9yZwpodHRw
-czovL2xpc3RzLmxpbnV4Zm91bmRhdGlvbi5vcmcvbWFpbG1hbi9saXN0aW5mby9jb250YWluZXJz
+The CAN device drivers can use it to check if the frame to send is on
+CAN FD mode or normal CAN mode.
+
+Acked-by: Oliver Hartkopp <socketcan@hartkopp.net>
+Signed-off-by: Dong Aisheng <b29396@freescale.com>
+---
+ChangesLog:
+ * v1->v2: change to skb->len == CANFD_MTU;
+---
+ include/linux/can/dev.h | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/include/linux/can/dev.h b/include/linux/can/dev.h
+index 6992afc..4c3919c 100644
+--- a/include/linux/can/dev.h
++++ b/include/linux/can/dev.h
+@@ -99,6 +99,11 @@ inval_skb:
+ 	return 1;
+ }
+ 
++static inline int can_is_canfd_skb(struct sk_buff *skb)
++{
++	return skb->len == CANFD_MTU;
++}
++
+ /* get data length from can_dlc with sanitized can_dlc */
+ u8 can_dlc2len(u8 can_dlc);
+ 
+-- 
+1.9.1
+
