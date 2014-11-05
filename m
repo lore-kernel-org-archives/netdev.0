@@ -1,31 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT net-next] Open vSwitch
-Date: Wed, 05 Nov 2014 15:10:47 -0500 (EST)
-Message-ID: <20141105.151047.1621156460688575485.davem@davemloft.net>
-References: <1415080846-1623-1-git-send-email-pshelar@nicira.com>
+Subject: Re: [PATCH 1/4] inet: Add skb_copy_datagram_iter
+Date: Wed, 05 Nov 2014 15:24:10 -0500 (EST)
+Message-ID: <20141105.152410.1775725940252546246.davem@davemloft.net>
+References: <20141104033818.GA11149@gondor.apana.org.au>
+	<E1XlZWY-0003HZ-Ef@gondolin.me.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: pshelar@nicira.com
+Cc: viro@ZenIV.linux.org.uk, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, bcrl@kvack.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47693 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47780 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751133AbaKEUKu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2014 15:10:50 -0500
-In-Reply-To: <1415080846-1623-1-git-send-email-pshelar@nicira.com>
+	with ESMTP id S1751769AbaKEUYO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2014 15:24:14 -0500
+In-Reply-To: <E1XlZWY-0003HZ-Ef@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Please do not submit your patches such that the email Date: field is
-the commit's date.  You're not posting these on Nov. 4th, yet that
-is the Date: field on all of the individual patch emails.
-
-I want them to be the date at the time you post the patch to the mailing
-list.
-
-Otherwise the ordering in patchwork is not cronological wrt. the list's
-postings and this makes my work more difficult than it needs to be.
+Herbert, please provide a cover letter for this series, and the most recent
+version of patch #2 gets various rejects when I try to apply it to net-next.
 
 Thanks.
