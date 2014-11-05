@@ -1,31 +1,45 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [PATCH net v4] ipv6: mld: fix add_grhead skb_over_panic for devs
- with large MTUs
-Date: Wed, 5 Nov 2014 14:11:39 -0800
-Message-ID: <CAHA+R7NKPvhut_K+xgtyJqd=a8Y=dfU80e8C7Jo1qgTdg=2ubg@mail.gmail.com>
-References: <1415215658-10054-1-git-send-email-dborkman@redhat.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] bridge: include in6.h in if_bridge.h for struct
+ in6_addr
+Date: Wed, 05 Nov 2014 17:13:48 -0500 (EST)
+Message-ID: <20141105.171348.1010570676094960613.davem@davemloft.net>
+References: <1415128881-30183-1-git-send-email-gregory.0xf0@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, lw1a2.jing@gmail.com,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	David L Stevens <david.stevens@oracle.com>
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f178.google.com ([209.85.216.178]:56942 "EHLO
-	mail-qc0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750796AbaKEWLq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2014 17:11:46 -0500
-Received: by mail-qc0-f178.google.com with SMTP id b13so1538583qcw.23
-        for <netdev@vger.kernel.org>; Wed, 05 Nov 2014 14:11:45 -0800 (PST)
-In-Reply-To: <1415215658-10054-1-git-send-email-dborkman@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, carlos-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, eblake-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: gregory.0xf0-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1415128881-30183-1-git-send-email-gregory.0xf0-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 5, 2014 at 11:27 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
-> -static struct sk_buff *mld_newpack(struct inet6_dev *idev, int size)
-> +static struct sk_buff *mld_newpack(struct inet6_dev *idev, unsigned int mtu)
+From: Gregory Fong <gregory.0xf0-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Tue,  4 Nov 2014 11:21:21 -0800
 
-For net-next, you probably want to get rid of the 'mtu' parameter,
-since all callers use dev->mtu. :)
+> if_bridge.h uses struct in6_addr ip6, but wasn't including the in6.h
+> header.  Thomas Backlund originally sent a patch to do this, but this
+> revealed a redefinition issue: https://lkml.org/lkml/2013/1/13/116
+> 
+> The redefinition issue should have been fixed by the following Linux
+> commits:
+> ee262ad827f89e2dc7851ec2986953b5b125c6bc inet: defines IPPROTO_* needed for module alias generation
+> cfd280c91253cc28e4919e349fa7a813b63e71e8 net: sync some IP headers with glibc
+> 
+> and the following glibc commit:
+> 6c82a2f8d7c8e21e39237225c819f182ae438db3 Coordinate IPv6 definitions for Linux and glibc
+> 
+> so actually include the header now.
+> 
+> Reported-by: Colin Guthrie <colin-odJJhXpcy38dnm+yROfE0A@public.gmane.org>
+> Reported-by: Christiaan Welvaart <cjw-CllfUmslCRwdbCeoMzGj59i2O/JbrIOy@public.gmane.org>
+> Reported-by: Thomas Backlund <tmb-odJJhXpcy38dnm+yROfE0A@public.gmane.org>
+> Cc: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Cc: Cong Wang <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+> Signed-off-by: Gregory Fong <gregory.0xf0-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+
+Applied, thank you.
