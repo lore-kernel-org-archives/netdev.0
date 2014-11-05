@@ -1,70 +1,55 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: mlx4+vxlan offload breaks gre tunnels
-Date: Wed, 5 Nov 2014 16:04:48 +0100
-Message-ID: <20141105150448.GA20776@breakpoint.cc>
+From: Karl Beldan <karl.beldan@gmail.com>
+Subject: Re: [PATCH] net: mv643xx_eth: reclaim TX skbs only when released by
+ the HW
+Date: Wed, 5 Nov 2014 16:05:21 +0100
+Message-ID: <20141105150521.GA25354@magnum.frso.rivierawaves.com>
+References: <1415197979-1702-1-git-send-email-karl.beldan@gmail.com>
+ <545A3838.3090606@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: amirv@mellanox.com, ogerlitz@mellanox.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: David Miller <davem@davemloft.net>,
+	Ian Campbell <ijc@hellion.org.uk>,
+	Karl Beldan <karl.beldan@rivierawaves.com>,
+	netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:50670 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755907AbaKEPEu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2014 10:04:50 -0500
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:47716 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754590AbaKEPFb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2014 10:05:31 -0500
+Received: by mail-wi0-f174.google.com with SMTP id d1so12694052wiv.1
+        for <netdev@vger.kernel.org>; Wed, 05 Nov 2014 07:05:29 -0800 (PST)
 Content-Disposition: inline
+In-Reply-To: <545A3838.3090606@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-tl,dr: all tcp packets sent via gre tunnel have broken tcp csum if vxlan offload
-is enabled with mlx4 driver.
-
-Given following config on tx-side:
-dev=enp3s0
-ip addr add dev $dev 192.168.23.1/24
-ip link set $dev up
-ip link add mygre type gretap remote 192.168.23.2 local 192.168.23.1
-ip addr add dev mygre 192.168.42.1/24
-ip link set gre0 up
-ip link set mygre up
-
-and
-
-options mlx4_core log_num_mgm_entry_size=-1 debug_level=1
-port_type_array=2,2
-
-in
-/etc/modprobe.d/mlx4.conf
-
-all tcp packets sent to destinations over the gre tunnel have bogus tcp
-checksums (and are tossed on rx side when stack validates tcp checksum).
-
-net-next head is commit 30349bdbc4da5ecf0efa25556e3caff9c9b8c5f7 .
-
-What makes things work for me:
-either
-
-options mlx4_core 1 debug_level=1 port_type_array=2,2
-
-(ie. no MLX4_TUNNEL_OFFLOAD_MODE_VXLAN)
-
-or not setting NETIF_F_IP_CSUM in enc_features:
-
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -2579,10 +2579,12 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
-                dev->priv_flags |= IFF_UNICAST_FLT;
+On Wed, Nov 05, 2014 at 11:46:16AM -0300, Ezequiel Garcia wrote:
+> Hi Karl,
+> 
+> On 11/05/2014 11:32 AM, Karl Beldan wrote:> From: Karl Beldan <karl.beldan@rivierawaves.com>
+> > 
+> > ATM, txq_reclaim will dequeue and free an skb for each tx desc released
+> > by the hw that has TX_LAST_DESC set. However, in case of TSO, each
+> > hw desc embedding the last part of a segment has TX_LAST_DESC set,
+> > losing the one-to-one 'last skb frag'/'TX_LAST_DESC set' correspondance,
+> > which causes data corruption.
+> > 
+> > Fix this by checking TX_ENABLE_INTERRUPT instead of TX_LAST_DESC, and
+> > warn when trying to dequeue from an empty txq (which can be symptomatic
+> > of releasing skbs prematurely).
+> > 
+> > Fixes: 3ae8f4e0b98 ('net: mv643xx_eth: Implement software TSO')
+> 
+> Although your change makes sense, this isn't fixing the issue for me,
+> neither did the previous one.
+> 
+This change fixes a serious issue.
+On my side I can now trigger misc NFS and md5sums errors very easily,
+which I haven't detected so far with it applied.
+Are you running little endian ? Do you have the tso alignment fix
+a63ba13e (I don't expect it to be required but I don't know what SoC you
+are using) ? I suppose you are running with all 3 fixes applied.
  
-        if (mdev->dev->caps.tunnel_offload_mode == MLX4_TUNNEL_OFFLOAD_MODE_VXLAN) {
--               dev->hw_enc_features |= NETIF_F_IP_CSUM | NETIF_F_RXCSUM |
-+               dev->hw_enc_features |= NETIF_F_RXCSUM |
-                                        NETIF_F_TSO | NETIF_F_GSO_UDP_TUNNEL;
-
-I am not sure if its right fix, but to my eyes this basically looks like
-mlx4 is telling stack that it can handle tcp checksum offload within
-tunnels, and that doesn't seem to be the case for all types (e.g. gre).
-
-Could someone who understand the enc_features specifics better confirm that
-above patch is correct (or provide a better/proper fix)?
-
-Thanks,
-Florian
+Karl
