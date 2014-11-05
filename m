@@ -1,51 +1,35 @@
-From: Vinson Lee <vlee@twopensource.com>
-Subject: Re: [stable request <= 3.11] net/mlx4_en: Fix BlueFlame race
-Date: Wed, 5 Nov 2014 11:38:37 -0800
-Message-ID: <CAHTgTXWcSa0LaGd7+v+8eCLPPQ=ZNkttHuhbhx=ibW1DoDMPCA@mail.gmail.com>
-References: <CAHA+R7OyLv2YO8AduNhnEgW3RyYZwWNEHY6W-v_HXgVT9AOaKw@mail.gmail.com>
-	<20141101.134142.888127846627939710.davem@davemloft.net>
-	<CAHA+R7OMgOpnWyy5E55OtLS4naOcZ5EhzViE14Yffu=K=TqNcA@mail.gmail.com>
-	<20141103.150917.1015521239616746570.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Kernel Oops in __inet_twsk_kill()
+Date: Wed, 05 Nov 2014 14:39:29 -0500 (EST)
+Message-ID: <20141105.143929.861274469992898400.davem@davemloft.net>
+References: <545A49B4.7090107@iogearbox.net>
+	<CAHA+R7PAdVS=TBd8ZDAW3wdadjNEVjiyemrs54wNp8fdtCMvZQ@mail.gmail.com>
+	<FB8A4655DFD2B34DB16AE06DDDD6C0E231A71CE3@SJEXCHMB12.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: cwang@twopensource.com, ben@decadent.org.uk,
-	Amir Vadai <amirv@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Eugenia Emantayev <eugenia@mellanox.com>,
-	Matan Barak <matanb@mellanox.com>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: stable@vger.kernel.org
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <20141103.150917.1015521239616746570.davem@davemloft.net>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: cwang@twopensource.com, borkmann@iogearbox.net,
+	netdev@vger.kernel.org
+To: charley.chu@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47364 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751133AbaKETje (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2014 14:39:34 -0500
+In-Reply-To: <FB8A4655DFD2B34DB16AE06DDDD6C0E231A71CE3@SJEXCHMB12.corp.ad.broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 3, 2014 at 12:09 PM, David Miller <davem@davemloft.net> wrote:
-> From: Cong Wang <cwang@twopensource.com>
-> Date: Mon, 3 Nov 2014 09:22:18 -0800
->
->> On Sat, Nov 1, 2014 at 10:41 AM, David Miller <davem@davemloft.net> wrote:
->>>
->>> There is no documented way nor do I wish to state anything so strictly.
->>> I want maximum flexibility for such a time consuming task.
->>>
->>> I tend to go back 3 or 4 releases at most, and it really depends upon
->>> the difficulty of the backports and my own time constraints.
->>
->> You should really offload to developers, otherwise too much work for you. :)
->
-> That's exactly what I am doing by having the -stable maintainers for older
-> releases deal with the backports and other pains.
+From: "Charley (Hao Chuan) Chu" <charley.chu@broadcom.com>
+Date: Wed, 5 Nov 2014 19:16:09 +0000
 
-+ stable
+> The problem has been fixed. It is introduced by a third party patch,
+> which decreases the refcnt of timewait socket.
 
-Please backport upstream commit
-2d4b646613d6b12175b017aca18113945af1faf3 "net/mlx4_en: Fix BlueFlame
-race" to stable kernels. David is no longer supporting 3.10 and older.
+This is something that really drives me nuts, seriously?
 
-Please refer to http://marc.info/?l=linux-netdev&m=141366689811844 for
-previous comments in thread.
+Never report problems to us when you have such patches applied.
 
-Cheers,
-Vinson
+It is an even larger crime to not mention this at all from the
+beginning, because we might start to investigate and waste our
+precious time doing so.
