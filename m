@@ -1,95 +1,59 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next] sched: fix act file names in header comment
-Date: Wed,  5 Nov 2014 20:51:51 +0100
-Message-ID: <1415217111-9803-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, jhs@mojatatu.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f181.google.com ([209.85.212.181]:57900 "EHLO
-	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751043AbaKETv4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2014 14:51:56 -0500
-Received: by mail-wi0-f181.google.com with SMTP id n3so3083181wiv.8
-        for <netdev@vger.kernel.org>; Wed, 05 Nov 2014 11:51:55 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCHv2 net-next 0/3] RDMA/cxgb4,cxgb4vf,cxgb4i,csiostor:
+ Cleanup macros
+Date: Wed, 05 Nov 2014 14:54:43 -0500 (EST)
+Message-ID: <20141105.145443.897956918105740779.davem@davemloft.net>
+References: <1415069457-22277-1-git-send-email-hariprasad@chelsio.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org,
+	JBottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org,
+	swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	praveenm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, anish-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
+To: hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1415069457-22277-1-git-send-email-hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Fixes: 4bba3925 ("[PKT_SCHED]: Prefix tc actions with act_")
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
----
- net/sched/act_gact.c   | 2 +-
- net/sched/act_ipt.c    | 2 +-
- net/sched/act_mirred.c | 2 +-
- net/sched/act_pedit.c  | 2 +-
- net/sched/act_police.c | 2 +-
- net/sched/act_simple.c | 2 +-
- 6 files changed, 6 insertions(+), 6 deletions(-)
+From: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Date: Tue,  4 Nov 2014 08:20:54 +0530
 
-diff --git a/net/sched/act_gact.c b/net/sched/act_gact.c
-index d6bcbd9..7fffc22 100644
---- a/net/sched/act_gact.c
-+++ b/net/sched/act_gact.c
-@@ -1,5 +1,5 @@
- /*
-- * net/sched/gact.c	Generic actions
-+ * net/sched/act_gact.c		Generic actions
-  *
-  *		This program is free software; you can redistribute it and/or
-  *		modify it under the terms of the GNU General Public License
-diff --git a/net/sched/act_ipt.c b/net/sched/act_ipt.c
-index 8a64a07..cbc8dd7 100644
---- a/net/sched/act_ipt.c
-+++ b/net/sched/act_ipt.c
-@@ -1,5 +1,5 @@
- /*
-- * net/sched/ipt.c     iptables target interface
-+ * net/sched/act_ipt.c		iptables target interface
-  *
-  *TODO: Add other tables. For now we only support the ipv4 table targets
-  *
-diff --git a/net/sched/act_mirred.c b/net/sched/act_mirred.c
-index eb48306..5953517 100644
---- a/net/sched/act_mirred.c
-+++ b/net/sched/act_mirred.c
-@@ -1,5 +1,5 @@
- /*
-- * net/sched/mirred.c	packet mirroring and redirect actions
-+ * net/sched/act_mirred.c	packet mirroring and redirect actions
-  *
-  *		This program is free software; you can redistribute it and/or
-  *		modify it under the terms of the GNU General Public License
-diff --git a/net/sched/act_pedit.c b/net/sched/act_pedit.c
-index 5f9bcb2..59649d5 100644
---- a/net/sched/act_pedit.c
-+++ b/net/sched/act_pedit.c
-@@ -1,5 +1,5 @@
- /*
-- * net/sched/pedit.c	Generic packet editor
-+ * net/sched/act_pedit.c	Generic packet editor
-  *
-  *		This program is free software; you can redistribute it and/or
-  *		modify it under the terms of the GNU General Public License
-diff --git a/net/sched/act_police.c b/net/sched/act_police.c
-index 69791ca..9a1c42a 100644
---- a/net/sched/act_police.c
-+++ b/net/sched/act_police.c
-@@ -1,5 +1,5 @@
- /*
-- * net/sched/police.c	Input police filter.
-+ * net/sched/act_police.c	Input police filter
-  *
-  *		This program is free software; you can redistribute it and/or
-  *		modify it under the terms of the GNU General Public License
-diff --git a/net/sched/act_simple.c b/net/sched/act_simple.c
-index 992c231..6a8d948 100644
---- a/net/sched/act_simple.c
-+++ b/net/sched/act_simple.c
-@@ -1,5 +1,5 @@
- /*
-- * net/sched/simp.c	Simple example of an action
-+ * net/sched/act_simple.c	Simple example of an action
-  *
-  *		This program is free software; you can redistribute it and/or
-  *		modify it under the terms of the GNU General Public License
--- 
-1.9.3
+> It's not really the "hardware" which generates these hardware constant symbolic
+> macros/register defines of course, it's scripts developed by the hardware team.
+> Various patches have ended up changing the style of the symbolic macros/register
+> defines and some of them used the macros/register defines that matches the
+> output of the script from the hardware team.
+
+We've told you that we don't care what format your internal whatever uses
+for these macros.
+
+We have standards, tastes, and desires and reasons for naming macros
+in a certain way in upstream kernel code.
+
+I consider it flat out unacceptable to use macros with one letter
+prefixes like "S_".  You simply should not do this.
+
+Why?
+
+Because you are polluting the global name space, that's why.
+
+You should only define macros with very-likely-to-be-unique prefixes
+otherwise you and some arch/* header file are going to define the same
+thing.
+
+This is not just theory, it has happened in the past.
+
+I'm not applying this series, fixup your macros properly.  And to
+repeat, complaints about how your internal tools generate things
+will fall on deaf ears.
+
+Thanks.
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
