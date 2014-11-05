@@ -1,63 +1,61 @@
-From: "Charley (Hao Chuan) Chu" <charley.chu@broadcom.com>
-Subject: RE: Kernel Oops in __inet_twsk_kill()
-Date: Wed, 5 Nov 2014 19:16:09 +0000
-Message-ID: <FB8A4655DFD2B34DB16AE06DDDD6C0E231A71CE3@SJEXCHMB12.corp.ad.broadcom.com>
-References: <FB8A4655DFD2B34DB16AE06DDDD6C0E231A6F030@SJEXCHMB12.corp.ad.broadcom.com>
-	<545A49B4.7090107@iogearbox.net>
- <CAHA+R7PAdVS=TBd8ZDAW3wdadjNEVjiyemrs54wNp8fdtCMvZQ@mail.gmail.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: Can ndo_select_queue save data in skb->cb?
+Date: Wed, 05 Nov 2014 11:23:36 -0800
+Message-ID: <545A7938.3070307@gmail.com>
+References: <545A64EC.309@openvpn.net>  <1415211391.13896.10.camel@edumazet-glaptop2.roam.corp.google.com>  <CAHA+R7M2k8_9C8=kdAJT1nSFDhKfV2HwvTo0nX-tVDJQvXjy+w@mail.gmail.com> <1415213589.13896.14.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev <netdev@vger.kernel.org>
-To: Cong Wang <cwang@twopensource.com>,
-	Daniel Borkmann <borkmann@iogearbox.net>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Cong Wang <cwang@twopensource.com>,
+	James Yonan <james@openvpn.net>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:56122 "EHLO
-	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751081AbaKETQJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2014 14:16:09 -0500
-In-Reply-To: <CAHA+R7PAdVS=TBd8ZDAW3wdadjNEVjiyemrs54wNp8fdtCMvZQ@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-oi0-f50.google.com ([209.85.218.50]:56796 "EHLO
+	mail-oi0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751046AbaKETX4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2014 14:23:56 -0500
+Received: by mail-oi0-f50.google.com with SMTP id v63so9267887oia.9
+        for <netdev@vger.kernel.org>; Wed, 05 Nov 2014 11:23:56 -0800 (PST)
+In-Reply-To: <1415213589.13896.14.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-VGhhbmtzIERhbmllbCBhbmQgQ29uZywNCg0KVGhlIHByb2JsZW0gaGFzIGJlZW4gZml4ZWQuIEl0
-IGlzIGludHJvZHVjZWQgYnkgYSB0aGlyZCBwYXJ0eSBwYXRjaCwgd2hpY2ggZGVjcmVhc2VzIHRo
-ZSByZWZjbnQgb2YgdGltZXdhaXQgc29ja2V0LiANCg0KQ2hhcmxleQ0KDQotLS0tLU9yaWdpbmFs
-IE1lc3NhZ2UtLS0tLQ0KRnJvbTogQ29uZyBXYW5nIFttYWlsdG86Y3dhbmdAdHdvcGVuc291cmNl
-LmNvbV0gDQpTZW50OiBXZWRuZXNkYXksIE5vdmVtYmVyIDA1LCAyMDE0IDEwOjAwIEFNDQpUbzog
-RGFuaWVsIEJvcmttYW5uDQpDYzogQ2hhcmxleSAoSGFvIENodWFuKSBDaHU7IG5ldGRldg0KU3Vi
-amVjdDogUmU6IEtlcm5lbCBPb3BzIGluIF9faW5ldF90d3NrX2tpbGwoKQ0KDQpPbiBXZWQsIE5v
-diA1LCAyMDE0IGF0IDg6MDAgQU0sIERhbmllbCBCb3JrbWFubiA8Ym9ya21hbm5AaW9nZWFyYm94
-Lm5ldD4gd3JvdGU6DQo+IFsgbW92aW5nIHRvIG5ldGRldiBdDQo+DQo+IC0tLS0tLS0tIE9yaWdp
-bmFsIE1lc3NhZ2UgLS0tLS0tLS0NCj4gU3ViamVjdDogS2VybmVsIE9vcHMgaW4gX19pbmV0X3R3
-c2tfa2lsbCgpDQo+IERhdGU6IFR1ZSwgNCBOb3YgMjAxNCAyMzo0NzoxOCArMDAwMA0KPiBGcm9t
-OiBDaGFybGV5IChIYW8gQ2h1YW4pIENodSA8Y2hhcmxleS5jaHVAYnJvYWRjb20uY29tPg0KPiBU
-bzogbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZyA8bGludXgta2VybmVsQHZnZXIua2VybmVs
-Lm9yZz4NCj4NCj4gV2UgaGF2ZSBzaXR1YXRpb24gb24gb3VyIHN5c3RlbS4gSXQgYnJpbmdzIHRo
-ZSBuZXR3b3JrIGludGVyZmFjZSB1cCBhbmQgZG93bg0KPiBldmVyeQ0KPiBhIGZldyBzZWNvbmRz
-LiBFdmVudHVhbGx5LCBpdCBicmluZ3MgZG93biB0aGUgc3lzdGVtIC0gdGhlIGtlcm5lbCBjcmFz
-aGVkDQo+IGR1ZSB0byBCVUcNCj4gb24gaW4gX19pbmV0X3R3c2tfa2lsbCgpLiBUaGUgZGVidWcg
-bWVzc2FnZSBzaG93IGZvbGxvd2luZyBjYWxsIGZsb3cuDQo+DQo+IDEpIHRpbWUtd2FpdCBzb2Nr
-ZXQgaXMgY3JlYXRlZCBieSB0Y3BfdGltZV93YWl0KCkgd2hlbiB0aGUgc29ja2V0IGdldHMgaW50
-bw0KPiAiVElNRV9XQUlUIiBzdGF0ZS4NCj4gICAgIGluZXRfdHdza19hbGxvYygpICAgICAgICAg
-ICAgICAgLSByZWZjbnQ9IDANCj4gICAgIGluZXRfdHdza19oYXNoZGFuY2UoKSAgLSByZWZjbnQg
-PSAzDQo+ICAgICBpbmV0X3R3c2tfc2NoZWR1bGUoKSAgICAgIC0gcmVmY250ID0gNA0KPiAgICAg
-aW5ldF90d3NrX3B1dCgpICAgICAgICAgICAgICAgICAtIHJlZmNudCA9IDMNCj4gMikgdGNwX3Y0
-X3RpbWV3YWl0X2FjaygpIGlzIGNhbGxlZCB3aGVuIHN5bmMgaXMgcmVjZWl2ZWQNCj4gICAgIGlu
-ZXRfdHdza19wdXQoKSAgICAgICAgICAgICAgICAgIC0gcmVmY250PSAyICAgICAgPD09IHdoZXJl
-IHdlIHRoaW5nIHRoZQ0KPiBwcm9ibGVtIGlzDQo+ICAgICBvY2Nhc2lvbmFsbHksIHNlY29uZCBz
-eW5jIGlzIHJlY2VpdmVkLCBzbyB0aGUgaW5ldF90d3NrX3B1dCBpcyBjYWxsZWQNCj4gdHdpY2Ug
-LSByZWZjbnQgPSAxDQo+IDMpIHR3ZHJfZG9fdHdraWxsX3dvcmsoKSBpcyBjYWxsZWQgd2hlbiB0
-aW1lZCBvdXQNCj4gICAgIGNhbGwgX19pbmV0X3R3c2tfa2lsbCAtIEJVR19PTiEhISBhcyByZWZj
-bnQ9MiAoc3VwcG9zZWQgdG8gYmUgMykuDQo+ICAgICBjYWxsIGluZXRfdHdza19wdXQoKQ0KPg0K
-PiBJbiBhIG5vcm1hbCBjYXNlLCB0aGUgY2FsbGZsb3cgb25seSBoYXMgc3RlcCAxIGFuZCBzdGVw
-IDMuICBPdXINCj4gdW5kZXJzdGFuZGluZyBpcw0KPiB0aGUgdGltZS13YWl0IHNvY2tldCBoYXMg
-dGhyZWUgcmVmZXJlbmNlcyAtIGVoYXNoLCBiaGFzaCBhbmQgdGltZXIgZGVhdGgNCj4gcm93LiBJ
-bg0KPiBzdGVwIDIsIG5vbmUgb2YgdGhlbSBhcmUgdG91Y2hlZC4gQ2FuIGFueW9uZSBoZXJlIGV4
-cGxhaW4gdG8gdXMgd2h5IHRoZQ0KPiBpbmV0X3R3c2tfcHV0KCkNCj4gaXMgY2FsbGVkIGluIHRj
-cF92NF90aW1ld2FpdF9hY2soKT8NCj4NCg0KSXQgaGFzIGJlZW4gdGhlcmUgZm9yIGEgcmF0aGVy
-IGxvbmcgdGltZSwgYnV0IHRoaXMgZG9lc24ndCBtZWFuIGl0IGlzDQpjb3JyZWN0LiBJdHMgY2Fs
-bGVyIGNhbGxzIGluZXRfdHdza19wdXQoKSBvbiBlcnJvciBwYXRoLCBzbyBzbWVsbHMgd3JvbmcN
-CnRvIGNhbGwgaXQgb24gbm9uLWVycm9yIHBhdGguIEJ1dCBJIGRvbid0IGxvb2sgaW50byB0aGlz
-Lg0K
+On 11/05/2014 10:53 AM, Eric Dumazet wrote:
+> On Wed, 2014-11-05 at 10:38 -0800, Cong Wang wrote:
+>> That is only because qdisc layer saves data for bond,
+>> which means if you have more data to save, you have to put
+>> more into qdisc CB, it is just ugly.
+>
+> Right, using skb->cb[] is ugly, dangerous, and all this.
+>
+> If you can, avoiding it is safer.
+>
+> Note that I pointed to the bonding case for a legal case,
+> I had no time to do a full explanation, feel free to do so ;)
+>
+
+I would prefer to get rid of select_queue() versus expand
+it. It mostly seems to be used for hacks around the stack
+for FCoE/DCB/whatever. The wireless drivers and bonding/team
+drivers are two examples where its not clear how to remove
+it. See xen-netfront.c for an example where I'm not sure
+why its needed at all.
+
+James, why is your driver feeding itself data via cb? Maybe
+we could solve the problem some other way.
+
+Thanks,
+John
+
+>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+
+
+-- 
+John Fastabend         Intel Corporation
