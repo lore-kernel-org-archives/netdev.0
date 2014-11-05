@@ -1,71 +1,50 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v2 1/1] ip-link: in human readable output use dynamic
- precision length
-Date: Wed, 5 Nov 2014 09:30:02 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1C9E9068@AcuExch.aculab.com>
-References: <20141104114421.6a7f9de5@leda.localdomain>
-	<1415098208-17942-1-git-send-email-mail@eworm.de>
-	<063D6719AE5E284EB5DD2968C1650D6D1C9E72A7@AcuExch.aculab.com>
- <20141104221038.440fd9d7@leda.localdomain>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH V1 3/4] can: add can_is_canfd_skb() API
+Date: Wed, 05 Nov 2014 10:39:16 +0100
+Message-ID: <5459F044.3090902@hartkopp.net>
+References: <1415174326-6623-1-git-send-email-b29396@freescale.com> <1415174326-6623-3-git-send-email-b29396@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'Christian Hesse' <mail@eworm.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:60981 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751325AbaKEJcv convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2014 04:32:51 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 28532-03 for <netdev@vger.kernel.org>;
- Wed,  5 Nov 2014 09:32:42 +0000 (GMT)
-In-Reply-To: <20141104221038.440fd9d7@leda.localdomain>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: mkl@pengutronix.de, wg@grandegger.com, varkabhadram@gmail.com,
+	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: Dong Aisheng <b29396@freescale.com>, linux-can@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1415174326-6623-3-git-send-email-b29396@freescale.com>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Christian Hesse
-...
-> 
-> I do not like this at all... snprintf() would be nice for a catch-all, but we
-> have to take care of negative values. So let's try something different.
-> I will think about it and send a new patch.
-> 
-> > > +		precision = 0;
-> > > +
-> > > +	snprintf(buf, sizeof(buf), "%.*f%c%s", precision,
-> > > +		(double) count / powi, *prefix, use_iec ? "i" : "");
-> > >
-> > >  	fprintf(fp, "%-*s ", width, buf);
-> > >  }
-> >
-> > The above will go wrong in all sorts of horrid ways....
-> > For instance you are doing a truncating integer divide, but the FP
-> > value will get rounded for display.
-> >
-> > It would be safer to use integers throughout.
-> 
-> My implementation used integers, but Stephen changes this to floating point
-> with his cleanups.
-> 
-> IMHO the rounding is ok. This is for *human* readability. ;)
-> Whoever wants correct values should not ask ip to print human readable values
-> but rely on pure numbers.
+On 05.11.2014 08:58, Dong Aisheng wrote:
+> The CAN device drivers can use it to check if the frame to send is on
+> CAN FD mode or normal CAN mode.
+>
+> Signed-off-by: Dong Aisheng <b29396@freescale.com>
+> ---
+>   include/linux/can/dev.h | 5 +++++
+>   1 file changed, 5 insertions(+)
+>
+> diff --git a/include/linux/can/dev.h b/include/linux/can/dev.h
+> index 6992afc..fe3be29 100644
+> --- a/include/linux/can/dev.h
+> +++ b/include/linux/can/dev.h
+> @@ -99,6 +99,11 @@ inval_skb:
+>   	return 1;
+>   }
+>
+> +static inline int can_is_canfd_skb(struct sk_buff *skb)
+> +{
+> +	return skb->protocol == htons(ETH_P_CANFD);
 
-Rounding the value is fine, the difference between 1000 and 1024
-is not that great either.
-The problem is that the two calculations get rounded differently.
-If the FP value ends up being 9.999999 it will be printed as 10.0
-but your field width calculation will only have allowed for
-a single digit.
+return skb->len == CANFD_MTU;
 
-> > Oh, and a 2Mbit E1 link is actually 2048000 :-)
-> 
-> Sorry? Did not get the point.
-That was really in reference to a much earlier comment about comms
-always using 1000.
+Please take the length as distinction as we do it in linux/net/can/ too.
 
-	David
+You can add my
+
+Acked-by: Oliver Hartkopp <socketcan@hartkopp.net>
+
+in the updated post then.
+
+Regards,
+Oliver
+
