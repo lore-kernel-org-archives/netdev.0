@@ -1,63 +1,110 @@
-From: Ian Campbell <ijc@hellion.org.uk>
-Subject: Bug#764162: [PATCH 0/1] mv643xx_eth: Disable TSO by default
-Date: Wed, 05 Nov 2014 08:39:26 +0000
-Message-ID: <1415176766.31613.7.camel@hellion.org.uk>
-References: <1414855820-15094-1-git-send-email-ezequiel.garcia@free-electrons.com>
-	 <20141104142020.GA6728@magnum.frso.rivierawaves.com>
-Reply-To: Ian Campbell <ijc@hellion.org.uk>, 764162@bugs.debian.org
+From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Subject: Re: [PATCH] stmmac: fix sparse warnings
+Date: Wed, 05 Nov 2014 11:03:46 +0200
+Message-ID: <1415178226.472.9.camel@linux.intel.com>
+References: <1415035734-24163-1-git-send-email-andriy.shevchenko@linux.intel.com>
+	 <54590045.3050305@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
- netdev@vger.kernel.org, David Miller <davem@davemloft.net>, Thomas
- Petazzoni <thomas.petazzoni@free-electrons.com>, Gregory Clement
- <gregory.clement@free-electrons.com>, Tawfik Bayouk <tawfik@marvell.com>,
- Lior Amsalem <alior@marvell.com>, Nadav Haklai <nadavh@marvell.com>,
- 764162@bugs.debian.org
-To: Karl Beldan <karl.beldan@gmail.com>
-Return-path: <bounce-debian-bugs-rc=glddbr-debian-bugs-rc=gmane.org@lists.debian.org>
-Resent-Message-ID: <handler.764162.B764162.141517677525902@bugs.debian.org>
-In-Reply-To: <20141104142020.GA6728@magnum.frso.rivierawaves.com>
-List-URL: <http://lists.debian.org/debian-bugs-rc/>
-List-Post: <mailto:debian-bugs-rc@lists.debian.org>
-List-Help: <mailto:debian-bugs-rc-request@lists.debian.org?subject=help>
-List-Subscribe: <mailto:debian-bugs-rc-request@lists.debian.org?subject=subscribe>
-List-Unsubscribe: <mailto:debian-bugs-rc-request@lists.debian.org?subject=unsubscribe>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org,
+	Kweh Hock Leong <hock.leong.kweh@intel.com>,
+	"David S . Miller" <davem@davemloft.net>,
+	Vince Bridgers <vbridgers2013@gmail.com>
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:56863 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751604AbaKEJDr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Nov 2014 04:03:47 -0500
+In-Reply-To: <54590045.3050305@st.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-11-04 at 15:20 +0100, Karl Beldan wrote:
-> On Sat, Nov 01, 2014 at 12:30:19PM -0300, Ezequiel Garcia wrote:
-> > Several users ([1], [2]) have been reporting data corruption with TSO on
-> > Kirkwood platforms (i.e. using the mv643xx_eth driver).
-> > 
-> > Until we manage to find what's causing this, this simple patch will make
-> > the TSO path disabled by default. This patch should be queued for stable,
-> > fixing the TSO feature introduced in v3.16.
-> > 
-> > The corruption itself is very easy to reproduce: checking md5sum on a mounted
-> > NFS directory gives a different result each time. Same tests using the mvneta
-> > driver (Armada 370/38x/XP SoC) pass with no issues.
-> > 
-> > Frankly, I'm a bit puzzled about this, and so any ideas or debugging hints
-> > are well received.
-> > 
+On Tue, 2014-11-04 at 17:35 +0100, Giuseppe CAVALLARO wrote:
+> On 11/3/2014 6:28 PM, Andy Shevchenko wrote:
+> > This patch fixes the following sparse warnings.
+> >
+> > drivers/net/ethernet/stmicro/stmmac/enh_desc.c:381:30: warning: symbol 'enh_desc_ops' was not declared. Should it be static?
+> > drivers/net/ethernet/stmicro/stmmac/norm_desc.c:253:30: warning: symbol 'ndesc_ops' was not declared. Should it be static?
+> > drivers/net/ethernet/stmicro/stmmac/stmmac_hwtstamp.c:141:33: warning: symbol 'stmmac_ptp' was not declared. Should it be static?
+> >
+> > There is no functional change.
 > 
-> Hi,
+> Hello Andy
 > 
-> Can you try this :
+> I have never seen this kind of warnings. I prefer to not include the
+> stmmac.h in enh_desc.c and norm_desc.c but eventually to move the
+> following from stmmac.h to common.h:
+>    extern const struct stmmac_desc_ops enh_desc_ops;
+>    extern const struct stmmac_desc_ops ndesc_ops;
+> what do you think?
 
-It fixes things for me, thanks!
+If it would work I do this way certainly. Thanks for the tip.
 
-Tested-by: Ian Campbell <ijc@hellion.org.uk>
+Will check soon and resubmit new version.
 
-> @@ -1067,7 +1082,8 @@ static int txq_reclaim(struct tx_queue *txq, int budget, int force)
->  		txq->tx_desc_count--;
->  
->  		skb = NULL;
-> -		if (cmd_sts & TX_LAST_DESC)
-> +		if ((cmd_sts & (TX_LAST_DESC | TX_ENABLE_INTERRUPT)) ==
-> +			       (TX_LAST_DESC | TX_ENABLE_INTERRUPT))
->  			skb = __skb_dequeue(&txq->tx_skb);
->  
->  		if (cmd_sts & ERROR_SUMMARY) {
 > 
+> peppe
+> 
+> 
+> >
+> > Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+> > ---
+> >   drivers/net/ethernet/stmicro/stmmac/enh_desc.c        | 2 ++
+> >   drivers/net/ethernet/stmicro/stmmac/norm_desc.c       | 2 ++
+> >   drivers/net/ethernet/stmicro/stmmac/stmmac_hwtstamp.c | 2 ++
+> >   3 files changed, 6 insertions(+)
+> >
+> > diff --git a/drivers/net/ethernet/stmicro/stmmac/enh_desc.c b/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
+> > index 1e2bcf5..ddd4272 100644
+> > --- a/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
+> > +++ b/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
+> > @@ -23,8 +23,10 @@
+> >   *******************************************************************************/
+> >
+> >   #include <linux/stmmac.h>
+> > +
+> >   #include "common.h"
+> >   #include "descs_com.h"
+> > +#include "stmmac.h"
+> >
+> >   static int enh_desc_get_tx_status(void *data, struct stmmac_extra_stats *x,
+> >   				  struct dma_desc *p, void __iomem *ioaddr)
+> > diff --git a/drivers/net/ethernet/stmicro/stmmac/norm_desc.c b/drivers/net/ethernet/stmicro/stmmac/norm_desc.c
+> > index 35ad4f4..46b882c 100644
+> > --- a/drivers/net/ethernet/stmicro/stmmac/norm_desc.c
+> > +++ b/drivers/net/ethernet/stmicro/stmmac/norm_desc.c
+> > @@ -23,8 +23,10 @@
+> >   *******************************************************************************/
+> >
+> >   #include <linux/stmmac.h>
+> > +
+> >   #include "common.h"
+> >   #include "descs_com.h"
+> > +#include "stmmac.h"
+> >
+> >   static int ndesc_get_tx_status(void *data, struct stmmac_extra_stats *x,
+> >   			       struct dma_desc *p, void __iomem *ioaddr)
+> > diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_hwtstamp.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_hwtstamp.c
+> > index 76ad214..88e0da3 100644
+> > --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_hwtstamp.c
+> > +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_hwtstamp.c
+> > @@ -25,8 +25,10 @@
+> >
+> >   #include <linux/io.h>
+> >   #include <linux/delay.h>
+> > +
+> >   #include "common.h"
+> >   #include "stmmac_ptp.h"
+> > +#include "stmmac.h"
+> >
+> >   static void stmmac_config_hw_tstamping(void __iomem *ioaddr, u32 data)
+> >   {
+> >
+> 
+
+
+-- 
+Andy Shevchenko <andriy.shevchenko@intel.com>
+Intel Finland Oy
