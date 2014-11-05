@@ -1,33 +1,44 @@
-From: Rasmus Villemoes <linux@rasmusvillemoes.dk>
-Subject: [PATCH] include/linux/socket.h: Fix comment
-Date: Wed,  5 Nov 2014 21:44:27 +0100
-Message-ID: <1415220267-20044-1-git-send-email-linux@rasmusvillemoes.dk>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Rasmus Villemoes <linux@rasmusvillemoes.dk>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net v4] ipv6: mld: fix add_grhead skb_over_panic for
+ devs with large MTUs
+Date: Wed, 05 Nov 2014 12:47:29 -0800
+Message-ID: <1415220449.13896.15.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1415215658-10054-1-git-send-email-dborkman@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, lw1a2.jing@gmail.com, netdev@vger.kernel.org,
+	Eric Dumazet <edumazet@google.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	David L Stevens <david.stevens@oracle.com>
+To: Daniel Borkmann <dborkman@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f176.google.com ([209.85.223.176]:37877 "EHLO
+	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750702AbaKEUrc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2014 15:47:32 -0500
+Received: by mail-ie0-f176.google.com with SMTP id rd18so1582584iec.35
+        for <netdev@vger.kernel.org>; Wed, 05 Nov 2014 12:47:31 -0800 (PST)
+In-Reply-To: <1415215658-10054-1-git-send-email-dborkman@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-File descriptors are always closed on exit :-)
+On Wed, 2014-11-05 at 20:27 +0100, Daniel Borkmann wrote:
+> It has been reported that generating an MLD listener report on
+> devices with large MTUs (e.g. 9000) and a high number of IPv6
+> addresses can trigger a skb_over_panic():
+...
+> 
+> Reported-by: Wei Liu <lw1a2.jing@gmail.com>
+> Fixes: 72e09ad107e7 ("ipv6: avoid high order allocations")
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> Cc: Eric Dumazet <edumazet@google.com>
+> Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Cc: David L Stevens <david.stevens@oracle.com>
+> ---
+>  v3->v4:
+>   - Reduced noise from previous one as discussed
 
-Signed-off-by: Rasmus Villemoes <linux@rasmusvillemoes.dk>
----
- include/linux/socket.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Thanks for your patience ;)
 
-diff --git a/include/linux/socket.h b/include/linux/socket.h
-index ec538fc..bb9b836 100644
---- a/include/linux/socket.h
-+++ b/include/linux/socket.h
-@@ -256,7 +256,7 @@ struct ucred {
- #define MSG_EOF         MSG_FIN
- 
- #define MSG_FASTOPEN	0x20000000	/* Send data in TCP SYN */
--#define MSG_CMSG_CLOEXEC 0x40000000	/* Set close_on_exit for file
-+#define MSG_CMSG_CLOEXEC 0x40000000	/* Set close_on_exec for file
- 					   descriptor received through
- 					   SCM_RIGHTS */
- #if defined(CONFIG_COMPAT)
--- 
-2.0.4
+Acked-by: Eric Dumazet <edumazet@google.com>
