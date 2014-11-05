@@ -1,38 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] vxlan: Do not reuse sockets for a different
- address family
-Date: Wed, 05 Nov 2014 15:59:13 -0500 (EST)
-Message-ID: <20141105.155913.297158120451064287.davem@davemloft.net>
-References: <e7e226e9bef6f03ac249bc8e5ebf0938944ace3c.1415120464.git.mleitner@redhat.com>
+Subject: Re: [PATCH] drivers: net: ethernet: xilinx: xilinx_emaclite:
+ revert the original commit "1db3ddff1602edf2390b7667dcbaa0f71512e3ea"
+Date: Wed, 05 Nov 2014 16:01:08 -0500 (EST)
+Message-ID: <20141105.160108.1964404762103732361.davem@davemloft.net>
+References: <5458E605.6070801@gmail.com>
+	<a39951cc744047679d13b23e76c97347@BN1BFFO11FD022.protection.gbl>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
-	sergei.shtylyov@cogentembedded.com
-To: mleitner@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48094 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750966AbaKEU7Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2014 15:59:16 -0500
-In-Reply-To: <e7e226e9bef6f03ac249bc8e5ebf0938944ace3c.1415120464.git.mleitner@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: gang.chen.5i5j@gmail.com, soren.brinkmann@xilinx.com,
+	sthokal@xilinx.com, manuel.schoelling@gmx.de, f.fainelli@gmail.com,
+	paul.gortmaker@windriver.com, ebiederm@xmission.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: michal.simek@xilinx.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <a39951cc744047679d13b23e76c97347@BN1BFFO11FD022.protection.gbl>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Marcelo Ricardo Leitner <mleitner@redhat.com>
-Date: Tue,  4 Nov 2014 15:03:20 -0200
+From: Michal Simek <michal.simek@xilinx.com>
+Date: Wed, 5 Nov 2014 08:19:41 +0100
 
-> @@ -281,7 +281,8 @@ static struct vxlan_sock *vxlan_find_sock(struct net *net, __be16 port)
->  	struct vxlan_sock *vs;
->  
->  	hlist_for_each_entry_rcu(vs, vs_head(net, port), hlist) {
-> -		if (inet_sk(vs->sock->sk)->inet_sport == port)
-> +		if (inet_sk(vs->sock->sk)->inet_sport == port &&
-> +		    inet_sk(vs->sock->sk)->sk.sk_family == family)
+> On 11/04/2014 03:43 PM, Chen Gang wrote:
+>> Microblaze is a fpga soft core, it can be customized easily, which may
+>> cause many various hardware version strings.
+>> 
+>> So the original fix patch based on hard-coded compatible version strings
+>> is not a good idea (although it is correct for current issue). For it,
+>> there will be a new solving way soon (which based on the device tree).
+>> 
+>> The original issue is related with qemu, so can only change the hardware
+>> version string in qemu for it, then keep the original driver no touch (
+>> qemu is for virtualization which has much easier life than real world).
+>> 
+>> 
+>> Signed-off-by: Chen Gang <gang.chen.5i5j@gmail.com>
+>> ---
+>>  drivers/net/ethernet/xilinx/xilinx_emaclite.c | 1 -
+>>  1 file changed, 1 deletion(-)
+> 
+> Acked-by: Michal Simek <michal.simek@xilinx.com>
 
-You didn't even compile this.
-
-You're in the penalty box, and I'm ignoring your patches for at least
-a week, this is really unacceptable for an upstream patch submission.
-
-Sorry.
+Applied, thanks.
