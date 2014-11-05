@@ -1,73 +1,64 @@
-From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Subject: [PATCH v2] stmmac: fix sparse warnings
-Date: Wed,  5 Nov 2014 11:45:32 +0200
-Message-ID: <1415180732-8011-1-git-send-email-andriy.shevchenko@linux.intel.com>
-Cc: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	netdev@vger.kernel.org, "David S . Miller" <davem@davemloft.net>,
-	Vince Bridgers <vbridgers2013@gmail.com>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [Xen-devel] [PATCHv1 net-next] xen-netback: remove
+ unconditional pull_skb_tail in guest Tx path
+Date: Wed, 5 Nov 2014 09:51:20 +0000
+Message-ID: <1415181080.11486.63.camel@citrix.com>
+References: <1415036346.1411.3.camel@citrix.com>
+	 <5457BF80.2000205@citrix.com> <5457C807.5080509@linaro.org>
+	 <20141104.161704.1690311989900127361.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <zoltan.kiss@linaro.org>, <david.vrabel@citrix.com>,
+	<netdev@vger.kernel.org>, <malcolm.crossley@citrix.com>,
+	<wei.liu2@citrix.com>, <xen-devel@lists.xenproject.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:57436 "EHLO mga01.intel.com"
+Received: from smtp.citrix.com ([66.165.176.89]:21011 "EHLO SMTP.CITRIX.COM"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751188AbaKEJpe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Nov 2014 04:45:34 -0500
+	id S1754169AbaKEJvu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Nov 2014 04:51:50 -0500
+In-Reply-To: <20141104.161704.1690311989900127361.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes the following sparse warnings.
+On Tue, 2014-11-04 at 16:17 -0500, David Miller wrote:
+> From: Zoltan Kiss <zoltan.kiss@linaro.org>
+> Date: Mon, 03 Nov 2014 18:23:03 +0000
+> 
+> > 
+> > 
+> > On 03/11/14 17:46, David Vrabel wrote:
+> >> On 03/11/14 17:39, Ian Campbell wrote:
+> >>> On Mon, 2014-11-03 at 17:23 +0000, David Vrabel wrote:
+> >>>> From: Malcolm Crossley <malcolm.crossley@citrix.com>
+> >>>>
+> >>>> Unconditionally pulling 128 bytes into the linear buffer is not
+> >>>> required. Netback has already grant copied up-to 128 bytes from the
+> >>>> first slot of a packet into the linear buffer. The first slot normally
+> >>>> contain all the IPv4/IPv6 and TCP/UDP headers.
+> >>>
+> >>> What about when it doesn't? It sounds as if we now won't pull up,
+> >>> which
+> >>> would be bad.
+> >>
+> >> The network stack will always pull any headers it needs to inspect
+> >> (the
+> >> frag may be a userspace page which has the same security issues as a
+> >> frag with a foreign page).
+> > I wouldn't bet my life on this, but indeed it should always happen.
+> 
+> I would bet my life on it.
+> 
+> Every protocol demux starts with pskb_may_pull() to pull frag data
+> into the linear area, if necessary, before looking at headers.
 
-drivers/net/ethernet/stmicro/stmmac/enh_desc.c:381:30: warning: symbol 'enh_desc_ops' was not declared. Should it be static?
-drivers/net/ethernet/stmicro/stmmac/norm_desc.c:253:30: warning: symbol 'ndesc_ops' was not declared. Should it be static?
-drivers/net/ethernet/stmicro/stmmac/stmmac_hwtstamp.c:141:33: warning: symbol 'stmmac_ptp' was not declared. Should it be static?
+Then I stand corrected, I was sure this wasn't the case (but my
+information could well be a decade out of date...).
 
-There is no functional change.
+Is this also true for things which hit the iptables paths? I suppose
+they must necessarily have already been through the protocol demux stage
+before iptables would even be able to interpret them as e.g. an IP
+packet.
 
-Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Acked-by: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
----
-Since v1:
-- redone as Giuseppe suggested
- drivers/net/ethernet/stmicro/stmmac/common.h | 5 +++++
- drivers/net/ethernet/stmicro/stmmac/stmmac.h | 4 +---
- 2 files changed, 6 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
-index 593e6c4..12a174e 100644
---- a/drivers/net/ethernet/stmicro/stmmac/common.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/common.h
-@@ -341,6 +341,9 @@ struct stmmac_desc_ops {
- 	int (*get_rx_timestamp_status) (void *desc, u32 ats);
- };
- 
-+extern const struct stmmac_desc_ops enh_desc_ops;
-+extern const struct stmmac_desc_ops ndesc_ops;
-+
- struct stmmac_dma_ops {
- 	/* DMA core initialization */
- 	int (*init) (void __iomem *ioaddr, int pbl, int fb, int mb,
-@@ -410,6 +413,8 @@ struct stmmac_hwtimestamp {
- 	 u64(*get_systime) (void __iomem *ioaddr);
- };
- 
-+extern const struct stmmac_hwtimestamp stmmac_ptp;
-+
- struct mac_link {
- 	int port;
- 	int duplex;
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-index c3c4065..2d0036e 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-@@ -122,9 +122,7 @@ int stmmac_mdio_unregister(struct net_device *ndev);
- int stmmac_mdio_register(struct net_device *ndev);
- int stmmac_mdio_reset(struct mii_bus *mii);
- void stmmac_set_ethtool_ops(struct net_device *netdev);
--extern const struct stmmac_desc_ops enh_desc_ops;
--extern const struct stmmac_desc_ops ndesc_ops;
--extern const struct stmmac_hwtimestamp stmmac_ptp;
-+
- int stmmac_ptp_register(struct stmmac_priv *priv);
- void stmmac_ptp_unregister(struct stmmac_priv *priv);
- int stmmac_resume(struct net_device *ndev);
--- 
-2.1.1
+Ian.
