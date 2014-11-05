@@ -1,32 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/5] Implement ndo_gso_check() for vxlan nics
-Date: Wed, 05 Nov 2014 16:38:25 -0500 (EST)
-Message-ID: <20141105.163825.1433973842938441546.davem@davemloft.net>
-References: <CANr6G5xtNYenhd8KDWx+kRcnSZ0fahUdAL+6Wcz=5_dNvrQR6Q@mail.gmail.com>
-	<CA+mtBx_BOmV+tOtio48M+xRatK79B31LoGnf4uvFJAbxYqOt_w@mail.gmail.com>
-	<CAJ3xEMhxabp1EKbFPfvoZEFt=CQKFNcNrURGMX=7miDwmK9Y-A@mail.gmail.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [patch net-next] sched: fix act file names in header comment
+Date: Wed, 5 Nov 2014 13:38:51 -0800
+Message-ID: <CAHA+R7N-gbLLc1BOeL9a7Cxwa6YNkDdBL==2RovWh4K2bWdidw@mail.gmail.com>
+References: <1415217111-9803-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: therbert@google.com, joestringer@nicira.com,
-	netdev@vger.kernel.org, sathya.perla@emulex.com,
-	jeffrey.t.kirsher@intel.com, linux.nics@intel.com,
-	amirv@mellanox.com, shahed.shaikh@qlogic.com,
-	Dept-GELinuxNICDev@qlogic.com, linux-kernel@vger.kernel.org
-To: gerlitz.or@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAJ3xEMhxabp1EKbFPfvoZEFt=CQKFNcNrURGMX=7miDwmK9Y-A@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f43.google.com ([209.85.192.43]:45494 "EHLO
+	mail-qg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751623AbaKEViw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2014 16:38:52 -0500
+Received: by mail-qg0-f43.google.com with SMTP id f51so44593qge.2
+        for <netdev@vger.kernel.org>; Wed, 05 Nov 2014 13:38:51 -0800 (PST)
+In-Reply-To: <1415217111-9803-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Date: Wed, 5 Nov 2014 23:32:44 +0200
+On Wed, Nov 5, 2014 at 11:51 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+> diff --git a/net/sched/act_gact.c b/net/sched/act_gact.c
+> index d6bcbd9..7fffc22 100644
+> --- a/net/sched/act_gact.c
+> +++ b/net/sched/act_gact.c
+> @@ -1,5 +1,5 @@
+>  /*
+> - * net/sched/gact.c    Generic actions
+> + * net/sched/act_gact.c                Generic actions
 
-> but fact is that the proposed patch series has the --same-- helper for
-> four drivers, so why not start with a that limited helper which would
-> be picked up by these drivers and we'll take it from there.
-
-I'm in favor of the helper, duplication is error prone.
-
-And in fact, any differences a driver ends up needing might be
-integratable into the helper.
+Or maybe just remove the file name from the comment?
+I have no strong opinions here.
