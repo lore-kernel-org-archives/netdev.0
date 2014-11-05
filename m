@@ -1,79 +1,60 @@
-From: Lubben Hendrik <robeluben@gmx.com>
-Subject: guten Tag,
-Date: Wed, 05 Nov 2014 12:39:34 -0500
-Message-ID: <E1Xm4YQ-0008Qs-2N@host.choicez.com.au>
-Reply-To: lubbenhendrik1@aol.com
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: [PATCH] net: dsa: slave: Fix autoneg for phys on switch MDIO bus
+Date: Wed,  5 Nov 2014 19:47:28 +0100
+Message-ID: <1415213248-29037-1-git-send-email-andrew@lunn.ch>
+Cc: netdev@vger.kernel.org, Andrew Lunn <andrew@lunn.ch>
+To: davem@davemloft.net, f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from host.choicez.com.au ([204.197.248.172]:55995 "EHLO
-	host.choicez.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751017AbaKESqn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2014 13:46:43 -0500
-Received: from choicezc by host.choicez.com.au with local (Exim 4.82)
-	(envelope-from <choicezc@host.choicez.com.au>)
-	id 1Xm4YQ-0008Qs-2N
-	for netdev@vger.kernel.org; Wed, 05 Nov 2014 12:39:34 -0500
+Received: from vps0.lunn.ch ([178.209.37.122]:49036 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751046AbaKESss (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Nov 2014 13:48:48 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-guten Tag,
+When the ports phys are connected to the switches internal MDIO bus,
+we need to connect the phy to the slave netdev, otherwise
+auto-negotiation etc, does not work.
 
-Mein Name ist Lubben Hendrik und ich arbeite mit der Finanz- Haus hier =
-in der Niederlande.=20
-Ich fand Ihre Adresse durch meinen L=E4ndern internationale Web Verzeic=
-hnis. Bei unserem letzten Treffen und Pr=FCfung der Bankkonten
-hier in den Niederlanden gefunden meine Abteilung ein ruhendes Konto mi=
-t einem enorme Summe von US $6.500.000,00
-( sechs Millionen f=FCnfhunderttausend USDollar ), die von verstorbenen=
- Herrn Williams aus England abgelagert wurde .
+Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+---
 
-Vor seinem Tod =FCbernahm er die Summe von US $6.500.000,00 ( sechs Mil=
-lionen f=FCnfhunderttausend USDollar)an eine Bank hier in den Niederlan=
-den. von unserem
-Untersuchung hatte er keinen Empf=E4nger oder n=E4chsten Angeh=F6rigen =
-, diese Mittel zu erreichen.
-Aufgrund unserer finanziellen Hausordnung nur ein Ausl=E4nder kann als =
-Stand-n=E4chsten Verwandten oder n=E4chsten Angeh=F6rigen . Der Antrag =
-eines
-Ausl=E4nders als n=E4chsten Angeh=F6rigen ist die Basis auf der Tatsach=
-e, dass der Einleger ein Ausl=E4nder und jemand
-in der war Niederlande kann nicht als die n=E4chsten Angeh=F6rigen zu s=
-tehen.
+Hi Florian
 
+Is this the right fix?
 
-Ich brauche Ihre Erlaubnis als n=E4chster Verwandter oder n=E4chsten An=
-geh=F6rigen unserer Verstorbenen
-Kunden , so dass die Mittel freigegeben werden kann und Transfer zu Ihr=
-em Konto , am Ende der Transaktion 40% wird f=FCr Sie sein und 60 % wer=
-den
-f=FCr mich und meine Kollegen.
+What i found is that ports on mv88E6171 we coming up as 10/half.  If i
+forced a renegotiation with ethtool -r lan0, the phy would then goto
+1000/full.
 
-Wir brauchen ein ausl=E4ndisches Konto . Ich immer noch auf die finanzi=
-elle Haus zu arbeiten , und das ist
-der eigentliche Grund , dass ich eine zweite Partei oder Person brauche=
-n ,zu stehen und zu arbeiten
-mit mir und gelten f=FCr die Bank hier in den Niederlanden , wie die n=E4=
-chsten Angeh=F6rigen.
-Ich habe in meinem Besitz alle notwendigen Unterlagen zu haben, diese T=
-ransaktion erfolgreich durchgef=FChrt .
+The code for phys on internal switch MDIO buses never connect the phy
+to the device, only phys listed in DT get connected via
+of_phy_connect(). By connecting the phy, the state machine is active
+and does an autoneg when the slave interface is opened.
 
+net/dsa/slave.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
 
-Weitere Informationen werden nach dem Eingang Ihrer Aufforderung zur Ve=
-rf=FCgung gestellt werden
-Reaktion und ich m=F6chte , dass Sie wissen , dass es kein Risiko. ich =
-werde m=FCssen uns zusammen zu arbeiten ,=20
-wenn Sie interessiert sind , und ich versichere Ihnen, dass ich werden =
-alle n=FCtzlichen Informationen und Dokumentation wie diese
-Unternehmen zu schaffen braucht dringend Aufmerksamkeit,da es keine vie=
-l Zeit zu verlieren.
-Bitte schreiben Sie mir direkt mit Ihrem Namen , Adresse , Telefon-und =
-=46axnummer
-auf diese E-Mail(lubbenhendrik1@aol.com)so kann ich erkl=E4ren die Verf=
-ahren .
-
-Gr=FC=DFe
-
-Lubben Hendrik
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 6d1817449c36..ab03e00ffe8f 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -489,11 +489,14 @@ static void dsa_slave_phy_setup(struct dsa_slave_priv *p,
+ 	/* We could not connect to a designated PHY, so use the switch internal
+ 	 * MDIO bus instead
+ 	 */
+-	if (!p->phy)
++	if (!p->phy) {
+ 		p->phy = ds->slave_mii_bus->phy_map[p->port];
+-	else
++		phy_connect_direct(slave_dev, p->phy, dsa_slave_adjust_link,
++				   p->phy_interface);
++	} else {
+ 		pr_info("attached PHY at address %d [%s]\n",
+ 			p->phy->addr, p->phy->drv->name);
++	}
+ }
+ 
+ int dsa_slave_suspend(struct net_device *slave_dev)
+-- 
+2.1.3
