@@ -1,36 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Xen-devel] [PATCHv1 net-next] xen-netback: remove
- unconditional pull_skb_tail in guest Tx path
-Date: Wed, 05 Nov 2014 12:15:11 -0500 (EST)
-Message-ID: <20141105.121511.887564988610007845.davem@davemloft.net>
-References: <5457C807.5080509@linaro.org>
-	<20141104.161704.1690311989900127361.davem@davemloft.net>
-	<1415181080.11486.63.camel@citrix.com>
+Subject: Re: [PATCHv1 net-next] xen-netback: remove unconditional
+ pull_skb_tail in guest Tx path
+Date: Wed, 05 Nov 2014 12:16:22 -0500 (EST)
+Message-ID: <20141105.121622.1937064439841390520.davem@davemloft.net>
+References: <1415035431-27485-1-git-send-email-david.vrabel@citrix.com>
+	<20141104.164113.2265592775058059992.davem@davemloft.net>
+	<1415181185.11486.65.camel@citrix.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: zoltan.kiss@linaro.org, david.vrabel@citrix.com,
-	netdev@vger.kernel.org, malcolm.crossley@citrix.com,
-	wei.liu2@citrix.com, xen-devel@lists.xenproject.org
+Cc: david.vrabel@citrix.com, netdev@vger.kernel.org,
+	xen-devel@lists.xenproject.org, wei.liu2@citrix.com,
+	malcolm.crossley@citrix.com
 To: Ian.Campbell@citrix.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44163 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44173 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751562AbaKERPQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2014 12:15:16 -0500
-In-Reply-To: <1415181080.11486.63.camel@citrix.com>
+	with ESMTP id S1755060AbaKERQY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2014 12:16:24 -0500
+In-Reply-To: <1415181185.11486.65.camel@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ian Campbell <Ian.Campbell@citrix.com>
-Date: Wed, 5 Nov 2014 09:51:20 +0000
+Date: Wed, 5 Nov 2014 09:53:05 +0000
 
-> Is this also true for things which hit the iptables paths? I suppose
-> they must necessarily have already been through the protocol demux stage
-> before iptables would even be able to interpret them as e.g. an IP
-> packet.
+> I'd like to see the commit message expanded to explain why this isn't
+> introducing a (security) bug by not pulling enough stuff into the header
+> (IOW the conclusion of the discussion).
 
-Netfilter often takes a different approach, by using
-skb_header_pointer() which returns a direct pointer if the linear area
-contains the requested range already, or alternatively copies from the
-frags into a user supplied on-stack header buffer if not.
+Just because a fundamental aspect of how we handle packets isn't clear
+to some people, doesn't mean that every commit that depends upon that
+invariant has to explain it in the commit message. :-)
