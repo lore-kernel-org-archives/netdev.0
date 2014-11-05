@@ -1,104 +1,84 @@
-From: Roger Quadros <rogerq@ti.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
 Subject: Re: [PATCH v3 7/8] net: can: c_can: Add support for TI DRA7 DCAN
-Date: Wed, 5 Nov 2014 15:36:40 +0200
-Message-ID: <545A27E8.9090600@ti.com>
-References: <1415096461-25576-1-git-send-email-rogerq@ti.com> <1415096461-25576-8-git-send-email-rogerq@ti.com> <545A2679.2000905@pengutronix.de>
+Date: Wed, 05 Nov 2014 14:43:39 +0100
+Message-ID: <545A298B.6090505@pengutronix.de>
+References: <1415096461-25576-1-git-send-email-rogerq@ti.com> <1415096461-25576-8-git-send-email-rogerq@ti.com> <545A2679.2000905@pengutronix.de> <545A27E8.9090600@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <wsa@the-dreams.de>, <tony@atomide.com>, <tglx@linutronix.de>,
-	<mugunthanvnm@ti.com>, <george.cherian@ti.com>, <balbi@ti.com>,
-	<nsekhar@ti.com>, <nm@ti.com>,
-	<sergei.shtylyov@cogentembedded.com>, <linux-omap@vger.kernel.org>,
-	<linux-can@vger.kernel.org>, <netdev@vger.kernel.org>
-To: Marc Kleine-Budde <mkl@pengutronix.de>, <wg@grandegger.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <545A2679.2000905@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="mJApGBNlnFX4hMixwNw970i3xmK981ES0"
+Cc: wsa@the-dreams.de, tony@atomide.com, tglx@linutronix.de,
+	mugunthanvnm@ti.com, george.cherian@ti.com, balbi@ti.com,
+	nsekhar@ti.com, nm@ti.com, sergei.shtylyov@cogentembedded.com,
+	linux-omap@vger.kernel.org, linux-can@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Roger Quadros <rogerq@ti.com>, wg@grandegger.com
+Return-path: <linux-omap-owner@vger.kernel.org>
+In-Reply-To: <545A27E8.9090600@ti.com>
+Sender: linux-omap-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11/05/2014 03:30 PM, Marc Kleine-Budde wrote:
-> On 11/04/2014 11:21 AM, Roger Quadros wrote:
->> DRA7 SoC has 2 CAN IPs. Provide compatible IDs and RAMINIT
->> register data for both.
-> 
-> My understanding of the discussion with Wolfram was:
-> - We should put the number of the Interface into to DT as a regmap
->   parameter.
-> - We put the method how to find the correct bits into the DT, via the
->   compatible.
-> 
-> So for both CAN instances on the DRA7 we have a single compatible
-> "ti,dra7-d_can" and in the driver a mechanism that translates the number
-> of the instance into the needed bit offsets, e.g. via two arrays.
-> 
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--mJApGBNlnFX4hMixwNw970i3xmK981ES0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-OK. I'll revise this series.
-
-The new syscon-raminit property will be like
-syscon-raminit = <syscon_phandle raminit-reg-offset dcan-interface-number>;
-
-cheers,
--roger
-
-> Same comments for patch 8/8.
-> 
-> Marc
-> 
+On 11/05/2014 02:36 PM, Roger Quadros wrote:
+> On 11/05/2014 03:30 PM, Marc Kleine-Budde wrote:
+>> On 11/04/2014 11:21 AM, Roger Quadros wrote:
+>>> DRA7 SoC has 2 CAN IPs. Provide compatible IDs and RAMINIT
+>>> register data for both.
 >>
->> Signed-off-by: Roger Quadros <rogerq@ti.com>
->> ---
->>  Documentation/devicetree/bindings/net/can/c_can.txt |  1 +
->>  drivers/net/can/c_can/c_can_platform.c              | 16 ++++++++++++++++
->>  2 files changed, 17 insertions(+)
+>> My understanding of the discussion with Wolfram was:
+>> - We should put the number of the Interface into to DT as a regmap
+>>   parameter.
+>> - We put the method how to find the correct bits into the DT, via the
+>>   compatible.
 >>
->> diff --git a/Documentation/devicetree/bindings/net/can/c_can.txt b/Documentation/devicetree/bindings/net/can/c_can.txt
->> index 917ac0e..746cc07 100644
->> --- a/Documentation/devicetree/bindings/net/can/c_can.txt
->> +++ b/Documentation/devicetree/bindings/net/can/c_can.txt
->> @@ -4,6 +4,7 @@ Bosch C_CAN/D_CAN controller Device Tree Bindings
->>  Required properties:
->>  - compatible		: Should be "bosch,c_can" for C_CAN controllers and
->>  			  "bosch,d_can" for D_CAN controllers.
->> +			  Can be "ti,dra7-d_can1" or "ti,dra7-d_can2".
->>  - reg			: physical base address and size of the C_CAN/D_CAN
->>  			  registers map
->>  - interrupts		: property with a value describing the interrupt
->> diff --git a/drivers/net/can/c_can/c_can_platform.c b/drivers/net/can/c_can/c_can_platform.c
->> index d058820..dc618ce 100644
->> --- a/drivers/net/can/c_can/c_can_platform.c
->> +++ b/drivers/net/can/c_can/c_can_platform.c
->> @@ -195,6 +195,20 @@ static struct c_can_driver_data d_can_drvdata = {
->>  	.id = BOSCH_D_CAN,
->>  };
->>  
->> +static struct c_can_driver_data dra7_dcan1_drvdata = {
->> +	.id = BOSCH_D_CAN,
->> +	.raminit_start_bit = 3,
->> +	.raminit_done_bit = 1,
->> +	.raminit_pulse = true,
->> +};
->> +
->> +static struct c_can_driver_data dra7_dcan2_drvdata = {
->> +	.id = BOSCH_D_CAN,
->> +	.raminit_start_bit = 5,
->> +	.raminit_done_bit = 2,
->> +	.raminit_pulse = true,
->> +};
->> +
->>  static struct platform_device_id c_can_id_table[] = {
->>  	{
->>  		.name = KBUILD_MODNAME,
->> @@ -215,6 +229,8 @@ MODULE_DEVICE_TABLE(platform, c_can_id_table);
->>  static const struct of_device_id c_can_of_table[] = {
->>  	{ .compatible = "bosch,c_can", .data = &c_can_drvdata },
->>  	{ .compatible = "bosch,d_can", .data = &d_can_drvdata },
->> +	{ .compatible = "ti,dra7-d_can1", .data = &dra7_dcan1_drvdata },
->> +	{ .compatible = "ti,dra7-d_can2", .data = &dra7_dcan2_drvdata },
->>  	{ /* sentinel */ },
->>  };
->>  MODULE_DEVICE_TABLE(of, c_can_of_table);
+>> So for both CAN instances on the DRA7 we have a single compatible
+>> "ti,dra7-d_can" and in the driver a mechanism that translates the numb=
+er
+>> of the instance into the needed bit offsets, e.g. via two arrays.
 >>
-> 
-> 
+>=20
+> OK. I'll revise this series.
+>=20
+> The new syscon-raminit property will be like
+> syscon-raminit =3D <syscon_phandle raminit-reg-offset dcan-interface-nu=
+mber>;
 
+Yes. Wolfram?
+
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--mJApGBNlnFX4hMixwNw970i3xmK981ES0
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJUWimLAAoJECte4hHFiupUe3AP/jU5A7EUah+AGbdM8xboevir
+GI7G4eex+AVXjrKys/zbR2BJvg5BQ2r/w7llG+T7o3sR5QNqeUbgeGEvlrRDrsya
+FL/sp7P74zY9QChrVI6bIYHPIgeM062eKX6uD/G4R2j3vehVawRSAxW7n0nrVEIS
+ypnlC44f04fiPR2y0PtH6ZtTSdz5GC5GKAg4vTptsX/aR039oGsiPG6z5iuAiSCO
+SPIeXKUfA54JNlU4739SvYZLwCtn19fn8iGDjuod3f62n3G94Phc1zXsUoIO4ccm
+HmjHHTc5jK6ZqzMmbsch1Dzd1arSMCMAStfR72iqaiAv3kTt2/z4izb/D6R8g6NV
+zwU5xDqLMr3aC5HIds0ywUFcXeZQvCy80uG7yYl30B7WDlTDK1Q0Yv5HSisms7zp
+L4oVa54dBwJohbnOvu+0w78wJLADWSXKwDc9VfEld00BS4u/DXXdCoJrtZKS7+Vi
+5PpzLDRPt67Y8O9vh/xXhMmkkFasjNUqp055sYu+XZE6D+ObkYMA62Fn+kVGjJwG
+5KUbmSLIYlJXJDa+L2JqcWgMauRhQ9Bl1SiE+Q+oxZ4mgvrVeu+VHKl55Xl4j5iO
+P6Yp363Nf94mp59r1c5TAi8Rc+6ip4AjWQZ+w8FgWHgHEIrCZJSxRqrk5bkxsdK1
+3AXc2HK1ZE+hhuaqkxxx
+=ZKql
+-----END PGP SIGNATURE-----
+
+--mJApGBNlnFX4hMixwNw970i3xmK981ES0--
