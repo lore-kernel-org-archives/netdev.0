@@ -1,115 +1,81 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: Re: [PATCH 00/20] kselftest install target feature
-Date: Wed, 5 Nov 2014 15:23:14 -0800
-Message-ID: <CAGXu5jKs0ym5sqsPRFD_MJd05-+nS0v+oiscwUQ5JzvgsZTe=Q@mail.gmail.com>
-References: <cover.1415117102.git.shuahkh@osg.samsung.com>
-	<CAGXu5jK9-TpOF4SFX2bkU2UJMXk-3W+-_we0BTxu4Ga+7bYXSQ@mail.gmail.com>
-	<5459650E.6070201@osg.samsung.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net v4] ipv6: mld: fix add_grhead skb_over_panic for devs
+ with large MTUs
+Date: Thu, 06 Nov 2014 00:32:06 +0100
+Message-ID: <1415230326.3563481.187595441.15F16E51@webmail.messagingengine.com>
+References: <1415215658-10054-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Greg KH <gregkh@linuxfoundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Michal Marek <mmarek@suse.cz>,
-	"David S. Miller" <davem@davemloft.net>,
-	Phong Tran <tranmanphong@gmail.com>,
-	David Herrmann <dh.herrmann@gmail.com>,
-	Hugh Dickins <hughd@google.com>,
-	pranith kumar <bobby.prani@gmail.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	"Serge E. Hallyn" <serge.hallyn@ubuntu.com>,
-	linux-kbuild <linux-kbuild@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Linux API <linux-api@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>
-To: Shuah Khan <shuahkh@osg.samsung.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: lw1a2.jing@gmail.com, netdev@vger.kernel.org,
+	Eric Dumazet <edumazet@google.com>,
+	David L Stevens <david.stevens@oracle.com>
+To: Daniel Borkmann <dborkman@redhat.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f180.google.com ([209.85.214.180]:49151 "EHLO
-	mail-ob0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750905AbaKEXXP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2014 18:23:15 -0500
-Received: by mail-ob0-f180.google.com with SMTP id wp4so1476490obc.11
-        for <netdev@vger.kernel.org>; Wed, 05 Nov 2014 15:23:15 -0800 (PST)
-In-Reply-To: <5459650E.6070201@osg.samsung.com>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:47857 "EHLO
+	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751261AbaKEXcH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2014 18:32:07 -0500
+Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
+	by mailout.nyi.internal (Postfix) with ESMTP id 2DEE220C16
+	for <netdev@vger.kernel.org>; Wed,  5 Nov 2014 18:32:07 -0500 (EST)
+In-Reply-To: <1415215658-10054-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 4, 2014 at 3:45 PM, Shuah Khan <shuahkh@osg.samsung.com> wrote:
-> On 11/04/2014 12:22 PM, Kees Cook wrote:
->> On Tue, Nov 4, 2014 at 9:10 AM, Shuah Khan <shuahkh@osg.samsung.com> wrote:
->>> This patch series adds a new kselftest_install make target
->>> to enable selftest install. When make kselftest_install is
->>> run, selftests are installed on the system. A new install
->>> target is added to selftests Makefile which will install
->>> targets for the tests that are specified in INSTALL_TARGETS.
->>> During install, a script is generated to run tests that are
->>> installed. This script will be installed in the selftest install
->>> directory. Individual test Makefiles are changed to add to the
->>> script. This will allow new tests to add install and run test
->>> commands to the generated kselftest script.
->>
->> I'm all for making the self tests more available, but I don't think
->> this is the right approach. My primary objection is that it creates a
->> second way to run tests, and that means any changes and additions need
->> to be updated in two places. I'd much rather just maintain the single
->> "make" targets instead. Having "make" available on the target device
->> doesn't seem too bad to me. Is there a reason that doesn't work for
->> your situation?
->
-> Kees,
->
-> My primary objective is to provide a way to install selftests for a
-> specific kernel release. This will allow developers to run tests for
-> a specific release and look for regressions. Adding an install target
-> will also help support local execution of tests in a virtualized
-> environments. In some cases such as qemu, it is not practical to
-> expect the target to have support for "make". Once tests are installed
-> to be run outside the git environment, we need a master script that
-> can run the tests. Hence the need for a master script that can run
-> tests.
->
-> We have the ability to run all tests via make kselftest target or
-> run a specific test using the individual test's run_tests target.
-> Both of above are necessary to support running tests from the tree.
-> Embedding run_tests logic in the makefiles doesn't work very well
-> in the long run.
->
-> We also need a way to run them outside tree. I agree with you that
-> the way I added the script generation, duplicates the code in individual
-> run_tests targets and that changes/updates need to be made in both
-> places.
->
-> Would you be ok with the approach if I fixed the duplicating
-> problem? I can address the duplication concern easily.
+On Wed, Nov 5, 2014, at 20:27, Daniel Borkmann wrote:
+> It has been reported that generating an MLD listener report on
+> devices with large MTUs (e.g. 9000) and a high number of IPv6
+> addresses can trigger a skb_over_panic():
+> 
+> skbuff: skb_over_panic: text:ffffffff80612a5d len:3776 put:20
+> head:ffff88046d751000 data:ffff88046d751010 tail:0xed0 end:0xec0
+> dev:port1
+>  ------------[ cut here ]------------
+> kernel BUG at net/core/skbuff.c:100!
+> invalid opcode: 0000 [#1] SMP
+> Modules linked in: ixgbe(O)
+> CPU: 3 PID: 0 Comm: swapper/3 Tainted: G O 3.14.23+ #4
+> [...]
+> Call Trace:
+>  <IRQ>
+>  [<ffffffff80578226>] ? skb_put+0x3a/0x3b
+>  [<ffffffff80612a5d>] ? add_grhead+0x45/0x8e
+>  [<ffffffff80612e3a>] ? add_grec+0x394/0x3d4
+>  [<ffffffff80613222>] ? mld_ifc_timer_expire+0x195/0x20d
+>  [<ffffffff8061308d>] ? mld_dad_timer_expire+0x45/0x45
+>  [<ffffffff80255b5d>] ? call_timer_fn.isra.29+0x12/0x68
+>  [<ffffffff80255d16>] ? run_timer_softirq+0x163/0x182
+>  [<ffffffff80250e6f>] ? __do_softirq+0xe0/0x21d
+>  [<ffffffff8025112b>] ? irq_exit+0x4e/0xd3
+>  [<ffffffff802214bb>] ? smp_apic_timer_interrupt+0x3b/0x46
+>  [<ffffffff8063f10a>] ? apic_timer_interrupt+0x6a/0x70
+> 
+> mld_newpack() skb allocations are usually requested with dev->mtu
+> in size, since commit 72e09ad107e7 ("ipv6: avoid high order allocations")
+> we have changed the limit in order to be less likely to fail.
+> 
+> However, in MLD/IGMP code, we have some rather ugly AVAILABLE(skb)
+> macros, which determine if we may end up doing an skb_put() for
+> adding another record. To avoid possible fragmentation, we check
+> the skb's tailroom as skb->dev->mtu - skb->len, which is a wrong
+> assumption as the actual max allocation size can be much smaller.
+> 
+> The IGMP case doesn't have this issue as commit 57e1ab6eaddc
+> ("igmp: refine skb allocations") stores the allocation size in
+> the cb[].
+> 
+> Set a reserved_tailroom to make it fit into the MTU and use
+> skb_availroom() helper instead. This also allows to get rid of
+> igmp_skb_size().
+> 
+> Reported-by: Wei Liu <lw1a2.jing@gmail.com>
+> Fixes: 72e09ad107e7 ("ipv6: avoid high order allocations")
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> Cc: Eric Dumazet <edumazet@google.com>
+> Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Cc: David L Stevens <david.stevens@oracle.com>
 
-Yeah, getting rid of duplication would be much preferred. Thanks!
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
--Kees
-
->
->>
->> I would, however, like to see some better standardization of the test
->> "framework" that we've got in there already. (For example, some
->> failures fail the "make", some don't, there are various reporting
->> methods for success/failure depending on the test, etc.)
->
-> This is being addressed and I have the framework in linux-kselftest
-> git next branch at the moment. I do think the above work is part of
-> addressing the larger framework issues such as being able to run tests
-> on a target system that might not have "make" support and makes it
-> easier to use.
->
-> thanks,
-> -- Shuah
->
->
-> --
-> Shuah Khan
-> Sr. Linux Kernel Developer
-> Samsung Research America (Silicon Valley)
-> shuahkh@osg.samsung.com | (970) 217-8978
-
-
-
--- 
-Kees Cook
-Chrome OS Security
+Thanks and sorry for the back and forth, Daniel!
