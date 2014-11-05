@@ -1,31 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Add missing descriptions for fwmark_reflect for ipv4
- and ipv6.
-Date: Wed, 05 Nov 2014 15:44:23 -0500 (EST)
-Message-ID: <20141105.154423.777971213024961075.davem@davemloft.net>
-References: <20141030.161137.1421672304905070027.davem@davemloft.net>
-	<20141104105650.GA5233@mx.elandsys.com>
-	<20141104110249.GA25828@mx.elandsys.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: logan@elandsys.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47959 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751933AbaKEUo0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2014 15:44:26 -0500
-In-Reply-To: <20141104110249.GA25828@mx.elandsys.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+Subject: [PATCH] include/linux/socket.h: Fix comment
+Date: Wed,  5 Nov 2014 21:44:27 +0100
+Message-ID: <1415220267-20044-1-git-send-email-linux@rasmusvillemoes.dk>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Rasmus Villemoes <linux@rasmusvillemoes.dk>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Loganaden Velvindron <logan@elandsys.com>
-Date: Tue, 4 Nov 2014 03:02:49 -0800
+File descriptors are always closed on exit :-)
 
-> It was initially sent by Lorenzo Colitti, but was subsequently
-> lost in the final diff he submitted.
-> 
-> Signed-off-by: Loganaden Velvindron <logan@elandsys.com>
+Signed-off-by: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+---
+ include/linux/socket.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Applied, thank you.
+diff --git a/include/linux/socket.h b/include/linux/socket.h
+index ec538fc..bb9b836 100644
+--- a/include/linux/socket.h
++++ b/include/linux/socket.h
+@@ -256,7 +256,7 @@ struct ucred {
+ #define MSG_EOF         MSG_FIN
+ 
+ #define MSG_FASTOPEN	0x20000000	/* Send data in TCP SYN */
+-#define MSG_CMSG_CLOEXEC 0x40000000	/* Set close_on_exit for file
++#define MSG_CMSG_CLOEXEC 0x40000000	/* Set close_on_exec for file
+ 					   descriptor received through
+ 					   SCM_RIGHTS */
+ #if defined(CONFIG_COMPAT)
+-- 
+2.0.4
