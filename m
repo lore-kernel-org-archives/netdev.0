@@ -1,91 +1,82 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH V1 4/4] can: m_can: allow to send std frame on CAN FD
- mode
-Date: Wed, 05 Nov 2014 12:08:21 +0100
-Message-ID: <545A0525.107@hartkopp.net>
-References: <1415174326-6623-1-git-send-email-b29396@freescale.com> <1415174326-6623-4-git-send-email-b29396@freescale.com> <5459FEDE.9050405@pengutronix.de>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH V2 2/4] can: m_can: workaround for transmit data less
+ than 4 bytes
+Date: Wed, 05 Nov 2014 12:32:21 +0100
+Message-ID: <545A0AC5.80006@pengutronix.de>
+References: <1415174326-6623-1-git-send-email-b29396@freescale.com> <1415174326-6623-2-git-send-email-b29396@freescale.com> <5459F94C.1030506@pengutronix.de> <20141105103349.GA4007@shlinux1.ap.freescale.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: wg@grandegger.com, varkabhadram@gmail.com, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org
-To: Marc Kleine-Budde <mkl@pengutronix.de>,
-	Dong Aisheng <b29396@freescale.com>, linux-can@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="8Gf3e99mLw798g5tF4DRRCJSJohkOM3kV"
+Cc: linux-can@vger.kernel.org, wg@grandegger.com,
+	varkabhadram@gmail.com, netdev@vger.kernel.org,
+	socketcan@hartkopp.net, linux-arm-kernel@lists.infradead.org
+To: Dong Aisheng <b29396@freescale.com>
 Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <5459FEDE.9050405@pengutronix.de>
+In-Reply-To: <20141105103349.GA4007@shlinux1.ap.freescale.net>
 Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--8Gf3e99mLw798g5tF4DRRCJSJohkOM3kV
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-
-On 05.11.2014 11:41, Marc Kleine-Budde wrote:
-> On 11/05/2014 08:58 AM, Dong Aisheng wrote:
->> The current code sends all CAN frames on CAN FD format(with BRS or not)
->> if CAN_CTRLMODE_FD is enabled.
->> However, even CAN_CTRLMODE_FD is enabled, the can tool may still
->> send normal frames.
->> e.g.
->> ip link set can0 up type can bitrate 1000000 dbitrate 1000000 fd on
->> cansend can0 123#112233
+On 11/05/2014 11:33 AM, Dong Aisheng wrote:
+> On Wed, Nov 05, 2014 at 11:17:48AM +0100, Marc Kleine-Budde wrote:
+>> On 11/05/2014 08:58 AM, Dong Aisheng wrote:
+>>> At least on the i.MX6SX with M_CAN IP version 3.0.x, an issue with
 >>
->> Therefore sending normal CAN frame on FD format seems not reasonable
->> and the CAN FD incapable device may not be able to receive it correctly.
+>> Can you add the imx mask revision, too and the exact m_can version (is=
+
+>> available).
 >>
->> The patch switches the M_CAN operation mode to ISO11898-1 instead of
->> staying on CAN FD operation mode by writing "11" to CMR bit if find
->> we're sending a normal can skb.
->
-> With this patch applied and Olivre's version of 3/4, how does the
-> application send CAN-FD frames?
+>=20
+> What do you mean imx mask revision?
 
-This patch becomes obsolete when we do it like in my answer of [3/4].
+In my imx6sdl/imx6q data sheet it's called: Chip Silicon Version
+(USB_ANALOG_DIGPROG), I expect that the imx6sx has a the same register.
 
-> 1. witch on CAN-FD via "ip fd on"
+> By reading the Core Release Register (CREL), it seems the exact m_can
+> version is 3.0.1. (CREL =3D 30130506).
+>=20
+> So what about changing to as follows?
+> "At least on the i.MX6SX with M_CAN IP version 3.0.1 (CREL =3D 30130506=
+),
+> an issue with"
 
-With
+Yes, please ass the imx silicon revision, too.
 
-ip link set can0 type can fd on
+Marc
 
-the netdevice switches to the MTU of CAN FD (72) instead of 16.
-
-This means that this netdevice can handle CAN frames (MTU 16) and CAN FD 
-frames (MTU 72).
-
-When you send a standard CAN frame, e.g.
-
-	cansend can0 123#112233
-
-you would get a CAN 2.0 frame (dlc = 3) on the bus.
-
-When you send a CAN FD frame, e.g.
-
-	cansend can0 123##0112233
-
-you would get a CAN FD frame (dlc = 3) on the bus.
-
-With
-
-	cansend can0 123##1112233
-
-you would get a CAN FD frame (dlc = 3) with BRS on the bus.
-
-Whether it is CAN or CAN FD is given by checking skb->len for CAN_MTU of 
-CANFD_MTU in the driver.
-
-Regards,
-Oliver
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
 
-> 2. write a struct canfd_frame
->
-> Correct?
->
-> What happens if:
-> 3. write a struct can_frame
->
-> A CAN frame is send?
->
-> Oliver are you okay with this behaviour?
->
-> Marc
->
+--8Gf3e99mLw798g5tF4DRRCJSJohkOM3kV
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJUWgrFAAoJECte4hHFiupUUPgP/i0M2rgcOQY/gskSAzkhFdtQ
+gBp+4LEwCtTdCO0xJz1p6xh0HKuw3T9ccHPhVOnKhZ2UQ9NsBdADDrlSiDCR2N9a
+Vwk1nje5sjqRldZVIxeUf1yQ/NAm/jj95I8LxrnHfx6S5aanVwVoxzn+BYvnqFYM
+BE2m9p60P1gZQLtG8jiUcV1GmMtBe9I8gc72COY6MmhJMPRgq6rESFANNyczC2gd
+BZxCXKh+zvl+Jq7XecU2493TarGb1aJS2W0znKGonRY5bzHUAqXeuzTkbUQ+W3fb
+LJYJgtcBZx81MNYI2K6CHOCf0+ukHPdtF1fSWhU8LhkF8mbF/ZiKM79ZaH/3Mjfw
+RaNBiljSIbajDl1IjfQbHNiEf8c3YM8ux0nx2AULpSpYv9ueEU0kVnHkU/4ocMie
+9paS86i9KS2uPLPkdOpynCYaBf9NsAX7cb+tmqSy+zp1HT8szyBxHTkpY+1Sii3m
+6q0jA5YVMizw/FWrFY7YEl5NnQtBt9RlXBYwhsmWIMjqd2zliUxAxqgynOM7UqpP
+kXN/azbxD7MfYf13PskKuvwtSA4rLXZX74EGwGoWTBI79iDn3EoOReySULsWSdMr
+s/EPOxpq6CR50w5z4owVcwSuY6Dbb5S0RUHFIvfRx7LmWWqQY6DKzkFdV4+4+cOA
+FAeelDQtkrJobx62NnuZ
+=X2Cg
+-----END PGP SIGNATURE-----
+
+--8Gf3e99mLw798g5tF4DRRCJSJohkOM3kV--
