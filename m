@@ -1,109 +1,121 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH V2 2/4] can: m_can: workaround for transmit data less
- than 4 bytes
-Date: Wed, 05 Nov 2014 11:17:48 +0100
-Message-ID: <5459F94C.1030506@pengutronix.de>
-References: <1415174326-6623-1-git-send-email-b29396@freescale.com> <1415174326-6623-2-git-send-email-b29396@freescale.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="e0LjrM5Dx3cFj3uw6fqiW2j5xb6IrhK6B"
-Cc: wg@grandegger.com, varkabhadram@gmail.com, netdev@vger.kernel.org,
-	socketcan@hartkopp.net, linux-arm-kernel@lists.infradead.org
-To: Dong Aisheng <b29396@freescale.com>, linux-can@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1415174326-6623-2-git-send-email-b29396@freescale.com>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Subject: [PATCH v3 3/4] stmmac: pci: use managed resources
+Date: Wed,  5 Nov 2014 12:27:28 +0200
+Message-ID: <1415183249-9231-4-git-send-email-andriy.shevchenko@linux.intel.com>
+References: <1415183249-9231-1-git-send-email-andriy.shevchenko@linux.intel.com>
+Cc: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	netdev@vger.kernel.org,
+	Kweh Hock Leong <hock.leong.kweh@intel.com>,
+	"David S . Miller" <davem@davemloft.net>,
+	Vince Bridgers <vbridgers2013@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:45005 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754367AbaKEK1c (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Nov 2014 05:27:32 -0500
+In-Reply-To: <1415183249-9231-1-git-send-email-andriy.shevchenko@linux.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---e0LjrM5Dx3cFj3uw6fqiW2j5xb6IrhK6B
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+Migrate pci driver to managed resources to reduce boilerplate error handling
+code.
 
-On 11/05/2014 08:58 AM, Dong Aisheng wrote:
-> At least on the i.MX6SX with M_CAN IP version 3.0.x, an issue with
+Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c | 43 ++++++------------------
+ 1 file changed, 10 insertions(+), 33 deletions(-)
 
-Can you add the imx mask revision, too and the exact m_can version (is
-available).
-
-> the Message RAM was discovered. Sending CAN frames with dlc less
-> than 4 bytes will lead to bit errors, when the first 8 bytes of
-> the Message RAM have not been initialized (i.e. written to).
-> To work around this issue, the first 8 bytes are initialized in open()
-> function.
->=20
-> Without the workaround, we can easily see the following errors:
-> root@imx6qdlsolo:~# ip link set can0 up type can bitrate 1000000
-> [   66.882520] IPv6: ADDRCONF(NETDEV_CHANGE): can0: link becomes ready
-> root@imx6qdlsolo:~# cansend can0 123#112233
-> [   66.935640] m_can 20e8000.can can0: Bit Error Uncorrected
->=20
-> Signed-off-by: Dong Aisheng <b29396@freescale.com>
-> ---
-> ChangeLog since v1:
->  * initialize the first 8 bytes of Tx Buffer of Message RAM in open()
->    to workaround the issue
-> ---
->  drivers/net/can/m_can/m_can.c | 9 +++++++++
->  1 file changed, 9 insertions(+)
->=20
-> diff --git a/drivers/net/can/m_can/m_can.c b/drivers/net/can/m_can/m_ca=
-n.c
-> index 664fe30..f47c200 100644
-> --- a/drivers/net/can/m_can/m_can.c
-> +++ b/drivers/net/can/m_can/m_can.c
-> @@ -902,6 +902,15 @@ static void m_can_chip_config(struct net_device *d=
-ev)
->  	/* set bittiming params */
->  	m_can_set_bittiming(dev);
-> =20
-> +	/* At least on the i.MX6SX with M_CAN IP version 3.0.x, an issue with=
-
-> +	 * the Message RAM was discovered. Sending CAN frames with dlc less
-> +	 * than 4 bytes will lead to bit errors, when the first 8 bytes of
-> +	 * the Message RAM have not been initialized (i.e. written to).
-> +	 * To work around this issue, the first 8 bytes are initialized here.=
-
-> +	 */
-> +	m_can_fifo_write(priv, 0, M_CAN_FIFO_DATA(0), 0x0);
-> +	m_can_fifo_write(priv, 0, M_CAN_FIFO_DATA(1), 0x0);
-> +
->  	m_can_config_endisable(priv, false);
->  }
-> =20
->=20
-
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---e0LjrM5Dx3cFj3uw6fqiW2j5xb6IrhK6B
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJUWflMAAoJECte4hHFiupUKlYQAJQ3rjPY+6SLHlRtDr3hetHd
-WT0AQpcmSs0HGCxQXe5i7TlN2dR+tyiC6r8TSVDBzUwETV77fwufWzQTp2b8fy3L
-KJiEHxVnQGaU5g3m+EAZO3rJHndvWeruW9Zpmzoy/FSvPlGpQO3uiTPj/hhtI2T0
-DXBUdtgDf4pIbaPjOLQE7Gdd1DNdcyFZwZ2XZb6nUqusliBCwbO87Aat92WjbELX
-+H0ukQggjVF5rddsKPWVNEl4H0CsdjkZHjDL21C1D++RYAZMOv9rmYiWNoDmZPel
-d6RnnB72nEq4T0OIldmAvZnQa5Fkdvc9Nns2IQ/3wU8zBjKslLm8UgZG8eR11Xpw
-q0fxn2o+/vOK7mpN0RhnXHffRacEQKpVBkPQP5+kvpsvT6LHgXBG9FqYIi4Xsa8h
-tDIl7npJ8D6N35fJ32ekxYpTULaOKS58siRwkcB+5iG4FF8zYLIK4LFF/9B7reLU
-Ih7POTLeKzIr+G4kQvNgLeSJEHj77xsJAi4dZKo1f4HBcDnjn6YIjgFcIIt0QqoL
-ANTHT/Rv3yiUQowzOi3R3RqptT9ydelXNCD/6iN+lGI1YN8XrXrKQE+/uTbnlA07
-K1ZyYEMwRqhGKyWINYdm0jFPLra1mnE9aMnK6bximLbi4wQrS5DSc7oZETfjR6wB
-E6mcUBSdQRYcPHK1USiY
-=WITG
------END PGP SIGNATURE-----
-
---e0LjrM5Dx3cFj3uw6fqiW2j5xb6IrhK6B--
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
+index f19ac8e..5357a3f 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
+@@ -71,46 +71,37 @@ static void stmmac_default_data(void)
+ static int stmmac_pci_probe(struct pci_dev *pdev,
+ 			    const struct pci_device_id *id)
+ {
+-	int ret = 0;
+-	void __iomem *addr = NULL;
+-	struct stmmac_priv *priv = NULL;
++	struct stmmac_priv *priv;
+ 	int i;
++	int ret;
+ 
+ 	/* Enable pci device */
+-	ret = pci_enable_device(pdev);
++	ret = pcim_enable_device(pdev);
+ 	if (ret) {
+ 		pr_err("%s : ERROR: failed to enable %s device\n", __func__,
+ 		       pci_name(pdev));
+ 		return ret;
+ 	}
+-	if (pci_request_regions(pdev, STMMAC_RESOURCE_NAME)) {
+-		pr_err("%s: ERROR: failed to get PCI region\n", __func__);
+-		ret = -ENODEV;
+-		goto err_out_req_reg_failed;
+-	}
+ 
+ 	/* Get the base address of device */
+ 	for (i = 0; i <= PCI_STD_RESOURCE_END; i++) {
+ 		if (pci_resource_len(pdev, i) == 0)
+ 			continue;
+-		addr = pci_iomap(pdev, i, 0);
+-		if (addr == NULL) {
+-			pr_err("%s: ERROR: cannot map register memory aborting",
+-			       __func__);
+-			ret = -EIO;
+-			goto err_out_map_failed;
+-		}
++		ret = pcim_iomap_regions(pdev, BIT(i), pci_name(pdev));
++		if (ret)
++			return ret;
+ 		break;
+ 	}
++
+ 	pci_set_master(pdev);
+ 
+ 	stmmac_default_data();
+ 
+-	priv = stmmac_dvr_probe(&(pdev->dev), &plat_dat, addr);
++	priv = stmmac_dvr_probe(&pdev->dev, &plat_dat,
++				pcim_iomap_table(pdev)[i]);
+ 	if (IS_ERR(priv)) {
+ 		pr_err("%s: main driver probe failed", __func__);
+-		ret = PTR_ERR(priv);
+-		goto err_out;
++		return PTR_ERR(priv);
+ 	}
+ 	priv->dev->irq = pdev->irq;
+ 	priv->wol_irq = pdev->irq;
+@@ -120,15 +111,6 @@ static int stmmac_pci_probe(struct pci_dev *pdev,
+ 	pr_debug("STMMAC platform driver registration completed");
+ 
+ 	return 0;
+-
+-err_out:
+-	pci_clear_master(pdev);
+-err_out_map_failed:
+-	pci_release_regions(pdev);
+-err_out_req_reg_failed:
+-	pci_disable_device(pdev);
+-
+-	return ret;
+ }
+ 
+ /**
+@@ -141,13 +123,8 @@ err_out_req_reg_failed:
+ static void stmmac_pci_remove(struct pci_dev *pdev)
+ {
+ 	struct net_device *ndev = pci_get_drvdata(pdev);
+-	struct stmmac_priv *priv = netdev_priv(ndev);
+ 
+ 	stmmac_dvr_remove(ndev);
+-
+-	pci_iounmap(pdev, priv->ioaddr);
+-	pci_release_regions(pdev);
+-	pci_disable_device(pdev);
+ }
+ 
+ #ifdef CONFIG_PM_SLEEP
+-- 
+2.1.1
