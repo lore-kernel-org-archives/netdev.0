@@ -1,131 +1,74 @@
-From: Dong Aisheng <b29396@freescale.com>
-Subject: Re: [PATCH V2 1/4] can: m_can: update to support CAN FD features
-Date: Wed, 5 Nov 2014 21:46:26 +0800
-Message-ID: <20141105134625.GG4007@shlinux1.ap.freescale.net>
-References: <1415174326-6623-1-git-send-email-b29396@freescale.com>
- <5459F808.3020903@hartkopp.net>
- <20141105112639.GB4007@shlinux1.ap.freescale.net>
- <545A21AD.5040608@hartkopp.net> <545A23DA.7030303@pengutronix.de>
+From: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next v4 0/4] netns: allow to identify peer netns
+Date: Wed, 05 Nov 2014 15:23:00 +0100
+Message-ID: <545A32C4.7070108@6wind.com>
+References: <1412257690-31253-1-git-send-email-nicolas.dichtel@6wind.com>	<1414682728-4532-1-git-send-email-nicolas.dichtel@6wind.com>	<871tpph03k.fsf@x220.int.ebiederm.org>
+	<54535B00.5090708@6wind.com> <87wq7g831b.fsf@x220.int.ebiederm.org>
+Reply-To: nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Oliver Hartkopp <socketcan@hartkopp.net>,
-	<linux-can@vger.kernel.org>, <wg@grandegger.com>,
-	<varkabhadram@gmail.com>, <netdev@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>
-To: Marc Kleine-Budde <mkl@pengutronix.de>
-Return-path: <linux-can-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <545A23DA.7030303@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org,
+	stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, cwang-xCSkyg8dI+0RB7SZvlqPiA@public.gmane.org,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <87wq7g831b.fsf-JOvCrm2gF+uungPnsOpG7nhyD016LWXt@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 05, 2014 at 02:19:22PM +0100, Marc Kleine-Budde wrote:
-> On 11/05/2014 02:10 PM, Oliver Hartkopp wrote:
-> > On 05.11.2014 12:26, Dong Aisheng wrote:
-> >> On Wed, Nov 05, 2014 at 11:12:24AM +0100, Oliver Hartkopp wrote:
-> >>> On 05.11.2014 08:58, Dong Aisheng wrote:
-> >=20
-> >=20
-> >>> Unfortunately No. Here it becomes complicated due to the fact tha=
-t
-> >>> the revision 3.0.x does not support per-frame switching for FD/BR=
-S
-> >>> ...
-> >>
-> >> I'm not sure i got your point.
-> >>  From m_can spec, it allows switch CAN mode by setting CMR bit.
-> >>
-> >> Bits 11:10 CMR[1:0]: CAN Mode Request
-> >> A change of the CAN operation mode is requested by writing to this=
- bit
-> >> field. After change to the
-> >> requested operation mode the bit field is reset to =E2=80=9C00=E2=80=
-=9D and the status
-> >> flags FDBS and FDO are set
-> >> accordingly. In case the requested CAN operation mode is not enabl=
-ed,
-> >> the value written to CMR is
-> >> retained until it is overwritten by the next mode change request. =
-In
-> >> case CME =3D =E2=80=9C01=E2=80=9D/=E2=80=9D10=E2=80=9D/=E2=80=9D11=
-=E2=80=9D a
-> >> change to CAN operation according to ISO 11898-1 is always possibl=
-e.
-> >> Default is CAN operation
-> >> according to ISO11898-1.
-> >> 00 unchanged
-> >> 01 Request CAN FD operation
-> >> 10 Request CAN FD operation with bit rate switching
-> >> 11 Request CAN operation according ISO11898-1
-> >>
-> >> So what's the difference between this function and the per-frame
-> >> switching
-> >> you mentioned?
-> >>
-> >>>
-> >>> When (priv->can.ctrlmode & CAN_CTRLMODE_FD) is true this *only*
-> >>> tells us, that the controller is _capable_ to send either CAN or =
-CAN
-> >>> FD frames.
-> >>>
-> >>> It does not configure the controller into one of these specific
-> >>> settings!
-> >>>
-> >>> Additionally: AFAIK when writing to the CCCR you have to make sur=
-e
-> >>> that there's currently no ongoing transfer.
-> >>>
-> >>
-> >> I don't know about it before.
-> >> By searching m_can user manual v302 again, i still did not find th=
-is
-> >> limitation. Can you point me if you know where it is?
-> >>
-> >> BTW, since we only use one Tx Buffer for transmission currently, s=
-o we
-> >> should not meet that case that CAN mode is switched during transfe=
-r.
-> >> So the issue you concern may not happen.
-> >=20
-> > Yes. You are right. Having a FIFO with a size of 1 will help here :=
--)
->=20
-> Errrr....sorry...no.
->=20
-> Taking an easy route here but making it x times harder to extend the
-> driver to make use of the FIFO is not an option.
->=20
-
-Hmm, this way is just following the original approach the current drive=
-r
-used. It's initial work and won't make things complicated.
-
-Extend the driver to use FIFO for TX is another story and based on
-my understanding it may be a bit complicated to do CAN FD mode switch o=
-n this
-case due to hw limitation that the revision 3.0.x does not support per-=
-frame
-switching for FD/BRS as Oliver pointed out.
-(e.g. how to switch FD MODE for each frame on Tx FIFO?)
-Probably that's why the 3.1.x version will add the FD/BRS bit controlle=
-r
-in Tx Buffer to fix this issue.
-
-Anyway, that's future work and we can discuss it when adding FIFO suppo=
-rt
-for Tx function.
-
-Regards
-Dong Aisheng
-
-> Marc
->=20
-> --=20
-> Pengutronix e.K.                  | Marc Kleine-Budde           |
-> Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-> Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-> Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
->=20
-
-
+TGUgMzEvMTAvMjAxNCAyMDoxNCwgRXJpYyBXLiBCaWVkZXJtYW4gYSDDqWNyaXQgOgo+IE5pY29s
+YXMgRGljaHRlbCA8bmljb2xhcy5kaWNodGVsQDZ3aW5kLmNvbT4gd3JpdGVzOgo+Cj4+IExlIDMw
+LzEwLzIwMTQgMTk6NDEsIEVyaWMgVy4gQmllZGVybWFuIGEgw6ljcml0IDoKPj4+IE5pY29sYXMg
+RGljaHRlbCA8bmljb2xhcy5kaWNodGVsQDZ3aW5kLmNvbT4gd3JpdGVzOgo+Pj4KPj4+PiBUaGUg
+Z29hbCBvZiB0aGlzIHNlcmllIGlzIHRvIGJlIGFibGUgdG8gbXVsdGljYXN0IG5ldGxpbmsgbWVz
+c2FnZXMgd2l0aCBhbgo+Pj4+IGF0dHJpYnV0ZSB0aGF0IGlkZW50aWZ5IGEgcGVlciBuZXRucy4K
+Pj4+PiBUaGlzIGlzIG5lZWRlZCBieSB0aGUgdXNlcmxhbmQgdG8gaW50ZXJwcmV0IHNvbWUgaW5m
+b3JtYXRpb25zIGNvbnRhaW5lZCBpbgo+Pj4+IG5ldGxpbmsgbWVzc2FnZXMgKGxpa2UgSUZMQV9M
+SU5LIHZhbHVlLCBidXQgYWxzbyBzb21lIG90aGVyIGF0dHJpYnV0ZXMgaW4gY2FzZQo+Pj4+IG9m
+IHgtbmV0bnMgbmV0ZGV2aWNlIChzZWUgYWxzbwo+Pj4+IGh0dHA6Ly90aHJlYWQuZ21hbmUub3Jn
+L2dtYW5lLmxpbnV4Lm5ldHdvcmsvMzE1OTMzL2ZvY3VzPTMxNjA2NCBhbmQKPj4+PiBodHRwOi8v
+dGhyZWFkLmdtYW5lLm9yZy9nbWFuZS5saW51eC5rZXJuZWwuY29udGFpbmVycy8yODMwMS9mb2N1
+cz00MjM5KSkuCj4+Pj4KPj4+PiBJZHMgb2YgcGVlciBuZXRucyBhcmUgc2V0IGJ5IHVzZXJsYW5k
+IHZpYSBhIG5ldyBnZW5sIG1lc3NhZ2VzLiBUaGVzZSBpZHMgYXJlCj4+Pj4gc3RvcmVkIHBlciBu
+ZXRucyBhbmQgYXJlIGxvY2FsIChpZSBvbmx5IHZhbGlkIGluIHRoZSBuZXRucyB3aGVyZSB0aGV5
+IGFyZSBzZXQpLgo+Pj4+IFRvIGF2b2lkIGFsbG9jYXRpbmcgYW4gaW50IGZvciBlYWNoIHBlZXIg
+bmV0bnMsIEkgdXNlIGlkcl9mb3JfZWFjaCgpIHRvIHJldHJpZXZlCj4+Pj4gdGhlIGlkIG9mIGEg
+cGVlciBuZXRucy4gTm90ZSB0aGF0IGl0IHdpbGwgYmUgcG9zc2libGUgdG8gYWRkIGEgdGFibGUg
+KHN0cnVjdCBuZXQKPj4+PiAtPiBpZCkgbGF0ZXIgdG8gb3B0aW1pemUgdGhpcyBsb29rdXAgaWYg
+bmVlZGVkLgo+Pj4+Cj4+Pj4gUGF0Y2ggMS80IGludHJvZHVjZXMgdGhlIG5ldGxpbmsgQVBJIG1l
+Y2hhbmlzbSB0byBzZXQgYW5kIGdldCB0aGVzZSBpZHMuCj4+Pj4gUGF0Y2ggMi80IGFuZCAzLzQg
+aW1wbGVtZW50cyBhbiBleGFtcGxlIG9mIGhvdyB0byB1c2UgdGhlc2UgaWRzIGluIHJ0bmV0bGlu
+awo+Pj4+IG1lc3NhZ2VzLiBBbmQgcGF0Y2ggNC80IHNob3dzIHRoYXQgdGhlIG5ldGxpbmsgbWVz
+c2FnZXMgY2FuIGJlIHN5bWV0cmljIGJldHdlZW4KPj4+PiBhIEdFVCBhbmQgYSBTRVQuCj4+Pj4K
+Pj4+PiBpcHJvdXRlMiBwYXRjaGVzIGFyZSBhdmFpbGFibGUsIEkgY2FuIHNlbmQgdGhlbSBvbiBk
+ZW1hbmQuCj4+Pgo+Pj4gQSBxdWljayByZXBseS4gIEkgdGhpbmsgdGhpcyBwYXRjaHNldCBpcyBp
+biB0aGUgcmlnaHQgZ2VuZXJhbCBkaXJlY3Rpb24uCj4+PiBUaGVyZSBhcmUgc29tZSBvZGRiYWxs
+IGRldGFpbHMgdGhhdCBzZWVtIG9kZC9hd2t3YXJkIHRvIG1lIHN1Y2ggYXMgdXNpbmcKPj4+IGdl
+bmV0bGluayBpbnN0ZWFkIG9mIHJ0bmV0bGluayB0byBnZXQgYW5kIHNldCB0aGUgaWRzLCBhbmQg
+bm90IGhhdmluZwo+Pj4gaWRzIGlmIHRoZXkgYXJlIG5vdCBzZXQgKHRoYXQgZmVlbHMgbGlrZSBh
+IG1haW50ZW5hbmNlL3VzYWJpbGl0eSBjaGFsbGVuZ2UpLgo+PiBObyBwcm9ibGVtIHRvIHVzZSBy
+dG5ldGxpbmssIGluIGZhY3QsIEkgaGVzaXRhdGVkLgo+Pgo+PiBGb3IgdGhlIHNlY29uZCBwb2lu
+dCwgSSdtIG5vdCBzdXJlIHRvIGZvbGxvdyB5b3U6IGhvdyB0byBoYXZlIGFuIGlkLCB3aGljaCB3
+aWxsCj4+IG5vdCBicmVhayBtaWdyYXRpb24sIHdpdGhvdXQgYXNraW5nIHRoZSB1c2VyIHRvIHNl
+dCBpdD8KPgo+IFdlIGhhdmUgdGhhdCBzaXR1dGF0aW9uIHdpdGggaWZpbmRleCBhbHJlYWR5LiAg
+QmFzaWNhbGx5IHRoZSB0aG91Z2h0IGlzCj4gdG8gYWxsb3cgYW4gaWQgdG8gYmUgc2V0LCBidXQg
+YWxzbyBhbGxvdyBhbiBpZCB0byBiZSBhdXRvLWdlbmVyYXRlZCBpZgo+IHdlIHVzZSBhbiBuYW1l
+c3BhY2Ugd2l0aG91dCBhbiBpZCBiZWluZyBzZXQuCklmIG15IHVuZGVyc3RhbmRpbmcgaXMgY29y
+cmVjdCwgdGhlIGRpZmZlcmVuY2UgaXMgdGhhdCB3ZSB3YW50IHRvIGhpZGUgc29tZQpuZXRucy4K
+RG8geW91IHRoaW5rIHdlIGNhbiBnZW5lcmF0ZSBhbiBpZCBmb3IgZWFjaCBuZXRucyB0aGF0IGRv
+ZXMgbm90IGhhdmUgb25lIGFuZApyZWx5aW5nIG9uIHRoZSBmYWN0IHRoYXQgdGhpcyBpZCBoYXMg
+bm8gbWVhbmluZyB1bmxlc3MgeW91IGhhdmUgYSBuZXRucyBmaWxlCmRlc2NyaXB0b3IgdGhhdCBh
+bGxvdyB5b3UgdG8gZ2V0IHRoZSBpZCBvZiB0aGlzIG5ldG5zPwoKClJlZ2FyZHMsCk5pY29sYXMK
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KQ29udGFpbmVy
+cyBtYWlsaW5nIGxpc3QKQ29udGFpbmVyc0BsaXN0cy5saW51eC1mb3VuZGF0aW9uLm9yZwpodHRw
+czovL2xpc3RzLmxpbnV4Zm91bmRhdGlvbi5vcmcvbWFpbG1hbi9saXN0aW5mby9jb250YWluZXJz
