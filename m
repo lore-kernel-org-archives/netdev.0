@@ -1,84 +1,60 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [linux-nics] [PATCH net 3/5] fm10k: Implement ndo_gso_check()
-Date: Wed, 05 Nov 2014 04:47:07 -0800
-Message-ID: <1415191627.2420.61.camel@jtkirshe-mobl>
-References: <1415138202-1197-1-git-send-email-joestringer@nicira.com>
-	 <1415138202-1197-4-git-send-email-joestringer@nicira.com>
-	 <1415190872.2420.55.camel@jtkirshe-mobl>
-	 <CAJ3xEMjaQ54yEUQGL-8VHoPm=4G5bhPaGBa55jypzfKviR4KyQ@mail.gmail.com>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: [net PATCH 1/1] drivers: net: cpsw: remove cpsw_ale_stop from cpsw_ale_destroy
+Date: Wed, 5 Nov 2014 18:33:31 +0530
+Message-ID: <1415192611-22722-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-ayRuV+g2gXZFjYVqwxW8"
-Cc: Joe Stringer <joestringer@nicira.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	linux.nics@intel.com, shahed.shaikh@qlogic.com,
-	sathya.perla@emulex.com, Amir Vadai <amirv@mellanox.com>,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	Dept-GELinuxNICDev@qlogic.com, Tom Herbert <therbert@google.com>
-To: Or Gerlitz <gerlitz.or@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAJ3xEMjaQ54yEUQGL-8VHoPm=4G5bhPaGBa55jypzfKviR4KyQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, Mugunthan V N <mugunthanvnm@ti.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from arroyo.ext.ti.com ([192.94.94.40]:40269 "EHLO arroyo.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754035AbaKENDd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Nov 2014 08:03:33 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+when cpsw is build as modulea and simple insert and removal of module
+creates a deadlock, due to delete timer. the timer is created and destroyed
+in cpsw_ale_start and cpsw_ale_stop which are from device open and close.
 
---=-ayRuV+g2gXZFjYVqwxW8
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+root@am437x-evm:~# modprobe -r ti_cpsw
+[  158.505333] INFO: trying to register non-static key.
+[  158.510623] the code is fine but needs lockdep annotation.
+[  158.516448] turning off the locking correctness validator.
+[  158.522282] CPU: 0 PID: 1339 Comm: modprobe Not tainted 3.14.23-00445-gd41c88f #44
+[  158.530359] [<c0015380>] (unwind_backtrace) from [<c0012088>] (show_stack+0x10/0x14)
+[  158.538603] [<c0012088>] (show_stack) from [<c054ad70>] (dump_stack+0x78/0x94)
+[  158.546295] [<c054ad70>] (dump_stack) from [<c0088008>] (__lock_acquire+0x176c/0x1b74)
+[  158.554711] [<c0088008>] (__lock_acquire) from [<c0088944>] (lock_acquire+0x9c/0x104)
+[  158.563043] [<c0088944>] (lock_acquire) from [<c004e520>] (del_timer_sync+0x44/0xd8)
+[  158.571289] [<c004e520>] (del_timer_sync) from [<bf2eac1c>] (cpsw_ale_destroy+0x10/0x3c [ti_cpsw])
+[  158.580821] [<bf2eac1c>] (cpsw_ale_destroy [ti_cpsw]) from [<bf2eb268>] (cpsw_remove+0x30/0xa0 [ti_cpsw])
+[  158.591000] [<bf2eb268>] (cpsw_remove [ti_cpsw]) from [<c035ef44>] (platform_drv_remove+0x18/0x1c)
+[  158.600527] [<c035ef44>] (platform_drv_remove) from [<c035d8bc>] (__device_release_driver+0x70/0xc8)
+[  158.610236] [<c035d8bc>] (__device_release_driver) from [<c035e0d4>] (driver_detach+0xb4/0xb8)
+[  158.619386] [<c035e0d4>] (driver_detach) from [<c035d6e4>] (bus_remove_driver+0x4c/0x90)
+[  158.627988] [<c035d6e4>] (bus_remove_driver) from [<c00af2a8>] (SyS_delete_module+0x10c/0x198)
+[  158.637144] [<c00af2a8>] (SyS_delete_module) from [<c000e580>] (ret_fast_syscall+0x0/0x48)
+[  179.524727] INFO: rcu_sched detected stalls on CPUs/tasks: {} (detected by 0, t=2102 jiffies, g=1487, c=1486, q=6)
+[  179.535741] INFO: Stall ended before state dump start
 
-On Wed, 2014-11-05 at 14:44 +0200, Or Gerlitz wrote:
-> On Wed, Nov 5, 2014 at 2:34 PM, Jeff Kirsher
-> <jeffrey.t.kirsher@intel.com> wrote:
-> > On Tue, 2014-11-04 at 13:56 -0800, Joe Stringer wrote:
-> >> ndo_gso_check() was recently introduced to allow NICs to report the
-> >> offloading support that they have on a per-skb basis. Add an
-> >> implementation for this driver which checks for something that looks
-> >> like VXLAN.
-> >>
-> >> Implementation shamelessly stolen from Tom Herbert:
-> >> http://thread.gmane.org/gmane.linux.network/332428/focus=3D333111
-> >>
-> >> Signed-off-by: Joe Stringer <joestringer@nicira.com>
-> >> ---
-> >> Should this driver report support for GSO on packets with tunnel
-> >> headers
-> >> up to 64B like the i40e driver does?
-> >> ---
-> >>  drivers/net/ethernet/intel/fm10k/fm10k_netdev.c |   12 ++++++++++++
-> >>  1 file changed, 12 insertions(+)
-> >
-> > Thanks Joe, I will add your patch to my queue.
->=20
-> Hi Jeff, please see my comment on patch 0/5, we're essentially
-> replicating the same helper four different times (fm10k, mlx4, benet,
-> qlgc) - I don't see the point in doing so. I asked Joe to come up with
-> one generic helper and then to pick it up by the four drivers, makes
-> sense?
+Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+---
+ drivers/net/ethernet/ti/cpsw_ale.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-Yeah, I just saw your reply Or.  Ok, I will await an update to Joe's
-series, thanks!
-
---=-ayRuV+g2gXZFjYVqwxW8
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJUWhxLAAoJEOVv75VaS+3O2j0P/iRhdqcmPTnYzIf3VW67/Yt0
-ncPl+QJXNN2lo8UH+hdVUxXuenRhFTFhwJBhCYxJMutmkgfnpU5SN7PZ/9wsk0Bx
-Rnvtqid+2qqeEeQYmvX61jXySjQ7jgosNNVCDiPwhIcf7WNE3v2pIKLE+eXN1SPH
-HogRqd+/PxkjFCV1NcPmXJwFZLqPOiTaonY5IeD7hDwX05HVssJHglKF+tnHoW2T
-a6hCyeR+2QWyuToU55SmadRz7eSVyHnmGNXYkM7JokK8ofmCytwQCq3Sq70EqWCF
-GIXqaUmX5H2wG2p4zvJkGytoYPhI+KyMxIrXKsm+d4N6CySlinOvWun7BotceYx3
-9A3s2Iixw9bSav3JqFEPyoUm8zaAd2z72gJUlHBMAyciOxL2IkAbi19BYt8H3pRl
-9Wbfs3gj60C2sq1AsFCQFpvyBVDq+WHtWrxLkKLmrGALr8ZHTpWE02SKelhSj9aj
-4sCrcar2X8QRfRtRw/FjIGhzye4qAHPPKppjcViRUOj3DvrwmdkoPNd9+xpfoKmj
-InrBEvaCwChHk63Xi7nZ8H3RAs/VjjkKa71UG5GARMzUeKhTfp4VcoQJbgoNHz++
-1jeD5mZMnaletAcjtefo2HAbIRzCrvc6QU7xExXX6SuOi0UU7nNBssWytReJNWia
-ETbxnEt0zTW93wJAMn5m
-=WVkR
------END PGP SIGNATURE-----
-
---=-ayRuV+g2gXZFjYVqwxW8--
+diff --git a/drivers/net/ethernet/ti/cpsw_ale.c b/drivers/net/ethernet/ti/cpsw_ale.c
+index 3ae8387..097ebe7 100644
+--- a/drivers/net/ethernet/ti/cpsw_ale.c
++++ b/drivers/net/ethernet/ti/cpsw_ale.c
+@@ -785,7 +785,6 @@ int cpsw_ale_destroy(struct cpsw_ale *ale)
+ {
+ 	if (!ale)
+ 		return -EINVAL;
+-	cpsw_ale_stop(ale);
+ 	cpsw_ale_control_set(ale, 0, ALE_ENABLE, 0);
+ 	kfree(ale);
+ 	return 0;
+-- 
+2.1.2.484.g13da0fc
