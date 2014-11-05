@@ -1,52 +1,37 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH V3 1/3] can: add can_is_canfd_skb() API
-Date: Wed, 05 Nov 2014 18:33:09 +0100
-Message-ID: <545A5F55.7050307@hartkopp.net>
-References: <1415193393-30023-1-git-send-email-b29396@freescale.com> <1415204533.13896.7.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net v3] ipv6: mld: fix add_grhead skb_over_panic for devs
+ with large MTUs
+Date: Wed, 05 Nov 2014 18:59:36 +0100
+Message-ID: <545A6588.3090602@redhat.com>
+References: <1415198530-7126-1-git-send-email-dborkman@redhat.com>  <1415204413.13896.5.camel@edumazet-glaptop2.roam.corp.google.com>  <1415205483.3264462.187432293.00A1F284@webmail.messagingengine.com> <1415206106.13896.8.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-can@vger.kernel.org, mkl@pengutronix.de, wg@grandegger.com,
-	varkabhadram@gmail.com, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Dong Aisheng <b29396@freescale.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1415204533.13896.7.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	davem@davemloft.net, lw1a2.jing@gmail.com, fw@strlen.de,
+	netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
+	David L Stevens <david.stevens@oracle.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:48915 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751259AbaKER7z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Nov 2014 12:59:55 -0500
+In-Reply-To: <1415206106.13896.8.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05.11.2014 17:22, Eric Dumazet wrote:
-> On Wed, 2014-11-05 at 21:16 +0800, Dong Aisheng wrote:
-
+On 11/05/2014 05:48 PM, Eric Dumazet wrote:
+> On Wed, 2014-11-05 at 17:38 +0100, Hannes Frederic Sowa wrote:
+...
+>> I would still vote for this version, but see the problem with the noise
+>> caused by newline updates. Eric, would you mind a new version with only
+>> the essential parts changed and keeping this calculation so we don't
+>> need to change it twice for net and for net-next?
 >
-> This looks a bit strange to assume that skb->len == magical_value is CAN
-> FD. A comment would be nice.
->
+> I will be happy to review a v4 ;)
 
-Yes. Due to exactly two types of struct can(fd)_frame which can be contained 
-in a skb the skbs are distinguished by the length which can be either CAN_MTU 
-or CANFD_MTU.
+No problem, I'll respin. ;)
 
->> +static inline int can_is_canfd_skb(struct sk_buff *skb)
->
-> static inline bool can_is_canfd_skb(const struct sk_buff *skb)
->
-
-ok.
-
->> +{
-
-What about:
-
-	/* the CAN specific type of skb is identified by its data length */
-
->> +	return skb->len == CANFD_MTU;
->> +}
->> +
->>   /* get data length from can_dlc with sanitized can_dlc */
->>   u8 can_dlc2len(u8 can_dlc);
-
-Regards,
-Oliver
-
+Thanks,
+Daniel
