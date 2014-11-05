@@ -1,43 +1,52 @@
-From: Michal Simek <michal.simek@xilinx.com>
-Subject: Re: [PATCH] drivers: net: ethernet: xilinx: xilinx_emaclite: revert
- the original commit "1db3ddff1602edf2390b7667dcbaa0f71512e3ea"
-Date: Wed, 5 Nov 2014 08:19:41 +0100
-Message-ID: <a39951cc744047679d13b23e76c97347@BN1BFFO11FD022.protection.gbl>
-References: <5458E605.6070801@gmail.com>
+From: Roberto Medina <robertoxmed@gmail.com>
+Subject: Re: [PATCH] net: eth: realtek: atp: checkpatch errors and warnings
+ corrected
+Date: Wed, 05 Nov 2014 08:44:54 +0100
+Message-ID: <5459D576.3010000@gmail.com>
+References: <1415039073-20164-1-git-send-email-robertoxmed@gmail.com> <1415040686.17743.31.camel@perches.com> <5457D2DF.5000508@gmail.com> <063D6719AE5E284EB5DD2968C1650D6D1C9E71E4@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>,
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Chen Gang <gang.chen.5i5j@gmail.com>, <michal.simek@xilinx.com>,
-	<soren.brinkmann@xilinx.com>, <davem@davemloft.net>,
-	<sthokal@xilinx.com>, <manuel.schoelling@gmx.de>,
-	<f.fainelli@gmail.com>, <paul.gortmaker@windriver.com>,
-	<ebiederm@xmission.com>
+To: David Laight <David.Laight@ACULAB.COM>,
+	Joe Perches <joe@perches.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5458E605.6070801@gmail.com>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1C9E71E4@AcuExch.aculab.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11/04/2014 03:43 PM, Chen Gang wrote:
-> Microblaze is a fpga soft core, it can be customized easily, which may
-> cause many various hardware version strings.
-> 
-> So the original fix patch based on hard-coded compatible version strings
-> is not a good idea (although it is correct for current issue). For it,
-> there will be a new solving way soon (which based on the device tree).
-> 
-> The original issue is related with qemu, so can only change the hardware
-> version string in qemu for it, then keep the original driver no touch (
-> qemu is for virtualization which has much easier life than real world).
-> 
-> 
-> Signed-off-by: Chen Gang <gang.chen.5i5j@gmail.com>
-> ---
->  drivers/net/ethernet/xilinx/xilinx_emaclite.c | 1 -
->  1 file changed, 1 deletion(-)
+On 11/04/2014 11:19 AM, David Laight wrote:
+>
+> That code (and all the ones below) are gibberish, neither the old or new
+> sequences make any sense.
+>
 
-Acked-by: Michal Simek <michal.simek@xilinx.com>
+Thank you for your feedback I did it again and objdiff doesn't show any 
+changes (if I'm not mistaken).
+
+> Almost as though you used the wrong instruction set!
+>
+> 	David
+
+diff -Nurd 
+/home/vov/Git/linux-next/.tmp_objdiff/a641d0e/drivers/net/ethernet/realtek/atp.dis 
+/home/vov/Git/linux-next/.tmp_objdiff/5f19b70/drivers/net/ethernet/realtek/atp.dis
+--- 
+/home/vov/Git/linux-next/.tmp_objdiff/a641d0e/drivers/net/ethernet/realtek/atp.dis 
+2014-11-05 08:38:49.244100507 +0100
++++ 
+/home/vov/Git/linux-next/.tmp_objdiff/5f19b70/drivers/net/ethernet/realtek/atp.dis 
+2014-11-05 08:39:14.654101606 +0100
+@@ -1357,7 +1357,7 @@
+
+  Disassembly of section .bss:
+
+-00000000 <num_tx_since_rx.36127>:
++00000000 <num_tx_since_rx.36172>:
+  :	00 00                	add    %al,(%eax)
+  	...
 
 Thanks,
-Michal
+
+Roberto
