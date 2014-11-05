@@ -1,47 +1,131 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: Re: [PATCH net-next 2/2] net/mlx4_en: Support for configurable RSS
- hash function
-Date: Wed, 5 Nov 2014 15:53:12 +0200
-Message-ID: <545A2BC8.4030304@mellanox.com>
-References: <1415188769-19593-1-git-send-email-amirv@mellanox.com> <1415188769-19593-3-git-send-email-amirv@mellanox.com>
+From: Dong Aisheng <b29396@freescale.com>
+Subject: Re: [PATCH V2 1/4] can: m_can: update to support CAN FD features
+Date: Wed, 5 Nov 2014 21:46:26 +0800
+Message-ID: <20141105134625.GG4007@shlinux1.ap.freescale.net>
+References: <1415174326-6623-1-git-send-email-b29396@freescale.com>
+ <5459F808.3020903@hartkopp.net>
+ <20141105112639.GB4007@shlinux1.ap.freescale.net>
+ <545A21AD.5040608@hartkopp.net> <545A23DA.7030303@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Amir Vadai <amirv@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ben Hutchings <ben@decadent.org.uk>, <netdev@vger.kernel.org>,
-	"Yevgeny Petrilin" <yevgenyp@mellanox.com>
-To: Eyal Perry <eyalpe@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog120.obsmtp.com ([207.126.144.149]:55916 "EHLO
-	eu1sys200aog120.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751198AbaKENxW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2014 08:53:22 -0500
-In-Reply-To: <1415188769-19593-3-git-send-email-amirv@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Oliver Hartkopp <socketcan@hartkopp.net>,
+	<linux-can@vger.kernel.org>, <wg@grandegger.com>,
+	<varkabhadram@gmail.com>, <netdev@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>
+To: Marc Kleine-Budde <mkl@pengutronix.de>
+Return-path: <linux-can-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <545A23DA.7030303@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+On Wed, Nov 05, 2014 at 02:19:22PM +0100, Marc Kleine-Budde wrote:
+> On 11/05/2014 02:10 PM, Oliver Hartkopp wrote:
+> > On 05.11.2014 12:26, Dong Aisheng wrote:
+> >> On Wed, Nov 05, 2014 at 11:12:24AM +0100, Oliver Hartkopp wrote:
+> >>> On 05.11.2014 08:58, Dong Aisheng wrote:
+> >=20
+> >=20
+> >>> Unfortunately No. Here it becomes complicated due to the fact tha=
+t
+> >>> the revision 3.0.x does not support per-frame switching for FD/BR=
+S
+> >>> ...
+> >>
+> >> I'm not sure i got your point.
+> >>  From m_can spec, it allows switch CAN mode by setting CMR bit.
+> >>
+> >> Bits 11:10 CMR[1:0]: CAN Mode Request
+> >> A change of the CAN operation mode is requested by writing to this=
+ bit
+> >> field. After change to the
+> >> requested operation mode the bit field is reset to =E2=80=9C00=E2=80=
+=9D and the status
+> >> flags FDBS and FDO are set
+> >> accordingly. In case the requested CAN operation mode is not enabl=
+ed,
+> >> the value written to CMR is
+> >> retained until it is overwritten by the next mode change request. =
+In
+> >> case CME =3D =E2=80=9C01=E2=80=9D/=E2=80=9D10=E2=80=9D/=E2=80=9D11=
+=E2=80=9D a
+> >> change to CAN operation according to ISO 11898-1 is always possibl=
+e.
+> >> Default is CAN operation
+> >> according to ISO11898-1.
+> >> 00 unchanged
+> >> 01 Request CAN FD operation
+> >> 10 Request CAN FD operation with bit rate switching
+> >> 11 Request CAN operation according ISO11898-1
+> >>
+> >> So what's the difference between this function and the per-frame
+> >> switching
+> >> you mentioned?
+> >>
+> >>>
+> >>> When (priv->can.ctrlmode & CAN_CTRLMODE_FD) is true this *only*
+> >>> tells us, that the controller is _capable_ to send either CAN or =
+CAN
+> >>> FD frames.
+> >>>
+> >>> It does not configure the controller into one of these specific
+> >>> settings!
+> >>>
+> >>> Additionally: AFAIK when writing to the CCCR you have to make sur=
+e
+> >>> that there's currently no ongoing transfer.
+> >>>
+> >>
+> >> I don't know about it before.
+> >> By searching m_can user manual v302 again, i still did not find th=
+is
+> >> limitation. Can you point me if you know where it is?
+> >>
+> >> BTW, since we only use one Tx Buffer for transmission currently, s=
+o we
+> >> should not meet that case that CAN mode is switched during transfe=
+r.
+> >> So the issue you concern may not happen.
+> >=20
+> > Yes. You are right. Having a FIFO with a size of 1 will help here :=
+-)
+>=20
+> Errrr....sorry...no.
+>=20
+> Taking an easy route here but making it x times harder to extend the
+> driver to make use of the FIFO is not an option.
+>=20
+
+Hmm, this way is just following the original approach the current drive=
+r
+used. It's initial work and won't make things complicated.
+
+Extend the driver to use FIFO for TX is another story and based on
+my understanding it may be a bit complicated to do CAN FD mode switch o=
+n this
+case due to hw limitation that the revision 3.0.x does not support per-=
+frame
+switching for FD/BRS as Oliver pointed out.
+(e.g. how to switch FD MODE for each frame on Tx FIFO?)
+Probably that's why the 3.1.x version will add the FD/BRS bit controlle=
+r
+in Tx Buffer to fix this issue.
+
+Anyway, that's future work and we can discuss it when adding FIFO suppo=
+rt
+for Tx function.
+
+Regards
+Dong Aisheng
+
+> Marc
+>=20
+> --=20
+> Pengutronix e.K.                  | Marc Kleine-Budde           |
+> Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+> Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+> Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+>=20
 
 
-On 11/5/2014 1:59 PM, Amir Vadai wrote:
-> --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-> @@ -2585,6 +2585,15 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
->   		dev->features    |= NETIF_F_GSO_UDP_TUNNEL;
->   	}
->   
-> +	if (mdev->dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_RSS_XOR) {
-> +		priv->rss_hash_fn_caps |= RSS_HASH_XOR;
-> +		priv->rss_hash_fn = RSS_HASH_XOR;
-> +	}
-> +	if (mdev->dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_RSS_TOP) {
-> +		priv->rss_hash_fn_caps |= RSS_HASH_TOP;
-> +		priv->rss_hash_fn = RSS_HASH_TOP;
-> +	}
-> +
-
-can we somehow change this code to be more clear and assign 
-priv->rss_hash_fn once?
-
->   	mdev->pndev[port] = dev;
->   
->   	netif_carrier_off(dev);
