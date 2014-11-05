@@ -1,84 +1,91 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH v3 7/8] net: can: c_can: Add support for TI DRA7 DCAN
-Date: Wed, 05 Nov 2014 14:43:39 +0100
-Message-ID: <545A298B.6090505@pengutronix.de>
-References: <1415096461-25576-1-git-send-email-rogerq@ti.com> <1415096461-25576-8-git-send-email-rogerq@ti.com> <545A2679.2000905@pengutronix.de> <545A27E8.9090600@ti.com>
+From: Eyal perry <eyalpe@dev.mellanox.co.il>
+Subject: Re: [PATCH net-next 2/2] net/mlx4_en: Support for configurable RSS
+ hash function
+Date: Wed, 05 Nov 2014 15:48:09 +0200
+Message-ID: <545A2A99.9020001@dev.mellanox.co.il>
+References: <1415188769-19593-1-git-send-email-amirv@mellanox.com> <1415188769-19593-3-git-send-email-amirv@mellanox.com> <545A17C2.9070609@mellanox.com> <545A20B0.4080807@dev.mellanox.co.il> <545A2664.7040001@mellanox.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="mJApGBNlnFX4hMixwNw970i3xmK981ES0"
-Cc: wsa@the-dreams.de, tony@atomide.com, tglx@linutronix.de,
-	mugunthanvnm@ti.com, george.cherian@ti.com, balbi@ti.com,
-	nsekhar@ti.com, nm@ti.com, sergei.shtylyov@cogentembedded.com,
-	linux-omap@vger.kernel.org, linux-can@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Roger Quadros <rogerq@ti.com>, wg@grandegger.com
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <545A27E8.9090600@ti.com>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Amir Vadai <amirv@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ben Hutchings <ben@decadent.org.uk>, netdev@vger.kernel.org,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>
+To: Or Gerlitz <ogerlitz@mellanox.com>,
+	Eyal Perry <eyalpe@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f177.google.com ([209.85.212.177]:64169 "EHLO
+	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751198AbaKENsQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2014 08:48:16 -0500
+Received: by mail-wi0-f177.google.com with SMTP id ex7so2062245wid.4
+        for <netdev@vger.kernel.org>; Wed, 05 Nov 2014 05:48:15 -0800 (PST)
+In-Reply-To: <545A2664.7040001@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---mJApGBNlnFX4hMixwNw970i3xmK981ES0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-
-On 11/05/2014 02:36 PM, Roger Quadros wrote:
-> On 11/05/2014 03:30 PM, Marc Kleine-Budde wrote:
->> On 11/04/2014 11:21 AM, Roger Quadros wrote:
->>> DRA7 SoC has 2 CAN IPs. Provide compatible IDs and RAMINIT
->>> register data for both.
+On 11/5/2014 3:30 PM, Or Gerlitz wrote:
+> On 11/5/2014 3:05 PM, Eyal perry wrote:
+>> On 11/5/2014 2:27 PM, Or Gerlitz wrote:
+>>>> +
+>>>> +static int mlx4_en_set_rxfh_func(struct net_device *dev, u32 hfunc)
+>>>> +{
+>>>> +    struct mlx4_en_priv *priv = netdev_priv(dev);
+>>>> +    struct mlx4_en_dev *mdev = priv->mdev;
+>>>> +    u32 prev_rss_hash_fn = priv->rss_hash_fn;
+>>>> +    int err = 0;
+>>>> +
+>>>> +    if (!(hfunc & priv->rss_hash_fn_caps))
+>>>> +        return -EINVAL;
+>>>> +
+>>>> +    priv->rss_hash_fn = hfunc;
+>>> Seems that you are blindly setting here priv->rss_hash_fn to the
+>>> function (xor or top) requested by the user w.o prior checking if the
+>>> firmware actually supports that
+>>> (e.g test it against priv->rss_hash_fn_caps, right?
+>>>
+>> That exactly what I do 3 lines above, priv->rss_hash_fn_caps is
+>> derived from firmware capabilities.
+> 
+> got it, thanks.
+> 
 >>
->> My understanding of the discussion with Wolfram was:
->> - We should put the number of the Interface into to DT as a regmap
->>   parameter.
->> - We put the method how to find the correct bits into the DT, via the
->>   compatible.
+>> [...]
 >>
->> So for both CAN instances on the DRA7 we have a single compatible
->> "ti,dra7-d_can" and in the driver a mechanism that translates the numb=
-er
->> of the instance into the needed bit offsets, e.g. via two arrays.
+>>>> --- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+>>>> +++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+>>>> @@ -1113,10 +1113,13 @@ int mlx4_en_config_rss_steer(struct
+>>>> mlx4_en_priv *priv)
+>>>>        }
+>>>>          rss_context->flags = rss_mask;
+>>>> -    rss_context->hash_fn = MLX4_RSS_HASH_TOP;
+>>>> -    for (i = 0; i < 10; i++)
+>>>> -        rss_context->rss_key[i] = cpu_to_be32(rsskey[i]);
+>>>> -
+>>>> +    if (priv->rss_hash_fn & MLX4_RSS_HASH_XOR) {
+>>>> +        rss_context->hash_fn = MLX4_RSS_HASH_XOR;
+>>>> +    } else {
+>>>> +        rss_context->hash_fn = MLX4_RSS_HASH_TOP;
+>>>> +        for (i = 0; i < 10; i++)
+>>>> +            rss_context->rss_key[i] = cpu_to_be32(rsskey[i]);
+>>>> +    }
+>>> So this patch effectively changes the default from top to xor, right? is
+>>> that intentional? if yes, spare few words on the change log.
+>>>
+>> No, in general the default shouldn't be affected by the patch (unless
+>> there's a bug). The default value is set in mlx4_en_init_netdev() and it
+>> will remain Toeplitz unless firmware is supports only XOR hash function.
 >>
->=20
-> OK. I'll revise this series.
->=20
-> The new syscon-raminit property will be like
-> syscon-raminit =3D <syscon_phandle raminit-reg-offset dcan-interface-nu=
-mber>;
-
-Yes. Wolfram?
-
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---mJApGBNlnFX4hMixwNw970i3xmK981ES0
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJUWimLAAoJECte4hHFiupUe3AP/jU5A7EUah+AGbdM8xboevir
-GI7G4eex+AVXjrKys/zbR2BJvg5BQ2r/w7llG+T7o3sR5QNqeUbgeGEvlrRDrsya
-FL/sp7P74zY9QChrVI6bIYHPIgeM062eKX6uD/G4R2j3vehVawRSAxW7n0nrVEIS
-ypnlC44f04fiPR2y0PtH6ZtTSdz5GC5GKAg4vTptsX/aR039oGsiPG6z5iuAiSCO
-SPIeXKUfA54JNlU4739SvYZLwCtn19fn8iGDjuod3f62n3G94Phc1zXsUoIO4ccm
-HmjHHTc5jK6ZqzMmbsch1Dzd1arSMCMAStfR72iqaiAv3kTt2/z4izb/D6R8g6NV
-zwU5xDqLMr3aC5HIds0ywUFcXeZQvCy80uG7yYl30B7WDlTDK1Q0Yv5HSisms7zp
-L4oVa54dBwJohbnOvu+0w78wJLADWSXKwDc9VfEld00BS4u/DXXdCoJrtZKS7+Vi
-5PpzLDRPt67Y8O9vh/xXhMmkkFasjNUqp055sYu+XZE6D+ObkYMA62Fn+kVGjJwG
-5KUbmSLIYlJXJDa+L2JqcWgMauRhQ9Bl1SiE+Q+oxZ4mgvrVeu+VHKl55Xl4j5iO
-P6Yp363Nf94mp59r1c5TAi8Rc+6ip4AjWQZ+w8FgWHgHEIrCZJSxRqrk5bkxsdK1
-3AXc2HK1ZE+hhuaqkxxx
-=ZKql
------END PGP SIGNATURE-----
-
---mJApGBNlnFX4hMixwNw970i3xmK981ES0--
+> 
+> Oh, I see why I was confused and what I think need to be fixed. You are
+> using both MLX4_RSS_HASH_TOP/XOR and RSS_HASH_TOP/XOR, any reason for that?
+Yes, RSS_HASH_TOP/XOR are bits on a generic bitmask while the
+MLX4_RSS_HASH_TOP/XOR are HW specific values.
+> 
+> Also, priv->rss_hash_fn should equal one value, right? so this code "if
+> (priv->rss_hash_fn & something)" is confusing, should be "if
+> (priv->rss_hash_fn == something)"
+That's right, I'll fix it for V1.
+Thanks.
+> 
+> Or.
