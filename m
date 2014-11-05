@@ -1,93 +1,91 @@
-From: Dong Aisheng <b29396@freescale.com>
-Subject: Re: [PATCH V2 2/4] can: m_can: workaround for transmit data less
- than 4 bytes
-Date: Wed, 5 Nov 2014 18:33:53 +0800
-Message-ID: <20141105103349.GA4007@shlinux1.ap.freescale.net>
-References: <1415174326-6623-1-git-send-email-b29396@freescale.com>
- <1415174326-6623-2-git-send-email-b29396@freescale.com>
- <5459F94C.1030506@pengutronix.de>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH V1 4/4] can: m_can: allow to send std frame on CAN FD
+ mode
+Date: Wed, 05 Nov 2014 12:08:21 +0100
+Message-ID: <545A0525.107@hartkopp.net>
+References: <1415174326-6623-1-git-send-email-b29396@freescale.com> <1415174326-6623-4-git-send-email-b29396@freescale.com> <5459FEDE.9050405@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <linux-can@vger.kernel.org>, <wg@grandegger.com>,
-	<varkabhadram@gmail.com>, <netdev@vger.kernel.org>,
-	<socketcan@hartkopp.net>, <linux-arm-kernel@lists.infradead.org>
-To: Marc Kleine-Budde <mkl@pengutronix.de>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: wg@grandegger.com, varkabhadram@gmail.com, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org
+To: Marc Kleine-Budde <mkl@pengutronix.de>,
+	Dong Aisheng <b29396@freescale.com>, linux-can@vger.kernel.org
 Return-path: <linux-can-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <5459F94C.1030506@pengutronix.de>
+In-Reply-To: <5459FEDE.9050405@pengutronix.de>
 Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 05, 2014 at 11:17:48AM +0100, Marc Kleine-Budde wrote:
+
+
+On 05.11.2014 11:41, Marc Kleine-Budde wrote:
 > On 11/05/2014 08:58 AM, Dong Aisheng wrote:
-> > At least on the i.MX6SX with M_CAN IP version 3.0.x, an issue with
-> 
-> Can you add the imx mask revision, too and the exact m_can version (is
-> available).
-> 
+>> The current code sends all CAN frames on CAN FD format(with BRS or not)
+>> if CAN_CTRLMODE_FD is enabled.
+>> However, even CAN_CTRLMODE_FD is enabled, the can tool may still
+>> send normal frames.
+>> e.g.
+>> ip link set can0 up type can bitrate 1000000 dbitrate 1000000 fd on
+>> cansend can0 123#112233
+>>
+>> Therefore sending normal CAN frame on FD format seems not reasonable
+>> and the CAN FD incapable device may not be able to receive it correctly.
+>>
+>> The patch switches the M_CAN operation mode to ISO11898-1 instead of
+>> staying on CAN FD operation mode by writing "11" to CMR bit if find
+>> we're sending a normal can skb.
+>
+> With this patch applied and Olivre's version of 3/4, how does the
+> application send CAN-FD frames?
 
-What do you mean imx mask revision?
+This patch becomes obsolete when we do it like in my answer of [3/4].
 
-By reading the Core Release Register (CREL), it seems the exact m_can
-version is 3.0.1. (CREL = 30130506).
+> 1. witch on CAN-FD via "ip fd on"
 
-So what about changing to as follows?
-"At least on the i.MX6SX with M_CAN IP version 3.0.1 (CREL = 30130506),
-an issue with"
+With
 
-Regards
-Dong Aisheng
+ip link set can0 type can fd on
 
-> > the Message RAM was discovered. Sending CAN frames with dlc less
-> > than 4 bytes will lead to bit errors, when the first 8 bytes of
-> > the Message RAM have not been initialized (i.e. written to).
-> > To work around this issue, the first 8 bytes are initialized in open()
-> > function.
-> > 
-> > Without the workaround, we can easily see the following errors:
-> > root@imx6qdlsolo:~# ip link set can0 up type can bitrate 1000000
-> > [   66.882520] IPv6: ADDRCONF(NETDEV_CHANGE): can0: link becomes ready
-> > root@imx6qdlsolo:~# cansend can0 123#112233
-> > [   66.935640] m_can 20e8000.can can0: Bit Error Uncorrected
-> > 
-> > Signed-off-by: Dong Aisheng <b29396@freescale.com>
-> > ---
-> > ChangeLog since v1:
-> >  * initialize the first 8 bytes of Tx Buffer of Message RAM in open()
-> >    to workaround the issue
-> > ---
-> >  drivers/net/can/m_can/m_can.c | 9 +++++++++
-> >  1 file changed, 9 insertions(+)
-> > 
-> > diff --git a/drivers/net/can/m_can/m_can.c b/drivers/net/can/m_can/m_can.c
-> > index 664fe30..f47c200 100644
-> > --- a/drivers/net/can/m_can/m_can.c
-> > +++ b/drivers/net/can/m_can/m_can.c
-> > @@ -902,6 +902,15 @@ static void m_can_chip_config(struct net_device *dev)
-> >  	/* set bittiming params */
-> >  	m_can_set_bittiming(dev);
-> >  
-> > +	/* At least on the i.MX6SX with M_CAN IP version 3.0.x, an issue with
-> > +	 * the Message RAM was discovered. Sending CAN frames with dlc less
-> > +	 * than 4 bytes will lead to bit errors, when the first 8 bytes of
-> > +	 * the Message RAM have not been initialized (i.e. written to).
-> > +	 * To work around this issue, the first 8 bytes are initialized here.
-> > +	 */
-> > +	m_can_fifo_write(priv, 0, M_CAN_FIFO_DATA(0), 0x0);
-> > +	m_can_fifo_write(priv, 0, M_CAN_FIFO_DATA(1), 0x0);
-> > +
-> >  	m_can_config_endisable(priv, false);
-> >  }
-> >  
-> > 
-> 
+the netdevice switches to the MTU of CAN FD (72) instead of 16.
+
+This means that this netdevice can handle CAN frames (MTU 16) and CAN FD 
+frames (MTU 72).
+
+When you send a standard CAN frame, e.g.
+
+	cansend can0 123#112233
+
+you would get a CAN 2.0 frame (dlc = 3) on the bus.
+
+When you send a CAN FD frame, e.g.
+
+	cansend can0 123##0112233
+
+you would get a CAN FD frame (dlc = 3) on the bus.
+
+With
+
+	cansend can0 123##1112233
+
+you would get a CAN FD frame (dlc = 3) with BRS on the bus.
+
+Whether it is CAN or CAN FD is given by checking skb->len for CAN_MTU of 
+CANFD_MTU in the driver.
+
+Regards,
+Oliver
+
+
+> 2. write a struct canfd_frame
+>
+> Correct?
+>
+> What happens if:
+> 3. write a struct can_frame
+>
+> A CAN frame is send?
+>
+> Oliver are you okay with this behaviour?
+>
 > Marc
-> 
-> -- 
-> Pengutronix e.K.                  | Marc Kleine-Budde           |
-> Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-> Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-> Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-> 
-
-
+>
