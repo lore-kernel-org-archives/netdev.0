@@ -1,37 +1,63 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net v3] ipv6: mld: fix add_grhead skb_over_panic for devs
- with large MTUs
-Date: Wed, 05 Nov 2014 18:59:36 +0100
-Message-ID: <545A6588.3090602@redhat.com>
-References: <1415198530-7126-1-git-send-email-dborkman@redhat.com>  <1415204413.13896.5.camel@edumazet-glaptop2.roam.corp.google.com>  <1415205483.3264462.187432293.00A1F284@webmail.messagingengine.com> <1415206106.13896.8.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: Kernel Oops in __inet_twsk_kill()
+Date: Wed, 5 Nov 2014 10:00:25 -0800
+Message-ID: <CAHA+R7PAdVS=TBd8ZDAW3wdadjNEVjiyemrs54wNp8fdtCMvZQ@mail.gmail.com>
+References: <FB8A4655DFD2B34DB16AE06DDDD6C0E231A6F030@SJEXCHMB12.corp.ad.broadcom.com>
+	<545A49B4.7090107@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	davem@davemloft.net, lw1a2.jing@gmail.com, fw@strlen.de,
-	netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
-	David L Stevens <david.stevens@oracle.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: charley.chu@broadcom.com, netdev <netdev@vger.kernel.org>
+To: Daniel Borkmann <borkmann@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48915 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751259AbaKER7z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Nov 2014 12:59:55 -0500
-In-Reply-To: <1415206106.13896.8.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-qg0-f47.google.com ([209.85.192.47]:38651 "EHLO
+	mail-qg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752814AbaKESA1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2014 13:00:27 -0500
+Received: by mail-qg0-f47.google.com with SMTP id j107so12351464qga.20
+        for <netdev@vger.kernel.org>; Wed, 05 Nov 2014 10:00:25 -0800 (PST)
+In-Reply-To: <545A49B4.7090107@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/05/2014 05:48 PM, Eric Dumazet wrote:
-> On Wed, 2014-11-05 at 17:38 +0100, Hannes Frederic Sowa wrote:
-...
->> I would still vote for this version, but see the problem with the noise
->> caused by newline updates. Eric, would you mind a new version with only
->> the essential parts changed and keeping this calculation so we don't
->> need to change it twice for net and for net-next?
+On Wed, Nov 5, 2014 at 8:00 AM, Daniel Borkmann <borkmann@iogearbox.net> wrote:
+> [ moving to netdev ]
 >
-> I will be happy to review a v4 ;)
+> -------- Original Message --------
+> Subject: Kernel Oops in __inet_twsk_kill()
+> Date: Tue, 4 Nov 2014 23:47:18 +0000
+> From: Charley (Hao Chuan) Chu <charley.chu@broadcom.com>
+> To: linux-kernel@vger.kernel.org <linux-kernel@vger.kernel.org>
+>
+> We have situation on our system. It brings the network interface up and down
+> every
+> a few seconds. Eventually, it brings down the system - the kernel crashed
+> due to BUG
+> on in __inet_twsk_kill(). The debug message show following call flow.
+>
+> 1) time-wait socket is created by tcp_time_wait() when the socket gets into
+> "TIME_WAIT" state.
+>     inet_twsk_alloc()               - refcnt= 0
+>     inet_twsk_hashdance()  - refcnt = 3
+>     inet_twsk_schedule()      - refcnt = 4
+>     inet_twsk_put()                 - refcnt = 3
+> 2) tcp_v4_timewait_ack() is called when sync is received
+>     inet_twsk_put()                  - refcnt= 2      <== where we thing the
+> problem is
+>     occasionally, second sync is received, so the inet_twsk_put is called
+> twice - refcnt = 1
+> 3) twdr_do_twkill_work() is called when timed out
+>     call __inet_twsk_kill - BUG_ON!!! as refcnt=2 (supposed to be 3).
+>     call inet_twsk_put()
+>
+> In a normal case, the callflow only has step 1 and step 3.  Our
+> understanding is
+> the time-wait socket has three references - ehash, bhash and timer death
+> row. In
+> step 2, none of them are touched. Can anyone here explain to us why the
+> inet_twsk_put()
+> is called in tcp_v4_timewait_ack()?
+>
 
-No problem, I'll respin. ;)
-
-Thanks,
-Daniel
+It has been there for a rather long time, but this doesn't mean it is
+correct. Its caller calls inet_twsk_put() on error path, so smells wrong
+to call it on non-error path. But I don't look into this.
