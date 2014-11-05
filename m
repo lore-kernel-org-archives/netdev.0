@@ -1,75 +1,53 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next] r8152: disable the tasklet by default
-Date: Wed, 5 Nov 2014 10:17:02 +0800
-Message-ID: <1394712342-15778-83-Taiwan-albertk@realtek.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 1/4] inet: Add skb_copy_datagram_iter
+Date: Wed, 5 Nov 2014 10:22:51 +0800
+Message-ID: <20141105022251.GA19136@gondor.apana.org.au>
+References: <20141104033818.GA11149@gondor.apana.org.au>
+ <E1XlZWY-0003HZ-Ef@gondolin.me.apana.org.au>
+ <20141104143200.GC7996@ZenIV.linux.org.uk>
+ <20141104144258.GA14743@gondor.apana.org.au>
+ <20141104151353.GG7996@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
-	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtits2.realtek.com ([60.250.210.242]:57453 "EHLO
-	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752037AbaKECRW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Nov 2014 21:17:22 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Benjamin LaHaise <bcrl@kvack.org>
+To: Al Viro <viro@ZenIV.linux.org.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20141104151353.GG7996@ZenIV.linux.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Let the tasklet only be enabled after open(), and be disabled for
-the other situation. The tasklet is only necessary after open() for
-tx/rx, so it could be disabled by default.
+On Tue, Nov 04, 2014 at 03:13:55PM +0000, Al Viro wrote:
+> 
+> Think of it that way: every sendmsg/recvmsg path leading to memcpy_fromiovec
+> and its friends (including the open-coded ones) would need to be changed
+> at some point.  Assuming we do not end up passing struct iov_iter * as
+> an extra argument through a fairly large part of net/* (and that would
+> be prohibitively hard and messy, not to mention the effects on the stack
+> footprint, etc.), the most obvious strategy is to have that thing passed
+> where msg_iov/msg_iovlen are - in struct msghdr.  *IF* we go that way,
+> it makes a whole lot of sense to start with a bunch of cleanups that
+> will make sense on their own (most of callers of skb_copy_datagram_iovec
+> do look like skb_copy_datagram_iovec(skb, 0, msg->msg_iov, copied); might
+> as well give it an inlined helper) and will reduce the amount of places
+> where ->msg_iov is used.  With such cleanups standing on their own and
+> being splittable from the rest of the queue.  And leaving us with fewer
+> places in code that deal with ->msg_iov and need to be dealt with.
 
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
----
- drivers/net/usb/r8152.c | 8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
+I think your solution is great.  However, I don't see how my four
+patches impede in anyway the work that you're doing.  I presume
+your first patch will make skb_copy_datagram_msg just a wrapper
+around skb_copy_datagram_iovec.
 
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index 8ded08e..fd41675 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -2943,6 +2943,8 @@ static int rtl8152_open(struct net_device *netdev)
- 		netif_warn(tp, ifup, netdev, "intr_urb submit failed: %d\n",
- 			   res);
- 		free_all_mem(tp);
-+	} else {
-+		tasklet_enable(&tp->tl);
- 	}
- 
- 	mutex_unlock(&tp->control);
-@@ -2958,6 +2960,7 @@ static int rtl8152_close(struct net_device *netdev)
- 	struct r8152 *tp = netdev_priv(netdev);
- 	int res = 0;
- 
-+	tasklet_disable(&tp->tl);
- 	clear_bit(WORK_ENABLE, &tp->flags);
- 	usb_kill_urb(tp->intr_urb);
- 	cancel_delayed_work_sync(&tp->schedule);
-@@ -2975,9 +2978,7 @@ static int rtl8152_close(struct net_device *netdev)
- 		 */
- 		rtl_runtime_suspend_enable(tp, false);
- 
--		tasklet_disable(&tp->tl);
- 		tp->rtl_ops.down(tp);
--		tasklet_enable(&tp->tl);
- 
- 		mutex_unlock(&tp->control);
- 
-@@ -3887,12 +3888,15 @@ static int rtl8152_probe(struct usb_interface *intf,
- 	else
- 		device_set_wakeup_enable(&udev->dev, false);
- 
-+	tasklet_disable(&tp->tl);
-+
- 	netif_info(tp, probe, netdev, "%s\n", DRIVER_VERSION);
- 
- 	return 0;
- 
- out1:
- 	usb_set_intfdata(intf, NULL);
-+	tasklet_kill(&tp->tl);
- out:
- 	free_netdev(netdev);
- 	return ret;
+Since I'm not removing skb_copy_datagram_iovec (it can't be removed
+until all users are gone) you can still do that and when you're
+ready to switch over to iov_iter you can just move the wrapper over
+to skb_copy_datagram_iter.  No?
+
+Cheers,
 -- 
-1.9.3
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
