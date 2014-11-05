@@ -1,63 +1,68 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: Kernel Oops in __inet_twsk_kill()
-Date: Wed, 5 Nov 2014 10:00:25 -0800
-Message-ID: <CAHA+R7PAdVS=TBd8ZDAW3wdadjNEVjiyemrs54wNp8fdtCMvZQ@mail.gmail.com>
-References: <FB8A4655DFD2B34DB16AE06DDDD6C0E231A6F030@SJEXCHMB12.corp.ad.broadcom.com>
-	<545A49B4.7090107@iogearbox.net>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH net 0/5] Implement ndo_gso_check() for vxlan nics
+Date: Wed, 5 Nov 2014 10:00:53 -0800
+Message-ID: <CA+mtBx_BOmV+tOtio48M+xRatK79B31LoGnf4uvFJAbxYqOt_w@mail.gmail.com>
+References: <1415138202-1197-1-git-send-email-joestringer@nicira.com>
+	<CAJ3xEMjkxRg=uM+0kjOM0Zh84XYm_O6PiWoeYSw=LirU=ZJ+rA@mail.gmail.com>
+	<CANr6G5xtNYenhd8KDWx+kRcnSZ0fahUdAL+6Wcz=5_dNvrQR6Q@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: charley.chu@broadcom.com, netdev <netdev@vger.kernel.org>
-To: Daniel Borkmann <borkmann@iogearbox.net>
+Content-Transfer-Encoding: 8BIT
+Cc: Or Gerlitz <gerlitz.or@gmail.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"sathya.perla" <sathya.perla@emulex.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	"linux.nics" <linux.nics@intel.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	"shahed.shaikh" <shahed.shaikh@qlogic.com>,
+	dept-gelinuxnicdev <Dept-GELinuxNICDev@qlogic.com>,
+	Linux Kernel <linux-kernel@vger.kernel.org>
+To: Joe Stringer <joestringer@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f47.google.com ([209.85.192.47]:38651 "EHLO
-	mail-qg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752814AbaKESA1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2014 13:00:27 -0500
-Received: by mail-qg0-f47.google.com with SMTP id j107so12351464qga.20
-        for <netdev@vger.kernel.org>; Wed, 05 Nov 2014 10:00:25 -0800 (PST)
-In-Reply-To: <545A49B4.7090107@iogearbox.net>
+Received: from mail-ie0-f173.google.com ([209.85.223.173]:51809 "EHLO
+	mail-ie0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751036AbaKESAy convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2014 13:00:54 -0500
+Received: by mail-ie0-f173.google.com with SMTP id tr6so1233863ieb.32
+        for <netdev@vger.kernel.org>; Wed, 05 Nov 2014 10:00:53 -0800 (PST)
+In-Reply-To: <CANr6G5xtNYenhd8KDWx+kRcnSZ0fahUdAL+6Wcz=5_dNvrQR6Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 5, 2014 at 8:00 AM, Daniel Borkmann <borkmann@iogearbox.net> wrote:
-> [ moving to netdev ]
+On Wed, Nov 5, 2014 at 9:50 AM, Joe Stringer <joestringer@nicira.com> wrote:
 >
-> -------- Original Message --------
-> Subject: Kernel Oops in __inet_twsk_kill()
-> Date: Tue, 4 Nov 2014 23:47:18 +0000
-> From: Charley (Hao Chuan) Chu <charley.chu@broadcom.com>
-> To: linux-kernel@vger.kernel.org <linux-kernel@vger.kernel.org>
+> On 5 November 2014 04:38, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+>>
+>> On Tue, Nov 4, 2014 at 11:56 PM, Joe Stringer <joestringer@nicira.com> wrote:
+>> > Most NICs that report NETIF_F_GSO_UDP_TUNNEL support VXLAN, and not other
+>> > UDP-based encapsulation protocols where the format and size of the header may
+>> > differ. This patch series implements ndo_gso_check() for these NICs,
+>> > restricting the GSO handling to something that looks and smells like VXLAN.
+>> >
+>> > Implementation shamelessly stolen from Tom Herbert (with minor fixups):
+>> > http://thread.gmane.org/gmane.linux.network/332428/focus=333111
+>>
+>>
+>> Hi Joe,
+>>
+>> 1st, thanks for picking this task...2nd, for drivers that currently
+>> support only pure VXLAN, I don't see the point
+>> to replicate the helper suggested by Tom (good catch on the size check
+>> to be 16 and not 12) four times and who know how more in the future.
+>> Let's just have one generic helper and make the mlx4/be/fm10k/benet
+>> drivers to have it as their ndo, OK?
 >
-> We have situation on our system. It brings the network interface up and down
-> every
-> a few seconds. Eventually, it brings down the system - the kernel crashed
-> due to BUG
-> on in __inet_twsk_kill(). The debug message show following call flow.
 >
-> 1) time-wait socket is created by tcp_time_wait() when the socket gets into
-> "TIME_WAIT" state.
->     inet_twsk_alloc()               - refcnt= 0
->     inet_twsk_hashdance()  - refcnt = 3
->     inet_twsk_schedule()      - refcnt = 4
->     inet_twsk_put()                 - refcnt = 3
-> 2) tcp_v4_timewait_ack() is called when sync is received
->     inet_twsk_put()                  - refcnt= 2      <== where we thing the
-> problem is
->     occasionally, second sync is received, so the inet_twsk_put is called
-> twice - refcnt = 1
-> 3) twdr_do_twkill_work() is called when timed out
->     call __inet_twsk_kill - BUG_ON!!! as refcnt=2 (supposed to be 3).
->     call inet_twsk_put()
+> Thanks for taking a look.
 >
-> In a normal case, the callflow only has step 1 and step 3.  Our
-> understanding is
-> the time-wait socket has three references - ehash, bhash and timer death
-> row. In
-> step 2, none of them are touched. Can anyone here explain to us why the
-> inet_twsk_put()
-> is called in tcp_v4_timewait_ack()?
->
+> I had debated whether to do this or not as the actual support on each NIC may differ, and each implementation may morph over time to match these capabilities better. Obviously the vendors will know better than me on this, so I'm posing this series to prod them for more information. At this point I've had just one maintainer come back and confirm that this helper is a good fit for their hardware, so I'd like to confirm that multiple drivers will use a ndo_gso_check_vxlan_helper() function before I go and create it.
 
-It has been there for a rather long time, but this doesn't mean it is
-correct. Its caller calls inet_twsk_put() on error path, so smells wrong
-to call it on non-error path. But I don't look into this.
+
+Thanks for implementing this fix!
+
+Personally, I would rather not have the helper. This is already a
+small number of drivers, and each driver owner should consider what
+limitations are of their device and try to enable to allow the maximum
+number of use cases possible. I'm also hoping that new devices will
+implement the more generic mechanism so that VXLAN is just one
+supported protocol.
