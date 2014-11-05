@@ -1,7 +1,7 @@
 From: Dong Aisheng <b29396@freescale.com>
-Subject: [PATCH V2 2/4] can: m_can: workaround for transmit data less than 4 bytes
-Date: Wed, 5 Nov 2014 15:58:44 +0800
-Message-ID: <1415174326-6623-2-git-send-email-b29396@freescale.com>
+Subject: [PATCH V1 4/4] can: m_can: allow to send std frame on CAN FD mode
+Date: Wed, 5 Nov 2014 15:58:46 +0800
+Message-ID: <1415174326-6623-4-git-send-email-b29396@freescale.com>
 References: <1415174326-6623-1-git-send-email-b29396@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,53 +10,58 @@ Cc: <mkl@pengutronix.de>, <wg@grandegger.com>,
 	<socketcan@hartkopp.net>, <b29396@freescale.com>,
 	<linux-arm-kernel@lists.infradead.org>
 To: <linux-can@vger.kernel.org>
-Return-path: <linux-can-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn1bon0143.outbound.protection.outlook.com ([157.56.111.143]:61143
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751477AbaKEJF2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Nov 2014 04:05:28 -0500
 In-Reply-To: <1415174326-6623-1-git-send-email-b29396@freescale.com>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-At least on the i.MX6SX with M_CAN IP version 3.0.x, an issue with
-the Message RAM was discovered. Sending CAN frames with dlc less
-than 4 bytes will lead to bit errors, when the first 8 bytes of
-the Message RAM have not been initialized (i.e. written to).
-To work around this issue, the first 8 bytes are initialized in open()
-function.
+The current code sends all CAN frames on CAN FD format(with BRS or not)
+if CAN_CTRLMODE_FD is enabled.
+However, even CAN_CTRLMODE_FD is enabled, the can tool may still
+send normal frames.
+e.g.
+ip link set can0 up type can bitrate 1000000 dbitrate 1000000 fd on
+cansend can0 123#112233
 
-Without the workaround, we can easily see the following errors:
-root@imx6qdlsolo:~# ip link set can0 up type can bitrate 1000000
-[   66.882520] IPv6: ADDRCONF(NETDEV_CHANGE): can0: link becomes ready
-root@imx6qdlsolo:~# cansend can0 123#112233
-[   66.935640] m_can 20e8000.can can0: Bit Error Uncorrected
+Therefore sending normal CAN frame on FD format seems not reasonable
+and the CAN FD incapable device may not be able to receive it correctly.
+
+The patch switches the M_CAN operation mode to ISO11898-1 instead of
+staying on CAN FD operation mode by writing "11" to CMR bit if find
+we're sending a normal can skb.
 
 Signed-off-by: Dong Aisheng <b29396@freescale.com>
 ---
-ChangeLog since v1:
- * initialize the first 8 bytes of Tx Buffer of Message RAM in open()
-   to workaround the issue
----
- drivers/net/can/m_can/m_can.c | 9 +++++++++
- 1 file changed, 9 insertions(+)
+ drivers/net/can/m_can/m_can.c | 12 ++++++++----
+ 1 file changed, 8 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/can/m_can/m_can.c b/drivers/net/can/m_can/m_can.c
-index 664fe30..f47c200 100644
+index f47c200..219c4b7 100644
 --- a/drivers/net/can/m_can/m_can.c
 +++ b/drivers/net/can/m_can/m_can.c
-@@ -902,6 +902,15 @@ static void m_can_chip_config(struct net_device *dev)
- 	/* set bittiming params */
- 	m_can_set_bittiming(dev);
- 
-+	/* At least on the i.MX6SX with M_CAN IP version 3.0.x, an issue with
-+	 * the Message RAM was discovered. Sending CAN frames with dlc less
-+	 * than 4 bytes will lead to bit errors, when the first 8 bytes of
-+	 * the Message RAM have not been initialized (i.e. written to).
-+	 * To work around this issue, the first 8 bytes are initialized here.
-+	 */
-+	m_can_fifo_write(priv, 0, M_CAN_FIFO_DATA(0), 0x0);
-+	m_can_fifo_write(priv, 0, M_CAN_FIFO_DATA(1), 0x0);
-+
- 	m_can_config_endisable(priv, false);
- }
+@@ -1080,10 +1080,14 @@ static netdev_tx_t m_can_start_xmit(struct sk_buff *skb,
+ 	if (priv->can.ctrlmode & CAN_CTRLMODE_FD) {
+ 		cccr = m_can_read(priv, M_CAN_CCCR);
+ 		cccr &= ~(CCCR_CMR_MASK << CCCR_CMR_SHIFT);
+-		if (cf->flags & CANFD_BRS)
+-			cccr |= CCCR_CMR_CANFD_BRS << CCCR_CMR_SHIFT;
+-		else
+-			cccr |= CCCR_CMR_CANFD << CCCR_CMR_SHIFT;
++		if (can_is_canfd_skb(skb)) {
++			if (cf->flags & CANFD_BRS)
++				cccr |= CCCR_CMR_CANFD_BRS << CCCR_CMR_SHIFT;
++			else
++				cccr |= CCCR_CMR_CANFD << CCCR_CMR_SHIFT;
++		} else {
++			cccr |= CCCR_CMR_CAN << CCCR_CMR_SHIFT;
++		}
+ 		m_can_write(priv, M_CAN_CCCR, cccr);
+ 	}
  
 -- 
 1.9.1
-
