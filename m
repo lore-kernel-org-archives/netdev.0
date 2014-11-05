@@ -1,53 +1,79 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: mv643xx_eth: reclaim TX skbs only when released by
- the HW
-Date: Wed, 05 Nov 2014 07:41:15 -0800
-Message-ID: <1415202075.12206.0.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1415197979-1702-1-git-send-email-karl.beldan@gmail.com>
-	 <545A3838.3090606@free-electrons.com>
+From: Ulf Samuelsson <ulf.samuelsson@ericsson.com>
+Subject: Re: Possible bug in net/core/neighbor.c
+Date: Wed, 5 Nov 2014 16:46:06 +0100
+Message-ID: <545A463E.2030005@ericsson.com>
+References: <5459FFEA.3000101@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Karl Beldan <karl.beldan@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Ian Campbell <ijc@hellion.org.uk>,
-	Karl Beldan <karl.beldan@rivierawaves.com>,
-	netdev@vger.kernel.org,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f180.google.com ([209.85.213.180]:48184 "EHLO
-	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751198AbaKEPlS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2014 10:41:18 -0500
-Received: by mail-ig0-f180.google.com with SMTP id h3so1600451igd.1
-        for <netdev@vger.kernel.org>; Wed, 05 Nov 2014 07:41:17 -0800 (PST)
-In-Reply-To: <545A3838.3090606@free-electrons.com>
+Received: from sesbmg22.ericsson.net ([193.180.251.48]:59808 "EHLO
+	sesbmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755130AbaKEPqT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2014 10:46:19 -0500
+In-Reply-To: <5459FFEA.3000101@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-11-05 at 11:46 -0300, Ezequiel Garcia wrote:
-> Hi Karl,
-> 
-> On 11/05/2014 11:32 AM, Karl Beldan wrote:> From: Karl Beldan <karl.beldan@rivierawaves.com>
-> > 
-> > ATM, txq_reclaim will dequeue and free an skb for each tx desc released
-> > by the hw that has TX_LAST_DESC set. However, in case of TSO, each
-> > hw desc embedding the last part of a segment has TX_LAST_DESC set,
-> > losing the one-to-one 'last skb frag'/'TX_LAST_DESC set' correspondance,
-> > which causes data corruption.
-> > 
-> > Fix this by checking TX_ENABLE_INTERRUPT instead of TX_LAST_DESC, and
-> > warn when trying to dequeue from an empty txq (which can be symptomatic
-> > of releasing skbs prematurely).
-> > 
-> > Fixes: 3ae8f4e0b98 ('net: mv643xx_eth: Implement software TSO')
-> 
-> Although your change makes sense, this isn't fixing the issue for me,
-> neither did the previous one.
-> 
-> Ian: Can you double check that you have corruption *without* the patch,
-> and that the patch fixes the issue?
-> 
+On 11/05/2014 11:46 AM, Ulf Samuelsson wrote:
+> I find the following in "net/core/neighbor.c"
+>
+>     /* Compare new lladdr with cached one */
+>     if (!dev->addr_len) {
+>         /* First case: device needs no address. */
+>         lladdr = neigh->ha;
+>     } else if (lladdr) {
+>         /* The second case: if something is already cached
+>            and a new address is proposed:
+>            - compare new & old
+>            - if they are different, check override flag
+>          */
+>
+>         /* POSSIBLE BUG */
+>         if ((old & NUD_VALID) &&
+>             !memcmp(lladdr, neigh->ha, dev->addr_len))
+>             lladdr = neigh->ha;
+>         /* END POSSIBLE BUG */
+>     } else {
+>         /* No address is supplied; if we know something,
+>            use it, otherwise discard the request.
+>          */
+>         err = -EINVAL;
+>         if (!(old & NUD_VALID))
+>             goto out;
+>         lladdr = neigh->ha;
+>     }
+>
+>     It looks to me like the code is saying
+>         if the proposed address is equal to the original address,
+>             set the proposed address  to the original address.
+>
+>     which is pretty meaningless.
+>
+>     Should it not be:
+>
+>         if ((old & NUD_VALID) &&
+>             memcmp(lladdr, neigh->ha, dev->addr_len))    /* True if 
+> addresses are not equal */
+>             neigh->ha = lladdr;             /* Update to new address */
+>
+>     If not, I would appreciate an explanation what the code is doing.
+>
+OK, I think I figured it out.
 
-Have you also applied my patch ?
+If laddr and neigh->ha are identical, we want lladdr (which is a pointer)
+to have the same value as neigh->ha so after this, you know that
+laddr is identical to neigh->ha by justr comparing the pointers.
+
+When I google, I only find other people which does not understand
+the purpose of the code.
+
+The comments are also obsolete, since "check override flag" refers
+to code which has been removed.
+
+Best Regards,
+Ulf Samuelsson
+KI/EAB/ILM/GF
+ulf.samuelsson@ericsson.com
++46 722 427 437
