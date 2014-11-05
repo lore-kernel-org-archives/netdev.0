@@ -1,70 +1,93 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH V3 2/3] can: m_can: update to support CAN FD features
-Date: Wed, 05 Nov 2014 15:31:21 +0100
-Message-ID: <545A34B9.2060001@pengutronix.de>
-References: <1415193393-30023-1-git-send-email-b29396@freescale.com> <1415193393-30023-2-git-send-email-b29396@freescale.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="n2uof6CVanXhGMk20TwpPqjLshS8AV6FT"
-Cc: wg@grandegger.com, varkabhadram@gmail.com, netdev@vger.kernel.org,
-	socketcan@hartkopp.net, linux-arm-kernel@lists.infradead.org
-To: Dong Aisheng <b29396@freescale.com>, linux-can@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1415193393-30023-2-git-send-email-b29396@freescale.com>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Karl Beldan <karl.beldan@gmail.com>
+Subject: [PATCH] net: mv643xx_eth: reclaim TX skbs only when released by the HW
+Date: Wed,  5 Nov 2014 15:32:59 +0100
+Message-ID: <1415197979-1702-1-git-send-email-karl.beldan@gmail.com>
+Cc: Karl Beldan <karl.beldan@rivierawaves.com>, netdev@vger.kernel.org,
+	Ian Campbell <ijc@hellion.org.uk>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f181.google.com ([209.85.212.181]:55734 "EHLO
+	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753898AbaKEOdd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2014 09:33:33 -0500
+Received: by mail-wi0-f181.google.com with SMTP id n3so2170643wiv.14
+        for <netdev@vger.kernel.org>; Wed, 05 Nov 2014 06:33:32 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---n2uof6CVanXhGMk20TwpPqjLshS8AV6FT
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+From: Karl Beldan <karl.beldan@rivierawaves.com>
 
-On 11/05/2014 02:16 PM, Dong Aisheng wrote:
-> Bosch M_CAN is CAN FD capable device. This patch implements the CAN
-> FD features include up to 64 bytes payload and bitrate switch function.=
+ATM, txq_reclaim will dequeue and free an skb for each tx desc released
+by the hw that has TX_LAST_DESC set. However, in case of TSO, each
+hw desc embedding the last part of a segment has TX_LAST_DESC set,
+losing the one-to-one 'last skb frag'/'TX_LAST_DESC set' correspondance,
+which causes data corruption.
 
-> 1) Change the Rx FIFO and Tx Buffer to 64 bytes for support CAN FD
->    up to 64 bytes payload. It's backward compatible with old 8 bytes
->    normal CAN frame.
-> 2) Allocate can frame or canfd frame based on EDL bit
-> 3) Bitrate Switch function is disabled by default and will be enabled
->    according to CANFD_BRS bit in cf->flags.
->=20
-> Signed-off-by: Dong Aisheng <b29396@freescale.com>
+Fix this by checking TX_ENABLE_INTERRUPT instead of TX_LAST_DESC, and
+warn when trying to dequeue from an empty txq (which can be symptomatic
+of releasing skbs prematurely).
 
-I'm waiting on Oliver's Ack on this patch, then I'll apply 1+2.
+Fixes: 3ae8f4e0b98 ('net: mv643xx_eth: Implement software TSO')
+Reported-by: Slawomir Gajzner <slawomir.gajzner@gmail.com>
+Reported-by: Julien D'Ascenzio <jdascenzio@yahoo.fr>
+Signed-off-by: Karl Beldan <karl.beldan@rivierawaves.com>
+Cc: Ian Campbell <ijc@hellion.org.uk>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+Cc: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+---
+Ian, I refrained myself from embedding your Tested-by since this change is a
+little bit different from my first.
+David, please consider queueing this one up for -stable, and possibly adjust
+Ian's Tested-by (I am not sure about the process).
 
-regards,
-Marc
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+ drivers/net/ethernet/marvell/mv643xx_eth.c | 18 ++++++++++--------
+ 1 file changed, 10 insertions(+), 8 deletions(-)
 
-
---n2uof6CVanXhGMk20TwpPqjLshS8AV6FT
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJUWjS5AAoJECte4hHFiupUy8IP/3/GvGV9t5hZkXlvHEBHPvid
-4W9AIJtEMKZacUogKRx94mmkuWKP2Qq2sIqbbhECjPzYOx7Fgmcw3R2am9IPLEV0
-6Mv/Oqlgrb7baRGMdafTjonwNGiNCoaKEwUV7t6QPJNSixB8CPfuJwDYNp7yWgOg
-mVrEI98JNtYMVCyY1gO2DK3qRzY4DBvJ8mjOVfvY3s+OcpMjhReSyB9MKEH534jM
-DAtXRBpUTxE1LTjEdJ+HbywbYCWC9sTjP0BHPMtqV1e25cLszWL7oUxGl5rwFK8Z
-jyHcXhItlcZJ2PAiPdZdcJYVr7ez2J5bPS7XOP5FoNP/7W9MLohjub6UWZcd77oY
-UZud9t3dmSEam/Sgvmue9/SAZoJi4wPDni68nO2oYycAEz+bE8wwJ/eQkNe875J/
-BANRXhVDsi0PB7bpGRSksK6EazZjbTY03YuDm3Krs/z4kHyQ9vkz7xu5MxJUnlYb
-yLTkff6xAoFoERqInZfm1Pxb6uE59shEpwDPkJfwUDu/7yk6p3AjLQopaUbuZKjB
-LU9/sq7atq/lvyAYtnoIYesFepQ7eoLtjWm3cjbyhaoLWzW+4at+dqio/nUvfU2Q
-qZGgdj2y7r5LYnTDBmowq/xPGAHohzeZaEfo7wVaN5xodFoTYI/mJnMhYDcLYxH8
-wExIlhEdg+RymLvtpQp9
-=dKDD
------END PGP SIGNATURE-----
-
---n2uof6CVanXhGMk20TwpPqjLshS8AV6FT--
+diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
+index b151a94..d44560d 100644
+--- a/drivers/net/ethernet/marvell/mv643xx_eth.c
++++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
+@@ -1047,7 +1047,6 @@ static int txq_reclaim(struct tx_queue *txq, int budget, int force)
+ 		int tx_index;
+ 		struct tx_desc *desc;
+ 		u32 cmd_sts;
+-		struct sk_buff *skb;
+ 
+ 		tx_index = txq->tx_used_desc;
+ 		desc = &txq->tx_desc_area[tx_index];
+@@ -1066,19 +1065,22 @@ static int txq_reclaim(struct tx_queue *txq, int budget, int force)
+ 		reclaimed++;
+ 		txq->tx_desc_count--;
+ 
+-		skb = NULL;
+-		if (cmd_sts & TX_LAST_DESC)
+-			skb = __skb_dequeue(&txq->tx_skb);
++		if (!IS_TSO_HEADER(txq, desc->buf_ptr))
++			dma_unmap_single(mp->dev->dev.parent, desc->buf_ptr,
++					 desc->byte_cnt, DMA_TO_DEVICE);
++
++		if (cmd_sts & TX_ENABLE_INTERRUPT) {
++			struct sk_buff *skb = __skb_dequeue(&txq->tx_skb);
++
++			if (!WARN_ON(!skb))
++				dev_kfree_skb(skb);
++		}
+ 
+ 		if (cmd_sts & ERROR_SUMMARY) {
+ 			netdev_info(mp->dev, "tx error\n");
+ 			mp->dev->stats.tx_errors++;
+ 		}
+ 
+-		if (!IS_TSO_HEADER(txq, desc->buf_ptr))
+-			dma_unmap_single(mp->dev->dev.parent, desc->buf_ptr,
+-					 desc->byte_cnt, DMA_TO_DEVICE);
+-		dev_kfree_skb(skb);
+ 	}
+ 
+ 	__netif_tx_unlock_bh(nq);
+-- 
+2.0.1
