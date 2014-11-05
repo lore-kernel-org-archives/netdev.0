@@ -1,61 +1,42 @@
-From: Karl Beldan <karl.beldan@gmail.com>
-Subject: Re: [PATCH] net: mv643xx_eth: reclaim TX skbs only when released by
- the HW
-Date: Wed, 5 Nov 2014 19:31:45 +0100
-Message-ID: <20141105183145.GA9043@magnum.frso.rivierawaves.com>
-References: <1415197979-1702-1-git-send-email-karl.beldan@gmail.com>
- <545A3838.3090606@free-electrons.com>
- <20141105150521.GA25354@magnum.frso.rivierawaves.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: Can ndo_select_queue save data in skb->cb?
+Date: Wed, 5 Nov 2014 10:38:51 -0800
+Message-ID: <CAHA+R7M2k8_9C8=kdAJT1nSFDhKfV2HwvTo0nX-tVDJQvXjy+w@mail.gmail.com>
+References: <545A64EC.309@openvpn.net>
+	<1415211391.13896.10.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: David Miller <davem@davemloft.net>,
-	Ian Campbell <ijc@hellion.org.uk>,
-	Karl Beldan <karl.beldan@rivierawaves.com>,
-	netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: James Yonan <james@openvpn.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:37557 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751171AbaKESby (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2014 13:31:54 -0500
-Received: by mail-wi0-f174.google.com with SMTP id d1so13278401wiv.1
-        for <netdev@vger.kernel.org>; Wed, 05 Nov 2014 10:31:51 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20141105150521.GA25354@magnum.frso.rivierawaves.com>
+Received: from mail-qg0-f45.google.com ([209.85.192.45]:48508 "EHLO
+	mail-qg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750990AbaKESiw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2014 13:38:52 -0500
+Received: by mail-qg0-f45.google.com with SMTP id z107so12645010qgd.18
+        for <netdev@vger.kernel.org>; Wed, 05 Nov 2014 10:38:51 -0800 (PST)
+In-Reply-To: <1415211391.13896.10.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 05, 2014 at 04:05:21PM +0100, Karl Beldan wrote:
-> On Wed, Nov 05, 2014 at 11:46:16AM -0300, Ezequiel Garcia wrote:
-> > Hi Karl,
-> > 
-> > On 11/05/2014 11:32 AM, Karl Beldan wrote:> From: Karl Beldan <karl.beldan@rivierawaves.com>
-> > > 
-> > > ATM, txq_reclaim will dequeue and free an skb for each tx desc released
-> > > by the hw that has TX_LAST_DESC set. However, in case of TSO, each
-> > > hw desc embedding the last part of a segment has TX_LAST_DESC set,
-> > > losing the one-to-one 'last skb frag'/'TX_LAST_DESC set' correspondance,
-> > > which causes data corruption.
-> > > 
-> > > Fix this by checking TX_ENABLE_INTERRUPT instead of TX_LAST_DESC, and
-> > > warn when trying to dequeue from an empty txq (which can be symptomatic
-> > > of releasing skbs prematurely).
-> > > 
-> > > Fixes: 3ae8f4e0b98 ('net: mv643xx_eth: Implement software TSO')
-> > 
-> > Although your change makes sense, this isn't fixing the issue for me,
-> > neither did the previous one.
-> > 
-> This change fixes a serious issue.
-> On my side I can now trigger misc NFS and md5sums errors very easily,
-> which I haven't detected so far with it applied.
-> Are you running little endian ? Do you have the tso alignment fix
-> a63ba13e (I don't expect it to be required but I don't know what SoC you
-> are using) ? I suppose you are running with all 3 fixes applied.
->  
-Also, I haven't checked SMP issues and I only have one core, if you are
-using SMP it might be worth looking into that, maybe try running on one
-core only (I only have an MV78200).
- 
-Karl
+On Wed, Nov 5, 2014 at 10:16 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Wed, 2014-11-05 at 10:57 -0700, James Yonan wrote:
+>> Is it permissible for a net driver's ndo_select_queue method to save
+>> data in skb->cb for later use in ndo_start_xmit?
+>>
+>> Also, is it necessary for users of skb->cb to zero out their private
+>> data after use to prevent it from being misinterpreted by other layers?
+>>   I noticed some commits in the log (such as 462fb2) are zeroing out the
+>> skb->cb area for this reason.
+>
+> Its ok to use skb->cb[] from ndo_select_queue()
+>
+> Look at bond_select_queue() for such a case.
+>
+> You do not need to cleanup skb->cb[] to zero before giving skb to the
+> driver.
+>
+
+That is only because qdisc layer saves data for bond,
+which means if you have more data to save, you have to put
+more into qdisc CB, it is just ugly.
