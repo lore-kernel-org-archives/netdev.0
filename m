@@ -1,143 +1,109 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH V2 1/4] can: m_can: update to support CAN FD features
-Date: Wed, 05 Nov 2014 11:12:24 +0100
-Message-ID: <5459F808.3020903@hartkopp.net>
-References: <1415174326-6623-1-git-send-email-b29396@freescale.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH V2 2/4] can: m_can: workaround for transmit data less
+ than 4 bytes
+Date: Wed, 05 Nov 2014 11:17:48 +0100
+Message-ID: <5459F94C.1030506@pengutronix.de>
+References: <1415174326-6623-1-git-send-email-b29396@freescale.com> <1415174326-6623-2-git-send-email-b29396@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: mkl@pengutronix.de, wg@grandegger.com, varkabhadram@gmail.com,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="e0LjrM5Dx3cFj3uw6fqiW2j5xb6IrhK6B"
+Cc: wg@grandegger.com, varkabhadram@gmail.com, netdev@vger.kernel.org,
+	socketcan@hartkopp.net, linux-arm-kernel@lists.infradead.org
 To: Dong Aisheng <b29396@freescale.com>, linux-can@vger.kernel.org
 Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1415174326-6623-1-git-send-email-b29396@freescale.com>
+In-Reply-To: <1415174326-6623-2-git-send-email-b29396@freescale.com>
 Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 05.11.2014 08:58, Dong Aisheng wrote:
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--e0LjrM5Dx3cFj3uw6fqiW2j5xb6IrhK6B
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-> @@ -327,41 +357,65 @@ static inline void m_can_disable_all_interrupts(const struct m_can_priv *priv)
->   	m_can_write(priv, M_CAN_ILE, 0x0);
->   }
->
-> -static void m_can_read_fifo(const struct net_device *dev, struct can_frame *cf,
-> -			    u32 rxfs)
-> +static void m_can_read_fifo(struct net_device *dev, u32 rxfs)
->   {
-> +	struct net_device_stats *stats = &dev->stats;
->   	struct m_can_priv *priv = netdev_priv(dev);
-> -	u32 id, fgi;
-> +	struct canfd_frame *cf;
-> +	struct sk_buff *skb;
-> +	u32 id, fgi, dlc;
-> +	int i;
->
->   	/* calculate the fifo get index for where to read data */
->   	fgi = (rxfs & RXFS_FGI_MASK) >> RXFS_FGI_OFF;
-> +	dlc = m_can_fifo_read(priv, fgi, M_CAN_FIFO_DLC);
-> +	if (dlc & RX_BUF_EDL)
-> +		skb = alloc_canfd_skb(dev, &cf);
-> +	else
-> +		skb = alloc_can_skb(dev, (struct can_frame **)&cf);
+On 11/05/2014 08:58 AM, Dong Aisheng wrote:
+> At least on the i.MX6SX with M_CAN IP version 3.0.x, an issue with
 
-Yes. That's the way it should look like ;-)
+Can you add the imx mask revision, too and the exact m_can version (is
+available).
 
-> +	if (!skb) {
-> +		stats->rx_dropped++;
-> +		return;
-> +	}
+> the Message RAM was discovered. Sending CAN frames with dlc less
+> than 4 bytes will lead to bit errors, when the first 8 bytes of
+> the Message RAM have not been initialized (i.e. written to).
+> To work around this issue, the first 8 bytes are initialized in open()
+> function.
+>=20
+> Without the workaround, we can easily see the following errors:
+> root@imx6qdlsolo:~# ip link set can0 up type can bitrate 1000000
+> [   66.882520] IPv6: ADDRCONF(NETDEV_CHANGE): can0: link becomes ready
+> root@imx6qdlsolo:~# cansend can0 123#112233
+> [   66.935640] m_can 20e8000.can can0: Bit Error Uncorrected
+>=20
+> Signed-off-by: Dong Aisheng <b29396@freescale.com>
+> ---
+> ChangeLog since v1:
+>  * initialize the first 8 bytes of Tx Buffer of Message RAM in open()
+>    to workaround the issue
+> ---
+>  drivers/net/can/m_can/m_can.c | 9 +++++++++
+>  1 file changed, 9 insertions(+)
+>=20
+> diff --git a/drivers/net/can/m_can/m_can.c b/drivers/net/can/m_can/m_ca=
+n.c
+> index 664fe30..f47c200 100644
+> --- a/drivers/net/can/m_can/m_can.c
+> +++ b/drivers/net/can/m_can/m_can.c
+> @@ -902,6 +902,15 @@ static void m_can_chip_config(struct net_device *d=
+ev)
+>  	/* set bittiming params */
+>  	m_can_set_bittiming(dev);
+> =20
+> +	/* At least on the i.MX6SX with M_CAN IP version 3.0.x, an issue with=
+
+> +	 * the Message RAM was discovered. Sending CAN frames with dlc less
+> +	 * than 4 bytes will lead to bit errors, when the first 8 bytes of
+> +	 * the Message RAM have not been initialized (i.e. written to).
+> +	 * To work around this issue, the first 8 bytes are initialized here.=
+
+> +	 */
+> +	m_can_fifo_write(priv, 0, M_CAN_FIFO_DATA(0), 0x0);
+> +	m_can_fifo_write(priv, 0, M_CAN_FIFO_DATA(1), 0x0);
 > +
->   	id = m_can_fifo_read(priv, fgi, M_CAN_FIFO_ID);
->   	if (id & RX_BUF_XTD)
->   		cf->can_id = (id & CAN_EFF_MASK) | CAN_EFF_FLAG;
->   	else
->   		cf->can_id = (id >> 18) & CAN_SFF_MASK;
->
-> -	if (id & RX_BUF_RTR) {
-> +	if (id & RX_BUF_ESI) {
-> +		cf->flags |= CANFD_ESI;
-> +		netdev_dbg(dev, "ESI Error\n");
-> +	}
-> +
-> +	if (!(dlc & RX_BUF_EDL) && (id & RX_BUF_RTR)) {
->   		cf->can_id |= CAN_RTR_FLAG;
->   	} else {
->   		id = m_can_fifo_read(priv, fgi, M_CAN_FIFO_DLC);
-> -		cf->can_dlc = get_can_dlc((id >> 16) & 0x0F);
-> -		*(u32 *)(cf->data + 0) = m_can_fifo_read(priv, fgi,
-> -							 M_CAN_FIFO_DATA(0));
-> -		*(u32 *)(cf->data + 4) = m_can_fifo_read(priv, fgi,
-> -							 M_CAN_FIFO_DATA(1));
-> +		cf->len = can_dlc2len(get_canfd_dlc((id >> 16) & 0x0F));
+>  	m_can_config_endisable(priv, false);
+>  }
+> =20
+>=20
 
-if (dlc & RX_BUF_EDL)
-	cf->len = can_dlc2len((id >> 16) & 0x0F);
-else
-	cf->len = get_can_dlc((id >> 16) & 0x0F);
+Marc
 
-(..)
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
-> @@ -804,7 +870,8 @@ static void m_can_chip_config(struct net_device *dev)
->   		    RXFC_FWM_1 | priv->mcfg[MRAM_RXF1].off);
->
->   	cccr = m_can_read(priv, M_CAN_CCCR);
-> -	cccr &= ~(CCCR_TEST | CCCR_MON);
-> +	cccr &= ~(CCCR_TEST | CCCR_MON | (CCCR_CMR_MASK << CCCR_CMR_SHIFT) |
-> +		(CCCR_CME_MASK << CCCR_CME_SHIFT));
->   	test = m_can_read(priv, M_CAN_TEST);
->   	test &= ~TEST_LBCK;
->
-> @@ -816,6 +883,9 @@ static void m_can_chip_config(struct net_device *dev)
->   		test |= TEST_LBCK;
->   	}
->
-> +	if (priv->can.ctrlmode & CAN_CTRLMODE_FD)
-> +		cccr |= CCCR_CME_CANFD_BRS << CCCR_CME_SHIFT;
-> +
->   	m_can_write(priv, M_CAN_CCCR, cccr);
->   	m_can_write(priv, M_CAN_TEST, test);
->
 
-(..)
+--e0LjrM5Dx3cFj3uw6fqiW2j5xb6IrhK6B
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
->
-> +	if (priv->can.ctrlmode & CAN_CTRLMODE_FD) {
-> +		cccr = m_can_read(priv, M_CAN_CCCR);
-> +		cccr &= ~(CCCR_CMR_MASK << CCCR_CMR_SHIFT);
-> +		if (cf->flags & CANFD_BRS)
-> +			cccr |= CCCR_CMR_CANFD_BRS << CCCR_CMR_SHIFT;
-> +		else
-> +			cccr |= CCCR_CMR_CANFD << CCCR_CMR_SHIFT;
-> +		m_can_write(priv, M_CAN_CCCR, cccr);
-> +	}
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
 
-Unfortunately No. Here it becomes complicated due to the fact that the 
-revision 3.0.x does not support per-frame switching for FD/BRS ...
+iQIcBAEBAgAGBQJUWflMAAoJECte4hHFiupUKlYQAJQ3rjPY+6SLHlRtDr3hetHd
+WT0AQpcmSs0HGCxQXe5i7TlN2dR+tyiC6r8TSVDBzUwETV77fwufWzQTp2b8fy3L
+KJiEHxVnQGaU5g3m+EAZO3rJHndvWeruW9Zpmzoy/FSvPlGpQO3uiTPj/hhtI2T0
+DXBUdtgDf4pIbaPjOLQE7Gdd1DNdcyFZwZ2XZb6nUqusliBCwbO87Aat92WjbELX
++H0ukQggjVF5rddsKPWVNEl4H0CsdjkZHjDL21C1D++RYAZMOv9rmYiWNoDmZPel
+d6RnnB72nEq4T0OIldmAvZnQa5Fkdvc9Nns2IQ/3wU8zBjKslLm8UgZG8eR11Xpw
+q0fxn2o+/vOK7mpN0RhnXHffRacEQKpVBkPQP5+kvpsvT6LHgXBG9FqYIi4Xsa8h
+tDIl7npJ8D6N35fJ32ekxYpTULaOKS58siRwkcB+5iG4FF8zYLIK4LFF/9B7reLU
+Ih7POTLeKzIr+G4kQvNgLeSJEHj77xsJAi4dZKo1f4HBcDnjn6YIjgFcIIt0QqoL
+ANTHT/Rv3yiUQowzOi3R3RqptT9ydelXNCD/6iN+lGI1YN8XrXrKQE+/uTbnlA07
+K1ZyYEMwRqhGKyWINYdm0jFPLra1mnE9aMnK6bximLbi4wQrS5DSc7oZETfjR6wB
+E6mcUBSdQRYcPHK1USiY
+=WITG
+-----END PGP SIGNATURE-----
 
-When (priv->can.ctrlmode & CAN_CTRLMODE_FD) is true this *only* tells us, that 
-the controller is _capable_ to send either CAN or CAN FD frames.
-
-It does not configure the controller into one of these specific settings!
-
-Additionally: AFAIK when writing to the CCCR you have to make sure that 
-there's currently no ongoing transfer.
-
-I would suggest the following approach to make the revision 3.0.x act like a 
-correct CAN FD capable controller:
-
-- create a helper function to switch FD and BRS while taking care of ongoing 
-transmissions
-
-- create a variable that knows the current tx_mode for FD and BRS
-
-When we need to send a CAN frame which doesn't fit the settings in the tx_mode 
-we need to switch the CCCR and update the tx_mode variable.
-
-This at least reduces the needed CCCR operations.
-
-And it also addresses the intention of your patch
-[PATCH V1 4/4] can: m_can: allow to send std frame on CAN FD mode
-
-Regards,
-Oliver
-
+--e0LjrM5Dx3cFj3uw6fqiW2j5xb6IrhK6B--
