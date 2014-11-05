@@ -1,72 +1,63 @@
-From: Ian Campbell <ijc@hellion.org.uk>
-Subject: Re: [PATCH] net: mv643xx_eth: reclaim TX skbs only when released by
- the HW
-Date: Wed, 05 Nov 2014 19:04:15 +0000
-Message-ID: <1415214255.31613.9.camel@hellion.org.uk>
-References: <1415197979-1702-1-git-send-email-karl.beldan@gmail.com>
-	 <545A3838.3090606@free-electrons.com>
-	 <1415202075.12206.0.camel@edumazet-glaptop2.roam.corp.google.com>
+From: "Charley (Hao Chuan) Chu" <charley.chu@broadcom.com>
+Subject: RE: Kernel Oops in __inet_twsk_kill()
+Date: Wed, 5 Nov 2014 19:16:09 +0000
+Message-ID: <FB8A4655DFD2B34DB16AE06DDDD6C0E231A71CE3@SJEXCHMB12.corp.ad.broadcom.com>
+References: <FB8A4655DFD2B34DB16AE06DDDD6C0E231A6F030@SJEXCHMB12.corp.ad.broadcom.com>
+	<545A49B4.7090107@iogearbox.net>
+ <CAHA+R7PAdVS=TBd8ZDAW3wdadjNEVjiyemrs54wNp8fdtCMvZQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
-	Karl Beldan <karl.beldan@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Karl Beldan <karl.beldan@rivierawaves.com>,
-	netdev@vger.kernel.org,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev <netdev@vger.kernel.org>
+To: Cong Wang <cwang@twopensource.com>,
+	Daniel Borkmann <borkmann@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from benson.vm.bytemark.co.uk ([212.110.190.137]:50609 "EHLO
-	benson.vm.bytemark.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751016AbaKETEV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2014 14:04:21 -0500
-In-Reply-To: <1415202075.12206.0.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:56122 "EHLO
+	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751081AbaKETQJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2014 14:16:09 -0500
+In-Reply-To: <CAHA+R7PAdVS=TBd8ZDAW3wdadjNEVjiyemrs54wNp8fdtCMvZQ@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-11-05 at 07:41 -0800, Eric Dumazet wrote:
-> On Wed, 2014-11-05 at 11:46 -0300, Ezequiel Garcia wrote:
-> > Hi Karl,
-> > 
-> > On 11/05/2014 11:32 AM, Karl Beldan wrote:> From: Karl Beldan <karl.beldan@rivierawaves.com>
-> > > 
-> > > ATM, txq_reclaim will dequeue and free an skb for each tx desc released
-> > > by the hw that has TX_LAST_DESC set. However, in case of TSO, each
-> > > hw desc embedding the last part of a segment has TX_LAST_DESC set,
-> > > losing the one-to-one 'last skb frag'/'TX_LAST_DESC set' correspondance,
-> > > which causes data corruption.
-> > > 
-> > > Fix this by checking TX_ENABLE_INTERRUPT instead of TX_LAST_DESC, and
-> > > warn when trying to dequeue from an empty txq (which can be symptomatic
-> > > of releasing skbs prematurely).
-> > > 
-> > > Fixes: 3ae8f4e0b98 ('net: mv643xx_eth: Implement software TSO')
-> > 
-> > Although your change makes sense, this isn't fixing the issue for me,
-> > neither did the previous one.
-> > 
-> > Ian: Can you double check that you have corruption *without* the patch,
-> > and that the patch fixes the issue?
-
-Yes, doing md5sum on an NFS mount with 18 files in it I see 8-9
-corrupted ones without any patch applied and none with Karl's previous
-one from <20141104142020.GA6728@magnum.frso.rivierawaves.com> in place.
-
-This was consistent over repeated invocations of md5sum (mounting and
-unmounting around each one).
-
-I've just confirmed this again to be sure.
-
-The system is a QNAP TS-41x (armel, Feroceon 88FR131)
-
-> Have you also applied my patch ?
-
-I've only applied that one patch from Karl onto the 3.16.7 kernel which
-is currently in Debian. Debian hasn't got any other mv643xx patches
-applied.
-
-I'm building now with Karl's latest patch from
-<1415197979-1702-1-git-send-email-karl.beldan@gmail.com> instead.
-
-Ian.
+VGhhbmtzIERhbmllbCBhbmQgQ29uZywNCg0KVGhlIHByb2JsZW0gaGFzIGJlZW4gZml4ZWQuIEl0
+IGlzIGludHJvZHVjZWQgYnkgYSB0aGlyZCBwYXJ0eSBwYXRjaCwgd2hpY2ggZGVjcmVhc2VzIHRo
+ZSByZWZjbnQgb2YgdGltZXdhaXQgc29ja2V0LiANCg0KQ2hhcmxleQ0KDQotLS0tLU9yaWdpbmFs
+IE1lc3NhZ2UtLS0tLQ0KRnJvbTogQ29uZyBXYW5nIFttYWlsdG86Y3dhbmdAdHdvcGVuc291cmNl
+LmNvbV0gDQpTZW50OiBXZWRuZXNkYXksIE5vdmVtYmVyIDA1LCAyMDE0IDEwOjAwIEFNDQpUbzog
+RGFuaWVsIEJvcmttYW5uDQpDYzogQ2hhcmxleSAoSGFvIENodWFuKSBDaHU7IG5ldGRldg0KU3Vi
+amVjdDogUmU6IEtlcm5lbCBPb3BzIGluIF9faW5ldF90d3NrX2tpbGwoKQ0KDQpPbiBXZWQsIE5v
+diA1LCAyMDE0IGF0IDg6MDAgQU0sIERhbmllbCBCb3JrbWFubiA8Ym9ya21hbm5AaW9nZWFyYm94
+Lm5ldD4gd3JvdGU6DQo+IFsgbW92aW5nIHRvIG5ldGRldiBdDQo+DQo+IC0tLS0tLS0tIE9yaWdp
+bmFsIE1lc3NhZ2UgLS0tLS0tLS0NCj4gU3ViamVjdDogS2VybmVsIE9vcHMgaW4gX19pbmV0X3R3
+c2tfa2lsbCgpDQo+IERhdGU6IFR1ZSwgNCBOb3YgMjAxNCAyMzo0NzoxOCArMDAwMA0KPiBGcm9t
+OiBDaGFybGV5IChIYW8gQ2h1YW4pIENodSA8Y2hhcmxleS5jaHVAYnJvYWRjb20uY29tPg0KPiBU
+bzogbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZyA8bGludXgta2VybmVsQHZnZXIua2VybmVs
+Lm9yZz4NCj4NCj4gV2UgaGF2ZSBzaXR1YXRpb24gb24gb3VyIHN5c3RlbS4gSXQgYnJpbmdzIHRo
+ZSBuZXR3b3JrIGludGVyZmFjZSB1cCBhbmQgZG93bg0KPiBldmVyeQ0KPiBhIGZldyBzZWNvbmRz
+LiBFdmVudHVhbGx5LCBpdCBicmluZ3MgZG93biB0aGUgc3lzdGVtIC0gdGhlIGtlcm5lbCBjcmFz
+aGVkDQo+IGR1ZSB0byBCVUcNCj4gb24gaW4gX19pbmV0X3R3c2tfa2lsbCgpLiBUaGUgZGVidWcg
+bWVzc2FnZSBzaG93IGZvbGxvd2luZyBjYWxsIGZsb3cuDQo+DQo+IDEpIHRpbWUtd2FpdCBzb2Nr
+ZXQgaXMgY3JlYXRlZCBieSB0Y3BfdGltZV93YWl0KCkgd2hlbiB0aGUgc29ja2V0IGdldHMgaW50
+bw0KPiAiVElNRV9XQUlUIiBzdGF0ZS4NCj4gICAgIGluZXRfdHdza19hbGxvYygpICAgICAgICAg
+ICAgICAgLSByZWZjbnQ9IDANCj4gICAgIGluZXRfdHdza19oYXNoZGFuY2UoKSAgLSByZWZjbnQg
+PSAzDQo+ICAgICBpbmV0X3R3c2tfc2NoZWR1bGUoKSAgICAgIC0gcmVmY250ID0gNA0KPiAgICAg
+aW5ldF90d3NrX3B1dCgpICAgICAgICAgICAgICAgICAtIHJlZmNudCA9IDMNCj4gMikgdGNwX3Y0
+X3RpbWV3YWl0X2FjaygpIGlzIGNhbGxlZCB3aGVuIHN5bmMgaXMgcmVjZWl2ZWQNCj4gICAgIGlu
+ZXRfdHdza19wdXQoKSAgICAgICAgICAgICAgICAgIC0gcmVmY250PSAyICAgICAgPD09IHdoZXJl
+IHdlIHRoaW5nIHRoZQ0KPiBwcm9ibGVtIGlzDQo+ICAgICBvY2Nhc2lvbmFsbHksIHNlY29uZCBz
+eW5jIGlzIHJlY2VpdmVkLCBzbyB0aGUgaW5ldF90d3NrX3B1dCBpcyBjYWxsZWQNCj4gdHdpY2Ug
+LSByZWZjbnQgPSAxDQo+IDMpIHR3ZHJfZG9fdHdraWxsX3dvcmsoKSBpcyBjYWxsZWQgd2hlbiB0
+aW1lZCBvdXQNCj4gICAgIGNhbGwgX19pbmV0X3R3c2tfa2lsbCAtIEJVR19PTiEhISBhcyByZWZj
+bnQ9MiAoc3VwcG9zZWQgdG8gYmUgMykuDQo+ICAgICBjYWxsIGluZXRfdHdza19wdXQoKQ0KPg0K
+PiBJbiBhIG5vcm1hbCBjYXNlLCB0aGUgY2FsbGZsb3cgb25seSBoYXMgc3RlcCAxIGFuZCBzdGVw
+IDMuICBPdXINCj4gdW5kZXJzdGFuZGluZyBpcw0KPiB0aGUgdGltZS13YWl0IHNvY2tldCBoYXMg
+dGhyZWUgcmVmZXJlbmNlcyAtIGVoYXNoLCBiaGFzaCBhbmQgdGltZXIgZGVhdGgNCj4gcm93LiBJ
+bg0KPiBzdGVwIDIsIG5vbmUgb2YgdGhlbSBhcmUgdG91Y2hlZC4gQ2FuIGFueW9uZSBoZXJlIGV4
+cGxhaW4gdG8gdXMgd2h5IHRoZQ0KPiBpbmV0X3R3c2tfcHV0KCkNCj4gaXMgY2FsbGVkIGluIHRj
+cF92NF90aW1ld2FpdF9hY2soKT8NCj4NCg0KSXQgaGFzIGJlZW4gdGhlcmUgZm9yIGEgcmF0aGVy
+IGxvbmcgdGltZSwgYnV0IHRoaXMgZG9lc24ndCBtZWFuIGl0IGlzDQpjb3JyZWN0LiBJdHMgY2Fs
+bGVyIGNhbGxzIGluZXRfdHdza19wdXQoKSBvbiBlcnJvciBwYXRoLCBzbyBzbWVsbHMgd3JvbmcN
+CnRvIGNhbGwgaXQgb24gbm9uLWVycm9yIHBhdGguIEJ1dCBJIGRvbid0IGxvb2sgaW50byB0aGlz
+Lg0K
