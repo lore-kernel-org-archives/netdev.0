@@ -1,57 +1,59 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net] tcp: zero retrans_stamp if all retrans were acked
-Date: Tue, 04 Nov 2014 17:20:45 -0800
-Message-ID: <1415150445.1458.1.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CADVnQykbFjodAyJomX8E5HZhOrP7kDxDS7vPNiam858B84vqCQ@mail.gmail.com>
-		<f58c4b02028e0750e583518608891d20742c0f38.1415128437.git.mleitner@redhat.com>
-	 <CADVnQymMioK0USNpaOF2Kb4+zMTDrjJ7r=5Bu51LbirVQPnzyw@mail.gmail.com>
-	 <54593C59.6070004@redhat.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH 00/13] net_sched: misc cleanups and improvements
+Date: Tue, 4 Nov 2014 17:25:31 -0800
+Message-ID: <CAM_iQpXZBz=Ha2h3mCwnZKa3Etx7Ya9NxAWe_p8T+VjRUs5g0g@mail.gmail.com>
+References: <1415123796-8093-1-git-send-email-xiyou.wangcong@gmail.com>
+	<1415125250.25370.2.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Neal Cardwell <ncardwell@google.com>,
-	Netdev <netdev@vger.kernel.org>,
-	Yuchung Cheng <ycheng@google.com>,
-	Eric Dumazet <edumazet@google.com>
-To: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f178.google.com ([209.85.223.178]:40372 "EHLO
-	mail-ie0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753260AbaKEBUr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Nov 2014 20:20:47 -0500
-Received: by mail-ie0-f178.google.com with SMTP id rp18so8519525iec.23
-        for <netdev@vger.kernel.org>; Tue, 04 Nov 2014 17:20:46 -0800 (PST)
-In-Reply-To: <54593C59.6070004@redhat.com>
+Received: from mail-oi0-f54.google.com ([209.85.218.54]:62927 "EHLO
+	mail-oi0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751867AbaKEBZc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Nov 2014 20:25:32 -0500
+Received: by mail-oi0-f54.google.com with SMTP id a141so9744633oig.27
+        for <netdev@vger.kernel.org>; Tue, 04 Nov 2014 17:25:32 -0800 (PST)
+In-Reply-To: <1415125250.25370.2.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-11-04 at 18:51 -0200, Marcelo Ricardo Leitner wrote:
+On Tue, Nov 4, 2014 at 10:20 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>
+> If you do not care of writing good changelogs and explain why you want
+> all this, why should I care spending time to review all this stuff ?
+>
+> What is the plan, beyond all this code churn ?
 
-> And thank you guys for all the assistance on it. Btw, would you send me that 
-> packetdrill script? I'm curious to see how such corner case could be written 
-> on it.
+Why $subject isn't obvious?
 
-One of the script I saw was :
+I don't understand why you are only mean to me (and probably David Taht too).
 
-You might have to adapt preconditions (tcp_rmem[]/tcp_wmem[])
+Sit down and search the history, you will find:
 
-0.000 socket(..., SOCK_STREAM, IPPROTO_TCP) = 3
-// Set a 10s timeout
-+.000 setsockopt(3, SOL_TCP, TCP_USER_TIMEOUT, [10000], 4) = 0
-+.000 bind(3, ..., ...) = 0
-+.000 listen(3, 1) = 0
-+.000 < S 0:0(0) win 32792 <mss 1460,nop,wscale 7>
-+.000 > S. 0:0(0) ack 1 <mss 1460,nop,wscale 6>
-+.010 < . 1:1(0) ack 1 win 257
-+.000 accept(3, ..., ...) = 4
-+.000 write(4, ..., 1000) = 1000
-+.000 > P. 1:1001(1000) ack 1
-+.625 > P. 1:1001(1000) ack 1
-+.020 < . 1:1(0) ack 1001 win 257
-// Purposely write more after the specified timeout for testing
-+11.0 write(4, ..., 1000) = 1000
-+.000 > P. 1001:2001(1000) ack 1
-+1.25 > P. 1001:2001(1000) ack 1
-// socket is killed when the 2nd RTO fires at +2.50 w/o this patch
-// so the next write returns ETIMEOUT
-+2.60 write(4, ..., 1000) = 1000
+commit c6be2a10ac2f810bdd01e978c93a8ef65b46120b
+Merge: 7fd2561 44cc8ed
+Author: David S. Miller <davem@davemloft.net>
+Date:   Wed Oct 29 15:59:43 2014 -0400
+
+    Merge branch 'xen-netback-next'
+
+    David Vrabel says:
+
+    ====================
+    xen-netback: minor cleanups
+
+    Two minor xen-netback cleanups originally from Zoltan.
+    ====================
+
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+
+Tell me, why this changelog in anyway could be better than me? which
+was accepted (of course not by you). You can argue I have 13 patches,
+but, there is no big difference between 13 cleanup's and 2 cleanup's,
+cleanup's are cleanup's, that's it.
+
+Seriously, think about why it should when it's just cleanup's, be practical.
