@@ -1,82 +1,252 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH V2 2/4] can: m_can: workaround for transmit data less
- than 4 bytes
-Date: Wed, 05 Nov 2014 12:32:21 +0100
-Message-ID: <545A0AC5.80006@pengutronix.de>
-References: <1415174326-6623-1-git-send-email-b29396@freescale.com> <1415174326-6623-2-git-send-email-b29396@freescale.com> <5459F94C.1030506@pengutronix.de> <20141105103349.GA4007@shlinux1.ap.freescale.net>
+From: Roger Quadros <rogerq@ti.com>
+Subject: Re: [PATCH v3 4/8] net: can: c_can: Add syscon/regmap RAMINIT mechanism
+Date: Wed, 5 Nov 2014 13:37:21 +0200
+Message-ID: <545A0BF1.2010500@ti.com>
+References: <1415096461-25576-1-git-send-email-rogerq@ti.com> <1415096461-25576-5-git-send-email-rogerq@ti.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="8Gf3e99mLw798g5tF4DRRCJSJohkOM3kV"
-Cc: linux-can@vger.kernel.org, wg@grandegger.com,
-	varkabhadram@gmail.com, netdev@vger.kernel.org,
-	socketcan@hartkopp.net, linux-arm-kernel@lists.infradead.org
-To: Dong Aisheng <b29396@freescale.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <20141105103349.GA4007@shlinux1.ap.freescale.net>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <wsa@the-dreams.de>, <tony@atomide.com>, <tglx@linutronix.de>,
+	<mugunthanvnm@ti.com>, <george.cherian@ti.com>, <balbi@ti.com>,
+	<nsekhar@ti.com>, <nm@ti.com>,
+	<sergei.shtylyov@cogentembedded.com>, <linux-omap@vger.kernel.org>,
+	<linux-can@vger.kernel.org>, <netdev@vger.kernel.org>
+To: <wg@grandegger.com>, <mkl@pengutronix.de>,
+	Tomi Valkeinen <tomi.valkeinen@ti.com>
+Return-path: <linux-omap-owner@vger.kernel.org>
+In-Reply-To: <1415096461-25576-5-git-send-email-rogerq@ti.com>
+Sender: linux-omap-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---8Gf3e99mLw798g5tF4DRRCJSJohkOM3kV
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+On 11/04/2014 12:20 PM, Roger Quadros wrote:
+> Some TI SoCs like DRA7 have a RAMINIT register specification
+> different from the other AMxx SoCs and as expected by the
+> existing driver.
+> 
+> To add more insanity, this register is shared with other
+> IPs like DSS, PCIe and PWM.
+> 
+> Provides a more generic mechanism to specify the RAMINIT
+> register location and START/DONE bit position and use the
+> syscon/regmap framework to access the register.
+> 
+> Signed-off-by: Roger Quadros <rogerq@ti.com>
+> ---
+>  .../devicetree/bindings/net/can/c_can.txt          |  3 +
+>  drivers/net/can/c_can/c_can.h                      |  9 ++-
+>  drivers/net/can/c_can/c_can_platform.c             | 93 +++++++++++++---------
+>  3 files changed, 65 insertions(+), 40 deletions(-)
+> 
+> diff --git a/Documentation/devicetree/bindings/net/can/c_can.txt b/Documentation/devicetree/bindings/net/can/c_can.txt
+> index 8f1ae81..917ac0e 100644
+> --- a/Documentation/devicetree/bindings/net/can/c_can.txt
+> +++ b/Documentation/devicetree/bindings/net/can/c_can.txt
+> @@ -12,6 +12,9 @@ Required properties:
+>  Optional properties:
+>  - ti,hwmods		: Must be "d_can<n>" or "c_can<n>", n being the
+>  			  instance number
+> +- syscon-raminit	: Handle to system control region that contains the
+> +			  RAMINIT register and register offset to the RAMINIT
+> +			  register.
+>  
+>  Note: "ti,hwmods" field is used to fetch the base address and irq
+>  resources from TI, omap hwmod data base during device registration.
+> diff --git a/drivers/net/can/c_can/c_can.h b/drivers/net/can/c_can/c_can.h
+> index c3b2108..b5067bd 100644
+> --- a/drivers/net/can/c_can/c_can.h
+> +++ b/drivers/net/can/c_can/c_can.h
+> @@ -178,6 +178,12 @@ struct c_can_driver_data {
+>  	bool raminit_pulse;	/* If set, sets and clears START bit (pulse) */
+>  };
+>  
+> +/* Out of band RAMINIT register access via syscon regmap */
+> +struct c_can_raminit {
+> +	struct regmap *syscon;	/* for raminit ctrl. reg. access */
+> +	unsigned int reg;	/* register index within syscon */
+> +};
+> +
+>  /* c_can private data structure */
+>  struct c_can_priv {
+>  	struct can_priv can;	/* must be the first member */
+> @@ -195,8 +201,7 @@ struct c_can_priv {
+>  	const u16 *regs;
+>  	void *priv;		/* for board-specific data */
+>  	enum c_can_dev_id type;
+> -	u32 __iomem *raminit_ctrlreg;
+> -	int instance;
+> +	struct c_can_raminit raminit_sys;	/* RAMINIT via syscon regmap */
+>  	void (*raminit) (const struct c_can_priv *priv, bool enable);
+>  	u32 comm_rcv_high;
+>  	u32 rxmasked;
+> diff --git a/drivers/net/can/c_can/c_can_platform.c b/drivers/net/can/c_can/c_can_platform.c
+> index 11946e8..d0ce439 100644
+> --- a/drivers/net/can/c_can/c_can_platform.c
+> +++ b/drivers/net/can/c_can/c_can_platform.c
+> @@ -32,14 +32,13 @@
+>  #include <linux/clk.h>
+>  #include <linux/of.h>
+>  #include <linux/of_device.h>
+> +#include <linux/mfd/syscon.h>
+> +#include <linux/regmap.h>
+>  
+>  #include <linux/can/dev.h>
+>  
+>  #include "c_can.h"
+>  
+> -#define CAN_RAMINIT_START_MASK(i)	(0x001 << (i))
+> -#define CAN_RAMINIT_DONE_MASK(i)	(0x100 << (i))
+> -#define CAN_RAMINIT_ALL_MASK(i)		(0x101 << (i))
+>  #define DCAN_RAM_INIT_BIT		(1 << 3)
+>  static DEFINE_SPINLOCK(raminit_lock);
+>  /*
+> @@ -72,47 +71,61 @@ static void c_can_plat_write_reg_aligned_to_32bit(const struct c_can_priv *priv,
+>  	writew(val, priv->base + 2 * priv->regs[index]);
+>  }
+>  
+> -static void c_can_hw_raminit_wait_ti(const struct c_can_priv *priv, u32 mask,
+> -				  u32 val)
+> +static void c_can_hw_raminit_wait_syscon(const struct c_can_priv *priv,
+> +					 u32 mask, u32 val)
+>  {
+>  	int timeout = 0;
+> +	const struct c_can_raminit *raminit = &priv->raminit_sys;
+> +	u32 ctrl;
+> +
+>  	/* We look only at the bits of our instance. */
+>  	val &= mask;
+> -	while ((readl(priv->raminit_ctrlreg) & mask) != val) {
+> +	do {
+>  		udelay(1);
+>  		timeout++;
+>  
+> +		regmap_read(raminit->syscon, raminit->reg, &ctrl);
+>  		if (timeout == 1000) {
+>  			dev_err(&priv->dev->dev, "%s: time out\n", __func__);
+>  			break;
+>  		}
+> -	}
+> +	} while ((ctrl & mask) != val);
+>  }
+>  
+> -static void c_can_hw_raminit_ti(const struct c_can_priv *priv, bool enable)
+> +static void c_can_hw_raminit_syscon(const struct c_can_priv *priv, bool enable)
+>  {
+> -	u32 mask = CAN_RAMINIT_ALL_MASK(priv->instance);
+> +	u32 mask;
+>  	u32 ctrl;
+> +	const struct c_can_raminit *raminit = &priv->raminit_sys;
+> +	u8 start_bit, done_bit;
+> +
+> +	start_bit = priv->drvdata->raminit_start_bit;
+> +	done_bit = priv->drvdata->raminit_done_bit;
+>  
+>  	spin_lock(&raminit_lock);
+>  
+> -	ctrl = readl(priv->raminit_ctrlreg);
+> +	mask = 1 << start_bit | 1 << done_bit;
+> +	regmap_read(raminit->syscon, raminit->reg, &ctrl);
+> +
+>  	/* We clear the done and start bit first. The start bit is
+>  	 * looking at the 0 -> transition, but is not self clearing;
+>  	 * And we clear the init done bit as well.
+> +	 * NOTE: DONE must be written with 1 to clear it.
+>  	 */
+> -	ctrl &= ~CAN_RAMINIT_START_MASK(priv->instance);
+> -	ctrl |= CAN_RAMINIT_DONE_MASK(priv->instance);
+> -	writel(ctrl, priv->raminit_ctrlreg);
+> -	ctrl &= ~CAN_RAMINIT_DONE_MASK(priv->instance);
+> -	c_can_hw_raminit_wait_ti(priv, mask, ctrl);
+> +	ctrl &= ~(1 << start_bit);
+> +	ctrl |= 1 << done_bit;
+> +	regmap_write(raminit->syscon, raminit->reg, ctrl);
 
-On 11/05/2014 11:33 AM, Dong Aisheng wrote:
-> On Wed, Nov 05, 2014 at 11:17:48AM +0100, Marc Kleine-Budde wrote:
->> On 11/05/2014 08:58 AM, Dong Aisheng wrote:
->>> At least on the i.MX6SX with M_CAN IP version 3.0.x, an issue with
->>
->> Can you add the imx mask revision, too and the exact m_can version (is=
+Thanks to Tomi for pointing out.
 
->> available).
->>
->=20
-> What do you mean imx mask revision?
+I need to use regmap_update_bits() instead of regmap_write() for atomic modification,
+as this register needs to be shared between multiple drivers in case of DRA7 SoC.
 
-In my imx6sdl/imx6q data sheet it's called: Chip Silicon Version
-(USB_ANALOG_DIGPROG), I expect that the imx6sx has a the same register.
+cheers,
+-roger
 
-> By reading the Core Release Register (CREL), it seems the exact m_can
-> version is 3.0.1. (CREL =3D 30130506).
->=20
-> So what about changing to as follows?
-> "At least on the i.MX6SX with M_CAN IP version 3.0.1 (CREL =3D 30130506=
-),
-> an issue with"
+> +
+> +	ctrl &= ~(1 << done_bit);
+> +	c_can_hw_raminit_wait_syscon(priv, mask, ctrl);
+>  
+>  	if (enable) {
+>  		/* Set start bit and wait for the done bit. */
+> -		ctrl |= CAN_RAMINIT_START_MASK(priv->instance);
+> -		writel(ctrl, priv->raminit_ctrlreg);
+> -		ctrl |= CAN_RAMINIT_DONE_MASK(priv->instance);
+> -		c_can_hw_raminit_wait_ti(priv, mask, ctrl);
+> +		ctrl |= 1 << start_bit;
+> +		regmap_write(raminit->syscon, raminit->reg, ctrl);
+> +
+> +		ctrl |= 1 << done_bit;
+> +		c_can_hw_raminit_wait_syscon(priv, mask, ctrl);
+>  	}
+>  	spin_unlock(&raminit_lock);
+>  }
+> @@ -206,10 +219,11 @@ static int c_can_plat_probe(struct platform_device *pdev)
+>  	struct net_device *dev;
+>  	struct c_can_priv *priv;
+>  	const struct of_device_id *match;
+> -	struct resource *mem, *res;
+> +	struct resource *mem;
+>  	int irq;
+>  	struct clk *clk;
+>  	const struct c_can_driver_data *drvdata;
+> +	struct device_node *np = pdev->dev.of_node;
+>  
+>  	match = of_match_device(c_can_of_table, &pdev->dev);
+>  	if (match) {
+> @@ -279,27 +293,30 @@ static int c_can_plat_probe(struct platform_device *pdev)
+>  		priv->read_reg32 = d_can_plat_read_reg32;
+>  		priv->write_reg32 = d_can_plat_write_reg32;
+>  
+> -		if (pdev->dev.of_node)
+> -			priv->instance = of_alias_get_id(pdev->dev.of_node, "d_can");
+> -		else
+> -			priv->instance = pdev->id;
+> -
+> -		res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+> -		/* Not all D_CAN modules have a separate register for the D_CAN
+> -		 * RAM initialization. Use default RAM init bit in D_CAN module
+> -		 * if not specified in DT.
+> +		/* Check if we need custom RAMINIT via syscon. Mostly for TI
+> +		 * platforms. Only supported with DT boot.
+>  		 */
+> -		if (!res) {
+> +		if (np && of_property_read_bool(np, "syscon-raminit")) {
+> +			ret = -EINVAL;
+> +			priv->raminit_sys.syscon = syscon_regmap_lookup_by_phandle(np,
+> +					"syscon-raminit");
+> +			if (IS_ERR(priv->raminit_sys.syscon)) {
+> +				dev_err(&pdev->dev,
+> +					"couldn't get syscon regmap for RAMINIT reg.\n");
+> +				goto exit_free_device;
+> +			}
+> +
+> +			if (of_property_read_u32_index(np, "syscon-raminit", 1,
+> +						       &priv->raminit_sys.reg)) {
+> +				dev_err(&pdev->dev,
+> +					"couldn't get the RAMINIT reg. offset!\n");
+> +				goto exit_free_device;
+> +			}
+> +
+> +			priv->raminit = c_can_hw_raminit_syscon;
+> +		} else {
+>  			priv->raminit = c_can_hw_raminit;
+> -			break;
+>  		}
+> -
+> -		priv->raminit_ctrlreg = devm_ioremap(&pdev->dev, res->start,
+> -						     resource_size(res));
+> -		if (!priv->raminit_ctrlreg || priv->instance < 0)
+> -			dev_info(&pdev->dev, "control memory is not used for raminit\n");
+> -		else
+> -			priv->raminit = c_can_hw_raminit_ti;
+>  		break;
+>  	default:
+>  		ret = -EINVAL;
+> 
 
-Yes, please ass the imx silicon revision, too.
-
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---8Gf3e99mLw798g5tF4DRRCJSJohkOM3kV
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJUWgrFAAoJECte4hHFiupUUPgP/i0M2rgcOQY/gskSAzkhFdtQ
-gBp+4LEwCtTdCO0xJz1p6xh0HKuw3T9ccHPhVOnKhZ2UQ9NsBdADDrlSiDCR2N9a
-Vwk1nje5sjqRldZVIxeUf1yQ/NAm/jj95I8LxrnHfx6S5aanVwVoxzn+BYvnqFYM
-BE2m9p60P1gZQLtG8jiUcV1GmMtBe9I8gc72COY6MmhJMPRgq6rESFANNyczC2gd
-BZxCXKh+zvl+Jq7XecU2493TarGb1aJS2W0znKGonRY5bzHUAqXeuzTkbUQ+W3fb
-LJYJgtcBZx81MNYI2K6CHOCf0+ukHPdtF1fSWhU8LhkF8mbF/ZiKM79ZaH/3Mjfw
-RaNBiljSIbajDl1IjfQbHNiEf8c3YM8ux0nx2AULpSpYv9ueEU0kVnHkU/4ocMie
-9paS86i9KS2uPLPkdOpynCYaBf9NsAX7cb+tmqSy+zp1HT8szyBxHTkpY+1Sii3m
-6q0jA5YVMizw/FWrFY7YEl5NnQtBt9RlXBYwhsmWIMjqd2zliUxAxqgynOM7UqpP
-kXN/azbxD7MfYf13PskKuvwtSA4rLXZX74EGwGoWTBI79iDn3EoOReySULsWSdMr
-s/EPOxpq6CR50w5z4owVcwSuY6Dbb5S0RUHFIvfRx7LmWWqQY6DKzkFdV4+4+cOA
-FAeelDQtkrJobx62NnuZ
-=X2Cg
------END PGP SIGNATURE-----
-
---8Gf3e99mLw798g5tF4DRRCJSJohkOM3kV--
