@@ -1,208 +1,141 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 01/10] net: rename netdev_phys_port_id to more generic name
-Date: Thu,  6 Nov 2014 10:20:01 +0100
-Message-ID: <1415265610-9338-2-git-send-email-jiri@resnulli.us>
-References: <1415265610-9338-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
-	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
-	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
-	ben@decadent.org.uk, stephen@networkplumber.org,
-	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
-	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
-	edumazet@google.com, jhs@mojatatu.com, sfeldma@gmail.com,
-	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
-	linville@tuxdriver.com, jasowang@redhat.com, ebiederm@xmission.com,
-	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
-	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
-	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
-	ronye@mellanox.com, simon.horman@netronome.com,
-	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
-	mleitner@redhat.com, shrijeet@gmail.com, gospo@cumulusnetworks.com,
-	bcrl@kvack.org
-To: netdev@vger.kernel.org
+From: Pravin B Shelar <pshelar@nicira.com>
+Subject: [PATCH net-next v2 12/14] openvswitch: Move key_attr_size() to flow_netlink.h.
+Date: Thu,  6 Nov 2014 01:19:44 -0800
+Message-ID: <1415265584-1872-1-git-send-email-pshelar@nicira.com>
+Cc: netdev@vger.kernel.org, Joe Stringer <joestringer@nicira.com>,
+	Pravin B Shelar <pshelar@nicira.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f173.google.com ([209.85.212.173]:53332 "EHLO
-	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752083AbaKFJUP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 04:20:15 -0500
-Received: by mail-wi0-f173.google.com with SMTP id n3so837170wiv.6
-        for <netdev@vger.kernel.org>; Thu, 06 Nov 2014 01:20:13 -0800 (PST)
-In-Reply-To: <1415265610-9338-1-git-send-email-jiri@resnulli.us>
+Received: from na3sys009aog131.obsmtp.com ([74.125.149.247]:40060 "HELO
+	na3sys009aog131.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752069AbaKFJTr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 04:19:47 -0500
+Received: by mail-pa0-f53.google.com with SMTP id kx10so873077pab.40
+        for <netdev@vger.kernel.org>; Thu, 06 Nov 2014 01:19:46 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-So this can be reused for identification of other "items" as well.
+From: Joe Stringer <joestringer@nicira.com>
 
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+flow-netlink has netlink related code.
+
+Signed-off-by: Joe Stringer <joestringer@nicira.com>
+Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |  2 +-
- drivers/net/ethernet/intel/i40e/i40e_main.c      |  2 +-
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c   |  2 +-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |  2 +-
- include/linux/netdevice.h                        | 16 ++++++++--------
- net/core/dev.c                                   |  2 +-
- net/core/net-sysfs.c                             |  2 +-
- net/core/rtnetlink.c                             |  6 +++---
- 8 files changed, 17 insertions(+), 17 deletions(-)
+ net/openvswitch/datapath.c     | 31 +++----------------------------
+ net/openvswitch/flow_netlink.c | 32 ++++++++++++++++++++++++++++++++
+ net/openvswitch/flow_netlink.h |  2 ++
+ 3 files changed, 37 insertions(+), 28 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index c4bd025..336ef3c 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -12537,7 +12537,7 @@ static int bnx2x_validate_addr(struct net_device *dev)
+diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+index 4fd8a45..5101780 100644
+--- a/net/openvswitch/datapath.c
++++ b/net/openvswitch/datapath.c
+@@ -375,37 +375,12 @@ static int queue_gso_packets(struct datapath *dp, struct sk_buff *skb,
+ 	return err;
  }
  
- static int bnx2x_get_phys_port_id(struct net_device *netdev,
--				  struct netdev_phys_port_id *ppid)
-+				  struct netdev_phys_item_id *ppid)
+-static size_t key_attr_size(void)
+-{
+-	return    nla_total_size(4)   /* OVS_KEY_ATTR_PRIORITY */
+-		+ nla_total_size(0)   /* OVS_KEY_ATTR_TUNNEL */
+-		  + nla_total_size(8)   /* OVS_TUNNEL_KEY_ATTR_ID */
+-		  + nla_total_size(4)   /* OVS_TUNNEL_KEY_ATTR_IPV4_SRC */
+-		  + nla_total_size(4)   /* OVS_TUNNEL_KEY_ATTR_IPV4_DST */
+-		  + nla_total_size(1)   /* OVS_TUNNEL_KEY_ATTR_TOS */
+-		  + nla_total_size(1)   /* OVS_TUNNEL_KEY_ATTR_TTL */
+-		  + nla_total_size(0)   /* OVS_TUNNEL_KEY_ATTR_DONT_FRAGMENT */
+-		  + nla_total_size(0)   /* OVS_TUNNEL_KEY_ATTR_CSUM */
+-		  + nla_total_size(0)   /* OVS_TUNNEL_KEY_ATTR_OAM */
+-		  + nla_total_size(256)   /* OVS_TUNNEL_KEY_ATTR_GENEVE_OPTS */
+-		+ nla_total_size(4)   /* OVS_KEY_ATTR_IN_PORT */
+-		+ nla_total_size(4)   /* OVS_KEY_ATTR_SKB_MARK */
+-		+ nla_total_size(12)  /* OVS_KEY_ATTR_ETHERNET */
+-		+ nla_total_size(2)   /* OVS_KEY_ATTR_ETHERTYPE */
+-		+ nla_total_size(4)   /* OVS_KEY_ATTR_8021Q */
+-		+ nla_total_size(0)   /* OVS_KEY_ATTR_ENCAP */
+-		+ nla_total_size(2)   /* OVS_KEY_ATTR_ETHERTYPE */
+-		+ nla_total_size(40)  /* OVS_KEY_ATTR_IPV6 */
+-		+ nla_total_size(2)   /* OVS_KEY_ATTR_ICMPV6 */
+-		+ nla_total_size(28); /* OVS_KEY_ATTR_ND */
+-}
+-
+ static size_t upcall_msg_size(const struct nlattr *userdata,
+ 			      unsigned int hdrlen)
  {
- 	struct bnx2x *bp = netdev_priv(netdev);
+ 	size_t size = NLMSG_ALIGN(sizeof(struct ovs_header))
+ 		+ nla_total_size(hdrlen) /* OVS_PACKET_ATTR_PACKET */
+-		+ nla_total_size(key_attr_size()); /* OVS_PACKET_ATTR_KEY */
++		+ nla_total_size(ovs_key_attr_size()); /* OVS_PACKET_ATTR_KEY */
  
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 1a98e23..d749165 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -7373,7 +7373,7 @@ static void i40e_del_vxlan_port(struct net_device *netdev,
- 
- #endif
- static int i40e_get_phys_port_id(struct net_device *netdev,
--				 struct netdev_phys_port_id *ppid)
-+				 struct netdev_phys_item_id *ppid)
+ 	/* OVS_PACKET_ATTR_USERDATA */
+ 	if (userdata)
+@@ -678,8 +653,8 @@ static void get_dp_stats(struct datapath *dp, struct ovs_dp_stats *stats,
+ static size_t ovs_flow_cmd_msg_size(const struct sw_flow_actions *acts)
  {
- 	struct i40e_netdev_priv *np = netdev_priv(netdev);
- 	struct i40e_pf *pf = np->vsi->back;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 0efbae9..bd007c3 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -2258,7 +2258,7 @@ static int mlx4_en_set_vf_link_state(struct net_device *dev, int vf, int link_st
- 
- #define PORT_ID_BYTE_LEN 8
- static int mlx4_en_get_phys_port_id(struct net_device *dev,
--				    struct netdev_phys_port_id *ppid)
-+				    struct netdev_phys_item_id *ppid)
- {
- 	struct mlx4_en_priv *priv = netdev_priv(dev);
- 	struct mlx4_dev *mdev = priv->mdev->dev;
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index f5e29f7..6e514d2 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -460,7 +460,7 @@ static void qlcnic_82xx_cancel_idc_work(struct qlcnic_adapter *adapter)
+ 	return NLMSG_ALIGN(sizeof(struct ovs_header))
+-		+ nla_total_size(key_attr_size()) /* OVS_FLOW_ATTR_KEY */
+-		+ nla_total_size(key_attr_size()) /* OVS_FLOW_ATTR_MASK */
++		+ nla_total_size(ovs_key_attr_size()) /* OVS_FLOW_ATTR_KEY */
++		+ nla_total_size(ovs_key_attr_size()) /* OVS_FLOW_ATTR_MASK */
+ 		+ nla_total_size(sizeof(struct ovs_flow_stats)) /* OVS_FLOW_ATTR_STATS */
+ 		+ nla_total_size(1) /* OVS_FLOW_ATTR_TCP_FLAGS */
+ 		+ nla_total_size(8) /* OVS_FLOW_ATTR_USED */
+diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
+index 1b29ea7..1050b28 100644
+--- a/net/openvswitch/flow_netlink.c
++++ b/net/openvswitch/flow_netlink.c
+@@ -252,6 +252,38 @@ static bool match_validate(const struct sw_flow_match *match,
+ 	return true;
  }
  
- static int qlcnic_get_phys_port_id(struct net_device *netdev,
--				   struct netdev_phys_port_id *ppid)
-+				   struct netdev_phys_item_id *ppid)
- {
- 	struct qlcnic_adapter *adapter = netdev_priv(netdev);
- 	struct qlcnic_hardware_context *ahw = adapter->ahw;
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 4767f54..bbc730f 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -753,13 +753,13 @@ struct netdev_fcoe_hbainfo {
- };
- #endif
++size_t ovs_key_attr_size(void)
++{
++	/* Whenever adding new OVS_KEY_ FIELDS, we should consider
++	 * updating this function.
++	 */
++	BUILD_BUG_ON(OVS_KEY_ATTR_TUNNEL_INFO != 22);
++
++	return    nla_total_size(4)   /* OVS_KEY_ATTR_PRIORITY */
++		+ nla_total_size(0)   /* OVS_KEY_ATTR_TUNNEL */
++		  + nla_total_size(8)   /* OVS_TUNNEL_KEY_ATTR_ID */
++		  + nla_total_size(4)   /* OVS_TUNNEL_KEY_ATTR_IPV4_SRC */
++		  + nla_total_size(4)   /* OVS_TUNNEL_KEY_ATTR_IPV4_DST */
++		  + nla_total_size(1)   /* OVS_TUNNEL_KEY_ATTR_TOS */
++		  + nla_total_size(1)   /* OVS_TUNNEL_KEY_ATTR_TTL */
++		  + nla_total_size(0)   /* OVS_TUNNEL_KEY_ATTR_DONT_FRAGMENT */
++		  + nla_total_size(0)   /* OVS_TUNNEL_KEY_ATTR_CSUM */
++		  + nla_total_size(0)   /* OVS_TUNNEL_KEY_ATTR_OAM */
++		  + nla_total_size(256) /* OVS_TUNNEL_KEY_ATTR_GENEVE_OPTS */
++		+ nla_total_size(4)   /* OVS_KEY_ATTR_IN_PORT */
++		+ nla_total_size(4)   /* OVS_KEY_ATTR_SKB_MARK */
++		+ nla_total_size(4)   /* OVS_KEY_ATTR_DP_HASH */
++		+ nla_total_size(4)   /* OVS_KEY_ATTR_RECIRC_ID */
++		+ nla_total_size(12)  /* OVS_KEY_ATTR_ETHERNET */
++		+ nla_total_size(2)   /* OVS_KEY_ATTR_ETHERTYPE */
++		+ nla_total_size(4)   /* OVS_KEY_ATTR_VLAN */
++		+ nla_total_size(0)   /* OVS_KEY_ATTR_ENCAP */
++		+ nla_total_size(2)   /* OVS_KEY_ATTR_ETHERTYPE */
++		+ nla_total_size(40)  /* OVS_KEY_ATTR_IPV6 */
++		+ nla_total_size(2)   /* OVS_KEY_ATTR_ICMPV6 */
++		+ nla_total_size(28); /* OVS_KEY_ATTR_ND */
++}
++
+ /* The size of the argument for each %OVS_KEY_ATTR_* Netlink attribute.  */
+ static const int ovs_key_lens[OVS_KEY_ATTR_MAX + 1] = {
+ 	[OVS_KEY_ATTR_ENCAP] = -1,
+diff --git a/net/openvswitch/flow_netlink.h b/net/openvswitch/flow_netlink.h
+index 6355b1d..4f03706 100644
+--- a/net/openvswitch/flow_netlink.h
++++ b/net/openvswitch/flow_netlink.h
+@@ -37,6 +37,8 @@
  
--#define MAX_PHYS_PORT_ID_LEN 32
-+#define MAX_PHYS_ITEM_ID_LEN 32
+ #include "flow.h"
  
--/* This structure holds a unique identifier to identify the
-- * physical port used by a netdevice.
-+/* This structure holds a unique identifier to identify some
-+ * physical item (port for example) used by a netdevice.
-  */
--struct netdev_phys_port_id {
--	unsigned char id[MAX_PHYS_PORT_ID_LEN];
-+struct netdev_phys_item_id {
-+	unsigned char id[MAX_PHYS_ITEM_ID_LEN];
- 	unsigned char id_len;
- };
- 
-@@ -975,7 +975,7 @@ typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
-  *	USB_CDC_NOTIFY_NETWORK_CONNECTION) should NOT implement this function.
-  *
-  * int (*ndo_get_phys_port_id)(struct net_device *dev,
-- *			       struct netdev_phys_port_id *ppid);
-+ *			       struct netdev_phys_item_id *ppid);
-  *	Called to get ID of physical port of this device. If driver does
-  *	not implement this, it is assumed that the hw is not able to have
-  *	multiple net devices on single physical port.
-@@ -1149,7 +1149,7 @@ struct net_device_ops {
- 	int			(*ndo_change_carrier)(struct net_device *dev,
- 						      bool new_carrier);
- 	int			(*ndo_get_phys_port_id)(struct net_device *dev,
--							struct netdev_phys_port_id *ppid);
-+							struct netdev_phys_item_id *ppid);
- 	void			(*ndo_add_vxlan_port)(struct  net_device *dev,
- 						      sa_family_t sa_family,
- 						      __be16 port);
-@@ -2878,7 +2878,7 @@ void dev_set_group(struct net_device *, int);
- int dev_set_mac_address(struct net_device *, struct sockaddr *);
- int dev_change_carrier(struct net_device *, bool new_carrier);
- int dev_get_phys_port_id(struct net_device *dev,
--			 struct netdev_phys_port_id *ppid);
-+			 struct netdev_phys_item_id *ppid);
- struct sk_buff *validate_xmit_skb_list(struct sk_buff *skb, struct net_device *dev);
- struct sk_buff *dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
- 				    struct netdev_queue *txq, int *ret);
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 40be481..a170bcb 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5817,7 +5817,7 @@ EXPORT_SYMBOL(dev_change_carrier);
-  *	Get device physical port ID
-  */
- int dev_get_phys_port_id(struct net_device *dev,
--			 struct netdev_phys_port_id *ppid)
-+			 struct netdev_phys_item_id *ppid)
- {
- 	const struct net_device_ops *ops = dev->netdev_ops;
- 
-diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-index 9dd0669..55dc4da 100644
---- a/net/core/net-sysfs.c
-+++ b/net/core/net-sysfs.c
-@@ -387,7 +387,7 @@ static ssize_t phys_port_id_show(struct device *dev,
- 		return restart_syscall();
- 
- 	if (dev_isalive(netdev)) {
--		struct netdev_phys_port_id ppid;
-+		struct netdev_phys_item_id ppid;
- 
- 		ret = dev_get_phys_port_id(netdev, &ppid);
- 		if (!ret)
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index a688268..1087c6d 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -868,7 +868,7 @@ static noinline size_t if_nlmsg_size(const struct net_device *dev,
- 	       + rtnl_port_size(dev, ext_filter_mask) /* IFLA_VF_PORTS + IFLA_PORT_SELF */
- 	       + rtnl_link_get_size(dev) /* IFLA_LINKINFO */
- 	       + rtnl_link_get_af_size(dev) /* IFLA_AF_SPEC */
--	       + nla_total_size(MAX_PHYS_PORT_ID_LEN); /* IFLA_PHYS_PORT_ID */
-+	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN); /* IFLA_PHYS_PORT_ID */
- }
- 
- static int rtnl_vf_ports_fill(struct sk_buff *skb, struct net_device *dev)
-@@ -952,7 +952,7 @@ static int rtnl_port_fill(struct sk_buff *skb, struct net_device *dev,
- static int rtnl_phys_port_id_fill(struct sk_buff *skb, struct net_device *dev)
- {
- 	int err;
--	struct netdev_phys_port_id ppid;
-+	struct netdev_phys_item_id ppid;
- 
- 	err = dev_get_phys_port_id(dev, &ppid);
- 	if (err) {
-@@ -1196,7 +1196,7 @@ static const struct nla_policy ifla_policy[IFLA_MAX+1] = {
- 	[IFLA_PROMISCUITY]	= { .type = NLA_U32 },
- 	[IFLA_NUM_TX_QUEUES]	= { .type = NLA_U32 },
- 	[IFLA_NUM_RX_QUEUES]	= { .type = NLA_U32 },
--	[IFLA_PHYS_PORT_ID]	= { .type = NLA_BINARY, .len = MAX_PHYS_PORT_ID_LEN },
-+	[IFLA_PHYS_PORT_ID]	= { .type = NLA_BINARY, .len = MAX_PHYS_ITEM_ID_LEN },
- 	[IFLA_CARRIER_CHANGES]	= { .type = NLA_U32 },  /* ignored */
- };
++size_t ovs_key_attr_size(void);
++
+ void ovs_match_init(struct sw_flow_match *match,
+ 		    struct sw_flow_key *key, struct sw_flow_mask *mask);
  
 -- 
 1.9.3
