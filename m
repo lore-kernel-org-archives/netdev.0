@@ -1,299 +1,230 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 02/10] net: introduce generic switch devices support
-Date: Thu,  6 Nov 2014 10:20:02 +0100
-Message-ID: <1415265610-9338-3-git-send-email-jiri@resnulli.us>
-References: <1415265610-9338-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
-	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
-	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
-	ben@decadent.org.uk, stephen@networkplumber.org,
-	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
-	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
-	edumazet@google.com, jhs@mojatatu.com, sfeldma@gmail.com,
-	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
-	linville@tuxdriver.com, jasowang@redhat.com, ebiederm@xmission.com,
-	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
-	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
-	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
-	ronye@mellanox.com, simon.horman@netronome.com,
-	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
-	mleitner@redhat.com, shrijeet@gmail.com, gospo@cumulusnetworks.com,
-	bcrl@kvack.org
-To: netdev@vger.kernel.org
+From: Eyal perry <eyalpe@dev.mellanox.co.il>
+Subject: Re: [PATCH net-next 1/2] ethtool: Support for configurable RSS hash
+ function
+Date: Thu, 06 Nov 2014 11:41:43 +0200
+Message-ID: <545B4257.8000001@dev.mellanox.co.il>
+References: <1415188769-19593-1-git-send-email-amirv@mellanox.com>	 <1415188769-19593-2-git-send-email-amirv@mellanox.com> <1415224298.3398.27.camel@decadent.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Eyal Perry <eyalpe@mellanox.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>
+To: Ben Hutchings <ben@decadent.org.uk>,
+	Amir Vadai <amirv@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f54.google.com ([74.125.82.54]:51390 "EHLO
-	mail-wg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750901AbaKFJ1c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 04:27:32 -0500
-Received: by mail-wg0-f54.google.com with SMTP id n12so673246wgh.41
-        for <netdev@vger.kernel.org>; Thu, 06 Nov 2014 01:27:30 -0800 (PST)
-In-Reply-To: <1415265610-9338-1-git-send-email-jiri@resnulli.us>
+Received: from mail-wg0-f43.google.com ([74.125.82.43]:51776 "EHLO
+	mail-wg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751956AbaKFJls (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 04:41:48 -0500
+Received: by mail-wg0-f43.google.com with SMTP id y10so720079wgg.16
+        for <netdev@vger.kernel.org>; Thu, 06 Nov 2014 01:41:47 -0800 (PST)
+In-Reply-To: <1415224298.3398.27.camel@decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The goal of this is to provide a possibility to support various switch
-chips. Drivers should implement relevant ndos to do so. Now there is
-only one ndo defined:
-- for getting physical switch id is in place.
+On 11/5/2014 11:51 PM, Ben Hutchings wrote:
+> On Wed, 2014-11-05 at 13:59 +0200, Amir Vadai wrote:
+>> From: Eyal Perry <eyalpe@mellanox.com>
+>>
+>> This patch adds an RSS hash functions string-set, and two
+>> ethtool-options for set/get current RSS hash function. User-kernel API is done
+>> through the new hfunc mask field in the ethtool_rxfh struct. A bit set
+>> in the hfunc is corresponding to an index in the string-set.
+>>
+>> Signed-off-by: Eyal Perry <eyalpe@mellanox.com>
+>> Signed-off-by: Amir Vadai <amirv@mellanox.com>
+>> ---
+>>  include/linux/ethtool.h      | 28 ++++++++++++++++++++++++
+>>  include/uapi/linux/ethtool.h |  6 ++++-
+>>  net/core/ethtool.c           | 52 ++++++++++++++++++++++++++++++--------------
+>>  3 files changed, 69 insertions(+), 17 deletions(-)
+>>
+>> diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+>> index c1a2d60..61003b1 100644
+>> --- a/include/linux/ethtool.h
+>> +++ b/include/linux/ethtool.h
+>> @@ -59,6 +59,29 @@ enum ethtool_phys_id_state {
+>>  	ETHTOOL_ID_OFF
+>>  };
+>>  
+>> +enum {
+>> +	RSS_HASH_TOP_BIT, /* Configurable RSS hash function - Toeplitz */
+>> +	RSS_HASH_XOR_BIT, /* Configurable RSS hash function - Xor */
+>> +
+>> +	/*
+>> +	 * Add your fresh new hash function bits above and remember to update
+>> +	 * rss_hash_func_strings[] below
+>> +	 */
+>> +	RSS_HASH_FUNCS_COUNT
+>> +};
+>> +
+>> +#define __RSS_HASH_BIT(bit)	((u32)1 << (bit))
+>> +#define __RSS_HASH(name)	 __RSS_HASH_BIT(RSS_HASH_##name##_BIT)
+>> +
+>> +#define RSS_HASH_TOP		__RSS_HASH(TOP)
+>> +#define RSS_HASH_XOR		__RSS_HASH(XOR)
+> 
+> I think #define RSS_HASH_UNKNOWN 0 might also be useful.
+> 
+> And I think all of these names should get an ETH_ prefix.
+> 
+I'll add it in V1.
+>> +static const char
+>> +rss_hash_func_strings[RSS_HASH_FUNCS_COUNT][ETH_GSTRING_LEN] = {
+>> +	[RSS_HASH_TOP_BIT] =     "toeplitz",
+>> +	[RSS_HASH_XOR_BIT] =     "xor",
+>> +};
+> 
+> This belongs in net/core/ethtool.c.
+> 
+I agree, will be fixed in V1.
+>>  struct net_device;
+>>  
+>>  /* Some generic methods drivers may use in their ethtool_ops */
+>> @@ -158,6 +181,9 @@ static inline u32 ethtool_rxfh_indir_default(u32 index, u32 n_rx_rings)
+>>   *	Returns zero if not supported for this specific device.
+>>   * @get_rxfh_indir_size: Get the size of the RX flow hash indirection table.
+>>   *	Returns zero if not supported for this specific device.
+>> + * @get_rxfh_func: Get the hardware RX flow hash function.
+>> + * @set_rxfh_func: Set the hardware RX flow hash function. Returns a negative
+>> + *	error code or zero.
+>>   * @get_rxfh: Get the contents of the RX flow hash indirection table and hash
+>>   *	key.
+>>   *	Will only be called if one or both of @get_rxfh_indir_size and
+>> @@ -241,6 +267,8 @@ struct ethtool_ops {
+>>  	int	(*reset)(struct net_device *, u32 *);
+>>  	u32	(*get_rxfh_key_size)(struct net_device *);
+>>  	u32	(*get_rxfh_indir_size)(struct net_device *);
+>> +	u32	(*get_rxfh_func)(struct net_device *);
+>> +	int	(*set_rxfh_func)(struct net_device *, u32);
+> 
+> Why not another parameter to get_rxfh/set_rxfh?  I know it's a pain to
+> update all the implementations, but changing algorithm potentially
+> changes the supported indirection table and key lengths.  They have to
+> be validated together.
+> 
+OK, I'll do it for V1.
+>>  	int	(*get_rxfh)(struct net_device *, u32 *indir, u8 *key);
+>>  	int	(*set_rxfh)(struct net_device *, const u32 *indir,
+>>  			    const u8 *key);
+>> diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
+>> index eb2095b..eb91da4 100644
+>> --- a/include/uapi/linux/ethtool.h
+>> +++ b/include/uapi/linux/ethtool.h
+>> @@ -534,6 +534,7 @@ struct ethtool_pauseparam {
+>>   * @ETH_SS_NTUPLE_FILTERS: Previously used with %ETHTOOL_GRXNTUPLE;
+>>   *	now deprecated
+>>   * @ETH_SS_FEATURES: Device feature names
+>> + * @ETH_SS_RSS_HASH_FUNCS: RSS hush function names
+>>   */
+>>  enum ethtool_stringset {
+>>  	ETH_SS_TEST		= 0,
+>> @@ -541,6 +542,7 @@ enum ethtool_stringset {
+>>  	ETH_SS_PRIV_FLAGS,
+>>  	ETH_SS_NTUPLE_FILTERS,
+>>  	ETH_SS_FEATURES,
+>> +	ETH_SS_RSS_HASH_FUNCS,
+>>  };
+>>  
+>>  /**
+>> @@ -900,7 +902,9 @@ struct ethtool_rxfh {
+>>  	__u32	rss_context;
+>>  	__u32   indir_size;
+>>  	__u32   key_size;
+>> -	__u32	rsvd[2];
+>> +	__u8	hfunc;
+> 
+> Missing kernel-doc.  This needs to be very clear about what the valid
+> values are.
+> 
+I'll add it in V1.
+>> +	__u8	rsvd8[3];
+>> +	__u32	rsvd32;
+>>  	__u32   rss_config[0];
+>>  };
+>>  #define ETH_RXFH_INDIR_NO_CHANGE	0xffffffff
+>> diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+>> index 06dfb29..4791c17 100644
+>> --- a/net/core/ethtool.c
+>> +++ b/net/core/ethtool.c
+>> @@ -185,6 +185,9 @@ static int __ethtool_get_sset_count(struct net_device *dev, int sset)
+>>  	if (sset == ETH_SS_FEATURES)
+>>  		return ARRAY_SIZE(netdev_features_strings);
+>>  
+>> +	if (sset == ETH_SS_RSS_HASH_FUNCS)
+>> +		return ARRAY_SIZE(rss_hash_func_strings);
+>> +
+>>  	if (ops->get_sset_count && ops->get_strings)
+>>  		return ops->get_sset_count(dev, sset);
+>>  	else
+> [...]
+>> @@ -760,32 +769,43 @@ static noinline_for_stack int ethtool_set_rxfh(struct net_device *dev,
+>>  	const struct ethtool_ops *ops = dev->ethtool_ops;
+>>  	struct ethtool_rxnfc rx_rings;
+>>  	struct ethtool_rxfh rxfh;
+>> -	u32 dev_indir_size = 0, dev_key_size = 0, i;
+>> +	u32 dev_indir_size = 0, dev_key_size = 0, dev_hfunc = 0, i;
+>>  	u32 *indir = NULL, indir_bytes = 0;
+>>  	u8 *hkey = NULL;
+>>  	u8 *rss_config;
+>>  	u32 rss_cfg_offset = offsetof(struct ethtool_rxfh, rss_config[0]);
+>>  
+>> -	if (!(ops->get_rxfh_indir_size || ops->get_rxfh_key_size) ||
+>> -	    !ops->get_rxnfc || !ops->set_rxfh)
+>> +	if (!(ops->get_rxfh_indir_size || ops->get_rxfh_key_size ||
+>> +	      ops->get_rxfh_func) || !ops->get_rxnfc || !ops->set_rxfh)
+>>  		return -EOPNOTSUPP;
+>>  
+>> +	if (ops->get_rxfh_func)
+>> +		dev_hfunc = ops->get_rxfh_func(dev);
+>>  	if (ops->get_rxfh_indir_size)
+>>  		dev_indir_size = ops->get_rxfh_indir_size(dev);
+>>  	if (ops->get_rxfh_key_size)
+>>  		dev_key_size = dev->ethtool_ops->get_rxfh_key_size(dev);
+>> -	if ((dev_key_size + dev_indir_size) == 0)
+>> +	if ((dev_key_size + dev_indir_size + dev_hfunc) == 0)
+>>  		return -EOPNOTSUPP;
+>>  
+>>  	if (copy_from_user(&rxfh, useraddr, sizeof(rxfh)))
+>>  		return -EFAULT;
+>>  
+>>  	/* Check that reserved fields are 0 for now */
+>> -	if (rxfh.rss_context || rxfh.rsvd[0] || rxfh.rsvd[1])
+>> +	if (rxfh.rss_context || rxfh.rsvd8[0] || rxfh.rsvd8[1] ||
+>> +	    rxfh.rsvd8[2] || rxfh.rsvd32)
+>>  		return -EINVAL;
+>>  
+>> +	if (rxfh.hfunc != dev_hfunc) {
+>> +		if (!ops->set_rxfh_func)
+>> +			return -EOPNOTSUPP;
+>> +		ret = ops->set_rxfh_func(dev, rxfh.hfunc);
+>> +		if (ret)
+>> +			return ret;
+>> +	}
+>> +
+>>  	/* If either indir or hash key is valid, proceed further.
+>> -	 * It is not valid to request that both be unchanged.
+>> +	 * Must request at least one change: indir size, hash key or function.
+>>  	 */
+>>  	if ((rxfh.indir_size &&
+>>  	     rxfh.indir_size != ETH_RXFH_INDIR_NO_CHANGE &&
+>> @@ -793,7 +813,7 @@ static noinline_for_stack int ethtool_set_rxfh(struct net_device *dev,
+>>  	    (rxfh.key_size && (rxfh.key_size != dev_key_size)) ||
+>>  	    (rxfh.indir_size == ETH_RXFH_INDIR_NO_CHANGE &&
+>>  	     rxfh.key_size == 0))
+>> -		return -EINVAL;
+>> +		return rxfh.hfunc ? 0 : -EINVAL;
+> 
+> Shouldn't the condition be rxfh.hfunc != dev_hfunc ?
+> 
+> Ben.
+>
+On current implementation it's not necessary since we have already
+checked that above. However, according to your suggestion, after I'll
+remove the set/get_rxfh_func() callbacks I wouldn't be able to check
+that condition at this point of the code.
 
-Note that user can use random port netdevice to access the switch.
-
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
----
- Documentation/networking/switchdev.txt | 59 ++++++++++++++++++++++++++++++++++
- MAINTAINERS                            |  7 ++++
- include/linux/netdevice.h              | 10 ++++++
- include/net/switchdev.h                | 30 +++++++++++++++++
- net/Kconfig                            |  1 +
- net/Makefile                           |  3 ++
- net/switchdev/Kconfig                  | 13 ++++++++
- net/switchdev/Makefile                 |  5 +++
- net/switchdev/switchdev.c              | 33 +++++++++++++++++++
- 9 files changed, 161 insertions(+)
- create mode 100644 Documentation/networking/switchdev.txt
- create mode 100644 include/net/switchdev.h
- create mode 100644 net/switchdev/Kconfig
- create mode 100644 net/switchdev/Makefile
- create mode 100644 net/switchdev/switchdev.c
-
-diff --git a/Documentation/networking/switchdev.txt b/Documentation/networking/switchdev.txt
-new file mode 100644
-index 0000000..98be76c
---- /dev/null
-+++ b/Documentation/networking/switchdev.txt
-@@ -0,0 +1,59 @@
-+Switch (and switch-ish) device drivers HOWTO
-+===========================
-+
-+Please note that the word "switch" is here used in very generic meaning.
-+This include devices supporting L2/L3 but also various flow offloading chips,
-+including switches embedded into SR-IOV NICs.
-+
-+Lets describe a topology a bit. Imagine the following example:
-+
-+       +----------------------------+    +---------------+
-+       |     SOME switch chip       |    |      CPU      |
-+       +----------------------------+    +---------------+
-+       port1 port2 port3 port4 MNGMNT    |     PCI-E     |
-+         |     |     |     |     |       +---------------+
-+        PHY   PHY    |     |     |         |  NIC0 NIC1
-+                     |     |     |         |   |    |
-+                     |     |     +- PCI-E -+   |    |
-+                     |     +------- MII -------+    |
-+                     +------------- MII ------------+
-+
-+In this example, there are two independent lines between the switch silicon
-+and CPU. NIC0 and NIC1 drivers are not aware of a switch presence. They are
-+separate from the switch driver. SOME switch chip is by managed by a driver
-+via PCI-E device MNGMNT. Note that MNGMNT device, NIC0 and NIC1 may be
-+connected to some other type of bus.
-+
-+Now, for the previous example show the representation in kernel:
-+
-+       +----------------------------+    +---------------+
-+       |     SOME switch chip       |    |      CPU      |
-+       +----------------------------+    +---------------+
-+       sw0p0 sw0p1 sw0p2 sw0p3 MNGMNT    |     PCI-E     |
-+         |     |     |     |     |       +---------------+
-+        PHY   PHY    |     |     |         |  eth0 eth1
-+                     |     |     |         |   |    |
-+                     |     |     +- PCI-E -+   |    |
-+                     |     +------- MII -------+    |
-+                     +------------- MII ------------+
-+
-+Lets call the example switch driver for SOME switch chip "SOMEswitch". This
-+driver takes care of PCI-E device MNGMNT. There is a netdevice instance sw0pX
-+created for each port of a switch. These netdevices are instances
-+of "SOMEswitch" driver. sw0pX netdevices serve as a "representation"
-+of the switch chip. eth0 and eth1 are instances of some other existing driver.
-+
-+The only difference of the switch-port netdevice from the ordinary netdevice
-+is that is implements couple more NDOs:
-+
-+	ndo_sw_parent_get_id - This returns the same ID for two port netdevices
-+			       of the same physical switch chip. This is
-+			       mandatory to be implemented by all switch drivers
-+			       and serves the caller for recognition of a port
-+			       netdevice.
-+	ndo_sw_parent_* - Functions that serve for a manipulation of the switch
-+			  chip itself (it can be though of as a "parent" of the
-+			  port, therefore the name). They are not port-specific.
-+			  Caller might use arbitrary port netdevice of the same
-+			  switch and it will make no difference.
-+	ndo_sw_port_* - Functions that serve for a port-specific manipulation.
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 3a41fb0..776e078 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -9003,6 +9003,13 @@ F:	lib/swiotlb.c
- F:	arch/*/kernel/pci-swiotlb.c
- F:	include/linux/swiotlb.h
- 
-+SWITCHDEV
-+M:	Jiri Pirko <jiri@resnulli.us>
-+L:	netdev@vger.kernel.org
-+S:	Supported
-+F:	net/switchdev/
-+F:	include/net/switchdev.h
-+
- SYNOPSYS ARC ARCHITECTURE
- M:	Vineet Gupta <vgupta@synopsys.com>
- S:	Supported
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index bbc730f..54b08a7 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1017,6 +1017,12 @@ typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
-  *	performing GSO on a packet. The device returns true if it is
-  *	able to GSO the packet, false otherwise. If the return value is
-  *	false the stack will do software GSO.
-+ *
-+ * int (*ndo_sw_parent_id_get)(struct net_device *dev,
-+ *			       struct netdev_phys_item_id *psid);
-+ *	Called to get an ID of the switch chip this port is part of.
-+ *	If driver implements this, it indicates that it represents a port
-+ *	of a switch chip.
-  */
- struct net_device_ops {
- 	int			(*ndo_init)(struct net_device *dev);
-@@ -1168,6 +1174,10 @@ struct net_device_ops {
- 	int			(*ndo_get_lock_subclass)(struct net_device *dev);
- 	bool			(*ndo_gso_check) (struct sk_buff *skb,
- 						  struct net_device *dev);
-+#ifdef CONFIG_NET_SWITCHDEV
-+	int			(*ndo_sw_parent_id_get)(struct net_device *dev,
-+							struct netdev_phys_item_id *psid);
-+#endif
- };
- 
- /**
-diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-new file mode 100644
-index 0000000..79bf9bd
---- /dev/null
-+++ b/include/net/switchdev.h
-@@ -0,0 +1,30 @@
-+/*
-+ * include/net/switchdev.h - Switch device API
-+ * Copyright (c) 2014 Jiri Pirko <jiri@resnulli.us>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
-+#ifndef _LINUX_SWITCHDEV_H_
-+#define _LINUX_SWITCHDEV_H_
-+
-+#include <linux/netdevice.h>
-+
-+#ifdef CONFIG_NET_SWITCHDEV
-+
-+int netdev_sw_parent_id_get(struct net_device *dev,
-+			    struct netdev_phys_item_id *psid);
-+
-+#else
-+
-+static inline int netdev_sw_parent_id_get(struct net_device *dev,
-+					  struct netdev_phys_item_id *psid)
-+{
-+	return -EOPNOTSUPP;
-+}
-+
-+#endif
-+
-+#endif /* _LINUX_SWITCHDEV_H_ */
-diff --git a/net/Kconfig b/net/Kconfig
-index 99815b5..ff9ffc1 100644
---- a/net/Kconfig
-+++ b/net/Kconfig
-@@ -228,6 +228,7 @@ source "net/vmw_vsock/Kconfig"
- source "net/netlink/Kconfig"
- source "net/mpls/Kconfig"
- source "net/hsr/Kconfig"
-+source "net/switchdev/Kconfig"
- 
- config RPS
- 	boolean
-diff --git a/net/Makefile b/net/Makefile
-index 7ed1970..95fc694 100644
---- a/net/Makefile
-+++ b/net/Makefile
-@@ -73,3 +73,6 @@ obj-$(CONFIG_OPENVSWITCH)	+= openvswitch/
- obj-$(CONFIG_VSOCKETS)	+= vmw_vsock/
- obj-$(CONFIG_NET_MPLS_GSO)	+= mpls/
- obj-$(CONFIG_HSR)		+= hsr/
-+ifneq ($(CONFIG_NET_SWITCHDEV),)
-+obj-y				+= switchdev/
-+endif
-diff --git a/net/switchdev/Kconfig b/net/switchdev/Kconfig
-new file mode 100644
-index 0000000..1557545
---- /dev/null
-+++ b/net/switchdev/Kconfig
-@@ -0,0 +1,13 @@
-+#
-+# Configuration for Switch device support
-+#
-+
-+config NET_SWITCHDEV
-+	boolean "Switch (and switch-ish) device support (EXPERIMENTAL)"
-+	depends on INET
-+	---help---
-+	  This module provides glue between core networking code and device
-+	  drivers in order to support hardware switch chips in very generic
-+	  meaning of the word "switch". This include devices supporting L2/L3 but
-+	  also various flow offloading chips, including switches embedded into
-+	  SR-IOV NICs.
-diff --git a/net/switchdev/Makefile b/net/switchdev/Makefile
-new file mode 100644
-index 0000000..5ed63ed
---- /dev/null
-+++ b/net/switchdev/Makefile
-@@ -0,0 +1,5 @@
-+#
-+# Makefile for the Switch device API
-+#
-+
-+obj-$(CONFIG_NET_SWITCHDEV) += switchdev.o
-diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-new file mode 100644
-index 0000000..5010f646
---- /dev/null
-+++ b/net/switchdev/switchdev.c
-@@ -0,0 +1,33 @@
-+/*
-+ * net/switchdev/switchdev.c - Switch device API
-+ * Copyright (c) 2014 Jiri Pirko <jiri@resnulli.us>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/types.h>
-+#include <linux/init.h>
-+#include <linux/netdevice.h>
-+#include <net/switchdev.h>
-+
-+/**
-+ *	netdev_sw_parent_id_get - Get ID of a switch
-+ *	@dev: port device
-+ *	@psid: switch ID
-+ *
-+ *	Get ID of a switch this port is part of.
-+ */
-+int netdev_sw_parent_id_get(struct net_device *dev,
-+			    struct netdev_phys_item_id *psid)
-+{
-+	const struct net_device_ops *ops = dev->netdev_ops;
-+
-+	if (!ops->ndo_sw_parent_id_get)
-+		return -EOPNOTSUPP;
-+	return ops->ndo_sw_parent_id_get(dev, psid);
-+}
-+EXPORT_SYMBOL(netdev_sw_parent_id_get);
--- 
-1.9.3
+Best Regards,
+Eyal.
