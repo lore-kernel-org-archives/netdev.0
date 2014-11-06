@@ -1,124 +1,40 @@
-From: Joe Stringer <joestringer@nicira.com>
-Subject: Re: [PATCH net 3/5] fm10k: Implement ndo_gso_check()
-Date: Thu, 6 Nov 2014 13:15:22 -0800
-Message-ID: <20141106211522.GA55313@gmail.com>
-References: <1415138202-1197-1-git-send-email-joestringer@nicira.com>
- <1415138202-1197-4-git-send-email-joestringer@nicira.com>
- <545AE2C8.3070705@gmail.com>
- <20141106184115.GB18339@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: gro: add a per device gro flush timer
+Date: Thu, 06 Nov 2014 16:25:16 -0500 (EST)
+Message-ID: <20141106.162516.1083429539800319166.davem@davemloft.net>
+References: <1415235320.13896.51.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Alexander Duyck <alexander.duyck@gmail.com>,
-	sathya.perla@emulex.com, jeffrey.t.kirsher@intel.com,
-	linux.nics@intel.com, amirv@mellanox.com, shahed.shaikh@qlogic.com,
-	therbert@google.com
-To: alexander.duyck@gmail.com, netdev@vger.kernel.org,
-	Dept-GELinuxNICDev@qlogic.com, linux-kernel@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com, willemb@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog128.obsmtp.com ([74.125.149.141]:58253 "HELO
-	na3sys009aog128.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1750828AbaKFVPj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 16:15:39 -0500
-Received: by mail-pd0-f173.google.com with SMTP id v10so1880590pde.18
-        for <netdev@vger.kernel.org>; Thu, 06 Nov 2014 13:15:38 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20141106184115.GB18339@gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:59008 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750974AbaKFVZU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 16:25:20 -0500
+In-Reply-To: <1415235320.13896.51.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 06, 2014 at 10:41:15AM -0800, Joe Stringer wrote:
-> On Wed, Nov 05, 2014 at 06:54:00PM -0800, Alexander Duyck wrote:
-> > On 11/04/2014 01:56 PM, Joe Stringer wrote:
-> > > ndo_gso_check() was recently introduced to allow NICs to report t=
-he
-> > > offloading support that they have on a per-skb basis. Add an
-> > > implementation for this driver which checks for something that lo=
-oks
-> > > like VXLAN.
-> > >
-> > > Implementation shamelessly stolen from Tom Herbert:
-> > > http://thread.gmane.org/gmane.linux.network/332428/focus=3D333111
-> > >
-> > > Signed-off-by: Joe Stringer <joestringer@nicira.com>
-> > > ---
-> > > Should this driver report support for GSO on packets with tunnel =
-headers
-> > > up to 64B like the i40e driver does?
-> > > ---
-> > >  drivers/net/ethernet/intel/fm10k/fm10k_netdev.c |   12 +++++++++=
-+++
-> > >  1 file changed, 12 insertions(+)
-> > >
-> > > diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c b/dr=
-ivers/net/ethernet/intel/fm10k/fm10k_netdev.c
-> > > index 8811364..b9ef622 100644
-> > > --- a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
-> > > +++ b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
-> > > @@ -1350,6 +1350,17 @@ static void fm10k_dfwd_del_station(struct =
-net_device *dev, void *priv)
-> > >  	}
-> > >  }
-> > > =20
-> > > +static bool fm10k_gso_check(struct sk_buff *skb, struct net_devi=
-ce *dev)
-> > > +{
-> > > +	if ((skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL) &&
-> > > +	    (skb->inner_protocol_type !=3D ENCAP_TYPE_ETHER ||
-> > > +	     skb->inner_protocol !=3D htons(ETH_P_TEB) ||
-> > > +	     skb_inner_mac_header(skb) - skb_transport_header(skb) !=3D=
- 16))
-> > > +		return false;
-> > > +
-> > > +	return true;
-> > > +}
-> > > +
-> > >  static const struct net_device_ops fm10k_netdev_ops =3D {
-> > >  	.ndo_open		=3D fm10k_open,
-> > >  	.ndo_stop		=3D fm10k_close,
-> > > @@ -1372,6 +1383,7 @@ static const struct net_device_ops fm10k_ne=
-tdev_ops =3D {
-> > >  	.ndo_do_ioctl		=3D fm10k_ioctl,
-> > >  	.ndo_dfwd_add_station	=3D fm10k_dfwd_add_station,
-> > >  	.ndo_dfwd_del_station	=3D fm10k_dfwd_del_station,
-> > > +	.ndo_gso_check		=3D fm10k_gso_check,
-> > >  };
-> > > =20
-> > >  #define DEFAULT_DEBUG_LEVEL_SHIFT 3
-> >=20
-> > I'm thinking this check is far too simplistic.  If you look the fm1=
-0k
-> > driver already has fm10k_tx_encap_offload() in the TSO function for
-> > verifying if it can support offloading tunnels or not.  I would
-> > recommend starting there or possibly even just adapting that functi=
-on to
-> > suit your purpose.
-> >=20
-> > Thanks,
-> >=20
-> > Alex
->=20
-> Would it be enough to just call fm10k_tx_encap_offload() in a way tha=
-t echoes fm10k_tso()?
->=20
-> +static bool fm10k_gso_check(struct sk_buff *skb, struct net_device *=
-dev)
-> +{
-> + =A0 =A0 =A0 if (skb->encapsulation && !fm10k_tx_encap_offload(skb))
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return false;
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 05 Nov 2014 16:55:20 -0800
+
+> @@ -4430,8 +4432,19 @@ void napi_complete(struct napi_struct *n)
+>  	if (unlikely(test_bit(NAPI_STATE_NPSVC, &n->state)))
+>  		return;
+>  
+> -	napi_gro_flush(n, false);
+> +	if (n->gro_list) {
+> +		unsigned long timeout = 0;
 > +
-> + =A0 =A0 =A0 return true;
-> +}
+> +		if (n->napi_rx_count)
+> +			timeout = n->dev->gro_flush_timeout;
 
-Oh, I suppose we need to check the gso_type too. More like this?
+Under what circumstances would we see n->gro_list non-NULL yet
+n->napi_rx_count == 0?
 
-+static bool fm10k_gso_check(struct sk_buff *skb, struct net_device *de=
-v)
-+{
-+       if ((skb_shinfo(skb)->gso_type & (SKB_GSO_UDP_TUNNEL | SKB_GSO_=
-GRE)) &&
-+           !fm10k_tx_encap_offload(skb))
-+               return false;
-+
-+       return true;
-+}
+I'm not so sure it can happen.
+
+Said another way, it looks to me like you could implement this
+using less state.
