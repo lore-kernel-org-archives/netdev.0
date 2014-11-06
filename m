@@ -1,55 +1,51 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: am335x: cpsw: phy ignores max-speed setting
-Date: Thu, 06 Nov 2014 09:28:23 -0800
-Message-ID: <1415294903.13896.70.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CAGm1_ktWK5ai85PZJTkq8Q1mAFH6JZ5XM1mDOHO3K_N2iGNLWg@mail.gmail.com>
-	 <CAA93jw5=LDirktyC+rvpLi-kywUSosj6QV8-na5p3-f=PxKcWQ@mail.gmail.com>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: [PATCH 1/4] inet: Add skb_copy_datagram_iter
+Date: Thu, 6 Nov 2014 17:30:12 +0000
+Message-ID: <20141106173012.GY7996@ZenIV.linux.org.uk>
+References: <20141106082704.GB29800@gondor.apana.org.au>
+ <E1XmIQU-0007m1-2e@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Yegor Yefremov <yegorslists@googlemail.com>,
-	netdev <netdev@vger.kernel.org>,
-	"N, Mugunthan V" <mugunthanvnm@ti.com>, mpa@pengutronix.de,
-	lsorense@csclub.uwaterloo.ca, Daniel Mack <zonque@gmail.com>
-To: Dave Taht <dave.taht@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f181.google.com ([209.85.213.181]:46038 "EHLO
-	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751287AbaKFR20 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 12:28:26 -0500
-Received: by mail-ig0-f181.google.com with SMTP id l13so4117819iga.14
-        for <netdev@vger.kernel.org>; Thu, 06 Nov 2014 09:28:25 -0800 (PST)
-In-Reply-To: <CAA93jw5=LDirktyC+rvpLi-kywUSosj6QV8-na5p3-f=PxKcWQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, bcrl@kvack.org,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <E1XmIQU-0007m1-2e@gondolin.me.apana.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2014-11-06 at 08:51 -0800, Dave Taht wrote:
-> ooh! ooh! I have a BQL enablement patch for the cpsw that I have no
-> means of testing against multiple phys. Could
-> you give the attached very small patch a shot along the way?
-> 
-> The results I get on the beaglebone vs netperf-wrapper are pretty
-> spectacular - huge increase in throughput, big reduction in
-> latency.
+On Thu, Nov 06, 2014 at 04:28:18PM +0800, Herbert Xu wrote:
+> +		if (copy_to_iter(skb->data + offset, copy, to))
+> +			goto fault;
 
-Please send this patch inline, so that we can comment, and start a new
-thread.
+Sorry, no - copy_to_iter() returns the number of bytes copied, not 0 or -EFAULT.
 
-@@ -1375,9 +1380,11 @@ static netdev_tx_t cpsw_ndo_start_xmit(struct sk_buff *skb,
-                skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
- 
-        skb_tx_timestamp(skb);
--
-+       len = max(skb->len, CPSW_MIN_PACKET_SIZE);
-+       netdev_sent_queue(ndev,len);
-        ret = cpsw_tx_packet_submit(ndev, priv, skb);
-        if (unlikely(ret != 0)) {
-+               netdev_completed_queue(ndev,1,len);
-<<you can not do that, its racy with other netdev_completed_queue() calls from TX completion >>
-                cpsw_err(priv, tx_err, "desc submit failed\n");
-                goto fail;
-        }
+> +			vaddr = kmap(page);
+> +			err = copy_to_iter(vaddr + frag->page_offset +
+> +					   offset - start, copy, to);
+> +			kunmap(page);
+> +			if (err)
+> +				goto fault;
 
+And that one should be
+			copied = copy_page_to_iter(page, frag->page_offset +
+					   offset - start, copy, to);
+			if (copied != copy)
+				goto fault;
 
-You need to call netdev_sent_queue(ndev, len); at the correct place,
-because we can not 'undo' it.
+Don't bother with kmap(), vaddr and all that shite.  The primitive is
+	copy_page_to_iter(page, offset_in_page, nbytes, iter)
+it does all needed kmap itself and it's smart enough to use kmap_atomic
+when it can get away with that.  Similar for copy_page_from_iter().
+
+Both of those (as well as copy_{to,from}_iter()) advance iov_iter and return
+the number of bytes actually copied.  So the check for EFAULT is "it has copied
+less than you've asked it to copy *and* you haven't run out that iov_iter".
+The second part is guaranteed to be true in this case - your code makes sure
+that 'copy' is no more than the space left in iterator.
+
+In general, this check would be spelled
+			if (copied != copy && iov_iter_count(to))
+				goto fault;
