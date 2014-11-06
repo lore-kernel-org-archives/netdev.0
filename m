@@ -1,99 +1,59 @@
-From: Anish Bhatt <anish@chelsio.com>
-Subject: RE: [PATCH net] dcbnl : Fix lock initialization
-Date: Thu, 6 Nov 2014 20:19:52 +0000
-Message-ID: <525DB349B3FB5444AE057A887CB2A8D8935E9E@nice.asicdesigners.com>
-References: <1415297355-27282-1-git-send-email-anish@chelsio.com>,<545BC5F4.9070501@gmail.com>
- <525DB349B3FB5444AE057A887CB2A8D8935DCF@nice.asicdesigners.com>,<545BD720.6050008@gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH net-next] dccp: Convert DCCP_WARN to net_warn_ratelimited
+Date: Thu, 06 Nov 2014 12:53:41 -0800
+Message-ID: <1415307221.21526.0.camel@perches.com>
+References: <1415230568.6634.36.camel@perches.com>
+	 <1415230929.6634.38.camel@perches.com>
+	 <20141106.151149.1321164537677873976.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"john.r.fastabend@intel.com" <john.r.fastabend@intel.com>,
-	"ying.xue@windriver.com" <ying.xue@windriver.com>,
-	"jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
-	"ebiederm@xmission.com" <ebiederm@xmission.com>
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:25668 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750828AbaKFUTz convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 15:19:55 -0500
-In-Reply-To: <545BD720.6050008@gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Gerrit Renker <gerrit@erg.abdn.ac.uk>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141106.151149.1321164537677873976.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dave,
-   Please do not apply this patch then. 
-John, 
-I will try to recreate this again and investigate. My setup is currently being used for other purposes so might take a few days.
--Anish
-________________________________________
-From: John Fastabend [john.fastabend@gmail.com]
-Sent: Thursday, November 06, 2014 12:16 PM
-To: Anish Bhatt
-Cc: netdev@vger.kernel.org; davem@davemloft.net; john.r.fastabend@intel.com; ying.xue@windriver.com; jeffrey.t.kirsher@intel.com; ebiederm@xmission.com
-Subject: Re: [PATCH net] dcbnl : Fix lock initialization
+Remove the dependency on the "warning" sysctl (net_msg_warn)
+which is only used by the LIMIT_NETDEBUG macro.
 
-On 11/06/2014 11:12 AM, Anish Bhatt wrote:
-> Yes, without this kernel is complaining about inconsitent lock state
-> when lock debugging is enabled. Unfortunately I do not have the trace
-> lying around right now.
->
+Convert the LIMIT_NETDEBUG use in DCCP_WARN to the more
+common net_warn_ratelimited mechanism.
 
-If you have the trace that might help. I can't recall seeing any splats
-in these code paths. Also as far as I can tell you shouldn't need to do
-an init after the define. There are lots of examples in ./net/core where
-this is done.
+This still ratelimits based on the net_ratelimit()
+function, but removes the check for the sysctl.
 
-So we need to sort out why the init resolves the issue.
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+On Thu, 2014-11-06 at 15:11 -0500, David Miller wrote:
+> Applied, thanks for doing this work Joe.
+No worries.
 
-> If you wish, you can reject this patch, I'll resend it when I get the trace again, with trace included.
-> -Anish
-> ________________________________________
-> From: John Fastabend [john.fastabend@gmail.com]
-> Sent: Thursday, November 06, 2014 11:03 AM
-> To: Anish Bhatt
-> Cc: netdev@vger.kernel.org; davem@davemloft.net; john.r.fastabend@intel.com; ying.xue@windriver.com; jeffrey.t.kirsher@intel.com; ebiederm@xmission.com
-> Subject: Re: [PATCH net] dcbnl : Fix lock initialization
->
-> On 11/06/2014 10:09 AM, Anish Bhatt wrote:
->> dcb_lock was being used uninitialized in dcbnl and is infact missing
->>    initialization code. Fixed
->>
->
-> Are you trying to resolve a bug? It is initialized with
->
-> static DEFINE_SPINLOCK(dcb_lock);
->
-> and if you follow the code far enough you get to this in
-> spinlock_types.h:
->
->
->    #ifdef CONFIG_DEBUG_SPINLOCK
->    # define SPIN_DEBUG_INIT(lockname)      \
->        .magic = SPINLOCK_MAGIC,        \
->        .owner_cpu = -1,            \
->        .owner = SPINLOCK_OWNER_INIT,
->    #else
->    # define SPIN_DEBUG_INIT(lockname)
->    #endif
->
->    #define __RAW_SPIN_LOCK_INITIALIZER(lockname)   \
->        {                   \
->        .raw_lock = __ARCH_SPIN_LOCK_UNLOCKED,  \
->        SPIN_DEBUG_INIT(lockname)       \
->        SPIN_DEP_MAP_INIT(lockname) }
->
-> [...]
->
->
->
-> --
-> John Fastabend         Intel Corporation
->
+What about the LIMIT_NETDEBUG stuff now?
 
+Maybe all of them might as well be net_dbg_ratelimited
+even if it changes some of the logging levels.
 
---
-John Fastabend         Intel Corporation
+Probably DCCP_WARN should be net_warn_ratelimited
+so let's start there...
+
+ net/dccp/dccp.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/dccp/dccp.h b/net/dccp/dccp.h
+index c678166..e4c144f 100644
+--- a/net/dccp/dccp.h
++++ b/net/dccp/dccp.h
+@@ -22,8 +22,8 @@
+ /*
+  * 	DCCP - specific warning and debugging macros.
+  */
+-#define DCCP_WARN(fmt, a...) LIMIT_NETDEBUG(KERN_WARNING "%s: " fmt,       \
+-							__func__, ##a)
++#define DCCP_WARN(fmt, ...)						\
++	net_warn_ratelimited("%s: " fmt, __func__, ##__VA_ARGS__)
+ #define DCCP_CRIT(fmt, a...) printk(KERN_CRIT fmt " at %s:%d/%s()\n", ##a, \
+ 					 __FILE__, __LINE__, __func__)
+ #define DCCP_BUG(a...)       do { DCCP_CRIT("BUG: " a); dump_stack(); } while(0)
