@@ -1,7 +1,7 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 1/4] inet: Add skb_copy_datagram_iter
-Date: Thu, 06 Nov 2014 16:28:18 +0800
-Message-ID: <E1XmIQU-0007m1-2e@gondolin.me.apana.org.au>
+Subject: [PATCH 2/4] tun: Use iovec iterators
+Date: Thu, 06 Nov 2014 16:28:19 +0800
+Message-ID: <E1XmIQV-0007mK-BV@gondolin.me.apana.org.au>
 References: <20141106082704.GB29800@gondor.apana.org.au>
 To: David Miller <davem@davemloft.net>, viro@ZenIV.linux.org.uk,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
@@ -10,138 +10,172 @@ Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds skb_copy_datagram_iter, which is identical to
-skb_copy_datagram_iovec except that it operates on iov_iter
-instead of iovec.
-
-Eventually all users of skb_copy_datagram_iovec should switch
-over to iov_iter and then we can remove skb_copy_datagram_iovec.
+This patch removes the use of skb_copy_datagram_const_iovec in
+favour of the iovec iterator-based skb_copy_datagram_iter.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- include/linux/skbuff.h |    3 +
- net/core/datagram.c    |   82 +++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 85 insertions(+)
+ drivers/net/tun.c |   65 ++++++++++++++++++++++++------------------------------
+ 1 file changed, 30 insertions(+), 35 deletions(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 39ec753..a405013 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -150,6 +150,7 @@
- struct net_device;
- struct scatterlist;
- struct pipe_inode_info;
-+struct iov_iter;
- 
- #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
- struct nf_conntrack {
-@@ -2655,6 +2656,8 @@ int zerocopy_sg_from_iovec(struct sk_buff *skb, const struct iovec *frm,
- int skb_copy_datagram_const_iovec(const struct sk_buff *from, int offset,
- 				  const struct iovec *to, int to_offset,
- 				  int size);
-+int skb_copy_datagram_iter(const struct sk_buff *from, int offset,
-+			   struct iov_iter *to, int size);
- void skb_free_datagram(struct sock *sk, struct sk_buff *skb);
- void skb_free_datagram_locked(struct sock *sk, struct sk_buff *skb);
- int skb_kill_datagram(struct sock *sk, struct sk_buff *skb, unsigned int flags);
-diff --git a/net/core/datagram.c b/net/core/datagram.c
-index fdbc9a8..45a9d4d 100644
---- a/net/core/datagram.c
-+++ b/net/core/datagram.c
-@@ -49,6 +49,7 @@
- #include <linux/spinlock.h>
- #include <linux/slab.h>
- #include <linux/pagemap.h>
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 9dd3746..b4ac4d5 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -71,6 +71,7 @@
+ #include <net/rtnetlink.h>
+ #include <net/sock.h>
+ #include <linux/seq_file.h>
 +#include <linux/uio.h>
  
- #include <net/protocol.h>
- #include <linux/skbuff.h>
-@@ -482,6 +483,87 @@ fault:
- EXPORT_SYMBOL(skb_copy_datagram_const_iovec);
+ #include <asm/uaccess.h>
  
- /**
-+ *	skb_copy_datagram_iter - Copy a datagram to an iovec iterator.
-+ *	@skb: buffer to copy
-+ *	@offset: offset in the buffer to start copying from
-+ *	@to: iovec iterator to copy to
-+ *	@len: amount of data to copy from buffer to iovec
-+ */
-+int skb_copy_datagram_iter(const struct sk_buff *skb, int offset,
-+			   struct iov_iter *to, int len)
-+{
-+	int start = skb_headlen(skb);
-+	int i, copy = start - offset;
-+	struct sk_buff *frag_iter;
+@@ -1230,11 +1231,11 @@ static ssize_t tun_chr_aio_write(struct kiocb *iocb, const struct iovec *iv,
+ static ssize_t tun_put_user(struct tun_struct *tun,
+ 			    struct tun_file *tfile,
+ 			    struct sk_buff *skb,
+-			    const struct iovec *iv, int len)
++			    struct iov_iter *iter)
+ {
+ 	struct tun_pi pi = { 0, skb->protocol };
+-	ssize_t total = 0;
+-	int vlan_offset = 0, copied;
++	ssize_t total;
++	int vlan_offset;
+ 	int vlan_hlen = 0;
+ 	int vnet_hdr_sz = 0;
+ 
+@@ -1244,23 +1245,25 @@ static ssize_t tun_put_user(struct tun_struct *tun,
+ 	if (tun->flags & TUN_VNET_HDR)
+ 		vnet_hdr_sz = tun->vnet_hdr_sz;
+ 
++	total = skb->len + vlan_hlen + vnet_hdr_sz;
 +
-+	trace_skb_copy_datagram_iovec(skb, len);
+ 	if (!(tun->flags & TUN_NO_PI)) {
+-		if ((len -= sizeof(pi)) < 0)
++		if (iov_iter_count(iter) < sizeof(pi))
+ 			return -EINVAL;
+ 
+-		if (len < skb->len + vlan_hlen + vnet_hdr_sz) {
++		total += sizeof(pi);
++		if (iov_iter_count(iter) < total) {
+ 			/* Packet will be striped */
+ 			pi.flags |= TUN_PKT_STRIP;
+ 		}
+ 
+-		if (memcpy_toiovecend(iv, (void *) &pi, 0, sizeof(pi)))
++		if (copy_to_iter(&pi, sizeof(pi), iter))
+ 			return -EFAULT;
+-		total += sizeof(pi);
+ 	}
+ 
+ 	if (vnet_hdr_sz) {
+ 		struct virtio_net_hdr gso = { 0 }; /* no info leak */
+-		if ((len -= vnet_hdr_sz) < 0)
++		if (iov_iter_count(iter) < vnet_hdr_sz)
+ 			return -EINVAL;
+ 
+ 		if (skb_is_gso(skb)) {
+@@ -1299,17 +1302,12 @@ static ssize_t tun_put_user(struct tun_struct *tun,
+ 			gso.flags = VIRTIO_NET_HDR_F_DATA_VALID;
+ 		} /* else everything is zero */
+ 
+-		if (unlikely(memcpy_toiovecend(iv, (void *)&gso, total,
+-					       sizeof(gso))))
++		if (copy_to_iter(&gso, sizeof(gso), iter))
+ 			return -EFAULT;
+-		total += vnet_hdr_sz;
+ 	}
+ 
+-	copied = total;
+-	len = min_t(int, skb->len + vlan_hlen, len);
+-	total += skb->len + vlan_hlen;
+ 	if (vlan_hlen) {
+-		int copy, ret;
++		int ret;
+ 		struct {
+ 			__be16 h_vlan_proto;
+ 			__be16 h_vlan_TCI;
+@@ -1320,36 +1318,32 @@ static ssize_t tun_put_user(struct tun_struct *tun,
+ 
+ 		vlan_offset = offsetof(struct vlan_ethhdr, h_vlan_proto);
+ 
+-		copy = min_t(int, vlan_offset, len);
+-		ret = skb_copy_datagram_const_iovec(skb, 0, iv, copied, copy);
+-		len -= copy;
+-		copied += copy;
+-		if (ret || !len)
++		ret = skb_copy_datagram_iter(skb, 0, iter, vlan_offset);
++		if (ret || !iov_iter_count(iter))
+ 			goto done;
+ 
+-		copy = min_t(int, sizeof(veth), len);
+-		ret = memcpy_toiovecend(iv, (void *)&veth, copied, copy);
+-		len -= copy;
+-		copied += copy;
+-		if (ret || !len)
++		ret = copy_to_iter(&veth, sizeof(veth), iter);
++		if (ret || !iov_iter_count(iter))
+ 			goto done;
+ 	}
+ 
+-	skb_copy_datagram_const_iovec(skb, vlan_offset, iv, copied, len);
++	skb_copy_datagram_iter(skb, vlan_offset, iter, skb->len - vlan_offset);
+ 
+ done:
+ 	tun->dev->stats.tx_packets++;
+-	tun->dev->stats.tx_bytes += len;
++	tun->dev->stats.tx_bytes += skb->len + vlan_hlen;
+ 
+ 	return total;
+ }
+ 
+ static ssize_t tun_do_read(struct tun_struct *tun, struct tun_file *tfile,
+-			   const struct iovec *iv, ssize_t len, int noblock)
++			   const struct iovec *iv, unsigned long segs,
++			   ssize_t len, int noblock)
+ {
+ 	struct sk_buff *skb;
+ 	ssize_t ret = 0;
+ 	int peeked, err, off = 0;
++	struct iov_iter iter;
+ 
+ 	tun_debug(KERN_INFO, tun, "tun_do_read\n");
+ 
+@@ -1362,11 +1356,12 @@ static ssize_t tun_do_read(struct tun_struct *tun, struct tun_file *tfile,
+ 	/* Read frames from queue */
+ 	skb = __skb_recv_datagram(tfile->socket.sk, noblock ? MSG_DONTWAIT : 0,
+ 				  &peeked, &off, &err);
+-	if (skb) {
+-		ret = tun_put_user(tun, tfile, skb, iv, len);
+-		kfree_skb(skb);
+-	} else
+-		ret = err;
++	if (!skb)
++		return ret;
 +
-+	/* Copy header. */
-+	if (copy > 0) {
-+		if (copy > len)
-+			copy = len;
-+		if (copy_to_iter(skb->data + offset, copy, to))
-+			goto fault;
-+		if ((len -= copy) == 0)
-+			return 0;
-+		offset += copy;
-+	}
-+
-+	/* Copy paged appendix. Hmm... why does this look so complicated? */
-+	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
-+		int end;
-+		const skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
-+
-+		WARN_ON(start > offset + len);
-+
-+		end = start + skb_frag_size(frag);
-+		if ((copy = end - offset) > 0) {
-+			int err;
-+			u8  *vaddr;
-+			struct page *page = skb_frag_page(frag);
-+
-+			if (copy > len)
-+				copy = len;
-+			vaddr = kmap(page);
-+			err = copy_to_iter(vaddr + frag->page_offset +
-+					   offset - start, copy, to);
-+			kunmap(page);
-+			if (err)
-+				goto fault;
-+			if (!(len -= copy))
-+				return 0;
-+			offset += copy;
-+		}
-+		start = end;
-+	}
-+
-+	skb_walk_frags(skb, frag_iter) {
-+		int end;
-+
-+		WARN_ON(start > offset + len);
-+
-+		end = start + frag_iter->len;
-+		if ((copy = end - offset) > 0) {
-+			if (copy > len)
-+				copy = len;
-+			if (skb_copy_datagram_iter(frag_iter, offset - start,
-+						   to, copy))
-+				goto fault;
-+			if ((len -= copy) == 0)
-+				return 0;
-+			offset += copy;
-+		}
-+		start = end;
-+	}
-+	if (!len)
-+		return 0;
-+
-+fault:
-+	return -EFAULT;
-+}
-+EXPORT_SYMBOL(skb_copy_datagram_iter);
-+
-+/**
-  *	skb_copy_datagram_from_iovec - Copy a datagram from an iovec.
-  *	@skb: buffer to copy
-  *	@offset: offset in the buffer to start copying to
++	iov_iter_init(&iter, READ, iv, segs, len);
++	ret = tun_put_user(tun, tfile, skb, &iter);
++	kfree_skb(skb);
+ 
+ 	return ret;
+ }
+@@ -1387,7 +1382,7 @@ static ssize_t tun_chr_aio_read(struct kiocb *iocb, const struct iovec *iv,
+ 		goto out;
+ 	}
+ 
+-	ret = tun_do_read(tun, tfile, iv, len,
++	ret = tun_do_read(tun, tfile, iv, count, len,
+ 			  file->f_flags & O_NONBLOCK);
+ 	ret = min_t(ssize_t, ret, len);
+ 	if (ret > 0)
+@@ -1488,7 +1483,7 @@ static int tun_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 					 SOL_PACKET, TUN_TX_TIMESTAMP);
+ 		goto out;
+ 	}
+-	ret = tun_do_read(tun, tfile, m->msg_iov, total_len,
++	ret = tun_do_read(tun, tfile, m->msg_iov, m->msg_iovlen, total_len,
+ 			  flags & MSG_DONTWAIT);
+ 	if (ret > total_len) {
+ 		m->msg_flags |= MSG_TRUNC;
