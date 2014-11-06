@@ -1,90 +1,103 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: M_CAN message RAM initialization AppNote  - was: Re: [PATCH V3
- 3/3] can: m_can: workaround for transmit data less than 4 bytes
-Date: Thu, 06 Nov 2014 13:33:56 +0100
-Message-ID: <545B6AB4.70003@hartkopp.net>
-References: <1415193393-30023-1-git-send-email-b29396@freescale.com> <1415193393-30023-3-git-send-email-b29396@freescale.com> <545A3451.2090302@pengutronix.de> <545A692E.40002@hartkopp.net> <20141106015716.GB7642@shlinux1.ap.freescale.net> <545B1D71.4000408@hartkopp.net> <20141106080940.GA22964@shlinux1.ap.freescale.net>
+From: "Stam, Michel [FINT]" <M.Stam@fugro.nl>
+Subject: RE: "asix: Don't reset PHY on if_up for ASIX 88772" breaks net on arndale platform
+Date: Thu, 6 Nov 2014 13:39:07 +0100
+Message-ID: <C89EFD3CD56F64468D3D206D683A8D22039FFE16@ldam-msx2.fugro-nl.local>
+References: <20141104072236.GA559@afflict.kos.to> <C89EFD3CD56F64468D3D206D683A8D2203985F49@ldam-msx2.fugro-nl.local> <20141104094336.GA3145@afflict.kos.to> <C89EFD3CD56F64468D3D206D683A8D2203985FA9@ldam-msx2.fugro-nl.local> <20141104200914.GN23178@opensource.wolfsonmicro.com> <C89EFD3CD56F64468D3D206D683A8D22039FFC5F@ldam-msx2.fugro-nl.local> <20141105150258.GR23178@opensource.wolfsonmicro.com> <20141106090651.GA19109@afflict.kos.to> <20141106100104.GS23178@opensource.wolfsonmicro.com> <20141106120416.GA20162@afflict.kos.to>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Marc Kleine-Budde <mkl@pengutronix.de>, linux-can@vger.kernel.org,
-	wg@grandegger.com, varkabhadram@gmail.com, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org
-To: Dong Aisheng <b29396@freescale.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <20141106080940.GA22964@shlinux1.ap.freescale.net>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <freddy@asix.com.tw>, <davem@davemloft.net>,
+	<linux-usb@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <linux-samsung-soc@vger.kernel.org>
+To: "Riku Voipio" <riku.voipio@iki.fi>,
+	"Charles Keepax" <ckeepax@opensource.wolfsonmicro.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <20141106120416.GA20162@afflict.kos.to>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 06.11.2014 09:09, Dong Aisheng wrote:
-> On Thu, Nov 06, 2014 at 08:04:17AM +0100, Oliver Hartkopp wrote:
+Hello Riku and Charles,
 
+I tried this with my original patch and the suggested patch applied,
+this seems to work for me too.
 
->> To prevent the M_CAN controller detecting checksum errors when
->> reading potentially uninitialized TX message RAM content to transmit
->> CAN frames the TX message RAM has to be written with (any kind of)
->> initial data.
->>
->
-> The key point of the issue is that why M_CAN will read potentially uninitialized
-> TX message RAM content which should not happen?
-> e.g. for our case of the issue, if we sending a no data frame or a less
-> than 4 bytes frame, why m_can will read extra 4 bytes uninitialized/unset
-> data which seems not reasonable?
->
->  From IP code logic, it will read full 8 bytes of data no matter how many data
-> actually to be transfered which is strange.
+One thing that bothers me, is the suspend / resume situation; usbnet.c
+seems to call the bind( ) on probe( ). Suspend / resume do not seem to
+call bind( ) directly.
 
-Yes.
+As Riku pointed out, the original patch I reverted was because of
+suspend/resume issues. I wonder if this will still work? 
 
->
-> For sending data over 4 bytes, since the Message RAM content will be filled
-> with the real data to be transfered so there's no such issue.
+Kind regards,
 
-E.g. think about the transfer of a CAN FD frame with 32 byte.
-When you only fill up content until 28 byte the last four bytes still remain 
-uninitialized.
+Michel Stam
 
-Did you try this 28 byte use-case with an uninitialized TX message RAM ?
+-----Original Message-----
+From: Riku Voipio [mailto:riku.voipio@iki.fi] 
+Sent: Thursday, November 06, 2014 13:04 PM
+To: Charles Keepax
+Cc: Riku Voipio; Stam, Michel [FINT]; freddy@asix.com.tw;
+davem@davemloft.net; linux-usb@vger.kernel.org; netdev@vger.kernel.org;
+linux-kernel@vger.kernel.org; linux-samsung-soc@vger.kernel.org
+Subject: Re: "asix: Don't reset PHY on if_up for ASIX 88772" breaks net
+on arndale platform
 
-cansend can0 123##1001122334566778899AABBCCDDEEFF001122334566778899AABB
+On Thu, Nov 06, 2014 at 10:01:04AM +0000, Charles Keepax wrote:
+> On Thu, Nov 06, 2014 at 11:06:51AM +0200, Riku Voipio wrote:
+> > The asix on arndale comes semi-configured from u-boot, which I guess
 
-To me it looks too risky when we only initialize the first 8 byte.
+> > is not the state kernel expects it to come in. At least in my case 
+> > where I use tftp from u-boot to load my kernel.
+> > 
+> > So probably the full reset is needed here to make the asix chip come
 
->
->> ---
->>
->> Then the code should memset() the entire TX FIFO element - and not
->> only the 8 data bytes we are addressing now.
->>
->
-> Our IC guy told me the issue only happened on transferring a data size
-> of less than 4 bytes and my test also proved that.
+> > to a truly pristine state.
+> > 
+> > The commit that Michel partially reverted (by returning to use 
+> > ax88772_link_reset instead of ax88772_reset), indicates that a 
+> > strong reset is needed for suspend/resume as well:
+ 
+> Ok I think I have cracked this one. I am pretty sure you are right 
+> that the USB comes to us in a strange state and needs a full reset, 
+> but that only needs to happen once when the driver is bound in. So 
+> there is some code in ax88772_bind that appears to try to reset the 
+> device but does a lot less than ax88772_reset and I think that must be
 
-'less than'?
+> the problem. Applying the following on top of the patch we have been 
+> debating I think will make everything work for all of us:
 
-So you might try to use 26 bytes too:
+The patch below on top of 3.18-rc3 fixes arndale network for me.
 
-cansend can0 123##1001122334566778899AABBCCDDEEFF001122334566778899
+Tested-by: Riku Voipio <riku.voipio@linaro.org>
 
+> --- a/drivers/net/usb/asix_devices.c
+> +++ b/drivers/net/usb/asix_devices.c
+> @@ -465,19 +465,7 @@ static int ax88772_bind(struct usbnet *dev, 
+> struct usb_interface *in
+>                 return ret;
+>         }
+> 
+> -       ret = asix_sw_reset(dev, AX_SWRESET_IPPD | AX_SWRESET_PRL);
+> -       if (ret < 0)
+> -               return ret;
+> -
+> -       msleep(150);
+> -
+> -       ret = asix_sw_reset(dev, AX_SWRESET_CLEAR);
+> -       if (ret < 0)
+> -               return ret;
+> -
+> -       msleep(150);
+> -
+> -       ret = asix_sw_reset(dev, embd_phy ? AX_SWRESET_IPRL :
+AX_SWRESET_PRTE);
+> +       ax88772_reset(dev);
+> 
+> If you guys could test that and let me know how you get on I will send
 
-> So i'm not sure memset() the entire TX FIFO element is neccesary...
-
-It's no big deal - so we should be defensive here.
-And memset() is not working as Marc pointed out in another mail.
-
-So we would need to loop with
-
-	m_can_fifo_write(priv, 0, M_CAN_FIFO_DATA(i), 0x0);
-
->
-> Do you think we could keep the current solution firstly and updated later
-> if needed?
-
-No :-)
-
-I would like to have all data bytes to be written at startup.
-
-Regards,
-Oliver
-
+> in a proper patch if it looks good.
+> 
+> Thanks,
+> Charles
