@@ -1,86 +1,93 @@
 From: Govindarajulu Varadarajan <_govind@gmx.com>
-Subject: [PATCH net 1/2] enic: handle error condition properly in enic_rq_indicate_buf
-Date: Thu,  6 Nov 2014 15:21:38 +0530
-Message-ID: <1415267499-25955-1-git-send-email-_govind@gmx.com>
+Subject: [PATCH net 2/2] enic: update desc properly in rx_copybreak
+Date: Thu,  6 Nov 2014 15:21:39 +0530
+Message-ID: <1415267499-25955-2-git-send-email-_govind@gmx.com>
+References: <1415267499-25955-1-git-send-email-_govind@gmx.com>
 Cc: Govindarajulu Varadarajan <_govind@gmx.com>
 To: ssujith@cisco.com, netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.17.22]:54331 "EHLO mout.gmx.net"
+Received: from mout.gmx.net ([212.227.17.21]:58767 "EHLO mout.gmx.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751246AbaKFJwU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Nov 2014 04:52:20 -0500
+	id S1750901AbaKFJwc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Nov 2014 04:52:32 -0500
+In-Reply-To: <1415267499-25955-1-git-send-email-_govind@gmx.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In case of error in rx path, we free the buf->os_buf but we do not make it NULL.
-In next iteration we use the skb which is already freed. This causes the
-following crash.
+When we reuse the rx buffer, we need to update the desc. If not hardware sees
+stale value.
 
-[  886.154772] general protection fault: 0000 [#1] PREEMPT SMP
-[  886.154851] Modules linked in: rpcsec_gss_krb5 auth_rpcgss oid_registry nfsv4 microcode evdev cirrus ttm drm_kms_helper drm enic syscopyarea sysfillrect sysimgblt psmouse i2c_piix4 serio_raw pcspkr i2c_core nfs lockd grace sunrpc fscache ext4 crc16 mbcache jbd2 sd_mod crc_t10dif crct10dif_common ata_generic ata_piix virtio_balloon libata scsi_mod uhci_hcd usbcore virtio_pci virtio_ring virtio usb_common
-[  886.155199] CPU: 0 PID: 0 Comm: swapper/0 Tainted: G        W      3.17.0-netnext-05668-g876bc7f #272
-[  886.155263] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
-[  886.155304] task: ffffffff81a1d580 ti: ffffffff81a00000 task.ti: ffffffff81a00000
-[  886.155356] RIP: 0010:[<ffffffff81384030>]  [<ffffffff81384030>] kfree_skb_list+0x10/0x30
-[  886.155418] RSP: 0018:ffff880210603d48  EFLAGS: 00010206
-[  886.155456] RAX: 0000000000000020 RBX: 0000000000000000 RCX: 0000000000000000
-[  886.155504] RDX: 0000000000000000 RSI: 0000000000000001 RDI: 004500084e000017
-[  886.155553] RBP: ffff880210603d50 R08: 00000000fe13d1b6 R09: 0000000000000001
-[  886.155601] R10: 0000000000000000 R11: 0000000000000000 R12: ffff880209ff2f00
-[  886.155650] R13: ffff88020ac0fe40 R14: ffff880209ff2f00 R15: ffff8800da8e3a80
-[  886.155699] FS:  0000000000000000(0000) GS:ffff880210600000(0000) knlGS:0000000000000000
-[  886.155774] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-[  886.155814] CR2: 00007f0e0c925000 CR3: 0000000035e8b000 CR4: 00000000000006f0
-[  886.155865] Stack:
-[  886.155882]  0000000000000000 ffff880210603d78 ffffffff81383f79 ffff880209ff2f00
-[  886.155942]  ffff88020b0c0b40 000000000000c000 ffff880210603d90 ffffffff81383faf
-[  886.156001]  ffff880209ff2f00 ffff880210603da8 ffffffff8138406d ffff88020b1b08c0
-[  886.156061] Call Trace:
-[  886.156080]  <IRQ>
-[  886.156095]
-[  886.156112]  [<ffffffff81383f79>] skb_release_data+0xa9/0xc0
-[  886.157656]  [<ffffffff81383faf>] skb_release_all+0x1f/0x30
-[  886.159195]  [<ffffffff8138406d>] consume_skb+0x1d/0x40
-[  886.160719]  [<ffffffff813942e5>] __dev_kfree_skb_any+0x35/0x40
-[  886.162224]  [<ffffffffa02dc1d5>] enic_rq_service.constprop.47+0xe5/0x5a0 [enic]
-[  886.163756]  [<ffffffffa02dc829>] enic_poll_msix_rq+0x199/0x370 [enic]
-[  886.164730]  [<ffffffff81397e29>] net_rx_action+0x139/0x210
-[  886.164730]  [<ffffffff8105fb2e>] __do_softirq+0x14e/0x280
-[  886.164730]  [<ffffffff8105ff2e>] irq_exit+0x8e/0xb0
-[  886.164730]  [<ffffffff8100fc1d>] do_IRQ+0x5d/0x100
-[  886.164730]  [<ffffffff81496832>] common_interrupt+0x72/0x72
+In the following crash, when mtu is changed, hardware sees old rx buffer value
+and crashes on skb_put.
+
+Fix this by using enic_queue_rq_desc helper function which updates the necessary
+desc.
+
+[   64.657376] skbuff: skb_over_panic: text:ffffffffa041f55d len:9010 put:9010 head:ffff8800d3ca9fc0 data:ffff8800d3caa000 tail:0x2372 end:0x640 dev:enp0s3
+[   64.659965] ------------[ cut here ]------------
+[   64.661322] kernel BUG at net/core/skbuff.c:100!
+[   64.662644] invalid opcode: 0000 [#1] PREEMPT SMP
+[   64.664001] Modules linked in: rpcsec_gss_krb5 auth_rpcgss oid_registry nfsv4 cirrus ttm drm_kms_helper drm enic psmouse microcode evdev serio_raw syscopyarea sysfillrect sysimgblt i2c_piix4 i2c_core pcspkr nfs lockd grace sunrpc fscache ext4 crc16 mbcache jbd2 sd_mod ata_generic virtio_balloon ata_piix libata uhci_hcd virtio_pci virtio_ring usbcore usb_common virtio scsi_mod
+[   64.664834] CPU: 0 PID: 0 Comm: swapper/0 Tainted: G        W      3.17.0-netnext-10335-g942396b-dirty #273
+[   64.664834] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
+[   64.664834] task: ffffffff81a1d580 ti: ffffffff81a00000 task.ti: ffffffff81a00000
+[   64.664834] RIP: 0010:[<ffffffff81392cf1>]  [<ffffffff81392cf1>] skb_panic+0x61/0x70
+[   64.664834] RSP: 0018:ffff880210603d48  EFLAGS: 00010292
+[   64.664834] RAX: 000000000000008c RBX: ffff88020b0f6930 RCX: 0000000000000000
+[   64.664834] RDX: 000000000000008c RSI: ffffffff8178b288 RDI: 00000000ffffffff
+[   64.664834] RBP: ffff880210603d68 R08: 0000000000000001 R09: 0000000000000001
+[   64.664834] R10: 00000000000005ce R11: 0000000000000001 R12: ffff88020b1f0b40
+[   64.664834] R13: 000000000000a332 R14: ffff880209a1a000 R15: 0000000000000001
+[   64.664834] FS:  0000000000000000(0000) GS:ffff880210600000(0000) knlGS:0000000000000000
+[   64.664834] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+[   64.664834] CR2: 00007f6752935e48 CR3: 0000000035743000 CR4: 00000000000006f0
+[   64.664834] Stack:
+[   64.664834]  ffff8800d3caa000 0000000000002372 0000000000000640 ffff88020b1f0000
+[   64.664834]  ffff880210603d78 ffffffff81392d54 ffff880210603e08 ffffffffa041f55d
+[   64.664834]  0000000000000296 ffffffff00000000 00008e7e00008e7e ffff880200002332
+[   64.664834] Call Trace:
+[   64.664834]  <IRQ>
+[   64.664834]
+[   64.664834]  [<ffffffff81392d54>] skb_put+0x54/0x60
+[   64.664834]  [<ffffffffa041f55d>] enic_rq_service.constprop.47+0x3ad/0x730 [enic]
+[   64.664834]  [<ffffffffa041fa79>] enic_poll_msix_rq+0x199/0x370 [enic]
+[   64.664834]  [<ffffffff813a5499>] net_rx_action+0x139/0x210
+[   64.664834]  [<ffffffff81290db3>] ? __this_cpu_preempt_check+0x13/0x20
+[   64.664834]  [<ffffffff8106110e>] __do_softirq+0x14e/0x280
+[   64.664834]  [<ffffffff8106152e>] irq_exit+0x8e/0xb0
+[   64.664834]  [<ffffffff8100fd21>] do_IRQ+0x61/0x100
+[   64.664834]  [<ffffffff814a2bf2>] common_interrupt+0x72/0x72
 
 fixes: a03bb56e67c357980dae886683733dab5583dc14 ("enic: implement rx_copybreak")
 Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
 ---
- drivers/net/ethernet/cisco/enic/enic_main.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+ drivers/net/ethernet/cisco/enic/enic_main.c | 14 ++------------
+ 1 file changed, 2 insertions(+), 12 deletions(-)
 
 diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
-index 180e53f..cd254d1 100644
+index cd254d1..73cf165 100644
 --- a/drivers/net/ethernet/cisco/enic/enic_main.c
 +++ b/drivers/net/ethernet/cisco/enic/enic_main.c
-@@ -1037,7 +1037,10 @@ static void enic_rq_indicate_buf(struct vnic_rq *rq,
- 				enic->rq_truncated_pkts++;
- 		}
+@@ -940,18 +940,8 @@ static int enic_rq_alloc_buf(struct vnic_rq *rq)
+ 	struct vnic_rq_buf *buf = rq->to_use;
  
-+		pci_unmap_single(enic->pdev, buf->dma_addr, buf->len,
-+				 PCI_DMA_FROMDEVICE);
- 		dev_kfree_skb_any(skb);
-+		buf->os_buf = NULL;
+ 	if (buf->os_buf) {
+-		buf = buf->next;
+-		rq->to_use = buf;
+-		rq->ring.desc_avail--;
+-		if ((buf->index & VNIC_RQ_RETURN_RATE) == 0) {
+-			/* Adding write memory barrier prevents compiler and/or
+-			 * CPU reordering, thus avoiding descriptor posting
+-			 * before descriptor is initialized. Otherwise, hardware
+-			 * can read stale descriptor fields.
+-			 */
+-			wmb();
+-			iowrite32(buf->index, &rq->ctrl->posted_index);
+-		}
++		enic_queue_rq_desc(rq, buf->os_buf, os_buf_index, buf->dma_addr,
++				   buf->len);
  
- 		return;
+ 		return 0;
  	}
-@@ -1088,7 +1091,10 @@ static void enic_rq_indicate_buf(struct vnic_rq *rq,
- 		/* Buffer overflow
- 		 */
- 
-+		pci_unmap_single(enic->pdev, buf->dma_addr, buf->len,
-+				 PCI_DMA_FROMDEVICE);
- 		dev_kfree_skb_any(skb);
-+		buf->os_buf = NULL;
- 	}
- }
- 
 -- 
 2.1.0
