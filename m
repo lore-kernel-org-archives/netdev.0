@@ -1,127 +1,86 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: RE: [PATCH 1/4] inet: Add skb_copy_datagram_iter
-Date: Thu, 6 Nov 2014 09:50:58 +0000
-Message-ID: <A2BAEFC30C8FD34388F02C9B3121859D1C30879F@eusaamb103.ericsson.se>
-References: <20141105035536.GO7996@ZenIV.linux.org.uk>
- <20141105.155054.2198151263164321219.davem@davemloft.net>
- <20141105210745.GT7996@ZenIV.linux.org.uk>
- <20141105.165719.835728206041332333.davem@davemloft.net>
- <20141106032533.GU7996@ZenIV.linux.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"bcrl@kvack.org" <bcrl@kvack.org>
-To: Al Viro <viro@ZenIV.linux.org.uk>,
-	David Miller <davem@davemloft.net>
+From: Govindarajulu Varadarajan <_govind@gmx.com>
+Subject: [PATCH net 1/2] enic: handle error condition properly in enic_rq_indicate_buf
+Date: Thu,  6 Nov 2014 15:21:38 +0530
+Message-ID: <1415267499-25955-1-git-send-email-_govind@gmx.com>
+Cc: Govindarajulu Varadarajan <_govind@gmx.com>
+To: ssujith@cisco.com, netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usevmg20.ericsson.net ([198.24.6.45]:56346 "EHLO
-	usevmg20.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751234AbaKFJvH convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 04:51:07 -0500
-In-Reply-To: <20141106032533.GU7996@ZenIV.linux.org.uk>
-Content-Language: en-US
+Received: from mout.gmx.net ([212.227.17.22]:54331 "EHLO mout.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751246AbaKFJwU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Nov 2014 04:52:20 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+In case of error in rx path, we free the buf->os_buf but we do not make it NULL.
+In next iteration we use the skb which is already freed. This causes the
+following crash.
 
+[  886.154772] general protection fault: 0000 [#1] PREEMPT SMP
+[  886.154851] Modules linked in: rpcsec_gss_krb5 auth_rpcgss oid_registry nfsv4 microcode evdev cirrus ttm drm_kms_helper drm enic syscopyarea sysfillrect sysimgblt psmouse i2c_piix4 serio_raw pcspkr i2c_core nfs lockd grace sunrpc fscache ext4 crc16 mbcache jbd2 sd_mod crc_t10dif crct10dif_common ata_generic ata_piix virtio_balloon libata scsi_mod uhci_hcd usbcore virtio_pci virtio_ring virtio usb_common
+[  886.155199] CPU: 0 PID: 0 Comm: swapper/0 Tainted: G        W      3.17.0-netnext-05668-g876bc7f #272
+[  886.155263] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
+[  886.155304] task: ffffffff81a1d580 ti: ffffffff81a00000 task.ti: ffffffff81a00000
+[  886.155356] RIP: 0010:[<ffffffff81384030>]  [<ffffffff81384030>] kfree_skb_list+0x10/0x30
+[  886.155418] RSP: 0018:ffff880210603d48  EFLAGS: 00010206
+[  886.155456] RAX: 0000000000000020 RBX: 0000000000000000 RCX: 0000000000000000
+[  886.155504] RDX: 0000000000000000 RSI: 0000000000000001 RDI: 004500084e000017
+[  886.155553] RBP: ffff880210603d50 R08: 00000000fe13d1b6 R09: 0000000000000001
+[  886.155601] R10: 0000000000000000 R11: 0000000000000000 R12: ffff880209ff2f00
+[  886.155650] R13: ffff88020ac0fe40 R14: ffff880209ff2f00 R15: ffff8800da8e3a80
+[  886.155699] FS:  0000000000000000(0000) GS:ffff880210600000(0000) knlGS:0000000000000000
+[  886.155774] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+[  886.155814] CR2: 00007f0e0c925000 CR3: 0000000035e8b000 CR4: 00000000000006f0
+[  886.155865] Stack:
+[  886.155882]  0000000000000000 ffff880210603d78 ffffffff81383f79 ffff880209ff2f00
+[  886.155942]  ffff88020b0c0b40 000000000000c000 ffff880210603d90 ffffffff81383faf
+[  886.156001]  ffff880209ff2f00 ffff880210603da8 ffffffff8138406d ffff88020b1b08c0
+[  886.156061] Call Trace:
+[  886.156080]  <IRQ>
+[  886.156095]
+[  886.156112]  [<ffffffff81383f79>] skb_release_data+0xa9/0xc0
+[  886.157656]  [<ffffffff81383faf>] skb_release_all+0x1f/0x30
+[  886.159195]  [<ffffffff8138406d>] consume_skb+0x1d/0x40
+[  886.160719]  [<ffffffff813942e5>] __dev_kfree_skb_any+0x35/0x40
+[  886.162224]  [<ffffffffa02dc1d5>] enic_rq_service.constprop.47+0xe5/0x5a0 [enic]
+[  886.163756]  [<ffffffffa02dc829>] enic_poll_msix_rq+0x199/0x370 [enic]
+[  886.164730]  [<ffffffff81397e29>] net_rx_action+0x139/0x210
+[  886.164730]  [<ffffffff8105fb2e>] __do_softirq+0x14e/0x280
+[  886.164730]  [<ffffffff8105ff2e>] irq_exit+0x8e/0xb0
+[  886.164730]  [<ffffffff8100fc1d>] do_IRQ+0x5d/0x100
+[  886.164730]  [<ffffffff81496832>] common_interrupt+0x72/0x72
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-
-> owner@vger.kernel.org] On Behalf Of Al Viro
-> Sent: November-06-14 4:26 AM
-> To: David Miller
-> Cc: herbert@gondor.apana.org.au; netdev@vger.kernel.org; linux-
-> kernel@vger.kernel.org; bcrl@kvack.org
-> Subject: Re: [PATCH 1/4] inet: Add skb_copy_datagram_iter
-> 
-> On Wed, Nov 05, 2014 at 04:57:19PM -0500, David Miller wrote:
-> > From: Al Viro <viro@ZenIV.linux.org.uk>
-> > Date: Wed, 5 Nov 2014 21:07:45 +0000
-> >
-> > > Ping me when you put it there, OK?  I'll rebase the rest of old
-> > > stuff on top of it (similar helpers, mostly).
-> >
-> > I just pushed it into net-next, thanks Al.
-> 
-> OK, I've taken the beginning of the old queue on top of net-next; it's in
-> git://git.kernel.org//pub/scm/linux/kernel/git/viro/vfs.git iov_iter-net.
-> 
-> From the quick look at the remaining ->msg_iov users:
-> 
-> 	* I'll need to add several iov_iter primitives - counterparts of
-> checksum.h stuff (copy_and_csum_{from,to}_iter(), maybe some more).
-> Not a big deal, I'll do that tomorrow.  That will give us a clean iov_iter-based
-> counterpart of skb_copy_and_csum_datagram_iovec().
-> 
-> 	* a new helper: zerocopy_sg_from_iter().  I have it, actually, but I'd
-> rather not step on Herbert's toes - it's too close to the areas his series will
-> touch, so that's probably for when his series goes in.
-> It will be needed for complete macvtap conversion...
-> 
-> 	* why doesn't verify_iovec() use rw_copy_check_uvector()?  The
-> only real differences I see is that (a) you do allocation in callers (same as
-> rw_copy_check_uvector() would've done), (b) you return EMSGSIZE in case
-> of too long vector, while rw_copy_check_uvector() returns EINVAL in that
-> case and (c) you don't do access_ok().  The last one is described as
-> optimization, but for iov_iter primitives it's a serious PITA - for iovec-backed
-> instances they are using __copy_from_user()/__copy_to_user(), etc.
-> 	It certainly would be nice to have the same code doing all copying of
-> iovecs from userland - readv/writev/aio/sendmsg/recvmsg/etc.  Am I
-> missing something subtle semantical difference in there?  EMSGSIZE vs
-> EINVAL is trivial (we can lift that check into the callers, if nothing else), but I
-> could miss something more interesting...
-> 
-> 	* various getfrag will need to grow iov_iter-based counterparts, but
-> ip_append_output() needs no changes, AFAICS.
-> 
-> 	* crypto stuff will be easy to convert - iov_iter_get_pages() would
-> suffice for a primitive
-> 
-> 	* there's some really weird stuff in there.  Just what is this static int
-> raw_probe_proto_opt(struct flowi4 *fl4, struct msghdr *msg) {
->         struct iovec *iov;
->         u8 __user *type = NULL;
->         u8 __user *code = NULL;
->         int probed = 0;
->         unsigned int i;
-> 
->         if (!msg->msg_iov)
->                 return 0;
-> 
->         for (i = 0; i < msg->msg_iovlen; i++) {
->                 iov = &msg->msg_iov[i];
->                 if (!iov)
->                         continue;
-> trying to do?  "If non-NULL pointer + i somehow happened to be NULL, skip it
-> and try to use the same pointer + i + 1"?  Huh?  Had been that way since the
-> function first went in back in 2004 ("[IPV4] XFRM: probe icmp type/code
-> when sending packets via raw socket.", according to historical tree)...
-> 
-> 	* rds, bluetooth and vsock are doing something odd; need to RTFS
-> some more.
-> 
-> 	* not sure I understand what TIPC is doing - does it prohibit too short
-> first segment of ->msg_iov?  
+fixes: a03bb56e67c357980dae886683733dab5583dc14 ("enic: implement rx_copybreak")
+Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
+---
+ drivers/net/ethernet/cisco/enic/enic_main.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-Yes, that is the purpose. It was needed in early versions of TIPC, which was
-using TIPC itself, instead of netlink, as carrier of configuration commands.
-This option is long gone, and we can safely remove those checks.  I'll
-post a patch.
-
-///jon
-
-net/tipc/socket.c:dest_name_check() looks
-> odd _and_ potentially racy - we read the same data twice and hope our
-> checks still apply.  I asked TIPC folks about that race back in April, but it looks
-> like that fell through the cracks...
-> 
-> Overall, so far it looks more or less feasible - other than the missing csum
-> primitives, current mm/iov_iter.c should suffice.  I have _not_ seriously
-> looked into sendpage yet; that might very well require some more.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in the body
-> of a message to majordomo@vger.kernel.org More majordomo info at
-> http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
+index 180e53f..cd254d1 100644
+--- a/drivers/net/ethernet/cisco/enic/enic_main.c
++++ b/drivers/net/ethernet/cisco/enic/enic_main.c
+@@ -1037,7 +1037,10 @@ static void enic_rq_indicate_buf(struct vnic_rq *rq,
+ 				enic->rq_truncated_pkts++;
+ 		}
+ 
++		pci_unmap_single(enic->pdev, buf->dma_addr, buf->len,
++				 PCI_DMA_FROMDEVICE);
+ 		dev_kfree_skb_any(skb);
++		buf->os_buf = NULL;
+ 
+ 		return;
+ 	}
+@@ -1088,7 +1091,10 @@ static void enic_rq_indicate_buf(struct vnic_rq *rq,
+ 		/* Buffer overflow
+ 		 */
+ 
++		pci_unmap_single(enic->pdev, buf->dma_addr, buf->len,
++				 PCI_DMA_FROMDEVICE);
+ 		dev_kfree_skb_any(skb);
++		buf->os_buf = NULL;
+ 	}
+ }
+ 
+-- 
+2.1.0
