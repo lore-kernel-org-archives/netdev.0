@@ -1,50 +1,50 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [PATCHv2 net-next 2/2] sunvnet: Use one Tx queue per vnet_port
-Date: Thu, 6 Nov 2014 11:28:22 -0500
-Message-ID: <20141106162822.GL15665@oracle.com>
-References: <20141030164609.GG650@oracle.com>
- <1415290773.3398.61.camel@decadent.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Ben Hutchings <ben@decadent.org.uk>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH V2 net-next 0/2] Add CHECKSUM_COMPLETE support
+Date: Thu,  6 Nov 2014 18:28:42 +0200
+Message-ID: <1415291324-22069-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, Matan Barak <matanb@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Shani Michaeli <shanim@mellanox.com>,
+	Ido Shamay <idos@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:30496 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750998AbaKFQ2f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 11:28:35 -0500
-Content-Disposition: inline
-In-Reply-To: <1415290773.3398.61.camel@decadent.org.uk>
+Received: from mailp.voltaire.com ([193.47.165.129]:34740 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751115AbaKFQ2s (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Nov 2014 11:28:48 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On (11/06/14 16:19), Ben Hutchings wrote:
-> > +	txq = netdev_get_tx_queue(port->vp->dev, port->q_index);
-> > +	__netif_tx_lock(txq, smp_processor_id());
-> > +	if (likely(netif_tx_queue_stopped(txq))) {
-> > +		struct vio_dring_state *dr;
-> > +
-> > +		dr = &port->vio.drings[VIO_DRIVER_TX_RING];
-> 
-> You seem to have dropped the condition for the netif_tx_wake_queue(),
-> which I would guess based on the old code should be:
-> 
-> 		if (vnet_tx_dring_avail(dr) >= VNET_TX_WAKEUP_THRESH(dr))
-> 
-> > +			netif_tx_wake_queue(txq);
+Hi Dave, 
 
-yes, this was deliberate.
+These patches from Shani, Matan and myself add support for 
+CHECKSUM_COMPLETE reporting on non TCP/UDP packets such as 
+GRE and ICMP. I'd like to deeply thank Jerry Chu for his 
+innovation and support in that effort.
 
-As I indicated in the comments:
+Based on the feedback from Eric and Ido Shamay, in V2 we dropped 
+the patch which removed the calls to napi_gro_frags() and added 
+a patch which makes the RX code to go through that path 
+regardless of the checksum status.
 
-/* Got back a STOPPED LDC message on port. If the queue is stopped,
- * wake it up so that we'll send out another START message at the
- * next TX.
- */
+Or.
 
-We only call maybe_tx_wakeup() if the peer has sent us a STOPPED
-ack (meaning that the peer is no longer reading the descriptor rings).
-So if our tx queue is full and stopped, we need to poke the peer
-on the next TX with a start message. (otherwise we'd never wake up!)
+changes from V0/V1:
+ - added a patch to extend usage napi_gro_frags()
+ - applied feedback from David Laight to optimally use checksum helpers
 
---Sowmini
+
+Shani Michaeli (2):
+  net/mlx4_en: Extend usage of napi_gro_frags
+  net/mlx4_en: Extend checksum offloading by CHECKSUM COMPLETE
+
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |    2 +-
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c  |    5 +
+ drivers/net/ethernet/mellanox/mlx4/en_port.c    |    2 +
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c      |  229 +++++++++++++++++------
+ drivers/net/ethernet/mellanox/mlx4/main.c       |    9 +
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    |    5 +-
+ include/linux/mlx4/device.h                     |    1 +
+ 7 files changed, 193 insertions(+), 60 deletions(-)
