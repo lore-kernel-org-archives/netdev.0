@@ -1,51 +1,85 @@
-From: Eli Cohen <eli@dev.mellanox.co.il>
-Subject: [PATCH net 2/2] net/mlx5_core: Fix race on driver load
-Date: Thu,  6 Nov 2014 12:51:22 +0200
-Message-ID: <1415271082-7644-3-git-send-email-eli@mellanox.com>
-References: <1415271082-7644-1-git-send-email-eli@mellanox.com>
-Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-	ogerlitz@mellanox.com, Eli Cohen <eli@mellanox.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f48.google.com ([74.125.82.48]:48825 "EHLO
-	mail-wg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751956AbaKFKvh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 05:51:37 -0500
-Received: by mail-wg0-f48.google.com with SMTP id m15so852273wgh.21
-        for <netdev@vger.kernel.org>; Thu, 06 Nov 2014 02:51:36 -0800 (PST)
-In-Reply-To: <1415271082-7644-1-git-send-email-eli@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] bridge: missing null bridge device check
+ causing null pointer dereference (bugfix)
+Date: Thu, 06 Nov 2014 03:35:11 -0800
+Message-ID: <1415273711.13896.67.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1415255192-13584-1-git-send-email-suhyun.park@ahnlab.com>
+	<545B1E27.3080302@lab.ntt.co.jp>
+	<8D1F1238A24CE743B8F3CED0F137C69E408AA087@EXMB02.ahnbang.ahnlab.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"bridge@lists.linux-foundation.org" <bridge@lists.linux-foundation.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: =?UTF-8?Q?=EB=B0=95=EC=88=98=ED=98=84?= <suhyun.park@ahnlab.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <8D1F1238A24CE743B8F3CED0F137C69E408AA087@EXMB02.ahnbang.ahnlab.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-When events arrive at driver load, the event handler gets called even before
-the spinlock and list are initialized. Fix this by moving the initialization
-before EQs creation.
+On Thu, 2014-11-06 at 07:58 +0000, =EB=B0=95=EC=88=98=ED=98=84 wrote:
+> >-----Original Message-----
+> >From: Toshiaki Makita [mailto:makita.toshiaki@lab.ntt.co.jp]
+> >Sent: Thursday, November 06, 2014 4:07 PM
+> >To: =EB=B0=95=EC=88=98=ED=98=84; Stephen Hemminger; David S. Miller
+> >Cc: bridge@lists.linux-foundation.org; netdev@vger.kernel.org; linux-
+> >kernel@vger.kernel.org
+> >Subject: Re: [PATCH] bridge: missing null bridge device check causing =
+null
+> >pointer dereference (bugfix)
+> >
+> >On 2014/11/06 15:26, Su-Hyun Park wrote:
+> >> the bridge device can be null if the bridge is being deleted while
+> >> processing the packet, which causes the null pointer dereference in
+> >switch statement.
+> >
+> >How can this happen??
+> >It is guarded by rcu.
+> >netdev_rx_handler_unregister() ensures rx_handler_data is non NULL.
+> >
+>=20
+> The RCU protect rx_handler_data, not the bridge member port. It can be =
+NULL according to below code.
+>=20
 
-Signed-off-by: Eli Cohen <eli@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/main.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+Where do you find this 'below code' ?
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-index 88b2ffa0edfb..ecc6341e728a 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-@@ -855,14 +855,14 @@ static int init_one(struct pci_dev *pdev,
- 	dev->profile = &profile[prof_sel];
- 	dev->event = mlx5_core_event;
- 
-+	INIT_LIST_HEAD(&priv->ctx_list);
-+	spin_lock_init(&priv->ctx_lock);
- 	err = mlx5_dev_init(dev, pdev);
- 	if (err) {
- 		dev_err(&pdev->dev, "mlx5_dev_init failed %d\n", err);
- 		goto out;
- 	}
- 
--	INIT_LIST_HEAD(&priv->ctx_list);
--	spin_lock_init(&priv->ctx_lock);
- 	err = mlx5_register_device(dev);
- 	if (err) {
- 		dev_err(&pdev->dev, "mlx5_register_device failed %d\n", err);
--- 
-2.1.2
+Are you sending a patch for an old linux kernel ?
+
+> static inline struct net_bridge_port *br_port_get_rcu(const struct net_=
+device *dev) {
+> 	struct net_bridge_port *port =3D rcu_dereference(dev->rx_handler_data)=
+;
+> 	return br_port_exists(dev) ? port : NULL;=20
+> }
+
+Actual code is :
+
+static inline struct net_bridge_port *br_port_get_rcu(const struct net_de=
+vice *dev)
+{
+	return rcu_dereference(dev->rx_handler_data);
+}
+
+
+>=20
+> The crash happens at the below switch statement in br_handle_frame, whe=
+re p is NULL.
+>=20
+> 	switch (p->state)
+
+Is your tree really including the fix we already did to fix this issue ?
+
+(commit 716ec052d2280d511e10e90ad54a86f5b5d4dcc2 )
+bridge: fix NULL pointer deref of br_port_get_rcu
