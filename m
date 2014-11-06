@@ -1,68 +1,37 @@
-From: =?utf-8?B?67CV7IiY7ZiE?= <suhyun.park@ahnlab.com>
-Subject: RE: [PATCH] bridge: missing null bridge device check causing null
- pointer dereference (bugfix)
-Date: Thu, 6 Nov 2014 11:52:33 +0000
-Message-ID: <8D1F1238A24CE743B8F3CED0F137C69E408AA143@EXMB02.ahnbang.ahnlab.com>
-References: <1415255192-13584-1-git-send-email-suhyun.park@ahnlab.com>
-	 <545B1E27.3080302@lab.ntt.co.jp>
-	 <8D1F1238A24CE743B8F3CED0F137C69E408AA087@EXMB02.ahnbang.ahnlab.com>
- <1415273711.13896.67.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Xie Jianhua <Jianhua.Xie@freescale.com>
+Subject: [PATCH RFC net-next 0/5] *** Introduce 4 AD link speed ***
+Date: Thu, 6 Nov 2014 19:52:47 +0800
+Message-ID: <1415274772-8029-1-git-send-email-Jianhua.Xie@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"bridge@lists.linux-foundation.org"
-	<bridge@lists.linux-foundation.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1415273711.13896.67.camel@edumazet-glaptop2.roam.corp.google.com>
-Content-Language: ko-KR
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Jianhua Xie <jianhua.xie@freescale.com>,
+	Jianhua Xie <Jianhua.Xie@freescale.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bl2on0119.outbound.protection.outlook.com ([65.55.169.119]:44824
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750846AbaKFLyS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Nov 2014 06:54:18 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-TXkgYXBwb2xvZ2llcywNCg0KSSB3YXMgd29ya2luZyBvbiBrZXJuZWwgMy4yLjMwIHdoZW4gSSBo
-aXQgdGhlIGNyYXNoLiBJIG9ubHkgbG9va2VkIGF0IHRoZSB1cC10by1kYXRlIGtlcm5lbCBmb3Ig
-YnJfaGFuZGxlX2ZyYW1lIGZ1bmN0aW9uIHdoZXJlIEkgc3RpbGwgZm91bmQgInAtPnN0YXRlIiBy
-ZWZlcmVuY2UuDQoNClBsZWFzZSBkaXNyZWdhcmQgbXkgcGF0Y2guDQoNClRoYW5rcywNClN1LUh5
-dW4gUGFyaw0KDQotLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KRnJvbTogRXJpYyBEdW1hemV0
-IFttYWlsdG86ZXJpYy5kdW1hemV0QGdtYWlsLmNvbV0gDQpTZW50OiBUaHVyc2RheSwgTm92ZW1i
-ZXIgMDYsIDIwMTQgODozNSBQTQ0KVG86IOuwleyImO2YhA0KQ2M6IFRvc2hpYWtpIE1ha2l0YTsg
-U3RlcGhlbiBIZW1taW5nZXI7IERhdmlkIFMuIE1pbGxlcjsgYnJpZGdlQGxpc3RzLmxpbnV4LWZv
-dW5kYXRpb24ub3JnOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBsaW51eC1rZXJuZWxAdmdlci5r
-ZXJuZWwub3JnDQpTdWJqZWN0OiBSZTogW1BBVENIXSBicmlkZ2U6IG1pc3NpbmcgbnVsbCBicmlk
-Z2UgZGV2aWNlIGNoZWNrIGNhdXNpbmcgbnVsbCBwb2ludGVyIGRlcmVmZXJlbmNlIChidWdmaXgp
-DQoNCk9uIFRodSwgMjAxNC0xMS0wNiBhdCAwNzo1OCArMDAwMCwg67CV7IiY7ZiEIHdyb3RlOg0K
-PiA+LS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gPkZyb206IFRvc2hpYWtpIE1ha2l0YSBb
-bWFpbHRvOm1ha2l0YS50b3NoaWFraUBsYWIubnR0LmNvLmpwXQ0KPiA+U2VudDogVGh1cnNkYXks
-IE5vdmVtYmVyIDA2LCAyMDE0IDQ6MDcgUE0NCj4gPlRvOiDrsJXsiJjtmIQ7IFN0ZXBoZW4gSGVt
-bWluZ2VyOyBEYXZpZCBTLiBNaWxsZXINCj4gPkNjOiBicmlkZ2VAbGlzdHMubGludXgtZm91bmRh
-dGlvbi5vcmc7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IGxpbnV4LSANCj4gPmtlcm5lbEB2Z2Vy
-Lmtlcm5lbC5vcmcNCj4gPlN1YmplY3Q6IFJlOiBbUEFUQ0hdIGJyaWRnZTogbWlzc2luZyBudWxs
-IGJyaWRnZSBkZXZpY2UgY2hlY2sgY2F1c2luZyANCj4gPm51bGwgcG9pbnRlciBkZXJlZmVyZW5j
-ZSAoYnVnZml4KQ0KPiA+DQo+ID5PbiAyMDE0LzExLzA2IDE1OjI2LCBTdS1IeXVuIFBhcmsgd3Jv
-dGU6DQo+ID4+IHRoZSBicmlkZ2UgZGV2aWNlIGNhbiBiZSBudWxsIGlmIHRoZSBicmlkZ2UgaXMg
-YmVpbmcgZGVsZXRlZCB3aGlsZSANCj4gPj4gcHJvY2Vzc2luZyB0aGUgcGFja2V0LCB3aGljaCBj
-YXVzZXMgdGhlIG51bGwgcG9pbnRlciBkZXJlZmVyZW5jZSBpbg0KPiA+c3dpdGNoIHN0YXRlbWVu
-dC4NCj4gPg0KPiA+SG93IGNhbiB0aGlzIGhhcHBlbj8/DQo+ID5JdCBpcyBndWFyZGVkIGJ5IHJj
-dS4NCj4gPm5ldGRldl9yeF9oYW5kbGVyX3VucmVnaXN0ZXIoKSBlbnN1cmVzIHJ4X2hhbmRsZXJf
-ZGF0YSBpcyBub24gTlVMTC4NCj4gPg0KPiANCj4gVGhlIFJDVSBwcm90ZWN0IHJ4X2hhbmRsZXJf
-ZGF0YSwgbm90IHRoZSBicmlkZ2UgbWVtYmVyIHBvcnQuIEl0IGNhbiBiZSBOVUxMIGFjY29yZGlu
-ZyB0byBiZWxvdyBjb2RlLg0KPiANCg0KV2hlcmUgZG8geW91IGZpbmQgdGhpcyAnYmVsb3cgY29k
-ZScgPw0KDQpBcmUgeW91IHNlbmRpbmcgYSBwYXRjaCBmb3IgYW4gb2xkIGxpbnV4IGtlcm5lbCA/
-DQoNCj4gc3RhdGljIGlubGluZSBzdHJ1Y3QgbmV0X2JyaWRnZV9wb3J0ICpicl9wb3J0X2dldF9y
-Y3UoY29uc3Qgc3RydWN0IG5ldF9kZXZpY2UgKmRldikgew0KPiAJc3RydWN0IG5ldF9icmlkZ2Vf
-cG9ydCAqcG9ydCA9IHJjdV9kZXJlZmVyZW5jZShkZXYtPnJ4X2hhbmRsZXJfZGF0YSk7DQo+IAly
-ZXR1cm4gYnJfcG9ydF9leGlzdHMoZGV2KSA/IHBvcnQgOiBOVUxMOyB9DQoNCkFjdHVhbCBjb2Rl
-IGlzIDoNCg0Kc3RhdGljIGlubGluZSBzdHJ1Y3QgbmV0X2JyaWRnZV9wb3J0ICpicl9wb3J0X2dl
-dF9yY3UoY29uc3Qgc3RydWN0IG5ldF9kZXZpY2UgKmRldikgew0KCXJldHVybiByY3VfZGVyZWZl
-cmVuY2UoZGV2LT5yeF9oYW5kbGVyX2RhdGEpOw0KfQ0KDQoNCj4gDQo+IFRoZSBjcmFzaCBoYXBw
-ZW5zIGF0IHRoZSBiZWxvdyBzd2l0Y2ggc3RhdGVtZW50IGluIGJyX2hhbmRsZV9mcmFtZSwgd2hl
-cmUgcCBpcyBOVUxMLg0KPiANCj4gCXN3aXRjaCAocC0+c3RhdGUpDQoNCklzIHlvdXIgdHJlZSBy
-ZWFsbHkgaW5jbHVkaW5nIHRoZSBmaXggd2UgYWxyZWFkeSBkaWQgdG8gZml4IHRoaXMgaXNzdWUg
-Pw0KDQooY29tbWl0IDcxNmVjMDUyZDIyODBkNTExZTEwZTkwYWQ1NGE4NmY1YjVkNGRjYzIgKQ0K
-YnJpZGdlOiBmaXggTlVMTCBwb2ludGVyIGRlcmVmIG9mIGJyX3BvcnRfZ2V0X3JjdQ0KDQoNCg0K
-DQo=
+From: Jianhua Xie <Jianhua.Xie@freescale.com>
+
+User Key bits in Port key of AD mode are yet not used.  This series
+expands speed type bits and shrinks unused user Key bits in AD mode
+Port Key, introduces 4 AD link speed: 2.5G/20G/40G/56G, and fixes
+aggregated link bandwidth calculation based on new link speed.
+
+Jianhua Xie (5):
+  bonding: Expand speed type for AD Port Key
+  bonding: Introduce 2.5Gbps AD link speed
+  bonding: Introduce 20Gbps AD link speed
+  bonding: Introduce 40Gbps AD link speed
+  bonding: Introduce 56Gbps AD link speed
+
+ drivers/net/bonding/bond_3ad.c | 44 ++++++++++++++++++++++++++++++++++++++----
+ 1 file changed, 40 insertions(+), 4 deletions(-)
+
+-- 
+2.1.0.27.g96db324
