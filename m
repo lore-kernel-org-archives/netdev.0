@@ -1,118 +1,64 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: ipv4: Use standard iovec primitive in raw_probe_proto_opt
-Date: Thu, 6 Nov 2014 13:50:23 +0800
-Message-ID: <20141106055023.GA28865@gondor.apana.org.au>
-References: <20141105035536.GO7996@ZenIV.linux.org.uk>
- <20141105.155054.2198151263164321219.davem@davemloft.net>
- <20141105210745.GT7996@ZenIV.linux.org.uk>
- <20141105.165719.835728206041332333.davem@davemloft.net>
- <20141106032533.GU7996@ZenIV.linux.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, bcrl@kvack.org,
-	Masahide Nakamura <nakam@linux-ipv6.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-To: Al Viro <viro@ZenIV.linux.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20141106032533.GU7996@ZenIV.linux.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Denis Kirjanov <kda@linux-powerpc.org>
+Subject: [PATCH net-next] PPC: bpf_jit_comp: add SKF_AD_HATYPE instruction
+Date: Thu,  6 Nov 2014 09:02:35 +0300
+Message-ID: <1415253755-4001-1-git-send-email-kda@linux-powerpc.org>
+Cc: linuxppc-dev@ozlabs.org, Denis Kirjanov <kda@linux-powerpc.org>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Philippe Bergheaud <felix@linux.vnet.ibm.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f173.google.com ([209.85.217.173]:33239 "EHLO
+	mail-lb0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750955AbaKFGaT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 01:30:19 -0500
+Received: by mail-lb0-f173.google.com with SMTP id n15so352737lbi.18
+        for <netdev@vger.kernel.org>; Wed, 05 Nov 2014 22:30:17 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 06, 2014 at 03:25:34AM +0000, Al Viro wrote:
->
-> 	* there's some really weird stuff in there.  Just what is this
-> static int raw_probe_proto_opt(struct flowi4 *fl4, struct msghdr *msg)
-> {
+Add BPF extension SKF_AD_HATYPE to ppc JIT to check
+the hw type of the interface
 
-It looks like newbie coding that's all.  There's nothing tricky
-here as far as I can tell.  We're just trying to fetch the ICMP
-header to seed the IPsec lookup.
+JIT off:
+[   69.106783] test_bpf: #20 LD_HATYPE 48 48 PASS
+JIT on:
+[   64.721757] test_bpf: #20 LD_HATYPE 7 6 PASS
 
-So how about this rewrite? I'm assuming that you're not going
-to get rid of memcpy_fromiovecend/memcpy_toiovecend, if you
-are, let me know and I'll redo this with iterators.
+CC: Alexei Starovoitov<alexei.starovoitov@gmail.com>
+CC: Daniel Borkmann<dborkman@redhat.com>
+CC: Philippe Bergheaud<felix@linux.vnet.ibm.com>
+Signed-off-by: Denis Kirjanov <kda@linux-powerpc.org>
+---
+ arch/powerpc/net/bpf_jit_comp.c | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
 
-ipv4: Use standard iovec primitive in raw_probe_proto_opt
-
-The function raw_probe_proto_opt tries to extract the first two
-bytes from the user input in order to seed the IPsec lookup for
-ICMP packets.  In doing so it's processing iovec by hand and
-overcomplicating things.
-
-This patch replaces the manual iovec processing with a call to
-memcpy_fromiovecend.
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
-index 739db31..04f67e1 100644
---- a/net/ipv4/raw.c
-+++ b/net/ipv4/raw.c
-@@ -422,48 +422,20 @@ error:
- 
- static int raw_probe_proto_opt(struct flowi4 *fl4, struct msghdr *msg)
- {
--	struct iovec *iov;
--	u8 __user *type = NULL;
--	u8 __user *code = NULL;
--	int probed = 0;
--	unsigned int i;
-+	struct icmphdr icmph;
-+	int err;
- 
--	if (!msg->msg_iov)
-+	if (fl4->flowi4_proto != IPPROTO_ICMP)
- 		return 0;
- 
--	for (i = 0; i < msg->msg_iovlen; i++) {
--		iov = &msg->msg_iov[i];
--		if (!iov)
--			continue;
--
--		switch (fl4->flowi4_proto) {
--		case IPPROTO_ICMP:
--			/* check if one-byte field is readable or not. */
--			if (iov->iov_base && iov->iov_len < 1)
--				break;
--
--			if (!type) {
--				type = iov->iov_base;
--				/* check if code field is readable or not. */
--				if (iov->iov_len > 1)
--					code = type + 1;
--			} else if (!code)
--				code = iov->iov_base;
--
--			if (type && code) {
--				if (get_user(fl4->fl4_icmp_type, type) ||
--				    get_user(fl4->fl4_icmp_code, code))
--					return -EFAULT;
--				probed = 1;
--			}
--			break;
--		default:
--			probed = 1;
--			break;
--		}
--		if (probed)
--			break;
--	}
-+	/* We only need the first two bytes. */
-+	err = memcpy_fromiovecend((void *)&icmph, msg->msg_iov, 0, 2);
-+	if (err)
-+		return err;
-+
-+	fl4->fl4_icmp_type = icmph.type;
-+	fl4->fl4_icmp_code = icmph.code;
-+
- 	return 0;
- }
- 
-
-Cheers,
+diff --git a/arch/powerpc/net/bpf_jit_comp.c b/arch/powerpc/net/bpf_jit_comp.c
+index d110e28..8bf4fc2 100644
+--- a/arch/powerpc/net/bpf_jit_comp.c
++++ b/arch/powerpc/net/bpf_jit_comp.c
+@@ -412,6 +412,22 @@ static int bpf_jit_build_body(struct bpf_prog *fp, u32 *image,
+ 			PPC_ANDI(r_A, r_A, PKT_TYPE_MAX);
+ 			PPC_SRWI(r_A, r_A, 5);
+ 			break;
++		case BPF_ANC | SKF_AD_HATYPE:
++			BUILD_BUG_ON(FIELD_SIZEOF(struct net_device, type) != 2);
++			PPC_LD_OFFS(r_scratch1, r_skb, offsetof(struct sk_buff,
++								dev));
++			PPC_CMPDI(r_scratch1, 0);
++			if (ctx->pc_ret0 != -1) {
++				PPC_BCC(COND_EQ, addrs[ctx->pc_ret0]);
++			} else {
++				/* Exit, returning 0; first pass hits here. */
++				PPC_BCC_SHORT(COND_NE, (ctx->idx*4)+12);
++				PPC_LI(r_ret, 0);
++				PPC_JMP(exit_addr);
++			}
++			PPC_LHZ_OFFS(r_A, r_scratch1,
++				     offsetof(struct net_device, type));
++			break;
+ 		case BPF_ANC | SKF_AD_CPU:
+ #ifdef CONFIG_SMP
+ 			/*
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+2.1.0
