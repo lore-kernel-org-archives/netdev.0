@@ -1,91 +1,50 @@
-From: Yegor Yefremov <yegorslists@googlemail.com>
-Subject: am335x: cpsw: phy ignores max-speed setting
-Date: Thu, 6 Nov 2014 17:25:13 +0100
-Message-ID: <CAGm1_ktWK5ai85PZJTkq8Q1mAFH6JZ5XM1mDOHO3K_N2iGNLWg@mail.gmail.com>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: Re: [PATCHv2 net-next 2/2] sunvnet: Use one Tx queue per vnet_port
+Date: Thu, 6 Nov 2014 11:28:22 -0500
+Message-ID: <20141106162822.GL15665@oracle.com>
+References: <20141030164609.GG650@oracle.com>
+ <1415290773.3398.61.camel@decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "N, Mugunthan V" <mugunthanvnm@ti.com>, mpa@pengutronix.de,
-	lsorense@csclub.uwaterloo.ca, Daniel Mack <zonque@gmail.com>
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Ben Hutchings <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f178.google.com ([209.85.192.178]:60536 "EHLO
-	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750970AbaKFQZe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 11:25:34 -0500
-Received: by mail-pd0-f178.google.com with SMTP id fp1so1432600pdb.9
-        for <netdev@vger.kernel.org>; Thu, 06 Nov 2014 08:25:33 -0800 (PST)
+Received: from userp1040.oracle.com ([156.151.31.81]:30496 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750998AbaKFQ2f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 11:28:35 -0500
+Content-Disposition: inline
+In-Reply-To: <1415290773.3398.61.camel@decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I' m trying to override max-speed setting for both CPSW connected
-PHYs. This is my DTS section for configuring CPSW:
+On (11/06/14 16:19), Ben Hutchings wrote:
+> > +	txq = netdev_get_tx_queue(port->vp->dev, port->q_index);
+> > +	__netif_tx_lock(txq, smp_processor_id());
+> > +	if (likely(netif_tx_queue_stopped(txq))) {
+> > +		struct vio_dring_state *dr;
+> > +
+> > +		dr = &port->vio.drings[VIO_DRIVER_TX_RING];
+> 
+> You seem to have dropped the condition for the netif_tx_wake_queue(),
+> which I would guess based on the old code should be:
+> 
+> 		if (vnet_tx_dring_avail(dr) >= VNET_TX_WAKEUP_THRESH(dr))
+> 
+> > +			netif_tx_wake_queue(txq);
 
-&mac {
-        pinctrl-names = "default", "sleep";
-        pinctrl-0 = <&cpsw_default>;
-        pinctrl-1 = <&cpsw_sleep>;
-        dual_emac = <1>;
+yes, this was deliberate.
 
-        status = "okay";
-};
+As I indicated in the comments:
 
-&davinci_mdio {
-        pinctrl-names = "default", "sleep";
-        pinctrl-0 = <&davinci_mdio_default>;
-        pinctrl-1 = <&davinci_mdio_sleep>;
+/* Got back a STOPPED LDC message on port. If the queue is stopped,
+ * wake it up so that we'll send out another START message at the
+ * next TX.
+ */
 
-        status = "okay";
-};
+We only call maybe_tx_wakeup() if the peer has sent us a STOPPED
+ack (meaning that the peer is no longer reading the descriptor rings).
+So if our tx queue is full and stopped, we need to poke the peer
+on the next TX with a start message. (otherwise we'd never wake up!)
 
-&cpsw_emac0 {
-        phy_id = <&davinci_mdio>, <0>;
-        phy-mode = "rgmii-id";
-        dual_emac_res_vlan = <1>;
-        max-speed = <100>;
-};
-
-&cpsw_emac1 {
-        phy_id = <&davinci_mdio>, <1>;
-        phy-mode = "rgmii-id";
-        dual_emac_res_vlan = <2>;
-        max-speed = <100>;
-};
-
-But in drivers/net/phy/phy_device.c->of_set_phy_supported() routine I
-don't get through node check, i.e. node == NULL. Any idea why?
-
-static void of_set_phy_supported(struct phy_device *phydev)
-{
-        struct device_node *node = phydev->dev.of_node;
-        u32 max_speed;
-
-        if (!IS_ENABLED(CONFIG_OF_MDIO))
-                return;
-
-        if (!node)
-                return;
-
-        if (!of_property_read_u32(node, "max-speed", &max_speed)) {
-                /* The default values for phydev->supported are
-provided by the PHY
-                 * driver "features" member, we want to reset to sane
-defaults fist
-                 * before supporting higher speeds.
-                 */
-                phydev->supported &= PHY_DEFAULT_FEATURES;
-
-                switch (max_speed) {
-                default:
-                        return;
-
-                case SPEED_1000:
-                        phydev->supported |= PHY_1000BT_FEATURES;
-                case SPEED_100:
-                        phydev->supported |= PHY_100BT_FEATURES;
-                case SPEED_10:
-                        phydev->supported |= PHY_10BT_FEATURES;
-                }
-        }
-}
-
-Yegor
+--Sowmini
