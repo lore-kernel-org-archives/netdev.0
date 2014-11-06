@@ -1,65 +1,55 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net: gro: add a per device gro flush timer
-Date: Wed, 05 Nov 2014 18:39:36 -0800
-Message-ID: <1415241576.13896.62.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1415235320.13896.51.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <545AD11B.5050603@hp.com>
-	 <1415240055.13896.57.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH net 0/5] Implement ndo_gso_check() for vxlan nics
+Date: Wed, 5 Nov 2014 18:44:04 -0800
+Message-ID: <CA+mtBx-Js62X3BpfjQkcsh=w=-cgvSyM5ueCpufGVv0uu1nphw@mail.gmail.com>
+References: <CAJ3xEMhxabp1EKbFPfvoZEFt=CQKFNcNrURGMX=7miDwmK9Y-A@mail.gmail.com>
+	<20141105.163825.1433973842938441546.davem@davemloft.net>
+	<20141106010501.GA18339@gmail.com>
+	<20141105.211558.969082848816106943.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Willem de Bruijn <willemb@google.com>
-To: Rick Jones <rick.jones2@hp.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Joe Stringer <joestringer@nicira.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Sathya Perla <sathya.perla@emulex.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	"linux.nics" <linux.nics@intel.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	"shahed.shaikh" <shahed.shaikh@qlogic.com>,
+	dept-gelinuxnicdev <Dept-GELinuxNICDev@qlogic.com>,
+	LKML <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f171.google.com ([209.85.223.171]:47495 "EHLO
-	mail-ie0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750915AbaKFCji (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2014 21:39:38 -0500
-Received: by mail-ie0-f171.google.com with SMTP id x19so2107793ier.30
-        for <netdev@vger.kernel.org>; Wed, 05 Nov 2014 18:39:37 -0800 (PST)
-In-Reply-To: <1415240055.13896.57.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-ig0-f170.google.com ([209.85.213.170]:56158 "EHLO
+	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750905AbaKFCoG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2014 21:44:06 -0500
+Received: by mail-ig0-f170.google.com with SMTP id h15so9479915igd.1
+        for <netdev@vger.kernel.org>; Wed, 05 Nov 2014 18:44:05 -0800 (PST)
+In-Reply-To: <20141105.211558.969082848816106943.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-11-05 at 18:14 -0800, Eric Dumazet wrote:
-> On Wed, 2014-11-05 at 17:38 -0800, Rick Jones wrote:
-> 
-> > Speaking of QPS, what happens to 200 TCP_RR tests when the feature is 
-> > enabled?
+On Wed, Nov 5, 2014 at 6:15 PM, David Miller <davem@davemloft.net> wrote:
+> From: Joe Stringer <joestringer@nicira.com>
+> Date: Wed, 5 Nov 2014 17:06:46 -0800
+>
+>> My impression was that the changes are more likely to be
+>> hardware-specific (like the i40e changes) rather than software-specific,
+>> like changes that might be integrated into the helper.
+>
+> I think there is more commonality amongst hardware capabilities,
+> and this is why I want the helper to play itself out.
+>
+>> That said, I can rework for one helper. The way I see it would be the
+>> same code as these patches, as "vxlan_gso_check(struct sk_buff *)" in
+>> drivers/net/vxlan.c which would be called from each driver. Is that what
+>> you had in mind?
+>
+> Yes.
 
-The possible reduction of QPS happens when you have a single flow like
-TCP_RR  -- -r 40000,40000
-
-(Because we have one single TCP packet with 40000 bytes of payload,
-application is waked up once when Push flag is received)
-
-So cpu effiency is way better, but application has to copy 40000 bytes
-in one go _after_ Push flag, instead of being able to copy part of the
-data _before_ receiving the Push flag.
-
-lpaa5:~# echo 0 >/sys/class/net/eth0/gro_flush_timeout
-lpaa6:~# echo 0 >/sys/class/net/eth0/gro_flush_timeout
-lpaa5:~# ./netperf -H lpaa6 -t TCP_RR -l 20 -Cc -- -r 40000,40000
-MIGRATED TCP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to lpaa6.prod.google.com () port 0 AF_INET : first burst 0
-Local /Remote
-Socket Size   Request Resp.  Elapsed Trans.   CPU    CPU    S.dem   S.dem
-Send   Recv   Size    Size   Time    Rate     local  remote local   remote
-bytes  bytes  bytes   bytes  secs.   per sec  % S    % S    us/Tr   us/Tr
-
-16384  87380  40000   40000  20.00   9023.86  2.02   1.70   107.513  90.561 
-16384  87380 
-
-lpaa5:~# echo 2000 >/sys/class/net/eth0/gro_flush_timeout
-lpaa6:~# echo 2000 >/sys/class/net/eth0/gro_flush_timeout
-lpaa5:~# ./netperf -H lpaa6 -t TCP_RR -l 20 -Cc -- -r 40000,40000
-MIGRATED TCP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to lpaa6.prod.google.com () port 0 AF_INET : first burst 0
-Local /Remote
-Socket Size   Request Resp.  Elapsed Trans.   CPU    CPU    S.dem   S.dem
-Send   Recv   Size    Size   Time    Rate     local  remote local   remote
-bytes  bytes  bytes   bytes  secs.   per sec  % S    % S    us/Tr   us/Tr
-
-16384  87380  40000   40000  20.00   8651.26  0.66   1.02   36.502  56.710 
-16384  87380 
+Note that this code is not VXLAN specific, it will also accept NVGRE
+and GRE/UDP with keyid and TEB. I imagine all these cases should be
+indistinguishable to the hardware so they probably just work (which
+would be cool!). It might be better to name and locate the helper
+function to reflect that.
