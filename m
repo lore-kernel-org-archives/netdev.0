@@ -1,180 +1,110 @@
-From: raj@tardy.usa.hp.com (Rick Jones)
-Subject: [PATCH v4 net-next] udp: Increment UDP_MIB_IGNOREDMULTI for arriving unmatched multicasts
-Date: Thu,  6 Nov 2014 10:37:54 -0800 (PST)
-Message-ID: <20141106183754.8A52829007D9@tardy>
-Cc: <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
+From: Joe Stringer <joestringer@nicira.com>
+Subject: Re: [PATCH net 3/5] fm10k: Implement ndo_gso_check()
+Date: Thu, 6 Nov 2014 10:41:15 -0800
+Message-ID: <20141106184115.GB18339@gmail.com>
+References: <1415138202-1197-1-git-send-email-joestringer@nicira.com>
+ <1415138202-1197-4-git-send-email-joestringer@nicira.com>
+ <545AE2C8.3070705@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, sathya.perla@emulex.com,
+	jeffrey.t.kirsher@intel.com, linux.nics@intel.com,
+	amirv@mellanox.com, shahed.shaikh@qlogic.com,
+	Dept-GELinuxNICDev@qlogic.com, therbert@google.com,
+	linux-kernel@vger.kernel.org
+To: Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g2t2352.austin.hp.com ([15.217.128.51]:53430 "EHLO
-	g2t2352.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751256AbaKFSh4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 13:37:56 -0500
+Received: from na3sys009aog102.obsmtp.com ([74.125.149.69]:47638 "HELO
+	na3sys009aog102.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751305AbaKFSqy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 13:46:54 -0500
+Received: by mail-pd0-f178.google.com with SMTP id fp1so1633584pdb.23
+        for <netdev@vger.kernel.org>; Thu, 06 Nov 2014 10:46:53 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <545AE2C8.3070705@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, Nov 05, 2014 at 06:54:00PM -0800, Alexander Duyck wrote:
+> On 11/04/2014 01:56 PM, Joe Stringer wrote:
+> > ndo_gso_check() was recently introduced to allow NICs to report the
+> > offloading support that they have on a per-skb basis. Add an
+> > implementation for this driver which checks for something that look=
+s
+> > like VXLAN.
+> >
+> > Implementation shamelessly stolen from Tom Herbert:
+> > http://thread.gmane.org/gmane.linux.network/332428/focus=3D333111
+> >
+> > Signed-off-by: Joe Stringer <joestringer@nicira.com>
+> > ---
+> > Should this driver report support for GSO on packets with tunnel he=
+aders
+> > up to 64B like the i40e driver does?
+> > ---
+> >  drivers/net/ethernet/intel/fm10k/fm10k_netdev.c |   12 +++++++++++=
++
+> >  1 file changed, 12 insertions(+)
+> >
+> > diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c b/driv=
+ers/net/ethernet/intel/fm10k/fm10k_netdev.c
+> > index 8811364..b9ef622 100644
+> > --- a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
+> > +++ b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
+> > @@ -1350,6 +1350,17 @@ static void fm10k_dfwd_del_station(struct ne=
+t_device *dev, void *priv)
+> >  	}
+> >  }
+> > =20
+> > +static bool fm10k_gso_check(struct sk_buff *skb, struct net_device=
+ *dev)
+> > +{
+> > +	if ((skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL) &&
+> > +	    (skb->inner_protocol_type !=3D ENCAP_TYPE_ETHER ||
+> > +	     skb->inner_protocol !=3D htons(ETH_P_TEB) ||
+> > +	     skb_inner_mac_header(skb) - skb_transport_header(skb) !=3D 1=
+6))
+> > +		return false;
+> > +
+> > +	return true;
+> > +}
+> > +
+> >  static const struct net_device_ops fm10k_netdev_ops =3D {
+> >  	.ndo_open		=3D fm10k_open,
+> >  	.ndo_stop		=3D fm10k_close,
+> > @@ -1372,6 +1383,7 @@ static const struct net_device_ops fm10k_netd=
+ev_ops =3D {
+> >  	.ndo_do_ioctl		=3D fm10k_ioctl,
+> >  	.ndo_dfwd_add_station	=3D fm10k_dfwd_add_station,
+> >  	.ndo_dfwd_del_station	=3D fm10k_dfwd_del_station,
+> > +	.ndo_gso_check		=3D fm10k_gso_check,
+> >  };
+> > =20
+> >  #define DEFAULT_DEBUG_LEVEL_SHIFT 3
+>=20
+> I'm thinking this check is far too simplistic.  If you look the fm10k
+> driver already has fm10k_tx_encap_offload() in the TSO function for
+> verifying if it can support offloading tunnels or not.  I would
+> recommend starting there or possibly even just adapting that function=
+ to
+> suit your purpose.
+>=20
+> Thanks,
+>=20
+> Alex
 
-From: Rick Jones <rick.jones2@hp.com>
+Would it be enough to just call fm10k_tx_encap_offload() in a way that =
+echoes fm10k_tso()?
 
-As NIC multicast filtering isn't perfect, and some platforms are
-quite content to spew broadcasts, we should not trigger an event
-for skb:kfree_skb when we do not have a match for such an incoming
-datagram.  We do though want to avoid sweeping the matter under the
-rug entirely, so increment a suitable statistic.
++static bool fm10k_gso_check(struct sk_buff *skb, struct net_device *de=
+v)
++{
++ =A0 =A0 =A0 if (skb->encapsulation && !fm10k_tx_encap_offload(skb))
++ =A0 =A0 =A0 =A0 =A0 =A0 =A0 return false;
++
++ =A0 =A0 =A0 return true;
++}
 
-This incorporates feedback from David L. Stevens, Karl Neiss and Eric
-Dumazet.
-
-V3 - use bool per David Miller
-
-Signed-off-by: Rick Jones <rick.jones2@hp.com>
-
----
-
-Noticed __udp4_lib_mcast_deliver showing-up in a perf dropped packet
-profile on a system sitting on a network with a bunch of Windows boxes
-sending what they are fond of sending.
-
-Verified that the new UDP_MIB_IGNOREDMULTI increments when ignored
-datagrams are encountered, but was unable to cross the i's and dot
-the t's of perf because the perf built from the tree at the time
-wasn't happy in general.  Also hit a test system with some netperf
-multicast UDP_STREAM and UDP_RR testing but that is the extent of 
-the testing performed.
-
-diff --git a/include/uapi/linux/snmp.h b/include/uapi/linux/snmp.h
-index df40137..30f541b 100644
---- a/include/uapi/linux/snmp.h
-+++ b/include/uapi/linux/snmp.h
-@@ -156,6 +156,7 @@ enum
- 	UDP_MIB_RCVBUFERRORS,			/* RcvbufErrors */
- 	UDP_MIB_SNDBUFERRORS,			/* SndbufErrors */
- 	UDP_MIB_CSUMERRORS,			/* InCsumErrors */
-+	UDP_MIB_IGNOREDMULTI,			/* IgnoredMulti */
- 	__UDP_MIB_MAX
- };
- 
-diff --git a/net/ipv4/proc.c b/net/ipv4/proc.c
-index 8e3eb39..5c5450c 100644
---- a/net/ipv4/proc.c
-+++ b/net/ipv4/proc.c
-@@ -181,6 +181,7 @@ static const struct snmp_mib snmp4_udp_list[] = {
- 	SNMP_MIB_ITEM("RcvbufErrors", UDP_MIB_RCVBUFERRORS),
- 	SNMP_MIB_ITEM("SndbufErrors", UDP_MIB_SNDBUFERRORS),
- 	SNMP_MIB_ITEM("InCsumErrors", UDP_MIB_CSUMERRORS),
-+	SNMP_MIB_ITEM("IgnoredMulti", UDP_MIB_IGNOREDMULTI),
- 	SNMP_MIB_SENTINEL
- };
- 
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index cd0db54..ebee9af 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1647,7 +1647,8 @@ static void udp_sk_rx_dst_set(struct sock *sk, struct dst_entry *dst)
- static int __udp4_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
- 				    struct udphdr  *uh,
- 				    __be32 saddr, __be32 daddr,
--				    struct udp_table *udptable)
-+				    struct udp_table *udptable,
-+				    int proto)
- {
- 	struct sock *sk, *stack[256 / sizeof(struct sock *)];
- 	struct hlist_nulls_node *node;
-@@ -1656,6 +1657,7 @@ static int __udp4_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
- 	int dif = skb->dev->ifindex;
- 	unsigned int count = 0, offset = offsetof(typeof(*sk), sk_nulls_node);
- 	unsigned int hash2 = 0, hash2_any = 0, use_hash2 = (hslot->count > 10);
-+	bool inner_flushed = false;
- 
- 	if (use_hash2) {
- 		hash2_any = udp4_portaddr_hash(net, htonl(INADDR_ANY), hnum) &
-@@ -1674,6 +1676,7 @@ start_lookup:
- 					dif, hnum)) {
- 			if (unlikely(count == ARRAY_SIZE(stack))) {
- 				flush_stack(stack, count, skb, ~0);
-+				inner_flushed = true;
- 				count = 0;
- 			}
- 			stack[count++] = sk;
-@@ -1695,7 +1698,10 @@ start_lookup:
- 	if (count) {
- 		flush_stack(stack, count, skb, count - 1);
- 	} else {
--		kfree_skb(skb);
-+		if (!inner_flushed)
-+			UDP_INC_STATS_BH(net, UDP_MIB_IGNOREDMULTI,
-+					 proto == IPPROTO_UDPLITE);
-+		consume_skb(skb);
- 	}
- 	return 0;
- }
-@@ -1780,7 +1786,7 @@ int __udp4_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
- 	} else {
- 		if (rt->rt_flags & (RTCF_BROADCAST|RTCF_MULTICAST))
- 			return __udp4_lib_mcast_deliver(net, skb, uh,
--					saddr, daddr, udptable);
-+					saddr, daddr, udptable, proto);
- 
- 		sk = __udp4_lib_lookup_skb(skb, uh->source, uh->dest, udptable);
- 	}
-diff --git a/net/ipv6/proc.c b/net/ipv6/proc.c
-index 1752cd0..679253d0 100644
---- a/net/ipv6/proc.c
-+++ b/net/ipv6/proc.c
-@@ -136,6 +136,7 @@ static const struct snmp_mib snmp6_udp6_list[] = {
- 	SNMP_MIB_ITEM("Udp6RcvbufErrors", UDP_MIB_RCVBUFERRORS),
- 	SNMP_MIB_ITEM("Udp6SndbufErrors", UDP_MIB_SNDBUFERRORS),
- 	SNMP_MIB_ITEM("Udp6InCsumErrors", UDP_MIB_CSUMERRORS),
-+	SNMP_MIB_ITEM("Udp6IgnoredMulti", UDP_MIB_IGNOREDMULTI),
- 	SNMP_MIB_SENTINEL
- };
- 
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index f6ba535..5bee6d2 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -771,7 +771,7 @@ static void udp6_csum_zero_error(struct sk_buff *skb)
-  */
- static int __udp6_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
- 		const struct in6_addr *saddr, const struct in6_addr *daddr,
--		struct udp_table *udptable)
-+		struct udp_table *udptable, int proto)
- {
- 	struct sock *sk, *stack[256 / sizeof(struct sock *)];
- 	const struct udphdr *uh = udp_hdr(skb);
-@@ -781,6 +781,7 @@ static int __udp6_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
- 	int dif = inet6_iif(skb);
- 	unsigned int count = 0, offset = offsetof(typeof(*sk), sk_nulls_node);
- 	unsigned int hash2 = 0, hash2_any = 0, use_hash2 = (hslot->count > 10);
-+	bool inner_flushed = false;
- 
- 	if (use_hash2) {
- 		hash2_any = udp6_portaddr_hash(net, &in6addr_any, hnum) &
-@@ -803,6 +804,7 @@ start_lookup:
- 		    (uh->check || udp_sk(sk)->no_check6_rx)) {
- 			if (unlikely(count == ARRAY_SIZE(stack))) {
- 				flush_stack(stack, count, skb, ~0);
-+				inner_flushed = true;
- 				count = 0;
- 			}
- 			stack[count++] = sk;
-@@ -821,7 +823,10 @@ start_lookup:
- 	if (count) {
- 		flush_stack(stack, count, skb, count - 1);
- 	} else {
--		kfree_skb(skb);
-+		if (!inner_flushed)
-+			UDP_INC_STATS_BH(net, UDP_MIB_IGNOREDMULTI,
-+					 proto == IPPROTO_UDPLITE);
-+		consume_skb(skb);
- 	}
- 	return 0;
- }
-@@ -873,7 +878,7 @@ int __udp6_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
- 	 */
- 	if (ipv6_addr_is_multicast(daddr))
- 		return __udp6_lib_mcast_deliver(net, skb,
--				saddr, daddr, udptable);
-+				saddr, daddr, udptable, proto);
- 
- 	/* Unicast */
- 
+Thanks,
+Joe
