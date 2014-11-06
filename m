@@ -1,99 +1,31 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: [PATCH 1/4] inet: Add skb_copy_datagram_iter
-Date: Thu, 6 Nov 2014 03:25:34 +0000
-Message-ID: <20141106032533.GU7996@ZenIV.linux.org.uk>
-References: <20141105035536.GO7996@ZenIV.linux.org.uk>
- <20141105.155054.2198151263164321219.davem@davemloft.net>
- <20141105210745.GT7996@ZenIV.linux.org.uk>
- <20141105.165719.835728206041332333.davem@davemloft.net>
+From: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCH net-next 0/3] r8152: rtl_ops_init modify
+Date: Thu, 6 Nov 2014 12:47:37 +0800
+Message-ID: <1394712342-15778-84-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, bcrl@kvack.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:45237 "EHLO
-	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750883AbaKFDZi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2014 22:25:38 -0500
-Content-Disposition: inline
-In-Reply-To: <20141105.165719.835728206041332333.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 05, 2014 at 04:57:19PM -0500, David Miller wrote:
-> From: Al Viro <viro@ZenIV.linux.org.uk>
-> Date: Wed, 5 Nov 2014 21:07:45 +0000
-> 
-> > Ping me when you put it there, OK?  I'll rebase the rest of old stuff on
-> > top of it (similar helpers, mostly).
-> 
-> I just pushed it into net-next, thanks Al.
+Initialize the ops through tp->version. This could skip checking
+each VID/PID.
 
-OK, I've taken the beginning of the old queue on top of net-next; it's
-in git://git.kernel.org//pub/scm/linux/kernel/git/viro/vfs.git iov_iter-net.
+Hayes Wang (3):
+  r8152: move r8152b_get_version
+  r8152: modify rtl_ops_init
+  r8152: remove the definitions of the PID
 
->From the quick look at the remaining ->msg_iov users:
+ drivers/net/usb/r8152.c | 92 +++++++++++++++++--------------------------------
+ 1 file changed, 32 insertions(+), 60 deletions(-)
 
-	* I'll need to add several iov_iter primitives - counterparts of
-checksum.h stuff (copy_and_csum_{from,to}_iter(), maybe some more).  Not
-a big deal, I'll do that tomorrow.  That will give us a clean iov_iter-based
-counterpart of skb_copy_and_csum_datagram_iovec().
+-- 
+1.9.3
 
-	* a new helper: zerocopy_sg_from_iter().  I have it, actually,
-but I'd rather not step on Herbert's toes - it's too close to the areas
-his series will touch, so that's probably for when his series goes in.
-It will be needed for complete macvtap conversion...
-
-	* why doesn't verify_iovec() use rw_copy_check_uvector()?  The only
-real differences I see is that (a) you do allocation in callers (same as
-rw_copy_check_uvector() would've done), (b) you return EMSGSIZE in case of
-too long vector, while rw_copy_check_uvector() returns EINVAL in that case
-and (c) you don't do access_ok().  The last one is described as optimization,
-but for iov_iter primitives it's a serious PITA - for iovec-backed instances
-they are using __copy_from_user()/__copy_to_user(), etc.
-	It certainly would be nice to have the same code doing all copying
-of iovecs from userland - readv/writev/aio/sendmsg/recvmsg/etc.  Am I
-missing something subtle semantical difference in there?  EMSGSIZE vs EINVAL
-is trivial (we can lift that check into the callers, if nothing else), but
-I could miss something more interesting...
-
-	* various getfrag will need to grow iov_iter-based counterparts,
-but ip_append_output() needs no changes, AFAICS.
-
-	* crypto stuff will be easy to convert - iov_iter_get_pages()
-would suffice for a primitive
-
-	* there's some really weird stuff in there.  Just what is this
-static int raw_probe_proto_opt(struct flowi4 *fl4, struct msghdr *msg)
-{
-        struct iovec *iov;
-        u8 __user *type = NULL;
-        u8 __user *code = NULL;
-        int probed = 0;
-        unsigned int i;
-
-        if (!msg->msg_iov)
-                return 0;
-
-        for (i = 0; i < msg->msg_iovlen; i++) {
-                iov = &msg->msg_iov[i];
-                if (!iov)
-                        continue;
-trying to do?  "If non-NULL pointer + i somehow happened to be NULL, skip it
-and try to use the same pointer + i + 1"?  Huh?  Had been that way since
-the function first went in back in 2004 ("[IPV4] XFRM: probe icmp type/code
-when sending packets via raw socket.", according to historical tree)...
-
-	* rds, bluetooth and vsock are doing something odd; need to RTFS some
-more.
-
-	* not sure I understand what TIPC is doing - does it prohibit too
-short first segment of ->msg_iov?  net/tipc/socket.c:dest_name_check() looks
-odd _and_ potentially racy - we read the same data twice and hope our checks
-still apply.  I asked TIPC folks about that race back in April, but it
-looks like that fell through the cracks...
-
-Overall, so far it looks more or less feasible - other than the missing csum
-primitives, current mm/iov_iter.c should suffice.  I have _not_ seriously
-looked into sendpage yet; that might very well require some more.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
