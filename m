@@ -1,42 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: Convert SEQ_START_TOKEN/seq_printf to
- seq_puts
-Date: Wed, 05 Nov 2014 22:05:19 -0500 (EST)
-Message-ID: <20141105.220519.797628811929880243.davem@davemloft.net>
-References: <1415144223.1508.1.camel@perches.com>
+Subject: Re: [PATCH v2 net-next] udp: Increment UDP_MIB_IGNOREDMULTI for
+ arriving unmatched multicasts
+Date: Wed, 05 Nov 2014 22:11:32 -0500 (EST)
+Message-ID: <20141105.221132.564742208038564677.davem@davemloft.net>
+References: <20141104234710.7FC7C290039D@tardy>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: joe@perches.com
+To: raj@tardy.usa.hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50701 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:50724 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750931AbaKFDFV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2014 22:05:21 -0500
-In-Reply-To: <1415144223.1508.1.camel@perches.com>
+	with ESMTP id S1751176AbaKFDLe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2014 22:11:34 -0500
+In-Reply-To: <20141104234710.7FC7C290039D@tardy>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Tue, 04 Nov 2014 15:37:03 -0800
+From: raj@tardy.usa.hp.com (Rick Jones)
+Date: Tue,  4 Nov 2014 15:47:10 -0800 (PST)
 
-> Using a single fixed string is smaller code size than using
-> a format and many string arguments.
-> 
-> Reduces overall code size a little.
-> 
-> $ size net/ipv4/igmp.o* net/ipv6/mcast.o* net/ipv6/ip6_flowlabel.o*
->    text	   data	    bss	    dec	    hex	filename
->   34269	   7012	  14824	  56105	   db29	net/ipv4/igmp.o.new
->   34315	   7012	  14824	  56151	   db57	net/ipv4/igmp.o.old
->   30078	   7869	  13200	  51147	   c7cb	net/ipv6/mcast.o.new
->   30105	   7869	  13200	  51174	   c7e6	net/ipv6/mcast.o.old
->   11434	   3748	   8580	  23762	   5cd2	net/ipv6/ip6_flowlabel.o.new
->   11491	   3748	   8580	  23819	   5d0b	net/ipv6/ip6_flowlabel.o.old
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
+> @@ -1656,6 +1657,7 @@ static int __udp4_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
+>  	int dif = skb->dev->ifindex;
+>  	unsigned int count = 0, offset = offsetof(typeof(*sk), sk_nulls_node);
+>  	unsigned int hash2 = 0, hash2_any = 0, use_hash2 = (hslot->count > 10);
+> +	unsigned int inner_flushed = 0;
+>  
+>  	if (use_hash2) {
+>  		hash2_any = udp4_portaddr_hash(net, htonl(INADDR_ANY), hnum) &
+ ...
+> @@ -781,6 +781,7 @@ static int __udp6_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
+>  	int dif = inet6_iif(skb);
+>  	unsigned int count = 0, offset = offsetof(typeof(*sk), sk_nulls_node);
+>  	unsigned int hash2 = 0, hash2_any = 0, use_hash2 = (hslot->count > 10);
+> +	int inner_flushed = 0;
 
-Ok, I'm fine with this, applied.
+Please use bool/true/false for inner_flushed in these two functions.
 
-Thanks Joe.
+Thanks.
