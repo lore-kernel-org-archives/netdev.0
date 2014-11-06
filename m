@@ -1,140 +1,66 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 4/4] net: Kill skb_copy_datagram_const_iovec
-Date: Thu, 06 Nov 2014 16:28:21 +0800
-Message-ID: <E1XmIQX-0007mt-S0@gondolin.me.apana.org.au>
-References: <20141106082704.GB29800@gondor.apana.org.au>
-To: David Miller <davem@davemloft.net>, viro@ZenIV.linux.org.uk,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	bcrl@kvack.org, YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:52062 "EHLO
-	helcar.apana.org.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751949AbaKFI23 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 03:28:29 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: Re: [PATCH] bridge: missing null bridge device check
+ causing null pointer dereference (bugfix)
+Date: Thu, 06 Nov 2014 17:28:56 +0900
+Message-ID: <545B3148.8000704@lab.ntt.co.jp>
+References: <1415255192-13584-1-git-send-email-suhyun.park@ahnlab.com>
+	<545B1E27.3080302@lab.ntt.co.jp>
+	<8D1F1238A24CE743B8F3CED0F137C69E408AA087@EXMB02.ahnbang.ahnlab.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=euc-kr
+Content-Transfer-Encoding: quoted-printable
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"bridge@lists.linux-foundation.org" <bridge@lists.linux-foundation.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: =?EUC-KR?B?udq89sf2?= <suhyun.park@ahnlab.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <8D1F1238A24CE743B8F3CED0F137C69E408AA087@EXMB02.ahnbang.ahnlab.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Now that both macvtap and tun are using skb_copy_datagram_iter, we
-can kill the abomination that is skb_copy_datagram_const_iovec.
+On 2014/11/06 16:58, =B9=DA=BC=F6=C7=F6 wrote:
+>> -----Original Message-----
+>> From: Toshiaki Makita [mailto:makita.toshiaki@lab.ntt.co.jp]
+>> Sent: Thursday, November 06, 2014 4:07 PM
+>> To: =B9=DA=BC=F6=C7=F6; Stephen Hemminger; David S. Miller
+>> Cc: bridge@lists.linux-foundation.org; netdev@vger.kernel.org; linux-
+>> kernel@vger.kernel.org
+>> Subject: Re: [PATCH] bridge: missing null bridge device check causing =
+null
+>> pointer dereference (bugfix)
+>>
+>> On 2014/11/06 15:26, Su-Hyun Park wrote:
+>>> the bridge device can be null if the bridge is being deleted while
+>>> processing the packet, which causes the null pointer dereference in
+>> switch statement.
+>>
+>> How can this happen??
+>> It is guarded by rcu.
+>> netdev_rx_handler_unregister() ensures rx_handler_data is non NULL.
+>>
+>=20
+> The RCU protect rx_handler_data, not the bridge member port. It can be =
+NULL according to below code.
+>=20
+> static inline struct net_bridge_port *br_port_get_rcu(const struct net_=
+device *dev) {
+> 	struct net_bridge_port *port =3D rcu_dereference(dev->rx_handler_data)=
+;
+> 	return br_port_exists(dev) ? port : NULL;=20
+> }
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
----
+Seems to have been fixed for a year.
+716ec052d228 ("bridge: fix NULL pointer deref of br_port_get_rcu")
 
- include/linux/skbuff.h |    3 -
- net/core/datagram.c    |   89 -------------------------------------------------
- 2 files changed, 92 deletions(-)
-
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index a405013..da59580 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -2653,9 +2653,6 @@ int skb_copy_datagram_from_iovec(struct sk_buff *skb, int offset,
- 				 int len);
- int zerocopy_sg_from_iovec(struct sk_buff *skb, const struct iovec *frm,
- 			   int offset, size_t count);
--int skb_copy_datagram_const_iovec(const struct sk_buff *from, int offset,
--				  const struct iovec *to, int to_offset,
--				  int size);
- int skb_copy_datagram_iter(const struct sk_buff *from, int offset,
- 			   struct iov_iter *to, int size);
- void skb_free_datagram(struct sock *sk, struct sk_buff *skb);
-diff --git a/net/core/datagram.c b/net/core/datagram.c
-index 45a9d4d..93054b9 100644
---- a/net/core/datagram.c
-+++ b/net/core/datagram.c
-@@ -394,95 +394,6 @@ fault:
- EXPORT_SYMBOL(skb_copy_datagram_iovec);
- 
- /**
-- *	skb_copy_datagram_const_iovec - Copy a datagram to an iovec.
-- *	@skb: buffer to copy
-- *	@offset: offset in the buffer to start copying from
-- *	@to: io vector to copy to
-- *	@to_offset: offset in the io vector to start copying to
-- *	@len: amount of data to copy from buffer to iovec
-- *
-- *	Returns 0 or -EFAULT.
-- *	Note: the iovec is not modified during the copy.
-- */
--int skb_copy_datagram_const_iovec(const struct sk_buff *skb, int offset,
--				  const struct iovec *to, int to_offset,
--				  int len)
--{
--	int start = skb_headlen(skb);
--	int i, copy = start - offset;
--	struct sk_buff *frag_iter;
--
--	/* Copy header. */
--	if (copy > 0) {
--		if (copy > len)
--			copy = len;
--		if (memcpy_toiovecend(to, skb->data + offset, to_offset, copy))
--			goto fault;
--		if ((len -= copy) == 0)
--			return 0;
--		offset += copy;
--		to_offset += copy;
--	}
--
--	/* Copy paged appendix. Hmm... why does this look so complicated? */
--	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
--		int end;
--		const skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
--
--		WARN_ON(start > offset + len);
--
--		end = start + skb_frag_size(frag);
--		if ((copy = end - offset) > 0) {
--			int err;
--			u8  *vaddr;
--			struct page *page = skb_frag_page(frag);
--
--			if (copy > len)
--				copy = len;
--			vaddr = kmap(page);
--			err = memcpy_toiovecend(to, vaddr + frag->page_offset +
--						offset - start, to_offset, copy);
--			kunmap(page);
--			if (err)
--				goto fault;
--			if (!(len -= copy))
--				return 0;
--			offset += copy;
--			to_offset += copy;
--		}
--		start = end;
--	}
--
--	skb_walk_frags(skb, frag_iter) {
--		int end;
--
--		WARN_ON(start > offset + len);
--
--		end = start + frag_iter->len;
--		if ((copy = end - offset) > 0) {
--			if (copy > len)
--				copy = len;
--			if (skb_copy_datagram_const_iovec(frag_iter,
--							  offset - start,
--							  to, to_offset,
--							  copy))
--				goto fault;
--			if ((len -= copy) == 0)
--				return 0;
--			offset += copy;
--			to_offset += copy;
--		}
--		start = end;
--	}
--	if (!len)
--		return 0;
--
--fault:
--	return -EFAULT;
--}
--EXPORT_SYMBOL(skb_copy_datagram_const_iovec);
--
--/**
-  *	skb_copy_datagram_iter - Copy a datagram to an iovec iterator.
-  *	@skb: buffer to copy
-  *	@offset: offset in the buffer to start copying from
+Thanks,
+Toshiaki Makita
