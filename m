@@ -1,57 +1,64 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: getting rid of ->splice_write?
-Date: Wed, 5 Nov 2014 23:55:23 -0800
-Message-ID: <20141106075523.GA15966@infradead.org>
-References: <20140922173053.GA13109@infradead.org>
- <20141105184945.GS7996@ZenIV.linux.org.uk>
+From: =?ks_c_5601-1987?B?udq89sf2?= <suhyun.park@ahnlab.com>
+Subject: RE: [PATCH] bridge: missing null bridge device check causing null
+ pointer dereference (bugfix)
+Date: Thu, 6 Nov 2014 07:58:41 +0000
+Message-ID: <8D1F1238A24CE743B8F3CED0F137C69E408AA087@EXMB02.ahnbang.ahnlab.com>
+References: <1415255192-13584-1-git-send-email-suhyun.park@ahnlab.com>
+ <545B1E27.3080302@lab.ntt.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Miklos Szeredi <miklos@szeredi.hu>, linux-fsdevel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Al Viro <viro@ZenIV.linux.org.uk>
+Content-Type: text/plain; charset="ks_c_5601-1987"
+Content-Transfer-Encoding: base64
+Cc: "bridge@lists.linux-foundation.org"
+	<bridge@lists.linux-foundation.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([198.137.202.9]:49792 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752048AbaKFHzZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 02:55:25 -0500
-Content-Disposition: inline
-In-Reply-To: <20141105184945.GS7996@ZenIV.linux.org.uk>
+Received: from antispam.ahnlab.com ([210.121.169.55]:59181 "EHLO
+	antispam.ahnlab.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751167AbaKFH6p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 02:58:45 -0500
+In-Reply-To: <545B1E27.3080302@lab.ntt.co.jp>
+Content-Language: ko-KR
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 05, 2014 at 06:49:45PM +0000, Al Viro wrote:
-> Not really.  A minor nitpick is that you've missed port_fops_splice_write(),
-> but the real bitch isn't that and not even the sockets (see the fun with
-> iov_iter sendmsg/recvmsg work getting resurrected).  It's that NULL
-> ->splice_write() means default_file_splice_write.  IOW, you'd need either
-> ->write_iter() for _everything_ (with support of bvec-backed ones included,
-> since that's what iter_file_splice_write() will feed to ->write_iter()),
-> or you need to have do_splice_from() check if ->write_iter is NULL and
-> go for default_file_splice_write() instead of iter_file_splice_write().
-> 
-> The latter might be doable, but the former is really over the top - for
-> that we'd need to touch every driver instance of ->write() out there.
-> You want to do that, it's your funeral...
-
-The latter is what I thought off.  And yes, the socket work looks good,
-especially if we can get rid of ->sendpage as well.  That'll require
-passing new flags somewhere, the ones in the iocb added for
-preadv2/pwritev2 might be usable.
-
-> > Similarly it seems to be like we could kill ->splice_read by
-> > implementing an equivalent iteration over ->read_iter.
-> 
-> Hard to do.  I agree that we want to, but it'll take quite a bit of work
-> on iov_iter primitives, I'm afraid.  At the very least, we want a variant
-> of iov_iter that could steal pages.  Don't forget that a large part of
-> the rationale behind splice_read was the ability to play zero-copy games.
-> 
-> I'm not sure if it will happen this cycle; there's more than enough fun
-> on the net/* side.  _If_ that ends up done faster than I expect it to be,
-> ->splice_read() is the obvious next target.
-
-And zero copy games would become a lot less nasty if they could go
-straight through ->read_iter instead of the current abuses of splice
-infrastructure.
-
-Same for sendfile, btw.
+Pi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+RnJvbTogVG9zaGlha2kgTWFraXRhIFttYWls
+dG86bWFraXRhLnRvc2hpYWtpQGxhYi5udHQuY28uanBdDQo+U2VudDogVGh1cnNkYXksIE5vdmVt
+YmVyIDA2LCAyMDE0IDQ6MDcgUE0NCj5Ubzogudq89sf2OyBTdGVwaGVuIEhlbW1pbmdlcjsgRGF2
+aWQgUy4gTWlsbGVyDQo+Q2M6IGJyaWRnZUBsaXN0cy5saW51eC1mb3VuZGF0aW9uLm9yZzsgbmV0
+ZGV2QHZnZXIua2VybmVsLm9yZzsgbGludXgtDQo+a2VybmVsQHZnZXIua2VybmVsLm9yZw0KPlN1
+YmplY3Q6IFJlOiBbUEFUQ0hdIGJyaWRnZTogbWlzc2luZyBudWxsIGJyaWRnZSBkZXZpY2UgY2hl
+Y2sgY2F1c2luZyBudWxsDQo+cG9pbnRlciBkZXJlZmVyZW5jZSAoYnVnZml4KQ0KPg0KPk9uIDIw
+MTQvMTEvMDYgMTU6MjYsIFN1LUh5dW4gUGFyayB3cm90ZToNCj4+IHRoZSBicmlkZ2UgZGV2aWNl
+IGNhbiBiZSBudWxsIGlmIHRoZSBicmlkZ2UgaXMgYmVpbmcgZGVsZXRlZCB3aGlsZQ0KPj4gcHJv
+Y2Vzc2luZyB0aGUgcGFja2V0LCB3aGljaCBjYXVzZXMgdGhlIG51bGwgcG9pbnRlciBkZXJlZmVy
+ZW5jZSBpbg0KPnN3aXRjaCBzdGF0ZW1lbnQuDQo+DQo+SG93IGNhbiB0aGlzIGhhcHBlbj8/DQo+
+SXQgaXMgZ3VhcmRlZCBieSByY3UuDQo+bmV0ZGV2X3J4X2hhbmRsZXJfdW5yZWdpc3RlcigpIGVu
+c3VyZXMgcnhfaGFuZGxlcl9kYXRhIGlzIG5vbiBOVUxMLg0KPg0KDQpUaGUgUkNVIHByb3RlY3Qg
+cnhfaGFuZGxlcl9kYXRhLCBub3QgdGhlIGJyaWRnZSBtZW1iZXIgcG9ydC4gSXQgY2FuIGJlIE5V
+TEwgYWNjb3JkaW5nIHRvIGJlbG93IGNvZGUuDQoNCnN0YXRpYyBpbmxpbmUgc3RydWN0IG5ldF9i
+cmlkZ2VfcG9ydCAqYnJfcG9ydF9nZXRfcmN1KGNvbnN0IHN0cnVjdCBuZXRfZGV2aWNlICpkZXYp
+IHsNCglzdHJ1Y3QgbmV0X2JyaWRnZV9wb3J0ICpwb3J0ID0gcmN1X2RlcmVmZXJlbmNlKGRldi0+
+cnhfaGFuZGxlcl9kYXRhKTsNCglyZXR1cm4gYnJfcG9ydF9leGlzdHMoZGV2KSA/IHBvcnQgOiBO
+VUxMOyANCn0NCg0KVGhlIGNyYXNoIGhhcHBlbnMgYXQgdGhlIGJlbG93IHN3aXRjaCBzdGF0ZW1l
+bnQgaW4gYnJfaGFuZGxlX2ZyYW1lLCB3aGVyZSBwIGlzIE5VTEwuDQoNCglzd2l0Y2ggKHAtPnN0
+YXRlKQ0KDQo+Pg0KPj4gY3Jhc2ggZHVtcCBzbmlwcGV0Og0KPj4NCj4+IDwxPkJVRzogdW5hYmxl
+IHRvIGhhbmRsZSBrZXJuZWwgTlVMTCBwb2ludGVyIGRlcmVmZXJlbmNlIGF0DQo+PiAwMDAwMDAw
+MDAwMDAwMDIxDQo+PiA8MT5JUDogWzxmZmZmZmZmZjgxNDE3OWY2Pl0gYnJfaGFuZGxlX2ZyYW1l
+KzB4ZTYvMHgyNzANCj4+DQo+PiA8MD5Db2RlOiA0YyAwZiA0NCBmMCA4OSBmOCA2NiAzMyAxNSAz
+MiA1MiAyNCAwMCA2NiAzMyAwNSAyOSA1MiAyNCAwMA0KPj4gMDkgYzIgODkNCj4+IGYwIDY2IDMz
+IDA1IDIyIDUyIDI0IDAwIDgwIGU0IGYwIDY2IDA5IGMyIDBmIDg0IGViIDAwIDAwIDAwIDw0MT4g
+MGYgYjYNCj4+IDQ2IDIxIDNjIDAyIDc0IDYxIDNjIDAzIDc0IDFkIDQ4IDg5IGRmIGU4IGQ1IGJj
+IGYwIGZmDQo+PiAtLS0NCj4+ICBuZXQvYnJpZGdlL2JyX2lucHV0LmMgfCAyICsrDQo+PiAgMSBm
+aWxlIGNoYW5nZWQsIDIgaW5zZXJ0aW9ucygrKQ0KPj4NCj4+IGRpZmYgLS1naXQgYS9uZXQvYnJp
+ZGdlL2JyX2lucHV0LmMgYi9uZXQvYnJpZGdlL2JyX2lucHV0LmMgaW5kZXgNCj4+IDZmZDU1MjIu
+LjdlODk5Y2EgMTAwNjQ0DQo+PiAtLS0gYS9uZXQvYnJpZGdlL2JyX2lucHV0LmMNCj4+ICsrKyBi
+L25ldC9icmlkZ2UvYnJfaW5wdXQuYw0KPj4gQEAgLTE3Niw2ICsxNzYsOCBAQCByeF9oYW5kbGVy
+X3Jlc3VsdF90IGJyX2hhbmRsZV9mcmFtZShzdHJ1Y3Qgc2tfYnVmZg0KPioqcHNrYikNCj4+ICAJ
+CXJldHVybiBSWF9IQU5ETEVSX0NPTlNVTUVEOw0KPj4NCj4+ICAJcCA9IGJyX3BvcnRfZ2V0X3Jj
+dShza2ItPmRldik7DQo+PiArCWlmICghcCkNCj4+ICsJCWdvdG8gZHJvcDsNCj4+DQo+PiAgCWlm
+ICh1bmxpa2VseShpc19saW5rX2xvY2FsX2V0aGVyX2FkZHIoZGVzdCkpKSB7DQo+PiAgCQl1MTYg
+ZndkX21hc2sgPSBwLT5ici0+Z3JvdXBfZndkX21hc2tfcmVxdWlyZWQ7DQo+Pg0KPg0KDQo=
