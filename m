@@ -1,123 +1,80 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: mlx4+vxlan offload breaks gre tunnels
-Date: Thu, 6 Nov 2014 09:03:42 +0200
-Message-ID: <CAJ3xEMgpzY0U4g52P=FiPtHCT+bH1bKEjSj+1OfFAfKc44q2dg@mail.gmail.com>
-References: <20141105150448.GA20776@breakpoint.cc>
-	<545A4DB7.5010603@mellanox.com>
-	<CA+mtBx_oxJxteeBnbyboGTSKn3JdBRx2Nb3a9EuCZzG+_U-8Zw@mail.gmail.com>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: M_CAN message RAM initialization AppNote  - was: Re: [PATCH V3
+ 3/3] can: m_can: workaround for transmit data less than 4 bytes
+Date: Thu, 06 Nov 2014 08:04:17 +0100
+Message-ID: <545B1D71.4000408@hartkopp.net>
+References: <1415193393-30023-1-git-send-email-b29396@freescale.com> <1415193393-30023-3-git-send-email-b29396@freescale.com> <545A3451.2090302@pengutronix.de> <545A692E.40002@hartkopp.net> <20141106015716.GB7642@shlinux1.ap.freescale.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Florian Westphal <fw@strlen.de>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Jesse Gross <jesse@nicira.com>, Amir Vadai <amirv@mellanox.com>
-To: Tom Herbert <therbert@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f169.google.com ([209.85.214.169]:48140 "EHLO
-	mail-ob0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751240AbaKFHDn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 02:03:43 -0500
-Received: by mail-ob0-f169.google.com with SMTP id va2so390483obc.14
-        for <netdev@vger.kernel.org>; Wed, 05 Nov 2014 23:03:42 -0800 (PST)
-In-Reply-To: <CA+mtBx_oxJxteeBnbyboGTSKn3JdBRx2Nb3a9EuCZzG+_U-8Zw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Marc Kleine-Budde <mkl@pengutronix.de>, linux-can@vger.kernel.org,
+	wg@grandegger.com, varkabhadram@gmail.com, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org
+To: Dong Aisheng <b29396@freescale.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <20141106015716.GB7642@shlinux1.ap.freescale.net>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 5, 2014 at 11:59 PM, Tom Herbert <therbert@google.com> wrote:
-> On Wed, Nov 5, 2014 at 8:17 AM, Or Gerlitz <ogerlitz@mellanox.com> wrote:
->> On 11/5/2014 5:04 PM, Florian Westphal wrote:
->>>
->>> tl,dr: all tcp packets sent via gre tunnel have broken tcp csum if vxlan
->>> offload
->>> is enabled with mlx4 driver.
->>>
->>> Given following config on tx-side:
->>> dev=enp3s0
->>> ip addr add dev $dev 192.168.23.1/24
->>> ip link set $dev up
->>> ip link add mygre type gretap remote 192.168.23.2 local 192.168.23.1
->>> ip addr add dev mygre 192.168.42.1/24
->>> ip link set gre0 up
->>> ip link set mygre up
->>>
->>> and
->>>
->>> options mlx4_core log_num_mgm_entry_size=-1 debug_level=1
->>> port_type_array=2,2
->>>
->>> in
->>> /etc/modprobe.d/mlx4.conf
->>>
->>> all tcp packets sent to destinations over the gre tunnel have bogus tcp
->>> checksums (and are tossed on rx side when stack validates tcp checksum).
->>>
->>> net-next head is commit 30349bdbc4da5ecf0efa25556e3caff9c9b8c5f7 .
->>>
->>> What makes things work for me:
->>> either
->>>
->>> options mlx4_core 1 debug_level=1 port_type_array=2,2
->>>
->>> (ie. no MLX4_TUNNEL_OFFLOAD_MODE_VXLAN)
->>>
->>> or not setting NETIF_F_IP_CSUM in enc_features:
->>>
->>> --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
->>> +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
->>> @@ -2579,10 +2579,12 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev,
->>> int port,
->>>                  dev->priv_flags |= IFF_UNICAST_FLT;
->>>            if (mdev->dev->caps.tunnel_offload_mode ==
->>> MLX4_TUNNEL_OFFLOAD_MODE_VXLAN) {
->>> -               dev->hw_enc_features |= NETIF_F_IP_CSUM | NETIF_F_RXCSUM |
->>> +               dev->hw_enc_features |= NETIF_F_RXCSUM |
->>>                                          NETIF_F_TSO |
->>> NETIF_F_GSO_UDP_TUNNEL;
->>>
->>> I am not sure if its right fix, but to my eyes this basically looks like
->>> mlx4 is telling stack that it can handle tcp checksum offload within
->>> tunnels, and that doesn't seem to be the case for all types (e.g. gre).
->>>
->>> Could someone who understand the enc_features specifics better confirm
->>> that
->>> above patch is correct (or provide a better/proper fix)?
->>
->>
->> Yep, I can see now the problem. It comes into play with ConnectX3-pro NICs
->> that support VXLAN offloads (but not with ConnectX3 NIC which don't) when
->> you enable the offloads support on the CX3-pro.
->>
->> The problem originates from the fact that we can't advertize something like
->> "the HW can offload the inner checksum of UDP/VXLAN encapsulated (but not
->> for GRE)", e.g in a similar manner that exists in the GSO space, where you
->> have NETIF_F_GSO _YYY for each yyy in {UDP, SIT, GRE, etc} tunneling scheme.
->>
->> I think the best effort we can do now is
->>
->> 1. come up with something such as the below patch for 3.18 which is
->> back-ward portable for -stable kernels, it will only arm the hw offloads if
->> the OS tells us there's VXLAN in action
->>
->> 2. come  up with proper kernel APIs to let NICs advertize which encap
->> schemes they can actually offload the inner checksum, Tom... your work which
->> now runs over netdev.
+On 06.11.2014 02:57, Dong Aisheng wrote:
+> On Wed, Nov 05, 2014 at 07:15:10PM +0100, Oliver Hartkopp wrote:
 
-> Possibly #3: add ndo_gso_check to detect nested tunneling. In this
-> case it would see that gso_type has both SKB_GSO_GRE and
-> SKB_GSO_UDP_TUNNEL set.
-
-I am not with you, where do we have nested tunneling here? the below
-setting is simple GRE tunnel
-to host (say) TCP traffic
-
->> tested to work with the  following which is a bit different, tell me if it
->> works for you
+>> The Message RAM is usually equipped with a parity or ECC functionality.
+>> But RAM cells suffer a hardware reset and can therefore hold
+>> arbitrary content at startup - including parity and/or ECC bits.
 >>
->> # node A - with mlx4_en address192.168.31.18
->> ip tunnel add gre1 mode gre local 192.168.31.18 remote 192.168.31.17 ttl 255
->> ifconfig gre1 10.10.10.18/24 up
->> ifconfig gre1 mtu 1450
+>> So when you write only the CAN ID and the first four bytes the last
+>> four bytes remain untouched. Then the M_CAN starts to read in 32bit
+>> words from the start of the Tx Message element. So it is very likely
+>> to trigger the message RAM error when reading the uninitialized
+>> 32bit word from the last four bytes.
 >>
->> # node B - with mlx4_en address192.168.31.17
->> ip tunnel add gre1 mode gre local 192.168.31.17 remote 192.168.31.18 ttl 255
->> ifconfig gre1 10.10.10.17/24 up
->> ifconfig gre1 mtu 1450
+>> Finally it turns out that an initial writing (with any kind of data)
+>> to the entire message RAM is mandatory to create valid parity/ECC
+>> checksums.
+>>
+>> That's it.
+>>
+>
+> Thanks for sharing this information.
+> Does it mean this issue is related to the nature of Message RAM and is
+> supposed to exist on all M_CAN IP versions?
+
+ From what I know from the 3.1.x revision there's no change regarding IR.BRU 
+and IR.BEC - so I would assume this to stay on all M_CAN IP revisions.
+
+But after some sleep I wonder if this patch [3/3] would need an update too.
+
+Writing to the TX message RAM is obviously no workaround but a valid and 
+needed initialization process.
+
+I would tend to make this patch:
+
+---
+
+can: m_can: add missing TX message RAM initialization
+
+The M_CAN message RAM is usually equipped with a parity or ECC functionality.
+But RAM cells suffer a hardware reset and can therefore hold arbitrary content 
+at startup - including parity and/or ECC bits.
+
+To prevent the M_CAN controller detecting checksum errors when reading 
+potentially uninitialized TX message RAM content to transmit CAN frames the TX 
+message RAM has to be written with (any kind of) initial data.
+
+---
+
+Then the code should memset() the entire TX FIFO element - and not only the 8 
+data bytes we are addressing now.
+
+Maybe it makes sense to send the entire updated patch set (3) again ...
+
+[1/3] can: add can_is_canfd_skb() API
+[2/3] can: m_can: update to support CAN FD features
+[3/3] can: m_can: add missing message RAM initialization
+
+Are you ok with that?
+
+Regards,
+Oliver
+
