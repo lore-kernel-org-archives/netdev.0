@@ -1,217 +1,135 @@
 From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH net-next v2 14/14] openvswitch: Avoid NULL mask check while building mask
-Date: Thu,  6 Nov 2014 01:19:53 -0800
-Message-ID: <1415265593-1930-1-git-send-email-pshelar@nicira.com>
-Cc: netdev@vger.kernel.org, Pravin B Shelar <pshelar@nicira.com>
+Subject: [PATCH net-next v2 11/14] openvswitch: Remove flow member from struct ovs_skb_cb
+Date: Thu,  6 Nov 2014 01:19:40 -0800
+Message-ID: <1415265580-1843-1-git-send-email-pshelar@nicira.com>
+Cc: netdev@vger.kernel.org, Lorand Jakab <lojakab@cisco.com>,
+	Pravin B Shelar <pshelar@nicira.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog108.obsmtp.com ([74.125.149.199]:38528 "HELO
-	na3sys009aog108.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752022AbaKFJTz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 04:19:55 -0500
-Received: by mail-pd0-f173.google.com with SMTP id v10so800335pde.4
-        for <netdev@vger.kernel.org>; Thu, 06 Nov 2014 01:19:55 -0800 (PST)
+Received: from na3sys009aog131.obsmtp.com ([74.125.149.247]:56785 "HELO
+	na3sys009aog131.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752082AbaKFJTn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 04:19:43 -0500
+Received: by mail-pd0-f169.google.com with SMTP id y10so811047pdj.0
+        for <netdev@vger.kernel.org>; Thu, 06 Nov 2014 01:19:42 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-OVS does mask validation even if it does not need to convert
-netlink mask attributes to mask structure.  ovs_nla_get_match()
-caller can pass NULL mask structure pointer if the caller does
-not need mask.  Therefore NULL check is required in SW_FLOW_KEY*
-macros.  Following patch does not convert mask netlink attributes
-if mask pointer is NULL, so we do not need these checks in
-SW_FLOW_KEY* macro.
+From: Lorand Jakab <lojakab@cisco.com>
 
+The 'flow' memeber was chosen for removal because it's only used
+in ovs_execute_actions() we can pass it as argument to this
+function.
+
+Signed-off-by: Lorand Jakab <lojakab@cisco.com>
 Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
-Acked-by: Daniele Di Proietto <ddiproietto@vmware.com>
-Acked-by: Andy Zhou <azhou@nicira.com>
 ---
- net/openvswitch/flow_netlink.c | 107 ++++++++++++++++++++---------------------
- 1 file changed, 53 insertions(+), 54 deletions(-)
+ net/openvswitch/actions.c  |  5 +----
+ net/openvswitch/datapath.c | 12 +++++++-----
+ net/openvswitch/datapath.h |  4 +---
+ 3 files changed, 9 insertions(+), 12 deletions(-)
 
-diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
-index 482a0cb..ed31097 100644
---- a/net/openvswitch/flow_netlink.c
-+++ b/net/openvswitch/flow_netlink.c
-@@ -50,21 +50,18 @@
+diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
+index 9fd33c0..f7e5891 100644
+--- a/net/openvswitch/actions.c
++++ b/net/openvswitch/actions.c
+@@ -865,14 +865,11 @@ static void process_deferred_actions(struct datapath *dp)
  
- #include "flow_netlink.h"
- 
--static void update_range__(struct sw_flow_match *match,
--			   size_t offset, size_t size, bool is_mask)
-+static void update_range(struct sw_flow_match *match,
-+			 size_t offset, size_t size, bool is_mask)
+ /* Execute a list of actions against 'skb'. */
+ int ovs_execute_actions(struct datapath *dp, struct sk_buff *skb,
+-			struct sw_flow_key *key)
++			struct sw_flow_actions *acts, struct sw_flow_key *key)
  {
--	struct sw_flow_key_range *range = NULL;
-+	struct sw_flow_key_range *range;
- 	size_t start = rounddown(offset, sizeof(long));
- 	size_t end = roundup(offset + size, sizeof(long));
- 
- 	if (!is_mask)
- 		range = &match->range;
--	else if (match->mask)
-+	else
- 		range = &match->mask->range;
- 
--	if (!range)
--		return;
--
- 	if (range->start == range->end) {
- 		range->start = start;
- 		range->end = end;
-@@ -80,22 +77,20 @@ static void update_range__(struct sw_flow_match *match,
- 
- #define SW_FLOW_KEY_PUT(match, field, value, is_mask) \
- 	do { \
--		update_range__(match, offsetof(struct sw_flow_key, field),  \
--				     sizeof((match)->key->field), is_mask); \
--		if (is_mask) {						    \
--			if ((match)->mask)				    \
--				(match)->mask->key.field = value;	    \
--		} else {                                                    \
-+		update_range(match, offsetof(struct sw_flow_key, field),    \
-+			     sizeof((match)->key->field), is_mask);	    \
-+		if (is_mask)						    \
-+			(match)->mask->key.field = value;		    \
-+		else							    \
- 			(match)->key->field = value;		            \
--		}                                                           \
- 	} while (0)
- 
- #define SW_FLOW_KEY_MEMCPY_OFFSET(match, offset, value_p, len, is_mask)	    \
- 	do {								    \
--		update_range__(match, offset, len, is_mask);		    \
-+		update_range(match, offset, len, is_mask);		    \
- 		if (is_mask)						    \
- 			memcpy((u8 *)&(match)->mask->key + offset, value_p, \
--			       len);					    \
-+			       len);					   \
- 		else							    \
- 			memcpy((u8 *)(match)->key + offset, value_p, len);  \
- 	} while (0)
-@@ -104,18 +99,16 @@ static void update_range__(struct sw_flow_match *match,
- 	SW_FLOW_KEY_MEMCPY_OFFSET(match, offsetof(struct sw_flow_key, field), \
- 				  value_p, len, is_mask)
- 
--#define SW_FLOW_KEY_MEMSET_FIELD(match, field, value, is_mask) \
--	do { \
--		update_range__(match, offsetof(struct sw_flow_key, field),  \
--				     sizeof((match)->key->field), is_mask); \
--		if (is_mask) {						    \
--			if ((match)->mask)				    \
--				memset((u8 *)&(match)->mask->key.field, value,\
--				       sizeof((match)->mask->key.field));   \
--		} else {                                                    \
-+#define SW_FLOW_KEY_MEMSET_FIELD(match, field, value, is_mask)		    \
-+	do {								    \
-+		update_range(match, offsetof(struct sw_flow_key, field),    \
-+			     sizeof((match)->key->field), is_mask);	    \
-+		if (is_mask)						    \
-+			memset((u8 *)&(match)->mask->key.field, value,      \
-+			       sizeof((match)->mask->key.field));	    \
-+		else							    \
- 			memset((u8 *)&(match)->key->field, value,           \
- 			       sizeof((match)->key->field));                \
--		}                                                           \
- 	} while (0)
- 
- static bool match_validate(const struct sw_flow_match *match,
-@@ -677,8 +670,7 @@ static int ovs_key_from_nlattrs(struct sw_flow_match *match, u64 attrs,
- 
- 		SW_FLOW_KEY_PUT(match, eth.tci, tci, is_mask);
- 		attrs &= ~(1 << OVS_KEY_ATTR_VLAN);
--	} else if (!is_mask)
--		SW_FLOW_KEY_PUT(match, eth.tci, htons(0xffff), true);
-+	}
- 
- 	if (attrs & (1 << OVS_KEY_ATTR_ETHERTYPE)) {
- 		__be16 eth_type;
-@@ -903,8 +895,8 @@ static void mask_set_nlattr(struct nlattr *attr, u8 val)
-  * attribute specifies the mask field of the wildcarded flow.
-  */
- int ovs_nla_get_match(struct sw_flow_match *match,
--		      const struct nlattr *key,
--		      const struct nlattr *mask)
-+		      const struct nlattr *nla_key,
-+		      const struct nlattr *nla_mask)
- {
- 	const struct nlattr *a[OVS_KEY_ATTR_MAX + 1];
- 	const struct nlattr *encap;
-@@ -914,7 +906,7 @@ int ovs_nla_get_match(struct sw_flow_match *match,
- 	bool encap_valid = false;
+ 	int level = this_cpu_read(exec_actions_level);
+-	struct sw_flow_actions *acts;
  	int err;
  
--	err = parse_flow_nlattrs(key, a, &key_attrs);
-+	err = parse_flow_nlattrs(nla_key, a, &key_attrs);
- 	if (err)
- 		return err;
+-	acts = rcu_dereference(OVS_CB(skb)->flow->sf_acts);
+-
+ 	this_cpu_inc(exec_actions_level);
+ 	OVS_CB(skb)->egress_tun_info = NULL;
+ 	err = do_execute_actions(dp, skb, key,
+diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+index cdbc44c..4fd8a45 100644
+--- a/net/openvswitch/datapath.c
++++ b/net/openvswitch/datapath.c
+@@ -257,6 +257,7 @@ void ovs_dp_process_packet(struct sk_buff *skb, struct sw_flow_key *key)
+ 	const struct vport *p = OVS_CB(skb)->input_vport;
+ 	struct datapath *dp = p->dp;
+ 	struct sw_flow *flow;
++	struct sw_flow_actions *sf_acts;
+ 	struct dp_stats_percpu *stats;
+ 	u64 *stats_counter;
+ 	u32 n_mask_hit;
+@@ -282,10 +283,10 @@ void ovs_dp_process_packet(struct sk_buff *skb, struct sw_flow_key *key)
+ 		goto out;
+ 	}
  
-@@ -955,36 +947,43 @@ int ovs_nla_get_match(struct sw_flow_match *match,
- 	if (err)
- 		return err;
+-	OVS_CB(skb)->flow = flow;
++	ovs_flow_stats_update(flow, key->tp.flags, skb);
++	sf_acts = rcu_dereference(flow->sf_acts);
++	ovs_execute_actions(dp, skb, sf_acts, key);
  
--	if (match->mask && !mask) {
--		/* Create an exact match mask. We need to set to 0xff all the
--		 * 'match->mask' fields that have been touched in 'match->key'.
--		 * We cannot simply memset 'match->mask', because padding bytes
--		 * and fields not specified in 'match->key' should be left to 0.
--		 * Instead, we use a stream of netlink attributes, copied from
--		 * 'key' and set to 0xff: ovs_key_from_nlattrs() will take care
--		 * of filling 'match->mask' appropriately.
--		 */
--		newmask = kmemdup(key, nla_total_size(nla_len(key)),
--				  GFP_KERNEL);
--		if (!newmask)
--			return -ENOMEM;
-+	if (match->mask) {
-+		if (!nla_mask) {
-+			/* Create an exact match mask. We need to set to 0xff
-+			 * all the 'match->mask' fields that have been touched
-+			 * in 'match->key'. We cannot simply memset
-+			 * 'match->mask', because padding bytes and fields not
-+			 * specified in 'match->key' should be left to 0.
-+			 * Instead, we use a stream of netlink attributes,
-+			 * copied from 'key' and set to 0xff.
-+			 * ovs_key_from_nlattrs() will take care of filling
-+			 * 'match->mask' appropriately.
-+			 */
-+			newmask = kmemdup(nla_key,
-+					  nla_total_size(nla_len(nla_key)),
-+					  GFP_KERNEL);
-+			if (!newmask)
-+				return -ENOMEM;
+-	ovs_flow_stats_update(OVS_CB(skb)->flow, key->tp.flags, skb);
+-	ovs_execute_actions(dp, skb, key);
+ 	stats_counter = &stats->n_hit;
  
--		mask_set_nlattr(newmask, 0xff);
-+			mask_set_nlattr(newmask, 0xff);
+ out:
+@@ -524,6 +525,7 @@ static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
+ 	struct sw_flow_actions *acts;
+ 	struct sk_buff *packet;
+ 	struct sw_flow *flow;
++	struct sw_flow_actions *sf_acts;
+ 	struct datapath *dp;
+ 	struct ethhdr *eth;
+ 	struct vport *input_vport;
+@@ -579,7 +581,6 @@ static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
+ 	rcu_assign_pointer(flow->sf_acts, acts);
  
--		/* The userspace does not send tunnel attributes that are 0,
--		 * but we should not wildcard them nonetheless.
--		 */
--		if (match->key->tun_key.ipv4_dst)
--			SW_FLOW_KEY_MEMSET_FIELD(match, tun_key, 0xff, true);
-+			/* The userspace does not send tunnel attributes that
-+			 * are 0, but we should not wildcard them nonetheless.
-+			 */
-+			if (match->key->tun_key.ipv4_dst)
-+				SW_FLOW_KEY_MEMSET_FIELD(match, tun_key,
-+							 0xff, true);
+ 	OVS_CB(packet)->egress_tun_info = NULL;
+-	OVS_CB(packet)->flow = flow;
+ 	packet->priority = flow->key.phy.priority;
+ 	packet->mark = flow->key.phy.skb_mark;
  
--		mask = newmask;
--	}
-+			nla_mask = newmask;
-+		}
+@@ -597,9 +598,10 @@ static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
+ 		goto err_unlock;
  
--	if (mask) {
--		err = parse_flow_mask_nlattrs(mask, a, &mask_attrs);
-+		err = parse_flow_mask_nlattrs(nla_mask, a, &mask_attrs);
- 		if (err)
- 			goto free_newmask;
+ 	OVS_CB(packet)->input_vport = input_vport;
++	sf_acts = rcu_dereference(flow->sf_acts);
  
-+		/* Always match on tci. */
-+		SW_FLOW_KEY_PUT(match, eth.tci, htons(0xffff), true);
-+
- 		if (mask_attrs & 1 << OVS_KEY_ATTR_ENCAP) {
- 			__be16 eth_type = 0;
- 			__be16 tci = 0;
+ 	local_bh_disable();
+-	err = ovs_execute_actions(dp, packet, &flow->key);
++	err = ovs_execute_actions(dp, packet, sf_acts, &flow->key);
+ 	local_bh_enable();
+ 	rcu_read_unlock();
+ 
+diff --git a/net/openvswitch/datapath.h b/net/openvswitch/datapath.h
+index 9741354..1c56a80 100644
+--- a/net/openvswitch/datapath.h
++++ b/net/openvswitch/datapath.h
+@@ -94,14 +94,12 @@ struct datapath {
+ 
+ /**
+  * struct ovs_skb_cb - OVS data in skb CB
+- * @flow: The flow associated with this packet.  May be %NULL if no flow.
+  * @egress_tun_key: Tunnel information about this packet on egress path.
+  * NULL if the packet is not being tunneled.
+  * @input_vport: The original vport packet came in on. This value is cached
+  * when a packet is received by OVS.
+  */
+ struct ovs_skb_cb {
+-	struct sw_flow		*flow;
+ 	struct ovs_tunnel_info  *egress_tun_info;
+ 	struct vport		*input_vport;
+ };
+@@ -194,7 +192,7 @@ struct sk_buff *ovs_vport_cmd_build_info(struct vport *, u32 pid, u32 seq,
+ 					 u8 cmd);
+ 
+ int ovs_execute_actions(struct datapath *dp, struct sk_buff *skb,
+-			struct sw_flow_key *);
++			struct sw_flow_actions *acts, struct sw_flow_key *);
+ 
+ void ovs_dp_notify_wq(struct work_struct *work);
+ 
 -- 
 1.9.3
