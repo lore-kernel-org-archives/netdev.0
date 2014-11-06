@@ -1,56 +1,26 @@
-From: Seth Forshee <seth.forshee@canonical.com>
-Subject: BUG in xennet_make_frags with paged skb data
-Date: Thu, 6 Nov 2014 15:49:40 -0600
-Message-ID: <20141106214940.GD44162@ubuntu-hedt>
+From: Frank Wong <info@rionegro.gub.uy>
+Subject: I Contacted You Independently
+Date: Thu, 06 Nov 2014 22:17:45 +0100
+Message-ID: <20141106211206.C54FF1532495__27586.1108363189$1415310783$gmane$org@mail.rionegro.gub.uy>
+Reply-To: wongfrank49@yahoo.com.hk
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	David Vrabel <david.vrabel@citrix.com>,
-	Stefan Bader <stefan.bader@canonical.com>,
-	Jay Vosburgh <jay.vosburgh@canonical.com>,
-	linux-kernel@vger.kernel.org, xen-devel@lists.xenproject.org,
-	seth.forshee@canonical.com
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients <info@rionegro.gub.uy>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.rionegro.gub.uy ([200.40.198.211]:55477 "EHLO
+	mail.rionegro.gub.uy" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751088AbaKFVw2 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 16:52:28 -0500
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We've had several reports of hitting the following BUG_ON in
-xennet_make_frags with 3.2 and 3.13 kernels (I'm currently awaiting
-results of testing with 3.17):
+I am Mr Frank Wong,Chairman of DBS Bank in (Hong Kong).I have a secured business proposal for you,get back to me for more details     wongfrank4@gmail.com  OR  wongfrank49@yahoo.com.hk
 
-        /* Grant backend access to each skb fragment page. */
-        for (i = 0; i < frags; i++) {
-                skb_frag_t *frag = skb_shinfo(skb)->frags + i;
-                struct page *page = skb_frag_page(frag);
+Regards,
+Frank Wong.
 
-                len = skb_frag_size(frag);
-                offset = frag->page_offset;
-
-                /* Data must not cross a page boundary. */
-                BUG_ON(len + offset > PAGE_SIZE<<compound_order(page));
-
-When this happens the page in question is a "middle" page in a compound
-page (i.e. it's a tail page but not the last tail page), and the data is
-fully contained within the compound page. The data does however cross
-the hardware page boundary, and since compound_order evaluates to 0 for
-tail pages the check fails.
-
-In going over this I've been unable to determine whether the BUG_ON in
-xennet_make_frags is incorrect or the paged skb data is wrong. I can't
-find that it's documented anywhere, and the networking code itself is a
-bit ambiguous when it comes to compound pages. On the one hand
-__skb_fill_page_desc specifically handles adding tail pages as paged
-data, but on the other hand skb_copy_bits kmaps frag->page.p which could
-fail with data that extends into another page.
-
-Can anyone explain what the rules are here? My best guess based on
-skb_copy_bits is that paged data should never cross the hardware page
-boundary, but I'm not really sure how all of this works out when dealing
-with compound pages.
-
-Thanks,
-Seth
+---
+This email is free from viruses and malware because avast! Antivirus protection is active.
+http://www.avast.com
