@@ -1,80 +1,65 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: M_CAN message RAM initialization AppNote  - was: Re: [PATCH V3
- 3/3] can: m_can: workaround for transmit data less than 4 bytes
-Date: Thu, 06 Nov 2014 08:04:17 +0100
-Message-ID: <545B1D71.4000408@hartkopp.net>
-References: <1415193393-30023-1-git-send-email-b29396@freescale.com> <1415193393-30023-3-git-send-email-b29396@freescale.com> <545A3451.2090302@pengutronix.de> <545A692E.40002@hartkopp.net> <20141106015716.GB7642@shlinux1.ap.freescale.net>
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: Re: [PATCH] bridge: missing null bridge device check
+ causing null pointer dereference (bugfix)
+Date: Thu, 06 Nov 2014 16:07:19 +0900
+Message-ID: <545B1E27.3080302@lab.ntt.co.jp>
+References: <1415255192-13584-1-git-send-email-suhyun.park@ahnlab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: Marc Kleine-Budde <mkl@pengutronix.de>, linux-can@vger.kernel.org,
-	wg@grandegger.com, varkabhadram@gmail.com, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org
-To: Dong Aisheng <b29396@freescale.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <20141106015716.GB7642@shlinux1.ap.freescale.net>
-Sender: linux-can-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org
+To: Su-Hyun Park <suhyun.park@ahnlab.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1415255192-13584-1-git-send-email-suhyun.park@ahnlab.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On 06.11.2014 02:57, Dong Aisheng wrote:
-> On Wed, Nov 05, 2014 at 07:15:10PM +0100, Oliver Hartkopp wrote:
+On 2014/11/06 15:26, Su-Hyun Park wrote:
+> the bridge device can be null if the bridge is being deleted while processing 
+> the packet, which causes the null pointer dereference in switch statement.
 
->> The Message RAM is usually equipped with a parity or ECC functionality.
->> But RAM cells suffer a hardware reset and can therefore hold
->> arbitrary content at startup - including parity and/or ECC bits.
->>
->> So when you write only the CAN ID and the first four bytes the last
->> four bytes remain untouched. Then the M_CAN starts to read in 32bit
->> words from the start of the Tx Message element. So it is very likely
->> to trigger the message RAM error when reading the uninitialized
->> 32bit word from the last four bytes.
->>
->> Finally it turns out that an initial writing (with any kind of data)
->> to the entire message RAM is mandatory to create valid parity/ECC
->> checksums.
->>
->> That's it.
->>
->
-> Thanks for sharing this information.
-> Does it mean this issue is related to the nature of Message RAM and is
-> supposed to exist on all M_CAN IP versions?
+How can this happen??
+It is guarded by rcu.
+netdev_rx_handler_unregister() ensures rx_handler_data is non NULL.
 
- From what I know from the 3.1.x revision there's no change regarding IR.BRU 
-and IR.BEC - so I would assume this to stay on all M_CAN IP revisions.
+Thanks,
+Toshiaki Makita
 
-But after some sleep I wonder if this patch [3/3] would need an update too.
-
-Writing to the TX message RAM is obviously no workaround but a valid and 
-needed initialization process.
-
-I would tend to make this patch:
-
----
-
-can: m_can: add missing TX message RAM initialization
-
-The M_CAN message RAM is usually equipped with a parity or ECC functionality.
-But RAM cells suffer a hardware reset and can therefore hold arbitrary content 
-at startup - including parity and/or ECC bits.
-
-To prevent the M_CAN controller detecting checksum errors when reading 
-potentially uninitialized TX message RAM content to transmit CAN frames the TX 
-message RAM has to be written with (any kind of) initial data.
-
----
-
-Then the code should memset() the entire TX FIFO element - and not only the 8 
-data bytes we are addressing now.
-
-Maybe it makes sense to send the entire updated patch set (3) again ...
-
-[1/3] can: add can_is_canfd_skb() API
-[2/3] can: m_can: update to support CAN FD features
-[3/3] can: m_can: add missing message RAM initialization
-
-Are you ok with that?
-
-Regards,
-Oliver
-
+> 
+> crash dump snippet:
+> 
+> <1>BUG: unable to handle kernel NULL pointer dereference at 0000000000000021
+> <1>IP: [<ffffffff814179f6>] br_handle_frame+0xe6/0x270
+> 
+> <0>Code: 4c 0f 44 f0 89 f8 66 33 15 32 52 24 00 66 33 05 29 52 24 00 09 c2 89 
+> f0 66 33 05 22 52 24 00 80 e4 f0 66 09 c2 0f 84 eb 00 00 00 <41> 0f b6 46 21 
+> 3c 02 74 61 3c 03 74 1d 48 89 df e8 d5 bc f0 ff
+> ---
+>  net/bridge/br_input.c | 2 ++
+>  1 file changed, 2 insertions(+)
+> 
+> diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
+> index 6fd5522..7e899ca 100644
+> --- a/net/bridge/br_input.c
+> +++ b/net/bridge/br_input.c
+> @@ -176,6 +176,8 @@ rx_handler_result_t br_handle_frame(struct sk_buff **pskb)
+>  		return RX_HANDLER_CONSUMED;
+>  
+>  	p = br_port_get_rcu(skb->dev);
+> +	if (!p)
+> +		goto drop;
+>  
+>  	if (unlikely(is_link_local_ether_addr(dest))) {
+>  		u16 fwd_mask = p->br->group_fwd_mask_required;
+> 
