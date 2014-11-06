@@ -1,66 +1,68 @@
-From: Sowmini Varadhan <sowmini05@gmail.com>
-Subject: Re: How to make stack send broadcast ARP request when entry is STALE?
-Date: Thu, 6 Nov 2014 06:48:15 -0500
-Message-ID: <CACP96tQpnqfVtNwQbB9U4e-OLto3LhhS2q0bBir4n4Qz11XMTg@mail.gmail.com>
-References: <C4AF677B-55AC-4CE0-9BFB-EBB2E0C3BF74@emagii.com>
+From: =?utf-8?B?67CV7IiY7ZiE?= <suhyun.park@ahnlab.com>
+Subject: RE: [PATCH] bridge: missing null bridge device check causing null
+ pointer dereference (bugfix)
+Date: Thu, 6 Nov 2014 11:52:33 +0000
+Message-ID: <8D1F1238A24CE743B8F3CED0F137C69E408AA143@EXMB02.ahnbang.ahnlab.com>
+References: <1415255192-13584-1-git-send-email-suhyun.park@ahnlab.com>
+	 <545B1E27.3080302@lab.ntt.co.jp>
+	 <8D1F1238A24CE743B8F3CED0F137C69E408AA087@EXMB02.ahnbang.ahnlab.com>
+ <1415273711.13896.67.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>
-To: Ulf samuelsson <netdev@emagii.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f46.google.com ([209.85.215.46]:64283 "EHLO
-	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750789AbaKFLsR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 06:48:17 -0500
-Received: by mail-la0-f46.google.com with SMTP id gm9so2380098lab.5
-        for <netdev@vger.kernel.org>; Thu, 06 Nov 2014 03:48:15 -0800 (PST)
-In-Reply-To: <C4AF677B-55AC-4CE0-9BFB-EBB2E0C3BF74@emagii.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"bridge@lists.linux-foundation.org"
+	<bridge@lists.linux-foundation.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1415273711.13896.67.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Language: ko-KR
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 5, 2014 at 1:48 AM, Ulf samuelsson <netdev@emagii.com> wrote:
-> Have a problem with an HP router at a certain location, which
-> is configured to only answer to broadcast ARP requests.
-> That cannot be changed.
->
-> The first ARP request the kernel sends out, is a broadcast request,
-> which is fine, but after the reply, the kernel sends unicast requests,
-> which will not get any replies.
-
-I'm afraid that's a problem with your HP router. There is nothing
-in RFC 826 that says that the ARP request MUST be broadcast,
-and many OS'es  will follow the IPv6 ND model of sending
-unicast ARP requests to re-verify cached arp information.
-Looks like the "kernel" you refer to above is following this
-state machine, which is a good and healthy thing- you dont
-want to be needlessly broadcasting arp reverification requests.
-
-thus even if you have access to the kernel source code (as with linux)
-it's not recommended to broadcast the ARP reverification.
-
-> The ARP entry will after some time enter STALE state,
-> and if nothing is done it will time out, and be removed.
- :
-
-> I think the recommended behaviour in IPv6 is to send out 3 unicasts
-> and if all fails, to send out broadcasts.
-
-Be careful about the distinction between IPv4 ARP and IPv6 ND.
-The base state-machine for IPv6 is explicitly specified in RFC 4861 (with
-ongoing work to optimize some of this in various ietf working groups)
-
-The territory is less clearly defined for ARP. The base protocol comes from
-RFC 726, which does not address DAD  at all- that only comes from rfc 5227.
-Some OS-es (solaris, microsoft?) implelement the same state-machine
-for both IPv4 and IPv6, while also support 5227.
-
->
-> Anyone know any good literature on how the ARP + neigh state machine works
-> in the kernel.
->
-> I read in Herberts book about the Linux TCP/IP stack and it only discuss how to reply to
-> ARP requests and not anything on how to generate ARP requests.
-
-Hope that helps.
-
---Sowmini
+TXkgYXBwb2xvZ2llcywNCg0KSSB3YXMgd29ya2luZyBvbiBrZXJuZWwgMy4yLjMwIHdoZW4gSSBo
+aXQgdGhlIGNyYXNoLiBJIG9ubHkgbG9va2VkIGF0IHRoZSB1cC10by1kYXRlIGtlcm5lbCBmb3Ig
+YnJfaGFuZGxlX2ZyYW1lIGZ1bmN0aW9uIHdoZXJlIEkgc3RpbGwgZm91bmQgInAtPnN0YXRlIiBy
+ZWZlcmVuY2UuDQoNClBsZWFzZSBkaXNyZWdhcmQgbXkgcGF0Y2guDQoNClRoYW5rcywNClN1LUh5
+dW4gUGFyaw0KDQotLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KRnJvbTogRXJpYyBEdW1hemV0
+IFttYWlsdG86ZXJpYy5kdW1hemV0QGdtYWlsLmNvbV0gDQpTZW50OiBUaHVyc2RheSwgTm92ZW1i
+ZXIgMDYsIDIwMTQgODozNSBQTQ0KVG86IOuwleyImO2YhA0KQ2M6IFRvc2hpYWtpIE1ha2l0YTsg
+U3RlcGhlbiBIZW1taW5nZXI7IERhdmlkIFMuIE1pbGxlcjsgYnJpZGdlQGxpc3RzLmxpbnV4LWZv
+dW5kYXRpb24ub3JnOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBsaW51eC1rZXJuZWxAdmdlci5r
+ZXJuZWwub3JnDQpTdWJqZWN0OiBSZTogW1BBVENIXSBicmlkZ2U6IG1pc3NpbmcgbnVsbCBicmlk
+Z2UgZGV2aWNlIGNoZWNrIGNhdXNpbmcgbnVsbCBwb2ludGVyIGRlcmVmZXJlbmNlIChidWdmaXgp
+DQoNCk9uIFRodSwgMjAxNC0xMS0wNiBhdCAwNzo1OCArMDAwMCwg67CV7IiY7ZiEIHdyb3RlOg0K
+PiA+LS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gPkZyb206IFRvc2hpYWtpIE1ha2l0YSBb
+bWFpbHRvOm1ha2l0YS50b3NoaWFraUBsYWIubnR0LmNvLmpwXQ0KPiA+U2VudDogVGh1cnNkYXks
+IE5vdmVtYmVyIDA2LCAyMDE0IDQ6MDcgUE0NCj4gPlRvOiDrsJXsiJjtmIQ7IFN0ZXBoZW4gSGVt
+bWluZ2VyOyBEYXZpZCBTLiBNaWxsZXINCj4gPkNjOiBicmlkZ2VAbGlzdHMubGludXgtZm91bmRh
+dGlvbi5vcmc7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IGxpbnV4LSANCj4gPmtlcm5lbEB2Z2Vy
+Lmtlcm5lbC5vcmcNCj4gPlN1YmplY3Q6IFJlOiBbUEFUQ0hdIGJyaWRnZTogbWlzc2luZyBudWxs
+IGJyaWRnZSBkZXZpY2UgY2hlY2sgY2F1c2luZyANCj4gPm51bGwgcG9pbnRlciBkZXJlZmVyZW5j
+ZSAoYnVnZml4KQ0KPiA+DQo+ID5PbiAyMDE0LzExLzA2IDE1OjI2LCBTdS1IeXVuIFBhcmsgd3Jv
+dGU6DQo+ID4+IHRoZSBicmlkZ2UgZGV2aWNlIGNhbiBiZSBudWxsIGlmIHRoZSBicmlkZ2UgaXMg
+YmVpbmcgZGVsZXRlZCB3aGlsZSANCj4gPj4gcHJvY2Vzc2luZyB0aGUgcGFja2V0LCB3aGljaCBj
+YXVzZXMgdGhlIG51bGwgcG9pbnRlciBkZXJlZmVyZW5jZSBpbg0KPiA+c3dpdGNoIHN0YXRlbWVu
+dC4NCj4gPg0KPiA+SG93IGNhbiB0aGlzIGhhcHBlbj8/DQo+ID5JdCBpcyBndWFyZGVkIGJ5IHJj
+dS4NCj4gPm5ldGRldl9yeF9oYW5kbGVyX3VucmVnaXN0ZXIoKSBlbnN1cmVzIHJ4X2hhbmRsZXJf
+ZGF0YSBpcyBub24gTlVMTC4NCj4gPg0KPiANCj4gVGhlIFJDVSBwcm90ZWN0IHJ4X2hhbmRsZXJf
+ZGF0YSwgbm90IHRoZSBicmlkZ2UgbWVtYmVyIHBvcnQuIEl0IGNhbiBiZSBOVUxMIGFjY29yZGlu
+ZyB0byBiZWxvdyBjb2RlLg0KPiANCg0KV2hlcmUgZG8geW91IGZpbmQgdGhpcyAnYmVsb3cgY29k
+ZScgPw0KDQpBcmUgeW91IHNlbmRpbmcgYSBwYXRjaCBmb3IgYW4gb2xkIGxpbnV4IGtlcm5lbCA/
+DQoNCj4gc3RhdGljIGlubGluZSBzdHJ1Y3QgbmV0X2JyaWRnZV9wb3J0ICpicl9wb3J0X2dldF9y
+Y3UoY29uc3Qgc3RydWN0IG5ldF9kZXZpY2UgKmRldikgew0KPiAJc3RydWN0IG5ldF9icmlkZ2Vf
+cG9ydCAqcG9ydCA9IHJjdV9kZXJlZmVyZW5jZShkZXYtPnJ4X2hhbmRsZXJfZGF0YSk7DQo+IAly
+ZXR1cm4gYnJfcG9ydF9leGlzdHMoZGV2KSA/IHBvcnQgOiBOVUxMOyB9DQoNCkFjdHVhbCBjb2Rl
+IGlzIDoNCg0Kc3RhdGljIGlubGluZSBzdHJ1Y3QgbmV0X2JyaWRnZV9wb3J0ICpicl9wb3J0X2dl
+dF9yY3UoY29uc3Qgc3RydWN0IG5ldF9kZXZpY2UgKmRldikgew0KCXJldHVybiByY3VfZGVyZWZl
+cmVuY2UoZGV2LT5yeF9oYW5kbGVyX2RhdGEpOw0KfQ0KDQoNCj4gDQo+IFRoZSBjcmFzaCBoYXBw
+ZW5zIGF0IHRoZSBiZWxvdyBzd2l0Y2ggc3RhdGVtZW50IGluIGJyX2hhbmRsZV9mcmFtZSwgd2hl
+cmUgcCBpcyBOVUxMLg0KPiANCj4gCXN3aXRjaCAocC0+c3RhdGUpDQoNCklzIHlvdXIgdHJlZSBy
+ZWFsbHkgaW5jbHVkaW5nIHRoZSBmaXggd2UgYWxyZWFkeSBkaWQgdG8gZml4IHRoaXMgaXNzdWUg
+Pw0KDQooY29tbWl0IDcxNmVjMDUyZDIyODBkNTExZTEwZTkwYWQ1NGE4NmY1YjVkNGRjYzIgKQ0K
+YnJpZGdlOiBmaXggTlVMTCBwb2ludGVyIGRlcmVmIG9mIGJyX3BvcnRfZ2V0X3JjdQ0KDQoNCg0K
+DQo=
