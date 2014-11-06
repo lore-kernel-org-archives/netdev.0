@@ -1,99 +1,52 @@
-From: "Lennart Sorensen" <lsorense@csclub.uwaterloo.ca>
-Subject: Re: am335x: cpsw: phy ignores max-speed setting
-Date: Thu, 6 Nov 2014 14:20:17 -0500
-Message-ID: <20141106192017.GQ24110@csclub.uwaterloo.ca>
-References: <CAGm1_ktWK5ai85PZJTkq8Q1mAFH6JZ5XM1mDOHO3K_N2iGNLWg@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH RFC net] ip_tunnel: Respect the IP_DF bit of the inner
+ packet.
+Date: Thu, 06 Nov 2014 14:33:51 -0500 (EST)
+Message-ID: <20141106.143351.1534959887749218818.davem@davemloft.net>
+References: <20141105080930.GE6390@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>,
-	"N, Mugunthan V" <mugunthanvnm@ti.com>, mpa@pengutronix.de,
-	Daniel Mack <zonque@gmail.com>
-To: Yegor Yefremov <yegorslists@googlemail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: steffen.klassert@secunet.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.csclub.uwaterloo.ca ([129.97.134.52]:33549 "EHLO
-	mail.csclub.uwaterloo.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751339AbaKFTUU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 14:20:20 -0500
-Content-Disposition: inline
-In-Reply-To: <CAGm1_ktWK5ai85PZJTkq8Q1mAFH6JZ5XM1mDOHO3K_N2iGNLWg@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57828 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751051AbaKFTdx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 14:33:53 -0500
+In-Reply-To: <20141105080930.GE6390@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 06, 2014 at 05:25:13PM +0100, Yegor Yefremov wrote:
-> I' m trying to override max-speed setting for both CPSW connected
-> PHYs. This is my DTS section for configuring CPSW:
-> 
-> &mac {
->         pinctrl-names = "default", "sleep";
->         pinctrl-0 = <&cpsw_default>;
->         pinctrl-1 = <&cpsw_sleep>;
->         dual_emac = <1>;
-> 
->         status = "okay";
-> };
-> 
-> &davinci_mdio {
->         pinctrl-names = "default", "sleep";
->         pinctrl-0 = <&davinci_mdio_default>;
->         pinctrl-1 = <&davinci_mdio_sleep>;
-> 
->         status = "okay";
-> };
-> 
-> &cpsw_emac0 {
->         phy_id = <&davinci_mdio>, <0>;
->         phy-mode = "rgmii-id";
->         dual_emac_res_vlan = <1>;
->         max-speed = <100>;
-> };
-> 
-> &cpsw_emac1 {
->         phy_id = <&davinci_mdio>, <1>;
->         phy-mode = "rgmii-id";
->         dual_emac_res_vlan = <2>;
->         max-speed = <100>;
-> };
-> 
-> But in drivers/net/phy/phy_device.c->of_set_phy_supported() routine I
-> don't get through node check, i.e. node == NULL. Any idea why?
-> 
-> static void of_set_phy_supported(struct phy_device *phydev)
-> {
->         struct device_node *node = phydev->dev.of_node;
->         u32 max_speed;
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Date: Wed, 5 Nov 2014 09:09:30 +0100
 
-Did you try adding a printk here to make sure it is actually called?
-
->         if (!IS_ENABLED(CONFIG_OF_MDIO))
->                 return;
-
-Do you have CONFIG_OF_MDIO on?  I would think so.
-
->         if (!node)
->                 return;
+> The pmtu calculation depends on the IP_DF bit in tnl_update_pmtu().
+> If the IP_DF bit is set, the pmtu calculation is based on the outer
+> packet size. Otherwise it is based on the inner packet size.
+> If xfrm is used after tunneling through an ipip device, the mtu of
+> the outer device can be lower than the mtu of the ipip device.
+> Reporting the mtu of the ipip device is wrong in this case. So
+> respect the IP_DF bit of the inner packet on ipv4 to report the
+> calculated mtu of the outer device.
 > 
->         if (!of_property_read_u32(node, "max-speed", &max_speed)) {
->                 /* The default values for phydev->supported are
-> provided by the PHY
->                  * driver "features" member, we want to reset to sane
-> defaults fist
->                  * before supporting higher speeds.
->                  */
->                 phydev->supported &= PHY_DEFAULT_FEATURES;
+> Fixes: fd58156e456d ("IPIP: Use ip-tunneling code.")
+> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+> ---
 > 
->                 switch (max_speed) {
->                 default:
->                         return;
+> I marked this as RFC because it affects the mtu calculation of
+> gre tunnels too. I think it should be ok, but I have no testcase
+> to confirm the correctness for gre tunnels. So would be good if
+> someone with gre knowlegde could look at this.
 > 
->                 case SPEED_1000:
->                         phydev->supported |= PHY_1000BT_FEATURES;
->                 case SPEED_100:
->                         phydev->supported |= PHY_100BT_FEATURES;
->                 case SPEED_10:
->                         phydev->supported |= PHY_10BT_FEATURES;
->                 }
->         }
-> }
+> If it turns out that we can't do that for gre, we need to
+> split this code back into a gre and an ipip version.
 
--- 
-Len Sorensen
+Looking quickly at this, the don't-frag handling in the
+pre-ip-tunneling GRE code conversion used different conditions
+wrt. calculating 'df'.
+
+It takes the frag off from skb->data's IPH when skb->protocol
+is GRE, for example.
+
+So we may have to do this split.
