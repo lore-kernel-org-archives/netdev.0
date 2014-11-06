@@ -1,81 +1,178 @@
 From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH net-next v2 06/14] openvswitch: refactor do_output() to move NULL check out of fast path
-Date: Thu,  6 Nov 2014 01:19:19 -0800
-Message-ID: <1415265559-1698-1-git-send-email-pshelar@nicira.com>
-Cc: netdev@vger.kernel.org, Andy Zhou <azhou@nicira.com>,
+Subject: [PATCH net-next v2 07/14] openvswitch: Refactor ovs_flow_cmd_fill_info().
+Date: Thu,  6 Nov 2014 01:19:23 -0800
+Message-ID: <1415265563-1727-1-git-send-email-pshelar@nicira.com>
+Cc: netdev@vger.kernel.org, Joe Stringer <joestringer@nicira.com>,
 	Pravin B Shelar <pshelar@nicira.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog120.obsmtp.com ([74.125.149.140]:56810 "HELO
-	na3sys009aog120.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751934AbaKFJTV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 04:19:21 -0500
-Received: by mail-pa0-f50.google.com with SMTP id eu11so875975pac.37
-        for <netdev@vger.kernel.org>; Thu, 06 Nov 2014 01:19:21 -0800 (PST)
+Received: from na3sys009aog135.obsmtp.com ([74.125.149.84]:49806 "HELO
+	na3sys009aog135.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751934AbaKFJT0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 04:19:26 -0500
+Received: by mail-pa0-f49.google.com with SMTP id lj1so884243pab.22
+        for <netdev@vger.kernel.org>; Thu, 06 Nov 2014 01:19:25 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andy Zhou <azhou@nicira.com>
+From: Joe Stringer <joestringer@nicira.com>
 
-skb_clone() NULL check is implemented in do_output(), as past of the
-common (fast) path. Refactoring so that NULL check is done in the
-slow path, immediately after skb_clone() is called.
+Split up ovs_flow_cmd_fill_info() to make it easier to cache parts of a
+dump reply. This will be used to streamline flow_dump in a future patch.
 
-Besides optimization, this change also improves code readability by
-making the skb_clone() NULL check consistent within OVS datapath
-module.
-
-Signed-off-by: Andy Zhou <azhou@nicira.com>
+Signed-off-by: Joe Stringer <joestringer@nicira.com>
+Acked-by: Thomas Graf <tgraf@noironetworks.com>
 Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
 ---
- net/openvswitch/actions.c | 25 +++++++++++--------------
- 1 file changed, 11 insertions(+), 14 deletions(-)
+ net/openvswitch/datapath.c | 93 ++++++++++++++++++++++++++++++++--------------
+ 1 file changed, 66 insertions(+), 27 deletions(-)
 
-diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
-index 930b1b6..9fd33c0 100644
---- a/net/openvswitch/actions.c
-+++ b/net/openvswitch/actions.c
-@@ -551,21 +551,14 @@ static int set_sctp(struct sk_buff *skb,
- 	return 0;
+diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+index 04a26ae..bbb920b 100644
+--- a/net/openvswitch/datapath.c
++++ b/net/openvswitch/datapath.c
+@@ -674,58 +674,67 @@ static size_t ovs_flow_cmd_msg_size(const struct sw_flow_actions *acts)
  }
  
--static int do_output(struct datapath *dp, struct sk_buff *skb, int out_port)
-+static void do_output(struct datapath *dp, struct sk_buff *skb, int out_port)
+ /* Called with ovs_mutex or RCU read lock. */
+-static int ovs_flow_cmd_fill_info(const struct sw_flow *flow, int dp_ifindex,
+-				  struct sk_buff *skb, u32 portid,
+-				  u32 seq, u32 flags, u8 cmd)
++static int ovs_flow_cmd_fill_match(const struct sw_flow *flow,
++				   struct sk_buff *skb)
  {
--	struct vport *vport;
-+	struct vport *vport = ovs_vport_rcu(dp, out_port);
+-	const int skb_orig_len = skb->len;
+-	struct nlattr *start;
+-	struct ovs_flow_stats stats;
+-	__be16 tcp_flags;
+-	unsigned long used;
+-	struct ovs_header *ovs_header;
+ 	struct nlattr *nla;
+ 	int err;
  
--	if (unlikely(!skb))
--		return -ENOMEM;
+-	ovs_header = genlmsg_put(skb, portid, seq, &dp_flow_genl_family, flags, cmd);
+-	if (!ovs_header)
+-		return -EMSGSIZE;
 -
--	vport = ovs_vport_rcu(dp, out_port);
--	if (unlikely(!vport)) {
-+	if (likely(vport))
-+		ovs_vport_send(vport, skb);
-+	else
- 		kfree_skb(skb);
--		return -ENODEV;
--	}
+-	ovs_header->dp_ifindex = dp_ifindex;
 -
--	ovs_vport_send(vport, skb);
--	return 0;
- }
+ 	/* Fill flow key. */
+ 	nla = nla_nest_start(skb, OVS_FLOW_ATTR_KEY);
+ 	if (!nla)
+-		goto nla_put_failure;
++		return -EMSGSIZE;
  
- static int output_userspace(struct datapath *dp, struct sk_buff *skb,
-@@ -768,8 +761,12 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
- 	     a = nla_next(a, &rem)) {
- 		int err = 0;
+ 	err = ovs_nla_put_flow(&flow->unmasked_key, &flow->unmasked_key, skb);
+ 	if (err)
+-		goto error;
++		return err;
++
+ 	nla_nest_end(skb, nla);
  
--		if (prev_port != -1) {
--			do_output(dp, skb_clone(skb, GFP_ATOMIC), prev_port);
-+		if (unlikely(prev_port != -1)) {
-+			struct sk_buff *out_skb = skb_clone(skb, GFP_ATOMIC);
++	/* Fill flow mask. */
+ 	nla = nla_nest_start(skb, OVS_FLOW_ATTR_MASK);
+ 	if (!nla)
+-		goto nla_put_failure;
++		return -EMSGSIZE;
+ 
+ 	err = ovs_nla_put_flow(&flow->key, &flow->mask->key, skb);
+ 	if (err)
+-		goto error;
++		return err;
+ 
+ 	nla_nest_end(skb, nla);
++	return 0;
++}
 +
-+			if (out_skb)
-+				do_output(dp, out_skb, prev_port);
++/* Called with ovs_mutex or RCU read lock. */
++static int ovs_flow_cmd_fill_stats(const struct sw_flow *flow,
++				   struct sk_buff *skb)
++{
++	struct ovs_flow_stats stats;
++	__be16 tcp_flags;
++	unsigned long used;
+ 
+ 	ovs_flow_stats_get(flow, &stats, &used, &tcp_flags);
+ 
+ 	if (used &&
+ 	    nla_put_u64(skb, OVS_FLOW_ATTR_USED, ovs_flow_used_time(used)))
+-		goto nla_put_failure;
++		return -EMSGSIZE;
+ 
+ 	if (stats.n_packets &&
+ 	    nla_put(skb, OVS_FLOW_ATTR_STATS, sizeof(struct ovs_flow_stats), &stats))
+-		goto nla_put_failure;
++		return -EMSGSIZE;
+ 
+ 	if ((u8)ntohs(tcp_flags) &&
+ 	     nla_put_u8(skb, OVS_FLOW_ATTR_TCP_FLAGS, (u8)ntohs(tcp_flags)))
+-		goto nla_put_failure;
++		return -EMSGSIZE;
 +
- 			prev_port = -1;
++	return 0;
++}
++
++/* Called with ovs_mutex or RCU read lock. */
++static int ovs_flow_cmd_fill_actions(const struct sw_flow *flow,
++				     struct sk_buff *skb, int skb_orig_len)
++{
++	struct nlattr *start;
++	int err;
+ 
+ 	/* If OVS_FLOW_ATTR_ACTIONS doesn't fit, skip dumping the actions if
+ 	 * this is the first flow to be dumped into 'skb'.  This is unusual for
+@@ -749,17 +758,47 @@ static int ovs_flow_cmd_fill_info(const struct sw_flow *flow, int dp_ifindex,
+ 			nla_nest_end(skb, start);
+ 		else {
+ 			if (skb_orig_len)
+-				goto error;
++				return err;
+ 
+ 			nla_nest_cancel(skb, start);
  		}
+-	} else if (skb_orig_len)
+-		goto nla_put_failure;
++	} else if (skb_orig_len) {
++		return -EMSGSIZE;
++	}
++
++	return 0;
++}
++
++/* Called with ovs_mutex or RCU read lock. */
++static int ovs_flow_cmd_fill_info(const struct sw_flow *flow, int dp_ifindex,
++				  struct sk_buff *skb, u32 portid,
++				  u32 seq, u32 flags, u8 cmd)
++{
++	const int skb_orig_len = skb->len;
++	struct ovs_header *ovs_header;
++	int err;
++
++	ovs_header = genlmsg_put(skb, portid, seq, &dp_flow_genl_family,
++				 flags, cmd);
++	if (!ovs_header)
++		return -EMSGSIZE;
++
++	ovs_header->dp_ifindex = dp_ifindex;
++
++	err = ovs_flow_cmd_fill_match(flow, skb);
++	if (err)
++		goto error;
++
++	err = ovs_flow_cmd_fill_stats(flow, skb);
++	if (err)
++		goto error;
++
++	err = ovs_flow_cmd_fill_actions(flow, skb, skb_orig_len);
++	if (err)
++		goto error;
  
+ 	return genlmsg_end(skb, ovs_header);
+ 
+-nla_put_failure:
+-	err = -EMSGSIZE;
+ error:
+ 	genlmsg_cancel(skb, ovs_header);
+ 	return err;
 -- 
 1.9.3
