@@ -1,55 +1,187 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: ipv4: Use standard iovec primitive in raw_probe_proto_opt
-Date: Thu, 6 Nov 2014 07:11:09 +0000
-Message-ID: <20141106071109.GX7996@ZenIV.linux.org.uk>
-References: <20141105035536.GO7996@ZenIV.linux.org.uk>
- <20141105.155054.2198151263164321219.davem@davemloft.net>
- <20141105210745.GT7996@ZenIV.linux.org.uk>
- <20141105.165719.835728206041332333.davem@davemloft.net>
- <20141106032533.GU7996@ZenIV.linux.org.uk>
- <20141106055023.GA28865@gondor.apana.org.au>
- <20141106064318.GW7996@ZenIV.linux.org.uk>
- <20141106064629.GA29321@gondor.apana.org.au>
+From: Sathya Perla <Sathya.Perla@Emulex.Com>
+Subject: RE: mlx4+vxlan offload breaks gre tunnels
+Date: Thu, 6 Nov 2014 07:21:57 +0000
+Message-ID: <637ce8e1-89e5-4254-a928-4ab2a4eb8c29@CMEXHTCAS1.ad.emulex.com>
+References: <20141105150448.GA20776@breakpoint.cc>
+ <545A4DB7.5010603@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, bcrl@kvack.org,
-	Masahide Nakamura <nakam@linux-ipv6.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "amirv@mellanox.com" <amirv@mellanox.com>,
+	Sathya Perla <Sathya.Perla@Emulex.Com>
+To: Or Gerlitz <ogerlitz@mellanox.com>,
+	Florian Westphal <fw@strlen.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Tom Herbert <therbert@google.com>,
+	Jesse Gross <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:45491 "EHLO
-	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751051AbaKFHLM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 02:11:12 -0500
-Content-Disposition: inline
-In-Reply-To: <20141106064629.GA29321@gondor.apana.org.au>
+Received: from cmexedge2.emulex.com ([138.239.224.100]:12842 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750926AbaKFHWd convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 02:22:33 -0500
+In-Reply-To: <545A4DB7.5010603@mellanox.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 06, 2014 at 02:46:29PM +0800, Herbert Xu wrote:
-> On Thu, Nov 06, 2014 at 06:43:18AM +0000, Al Viro wrote:
-> > On Thu, Nov 06, 2014 at 01:50:23PM +0800, Herbert Xu wrote:
-> > > +	/* We only need the first two bytes. */
-> > > +	err = memcpy_fromiovecend((void *)&icmph, msg->msg_iov, 0, 2);
-> > > +	if (err)
-> > > +		return err;
-> > > +
-> > > +	fl4->fl4_icmp_type = icmph.type;
-> > > +	fl4->fl4_icmp_code = icmph.code;
-> > 
-> > That's more readable, but that exposes another problem in there - we read
-> > the same piece of userland data twice, with no promise whatsoever that we'll
-> > get the same value both times...
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org [mailto:netdev-
 > 
-> Sure, but you have to be root anyway to write to raw sockets.
+> On 11/5/2014 5:04 PM, Florian Westphal wrote:
+> > tl,dr: all tcp packets sent via gre tunnel have broken tcp csum if vxlan
+> offload
+> > is enabled with mlx4 driver.
+> >
+> > Given following config on tx-side:
+> > dev=enp3s0
+> > ip addr add dev $dev 192.168.23.1/24
+> > ip link set $dev up
+> > ip link add mygre type gretap remote 192.168.23.2 local 192.168.23.1
+> > ip addr add dev mygre 192.168.42.1/24
+> > ip link set gre0 up
+> > ip link set mygre up
+> >
+> > and
+> >
+> > options mlx4_core log_num_mgm_entry_size=-1 debug_level=1
+> > port_type_array=2,2
+> >
+> > in
+> > /etc/modprobe.d/mlx4.conf
+> >
+> > all tcp packets sent to destinations over the gre tunnel have bogus tcp
+> > checksums (and are tossed on rx side when stack validates tcp checksum).
+> >
+> > net-next head is commit 30349bdbc4da5ecf0efa25556e3caff9c9b8c5f7 .
+> >
+> > What makes things work for me:
+> > either
+> >
+> > options mlx4_core 1 debug_level=1 port_type_array=2,2
+> >
+> > (ie. no MLX4_TUNNEL_OFFLOAD_MODE_VXLAN)
+> >
+> > or not setting NETIF_F_IP_CSUM in enc_features:
+> >
+> > --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> > +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> > @@ -2579,10 +2579,12 @@ int mlx4_en_init_netdev(struct mlx4_en_dev
+> *mdev, int port,
+> >                  dev->priv_flags |= IFF_UNICAST_FLT;
+> >
+> >          if (mdev->dev->caps.tunnel_offload_mode ==
+> MLX4_TUNNEL_OFFLOAD_MODE_VXLAN) {
+> > -               dev->hw_enc_features |= NETIF_F_IP_CSUM | NETIF_F_RXCSUM
+> |
+> > +               dev->hw_enc_features |= NETIF_F_RXCSUM |
+> >                                          NETIF_F_TSO | NETIF_F_GSO_UDP_TUNNEL;
+> >
+> > I am not sure if its right fix, but to my eyes this basically looks like
+> > mlx4 is telling stack that it can handle tcp checksum offload within
+> > tunnels, and that doesn't seem to be the case for all types (e.g. gre).
+> >
+> > Could someone who understand the enc_features specifics better confirm
+> that
+> > above patch is correct (or provide a better/proper fix)?
+> 
+> Yep, I can see now the problem. It comes into play with ConnectX3-pro
+> NICs that support VXLAN offloads (but not with ConnectX3 NIC which
+> don't) when you enable the offloads support on the CX3-pro.
+> 
+> The problem originates from the fact that we can't advertize something
+> like "the HW can offload the inner checksum of UDP/VXLAN encapsulated
+> (but not for GRE)", e.g in a similar manner that exists in the GSO
+> space, where you have NETIF_F_GSO _YYY for each yyy in {UDP, SIT, GRE,
+> etc} tunneling scheme.
+> 
+> I think the best effort we can do now is
+> 
+> 1. come up with something such as the below patch for 3.18 which is
+> back-ward portable for -stable kernels, it will only arm the hw offloads
+> if the OS tells us there's VXLAN in action
 
-Point, but that might very well be a pattern to watch for - there's at least
-one more instance in TIPC (also not exploitable, according to TIPC folks)
-and such bugs are easily repeated...
+Or, wouldn't the patch below not work (i.e., the same issue would persist)
+when there is both VXLAN and some other (say GRE) tunnel in the system
+and the NIC HW is capable of supporting checksum offload only on VxLAN.
 
-BTW, I've picked the tun and macvtap related bits from another part of old
-queue; see vfs.git#untested-macvtap - it's on top of #iov_iter-net and it's
-really completely untested.  Back then I was mostly interested in killing
-as many ->aio_write() instances as I could, so it's only the "send" side of
-things.
+Do you expect a user who uses VxLAN to not use other kinds of tunnels?
+
+> 
+> 2. come  up with proper kernel APIs to let NICs advertize which encap
+> schemes they can actually offload the inner checksum, Tom... your work
+> which now runs over netdev.
+> 
+> Tom/Jesse- thoughts? are you +1-ing the below approach?
+> 
+> Or.
+> 
+> tested to work with the  following which is a bit different, tell me if
+> it works for you
+> 
+> # node A - with mlx4_en address192.168.31.18
+> ip tunnel add gre1 mode gre local 192.168.31.18 remote 192.168.31.17 ttl 255
+> ifconfig gre1 10.10.10.18/24 up
+> ifconfig gre1 mtu 1450
+> 
+> # node B - with mlx4_en address192.168.31.17
+> ip tunnel add gre1 mode gre local 192.168.31.17 remote 192.168.31.18 ttl 255
+> ifconfig gre1 10.10.10.17/24 up
+> ifconfig gre1 mtu 1450
+> 
+> 
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> index 0efbae9..7753833 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> @@ -2292,6 +2292,12 @@ static void mlx4_en_add_vxlan_offloads(struct
+> work_struct *work)
+>   out:
+>          if (ret)
+>                  en_err(priv, "failed setting L2 tunnel configuration
+> ret %d\n", ret);
+> +
+> +       /* set offloads */
+> +       priv->dev->hw_enc_features |= NETIF_F_IP_CSUM |
+> NETIF_F_RXCSUM |
+> +                                     NETIF_F_TSO | NETIF_F_GSO_UDP_TUNNEL;
+> +       priv->dev->hw_features |= NETIF_F_GSO_UDP_TUNNEL;
+> +       priv->dev->features    |= NETIF_F_GSO_UDP_TUNNEL;
+>   }
+> 
+>   static void mlx4_en_del_vxlan_offloads(struct work_struct *work)
+> @@ -2299,6 +2305,10 @@ static void mlx4_en_del_vxlan_offloads(struct
+> work_struct *work)
+>          int ret;
+>          struct mlx4_en_priv *priv = container_of(work, struct mlx4_en_priv,
+> vxlan_del_task);
+> +       /* unset offloads */
+> +       priv->dev->hw_enc_features = 0;
+> +       priv->dev->hw_features &= ~NETIF_F_GSO_UDP_TUNNEL;
+> +       priv->dev->features    &= ~NETIF_F_GSO_UDP_TUNNEL;
+> 
+>          ret = mlx4_SET_PORT_VXLAN(priv->mdev->dev, priv->port,
+>                                    VXLAN_STEER_BY_OUTER_MAC, 0);
+> @@ -2578,13 +2588,6 @@ int mlx4_en_init_netdev(struct mlx4_en_dev
+> *mdev,
+> int port,
+>          if (mdev->dev->caps.steering_mode != MLX4_STEERING_MODE_A0)
+>                  dev->priv_flags |= IFF_UNICAST_FLT;
+> 
+> -       if (mdev->dev->caps.tunnel_offload_mode ==
+> MLX4_TUNNEL_OFFLOAD_MODE_VXLAN) {
+> -               dev->hw_enc_features |= NETIF_F_IP_CSUM | NETIF_F_RXCSUM |
+> -                                       NETIF_F_TSO |
+> NETIF_F_GSO_UDP_TUNNEL;
+> -               dev->hw_features |= NETIF_F_GSO_UDP_TUNNEL;
+> -               dev->features    |= NETIF_F_GSO_UDP_TUNNEL;
+> -       }
+> -
+>          mdev->pndev[port] = dev;
+> 
+>          netif_carrier_off(dev);
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
