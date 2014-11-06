@@ -1,14 +1,14 @@
 From: raj@tardy.usa.hp.com (Rick Jones)
-Subject: [PATCH v3 net-next] udp: Increment UDP_MIB_IGNOREDMULTI for arriving unmatched multicasts
-Date: Thu,  6 Nov 2014 10:36:15 -0800 (PST)
-Message-ID: <20141106183615.A8DA829007D9@tardy>
+Subject: [PATCH v4 net-next] udp: Increment UDP_MIB_IGNOREDMULTI for arriving unmatched multicasts
+Date: Thu,  6 Nov 2014 10:37:54 -0800 (PST)
+Message-ID: <20141106183754.8A52829007D9@tardy>
 Cc: <davem@davemloft.net>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t3426.houston.hp.com ([15.201.208.54]:14314 "EHLO
-	g4t3426.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751692AbaKFSgS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 13:36:18 -0500
+Received: from g2t2352.austin.hp.com ([15.217.128.51]:53430 "EHLO
+	g2t2352.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751256AbaKFSh4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 13:37:56 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -23,6 +23,8 @@ rug entirely, so increment a suitable statistic.
 
 This incorporates feedback from David L. Stevens, Karl Neiss and Eric
 Dumazet.
+
+V3 - use bool per David Miller
 
 Signed-off-by: Rick Jones <rick.jones2@hp.com>
 
@@ -64,7 +66,7 @@ index 8e3eb39..5c5450c 100644
  };
  
 diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index cd0db54..1215f89 100644
+index cd0db54..ebee9af 100644
 --- a/net/ipv4/udp.c
 +++ b/net/ipv4/udp.c
 @@ -1647,7 +1647,8 @@ static void udp_sk_rx_dst_set(struct sock *sk, struct dst_entry *dst)
@@ -81,7 +83,7 @@ index cd0db54..1215f89 100644
  	int dif = skb->dev->ifindex;
  	unsigned int count = 0, offset = offsetof(typeof(*sk), sk_nulls_node);
  	unsigned int hash2 = 0, hash2_any = 0, use_hash2 = (hslot->count > 10);
-+	unsigned int inner_flushed = 0;
++	bool inner_flushed = false;
  
  	if (use_hash2) {
  		hash2_any = udp4_portaddr_hash(net, htonl(INADDR_ANY), hnum) &
@@ -89,7 +91,7 @@ index cd0db54..1215f89 100644
  					dif, hnum)) {
  			if (unlikely(count == ARRAY_SIZE(stack))) {
  				flush_stack(stack, count, skb, ~0);
-+				inner_flushed = 1;
++				inner_flushed = true;
  				count = 0;
  			}
  			stack[count++] = sk;
@@ -127,7 +129,7 @@ index 1752cd0..679253d0 100644
  };
  
 diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index f6ba535..d80f21e 100644
+index f6ba535..5bee6d2 100644
 --- a/net/ipv6/udp.c
 +++ b/net/ipv6/udp.c
 @@ -771,7 +771,7 @@ static void udp6_csum_zero_error(struct sk_buff *skb)
@@ -143,7 +145,7 @@ index f6ba535..d80f21e 100644
  	int dif = inet6_iif(skb);
  	unsigned int count = 0, offset = offsetof(typeof(*sk), sk_nulls_node);
  	unsigned int hash2 = 0, hash2_any = 0, use_hash2 = (hslot->count > 10);
-+	int inner_flushed = 0;
++	bool inner_flushed = false;
  
  	if (use_hash2) {
  		hash2_any = udp6_portaddr_hash(net, &in6addr_any, hnum) &
@@ -151,7 +153,7 @@ index f6ba535..d80f21e 100644
  		    (uh->check || udp_sk(sk)->no_check6_rx)) {
  			if (unlikely(count == ARRAY_SIZE(stack))) {
  				flush_stack(stack, count, skb, ~0);
-+				inner_flushed = 1;
++				inner_flushed = true;
  				count = 0;
  			}
  			stack[count++] = sk;
