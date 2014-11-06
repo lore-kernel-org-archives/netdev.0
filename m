@@ -1,91 +1,41 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH net 0/5] Implement ndo_gso_check() for vxlan nics
-Date: Thu, 6 Nov 2014 08:06:06 -0800
-Message-ID: <CA+mtBx87o1Lo2zpMyUGC_P+7+DmXnZyA2NF0-GYCEWiRh6VJQg@mail.gmail.com>
-References: <CAJ3xEMhxabp1EKbFPfvoZEFt=CQKFNcNrURGMX=7miDwmK9Y-A@mail.gmail.com>
-	<20141105.163825.1433973842938441546.davem@davemloft.net>
-	<20141106010501.GA18339@gmail.com>
-	<20141105.211558.969082848816106943.davem@davemloft.net>
-	<CA+mtBx-Js62X3BpfjQkcsh=w=-cgvSyM5ueCpufGVv0uu1nphw@mail.gmail.com>
-	<CF9D1877D81D214CB0CA0669EFAE020C68CC79EF@CMEXMB1.ad.emulex.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH net-next] rtnetlink: add babel protocol recognition
+Date: Thu, 6 Nov 2014 08:10:14 -0800
+Message-ID: <20141106081014.38a23889@urahara>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Joe Stringer <joestringer@nicira.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	"shahed.shaikh" <shahed.shaikh@qlogic.com>,
-	dept-gelinuxnicdev <Dept-GELinuxNICDev@qlogic.com>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Sathya Perla <Sathya.Perla@emulex.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>,
+	Dave Taht <dave.taht@bufferbloat.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f172.google.com ([209.85.223.172]:49301 "EHLO
-	mail-ie0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751151AbaKFQGH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 11:06:07 -0500
-Received: by mail-ie0-f172.google.com with SMTP id at20so3286280iec.3
-        for <netdev@vger.kernel.org>; Thu, 06 Nov 2014 08:06:06 -0800 (PST)
-In-Reply-To: <CF9D1877D81D214CB0CA0669EFAE020C68CC79EF@CMEXMB1.ad.emulex.com>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:63645 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751122AbaKFQK2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 11:10:28 -0500
+Received: by mail-pa0-f46.google.com with SMTP id lf10so1512721pab.33
+        for <netdev@vger.kernel.org>; Thu, 06 Nov 2014 08:10:27 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The inner headers are reset in iptunnel_handle_offloads. This called
-in the xmit encapsulation function (GRE, fou, VXLAN, etc.) before
-added in encapsulation headers, so the inner headers will point to the
-encapsulation payload, i.e. the encapsulated packet. The headers are
-only on the first encapsulation, so with nested tunnels the inner
-headers point to encapsulated packet. Since VXLAN and NVGRE have same
-size of encapsulation (8 UDP + 8 header),   skb_inner_mac_header(skb)
-- skb_transport_header(skb) should always be 16.
+From: Dave Taht <dave.taht@bufferbloat.net>
 
+Babel uses rt_proto 42. Add to userspace visible header file.
 
-On Wed, Nov 5, 2014 at 10:16 PM, Sathya Perla <Sathya.Perla@emulex.com> wrote:
->> -----Original Message-----
->> From: Tom Herbert [mailto:therbert@google.com]
->>
->> On Wed, Nov 5, 2014 at 6:15 PM, David Miller <davem@davemloft.net>
->> wrote:
->> > From: Joe Stringer <joestringer@nicira.com>
->> > Date: Wed, 5 Nov 2014 17:06:46 -0800
->> >
->> >> My impression was that the changes are more likely to be
->> >> hardware-specific (like the i40e changes) rather than software-specific,
->> >> like changes that might be integrated into the helper.
->> >
->> > I think there is more commonality amongst hardware capabilities,
->> > and this is why I want the helper to play itself out.
->> >
->> >> That said, I can rework for one helper. The way I see it would be the
->> >> same code as these patches, as "vxlan_gso_check(struct sk_buff *)" in
->> >> drivers/net/vxlan.c which would be called from each driver. Is that what
->> >> you had in mind?
->> >
->> > Yes.
->>
->> Note that this code is not VXLAN specific, it will also accept NVGRE
->> and GRE/UDP with keyid and TEB. I imagine all these cases should be
->> indistinguishable to the hardware so they probably just work (which
->> would be cool!). It might be better to name and locate the helper
->> function to reflect that.
->
-> Tom, I'm confused as to how the value of (skb_inner_mac_header(skb) - skb_transport_header(skb))
-> would be the same for VxLAN and NVGRE encapsulated packets. Wouldn't this value be 16 for VxLAN
-> and 8 for NVGRE?
->
-The inner headers are reset in iptunnel_handle_offloads. This is
-called in the xmit encapsulation functions (GRE, fou, VXLAN, etc.)
-before adding in encapsulation headers (skb_push), so the
-mac_inner_header will point to the encapsulation payload, i.e. the
-encapsulated packet. This should not change after being set, although
-inner network and inner transport can. The headers are only set on the
-first encapsulation, so with nested tunnels the inner headers point to
-the innermost encapsulated packet. Since VXLAN and NVGRE have same
-size of encapsulation (8 UDP + 8 header),   skb_inner_mac_header(skb)
-- skb_transport_header(skb) should always be 16.
+Signed-off-by: Dave Taht <dave.taht@bufferbloat.net>
+Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
-Tom
+---
+ include/uapi/linux/rtnetlink.h | 1 +
+ 1 file changed, 1 insertion(+)
 
-> thks,
-> -Sathya
+--- a/include/uapi/linux/rtnetlink.h	2014-11-06 08:07:16.041165946 -0800
++++ b/include/uapi/linux/rtnetlink.h	2014-11-06 08:07:16.029165894 -0800
+@@ -235,6 +235,7 @@ enum {
+ #define RTPROT_NTK	15	/* Netsukuku */
+ #define RTPROT_DHCP	16      /* DHCP client */
+ #define RTPROT_MROUTED	17      /* Multicast daemon */
++#define RTPROT_BABEL	42      /* Babel daemon */
+ 
+ /* rtm_scope
+ 
