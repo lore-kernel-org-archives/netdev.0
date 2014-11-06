@@ -1,80 +1,89 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: RE: ipv4: Use standard iovec primitive in raw_probe_proto_opt
-Date: Thu, 6 Nov 2014 09:55:31 +0000
-Message-ID: <A2BAEFC30C8FD34388F02C9B3121859D1C3087CA@eusaamb103.ericsson.se>
-References: <20141105035536.GO7996@ZenIV.linux.org.uk>
- <20141105.155054.2198151263164321219.davem@davemloft.net>
- <20141105210745.GT7996@ZenIV.linux.org.uk>
- <20141105.165719.835728206041332333.davem@davemloft.net>
- <20141106032533.GU7996@ZenIV.linux.org.uk>
- <20141106055023.GA28865@gondor.apana.org.au>
- <20141106064318.GW7996@ZenIV.linux.org.uk>
- <20141106064629.GA29321@gondor.apana.org.au>
- <20141106071109.GX7996@ZenIV.linux.org.uk>
+From: Charles Keepax <ckeepax@opensource.wolfsonmicro.com>
+Subject: Re: "asix: Don't reset PHY on if_up for ASIX 88772" breaks net on
+	arndale platform
+Date: Thu, 6 Nov 2014 10:01:04 +0000
+Message-ID: <20141106100104.GS23178@opensource.wolfsonmicro.com>
+References: <20141104072236.GA559@afflict.kos.to> <C89EFD3CD56F64468D3D206D683A8D2203985F49@ldam-msx2.fugro-nl.local> <20141104094336.GA3145@afflict.kos.to> <C89EFD3CD56F64468D3D206D683A8D2203985FA9@ldam-msx2.fugro-nl.local> <20141104200914.GN23178@opensource.wolfsonmicro.com> <C89EFD3CD56F64468D3D206D683A8D22039FFC5F@ldam-msx2.fugro-nl.local> <20141105150258.GR23178@opensource.wolfsonmicro.com> <20141106090651.GA19109@afflict.kos.to>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"bcrl@kvack.org" <bcrl@kvack.org>,
-	"Masahide Nakamura" <nakam@linux-ipv6.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-To: Al Viro <viro@ZenIV.linux.org.uk>,
-	Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Stam, Michel [FINT]" <M.Stam@fugro.nl>, freddy@asix.com.tw,
+	davem@davemloft.net, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-samsung-soc@vger.kernel.org
+To: Riku Voipio <riku.voipio@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usevmg20.ericsson.net ([198.24.6.45]:53790 "EHLO
-	usevmg20.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752005AbaKFJzd convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 04:55:33 -0500
-In-Reply-To: <20141106071109.GX7996@ZenIV.linux.org.uk>
-Content-Language: en-US
+Received: from opensource.wolfsonmicro.com ([80.75.67.52]:41786 "EHLO
+	opensource.wolfsonmicro.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752324AbaKFKBH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 05:01:07 -0500
+Content-Disposition: inline
+In-Reply-To: <20141106090651.GA19109@afflict.kos.to>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-
-> owner@vger.kernel.org] On Behalf Of Al Viro
-> Sent: November-06-14 8:11 AM
-> To: Herbert Xu
-> Cc: David Miller; netdev@vger.kernel.org; linux-kernel@vger.kernel.org;
-> bcrl@kvack.org; Masahide Nakamura; Hideaki YOSHIFUJI
-> Subject: Re: ipv4: Use standard iovec primitive in raw_probe_proto_opt
+On Thu, Nov 06, 2014 at 11:06:51AM +0200, Riku Voipio wrote:
+> On Wed, Nov 05, 2014 at 03:02:58PM +0000, Charles Keepax wrote:
+> > On Wed, Nov 05, 2014 at 01:04:37PM +0100, Stam, Michel [FINT] wrote:
+> > > Hello Charles,
+> > > 
+> > > After looking around I found the reset value for the 8772 chip, which
+> > > seems to be 0x1E1 (ANAR register).
+> > > 
+> > > This equates to (according to include/uapi/linux/mii.h)
+> > > ADVERTISE_ALL | ADVERTISE_CSMA.
+> > > 
+> > > The register only seems to become 0 if the software reset fails.
+>  
+> > Odd it definitely reads back as zero on Arndale. I am guessing
+> > that the root of the problem here is that for some reason Arndale
+> > POR of the ethernet is pants and it needs a full software reset
+> > before it will work and the patch removes the full reset
+> > callback.
 > 
-> On Thu, Nov 06, 2014 at 02:46:29PM +0800, Herbert Xu wrote:
-> > On Thu, Nov 06, 2014 at 06:43:18AM +0000, Al Viro wrote:
-> > > On Thu, Nov 06, 2014 at 01:50:23PM +0800, Herbert Xu wrote:
-> > > > +	/* We only need the first two bytes. */
-> > > > +	err = memcpy_fromiovecend((void *)&icmph, msg->msg_iov, 0, 2);
-> > > > +	if (err)
-> > > > +		return err;
-> > > > +
-> > > > +	fl4->fl4_icmp_type = icmph.type;
-> > > > +	fl4->fl4_icmp_code = icmph.code;
-> > >
-> > > That's more readable, but that exposes another problem in there - we
-> > > read the same piece of userland data twice, with no promise
-> > > whatsoever that we'll get the same value both times...
-> >
-> > Sure, but you have to be root anyway to write to raw sockets.
+> The asix on arndale comes semi-configured from u-boot, which I guess is
+> not the state kernel expects it to come in. At least in my case where
+> I use tftp from u-boot to load my kernel.
 > 
-> Point, but that might very well be a pattern to watch for - there's at least one
-> more instance in TIPC (also not exploitable, according to TIPC folks) and such
-
-I don't recall this, and I can't see where it would be either. Can you please
-point to where it is?
-
-///jon
-
-> bugs are easily repeated...
+> So probably the full reset is needed here to make the asix chip come
+> to a truly pristine state.
 > 
-> BTW, I've picked the tun and macvtap related bits from another part of old
-> queue; see vfs.git#untested-macvtap - it's on top of #iov_iter-net and it's
-> really completely untested.  Back then I was mostly interested in killing as
-> many ->aio_write() instances as I could, so it's only the "send" side of things.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in the body
-> of a message to majordomo@vger.kernel.org More majordomo info at
-> http://vger.kernel.org/majordomo-info.html
+> The commit that Michel partially reverted (by returning to use
+> ax88772_link_reset instead of ax88772_reset), indicates that a strong reset
+> is needed for suspend/resume as well:
+
+Ok I think I have cracked this one. I am pretty sure you are
+right that the USB comes to us in a strange state and needs
+a full reset, but that only needs to happen once when the driver
+is bound in. So there is some code in ax88772_bind that appears
+to try to reset the device but does a lot less than ax88772_reset
+and I think that must be the problem. Applying the following on
+top of the patch we have been debating I think will make
+everything work for all of us:
+
+--- a/drivers/net/usb/asix_devices.c
++++ b/drivers/net/usb/asix_devices.c
+@@ -465,19 +465,7 @@ static int ax88772_bind(struct usbnet *dev,
+struct usb_interface *in
+                return ret;
+        }
+
+-       ret = asix_sw_reset(dev, AX_SWRESET_IPPD | AX_SWRESET_PRL);
+-       if (ret < 0)
+-               return ret;
+-
+-       msleep(150);
+-
+-       ret = asix_sw_reset(dev, AX_SWRESET_CLEAR);
+-       if (ret < 0)
+-               return ret;
+-
+-       msleep(150);
+-
+-       ret = asix_sw_reset(dev, embd_phy ? AX_SWRESET_IPRL : AX_SWRESET_PRTE);
++       ax88772_reset(dev);
+
+If you guys could test that and let me know how you get on I will
+send in a proper patch if it looks good.
+
+Thanks,
+Charles
