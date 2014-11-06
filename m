@@ -1,108 +1,73 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: am335x: cpsw: phy ignores max-speed setting
-Date: Thu, 06 Nov 2014 08:58:10 -0800
-Message-ID: <545BA8A2.3010506@gmail.com>
-References: <CAGm1_ktWK5ai85PZJTkq8Q1mAFH6JZ5XM1mDOHO3K_N2iGNLWg@mail.gmail.com>
+Subject: Re: [patch net-next 07/10] bridge: call netdev_sw_port_stp_update
+ when bridge port STP status changes
+Date: Thu, 06 Nov 2014 08:59:27 -0800
+Message-ID: <545BA8EF.4060601@gmail.com>
+References: <1415265610-9338-1-git-send-email-jiri@resnulli.us> <1415265610-9338-8-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: "N, Mugunthan V" <mugunthanvnm@ti.com>, mpa@pengutronix.de,
-	lsorense@csclub.uwaterloo.ca, Daniel Mack <zonque@gmail.com>
-To: Yegor Yefremov <yegorslists@googlemail.com>,
-	netdev <netdev@vger.kernel.org>
+Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
+	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
+	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
+	ben@decadent.org.uk, stephen@networkplumber.org,
+	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
+	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
+	edumazet@google.com, jhs@mojatatu.com, sfeldma@gmail.com,
+	roopa@cumulusnetworks.com, linville@tuxdriver.com,
+	jasowang@redhat.com, ebiederm@xmission.com,
+	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
+	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
+	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
+	ronye@mellanox.com, simon.horman@netronome.com,
+	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
+	mleitner@redhat.com, shrijeet@gmail.com, gospo@cumulusnetworks.com,
+	bcrl@kvack.org
+To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f173.google.com ([209.85.192.173]:59621 "EHLO
-	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753111AbaKFQ6p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 11:58:45 -0500
-Received: by mail-pd0-f173.google.com with SMTP id v10so1482329pde.4
-        for <netdev@vger.kernel.org>; Thu, 06 Nov 2014 08:58:45 -0800 (PST)
-In-Reply-To: <CAGm1_ktWK5ai85PZJTkq8Q1mAFH6JZ5XM1mDOHO3K_N2iGNLWg@mail.gmail.com>
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:40849 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752174AbaKFRAE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 12:00:04 -0500
+Received: by mail-pa0-f54.google.com with SMTP id rd3so1608468pab.27
+        for <netdev@vger.kernel.org>; Thu, 06 Nov 2014 09:00:03 -0800 (PST)
+In-Reply-To: <1415265610-9338-8-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/06/2014 08:25 AM, Yegor Yefremov wrote:
-> I' m trying to override max-speed setting for both CPSW connected
-> PHYs. This is my DTS section for configuring CPSW:
+On 11/06/2014 01:20 AM, Jiri Pirko wrote:
+> From: Scott Feldman <sfeldma@gmail.com>
 > 
-> &mac {
->         pinctrl-names = "default", "sleep";
->         pinctrl-0 = <&cpsw_default>;
->         pinctrl-1 = <&cpsw_sleep>;
->         dual_emac = <1>;
+> To notify switch driver of change in STP state of bridge port, add new
+> .ndo op and provide swdev wrapper func to call ndo op. Use it in bridge
+> code then.
 > 
->         status = "okay";
-> };
-> 
-> &davinci_mdio {
->         pinctrl-names = "default", "sleep";
->         pinctrl-0 = <&davinci_mdio_default>;
->         pinctrl-1 = <&davinci_mdio_sleep>;
-> 
->         status = "okay";
-> };
-> 
-> &cpsw_emac0 {
->         phy_id = <&davinci_mdio>, <0>;
->         phy-mode = "rgmii-id";
->         dual_emac_res_vlan = <1>;
->         max-speed = <100>;
-> };
-> 
-> &cpsw_emac1 {
->         phy_id = <&davinci_mdio>, <1>;
->         phy-mode = "rgmii-id";
->         dual_emac_res_vlan = <2>;
->         max-speed = <100>;
-> };
-> 
-> But in drivers/net/phy/phy_device.c->of_set_phy_supported() routine I
-> don't get through node check, i.e. node == NULL. Any idea why?
+> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> ---
 
-Yes, because the 'max-speed' property is placed at the Ethernet MAC node
-level, not the PHY node as of_set_phy_supported() expect its.
+[snip]
 
-This driver does not appear to use the standard Ethernet PHY device tree
-node, so I am not sure what are your options here.
+>  #endif /* _LINUX_SWITCHDEV_H_ */
+> diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+> index 86c239b..13fecf1 100644
+> --- a/net/bridge/br_netlink.c
+> +++ b/net/bridge/br_netlink.c
+> @@ -17,6 +17,7 @@
+>  #include <net/net_namespace.h>
+>  #include <net/sock.h>
+>  #include <uapi/linux/if_bridge.h>
+> +#include <net/switchdev.h>
+>  
+>  #include "br_private.h"
+>  #include "br_private_stp.h"
+> @@ -304,6 +305,7 @@ static int br_set_port_state(struct net_bridge_port *p, u8 state)
+>  
+>  	br_set_state(p, state);
+>  	br_log_state(p);
+> +	netdev_sw_port_stp_update(p->dev, p->state);
 
-> 
-> static void of_set_phy_supported(struct phy_device *phydev)
-> {
->         struct device_node *node = phydev->dev.of_node;
->         u32 max_speed;
-> 
->         if (!IS_ENABLED(CONFIG_OF_MDIO))
->                 return;
-> 
->         if (!node)
->                 return;
-> 
->         if (!of_property_read_u32(node, "max-speed", &max_speed)) {
->                 /* The default values for phydev->supported are
-> provided by the PHY
->                  * driver "features" member, we want to reset to sane
-> defaults fist
->                  * before supporting higher speeds.
->                  */
->                 phydev->supported &= PHY_DEFAULT_FEATURES;
-> 
->                 switch (max_speed) {
->                 default:
->                         return;
-> 
->                 case SPEED_1000:
->                         phydev->supported |= PHY_1000BT_FEATURES;
->                 case SPEED_100:
->                         phydev->supported |= PHY_100BT_FEATURES;
->                 case SPEED_10:
->                         phydev->supported |= PHY_10BT_FEATURES;
->                 }
->         }
-> }
-> 
-> Yegor
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+Is there a reason netdev_sw_port_stp_update() is not folded in
+br_set_state()? Are we missing calls to br_set_state() in some locations?
+--
+Florian
