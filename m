@@ -1,70 +1,91 @@
-From: Charles Keepax <ckeepax@opensource.wolfsonmicro.com>
-Subject: [PATCH] asix: Do full reset during ax88772_bind
-Date: Thu,  6 Nov 2014 15:49:41 +0000
-Message-ID: <1415288981-3862-1-git-send-email-ckeepax@opensource.wolfsonmicro.com>
-Cc: jeffrey.t.kirsher@intel.com, m.stam@fugro.nl, emilgoode@gmail.com,
-	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH net 0/5] Implement ndo_gso_check() for vxlan nics
+Date: Thu, 6 Nov 2014 08:06:06 -0800
+Message-ID: <CA+mtBx87o1Lo2zpMyUGC_P+7+DmXnZyA2NF0-GYCEWiRh6VJQg@mail.gmail.com>
+References: <CAJ3xEMhxabp1EKbFPfvoZEFt=CQKFNcNrURGMX=7miDwmK9Y-A@mail.gmail.com>
+	<20141105.163825.1433973842938441546.davem@davemloft.net>
+	<20141106010501.GA18339@gmail.com>
+	<20141105.211558.969082848816106943.davem@davemloft.net>
+	<CA+mtBx-Js62X3BpfjQkcsh=w=-cgvSyM5ueCpufGVv0uu1nphw@mail.gmail.com>
+	<CF9D1877D81D214CB0CA0669EFAE020C68CC79EF@CMEXMB1.ad.emulex.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Joe Stringer <joestringer@nicira.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	"shahed.shaikh" <shahed.shaikh@qlogic.com>,
+	dept-gelinuxnicdev <Dept-GELinuxNICDev@qlogic.com>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Sathya Perla <Sathya.Perla@emulex.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f172.google.com ([209.85.223.172]:49301 "EHLO
+	mail-ie0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751151AbaKFQGH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 11:06:07 -0500
+Received: by mail-ie0-f172.google.com with SMTP id at20so3286280iec.3
+        for <netdev@vger.kernel.org>; Thu, 06 Nov 2014 08:06:06 -0800 (PST)
+In-Reply-To: <CF9D1877D81D214CB0CA0669EFAE020C68CC79EF@CMEXMB1.ad.emulex.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-commit 3cc81d85ee01 ("asix: Don't reset PHY on if_up for ASIX 88772")
-causes the ethernet on Arndale to no longer function. This appears to
-be because the Arndale ethernet requires a full reset before it will
-function correctly, however simply reverting the above patch causes
-problems with ethtool settings getting reset.
+The inner headers are reset in iptunnel_handle_offloads. This called
+in the xmit encapsulation function (GRE, fou, VXLAN, etc.) before
+added in encapsulation headers, so the inner headers will point to the
+encapsulation payload, i.e. the encapsulated packet. The headers are
+only on the first encapsulation, so with nested tunnels the inner
+headers point to encapsulated packet. Since VXLAN and NVGRE have same
+size of encapsulation (8 UDP + 8 header),   skb_inner_mac_header(skb)
+- skb_transport_header(skb) should always be 16.
 
-It seems the problem is that the ethernet is not properly reset during
-bind, and indeed the code in ax88772_bind that resets the device is a
-very small subset of the actual ax88772_reset function. This patch uses
-ax88772_reset in place of the existing reset code in ax88772_bind which
-removes some code duplication and fixes the ethernet on Arndale.
 
-It is still possible that the original patch causes some issues with
-suspend and resume but that seems like a separate issue and I haven't
-had a chance to test that yet.
+On Wed, Nov 5, 2014 at 10:16 PM, Sathya Perla <Sathya.Perla@emulex.com> wrote:
+>> -----Original Message-----
+>> From: Tom Herbert [mailto:therbert@google.com]
+>>
+>> On Wed, Nov 5, 2014 at 6:15 PM, David Miller <davem@davemloft.net>
+>> wrote:
+>> > From: Joe Stringer <joestringer@nicira.com>
+>> > Date: Wed, 5 Nov 2014 17:06:46 -0800
+>> >
+>> >> My impression was that the changes are more likely to be
+>> >> hardware-specific (like the i40e changes) rather than software-specific,
+>> >> like changes that might be integrated into the helper.
+>> >
+>> > I think there is more commonality amongst hardware capabilities,
+>> > and this is why I want the helper to play itself out.
+>> >
+>> >> That said, I can rework for one helper. The way I see it would be the
+>> >> same code as these patches, as "vxlan_gso_check(struct sk_buff *)" in
+>> >> drivers/net/vxlan.c which would be called from each driver. Is that what
+>> >> you had in mind?
+>> >
+>> > Yes.
+>>
+>> Note that this code is not VXLAN specific, it will also accept NVGRE
+>> and GRE/UDP with keyid and TEB. I imagine all these cases should be
+>> indistinguishable to the hardware so they probably just work (which
+>> would be cool!). It might be better to name and locate the helper
+>> function to reflect that.
+>
+> Tom, I'm confused as to how the value of (skb_inner_mac_header(skb) - skb_transport_header(skb))
+> would be the same for VxLAN and NVGRE encapsulated packets. Wouldn't this value be 16 for VxLAN
+> and 8 for NVGRE?
+>
+The inner headers are reset in iptunnel_handle_offloads. This is
+called in the xmit encapsulation functions (GRE, fou, VXLAN, etc.)
+before adding in encapsulation headers (skb_push), so the
+mac_inner_header will point to the encapsulation payload, i.e. the
+encapsulated packet. This should not change after being set, although
+inner network and inner transport can. The headers are only set on the
+first encapsulation, so with nested tunnels the inner headers point to
+the innermost encapsulated packet. Since VXLAN and NVGRE have same
+size of encapsulation (8 UDP + 8 header),   skb_inner_mac_header(skb)
+- skb_transport_header(skb) should always be 16.
 
-Signed-off-by: Charles Keepax <ckeepax@opensource.wolfsonmicro.com>
-Tested-by: Riku Voipio <riku.voipio@linaro.org>
----
+Tom
 
-Hi,
-
-I wasn't 100% sure which branch to base this off so I based it on Dave
-Miller's net-next branch, which seemed logical.
-
-Thanks,
-Charles
-
- drivers/net/usb/asix_devices.c |   14 +-------------
- 1 files changed, 1 insertions(+), 13 deletions(-)
-
-diff --git a/drivers/net/usb/asix_devices.c b/drivers/net/usb/asix_devices.c
-index 2c05f6c..816d511 100644
---- a/drivers/net/usb/asix_devices.c
-+++ b/drivers/net/usb/asix_devices.c
-@@ -465,19 +465,7 @@ static int ax88772_bind(struct usbnet *dev, struct usb_interface *intf)
- 		return ret;
- 	}
- 
--	ret = asix_sw_reset(dev, AX_SWRESET_IPPD | AX_SWRESET_PRL);
--	if (ret < 0)
--		return ret;
--
--	msleep(150);
--
--	ret = asix_sw_reset(dev, AX_SWRESET_CLEAR);
--	if (ret < 0)
--		return ret;
--
--	msleep(150);
--
--	ret = asix_sw_reset(dev, embd_phy ? AX_SWRESET_IPRL : AX_SWRESET_PRTE);
-+	ax88772_reset(dev);
- 
- 	/* Read PHYID register *AFTER* the PHY was reset properly */
- 	phyid = asix_get_phyid(dev);
--- 
-1.7.2.5
+> thks,
+> -Sathya
