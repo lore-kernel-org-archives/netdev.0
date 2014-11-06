@@ -1,66 +1,146 @@
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: Re: [PATCH] bridge: missing null bridge device check
- causing null pointer dereference (bugfix)
-Date: Thu, 06 Nov 2014 17:28:56 +0900
-Message-ID: <545B3148.8000704@lab.ntt.co.jp>
-References: <1415255192-13584-1-git-send-email-suhyun.park@ahnlab.com>
-	<545B1E27.3080302@lab.ntt.co.jp>
-	<8D1F1238A24CE743B8F3CED0F137C69E408AA087@EXMB02.ahnbang.ahnlab.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=euc-kr
-Content-Transfer-Encoding: quoted-printable
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"bridge@lists.linux-foundation.org" <bridge@lists.linux-foundation.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: =?EUC-KR?B?udq89sf2?= <suhyun.park@ahnlab.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <8D1F1238A24CE743B8F3CED0F137C69E408AA087@EXMB02.ahnbang.ahnlab.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [PATCH 3/4] macvtap: Use iovec iterators
+Date: Thu, 06 Nov 2014 16:28:20 +0800
+Message-ID: <E1XmIQW-0007mb-J4@gondolin.me.apana.org.au>
+References: <20141106082704.GB29800@gondor.apana.org.au>
+To: David Miller <davem@davemloft.net>, viro@ZenIV.linux.org.uk,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	bcrl@kvack.org, YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 2014/11/06 16:58, =B9=DA=BC=F6=C7=F6 wrote:
->> -----Original Message-----
->> From: Toshiaki Makita [mailto:makita.toshiaki@lab.ntt.co.jp]
->> Sent: Thursday, November 06, 2014 4:07 PM
->> To: =B9=DA=BC=F6=C7=F6; Stephen Hemminger; David S. Miller
->> Cc: bridge@lists.linux-foundation.org; netdev@vger.kernel.org; linux-
->> kernel@vger.kernel.org
->> Subject: Re: [PATCH] bridge: missing null bridge device check causing =
-null
->> pointer dereference (bugfix)
->>
->> On 2014/11/06 15:26, Su-Hyun Park wrote:
->>> the bridge device can be null if the bridge is being deleted while
->>> processing the packet, which causes the null pointer dereference in
->> switch statement.
->>
->> How can this happen??
->> It is guarded by rcu.
->> netdev_rx_handler_unregister() ensures rx_handler_data is non NULL.
->>
->=20
-> The RCU protect rx_handler_data, not the bridge member port. It can be =
-NULL according to below code.
->=20
-> static inline struct net_bridge_port *br_port_get_rcu(const struct net_=
-device *dev) {
-> 	struct net_bridge_port *port =3D rcu_dereference(dev->rx_handler_data)=
-;
-> 	return br_port_exists(dev) ? port : NULL;=20
-> }
+This patch removes the use of skb_copy_datagram_const_iovec in
+favour of the iovec iterator-based skb_copy_datagram_iter.
 
-Seems to have been fixed for a year.
-716ec052d228 ("bridge: fix NULL pointer deref of br_port_get_rcu")
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+---
 
-Thanks,
-Toshiaki Makita
+ drivers/net/macvtap.c |   45 ++++++++++++++++++++-------------------------
+ 1 file changed, 20 insertions(+), 25 deletions(-)
+
+diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+index 880cc09..a0e1dd7 100644
+--- a/drivers/net/macvtap.c
++++ b/drivers/net/macvtap.c
+@@ -15,6 +15,7 @@
+ #include <linux/cdev.h>
+ #include <linux/idr.h>
+ #include <linux/fs.h>
++#include <linux/uio.h>
+ 
+ #include <net/ipv6.h>
+ #include <net/net_namespace.h>
+@@ -778,31 +779,28 @@ static ssize_t macvtap_aio_write(struct kiocb *iocb, const struct iovec *iv,
+ /* Put packet to the user space buffer */
+ static ssize_t macvtap_put_user(struct macvtap_queue *q,
+ 				const struct sk_buff *skb,
+-				const struct iovec *iv, int len)
++				struct iov_iter *iter)
+ {
+ 	int ret;
+ 	int vnet_hdr_len = 0;
+ 	int vlan_offset = 0;
+-	int copied, total;
++	int total;
+ 
+ 	if (q->flags & IFF_VNET_HDR) {
+ 		struct virtio_net_hdr vnet_hdr;
+ 		vnet_hdr_len = q->vnet_hdr_sz;
+-		if ((len -= vnet_hdr_len) < 0)
++		if (iov_iter_count(iter) < vnet_hdr_len)
+ 			return -EINVAL;
+ 
+ 		macvtap_skb_to_vnet_hdr(skb, &vnet_hdr);
+ 
+-		if (memcpy_toiovecend(iv, (void *)&vnet_hdr, 0, sizeof(vnet_hdr)))
++		if (copy_to_iter(&vnet_hdr, sizeof(vnet_hdr), iter))
+ 			return -EFAULT;
+ 	}
+-	total = copied = vnet_hdr_len;
++	total = vnet_hdr_len;
+ 	total += skb->len;
+ 
+-	if (!vlan_tx_tag_present(skb))
+-		len = min_t(int, skb->len, len);
+-	else {
+-		int copy;
++	if (vlan_tx_tag_present(skb)) {
+ 		struct {
+ 			__be16 h_vlan_proto;
+ 			__be16 h_vlan_TCI;
+@@ -811,37 +809,33 @@ static ssize_t macvtap_put_user(struct macvtap_queue *q,
+ 		veth.h_vlan_TCI = htons(vlan_tx_tag_get(skb));
+ 
+ 		vlan_offset = offsetof(struct vlan_ethhdr, h_vlan_proto);
+-		len = min_t(int, skb->len + VLAN_HLEN, len);
+ 		total += VLAN_HLEN;
+ 
+-		copy = min_t(int, vlan_offset, len);
+-		ret = skb_copy_datagram_const_iovec(skb, 0, iv, copied, copy);
+-		len -= copy;
+-		copied += copy;
+-		if (ret || !len)
++		ret = skb_copy_datagram_iter(skb, 0, iter, vlan_offset);
++		if (ret || !iov_iter_count(iter))
+ 			goto done;
+ 
+-		copy = min_t(int, sizeof(veth), len);
+-		ret = memcpy_toiovecend(iv, (void *)&veth, copied, copy);
+-		len -= copy;
+-		copied += copy;
+-		if (ret || !len)
++		ret = copy_to_iter(&veth, sizeof(veth), iter);
++		if (ret || !iov_iter_count(iter))
+ 			goto done;
+ 	}
+ 
+-	ret = skb_copy_datagram_const_iovec(skb, vlan_offset, iv, copied, len);
++	ret = skb_copy_datagram_iter(skb, vlan_offset, iter,
++				     skb->len - vlan_offset);
+ 
+ done:
+ 	return ret ? ret : total;
+ }
+ 
+ static ssize_t macvtap_do_read(struct macvtap_queue *q,
+-			       const struct iovec *iv, unsigned long len,
++			       const struct iovec *iv, unsigned long segs,
++			       unsigned long len,
+ 			       int noblock)
+ {
+ 	DEFINE_WAIT(wait);
+ 	struct sk_buff *skb;
+ 	ssize_t ret = 0;
++	struct iov_iter iter;
+ 
+ 	while (len) {
+ 		if (!noblock)
+@@ -863,7 +857,8 @@ static ssize_t macvtap_do_read(struct macvtap_queue *q,
+ 			schedule();
+ 			continue;
+ 		}
+-		ret = macvtap_put_user(q, skb, iv, len);
++		iov_iter_init(&iter, READ, iv, segs, len);
++		ret = macvtap_put_user(q, skb, &iter);
+ 		kfree_skb(skb);
+ 		break;
+ 	}
+@@ -886,7 +881,7 @@ static ssize_t macvtap_aio_read(struct kiocb *iocb, const struct iovec *iv,
+ 		goto out;
+ 	}
+ 
+-	ret = macvtap_do_read(q, iv, len, file->f_flags & O_NONBLOCK);
++	ret = macvtap_do_read(q, iv, count, len, file->f_flags & O_NONBLOCK);
+ 	ret = min_t(ssize_t, ret, len);
+ 	if (ret > 0)
+ 		iocb->ki_pos = ret;
+@@ -1117,7 +1112,7 @@ static int macvtap_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 	int ret;
+ 	if (flags & ~(MSG_DONTWAIT|MSG_TRUNC))
+ 		return -EINVAL;
+-	ret = macvtap_do_read(q, m->msg_iov, total_len,
++	ret = macvtap_do_read(q, m->msg_iov, m->msg_iovlen, total_len,
+ 			  flags & MSG_DONTWAIT);
+ 	if (ret > total_len) {
+ 		m->msg_flags |= MSG_TRUNC;
