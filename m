@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 04/10] net-sysfs: expose physical switch id for particular device
-Date: Thu,  6 Nov 2014 10:20:04 +0100
-Message-ID: <1415265610-9338-5-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 08/10] bridge: add API to notify bridge driver of learned FBD on offloaded device
+Date: Thu,  6 Nov 2014 10:20:08 +0100
+Message-ID: <1415265610-9338-9-git-send-email-jiri@resnulli.us>
 References: <1415265610-9338-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
 	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
@@ -21,69 +21,160 @@ Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
 	bcrl@kvack.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f45.google.com ([74.125.82.45]:58880 "EHLO
-	mail-wg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752130AbaKFJUS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 04:20:18 -0500
-Received: by mail-wg0-f45.google.com with SMTP id x12so662795wgg.32
-        for <netdev@vger.kernel.org>; Thu, 06 Nov 2014 01:20:16 -0800 (PST)
+Received: from mail-wg0-f50.google.com ([74.125.82.50]:37657 "EHLO
+	mail-wg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752218AbaKFJUX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 04:20:23 -0500
+Received: by mail-wg0-f50.google.com with SMTP id z12so667347wgg.23
+        for <netdev@vger.kernel.org>; Thu, 06 Nov 2014 01:20:21 -0800 (PST)
 In-Reply-To: <1415265610-9338-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Scott Feldman <sfeldma@gmail.com>
+
+When the swdev device learns a new mac/vlan on a port, it sends some async
+notification to the driver and the driver installs an FDB in the device.
+To give a holistic system view, the learned mac/vlan should be reflected
+in the bridge's FBD table, so the user, using normal iproute2 cmds, can view
+what is currently learned by the device.  This API on the bridge driver gives
+a way for the swdev driver to install an FBD entry in the bridge FBD table.
+(And remove one).
+
+This is equivalent to the device running these cmds:
+
+  bridge fdb [add|del] <mac> dev <dev> vid <vlan id> master
+
+This patch needs some extra eyeballs for review, in paricular around the
+locking and contexts.
+
+Signed-off-by: Scott Feldman <sfeldma@gmail.com>
 Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
- net/core/net-sysfs.c | 24 ++++++++++++++++++++++++
- 1 file changed, 24 insertions(+)
+ include/linux/if_bridge.h | 18 ++++++++++
+ net/bridge/br_fdb.c       | 84 +++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 102 insertions(+)
 
-diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-index 55dc4da..8e6603c 100644
---- a/net/core/net-sysfs.c
-+++ b/net/core/net-sysfs.c
-@@ -12,6 +12,7 @@
- #include <linux/capability.h>
- #include <linux/kernel.h>
- #include <linux/netdevice.h>
-+#include <net/switchdev.h>
- #include <linux/if_arp.h>
- #include <linux/slab.h>
- #include <linux/nsproxy.h>
-@@ -399,6 +400,28 @@ static ssize_t phys_port_id_show(struct device *dev,
- }
- static DEVICE_ATTR_RO(phys_port_id);
+diff --git a/include/linux/if_bridge.h b/include/linux/if_bridge.h
+index 808dcb8..27ab217 100644
+--- a/include/linux/if_bridge.h
++++ b/include/linux/if_bridge.h
+@@ -37,6 +37,24 @@ extern void brioctl_set(int (*ioctl_hook)(struct net *, unsigned int, void __use
+ typedef int br_should_route_hook_t(struct sk_buff *skb);
+ extern br_should_route_hook_t __rcu *br_should_route_hook;
  
-+static ssize_t phys_switch_id_show(struct device *dev,
-+				   struct device_attribute *attr, char *buf)
++#if IS_ENABLED(CONFIG_BRIDGE)
++int br_fdb_learn_add(struct net_device *dev,
++		     const unsigned char *addr, u16 vid);
++int br_fdb_learn_del(struct net_device *dev,
++		     const unsigned char *addr, u16 vid);
++#else
++static inline int br_fdb_learn_add(struct net_device *dev,
++				   const unsigned char *addr, u16 vid)
 +{
-+	struct net_device *netdev = to_net_dev(dev);
-+	ssize_t ret = -EINVAL;
++	return 0;
++}
++static inline int br_fdb_learn_del(struct net_device *dev,
++				   const unsigned char *addr, u16 vid)
++{
++	return 0;
++}
++#endif
 +
-+	if (!rtnl_trylock())
-+		return restart_syscall();
+ #if IS_ENABLED(CONFIG_BRIDGE) && IS_ENABLED(CONFIG_BRIDGE_IGMP_SNOOPING)
+ int br_multicast_list_adjacent(struct net_device *dev,
+ 			       struct list_head *br_ip_list);
+diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+index f6f8bb5..e02d21b 100644
+--- a/net/bridge/br_fdb.c
++++ b/net/bridge/br_fdb.c
+@@ -1022,3 +1022,87 @@ void br_fdb_unsync_static(struct net_bridge *br, struct net_bridge_port *p)
+ 		}
+ 	}
+ }
 +
-+	if (dev_isalive(netdev)) {
-+		struct netdev_phys_item_id ppid;
++int br_fdb_learn_add(struct net_device *dev, const unsigned char *addr,
++		     u16 vid)
++{
++	struct net_bridge_port *p;
++	struct net_bridge *br;
++	struct hlist_head *head;
++	struct net_bridge_fdb_entry *fdb;
++	int err = 0;
 +
-+		ret = netdev_sw_parent_id_get(netdev, &ppid);
-+		if (!ret)
-+			ret = sprintf(buf, "%*phN\n", ppid.id_len, ppid.id);
++	rtnl_lock();
++
++	p = br_port_get_rtnl(dev);
++	if (p == NULL) {
++		pr_info("bridge: %s not a bridge port\n", dev->name);
++		err = -EINVAL;
++		goto err_rtnl_unlock;
 +	}
++
++	br = p->br;
++
++	spin_lock(&br->hash_lock);
++
++	head = &br->hash[br_mac_hash(addr, vid)];
++	fdb = fdb_find(head, addr, vid);
++	if (fdb == NULL) {
++		fdb = fdb_create(head, p, addr, vid);
++		if (!fdb) {
++			err = -ENOMEM;
++			goto err_unlock;
++		}
++		fdb->is_local = 1;
++		fdb->used = jiffies;
++		fdb->updated = jiffies;
++		fdb_notify(br, fdb, RTM_NEWNEIGH);
++	} else {
++		err = -EEXIST;
++	}
++
++err_unlock:
++	spin_unlock(&br->hash_lock);
++err_rtnl_unlock:
 +	rtnl_unlock();
 +
-+	return ret;
++	return err;
 +}
-+static DEVICE_ATTR_RO(phys_switch_id);
++EXPORT_SYMBOL(br_fdb_learn_add);
 +
- static struct attribute *net_class_attrs[] = {
- 	&dev_attr_netdev_group.attr,
- 	&dev_attr_type.attr,
-@@ -423,6 +446,7 @@ static struct attribute *net_class_attrs[] = {
- 	&dev_attr_flags.attr,
- 	&dev_attr_tx_queue_len.attr,
- 	&dev_attr_phys_port_id.attr,
-+	&dev_attr_phys_switch_id.attr,
- 	NULL,
- };
- ATTRIBUTE_GROUPS(net_class);
++int br_fdb_learn_del(struct net_device *dev, const unsigned char *addr,
++		     u16 vid)
++{
++	struct net_bridge_port *p;
++	struct net_bridge *br;
++	struct hlist_head *head;
++	struct net_bridge_fdb_entry *fdb;
++	int err = 0;
++
++	rtnl_lock();
++
++	p = br_port_get_rtnl(dev);
++	if (p == NULL) {
++		pr_info("bridge: %s not a bridge port\n", dev->name);
++		err = -EINVAL;
++		goto err_rtnl_unlock;
++	}
++
++	br = p->br;
++
++	spin_lock(&br->hash_lock);
++
++	head = &br->hash[br_mac_hash(addr, vid)];
++	fdb = fdb_find(head, addr, vid);
++	if (fdb)
++		fdb_delete(br, fdb);
++	else
++		err = -ENOENT;
++
++	spin_unlock(&br->hash_lock);
++err_rtnl_unlock:
++	rtnl_unlock();
++
++	return err;
++}
++EXPORT_SYMBOL(br_fdb_learn_del);
 -- 
 1.9.3
