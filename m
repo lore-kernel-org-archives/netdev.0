@@ -1,8 +1,7 @@
 From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next v1 2/2] amd-xgbe: Check for complete packet on skb
- allocation error
-Date: Thu, 6 Nov 2014 17:02:19 -0600
-Message-ID: <20141106230219.21973.44275.stgit@tlendack-t1.amdoffice.net>
+Subject: [PATCH net-next v1 1/2] amd-xgbe: Free channel/ring structures later
+Date: Thu, 6 Nov 2014 17:02:13 -0600
+Message-ID: <20141106230213.21973.14781.stgit@tlendack-t1.amdoffice.net>
 References: <20141106230207.21973.67338.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,48 +9,46 @@ Content-Transfer-Encoding: 7bit
 Cc: <davem@davemloft.net>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0115.outbound.protection.outlook.com ([207.46.100.115]:64640
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+Received: from mail-bn1on0112.outbound.protection.outlook.com ([157.56.110.112]:20131
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753280AbaKFXCZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Nov 2014 18:02:25 -0500
+	id S1753232AbaKFXQf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Nov 2014 18:16:35 -0500
 In-Reply-To: <20141106230207.21973.67338.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If the skb allocation fails during receive processing, the driver would
-continue reading descriptors without first determining if there were
-any more descriptors for the current packet. Update the code to check
-whether more descriptors are associated with the current packet or
-whether to move on to the next descriptor as a new packet.
+The channel structure is freed before freeing the per channel
+interrupts resulting in a kernel oops. Move the call to free
+the channel structure to after the freeing of the per channel
+interrupts.
 
 Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 ---
- drivers/net/ethernet/amd/xgbe/xgbe-drv.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/amd/xgbe/xgbe-drv.c |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-index ec5fff3..0544931 100644
+index ced9f52..ec5fff3 100644
 --- a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
 +++ b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-@@ -1908,7 +1908,7 @@ read_again:
- 				skb = xgbe_create_skb(pdata, rdata, &put_len);
- 				if (!skb) {
- 					error = 1;
--					goto read_again;
-+					goto skip_data;
- 				}
- 			}
+@@ -1369,9 +1369,6 @@ static int xgbe_close(struct net_device *netdev)
+ 	/* Free the ring descriptors and buffers */
+ 	desc_if->free_ring_resources(pdata);
  
-@@ -1926,10 +1926,10 @@ read_again:
- 			}
- 		}
+-	/* Free the channel and ring structures */
+-	xgbe_free_channels(pdata);
+-
+ 	/* Release the interrupts */
+ 	devm_free_irq(pdata->dev, pdata->dev_irq, pdata);
+ 	if (pdata->per_channel_irq) {
+@@ -1380,6 +1377,9 @@ static int xgbe_close(struct net_device *netdev)
+ 			devm_free_irq(pdata->dev, channel->dma_irq, channel);
+ 	}
  
-+skip_data:
- 		if (incomplete || context_next)
- 			goto read_again;
- 
--		/* Stray Context Descriptor? */
- 		if (!skb)
- 			goto next_packet;
- 
++	/* Free the channel and ring structures */
++	xgbe_free_channels(pdata);
++
+ 	/* Disable the clocks */
+ 	clk_disable_unprepare(pdata->ptpclk);
+ 	clk_disable_unprepare(pdata->sysclk);
