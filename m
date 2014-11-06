@@ -1,146 +1,112 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 3/4] macvtap: Use iovec iterators
-Date: Thu, 06 Nov 2014 16:28:20 +0800
-Message-ID: <E1XmIQW-0007mb-J4@gondolin.me.apana.org.au>
-References: <20141106082704.GB29800@gondor.apana.org.au>
-To: David Miller <davem@davemloft.net>, viro@ZenIV.linux.org.uk,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	bcrl@kvack.org, YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Dong Aisheng <b29396@freescale.com>
+Subject: Re: M_CAN message RAM initialization AppNote  - was: Re: [PATCH V3
+ 3/3] can: m_can: workaround for transmit data less than 4 bytes
+Date: Thu, 6 Nov 2014 16:09:44 +0800
+Message-ID: <20141106080940.GA22964@shlinux1.ap.freescale.net>
+References: <1415193393-30023-1-git-send-email-b29396@freescale.com>
+ <1415193393-30023-3-git-send-email-b29396@freescale.com>
+ <545A3451.2090302@pengutronix.de> <545A692E.40002@hartkopp.net>
+ <20141106015716.GB7642@shlinux1.ap.freescale.net>
+ <545B1D71.4000408@hartkopp.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: Marc Kleine-Budde <mkl@pengutronix.de>,
+	<linux-can@vger.kernel.org>, <wg@grandegger.com>,
+	<varkabhadram@gmail.com>, <netdev@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>
+To: Oliver Hartkopp <socketcan@hartkopp.net>
+Return-path: <linux-can-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <545B1D71.4000408@hartkopp.net>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch removes the use of skb_copy_datagram_const_iovec in
-favour of the iovec iterator-based skb_copy_datagram_iter.
+On Thu, Nov 06, 2014 at 08:04:17AM +0100, Oliver Hartkopp wrote:
+> On 06.11.2014 02:57, Dong Aisheng wrote:
+> >On Wed, Nov 05, 2014 at 07:15:10PM +0100, Oliver Hartkopp wrote:
+> 
+> >>The Message RAM is usually equipped with a parity or ECC functionality.
+> >>But RAM cells suffer a hardware reset and can therefore hold
+> >>arbitrary content at startup - including parity and/or ECC bits.
+> >>
+> >>So when you write only the CAN ID and the first four bytes the last
+> >>four bytes remain untouched. Then the M_CAN starts to read in 32bit
+> >>words from the start of the Tx Message element. So it is very likely
+> >>to trigger the message RAM error when reading the uninitialized
+> >>32bit word from the last four bytes.
+> >>
+> >>Finally it turns out that an initial writing (with any kind of data)
+> >>to the entire message RAM is mandatory to create valid parity/ECC
+> >>checksums.
+> >>
+> >>That's it.
+> >>
+> >
+> >Thanks for sharing this information.
+> >Does it mean this issue is related to the nature of Message RAM and is
+> >supposed to exist on all M_CAN IP versions?
+> 
+> From what I know from the 3.1.x revision there's no change regarding
+> IR.BRU and IR.BEC - so I would assume this to stay on all M_CAN IP
+> revisions.
+> 
+> But after some sleep I wonder if this patch [3/3] would need an update too.
+> 
+> Writing to the TX message RAM is obviously no workaround but a valid
+> and needed initialization process.
+> 
+> I would tend to make this patch:
+> 
+> ---
+> 
+> can: m_can: add missing TX message RAM initialization
+> 
+> The M_CAN message RAM is usually equipped with a parity or ECC functionality.
+> But RAM cells suffer a hardware reset and can therefore hold
+> arbitrary content at startup - including parity and/or ECC bits.
+> 
+> To prevent the M_CAN controller detecting checksum errors when
+> reading potentially uninitialized TX message RAM content to transmit
+> CAN frames the TX message RAM has to be written with (any kind of)
+> initial data.
+> 
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
----
+The key point of the issue is that why M_CAN will read potentially uninitialized
+TX message RAM content which should not happen?
+e.g. for our case of the issue, if we sending a no data frame or a less
+than 4 bytes frame, why m_can will read extra 4 bytes uninitialized/unset
+data which seems not reasonable?
 
- drivers/net/macvtap.c |   45 ++++++++++++++++++++-------------------------
- 1 file changed, 20 insertions(+), 25 deletions(-)
+>From IP code logic, it will read full 8 bytes of data no matter how many data
+actually to be transfered which is strange.
 
-diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-index 880cc09..a0e1dd7 100644
---- a/drivers/net/macvtap.c
-+++ b/drivers/net/macvtap.c
-@@ -15,6 +15,7 @@
- #include <linux/cdev.h>
- #include <linux/idr.h>
- #include <linux/fs.h>
-+#include <linux/uio.h>
- 
- #include <net/ipv6.h>
- #include <net/net_namespace.h>
-@@ -778,31 +779,28 @@ static ssize_t macvtap_aio_write(struct kiocb *iocb, const struct iovec *iv,
- /* Put packet to the user space buffer */
- static ssize_t macvtap_put_user(struct macvtap_queue *q,
- 				const struct sk_buff *skb,
--				const struct iovec *iv, int len)
-+				struct iov_iter *iter)
- {
- 	int ret;
- 	int vnet_hdr_len = 0;
- 	int vlan_offset = 0;
--	int copied, total;
-+	int total;
- 
- 	if (q->flags & IFF_VNET_HDR) {
- 		struct virtio_net_hdr vnet_hdr;
- 		vnet_hdr_len = q->vnet_hdr_sz;
--		if ((len -= vnet_hdr_len) < 0)
-+		if (iov_iter_count(iter) < vnet_hdr_len)
- 			return -EINVAL;
- 
- 		macvtap_skb_to_vnet_hdr(skb, &vnet_hdr);
- 
--		if (memcpy_toiovecend(iv, (void *)&vnet_hdr, 0, sizeof(vnet_hdr)))
-+		if (copy_to_iter(&vnet_hdr, sizeof(vnet_hdr), iter))
- 			return -EFAULT;
- 	}
--	total = copied = vnet_hdr_len;
-+	total = vnet_hdr_len;
- 	total += skb->len;
- 
--	if (!vlan_tx_tag_present(skb))
--		len = min_t(int, skb->len, len);
--	else {
--		int copy;
-+	if (vlan_tx_tag_present(skb)) {
- 		struct {
- 			__be16 h_vlan_proto;
- 			__be16 h_vlan_TCI;
-@@ -811,37 +809,33 @@ static ssize_t macvtap_put_user(struct macvtap_queue *q,
- 		veth.h_vlan_TCI = htons(vlan_tx_tag_get(skb));
- 
- 		vlan_offset = offsetof(struct vlan_ethhdr, h_vlan_proto);
--		len = min_t(int, skb->len + VLAN_HLEN, len);
- 		total += VLAN_HLEN;
- 
--		copy = min_t(int, vlan_offset, len);
--		ret = skb_copy_datagram_const_iovec(skb, 0, iv, copied, copy);
--		len -= copy;
--		copied += copy;
--		if (ret || !len)
-+		ret = skb_copy_datagram_iter(skb, 0, iter, vlan_offset);
-+		if (ret || !iov_iter_count(iter))
- 			goto done;
- 
--		copy = min_t(int, sizeof(veth), len);
--		ret = memcpy_toiovecend(iv, (void *)&veth, copied, copy);
--		len -= copy;
--		copied += copy;
--		if (ret || !len)
-+		ret = copy_to_iter(&veth, sizeof(veth), iter);
-+		if (ret || !iov_iter_count(iter))
- 			goto done;
- 	}
- 
--	ret = skb_copy_datagram_const_iovec(skb, vlan_offset, iv, copied, len);
-+	ret = skb_copy_datagram_iter(skb, vlan_offset, iter,
-+				     skb->len - vlan_offset);
- 
- done:
- 	return ret ? ret : total;
- }
- 
- static ssize_t macvtap_do_read(struct macvtap_queue *q,
--			       const struct iovec *iv, unsigned long len,
-+			       const struct iovec *iv, unsigned long segs,
-+			       unsigned long len,
- 			       int noblock)
- {
- 	DEFINE_WAIT(wait);
- 	struct sk_buff *skb;
- 	ssize_t ret = 0;
-+	struct iov_iter iter;
- 
- 	while (len) {
- 		if (!noblock)
-@@ -863,7 +857,8 @@ static ssize_t macvtap_do_read(struct macvtap_queue *q,
- 			schedule();
- 			continue;
- 		}
--		ret = macvtap_put_user(q, skb, iv, len);
-+		iov_iter_init(&iter, READ, iv, segs, len);
-+		ret = macvtap_put_user(q, skb, &iter);
- 		kfree_skb(skb);
- 		break;
- 	}
-@@ -886,7 +881,7 @@ static ssize_t macvtap_aio_read(struct kiocb *iocb, const struct iovec *iv,
- 		goto out;
- 	}
- 
--	ret = macvtap_do_read(q, iv, len, file->f_flags & O_NONBLOCK);
-+	ret = macvtap_do_read(q, iv, count, len, file->f_flags & O_NONBLOCK);
- 	ret = min_t(ssize_t, ret, len);
- 	if (ret > 0)
- 		iocb->ki_pos = ret;
-@@ -1117,7 +1112,7 @@ static int macvtap_recvmsg(struct kiocb *iocb, struct socket *sock,
- 	int ret;
- 	if (flags & ~(MSG_DONTWAIT|MSG_TRUNC))
- 		return -EINVAL;
--	ret = macvtap_do_read(q, m->msg_iov, total_len,
-+	ret = macvtap_do_read(q, m->msg_iov, m->msg_iovlen, total_len,
- 			  flags & MSG_DONTWAIT);
- 	if (ret > total_len) {
- 		m->msg_flags |= MSG_TRUNC;
+For sending data over 4 bytes, since the Message RAM content will be filled
+with the real data to be transfered so there's no such issue.
+
+> ---
+> 
+> Then the code should memset() the entire TX FIFO element - and not
+> only the 8 data bytes we are addressing now.
+> 
+
+Our IC guy told me the issue only happened on transferring a data size
+of less than 4 bytes and my test also proved that.
+So i'm not sure memset() the entire TX FIFO element is neccesary...
+
+Do you think we could keep the current solution firstly and updated later
+if needed?
+
+> Maybe it makes sense to send the entire updated patch set (3) again ...
+> 
+> [1/3] can: add can_is_canfd_skb() API
+> [2/3] can: m_can: update to support CAN FD features
+> [3/3] can: m_can: add missing message RAM initialization
+> 
+> Are you ok with that?
+> 
+> Regards,
+> Oliver
+> 
+
+Regards
+Dong Aisheng
