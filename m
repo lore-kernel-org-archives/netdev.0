@@ -1,42 +1,44 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: [PATCH 1/2 net-next] sunvnet: Fix indentation in maybe_tx_wakeup()
-Date: Thu, 6 Nov 2014 14:51:02 -0500
-Message-ID: <20141106195102.GE6238@oracle.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: mv643xx_eth: reclaim TX skbs only when released
+ by the HW
+Date: Thu, 06 Nov 2014 14:55:34 -0500 (EST)
+Message-ID: <20141106.145534.804171709065169233.davem@davemloft.net>
+References: <1415197979-1702-1-git-send-email-karl.beldan@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net, sowmini.varadhan@oracle.com,
-	ben@decadent.org.uk
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: karl.beldan@rivierawaves.com, netdev@vger.kernel.org,
+	ijc@hellion.org.uk, eric.dumazet@gmail.com,
+	ezequiel.garcia@free-electrons.com, sebastian.hesselbarth@gmail.com
+To: karl.beldan@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:27740 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751678AbaKFTvL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 14:51:11 -0500
-Content-Disposition: inline
+Received: from shards.monkeyblade.net ([149.20.54.216]:58135 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751133AbaKFTzh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 14:55:37 -0500
+In-Reply-To: <1415197979-1702-1-git-send-email-karl.beldan@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Karl Beldan <karl.beldan@gmail.com>
+Date: Wed,  5 Nov 2014 15:32:59 +0100
 
-remove redundant tab.
+> From: Karl Beldan <karl.beldan@rivierawaves.com>
+> 
+> ATM, txq_reclaim will dequeue and free an skb for each tx desc released
+> by the hw that has TX_LAST_DESC set. However, in case of TSO, each
+> hw desc embedding the last part of a segment has TX_LAST_DESC set,
+> losing the one-to-one 'last skb frag'/'TX_LAST_DESC set' correspondance,
+> which causes data corruption.
+> 
+> Fix this by checking TX_ENABLE_INTERRUPT instead of TX_LAST_DESC, and
+> warn when trying to dequeue from an empty txq (which can be symptomatic
+> of releasing skbs prematurely).
+> 
+> Fixes: 3ae8f4e0b98 ('net: mv643xx_eth: Implement software TSO')
+> Reported-by: Slawomir Gajzner <slawomir.gajzner@gmail.com>
+> Reported-by: Julien D'Ascenzio <jdascenzio@yahoo.fr>
+> Signed-off-by: Karl Beldan <karl.beldan@rivierawaves.com>
 
-Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Reported-by: Ben Hutchings <ben@decadent.org.uk>
----
- drivers/net/ethernet/sun/sunvnet.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/sun/sunvnet.c b/drivers/net/ethernet/sun/sunvnet.c
-index e7bb63b..2688b19 100644
---- a/drivers/net/ethernet/sun/sunvnet.c
-+++ b/drivers/net/ethernet/sun/sunvnet.c
-@@ -627,7 +627,7 @@ static void maybe_tx_wakeup(struct vnet_port *port)
- 		struct vio_dring_state *dr;
- 
- 		dr = &port->vio.drings[VIO_DRIVER_TX_RING];
--			netif_tx_wake_queue(txq);
-+		netif_tx_wake_queue(txq);
- 	}
- 	__netif_tx_unlock(txq);
- }
--- 
-1.8.4.2
+Applied and queued up for -stable, but it seems there might still be some
+bugs to resolve...
