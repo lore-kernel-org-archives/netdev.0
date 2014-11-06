@@ -1,50 +1,50 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH 1/3 3.18] rtlwifi: Fix setting of tx descriptor for new trx flow
-Date: Wed,  5 Nov 2014 19:10:52 -0600
-Message-ID: <1415236254-12274-2-git-send-email-Larry.Finger@lwfinger.net>
-References: <1415236254-12274-1-git-send-email-Larry.Finger@lwfinger.net>
-Cc: linux-wireless@vger.kernel.org,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	netdev@vger.kernel.org
-To: linville@tuxdriver.com
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH net-next] net: gro: add a per device gro flush timer
+Date: Wed, 05 Nov 2014 17:38:35 -0800
+Message-ID: <545AD11B.5050603@hp.com>
+References: <1415235320.13896.51.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Willem de Bruijn <willemb@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f181.google.com ([209.85.214.181]:54243 "EHLO
-	mail-ob0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750990AbaKFBLT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2014 20:11:19 -0500
-In-Reply-To: <1415236254-12274-1-git-send-email-Larry.Finger@lwfinger.net>
+Received: from g2t1383g.austin.hp.com ([15.217.136.92]:3618 "EHLO
+	g2t1383g.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750877AbaKFBii (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Nov 2014 20:38:38 -0500
+Received: from g2t2352.austin.hp.com (g2t2352.austin.hp.com [15.217.128.51])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by g2t1383g.austin.hp.com (Postfix) with ESMTPS id 64A3DBAD
+	for <netdev@vger.kernel.org>; Thu,  6 Nov 2014 01:38:38 +0000 (UTC)
+In-Reply-To: <1415235320.13896.51.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Device RTL8192EE uses a new form of trx flow. This fix sets up the descriptors
-correctly.
+On 11/05/2014 04:55 PM, Eric Dumazet wrote:
+> Tested:
+>   Ran 200 netperf TCP_STREAM from A to B (10Gbe link, 8 RX queues)
+>
+> Without this feature, we send back about 305,000 ACK per second.
+>
+> GRO aggregation ratio is low (811/305 = 2.65 segments per GRO packet)
+>
+> Setting a timer of 2000 nsec is enough to increase GRO packet sizes
+> and reduce number of ACK packets. (811/19.2 = 42)
+>
+> Receiver performs less calls to upper stacks, less wakes up.
+> This also reduces cpu usage on the sender, as it receives less ACK
+> packets.
+>
+> Note that reducing number of wakes up increases cpu efficiency, but can
+> decrease QPS, as applications wont have the chance to warmup cpu caches
+> doing a partial read of RPC requests/answers if they fit in one skb.
 
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
----
- drivers/net/wireless/rtlwifi/pci.c | 11 ++++++++---
- 1 file changed, 8 insertions(+), 3 deletions(-)
+Speaking of QPS, what happens to 200 TCP_RR tests when the feature is 
+enabled?
 
-diff --git a/drivers/net/wireless/rtlwifi/pci.c b/drivers/net/wireless/rtlwifi/pci.c
-index 25daa87..116f746 100644
---- a/drivers/net/wireless/rtlwifi/pci.c
-+++ b/drivers/net/wireless/rtlwifi/pci.c
-@@ -1127,9 +1127,14 @@ static void _rtl_pci_prepare_bcn_tasklet(struct ieee80211_hw *hw)
- 
- 	__skb_queue_tail(&ring->queue, pskb);
- 
--	rtlpriv->cfg->ops->set_desc(hw, (u8 *)pdesc, true, HW_DESC_OWN,
--				    &temp_one);
--
-+	if (rtlpriv->use_new_trx_flow) {
-+		temp_one = 4;
-+		rtlpriv->cfg->ops->set_desc(hw, (u8 *)pbuffer_desc, true,
-+					    HW_DESC_OWN, (u8 *)&temp_one);
-+	} else {
-+		rtlpriv->cfg->ops->set_desc(hw, (u8 *)pdesc, true, HW_DESC_OWN,
-+					    &temp_one);
-+	}
- 	return;
- }
- 
--- 
-2.1.2
+rick jones
