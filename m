@@ -1,149 +1,124 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH iproute2 next] ip route: enable per-route ecn settings via 'features' option
-Date: Thu,  6 Nov 2014 22:15:32 +0100
-Message-ID: <1415308532-4785-1-git-send-email-fw@strlen.de>
-Cc: Florian Westphal <fw@strlen.de>
-To: <netdev@vger.kernel.org>
+From: Joe Stringer <joestringer@nicira.com>
+Subject: Re: [PATCH net 3/5] fm10k: Implement ndo_gso_check()
+Date: Thu, 6 Nov 2014 13:15:22 -0800
+Message-ID: <20141106211522.GA55313@gmail.com>
+References: <1415138202-1197-1-git-send-email-joestringer@nicira.com>
+ <1415138202-1197-4-git-send-email-joestringer@nicira.com>
+ <545AE2C8.3070705@gmail.com>
+ <20141106184115.GB18339@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Alexander Duyck <alexander.duyck@gmail.com>,
+	sathya.perla@emulex.com, jeffrey.t.kirsher@intel.com,
+	linux.nics@intel.com, amirv@mellanox.com, shahed.shaikh@qlogic.com,
+	therbert@google.com
+To: alexander.duyck@gmail.com, netdev@vger.kernel.org,
+	Dept-GELinuxNICDev@qlogic.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:54525 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751229AbaKFVPo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 16:15:44 -0500
+Received: from na3sys009aog128.obsmtp.com ([74.125.149.141]:58253 "HELO
+	na3sys009aog128.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1750828AbaKFVPj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 16:15:39 -0500
+Received: by mail-pd0-f173.google.com with SMTP id v10so1880590pde.18
+        for <netdev@vger.kernel.org>; Thu, 06 Nov 2014 13:15:38 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20141106184115.GB18339@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This permits to selectively enable explicit congestion notification via
-the routing table.
+On Thu, Nov 06, 2014 at 10:41:15AM -0800, Joe Stringer wrote:
+> On Wed, Nov 05, 2014 at 06:54:00PM -0800, Alexander Duyck wrote:
+> > On 11/04/2014 01:56 PM, Joe Stringer wrote:
+> > > ndo_gso_check() was recently introduced to allow NICs to report t=
+he
+> > > offloading support that they have on a per-skb basis. Add an
+> > > implementation for this driver which checks for something that lo=
+oks
+> > > like VXLAN.
+> > >
+> > > Implementation shamelessly stolen from Tom Herbert:
+> > > http://thread.gmane.org/gmane.linux.network/332428/focus=3D333111
+> > >
+> > > Signed-off-by: Joe Stringer <joestringer@nicira.com>
+> > > ---
+> > > Should this driver report support for GSO on packets with tunnel =
+headers
+> > > up to 64B like the i40e driver does?
+> > > ---
+> > >  drivers/net/ethernet/intel/fm10k/fm10k_netdev.c |   12 +++++++++=
++++
+> > >  1 file changed, 12 insertions(+)
+> > >
+> > > diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c b/dr=
+ivers/net/ethernet/intel/fm10k/fm10k_netdev.c
+> > > index 8811364..b9ef622 100644
+> > > --- a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
+> > > +++ b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
+> > > @@ -1350,6 +1350,17 @@ static void fm10k_dfwd_del_station(struct =
+net_device *dev, void *priv)
+> > >  	}
+> > >  }
+> > > =20
+> > > +static bool fm10k_gso_check(struct sk_buff *skb, struct net_devi=
+ce *dev)
+> > > +{
+> > > +	if ((skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL) &&
+> > > +	    (skb->inner_protocol_type !=3D ENCAP_TYPE_ETHER ||
+> > > +	     skb->inner_protocol !=3D htons(ETH_P_TEB) ||
+> > > +	     skb_inner_mac_header(skb) - skb_transport_header(skb) !=3D=
+ 16))
+> > > +		return false;
+> > > +
+> > > +	return true;
+> > > +}
+> > > +
+> > >  static const struct net_device_ops fm10k_netdev_ops =3D {
+> > >  	.ndo_open		=3D fm10k_open,
+> > >  	.ndo_stop		=3D fm10k_close,
+> > > @@ -1372,6 +1383,7 @@ static const struct net_device_ops fm10k_ne=
+tdev_ops =3D {
+> > >  	.ndo_do_ioctl		=3D fm10k_ioctl,
+> > >  	.ndo_dfwd_add_station	=3D fm10k_dfwd_add_station,
+> > >  	.ndo_dfwd_del_station	=3D fm10k_dfwd_del_station,
+> > > +	.ndo_gso_check		=3D fm10k_gso_check,
+> > >  };
+> > > =20
+> > >  #define DEFAULT_DEBUG_LEVEL_SHIFT 3
+> >=20
+> > I'm thinking this check is far too simplistic.  If you look the fm1=
+0k
+> > driver already has fm10k_tx_encap_offload() in the TSO function for
+> > verifying if it can support offloading tunnels or not.  I would
+> > recommend starting there or possibly even just adapting that functi=
+on to
+> > suit your purpose.
+> >=20
+> > Thanks,
+> >=20
+> > Alex
+>=20
+> Would it be enough to just call fm10k_tx_encap_offload() in a way tha=
+t echoes fm10k_tso()?
+>=20
+> +static bool fm10k_gso_check(struct sk_buff *skb, struct net_device *=
+dev)
+> +{
+> + =A0 =A0 =A0 if (skb->encapsulation && !fm10k_tx_encap_offload(skb))
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return false;
+> +
+> + =A0 =A0 =A0 return true;
+> +}
 
-If this ecn feature is not set, the kernel will use the tcp_ecn sysctl
-to decide wheter to use ECN when establising a TCP connection.
+Oh, I suppose we need to check the gso_type too. More like this?
 
-At the time of this writing, the kernel supports ecn and allfrags, but
-allfrags is of dubious value and not implemented here.
-
-Example:
-
-ip route change 192.168.2.0/24 dev eth0 features ecn
-
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
- ip/iproute.c           | 32 ++++++++++++++++++++++++++++++++
- man/man8/ip-route.8.in | 18 ++++++++++++++++++
- 2 files changed, 50 insertions(+)
-
-diff --git a/ip/iproute.c b/ip/iproute.c
-index d77b1e3..ad1cbab 100644
---- a/ip/iproute.c
-+++ b/ip/iproute.c
-@@ -80,6 +80,7 @@ static void usage(void)
- 	fprintf(stderr, "           [ window NUMBER] [ cwnd NUMBER ] [ initcwnd NUMBER ]\n");
- 	fprintf(stderr, "           [ ssthresh NUMBER ] [ realms REALM ] [ src ADDRESS ]\n");
- 	fprintf(stderr, "           [ rto_min TIME ] [ hoplimit NUMBER ] [ initrwnd NUMBER ]\n");
-+	fprintf(stderr, "           [ features FEATURES ]\n");
- 	fprintf(stderr, "           [ quickack BOOL ]\n");
- 	fprintf(stderr, "TYPE := [ unicast | local | broadcast | multicast | throw |\n");
- 	fprintf(stderr, "          unreachable | prohibit | blackhole | nat ]\n");
-@@ -89,6 +90,7 @@ static void usage(void)
- 	fprintf(stderr, "RTPROTO := [ kernel | boot | static | NUMBER ]\n");
- 	fprintf(stderr, "TIME := NUMBER[s|ms]\n");
- 	fprintf(stderr, "BOOL := [1|0]\n");
-+	fprintf(stderr, "FEATURES := ecn\n");
- 	exit(-1);
- }
- 
-@@ -280,6 +282,19 @@ static int calc_host_len(const struct rtmsg *r)
- 		return -1;
- }
- 
-+static void print_rtax_features(FILE *fp, unsigned int features)
++static bool fm10k_gso_check(struct sk_buff *skb, struct net_device *de=
+v)
 +{
-+	unsigned int of = features;
++       if ((skb_shinfo(skb)->gso_type & (SKB_GSO_UDP_TUNNEL | SKB_GSO_=
+GRE)) &&
++           !fm10k_tx_encap_offload(skb))
++               return false;
 +
-+	if (features & RTAX_FEATURE_ECN) {
-+		fprintf(fp, " ecn");
-+		features &= ~RTAX_FEATURE_ECN;
-+	}
-+
-+	if (features)
-+		fprintf(fp, " 0x%x", of);
++       return true;
 +}
-+
- int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- {
- 	FILE *fp = (FILE*)arg;
-@@ -535,6 +550,9 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 
- 			val = *(unsigned*)RTA_DATA(mxrta[i]);
- 			switch (i) {
-+			case RTAX_FEATURES:
-+				print_rtax_features(fp, val);
-+				break;
- 			case RTAX_HOPLIMIT:
- 				if ((int)val == -1)
- 					val = 0;
-@@ -885,6 +903,20 @@ static int iproute_modify(int cmd, unsigned flags, int argc, char **argv)
- 			if (get_unsigned(&win, *argv, 0))
- 				invarg("\"initrwnd\" value is invalid\n", *argv);
- 			rta_addattr32(mxrta, sizeof(mxbuf), RTAX_INITRWND, win);
-+		} else if (matches(*argv, "features") == 0) {
-+			unsigned int features = 0;
-+
-+			while (argc > 0) {
-+				NEXT_ARG();
-+
-+				if (strcmp(*argv, "ecn") == 0)
-+					features |= RTAX_FEATURE_ECN;
-+				else
-+					invarg("\"features\" value not valid\n", *argv);
-+				break;
-+			}
-+
-+			rta_addattr32(mxrta, sizeof(mxbuf), RTAX_FEATURES, features);
- 		} else if (matches(*argv, "quickack") == 0) {
- 			unsigned quickack;
- 			NEXT_ARG();
-diff --git a/man/man8/ip-route.8.in b/man/man8/ip-route.8.in
-index 79bc7f1..89960c1 100644
---- a/man/man8/ip-route.8.in
-+++ b/man/man8/ip-route.8.in
-@@ -113,6 +113,8 @@ replace " } "
- .IR NUMBER " ] [ "
- .B  initrwnd
- .IR NUMBER " ] [ "
-+.B  features
-+.IR FEATURES " ] [ "
- .B  quickack
- .IR BOOL " ]"
- 
-@@ -140,6 +142,10 @@ throw " | " unreachable " | " prohibit " | " blackhole " | " nat " ]"
- .BR kernel " | " boot " | " static " |"
- .IR NUMBER " ]"
- 
-+.ti -8
-+.IR FEATURES " := [ "
-+.BR ecn " | ]"
-+
- 
- .SH DESCRIPTION
- .B ip route
-@@ -411,6 +417,18 @@ Actual window size is this value multiplied by the MSS of the connection.
- The default value is zero, meaning to use Slow Start value.
- 
- .TP
-+.BI features " FEATURES " (3.18+ only)
-+Enable or disable per-route features.  Only available feature at this
-+time is
-+.B ecn
-+to enable explicit congestion notification when initiating connections to the
-+given destination network.
-+When responding to a connection request from the given network, ecn will
-+also be used even if the
-+.B net.ipv4.tcp_ecn
-+sysctl is set to 0.
-+
-+.TP
- .BI quickack " BOOL " "(3.11+ only)"
- Enable or disable quick ack for connections to this destination.
- 
--- 
-2.0.4
