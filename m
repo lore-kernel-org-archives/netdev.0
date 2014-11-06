@@ -1,93 +1,80 @@
-From: Govindarajulu Varadarajan <_govind@gmx.com>
-Subject: [PATCH net 2/2] enic: update desc properly in rx_copybreak
-Date: Thu,  6 Nov 2014 15:21:39 +0530
-Message-ID: <1415267499-25955-2-git-send-email-_govind@gmx.com>
-References: <1415267499-25955-1-git-send-email-_govind@gmx.com>
-Cc: Govindarajulu Varadarajan <_govind@gmx.com>
-To: ssujith@cisco.com, netdev@vger.kernel.org, davem@davemloft.net
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: RE: ipv4: Use standard iovec primitive in raw_probe_proto_opt
+Date: Thu, 6 Nov 2014 09:55:31 +0000
+Message-ID: <A2BAEFC30C8FD34388F02C9B3121859D1C3087CA@eusaamb103.ericsson.se>
+References: <20141105035536.GO7996@ZenIV.linux.org.uk>
+ <20141105.155054.2198151263164321219.davem@davemloft.net>
+ <20141105210745.GT7996@ZenIV.linux.org.uk>
+ <20141105.165719.835728206041332333.davem@davemloft.net>
+ <20141106032533.GU7996@ZenIV.linux.org.uk>
+ <20141106055023.GA28865@gondor.apana.org.au>
+ <20141106064318.GW7996@ZenIV.linux.org.uk>
+ <20141106064629.GA29321@gondor.apana.org.au>
+ <20141106071109.GX7996@ZenIV.linux.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"bcrl@kvack.org" <bcrl@kvack.org>,
+	"Masahide Nakamura" <nakam@linux-ipv6.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+To: Al Viro <viro@ZenIV.linux.org.uk>,
+	Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.17.21]:58767 "EHLO mout.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750901AbaKFJwc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Nov 2014 04:52:32 -0500
-In-Reply-To: <1415267499-25955-1-git-send-email-_govind@gmx.com>
+Received: from usevmg20.ericsson.net ([198.24.6.45]:53790 "EHLO
+	usevmg20.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752005AbaKFJzd convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 04:55:33 -0500
+In-Reply-To: <20141106071109.GX7996@ZenIV.linux.org.uk>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When we reuse the rx buffer, we need to update the desc. If not hardware sees
-stale value.
 
-In the following crash, when mtu is changed, hardware sees old rx buffer value
-and crashes on skb_put.
 
-Fix this by using enic_queue_rq_desc helper function which updates the necessary
-desc.
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org [mailto:netdev-
+> owner@vger.kernel.org] On Behalf Of Al Viro
+> Sent: November-06-14 8:11 AM
+> To: Herbert Xu
+> Cc: David Miller; netdev@vger.kernel.org; linux-kernel@vger.kernel.org;
+> bcrl@kvack.org; Masahide Nakamura; Hideaki YOSHIFUJI
+> Subject: Re: ipv4: Use standard iovec primitive in raw_probe_proto_opt
+> 
+> On Thu, Nov 06, 2014 at 02:46:29PM +0800, Herbert Xu wrote:
+> > On Thu, Nov 06, 2014 at 06:43:18AM +0000, Al Viro wrote:
+> > > On Thu, Nov 06, 2014 at 01:50:23PM +0800, Herbert Xu wrote:
+> > > > +	/* We only need the first two bytes. */
+> > > > +	err = memcpy_fromiovecend((void *)&icmph, msg->msg_iov, 0, 2);
+> > > > +	if (err)
+> > > > +		return err;
+> > > > +
+> > > > +	fl4->fl4_icmp_type = icmph.type;
+> > > > +	fl4->fl4_icmp_code = icmph.code;
+> > >
+> > > That's more readable, but that exposes another problem in there - we
+> > > read the same piece of userland data twice, with no promise
+> > > whatsoever that we'll get the same value both times...
+> >
+> > Sure, but you have to be root anyway to write to raw sockets.
+> 
+> Point, but that might very well be a pattern to watch for - there's at least one
+> more instance in TIPC (also not exploitable, according to TIPC folks) and such
 
-[   64.657376] skbuff: skb_over_panic: text:ffffffffa041f55d len:9010 put:9010 head:ffff8800d3ca9fc0 data:ffff8800d3caa000 tail:0x2372 end:0x640 dev:enp0s3
-[   64.659965] ------------[ cut here ]------------
-[   64.661322] kernel BUG at net/core/skbuff.c:100!
-[   64.662644] invalid opcode: 0000 [#1] PREEMPT SMP
-[   64.664001] Modules linked in: rpcsec_gss_krb5 auth_rpcgss oid_registry nfsv4 cirrus ttm drm_kms_helper drm enic psmouse microcode evdev serio_raw syscopyarea sysfillrect sysimgblt i2c_piix4 i2c_core pcspkr nfs lockd grace sunrpc fscache ext4 crc16 mbcache jbd2 sd_mod ata_generic virtio_balloon ata_piix libata uhci_hcd virtio_pci virtio_ring usbcore usb_common virtio scsi_mod
-[   64.664834] CPU: 0 PID: 0 Comm: swapper/0 Tainted: G        W      3.17.0-netnext-10335-g942396b-dirty #273
-[   64.664834] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
-[   64.664834] task: ffffffff81a1d580 ti: ffffffff81a00000 task.ti: ffffffff81a00000
-[   64.664834] RIP: 0010:[<ffffffff81392cf1>]  [<ffffffff81392cf1>] skb_panic+0x61/0x70
-[   64.664834] RSP: 0018:ffff880210603d48  EFLAGS: 00010292
-[   64.664834] RAX: 000000000000008c RBX: ffff88020b0f6930 RCX: 0000000000000000
-[   64.664834] RDX: 000000000000008c RSI: ffffffff8178b288 RDI: 00000000ffffffff
-[   64.664834] RBP: ffff880210603d68 R08: 0000000000000001 R09: 0000000000000001
-[   64.664834] R10: 00000000000005ce R11: 0000000000000001 R12: ffff88020b1f0b40
-[   64.664834] R13: 000000000000a332 R14: ffff880209a1a000 R15: 0000000000000001
-[   64.664834] FS:  0000000000000000(0000) GS:ffff880210600000(0000) knlGS:0000000000000000
-[   64.664834] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-[   64.664834] CR2: 00007f6752935e48 CR3: 0000000035743000 CR4: 00000000000006f0
-[   64.664834] Stack:
-[   64.664834]  ffff8800d3caa000 0000000000002372 0000000000000640 ffff88020b1f0000
-[   64.664834]  ffff880210603d78 ffffffff81392d54 ffff880210603e08 ffffffffa041f55d
-[   64.664834]  0000000000000296 ffffffff00000000 00008e7e00008e7e ffff880200002332
-[   64.664834] Call Trace:
-[   64.664834]  <IRQ>
-[   64.664834]
-[   64.664834]  [<ffffffff81392d54>] skb_put+0x54/0x60
-[   64.664834]  [<ffffffffa041f55d>] enic_rq_service.constprop.47+0x3ad/0x730 [enic]
-[   64.664834]  [<ffffffffa041fa79>] enic_poll_msix_rq+0x199/0x370 [enic]
-[   64.664834]  [<ffffffff813a5499>] net_rx_action+0x139/0x210
-[   64.664834]  [<ffffffff81290db3>] ? __this_cpu_preempt_check+0x13/0x20
-[   64.664834]  [<ffffffff8106110e>] __do_softirq+0x14e/0x280
-[   64.664834]  [<ffffffff8106152e>] irq_exit+0x8e/0xb0
-[   64.664834]  [<ffffffff8100fd21>] do_IRQ+0x61/0x100
-[   64.664834]  [<ffffffff814a2bf2>] common_interrupt+0x72/0x72
+I don't recall this, and I can't see where it would be either. Can you please
+point to where it is?
 
-fixes: a03bb56e67c357980dae886683733dab5583dc14 ("enic: implement rx_copybreak")
-Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
----
- drivers/net/ethernet/cisco/enic/enic_main.c | 14 ++------------
- 1 file changed, 2 insertions(+), 12 deletions(-)
+///jon
 
-diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
-index cd254d1..73cf165 100644
---- a/drivers/net/ethernet/cisco/enic/enic_main.c
-+++ b/drivers/net/ethernet/cisco/enic/enic_main.c
-@@ -940,18 +940,8 @@ static int enic_rq_alloc_buf(struct vnic_rq *rq)
- 	struct vnic_rq_buf *buf = rq->to_use;
- 
- 	if (buf->os_buf) {
--		buf = buf->next;
--		rq->to_use = buf;
--		rq->ring.desc_avail--;
--		if ((buf->index & VNIC_RQ_RETURN_RATE) == 0) {
--			/* Adding write memory barrier prevents compiler and/or
--			 * CPU reordering, thus avoiding descriptor posting
--			 * before descriptor is initialized. Otherwise, hardware
--			 * can read stale descriptor fields.
--			 */
--			wmb();
--			iowrite32(buf->index, &rq->ctrl->posted_index);
--		}
-+		enic_queue_rq_desc(rq, buf->os_buf, os_buf_index, buf->dma_addr,
-+				   buf->len);
- 
- 		return 0;
- 	}
--- 
-2.1.0
+> bugs are easily repeated...
+> 
+> BTW, I've picked the tun and macvtap related bits from another part of old
+> queue; see vfs.git#untested-macvtap - it's on top of #iov_iter-net and it's
+> really completely untested.  Back then I was mostly interested in killing as
+> many ->aio_write() instances as I could, so it's only the "send" side of things.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in the body
+> of a message to majordomo@vger.kernel.org More majordomo info at
+> http://vger.kernel.org/majordomo-info.html
