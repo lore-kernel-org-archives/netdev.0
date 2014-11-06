@@ -1,135 +1,111 @@
-From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH net-next v2 11/14] openvswitch: Remove flow member from struct ovs_skb_cb
-Date: Thu,  6 Nov 2014 01:19:40 -0800
-Message-ID: <1415265580-1843-1-git-send-email-pshelar@nicira.com>
-Cc: netdev@vger.kernel.org, Lorand Jakab <lojakab@cisco.com>,
-	Pravin B Shelar <pshelar@nicira.com>
-To: davem@davemloft.net
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next 00/10] introduce rocker switch driver with hardware accelerated datapath api - phase 1: bridge fdb offload
+Date: Thu,  6 Nov 2014 10:20:00 +0100
+Message-ID: <1415265610-9338-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
+	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
+	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
+	ben@decadent.org.uk, stephen@networkplumber.org,
+	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
+	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
+	edumazet@google.com, jhs@mojatatu.com, sfeldma@gmail.com,
+	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
+	linville@tuxdriver.com, jasowang@redhat.com, ebiederm@xmission.com,
+	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
+	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
+	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
+	ronye@mellanox.com, simon.horman@netronome.com,
+	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
+	mleitner@redhat.com, shrijeet@gmail.com, gospo@cumulusnetworks.com,
+	bcrl@kvack.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog131.obsmtp.com ([74.125.149.247]:56785 "HELO
-	na3sys009aog131.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752082AbaKFJTn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 04:19:43 -0500
-Received: by mail-pd0-f169.google.com with SMTP id y10so811047pdj.0
-        for <netdev@vger.kernel.org>; Thu, 06 Nov 2014 01:19:42 -0800 (PST)
+Received: from mail-wi0-f169.google.com ([209.85.212.169]:58162 "EHLO
+	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751516AbaKFJUN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 04:20:13 -0500
+Received: by mail-wi0-f169.google.com with SMTP id n3so806294wiv.2
+        for <netdev@vger.kernel.org>; Thu, 06 Nov 2014 01:20:12 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Lorand Jakab <lojakab@cisco.com>
+Hi all.
 
-The 'flow' memeber was chosen for removal because it's only used
-in ovs_execute_actions() we can pass it as argument to this
-function.
+This patchset is just the first phase of switch and switch-ish device
+support api in kernel. Note that the api will extend (our complete work
+can be pulled from https://github.com/jpirko/net-next-rocker).
 
-Signed-off-by: Lorand Jakab <lojakab@cisco.com>
-Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
----
- net/openvswitch/actions.c  |  5 +----
- net/openvswitch/datapath.c | 12 +++++++-----
- net/openvswitch/datapath.h |  4 +---
- 3 files changed, 9 insertions(+), 12 deletions(-)
+So what this patchset includes:
+- introduce switchdev api for implementing switch drivers (so far
+  only linux bridge fdb offload is covered)
+- introduce rocker switch driver which implements switchdev api
 
-diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
-index 9fd33c0..f7e5891 100644
---- a/net/openvswitch/actions.c
-+++ b/net/openvswitch/actions.c
-@@ -865,14 +865,11 @@ static void process_deferred_actions(struct datapath *dp)
- 
- /* Execute a list of actions against 'skb'. */
- int ovs_execute_actions(struct datapath *dp, struct sk_buff *skb,
--			struct sw_flow_key *key)
-+			struct sw_flow_actions *acts, struct sw_flow_key *key)
- {
- 	int level = this_cpu_read(exec_actions_level);
--	struct sw_flow_actions *acts;
- 	int err;
- 
--	acts = rcu_dereference(OVS_CB(skb)->flow->sf_acts);
--
- 	this_cpu_inc(exec_actions_level);
- 	OVS_CB(skb)->egress_tun_info = NULL;
- 	err = do_execute_actions(dp, skb, key,
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index cdbc44c..4fd8a45 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -257,6 +257,7 @@ void ovs_dp_process_packet(struct sk_buff *skb, struct sw_flow_key *key)
- 	const struct vport *p = OVS_CB(skb)->input_vport;
- 	struct datapath *dp = p->dp;
- 	struct sw_flow *flow;
-+	struct sw_flow_actions *sf_acts;
- 	struct dp_stats_percpu *stats;
- 	u64 *stats_counter;
- 	u32 n_mask_hit;
-@@ -282,10 +283,10 @@ void ovs_dp_process_packet(struct sk_buff *skb, struct sw_flow_key *key)
- 		goto out;
- 	}
- 
--	OVS_CB(skb)->flow = flow;
-+	ovs_flow_stats_update(flow, key->tp.flags, skb);
-+	sf_acts = rcu_dereference(flow->sf_acts);
-+	ovs_execute_actions(dp, skb, sf_acts, key);
- 
--	ovs_flow_stats_update(OVS_CB(skb)->flow, key->tp.flags, skb);
--	ovs_execute_actions(dp, skb, key);
- 	stats_counter = &stats->n_hit;
- 
- out:
-@@ -524,6 +525,7 @@ static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
- 	struct sw_flow_actions *acts;
- 	struct sk_buff *packet;
- 	struct sw_flow *flow;
-+	struct sw_flow_actions *sf_acts;
- 	struct datapath *dp;
- 	struct ethhdr *eth;
- 	struct vport *input_vport;
-@@ -579,7 +581,6 @@ static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
- 	rcu_assign_pointer(flow->sf_acts, acts);
- 
- 	OVS_CB(packet)->egress_tun_info = NULL;
--	OVS_CB(packet)->flow = flow;
- 	packet->priority = flow->key.phy.priority;
- 	packet->mark = flow->key.phy.skb_mark;
- 
-@@ -597,9 +598,10 @@ static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
- 		goto err_unlock;
- 
- 	OVS_CB(packet)->input_vport = input_vport;
-+	sf_acts = rcu_dereference(flow->sf_acts);
- 
- 	local_bh_disable();
--	err = ovs_execute_actions(dp, packet, &flow->key);
-+	err = ovs_execute_actions(dp, packet, sf_acts, &flow->key);
- 	local_bh_enable();
- 	rcu_read_unlock();
- 
-diff --git a/net/openvswitch/datapath.h b/net/openvswitch/datapath.h
-index 9741354..1c56a80 100644
---- a/net/openvswitch/datapath.h
-+++ b/net/openvswitch/datapath.h
-@@ -94,14 +94,12 @@ struct datapath {
- 
- /**
-  * struct ovs_skb_cb - OVS data in skb CB
-- * @flow: The flow associated with this packet.  May be %NULL if no flow.
-  * @egress_tun_key: Tunnel information about this packet on egress path.
-  * NULL if the packet is not being tunneled.
-  * @input_vport: The original vport packet came in on. This value is cached
-  * when a packet is received by OVS.
-  */
- struct ovs_skb_cb {
--	struct sw_flow		*flow;
- 	struct ovs_tunnel_info  *egress_tun_info;
- 	struct vport		*input_vport;
- };
-@@ -194,7 +192,7 @@ struct sk_buff *ovs_vport_cmd_build_info(struct vport *, u32 pid, u32 seq,
- 					 u8 cmd);
- 
- int ovs_execute_actions(struct datapath *dp, struct sk_buff *skb,
--			struct sw_flow_key *);
-+			struct sw_flow_actions *acts, struct sw_flow_key *);
- 
- void ovs_dp_notify_wq(struct work_struct *work);
- 
+As to the discussion if there is need to have specific class of device
+representing the switch itself, so far we found no need to introduce that.
+But we are generally ok with the idea and when the time comes and it will
+be needed, it can be easily introduced without any disturbance.
+
+This patchset introduces switch id export through rtnetlink and sysfs,
+which is similar to what we have for port id in SR-IOV. I will send iproute2
+patchset for showing the switch id for port netdevs once this is applied.
+
+For detailed description, please see individual patches.
+
+Jiri Pirko (5):
+  net: rename netdev_phys_port_id to more generic name
+  net: introduce generic switch devices support
+  rtnl: expose physical switch id for particular device
+  net-sysfs: expose physical switch id for particular device
+  rocker: introduce rocker switch driver
+
+Scott Feldman (5):
+  bridge: introduce fdb offloading via switchdev
+  bridge: call netdev_sw_port_stp_update when bridge port STP status
+    changes
+  bridge: add API to notify bridge driver of learned FBD on offloaded
+    device
+  rocker: implement rocker ofdpa flow table manipulation
+  rocker: implement L2 bridge offloading
+
+ Documentation/networking/switchdev.txt           |   59 +
+ MAINTAINERS                                      |   14 +
+ drivers/net/ethernet/Kconfig                     |    1 +
+ drivers/net/ethernet/Makefile                    |    1 +
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |    2 +-
+ drivers/net/ethernet/intel/i40e/i40e_main.c      |    2 +-
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c   |    2 +-
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |    2 +-
+ drivers/net/ethernet/rocker/Kconfig              |   27 +
+ drivers/net/ethernet/rocker/Makefile             |    5 +
+ drivers/net/ethernet/rocker/rocker.c             | 4180 ++++++++++++++++++++++
+ drivers/net/ethernet/rocker/rocker.h             |  427 +++
+ include/linux/if_bridge.h                        |   18 +
+ include/linux/netdevice.h                        |   48 +-
+ include/net/switchdev.h                          |   53 +
+ include/uapi/linux/if_link.h                     |    1 +
+ net/Kconfig                                      |    1 +
+ net/Makefile                                     |    3 +
+ net/bridge/br_fdb.c                              |   94 +-
+ net/bridge/br_netlink.c                          |    2 +
+ net/bridge/br_stp.c                              |    4 +
+ net/bridge/br_stp_if.c                           |    3 +
+ net/bridge/br_stp_timer.c                        |    2 +
+ net/core/dev.c                                   |    2 +-
+ net/core/net-sysfs.c                             |   26 +-
+ net/core/rtnetlink.c                             |   30 +-
+ net/switchdev/Kconfig                            |   13 +
+ net/switchdev/Makefile                           |    5 +
+ net/switchdev/switchdev.c                        |   93 +
+ 29 files changed, 5102 insertions(+), 18 deletions(-)
+ create mode 100644 Documentation/networking/switchdev.txt
+ create mode 100644 drivers/net/ethernet/rocker/Kconfig
+ create mode 100644 drivers/net/ethernet/rocker/Makefile
+ create mode 100644 drivers/net/ethernet/rocker/rocker.c
+ create mode 100644 drivers/net/ethernet/rocker/rocker.h
+ create mode 100644 include/net/switchdev.h
+ create mode 100644 net/switchdev/Kconfig
+ create mode 100644 net/switchdev/Makefile
+ create mode 100644 net/switchdev/switchdev.c
+
 -- 
 1.9.3
