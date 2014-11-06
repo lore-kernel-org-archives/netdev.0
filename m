@@ -1,40 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: gro: add a per device gro flush timer
-Date: Thu, 06 Nov 2014 16:25:16 -0500 (EST)
-Message-ID: <20141106.162516.1083429539800319166.davem@davemloft.net>
-References: <1415235320.13896.51.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: ipv4: Use standard iovec primitive in raw_probe_proto_opt
+Date: Thu, 06 Nov 2014 16:28:08 -0500 (EST)
+Message-ID: <20141106.162808.1546139916210194279.davem@davemloft.net>
+References: <20141106055023.GA28865@gondor.apana.org.au>
+	<20141106064318.GW7996@ZenIV.linux.org.uk>
+	<20141106064629.GA29321@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com, willemb@google.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59008 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750974AbaKFVZU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 16:25:20 -0500
-In-Reply-To: <1415235320.13896.51.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: viro@ZenIV.linux.org.uk, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, bcrl@kvack.org, nakam@linux-ipv6.org,
+	yoshfuji@linux-ipv6.org
+To: herbert@gondor.apana.org.au
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141106064629.GA29321@gondor.apana.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 05 Nov 2014 16:55:20 -0800
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Thu, 6 Nov 2014 14:46:29 +0800
 
-> @@ -4430,8 +4432,19 @@ void napi_complete(struct napi_struct *n)
->  	if (unlikely(test_bit(NAPI_STATE_NPSVC, &n->state)))
->  		return;
->  
-> -	napi_gro_flush(n, false);
-> +	if (n->gro_list) {
-> +		unsigned long timeout = 0;
-> +
-> +		if (n->napi_rx_count)
-> +			timeout = n->dev->gro_flush_timeout;
+> On Thu, Nov 06, 2014 at 06:43:18AM +0000, Al Viro wrote:
+>> On Thu, Nov 06, 2014 at 01:50:23PM +0800, Herbert Xu wrote:
+>> > +	/* We only need the first two bytes. */
+>> > +	err = memcpy_fromiovecend((void *)&icmph, msg->msg_iov, 0, 2);
+>> > +	if (err)
+>> > +		return err;
+>> > +
+>> > +	fl4->fl4_icmp_type = icmph.type;
+>> > +	fl4->fl4_icmp_code = icmph.code;
+>> 
+>> That's more readable, but that exposes another problem in there - we read
+>> the same piece of userland data twice, with no promise whatsoever that we'll
+>> get the same value both times...
+> 
+> Sure, but you have to be root anyway to write to raw sockets.
+> 
+> Patches are welcome :)
 
-Under what circumstances would we see n->gro_list non-NULL yet
-n->napi_rx_count == 0?
+I'd agree with this root-only argument maybe 15 years ago, but with
+containers and stuff like that we want to prevent root X from messing
+up the machine for root Y.
 
-I'm not so sure it can happen.
+This is a recurring topic, and I'd strongly like to avoid adding new
+ways that these kinds of problems can happen.
 
-Said another way, it looks to me like you could implement this
-using less state.
+For example, I'm still on the hook to address the AF_NETLINK mmap TX
+code, which has a similarly abusable issue.
