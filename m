@@ -1,116 +1,66 @@
-From: Murilo Opsfelder Araujo <mopsfelder@gmail.com>
-Subject: Re: [PATCH] rtlwifi: Add more checks for get_btc_status callback
-Date: Thu, 06 Nov 2014 09:40:09 -0200
-Message-ID: <545B5E19.7030704@gmail.com>
-References: <1414625302-3654-1-git-send-email-mopsfelder@gmail.com>	 <5451BED0.2060906@lwfinger.net> <1415178975.5402.66.camel@marge.simpson.net> <545A6894.7040506@lwfinger.net>
+From: Sowmini Varadhan <sowmini05@gmail.com>
+Subject: Re: How to make stack send broadcast ARP request when entry is STALE?
+Date: Thu, 6 Nov 2014 06:48:15 -0500
+Message-ID: <CACP96tQpnqfVtNwQbB9U4e-OLto3LhhS2q0bBir4n4Qz11XMTg@mail.gmail.com>
+References: <C4AF677B-55AC-4CE0-9BFB-EBB2E0C3BF74@emagii.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, Chaoming Li <chaoming_li@realsil.com.cn>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Thadeu Cascardo <cascardo@cascardo.eti.br>,
-	troy_tan@realsil.com.cn
-To: Larry Finger <Larry.Finger@lwfinger.net>,
-	Mike Galbraith <umgwanakikbuti@gmail.com>
+Cc: Netdev <netdev@vger.kernel.org>
+To: Ulf samuelsson <netdev@emagii.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f42.google.com ([209.85.192.42]:64661 "EHLO
-	mail-qg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750789AbaKFLk2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 06:40:28 -0500
-In-Reply-To: <545A6894.7040506@lwfinger.net>
+Received: from mail-la0-f46.google.com ([209.85.215.46]:64283 "EHLO
+	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750789AbaKFLsR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 06:48:17 -0500
+Received: by mail-la0-f46.google.com with SMTP id gm9so2380098lab.5
+        for <netdev@vger.kernel.org>; Thu, 06 Nov 2014 03:48:15 -0800 (PST)
+In-Reply-To: <C4AF677B-55AC-4CE0-9BFB-EBB2E0C3BF74@emagii.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/05/2014 04:12 PM, Larry Finger wrote:
-> On 11/05/2014 03:16 AM, Mike Galbraith wrote:
->> On Wed, 2014-10-29 at 23:30 -0500, Larry Finger wrote:
->>> On 10/29/2014 06:28 PM, Murilo Opsfelder Araujo wrote:
->>>> This is a complement of commit 08054200117a95afc14c3d2ed3a38bf4e345bf78
->>>> "rtlwifi: Add check for get_btc_status callback".
->>>>
->>>> With this patch, next-20141029 at least does not panic with rtl8192se
->>>> device.
->>>>
->>>
->>> This patch is OK, but as noted it is not complete.
->>>
->>> I have patches to fix all the kernel panics for rtl8192se AND
->>> rtl8192ce. There
->>> are missing parts, but I would prefer submitting mine, which would
->>> conflict with
->>> this one. For that reason, NACK for this one, and please apply the
->>> set I am
->>> submitting now.
->>
->> It's all in there now, but my RTL8191SEvB is still dead.  Squabbling
->> with it isn't going all that well either.
->>
->> As soon as 38506ece rtlwifi: rtl_pci: Start modification for new drivers
->> is applied, explosions appear.  Subsequently applying...
->>
->> 08054200 rtlwifi: Add check for get_btc_status callback
->> c0386f15 rtlwifi: rtl8192ce: rtl8192de: rtl8192se: Fix handling for
->> missing get_btc_status
->> 50147969 rtlwifi: rtl8192se: Fix duplicate calls to
->> ieee80211_register_hw()
->> 30c5ccc6 rtlwifi: rtl8192se: Add missing section to read descriptor
->> setting
->> 75a916e1 rtlwifi: rtl8192se: Fix firmware loading
->>
->> ...fixes that mess up, but leaves the interface dead in the same manner
->> as if nothing has been reverted.  So it _seems_ the bustage lurks in
->> 38506ece somewhere.  Too bad it's non-dinky, and written in wifi-ese :)
-> 
-> Yes, I am aware that rtl8192se is failing, and now that I am back from
-> vacation, I am working on the problem. If you want to use the driver
-> with kernel 3.18, clone the repo at
-> http://github.com/lwfinger/rtlwifi_new.git and build and install either
-> the master or kernel_version branches. Both work.
-> 
-> I am in the process of trying to find what the crucial difference is
-> between that repo and the kernel version.
-> 
-> Larry
-> 
-> 
-I'm sending to everyone so others can jump in as well.
+On Wed, Nov 5, 2014 at 1:48 AM, Ulf samuelsson <netdev@emagii.com> wrote:
+> Have a problem with an HP router at a certain location, which
+> is configured to only answer to broadcast ARP requests.
+> That cannot be changed.
+>
+> The first ARP request the kernel sends out, is a broadcast request,
+> which is fine, but after the reply, the kernel sends unicast requests,
+> which will not get any replies.
 
-Here are the steps I've followed.
+I'm afraid that's a problem with your HP router. There is nothing
+in RFC 826 that says that the ARP request MUST be broadcast,
+and many OS'es  will follow the IPv6 ND model of sending
+unicast ARP requests to re-verify cached arp information.
+Looks like the "kernel" you refer to above is following this
+state machine, which is a good and healthy thing- you dont
+want to be needlessly broadcasting arp reverification requests.
 
-Installed and booted my kernel:
+thus even if you have access to the kernel source code (as with linux)
+it's not recommended to broadcast the ARP reverification.
 
-$ sudo dpkg -i linux-image-3.18.0-rc3-next-20141105-panda_3.18.0-rc3-next-20141105-panda-1_amd64.deb linux-headers-3.18.0-rc3-next-20141105-panda_3.18.0-rc3-next-20141105-panda-1_amd64.deb
+> The ARP entry will after some time enter STALE state,
+> and if nothing is done it will time out, and be removed.
+ :
 
-Built modules from Larry's github repository.
+> I think the recommended behaviour in IPv6 is to send out 3 unicasts
+> and if all fails, to send out broadcasts.
 
-$ cd rtlwifi_new
-$ make
-$ sudo make install
+Be careful about the distinction between IPv4 ARP and IPv6 ND.
+The base state-machine for IPv6 is explicitly specified in RFC 4861 (with
+ongoing work to optimize some of this in various ietf working groups)
 
-$ sudo modprobe -rv rtl8192se
-rmmod rtl8192se
-rmmod rtl_pci
-rmmod rtlwifi
-rmmod mac80211
-rmmod cfg80211
+The territory is less clearly defined for ARP. The base protocol comes from
+RFC 726, which does not address DAD  at all- that only comes from rfc 5227.
+Some OS-es (solaris, microsoft?) implelement the same state-machine
+for both IPv4 and IPv6, while also support 5227.
 
-The module does not load:
+>
+> Anyone know any good literature on how the ARP + neigh state machine works
+> in the kernel.
+>
+> I read in Herberts book about the Linux TCP/IP stack and it only discuss how to reply to
+> ARP requests and not anything on how to generate ARP requests.
 
-$ sudo modprobe -v rtl8192se
-insmod /lib/modules/3.18.0-rc3-next-20141105-panda/kernel/net/wireless/cfg80211.ko
-insmod /lib/modules/3.18.0-rc3-next-20141105-panda/kernel/net/mac80211/mac80211.ko
-insmod /lib/modules/3.18.0-rc3-next-20141105-panda/kernel/drivers/net/wireless/rtlwifi/rtlwifi.ko
-insmod /lib/modules/3.18.0-rc3-next-20141105-panda/kernel/drivers/net/wireless/rtlwifi/rtl_pci.ko
-insmod /lib/modules/3.18.0-rc3-next-20141105-panda/extra/rtl8192se.ko
-ERROR: could not insert 'rtl8192se': Invalid argument
+Hope that helps.
 
-And /var/log/messages showed:
-
-Nov  5 22:28:01 laptop kernel: [  301.276806] rtl8192se: disagrees about version of symbol rtl_process_phyinfo
-Nov  5 22:28:01 laptop kernel: [  301.276812] rtl8192se: Unknown symbol rtl_process_phyinfo (err -22)
-Nov  5 22:28:01 laptop kernel: [  301.276864] rtl8192se: disagrees about version of symbol rtl_get_tcb_desc
-Nov  5 22:28:01 laptop kernel: [  301.276866] rtl8192se: Unknown symbol rtl_get_tcb_desc (err -22)
-
--- 
-Murilo
+--Sowmini
