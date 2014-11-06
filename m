@@ -1,27 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/9p: remove a comment about pref member which
- doesn't exist
-Date: Thu, 06 Nov 2014 14:59:31 -0500 (EST)
-Message-ID: <20141106.145931.1669596452321333069.davem@davemloft.net>
-References: <1415198758-18680-1-git-send-email-ryomnktml@gmail.com>
+Subject: Re: [patch net-next] sched: fix act file names in header comment
+Date: Thu, 06 Nov 2014 15:05:26 -0500 (EST)
+Message-ID: <20141106.150526.441054568686633995.davem@davemloft.net>
+References: <1415217111-9803-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ericvh@gmail.com, rminnich@sandia.gov, lucho@ionkov.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: ryomnktml@gmail.com
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58170 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58230 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750877AbaKFT7e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 14:59:34 -0500
-In-Reply-To: <1415198758-18680-1-git-send-email-ryomnktml@gmail.com>
+	with ESMTP id S1751069AbaKFUF2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 15:05:28 -0500
+In-Reply-To: <1415217111-9803-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ryo Munakata <ryomnktml@gmail.com>
-Date: Wed,  5 Nov 2014 23:45:58 +0900
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Wed,  5 Nov 2014 20:51:51 +0100
 
-> Signed-off-by: Ryo Munakata <ryomnktml@gmail.com>
+> Fixes: 4bba3925 ("[PKT_SCHED]: Prefix tc actions with act_")
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 
-Applied, thanks.
+Applied, thanks Jiri.
