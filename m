@@ -1,178 +1,99 @@
 From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH net-next v2 07/14] openvswitch: Refactor ovs_flow_cmd_fill_info().
-Date: Thu,  6 Nov 2014 01:19:23 -0800
-Message-ID: <1415265563-1727-1-git-send-email-pshelar@nicira.com>
-Cc: netdev@vger.kernel.org, Joe Stringer <joestringer@nicira.com>,
+Subject: [PATCH net-next v2 08/14] openvswitch: Refactor get_dp() function into multiple access APIs.
+Date: Thu,  6 Nov 2014 01:19:27 -0800
+Message-ID: <1415265567-1756-1-git-send-email-pshelar@nicira.com>
+Cc: netdev@vger.kernel.org, Andy Zhou <azhou@nicira.com>,
 	Pravin B Shelar <pshelar@nicira.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog135.obsmtp.com ([74.125.149.84]:49806 "HELO
-	na3sys009aog135.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751934AbaKFJT0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 04:19:26 -0500
-Received: by mail-pa0-f49.google.com with SMTP id lj1so884243pab.22
-        for <netdev@vger.kernel.org>; Thu, 06 Nov 2014 01:19:25 -0800 (PST)
+Received: from na3sys009aog132.obsmtp.com ([74.125.149.250]:54775 "HELO
+	na3sys009aog132.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751934AbaKFJTa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 04:19:30 -0500
+Received: by mail-pa0-f53.google.com with SMTP id kx10so872353pab.40
+        for <netdev@vger.kernel.org>; Thu, 06 Nov 2014 01:19:29 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joe Stringer <joestringer@nicira.com>
+From: Andy Zhou <azhou@nicira.com>
 
-Split up ovs_flow_cmd_fill_info() to make it easier to cache parts of a
-dump reply. This will be used to streamline flow_dump in a future patch.
+Avoid recursive read_rcu_lock() by using the lighter weight
+get_dp_rcu() API. Add proper locking assertions to get_dp().
 
-Signed-off-by: Joe Stringer <joestringer@nicira.com>
-Acked-by: Thomas Graf <tgraf@noironetworks.com>
+Signed-off-by: Andy Zhou <azhou@nicira.com>
 Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
 ---
- net/openvswitch/datapath.c | 93 ++++++++++++++++++++++++++++++++--------------
- 1 file changed, 66 insertions(+), 27 deletions(-)
+ net/openvswitch/datapath.c | 31 +++++++++++++++++++++----------
+ 1 file changed, 21 insertions(+), 10 deletions(-)
 
 diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index 04a26ae..bbb920b 100644
+index bbb920b..cdbc44c 100644
 --- a/net/openvswitch/datapath.c
 +++ b/net/openvswitch/datapath.c
-@@ -674,58 +674,67 @@ static size_t ovs_flow_cmd_msg_size(const struct sw_flow_actions *acts)
- }
+@@ -140,19 +140,30 @@ static int queue_gso_packets(struct datapath *dp, struct sk_buff *,
+ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *,
+ 				  const struct dp_upcall_info *);
  
- /* Called with ovs_mutex or RCU read lock. */
--static int ovs_flow_cmd_fill_info(const struct sw_flow *flow, int dp_ifindex,
--				  struct sk_buff *skb, u32 portid,
--				  u32 seq, u32 flags, u8 cmd)
-+static int ovs_flow_cmd_fill_match(const struct sw_flow *flow,
-+				   struct sk_buff *skb)
+-/* Must be called with rcu_read_lock or ovs_mutex. */
+-static struct datapath *get_dp(struct net *net, int dp_ifindex)
++/* Must be called with rcu_read_lock. */
++static struct datapath *get_dp_rcu(struct net *net, int dp_ifindex)
  {
--	const int skb_orig_len = skb->len;
--	struct nlattr *start;
--	struct ovs_flow_stats stats;
--	__be16 tcp_flags;
--	unsigned long used;
--	struct ovs_header *ovs_header;
- 	struct nlattr *nla;
- 	int err;
+-	struct datapath *dp = NULL;
+-	struct net_device *dev;
++	struct net_device *dev = dev_get_by_index_rcu(net, dp_ifindex);
  
--	ovs_header = genlmsg_put(skb, portid, seq, &dp_flow_genl_family, flags, cmd);
--	if (!ovs_header)
--		return -EMSGSIZE;
--
--	ovs_header->dp_ifindex = dp_ifindex;
--
- 	/* Fill flow key. */
- 	nla = nla_nest_start(skb, OVS_FLOW_ATTR_KEY);
- 	if (!nla)
--		goto nla_put_failure;
-+		return -EMSGSIZE;
- 
- 	err = ovs_nla_put_flow(&flow->unmasked_key, &flow->unmasked_key, skb);
- 	if (err)
--		goto error;
-+		return err;
+-	rcu_read_lock();
+-	dev = dev_get_by_index_rcu(net, dp_ifindex);
+ 	if (dev) {
+ 		struct vport *vport = ovs_internal_dev_get_vport(dev);
+ 		if (vport)
+-			dp = vport->dp;
++			return vport->dp;
+ 	}
 +
- 	nla_nest_end(skb, nla);
- 
-+	/* Fill flow mask. */
- 	nla = nla_nest_start(skb, OVS_FLOW_ATTR_MASK);
- 	if (!nla)
--		goto nla_put_failure;
-+		return -EMSGSIZE;
- 
- 	err = ovs_nla_put_flow(&flow->key, &flow->mask->key, skb);
- 	if (err)
--		goto error;
-+		return err;
- 
- 	nla_nest_end(skb, nla);
-+	return 0;
++	return NULL;
 +}
 +
-+/* Called with ovs_mutex or RCU read lock. */
-+static int ovs_flow_cmd_fill_stats(const struct sw_flow *flow,
-+				   struct sk_buff *skb)
++/* The caller must hold either ovs_mutex or rcu_read_lock to keep the
++ * returned dp pointer valid.
++ */
++static inline struct datapath *get_dp(struct net *net, int dp_ifindex)
 +{
-+	struct ovs_flow_stats stats;
-+	__be16 tcp_flags;
-+	unsigned long used;
++	struct datapath *dp;
++
++	WARN_ON_ONCE(!rcu_read_lock_held() && !lockdep_ovsl_is_held());
++	rcu_read_lock();
++	dp = get_dp_rcu(net, dp_ifindex);
+ 	rcu_read_unlock();
  
- 	ovs_flow_stats_get(flow, &stats, &used, &tcp_flags);
+ 	return dp;
+@@ -573,7 +584,7 @@ static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
+ 	packet->mark = flow->key.phy.skb_mark;
  
- 	if (used &&
- 	    nla_put_u64(skb, OVS_FLOW_ATTR_USED, ovs_flow_used_time(used)))
--		goto nla_put_failure;
-+		return -EMSGSIZE;
+ 	rcu_read_lock();
+-	dp = get_dp(sock_net(skb->sk), ovs_header->dp_ifindex);
++	dp = get_dp_rcu(sock_net(skb->sk), ovs_header->dp_ifindex);
+ 	err = -ENODEV;
+ 	if (!dp)
+ 		goto err_unlock;
+@@ -1227,7 +1238,7 @@ static int ovs_flow_cmd_dump(struct sk_buff *skb, struct netlink_callback *cb)
+ 	struct datapath *dp;
  
- 	if (stats.n_packets &&
- 	    nla_put(skb, OVS_FLOW_ATTR_STATS, sizeof(struct ovs_flow_stats), &stats))
--		goto nla_put_failure;
-+		return -EMSGSIZE;
+ 	rcu_read_lock();
+-	dp = get_dp(sock_net(skb->sk), ovs_header->dp_ifindex);
++	dp = get_dp_rcu(sock_net(skb->sk), ovs_header->dp_ifindex);
+ 	if (!dp) {
+ 		rcu_read_unlock();
+ 		return -ENODEV;
+@@ -1989,7 +2000,7 @@ static int ovs_vport_cmd_dump(struct sk_buff *skb, struct netlink_callback *cb)
+ 	int i, j = 0;
  
- 	if ((u8)ntohs(tcp_flags) &&
- 	     nla_put_u8(skb, OVS_FLOW_ATTR_TCP_FLAGS, (u8)ntohs(tcp_flags)))
--		goto nla_put_failure;
-+		return -EMSGSIZE;
-+
-+	return 0;
-+}
-+
-+/* Called with ovs_mutex or RCU read lock. */
-+static int ovs_flow_cmd_fill_actions(const struct sw_flow *flow,
-+				     struct sk_buff *skb, int skb_orig_len)
-+{
-+	struct nlattr *start;
-+	int err;
- 
- 	/* If OVS_FLOW_ATTR_ACTIONS doesn't fit, skip dumping the actions if
- 	 * this is the first flow to be dumped into 'skb'.  This is unusual for
-@@ -749,17 +758,47 @@ static int ovs_flow_cmd_fill_info(const struct sw_flow *flow, int dp_ifindex,
- 			nla_nest_end(skb, start);
- 		else {
- 			if (skb_orig_len)
--				goto error;
-+				return err;
- 
- 			nla_nest_cancel(skb, start);
- 		}
--	} else if (skb_orig_len)
--		goto nla_put_failure;
-+	} else if (skb_orig_len) {
-+		return -EMSGSIZE;
-+	}
-+
-+	return 0;
-+}
-+
-+/* Called with ovs_mutex or RCU read lock. */
-+static int ovs_flow_cmd_fill_info(const struct sw_flow *flow, int dp_ifindex,
-+				  struct sk_buff *skb, u32 portid,
-+				  u32 seq, u32 flags, u8 cmd)
-+{
-+	const int skb_orig_len = skb->len;
-+	struct ovs_header *ovs_header;
-+	int err;
-+
-+	ovs_header = genlmsg_put(skb, portid, seq, &dp_flow_genl_family,
-+				 flags, cmd);
-+	if (!ovs_header)
-+		return -EMSGSIZE;
-+
-+	ovs_header->dp_ifindex = dp_ifindex;
-+
-+	err = ovs_flow_cmd_fill_match(flow, skb);
-+	if (err)
-+		goto error;
-+
-+	err = ovs_flow_cmd_fill_stats(flow, skb);
-+	if (err)
-+		goto error;
-+
-+	err = ovs_flow_cmd_fill_actions(flow, skb, skb_orig_len);
-+	if (err)
-+		goto error;
- 
- 	return genlmsg_end(skb, ovs_header);
- 
--nla_put_failure:
--	err = -EMSGSIZE;
- error:
- 	genlmsg_cancel(skb, ovs_header);
- 	return err;
+ 	rcu_read_lock();
+-	dp = get_dp(sock_net(skb->sk), ovs_header->dp_ifindex);
++	dp = get_dp_rcu(sock_net(skb->sk), ovs_header->dp_ifindex);
+ 	if (!dp) {
+ 		rcu_read_unlock();
+ 		return -ENODEV;
 -- 
 1.9.3
