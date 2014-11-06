@@ -1,57 +1,38 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [PATCH net] dcbnl : Fix lock initialization
-Date: Thu, 06 Nov 2014 11:03:16 -0800
-Message-ID: <545BC5F4.9070501@gmail.com>
-References: <1415297355-27282-1-git-send-email-anish@chelsio.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 00/13] net_sched: misc cleanups and improvements
+Date: Thu, 06 Nov 2014 14:03:37 -0500 (EST)
+Message-ID: <20141106.140337.1905630449245214426.davem@davemloft.net>
+References: <1415152068.1458.2.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CAM_iQpWw4UMKZcdZfpp5D-tDfj954fbptyXJUzydgFCero6xNw@mail.gmail.com>
+	<1415297873.13896.77.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	john.r.fastabend@intel.com, ying.xue@windriver.com,
-	jeffrey.t.kirsher@intel.com, ebiederm@xmission.com
-To: Anish Bhatt <anish@chelsio.com>
+Cc: xiyou.wangcong@gmail.com, netdev@vger.kernel.org, jhs@mojatatu.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f170.google.com ([209.85.214.170]:49339 "EHLO
-	mail-ob0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751151AbaKFTDa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 14:03:30 -0500
-Received: by mail-ob0-f170.google.com with SMTP id nt9so1481568obb.15
-        for <netdev@vger.kernel.org>; Thu, 06 Nov 2014 11:03:30 -0800 (PST)
-In-Reply-To: <1415297355-27282-1-git-send-email-anish@chelsio.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57562 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751151AbaKFTDj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 14:03:39 -0500
+In-Reply-To: <1415297873.13896.77.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/06/2014 10:09 AM, Anish Bhatt wrote:
-> dcb_lock was being used uninitialized in dcbnl and is infact missing
->   initialization code. Fixed
->
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 06 Nov 2014 10:17:53 -0800
 
-Are you trying to resolve a bug? It is initialized with
+> There is a difference from newbies and you.
+> 
+> As a community, we welcome new comers and encourage them,
+> but after a while, people sending mostly cleanups are shifting in a
+> category which doesn't fit to you.
+> 
+> We expect from you more interesting stuff. You can do it.
 
-static DEFINE_SPINLOCK(dcb_lock);
++1
 
-and if you follow the code far enough you get to this in
-spinlock_types.h:
+> If you want to send cleanups, do this once in a while. Do not send 13
+> patches and expect us to be happy with that. We are not.
 
-
-  #ifdef CONFIG_DEBUG_SPINLOCK
-  # define SPIN_DEBUG_INIT(lockname)      \
-      .magic = SPINLOCK_MAGIC,        \
-      .owner_cpu = -1,            \
-      .owner = SPINLOCK_OWNER_INIT,
-  #else
-  # define SPIN_DEBUG_INIT(lockname)
-  #endif
-
-  #define __RAW_SPIN_LOCK_INITIALIZER(lockname)   \
-      {                   \
-      .raw_lock = __ARCH_SPIN_LOCK_UNLOCKED,  \
-      SPIN_DEBUG_INIT(lockname)       \
-      SPIN_DEP_MAP_INIT(lockname) }
-
-[...]
-
-
-
--- 
-John Fastabend         Intel Corporation
++1
