@@ -1,302 +1,106 @@
-From: Julia Niewiejska <julia.niewiejska@fkie.fraunhofer.de>
-Subject: 802.3x pause frames
-Date: Thu, 6 Nov 2014 13:59:53 +0100
-Message-ID: <545B70C9.7090702@fkie.fraunhofer.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-2"; format=flowed
-Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>
+From: Ulf samuelsson <netdev@emagii.com>
+Subject: Re: How to make stack send broadcast ARP request when entry is STALE?
+Date: Thu, 6 Nov 2014 14:29:55 +0100
+Message-ID: <B5AF87A6-42A4-44A3-A7DB-8FCB7754FBEB@emagii.com>
+References: <C4AF677B-55AC-4CE0-9BFB-EBB2E0C3BF74@emagii.com> <CACP96tQpnqfVtNwQbB9U4e-OLto3LhhS2q0bBir4n4Qz11XMTg@mail.gmail.com>
+Mime-Version: 1.0 (1.0)
+Content-Type: text/plain;
+	charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: Netdev <netdev@vger.kernel.org>
+To: Sowmini Varadhan <sowmini05@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailguard.fkie.fraunhofer.de ([128.7.3.5]:51533 "EHLO
-	a.mx.fkie.fraunhofer.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751021AbaKFNPu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 08:15:50 -0500
-Received: from rufsun5.fkie.fraunhofer.de ([128.7.2.5] helo=mailhost.fkie.fraunhofer.de)
-	by a.mx.fkie.fraunhofer.de with esmtps (TLS1.0:RSA_AES_256_CBC_SHA1:32)
-	(Exim 4.72)
-	(envelope-from <julia.niewiejska@fkie.fraunhofer.de>)
-	id 1XmMfJ-0000IQ-T8
-	for netdev@vger.kernel.org; Thu, 06 Nov 2014 13:59:53 +0100
-Received: from mailserv2acas.fkie.fraunhofer.de ([128.7.96.54] helo=mailserv2.fkie.fraunhofer.de)
-	by mailhost.fkie.fraunhofer.de with esmtps (TLS1.0:RSA_AES_128_CBC_SHA1:16)
-	(Exim 4.72)
-	(envelope-from <julia.niewiejska@fkie.fraunhofer.de>)
-	id 1XmMfJ-0005SS-QU
-	for netdev@vger.kernel.org; Thu, 06 Nov 2014 13:59:53 +0100
+Received: from smtp-out11.han.skanova.net ([195.67.226.200]:44227 "EHLO
+	smtp-out11.han.skanova.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751133AbaKFNaF convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Nov 2014 08:30:05 -0500
+In-Reply-To: <CACP96tQpnqfVtNwQbB9U4e-OLto3LhhS2q0bBir4n4Qz11XMTg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
 
-I indend to do some experiments with 802.3x pause frames, but I have yet 
-to find a setup that works. I used a tool that generates pause frames 
-[1] in two setups. First one consists of two virtual machines on a 
-VMWare ESXi 5.5 server connected with each other through a virtual 
-switch. In second setup two physical machines (Desktop PCs) were 
-connected directly by an ethernet cable. The VMs are running Debian 
-Wheezy 32bit while Debian Testing (Jessie) 64bit is installed on both 
-desktop PCs. Below you will find some information on the ethernet 
-adapters and drivers used in the VM [2], the desktop PC with the more up 
-to date hardware [3] and the older machine [4]. I used the following 
-command to activate flow control:
 
-ethtool -A <eth> autoneg off rx on tx on
-
-First of all I noticed some discrepancies between the output of 
-mii-tools or ethtool -a and the attempt to change the flow control 
-settings with the command above. Only the Realtek adapter actually 
-output that it didn't support the operation, the other adapters accepted 
-the settings without any error message.
-
-In both setups pause frames were generated on one machine while a ping 
-was sent simultaneously, as suggested in [1]. While the VM connection 
-was set to 1 Gbps the whole time, I also tested a 10 Mbps setting on the 
-physical connection. Even though the pause frames were always visible in 
-tcpdump at the receiver, I didn't notice any influence whatsoever in the 
-ping results.
-
-Did I miss some important settings that activate pause frame support, or 
-is it possible that none of those different ethernet adapters and 
-modules that were tested support at least the reception of pause frames? 
-If so, are there any adapters that do support them? I'm also not sure 
-how to interpret the output of ethtool. E.g. what does "Advertised pause 
-frame use" mean, exactly?
-
-
-Many thanks.
-
-Julia Niewiejska
-
-
-[1] http://www.tux.org/pub/sites/www.zip.com.au/%257Eakpm/linux/#flow-ctrl
-
-
-----------------------------------------------
-[2] Virtual machine on VMWare ESXi 5.5: Debian Wheezy 32bit, kernel 3.2
-
-*** lspci -v ***
-
-02:02.0 Ethernet controller: Intel Corporation 82545EM Gigabit Ethernet 
-Controller (Copper) (rev 01)
-         Subsystem: VMware PRO/1000 MT Single Port Adapter
-         Physical Slot: 34
-         Flags: bus master, 66MHz, medium devsel, latency 0, IRQ 16
-         Memory at fd5a0000 (64-bit, non-prefetchable) [size=128K]
-         Memory at fdfe0000 (64-bit, non-prefetchable) [size=64K]
-         I/O ports at 2040 [size=64]
-         [virtual] Expansion ROM at ebb10000 [disabled] [size=64K]
-         Capabilities: [dc] Power Management version 2
-         Capabilities: [e4] PCI-X non-bridge device
-         Kernel driver in use: e1000
-
-
-*** mii-tool -v ***
-
-eth1: negotiated 1000baseT-FD flow-control, link ok
-   product info: Yukon 88E1011 rev 3
-   basic mode:   autonegotiation enabled
-   basic status: autonegotiation complete, link ok
-   capabilities: 1000baseT-FD 100baseTx-FD 100baseTx-HD 10baseT-FD 
-10baseT-HD
-   advertising:  1000baseT-HD 1000baseT-FD 100baseTx-FD 100baseTx-HD 
-10baseT-FD 10baseT-HD
-   link partner: 1000baseT-FD 100baseTx-FD 100baseTx-HD 10baseT-FD 
-10baseT-HD
-
-
-
-*** ethtool eth1 ***
-
-Settings for eth1:
-         Supported ports: [ TP ]
-         Supported link modes:   10baseT/Half 10baseT/Full
-                                 100baseT/Half 100baseT/Full
-                                 1000baseT/Full
-         Supported pause frame use: No
-         Supports auto-negotiation: Yes
-         Advertised link modes:  10baseT/Half 10baseT/Full
-                                 100baseT/Half 100baseT/Full
-                                 1000baseT/Full
-         Advertised pause frame use: No
-         Advertised auto-negotiation: Yes
-         Speed: 1000Mb/s
-         Duplex: Full
-         Port: Twisted Pair
-         PHYAD: 0
-         Transceiver: internal
-         Auto-negotiation: on
-         MDI-X: Unknown
-         Supports Wake-on: d
-         Wake-on: d
-         Current message level: 0x00000007 (7)
-                                drv probe link
-         Link detected: yes
-
-*** ethtool -a eth1 ***
-
-Pause parameters for eth1:
-Autonegotiate:  on
-RX:             off
-TX:             off
-
-----------------------------------------------
-[3] Desktop PC 1: Debian Jessie 64bit, kernel 3.16
-
-*** lspci -v ***
-
-03:00.0 Ethernet controller: Realtek Semiconductor Co., Ltd. 
-RTL8111/8168/8411 PCI Express Gigabit Ethernet Controller (rev 0c)
-         Subsystem: ASUSTeK Computer Inc. Device 8554
-         Flags: bus master, fast devsel, latency 0, IRQ 44
-         I/O ports at d000 [size=256]
-         Memory at f7100000 (64-bit, non-prefetchable) [size=4K]
-         Memory at f2100000 (64-bit, prefetchable) [size=16K]
-         Capabilities: [40] Power Management version 3
-         Capabilities: [50] MSI: Enable+ Count=1/1 Maskable- 64bit+
-         Capabilities: [70] Express Endpoint, MSI 01
-         Capabilities: [b0] MSI-X: Enable- Count=4 Masked-
-         Capabilities: [d0] Vital Product Data
-         Capabilities: [100] Advanced Error Reporting
-         Capabilities: [140] Virtual Channel
-         Capabilities: [160] Device Serial Number 01-00-00-00-68-4c-e0-00
-         Capabilities: [170] Latency Tolerance Reporting
-         Kernel driver in use: r8169
-
-*** mii-tool -v ***
-
-eth0: negotiated 1000baseT-FD flow-control, link ok
-   product info: vendor 00:07:32, model 0 rev 0
-   basic mode:   autonegotiation enabled
-   basic status: autonegotiation complete, link ok
-   capabilities: 1000baseT-FD 100baseTx-FD 100baseTx-HD 10baseT-FD 
-10baseT-HD
-   advertising:  1000baseT-HD 1000baseT-FD 100baseTx-FD 100baseTx-HD 
-10baseT-FD 10baseT-HD flow-control
-   link partner: 1000baseT-FD 100baseTx-FD 100baseTx-HD 10baseT-FD 
-10baseT-HD flow-control
-
-*** ethtool eth0 ***
-
-Settings for eth0:
-         Supported ports: [ TP MII ]
-         Supported link modes:   10baseT/Half 10baseT/Full
-                                 100baseT/Half 100baseT/Full
-                                 1000baseT/Half 1000baseT/Full 
-
-         Supported pause frame use: No 
-
-         Supports auto-negotiation: Yes 
-
-         Advertised link modes:  10baseT/Half 10baseT/Full 
-
-                                 100baseT/Half 100baseT/Full 
-
-                                 1000baseT/Full 
-
-         Advertised pause frame use: Symmetric Receive-only 
-
-         Advertised auto-negotiation: Yes 
-
-         Link partner advertised link modes:  10baseT/Half 10baseT/Full 
-
-                                              100baseT/Half 
-100baseT/Full
-                                              1000baseT/Half 
-1000baseT/Full
-         Link partner advertised pause frame use: Symmetric Receive-only 
-
-         Link partner advertised auto-negotiation: Yes 
-
-         Speed: 1000Mb/s 
-
-         Duplex: Full 
-
-         Port: MII 
-
-         PHYAD: 0 
-
-         Transceiver: internal 
-
-         Auto-negotiation: on 
-
-         Supports Wake-on: pumbg 
-
-         Wake-on: g 
-
-         Current message level: 0x00000033 (51) 
-
-                                drv probe ifdown ifup 
-
-         Link detected: yes
-
-*** ethtool -a eth0 ***
-
-Pause parameters for eth0:
-Cannot get device pause settings: Operation not supported
-
-
-----------------------------------------------
-[4] Desktop PC 2: Debian Jessie 64bit, kernel 3.16
-
-*** lspci -v ***
-
-00:19.0 Ethernet controller: Intel Corporation 82578DM Gigabit Network 
-Connection (rev 05)
-         Subsystem: Hewlett-Packard Company Device 304b 
-
-         Flags: bus master, fast devsel, latency 0, IRQ 43 
-
-         Memory at f0400000 (32-bit, non-prefetchable) [size=128K]
-         Memory at f0425000 (32-bit, non-prefetchable) [size=4K]
-         I/O ports at 2100 [size=32]
-         Capabilities: [c8] Power Management version 2
-         Capabilities: [d0] MSI: Enable+ Count=1/1 Maskable- 64bit+
-         Capabilities: [e0] PCI Advanced Features
-         Kernel driver in use: e1000e
-
-*** mii-tool -v ***
-
-eth1: negotiated 1000baseT-FD flow-control, link ok
-   product info: vendor 00:13:74, model 4 rev 0
-   basic mode:   autonegotiation enabled
-   basic status: autonegotiation complete, link ok
-   capabilities: 1000baseT-FD 100baseTx-FD 100baseTx-HD 10baseT-FD 
-10baseT-HD
-   advertising:  1000baseT-FD 100baseTx-FD 100baseTx-HD 10baseT-FD 
-10baseT-HD flow-control
-   link partner: 1000baseT-FD 100baseTx-FD 100baseTx-HD 10baseT-FD 
-10baseT-HD flow-control
-
-*** ethtool eth1 ***
-
-Settings for eth1:
-         Supported ports: [ TP ]
-         Supported link modes:   10baseT/Half 10baseT/Full
-                                 100baseT/Half 100baseT/Full
-                                 1000baseT/Full
-         Supported pause frame use: No
-         Supports auto-negotiation: Yes
-         Advertised link modes:  10baseT/Half 10baseT/Full
-                                 100baseT/Half 100baseT/Full
-                                 1000baseT/Full
-         Advertised pause frame use: No
-         Advertised auto-negotiation: Yes
-         Speed: 1000Mb/s
-         Duplex: Full
-         Port: Twisted Pair
-         PHYAD: 2
-         Transceiver: internal
-         Auto-negotiation: on
-         MDI-X: off (auto)
-         Supports Wake-on: pumbg
-         Wake-on: g
-         Current message level: 0x00000007 (7)
-                                drv probe link
-         Link detected: yes
-
-*** ethtool -a eth1 ***
-
-Pause parameters for eth1:
-Autonegotiate:  on
-RX:             on
-TX:             off
+Best Regards
+Ulf Samuelsson
+ulf@emagii.com
++46  (722) 427 437
+
+
+> 6 nov 2014 kl. 12:48 skrev Sowmini Varadhan <sowmini05@gmail.com>:
+> 
+>> On Wed, Nov 5, 2014 at 1:48 AM, Ulf samuelsson <netdev@emagii.com> wrote:
+>> Have a problem with an HP router at a certain location, which
+>> is configured to only answer to broadcast ARP requests.
+>> That cannot be changed.
+>> 
+>> The first ARP request the kernel sends out, is a broadcast request,
+>> which is fine, but after the reply, the kernel sends unicast requests,
+>> which will not get any replies.
+> 
+> I'm afraid that's a problem with your HP router. There is nothing
+> in RFC 826 that says that the ARP request MUST be broadcast,
+> and many OS'es  will follow the IPv6 ND model of sending
+> unicast ARP requests to re-verify cached arp information.
+> Looks like the "kernel" you refer to above is following this
+> state machine, which is a good and healthy thing- you dont
+> want to be needlessly broadcasting arp reverification requests.
+> 
+
+The router setup will not be changed, not my decision. i have to live with it.
+The issue occurs only on a backplane, implemented using network,
+so consequences of broadcast ARP if unicast ARP fails is known, and acceptable,
+
+Since the controlling mechanism is a kernel module
+it would make sense to use the native stack, instead of trying to duplicate the functionality.
+
+If I dont want any broadcast ARP, there is a mcast_probes /proc variable that can be changed
+to zero (default 3).
+
+As it is now, it look like mcast_probes is there, but it is not used at all by the kernel,
+so it should either be removed, or the intended functionality should work
+
+It is strange, that if even if it is acceptable with broadcast ARP,
+you cannot configure the kernel code, nor the kernel runtime
+to generate it.
+
+I think the kernel should be changed to have a compile time option
+allowing broadcast ARP to be sent, if mcast_probes > 0.
+Alternatively a new variable should be introduced which will allow sending broadcast ARP
+if the unicast ARP fails,
+
+Will implement that fix locally anyway.
+
+> thus even if you have access to the kernel source code (as with linux)
+> it's not recommended to broadcast the ARP reverification.
+> 
+>> The ARP entry will after some time enter STALE state,
+>> and if nothing is done it will time out, and be removed.
+> :
+> 
+>> I think the recommended behaviour in IPv6 is to send out 3 unicasts
+>> and if all fails, to send out broadcasts.
+> 
+> Be careful about the distinction between IPv4 ARP and IPv6 ND.
+> The base state-machine for IPv6 is explicitly specified in RFC 4861 (with
+> ongoing work to optimize some of this in various ietf working groups)
+> 
+> The territory is less clearly defined for ARP. The base protocol comes from
+> RFC 726, which does not address DAD  at all- that only comes from rfc 5227.
+> Some OS-es (solaris, microsoft?) implelement the same state-machine
+> for both IPv4 and IPv6, while also support 5227.
+> 
+>> 
+>> Anyone know any good literature on how the ARP + neigh state machine works
+>> in the kernel.
+>> 
+>> I read in Herberts book about the Linux TCP/IP stack and it only discuss how to reply to
+>> ARP requests and not anything on how to generate ARP requests.
+> 
+> Hope that helps.
+> 
+> --Sowmini
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
