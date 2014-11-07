@@ -1,53 +1,33 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: kernel panic receiving flooded VXLAN traffic with OVS
-Date: Fri, 7 Nov 2014 14:29:09 -0800
-Message-ID: <CAEP_g=9gWZYtWGiF-JbVwmesa1n7FXYEJSQKdZi3L_yhPGPkAA@mail.gmail.com>
-References: <19014.1415325508@famine> <CALnjE+r-s-usJoHq0E74QdorKX2H2cx429xwmsQ2kh+tzp1Y-g@mail.gmail.com>
- <CAEP_g=95s37umz-hLGH0-sB32RcW+t+1dJ=_Eg1jMt4HYG+gEg@mail.gmail.com>
- <CAEP_g=_ToXZB14MY4Y+FaYfNj_GHpaX59n3nzDrkALXHBzK1yw@mail.gmail.com> <26235.1415394796@famine>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: [PATCH 1/4] inet: Add skb_copy_datagram_iter
+Date: Fri, 7 Nov 2014 22:31:53 +0000
+Message-ID: <20141107223153.GC7996@ZenIV.linux.org.uk>
+References: <20141105210745.GT7996@ZenIV.linux.org.uk>
+ <20141105.165719.835728206041332333.davem@davemloft.net>
+ <20141106032533.GU7996@ZenIV.linux.org.uk>
+ <20141107.164859.951682597018909290.davem@redhat.com>
+ <20141107221114.GB7996@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Pravin Shelar <pshelar@nicira.com>,
-	netdev <netdev@vger.kernel.org>,
-	"discuss@openvswitch.org" <discuss@openvswitch.org>
-To: Jay Vosburgh <jay.vosburgh@canonical.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog132.obsmtp.com ([74.125.149.250]:56047 "HELO
-	na3sys009aog132.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751743AbaKGW3a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2014 17:29:30 -0500
-Received: by mail-qc0-f171.google.com with SMTP id m20so3377676qcx.30
-        for <netdev@vger.kernel.org>; Fri, 07 Nov 2014 14:29:30 -0800 (PST)
-In-Reply-To: <26235.1415394796@famine>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, bcrl@kvack.org
+To: David Miller <davem@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20141107221114.GB7996@ZenIV.linux.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 7, 2014 at 1:13 PM, Jay Vosburgh <jay.vosburgh@canonical.com> wrote:
-> Jesse Gross <jesse@nicira.com> wrote:
->
->>On Fri, Nov 7, 2014 at 10:34 AM, Jesse Gross <jesse@nicira.com> wrote:
->>> On Fri, Nov 7, 2014 at 9:40 AM, Pravin Shelar <pshelar@nicira.com> wrote:
->>>> On Thu, Nov 6, 2014 at 5:58 PM, Jay Vosburgh <jay.vosburgh@canonical.com> wrote:
-> [...]
->>>>>         I'm not sure if this is an error on the part of the RX / GRO
->>>>> processing in assembling the GRO skb, or in how OVS calls skb_segment.
->>>>>
->>>>
->>>> I think this is related skb_segment() issue where it is not able to
->>>> handle this type of skb geometry. We need to fix skb-segmentation. I
->>>> will investigate it more.
->>>
->>> One problem that I see is that vxlan_gro_complete() doesn't add
->>> SKB_GSO_UDP_TUNNEL to gso_type. This causes us to attempt
->>> fragmentation as UDP rather than continuing down to do TCP
->>> segmentation. That probably screws up the skb geometry.
->>
->>I sent out a patch to fix this issue. I'm pretty sure that it is the
->>root cause of the originally reported case but I don't have a good way
->>to reproduce it so it would be great if you could test it Jay.
->
->         I'm having an issue there; when I set up my recreation on
-> current net-next (3.18-rc2) without your new patch, I get the following
-> oops when my ovs script does "ovs-vsctl --if-exists del-br br-ex":
+On Fri, Nov 07, 2014 at 10:11:14PM +0000, Al Viro wrote:
 
-Hmm, that looks like a totally different problem. Pravin - any ideas?
+> I'm looking through the tree right now; so far it looks like we can just
+> move those suckers to the point where we validate iovec and lose them
+> from low-level iovec and csum copying completely.  I still haven't finished
+> tracing all possible paths for address to arrive at the points where we
+> currently check that stuff, but so far it looks very doable.
+
+BTW, csum side of that is also chock-full of duplicate access_ok() -
+e.g. generic csum_and_copy_from_user() checks before calling
+csum_partial_copy_from_user().  And generic instance of that is using
+__copy_from_user(), all right, but a _lot_ of non-default instances
+repeat that access_ok().
