@@ -1,169 +1,74 @@
-From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Subject: [PATCH] stmmac: platform: fix sparse warnings
-Date: Fri,  7 Nov 2014 16:46:42 +0200
-Message-ID: <1415371602-12049-1-git-send-email-andriy.shevchenko@linux.intel.com>
-Cc: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	netdev@vger.kernel.org, "David S . Miller" <davem@davemloft.net>,
-	Vince Bridgers <vbridgers2013@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:4871 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752406AbaKGOqn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Nov 2014 09:46:43 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Roger Quadros <rogerq@ti.com>
+Subject: [PATCH v4 0/8] net: can: Use syscon regmap for TI specific RAMINIT register
+Date: Fri, 7 Nov 2014 16:49:14 +0200
+Message-ID: <1415371762-29885-1-git-send-email-rogerq@ti.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <wsa@the-dreams.de>, <tony@atomide.com>, <tglx@linutronix.de>,
+	<mugunthanvnm@ti.com>, <george.cherian@ti.com>, <balbi@ti.com>,
+	<nsekhar@ti.com>, <nm@ti.com>,
+	<sergei.shtylyov@cogentembedded.com>, <linux-omap@vger.kernel.org>,
+	<linux-can@vger.kernel.org>, <netdev@vger.kernel.org>,
+	Roger Quadros <rogerq@ti.com>
+To: <wg@grandegger.com>, <mkl@pengutronix.de>
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch fixes the following sparse warnings. One is fixed by casting return
-value to a return type of the function. The others by creating a specific
-stmmac_platform.h which provides the bits related to the platform driver.
+Hi,
 
-drivers/net/ethernet/stmicro/stmmac/dwmac-meson.c:59:29: warning: incorrect type in return expression (different address spaces)
-drivers/net/ethernet/stmicro/stmmac/dwmac-meson.c:59:29:    expected void *
-drivers/net/ethernet/stmicro/stmmac/dwmac-meson.c:59:29:    got void [noderef] <asn:2>*reg
+Some hardware (TI am43xx) has a buggy RAMINIT DONE mechanism and it might
+not always set the DONE bit. This will result in a lockup in c_can_hw_raminit_wait_ti(),
+so patch 1 adds a timeout mechanism there.
 
-drivers/net/ethernet/stmicro/stmmac/dwmac-meson.c:64:29: warning: symbol 'meson6_dwmac_data' was not declared. Should it be static?
-drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c:354:29: warning: symbol 'stih4xx_dwmac_data' was not declared. Should it be static?
-drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c:361:29: warning: symbol 'stid127_dwmac_data' was not declared. Should it be static?
-drivers/net/ethernet/stmicro/stmmac/dwmac-sunxi.c:133:29: warning: symbol 'sun7i_gmac_data' was not declared. Should it be static?
+There is a non compliancy within TI platforms with respect to the
+layout of the RAMINIT register. The patches 3 and 4 address this issue
+and make a flexible but standard way of defining the RAMINIT hardware register
+layout in the device tree. The RAMINIT register is accessed using the syscon
+regmap framework.
 
-Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Patches available at
+git@github.com:rogerq/linux.git	[for-v3.19/can]
+
+Patches are tested on am335x-evm, am437x-gp-evm and dra7-evm.
+Board support files to allow CAN testing on these boards are available at
+git@github.com:rogerq/linux.git	[for-v3.19/omap-dts-dcan]
+
+Changelog:
+
+v4:
+- updated "syscon-raminit" binding to contain the CAN instance id. We no longer
+use different compatible ids for multiple CAN IPs on the same SoC. The instance
+ID is used instead to locate the start/stop bit positions from driver data.
+
+v3:
+- allow driver data to be more than just CAN_ID
+- RAMINIT register data moved to driver data instead of device tree file.
+
+v2:
+- added "ti" vendor prefix to TI specific raminit properties.
+- split DTS changes into a separate series
+
+cheers,
+-roger
+
 ---
- drivers/net/ethernet/stmicro/stmmac/dwmac-meson.c  |  4 +++-
- .../net/ethernet/stmicro/stmmac/dwmac-socfpga.c    |  2 ++
- drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c    |  2 ++
- drivers/net/ethernet/stmicro/stmmac/dwmac-sunxi.c  |  2 ++
- drivers/net/ethernet/stmicro/stmmac/stmmac.h       |  5 ----
- .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |  2 ++
- .../net/ethernet/stmicro/stmmac/stmmac_platform.h  | 28 ++++++++++++++++++++++
- 7 files changed, 39 insertions(+), 6 deletions(-)
- create mode 100644 drivers/net/ethernet/stmicro/stmmac/stmmac_platform.h
+Roger Quadros (8):
+  net: can: c_can: Add timeout to c_can_hw_raminit_ti()
+  net: can: c_can: Introduce c_can_driver_data structure
+  net: can: c_can: Add RAMINIT register information to driver data
+  net: can: c_can: Add syscon/regmap RAMINIT mechanism
+  net: can: c_can: Add support for START pulse in RAMINIT sequence
+  net: can: c_can: Disable pins when CAN interface is down
+  net: can: c_can: Add support for TI DRA7 DCAN
+  net: can: c_can: Add support for TI am3352 DCAN
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-meson.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-meson.c
-index d225a60..cca028d 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac-meson.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-meson.c
-@@ -18,6 +18,8 @@
- #include <linux/platform_device.h>
- #include <linux/stmmac.h>
- 
-+#include "stmmac_platform.h"
-+
- #define ETHMAC_SPEED_100	BIT(1)
- 
- struct meson_dwmac {
-@@ -56,7 +58,7 @@ static void *meson6_dwmac_setup(struct platform_device *pdev)
- 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
- 	dwmac->reg = devm_ioremap_resource(&pdev->dev, res);
- 	if (IS_ERR(dwmac->reg))
--		return dwmac->reg;
-+		return ERR_CAST(dwmac->reg);
- 
- 	return dwmac;
- }
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-index 3aad413..e97074c 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-@@ -23,7 +23,9 @@
- #include <linux/regmap.h>
- #include <linux/reset.h>
- #include <linux/stmmac.h>
-+
- #include "stmmac.h"
-+#include "stmmac_platform.h"
- 
- #define SYSMGR_EMACGRP_CTRL_PHYSEL_ENUM_GMII_MII 0x0
- #define SYSMGR_EMACGRP_CTRL_PHYSEL_ENUM_RGMII 0x1
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c
-index ccfe7e5..ea40692 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c
-@@ -22,6 +22,8 @@
- #include <linux/of.h>
- #include <linux/of_net.h>
- 
-+#include "stmmac_platform.h"
-+
- #define DWMAC_125MHZ	125000000
- #define DWMAC_50MHZ	50000000
- #define DWMAC_25MHZ	25000000
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-sunxi.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-sunxi.c
-index 771cd15..a26bda2 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac-sunxi.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-sunxi.c
-@@ -22,6 +22,8 @@
- #include <linux/of_net.h>
- #include <linux/regulator/consumer.h>
- 
-+#include "stmmac_platform.h"
-+
- struct sunxi_priv_data {
- 	int interface;
- 	int clk_enabled;
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-index 709798b..bd75ee8 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-@@ -135,11 +135,6 @@ void stmmac_disable_eee_mode(struct stmmac_priv *priv);
- bool stmmac_eee_init(struct stmmac_priv *priv);
- 
- #ifdef CONFIG_STMMAC_PLATFORM
--extern const struct stmmac_of_data meson6_dwmac_data;
--extern const struct stmmac_of_data sun7i_gmac_data;
--extern const struct stmmac_of_data stih4xx_dwmac_data;
--extern const struct stmmac_of_data stid127_dwmac_data;
--extern const struct stmmac_of_data socfpga_gmac_data;
- extern struct platform_driver stmmac_pltfr_driver;
- 
- static inline int stmmac_register_platform(void)
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index f4fe854..9f18401 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -27,7 +27,9 @@
- #include <linux/of.h>
- #include <linux/of_net.h>
- #include <linux/of_device.h>
-+
- #include "stmmac.h"
-+#include "stmmac_platform.h"
- 
- static const struct of_device_id stmmac_dt_ids[] = {
- 	/* SoC specific glue layers should come before generic bindings */
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.h b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.h
-new file mode 100644
-index 0000000..25dd1f7
---- /dev/null
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.h
-@@ -0,0 +1,28 @@
-+/*******************************************************************************
-+  Copyright (C) 2007-2009  STMicroelectronics Ltd
-+
-+  This program is free software; you can redistribute it and/or modify it
-+  under the terms and conditions of the GNU General Public License,
-+  version 2, as published by the Free Software Foundation.
-+
-+  This program is distributed in the hope it will be useful, but WITHOUT
-+  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+  more details.
-+
-+  The full GNU General Public License is included in this distribution in
-+  the file called "COPYING".
-+
-+  Author: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-+*******************************************************************************/
-+
-+#ifndef __STMMAC_PLATFORM_H__
-+#define __STMMAC_PLATFORM_H__
-+
-+extern const struct stmmac_of_data meson6_dwmac_data;
-+extern const struct stmmac_of_data sun7i_gmac_data;
-+extern const struct stmmac_of_data stih4xx_dwmac_data;
-+extern const struct stmmac_of_data stid127_dwmac_data;
-+extern const struct stmmac_of_data socfpga_gmac_data;
-+
-+#endif /* __STMMAC_PLATFORM_H__ */
+ .../devicetree/bindings/net/can/c_can.txt          |   4 +
+ drivers/net/can/c_can/c_can.c                      |  20 ++
+ drivers/net/can/c_can/c_can.h                      |  23 ++-
+ drivers/net/can/c_can/c_can_platform.c             | 217 +++++++++++++++------
+ 4 files changed, 203 insertions(+), 61 deletions(-)
+
 -- 
-2.1.3
+1.8.3.2
+
