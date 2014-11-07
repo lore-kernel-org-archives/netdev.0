@@ -1,56 +1,102 @@
-From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Subject: [PATCH v2] stmmac: remove custom implementation of print_hex_dump()
-Date: Fri,  7 Nov 2014 16:53:12 +0200
-Message-ID: <1415371992-12915-1-git-send-email-andriy.shevchenko@linux.intel.com>
-Cc: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-To: Joe Perches <joe@perches.com>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	netdev@vger.kernel.org, "David S . Miller" <davem@davemloft.net>,
-	Vince Bridgers <vbridgers2013@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:2228 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752380AbaKGOxN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Nov 2014 09:53:13 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH v4 6/8] net: can: c_can: Disable pins when CAN interface
+ is down
+Date: Fri, 07 Nov 2014 15:54:40 +0100
+Message-ID: <545CDD30.2070508@pengutronix.de>
+References: <1415371762-29885-1-git-send-email-rogerq@ti.com> <1415371762-29885-7-git-send-email-rogerq@ti.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="JIEXut5CEgL14Db53IjmwlMefxI7x8tkP"
+Cc: wsa@the-dreams.de, tony@atomide.com, tglx@linutronix.de,
+	mugunthanvnm@ti.com, george.cherian@ti.com, balbi@ti.com,
+	nsekhar@ti.com, nm@ti.com, sergei.shtylyov@cogentembedded.com,
+	linux-omap@vger.kernel.org, linux-can@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Roger Quadros <rogerq@ti.com>, wg@grandegger.com
+Return-path: <linux-omap-owner@vger.kernel.org>
+In-Reply-To: <1415371762-29885-7-git-send-email-rogerq@ti.com>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-There is a kernel helper to dump buffers in a hexdecimal format. This patch
-substitutes the open coded function by calling that helper.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--JIEXut5CEgL14Db53IjmwlMefxI7x8tkP
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-The output is slightly changed:
- - no lead space
- - ASCII part will be printed along with the dump
- - offset is longer than 3 characters (now 8)
+On 11/07/2014 03:49 PM, Roger Quadros wrote:
+> DRA7 CAN IP suffers from a problem which causes it to be prevented
+> from fully turning OFF (i.e. stuck in transition) if the module was
+> disabled while there was traffic on the CAN_RX line.
+>=20
+> To work around this issue we select the SLEEP pin state by default
+> on probe and use the DEFAULT pin state on CAN up and back to the
+> SLEEP pin state on CAN down.
+>=20
+> Signed-off-by: Roger Quadros <rogerq@ti.com>
+> ---
+>  drivers/net/can/c_can/c_can.c          | 20 ++++++++++++++++++++
+>  drivers/net/can/c_can/c_can.h          |  1 +
+>  drivers/net/can/c_can/c_can_platform.c | 20 ++++++++++++++++++++
+>  3 files changed, 41 insertions(+)
+>=20
+> diff --git a/drivers/net/can/c_can/c_can.c b/drivers/net/can/c_can/c_ca=
+n.c
+> index 8e78bb4..4dfc3ce 100644
+> --- a/drivers/net/can/c_can/c_can.c
+> +++ b/drivers/net/can/c_can/c_can.c
+> @@ -35,6 +35,7 @@
+>  #include <linux/list.h>
+>  #include <linux/io.h>
+>  #include <linux/pm_runtime.h>
+> +#include <linux/pinctrl/consumer.h>
+> =20
+>  #include <linux/can.h>
+>  #include <linux/can/dev.h>
+> @@ -603,6 +604,15 @@ static int c_can_start(struct net_device *dev)
+> =20
+>  	priv->can.state =3D CAN_STATE_ERROR_ACTIVE;
+> =20
+> +	/* activate pins */
+> +	if (!IS_ERR(priv->pinctrl)) {
+> +		struct pinctrl_state *s;
+> +
+> +		s =3D pinctrl_lookup_state(priv->pinctrl, PINCTRL_STATE_DEFAULT);
+> +		if (!IS_ERR(s))
+> +			pinctrl_select_state(priv->pinctrl, s);
+> +	}
 
-Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
----
-Since v1:
-- address Joe's comments
-- describe output change
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 10 ++--------
- 1 file changed, 2 insertions(+), 8 deletions(-)
+Please put this common code into a seperate function.
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index fa598b9..53db11b 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -191,14 +191,8 @@ static void stmmac_clk_csr_set(struct stmmac_priv *priv)
- 
- static void print_pkt(unsigned char *buf, int len)
- {
--	int j;
--	pr_debug("len = %d byte, buf addr: 0x%p", len, buf);
--	for (j = 0; j < len; j++) {
--		if ((j % 16) == 0)
--			pr_debug("\n %03x:", j);
--		pr_debug(" %02x", buf[j]);
--	}
--	pr_debug("\n");
-+	pr_debug("len = %d byte, buf addr: 0x%p\n", len, buf);
-+	print_hex_dump_bytes("", DUMP_PREFIX_OFFSET, buf, len);
- }
- 
- /* minimum number of free TX descriptors required to wake up TX process */
--- 
-2.1.3
+Marc
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--JIEXut5CEgL14Db53IjmwlMefxI7x8tkP
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJUXN0wAAoJECte4hHFiupUtRwP/iy2x1woPjJNK9bvzSiWua4J
+wZzR9YL+VuikdWWB/Vjl54JZt6akXZV+t8EinX4oVn+O/UpiXDbuA/8bdzR7t3JG
+qegUG6yJmFsuEeM8YU9aRmUmYdIGva978kLVsoBXKcHe1pasBn3k1avg8DnzJTtq
+1pjZt0n+0ni+I2GEc1AUHMt4YbqV8piZQvjdoYoxWJtCwnZexr1rA22BM4j0DcRW
+dxRru6wj9bNYz31U7dPWQXJ+XWen2a3bALETCLIjU5TPZT0I6TTZYGgMYfRpTVLf
+Yk9enGCsSHScDdtV/FG2BXjIx5mXYZ5K+8jI/IuQdj3u9P0xHAwLVxiIhevGWr0V
+zYfB4xqDQUhWmWxBGlHgM3SgcQ3FANsIlTK5zf+GdTcIna4U1gaZsdAOa7sX8cvr
+aL4QlG5YFka8CG+8LUdnYAyItZIUW5G9cg/PaDSyBX91xZ+YU1fBKhPQoVYy2Inc
+JnwNsElMoS4G96wdg/KxjJRXfsJHUfmgEELvvQZJNhvjHF2F9+OyBloJrBBhwpE5
+JyRNz7cyFkrir67EBtHQsPxPobo2VNlG3U6oZhr9mV3P3MB0CQo6oLw97WNR0Ruc
+rT09uuwvfWms2uA/a718zAh/UpYzEAq4v/8QFDsQx7p49DaIoNflMQdEy91BKhS/
+WETbtUa6D8+5FOcKG2pm
+=PqsI
+-----END PGP SIGNATURE-----
+
+--JIEXut5CEgL14Db53IjmwlMefxI7x8tkP--
