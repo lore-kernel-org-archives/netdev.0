@@ -1,116 +1,97 @@
-From: Yegor Yefremov <yegorslists@googlemail.com>
-Subject: Re: am335x: cpsw: phy ignores max-speed setting
-Date: Fri, 7 Nov 2014 08:11:52 +0100
-Message-ID: <CAGm1_ktReQ5aOJGbvyEB3xQDanCnj_XkwUEWLtB=+sMseZX_pA@mail.gmail.com>
-References: <CAGm1_ktWK5ai85PZJTkq8Q1mAFH6JZ5XM1mDOHO3K_N2iGNLWg@mail.gmail.com>
- <545BA8A2.3010506@gmail.com>
+From: "Stam, Michel [FINT]" <M.Stam@fugro.nl>
+Subject: RE: [PATCH] asix: Do full reset during ax88772_bind
+Date: Fri, 7 Nov 2014 09:27:26 +0100
+Message-ID: <C89EFD3CD56F64468D3D206D683A8D22039FFEDE@ldam-msx2.fugro-nl.local>
+References: <1415288981-3862-1-git-send-email-ckeepax@opensource.wolfsonmicro.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	"N, Mugunthan V" <mugunthanvnm@ti.com>, mpa@pengutronix.de,
-	lsorense@csclub.uwaterloo.ca, Daniel Mack <zonque@gmail.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:53055 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751059AbaKGHMN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2014 02:12:13 -0500
-Received: by mail-pd0-f170.google.com with SMTP id z10so2794842pdj.29
-        for <netdev@vger.kernel.org>; Thu, 06 Nov 2014 23:12:13 -0800 (PST)
-In-Reply-To: <545BA8A2.3010506@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <jeffrey.t.kirsher@intel.com>, <emilgoode@gmail.com>,
+	<linux-usb@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+To: "Charles Keepax" <ckeepax@opensource.wolfsonmicro.com>,
+	<davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <1415288981-3862-1-git-send-email-ckeepax@opensource.wolfsonmicro.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 6, 2014 at 5:58 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
-> On 11/06/2014 08:25 AM, Yegor Yefremov wrote:
->> I' m trying to override max-speed setting for both CPSW connected
->> PHYs. This is my DTS section for configuring CPSW:
->>
->> &mac {
->>         pinctrl-names = "default", "sleep";
->>         pinctrl-0 = <&cpsw_default>;
->>         pinctrl-1 = <&cpsw_sleep>;
->>         dual_emac = <1>;
->>
->>         status = "okay";
->> };
->>
->> &davinci_mdio {
->>         pinctrl-names = "default", "sleep";
->>         pinctrl-0 = <&davinci_mdio_default>;
->>         pinctrl-1 = <&davinci_mdio_sleep>;
->>
->>         status = "okay";
->> };
->>
->> &cpsw_emac0 {
->>         phy_id = <&davinci_mdio>, <0>;
->>         phy-mode = "rgmii-id";
->>         dual_emac_res_vlan = <1>;
->>         max-speed = <100>;
->> };
->>
->> &cpsw_emac1 {
->>         phy_id = <&davinci_mdio>, <1>;
->>         phy-mode = "rgmii-id";
->>         dual_emac_res_vlan = <2>;
->>         max-speed = <100>;
->> };
->>
->> But in drivers/net/phy/phy_device.c->of_set_phy_supported() routine I
->> don't get through node check, i.e. node == NULL. Any idea why?
->
-> Yes, because the 'max-speed' property is placed at the Ethernet MAC node
-> level, not the PHY node as of_set_phy_supported() expect its.
->
-> This driver does not appear to use the standard Ethernet PHY device tree
-> node, so I am not sure what are your options here.
+Please add;
 
-The SoC has a complex structure, i.e. Ethernet controller has a switch
-inside with two slaves.
+Tested-by: Michel Stam  <m.stam@fugro.nl>
 
-A workaround would be perhaps to handle this option in cpsw driver.
+Kind regards,
 
-Mugunthan, what do you think about this?
+Michel Stam
 
->> static void of_set_phy_supported(struct phy_device *phydev)
->> {
->>         struct device_node *node = phydev->dev.of_node;
->>         u32 max_speed;
->>
->>         if (!IS_ENABLED(CONFIG_OF_MDIO))
->>                 return;
->>
->>         if (!node)
->>                 return;
->>
->>         if (!of_property_read_u32(node, "max-speed", &max_speed)) {
->>                 /* The default values for phydev->supported are
->> provided by the PHY
->>                  * driver "features" member, we want to reset to sane
->> defaults fist
->>                  * before supporting higher speeds.
->>                  */
->>                 phydev->supported &= PHY_DEFAULT_FEATURES;
->>
->>                 switch (max_speed) {
->>                 default:
->>                         return;
->>
->>                 case SPEED_1000:
->>                         phydev->supported |= PHY_1000BT_FEATURES;
->>                 case SPEED_100:
->>                         phydev->supported |= PHY_100BT_FEATURES;
->>                 case SPEED_10:
->>                         phydev->supported |= PHY_10BT_FEATURES;
->>                 }
->>         }
->> }
->>
->> Yegor
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>
->
+-----Original Message-----
+From: Charles Keepax [mailto:ckeepax@opensource.wolfsonmicro.com] 
+Sent: Thursday, November 06, 2014 16:50 PM
+To: davem@davemloft.net
+Cc: jeffrey.t.kirsher@intel.com; Stam, Michel [FINT];
+emilgoode@gmail.com; linux-usb@vger.kernel.org; netdev@vger.kernel.org;
+linux-kernel@vger.kernel.org
+Subject: [PATCH] asix: Do full reset during ax88772_bind
+
+commit 3cc81d85ee01 ("asix: Don't reset PHY on if_up for ASIX 88772")
+causes the ethernet on Arndale to no longer function. This appears to be
+because the Arndale ethernet requires a full reset before it will
+function correctly, however simply reverting the above patch causes
+problems with ethtool settings getting reset.
+
+It seems the problem is that the ethernet is not properly reset during
+bind, and indeed the code in ax88772_bind that resets the device is a
+very small subset of the actual ax88772_reset function. This patch uses
+ax88772_reset in place of the existing reset code in ax88772_bind which
+removes some code duplication and fixes the ethernet on Arndale.
+
+It is still possible that the original patch causes some issues with
+suspend and resume but that seems like a separate issue and I haven't
+had a chance to test that yet.
+
+Signed-off-by: Charles Keepax <ckeepax@opensource.wolfsonmicro.com>
+Tested-by: Riku Voipio <riku.voipio@linaro.org>
+---
+
+Hi,
+
+I wasn't 100% sure which branch to base this off so I based it on Dave
+Miller's net-next branch, which seemed logical.
+
+Thanks,
+Charles
+
+ drivers/net/usb/asix_devices.c |   14 +-------------
+ 1 files changed, 1 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/net/usb/asix_devices.c
+b/drivers/net/usb/asix_devices.c index 2c05f6c..816d511 100644
+--- a/drivers/net/usb/asix_devices.c
++++ b/drivers/net/usb/asix_devices.c
+@@ -465,19 +465,7 @@ static int ax88772_bind(struct usbnet *dev, struct
+usb_interface *intf)
+ 		return ret;
+ 	}
+ 
+-	ret = asix_sw_reset(dev, AX_SWRESET_IPPD | AX_SWRESET_PRL);
+-	if (ret < 0)
+-		return ret;
+-
+-	msleep(150);
+-
+-	ret = asix_sw_reset(dev, AX_SWRESET_CLEAR);
+-	if (ret < 0)
+-		return ret;
+-
+-	msleep(150);
+-
+-	ret = asix_sw_reset(dev, embd_phy ? AX_SWRESET_IPRL :
+AX_SWRESET_PRTE);
++	ax88772_reset(dev);
+ 
+ 	/* Read PHYID register *AFTER* the PHY was reset properly */
+ 	phyid = asix_get_phyid(dev);
+--
+1.7.2.5
