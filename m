@@ -1,54 +1,89 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: Re: BUG in xennet_make_frags with paged skb data
-Date: Fri, 7 Nov 2014 10:44:15 +0000
-Message-ID: <545CA27F.4070400@citrix.com>
-References: <20141106214940.GD44162@ubuntu-hedt>
+From: Dong Aisheng <b29396@freescale.com>
+Subject: Re: [PATCH V4 3/3] can: m_can: add missing message RAM
+ initialization
+Date: Fri, 7 Nov 2014 18:21:35 +0800
+Message-ID: <20141107102130.GA7309@shlinux1.ap.freescale.net>
+References: <1415349914-9145-1-git-send-email-b29396@freescale.com>
+ <1415349914-9145-3-git-send-email-b29396@freescale.com>
+ <545C9F4E.3040901@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	Stefan Bader <stefan.bader@canonical.com>,
-	Jay Vosburgh <jay.vosburgh@canonical.com>,
-	<linux-kernel@vger.kernel.org>, <xen-devel@lists.xenproject.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141106214940.GD44162@ubuntu-hedt>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: <linux-can@vger.kernel.org>, <wg@grandegger.com>,
+	<varkabhadram@gmail.com>, <netdev@vger.kernel.org>,
+	<socketcan@hartkopp.net>, <linux-arm-kernel@lists.infradead.org>
+To: Marc Kleine-Budde <mkl@pengutronix.de>
+Return-path: <linux-can-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <545C9F4E.3040901@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 06/11/14 21:49, Seth Forshee wrote:
-> We've had several reports of hitting the following BUG_ON in
-> xennet_make_frags with 3.2 and 3.13 kernels (I'm currently awaiting
-> results of testing with 3.17):
+On Fri, Nov 07, 2014 at 11:30:38AM +0100, Marc Kleine-Budde wrote:
+> On 11/07/2014 09:45 AM, Dong Aisheng wrote:
+> > The M_CAN message RAM is usually equipped with a parity or ECC functionality.
+> > But RAM cells suffer a hardware reset and can therefore hold arbitrary
+> > content at startup - including parity and/or ECC bits.
+> > 
+> > To prevent the M_CAN controller detecting checksum errors when reading
+> > potentially uninitialized TX message RAM content to transmit CAN
+> > frames the TX message RAM has to be written with (any kind of) initial
+> > data.
+> > 
+> > Signed-off-by: Dong Aisheng <b29396@freescale.com>
+> > ---
+> > ChangeLog:
+> > v3-v4:
+> >  * initialize the entire Message RAM in use instead of only 8 bytes
+> >    since this is a valid and needed initialization process.
+> >    Patch title also changed.
+> > ---
+> >  drivers/net/can/m_can/m_can.c | 11 ++++++++++-
+> >  1 file changed, 10 insertions(+), 1 deletion(-)
+> > 
+> > diff --git a/drivers/net/can/m_can/m_can.c b/drivers/net/can/m_can/m_can.c
+> > index eee1533..de742d0 100644
+> > --- a/drivers/net/can/m_can/m_can.c
+> > +++ b/drivers/net/can/m_can/m_can.c
+> > @@ -1114,7 +1114,7 @@ static int m_can_of_parse_mram(struct platform_device *pdev,
+> >  	struct resource *res;
+> >  	void __iomem *addr;
+> >  	u32 out_val[MRAM_CFG_LEN];
+> > -	int ret;
+> > +	int i, start, end, ret;
+> >  
+> >  	/* message ram could be shared */
+> >  	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "message_ram");
+> > @@ -1165,6 +1165,15 @@ static int m_can_of_parse_mram(struct platform_device *pdev,
+> >  		priv->mcfg[MRAM_TXE].off, priv->mcfg[MRAM_TXE].num,
+> >  		priv->mcfg[MRAM_TXB].off, priv->mcfg[MRAM_TXB].num);
+> >  
+> > +	/* initialize the entire Message RAM in use to avoid possible
+> > +	 * ECC/parity checksum errors when reading an uninitialized buffer
+> > +	 */
+> > +	start = priv->mcfg[MRAM_SIDF].off;
+> > +	end = priv->mcfg[MRAM_TXB].off +
+> > +		priv->mcfg[MRAM_TXB].num * TXB_ELEMENT_SIZE;
+> > +	for (i = start; i < end; i += 4)
+> > +		writel(0x0, priv->mram_base + i);
 > 
->         /* Grant backend access to each skb fragment page. */
->         for (i = 0; i < frags; i++) {
->                 skb_frag_t *frag = skb_shinfo(skb)->frags + i;
->                 struct page *page = skb_frag_page(frag);
+> Can we access the mram without turning on the clock?
 > 
->                 len = skb_frag_size(frag);
->                 offset = frag->page_offset;
-> 
->                 /* Data must not cross a page boundary. */
->                 BUG_ON(len + offset > PAGE_SIZE<<compound_order(page));
-> 
-> When this happens the page in question is a "middle" page in a compound
-> page (i.e. it's a tail page but not the last tail page), and the data is
-> fully contained within the compound page. The data does however cross
-> the hardware page boundary, and since compound_order evaluates to 0 for
-> tail pages the check fails.
-> 
-> In going over this I've been unable to determine whether the BUG_ON in
-> xennet_make_frags is incorrect or the paged skb data is wrong. I can't
-> find that it's documented anywhere, and the networking code itself is a
-> bit ambiguous when it comes to compound pages. On the one hand
-> __skb_fill_page_desc specifically handles adding tail pages as paged
-> data, but on the other hand skb_copy_bits kmaps frag->page.p which could
-> fail with data that extends into another page.
 
-netfront will safely handle this case so you can remove this BUG_ON()
-(and the one later on).  But it would be better to find out were these
-funny-looking skbs are coming from and (if necessary) fixing the bug there.
+Yes, we can.
+Since it's CPU access, it seems it does not depend on M_CAN clocks.
+What i see from M_CAN subsystem block diagram of MX6SX,
+it requires CPU clock which should always be enabled.
 
-David
+Regards
+Dong Aisheng
+
+> Marc
+> 
+> -- 
+> Pengutronix e.K.                  | Marc Kleine-Budde           |
+> Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+> Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+> Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+> 
+
+
