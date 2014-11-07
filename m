@@ -1,89 +1,127 @@
-From: Dong Aisheng <b29396@freescale.com>
-Subject: Re: [PATCH V4 3/3] can: m_can: add missing message RAM
- initialization
-Date: Fri, 7 Nov 2014 18:21:35 +0800
-Message-ID: <20141107102130.GA7309@shlinux1.ap.freescale.net>
-References: <1415349914-9145-1-git-send-email-b29396@freescale.com>
- <1415349914-9145-3-git-send-email-b29396@freescale.com>
- <545C9F4E.3040901@pengutronix.de>
+From: Stefan Bader <stefan.bader@canonical.com>
+Subject: Re: BUG in xennet_make_frags with paged skb data
+Date: Fri, 07 Nov 2014 12:08:19 +0100
+Message-ID: <545CA823.2080307@canonical.com>
+References: <20141106214940.GD44162@ubuntu-hedt> <545CA27F.4070400@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <linux-can@vger.kernel.org>, <wg@grandegger.com>,
-	<varkabhadram@gmail.com>, <netdev@vger.kernel.org>,
-	<socketcan@hartkopp.net>, <linux-arm-kernel@lists.infradead.org>
-To: Marc Kleine-Budde <mkl@pengutronix.de>
-Return-path: <linux-can-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <545C9F4E.3040901@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="bCvbWEJMulW7EirtrJbTqmj5j1SVXs2Fc"
+To: David Vrabel <david.vrabel@citrix.com>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
+	Jay Vosburgh <jay.vosburgh@canonical.com>,
+	linux-kernel@vger.kernel.org, xen-devel@lists.xenproject.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <545CA27F.4070400@citrix.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 07, 2014 at 11:30:38AM +0100, Marc Kleine-Budde wrote:
-> On 11/07/2014 09:45 AM, Dong Aisheng wrote:
-> > The M_CAN message RAM is usually equipped with a parity or ECC functionality.
-> > But RAM cells suffer a hardware reset and can therefore hold arbitrary
-> > content at startup - including parity and/or ECC bits.
-> > 
-> > To prevent the M_CAN controller detecting checksum errors when reading
-> > potentially uninitialized TX message RAM content to transmit CAN
-> > frames the TX message RAM has to be written with (any kind of) initial
-> > data.
-> > 
-> > Signed-off-by: Dong Aisheng <b29396@freescale.com>
-> > ---
-> > ChangeLog:
-> > v3-v4:
-> >  * initialize the entire Message RAM in use instead of only 8 bytes
-> >    since this is a valid and needed initialization process.
-> >    Patch title also changed.
-> > ---
-> >  drivers/net/can/m_can/m_can.c | 11 ++++++++++-
-> >  1 file changed, 10 insertions(+), 1 deletion(-)
-> > 
-> > diff --git a/drivers/net/can/m_can/m_can.c b/drivers/net/can/m_can/m_can.c
-> > index eee1533..de742d0 100644
-> > --- a/drivers/net/can/m_can/m_can.c
-> > +++ b/drivers/net/can/m_can/m_can.c
-> > @@ -1114,7 +1114,7 @@ static int m_can_of_parse_mram(struct platform_device *pdev,
-> >  	struct resource *res;
-> >  	void __iomem *addr;
-> >  	u32 out_val[MRAM_CFG_LEN];
-> > -	int ret;
-> > +	int i, start, end, ret;
-> >  
-> >  	/* message ram could be shared */
-> >  	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "message_ram");
-> > @@ -1165,6 +1165,15 @@ static int m_can_of_parse_mram(struct platform_device *pdev,
-> >  		priv->mcfg[MRAM_TXE].off, priv->mcfg[MRAM_TXE].num,
-> >  		priv->mcfg[MRAM_TXB].off, priv->mcfg[MRAM_TXB].num);
-> >  
-> > +	/* initialize the entire Message RAM in use to avoid possible
-> > +	 * ECC/parity checksum errors when reading an uninitialized buffer
-> > +	 */
-> > +	start = priv->mcfg[MRAM_SIDF].off;
-> > +	end = priv->mcfg[MRAM_TXB].off +
-> > +		priv->mcfg[MRAM_TXB].num * TXB_ELEMENT_SIZE;
-> > +	for (i = start; i < end; i += 4)
-> > +		writel(0x0, priv->mram_base + i);
-> 
-> Can we access the mram without turning on the clock?
-> 
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--bCvbWEJMulW7EirtrJbTqmj5j1SVXs2Fc
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: quoted-printable
 
-Yes, we can.
-Since it's CPU access, it seems it does not depend on M_CAN clocks.
-What i see from M_CAN subsystem block diagram of MX6SX,
-it requires CPU clock which should always be enabled.
+On 07.11.2014 11:44, David Vrabel wrote:
+> On 06/11/14 21:49, Seth Forshee wrote:
+>> We've had several reports of hitting the following BUG_ON in
+>> xennet_make_frags with 3.2 and 3.13 kernels (I'm currently awaiting
+>> results of testing with 3.17):
+>>
+>>         /* Grant backend access to each skb fragment page. */
+>>         for (i =3D 0; i < frags; i++) {
+>>                 skb_frag_t *frag =3D skb_shinfo(skb)->frags + i;
+>>                 struct page *page =3D skb_frag_page(frag);
+>>
+>>                 len =3D skb_frag_size(frag);
+>>                 offset =3D frag->page_offset;
+>>
+>>                 /* Data must not cross a page boundary. */
+>>                 BUG_ON(len + offset > PAGE_SIZE<<compound_order(page))=
+;
+>>
+>> When this happens the page in question is a "middle" page in a compoun=
+d
+>> page (i.e. it's a tail page but not the last tail page), and the data =
+is
+>> fully contained within the compound page. The data does however cross
+>> the hardware page boundary, and since compound_order evaluates to 0 fo=
+r
+>> tail pages the check fails.
+>>
+>> In going over this I've been unable to determine whether the BUG_ON in=
 
-Regards
-Dong Aisheng
+>> xennet_make_frags is incorrect or the paged skb data is wrong. I can't=
 
-> Marc
-> 
-> -- 
-> Pengutronix e.K.                  | Marc Kleine-Budde           |
-> Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-> Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-> Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-> 
+>> find that it's documented anywhere, and the networking code itself is =
+a
+>> bit ambiguous when it comes to compound pages. On the one hand
+>> __skb_fill_page_desc specifically handles adding tail pages as paged
+>> data, but on the other hand skb_copy_bits kmaps frag->page.p which cou=
+ld
+>> fail with data that extends into another page.
+>=20
+> netfront will safely handle this case so you can remove this BUG_ON()
+> (and the one later on).  But it would be better to find out were these
+> funny-looking skbs are coming from and (if necessary) fixing the bug th=
+ere.
+
+Right, in fact it does ignore pages from the start of a compound page in =
+case
+the offset is big enough. So there is no difference between that case and=
+ the
+one where the page pointer from the frag is adjusted the way it was obser=
+ved.
+
+It really boils down to the question what the real rules for the frags ar=
+e. If
+it is "only" that data may not cross the boundary of a hw or compound pag=
+e this
+leaves room for interpretation. The odd skb does not violate that but a c=
+heck
+for conformance would become a lot more complex. And netfront is not the =
+only
+place that expects the frag page to be pointing to the compound head (the=
+re is
+igb for example, though it does only a warn_on upon failing).
+
+On the other hand the __skb_fill_page_desc is written in a way that seems=
+ to
+assume the frag page pointer may be pointing to a tail page. So before "b=
+laming"
+one piece of code or the other we need an authoritative answer to what we=
+ are
+supposed to expect.
+
+-Stefan
+>=20
+> David
+>=20
 
 
+
+--bCvbWEJMulW7EirtrJbTqmj5j1SVXs2Fc
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBCgAGBQJUXKgjAAoJEOhnXe7L7s6jv00P/1h8nZmWti/L+ueiOit/Uv/u
+2sBrwRi96T+9pi9dEFuDZruPCOqWEBcRjQnkdmL0Id0PwjjLwNd+pKfQuOgpGDmp
+9GA1yO+yxFikHEgILlmPcvdEwAvMnRhm5BuBtthYuuJ+eWcKQfWJXswVB+769Vy+
+hTYp01pqWay7XP5LMntzz7ZtShC3exOXs5nX1R/BmkxDWlm0WxlI/ALCmNCfuvpx
+RkA3wfVHqC/azyzOiuyI+82MAx/0dah2kJddKbvwUr7oC3JYrCt+asOg19nB7RML
+5505YPdp79SRB5vZa/bMS8QWh8x+xA5iVcTdbJxGGKix9Ms+OHk1KYC+qqKwm/yS
+VdjQ5MJlp5woGDGtl04ExyOw1NXaqaMidExGktq7rl528wtn05tvn3PT6W7LdpwM
+fook6Qs56Z6F+EVi1ZTY03d4aqp5NKhb5bFaKBsDJCtz+NpOSYxwa0BQZICYnKXy
+ZXj8gN0s7dd9FfxGq+AVd5JKaXT18MxpIPW+pIw83ZL2QblH02L4imf9Lo5BkV7Z
+0luMQMN3rsXNqINrbOa/JTrEyJwn0V2D4UwOrdJrsqN6Q1mx3Sqaa2QhVNYbBAtb
+CdY8SyicB3sD8UaVlHqTB1jb2F6klst5ZTftxyDC9GT/088Zjb5AEqyeCUpItuI+
+590GautyGVnF60sEHMK4
+=VJCZ
+-----END PGP SIGNATURE-----
+
+--bCvbWEJMulW7EirtrJbTqmj5j1SVXs2Fc--
