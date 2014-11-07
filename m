@@ -1,399 +1,70 @@
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCHv3 net-next 1/3] cxgb4: Add cxgb4_debugfs.c, move all debugfs code to new file
-Date: Fri,  7 Nov 2014 09:35:23 +0530
-Message-ID: <1415333125-10635-2-git-send-email-hariprasad@chelsio.com>
-References: <1415333125-10635-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem@davemloft.net, roland@purestorage.com,
-	JBottomley@parallels.com, hch@infradead.org,
-	swise@opengridcomputing.com, leedom@chelsio.com, anish@chelsio.com,
-	praveenm@chelsio.com, nirranjan@chelsio.com, kumaras@chelsio.com,
-	Hariprasad Shenai <hariprasad@chelsio.com>
-To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-	linux-scsi@vger.kernel.org
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <1415333125-10635-1-git-send-email-hariprasad@chelsio.com>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] net: gro: add a per device gro flush timer
+Date: Thu, 06 Nov 2014 20:15:14 -0800
+Message-ID: <1415333714.13896.91.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1415235320.13896.51.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20141106.162516.1083429539800319166.davem@davemloft.net>
+	 <1415311880.13896.85.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20141106.223603.678182467467024928.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com, willemb@google.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f182.google.com ([209.85.223.182]:50010 "EHLO
+	mail-ie0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751371AbaKGEPW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 23:15:22 -0500
+Received: by mail-ie0-f182.google.com with SMTP id rd18so4450677iec.27
+        for <netdev@vger.kernel.org>; Thu, 06 Nov 2014 20:15:21 -0800 (PST)
+In-Reply-To: <20141106.223603.678182467467024928.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4/Makefile        |    1 +
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h         |    1 +
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c |  158 ++++++++++++++++++++
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.h |   52 +++++++
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    |   97 +------------
- 5 files changed, 217 insertions(+), 92 deletions(-)
- create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
- create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.h
+On Thu, 2014-11-06 at 22:36 -0500, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Thu, 06 Nov 2014 14:11:20 -0800
+> 
+> > My goal was to not change any driver, doing a generic change.
+> > 
+> > Drivers call napi_complete() in their rx napi handler without giving us
+> > the 'work_done' value which tells us if a packet was processed.
+> > 
+> > So I added a counter that is increased for every packet given to GRO
+> > engine (napi_rx_count), so that napi_complete() has a clue if a packet
+> > was received in _this_ NAPI run.
+> > 
+> > If at least one packet was received (and we still have packets in
+> > gro_list) -> We ream the 'timer'
+> > If not, we flush packets in GRO engine.
+> > 
+> > In order to avoid this state, I would have to add a new method, like
+> > napi_complete_done(napi, work_done), and change drivers. I am not sure
+> > its worth the effort ?
+> 
+> I think for such a critical path in the kernel it's worth it to avoid
+> these increments for every packet, just to compute a value that's
+> sitting in a register already in the driver's poll routine.
+> 
+> Eric, you've been trimming cpu IRQ disables from these exact code
+> paths, you should know better than me :-)
+> 
+> I'm willing to do some of the monkey work of converting as many
+> drivers as can be trivially done if you want.  Almost all of the
+> ones I looked at have the work_done variable right there at the
+> napi_complete() call site.
+> 
+> The rest can stay unconverted and not get access to this new facility.
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/Makefile b/drivers/net/ethernet/chelsio/cxgb4/Makefile
-index 1df65c9..b852807 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/Makefile
-+++ b/drivers/net/ethernet/chelsio/cxgb4/Makefile
-@@ -6,3 +6,4 @@ obj-$(CONFIG_CHELSIO_T4) += cxgb4.o
- 
- cxgb4-objs := cxgb4_main.o l2t.o t4_hw.o sge.o
- cxgb4-$(CONFIG_CHELSIO_T4_DCB) +=  cxgb4_dcb.o
-+cxgb4-$(CONFIG_DEBUG_FS) += cxgb4_debugfs.o
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-index 3c481b2..dad1ea9 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-@@ -1085,4 +1085,5 @@ void t4_db_dropped(struct adapter *adapter);
- int t4_fwaddrspace_write(struct adapter *adap, unsigned int mbox,
- 			 u32 addr, u32 val);
- void t4_sge_decode_idma_state(struct adapter *adapter, int state);
-+void t4_free_mem(void *addr);
- #endif /* __CXGB4_H__ */
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
-new file mode 100644
-index 0000000..e86b5fe
---- /dev/null
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
-@@ -0,0 +1,158 @@
-+/*
-+ * This file is part of the Chelsio T4 Ethernet driver for Linux.
-+ *
-+ * Copyright (c) 2003-2014 Chelsio Communications, Inc. All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+
-+#include <linux/seq_file.h>
-+#include <linux/debugfs.h>
-+#include <linux/string_helpers.h>
-+#include <linux/sort.h>
-+
-+#include "cxgb4.h"
-+#include "t4_regs.h"
-+#include "t4fw_api.h"
-+#include "cxgb4_debugfs.h"
-+#include "l2t.h"
-+
-+static ssize_t mem_read(struct file *file, char __user *buf, size_t count,
-+			loff_t *ppos)
-+{
-+	loff_t pos = *ppos;
-+	loff_t avail = file_inode(file)->i_size;
-+	unsigned int mem = (uintptr_t)file->private_data & 3;
-+	struct adapter *adap = file->private_data - mem;
-+	__be32 *data;
-+	int ret;
-+
-+	if (pos < 0)
-+		return -EINVAL;
-+	if (pos >= avail)
-+		return 0;
-+	if (count > avail - pos)
-+		count = avail - pos;
-+
-+	data = t4_alloc_mem(count);
-+	if (!data)
-+		return -ENOMEM;
-+
-+	spin_lock(&adap->win0_lock);
-+	ret = t4_memory_rw(adap, 0, mem, pos, count, data, T4_MEMORY_READ);
-+	spin_unlock(&adap->win0_lock);
-+	if (ret) {
-+		t4_free_mem(data);
-+		return ret;
-+	}
-+	ret = copy_to_user(buf, data, count);
-+
-+	t4_free_mem(data);
-+	if (ret)
-+		return -EFAULT;
-+
-+	*ppos = pos + count;
-+	return count;
-+}
-+
-+static const struct file_operations mem_debugfs_fops = {
-+	.owner   = THIS_MODULE,
-+	.open    = simple_open,
-+	.read    = mem_read,
-+	.llseek  = default_llseek,
-+};
-+
-+static void add_debugfs_mem(struct adapter *adap, const char *name,
-+			    unsigned int idx, unsigned int size_mb)
-+{
-+	struct dentry *de;
-+
-+	de = debugfs_create_file(name, S_IRUSR, adap->debugfs_root,
-+				 (void *)adap + idx, &mem_debugfs_fops);
-+	if (de && de->d_inode)
-+		de->d_inode->i_size = size_mb << 20;
-+}
-+
-+/* Add an array of Debug FS files.
-+ */
-+void add_debugfs_files(struct adapter *adap,
-+		       struct t4_debugfs_entry *files,
-+		       unsigned int nfiles)
-+{
-+	int i;
-+
-+	/* debugfs support is best effort */
-+	for (i = 0; i < nfiles; i++)
-+		debugfs_create_file(files[i].name, files[i].mode,
-+				    adap->debugfs_root,
-+				    (void *)adap + files[i].data,
-+				    files[i].ops);
-+}
-+
-+int t4_setup_debugfs(struct adapter *adap)
-+{
-+	int i;
-+	u32 size;
-+
-+	static struct t4_debugfs_entry t4_debugfs_files[] = {
-+		{ "l2t", &t4_l2t_fops, S_IRUSR, 0},
-+	};
-+
-+	add_debugfs_files(adap,
-+			  t4_debugfs_files,
-+			  ARRAY_SIZE(t4_debugfs_files));
-+
-+	i = t4_read_reg(adap, MA_TARGET_MEM_ENABLE);
-+	if (i & EDRAM0_ENABLE) {
-+		size = t4_read_reg(adap, MA_EDRAM0_BAR);
-+		add_debugfs_mem(adap, "edc0", MEM_EDC0, EDRAM_SIZE_GET(size));
-+	}
-+	if (i & EDRAM1_ENABLE) {
-+		size = t4_read_reg(adap, MA_EDRAM1_BAR);
-+		add_debugfs_mem(adap, "edc1", MEM_EDC1, EDRAM_SIZE_GET(size));
-+	}
-+	if (is_t4(adap->params.chip)) {
-+		size = t4_read_reg(adap, MA_EXT_MEMORY_BAR);
-+		if (i & EXT_MEM_ENABLE)
-+			add_debugfs_mem(adap, "mc", MEM_MC,
-+					EXT_MEM_SIZE_GET(size));
-+	} else {
-+		if (i & EXT_MEM_ENABLE) {
-+			size = t4_read_reg(adap, MA_EXT_MEMORY_BAR);
-+			add_debugfs_mem(adap, "mc0", MEM_MC0,
-+					EXT_MEM_SIZE_GET(size));
-+		}
-+		if (i & EXT_MEM1_ENABLE) {
-+			size = t4_read_reg(adap, MA_EXT_MEMORY1_BAR);
-+			add_debugfs_mem(adap, "mc1", MEM_MC1,
-+					EXT_MEM_SIZE_GET(size));
-+		}
-+	}
-+	return 0;
-+}
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.h
-new file mode 100644
-index 0000000..a3d8867
---- /dev/null
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.h
-@@ -0,0 +1,52 @@
-+/*
-+ * This file is part of the Chelsio T4 Ethernet driver for Linux.
-+ *
-+ * Copyright (c) 2003-2014 Chelsio Communications, Inc. All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+
-+#ifndef __CXGB4_DEBUGFS_H
-+#define __CXGB4_DEBUGFS_H
-+
-+#include <linux/export.h>
-+
-+struct t4_debugfs_entry {
-+	const char *name;
-+	const struct file_operations *ops;
-+	mode_t mode;
-+	unsigned char data;
-+};
-+
-+int t4_setup_debugfs(struct adapter *adap);
-+void add_debugfs_files(struct adapter *adap,
-+		       struct t4_debugfs_entry *files,
-+		       unsigned int nfiles);
-+
-+#endif
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 8520d55..172f68b 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -68,6 +68,7 @@
- #include "t4_msg.h"
- #include "t4fw_api.h"
- #include "cxgb4_dcb.h"
-+#include "cxgb4_debugfs.h"
- #include "l2t.h"
- 
- #include <../drivers/net/bonding/bonding.h>
-@@ -1287,7 +1288,7 @@ void *t4_alloc_mem(size_t size)
- /*
-  * Free memory allocated through alloc_mem().
-  */
--static void t4_free_mem(void *addr)
-+void t4_free_mem(void *addr)
- {
- 	if (is_vmalloc_addr(addr))
- 		vfree(addr);
-@@ -3127,102 +3128,14 @@ static const struct ethtool_ops cxgb_ethtool_ops = {
- 	.flash_device      = set_flash,
- };
- 
--/*
-- * debugfs support
-- */
--static ssize_t mem_read(struct file *file, char __user *buf, size_t count,
--			loff_t *ppos)
--{
--	loff_t pos = *ppos;
--	loff_t avail = file_inode(file)->i_size;
--	unsigned int mem = (uintptr_t)file->private_data & 3;
--	struct adapter *adap = file->private_data - mem;
--	__be32 *data;
--	int ret;
--
--	if (pos < 0)
--		return -EINVAL;
--	if (pos >= avail)
--		return 0;
--	if (count > avail - pos)
--		count = avail - pos;
--
--	data = t4_alloc_mem(count);
--	if (!data)
--		return -ENOMEM;
--
--	spin_lock(&adap->win0_lock);
--	ret = t4_memory_rw(adap, 0, mem, pos, count, data, T4_MEMORY_READ);
--	spin_unlock(&adap->win0_lock);
--	if (ret) {
--		t4_free_mem(data);
--		return ret;
--	}
--	ret = copy_to_user(buf, data, count);
--
--	t4_free_mem(data);
--	if (ret)
--		return -EFAULT;
--
--	*ppos = pos + count;
--	return count;
--}
--
--static const struct file_operations mem_debugfs_fops = {
--	.owner   = THIS_MODULE,
--	.open    = simple_open,
--	.read    = mem_read,
--	.llseek  = default_llseek,
--};
--
--static void add_debugfs_mem(struct adapter *adap, const char *name,
--			    unsigned int idx, unsigned int size_mb)
--{
--	struct dentry *de;
--
--	de = debugfs_create_file(name, S_IRUSR, adap->debugfs_root,
--				 (void *)adap + idx, &mem_debugfs_fops);
--	if (de && de->d_inode)
--		de->d_inode->i_size = size_mb << 20;
--}
--
- static int setup_debugfs(struct adapter *adap)
- {
--	int i;
--	u32 size;
--
- 	if (IS_ERR_OR_NULL(adap->debugfs_root))
- 		return -1;
- 
--	i = t4_read_reg(adap, MA_TARGET_MEM_ENABLE);
--	if (i & EDRAM0_ENABLE) {
--		size = t4_read_reg(adap, MA_EDRAM0_BAR);
--		add_debugfs_mem(adap, "edc0", MEM_EDC0,	EDRAM_SIZE_GET(size));
--	}
--	if (i & EDRAM1_ENABLE) {
--		size = t4_read_reg(adap, MA_EDRAM1_BAR);
--		add_debugfs_mem(adap, "edc1", MEM_EDC1, EDRAM_SIZE_GET(size));
--	}
--	if (is_t4(adap->params.chip)) {
--		size = t4_read_reg(adap, MA_EXT_MEMORY_BAR);
--		if (i & EXT_MEM_ENABLE)
--			add_debugfs_mem(adap, "mc", MEM_MC,
--					EXT_MEM_SIZE_GET(size));
--	} else {
--		if (i & EXT_MEM_ENABLE) {
--			size = t4_read_reg(adap, MA_EXT_MEMORY_BAR);
--			add_debugfs_mem(adap, "mc0", MEM_MC0,
--					EXT_MEM_SIZE_GET(size));
--		}
--		if (i & EXT_MEM1_ENABLE) {
--			size = t4_read_reg(adap, MA_EXT_MEMORY1_BAR);
--			add_debugfs_mem(adap, "mc1", MEM_MC1,
--					EXT_MEM_SIZE_GET(size));
--		}
--	}
--	if (adap->l2t)
--		debugfs_create_file("l2t", S_IRUSR, adap->debugfs_root, adap,
--				    &t4_l2t_fops);
-+#ifdef CONFIG_DEBUG_FS
-+	t4_setup_debugfs(adap);
-+#endif
- 	return 0;
- }
- 
--- 
-1.7.1
+This is your call. I actually did this in my first implementation,
+because I was not using a timer but rescheduling NAPI and not
+re-enabling interrupts.
 
+http://www.spinics.net/lists/netdev/msg302474.html
+
+(This is why I had to cook "d75b1ade567 net: less interrupt masking in
+NAPI")
+
+Given the cost of GRO processing, setting a bool (this is all I need
+actually) is really pure noise.
