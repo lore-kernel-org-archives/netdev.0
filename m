@@ -1,79 +1,169 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [net-next 6/9] ixgbe: fix X540 Completion timeout
-Date: Fri, 07 Nov 2014 17:35:04 +0300
-Message-ID: <545CD898.7060403@cogentembedded.com>
-References: <1415350670-15333-1-git-send-email-jeffrey.t.kirsher@intel.com> <1415350670-15333-7-git-send-email-jeffrey.t.kirsher@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net
+From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Subject: [PATCH] stmmac: platform: fix sparse warnings
+Date: Fri,  7 Nov 2014 16:46:42 +0200
+Message-ID: <1415371602-12049-1-git-send-email-andriy.shevchenko@linux.intel.com>
+Cc: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	netdev@vger.kernel.org, "David S . Miller" <davem@davemloft.net>,
+	Vince Bridgers <vbridgers2013@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f50.google.com ([209.85.215.50]:62629 "EHLO
-	mail-la0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752555AbaKGOfH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2014 09:35:07 -0500
-Received: by mail-la0-f50.google.com with SMTP id hz20so4498488lab.37
-        for <netdev@vger.kernel.org>; Fri, 07 Nov 2014 06:35:06 -0800 (PST)
-In-Reply-To: <1415350670-15333-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mga11.intel.com ([192.55.52.93]:4871 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752406AbaKGOqn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Nov 2014 09:46:43 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+This patch fixes the following sparse warnings. One is fixed by casting return
+value to a return type of the function. The others by creating a specific
+stmmac_platform.h which provides the bits related to the platform driver.
 
-On 11/7/2014 11:57 AM, Jeff Kirsher wrote:
+drivers/net/ethernet/stmicro/stmmac/dwmac-meson.c:59:29: warning: incorrect type in return expression (different address spaces)
+drivers/net/ethernet/stmicro/stmmac/dwmac-meson.c:59:29:    expected void *
+drivers/net/ethernet/stmicro/stmmac/dwmac-meson.c:59:29:    got void [noderef] <asn:2>*reg
 
-> From: Don Skidmore <donald.c.skidmore@intel.com>
+drivers/net/ethernet/stmicro/stmmac/dwmac-meson.c:64:29: warning: symbol 'meson6_dwmac_data' was not declared. Should it be static?
+drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c:354:29: warning: symbol 'stih4xx_dwmac_data' was not declared. Should it be static?
+drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c:361:29: warning: symbol 'stid127_dwmac_data' was not declared. Should it be static?
+drivers/net/ethernet/stmicro/stmmac/dwmac-sunxi.c:133:29: warning: symbol 'sun7i_gmac_data' was not declared. Should it be static?
 
-> On topologies including few levels of PCIe switching X540 can run into an
-> unexpected completion error.  We get around this by waiting after enabling
-> loopback a sufficient amount of time until Tx Data Fetch is sent.  We then
-> poll the pending transaction bit to ensure we received the completion.  Only
-> then do we go on to clear the buffers.
+Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/dwmac-meson.c  |  4 +++-
+ .../net/ethernet/stmicro/stmmac/dwmac-socfpga.c    |  2 ++
+ drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c    |  2 ++
+ drivers/net/ethernet/stmicro/stmmac/dwmac-sunxi.c  |  2 ++
+ drivers/net/ethernet/stmicro/stmmac/stmmac.h       |  5 ----
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |  2 ++
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.h  | 28 ++++++++++++++++++++++
+ 7 files changed, 39 insertions(+), 6 deletions(-)
+ create mode 100644 drivers/net/ethernet/stmicro/stmmac/stmmac_platform.h
 
-> Signed-of-by: Don Skidmore <donald.c.skidmore@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-
-> ---
->   drivers/net/ethernet/intel/ixgbe/ixgbe_common.c | 21 ++++++++++++++++++++-
->   1 file changed, 20 insertions(+), 1 deletion(-)
-
-> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-> index b5f484b..e314b53 100644
-> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-[...]
-> @@ -3600,6 +3601,24 @@ void ixgbe_clear_tx_pending(struct ixgbe_hw *hw)
->   	hlreg0 = IXGBE_READ_REG(hw, IXGBE_HLREG0);
->   	IXGBE_WRITE_REG(hw, IXGBE_HLREG0, hlreg0 | IXGBE_HLREG0_LPBK);
->
-> +	/* wait for a last completion before clearing buffers */
-> +	IXGBE_WRITE_FLUSH(hw);
-> +	usleep_range(3000, 6000);
-> +
-> +	/* Before proceeding, make sure that the PCIe block does not have
-> +	 * transactions pending.
-> +	 */
-> +	poll = ixgbe_pcie_timeout_poll(hw);
-> +	for (i = 0; i < poll; i++) {
-> +		usleep_range(100, 200);
-> +		value = ixgbe_read_pci_cfg_word(hw, IXGBE_PCI_DEVICE_STATUS);
-> +		if (ixgbe_removed(hw->hw_addr))
-> +			goto out;
-
-    Why not just *break*?
-
-> +		if (!(value & IXGBE_PCI_DEVICE_STATUS_TRANSACTION_PENDING))
-> +			goto out;
-
-    Likewise.
-
-> +	}
-> +
-> +out:
->   	/* initiate cleaning flow for buffers in the PCIe transaction layer */
->   	gcr_ext = IXGBE_READ_REG(hw, IXGBE_GCR_EXT);
->   	IXGBE_WRITE_REG(hw, IXGBE_GCR_EXT,
-
-WBR, Sergei
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-meson.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-meson.c
+index d225a60..cca028d 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac-meson.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-meson.c
+@@ -18,6 +18,8 @@
+ #include <linux/platform_device.h>
+ #include <linux/stmmac.h>
+ 
++#include "stmmac_platform.h"
++
+ #define ETHMAC_SPEED_100	BIT(1)
+ 
+ struct meson_dwmac {
+@@ -56,7 +58,7 @@ static void *meson6_dwmac_setup(struct platform_device *pdev)
+ 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+ 	dwmac->reg = devm_ioremap_resource(&pdev->dev, res);
+ 	if (IS_ERR(dwmac->reg))
+-		return dwmac->reg;
++		return ERR_CAST(dwmac->reg);
+ 
+ 	return dwmac;
+ }
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
+index 3aad413..e97074c 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
+@@ -23,7 +23,9 @@
+ #include <linux/regmap.h>
+ #include <linux/reset.h>
+ #include <linux/stmmac.h>
++
+ #include "stmmac.h"
++#include "stmmac_platform.h"
+ 
+ #define SYSMGR_EMACGRP_CTRL_PHYSEL_ENUM_GMII_MII 0x0
+ #define SYSMGR_EMACGRP_CTRL_PHYSEL_ENUM_RGMII 0x1
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c
+index ccfe7e5..ea40692 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c
+@@ -22,6 +22,8 @@
+ #include <linux/of.h>
+ #include <linux/of_net.h>
+ 
++#include "stmmac_platform.h"
++
+ #define DWMAC_125MHZ	125000000
+ #define DWMAC_50MHZ	50000000
+ #define DWMAC_25MHZ	25000000
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-sunxi.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-sunxi.c
+index 771cd15..a26bda2 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac-sunxi.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-sunxi.c
+@@ -22,6 +22,8 @@
+ #include <linux/of_net.h>
+ #include <linux/regulator/consumer.h>
+ 
++#include "stmmac_platform.h"
++
+ struct sunxi_priv_data {
+ 	int interface;
+ 	int clk_enabled;
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+index 709798b..bd75ee8 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+@@ -135,11 +135,6 @@ void stmmac_disable_eee_mode(struct stmmac_priv *priv);
+ bool stmmac_eee_init(struct stmmac_priv *priv);
+ 
+ #ifdef CONFIG_STMMAC_PLATFORM
+-extern const struct stmmac_of_data meson6_dwmac_data;
+-extern const struct stmmac_of_data sun7i_gmac_data;
+-extern const struct stmmac_of_data stih4xx_dwmac_data;
+-extern const struct stmmac_of_data stid127_dwmac_data;
+-extern const struct stmmac_of_data socfpga_gmac_data;
+ extern struct platform_driver stmmac_pltfr_driver;
+ 
+ static inline int stmmac_register_platform(void)
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+index f4fe854..9f18401 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+@@ -27,7 +27,9 @@
+ #include <linux/of.h>
+ #include <linux/of_net.h>
+ #include <linux/of_device.h>
++
+ #include "stmmac.h"
++#include "stmmac_platform.h"
+ 
+ static const struct of_device_id stmmac_dt_ids[] = {
+ 	/* SoC specific glue layers should come before generic bindings */
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.h b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.h
+new file mode 100644
+index 0000000..25dd1f7
+--- /dev/null
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.h
+@@ -0,0 +1,28 @@
++/*******************************************************************************
++  Copyright (C) 2007-2009  STMicroelectronics Ltd
++
++  This program is free software; you can redistribute it and/or modify it
++  under the terms and conditions of the GNU General Public License,
++  version 2, as published by the Free Software Foundation.
++
++  This program is distributed in the hope it will be useful, but WITHOUT
++  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++  more details.
++
++  The full GNU General Public License is included in this distribution in
++  the file called "COPYING".
++
++  Author: Giuseppe Cavallaro <peppe.cavallaro@st.com>
++*******************************************************************************/
++
++#ifndef __STMMAC_PLATFORM_H__
++#define __STMMAC_PLATFORM_H__
++
++extern const struct stmmac_of_data meson6_dwmac_data;
++extern const struct stmmac_of_data sun7i_gmac_data;
++extern const struct stmmac_of_data stih4xx_dwmac_data;
++extern const struct stmmac_of_data stid127_dwmac_data;
++extern const struct stmmac_of_data socfpga_gmac_data;
++
++#endif /* __STMMAC_PLATFORM_H__ */
+-- 
+2.1.3
