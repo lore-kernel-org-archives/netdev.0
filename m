@@ -1,360 +1,274 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net 1/3] cxgb4vf: Move fl_starv_thres into adapter->sge data structure
-Date: Fri,  7 Nov 2014 17:06:29 +0530
-Message-ID: <1415360191-25395-2-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCH net 2/3] cxgb4/cxgb4vf: For T5 use Packing and Padding Boundaries for SGE DMA transfers
+Date: Fri,  7 Nov 2014 17:06:30 +0530
+Message-ID: <1415360191-25395-3-git-send-email-hariprasad@chelsio.com>
 References: <1415360191-25395-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
 	Hariprasad Shenai <hariprasad@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:34367
+Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:34370
 	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751926AbaKGLau (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2014 06:30:50 -0500
+	by vger.kernel.org with ESMTP id S1751933AbaKGLaw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2014 06:30:52 -0500
 In-Reply-To: <1415360191-25395-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move fl_starv_thres into adapter->sge data structure since it
-_could_ be different from adapter to adapter.  Also move other per-adapter
-SGE values which had been treated as driver globals into adapter->sge.
-
-Based on original work by Casey Leedom <leedom@chelsio.com>
+T5 introduces the ability to have separate Packing and Padding Boundaries
+for SGE DMA transfers from the chip to Host Memory. This change set takes
+advantage of that to set up a smaller Padding Boundary to conserve PCI Link
+and Memory Bandwidth with T5.
 
 Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4vf/adapter.h |    8 ++
- drivers/net/ethernet/chelsio/cxgb4vf/sge.c     |   93 ++++++++++++++----------
- 2 files changed, 61 insertions(+), 40 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/sge.c           |   30 ++++++++++-
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c         |   51 +++++++++++++++++--
+ drivers/net/ethernet/chelsio/cxgb4/t4_regs.h       |   10 ++++
+ drivers/net/ethernet/chelsio/cxgb4vf/sge.c         |   31 +++++++++++-
+ drivers/net/ethernet/chelsio/cxgb4vf/t4vf_common.h |    1 +
+ drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c     |   23 +++++++++
+ 6 files changed, 135 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/adapter.h b/drivers/net/ethernet/chelsio/cxgb4vf/adapter.h
-index 68eaa9c..3d06e77 100644
---- a/drivers/net/ethernet/chelsio/cxgb4vf/adapter.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4vf/adapter.h
-@@ -299,6 +299,14 @@ struct sge {
- 	u16 timer_val[SGE_NTIMERS];	/* interrupt holdoff timer array */
- 	u8 counter_val[SGE_NCOUNTERS];	/* interrupt RX threshold array */
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+index 5e1b314..39f2b13 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+@@ -2914,7 +2914,8 @@ static int t4_sge_init_hard(struct adapter *adap)
+ int t4_sge_init(struct adapter *adap)
+ {
+ 	struct sge *s = &adap->sge;
+-	u32 sge_control, sge_conm_ctrl;
++	u32 sge_control, sge_control2, sge_conm_ctrl;
++	unsigned int ingpadboundary, ingpackboundary;
+ 	int ret, egress_threshold;
  
-+	/* Decoded Adapter Parameters.
-+	 */
-+	u32 fl_pg_order;		/* large page allocation size */
-+	u32 stat_len;			/* length of status page at ring end */
-+	u32 pktshift;			/* padding between CPL & packet data */
-+	u32 fl_align;			/* response queue message alignment */
-+	u32 fl_starve_thres;		/* Free List starvation threshold */
-+
  	/*
- 	 * Reverse maps from Absolute Queue IDs to associated queue pointers.
- 	 * The absolute Queue IDs are in a compact range which start at a
+@@ -2924,8 +2925,31 @@ int t4_sge_init(struct adapter *adap)
+ 	sge_control = t4_read_reg(adap, SGE_CONTROL);
+ 	s->pktshift = PKTSHIFT_GET(sge_control);
+ 	s->stat_len = (sge_control & EGRSTATUSPAGESIZE_MASK) ? 128 : 64;
+-	s->fl_align = 1 << (INGPADBOUNDARY_GET(sge_control) +
+-			    X_INGPADBOUNDARY_SHIFT);
++
++	/* T4 uses a single control field to specify both the PCIe Padding and
++	 * Packing Boundary.  T5 introduced the ability to specify these
++	 * separately.  The actual Ingress Packet Data alignment boundary
++	 * within Packed Buffer Mode is the maximum of these two
++	 * specifications.
++	 */
++	ingpadboundary = 1 << (INGPADBOUNDARY_GET(sge_control) +
++			       X_INGPADBOUNDARY_SHIFT);
++	if (is_t4(adap->params.chip)) {
++		s->fl_align = ingpadboundary;
++	} else {
++		/* T5 has a different interpretation of one of the PCIe Packing
++		 * Boundary values.
++		 */
++		sge_control2 = t4_read_reg(adap, SGE_CONTROL2_A);
++		ingpackboundary = INGPACKBOUNDARY_G(sge_control2);
++		if (ingpackboundary == INGPACKBOUNDARY_16B_X)
++			ingpackboundary = 16;
++		else
++			ingpackboundary = 1 << (ingpackboundary +
++						INGPACKBOUNDARY_SHIFT_X);
++
++		s->fl_align = max(ingpadboundary, ingpackboundary);
++	}
+ 
+ 	if (adap->flags & USING_SOFT_PARAMS)
+ 		ret = t4_sge_init_soft(adap);
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+index a9d9d74..163a2a1 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+@@ -3129,12 +3129,51 @@ int t4_fixup_host_params(struct adapter *adap, unsigned int page_size,
+ 		     HOSTPAGESIZEPF6(sge_hps) |
+ 		     HOSTPAGESIZEPF7(sge_hps));
+ 
+-	t4_set_reg_field(adap, SGE_CONTROL,
+-			 INGPADBOUNDARY_MASK |
+-			 EGRSTATUSPAGESIZE_MASK,
+-			 INGPADBOUNDARY(fl_align_log - 5) |
+-			 EGRSTATUSPAGESIZE(stat_len != 64));
+-
++	if (is_t4(adap->params.chip)) {
++		t4_set_reg_field(adap, SGE_CONTROL,
++				 INGPADBOUNDARY_MASK |
++				 EGRSTATUSPAGESIZE_MASK,
++				 INGPADBOUNDARY(fl_align_log - 5) |
++				 EGRSTATUSPAGESIZE(stat_len != 64));
++	} else {
++		/* T5 introduced the separation of the Free List Padding and
++		 * Packing Boundaries.  Thus, we can select a smaller Padding
++		 * Boundary to avoid uselessly chewing up PCIe Link and Memory
++		 * Bandwidth, and use a Packing Boundary which is large enough
++		 * to avoid false sharing between CPUs, etc.
++		 *
++		 * For the PCI Link, the smaller the Padding Boundary the
++		 * better.  For the Memory Controller, a smaller Padding
++		 * Boundary is better until we cross under the Memory Line
++		 * Size (the minimum unit of transfer to/from Memory).  If we
++		 * have a Padding Boundary which is smaller than the Memory
++		 * Line Size, that'll involve a Read-Modify-Write cycle on the
++		 * Memory Controller which is never good.  For T5 the smallest
++		 * Padding Boundary which we can select is 32 bytes which is
++		 * larger than any known Memory Controller Line Size so we'll
++		 * use that.
++		 *
++		 * T5 has a different interpretation of the "0" value for the
++		 * Packing Boundary.  This corresponds to 16 bytes instead of
++		 * the expected 32 bytes.  We never have a Packing Boundary
++		 * less than 32 bytes so we can't use that special value but
++		 * on the other hand, if we wanted 32 bytes, the best we can
++		 * really do is 64 bytes.
++		*/
++		if (fl_align <= 32) {
++			fl_align = 64;
++			fl_align_log = 6;
++		}
++		t4_set_reg_field(adap, SGE_CONTROL,
++				 INGPADBOUNDARY_MASK |
++				 EGRSTATUSPAGESIZE_MASK,
++				 INGPADBOUNDARY(INGPCIEBOUNDARY_32B_X) |
++				 EGRSTATUSPAGESIZE(stat_len != 64));
++		t4_set_reg_field(adap, SGE_CONTROL2_A,
++				 INGPACKBOUNDARY_V(INGPACKBOUNDARY_M),
++				 INGPACKBOUNDARY_V(fl_align_log -
++						 INGPACKBOUNDARY_SHIFT_X));
++	}
+ 	/*
+ 	 * Adjust various SGE Free List Host Buffer Sizes.
+ 	 *
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
+index a1024db..8d2de10 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
+@@ -95,6 +95,7 @@
+ #define X_INGPADBOUNDARY_SHIFT 5
+ 
+ #define SGE_CONTROL 0x1008
++#define SGE_CONTROL2_A		0x1124
+ #define  DCASYSTYPE             0x00080000U
+ #define  RXPKTCPLMODE_MASK      0x00040000U
+ #define  RXPKTCPLMODE_SHIFT     18
+@@ -106,6 +107,7 @@
+ #define  PKTSHIFT_SHIFT         10
+ #define  PKTSHIFT(x)            ((x) << PKTSHIFT_SHIFT)
+ #define  PKTSHIFT_GET(x)	(((x) & PKTSHIFT_MASK) >> PKTSHIFT_SHIFT)
++#define  INGPCIEBOUNDARY_32B_X	0
+ #define  INGPCIEBOUNDARY_MASK   0x00000380U
+ #define  INGPCIEBOUNDARY_SHIFT  7
+ #define  INGPCIEBOUNDARY(x)     ((x) << INGPCIEBOUNDARY_SHIFT)
+@@ -114,6 +116,14 @@
+ #define  INGPADBOUNDARY(x)      ((x) << INGPADBOUNDARY_SHIFT)
+ #define  INGPADBOUNDARY_GET(x)	(((x) & INGPADBOUNDARY_MASK) \
+ 				 >> INGPADBOUNDARY_SHIFT)
++#define  INGPACKBOUNDARY_16B_X	0
++#define  INGPACKBOUNDARY_SHIFT_X 5
++
++#define  INGPACKBOUNDARY_S	16
++#define  INGPACKBOUNDARY_M	0x7U
++#define  INGPACKBOUNDARY_V(x)	((x) << INGPACKBOUNDARY_S)
++#define  INGPACKBOUNDARY_G(x)	(((x) >> INGPACKBOUNDARY_S) \
++				 & INGPACKBOUNDARY_M)
+ #define  EGRPCIEBOUNDARY_MASK   0x0000000eU
+ #define  EGRPCIEBOUNDARY_SHIFT  1
+ #define  EGRPCIEBOUNDARY(x)     ((x) << EGRPCIEBOUNDARY_SHIFT)
 diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
-index 85036e6..a18830d 100644
+index a18830d..cd5b789 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
-@@ -51,14 +51,6 @@
- #include "../cxgb4/t4_msg.h"
- 
- /*
-- * Decoded Adapter Parameters.
-- */
--static u32 FL_PG_ORDER;		/* large page allocation size */
--static u32 STAT_LEN;		/* length of status page at ring end */
--static u32 PKTSHIFT;		/* padding between CPL and packet data */
--static u32 FL_ALIGN;		/* response queue message alignment */
--
--/*
-  * Constants ...
-  */
- enum {
-@@ -264,15 +256,19 @@ static inline unsigned int fl_cap(const struct sge_fl *fl)
- 
- /**
-  *	fl_starving - return whether a Free List is starving.
-+ *	@adapter: pointer to the adapter
-  *	@fl: the Free List
-  *
-  *	Tests specified Free List to see whether the number of buffers
-  *	available to the hardware has falled below our "starvation"
-  *	threshold.
-  */
--static inline bool fl_starving(const struct sge_fl *fl)
-+static inline bool fl_starving(const struct adapter *adapter,
-+			       const struct sge_fl *fl)
- {
--	return fl->avail - fl->pend_cred <= FL_STARVE_THRES;
-+	const struct sge *s = &adapter->sge;
-+
-+	return fl->avail - fl->pend_cred <= s->fl_starve_thres;
- }
- 
- /**
-@@ -457,13 +453,16 @@ static inline void reclaim_completed_tx(struct adapter *adapter,
- 
- /**
-  *	get_buf_size - return the size of an RX Free List buffer.
-+ *	@adapter: pointer to the associated adapter
-  *	@sdesc: pointer to the software buffer descriptor
-  */
--static inline int get_buf_size(const struct rx_sw_desc *sdesc)
-+static inline int get_buf_size(const struct adapter *adapter,
-+			       const struct rx_sw_desc *sdesc)
- {
--	return FL_PG_ORDER > 0 && (sdesc->dma_addr & RX_LARGE_BUF)
--		? (PAGE_SIZE << FL_PG_ORDER)
--		: PAGE_SIZE;
-+	const struct sge *s = &adapter->sge;
-+
-+	return (s->fl_pg_order > 0 && (sdesc->dma_addr & RX_LARGE_BUF)
-+		? (PAGE_SIZE << s->fl_pg_order) : PAGE_SIZE);
- }
- 
- /**
-@@ -483,7 +482,8 @@ static void free_rx_bufs(struct adapter *adapter, struct sge_fl *fl, int n)
- 
- 		if (is_buf_mapped(sdesc))
- 			dma_unmap_page(adapter->pdev_dev, get_buf_addr(sdesc),
--				       get_buf_size(sdesc), PCI_DMA_FROMDEVICE);
-+				       get_buf_size(adapter, sdesc),
-+				       PCI_DMA_FROMDEVICE);
- 		put_page(sdesc->page);
- 		sdesc->page = NULL;
- 		if (++fl->cidx == fl->size)
-@@ -511,7 +511,8 @@ static void unmap_rx_buf(struct adapter *adapter, struct sge_fl *fl)
- 
- 	if (is_buf_mapped(sdesc))
- 		dma_unmap_page(adapter->pdev_dev, get_buf_addr(sdesc),
--			       get_buf_size(sdesc), PCI_DMA_FROMDEVICE);
-+			       get_buf_size(adapter, sdesc),
-+			       PCI_DMA_FROMDEVICE);
- 	sdesc->page = NULL;
- 	if (++fl->cidx == fl->size)
- 		fl->cidx = 0;
-@@ -589,6 +590,7 @@ static inline void poison_buf(struct page *page, size_t sz)
- static unsigned int refill_fl(struct adapter *adapter, struct sge_fl *fl,
- 			      int n, gfp_t gfp)
- {
-+	struct sge *s = &adapter->sge;
- 	struct page *page;
- 	dma_addr_t dma_addr;
- 	unsigned int cred = fl->avail;
-@@ -608,12 +610,12 @@ static unsigned int refill_fl(struct adapter *adapter, struct sge_fl *fl,
- 	 * If we don't support large pages, drop directly into the small page
- 	 * allocation code.
- 	 */
--	if (FL_PG_ORDER == 0)
-+	if (s->fl_pg_order == 0)
- 		goto alloc_small_pages;
- 
- 	while (n) {
- 		page = alloc_pages(gfp | __GFP_COMP | __GFP_NOWARN,
--				   FL_PG_ORDER);
-+				   s->fl_pg_order);
- 		if (unlikely(!page)) {
- 			/*
- 			 * We've failed inour attempt to allocate a "large
-@@ -623,10 +625,10 @@ static unsigned int refill_fl(struct adapter *adapter, struct sge_fl *fl,
- 			fl->large_alloc_failed++;
- 			break;
- 		}
--		poison_buf(page, PAGE_SIZE << FL_PG_ORDER);
-+		poison_buf(page, PAGE_SIZE << s->fl_pg_order);
- 
- 		dma_addr = dma_map_page(adapter->pdev_dev, page, 0,
--					PAGE_SIZE << FL_PG_ORDER,
-+					PAGE_SIZE << s->fl_pg_order,
- 					PCI_DMA_FROMDEVICE);
- 		if (unlikely(dma_mapping_error(adapter->pdev_dev, dma_addr))) {
- 			/*
-@@ -637,7 +639,7 @@ static unsigned int refill_fl(struct adapter *adapter, struct sge_fl *fl,
- 			 * because DMA mapping resources are typically
- 			 * critical resources once they become scarse.
- 			 */
--			__free_pages(page, FL_PG_ORDER);
-+			__free_pages(page, s->fl_pg_order);
- 			goto out;
- 		}
- 		dma_addr |= RX_LARGE_BUF;
-@@ -693,7 +695,7 @@ out:
- 	fl->pend_cred += cred;
- 	ring_fl_db(adapter, fl);
- 
--	if (unlikely(fl_starving(fl))) {
-+	if (unlikely(fl_starving(adapter, fl))) {
- 		smp_wmb();
- 		set_bit(fl->cntxt_id, adapter->sge.starving_fl);
- 	}
-@@ -1468,6 +1470,8 @@ static void t4vf_pktgl_free(const struct pkt_gl *gl)
- static void do_gro(struct sge_eth_rxq *rxq, const struct pkt_gl *gl,
- 		   const struct cpl_rx_pkt *pkt)
- {
-+	struct adapter *adapter = rxq->rspq.adapter;
-+	struct sge *s = &adapter->sge;
- 	int ret;
- 	struct sk_buff *skb;
- 
-@@ -1478,8 +1482,8 @@ static void do_gro(struct sge_eth_rxq *rxq, const struct pkt_gl *gl,
- 		return;
- 	}
- 
--	copy_frags(skb, gl, PKTSHIFT);
--	skb->len = gl->tot_len - PKTSHIFT;
-+	copy_frags(skb, gl, s->pktshift);
-+	skb->len = gl->tot_len - s->pktshift;
- 	skb->data_len = skb->len;
- 	skb->truesize += skb->data_len;
- 	skb->ip_summed = CHECKSUM_UNNECESSARY;
-@@ -1516,6 +1520,8 @@ int t4vf_ethrx_handler(struct sge_rspq *rspq, const __be64 *rsp,
- 	bool csum_ok = pkt->csum_calc && !pkt->err_vec &&
- 		       (rspq->netdev->features & NETIF_F_RXCSUM);
- 	struct sge_eth_rxq *rxq = container_of(rspq, struct sge_eth_rxq, rspq);
-+	struct adapter *adapter = rspq->adapter;
-+	struct sge *s = &adapter->sge;
+@@ -2436,6 +2436,7 @@ int t4vf_sge_init(struct adapter *adapter)
+ 	u32 fl0 = sge_params->sge_fl_buffer_size[0];
+ 	u32 fl1 = sge_params->sge_fl_buffer_size[1];
+ 	struct sge *s = &adapter->sge;
++	unsigned int ingpadboundary, ingpackboundary;
  
  	/*
- 	 * If this is a good TCP packet and we have Generic Receive Offload
-@@ -1537,7 +1543,7 @@ int t4vf_ethrx_handler(struct sge_rspq *rspq, const __be64 *rsp,
- 		rxq->stats.rx_drops++;
- 		return 0;
- 	}
--	__skb_pull(skb, PKTSHIFT);
-+	__skb_pull(skb, s->pktshift);
- 	skb->protocol = eth_type_trans(skb, rspq->netdev);
- 	skb_record_rx_queue(skb, rspq->idx);
- 	rxq->stats.pkts++;
-@@ -1648,6 +1654,8 @@ static inline void rspq_next(struct sge_rspq *rspq)
- static int process_responses(struct sge_rspq *rspq, int budget)
- {
- 	struct sge_eth_rxq *rxq = container_of(rspq, struct sge_eth_rxq, rspq);
-+	struct adapter *adapter = rspq->adapter;
-+	struct sge *s = &adapter->sge;
- 	int budget_left = budget;
- 
- 	while (likely(budget_left)) {
-@@ -1697,7 +1705,7 @@ static int process_responses(struct sge_rspq *rspq, int budget)
- 				BUG_ON(frag >= MAX_SKB_FRAGS);
- 				BUG_ON(rxq->fl.avail == 0);
- 				sdesc = &rxq->fl.sdesc[rxq->fl.cidx];
--				bufsz = get_buf_size(sdesc);
-+				bufsz = get_buf_size(adapter, sdesc);
- 				fp->page = sdesc->page;
- 				fp->offset = rspq->offset;
- 				fp->size = min(bufsz, len);
-@@ -1726,7 +1734,7 @@ static int process_responses(struct sge_rspq *rspq, int budget)
- 			 */
- 			ret = rspq->handler(rspq, rspq->cur_desc, &gl);
- 			if (likely(ret == 0))
--				rspq->offset += ALIGN(fp->size, FL_ALIGN);
-+				rspq->offset += ALIGN(fp->size, s->fl_align);
- 			else
- 				restore_rx_bufs(&gl, &rxq->fl, frag);
- 		} else if (likely(rsp_type == RSP_TYPE_CPL)) {
-@@ -1963,7 +1971,7 @@ static void sge_rx_timer_cb(unsigned long data)
- 			 * schedule napi but the FL is no longer starving.
- 			 * No biggie.
- 			 */
--			if (fl_starving(fl)) {
-+			if (fl_starving(adapter, fl)) {
- 				struct sge_eth_rxq *rxq;
- 
- 				rxq = container_of(fl, struct sge_eth_rxq, fl);
-@@ -2047,6 +2055,7 @@ int t4vf_sge_alloc_rxq(struct adapter *adapter, struct sge_rspq *rspq,
- 		       int intr_dest,
- 		       struct sge_fl *fl, rspq_handler_t hnd)
- {
-+	struct sge *s = &adapter->sge;
- 	struct port_info *pi = netdev_priv(dev);
- 	struct fw_iq_cmd cmd, rpl;
- 	int ret, iqandst, flsz = 0;
-@@ -2117,7 +2126,7 @@ int t4vf_sge_alloc_rxq(struct adapter *adapter, struct sge_rspq *rspq,
- 		fl->size = roundup(fl->size, FL_PER_EQ_UNIT);
- 		fl->desc = alloc_ring(adapter->pdev_dev, fl->size,
- 				      sizeof(__be64), sizeof(struct rx_sw_desc),
--				      &fl->addr, &fl->sdesc, STAT_LEN);
-+				      &fl->addr, &fl->sdesc, s->stat_len);
- 		if (!fl->desc) {
- 			ret = -ENOMEM;
- 			goto err;
-@@ -2129,7 +2138,7 @@ int t4vf_sge_alloc_rxq(struct adapter *adapter, struct sge_rspq *rspq,
- 		 * free list ring) in Egress Queue Units.
- 		 */
- 		flsz = (fl->size / FL_PER_EQ_UNIT +
--			STAT_LEN / EQ_UNIT);
-+			s->stat_len / EQ_UNIT);
- 
- 		/*
- 		 * Fill in all the relevant firmware Ingress Queue Command
-@@ -2217,6 +2226,7 @@ int t4vf_sge_alloc_eth_txq(struct adapter *adapter, struct sge_eth_txq *txq,
- 			   struct net_device *dev, struct netdev_queue *devq,
- 			   unsigned int iqid)
- {
-+	struct sge *s = &adapter->sge;
- 	int ret, nentries;
- 	struct fw_eq_eth_cmd cmd, rpl;
- 	struct port_info *pi = netdev_priv(dev);
-@@ -2225,7 +2235,7 @@ int t4vf_sge_alloc_eth_txq(struct adapter *adapter, struct sge_eth_txq *txq,
- 	 * Calculate the size of the hardware TX Queue (including the Status
- 	 * Page on the end of the TX Queue) in units of TX Descriptors.
- 	 */
--	nentries = txq->q.size + STAT_LEN / sizeof(struct tx_desc);
-+	nentries = txq->q.size + s->stat_len / sizeof(struct tx_desc);
- 
- 	/*
- 	 * Allocate the hardware ring for the TX ring (with space for its
-@@ -2234,7 +2244,7 @@ int t4vf_sge_alloc_eth_txq(struct adapter *adapter, struct sge_eth_txq *txq,
- 	txq->q.desc = alloc_ring(adapter->pdev_dev, txq->q.size,
- 				 sizeof(struct tx_desc),
- 				 sizeof(struct tx_sw_desc),
--				 &txq->q.phys_addr, &txq->q.sdesc, STAT_LEN);
-+				 &txq->q.phys_addr, &txq->q.sdesc, s->stat_len);
- 	if (!txq->q.desc)
- 		return -ENOMEM;
- 
-@@ -2307,8 +2317,10 @@ int t4vf_sge_alloc_eth_txq(struct adapter *adapter, struct sge_eth_txq *txq,
-  */
- static void free_txq(struct adapter *adapter, struct sge_txq *tq)
- {
-+	struct sge *s = &adapter->sge;
+ 	 * Start by vetting the basic SGE parameters which have been set up by
+@@ -2460,8 +2461,34 @@ int t4vf_sge_init(struct adapter *adapter)
+ 	s->stat_len = ((sge_params->sge_control & EGRSTATUSPAGESIZE_MASK)
+ 			? 128 : 64);
+ 	s->pktshift = PKTSHIFT_GET(sge_params->sge_control);
+-	s->fl_align = 1 << (INGPADBOUNDARY_GET(sge_params->sge_control) +
+-			    SGE_INGPADBOUNDARY_SHIFT);
 +
- 	dma_free_coherent(adapter->pdev_dev,
--			  tq->size * sizeof(*tq->desc) + STAT_LEN,
-+			  tq->size * sizeof(*tq->desc) + s->stat_len,
- 			  tq->desc, tq->phys_addr);
- 	tq->cntxt_id = 0;
- 	tq->sdesc = NULL;
-@@ -2322,6 +2334,7 @@ static void free_txq(struct adapter *adapter, struct sge_txq *tq)
- static void free_rspq_fl(struct adapter *adapter, struct sge_rspq *rspq,
- 			 struct sge_fl *fl)
- {
-+	struct sge *s = &adapter->sge;
- 	unsigned int flid = fl ? fl->cntxt_id : 0xffff;
- 
- 	t4vf_iq_free(adapter, FW_IQ_TYPE_FL_INT_CAP,
-@@ -2337,7 +2350,7 @@ static void free_rspq_fl(struct adapter *adapter, struct sge_rspq *rspq,
- 	if (fl) {
- 		free_rx_bufs(adapter, fl, fl->avail);
- 		dma_free_coherent(adapter->pdev_dev,
--				  fl->size * sizeof(*fl->desc) + STAT_LEN,
-+				  fl->size * sizeof(*fl->desc) + s->stat_len,
- 				  fl->desc, fl->addr);
- 		kfree(fl->sdesc);
- 		fl->sdesc = NULL;
-@@ -2443,12 +2456,12 @@ int t4vf_sge_init(struct adapter *adapter)
- 	 * Now translate the adapter parameters into our internal forms.
- 	 */
- 	if (fl1)
--		FL_PG_ORDER = ilog2(fl1) - PAGE_SHIFT;
--	STAT_LEN = ((sge_params->sge_control & EGRSTATUSPAGESIZE_MASK)
--		    ? 128 : 64);
--	PKTSHIFT = PKTSHIFT_GET(sge_params->sge_control);
--	FL_ALIGN = 1 << (INGPADBOUNDARY_GET(sge_params->sge_control) +
--			 SGE_INGPADBOUNDARY_SHIFT);
-+		s->fl_pg_order = ilog2(fl1) - PAGE_SHIFT;
-+	s->stat_len = ((sge_params->sge_control & EGRSTATUSPAGESIZE_MASK)
-+			? 128 : 64);
-+	s->pktshift = PKTSHIFT_GET(sge_params->sge_control);
-+	s->fl_align = 1 << (INGPADBOUNDARY_GET(sge_params->sge_control) +
-+			    SGE_INGPADBOUNDARY_SHIFT);
++	/* T4 uses a single control field to specify both the PCIe Padding and
++	 * Packing Boundary.  T5 introduced the ability to specify these
++	 * separately.  The actual Ingress Packet Data alignment boundary
++	 * within Packed Buffer Mode is the maximum of these two
++	 * specifications.  (Note that it makes no real practical sense to
++	 * have the Pading Boudary be larger than the Packing Boundary but you
++	 * could set the chip up that way and, in fact, legacy T4 code would
++	 * end doing this because it would initialize the Padding Boundary and
++	 * leave the Packing Boundary initialized to 0 (16 bytes).)
++	 */
++	ingpadboundary = 1 << (INGPADBOUNDARY_GET(sge_params->sge_control) +
++			       X_INGPADBOUNDARY_SHIFT);
++	if (is_t4(adapter->params.chip)) {
++		s->fl_align = ingpadboundary;
++	} else {
++		/* T5 has a different interpretation of one of the PCIe Packing
++		 * Boundary values.
++		 */
++		ingpackboundary = INGPACKBOUNDARY_G(sge_params->sge_control2);
++		if (ingpackboundary == INGPACKBOUNDARY_16B_X)
++			ingpackboundary = 16;
++		else
++			ingpackboundary = 1 << (ingpackboundary +
++						INGPACKBOUNDARY_SHIFT_X);
++
++		s->fl_align = max(ingpadboundary, ingpackboundary);
++	}
  
  	/*
  	 * Set up tasklet timers.
+diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_common.h b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_common.h
+index 95df61d..b5c301d 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_common.h
++++ b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_common.h
+@@ -134,6 +134,7 @@ struct dev_params {
+  */
+ struct sge_params {
+ 	u32 sge_control;		/* padding, boundaries, lengths, etc. */
++	u32 sge_control2;		/* T5: more of the same */
+ 	u32 sge_host_page_size;		/* RDMA page sizes */
+ 	u32 sge_queues_per_page;	/* RDMA queues/page */
+ 	u32 sge_user_mode_limits;	/* limits for BAR2 user mode accesses */
+diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
+index e984fdc..dc30d28 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
+@@ -468,6 +468,29 @@ int t4vf_get_sge_params(struct adapter *adapter)
+ 	sge_params->sge_timer_value_2_and_3 = vals[5];
+ 	sge_params->sge_timer_value_4_and_5 = vals[6];
+ 
++	/* T4 uses a single control field to specify both the PCIe Padding and
++	 * Packing Boundary.  T5 introduced the ability to specify these
++	 * separately with the Padding Boundary in SGE_CONTROL and and Packing
++	 * Boundary in SGE_CONTROL2.  So for T5 and later we need to grab
++	 * SGE_CONTROL in order to determine how ingress packet data will be
++	 * laid out in Packed Buffer Mode.  Unfortunately, older versions of
++	 * the firmware won't let us retrieve SGE_CONTROL2 so if we get a
++	 * failure grabbing it we throw an error since we can't figure out the
++	 * right value.
++	 */
++	if (!is_t4(adapter->params.chip)) {
++		params[0] = (FW_PARAMS_MNEM(FW_PARAMS_MNEM_REG) |
++			     FW_PARAMS_PARAM_XYZ(SGE_CONTROL2_A));
++		v = t4vf_query_params(adapter, 1, params, vals);
++		if (v != FW_SUCCESS) {
++			dev_err(adapter->pdev_dev,
++				"Unable to get SGE Control2; "
++				"probably old firmware.\n");
++			return v;
++		}
++		sge_params->sge_control2 = vals[0];
++	}
++
+ 	params[0] = (FW_PARAMS_MNEM(FW_PARAMS_MNEM_REG) |
+ 		     FW_PARAMS_PARAM_XYZ(SGE_INGRESS_RX_THRESHOLD));
+ 	v = t4vf_query_params(adapter, 1, params, vals);
 -- 
 1.7.1
