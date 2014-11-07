@@ -1,75 +1,60 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH net-next] cxgb4: Remove unnecessary struct in6_addr * casts
-Date: Thu, 06 Nov 2014 20:46:14 -0800
-Message-ID: <1415335574.23530.4.camel@perches.com>
-References: <1415333125-10635-1-git-send-email-hariprasad@chelsio.com>
-	 <1415333125-10635-2-git-send-email-hariprasad@chelsio.com>
+From: Joe Stringer <joestringer@nicira.com>
+Subject: Re: [linux-nics] [PATCH net 3/5] fm10k: Implement ndo_gso_check()
+Date: Fri, 7 Nov 2014 17:51:32 +1300
+Message-ID: <201411071751.33390.joestringer@nicira.com>
+References: <1415138202-1197-1-git-send-email-joestringer@nicira.com> <20141107003821.GA10692@gmail.com> <D0815B72.5EAF9%matthew.vick@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, leedom@chelsio.com,
-	anish@chelsio.com, praveenm@chelsio.com, nirranjan@chelsio.com,
-	kumaras@chelsio.com, Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: Hariprasad Shenai <hariprasad@chelsio.com>
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	Linux NICS <Linux-nics@isotope.jf.intel.com>,
+	"shahed.shaikh" <shahed.shaikh@qlogic.com>,
+	"sathya.perla" <sathya.perla@emulex.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Vadai <amirv@mellanox.com>,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	Tom Herbert <therbert@google.com>,
+	"dept-gelinuxnicdev" <Dept-GELinuxNICDev@qlogic.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>,
+	"Amir@isotope.jf.intel.com" <Amir@isotope.jf.intel.com>
+To: "Vick, Matthew" <matthew.vick@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0191.hostedemail.com ([216.40.44.191]:51370 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751371AbaKGEqV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 23:46:21 -0500
-In-Reply-To: <1415333125-10635-2-git-send-email-hariprasad@chelsio.com>
+Received: from na3sys009aog107.obsmtp.com ([74.125.149.197]:33643 "HELO
+	na3sys009aog107.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751426AbaKGEvo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 23:51:44 -0500
+Received: by mail-pd0-f180.google.com with SMTP id ft15so2545785pdb.25
+        for <netdev@vger.kernel.org>; Thu, 06 Nov 2014 20:51:43 -0800 (PST)
+In-Reply-To: <D0815B72.5EAF9%matthew.vick@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Just use the address of the in6_addr.
+On Fri, 07 Nov 2014 14:20:08 Vick, Matthew wrote:
+> On 11/6/14, 4:55 PM, "Joe Stringer" <joestringer@nicira.com> wrote:
+> >On Thu, Nov 06, 2014 at 11:58:32PM +0000, Vick, Matthew wrote:
+> >> On 11/5/14, 11:36 AM, "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
+> >>
+> >>wrote:
+> >> Hi Joe, fm10k's hardware is pretty lax about the header size. As long as
+> >> the total header length (outer+inner) is 184 bytes or less we're golden,
+> >> so if I'm not mistaken that leaves us with a max of 130 bytes beyond the
+> >> tunnel header.
+> >
+> >Oh, okay. To be more explicit, in the case of UDP tunnels I take it that
+> >you're talking about L2+L3+(L4+)tunnel+L2+L3+L4 <= 184? (L4 perhaps
+> >optional depending on the tunnel protocol used)
+> >
+> >In that case, the fm10k_gso_check would use something closer to
+> >"skb_inner_transport_header(skb) - skb_mac_header(skb) > 184", or
+> >perhaps 164 to allow for inner L4 header (?).
+> >
+> >Joe
+> 
+> Yes, I'm talking about the full shebang.
+> 
+> I like the 164 check, personally (with appropriate #define for
+> readability).
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
-> diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-[]
->  #include <../drivers/net/bonding/bonding.h>
-
-This include path seems unfortunate so I looked 
-at the code a bit.  I don't see an easy way to change it.
-
-Maybe some of bonding.h should be moved into a new file
-like 'include/net/bonding.h' or something.
-
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 9 +++------
- 1 file changed, 3 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 8520d55..8bc19b2 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -4395,8 +4395,7 @@ static int clip_add(struct net_device *event_dev, struct inet6_ifaddr *ifa,
- 	if (cxgb4_netdev(event_dev)) {
- 		switch (event) {
- 		case NETDEV_UP:
--			ret = cxgb4_clip_get(event_dev,
--				(const struct in6_addr *)ifa->addr.s6_addr);
-+			ret = cxgb4_clip_get(event_dev, &ifa->addr);
- 			if (ret < 0) {
- 				rcu_read_unlock();
- 				return ret;
-@@ -4404,8 +4403,7 @@ static int clip_add(struct net_device *event_dev, struct inet6_ifaddr *ifa,
- 			ret = NOTIFY_OK;
- 			break;
- 		case NETDEV_DOWN:
--			cxgb4_clip_release(event_dev,
--				(const struct in6_addr *)ifa->addr.s6_addr);
-+			cxgb4_clip_release(event_dev, &ifa->addr);
- 			ret = NOTIFY_OK;
- 			break;
- 		default:
-@@ -4474,8 +4472,7 @@ static int update_dev_clip(struct net_device *root_dev, struct net_device *dev)
- 
- 	read_lock_bh(&idev->lock);
- 	list_for_each_entry(ifa, &idev->addr_list, if_list) {
--		ret = cxgb4_clip_get(dev,
--				(const struct in6_addr *)ifa->addr.s6_addr);
-+		ret = cxgb4_clip_get(dev, &ifa->addr);
- 		if (ret < 0)
- 			break;
- 	}
+Thanks for the feedback, I take it that this approach is preferable over the 
+other one involving an skb_gso_check() + fm10k_tx_encap_offload() call?
