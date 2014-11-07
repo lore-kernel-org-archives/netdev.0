@@ -1,82 +1,75 @@
-From: "Vick, Matthew" <matthew.vick@intel.com>
-Subject: Re: [PATCH net 3/5] fm10k: Implement ndo_gso_check()
-Date: Fri, 7 Nov 2014 19:49:38 +0000
-Message-ID: <D0825758.5EC90%matthew.vick@intel.com>
-References: <1415138202-1197-1-git-send-email-joestringer@nicira.com>
- <20141106211522.GA55313@gmail.com> <D0814FB9.5EA7E%matthew.vick@intel.com>
- <201411071805.18119.joestringer@nicira.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch net-next 05/10] rocker: introduce rocker switch driver
+Date: Fri, 07 Nov 2014 15:08:25 -0500 (EST)
+Message-ID: <20141107.150825.1684787513959523136.davem@davemloft.net>
+References: <1415265610-9338-1-git-send-email-jiri@resnulli.us>
+	<1415265610-9338-6-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "alexander.duyck@gmail.com" <alexander.duyck@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Dept-GELinuxNICDev@qlogic.com" <Dept-GELinuxNICDev@qlogic.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"sathya.perla@emulex.com" <sathya.perla@emulex.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	Linux NICS <Linux-nics@intel.com>,
-	"amirv@mellanox.com" <amirv@mellanox.com>,
-	"shahed.shaikh@qlogic.com" <shahed.shaikh@qlogic.com>,
-	"therbert@google.com" <therbert@google.com>,
-	"Or Gerlitz" <gerlitz.or@gmail.com>
-To: Joe Stringer <joestringer@nicira.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201411071805.18119.joestringer@nicira.com>
-Content-Language: en-US
-Content-ID: <8E06E28C207F6F4E9947B547F6FCFBF5@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, nhorman@tuxdriver.com, andy@greyhouse.net,
+	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
+	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
+	ben@decadent.org.uk, stephen@networkplumber.org,
+	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
+	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
+	edumazet@google.com, jhs@mojatatu.com, sfeldma@gmail.com,
+	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
+	linville@tuxdriver.com, jasowang@redhat.com, ebiederm@xmission.com,
+	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
+	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
+	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
+	ronye@mellanox.com, simon.horman@netronome.com,
+	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
+	mleitner@redhat.com, shrijeet@gmail.com, gospo@cumulusnetworks.com,
+	bcrl@kvack.org
+To: jiri@resnulli.us
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41849 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751459AbaKGUIe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2014 15:08:34 -0500
+In-Reply-To: <1415265610-9338-6-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/6/14, 9:05 PM, "Joe Stringer" <joestringer@nicira.com> wrote:
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Thu,  6 Nov 2014 10:20:05 +0100
 
->Let's merge both discussions into one thread (pick here or there). We
->have 
->this suggestion or the one which simply checks for tunnels and
->inner+outer 
->header lengths. Do you have a preference between them?
+> +#include <generated/utsrelease.h>
 
-Agreed with merging the thread--consider it merged!
+The version of this driver is not the version of the kernel, please do not
+pretend that it is.
 
-Reflecting on this some more, I prefer the latter option (checking tunnels
-and header lengths). I'm leaning towards pushing the header length check
-into fm10k_tx_encap_offload and then making fm10k_gso_check call that with
-the gso_type. So, it's really the most recent version of the patch you
-proposed:
+Define a proper DRV_MODULE_VERSION and MODULE_VERSION() like other drivers
+do rather than using UTS_RELEASE or whatever.
 
-static bool fm10k_gso_check(struct sk_buff *skb, struct net_device *dev)
-{
-	if ((skb_shinfo(skb)->gso_type & (SKB_GSO_UDP_TUNNEL | SKB_GSO_GRE)) &&
-	    !fm10k_tx_encap_offload(skb))
-		return false;
+> +static u32 rocker_msix_vector(struct rocker *rocker, unsigned vector)
 
-	return true;
-}
+Please do not use plain "unsigned", always say "unsigned int".
 
+> +#ifdef CONFIG_NET_SWITCHDEV
+> +	.ndo_sw_parent_id_get		= rocker_port_sw_parent_id_get,
+> +#endif
 
-plus the header length being checked in fm10k_tx_encap_offload. The only
-nit would be that I'd just return the conditional instead of having
-"return true" or "return false" lines.
+Maybe better to just make the driver depend upon NET_SWITCHDEV?
 
-The tunnel length check really should be there in fm10k_tx_encap_offload
-anyway, so I'll get a patch together for that one.
+> +struct rocker_desc {
+> +	u64 buf_addr;
+> +	u64 cookie;
+> +	u16 buf_size;
+> +	u16 tlv_size;
+> +	u16 resv[5];
+> +	u16 comp_err;
+> +} __packed __aligned(8);
 
->We could introduce an "skb_is_gso_encap()" or similar for this purpose.
->Checking for SKB_GSO_UDP_TUNNEL or SKB_GSO_GRE is pretty closely tied to
->what 
->fm10k_tx_encap_offload() checks for though; it might not even make sense
->to call 
->it if some of the other SKB_GSO_* flags are raised.
+This __packed seems unnecessary, and __packed should always be avoided
+when possible because it generates terrible code on some cpus.
 
-A fair point. On the other hand, we have to check the header length both
-in the GSO and non-GSO cases anyway, so only having the check in
-fm10k_tx_encap_offload and calling it from fm10k_gso_check wouldn't be as
-duplicative. What do you think about that approach?
+> +/* Rocker DMA TLV struct */
+> +struct rocker_tlv {
+> +	u32 type;
+> +	u16 len;
+> +} __packed __aligned(8);
 
-As an aside: the more I think about this, the more I think Tom's right and
-that each driver really should have it's own ndo_gso_check() for this.
-With fm10k and i40e being different, we're already at 40% of the current
-drivers being different. I'll leave it to Or to comment on whether the
-other drivers could share the check in some manner.
-
-Cheers,
-Matthew
+Likewise.
