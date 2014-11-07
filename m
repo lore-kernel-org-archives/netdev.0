@@ -1,82 +1,31 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH v2 net-next 2/2] mlx4: use napi_complete_done()
-Date: Thu, 06 Nov 2014 21:10:11 -0800
-Message-ID: <1415337011.13896.103.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Adecco UK <webrecruitment@job4u.com>
+Subject: Job Openings via Adecco UK
+Date: Fri, 7 Nov 2014 06:32:31 +0100
+Message-ID: <CAO8GOoi0nsbQzzdHcbXb21Q=+BpCqALB9Kyp-ZLQBQgmuj3jtw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
-	ogerlitz@mellanox.com, willemb@google.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f176.google.com ([209.85.223.176]:47197 "EHLO
-	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751385AbaKGFKN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2014 00:10:13 -0500
-Received: by mail-ie0-f176.google.com with SMTP id rd18so4555713iec.35
-        for <netdev@vger.kernel.org>; Thu, 06 Nov 2014 21:10:12 -0800 (PST)
+Received: from mail-wi0-f180.google.com ([209.85.212.180]:38425 "EHLO
+	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751567AbaKGFcd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2014 00:32:33 -0500
+Received: by mail-wi0-f180.google.com with SMTP id hi2so3490158wib.13
+        for <netdev@vger.kernel.org>; Thu, 06 Nov 2014 21:32:31 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+Adecco is a recruitment provider that creates the opportunity for you
+to live in the UK and work with some of the most exciting companies.
 
-To enable gro_flush_timeout, a driver has to use napi_complete_done()
-instead of napi_complete().
+Our recruitment is broad, so regardless of your education and
+industry, we will have your Resume forwarded to the appropriate
+companies and considered for various openings.
 
-Tested:
- Ran 200 netperf TCP_STREAM from A to B (10Gbe mlx4 link, 8 RX queues)
+Send us your Resume in reply to this notice and let us help you get a
+better job.
 
-Without this feature, we send back about 305,000 ACK per second.
+Regards,
 
-GRO aggregation ratio is low (811/305 = 2.65 segments per GRO packet)
-
-Setting a timer of 2000 nsec is enough to increase GRO packet sizes
-and reduce number of ACK packets. (811/19.2 = 42)
-
-Receiver performs less calls to upper stacks, less wakes up.
-This also reduces cpu usage on the sender, as it receives less ACK
-packets.
-
-Note that reducing number of wakes up increases cpu efficiency, but can
-decrease QPS, as applications wont have the chance to warmup cpu caches
-doing a partial read of RPC requests/answers if they fit in one skb.
-
-B:~# sar -n DEV 1 10 | grep eth0 | tail -1
-Average:         eth0 811269.80 305732.30 1199462.57  19705.72      0.00
-0.00      0.50
-
-B:~# echo 2000 >/sys/class/net/eth0/gro_flush_timeout
-
-B:~# sar -n DEV 1 10 | grep eth0 | tail -1
-Average:         eth0 811577.30  19230.80 1199916.51   1239.80      0.00
-0.00      0.50
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- drivers/net/ethernet/mellanox/mlx4/en_rx.c |   11 ++++-------
- 1 file changed, 4 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index b173a0cf44e0..46ee78326f1f 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -915,15 +915,12 @@ int mlx4_en_poll_rx_cq(struct napi_struct *napi, int budget)
- 			 * probably affinity changed. need to stop this NAPI
- 			 * poll, and restart it on the right CPU
- 			 */
--			napi_complete(napi);
--			mlx4_en_arm_cq(priv, cq);
--			return 0;
-+			done = 0;
- 		}
--	} else {
--		/* Done for now */
--		napi_complete(napi);
--		mlx4_en_arm_cq(priv, cq);
- 	}
-+	/* Done for now */
-+	napi_complete_done(napi, done);
-+	mlx4_en_arm_cq(priv, cq);
- 	return done;
- }
- 
+Arlo Colston
+Adecco UK
