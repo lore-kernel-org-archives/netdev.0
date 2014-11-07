@@ -1,7 +1,7 @@
 From: Roger Quadros <rogerq@ti.com>
-Subject: [PATCH v4 2/8] net: can: c_can: Introduce c_can_driver_data structure
-Date: Fri, 7 Nov 2014 16:49:16 +0200
-Message-ID: <1415371762-29885-3-git-send-email-rogerq@ti.com>
+Subject: [PATCH v4 6/8] net: can: c_can: Disable pins when CAN interface is down
+Date: Fri, 7 Nov 2014 16:49:20 +0200
+Message-ID: <1415371762-29885-7-git-send-email-rogerq@ti.com>
 References: <1415371762-29885-1-git-send-email-rogerq@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -12,140 +12,135 @@ Cc: <wsa@the-dreams.de>, <tony@atomide.com>, <tglx@linutronix.de>,
 	<linux-can@vger.kernel.org>, <netdev@vger.kernel.org>,
 	Roger Quadros <rogerq@ti.com>
 To: <wg@grandegger.com>, <mkl@pengutronix.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from devils.ext.ti.com ([198.47.26.153]:48032 "EHLO
-	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752386AbaKGOuE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2014 09:50:04 -0500
+Return-path: <linux-omap-owner@vger.kernel.org>
 In-Reply-To: <1415371762-29885-1-git-send-email-rogerq@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-We want to have more data than just can_dev_id to be present
-in the driver data e.g. TI platforms need RAMINIT register
-description. Introduce the c_can_driver_data structure and move
-the can_dev_id into it.
+DRA7 CAN IP suffers from a problem which causes it to be prevented
+from fully turning OFF (i.e. stuck in transition) if the module was
+disabled while there was traffic on the CAN_RX line.
 
-Tidy up the way it is used on probe().
+To work around this issue we select the SLEEP pin state by default
+on probe and use the DEFAULT pin state on CAN up and back to the
+SLEEP pin state on CAN down.
 
 Signed-off-by: Roger Quadros <rogerq@ti.com>
 ---
- drivers/net/can/c_can/c_can.h          |  4 +++
- drivers/net/can/c_can/c_can_platform.c | 52 +++++++++++++++++++---------------
- 2 files changed, 33 insertions(+), 23 deletions(-)
+ drivers/net/can/c_can/c_can.c          | 20 ++++++++++++++++++++
+ drivers/net/can/c_can/c_can.h          |  1 +
+ drivers/net/can/c_can/c_can_platform.c | 20 ++++++++++++++++++++
+ 3 files changed, 41 insertions(+)
 
-diff --git a/drivers/net/can/c_can/c_can.h b/drivers/net/can/c_can/c_can.h
-index 99ad1aa..26c975d 100644
---- a/drivers/net/can/c_can/c_can.h
-+++ b/drivers/net/can/c_can/c_can.h
-@@ -169,6 +169,10 @@ enum c_can_dev_id {
- 	BOSCH_D_CAN,
- };
+diff --git a/drivers/net/can/c_can/c_can.c b/drivers/net/can/c_can/c_can.c
+index 8e78bb4..4dfc3ce 100644
+--- a/drivers/net/can/c_can/c_can.c
++++ b/drivers/net/can/c_can/c_can.c
+@@ -35,6 +35,7 @@
+ #include <linux/list.h>
+ #include <linux/io.h>
+ #include <linux/pm_runtime.h>
++#include <linux/pinctrl/consumer.h>
  
-+struct c_can_driver_data {
-+	enum c_can_dev_id id;
-+};
+ #include <linux/can.h>
+ #include <linux/can/dev.h>
+@@ -603,6 +604,15 @@ static int c_can_start(struct net_device *dev)
+ 
+ 	priv->can.state = CAN_STATE_ERROR_ACTIVE;
+ 
++	/* activate pins */
++	if (!IS_ERR(priv->pinctrl)) {
++		struct pinctrl_state *s;
 +
- /* c_can private data structure */
- struct c_can_priv {
- 	struct can_priv can;	/* must be the first member */
-diff --git a/drivers/net/can/c_can/c_can_platform.c b/drivers/net/can/c_can/c_can_platform.c
-index b144e71..1546c2b 100644
---- a/drivers/net/can/c_can/c_can_platform.c
-+++ b/drivers/net/can/c_can/c_can_platform.c
-@@ -167,26 +167,34 @@ static void c_can_hw_raminit(const struct c_can_priv *priv, bool enable)
- 	}
++		s = pinctrl_lookup_state(priv->pinctrl, PINCTRL_STATE_DEFAULT);
++		if (!IS_ERR(s))
++			pinctrl_select_state(priv->pinctrl, s);
++	}
++
+ 	return 0;
  }
  
-+static struct c_can_driver_data c_can_drvdata = {
-+	.id = BOSCH_C_CAN,
-+};
-+
-+static struct c_can_driver_data d_can_drvdata = {
-+	.id = BOSCH_D_CAN,
-+};
-+
- static struct platform_device_id c_can_id_table[] = {
--	[BOSCH_C_CAN_PLATFORM] = {
-+	{
- 		.name = KBUILD_MODNAME,
--		.driver_data = BOSCH_C_CAN,
-+		.driver_data = (kernel_ulong_t)&c_can_drvdata,
- 	},
--	[BOSCH_C_CAN] = {
-+	{
- 		.name = "c_can",
--		.driver_data = BOSCH_C_CAN,
-+		.driver_data = (kernel_ulong_t)&c_can_drvdata,
- 	},
--	[BOSCH_D_CAN] = {
-+	{
- 		.name = "d_can",
--		.driver_data = BOSCH_D_CAN,
--	}, {
--	}
-+		.driver_data = (kernel_ulong_t)&d_can_drvdata,
-+	},
-+	{ /* sentinel */ },
- };
- MODULE_DEVICE_TABLE(platform, c_can_id_table);
+@@ -611,6 +621,16 @@ static void c_can_stop(struct net_device *dev)
+ 	struct c_can_priv *priv = netdev_priv(dev);
  
- static const struct of_device_id c_can_of_table[] = {
--	{ .compatible = "bosch,c_can", .data = &c_can_id_table[BOSCH_C_CAN] },
--	{ .compatible = "bosch,d_can", .data = &c_can_id_table[BOSCH_D_CAN] },
-+	{ .compatible = "bosch,c_can", .data = &c_can_drvdata },
-+	{ .compatible = "bosch,d_can", .data = &d_can_drvdata },
- 	{ /* sentinel */ },
- };
- MODULE_DEVICE_TABLE(of, c_can_of_table);
-@@ -198,21 +206,19 @@ static int c_can_plat_probe(struct platform_device *pdev)
- 	struct net_device *dev;
- 	struct c_can_priv *priv;
- 	const struct of_device_id *match;
--	const struct platform_device_id *id;
- 	struct resource *mem, *res;
- 	int irq;
- 	struct clk *clk;
--
--	if (pdev->dev.of_node) {
--		match = of_match_device(c_can_of_table, &pdev->dev);
--		if (!match) {
--			dev_err(&pdev->dev, "Failed to find matching dt id\n");
--			ret = -EINVAL;
--			goto exit;
--		}
--		id = match->data;
-+	const struct c_can_driver_data *drvdata;
+ 	c_can_irq_control(priv, false);
 +
-+	match = of_match_device(c_can_of_table, &pdev->dev);
-+	if (match) {
-+		drvdata = match->data;
-+	} else if (pdev->id_entry->driver_data) {
-+		drvdata = (struct c_can_driver_data *)
-+			   pdev->id_entry->driver_data;
- 	} else {
--		id = platform_get_device_id(pdev);
-+		return -ENODEV;
++	/* deactivate pins */
++	if (!IS_ERR(priv->pinctrl)) {
++		struct pinctrl_state *s;
++
++		s = pinctrl_lookup_state(priv->pinctrl, PINCTRL_STATE_SLEEP);
++		if (!IS_ERR(s))
++			pinctrl_select_state(priv->pinctrl, s);
++	}
++
+ 	priv->can.state = CAN_STATE_STOPPED;
+ }
+ 
+diff --git a/drivers/net/can/c_can/c_can.h b/drivers/net/can/c_can/c_can.h
+index c6715ca..3cedf48 100644
+--- a/drivers/net/can/c_can/c_can.h
++++ b/drivers/net/can/c_can/c_can.h
+@@ -210,6 +210,7 @@ struct c_can_priv {
+ 	u32 comm_rcv_high;
+ 	u32 rxmasked;
+ 	u32 dlc[C_CAN_MSG_OBJ_TX_NUM];
++	struct pinctrl *pinctrl;
+ };
+ 
+ struct net_device *alloc_c_can_dev(void);
+diff --git a/drivers/net/can/c_can/c_can_platform.c b/drivers/net/can/c_can/c_can_platform.c
+index b838c6b..71b9063 100644
+--- a/drivers/net/can/c_can/c_can_platform.c
++++ b/drivers/net/can/c_can/c_can_platform.c
+@@ -34,6 +34,7 @@
+ #include <linux/of_device.h>
+ #include <linux/mfd/syscon.h>
+ #include <linux/regmap.h>
++#include <linux/pinctrl/consumer.h>
+ 
+ #include <linux/can/dev.h>
+ 
+@@ -230,6 +231,7 @@ static int c_can_plat_probe(struct platform_device *pdev)
+ 	struct clk *clk;
+ 	const struct c_can_driver_data *drvdata;
+ 	struct device_node *np = pdev->dev.of_node;
++	struct pinctrl *pinctrl;
+ 
+ 	match = of_match_device(c_can_of_table, &pdev->dev);
+ 	if (match) {
+@@ -241,6 +243,23 @@ static int c_can_plat_probe(struct platform_device *pdev)
+ 		return -ENODEV;
  	}
  
++	pinctrl = devm_pinctrl_get(&pdev->dev);
++	if (!IS_ERR(pinctrl)) {
++		struct pinctrl_state *s;
++
++		/* Deactivate pins to prevent DRA7 DCAN IP from being
++		 * stuck in transition when module is disabled.
++		 * Pins are activated in c_can_start() and deactivated
++		 * in c_can_stop()
++		 */
++		s = pinctrl_lookup_state(pinctrl, PINCTRL_STATE_SLEEP);
++		if (!IS_ERR(s))
++			pinctrl_select_state(pinctrl, s);
++	} else {
++		dev_warn(&pdev->dev,
++			 "failed to get pinctrl\n");
++	}
++
  	/* get the appropriate clk */
-@@ -244,7 +250,7 @@ static int c_can_plat_probe(struct platform_device *pdev)
+ 	clk = devm_clk_get(&pdev->dev, NULL);
+ 	if (IS_ERR(clk)) {
+@@ -270,6 +289,7 @@ static int c_can_plat_probe(struct platform_device *pdev)
  	}
  
  	priv = netdev_priv(dev);
--	switch (id->driver_data) {
-+	switch (drvdata->id) {
- 	case BOSCH_C_CAN:
- 		priv->regs = reg_map_c_can;
- 		switch (mem->flags & IORESOURCE_MEM_TYPE_MASK) {
-@@ -303,7 +309,7 @@ static int c_can_plat_probe(struct platform_device *pdev)
- 	priv->device = &pdev->dev;
- 	priv->can.clock.freq = clk_get_rate(clk);
- 	priv->priv = clk;
--	priv->type = id->driver_data;
-+	priv->type = drvdata->id;
++	priv->pinctrl = pinctrl;
  
- 	platform_set_drvdata(pdev, dev);
- 	SET_NETDEV_DEV(dev, &pdev->dev);
+ 	switch (drvdata->id) {
+ 	case BOSCH_C_CAN:
 -- 
 1.8.3.2
+
