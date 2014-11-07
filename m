@@ -1,79 +1,64 @@
-From: David Miller <davem@redhat.com>
-Subject: Re: [PATCH 1/4] inet: Add skb_copy_datagram_iter
-Date: Fri, 07 Nov 2014 16:52:15 -0500 (EST)
-Message-ID: <20141107.165215.276097769670227324.davem@redhat.com>
-References: <20141105210745.GT7996@ZenIV.linux.org.uk>
-	<20141105.165719.835728206041332333.davem@davemloft.net>
-	<20141106032533.GU7996@ZenIV.linux.org.uk>
+From: "Vick, Matthew" <matthew.vick@intel.com>
+Subject: Re: [PATCH net-next] net/fm10k: Avoid double setting of NETIF_F_SG
+ for the HW encapsulation feature mask
+Date: Fri, 7 Nov 2014 21:57:10 +0000
+Message-ID: <D0827E2E.5ED4E%matthew.vick@intel.com>
+References: <1415265664-10738-1-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, bcrl@kvack.org
-To: viro@ZenIV.linux.org.uk
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141106032533.GU7996@ZenIV.linux.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Or Gerlitz <ogerlitz@mellanox.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([192.55.52.115]:48291 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751766AbaKGV5N convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2014 16:57:13 -0500
+In-Reply-To: <1415265664-10738-1-git-send-email-ogerlitz@mellanox.com>
+Content-Language: en-US
+Content-ID: <CF7DE2D872703944B57D03EC80DB5DF8@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Date: Thu, 6 Nov 2014 03:25:34 +0000
+On 11/6/14, 1:21 AM, "Or Gerlitz" <ogerlitz@mellanox.com> wrote:
 
-> 	* a new helper: zerocopy_sg_from_iter().  I have it, actually,
-> but I'd rather not step on Herbert's toes - it's too close to the areas
-> his series will touch, so that's probably for when his series goes in.
-> It will be needed for complete macvtap conversion...
-
-Just a heads up, his series is applied to net-next.
-
-> 	* why doesn't verify_iovec() use rw_copy_check_uvector()?  The only
-> real differences I see is that (a) you do allocation in callers (same as
-> rw_copy_check_uvector() would've done), (b) you return EMSGSIZE in case of
-> too long vector, while rw_copy_check_uvector() returns EINVAL in that case
-> and (c) you don't do access_ok().  The last one is described as optimization,
-> but for iov_iter primitives it's a serious PITA - for iovec-backed instances
-> they are using __copy_from_user()/__copy_to_user(), etc.
-
-The answer is that nobody knew abuot it and looked, that's why.
-
-> 	It certainly would be nice to have the same code doing all copying
-> of iovecs from userland - readv/writev/aio/sendmsg/recvmsg/etc.  Am I
-> missing something subtle semantical difference in there?  EMSGSIZE vs EINVAL
-> is trivial (we can lift that check into the callers, if nothing else), but
-> I could miss something more interesting...
-
-We also need compat counterparts.
-
-> 	* various getfrag will need to grow iov_iter-based counterparts,
-> but ip_append_output() needs no changes, AFAICS.
-
-Right.
-
-> 	* there's some really weird stuff in there.  Just what is this
-> static int raw_probe_proto_opt(struct flowi4 *fl4, struct msghdr *msg)
-> {
->         struct iovec *iov;
->         u8 __user *type = NULL;
->         u8 __user *code = NULL;
->         int probed = 0;
->         unsigned int i;
+>The networking core does it for the driver during registration time.
+>
+>Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+>---
+> drivers/net/ethernet/intel/fm10k/fm10k_netdev.c |    5 ++---
+> 1 files changed, 2 insertions(+), 3 deletions(-)
+>
+>diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
+>b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
+>index 8811364..2b17cd8 100644
+>--- a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
+>+++ b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
+>@@ -1414,13 +1414,12 @@ struct net_device *fm10k_alloc_netdev(void)
+> 	dev->vlan_features |= dev->features;
 > 
->         if (!msg->msg_iov)
->                 return 0;
+> 	/* configure tunnel offloads */
+>-	dev->hw_enc_features = NETIF_F_IP_CSUM |
+>+	dev->hw_enc_features |= NETIF_F_IP_CSUM |
+> 			       NETIF_F_TSO |
+> 			       NETIF_F_TSO6 |
+> 			       NETIF_F_TSO_ECN |
+> 			       NETIF_F_GSO_UDP_TUNNEL |
+>-			       NETIF_F_IPV6_CSUM |
+>-			       NETIF_F_SG;
+>+			       NETIF_F_IPV6_CSUM;
 > 
->         for (i = 0; i < msg->msg_iovlen; i++) {
->                 iov = &msg->msg_iov[i];
->                 if (!iov)
->                         continue;
-> trying to do?  "If non-NULL pointer + i somehow happened to be NULL, skip it
-> and try to use the same pointer + i + 1"?  Huh?  Had been that way since
-> the function first went in back in 2004 ("[IPV4] XFRM: probe icmp type/code
-> when sending packets via raw socket.", according to historical tree)...
+> 	/* we want to leave these both on as we cannot disable VLAN tag
+> 	 * insertion or stripping on the hardware since it is contained
 
-This is probably just bogus, because this address-of will never evaluate to
-NULL.
+Good catch, Or! Thank you for taking care of this!
 
-> 	* rds, bluetooth and vsock are doing something odd; need to RTFS some
-> more.
+Someone can correct me if I'm mistaken (I thought checkpatch would
+complain about this, but it doesn't seem to be), but I believe the start
+of the lines should match up like they are for the dev->features. Would
+you like to submit a V2 with this change or would you like me to do it
+(giving you credit via your Reported-by)?
 
-It is not surprising.... :-/
+Cheers,
+Matthew
