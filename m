@@ -1,63 +1,91 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: kernel panic receiving flooded VXLAN traffic with OVS
-Date: Fri, 7 Nov 2014 15:06:46 -0800
-Message-ID: <CALnjE+q1t0dbC6-EvxsQvvNafKsk2HNKXBjDrALA9S-gon68PQ@mail.gmail.com>
-References: <19014.1415325508@famine>
-	<CALnjE+r-s-usJoHq0E74QdorKX2H2cx429xwmsQ2kh+tzp1Y-g@mail.gmail.com>
-	<CAEP_g=95s37umz-hLGH0-sB32RcW+t+1dJ=_Eg1jMt4HYG+gEg@mail.gmail.com>
-	<CAEP_g=_ToXZB14MY4Y+FaYfNj_GHpaX59n3nzDrkALXHBzK1yw@mail.gmail.com>
-	<26235.1415394796@famine>
-	<CAEP_g=9gWZYtWGiF-JbVwmesa1n7FXYEJSQKdZi3L_yhPGPkAA@mail.gmail.com>
+From: Joe Stringer <joestringer@nicira.com>
+Subject: Re: [PATCH net 3/5] fm10k: Implement ndo_gso_check()
+Date: Fri, 7 Nov 2014 14:35:56 -0800
+Message-ID: <201411071435.56628.joestringer@nicira.com>
+References: <1415138202-1197-1-git-send-email-joestringer@nicira.com> <201411071805.18119.joestringer@nicira.com> <D0825758.5EC90%matthew.vick@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jay Vosburgh <jay.vosburgh@canonical.com>,
-	netdev <netdev@vger.kernel.org>,
-	"discuss@openvswitch.org" <discuss@openvswitch.org>
-To: Jesse Gross <jesse@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog116.obsmtp.com ([74.125.149.240]:51501 "HELO
-	na3sys009aog116.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751757AbaKGXGx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2014 18:06:53 -0500
-Received: by mail-ie0-f176.google.com with SMTP id rd18so6138183iec.21
-        for <netdev@vger.kernel.org>; Fri, 07 Nov 2014 15:06:46 -0800 (PST)
-In-Reply-To: <CAEP_g=9gWZYtWGiF-JbVwmesa1n7FXYEJSQKdZi3L_yhPGPkAA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "alexander.duyck@gmail.com" <alexander.duyck@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Dept-GELinuxNICDev@qlogic.com" <Dept-GELinuxNICDev@qlogic.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"sathya.perla@emulex.com" <sathya.perla@emulex.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	Linux NICS <Linux-nics@intel.com>,
+	"amirv@mellanox.com" <amirv@mellanox.com>,
+	"shahed.shaikh@qlogic.com" <shahed.shaikh@qlogic.com>,
+	"therbert@google.com" <therbert@google.com>,
+	"Or Gerlitz" <gerlitz.or@gmail.com>
+To: "Vick, Matthew" <matthew.vick@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <D0825758.5EC90%matthew.vick@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 7, 2014 at 2:29 PM, Jesse Gross <jesse@nicira.com> wrote:
-> On Fri, Nov 7, 2014 at 1:13 PM, Jay Vosburgh <jay.vosburgh@canonical.com> wrote:
->> Jesse Gross <jesse@nicira.com> wrote:
->>
->>>On Fri, Nov 7, 2014 at 10:34 AM, Jesse Gross <jesse@nicira.com> wrote:
->>>> On Fri, Nov 7, 2014 at 9:40 AM, Pravin Shelar <pshelar@nicira.com> wrote:
->>>>> On Thu, Nov 6, 2014 at 5:58 PM, Jay Vosburgh <jay.vosburgh@canonical.com> wrote:
->> [...]
->>>>>>         I'm not sure if this is an error on the part of the RX / GRO
->>>>>> processing in assembling the GRO skb, or in how OVS calls skb_segment.
->>>>>>
->>>>>
->>>>> I think this is related skb_segment() issue where it is not able to
->>>>> handle this type of skb geometry. We need to fix skb-segmentation. I
->>>>> will investigate it more.
->>>>
->>>> One problem that I see is that vxlan_gro_complete() doesn't add
->>>> SKB_GSO_UDP_TUNNEL to gso_type. This causes us to attempt
->>>> fragmentation as UDP rather than continuing down to do TCP
->>>> segmentation. That probably screws up the skb geometry.
->>>
->>>I sent out a patch to fix this issue. I'm pretty sure that it is the
->>>root cause of the originally reported case but I don't have a good way
->>>to reproduce it so it would be great if you could test it Jay.
->>
->>         I'm having an issue there; when I set up my recreation on
->> current net-next (3.18-rc2) without your new patch, I get the following
->> oops when my ovs script does "ovs-vsctl --if-exists del-br br-ex":
->
-> Hmm, that looks like a totally different problem. Pravin - any ideas?
+On Friday, November 07, 2014 11:49:38 Vick, Matthew wrote:
+> On 11/6/14, 9:05 PM, "Joe Stringer" <joestringer@nicira.com> wrote:
+> >Let's merge both discussions into one thread (pick here or there). We
+> >have
+> >this suggestion or the one which simply checks for tunnels and
+> >inner+outer
+> >header lengths. Do you have a preference between them?
+> 
+> Agreed with merging the thread--consider it merged!
+> 
+> Reflecting on this some more, I prefer the latter option (checking tunnels
+> and header lengths). I'm leaning towards pushing the header length check
+> into fm10k_tx_encap_offload and then making fm10k_gso_check call that with
+> the gso_type. So, it's really the most recent version of the patch you
+> proposed:
+> 
+> static bool fm10k_gso_check(struct sk_buff *skb, struct net_device *dev)
+> {
+> 	if ((skb_shinfo(skb)->gso_type & (SKB_GSO_UDP_TUNNEL | SKB_GSO_GRE)) &&
+> 	    !fm10k_tx_encap_offload(skb))
+> 		return false;
+> 
+> 	return true;
+> }
+> 
+> 
+> plus the header length being checked in fm10k_tx_encap_offload. The only
+> nit would be that I'd just return the conditional instead of having
+> "return true" or "return false" lines.
 
-I am not able to reproduce with above command. Jay, Can you send me
-steps to reproduce this issue?
+OK, that sounds reasonable.
 
-Thanks,
-Pravin.
+> The tunnel length check really should be there in fm10k_tx_encap_offload
+> anyway, so I'll get a patch together for that one.
+
+Thanks.
+
+> >We could introduce an "skb_is_gso_encap()" or similar for this purpose.
+> >Checking for SKB_GSO_UDP_TUNNEL or SKB_GSO_GRE is pretty closely tied to
+> >what
+> >fm10k_tx_encap_offload() checks for though; it might not even make sense
+> >to call
+> >it if some of the other SKB_GSO_* flags are raised.
+> 
+> A fair point. On the other hand, we have to check the header length both
+> in the GSO and non-GSO cases anyway, so only having the check in
+> fm10k_tx_encap_offload and calling it from fm10k_gso_check wouldn't be as
+> duplicative. What do you think about that approach?
+
+Sure, I think fm10k_tx_encap_offload() is a good place for the header length 
+check. Separately, my question above was regarding the idea of a helper for 
+SKB_GSO_{GRE,UDP_TUNNEL}. The only reason it might be useful for the fm10k 
+driver is because all encap is checked in the fm10k_tx_encap_offload() function. 
+Other drivers don't seem to handle different tunnels together like this though, 
+so I'm inclined to stick with the below for now.
+                                                                                
+static bool fm10k_gso_check(struct sk_buff *skb, struct net_device *dev)        
+{                                                                               
+        return (!(skb_shinfo(skb)->gso_type &                                   
+                  (SKB_GSO_UDP_TUNNEL | SKB_GSO_GRE)) ||                        
+                fm10k_tx_encap_offload(skb));                                   
+}
+
+Cheers,
+Joe
