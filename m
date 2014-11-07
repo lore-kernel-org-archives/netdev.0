@@ -1,60 +1,76 @@
 From: Joe Stringer <joestringer@nicira.com>
-Subject: Re: [linux-nics] [PATCH net 3/5] fm10k: Implement ndo_gso_check()
-Date: Fri, 7 Nov 2014 17:51:32 +1300
-Message-ID: <201411071751.33390.joestringer@nicira.com>
-References: <1415138202-1197-1-git-send-email-joestringer@nicira.com> <20141107003821.GA10692@gmail.com> <D0815B72.5EAF9%matthew.vick@intel.com>
+Subject: Re: [PATCH net 3/5] fm10k: Implement ndo_gso_check()
+Date: Fri, 7 Nov 2014 18:05:17 +1300
+Message-ID: <201411071805.18119.joestringer@nicira.com>
+References: <1415138202-1197-1-git-send-email-joestringer@nicira.com> <20141106211522.GA55313@gmail.com> <D0814FB9.5EA7E%matthew.vick@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain;
   charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	Linux NICS <Linux-nics@isotope.jf.intel.com>,
-	"shahed.shaikh" <shahed.shaikh@qlogic.com>,
-	"sathya.perla" <sathya.perla@emulex.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Vadai <amirv@mellanox.com>,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	Tom Herbert <therbert@google.com>,
-	"dept-gelinuxnicdev" <Dept-GELinuxNICDev@qlogic.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>,
-	"Amir@isotope.jf.intel.com" <Amir@isotope.jf.intel.com>
+Cc: "alexander.duyck@gmail.com" <alexander.duyck@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Dept-GELinuxNICDev@qlogic.com" <Dept-GELinuxNICDev@qlogic.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"sathya.perla@emulex.com" <sathya.perla@emulex.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	Linux NICS <Linux-nics@intel.com>,
+	"amirv@mellanox.com" <amirv@mellanox.com>,
+	"shahed.shaikh@qlogic.com" <shahed.shaikh@qlogic.com>,
+	"therbert@google.com" <therbert@google.com>
 To: "Vick, Matthew" <matthew.vick@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog107.obsmtp.com ([74.125.149.197]:33643 "HELO
-	na3sys009aog107.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751426AbaKGEvo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 23:51:44 -0500
-Received: by mail-pd0-f180.google.com with SMTP id ft15so2545785pdb.25
-        for <netdev@vger.kernel.org>; Thu, 06 Nov 2014 20:51:43 -0800 (PST)
-In-Reply-To: <D0815B72.5EAF9%matthew.vick@intel.com>
+Received: from na3sys009aog119.obsmtp.com ([74.125.149.246]:46980 "HELO
+	na3sys009aog119.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1750840AbaKGFF3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2014 00:05:29 -0500
+Received: by mail-pa0-f46.google.com with SMTP id lf10so2757627pab.19
+        for <netdev@vger.kernel.org>; Thu, 06 Nov 2014 21:05:28 -0800 (PST)
+In-Reply-To: <D0814FB9.5EA7E%matthew.vick@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 07 Nov 2014 14:20:08 Vick, Matthew wrote:
-> On 11/6/14, 4:55 PM, "Joe Stringer" <joestringer@nicira.com> wrote:
-> >On Thu, Nov 06, 2014 at 11:58:32PM +0000, Vick, Matthew wrote:
-> >> On 11/5/14, 11:36 AM, "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
-> >>
-> >>wrote:
-> >> Hi Joe, fm10k's hardware is pretty lax about the header size. As long as
-> >> the total header length (outer+inner) is 184 bytes or less we're golden,
-> >> so if I'm not mistaken that leaves us with a max of 130 bytes beyond the
-> >> tunnel header.
+On Fri, 07 Nov 2014 14:07:36 Vick, Matthew wrote:
+> On 11/6/14, 1:15 PM, "Joe Stringer" <joestringer@nicira.com> wrote:
+> >Oh, I suppose we need to check the gso_type too. More like this?
 > >
-> >Oh, okay. To be more explicit, in the case of UDP tunnels I take it that
-> >you're talking about L2+L3+(L4+)tunnel+L2+L3+L4 <= 184? (L4 perhaps
-> >optional depending on the tunnel protocol used)
-> >
-> >In that case, the fm10k_gso_check would use something closer to
-> >"skb_inner_transport_header(skb) - skb_mac_header(skb) > 184", or
-> >perhaps 164 to allow for inner L4 header (?).
-> >
-> >Joe
+> >+static bool fm10k_gso_check(struct sk_buff *skb, struct net_device *dev)
+> >+{
+> >+       if ((skb_shinfo(skb)->gso_type & (SKB_GSO_UDP_TUNNEL |
+> >SKB_GSO_GRE)) &&
+> >+           !fm10k_tx_encap_offload(skb))
+> >+               return false;
+> >+
+> >+       return true;
+> >+}
 > 
-> Yes, I'm talking about the full shebang.
+> It seems like the skb_shinfo(skb)->gso_type check should be in some more
+> generic ndo_gso_check that drivers can default to/extend. Then, we could
+> end up with something like
 > 
-> I like the 164 check, personally (with appropriate #define for
-> readability).
+> static bool fm10k_gso_check(struct sk_buff *skb, struct net_device *dev)
+> {
+> 	if (skb_gso_check(skb, dev) && !fm10k_tx_encap_offload(skb))
+> 		return false;
+> 
+> 	return true;
+> }
+> 
+> This could even be simplified and still legible as
+> 
+> static bool fm10k_gso_check(struct sk_buff *skb, struct net_device *dev)
+> {
+> 	return !(skb_gso_check(skb, dev) && !fm10k_tx_encap_offload(skb));
+> }
+> 
+> What do you think of this approach?
 
-Thanks for the feedback, I take it that this approach is preferable over the 
-other one involving an skb_gso_check() + fm10k_tx_encap_offload() call?
+Let's merge both discussions into one thread (pick here or there). We have 
+this suggestion or the one which simply checks for tunnels and inner+outer 
+header lengths. Do you have a preference between them?
+
+We could introduce an "skb_is_gso_encap()" or similar for this purpose. 
+Checking for SKB_GSO_UDP_TUNNEL or SKB_GSO_GRE is pretty closely tied to what 
+fm10k_tx_encap_offload() checks for though; it might not even make sense to call 
+it if some of the other SKB_GSO_* flags are raised.
+
+Joe
