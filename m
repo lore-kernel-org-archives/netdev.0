@@ -1,108 +1,40 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next 1/2] r8152: adjust r8152_submit_rx
-Date: Fri, 7 Nov 2014 17:55:10 +0800
-Message-ID: <1394712342-15778-89-Taiwan-albertk@realtek.com>
-References: <1394712342-15778-88-Taiwan-albertk@realtek.com>
+From: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+Subject: RE: [PATCH net-next v2 2/3] r8152: clear theflagofSCHEDULE_TASKLETin tasklet
+Date: Fri, 7 Nov 2014 10:05:26 +0000
+Message-ID: <0835B3720019904CB8F7AA43166CEEB2ECDFC2@RTITMBSV03.realtek.com.tw>
+References: <1394712342-15778-75-Taiwan-albertk@realtek.com>
+ <1394712342-15778-79-Taiwan-albertk@realtek.com>
+ <1394712342-15778-81-Taiwan-albertk@realtek.com>
+ <20141031.161520.3547230591227504.davem@davemloft.net>
+ <0835B3720019904CB8F7AA43166CEEB2ECD8A7@RTITMBSV03.realtek.com.tw>
+ <20141102225307.GA19900@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
-	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394712342-15778-88-Taiwan-albertk@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	nic_swsd <nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Francois Romieu <romieu-W8zweXLXuWQS+FvcfC7Uqw@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20141102225307.GA19900-lmTtMILVy1jWQcoT9B9Ug5SCg42XY1Uw0E9HWUfgJXw@public.gmane.org>
+Content-Language: zh-TW
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The behavior of handling the returned status from r8152_submit_rx()
-is almost same, so let r8152_submit_rx() deal with the error
-directly. This could avoid the duplicate code.
+ Francois Romieu [mailto:romieu-W8zweXLXuWQS+FvcfC7Uqw@public.gmane.org] 
+> Sent: Monday, November 03, 2014 6:53 AM
+[...]
+> test_and_clear_bit (dense) or clear_bit would be more idiomatic.
 
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
----
- drivers/net/usb/r8152.c | 39 +++++++++++++++++++--------------------
- 1 file changed, 19 insertions(+), 20 deletions(-)
-
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index 66b139a..ad62994 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -1032,7 +1032,6 @@ static void read_bulk_callback(struct urb *urb)
- 	int status = urb->status;
- 	struct rx_agg *agg;
- 	struct r8152 *tp;
--	int result;
+Excuse me. Any suggestion?
+Should I use clear_bit directly, or something else?
+Or, do I have to remove this patch?
  
- 	agg = urb->context;
- 	if (!agg)
-@@ -1083,16 +1082,7 @@ static void read_bulk_callback(struct urb *urb)
- 		break;
- 	}
- 
--	result = r8152_submit_rx(tp, agg, GFP_ATOMIC);
--	if (result == -ENODEV) {
--		set_bit(RTL8152_UNPLUG, &tp->flags);
--		netif_device_detach(tp->netdev);
--	} else if (result) {
--		spin_lock(&tp->rx_lock);
--		list_add_tail(&agg->list, &tp->rx_done);
--		spin_unlock(&tp->rx_lock);
--		tasklet_schedule(&tp->tl);
--	}
-+	r8152_submit_rx(tp, agg, GFP_ATOMIC);
- }
- 
- static void write_bulk_callback(struct urb *urb)
-@@ -1681,7 +1671,6 @@ static void rx_bottom(struct r8152 *tp)
- 		int len_used = 0;
- 		struct urb *urb;
- 		u8 *rx_data;
--		int ret;
- 
- 		list_del_init(cursor);
- 
-@@ -1734,13 +1723,7 @@ find_next_rx:
- 		}
- 
- submit:
--		ret = r8152_submit_rx(tp, agg, GFP_ATOMIC);
--		if (ret && ret != -ENODEV) {
--			spin_lock_irqsave(&tp->rx_lock, flags);
--			list_add_tail(&agg->list, &tp->rx_done);
--			spin_unlock_irqrestore(&tp->rx_lock, flags);
--			tasklet_schedule(&tp->tl);
--		}
-+		r8152_submit_rx(tp, agg, GFP_ATOMIC);
- 	}
- }
- 
-@@ -1805,11 +1788,27 @@ static void bottom_half(unsigned long data)
- static
- int r8152_submit_rx(struct r8152 *tp, struct rx_agg *agg, gfp_t mem_flags)
- {
-+	int ret = 0;
-+
- 	usb_fill_bulk_urb(agg->urb, tp->udev, usb_rcvbulkpipe(tp->udev, 1),
- 			  agg->head, agg_buf_sz,
- 			  (usb_complete_t)read_bulk_callback, agg);
- 
--	return usb_submit_urb(agg->urb, mem_flags);
-+	ret = usb_submit_urb(agg->urb, mem_flags);
-+
-+	if (ret == -ENODEV) {
-+		set_bit(RTL8152_UNPLUG, &tp->flags);
-+		netif_device_detach(tp->netdev);
-+	} else if (ret) {
-+		unsigned long flags;
-+
-+		spin_lock_irqsave(&tp->rx_lock, flags);
-+		list_add_tail(&agg->list, &tp->rx_done);
-+		spin_unlock_irqrestore(&tp->rx_lock, flags);
-+		tasklet_schedule(&tp->tl);
-+	}
-+
-+	return ret;
- }
- 
- static void rtl_drop_queued_tx(struct r8152 *tp)
--- 
-1.9.3
+Best Regards,
+Hayes
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
