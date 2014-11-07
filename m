@@ -1,59 +1,29 @@
 From: David Miller <davem@redhat.com>
-Subject: Re: [PATCH v2 net-next 1/2] net: gro: add a per device gro flush
- timer
-Date: Fri, 07 Nov 2014 17:00:44 -0500 (EST)
-Message-ID: <20141107.170044.1376374292241401593.davem@redhat.com>
-References: <1415311880.13896.85.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20141106.223603.678182467467024928.davem@davemloft.net>
-	<1415336984.13896.102.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH v2 net-next 2/2] mlx4: use napi_complete_done()
+Date: Fri, 07 Nov 2014 17:00:53 -0500 (EST)
+Message-ID: <20141107.170053.1003349690694025765.davem@redhat.com>
+References: <1415337011.13896.103.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com, willemb@google.com,
-	amirv@mellanox.com
+Cc: netdev@vger.kernel.org, amirv@mellanox.com, ogerlitz@mellanox.com,
+	willemb@google.com
 To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47044 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:57088 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752256AbaKGWAx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Nov 2014 17:00:53 -0500
-In-Reply-To: <1415336984.13896.102.camel@edumazet-glaptop2.roam.corp.google.com>
+	id S1752256AbaKGWBB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Nov 2014 17:01:01 -0500
+In-Reply-To: <1415337011.13896.103.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 06 Nov 2014 21:09:44 -0800
+Date: Thu, 06 Nov 2014 21:10:11 -0800
 
 > From: Eric Dumazet <edumazet@google.com>
 > 
-> Tuning coalescing parameters on NIC can be really hard.
-> 
-> Servers can handle both bulk and RPC like traffic, with conflicting
-> goals : bulk flows want as big GRO packets as possible, RPC want minimal
-> latencies.
-> 
-> To reach big GRO packets on 10Gbe NIC, one can use :
-> 
-> ethtool -C eth0 rx-usecs 4 rx-frames 44
-> 
-> But this penalizes rpc sessions, with an increase of latencies, up to
-> 50% in some cases, as NICs generally do not force an interrupt when
-> a packet with TCP Push flag is received.
-> 
-> Some NICs do not have an absolute timer, only a timer rearmed for every
-> incoming packet.
-> 
-> This patch uses a different strategy : Let GRO stack decides what do do,
-> based on traffic pattern.
-> 
-> Packets with Push flag wont be delayed.
-> Packets without Push flag might be held in GRO engine, if we keep
-> receiving data.
-> 
-> This new mechanism is off by default, and shall be enabled by setting
-> /sys/class/net/ethX/gro_flush_timeout to a value in nanosecond.
-> 
-> To fully enable this mechanism, drivers should use napi_complete_done()
+> To enable gro_flush_timeout, a driver has to use napi_complete_done()
 > instead of napi_complete().
 > 
 > Tested:
@@ -85,11 +55,5 @@ Date: Thu, 06 Nov 2014 21:09:44 -0800
 > 0.00      0.50
 > 
 > Signed-off-by: Eric Dumazet <edumazet@google.com>
-> ---
-> v2: As requested by David, drivers should use napi_complete_done()
->     instead of napi_complete() so that we do not have to track if
->     a packet was received during last NAPI poll.
 
-Applied, thanks.
-
-I do think this looks a lot nicer.
+Applied.
