@@ -1,35 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] vxlan: Fix to enable UDP checksums on
- interface
-Date: Thu, 06 Nov 2014 22:00:15 -0500 (EST)
-Message-ID: <20141106.220015.627911044833896569.davem@davemloft.net>
-References: <1415325961-23053-1-git-send-email-therbert@google.com>
+Subject: Re: [PATCH 1/4] inet: Add skb_copy_datagram_iter
+Date: Thu, 06 Nov 2014 22:13:13 -0500 (EST)
+Message-ID: <20141106.221313.1375322315446025123.davem@davemloft.net>
+References: <20141106082338.GA29800@gondor.apana.org.au>
+	<20141106.122500.4643339498907490.davem@davemloft.net>
+	<20141107015944.GB9101@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: therbert@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33439 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751196AbaKGDAU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 22:00:20 -0500
-In-Reply-To: <1415325961-23053-1-git-send-email-therbert@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: viro@ZenIV.linux.org.uk, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, bcrl@kvack.org
+To: herbert@gondor.apana.org.au
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141107015944.GB9101@gondor.apana.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tom Herbert <therbert@google.com>
-Date: Thu,  6 Nov 2014 18:06:01 -0800
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Fri, 7 Nov 2014 09:59:44 +0800
 
-> Add definition to vxlan nla_policy for UDP checksum. This is necessary
-> to enable UDP checksums on VXLAN.
-> 
-> In some instances, enabling UDP checksums can improve performance on
-> receive for devices that return legacy checksum-unnecessary for UDP/IP.
-> Also, UDP checksum provides some protection against VNI corruption.
-> 
-> Testing:
- ...
-> Signed-off-by: Tom Herbert <therbert@google.com>
+> In that case it might be best to wait until those fixes hit net-next
+> first before applying these patches as otherwise Stephen will get
+> hit with some nasty merge conflicts.
 
-Applied, thanks Tom.
+I just merged net into net-next, so this barrier should no longer
+be present.
+
+Thanks.
