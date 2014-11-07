@@ -1,75 +1,53 @@
-From: Calvin Owens <calvinowens@fb.com>
-Subject: Re: [PATCH] ipvs: Keep skb->sk when allocating headroom on tunnel
- xmit
-Date: Fri, 7 Nov 2014 14:12:13 -0800
-Message-ID: <545D43BD.8030203@fb.com>
-References: <1415147860-11389-1-git-send-email-calvinowens@fb.com> <alpine.LFD.2.11.1411051048540.1631@ja.home.ssi.bg>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: kernel panic receiving flooded VXLAN traffic with OVS
+Date: Fri, 7 Nov 2014 14:29:09 -0800
+Message-ID: <CAEP_g=9gWZYtWGiF-JbVwmesa1n7FXYEJSQKdZi3L_yhPGPkAA@mail.gmail.com>
+References: <19014.1415325508@famine> <CALnjE+r-s-usJoHq0E74QdorKX2H2cx429xwmsQ2kh+tzp1Y-g@mail.gmail.com>
+ <CAEP_g=95s37umz-hLGH0-sB32RcW+t+1dJ=_Eg1jMt4HYG+gEg@mail.gmail.com>
+ <CAEP_g=_ToXZB14MY4Y+FaYfNj_GHpaX59n3nzDrkALXHBzK1yw@mail.gmail.com> <26235.1415394796@famine>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Simon Horman <horms@verge.net.au>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	<lvs-devel@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>, <agartrell@fb.com>, <kernel-team@fb.com>
-To: Julian Anastasov <ja@ssi.bg>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LFD.2.11.1411051048540.1631@ja.home.ssi.bg>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Pravin Shelar <pshelar@nicira.com>,
+	netdev <netdev@vger.kernel.org>,
+	"discuss@openvswitch.org" <discuss@openvswitch.org>
+To: Jay Vosburgh <jay.vosburgh@canonical.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog132.obsmtp.com ([74.125.149.250]:56047 "HELO
+	na3sys009aog132.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751743AbaKGW3a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2014 17:29:30 -0500
+Received: by mail-qc0-f171.google.com with SMTP id m20so3377676qcx.30
+        for <netdev@vger.kernel.org>; Fri, 07 Nov 2014 14:29:30 -0800 (PST)
+In-Reply-To: <26235.1415394796@famine>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/05/2014 01:21 AM, Julian Anastasov wrote:
+On Fri, Nov 7, 2014 at 1:13 PM, Jay Vosburgh <jay.vosburgh@canonical.com> wrote:
+> Jesse Gross <jesse@nicira.com> wrote:
 >
-> 	Hello,
->
-> On Tue, 4 Nov 2014, Calvin Owens wrote:
->
->> ip_vs_prepare_tunneled_skb() ignores ->sk when allocating a new
->> skb, either unconditionally setting ->sk to NULL or allowing
->> the uninitialized ->sk from a newly allocated skb to leak through
->> to the caller.
+>>On Fri, Nov 7, 2014 at 10:34 AM, Jesse Gross <jesse@nicira.com> wrote:
+>>> On Fri, Nov 7, 2014 at 9:40 AM, Pravin Shelar <pshelar@nicira.com> wrote:
+>>>> On Thu, Nov 6, 2014 at 5:58 PM, Jay Vosburgh <jay.vosburgh@canonical.com> wrote:
+> [...]
+>>>>>         I'm not sure if this is an error on the part of the RX / GRO
+>>>>> processing in assembling the GRO skb, or in how OVS calls skb_segment.
+>>>>>
+>>>>
+>>>> I think this is related skb_segment() issue where it is not able to
+>>>> handle this type of skb geometry. We need to fix skb-segmentation. I
+>>>> will investigate it more.
+>>>
+>>> One problem that I see is that vxlan_gro_complete() doesn't add
+>>> SKB_GSO_UDP_TUNNEL to gso_type. This causes us to attempt
+>>> fragmentation as UDP rather than continuing down to do TCP
+>>> segmentation. That probably screws up the skb geometry.
 >>
->> This patch properly copies ->sk and increments its reference count.
->>
->> Signed-off-by: Calvin Owens <calvinowens@fb.com>
+>>I sent out a patch to fix this issue. I'm pretty sure that it is the
+>>root cause of the originally reported case but I don't have a good way
+>>to reproduce it so it would be great if you could test it Jay.
 >
-> 	Good catch. Please, extend your patch to
-> fix also the second place that has such error,
-> ip_vs_tunnel_xmit_v6. This call is missing from long time,
-> it was not needed. But commits that allow skb->sk (local
-> clients) already need it, eg.
+>         I'm having an issue there; when I set up my recreation on
+> current net-next (3.18-rc2) without your new patch, I get the following
+> oops when my ovs script does "ovs-vsctl --if-exists del-br br-ex":
 
-I'm not sure where exactly you mean: ip_vs_tunnel_xmit_v6() calls
-ip_vs_prepare_tunneled_skb() to do the allocation, so this patch covers 
-that case.
-
-In older versions of the kernel, ip_vs_tunnel_xmit_v6() does it 
-directly, could that be what you're looking at?
-
-> - f2428ed5e7bc89c7 ("ipvs: load balance ipv6 connections from a local
-> process"), 2.6.28
-> - 4856c84c1358b798 ("ipvs: load balance IPv4 connections from a local
-> process"), 2.6.28
->
->> ---
->>   net/netfilter/ipvs/ip_vs_xmit.c | 2 ++
->>   1 file changed, 2 insertions(+)
->>
->> diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
->> index 437a366..bd90bf8 100644
->> --- a/net/netfilter/ipvs/ip_vs_xmit.c
->> +++ b/net/netfilter/ipvs/ip_vs_xmit.c
->> @@ -846,6 +846,8 @@ ip_vs_prepare_tunneled_skb(struct sk_buff *skb, int skb_af,
->>   		new_skb = skb_realloc_headroom(skb, max_headroom);
->>   		if (!new_skb)
->>   			goto error;
->> +		if (skb->sk)
->> +			skb_set_owner_w(new_skb, skb->sk);
->>   		consume_skb(skb);
->>   		skb = new_skb;
->>   	}
->
-> Regards
->
-> --
-> Julian Anastasov <ja@ssi.bg>
->
+Hmm, that looks like a totally different problem. Pravin - any ideas?
