@@ -1,73 +1,42 @@
-From: Dong Aisheng <b29396@freescale.com>
-Subject: [PATCH V4 3/3] can: m_can: add missing message RAM initialization
-Date: Fri, 7 Nov 2014 16:45:14 +0800
-Message-ID: <1415349914-9145-3-git-send-email-b29396@freescale.com>
-References: <1415349914-9145-1-git-send-email-b29396@freescale.com>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: How to make stack send broadcast ARP request when entry is STALE?
+Date: Fri, 07 Nov 2014 10:54:30 +0100
+Message-ID: <545C96D6.5020204@hp.com>
+References: <C4AF677B-55AC-4CE0-9BFB-EBB2E0C3BF74@emagii.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <mkl@pengutronix.de>, <wg@grandegger.com>,
-	<varkabhadram@gmail.com>, <netdev@vger.kernel.org>,
-	<socketcan@hartkopp.net>, <b29396@freescale.com>,
-	<linux-arm-kernel@lists.infradead.org>
-To: <linux-can@vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@vger.kernel.org>
+To: Ulf samuelsson <netdev@emagii.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bn0102.outbound.protection.outlook.com ([157.56.110.102]:55656
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751209AbaKGJvs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Nov 2014 04:51:48 -0500
-In-Reply-To: <1415349914-9145-1-git-send-email-b29396@freescale.com>
+Received: from g9t1613g.houston.hp.com ([15.240.0.71]:52166 "EHLO
+	g9t1613g.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751255AbaKGJye (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2014 04:54:34 -0500
+Received: from g6t1526.atlanta.hp.com (g6t1526.atlanta.hp.com [15.193.200.69])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by g9t1613g.houston.hp.com (Postfix) with ESMTPS id 0602460C86
+	for <netdev@vger.kernel.org>; Fri,  7 Nov 2014 09:54:34 +0000 (UTC)
+In-Reply-To: <C4AF677B-55AC-4CE0-9BFB-EBB2E0C3BF74@emagii.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The M_CAN message RAM is usually equipped with a parity or ECC functionality.
-But RAM cells suffer a hardware reset and can therefore hold arbitrary
-content at startup - including parity and/or ECC bits.
+On 11/05/2014 07:48 AM, Ulf samuelsson wrote:
+> Have a problem with an HP router at a certain location, which
+> is configured to only answer to broadcast ARP requests.
+> That cannot be changed.
 
-To prevent the M_CAN controller detecting checksum errors when reading
-potentially uninitialized TX message RAM content to transmit CAN
-frames the TX message RAM has to be written with (any kind of) initial
-data.
+Sorry to hear about the problem, but my only suggestions would be to try 
+the latest firmware and/or put a call in to support.  I don't happen 
+work in the division that makes routers...
 
-Signed-off-by: Dong Aisheng <b29396@freescale.com>
----
-ChangeLog:
-v3-v4:
- * initialize the entire Message RAM in use instead of only 8 bytes
-   since this is a valid and needed initialization process.
-   Patch title also changed.
----
- drivers/net/can/m_can/m_can.c | 11 ++++++++++-
- 1 file changed, 10 insertions(+), 1 deletion(-)
+> The first ARP request the kernel sends out, is a broadcast request,
+> which is fine, but after the reply, the kernel sends unicast requests,
+> which will not get any replies.
 
-diff --git a/drivers/net/can/m_can/m_can.c b/drivers/net/can/m_can/m_can.c
-index eee1533..de742d0 100644
---- a/drivers/net/can/m_can/m_can.c
-+++ b/drivers/net/can/m_can/m_can.c
-@@ -1114,7 +1114,7 @@ static int m_can_of_parse_mram(struct platform_device *pdev,
- 	struct resource *res;
- 	void __iomem *addr;
- 	u32 out_val[MRAM_CFG_LEN];
--	int ret;
-+	int i, start, end, ret;
- 
- 	/* message ram could be shared */
- 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "message_ram");
-@@ -1165,6 +1165,15 @@ static int m_can_of_parse_mram(struct platform_device *pdev,
- 		priv->mcfg[MRAM_TXE].off, priv->mcfg[MRAM_TXE].num,
- 		priv->mcfg[MRAM_TXB].off, priv->mcfg[MRAM_TXB].num);
- 
-+	/* initialize the entire Message RAM in use to avoid possible
-+	 * ECC/parity checksum errors when reading an uninitialized buffer
-+	 */
-+	start = priv->mcfg[MRAM_SIDF].off;
-+	end = priv->mcfg[MRAM_TXB].off +
-+		priv->mcfg[MRAM_TXB].num * TXB_ELEMENT_SIZE;
-+	for (i = start; i < end; i += 4)
-+		writel(0x0, priv->mram_base + i);
-+
- 	return 0;
- }
- 
--- 
-1.9.1
+You might be able to hack this by inserting an ebtables rule - check the 
+dnat target section of the man page - don't know the exact syntax but it 
+would probably end in '-j dnat --to-destination ff:ff:ff:ff:ff:ff'
+
+-Brian
