@@ -1,54 +1,88 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: gro: add a per device gro flush timer
-Date: Thu, 06 Nov 2014 22:36:03 -0500 (EST)
-Message-ID: <20141106.223603.678182467467024928.davem@davemloft.net>
-References: <1415235320.13896.51.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20141106.162516.1083429539800319166.davem@davemloft.net>
-	<1415311880.13896.85.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com, willemb@google.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33731 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751216AbaKGDgF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 22:36:05 -0500
-In-Reply-To: <1415311880.13896.85.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCHv3 net-next 0/3] RDMA/cxgb4,cxgb4vf,cxgb4i,csiostor: Cleanup macros
+Date: Fri,  7 Nov 2014 09:35:22 +0530
+Message-ID: <1415333125-10635-1-git-send-email-hariprasad@chelsio.com>
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org,
+	JBottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org,
+	swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, anish-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	praveenm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 06 Nov 2014 14:11:20 -0800
+Hi,
 
-> My goal was to not change any driver, doing a generic change.
-> 
-> Drivers call napi_complete() in their rx napi handler without giving us
-> the 'work_done' value which tells us if a packet was processed.
-> 
-> So I added a counter that is increased for every packet given to GRO
-> engine (napi_rx_count), so that napi_complete() has a clue if a packet
-> was received in _this_ NAPI run.
-> 
-> If at least one packet was received (and we still have packets in
-> gro_list) -> We ream the 'timer'
-> If not, we flush packets in GRO engine.
-> 
-> In order to avoid this state, I would have to add a new method, like
-> napi_complete_done(napi, work_done), and change drivers. I am not sure
-> its worth the effort ?
+This series moves the debugfs code to a new file debugfs.c and cleans up
+macros/register defines.
 
-I think for such a critical path in the kernel it's worth it to avoid
-these increments for every packet, just to compute a value that's
-sitting in a register already in the driver's poll routine.
+Various patches have ended up changing the style of the symbolic macros/register
+defines and some of them used the macros/register defines that matches the
+output of the script from the hardware team.
 
-Eric, you've been trimming cpu IRQ disables from these exact code
-paths, you should know better than me :-)
+As a result, the current kernel.org files are a mix of different macro styles.
+Since this macro/register defines is used by five different drivers, a
+few patch series have ended up adding duplicate macro/register define entries
+with different styles. This makes these register define/macro files a complete
+mess and we want to make them clean and consistent.
 
-I'm willing to do some of the monkey work of converting as many
-drivers as can be trivially done if you want.  Almost all of the
-ones I looked at have the work_done variable right there at the
-napi_complete() call site.
+Will post few more series so that we can cover all the macros so that they all
+follow the same style to be consistent.
 
-The rest can stay unconverted and not get access to this new facility.
+The patches series is created against 'net-next' tree.
+And includes patches on cxgb4, cxgb4vf, iw_cxgb4, csiostor and cxgb4i driver.
+
+We have included all the maintainers of respective drivers. Kindly review the
+change and let us know in case of any review comments.
+
+Thanks
+
+V3: Use suffix instead of prefix for macros/register defines
+V2: Changes the description and cover-letter content to answer David Miller's
+question
+
+Hariprasad Shenai (3):
+  cxgb4: Add cxgb4_debugfs.c, move all debugfs code to new file
+  cxgb4: Cleanup macros so they follow the same style and look
+    consistent
+  cxgb4: Cleanup macros so they follow the same style and look
+    consistent, part 2
+
+ drivers/infiniband/hw/cxgb4/cm.c                   |   56 +++---
+ drivers/infiniband/hw/cxgb4/cq.c                   |    8 +-
+ drivers/infiniband/hw/cxgb4/mem.c                  |   14 +-
+ drivers/infiniband/hw/cxgb4/qp.c                   |   26 ++--
+ drivers/net/ethernet/chelsio/cxgb4/Makefile        |    1 +
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h         |    3 +-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.h     |    6 +-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c |  158 ++++++++++++++++++
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.h |   52 ++++++
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    |  173 +++++---------------
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h     |   15 +-
+ drivers/net/ethernet/chelsio/cxgb4/sge.c           |   32 ++--
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c         |  127 +++++++-------
+ drivers/net/ethernet/chelsio/cxgb4/t4_regs.h       |   72 +++++++--
+ drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h      |  142 ++++++++++++----
+ drivers/net/ethernet/chelsio/cxgb4vf/sge.c         |   32 ++--
+ drivers/net/ethernet/chelsio/cxgb4vf/t4vf_common.h |    2 +-
+ drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c     |  150 +++++++++---------
+ drivers/scsi/csiostor/csio_attr.c                  |    8 +-
+ drivers/scsi/csiostor/csio_hw.c                    |   14 +-
+ drivers/scsi/csiostor/csio_hw_t4.c                 |   15 +-
+ drivers/scsi/csiostor/csio_hw_t5.c                 |   21 ++-
+ drivers/scsi/csiostor/csio_init.c                  |    6 +-
+ drivers/scsi/csiostor/csio_lnode.c                 |   18 +-
+ drivers/scsi/csiostor/csio_mb.c                    |  172 ++++++++++----------
+ drivers/scsi/csiostor/csio_scsi.c                  |   24 ++--
+ drivers/scsi/csiostor/csio_wr.h                    |    2 +-
+ drivers/scsi/cxgbi/cxgb4i/cxgb4i.c                 |   35 ++--
+ 28 files changed, 816 insertions(+), 568 deletions(-)
+ create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
+ create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.h
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
