@@ -1,274 +1,98 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net 2/3] cxgb4/cxgb4vf: For T5 use Packing and Padding Boundaries for SGE DMA transfers
-Date: Fri,  7 Nov 2014 17:06:30 +0530
-Message-ID: <1415360191-25395-3-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCH net 3/3] cxgb4vf: FL Starvation Threshold needs to be larger than the SGE's Egress Congestion Threshold
+Date: Fri,  7 Nov 2014 17:06:31 +0530
+Message-ID: <1415360191-25395-4-git-send-email-hariprasad@chelsio.com>
 References: <1415360191-25395-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
 	Hariprasad Shenai <hariprasad@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:34370
+Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:34373
 	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751933AbaKGLaw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2014 06:30:52 -0500
+	by vger.kernel.org with ESMTP id S1751934AbaKGLay (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2014 06:30:54 -0500
 In-Reply-To: <1415360191-25395-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-T5 introduces the ability to have separate Packing and Padding Boundaries
-for SGE DMA transfers from the chip to Host Memory. This change set takes
-advantage of that to set up a smaller Padding Boundary to conserve PCI Link
-and Memory Bandwidth with T5.
+Free List Starvation Threshold needs to be larger than the SGE's Egress
+Congestion Threshold or we'll end up in a mutual stall where the driver waits
+for Ingress Packets to drive replacing Free List Pointers and the SGE waits for
+Free List Pointers before pushing Ingress Packets to the host.
+
+Based on original work by Casey Leedom <leedom@chelsio.com>
 
 Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/sge.c           |   30 ++++++++++-
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c         |   51 +++++++++++++++++--
- drivers/net/ethernet/chelsio/cxgb4/t4_regs.h       |   10 ++++
- drivers/net/ethernet/chelsio/cxgb4vf/sge.c         |   31 +++++++++++-
+ drivers/net/ethernet/chelsio/cxgb4vf/sge.c         |   16 ++++++++++------
  drivers/net/ethernet/chelsio/cxgb4vf/t4vf_common.h |    1 +
- drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c     |   23 +++++++++
- 6 files changed, 135 insertions(+), 11 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c     |    5 ++++-
+ 3 files changed, 15 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-index 5e1b314..39f2b13 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-@@ -2914,7 +2914,8 @@ static int t4_sge_init_hard(struct adapter *adap)
- int t4_sge_init(struct adapter *adap)
- {
- 	struct sge *s = &adap->sge;
--	u32 sge_control, sge_conm_ctrl;
-+	u32 sge_control, sge_control2, sge_conm_ctrl;
-+	unsigned int ingpadboundary, ingpackboundary;
- 	int ret, egress_threshold;
- 
- 	/*
-@@ -2924,8 +2925,31 @@ int t4_sge_init(struct adapter *adap)
- 	sge_control = t4_read_reg(adap, SGE_CONTROL);
- 	s->pktshift = PKTSHIFT_GET(sge_control);
- 	s->stat_len = (sge_control & EGRSTATUSPAGESIZE_MASK) ? 128 : 64;
--	s->fl_align = 1 << (INGPADBOUNDARY_GET(sge_control) +
--			    X_INGPADBOUNDARY_SHIFT);
-+
-+	/* T4 uses a single control field to specify both the PCIe Padding and
-+	 * Packing Boundary.  T5 introduced the ability to specify these
-+	 * separately.  The actual Ingress Packet Data alignment boundary
-+	 * within Packed Buffer Mode is the maximum of these two
-+	 * specifications.
-+	 */
-+	ingpadboundary = 1 << (INGPADBOUNDARY_GET(sge_control) +
-+			       X_INGPADBOUNDARY_SHIFT);
-+	if (is_t4(adap->params.chip)) {
-+		s->fl_align = ingpadboundary;
-+	} else {
-+		/* T5 has a different interpretation of one of the PCIe Packing
-+		 * Boundary values.
-+		 */
-+		sge_control2 = t4_read_reg(adap, SGE_CONTROL2_A);
-+		ingpackboundary = INGPACKBOUNDARY_G(sge_control2);
-+		if (ingpackboundary == INGPACKBOUNDARY_16B_X)
-+			ingpackboundary = 16;
-+		else
-+			ingpackboundary = 1 << (ingpackboundary +
-+						INGPACKBOUNDARY_SHIFT_X);
-+
-+		s->fl_align = max(ingpadboundary, ingpackboundary);
-+	}
- 
- 	if (adap->flags & USING_SOFT_PARAMS)
- 		ret = t4_sge_init_soft(adap);
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-index a9d9d74..163a2a1 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-@@ -3129,12 +3129,51 @@ int t4_fixup_host_params(struct adapter *adap, unsigned int page_size,
- 		     HOSTPAGESIZEPF6(sge_hps) |
- 		     HOSTPAGESIZEPF7(sge_hps));
- 
--	t4_set_reg_field(adap, SGE_CONTROL,
--			 INGPADBOUNDARY_MASK |
--			 EGRSTATUSPAGESIZE_MASK,
--			 INGPADBOUNDARY(fl_align_log - 5) |
--			 EGRSTATUSPAGESIZE(stat_len != 64));
--
-+	if (is_t4(adap->params.chip)) {
-+		t4_set_reg_field(adap, SGE_CONTROL,
-+				 INGPADBOUNDARY_MASK |
-+				 EGRSTATUSPAGESIZE_MASK,
-+				 INGPADBOUNDARY(fl_align_log - 5) |
-+				 EGRSTATUSPAGESIZE(stat_len != 64));
-+	} else {
-+		/* T5 introduced the separation of the Free List Padding and
-+		 * Packing Boundaries.  Thus, we can select a smaller Padding
-+		 * Boundary to avoid uselessly chewing up PCIe Link and Memory
-+		 * Bandwidth, and use a Packing Boundary which is large enough
-+		 * to avoid false sharing between CPUs, etc.
-+		 *
-+		 * For the PCI Link, the smaller the Padding Boundary the
-+		 * better.  For the Memory Controller, a smaller Padding
-+		 * Boundary is better until we cross under the Memory Line
-+		 * Size (the minimum unit of transfer to/from Memory).  If we
-+		 * have a Padding Boundary which is smaller than the Memory
-+		 * Line Size, that'll involve a Read-Modify-Write cycle on the
-+		 * Memory Controller which is never good.  For T5 the smallest
-+		 * Padding Boundary which we can select is 32 bytes which is
-+		 * larger than any known Memory Controller Line Size so we'll
-+		 * use that.
-+		 *
-+		 * T5 has a different interpretation of the "0" value for the
-+		 * Packing Boundary.  This corresponds to 16 bytes instead of
-+		 * the expected 32 bytes.  We never have a Packing Boundary
-+		 * less than 32 bytes so we can't use that special value but
-+		 * on the other hand, if we wanted 32 bytes, the best we can
-+		 * really do is 64 bytes.
-+		*/
-+		if (fl_align <= 32) {
-+			fl_align = 64;
-+			fl_align_log = 6;
-+		}
-+		t4_set_reg_field(adap, SGE_CONTROL,
-+				 INGPADBOUNDARY_MASK |
-+				 EGRSTATUSPAGESIZE_MASK,
-+				 INGPADBOUNDARY(INGPCIEBOUNDARY_32B_X) |
-+				 EGRSTATUSPAGESIZE(stat_len != 64));
-+		t4_set_reg_field(adap, SGE_CONTROL2_A,
-+				 INGPACKBOUNDARY_V(INGPACKBOUNDARY_M),
-+				 INGPACKBOUNDARY_V(fl_align_log -
-+						 INGPACKBOUNDARY_SHIFT_X));
-+	}
- 	/*
- 	 * Adjust various SGE Free List Host Buffer Sizes.
- 	 *
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-index a1024db..8d2de10 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-@@ -95,6 +95,7 @@
- #define X_INGPADBOUNDARY_SHIFT 5
- 
- #define SGE_CONTROL 0x1008
-+#define SGE_CONTROL2_A		0x1124
- #define  DCASYSTYPE             0x00080000U
- #define  RXPKTCPLMODE_MASK      0x00040000U
- #define  RXPKTCPLMODE_SHIFT     18
-@@ -106,6 +107,7 @@
- #define  PKTSHIFT_SHIFT         10
- #define  PKTSHIFT(x)            ((x) << PKTSHIFT_SHIFT)
- #define  PKTSHIFT_GET(x)	(((x) & PKTSHIFT_MASK) >> PKTSHIFT_SHIFT)
-+#define  INGPCIEBOUNDARY_32B_X	0
- #define  INGPCIEBOUNDARY_MASK   0x00000380U
- #define  INGPCIEBOUNDARY_SHIFT  7
- #define  INGPCIEBOUNDARY(x)     ((x) << INGPCIEBOUNDARY_SHIFT)
-@@ -114,6 +116,14 @@
- #define  INGPADBOUNDARY(x)      ((x) << INGPADBOUNDARY_SHIFT)
- #define  INGPADBOUNDARY_GET(x)	(((x) & INGPADBOUNDARY_MASK) \
- 				 >> INGPADBOUNDARY_SHIFT)
-+#define  INGPACKBOUNDARY_16B_X	0
-+#define  INGPACKBOUNDARY_SHIFT_X 5
-+
-+#define  INGPACKBOUNDARY_S	16
-+#define  INGPACKBOUNDARY_M	0x7U
-+#define  INGPACKBOUNDARY_V(x)	((x) << INGPACKBOUNDARY_S)
-+#define  INGPACKBOUNDARY_G(x)	(((x) >> INGPACKBOUNDARY_S) \
-+				 & INGPACKBOUNDARY_M)
- #define  EGRPCIEBOUNDARY_MASK   0x0000000eU
- #define  EGRPCIEBOUNDARY_SHIFT  1
- #define  EGRPCIEBOUNDARY(x)     ((x) << EGRPCIEBOUNDARY_SHIFT)
 diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
-index a18830d..cd5b789 100644
+index cd5b789..fdd078d 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
-@@ -2436,6 +2436,7 @@ int t4vf_sge_init(struct adapter *adapter)
- 	u32 fl0 = sge_params->sge_fl_buffer_size[0];
- 	u32 fl1 = sge_params->sge_fl_buffer_size[1];
- 	struct sge *s = &adapter->sge;
-+	unsigned int ingpadboundary, ingpackboundary;
+@@ -94,12 +94,6 @@ enum {
+ 	MAX_TIMER_TX_RECLAIM = 100,
  
  	/*
- 	 * Start by vetting the basic SGE parameters which have been set up by
-@@ -2460,8 +2461,34 @@ int t4vf_sge_init(struct adapter *adapter)
- 	s->stat_len = ((sge_params->sge_control & EGRSTATUSPAGESIZE_MASK)
- 			? 128 : 64);
- 	s->pktshift = PKTSHIFT_GET(sge_params->sge_control);
--	s->fl_align = 1 << (INGPADBOUNDARY_GET(sge_params->sge_control) +
--			    SGE_INGPADBOUNDARY_SHIFT);
-+
-+	/* T4 uses a single control field to specify both the PCIe Padding and
-+	 * Packing Boundary.  T5 introduced the ability to specify these
-+	 * separately.  The actual Ingress Packet Data alignment boundary
-+	 * within Packed Buffer Mode is the maximum of these two
-+	 * specifications.  (Note that it makes no real practical sense to
-+	 * have the Pading Boudary be larger than the Packing Boundary but you
-+	 * could set the chip up that way and, in fact, legacy T4 code would
-+	 * end doing this because it would initialize the Padding Boundary and
-+	 * leave the Packing Boundary initialized to 0 (16 bytes).)
-+	 */
-+	ingpadboundary = 1 << (INGPADBOUNDARY_GET(sge_params->sge_control) +
-+			       X_INGPADBOUNDARY_SHIFT);
-+	if (is_t4(adapter->params.chip)) {
-+		s->fl_align = ingpadboundary;
-+	} else {
-+		/* T5 has a different interpretation of one of the PCIe Packing
-+		 * Boundary values.
-+		 */
-+		ingpackboundary = INGPACKBOUNDARY_G(sge_params->sge_control2);
-+		if (ingpackboundary == INGPACKBOUNDARY_16B_X)
-+			ingpackboundary = 16;
-+		else
-+			ingpackboundary = 1 << (ingpackboundary +
-+						INGPACKBOUNDARY_SHIFT_X);
-+
-+		s->fl_align = max(ingpadboundary, ingpackboundary);
-+	}
+-	 * An FL with <= FL_STARVE_THRES buffers is starving and a periodic
+-	 * timer will attempt to refill it.
+-	 */
+-	FL_STARVE_THRES = 4,
+-
+-	/*
+ 	 * Suspend an Ethernet TX queue with fewer available descriptors than
+ 	 * this.  We always want to have room for a maximum sized packet:
+ 	 * inline immediate data + MAX_SKB_FRAGS. This is the same as
+@@ -2490,6 +2484,16 @@ int t4vf_sge_init(struct adapter *adapter)
+ 		s->fl_align = max(ingpadboundary, ingpackboundary);
+ 	}
  
++	/* A FL with <= fl_starve_thres buffers is starving and a periodic
++	 * timer will attempt to refill it.  This needs to be larger than the
++	 * SGE's Egress Congestion Threshold.  If it isn't, then we can get
++	 * stuck waiting for new packets while the SGE is waiting for us to
++	 * give it more Free List entries.  (Note that the SGE's Egress
++	 * Congestion Threshold is in units of 2 Free List pointers.)
++	 */
++	s->fl_starve_thres
++		= EGRTHRESHOLD_GET(sge_params->sge_congestion_control)*2 + 1;
++
  	/*
  	 * Set up tasklet timers.
+ 	 */
 diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_common.h b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_common.h
-index 95df61d..b5c301d 100644
+index b5c301d..4b6a6d1 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_common.h
 +++ b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_common.h
-@@ -134,6 +134,7 @@ struct dev_params {
-  */
- struct sge_params {
- 	u32 sge_control;		/* padding, boundaries, lengths, etc. */
-+	u32 sge_control2;		/* T5: more of the same */
- 	u32 sge_host_page_size;		/* RDMA page sizes */
- 	u32 sge_queues_per_page;	/* RDMA queues/page */
+@@ -140,6 +140,7 @@ struct sge_params {
  	u32 sge_user_mode_limits;	/* limits for BAR2 user mode accesses */
+ 	u32 sge_fl_buffer_size[16];	/* free list buffer sizes */
+ 	u32 sge_ingress_rx_threshold;	/* RX counter interrupt threshold[4] */
++	u32 sge_congestion_control;     /* congestion thresholds, etc. */
+ 	u32 sge_timer_value_0_and_1;	/* interrupt coalescing timer values */
+ 	u32 sge_timer_value_2_and_3;
+ 	u32 sge_timer_value_4_and_5;
 diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
-index e984fdc..dc30d28 100644
+index dc30d28..1e896b9 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
-@@ -468,6 +468,29 @@ int t4vf_get_sge_params(struct adapter *adapter)
- 	sge_params->sge_timer_value_2_and_3 = vals[5];
- 	sge_params->sge_timer_value_4_and_5 = vals[6];
+@@ -493,10 +493,13 @@ int t4vf_get_sge_params(struct adapter *adapter)
  
-+	/* T4 uses a single control field to specify both the PCIe Padding and
-+	 * Packing Boundary.  T5 introduced the ability to specify these
-+	 * separately with the Padding Boundary in SGE_CONTROL and and Packing
-+	 * Boundary in SGE_CONTROL2.  So for T5 and later we need to grab
-+	 * SGE_CONTROL in order to determine how ingress packet data will be
-+	 * laid out in Packed Buffer Mode.  Unfortunately, older versions of
-+	 * the firmware won't let us retrieve SGE_CONTROL2 so if we get a
-+	 * failure grabbing it we throw an error since we can't figure out the
-+	 * right value.
-+	 */
-+	if (!is_t4(adapter->params.chip)) {
-+		params[0] = (FW_PARAMS_MNEM(FW_PARAMS_MNEM_REG) |
-+			     FW_PARAMS_PARAM_XYZ(SGE_CONTROL2_A));
-+		v = t4vf_query_params(adapter, 1, params, vals);
-+		if (v != FW_SUCCESS) {
-+			dev_err(adapter->pdev_dev,
-+				"Unable to get SGE Control2; "
-+				"probably old firmware.\n");
-+			return v;
-+		}
-+		sge_params->sge_control2 = vals[0];
-+	}
-+
  	params[0] = (FW_PARAMS_MNEM(FW_PARAMS_MNEM_REG) |
  		     FW_PARAMS_PARAM_XYZ(SGE_INGRESS_RX_THRESHOLD));
- 	v = t4vf_query_params(adapter, 1, params, vals);
+-	v = t4vf_query_params(adapter, 1, params, vals);
++	params[1] = (FW_PARAMS_MNEM(FW_PARAMS_MNEM_REG) |
++		     FW_PARAMS_PARAM_XYZ(SGE_CONM_CTRL));
++	v = t4vf_query_params(adapter, 2, params, vals);
+ 	if (v)
+ 		return v;
+ 	sge_params->sge_ingress_rx_threshold = vals[0];
++	sge_params->sge_congestion_control = vals[1];
+ 
+ 	return 0;
+ }
 -- 
 1.7.1
