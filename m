@@ -1,90 +1,74 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 0/9][pull request] Intel Wired LAN Driver Updates 2014-11-07
-Date: Fri,  7 Nov 2014 00:57:41 -0800
-Message-ID: <1415350670-15333-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+Subject: [net-next 6/9] ixgbe: fix X540 Completion timeout
+Date: Fri,  7 Nov 2014 00:57:47 -0800
+Message-ID: <1415350670-15333-7-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1415350670-15333-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	john.ronciak@intel.com
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:41286 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:41295 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751176AbaKGI56 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Nov 2014 03:57:58 -0500
+	id S1751251AbaKGI6C (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Nov 2014 03:58:02 -0500
+In-Reply-To: <1415350670-15333-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to i40e, i40evf and ixgbe.
+From: Don Skidmore <donald.c.skidmore@intel.com>
 
-Kamil updated the i40e and i40evf driver to poll the firmware slower
-since we were polling faster than the firmware could respond.
+On topologies including few levels of PCIe switching X540 can run into an
+unexpected completion error.  We get around this by waiting after enabling
+loopback a sufficient amount of time until Tx Data Fetch is sent.  We then
+poll the pending transaction bit to ensure we received the completion.  Only
+then do we go on to clear the buffers.
 
-Shannon updates i40e to add a check to keep the service_task from
-running the periodic tasks more than once per second, while still
-allowing quick action to service the events.
+Signed-of-by: Don Skidmore <donald.c.skidmore@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Jesse cleans up the throttle rate code by fixing the minimum interrupt
-throttle rate and removing some unused defines.
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c | 21 ++++++++++++++++++++-
+ 1 file changed, 20 insertions(+), 1 deletion(-)
 
-Mitch makes the early init admin queue message receive code more robust
-by handling messages in a loop and ignoring those that we are not
-interested in.  This also gets rid of some scary log messages that
-really do not indicate a problem.
-
-Don provides several ixgbe patches, first fixes an issue with x540
-completion timeout where on topologies including few levels of PCIe
-switching for x540 can run into an unexpected completion error.  Cleans
-up the functionality in ixgbe_ndo_set_vf_vlan() in preparation for
-future work.  Adds support for x550 MAC's to the driver.
-
-The following are changes since commit 4e84b496fd2a226883920e0e0de4ed3f94898adf:
-  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
-
-Don Skidmore (4):
-  ixgbe: fix X540 Completion timeout
-  ixgbe: cleanup ixgbe_ndo_set_vf_vlan
-  ixgbe: cleanup move setting PFQDE.HIDE_VLAN to support function.
-  ixgbe: Add new support for X550 MAC's
-
-Jesse Brandeburg (1):
-  i40e: clean up throttle rate code
-
-Kamil Krawczyk (1):
-  i40e: poll firmware slower
-
-Mitch Williams (2):
-  i40evf: make early init processing more robust
-  i40evf: don't use more queues than CPUs
-
-Shannon Nelson (1):
-  i40e: don't do link_status or stats collection on every ARQ
-
- drivers/net/ethernet/intel/i40e/i40e.h             |   3 +-
- drivers/net/ethernet/intel/i40e/i40e_adminq.c      |   5 +-
- drivers/net/ethernet/intel/i40e/i40e_adminq.h      |   2 +-
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c     |  11 +-
- drivers/net/ethernet/intel/i40e/i40e_main.c        |  14 ++-
- drivers/net/ethernet/intel/i40e/i40e_txrx.h        |   5 +-
- drivers/net/ethernet/intel/i40evf/i40e_adminq.c    |   5 +-
- drivers/net/ethernet/intel/i40evf/i40e_adminq.h    |   2 +-
- drivers/net/ethernet/intel/i40evf/i40e_txrx.h      |   5 +-
- drivers/net/ethernet/intel/i40evf/i40evf.h         |   1 +
- drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c |  16 +--
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    |  50 ++++----
- .../net/ethernet/intel/i40evf/i40evf_virtchnl.c    |  65 +++++-----
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c    |  51 ++++++--
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.c       |   8 ++
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c    |   1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c   |  37 +++++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c       |   2 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      |  90 ++++++++++++--
- drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.c       |   4 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c       |  64 +++++-----
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c     | 131 ++++++++++++++-------
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h      |  45 +++++--
- 23 files changed, 422 insertions(+), 195 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+index b5f484b..e314b53 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+@@ -3583,7 +3583,8 @@ s32 ixgbe_set_fw_drv_ver_generic(struct ixgbe_hw *hw, u8 maj, u8 min,
+  **/
+ void ixgbe_clear_tx_pending(struct ixgbe_hw *hw)
+ {
+-	u32 gcr_ext, hlreg0;
++	u32 gcr_ext, hlreg0, i, poll;
++	u16 value;
+ 
+ 	/*
+ 	 * If double reset is not requested then all transactions should
+@@ -3600,6 +3601,24 @@ void ixgbe_clear_tx_pending(struct ixgbe_hw *hw)
+ 	hlreg0 = IXGBE_READ_REG(hw, IXGBE_HLREG0);
+ 	IXGBE_WRITE_REG(hw, IXGBE_HLREG0, hlreg0 | IXGBE_HLREG0_LPBK);
+ 
++	/* wait for a last completion before clearing buffers */
++	IXGBE_WRITE_FLUSH(hw);
++	usleep_range(3000, 6000);
++
++	/* Before proceeding, make sure that the PCIe block does not have
++	 * transactions pending.
++	 */
++	poll = ixgbe_pcie_timeout_poll(hw);
++	for (i = 0; i < poll; i++) {
++		usleep_range(100, 200);
++		value = ixgbe_read_pci_cfg_word(hw, IXGBE_PCI_DEVICE_STATUS);
++		if (ixgbe_removed(hw->hw_addr))
++			goto out;
++		if (!(value & IXGBE_PCI_DEVICE_STATUS_TRANSACTION_PENDING))
++			goto out;
++	}
++
++out:
+ 	/* initiate cleaning flow for buffers in the PCIe transaction layer */
+ 	gcr_ext = IXGBE_READ_REG(hw, IXGBE_GCR_EXT);
+ 	IXGBE_WRITE_REG(hw, IXGBE_GCR_EXT,
 -- 
 1.9.3
