@@ -1,98 +1,74 @@
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net 3/3] cxgb4vf: FL Starvation Threshold needs to be larger than the SGE's Egress Congestion Threshold
-Date: Fri,  7 Nov 2014 17:06:31 +0530
-Message-ID: <1415360191-25395-4-git-send-email-hariprasad@chelsio.com>
-References: <1415360191-25395-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
-	Hariprasad Shenai <hariprasad@chelsio.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:34373
-	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751934AbaKGLay (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2014 06:30:54 -0500
-In-Reply-To: <1415360191-25395-1-git-send-email-hariprasad@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH V4 3/3] can: m_can: add missing message RAM initialization
+Date: Fri, 07 Nov 2014 12:53:10 +0100
+Message-ID: <545CB2A6.1010703@hartkopp.net>
+References: <1415349914-9145-1-git-send-email-b29396@freescale.com> <1415349914-9145-3-git-send-email-b29396@freescale.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: mkl@pengutronix.de, wg@grandegger.com, varkabhadram@gmail.com,
+	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: Dong Aisheng <b29396@freescale.com>, linux-can@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1415349914-9145-3-git-send-email-b29396@freescale.com>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Free List Starvation Threshold needs to be larger than the SGE's Egress
-Congestion Threshold or we'll end up in a mutual stall where the driver waits
-for Ingress Packets to drive replacing Free List Pointers and the SGE waits for
-Free List Pointers before pushing Ingress Packets to the host.
+Thanks!
 
-Based on original work by Casey Leedom <leedom@chelsio.com>
+Hopefully we can manage to push the patch series via can/master ;-)
 
-Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4vf/sge.c         |   16 ++++++++++------
- drivers/net/ethernet/chelsio/cxgb4vf/t4vf_common.h |    1 +
- drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c     |    5 ++++-
- 3 files changed, 15 insertions(+), 7 deletions(-)
+Regards,
+Oliver
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
-index cd5b789..fdd078d 100644
---- a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
-@@ -94,12 +94,6 @@ enum {
- 	MAX_TIMER_TX_RECLAIM = 100,
- 
- 	/*
--	 * An FL with <= FL_STARVE_THRES buffers is starving and a periodic
--	 * timer will attempt to refill it.
--	 */
--	FL_STARVE_THRES = 4,
--
--	/*
- 	 * Suspend an Ethernet TX queue with fewer available descriptors than
- 	 * this.  We always want to have room for a maximum sized packet:
- 	 * inline immediate data + MAX_SKB_FRAGS. This is the same as
-@@ -2490,6 +2484,16 @@ int t4vf_sge_init(struct adapter *adapter)
- 		s->fl_align = max(ingpadboundary, ingpackboundary);
- 	}
- 
-+	/* A FL with <= fl_starve_thres buffers is starving and a periodic
-+	 * timer will attempt to refill it.  This needs to be larger than the
-+	 * SGE's Egress Congestion Threshold.  If it isn't, then we can get
-+	 * stuck waiting for new packets while the SGE is waiting for us to
-+	 * give it more Free List entries.  (Note that the SGE's Egress
-+	 * Congestion Threshold is in units of 2 Free List pointers.)
-+	 */
-+	s->fl_starve_thres
-+		= EGRTHRESHOLD_GET(sge_params->sge_congestion_control)*2 + 1;
-+
- 	/*
- 	 * Set up tasklet timers.
- 	 */
-diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_common.h b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_common.h
-index b5c301d..4b6a6d1 100644
---- a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_common.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_common.h
-@@ -140,6 +140,7 @@ struct sge_params {
- 	u32 sge_user_mode_limits;	/* limits for BAR2 user mode accesses */
- 	u32 sge_fl_buffer_size[16];	/* free list buffer sizes */
- 	u32 sge_ingress_rx_threshold;	/* RX counter interrupt threshold[4] */
-+	u32 sge_congestion_control;     /* congestion thresholds, etc. */
- 	u32 sge_timer_value_0_and_1;	/* interrupt coalescing timer values */
- 	u32 sge_timer_value_2_and_3;
- 	u32 sge_timer_value_4_and_5;
-diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
-index dc30d28..1e896b9 100644
---- a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
-@@ -493,10 +493,13 @@ int t4vf_get_sge_params(struct adapter *adapter)
- 
- 	params[0] = (FW_PARAMS_MNEM(FW_PARAMS_MNEM_REG) |
- 		     FW_PARAMS_PARAM_XYZ(SGE_INGRESS_RX_THRESHOLD));
--	v = t4vf_query_params(adapter, 1, params, vals);
-+	params[1] = (FW_PARAMS_MNEM(FW_PARAMS_MNEM_REG) |
-+		     FW_PARAMS_PARAM_XYZ(SGE_CONM_CTRL));
-+	v = t4vf_query_params(adapter, 2, params, vals);
- 	if (v)
- 		return v;
- 	sge_params->sge_ingress_rx_threshold = vals[0];
-+	sge_params->sge_congestion_control = vals[1];
- 
- 	return 0;
- }
--- 
-1.7.1
+On 07.11.2014 09:45, Dong Aisheng wrote:
+> The M_CAN message RAM is usually equipped with a parity or ECC functionality.
+> But RAM cells suffer a hardware reset and can therefore hold arbitrary
+> content at startup - including parity and/or ECC bits.
+>
+> To prevent the M_CAN controller detecting checksum errors when reading
+> potentially uninitialized TX message RAM content to transmit CAN
+> frames the TX message RAM has to be written with (any kind of) initial
+> data.
+>
+> Signed-off-by: Dong Aisheng <b29396@freescale.com>
+> ---
+> ChangeLog:
+> v3-v4:
+>   * initialize the entire Message RAM in use instead of only 8 bytes
+>     since this is a valid and needed initialization process.
+>     Patch title also changed.
+> ---
+>   drivers/net/can/m_can/m_can.c | 11 ++++++++++-
+>   1 file changed, 10 insertions(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/can/m_can/m_can.c b/drivers/net/can/m_can/m_can.c
+> index eee1533..de742d0 100644
+> --- a/drivers/net/can/m_can/m_can.c
+> +++ b/drivers/net/can/m_can/m_can.c
+> @@ -1114,7 +1114,7 @@ static int m_can_of_parse_mram(struct platform_device *pdev,
+>   	struct resource *res;
+>   	void __iomem *addr;
+>   	u32 out_val[MRAM_CFG_LEN];
+> -	int ret;
+> +	int i, start, end, ret;
+>
+>   	/* message ram could be shared */
+>   	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "message_ram");
+> @@ -1165,6 +1165,15 @@ static int m_can_of_parse_mram(struct platform_device *pdev,
+>   		priv->mcfg[MRAM_TXE].off, priv->mcfg[MRAM_TXE].num,
+>   		priv->mcfg[MRAM_TXB].off, priv->mcfg[MRAM_TXB].num);
+>
+> +	/* initialize the entire Message RAM in use to avoid possible
+> +	 * ECC/parity checksum errors when reading an uninitialized buffer
+> +	 */
+> +	start = priv->mcfg[MRAM_SIDF].off;
+> +	end = priv->mcfg[MRAM_TXB].off +
+> +		priv->mcfg[MRAM_TXB].num * TXB_ELEMENT_SIZE;
+> +	for (i = start; i < end; i += 4)
+> +		writel(0x0, priv->mram_base + i);
+> +
+>   	return 0;
+>   }
+>
+>
