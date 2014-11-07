@@ -1,63 +1,59 @@
-From: "Vick, Matthew" <matthew.vick@intel.com>
-Subject: Re: [PATCH net 3/5] fm10k: Implement ndo_gso_check()
-Date: Fri, 7 Nov 2014 01:07:36 +0000
-Message-ID: <D0814FB9.5EA7E%matthew.vick@intel.com>
-References: <1415138202-1197-1-git-send-email-joestringer@nicira.com>
- <1415138202-1197-4-git-send-email-joestringer@nicira.com>
- <545AE2C8.3070705@gmail.com> <20141106184115.GB18339@gmail.com>
- <20141106211522.GA55313@gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 1/4] inet: Add skb_copy_datagram_iter
+Date: Fri, 7 Nov 2014 09:58:15 +0800
+Message-ID: <20141107015815.GA9101@gondor.apana.org.au>
+References: <20141106082704.GB29800@gondor.apana.org.au>
+ <E1XmIQU-0007m1-2e@gondolin.me.apana.org.au>
+ <20141106173012.GY7996@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "sathya.perla@emulex.com" <sathya.perla@emulex.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	Linux NICS <Linux-nics@isotope.jf.intel.com>,
-	"amirv@mellanox.com" <amirv@mellanox.com>,
-	"shahed.shaikh@qlogic.com" <shahed.shaikh@qlogic.com>,
-	"therbert@google.com" <therbert@google.com>
-To: Joe Stringer <joestringer@nicira.com>,
-	"alexander.duyck@gmail.com" <alexander.duyck@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Dept-GELinuxNICDev@qlogic.com" <Dept-GELinuxNICDev@qlogic.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, bcrl@kvack.org,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: Al Viro <viro@ZenIV.linux.org.uk>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141106211522.GA55313@gmail.com>
-Content-Language: en-US
-Content-ID: <BFF876E937C96540B709FDC5D2883580@intel.com>
+Content-Disposition: inline
+In-Reply-To: <20141106173012.GY7996@ZenIV.linux.org.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11/6/14, 1:15 PM, "Joe Stringer" <joestringer@nicira.com> wrote:
-
->Oh, I suppose we need to check the gso_type too. More like this?
+On Thu, Nov 06, 2014 at 05:30:12PM +0000, Al Viro wrote:
+> On Thu, Nov 06, 2014 at 04:28:18PM +0800, Herbert Xu wrote:
+> > +		if (copy_to_iter(skb->data + offset, copy, to))
+> > +			goto fault;
+> 
+> Sorry, no - copy_to_iter() returns the number of bytes copied, not 0 or -EFAULT.
 >
->+static bool fm10k_gso_check(struct sk_buff *skb, struct net_device *dev)
->+{
->+       if ((skb_shinfo(skb)->gso_type & (SKB_GSO_UDP_TUNNEL |
->SKB_GSO_GRE)) &&
->+           !fm10k_tx_encap_offload(skb))
->+               return false;
->+
->+       return true;
->+}
+> > +			vaddr = kmap(page);
+> > +			err = copy_to_iter(vaddr + frag->page_offset +
+> > +					   offset - start, copy, to);
+> > +			kunmap(page);
+> > +			if (err)
+> > +				goto fault;
+> 
+> And that one should be
+> 			copied = copy_page_to_iter(page, frag->page_offset +
+> 					   offset - start, copy, to);
+> 			if (copied != copy)
+> 				goto fault;
+> 
+> Don't bother with kmap(), vaddr and all that shite.  The primitive is
+> 	copy_page_to_iter(page, offset_in_page, nbytes, iter)
+> it does all needed kmap itself and it's smart enough to use kmap_atomic
+> when it can get away with that.  Similar for copy_page_from_iter().
+> 
+> Both of those (as well as copy_{to,from}_iter()) advance iov_iter and return
+> the number of bytes actually copied.  So the check for EFAULT is "it has copied
+> less than you've asked it to copy *and* you haven't run out that iov_iter".
+> The second part is guaranteed to be true in this case - your code makes sure
+> that 'copy' is no more than the space left in iterator.
+> 
+> In general, this check would be spelled
+> 			if (copied != copy && iov_iter_count(to))
+> 				goto fault;
 
-It seems like the skb_shinfo(skb)->gso_type check should be in some more
-generic ndo_gso_check that drivers can default to/extend. Then, we could
-end up with something like
-
-static bool fm10k_gso_check(struct sk_buff *skb, struct net_device *dev)
-{
-	if (skb_gso_check(skb, dev) && !fm10k_tx_encap_offload(skb))
-		return false;
-
-	return true;
-}
-
-This could even be simplified and still legible as
-
-static bool fm10k_gso_check(struct sk_buff *skb, struct net_device *dev)
-{
-	return !(skb_gso_check(skb, dev) && !fm10k_tx_encap_offload(skb));
-}
-
-What do you think of this approach?
+Thanks, I'll redo the patches.
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
