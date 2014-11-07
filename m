@@ -1,7 +1,7 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 3/4] macvtap: Use iovec iterators
-Date: Fri, 07 Nov 2014 21:22:25 +0800
-Message-ID: <E1XmjUf-0005EM-Ap@gondolin.me.apana.org.au>
+Subject: [PATCH 2/4] tun: Use iovec iterators
+Date: Fri, 07 Nov 2014 21:22:23 +0800
+Message-ID: <E1XmjUd-0005E5-UU@gondolin.me.apana.org.au>
 References: <20141107132135.GA20022@gondor.apana.org.au>
 To: David Miller <davem@davemloft.net>, viro@ZenIV.linux.org.uk,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
@@ -16,66 +16,90 @@ favour of the iovec iterator-based skb_copy_datagram_iter.
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- drivers/net/macvtap.c |   46 +++++++++++++++++++++-------------------------
- 1 file changed, 21 insertions(+), 25 deletions(-)
+ drivers/net/tun.c |   65 ++++++++++++++++++++++++------------------------------
+ 1 file changed, 30 insertions(+), 35 deletions(-)
 
-diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-index 880cc09..cea99d4 100644
---- a/drivers/net/macvtap.c
-+++ b/drivers/net/macvtap.c
-@@ -15,6 +15,7 @@
- #include <linux/cdev.h>
- #include <linux/idr.h>
- #include <linux/fs.h>
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 9dd3746..2ff769b 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -71,6 +71,7 @@
+ #include <net/rtnetlink.h>
+ #include <net/sock.h>
+ #include <linux/seq_file.h>
 +#include <linux/uio.h>
  
- #include <net/ipv6.h>
- #include <net/net_namespace.h>
-@@ -778,31 +779,29 @@ static ssize_t macvtap_aio_write(struct kiocb *iocb, const struct iovec *iv,
- /* Put packet to the user space buffer */
- static ssize_t macvtap_put_user(struct macvtap_queue *q,
- 				const struct sk_buff *skb,
--				const struct iovec *iv, int len)
-+				struct iov_iter *iter)
- {
- 	int ret;
- 	int vnet_hdr_len = 0;
- 	int vlan_offset = 0;
--	int copied, total;
-+	int total;
+ #include <asm/uaccess.h>
  
- 	if (q->flags & IFF_VNET_HDR) {
- 		struct virtio_net_hdr vnet_hdr;
- 		vnet_hdr_len = q->vnet_hdr_sz;
--		if ((len -= vnet_hdr_len) < 0)
-+		if (iov_iter_count(iter) < vnet_hdr_len)
+@@ -1230,11 +1231,11 @@ static ssize_t tun_chr_aio_write(struct kiocb *iocb, const struct iovec *iv,
+ static ssize_t tun_put_user(struct tun_struct *tun,
+ 			    struct tun_file *tfile,
+ 			    struct sk_buff *skb,
+-			    const struct iovec *iv, int len)
++			    struct iov_iter *iter)
+ {
+ 	struct tun_pi pi = { 0, skb->protocol };
+-	ssize_t total = 0;
+-	int vlan_offset = 0, copied;
++	ssize_t total;
++	int vlan_offset;
+ 	int vlan_hlen = 0;
+ 	int vnet_hdr_sz = 0;
+ 
+@@ -1244,23 +1245,25 @@ static ssize_t tun_put_user(struct tun_struct *tun,
+ 	if (tun->flags & TUN_VNET_HDR)
+ 		vnet_hdr_sz = tun->vnet_hdr_sz;
+ 
++	total = skb->len + vlan_hlen + vnet_hdr_sz;
++
+ 	if (!(tun->flags & TUN_NO_PI)) {
+-		if ((len -= sizeof(pi)) < 0)
++		if (iov_iter_count(iter) < sizeof(pi))
  			return -EINVAL;
  
- 		macvtap_skb_to_vnet_hdr(skb, &vnet_hdr);
+-		if (len < skb->len + vlan_hlen + vnet_hdr_sz) {
++		total += sizeof(pi);
++		if (iov_iter_count(iter) < total) {
+ 			/* Packet will be striped */
+ 			pi.flags |= TUN_PKT_STRIP;
+ 		}
  
--		if (memcpy_toiovecend(iv, (void *)&vnet_hdr, 0, sizeof(vnet_hdr)))
-+		if (copy_to_iter(&vnet_hdr, sizeof(vnet_hdr), iter) !=
-+		    sizeof(vnet_hdr))
+-		if (memcpy_toiovecend(iv, (void *) &pi, 0, sizeof(pi)))
++		if (copy_to_iter(&pi, sizeof(pi), iter) != sizeof(pi))
  			return -EFAULT;
+-		total += sizeof(pi);
  	}
--	total = copied = vnet_hdr_len;
-+	total = vnet_hdr_len;
- 	total += skb->len;
  
--	if (!vlan_tx_tag_present(skb))
--		len = min_t(int, skb->len, len);
--	else {
--		int copy;
-+	if (vlan_tx_tag_present(skb)) {
+ 	if (vnet_hdr_sz) {
+ 		struct virtio_net_hdr gso = { 0 }; /* no info leak */
+-		if ((len -= vnet_hdr_sz) < 0)
++		if (iov_iter_count(iter) < vnet_hdr_sz)
+ 			return -EINVAL;
+ 
+ 		if (skb_is_gso(skb)) {
+@@ -1299,17 +1302,12 @@ static ssize_t tun_put_user(struct tun_struct *tun,
+ 			gso.flags = VIRTIO_NET_HDR_F_DATA_VALID;
+ 		} /* else everything is zero */
+ 
+-		if (unlikely(memcpy_toiovecend(iv, (void *)&gso, total,
+-					       sizeof(gso))))
++		if (copy_to_iter(&gso, sizeof(gso), iter) != sizeof(gso))
+ 			return -EFAULT;
+-		total += vnet_hdr_sz;
+ 	}
+ 
+-	copied = total;
+-	len = min_t(int, skb->len + vlan_hlen, len);
+-	total += skb->len + vlan_hlen;
+ 	if (vlan_hlen) {
+-		int copy, ret;
++		int ret;
  		struct {
  			__be16 h_vlan_proto;
  			__be16 h_vlan_TCI;
-@@ -811,37 +810,33 @@ static ssize_t macvtap_put_user(struct macvtap_queue *q,
- 		veth.h_vlan_TCI = htons(vlan_tx_tag_get(skb));
+@@ -1320,36 +1318,32 @@ static ssize_t tun_put_user(struct tun_struct *tun,
  
  		vlan_offset = offsetof(struct vlan_ethhdr, h_vlan_proto);
--		len = min_t(int, skb->len + VLAN_HLEN, len);
- 		total += VLAN_HLEN;
  
 -		copy = min_t(int, vlan_offset, len);
 -		ret = skb_copy_datagram_const_iovec(skb, 0, iv, copied, copy);
@@ -96,52 +120,62 @@ index 880cc09..cea99d4 100644
  			goto done;
  	}
  
--	ret = skb_copy_datagram_const_iovec(skb, vlan_offset, iv, copied, len);
-+	ret = skb_copy_datagram_iter(skb, vlan_offset, iter,
-+				     skb->len - vlan_offset);
+-	skb_copy_datagram_const_iovec(skb, vlan_offset, iv, copied, len);
++	skb_copy_datagram_iter(skb, vlan_offset, iter, skb->len - vlan_offset);
  
  done:
- 	return ret ? ret : total;
+ 	tun->dev->stats.tx_packets++;
+-	tun->dev->stats.tx_bytes += len;
++	tun->dev->stats.tx_bytes += skb->len + vlan_hlen;
+ 
+ 	return total;
  }
  
- static ssize_t macvtap_do_read(struct macvtap_queue *q,
--			       const struct iovec *iv, unsigned long len,
-+			       const struct iovec *iv, unsigned long segs,
-+			       unsigned long len,
- 			       int noblock)
+ static ssize_t tun_do_read(struct tun_struct *tun, struct tun_file *tfile,
+-			   const struct iovec *iv, ssize_t len, int noblock)
++			   const struct iovec *iv, unsigned long segs,
++			   ssize_t len, int noblock)
  {
- 	DEFINE_WAIT(wait);
  	struct sk_buff *skb;
  	ssize_t ret = 0;
+ 	int peeked, err, off = 0;
 +	struct iov_iter iter;
  
- 	while (len) {
- 		if (!noblock)
-@@ -863,7 +858,8 @@ static ssize_t macvtap_do_read(struct macvtap_queue *q,
- 			schedule();
- 			continue;
- 		}
--		ret = macvtap_put_user(q, skb, iv, len);
-+		iov_iter_init(&iter, READ, iv, segs, len);
-+		ret = macvtap_put_user(q, skb, &iter);
- 		kfree_skb(skb);
- 		break;
- 	}
-@@ -886,7 +882,7 @@ static ssize_t macvtap_aio_read(struct kiocb *iocb, const struct iovec *iv,
+ 	tun_debug(KERN_INFO, tun, "tun_do_read\n");
+ 
+@@ -1362,11 +1356,12 @@ static ssize_t tun_do_read(struct tun_struct *tun, struct tun_file *tfile,
+ 	/* Read frames from queue */
+ 	skb = __skb_recv_datagram(tfile->socket.sk, noblock ? MSG_DONTWAIT : 0,
+ 				  &peeked, &off, &err);
+-	if (skb) {
+-		ret = tun_put_user(tun, tfile, skb, iv, len);
+-		kfree_skb(skb);
+-	} else
+-		ret = err;
++	if (!skb)
++		return ret;
++
++	iov_iter_init(&iter, READ, iv, segs, len);
++	ret = tun_put_user(tun, tfile, skb, &iter);
++	kfree_skb(skb);
+ 
+ 	return ret;
+ }
+@@ -1387,7 +1382,7 @@ static ssize_t tun_chr_aio_read(struct kiocb *iocb, const struct iovec *iv,
  		goto out;
  	}
  
--	ret = macvtap_do_read(q, iv, len, file->f_flags & O_NONBLOCK);
-+	ret = macvtap_do_read(q, iv, count, len, file->f_flags & O_NONBLOCK);
+-	ret = tun_do_read(tun, tfile, iv, len,
++	ret = tun_do_read(tun, tfile, iv, count, len,
+ 			  file->f_flags & O_NONBLOCK);
  	ret = min_t(ssize_t, ret, len);
  	if (ret > 0)
- 		iocb->ki_pos = ret;
-@@ -1117,7 +1113,7 @@ static int macvtap_recvmsg(struct kiocb *iocb, struct socket *sock,
- 	int ret;
- 	if (flags & ~(MSG_DONTWAIT|MSG_TRUNC))
- 		return -EINVAL;
--	ret = macvtap_do_read(q, m->msg_iov, total_len,
-+	ret = macvtap_do_read(q, m->msg_iov, m->msg_iovlen, total_len,
+@@ -1488,7 +1483,7 @@ static int tun_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 					 SOL_PACKET, TUN_TX_TIMESTAMP);
+ 		goto out;
+ 	}
+-	ret = tun_do_read(tun, tfile, m->msg_iov, total_len,
++	ret = tun_do_read(tun, tfile, m->msg_iov, m->msg_iovlen, total_len,
  			  flags & MSG_DONTWAIT);
  	if (ret > total_len) {
  		m->msg_flags |= MSG_TRUNC;
