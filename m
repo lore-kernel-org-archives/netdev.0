@@ -1,113 +1,100 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 1/9] i40e: poll firmware slower
-Date: Fri,  7 Nov 2014 00:57:42 -0800
-Message-ID: <1415350670-15333-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 2/9] i40e: don't do link_status or stats collection on every ARQ
+Date: Fri,  7 Nov 2014 00:57:43 -0800
+Message-ID: <1415350670-15333-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1415350670-15333-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Kamil Krawczyk <kamil.krawczyk@intel.com>, netdev@vger.kernel.org,
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Patrick Lu <patrick.lu@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:41288 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:41286 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751262AbaKGI6C (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751249AbaKGI6C (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 7 Nov 2014 03:58:02 -0500
 In-Reply-To: <1415350670-15333-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kamil Krawczyk <kamil.krawczyk@intel.com>
+From: Shannon Nelson <shannon.nelson@intel.com>
 
-The code was polling the firmware tail register for completion every
-10 microseconds, which is way faster than the firmware can respond.
-This changes the poll interval to 1ms, which reduces polling CPU
-utilization, and the number of times we loop.
+The ARQ events cause a service_task execution, and we do a link_status
+check and full stats gathering for each service_task.  However, when
+there are a lot of ARQ events, such as when doing an NVM update, we end up
+doing 10's if not 100's of these per second, thereby heavily abusing the
+PCI bus and especially the Firmware.  This patch adds a check to keep the
+service_task from running these periodic tasks more than once per second,
+while still allowing quick action to service the events.
 
-The maximum delay is still 100ms.
-
-Change-ID: I4bbfa6b66d802890baf8b4154061e55942b90958
-Signed-off-by: Kamil Krawczyk <kamil.krawczyk@intel.com>
-Acked-by: Shannon Nelson <shannon.nelson@intel.com>
+Change-ID: Iec7670c37bfae9791c43fec26df48aea7f70b33e
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Signed-off-by: Patrick Lu <patrick.lu@intel.com>
 Tested-by: Jim Young <jamesx.m.young@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_adminq.c   | 5 ++---
- drivers/net/ethernet/intel/i40e/i40e_adminq.h   | 2 +-
- drivers/net/ethernet/intel/i40evf/i40e_adminq.c | 5 ++---
- drivers/net/ethernet/intel/i40evf/i40e_adminq.h | 2 +-
- 4 files changed, 6 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e.h      |  3 ++-
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 14 ++++++++++----
+ 2 files changed, 12 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq.c b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-index 72f5d25..057b7bf 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-@@ -853,7 +853,6 @@ i40e_status i40e_asq_send_command(struct i40e_hw *hw,
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index f1e33f8..b7a807b 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -269,7 +269,8 @@ struct i40e_pf {
+ 	u16 msg_enable;
+ 	char misc_int_name[IFNAMSIZ + 9];
+ 	u16 adminq_work_limit; /* num of admin receive queue desc to process */
+-	int service_timer_period;
++	unsigned long service_timer_period;
++	unsigned long service_timer_previous;
+ 	struct timer_list service_timer;
+ 	struct work_struct service_task;
+ 
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 1a98e23..de66463 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -5449,7 +5449,7 @@ static void i40e_check_hang_subtask(struct i40e_pf *pf)
+ }
+ 
+ /**
+- * i40e_watchdog_subtask - Check and bring link up
++ * i40e_watchdog_subtask - periodic checks not using event driven response
+  * @pf: board private structure
+  **/
+ static void i40e_watchdog_subtask(struct i40e_pf *pf)
+@@ -5461,6 +5461,15 @@ static void i40e_watchdog_subtask(struct i40e_pf *pf)
+ 	    test_bit(__I40E_CONFIG_BUSY, &pf->state))
+ 		return;
+ 
++	/* make sure we don't do these things too often */
++	if (time_before(jiffies, (pf->service_timer_previous +
++				  pf->service_timer_period)))
++		return;
++	pf->service_timer_previous = jiffies;
++
++	i40e_check_hang_subtask(pf);
++	i40e_link_event(pf);
++
+ 	/* Update the stats for active netdevs so the network stack
+ 	 * can look at updated numbers whenever it cares to
  	 */
- 	if (!details->async && !details->postpone) {
- 		u32 total_delay = 0;
--		u32 delay_len = 10;
+@@ -6325,15 +6334,12 @@ static void i40e_service_task(struct work_struct *work)
+ 	i40e_vc_process_vflr_event(pf);
+ 	i40e_watchdog_subtask(pf);
+ 	i40e_fdir_reinit_subtask(pf);
+-	i40e_check_hang_subtask(pf);
+ 	i40e_sync_filters_subtask(pf);
+ #ifdef CONFIG_I40E_VXLAN
+ 	i40e_sync_vxlan_filters_subtask(pf);
+ #endif
+ 	i40e_clean_adminq_subtask(pf);
  
- 		do {
- 			/* AQ designers suggest use of head for better
-@@ -862,8 +861,8 @@ i40e_status i40e_asq_send_command(struct i40e_hw *hw,
- 			if (i40e_asq_done(hw))
- 				break;
- 			/* ugh! delay while spin_lock */
--			udelay(delay_len);
--			total_delay += delay_len;
-+			usleep_range(1000, 2000);
-+			total_delay++;
- 		} while (total_delay < hw->aq.asq_cmd_timeout);
- 	}
+-	i40e_link_event(pf);
+-
+ 	i40e_service_event_complete(pf);
  
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq.h b/drivers/net/ethernet/intel/i40e/i40e_adminq.h
-index ba38a89..df0bd09 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_adminq.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_adminq.h
-@@ -141,7 +141,7 @@ static inline int i40e_aq_rc_to_posix(u16 aq_rc)
- 
- /* general information */
- #define I40E_AQ_LARGE_BUF	512
--#define I40E_ASQ_CMD_TIMEOUT	100000  /* usecs */
-+#define I40E_ASQ_CMD_TIMEOUT	100  /* msecs */
- 
- void i40e_fill_default_direct_cmd_desc(struct i40e_aq_desc *desc,
- 				       u16 opcode);
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq.c b/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
-index f206be9..25c846b 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
-@@ -801,7 +801,6 @@ i40e_status i40evf_asq_send_command(struct i40e_hw *hw,
- 	 */
- 	if (!details->async && !details->postpone) {
- 		u32 total_delay = 0;
--		u32 delay_len = 10;
- 
- 		do {
- 			/* AQ designers suggest use of head for better
-@@ -810,8 +809,8 @@ i40e_status i40evf_asq_send_command(struct i40e_hw *hw,
- 			if (i40evf_asq_done(hw))
- 				break;
- 			/* ugh! delay while spin_lock */
--			udelay(delay_len);
--			total_delay += delay_len;
-+			usleep_range(1000, 2000);
-+			total_delay++;
- 		} while (total_delay < hw->aq.asq_cmd_timeout);
- 	}
- 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq.h b/drivers/net/ethernet/intel/i40evf/i40e_adminq.h
-index 91a5c5b..f40cfac 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_adminq.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq.h
-@@ -141,7 +141,7 @@ static inline int i40e_aq_rc_to_posix(u16 aq_rc)
- 
- /* general information */
- #define I40E_AQ_LARGE_BUF	512
--#define I40E_ASQ_CMD_TIMEOUT	100000  /* usecs */
-+#define I40E_ASQ_CMD_TIMEOUT	100  /* msecs */
- 
- void i40evf_fill_default_direct_cmd_desc(struct i40e_aq_desc *desc,
- 				       u16 opcode);
+ 	/* If the tasks have taken longer than one timer cycle or there
 -- 
 1.9.3
