@@ -1,45 +1,57 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 1/4] inet: Add skb_copy_datagram_iter
-Date: Fri, 7 Nov 2014 09:59:44 +0800
-Message-ID: <20141107015944.GB9101@gondor.apana.org.au>
-References: <E1XlZWY-0003HZ-Ef@gondolin.me.apana.org.au>
- <20141105.152410.1775725940252546246.davem@davemloft.net>
- <20141106082338.GA29800@gondor.apana.org.au>
- <20141106.122500.4643339498907490.davem@davemloft.net>
+Subject: Re: ipv4: Use standard iovec primitive in raw_probe_proto_opt
+Date: Fri, 7 Nov 2014 10:00:25 +0800
+Message-ID: <20141107020025.GC9101@gondor.apana.org.au>
+References: <20141106055023.GA28865@gondor.apana.org.au>
+ <20141106064318.GW7996@ZenIV.linux.org.uk>
+ <20141106064629.GA29321@gondor.apana.org.au>
+ <20141106.162808.1546139916210194279.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: viro@ZenIV.linux.org.uk, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, bcrl@kvack.org
+	linux-kernel@vger.kernel.org, bcrl@kvack.org, nakam@linux-ipv6.org,
+	yoshfuji@linux-ipv6.org
 To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20141106.122500.4643339498907490.davem@davemloft.net>
+In-Reply-To: <20141106.162808.1546139916210194279.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 06, 2014 at 12:25:00PM -0500, David Miller wrote:
+On Thu, Nov 06, 2014 at 04:28:08PM -0500, David Miller wrote:
 > From: Herbert Xu <herbert@gondor.apana.org.au>
-> Date: Thu, 6 Nov 2014 16:23:38 +0800
+> Date: Thu, 6 Nov 2014 14:46:29 +0800
 > 
-> > On Wed, Nov 05, 2014 at 03:24:10PM -0500, David Miller wrote:
+> > On Thu, Nov 06, 2014 at 06:43:18AM +0000, Al Viro wrote:
+> >> On Thu, Nov 06, 2014 at 01:50:23PM +0800, Herbert Xu wrote:
+> >> > +	/* We only need the first two bytes. */
+> >> > +	err = memcpy_fromiovecend((void *)&icmph, msg->msg_iov, 0, 2);
+> >> > +	if (err)
+> >> > +		return err;
+> >> > +
+> >> > +	fl4->fl4_icmp_type = icmph.type;
+> >> > +	fl4->fl4_icmp_code = icmph.code;
 > >> 
-> >> Herbert, please provide a cover letter for this series, and the most recent
-> >> version of patch #2 gets various rejects when I try to apply it to net-next.
+> >> That's more readable, but that exposes another problem in there - we read
+> >> the same piece of userland data twice, with no promise whatsoever that we'll
+> >> get the same value both times...
 > > 
-> > Sure, I'll regenerate them.  However, while doing so I noticed that
-> > a number of my patches on tun/macvtap that you have previously set
-> > as accepted are missing from net-next.  Could this be why you got
-> > the rejects?
+> > Sure, but you have to be root anyway to write to raw sockets.
+> > 
+> > Patches are welcome :)
 > 
-> Those were bug fixes so went into plain 'net', they will show up next
-> time I do a merge and I will deal with the conflicts, if any.
+> I'd agree with this root-only argument maybe 15 years ago, but with
+> containers and stuff like that we want to prevent root X from messing
+> up the machine for root Y.
+> 
+> This is a recurring topic, and I'd strongly like to avoid adding new
+> ways that these kinds of problems can happen.
+> 
+> For example, I'm still on the hook to address the AF_NETLINK mmap TX
+> code, which has a similarly abusable issue.
 
-I see.  In that case it might be best to wait until those fixes hit
-net-next first before applying these patches as otherwise Stephen will
-get hit with some nasty merge conflicts.
-
-I'll repost them for RFC with the problems that Al pointed out fixed
-in the mean time.
+Fair enough.  Even though the bug existed prior to my patch I'll
+see if we could get rid of it.
 
 Cheers,
 -- 
