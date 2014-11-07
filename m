@@ -1,34 +1,144 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 0/2] ipv4: Simplify raw_probe_proto_opt and avoid reading
- user iov twice
-Date: Fri, 7 Nov 2014 21:25:53 +0800
-Message-ID: <20141107132553.GA20190@gondor.apana.org.au>
-References: <20141106055023.GA28865@gondor.apana.org.au>
- <20141106064318.GW7996@ZenIV.linux.org.uk>
- <20141106064629.GA29321@gondor.apana.org.au>
- <20141106.162808.1546139916210194279.davem@davemloft.net>
- <20141107020025.GC9101@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: viro@ZenIV.linux.org.uk, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, bcrl@kvack.org, nakam@linux-ipv6.org,
-	yoshfuji@linux-ipv6.org
-To: David Miller <davem@davemloft.net>
+Subject: [PATCH 2/2] ipv4: Avoid reading user iov twice after raw_probe_proto_opt
+Date: Fri, 07 Nov 2014 21:27:09 +0800
+Message-ID: <E1XmjZF-0005Gp-MX@gondolin.me.apana.org.au>
+References: <20141107132553.GA20190@gondor.apana.org.au>
+To: David Miller <davem@davemloft.net>, viro@ZenIV.linux.org.uk,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	bcrl@kvack.org, YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	nakam@linux-ipv6.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20141107020025.GC9101@gondor.apana.org.au>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dave:
+Ever since raw_probe_proto_opt was added it had the problem of
+causing the user iov to be read twice, once during the probe for
+the protocol header and once again in ip_append_data.
 
-This series rewrites the function raw_probe_proto_opt in a more
-readable fasion, and then fixes the long-standing bug where we
-read the probed bytes twice which means that what we're using to
-probe may in fact be invalid.
+This is a potential security problem since it means that whatever
+we're probing may be invalid.  This patch plugs the hole by
+firstly advancing the iov so we don't read the same spot again,
+and secondly saving what we read the first time around for use
+by ip_append_data.
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+---
+
+ net/ipv4/raw.c |   62 +++++++++++++++++++++++++++++++++++++++++++++++++--------
+ 1 file changed, 54 insertions(+), 8 deletions(-)
+
+diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
+index 9be9050..43385a9 100644
+--- a/net/ipv4/raw.c
++++ b/net/ipv4/raw.c
+@@ -79,6 +79,16 @@
+ #include <linux/netfilter.h>
+ #include <linux/netfilter_ipv4.h>
+ #include <linux/compat.h>
++#include <linux/uio.h>
++
++struct raw_frag_vec {
++	struct iovec *iov;
++	union {
++		struct icmphdr icmph;
++		char c[1];
++	} hdr;
++	int hlen;
++};
+ 
+ static struct raw_hashinfo raw_v4_hashinfo = {
+ 	.lock = __RW_LOCK_UNLOCKED(raw_v4_hashinfo.lock),
+@@ -420,25 +430,57 @@ error:
+ 	return err;
+ }
+ 
+-static int raw_probe_proto_opt(struct flowi4 *fl4, struct msghdr *msg)
++static int raw_probe_proto_opt(struct raw_frag_vec *rfv, struct flowi4 *fl4)
+ {
+-	struct icmphdr icmph;
+ 	int err;
+ 
+ 	if (fl4->flowi4_proto != IPPROTO_ICMP)
+ 		return 0;
+ 
+ 	/* We only need the first two bytes. */
+-	err = memcpy_fromiovecend((void *)&icmph, msg->msg_iov, 0, 2);
++	rfv->hlen = 2;
++
++	err = memcpy_fromiovec(rfv->hdr.c, rfv->iov, rfv->hlen);
+ 	if (err)
+ 		return err;
+ 
+-	fl4->fl4_icmp_type = icmph.type;
+-	fl4->fl4_icmp_code = icmph.code;
++	fl4->fl4_icmp_type = rfv->hdr.icmph.type;
++	fl4->fl4_icmp_code = rfv->hdr.icmph.code;
+ 
+ 	return 0;
+ }
+ 
++static int raw_getfrag(void *from, char *to, int offset, int len, int odd,
++		       struct sk_buff *skb)
++{
++	struct raw_frag_vec *rfv = from;
++
++	if (offset < rfv->hlen) {
++		int copy = min(rfv->hlen - offset, len);
++
++		if (skb->ip_summed == CHECKSUM_PARTIAL)
++			memcpy(to, rfv->hdr.c + offset, copy);
++		else
++			skb->csum = csum_block_add(
++				skb->csum,
++				csum_partial_copy_nocheck(rfv->hdr.c + offset,
++							  to, copy, 0),
++				odd);
++
++		odd = 0;
++		offset += copy;
++		to += copy;
++		len -= copy;
++
++		if (!len)
++			return 0;
++	}
++
++	offset -= rfv->hlen;
++
++	return ip_generic_getfrag(rfv->iov, to, offset, len, odd, skb);
++}
++
+ static int raw_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 		       size_t len)
+ {
+@@ -452,6 +494,7 @@ static int raw_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 	u8  tos;
+ 	int err;
+ 	struct ip_options_data opt_copy;
++	struct raw_frag_vec rfv;
+ 
+ 	err = -EMSGSIZE;
+ 	if (len > 0xFFFF)
+@@ -557,7 +600,10 @@ static int raw_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 			   daddr, saddr, 0, 0);
+ 
+ 	if (!inet->hdrincl) {
+-		err = raw_probe_proto_opt(&fl4, msg);
++		rfv.iov = msg->msg_iov;
++		rfv.hlen = 0;
++
++		err = raw_probe_proto_opt(&rfv, &fl4);
+ 		if (err)
+ 			goto done;
+ 	}
+@@ -588,8 +634,8 @@ back_from_confirm:
+ 		if (!ipc.addr)
+ 			ipc.addr = fl4.daddr;
+ 		lock_sock(sk);
+-		err = ip_append_data(sk, &fl4, ip_generic_getfrag,
+-				     msg->msg_iov, len, 0,
++		err = ip_append_data(sk, &fl4, raw_getfrag,
++				     &rfv, len, 0,
+ 				     &ipc, &rt, msg->msg_flags);
+ 		if (err)
+ 			ip_flush_pending_frames(sk);
