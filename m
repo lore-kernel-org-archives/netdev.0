@@ -1,100 +1,149 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 2/9] i40e: don't do link_status or stats collection on every ARQ
-Date: Fri,  7 Nov 2014 00:57:43 -0800
-Message-ID: <1415350670-15333-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 7/9] ixgbe: cleanup ixgbe_ndo_set_vf_vlan
+Date: Fri,  7 Nov 2014 00:57:48 -0800
+Message-ID: <1415350670-15333-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1415350670-15333-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Patrick Lu <patrick.lu@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:41286 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:41288 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751249AbaKGI6C (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Nov 2014 03:58:02 -0500
+	id S1751229AbaKGI57 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Nov 2014 03:57:59 -0500
 In-Reply-To: <1415350670-15333-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+From: Don Skidmore <donald.c.skidmore@intel.com>
 
-The ARQ events cause a service_task execution, and we do a link_status
-check and full stats gathering for each service_task.  However, when
-there are a lot of ARQ events, such as when doing an NVM update, we end up
-doing 10's if not 100's of these per second, thereby heavily abusing the
-PCI bus and especially the Firmware.  This patch adds a check to keep the
-service_task from running these periodic tasks more than once per second,
-while still allowing quick action to service the events.
+Clean up functionality in ixgbe_ndo_set_vf_vlan that will simplify later
+patches.
 
-Change-ID: Iec7670c37bfae9791c43fec26df48aea7f70b33e
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
-Signed-off-by: Patrick Lu <patrick.lu@intel.com>
-Tested-by: Jim Young <jamesx.m.young@intel.com>
+Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h      |  3 ++-
- drivers/net/ethernet/intel/i40e/i40e_main.c | 14 ++++++++++----
- 2 files changed, 12 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 94 +++++++++++++++++---------
+ 1 file changed, 61 insertions(+), 33 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index f1e33f8..b7a807b 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -269,7 +269,8 @@ struct i40e_pf {
- 	u16 msg_enable;
- 	char misc_int_name[IFNAMSIZ + 9];
- 	u16 adminq_work_limit; /* num of admin receive queue desc to process */
--	int service_timer_period;
-+	unsigned long service_timer_period;
-+	unsigned long service_timer_previous;
- 	struct timer_list service_timer;
- 	struct work_struct service_task;
- 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 1a98e23..de66463 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -5449,7 +5449,7 @@ static void i40e_check_hang_subtask(struct i40e_pf *pf)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+index 97c85b8..843e10d 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+@@ -1079,52 +1079,80 @@ int ixgbe_ndo_set_vf_mac(struct net_device *netdev, int vf, u8 *mac)
+ 	return ixgbe_set_vf_mac(adapter, vf, mac);
  }
  
- /**
-- * i40e_watchdog_subtask - Check and bring link up
-+ * i40e_watchdog_subtask - periodic checks not using event driven response
-  * @pf: board private structure
-  **/
- static void i40e_watchdog_subtask(struct i40e_pf *pf)
-@@ -5461,6 +5461,15 @@ static void i40e_watchdog_subtask(struct i40e_pf *pf)
- 	    test_bit(__I40E_CONFIG_BUSY, &pf->state))
- 		return;
- 
-+	/* make sure we don't do these things too often */
-+	if (time_before(jiffies, (pf->service_timer_previous +
-+				  pf->service_timer_period)))
-+		return;
-+	pf->service_timer_previous = jiffies;
++static int ixgbe_enable_port_vlan(struct ixgbe_adapter *adapter, int vf,
++				  u16 vlan, u8 qos)
++{
++	struct ixgbe_hw *hw = &adapter->hw;
++	int err;
 +
-+	i40e_check_hang_subtask(pf);
-+	i40e_link_event(pf);
++	if (adapter->vfinfo[vf].pf_vlan)
++		err = ixgbe_set_vf_vlan(adapter, false,
++					adapter->vfinfo[vf].pf_vlan,
++					vf);
++	if (err)
++		goto out;
++	ixgbe_set_vmvir(adapter, vlan, qos, vf);
++	ixgbe_set_vmolr(hw, vf, false);
++	if (adapter->vfinfo[vf].spoofchk_enabled)
++		hw->mac.ops.set_vlan_anti_spoofing(hw, true, vf);
++	adapter->vfinfo[vf].vlan_count++;
++	adapter->vfinfo[vf].pf_vlan = vlan;
++	adapter->vfinfo[vf].pf_qos = qos;
++	dev_info(&adapter->pdev->dev,
++		 "Setting VLAN %d, QOS 0x%x on VF %d\n", vlan, qos, vf);
++	if (test_bit(__IXGBE_DOWN, &adapter->state)) {
++		dev_warn(&adapter->pdev->dev,
++			 "The VF VLAN has been set, but the PF device is not up.\n");
++		dev_warn(&adapter->pdev->dev,
++			 "Bring the PF device up before attempting to use the VF device.\n");
++	}
 +
- 	/* Update the stats for active netdevs so the network stack
- 	 * can look at updated numbers whenever it cares to
- 	 */
-@@ -6325,15 +6334,12 @@ static void i40e_service_task(struct work_struct *work)
- 	i40e_vc_process_vflr_event(pf);
- 	i40e_watchdog_subtask(pf);
- 	i40e_fdir_reinit_subtask(pf);
--	i40e_check_hang_subtask(pf);
- 	i40e_sync_filters_subtask(pf);
- #ifdef CONFIG_I40E_VXLAN
- 	i40e_sync_vxlan_filters_subtask(pf);
- #endif
- 	i40e_clean_adminq_subtask(pf);
++out:
++	return err;
++}
++
++static int ixgbe_disable_port_vlan(struct ixgbe_adapter *adapter, int vf)
++{
++	struct ixgbe_hw *hw = &adapter->hw;
++	int err;
++
++	err = ixgbe_set_vf_vlan(adapter, false,
++				adapter->vfinfo[vf].pf_vlan, vf);
++	ixgbe_clear_vmvir(adapter, vf);
++	ixgbe_set_vmolr(hw, vf, true);
++	hw->mac.ops.set_vlan_anti_spoofing(hw, false, vf);
++	if (adapter->vfinfo[vf].vlan_count)
++		adapter->vfinfo[vf].vlan_count--;
++	adapter->vfinfo[vf].pf_vlan = 0;
++	adapter->vfinfo[vf].pf_qos = 0;
++
++	return err;
++}
++
+ int ixgbe_ndo_set_vf_vlan(struct net_device *netdev, int vf, u16 vlan, u8 qos)
+ {
+ 	int err = 0;
+ 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+-	struct ixgbe_hw *hw = &adapter->hw;
  
--	i40e_link_event(pf);
--
- 	i40e_service_event_complete(pf);
- 
- 	/* If the tasks have taken longer than one timer cycle or there
+ 	if ((vf >= adapter->num_vfs) || (vlan > 4095) || (qos > 7))
+ 		return -EINVAL;
+ 	if (vlan || qos) {
++		/* Check if there is already a port VLAN set, if so
++		 * we have to delete the old one first before we
++		 * can set the new one.  The usage model had
++		 * previously assumed the user would delete the
++		 * old port VLAN before setting a new one but this
++		 * is not necessarily the case.
++		 */
+ 		if (adapter->vfinfo[vf].pf_vlan)
+-			err = ixgbe_set_vf_vlan(adapter, false,
+-						adapter->vfinfo[vf].pf_vlan,
+-						vf);
+-		if (err)
+-			goto out;
+-		err = ixgbe_set_vf_vlan(adapter, true, vlan, vf);
++			err = ixgbe_disable_port_vlan(adapter, vf);
+ 		if (err)
+ 			goto out;
+-		ixgbe_set_vmvir(adapter, vlan, qos, vf);
+-		ixgbe_set_vmolr(hw, vf, false);
+-		if (adapter->vfinfo[vf].spoofchk_enabled)
+-			hw->mac.ops.set_vlan_anti_spoofing(hw, true, vf);
+-		adapter->vfinfo[vf].vlan_count++;
+-		adapter->vfinfo[vf].pf_vlan = vlan;
+-		adapter->vfinfo[vf].pf_qos = qos;
+-		dev_info(&adapter->pdev->dev,
+-			 "Setting VLAN %d, QOS 0x%x on VF %d\n", vlan, qos, vf);
+-		if (test_bit(__IXGBE_DOWN, &adapter->state)) {
+-			dev_warn(&adapter->pdev->dev,
+-				 "The VF VLAN has been set,"
+-				 " but the PF device is not up.\n");
+-			dev_warn(&adapter->pdev->dev,
+-				 "Bring the PF device up before"
+-				 " attempting to use the VF device.\n");
+-		}
++		err = ixgbe_enable_port_vlan(adapter, vf, vlan, qos);
+ 	} else {
+-		err = ixgbe_set_vf_vlan(adapter, false,
+-					adapter->vfinfo[vf].pf_vlan, vf);
+-		ixgbe_clear_vmvir(adapter, vf);
+-		ixgbe_set_vmolr(hw, vf, true);
+-		hw->mac.ops.set_vlan_anti_spoofing(hw, false, vf);
+-		if (adapter->vfinfo[vf].vlan_count)
+-			adapter->vfinfo[vf].vlan_count--;
+-		adapter->vfinfo[vf].pf_vlan = 0;
+-		adapter->vfinfo[vf].pf_qos = 0;
++		err = ixgbe_disable_port_vlan(adapter, vf);
+ 	}
++
+ out:
+ 	return err;
+ }
 -- 
 1.9.3
