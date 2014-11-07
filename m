@@ -1,35 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net: introduce SO_INCOMING_CPU
-Date: Fri, 07 Nov 2014 15:26:57 -0800
-Message-ID: <1415402817.13896.123.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1415393472.13896.119.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+mtBx9kpW8Q4HgTyNE+O4yPRmMcOgjshrBfZXVnPu=EMVh4Qg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, Ying Cai <ycai@google.com>,
-	Willem de Bruijn <willemb@google.com>,
-	Neal Cardwell <ncardwell@google.com>
-To: Tom Herbert <therbert@google.com>
+From: Anish Bhatt <anish@chelsio.com>
+Subject: [PATCH net] cxgb4 : Fix bug in DCB app deletion
+Date: Fri,  7 Nov 2014 15:41:21 -0800
+Message-ID: <1415403681-4120-1-git-send-email-anish@chelsio.com>
+Cc: davem@davemloft.net, hariprasad@chelsio.com, leedom@chelsio.com,
+	Anish Bhatt <anish@chelsio.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f170.google.com ([209.85.213.170]:36174 "EHLO
-	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751965AbaKGX1A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2014 18:27:00 -0500
-Received: by mail-ig0-f170.google.com with SMTP id h15so12927740igd.1
-        for <netdev@vger.kernel.org>; Fri, 07 Nov 2014 15:27:00 -0800 (PST)
-In-Reply-To: <CA+mtBx9kpW8Q4HgTyNE+O4yPRmMcOgjshrBfZXVnPu=EMVh4Qg@mail.gmail.com>
+Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:35611
+	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752279AbaKGXla (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2014 18:41:30 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-11-07 at 15:02 -0800, Tom Herbert wrote:
+Unlike CEE, IEEE has a bespoke app delete call and does not rely on priority
+for app deletion
 
-> Would it be better to get the incoming CPU before packet steering? Or
-> maybe return this in addition to the CPU where ULP processes packet?
+Fixes : 2376c879b80c ('cxgb4 : Improve handling of DCB negotiation or loss
+ thereof')
 
-No packet steering : RFS is off.
+Signed-off-by: Anish Bhatt <anish@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-If for some reason RPS is on (say NIC has a limited number of RX queues)
-we'd like to have the cpu processing the packet in TCP stack for better
-affinities.
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c
+index 6fe300e..b6fdb14 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c
+@@ -79,8 +79,9 @@ static void cxgb4_dcb_cleanup_apps(struct net_device *dev)
+ 		app.protocol = dcb->app_priority[i].protocolid;
+ 
+ 		if (dcb->dcb_version == FW_PORT_DCB_VER_IEEE) {
++			app.priority = dcb->app_priority[i].user_prio_map;
+ 			app.selector = dcb->app_priority[i].sel_field + 1;
+-			err = dcb_ieee_setapp(dev, &app);
++			err = dcb_ieee_delapp(dev, &app);
+ 		} else {
+ 			app.selector = !!(dcb->app_priority[i].sel_field);
+ 			err = dcb_setapp(dev, &app);
+-- 
+2.1.3
