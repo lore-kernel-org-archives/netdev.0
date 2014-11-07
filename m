@@ -1,41 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless 2014-11-06
-Date: Thu, 06 Nov 2014 22:15:57 -0500 (EST)
-Message-ID: <20141106.221557.165590048048299292.davem@davemloft.net>
-References: <20141106205231.GE4440@tuxdriver.com>
+From: Jason Cooper <jason@lakedaemon.net>
+Subject: Re: [PATCH 2/3] mvebu: 370 RD: Add support for the switch
+Date: Thu, 6 Nov 2014 22:30:27 -0500
+Message-ID: <20141107033027.GE3698@titan.lakedaemon.net>
+References: <1415214121-29286-1-git-send-email-andrew@lunn.ch>
+ <1415214121-29286-3-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141106205231.GE4440@tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux ARM <linux-arm-kernel@lists.infradead.org>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	tawfik@marvell.com, maxime.ripard@free-electrons.com
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mho-03-ewr.mailhop.org ([204.13.248.66]:59966 "EHLO
+	mho-01-ewr.mailhop.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751051AbaKGDah (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 22:30:37 -0500
+Content-Disposition: inline
+In-Reply-To: <1415214121-29286-3-git-send-email-andrew@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Thu, 6 Nov 2014 15:52:31 -0500
+On Wed, Nov 05, 2014 at 08:02:00PM +0100, Andrew Lunn wrote:
+> The 370 rd has a 7 port, mv88E6182 switch, connected to eth1.  Add a
+> fixed-link subnode to the ethernet device tree node, to force
+> gigabit/full duplex.  Add a dsa node, with describing the four used
+> ports. This requires adding an alias to the mdio node, so it can be
+> referenced as a phandle.
+> 
+> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+> ---
+>  arch/arm/boot/dts/armada-370-rd.dts  | 49 ++++++++++++++++++++++++++++++++----
+>  arch/arm/boot/dts/armada-370-xp.dtsi |  2 +-
+>  2 files changed, 45 insertions(+), 6 deletions(-)
 
-> Please pull this batch of fixes intended for the 3.18 stream...
-> 
-> For the mac80211 bits, Johannes says:
-> 
-> "This contains another small set of fixes for 3.18, these are all
-> over the place and most of the bugs are old, one even dates back
-> to the original mac80211 we merged into the kernel."
-> 
-> For the iwlwifi bits, Emmanuel says:
-> 
-> "I fix here two issues that are related to the firmware
-> loading flow. A user reported that he couldn't load the
-> driver because the rfkill line was pulled up while we
-> were running the calibrations. This was happening while
-> booting the system: systemd was restoring the "disable
-> wifi settings" and that raised an RFKILL interrupt during
-> the calibration. Our driver didn't handle that properly
-> and this is now fixed."
-> 
-> Please let me know if there are problems!
+Applied to mvebu/dt
 
-Pulled, thanks John.
+thx,
+
+Jason.
