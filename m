@@ -1,70 +1,75 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net: gro: add a per device gro flush timer
-Date: Thu, 06 Nov 2014 20:15:14 -0800
-Message-ID: <1415333714.13896.91.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1415235320.13896.51.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20141106.162516.1083429539800319166.davem@davemloft.net>
-	 <1415311880.13896.85.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20141106.223603.678182467467024928.davem@davemloft.net>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH net-next] cxgb4: Remove unnecessary struct in6_addr * casts
+Date: Thu, 06 Nov 2014 20:46:14 -0800
+Message-ID: <1415335574.23530.4.camel@perches.com>
+References: <1415333125-10635-1-git-send-email-hariprasad@chelsio.com>
+	 <1415333125-10635-2-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com, willemb@google.com
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, davem@davemloft.net, leedom@chelsio.com,
+	anish@chelsio.com, praveenm@chelsio.com, nirranjan@chelsio.com,
+	kumaras@chelsio.com, Jay Vosburgh <j.vosburgh@gmail.com>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: Hariprasad Shenai <hariprasad@chelsio.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f182.google.com ([209.85.223.182]:50010 "EHLO
-	mail-ie0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751371AbaKGEPW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 23:15:22 -0500
-Received: by mail-ie0-f182.google.com with SMTP id rd18so4450677iec.27
-        for <netdev@vger.kernel.org>; Thu, 06 Nov 2014 20:15:21 -0800 (PST)
-In-Reply-To: <20141106.223603.678182467467024928.davem@davemloft.net>
+Received: from smtprelay0191.hostedemail.com ([216.40.44.191]:51370 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751371AbaKGEqV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 23:46:21 -0500
+In-Reply-To: <1415333125-10635-2-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-11-06 at 22:36 -0500, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Thu, 06 Nov 2014 14:11:20 -0800
-> 
-> > My goal was to not change any driver, doing a generic change.
-> > 
-> > Drivers call napi_complete() in their rx napi handler without giving us
-> > the 'work_done' value which tells us if a packet was processed.
-> > 
-> > So I added a counter that is increased for every packet given to GRO
-> > engine (napi_rx_count), so that napi_complete() has a clue if a packet
-> > was received in _this_ NAPI run.
-> > 
-> > If at least one packet was received (and we still have packets in
-> > gro_list) -> We ream the 'timer'
-> > If not, we flush packets in GRO engine.
-> > 
-> > In order to avoid this state, I would have to add a new method, like
-> > napi_complete_done(napi, work_done), and change drivers. I am not sure
-> > its worth the effort ?
-> 
-> I think for such a critical path in the kernel it's worth it to avoid
-> these increments for every packet, just to compute a value that's
-> sitting in a register already in the driver's poll routine.
-> 
-> Eric, you've been trimming cpu IRQ disables from these exact code
-> paths, you should know better than me :-)
-> 
-> I'm willing to do some of the monkey work of converting as many
-> drivers as can be trivially done if you want.  Almost all of the
-> ones I looked at have the work_done variable right there at the
-> napi_complete() call site.
-> 
-> The rest can stay unconverted and not get access to this new facility.
+Just use the address of the in6_addr.
 
-This is your call. I actually did this in my first implementation,
-because I was not using a timer but rescheduling NAPI and not
-re-enabling interrupts.
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+> diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+[]
+>  #include <../drivers/net/bonding/bonding.h>
 
-http://www.spinics.net/lists/netdev/msg302474.html
+This include path seems unfortunate so I looked 
+at the code a bit.  I don't see an easy way to change it.
 
-(This is why I had to cook "d75b1ade567 net: less interrupt masking in
-NAPI")
+Maybe some of bonding.h should be moved into a new file
+like 'include/net/bonding.h' or something.
 
-Given the cost of GRO processing, setting a bool (this is all I need
-actually) is really pure noise.
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 9 +++------
+ 1 file changed, 3 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 8520d55..8bc19b2 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -4395,8 +4395,7 @@ static int clip_add(struct net_device *event_dev, struct inet6_ifaddr *ifa,
+ 	if (cxgb4_netdev(event_dev)) {
+ 		switch (event) {
+ 		case NETDEV_UP:
+-			ret = cxgb4_clip_get(event_dev,
+-				(const struct in6_addr *)ifa->addr.s6_addr);
++			ret = cxgb4_clip_get(event_dev, &ifa->addr);
+ 			if (ret < 0) {
+ 				rcu_read_unlock();
+ 				return ret;
+@@ -4404,8 +4403,7 @@ static int clip_add(struct net_device *event_dev, struct inet6_ifaddr *ifa,
+ 			ret = NOTIFY_OK;
+ 			break;
+ 		case NETDEV_DOWN:
+-			cxgb4_clip_release(event_dev,
+-				(const struct in6_addr *)ifa->addr.s6_addr);
++			cxgb4_clip_release(event_dev, &ifa->addr);
+ 			ret = NOTIFY_OK;
+ 			break;
+ 		default:
+@@ -4474,8 +4472,7 @@ static int update_dev_clip(struct net_device *root_dev, struct net_device *dev)
+ 
+ 	read_lock_bh(&idev->lock);
+ 	list_for_each_entry(ifa, &idev->addr_list, if_list) {
+-		ret = cxgb4_clip_get(dev,
+-				(const struct in6_addr *)ifa->addr.s6_addr);
++		ret = cxgb4_clip_get(dev, &ifa->addr);
+ 		if (ret < 0)
+ 			break;
+ 	}
