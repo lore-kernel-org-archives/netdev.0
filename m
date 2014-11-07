@@ -1,51 +1,38 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH] checkpatch: Add --strict preference for #defines using
- BIT(foo)
-Date: Fri, 07 Nov 2014 13:15:39 -0800
-Message-ID: <1415394939.23530.20.camel@perches.com>
-References: <1415265610-9338-1-git-send-email-jiri@resnulli.us>
-	 <1415265610-9338-10-git-send-email-jiri@resnulli.us>
-	 <20141107.151607.480474516800359791.davem@davemloft.net>
+From: David Miller <davem@redhat.com>
+Subject: Re: [PATCH 1/4] inet: Add skb_copy_datagram_iter
+Date: Fri, 07 Nov 2014 16:48:59 -0500 (EST)
+Message-ID: <20141107.164859.951682597018909290.davem@redhat.com>
+References: <20141105210745.GT7996@ZenIV.linux.org.uk>
+	<20141105.165719.835728206041332333.davem@davemloft.net>
+	<20141106032533.GU7996@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, jiri@resnulli.us,
-	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
-To: Andrew Morton <akpm@linux-foundation.org>
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, bcrl@kvack.org
+To: viro@ZenIV.linux.org.uk
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141107.151607.480474516800359791.davem@davemloft.net>
+In-Reply-To: <20141106032533.GU7996@ZenIV.linux.org.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Using BIT(foo) and BIT_ULL(bar) is more common now.
-Suggest using these macros over #defines with 1<<value.
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Date: Thu, 6 Nov 2014 03:25:34 +0000
 
-Add a --fix option too.
+> OK, I've taken the beginning of the old queue on top of net-next; it's
+> in git://git.kernel.org//pub/scm/linux/kernel/git/viro/vfs.git iov_iter-net.
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- scripts/checkpatch.pl | 11 +++++++++++
- 1 file changed, 11 insertions(+)
+What I see in there looks good.   I wonder if we can somehow make msghdr
+pointer args const... but this is not so important now.
 
-diff --git a/scripts/checkpatch.pl b/scripts/checkpatch.pl
-index 893cbd5..b5dc3f4 100755
---- a/scripts/checkpatch.pl
-+++ b/scripts/checkpatch.pl
-@@ -4973,6 +4973,17 @@ sub process {
- 			}
- 		}
- 
-+# check for #defines like: 1 << <digit> that could be BIT(digit)
-+		if ($line =~ /#\s*define\s+\w+\s+\(?\s*1\s*([ulUL]*)\s*\<\<\s*(?:\d+|$Ident)\s*\)?/) {
-+			my $ull = "";
-+			$ull = "_ULL" if (defined($1) && $1 =~ /ll/i);
-+			if (CHK("BIT_MACRO",
-+				"Prefer using the BIT$ull macro\n" . $herecurr) &&
-+			    $fix) {
-+				$fixed[$fixlinenr] =~ s/\(?\s*1\s*[ulUL]*\s*<<\s*(\d+|$Ident)\s*\)?/BIT${ull}($1)/;
-+			}
-+		}
-+
- # check for case / default statements not preceded by break/fallthrough/switch
- 		if ($line =~ /^.\s*(?:case\s+(?:$Ident|$Constant)\s*|default):/) {
- 			my $has_break = 0;
+Some minor coding style nits, comments:
+
+	/* Like
+	 * this.
+	 */
+
+and for multi-line function calls in the networking, align the second
+and subsequent lines at the first column after the openning parenthesis
+of the first line.
+
+Thanks.
