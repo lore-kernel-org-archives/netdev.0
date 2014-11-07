@@ -1,71 +1,83 @@
-From: Ido Shamay <idos@dev.mellanox.co.il>
-Subject: Re: [PATCH V2 net-next 2/2] net/mlx4_en: Extend checksum offloading
- by CHECKSUM COMPLETE
-Date: Fri, 07 Nov 2014 10:40:34 +0200
-Message-ID: <545C8582.4070408@dev.mellanox.co.il>
-References: <1415291324-22069-1-git-send-email-ogerlitz@mellanox.com> <1415291324-22069-3-git-send-email-ogerlitz@mellanox.com>
+From: Riku Voipio <riku.voipio-X3B1VOXEql0@public.gmane.org>
+Subject: Re: "asix: Don't reset PHY on if_up for ASIX 88772" breaks net
+ onarndale platform
+Date: Fri, 7 Nov 2014 10:44:49 +0200
+Message-ID: <20141107084449.GA11078@afflict.kos.to>
+References: <20141104200914.GN23178@opensource.wolfsonmicro.com>
+ <C89EFD3CD56F64468D3D206D683A8D22039FFC5F@ldam-msx2.fugro-nl.local>
+ <20141105150258.GR23178@opensource.wolfsonmicro.com>
+ <20141106090651.GA19109@afflict.kos.to>
+ <20141106100104.GS23178@opensource.wolfsonmicro.com>
+ <20141106120416.GA20162@afflict.kos.to>
+ <C89EFD3CD56F64468D3D206D683A8D22039FFE16@ldam-msx2.fugro-nl.local>
+ <20141106124653.GV23178@opensource.wolfsonmicro.com>
+ <C89EFD3CD56F64468D3D206D683A8D22039FFE39@ldam-msx2.fugro-nl.local>
+ <20141106140940.GW23178@opensource.wolfsonmicro.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Matan Barak <matanb@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Shani Michaeli <shanim@mellanox.com>,
-	Ido Shamay <idos@mellanox.com>, Jerry Chu <hkchu@google.com>
-To: Or Gerlitz <ogerlitz@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f50.google.com ([74.125.82.50]:36632 "EHLO
-	mail-wg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750962AbaKGIkn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2014 03:40:43 -0500
-Received: by mail-wg0-f50.google.com with SMTP id z12so3117906wgg.37
-        for <netdev@vger.kernel.org>; Fri, 07 Nov 2014 00:40:42 -0800 (PST)
-In-Reply-To: <1415291324-22069-3-git-send-email-ogerlitz@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Stam, Michel [FINT]" <M.Stam-76PGuD9xVjg@public.gmane.org>, freddy-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-samsung-soc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Charles Keepax <ckeepax-yzvPICuk2AATkU/dhu1WVueM+bqZidxxQQ4Iyu8u01E@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20141106140940.GW23178-yzvPICuk2AATkU/dhu1WVueM+bqZidxxQQ4Iyu8u01E@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 11/6/2014 6:28 PM, Or Gerlitz wrote:
->   		if (likely(dev->features & NETIF_F_RXCSUM)) {
-> -			if ((cqe->status & cpu_to_be16(MLX4_CQE_STATUS_IPOK)) &&
-> -			    (cqe->checksum == cpu_to_be16(0xffff))) {
-> -				ring->csum_ok++;
-> -				ip_summed = CHECKSUM_UNNECESSARY;
-> +			if (cqe->status & cpu_to_be16(MLX4_CQE_STATUS_TCP |
-> +						      MLX4_CQE_STATUS_UDP)) {
-> +				if ((cqe->status & cpu_to_be16(MLX4_CQE_STATUS_IPOK)) &&
-> +				    cqe->checksum == cpu_to_be16(0xffff)) {
-> +					ip_summed = CHECKSUM_UNNECESSARY;
-> +					ring->csum_ok++;
-> +				} else {
-> +					ip_summed = CHECKSUM_NONE;
-> +					ring->csum_none++;
-> +				}
->   			} else {
-> -				ip_summed = CHECKSUM_NONE;
-> -				ring->csum_none++;
-> +				if (priv->flags & MLX4_EN_FLAG_RX_CSUM_NON_TCP_UDP &&
-> +				    (cqe->status & cpu_to_be16(MLX4_CQE_STATUS_IPV4 |
-> +							       MLX4_CQE_STATUS_IPV6))) {
-> +					ip_summed = CHECKSUM_COMPLETE;
-> +					ring->csum_complete++;
-> +				} else {
-> +					ip_summed = CHECKSUM_NONE;
-> +					ring->csum_none++;
-> +				}
->   			}
->   		} else {
->   			ip_summed = CHECKSUM_NONE;
-> @@ -776,6 +874,14 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
->   			if (!nr)
->   				goto next;
->
-> +			if (ip_summed == CHECKSUM_COMPLETE) {
-> +				va = skb_frag_address(skb_shinfo(gro_skb)->frags);
-> +				if (check_csum(cqe, gro_skb, va, ring->hwtstamp_rx_filter)) {
-> +					ip_summed = CHECKSUM_NONE;
-> +					ring->csum_none++;
+On Thu, Nov 06, 2014 at 02:09:40PM +0000, Charles Keepax wrote:
+> On Thu, Nov 06, 2014 at 03:01:56PM +0100, Stam, Michel [FINT] wrote:
+> > Hello Charles and Riku,
+> > 
+> > I've quickly tested this on a 3.10 kernel i had around;
+> > I enabled CONFIG_PM, CONFIG_PM_RUNTIME, CONFIG_PM_AUTOSLEEP,
+> > CONFIG_SUSPEND, CONFIG_SUSPEND_FREEZER, CONFIG_FREEZER in the kernel (by
+> > default they are disabled for our setup, I enabled anything regarded to
+> > runtime powermanagement to be sure I would trigger suspend/resume).
+> > 
+> > Then:
+> > cd /sys/bus/usb/devices/1-2/power
+> > echo auto > control
+> > echo 1 > autosuspend
+> > echo 0 > autosuspend_delay_ms
+> > echo enabled > wakeup
+> > 
+> > # make sure there's no processes routing traffic over the eth1 interface
+> > 
+> > ifconfig eth1 down
+> > sleep 4 # sleep some arbitrary long time
+> > ifconfig eth1 up
+> > 
+> > check dmesg; it will reset back to 100 Mbps/full duplex.
+> > 
+> > This confirms that the suspend / resume does not work well. So long as
+> > the suspend is not triggered, it does seem to work, though. I cannot say
+> > whether the original issue that triggered this is still around; the ASIX
+> > chip setup we use is soldered to the PCB and hooked up to a fixed device
+> > on-board. 
+> > I also tried to ping the device on the other side of the ASIX chip after
+> > the suspend/resume cycle, I could not ping it. I cannot conclusively say
+> > that this is due to the ASIX driver, as the device on the other side
+> > does not like switching PHY speeds (it may go into a non-responsive
+> > state). It is for this reason that we run it at half duplex/ 10Mbps at
+> > all times.
+> > 
+> > As said; we are not using this kind of power management, so it does not
+> > raise any issues for us. I am merely pointing out that this may need
+> > work (in the future?).
+ 
+> Cool thanks for checking this I will make a note in the commit
+> message that suspend/resume might need some more work.
 
-When check_csum returns non zero value, then ring->csum_complete counter 
-was already incremented, and now we are incrementing ring->csum_none 
-(for the same packet), so need to --ring->csum_complete.
+Thanks for digging through,
+
+Make sure the commit message is clear that your patch is a regression
+fix - following just this thread it might be a bit unclear.
+
+Riku
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
