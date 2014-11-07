@@ -1,44 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Xen-devel] BUG in xennet_make_frags with paged skb data
-Date: Fri, 07 Nov 2014 03:22:00 -0800
-Message-ID: <1415359320.13896.105.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20141106214940.GD44162@ubuntu-hedt>
-	 <545C9013.1090406@linaro.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	David Vrabel <david.vrabel@citrix.com>,
-	Stefan Bader <stefan.bader@canonical.com>,
-	Jay Vosburgh <jay.vosburgh@canonical.com>,
-	linux-kernel@vger.kernel.org, xen-devel@lists.xenproject.org
-To: Zoltan Kiss <zoltan.kiss@linaro.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <545C9013.1090406@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCH net 0/3] cxgb4/cxgb4vf: Misc. fixes for cxgb4vf
+Date: Fri,  7 Nov 2014 17:06:28 +0530
+Message-ID: <1415360191-25395-1-git-send-email-hariprasad@chelsio.com>
+Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
+	Hariprasad Shenai <hariprasad@chelsio.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:34364
+	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751437AbaKGLas (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2014 06:30:48 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-11-07 at 09:25 +0000, Zoltan Kiss wrote:
+Hi,
 
-Please do not top post.
+For T5 use Packing and Padding Boundaries for SGE DMA transfers, move
+fl_starve_thres to adpater structure, since they are different for each
+adapter. The cxgb4vf driver's Free List Starvation Threshold needs to be larger
+than the SGE's Egress Congestion Threshold or we'll end up in a mutual stall
+where the driver waits for Ingress Packets to drive replacing Free List
+Pointers and the SGE waits for Free List Pointers before pushing Ingress
+Packets to the host.
 
-> Hi,
-> 
-> AFAIK in this scenario your skb frag is wrong. The page pointer should 
-> point to the original compound page (not a member of it), and offset 
-> should be set accordingly.
-> For example, if your compound page is 16K (4 page), then the page 
-> pointer should point to the first page, and if the data starts at the 
-> 3rd page, then offset should be >8K
+The patches series is created against 'net' tree.
+And includes patches on cxgb4 and cxgb4vf driver.
 
-This is not accurate.
+We have included all the maintainers of respective drivers. Kindly review the
+change and let us know in case of any review comments.
 
-This BUG_ON() is wrong.
+Thanks
 
-It should instead be :
+Hariprasad Shenai (3):
+  cxgb4vf: Move fl_starv_thres into adapter->sge data structure
+  cxgb4/cxgb4vf: For T5 use Packing and Padding Boundaries for SGE DMA
+    transfers
+  cxgb4vf: FL Starvation Threshold needs to be larger than the SGE's
+    Egress Congestion Threshold
 
-BUG_ON(len + offset > PAGE_SIZE<<compound_order(compound_head(page)));
-
-splice() code can generate such cases.
+ drivers/net/ethernet/chelsio/cxgb4/sge.c           |   30 ++++-
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c         |   51 +++++++-
+ drivers/net/ethernet/chelsio/cxgb4/t4_regs.h       |   10 ++
+ drivers/net/ethernet/chelsio/cxgb4vf/adapter.h     |    8 +
+ drivers/net/ethernet/chelsio/cxgb4vf/sge.c         |  136 +++++++++++++-------
+ drivers/net/ethernet/chelsio/cxgb4vf/t4vf_common.h |    2 +
+ drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c     |   28 ++++-
+ 7 files changed, 209 insertions(+), 56 deletions(-)
