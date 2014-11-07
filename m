@@ -1,97 +1,100 @@
-From: "Stam, Michel [FINT]" <M.Stam@fugro.nl>
-Subject: RE: [PATCH] asix: Do full reset during ax88772_bind
-Date: Fri, 7 Nov 2014 09:27:26 +0100
-Message-ID: <C89EFD3CD56F64468D3D206D683A8D22039FFEDE@ldam-msx2.fugro-nl.local>
-References: <1415288981-3862-1-git-send-email-ckeepax@opensource.wolfsonmicro.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next 07/10] bridge: call netdev_sw_port_stp_update
+ when bridge port STP status changes
+Date: Fri, 7 Nov 2014 09:32:19 +0100
+Message-ID: <20141107083219.GA1848@nanopsycho.orion>
+References: <1415265610-9338-1-git-send-email-jiri@resnulli.us>
+ <1415265610-9338-8-git-send-email-jiri@resnulli.us>
+ <545BA8EF.4060601@gmail.com>
+ <CAE4R7bBarGQPsuM5js20RwPLOBF24AtiiHM-f2EvkHNObp7NDQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <jeffrey.t.kirsher@intel.com>, <emilgoode@gmail.com>,
-	<linux-usb@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: "Charles Keepax" <ckeepax@opensource.wolfsonmicro.com>,
-	<davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <1415288981-3862-1-git-send-email-ckeepax@opensource.wolfsonmicro.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>, nhorman@tuxdriver.com,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Thomas Graf <tgraf@suug.ch>, dborkman@redhat.com,
+	ogerlitz@mellanox.com, jesse@nicira.com, pshelar@nicira.com,
+	azhou@nicira.com, ben@decadent.org.uk, stephen@networkplumber.org,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	vyasevic@redhat.com, xiyou.wangcong@gmail.com,
+	"Fastabend, John R" <john.r.fastabend@intel.com>,
+	edumazet@google.com, jhs@mojatatu.com,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	John Linville <linville@tuxdriver.com>, jasowang@redhat.com,
+	ebiederm@xmission.com, nicolas.dichtel@6wind.com,
+	ryazanov.s.a@gmail.com, buytenh@wantstofly.org,
+	aviadr@mellanox.com, nbd@openwrt.org, alexei.starovoitov@gmail.com,
+	Neil.Jerram@metaswitch.com, ronye@mellanox.com,
+	simon.horman@netrono
+To: Scott Feldman <sfeldma@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:47209 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750962AbaKGIcZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Nov 2014 03:32:25 -0500
+Received: by mail-wi0-f172.google.com with SMTP id bs8so3758361wib.17
+        for <netdev@vger.kernel.org>; Fri, 07 Nov 2014 00:32:21 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <CAE4R7bBarGQPsuM5js20RwPLOBF24AtiiHM-f2EvkHNObp7NDQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Please add;
+Thu, Nov 06, 2014 at 07:53:35PM CET, sfeldma@gmail.com wrote:
+>On Thu, Nov 6, 2014 at 6:59 AM, Florian Fainelli <f.fainelli@gmail.com>
+>wrote:
+>
+>> On 11/06/2014 01:20 AM, Jiri Pirko wrote:
+>> > From: Scott Feldman <sfeldma@gmail.com>
+>> >
+>> > To notify switch driver of change in STP state of bridge port, add new
+>> > .ndo op and provide swdev wrapper func to call ndo op. Use it in bridge
+>> > code then.
+>> >
+>> > Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+>> > Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>> > ---
+>>
+>> [snip]
+>>
+>> >  #endif /* _LINUX_SWITCHDEV_H_ */
+>> > diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+>> > index 86c239b..13fecf1 100644
+>> > --- a/net/bridge/br_netlink.c
+>> > +++ b/net/bridge/br_netlink.c
+>> > @@ -17,6 +17,7 @@
+>> >  #include <net/net_namespace.h>
+>> >  #include <net/sock.h>
+>> >  #include <uapi/linux/if_bridge.h>
+>> > +#include <net/switchdev.h>
+>> >
+>> >  #include "br_private.h"
+>> >  #include "br_private_stp.h"
+>> > @@ -304,6 +305,7 @@ static int br_set_port_state(struct net_bridge_port
+>> *p, u8 state)
+>> >
+>> >       br_set_state(p, state);
+>> >       br_log_state(p);
+>> > +     netdev_sw_port_stp_update(p->dev, p->state);
+>>
+>> Is there a reason netdev_sw_port_stp_update() is not folded in
+>> br_set_state()? Are we missing calls to br_set_state() in some locations?
+>>
+>
+>I put the netdev_sw call at the same level as br_log_state() and
+>br_ifinfo_notify(),
+>but now that you bring up the question, I agree it would be cleaner/safer
+>if netdev_sw call was from br_set_state().
 
-Tested-by: Michel Stam  <m.stam@fugro.nl>
+Not sure about this. netdev_sw_port_stp_update is not called every time
+br_set_state is called. br_log_state is in simillar position.
+br_set_state is now just a simple setter. I would probably leave this
+change for the possible future follow-up. It can move br_log_state call
+as well.
 
-Kind regards,
 
-Michel Stam
-
------Original Message-----
-From: Charles Keepax [mailto:ckeepax@opensource.wolfsonmicro.com] 
-Sent: Thursday, November 06, 2014 16:50 PM
-To: davem@davemloft.net
-Cc: jeffrey.t.kirsher@intel.com; Stam, Michel [FINT];
-emilgoode@gmail.com; linux-usb@vger.kernel.org; netdev@vger.kernel.org;
-linux-kernel@vger.kernel.org
-Subject: [PATCH] asix: Do full reset during ax88772_bind
-
-commit 3cc81d85ee01 ("asix: Don't reset PHY on if_up for ASIX 88772")
-causes the ethernet on Arndale to no longer function. This appears to be
-because the Arndale ethernet requires a full reset before it will
-function correctly, however simply reverting the above patch causes
-problems with ethtool settings getting reset.
-
-It seems the problem is that the ethernet is not properly reset during
-bind, and indeed the code in ax88772_bind that resets the device is a
-very small subset of the actual ax88772_reset function. This patch uses
-ax88772_reset in place of the existing reset code in ax88772_bind which
-removes some code duplication and fixes the ethernet on Arndale.
-
-It is still possible that the original patch causes some issues with
-suspend and resume but that seems like a separate issue and I haven't
-had a chance to test that yet.
-
-Signed-off-by: Charles Keepax <ckeepax@opensource.wolfsonmicro.com>
-Tested-by: Riku Voipio <riku.voipio@linaro.org>
----
-
-Hi,
-
-I wasn't 100% sure which branch to base this off so I based it on Dave
-Miller's net-next branch, which seemed logical.
-
-Thanks,
-Charles
-
- drivers/net/usb/asix_devices.c |   14 +-------------
- 1 files changed, 1 insertions(+), 13 deletions(-)
-
-diff --git a/drivers/net/usb/asix_devices.c
-b/drivers/net/usb/asix_devices.c index 2c05f6c..816d511 100644
---- a/drivers/net/usb/asix_devices.c
-+++ b/drivers/net/usb/asix_devices.c
-@@ -465,19 +465,7 @@ static int ax88772_bind(struct usbnet *dev, struct
-usb_interface *intf)
- 		return ret;
- 	}
- 
--	ret = asix_sw_reset(dev, AX_SWRESET_IPPD | AX_SWRESET_PRL);
--	if (ret < 0)
--		return ret;
--
--	msleep(150);
--
--	ret = asix_sw_reset(dev, AX_SWRESET_CLEAR);
--	if (ret < 0)
--		return ret;
--
--	msleep(150);
--
--	ret = asix_sw_reset(dev, embd_phy ? AX_SWRESET_IPRL :
-AX_SWRESET_PRTE);
-+	ax88772_reset(dev);
- 
- 	/* Read PHYID register *AFTER* the PHY was reset properly */
- 	phyid = asix_get_phyid(dev);
---
-1.7.2.5
+>
+>
+>> --
+>> Florian
+>>
