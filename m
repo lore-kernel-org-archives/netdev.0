@@ -1,74 +1,113 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 6/9] ixgbe: fix X540 Completion timeout
-Date: Fri,  7 Nov 2014 00:57:47 -0800
-Message-ID: <1415350670-15333-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 1/9] i40e: poll firmware slower
+Date: Fri,  7 Nov 2014 00:57:42 -0800
+Message-ID: <1415350670-15333-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1415350670-15333-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
+Cc: Kamil Krawczyk <kamil.krawczyk@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:41295 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:41288 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751251AbaKGI6C (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751262AbaKGI6C (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 7 Nov 2014 03:58:02 -0500
 In-Reply-To: <1415350670-15333-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Don Skidmore <donald.c.skidmore@intel.com>
+From: Kamil Krawczyk <kamil.krawczyk@intel.com>
 
-On topologies including few levels of PCIe switching X540 can run into an
-unexpected completion error.  We get around this by waiting after enabling
-loopback a sufficient amount of time until Tx Data Fetch is sent.  We then
-poll the pending transaction bit to ensure we received the completion.  Only
-then do we go on to clear the buffers.
+The code was polling the firmware tail register for completion every
+10 microseconds, which is way faster than the firmware can respond.
+This changes the poll interval to 1ms, which reduces polling CPU
+utilization, and the number of times we loop.
 
-Signed-of-by: Don Skidmore <donald.c.skidmore@intel.com>
+The maximum delay is still 100ms.
+
+Change-ID: I4bbfa6b66d802890baf8b4154061e55942b90958
+Signed-off-by: Kamil Krawczyk <kamil.krawczyk@intel.com>
+Acked-by: Shannon Nelson <shannon.nelson@intel.com>
+Tested-by: Jim Young <jamesx.m.young@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c | 21 ++++++++++++++++++++-
- 1 file changed, 20 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e_adminq.c   | 5 ++---
+ drivers/net/ethernet/intel/i40e/i40e_adminq.h   | 2 +-
+ drivers/net/ethernet/intel/i40evf/i40e_adminq.c | 5 ++---
+ drivers/net/ethernet/intel/i40evf/i40e_adminq.h | 2 +-
+ 4 files changed, 6 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-index b5f484b..e314b53 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-@@ -3583,7 +3583,8 @@ s32 ixgbe_set_fw_drv_ver_generic(struct ixgbe_hw *hw, u8 maj, u8 min,
-  **/
- void ixgbe_clear_tx_pending(struct ixgbe_hw *hw)
- {
--	u32 gcr_ext, hlreg0;
-+	u32 gcr_ext, hlreg0, i, poll;
-+	u16 value;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq.c b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
+index 72f5d25..057b7bf 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_adminq.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
+@@ -853,7 +853,6 @@ i40e_status i40e_asq_send_command(struct i40e_hw *hw,
+ 	 */
+ 	if (!details->async && !details->postpone) {
+ 		u32 total_delay = 0;
+-		u32 delay_len = 10;
  
- 	/*
- 	 * If double reset is not requested then all transactions should
-@@ -3600,6 +3601,24 @@ void ixgbe_clear_tx_pending(struct ixgbe_hw *hw)
- 	hlreg0 = IXGBE_READ_REG(hw, IXGBE_HLREG0);
- 	IXGBE_WRITE_REG(hw, IXGBE_HLREG0, hlreg0 | IXGBE_HLREG0_LPBK);
+ 		do {
+ 			/* AQ designers suggest use of head for better
+@@ -862,8 +861,8 @@ i40e_status i40e_asq_send_command(struct i40e_hw *hw,
+ 			if (i40e_asq_done(hw))
+ 				break;
+ 			/* ugh! delay while spin_lock */
+-			udelay(delay_len);
+-			total_delay += delay_len;
++			usleep_range(1000, 2000);
++			total_delay++;
+ 		} while (total_delay < hw->aq.asq_cmd_timeout);
+ 	}
  
-+	/* wait for a last completion before clearing buffers */
-+	IXGBE_WRITE_FLUSH(hw);
-+	usleep_range(3000, 6000);
-+
-+	/* Before proceeding, make sure that the PCIe block does not have
-+	 * transactions pending.
-+	 */
-+	poll = ixgbe_pcie_timeout_poll(hw);
-+	for (i = 0; i < poll; i++) {
-+		usleep_range(100, 200);
-+		value = ixgbe_read_pci_cfg_word(hw, IXGBE_PCI_DEVICE_STATUS);
-+		if (ixgbe_removed(hw->hw_addr))
-+			goto out;
-+		if (!(value & IXGBE_PCI_DEVICE_STATUS_TRANSACTION_PENDING))
-+			goto out;
-+	}
-+
-+out:
- 	/* initiate cleaning flow for buffers in the PCIe transaction layer */
- 	gcr_ext = IXGBE_READ_REG(hw, IXGBE_GCR_EXT);
- 	IXGBE_WRITE_REG(hw, IXGBE_GCR_EXT,
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq.h b/drivers/net/ethernet/intel/i40e/i40e_adminq.h
+index ba38a89..df0bd09 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_adminq.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_adminq.h
+@@ -141,7 +141,7 @@ static inline int i40e_aq_rc_to_posix(u16 aq_rc)
+ 
+ /* general information */
+ #define I40E_AQ_LARGE_BUF	512
+-#define I40E_ASQ_CMD_TIMEOUT	100000  /* usecs */
++#define I40E_ASQ_CMD_TIMEOUT	100  /* msecs */
+ 
+ void i40e_fill_default_direct_cmd_desc(struct i40e_aq_desc *desc,
+ 				       u16 opcode);
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq.c b/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
+index f206be9..25c846b 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
+@@ -801,7 +801,6 @@ i40e_status i40evf_asq_send_command(struct i40e_hw *hw,
+ 	 */
+ 	if (!details->async && !details->postpone) {
+ 		u32 total_delay = 0;
+-		u32 delay_len = 10;
+ 
+ 		do {
+ 			/* AQ designers suggest use of head for better
+@@ -810,8 +809,8 @@ i40e_status i40evf_asq_send_command(struct i40e_hw *hw,
+ 			if (i40evf_asq_done(hw))
+ 				break;
+ 			/* ugh! delay while spin_lock */
+-			udelay(delay_len);
+-			total_delay += delay_len;
++			usleep_range(1000, 2000);
++			total_delay++;
+ 		} while (total_delay < hw->aq.asq_cmd_timeout);
+ 	}
+ 
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq.h b/drivers/net/ethernet/intel/i40evf/i40e_adminq.h
+index 91a5c5b..f40cfac 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_adminq.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq.h
+@@ -141,7 +141,7 @@ static inline int i40e_aq_rc_to_posix(u16 aq_rc)
+ 
+ /* general information */
+ #define I40E_AQ_LARGE_BUF	512
+-#define I40E_ASQ_CMD_TIMEOUT	100000  /* usecs */
++#define I40E_ASQ_CMD_TIMEOUT	100  /* msecs */
+ 
+ void i40evf_fill_default_direct_cmd_desc(struct i40e_aq_desc *desc,
+ 				       u16 opcode);
 -- 
 1.9.3
