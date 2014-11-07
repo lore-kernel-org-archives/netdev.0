@@ -1,60 +1,67 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: ipv4: Use standard iovec primitive in raw_probe_proto_opt
-Date: Fri, 7 Nov 2014 10:00:25 +0800
-Message-ID: <20141107020025.GC9101@gondor.apana.org.au>
-References: <20141106055023.GA28865@gondor.apana.org.au>
- <20141106064318.GW7996@ZenIV.linux.org.uk>
- <20141106064629.GA29321@gondor.apana.org.au>
- <20141106.162808.1546139916210194279.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: viro@ZenIV.linux.org.uk, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, bcrl@kvack.org, nakam@linux-ipv6.org,
-	yoshfuji@linux-ipv6.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20141106.162808.1546139916210194279.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Tom Herbert <therbert@google.com>
+Subject: [PATCH net-next] vxlan: Fix to enable UDP checksums on interface
+Date: Thu,  6 Nov 2014 18:06:01 -0800
+Message-ID: <1415325961-23053-1-git-send-email-therbert@google.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f170.google.com ([209.85.213.170]:49363 "EHLO
+	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751051AbaKGCGK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Nov 2014 21:06:10 -0500
+Received: by mail-ig0-f170.google.com with SMTP id h15so11323234igd.1
+        for <netdev@vger.kernel.org>; Thu, 06 Nov 2014 18:06:09 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 06, 2014 at 04:28:08PM -0500, David Miller wrote:
-> From: Herbert Xu <herbert@gondor.apana.org.au>
-> Date: Thu, 6 Nov 2014 14:46:29 +0800
-> 
-> > On Thu, Nov 06, 2014 at 06:43:18AM +0000, Al Viro wrote:
-> >> On Thu, Nov 06, 2014 at 01:50:23PM +0800, Herbert Xu wrote:
-> >> > +	/* We only need the first two bytes. */
-> >> > +	err = memcpy_fromiovecend((void *)&icmph, msg->msg_iov, 0, 2);
-> >> > +	if (err)
-> >> > +		return err;
-> >> > +
-> >> > +	fl4->fl4_icmp_type = icmph.type;
-> >> > +	fl4->fl4_icmp_code = icmph.code;
-> >> 
-> >> That's more readable, but that exposes another problem in there - we read
-> >> the same piece of userland data twice, with no promise whatsoever that we'll
-> >> get the same value both times...
-> > 
-> > Sure, but you have to be root anyway to write to raw sockets.
-> > 
-> > Patches are welcome :)
-> 
-> I'd agree with this root-only argument maybe 15 years ago, but with
-> containers and stuff like that we want to prevent root X from messing
-> up the machine for root Y.
-> 
-> This is a recurring topic, and I'd strongly like to avoid adding new
-> ways that these kinds of problems can happen.
-> 
-> For example, I'm still on the hook to address the AF_NETLINK mmap TX
-> code, which has a similarly abusable issue.
+Add definition to vxlan nla_policy for UDP checksum. This is necessary
+to enable UDP checksums on VXLAN.
 
-Fair enough.  Even though the bug existed prior to my patch I'll
-see if we could get rid of it.
+In some instances, enabling UDP checksums can improve performance on
+receive for devices that return legacy checksum-unnecessary for UDP/IP.
+Also, UDP checksum provides some protection against VNI corruption.
 
-Cheers,
+Testing:
+
+Ran 200 instances of TCP_STREAM and TCP_RR on bnx2x.
+
+TCP_STREAM
+  IPv4, without UDP checksums
+      14.41% TX CPU utilization
+      25.71% RX CPU utilization
+      9083.4 Mbps
+  IPv4, with UDP checksums
+      13.99% TX CPU utilization
+      13.40% RX CPU utilization
+      9095.65 Mbps
+
+TCP_RR
+  IPv4, without UDP checksums
+      94.08% TX CPU utilization
+      156/248/462 90/95/99% latencies
+      1.12743e+06 tps
+  IPv4, with UDP checksums
+      94.43% TX CPU utilization
+      158/250/462 90/95/99% latencies
+      1.13345e+06 tps
+
+Signed-off-by: Tom Herbert <therbert@google.com>
+---
+ drivers/net/vxlan.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index ca30982..0ab4114 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -2233,6 +2233,9 @@ static const struct nla_policy vxlan_policy[IFLA_VXLAN_MAX + 1] = {
+ 	[IFLA_VXLAN_L2MISS]	= { .type = NLA_U8 },
+ 	[IFLA_VXLAN_L3MISS]	= { .type = NLA_U8 },
+ 	[IFLA_VXLAN_PORT]	= { .type = NLA_U16 },
++	[IFLA_VXLAN_UDP_CSUM]	= { .type = NLA_U8 },
++	[IFLA_VXLAN_UDP_ZERO_CSUM6_TX]	= { .type = NLA_U8 },
++	[IFLA_VXLAN_UDP_ZERO_CSUM6_RX]	= { .type = NLA_U8 },
+ };
+ 
+ static int vxlan_validate(struct nlattr *tb[], struct nlattr *data[])
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+2.1.0.rc2.206.gedb03e5
