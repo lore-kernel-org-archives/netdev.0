@@ -1,37 +1,45 @@
-From: Konrad =?UTF-8?Q?Moso=C5=84?= <mosonkonrad@gmail.com>
-Subject: alx can't send packet larger than 750 bytes
-Date: Sat, 08 Nov 2014 17:06:01 +0100
-Message-ID: <1415462761.28554.1.camel@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org, nic-devel@qca.qualcomm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f42.google.com ([74.125.82.42]:54676 "EHLO
-	mail-wg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753814AbaKHQGI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Nov 2014 11:06:08 -0500
-Received: by mail-wg0-f42.google.com with SMTP id k14so5757804wgh.15
-        for <netdev@vger.kernel.org>; Sat, 08 Nov 2014 08:06:06 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Tina Johnson <tinajohnson.1234@gmail.com>
+Subject: [PATCH] drivers: atm: eni: Add pci_dma_mapping_error() call
+Date: Sat,  8 Nov 2014 21:48:02 +0530
+Message-ID: <1415463482-8013-1-git-send-email-tinajohnson.1234@gmail.com>
+Cc: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, julia.lawall@lip6.fr,
+	Tina Johnson <tinajohnson.1234@gmail.com>
+To: chas@cmf.nrl.navy.mil
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello there,
+Added a pci_dma_mapping_error() call to check for mapping errors before
+further using the dma handle. Unchecked dma handles were found using
+Coccinelle:
 
-I just submitted bug to bugzilla.redhat.com (not to mail kernel, cause =
-i
-didn't have problem on ArchLinux).
+@rule1@
+expression e1;
+identifier x;
+@@
 
-https://bugzilla.redhat.com/show_bug.cgi?id=3D1161861
+*x = pci_map_single(...);
+ ... when != pci_dma_mapping_error(e1,x)
 
-Could be nice if you could look into it. It's kinda critical =E2=80=94 =
-network
-just doesn't works.
+Signed-off-by: Tina Johnson <tinajohnson.1234@gmail.com>
+Acked-by: Julia Lawall <julia.lawall@lip6.fr>
+---
+ drivers/atm/eni.c |    2 ++
+ 1 file changed, 2 insertions(+)
 
-Thanks for help,
-Konrad Moso=C5=84
-
-PS
-nic-devel@qca.qualcomm =E2=80=94 sorry for doublemail but netdev@vger r=
-ejected
-my mail at first time cause i used html.
+diff --git a/drivers/atm/eni.c b/drivers/atm/eni.c
+index d65975a..6450a36 100644
+--- a/drivers/atm/eni.c
++++ b/drivers/atm/eni.c
+@@ -356,6 +356,8 @@ static int do_rx_dma(struct atm_vcc *vcc,struct sk_buff *skb,
+ 	if (skb) {
+ 		paddr = pci_map_single(eni_dev->pci_dev,skb->data,skb->len,
+ 		    PCI_DMA_FROMDEVICE);
++		if (pci_dma_mapping_error(eni_dev->pci_dev, paddr))
++			goto trouble;
+ 		ENI_PRV_PADDR(skb) = paddr;
+ 		if (paddr & 3)
+ 			printk(KERN_CRIT DEV_LABEL "(itf %d): VCI %d has "
+-- 
+1.7.10.4
