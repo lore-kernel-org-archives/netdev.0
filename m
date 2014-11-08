@@ -1,31 +1,86 @@
-From: Ms Faith Titi Attah <apasteuzdaniel@gmail.com>
-Subject: FROM Ms Faith Titi Attah
-Date: Thu, 6 Nov 2014 21:01:15 +0000
-Message-ID: <CAOTpPD8=HrfSQM7ZwwqRSADn-nVgZYvMSkEG1fHDvfG2dR5BoQ@mail.gmail.com>
-Reply-To: faithattah27@cantv.net
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH] ipvs: Keep skb->sk when allocating headroom on tunnel
+ xmit
+Date: Sat, 8 Nov 2014 08:16:58 +0200 (EET)
+Message-ID: <alpine.LFD.2.11.1411080814300.2081@ja.home.ssi.bg>
+References: <1415147860-11389-1-git-send-email-calvinowens@fb.com> <alpine.LFD.2.11.1411051048540.1631@ja.home.ssi.bg> <545D43BD.8030203@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f195.google.com ([209.85.160.195]:46359 "EHLO
-	mail-yk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751048AbaKHFVW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Nov 2014 00:21:22 -0500
-Received: by mail-yk0-f195.google.com with SMTP id 19so788373ykq.10
-        for <netdev@vger.kernel.org>; Fri, 07 Nov 2014 21:21:21 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Simon Horman <horms@verge.net.au>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	lvs-devel@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, agartrell@fb.com, kernel-team@fb.com
+To: Calvin Owens <calvinowens@fb.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <545D43BD.8030203@fb.com>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-faithattah27@cantv.net
-FROM Ms Faith Titi Attah
-Dearest one
-I wish you and your family happy moments of life
-now and forever more amen.Please, I do not have formal relationship
-with you but because of my present predicament and circumstances I am
-made to contact you.I have been suffering from cancer of the Lungs and
-has a short life to leave.I have made up my mind to donate my
-inheritance of 21.5 million US to the less privileged please help me
-to fulfill my last wish.please CONTACT ME TO MY EMAIL
-faithattah27@cantv.net
-Thanks CONTACT ME TO MY EMAIL faithattah27@cantv.net
-Ms Faith Titi Attah
+
+	Hello,
+
+On Fri, 7 Nov 2014, Calvin Owens wrote:
+
+> On 11/05/2014 01:21 AM, Julian Anastasov wrote:
+> >
+> >  Hello,
+> >
+> > On Tue, 4 Nov 2014, Calvin Owens wrote:
+> >
+> > > ip_vs_prepare_tunneled_skb() ignores ->sk when allocating a new
+> > > skb, either unconditionally setting ->sk to NULL or allowing
+> > > the uninitialized ->sk from a newly allocated skb to leak through
+> > > to the caller.
+> > >
+> > > This patch properly copies ->sk and increments its reference count.
+> > >
+> > > Signed-off-by: Calvin Owens <calvinowens@fb.com>
+> >
+> > 	Good catch. Please, extend your patch to
+> > fix also the second place that has such error,
+> > ip_vs_tunnel_xmit_v6. This call is missing from long time,
+> > it was not needed. But commits that allow skb->sk (local
+> > clients) already need it, eg.
+> 
+> I'm not sure where exactly you mean: ip_vs_tunnel_xmit_v6() calls
+> ip_vs_prepare_tunneled_skb() to do the allocation, so this patch covers that
+> case.
+> 
+> In older versions of the kernel, ip_vs_tunnel_xmit_v6() does it directly,
+> could that be what you're looking at?
+
+	Sorry, it seems I was checking old branch.
+
+	Simon, please apply.
+
+Acked-by: Julian Anastasov <ja@ssi.bg>
+
+> > - f2428ed5e7bc89c7 ("ipvs: load balance ipv6 connections from a local
+> > process"), 2.6.28
+> > - 4856c84c1358b798 ("ipvs: load balance IPv4 connections from a local
+> > process"), 2.6.28
+> >
+> > > ---
+> > >   net/netfilter/ipvs/ip_vs_xmit.c | 2 ++
+> > >   1 file changed, 2 insertions(+)
+> > >
+> > > diff --git a/net/netfilter/ipvs/ip_vs_xmit.c
+> > > b/net/netfilter/ipvs/ip_vs_xmit.c
+> > > index 437a366..bd90bf8 100644
+> > > --- a/net/netfilter/ipvs/ip_vs_xmit.c
+> > > +++ b/net/netfilter/ipvs/ip_vs_xmit.c
+> > > @@ -846,6 +846,8 @@ ip_vs_prepare_tunneled_skb(struct sk_buff *skb, int
+> > > skb_af,
+> > >     new_skb = skb_realloc_headroom(skb, max_headroom);
+> > >     if (!new_skb)
+> > >   			goto error;
+> > > +		if (skb->sk)
+> > > +			skb_set_owner_w(new_skb, skb->sk);
+> > >     consume_skb(skb);
+> > >     skb = new_skb;
+> > >    }
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
