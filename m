@@ -1,49 +1,103 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH net-next v2 2/3] r8152: clear theflagofSCHEDULE_TASKLETin
- tasklet
-Date: Sat, 8 Nov 2014 23:11:49 +0100
-Message-ID: <20141108221149.GA26030@electric-eye.fr.zoreil.com>
-References: <1394712342-15778-75-Taiwan-albertk@realtek.com>
- <1394712342-15778-79-Taiwan-albertk@realtek.com>
- <1394712342-15778-81-Taiwan-albertk@realtek.com>
- <20141031.161520.3547230591227504.davem@davemloft.net>
- <0835B3720019904CB8F7AA43166CEEB2ECD8A7@RTITMBSV03.realtek.com.tw>
- <20141102225307.GA19900@electric-eye.fr.zoreil.com>
- <0835B3720019904CB8F7AA43166CEEB2ECDFC2@RTITMBSV03.realtek.com.tw>
+From: Ondrej Zary <linux@rainbow-software.org>
+Subject: e100: Laptop battery drain and WoL settings from EEPROM
+Date: Sun, 9 Nov 2014 00:15:41 +0100
+Message-ID: <201411090015.41446.linux@rainbow-software.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	nic_swsd <nic_swsd@realtek.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>
-To: Hayes Wang <hayeswang@realtek.com>
+Content-Type: Text/Plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	Kernel development list <linux-kernel@vger.kernel.org>
+To: e1000-devel@lists.sourceforge.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <0835B3720019904CB8F7AA43166CEEB2ECDFC2@RTITMBSV03.realtek.com.tw>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hayes Wang <hayeswang@realtek.com> :
->  Francois Romieu [mailto:romieu@fr.zoreil.com] 
-> > Sent: Monday, November 03, 2014 6:53 AM
-> [...]
-> > test_and_clear_bit (dense) or clear_bit would be more idiomatic.
-> 
-> Excuse me. Any suggestion?
-> Should I use clear_bit directly, or something else?
-> Or, do I have to remove this patch?
+Hello,
+there is long-standing problem with battery drain after turning off at least
+some Toshiba laptops, see
+https://bugs.launchpad.net/ubuntu/+source/linux/+bug/110784
 
-The performance explanation leaves me a bit unconvinced. Without any
-figure one could simply go for the always locked clear_bit because of:
-1. the "I'm racy" message that the open-coded test + set sends
-2. the extra work needed to avoid 1 (comment, explain, ...).
+I have the same problem with Toshiba Portege R100. When I shut it down in
+Linux, the battery is drained to zero in a couple of days. I noticed that the
+LAN port is still active, even when AC disconnected.
 
-The extra time could thus be used to see what happens when napi is
-shoehorned in this tasklet machinery. I'd naively expect it to be
-relevant for efficiency.
+The WoL is enabled by default by e100 driver:
 
-I won't mind if your agenda is completely different. :o)
+# ethtool eth0
+Settings for eth0:
+        Supported ports: [ TP MII ]
+        Supported link modes:   10baseT/Half 10baseT/Full
+                                100baseT/Half 100baseT/Full
+        Supported pause frame use: No
+        Supports auto-negotiation: Yes
+        Advertised link modes:  10baseT/Half 10baseT/Full
+                                100baseT/Half 100baseT/Full
+        Advertised pause frame use: Symmetric
+        Advertised auto-negotiation: Yes
+        Link partner advertised link modes:  10baseT/Half
+        Link partner advertised pause frame use: No
+        Link partner advertised auto-negotiation: No
+        Speed: 10Mb/s
+        Duplex: Half
+        Port: MII
+        PHYAD: 1
+        Transceiver: internal
+        Auto-negotiation: on
+        Supports Wake-on: g
+        Wake-on: g
+        Current message level: 0x00000007 (7)
+                               drv probe link
+        Link detected: yes
+
+By this code:
+        /* Wol magic packet can be enabled from eeprom */
+        if ((nic->mac >= mac_82558_D101_A4) &&
+           (nic->eeprom[eeprom_id] & eeprom_id_wol)) {
+                nic->flags |= wol_magic;
+                device_set_wakeup_enable(&pdev->dev, true);
+        }
+
+because the WoL bit is set in EEPROM ID word:
+
+# ethtool -e eth0
+Offset          Values
+------          ------
+0x0000:         xx xx xx xx xx xx 03 1b 00 00 01 02 01 47 00 00
+0x0010:         00 00 00 00 a2 49 01 00 79 11 7f 00 00 00 00 00
+                            ^^ bit 5 here
+0x0020:         00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+0x0030:         00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+0x0040:         00 00 00 00 00 00 3d 10 00 00 00 00 00 00 00 00
+0x0050:         00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+0x0060:         e4 00 3f 40 09 41 00 00 00 00 00 00 00 00 00 00
+0x0070:         00 00 00 00 00 00 00 00 00 00 00 00 00 00 f7 fe
+
+Looks like this laptop is probably WoL-capable even on battery.
+
+Measured the current from AC adapter:
+around 20mA with WoL inactive (shut down from Windows or by power button in GRUB)
+around 40mA with WoL active (shut down from Linux)
+
+So to work-around this problem, users must disable WoL manually on each boot.
+
+Maybe the driver should ignore the EEPROM WoL bit on Toshiba susbsystem IDs?
+Or completely, like Windows driver does?
+
+Ethernet controller details:
+02:08.0 Ethernet controller [0200]: Intel Corporation 82801DB PRO/100 VE (MOB) Ethernet Controller [8086:103d] (rev 83)
+        Subsystem: Toshiba America Info Systems Device [1179:0001]
+        Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B- DisINTx-
+        Status: Cap+ 66MHz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
+        Latency: 64 (2000ns min, 14000ns max), Cache Line Size: 32 bytes
+        Interrupt: pin A routed to IRQ 11
+        Region 0: Memory at dfdff000 (32-bit, non-prefetchable) [size=4K]
+        Region 1: I/O ports at cf40 [size=64]
+        Capabilities: [dc] Power Management version 2
+                Flags: PMEClk- DSI+ D1+ D2+ AuxCurrent=0mA PME(D0+,D1+,D2+,D3hot+,D3cold+)
+                Status: D0 NoSoftRst- PME-Enable- DSel=0 DScale=2 PME-
+        Kernel driver in use: e100
 
 -- 
-Ueimor
+Ondrej Zary
