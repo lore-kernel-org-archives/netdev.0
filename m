@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 07/10] bridge: call netdev_sw_port_stp_update when bridge port STP status changes
-Date: Sun,  9 Nov 2014 11:51:17 +0100
-Message-ID: <1415530280-9190-8-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v2 10/10] rocker: implement L2 bridge offloading
+Date: Sun,  9 Nov 2014 11:51:20 +0100
+Message-ID: <1415530280-9190-11-git-send-email-jiri@resnulli.us>
 References: <1415530280-9190-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
 	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
@@ -21,212 +21,883 @@ Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
 	bcrl@kvack.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f173.google.com ([209.85.212.173]:60693 "EHLO
+Received: from mail-wi0-f173.google.com ([209.85.212.173]:43407 "EHLO
 	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751833AbaKIKvb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Nov 2014 05:51:31 -0500
-Received: by mail-wi0-f173.google.com with SMTP id n3so8064454wiv.0
-        for <netdev@vger.kernel.org>; Sun, 09 Nov 2014 02:51:30 -0800 (PST)
+	with ESMTP id S1751850AbaKIKve (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Nov 2014 05:51:34 -0500
+Received: by mail-wi0-f173.google.com with SMTP id n3so8049995wiv.6
+        for <netdev@vger.kernel.org>; Sun, 09 Nov 2014 02:51:33 -0800 (PST)
 In-Reply-To: <1415530280-9190-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Scott Feldman <sfeldma@gmail.com>
 
-To notify switch driver of change in STP state of bridge port, add new
-.ndo op and provide swdev wrapper func to call ndo op. Use it in bridge
-code then.
+Add L2 bridge offloading support to rocker driver.  Here, the Linux bridge
+driver is used to collect swdev ports into a tagged (or untagged) VLAN
+bridge.  The swdev will offload from the bridge driver the following L2
+bridging functions:
+
+ - Learning of neighbor MAC addresses on VLAN X  Learned mac/vlan is
+installed in bridge FDB.  (And removed when device unlearns mac/vlan).
+Learning must be turned off on each bridge port to disable the feature in
+the bridge driver.
+
+- Flooding of multicast/broadcast and unknown unicast pkts to (STP)
+active ports in bridge.  The bridge driver is unaware of the flooding happening
+at the device level.  Flooding must be turned off on each bridge port to
+disable the feature on the bridge driver.
+
+- STP port state is pushed down to driver/device.  The bridge still processes
+STP BDPUs and maintains port STP state (for all VLANs in bridge), but
+the driver/device must be notified of port STP state change to program
+the device.
+
+Multiple (VLAN) bridges are supported.  The device (implemented per
+the OF-DPA spec) must use a portion of the VLAN namespace for
+internal VLANs.  Right now, the upper 255 VLANs (0xf00 to 0xffe) are
+used as internal VLAN IDs for untagged traffic and are not available
+as port VLANs.
+
+The driver uses the following interfaces:
+
+1. To track VLAN add/del on ports in bridge:
+
+.ndo_vlan_rx_add_vid
+.ndo_vlan_rx_kill_vid
+
+2. To track port add/del membership in bridge:
+
+NETDEV_CHANGEUPPER netdevice notifier
+
+3. To catch static FDB entries installed on bridge/vlan by user using netlink:
+
+.ndo_sw_port_fdb_add
+.ndo_sw_port_fdb_del
+
+4. To be notified on port STP state change:
+
+.ndo_sw_port_stp_update
+
+5. To notify bridge driver on learned/forgotten mac/vlans on bridge port:
+
+br_fdb_learn_add
+br_fdb_learn_del
 
 Signed-off-by: Scott Feldman <sfeldma@gmail.com>
 Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
- include/linux/netdevice.h |  6 ++++++
- include/net/switchdev.h   |  6 ++++++
- net/bridge/br_netlink.c   |  2 ++
- net/bridge/br_stp.c       |  4 ++++
- net/bridge/br_stp_if.c    |  3 +++
- net/bridge/br_stp_timer.c |  2 ++
- net/switchdev/switchdev.c | 19 +++++++++++++++++++
- 7 files changed, 42 insertions(+)
+ drivers/net/ethernet/rocker/rocker.c | 660 ++++++++++++++++++++++++++++++++++-
+ 1 file changed, 659 insertions(+), 1 deletion(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 116a19d..35f21a95 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1033,6 +1033,10 @@ typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
-  *			      const unsigned char *addr,
-  *			      u16 vid);
-  *	Called to delete a fdb from switch device port.
-+ *
-+ * int (*ndo_sw_port_stp_update)(struct net_device *dev, u8 state);
-+ *	Called to notify switch device port of bridge port STP
-+ *	state change.
-  */
- struct net_device_ops {
- 	int			(*ndo_init)(struct net_device *dev);
-@@ -1193,6 +1197,8 @@ struct net_device_ops {
- 	int			(*ndo_sw_port_fdb_del)(struct net_device *dev,
- 						       const unsigned char *addr,
- 						       u16 vid);
-+	int			(*ndo_sw_port_stp_update)(struct net_device *dev,
-+							  u8 state);
- #endif
- };
+diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
+index ea58a4f..17ffa30 100644
+--- a/drivers/net/ethernet/rocker/rocker.c
++++ b/drivers/net/ethernet/rocker/rocker.c
+@@ -28,6 +28,7 @@
+ #include <linux/ethtool.h>
+ #include <linux/if_ether.h>
+ #include <linux/if_vlan.h>
++#include <linux/if_bridge.h>
+ #include <linux/bitops.h>
+ #include <net/switchdev.h>
+ #include <net/rtnetlink.h>
+@@ -196,10 +197,12 @@ enum {
  
-diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-index 130cef7..bbf7369 100644
---- a/include/net/switchdev.h
-+++ b/include/net/switchdev.h
-@@ -21,6 +21,7 @@ int netdev_sw_port_fdb_add(struct net_device *dev,
- 			   const unsigned char *addr, u16 vid);
- int netdev_sw_port_fdb_del(struct net_device *dev,
- 			   const unsigned char *addr, u16 vid);
-+int netdev_sw_port_stp_update(struct net_device *dev, u8 state);
- 
- #else
- 
-@@ -42,6 +43,11 @@ static inline int netdev_sw_port_fdb_del(struct net_device *dev,
- 	return -EOPNOTSUPP;
+ struct rocker_port {
+ 	struct net_device *dev;
++	struct net_device *bridge_dev;
+ 	struct rocker *rocker;
+ 	unsigned int port_number;
+ 	u32 lport;
+ 	__be16 internal_vlan_id;
++	int stp_state;
+ 	bool ctrls[ROCKER_CTRL_MAX];
+ 	unsigned long vlan_bitmap[ROCKER_VLAN_BITMAP_LEN];
+ 	struct napi_struct napi_tx;
+@@ -290,6 +293,20 @@ static __be16 rocker_port_vid_to_vlan(struct rocker_port *rocker_port,
+ 	return vlan_id;
  }
  
-+static inline int netdev_sw_port_stp_update(struct net_device *dev, u8 state)
++static u16 rocker_port_vlan_to_vid(struct rocker_port *rocker_port,
++				   __be16 vlan_id)
 +{
-+	return -EOPNOTSUPP;
++	if (rocker_vlan_id_is_internal(vlan_id))
++		return 0;
++
++	return ntohs(vlan_id);
 +}
 +
- #endif
++static bool rocker_port_is_bridged(struct rocker_port *rocker_port)
++{
++	return !!rocker_port->bridge_dev;
++}
++
+ struct rocker_wait {
+ 	wait_queue_head_t wait;
+ 	bool done;
+@@ -1302,6 +1319,42 @@ static int rocker_event_link_change(struct rocker *rocker,
+ #define ROCKER_OP_FLAG_NOWAIT		BIT(1)
+ #define ROCKER_OP_FLAG_LEARNED		BIT(2)
  
- #endif /* _LINUX_SWITCHDEV_H_ */
-diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-index 86c239b..13fecf1 100644
---- a/net/bridge/br_netlink.c
-+++ b/net/bridge/br_netlink.c
-@@ -17,6 +17,7 @@
- #include <net/net_namespace.h>
- #include <net/sock.h>
- #include <uapi/linux/if_bridge.h>
-+#include <net/switchdev.h>
++static int rocker_port_fdb(struct rocker_port *rocker_port,
++			   const unsigned char *addr,
++			   __be16 vlan_id, int flags);
++
++static int rocker_event_mac_vlan_seen(struct rocker *rocker,
++				      const struct rocker_tlv *info)
++{
++	struct rocker_tlv *attrs[ROCKER_TLV_EVENT_MAC_VLAN_MAX + 1];
++	unsigned int port_number;
++	struct rocker_port *rocker_port;
++	unsigned char *addr;
++	int flags = ROCKER_OP_FLAG_NOWAIT | ROCKER_OP_FLAG_LEARNED;
++	__be16 vlan_id;
++
++	rocker_tlv_parse_nested(attrs, ROCKER_TLV_EVENT_MAC_VLAN_MAX, info);
++	if (!attrs[ROCKER_TLV_EVENT_MAC_VLAN_LPORT] ||
++	    !attrs[ROCKER_TLV_EVENT_MAC_VLAN_MAC] ||
++	    !attrs[ROCKER_TLV_EVENT_MAC_VLAN_VLAN_ID])
++		return -EIO;
++	port_number =
++		rocker_tlv_get_u32(attrs[ROCKER_TLV_EVENT_MAC_VLAN_LPORT]) - 1;
++	addr = rocker_tlv_data(attrs[ROCKER_TLV_EVENT_MAC_VLAN_MAC]);
++	vlan_id = rocker_tlv_get_u16(attrs[ROCKER_TLV_EVENT_MAC_VLAN_VLAN_ID]);
++
++	if (port_number >= rocker->port_count)
++		return -EINVAL;
++
++	rocker_port = rocker->ports[port_number];
++
++	if (rocker_port->stp_state != BR_STATE_LEARNING &&
++	    rocker_port->stp_state != BR_STATE_FORWARDING)
++		return 0;
++
++	return rocker_port_fdb(rocker_port, addr, vlan_id, flags);
++}
++
+ static int rocker_event_process(struct rocker *rocker,
+ 				struct rocker_desc_info *desc_info)
+ {
+@@ -1320,6 +1373,8 @@ static int rocker_event_process(struct rocker *rocker,
+ 	switch (type) {
+ 	case ROCKER_TLV_EVENT_TYPE_LINK_CHANGED:
+ 		return rocker_event_link_change(rocker, info);
++	case ROCKER_TLV_EVENT_TYPE_MAC_VLAN_SEEN:
++		return rocker_event_mac_vlan_seen(rocker, info);
+ 	}
  
- #include "br_private.h"
- #include "br_private_stp.h"
-@@ -304,6 +305,7 @@ static int br_set_port_state(struct net_bridge_port *p, u8 state)
+ 	return -EOPNOTSUPP;
+@@ -2546,6 +2601,104 @@ static int rocker_group_l2_flood(struct rocker_port *rocker_port,
+ 				       group_id);
+ }
  
- 	br_set_state(p, state);
- 	br_log_state(p);
-+	netdev_sw_port_stp_update(p->dev, p->state);
- 	br_port_state_selection(p->br);
++static int rocker_port_vlan_flood_group(struct rocker_port *rocker_port,
++					int flags, __be16 vlan_id)
++{
++	struct rocker_port *p;
++	struct rocker *rocker = rocker_port->rocker;
++	u32 group_id = ROCKER_GROUP_L2_FLOOD(vlan_id, 0);
++	u32 group_ids[rocker->port_count];
++	u8 group_count = 0;
++	int err;
++	int i;
++
++	/* Adjust the flood group for this VLAN.  The flood group
++	 * references an L2 interface group for each port in this
++	 * VLAN.
++	 */
++
++	for (i = 0; i < rocker->port_count; i++) {
++		p = rocker->ports[i];
++		if (!rocker_port_is_bridged(p))
++			continue;
++		if (test_bit(ntohs(vlan_id), p->vlan_bitmap)) {
++			group_ids[group_count++] =
++				ROCKER_GROUP_L2_INTERFACE(vlan_id,
++							  p->lport);
++		}
++	}
++
++	/* If there are no bridged ports in this VLAN, we're done */
++	if (group_count == 0)
++		return 0;
++
++	err = rocker_group_l2_flood(rocker_port, flags, vlan_id,
++				    group_count, group_ids,
++				    group_id);
++	if (err)
++		netdev_err(rocker_port->dev,
++			   "Error (%d) port VLAN l2 flood group\n", err);
++
++	return err;
++}
++
++static int rocker_port_vlan_l2_groups(struct rocker_port *rocker_port,
++				      int flags, __be16 vlan_id,
++				      bool pop_vlan)
++{
++	struct rocker *rocker = rocker_port->rocker;
++	struct rocker_port *p;
++	bool adding = !(flags & ROCKER_OP_FLAG_REMOVE);
++	u32 out_lport;
++	int ref = 0;
++	int err;
++	int i;
++
++	/* An L2 interface group for this port in this VLAN, but
++	 * only when port STP state is LEARNING|FORWARDING.
++	 */
++
++	if (rocker_port->stp_state == BR_STATE_LEARNING ||
++	    rocker_port->stp_state == BR_STATE_FORWARDING) {
++		out_lport = rocker_port->lport;
++		err = rocker_group_l2_interface(rocker_port, flags,
++						vlan_id, out_lport,
++						pop_vlan);
++		if (err) {
++			netdev_err(rocker_port->dev,
++				   "Error (%d) port VLAN l2 group for lport %d\n",
++				   err, out_lport);
++			return err;
++		}
++	}
++
++	/* An L2 interface group for this VLAN to CPU port.
++	 * Add when first port joins this VLAN and destroy when
++	 * last port leaves this VLAN.
++	 */
++
++	for (i = 0; i < rocker->port_count; i++) {
++		p = rocker->ports[i];
++		if (test_bit(ntohs(vlan_id), p->vlan_bitmap))
++			ref++;
++	}
++
++	if ((!adding || ref != 1) && (adding || ref != 0))
++		return 0;
++
++	out_lport = 0;
++	err = rocker_group_l2_interface(rocker_port, flags,
++					vlan_id, out_lport,
++					pop_vlan);
++	if (err) {
++		netdev_err(rocker_port->dev,
++			   "Error (%d) port VLAN l2 group for CPU port\n", err);
++		return err;
++	}
++
++	return 0;
++}
++
+ static struct rocker_ctrl {
+ 	const u8 *eth_dst;
+ 	const u8 *eth_dst_mask;
+@@ -2624,6 +2777,30 @@ static int rocker_port_ctrl_vlan_acl(struct rocker_port *rocker_port,
+ 	return err;
+ }
+ 
++static int rocker_port_ctrl_vlan_bridge(struct rocker_port *rocker_port,
++					int flags, struct rocker_ctrl *ctrl,
++					__be16 vlan_id)
++{
++	enum rocker_of_dpa_table_id goto_tbl =
++		ROCKER_OF_DPA_TABLE_ID_ACL_POLICY;
++	u32 group_id = ROCKER_GROUP_L2_FLOOD(vlan_id, 0);
++	u32 tunnel_id = 0;
++	int err;
++
++	if (!rocker_port_is_bridged(rocker_port))
++		return 0;
++
++	err = rocker_flow_tbl_bridge(rocker_port, flags,
++				     ctrl->eth_dst, ctrl->eth_dst_mask,
++				     vlan_id, tunnel_id,
++				     goto_tbl, group_id, ctrl->copy_to_cpu);
++
++	if (err)
++		netdev_err(rocker_port->dev, "Error (%d) ctrl FLOOD\n", err);
++
++	return err;
++}
++
+ static int rocker_port_ctrl_vlan_term(struct rocker_port *rocker_port,
+ 				      int flags, struct rocker_ctrl *ctrl,
+ 				      __be16 vlan_id)
+@@ -2654,6 +2831,9 @@ static int rocker_port_ctrl_vlan(struct rocker_port *rocker_port, int flags,
+ 	if (ctrl->acl)
+ 		return rocker_port_ctrl_vlan_acl(rocker_port, flags,
+ 						 ctrl, vlan_id);
++	if (ctrl->bridge)
++		return rocker_port_ctrl_vlan_bridge(rocker_port, flags,
++						    ctrl, vlan_id);
+ 
+ 	if (ctrl->term)
+ 		return rocker_port_ctrl_vlan_term(rocker_port, flags,
+@@ -2698,6 +2878,64 @@ static int rocker_port_ctrl(struct rocker_port *rocker_port, int flags,
+ 	return err;
+ }
+ 
++static int rocker_port_vlan(struct rocker_port *rocker_port, int flags,
++			    u16 vid)
++{
++	enum rocker_of_dpa_table_id goto_tbl =
++		ROCKER_OF_DPA_TABLE_ID_TERMINATION_MAC;
++	u32 in_lport = rocker_port->lport;
++	__be16 vlan_id = htons(vid);
++	__be16 vlan_id_mask = htons(0xffff);
++	__be16 internal_vlan_id;
++	bool untagged;
++	bool adding = !(flags & ROCKER_OP_FLAG_REMOVE);
++	int err;
++
++	internal_vlan_id = rocker_port_vid_to_vlan(rocker_port, vid, &untagged);
++
++	if (adding && test_and_set_bit(ntohs(internal_vlan_id),
++				       rocker_port->vlan_bitmap))
++			return 0; /* already added */
++	else if (!adding && !test_and_clear_bit(ntohs(internal_vlan_id),
++						rocker_port->vlan_bitmap))
++			return 0; /* already removed */
++
++	if (adding) {
++		err = rocker_port_ctrl_vlan_add(rocker_port, flags,
++						internal_vlan_id);
++		if (err) {
++			netdev_err(rocker_port->dev,
++				   "Error (%d) port ctrl vlan add\n", err);
++			return err;
++		}
++	}
++
++	err = rocker_port_vlan_l2_groups(rocker_port, flags,
++					 internal_vlan_id, untagged);
++	if (err) {
++		netdev_err(rocker_port->dev,
++			   "Error (%d) port VLAN l2 groups\n", err);
++		return err;
++	}
++
++	err = rocker_port_vlan_flood_group(rocker_port, flags,
++					   internal_vlan_id);
++	if (err) {
++		netdev_err(rocker_port->dev,
++			   "Error (%d) port VLAN l2 flood group\n", err);
++		return err;
++	}
++
++	err = rocker_flow_tbl_vlan(rocker_port, flags,
++				   in_lport, vlan_id, vlan_id_mask,
++				   goto_tbl, untagged, internal_vlan_id);
++	if (err)
++		netdev_err(rocker_port->dev,
++			   "Error (%d) port VLAN table\n", err);
++
++	return err;
++}
++
+ static int rocker_port_ig_tbl(struct rocker_port *rocker_port, int flags)
+ {
+ 	enum rocker_of_dpa_table_id goto_tbl;
+@@ -2723,6 +2961,158 @@ static int rocker_port_ig_tbl(struct rocker_port *rocker_port, int flags)
+ 	return err;
+ }
+ 
++struct rocker_fdb_learn_work {
++	struct work_struct work;
++	struct net_device *dev;
++	int flags;
++	u8 addr[ETH_ALEN];
++	u16 vid;
++};
++
++static void rocker_port_fdb_learn_work(struct work_struct *work)
++{
++	struct rocker_fdb_learn_work *lw =
++		container_of(work, struct rocker_fdb_learn_work, work);
++	bool removing = (lw->flags & ROCKER_OP_FLAG_REMOVE);
++	bool learned = (lw->flags & ROCKER_OP_FLAG_LEARNED);
++
++	if (learned & removing)
++		br_fdb_learn_del(lw->dev, lw->addr, lw->vid);
++	else if (learned & !removing)
++		br_fdb_learn_add(lw->dev, lw->addr, lw->vid);
++
++	kfree(work);
++}
++
++static int rocker_port_fdb_learn(struct rocker_port *rocker_port,
++				 int flags, const u8 *addr, __be16 vlan_id)
++{
++	struct rocker_fdb_learn_work *lw;
++	enum rocker_of_dpa_table_id goto_tbl =
++		ROCKER_OF_DPA_TABLE_ID_ACL_POLICY;
++	u32 out_lport = rocker_port->lport;
++	u32 tunnel_id = 0;
++	u32 group_id = ROCKER_GROUP_NONE;
++	bool copy_to_cpu = false;
++	int err;
++
++	if (rocker_port_is_bridged(rocker_port))
++		group_id = ROCKER_GROUP_L2_INTERFACE(vlan_id, out_lport);
++
++	err = rocker_flow_tbl_bridge(rocker_port, flags, addr, NULL,
++				     vlan_id, tunnel_id, goto_tbl,
++				     group_id, copy_to_cpu);
++	if (err)
++		return err;
++
++	if (!rocker_port_is_bridged(rocker_port))
++		return 0;
++
++	lw = kmalloc(sizeof(*lw), rocker_op_flags_gfp(flags));
++	if (!lw)
++		return -ENOMEM;
++
++	INIT_WORK(&lw->work, rocker_port_fdb_learn_work);
++
++	lw->dev = rocker_port->dev;
++	lw->flags = flags;
++	ether_addr_copy(lw->addr, addr);
++	lw->vid = rocker_port_vlan_to_vid(rocker_port, vlan_id);
++
++	schedule_work(&lw->work);
++
++	return 0;
++}
++
++static struct rocker_fdb_tbl_entry *
++rocker_fdb_tbl_find(struct rocker *rocker, struct rocker_fdb_tbl_entry *match)
++{
++	struct rocker_fdb_tbl_entry *found;
++
++	hash_for_each_possible(rocker->fdb_tbl, found, entry, match->key_crc32)
++		if (memcmp(&found->key, &match->key, sizeof(found->key)) == 0)
++			return found;
++
++	return NULL;
++}
++
++static int rocker_port_fdb(struct rocker_port *rocker_port,
++			   const unsigned char *addr,
++			   __be16 vlan_id, int flags)
++{
++	struct rocker *rocker = rocker_port->rocker;
++	struct rocker_fdb_tbl_entry *fdb;
++	struct rocker_fdb_tbl_entry *found;
++	bool removing = (flags & ROCKER_OP_FLAG_REMOVE);
++	unsigned long lock_flags;
++
++	fdb = kzalloc(sizeof(*fdb), rocker_op_flags_gfp(flags));
++	if (!fdb)
++		return -ENOMEM;
++
++	fdb->learned = (flags & ROCKER_OP_FLAG_LEARNED);
++	fdb->key.lport = rocker_port->lport;
++	ether_addr_copy(fdb->key.addr, addr);
++	fdb->key.vlan_id = vlan_id;
++	fdb->key_crc32 = crc32(~0, &fdb->key, sizeof(fdb->key));
++
++	spin_lock_irqsave(&rocker->fdb_tbl_lock, lock_flags);
++
++	found = rocker_fdb_tbl_find(rocker, fdb);
++
++	if (removing && found) {
++		kfree(fdb);
++		hash_del(&found->entry);
++	} else if (!removing && !found) {
++		hash_add(rocker->fdb_tbl, &fdb->entry, fdb->key_crc32);
++	}
++
++	spin_unlock_irqrestore(&rocker->fdb_tbl_lock, lock_flags);
++
++	/* Check if adding and already exists, or removing and can't find */
++	if (!found != !removing) {
++		kfree(fdb);
++		return 0;
++	}
++
++	return rocker_port_fdb_learn(rocker_port, flags, addr, vlan_id);
++}
++
++static int rocker_port_fdb_flush(struct rocker_port *rocker_port)
++{
++	struct rocker *rocker = rocker_port->rocker;
++	struct rocker_fdb_tbl_entry *found;
++	unsigned long lock_flags;
++	int flags = ROCKER_OP_FLAG_NOWAIT | ROCKER_OP_FLAG_REMOVE;
++	struct hlist_node *tmp;
++	int bkt;
++	int err = 0;
++
++	if (rocker_port->stp_state == BR_STATE_LEARNING ||
++	    rocker_port->stp_state == BR_STATE_FORWARDING)
++		return 0;
++
++	spin_lock_irqsave(&rocker->fdb_tbl_lock, lock_flags);
++
++	hash_for_each_safe(rocker->fdb_tbl, bkt, tmp, found, entry) {
++		if (found->key.lport != rocker_port->lport)
++			continue;
++		if (!found->learned)
++			continue;
++		err = rocker_port_fdb_learn(rocker_port, flags,
++					    found->key.addr,
++					    found->key.vlan_id);
++		if (err)
++			goto err_out;
++		hash_del(&found->entry);
++	}
++
++err_out:
++	spin_unlock_irqrestore(&rocker->fdb_tbl_lock, lock_flags);
++
++	return err;
++}
++
+ static int rocker_port_router_mac(struct rocker_port *rocker_port,
+ 				  int flags, __be16 vlan_id)
+ {
+@@ -2755,6 +3145,98 @@ static int rocker_port_router_mac(struct rocker_port *rocker_port,
+ 	return err;
+ }
+ 
++static int rocker_port_fwding(struct rocker_port *rocker_port)
++{
++	bool pop_vlan;
++	u32 out_lport;
++	__be16 vlan_id;
++	u16 vid;
++	int flags = ROCKER_OP_FLAG_NOWAIT;
++	int err;
++
++	/* Port will be forwarding-enabled if its STP state is LEARNING
++	 * or FORWARDING.  Traffic from CPU can still egress, regardless of
++	 * port STP state.  Use L2 interface group on port VLANs as a way
++	 * to toggle port forwarding: if forwarding is disabled, L2
++	 * interface group will not exist.
++	 */
++
++	if (rocker_port->stp_state != BR_STATE_LEARNING &&
++	    rocker_port->stp_state != BR_STATE_FORWARDING)
++		flags |= ROCKER_OP_FLAG_REMOVE;
++
++	out_lport = rocker_port->lport;
++	for (vid = 1; vid < VLAN_N_VID; vid++) {
++		if (!test_bit(vid, rocker_port->vlan_bitmap))
++			continue;
++		vlan_id = htons(vid);
++		pop_vlan = rocker_vlan_id_is_internal(vlan_id);
++		err = rocker_group_l2_interface(rocker_port, flags,
++						vlan_id, out_lport,
++						pop_vlan);
++		if (err) {
++			netdev_err(rocker_port->dev,
++				   "Error (%d) port VLAN l2 group for lport %d\n",
++				   err, out_lport);
++			return err;
++		}
++	}
++
++	return 0;
++}
++
++static int rocker_port_stp_update(struct net_device *dev, u8 state)
++{
++	struct rocker_port *rocker_port = netdev_priv(dev);
++	bool want[ROCKER_CTRL_MAX] = { 0, };
++	int flags;
++	int err;
++	int i;
++
++	if (rocker_port->stp_state == state)
++		return 0;
++
++	rocker_port->stp_state = state;
++
++	switch (state) {
++	case BR_STATE_DISABLED:
++		/* port is completely disabled */
++		break;
++	case BR_STATE_LISTENING:
++	case BR_STATE_BLOCKING:
++		want[ROCKER_CTRL_LINK_LOCAL_MCAST] = true;
++		break;
++	case BR_STATE_LEARNING:
++	case BR_STATE_FORWARDING:
++		want[ROCKER_CTRL_LINK_LOCAL_MCAST] = true;
++		want[ROCKER_CTRL_IPV4_MCAST] = true;
++		want[ROCKER_CTRL_IPV6_MCAST] = true;
++		if (rocker_port_is_bridged(rocker_port))
++			want[ROCKER_CTRL_DFLT_BRIDGING] = true;
++		else
++			want[ROCKER_CTRL_LOCAL_ARP] = true;
++		break;
++	}
++
++	for (i = 0; i < ROCKER_CTRL_MAX; i++) {
++		if (want[i] != rocker_port->ctrls[i]) {
++			flags = ROCKER_OP_FLAG_NOWAIT |
++				(want[i] ? 0 : ROCKER_OP_FLAG_REMOVE);
++			err = rocker_port_ctrl(rocker_port, flags,
++					       &rocker_ctrls[i]);
++			if (err)
++				return err;
++			rocker_port->ctrls[i] = want[i];
++		}
++	}
++
++	err = rocker_port_fdb_flush(rocker_port);
++	if (err)
++		return err;
++
++	return rocker_port_fwding(rocker_port);
++}
++
+ static struct rocker_internal_vlan_tbl_entry *
+ rocker_internal_vlan_tbl_find(struct rocker *rocker, int ifindex)
+ {
+@@ -2847,6 +3329,8 @@ not_found:
+ static int rocker_port_open(struct net_device *dev)
+ {
+ 	struct rocker_port *rocker_port = netdev_priv(dev);
++	u8 stp_state = rocker_port_is_bridged(rocker_port) ?
++		BR_STATE_BLOCKING : BR_STATE_FORWARDING;
+ 	int err;
+ 
+ 	err = rocker_port_dma_rings_init(rocker_port);
+@@ -2869,12 +3353,18 @@ static int rocker_port_open(struct net_device *dev)
+ 		goto err_request_rx_irq;
+ 	}
+ 
++	err = rocker_port_stp_update(dev, stp_state);
++	if (err)
++		goto err_stp_update;
++
+ 	napi_enable(&rocker_port->napi_tx);
+ 	napi_enable(&rocker_port->napi_rx);
+ 	rocker_port_set_enable(rocker_port, true);
+ 	netif_start_queue(dev);
+ 	return 0;
+ 
++err_stp_update:
++	free_irq(rocker_msix_rx_vector(rocker_port), rocker_port);
+ err_request_rx_irq:
+ 	free_irq(rocker_msix_tx_vector(rocker_port), rocker_port);
+ err_request_tx_irq:
+@@ -2890,6 +3380,7 @@ static int rocker_port_stop(struct net_device *dev)
+ 	rocker_port_set_enable(rocker_port, false);
+ 	napi_disable(&rocker_port->napi_rx);
+ 	napi_disable(&rocker_port->napi_tx);
++	rocker_port_stp_update(dev, BR_STATE_DISABLED);
+ 	free_irq(rocker_msix_rx_vector(rocker_port), rocker_port);
+ 	free_irq(rocker_msix_tx_vector(rocker_port), rocker_port);
+ 	rocker_port_dma_rings_fini(rocker_port);
+@@ -3034,6 +3525,33 @@ static int rocker_port_set_mac_address(struct net_device *dev, void *p)
  	return 0;
  }
-diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
-index 2b047bc..c00139b 100644
---- a/net/bridge/br_stp.c
-+++ b/net/bridge/br_stp.c
-@@ -12,6 +12,7 @@
-  */
- #include <linux/kernel.h>
- #include <linux/rculist.h>
-+#include <net/switchdev.h>
  
- #include "br_private.h"
- #include "br_private_stp.h"
-@@ -114,6 +115,7 @@ static void br_root_port_block(const struct net_bridge *br,
- 
- 	br_set_state(p, BR_STATE_LISTENING);
- 	br_log_state(p);
-+	netdev_sw_port_stp_update(p->dev, p->state);
- 	br_ifinfo_notify(RTM_NEWLINK, p);
- 
- 	if (br->forward_delay > 0)
-@@ -394,6 +396,7 @@ static void br_make_blocking(struct net_bridge_port *p)
- 
- 		br_set_state(p, BR_STATE_BLOCKING);
- 		br_log_state(p);
-+		netdev_sw_port_stp_update(p->dev, p->state);
- 		br_ifinfo_notify(RTM_NEWLINK, p);
- 
- 		del_timer(&p->forward_delay_timer);
-@@ -419,6 +422,7 @@ static void br_make_forwarding(struct net_bridge_port *p)
- 
- 	br_multicast_enable_port(p);
- 	br_log_state(p);
-+	netdev_sw_port_stp_update(p->dev, p->state);
- 	br_ifinfo_notify(RTM_NEWLINK, p);
- 
- 	if (br->forward_delay != 0)
-diff --git a/net/bridge/br_stp_if.c b/net/bridge/br_stp_if.c
-index 4114687..91279f8 100644
---- a/net/bridge/br_stp_if.c
-+++ b/net/bridge/br_stp_if.c
-@@ -15,6 +15,7 @@
- #include <linux/kmod.h>
- #include <linux/etherdevice.h>
- #include <linux/rtnetlink.h>
-+#include <net/switchdev.h>
- 
- #include "br_private.h"
- #include "br_private_stp.h"
-@@ -89,6 +90,7 @@ void br_stp_enable_port(struct net_bridge_port *p)
- 	br_init_port(p);
- 	br_port_state_selection(p->br);
- 	br_log_state(p);
-+	netdev_sw_port_stp_update(p->dev, p->state);
- 	br_ifinfo_notify(RTM_NEWLINK, p);
- }
- 
-@@ -105,6 +107,7 @@ void br_stp_disable_port(struct net_bridge_port *p)
- 	p->config_pending = 0;
- 
- 	br_log_state(p);
-+	netdev_sw_port_stp_update(p->dev, p->state);
- 	br_ifinfo_notify(RTM_NEWLINK, p);
- 
- 	del_timer(&p->message_age_timer);
-diff --git a/net/bridge/br_stp_timer.c b/net/bridge/br_stp_timer.c
-index 4fcaa67..5bb8997 100644
---- a/net/bridge/br_stp_timer.c
-+++ b/net/bridge/br_stp_timer.c
-@@ -13,6 +13,7 @@
- 
- #include <linux/kernel.h>
- #include <linux/times.h>
-+#include <net/switchdev.h>
- 
- #include "br_private.h"
- #include "br_private_stp.h"
-@@ -97,6 +98,7 @@ static void br_forward_delay_timer_expired(unsigned long arg)
- 		netif_carrier_on(br->dev);
- 	}
- 	br_log_state(p);
-+	netdev_sw_port_stp_update(p->dev, p->state);
- 	br_ifinfo_notify(RTM_NEWLINK, p);
- 	spin_unlock(&br->lock);
- }
-diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-index 93d47b7..75997a5 100644
---- a/net/switchdev/switchdev.c
-+++ b/net/switchdev/switchdev.c
-@@ -72,3 +72,22 @@ int netdev_sw_port_fdb_del(struct net_device *dev,
- 	return ops->ndo_sw_port_fdb_del(dev, addr, vid);
- }
- EXPORT_SYMBOL(netdev_sw_port_fdb_del);
-+
-+/**
-+ *	netdev_sw_port_stp_update - Notify switch device port of STP
-+ *				    state change
-+ *	@dev: port device
-+ *	@state: port STP state
-+ *
-+ *	Notify switch device port of bridge port STP state change.
-+ */
-+int netdev_sw_port_stp_update(struct net_device *dev, u8 state)
++static int rocker_port_vlan_rx_add_vid(struct net_device *dev,
++				       __be16 proto, u16 vid)
 +{
-+	const struct net_device_ops *ops = dev->netdev_ops;
++	struct rocker_port *rocker_port = netdev_priv(dev);
++	int err;
 +
-+	if (!ops->ndo_sw_port_stp_update)
-+		return -EOPNOTSUPP;
-+	WARN_ON(!ops->ndo_sw_parent_id_get);
-+	return ops->ndo_sw_port_stp_update(dev, state);
++	err = rocker_port_vlan(rocker_port, 0, vid);
++	if (err)
++		return err;
++
++	return rocker_port_router_mac(rocker_port, 0, htons(vid));
 +}
-+EXPORT_SYMBOL(netdev_sw_port_stp_update);
++
++static int rocker_port_vlan_rx_kill_vid(struct net_device *dev,
++					__be16 proto, u16 vid)
++{
++	struct rocker_port *rocker_port = netdev_priv(dev);
++	int err;
++
++	err = rocker_port_router_mac(rocker_port, ROCKER_OP_FLAG_REMOVE,
++				     htons(vid));
++	if (err)
++		return err;
++
++	return rocker_port_vlan(rocker_port, ROCKER_OP_FLAG_REMOVE, vid);
++}
++
+ static int rocker_port_sw_parent_id_get(struct net_device *dev,
+ 					struct netdev_phys_item_id *psid)
+ {
+@@ -3045,12 +3563,48 @@ static int rocker_port_sw_parent_id_get(struct net_device *dev,
+ 	return 0;
+ }
+ 
++static int rocker_port_sw_port_fdb_add(struct net_device *dev,
++				       const unsigned char *addr, u16 vid)
++{
++	struct rocker_port *rocker_port = netdev_priv(dev);
++	__be16 vlan_id = rocker_port_vid_to_vlan(rocker_port, vid, NULL);
++	int flags = 0;
++
++	if (!rocker_port_is_bridged(rocker_port))
++		return -EINVAL;
++
++	return rocker_port_fdb(rocker_port, addr, vlan_id, flags);
++}
++
++static int rocker_port_sw_port_fdb_del(struct net_device *dev,
++				       const unsigned char *addr, u16 vid)
++{
++	struct rocker_port *rocker_port = netdev_priv(dev);
++	__be16 vlan_id = rocker_port_vid_to_vlan(rocker_port, vid, NULL);
++	int flags = ROCKER_OP_FLAG_REMOVE;
++
++	if (!rocker_port_is_bridged(rocker_port))
++		return -EINVAL;
++
++	return rocker_port_fdb(rocker_port, addr, vlan_id, flags);
++}
++
++static int rocker_port_sw_port_stp_update(struct net_device *dev, u8 state)
++{
++	return rocker_port_stp_update(dev, state);
++}
++
+ static const struct net_device_ops rocker_port_netdev_ops = {
+ 	.ndo_open			= rocker_port_open,
+ 	.ndo_stop			= rocker_port_stop,
+ 	.ndo_start_xmit			= rocker_port_xmit,
+ 	.ndo_set_mac_address		= rocker_port_set_mac_address,
++	.ndo_vlan_rx_add_vid		= rocker_port_vlan_rx_add_vid,
++	.ndo_vlan_rx_kill_vid		= rocker_port_vlan_rx_kill_vid,
+ 	.ndo_sw_parent_id_get		= rocker_port_sw_parent_id_get,
++	.ndo_sw_port_fdb_add		= rocker_port_sw_port_fdb_add,
++	.ndo_sw_port_fdb_del		= rocker_port_sw_port_fdb_del,
++	.ndo_sw_port_stp_update		= rocker_port_sw_port_stp_update,
+ };
+ 
+ /********************
+@@ -3500,17 +4054,121 @@ static struct pci_driver rocker_pci_driver = {
+ 	.remove		= rocker_remove,
+ };
+ 
++/************************************
++ * Net device notifier event handler
++ ************************************/
++
++static bool rocker_port_dev_check(struct net_device *dev)
++{
++	return dev->netdev_ops == &rocker_port_netdev_ops;
++}
++
++static int rocker_port_bridge_join(struct rocker_port *rocker_port,
++				   struct net_device *bridge)
++{
++	int err;
++
++	rocker_port_internal_vlan_id_put(rocker_port,
++					 rocker_port->dev->ifindex);
++
++	rocker_port->bridge_dev = bridge;
++
++	/* Use bridge internal VLAN ID for untagged pkts */
++	err = rocker_port_vlan(rocker_port, ROCKER_OP_FLAG_REMOVE, 0);
++	if (err)
++		return err;
++	rocker_port->internal_vlan_id =
++		rocker_port_internal_vlan_id_get(rocker_port,
++						 bridge->ifindex);
++	err = rocker_port_vlan(rocker_port, 0, 0);
++
++	return err;
++}
++
++static int rocker_port_bridge_leave(struct rocker_port *rocker_port)
++{
++	int err;
++
++	rocker_port_internal_vlan_id_put(rocker_port,
++					 rocker_port->bridge_dev->ifindex);
++
++	rocker_port->bridge_dev = NULL;
++
++	/* Use port internal VLAN ID for untagged pkts */
++	err = rocker_port_vlan(rocker_port, ROCKER_OP_FLAG_REMOVE, 0);
++	if (err)
++		return err;
++	rocker_port->internal_vlan_id =
++		rocker_port_internal_vlan_id_get(rocker_port,
++						 rocker_port->dev->ifindex);
++	err = rocker_port_vlan(rocker_port, 0, 0);
++
++	return err;
++}
++
++static int rocker_port_master_changed(struct net_device *dev)
++{
++	struct rocker_port *rocker_port = netdev_priv(dev);
++	struct net_device *master = netdev_master_upper_dev_get(dev);
++	int err = 0;
++
++	if (master && master->rtnl_link_ops &&
++	    !strcmp(master->rtnl_link_ops->kind, "bridge"))
++		err = rocker_port_bridge_join(rocker_port, master);
++	else
++		err = rocker_port_bridge_leave(rocker_port);
++
++	return err;
++}
++
++static int rocker_netdevice_event(struct notifier_block *unused,
++				  unsigned long event, void *ptr)
++{
++	struct net_device *dev;
++	int err;
++
++	switch (event) {
++	case NETDEV_CHANGEUPPER:
++		dev = netdev_notifier_info_to_dev(ptr);
++		if (!rocker_port_dev_check(dev))
++			return NOTIFY_DONE;
++		err = rocker_port_master_changed(dev);
++		if (err)
++			netdev_warn(dev,
++				    "failed to reflect master change (err %d)\n",
++				    err);
++		break;
++	}
++
++	return NOTIFY_DONE;
++}
++
++static struct notifier_block rocker_netdevice_nb __read_mostly = {
++	.notifier_call = rocker_netdevice_event,
++};
++
+ /***********************
+  * Module init and exit
+  ***********************/
+ 
+ static int __init rocker_module_init(void)
+ {
+-	return pci_register_driver(&rocker_pci_driver);
++	int err;
++
++	register_netdevice_notifier(&rocker_netdevice_nb);
++	err = pci_register_driver(&rocker_pci_driver);
++	if (err)
++		goto err_pci_register_driver;
++	return 0;
++
++err_pci_register_driver:
++	unregister_netdevice_notifier(&rocker_netdevice_nb);
++	return err;
+ }
+ 
+ static void __exit rocker_module_exit(void)
+ {
++	unregister_netdevice_notifier(&rocker_netdevice_nb);
+ 	pci_unregister_driver(&rocker_pci_driver);
+ }
+ 
 -- 
 1.9.3
