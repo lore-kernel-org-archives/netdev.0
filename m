@@ -1,52 +1,74 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH V1 net-next] net/fm10k: Avoid double setting of NETIF_F_SG for the HW encapsulation feature mask
-Date: Sun,  9 Nov 2014 10:13:42 +0200
-Message-ID: <1415520822-11922-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: Re: [PATCH V2 net-next 2/2] net/mlx4_en: Extend checksum offloading
+ by CHECKSUM COMPLETE
+Date: Sun, 9 Nov 2014 10:14:32 +0200
+Message-ID: <545F2268.9010108@mellanox.com>
+References: <1415291324-22069-1-git-send-email-ogerlitz@mellanox.com> <1415291324-22069-3-git-send-email-ogerlitz@mellanox.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 8bit
+Cc: <netdev@vger.kernel.org>, Matan Barak <matanb@mellanox.com>,
+	"Saeed Mahameed" <saeedm@mellanox.com>,
+	Shani Michaeli <shanim@mellanox.com>,
+	"Ido Shamay" <idos@mellanox.com>, Jerry Chu <hkchu@google.com>
+To: Or Gerlitz <ogerlitz@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:49649 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750769AbaKIIN5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 9 Nov 2014 03:13:57 -0500
+Received: from eu1sys200aog112.obsmtp.com ([207.126.144.133]:51402 "EHLO
+	eu1sys200aog112.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750769AbaKIIOj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Nov 2014 03:14:39 -0500
+In-Reply-To: <1415291324-22069-3-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The networking core does it for the driver during registration time.
+On 11/6/2014 6:28 PM, Or Gerlitz wrote:
+> From: Shani Michaeli <shanim@mellanox.com>
+> 
+> When processing received traffic, pass CHECKSUM_COMPLETE status to the
+> stack, with calculated checksum for non TCP/UDP packets (such
+> as GRE or ICMP).
+> 
+> Although the stack expects checksum which doesn't include the pseudo
+> header, the HW adds it. To address that, we are subtracting the pseudo
+> header checksum from the checksum value provided by the HW.
+> 
+> In the IPv6 case, we also compute/add the IP header checksum which
+> is not added by the HW for such packets.
+> 
+> Cc: Jerry Chu <hkchu@google.com>
+> Signed-off-by: Shani Michaeli <shanim@mellanox.com>
+> Signed-off-by: Matan Barak <matanb@mellanox.com>
+> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+> ---
+>  drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |    2 +-
+>  drivers/net/ethernet/mellanox/mlx4/en_netdev.c  |    5 +
+>  drivers/net/ethernet/mellanox/mlx4/en_port.c    |    2 +
+>  drivers/net/ethernet/mellanox/mlx4/en_rx.c      |  127 +++++++++++++++++++++--
+>  drivers/net/ethernet/mellanox/mlx4/main.c       |    9 ++
+>  drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    |    5 +-
+>  include/linux/mlx4/device.h                     |    1 +
+>  7 files changed, 142 insertions(+), 9 deletions(-)
+> 
 
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
----
+[...]
 
-changes from v0:
- - set alignment to be per the request of Matthew Vick
+> @@ -702,8 +787,8 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+>  		 * and not performing the selftest or flb disabled
+>  		 */
+>  		if (priv->flags & MLX4_EN_FLAG_RX_FILTER_NEEDED) {
+> -			struct ethhdr *ethh;
+>  			dma_addr_t dma;
+> +			struct ethhdr *ethh;
+>  			/* Get pointer to first fragment since we haven't
+>  			 * skb yet and cast it to ethhdr struct
+>  			 */
+This  hunk is not needed
 
 
- drivers/net/ethernet/intel/fm10k/fm10k_netdev.c |   13 ++++++-------
- 1 files changed, 6 insertions(+), 7 deletions(-)
+> @@ -744,13 +829,26 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+>  			(cqe->vlan_my_qpn & cpu_to_be32(MLX4_CQE_L2_TUNNEL));
 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
-index 8811364..14882dc 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
-@@ -1414,13 +1414,12 @@ struct net_device *fm10k_alloc_netdev(void)
- 	dev->vlan_features |= dev->features;
- 
- 	/* configure tunnel offloads */
--	dev->hw_enc_features = NETIF_F_IP_CSUM |
--			       NETIF_F_TSO |
--			       NETIF_F_TSO6 |
--			       NETIF_F_TSO_ECN |
--			       NETIF_F_GSO_UDP_TUNNEL |
--			       NETIF_F_IPV6_CSUM |
--			       NETIF_F_SG;
-+	dev->hw_enc_features |= NETIF_F_IP_CSUM |
-+			        NETIF_F_TSO |
-+			        NETIF_F_TSO6 |
-+			        NETIF_F_TSO_ECN |
-+			        NETIF_F_GSO_UDP_TUNNEL |
-+			        NETIF_F_IPV6_CSUM;
- 
- 	/* we want to leave these both on as we cannot disable VLAN tag
- 	 * insertion or stripping on the hardware since it is contained
--- 
-1.7.1
+[...]
+
+Amir
