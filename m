@@ -1,32 +1,101 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: Re: [PATCH net-next] net/fm10k: Avoid double setting of NETIF_F_SG
- for the HW encapsulation feature mask
-Date: Sun, 9 Nov 2014 10:15:05 +0200
-Message-ID: <545F2289.1090802@mellanox.com>
-References: <1415265664-10738-1-git-send-email-ogerlitz@mellanox.com> <D0827E2E.5ED4E%matthew.vick@intel.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [PATCH V2 net-next 2/2] net/mlx4_en: Extend checksum offloading
+ by CHECKSUM COMPLETE
+Date: Sun, 9 Nov 2014 10:24:41 +0200
+Message-ID: <CAJ3xEMg4Nhd1B4iO20=Xt=Z9jeYJVbVnXdgz5Q1w0KQ+9kVYRQ@mail.gmail.com>
+References: <1415291324-22069-1-git-send-email-ogerlitz@mellanox.com>
+	<1415291324-22069-3-git-send-email-ogerlitz@mellanox.com>
+	<545C8582.4070408@dev.mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Vick, Matthew" <matthew.vick@intel.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Matan Barak <matanb@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Shani Michaeli <shanim@mellanox.com>,
+	Jerry Chu <hkchu@google.com>
+To: Amir Vadai <amirv@mellanox.com>, Ido Shamay <idos@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog124.obsmtp.com ([207.126.144.157]:51507 "EHLO
-	eu1sys200aog124.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750769AbaKIIPL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Nov 2014 03:15:11 -0500
-In-Reply-To: <D0827E2E.5ED4E%matthew.vick@intel.com>
+Received: from mail-ob0-f180.google.com ([209.85.214.180]:61746 "EHLO
+	mail-ob0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750769AbaKIIYm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Nov 2014 03:24:42 -0500
+Received: by mail-ob0-f180.google.com with SMTP id wp4so4354967obc.25
+        for <netdev@vger.kernel.org>; Sun, 09 Nov 2014 00:24:41 -0800 (PST)
+In-Reply-To: <545C8582.4070408@dev.mellanox.co.il>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/7/2014 11:57 PM, Vick, Matthew wrote:
-> Good catch, Or! Thank you for taking care of this!
+On Fri, Nov 7, 2014 at 10:40 AM, Ido Shamay <idos@dev.mellanox.co.il> wrote:
+> On 11/6/2014 6:28 PM, Or Gerlitz wrote:
+>>
+>>                 if (likely(dev->features & NETIF_F_RXCSUM)) {
+>> -                       if ((cqe->status &
+>> cpu_to_be16(MLX4_CQE_STATUS_IPOK)) &&
+>> -                           (cqe->checksum == cpu_to_be16(0xffff))) {
+>> -                               ring->csum_ok++;
+>> -                               ip_summed = CHECKSUM_UNNECESSARY;
+>> +                       if (cqe->status & cpu_to_be16(MLX4_CQE_STATUS_TCP
+>> |
+>> +
+>> MLX4_CQE_STATUS_UDP)) {
+>> +                               if ((cqe->status &
+>> cpu_to_be16(MLX4_CQE_STATUS_IPOK)) &&
+>> +                                   cqe->checksum == cpu_to_be16(0xffff))
+>> {
+>> +                                       ip_summed = CHECKSUM_UNNECESSARY;
+>> +                                       ring->csum_ok++;
+>> +                               } else {
+>> +                                       ip_summed = CHECKSUM_NONE;
+>> +                                       ring->csum_none++;
+>> +                               }
+>>                         } else {
+>> -                               ip_summed = CHECKSUM_NONE;
+>> -                               ring->csum_none++;
+>> +                               if (priv->flags &
+>> MLX4_EN_FLAG_RX_CSUM_NON_TCP_UDP &&
+>> +                                   (cqe->status &
+>> cpu_to_be16(MLX4_CQE_STATUS_IPV4 |
+>> +
+>> MLX4_CQE_STATUS_IPV6))) {
+>> +                                       ip_summed = CHECKSUM_COMPLETE;
+>> +                                       ring->csum_complete++;
+>> +                               } else {
+>> +                                       ip_summed = CHECKSUM_NONE;
+>> +                                       ring->csum_none++;
+>> +                               }
+>>                         }
+>>                 } else {
+>>                         ip_summed = CHECKSUM_NONE;
+>> @@ -776,6 +874,14 @@ int mlx4_en_process_rx_cq(struct net_device *dev,
+>> struct mlx4_en_cq *cq, int bud
+>>                         if (!nr)
+>>                                 goto next;
+>>
+>> +                       if (ip_summed == CHECKSUM_COMPLETE) {
+>> +                               va =
+>> skb_frag_address(skb_shinfo(gro_skb)->frags);
+>> +                               if (check_csum(cqe, gro_skb, va,
+>> ring->hwtstamp_rx_filter)) {
+>> +                                       ip_summed = CHECKSUM_NONE;
+>> +                                       ring->csum_none++;
+>
+>
+> When check_csum returns non zero value, then ring->csum_complete counter was
+> already incremented, and now we are incrementing ring->csum_none (for the
+> same packet), so need to --ring->csum_complete.
 
-sure
-> Someone can correct me if I'm mistaken (I thought checkpatch would
-> complain about this, but it doesn't seem to be), but I believe the start
-> of the lines should match up like they are for the dev->features. Would
-> you like to submit a V2 with this change or would you like me to do it
-> (giving you credit via your Reported-by)?
+Thanks Ido, I'll fix that.
 
-I just submitted V1 along your request
+Amir, I saw the little noise you just reported on too but didn't want
+to re-spin V1 just for that, thanks for catching this up.
+
+
+>
+>
+>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
