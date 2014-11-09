@@ -1,109 +1,102 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next] bridge: rename fdb_*_hw to fdb_*_hw_addr to avoid confusion
-Date: Sun,  9 Nov 2014 17:40:16 +0100
-Message-ID: <1415551216-2239-1-git-send-email-jiri@resnulli.us>
-References: <1415530280-9190-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
-	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
-	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
-	ben@decadent.org.uk, stephen@networkplumber.org,
-	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
-	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
-	edumazet@google.com, jhs@mojatatu.com, sfeldma@gmail.com,
-	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
-	linville@tuxdriver.com, jasowang@redhat.com, ebiederm@xmission.com,
-	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
-	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
-	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
-	ronye@mellanox.com, simon.horman@netronome.com,
-	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
-	mleitner@redhat.com, shrijeet@gmail.com, gospo@cumulusnetworks.com,
-	bcrl@kvack.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f48.google.com ([74.125.82.48]:40468 "EHLO
-	mail-wg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751449AbaKIQkW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Nov 2014 11:40:22 -0500
-Received: by mail-wg0-f48.google.com with SMTP id m15so7211213wgh.7
-        for <netdev@vger.kernel.org>; Sun, 09 Nov 2014 08:40:21 -0800 (PST)
-In-Reply-To: <1415530280-9190-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Mathy Vanhoef <vanhoefm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH] brcmfmac: unlink URB when request timed out
+Date: Sun, 09 Nov 2014 13:10:13 -0500
+Message-ID: <545FAE05.2030701@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: brudley-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, frankyl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
+	meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
+	pieterpg-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	brcm80211-dev-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-The current name might seem that this actually offloads the fdb entry to
-hw. So rename it to clearly present that this for hardware address
-addition/removal.
+From: Mathy Vanhoef <vanhoefm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+Unlink the submitted URB in brcmf_usb_dl_cmd if the request timed out. This
+assures the URB is never submitted twice, preventing a driver crash.
+
+Signed-off-by: Mathy Vanhoef <vanhoefm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- net/bridge/br_fdb.c | 14 +++++++-------
- 1 file changed, 7 insertions(+), 7 deletions(-)
+Currently brcmfmac may crash when a USB device is attached (tested with a LG
+TWFM-B003D). In particular it fails on the second call to brcmf_usb_dl_cmd in
+the while loop of brcmf_usb_resetcfg. The problem is that an URB is being
+submitted twice:
 
-diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-index e02d21b..3886f84 100644
---- a/net/bridge/br_fdb.c
-+++ b/net/bridge/br_fdb.c
-@@ -91,7 +91,7 @@ static void fdb_rcu_free(struct rcu_head *head)
-  * are then updated with the new information.
-  * Called under RTNL.
-  */
--static void fdb_add_hw(struct net_bridge *br, const unsigned char *addr)
-+static void fdb_add_hw_addr(struct net_bridge *br, const unsigned char *addr)
- {
- 	int err;
- 	struct net_bridge_port *p;
-@@ -119,7 +119,7 @@ undo:
-  * the ports with needed information.
-  * Called under RTNL.
-  */
--static void fdb_del_hw(struct net_bridge *br, const unsigned char *addr)
-+static void fdb_del_hw_addr(struct net_bridge *br, const unsigned char *addr)
- {
- 	struct net_bridge_port *p;
+[  169.861800] brcmfmac: brcmf_usb_dl_writeimage Enter, fw f14db000, len 348160
+[  171.787791] brcmfmac: brcmf_usb_dl_writeimage Exit, err=0
+[  171.787797] brcmfmac: brcmf_usb_dlstart Exit, err=0
+[  171.787799] brcmfmac: brcmf_usb_dlrun Enter
+[  171.791794] brcmfmac: brcmf_usb_resetcfg Enter
+[  173.988072] ------------[ cut here ]------------
+[  173.988083] WARNING: CPU: 0 PID: 369 at drivers/usb/core/urb.c:339 usb_submit_urb+0x4e6/0x500()
+[  173.988085] URB eaf45f00 submitted while active
+[  173.988086] Modules linked in: brcmfmac brcmutil vmw_pvscsi pcnet32 mptspi mptscsih mptbase
+[  173.988100] CPU: 0 PID: 369 Comm: kworker/0:2 Not tainted 3.18.0-rc3-wl #1
+[  173.988102] Hardware name: VMware, Inc. VMware Virtual Platform/440BX Desktop Reference Platform, BIOS 6.00 07/31/2013
+[  173.988106] Workqueue: events request_firmware_work_func
+[  173.988108]  00000000 00000000 ee747db8 c1711f4a ee747df8 ee747de8 c103edaf c18d1e10
+[  173.988112]  ee747e14 00000171 c18a8b29 00000153 c1490556 c1490556 eaf45f00 eafdc660
+[  173.988115]  f14b8fa0 ee747e00 c103ee4e 00000009 ee747df8 c18d1e10 ee747e14 ee747e50
+[  173.988119] Call Trace:
+[  173.988129]  [<c1711f4a>] dump_stack+0x41/0x52
+[  173.988136]  [<c103edaf>] warn_slowpath_common+0x7f/0xa0
+[  173.988139]  [<c1490556>] ? usb_submit_urb+0x4e6/0x500
+[  173.988141]  [<c1490556>] ? usb_submit_urb+0x4e6/0x500
+[  173.988147]  [<f14b8fa0>] ? brcmf_usb_ioctl_resp_wake+0x40/0x40 [brcmfmac]
+[  173.988150]  [<c103ee4e>] warn_slowpath_fmt+0x2e/0x30
+[  173.988152]  [<c1490556>] usb_submit_urb+0x4e6/0x500
+[  173.988156]  [<c1123de1>] ? __kmalloc+0x21/0x140
+[  173.988161]  [<f14b91c3>] ? brcmf_usb_dl_cmd+0x33/0x120 [brcmfmac]
+[  173.988166]  [<f14b9243>] brcmf_usb_dl_cmd+0xb3/0x120 [brcmfmac]
+[  173.988170]  [<f14ba6c4>] brcmf_usb_probe_phase2+0x4e4/0x640 [brcmfmac]
+[  173.988176]  [<f14b4900>] brcmf_fw_request_code_done+0xd0/0xf0 [brcmfmac]
+[  173.988178]  [<c1400876>] request_firmware_work_func+0x26/0x50
+[  173.988182]  [<c10513ee>] process_one_work+0x11e/0x360
+[  173.988184]  [<c1051750>] worker_thread+0xf0/0x3c0
+[  173.988205]  [<c106e14a>] ? __wake_up_locked+0x1a/0x20
+[  173.988208]  [<c1051660>] ? process_scheduled_works+0x30/0x30
+[  173.988211]  [<c1055b56>] kthread+0x96/0xb0
+[  173.988214]  [<c1719c81>] ret_from_kernel_thread+0x21/0x30
+[  173.988217]  [<c1055ac0>] ? kthread_worker_fn+0x110/0x110
+[  173.988219] ---[ end trace 0c88bf46801de083 ]---
+[  173.988221] brcmf_usb_dl_cmd: usb_submit_urb failed -16
+[  173.988396] brcmfmac: brcmf_usb_probe_phase2 failed: dev=1-1, err=-19
+[  173.989503] brcmfmac: brcmf_usb_disconnect Enter
+
+This patch fixes the brcmf_usb_dl_cmd function to prevent an URB from being
+submitted twice. Tested using a LG TWFM-B003D, which now works properly.
+
+
+ drivers/net/wireless/brcm80211/brcmfmac/usb.c |    6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/wireless/brcm80211/brcmfmac/usb.c b/drivers/net/wireless/brcm80211/brcmfmac/usb.c
+index 5265aa7..1bc7858 100644
+--- a/drivers/net/wireless/brcm80211/brcmfmac/usb.c
++++ b/drivers/net/wireless/brcm80211/brcmfmac/usb.c
+@@ -738,10 +738,12 @@ static int brcmf_usb_dl_cmd(struct brcmf_usbdev_info *devinfo, u8 cmd,
+ 		goto finalize;
+ 	}
  
-@@ -134,7 +134,7 @@ static void fdb_del_hw(struct net_bridge *br, const unsigned char *addr)
- static void fdb_delete(struct net_bridge *br, struct net_bridge_fdb_entry *f)
- {
- 	if (f->is_static) {
--		fdb_del_hw(br, f->addr.addr);
-+		fdb_del_hw_addr(br, f->addr.addr);
- 		if (f->dst)
- 			netdev_sw_port_fdb_del(f->dst->dev,
- 					       f->addr.addr, f->vlan_id);
-@@ -519,7 +519,7 @@ static int fdb_insert(struct net_bridge *br, struct net_bridge_port *source,
- 		return -ENOMEM;
+-	if (!brcmf_usb_ioctl_resp_wait(devinfo))
++	if (!brcmf_usb_ioctl_resp_wait(devinfo)) {
++		usb_unlink_urb(devinfo->ctl_urb);
+ 		ret = -ETIMEDOUT;
+-	else
++	} else {
+ 		memcpy(buffer, tmpbuf, buflen);
++	}
  
- 	fdb->is_local = fdb->is_static = 1;
--	fdb_add_hw(br, addr);
-+	fdb_add_hw_addr(br, addr);
- 	fdb_notify(br, fdb, RTM_NEWNEIGH);
- 	return 0;
- }
-@@ -759,21 +759,21 @@ static int fdb_add_entry(struct net_bridge_port *source, const __u8 *addr,
- 			fdb->is_local = 1;
- 			if (!fdb->is_static) {
- 				fdb->is_static = 1;
--				fdb_add_hw(br, addr);
-+				fdb_add_hw_addr(br, addr);
- 				netdev_sw_port_fdb_add(source->dev, addr, vid);
- 			}
- 		} else if (state & NUD_NOARP) {
- 			fdb->is_local = 0;
- 			if (!fdb->is_static) {
- 				fdb->is_static = 1;
--				fdb_add_hw(br, addr);
-+				fdb_add_hw_addr(br, addr);
- 				netdev_sw_port_fdb_add(source->dev, addr, vid);
- 			}
- 		} else {
- 			fdb->is_local = 0;
- 			if (fdb->is_static) {
- 				fdb->is_static = 0;
--				fdb_del_hw(br, addr);
-+				fdb_del_hw_addr(br, addr);
- 				netdev_sw_port_fdb_del(source->dev, addr, vid);
- 			}
- 		}
+ finalize:
+ 	kfree(tmpbuf);
 -- 
-1.9.3
+1.7.10.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
