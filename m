@@ -1,101 +1,62 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH V2 net-next 2/2] net/mlx4_en: Extend checksum offloading
- by CHECKSUM COMPLETE
-Date: Sun, 9 Nov 2014 10:24:41 +0200
-Message-ID: <CAJ3xEMg4Nhd1B4iO20=Xt=Z9jeYJVbVnXdgz5Q1w0KQ+9kVYRQ@mail.gmail.com>
-References: <1415291324-22069-1-git-send-email-ogerlitz@mellanox.com>
-	<1415291324-22069-3-git-send-email-ogerlitz@mellanox.com>
-	<545C8582.4070408@dev.mellanox.co.il>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH] checkpatch: Add --strict preference for #defines using
+ BIT(foo)
+Date: Sun, 9 Nov 2014 10:50:25 +0100
+Message-ID: <20141109095025.GA1840@nanopsycho.orion>
+References: <1415265610-9338-1-git-send-email-jiri@resnulli.us>
+ <1415265610-9338-10-git-send-email-jiri@resnulli.us>
+ <20141107.151607.480474516800359791.davem@davemloft.net>
+ <1415394939.23530.20.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Matan Barak <matanb@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Shani Michaeli <shanim@mellanox.com>,
-	Jerry Chu <hkchu@google.com>
-To: Amir Vadai <amirv@mellanox.com>, Ido Shamay <idos@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f180.google.com ([209.85.214.180]:61746 "EHLO
-	mail-ob0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750769AbaKIIYm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Nov 2014 03:24:42 -0500
-Received: by mail-ob0-f180.google.com with SMTP id wp4so4354967obc.25
-        for <netdev@vger.kernel.org>; Sun, 09 Nov 2014 00:24:41 -0800 (PST)
-In-Reply-To: <545C8582.4070408@dev.mellanox.co.il>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1415394939.23530.20.camel@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 7, 2014 at 10:40 AM, Ido Shamay <idos@dev.mellanox.co.il> wrote:
-> On 11/6/2014 6:28 PM, Or Gerlitz wrote:
->>
->>                 if (likely(dev->features & NETIF_F_RXCSUM)) {
->> -                       if ((cqe->status &
->> cpu_to_be16(MLX4_CQE_STATUS_IPOK)) &&
->> -                           (cqe->checksum == cpu_to_be16(0xffff))) {
->> -                               ring->csum_ok++;
->> -                               ip_summed = CHECKSUM_UNNECESSARY;
->> +                       if (cqe->status & cpu_to_be16(MLX4_CQE_STATUS_TCP
->> |
->> +
->> MLX4_CQE_STATUS_UDP)) {
->> +                               if ((cqe->status &
->> cpu_to_be16(MLX4_CQE_STATUS_IPOK)) &&
->> +                                   cqe->checksum == cpu_to_be16(0xffff))
->> {
->> +                                       ip_summed = CHECKSUM_UNNECESSARY;
->> +                                       ring->csum_ok++;
->> +                               } else {
->> +                                       ip_summed = CHECKSUM_NONE;
->> +                                       ring->csum_none++;
->> +                               }
->>                         } else {
->> -                               ip_summed = CHECKSUM_NONE;
->> -                               ring->csum_none++;
->> +                               if (priv->flags &
->> MLX4_EN_FLAG_RX_CSUM_NON_TCP_UDP &&
->> +                                   (cqe->status &
->> cpu_to_be16(MLX4_CQE_STATUS_IPV4 |
->> +
->> MLX4_CQE_STATUS_IPV6))) {
->> +                                       ip_summed = CHECKSUM_COMPLETE;
->> +                                       ring->csum_complete++;
->> +                               } else {
->> +                                       ip_summed = CHECKSUM_NONE;
->> +                                       ring->csum_none++;
->> +                               }
->>                         }
->>                 } else {
->>                         ip_summed = CHECKSUM_NONE;
->> @@ -776,6 +874,14 @@ int mlx4_en_process_rx_cq(struct net_device *dev,
->> struct mlx4_en_cq *cq, int bud
->>                         if (!nr)
->>                                 goto next;
->>
->> +                       if (ip_summed == CHECKSUM_COMPLETE) {
->> +                               va =
->> skb_frag_address(skb_shinfo(gro_skb)->frags);
->> +                               if (check_csum(cqe, gro_skb, va,
->> ring->hwtstamp_rx_filter)) {
->> +                                       ip_summed = CHECKSUM_NONE;
->> +                                       ring->csum_none++;
->
->
-> When check_csum returns non zero value, then ring->csum_complete counter was
-> already incremented, and now we are incrementing ring->csum_none (for the
-> same packet), so need to --ring->csum_complete.
+Fri, Nov 07, 2014 at 10:15:39PM CET, joe@perches.com wrote:
+>Using BIT(foo) and BIT_ULL(bar) is more common now.
+>Suggest using these macros over #defines with 1<<value.
 
-Thanks Ido, I'll fix that.
+Joe, regarding the other Dave's comment, the multiline one, that is also
+not covered by checkpatch. Would please you take care of that as well?
 
-Amir, I saw the little noise you just reported on too but didn't want
-to re-spin V1 just for that, thanks for catching this up.
-
+Thanks.
 
 >
+>Add a --fix option too.
+>
+>Signed-off-by: Joe Perches <joe@perches.com>
+>---
+> scripts/checkpatch.pl | 11 +++++++++++
+> 1 file changed, 11 insertions(+)
+>
+>diff --git a/scripts/checkpatch.pl b/scripts/checkpatch.pl
+>index 893cbd5..b5dc3f4 100755
+>--- a/scripts/checkpatch.pl
+>+++ b/scripts/checkpatch.pl
+>@@ -4973,6 +4973,17 @@ sub process {
+> 			}
+> 		}
+> 
+>+# check for #defines like: 1 << <digit> that could be BIT(digit)
+>+		if ($line =~ /#\s*define\s+\w+\s+\(?\s*1\s*([ulUL]*)\s*\<\<\s*(?:\d+|$Ident)\s*\)?/) {
+>+			my $ull = "";
+>+			$ull = "_ULL" if (defined($1) && $1 =~ /ll/i);
+>+			if (CHK("BIT_MACRO",
+>+				"Prefer using the BIT$ull macro\n" . $herecurr) &&
+>+			    $fix) {
+>+				$fixed[$fixlinenr] =~ s/\(?\s*1\s*[ulUL]*\s*<<\s*(\d+|$Ident)\s*\)?/BIT${ull}($1)/;
+>+			}
+>+		}
+>+
+> # check for case / default statements not preceded by break/fallthrough/switch
+> 		if ($line =~ /^.\s*(?:case\s+(?:$Ident|$Constant)\s*|default):/) {
+> 			my $has_break = 0;
 >
 >
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
