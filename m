@@ -1,45 +1,52 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: [PATCH 3/3 net-next] sunvnet: Add missing rcu_read_unlock() in
- vnet_start_xmit
-Date: Sat, 8 Nov 2014 20:42:20 -0500
-Message-ID: <20141109014220.GE31217@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, david.stevens@oracle.com
-To: davem@davemloft.net, sowmini.varadhan@oracle.com
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH V1 net-next] net/fm10k: Avoid double setting of NETIF_F_SG for the HW encapsulation feature mask
+Date: Sun,  9 Nov 2014 10:13:42 +0200
+Message-ID: <1415520822-11922-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:23163 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751401AbaKIBmU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Nov 2014 20:42:20 -0500
-Content-Disposition: inline
+Received: from mailp.voltaire.com ([193.47.165.129]:49649 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750769AbaKIIN5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 9 Nov 2014 03:13:57 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+The networking core does it for the driver during registration time.
 
-The out_dropped label will only do rcu_read_unlock for non-null port.
-So add the missing rcu_read_unlock() when bailing due to non-null port.
-
-Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/ethernet/sun/sunvnet.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/sun/sunvnet.c b/drivers/net/ethernet/sun/sunvnet.c
-index 826b385..55d66c9 100644
---- a/drivers/net/ethernet/sun/sunvnet.c
-+++ b/drivers/net/ethernet/sun/sunvnet.c
-@@ -981,8 +981,10 @@ static int vnet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+changes from v0:
+ - set alignment to be per the request of Matthew Vick
+
+
+ drivers/net/ethernet/intel/fm10k/fm10k_netdev.c |   13 ++++++-------
+ 1 files changed, 6 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
+index 8811364..14882dc 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
+@@ -1414,13 +1414,12 @@ struct net_device *fm10k_alloc_netdev(void)
+ 	dev->vlan_features |= dev->features;
  
- 	rcu_read_lock();
- 	port = __tx_port_find(vp, skb);
--	if (unlikely(!port))
-+	if (unlikely(!port)) {
-+		rcu_read_unlock();
- 		goto out_dropped;
-+	}
+ 	/* configure tunnel offloads */
+-	dev->hw_enc_features = NETIF_F_IP_CSUM |
+-			       NETIF_F_TSO |
+-			       NETIF_F_TSO6 |
+-			       NETIF_F_TSO_ECN |
+-			       NETIF_F_GSO_UDP_TUNNEL |
+-			       NETIF_F_IPV6_CSUM |
+-			       NETIF_F_SG;
++	dev->hw_enc_features |= NETIF_F_IP_CSUM |
++			        NETIF_F_TSO |
++			        NETIF_F_TSO6 |
++			        NETIF_F_TSO_ECN |
++			        NETIF_F_GSO_UDP_TUNNEL |
++			        NETIF_F_IPV6_CSUM;
  
- 	if (skb->len > port->rmtu) {
- 		unsigned long localmtu = port->rmtu - ETH_HLEN;
+ 	/* we want to leave these both on as we cannot disable VLAN tag
+ 	 * insertion or stripping on the hardware since it is contained
 -- 
-1.8.4.2
+1.7.1
