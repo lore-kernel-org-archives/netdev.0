@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 06/10] bridge: introduce fdb offloading via switchdev
-Date: Sun,  9 Nov 2014 11:51:16 +0100
-Message-ID: <1415530280-9190-7-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v2 01/10] net: rename netdev_phys_port_id to more generic name
+Date: Sun,  9 Nov 2014 11:51:11 +0100
+Message-ID: <1415530280-9190-2-git-send-email-jiri@resnulli.us>
 References: <1415530280-9190-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
 	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
@@ -21,235 +21,188 @@ Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
 	bcrl@kvack.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f171.google.com ([209.85.212.171]:34268 "EHLO
+Received: from mail-wi0-f171.google.com ([209.85.212.171]:55587 "EHLO
 	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751831AbaKIKva (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Nov 2014 05:51:30 -0500
-Received: by mail-wi0-f171.google.com with SMTP id r20so8032047wiv.16
-        for <netdev@vger.kernel.org>; Sun, 09 Nov 2014 02:51:29 -0800 (PST)
+	with ESMTP id S1751509AbaKIKvZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Nov 2014 05:51:25 -0500
+Received: by mail-wi0-f171.google.com with SMTP id r20so8042098wiv.10
+        for <netdev@vger.kernel.org>; Sun, 09 Nov 2014 02:51:24 -0800 (PST)
 In-Reply-To: <1415530280-9190-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Scott Feldman <sfeldma@gmail.com>
+So this can be reused for identification of other "items" as well.
 
-Add two new ndos: ndo_sw_port_fdb_add/del to offload static bridge
-fdb entries.  Static bridge FDB entries are installed, for example,
-using iproute2 bridge cmd:
-
-       bridge fdb add ADDR dev DEV master vlan VID
-
-This would install ADDR into the bridge's FDB for port DEV on vlan VID.  The
-switch driver implements two ndo_swdev ops to add/delete FDB entries in the
-switch device:
-
-       int ndo_sw_port_fdb_add(struct net_device *dev,
-                               const unsigned char *addr,
-                               u16 vid);
-
-       int ndo_sw_port_fdb_del(struct net_device *dev,
-                               const unsigned char *addr,
-                               u16 vid);
-
-The driver returns 0 on success, negative error code on failure.
-
-Note: the switch driver would not implement ndo_fdb_add/del/dump on a port
-netdev as these are intended for devices maintaining their own FDB.  In our
-case, we want the Linux bridge to own the FBD.
-
-Note: by default, the bridge does not filter on VLAN and only bridges untagged
-traffic.  To enable VLAN support, turn on VLAN filtering:
-
-      echo 1 >/sys/class/net/<bridge>/bridge/vlan_filtering
-
-Signed-off-by: Scott Feldman <sfeldma@gmail.com>
 Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
- include/linux/netdevice.h | 16 ++++++++++++++++
- include/net/switchdev.h   | 17 +++++++++++++++++
- net/bridge/br_fdb.c       | 10 +++++++++-
- net/switchdev/switchdev.c | 41 +++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 83 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |  2 +-
+ drivers/net/ethernet/intel/i40e/i40e_main.c      |  2 +-
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c   |  2 +-
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |  2 +-
+ include/linux/netdevice.h                        | 16 ++++++++--------
+ net/core/dev.c                                   |  2 +-
+ net/core/net-sysfs.c                             |  2 +-
+ net/core/rtnetlink.c                             |  6 +++---
+ 8 files changed, 17 insertions(+), 17 deletions(-)
 
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index c4bd025..336ef3c 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -12537,7 +12537,7 @@ static int bnx2x_validate_addr(struct net_device *dev)
+ }
+ 
+ static int bnx2x_get_phys_port_id(struct net_device *netdev,
+-				  struct netdev_phys_port_id *ppid)
++				  struct netdev_phys_item_id *ppid)
+ {
+ 	struct bnx2x *bp = netdev_priv(netdev);
+ 
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 1a98e23..d749165 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -7373,7 +7373,7 @@ static void i40e_del_vxlan_port(struct net_device *netdev,
+ 
+ #endif
+ static int i40e_get_phys_port_id(struct net_device *netdev,
+-				 struct netdev_phys_port_id *ppid)
++				 struct netdev_phys_item_id *ppid)
+ {
+ 	struct i40e_netdev_priv *np = netdev_priv(netdev);
+ 	struct i40e_pf *pf = np->vsi->back;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index 0efbae9..bd007c3 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -2258,7 +2258,7 @@ static int mlx4_en_set_vf_link_state(struct net_device *dev, int vf, int link_st
+ 
+ #define PORT_ID_BYTE_LEN 8
+ static int mlx4_en_get_phys_port_id(struct net_device *dev,
+-				    struct netdev_phys_port_id *ppid)
++				    struct netdev_phys_item_id *ppid)
+ {
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
+ 	struct mlx4_dev *mdev = priv->mdev->dev;
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+index f5e29f7..6e514d2 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+@@ -460,7 +460,7 @@ static void qlcnic_82xx_cancel_idc_work(struct qlcnic_adapter *adapter)
+ }
+ 
+ static int qlcnic_get_phys_port_id(struct net_device *netdev,
+-				   struct netdev_phys_port_id *ppid)
++				   struct netdev_phys_item_id *ppid)
+ {
+ 	struct qlcnic_adapter *adapter = netdev_priv(netdev);
+ 	struct qlcnic_hardware_context *ahw = adapter->ahw;
 diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 97eade9..116a19d 100644
+index 90ac959..71922e0 100644
 --- a/include/linux/netdevice.h
 +++ b/include/linux/netdevice.h
-@@ -1023,6 +1023,16 @@ typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
-  *	Called to get an ID of the switch chip this port is part of.
-  *	If driver implements this, it indicates that it represents a port
-  *	of a switch chip.
-+ *
-+ * int (*ndo_sw_port_fdb_add)(struct net_device *dev,
-+ *			      const unsigned char *addr,
-+ *			      u16 vid);
-+ *	Called to add a fdb to switch device port.
-+ *
-+ * int (*ndo_sw_port_fdb_del)(struct net_device *dev,
-+ *			      const unsigned char *addr,
-+ *			      u16 vid);
-+ *	Called to delete a fdb from switch device port.
-  */
- struct net_device_ops {
- 	int			(*ndo_init)(struct net_device *dev);
-@@ -1177,6 +1187,12 @@ struct net_device_ops {
- #ifdef CONFIG_NET_SWITCHDEV
- 	int			(*ndo_sw_parent_id_get)(struct net_device *dev,
- 							struct netdev_phys_item_id *psid);
-+	int			(*ndo_sw_port_fdb_add)(struct net_device *dev,
-+						       const unsigned char *addr,
-+						       u16 vid);
-+	int			(*ndo_sw_port_fdb_del)(struct net_device *dev,
-+						       const unsigned char *addr,
-+						       u16 vid);
+@@ -753,13 +753,13 @@ struct netdev_fcoe_hbainfo {
+ };
  #endif
+ 
+-#define MAX_PHYS_PORT_ID_LEN 32
++#define MAX_PHYS_ITEM_ID_LEN 32
+ 
+-/* This structure holds a unique identifier to identify the
+- * physical port used by a netdevice.
++/* This structure holds a unique identifier to identify some
++ * physical item (port for example) used by a netdevice.
+  */
+-struct netdev_phys_port_id {
+-	unsigned char id[MAX_PHYS_PORT_ID_LEN];
++struct netdev_phys_item_id {
++	unsigned char id[MAX_PHYS_ITEM_ID_LEN];
+ 	unsigned char id_len;
  };
  
-diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-index 79bf9bd..130cef7 100644
---- a/include/net/switchdev.h
-+++ b/include/net/switchdev.h
-@@ -1,6 +1,7 @@
- /*
-  * include/net/switchdev.h - Switch device API
-  * Copyright (c) 2014 Jiri Pirko <jiri@resnulli.us>
-+ * Copyright (c) 2014 Scott Feldman <sfeldma@gmail.com>
+@@ -975,7 +975,7 @@ typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
+  *	USB_CDC_NOTIFY_NETWORK_CONNECTION) should NOT implement this function.
   *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License as published by
-@@ -16,6 +17,10 @@
- 
- int netdev_sw_parent_id_get(struct net_device *dev,
- 			    struct netdev_phys_item_id *psid);
-+int netdev_sw_port_fdb_add(struct net_device *dev,
-+			   const unsigned char *addr, u16 vid);
-+int netdev_sw_port_fdb_del(struct net_device *dev,
-+			   const unsigned char *addr, u16 vid);
- 
- #else
- 
-@@ -25,6 +30,18 @@ static inline int netdev_sw_parent_id_get(struct net_device *dev,
- 	return -EOPNOTSUPP;
- }
- 
-+static inline int netdev_sw_port_fdb_add(struct net_device *dev,
-+					 const unsigned char *addr, u16 vid)
-+{
-+	return -EOPNOTSUPP;
-+}
-+
-+static inline int netdev_sw_port_fdb_del(struct net_device *dev,
-+					 const unsigned char *addr, u16 vid)
-+{
-+	return -EOPNOTSUPP;
-+}
-+
- #endif
- 
- #endif /* _LINUX_SWITCHDEV_H_ */
-diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-index 6f6c95c..f6f8bb5 100644
---- a/net/bridge/br_fdb.c
-+++ b/net/bridge/br_fdb.c
-@@ -24,6 +24,7 @@
- #include <linux/atomic.h>
- #include <asm/unaligned.h>
- #include <linux/if_vlan.h>
-+#include <net/switchdev.h>
- #include "br_private.h"
- 
- static struct kmem_cache *br_fdb_cache __read_mostly;
-@@ -132,8 +133,12 @@ static void fdb_del_hw(struct net_bridge *br, const unsigned char *addr)
- 
- static void fdb_delete(struct net_bridge *br, struct net_bridge_fdb_entry *f)
+  * int (*ndo_get_phys_port_id)(struct net_device *dev,
+- *			       struct netdev_phys_port_id *ppid);
++ *			       struct netdev_phys_item_id *ppid);
+  *	Called to get ID of physical port of this device. If driver does
+  *	not implement this, it is assumed that the hw is not able to have
+  *	multiple net devices on single physical port.
+@@ -1149,7 +1149,7 @@ struct net_device_ops {
+ 	int			(*ndo_change_carrier)(struct net_device *dev,
+ 						      bool new_carrier);
+ 	int			(*ndo_get_phys_port_id)(struct net_device *dev,
+-							struct netdev_phys_port_id *ppid);
++							struct netdev_phys_item_id *ppid);
+ 	void			(*ndo_add_vxlan_port)(struct  net_device *dev,
+ 						      sa_family_t sa_family,
+ 						      __be16 port);
+@@ -2878,7 +2878,7 @@ void dev_set_group(struct net_device *, int);
+ int dev_set_mac_address(struct net_device *, struct sockaddr *);
+ int dev_change_carrier(struct net_device *, bool new_carrier);
+ int dev_get_phys_port_id(struct net_device *dev,
+-			 struct netdev_phys_port_id *ppid);
++			 struct netdev_phys_item_id *ppid);
+ struct sk_buff *validate_xmit_skb_list(struct sk_buff *skb, struct net_device *dev);
+ struct sk_buff *dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
+ 				    struct netdev_queue *txq, int *ret);
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 70bb609..9c67f36 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5818,7 +5818,7 @@ EXPORT_SYMBOL(dev_change_carrier);
+  *	Get device physical port ID
+  */
+ int dev_get_phys_port_id(struct net_device *dev,
+-			 struct netdev_phys_port_id *ppid)
++			 struct netdev_phys_item_id *ppid)
  {
--	if (f->is_static)
-+	if (f->is_static) {
- 		fdb_del_hw(br, f->addr.addr);
-+		if (f->dst)
-+			netdev_sw_port_fdb_del(f->dst->dev,
-+					       f->addr.addr, f->vlan_id);
-+	}
+ 	const struct net_device_ops *ops = dev->netdev_ops;
  
- 	hlist_del_rcu(&f->hlist);
- 	fdb_notify(br, f, RTM_DELNEIGH);
-@@ -755,18 +760,21 @@ static int fdb_add_entry(struct net_bridge_port *source, const __u8 *addr,
- 			if (!fdb->is_static) {
- 				fdb->is_static = 1;
- 				fdb_add_hw(br, addr);
-+				netdev_sw_port_fdb_add(source->dev, addr, vid);
- 			}
- 		} else if (state & NUD_NOARP) {
- 			fdb->is_local = 0;
- 			if (!fdb->is_static) {
- 				fdb->is_static = 1;
- 				fdb_add_hw(br, addr);
-+				netdev_sw_port_fdb_add(source->dev, addr, vid);
- 			}
- 		} else {
- 			fdb->is_local = 0;
- 			if (fdb->is_static) {
- 				fdb->is_static = 0;
- 				fdb_del_hw(br, addr);
-+				netdev_sw_port_fdb_del(source->dev, addr, vid);
- 			}
- 		}
+diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+index 9dd0669..55dc4da 100644
+--- a/net/core/net-sysfs.c
++++ b/net/core/net-sysfs.c
+@@ -387,7 +387,7 @@ static ssize_t phys_port_id_show(struct device *dev,
+ 		return restart_syscall();
  
-diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-index 5010f646..93d47b7 100644
---- a/net/switchdev/switchdev.c
-+++ b/net/switchdev/switchdev.c
-@@ -1,6 +1,7 @@
- /*
-  * net/switchdev/switchdev.c - Switch device API
-  * Copyright (c) 2014 Jiri Pirko <jiri@resnulli.us>
-+ * Copyright (c) 2014 Scott Feldman <sfeldma@gmail.com>
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License as published by
-@@ -31,3 +32,43 @@ int netdev_sw_parent_id_get(struct net_device *dev,
- 	return ops->ndo_sw_parent_id_get(dev, psid);
+ 	if (dev_isalive(netdev)) {
+-		struct netdev_phys_port_id ppid;
++		struct netdev_phys_item_id ppid;
+ 
+ 		ret = dev_get_phys_port_id(netdev, &ppid);
+ 		if (!ret)
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index a688268..1087c6d 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -868,7 +868,7 @@ static noinline size_t if_nlmsg_size(const struct net_device *dev,
+ 	       + rtnl_port_size(dev, ext_filter_mask) /* IFLA_VF_PORTS + IFLA_PORT_SELF */
+ 	       + rtnl_link_get_size(dev) /* IFLA_LINKINFO */
+ 	       + rtnl_link_get_af_size(dev) /* IFLA_AF_SPEC */
+-	       + nla_total_size(MAX_PHYS_PORT_ID_LEN); /* IFLA_PHYS_PORT_ID */
++	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN); /* IFLA_PHYS_PORT_ID */
  }
- EXPORT_SYMBOL(netdev_sw_parent_id_get);
-+
-+/**
-+ *	netdev_sw_port_fdb_add - Add a fdb into switch port
-+ *	@dev: port device
-+ *	@addr: mac address
-+ *	@vid: vlan id
-+ *
-+ *	Add a fdb into switch port.
-+ */
-+int netdev_sw_port_fdb_add(struct net_device *dev,
-+			   const unsigned char *addr, u16 vid)
-+{
-+	const struct net_device_ops *ops = dev->netdev_ops;
-+
-+	if (!ops->ndo_sw_port_fdb_add)
-+		return -EOPNOTSUPP;
-+	WARN_ON(!ops->ndo_sw_parent_id_get);
-+	return ops->ndo_sw_port_fdb_add(dev, addr, vid);
-+}
-+EXPORT_SYMBOL(netdev_sw_port_fdb_add);
-+
-+/**
-+ *	netdev_sw_port_fdb_del - Delete a fdb from switch port
-+ *	@dev: port device
-+ *	@addr: mac address
-+ *	@vid: vlan id
-+ *
-+ *	Delete a fdb from switch port.
-+ */
-+int netdev_sw_port_fdb_del(struct net_device *dev,
-+			   const unsigned char *addr, u16 vid)
-+{
-+	const struct net_device_ops *ops = dev->netdev_ops;
-+
-+	if (!ops->ndo_sw_port_fdb_del)
-+		return -EOPNOTSUPP;
-+	WARN_ON(!ops->ndo_sw_parent_id_get);
-+	return ops->ndo_sw_port_fdb_del(dev, addr, vid);
-+}
-+EXPORT_SYMBOL(netdev_sw_port_fdb_del);
+ 
+ static int rtnl_vf_ports_fill(struct sk_buff *skb, struct net_device *dev)
+@@ -952,7 +952,7 @@ static int rtnl_port_fill(struct sk_buff *skb, struct net_device *dev,
+ static int rtnl_phys_port_id_fill(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	int err;
+-	struct netdev_phys_port_id ppid;
++	struct netdev_phys_item_id ppid;
+ 
+ 	err = dev_get_phys_port_id(dev, &ppid);
+ 	if (err) {
+@@ -1196,7 +1196,7 @@ static const struct nla_policy ifla_policy[IFLA_MAX+1] = {
+ 	[IFLA_PROMISCUITY]	= { .type = NLA_U32 },
+ 	[IFLA_NUM_TX_QUEUES]	= { .type = NLA_U32 },
+ 	[IFLA_NUM_RX_QUEUES]	= { .type = NLA_U32 },
+-	[IFLA_PHYS_PORT_ID]	= { .type = NLA_BINARY, .len = MAX_PHYS_PORT_ID_LEN },
++	[IFLA_PHYS_PORT_ID]	= { .type = NLA_BINARY, .len = MAX_PHYS_ITEM_ID_LEN },
+ 	[IFLA_CARRIER_CHANGES]	= { .type = NLA_U32 },  /* ignored */
+ };
+ 
 -- 
 1.9.3
