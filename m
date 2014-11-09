@@ -1,42 +1,42 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: [PATCH 0/3 net-next] sunvnet: edge-case/race-conditions bug fixes
-Date: Sat, 8 Nov 2014 20:41:43 -0500
-Message-ID: <20141109014143.GB31217@oracle.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] dccp: Convert DCCP_WARN to
+ net_warn_ratelimited
+Date: Sat, 08 Nov 2014 20:42:02 -0500 (EST)
+Message-ID: <20141108.204202.2273082249078358608.davem@davemloft.net>
+References: <1415230929.6634.38.camel@perches.com>
+	<20141106.151149.1321164537677873976.davem@davemloft.net>
+	<1415307221.21526.0.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, david.stevens@oracle.com
-To: davem@davemloft.net, sowmini.varadhan@oracle.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:23073 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750957AbaKIBlq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Nov 2014 20:41:46 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	gerrit@erg.abdn.ac.uk
+To: joe@perches.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1415307221.21526.0.camel@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Joe Perches <joe@perches.com>
+Date: Thu, 06 Nov 2014 12:53:41 -0800
 
-This patch series contains fixes for race-conditions in sunvnet,
-that can encountered when there is a difference in latency between
-producer and consumer.
+> Remove the dependency on the "warning" sysctl (net_msg_warn)
+> which is only used by the LIMIT_NETDEBUG macro.
+> 
+> Convert the LIMIT_NETDEBUG use in DCCP_WARN to the more
+> common net_warn_ratelimited mechanism.
+> 
+> This still ratelimits based on the net_ratelimit()
+> function, but removes the check for the sysctl.
+> 
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-Patch 1 addresses a case when the STOPPED LDC ack from a peer is
-processed before vnet_start_xmit can finish updating the dr->prod
-state. 
+Applied, thanks Joe.
 
-Patch 2 fixes the edge-case when outgoing data and incoming
-stopped-ack cross each other in flight. 
+> What about the LIMIT_NETDEBUG stuff now?
+> 
+> Maybe all of them might as well be net_dbg_ratelimited
+> even if it changes some of the logging levels.
 
-Patch 3 adds a missing rcu_read_unlock(), found by code-inspection.
-
-
-Sowmini Varadhan (3):
-  Fix race between vnet_start_xmit() and vnet_ack()
-  vnet_ack() should check if !start_cons to send a missed trigger
-  Add missing rcu_read_unlock() in vnet_start_xmit
-
- drivers/net/ethernet/sun/sunvnet.c | 16 ++++++++++------
- 1 file changed, 10 insertions(+), 6 deletions(-)
-
--- 
-1.8.4.2
+I think a straight conversion to net_dbg_ratelimited would
+be fine.
