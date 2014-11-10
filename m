@@ -1,12 +1,13 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next v2 00/10] introduce rocker switch driver with
- hardware accelerated datapath api - phase 1: bridge fdb offload
-Date: Mon, 10 Nov 2014 14:12:53 +0100
-Message-ID: <20141110131253.GA4256@nanopsycho.orion>
+Subject: Re: [patch net-next v2 01/10] net: rename netdev_phys_port_id to
+ more generic name
+Date: Mon, 10 Nov 2014 14:16:22 +0100
+Message-ID: <20141110131622.GC4256@nanopsycho.orion>
 References: <1415530280-9190-1-git-send-email-jiri@resnulli.us>
- <5460319B.2010605@mojatatu.com>
- <20141110072301.GA1850@nanopsycho.orion>
- <5460AC90.9060607@mojatatu.com>
+ <1415530280-9190-2-git-send-email-jiri@resnulli.us>
+ <54603270.509@mojatatu.com>
+ <20141110074344.GB1850@nanopsycho.orion>
+ <5460ACC0.3020805@mojatatu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
@@ -27,57 +28,34 @@ Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
 	bcrl@kvack.org
 To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f45.google.com ([74.125.82.45]:49231 "EHLO
-	mail-wg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751815AbaKJNMz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2014 08:12:55 -0500
-Received: by mail-wg0-f45.google.com with SMTP id x12so8860108wgg.18
-        for <netdev@vger.kernel.org>; Mon, 10 Nov 2014 05:12:54 -0800 (PST)
+Received: from mail-wi0-f181.google.com ([209.85.212.181]:38174 "EHLO
+	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751580AbaKJNQ2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2014 08:16:28 -0500
+Received: by mail-wi0-f181.google.com with SMTP id n3so10362702wiv.8
+        for <netdev@vger.kernel.org>; Mon, 10 Nov 2014 05:16:24 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <5460AC90.9060607@mojatatu.com>
+In-Reply-To: <5460ACC0.3020805@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mon, Nov 10, 2014 at 01:16:16PM CET, jhs@mojatatu.com wrote:
->On 11/10/14 02:23, Jiri Pirko wrote:
+Mon, Nov 10, 2014 at 01:17:04PM CET, jhs@mojatatu.com wrote:
+>On 11/10/14 02:43, Jiri Pirko wrote:
+>>Mon, Nov 10, 2014 at 04:35:12AM CET, jhs@mojatatu.com wrote:
 >
+>>I don't see a reason why this would break kabi:
 >>
->>Yes I looked over their patches. Roopas patche's are about new class of
->>device which, as I commented in the cover letter, I left out for now and
->>can be safely added later on.
->>
->>I went over the Ben's work very carefully as well. The patches are very
->>rough, mostly rtl-chip specific. But again, my patchset is a base on
->>which this patches can be build on. I see no issues in that.
->>
->>>At least please get their sign on - this  is such an important piece of
->>>new work that you should make sure you get consensus.
->>
->>Since I did not use their code now, I only put sign off of Scott.
+>>-#define MAX_PHYS_PORT_ID_LEN 32
+>>+#define MAX_PHYS_ITEM_ID_LEN 32
 >>
 >
->Your last comment was "i am going to merge the patches" ;->
->At least send an email explaining your plan to people who have worked
->hard to cooperate with you or say it in the cover letter.
+>refer to my response to Dave. Just define MAX_PHYS_PORT_ID_LEN to
+>MAX_PHYS_ITEM_ID_LEN so people dont have to change their code
+>because a name change.
 
-Well I had feedback only from Roopa and we discussed it in following
-email thread. I never had any feedback from Ben. I only saw you pasting
-link to his git.
+Jamal, please look at the patch & code. MAX_PHYS_PORT_ID_LEN is in
+include/linux/netdevice.h which is not part of user exported api.
 
-There's really nothing else to merge at the moment. I would love to went
-over patches and merge them into my tree if anyone sends them.
-
->
->>>Otherwise we are back to square one and everyone is going their way with
->>>their patches;
->>
->>I do think that we are in sync. I do not see any counter ways. As I
->>said, their work can be added on to the base made of this patchset.
->>
->
->Ok, I hope so. I spoke for myself - it is important for this patches
->you get their sign-on in my opinion.
 >
 >cheers,
 >jamal
->
