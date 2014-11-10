@@ -1,55 +1,82 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [patch net-next v2 01/10] net: rename netdev_phys_port_id to
- more generic name
-Date: Mon, 10 Nov 2014 14:03:05 -0500
-Message-ID: <54610BE9.5010106@mojatatu.com>
-References: <54603270.509@mojatatu.com>	<20141110074344.GB1850@nanopsycho.orion>	<5460ACC0.3020805@mojatatu.com> <20141110.112857.1873381550982989519.davem@davemloft.net>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [patch net-next v2 06/10] bridge: introduce fdb offloading via
+ switchdev
+Date: Mon, 10 Nov 2014 11:03:41 -0800
+Message-ID: <54610C0D.1050500@cumulusnetworks.com>
+References: <1415530280-9190-1-git-send-email-jiri@resnulli.us> <1415530280-9190-7-git-send-email-jiri@resnulli.us> <54603564.3070606@mojatatu.com> <20141110081552.GD1850@nanopsycho.orion> <20141110135100.GA19157@casper.infradead.org> <20141110173058.GA2002@gospo.home.greyhouse.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=ISO-8859-2; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jiri@resnulli.us,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	nhorman@tuxdriver.com, andy@greyhouse.net, tgraf@suug.ch,
+Cc: Thomas Graf <tgraf@suug.ch>, Jiri Pirko <jiri@resnulli.us>,
+	Jamal Hadi Salim <jhs@mojatatu.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
 	dborkman@redhat.com, ogerlitz@mellanox.com, jesse@nicira.com,
 	pshelar@nicira.com, azhou@nicira.com, ben@decadent.org.uk,
 	stephen@networkplumber.org, jeffrey.t.kirsher@intel.com,
 	vyasevic@redhat.com, xiyou.wangcong@gmail.com,
 	john.r.fastabend@intel.com, edumazet@google.com, sfeldma@gmail.com,
-	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
-	linville@tuxdriver.com, jasowang@redhat.com, ebiederm@xmission.com,
-	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
-	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
-	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
-	ronye@mellanox.com, simon.horman@netronome.com,
-	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
-	mleitner@redhat.com, shrijeet@gmail.com, gospo@cumulusnetworks.com,
-	bc
-To: David Miller <davem@davemloft.net>
+	f.fainelli@gmail.com, linville@tuxdriver.com, jasowang@redhat.com,
+	ebiederm@xmission.com, nicolas.dichtel@6wind.com,
+	ryazanov.s.a@gmail.com, buytenh@wantstofly.org,
+	aviadr@mellanox.com, nbd@openwrt.org, alexei.starovoitov@gmail.com,
+	Neil.Jerram@metaswitch.com, ronye@mellanox.com,
+	simon.horman@netronome.com, alexander.h.duyck@redhat.com,
+	john.ronciak@intel.com, mleitner@redhat.com, shrijeet@gmail.com,
+To: Andy Gospodarek <gospo@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f179.google.com ([209.85.223.179]:44674 "EHLO
-	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751010AbaKJTDi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2014 14:03:38 -0500
-Received: by mail-ie0-f179.google.com with SMTP id rl12so9920044iec.38
-        for <netdev@vger.kernel.org>; Mon, 10 Nov 2014 11:03:37 -0800 (PST)
-In-Reply-To: <20141110.112857.1873381550982989519.davem@davemloft.net>
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:44416 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752338AbaKJTDv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2014 14:03:51 -0500
+In-Reply-To: <20141110173058.GA2002@gospo.home.greyhouse.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/10/14 11:28, David Miller wrote:
-> From: Jamal Hadi Salim <jhs@mojatatu.com>
-
+On 11/10/14, 9:30 AM, Andy Gospodarek wrote:
+> On Mon, Nov 10, 2014 at 01:51:00PM +0000, Thomas Graf wrote:
+>> On 11/10/14 at 09:15am, Jiri Pirko wrote:
+>>> There are few problems in re-using this. It is netlink based so for calling
+>>> it from bridge code, we would have to construct netlink message. But
+>>> that could be probably changed.
+>>> As you can see from the list of parameters, this is no longer about fdb (addr,
+>>> vlanid) but this has been extended to something else. See vxlan code for
+>>> what this is used for. I believe that fdb_add/del should be renamed to
+>>> something else, perhaps l2neigh_add/del or something like that.
+>>> The other problem is that fdb_add/del is currently used by various
+>>> drivers for different purpose (adding macs to unicast list).
+>> Can you elaborate a bit on the intended semantic differences between
+>> the existing ndo_fdb_add() and ndo_sw_port_fdb_add()? I'm not sure we
+>> need the sw_ prefix for this specific ndo.
+>>
+>> I completely agree that relying on Netlink is wrong because we'll have
+>> in-kernel users of the API but I believe that existing ndo_fdb_add()
+>> implementations in i40e, ixgbe, qlcnic and macvlan could use the new
+>> API you propose.
+> I also think the same API could be used quite easily on the current
+> drivers that use it.
 >
-> Jamal, this is really driving me crazy, this is a non-issue.
+> I was looking at this earlier today and there are only 5 drivers
+> (outside the bridge code) that support ndo_fdb_add.  The 3 hardware
+> drivers and vxlan driver seem like they could use this new API.  The
+> macvlan code appears to simply set the uc and mc lists, which seems like
+> it could be done other ways -- confirmation from John Fastabend, Roopa,
+> and mst would be good.
+yes, that is correct. The macvlan code, when not set for passthru mode, 
+seems to just program the uc-mc lists,
+  which again get synched to the lowerdev (and possibly from lowerdev to 
+hw in some cases).
+
+I agree that it would be really nice if the existing api's can be made 
+to work.
+>> How about we rename the existing ndo_fdb_add() to ndo_neigh_add() as
+>> you propose and convert vxlan over to it and have all others which don't
+>> even depend on the Netlink attributes being passed in (i40e, ixgbe,
+>> qlcnic, macvlan) use ndo_fdb_add() which would have the behaviour of your
+>> proposed ndo_sw_port_fdb_add()?
+> I would much rather see something like Thomas proposes here.  I know you
+> would like to see these patches get included (I'm anxious to see better
+> in-kernel offload support too!), but separate, possibly unnecessary
+> APIs like this can get painful for driver maintainers (upstream and
+> distro maintainers).
 >
-
-You are right Dave it is a non-issue, I am sorry. I was still humping on
-the wrong tree on the attribute size change.
-
-But please let us have the discussion so the right thing can happen.
-I am not trying to beat up on Jiri. I actually think he is doing the
-right thing; we just need to make sure input from other people is taken
-into consideration because they have implemented on real devices.
-
-cheers,
-jamal
+Ack!.
