@@ -1,16 +1,18 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [patch net-next v2 07/10] bridge: call netdev_sw_port_stp_update
- when bridge port STP status changes
-Date: Mon, 10 Nov 2014 08:11:37 -0500
-Message-ID: <5460B989.8030404@mojatatu.com>
-References: <1415530280-9190-1-git-send-email-jiri@resnulli.us> <1415530280-9190-8-git-send-email-jiri@resnulli.us>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next v2 00/10] introduce rocker switch driver with
+ hardware accelerated datapath api - phase 1: bridge fdb offload
+Date: Mon, 10 Nov 2014 14:12:53 +0100
+Message-ID: <20141110131253.GA4256@nanopsycho.orion>
+References: <1415530280-9190-1-git-send-email-jiri@resnulli.us>
+ <5460319B.2010605@mojatatu.com>
+ <20141110072301.GA1850@nanopsycho.orion>
+ <5460AC90.9060607@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
-	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
-	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
-	ben@decadent.org.uk, stephen@networkplumber.org,
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
+	andy@greyhouse.net, tgraf@suug.ch, dborkman@redhat.com,
+	ogerlitz@mellanox.com, jesse@nicira.com, pshelar@nicira.com,
+	azhou@nicira.com, ben@decadent.org.uk, stephen@networkplumber.org,
 	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
 	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
 	edumazet@google.com, sfeldma@gmail.com, f.fainelli@gmail.com,
@@ -23,63 +25,59 @@ Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
 	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
 	mleitner@redhat.com, shrijeet@gmail.com, gospo@cumulusnetworks.com,
 	bcrl@kvack.org
-To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f173.google.com ([209.85.223.173]:60520 "EHLO
-	mail-ie0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750933AbaKJNLn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2014 08:11:43 -0500
-Received: by mail-ie0-f173.google.com with SMTP id tr6so9069867ieb.4
-        for <netdev@vger.kernel.org>; Mon, 10 Nov 2014 05:11:42 -0800 (PST)
-In-Reply-To: <1415530280-9190-8-git-send-email-jiri@resnulli.us>
+Received: from mail-wg0-f45.google.com ([74.125.82.45]:49231 "EHLO
+	mail-wg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751815AbaKJNMz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2014 08:12:55 -0500
+Received: by mail-wg0-f45.google.com with SMTP id x12so8860108wgg.18
+        for <netdev@vger.kernel.org>; Mon, 10 Nov 2014 05:12:54 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <5460AC90.9060607@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/09/14 05:51, Jiri Pirko wrote:
-> From: Scott Feldman <sfeldma@gmail.com>
+Mon, Nov 10, 2014 at 01:16:16PM CET, jhs@mojatatu.com wrote:
+>On 11/10/14 02:23, Jiri Pirko wrote:
 >
-> To notify switch driver of change in STP state of bridge port, add new
-> .ndo op and provide swdev wrapper func to call ndo op. Use it in bridge
-> code then.
+>>
+>>Yes I looked over their patches. Roopas patche's are about new class of
+>>device which, as I commented in the cover letter, I left out for now and
+>>can be safely added later on.
+>>
+>>I went over the Ben's work very carefully as well. The patches are very
+>>rough, mostly rtl-chip specific. But again, my patchset is a base on
+>>which this patches can be build on. I see no issues in that.
+>>
+>>>At least please get their sign on - this  is such an important piece of
+>>>new work that you should make sure you get consensus.
+>>
+>>Since I did not use their code now, I only put sign off of Scott.
+>>
 >
-> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-> ---
->   include/linux/netdevice.h |  6 ++++++
->   include/net/switchdev.h   |  6 ++++++
->   net/bridge/br_netlink.c   |  2 ++
->   net/bridge/br_stp.c       |  4 ++++
->   net/bridge/br_stp_if.c    |  3 +++
->   net/bridge/br_stp_timer.c |  2 ++
->   net/switchdev/switchdev.c | 19 +++++++++++++++++++
->   7 files changed, 42 insertions(+)
+>Your last comment was "i am going to merge the patches" ;->
+>At least send an email explaining your plan to people who have worked
+>hard to cooperate with you or say it in the cover letter.
+
+Well I had feedback only from Roopa and we discussed it in following
+email thread. I never had any feedback from Ben. I only saw you pasting
+link to his git.
+
+There's really nothing else to merge at the moment. I would love to went
+over patches and merge them into my tree if anyone sends them.
+
 >
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index 116a19d..35f21a95 100644
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -1033,6 +1033,10 @@ typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
->    *			      const unsigned char *addr,
->    *			      u16 vid);
->    *	Called to delete a fdb from switch device port.
-> + *
-> + * int (*ndo_sw_port_stp_update)(struct net_device *dev, u8 state);
-> + *	Called to notify switch device port of bridge port STP
-> + *	state change.
-
-You are unconditionally calling
-netdev_sw_port_stp_update(p->dev, p->state);
-Again issue is policy. Could you make this work the same
-way the fdb_add e.g user intent of whether i want to turn
-a port in hardware and/or software to disabled/learning/etc
-is reflected?
-
-btw: does _sw_ stand for switch? why not _hw_ ?
-Could we have one ndo for all flags instead of individual ones.
-
-I know the current user space code uses u8 as a bitflag; but
-maybe we can introduce a new u32 flag bitmask that has all the
-flags set for backward compat? I can count about a total of 10.
-
-cheers,
-jamal
+>>>Otherwise we are back to square one and everyone is going their way with
+>>>their patches;
+>>
+>>I do think that we are in sync. I do not see any counter ways. As I
+>>said, their work can be added on to the base made of this patchset.
+>>
+>
+>Ok, I hope so. I spoke for myself - it is important for this patches
+>you get their sign-on in my opinion.
+>
+>cheers,
+>jamal
+>
