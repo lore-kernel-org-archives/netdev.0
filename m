@@ -1,82 +1,52 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the tiny tree with the net-next tree
-Date: Mon, 10 Nov 2014 14:25:11 +1100
-Message-ID: <20141110142511.03354f6a@canb.auug.org.au>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: RE: [PATCH net-next 2/2] r8152: adjust rtl_start_rx
+Date: Mon, 10 Nov 2014 03:29:27 +0000
+Message-ID: <0835B3720019904CB8F7AA43166CEEB2ECE0A3@RTITMBSV03.realtek.com.tw>
+References: <1394712342-15778-88-Taiwan-albertk@realtek.com>
+	<1394712342-15778-90-Taiwan-albertk@realtek.com>
+ <20141107.113522.837502028522211960.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/KiKF=PikSDJWsC.+92lBaZC"; protocol="application/pgp-signature"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Catalina Mocanu <catalina.mocanu@gmail.com>
-To: Josh Triplett <josh@joshtriplett.org>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	nic_swsd <nic_swsd@realtek.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rtits2.realtek.com ([60.250.210.242]:52547 "EHLO
+	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751329AbaKJD3f convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Nov 2014 22:29:35 -0500
+In-Reply-To: <20141107.113522.837502028522211960.davem@davemloft.net>
+Content-Language: zh-TW
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Sig_/KiKF=PikSDJWsC.+92lBaZC
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+ David Miller [mailto:davem@davemloft.net] 
+> Sent: Saturday, November 08, 2014 12:35 AM
+[...]
+> Does this even work?
+> 
+> If you leave a hole in the ring, the device is going to stop there
+> anyways.
 
-Hi Josh,
+Excuse me. I don't sure I understand your meaning clearly.
 
-Today's linux-next merge of the tiny tree got a conflict in
-lib/Makefile between commit e5a2c8999576 ("fast_hash: avoid indirect
-function calls") from the net-next tree and commit 4ecea0db79ef ("lib:
-rhashtable: Make rhashtable.c optional") from the tiny tree.
+The behavior is different for PCI(e) and USB ethernet device.
+The PCI nic could know the ring buffer by certain way, so
+the device could fill the data into the buffer one by one
+automatically. However, for usb nic, the driver has to
+indicate (i.e. submit) each buffer for each data. The device
+doesn't know what is the next buffer by itself. That is,
+the driver determines the order by which the data would be
+filled.
 
-I fixed it up (see below) and can carry the fix as necessary (no action
-is required).
-
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
-diff --cc lib/Makefile
-index 04e53dd16070,47b8305288e2..000000000000
---- a/lib/Makefile
-+++ b/lib/Makefile
-@@@ -22,11 -22,14 +22,14 @@@ lib-$(CONFIG_SMP) +=3D cpumask.
-  lib-y	+=3D kobject.o klist.o
-  obj-y	+=3D lockref.o
- =20
-- obj-y +=3D bcd.o div64.o sort.o parser.o halfmd4.o debug_locks.o random32=
-.o \
-+ obj-y +=3D bcd.o div64.o sort.o parser.o debug_locks.o random32.o \
-  	 bust_spinlocks.o hexdump.o kasprintf.o bitmap.o scatterlist.o \
-- 	 gcd.o lcm.o list_sort.o uuid.o flex_array.o iovec.o clz_ctz.o \
-+ 	 gcd.o lcm.o list_sort.o uuid.o iovec.o clz_ctz.o \
-  	 bsearch.o find_last_bit.o find_next_bit.o llist.o memweight.o kfifo.o \
-- 	 percpu-refcount.o percpu_ida.o rhashtable.o
- -	 percpu-refcount.o percpu_ida.o hash.o
-++	 percpu-refcount.o percpu_ida.o
-+ obj-$(CONFIG_FLEX_ARRAY) +=3D flex_array.o
-+ obj-$(CONFIG_HALFMD4) +=3D halfmd4.o
-+ obj-$(CONFIG_RHASHTABLE) +=3D rhashtable.o
-  obj-y +=3D string_helpers.o
-  obj-$(CONFIG_TEST_STRING_HELPERS) +=3D test-string_helpers.o
-  obj-y +=3D kstrtox.o
-
---Sig_/KiKF=PikSDJWsC.+92lBaZC
-Content-Type: application/pgp-signature
-Content-Description: OpenPGP digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAEBCAAGBQJUYDAcAAoJEMDTa8Ir7ZwVv/oP/1F1l3UCNFpQh3mlk2F8pV/O
-58WqS7Vh0eQ2T7tqRL62HLsdPxFY1pTAnqOocFsXdHx6y0IrtqJBghBZPRI4bMoT
-MK4tvC6/bBVPINSyDi8pZfEGKKC1bkPyUSfOCUvRoQWlO/OE1U7mFs3gJkf6T0rI
-5xr6BdvxCA4VaF5OyEalUWsoXfSeqoFFyCdMo4X3NUuPUZqYUXw/la3Lj3wipkB9
-oq2w7VFZoQPnJCk/0SVN7ETUQYfzXmcBimtWcKsaTCAA0x6o400SSk2702XW2nOf
-JmXsbM/AkySPtDHZvjf1j3WyqgkgYKgnnMmPqaYsVVc1t9ZxFAYVSiPJiBdJPZzQ
-0+3RBqurztsPHmsBJcx/PHEBZkvk4SH43UNkeaDzNbuts7gOPyCng6zFm7cPRHbu
-TmT0oDHCZgriPlMwIjqe/sEeUqbrEDgDYfvhyEPQSb5TZJihSTt0PzkMmC4TwmzZ
-iutkmfiDH9StpUO4M3TJlzaI6lnC6C5Vi7LUET5DJAeZCZeYu+ErfW60xCry8Fzy
-PIvqcqSZ69giwsI34u+nfszyE4izoRl9K2VE4i+l0q/Hilzvs7jTdmQq5vCmbszL
-mC2OI8546TWAsZwo77ljqr2R4qi08LpDdfADmFh9Bc0lZlsrMCO1CVVg+vz74Ebt
-GMpzBwxCm9Ru+716ZN+z
-=Kj7Z
------END PGP SIGNATURE-----
-
---Sig_/KiKF=PikSDJWsC.+92lBaZC--
+Therefore, when I try to submit 10 rx buffers and some of
+them fail, I could get the data depending on the order of
+the successful ones. Besides, the driver has to submit the
+buffer for next data continually, so the previous unsuccessful
+ones could be tried again for the same time.
+ 
+Best Regards,
+Hayes
