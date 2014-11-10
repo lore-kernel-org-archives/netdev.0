@@ -1,88 +1,85 @@
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [net-next PATCH] ixgbe: Remove IXGBE_FLAG_IN_NETPOLL since it
- doesn't do anything
-Date: Mon, 10 Nov 2014 14:50:04 -0800
-Message-ID: <20141110224922.7245.35078.stgit@ahduyck-vm-fedora20>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: How to make stack send broadcast ARP request when entry is STALE?
+Date: Mon, 10 Nov 2014 17:52:08 -0500
+Message-ID: <54614198.7010306@hp.com>
+References: <C4AF677B-55AC-4CE0-9BFB-EBB2E0C3BF74@emagii.com> <545C96D6.5020204@hp.com> <3A67CF46-0BC1-4BAA-818A-0B656C6B46B6@emagii.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: donald.c.skidmore@intel.com, davem@davemloft.net,
-	jeffrey.t.kirsher@intel.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
+Cc: Netdev <netdev@vger.kernel.org>
+To: Ulf samuelsson <netdev@emagii.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:34609 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751848AbaKJWuI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Nov 2014 17:50:08 -0500
+Received: from g2t1383g.austin.hp.com ([15.217.136.92]:23556 "EHLO
+	g2t1383g.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751152AbaKJWwL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2014 17:52:11 -0500
+Received: from g6t1526.atlanta.hp.com (g6t1526.atlanta.hp.com [15.193.200.69])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by g2t1383g.austin.hp.com (Postfix) with ESMTPS id 15CE42E37
+	for <netdev@vger.kernel.org>; Mon, 10 Nov 2014 22:52:11 +0000 (UTC)
+In-Reply-To: <3A67CF46-0BC1-4BAA-818A-0B656C6B46B6@emagii.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch removes some dead code from the cleanup path for ixgbe.
+On 11/07/2014 05:11 AM, Ulf samuelsson wrote:
+> The HP router is configured by a customer, and they intentionally limit replies
+> to broadcast, and that is how they want it.
 
-Setting and clearing the flag doesn't do anything since all we are doing is
-setting the flag, scheduling napi, clearing the flag and then letting
-netpoll do the polling cleanup.  As such it doesn't make much sense to have
-it there.
+So this is the crux of the problem - the customer has configured the router so
+that it doesn't play well with most modern network stacks that try and use
+unicast so they don't send unnecessary broadcast packets.  I don't know why I
+thought this was something wrong with the router software.
 
-This patch also removes one minor white-space error.
+Did you try this?
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe.h      |    1 -
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   16 ++++------------
- 2 files changed, 4 insertions(+), 13 deletions(-)
+$ sudo sysctl net.ipv4.neigh.eth0.ucast_solicit=0
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index 5032a60..c8880a1 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -615,7 +615,6 @@ struct ixgbe_adapter {
- #define IXGBE_FLAG_RX_1BUF_CAPABLE              (u32)(1 << 4)
- #define IXGBE_FLAG_RX_PS_CAPABLE                (u32)(1 << 5)
- #define IXGBE_FLAG_RX_PS_ENABLED                (u32)(1 << 6)
--#define IXGBE_FLAG_IN_NETPOLL                   (u32)(1 << 7)
- #define IXGBE_FLAG_DCA_ENABLED                  (u32)(1 << 8)
- #define IXGBE_FLAG_DCA_CAPABLE                  (u32)(1 << 9)
- #define IXGBE_FLAG_IMIR_ENABLED                 (u32)(1 << 10)
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 8e4ba8c..ab14b6b 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -1590,10 +1590,8 @@ static void ixgbe_rx_skb(struct ixgbe_q_vector *q_vector,
- 
- 	if (ixgbe_qv_busy_polling(q_vector))
- 		netif_receive_skb(skb);
--	else if (!(adapter->flags & IXGBE_FLAG_IN_NETPOLL))
--		napi_gro_receive(&q_vector->napi, skb);
- 	else
--		netif_rx(skb);
-+		napi_gro_receive(&q_vector->napi, skb);
- }
- 
- /**
-@@ -6017,7 +6015,6 @@ static void ixgbe_check_hang_subtask(struct ixgbe_adapter *adapter)
- 
- 	/* Cause software interrupt to ensure rings are cleaned */
- 	ixgbe_irq_rearm_queues(adapter, eics);
--
- }
- 
- /**
-@@ -7340,14 +7337,9 @@ static void ixgbe_netpoll(struct net_device *netdev)
- 	if (test_bit(__IXGBE_DOWN, &adapter->state))
- 		return;
- 
--	adapter->flags |= IXGBE_FLAG_IN_NETPOLL;
--	if (adapter->flags & IXGBE_FLAG_MSIX_ENABLED) {
--		for (i = 0; i < adapter->num_q_vectors; i++)
--			ixgbe_msix_clean_rings(0, adapter->q_vector[i]);
--	} else {
--		ixgbe_intr(adapter->pdev->irq, netdev);
--	}
--	adapter->flags &= ~IXGBE_FLAG_IN_NETPOLL;
-+	/* loop through and schedule all active queues */
-+	for (i = 0; i < adapter->num_q_vectors; i++)
-+		ixgbe_msix_clean_rings(0, adapter->q_vector[i]);
- }
- 
- #endif
+It works for me.
+
+And they really should re-think their decision on that configuration setting.
+
+-Brian
+
+
+> In the previous version of the build system, the Interpeak stack was used
+> and this would in PROBE state send unicast ARP request, and if that failed
+> send broadcast ARP.
+> 
+> The native linux stack, when in PROBE state sends only unicast until it decides
+> that it should enter FAILED state.
+> 
+> The 'mcast_probes' variable seems to be totally ignored, except the first  time,
+> so I do not see why it is there.
+> 
+> Best Regards
+> Ulf Samuelsson
+> ulf@emagii.com
+> +46  (722) 427 437
+> 
+> 
+>> 7 nov 2014 kl. 10:54 skrev Brian Haley <brian.haley@hp.com>:
+>>
+>>> On 11/05/2014 07:48 AM, Ulf samuelsson wrote:
+>>> Have a problem with an HP router at a certain location, which
+>>> is configured to only answer to broadcast ARP requests.
+>>> That cannot be changed.
+>>
+>> Sorry to hear about the problem, but my only suggestions would be to try the latest firmware and/or put a call in to support.  I don't happen work in the division that makes routers...
+>>
+>>> The first ARP request the kernel sends out, is a broadcast request,
+>>> which is fine, but after the reply, the kernel sends unicast requests,
+>>> which will not get any replies.
+>>
+>> You might be able to hack this by inserting an ebtables rule - check the dnat target section of the man page - don't know the exact syntax but it would probably end in '-j dnat --to-destination ff:ff:ff:ff:ff:ff'
+>>
+>> -Brian
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
