@@ -1,44 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] drivers: atm: eni: Add pci_dma_mapping_error() call
-Date: Mon, 10 Nov 2014 15:32:28 -0500 (EST)
-Message-ID: <20141110.153228.2187951801277440496.davem@davemloft.net>
-References: <1415463482-8013-1-git-send-email-tinajohnson.1234@gmail.com>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Subject: question about ethtool bits?
+Date: Mon, 10 Nov 2014 12:47:18 -0800
+Message-ID: <20141110124718.00004efc@unknown>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: chas@cmf.nrl.navy.mil, linux-atm-general@lists.sourceforge.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	julia.lawall@lip6.fr
-To: tinajohnson.1234@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1415463482-8013-1-git-send-email-tinajohnson.1234@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: jesse.brandeburg@intel.com, ben@decadent.org.uk
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:63473 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751634AbaKJUrT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Nov 2014 15:47:19 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Tina Johnson <tinajohnson.1234@gmail.com>
-Date: Sat,  8 Nov 2014 21:48:02 +0530
+Ben et al,
 
-> Added a pci_dma_mapping_error() call to check for mapping errors before
-> further using the dma handle. Unchecked dma handles were found using
-> Coccinelle:
-> 
-> @rule1@
-> expression e1;
-> identifier x;
-> @@
-> 
-> *x = pci_map_single(...);
->  ... when != pci_dma_mapping_error(e1,x)
-> 
-> Signed-off-by: Tina Johnson <tinajohnson.1234@gmail.com>
-> Acked-by: Julia Lawall <julia.lawall@lip6.fr>
+So, I was just looking at adding some more types/speeds to
+ethtool.h and noticed we are about out of bits in ecmd->advertising
+(and others), which are declared u32.
 
-I really don't like quick fixes like this, exactly because of the
-kind of new bug this change is introducing.
+We currently have room for one more type (bit 31) and then all 32 bits
+will be full.
 
-The 'trouble' label assumes that it is recovering and unwinding state
-when an error occurs after the DMA buffer is successfully mapped.
+Previous solutions have involved adding a new struct member to the end
+of ecmd and friends and calling it u32 advertising2 or something.
+Another option could be adding a u64, but there may be not fun results
+of doing so.
 
-It unconditionally does pci_unmap_single() if 'paddr' is non-zero
-which it might be in the error case depending upon how DMA errors
-are represented on a given platform.
+...
+#define SUPPORTED_56000baseSR4_Full     (1 << 29)
+#define SUPPORTED_56000baseLR4_Full     (1 << 30)
+
+...
+#define ADVERTISED_56000baseSR4_Full    (1 << 29)
+#define ADVERTISED_56000baseLR4_Full    (1 << 30)
+
+in the case of speed there is already a speed_hi, so that gets us 32
+bits of speed expressed in Mb/s
+
+These fast networks create so many problems ;-)
+
+There are two u32's reserved at the end of ethtool_cmd.
+
+Suggestions?
