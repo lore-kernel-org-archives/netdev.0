@@ -1,84 +1,64 @@
 From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net] net: sctp: fix NULL pointer dereference in af->from_addr_param on malformed packet
-Date: Mon, 10 Nov 2014 17:54:26 +0100
-Message-ID: <1415638466-20176-1-git-send-email-dborkman@redhat.com>
+Subject: [PATCH net] net: sctp: fix memory leak in auth key management
+Date: Mon, 10 Nov 2014 18:00:09 +0100
+Message-ID: <1415638809-20288-1-git-send-email-dborkman@redhat.com>
 Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
 	Vlad Yasevich <vyasevich@gmail.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49719 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:50311 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751918AbaKJQyc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Nov 2014 11:54:32 -0500
+	id S1753229AbaKJRAR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Nov 2014 12:00:17 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-An SCTP server doing ASCONF will panic on malformed INIT ping-of-death
-in the form of:
+A very minimal and simple user space application allocating an SCTP
+socket, setting SCTP_AUTH_KEY setsockopt(2) on it and then closing
+the socket again will leak the memory containing the authentication
+key from user space:
 
-  ------------ INIT[PARAM: SET_PRIMARY_IP] ------------>
+unreferenced object 0xffff8800837047c0 (size 16):
+  comm "a.out", pid 2789, jiffies 4296954322 (age 192.258s)
+  hex dump (first 16 bytes):
+    01 00 00 00 04 00 00 00 00 00 00 00 00 00 00 00  ................
+  backtrace:
+    [<ffffffff816d7e8e>] kmemleak_alloc+0x4e/0xb0
+    [<ffffffff811c88d8>] __kmalloc+0xe8/0x270
+    [<ffffffffa0870c23>] sctp_auth_create_key+0x23/0x50 [sctp]
+    [<ffffffffa08718b1>] sctp_auth_set_key+0xa1/0x140 [sctp]
+    [<ffffffffa086b383>] sctp_setsockopt+0xd03/0x1180 [sctp]
+    [<ffffffff815bfd94>] sock_common_setsockopt+0x14/0x20
+    [<ffffffff815beb61>] SyS_setsockopt+0x71/0xd0
+    [<ffffffff816e58a9>] system_call_fastpath+0x12/0x17
+    [<ffffffffffffffff>] 0xffffffffffffffff
 
-While the INIT chunk parameter verification dissects through many things
-in order to detect malformed input, it misses to actually check parameters
-inside of parameters. E.g. RFC5061, section 4.2.4 proposes a 'set primary
-IP address' parameter in ASCONF, which has as a subparameter an address
-parameter.
+This is bad because of two things, we can bring down a machine from
+user space when auth_enable=1, but also we would leave security sensitive
+keying material in memory without clearing it after use. The issue is
+that sctp_auth_create_key() already sets the refcount to 1, but after
+allocation sctp_auth_set_key() does an additional refcount on it, and
+thus leaving it around when we free the socket.
 
-So an attacker may send a parameter type other than SCTP_PARAM_IPV4_ADDRESS
-or SCTP_PARAM_IPV6_ADDRESS, param_type2af() will subsequently return 0
-and thus sctp_get_af_specific() returns NULL, too, which we then happily
-dereference unconditionally through af->from_addr_param().
-
-The trace for the log:
-
-BUG: unable to handle kernel NULL pointer dereference at 0000000000000078
-IP: [<ffffffffa01e9c62>] sctp_process_init+0x492/0x990 [sctp]
-PGD 0
-Oops: 0000 [#1] SMP
-[...]
-Pid: 0, comm: swapper Not tainted 2.6.32-504.el6.x86_64 #1 Bochs Bochs
-RIP: 0010:[<ffffffffa01e9c62>]  [<ffffffffa01e9c62>] sctp_process_init+0x492/0x990 [sctp]
-[...]
-Call Trace:
- <IRQ>
- [<ffffffffa01f2add>] ? sctp_bind_addr_copy+0x5d/0xe0 [sctp]
- [<ffffffffa01e1fcb>] sctp_sf_do_5_1B_init+0x21b/0x340 [sctp]
- [<ffffffffa01e3751>] sctp_do_sm+0x71/0x1210 [sctp]
- [<ffffffffa01e5c09>] ? sctp_endpoint_lookup_assoc+0xc9/0xf0 [sctp]
- [<ffffffffa01e61f6>] sctp_endpoint_bh_rcv+0x116/0x230 [sctp]
- [<ffffffffa01ee986>] sctp_inq_push+0x56/0x80 [sctp]
- [<ffffffffa01fcc42>] sctp_rcv+0x982/0xa10 [sctp]
- [<ffffffffa01d5123>] ? ipt_local_in_hook+0x23/0x28 [iptable_filter]
- [<ffffffff8148bdc9>] ? nf_iterate+0x69/0xb0
- [<ffffffff81496d10>] ? ip_local_deliver_finish+0x0/0x2d0
- [<ffffffff8148bf86>] ? nf_hook_slow+0x76/0x120
- [<ffffffff81496d10>] ? ip_local_deliver_finish+0x0/0x2d0
-[...]
-
-A minimal way to address this is to check for NULL as we do on all
-other such occasions where we know sctp_get_af_specific() could
-possibly return with NULL.
-
-Fixes: d6de3097592b ("[SCTP]: Add the handling of "Set Primary IP Address" parameter to INIT")
+Fixes: 65b07e5d0d0 ("[SCTP]: API updates to suport SCTP-AUTH extensions.")
 Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 Cc: Vlad Yasevich <vyasevich@gmail.com>
 ---
- net/sctp/sm_make_chunk.c | 3 +++
- 1 file changed, 3 insertions(+)
+ net/sctp/auth.c | 2 --
+ 1 file changed, 2 deletions(-)
 
-diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
-index ab734be..9f32741 100644
---- a/net/sctp/sm_make_chunk.c
-+++ b/net/sctp/sm_make_chunk.c
-@@ -2609,6 +2609,9 @@ do_addr_param:
- 		addr_param = param.v + sizeof(sctp_addip_param_t);
+diff --git a/net/sctp/auth.c b/net/sctp/auth.c
+index 0e85291..fb7976a 100644
+--- a/net/sctp/auth.c
++++ b/net/sctp/auth.c
+@@ -862,8 +862,6 @@ int sctp_auth_set_key(struct sctp_endpoint *ep,
+ 		list_add(&cur_key->key_list, sh_keys);
  
- 		af = sctp_get_af_specific(param_type2af(param.p->type));
-+		if (af == NULL)
-+			break;
-+
- 		af->from_addr_param(&addr, addr_param,
- 				    htons(asoc->peer.port), 0);
- 
+ 	cur_key->key = key;
+-	sctp_auth_key_hold(key);
+-
+ 	return 0;
+ nomem:
+ 	if (!replace)
 -- 
 1.7.11.7
