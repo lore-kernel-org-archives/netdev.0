@@ -1,66 +1,57 @@
-From: Oliver Neukum <oneukum@suse.de>
-Subject: Re: [PATCH] brcmfmac: unlink URB when request timed out
-Date: Mon, 10 Nov 2014 10:08:26 +0100
-Message-ID: <1415610506.16488.20.camel@linux-0dmf.site>
-References: <545FAE05.2030701@gmail.com>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: [PATCH 1/4] inet: Add skb_copy_datagram_iter
+Date: Mon, 10 Nov 2014 09:09:55 +0000
+Message-ID: <20141110090955.GH7996@ZenIV.linux.org.uk>
+References: <20141109211908.GF7996@ZenIV.linux.org.uk>
+ <20141110.002020.1062493586889118565.davem@davemloft.net>
+ <20141110065817.GG7996@ZenIV.linux.org.uk>
+ <20141110.023000.1275181784917275552.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: brudley@broadcom.com, arend@broadcom.com, frankyl@broadcom.com,
-	meuleman@broadcom.com, linville@tuxdriver.com,
-	pieterpg@broadcom.com, linux-wireless@vger.kernel.org,
-	brcm80211-dev-list@broadcom.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Mathy Vanhoef <vanhoefm@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, bcrl@kvack.org, mst@redhat.com
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <545FAE05.2030701@gmail.com>
+Content-Disposition: inline
+In-Reply-To: <20141110.023000.1275181784917275552.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2014-11-09 at 13:10 -0500, Mathy Vanhoef wrote:
-> From: Mathy Vanhoef <vanhoefm@gmail.com>
+On Mon, Nov 10, 2014 at 02:30:00AM -0500, David Miller wrote:
+> From: Al Viro <viro@ZenIV.linux.org.uk>
+> Date: Mon, 10 Nov 2014 06:58:17 +0000
 > 
-> Unlink the submitted URB in brcmf_usb_dl_cmd if the request timed out. This
-> assures the URB is never submitted twice, preventing a driver crash.
+> > On Mon, Nov 10, 2014 at 12:20:20AM -0500, David Miller wrote:
+> >> From: Al Viro <viro@ZenIV.linux.org.uk>
+> >> Date: Sun, 9 Nov 2014 21:19:08 +0000
+> >> 
+> >> > 1) does sparc64 access_ok() need to differ for 32bit and 64bit tasks?
+> >> 
+> >> sparc64 will just fault no matter what kind of task it is.
+> >> 
+> >> It is impossible for a user task to generate a reference to
+> >> a kernel virtual address, as kernel and user accesses each
+> >> go via a separate address space identifier.
+> > 
+> > Sure, but why do we have access_ok() there at all?  I.e. why not just have
+> > it constant 1?
+> 
+> Since access_ok() is in fact constant 1 on sparc64, where we use it,
+> does it really matter?
 
-Hi,
+*blink*
 
-I am afrad this patch is no good. The diagnosis is good,
-but the fix introduces serious problems.
+My apologies - I've got confused by the maze of twisty includes, all alike.
+Right you are; in biarch case it *doesn't* depend on 32bit vs. 64bit.
+STACK_TOP-using one is sparc32 variant where we obviously don't have
+biarch at all.
 
-> diff --git a/drivers/net/wireless/brcm80211/brcmfmac/usb.c b/drivers/net/wireless/brcm80211/brcmfmac/usb.c
-> index 5265aa7..1bc7858 100644
-> --- a/drivers/net/wireless/brcm80211/brcmfmac/usb.c
-> +++ b/drivers/net/wireless/brcm80211/brcmfmac/usb.c
-> @@ -738,10 +738,12 @@ static int brcmf_usb_dl_cmd(struct brcmf_usbdev_info *devinfo, u8 cmd,
->  		goto finalize;
->  	}
->  
-> -	if (!brcmf_usb_ioctl_resp_wait(devinfo))
-> +	if (!brcmf_usb_ioctl_resp_wait(devinfo)) {
-> +		usb_unlink_urb(devinfo->ctl_urb);
+Anyway, the series switching to {compat_,}rw_copy_check_uvector() and
+getting rid of duplicate checks is in vfs.git#iov_iter-net.  Warning:
+it's almost completely untested.  It survives boot, ssh into it and
+runltp -f syscalls (no regressions), but that's about it.  BTW, what's
+the usual regression suite used for net/* stuff?
 
-This is the asynchronous unlink. You have no guarantee it is finished
-after this point.
-
->  		ret = -ETIMEDOUT;
-> -	else
-> +	} else {
->  		memcpy(buffer, tmpbuf, buflen);
-> +	}
->  
->  finalize:
->  	kfree(tmpbuf);
-
-Which means that you are freeing memory that may still be used by DMA
-at this time.
-In addition you have no guarantee that the unlink is indeed finished
-by the time the URB is reused.
-If you wish to take this approach you better forget about this URB
-and allocate a new one and free the buffer from the callback.
-
-	Regards
-		Oliver
-
--- 
-Oliver Neukum <oneukum@suse.de>
+3 commits in there, on top of net-next#master; head should be at 555126.
+There's a bunch of fairly obvious followups becoming possible after that,
+but let's keep those separate...
