@@ -1,21 +1,21 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [patch net-next v2 01/10] net: rename netdev_phys_port_id to
- more generic name
-Date: Mon, 10 Nov 2014 13:33:20 +0100
-Message-ID: <5460B090.7080106@redhat.com>
-References: <1415530280-9190-1-git-send-email-jiri@resnulli.us>	<1415530280-9190-2-git-send-email-jiri@resnulli.us>	<54603270.509@mojatatu.com> <20141110.002336.70350092543746386.davem@davemloft.net> <5460AA45.6000007@mojatatu.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [patch net-next v2 06/10] bridge: introduce fdb offloading via
+ switchdev
+Date: Mon, 10 Nov 2014 07:47:33 -0500
+Message-ID: <5460B3E5.7020502@mojatatu.com>
+References: <1415530280-9190-1-git-send-email-jiri@resnulli.us> <1415530280-9190-7-git-send-email-jiri@resnulli.us> <54603564.3070606@mojatatu.com> <20141110081552.GD1850@nanopsycho.orion>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, jiri@resnulli.us,
-	netdev@vger.kernel.org, nhorman@tuxdriver.com, andy@greyhouse.net,
-	tgraf@suug.ch, ogerlitz@mellanox.com, jesse@nicira.com,
-	pshelar@nicira.com, azhou@nicira.com, ben@decadent.org.uk,
-	stephen@networkplumber.org, jeffrey.t.kirsher@intel.com,
-	vyasevic@redhat.com, xiyou.wangcong@gmail.com,
-	john.r.fastabend@intel.com, edumazet@google.com, sfeldma@gmail.com,
-	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
-	linville@tuxdriver.com, jasowang@redhat.com, ebiederm@xmission.com,
+Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
+	andy@greyhouse.net, tgraf@suug.ch, dborkman@redhat.com,
+	ogerlitz@mellanox.com, jesse@nicira.com, pshelar@nicira.com,
+	azhou@nicira.com, ben@decadent.org.uk, stephen@networkplumber.org,
+	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
+	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
+	edumazet@google.com, sfeldma@gmail.com, f.fainelli@gmail.com,
+	roopa@cumulusnetworks.com, linville@tuxdriver.com,
+	jasowang@redhat.com, ebiederm@xmission.com,
 	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
 	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
 	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
@@ -23,44 +23,81 @@ Cc: David Miller <davem@davemloft.net>, jiri@resnulli.us,
 	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
 	mleitner@redhat.com, shrijeet@gmail.com, gospo@cumulusnetworks.com,
 	bcrl@kvack.org
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58170 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751311AbaKJMfF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Nov 2014 07:35:05 -0500
-In-Reply-To: <5460AA45.6000007@mojatatu.com>
+Received: from mail-ig0-f175.google.com ([209.85.213.175]:33609 "EHLO
+	mail-ig0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751742AbaKJMrj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2014 07:47:39 -0500
+Received: by mail-ig0-f175.google.com with SMTP id h3so16447761igd.8
+        for <netdev@vger.kernel.org>; Mon, 10 Nov 2014 04:47:38 -0800 (PST)
+In-Reply-To: <20141110081552.GD1850@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/10/2014 01:06 PM, Jamal Hadi Salim wrote:
-> On 11/10/14 00:23, David Miller wrote:
->> From: Jamal Hadi Salim <jhs@mojatatu.com>
->> Date: Sun, 09 Nov 2014 22:35:12 -0500
->>
->>> wouldnt this just break an existing ABI? You may need to introduce a
->>> new attribute.
->>
->> He isn't breaking anything Jamal, he's just changing the internal
->> macro name we use for the attribute's maximum length.
+On 11/10/14 03:15, Jiri Pirko wrote:
+> Mon, Nov 10, 2014 at 04:47:48AM CET, jhs@mojatatu.com wrote:
+>> On 11/09/14 05:51, Jiri Pirko wrote:
+>>> From: Scott Feldman <sfeldma@gmail.com>
+>>>
+
+> Jamal, I believe we discussed this already.
+
+I cant remember how that ended.
+
+> The thing is that current
+> fdb_add/del does not need vlanid and master/self flags, because it
+> already has that (struct nlattr *tb[]). Here is the whole list of
+> parameters to these functions:
+>          NDA_DST,
+>          NDA_LLADDR,
+>          NDA_CACHEINFO,
+>          NDA_PROBES,
+>          NDA_VLAN,
+>          NDA_PORT,
+>          NDA_VNI,
+>          NDA_IFINDEX,
+>          NDA_MASTER,
 >
-> It is a _user space visible rename_, how about:
+> There are few problems in re-using this. It is netlink based so for calling
+> it from bridge code, we would have to construct netlink message. But
+> that could be probably changed.
+
+Trying to understand.
+
+A netlink message for a bridge to add an fdb is targeted at the
+*bridge port*.
+That message has semantic which says "please add this entry
+to the software bridge and/or offloaded hardware".
+If something is targetted at the bridge port, ->ndo_fdb_add()
+is invoked with an internally chewed structure.
+Why would you have to construct a new netlink message to the driver?
+
+
+> As you can see from the list of parameters, this is no longer about fdb (addr,
+> vlanid) but this has been extended to something else.
+
+I am still missing understanding that part.
+Or maybe are you saying that you dont want to pass netlink
+constructs to the driver?
+
+> See vxlan code for
+> what this is used for. I believe that fdb_add/del should be renamed to
+> something else, perhaps l2neigh_add/del or something like that.
+> The other problem is that fdb_add/del is currently used by various
+> drivers for different purpose (adding macs to unicast list).
 >
-> #define MAX_PHYS_ITEM_ID_LEN 32
-> #define MAX_PHYS_PORT_ID_LEN   MAX_PHYS_ITEM_ID_LEN
->
-> I did miss the fact that the size didnt change.
 
-Actually, it's currently not exposed via any uapi header ...
+Ok, now a small spark ignited in my brain. You did talk about renaming
+things to neighXXX in one of the exchanges. I think this is a separate
+issue from the question of why you cant refactor ndo_fdb_add/del
 
-$ git grep -n MAX_PHYS_PORT_ID_LEN
-include/linux/netdevice.h:756:#define MAX_PHYS_PORT_ID_LEN 32
-include/linux/netdevice.h:762:  unsigned char id[MAX_PHYS_PORT_ID_LEN];
-net/core/rtnetlink.c:871:              + nla_total_size(MAX_PHYS_PORT_ID_LEN); /* IFLA_PHYS_PORT_ID */
-net/core/rtnetlink.c:1199:      [IFLA_PHYS_PORT_ID]     = { .type = NLA_BINARY, .len = MAX_PHYS_PORT_ID_LEN },
+The abuse of using this interface for unicast addresses is probably
+driven by the fact some of the hardware probably offloads vlanid 0 or
+something speacial like 4095 to point to the underlying hardware that
+"this belongs to host cpu".
+I am not a fan of it (and have posted in exchanges with Vlad in the
+past).
 
-... and based on commit 66cae9ed6bc4 ("rtnl: export physical port id
-via RT netlink") only exported as read-only.
-
-Best,
-Daniel
+cheers,
+jamal
