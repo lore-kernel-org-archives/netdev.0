@@ -1,71 +1,59 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: Re: BUG in xennet_make_frags with paged skb data
-Date: Mon, 10 Nov 2014 14:41:41 +0000
-Message-ID: <5460CEA5.3070201@citrix.com>
-References: <20141106214940.GD44162@ubuntu-hedt> <545CA27F.4070400@citrix.com> <20141110143517.GA74005@ubuntu-hedt>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [RFC PATCH net-next] net: Convert LIMIT_NETDEBUG to
+ net_dbg_ratelimited
+Date: Mon, 10 Nov 2014 07:26:55 -0800
+Message-ID: <1415633215.8868.4.camel@perches.com>
+References: <1415230929.6634.38.camel@perches.com>
+	 <20141106.151149.1321164537677873976.davem@davemloft.net>
+	 <1415307221.21526.0.camel@perches.com>
+	 <20141108.204202.2273082249078358608.davem@davemloft.net>
+	 <1415560642.23530.43.camel@perches.com> <5460CB43.4050008@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	Stefan Bader <stefan.bader@canonical.com>,
-	Jay Vosburgh <jay.vosburgh@canonical.com>,
-	<linux-kernel@vger.kernel.org>, <xen-devel@lists.xenproject.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Remi Denis-Courmont <courmisch@gmail.com>
+To: nicolas.dichtel@6wind.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141110143517.GA74005@ubuntu-hedt>
+In-Reply-To: <5460CB43.4050008@6wind.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/11/14 14:35, Seth Forshee wrote:
-> On Fri, Nov 07, 2014 at 10:44:15AM +0000, David Vrabel wrote:
->> On 06/11/14 21:49, Seth Forshee wrote:
->>> We've had several reports of hitting the following BUG_ON in
->>> xennet_make_frags with 3.2 and 3.13 kernels (I'm currently awaiting
->>> results of testing with 3.17):
->>>
->>>         /* Grant backend access to each skb fragment page. */
->>>         for (i = 0; i < frags; i++) {
->>>                 skb_frag_t *frag = skb_shinfo(skb)->frags + i;
->>>                 struct page *page = skb_frag_page(frag);
->>>
->>>                 len = skb_frag_size(frag);
->>>                 offset = frag->page_offset;
->>>
->>>                 /* Data must not cross a page boundary. */
->>>                 BUG_ON(len + offset > PAGE_SIZE<<compound_order(page));
->>>
->>> When this happens the page in question is a "middle" page in a compound
->>> page (i.e. it's a tail page but not the last tail page), and the data is
->>> fully contained within the compound page. The data does however cross
->>> the hardware page boundary, and since compound_order evaluates to 0 for
->>> tail pages the check fails.
->>>
->>> In going over this I've been unable to determine whether the BUG_ON in
->>> xennet_make_frags is incorrect or the paged skb data is wrong. I can't
->>> find that it's documented anywhere, and the networking code itself is a
->>> bit ambiguous when it comes to compound pages. On the one hand
->>> __skb_fill_page_desc specifically handles adding tail pages as paged
->>> data, but on the other hand skb_copy_bits kmaps frag->page.p which could
->>> fail with data that extends into another page.
->>
->> netfront will safely handle this case so you can remove this BUG_ON()
->> (and the one later on).  But it would be better to find out were these
->> funny-looking skbs are coming from and (if necessary) fixing the bug there.
-> 
-> There still seems to be disagreement about whether the "funny" skb is
-> valid though - you imply it isn't, but Eric says it is. I've been trying
-> to track down where these skbs originate, and so far I've determined
-> that they come from a socket spliced to a pipe spliced to a socket. It
-> looks like the particular page/offset/len tuple originates at least as
-> far back as the first socket, as the tuple is simply copied from an skb
-> into the pipe and from the pipe into the final skb.
+On Mon, 2014-11-10 at 15:27 +0100, Nicolas Dichtel wrote:
+> Le 09/11/2014 20:17, Joe Perches a =E9crit :
+> > Use the more common dynamic_debug capable net_dbg_ratelimited
+> > and remove the LIMIT_NETDEBUG macro.
+> >
+> > This may have some negative impact on messages that were
+> > emitted at KERN_INFO that are not not enabled at all unless
+> > DEBUG is defined or dynamic_debug is enabled.  Even so,
+> > these messages are now _not_ emitted by default.
+> >
+> > This eliminates the use of the net_msg_warn sysctl
+> > "/proc/sys/net/core/warnings".
+[]
+> > diff --git a/include/net/sock.h b/include/net/sock.h
+[]
+> > @@ -2276,13 +2276,7 @@ bool sk_ns_capable(const struct sock *sk,
+> >   bool sk_capable(const struct sock *sk, int cap);
+> >   bool sk_net_capable(const struct sock *sk, int cap);
+> >
+> > -/*
+> > - *	Enable debug/info messages
+> > - */
+> > -extern int net_msg_warn;
+> > -#define LIMIT_NETDEBUG(fmt, args...) \
+> > -	do { if (net_msg_warn && net_ratelimit()) printk(fmt,##args); } w=
+hile(0)
+> > -
+> > +extern int net_msg_warn;	/* Unused, but still a sysctl */
+> Why not removing this variable from this header and from net/core/uti=
+ls.c?
+> Just declaring a static variable in net/core/sysctl_net_core.c should=
+ be enough.
+> Am I missing something?
 
-Apologies for the lack of clarity.  I meant either: a) fix the producer
-if these skbs are invalid; or b) remove the BUG_ON()s.  Since Eric says
-these are actually valid skbs, please do option (b).
+No.  It's reasonable to remove its EXPORT_SYMBOL use too.
 
-i.e., remove both BUG_ON()s.
-
-David
+=46irst let's see if there are any objections to the removal.
