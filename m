@@ -1,15 +1,14 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [patch net-next v2 06/10] bridge: introduce fdb offloading via
- switchdev
-Date: Mon, 10 Nov 2014 13:51:00 +0000
-Message-ID: <20141110135100.GA19157@casper.infradead.org>
+Subject: Re: [patch net-next v2 07/10] bridge: call netdev_sw_port_stp_update
+ when bridge port STP status changes
+Date: Mon, 10 Nov 2014 14:04:52 +0000
+Message-ID: <20141110140452.GB19157@casper.infradead.org>
 References: <1415530280-9190-1-git-send-email-jiri@resnulli.us>
- <1415530280-9190-7-git-send-email-jiri@resnulli.us>
- <54603564.3070606@mojatatu.com>
- <20141110081552.GD1850@nanopsycho.orion>
+ <1415530280-9190-8-git-send-email-jiri@resnulli.us>
+ <5460B989.8030404@mojatatu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>, netdev@vger.kernel.org,
+Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
 	davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
 	dborkman@redhat.com, ogerlitz@mellanox.com, jesse@nicira.com,
 	pshelar@nicira.com, azhou@nicira.com, ben@decadent.org.uk,
@@ -24,40 +23,35 @@ Cc: Jamal Hadi Salim <jhs@mojatatu.com>, netdev@vger.kernel.org,
 	ronye@mellanox.com, simon.horman@netronome.com,
 	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
 	mleitner@redhat.com, shrijeet@gmail.com, gospo@cumulusnetworks.com,
-	bcrl@
-To: Jiri Pirko <jiri@resnulli.us>
+	bcrl@kvack.
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:58403 "EHLO
+Received: from casper.infradead.org ([85.118.1.10]:58520 "EHLO
 	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752229AbaKJNvI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2014 08:51:08 -0500
+	with ESMTP id S1751815AbaKJOEy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2014 09:04:54 -0500
 Content-Disposition: inline
-In-Reply-To: <20141110081552.GD1850@nanopsycho.orion>
+In-Reply-To: <5460B989.8030404@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/10/14 at 09:15am, Jiri Pirko wrote:
-> There are few problems in re-using this. It is netlink based so for calling
-> it from bridge code, we would have to construct netlink message. But
-> that could be probably changed.
-> As you can see from the list of parameters, this is no longer about fdb (addr,
-> vlanid) but this has been extended to something else. See vxlan code for
-> what this is used for. I believe that fdb_add/del should be renamed to
-> something else, perhaps l2neigh_add/del or something like that.
-> The other problem is that fdb_add/del is currently used by various
-> drivers for different purpose (adding macs to unicast list).
+On 11/10/14 at 08:11am, Jamal Hadi Salim wrote:
+> You are unconditionally calling
+> netdev_sw_port_stp_update(p->dev, p->state);
+> Again issue is policy. Could you make this work the same
+> way the fdb_add e.g user intent of whether i want to turn
+> a port in hardware and/or software to disabled/learning/etc
+> is reflected?
 
-Can you elaborate a bit on the intended semantic differences between
-the existing ndo_fdb_add() and ndo_sw_port_fdb_add()? I'm not sure we
-need the sw_ prefix for this specific ndo.
+Agreed. Can be added in a next series perhaps?
 
-I completely agree that relying on Netlink is wrong because we'll have
-in-kernel users of the API but I believe that existing ndo_fdb_add()
-implementations in i40e, ixgbe, qlcnic and macvlan could use the new
-API you propose.
+> btw: does _sw_ stand for switch? why not _hw_ ?
+> Could we have one ndo for all flags instead of individual ones.
+> 
+> I know the current user space code uses u8 as a bitflag; but
+> maybe we can introduce a new u32 flag bitmask that has all the
+> flags set for backward compat? I can count about a total of 10.
 
-How about we rename the existing ndo_fdb_add() to ndo_neigh_add() as
-you propose and convert vxlan over to it and have all others which don't
-even depend on the Netlink attributes being passed in (i40e, ixgbe,
-qlcnic, macvlan) use ndo_fdb_add() which would have the behaviour of your
-proposed ndo_sw_port_fdb_add()?
+I think we can just extend the size of IFLA_BRPORT_STATE, accept
+both a u8 and u32, and return a u32 that that is compatible to
+existing u8 readers.
