@@ -1,91 +1,84 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH nf] netfilter: conntrack: fix race in
- __nf_conntrack_confirm against get_next_corpse
-Date: Mon, 10 Nov 2014 17:54:39 +0100
-Message-ID: <20141110165439.GA7788@salvia>
-References: <012601cff7d1$7ce2d620$76a88260$@gmail.com>
- <20141106133648.2534.1403.stgit@dragon>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: programme110@gmail.com, netfilter-devel@vger.kernel.org,
-	Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20141106133648.2534.1403.stgit@dragon>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net] net: sctp: fix NULL pointer dereference in af->from_addr_param on malformed packet
+Date: Mon, 10 Nov 2014 17:54:26 +0100
+Message-ID: <1415638466-20176-1-git-send-email-dborkman@redhat.com>
+Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	Vlad Yasevich <vyasevich@gmail.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:49719 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751918AbaKJQyc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Nov 2014 11:54:32 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 06, 2014 at 02:36:48PM +0100, Jesper Dangaard Brouer wrote:
-> From: bill bonaparte <programme110@gmail.com>
-> 
-> After removal of the central spinlock nf_conntrack_lock, in
-> commit 93bb0ceb75be2 ("netfilter: conntrack: remove central
-> spinlock nf_conntrack_lock"), it is possible to race against
-> get_next_corpse().
-> 
-> The race is against the get_next_corpse() cleanup on
-> the "unconfirmed" list (a per-cpu list with seperate locking),
-> which set the DYING bit.
-> 
-> Fix this race, in __nf_conntrack_confirm(), by removing the CT
-> from unconfirmed list before checking the DYING bit.  In case
-> race occured, re-add the CT to the dying list.
+An SCTP server doing ASCONF will panic on malformed INIT ping-of-death
+in the form of:
 
-This seems correct to me, some side comments.
+  ------------ INIT[PARAM: SET_PRIMARY_IP] ------------>
 
-> Fixes: 93bb0ceb75be2 ("netfilter: conntrack: remove central spinlock nf_conntrack_lock")
-> Reported-by: bill bonaparte <programme110@gmail.com>
-> Signed-off-by: bill bonaparte <programme110@gmail.com>
-> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
-> ---
-> 
->  net/netfilter/nf_conntrack_core.c |    7 ++++---
->  1 files changed, 4 insertions(+), 3 deletions(-)
-> 
-> diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-> index 5016a69..1072650 100644
-> --- a/net/netfilter/nf_conntrack_core.c
-> +++ b/net/netfilter/nf_conntrack_core.c
-> @@ -611,12 +611,15 @@ __nf_conntrack_confirm(struct sk_buff *skb)
->  	 */
->  	NF_CT_ASSERT(!nf_ct_is_confirmed(ct));
->  	pr_debug("Confirming conntrack %p\n", ct);
-> -	/* We have to check the DYING flag inside the lock to prevent
-> +
-> +	/* We have to check the DYING flag after unlink to prevent
->  	   a race against nf_ct_get_next_corpse() possibly called from
->  	   user context, else we insert an already 'dead' hash, blocking
->  	   further use of that particular connection -JM */
+While the INIT chunk parameter verification dissects through many things
+in order to detect malformed input, it misses to actually check parameters
+inside of parameters. E.g. RFC5061, section 4.2.4 proposes a 'set primary
+IP address' parameter in ASCONF, which has as a subparameter an address
+parameter.
 
-While at this, I think it would be good to fix comment style to:
+So an attacker may send a parameter type other than SCTP_PARAM_IPV4_ADDRESS
+or SCTP_PARAM_IPV6_ADDRESS, param_type2af() will subsequently return 0
+and thus sctp_get_af_specific() returns NULL, too, which we then happily
+dereference unconditionally through af->from_addr_param().
 
-        /* We have ...
-         * ...
-         */
+The trace for the log:
 
-I can fix this here, no need to resend, just let me know.
+BUG: unable to handle kernel NULL pointer dereference at 0000000000000078
+IP: [<ffffffffa01e9c62>] sctp_process_init+0x492/0x990 [sctp]
+PGD 0
+Oops: 0000 [#1] SMP
+[...]
+Pid: 0, comm: swapper Not tainted 2.6.32-504.el6.x86_64 #1 Bochs Bochs
+RIP: 0010:[<ffffffffa01e9c62>]  [<ffffffffa01e9c62>] sctp_process_init+0x492/0x990 [sctp]
+[...]
+Call Trace:
+ <IRQ>
+ [<ffffffffa01f2add>] ? sctp_bind_addr_copy+0x5d/0xe0 [sctp]
+ [<ffffffffa01e1fcb>] sctp_sf_do_5_1B_init+0x21b/0x340 [sctp]
+ [<ffffffffa01e3751>] sctp_do_sm+0x71/0x1210 [sctp]
+ [<ffffffffa01e5c09>] ? sctp_endpoint_lookup_assoc+0xc9/0xf0 [sctp]
+ [<ffffffffa01e61f6>] sctp_endpoint_bh_rcv+0x116/0x230 [sctp]
+ [<ffffffffa01ee986>] sctp_inq_push+0x56/0x80 [sctp]
+ [<ffffffffa01fcc42>] sctp_rcv+0x982/0xa10 [sctp]
+ [<ffffffffa01d5123>] ? ipt_local_in_hook+0x23/0x28 [iptable_filter]
+ [<ffffffff8148bdc9>] ? nf_iterate+0x69/0xb0
+ [<ffffffff81496d10>] ? ip_local_deliver_finish+0x0/0x2d0
+ [<ffffffff8148bf86>] ? nf_hook_slow+0x76/0x120
+ [<ffffffff81496d10>] ? ip_local_deliver_finish+0x0/0x2d0
+[...]
 
-> +	nf_ct_del_from_dying_or_unconfirmed_list(ct);
->  
->  	if (unlikely(nf_ct_is_dying(ct))) {
-> +		nf_ct_add_to_dying_list(ct);
->  		nf_conntrack_double_unlock(hash, reply_hash);
->  		local_bh_enable();
->  		return NF_ACCEPT;
+A minimal way to address this is to check for NULL as we do on all
+other such occasions where we know sctp_get_af_specific() could
+possibly return with NULL.
 
-Not directly related to your patch, but I don't find a good reason why
-we're accepting this packet.
+Fixes: d6de3097592b ("[SCTP]: Add the handling of "Set Primary IP Address" parameter to INIT")
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Cc: Vlad Yasevich <vyasevich@gmail.com>
+---
+ net/sctp/sm_make_chunk.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-If the conntrack from the unconfirmed list is dying, then the object
-will be released by when the packet leaves the stack to its
-destination. With stateful filtering depending in place, the follow up
-packet in the reply direction will likely be considered invalid (if
-tcp tracking is on). Fortunately for us, the origin will likely
-retransmit the syn again, so the ct will be setup accordingly.
-
-So, why should we allow this to go through?
-
-This return verdict was introduced in: fc35077 ("netfilter:
-nf_conntrack: fix a race in __nf_conntrack_confirm against
-nf_ct_get_next_corpse()") btw.
+diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+index ab734be..9f32741 100644
+--- a/net/sctp/sm_make_chunk.c
++++ b/net/sctp/sm_make_chunk.c
+@@ -2609,6 +2609,9 @@ do_addr_param:
+ 		addr_param = param.v + sizeof(sctp_addip_param_t);
+ 
+ 		af = sctp_get_af_specific(param_type2af(param.p->type));
++		if (af == NULL)
++			break;
++
+ 		af->from_addr_param(&addr, addr_param,
+ 				    htons(asoc->peer.port), 0);
+ 
+-- 
+1.7.11.7
