@@ -1,31 +1,47 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: Re: [Xen-devel] BUG in xennet_make_frags with paged skb data
-Date: Mon, 10 Nov 2014 16:42:25 +0000
-Message-ID: <5460EAF1.5020903@citrix.com>
-References: <20141106214940.GD44162@ubuntu-hedt> <545CA27F.4070400@citrix.com>	<20141110143517.GA74005@ubuntu-hedt> <5460CEA5.3070201@citrix.com> <5460EA45.2080202@linaro.org>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [patch net-next v2 00/10] introduce rocker switch driver with
+ hardware accelerated datapath api - phase 1: bridge fdb offload
+Date: Mon, 10 Nov 2014 16:48:32 +0000
+Message-ID: <20141110164832.GD19157@casper.infradead.org>
+References: <1415530280-9190-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-To: Zoltan Kiss <zoltan.kiss@linaro.org>, <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	Stefan Bader <stefan.bader@canonical.com>,
-	Jay Vosburgh <jay.vosburgh@canonical.com>,
-	<linux-kernel@vger.kernel.org>, <xen-devel@lists.xenproject.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5460EA45.2080202@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
+	andy@greyhouse.net, dborkman@redhat.com, ogerlitz@mellanox.com,
+	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
+	ben@decadent.org.uk, stephen@networkplumber.org,
+	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
+	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
+	edumazet@google.com, jhs@mojatatu.com, sfeldma@gmail.com,
+	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
+	linville@tuxdriver.com, jasowang@redhat.com, ebiederm@xmission.com,
+	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
+	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
+	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
+	ronye@mellanox.com, simon.horman@netronome.com,
+	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
+	mleitner@redhat.com, shrijeet@gmail.com, gospo@cumulusnetworks.com,
+	bcrl@kvack.org
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:59580 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750993AbaKJQsi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2014 11:48:38 -0500
+Content-Disposition: inline
+In-Reply-To: <1415530280-9190-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/11/14 16:39, Zoltan Kiss wrote:
+On 11/09/14 at 11:51am, Jiri Pirko wrote:
+> Hi all.
 > 
-> The BUG_ON suggested by Stefan would be still reasonable:
-> 
-> BUG_ON(((page-compound_head(page))*PAGE_SIZE)+offset+len >
-> PAGE_SIZE<<compound_order(compound_head(page)));
+> This patchset is just the first phase of switch and switch-ish device
+> support api in kernel. Note that the api will extend (our complete work
+> can be pulled from https://github.com/jpirko/net-next-rocker).
 
-Well, it wouldn't trigger but I don't think it is useful any more.
+Despite my comment on ndo_fdb_add() which I believe can be reconsidered
+later. I like this pach series a lot. Thanks for putting in so much work
+on this topic.
 
-David
+Reviewed-by: Thomas Graf <tgraf@suug.ch>
