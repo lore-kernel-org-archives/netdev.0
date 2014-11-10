@@ -1,81 +1,88 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [patch net-next v2 03/10] rtnl: expose physical switch id for
- particular device
-Date: Mon, 10 Nov 2014 14:31:25 -0800
-Message-ID: <54613CBD.7090501@gmail.com>
-References: <1415530280-9190-1-git-send-email-jiri@resnulli.us> <1415530280-9190-4-git-send-email-jiri@resnulli.us> <5460FCB0.1040409@cumulusnetworks.com> <20141110221419.GA2061@nanopsycho.orion>
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Subject: [net-next PATCH] ixgbe: Remove IXGBE_FLAG_IN_NETPOLL since it
+ doesn't do anything
+Date: Mon, 10 Nov 2014 14:50:04 -0800
+Message-ID: <20141110224922.7245.35078.stgit@ahduyck-vm-fedora20>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Roopa Prabhu <roopa@cumulusnetworks.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
-	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
-	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
-	ben@decadent.org.uk, stephen@networkplumber.org,
-	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
-	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
-	edumazet@google.com, jhs@mojatatu.com, sfeldma@gmail.com,
-	f.fainelli@gmail.com, linville@tuxdriver.com, jasowang@redhat.com,
-	ebiederm@xmission.com, nicolas.dichtel@6wind.com,
-	ryazanov.s.a@gmail.com, buytenh@wantstofly.org,
-	aviadr@mellanox.com, nbd@openwrt.org, alexei.starovoitov@gmail.com,
-	Neil.Jerram@metaswitch.com, ronye@mellanox.com,
-	simon.horman@netronome.com, alexander.h.duyck@redhat.com,
-	john.ronciak@intel.com, mleitner@redhat.com, shrijeet@gmail.com,
-	gospo@cumulusnetworks
-To: Jiri Pirko <jiri@resnulli.us>
+Cc: donald.c.skidmore@intel.com, davem@davemloft.net,
+	jeffrey.t.kirsher@intel.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f181.google.com ([209.85.214.181]:38630 "EHLO
-	mail-ob0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750919AbaKJWcD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2014 17:32:03 -0500
-Received: by mail-ob0-f181.google.com with SMTP id uy5so6493081obc.40
-        for <netdev@vger.kernel.org>; Mon, 10 Nov 2014 14:32:02 -0800 (PST)
-In-Reply-To: <20141110221419.GA2061@nanopsycho.orion>
+Received: from mx1.redhat.com ([209.132.183.28]:34609 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751848AbaKJWuI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Nov 2014 17:50:08 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/10/2014 02:14 PM, Jiri Pirko wrote:
-> Mon, Nov 10, 2014 at 06:58:08PM CET, roopa@cumulusnetworks.com wrote:
->> On 11/9/14, 2:51 AM, Jiri Pirko wrote:
->>> The netdevice represents a port in a switch, it will expose
->>> IFLA_PHYS_SWITCH_ID value via rtnl. Two netdevices with the same value
->>> belong to one physical switch.
->>>
->>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
->>> ---
->>>   include/uapi/linux/if_link.h |  1 +
->>>   net/core/rtnetlink.c         | 26 +++++++++++++++++++++++++-
->>>   2 files changed, 26 insertions(+), 1 deletion(-)
->>>
->>> diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
->>> index 7072d83..4163753 100644
->>> --- a/include/uapi/linux/if_link.h
->>> +++ b/include/uapi/linux/if_link.h
->>> @@ -145,6 +145,7 @@ enum {
->>>   	IFLA_CARRIER,
->>>   	IFLA_PHYS_PORT_ID,
->>>   	IFLA_CARRIER_CHANGES,
->>> +	IFLA_PHYS_SWITCH_ID,
->>
->> Jiri, since we have not really converged on the switchdev class or having a
->> separate switchdev instance,
->> am thinking it is better if we dont expose any such switch_id to userspace
->> yet until absolutely needed. Do you need it today ?
->> There is no real in kernel hw switch driver that will use it today. And quite
->> likely this will need to change when we introduce real hw switch drivers.
->
-> When and if the switchdev class is introduced, switch id can happily
-> live on. It is nothing against it. Userspace should use this id to group
-> the ports of physical switch.
->
->
+This patch removes some dead code from the cleanup path for ixgbe.
 
-+1 I think we need this otherwise how will userspace "know" how the
-ports are related? If I have two switch silicon blocks in a single
-platform or perhaps have a switch silicon with traditional host
-nics on the same platform.
+Setting and clearing the flag doesn't do anything since all we are doing is
+setting the flag, scheduling napi, clearing the flag and then letting
+netpoll do the polling cleanup.  As such it doesn't make much sense to have
+it there.
 
+This patch also removes one minor white-space error.
 
--- 
-John Fastabend         Intel Corporation
+Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h      |    1 -
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   16 ++++------------
+ 2 files changed, 4 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+index 5032a60..c8880a1 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+@@ -615,7 +615,6 @@ struct ixgbe_adapter {
+ #define IXGBE_FLAG_RX_1BUF_CAPABLE              (u32)(1 << 4)
+ #define IXGBE_FLAG_RX_PS_CAPABLE                (u32)(1 << 5)
+ #define IXGBE_FLAG_RX_PS_ENABLED                (u32)(1 << 6)
+-#define IXGBE_FLAG_IN_NETPOLL                   (u32)(1 << 7)
+ #define IXGBE_FLAG_DCA_ENABLED                  (u32)(1 << 8)
+ #define IXGBE_FLAG_DCA_CAPABLE                  (u32)(1 << 9)
+ #define IXGBE_FLAG_IMIR_ENABLED                 (u32)(1 << 10)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 8e4ba8c..ab14b6b 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -1590,10 +1590,8 @@ static void ixgbe_rx_skb(struct ixgbe_q_vector *q_vector,
+ 
+ 	if (ixgbe_qv_busy_polling(q_vector))
+ 		netif_receive_skb(skb);
+-	else if (!(adapter->flags & IXGBE_FLAG_IN_NETPOLL))
+-		napi_gro_receive(&q_vector->napi, skb);
+ 	else
+-		netif_rx(skb);
++		napi_gro_receive(&q_vector->napi, skb);
+ }
+ 
+ /**
+@@ -6017,7 +6015,6 @@ static void ixgbe_check_hang_subtask(struct ixgbe_adapter *adapter)
+ 
+ 	/* Cause software interrupt to ensure rings are cleaned */
+ 	ixgbe_irq_rearm_queues(adapter, eics);
+-
+ }
+ 
+ /**
+@@ -7340,14 +7337,9 @@ static void ixgbe_netpoll(struct net_device *netdev)
+ 	if (test_bit(__IXGBE_DOWN, &adapter->state))
+ 		return;
+ 
+-	adapter->flags |= IXGBE_FLAG_IN_NETPOLL;
+-	if (adapter->flags & IXGBE_FLAG_MSIX_ENABLED) {
+-		for (i = 0; i < adapter->num_q_vectors; i++)
+-			ixgbe_msix_clean_rings(0, adapter->q_vector[i]);
+-	} else {
+-		ixgbe_intr(adapter->pdev->irq, netdev);
+-	}
+-	adapter->flags &= ~IXGBE_FLAG_IN_NETPOLL;
++	/* loop through and schedule all active queues */
++	for (i = 0; i < adapter->num_q_vectors; i++)
++		ixgbe_msix_clean_rings(0, adapter->q_vector[i]);
+ }
+ 
+ #endif
