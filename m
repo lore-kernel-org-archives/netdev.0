@@ -1,57 +1,77 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: [PATCH 1/4] inet: Add skb_copy_datagram_iter
-Date: Mon, 10 Nov 2014 09:09:55 +0000
-Message-ID: <20141110090955.GH7996@ZenIV.linux.org.uk>
-References: <20141109211908.GF7996@ZenIV.linux.org.uk>
- <20141110.002020.1062493586889118565.davem@davemloft.net>
- <20141110065817.GG7996@ZenIV.linux.org.uk>
- <20141110.023000.1275181784917275552.davem@davemloft.net>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [patch net-next v2 10/10] rocker: implement L2 bridge offloading
+Date: Mon, 10 Nov 2014 10:10:41 +0100
+Message-ID: <54608111.60308@6wind.com>
+References: <1415530280-9190-1-git-send-email-jiri@resnulli.us> <1415530280-9190-11-git-send-email-jiri@resnulli.us> <546036A3.3010404@mojatatu.com> <20141110081826.GE1850@nanopsycho.orion>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, bcrl@kvack.org, mst@redhat.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20141110.023000.1275181784917275552.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
+	andy@greyhouse.net, tgraf@suug.ch, dborkman@redhat.com,
+	ogerlitz@mellanox.com, jesse@nicira.com, pshelar@nicira.com,
+	azhou@nicira.com, ben@decadent.org.uk, stephen@networkplumber.org,
+	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
+	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
+	edumazet@google.com, sfeldma@gmail.com, f.fainelli@gmail.com,
+	roopa@cumulusnetworks.com, linville@tuxdriver.com,
+	jasowang@redhat.com, ebiederm@xmission.com, ryazanov.s.a@gmail.com,
+	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
+	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
+	ronye@mellanox.com, simon.horman@netronome.com,
+	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
+	mleitner@redhat.com, shrijeet@gmail.com, gospo@cumulusnetworks.com,
+	bcrl@kvack.org
+To: Jiri Pirko <jiri@resnulli.us>, Jamal Hadi Salim <jhs@mojatatu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f175.google.com ([209.85.212.175]:49330 "EHLO
+	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752105AbaKJJKr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2014 04:10:47 -0500
+Received: by mail-wi0-f175.google.com with SMTP id ex7so9693088wid.8
+        for <netdev@vger.kernel.org>; Mon, 10 Nov 2014 01:10:45 -0800 (PST)
+In-Reply-To: <20141110081826.GE1850@nanopsycho.orion>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 10, 2014 at 02:30:00AM -0500, David Miller wrote:
-> From: Al Viro <viro@ZenIV.linux.org.uk>
-> Date: Mon, 10 Nov 2014 06:58:17 +0000
-> 
-> > On Mon, Nov 10, 2014 at 12:20:20AM -0500, David Miller wrote:
-> >> From: Al Viro <viro@ZenIV.linux.org.uk>
-> >> Date: Sun, 9 Nov 2014 21:19:08 +0000
-> >> 
-> >> > 1) does sparc64 access_ok() need to differ for 32bit and 64bit tasks?
-> >> 
-> >> sparc64 will just fault no matter what kind of task it is.
-> >> 
-> >> It is impossible for a user task to generate a reference to
-> >> a kernel virtual address, as kernel and user accesses each
-> >> go via a separate address space identifier.
-> > 
-> > Sure, but why do we have access_ok() there at all?  I.e. why not just have
-> > it constant 1?
-> 
-> Since access_ok() is in fact constant 1 on sparc64, where we use it,
-> does it really matter?
+Le 10/11/2014 09:18, Jiri Pirko a =E9crit :
+> Mon, Nov 10, 2014 at 04:53:07AM CET, jhs@mojatatu.com wrote:
+>> On 11/09/14 05:51, Jiri Pirko wrote:
+>>> From: Scott Feldman <sfeldma@gmail.com>
+>>>
+>>> Add L2 bridge offloading support to rocker driver.  Here, the Linux=
+ bridge
+>>> driver is used to collect swdev ports into a tagged (or untagged) V=
+LAN
+>>> bridge.  The swdev will offload from the bridge driver the followin=
+g L2
+>>> bridging functions:
+>>>
+>>>   - Learning of neighbor MAC addresses on VLAN X  Learned mac/vlan =
+is
+>>> installed in bridge FDB.  (And removed when device unlearns mac/vla=
+n).
+>>> Learning must be turned off on each bridge port to disable the feat=
+ure in
+>>> the bridge driver.
+>>>
+>>
+>> I have quiet a few use cases where the above is a no-no. I dont want
+>> learning of any sort (we have a knob for that in the bridge).
+>
+> I would love to see your code. Please do share.
+>
+>> And i dont want learning in hardware to be reflected in software.
+>> Basically this is a policy decision. Introduce a knob to choose whet=
+her
+>> hardware learnt addresses should be reflected in software.
+>
+> This can be easily done as a bridge option I believe. If you are ok w=
+ith
+> that, I will add a patch (either in re-post or as a follow-up)
+An option will be nice.
 
-*blink*
 
-My apologies - I've got confused by the maze of twisty includes, all alike.
-Right you are; in biarch case it *doesn't* depend on 32bit vs. 64bit.
-STACK_TOP-using one is sparc32 variant where we obviously don't have
-biarch at all.
-
-Anyway, the series switching to {compat_,}rw_copy_check_uvector() and
-getting rid of duplicate checks is in vfs.git#iov_iter-net.  Warning:
-it's almost completely untested.  It survives boot, ssh into it and
-runltp -f syscalls (no regressions), but that's about it.  BTW, what's
-the usual regression suite used for net/* stuff?
-
-3 commits in there, on top of net-next#master; head should be at 555126.
-There's a bunch of fairly obvious followups becoming possible after that,
-but let's keep those separate...
+Regards,
+Nicolas
