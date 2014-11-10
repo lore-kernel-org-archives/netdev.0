@@ -1,68 +1,66 @@
-From: Roger Quadros <rogerq@ti.com>
-Subject: Re: [PATCH v4 6/8] net: can: c_can: Disable pins when CAN interface
- is down
-Date: Mon, 10 Nov 2014 11:00:31 +0200
-Message-ID: <54607EAF.40602@ti.com>
-References: <1415371762-29885-1-git-send-email-rogerq@ti.com> <1415371762-29885-7-git-send-email-rogerq@ti.com> <545CDD30.2070508@pengutronix.de>
+From: Oliver Neukum <oneukum@suse.de>
+Subject: Re: [PATCH] brcmfmac: unlink URB when request timed out
+Date: Mon, 10 Nov 2014 10:08:26 +0100
+Message-ID: <1415610506.16488.20.camel@linux-0dmf.site>
+References: <545FAE05.2030701@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <wsa@the-dreams.de>, <tony@atomide.com>, <tglx@linutronix.de>,
-	<mugunthanvnm@ti.com>, <george.cherian@ti.com>, <balbi@ti.com>,
-	<nsekhar@ti.com>, <nm@ti.com>,
-	<sergei.shtylyov@cogentembedded.com>, <linux-omap@vger.kernel.org>,
-	<linux-can@vger.kernel.org>, <netdev@vger.kernel.org>
-To: Marc Kleine-Budde <mkl@pengutronix.de>, <wg@grandegger.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <545CDD30.2070508@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
+Cc: brudley@broadcom.com, arend@broadcom.com, frankyl@broadcom.com,
+	meuleman@broadcom.com, linville@tuxdriver.com,
+	pieterpg@broadcom.com, linux-wireless@vger.kernel.org,
+	brcm80211-dev-list@broadcom.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Mathy Vanhoef <vanhoefm@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <545FAE05.2030701@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11/07/2014 04:54 PM, Marc Kleine-Budde wrote:
-> On 11/07/2014 03:49 PM, Roger Quadros wrote:
->> DRA7 CAN IP suffers from a problem which causes it to be prevented
->> from fully turning OFF (i.e. stuck in transition) if the module was
->> disabled while there was traffic on the CAN_RX line.
->>
->> To work around this issue we select the SLEEP pin state by default
->> on probe and use the DEFAULT pin state on CAN up and back to the
->> SLEEP pin state on CAN down.
->>
->> Signed-off-by: Roger Quadros <rogerq@ti.com>
->> ---
->>  drivers/net/can/c_can/c_can.c          | 20 ++++++++++++++++++++
->>  drivers/net/can/c_can/c_can.h          |  1 +
->>  drivers/net/can/c_can/c_can_platform.c | 20 ++++++++++++++++++++
->>  3 files changed, 41 insertions(+)
->>
->> diff --git a/drivers/net/can/c_can/c_can.c b/drivers/net/can/c_can/c_can.c
->> index 8e78bb4..4dfc3ce 100644
->> --- a/drivers/net/can/c_can/c_can.c
->> +++ b/drivers/net/can/c_can/c_can.c
->> @@ -35,6 +35,7 @@
->>  #include <linux/list.h>
->>  #include <linux/io.h>
->>  #include <linux/pm_runtime.h>
->> +#include <linux/pinctrl/consumer.h>
->>  
->>  #include <linux/can.h>
->>  #include <linux/can/dev.h>
->> @@ -603,6 +604,15 @@ static int c_can_start(struct net_device *dev)
->>  
->>  	priv->can.state = CAN_STATE_ERROR_ACTIVE;
->>  
->> +	/* activate pins */
->> +	if (!IS_ERR(priv->pinctrl)) {
->> +		struct pinctrl_state *s;
->> +
->> +		s = pinctrl_lookup_state(priv->pinctrl, PINCTRL_STATE_DEFAULT);
->> +		if (!IS_ERR(s))
->> +			pinctrl_select_state(priv->pinctrl, s);
->> +	}
+On Sun, 2014-11-09 at 13:10 -0500, Mathy Vanhoef wrote:
+> From: Mathy Vanhoef <vanhoefm@gmail.com>
 > 
-> Please put this common code into a seperate function.
+> Unlink the submitted URB in brcmf_usb_dl_cmd if the request timed out. This
+> assures the URB is never submitted twice, preventing a driver crash.
 
-Oops, forgot this one in a hurry.
+Hi,
 
-cheers,
--roger
+I am afrad this patch is no good. The diagnosis is good,
+but the fix introduces serious problems.
+
+> diff --git a/drivers/net/wireless/brcm80211/brcmfmac/usb.c b/drivers/net/wireless/brcm80211/brcmfmac/usb.c
+> index 5265aa7..1bc7858 100644
+> --- a/drivers/net/wireless/brcm80211/brcmfmac/usb.c
+> +++ b/drivers/net/wireless/brcm80211/brcmfmac/usb.c
+> @@ -738,10 +738,12 @@ static int brcmf_usb_dl_cmd(struct brcmf_usbdev_info *devinfo, u8 cmd,
+>  		goto finalize;
+>  	}
+>  
+> -	if (!brcmf_usb_ioctl_resp_wait(devinfo))
+> +	if (!brcmf_usb_ioctl_resp_wait(devinfo)) {
+> +		usb_unlink_urb(devinfo->ctl_urb);
+
+This is the asynchronous unlink. You have no guarantee it is finished
+after this point.
+
+>  		ret = -ETIMEDOUT;
+> -	else
+> +	} else {
+>  		memcpy(buffer, tmpbuf, buflen);
+> +	}
+>  
+>  finalize:
+>  	kfree(tmpbuf);
+
+Which means that you are freeing memory that may still be used by DMA
+at this time.
+In addition you have no guarantee that the unlink is indeed finished
+by the time the URB is reused.
+If you wish to take this approach you better forget about this URB
+and allocate a new one and free the buffer from the callback.
+
+	Regards
+		Oliver
+
+-- 
+Oliver Neukum <oneukum@suse.de>
