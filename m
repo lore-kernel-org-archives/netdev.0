@@ -1,56 +1,132 @@
-From: Josh Triplett <josh@joshtriplett.org>
-Subject: Re: linux-next: manual merge of the tiny tree with the net-next tree
-Date: Mon, 10 Nov 2014 09:56:28 -0800
-Message-ID: <20141110175628.GB18766@thin>
-References: <20141110142511.03354f6a@canb.auug.org.au>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [patch net-next v2 03/10] rtnl: expose physical switch id for
+ particular device
+Date: Mon, 10 Nov 2014 09:58:08 -0800
+Message-ID: <5460FCB0.1040409@cumulusnetworks.com>
+References: <1415530280-9190-1-git-send-email-jiri@resnulli.us> <1415530280-9190-4-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Catalina Mocanu <catalina.mocanu@gmail.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20141110142511.03354f6a@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-2; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
+	andy@greyhouse.net, tgraf@suug.ch, dborkman@redhat.com,
+	ogerlitz@mellanox.com, jesse@nicira.com, pshelar@nicira.com,
+	azhou@nicira.com, ben@decadent.org.uk, stephen@networkplumber.org,
+	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
+	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
+	edumazet@google.com, jhs@mojatatu.com, sfeldma@gmail.com,
+	f.fainelli@gmail.com, linville@tuxdriver.com, jasowang@redhat.com,
+	ebiederm@xmission.com, nicolas.dichtel@6wind.com,
+	ryazanov.s.a@gmail.com, buytenh@wantstofly.org,
+	aviadr@mellanox.com, nbd@openwrt.org, alexei.starovoitov@gmail.com,
+	Neil.Jerram@metaswitch.com, ronye@mellanox.com,
+	simon.horman@netronome.com, alexander.h.duyck@redhat.com,
+	john.ronciak@intel.com, mleitner@redhat.com, shrijeet@gmail.com,
+	gospo@cumulusnetworks.com, bcrl@kvack.org
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:57790 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752057AbaKJR6a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2014 12:58:30 -0500
+In-Reply-To: <1415530280-9190-4-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 10, 2014 at 02:25:11PM +1100, Stephen Rothwell wrote:
-> Hi Josh,
-> 
-> Today's linux-next merge of the tiny tree got a conflict in
-> lib/Makefile between commit e5a2c8999576 ("fast_hash: avoid indirect
-> function calls") from the net-next tree and commit 4ecea0db79ef ("lib:
-> rhashtable: Make rhashtable.c optional") from the tiny tree.
-> 
-> I fixed it up (see below) and can carry the fix as necessary (no action
-> is required).
+On 11/9/14, 2:51 AM, Jiri Pirko wrote:
+> The netdevice represents a port in a switch, it will expose
+> IFLA_PHYS_SWITCH_ID value via rtnl. Two netdevices with the same value
+> belong to one physical switch.
+>
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> ---
+>   include/uapi/linux/if_link.h |  1 +
+>   net/core/rtnetlink.c         | 26 +++++++++++++++++++++++++-
+>   2 files changed, 26 insertions(+), 1 deletion(-)
+>
+> diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+> index 7072d83..4163753 100644
+> --- a/include/uapi/linux/if_link.h
+> +++ b/include/uapi/linux/if_link.h
+> @@ -145,6 +145,7 @@ enum {
+>   	IFLA_CARRIER,
+>   	IFLA_PHYS_PORT_ID,
+>   	IFLA_CARRIER_CHANGES,
+> +	IFLA_PHYS_SWITCH_ID,
 
-This resolution looks correct to me.
+Jiri, since we have not really converged on the switchdev class or 
+having a separate switchdev instance,
+am thinking it is better if we dont expose any such switch_id to 
+userspace yet until absolutely needed. Do you need it today ?
+There is no real in kernel hw switch driver that will use it today. And 
+quite likely this will need to change when we introduce real hw switch 
+drivers.
 
-- Josh Triplett
 
-> diff --cc lib/Makefile
-> index 04e53dd16070,47b8305288e2..000000000000
-> --- a/lib/Makefile
-> +++ b/lib/Makefile
-> @@@ -22,11 -22,14 +22,14 @@@ lib-$(CONFIG_SMP) += cpumask.
->   lib-y	+= kobject.o klist.o
->   obj-y	+= lockref.o
+>   	__IFLA_MAX
+>   };
 >   
-> - obj-y += bcd.o div64.o sort.o parser.o halfmd4.o debug_locks.o random32.o \
-> + obj-y += bcd.o div64.o sort.o parser.o debug_locks.o random32.o \
->   	 bust_spinlocks.o hexdump.o kasprintf.o bitmap.o scatterlist.o \
-> - 	 gcd.o lcm.o list_sort.o uuid.o flex_array.o iovec.o clz_ctz.o \
-> + 	 gcd.o lcm.o list_sort.o uuid.o iovec.o clz_ctz.o \
->   	 bsearch.o find_last_bit.o find_next_bit.o llist.o memweight.o kfifo.o \
-> - 	 percpu-refcount.o percpu_ida.o rhashtable.o
->  -	 percpu-refcount.o percpu_ida.o hash.o
-> ++	 percpu-refcount.o percpu_ida.o
-> + obj-$(CONFIG_FLEX_ARRAY) += flex_array.o
-> + obj-$(CONFIG_HALFMD4) += halfmd4.o
-> + obj-$(CONFIG_RHASHTABLE) += rhashtable.o
->   obj-y += string_helpers.o
->   obj-$(CONFIG_TEST_STRING_HELPERS) += test-string_helpers.o
->   obj-y += kstrtox.o
+> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+> index 1087c6d..f839354 100644
+> --- a/net/core/rtnetlink.c
+> +++ b/net/core/rtnetlink.c
+> @@ -43,6 +43,7 @@
+>   
+>   #include <linux/inet.h>
+>   #include <linux/netdevice.h>
+> +#include <net/switchdev.h>
+>   #include <net/ip.h>
+>   #include <net/protocol.h>
+>   #include <net/arp.h>
+> @@ -868,7 +869,8 @@ static noinline size_t if_nlmsg_size(const struct net_device *dev,
+>   	       + rtnl_port_size(dev, ext_filter_mask) /* IFLA_VF_PORTS + IFLA_PORT_SELF */
+>   	       + rtnl_link_get_size(dev) /* IFLA_LINKINFO */
+>   	       + rtnl_link_get_af_size(dev) /* IFLA_AF_SPEC */
+> -	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN); /* IFLA_PHYS_PORT_ID */
+> +	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN) /* IFLA_PHYS_PORT_ID */
+> +	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN); /* IFLA_PHYS_SWITCH_ID */
+>   }
+>   
+>   static int rtnl_vf_ports_fill(struct sk_buff *skb, struct net_device *dev)
+> @@ -967,6 +969,24 @@ static int rtnl_phys_port_id_fill(struct sk_buff *skb, struct net_device *dev)
+>   	return 0;
+>   }
+>   
+> +static int rtnl_phys_switch_id_fill(struct sk_buff *skb, struct net_device *dev)
+> +{
+> +	int err;
+> +	struct netdev_phys_item_id psid;
+> +
+> +	err = netdev_sw_parent_id_get(dev, &psid);
+> +	if (err) {
+> +		if (err == -EOPNOTSUPP)
+> +			return 0;
+> +		return err;
+> +	}
+> +
+> +	if (nla_put(skb, IFLA_PHYS_SWITCH_ID, psid.id_len, psid.id))
+> +		return -EMSGSIZE;
+> +
+> +	return 0;
+> +}
+> +
+>   static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+>   			    int type, u32 pid, u32 seq, u32 change,
+>   			    unsigned int flags, u32 ext_filter_mask)
+> @@ -1039,6 +1059,9 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+>   	if (rtnl_phys_port_id_fill(skb, dev))
+>   		goto nla_put_failure;
+>   
+> +	if (rtnl_phys_switch_id_fill(skb, dev))
+> +		goto nla_put_failure;
+> +
+>   	attr = nla_reserve(skb, IFLA_STATS,
+>   			sizeof(struct rtnl_link_stats));
+>   	if (attr == NULL)
+> @@ -1198,6 +1221,7 @@ static const struct nla_policy ifla_policy[IFLA_MAX+1] = {
+>   	[IFLA_NUM_RX_QUEUES]	= { .type = NLA_U32 },
+>   	[IFLA_PHYS_PORT_ID]	= { .type = NLA_BINARY, .len = MAX_PHYS_ITEM_ID_LEN },
+>   	[IFLA_CARRIER_CHANGES]	= { .type = NLA_U32 },  /* ignored */
+> +	[IFLA_PHYS_SWITCH_ID]	= { .type = NLA_BINARY, .len = MAX_PHYS_ITEM_ID_LEN },
+>   };
+>   
+>   static const struct nla_policy ifla_info_policy[IFLA_INFO_MAX+1] = {
