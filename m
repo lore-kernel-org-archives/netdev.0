@@ -1,109 +1,74 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net: introduce SO_INCOMING_CPU
-Date: Mon, 10 Nov 2014 15:51:21 -0800
-Message-ID: <1415663481.9613.18.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1415393472.13896.119.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20141110.150826.1917858055737674539.davem@davemloft.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] checkpatch: Add --strict preference for #defines using
+ BIT(foo)
+Date: Mon, 10 Nov 2014 15:53:31 -0800
+Message-ID: <1415663611.8868.25.camel@perches.com>
+References: <1415265610-9338-1-git-send-email-jiri@resnulli.us>
+	 <1415265610-9338-10-git-send-email-jiri@resnulli.us>
+	 <20141107.151607.480474516800359791.davem@davemloft.net>
+	 <1415394939.23530.20.camel@perches.com>
+	 <20141110153647.f98f7d60fa24bf3bf7cbc215@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ycai@google.com, willemb@google.com,
-	ncardwell@google.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f178.google.com ([209.85.213.178]:59675 "EHLO
-	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751247AbaKJXvX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2014 18:51:23 -0500
-Received: by mail-ig0-f178.google.com with SMTP id a13so33801igq.11
-        for <netdev@vger.kernel.org>; Mon, 10 Nov 2014 15:51:23 -0800 (PST)
-In-Reply-To: <20141110.150826.1917858055737674539.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, jiri@resnulli.us,
+	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141110153647.f98f7d60fa24bf3bf7cbc215@linux-foundation.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2014-11-10 at 15:08 -0500, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Fri, 07 Nov 2014 12:51:12 -0800
+On Mon, 2014-11-10 at 15:36 -0800, Andrew Morton wrote:
+> On Fri, 07 Nov 2014 13:15:39 -0800 Joe Perches <joe@perches.com> wrote:
 > 
-> > @@ -1455,6 +1455,7 @@ process:
-> >  		goto discard_and_relse;
-> >  
-> >  	sk_mark_napi_id(sk, skb);
-> > +	sk_incoming_cpu_update(sk);
+> > Using BIT(foo) and BIT_ULL(bar) is more common now.
+> > Suggest using these macros over #defines with 1<<value.
 > 
-> Just make sk_mark_napi_id() call sk_incoming_cpu_update().
+> urgh.  I'm counting eightish implementations of BIT(), an unknown
+> number of which are actually being used.  Many use 1<<n, some use
+> 1UL<<N, another uses 1ULL<<n.  I'm a bit reluctant to recommend that
+> anyone should use BIT() until it has has some vigorous scrubbing :(
+>
+> Is it actually an improvement?  If I see
 > 
-> You've matched up the calls precisely in this patch, and I can't think
-> of any situation where we'd add a sk_mark_napi_call() not not want to
-> do an sk_incoming_cpu_update().
+> #define X	(1U << 7)
+> 
+> then I know exactly what it does.  Whereas when I see
+> 
+> #define X	BIT(7)
+> 
+> I know neither the size or the signedness of X so I have to go look it
+> up.
 
-I believe this was a coincidence.
+I'm not sure the signedness or type of X matters much
+as the non-64bit comparisons are done by promotion to
+at least int or unsigned int anyway.
 
-In fact some sk_mark_napi_id() calls are not at the right place.
-It makes little sense to change sk->sk_napi_id for a listener socket.
+The BIT macro makes sure a single bit is set.
 
-sk_mark_napi_id() should better be done [1] at the same time we call
-sock_rps_save_rxhash
+The 'good' one is in bitops.h.  It also has #define BIT_ULL
 
-But we need to store cpu before prequeue or backlog (as I did in my
-patch)
+include/linux/bitops.h:#define BIT(nr)                  (1UL << (nr))
+include/linux/bitops.h-#define BIT_ULL(nr)              (1ULL << (nr))
 
+The ones in tools/ are independent and should not be changed.
+Excluding tools/, the others should probably be removed
 
-[1]
+$ git grep -E "define\s+BIT\b" 
+arch/arm/mach-davinci/sleep.S:#define BIT(nr)                   (1 << (nr))
+drivers/staging/rtl8188eu/include/rtl8188e_spec.h:#define BIT(x)                (1 << (x))
+drivers/staging/rtl8188eu/include/wifi.h:#define BIT(x) (1 << (x))
+drivers/staging/rtl8192e/rtl8192e/rtl_core.h:#define BIT(_i)                            (1<<(_i))
+drivers/staging/rtl8712/osdep_service.h:        #define BIT(x)  (1 << (x))
+drivers/staging/rtl8712/wifi.h:#define BIT(x)   (1 << (x))
 
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 9c7d7621466b1241f404a5ca11de809dcff2d02a..f10438ac9c0a4013a8a812b64d94e1cf6dfbd83e 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1429,6 +1429,7 @@ int tcp_v4_do_rcv(struct sock *sk, struct sk_buff *skb)
- 		struct dst_entry *dst = sk->sk_rx_dst;
- 
- 		sock_rps_save_rxhash(sk, skb);
-+		sk_mark_napi_id(sk, skb);
- 		if (dst) {
- 			if (inet_sk(sk)->rx_dst_ifindex != skb->skb_iif ||
- 			    dst->ops->check(dst, 0) == NULL) {
-@@ -1450,6 +1451,7 @@ int tcp_v4_do_rcv(struct sock *sk, struct sk_buff *skb)
- 
- 		if (nsk != sk) {
- 			sock_rps_save_rxhash(nsk, skb);
-+			sk_mark_napi_id(nsk, skb);
- 			if (tcp_child_process(sk, nsk, skb)) {
- 				rsk = nsk;
- 				goto reset;
-@@ -1661,7 +1663,6 @@ process:
- 	if (sk_filter(sk, skb))
- 		goto discard_and_relse;
- 
--	sk_mark_napi_id(sk, skb);
- 	skb->dev = NULL;
- 
- 	bh_lock_sock_nested(sk);
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index ace29b60813cf8a1d7182ad2262cbcbd21810fa7..a83eaff0d936677ef71e8f9f9cd0509cb023b45d 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1293,6 +1293,7 @@ static int tcp_v6_do_rcv(struct sock *sk, struct sk_buff *skb)
- 		struct dst_entry *dst = sk->sk_rx_dst;
- 
- 		sock_rps_save_rxhash(sk, skb);
-+		sk_mark_napi_id(sk, skb);
- 		if (dst) {
- 			if (inet_sk(sk)->rx_dst_ifindex != skb->skb_iif ||
- 			    dst->ops->check(dst, np->rx_dst_cookie) == NULL) {
-@@ -1322,6 +1323,7 @@ static int tcp_v6_do_rcv(struct sock *sk, struct sk_buff *skb)
- 		 */
- 		if (nsk != sk) {
- 			sock_rps_save_rxhash(nsk, skb);
-+			sk_mark_napi_id(nsk, skb);
- 			if (tcp_child_process(sk, nsk, skb))
- 				goto reset;
- 			if (opt_skb)
-@@ -1454,7 +1456,6 @@ process:
- 	if (sk_filter(sk, skb))
- 		goto discard_and_relse;
- 
--	sk_mark_napi_id(sk, skb);
- 	skb->dev = NULL;
- 
- 	bh_lock_sock_nested(sk);
+> I have no strong feelings either way, but I'm wondering what might have
+> inspired this change?
+
+David Miller commented on a netdev patch where 1<<foo was
+being used in a #define and suggested using BIT.
+
+http://article.gmane.org/gmane.linux.network/337535/match=bit
+
+Using BIT _is_ more common in recent patches too.
