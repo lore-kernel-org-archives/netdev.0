@@ -1,46 +1,57 @@
-From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH 3/4] i40e: remove pci_assigned_vfs() check while disabling VFs
-Date: Mon, 10 Nov 2014 17:23:29 +0530
-Message-ID: <1415620410-4937-4-git-send-email-sathya.perla@emulex.com>
-References: <1415620410-4937-1-git-send-email-sathya.perla@emulex.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [patch net-next v2 01/10] net: rename netdev_phys_port_id to
+ more generic name
+Date: Mon, 10 Nov 2014 07:06:29 -0500
+Message-ID: <5460AA45.6000007@mojatatu.com>
+References: <1415530280-9190-1-git-send-email-jiri@resnulli.us>	<1415530280-9190-2-git-send-email-jiri@resnulli.us>	<54603270.509@mojatatu.com> <20141110.002336.70350092543746386.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <ariel.elior@qlogic.com>, <linux.nics@intel.com>,
-	<shahed.shaikh@qlogic.com>, <ddutile@redhat.com>
-To: <linux-pci@vger.kernel.org>, <netdev@vger.kernel.org>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <1415620410-4937-1-git-send-email-sathya.perla@emulex.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: jiri@resnulli.us, netdev@vger.kernel.org, nhorman@tuxdriver.com,
+	andy@greyhouse.net, tgraf@suug.ch, dborkman@redhat.com,
+	ogerlitz@mellanox.com, jesse@nicira.com, pshelar@nicira.com,
+	azhou@nicira.com, ben@decadent.org.uk, stephen@networkplumber.org,
+	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
+	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
+	edumazet@google.com, sfeldma@gmail.com, f.fainelli@gmail.com,
+	roopa@cumulusnetworks.com, linville@tuxdriver.com,
+	jasowang@redhat.com, ebiederm@xmission.com,
+	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
+	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
+	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
+	ronye@mellanox.com, simon.horman@netronome.com,
+	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
+	mleitner@redhat.com, shrijeet@gmail.com, gospo@cumulusnetworks.com,
+	bcrl@kvack.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f171.google.com ([209.85.223.171]:58890 "EHLO
+	mail-ie0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751837AbaKJMGe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2014 07:06:34 -0500
+Received: by mail-ie0-f171.google.com with SMTP id x19so9110374ier.30
+        for <netdev@vger.kernel.org>; Mon, 10 Nov 2014 04:06:34 -0800 (PST)
+In-Reply-To: <20141110.002336.70350092543746386.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vasundhara Volam <vasundhara.volam@emulex.com>
+On 11/10/14 00:23, David Miller wrote:
+> From: Jamal Hadi Salim <jhs@mojatatu.com>
+> Date: Sun, 09 Nov 2014 22:35:12 -0500
+>
+>> wouldnt this just break an existing ABI? You may need to introduce a
+>> new attribute.
+>
+> He isn't breaking anything Jamal, he's just changing the internal
+> macro name we use for the attribute's maximum length.
 
-The pci_assigned_vfs() check (while disabling VFs) is being moved to the
-pci-sysfs.c file and will be done before invoking sriov_configure().
 
-Signed-off-by: Vasundhara Volam <vasundhara.volam@emulex.com>
-Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
----
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |    7 +------
- 1 files changed, 1 insertions(+), 6 deletions(-)
+It is a _user space visible rename_, how about:
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index fff3c27..0028a9a 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -951,12 +951,7 @@ int i40e_pci_sriov_configure(struct pci_dev *pdev, int num_vfs)
- 	if (num_vfs)
- 		return i40e_pci_sriov_enable(pdev, num_vfs);
- 
--	if (!pci_vfs_assigned(pf->pdev)) {
--		i40e_free_vfs(pf);
--	} else {
--		dev_warn(&pdev->dev, "Unable to free VFs because some are assigned to VMs.\n");
--		return -EINVAL;
--	}
-+	i40e_free_vfs(pf);
- 	return 0;
- }
- 
--- 
-1.7.1
+#define MAX_PHYS_ITEM_ID_LEN 32
+#define MAX_PHYS_PORT_ID_LEN   MAX_PHYS_ITEM_ID_LEN
+
+I did miss the fact that the size didnt change.
+
+cheers,
+jamal
