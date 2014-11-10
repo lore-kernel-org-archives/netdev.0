@@ -1,75 +1,73 @@
-From: Alexander Duyck <alexander.h.duyck-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: [net-next PATCH 5/5] net: Remove __skb_alloc_page and
- __skb_alloc_pages
-Date: Mon, 10 Nov 2014 11:52:28 -0800
-Message-ID: <20141110195228.16182.44996.stgit@ahduyck-vm-fedora20>
-References: <20141110195104.16182.98174.stgit@ahduyck-vm-fedora20>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [patch net-next v2 03/10] rtnl: expose physical switch id for
+ particular device
+Date: Mon, 10 Nov 2014 10:02:11 -1000
+Message-ID: <CAE4R7bA_u=E-Vm5Zx74NJugV1JgSj1dOmBGkBZG18kcnkXH1OQ@mail.gmail.com>
+References: <1415530280-9190-1-git-send-email-jiri@resnulli.us>
+	<1415530280-9190-4-git-send-email-jiri@resnulli.us>
+	<5460FCB0.1040409@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	donald.c.skidmore-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org, balbi-l0cyMroinI0@public.gmane.org,
-	matthew.vick-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, mgorman-l3A5Bk7waGM@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20141110195104.16182.98174.stgit@ahduyck-vm-fedora20>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Jiri Pirko <jiri@resnulli.us>, Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>, nhorman@tuxdriver.com,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Thomas Graf <tgraf@suug.ch>, dborkman@redhat.com,
+	ogerlitz@mellanox.com, jesse@nicira.com, pshelar@nicira.com,
+	azhou@nicira.com, ben@decadent.org.uk, stephen@networkplumber.org,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	vyasevic@redhat.com, Cong Wang <xiyou.wangcong@gmail.com>,
+	"Fastabend, John R" <john.r.fastabend@intel.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	John Linville <linville@tuxdriver.com>, jasowang@redhat.com,
+	ebiederm@xmission.com, Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	ryazanov.s.a@gmail.com, buytenh@wantstofly.org,
+	aviadr@mellanox.com, nbd@openwrt.org,
+	Alexei Starovoitov <alexei.starovoitov@gmail.c
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f176.google.com ([209.85.212.176]:32780 "EHLO
+	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751431AbaKJUCN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2014 15:02:13 -0500
+Received: by mail-wi0-f176.google.com with SMTP id h11so11721019wiw.15
+        for <netdev@vger.kernel.org>; Mon, 10 Nov 2014 12:02:11 -0800 (PST)
+In-Reply-To: <5460FCB0.1040409@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Remove the two functions which are now dead code.
+On Mon, Nov 10, 2014 at 7:58 AM, Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
+> On 11/9/14, 2:51 AM, Jiri Pirko wrote:
+>>
+>> The netdevice represents a port in a switch, it will expose
+>> IFLA_PHYS_SWITCH_ID value via rtnl. Two netdevices with the same value
+>> belong to one physical switch.
+>>
+>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>> ---
+>>   include/uapi/linux/if_link.h |  1 +
+>>   net/core/rtnetlink.c         | 26 +++++++++++++++++++++++++-
+>>   2 files changed, 26 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+>> index 7072d83..4163753 100644
+>> --- a/include/uapi/linux/if_link.h
+>> +++ b/include/uapi/linux/if_link.h
+>> @@ -145,6 +145,7 @@ enum {
+>>         IFLA_CARRIER,
+>>         IFLA_PHYS_PORT_ID,
+>>         IFLA_CARRIER_CHANGES,
+>> +       IFLA_PHYS_SWITCH_ID,
+>
+>
+> Jiri, since we have not really converged on the switchdev class or having a
+> separate switchdev instance,
+> am thinking it is better if we dont expose any such switch_id to userspace
+> yet until absolutely needed. Do you need it today ?
+> There is no real in kernel hw switch driver that will use it today. And
+> quite likely this will need to change when we introduce real hw switch
+> drivers.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
----
- include/linux/skbuff.h |   43 -------------------------------------------
- 1 file changed, 43 deletions(-)
-
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index f196628..e4acbca 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -2233,49 +2233,6 @@ static inline struct page *netdev_alloc_page(void)
- }
- 
- /**
-- *	__skb_alloc_pages - allocate pages for ps-rx on a skb and preserve pfmemalloc data
-- *	@gfp_mask: alloc_pages_node mask. Set __GFP_NOMEMALLOC if not for network packet RX
-- *	@skb: skb to set pfmemalloc on if __GFP_MEMALLOC is used
-- *	@order: size of the allocation
-- *
-- * 	Allocate a new page.
-- *
-- * 	%NULL is returned if there is no free memory.
--*/
--static inline struct page *__skb_alloc_pages(gfp_t gfp_mask,
--					      struct sk_buff *skb,
--					      unsigned int order)
--{
--	struct page *page;
--
--	gfp_mask |= __GFP_COLD;
--
--	if (!(gfp_mask & __GFP_NOMEMALLOC))
--		gfp_mask |= __GFP_MEMALLOC;
--
--	page = alloc_pages_node(NUMA_NO_NODE, gfp_mask, order);
--	if (skb && page && page->pfmemalloc)
--		skb->pfmemalloc = true;
--
--	return page;
--}
--
--/**
-- *	__skb_alloc_page - allocate a page for ps-rx for a given skb and preserve pfmemalloc data
-- *	@gfp_mask: alloc_pages_node mask. Set __GFP_NOMEMALLOC if not for network packet RX
-- *	@skb: skb to set pfmemalloc on if __GFP_MEMALLOC is used
-- *
-- * 	Allocate a new page.
-- *
-- * 	%NULL is returned if there is no free memory.
-- */
--static inline struct page *__skb_alloc_page(gfp_t gfp_mask,
--					     struct sk_buff *skb)
--{
--	return __skb_alloc_pages(gfp_mask, skb, 0);
--}
+How will it change when real hw switch drivers are introduced?  Will
+the real sw driver not be able to give a up unique ID for the switch?
