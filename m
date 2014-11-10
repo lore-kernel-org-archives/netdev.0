@@ -1,87 +1,71 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next v2 03/10] rtnl: expose physical switch id for
- particular device
-Date: Mon, 10 Nov 2014 08:45:02 +0100
-Message-ID: <20141110074502.GC1850@nanopsycho.orion>
-References: <1415530280-9190-1-git-send-email-jiri@resnulli.us>
- <1415530280-9190-4-git-send-email-jiri@resnulli.us>
- <5460347E.6040000@mojatatu.com>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: Re: Face some error after applying commit 7dfa4b414d4(net/mlx4_en:
+ Code cleanups in tx path)
+Date: Mon, 10 Nov 2014 10:00:21 +0200
+Message-ID: <54607095.6070302@mellanox.com>
+References: <20141108025758.GA13875@richard> <CANn89i+ekXHJSePzQ0rWx2KKqwYGTrok3-ZZ1RdEygVJcGDqRQ@mail.gmail.com> <20141110015933.GB6294@richard> <1415587574.13896.131.camel@edumazet-glaptop2.roam.corp.google.com> <20141110054010.GA3224@richard>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
-	andy@greyhouse.net, tgraf@suug.ch, dborkman@redhat.com,
-	ogerlitz@mellanox.com, jesse@nicira.com, pshelar@nicira.com,
-	azhou@nicira.com, ben@decadent.org.uk, stephen@networkplumber.org,
-	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
-	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
-	edumazet@google.com, sfeldma@gmail.com, f.fainelli@gmail.com,
-	roopa@cumulusnetworks.com, linville@tuxdriver.com,
-	jasowang@redhat.com, ebiederm@xmission.com,
-	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
-	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
-	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
-	ronye@mellanox.com, simon.horman@netronome.com,
-	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
-	mleitner@redhat.com, shrijeet@gmail.com, gospo@cumulusnetworks.com,
-	bcrl@kvack.org
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: Eric Dumazet <edumazet@google.com>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Wei Yang <weiyang@linux.vnet.ibm.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f45.google.com ([74.125.82.45]:48676 "EHLO
-	mail-wg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750833AbaKJHpG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2014 02:45:06 -0500
-Received: by mail-wg0-f45.google.com with SMTP id x12so8073882wgg.4
-        for <netdev@vger.kernel.org>; Sun, 09 Nov 2014 23:45:04 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <5460347E.6040000@mojatatu.com>
+Received: from eu1sys200aog123.obsmtp.com ([207.126.144.155]:36476 "EHLO
+	eu1sys200aog123.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750890AbaKJIBQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2014 03:01:16 -0500
+In-Reply-To: <20141110054010.GA3224@richard>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mon, Nov 10, 2014 at 04:43:58AM CET, jhs@mojatatu.com wrote:
->On 11/09/14 05:51, Jiri Pirko wrote:
->>The netdevice represents a port in a switch, it will expose
->>IFLA_PHYS_SWITCH_ID value via rtnl. Two netdevices with the same value
->>belong to one physical switch.
->>
->>Signed-off-by: Jiri Pirko <jiri@resnulli.us>
->>---
->>  include/uapi/linux/if_link.h |  1 +
->>  net/core/rtnetlink.c         | 26 +++++++++++++++++++++++++-
->>  2 files changed, 26 insertions(+), 1 deletion(-)
->>
->>diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
->>index 7072d83..4163753 100644
->>--- a/include/uapi/linux/if_link.h
->>+++ b/include/uapi/linux/if_link.h
->>@@ -145,6 +145,7 @@ enum {
->>  	IFLA_CARRIER,
->>  	IFLA_PHYS_PORT_ID,
->>  	IFLA_CARRIER_CHANGES,
->>+	IFLA_PHYS_SWITCH_ID,
->>  	__IFLA_MAX
->>  };
->>
->
->
->>@@ -1198,6 +1221,7 @@ static const struct nla_policy ifla_policy[IFLA_MAX+1] = {
->>  	[IFLA_NUM_RX_QUEUES]	= { .type = NLA_U32 },
->>  	[IFLA_PHYS_PORT_ID]	= { .type = NLA_BINARY, .len = MAX_PHYS_ITEM_ID_LEN },
->>  	[IFLA_CARRIER_CHANGES]	= { .type = NLA_U32 },  /* ignored */
->>+	[IFLA_PHYS_SWITCH_ID]	= { .type = NLA_BINARY, .len = MAX_PHYS_ITEM_ID_LEN },
->>  };
->>
->
->Ok, looking at this compared to #1 i can see you are introducing
->IFLA_PHYS_SWITCH_ID but then why did you need to change IFLA_PHYS_PORT_ID
->earlier?
+On 11/10/2014 7:40 AM, Wei Yang wrote:
+> On Sun, Nov 09, 2014 at 06:46:14PM -0800, Eric Dumazet wrote:
+>> On Mon, 2014-11-10 at 09:59 +0800, Wei Yang wrote:
+>>> On Fri, Nov 07, 2014 at 07:38:15PM -0800, Eric Dumazet wrote:
+>>>> On Fri, Nov 7, 2014 at 6:57 PM, Wei Yang <weiyang@linux.vnet.ibm.com> wrote:
+>>>>> Eric and Amir
+>>>>>
 
-I did not change it at all. I only made the name more generic. Please
-look closer to the patch 1.
+[...]
 
->
->cheers,
->jamal
->
->>  static const struct nla_policy ifla_info_policy[IFLA_INFO_MAX+1] = {
+>>>
 >>
->
+>> Okay, your message was not clear : I thought you had a compilation error
+>> on current tree.
+>>
+>> The true story of these patches is that Mellanox split an initial big
+>> chunk [1] I gave into multiple patches.
+>>
+>> Maybe they missed that one patch did not actually compile.
+>>
+>> [1] https://patchwork.ozlabs.org/patch/394256/
+>>
+>> Now, it is done, there is nothing we can do.
+>>
+>> I'll let Mellanox comment, but it looks like your hardware does not like
+>> something.
+>>
+>> Have you tried to disable Blue Frame ?
+>>
+> 
+> Yep, looks the PF works fine. But the current FW I can't just enable the PF.
+> 
+> How to disable Blue Frame? I am not clear about this.
+> 
+Hi,
+
+Lets see that we're on the same page here:
+1. There was a compilation problem that you fixed (Yes, it was my fault
+- I just discovered it a minute after the code was applied).
+2. When you're using SR-IOV, during initialization, you get a CQE error
+with syndrome 0x2 on one of the probed VF's.
+3. Regarding the BlueFlame - I don't see how it is related to the issue
+that you see. But it is a very easy experiment. Issue: "ethtool
+--set-priv-flags eth1 blueflame off"
+
+Please send me the module parameters you used when loading mlx4_core, a
+full dmesg with both mlx4_core and mlx4_en loading.
+
+Amir.
