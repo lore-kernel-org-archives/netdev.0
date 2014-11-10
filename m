@@ -1,9 +1,9 @@
 From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [patch net-next v2 01/10] net: rename netdev_phys_port_id to
- more generic name
-Date: Sun, 09 Nov 2014 22:35:12 -0500
-Message-ID: <54603270.509@mojatatu.com>
-References: <1415530280-9190-1-git-send-email-jiri@resnulli.us> <1415530280-9190-2-git-send-email-jiri@resnulli.us>
+Subject: Re: [patch net-next v2 03/10] rtnl: expose physical switch id for
+ particular device
+Date: Sun, 09 Nov 2014 22:43:58 -0500
+Message-ID: <5460347E.6040000@mojatatu.com>
+References: <1415530280-9190-1-git-send-email-jiri@resnulli.us> <1415530280-9190-4-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -25,74 +25,55 @@ Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
 	bcrl@kvack.org
 To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f180.google.com ([209.85.223.180]:44797 "EHLO
-	mail-ie0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751095AbaKJDfU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Nov 2014 22:35:20 -0500
-Received: by mail-ie0-f180.google.com with SMTP id y20so8227984ier.25
-        for <netdev@vger.kernel.org>; Sun, 09 Nov 2014 19:35:19 -0800 (PST)
-In-Reply-To: <1415530280-9190-2-git-send-email-jiri@resnulli.us>
+Received: from mail-ie0-f179.google.com ([209.85.223.179]:59116 "EHLO
+	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751302AbaKJDoE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Nov 2014 22:44:04 -0500
+Received: by mail-ie0-f179.google.com with SMTP id rl12so8243693iec.24
+        for <netdev@vger.kernel.org>; Sun, 09 Nov 2014 19:44:03 -0800 (PST)
+In-Reply-To: <1415530280-9190-4-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
 On 11/09/14 05:51, Jiri Pirko wrote:
-> So this can be reused for identification of other "items" as well.
+> The netdevice represents a port in a switch, it will expose
+> IFLA_PHYS_SWITCH_ID value via rtnl. Two netdevices with the same value
+> belong to one physical switch.
 >
-
-
-
-
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> ---
+>   include/uapi/linux/if_link.h |  1 +
+>   net/core/rtnetlink.c         | 26 +++++++++++++++++++++++++-
+>   2 files changed, 26 insertions(+), 1 deletion(-)
 >
-> diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-> index 9dd0669..55dc4da 100644
-> --- a/net/core/net-sysfs.c
-> +++ b/net/core/net-sysfs.c
-> @@ -387,7 +387,7 @@ static ssize_t phys_port_id_show(struct device *dev,
->   		return restart_syscall();
->
->   	if (dev_isalive(netdev)) {
-> -		struct netdev_phys_port_id ppid;
-> +		struct netdev_phys_item_id ppid;
->
->   		ret = dev_get_phys_port_id(netdev, &ppid);
->   		if (!ret)
-> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-> index a688268..1087c6d 100644
-> --- a/net/core/rtnetlink.c
-> +++ b/net/core/rtnetlink.c
-> @@ -868,7 +868,7 @@ static noinline size_t if_nlmsg_size(const struct net_device *dev,
->   	       + rtnl_port_size(dev, ext_filter_mask) /* IFLA_VF_PORTS + IFLA_PORT_SELF */
->   	       + rtnl_link_get_size(dev) /* IFLA_LINKINFO */
->   	       + rtnl_link_get_af_size(dev) /* IFLA_AF_SPEC */
-> -	       + nla_total_size(MAX_PHYS_PORT_ID_LEN); /* IFLA_PHYS_PORT_ID */
-> +	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN); /* IFLA_PHYS_PORT_ID */
->   }
->
-
-[...]
->   static int rtnl_vf_ports_fill(struct sk_buff *skb, struct net_device *dev)
-> @@ -952,7 +952,7 @@ static int rtnl_port_fill(struct sk_buff *skb, struct net_device *dev,
->   static int rtnl_phys_port_id_fill(struct sk_buff *skb, struct net_device *dev)
->   {
->   	int err;
-> -	struct netdev_phys_port_id ppid;
-> +	struct netdev_phys_item_id ppid;
->
->   	err = dev_get_phys_port_id(dev, &ppid);
->   	if (err) {
-> @@ -1196,7 +1196,7 @@ static const struct nla_policy ifla_policy[IFLA_MAX+1] = {
->   	[IFLA_PROMISCUITY]	= { .type = NLA_U32 },
->   	[IFLA_NUM_TX_QUEUES]	= { .type = NLA_U32 },
->   	[IFLA_NUM_RX_QUEUES]	= { .type = NLA_U32 },
-> -	[IFLA_PHYS_PORT_ID]	= { .type = NLA_BINARY, .len = MAX_PHYS_PORT_ID_LEN },
-> +	[IFLA_PHYS_PORT_ID]	= { .type = NLA_BINARY, .len = MAX_PHYS_ITEM_ID_LEN },
->   	[IFLA_CARRIER_CHANGES]	= { .type = NLA_U32 },  /* ignored */
+> diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+> index 7072d83..4163753 100644
+> --- a/include/uapi/linux/if_link.h
+> +++ b/include/uapi/linux/if_link.h
+> @@ -145,6 +145,7 @@ enum {
+>   	IFLA_CARRIER,
+>   	IFLA_PHYS_PORT_ID,
+>   	IFLA_CARRIER_CHANGES,
+> +	IFLA_PHYS_SWITCH_ID,
+>   	__IFLA_MAX
 >   };
+>
 
 
-wouldnt this just break an existing ABI? You may need to introduce a new 
-attribute.
+> @@ -1198,6 +1221,7 @@ static const struct nla_policy ifla_policy[IFLA_MAX+1] = {
+>   	[IFLA_NUM_RX_QUEUES]	= { .type = NLA_U32 },
+>   	[IFLA_PHYS_PORT_ID]	= { .type = NLA_BINARY, .len = MAX_PHYS_ITEM_ID_LEN },
+>   	[IFLA_CARRIER_CHANGES]	= { .type = NLA_U32 },  /* ignored */
+> +	[IFLA_PHYS_SWITCH_ID]	= { .type = NLA_BINARY, .len = MAX_PHYS_ITEM_ID_LEN },
+>   };
+>
+
+Ok, looking at this compared to #1 i can see you are introducing 
+IFLA_PHYS_SWITCH_ID but then why did you need to change 
+IFLA_PHYS_PORT_ID earlier?
 
 cheers,
 jamal
+
+>   static const struct nla_policy ifla_info_policy[IFLA_INFO_MAX+1] = {
+>
