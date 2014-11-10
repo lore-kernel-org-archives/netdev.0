@@ -1,38 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/4] inet: Add skb_copy_datagram_iter
-Date: Mon, 10 Nov 2014 02:30:00 -0500 (EST)
-Message-ID: <20141110.023000.1275181784917275552.davem@davemloft.net>
-References: <20141109211908.GF7996@ZenIV.linux.org.uk>
-	<20141110.002020.1062493586889118565.davem@davemloft.net>
-	<20141110065817.GG7996@ZenIV.linux.org.uk>
+From: Xie Jianhua <Jianhua.Xie@freescale.com>
+Subject: [PATCH v1 net-next 0/2] bonding: Introduce 4 AD link speed
+Date: Mon, 10 Nov 2014 15:16:39 +0800
+Message-ID: <1415603801-21285-1-git-send-email-Jianhua.Xie@freescale.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, bcrl@kvack.org, mst@redhat.com
-To: viro@ZenIV.linux.org.uk
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141110065817.GG7996@ZenIV.linux.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Jay Vosburgh <j.vosburgh@gmail.com>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jianhua Xie <Jianhua.Xie@freescale.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn1on0118.outbound.protection.outlook.com ([157.56.110.118]:20896
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751297AbaKJHcq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Nov 2014 02:32:46 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Date: Mon, 10 Nov 2014 06:58:17 +0000
+From: Jianhua Xie <Jianhua.Xie@freescale.com>
 
-> On Mon, Nov 10, 2014 at 12:20:20AM -0500, David Miller wrote:
->> From: Al Viro <viro@ZenIV.linux.org.uk>
->> Date: Sun, 9 Nov 2014 21:19:08 +0000
->> 
->> > 1) does sparc64 access_ok() need to differ for 32bit and 64bit tasks?
->> 
->> sparc64 will just fault no matter what kind of task it is.
->> 
->> It is impossible for a user task to generate a reference to
->> a kernel virtual address, as kernel and user accesses each
->> go via a separate address space identifier.
-> 
-> Sure, but why do we have access_ok() there at all?  I.e. why not just have
-> it constant 1?
+User Key bits in Port key of AD mode are yet not used.  This series
+expands speed type bits and shrinks unused user Key bits in AD mode
+Port Key, introduces 4 AD link speed: 2.5G/20G/40G/56G, and fixes
+aggregated link bandwidth calculation based on new link speed.
 
-Since access_ok() is in fact constant 1 on sparc64, where we use it,
-does it really matter?
+Jianhua Xie (2):
+  bonding: Expand speed type bits of the AD Port Key
+  bonding: Introduce 4 AD link speed to fix agg_bandwidth
+
+ drivers/net/bonding/bond_3ad.c | 44 ++++++++++++++++++++++++++++++++++++++----
+ 1 file changed, 40 insertions(+), 4 deletions(-)
+
+-- 
+Changes in v1:
+ * Compress RFC patches #2 to #5 into one single patch.
+ * Fix inexact commit information.
+
+2.1.0.27.g96db324
