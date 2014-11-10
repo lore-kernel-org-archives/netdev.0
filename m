@@ -1,15 +1,12 @@
-From: Jiri Pirko <jiri@resnulli.us>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
 Subject: Re: [patch net-next v2 01/10] net: rename netdev_phys_port_id to
  more generic name
-Date: Mon, 10 Nov 2014 14:16:22 +0100
-Message-ID: <20141110131622.GC4256@nanopsycho.orion>
-References: <1415530280-9190-1-git-send-email-jiri@resnulli.us>
- <1415530280-9190-2-git-send-email-jiri@resnulli.us>
- <54603270.509@mojatatu.com>
- <20141110074344.GB1850@nanopsycho.orion>
- <5460ACC0.3020805@mojatatu.com>
+Date: Mon, 10 Nov 2014 08:20:06 -0500
+Message-ID: <5460BB86.9040700@mojatatu.com>
+References: <1415530280-9190-1-git-send-email-jiri@resnulli.us> <1415530280-9190-2-git-send-email-jiri@resnulli.us> <54603270.509@mojatatu.com> <20141110074344.GB1850@nanopsycho.orion> <5460ACC0.3020805@mojatatu.com> <20141110131622.GC4256@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
 	andy@greyhouse.net, tgraf@suug.ch, dborkman@redhat.com,
 	ogerlitz@mellanox.com, jesse@nicira.com, pshelar@nicira.com,
@@ -26,36 +23,26 @@ Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
 	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
 	mleitner@redhat.com, shrijeet@gmail.com, gospo@cumulusnetworks.com,
 	bcrl@kvack.org
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f181.google.com ([209.85.212.181]:38174 "EHLO
-	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751580AbaKJNQ2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2014 08:16:28 -0500
-Received: by mail-wi0-f181.google.com with SMTP id n3so10362702wiv.8
-        for <netdev@vger.kernel.org>; Mon, 10 Nov 2014 05:16:24 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <5460ACC0.3020805@mojatatu.com>
+Received: from mail-ie0-f182.google.com ([209.85.223.182]:61461 "EHLO
+	mail-ie0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751778AbaKJNUL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2014 08:20:11 -0500
+Received: by mail-ie0-f182.google.com with SMTP id rd18so9094431iec.41
+        for <netdev@vger.kernel.org>; Mon, 10 Nov 2014 05:20:11 -0800 (PST)
+In-Reply-To: <20141110131622.GC4256@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mon, Nov 10, 2014 at 01:17:04PM CET, jhs@mojatatu.com wrote:
->On 11/10/14 02:43, Jiri Pirko wrote:
->>Mon, Nov 10, 2014 at 04:35:12AM CET, jhs@mojatatu.com wrote:
->
->>I don't see a reason why this would break kabi:
->>
->>-#define MAX_PHYS_PORT_ID_LEN 32
->>+#define MAX_PHYS_ITEM_ID_LEN 32
->>
->
->refer to my response to Dave. Just define MAX_PHYS_PORT_ID_LEN to
->MAX_PHYS_ITEM_ID_LEN so people dont have to change their code
->because a name change.
+On 11/10/14 08:16, Jiri Pirko wrote:
 
-Jamal, please look at the patch & code. MAX_PHYS_PORT_ID_LEN is in
-include/linux/netdevice.h which is not part of user exported api.
-
+> Jamal, please look at the patch & code. MAX_PHYS_PORT_ID_LEN is in
+> include/linux/netdevice.h which is not part of user exported api.
 >
->cheers,
->jamal
+
+I got it - the confusing part was rtnetlink.c was looking for it
+as if it was expecting user space to send it.
+
+cheers,
+jamal
