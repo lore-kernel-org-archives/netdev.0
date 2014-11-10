@@ -1,102 +1,79 @@
-From: Frediano Ziglio <freddy77@gmail.com>
-Subject: Re: BUG in xennet_make_frags with paged skb data
-Date: Mon, 10 Nov 2014 17:20:03 +0000
-Message-ID: <CAHt6W4fFd17y0gXO9o=rrc86ErYNe_gcvvuc94j31ZrpR4huog@mail.gmail.com>
-References: <20141106214940.GD44162@ubuntu-hedt> <545CA27F.4070400@citrix.com>
-	<20141110143517.GA74005@ubuntu-hedt> <5460CEA5.3070201@citrix.com>
-	<5460EA45.2080202@linaro.org> <5460EAF1.5020903@citrix.com>
+From: Andy Gospodarek <gospo@cumulusnetworks.com>
+Subject: Re: [patch net-next v2 06/10] bridge: introduce fdb offloading via
+ switchdev
+Date: Mon, 10 Nov 2014 12:30:58 -0500
+Message-ID: <20141110173058.GA2002@gospo.home.greyhouse.net>
+References: <1415530280-9190-1-git-send-email-jiri@resnulli.us>
+ <1415530280-9190-7-git-send-email-jiri@resnulli.us>
+ <54603564.3070606@mojatatu.com>
+ <20141110081552.GD1850@nanopsycho.orion>
+ <20141110135100.GA19157@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============5083918228855888436=="
-Cc: Zoltan Kiss <zoltan.kiss@linaro.org>, Eric Dumazet <eric.dumazet@gmail.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Stefan Bader <stefan.bader@canonical.com>, xen-devel@lists.xenproject.org,
-	Jay Vosburgh <jay.vosburgh@canonical.com>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: David Vrabel <david.vrabel@citrix.com>
-Return-path: <xen-devel-bounces@lists.xen.org>
-In-Reply-To: <5460EAF1.5020903@citrix.com>
-List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Sender: xen-devel-bounces@lists.xen.org
-Errors-To: xen-devel-bounces@lists.xen.org
-List-Id: netdev.vger.kernel.org
-
---===============5083918228855888436==
-Content-Type: multipart/alternative; boundary=001a1136afd890138c0507845f7a
-
---001a1136afd890138c0507845f7a
-Content-Type: text/plain; charset=UTF-8
-
-2014-11-10 16:42 GMT+00:00 David Vrabel <david.vrabel@citrix.com>:
-
-> On 10/11/14 16:39, Zoltan Kiss wrote:
-> >
-> > The BUG_ON suggested by Stefan would be still reasonable:
-> >
-> > BUG_ON(((page-compound_head(page))*PAGE_SIZE)+offset+len >
-> > PAGE_SIZE<<compound_order(compound_head(page)));
->
-> Well, it wouldn't trigger but I don't think it is useful any more.
->
-> David
->
->
-Looks like this structure was designed to just contains physical single
-pages and was extended to support compound pages however there are still
-some functions that assume the usage of single pages. Just for instance the
-offset/size of fragments are computed from PAGE_SIZE. On x86 (4KB pages) if
-your compound page is bigger than 64KB you cannot fully use for a fragment
-as offset/size are 16 bits. Some functions in skbuff.c use kmap which is
-limited to physical page.
-
-Frediano
-
---001a1136afd890138c0507845f7a
-Content-Type: text/html; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-
-<div dir=3D"ltr"><div class=3D"gmail_extra"><div class=3D"gmail_quote">2014=
--11-10 16:42 GMT+00:00 David Vrabel <span dir=3D"ltr">&lt;<a href=3D"mailto=
-:david.vrabel@citrix.com" target=3D"_blank">david.vrabel@citrix.com</a>&gt;=
-</span>:<br><blockquote class=3D"gmail_quote" style=3D"margin:0 0 0 .8ex;bo=
-rder-left:1px #ccc solid;padding-left:1ex"><span class=3D"">On 10/11/14 16:=
-39, Zoltan Kiss wrote:<br>
-&gt;<br>
-&gt; The BUG_ON suggested by Stefan would be still reasonable:<br>
-&gt;<br>
-&gt; BUG_ON(((page-compound_head(page))*PAGE_SIZE)+offset+len &gt;<br>
-&gt; PAGE_SIZE&lt;&lt;compound_order(compound_head(page)));<br>
-<br>
-</span>Well, it wouldn&#39;t trigger but I don&#39;t think it is useful any=
- more.<br>
-<div class=3D"HOEnZb"><div class=3D"h5"><br>
-David<br>
-<br></div></div></blockquote><div><br></div><div>Looks like this structure =
-was designed to just contains physical single pages and was extended to sup=
-port compound pages however there are still some functions that assume the =
-usage of single pages. Just for instance the offset/size of fragments are c=
-omputed from PAGE_SIZE. On x86 (4KB pages) if your compound page is bigger =
-than 64KB you cannot fully use for a fragment as offset/size are 16 bits. S=
-ome functions in skbuff.c use kmap which is limited to physical page.<br></=
-div><div><br>Frediano<br><br></div></div></div></div>
-
---001a1136afd890138c0507845f7a--
-
-
---===============5083918228855888436==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Pirko <jiri@resnulli.us>, Jamal Hadi Salim <jhs@mojatatu.com>,
+	netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
+	andy@greyhouse.net, dborkman@redhat.com, ogerlitz@mellanox.com,
+	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
+	ben@decadent.org.uk, stephen@networkplumber.org,
+	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
+	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
+	edumazet@google.com, sfeldma@gmail.com, f.fainelli@gmail.com,
+	roopa@cumulusnetworks.com, linville@tuxdriver.com,
+	jasowang@redhat.com, ebiederm@xmission.com,
+	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
+	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
+	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
+	ronye@mellanox.com, simon.horman@netronome.com,
+	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
+	mleitner@redhat.com, shrijeet@gmail.com, b
+To: Thomas Graf <tgraf@suug.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:52061 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752014AbaKJRbM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2014 12:31:12 -0500
 Content-Disposition: inline
+In-Reply-To: <20141110135100.GA19157@casper.infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-_______________________________________________
-Xen-devel mailing list
-Xen-devel@lists.xen.org
-http://lists.xen.org/xen-devel
+On Mon, Nov 10, 2014 at 01:51:00PM +0000, Thomas Graf wrote:
+> On 11/10/14 at 09:15am, Jiri Pirko wrote:
+> > There are few problems in re-using this. It is netlink based so for calling
+> > it from bridge code, we would have to construct netlink message. But
+> > that could be probably changed.
+> > As you can see from the list of parameters, this is no longer about fdb (addr,
+> > vlanid) but this has been extended to something else. See vxlan code for
+> > what this is used for. I believe that fdb_add/del should be renamed to
+> > something else, perhaps l2neigh_add/del or something like that.
+> > The other problem is that fdb_add/del is currently used by various
+> > drivers for different purpose (adding macs to unicast list).
+> 
+> Can you elaborate a bit on the intended semantic differences between
+> the existing ndo_fdb_add() and ndo_sw_port_fdb_add()? I'm not sure we
+> need the sw_ prefix for this specific ndo.
+> 
+> I completely agree that relying on Netlink is wrong because we'll have
+> in-kernel users of the API but I believe that existing ndo_fdb_add()
+> implementations in i40e, ixgbe, qlcnic and macvlan could use the new
+> API you propose.
+I also think the same API could be used quite easily on the current
+drivers that use it.
 
---===============5083918228855888436==--
+I was looking at this earlier today and there are only 5 drivers
+(outside the bridge code) that support ndo_fdb_add.  The 3 hardware
+drivers and vxlan driver seem like they could use this new API.  The
+macvlan code appears to simply set the uc and mc lists, which seems like
+it could be done other ways -- confirmation from John Fastabend, Roopa,
+and mst would be good.
+
+> How about we rename the existing ndo_fdb_add() to ndo_neigh_add() as
+> you propose and convert vxlan over to it and have all others which don't
+> even depend on the Netlink attributes being passed in (i40e, ixgbe,
+> qlcnic, macvlan) use ndo_fdb_add() which would have the behaviour of your
+> proposed ndo_sw_port_fdb_add()?
+I would much rather see something like Thomas proposes here.  I know you
+would like to see these patches get included (I'm anxious to see better
+in-kernel offload support too!), but separate, possibly unnecessary
+APIs like this can get painful for driver maintainers (upstream and
+distro maintainers).
