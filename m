@@ -1,57 +1,51 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 1/4] inet: Add skb_copy_datagram_iter
-Date: Mon, 10 Nov 2014 12:14:10 +0200
-Message-ID: <20141110101410.GA19964@redhat.com>
-References: <20141105210745.GT7996@ZenIV.linux.org.uk>
- <20141105.165719.835728206041332333.davem@davemloft.net>
- <20141106032533.GU7996@ZenIV.linux.org.uk>
- <20141107.164859.951682597018909290.davem@redhat.com>
- <20141107221114.GB7996@ZenIV.linux.org.uk>
- <20141107234253.GE7996@ZenIV.linux.org.uk>
- <20141109211908.GF7996@ZenIV.linux.org.uk>
+From: Mark Brown <broonie@kernel.org>
+Subject: Re: BUG ? - natsemi: Allow users to disable workaround for DspCfg
+ reset
+Date: Mon, 10 Nov 2014 10:20:30 +0000
+Message-ID: <20141110102030.GJ3815@sirena.org.uk>
+References: <trinity-83a3e1d0-0840-4d1e-98c1-e9e968c4af05-1415562288729@3capp-webde-bs47>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@redhat.com>, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	bcrl@kvack.org
-To: Al Viro <viro@ZenIV.linux.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="oKECSo2eAdaeeSVF"
+Cc: netdev@vger.kernel.org, Jeff Garzik <jgarzik@pobox.com>
+To: devzero@web.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mezzanine.sirena.org.uk ([106.187.55.193]:55484 "EHLO
+	mezzanine.sirena.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751590AbaKJKVs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2014 05:21:48 -0500
 Content-Disposition: inline
-In-Reply-To: <20141109211908.GF7996@ZenIV.linux.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-On Sun, Nov 09, 2014 at 09:19:08PM +0000, Al Viro wrote:
-> [Michael Cc'd]
-> 
-> On Fri, Nov 07, 2014 at 11:42:53PM +0000, Al Viro wrote:
-> 
-> > I'll finish RTFS drivers/vhost and if it turns out to be OK I'll post the
-> > series moving those checks to the moment of copying iovec from userland,
-> > so that kernel-side we could always rely on ->msg_iov elements having been
-> > verified.
-> 
-> Two questions:
-> 1) does sparc64 access_ok() need to differ for 32bit and 64bit tasks?
-> AFAICS, x86 and ppc just check that address is OK for 64bit process -
-> if a 32bit process passes the kernel an address that would be valid
-> for 64bit process, but not for 32bit one, we just get a pagefault in
-> __copy_from_user() and friends.  No kernel objects are going to have
-> a virtual address in that range, so access_ok() doesn't bother preventing
-> such access attempts there...
-> 
-> 2) shouldn't vhost_dev_cleanup() stop the worker thread before doing anything
-> else?
->  AFAICS, we do parts of vhost_dev teardown while the thread is
-> still running; granted, we keep dev->mm pinned down until after it stops
-> (or we would be _really_ screwed), but is it safe to do all those fput()s, etc.
-> while it's still running?  Michael?
-
-Before invoking vhost_dev_cleanup,
-the caller for vhost-net (vhost_net_release) sets private data to NULL
-(using vhost_net_stop_vq) which guarantees thread will do nothing at all.
-vhost scsi does it in vhost_scsi_clear_endpoint.
+In-Reply-To: <trinity-83a3e1d0-0840-4d1e-98c1-e9e968c4af05-1415562288729@3capp-webde-bs47>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
--- 
-MST
+--oKECSo2eAdaeeSVF
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+On Sun, Nov 09, 2014 at 08:44:48PM +0100, devzero@web.de wrote:
+> Hi,=20
+>=20
+> i wanted to get rid of some heavy natsemi driver dmesg spamming like
+
+You've sent the same message twice in quick succession...
+
+--oKECSo2eAdaeeSVF
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQEcBAEBAgAGBQJUYJFtAAoJECTWi3JdVIfQCyAH/ilu6a7NVEQ4DVxMDyNgwqNx
+oAqT/3XAy/Jd8s5RH6lbv5ghc+dSlJfL4xOkQmEjAMyNyHMTzBm0irDSsF1b5+6M
+xP3PGUA5N9PuSfOzaftfP+f2LTHMFu3/GKnuIrDmqtXn0UV0sBLxkWBnBSlpBfpn
+Jt089MsfRdOp6cDWOLPShOLfzG/13BKUveb3dBlsZfu46mrRWf1DOVPgyfRlJAuS
+jw+fcWX6icS1XG8RLsPqVemED54IQfwfdLsoCSJVLPJN4TfkoSoQnlEBiQ29DT0D
+TJhSwLfuzU2hAtjclSL/vhkia0S6vE87W8R1dBZAXdxwc+iVLZ0Nqph0l28gm50=
+=sq7O
+-----END PGP SIGNATURE-----
+
+--oKECSo2eAdaeeSVF--
