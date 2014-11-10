@@ -1,35 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net] udptunnel: Add SKB_GSO_UDP_TUNNEL during
- gro_complete.
-Date: Mon, 10 Nov 2014 15:11:43 -0500 (EST)
-Message-ID: <20141110.151143.633771685225951598.davem@davemloft.net>
-References: <1415648713-110483-1-git-send-email-jesse@nicira.com>
+Subject: Re: [PATCH net] cxgb4 : Fix bug in DCB app deletion
+Date: Mon, 10 Nov 2014 15:14:32 -0500 (EST)
+Message-ID: <20141110.151432.986877712807790792.davem@davemloft.net>
+References: <1415403681-4120-1-git-send-email-anish@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jesse@nicira.com
+Cc: netdev@vger.kernel.org, hariprasad@chelsio.com, leedom@chelsio.com
+To: anish@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47886 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47908 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751431AbaKJULp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2014 15:11:45 -0500
-In-Reply-To: <1415648713-110483-1-git-send-email-jesse@nicira.com>
+	with ESMTP id S1751296AbaKJUOe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2014 15:14:34 -0500
+In-Reply-To: <1415403681-4120-1-git-send-email-anish@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Gross <jesse@nicira.com>
-Date: Mon, 10 Nov 2014 11:45:13 -0800
+From: Anish Bhatt <anish@chelsio.com>
+Date: Fri,  7 Nov 2014 15:41:21 -0800
 
-> When doing GRO processing for UDP tunnels, we never add
-> SKB_GSO_UDP_TUNNEL to gso_type - only the type of the inner protocol
-> is added (such as SKB_GSO_TCPV4). The result is that if the packet is
-> later resegmented we will do GSO but not treat it as a tunnel. This
-> results in UDP fragmentation of the outer header instead of (i.e.) TCP
-> segmentation of the inner header as was originally on the wire.
+> Unlike CEE, IEEE has a bespoke app delete call and does not rely on priority
+> for app deletion
 > 
-> Signed-off-by: Jesse Gross <jesse@nicira.com>
-> ---
-> v2: Update commit message to reflect result of problem.
+> Fixes : 2376c879b80c ('cxgb4 : Improve handling of DCB negotiation or loss
+>  thereof')
+> 
+> Signed-off-by: Anish Bhatt <anish@chelsio.com>
 
 Applied, thanks.
