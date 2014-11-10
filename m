@@ -1,38 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] cxgb4: Remove unnecessary struct in6_addr *
- casts
-Date: Mon, 10 Nov 2014 14:09:23 -0500 (EST)
-Message-ID: <20141110.140923.1795637220425531256.davem@davemloft.net>
-References: <1415335574.23530.4.camel@perches.com>
-	<20141110.132837.1817456437352515704.davem@davemloft.net>
-	<1415645298.8868.10.camel@perches.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [patch net-next v2 06/10] bridge: introduce fdb offloading via
+ switchdev
+Date: Mon, 10 Nov 2014 14:13:54 -0500
+Message-ID: <54610E72.9040605@mojatatu.com>
+References: <1415530280-9190-1-git-send-email-jiri@resnulli.us> <1415530280-9190-7-git-send-email-jiri@resnulli.us> <54603564.3070606@mojatatu.com> <20141110081552.GD1850@nanopsycho.orion> <5460B3E5.7020502@mojatatu.com> <20141110134715.GD4256@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: hariprasad@chelsio.com, netdev@vger.kernel.org, leedom@chelsio.com,
-	anish@chelsio.com, praveenm@chelsio.com, nirranjan@chelsio.com,
-	kumaras@chelsio.com, j.vosburgh@gmail.com, vfalico@gmail.com,
-	andy@greyhouse.net
-To: joe@perches.com
+Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
+	andy@greyhouse.net, tgraf@suug.ch, dborkman@redhat.com,
+	ogerlitz@mellanox.com, jesse@nicira.com, pshelar@nicira.com,
+	azhou@nicira.com, ben@decadent.org.uk, stephen@networkplumber.org,
+	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
+	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
+	edumazet@google.com, sfeldma@gmail.com, f.fainelli@gmail.com,
+	roopa@cumulusnetworks.com, linville@tuxdriver.com,
+	jasowang@redhat.com, ebiederm@xmission.com,
+	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
+	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
+	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
+	ronye@mellanox.com, simon.horman@netronome.com,
+	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
+	mleitner@redhat.com, shrijeet@gmail.com, gospo@cumulusnetworks.com,
+	bcrl@kvack.org
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46769 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751018AbaKJTJ2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2014 14:09:28 -0500
-In-Reply-To: <1415645298.8868.10.camel@perches.com>
+Received: from mail-ig0-f177.google.com ([209.85.213.177]:60789 "EHLO
+	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751018AbaKJTN5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2014 14:13:57 -0500
+Received: by mail-ig0-f177.google.com with SMTP id hl2so9694091igb.16
+        for <netdev@vger.kernel.org>; Mon, 10 Nov 2014 11:13:57 -0800 (PST)
+In-Reply-To: <20141110134715.GD4256@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Mon, 10 Nov 2014 10:48:18 -0800
+On 11/10/14 08:47, Jiri Pirko wrote:
+> Mon, Nov 10, 2014 at 01:47:33PM CET, jhs@mojatatu.com wrote:
 
-> btw: using "git format-patch -M" makes reading and
-> verifying the patch a lot easier.
-> 
-> Unfortunately, there's no current way to make this
-> a global default for everyone, but I have this in
-> my ~/.gitconfig:
+>
+> Because now, If you would like to pass one of NDA_DST, NDA_LLADDR,
+> NDA_CACHEINFO, NDA_PROBES, NDA_VLAN, NDA_PORT, NDA_VNI, NDA_IFINDEX,
+> NDA_MASTER values via ndo_fdb_add/del to the driver, you have to
+> construct "struct nlattr *tb[]". Preprocessing this tb into struct might
+> be suitable for some use-case, for some it may not.
+>
 
-None of those moves were pure moves, I adjusted the top-level
-cpp guard names in every file plus there were some path changes
-in net/bonding.h as well.
+Ok, I see what you mean now. yes, netlink attributes are passed around.
+
+>
+> What I try to say is that the naming ndo_fdb_add/del is not accurate
+> because it is now used for far more than fdb (addr, vlan). See vxlan
+> code for example.
+>
+
+In vxlan semantics that is an "fdb".
+In any case, I am indifferent to be honest - netlink attributes in
+this case seem to be easier. i.e For the driver:
+Ignore what you dont want and suck in what you need (whether vxlan
+or vlan or nvgre etc).
+
+cheers,
+jamal
