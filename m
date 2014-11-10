@@ -1,54 +1,85 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH net] udptunnel: Add SKB_GSO_UDP_TUNNEL during gro_complete.
-Date: Mon, 10 Nov 2014 11:45:57 -0800
-Message-ID: <CAEP_g=9TzDFwgFKynXXJKGYrnKJ8xNHAg0zSX9+D1rCpO9umzw@mail.gmail.com>
-References: <1415391969-108511-1-git-send-email-jesse@nicira.com>
- <28743.1415411491@famine> <CAEP_g=9Z4_xOnPJDcxGgSPvw1Heu5FGrij_L5Xbi6FeFfAwLvQ@mail.gmail.com>
- <20141110.143348.968744105996557913.davem@davemloft.net>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [patch net-next v2 10/10] rocker: implement L2 bridge offloading
+Date: Mon, 10 Nov 2014 09:47:49 -1000
+Message-ID: <CAE4R7bDQesnq8kDFsUqiY0+H1SnUHPSJACLMgFc9eX8chjoxKA@mail.gmail.com>
+References: <1415530280-9190-1-git-send-email-jiri@resnulli.us>
+	<1415530280-9190-11-git-send-email-jiri@resnulli.us>
+	<546036A3.3010404@mojatatu.com>
+	<CAE4R7bCdfn6rzvY5J5d_aj=eNKoT00iEphGJMnQOWy=WeLePTw@mail.gmail.com>
+	<5460AF22.2040701@mojatatu.com>
+	<5460E3D5.3000104@cumulusnetworks.com>
+	<CAE4R7bARr8_=sS+6aezKDX0FfERUj8AD6eOGONKAeRd-g+9nDA@mail.gmail.com>
+	<5461058F.1020709@cumulusnetworks.com>
+	<54611192.5080606@mojatatu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Jay Vosburgh <jay.vosburgh@canonical.com>,
-	netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Jiri Pirko <jiri@resnulli.us>, Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>, nhorman@tuxdriver.com,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Thomas Graf <tgraf@suug.ch>, dborkman@redhat.com,
+	ogerlitz@mellanox.com, jesse@nicira.com, pshelar@nicira.com,
+	azhou@nicira.com, ben@decadent.org.uk, stephen@networkplumber.org,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	vyasevic@redhat.com, Cong Wang <xiyou.wangcong@gmail.com>,
+	"Fastabend, John R" <john.r.fastabend@intel.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	John Linville <linville@tuxdriver.com>, jasowang@redhat.com,
+	ebiederm@xmission.com, Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	ryazanov.s.a@gmail.com, buytenh@wantstofly.org,
+	aviadr@mellanox.com, nbd@openwrt.org,
+	Alexei Starovoitov <alexei.starovoitov@gm
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na6sys009bog021.obsmtp.com ([74.125.150.82]:51035 "HELO
-	na6sys009bog021.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1750833AbaKJTqT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2014 14:46:19 -0500
-Received: by mail-qa0-f51.google.com with SMTP id f12so5900257qad.10
-        for <netdev@vger.kernel.org>; Mon, 10 Nov 2014 11:46:18 -0800 (PST)
-In-Reply-To: <20141110.143348.968744105996557913.davem@davemloft.net>
+Received: from mail-wi0-f177.google.com ([209.85.212.177]:56997 "EHLO
+	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751264AbaKJTrv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2014 14:47:51 -0500
+Received: by mail-wi0-f177.google.com with SMTP id ex7so11677526wid.4
+        for <netdev@vger.kernel.org>; Mon, 10 Nov 2014 11:47:49 -0800 (PST)
+In-Reply-To: <54611192.5080606@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 10, 2014 at 11:33 AM, David Miller <davem@davemloft.net> wrote:
-> From: Jesse Gross <jesse@nicira.com>
-> Date: Fri, 7 Nov 2014 19:54:51 -0800
->
->> On Fri, Nov 7, 2014 at 5:51 PM, Jay Vosburgh <jay.vosburgh@canonical.com> wrote:
->>> Jesse Gross <jesse@nicira.com> wrote:
->>>
->>>>When doing GRO processing for UDP tunnels, we never add
->>>>SKB_GSO_UDP_TUNNEL to gso_type - only the type of the inner protocol
->>>>is added (such as SKB_GSO_TCPV4). The result is that if the packet is
->>>>later resegmented we will do GSO but not treat it as a tunnel. This
->>>>results in UDP fragmentation and since that is not the original layout
->>>>of the skb, a panic in skb_segment().
->>>>
->>>>Reported-by: Jay Vosburgh <jay.vosburgh@canonical.com>
->>>>Signed-off-by: Jesse Gross <jesse@nicira.com>
->>>>---
->>>>This problem occurs back to 3.14 for VXLAN but the FOU portion needs to
->>>>be removed for kernels other than the 'net' tree.
->>>
->>>         This patch does not resolve the problem when applied to a
->>> 3.17-ish kernel; the panic message is below, and appears to be
->>> unchanged.
+On Mon, Nov 10, 2014 at 9:27 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+> On 11/10/14 13:35, Roopa Prabhu wrote:
 >>
->> Hmm, OK, thanks for testing. I think this patch is probably still good
->> to apply as it may solve a problem after we get this one figured out.
+>> On 11/10/14, 9:36 AM, Scott Feldman wrote:
+>>>
+>>> On Mon, Nov 10, 2014 at 6:12 AM, Roopa Prabhu
+>>> <roopa@cumulusnetworks.com> wrote:
+>>>>
+>>>> On 11/10/14, 4:27 AM, Jamal Hadi Salim wrote:
+>>>>>
+>>>>> On 11/10/14 03:46, Scott Feldman wrote:
+>>
+>>
+>> yes it is, But if i remember correctly, the api (ndo op) could indicate
+>> offload to hw (or nic in this case)
+>> by giving 'self'. And in those cases the netdev nic port represents the
+>> switch.
+>>   (Will be nice to check and confirm this though).
 >
-> But if you want that to happen, you'll have to adjust the commit
-> message because it doesn't fix the crash reported by Jay at all.
+>
+> No, you are correct. You select to add to the bridge fdb or/and via
+> the underlying brport fdb.
 
-Sure, I've resent it with a new commit message.
+
+For swdev, I don't care for the model where each port has an fdb and
+the bridge has an fdb.  The bridge's fdb lookup/learning/fwding is
+what we're offloading to HW, so it makes more sense from the driver
+and to the user to use one fdb, the bridge's fdb.  So user types
+"bridge fdb show" and static fdbs installed on the bridge and learned
+fdbs synced from HW are represented.  One table.
+
+I view the existing ndo_fdb_add/del ops useful for devices working
+standalone without the bridge driver that have some HW fwding
+capabilities and need to manage their own fdb.  For devices under
+bridge, let's use the bridge's fdb, at least for swdev.
+
+Does this make sense?  I hate to use a lot of "I"s in my sentences,
+but looks like I did exactly that in above, so take this as an
+opinion, within the scope of swdev.
+
+-scott
