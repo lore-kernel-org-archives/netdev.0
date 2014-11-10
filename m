@@ -1,129 +1,80 @@
 From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [patch net-next v2 00/10] introduce rocker switch driver with
- hardware accelerated datapath api - phase 1: bridge fdb offload
-Date: Mon, 10 Nov 2014 14:23:15 -0800
-Message-ID: <54613AD3.7030600@gmail.com>
-References: <1415530280-9190-1-git-send-email-jiri@resnulli.us> <5460319B.2010605@mojatatu.com> <20141110034612.GB17246@vergenet.net> <5460391C.3010107@mojatatu.com> <20141110045830.GC17246@vergenet.net>
+Subject: Re: [patch net-next v2 03/10] rtnl: expose physical switch id for
+ particular device
+Date: Mon, 10 Nov 2014 14:31:25 -0800
+Message-ID: <54613CBD.7090501@gmail.com>
+References: <1415530280-9190-1-git-send-email-jiri@resnulli.us> <1415530280-9190-4-git-send-email-jiri@resnulli.us> <5460FCB0.1040409@cumulusnetworks.com> <20141110221419.GA2061@nanopsycho.orion>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>, Jiri Pirko <jiri@resnulli.us>,
-	netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
-	andy@greyhouse.net, tgraf@suug.ch, dborkman@redhat.com,
-	ogerlitz@mellanox.com, jesse@nicira.com, pshelar@nicira.com,
-	azhou@nicira.com, ben@decadent.org.uk, stephen@networkplumber.org,
+Cc: Roopa Prabhu <roopa@cumulusnetworks.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
+	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
+	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
+	ben@decadent.org.uk, stephen@networkplumber.org,
 	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
 	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
-	edumazet@google.com, sfeldma@gmail.com, f.fainelli@gmail.com,
-	roopa@cumulusnetworks.com, linville@tuxdriver.com,
-	jasowang@redhat.com, ebiederm@xmission.com,
-	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
-	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
-	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
-	ronye@mellanox.com, alexander.h.duyck@redhat.com,
+	edumazet@google.com, jhs@mojatatu.com, sfeldma@gmail.com,
+	f.fainelli@gmail.com, linville@tuxdriver.com, jasowang@redhat.com,
+	ebiederm@xmission.com, nicolas.dichtel@6wind.com,
+	ryazanov.s.a@gmail.com, buytenh@wantstofly.org,
+	aviadr@mellanox.com, nbd@openwrt.org, alexei.starovoitov@gmail.com,
+	Neil.Jerram@metaswitch.com, ronye@mellanox.com,
+	simon.horman@netronome.com, alexander.h.duyck@redhat.com,
 	john.ronciak@intel.com, mleitner@redhat.com, shrijeet@gmail.com,
-	gospo@cumulusn
-To: Simon Horman <simon.horman@netronome.com>
+	gospo@cumulusnetworks
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f181.google.com ([209.85.214.181]:40855 "EHLO
+Received: from mail-ob0-f181.google.com ([209.85.214.181]:38630 "EHLO
 	mail-ob0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751437AbaKJWXz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2014 17:23:55 -0500
-Received: by mail-ob0-f181.google.com with SMTP id uy5so6483251obc.40
-        for <netdev@vger.kernel.org>; Mon, 10 Nov 2014 14:23:54 -0800 (PST)
-In-Reply-To: <20141110045830.GC17246@vergenet.net>
+	with ESMTP id S1750919AbaKJWcD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2014 17:32:03 -0500
+Received: by mail-ob0-f181.google.com with SMTP id uy5so6493081obc.40
+        for <netdev@vger.kernel.org>; Mon, 10 Nov 2014 14:32:02 -0800 (PST)
+In-Reply-To: <20141110221419.GA2061@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/09/2014 08:58 PM, Simon Horman wrote:
-> On Sun, Nov 09, 2014 at 11:03:40PM -0500, Jamal Hadi Salim wrote:
->> Hi Simon,
+On 11/10/2014 02:14 PM, Jiri Pirko wrote:
+> Mon, Nov 10, 2014 at 06:58:08PM CET, roopa@cumulusnetworks.com wrote:
+>> On 11/9/14, 2:51 AM, Jiri Pirko wrote:
+>>> The netdevice represents a port in a switch, it will expose
+>>> IFLA_PHYS_SWITCH_ID value via rtnl. Two netdevices with the same value
+>>> belong to one physical switch.
+>>>
+>>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>>> ---
+>>>   include/uapi/linux/if_link.h |  1 +
+>>>   net/core/rtnetlink.c         | 26 +++++++++++++++++++++++++-
+>>>   2 files changed, 26 insertions(+), 1 deletion(-)
+>>>
+>>> diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+>>> index 7072d83..4163753 100644
+>>> --- a/include/uapi/linux/if_link.h
+>>> +++ b/include/uapi/linux/if_link.h
+>>> @@ -145,6 +145,7 @@ enum {
+>>>   	IFLA_CARRIER,
+>>>   	IFLA_PHYS_PORT_ID,
+>>>   	IFLA_CARRIER_CHANGES,
+>>> +	IFLA_PHYS_SWITCH_ID,
 >>
->> On 11/09/14 22:46, Simon Horman wrote:
->>> Hi Jamal, Hi Jiri,
->>>
->>> On a somewhat related note I am also wondering what if any progress has
->>> been made regarding discussions of (and code for) the following:
->>>
->>> 1. Exposing flow tables to user-space
->>>     - I realise that this is Open vSwitch specific to some extent
->>>       but I am in no way implying that it should be done instead of
->>>       non-Open vSwitch specific work.
->>>     - Jiri, IIRC this was part ~v2 of your earlier offload patchset
->>>
->>
->> I dont know what Rocker crowd is doing; however, I know
->> John F. has been doing some work which i have stared at
->> and I was hoping to join in with Ben's effort and show tc flow
->> offload on the realtek chip in my infinite spare time unles.
->> (for both Linux bridge and ports).
->> The priority is to merge the obvious bits first.
+>> Jiri, since we have not really converged on the switchdev class or having a
+>> separate switchdev instance,
+>> am thinking it is better if we dont expose any such switch_id to userspace
+>> yet until absolutely needed. Do you need it today ?
+>> There is no real in kernel hw switch driver that will use it today. And quite
+>> likely this will need to change when we introduce real hw switch drivers.
 >
-> Merging the obvious bits first is quite fine my me.
+> When and if the switchdev class is introduced, switch id can happily
+> live on. It is nothing against it. Userspace should use this id to group
+> the ports of physical switch.
+>
 >
 
-+1
-
->>> 2. Describing Switch Hardware
->>>     - I see John Fastabend moving forwards on this in his git repository
->>>       https://github.com/jrfastab/flow-net-next
->>>
->>> The way that I see things is that both of the above could be exposed via
->>> netlink. And that the first at least could be backed by NDOs.  As such I
->>> see this work as complementary and perhaps applying on top of this
->>> patchset. If I am mistaken in this regards it would be good to know :)
->>>
->>
->> You are correct - I will let John speak on his work, but
->> that is the intent.
->> The challenge is there are many schools of thoughts and i am hoping
->> it is not an arms race.
->
-> That is also my hope.
-
-My intent is to submit the Flow API bits once the base rocker switch
-gets committed. I've implemented the Flow API against ixgbe and a
-sadly a proprietary SDK. I'll implement it against the rocker switch
-as well.
-
->
->>> I am of course also interested to know if the above are moving forwards.
->>> To be clear I am very interested in being able to use these APIs to
->>> perform Open vSwitch offloads and I am very happy to help.
->>> (Jamal: I'm also interested in non-Open vSwitch offloads :)
->>>
->>
-
-I think they are moving forward. I have some code cleanup to do on
-the flow API, but its mostly in place. Then I want to implement
-an example on Rocker switch so we could experiment with something
-why we wait for a real hardware driver. From my side assuming I at
-least got it close to correct should be doable in the next few week.
-
-After that I want to work with Jesse/Jamal and look at integrating
-with OVS and other stacks. I thought a bit about the OVS integration
-path but I'll hold that discussion for the moment.
-
-Simon, if your feeling adventurous any feedback on the repo link
-would be great. I still need to smash the commit log into something
-coherent though at the moment you can see all the errors and rewrites,
-etc as I made them.
-
->> Hey, OVS should be able to use these APIs; i am just interested in making
->> sure they are not just for OVS or OF. Then we are all happy;->
->
-> I think we are all happy :)
-
-I'm happy :) Also my intent is the flow API is more general then
-just OVS. My view is OVS should be one user of the API.
-
-.John
-
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
++1 I think we need this otherwise how will userspace "know" how the
+ports are related? If I have two switch silicon blocks in a single
+platform or perhaps have a switch silicon with traditional host
+nics on the same platform.
 
 
 -- 
