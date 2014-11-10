@@ -1,105 +1,81 @@
-From: Enric Balletbo i Serra <eballetbo@iseebcn.com>
-Subject: [PATCH] smsc911x: power-up phydev before doing a software reset.
-Date: Mon, 10 Nov 2014 19:23:09 +0100
-Message-ID: <1415643789-5367-1-git-send-email-eballetbo@iseebcn.com>
-Cc: javier@dowhile0.org, ebutera@gmail.com,
-	Enric Balletbo i Serra <eballetbo@iseebcn.com>
-To: netdev@vger.kernel.org,
-	Steve Glendinning <steve.glendinning@shawell.net>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH v2 net-next] PPC: bpf_jit_comp: add SKF_AD_HATYPE instruction
+Date: Mon, 10 Nov 2014 10:26:41 -0800
+Message-ID: <CAADnVQ+rSDi9rwfXzp-N12tc=+WdvP50WLJCRTJqo+z8nz53jw@mail.gmail.com>
+References: <1415599183-3883-1-git-send-email-kda@linux-powerpc.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linuxppc-dev@ozlabs.org, Daniel Borkmann <dborkman@redhat.com>,
+	Philippe Bergheaud <felix@linux.vnet.ibm.com>
+To: Denis Kirjanov <kda@linux-powerpc.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f170.google.com ([209.85.212.170]:55860 "EHLO
-	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750904AbaKJSXa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2014 13:23:30 -0500
-Received: by mail-wi0-f170.google.com with SMTP id r20so10934058wiv.1
-        for <netdev@vger.kernel.org>; Mon, 10 Nov 2014 10:23:21 -0800 (PST)
+Received: from mail-qg0-f43.google.com ([209.85.192.43]:51366 "EHLO
+	mail-qg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751579AbaKJS0n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2014 13:26:43 -0500
+Received: by mail-qg0-f43.google.com with SMTP id f51so6023999qge.30
+        for <netdev@vger.kernel.org>; Mon, 10 Nov 2014 10:26:43 -0800 (PST)
+In-Reply-To: <1415599183-3883-1-git-send-email-kda@linux-powerpc.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-With commit be9dad1f9f26604fb ("net: phy: suspend phydev when going
-to HALTED"), the PHY device will be put in a low-power mode using
-BMCR_PDOWN if the the interface is set down. The smsc911x driver does
-a software_reset opening the device driver (ndo_open). In such case,
-the PHY must be powered-up before access to any register and before
-calling the software_reset function. Otherwise, as the PHY is powered
-down the software reset fails and the interface can not be enabled
-again.
+On Sun, Nov 9, 2014 at 9:59 PM, Denis Kirjanov <kda@linux-powerpc.org> wrote:
+> Add BPF extension SKF_AD_HATYPE to ppc JIT to check
+> the hw type of the interface
+>
+> Before:
+> [   57.723666] test_bpf: #20 LD_HATYPE
+> [   57.723675] BPF filter opcode 0020 (@0) unsupported
+> [   57.724168] 48 48 PASS
+>
+> After:
+> [  103.053184] test_bpf: #20 LD_HATYPE 7 6 PASS
+>
+> CC: Alexei Starovoitov<alexei.starovoitov@gmail.com>
+> CC: Daniel Borkmann<dborkman@redhat.com>
+> CC: Philippe Bergheaud<felix@linux.vnet.ibm.com>
+> Signed-off-by: Denis Kirjanov <kda@linux-powerpc.org>
+>
+> v2: address Alexei's comments
+> ---
+>  arch/powerpc/net/bpf_jit_comp.c | 17 +++++++++++++----
+>  1 file changed, 13 insertions(+), 4 deletions(-)
+>
+> diff --git a/arch/powerpc/net/bpf_jit_comp.c b/arch/powerpc/net/bpf_jit_comp.c
+> index d110e28..d3fa80d 100644
+> --- a/arch/powerpc/net/bpf_jit_comp.c
+> +++ b/arch/powerpc/net/bpf_jit_comp.c
+> @@ -361,6 +361,11 @@ static int bpf_jit_build_body(struct bpf_prog *fp, u32 *image,
+>                                                             protocol));
+>                         break;
+>                 case BPF_ANC | SKF_AD_IFINDEX:
+> +               case BPF_ANC | SKF_AD_HATYPE:
+> +                       BUILD_BUG_ON(FIELD_SIZEOF(struct net_device,
+> +                                               ifindex) != 4);
+> +                       BUILD_BUG_ON(FIELD_SIZEOF(struct net_device,
+> +                                               type) != 2);
+>                         PPC_LD_OFFS(r_scratch1, r_skb, offsetof(struct sk_buff,
+>                                                                 dev));
+>                         PPC_CMPDI(r_scratch1, 0);
+> @@ -368,14 +373,18 @@ static int bpf_jit_build_body(struct bpf_prog *fp, u32 *image,
+>                                 PPC_BCC(COND_EQ, addrs[ctx->pc_ret0]);
+>                         } else {
+>                                 /* Exit, returning 0; first pass hits here. */
+> -                               PPC_BCC_SHORT(COND_NE, (ctx->idx*4)+12);
+> +                               PPC_BCC_SHORT(COND_NE, ctx->idx * 4 + 12);
+>                                 PPC_LI(r_ret, 0);
+>                                 PPC_JMP(exit_addr);
+>                         }
+> -                       BUILD_BUG_ON(FIELD_SIZEOF(struct net_device,
+> -                                                 ifindex) != 4);
+> -                       PPC_LWZ_OFFS(r_A, r_scratch1,
+> +                       if (code == (BPF_ANC | SKF_AD_IFINDEX)) {
+> +                               PPC_LWZ_OFFS(r_A, r_scratch1,
+>                                      offsetof(struct net_device, ifindex));
+> +                       } else {
+> +                               PPC_LHZ_OFFS(r_A, r_scratch1,
+> +                                    offsetof(struct net_device, type));
 
-This patch fixes this scenario that is easy to reproduce setting down
-the network interface and setting up again.
-
-    $ ifconfig eth0 down
-    $ ifconfig eth0 up
-    ifconfig: SIOCSIFFLAGS: Input/output error
-
-Signed-off-by: Enric Balletbo i Serra <eballetbo@iseebcn.com>
----
- drivers/net/ethernet/smsc/smsc911x.c | 46 ++++++++++++++++++++++++++++++++++++
- 1 file changed, 46 insertions(+)
-
-diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
-index affb29d..d8bfe94 100644
---- a/drivers/net/ethernet/smsc/smsc911x.c
-+++ b/drivers/net/ethernet/smsc/smsc911x.c
-@@ -1342,6 +1342,42 @@ static void smsc911x_rx_multicast_update_workaround(struct smsc911x_data *pdata)
- 	spin_unlock(&pdata->mac_lock);
- }
- 
-+static int smsc911x_phy_general_power_up(struct smsc911x_data *pdata)
-+{
-+	int rc = 0;
-+
-+	if (!pdata->phy_dev)
-+		return rc;
-+
-+	/* If the internal PHY is in General Power-Down mode, all, except the
-+	 * management interface, is powered-down and stays in that condition as
-+	 * long as Phy register bit 0.11 is HIGH.
-+	 *
-+	 * In that case, clear the bit 0.11, so the PHY powers up and we can
-+	 * access to the phy registers.
-+	 */
-+	rc = phy_read(pdata->phy_dev, MII_BMCR);
-+	if (rc < 0) {
-+		SMSC_WARN(pdata, drv, "Failed reading PHY control reg");
-+		return rc;
-+	}
-+
-+	/* If the PHY general power-down bit is not set is not necessary to
-+	 * disable the general power down-mode.
-+	 */
-+	if (rc & BMCR_PDOWN) {
-+		rc = phy_write(pdata->phy_dev, MII_BMCR, rc & ~BMCR_PDOWN);
-+		if (rc < 0) {
-+			SMSC_WARN(pdata, drv, "Failed writing PHY control reg");
-+			return rc;
-+		}
-+
-+		mdelay(1);
-+	}
-+
-+	return 0;
-+}
-+
- static int smsc911x_phy_disable_energy_detect(struct smsc911x_data *pdata)
- {
- 	int rc = 0;
-@@ -1415,6 +1451,16 @@ static int smsc911x_soft_reset(struct smsc911x_data *pdata)
- 	int ret;
- 
- 	/*
-+	 * Make sure to power-up the PHY chip before doing a reset, otherwise
-+	 * the reset fails.
-+	 */
-+	ret = smsc911x_phy_general_power_up(pdata);
-+	if (ret) {
-+		SMSC_WARN(pdata, drv, "Failed to power-up the PHY chip");
-+		return ret;
-+	}
-+
-+	/*
- 	 * LAN9210/LAN9211/LAN9220/LAN9221 chips have an internal PHY that
- 	 * are initialized in a Energy Detect Power-Down mode that prevents
- 	 * the MAC chip to be software reseted. So we have to wakeup the PHY
--- 
-1.9.1
+formatting is a bit off here, but that's minor.
+Acked-by: Alexei Starovoitov <ast@plumgrid.com>
