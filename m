@@ -1,64 +1,45 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net] net: sctp: fix memory leak in auth key management
-Date: Mon, 10 Nov 2014 18:00:09 +0100
-Message-ID: <1415638809-20288-1-git-send-email-dborkman@redhat.com>
-Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	Vlad Yasevich <vyasevich@gmail.com>
-To: davem@davemloft.net
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Xen-devel] BUG in xennet_make_frags with paged skb data
+Date: Mon, 10 Nov 2014 09:02:35 -0800
+Message-ID: <1415638955.9613.4.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20141106214940.GD44162@ubuntu-hedt>
+	 <545CA27F.4070400@citrix.com>	<20141110143517.GA74005@ubuntu-hedt>
+	 <5460CEA5.3070201@citrix.com> <5460EA45.2080202@linaro.org>
+	 <5460EAF1.5020903@citrix.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Zoltan Kiss <zoltan.kiss@linaro.org>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
+	Stefan Bader <stefan.bader@canonical.com>,
+	Jay Vosburgh <jay.vosburgh@canonical.com>,
+	linux-kernel@vger.kernel.org, xen-devel@lists.xenproject.org
+To: David Vrabel <david.vrabel@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50311 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753229AbaKJRAR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Nov 2014 12:00:17 -0500
+Received: from mail-ie0-f172.google.com ([209.85.223.172]:39047 "EHLO
+	mail-ie0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752244AbaKJRCj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2014 12:02:39 -0500
+In-Reply-To: <5460EAF1.5020903@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A very minimal and simple user space application allocating an SCTP
-socket, setting SCTP_AUTH_KEY setsockopt(2) on it and then closing
-the socket again will leak the memory containing the authentication
-key from user space:
+On Mon, 2014-11-10 at 16:42 +0000, David Vrabel wrote:
+> On 10/11/14 16:39, Zoltan Kiss wrote:
+> > 
+> > The BUG_ON suggested by Stefan would be still reasonable:
+> > 
+> > BUG_ON(((page-compound_head(page))*PAGE_SIZE)+offset+len >
+> > PAGE_SIZE<<compound_order(compound_head(page)));
+> 
+> Well, it wouldn't trigger but I don't think it is useful any more.
 
-unreferenced object 0xffff8800837047c0 (size 16):
-  comm "a.out", pid 2789, jiffies 4296954322 (age 192.258s)
-  hex dump (first 16 bytes):
-    01 00 00 00 04 00 00 00 00 00 00 00 00 00 00 00  ................
-  backtrace:
-    [<ffffffff816d7e8e>] kmemleak_alloc+0x4e/0xb0
-    [<ffffffff811c88d8>] __kmalloc+0xe8/0x270
-    [<ffffffffa0870c23>] sctp_auth_create_key+0x23/0x50 [sctp]
-    [<ffffffffa08718b1>] sctp_auth_set_key+0xa1/0x140 [sctp]
-    [<ffffffffa086b383>] sctp_setsockopt+0xd03/0x1180 [sctp]
-    [<ffffffff815bfd94>] sock_common_setsockopt+0x14/0x20
-    [<ffffffff815beb61>] SyS_setsockopt+0x71/0xd0
-    [<ffffffff816e58a9>] system_call_fastpath+0x12/0x17
-    [<ffffffffffffffff>] 0xffffffffffffffff
+Right.
 
-This is bad because of two things, we can bring down a machine from
-user space when auth_enable=1, but also we would leave security sensitive
-keying material in memory without clearing it after use. The issue is
-that sctp_auth_create_key() already sets the refcount to 1, but after
-allocation sctp_auth_set_key() does an additional refcount on it, and
-thus leaving it around when we free the socket.
+This BUG_ON() does not make sense (its current implementation is
+assuming a very precise layout anyway)
 
-Fixes: 65b07e5d0d0 ("[SCTP]: API updates to suport SCTP-AUTH extensions.")
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-Cc: Vlad Yasevich <vyasevich@gmail.com>
----
- net/sctp/auth.c | 2 --
- 1 file changed, 2 deletions(-)
-
-diff --git a/net/sctp/auth.c b/net/sctp/auth.c
-index 0e85291..fb7976a 100644
---- a/net/sctp/auth.c
-+++ b/net/sctp/auth.c
-@@ -862,8 +862,6 @@ int sctp_auth_set_key(struct sctp_endpoint *ep,
- 		list_add(&cur_key->key_list, sh_keys);
- 
- 	cur_key->key = key;
--	sctp_auth_key_hold(key);
--
- 	return 0;
- nomem:
- 	if (!replace)
--- 
-1.7.11.7
+If we really wanted some debugging, we would need something more generic
+and done in core networking stack, not in a particular driver.
