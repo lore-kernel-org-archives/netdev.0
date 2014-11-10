@@ -1,72 +1,40 @@
-From: Xie Jianhua <Jianhua.Xie@freescale.com>
-Subject: [PATCH v1 net-next 1/2] bonding: Expand speed type bits of the AD Port Key
-Date: Mon, 10 Nov 2014 15:16:40 +0800
-Message-ID: <1415603801-21285-2-git-send-email-Jianhua.Xie@freescale.com>
-References: <1415603801-21285-1-git-send-email-Jianhua.Xie@freescale.com>
+From: Jianhua Xie <jianhua.xie@freescale.com>
+Subject: Re: [PATCH RFC net-next 0/5] *** Introduce 4 AD link speed ***
+Date: Mon, 10 Nov 2014 15:21:04 +0800
+Message-ID: <54606760.5000503@freescale.com>
+References: <1415274772-8029-1-git-send-email-Jianhua.Xie@freescale.com>
+ <20141107.151918.371340447814973895.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jianhua Xie <Jianhua.Xie@freescale.com>,
-	Jianhua Xie <jianhua.xie@freescale.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bon0134.outbound.protection.outlook.com ([157.56.111.134]:33248
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+Received: from mail-by2on0129.outbound.protection.outlook.com ([207.46.100.129]:56864
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750833AbaKJHdu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Nov 2014 02:33:50 -0500
-In-Reply-To: <1415603801-21285-1-git-send-email-Jianhua.Xie@freescale.com>
+	id S1750933AbaKJHfk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Nov 2014 02:35:40 -0500
+In-Reply-To: <20141107.151918.371340447814973895.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jianhua Xie <Jianhua.Xie@freescale.com>
+Thanks a lot for the valuable comments.
+New patches set is coming.
 
-Port Key was determined as 16 bits according to the link speed,
-duplex and user key (which is yet not supported), in which key
-speed was 5 bits for 1Mbps/10Mbps/100Mbps/1Gbps/10Gbps as below:
---------------------------------------------------------------
-Port key :|	User key	| Speed		|	Duplex|
---------------------------------------------------------------
-16			6		1		0
-This patch is expanding speed type from 5 bits to 9 bits for other
-speed 2.5Gbps/20Gbps/40Gbps/56Gbps and shrinking user key from 10
-bits to 6 bits.  New Port Key looks like below:
---------------------------------------------------------------
-Port key :|	User key	| Speed		|	Duplex|
---------------------------------------------------------------
-16			10		1		0
+Best Regards,
+Jianhua
 
-CC: Jay Vosburgh <j.vosburgh@gmail.com>
-CC: Veaceslav Falico <vfalico@gmail.com>
-CC: Andy Gospodarek <andy@greyhouse.net>
-CC: David S. Miller <davem@davemloft.net>
-
-Signed-off-by: Jianhua Xie <jianhua.xie@freescale.com>
----
- drivers/net/bonding/bond_3ad.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-index 2110215f..8e5ab5c 100644
---- a/drivers/net/bonding/bond_3ad.c
-+++ b/drivers/net/bonding/bond_3ad.c
-@@ -77,11 +77,11 @@
-  * --------------------------------------------------------------
-  * Port key :	| User key	| Speed		| Duplex	|
-  * --------------------------------------------------------------
-- * 16		  6		  1		  0
-+ * 16			10		1		0
-  */
- #define  AD_DUPLEX_KEY_BITS    0x1
--#define  AD_SPEED_KEY_BITS     0x3E
--#define  AD_USER_KEY_BITS      0xFFC0
-+#define  AD_SPEED_KEY_BITS     0x3FE
-+#define  AD_USER_KEY_BITS      0xFC00
- 
- #define     AD_LINK_SPEED_BITMASK_1MBPS       0x1
- #define     AD_LINK_SPEED_BITMASK_10MBPS      0x2
--- 
-2.1.0.27.g96db324
+=E5=9C=A8 2014=E5=B9=B411=E6=9C=8808=E6=97=A5 04:19, David Miller =E5=86=
+=99=E9=81=93:
+> From: Xie Jianhua <Jianhua.Xie@freescale.com>
+> Date: Thu, 6 Nov 2014 19:52:47 +0800
+>
+>> From: Jianhua Xie <Jianhua.Xie@freescale.com>
+>>
+>> User Key bits in Port key of AD mode are yet not used.  This series
+>> expands speed type bits and shrinks unused user Key bits in AD mode
+>> Port Key, introduces 4 AD link speed: 2.5G/20G/40G/56G, and fixes
+>> aggregated link bandwidth calculation based on new link speed.
+> I think you can compress patches #2 to #5 into one single patch.
