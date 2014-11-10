@@ -1,120 +1,161 @@
-From: Xie Jianhua <Jianhua.Xie@freescale.com>
-Subject: [PATCH v1 net-next 2/2] bonding: Introduce 4 AD link speed to fix agg_bandwidth
-Date: Mon, 10 Nov 2014 15:16:41 +0800
-Message-ID: <1415603801-21285-3-git-send-email-Jianhua.Xie@freescale.com>
-References: <1415603801-21285-1-git-send-email-Jianhua.Xie@freescale.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next v2 00/10] introduce rocker switch driver with
+ hardware accelerated datapath api - phase 1: bridge fdb offload
+Date: Mon, 10 Nov 2014 08:23:01 +0100
+Message-ID: <20141110072301.GA1850@nanopsycho.orion>
+References: <1415530280-9190-1-git-send-email-jiri@resnulli.us>
+ <5460319B.2010605@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jianhua Xie <Jianhua.Xie@freescale.com>,
-	Jianhua Xie <jianhua.xie@freescale.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
+	andy@greyhouse.net, tgraf@suug.ch, dborkman@redhat.com,
+	ogerlitz@mellanox.com, jesse@nicira.com, pshelar@nicira.com,
+	azhou@nicira.com, ben@decadent.org.uk, stephen@networkplumber.org,
+	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
+	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
+	edumazet@google.com, sfeldma@gmail.com, f.fainelli@gmail.com,
+	roopa@cumulusnetworks.com, linville@tuxdriver.com,
+	jasowang@redhat.com, ebiederm@xmission.com,
+	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
+	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
+	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
+	ronye@mellanox.com, simon.horman@netronome.com,
+	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
+	mleitner@redhat.com, shrijeet@gmail.com, gospo@cumulusnetworks.com,
+	bcrl@kvack.org
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1on0144.outbound.protection.outlook.com ([157.56.110.144]:52672
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752059AbaKJHSj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Nov 2014 02:18:39 -0500
-In-Reply-To: <1415603801-21285-1-git-send-email-Jianhua.Xie@freescale.com>
+Received: from mail-wg0-f48.google.com ([74.125.82.48]:44620 "EHLO
+	mail-wg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750933AbaKJHXE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2014 02:23:04 -0500
+Received: by mail-wg0-f48.google.com with SMTP id m15so8003214wgh.21
+        for <netdev@vger.kernel.org>; Sun, 09 Nov 2014 23:23:03 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <5460319B.2010605@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jianhua Xie <Jianhua.Xie@freescale.com>
+Mon, Nov 10, 2014 at 04:31:39AM CET, jhs@mojatatu.com wrote:
+>Jiri,
+>
+>I am hoping you have considered what Ben Lahaise's, John Fastabend's,
+>and Roopa's patches after all those discussions and
+>meetings we have had (in which you promised you will merge patches
+>in). I am not seeing much of that here or mention of anything of that
+>sort.
 
-This patch adds 2.5Gbps/20Gbps/40Gbps/56Gbps bitmask micros, and
-fixes aggregated bandwidth calculation based on 2.5Gbps/20Gbps/
-40Gbps/56Gbps slave links.
+Hi Jamal.
 
-CC: Jay Vosburgh <j.vosburgh@gmail.com>
-CC: Veaceslav Falico <vfalico@gmail.com>
-CC: Andy Gospodarek <andy@greyhouse.net>
-CC: David S. Miller <davem@davemloft.net>
+Yes I looked over their patches. Roopas patche's are about new class of
+device which, as I commented in the cover letter, I left out for now and
+can be safely added later on.
 
-Signed-off-by: Jianhua Xie <jianhua.xie@freescale.com>
----
- drivers/net/bonding/bond_3ad.c | 38 +++++++++++++++++++++++++++++++++++++-
- 1 file changed, 37 insertions(+), 1 deletion(-)
+I went over the Ben's work very carefully as well. The patches are very
+rough, mostly rtl-chip specific. But again, my patchset is a base on
+which this patches can be build on. I see no issues in that.
 
-diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-index 8e5ab5c..ee4fe05 100644
---- a/drivers/net/bonding/bond_3ad.c
-+++ b/drivers/net/bonding/bond_3ad.c
-@@ -87,7 +87,11 @@
- #define     AD_LINK_SPEED_BITMASK_10MBPS      0x2
- #define     AD_LINK_SPEED_BITMASK_100MBPS     0x4
- #define     AD_LINK_SPEED_BITMASK_1000MBPS    0x8
--#define     AD_LINK_SPEED_BITMASK_10000MBPS   0x10
-+#define     AD_LINK_SPEED_BITMASK_2500MBPS    0x10
-+#define     AD_LINK_SPEED_BITMASK_10000MBPS   0x20
-+#define     AD_LINK_SPEED_BITMASK_20000MBPS   0x40
-+#define     AD_LINK_SPEED_BITMASK_40000MBPS   0x80
-+#define     AD_LINK_SPEED_BITMASK_56000MBPS   0x100
- 
- /* compare MAC addresses */
- #define MAC_ADDRESS_EQUAL(A, B)	\
-@@ -245,7 +249,11 @@ static inline int __check_agg_selection_timer(struct port *port)
-  *     %AD_LINK_SPEED_BITMASK_10MBPS,
-  *     %AD_LINK_SPEED_BITMASK_100MBPS,
-  *     %AD_LINK_SPEED_BITMASK_1000MBPS,
-+ *     %AD_LINK_SPEED_BITMASK_2500MBPS,
-  *     %AD_LINK_SPEED_BITMASK_10000MBPS
-+ *     %AD_LINK_SPEED_BITMASK_20000MBPS
-+ *     %AD_LINK_SPEED_BITMASK_40000MBPS
-+ *     %AD_LINK_SPEED_BITMASK_56000MBPS
-  */
- static u16 __get_link_speed(struct port *port)
- {
-@@ -273,10 +281,26 @@ static u16 __get_link_speed(struct port *port)
- 			speed = AD_LINK_SPEED_BITMASK_1000MBPS;
- 			break;
- 
-+		case SPEED_2500:
-+			speed = AD_LINK_SPEED_BITMASK_2500MBPS;
-+			break;
-+
- 		case SPEED_10000:
- 			speed = AD_LINK_SPEED_BITMASK_10000MBPS;
- 			break;
- 
-+		case SPEED_20000:
-+			speed = AD_LINK_SPEED_BITMASK_20000MBPS;
-+			break;
-+
-+		case SPEED_40000:
-+			speed = AD_LINK_SPEED_BITMASK_40000MBPS;
-+			break;
-+
-+		case SPEED_56000:
-+			speed = AD_LINK_SPEED_BITMASK_56000MBPS;
-+			break;
-+
- 		default:
- 			/* unknown speed value from ethtool. shouldn't happen */
- 			speed = 0;
-@@ -637,9 +661,21 @@ static u32 __get_agg_bandwidth(struct aggregator *aggregator)
- 		case AD_LINK_SPEED_BITMASK_1000MBPS:
- 			bandwidth = aggregator->num_of_ports * 1000;
- 			break;
-+		case AD_LINK_SPEED_BITMASK_2500MBPS:
-+			bandwidth = aggregator->num_of_ports * 2500;
-+			break;
- 		case AD_LINK_SPEED_BITMASK_10000MBPS:
- 			bandwidth = aggregator->num_of_ports * 10000;
- 			break;
-+		case AD_LINK_SPEED_BITMASK_20000MBPS:
-+			bandwidth = aggregator->num_of_ports * 20000;
-+			break;
-+		case AD_LINK_SPEED_BITMASK_40000MBPS:
-+			bandwidth = aggregator->num_of_ports * 40000;
-+			break;
-+		case AD_LINK_SPEED_BITMASK_56000MBPS:
-+			bandwidth = aggregator->num_of_ports * 56000;
-+			break;
- 		default:
- 			bandwidth = 0; /* to silence the compiler */
- 		}
--- 
-2.1.0.27.g96db324
+>At least please get their sign on - this  is such an important piece of
+>new work that you should make sure you get consensus.
+
+Since I did not use their code now, I only put sign off of Scott.
+
+>Otherwise we are back to square one and everyone is going their way with
+>their patches;
+
+I do think that we are in sync. I do not see any counter ways. As I
+said, their work can be added on to the base made of this patchset.
+
+>
+>Ben/Roopa/John - please issue either a signed-off as well
+>if you agree with this approach otherwise i am hoping none of these
+>patches are merged in.
+>
+>I will look at the patches and comment.
+>
+>cheers,
+>jamal
+>
+>On 11/09/14 05:51, Jiri Pirko wrote:
+>>Hi all.
+>>
+>>This patchset is just the first phase of switch and switch-ish device
+>>support api in kernel. Note that the api will extend (our complete work
+>>can be pulled from https://github.com/jpirko/net-next-rocker).
+>>
+>>So what this patchset includes:
+>>- introduce switchdev api for implementing switch drivers (so far
+>>   only linux bridge fdb offload is covered)
+>>- introduce rocker switch driver which implements switchdev api
+>>
+>>As to the discussion if there is need to have specific class of device
+>>representing the switch itself, so far we found no need to introduce that.
+>>But we are generally ok with the idea and when the time comes and it will
+>>be needed, it can be easily introduced without any disturbance.
+>>
+>>This patchset introduces switch id export through rtnetlink and sysfs,
+>>which is similar to what we have for port id in SR-IOV. I will send iproute2
+>>patchset for showing the switch id for port netdevs once this is applied.
+>>
+>>For detailed description, please see individual patches.
+>>
+>>v1->v2:
+>>- addressed all DaveM's comments
+>>
+>>Jiri Pirko (5):
+>>   net: rename netdev_phys_port_id to more generic name
+>>   net: introduce generic switch devices support
+>>   rtnl: expose physical switch id for particular device
+>>   net-sysfs: expose physical switch id for particular device
+>>   rocker: introduce rocker switch driver
+>>
+>>Scott Feldman (5):
+>>   bridge: introduce fdb offloading via switchdev
+>>   bridge: call netdev_sw_port_stp_update when bridge port STP status
+>>     changes
+>>   bridge: add API to notify bridge driver of learned FBD on offloaded
+>>     device
+>>   rocker: implement rocker ofdpa flow table manipulation
+>>   rocker: implement L2 bridge offloading
+>>
+>>  Documentation/networking/switchdev.txt           |   59 +
+>>  MAINTAINERS                                      |   14 +
+>>  drivers/net/ethernet/Kconfig                     |    1 +
+>>  drivers/net/ethernet/Makefile                    |    1 +
+>>  drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |    2 +-
+>>  drivers/net/ethernet/intel/i40e/i40e_main.c      |    2 +-
+>>  drivers/net/ethernet/mellanox/mlx4/en_netdev.c   |    2 +-
+>>  drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |    2 +-
+>>  drivers/net/ethernet/rocker/Kconfig              |   27 +
+>>  drivers/net/ethernet/rocker/Makefile             |    5 +
+>>  drivers/net/ethernet/rocker/rocker.c             | 4182 ++++++++++++++++++++++
+>>  drivers/net/ethernet/rocker/rocker.h             |  427 +++
+>>  include/linux/if_bridge.h                        |   18 +
+>>  include/linux/netdevice.h                        |   48 +-
+>>  include/net/switchdev.h                          |   53 +
+>>  include/uapi/linux/if_link.h                     |    1 +
+>>  net/Kconfig                                      |    1 +
+>>  net/Makefile                                     |    3 +
+>>  net/bridge/br_fdb.c                              |   94 +-
+>>  net/bridge/br_netlink.c                          |    2 +
+>>  net/bridge/br_stp.c                              |    4 +
+>>  net/bridge/br_stp_if.c                           |    3 +
+>>  net/bridge/br_stp_timer.c                        |    2 +
+>>  net/core/dev.c                                   |    2 +-
+>>  net/core/net-sysfs.c                             |   26 +-
+>>  net/core/rtnetlink.c                             |   30 +-
+>>  net/switchdev/Kconfig                            |   13 +
+>>  net/switchdev/Makefile                           |    5 +
+>>  net/switchdev/switchdev.c                        |   93 +
+>>  29 files changed, 5104 insertions(+), 18 deletions(-)
+>>  create mode 100644 Documentation/networking/switchdev.txt
+>>  create mode 100644 drivers/net/ethernet/rocker/Kconfig
+>>  create mode 100644 drivers/net/ethernet/rocker/Makefile
+>>  create mode 100644 drivers/net/ethernet/rocker/rocker.c
+>>  create mode 100644 drivers/net/ethernet/rocker/rocker.h
+>>  create mode 100644 include/net/switchdev.h
+>>  create mode 100644 net/switchdev/Kconfig
+>>  create mode 100644 net/switchdev/Makefile
+>>  create mode 100644 net/switchdev/switchdev.c
+>>
+>
