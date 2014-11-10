@@ -1,141 +1,82 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Face some error after applying commit 7dfa4b414d4(net/mlx4_en:
- Code cleanups in tx path)
-Date: Sun, 09 Nov 2014 18:46:14 -0800
-Message-ID: <1415587574.13896.131.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20141108025758.GA13875@richard>
-	 <CANn89i+ekXHJSePzQ0rWx2KKqwYGTrok3-ZZ1RdEygVJcGDqRQ@mail.gmail.com>
-	 <20141110015933.GB6294@richard>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the tiny tree with the net-next tree
+Date: Mon, 10 Nov 2014 14:25:11 +1100
+Message-ID: <20141110142511.03354f6a@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <edumazet@google.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Wei Yang <weiyang@linux.vnet.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f173.google.com ([209.85.192.173]:40479 "EHLO
-	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751604AbaKJCqQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Nov 2014 21:46:16 -0500
-Received: by mail-pd0-f173.google.com with SMTP id v10so6896126pde.32
-        for <netdev@vger.kernel.org>; Sun, 09 Nov 2014 18:46:16 -0800 (PST)
-In-Reply-To: <20141110015933.GB6294@richard>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ boundary="Sig_/KiKF=PikSDJWsC.+92lBaZC"; protocol="application/pgp-signature"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Catalina Mocanu <catalina.mocanu@gmail.com>
+To: Josh Triplett <josh@joshtriplett.org>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2014-11-10 at 09:59 +0800, Wei Yang wrote:
-> On Fri, Nov 07, 2014 at 07:38:15PM -0800, Eric Dumazet wrote:
-> >On Fri, Nov 7, 2014 at 6:57 PM, Wei Yang <weiyang@linux.vnet.ibm.com=
-> wrote:
-> >> Eric and Amir
-> >>
-> >> I am testing the VF on PowerNV platform with 3.18-rc2.
-> >> After applying this patch I face some errors.
-> >>
-> >> First is the compiling error.
-> >>
-> >>     drivers/net/ethernet/mellanox/mlx4//en_tx.c: In function =E2=80=
-=98mlx4_en_xmit=E2=80=99:
-> >>     drivers/net/ethernet/mellanox/mlx4//en_tx.c:802:8: error: =E2=80=
-=98shinfo=E2=80=99 undeclared (first use in this function)
-> >>             shinfo->tx_flags & SKBTX_HW_TSTAMP)) {
-> >>             ^
-> >>     include/linux/compiler.h:160:42: note: in definition of macro =
-=E2=80=98unlikely=E2=80=99
-> >>      # define unlikely(x) __builtin_expect(!!(x), 0)
-> >>                                               ^
-> >>     drivers/net/ethernet/mellanox/mlx4//en_tx.c:802:8: note: each =
-undeclared identifier is reported only once for each function it appear=
-s in
-> >>             shinfo->tx_flags & SKBTX_HW_TSTAMP)) {
-> >>             ^
-> >>     include/linux/compiler.h:160:42: note: in definition of macro =
-=E2=80=98unlikely=E2=80=99
-> >>      # define unlikely(x) __builtin_expect(!!(x), 0)
-> >>                                               ^
-> >>     make[1]: *** [drivers/net/ethernet/mellanox/mlx4//en_tx.o] Err=
-or 1
-> >>     make: *** [_module_drivers/net/ethernet/mellanox/mlx4/] Error =
-2
-> >>
-> >
-> >
-> >This compilation error seems strange.
-> >
-> >Are you sure your tree is pristine, not corrupted in any way ?
->=20
-> I believe I did the revert one by one with git revert.
->=20
-> >
-> >
-> >> I tried to fix this with following change:
-> >>
-> >>     [root@tian-lp1 3.18]# git diff
-> >>     diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/driv=
-ers/net/ethernet/m
-> >>     index eaf23eb..d2f06a7 100644
-> >>     --- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-> >>     +++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-> >>     @@ -799,8 +799,8 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *s=
-kb, struct net_dev
-> >>              * set flag for further reference
-> >>              */
-> >>             if (unlikely(ring->hwtstamp_tx_type =3D=3D HWTSTAMP_TX=
-_ON &&
-> >>     -                    shinfo->tx_flags & SKBTX_HW_TSTAMP)) {
-> >>     -               shinfo->tx_flags |=3D SKBTX_IN_PROGRESS;
-> >>     +                    skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTA=
-MP)) {
-> >>     +               skb_shinfo(skb)->tx_flags |=3D SKBTX_IN_PROGRE=
-SS;
-> >>                     tx_info->ts_requested =3D 1;
-> >>             }
-> >>
-> >> But seems to face another error.
-> >>
-> >
-> >I suspect your tree is not the official tree, I do not see how you g=
-ot
-> >this compilation error.
->=20
->=20
-> I checked the upstream git tree again, and find this commit:
->=20
-> https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commi=
-t/?id=3D7dfa4b414d4eec8da56e44fb2b4aea3e549b092f
->=20
->=20
-> And I want to say the shinfo local variable is introduced in commit:
->=20
-> https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commi=
-t/?id=3Db9d8839a44092cb4268ef2813c34d5dbf3363603
->=20
-> And in my log tree, also checked the upstream, this one is applyed af=
-ter the
-> first one. And the compiling error will disappear untill I apply this=
- one.
->=20
-> So this compiling issue can't reproduced at your side? You have reset=
- --hard
-> to the "Code cleanup" one, and can't see the error? That is strange.
->=20
+--Sig_/KiKF=PikSDJWsC.+92lBaZC
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-Okay, your message was not clear : I thought you had a compilation erro=
-r
-on current tree.
+Hi Josh,
 
-The true story of these patches is that Mellanox split an initial big
-chunk [1] I gave into multiple patches.
+Today's linux-next merge of the tiny tree got a conflict in
+lib/Makefile between commit e5a2c8999576 ("fast_hash: avoid indirect
+function calls") from the net-next tree and commit 4ecea0db79ef ("lib:
+rhashtable: Make rhashtable.c optional") from the tiny tree.
 
-Maybe they missed that one patch did not actually compile.
+I fixed it up (see below) and can carry the fix as necessary (no action
+is required).
 
-[1] https://patchwork.ozlabs.org/patch/394256/
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
-Now, it is done, there is nothing we can do.
+diff --cc lib/Makefile
+index 04e53dd16070,47b8305288e2..000000000000
+--- a/lib/Makefile
++++ b/lib/Makefile
+@@@ -22,11 -22,14 +22,14 @@@ lib-$(CONFIG_SMP) +=3D cpumask.
+  lib-y	+=3D kobject.o klist.o
+  obj-y	+=3D lockref.o
+ =20
+- obj-y +=3D bcd.o div64.o sort.o parser.o halfmd4.o debug_locks.o random32=
+.o \
++ obj-y +=3D bcd.o div64.o sort.o parser.o debug_locks.o random32.o \
+  	 bust_spinlocks.o hexdump.o kasprintf.o bitmap.o scatterlist.o \
+- 	 gcd.o lcm.o list_sort.o uuid.o flex_array.o iovec.o clz_ctz.o \
++ 	 gcd.o lcm.o list_sort.o uuid.o iovec.o clz_ctz.o \
+  	 bsearch.o find_last_bit.o find_next_bit.o llist.o memweight.o kfifo.o \
+- 	 percpu-refcount.o percpu_ida.o rhashtable.o
+ -	 percpu-refcount.o percpu_ida.o hash.o
+++	 percpu-refcount.o percpu_ida.o
++ obj-$(CONFIG_FLEX_ARRAY) +=3D flex_array.o
++ obj-$(CONFIG_HALFMD4) +=3D halfmd4.o
++ obj-$(CONFIG_RHASHTABLE) +=3D rhashtable.o
+  obj-y +=3D string_helpers.o
+  obj-$(CONFIG_TEST_STRING_HELPERS) +=3D test-string_helpers.o
+  obj-y +=3D kstrtox.o
 
-I'll let Mellanox comment, but it looks like your hardware does not lik=
-e
-something.
+--Sig_/KiKF=PikSDJWsC.+92lBaZC
+Content-Type: application/pgp-signature
+Content-Description: OpenPGP digital signature
 
-Have you tried to disable Blue Frame ?
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCAAGBQJUYDAcAAoJEMDTa8Ir7ZwVv/oP/1F1l3UCNFpQh3mlk2F8pV/O
+58WqS7Vh0eQ2T7tqRL62HLsdPxFY1pTAnqOocFsXdHx6y0IrtqJBghBZPRI4bMoT
+MK4tvC6/bBVPINSyDi8pZfEGKKC1bkPyUSfOCUvRoQWlO/OE1U7mFs3gJkf6T0rI
+5xr6BdvxCA4VaF5OyEalUWsoXfSeqoFFyCdMo4X3NUuPUZqYUXw/la3Lj3wipkB9
+oq2w7VFZoQPnJCk/0SVN7ETUQYfzXmcBimtWcKsaTCAA0x6o400SSk2702XW2nOf
+JmXsbM/AkySPtDHZvjf1j3WyqgkgYKgnnMmPqaYsVVc1t9ZxFAYVSiPJiBdJPZzQ
+0+3RBqurztsPHmsBJcx/PHEBZkvk4SH43UNkeaDzNbuts7gOPyCng6zFm7cPRHbu
+TmT0oDHCZgriPlMwIjqe/sEeUqbrEDgDYfvhyEPQSb5TZJihSTt0PzkMmC4TwmzZ
+iutkmfiDH9StpUO4M3TJlzaI6lnC6C5Vi7LUET5DJAeZCZeYu+ErfW60xCry8Fzy
+PIvqcqSZ69giwsI34u+nfszyE4izoRl9K2VE4i+l0q/Hilzvs7jTdmQq5vCmbszL
+mC2OI8546TWAsZwo77ljqr2R4qi08LpDdfADmFh9Bc0lZlsrMCO1CVVg+vz74Ebt
+GMpzBwxCm9Ru+716ZN+z
+=Kj7Z
+-----END PGP SIGNATURE-----
+
+--Sig_/KiKF=PikSDJWsC.+92lBaZC--
