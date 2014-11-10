@@ -1,69 +1,66 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [patch net-next v2 10/10] rocker: implement L2 bridge offloading
-Date: Mon, 10 Nov 2014 07:27:14 -0500
-Message-ID: <5460AF22.2040701@mojatatu.com>
-References: <1415530280-9190-1-git-send-email-jiri@resnulli.us>	<1415530280-9190-11-git-send-email-jiri@resnulli.us>	<546036A3.3010404@mojatatu.com> <CAE4R7bCdfn6rzvY5J5d_aj=eNKoT00iEphGJMnQOWy=WeLePTw@mail.gmail.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [patch net-next v2 01/10] net: rename netdev_phys_port_id to
+ more generic name
+Date: Mon, 10 Nov 2014 13:33:20 +0100
+Message-ID: <5460B090.7080106@redhat.com>
+References: <1415530280-9190-1-git-send-email-jiri@resnulli.us>	<1415530280-9190-2-git-send-email-jiri@resnulli.us>	<54603270.509@mojatatu.com> <20141110.002336.70350092543746386.davem@davemloft.net> <5460AA45.6000007@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jiri@resnulli.us>, Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>, nhorman@tuxdriver.com,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Thomas Graf <tgraf@suug.ch>, dborkman@redhat.com,
-	ogerlitz@mellanox.com, jesse@nicira.com, pshelar@nicira.com,
-	azhou@nicira.com, ben@decadent.org.uk, stephen@networkplumber.org,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+Cc: David Miller <davem@davemloft.net>, jiri@resnulli.us,
+	netdev@vger.kernel.org, nhorman@tuxdriver.com, andy@greyhouse.net,
+	tgraf@suug.ch, ogerlitz@mellanox.com, jesse@nicira.com,
+	pshelar@nicira.com, azhou@nicira.com, ben@decadent.org.uk,
+	stephen@networkplumber.org, jeffrey.t.kirsher@intel.com,
 	vyasevic@redhat.com, xiyou.wangcong@gmail.com,
-	"Fastabend, John R" <john.r.fastabend@intel.com>,
-	edumazet@google.com, Florian Fainelli <f.fainelli@gmail.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	John Linville <linville@tuxdriver.com>, jasowang@redhat.com,
-	ebiederm@xmission.com, nicolas.dichtel@6wind.com,
-	ryazanov.s.a@gmail.com, buytenh@wantstofly.org,
-	aviadr@mellanox.com, nbd@openwrt.org, alexei.starovoitov@gmail.com,
-	Neil.Jerram@metaswitch.com, ronye@mellanox.com,
-	simon.ho
-To: Scott Feldman <sfeldma@gmail.com>
+	john.r.fastabend@intel.com, edumazet@google.com, sfeldma@gmail.com,
+	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
+	linville@tuxdriver.com, jasowang@redhat.com, ebiederm@xmission.com,
+	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
+	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
+	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
+	ronye@mellanox.com, simon.horman@netronome.com,
+	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
+	mleitner@redhat.com, shrijeet@gmail.com, gospo@cumulusnetworks.com,
+	bcrl@kvack.org
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f173.google.com ([209.85.213.173]:50644 "EHLO
-	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751926AbaKJM1V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2014 07:27:21 -0500
-Received: by mail-ig0-f173.google.com with SMTP id r10so16421191igi.0
-        for <netdev@vger.kernel.org>; Mon, 10 Nov 2014 04:27:20 -0800 (PST)
-In-Reply-To: <CAE4R7bCdfn6rzvY5J5d_aj=eNKoT00iEphGJMnQOWy=WeLePTw@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:58170 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751311AbaKJMfF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Nov 2014 07:35:05 -0500
+In-Reply-To: <5460AA45.6000007@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/10/14 03:46, Scott Feldman wrote:
-
+On 11/10/2014 01:06 PM, Jamal Hadi Salim wrote:
+> On 11/10/14 00:23, David Miller wrote:
+>> From: Jamal Hadi Salim <jhs@mojatatu.com>
+>> Date: Sun, 09 Nov 2014 22:35:12 -0500
+>>
+>>> wouldnt this just break an existing ABI? You may need to introduce a
+>>> new attribute.
+>>
+>> He isn't breaking anything Jamal, he's just changing the internal
+>> macro name we use for the attribute's maximum length.
 >
-> IFLA_BRPORT_LEARNING is u8 attr and we're only using lower bit to turn
-> learning on/off.  Maybe we can use another bit to indicate learning to
-> be done in sw or hw.  I don't think adding another bit would break
-> existing iproute2.
+> It is a _user space visible rename_, how about:
 >
-> LEARNING_ENABLED    (1 << 0)
-> LEARNING_HW              (1 << 1)
+> #define MAX_PHYS_ITEM_ID_LEN 32
+> #define MAX_PHYS_PORT_ID_LEN   MAX_PHYS_ITEM_ID_LEN
 >
-> Would this work?
->
+> I did miss the fact that the size didnt change.
 
-Yes to making it a bit. But:
-This is not *learning*. You are doing a *sync*.
-Those are two different things.
+Actually, it's currently not exposed via any uapi header ...
 
-Learning on/off exists today. It signals to the L2 whether you
-should learn or not.
-I like the way fdb_add/del work with a flag which says
-it is the software and/or offloaded version. Please keep that
-semantic.
-What you are doing above is letting the hardware learn then
-syncing to software. You need a different flag there. something
-like:
+$ git grep -n MAX_PHYS_PORT_ID_LEN
+include/linux/netdevice.h:756:#define MAX_PHYS_PORT_ID_LEN 32
+include/linux/netdevice.h:762:  unsigned char id[MAX_PHYS_PORT_ID_LEN];
+net/core/rtnetlink.c:871:              + nla_total_size(MAX_PHYS_PORT_ID_LEN); /* IFLA_PHYS_PORT_ID */
+net/core/rtnetlink.c:1199:      [IFLA_PHYS_PORT_ID]     = { .type = NLA_BINARY, .len = MAX_PHYS_PORT_ID_LEN },
 
-SYNC_HW_FDB (1<<1)
+... and based on commit 66cae9ed6bc4 ("rtnl: export physical port id
+via RT netlink") only exported as read-only.
 
-
-cheers,
-jamal
+Best,
+Daniel
