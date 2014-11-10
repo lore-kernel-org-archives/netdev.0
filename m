@@ -1,80 +1,68 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [patch net-next v2 10/10] rocker: implement L2 bridge offloading
-Date: Sun, 9 Nov 2014 22:46:56 -1000
-Message-ID: <CAE4R7bCdfn6rzvY5J5d_aj=eNKoT00iEphGJMnQOWy=WeLePTw@mail.gmail.com>
-References: <1415530280-9190-1-git-send-email-jiri@resnulli.us>
-	<1415530280-9190-11-git-send-email-jiri@resnulli.us>
-	<546036A3.3010404@mojatatu.com>
+From: Roger Quadros <rogerq@ti.com>
+Subject: Re: [PATCH v4 6/8] net: can: c_can: Disable pins when CAN interface
+ is down
+Date: Mon, 10 Nov 2014 11:00:31 +0200
+Message-ID: <54607EAF.40602@ti.com>
+References: <1415371762-29885-1-git-send-email-rogerq@ti.com> <1415371762-29885-7-git-send-email-rogerq@ti.com> <545CDD30.2070508@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jiri Pirko <jiri@resnulli.us>, Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>, nhorman@tuxdriver.com,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Thomas Graf <tgraf@suug.ch>, dborkman@redhat.com,
-	ogerlitz@mellanox.com, jesse@nicira.com, pshelar@nicira.com,
-	azhou@nicira.com, ben@decadent.org.uk, stephen@networkplumber.org,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	vyasevic@redhat.com, xiyou.wangcong@gmail.com,
-	"Fastabend, John R" <john.r.fastabend@intel.com>,
-	edumazet@google.com, Florian Fainelli <f.fainelli@gmail.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	John Linville <linville@tuxdriver.com>, jasowang@redhat.com,
-	ebiederm@xmission.com, nicolas.dichtel@6wind.com,
-	ryazanov.s.a@gmail.com, buytenh@wantstofly.org,
-	aviadr@mellanox.com, nbd@openwrt.org, alexei.starovoitov@gmail.com,
-	Neil.Jerram@metaswitch.com, ronye@mellanox.com,
-	simon.ho
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:47177 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751962AbaKJIq5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2014 03:46:57 -0500
-Received: by mail-wi0-f172.google.com with SMTP id bs8so9907596wib.17
-        for <netdev@vger.kernel.org>; Mon, 10 Nov 2014 00:46:56 -0800 (PST)
-In-Reply-To: <546036A3.3010404@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <wsa@the-dreams.de>, <tony@atomide.com>, <tglx@linutronix.de>,
+	<mugunthanvnm@ti.com>, <george.cherian@ti.com>, <balbi@ti.com>,
+	<nsekhar@ti.com>, <nm@ti.com>,
+	<sergei.shtylyov@cogentembedded.com>, <linux-omap@vger.kernel.org>,
+	<linux-can@vger.kernel.org>, <netdev@vger.kernel.org>
+To: Marc Kleine-Budde <mkl@pengutronix.de>, <wg@grandegger.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <545CDD30.2070508@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Nov 9, 2014 at 5:53 PM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
->
-> On 11/09/14 05:51, Jiri Pirko wrote:
+On 11/07/2014 04:54 PM, Marc Kleine-Budde wrote:
+> On 11/07/2014 03:49 PM, Roger Quadros wrote:
+>> DRA7 CAN IP suffers from a problem which causes it to be prevented
+>> from fully turning OFF (i.e. stuck in transition) if the module was
+>> disabled while there was traffic on the CAN_RX line.
 >>
->> From: Scott Feldman <sfeldma@gmail.com>
+>> To work around this issue we select the SLEEP pin state by default
+>> on probe and use the DEFAULT pin state on CAN up and back to the
+>> SLEEP pin state on CAN down.
 >>
->> Add L2 bridge offloading support to rocker driver.  Here, the Linux bridge
->> driver is used to collect swdev ports into a tagged (or untagged) VLAN
->> bridge.  The swdev will offload from the bridge driver the following L2
->> bridging functions:
+>> Signed-off-by: Roger Quadros <rogerq@ti.com>
+>> ---
+>>  drivers/net/can/c_can/c_can.c          | 20 ++++++++++++++++++++
+>>  drivers/net/can/c_can/c_can.h          |  1 +
+>>  drivers/net/can/c_can/c_can_platform.c | 20 ++++++++++++++++++++
+>>  3 files changed, 41 insertions(+)
 >>
->>   - Learning of neighbor MAC addresses on VLAN X  Learned mac/vlan is
->> installed in bridge FDB.  (And removed when device unlearns mac/vlan).
->> Learning must be turned off on each bridge port to disable the feature in
->> the bridge driver.
->>
->
-> I have quiet a few use cases where the above is a no-no. I dont want
-> learning of any sort (we have a knob for that in the bridge).
-> And i dont want learning in hardware to be reflected in software.
-> Basically this is a policy decision. Introduce a knob to choose whether
-> hardware learnt addresses should be reflected in software.
+>> diff --git a/drivers/net/can/c_can/c_can.c b/drivers/net/can/c_can/c_can.c
+>> index 8e78bb4..4dfc3ce 100644
+>> --- a/drivers/net/can/c_can/c_can.c
+>> +++ b/drivers/net/can/c_can/c_can.c
+>> @@ -35,6 +35,7 @@
+>>  #include <linux/list.h>
+>>  #include <linux/io.h>
+>>  #include <linux/pm_runtime.h>
+>> +#include <linux/pinctrl/consumer.h>
+>>  
+>>  #include <linux/can.h>
+>>  #include <linux/can/dev.h>
+>> @@ -603,6 +604,15 @@ static int c_can_start(struct net_device *dev)
+>>  
+>>  	priv->can.state = CAN_STATE_ERROR_ACTIVE;
+>>  
+>> +	/* activate pins */
+>> +	if (!IS_ERR(priv->pinctrl)) {
+>> +		struct pinctrl_state *s;
+>> +
+>> +		s = pinctrl_lookup_state(priv->pinctrl, PINCTRL_STATE_DEFAULT);
+>> +		if (!IS_ERR(s))
+>> +			pinctrl_select_state(priv->pinctrl, s);
+>> +	}
+> 
+> Please put this common code into a seperate function.
 
+Oops, forgot this one in a hurry.
 
-IFLA_BRPORT_LEARNING is u8 attr and we're only using lower bit to turn
-learning on/off.  Maybe we can use another bit to indicate learning to
-be done in sw or hw.  I don't think adding another bit would break
-existing iproute2.
-
-LEARNING_ENABLED    (1 << 0)
-LEARNING_HW              (1 << 1)
-
-Would this work?
-
-
->
->
-> Have to run, but will comment when i get the time.
->
-> cheers,
-> jamal
->
+cheers,
+-roger
