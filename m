@@ -1,76 +1,56 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [patch net-next v2 10/10] rocker: implement L2 bridge offloading
-Date: Mon, 10 Nov 2014 07:22:09 -1000
-Message-ID: <CAE4R7bBAt1ngGr2C2jc3vXxPvH7nd+Qa33VqOeU-OahbCrgisg@mail.gmail.com>
-References: <1415530280-9190-1-git-send-email-jiri@resnulli.us>
-	<1415530280-9190-11-git-send-email-jiri@resnulli.us>
-	<546036A3.3010404@mojatatu.com>
-	<CAE4R7bCdfn6rzvY5J5d_aj=eNKoT00iEphGJMnQOWy=WeLePTw@mail.gmail.com>
-	<5460AF22.2040701@mojatatu.com>
+From: Josh Triplett <josh@joshtriplett.org>
+Subject: Re: linux-next: manual merge of the tiny tree with the net-next tree
+Date: Mon, 10 Nov 2014 09:56:28 -0800
+Message-ID: <20141110175628.GB18766@thin>
+References: <20141110142511.03354f6a@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jiri Pirko <jiri@resnulli.us>, Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>, nhorman@tuxdriver.com,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Thomas Graf <tgraf@suug.ch>, dborkman@redhat.com,
-	ogerlitz@mellanox.com, jesse@nicira.com, pshelar@nicira.com,
-	azhou@nicira.com, ben@decadent.org.uk, stephen@networkplumber.org,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	vyasevic@redhat.com, Cong Wang <xiyou.wangcong@gmail.com>,
-	"Fastabend, John R" <john.r.fastabend@intel.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	John Linville <linville@tuxdriver.com>, jasowang@redhat.com,
-	ebiederm@xmission.com, nicolas.dichtel@6wind.com,
-	ryazanov.s.a@gmail.com, buytenh@wantstofly.org,
-	aviadr@mellanox.com, nbd@openwrt.org,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Neil.Je
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f52.google.com ([74.125.82.52]:40805 "EHLO
-	mail-wg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753005AbaKJRpE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2014 12:45:04 -0500
-Received: by mail-wg0-f52.google.com with SMTP id b13so9417685wgh.11
-        for <netdev@vger.kernel.org>; Mon, 10 Nov 2014 09:45:03 -0800 (PST)
-In-Reply-To: <5460AF22.2040701@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Catalina Mocanu <catalina.mocanu@gmail.com>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-next-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20141110142511.03354f6a@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 10, 2014 at 2:27 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
-> On 11/10/14 03:46, Scott Feldman wrote:
->
->>
->> IFLA_BRPORT_LEARNING is u8 attr and we're only using lower bit to turn
->> learning on/off.  Maybe we can use another bit to indicate learning to
->> be done in sw or hw.  I don't think adding another bit would break
->> existing iproute2.
->>
->> LEARNING_ENABLED    (1 << 0)
->> LEARNING_HW              (1 << 1)
->>
->> Would this work?
->>
->
-> Yes to making it a bit. But:
-> This is not *learning*. You are doing a *sync*.
-> Those are two different things.
->
-> Learning on/off exists today. It signals to the L2 whether you
-> should learn or not.
-> I like the way fdb_add/del work with a flag which says
-> it is the software and/or offloaded version. Please keep that
-> semantic.
-> What you are doing above is letting the hardware learn then
-> syncing to software. You need a different flag there. something
-> like:
->
-> SYNC_HW_FDB (1<<1)
+On Mon, Nov 10, 2014 at 02:25:11PM +1100, Stephen Rothwell wrote:
+> Hi Josh,
+> 
+> Today's linux-next merge of the tiny tree got a conflict in
+> lib/Makefile between commit e5a2c8999576 ("fast_hash: avoid indirect
+> function calls") from the net-next tree and commit 4ecea0db79ef ("lib:
+> rhashtable: Make rhashtable.c optional") from the tiny tree.
+> 
+> I fixed it up (see below) and can carry the fix as necessary (no action
+> is required).
 
-Agreed, that's more accurate.  Thanks for the refinement.
+This resolution looks correct to me.
 
->
-> cheers,
-> jamal
+- Josh Triplett
+
+> diff --cc lib/Makefile
+> index 04e53dd16070,47b8305288e2..000000000000
+> --- a/lib/Makefile
+> +++ b/lib/Makefile
+> @@@ -22,11 -22,14 +22,14 @@@ lib-$(CONFIG_SMP) += cpumask.
+>   lib-y	+= kobject.o klist.o
+>   obj-y	+= lockref.o
+>   
+> - obj-y += bcd.o div64.o sort.o parser.o halfmd4.o debug_locks.o random32.o \
+> + obj-y += bcd.o div64.o sort.o parser.o debug_locks.o random32.o \
+>   	 bust_spinlocks.o hexdump.o kasprintf.o bitmap.o scatterlist.o \
+> - 	 gcd.o lcm.o list_sort.o uuid.o flex_array.o iovec.o clz_ctz.o \
+> + 	 gcd.o lcm.o list_sort.o uuid.o iovec.o clz_ctz.o \
+>   	 bsearch.o find_last_bit.o find_next_bit.o llist.o memweight.o kfifo.o \
+> - 	 percpu-refcount.o percpu_ida.o rhashtable.o
+>  -	 percpu-refcount.o percpu_ida.o hash.o
+> ++	 percpu-refcount.o percpu_ida.o
+> + obj-$(CONFIG_FLEX_ARRAY) += flex_array.o
+> + obj-$(CONFIG_HALFMD4) += halfmd4.o
+> + obj-$(CONFIG_RHASHTABLE) += rhashtable.o
+>   obj-y += string_helpers.o
+>   obj-$(CONFIG_TEST_STRING_HELPERS) += test-string_helpers.o
+>   obj-y += kstrtox.o
