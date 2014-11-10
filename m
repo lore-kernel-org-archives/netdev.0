@@ -1,161 +1,38 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next v2 00/10] introduce rocker switch driver with
- hardware accelerated datapath api - phase 1: bridge fdb offload
-Date: Mon, 10 Nov 2014 08:23:01 +0100
-Message-ID: <20141110072301.GA1850@nanopsycho.orion>
-References: <1415530280-9190-1-git-send-email-jiri@resnulli.us>
- <5460319B.2010605@mojatatu.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/4] inet: Add skb_copy_datagram_iter
+Date: Mon, 10 Nov 2014 02:30:00 -0500 (EST)
+Message-ID: <20141110.023000.1275181784917275552.davem@davemloft.net>
+References: <20141109211908.GF7996@ZenIV.linux.org.uk>
+	<20141110.002020.1062493586889118565.davem@davemloft.net>
+	<20141110065817.GG7996@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
-	andy@greyhouse.net, tgraf@suug.ch, dborkman@redhat.com,
-	ogerlitz@mellanox.com, jesse@nicira.com, pshelar@nicira.com,
-	azhou@nicira.com, ben@decadent.org.uk, stephen@networkplumber.org,
-	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
-	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
-	edumazet@google.com, sfeldma@gmail.com, f.fainelli@gmail.com,
-	roopa@cumulusnetworks.com, linville@tuxdriver.com,
-	jasowang@redhat.com, ebiederm@xmission.com,
-	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
-	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
-	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
-	ronye@mellanox.com, simon.horman@netronome.com,
-	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
-	mleitner@redhat.com, shrijeet@gmail.com, gospo@cumulusnetworks.com,
-	bcrl@kvack.org
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f48.google.com ([74.125.82.48]:44620 "EHLO
-	mail-wg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750933AbaKJHXE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2014 02:23:04 -0500
-Received: by mail-wg0-f48.google.com with SMTP id m15so8003214wgh.21
-        for <netdev@vger.kernel.org>; Sun, 09 Nov 2014 23:23:03 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <5460319B.2010605@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, bcrl@kvack.org, mst@redhat.com
+To: viro@ZenIV.linux.org.uk
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141110065817.GG7996@ZenIV.linux.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Mon, Nov 10, 2014 at 04:31:39AM CET, jhs@mojatatu.com wrote:
->Jiri,
->
->I am hoping you have considered what Ben Lahaise's, John Fastabend's,
->and Roopa's patches after all those discussions and
->meetings we have had (in which you promised you will merge patches
->in). I am not seeing much of that here or mention of anything of that
->sort.
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Date: Mon, 10 Nov 2014 06:58:17 +0000
 
-Hi Jamal.
+> On Mon, Nov 10, 2014 at 12:20:20AM -0500, David Miller wrote:
+>> From: Al Viro <viro@ZenIV.linux.org.uk>
+>> Date: Sun, 9 Nov 2014 21:19:08 +0000
+>> 
+>> > 1) does sparc64 access_ok() need to differ for 32bit and 64bit tasks?
+>> 
+>> sparc64 will just fault no matter what kind of task it is.
+>> 
+>> It is impossible for a user task to generate a reference to
+>> a kernel virtual address, as kernel and user accesses each
+>> go via a separate address space identifier.
+> 
+> Sure, but why do we have access_ok() there at all?  I.e. why not just have
+> it constant 1?
 
-Yes I looked over their patches. Roopas patche's are about new class of
-device which, as I commented in the cover letter, I left out for now and
-can be safely added later on.
-
-I went over the Ben's work very carefully as well. The patches are very
-rough, mostly rtl-chip specific. But again, my patchset is a base on
-which this patches can be build on. I see no issues in that.
-
->At least please get their sign on - this  is such an important piece of
->new work that you should make sure you get consensus.
-
-Since I did not use their code now, I only put sign off of Scott.
-
->Otherwise we are back to square one and everyone is going their way with
->their patches;
-
-I do think that we are in sync. I do not see any counter ways. As I
-said, their work can be added on to the base made of this patchset.
-
->
->Ben/Roopa/John - please issue either a signed-off as well
->if you agree with this approach otherwise i am hoping none of these
->patches are merged in.
->
->I will look at the patches and comment.
->
->cheers,
->jamal
->
->On 11/09/14 05:51, Jiri Pirko wrote:
->>Hi all.
->>
->>This patchset is just the first phase of switch and switch-ish device
->>support api in kernel. Note that the api will extend (our complete work
->>can be pulled from https://github.com/jpirko/net-next-rocker).
->>
->>So what this patchset includes:
->>- introduce switchdev api for implementing switch drivers (so far
->>   only linux bridge fdb offload is covered)
->>- introduce rocker switch driver which implements switchdev api
->>
->>As to the discussion if there is need to have specific class of device
->>representing the switch itself, so far we found no need to introduce that.
->>But we are generally ok with the idea and when the time comes and it will
->>be needed, it can be easily introduced without any disturbance.
->>
->>This patchset introduces switch id export through rtnetlink and sysfs,
->>which is similar to what we have for port id in SR-IOV. I will send iproute2
->>patchset for showing the switch id for port netdevs once this is applied.
->>
->>For detailed description, please see individual patches.
->>
->>v1->v2:
->>- addressed all DaveM's comments
->>
->>Jiri Pirko (5):
->>   net: rename netdev_phys_port_id to more generic name
->>   net: introduce generic switch devices support
->>   rtnl: expose physical switch id for particular device
->>   net-sysfs: expose physical switch id for particular device
->>   rocker: introduce rocker switch driver
->>
->>Scott Feldman (5):
->>   bridge: introduce fdb offloading via switchdev
->>   bridge: call netdev_sw_port_stp_update when bridge port STP status
->>     changes
->>   bridge: add API to notify bridge driver of learned FBD on offloaded
->>     device
->>   rocker: implement rocker ofdpa flow table manipulation
->>   rocker: implement L2 bridge offloading
->>
->>  Documentation/networking/switchdev.txt           |   59 +
->>  MAINTAINERS                                      |   14 +
->>  drivers/net/ethernet/Kconfig                     |    1 +
->>  drivers/net/ethernet/Makefile                    |    1 +
->>  drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |    2 +-
->>  drivers/net/ethernet/intel/i40e/i40e_main.c      |    2 +-
->>  drivers/net/ethernet/mellanox/mlx4/en_netdev.c   |    2 +-
->>  drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |    2 +-
->>  drivers/net/ethernet/rocker/Kconfig              |   27 +
->>  drivers/net/ethernet/rocker/Makefile             |    5 +
->>  drivers/net/ethernet/rocker/rocker.c             | 4182 ++++++++++++++++++++++
->>  drivers/net/ethernet/rocker/rocker.h             |  427 +++
->>  include/linux/if_bridge.h                        |   18 +
->>  include/linux/netdevice.h                        |   48 +-
->>  include/net/switchdev.h                          |   53 +
->>  include/uapi/linux/if_link.h                     |    1 +
->>  net/Kconfig                                      |    1 +
->>  net/Makefile                                     |    3 +
->>  net/bridge/br_fdb.c                              |   94 +-
->>  net/bridge/br_netlink.c                          |    2 +
->>  net/bridge/br_stp.c                              |    4 +
->>  net/bridge/br_stp_if.c                           |    3 +
->>  net/bridge/br_stp_timer.c                        |    2 +
->>  net/core/dev.c                                   |    2 +-
->>  net/core/net-sysfs.c                             |   26 +-
->>  net/core/rtnetlink.c                             |   30 +-
->>  net/switchdev/Kconfig                            |   13 +
->>  net/switchdev/Makefile                           |    5 +
->>  net/switchdev/switchdev.c                        |   93 +
->>  29 files changed, 5104 insertions(+), 18 deletions(-)
->>  create mode 100644 Documentation/networking/switchdev.txt
->>  create mode 100644 drivers/net/ethernet/rocker/Kconfig
->>  create mode 100644 drivers/net/ethernet/rocker/Makefile
->>  create mode 100644 drivers/net/ethernet/rocker/rocker.c
->>  create mode 100644 drivers/net/ethernet/rocker/rocker.h
->>  create mode 100644 include/net/switchdev.h
->>  create mode 100644 net/switchdev/Kconfig
->>  create mode 100644 net/switchdev/Makefile
->>  create mode 100644 net/switchdev/switchdev.c
->>
->
+Since access_ok() is in fact constant 1 on sparc64, where we use it,
+does it really matter?
