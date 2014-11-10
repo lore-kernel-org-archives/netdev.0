@@ -1,53 +1,36 @@
 From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next] cxgb4: Remove unnecessary struct in6_addr *
- casts
-Date: Mon, 10 Nov 2014 10:48:18 -0800
-Message-ID: <1415645298.8868.10.camel@perches.com>
-References: <1415333125-10635-1-git-send-email-hariprasad@chelsio.com>
-	 <1415333125-10635-2-git-send-email-hariprasad@chelsio.com>
-	 <1415335574.23530.4.camel@perches.com>
-	 <20141110.132837.1817456437352515704.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: hariprasad@chelsio.com, netdev@vger.kernel.org, leedom@chelsio.com,
-	anish@chelsio.com, praveenm@chelsio.com, nirranjan@chelsio.com,
-	kumaras@chelsio.com, j.vosburgh@gmail.com, vfalico@gmail.com,
-	andy@greyhouse.net
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0162.hostedemail.com ([216.40.44.162]:32931 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751228AbaKJSsX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2014 13:48:23 -0500
-In-Reply-To: <20141110.132837.1817456437352515704.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Subject: [PATCH -next 0/2] seq: Convert seq_puts and seq_putc to return void
+Date: Mon, 10 Nov 2014 10:58:55 -0800
+Message-ID: <cover.1415645476.git.joe@perches.com>
+Cc: Petr Mladek <pmladek@suse.cz>, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Steven Rostedt <rostedt@goodmis.org>,
+	openipmi-developer@lists.sourceforge.net,
+	linux-parisc@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-watchdog@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2014-11-10 at 13:28 -0500, David Miller wrote:
-> From: Joe Perches <joe@perches.com> Date: Thu, 06 Nov 2014 20:46:14 -0800
-[]
-> >> diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-> > []
-> >>  #include <../drivers/net/bonding/bonding.h>
-> > 
-> > This include path seems unfortunate so I looked 
-> > at the code a bit.  I don't see an easy way to change it.
-> > 
-> > Maybe some of bonding.h should be moved into a new file
-> > like 'include/net/bonding.h' or something.
-> 
-> I just committed the following into net-next, thanks for pointing
-> this out.
+These are error prone, so return void adn use seq_has_overflowed instead
 
-Thanks.
+Joe Perches (2):
+  seq_puts: Convert to return void and convert uses too.
+  seq_putc: Convert to return void and convert uses too.
 
-btw: using "git format-patch -M" makes reading and
-verifying the patch a lot easier.
+ drivers/char/ipmi/ipmi_msghandler.c                |  4 +-
+ drivers/parisc/ccio-dma.c                          |  7 +-
+ drivers/regulator/dbx500-prcmu.c                   | 21 ++----
+ drivers/usb/gadget/udc/goku_udc.c                  | 81 +++++++++++-----------
+ drivers/watchdog/bcm_kona_wdt.c                    | 43 +++++++-----
+ fs/seq_file.c                                      | 26 +++----
+ include/linux/seq_file.h                           |  4 +-
+ ipc/util.c                                         |  6 +-
+ .../netfilter/nf_conntrack_l3proto_ipv4_compat.c   |  4 +-
+ net/netfilter/nf_conntrack_expect.c                |  4 +-
+ 10 files changed, 105 insertions(+), 95 deletions(-)
 
-Unfortunately, there's no current way to make this
-a global default for everyone, but I have this in
-my ~/.gitconfig:
+-- 
+2.1.2
 
-[diff]
-	renames = true
