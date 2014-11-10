@@ -1,82 +1,38 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [patch net-next v2 06/10] bridge: introduce fdb offloading via
- switchdev
-Date: Mon, 10 Nov 2014 11:03:41 -0800
-Message-ID: <54610C0D.1050500@cumulusnetworks.com>
-References: <1415530280-9190-1-git-send-email-jiri@resnulli.us> <1415530280-9190-7-git-send-email-jiri@resnulli.us> <54603564.3070606@mojatatu.com> <20141110081552.GD1850@nanopsycho.orion> <20141110135100.GA19157@casper.infradead.org> <20141110173058.GA2002@gospo.home.greyhouse.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] cxgb4: Remove unnecessary struct in6_addr *
+ casts
+Date: Mon, 10 Nov 2014 14:09:23 -0500 (EST)
+Message-ID: <20141110.140923.1795637220425531256.davem@davemloft.net>
+References: <1415335574.23530.4.camel@perches.com>
+	<20141110.132837.1817456437352515704.davem@davemloft.net>
+	<1415645298.8868.10.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@suug.ch>, Jiri Pirko <jiri@resnulli.us>,
-	Jamal Hadi Salim <jhs@mojatatu.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
-	dborkman@redhat.com, ogerlitz@mellanox.com, jesse@nicira.com,
-	pshelar@nicira.com, azhou@nicira.com, ben@decadent.org.uk,
-	stephen@networkplumber.org, jeffrey.t.kirsher@intel.com,
-	vyasevic@redhat.com, xiyou.wangcong@gmail.com,
-	john.r.fastabend@intel.com, edumazet@google.com, sfeldma@gmail.com,
-	f.fainelli@gmail.com, linville@tuxdriver.com, jasowang@redhat.com,
-	ebiederm@xmission.com, nicolas.dichtel@6wind.com,
-	ryazanov.s.a@gmail.com, buytenh@wantstofly.org,
-	aviadr@mellanox.com, nbd@openwrt.org, alexei.starovoitov@gmail.com,
-	Neil.Jerram@metaswitch.com, ronye@mellanox.com,
-	simon.horman@netronome.com, alexander.h.duyck@redhat.com,
-	john.ronciak@intel.com, mleitner@redhat.com, shrijeet@gmail.com,
-To: Andy Gospodarek <gospo@cumulusnetworks.com>
+Cc: hariprasad@chelsio.com, netdev@vger.kernel.org, leedom@chelsio.com,
+	anish@chelsio.com, praveenm@chelsio.com, nirranjan@chelsio.com,
+	kumaras@chelsio.com, j.vosburgh@gmail.com, vfalico@gmail.com,
+	andy@greyhouse.net
+To: joe@perches.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:44416 "EHLO
-	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752338AbaKJTDv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2014 14:03:51 -0500
-In-Reply-To: <20141110173058.GA2002@gospo.home.greyhouse.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46769 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751018AbaKJTJ2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2014 14:09:28 -0500
+In-Reply-To: <1415645298.8868.10.camel@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/10/14, 9:30 AM, Andy Gospodarek wrote:
-> On Mon, Nov 10, 2014 at 01:51:00PM +0000, Thomas Graf wrote:
->> On 11/10/14 at 09:15am, Jiri Pirko wrote:
->>> There are few problems in re-using this. It is netlink based so for calling
->>> it from bridge code, we would have to construct netlink message. But
->>> that could be probably changed.
->>> As you can see from the list of parameters, this is no longer about fdb (addr,
->>> vlanid) but this has been extended to something else. See vxlan code for
->>> what this is used for. I believe that fdb_add/del should be renamed to
->>> something else, perhaps l2neigh_add/del or something like that.
->>> The other problem is that fdb_add/del is currently used by various
->>> drivers for different purpose (adding macs to unicast list).
->> Can you elaborate a bit on the intended semantic differences between
->> the existing ndo_fdb_add() and ndo_sw_port_fdb_add()? I'm not sure we
->> need the sw_ prefix for this specific ndo.
->>
->> I completely agree that relying on Netlink is wrong because we'll have
->> in-kernel users of the API but I believe that existing ndo_fdb_add()
->> implementations in i40e, ixgbe, qlcnic and macvlan could use the new
->> API you propose.
-> I also think the same API could be used quite easily on the current
-> drivers that use it.
->
-> I was looking at this earlier today and there are only 5 drivers
-> (outside the bridge code) that support ndo_fdb_add.  The 3 hardware
-> drivers and vxlan driver seem like they could use this new API.  The
-> macvlan code appears to simply set the uc and mc lists, which seems like
-> it could be done other ways -- confirmation from John Fastabend, Roopa,
-> and mst would be good.
-yes, that is correct. The macvlan code, when not set for passthru mode, 
-seems to just program the uc-mc lists,
-  which again get synched to the lowerdev (and possibly from lowerdev to 
-hw in some cases).
+From: Joe Perches <joe@perches.com>
+Date: Mon, 10 Nov 2014 10:48:18 -0800
 
-I agree that it would be really nice if the existing api's can be made 
-to work.
->> How about we rename the existing ndo_fdb_add() to ndo_neigh_add() as
->> you propose and convert vxlan over to it and have all others which don't
->> even depend on the Netlink attributes being passed in (i40e, ixgbe,
->> qlcnic, macvlan) use ndo_fdb_add() which would have the behaviour of your
->> proposed ndo_sw_port_fdb_add()?
-> I would much rather see something like Thomas proposes here.  I know you
-> would like to see these patches get included (I'm anxious to see better
-> in-kernel offload support too!), but separate, possibly unnecessary
-> APIs like this can get painful for driver maintainers (upstream and
-> distro maintainers).
->
-Ack!.
+> btw: using "git format-patch -M" makes reading and
+> verifying the patch a lot easier.
+> 
+> Unfortunately, there's no current way to make this
+> a global default for everyone, but I have this in
+> my ~/.gitconfig:
+
+None of those moves were pure moves, I adjusted the top-level
+cpp guard names in every file plus there were some path changes
+in net/bonding.h as well.
