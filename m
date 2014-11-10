@@ -1,103 +1,286 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [PATCH net-next 05/13] ethtool,net/mlx4_en: Add 100M, 20G, 56G
- speeds ethtool reporting support
-Date: Mon, 10 Nov 2014 12:30:02 +0200
-Message-ID: <546093AA.8050005@dev.mellanox.co.il>
-References: <1414402667-8841-1-git-send-email-amirv@mellanox.com>	 <1414402667-8841-6-git-send-email-amirv@mellanox.com> <1415227117.3398.31.camel@decadent.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>
-To: Ben Hutchings <ben@decadent.org.uk>,
-	Amir Vadai <amirv@mellanox.com>
+From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Subject: [PATCH] stmmac: split to core library and probe drivers
+Date: Mon, 10 Nov 2014 12:38:59 +0200
+Message-ID: <1415615939-6671-1-git-send-email-andriy.shevchenko@linux.intel.com>
+Cc: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	netdev@vger.kernel.org,
+	Kweh Hock Leong <hock.leong.kweh@intel.com>,
+	"David S . Miller" <davem@davemloft.net>,
+	Vince Bridgers <vbridgers2013@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f180.google.com ([209.85.212.180]:65393 "EHLO
-	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751913AbaKJKaQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2014 05:30:16 -0500
-Received: by mail-wi0-f180.google.com with SMTP id hi2so9832115wib.7
-        for <netdev@vger.kernel.org>; Mon, 10 Nov 2014 02:30:07 -0800 (PST)
-In-Reply-To: <1415227117.3398.31.camel@decadent.org.uk>
+Received: from mga03.intel.com ([134.134.136.65]:62014 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752501AbaKJKjB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Nov 2014 05:39:01 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Instead of registering the platform and PCI drivers in one module let's move
+necessary bits to where it belongs. During this procedure we convert the module
+registration part to use module_*_driver() macros which makes code simplier.
 
-On 11/6/2014 12:38 AM, Ben Hutchings wrote:
-> On Mon, 2014-10-27 at 11:37 +0200, Amir Vadai wrote:
->> From: Saeed Mahameed <saeedm@mellanox.com>
->>
->> Added 100M, 20G and 56G ethtool speed reporting support.
->> Update mlx4_en_test_speed self test with the new speeds.
->>
->> Defined new link speeds in include/uapi/linux/ethtool.h:
->> +#define SPEED_20000	20000
->> +#define SPEED_40000	40000
->> +#define SPEED_56000	56000
->>
->> Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
->> Signed-off-by: Amir Vadai <amirv@mellanox.com>
-> [...]
->> --- a/include/uapi/linux/ethtool.h
->> +++ b/include/uapi/linux/ethtool.h
->> @@ -1213,6 +1213,10 @@ enum ethtool_sfeatures_retval_bits {
->>   #define SUPPORTED_40000baseCR4_Full	(1 << 24)
->>   #define SUPPORTED_40000baseSR4_Full	(1 << 25)
->>   #define SUPPORTED_40000baseLR4_Full	(1 << 26)
->> +#define SUPPORTED_56000baseKR4_Full	(1 << 27)
->> +#define SUPPORTED_56000baseCR4_Full	(1 << 28)
->> +#define SUPPORTED_56000baseSR4_Full	(1 << 29)
->> +#define SUPPORTED_56000baseLR4_Full	(1 << 30)
->>   
->>   #define ADVERTISED_10baseT_Half		(1 << 0)
->>   #define ADVERTISED_10baseT_Full		(1 << 1)
->> @@ -1241,6 +1245,10 @@ enum ethtool_sfeatures_retval_bits {
->>   #define ADVERTISED_40000baseCR4_Full	(1 << 24)
->>   #define ADVERTISED_40000baseSR4_Full	(1 << 25)
->>   #define ADVERTISED_40000baseLR4_Full	(1 << 26)
->> +#define ADVERTISED_56000baseKR4_Full	(1 << 27)
->> +#define ADVERTISED_56000baseCR4_Full	(1 << 28)
->> +#define ADVERTISED_56000baseSR4_Full	(1 << 29)
->> +#define ADVERTISED_56000baseLR4_Full	(1 << 30)
-> Can these modes be auto-negotiated?  If not then they don't need
-> advertised/supported bits.
-Hi Ben,
-At least 56000baseKR4_Full and 56000baseCR4_Full can be negotiated for sure,
-regarding SR and LR i will check with arch team.
->>   /* The following are all involved in forcing a particular link
->>    * mode for the device for setting things.  When getting the
->> @@ -1248,12 +1256,16 @@ enum ethtool_sfeatures_retval_bits {
->>    * it was forced up into this mode or autonegotiated.
->>    */
->>   
->> -/* The forced speed, 10Mb, 100Mb, gigabit, 2.5Gb, 10GbE. */
->> +/* The forced speed, 10Mb, 100Mb, gigabit, [2.5|10|20|40|56]GbE. */
->>   #define SPEED_10		10
->>   #define SPEED_100		100
->>   #define SPEED_1000		1000
->>   #define SPEED_2500		2500
->>   #define SPEED_10000		10000
->> +#define SPEED_20000		20000
->> +#define SPEED_40000		40000
->> +#define SPEED_56000		56000
-> We shouldn't add new SPEED macros.  The speed is just a number of Mbit/s
-> and we don't need to enumerate the possible values.
-It is a little bit confusing that some speeds still use the defines 
-above, and new speeds should be hardcoded.
-Why those speeds still there? is it some kind of work that need to be 
-done (i.e remove all of those defines) or are they needed in other 
-situations.
-I thought it is nice that well-known speeds are organized in such MACROs 
-and this will prevent drivers from using magic numbers in their code.
+>From now on the driver consists three parts: core library, PCI, and platform
+drivers.
 
-Thanks for your time,
--Saeed.
+Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/Kconfig        |  4 +-
+ drivers/net/ethernet/stmicro/stmmac/Makefile       | 15 +++---
+ drivers/net/ethernet/stmicro/stmmac/stmmac.h       | 61 ----------------------
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  | 36 ++-----------
+ drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c   |  4 +-
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  | 13 ++---
+ 6 files changed, 25 insertions(+), 108 deletions(-)
 
->
-> Ben.
->
->>   #define SPEED_UNKNOWN		-1
->>   
->>   /* Duplex, half or full. */
+diff --git a/drivers/net/ethernet/stmicro/stmmac/Kconfig b/drivers/net/ethernet/stmicro/stmmac/Kconfig
+index 33b85ba..7d3af19 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/Kconfig
++++ b/drivers/net/ethernet/stmicro/stmmac/Kconfig
+@@ -14,7 +14,7 @@ config STMMAC_ETH
+ if STMMAC_ETH
+ 
+ config STMMAC_PLATFORM
+-	bool "STMMAC Platform bus support"
++	tristate "STMMAC Platform bus support"
+ 	depends on STMMAC_ETH
+ 	default y
+ 	---help---
+@@ -27,7 +27,7 @@ config STMMAC_PLATFORM
+ 	  If unsure, say N.
+ 
+ config STMMAC_PCI
+-	bool "STMMAC PCI bus support"
++	tristate "STMMAC PCI bus support"
+ 	depends on STMMAC_ETH && PCI
+ 	---help---
+ 	  This is to select the Synopsys DWMAC available on PCI devices,
+diff --git a/drivers/net/ethernet/stmicro/stmmac/Makefile b/drivers/net/ethernet/stmicro/stmmac/Makefile
+index 034da70..ac4d562 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/Makefile
++++ b/drivers/net/ethernet/stmicro/stmmac/Makefile
+@@ -1,9 +1,12 @@
+ obj-$(CONFIG_STMMAC_ETH) += stmmac.o
+-stmmac-$(CONFIG_STMMAC_PCI) += stmmac_pci.o
+-stmmac-$(CONFIG_STMMAC_PLATFORM) +=	stmmac_platform.o dwmac-meson.o \
+-					dwmac-sunxi.o dwmac-sti.o \
+-					dwmac-socfpga.o
+ stmmac-objs:= stmmac_main.o stmmac_ethtool.o stmmac_mdio.o ring_mode.o	\
+-	      chain_mode.o dwmac_lib.o dwmac1000_core.o  dwmac1000_dma.o \
+-	      dwmac100_core.o dwmac100_dma.o enh_desc.o  norm_desc.o \
++	      chain_mode.o dwmac_lib.o dwmac1000_core.o dwmac1000_dma.o	\
++	      dwmac100_core.o dwmac100_dma.o enh_desc.o norm_desc.o	\
+ 	      mmc_core.o stmmac_hwtstamp.o stmmac_ptp.o $(stmmac-y)
++
++obj-$(CONFIG_STMMAC_PLATFORM) += stmmac-platform.o
++stmmac-platform-objs:= stmmac_platform.o dwmac-meson.o dwmac-sunxi.o	\
++		       dwmac-sti.o dwmac-socfpga.o
++
++obj-$(CONFIG_STMMAC_PCI) += stmmac-pci.o
++stmmac-pci-objs:= stmmac_pci.o
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+index bd75ee8..c0a3919 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+@@ -134,65 +134,4 @@ struct stmmac_priv *stmmac_dvr_probe(struct device *device,
+ void stmmac_disable_eee_mode(struct stmmac_priv *priv);
+ bool stmmac_eee_init(struct stmmac_priv *priv);
+ 
+-#ifdef CONFIG_STMMAC_PLATFORM
+-extern struct platform_driver stmmac_pltfr_driver;
+-
+-static inline int stmmac_register_platform(void)
+-{
+-	int err;
+-
+-	err = platform_driver_register(&stmmac_pltfr_driver);
+-	if (err)
+-		pr_err("stmmac: failed to register the platform driver\n");
+-
+-	return err;
+-}
+-
+-static inline void stmmac_unregister_platform(void)
+-{
+-	platform_driver_unregister(&stmmac_pltfr_driver);
+-}
+-#else
+-static inline int stmmac_register_platform(void)
+-{
+-	pr_debug("stmmac: do not register the platf driver\n");
+-
+-	return 0;
+-}
+-
+-static inline void stmmac_unregister_platform(void)
+-{
+-}
+-#endif /* CONFIG_STMMAC_PLATFORM */
+-
+-#ifdef CONFIG_STMMAC_PCI
+-extern struct pci_driver stmmac_pci_driver;
+-static inline int stmmac_register_pci(void)
+-{
+-	int err;
+-
+-	err = pci_register_driver(&stmmac_pci_driver);
+-	if (err)
+-		pr_err("stmmac: failed to register the PCI driver\n");
+-
+-	return err;
+-}
+-
+-static inline void stmmac_unregister_pci(void)
+-{
+-	pci_unregister_driver(&stmmac_pci_driver);
+-}
+-#else
+-static inline int stmmac_register_pci(void)
+-{
+-	pr_debug("stmmac: do not register the PCI driver\n");
+-
+-	return 0;
+-}
+-
+-static inline void stmmac_unregister_pci(void)
+-{
+-}
+-#endif /* CONFIG_STMMAC_PCI */
+-
+ #endif /* __STMMAC_H__ */
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 53db11b..0f1c146 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -2885,6 +2885,7 @@ error_clk_get:
+ 
+ 	return ERR_PTR(ret);
+ }
++EXPORT_SYMBOL_GPL(stmmac_dvr_probe);
+ 
+ /**
+  * stmmac_dvr_remove
+@@ -2914,8 +2915,8 @@ int stmmac_dvr_remove(struct net_device *ndev)
+ 
+ 	return 0;
+ }
++EXPORT_SYMBOL_GPL(stmmac_dvr_remove);
+ 
+-#ifdef CONFIG_PM
+ int stmmac_suspend(struct net_device *ndev)
+ {
+ 	struct stmmac_priv *priv = netdev_priv(ndev);
+@@ -2957,6 +2958,7 @@ int stmmac_suspend(struct net_device *ndev)
+ 	priv->oldduplex = -1;
+ 	return 0;
+ }
++EXPORT_SYMBOL_GPL(stmmac_suspend);
+ 
+ int stmmac_resume(struct net_device *ndev)
+ {
+@@ -3003,37 +3005,7 @@ int stmmac_resume(struct net_device *ndev)
+ 
+ 	return 0;
+ }
+-#endif /* CONFIG_PM */
+-
+-/* Driver can be configured w/ and w/ both PCI and Platf drivers
+- * depending on the configuration selected.
+- */
+-static int __init stmmac_init(void)
+-{
+-	int ret;
+-
+-	ret = stmmac_register_platform();
+-	if (ret)
+-		goto err;
+-	ret = stmmac_register_pci();
+-	if (ret)
+-		goto err_pci;
+-	return 0;
+-err_pci:
+-	stmmac_unregister_platform();
+-err:
+-	pr_err("stmmac: driver registration failed\n");
+-	return ret;
+-}
+-
+-static void __exit stmmac_exit(void)
+-{
+-	stmmac_unregister_platform();
+-	stmmac_unregister_pci();
+-}
+-
+-module_init(stmmac_init);
+-module_exit(stmmac_exit);
++EXPORT_SYMBOL_GPL(stmmac_resume);
+ 
+ #ifndef MODULE
+ static int __init stmmac_cmdline_opt(char *str)
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
+index 5084699..77a6d68 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
+@@ -158,7 +158,7 @@ static const struct pci_device_id stmmac_id_table[] = {
+ 
+ MODULE_DEVICE_TABLE(pci, stmmac_id_table);
+ 
+-struct pci_driver stmmac_pci_driver = {
++static struct pci_driver stmmac_pci_driver = {
+ 	.name = STMMAC_RESOURCE_NAME,
+ 	.id_table = stmmac_id_table,
+ 	.probe = stmmac_pci_probe,
+@@ -168,6 +168,8 @@ struct pci_driver stmmac_pci_driver = {
+ 	},
+ };
+ 
++module_pci_driver(stmmac_pci_driver);
++
+ MODULE_DESCRIPTION("STMMAC 10/100/1000 Ethernet PCI driver");
+ MODULE_AUTHOR("Rayagond Kokatanur <rayagond.kokatanur@vayavyalabs.com>");
+ MODULE_AUTHOR("Giuseppe Cavallaro <peppe.cavallaro@st.com>");
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+index 9f18401..e22a960 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+@@ -362,7 +362,7 @@ static int stmmac_pltfr_remove(struct platform_device *pdev)
+ 	return ret;
+ }
+ 
+-#ifdef CONFIG_PM
++#ifdef CONFIG_PM_SLEEP
+ static int stmmac_pltfr_suspend(struct device *dev)
+ {
+ 	int ret;
+@@ -388,13 +388,12 @@ static int stmmac_pltfr_resume(struct device *dev)
+ 
+ 	return stmmac_resume(ndev);
+ }
+-
+-#endif /* CONFIG_PM */
++#endif /* CONFIG_PM_SLEEP */
+ 
+ static SIMPLE_DEV_PM_OPS(stmmac_pltfr_pm_ops,
+-			stmmac_pltfr_suspend, stmmac_pltfr_resume);
++			 stmmac_pltfr_suspend, stmmac_pltfr_resume);
+ 
+-struct platform_driver stmmac_pltfr_driver = {
++static struct platform_driver stmmac_pltfr_driver = {
+ 	.probe = stmmac_pltfr_probe,
+ 	.remove = stmmac_pltfr_remove,
+ 	.driver = {
+@@ -402,9 +401,11 @@ struct platform_driver stmmac_pltfr_driver = {
+ 		   .owner = THIS_MODULE,
+ 		   .pm = &stmmac_pltfr_pm_ops,
+ 		   .of_match_table = of_match_ptr(stmmac_dt_ids),
+-		   },
++	},
+ };
+ 
++module_platform_driver(stmmac_pltfr_driver);
++
+ MODULE_DESCRIPTION("STMMAC 10/100/1000 Ethernet PLATFORM driver");
+ MODULE_AUTHOR("Giuseppe Cavallaro <peppe.cavallaro@st.com>");
+ MODULE_LICENSE("GPL");
+-- 
+2.1.3
