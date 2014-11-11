@@ -1,59 +1,113 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next] bridge: rename fdb_*_hw to fdb_*_hw_addr to
- avoid confusion
-Date: Tue, 11 Nov 2014 08:20:06 +0100
-Message-ID: <20141111072006.GA8106@nanopsycho.orion>
-References: <1415530280-9190-1-git-send-email-jiri@resnulli.us>
- <1415551216-2239-1-git-send-email-jiri@resnulli.us>
- <20141110.213306.1167288435677960869.davem@davemloft.net>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: Re: Face some error after applying commit 7dfa4b414d4(net/mlx4_en:
+ Code cleanups in tx path)
+Date: Tue, 11 Nov 2014 09:28:34 +0200
+Message-ID: <CAPcc5Ph-guxyUj96VQa1FqTsnwU3J8em4wv0E+ddYho71o0v4w@mail.gmail.com>
+References: <20141108025758.GA13875@richard>
+	<CANn89i+ekXHJSePzQ0rWx2KKqwYGTrok3-ZZ1RdEygVJcGDqRQ@mail.gmail.com>
+	<20141110015933.GB6294@richard>
+	<1415587574.13896.131.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20141110054010.GA3224@richard>
+	<54607095.6070302@mellanox.com>
+	<20141111015705.GA8470@richard>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, nhorman@tuxdriver.com, andy@greyhouse.net,
-	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
-	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
-	ben@decadent.org.uk, stephen@networkplumber.org,
-	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
-	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
-	edumazet@google.com, jhs@mojatatu.com, sfeldma@gmail.com,
-	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
-	linville@tuxdriver.com, jasowang@redhat.com, ebiederm@xmission.com,
-	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
-	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
-	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
-	ronye@mellanox.com, simon.horman@netronome.com,
-	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
-	mleitner@redhat.com, shrijeet@gmail.com, gospo@cumulusnetworks.com,
-	bcrl@kvack.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Amir Vadai <amirv@mellanox.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Eric Dumazet <edumazet@google.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Wei Yang <weiyang@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:45800 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752099AbaKKHUJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2014 02:20:09 -0500
-Received: by mail-wi0-f174.google.com with SMTP id d1so711382wiv.1
-        for <netdev@vger.kernel.org>; Mon, 10 Nov 2014 23:20:07 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20141110.213306.1167288435677960869.davem@davemloft.net>
+Received: from mail-wi0-f177.google.com ([209.85.212.177]:35929 "EHLO
+	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751602AbaKKH2g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2014 02:28:36 -0500
+Received: by mail-wi0-f177.google.com with SMTP id ex7so704903wid.10
+        for <netdev@vger.kernel.org>; Mon, 10 Nov 2014 23:28:34 -0800 (PST)
+In-Reply-To: <20141111015705.GA8470@richard>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Nov 11, 2014 at 03:33:06AM CET, davem@davemloft.net wrote:
->From: Jiri Pirko <jiri@resnulli.us>
->Date: Sun,  9 Nov 2014 17:40:16 +0100
+On Tue, Nov 11, 2014 at 3:57 AM, Wei Yang <weiyang@linux.vnet.ibm.com> wrote:
+> On Mon, Nov 10, 2014 at 10:00:21AM +0200, Amir Vadai wrote:
+>>On 11/10/2014 7:40 AM, Wei Yang wrote:
+>>> On Sun, Nov 09, 2014 at 06:46:14PM -0800, Eric Dumazet wrote:
+>>>> On Mon, 2014-11-10 at 09:59 +0800, Wei Yang wrote:
+>>>>> On Fri, Nov 07, 2014 at 07:38:15PM -0800, Eric Dumazet wrote:
+>>>>>> On Fri, Nov 7, 2014 at 6:57 PM, Wei Yang <weiyang@linux.vnet.ibm.com> wrote:
+>>>>>>> Eric and Amir
+>>>>>>>
+>>
+>>[...]
+>>
+>>>>>
+>>>>
+>>>> Okay, your message was not clear : I thought you had a compilation error
+>>>> on current tree.
+>>>>
+>>>> The true story of these patches is that Mellanox split an initial big
+>>>> chunk [1] I gave into multiple patches.
+>>>>
+>>>> Maybe they missed that one patch did not actually compile.
+>>>>
+>>>> [1] https://patchwork.ozlabs.org/patch/394256/
+>>>>
+>>>> Now, it is done, there is nothing we can do.
+>>>>
+>>>> I'll let Mellanox comment, but it looks like your hardware does not like
+>>>> something.
+>>>>
+>>>> Have you tried to disable Blue Frame ?
+>>>>
+>>>
+>>> Yep, looks the PF works fine. But the current FW I can't just enable the PF.
+>>>
+>>> How to disable Blue Frame? I am not clear about this.
+>>>
+>>Hi,
+>>
+>>Lets see that we're on the same page here:
+>>1. There was a compilation problem that you fixed (Yes, it was my fault
+>>- I just discovered it a minute after the code was applied).
+>>2. When you're using SR-IOV, during initialization, you get a CQE error
+>>with syndrome 0x2 on one of the probed VF's.
 >
->> The current name might seem that this actually offloads the fdb entry to
->> hw. So rename it to clearly present that this for hardware address
->> addition/removal.
->> 
->> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> From the log, seems yes.
 >
->This must have been relative to your rocket patch series because it
->doesn't apply cleanly.
+>>3. Regarding the BlueFlame - I don't see how it is related to the issue
+>>that you see. But it is a very easy experiment. Issue: "ethtool
+>>--set-priv-flags eth1 blueflame off"
 >
->I already am assuming that the rocket patch set is getting one more
->spin, so why don't you add this to that series?
+> I tried to use this after mlx4_en is loaded, still see the CQE error.
+>
+>>
+>>Please send me the module parameters you used when loading mlx4_core, a
+>>full dmesg with both mlx4_core and mlx4_en loading.
+>
+> The command line I use is:
+>         modprobe mlx4_core num_vfs=1 probe_vf=1 port_type_array=2,2
+>
+> The log I sent in the first mail is the full log, including the CQE error, one
+> warning in watchdog, and then print the CQE error periodicly. What else
+> message you would like me to capture?
 
-Will do.
+The log in the first mail has only mlx4_en logs. I would like to see
+the full log, that has mlx4_core messages too. And as Or suggested,
+debug_level=1 could be useful here too.
 
 >
->Thanks.
+> And this error is reported from VF always. After the error, the other network
+> interface seems can't function.
+>
+>>
+>>Amir.
+>
+> --
+> Richard Yang
+> Help you, Help me
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
