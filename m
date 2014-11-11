@@ -1,47 +1,34 @@
-From: Petr Mladek <pmladek@suse.cz>
-Subject: Re: [PATCH -next 2/2] seq_putc: Convert to return void and convert
- uses too.
-Date: Tue, 11 Nov 2014 14:47:40 +0100
-Message-ID: <20141111134740.GB2567@pathway.suse.cz>
-References: <cover.1415645476.git.joe@perches.com>
- <56c4c0d5ec721134cff4913e5e3f8923169c35ef.1415645477.git.joe@perches.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH 3/4] i40e: remove pci_assigned_vfs() check while disabling VFs
+Date: Tue, 11 Nov 2014 05:52:08 -0800
+Message-ID: <CAL3LdT6fwkoGEk5+X+5OFEuRMG+aK9eT-ZT4XZRML9jm_xhrXw@mail.gmail.com>
+References: <1415620410-4937-1-git-send-email-sathya.perla@emulex.com>
+	<1415620410-4937-4-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Steven Rostedt <rostedt@goodmis.org>,
-	Corey Minyard <minyard@acm.org>,
-	Alexander Viro <viro@zeniv.linux.org.uk>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	openipmi-developer@lists.sourceforge.net,
-	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <56c4c0d5ec721134cff4913e5e3f8923169c35ef.1415645477.git.joe@perches.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>, ariel.elior@qlogic.com,
+	linux.nics@intel.com, shahed.shaikh@qlogic.com, ddutile@redhat.com
+To: Sathya Perla <sathya.perla@emulex.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f41.google.com ([209.85.218.41]:53741 "EHLO
+	mail-oi0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750730AbaKKNwJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2014 08:52:09 -0500
+In-Reply-To: <1415620410-4937-4-git-send-email-sathya.perla@emulex.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon 2014-11-10 10:58:57, Joe Perches wrote:
-> Using the return value of seq_putc is error-prone, so
-> make it return void instead.
-> 
-> Reverse the logic in seq_putc to make it like seq_puts.
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
+On Mon, Nov 10, 2014 at 3:53 AM, Sathya Perla <sathya.perla@emulex.com> wrote:
+> From: Vasundhara Volam <vasundhara.volam@emulex.com>
+>
+> The pci_assigned_vfs() check (while disabling VFs) is being moved to the
+> pci-sysfs.c file and will be done before invoking sriov_configure().
+>
+> Signed-off-by: Vasundhara Volam <vasundhara.volam@emulex.com>
+> Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
+> ---
+>  drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |    7 +------
+>  1 files changed, 1 insertions(+), 6 deletions(-)
 
-Reviewed-by: Petr Mladek <pmladek@suse.cz>
-
-The changes are correct. The show() functions should return 0
-even when there is an overflow. They are called by traverse()
-from seq_read() that might increase the buffer size and try again.
-
-
-Best Regards,
-Petr
+Thanks I will add your patch to my queue.
