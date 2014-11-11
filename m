@@ -1,130 +1,153 @@
-From: "Gautam (Gautam Kumar) Shukla" <gautams-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH 1/1] linux-wireless: Added psk in struct
- cfg80211_connect_params needed for offloading 4way handshake to driver
-Date: Tue, 11 Nov 2014 05:56:11 +0000
-Message-ID: <DF163EE1A432BF4BBE6B2088220663A67437BD@SJEXCHMB06.corp.ad.broadcom.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH v4 10/25] virtio: add API to enable VQs early
+Date: Tue, 11 Nov 2014 08:15:29 +0200
+Message-ID: <20141111061529.GA17897@redhat.com>
+References: <1413114332-626-1-git-send-email-mst-v4@redhat.com>
+	<1413114332-626-11-git-send-email-mst-v4@redhat.com>
+	<54615C15.6060400@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org" <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Jithu Jance <jithu-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Sreenath S <sreenats-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-To: "linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Language: en-US
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linux-s390@vger.kernel.org, kvm@vger.kernel.org, linux-scsi@vger.kernel.org,
+	Christian Borntraeger <borntraeger@de.ibm.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	Paolo Bonzini <pbonzini@redhat.com>, Amit Shah <amit.shah@redhat.com>,
+	v9fs-developer@lists.sourceforge.net,
+	"David S. Miller" <davem@davemloft.net>
+To: Andy Grover <agrover@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <54615C15.6060400@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
+On Mon, Nov 10, 2014 at 04:45:09PM -0800, Andy Grover wrote:
+> On 10/13/2014 12:50 AM, Michael S. Tsirkin wrote:
+> >virtio spec 0.9.X requires DRIVER_OK to be set before
+> >VQs are used, but some drivers use VQs before probe
+> >function returns.
+> >Since DRIVER_OK is set after probe, this violates the spec.
+> >
+> >Even though under virtio 1.0 transitional devices support this
+> >behaviour, we want to make it possible for those early callers to become
+> >spec compliant and eventually support non-transitional devices.
+> >
+> >Add API for drivers to call before using VQs.
+> >
+> >Sets DRIVER_OK internally.
+> >
+> >Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> >Reviewed-by: Cornelia Huck <cornelia.huck@de.ibm.com>
+> >---
+> >  include/linux/virtio_config.h | 17 +++++++++++++++++
+> >  1 file changed, 17 insertions(+)
+> >
+> >diff --git a/include/linux/virtio_config.h b/include/linux/virtio_config.h
+> >index e8f8f71..e36403b 100644
+> >--- a/include/linux/virtio_config.h
+> >+++ b/include/linux/virtio_config.h
+> >@@ -109,6 +109,23 @@ struct virtqueue *virtio_find_single_vq(struct virtio_device *vdev,
+> >  	return vq;
+> >  }
+> >
+> >+/**
+> >+ * virtio_device_ready - enable vq use in probe function
+> >+ * @vdev: the device
+> >+ *
+> >+ * Driver must call this to use vqs in the probe function.
+> >+ *
+> >+ * Note: vqs are enabled automatically after probe returns.
+> >+ */
+> >+static inline
+> >+void virtio_device_ready(struct virtio_device *dev)
+> >+{
+> >+	unsigned status = dev->config->get_status(dev);
+> >+
+> >+	BUG_ON(status & VIRTIO_CONFIG_S_DRIVER_OK);
+> >+	dev->config->set_status(dev, status | VIRTIO_CONFIG_S_DRIVER_OK);
+> >+}
+> 
+> Getting a BUG when booting via KVM, host Fedora 20, guest Fedora 20.
+> 
+> my config is at:
+> 
+> https://fedorapeople.org/~grover/config-20141110
+> 
 
-=46or offloading 4 way handshake to driver, currently we don't have any=
- member=A0 of struct cfg80211_connect_params to pass PSK from supplican=
-t to driver. I have added psk for the same and added rest of the code n=
-eeded in nl80211.h and nl80211.c to parse and make it available to driv=
-er.
-=46rom supplicant, we already have psk member field in assoc_params to =
-use .
+The fix is here:
+http://article.gmane.org/gmane.linux.kernel.virtualization/23324/raw
 
-Tested on x86 linux.
+I'm surprised it's not merged yet.
 
-Signed-off-by: Gautam kumar shukla <gautams-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
----
-include/net/cfg80211.h=A0=A0=A0=A0=A0=A0 | 2 ++
-=A0include/uapi/linux/nl80211.h | 8 +++++++-
-=A0net/wireless/nl80211.c=A0=A0=A0=A0=A0=A0 | 4 ++++
-=A03 files changed, 13 insertions(+), 1 deletion(-)
+Rusty, could you pick it up please?
 
-diff --git a/include/net/cfg80211.h b/include/net/cfg80211.h index a2dd=
-cf2..6f744e0 100644
---- a/include/net/cfg80211.h
-+++ b/include/net/cfg80211.h
-@@ -1758,6 +1758,7 @@ struct cfg80211_ibss_params {
-=A0 *=A0=A0=A0 allowed to ignore this @bssid_hint if it has knowledge o=
-f a better BSS
-=A0 *=A0=A0=A0 to use.
-=A0 * @ssid: SSID
-+ * @psk:preshared key for WPA2-PSK connection or %NULL if not specifie=
-d
-=A0 * @ssid_len: Length of ssid in octets
-=A0 * @auth_type: Authentication type (algorithm)
-=A0 * @ie: IEs for association request
-@@ -1783,6 +1784,7 @@ struct cfg80211_connect_params {
-=A0=A0=A0=A0 const u8 *bssid;
-=A0=A0=A0=A0 const u8 *bssid_hint;
-=A0=A0=A0=A0 const u8 *ssid;
-+=A0=A0=A0 const u8 *psk;
-=A0=A0=A0=A0 size_t ssid_len;
-=A0=A0=A0=A0 enum nl80211_auth_type auth_type;
-=A0=A0=A0=A0 const u8 *ie;
-diff --git a/include/uapi/linux/nl80211.h b/include/uapi/linux/nl80211.=
-h index 4b28dc0..b01d5dd 100644
---- a/include/uapi/linux/nl80211.h
-+++ b/include/uapi/linux/nl80211.h
-@@ -421,7 +421,7 @@
-=A0 *=A0=A0=A0 %NL80211_ATTR_MAC, %NL80211_ATTR_WIPHY_FREQ, %NL80211_AT=
-TR_CONTROL_PORT,
-=A0 *=A0=A0=A0 %NL80211_ATTR_CONTROL_PORT_ETHERTYPE,
-=A0 *=A0=A0=A0 %NL80211_ATTR_CONTROL_PORT_NO_ENCRYPT, %NL80211_ATTR_MAC=
-_HINT, and
-- *=A0=A0=A0 %NL80211_ATTR_WIPHY_FREQ_HINT.
-+ *=A0=A0=A0 %NL80211_ATTR_WIPHY_FREQ_HINT, and %NL80211_ATTR_PSK.
-=A0 *=A0=A0=A0 If included, %NL80211_ATTR_MAC and %NL80211_ATTR_WIPHY_F=
-REQ are
-=A0 *=A0=A0=A0 restrictions on BSS selection, i.e., they effectively pr=
-event roaming
-=A0 *=A0=A0=A0 within the ESS. %NL80211_ATTR_MAC_HINT and %NL80211_ATTR=
-_WIPHY_FREQ_HINT @@ -1638,6 +1638,10 @@ enum nl80211_commands {
-=A0 * @NL80211_ATTR_SMPS_MODE: SMPS mode to use (ap mode). see
-=A0 *=A0=A0=A0 &enum nl80211_smps_mode.
-=A0 *
-+ *=A0=A0=A0 @NL80211_ATTR_PSK: a PSK value (u8 attribute).This is 32-o=
-ctet=20
-+ (256-bit)
-+ *=A0=A0=A0 PSK.
-+ *
-+ *
-=A0 * @NL80211_ATTR_MAX: highest attribute number currently defined
-=A0 * @__NL80211_ATTR_AFTER_LAST: internal use
-=A0 */
-@@ -1990,6 +1994,8 @@ enum nl80211_attrs {
-=A0
-=A0=A0=A0=A0 NL80211_ATTR_SMPS_MODE,
-=A0
-+=A0=A0=A0 NL80211_ATTR_PSK,
-+
-=A0=A0=A0=A0 /* add attributes here, update the policy in nl80211.c */
-=A0
-=A0=A0=A0=A0 __NL80211_ATTR_AFTER_LAST,
-diff --git a/net/wireless/nl80211.c b/net/wireless/nl80211.c index 5839=
-c85..91c24b1 100644
---- a/net/wireless/nl80211.c
-+++ b/net/wireless/nl80211.c
-@@ -395,6 +395,7 @@ static const struct nla_policy nl80211_policy[NL802=
-11_ATTR_MAX+1] =3D {
-=A0=A0=A0=A0 [NL80211_ATTR_USER_PRIO] =3D { .type =3D NLA_U8 },
-=A0=A0=A0=A0 [NL80211_ATTR_ADMITTED_TIME] =3D { .type =3D NLA_U16 },
-=A0=A0=A0=A0 [NL80211_ATTR_SMPS_MODE] =3D { .type =3D NLA_U8 },
-+=A0=A0=A0 [NL80211_ATTR_PSK] =3D { .type =3D NLA_BINARY, .len =3D 32 }=
-,
-=A0};
-=A0
-=A0/* policy for the key attributes */
-@@ -7310,6 +7311,9 @@ static int nl80211_connect(struct sk_buff *skb, s=
-truct genl_info *info)
-=A0=A0=A0=A0 =A0=A0=A0 connect.flags |=3D ASSOC_REQ_USE_RRM;
-=A0=A0=A0=A0 }
-=A0
-+=A0=A0=A0 if (info->attrs[NL80211_ATTR_PSK])
-+=A0=A0=A0 =A0=A0=A0 connect.psk =3D nla_data(info->attrs[NL80211_ATTR_=
-PSK]);
-+
-=A0=A0=A0=A0 wdev_lock(dev->ieee80211_ptr);
-=A0=A0=A0=A0 err =3D cfg80211_connect(rdev, dev, &connect, connkeys, NU=
-LL);
-=A0=A0=A0=A0 wdev_unlock(dev->ieee80211_ptr);
---
-1.9.1
+
+> 
+> [    0.828494] ------------[ cut here ]------------
+> [    0.829039] kernel BUG at
+> /home/agrover/git/kernel/include/linux/virtio_config.h:125!
+> [    0.831266] invalid opcode: 0000 [#1] SMP DEBUG_PAGEALLOC
+> [    0.831266] Modules linked in:
+> [    0.831266] CPU: 1 PID: 30 Comm: kworker/1:1 Not tainted 3.18.0-rc4 #120
+> [    0.831266] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
+> [    0.831266] Workqueue: events control_work_handler
+> [    0.831266] task: ffff88003cd98000 ti: ffff88003cd94000 task.ti:
+> ffff88003cd94000
+> [    0.831266] RIP: 0010:[<ffffffff81445004>]  [<ffffffff81445004>]
+> add_port+0x264/0x410
+> [    0.831266] RSP: 0000:ffff88003cd97c78  EFLAGS: 00010202
+> [    0.831266] RAX: 0000000000000007 RBX: ffff88003c58c400 RCX:
+> 0000000000000001
+> [    0.831266] RDX: 000000000000c132 RSI: ffffffff81a955e9 RDI:
+> 000000000001c132
+> [    0.831266] RBP: ffff88003cd97cc8 R08: 0000000000000000 R09:
+> 0000000000000000
+> [    0.831266] R10: 0000000000000001 R11: 0000000000000000 R12:
+> ffff88003c58be00
+> [    0.831266] R13: 0000000000000001 R14: ffff8800395ca800 R15:
+> ffff88003c58c420
+> [    0.831266] FS:  0000000000000000(0000) GS:ffff88003fa00000(0000)
+> knlGS:0000000000000000
+> [    0.831266] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+> [    0.831266] CR2: 0000000000000000 CR3: 0000000001c11000 CR4:
+> 00000000000006e0
+> [    0.831266] DR0: 0000000000000000 DR1: 0000000000000000 DR2:
+> 0000000000000000
+> [    0.831266] DR3: 0000000000000000 DR6: 00000000fffe0ff0 DR7:
+> 0000000000000400
+> [    0.831266] Stack:
+> [    0.831266]  ffff880000000001 0000000000000292 0000000000000000
+> 0000000000000001
+> [    0.831266]  ffff88003cd97cc8 ffff88003dfa8a20 ffff88003c58beb8
+> ffff88003c58be10
+> [    0.831266]  ffff8800395a2000 0000000000000000 ffff88003cd97d38
+> ffffffff8144531a
+> [    0.831266] Call Trace:
+> [    0.831266]  [<ffffffff8144531a>] control_work_handler+0x16a/0x3c0
+> [    0.831266]  [<ffffffff8108b0c8>] ? process_one_work+0x208/0x500
+> [    0.831266]  [<ffffffff8108b16c>] process_one_work+0x2ac/0x500
+> [    0.831266]  [<ffffffff8108b0c8>] ? process_one_work+0x208/0x500
+> [    0.831266]  [<ffffffff8108b68e>] worker_thread+0x2ce/0x4e0
+> [    0.831266]  [<ffffffff8108b3c0>] ? process_one_work+0x500/0x500
+> [    0.831266]  [<ffffffff81090b28>] kthread+0xf8/0x100
+> [    0.831266]  [<ffffffff810bad7d>] ? trace_hardirqs_on+0xd/0x10
+> [    0.831266]  [<ffffffff81090a30>] ? kthread_stop+0x140/0x140
+> [    0.831266]  [<ffffffff816ea92c>] ret_from_fork+0x7c/0xb0
+> [    0.831266]  [<ffffffff81090a30>] ? kthread_stop+0x140/0x140
+> [    0.831266] Code: c7 c2 48 31 01 83 48 c7 c6 e9 55 a9 81 e8 55 b4 c6 ff
+> 4d 8b b4 24 58 01 00 00 49 8b 86 e8 04 00 00 4c 89 f7 ff 50 10 a8 04 74 0c
+> <0f> 0b 66 2e 0f 1f 84 00 00 00 00 00 49 8b 96 e8 04 00 00 83 c8
+> [    0.831266] RIP  [<ffffffff81445004>] add_port+0x264/0x410
+> [    0.831266]  RSP <ffff88003cd97c78>
+> [    0.878202] ---[ end trace f98fbb172cc7bbf4 ]---
+> 
+> Thanks -- Andy
