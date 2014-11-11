@@ -1,338 +1,102 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 05/10] i40evf: don't use more queues than CPUs
-Date: Tue, 11 Nov 2014 06:44:41 -0800
-Message-ID: <1415717086-3441-6-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1415717086-3441-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mitch Williams <mitch.a.williams@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Patrick Lu <patrick.lu@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 00/10][pull request] Intel Wired LAN Driver Updates 2014-11-11
+Date: Tue, 11 Nov 2014 06:44:36 -0800
+Message-ID: <1415717086-3441-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	john.ronciak@intel.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:3088 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:3085 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751513AbaKKOpa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Nov 2014 09:45:30 -0500
-In-Reply-To: <1415717086-3441-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1751328AbaKKOp2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Nov 2014 09:45:28 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mitch Williams <mitch.a.williams@intel.com>
+This series contains updates to i40e, i40evf and ixgbe.
 
-It's kind of silly to configure and attempt to use a bunch of queue
-pairs when you're running on a single (virtual) CPU. Instead of
-unconditionally configuring all of the queues that the PF gives us,
-clamp the number of queue pairs to the number of CPUs.
+Kamil updated the i40e and i40evf driver to poll the firmware slower
+since we were polling faster than the firmware could respond.
 
-Change-ID: I321714c9e15072ee76de8f95ab9a81f86ed347d1
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
-Signed-off-by: Patrick Lu <patrick.lu@intel.com>
-Tested-by: Jim Young <jamesx.m.young@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40evf/i40evf.h         |  1 +
- drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c | 16 +++----
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    | 50 +++++++++++++---------
- .../net/ethernet/intel/i40evf/i40evf_virtchnl.c    |  6 +--
- 4 files changed, 41 insertions(+), 32 deletions(-)
+Shannon updates i40e to add a check to keep the service_task from
+running the periodic tasks more than once per second, while still
+allowing quick action to service the events.
 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf.h b/drivers/net/ethernet/intel/i40evf/i40evf.h
-index 30ef519..1113f8a 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf.h
-@@ -191,6 +191,7 @@ struct i40evf_adapter {
- 	struct i40e_q_vector *q_vector[MAX_MSIX_Q_VECTORS];
- 	struct list_head vlan_filter_list;
- 	char misc_vector_name[IFNAMSIZ + 9];
-+	int num_active_queues;
- 
- 	/* TX */
- 	struct i40e_ring *tx_rings[I40E_MAX_VSI_QP];
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
-index efee6b2..876411c 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
-@@ -59,7 +59,7 @@ static const struct i40evf_stats i40evf_gstrings_stats[] = {
- #define I40EVF_GLOBAL_STATS_LEN ARRAY_SIZE(i40evf_gstrings_stats)
- #define I40EVF_QUEUE_STATS_LEN(_dev) \
- 	(((struct i40evf_adapter *) \
--		netdev_priv(_dev))->vsi_res->num_queue_pairs \
-+		netdev_priv(_dev))->num_active_queues \
- 		  * 2 * (sizeof(struct i40e_queue_stats) / sizeof(u64)))
- #define I40EVF_STATS_LEN(_dev) \
- 	(I40EVF_GLOBAL_STATS_LEN + I40EVF_QUEUE_STATS_LEN(_dev))
-@@ -121,11 +121,11 @@ static void i40evf_get_ethtool_stats(struct net_device *netdev,
- 		p = (char *)adapter + i40evf_gstrings_stats[i].stat_offset;
- 		data[i] =  *(u64 *)p;
- 	}
--	for (j = 0; j < adapter->vsi_res->num_queue_pairs; j++) {
-+	for (j = 0; j < adapter->num_active_queues; j++) {
- 		data[i++] = adapter->tx_rings[j]->stats.packets;
- 		data[i++] = adapter->tx_rings[j]->stats.bytes;
- 	}
--	for (j = 0; j < adapter->vsi_res->num_queue_pairs; j++) {
-+	for (j = 0; j < adapter->num_active_queues; j++) {
- 		data[i++] = adapter->rx_rings[j]->stats.packets;
- 		data[i++] = adapter->rx_rings[j]->stats.bytes;
- 	}
-@@ -151,13 +151,13 @@ static void i40evf_get_strings(struct net_device *netdev, u32 sset, u8 *data)
- 			       ETH_GSTRING_LEN);
- 			p += ETH_GSTRING_LEN;
- 		}
--		for (i = 0; i < adapter->vsi_res->num_queue_pairs; i++) {
-+		for (i = 0; i < adapter->num_active_queues; i++) {
- 			snprintf(p, ETH_GSTRING_LEN, "tx-%u.packets", i);
- 			p += ETH_GSTRING_LEN;
- 			snprintf(p, ETH_GSTRING_LEN, "tx-%u.bytes", i);
- 			p += ETH_GSTRING_LEN;
- 		}
--		for (i = 0; i < adapter->vsi_res->num_queue_pairs; i++) {
-+		for (i = 0; i < adapter->num_active_queues; i++) {
- 			snprintf(p, ETH_GSTRING_LEN, "rx-%u.packets", i);
- 			p += ETH_GSTRING_LEN;
- 			snprintf(p, ETH_GSTRING_LEN, "rx-%u.bytes", i);
-@@ -430,7 +430,7 @@ static int i40evf_get_rxnfc(struct net_device *netdev,
- 
- 	switch (cmd->cmd) {
- 	case ETHTOOL_GRXRINGS:
--		cmd->data = adapter->vsi_res->num_queue_pairs;
-+		cmd->data = adapter->num_active_queues;
- 		ret = 0;
- 		break;
- 	case ETHTOOL_GRXFH:
-@@ -598,12 +598,12 @@ static void i40evf_get_channels(struct net_device *netdev,
- 	struct i40evf_adapter *adapter = netdev_priv(netdev);
- 
- 	/* Report maximum channels */
--	ch->max_combined = adapter->vsi_res->num_queue_pairs;
-+	ch->max_combined = adapter->num_active_queues;
- 
- 	ch->max_other = NONQ_VECS;
- 	ch->other_count = NONQ_VECS;
- 
--	ch->combined_count = adapter->vsi_res->num_queue_pairs;
-+	ch->combined_count = adapter->num_active_queues;
- }
- 
- /**
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index b2f01eb..f0d07ad 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -397,8 +397,8 @@ static int i40evf_map_rings_to_vectors(struct i40evf_adapter *adapter)
- 	int q_vectors;
- 	int v_start = 0;
- 	int rxr_idx = 0, txr_idx = 0;
--	int rxr_remaining = adapter->vsi_res->num_queue_pairs;
--	int txr_remaining = adapter->vsi_res->num_queue_pairs;
-+	int rxr_remaining = adapter->num_active_queues;
-+	int txr_remaining = adapter->num_active_queues;
- 	int i, j;
- 	int rqpv, tqpv;
- 	int err = 0;
-@@ -584,7 +584,7 @@ static void i40evf_configure_tx(struct i40evf_adapter *adapter)
- {
- 	struct i40e_hw *hw = &adapter->hw;
- 	int i;
--	for (i = 0; i < adapter->vsi_res->num_queue_pairs; i++)
-+	for (i = 0; i < adapter->num_active_queues; i++)
- 		adapter->tx_rings[i]->tail = hw->hw_addr + I40E_QTX_TAIL1(i);
- }
- 
-@@ -629,7 +629,7 @@ static void i40evf_configure_rx(struct i40evf_adapter *adapter)
- 			rx_buf_len = ALIGN(max_frame, 1024);
- 	}
- 
--	for (i = 0; i < adapter->vsi_res->num_queue_pairs; i++) {
-+	for (i = 0; i < adapter->num_active_queues; i++) {
- 		adapter->rx_rings[i]->tail = hw->hw_addr + I40E_QRX_TAIL1(i);
- 		adapter->rx_rings[i]->rx_buf_len = rx_buf_len;
- 	}
-@@ -918,7 +918,7 @@ static void i40evf_configure(struct i40evf_adapter *adapter)
- 	i40evf_configure_rx(adapter);
- 	adapter->aq_required |= I40EVF_FLAG_AQ_CONFIGURE_QUEUES;
- 
--	for (i = 0; i < adapter->vsi_res->num_queue_pairs; i++) {
-+	for (i = 0; i < adapter->num_active_queues; i++) {
- 		struct i40e_ring *ring = adapter->rx_rings[i];
- 		i40evf_alloc_rx_buffers(ring, ring->count);
- 		ring->next_to_use = ring->count - 1;
-@@ -950,7 +950,7 @@ static void i40evf_clean_all_rx_rings(struct i40evf_adapter *adapter)
- {
- 	int i;
- 
--	for (i = 0; i < adapter->vsi_res->num_queue_pairs; i++)
-+	for (i = 0; i < adapter->num_active_queues; i++)
- 		i40evf_clean_rx_ring(adapter->rx_rings[i]);
- }
- 
-@@ -962,7 +962,7 @@ static void i40evf_clean_all_tx_rings(struct i40evf_adapter *adapter)
- {
- 	int i;
- 
--	for (i = 0; i < adapter->vsi_res->num_queue_pairs; i++)
-+	for (i = 0; i < adapter->num_active_queues; i++)
- 		i40evf_clean_tx_ring(adapter->tx_rings[i]);
- }
- 
-@@ -1064,7 +1064,7 @@ static void i40evf_free_queues(struct i40evf_adapter *adapter)
- 
- 	if (!adapter->vsi_res)
- 		return;
--	for (i = 0; i < adapter->vsi_res->num_queue_pairs; i++) {
-+	for (i = 0; i < adapter->num_active_queues; i++) {
- 		if (adapter->tx_rings[i])
- 			kfree_rcu(adapter->tx_rings[i], rcu);
- 		adapter->tx_rings[i] = NULL;
-@@ -1084,7 +1084,7 @@ static int i40evf_alloc_queues(struct i40evf_adapter *adapter)
- {
- 	int i;
- 
--	for (i = 0; i < adapter->vsi_res->num_queue_pairs; i++) {
-+	for (i = 0; i < adapter->num_active_queues; i++) {
- 		struct i40e_ring *tx_ring;
- 		struct i40e_ring *rx_ring;
- 
-@@ -1130,7 +1130,7 @@ static int i40evf_set_interrupt_capability(struct i40evf_adapter *adapter)
- 		err = -EIO;
- 		goto out;
- 	}
--	pairs = adapter->vsi_res->num_queue_pairs;
-+	pairs = adapter->num_active_queues;
- 
- 	/* It's easy to be greedy for MSI-X vectors, but it really
- 	 * doesn't do us much good if we have a lot more vectors
-@@ -1210,7 +1210,7 @@ static void i40evf_free_q_vectors(struct i40evf_adapter *adapter)
- 	int napi_vectors;
- 
- 	num_q_vectors = adapter->num_msix_vectors - NONQ_VECS;
--	napi_vectors = adapter->vsi_res->num_queue_pairs;
-+	napi_vectors = adapter->num_active_queues;
- 
- 	for (q_idx = 0; q_idx < num_q_vectors; q_idx++) {
- 		struct i40e_q_vector *q_vector = adapter->q_vector[q_idx];
-@@ -1265,8 +1265,8 @@ int i40evf_init_interrupt_scheme(struct i40evf_adapter *adapter)
- 	}
- 
- 	dev_info(&adapter->pdev->dev, "Multiqueue %s: Queue pair count = %u",
--		(adapter->vsi_res->num_queue_pairs > 1) ? "Enabled" :
--		"Disabled", adapter->vsi_res->num_queue_pairs);
-+		(adapter->num_active_queues > 1) ? "Enabled" :
-+		"Disabled", adapter->num_active_queues);
- 
- 	return 0;
- err_alloc_queues:
-@@ -1425,7 +1425,7 @@ static int next_queue(struct i40evf_adapter *adapter, int j)
- {
- 	j += 1;
- 
--	return j >= adapter->vsi_res->num_queue_pairs ? 0 : j;
-+	return j >= adapter->num_active_queues ? 0 : j;
- }
- 
- /**
-@@ -1446,9 +1446,14 @@ static void i40evf_configure_rss(struct i40evf_adapter *adapter)
- 			0xc135cafa, 0x7a6f7e2d, 0xe7102d28, 0x163cd12e,
- 			0x4954b126 };
- 
--	/* Hash type is configured by the PF - we just supply the key */
-+	/* No RSS for single queue. */
-+	if (adapter->num_active_queues == 1) {
-+		wr32(hw, I40E_VFQF_HENA(0), 0);
-+		wr32(hw, I40E_VFQF_HENA(1), 0);
-+		return;
-+	}
- 
--	/* Fill out hash function seed */
-+	/* Hash type is configured by the PF - we just supply the key */
- 	for (i = 0; i <= I40E_VFQF_HKEY_MAX_INDEX; i++)
- 		wr32(hw, I40E_VFQF_HKEY(i), seed[i]);
- 
-@@ -1458,7 +1463,7 @@ static void i40evf_configure_rss(struct i40evf_adapter *adapter)
- 	wr32(hw, I40E_VFQF_HENA(1), (u32)(hena >> 32));
- 
- 	/* Populate the LUT with max no. of queues in round robin fashion */
--	j = adapter->vsi_res->num_queue_pairs;
-+	j = adapter->num_active_queues;
- 	for (i = 0; i <= I40E_VFQF_HLUT_MAX_INDEX; i++) {
- 		j = next_queue(adapter, j);
- 		lut = j;
-@@ -1703,7 +1708,7 @@ static void i40evf_free_all_tx_resources(struct i40evf_adapter *adapter)
- {
- 	int i;
- 
--	for (i = 0; i < adapter->vsi_res->num_queue_pairs; i++)
-+	for (i = 0; i < adapter->num_active_queues; i++)
- 		if (adapter->tx_rings[i]->desc)
- 			i40evf_free_tx_resources(adapter->tx_rings[i]);
- 
-@@ -1723,7 +1728,7 @@ static int i40evf_setup_all_tx_resources(struct i40evf_adapter *adapter)
- {
- 	int i, err = 0;
- 
--	for (i = 0; i < adapter->vsi_res->num_queue_pairs; i++) {
-+	for (i = 0; i < adapter->num_active_queues; i++) {
- 		adapter->tx_rings[i]->count = adapter->tx_desc_count;
- 		err = i40evf_setup_tx_descriptors(adapter->tx_rings[i]);
- 		if (!err)
-@@ -1751,7 +1756,7 @@ static int i40evf_setup_all_rx_resources(struct i40evf_adapter *adapter)
- {
- 	int i, err = 0;
- 
--	for (i = 0; i < adapter->vsi_res->num_queue_pairs; i++) {
-+	for (i = 0; i < adapter->num_active_queues; i++) {
- 		adapter->rx_rings[i]->count = adapter->rx_desc_count;
- 		err = i40evf_setup_rx_descriptors(adapter->rx_rings[i]);
- 		if (!err)
-@@ -1774,7 +1779,7 @@ static void i40evf_free_all_rx_resources(struct i40evf_adapter *adapter)
- {
- 	int i;
- 
--	for (i = 0; i < adapter->vsi_res->num_queue_pairs; i++)
-+	for (i = 0; i < adapter->num_active_queues; i++)
- 		if (adapter->rx_rings[i]->desc)
- 			i40evf_free_rx_resources(adapter->rx_rings[i]);
- }
-@@ -2150,6 +2155,9 @@ static void i40evf_init_task(struct work_struct *work)
- 	adapter->watchdog_timer.data = (unsigned long)adapter;
- 	mod_timer(&adapter->watchdog_timer, jiffies + 1);
- 
-+	adapter->num_active_queues = min_t(int,
-+					   adapter->vsi_res->num_queue_pairs,
-+					   (int)(num_online_cpus()));
- 	adapter->tx_desc_count = I40EVF_DEFAULT_TXD;
- 	adapter->rx_desc_count = I40EVF_DEFAULT_RXD;
- 	err = i40evf_init_interrupt_scheme(adapter);
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-index ff86761..49bfdb5 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-@@ -210,7 +210,7 @@ void i40evf_configure_queues(struct i40evf_adapter *adapter)
- {
- 	struct i40e_virtchnl_vsi_queue_config_info *vqci;
- 	struct i40e_virtchnl_queue_pair_info *vqpi;
--	int pairs = adapter->vsi_res->num_queue_pairs;
-+	int pairs = adapter->num_active_queues;
- 	int i, len;
- 
- 	if (adapter->current_op != I40E_VIRTCHNL_OP_UNKNOWN) {
-@@ -276,7 +276,7 @@ void i40evf_enable_queues(struct i40evf_adapter *adapter)
- 	}
- 	adapter->current_op = I40E_VIRTCHNL_OP_ENABLE_QUEUES;
- 	vqs.vsi_id = adapter->vsi_res->vsi_id;
--	vqs.tx_queues = (1 << adapter->vsi_res->num_queue_pairs) - 1;
-+	vqs.tx_queues = (1 << adapter->num_active_queues) - 1;
- 	vqs.rx_queues = vqs.tx_queues;
- 	adapter->aq_pending |= I40EVF_FLAG_AQ_ENABLE_QUEUES;
- 	adapter->aq_required &= ~I40EVF_FLAG_AQ_ENABLE_QUEUES;
-@@ -302,7 +302,7 @@ void i40evf_disable_queues(struct i40evf_adapter *adapter)
- 	}
- 	adapter->current_op = I40E_VIRTCHNL_OP_DISABLE_QUEUES;
- 	vqs.vsi_id = adapter->vsi_res->vsi_id;
--	vqs.tx_queues = (1 << adapter->vsi_res->num_queue_pairs) - 1;
-+	vqs.tx_queues = (1 << adapter->num_active_queues) - 1;
- 	vqs.rx_queues = vqs.tx_queues;
- 	adapter->aq_pending |= I40EVF_FLAG_AQ_DISABLE_QUEUES;
- 	adapter->aq_required &= ~I40EVF_FLAG_AQ_DISABLE_QUEUES;
+Jesse cleans up the throttle rate code by fixing the minimum interrupt
+throttle rate and removing some unused defines.
+
+Mitch makes the early init admin queue message receive code more robust
+by handling messages in a loop and ignoring those that we are not
+interested in.  This also gets rid of some scary log messages that
+really do not indicate a problem.
+
+Don provides several ixgbe patches, first fixes an issue with x540
+completion timeout where on topologies including few levels of PCIe
+switching for x540 can run into an unexpected completion error.  Cleans
+up the functionality in ixgbe_ndo_set_vf_vlan() in preparation for
+future work.  Adds support for x550 MAC's to the driver.
+
+v2:
+ - Remove code comment in patch 01 of the series, based on feedback from
+   David Liaght
+ - Updated the "goto" to "break" statements in patch 06 of the series,
+   based on feedback from Sergei Shtylyov
+ - Initialized the variable err due to the possibility of use before
+   being assigned a value in patch 07 of the series
+ - Added patch "ixgbe: add helper function for setting RSS key in
+   preparation of X550" since it is needed for the addition of X550 MAC
+   support
+
+The following are changes since commit 2e1af7d74f4f7b4d4c1b0fbf5da3b5f92d9c332f:
+  mlx4: restore conditional call to napi_complete_done()
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+
+Don Skidmore (5):
+  ixgbe: fix X540 Completion timeout
+  ixgbe: cleanup ixgbe_ndo_set_vf_vlan
+  ixgbe: cleanup move setting PFQDE.HIDE_VLAN to support function.
+  ixgbe: Add new support for X550 MAC's
+  ixgbe: add helper function for setting RSS key in perperation of X550
+
+Jesse Brandeburg (1):
+  i40e: clean up throttle rate code
+
+Kamil Krawczyk (1):
+  i40e: poll firmware slower
+
+Mitch Williams (2):
+  i40evf: make early init processing more robust
+  i40evf: don't use more queues than CPUs
+
+Shannon Nelson (1):
+  i40e: don't do link_status or stats collection on every ARQ
+
+ drivers/net/ethernet/intel/i40e/i40e.h             |   3 +-
+ drivers/net/ethernet/intel/i40e/i40e_adminq.c      |   6 +-
+ drivers/net/ethernet/intel/i40e/i40e_adminq.h      |   2 +-
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c     |  11 +-
+ drivers/net/ethernet/intel/i40e/i40e_main.c        |  14 ++-
+ drivers/net/ethernet/intel/i40e/i40e_txrx.h        |   5 +-
+ drivers/net/ethernet/intel/i40evf/i40e_adminq.c    |   6 +-
+ drivers/net/ethernet/intel/i40evf/i40e_adminq.h    |   2 +-
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.h      |   5 +-
+ drivers/net/ethernet/intel/i40evf/i40evf.h         |   1 +
+ drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c |  16 +--
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c    |  50 ++++----
+ .../net/ethernet/intel/i40evf/i40evf_virtchnl.c    |  65 +++++-----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c    |  50 ++++++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.c       |   8 ++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c    |   1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c   |  37 +++++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c       |   2 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      | 122 +++++++++++++++----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.c       |   4 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c       |  64 +++++-----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c     | 131 ++++++++++++++-------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h      |  45 +++++--
+ 23 files changed, 441 insertions(+), 209 deletions(-)
+
 -- 
 1.9.3
