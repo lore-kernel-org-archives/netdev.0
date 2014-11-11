@@ -1,40 +1,249 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [net-next PATCH v2 4/5] fm10k/igb/ixgbe: Replace __skb_alloc_page
- with netdev_alloc_page
-Date: Tue, 11 Nov 2014 09:15:14 -0800
-Message-ID: <CAHA+R7P+GtA6xHxrPZOhxHM0LA8mGkmWugTqLeHtw5M6P3udvQ@mail.gmail.com>
-References: <20141111170711.15976.44062.stgit@ahduyck-vm-fedora20>
-	<20141111171117.15976.41609.stgit@ahduyck-vm-fedora20>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [patch net-next 1/2] net: move vlan pop/push functions into
+ common code
+Date: Tue, 11 Nov 2014 09:24:15 -0800
+Message-ID: <CALnjE+qRASQx8pcaB7z9D3_x2ybA4h-Uh2Ppn9EJVG3YU8gSGg@mail.gmail.com>
+References: <1415700789-9171-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>, linux-usb@vger.kernel.org,
-	leedom@chelsio.com, hariprasad@chelsio.com,
-	donald.c.skidmore@intel.com, oliver@neukum.org, balbi@ti.com,
-	matthew.vick@intel.com, mgorman@suse.de,
-	David Miller <davem@davemloft.net>, jeffrey.t.kirsher@intel.com
-To: Alexander Duyck <alexander.h.duyck@redhat.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Tom Herbert <therbert@google.com>,
+	Eric Dumazet <edumazet@google.com>, willemb@google.com,
+	Daniel Borkmann <dborkman@redhat.com>, mst@redhat.com,
+	fw@strlen.de, Paul.Durrant@citrix.com, Thomas Graf <tgraf@suug.ch>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f41.google.com ([209.85.192.41]:38701 "EHLO
-	mail-qg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751249AbaKKRPP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2014 12:15:15 -0500
-Received: by mail-qg0-f41.google.com with SMTP id q107so7569268qgd.0
-        for <netdev@vger.kernel.org>; Tue, 11 Nov 2014 09:15:15 -0800 (PST)
-In-Reply-To: <20141111171117.15976.41609.stgit@ahduyck-vm-fedora20>
+Received: from na3sys009aog105.obsmtp.com ([74.125.149.75]:45919 "HELO
+	na3sys009aog105.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751193AbaKKRYQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2014 12:24:16 -0500
+Received: by mail-ie0-f172.google.com with SMTP id at20so11860100iec.31
+        for <netdev@vger.kernel.org>; Tue, 11 Nov 2014 09:24:15 -0800 (PST)
+In-Reply-To: <1415700789-9171-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 11, 2014 at 9:11 AM, Alexander Duyck
-<alexander.h.duyck@redhat.com> wrote:
-> diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_main.c b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-> index e645af4..73457ed 100644
-> --- a/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-> +++ b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-> @@ -83,7 +83,7 @@ static bool fm10k_alloc_mapped_page(struct fm10k_ring *rx_ring,
->                 return true;
+On Tue, Nov 11, 2014 at 2:13 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+> So it can be used from out of openvswitch code.
+> Did couple of cosmetic changes on the way, namely variable naming and
+> adding support for 8021AD proto.
 >
->         /* alloc new page for storage */
-> -       page = alloc_page(GFP_ATOMIC | __GFP_COLD);
-> +       page = dev_alloc_page();
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> ---
+>  include/linux/skbuff.h    |  2 ++
+>  net/core/skbuff.c         | 86 +++++++++++++++++++++++++++++++++++++++++++++++
+>  net/openvswitch/actions.c | 76 ++---------------------------------------
+>  3 files changed, 90 insertions(+), 74 deletions(-)
+>
+> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+> index 103fbe8..3b0445c 100644
+> --- a/include/linux/skbuff.h
+> +++ b/include/linux/skbuff.h
+> @@ -2673,6 +2673,8 @@ void skb_scrub_packet(struct sk_buff *skb, bool xnet);
+>  unsigned int skb_gso_transport_seglen(const struct sk_buff *skb);
+>  struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features);
+>  struct sk_buff *skb_vlan_untag(struct sk_buff *skb);
+> +int skb_vlan_pop(struct sk_buff *skb);
+> +int skb_vlan_push(struct sk_buff *skb, __be16 vlan_proto, u16 vlan_tci);
+>
+>  struct skb_checksum_ops {
+>         __wsum (*update)(const void *mem, int len, __wsum wsum);
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index 7001896..75e53d4 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -4151,6 +4151,92 @@ err_free:
+>  }
+>  EXPORT_SYMBOL(skb_vlan_untag);
+>
+> +/* remove VLAN header from packet and update csum accordingly. */
+> +static int __skb_vlan_pop(struct sk_buff *skb, u16 *vlan_tci)
+> +{
+> +       struct vlan_hdr *vhdr;
+> +       int err;
+> +
+> +       if (!pskb_may_pull(skb, VLAN_ETH_HLEN))
+> +               return -ENOMEM;
+> +
+> +       if (!skb_cloned(skb) || skb_clone_writable(skb, VLAN_ETH_HLEN))
+> +               return 0;
+> +
+> +       err = pskb_expand_head(skb, 0, 0, GFP_ATOMIC);
+> +       if (unlikely(err))
+> +               return err;
+> +
+> +       if (skb->ip_summed == CHECKSUM_COMPLETE)
+> +               skb->csum = csum_sub(skb->csum, csum_partial(skb->data
+> +                                       + (2 * ETH_ALEN), VLAN_HLEN, 0));
+> +
+> +       vhdr = (struct vlan_hdr *)(skb->data + ETH_HLEN);
+> +       *vlan_tci = ntohs(vhdr->h_vlan_TCI);
+> +
+> +       memmove(skb->data + VLAN_HLEN, skb->data, 2 * ETH_ALEN);
+> +       __skb_pull(skb, VLAN_HLEN);
+> +
+> +       vlan_set_encap_proto(skb, vhdr);
+> +       skb->mac_header += VLAN_HLEN;
+> +       if (skb_network_offset(skb) < ETH_HLEN)
+> +               skb_set_network_header(skb, ETH_HLEN);
+> +       skb_reset_mac_len(skb);
+> +
+> +       return 0;
+> +}
+> +
+> +int skb_vlan_pop(struct sk_buff *skb)
+> +{
+> +       u16 vlan_tci;
+> +       __be16 vlan_proto;
+> +       int err;
+> +
+> +       if (likely(vlan_tx_tag_present(skb))) {
+> +               skb->vlan_tci = 0;
+> +       } else {
+> +               if (unlikely((skb->protocol != htons(ETH_P_8021Q) &&
+> +                             skb->protocol != htons(ETH_P_8021AD)) ||
+> +                            skb->len < VLAN_ETH_HLEN))
+> +                       return 0;
+> +
+> +               err = __skb_vlan_pop(skb, &vlan_tci);
+> +               if (err)
+> +                       return err;
+> +       }
+> +       /* move next vlan tag to hw accel tag */
+> +       if (likely((skb->protocol != htons(ETH_P_8021Q) &&
+> +                   skb->protocol != htons(ETH_P_8021AD)) ||
+> +                  skb->len < VLAN_ETH_HLEN))
+> +               return 0;
+> +
+> +       vlan_proto = skb->protocol;
+> +       err = __skb_vlan_pop(skb, &vlan_tci);
+> +       if (unlikely(err))
+> +               return err;
+> +
+> +       __vlan_hwaccel_put_tag(skb, vlan_proto, vlan_tci);
+> +       return 0;
+> +}
+> +EXPORT_SYMBOL(skb_vlan_pop);
+> +
+> +int skb_vlan_push(struct sk_buff *skb, __be16 vlan_proto, u16 vlan_tci)
+> +{
+> +       if (vlan_tx_tag_present(skb)) {
+> +               /* push down current VLAN tag */
+> +               if (!__vlan_put_tag(skb, skb->vlan_proto,
+> +                                   vlan_tx_tag_get(skb)))
+> +                       return -ENOMEM;
+> +
+Since you are restructuring this code, can you also change
+__vlan_put_tag() to not free skb on error. So that these two new
+functions can have common error handling code.
 
-Doesn't match $subject.
+> +               if (skb->ip_summed == CHECKSUM_COMPLETE)
+> +                       skb->csum = csum_add(skb->csum, csum_partial(skb->data
+> +                                       + (2 * ETH_ALEN), VLAN_HLEN, 0));
+> +       }
+> +       __vlan_hwaccel_put_tag(skb, vlan_proto, vlan_tci);
+> +       return 0;
+> +}
+> +EXPORT_SYMBOL(skb_vlan_push);
+> +
+>  /**
+>   * alloc_skb_with_frags - allocate skb with page frags
+>   *
+> diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
+> index f7e5891..1b28110 100644
+> --- a/net/openvswitch/actions.c
+> +++ b/net/openvswitch/actions.c
+> @@ -206,86 +206,14 @@ static int set_mpls(struct sk_buff *skb, const __be32 *mpls_lse)
+>         return 0;
+>  }
+>
+> -/* remove VLAN header from packet and update csum accordingly. */
+> -static int __pop_vlan_tci(struct sk_buff *skb, __be16 *current_tci)
+> -{
+> -       struct vlan_hdr *vhdr;
+> -       int err;
+> -
+> -       err = make_writable(skb, VLAN_ETH_HLEN);
+> -       if (unlikely(err))
+> -               return err;
+> -
+> -       if (skb->ip_summed == CHECKSUM_COMPLETE)
+> -               skb->csum = csum_sub(skb->csum, csum_partial(skb->data
+> -                                       + (2 * ETH_ALEN), VLAN_HLEN, 0));
+> -
+> -       vhdr = (struct vlan_hdr *)(skb->data + ETH_HLEN);
+> -       *current_tci = vhdr->h_vlan_TCI;
+> -
+> -       memmove(skb->data + VLAN_HLEN, skb->data, 2 * ETH_ALEN);
+> -       __skb_pull(skb, VLAN_HLEN);
+> -
+> -       vlan_set_encap_proto(skb, vhdr);
+> -       skb->mac_header += VLAN_HLEN;
+> -
+> -       if (skb_network_offset(skb) < ETH_HLEN)
+> -               skb_set_network_header(skb, ETH_HLEN);
+> -
+> -       /* Update mac_len for subsequent MPLS actions */
+> -       skb_reset_mac_len(skb);
+> -       return 0;
+> -}
+> -
+>  static int pop_vlan(struct sk_buff *skb)
+>  {
+> -       __be16 tci;
+> -       int err;
+> -
+> -       if (likely(vlan_tx_tag_present(skb))) {
+> -               skb->vlan_tci = 0;
+> -       } else {
+> -               if (unlikely(skb->protocol != htons(ETH_P_8021Q) ||
+> -                            skb->len < VLAN_ETH_HLEN))
+> -                       return 0;
+> -
+> -               err = __pop_vlan_tci(skb, &tci);
+> -               if (err)
+> -                       return err;
+> -       }
+> -       /* move next vlan tag to hw accel tag */
+> -       if (likely(skb->protocol != htons(ETH_P_8021Q) ||
+> -                  skb->len < VLAN_ETH_HLEN))
+> -               return 0;
+> -
+> -       err = __pop_vlan_tci(skb, &tci);
+> -       if (unlikely(err))
+> -               return err;
+> -
+> -       __vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), ntohs(tci));
+> -       return 0;
+> +       return skb_vlan_pop(skb);
+>  }
+>
+>  static int push_vlan(struct sk_buff *skb, const struct ovs_action_push_vlan *vlan)
+>  {
+> -       if (unlikely(vlan_tx_tag_present(skb))) {
+> -               u16 current_tag;
+> -
+> -               /* push down current VLAN tag */
+> -               current_tag = vlan_tx_tag_get(skb);
+> -
+> -               if (!__vlan_put_tag(skb, skb->vlan_proto, current_tag))
+> -                       return -ENOMEM;
+> -               /* Update mac_len for subsequent MPLS actions */
+> -               skb->mac_len += VLAN_HLEN;
+> -
+> -               if (skb->ip_summed == CHECKSUM_COMPLETE)
+> -                       skb->csum = csum_add(skb->csum, csum_partial(skb->data
+> -                                       + (2 * ETH_ALEN), VLAN_HLEN, 0));
+> -
+> -       }
+> -       __vlan_hwaccel_put_tag(skb, vlan->vlan_tpid, ntohs(vlan->vlan_tci) & ~VLAN_TAG_PRESENT);
+> -       return 0;
+> +       return skb_vlan_push(skb, vlan->vlan_tpid, ntohs(vlan->vlan_tci) & ~VLAN_TAG_PRESENT);
+>  }
+>
+>  static int set_eth_addr(struct sk_buff *skb,
+> --
+> 1.9.3
+>
