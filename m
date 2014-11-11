@@ -1,36 +1,54 @@
-From: Cong Wang <cwang-xCSkyg8dI+0RB7SZvlqPiA@public.gmane.org>
-Subject: Re: [net-next PATCH 1/5] net: Add netdev Rx page allocation function
-Date: Mon, 10 Nov 2014 16:26:20 -0800
-Message-ID: <CAHA+R7PigH6ZZBP0DzAPwLMwsK85aadj4hH3iahhOH2ehfYJvg@mail.gmail.com>
-References: <20141110195104.16182.98174.stgit@ahduyck-vm-fedora20>
-	<20141110195158.16182.71937.stgit@ahduyck-vm-fedora20>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	donald.c.skidmore-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org, balbi-l0cyMroinI0@public.gmane.org,
-	matthew.vick-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, mgorman-l3A5Bk7waGM@public.gmane.org,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-To: Alexander Duyck <alexander.h.duyck-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20141110195158.16182.71937.stgit@ahduyck-vm-fedora20>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH iproute2] utils: relax strtoX checking in get_time_rtt
+Date: Tue, 11 Nov 2014 01:38:21 +0100
+Message-ID: <1415666301-24900-1-git-send-email-fw@strlen.de>
+Cc: Florian Westphal <fw@strlen.de>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:33350 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751464AbaKKAiS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2014 19:38:18 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 10, 2014 at 11:51 AM, Alexander Duyck
-<alexander.h.duyck-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
-> This patch implements __netdev_alloc_pages and __netdev_alloc_page.  These
-> are meant to replace the __skb_alloc_pages and __skb_alloc_page functions.
-> The reason for doing this is that it occurred to me that __skb_alloc_page is
-> supposed to be passed an sk_buff pointer, but it is NULL in all cases where
-> it is used.  Worse is that in the case of ixgbe it is passed NULL via the
-> sk_buff pointer in the rx_buffer info structure which means the compiler is
-> not correctly stripping it out.
+ip route change dev tap0 192.168.7.0/24 rto_min 1ms
+Error: argument "1ms" is wrong: "rto_min" value is invalid
 
-These netdev_*() have nothing related with struct net_device, please
-find a better prefix. Also, they are in skbuff.h, you perhaps want to move them
-to netdevice.h.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+get_time_rtt() checks for 's' or 'msec' and converts to milliseconds
+if needed.
+
+Fixes: 697ac63905 (utils: fix range checking for get_u32/get_u64 et all)
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+ lib/utils.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/lib/utils.c b/lib/utils.c
+index dc21567..987377b 100644
+--- a/lib/utils.c
++++ b/lib/utils.c
+@@ -144,8 +144,8 @@ int get_time_rtt(unsigned *val, const char *arg, int *raw)
+ 		if (t < 0.0)
+ 			return -1;
+ 
+-		/* extra non-digits */
+-		if (!p || p == arg || *p)
++		/* no digits? */
++		if (!p || p == arg)
+ 			return -1;
+ 
+ 		/* over/underflow */
+@@ -154,8 +154,8 @@ int get_time_rtt(unsigned *val, const char *arg, int *raw)
+ 	} else {
+ 		res = strtoul(arg, &p, 0);
+ 
+-		/* empty string or trailing non-digits */
+-		if (!p || p == arg || *p)
++		/* empty string? */
++		if (!p || p == arg)
+ 			return -1;
+ 
+ 		/* overflow */
+-- 
+2.0.4
