@@ -1,57 +1,44 @@
-From: "M. Braun" <michael-dev@fami-braun.de>
-Subject: Re: [patch net-next v2 02/10] net: introduce generic switch
- devices support
-Date: Tue, 11 Nov 2014 10:49:36 +0100
-Message-ID: <5461DBB0.5090107@fami-braun.de>
-References: <1415530280-9190-1-git-send-email-jiri@resnulli.us> <1415530280-9190-3-git-send-email-jiri@resnulli.us>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 1/1] linux-wireless: Added psk in struct
+ cfg80211_connect_params needed for offloading 4way handshake to driver
+Date: Tue, 11 Nov 2014 11:03:40 +0100
+Message-ID: <1415700220.2163.3.camel@sipsolutions.net>
+References: <DF163EE1A432BF4BBE6B2088220663A67437BD@SJEXCHMB06.corp.ad.broadcom.com>
+	 <1415698161.2163.0.camel@sipsolutions.net> <5461DCC9.5050702@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
-	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
-	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
-	ben@decadent.org.uk, stephen@networkplumber.org,
-	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
-	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
-	edumazet@google.com, jhs@mojatatu.com, sfeldma@gmail.com,
-	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
-	linville@tuxdriver.com, jasowang@redhat.com, ebiederm@xmission.com,
-	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
-	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
-	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
-	ronye@mellanox.com, simon.horman@netronome.com,
-	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
-	mleitner@redhat.com, shrijeet@gmail.com, gospo@cumulusnetworks.com,
-	bcrl@kvack.org
-To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+Cc: "Gautam (Gautam Kumar) Shukla" <gautams@broadcom.com>,
+	"linville@tuxdriver.com" <linville@tuxdriver.com>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"linux-api@vger.kernel.org" <linux-api@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Jithu Jance <jithu@broadcom.com>,
+	Sreenath S <sreenats@broadcom.com>
+To: Arend van Spriel <arend@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo4-p04-ob.smtp.rzone.de ([81.169.146.178]:58264 "EHLO
-	mo4-p04-ob.smtp.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752041AbaKKJ5z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2014 04:57:55 -0500
-In-Reply-To: <1415530280-9190-3-git-send-email-jiri@resnulli.us>
+Received: from s3.sipsolutions.net ([5.9.151.49]:57395 "EHLO sipsolutions.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752275AbaKKKDw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Nov 2014 05:03:52 -0500
+In-Reply-To: <5461DCC9.5050702@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, 2014-11-11 at 10:54 +0100, Arend van Spriel wrote:
 
+> > Also, there's a competing approach from QCA that's far more suited.
+> 
+> I probably was not paying attention to it, but would you have a
+> reference to this.
 
-Am 09.11.2014 um 11:51 schrieb Jiri Pirko:
-> diff --git a/Documentation/networking/switchdev.txt b/Documentation/networking/switchdev.txt
-> +	ndo_sw_parent_get_id - ...
+... digs around in email ...
 
-here the ndo is called get_id
+http://mid.gmane.org/1343907187-6686-1-git-send-email-qca_vkondrat@qca.qualcomm.com
 
-but
+Anyway, looking back at that, it wasn't really all that different, just
+a bit more complete maybe.
 
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> + *
-> + * int (*ndo_sw_parent_id_get)(struct net_device *dev,
-> + *			       struct netdev_phys_item_id *psid);
-> @@ -1168,6 +1174,10 @@ struct net_device_ops {
-> +	int			(*ndo_sw_parent_id_get)(struct net_device *dev,
-> +							struct netdev_phys_item_id *psid);
-
-here it is call id_get, which is similar but not the same.
-
-Regards,
- M. Braun
+johannes
