@@ -1,7 +1,7 @@
 From: Shuah Khan <shuahkh@osg.samsung.com>
-Subject: [PATCH v2 14/19] selftests/net: add install target to enable installing test
-Date: Tue, 11 Nov 2014 13:27:54 -0700
-Message-ID: <1170d5a224521d8d4840b3f54db60da4c50aa5cc.1415735831.git.shuahkh@osg.samsung.com>
+Subject: [PATCH v2 13/19] selftests/mqueue: add install target to enable installing test
+Date: Tue, 11 Nov 2014 13:27:53 -0700
+Message-ID: <9d545d554e9159d67a31403bdef39db8c75225a4.1415735831.git.shuahkh@osg.samsung.com>
 References: <cover.1415735831.git.shuahkh@osg.samsung.com>
 Cc: Shuah Khan <shuahkh@osg.samsung.com>, linux-kbuild@vger.kernel.org,
 	linux-kernel@vger.kernel.org, linux-api@vger.kernel.org,
@@ -25,47 +25,40 @@ only from top level source dir.
 
 Signed-off-by: Shuah Khan <shuahkh@osg.samsung.com>
 ---
- tools/testing/selftests/net/Makefile | 23 ++++++++++++++++++++---
- 1 file changed, 20 insertions(+), 3 deletions(-)
+ tools/testing/selftests/mqueue/Makefile | 20 +++++++++++++++++---
+ 1 file changed, 17 insertions(+), 3 deletions(-)
 
-diff --git a/tools/testing/selftests/net/Makefile b/tools/testing/selftests/net/Makefile
-index 62f22cc..16550eb 100644
---- a/tools/testing/selftests/net/Makefile
-+++ b/tools/testing/selftests/net/Makefile
-@@ -6,14 +6,31 @@ CFLAGS = -Wall -O2 -g
- CFLAGS += -I../../../../usr/include/
+diff --git a/tools/testing/selftests/mqueue/Makefile b/tools/testing/selftests/mqueue/Makefile
+index 8056e2e..7a7e5d3 100644
+--- a/tools/testing/selftests/mqueue/Makefile
++++ b/tools/testing/selftests/mqueue/Makefile
+@@ -1,10 +1,24 @@
++MQ_OPEN_TEST_STR = ./mq_open_tests /test1 || echo mq_open_tests: [FAIL]
++MQ_PERF_TEST_STR = ./mq_perf_tests || echo mq_perf_tests: [FAIL]
++
+ all:
+ 	gcc -O2 mq_open_tests.c -o mq_open_tests -lrt
+ 	gcc -O2 -o mq_perf_tests mq_perf_tests.c -lrt -lpthread -lpopt
  
- NET_PROGS = socket psock_fanout psock_tpacket
-+INSTALL_PROGS = run_netsocktests run_afpackettests test_bpf.sh $(NET_PROGS)
-+NETSOCK_TEST_STR = /bin/sh ./run_netsocktests || echo sockettests: [FAIL]
-+AFPKT_TEST_STR = /bin/sh ./run_afpackettests || echo afpackettests: [FAIL]
-+BFP_TEST_STR = ./test_bpf.sh
- 
- all: $(NET_PROGS)
- %: %.c
- 	$(CC) $(CFLAGS) -o $@ $^
- 
+-run_tests:
+-	@./mq_open_tests /test1 || echo "mq_open_tests: [FAIL]"
+-	@./mq_perf_tests || echo "mq_perf_tests: [FAIL]"
 +install:
 +ifdef INSTALL_KSFT_PATH
-+	install $(INSTALL_PROGS) $(INSTALL_KSFT_PATH)
-+	@echo echo Start net test .... >> $(KSELFTEST)
-+	@echo "$(NETSOCK_TEST_STR)" >> $(KSELFTEST)
-+	@echo "$(AFPKT_TEST_STR)" >> $(KSELFTEST)
-+	@echo "$(BFP_TEST_STR)" >> $(KSELFTEST)
-+	@echo echo End net test .... >> $(KSELFTEST)
++	install ./mq_open_tests ./mq_perf_tests $(INSTALL_KSFT_PATH)
++	@echo echo Start mqueue test .... >> $(KSELFTEST)
++	@echo "$(MQ_OPEN_TEST_STR)" >> $(KSELFTEST)
++	@echo "$(MQ_PERF_TEST_STR)" >> $(KSELFTEST)
 +	@echo echo ============================== >> $(KSELFTEST)
 +else
 +	@echo Run make kselftest_install in top level source directory
 +endif
 +
- run_tests: all
--	@/bin/sh ./run_netsocktests || echo "sockettests: [FAIL]"
--	@/bin/sh ./run_afpackettests || echo "afpackettests: [FAIL]"
--	./test_bpf.sh
-+	@$(NETSOCK_TEST_STR)
-+	@$(AFPKT_TEST_STR)
-+	@$(BFP_TEST_STR)
++run_tests: all
++	@$(MQ_OPEN_TEST_STR)
++	@$(MQ_PERF_TEST_STR)
+ 
  clean:
- 	$(RM) $(NET_PROGS)
+ 	rm -f mq_open_tests mq_perf_tests
 -- 
 1.9.1
