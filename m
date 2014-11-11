@@ -1,33 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: qualcomm: Fix dependancy
-Date: Tue, 11 Nov 2014 16:19:02 -0500 (EST)
-Message-ID: <20141111.161902.716667007371046451.davem@davemloft.net>
-References: <1415740110-19518-1-git-send-email-stefan.wahren@i2se.com>
+Subject: Re: [PATCH] irda: Simplify IRDA logging macros
+Date: Tue, 11 Nov 2014 16:22:57 -0500 (EST)
+Message-ID: <20141111.162257.701721486580745428.davem@davemloft.net>
+References: <1415740421.16070.11.camel@perches.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: stefan.wahren@i2se.com
+Cc: samuel@sortiz.org, netdev@vger.kernel.org
+To: joe@perches.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33762 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:33771 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751564AbaKKVVO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2014 16:21:14 -0500
-In-Reply-To: <1415740110-19518-1-git-send-email-stefan.wahren@i2se.com>
+	with ESMTP id S1751412AbaKKVXA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2014 16:23:00 -0500
+In-Reply-To: <1415740421.16070.11.camel@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stefan Wahren <stefan.wahren@i2se.com>
-Date: Tue, 11 Nov 2014 21:08:30 +0000
+From: Joe Perches <joe@perches.com>
+Date: Tue, 11 Nov 2014 13:13:41 -0800
 
-> Unfortunately the patch for adding QCA7000 driver contains an old
-> version of Kconfig, which requires OF_GPIO. This is not necessary
-> anymore and need to be replaced with OF.
+> These are the same as net_<level>_ratelimited, so
+> use the more common style in the macro definition.
 > 
-> Signed-off-by: Stefan Wahren <stefan.wahren@i2se.com>
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-Actually, I would remove the dependencies entirely from the
-VENDOR Kconfig entry, that makes no sense.
+Applied, thanks Joe.
 
-It's the individual drivers that need this or that, so that's where
-the dependency checks belong.
+> I wonder if the IRDA_ macro uses should be converted
+> directly instead but that diffstat is quite a bit
+> longer than this one
+
+You can do that as a follow-on patch if you want.  Macros
+that just provide another name for a well understood generic
+facility are really something to get rid of.
