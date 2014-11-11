@@ -1,7 +1,7 @@
 From: Johan Hovold <johan@kernel.org>
-Subject: [PATCH 2/9] net: phy: micrel: fix config_intr error handling
-Date: Tue, 11 Nov 2014 20:00:08 +0100
-Message-ID: <1415732415-10363-3-git-send-email-johan@kernel.org>
+Subject: [PATCH 3/9] net: phy: micrel: use BIT macro
+Date: Tue, 11 Nov 2014 20:00:09 +0100
+Message-ID: <1415732415-10363-4-git-send-email-johan@kernel.org>
 References: <1415732415-10363-1-git-send-email-johan@kernel.org>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
@@ -12,44 +12,73 @@ In-Reply-To: <1415732415-10363-1-git-send-email-johan@kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Make sure never to update the control register with random data (an
-error code) by checking the return value after reading it.
+Use BIT macro for bitmask definitions.
 
 Signed-off-by: Johan Hovold <johan@kernel.org>
 ---
- drivers/net/phy/micrel.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+ drivers/net/phy/micrel.c | 34 +++++++++++++++++-----------------
+ 1 file changed, 17 insertions(+), 17 deletions(-)
 
 diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
-index bcc6c0ea75fa..62ca9613a514 100644
+index 62ca9613a514..d962a2866bba 100644
 --- a/drivers/net/phy/micrel.c
 +++ b/drivers/net/phy/micrel.c
-@@ -122,6 +122,8 @@ static int kszphy_config_intr(struct phy_device *phydev)
+@@ -30,30 +30,30 @@
  
- 	/* set the interrupt pin active low */
- 	temp = phy_read(phydev, MII_KSZPHY_CTRL);
-+	if (temp < 0)
-+		return temp;
- 	temp &= ~KSZPHY_CTRL_INT_ACTIVE_HIGH;
- 	phy_write(phydev, MII_KSZPHY_CTRL, temp);
- 	rc = kszphy_set_interrupt(phydev);
-@@ -134,6 +136,8 @@ static int ksz9021_config_intr(struct phy_device *phydev)
+ /* Operation Mode Strap Override */
+ #define MII_KSZPHY_OMSO				0x16
+-#define KSZPHY_OMSO_B_CAST_OFF			(1 << 9)
+-#define KSZPHY_OMSO_RMII_OVERRIDE		(1 << 1)
+-#define KSZPHY_OMSO_MII_OVERRIDE		(1 << 0)
++#define KSZPHY_OMSO_B_CAST_OFF			BIT(9)
++#define KSZPHY_OMSO_RMII_OVERRIDE		BIT(1)
++#define KSZPHY_OMSO_MII_OVERRIDE		BIT(0)
  
- 	/* set the interrupt pin active low */
- 	temp = phy_read(phydev, MII_KSZPHY_CTRL);
-+	if (temp < 0)
-+		return temp;
- 	temp &= ~KSZ9021_CTRL_INT_ACTIVE_HIGH;
- 	phy_write(phydev, MII_KSZPHY_CTRL, temp);
- 	rc = kszphy_set_interrupt(phydev);
-@@ -146,6 +150,8 @@ static int ks8737_config_intr(struct phy_device *phydev)
+ /* general Interrupt control/status reg in vendor specific block. */
+ #define MII_KSZPHY_INTCS			0x1B
+-#define	KSZPHY_INTCS_JABBER			(1 << 15)
+-#define	KSZPHY_INTCS_RECEIVE_ERR		(1 << 14)
+-#define	KSZPHY_INTCS_PAGE_RECEIVE		(1 << 13)
+-#define	KSZPHY_INTCS_PARELLEL			(1 << 12)
+-#define	KSZPHY_INTCS_LINK_PARTNER_ACK		(1 << 11)
+-#define	KSZPHY_INTCS_LINK_DOWN			(1 << 10)
+-#define	KSZPHY_INTCS_REMOTE_FAULT		(1 << 9)
+-#define	KSZPHY_INTCS_LINK_UP			(1 << 8)
++#define	KSZPHY_INTCS_JABBER			BIT(15)
++#define	KSZPHY_INTCS_RECEIVE_ERR		BIT(14)
++#define	KSZPHY_INTCS_PAGE_RECEIVE		BIT(13)
++#define	KSZPHY_INTCS_PARELLEL			BIT(12)
++#define	KSZPHY_INTCS_LINK_PARTNER_ACK		BIT(11)
++#define	KSZPHY_INTCS_LINK_DOWN			BIT(10)
++#define	KSZPHY_INTCS_REMOTE_FAULT		BIT(9)
++#define	KSZPHY_INTCS_LINK_UP			BIT(8)
+ #define	KSZPHY_INTCS_ALL			(KSZPHY_INTCS_LINK_UP |\
+ 						KSZPHY_INTCS_LINK_DOWN)
  
- 	/* set the interrupt pin active low */
- 	temp = phy_read(phydev, MII_KSZPHY_CTRL);
-+	if (temp < 0)
-+		return temp;
- 	temp &= ~KS8737_CTRL_INT_ACTIVE_HIGH;
- 	phy_write(phydev, MII_KSZPHY_CTRL, temp);
- 	rc = kszphy_set_interrupt(phydev);
+ /* general PHY control reg in vendor specific block. */
+ #define	MII_KSZPHY_CTRL			0x1F
+ /* bitmap of PHY register to set interrupt mode */
+-#define KSZPHY_CTRL_INT_ACTIVE_HIGH		(1 << 9)
+-#define KSZ9021_CTRL_INT_ACTIVE_HIGH		(1 << 14)
+-#define KS8737_CTRL_INT_ACTIVE_HIGH		(1 << 14)
+-#define KSZ8051_RMII_50MHZ_CLK			(1 << 7)
++#define KSZPHY_CTRL_INT_ACTIVE_HIGH		BIT(9)
++#define KSZ9021_CTRL_INT_ACTIVE_HIGH		BIT(14)
++#define KS8737_CTRL_INT_ACTIVE_HIGH		BIT(14)
++#define KSZ8051_RMII_50MHZ_CLK			BIT(7)
+ 
+ /* Write/read to/from extended registers */
+ #define MII_KSZPHY_EXTREG                       0x0b
+@@ -400,8 +400,8 @@ static int ksz9031_config_init(struct phy_device *phydev)
+ }
+ 
+ #define KSZ8873MLL_GLOBAL_CONTROL_4	0x06
+-#define KSZ8873MLL_GLOBAL_CONTROL_4_DUPLEX	(1 << 6)
+-#define KSZ8873MLL_GLOBAL_CONTROL_4_SPEED	(1 << 4)
++#define KSZ8873MLL_GLOBAL_CONTROL_4_DUPLEX	BIT(6)
++#define KSZ8873MLL_GLOBAL_CONTROL_4_SPEED	BIT(4)
+ static int ksz8873mll_read_status(struct phy_device *phydev)
+ {
+ 	int regval;
 -- 
 2.0.4
