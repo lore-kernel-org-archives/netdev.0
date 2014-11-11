@@ -1,107 +1,63 @@
-From: "Gautam (Gautam Kumar) Shukla" <gautams@broadcom.com>
-Subject: [PATCH 2/2] linux-wireless:Added wiphy capability flag for
- offloading 4way handshake to driver
-Date: Tue, 11 Nov 2014 06:27:03 +0000
-Message-ID: <DF163EE1A432BF4BBE6B2088220663A6743890@SJEXCHMB06.corp.ad.broadcom.com>
+From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+Subject: Re: [PATCH] usbnet: smsc95xx: dereferencing NULL pointer
+Date: Tue, 11 Nov 2014 12:00:08 +0530
+Message-ID: <20141111063008.GA4446@sudip-PC>
+References: <1415366560-27614-1-git-send-email-sudipm.mukherjee@gmail.com>
+ <20141110.142223.816257623301941276.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"johannes@sipsolutions.net" <johannes@sipsolutions.net>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"linux-api@vger.kernel.org" <linux-api@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Jithu Jance <jithu@broadcom.com>,
-	Sreenath S <sreenats@broadcom.com>
-To: "linville@tuxdriver.com" <linville@tuxdriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: steve.glendinning@shawell.net, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:47144 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751238AbaKKGaU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2014 01:30:20 -0500
+Content-Disposition: inline
+In-Reply-To: <20141110.142223.816257623301941276.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Mon, Nov 10, 2014 at 02:22:23PM -0500, David Miller wrote:
+> From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+> Date: Fri,  7 Nov 2014 18:52:40 +0530
+>=20
+> > we were dereferencing dev to initialize pdata. but just after that =
+we
+> > have a BUG_ON(!dev). so we were basically dereferencing the pointer
+> > first and then tesing it for NULL.
+> >=20
+> > Signed-off-by: Sudip Mukherjee <sudip@vectorindia.org>
+>=20
+> You didn't even compile test this.
+>=20
+> Do not even bother fixing theoretical issues if you're going to be
+> introducing a _REAL_ serious regression into the code with your "fix"=
+:
+>=20
+> drivers/net/usb/smsc95xx.c: In function =E2=80=98smsc95xx_resume=E2=80=
+=99:
+> drivers/net/usb/smsc95xx.c:1674:5: warning: =E2=80=98pdata=E2=80=99 i=
+s used uninitialized in this function [-Wuninitialized]
+>   u8 suspend_flags =3D pdata->suspend_flags;
+>      ^
+>=20
+> So, instead of a theoretical issue, we now have a real guaranteed
+> crash.
+>=20
+> You did not compile test this change, and you definitely did not
+> functionally test this change either.
+>=20
+> Please do not do this ever again, thanks.
 
-For offloading 4 way handshake to driver , currently we don't have WIPHY capability flag to communicate same to supplicant.
-I have added the flag NL80211_ATTR_4WAY_KEY_HANDSHAKE  and rest of the code for the same.
+extremely sorry for this.
+i have compile tested but don't know how i missed the new warning messa=
+ge.
+for any of my patch,if for some reason i am not able to compile test it=
+, i mention that in the comments.
+sorry again.
 
-Tested on x86 linux machine
-
-Signed-off-by: Gautam kumar shukla <gautams@broadcom.com>
----
- include/net/cfg80211.h       | 4 ++++
- include/uapi/linux/nl80211.h | 5 ++++-
- net/wireless/nl80211.c       | 4 ++++
- 3 files changed, 12 insertions(+), 1 deletion(-)
-
-diff --git a/include/net/cfg80211.h b/include/net/cfg80211.h
-index 6f744e0..b37de0a 100644
---- a/include/net/cfg80211.h
-+++ b/include/net/cfg80211.h
-@@ -2629,7 +2629,10 @@ struct cfg80211_ops {
-  *	TSPEC sessions (TID aka TSID 0-7) with the NL80211_CMD_ADD_TX_TS
-  *	command. Standard IEEE 802.11 TSPEC setup is not yet supported, it
-  *	needs to be able to handle Block-Ack agreements and other things.
-+ *	@WIPHY_FLAG_SUPPORTS_4WAY_HANDHSHAKE:the device supports 4way handshake
-+ *	in the driver/firmware.
-  */
-+
- enum wiphy_flags {
- 	WIPHY_FLAG_SUPPORTS_WMM_ADMISSION	= BIT(0),
- 	/* use hole at 1 */
-@@ -2654,6 +2657,7 @@ enum wiphy_flags {
- 	WIPHY_FLAG_HAS_REMAIN_ON_CHANNEL	= BIT(21),
- 	WIPHY_FLAG_SUPPORTS_5_10_MHZ		= BIT(22),
- 	WIPHY_FLAG_HAS_CHANNEL_SWITCH		= BIT(23),
-+	WIPHY_FLAG_SUPPORTS_4WAY_HANDSHAKE	= BIT(24),
- };
- 
- /**
-diff --git a/include/uapi/linux/nl80211.h b/include/uapi/linux/nl80211.h
-index b01d5dd..2c474a3 100644
---- a/include/uapi/linux/nl80211.h
-+++ b/include/uapi/linux/nl80211.h
-@@ -1640,9 +1640,11 @@ enum nl80211_commands {
-  *
-  *	@NL80211_ATTR_PSK: a PSK value (u8 attribute).This is 32-octet (256-bit)
-  *	PSK.
-+ * @NL80211_ATTR_4WAY_KEY_HANDSHAKE: Indicates whether the driver is capable
-+ * of 4way key handshake
-  *
-  *
-- * @NL80211_ATTR_MAX: highest attribute number currently defined
-+ * * @NL80211_ATTR_MAX: highest attribute number currently defined
-  * @__NL80211_ATTR_AFTER_LAST: internal use
-  */
- enum nl80211_attrs {
-@@ -1995,6 +1997,7 @@ enum nl80211_attrs {
- 	NL80211_ATTR_SMPS_MODE,
- 
- 	NL80211_ATTR_PSK,
-+	NL80211_ATTR_4WAY_KEY_HANDSHAKE,
- 
- 	/* add attributes here, update the policy in nl80211.c */
- 
-diff --git a/net/wireless/nl80211.c b/net/wireless/nl80211.c
-index 91c24b1..5f85c41 100644
---- a/net/wireless/nl80211.c
-+++ b/net/wireless/nl80211.c
-@@ -396,6 +396,7 @@ static const struct nla_policy nl80211_policy[NL80211_ATTR_MAX+1] = {
- 	[NL80211_ATTR_ADMITTED_TIME] = { .type = NLA_U16 },
- 	[NL80211_ATTR_SMPS_MODE] = { .type = NLA_U8 },
- 	[NL80211_ATTR_PSK] = { .type = NLA_BINARY, .len = 32 },
-+	[NL80211_ATTR_4WAY_KEY_HANDSHAKE] = { .type = NLA_FLAG },
- };
- 
- /* policy for the key attributes */
-@@ -1303,6 +1304,9 @@ static int nl80211_send_wiphy(struct cfg80211_registered_device *rdev,
- 		if ((rdev->wiphy.flags & WIPHY_FLAG_SUPPORTS_FW_ROAM) &&
- 		    nla_put_flag(msg, NL80211_ATTR_ROAM_SUPPORT))
- 			goto nla_put_failure;
-+		if ((rdev->wiphy.flags & WIPHY_FLAG_SUPPORTS_4WAY_HANDSHAKE) &&
-+			nla_put_flag(msg,NL80211_ATTR_4WAY_KEY_HANDSHAKE))
-+			goto nla_put_failure;
- 		if ((rdev->wiphy.flags & WIPHY_FLAG_SUPPORTS_TDLS) &&
- 		    nla_put_flag(msg, NL80211_ATTR_TDLS_SUPPORT))
- 			goto nla_put_failure;
--- 
-1.9.1
+thanks
+sudip
