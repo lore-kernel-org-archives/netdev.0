@@ -1,7 +1,7 @@
 From: Johan Hovold <johan@kernel.org>
-Subject: [PATCH 08/22] net: phy: micrel: disable broadcast for KSZ8081/KSZ8091
-Date: Tue, 11 Nov 2014 18:37:26 +0100
-Message-ID: <1415727460-20417-9-git-send-email-johan@kernel.org>
+Subject: [PATCH 06/22] net: phy: micrel: use BIT macro
+Date: Tue, 11 Nov 2014 18:37:24 +0100
+Message-ID: <1415727460-20417-7-git-send-email-johan@kernel.org>
 References: <1415727460-20417-1-git-send-email-johan@kernel.org>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
@@ -12,46 +12,73 @@ In-Reply-To: <1415727460-20417-1-git-send-email-johan@kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Disable PHY address 0 as the broadcast address, so that it can be used
-as a unique (non-broadcast) address on a shared bus.
-
-Note that this can also be configured using the B-CAST_OFF pin on
-KSZ9091, but that KSZ8081 lacks this pin and is also limited to
-addresses 0 and 3.
-
-Specifically, this allows for dual KSZ8081 setups.
+Use BIT macro for bitmask definitions.
 
 Signed-off-by: Johan Hovold <johan@kernel.org>
 ---
- drivers/net/phy/micrel.c | 9 ++++++++-
- 1 file changed, 8 insertions(+), 1 deletion(-)
+ drivers/net/phy/micrel.c | 34 +++++++++++++++++-----------------
+ 1 file changed, 17 insertions(+), 17 deletions(-)
 
 diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
-index 21abe5ade3df..16135ac18bfe 100644
+index 62ca9613a514..d962a2866bba 100644
 --- a/drivers/net/phy/micrel.c
 +++ b/drivers/net/phy/micrel.c
-@@ -243,6 +243,13 @@ static int ks8051_config_init(struct phy_device *phydev)
- 	return rc < 0 ? rc : 0;
+@@ -30,30 +30,30 @@
+ 
+ /* Operation Mode Strap Override */
+ #define MII_KSZPHY_OMSO				0x16
+-#define KSZPHY_OMSO_B_CAST_OFF			(1 << 9)
+-#define KSZPHY_OMSO_RMII_OVERRIDE		(1 << 1)
+-#define KSZPHY_OMSO_MII_OVERRIDE		(1 << 0)
++#define KSZPHY_OMSO_B_CAST_OFF			BIT(9)
++#define KSZPHY_OMSO_RMII_OVERRIDE		BIT(1)
++#define KSZPHY_OMSO_MII_OVERRIDE		BIT(0)
+ 
+ /* general Interrupt control/status reg in vendor specific block. */
+ #define MII_KSZPHY_INTCS			0x1B
+-#define	KSZPHY_INTCS_JABBER			(1 << 15)
+-#define	KSZPHY_INTCS_RECEIVE_ERR		(1 << 14)
+-#define	KSZPHY_INTCS_PAGE_RECEIVE		(1 << 13)
+-#define	KSZPHY_INTCS_PARELLEL			(1 << 12)
+-#define	KSZPHY_INTCS_LINK_PARTNER_ACK		(1 << 11)
+-#define	KSZPHY_INTCS_LINK_DOWN			(1 << 10)
+-#define	KSZPHY_INTCS_REMOTE_FAULT		(1 << 9)
+-#define	KSZPHY_INTCS_LINK_UP			(1 << 8)
++#define	KSZPHY_INTCS_JABBER			BIT(15)
++#define	KSZPHY_INTCS_RECEIVE_ERR		BIT(14)
++#define	KSZPHY_INTCS_PAGE_RECEIVE		BIT(13)
++#define	KSZPHY_INTCS_PARELLEL			BIT(12)
++#define	KSZPHY_INTCS_LINK_PARTNER_ACK		BIT(11)
++#define	KSZPHY_INTCS_LINK_DOWN			BIT(10)
++#define	KSZPHY_INTCS_REMOTE_FAULT		BIT(9)
++#define	KSZPHY_INTCS_LINK_UP			BIT(8)
+ #define	KSZPHY_INTCS_ALL			(KSZPHY_INTCS_LINK_UP |\
+ 						KSZPHY_INTCS_LINK_DOWN)
+ 
+ /* general PHY control reg in vendor specific block. */
+ #define	MII_KSZPHY_CTRL			0x1F
+ /* bitmap of PHY register to set interrupt mode */
+-#define KSZPHY_CTRL_INT_ACTIVE_HIGH		(1 << 9)
+-#define KSZ9021_CTRL_INT_ACTIVE_HIGH		(1 << 14)
+-#define KS8737_CTRL_INT_ACTIVE_HIGH		(1 << 14)
+-#define KSZ8051_RMII_50MHZ_CLK			(1 << 7)
++#define KSZPHY_CTRL_INT_ACTIVE_HIGH		BIT(9)
++#define KSZ9021_CTRL_INT_ACTIVE_HIGH		BIT(14)
++#define KS8737_CTRL_INT_ACTIVE_HIGH		BIT(14)
++#define KSZ8051_RMII_50MHZ_CLK			BIT(7)
+ 
+ /* Write/read to/from extended registers */
+ #define MII_KSZPHY_EXTREG                       0x0b
+@@ -400,8 +400,8 @@ static int ksz9031_config_init(struct phy_device *phydev)
  }
  
-+static int ksz8081_config_init(struct phy_device *phydev)
-+{
-+	kszphy_broadcast_disable(phydev);
-+
-+	return 0;
-+}
-+
- static int ksz9021_load_values_from_of(struct phy_device *phydev,
- 				       struct device_node *of_node, u16 reg,
- 				       char *field1, char *field2,
-@@ -605,7 +612,7 @@ static struct phy_driver ksphy_driver[] = {
- 	.phy_id_mask	= 0x00fffff0,
- 	.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause),
- 	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
--	.config_init	= kszphy_config_init,
-+	.config_init	= ksz8081_config_init,
- 	.config_aneg	= genphy_config_aneg,
- 	.read_status	= genphy_read_status,
- 	.ack_interrupt	= kszphy_ack_interrupt,
+ #define KSZ8873MLL_GLOBAL_CONTROL_4	0x06
+-#define KSZ8873MLL_GLOBAL_CONTROL_4_DUPLEX	(1 << 6)
+-#define KSZ8873MLL_GLOBAL_CONTROL_4_SPEED	(1 << 4)
++#define KSZ8873MLL_GLOBAL_CONTROL_4_DUPLEX	BIT(6)
++#define KSZ8873MLL_GLOBAL_CONTROL_4_SPEED	BIT(4)
+ static int ksz8873mll_read_status(struct phy_device *phydev)
+ {
+ 	int regval;
 -- 
 2.0.4
