@@ -1,40 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] VNIC: Adding support for Cavium ThunderX network
- controller
-Date: Tue, 11 Nov 2014 13:39:21 -0500 (EST)
-Message-ID: <20141111.133921.243613958949858000.davem@davemloft.net>
-References: <1415596445-10061-1-git-send-email-rric@kernel.org>
+Subject: Re: [PATCH v2 net-next] PPC: bpf_jit_comp: add SKF_AD_HATYPE
+ instruction
+Date: Tue, 11 Nov 2014 13:40:02 -0500 (EST)
+Message-ID: <20141111.134002.8147781185003778.davem@davemloft.net>
+References: <1415599183-3883-1-git-send-email-kda@linux-powerpc.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org, sassmann@redhat.com,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	netdev@vger.kernel.org, sgoutham@cavium.com, rrichter@cavium.com
-To: rric@kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1415596445-10061-1-git-send-email-rric@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	alexei.starovoitov@gmail.com, dborkman@redhat.com,
+	felix@linux.vnet.ibm.com
+To: kda@linux-powerpc.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60127 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751421AbaKKSkF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2014 13:40:05 -0500
+In-Reply-To: <1415599183-3883-1-git-send-email-kda@linux-powerpc.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Robert Richter <rric@kernel.org>
-Date: Sun,  9 Nov 2014 21:14:05 -0800
+From: Denis Kirjanov <kda@linux-powerpc.org>
+Date: Mon, 10 Nov 2014 08:59:43 +0300
 
-> +config NET_VENDOR_CAVIUM
- ...
-> +config THUNDER_NIC_PF
-...
-> +config THUNDER_NIC_VF
- ...
-> +config	THUNDER_NIC_BGX
+> Add BPF extension SKF_AD_HATYPE to ppc JIT to check
+> the hw type of the interface
+> 
+> Before:
+> [   57.723666] test_bpf: #20 LD_HATYPE
+> [   57.723675] BPF filter opcode 0020 (@0) unsupported
+> [   57.724168] 48 48 PASS
+> 
+> After:
+> [  103.053184] test_bpf: #20 LD_HATYPE 7 6 PASS
+> 
+> CC: Alexei Starovoitov<alexei.starovoitov@gmail.com>
+> CC: Daniel Borkmann<dborkman@redhat.com>
+> CC: Philippe Bergheaud<felix@linux.vnet.ibm.com>
+> Signed-off-by: Denis Kirjanov <kda@linux-powerpc.org>
+> 
+> v2: address Alexei's comments
 
-These config options seem excessive, if not confusing.  What would a
-distribution be expected to enable?  Everything?
-
-> +# Don't change the order, NICPF driver is dependent on BGX driver init
-> +obj-$(CONFIG_THUNDER_NIC_BGX) += thunder_bgx.o
-> +obj-$(CONFIG_THUNDER_NIC_PF) += nicpf.o
-> +obj-$(CONFIG_THUNDER_NIC_VF) += nicvf.o
-
-Nothing ensures ordering if these things are built all modular.
-
-Such ordering dependencies need to be resolved in another way.
+Applied, thanks.
