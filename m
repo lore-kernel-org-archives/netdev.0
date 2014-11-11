@@ -1,64 +1,79 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 00/22] net: phy: refactoring and Micrel features
-Date: Tue, 11 Nov 2014 10:01:56 -0800
-Message-ID: <54624F14.6040401@gmail.com>
-References: <1415727460-20417-1-git-send-email-johan@kernel.org> <20141111.124936.272547351489598665.davem@davemloft.net> <20141111180024.GG29789@localhost>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: question about ethtool bits?
+Date: Tue, 11 Nov 2014 18:12:49 +0000
+Message-ID: <1415729569.3398.104.camel@decadent.org.uk>
+References: <20141110124718.00004efc@unknown>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	bth@kamstrup.dk
-To: Johan Hovold <johan@kernel.org>, David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141111180024.GG29789@localhost>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-Y4g2GusJkXbS1M6ap1vj"
+Cc: netdev@vger.kernel.org
+To: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:34752 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751451AbaKKSNI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2014 13:13:08 -0500
+In-Reply-To: <20141110124718.00004efc@unknown>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/11/2014 10:00 AM, Johan Hovold wrote:
-> On Tue, Nov 11, 2014 at 12:49:36PM -0500, David Miller wrote:
->> 22 patches is just too much, sorry.
->>
->> Please reduce this down to something closer to ~10 or so patches.
->>
->> If necessary you can do two series, submit the first 10 and then
->> when that's reviewed and accepted submit the second set.
-> 
-> No problem. The three driver-registration patches are really
-> self-contained and could be reviewed and applied separately, and then I
-> split the remaining ones where I add the device-type abstraction, that
-> is:
 
-Sounds like a reasonable plan to me. Thanks!
+--=-Y4g2GusJkXbS1M6ap1vj
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-> 
-> Series 1:
->   net: phy: add module_phy_driver macro
->   net: phy: replace phy_driver_register calls
->   net: phy: replace phy_drivers_register calls
-> 
-> Series 2:
->   dt/bindings: fix documentation of ethernet-phy compatible property
->   net: phy: micrel: fix config_intr error handling
->   net: phy: micrel: use BIT macro
->   net: phy: micrel: refactor broadcast disable
->   net: phy: micrel: disable broadcast for KSZ8081/KSZ8091
->   net: phy: micrel: add led-mode sanity check
->   net: phy: micrel: refactor led-mode error handling
->   net: phy: micrel: clean up led-mode setup
->   net: phy: micrel: enable led-mode for KSZ8081/KSZ8091
-> 
-> Series 3 (submitted after review of Series 2):
->   net: phy: add static data field to struct phy_driver
->   net: phy: micrel: add device-type abstraction
->   net: phy: micrel: parse of nodes at probe
->   net: phy: micrel: add has-broadcast-disable flag to type data
->   net: phy: micrel: add generic rmii-ref-clk-sel support
->   net: phy: micrel: add support for rmii_ref_clk_sel to KSZ8081/KSZ8091
->   dt/bindings: add micrel,rmii_ref_clk_sel_25_mhz to eth-phy binding
->   net: phy: micrel: refactor interrupt config
->   net: phy: micrel: add copyright entry
->   net: phy: micrel: use generic config_init for KSZ8021/KSZ8031
-> 
-> Thanks,
-> Johan
-> 
+On Mon, 2014-11-10 at 12:47 -0800, Jesse Brandeburg wrote:
+> Ben et al,
+>=20
+> So, I was just looking at adding some more types/speeds to
+> ethtool.h and noticed we are about out of bits in ecmd->advertising
+> (and others), which are declared u32.
+>=20
+> We currently have room for one more type (bit 31) and then all 32 bits
+> will be full.
+
+Right, I've been seeing this coming for a while.
+
+[...]
+> There are two u32's reserved at the end of ethtool_cmd.
+>=20
+> Suggestions?
+
+Any extension needs to be applied to all of advertising, supported and
+lp_advertising.  So we could take 6 of the 8 reserved bytes and extend
+them all by 16 bits.
+
+Whoever does this should add getter/setter functions, as has been done
+with the extension of speed.
+
+Ben.
+
+--=20
+Ben Hutchings
+Experience is directly proportional to the value of equipment destroyed.
+                                                         - Carolyn Scheppne=
+r
+
+--=-Y4g2GusJkXbS1M6ap1vj
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIVAwUAVGJRq+e/yOyVhhEJAQq0+Q//Y44CeygTxckDhigRdGtSjgrq0bqHMS6X
+K3/x4rw58Dn27VgpWxyBE2bqb/uIqM+2756xkP7AVpF3xCesAYCP2lunT9ccQSdr
+R6Br4Q+r4/jQF8cdoUeSpitGww3bh0UImz4QflY8yVn0oh4RM/WhXOiFgs1TN/2F
+I7Gx/pvxoi9PsVpJGv3o9gyssXamEabfTSlgYCnM0W/Q6/obyiDXp7+uD09aYL9z
+ti/O+XOF7vOmiKbQjnlgzL3kyryifuxn/ivjq7cb1crjMz0EvauULvXMTUm6WJg7
+wklrt87aR+PZDk0sbL2HTTxoNsSR/mJi/BCxtk2LSEPUW53CyWcwb2LW+StJ7eOz
+SGH49iXbXtJiug0c4ZjzJvmH4+vedWbKxWctRzhLqSGpZcaP3qKmJR5i1Dfvv7CW
+ho983uA9Q7S/fINLlub3VtQjgMu3db2PiftVdGk5yksx0tytbzTbDxL2rQSnFLhj
+uGSz67WdAC4NRYif9luFRSPvR8anJLRBqi8bvIB4FdyKXzOkDNl542dIMD9EgJvC
+H3jj0f7LD4Y4wJRtEKsDpTq9jHcJZfj3KMafest3jJIVbSeyBSNfJjxHyWqCPxmi
+dsyVvEg41lDUos6nRqwzEldeT240N3PFhCPaWqR/J++YieEE7HMEkRDAHU8xVkAg
+VyDYDhXEAvo=
+=vS+z
+-----END PGP SIGNATURE-----
+
+--=-Y4g2GusJkXbS1M6ap1vj--
