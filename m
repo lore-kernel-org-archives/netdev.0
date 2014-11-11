@@ -1,66 +1,77 @@
-From: Shuah Khan <shuahkh@osg.samsung.com>
-Subject: [PATCH v2 01/19] selftests/user: move test out of Makefile into a shell script
-Date: Tue, 11 Nov 2014 13:27:41 -0700
-Message-ID: <a9c5e0a9b1dee8e673648c962750514d86550241.1415735831.git.shuahkh@osg.samsung.com>
-References: <cover.1415735831.git.shuahkh@osg.samsung.com>
-Cc: Shuah Khan <shuahkh@osg.samsung.com>, linux-kbuild@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-api@vger.kernel.org,
-	netdev@vger.kernel.org
-To: gregkh@linuxfoundation.org, akpm@linux-foundation.org,
-	mmarek@suse.cz, davem@davemloft.net, keescook@chromium.org,
-	tranmanphong@gmail.com, dh.herrmann@gmail.com, hughd@google.com,
-	bobby.prani@gmail.com, ebiederm@xmission.com,
-	serge.hallyn@ubuntu.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1415735831.git.shuahkh@osg.samsung.com>
-In-Reply-To: <cover.1415735831.git.shuahkh@osg.samsung.com>
-References: <cover.1415735831.git.shuahkh@osg.samsung.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Alex Williamson <alex.williamson@redhat.com>
+Subject: Re: [PATCH 0/4] move pci_assivned_vfs() check (while disabling VFs)
+ to pci sub-system
+Date: Tue, 11 Nov 2014 13:39:32 -0700
+Message-ID: <1415738372.16601.335.camel@ul30vt.home>
+References: <1415620410-4937-1-git-send-email-sathya.perla@emulex.com>
+	 <54625EE8.1050509@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Sathya Perla <sathya.perla@Emulex.Com>, linux-pci@vger.kernel.org,
+	netdev@vger.kernel.org, ariel.elior@qlogic.com,
+	linux.nics@intel.com, shahed.shaikh@qlogic.com
+To: Don Dutile <ddutile@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:58222 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751751AbaKKUjl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Nov 2014 15:39:41 -0500
+In-Reply-To: <54625EE8.1050509@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Currently user copy test is run from the Makefile. Move it out
-of the Makefile to be run from a shell script to allow the test
-to be run as stand-alone test, in addition to allowing the test
-run from a make target.
+On Tue, 2014-11-11 at 14:09 -0500, Don Dutile wrote:
+> On 11/10/2014 06:53 AM, Sathya Perla wrote:
+> > A user must not be allowed to disable VFs while they are already assigned to
+> > a guest. This check is being made in each individual driver that implements
+> > the sriov_configure PCI method.
+> > This patch-set fixes this code duplication by moving this check from
+> > drivers to the sriov_nuvfs_store() routine just before invoking
+> > sriov_configure() when num_vfs is equal to 0.
+> >
+> > Vasundhara Volam (4):
+> >    pci: move pci_assivned_vfs() check while disabling VFs to pci
+> >      sub-system
+> >    bnx2x: remove pci_assigned_vfs() check while disabling VFs
+> >    i40e: remove pci_assigned_vfs() check while disabling VFs
+> >    qlcnic: remove pci_assigned_vfs() check while disabling VFs
+> >
+> >   drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c  |    2 +-
+> >   drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |    7 +------
+> >   .../net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c   |   10 ----------
+> >   drivers/pci/pci-sysfs.c                            |    5 +++++
+> >   4 files changed, 7 insertions(+), 17 deletions(-)
+> >
+> I have had a side conversation with Alex Williamson, VFIO author.
+> 
+> VFIO is the upstream method that device-assignment is managed/handled on kvm now.
+> It does not set the PCI_DEV_FLAGS_ASSIGNED pci dev-flags, and thus,
+> this check will not work when VFIO is used.
+> 
+> This patch set will only work for the former, kvm-managed, device-assignment method,
+> which is currently being deprecated in qemu as well.
+> 
+> So, yes, it works for kvm managed device-assignment, but not the
+> newer, VFIO-based device-assignment.
+> 
+> Note, also, that the pci_assigned_vfs() check in the drivers will
+> always return 0 when VFIO is used for device assignment, so keeping
+> these checks in the drivers doesn't do what they imply either.
+> 
+> So, taking in the patch solves old, kvm-managed, device assignment,
+> but a new method is needed when VFIO is involved.
+> 
+> - Don
+> 
+> ps -- Note: just adding the flag setting in vfio-pci does not necessarily
+>        solve this problem.  VFIO does not know if a device is assigned to a guest;
+>        it only knows a caller of the ioctl requesting the device to be assigned
+>        to vfio, and to be dma-mapped for a region of memory, has been requested.
+>        So, a new PF<->VF mechanism needs to be put in place to
+>        determine the equivalent information.
 
-Signed-off-by: Shuah Khan <shuahkh@osg.samsung.com>
----
- tools/testing/selftests/user/Makefile          |  8 +-------
- tools/testing/selftests/user/test_user_copy.sh | 10 ++++++++++
- 2 files changed, 11 insertions(+), 7 deletions(-)
- create mode 100755 tools/testing/selftests/user/test_user_copy.sh
-
-diff --git a/tools/testing/selftests/user/Makefile b/tools/testing/selftests/user/Makefile
-index 396255b..12c9d15 100644
---- a/tools/testing/selftests/user/Makefile
-+++ b/tools/testing/selftests/user/Makefile
-@@ -4,10 +4,4 @@
- all:
- 
- run_tests: all
--	@if /sbin/modprobe test_user_copy ; then \
--		rmmod test_user_copy; \
--		echo "user_copy: ok"; \
--	else \
--		echo "user_copy: [FAIL]"; \
--		exit 1; \
--	fi
-+	./test_user_copy.sh
-diff --git a/tools/testing/selftests/user/test_user_copy.sh b/tools/testing/selftests/user/test_user_copy.sh
-new file mode 100755
-index 0000000..350107f
---- /dev/null
-+++ b/tools/testing/selftests/user/test_user_copy.sh
-@@ -0,0 +1,10 @@
-+#!/bin/sh
-+# Runs copy_to/from_user infrastructure using test_user_copy kernel module
-+
-+if /sbin/modprobe -q test_user_copy; then
-+	/sbin/modprobe -q -r test_user_copy
-+	echo "user_copy: ok"
-+else
-+	echo "user_copy: [FAIL]"
-+	exit 1
-+fi
--- 
-1.9.1
+pps -- Note: testing pci_assivned_vfs() is racy, nothing prevents the flag
+	being added to a device between your check and removing the VF device.
+	This is one of the reasons that vfio-pci doesn't use it and that this
+	interface should be discouraged in the kernel.
