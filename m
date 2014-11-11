@@ -1,77 +1,96 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net] net: sctp: fix memory leak in auth key management
-Date: Tue, 11 Nov 2014 07:06:00 -0500
-Message-ID: <20141111120600.GB31973@hmsreliant.think-freely.org>
-References: <1415638809-20288-1-git-send-email-dborkman@redhat.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: 802.3x pause frames
+Date: Tue, 11 Nov 2014 12:29:39 +0000
+Message-ID: <1415708979.3398.92.camel@decadent.org.uk>
+References: <545B70C9.7090702@fkie.fraunhofer.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, linux-sctp@vger.kernel.org,
-	netdev@vger.kernel.org, Vlad Yasevich <vyasevich@gmail.com>
-To: Daniel Borkmann <dborkman@redhat.com>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-+TPJzN4a+eTNAiiDQrU4"
+Cc: netdev@vger.kernel.org
+To: Julia Niewiejska <julia.niewiejska@fkie.fraunhofer.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:39527 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751622AbaKKMGV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2014 07:06:21 -0500
-Content-Disposition: inline
-In-Reply-To: <1415638809-20288-1-git-send-email-dborkman@redhat.com>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:33237 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752943AbaKKM3w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2014 07:29:52 -0500
+In-Reply-To: <545B70C9.7090702@fkie.fraunhofer.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 10, 2014 at 06:00:09PM +0100, Daniel Borkmann wrote:
-> A very minimal and simple user space application allocating an SCTP
-> socket, setting SCTP_AUTH_KEY setsockopt(2) on it and then closing
-> the socket again will leak the memory containing the authentication
-> key from user space:
-> 
-> unreferenced object 0xffff8800837047c0 (size 16):
->   comm "a.out", pid 2789, jiffies 4296954322 (age 192.258s)
->   hex dump (first 16 bytes):
->     01 00 00 00 04 00 00 00 00 00 00 00 00 00 00 00  ................
->   backtrace:
->     [<ffffffff816d7e8e>] kmemleak_alloc+0x4e/0xb0
->     [<ffffffff811c88d8>] __kmalloc+0xe8/0x270
->     [<ffffffffa0870c23>] sctp_auth_create_key+0x23/0x50 [sctp]
->     [<ffffffffa08718b1>] sctp_auth_set_key+0xa1/0x140 [sctp]
->     [<ffffffffa086b383>] sctp_setsockopt+0xd03/0x1180 [sctp]
->     [<ffffffff815bfd94>] sock_common_setsockopt+0x14/0x20
->     [<ffffffff815beb61>] SyS_setsockopt+0x71/0xd0
->     [<ffffffff816e58a9>] system_call_fastpath+0x12/0x17
->     [<ffffffffffffffff>] 0xffffffffffffffff
-> 
-> This is bad because of two things, we can bring down a machine from
-> user space when auth_enable=1, but also we would leave security sensitive
-> keying material in memory without clearing it after use. The issue is
-> that sctp_auth_create_key() already sets the refcount to 1, but after
-> allocation sctp_auth_set_key() does an additional refcount on it, and
-> thus leaving it around when we free the socket.
-> 
-> Fixes: 65b07e5d0d0 ("[SCTP]: API updates to suport SCTP-AUTH extensions.")
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-> Cc: Vlad Yasevich <vyasevich@gmail.com>
-> ---
->  net/sctp/auth.c | 2 --
->  1 file changed, 2 deletions(-)
-> 
-> diff --git a/net/sctp/auth.c b/net/sctp/auth.c
-> index 0e85291..fb7976a 100644
-> --- a/net/sctp/auth.c
-> +++ b/net/sctp/auth.c
-> @@ -862,8 +862,6 @@ int sctp_auth_set_key(struct sctp_endpoint *ep,
->  		list_add(&cur_key->key_list, sh_keys);
->  
->  	cur_key->key = key;
-> -	sctp_auth_key_hold(key);
-> -
->  	return 0;
->  nomem:
->  	if (!replace)
-> -- 
-> 1.7.11.7
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+
+--=-+TPJzN4a+eTNAiiDQrU4
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Thu, 2014-11-06 at 13:59 +0100, Julia Niewiejska wrote:
+> Hello,
+>=20
+> I indend to do some experiments with 802.3x pause frames, but I have yet=
+=20
+> to find a setup that works. I used a tool that generates pause frames=20
+> [1] in two setups. First one consists of two virtual machines on a=20
+> VMWare ESXi 5.5 server connected with each other through a virtual=20
+> switch. In second setup two physical machines (Desktop PCs) were=20
+> connected directly by an ethernet cable. The VMs are running Debian=20
+> Wheezy 32bit while Debian Testing (Jessie) 64bit is installed on both=20
+> desktop PCs. Below you will find some information on the ethernet=20
+> adapters and drivers used in the VM [2], the desktop PC with the more up=
+=20
+> to date hardware [3] and the older machine [4]. I used the following=20
+> command to activate flow control:
+>=20
+> ethtool -A <eth> autoneg off rx on tx on
+>=20
+> First of all I noticed some discrepancies between the output of=20
+> mii-tools or ethtool -a and the attempt to change the flow control=20
+> settings with the command above. Only the Realtek adapter actually=20
+> output that it didn't support the operation, the other adapters accepted=
+=20
+> the settings without any error message.
+>=20
+> In both setups pause frames were generated on one machine while a ping=
+=20
+> was sent simultaneously, as suggested in [1]. While the VM connection=20
+> was set to 1 Gbps the whole time, I also tested a 10 Mbps setting on the=
+=20
+> physical connection. Even though the pause frames were always visible in=
+=20
+> tcpdump at the receiver, I didn't notice any influence whatsoever in the=
+=20
+> ping results.
+[...]
+
+MACs that implement flow control will not pass pause frames to the host;
+therefore these MACs do not implement flow control.
+
+Ben.
+
+--=20
+Ben Hutchings
+Experience is directly proportional to the value of equipment destroyed.
+                                                         - Carolyn Scheppne=
+r
+
+--=-+TPJzN4a+eTNAiiDQrU4
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIVAwUAVGIBOee/yOyVhhEJAQoNxg/9EcWZSLPhV4fq7KVhEGrSR63+eqhu2Wbi
+n2G3nodejtxBt7RNgy2fXApBw9LAO69NFiVoezJx8vMkx1BWHNBf4ZrB8azZm+vu
+qd+mWFBOeHiA3mdLcWSrQrO5h//2D4RB+zNAoHeZiRzE1iqlIQ7ZhaUIaRzeMvV6
+XVEdIl3zocrOaSFXmTMlMcs95HJX5gZcsEKtoSISnGsXBdWsIYP4uhiivVTZUC5a
+ciyJK8RjObkh2+rwsuM8KJL8C5sWoZ6OR5h2yqbRPIkwib7YArIyE+8sCWY5SFX+
+2YRgm/+2dfEz44h+xmxLU1EKfHZxpAnEC7hh0sjc8jfAfTHCn/vk1TBgP32ZNkSc
+aD0oCsNW0cmXxWHkzrqsuiNE/TNie3lSzfQYiE/i8zLGWfC96xRyNZUujJf48bOv
+X9QJrsajCtK2tOg/V6zmjfMYhez2+Lx4Q0pWz9C5To/1aJPw0qJgJ1P88GNZ0IMY
+JGb9RNpJldI7vRB1+199S316AhM2kLqxE2WRgf9N8k8TezlymVneXMG9bZJBMHDn
+4a0FvHMQQbzQQOJE8TCJ6tqShMEzNHX8GY+d19RC7ty/smqp9D4ibyO3wVFBuwOV
+SaIu9dUEu7WBbdySHTdlg1ooqMAEvhPgQJnlmN9fsiphWb0WLIJOLdf2NQK5iEOj
+J/P9gCi35sM=
+=3A8a
+-----END PGP SIGNATURE-----
+
+--=-+TPJzN4a+eTNAiiDQrU4--
