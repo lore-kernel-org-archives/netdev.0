@@ -1,66 +1,115 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next v2 02/10] net: introduce generic switch devices
- support
-Date: Tue, 11 Nov 2014 11:04:09 +0100
-Message-ID: <20141111100409.GB8106@nanopsycho.orion>
-References: <1415530280-9190-1-git-send-email-jiri@resnulli.us>
- <1415530280-9190-3-git-send-email-jiri@resnulli.us>
- <5461DBB0.5090107@fami-braun.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
-	andy@greyhouse.net, tgraf@suug.ch, dborkman@redhat.com,
-	ogerlitz@mellanox.com, jesse@nicira.com, pshelar@nicira.com,
-	azhou@nicira.com, ben@decadent.org.uk, stephen@networkplumber.org,
-	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
-	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
-	edumazet@google.com, jhs@mojatatu.com, sfeldma@gmail.com,
-	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
-	linville@tuxdriver.com, jasowang@redhat.com, ebiederm@xmission.com,
-	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
-	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
-	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
-	ronye@mellanox.com, simon.horman@netronome.com,
-	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
-	mleitner@redhat.com, shrijeet@gmail.com, gospo@cumulusnetworks.com,
-	bcrl@kvac
-To: "M. Braun" <michael-dev@fami-braun.de>
+From: Ulf samuelsson <netdev@emagii.com>
+Subject: Re: How to make stack send broadcast ARP request when entry is STALE?
+Date: Tue, 11 Nov 2014 11:08:19 +0100
+Message-ID: <C8A75CC5-18FA-4D2D-9259-74254D808107@emagii.com>
+References: <C4AF677B-55AC-4CE0-9BFB-EBB2E0C3BF74@emagii.com> <545C96D6.5020204@hp.com> <3A67CF46-0BC1-4BAA-818A-0B656C6B46B6@emagii.com> <54614198.7010306@hp.com>
+Mime-Version: 1.0 (1.0)
+Content-Type: text/plain;
+	charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: Netdev <netdev@vger.kernel.org>
+To: Brian Haley <brian.haley@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f48.google.com ([74.125.82.48]:34595 "EHLO
-	mail-wg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752592AbaKKKEL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2014 05:04:11 -0500
-Received: by mail-wg0-f48.google.com with SMTP id y19so308409wgg.7
-        for <netdev@vger.kernel.org>; Tue, 11 Nov 2014 02:04:10 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <5461DBB0.5090107@fami-braun.de>
+Received: from smtp-out12.han.skanova.net ([195.67.226.212]:37258 "EHLO
+	smtp-out12.han.skanova.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751848AbaKKKIZ convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Nov 2014 05:08:25 -0500
+In-Reply-To: <54614198.7010306@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Nov 11, 2014 at 10:49:36AM CET, michael-dev@fami-braun.de wrote:
->
->
->Am 09.11.2014 um 11:51 schrieb Jiri Pirko:
->> diff --git a/Documentation/networking/switchdev.txt b/Documentation/networking/switchdev.txt
->> +	ndo_sw_parent_get_id - ...
->
->here the ndo is called get_id
->
->but
->
->> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
->> + *
->> + * int (*ndo_sw_parent_id_get)(struct net_device *dev,
->> + *			       struct netdev_phys_item_id *psid);
->> @@ -1168,6 +1174,10 @@ struct net_device_ops {
->> +	int			(*ndo_sw_parent_id_get)(struct net_device *dev,
->> +							struct netdev_phys_item_id *psid);
->
->here it is call id_get, which is similar but not the same.
+If I set ucast_solicit to '0', then I always send broadcast, which is not desirable.
+
+In the PROBE state of the ARP state machine, "probes" count from 0 .. ucast_probes.
+
+I can see the following arguments for letting "probes" count from 
+  
+   0.. (ucast_probes + app_probes + mcast_probes)
+   
+
+A: This is how the IPv6 is doing it. 
+     It is not standardized in IPv4, but why should the IPv4 have a different behaviour?
+
+B: If you do not send out broadcast if unicast fails, then a broadcast will be sent out 
+     anyway, once the ARP entry is removed by the garbage collector.
+     You get an annoyingly long delay before that happens.
+
+C: If a large data centre does not want broadcasts to be sent out, 
+     then they can set mcast_probes to 0, in which case no broadcasts will be sent
+     out in PROBE state.
+
+D:  When in other states, the counter runs until it a reply is had, or the counter wraps around.
+      It is sending broadcast all the time.
 
 
-Will fix the docs, thanks.
+Best Regards
+Ulf Samuelsson
+ulf@emagii.com
++46  (722) 427 437
 
->
->Regards,
-> M. Braun
+
+> 10 nov 2014 kl. 23:52 skrev Brian Haley <brian.haley@hp.com>:
+> 
+>> On 11/07/2014 05:11 AM, Ulf samuelsson wrote:
+>> The HP router is configured by a customer, and they intentionally limit replies
+>> to broadcast, and that is how they want it.
+> 
+> So this is the crux of the problem - the customer has configured the router so
+> that it doesn't play well with most modern network stacks that try and use
+> unicast so they don't send unnecessary broadcast packets.  I don't know why I
+> thought this was something wrong with the router software.
+> 
+> Did you try this?
+> 
+> $ sudo sysctl net.ipv4.neigh.eth0.ucast_solicit=0
+> 
+> It works for me.
+> 
+> And they really should re-think their decision on that configuration setting.
+> 
+> -Brian
+> 
+> 
+>> In the previous version of the build system, the Interpeak stack was used
+>> and this would in PROBE state send unicast ARP request, and if that failed
+>> send broadcast ARP.
+>> 
+>> The native linux stack, when in PROBE state sends only unicast until it decides
+>> that it should enter FAILED state.
+>> 
+>> The 'mcast_probes' variable seems to be totally ignored, except the first  time,
+>> so I do not see why it is there.
+>> 
+>> Best Regards
+>> Ulf Samuelsson
+>> ulf@emagii.com
+>> +46  (722) 427 437
+>> 
+>> 
+>>>> 7 nov 2014 kl. 10:54 skrev Brian Haley <brian.haley@hp.com>:
+>>>> 
+>>>> On 11/05/2014 07:48 AM, Ulf samuelsson wrote:
+>>>> Have a problem with an HP router at a certain location, which
+>>>> is configured to only answer to broadcast ARP requests.
+>>>> That cannot be changed.
+>>> 
+>>> Sorry to hear about the problem, but my only suggestions would be to try the latest firmware and/or put a call in to support.  I don't happen work in the division that makes routers...
+>>> 
+>>>> The first ARP request the kernel sends out, is a broadcast request,
+>>>> which is fine, but after the reply, the kernel sends unicast requests,
+>>>> which will not get any replies.
+>>> 
+>>> You might be able to hack this by inserting an ebtables rule - check the dnat target section of the man page - don't know the exact syntax but it would probably end in '-j dnat --to-destination ff:ff:ff:ff:ff:ff'
+>>> 
+>>> -Brian
+>>> --
+>>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>>> the body of a message to majordomo@vger.kernel.org
+>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>> 
+> 
