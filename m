@@ -1,39 +1,44 @@
 From: Johan Hovold <johan@kernel.org>
-Subject: [PATCH 21/22] net: phy: micrel: add copyright entry
-Date: Tue, 11 Nov 2014 18:37:39 +0100
-Message-ID: <1415727460-20417-22-git-send-email-johan@kernel.org>
+Subject: [PATCH 13/22] net: phy: add static data field to struct phy_driver
+Date: Tue, 11 Nov 2014 18:37:31 +0100
+Message-ID: <1415727460-20417-14-git-send-email-johan@kernel.org>
 References: <1415727460-20417-1-git-send-email-johan@kernel.org>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	Johan Hovold <johan@kernel.org>
 To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f46.google.com ([209.85.215.46]:34030 "EHLO
-	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752207AbaKKRkq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2014 12:40:46 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1415727460-20417-1-git-send-email-johan@kernel.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Add myself to the list of copyright holders.
+Add static data field to struct phy_driver that be used to store
+structured device-type information.
 
 Signed-off-by: Johan Hovold <johan@kernel.org>
 ---
- drivers/net/phy/micrel.c | 1 +
- 1 file changed, 1 insertion(+)
+ include/linux/phy.h | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
-index 743d5b52d8db..3b89548e6063 100644
---- a/drivers/net/phy/micrel.c
-+++ b/drivers/net/phy/micrel.c
-@@ -6,6 +6,7 @@
-  * Author: David J. Choi
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index c50e1f1f46e0..29c260add1f6 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -433,6 +433,7 @@ struct phy_device {
+  *   by this PHY
+  * flags: A bitfield defining certain other features this PHY
+  *   supports (like interrupts)
++ * driver_data: static driver data
   *
-  * Copyright (c) 2010-2013 Micrel, Inc.
-+ * Copyright (c) 2014 Johan Hovold <johan@kernel.org>
-  *
-  * This program is free software; you can redistribute  it and/or modify it
-  * under  the terms of  the GNU General  Public License as published by the
+  * The drivers must implement config_aneg and read_status.  All
+  * other functions are optional. Note that none of these
+@@ -448,6 +449,7 @@ struct phy_driver {
+ 	unsigned int phy_id_mask;
+ 	u32 features;
+ 	u32 flags;
++	const void *driver_data;
+ 
+ 	/*
+ 	 * Called to issue a PHY software reset
 -- 
 2.0.4
