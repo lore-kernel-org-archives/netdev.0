@@ -1,63 +1,62 @@
-From: "Gautam (Gautam Kumar) Shukla" <gautams-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Subject: RE: [PATCH 1/1] linux-wireless: Added psk in struct
- cfg80211_connect_params needed for offloading 4way handshake to driver
-Date: Tue, 11 Nov 2014 10:33:29 +0000
-Message-ID: <DF163EE1A432BF4BBE6B2088220663A6743C05@SJEXCHMB06.corp.ad.broadcom.com>
-References: <DF163EE1A432BF4BBE6B2088220663A67437BD@SJEXCHMB06.corp.ad.broadcom.com>
- <1415698161.2163.0.camel@sipsolutions.net> <5461DCC9.5050702@broadcom.com>
+From: Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH 1/1] linux-wireless: Added psk in struct cfg80211_connect_params
+ needed for offloading 4way handshake to driver
+Date: Tue, 11 Nov 2014 11:35:42 +0100
+Message-ID: <5461E67E.7010408@broadcom.com>
+References: <DF163EE1A432BF4BBE6B2088220663A67437BD@SJEXCHMB06.corp.ad.broadcom.com>	 <1415698161.2163.0.camel@sipsolutions.net> <5461DCC9.5050702@broadcom.com> <1415700220.2163.3.camel@sipsolutions.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+Content-Transfer-Encoding: 7bit
+Cc: "Gautam (Gautam Kumar) Shukla" <gautams-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	"linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
 	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
 	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
 	"linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
 	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
 	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
 	Jithu Jance <jithu-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Sreenath S <sreenats-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-To: Arend Van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <5461DCC9.5050702-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Content-Language: en-US
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+	Sreenath S <sreenats-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	Vladimir Kondratiev <vkondrat-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1415700220.2163.3.camel-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-VGhhbmtzIGEgbG90ICBKb2hhbm5lcyBhbmQgQXJlbmQgLCBmb3IgeW91ciBjb21tZW50cyBhbmQg
-cmV2aWV3IC4NCkl0IHdpbGwgcmVhbGx5IGhlbHAgbWUgaW4gbXkgbmV4dCBwYXRjaCBzdWJtaXNz
-aW9uIC4NCg0KSnVzdCB3YW50ZWQgdG8ga25vdyB3aGVuIFFDQSBwYXRjaCB3aWxsIGdldCBpbiBt
-YWluIGxpbmUgYXMgaXQgd2FzICBsYXN0IHVwZGF0ZWQgb24gIDIzIGF1ZyAyMDEyLg0KDQoNClRo
-YW5rcyBhbmQgcmVnYXJkcw0KDQotLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KRnJvbTogQXJl
-bmQgdmFuIFNwcmllbCBbbWFpbHRvOmFyZW5kQGJyb2FkY29tLmNvbV0gDQpTZW50OiBUdWVzZGF5
-LCBOb3ZlbWJlciAxMSwgMjAxNCAzOjI0IFBNDQpUbzogSm9oYW5uZXMgQmVyZzsgR2F1dGFtIChH
-YXV0YW0gS3VtYXIpIFNodWtsYQ0KQ2M6IGxpbnZpbGxlQHR1eGRyaXZlci5jb207IGxpbnV4LXdp
-cmVsZXNzQHZnZXIua2VybmVsLm9yZzsgZGF2ZW1AZGF2ZW1sb2Z0Lm5ldDsgbGludXgtYXBpQHZn
-ZXIua2VybmVsLm9yZzsgbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZzsgbmV0ZGV2QHZnZXIu
-a2VybmVsLm9yZzsgSml0aHUgSmFuY2U7IFNyZWVuYXRoIFMNClN1YmplY3Q6IFJlOiBbUEFUQ0gg
-MS8xXSBsaW51eC13aXJlbGVzczogQWRkZWQgcHNrIGluIHN0cnVjdCBjZmc4MDIxMV9jb25uZWN0
-X3BhcmFtcyBuZWVkZWQgZm9yIG9mZmxvYWRpbmcgNHdheSBoYW5kc2hha2UgdG8gZHJpdmVyDQoN
-Ck9uIDExLTExLTE0IDEwOjI5LCBKb2hhbm5lcyBCZXJnIHdyb3RlOg0KPiBPbiBUdWUsIDIwMTQt
-MTEtMTEgYXQgMDU6NTYgKzAwMDAsIEdhdXRhbSAoR2F1dGFtIEt1bWFyKSBTaHVrbGEgd3JvdGU6
-DQo+PiBGb3Igb2ZmbG9hZGluZyA0IHdheSBoYW5kc2hha2UgdG8gZHJpdmVyLCBjdXJyZW50bHkg
-d2UgZG9uJ3QgaGF2ZSBhbnkgDQo+PiBtZW1iZXIgIG9mIHN0cnVjdCBjZmc4MDIxMV9jb25uZWN0
-X3BhcmFtcyB0byBwYXNzIFBTSyBmcm9tIHN1cHBsaWNhbnQgDQo+PiB0byBkcml2ZXIuIEkgaGF2
-ZSBhZGRlZCBwc2sgZm9yIHRoZSBzYW1lIGFuZCBhZGRlZCByZXN0IG9mIHRoZSBjb2RlIA0KPj4g
-bmVlZGVkIGluIG5sODAyMTEuaCBhbmQgbmw4MDIxMS5jIHRvIHBhcnNlIGFuZCBtYWtlIGl0IGF2
-YWlsYWJsZSB0byANCj4+IGRyaXZlci4NCj4+IEZyb20gc3VwcGxpY2FudCwgd2UgYWxyZWFkeSBo
-YXZlIHBzayBtZW1iZXIgZmllbGQgaW4gYXNzb2NfcGFyYW1zIHRvIA0KPj4gdXNlIC4NCj4+DQo+
-PiBUZXN0ZWQgb24geDg2IGxpbnV4Lg0KPiANCj4gWW91ciBjb21taXQgbWVzc2FnZSBuZWVkcyBz
-ZXJpb3VzIHdvcmsuDQo+IA0KPiBBbHNvLCB0aGVyZSdzIGEgY29tcGV0aW5nIGFwcHJvYWNoIGZy
-b20gUUNBIHRoYXQncyBmYXIgbW9yZSBzdWl0ZWQuDQoNCkkgcHJvYmFibHkgd2FzIG5vdCBwYXlp
-bmcgYXR0ZW50aW9uIHRvIGl0LCBidXQgd291bGQgeW91IGhhdmUgYSByZWZlcmVuY2UgdG8gdGhp
-cy4NCg0KPiBJbiBlaXRoZXIgY2FzZSB0aG91Z2gsIEknbSBnb2luZyB0byBhc2sgd2hpY2ggZHJp
-dmVyIGlzIGdvaW5nIHRvIHVzZSANCj4gdGhpcyBhbmQgd2hlbiBpdCdzIGdvaW5nIHRvIGxhbmQg
-aW4gbWFpbmxpbmUuDQoNCkkgaGFkIHRoZSBzYW1lIHF1ZXN0aW9uIDstKQ0KDQo+IGpvaGFubmVz
-DQo+IA0KPiAtLQ0KPiBUbyB1bnN1YnNjcmliZSBmcm9tIHRoaXMgbGlzdDogc2VuZCB0aGUgbGlu
-ZSAidW5zdWJzY3JpYmUgDQo+IGxpbnV4LXdpcmVsZXNzIiBpbiB0aGUgYm9keSBvZiBhIG1lc3Nh
-Z2UgdG8gbWFqb3Jkb21vQHZnZXIua2VybmVsLm9yZyANCj4gTW9yZSBtYWpvcmRvbW8gaW5mbyBh
-dCAgaHR0cDovL3ZnZXIua2VybmVsLm9yZy9tYWpvcmRvbW8taW5mby5odG1sDQo+IA0KDQo=
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On 11-11-14 11:03, Johannes Berg wrote:
+> On Tue, 2014-11-11 at 10:54 +0100, Arend van Spriel wrote:
+> 
+>>> Also, there's a competing approach from QCA that's far more suited.
+>>
+>> I probably was not paying attention to it, but would you have a
+>> reference to this.
+> 
+> ... digs around in email ...
+> 
+> http://mid.gmane.org/1343907187-6686-1-git-send-email-qca_vkondrat-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org
+> 
+> Anyway, looking back at that, it wasn't really all that different, just
+> a bit more complete maybe.
+
+Read through the whole thread. It seems some comments from you needed to
+be addressed and Vladimir wanted to evaluate it. So that was the end of
+the thread.
+
+What did pop up is the wiphy flags vs. nl80211 feature flags. When that
+comes up it looks like 'potAtoes, potaetoes' to me.
+
+So is there are clear design rule for when to use which flag. For me the
+wiphy object represents the device/firmware and 4-way handshake offload
+support is determined by what the device/firmware supports.
+
+Regards,
+Arend
+
+> johannes
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
+> 
