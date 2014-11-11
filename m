@@ -1,55 +1,57 @@
-From: Arend van Spriel <arend@broadcom.com>
-Subject: Re: [PATCH 1/1] linux-wireless: Added psk in struct cfg80211_connect_params
- needed for offloading 4way handshake to driver
-Date: Tue, 11 Nov 2014 10:54:17 +0100
-Message-ID: <5461DCC9.5050702@broadcom.com>
-References: <DF163EE1A432BF4BBE6B2088220663A67437BD@SJEXCHMB06.corp.ad.broadcom.com> <1415698161.2163.0.camel@sipsolutions.net>
+From: "M. Braun" <michael-dev@fami-braun.de>
+Subject: Re: [patch net-next v2 02/10] net: introduce generic switch
+ devices support
+Date: Tue, 11 Nov 2014 10:49:36 +0100
+Message-ID: <5461DBB0.5090107@fami-braun.de>
+References: <1415530280-9190-1-git-send-email-jiri@resnulli.us> <1415530280-9190-3-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=iso-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: "linville@tuxdriver.com" <linville@tuxdriver.com>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"linux-api@vger.kernel.org" <linux-api@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Jithu Jance <jithu@broadcom.com>,
-	Sreenath S <sreenats@broadcom.com>
-To: Johannes Berg <johannes@sipsolutions.net>,
-	"Gautam (Gautam Kumar) Shukla" <gautams@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1415698161.2163.0.camel@sipsolutions.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
+	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
+	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
+	ben@decadent.org.uk, stephen@networkplumber.org,
+	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
+	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
+	edumazet@google.com, jhs@mojatatu.com, sfeldma@gmail.com,
+	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
+	linville@tuxdriver.com, jasowang@redhat.com, ebiederm@xmission.com,
+	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
+	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
+	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
+	ronye@mellanox.com, simon.horman@netronome.com,
+	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
+	mleitner@redhat.com, shrijeet@gmail.com, gospo@cumulusnetworks.com,
+	bcrl@kvack.org
+To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mo4-p04-ob.smtp.rzone.de ([81.169.146.178]:58264 "EHLO
+	mo4-p04-ob.smtp.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752041AbaKKJ5z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2014 04:57:55 -0500
+In-Reply-To: <1415530280-9190-3-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11-11-14 10:29, Johannes Berg wrote:
-> On Tue, 2014-11-11 at 05:56 +0000, Gautam (Gautam Kumar) Shukla wrote:
->> For offloading 4 way handshake to driver, currently we don't have any
->> member  of struct cfg80211_connect_params to pass PSK from supplicant
->> to driver. I have added psk for the same and added rest of the code
->> needed in nl80211.h and nl80211.c to parse and make it available to
->> driver.
->> From supplicant, we already have psk member field in assoc_params to
->> use .
->>
->> Tested on x86 linux.
-> 
-> Your commit message needs serious work.
-> 
-> Also, there's a competing approach from QCA that's far more suited.
 
-I probably was not paying attention to it, but would you have a
-reference to this.
 
-> In either case though, I'm going to ask which driver is going to use
-> this and when it's going to land in mainline.
+Am 09.11.2014 um 11:51 schrieb Jiri Pirko:
+> diff --git a/Documentation/networking/switchdev.txt b/Documentation/networking/switchdev.txt
+> +	ndo_sw_parent_get_id - ...
 
-I had the same question ;-)
+here the ndo is called get_id
 
-> johannes
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+but
+
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> + *
+> + * int (*ndo_sw_parent_id_get)(struct net_device *dev,
+> + *			       struct netdev_phys_item_id *psid);
+> @@ -1168,6 +1174,10 @@ struct net_device_ops {
+> +	int			(*ndo_sw_parent_id_get)(struct net_device *dev,
+> +							struct netdev_phys_item_id *psid);
+
+here it is call id_get, which is similar but not the same.
+
+Regards,
+ M. Braun
