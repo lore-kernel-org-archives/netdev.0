@@ -1,97 +1,104 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 10/10] ixgbe: add helper function for setting RSS key in preparation of X550
-Date: Tue, 11 Nov 2014 06:44:46 -0800
-Message-ID: <1415717086-3441-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 03/10] i40e: clean up throttle rate code
+Date: Tue, 11 Nov 2014 06:44:39 -0800
+Message-ID: <1415717086-3441-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1415717086-3441-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	John Ronciak <john.ronciak@intel.com>,
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Patrick Lu <patrick.lu@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:3088 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:3085 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751589AbaKKOpb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Nov 2014 09:45:31 -0500
+	id S1751440AbaKKOp3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Nov 2014 09:45:29 -0500
 In-Reply-To: <1415717086-3441-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Don Skidmore <donald.c.skidmore@intel.com>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-Split off the setting of the RSS key into its own function.  This
-will help when we add support for X550 which can have different
-RSS keys per pool.
+The interrupt throttle rate minimum is actually 2us, so
+fix that define and while we are there, remove some unused defines.
 
-CC: John Ronciak <john.ronciak@intel.com>
-Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+Change some strings in the function to be a bit less wrappy, and
+express the correct limits.
+
+Change-ID: I96829bbc77935e0b57c6f0fc1439fb4152b2960a
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Signed-off-by: Patrick Lu <patrick.lu@intel.com>
+Tested-by: Jim Young <jamesx.m.young@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 32 +++++++++++++++++----------
- 1 file changed, 20 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 11 ++++-------
+ drivers/net/ethernet/intel/i40e/i40e_txrx.h    |  5 +----
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.h  |  5 +----
+ 3 files changed, 6 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 355d1f7..a5ca877 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -3210,14 +3210,10 @@ static void ixgbe_configure_srrctl(struct ixgbe_adapter *adapter,
- 	IXGBE_WRITE_REG(hw, IXGBE_SRRCTL(reg_idx), srrctl);
- }
- 
--static void ixgbe_setup_mrqc(struct ixgbe_adapter *adapter)
-+static void ixgbe_setup_reta(struct ixgbe_adapter *adapter, const u32 *seed)
- {
- 	struct ixgbe_hw *hw = &adapter->hw;
--	static const u32 seed[10] = { 0xE291D73D, 0x1805EC6C, 0x2A94B30D,
--			  0xA54F2BEC, 0xEA49AF7C, 0xE214AD3D, 0xB855AABE,
--			  0x6A3E67EA, 0x14364D17, 0x3BED200D};
--	u32 mrqc = 0, reta = 0;
--	u32 rxcsum;
-+	u32 reta = 0;
- 	int i, j;
- 	u16 rss_i = adapter->ring_feature[RING_F_RSS].indices;
- 
-@@ -3243,6 +3239,16 @@ static void ixgbe_setup_mrqc(struct ixgbe_adapter *adapter)
- 		if ((i & 3) == 3)
- 			IXGBE_WRITE_REG(hw, IXGBE_RETA(i >> 2), reta);
- 	}
-+}
-+
-+static void ixgbe_setup_mrqc(struct ixgbe_adapter *adapter)
-+{
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	static const u32 seed[10] = { 0xE291D73D, 0x1805EC6C, 0x2A94B30D,
-+			  0xA54F2BEC, 0xEA49AF7C, 0xE214AD3D, 0xB855AABE,
-+			  0x6A3E67EA, 0x14364D17, 0x3BED200D};
-+	u32 mrqc = 0, rss_field = 0;
-+	u32 rxcsum;
- 
- 	/* Disable indicating checksum in descriptor, enables RSS hash */
- 	rxcsum = IXGBE_READ_REG(hw, IXGBE_RXCSUM);
-@@ -3275,16 +3281,18 @@ static void ixgbe_setup_mrqc(struct ixgbe_adapter *adapter)
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index b6e745f..afad5aa 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -1575,11 +1575,9 @@ static int i40e_set_coalesce(struct net_device *netdev,
+ 	} else if (ec->rx_coalesce_usecs == 0) {
+ 		vsi->rx_itr_setting = ec->rx_coalesce_usecs;
+ 		if (ec->use_adaptive_rx_coalesce)
+-			netif_info(pf, drv, netdev,
+-				   "Rx-secs=0, need to disable adaptive-Rx for a complete disable\n");
++			netif_info(pf, drv, netdev, "rx-usecs=0, need to disable adaptive-rx for a complete disable\n");
+ 	} else {
+-		netif_info(pf, drv, netdev,
+-			   "Invalid value, Rx-usecs range is 0, 8-8160\n");
++		netif_info(pf, drv, netdev, "Invalid value, rx-usecs range is 0-8160\n");
+ 		return -EINVAL;
  	}
  
- 	/* Perform hash on these packet types */
--	mrqc |= IXGBE_MRQC_RSS_FIELD_IPV4 |
--		IXGBE_MRQC_RSS_FIELD_IPV4_TCP |
--		IXGBE_MRQC_RSS_FIELD_IPV6 |
--		IXGBE_MRQC_RSS_FIELD_IPV6_TCP;
-+	rss_field |= IXGBE_MRQC_RSS_FIELD_IPV4 |
-+		     IXGBE_MRQC_RSS_FIELD_IPV4_TCP |
-+		     IXGBE_MRQC_RSS_FIELD_IPV6 |
-+		     IXGBE_MRQC_RSS_FIELD_IPV6_TCP;
+@@ -1589,11 +1587,10 @@ static int i40e_set_coalesce(struct net_device *netdev,
+ 	} else if (ec->tx_coalesce_usecs == 0) {
+ 		vsi->tx_itr_setting = ec->tx_coalesce_usecs;
+ 		if (ec->use_adaptive_tx_coalesce)
+-			netif_info(pf, drv, netdev,
+-				   "Tx-secs=0, need to disable adaptive-Tx for a complete disable\n");
++			netif_info(pf, drv, netdev, "tx-usecs=0, need to disable adaptive-tx for a complete disable\n");
+ 	} else {
+ 		netif_info(pf, drv, netdev,
+-			   "Invalid value, Tx-usecs range is 0, 8-8160\n");
++			   "Invalid value, tx-usecs range is 0-8160\n");
+ 		return -EINVAL;
+ 	}
  
- 	if (adapter->flags2 & IXGBE_FLAG2_RSS_FIELD_IPV4_UDP)
--		mrqc |= IXGBE_MRQC_RSS_FIELD_IPV4_UDP;
-+		rss_field |= IXGBE_MRQC_RSS_FIELD_IPV4_UDP;
- 	if (adapter->flags2 & IXGBE_FLAG2_RSS_FIELD_IPV6_UDP)
--		mrqc |= IXGBE_MRQC_RSS_FIELD_IPV6_UDP;
-+		rss_field |= IXGBE_MRQC_RSS_FIELD_IPV6_UDP;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.h b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
+index d7a625a..e60d3ac 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
+@@ -30,10 +30,7 @@
+ /* Interrupt Throttling and Rate Limiting Goodies */
  
-+	ixgbe_setup_reta(adapter, seed);
-+	mrqc |= rss_field;
- 	IXGBE_WRITE_REG(hw, IXGBE_MRQC, mrqc);
- }
+ #define I40E_MAX_ITR               0x0FF0  /* reg uses 2 usec resolution */
+-#define I40E_MIN_ITR               0x0004  /* reg uses 2 usec resolution */
+-#define I40E_MAX_IRATE             0x03F
+-#define I40E_MIN_IRATE             0x001
+-#define I40E_IRATE_USEC_RESOLUTION 4
++#define I40E_MIN_ITR               0x0001  /* reg uses 2 usec resolution */
+ #define I40E_ITR_100K              0x0005
+ #define I40E_ITR_20K               0x0019
+ #define I40E_ITR_8K                0x003E
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
+index f6dcf9d..c7f2962 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
+@@ -30,10 +30,7 @@
+ /* Interrupt Throttling and Rate Limiting Goodies */
  
+ #define I40E_MAX_ITR               0x0FF0  /* reg uses 2 usec resolution */
+-#define I40E_MIN_ITR               0x0004  /* reg uses 2 usec resolution */
+-#define I40E_MAX_IRATE             0x03F
+-#define I40E_MIN_IRATE             0x001
+-#define I40E_IRATE_USEC_RESOLUTION 4
++#define I40E_MIN_ITR               0x0001  /* reg uses 2 usec resolution */
+ #define I40E_ITR_100K              0x0005
+ #define I40E_ITR_20K               0x0019
+ #define I40E_ITR_8K                0x003E
 -- 
 1.9.3
