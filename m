@@ -1,52 +1,32 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [PATCH net-next 1/1] ipvlan: Initial check-in of the IPVLAN driver.
-Date: Tue, 11 Nov 2014 15:12:27 -0800
-Message-ID: <CAHA+R7OZxCLFYetGHONWkL7uzGur=xSc=ASBT4i5EEeS2Xzwog@mail.gmail.com>
-References: <1415744984-25802-1-git-send-email-maheshb@google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH V2] net: qualcomm: Fix dependency
+Date: Tue, 11 Nov 2014 18:13:07 -0500 (EST)
+Message-ID: <20141111.181307.965812220900036791.davem@davemloft.net>
+References: <1415745480-23692-1-git-send-email-stefan.wahren@i2se.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Maciej Zenczykowski <maze@google.com>,
-	Laurent Chavey <chavey@google.com>,
-	Tim Hockin <thockin@google.com>,
-	David Miller <davem@davemloft.net>,
-	Brandon Philips <brandon.philips@coreos.com>,
-	Pavel Emelianov <xemul@parallels.com>
-To: Mahesh Bandewar <maheshb@google.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: stefan.wahren@i2se.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f46.google.com ([209.85.192.46]:34309 "EHLO
-	mail-qg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752263AbaKKXM2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2014 18:12:28 -0500
-Received: by mail-qg0-f46.google.com with SMTP id i50so7902680qgf.33
-        for <netdev@vger.kernel.org>; Tue, 11 Nov 2014 15:12:28 -0800 (PST)
-In-Reply-To: <1415744984-25802-1-git-send-email-maheshb@google.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34947 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752263AbaKKXNI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2014 18:13:08 -0500
+In-Reply-To: <1415745480-23692-1-git-send-email-stefan.wahren@i2se.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 11, 2014 at 2:29 PM, Mahesh Bandewar <maheshb@google.com> wrote:
-> This driver is very similar to the macvlan driver except that it
-> uses L3 on the frame to determine the logical interface while
-> functioning as packet dispatcher. It inherits L2 of the master
-> device hence the packets on wire will have the same L2 for all
-> the packets originating from all virtual devices off of the same
-> master device.
+From: Stefan Wahren <stefan.wahren@i2se.com>
+Date: Tue, 11 Nov 2014 22:38:00 +0000
 
-Why do we need this from the beginning?
-IOW, what problem does this solve while macvlan doesn't?
+> This patch removes the dependency of the VENDOR entry and fixes
+> the QCA7000 one.
+> 
+> Signed-off-by: Stefan Wahren <stefan.wahren@i2se.com>
+> ---
+> 
+> change in V2: remove dependency of the VENDOR entry suggested by
+> David Miller
 
-
->
-> This driver was developed keeping the namespace use-case in
-> mind. Hence most of the examples given here take that as the
-> base setup where main-device belongs to the default-ns and
-> virtual devices are assigned to the additional namespaces.
->
-
-Which virtual device is still not aware of netns now? I'd be surprised.
-
-I _guess_ you mean the if_link of macvlan, that is unfortunately
-not just macvlan, but because of netns isolates from L2, it is purely
-a display problem, macvlan should work well, just its netlink dump
-is confusing.
+Yep, looks good, applied.
