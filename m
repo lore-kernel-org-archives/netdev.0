@@ -1,110 +1,100 @@
-From: Brian Hill <brian@houston-radar.com>
-Subject: [PATCH]  net: phy: Correctly handle MII ioctl which changes autonegotiation.
-Date: Tue, 11 Nov 2014 07:53:39 -0700
-Message-ID: <546222F3.7080705@houston-radar.com>
-References: <5462210F.7040306@houston-radar.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next 1/2] net: move vlan pop/push functions into
+ common code
+Date: Tue, 11 Nov 2014 16:00:16 +0100
+Message-ID: <20141111150016.GD1825@nanopsycho.lan>
+References: <1415700789-9171-1-git-send-email-jiri@resnulli.us>
+ <1415711181.9613.32.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com,
+	pshelar@nicira.com, therbert@google.com, edumazet@google.com,
+	willemb@google.com, dborkman@redhat.com, mst@redhat.com,
+	fw@strlen.de, Paul.Durrant@citrix.com, tgraf@suug.ch
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f177.google.com ([209.85.223.177]:41957 "EHLO
-	mail-ie0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752268AbaKKOxl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2014 09:53:41 -0500
-Received: by mail-ie0-f177.google.com with SMTP id tp5so11482205ieb.22
-        for <netdev@vger.kernel.org>; Tue, 11 Nov 2014 06:53:41 -0800 (PST)
-Received: from [192.168.1.152] (71-222-160-8.albq.qwest.net. [71.222.160.8])
-        by mx.google.com with ESMTPSA id dy3sm6391572igb.1.2014.11.11.06.53.40
-        for <netdev@vger.kernel.org>
-        (version=TLSv1 cipher=ECDHE-RSA-RC4-SHA bits=128/128);
-        Tue, 11 Nov 2014 06:53:40 -0800 (PST)
-In-Reply-To: <5462210F.7040306@houston-radar.com>
+Received: from mail-wg0-f53.google.com ([74.125.82.53]:63796 "EHLO
+	mail-wg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751537AbaKKPAT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2014 10:00:19 -0500
+Received: by mail-wg0-f53.google.com with SMTP id b13so11845244wgh.26
+        for <netdev@vger.kernel.org>; Tue, 11 Nov 2014 07:00:17 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1415711181.9613.32.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Tue, Nov 11, 2014 at 02:06:21PM CET, eric.dumazet@gmail.com wrote:
+>On Tue, 2014-11-11 at 11:13 +0100, Jiri Pirko wrote:
+>> So it can be used from out of openvswitch code.
+>> Did couple of cosmetic changes on the way, namely variable naming and
+>> adding support for 8021AD proto.
+>> 
+>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>> ---
+>>  include/linux/skbuff.h    |  2 ++
+>>  net/core/skbuff.c         | 86 +++++++++++++++++++++++++++++++++++++++++++++++
+>>  net/openvswitch/actions.c | 76 ++---------------------------------------
+>>  3 files changed, 90 insertions(+), 74 deletions(-)
+>> 
+>> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+>> index 103fbe8..3b0445c 100644
+>> --- a/include/linux/skbuff.h
+>> +++ b/include/linux/skbuff.h
+>> @@ -2673,6 +2673,8 @@ void skb_scrub_packet(struct sk_buff *skb, bool xnet);
+>>  unsigned int skb_gso_transport_seglen(const struct sk_buff *skb);
+>>  struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features);
+>>  struct sk_buff *skb_vlan_untag(struct sk_buff *skb);
+>> +int skb_vlan_pop(struct sk_buff *skb);
+>> +int skb_vlan_push(struct sk_buff *skb, __be16 vlan_proto, u16 vlan_tci);
+>>  
+>>  struct skb_checksum_ops {
+>>  	__wsum (*update)(const void *mem, int len, __wsum wsum);
+>> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+>> index 7001896..75e53d4 100644
+>> --- a/net/core/skbuff.c
+>> +++ b/net/core/skbuff.c
+>> @@ -4151,6 +4151,92 @@ err_free:
+>>  }
+>>  EXPORT_SYMBOL(skb_vlan_untag);
+>>  
+>> +/* remove VLAN header from packet and update csum accordingly. */
+>> +static int __skb_vlan_pop(struct sk_buff *skb, u16 *vlan_tci)
+>> +{
+>> +	struct vlan_hdr *vhdr;
+>> +	int err;
+>> +
+>
+>
+>
+>> +	if (!pskb_may_pull(skb, VLAN_ETH_HLEN))
+>> +		return -ENOMEM;
+>> +
+>> +	if (!skb_cloned(skb) || skb_clone_writable(skb, VLAN_ETH_HLEN))
+>> +		return 0;
+>> +
+>> +	err = pskb_expand_head(skb, 0, 0, GFP_ATOMIC);
+>> +	if (unlikely(err))
+>> +		return err;
+>
+>All this should be a function of its own (OVS calls this
+>make_writable()).
+>
+>Its too bad netfilter has a different skb_make_writable()
 
-When advertised capabilities are changed with mii-tool, such as:
-mii-tool -A 10baseT
-the existing handler has two errors.
+How different is that? Looking at it it seems it is doing the same
+thing. Not sure though...
 
-- An actual PHY register value is provided by mii-tool, and this
-  must be mapped to internal state with mii_adv_to_ethtool_adv_t().
-- The PHY state machine needs to be told that autonegotiation has
-  again been performed.  If not, the MAC will not be notified of
-  the new link speed and duplex, resulting in a possible config
-  mismatch.
-
-Signed-off-by: Brian Hill <Brian@houston-radar.com>
-Acked-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/phy/phy.c |   36 ++++++++++++++++++++++++------------
- 1 file changed, 24 insertions(+), 12 deletions(-)
-
-diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index c94e2a2..ee9f0c9 100644
---- a/drivers/net/phy/phy.c
-+++ b/drivers/net/phy/phy.c
-@@ -352,6 +352,7 @@ int phy_mii_ioctl(struct phy_device *phydev, struct ifreq *ifr, int cmd)
- {
- 	struct mii_ioctl_data *mii_data = if_mii(ifr);
- 	u16 val = mii_data->val_in;
-+	int change_autoneg = 0;
- 
- 	switch (cmd) {
- 	case SIOCGMIIPHY:
-@@ -367,22 +368,29 @@ int phy_mii_ioctl(struct phy_device *phydev, struct ifreq *ifr, int cmd)
- 		if (mii_data->phy_id == phydev->addr) {
- 			switch (mii_data->reg_num) {
- 			case MII_BMCR:
--				if ((val & (BMCR_RESET | BMCR_ANENABLE)) == 0)
-+				if ((val & (BMCR_RESET | BMCR_ANENABLE)) == 0) {
-+					if (phydev->autoneg == AUTONEG_ENABLE)
-+						change_autoneg = 1;
- 					phydev->autoneg = AUTONEG_DISABLE;
--				else
-+					if (val & BMCR_FULLDPLX)
-+						phydev->duplex = DUPLEX_FULL;
-+					else
-+						phydev->duplex = DUPLEX_HALF;
-+					if (val & BMCR_SPEED1000)
-+						phydev->speed = SPEED_1000;
-+					else if (val & BMCR_SPEED100)
-+						phydev->speed = SPEED_100;
-+					else phydev->speed = SPEED_10;
-+				}
-+				else {
-+					if (phydev->autoneg == AUTONEG_DISABLE)
-+						change_autoneg = 1;
- 					phydev->autoneg = AUTONEG_ENABLE;
--				if (!phydev->autoneg && (val & BMCR_FULLDPLX))
--					phydev->duplex = DUPLEX_FULL;
--				else
--					phydev->duplex = DUPLEX_HALF;
--				if (!phydev->autoneg && (val & BMCR_SPEED1000))
--					phydev->speed = SPEED_1000;
--				else if (!phydev->autoneg &&
--					 (val & BMCR_SPEED100))
--					phydev->speed = SPEED_100;
-+				}
- 				break;
- 			case MII_ADVERTISE:
--				phydev->advertising = val;
-+				phydev->advertising = mii_adv_to_ethtool_adv_t(val);
-+				change_autoneg = 1;
- 				break;
- 			default:
- 				/* do nothing */
-@@ -396,6 +404,10 @@ int phy_mii_ioctl(struct phy_device *phydev, struct ifreq *ifr, int cmd)
- 		if (mii_data->reg_num == MII_BMCR &&
- 		    val & BMCR_RESET)
- 			return phy_init_hw(phydev);
-+
-+		if (change_autoneg)
-+			return phy_start_aneg(phydev);
-+
- 		return 0;
- 
- 	case SIOCSHWTSTAMP:
--- 
-1.7.9.5
+>
+>
+>> +
+>> +	if (skb->ip_summed == CHECKSUM_COMPLETE)
+>> +		skb->csum = csum_sub(skb->csum, csum_partial(skb->data
+>> +					+ (2 * ETH_ALEN), VLAN_HLEN, 0));
+>
+>This looks like skb_postpull_rcsum()
+>
+>BTW, calling csum_partial() for 4 bytes is quite expensive.
+>
+>
+>
