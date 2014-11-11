@@ -1,115 +1,359 @@
-From: Ulf samuelsson <netdev@emagii.com>
-Subject: Re: How to make stack send broadcast ARP request when entry is STALE?
-Date: Tue, 11 Nov 2014 11:08:19 +0100
-Message-ID: <C8A75CC5-18FA-4D2D-9259-74254D808107@emagii.com>
-References: <C4AF677B-55AC-4CE0-9BFB-EBB2E0C3BF74@emagii.com> <545C96D6.5020204@hp.com> <3A67CF46-0BC1-4BAA-818A-0B656C6B46B6@emagii.com> <54614198.7010306@hp.com>
-Mime-Version: 1.0 (1.0)
-Content-Type: text/plain;
-	charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: Netdev <netdev@vger.kernel.org>
-To: Brian Haley <brian.haley@hp.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next 2/2] sched: introduce vlan action
+Date: Tue, 11 Nov 2014 11:13:09 +0100
+Message-ID: <1415700789-9171-2-git-send-email-jiri@resnulli.us>
+References: <1415700789-9171-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, jhs@mojatatu.com, pshelar@nicira.com,
+	therbert@google.com, edumazet@google.com, willemb@google.com,
+	dborkman@redhat.com, mst@redhat.com, fw@strlen.de,
+	Paul.Durrant@citrix.com, tgraf@suug.ch
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out12.han.skanova.net ([195.67.226.212]:37258 "EHLO
-	smtp-out12.han.skanova.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751848AbaKKKIZ convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Nov 2014 05:08:25 -0500
-In-Reply-To: <54614198.7010306@hp.com>
+Received: from mail-wg0-f47.google.com ([74.125.82.47]:56048 "EHLO
+	mail-wg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751848AbaKKKNO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2014 05:13:14 -0500
+Received: by mail-wg0-f47.google.com with SMTP id a1so11143239wgh.20
+        for <netdev@vger.kernel.org>; Tue, 11 Nov 2014 02:13:12 -0800 (PST)
+In-Reply-To: <1415700789-9171-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If I set ucast_solicit to '0', then I always send broadcast, which is not desirable.
+This tc action allows to work with vlan tagged skbs. Two supported
+sub-actions are header pop and header push.
 
-In the PROBE state of the ARP state machine, "probes" count from 0 .. ucast_probes.
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+---
+ include/net/tc_act/tc_vlan.h        |  27 +++++
+ include/uapi/linux/tc_act/tc_vlan.h |  35 ++++++
+ net/sched/Kconfig                   |  11 ++
+ net/sched/Makefile                  |   1 +
+ net/sched/act_vlan.c                | 207 ++++++++++++++++++++++++++++++++++++
+ 5 files changed, 281 insertions(+)
+ create mode 100644 include/net/tc_act/tc_vlan.h
+ create mode 100644 include/uapi/linux/tc_act/tc_vlan.h
+ create mode 100644 net/sched/act_vlan.c
 
-I can see the following arguments for letting "probes" count from 
-  
-   0.. (ucast_probes + app_probes + mcast_probes)
-   
-
-A: This is how the IPv6 is doing it. 
-     It is not standardized in IPv4, but why should the IPv4 have a different behaviour?
-
-B: If you do not send out broadcast if unicast fails, then a broadcast will be sent out 
-     anyway, once the ARP entry is removed by the garbage collector.
-     You get an annoyingly long delay before that happens.
-
-C: If a large data centre does not want broadcasts to be sent out, 
-     then they can set mcast_probes to 0, in which case no broadcasts will be sent
-     out in PROBE state.
-
-D:  When in other states, the counter runs until it a reply is had, or the counter wraps around.
-      It is sending broadcast all the time.
-
-
-Best Regards
-Ulf Samuelsson
-ulf@emagii.com
-+46  (722) 427 437
-
-
-> 10 nov 2014 kl. 23:52 skrev Brian Haley <brian.haley@hp.com>:
-> 
->> On 11/07/2014 05:11 AM, Ulf samuelsson wrote:
->> The HP router is configured by a customer, and they intentionally limit replies
->> to broadcast, and that is how they want it.
-> 
-> So this is the crux of the problem - the customer has configured the router so
-> that it doesn't play well with most modern network stacks that try and use
-> unicast so they don't send unnecessary broadcast packets.  I don't know why I
-> thought this was something wrong with the router software.
-> 
-> Did you try this?
-> 
-> $ sudo sysctl net.ipv4.neigh.eth0.ucast_solicit=0
-> 
-> It works for me.
-> 
-> And they really should re-think their decision on that configuration setting.
-> 
-> -Brian
-> 
-> 
->> In the previous version of the build system, the Interpeak stack was used
->> and this would in PROBE state send unicast ARP request, and if that failed
->> send broadcast ARP.
->> 
->> The native linux stack, when in PROBE state sends only unicast until it decides
->> that it should enter FAILED state.
->> 
->> The 'mcast_probes' variable seems to be totally ignored, except the first  time,
->> so I do not see why it is there.
->> 
->> Best Regards
->> Ulf Samuelsson
->> ulf@emagii.com
->> +46  (722) 427 437
->> 
->> 
->>>> 7 nov 2014 kl. 10:54 skrev Brian Haley <brian.haley@hp.com>:
->>>> 
->>>> On 11/05/2014 07:48 AM, Ulf samuelsson wrote:
->>>> Have a problem with an HP router at a certain location, which
->>>> is configured to only answer to broadcast ARP requests.
->>>> That cannot be changed.
->>> 
->>> Sorry to hear about the problem, but my only suggestions would be to try the latest firmware and/or put a call in to support.  I don't happen work in the division that makes routers...
->>> 
->>>> The first ARP request the kernel sends out, is a broadcast request,
->>>> which is fine, but after the reply, the kernel sends unicast requests,
->>>> which will not get any replies.
->>> 
->>> You might be able to hack this by inserting an ebtables rule - check the dnat target section of the man page - don't know the exact syntax but it would probably end in '-j dnat --to-destination ff:ff:ff:ff:ff:ff'
->>> 
->>> -Brian
->>> --
->>> To unsubscribe from this list: send the line "unsubscribe netdev" in
->>> the body of a message to majordomo@vger.kernel.org
->>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->> 
-> 
+diff --git a/include/net/tc_act/tc_vlan.h b/include/net/tc_act/tc_vlan.h
+new file mode 100644
+index 0000000..c809c1d
+--- /dev/null
++++ b/include/net/tc_act/tc_vlan.h
+@@ -0,0 +1,27 @@
++/*
++ * Copyright (c) 2014 Jiri Pirko <jiri@resnulli.us>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++#ifndef __NET_TC_VLAN_H
++#define __NET_TC_VLAN_H
++
++#include <net/act_api.h>
++
++#define VLAN_F_POP		0x1
++#define VLAN_F_PUSH		0x2
++
++struct tcf_vlan {
++	struct tcf_common	common;
++	int			tcfv_action;
++	__be16			tcfv_push_vid;
++	__be16			tcfv_push_proto;
++};
++#define to_vlan(a) \
++	container_of(a->priv, struct tcf_vlan, common)
++
++#endif /* __NET_TC_VLAN_H */
+diff --git a/include/uapi/linux/tc_act/tc_vlan.h b/include/uapi/linux/tc_act/tc_vlan.h
+new file mode 100644
+index 0000000..f7b8d44
+--- /dev/null
++++ b/include/uapi/linux/tc_act/tc_vlan.h
+@@ -0,0 +1,35 @@
++/*
++ * Copyright (c) 2014 Jiri Pirko <jiri@resnulli.us>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++#ifndef __LINUX_TC_VLAN_H
++#define __LINUX_TC_VLAN_H
++
++#include <linux/pkt_cls.h>
++
++#define TCA_ACT_VLAN 12
++
++#define TCA_VLAN_ACT_POP	1
++#define TCA_VLAN_ACT_PUSH	2
++
++struct tc_vlan {
++	tc_gen;
++	int v_action;
++};
++
++enum {
++	TCA_VLAN_UNSPEC,
++	TCA_VLAN_TM,
++	TCA_VLAN_PARMS,
++	TCA_VLAN_PUSH_VLAN_ID,
++	TCA_VLAN_PUSH_VLAN_PROTOCOL,
++	__TCA_VLAN_MAX,
++};
++#define TCA_VLAN_MAX (__TCA_VLAN_MAX - 1)
++
++#endif
+diff --git a/net/sched/Kconfig b/net/sched/Kconfig
+index a1a8e29..88618f8 100644
+--- a/net/sched/Kconfig
++++ b/net/sched/Kconfig
+@@ -686,6 +686,17 @@ config NET_ACT_CSUM
+ 	  To compile this code as a module, choose M here: the
+ 	  module will be called act_csum.
+ 
++config NET_ACT_VLAN
++        tristate "Vlan manipulation"
++        depends on NET_CLS_ACT
++        ---help---
++	  Say Y here to push or pop vlan headers.
++
++	  If unsure, say N.
++
++	  To compile this code as a module, choose M here: the
++	  module will be called act_vlan.
++
+ config NET_CLS_IND
+ 	bool "Incoming device classification"
+ 	depends on NET_CLS_U32 || NET_CLS_FW
+diff --git a/net/sched/Makefile b/net/sched/Makefile
+index 0a869a1..679f24a 100644
+--- a/net/sched/Makefile
++++ b/net/sched/Makefile
+@@ -16,6 +16,7 @@ obj-$(CONFIG_NET_ACT_PEDIT)	+= act_pedit.o
+ obj-$(CONFIG_NET_ACT_SIMP)	+= act_simple.o
+ obj-$(CONFIG_NET_ACT_SKBEDIT)	+= act_skbedit.o
+ obj-$(CONFIG_NET_ACT_CSUM)	+= act_csum.o
++obj-$(CONFIG_NET_ACT_VLAN)	+= act_vlan.o
+ obj-$(CONFIG_NET_SCH_FIFO)	+= sch_fifo.o
+ obj-$(CONFIG_NET_SCH_CBQ)	+= sch_cbq.o
+ obj-$(CONFIG_NET_SCH_HTB)	+= sch_htb.o
+diff --git a/net/sched/act_vlan.c b/net/sched/act_vlan.c
+new file mode 100644
+index 0000000..013b17d
+--- /dev/null
++++ b/net/sched/act_vlan.c
+@@ -0,0 +1,207 @@
++/*
++ * Copyright (c) 2014 Jiri Pirko <jiri@resnulli.us>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++#include <linux/module.h>
++#include <linux/init.h>
++#include <linux/kernel.h>
++#include <linux/skbuff.h>
++#include <linux/rtnetlink.h>
++#include <linux/if_vlan.h>
++#include <net/netlink.h>
++#include <net/pkt_sched.h>
++
++#include <linux/tc_act/tc_vlan.h>
++#include <net/tc_act/tc_vlan.h>
++
++#define VLAN_TAB_MASK     15
++
++static int tcf_vlan(struct sk_buff *skb, const struct tc_action *a,
++		    struct tcf_result *res)
++{
++	struct tcf_vlan *v = a->priv;
++	int action;
++	int err;
++
++	spin_lock(&v->tcf_lock);
++	v->tcf_tm.lastuse = jiffies;
++	bstats_update(&v->tcf_bstats, skb);
++	action = v->tcf_action;
++
++	switch (v->tcfv_action) {
++	case TCA_VLAN_ACT_POP:
++		err = skb_vlan_pop(skb);
++		if (err)
++			goto drop;
++		break;
++	case TCA_VLAN_ACT_PUSH:
++		err = skb_vlan_push(skb, v->tcfv_push_proto, v->tcfv_push_vid);
++		if (err)
++			goto drop;
++		break;
++	default:
++		BUG();
++	}
++
++	goto unlock;
++
++drop:
++	action = TC_ACT_SHOT;
++	v->tcf_qstats.drops++;
++unlock:
++	spin_unlock(&v->tcf_lock);
++	return action;
++}
++
++static const struct nla_policy vlan_policy[TCA_VLAN_MAX + 1] = {
++	[TCA_VLAN_PARMS]		= { .len = sizeof(struct tc_vlan) },
++	[TCA_VLAN_PUSH_VLAN_ID]		= { .type = NLA_U16 },
++	[TCA_VLAN_PUSH_VLAN_PROTOCOL]	= { .type = NLA_U16 },
++};
++
++static int tcf_vlan_init(struct net *net, struct nlattr *nla,
++			 struct nlattr *est, struct tc_action *a,
++			 int ovr, int bind)
++{
++	struct nlattr *tb[TCA_VLAN_MAX + 1];
++	struct tc_vlan *parm;
++	struct tcf_vlan *v;
++	int action;
++	__be16 push_vid = 0;
++	__be16 push_proto = 0;
++	int ret = 0;
++	int err;
++
++	if (!nla)
++		return -EINVAL;
++
++	err = nla_parse_nested(tb, TCA_VLAN_MAX, nla, vlan_policy);
++	if (err < 0)
++		return err;
++
++	if (!tb[TCA_VLAN_PARMS])
++		return -EINVAL;
++	parm = nla_data(tb[TCA_VLAN_PARMS]);
++	switch (parm->v_action) {
++	case TCA_VLAN_ACT_POP:
++		break;
++	case TCA_VLAN_ACT_PUSH:
++		if (!tb[TCA_VLAN_PUSH_VLAN_ID])
++			return -EINVAL;
++		push_vid = nla_get_u16(tb[TCA_VLAN_PUSH_VLAN_ID]);
++		if (push_vid >= VLAN_VID_MASK)
++			return -ERANGE;
++
++		if (tb[TCA_VLAN_PUSH_VLAN_PROTOCOL]) {
++			push_proto = nla_get_be16(tb[TCA_VLAN_PUSH_VLAN_PROTOCOL]);
++			switch (push_proto) {
++			case htons(ETH_P_8021Q):
++			case htons(ETH_P_8021AD):
++				break;
++			default:
++				return -EPROTONOSUPPORT;
++			}
++		} else {
++			push_proto = htons(ETH_P_8021Q);
++		}
++		break;
++	default:
++		return -EINVAL;
++	}
++	action = parm->v_action;
++
++	if (!tcf_hash_check(parm->index, a, bind)) {
++		ret = tcf_hash_create(parm->index, est, a, sizeof(*v), bind);
++		if (ret)
++			return ret;
++
++		ret = ACT_P_CREATED;
++	} else {
++		if (bind)
++			return 0;
++		tcf_hash_release(a, bind);
++		if (!ovr)
++			return -EEXIST;
++	}
++
++	v = to_vlan(a);
++
++	spin_lock_bh(&v->tcf_lock);
++
++	v->tcfv_action = action;
++	v->tcfv_push_vid = push_vid;
++	v->tcfv_push_proto = push_proto;
++
++	v->tcf_action = parm->action;
++
++	spin_unlock_bh(&v->tcf_lock);
++
++	if (ret == ACT_P_CREATED)
++		tcf_hash_insert(a);
++	return ret;
++}
++
++static int tcf_vlan_dump(struct sk_buff *skb, struct tc_action *a,
++			 int bind, int ref)
++{
++	unsigned char *b = skb_tail_pointer(skb);
++	struct tcf_vlan *v = a->priv;
++	struct tc_vlan opt = {
++		.index    = v->tcf_index,
++		.refcnt   = v->tcf_refcnt - ref,
++		.bindcnt  = v->tcf_bindcnt - bind,
++		.action   = v->tcf_action,
++		.v_action = v->tcfv_action,
++	};
++	struct tcf_t t;
++
++	if (nla_put(skb, TCA_VLAN_PARMS, sizeof(opt), &opt))
++		goto nla_put_failure;
++
++	if (v->tcfv_action == TCA_VLAN_ACT_PUSH &&
++	    nla_put_u16(skb, TCA_VLAN_PUSH_VLAN_ID, v->tcfv_push_vid) &&
++	    nla_put_u16(skb, TCA_VLAN_PUSH_VLAN_PROTOCOL, v->tcfv_push_proto))
++		goto nla_put_failure;
++
++	t.install = jiffies_to_clock_t(jiffies - v->tcf_tm.install);
++	t.lastuse = jiffies_to_clock_t(jiffies - v->tcf_tm.lastuse);
++	t.expires = jiffies_to_clock_t(v->tcf_tm.expires);
++	if (nla_put(skb, TCA_VLAN_TM, sizeof(t), &t))
++		goto nla_put_failure;
++	return skb->len;
++
++nla_put_failure:
++	nlmsg_trim(skb, b);
++	return -1;
++}
++
++static struct tc_action_ops act_vlan_ops = {
++	.kind		=	"vlan",
++	.type		=	TCA_ACT_VLAN,
++	.owner		=	THIS_MODULE,
++	.act		=	tcf_vlan,
++	.dump		=	tcf_vlan_dump,
++	.init		=	tcf_vlan_init,
++};
++
++static int __init vlan_init_module(void)
++{
++	return tcf_register_action(&act_vlan_ops, VLAN_TAB_MASK);
++}
++
++static void __exit vlan_cleanup_module(void)
++{
++	tcf_unregister_action(&act_vlan_ops);
++}
++
++module_init(vlan_init_module);
++module_exit(vlan_cleanup_module);
++
++MODULE_AUTHOR("Jiri Pirko <jiri@resnulli.us>");
++MODULE_DESCRIPTION("vlan manipulation actions");
++MODULE_LICENSE("GPL v2");
+-- 
+1.9.3
