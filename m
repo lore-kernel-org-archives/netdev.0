@@ -1,8 +1,8 @@
 From: Michal Kubecek <mkubecek@suse.cz>
-Subject: [PATCH net-next 2/3] team: add helper to check if device is a team
- master
-Date: Tue, 11 Nov 2014 09:21:50 +0100 (CET)
-Message-ID: <55ee8e8e93d2dd79cb2a5b1310b9293e8bf99e80.1415692212.git.mkubecek@suse.cz>
+Subject: [PATCH net-next 3/3] net: propagate LRO disabling to bond and team
+ slaves
+Date: Tue, 11 Nov 2014 09:22:00 +0100 (CET)
+Message-ID: <cc53d655bc743bfdb790dfcd8880338d1c4b4c91.1415692212.git.mkubecek@suse.cz>
 References: <cover.1415692212.git.mkubecek@suse.cz>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Jay Vosburgh <j.vosburgh@gmail.com>,
@@ -15,60 +15,75 @@ In-Reply-To: <cover.1415692212.git.mkubecek@suse.cz>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add flag IFF_TEAM_MASTER to recognize a team master and helper
-netif_is_team_master() to check it.
+As LRO doesn't work correctly if incoming packets are passed to other
+hosts, it needs to be disabled if a device is enslaved into a bridge or
+forwarding is enabled for it.
+
+For a bond/team master, LRO needs to be disabled for all its slaves as
+they are actually receiving the packets. Once LRO is disabled for
+a bond/team master, we also need to make sure to disable it for newly
+added slaves.
 
 Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
 ---
- drivers/net/team/team.c   | 3 ++-
- include/linux/netdevice.h | 7 +++++++
- 2 files changed, 9 insertions(+), 1 deletion(-)
+ drivers/net/bonding/bond_main.c | 3 +++
+ drivers/net/team/team.c         | 3 +++
+ net/core/dev.c                  | 8 ++++++++
+ 3 files changed, 14 insertions(+)
 
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index b9b3456..8575fee 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1526,6 +1526,9 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 	}
+ #endif
+ 
++	if (!(bond_dev->features & NETIF_F_LRO))
++		dev_disable_lro(slave_dev);
++
+ 	res = netdev_rx_handler_register(slave_dev, bond_handle_frame,
+ 					 new_slave);
+ 	if (res) {
 diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
-index 2368395..e1e2b85 100644
+index e1e2b85..217b973 100644
 --- a/drivers/net/team/team.c
 +++ b/drivers/net/team/team.c
-@@ -2043,7 +2043,8 @@ static void team_setup(struct net_device *dev)
- 	 * bring us to promisc mode in case a unicast addr is added.
- 	 * Let this up to underlay drivers.
- 	 */
--	dev->priv_flags |= IFF_UNICAST_FLT | IFF_LIVE_ADDR_CHANGE;
-+	dev->priv_flags |= IFF_UNICAST_FLT | IFF_LIVE_ADDR_CHANGE |
-+			   IFF_TEAM_MASTER;
+@@ -1179,6 +1179,9 @@ static int team_port_add(struct team *team, struct net_device *port_dev)
+ 		goto err_enable_netpoll;
+ 	}
  
- 	dev->features |= NETIF_F_LLTX;
- 	dev->features |= NETIF_F_GRO;
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 888d551..1236feb 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1203,6 +1203,7 @@ struct net_device_ops {
-  * @IFF_LIVE_ADDR_CHANGE: device supports hardware address
-  *	change when it's running
-  * @IFF_MACVLAN: Macvlan device
-+ * @IFF_TEAM_MASTER: device is a team master
-  */
- enum netdev_priv_flags {
- 	IFF_802_1Q_VLAN			= 1<<0,
-@@ -1228,6 +1229,7 @@ enum netdev_priv_flags {
- 	IFF_LIVE_ADDR_CHANGE		= 1<<20,
- 	IFF_MACVLAN			= 1<<21,
- 	IFF_XMIT_DST_RELEASE_PERM	= 1<<22,
-+	IFF_TEAM_MASTER			= 1<<23,
- };
- 
- #define IFF_802_1Q_VLAN			IFF_802_1Q_VLAN
-@@ -3638,6 +3640,11 @@ static inline bool netif_is_bond_slave(struct net_device *dev)
- 	return dev->flags & IFF_SLAVE && dev->priv_flags & IFF_BONDING;
- }
- 
-+static inline bool netif_is_team_master(struct net_device *dev)
-+{
-+	return dev->priv_flags & IFF_TEAM_MASTER;
-+}
++	if (!(dev->features & NETIF_F_LRO))
++		dev_disable_lro(port_dev);
 +
- static inline bool netif_supports_nofcs(struct net_device *dev)
+ 	err = netdev_rx_handler_register(port_dev, team_handle_frame,
+ 					 port);
+ 	if (err) {
+diff --git a/net/core/dev.c b/net/core/dev.c
+index ebcd308..b132f44 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1438,6 +1438,8 @@ EXPORT_SYMBOL(dev_close);
+ void dev_disable_lro(struct net_device *dev)
  {
- 	return dev->priv_flags & IFF_SUPP_NOFCS;
+ 	struct net_device *prev_dev;
++	struct net_device *lower_dev;
++	struct list_head *iter;
+ 
+ 	do {
+ 		prev_dev = dev;
+@@ -1458,6 +1460,12 @@ void dev_disable_lro(struct net_device *dev)
+ 
+ 	if (unlikely(dev->features & NETIF_F_LRO))
+ 		netdev_WARN(dev, "failed to disable LRO!\n");
++
++	/* if dev is a bond/team master, disable LRO for all its slaves */
++	if (netif_is_bond_master(dev) || netif_is_team_master(dev)) {
++		netdev_for_each_lower_dev(dev, lower_dev, iter)
++			dev_disable_lro(lower_dev);
++	}
+ }
+ EXPORT_SYMBOL(dev_disable_lro);
+ 
 -- 
 1.8.4.5
