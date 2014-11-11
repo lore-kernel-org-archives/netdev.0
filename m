@@ -1,31 +1,72 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ipv6: fix IPV6_PKTINFO with v4 mapped
-Date: Tue, 11 Nov 2014 15:33:32 -0500 (EST)
-Message-ID: <20141111.153332.989692973627846745.davem@davemloft.net>
-References: <1415670865.9613.24.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hannes@stressinduktion.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33246 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752591AbaKKUdf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2014 15:33:35 -0500
-In-Reply-To: <1415670865.9613.24.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Shuah Khan <shuahkh@osg.samsung.com>
+Subject: [PATCH v2 04/19] selftests/breakpoints: add install target to enable installing test
+Date: Tue, 11 Nov 2014 13:27:44 -0700
+Message-ID: <37441d357f68dc157701a5606a9c953cea671500.1415735831.git.shuahkh@osg.samsung.com>
+References: <cover.1415735831.git.shuahkh@osg.samsung.com>
+Cc: Shuah Khan <shuahkh@osg.samsung.com>, linux-kbuild@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-api@vger.kernel.org,
+	netdev@vger.kernel.org
+To: gregkh@linuxfoundation.org, akpm@linux-foundation.org,
+	mmarek@suse.cz, davem@davemloft.net, keescook@chromium.org,
+	tranmanphong@gmail.com, dh.herrmann@gmail.com, hughd@google.com,
+	bobby.prani@gmail.com, ebiederm@xmission.com,
+	serge.hallyn@ubuntu.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1415735831.git.shuahkh@osg.samsung.com>
+In-Reply-To: <cover.1415735831.git.shuahkh@osg.samsung.com>
+References: <cover.1415735831.git.shuahkh@osg.samsung.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 10 Nov 2014 17:54:25 -0800
+Add a new make target to enable installing test. This target
+installs test in the kselftest install location and add to the
+kselftest script to run the test. Install target can be run
+only from top level source dir.
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Use IS_ENABLED(CONFIG_IPV6), to enable this code if IPv6 is
-> a module.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Fixes: c8e6ad0829a7 ("ipv6: honor IPV6_PKTINFO with v4 mapped addresses on sendmsg")
+Signed-off-by: Shuah Khan <shuahkh@osg.samsung.com>
+---
+ tools/testing/selftests/breakpoints/Makefile | 22 ++++++++++++++++++++--
+ 1 file changed, 20 insertions(+), 2 deletions(-)
 
-Applied and queued up for -stable, thanks Eric.
+diff --git a/tools/testing/selftests/breakpoints/Makefile b/tools/testing/selftests/breakpoints/Makefile
+index e18b42b..9a70aeb 100644
+--- a/tools/testing/selftests/breakpoints/Makefile
++++ b/tools/testing/selftests/breakpoints/Makefile
+@@ -8,6 +8,7 @@ ifeq ($(ARCH),x86_64)
+ 	ARCH := x86
+ endif
+ 
++TEST_STR = ./breakpoint_test || echo breakpoints selftests: [FAIL]
+ 
+ all:
+ ifeq ($(ARCH),x86)
+@@ -16,8 +17,25 @@ else
+ 	echo "Not an x86 target, can't build breakpoints selftests"
+ endif
+ 
+-run_tests:
+-	@./breakpoint_test || echo "breakpoints selftests: [FAIL]"
++install:
++ifdef INSTALL_KSFT_PATH
++ifeq ($(ARCH),x86)
++	install ./breakpoint_test $(INSTALL_KSFT_PATH)
++	@echo echo Start breakpoints test .... >> $(KSELFTEST)
++	@echo "$(TEST_STR)" >> $(KSELFTEST)
++	@echo echo End breakpoints test .... >> $(KSELFTEST)
++	@echo echo ============================== >> $(KSELFTEST)
++else
++	@echo Not an x86 target, unable to install breakpoints selftests
++endif
++else
++	@echo Run make kselftest_install in top level source directory
++endif
++
++run_tests: all
++ifeq ($(ARCH),x86)
++	@$(TEST_STR)
++endif
+ 
+ clean:
+ 	rm -fr breakpoint_test
+-- 
+1.9.1
