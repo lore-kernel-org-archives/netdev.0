@@ -1,34 +1,42 @@
-From: "Vick, Matthew" <matthew.vick@intel.com>
-Subject: Re: [PATCH V1 net-next] net/fm10k: Avoid double setting of
- NETIF_F_SG for the HW encapsulation feature mask
-Date: Tue, 11 Nov 2014 16:37:22 +0000
-Message-ID: <D0877B1E.5F2FF%matthew.vick@intel.com>
-References: <1415520822-11922-1-git-send-email-ogerlitz@mellanox.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Or Gerlitz <ogerlitz@mellanox.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:63234 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750999AbaKKQib convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2014 11:38:31 -0500
-In-Reply-To: <1415520822-11922-1-git-send-email-ogerlitz@mellanox.com>
-Content-Language: en-US
-Content-ID: <9F7CEF5202DC964EB9B913DE79CD6508@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Shuah Khan <shuahkh@osg.samsung.com>
+Subject: [PATCH] selftests/net: psock_fanout seg faults in sock_fanout_read_ring()
+Date: Tue, 11 Nov 2014 10:04:13 -0700
+Message-ID: <1415725453-6549-1-git-send-email-shuahkh@osg.samsung.com>
+Cc: Shuah Khan <shuahkh@osg.samsung.com>, netdev@vger.kernel.org,
+	linux-api@vger.kernel.org, linux-kernel@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 11/9/14, 12:13 AM, "Or Gerlitz" <ogerlitz@mellanox.com> wrote:
+The while loop in sock_fanout_read_ring() checks mmap region
+bounds after access, causing it to segfault. Fix it to check
+count before accessing header->tp_status. This problem can be
+reproduced consistently when the test in run as follows:
 
->The networking core does it for the driver during registration time.
->
->Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
->---
->
->changes from v0:
-> - set alignment to be per the request of Matthew Vick
+    make -C tools/testing/selftests TARGETS=net run_tests
+    or
+    make run_tests from tools/testing/selftests
+    or
+    make run_test from tools/testing/selftests/net
 
-Thanks Or! I'll add my ACK as this passes through Jeff's queue.
+Signed-off-by: Shuah Khan <shuahkh@osg.samsung.com>
+---
+ tools/testing/selftests/net/psock_fanout.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/tools/testing/selftests/net/psock_fanout.c b/tools/testing/selftests/net/psock_fanout.c
+index 57b9c2b..6f67333 100644
+--- a/tools/testing/selftests/net/psock_fanout.c
++++ b/tools/testing/selftests/net/psock_fanout.c
+@@ -128,7 +128,7 @@ static int sock_fanout_read_ring(int fd, void *ring)
+ 	struct tpacket2_hdr *header = ring;
+ 	int count = 0;
+ 
+-	while (header->tp_status & TP_STATUS_USER && count < RING_NUM_FRAMES) {
++	while (count < RING_NUM_FRAMES && header->tp_status & TP_STATUS_USER) {
+ 		count++;
+ 		header = ring + (count * getpagesize());
+ 	}
+-- 
+1.9.1
