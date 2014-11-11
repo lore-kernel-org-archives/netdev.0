@@ -1,103 +1,109 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 4/5] net: phy: bcm7xxx: add PHY revision D0 workaround sequence
-Date: Tue, 11 Nov 2014 14:55:13 -0800
-Message-ID: <1415746514-11189-5-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net-next 2/5] net: phy: bcm7xxx: drop A0 revision workaround and fix B0 workaround
+Date: Tue, 11 Nov 2014 14:55:11 -0800
+Message-ID: <1415746514-11189-3-git-send-email-f.fainelli@gmail.com>
 References: <1415746514-11189-1-git-send-email-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:57318 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752376AbaKKWzZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2014 17:55:25 -0500
-Received: by mail-pa0-f51.google.com with SMTP id kq14so11611224pab.10
-        for <netdev@vger.kernel.org>; Tue, 11 Nov 2014 14:55:24 -0800 (PST)
+Received: from mail-pd0-f169.google.com ([209.85.192.169]:53512 "EHLO
+	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752354AbaKKWzW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2014 17:55:22 -0500
+Received: by mail-pd0-f169.google.com with SMTP id y10so10931573pdj.28
+        for <netdev@vger.kernel.org>; Tue, 11 Nov 2014 14:55:22 -0800 (PST)
 In-Reply-To: <1415746514-11189-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PHY revision D0 requires a specific workaround sequence which needs to
-be applied to get the HW to behave properly in all corner cases
-conditions. Do this based on the revision we just read out of the HW
-using a specific function.
+bcm7445_config_init() was working around non-production version of the
+PHY HW block, so just remove it entirely.
+
+bcm7xxx_28nm_afe_config_init() was running for all PHY revisions greater
+than B0, but this workaround sequence is really specific to the B0 PHY
+revision, so rename the function accordingly and update the GPHY macro
+to use the generic config_init callback.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/phy/bcm7xxx.c | 46 ++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 46 insertions(+)
+ drivers/net/phy/bcm7xxx.c | 41 +++--------------------------------------
+ 1 file changed, 3 insertions(+), 38 deletions(-)
 
 diff --git a/drivers/net/phy/bcm7xxx.c b/drivers/net/phy/bcm7xxx.c
-index 82824dde7f5f..0ce527744513 100644
+index 25b07a4d31f8..417e16c618fa 100644
 --- a/drivers/net/phy/bcm7xxx.c
 +++ b/drivers/net/phy/bcm7xxx.c
-@@ -39,8 +39,11 @@
- 
- #define AFE_RXCONFIG_0			MISC_ADDR(0x38, 0)
- #define AFE_RXCONFIG_1			MISC_ADDR(0x38, 1)
-+#define AFE_RXCONFIG_2			MISC_ADDR(0x38, 2)
- #define AFE_RX_LP_COUNTER		MISC_ADDR(0x38, 3)
- #define AFE_TX_CONFIG			MISC_ADDR(0x39, 0)
-+#define AFE_VDCA_ICTRL_0		MISC_ADDR(0x39, 1)
-+#define AFE_VDAC_OTHERS_0		MISC_ADDR(0x39, 3)
- #define AFE_HPF_TRIM_OTHERS		MISC_ADDR(0x3a, 0)
+@@ -45,39 +45,6 @@
  
  #define CORE_EXPB0			0xb0
-@@ -119,6 +122,46 @@ static int bcm7xxx_28nm_b0_afe_config_init(struct phy_device *phydev)
- 	return 0;
+ 
+-static int bcm7445_config_init(struct phy_device *phydev)
+-{
+-	int ret;
+-	const struct bcm7445_regs {
+-		int reg;
+-		u16 value;
+-	} bcm7445_regs_cfg[] = {
+-		/* increases ADC latency by 24ns */
+-		{ MII_BCM54XX_EXP_SEL, 0x0038 },
+-		{ MII_BCM54XX_EXP_DATA, 0xAB95 },
+-		/* increases internal 1V LDO voltage by 5% */
+-		{ MII_BCM54XX_EXP_SEL, 0x2038 },
+-		{ MII_BCM54XX_EXP_DATA, 0xBB22 },
+-		/* reduce RX low pass filter corner frequency */
+-		{ MII_BCM54XX_EXP_SEL, 0x6038 },
+-		{ MII_BCM54XX_EXP_DATA, 0xFFC5 },
+-		/* reduce RX high pass filter corner frequency */
+-		{ MII_BCM54XX_EXP_SEL, 0x003a },
+-		{ MII_BCM54XX_EXP_DATA, 0x2002 },
+-	};
+-	unsigned int i;
+-
+-	for (i = 0; i < ARRAY_SIZE(bcm7445_regs_cfg); i++) {
+-		ret = phy_write(phydev,
+-				bcm7445_regs_cfg[i].reg,
+-				bcm7445_regs_cfg[i].value);
+-		if (ret)
+-			return ret;
+-	}
+-
+-	return 0;
+-}
+-
+ static void phy_write_exp(struct phy_device *phydev,
+ 					u16 reg, u16 value)
+ {
+@@ -102,7 +69,7 @@ static void phy_write_misc(struct phy_device *phydev,
+ 	phy_write(phydev, MII_BCM54XX_EXP_DATA, value);
  }
  
-+static int bcm7xxx_28nm_d0_afe_config_init(struct phy_device *phydev)
-+{
-+	/* AFE_RXCONFIG_0 */
-+	phy_write_misc(phydev, AFE_RXCONFIG_0, 0xeb15);
-+
-+	/* AFE_RXCONFIG_1 */
-+	phy_write_misc(phydev, AFE_RXCONFIG_1, 0x9b2f);
-+
-+	/* AFE_RXCONFIG_2, set rCal offset for HT=0 code and LT=-2 code */
-+	phy_write_misc(phydev, AFE_RXCONFIG_2, 0x2003);
-+
-+	/* AFE_RX_LP_COUNTER, set RX bandwidth to maximum */
-+	phy_write_misc(phydev, AFE_RX_LP_COUNTER, 0x7fc0);
-+
-+	/* AFE_TX_CONFIG, set 1000BT Cfeed=110 for all ports */
-+	phy_write_misc(phydev, AFE_TX_CONFIG, 0x0061);
-+
-+	/* AFE_VDCA_ICTRL_0, set Iq=1101 instead of 0111 for AB symmetry */
-+	phy_write_misc(phydev, AFE_VDCA_ICTRL_0, 0xa7da);
-+
-+	/* AFE_VDAC_OTHERS_0, set 1000BT Cidac=010 for all ports */
-+	phy_write_misc(phydev, AFE_VDAC_OTHERS_0, 0xa020);
-+
-+	/* AFE_HPF_TRIM_OTHERS, set 100Tx/10BT to -4.5% swing and set rCal
-+	 * offset for HT=0 code
-+	 */
-+	phy_write_misc(phydev, AFE_HPF_TRIM_OTHERS, 0x00e3);
-+
-+	/* CORE_BASE1E, force trim to overwrite and set I_ext trim to 0000 */
-+	phy_write(phydev, MII_BCM7XXX_CORE_BASE1E, 0x0010);
-+
-+	/* DSP_TAP10, adjust bias current trim (+0% swing, +0 tick) */
-+	phy_write_misc(phydev, DSP_TAP10, 0x011b);
-+
-+	/* Reset R_CAL/RC_CAL engine */
-+	r_rc_cal_reset(phydev);
-+
-+	return 0;
-+}
-+
- static int bcm7xxx_apd_enable(struct phy_device *phydev)
+-static int bcm7xxx_28nm_afe_config_init(struct phy_device *phydev)
++static int bcm7xxx_28nm_b0_afe_config_init(struct phy_device *phydev)
  {
- 	int val;
-@@ -179,6 +222,9 @@ static int bcm7xxx_28nm_config_init(struct phy_device *phydev)
+ 	/* Increase VCO range to prevent unlocking problem of PLL at low
+ 	 * temp
+@@ -204,12 +171,10 @@ static int bcm7xxx_28nm_config_init(struct phy_device *phydev)
+ 		     dev_name(&phydev->dev), phydev->drv->name, rev, patch);
+ 
+ 	switch (rev) {
+-	case 0xa0:
  	case 0xb0:
- 		ret = bcm7xxx_28nm_b0_afe_config_init(phydev);
+-		ret = bcm7445_config_init(phydev);
++		ret = bcm7xxx_28nm_b0_afe_config_init(phydev);
  		break;
-+	case 0xd0:
-+		ret = bcm7xxx_28nm_d0_afe_config_init(phydev);
-+		break;
  	default:
+-		ret = bcm7xxx_28nm_afe_config_init(phydev);
  		break;
  	}
+ 
+@@ -337,7 +302,7 @@ static int bcm7xxx_dummy_config_init(struct phy_device *phydev)
+ 	.features	= PHY_GBIT_FEATURES |				\
+ 			  SUPPORTED_Pause | SUPPORTED_Asym_Pause,	\
+ 	.flags		= PHY_IS_INTERNAL,				\
+-	.config_init	= bcm7xxx_28nm_afe_config_init,			\
++	.config_init	= bcm7xxx_28nm_config_init,			\
+ 	.config_aneg	= genphy_config_aneg,				\
+ 	.read_status	= genphy_read_status,				\
+ 	.resume		= bcm7xxx_28nm_resume,				\
 -- 
 1.9.1
