@@ -1,36 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] irda: Simplify IRDA logging macros
-Date: Tue, 11 Nov 2014 16:22:57 -0500 (EST)
-Message-ID: <20141111.162257.701721486580745428.davem@davemloft.net>
-References: <1415740421.16070.11.camel@perches.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH v2] usbnet: smsc95xx: dereferencing NULL pointer
+Date: Tue, 11 Nov 2014 16:25:00 -0500 (EST)
+Message-ID: <20141111.162500.469910623806405034.davem@davemloft.net>
+References: <1415695247-30442-1-git-send-email-sudipm.mukherjee@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: samuel@sortiz.org, netdev@vger.kernel.org
-To: joe@perches.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33771 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751412AbaKKVXA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2014 16:23:00 -0500
-In-Reply-To: <1415740421.16070.11.camel@perches.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: steve.glendinning-nksJyM/082jR7s880joybQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: sudipm.mukherjee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1415695247-30442-1-git-send-email-sudipm.mukherjee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Joe Perches <joe@perches.com>
-Date: Tue, 11 Nov 2014 13:13:41 -0800
+From: Sudip Mukherjee <sudipm.mukherjee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Tue, 11 Nov 2014 14:10:47 +0530
 
-> These are the same as net_<level>_ratelimited, so
-> use the more common style in the macro definition.
+> we were dereferencing dev to initialize pdata. but just after that we
+> have a BUG_ON(!dev). so we were basically dereferencing the pointer
+> first and then tesing it for NULL.
 > 
-> Signed-off-by: Joe Perches <joe@perches.com>
+> Signed-off-by: Sudip Mukherjee <sudip-ofJRbWXBVFamYgehrs7/Lw@public.gmane.org>
+> ---
+> 
+> change in v2: suspend_flags is initialised after pdata is initialised.
+> v1 had a very silly but serious mistake of making pdata NULL, and trying
+> to dereference it.
+> sorry again for that.
 
-Applied, thanks Joe.
-
-> I wonder if the IRDA_ macro uses should be converted
-> directly instead but that diffstat is quite a bit
-> longer than this one
-
-You can do that as a follow-on patch if you want.  Macros
-that just provide another name for a well understood generic
-facility are really something to get rid of.
+This looks better, applied, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
