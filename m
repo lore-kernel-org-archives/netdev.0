@@ -1,7 +1,7 @@
 From: Shuah Khan <shuahkh@osg.samsung.com>
-Subject: [PATCH v2 09/19] selftests/kcmp: add install target to enable installing test
-Date: Tue, 11 Nov 2014 13:27:49 -0700
-Message-ID: <5f77ee88e61e41399beb12cc52862bedbe934f92.1415735831.git.shuahkh@osg.samsung.com>
+Subject: [PATCH v2 18/19] selftests/vm: add install target to enable installing test
+Date: Tue, 11 Nov 2014 13:27:58 -0700
+Message-ID: <86ae024c4591a8775f82975b69182fdc29f234d2.1415735831.git.shuahkh@osg.samsung.com>
 References: <cover.1415735831.git.shuahkh@osg.samsung.com>
 Cc: Shuah Khan <shuahkh@osg.samsung.com>, linux-kbuild@vger.kernel.org,
 	linux-kernel@vger.kernel.org, linux-api@vger.kernel.org,
@@ -11,12 +11,16 @@ To: gregkh@linuxfoundation.org, akpm@linux-foundation.org,
 	tranmanphong@gmail.com, dh.herrmann@gmail.com, hughd@google.com,
 	bobby.prani@gmail.com, ebiederm@xmission.com,
 	serge.hallyn@ubuntu.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailout.easymail.ca ([64.68.201.169]:48150 "EHLO
+	mailout.easymail.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752017AbaKKU2a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2014 15:28:30 -0500
 In-Reply-To: <cover.1415735831.git.shuahkh@osg.samsung.com>
 In-Reply-To: <cover.1415735831.git.shuahkh@osg.samsung.com>
 References: <cover.1415735831.git.shuahkh@osg.samsung.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Add a new make target to enable installing test. This target
 installs test in the kselftest install location and add to the
@@ -25,49 +29,39 @@ only from top level source dir.
 
 Signed-off-by: Shuah Khan <shuahkh@osg.samsung.com>
 ---
- tools/testing/selftests/kcmp/Makefile | 22 +++++++++++++++++++++-
- 1 file changed, 21 insertions(+), 1 deletion(-)
+ tools/testing/selftests/vm/Makefile | 14 +++++++++++++-
+ 1 file changed, 13 insertions(+), 1 deletion(-)
 
-diff --git a/tools/testing/selftests/kcmp/Makefile b/tools/testing/selftests/kcmp/Makefile
-index 8aabd82..753890f 100644
---- a/tools/testing/selftests/kcmp/Makefile
-+++ b/tools/testing/selftests/kcmp/Makefile
-@@ -14,6 +14,8 @@ CFLAGS += -I../../../../include/
- CFLAGS += -I../../../../usr/include/
- CFLAGS += -I../../../../arch/x86/include/
+diff --git a/tools/testing/selftests/vm/Makefile b/tools/testing/selftests/vm/Makefile
+index 4c4b1f6..7fbe551 100644
+--- a/tools/testing/selftests/vm/Makefile
++++ b/tools/testing/selftests/vm/Makefile
+@@ -4,13 +4,25 @@ CC = $(CROSS_COMPILE)gcc
+ CFLAGS = -Wall
+ BINARIES = hugepage-mmap hugepage-shm map_hugetlb thuge-gen hugetlbfstest
+ BINARIES += transhuge-stress
++TEST_STR = /bin/sh ./run_vmtests || echo vmtests: [FAIL]
  
-+TEST_STR = ./kcmp_test || echo kcmp_test: [FAIL]
-+
- all:
- ifeq ($(ARCH),x86)
- 	gcc $(CFLAGS) kcmp_test.c -o kcmp_test
-@@ -21,8 +23,26 @@ else
- 	echo "Not an x86 target, can't build kcmp selftest"
- endif
+ all: $(BINARIES)
+ %: %.c
+ 	$(CC) $(CFLAGS) -o $@ $^
  
 +install:
 +ifdef INSTALL_KSFT_PATH
-+ifeq ($(ARCH),x86)
-+	install ./kcmp_test $(INSTALL_KSFT_PATH)
-+	@echo echo Start kcmp test .... >> $(KSELFTEST)
++	install run_vmtests $(BINARIES) $(INSTALL_KSFT_PATH)
++	@echo echo Start vm test .... >> $(KSELFTEST)
 +	@echo "$(TEST_STR)" >> $(KSELFTEST)
-+	@echo rm -f kcmp-test-file >> $(KSELFTEST)
-+	@echo echo End kcmp test .... >> $(KSELFTEST)
++	@echo echo End vm test .... >> $(KSELFTEST)
 +	@echo echo ============================== >> $(KSELFTEST)
-+else
-+	@echo Not an x86 target, unable install kcmp selftests
-+endif
 +else
 +	@echo Run make kselftest_install in top level source directory
 +endif
 +
  run_tests: all
--	@./kcmp_test || echo "kcmp_test: [FAIL]"
-+ifeq ($(ARCH),x86)
+-	@/bin/sh ./run_vmtests || (echo "vmtests: [FAIL]"; exit 1)
 +	@$(TEST_STR)
-+endif
  
  clean:
- 	$(RM) kcmp_test kcmp-test-file
+ 	$(RM) $(BINARIES)
 -- 
 1.9.1
