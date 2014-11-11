@@ -1,7 +1,7 @@
 From: Shuah Khan <shuahkh@osg.samsung.com>
-Subject: [PATCH v2 06/19] selftests/efivarfs: add install target to enable installing test
-Date: Tue, 11 Nov 2014 13:27:46 -0700
-Message-ID: <f37035baef13b3a585170e06c26073892897eef8.1415735831.git.shuahkh@osg.samsung.com>
+Subject: [PATCH v2 17/19] selftests/timers: add install target to enable installing test
+Date: Tue, 11 Nov 2014 13:27:57 -0700
+Message-ID: <a3dc7d2d654474fe8e0aa731f15948dfa88bca51.1415735831.git.shuahkh@osg.samsung.com>
 References: <cover.1415735831.git.shuahkh@osg.samsung.com>
 Cc: Shuah Khan <shuahkh@osg.samsung.com>, linux-kbuild@vger.kernel.org,
 	linux-kernel@vger.kernel.org, linux-api@vger.kernel.org,
@@ -25,40 +25,35 @@ only from top level source dir.
 
 Signed-off-by: Shuah Khan <shuahkh@osg.samsung.com>
 ---
- tools/testing/selftests/efivarfs/Makefile | 19 +++++++++++++++++--
- 1 file changed, 17 insertions(+), 2 deletions(-)
+ tools/testing/selftests/timers/Makefile | 15 ++++++++++++++-
+ 1 file changed, 14 insertions(+), 1 deletion(-)
 
-diff --git a/tools/testing/selftests/efivarfs/Makefile b/tools/testing/selftests/efivarfs/Makefile
-index 29e8c6b..d34c4c2 100644
---- a/tools/testing/selftests/efivarfs/Makefile
-+++ b/tools/testing/selftests/efivarfs/Makefile
-@@ -3,10 +3,25 @@ CFLAGS = -Wall
- 
- test_objs = open-unlink create-read
- 
--all: $(test_objs)
-+TEST_STR = /bin/bash ./efivarfs.sh || echo efivarfs selftests: [FAIL]
+diff --git a/tools/testing/selftests/timers/Makefile b/tools/testing/selftests/timers/Makefile
+index eb2859f..0c3c67b 100644
+--- a/tools/testing/selftests/timers/Makefile
++++ b/tools/testing/selftests/timers/Makefile
+@@ -1,8 +1,21 @@
++TEST_STR = ./posix_timers
 +
-+all:
-+	gcc open-unlink.c -o open-unlink
-+	gcc create-read.c -o create-read
-+
+ all:
+ 	gcc posix_timers.c -o posix_timers -lrt
+ 
 +install:
 +ifdef INSTALL_KSFT_PATH
-+	install ./efivarfs.sh $(test_objs) $(INSTALL_KSFT_PATH)
-+	@echo echo Start efivarfs test .... >> $(KSELFTEST)
++	install ./posix_timers $(INSTALL_KSFT_PATH)
++	@echo echo Start timers test .... >> $(KSELFTEST)
 +	@echo "$(TEST_STR)" >> $(KSELFTEST)
-+	@echo echo End efivarfs test .... >> $(KSELFTEST)
++	@echo echo End timers test .... >> $(KSELFTEST)
 +	@echo echo ============================== >> $(KSELFTEST)
 +else
 +	@echo Run make kselftest_install in top level source directory
 +endif
- 
++
  run_tests: all
--	@/bin/bash ./efivarfs.sh || echo "efivarfs selftests: [FAIL]"
+-	./posix_timers
 +	@$(TEST_STR)
  
  clean:
- 	rm -f $(test_objs)
+ 	rm -f ./posix_timers
 -- 
 1.9.1
