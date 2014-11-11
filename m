@@ -1,153 +1,107 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH v4 10/25] virtio: add API to enable VQs early
-Date: Tue, 11 Nov 2014 08:15:29 +0200
-Message-ID: <20141111061529.GA17897@redhat.com>
-References: <1413114332-626-1-git-send-email-mst-v4@redhat.com>
-	<1413114332-626-11-git-send-email-mst-v4@redhat.com>
-	<54615C15.6060400@redhat.com>
+From: "Gautam (Gautam Kumar) Shukla" <gautams@broadcom.com>
+Subject: [PATCH 2/2] linux-wireless:Added wiphy capability flag for
+ offloading 4way handshake to driver
+Date: Tue, 11 Nov 2014 06:27:03 +0000
+Message-ID: <DF163EE1A432BF4BBE6B2088220663A6743890@SJEXCHMB06.corp.ad.broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linux-s390@vger.kernel.org, kvm@vger.kernel.org, linux-scsi@vger.kernel.org,
-	Christian Borntraeger <borntraeger@de.ibm.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	Paolo Bonzini <pbonzini@redhat.com>, Amit Shah <amit.shah@redhat.com>,
-	v9fs-developer@lists.sourceforge.net,
-	"David S. Miller" <davem@davemloft.net>
-To: Andy Grover <agrover@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <54615C15.6060400@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"johannes@sipsolutions.net" <johannes@sipsolutions.net>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"linux-api@vger.kernel.org" <linux-api@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Jithu Jance <jithu@broadcom.com>,
+	Sreenath S <sreenats@broadcom.com>
+To: "linville@tuxdriver.com" <linville@tuxdriver.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 10, 2014 at 04:45:09PM -0800, Andy Grover wrote:
-> On 10/13/2014 12:50 AM, Michael S. Tsirkin wrote:
-> >virtio spec 0.9.X requires DRIVER_OK to be set before
-> >VQs are used, but some drivers use VQs before probe
-> >function returns.
-> >Since DRIVER_OK is set after probe, this violates the spec.
-> >
-> >Even though under virtio 1.0 transitional devices support this
-> >behaviour, we want to make it possible for those early callers to become
-> >spec compliant and eventually support non-transitional devices.
-> >
-> >Add API for drivers to call before using VQs.
-> >
-> >Sets DRIVER_OK internally.
-> >
-> >Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> >Reviewed-by: Cornelia Huck <cornelia.huck@de.ibm.com>
-> >---
-> >  include/linux/virtio_config.h | 17 +++++++++++++++++
-> >  1 file changed, 17 insertions(+)
-> >
-> >diff --git a/include/linux/virtio_config.h b/include/linux/virtio_config.h
-> >index e8f8f71..e36403b 100644
-> >--- a/include/linux/virtio_config.h
-> >+++ b/include/linux/virtio_config.h
-> >@@ -109,6 +109,23 @@ struct virtqueue *virtio_find_single_vq(struct virtio_device *vdev,
-> >  	return vq;
-> >  }
-> >
-> >+/**
-> >+ * virtio_device_ready - enable vq use in probe function
-> >+ * @vdev: the device
-> >+ *
-> >+ * Driver must call this to use vqs in the probe function.
-> >+ *
-> >+ * Note: vqs are enabled automatically after probe returns.
-> >+ */
-> >+static inline
-> >+void virtio_device_ready(struct virtio_device *dev)
-> >+{
-> >+	unsigned status = dev->config->get_status(dev);
-> >+
-> >+	BUG_ON(status & VIRTIO_CONFIG_S_DRIVER_OK);
-> >+	dev->config->set_status(dev, status | VIRTIO_CONFIG_S_DRIVER_OK);
-> >+}
-> 
-> Getting a BUG when booting via KVM, host Fedora 20, guest Fedora 20.
-> 
-> my config is at:
-> 
-> https://fedorapeople.org/~grover/config-20141110
-> 
 
-The fix is here:
-http://article.gmane.org/gmane.linux.kernel.virtualization/23324/raw
+For offloading 4 way handshake to driver , currently we don't have WIPHY capability flag to communicate same to supplicant.
+I have added the flag NL80211_ATTR_4WAY_KEY_HANDSHAKE  and rest of the code for the same.
 
-I'm surprised it's not merged yet.
+Tested on x86 linux machine
 
-Rusty, could you pick it up please?
+Signed-off-by: Gautam kumar shukla <gautams@broadcom.com>
+---
+ include/net/cfg80211.h       | 4 ++++
+ include/uapi/linux/nl80211.h | 5 ++++-
+ net/wireless/nl80211.c       | 4 ++++
+ 3 files changed, 12 insertions(+), 1 deletion(-)
 
-
-> 
-> [    0.828494] ------------[ cut here ]------------
-> [    0.829039] kernel BUG at
-> /home/agrover/git/kernel/include/linux/virtio_config.h:125!
-> [    0.831266] invalid opcode: 0000 [#1] SMP DEBUG_PAGEALLOC
-> [    0.831266] Modules linked in:
-> [    0.831266] CPU: 1 PID: 30 Comm: kworker/1:1 Not tainted 3.18.0-rc4 #120
-> [    0.831266] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
-> [    0.831266] Workqueue: events control_work_handler
-> [    0.831266] task: ffff88003cd98000 ti: ffff88003cd94000 task.ti:
-> ffff88003cd94000
-> [    0.831266] RIP: 0010:[<ffffffff81445004>]  [<ffffffff81445004>]
-> add_port+0x264/0x410
-> [    0.831266] RSP: 0000:ffff88003cd97c78  EFLAGS: 00010202
-> [    0.831266] RAX: 0000000000000007 RBX: ffff88003c58c400 RCX:
-> 0000000000000001
-> [    0.831266] RDX: 000000000000c132 RSI: ffffffff81a955e9 RDI:
-> 000000000001c132
-> [    0.831266] RBP: ffff88003cd97cc8 R08: 0000000000000000 R09:
-> 0000000000000000
-> [    0.831266] R10: 0000000000000001 R11: 0000000000000000 R12:
-> ffff88003c58be00
-> [    0.831266] R13: 0000000000000001 R14: ffff8800395ca800 R15:
-> ffff88003c58c420
-> [    0.831266] FS:  0000000000000000(0000) GS:ffff88003fa00000(0000)
-> knlGS:0000000000000000
-> [    0.831266] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-> [    0.831266] CR2: 0000000000000000 CR3: 0000000001c11000 CR4:
-> 00000000000006e0
-> [    0.831266] DR0: 0000000000000000 DR1: 0000000000000000 DR2:
-> 0000000000000000
-> [    0.831266] DR3: 0000000000000000 DR6: 00000000fffe0ff0 DR7:
-> 0000000000000400
-> [    0.831266] Stack:
-> [    0.831266]  ffff880000000001 0000000000000292 0000000000000000
-> 0000000000000001
-> [    0.831266]  ffff88003cd97cc8 ffff88003dfa8a20 ffff88003c58beb8
-> ffff88003c58be10
-> [    0.831266]  ffff8800395a2000 0000000000000000 ffff88003cd97d38
-> ffffffff8144531a
-> [    0.831266] Call Trace:
-> [    0.831266]  [<ffffffff8144531a>] control_work_handler+0x16a/0x3c0
-> [    0.831266]  [<ffffffff8108b0c8>] ? process_one_work+0x208/0x500
-> [    0.831266]  [<ffffffff8108b16c>] process_one_work+0x2ac/0x500
-> [    0.831266]  [<ffffffff8108b0c8>] ? process_one_work+0x208/0x500
-> [    0.831266]  [<ffffffff8108b68e>] worker_thread+0x2ce/0x4e0
-> [    0.831266]  [<ffffffff8108b3c0>] ? process_one_work+0x500/0x500
-> [    0.831266]  [<ffffffff81090b28>] kthread+0xf8/0x100
-> [    0.831266]  [<ffffffff810bad7d>] ? trace_hardirqs_on+0xd/0x10
-> [    0.831266]  [<ffffffff81090a30>] ? kthread_stop+0x140/0x140
-> [    0.831266]  [<ffffffff816ea92c>] ret_from_fork+0x7c/0xb0
-> [    0.831266]  [<ffffffff81090a30>] ? kthread_stop+0x140/0x140
-> [    0.831266] Code: c7 c2 48 31 01 83 48 c7 c6 e9 55 a9 81 e8 55 b4 c6 ff
-> 4d 8b b4 24 58 01 00 00 49 8b 86 e8 04 00 00 4c 89 f7 ff 50 10 a8 04 74 0c
-> <0f> 0b 66 2e 0f 1f 84 00 00 00 00 00 49 8b 96 e8 04 00 00 83 c8
-> [    0.831266] RIP  [<ffffffff81445004>] add_port+0x264/0x410
-> [    0.831266]  RSP <ffff88003cd97c78>
-> [    0.878202] ---[ end trace f98fbb172cc7bbf4 ]---
-> 
-> Thanks -- Andy
+diff --git a/include/net/cfg80211.h b/include/net/cfg80211.h
+index 6f744e0..b37de0a 100644
+--- a/include/net/cfg80211.h
++++ b/include/net/cfg80211.h
+@@ -2629,7 +2629,10 @@ struct cfg80211_ops {
+  *	TSPEC sessions (TID aka TSID 0-7) with the NL80211_CMD_ADD_TX_TS
+  *	command. Standard IEEE 802.11 TSPEC setup is not yet supported, it
+  *	needs to be able to handle Block-Ack agreements and other things.
++ *	@WIPHY_FLAG_SUPPORTS_4WAY_HANDHSHAKE:the device supports 4way handshake
++ *	in the driver/firmware.
+  */
++
+ enum wiphy_flags {
+ 	WIPHY_FLAG_SUPPORTS_WMM_ADMISSION	= BIT(0),
+ 	/* use hole at 1 */
+@@ -2654,6 +2657,7 @@ enum wiphy_flags {
+ 	WIPHY_FLAG_HAS_REMAIN_ON_CHANNEL	= BIT(21),
+ 	WIPHY_FLAG_SUPPORTS_5_10_MHZ		= BIT(22),
+ 	WIPHY_FLAG_HAS_CHANNEL_SWITCH		= BIT(23),
++	WIPHY_FLAG_SUPPORTS_4WAY_HANDSHAKE	= BIT(24),
+ };
+ 
+ /**
+diff --git a/include/uapi/linux/nl80211.h b/include/uapi/linux/nl80211.h
+index b01d5dd..2c474a3 100644
+--- a/include/uapi/linux/nl80211.h
++++ b/include/uapi/linux/nl80211.h
+@@ -1640,9 +1640,11 @@ enum nl80211_commands {
+  *
+  *	@NL80211_ATTR_PSK: a PSK value (u8 attribute).This is 32-octet (256-bit)
+  *	PSK.
++ * @NL80211_ATTR_4WAY_KEY_HANDSHAKE: Indicates whether the driver is capable
++ * of 4way key handshake
+  *
+  *
+- * @NL80211_ATTR_MAX: highest attribute number currently defined
++ * * @NL80211_ATTR_MAX: highest attribute number currently defined
+  * @__NL80211_ATTR_AFTER_LAST: internal use
+  */
+ enum nl80211_attrs {
+@@ -1995,6 +1997,7 @@ enum nl80211_attrs {
+ 	NL80211_ATTR_SMPS_MODE,
+ 
+ 	NL80211_ATTR_PSK,
++	NL80211_ATTR_4WAY_KEY_HANDSHAKE,
+ 
+ 	/* add attributes here, update the policy in nl80211.c */
+ 
+diff --git a/net/wireless/nl80211.c b/net/wireless/nl80211.c
+index 91c24b1..5f85c41 100644
+--- a/net/wireless/nl80211.c
++++ b/net/wireless/nl80211.c
+@@ -396,6 +396,7 @@ static const struct nla_policy nl80211_policy[NL80211_ATTR_MAX+1] = {
+ 	[NL80211_ATTR_ADMITTED_TIME] = { .type = NLA_U16 },
+ 	[NL80211_ATTR_SMPS_MODE] = { .type = NLA_U8 },
+ 	[NL80211_ATTR_PSK] = { .type = NLA_BINARY, .len = 32 },
++	[NL80211_ATTR_4WAY_KEY_HANDSHAKE] = { .type = NLA_FLAG },
+ };
+ 
+ /* policy for the key attributes */
+@@ -1303,6 +1304,9 @@ static int nl80211_send_wiphy(struct cfg80211_registered_device *rdev,
+ 		if ((rdev->wiphy.flags & WIPHY_FLAG_SUPPORTS_FW_ROAM) &&
+ 		    nla_put_flag(msg, NL80211_ATTR_ROAM_SUPPORT))
+ 			goto nla_put_failure;
++		if ((rdev->wiphy.flags & WIPHY_FLAG_SUPPORTS_4WAY_HANDSHAKE) &&
++			nla_put_flag(msg,NL80211_ATTR_4WAY_KEY_HANDSHAKE))
++			goto nla_put_failure;
+ 		if ((rdev->wiphy.flags & WIPHY_FLAG_SUPPORTS_TDLS) &&
+ 		    nla_put_flag(msg, NL80211_ATTR_TDLS_SUPPORT))
+ 			goto nla_put_failure;
+-- 
+1.9.1
