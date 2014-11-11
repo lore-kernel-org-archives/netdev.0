@@ -1,7 +1,7 @@
 From: Johan Hovold <johan@kernel.org>
-Subject: [PATCH 9/9] net: phy: micrel: enable led-mode for KSZ8081/KSZ8091
-Date: Tue, 11 Nov 2014 20:00:15 +0100
-Message-ID: <1415732415-10363-10-git-send-email-johan@kernel.org>
+Subject: [PATCH 8/9] net: phy: micrel: clean up led-mode setup
+Date: Tue, 11 Nov 2014 20:00:14 +0100
+Message-ID: <1415732415-10363-9-git-send-email-johan@kernel.org>
 References: <1415732415-10363-1-git-send-email-johan@kernel.org>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
@@ -12,38 +12,93 @@ In-Reply-To: <1415732415-10363-1-git-send-email-johan@kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Enable led-mode configuration for KSZ8081 and KSZ8091.
+Clean up led-mode setup by introducing proper defines for PHY Control
+registers 1 and 2 and only passing the register to the setup function.
 
 Signed-off-by: Johan Hovold <johan@kernel.org>
 ---
- Documentation/devicetree/bindings/net/micrel.txt | 2 ++
- drivers/net/phy/micrel.c                         | 1 +
- 2 files changed, 3 insertions(+)
+ drivers/net/phy/micrel.c | 31 ++++++++++++++++++++++---------
+ 1 file changed, 22 insertions(+), 9 deletions(-)
 
-diff --git a/Documentation/devicetree/bindings/net/micrel.txt b/Documentation/devicetree/bindings/net/micrel.txt
-index e1d99b95c4ec..30062fae5623 100644
---- a/Documentation/devicetree/bindings/net/micrel.txt
-+++ b/Documentation/devicetree/bindings/net/micrel.txt
-@@ -14,6 +14,8 @@ Optional properties:
- 	      KSZ8021: register 0x1f, bits 5..4
- 	      KSZ8031: register 0x1f, bits 5..4
- 	      KSZ8051: register 0x1f, bits 5..4
-+	      KSZ8081: register 0x1f, bits 5..4
-+	      KSZ8091: register 0x1f, bits 5..4
- 
-               See the respective PHY datasheet for the mode values.
- 
 diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
-index 12e18f7273ce..30e894d6ffbd 100644
+index ec9ce35e934b..12e18f7273ce 100644
 --- a/drivers/net/phy/micrel.c
 +++ b/drivers/net/phy/micrel.c
-@@ -265,6 +265,7 @@ static int ks8051_config_init(struct phy_device *phydev)
- static int ksz8081_config_init(struct phy_device *phydev)
+@@ -47,8 +47,12 @@
+ #define	KSZPHY_INTCS_ALL			(KSZPHY_INTCS_LINK_UP |\
+ 						KSZPHY_INTCS_LINK_DOWN)
+ 
+-/* general PHY control reg in vendor specific block. */
+-#define	MII_KSZPHY_CTRL			0x1F
++/* PHY Control 1 */
++#define	MII_KSZPHY_CTRL_1			0x1e
++
++/* PHY Control 2 / PHY Control (if no PHY Control 1) */
++#define	MII_KSZPHY_CTRL_2			0x1f
++#define	MII_KSZPHY_CTRL				MII_KSZPHY_CTRL_2
+ /* bitmap of PHY register to set interrupt mode */
+ #define KSZPHY_CTRL_INT_ACTIVE_HIGH		BIT(9)
+ #define KSZ9021_CTRL_INT_ACTIVE_HIGH		BIT(14)
+@@ -158,13 +162,12 @@ static int ks8737_config_intr(struct phy_device *phydev)
+ 	return rc < 0 ? rc : 0;
+ }
+ 
+-static int kszphy_setup_led(struct phy_device *phydev,
+-			    unsigned int reg, unsigned int shift)
++static int kszphy_setup_led(struct phy_device *phydev, u32 reg)
  {
- 	kszphy_broadcast_disable(phydev);
+ 
+ 	struct device *dev = &phydev->dev;
+ 	struct device_node *of_node = dev->of_node;
+-	int rc, temp;
++	int rc, temp, shift;
+ 	u32 val;
+ 
+ 	if (!of_node && dev->parent->of_node)
+@@ -178,6 +181,17 @@ static int kszphy_setup_led(struct phy_device *phydev,
+ 		return -EINVAL;
+ 	}
+ 
++	switch (reg) {
++	case MII_KSZPHY_CTRL_1:
++		shift = 14;
++		break;
++	case MII_KSZPHY_CTRL_2:
++		shift = 4;
++		break;
++	default:
++		return -EINVAL;
++	}
++
+ 	temp = phy_read(phydev, reg);
+ 	if (temp < 0) {
+ 		rc = temp;
+@@ -220,15 +234,14 @@ static int kszphy_config_init(struct phy_device *phydev)
+ 
+ static int kszphy_config_init_led8041(struct phy_device *phydev)
+ {
+-	/* single led control, register 0x1e bits 15..14 */
+-	return kszphy_setup_led(phydev, 0x1e, 14);
++	return kszphy_setup_led(phydev, MII_KSZPHY_CTRL_1);
+ }
+ 
+ static int ksz8021_config_init(struct phy_device *phydev)
+ {
+ 	int rc;
+ 
+-	kszphy_setup_led(phydev, 0x1f, 4);
 +	kszphy_setup_led(phydev, MII_KSZPHY_CTRL_2);
  
- 	return 0;
- }
+ 	rc = ksz_config_flags(phydev);
+ 	if (rc < 0)
+@@ -243,7 +256,7 @@ static int ks8051_config_init(struct phy_device *phydev)
+ {
+ 	int rc;
+ 
+-	kszphy_setup_led(phydev, 0x1f, 4);
++	kszphy_setup_led(phydev, MII_KSZPHY_CTRL_2);
+ 
+ 	rc = ksz_config_flags(phydev);
+ 	return rc < 0 ? rc : 0;
 -- 
 2.0.4
