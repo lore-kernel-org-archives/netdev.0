@@ -1,44 +1,50 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH V1 net-next] net/fm10k: Avoid double setting of
- NETIF_F_SG for the HW encapsulation feature mask
-Date: Tue, 11 Nov 2014 00:25:37 -0800
-Message-ID: <1415694337.2466.96.camel@jtkirshe-mobl>
-References: <1415520822-11922-1-git-send-email-ogerlitz@mellanox.com>
+Subject: Re: [net-next PATCH] ixgbe: Remove IXGBE_FLAG_IN_NETPOLL since it
+ doesn't do anything
+Date: Tue, 11 Nov 2014 00:26:38 -0800
+Message-ID: <1415694398.2466.97.camel@jtkirshe-mobl>
+References: <20141110224922.7245.35078.stgit@ahduyck-vm-fedora20>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-v+BpED+GbWyGT8Ss2Rj4"
-Cc: netdev@vger.kernel.org
-To: Or Gerlitz <ogerlitz@mellanox.com>
+	protocol="application/pgp-signature"; boundary="=-/7hdG8rPD/rNPsSs2pwo"
+Cc: netdev@vger.kernel.org, donald.c.skidmore@intel.com,
+	davem@davemloft.net
+To: Alexander Duyck <alexander.h.duyck@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:32618 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:1970 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752847AbaKKI0O (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Nov 2014 03:26:14 -0500
-In-Reply-To: <1415520822-11922-1-git-send-email-ogerlitz@mellanox.com>
+	id S1752734AbaKKIbH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Nov 2014 03:31:07 -0500
+In-Reply-To: <20141110224922.7245.35078.stgit@ahduyck-vm-fedora20>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-v+BpED+GbWyGT8Ss2Rj4
+--=-/7hdG8rPD/rNPsSs2pwo
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Sun, 2014-11-09 at 10:13 +0200, Or Gerlitz wrote:
-> The networking core does it for the driver during registration time.
+On Mon, 2014-11-10 at 14:50 -0800, Alexander Duyck wrote:
+> This patch removes some dead code from the cleanup path for ixgbe.
 >=20
-> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+> Setting and clearing the flag doesn't do anything since all we are
+> doing is
+> setting the flag, scheduling napi, clearing the flag and then letting
+> netpoll do the polling cleanup.  As such it doesn't make much sense to
+> have
+> it there.
+>=20
+> This patch also removes one minor white-space error.
+>=20
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
 > ---
->=20
-> changes from v0:
->  - set alignment to be per the request of Matthew Vick
->=20
->=20
->  drivers/net/ethernet/intel/fm10k/fm10k_netdev.c |   13 ++++++-------
->  1 files changed, 6 insertions(+), 7 deletions(-)
+>  drivers/net/ethernet/intel/ixgbe/ixgbe.h      |    1 -
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   16 ++++------------
+>  2 files changed, 4 insertions(+), 13 deletions(-)
 
-Thanks Or, I have added your patch to my queue.
+Thanks Alex, I have added your patch to my queue.
 
---=-v+BpED+GbWyGT8Ss2Rj4
+--=-/7hdG8rPD/rNPsSs2pwo
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
@@ -46,19 +52,19 @@ Content-Transfer-Encoding: 7bit
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v2
 
-iQIcBAABCgAGBQJUYcgBAAoJEOVv75VaS+3OC98P/0rQ4fvNEzscgLNe4jq74ELt
-k521n0cdRXlOnPi+YHZzVclO72LUtlhPDdQkJ5c6XRp/qX26jHh1WVJHcZPo1Ed2
-EHvahHhb0HwR4t0n4V9NLt3RfokJ4TzWkzDqIySEgztNCMJlLHqd0Brl99Dv8h75
-iMzo8iXS3Wtc05T7cn/hCHln24e07/tD4J5+3O1O5gjN/9Z1zvAFWyOKWJg8Vz2l
-HUJ7wX5HSypI3SbitftAj4aH92nsqvTejpl6GhJc8gsQQy6FogdpI5s48fJzzXjl
-KRaHZLxu8mqNxJAGJMJj++wTQenz2jma0wxGd0lpIRjmhFbnnZYUmLNj+92rsmSB
-xT3Z/hv9F93TagiubfybGOC9sY2ZQAFGz7uPN7YNUd5EoTKf3FIkuN+Lxj6qWGnX
-r8HIJ7kTPxxFbsdjmfVD6wOw/81rwnhTti3tzmlUE+wcYIQw5lJj5pmBewHG+8T/
-0iUmj22RCJd58dSf2bTTaLjvSunWw3gpV83fjFqdkAdpfIVUz7qZNo5yvMlGsjFy
-urAWOqL0kwdlm129ZipOA4hsVjYrwZZp65U5mFG5cy064+d5VF0pqSZNYjf4GkbJ
-TGxQADA89dRZ9yAVIA4RN7BT3QIZmSswbgX+8pUoiXXoHr4A2/Uv5DcClvcpaiRN
-cwqjxEPK1hmdSD39OCG5
-=kLf+
+iQIcBAABCgAGBQJUYcg+AAoJEOVv75VaS+3Om6MQAKB80mgr9tw3BRpl2o7VAxpT
+dPmsryGYpRpBRXPp7KvylSHivABTQ6FjFDiTB4OxdoQrEVYva7a5t7MgNtQysWVo
+wC+cDmOQ3x/oIuh7SD+Vi9FE0CmrwUhMjyfch2v2D33kUitgkHZh0BppqESPaxKi
+CiUpmsUTc1j6Ql7KE72UDnrSsD9n2zfb2LDvGqpvX5cIE2UllZI2fNDUKHV1XWRN
+VTuJitrVx6zTM1SJVozsO6selPsTQbYChJLH99y7IMgdrz3T0lCUHiyCuGk2+h1c
+XYjuMKaqXM6oCv5//BdCKi4DAq2QBtDavJi3UKdS9CDpQ17oI0ZNDxGVPlQ5JQeg
+DGS8Ze1dmFRDCGpeGohDjPjr8ybC75CW2l+iZr6bv+ab6KgYljqp1eWtfdh9BpHR
+N1jYWf7rxkn9L+sxC5hu9SFzYKFVC2iFd9CNqBYA3I6Jfb0VSfA1Wh5P4u4w05y1
+UyGzMYewMtOzpY0J7dkfBOt5Kf1xdNqAJjy1zZI/N8YwCD3PNN1mepPevUB63RgU
+vAc5BNTYj6CGfy8yy5Vtrf6TNr0baxMNQjWTiOhyjNhlx6bX8ID9k/NEt4xG1MMx
+1vx0EK4xXW/vdV+6XDgtqKwXWLN8/GGEh0x03MB0kBrDE2cg7VYN79GnBGdK+if9
+kdjFym26S4z5H39tl+Jp
+=7bcL
 -----END PGP SIGNATURE-----
 
---=-v+BpED+GbWyGT8Ss2Rj4--
+--=-/7hdG8rPD/rNPsSs2pwo--
