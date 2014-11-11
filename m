@@ -1,235 +1,296 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 1/2] net: move vlan pop/push functions into common code
-Date: Tue, 11 Nov 2014 11:13:08 +0100
-Message-ID: <1415700789-9171-1-git-send-email-jiri@resnulli.us>
+Subject: [patch iproute2] tc: add support for vlan tc action
+Date: Tue, 11 Nov 2014 11:16:06 +0100
+Message-ID: <1415700966-9225-1-git-send-email-jiri@resnulli.us>
+References: <reply-to=1415700789-9171-2-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, pshelar@nicira.com,
 	therbert@google.com, edumazet@google.com, willemb@google.com,
 	dborkman@redhat.com, mst@redhat.com, fw@strlen.de,
 	Paul.Durrant@citrix.com, tgraf@suug.ch
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f49.google.com ([74.125.82.49]:51337 "EHLO
-	mail-wg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751653AbaKKKNN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2014 05:13:13 -0500
-Received: by mail-wg0-f49.google.com with SMTP id x13so11043936wgg.22
-        for <netdev@vger.kernel.org>; Tue, 11 Nov 2014 02:13:11 -0800 (PST)
+Received: from mail-wi0-f170.google.com ([209.85.212.170]:62454 "EHLO
+	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752056AbaKKKQJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2014 05:16:09 -0500
+Received: by mail-wi0-f170.google.com with SMTP id r20so1275004wiv.3
+        for <netdev@vger.kernel.org>; Tue, 11 Nov 2014 02:16:08 -0800 (PST)
+In-Reply-To: <reply-to=1415700789-9171-2-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-So it can be used from out of openvswitch code.
-Did couple of cosmetic changes on the way, namely variable naming and
-adding support for 8021AD proto.
-
 Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
- include/linux/skbuff.h    |  2 ++
- net/core/skbuff.c         | 86 +++++++++++++++++++++++++++++++++++++++++++++++
- net/openvswitch/actions.c | 76 ++---------------------------------------
- 3 files changed, 90 insertions(+), 74 deletions(-)
+ include/linux/tc_act/tc_vlan.h |  35 +++++++
+ tc/Makefile                    |   1 +
+ tc/m_vlan.c                    | 205 +++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 241 insertions(+)
+ create mode 100644 include/linux/tc_act/tc_vlan.h
+ create mode 100644 tc/m_vlan.c
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 103fbe8..3b0445c 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -2673,6 +2673,8 @@ void skb_scrub_packet(struct sk_buff *skb, bool xnet);
- unsigned int skb_gso_transport_seglen(const struct sk_buff *skb);
- struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features);
- struct sk_buff *skb_vlan_untag(struct sk_buff *skb);
-+int skb_vlan_pop(struct sk_buff *skb);
-+int skb_vlan_push(struct sk_buff *skb, __be16 vlan_proto, u16 vlan_tci);
- 
- struct skb_checksum_ops {
- 	__wsum (*update)(const void *mem, int len, __wsum wsum);
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 7001896..75e53d4 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -4151,6 +4151,92 @@ err_free:
- }
- EXPORT_SYMBOL(skb_vlan_untag);
- 
-+/* remove VLAN header from packet and update csum accordingly. */
-+static int __skb_vlan_pop(struct sk_buff *skb, u16 *vlan_tci)
+diff --git a/include/linux/tc_act/tc_vlan.h b/include/linux/tc_act/tc_vlan.h
+new file mode 100644
+index 0000000..f7b8d44
+--- /dev/null
++++ b/include/linux/tc_act/tc_vlan.h
+@@ -0,0 +1,35 @@
++/*
++ * Copyright (c) 2014 Jiri Pirko <jiri@resnulli.us>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++#ifndef __LINUX_TC_VLAN_H
++#define __LINUX_TC_VLAN_H
++
++#include <linux/pkt_cls.h>
++
++#define TCA_ACT_VLAN 12
++
++#define TCA_VLAN_ACT_POP	1
++#define TCA_VLAN_ACT_PUSH	2
++
++struct tc_vlan {
++	tc_gen;
++	int v_action;
++};
++
++enum {
++	TCA_VLAN_UNSPEC,
++	TCA_VLAN_TM,
++	TCA_VLAN_PARMS,
++	TCA_VLAN_PUSH_VLAN_ID,
++	TCA_VLAN_PUSH_VLAN_PROTOCOL,
++	__TCA_VLAN_MAX,
++};
++#define TCA_VLAN_MAX (__TCA_VLAN_MAX - 1)
++
++#endif
+diff --git a/tc/Makefile b/tc/Makefile
+index 1ab36c6..830c97d 100644
+--- a/tc/Makefile
++++ b/tc/Makefile
+@@ -40,6 +40,7 @@ TCMODULES += m_pedit.o
+ TCMODULES += m_skbedit.o
+ TCMODULES += m_csum.o
+ TCMODULES += m_simple.o
++TCMODULES += m_vlan.o
+ TCMODULES += p_ip.o
+ TCMODULES += p_icmp.o
+ TCMODULES += p_tcp.o
+diff --git a/tc/m_vlan.c b/tc/m_vlan.c
+new file mode 100644
+index 0000000..54c0ce7
+--- /dev/null
++++ b/tc/m_vlan.c
+@@ -0,0 +1,205 @@
++/*
++ * m_vlan.c		vlan manipulation module
++ *
++ *              This program is free software; you can redistribute it and/or
++ *              modify it under the terms of the GNU General Public License
++ *              as published by the Free Software Foundation; either version
++ *              2 of the License, or (at your option) any later version.
++ *
++ * Authors:     Jiri Pirko <jiri@resnulli.us>
++ */
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <unistd.h>
++#include <string.h>
++#include "utils.h"
++#include "rt_names.h"
++#include "tc_util.h"
++#include <linux/tc_act/tc_vlan.h>
++
++static void explain(void)
 +{
-+	struct vlan_hdr *vhdr;
-+	int err;
-+
-+	if (!pskb_may_pull(skb, VLAN_ETH_HLEN))
-+		return -ENOMEM;
-+
-+	if (!skb_cloned(skb) || skb_clone_writable(skb, VLAN_ETH_HLEN))
-+		return 0;
-+
-+	err = pskb_expand_head(skb, 0, 0, GFP_ATOMIC);
-+	if (unlikely(err))
-+		return err;
-+
-+	if (skb->ip_summed == CHECKSUM_COMPLETE)
-+		skb->csum = csum_sub(skb->csum, csum_partial(skb->data
-+					+ (2 * ETH_ALEN), VLAN_HLEN, 0));
-+
-+	vhdr = (struct vlan_hdr *)(skb->data + ETH_HLEN);
-+	*vlan_tci = ntohs(vhdr->h_vlan_TCI);
-+
-+	memmove(skb->data + VLAN_HLEN, skb->data, 2 * ETH_ALEN);
-+	__skb_pull(skb, VLAN_HLEN);
-+
-+	vlan_set_encap_proto(skb, vhdr);
-+	skb->mac_header += VLAN_HLEN;
-+	if (skb_network_offset(skb) < ETH_HLEN)
-+		skb_set_network_header(skb, ETH_HLEN);
-+	skb_reset_mac_len(skb);
-+
-+	return 0;
++	fprintf(stderr, "Usage: vlan pop\n");
++	fprintf(stderr, "       vlan push [ protocol VLANPROTO ] id VLANID\n");
 +}
 +
-+int skb_vlan_pop(struct sk_buff *skb)
++static void usage(void)
 +{
-+	u16 vlan_tci;
-+	__be16 vlan_proto;
-+	int err;
++	explain();
++	exit(-1);
++}
 +
-+	if (likely(vlan_tx_tag_present(skb))) {
-+		skb->vlan_tci = 0;
-+	} else {
-+		if (unlikely((skb->protocol != htons(ETH_P_8021Q) &&
-+			      skb->protocol != htons(ETH_P_8021AD)) ||
-+			     skb->len < VLAN_ETH_HLEN))
-+			return 0;
++static int parse_vlan(struct action_util *a, int *argc_p, char ***argv_p,
++		      int tca_id, struct nlmsghdr *n)
++{
++	int argc = *argc_p;
++	char **argv = *argv_p;
++	struct rtattr *tail;
++	int action = 0;
++	__u16 id;
++	int id_set = 0;
++	__u16 proto;
++	int proto_set = 0;
++	struct tc_vlan parm = { 0 };
 +
-+		err = __skb_vlan_pop(skb, &vlan_tci);
-+		if (err)
-+			return err;
++	if (matches(*argv, "vlan") != 0)
++		return -1;
++
++	NEXT_ARG();
++
++	while (argc > 0) {
++		if (matches(*argv, "pop") == 0) {
++			if (action) {
++				fprintf(stderr, "unexpexted \"%s\" - action already specified\n",
++					*argv);
++				explain();
++				return -1;
++			}
++			action = TCA_VLAN_ACT_POP;
++		} else if (matches(*argv, "push") == 0) {
++			if (action) {
++				fprintf(stderr, "unexpexted \"%s\" - action already specified\n",
++					*argv);
++				explain();
++				return -1;
++			}
++			action = TCA_VLAN_ACT_PUSH;
++		} else if (matches(*argv, "id") == 0) {
++			if (action != TCA_VLAN_ACT_PUSH) {
++				fprintf(stderr, "\"%s\" is only valid for push\n",
++					*argv);
++				explain();
++				return -1;
++			}
++			NEXT_ARG();
++			if (get_u16(&id, *argv, 0))
++				invarg("id is invalid", *argv);
++			id_set = 1;
++		} else if (matches(*argv, "protocol") == 0) {
++			if (action != TCA_VLAN_ACT_PUSH) {
++				fprintf(stderr, "\"%s\" is only valid for push\n",
++					*argv);
++				explain();
++				return -1;
++			}
++			NEXT_ARG();
++			if (ll_proto_a2n(&proto, *argv))
++				invarg("protocol is invalid", *argv);
++			proto_set = 1;
++		} else if (matches(*argv, "help") == 0) {
++			usage();
++		} else {
++			break;
++		}
++		argc--;
++		argv++;
 +	}
-+	/* move next vlan tag to hw accel tag */
-+	if (likely((skb->protocol != htons(ETH_P_8021Q) &&
-+		    skb->protocol != htons(ETH_P_8021AD)) ||
-+		   skb->len < VLAN_ETH_HLEN))
-+		return 0;
 +
-+	vlan_proto = skb->protocol;
-+	err = __skb_vlan_pop(skb, &vlan_tci);
-+	if (unlikely(err))
-+		return err;
-+
-+	__vlan_hwaccel_put_tag(skb, vlan_proto, vlan_tci);
-+	return 0;
-+}
-+EXPORT_SYMBOL(skb_vlan_pop);
-+
-+int skb_vlan_push(struct sk_buff *skb, __be16 vlan_proto, u16 vlan_tci)
-+{
-+	if (vlan_tx_tag_present(skb)) {
-+		/* push down current VLAN tag */
-+		if (!__vlan_put_tag(skb, skb->vlan_proto,
-+				    vlan_tx_tag_get(skb)))
-+			return -ENOMEM;
-+
-+		if (skb->ip_summed == CHECKSUM_COMPLETE)
-+			skb->csum = csum_add(skb->csum, csum_partial(skb->data
-+					+ (2 * ETH_ALEN), VLAN_HLEN, 0));
++	parm.action = TC_ACT_PIPE;
++	if (argc) {
++		if (matches(*argv, "reclassify") == 0) {
++			parm.action = TC_ACT_RECLASSIFY;
++			NEXT_ARG();
++		} else if (matches(*argv, "pipe") == 0) {
++			parm.action = TC_ACT_PIPE;
++			NEXT_ARG();
++		} else if (matches(*argv, "drop") == 0 ||
++			   matches(*argv, "shot") == 0) {
++			parm.action = TC_ACT_SHOT;
++			NEXT_ARG();
++		} else if (matches(*argv, "continue") == 0) {
++			parm.action = TC_ACT_UNSPEC;
++			NEXT_ARG();
++		} else if (matches(*argv, "pass") == 0) {
++			parm.action = TC_ACT_OK;
++			NEXT_ARG();
++		}
 +	}
-+	__vlan_hwaccel_put_tag(skb, vlan_proto, vlan_tci);
++
++	if (argc) {
++		if (matches(*argv, "index") == 0) {
++			NEXT_ARG();
++			if (get_u32(&parm.index, *argv, 10)) {
++				fprintf(stderr, "Pedit: Illegal \"index\"\n");
++				return -1;
++			}
++			argc--;
++			argv++;
++		}
++	}
++
++	if (action == TCA_VLAN_ACT_PUSH && !id_set) {
++		fprintf(stderr, "id needs to be set for push\n");
++		explain();
++		return -1;
++	}
++
++	parm.v_action = action;
++	tail = NLMSG_TAIL(n);
++	addattr_l(n, MAX_MSG, tca_id, NULL, 0);
++	addattr_l(n, MAX_MSG, TCA_VLAN_PARMS, &parm, sizeof(parm));
++	if (id_set)
++		addattr_l(n, MAX_MSG, TCA_VLAN_PUSH_VLAN_ID, &id, 2);
++	if (proto_set)
++		addattr_l(n, MAX_MSG, TCA_VLAN_PUSH_VLAN_PROTOCOL, &proto, 2);
++	tail->rta_len = (char *)NLMSG_TAIL(n) - (char *)tail;
++
++	*argc_p = argc;
++	*argv_p = argv;
 +	return 0;
 +}
-+EXPORT_SYMBOL(skb_vlan_push);
 +
- /**
-  * alloc_skb_with_frags - allocate skb with page frags
-  *
-diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
-index f7e5891..1b28110 100644
---- a/net/openvswitch/actions.c
-+++ b/net/openvswitch/actions.c
-@@ -206,86 +206,14 @@ static int set_mpls(struct sk_buff *skb, const __be32 *mpls_lse)
- 	return 0;
- }
- 
--/* remove VLAN header from packet and update csum accordingly. */
--static int __pop_vlan_tci(struct sk_buff *skb, __be16 *current_tci)
--{
--	struct vlan_hdr *vhdr;
--	int err;
--
--	err = make_writable(skb, VLAN_ETH_HLEN);
--	if (unlikely(err))
--		return err;
--
--	if (skb->ip_summed == CHECKSUM_COMPLETE)
--		skb->csum = csum_sub(skb->csum, csum_partial(skb->data
--					+ (2 * ETH_ALEN), VLAN_HLEN, 0));
--
--	vhdr = (struct vlan_hdr *)(skb->data + ETH_HLEN);
--	*current_tci = vhdr->h_vlan_TCI;
--
--	memmove(skb->data + VLAN_HLEN, skb->data, 2 * ETH_ALEN);
--	__skb_pull(skb, VLAN_HLEN);
--
--	vlan_set_encap_proto(skb, vhdr);
--	skb->mac_header += VLAN_HLEN;
--
--	if (skb_network_offset(skb) < ETH_HLEN)
--		skb_set_network_header(skb, ETH_HLEN);
--
--	/* Update mac_len for subsequent MPLS actions */
--	skb_reset_mac_len(skb);
--	return 0;
--}
--
- static int pop_vlan(struct sk_buff *skb)
- {
--	__be16 tci;
--	int err;
--
--	if (likely(vlan_tx_tag_present(skb))) {
--		skb->vlan_tci = 0;
--	} else {
--		if (unlikely(skb->protocol != htons(ETH_P_8021Q) ||
--			     skb->len < VLAN_ETH_HLEN))
--			return 0;
--
--		err = __pop_vlan_tci(skb, &tci);
--		if (err)
--			return err;
--	}
--	/* move next vlan tag to hw accel tag */
--	if (likely(skb->protocol != htons(ETH_P_8021Q) ||
--		   skb->len < VLAN_ETH_HLEN))
--		return 0;
--
--	err = __pop_vlan_tci(skb, &tci);
--	if (unlikely(err))
--		return err;
--
--	__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), ntohs(tci));
--	return 0;
-+	return skb_vlan_pop(skb);
- }
- 
- static int push_vlan(struct sk_buff *skb, const struct ovs_action_push_vlan *vlan)
- {
--	if (unlikely(vlan_tx_tag_present(skb))) {
--		u16 current_tag;
--
--		/* push down current VLAN tag */
--		current_tag = vlan_tx_tag_get(skb);
--
--		if (!__vlan_put_tag(skb, skb->vlan_proto, current_tag))
--			return -ENOMEM;
--		/* Update mac_len for subsequent MPLS actions */
--		skb->mac_len += VLAN_HLEN;
--
--		if (skb->ip_summed == CHECKSUM_COMPLETE)
--			skb->csum = csum_add(skb->csum, csum_partial(skb->data
--					+ (2 * ETH_ALEN), VLAN_HLEN, 0));
--
--	}
--	__vlan_hwaccel_put_tag(skb, vlan->vlan_tpid, ntohs(vlan->vlan_tci) & ~VLAN_TAG_PRESENT);
--	return 0;
-+	return skb_vlan_push(skb, vlan->vlan_tpid, ntohs(vlan->vlan_tci) & ~VLAN_TAG_PRESENT);
- }
- 
- static int set_eth_addr(struct sk_buff *skb,
++static int print_vlan(struct action_util *au, FILE *f, struct rtattr *arg)
++{
++	struct rtattr *tb[TCA_VLAN_MAX + 1];
++	__u16 val;
++	struct tc_vlan *parm;
++
++	if (arg == NULL)
++		return -1;
++
++	parse_rtattr_nested(tb, TCA_VLAN_MAX, arg);
++
++	if (!tb[TCA_VLAN_PARMS]) {
++		fprintf(f, "[NULL vlan parameters]");
++		return -1;
++	}
++	parm = RTA_DATA(tb[TCA_VLAN_PARMS]);
++
++	fprintf(f, " vlan");
++
++	switch(parm->v_action) {
++	case TCA_VLAN_ACT_POP:
++		fprintf(f, " pop");
++		break;
++	case TCA_VLAN_ACT_PUSH:
++		fprintf(f, " push");
++		if (tb[TCA_VLAN_PUSH_VLAN_ID]) {
++			val = rta_getattr_u16(tb[TCA_VLAN_PUSH_VLAN_ID]);
++			fprintf(f, " id %d", val);
++		}
++		if (tb[TCA_VLAN_PUSH_VLAN_PROTOCOL]) {
++			val = rta_getattr_u16(tb[TCA_VLAN_PUSH_VLAN_PROTOCOL]);
++			fprintf(f, " proto %04x", val);
++		}
++		break;
++	}
++
++	if (show_stats) {
++		if (tb[TCA_VLAN_TM]) {
++			struct tcf_t *tm = RTA_DATA(tb[TCA_VLAN_TM]);
++			print_tm(f, tm);
++		}
++	}
++
++	fprintf(f, "\n ");
++
++	return 0;
++}
++
++struct action_util vlan_action_util = {
++	.id = "vlan",
++	.parse_aopt = parse_vlan,
++	.print_aopt = print_vlan,
++};
 -- 
 1.9.3
