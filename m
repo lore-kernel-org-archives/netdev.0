@@ -1,54 +1,58 @@
 From: Johan Hovold <johan@kernel.org>
-Subject: [PATCH 0/3] net: phy: add module_phy_driver macro
-Date: Tue, 11 Nov 2014 19:45:56 +0100
-Message-ID: <1415731559-10015-1-git-send-email-johan@kernel.org>
+Subject: [PATCH 1/3] net: phy: add module_phy_driver macro
+Date: Tue, 11 Nov 2014 19:45:57 +0100
+Message-ID: <1415731559-10015-2-git-send-email-johan@kernel.org>
+References: <1415731559-10015-1-git-send-email-johan@kernel.org>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	Johan Hovold <johan@kernel.org>
 To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1415731559-10015-1-git-send-email-johan@kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add module_phy_driver macro that can be used by PHY drivers that only
-calls phy_driver_register or phy_drivers_register (and the corresponding
-unregister functions) in their module init (and exit).
+Add helper macro for PHY drivers which do not do anything special in
+module init/exit. This will allow us to eliminate a lot of boilerplate
+code.
 
-This allows us to eliminate a lot of boilerplate code.
+Signed-off-by: Johan Hovold <johan@kernel.org>
+---
+ include/linux/phy.h | 24 ++++++++++++++++++++++++
+ 1 file changed, 24 insertions(+)
 
-Split in three patches (actual macro and two driver change classes) in
-order to facilitate review.
-
-Johan
-
-
-Johan Hovold (3):
-  net: phy: add module_phy_driver macro
-  net: phy: replace phy_driver_register calls
-  net: phy: replace phy_drivers_register calls
-
- drivers/net/phy/amd-xgbe-phy.c | 15 +--------------
- drivers/net/phy/amd.c          | 17 +++--------------
- drivers/net/phy/at803x.c       | 14 +-------------
- drivers/net/phy/bcm63xx.c      | 15 +--------------
- drivers/net/phy/bcm7xxx.c      | 15 +--------------
- drivers/net/phy/bcm87xx.c      | 14 +-------------
- drivers/net/phy/broadcom.c     | 15 +--------------
- drivers/net/phy/cicada.c       | 15 +--------------
- drivers/net/phy/davicom.c      | 15 +--------------
- drivers/net/phy/et1011c.c      | 17 +++--------------
- drivers/net/phy/icplus.c       | 15 +--------------
- drivers/net/phy/lxt.c          | 15 +--------------
- drivers/net/phy/marvell.c      | 15 +--------------
- drivers/net/phy/micrel.c       | 15 +--------------
- drivers/net/phy/national.c     | 17 +++--------------
- drivers/net/phy/qsemi.c        | 17 +++--------------
- drivers/net/phy/realtek.c      | 13 +------------
- drivers/net/phy/smsc.c         | 14 +-------------
- drivers/net/phy/ste10Xp.c      | 15 +--------------
- drivers/net/phy/vitesse.c      | 14 +-------------
- include/linux/phy.h            | 24 ++++++++++++++++++++++++
- 21 files changed, 52 insertions(+), 274 deletions(-)
-
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index ed39956b5613..c50e1f1f46e0 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -745,4 +745,28 @@ int __init mdio_bus_init(void);
+ void mdio_bus_exit(void);
+ 
+ extern struct bus_type mdio_bus_type;
++
++/**
++ * module_phy_driver() - Helper macro for registering PHY drivers
++ * @__phy_drivers: array of PHY drivers to register
++ *
++ * Helper macro for PHY drivers which do not do anything special in module
++ * init/exit. Each module may only use this macro once, and calling it
++ * replaces module_init() and module_exit().
++ */
++#define phy_module_driver(__phy_drivers, __count)			\
++static int __init phy_module_init(void)					\
++{									\
++	return phy_drivers_register(__phy_drivers, __count);		\
++}									\
++module_init(phy_module_init);						\
++static void __exit phy_module_exit(void)				\
++{									\
++	phy_drivers_unregister(__phy_drivers, __count);			\
++}									\
++module_exit(phy_module_exit)
++
++#define module_phy_driver(__phy_drivers)				\
++	phy_module_driver(__phy_drivers, ARRAY_SIZE(__phy_drivers))
++
+ #endif /* __PHY_H */
 -- 
 2.0.4
