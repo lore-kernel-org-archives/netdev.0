@@ -1,57 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: introduce SO_INCOMING_CPU
-Date: Mon, 10 Nov 2014 21:16:29 -0500 (EST)
-Message-ID: <20141110.211629.1869603635869884106.davem@davemloft.net>
-References: <1415393472.13896.119.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20141110.150826.1917858055737674539.davem@davemloft.net>
-	<1415663481.9613.18.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [patch net-next] bridge: rename fdb_*_hw to fdb_*_hw_addr to
+ avoid confusion
+Date: Mon, 10 Nov 2014 21:33:06 -0500 (EST)
+Message-ID: <20141110.213306.1167288435677960869.davem@davemloft.net>
+References: <1415530280-9190-1-git-send-email-jiri@resnulli.us>
+	<1415551216-2239-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ycai@google.com, willemb@google.com,
-	ncardwell@google.com
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, nhorman@tuxdriver.com, andy@greyhouse.net,
+	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
+	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
+	ben@decadent.org.uk, stephen@networkplumber.org,
+	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
+	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
+	edumazet@google.com, jhs@mojatatu.com, sfeldma@gmail.com,
+	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
+	linville@tuxdriver.com, jasowang@redhat.com, ebiederm@xmission.com,
+	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
+	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
+	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
+	ronye@mellanox.com, simon.horman@netronome.com,
+	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
+	mleitner@redhat.com, shrijeet@gmail.com, gospo@cumulusnetworks.com,
+	bcrl@kvack.org
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51255 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:51399 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751365AbaKKCQb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2014 21:16:31 -0500
-In-Reply-To: <1415663481.9613.18.camel@edumazet-glaptop2.roam.corp.google.com>
+	with ESMTP id S1751412AbaKKCdO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2014 21:33:14 -0500
+In-Reply-To: <1415551216-2239-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 10 Nov 2014 15:51:21 -0800
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Sun,  9 Nov 2014 17:40:16 +0100
 
-> On Mon, 2014-11-10 at 15:08 -0500, David Miller wrote:
->> From: Eric Dumazet <eric.dumazet@gmail.com>
->> Date: Fri, 07 Nov 2014 12:51:12 -0800
->> 
->> > @@ -1455,6 +1455,7 @@ process:
->> >  		goto discard_and_relse;
->> >  
->> >  	sk_mark_napi_id(sk, skb);
->> > +	sk_incoming_cpu_update(sk);
->> 
->> Just make sk_mark_napi_id() call sk_incoming_cpu_update().
->> 
->> You've matched up the calls precisely in this patch, and I can't think
->> of any situation where we'd add a sk_mark_napi_call() not not want to
->> do an sk_incoming_cpu_update().
+> The current name might seem that this actually offloads the fdb entry to
+> hw. So rename it to clearly present that this for hardware address
+> addition/removal.
 > 
-> I believe this was a coincidence.
-> 
-> In fact some sk_mark_napi_id() calls are not at the right place.
-> It makes little sense to change sk->sk_napi_id for a listener socket.
-> 
-> sk_mark_napi_id() should better be done [1] at the same time we call
-> sock_rps_save_rxhash
-> 
-> But we need to store cpu before prequeue or backlog (as I did in my
-> patch)
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 
-Ok, so why don't you submit two patches.  First, fix the locations
-where we do sk_mark_napi_id(), then your SO_INCOMING_CPU patch
-(unchanged)?
+This must have been relative to your rocket patch series because it
+doesn't apply cleanly.
+
+I already am assuming that the rocket patch set is getting one more
+spin, so why don't you add this to that series?
 
 Thanks.
