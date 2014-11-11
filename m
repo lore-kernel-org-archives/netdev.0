@@ -1,47 +1,81 @@
-From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
-Subject: Tracking errors in netdevice (and other?) notifiers
-Date: Tue, 11 Nov 2014 18:39:29 +0100
-Message-ID: <CACna6ryUOhQSyjiqKwpOZPPRKC42ufB1aSqAwOrMdTJDnqiD-w@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Network Development <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f178.google.com ([209.85.223.178]:51326 "EHLO
-	mail-ie0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751221AbaKKRja convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2014 12:39:30 -0500
-Received: by mail-ie0-f178.google.com with SMTP id rp18so11582270iec.23
-        for <netdev@vger.kernel.org>; Tue, 11 Nov 2014 09:39:30 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Johan Hovold <johan@kernel.org>
+Subject: [PATCH 16/22] net: phy: micrel: add has-broadcast-disable flag to type data
+Date: Tue, 11 Nov 2014 18:37:34 +0100
+Message-ID: <1415727460-20417-17-git-send-email-johan@kernel.org>
+References: <1415727460-20417-1-git-send-email-johan@kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Johan Hovold <johan@kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1415727460-20417-1-git-send-email-johan@kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+Add has_broadcast_disable flag to type-data and generic config_init.
 
-During development of wireless driver I got this poor meaning error:
-# ifconfig wlan0_1 up
-ifconfig: SIOCSIFFLAGS: Device or resource busy
+This allows us to remove the ksz8081 config_init callback.
 
-I've quickly tracked it down to the __dev_open [0]. Then it became wors=
-e.
-In my case call_netdevice_notifiers returned 32785 which was
-translated by notifier_to_errno to the -16 (-EBUSY).
+Note that ksz8021_config_init is kept for now due to a95a18afe4c8
+("phy/micrel: KSZ8031RNL RMII clock reconfiguration bug").
 
-Unfortunately I couldn't track call_netdevice_notifiers. It iterates
-over a chain (list) of nameless notifiers (struct notifier_block). I
-didn't have a chance to e.g. print a name of notifier that returned an
-error.
+Signed-off-by: Johan Hovold <johan@kernel.org>
+---
+ drivers/net/phy/micrel.c | 14 ++++++--------
+ 1 file changed, 6 insertions(+), 8 deletions(-)
 
-Is there some trick to do that? To track notifiers and find a code
-responsible for the chain error?
-
-In my case it wasn't too hard, because there are only few places in
-the kernel registering for NETDEV_PRE_UP. So I checked all of them and
-found the guilty one. But I still would like to know if there is some
-smart way.
-
-
-[0] http://lxr.free-electrons.com/source/net/core/dev.c?v=3D3.17#L1268
-
---=20
-Rafa=C5=82
+diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+index 928248187a11..6467bcc5a39d 100644
+--- a/drivers/net/phy/micrel.c
++++ b/drivers/net/phy/micrel.c
+@@ -75,6 +75,7 @@
+ 
+ struct kszphy_type {
+ 	u32 led_mode_reg;
++	bool has_broadcast_disable;
+ };
+ 
+ struct kszphy_priv {
+@@ -96,6 +97,7 @@ static const struct kszphy_type ksz8051_type = {
+ 
+ static const struct kszphy_type ksz8081_type = {
+ 	.led_mode_reg		= MII_KSZPHY_CTRL_2,
++	.has_broadcast_disable	= true,
+ };
+ 
+ static int ksz_config_flags(struct phy_device *phydev)
+@@ -247,6 +249,9 @@ static int kszphy_config_init(struct phy_device *phydev)
+ 
+ 	type = priv->type;
+ 
++	if (type->has_broadcast_disable)
++		kszphy_broadcast_disable(phydev);
++
+ 	if (priv->led_mode >= 0)
+ 		kszphy_setup_led(phydev, type->led_mode_reg, priv->led_mode);
+ 
+@@ -278,13 +283,6 @@ static int ks8051_config_init(struct phy_device *phydev)
+ 	return rc < 0 ? rc : 0;
+ }
+ 
+-static int ksz8081_config_init(struct phy_device *phydev)
+-{
+-	kszphy_broadcast_disable(phydev);
+-
+-	return kszphy_config_init(phydev);
+-}
+-
+ static int ksz9021_load_values_from_of(struct phy_device *phydev,
+ 				       struct device_node *of_node, u16 reg,
+ 				       char *field1, char *field2,
+@@ -691,7 +689,7 @@ static struct phy_driver ksphy_driver[] = {
+ 	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
+ 	.driver_data	= &ksz8081_type,
+ 	.probe		= kszphy_probe,
+-	.config_init	= ksz8081_config_init,
++	.config_init	= kszphy_config_init,
+ 	.config_aneg	= genphy_config_aneg,
+ 	.read_status	= genphy_read_status,
+ 	.ack_interrupt	= kszphy_ack_interrupt,
+-- 
+2.0.4
