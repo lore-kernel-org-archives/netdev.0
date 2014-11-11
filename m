@@ -1,7 +1,8 @@
 From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [net-next PATCH v3 1/5] net: Add device Rx page allocation function
-Date: Tue, 11 Nov 2014 09:26:34 -0800
-Message-ID: <20141111172634.16460.21282.stgit@ahduyck-vm-fedora20>
+Subject: [net-next PATCH v3 3/5] phonet: Replace calls to __skb_alloc_page
+ with __dev_alloc_page
+Date: Tue, 11 Nov 2014 09:26:50 -0800
+Message-ID: <20141111172650.16460.87253.stgit@ahduyck-vm-fedora20>
 References: <20141111172523.16460.16845.stgit@ahduyck-vm-fedora20>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,98 +13,88 @@ Cc: leedom@chelsio.com, hariprasad@chelsio.com,
 	jeffrey.t.kirsher@intel.com
 To: netdev@vger.kernel.org, linux-usb@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37638 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:47188 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751087AbaKKR0q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Nov 2014 12:26:46 -0500
+	id S1751086AbaKKR1C (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Nov 2014 12:27:02 -0500
 In-Reply-To: <20141111172523.16460.16845.stgit@ahduyck-vm-fedora20>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch implements __dev_alloc_pages and __dev_alloc_page.  These are
-meant to replace the __skb_alloc_pages and __skb_alloc_page functions.  The
-reason for doing this is that it occurred to me that __skb_alloc_page is
-supposed to be passed an sk_buff pointer, but it is NULL in all cases where
-it is used.  Worse is that in the case of ixgbe it is passed NULL via the
-sk_buff pointer in the rx_buffer info structure which means the compiler is
-not correctly stripping it out.
+Replace the calls to __skb_alloc_page that are passed NULL with calls to
+__dev_alloc_page.
 
-The naming for these functions is based on dev_alloc_skb and __dev_alloc_skb.
-There was originally a netdev_alloc_page, however that was passed a
-net_device pointer and this function is not so I thought it best to follow
-that naming scheme since that is the same difference between dev_alloc_skb
-and netdev_alloc_skb.
+In addition remove __GFP_COLD flag from allocations as we only want it for
+the Rx buffer which is taken care of by __dev_alloc_skb, not for any
+secondary allocations such as the queue element transmit descriptors.
 
-In the case of anything greater than order 0 it is assumed that we want a
-compound page so __GFP_COMP is set for all allocations as we expect a
-compound page when assigning a page frag.
-
-The other change in this patch is to exploit the behaviors of the page
-allocator in how it handles flags.  So for example we can always set
-__GFP_COMP and __GFP_MEMALLOC since they are ignored if they are not
-applicable or are overridden by another flag.
-
+Cc: Oliver Neukum <oliver@neukum.org>
+Cc: Felipe Balbi <balbi@ti.com>
 Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
 ---
- include/linux/skbuff.h |   48 ++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 48 insertions(+)
+ drivers/net/usb/cdc-phonet.c           |    6 +++---
+ drivers/usb/gadget/function/f_phonet.c |    6 +++---
+ 2 files changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 103fbe8..2e5221f 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -2185,6 +2185,54 @@ static inline struct sk_buff *netdev_alloc_skb_ip_align(struct net_device *dev,
+diff --git a/drivers/net/usb/cdc-phonet.c b/drivers/net/usb/cdc-phonet.c
+index 2ec1500..415ce8b 100644
+--- a/drivers/net/usb/cdc-phonet.c
++++ b/drivers/net/usb/cdc-phonet.c
+@@ -130,7 +130,7 @@ static int rx_submit(struct usbpn_dev *pnd, struct urb *req, gfp_t gfp_flags)
+ 	struct page *page;
+ 	int err;
+ 
+-	page = __skb_alloc_page(gfp_flags | __GFP_NOMEMALLOC, NULL);
++	page = __dev_alloc_page(gfp_flags | __GFP_NOMEMALLOC);
+ 	if (!page)
+ 		return -ENOMEM;
+ 
+@@ -212,7 +212,7 @@ resubmit:
+ 	if (page)
+ 		put_page(page);
+ 	if (req)
+-		rx_submit(pnd, req, GFP_ATOMIC | __GFP_COLD);
++		rx_submit(pnd, req, GFP_ATOMIC);
  }
  
- /**
-+ * __dev_alloc_pages - allocate page for network Rx
-+ * @gfp_mask: allocation priority. Set __GFP_NOMEMALLOC if not for network Rx
-+ * @order: size of the allocation
-+ *
-+ * Allocate a new page.
-+ *
-+ * %NULL is returned if there is no free memory.
-+*/
-+static inline struct page *__dev_alloc_pages(gfp_t gfp_mask,
-+					     unsigned int order)
-+{
-+	/* This piece of code contains several assumptions.
-+	 * 1.  This is for device Rx, therefor a cold page is preferred.
-+	 * 2.  The expectation is the user wants a compound page.
-+	 * 3.  If requesting a order 0 page it will not be compound
-+	 *     due to the check to see if order has a value in prep_new_page
-+	 * 4.  __GFP_MEMALLOC is ignored if __GFP_NOMEMALLOC is set due to
-+	 *     code in gfp_to_alloc_flags that should be enforcing this.
-+	 */
-+	gfp_mask |= __GFP_COLD | __GFP_COMP | __GFP_MEMALLOC;
-+
-+	return alloc_pages_node(NUMA_NO_NODE, gfp_mask, order);
-+}
-+
-+static inline struct page *dev_alloc_pages(unsigned int order)
-+{
-+	return __dev_alloc_pages(GFP_ATOMIC, order);
-+}
-+
-+/**
-+ * __dev_alloc_page - allocate a page for network Rx
-+ * @gfp_mask: allocation priority. Set __GFP_NOMEMALLOC if not for network Rx
-+ *
-+ * Allocate a new page.
-+ *
-+ * %NULL is returned if there is no free memory.
-+ */
-+static inline struct page *__dev_alloc_page(gfp_t gfp_mask)
-+{
-+	return __dev_alloc_pages(gfp_mask, 0);
-+}
-+
-+static inline struct page *dev_alloc_page(void)
-+{
-+	return __dev_alloc_page(GFP_ATOMIC);
-+}
-+
-+/**
-  *	__skb_alloc_pages - allocate pages for ps-rx on a skb and preserve pfmemalloc data
-  *	@gfp_mask: alloc_pages_node mask. Set __GFP_NOMEMALLOC if not for network packet RX
-  *	@skb: skb to set pfmemalloc on if __GFP_MEMALLOC is used
+ static int usbpn_close(struct net_device *dev);
+@@ -231,7 +231,7 @@ static int usbpn_open(struct net_device *dev)
+ 	for (i = 0; i < rxq_size; i++) {
+ 		struct urb *req = usb_alloc_urb(0, GFP_KERNEL);
+ 
+-		if (!req || rx_submit(pnd, req, GFP_KERNEL | __GFP_COLD)) {
++		if (!req || rx_submit(pnd, req, GFP_KERNEL)) {
+ 			usb_free_urb(req);
+ 			usbpn_close(dev);
+ 			return -ENOMEM;
+diff --git a/drivers/usb/gadget/function/f_phonet.c b/drivers/usb/gadget/function/f_phonet.c
+index b9cfc15..cde7397 100644
+--- a/drivers/usb/gadget/function/f_phonet.c
++++ b/drivers/usb/gadget/function/f_phonet.c
+@@ -303,7 +303,7 @@ pn_rx_submit(struct f_phonet *fp, struct usb_request *req, gfp_t gfp_flags)
+ 	struct page *page;
+ 	int err;
+ 
+-	page = __skb_alloc_page(gfp_flags | __GFP_NOMEMALLOC, NULL);
++	page = __dev_alloc_page(gfp_flags | __GFP_NOMEMALLOC);
+ 	if (!page)
+ 		return -ENOMEM;
+ 
+@@ -377,7 +377,7 @@ static void pn_rx_complete(struct usb_ep *ep, struct usb_request *req)
+ 	if (page)
+ 		put_page(page);
+ 	if (req)
+-		pn_rx_submit(fp, req, GFP_ATOMIC | __GFP_COLD);
++		pn_rx_submit(fp, req, GFP_ATOMIC);
+ }
+ 
+ /*-------------------------------------------------------------------------*/
+@@ -437,7 +437,7 @@ static int pn_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
+ 
+ 			netif_carrier_on(dev);
+ 			for (i = 0; i < phonet_rxq_size; i++)
+-				pn_rx_submit(fp, fp->out_reqv[i], GFP_ATOMIC | __GFP_COLD);
++				pn_rx_submit(fp, fp->out_reqv[i], GFP_ATOMIC);
+ 		}
+ 		spin_unlock(&port->lock);
+ 		return 0;
