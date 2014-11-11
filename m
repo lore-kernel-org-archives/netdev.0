@@ -1,122 +1,141 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 01/10] i40e: poll firmware slower
-Date: Tue, 11 Nov 2014 06:44:37 -0800
-Message-ID: <1415717086-3441-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 04/10] i40evf: make early init processing more robust
+Date: Tue, 11 Nov 2014 06:44:40 -0800
+Message-ID: <1415717086-3441-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1415717086-3441-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Kamil Krawczyk <kamil.krawczyk@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	David Laight <David.Laight@aculab.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>,
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Patrick Lu <patrick.lu@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:3088 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:3085 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751328AbaKKOpa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751451AbaKKOpa (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 11 Nov 2014 09:45:30 -0500
 In-Reply-To: <1415717086-3441-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kamil Krawczyk <kamil.krawczyk@intel.com>
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-The code was polling the firmware tail register for completion every
-10 microseconds, which is way faster than the firmware can respond.
-This changes the poll interval to 1ms, which reduces polling CPU
-utilization, and the number of times we loop.
+In early init, if we get an unexpected message from the PF (such as link
+status), we just kick an error back to the init task, causing it to
+restart its state machine and delaying initialization.
 
-The maximum delay is still 100ms.
+Make the early init AQ message receive code more robust by handling
+messages in a loop, and ignoring those that we aren't interested in.
+This also gets rid of some scary log messages that really didn't
+indicate a problem.
 
-CC: David Laight <David.Laight@aculab.com>
-CC: Or Gerlitz <gerlitz.or@gmail.com>
-Change-ID: I4bbfa6b66d802890baf8b4154061e55942b90958
-Signed-off-by: Kamil Krawczyk <kamil.krawczyk@intel.com>
-Acked-by: Shannon Nelson <shannon.nelson@intel.com>
+Change-ID: I620e8c72e49c49c665ef33eeab2425dd10e721cf
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Signed-off-by: Patrick Lu <patrick.lu@intel.com>
 Tested-by: Jim Young <jamesx.m.young@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
-v2: Remove code comment that did not apply any longer, based on feedback
-    from David Laight
+ .../net/ethernet/intel/i40evf/i40evf_virtchnl.c    | 59 ++++++++++++----------
+ 1 file changed, 31 insertions(+), 28 deletions(-)
 
- drivers/net/ethernet/intel/i40e/i40e_adminq.c   | 6 ++----
- drivers/net/ethernet/intel/i40e/i40e_adminq.h   | 2 +-
- drivers/net/ethernet/intel/i40evf/i40e_adminq.c | 6 ++----
- drivers/net/ethernet/intel/i40evf/i40e_adminq.h | 2 +-
- 4 files changed, 6 insertions(+), 10 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq.c b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-index 72f5d25..f7f6206 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-@@ -853,7 +853,6 @@ i40e_status i40e_asq_send_command(struct i40e_hw *hw,
- 	 */
- 	if (!details->async && !details->postpone) {
- 		u32 total_delay = 0;
--		u32 delay_len = 10;
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
+index 66d12f5..ff86761 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
+@@ -89,6 +89,7 @@ int i40evf_verify_api_ver(struct i40evf_adapter *adapter)
+ 	struct i40e_virtchnl_version_info *pf_vvi;
+ 	struct i40e_hw *hw = &adapter->hw;
+ 	struct i40e_arq_event_info event;
++	enum i40e_virtchnl_ops op;
+ 	i40e_status err;
  
- 		do {
- 			/* AQ designers suggest use of head for better
-@@ -861,9 +860,8 @@ i40e_status i40e_asq_send_command(struct i40e_hw *hw,
- 			 */
- 			if (i40e_asq_done(hw))
- 				break;
--			/* ugh! delay while spin_lock */
--			udelay(delay_len);
--			total_delay += delay_len;
-+			usleep_range(1000, 2000);
-+			total_delay++;
- 		} while (total_delay < hw->aq.asq_cmd_timeout);
+ 	event.msg_size = I40EVF_MAX_AQ_BUF_SIZE;
+@@ -98,18 +99,27 @@ int i40evf_verify_api_ver(struct i40evf_adapter *adapter)
+ 		goto out;
  	}
  
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq.h b/drivers/net/ethernet/intel/i40e/i40e_adminq.h
-index ba38a89..df0bd09 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_adminq.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_adminq.h
-@@ -141,7 +141,7 @@ static inline int i40e_aq_rc_to_posix(u16 aq_rc)
+-	err = i40evf_clean_arq_element(hw, &event, NULL);
+-	if (err == I40E_ERR_ADMIN_QUEUE_NO_WORK)
+-		goto out_alloc;
++	while (1) {
++		err = i40evf_clean_arq_element(hw, &event, NULL);
++		/* When the AQ is empty, i40evf_clean_arq_element will return
++		 * nonzero and this loop will terminate.
++		 */
++		if (err)
++			goto out_alloc;
++		op =
++		    (enum i40e_virtchnl_ops)le32_to_cpu(event.desc.cookie_high);
++		if (op == I40E_VIRTCHNL_OP_VERSION)
++			break;
++	}
++
  
- /* general information */
- #define I40E_AQ_LARGE_BUF	512
--#define I40E_ASQ_CMD_TIMEOUT	100000  /* usecs */
-+#define I40E_ASQ_CMD_TIMEOUT	100  /* msecs */
+ 	err = (i40e_status)le32_to_cpu(event.desc.cookie_low);
+ 	if (err)
+ 		goto out_alloc;
  
- void i40e_fill_default_direct_cmd_desc(struct i40e_aq_desc *desc,
- 				       u16 opcode);
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq.c b/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
-index f206be9..500ca21 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
-@@ -801,7 +801,6 @@ i40e_status i40evf_asq_send_command(struct i40e_hw *hw,
- 	 */
- 	if (!details->async && !details->postpone) {
- 		u32 total_delay = 0;
--		u32 delay_len = 10;
+-	if ((enum i40e_virtchnl_ops)le32_to_cpu(event.desc.cookie_high) !=
+-	    I40E_VIRTCHNL_OP_VERSION) {
++	if (op != I40E_VIRTCHNL_OP_VERSION) {
+ 		dev_info(&adapter->pdev->dev, "Invalid reply type %d from PF\n",
+-			 le32_to_cpu(event.desc.cookie_high));
++			op);
+ 		err = -EIO;
+ 		goto out_alloc;
+ 	}
+@@ -153,8 +163,9 @@ int i40evf_get_vf_config(struct i40evf_adapter *adapter)
+ {
+ 	struct i40e_hw *hw = &adapter->hw;
+ 	struct i40e_arq_event_info event;
+-	u16 len;
++	enum i40e_virtchnl_ops op;
+ 	i40e_status err;
++	u16 len;
  
- 		do {
- 			/* AQ designers suggest use of head for better
-@@ -809,9 +808,8 @@ i40e_status i40evf_asq_send_command(struct i40e_hw *hw,
- 			 */
- 			if (i40evf_asq_done(hw))
- 				break;
--			/* ugh! delay while spin_lock */
--			udelay(delay_len);
--			total_delay += delay_len;
-+			usleep_range(1000, 2000);
-+			total_delay++;
- 		} while (total_delay < hw->aq.asq_cmd_timeout);
+ 	len =  sizeof(struct i40e_virtchnl_vf_resource) +
+ 		I40E_MAX_VF_VSI * sizeof(struct i40e_virtchnl_vsi_resource);
+@@ -165,29 +176,21 @@ int i40evf_get_vf_config(struct i40evf_adapter *adapter)
+ 		goto out;
  	}
  
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq.h b/drivers/net/ethernet/intel/i40evf/i40e_adminq.h
-index 91a5c5b..f40cfac 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_adminq.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq.h
-@@ -141,7 +141,7 @@ static inline int i40e_aq_rc_to_posix(u16 aq_rc)
+-	err = i40evf_clean_arq_element(hw, &event, NULL);
+-	if (err == I40E_ERR_ADMIN_QUEUE_NO_WORK)
+-		goto out_alloc;
+-
+-	err = (i40e_status)le32_to_cpu(event.desc.cookie_low);
+-	if (err) {
+-		dev_err(&adapter->pdev->dev,
+-			"%s: Error returned from PF, %d, %d\n", __func__,
+-			le32_to_cpu(event.desc.cookie_high),
+-			le32_to_cpu(event.desc.cookie_low));
+-		err = -EIO;
+-		goto out_alloc;
++	while (1) {
++		event.msg_size = len;
++		/* When the AQ is empty, i40evf_clean_arq_element will return
++		 * nonzero and this loop will terminate.
++		 */
++		err = i40evf_clean_arq_element(hw, &event, NULL);
++		if (err)
++			goto out_alloc;
++		op =
++		    (enum i40e_virtchnl_ops)le32_to_cpu(event.desc.cookie_high);
++		if (op == I40E_VIRTCHNL_OP_GET_VF_RESOURCES)
++			break;
+ 	}
  
- /* general information */
- #define I40E_AQ_LARGE_BUF	512
--#define I40E_ASQ_CMD_TIMEOUT	100000  /* usecs */
-+#define I40E_ASQ_CMD_TIMEOUT	100  /* msecs */
+-	if ((enum i40e_virtchnl_ops)le32_to_cpu(event.desc.cookie_high) !=
+-	    I40E_VIRTCHNL_OP_GET_VF_RESOURCES) {
+-		dev_err(&adapter->pdev->dev,
+-			"%s: Invalid response from PF, %d, %d\n", __func__,
+-			le32_to_cpu(event.desc.cookie_high),
+-			le32_to_cpu(event.desc.cookie_low));
+-		err = -EIO;
+-		goto out_alloc;
+-	}
++	err = (i40e_status)le32_to_cpu(event.desc.cookie_low);
+ 	memcpy(adapter->vf_res, event.msg_buf, min(event.msg_size, len));
  
- void i40evf_fill_default_direct_cmd_desc(struct i40e_aq_desc *desc,
- 				       u16 opcode);
+ 	i40e_vf_parse_hw_config(hw, adapter->vf_res);
 -- 
 1.9.3
