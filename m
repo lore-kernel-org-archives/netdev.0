@@ -1,87 +1,109 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net 1/2] net: bcmgenet: connect and disconnect from the PHY state machine
-Date: Mon, 10 Nov 2014 18:06:20 -0800
-Message-ID: <1415671581-2835-2-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net 2/2] net: bcmgenet: apply MII configuration in bcmgenet_open()
+Date: Mon, 10 Nov 2014 18:06:21 -0800
+Message-ID: <1415671581-2835-3-git-send-email-f.fainelli@gmail.com>
 References: <1415671581-2835-1-git-send-email-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f171.google.com ([209.85.192.171]:45357 "EHLO
+Received: from mail-pd0-f171.google.com ([209.85.192.171]:33548 "EHLO
 	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751537AbaKKCG1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2014 21:06:27 -0500
-Received: by mail-pd0-f171.google.com with SMTP id r10so9074466pdi.30
-        for <netdev@vger.kernel.org>; Mon, 10 Nov 2014 18:06:27 -0800 (PST)
+	with ESMTP id S1751293AbaKKCG2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2014 21:06:28 -0500
+Received: by mail-pd0-f171.google.com with SMTP id r10so9074504pdi.30
+        for <netdev@vger.kernel.org>; Mon, 10 Nov 2014 18:06:28 -0800 (PST)
 In-Reply-To: <1415671581-2835-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-phy_disconnect() is the only way to guarantee that we are not going to
-schedule more work on the PHY state machine workqueue for that
-particular PHY device.
+In case an interface has been brought down before entering S3, and then
+brought up out of S3, all the initialization done during
+bcmgenet_probe() by bcmgenet_mii_init() calling bcmgenet_mii_config() is
+just lost since register contents are restored to their reset values.
 
-This fixes an issue where a network interface was suspended prior to a
-system suspend/resume cycle and would then be resumed as part of
-mdio_bus_resume(), since the GENET interface clocks would have been
-disabled, this basically resulted in bus errors to appear since we are
-invoking the GENET driver adjust_link() callback.
+Re-apply this configuration anytime we call bcmgenet_open() to make sure
+our port multiplexer is properly configured to match the PHY interface.
+
+Since we are now calling bcmgenet_mii_config() everytime bcmgenet_open()
+is called, make sure we only print the message during initialization
+time not to pollute the console.
 
 Fixes: b6e978e50444 ("net: bcmgenet: add suspend/resume callbacks")
+Fixes: 1c1008c793fa4 ("net: bcmgenet: add main driver file")
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/ethernet/broadcom/genet/bcmgenet.c | 6 ++++++
- drivers/net/ethernet/broadcom/genet/bcmgenet.h | 1 +
- drivers/net/ethernet/broadcom/genet/bcmmii.c   | 2 +-
- 3 files changed, 8 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c | 5 ++++-
+ drivers/net/ethernet/broadcom/genet/bcmgenet.h | 2 +-
+ drivers/net/ethernet/broadcom/genet/bcmmii.c   | 7 ++++---
+ 3 files changed, 9 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-index fdc9ec09e453..34055fd59c74 100644
+index 34055fd59c74..da1a2500c91c 100644
 --- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
 +++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
 @@ -2140,6 +2140,9 @@ static int bcmgenet_open(struct net_device *dev)
  		goto err_irq0;
  	}
  
-+	phy_connect_direct(dev, priv->phydev, bcmgenet_mii_setup,
-+			   priv->phy_interface);
++	/* Re-configure the port multiplexer towards the PHY device */
++	bcmgenet_mii_config(priv->dev, false);
 +
- 	bcmgenet_netif_start(dev);
+ 	phy_connect_direct(dev, priv->phydev, bcmgenet_mii_setup,
+ 			   priv->phy_interface);
  
- 	return 0;
-@@ -2184,6 +2187,9 @@ static int bcmgenet_close(struct net_device *dev)
+@@ -2691,7 +2694,7 @@ static int bcmgenet_resume(struct device *d)
  
- 	bcmgenet_netif_stop(dev);
+ 	phy_init_hw(priv->phydev);
+ 	/* Speed settings must be restored */
+-	bcmgenet_mii_config(priv->dev);
++	bcmgenet_mii_config(priv->dev, false);
  
-+	/* Really kill the PHY state machine and disconnect from it */
-+	phy_disconnect(priv->phydev);
-+
- 	/* Disable MAC receive */
- 	umac_enable_set(priv, CMD_RX_EN, false);
- 
+ 	/* disable ethernet MAC while updating its registers */
+ 	umac_enable_set(priv, CMD_TX_EN | CMD_RX_EN, false);
 diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.h b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
-index dbf524ea3b19..44b55b8c220f 100644
+index 44b55b8c220f..31b2da5f9b82 100644
 --- a/drivers/net/ethernet/broadcom/genet/bcmgenet.h
 +++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
-@@ -620,6 +620,7 @@ int bcmgenet_mii_init(struct net_device *dev);
- int bcmgenet_mii_config(struct net_device *dev);
+@@ -617,7 +617,7 @@ GENET_IO_MACRO(rbuf, GENET_RBUF_OFF);
+ 
+ /* MDIO routines */
+ int bcmgenet_mii_init(struct net_device *dev);
+-int bcmgenet_mii_config(struct net_device *dev);
++int bcmgenet_mii_config(struct net_device *dev, bool init);
  void bcmgenet_mii_exit(struct net_device *dev);
  void bcmgenet_mii_reset(struct net_device *dev);
-+void bcmgenet_mii_setup(struct net_device *dev);
- 
- /* Wake-on-LAN routines */
- void bcmgenet_get_wol(struct net_device *dev, struct ethtool_wolinfo *wol);
+ void bcmgenet_mii_setup(struct net_device *dev);
 diff --git a/drivers/net/ethernet/broadcom/genet/bcmmii.c b/drivers/net/ethernet/broadcom/genet/bcmmii.c
-index 9ff799a9f801..9c5fee782ccf 100644
+index 9c5fee782ccf..933cd7e7cd33 100644
 --- a/drivers/net/ethernet/broadcom/genet/bcmmii.c
 +++ b/drivers/net/ethernet/broadcom/genet/bcmmii.c
-@@ -77,7 +77,7 @@ static int bcmgenet_mii_write(struct mii_bus *bus, int phy_id,
- /* setup netdev link state when PHY link status change and
-  * update UMAC and RGMII block when link up
-  */
--static void bcmgenet_mii_setup(struct net_device *dev)
-+void bcmgenet_mii_setup(struct net_device *dev)
+@@ -211,7 +211,7 @@ static void bcmgenet_moca_phy_setup(struct bcmgenet_priv *priv)
+ 	bcmgenet_sys_writel(priv, reg, SYS_PORT_CTRL);
+ }
+ 
+-int bcmgenet_mii_config(struct net_device *dev)
++int bcmgenet_mii_config(struct net_device *dev, bool init)
  {
  	struct bcmgenet_priv *priv = netdev_priv(dev);
  	struct phy_device *phydev = priv->phydev;
+@@ -298,7 +298,8 @@ int bcmgenet_mii_config(struct net_device *dev)
+ 		return -EINVAL;
+ 	}
+ 
+-	dev_info(kdev, "configuring instance for %s\n", phy_name);
++	if (init)
++		dev_info(kdev, "configuring instance for %s\n", phy_name);
+ 
+ 	return 0;
+ }
+@@ -350,7 +351,7 @@ static int bcmgenet_mii_probe(struct net_device *dev)
+ 	 * PHY speed which is needed for bcmgenet_mii_config() to configure
+ 	 * things appropriately.
+ 	 */
+-	ret = bcmgenet_mii_config(dev);
++	ret = bcmgenet_mii_config(dev, true);
+ 	if (ret) {
+ 		phy_disconnect(priv->phydev);
+ 		return ret;
 -- 
 1.9.1
