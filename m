@@ -1,40 +1,43 @@
 From: Johan Hovold <johan@kernel.org>
-Subject: [PATCH 6/9] net: phy: micrel: add led-mode sanity check
-Date: Tue, 11 Nov 2014 20:00:12 +0100
-Message-ID: <1415732415-10363-7-git-send-email-johan@kernel.org>
-References: <1415732415-10363-1-git-send-email-johan@kernel.org>
+Subject: [PATCH 0/9] net: phy: micrel: refactoring and KSZ8081/KSZ8091 features
+Date: Tue, 11 Nov 2014 20:00:06 +0100
+Message-ID: <1415732415-10363-1-git-send-email-johan@kernel.org>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	Johan Hovold <johan@kernel.org>
 To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1415732415-10363-1-git-send-email-johan@kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Make sure never to update more than two bits when setting the led mode,
-something which could for example change the reference-clock setting.
+This series cleans up and refactors parts of the micrel PHY driver, and
+adds support for broadcast-address-disable and led-mode configuration
+for KSZ8081 and KSZ8091 PHYs.
 
-Signed-off-by: Johan Hovold <johan@kernel.org>
----
- drivers/net/phy/micrel.c | 5 +++++
- 1 file changed, 5 insertions(+)
+Specifically, this enables dual KSZ8081 setups (which are limited to
+using address 0 and 3).
 
-diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
-index 16135ac18bfe..1b3985cdc64c 100644
---- a/drivers/net/phy/micrel.c
-+++ b/drivers/net/phy/micrel.c
-@@ -173,6 +173,11 @@ static int kszphy_setup_led(struct phy_device *phydev,
- 	if (of_property_read_u32(of_node, "micrel,led-mode", &val))
- 		return 0;
- 
-+	if (val > 3) {
-+		dev_err(&phydev->dev, "invalid led mode: 0x%02x\n", val);
-+		return -EINVAL;
-+	}
-+
- 	temp = phy_read(phydev, reg);
- 	if (temp < 0)
- 		return temp;
+A follow up series will add device-type abstraction which will allow for
+further refactoring and shared initialisation code.
+
+Johan
+
+
+Johan Hovold (9):
+  dt/bindings: fix documentation of ethernet-phy compatible property
+  net: phy: micrel: fix config_intr error handling
+  net: phy: micrel: use BIT macro
+  net: phy: micrel: refactor broadcast disable
+  net: phy: micrel: disable broadcast for KSZ8081/KSZ8091
+  net: phy: micrel: add led-mode sanity check
+  net: phy: micrel: refactor led-mode error handling
+  net: phy: micrel: clean up led-mode setup
+  net: phy: micrel: enable led-mode for KSZ8081/KSZ8091
+
+ Documentation/devicetree/bindings/net/micrel.txt |   2 +
+ Documentation/devicetree/bindings/net/phy.txt    |   3 +-
+ drivers/net/phy/micrel.c                         | 125 ++++++++++++++++-------
+ 3 files changed, 93 insertions(+), 37 deletions(-)
+
 -- 
 2.0.4
