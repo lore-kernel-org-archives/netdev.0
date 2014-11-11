@@ -1,32 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net-next] net: kill netif_copy_real_num_queues()
-Date: Tue, 11 Nov 2014 16:30:57 -0500 (EST)
-Message-ID: <20141111.163057.133311799307675036.davem@davemloft.net>
-References: <1415741382-7851-1-git-send-email-xiyou.wangcong@gmail.com>
+Subject: Re: [net] ixgbe: phy: fix uninitialized status in
+ ixgbe_setup_phy_link_tnx
+Date: Tue, 11 Nov 2014 16:32:40 -0500 (EST)
+Message-ID: <20141111.163240.790809900354066845.davem@davemloft.net>
+References: <1415730125-13732-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: xiyou.wangcong@gmail.com
+Cc: dborkman@redhat.com, netdev@vger.kernel.org, nhorman@redhat.com,
+	sassmann@redhat.com, jogreene@redhat.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33865 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:33881 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751499AbaKKVbA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2014 16:31:00 -0500
-In-Reply-To: <1415741382-7851-1-git-send-email-xiyou.wangcong@gmail.com>
+	with ESMTP id S1751412AbaKKVcn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2014 16:32:43 -0500
+In-Reply-To: <1415730125-13732-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Tue, 11 Nov 2014 13:29:42 -0800
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Tue, 11 Nov 2014 10:22:05 -0800
 
-> vlan was the only user of netif_copy_real_num_queues(),
-> but it no longer calls it after
-> commit 4af429d29b341bb1735f04c2fb960178 ("vlan: lockless transmit path").
-> So we can just remove it.
+> From: Daniel Borkmann <dborkman@redhat.com>
 > 
-> Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: David S. Miller <davem@davemloft.net>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> Status variable is never initialized, can carry an arbitrary value
+> on the stack and thus may let the function fail.
+> 
+> Fixes: e90dd2645664 ("ixgbe: Make return values more direct")
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> Acked-by: Emil Tantilov <emil.s.tantilov@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Applied, thanks.
+Applied, thanks Jeff.
