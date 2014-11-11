@@ -1,77 +1,105 @@
-From: Alex Williamson <alex.williamson@redhat.com>
-Subject: Re: [PATCH 0/4] move pci_assivned_vfs() check (while disabling VFs)
- to pci sub-system
-Date: Tue, 11 Nov 2014 13:39:32 -0700
-Message-ID: <1415738372.16601.335.camel@ul30vt.home>
-References: <1415620410-4937-1-git-send-email-sathya.perla@emulex.com>
-	 <54625EE8.1050509@redhat.com>
+From: Brian Hill <brian@houston-radar.com>
+Subject: [PATCH] net: phy: Correctly handle MII ioctl which changes autonegotiation.
+Date: Tue, 11 Nov 2014 13:39:39 -0700
+Message-ID: <5462740B.8010503@houston-radar.com>
+References: <5462210F.7040306@houston-radar.com>	<546222F3.7080705@houston-radar.com> <20141111.152146.2216423846831865994.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Sathya Perla <sathya.perla@Emulex.Com>, linux-pci@vger.kernel.org,
-	netdev@vger.kernel.org, ariel.elior@qlogic.com,
-	linux.nics@intel.com, shahed.shaikh@qlogic.com
-To: Don Dutile <ddutile@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58222 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751751AbaKKUjl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Nov 2014 15:39:41 -0500
-In-Reply-To: <54625EE8.1050509@redhat.com>
+Received: from mail-ie0-f172.google.com ([209.85.223.172]:33695 "EHLO
+	mail-ie0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751820AbaKKUjl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2014 15:39:41 -0500
+Received: by mail-ie0-f172.google.com with SMTP id at20so12283893iec.17
+        for <netdev@vger.kernel.org>; Tue, 11 Nov 2014 12:39:41 -0800 (PST)
+In-Reply-To: <20141111.152146.2216423846831865994.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-11-11 at 14:09 -0500, Don Dutile wrote:
-> On 11/10/2014 06:53 AM, Sathya Perla wrote:
-> > A user must not be allowed to disable VFs while they are already assigned to
-> > a guest. This check is being made in each individual driver that implements
-> > the sriov_configure PCI method.
-> > This patch-set fixes this code duplication by moving this check from
-> > drivers to the sriov_nuvfs_store() routine just before invoking
-> > sriov_configure() when num_vfs is equal to 0.
-> >
-> > Vasundhara Volam (4):
-> >    pci: move pci_assivned_vfs() check while disabling VFs to pci
-> >      sub-system
-> >    bnx2x: remove pci_assigned_vfs() check while disabling VFs
-> >    i40e: remove pci_assigned_vfs() check while disabling VFs
-> >    qlcnic: remove pci_assigned_vfs() check while disabling VFs
-> >
-> >   drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c  |    2 +-
-> >   drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |    7 +------
-> >   .../net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c   |   10 ----------
-> >   drivers/pci/pci-sysfs.c                            |    5 +++++
-> >   4 files changed, 7 insertions(+), 17 deletions(-)
-> >
-> I have had a side conversation with Alex Williamson, VFIO author.
-> 
-> VFIO is the upstream method that device-assignment is managed/handled on kvm now.
-> It does not set the PCI_DEV_FLAGS_ASSIGNED pci dev-flags, and thus,
-> this check will not work when VFIO is used.
-> 
-> This patch set will only work for the former, kvm-managed, device-assignment method,
-> which is currently being deprecated in qemu as well.
-> 
-> So, yes, it works for kvm managed device-assignment, but not the
-> newer, VFIO-based device-assignment.
-> 
-> Note, also, that the pci_assigned_vfs() check in the drivers will
-> always return 0 when VFIO is used for device assignment, so keeping
-> these checks in the drivers doesn't do what they imply either.
-> 
-> So, taking in the patch solves old, kvm-managed, device assignment,
-> but a new method is needed when VFIO is involved.
-> 
-> - Don
-> 
-> ps -- Note: just adding the flag setting in vfio-pci does not necessarily
->        solve this problem.  VFIO does not know if a device is assigned to a guest;
->        it only knows a caller of the ioctl requesting the device to be assigned
->        to vfio, and to be dma-mapped for a region of memory, has been requested.
->        So, a new PF<->VF mechanism needs to be put in place to
->        determine the equivalent information.
 
-pps -- Note: testing pci_assivned_vfs() is racy, nothing prevents the flag
-	being added to a device between your check and removing the VF device.
-	This is one of the reasons that vfio-pci doesn't use it and that this
-	interface should be discouraged in the kernel.
+When advertised capabilities are changed with mii-tool, such as:
+mii-tool -A 10baseT
+the existing handler has two errors.
+
+- An actual PHY register value is provided by mii-tool, and this
+  must be mapped to internal state with mii_adv_to_ethtool_adv_t().
+- The PHY state machine needs to be told that autonegotiation has
+  again been performed.  If not, the MAC will not be notified of
+  the new link speed and duplex, resulting in a possible config
+  mismatch.
+
+Signed-off-by: Brian Hill <Brian@houston-radar.com>
+Acked-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/phy/phy.c |   36 ++++++++++++++++++++++++------------
+ 1 file changed, 24 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+index c94e2a2..d40ca35 100644
+--- a/drivers/net/phy/phy.c
++++ b/drivers/net/phy/phy.c
+@@ -352,6 +352,7 @@ int phy_mii_ioctl(struct phy_device *phydev, struct ifreq *ifr, int cmd)
+ {
+ 	struct mii_ioctl_data *mii_data = if_mii(ifr);
+ 	u16 val = mii_data->val_in;
++	bool change_autoneg = false;
+ 
+ 	switch (cmd) {
+ 	case SIOCGMIIPHY:
+@@ -367,22 +368,29 @@ int phy_mii_ioctl(struct phy_device *phydev, struct ifreq *ifr, int cmd)
+ 		if (mii_data->phy_id == phydev->addr) {
+ 			switch (mii_data->reg_num) {
+ 			case MII_BMCR:
+-				if ((val & (BMCR_RESET | BMCR_ANENABLE)) == 0)
++				if ((val & (BMCR_RESET | BMCR_ANENABLE)) == 0) {
++					if (phydev->autoneg == AUTONEG_ENABLE)
++						change_autoneg = true;
+ 					phydev->autoneg = AUTONEG_DISABLE;
+-				else
++					if (val & BMCR_FULLDPLX)
++						phydev->duplex = DUPLEX_FULL;
++					else
++						phydev->duplex = DUPLEX_HALF;
++					if (val & BMCR_SPEED1000)
++						phydev->speed = SPEED_1000;
++					else if (val & BMCR_SPEED100)
++						phydev->speed = SPEED_100;
++					else phydev->speed = SPEED_10;
++				}
++				else {
++					if (phydev->autoneg == AUTONEG_DISABLE)
++						change_autoneg = true;
+ 					phydev->autoneg = AUTONEG_ENABLE;
+-				if (!phydev->autoneg && (val & BMCR_FULLDPLX))
+-					phydev->duplex = DUPLEX_FULL;
+-				else
+-					phydev->duplex = DUPLEX_HALF;
+-				if (!phydev->autoneg && (val & BMCR_SPEED1000))
+-					phydev->speed = SPEED_1000;
+-				else if (!phydev->autoneg &&
+-					 (val & BMCR_SPEED100))
+-					phydev->speed = SPEED_100;
++				}
+ 				break;
+ 			case MII_ADVERTISE:
+-				phydev->advertising = val;
++				phydev->advertising = mii_adv_to_ethtool_adv_t(val);
++				change_autoneg = true;
+ 				break;
+ 			default:
+ 				/* do nothing */
+@@ -396,6 +404,10 @@ int phy_mii_ioctl(struct phy_device *phydev, struct ifreq *ifr, int cmd)
+ 		if (mii_data->reg_num == MII_BMCR &&
+ 		    val & BMCR_RESET)
+ 			return phy_init_hw(phydev);
++
++		if (change_autoneg)
++			return phy_start_aneg(phydev);
++
+ 		return 0;
+ 
+ 	case SIOCSHWTSTAMP:
+-- 
+1.7.9.5
