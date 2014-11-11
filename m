@@ -1,100 +1,198 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next 1/2] net: move vlan pop/push functions into
- common code
-Date: Tue, 11 Nov 2014 16:00:16 +0100
-Message-ID: <20141111150016.GD1825@nanopsycho.lan>
-References: <1415700789-9171-1-git-send-email-jiri@resnulli.us>
- <1415711181.9613.32.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [patch net-next v2 02/10] net: introduce generic switch devices
+ support
+Date: Tue, 11 Nov 2014 16:11:26 +0100
+Message-ID: <20141111151126.GE1825@nanopsycho.lan>
+References: <1415530280-9190-1-git-send-email-jiri@resnulli.us>
+ <1415530280-9190-3-git-send-email-jiri@resnulli.us>
+ <5461354A.3020906@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com,
-	pshelar@nicira.com, therbert@google.com, edumazet@google.com,
-	willemb@google.com, dborkman@redhat.com, mst@redhat.com,
-	fw@strlen.de, Paul.Durrant@citrix.com, tgraf@suug.ch
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
+	andy@greyhouse.net, tgraf@suug.ch, dborkman@redhat.com,
+	ogerlitz@mellanox.com, jesse@nicira.com, pshelar@nicira.com,
+	azhou@nicira.com, ben@decadent.org.uk, stephen@networkplumber.org,
+	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
+	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
+	edumazet@google.com, jhs@mojatatu.com, sfeldma@gmail.com,
+	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
+	linville@tuxdriver.com, jasowang@redhat.com, ebiederm@xmission.com,
+	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
+	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
+	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
+	ronye@mellanox.com, simon.horman@netronome.com,
+	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
+	mleitner@redhat.com, shrijeet@gmail.com, gospo@cumulusnetworks.com,
+	bcrl@kvac
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f53.google.com ([74.125.82.53]:63796 "EHLO
+Received: from mail-wg0-f53.google.com ([74.125.82.53]:49181 "EHLO
 	mail-wg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751537AbaKKPAT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2014 10:00:19 -0500
-Received: by mail-wg0-f53.google.com with SMTP id b13so11845244wgh.26
-        for <netdev@vger.kernel.org>; Tue, 11 Nov 2014 07:00:17 -0800 (PST)
+	with ESMTP id S1750980AbaKKPL3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2014 10:11:29 -0500
+Received: by mail-wg0-f53.google.com with SMTP id b13so11785251wgh.40
+        for <netdev@vger.kernel.org>; Tue, 11 Nov 2014 07:11:27 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <1415711181.9613.32.camel@edumazet-glaptop2.roam.corp.google.com>
+In-Reply-To: <5461354A.3020906@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Nov 11, 2014 at 02:06:21PM CET, eric.dumazet@gmail.com wrote:
->On Tue, 2014-11-11 at 11:13 +0100, Jiri Pirko wrote:
->> So it can be used from out of openvswitch code.
->> Did couple of cosmetic changes on the way, namely variable naming and
->> adding support for 8021AD proto.
->> 
->> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
->> ---
->>  include/linux/skbuff.h    |  2 ++
->>  net/core/skbuff.c         | 86 +++++++++++++++++++++++++++++++++++++++++++++++
->>  net/openvswitch/actions.c | 76 ++---------------------------------------
->>  3 files changed, 90 insertions(+), 74 deletions(-)
->> 
->> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
->> index 103fbe8..3b0445c 100644
->> --- a/include/linux/skbuff.h
->> +++ b/include/linux/skbuff.h
->> @@ -2673,6 +2673,8 @@ void skb_scrub_packet(struct sk_buff *skb, bool xnet);
->>  unsigned int skb_gso_transport_seglen(const struct sk_buff *skb);
->>  struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features);
->>  struct sk_buff *skb_vlan_untag(struct sk_buff *skb);
->> +int skb_vlan_pop(struct sk_buff *skb);
->> +int skb_vlan_push(struct sk_buff *skb, __be16 vlan_proto, u16 vlan_tci);
->>  
->>  struct skb_checksum_ops {
->>  	__wsum (*update)(const void *mem, int len, __wsum wsum);
->> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
->> index 7001896..75e53d4 100644
->> --- a/net/core/skbuff.c
->> +++ b/net/core/skbuff.c
->> @@ -4151,6 +4151,92 @@ err_free:
->>  }
->>  EXPORT_SYMBOL(skb_vlan_untag);
->>  
->> +/* remove VLAN header from packet and update csum accordingly. */
->> +static int __skb_vlan_pop(struct sk_buff *skb, u16 *vlan_tci)
->> +{
->> +	struct vlan_hdr *vhdr;
->> +	int err;
->> +
+Mon, Nov 10, 2014 at 10:59:38PM CET, john.fastabend@gmail.com wrote:
+>On 11/09/2014 02:51 AM, Jiri Pirko wrote:
+>>The goal of this is to provide a possibility to support various switch
+>>chips. Drivers should implement relevant ndos to do so. Now there is
+>>only one ndo defined:
+>>- for getting physical switch id is in place.
+>>
+>>Note that user can use random port netdevice to access the switch.
+>>
+>>Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>>---
+>>  Documentation/networking/switchdev.txt | 59 ++++++++++++++++++++++++++++++++++
+>>  MAINTAINERS                            |  7 ++++
+>>  include/linux/netdevice.h              | 10 ++++++
+>>  include/net/switchdev.h                | 30 +++++++++++++++++
+>>  net/Kconfig                            |  1 +
+>>  net/Makefile                           |  3 ++
+>>  net/switchdev/Kconfig                  | 13 ++++++++
+>>  net/switchdev/Makefile                 |  5 +++
+>>  net/switchdev/switchdev.c              | 33 +++++++++++++++++++
+>>  9 files changed, 161 insertions(+)
+>>  create mode 100644 Documentation/networking/switchdev.txt
+>>  create mode 100644 include/net/switchdev.h
+>>  create mode 100644 net/switchdev/Kconfig
+>>  create mode 100644 net/switchdev/Makefile
+>>  create mode 100644 net/switchdev/switchdev.c
+>>
+>>diff --git a/Documentation/networking/switchdev.txt b/Documentation/networking/switchdev.txt
+>>new file mode 100644
+>>index 0000000..98be76c
+>>--- /dev/null
+>>+++ b/Documentation/networking/switchdev.txt
+>>@@ -0,0 +1,59 @@
+>>+Switch (and switch-ish) device drivers HOWTO
+>>+===========================
+>>+
+>>+Please note that the word "switch" is here used in very generic meaning.
+>>+This include devices supporting L2/L3 but also various flow offloading chips,
+>>+including switches embedded into SR-IOV NICs.
+>>+
+>>+Lets describe a topology a bit. Imagine the following example:
+>>+
+>>+       +----------------------------+    +---------------+
+>>+       |     SOME switch chip       |    |      CPU      |
+>>+       +----------------------------+    +---------------+
+>>+       port1 port2 port3 port4 MNGMNT    |     PCI-E     |
+>>+         |     |     |     |     |       +---------------+
+>>+        PHY   PHY    |     |     |         |  NIC0 NIC1
+>>+                     |     |     |         |   |    |
+>>+                     |     |     +- PCI-E -+   |    |
+>>+                     |     +------- MII -------+    |
+>>+                     +------------- MII ------------+
+>>+
+>>+In this example, there are two independent lines between the switch silicon
+>>+and CPU. NIC0 and NIC1 drivers are not aware of a switch presence. They are
+>>+separate from the switch driver. SOME switch chip is by managed by a driver
+>>+via PCI-E device MNGMNT. Note that MNGMNT device, NIC0 and NIC1 may be
+>>+connected to some other type of bus.
+>>+
+>>+Now, for the previous example show the representation in kernel:
+>>+
+>>+       +----------------------------+    +---------------+
+>>+       |     SOME switch chip       |    |      CPU      |
+>>+       +----------------------------+    +---------------+
+>>+       sw0p0 sw0p1 sw0p2 sw0p3 MNGMNT    |     PCI-E     |
+>>+         |     |     |     |     |       +---------------+
+>>+        PHY   PHY    |     |     |         |  eth0 eth1
+>>+                     |     |     |         |   |    |
+>>+                     |     |     +- PCI-E -+   |    |
+>>+                     |     +------- MII -------+    |
+>>+                     +------------- MII ------------+
+>>+
+>>+Lets call the example switch driver for SOME switch chip "SOMEswitch". This
+>>+driver takes care of PCI-E device MNGMNT. There is a netdevice instance sw0pX
+>>+created for each port of a switch. These netdevices are instances
+>>+of "SOMEswitch" driver. sw0pX netdevices serve as a "representation"
+>>+of the switch chip. eth0 and eth1 are instances of some other existing driver.
+>>+
+>>+The only difference of the switch-port netdevice from the ordinary netdevice
+>>+is that is implements couple more NDOs:
+>>+
+>>+	ndo_sw_parent_get_id - This returns the same ID for two port netdevices
+>>+			       of the same physical switch chip. This is
+>>+			       mandatory to be implemented by all switch drivers
+>>+			       and serves the caller for recognition of a port
+>>+			       netdevice.
 >
+>What is the connection between ndo_sw_parent_get_id and
+>ndo_get_phys_port_id(). I'm having a bit of trouble teasing
+>this out.
 >
+>For example here is my ascii art for a SR-IOV NIC,
 >
->> +	if (!pskb_may_pull(skb, VLAN_ETH_HLEN))
->> +		return -ENOMEM;
->> +
->> +	if (!skb_cloned(skb) || skb_clone_writable(skb, VLAN_ETH_HLEN))
->> +		return 0;
->> +
->> +	err = pskb_expand_head(skb, 0, 0, GFP_ATOMIC);
->> +	if (unlikely(err))
->> +		return err;
+>       eth0     eth1     eth2
+>        |         |        |
+>        |         |        |
+>        PF        VF       VF
+>   +----+---------+--------+----+
+>   |       embedded bridge      |
+>   +-------------+--------------+
+>                 |
+>                port
 >
->All this should be a function of its own (OVS calls this
->make_writable()).
+>that can do switching between the various uplinks and downlinks.
+>In IEEE 802.1Q language the embedded bridge acts like an edge
+>relay. At least that seems to be the current state of the art
+>for SR-IOV. Edge relay just means it has a single uplink port
+>to the network and multiple downlinks and also isn't required
+>to do learning and run loop detection protocols STP, et. al.
 >
->Its too bad netfilter has a different skb_make_writable()
+>Also there are multi-function devices that look the same except
+>replace the VFs with PFs. It seems to be a common mode for NICs
+>that do the iSCSI offloads with storage functions.
+>
+>When something is an embedded bridge vs a SOME switch chip is
+>not entirely clear.
+>
+>My understanding is use ndo_sw_parent_get_id() when you have
+>multiple physical ports all connected to a single switch object.
+>When you have a single port connected to multiple PCIE functions
+>or queues representing a netdev (e.g. macvlan offload) use the
+>ndo_get_phys_port_id(). Just want to be sure we are on the
+>same page here.
 
-How different is that? Looking at it it seems it is doing the same
-thing. Not sure though...
+Nod. You described that right.
+
+
+>
+>Otherwise patch looks good. I think we can clear the above up
+>with an addition to the documentation. Could go in after the
+>initial set and be OK with me.
+>
+>IMO this patch is needed otherwise user space is at a complete
+>loss on trying to figure out how netdevs map to switch silicon.
+>You could have reused ndo_get_phys_port_id() perhaps but then
+>I think user space may get confused by SR-IOV/VMDQ/etc ports
+>attached to a switch silicon. For .02$ having a new distinct
+>identifier is cleaner.
+
+It most definitelly is. Therefore I went that way.
+
 
 >
 >
->> +
->> +	if (skb->ip_summed == CHECKSUM_COMPLETE)
->> +		skb->csum = csum_sub(skb->csum, csum_partial(skb->data
->> +					+ (2 * ETH_ALEN), VLAN_HLEN, 0));
+>>+	ndo_sw_parent_* - Functions that serve for a manipulation of the switch
+>>+			  chip itself (it can be though of as a "parent" of the
+>>+			  port, therefore the name). They are not port-specific.
+>>+			  Caller might use arbitrary port netdevice of the same
+>>+			  switch and it will make no difference.
+>>+	ndo_sw_port_* - Functions that serve for a port-specific manipulation.
 >
->This looks like skb_postpull_rcsum()
+>[...]
 >
->BTW, calling csum_partial() for 4 bytes is quite expensive.
+>Thanks,
+>John
 >
 >
->
+>-- 
+>John Fastabend         Intel Corporation
