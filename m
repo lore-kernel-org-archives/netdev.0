@@ -1,40 +1,53 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: sctp: fix memory leak in auth key management
-Date: Tue, 11 Nov 2014 15:20:24 -0500 (EST)
-Message-ID: <20141111.152024.1200108289213327921.davem@davemloft.net>
-References: <1415638809-20288-1-git-send-email-dborkman@redhat.com>
+Subject: Re: [PATCH] net: phy: Correctly handle MII ioctl which changes
+ autonegotiation.
+Date: Tue, 11 Nov 2014 15:21:46 -0500 (EST)
+Message-ID: <20141111.152146.2216423846831865994.davem@davemloft.net>
+References: <5462210F.7040306@houston-radar.com>
+	<546222F3.7080705@houston-radar.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	vyasevich@gmail.com
-To: dborkman@redhat.com
+Cc: netdev@vger.kernel.org
+To: brian@houston-radar.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33090 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:33099 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751471AbaKKUU1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2014 15:20:27 -0500
-In-Reply-To: <1415638809-20288-1-git-send-email-dborkman@redhat.com>
+	with ESMTP id S1750944AbaKKUVs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2014 15:21:48 -0500
+In-Reply-To: <546222F3.7080705@houston-radar.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Mon, 10 Nov 2014 18:00:09 +0100
+From: Brian Hill <brian@houston-radar.com>
+Date: Tue, 11 Nov 2014 07:53:39 -0700
 
-> A very minimal and simple user space application allocating an SCTP
-> socket, setting SCTP_AUTH_KEY setsockopt(2) on it and then closing
-> the socket again will leak the memory containing the authentication
-> key from user space:
- ...
-> This is bad because of two things, we can bring down a machine from
-> user space when auth_enable=1, but also we would leave security sensitive
-> keying material in memory without clearing it after use. The issue is
-> that sctp_auth_create_key() already sets the refcount to 1, but after
-> allocation sctp_auth_set_key() does an additional refcount on it, and
-> thus leaving it around when we free the socket.
 > 
-> Fixes: 65b07e5d0d0 ("[SCTP]: API updates to suport SCTP-AUTH extensions.")
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-> Cc: Vlad Yasevich <vyasevich@gmail.com>
+> When advertised capabilities are changed with mii-tool, such as:
+> mii-tool -A 10baseT
+> the existing handler has two errors.
+> 
+> - An actual PHY register value is provided by mii-tool, and this
+>   must be mapped to internal state with mii_adv_to_ethtool_adv_t().
+> - The PHY state machine needs to be told that autonegotiation has
+>   again been performed.  If not, the MAC will not be notified of
+>   the new link speed and duplex, resulting in a possible config
+>   mismatch.
+> 
+> Signed-off-by: Brian Hill <Brian@houston-radar.com>
+> Acked-by: Florian Fainelli <f.fainelli@gmail.com>
+> ---
+>  drivers/net/phy/phy.c |   36 ++++++++++++++++++++++++------------
+>  1 file changed, 24 insertions(+), 12 deletions(-)
+> 
+> diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+> index c94e2a2..ee9f0c9 100644
+> --- a/drivers/net/phy/phy.c
+> +++ b/drivers/net/phy/phy.c
+> @@ -352,6 +352,7 @@ int phy_mii_ioctl(struct phy_device *phydev, struct ifreq *ifr, int cmd)
+>  {
+>  	struct mii_ioctl_data *mii_data = if_mii(ifr);
+>  	u16 val = mii_data->val_in;
+> +	int change_autoneg = 0;
 
-Also applied and queued up for -stable, thanks again.
+As Florian asked, please use bool/true/false for 'change_autoneg'.
