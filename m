@@ -1,43 +1,55 @@
 From: Johan Hovold <johan@kernel.org>
-Subject: [PATCH 0/9] net: phy: micrel: refactoring and KSZ8081/KSZ8091 features
-Date: Tue, 11 Nov 2014 20:00:06 +0100
-Message-ID: <1415732415-10363-1-git-send-email-johan@kernel.org>
+Subject: [PATCH 2/9] net: phy: micrel: fix config_intr error handling
+Date: Tue, 11 Nov 2014 20:00:08 +0100
+Message-ID: <1415732415-10363-3-git-send-email-johan@kernel.org>
+References: <1415732415-10363-1-git-send-email-johan@kernel.org>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	Johan Hovold <johan@kernel.org>
 To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1415732415-10363-1-git-send-email-johan@kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This series cleans up and refactors parts of the micrel PHY driver, and
-adds support for broadcast-address-disable and led-mode configuration
-for KSZ8081 and KSZ8091 PHYs.
+Make sure never to update the control register with random data (an
+error code) by checking the return value after reading it.
 
-Specifically, this enables dual KSZ8081 setups (which are limited to
-using address 0 and 3).
+Signed-off-by: Johan Hovold <johan@kernel.org>
+---
+ drivers/net/phy/micrel.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-A follow up series will add device-type abstraction which will allow for
-further refactoring and shared initialisation code.
-
-Johan
-
-
-Johan Hovold (9):
-  dt/bindings: fix documentation of ethernet-phy compatible property
-  net: phy: micrel: fix config_intr error handling
-  net: phy: micrel: use BIT macro
-  net: phy: micrel: refactor broadcast disable
-  net: phy: micrel: disable broadcast for KSZ8081/KSZ8091
-  net: phy: micrel: add led-mode sanity check
-  net: phy: micrel: refactor led-mode error handling
-  net: phy: micrel: clean up led-mode setup
-  net: phy: micrel: enable led-mode for KSZ8081/KSZ8091
-
- Documentation/devicetree/bindings/net/micrel.txt |   2 +
- Documentation/devicetree/bindings/net/phy.txt    |   3 +-
- drivers/net/phy/micrel.c                         | 125 ++++++++++++++++-------
- 3 files changed, 93 insertions(+), 37 deletions(-)
-
+diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+index bcc6c0ea75fa..62ca9613a514 100644
+--- a/drivers/net/phy/micrel.c
++++ b/drivers/net/phy/micrel.c
+@@ -122,6 +122,8 @@ static int kszphy_config_intr(struct phy_device *phydev)
+ 
+ 	/* set the interrupt pin active low */
+ 	temp = phy_read(phydev, MII_KSZPHY_CTRL);
++	if (temp < 0)
++		return temp;
+ 	temp &= ~KSZPHY_CTRL_INT_ACTIVE_HIGH;
+ 	phy_write(phydev, MII_KSZPHY_CTRL, temp);
+ 	rc = kszphy_set_interrupt(phydev);
+@@ -134,6 +136,8 @@ static int ksz9021_config_intr(struct phy_device *phydev)
+ 
+ 	/* set the interrupt pin active low */
+ 	temp = phy_read(phydev, MII_KSZPHY_CTRL);
++	if (temp < 0)
++		return temp;
+ 	temp &= ~KSZ9021_CTRL_INT_ACTIVE_HIGH;
+ 	phy_write(phydev, MII_KSZPHY_CTRL, temp);
+ 	rc = kszphy_set_interrupt(phydev);
+@@ -146,6 +150,8 @@ static int ks8737_config_intr(struct phy_device *phydev)
+ 
+ 	/* set the interrupt pin active low */
+ 	temp = phy_read(phydev, MII_KSZPHY_CTRL);
++	if (temp < 0)
++		return temp;
+ 	temp &= ~KS8737_CTRL_INT_ACTIVE_HIGH;
+ 	phy_write(phydev, MII_KSZPHY_CTRL, temp);
+ 	rc = kszphy_set_interrupt(phydev);
 -- 
 2.0.4
