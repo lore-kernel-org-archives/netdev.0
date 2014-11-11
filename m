@@ -1,64 +1,31 @@
-From: Shuah Khan <shuahkh@osg.samsung.com>
-Subject: [PATCH v2 12/19] selftests/mount: add install target to enable installing test
-Date: Tue, 11 Nov 2014 13:27:52 -0700
-Message-ID: <63e46a7d9157cde01206cd6be43678f85ac4268c.1415735831.git.shuahkh@osg.samsung.com>
-References: <cover.1415735831.git.shuahkh@osg.samsung.com>
-Cc: Shuah Khan <shuahkh@osg.samsung.com>, linux-kbuild@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-api@vger.kernel.org,
-	netdev@vger.kernel.org
-To: gregkh@linuxfoundation.org, akpm@linux-foundation.org,
-	mmarek@suse.cz, davem@davemloft.net, keescook@chromium.org,
-	tranmanphong@gmail.com, dh.herrmann@gmail.com, hughd@google.com,
-	bobby.prani@gmail.com, ebiederm@xmission.com,
-	serge.hallyn@ubuntu.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1415735831.git.shuahkh@osg.samsung.com>
-In-Reply-To: <cover.1415735831.git.shuahkh@osg.samsung.com>
-References: <cover.1415735831.git.shuahkh@osg.samsung.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] ipv6: fix IPV6_PKTINFO with v4 mapped
+Date: Tue, 11 Nov 2014 15:33:32 -0500 (EST)
+Message-ID: <20141111.153332.989692973627846745.davem@davemloft.net>
+References: <1415670865.9613.24.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, hannes@stressinduktion.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33246 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752591AbaKKUdf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2014 15:33:35 -0500
+In-Reply-To: <1415670865.9613.24.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add a new make target to enable installing test. This target
-installs test in the kselftest install location and add to the
-kselftest script to run the test. Install target can be run
-only from top level source dir.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 10 Nov 2014 17:54:25 -0800
 
-Signed-off-by: Shuah Khan <shuahkh@osg.samsung.com>
----
- tools/testing/selftests/mount/Makefile | 15 ++++++++++++++-
- 1 file changed, 14 insertions(+), 1 deletion(-)
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> Use IS_ENABLED(CONFIG_IPV6), to enable this code if IPv6 is
+> a module.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Fixes: c8e6ad0829a7 ("ipv6: honor IPV6_PKTINFO with v4 mapped addresses on sendmsg")
 
-diff --git a/tools/testing/selftests/mount/Makefile b/tools/testing/selftests/mount/Makefile
-index 337d853..7533097 100644
---- a/tools/testing/selftests/mount/Makefile
-+++ b/tools/testing/selftests/mount/Makefile
-@@ -1,5 +1,7 @@
- # Makefile for mount selftests.
- 
-+TEST_STR = if [ -f /proc/self/uid_map ] ; then ./unprivileged-remount-test ; fi
-+
- all: unprivileged-remount-test
- 
- unprivileged-remount-test: unprivileged-remount-test.c
-@@ -7,7 +9,18 @@ unprivileged-remount-test: unprivileged-remount-test.c
- 
- # Allow specific tests to be selected.
- test_unprivileged_remount: unprivileged-remount-test
--	@if [ -f /proc/self/uid_map ] ; then ./unprivileged-remount-test ; fi
-+	@$(TEST_STR)
-+
-+install:
-+ifdef INSTALL_KSFT_PATH
-+	install ./unprivileged-remount-test $(INSTALL_KSFT_PATH)
-+	@echo echo Start mount test .... >> $(KSELFTEST)
-+	@echo "$(TEST_STR)" >> $(KSELFTEST)
-+	@echo echo End mount test .... >> $(KSELFTEST)
-+	@echo echo ============================== >> $(KSELFTEST)
-+else
-+	@echo Run make kselftest_install in top level source directory
-+endif
- 
- run_tests: all test_unprivileged_remount
- 
--- 
-1.9.1
+Applied and queued up for -stable, thanks Eric.
