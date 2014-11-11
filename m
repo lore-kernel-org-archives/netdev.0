@@ -1,37 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3 net-next] sunvnet: edge-case/race-conditions bug
- fixes
-Date: Mon, 10 Nov 2014 21:06:15 -0500 (EST)
-Message-ID: <20141110.210615.1017331081770916209.davem@davemloft.net>
-References: <20141109014143.GB31217@oracle.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, david.stevens@oracle.com
-To: sowmini.varadhan@oracle.com
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net 0/2] net: bcmgenet: power management related fixes
+Date: Mon, 10 Nov 2014 18:06:19 -0800
+Message-ID: <1415671581-2835-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51153 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750993AbaKKCGT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2014 21:06:19 -0500
-In-Reply-To: <20141109014143.GB31217@oracle.com>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:49647 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750993AbaKKCG0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2014 21:06:26 -0500
+Received: by mail-pa0-f42.google.com with SMTP id bj1so9608078pad.29
+        for <netdev@vger.kernel.org>; Mon, 10 Nov 2014 18:06:26 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Date: Sat, 8 Nov 2014 20:41:43 -0500
+Hi David,
 
-> This patch series contains fixes for race-conditions in sunvnet,
-> that can encountered when there is a difference in latency between
-> producer and consumer.
-> 
-> Patch 1 addresses a case when the STOPPED LDC ack from a peer is
-> processed before vnet_start_xmit can finish updating the dr->prod
-> state. 
-> 
-> Patch 2 fixes the edge-case when outgoing data and incoming
-> stopped-ack cross each other in flight. 
-> 
-> Patch 3 adds a missing rcu_read_unlock(), found by code-inspection.
+These two patches fixes issues seen while testing power management on
+platforms using the GENET driver.
 
-Series applied, thanks.
+First patch fixes an issue with the PHY state machine queuing work after
+resume since we are not properly detached from it.
+
+Second patch fixes an issue with GENET interfaces that were not properly
+restored to a working state after a S3 suspend/resume cycle.
+
+Thanks!
+
+Florian Fainelli (2):
+  net: bcmgenet: connect and disconnect from the PHY state machine
+  net: bcmgenet: apply MII configuration in bcmgenet_open()
+
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c | 11 ++++++++++-
+ drivers/net/ethernet/broadcom/genet/bcmgenet.h |  3 ++-
+ drivers/net/ethernet/broadcom/genet/bcmmii.c   |  9 +++++----
+ 3 files changed, 17 insertions(+), 6 deletions(-)
+
+-- 
+1.9.1
