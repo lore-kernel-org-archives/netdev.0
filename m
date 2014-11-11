@@ -1,100 +1,110 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 02/10] i40e: don't do link_status or stats collection on every ARQ
-Date: Tue, 11 Nov 2014 06:44:38 -0800
-Message-ID: <1415717086-3441-3-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1415717086-3441-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Patrick Lu <patrick.lu@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Brian Hill <brian@houston-radar.com>
+Subject: [PATCH]  net: phy: Correctly handle MII ioctl which changes autonegotiation.
+Date: Tue, 11 Nov 2014 07:53:39 -0700
+Message-ID: <546222F3.7080705@houston-radar.com>
+References: <5462210F.7040306@houston-radar.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:3085 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751352AbaKKOp3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Nov 2014 09:45:29 -0500
-In-Reply-To: <1415717086-3441-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-ie0-f177.google.com ([209.85.223.177]:41957 "EHLO
+	mail-ie0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752268AbaKKOxl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2014 09:53:41 -0500
+Received: by mail-ie0-f177.google.com with SMTP id tp5so11482205ieb.22
+        for <netdev@vger.kernel.org>; Tue, 11 Nov 2014 06:53:41 -0800 (PST)
+Received: from [192.168.1.152] (71-222-160-8.albq.qwest.net. [71.222.160.8])
+        by mx.google.com with ESMTPSA id dy3sm6391572igb.1.2014.11.11.06.53.40
+        for <netdev@vger.kernel.org>
+        (version=TLSv1 cipher=ECDHE-RSA-RC4-SHA bits=128/128);
+        Tue, 11 Nov 2014 06:53:40 -0800 (PST)
+In-Reply-To: <5462210F.7040306@houston-radar.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
 
-The ARQ events cause a service_task execution, and we do a link_status
-check and full stats gathering for each service_task.  However, when
-there are a lot of ARQ events, such as when doing an NVM update, we end up
-doing 10's if not 100's of these per second, thereby heavily abusing the
-PCI bus and especially the Firmware.  This patch adds a check to keep the
-service_task from running these periodic tasks more than once per second,
-while still allowing quick action to service the events.
+When advertised capabilities are changed with mii-tool, such as:
+mii-tool -A 10baseT
+the existing handler has two errors.
 
-Change-ID: Iec7670c37bfae9791c43fec26df48aea7f70b33e
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
-Signed-off-by: Patrick Lu <patrick.lu@intel.com>
-Tested-by: Jim Young <jamesx.m.young@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+- An actual PHY register value is provided by mii-tool, and this
+  must be mapped to internal state with mii_adv_to_ethtool_adv_t().
+- The PHY state machine needs to be told that autonegotiation has
+  again been performed.  If not, the MAC will not be notified of
+  the new link speed and duplex, resulting in a possible config
+  mismatch.
+
+Signed-off-by: Brian Hill <Brian@houston-radar.com>
+Acked-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h      |  3 ++-
- drivers/net/ethernet/intel/i40e/i40e_main.c | 14 ++++++++++----
- 2 files changed, 12 insertions(+), 5 deletions(-)
+ drivers/net/phy/phy.c |   36 ++++++++++++++++++++++++------------
+ 1 file changed, 24 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index f1e33f8..b7a807b 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -269,7 +269,8 @@ struct i40e_pf {
- 	u16 msg_enable;
- 	char misc_int_name[IFNAMSIZ + 9];
- 	u16 adminq_work_limit; /* num of admin receive queue desc to process */
--	int service_timer_period;
-+	unsigned long service_timer_period;
-+	unsigned long service_timer_previous;
- 	struct timer_list service_timer;
- 	struct work_struct service_task;
+diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+index c94e2a2..ee9f0c9 100644
+--- a/drivers/net/phy/phy.c
++++ b/drivers/net/phy/phy.c
+@@ -352,6 +352,7 @@ int phy_mii_ioctl(struct phy_device *phydev, struct ifreq *ifr, int cmd)
+ {
+ 	struct mii_ioctl_data *mii_data = if_mii(ifr);
+ 	u16 val = mii_data->val_in;
++	int change_autoneg = 0;
  
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 1a98e23..de66463 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -5449,7 +5449,7 @@ static void i40e_check_hang_subtask(struct i40e_pf *pf)
- }
- 
- /**
-- * i40e_watchdog_subtask - Check and bring link up
-+ * i40e_watchdog_subtask - periodic checks not using event driven response
-  * @pf: board private structure
-  **/
- static void i40e_watchdog_subtask(struct i40e_pf *pf)
-@@ -5461,6 +5461,15 @@ static void i40e_watchdog_subtask(struct i40e_pf *pf)
- 	    test_bit(__I40E_CONFIG_BUSY, &pf->state))
- 		return;
- 
-+	/* make sure we don't do these things too often */
-+	if (time_before(jiffies, (pf->service_timer_previous +
-+				  pf->service_timer_period)))
-+		return;
-+	pf->service_timer_previous = jiffies;
+ 	switch (cmd) {
+ 	case SIOCGMIIPHY:
+@@ -367,22 +368,29 @@ int phy_mii_ioctl(struct phy_device *phydev, struct ifreq *ifr, int cmd)
+ 		if (mii_data->phy_id == phydev->addr) {
+ 			switch (mii_data->reg_num) {
+ 			case MII_BMCR:
+-				if ((val & (BMCR_RESET | BMCR_ANENABLE)) == 0)
++				if ((val & (BMCR_RESET | BMCR_ANENABLE)) == 0) {
++					if (phydev->autoneg == AUTONEG_ENABLE)
++						change_autoneg = 1;
+ 					phydev->autoneg = AUTONEG_DISABLE;
+-				else
++					if (val & BMCR_FULLDPLX)
++						phydev->duplex = DUPLEX_FULL;
++					else
++						phydev->duplex = DUPLEX_HALF;
++					if (val & BMCR_SPEED1000)
++						phydev->speed = SPEED_1000;
++					else if (val & BMCR_SPEED100)
++						phydev->speed = SPEED_100;
++					else phydev->speed = SPEED_10;
++				}
++				else {
++					if (phydev->autoneg == AUTONEG_DISABLE)
++						change_autoneg = 1;
+ 					phydev->autoneg = AUTONEG_ENABLE;
+-				if (!phydev->autoneg && (val & BMCR_FULLDPLX))
+-					phydev->duplex = DUPLEX_FULL;
+-				else
+-					phydev->duplex = DUPLEX_HALF;
+-				if (!phydev->autoneg && (val & BMCR_SPEED1000))
+-					phydev->speed = SPEED_1000;
+-				else if (!phydev->autoneg &&
+-					 (val & BMCR_SPEED100))
+-					phydev->speed = SPEED_100;
++				}
+ 				break;
+ 			case MII_ADVERTISE:
+-				phydev->advertising = val;
++				phydev->advertising = mii_adv_to_ethtool_adv_t(val);
++				change_autoneg = 1;
+ 				break;
+ 			default:
+ 				/* do nothing */
+@@ -396,6 +404,10 @@ int phy_mii_ioctl(struct phy_device *phydev, struct ifreq *ifr, int cmd)
+ 		if (mii_data->reg_num == MII_BMCR &&
+ 		    val & BMCR_RESET)
+ 			return phy_init_hw(phydev);
 +
-+	i40e_check_hang_subtask(pf);
-+	i40e_link_event(pf);
++		if (change_autoneg)
++			return phy_start_aneg(phydev);
 +
- 	/* Update the stats for active netdevs so the network stack
- 	 * can look at updated numbers whenever it cares to
- 	 */
-@@ -6325,15 +6334,12 @@ static void i40e_service_task(struct work_struct *work)
- 	i40e_vc_process_vflr_event(pf);
- 	i40e_watchdog_subtask(pf);
- 	i40e_fdir_reinit_subtask(pf);
--	i40e_check_hang_subtask(pf);
- 	i40e_sync_filters_subtask(pf);
- #ifdef CONFIG_I40E_VXLAN
- 	i40e_sync_vxlan_filters_subtask(pf);
- #endif
- 	i40e_clean_adminq_subtask(pf);
+ 		return 0;
  
--	i40e_link_event(pf);
--
- 	i40e_service_event_complete(pf);
- 
- 	/* If the tasks have taken longer than one timer cycle or there
+ 	case SIOCSHWTSTAMP:
 -- 
-1.9.3
+1.7.9.5
