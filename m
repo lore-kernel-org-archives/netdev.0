@@ -1,113 +1,55 @@
-From: Wei Yang <weiyang@linux.vnet.ibm.com>
-Subject: Re: Face some error after applying commit 7dfa4b414d4(net/mlx4_en:
- Code cleanups in tx path)
-Date: Tue, 11 Nov 2014 09:57:05 +0800
-Message-ID: <20141111015705.GA8470@richard>
-References: <20141108025758.GA13875@richard>
- <CANn89i+ekXHJSePzQ0rWx2KKqwYGTrok3-ZZ1RdEygVJcGDqRQ@mail.gmail.com>
- <20141110015933.GB6294@richard>
- <1415587574.13896.131.camel@edumazet-glaptop2.roam.corp.google.com>
- <20141110054010.GA3224@richard>
- <54607095.6070302@mellanox.com>
-Reply-To: Wei Yang <weiyang@linux.vnet.ibm.com>
+From: Alexander Duyck <alexander.h.duyck-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [net-next PATCH 1/5] net: Add netdev Rx page allocation function
+Date: Mon, 10 Nov 2014 18:02:27 -0800
+Message-ID: <54616E33.1030207@redhat.com>
+References: <20141110195104.16182.98174.stgit@ahduyck-vm-fedora20>	<20141110195158.16182.71937.stgit@ahduyck-vm-fedora20> <CAHA+R7PigH6ZZBP0DzAPwLMwsK85aadj4hH3iahhOH2ehfYJvg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Wei Yang <weiyang@linux.vnet.ibm.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Eric Dumazet <edumazet@google.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Amir Vadai <amirv@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e23smtp09.au.ibm.com ([202.81.31.142]:36142 "EHLO
-	e23smtp09.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751221AbaKKB5N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Nov 2014 20:57:13 -0500
-Received: from /spool/local
-	by e23smtp09.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <weiyang@linux.vnet.ibm.com>;
-	Tue, 11 Nov 2014 11:57:10 +1000
-Received: from d23relay10.au.ibm.com (d23relay10.au.ibm.com [9.190.26.77])
-	by d23dlp02.au.ibm.com (Postfix) with ESMTP id 4F08F2BB0077
-	for <netdev@vger.kernel.org>; Tue, 11 Nov 2014 12:57:08 +1100 (EST)
-Received: from d23av01.au.ibm.com (d23av01.au.ibm.com [9.190.234.96])
-	by d23relay10.au.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id sAB1x2oN23855222
-	for <netdev@vger.kernel.org>; Tue, 11 Nov 2014 12:59:03 +1100
-Received: from d23av01.au.ibm.com (localhost [127.0.0.1])
-	by d23av01.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id sAB1v6oj008831
-	for <netdev@vger.kernel.org>; Tue, 11 Nov 2014 12:57:07 +1100
-Content-Disposition: inline
-In-Reply-To: <54607095.6070302@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	donald.c.skidmore-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org, balbi-l0cyMroinI0@public.gmane.org,
+	matthew.vick-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, mgorman-l3A5Bk7waGM@public.gmane.org,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+To: Cong Wang <cwang-xCSkyg8dI+0RB7SZvlqPiA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAHA+R7PigH6ZZBP0DzAPwLMwsK85aadj4hH3iahhOH2ehfYJvg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 10, 2014 at 10:00:21AM +0200, Amir Vadai wrote:
->On 11/10/2014 7:40 AM, Wei Yang wrote:
->> On Sun, Nov 09, 2014 at 06:46:14PM -0800, Eric Dumazet wrote:
->>> On Mon, 2014-11-10 at 09:59 +0800, Wei Yang wrote:
->>>> On Fri, Nov 07, 2014 at 07:38:15PM -0800, Eric Dumazet wrote:
->>>>> On Fri, Nov 7, 2014 at 6:57 PM, Wei Yang <weiyang@linux.vnet.ibm.com> wrote:
->>>>>> Eric and Amir
->>>>>>
->
->[...]
->
->>>>
->>>
->>> Okay, your message was not clear : I thought you had a compilation error
->>> on current tree.
->>>
->>> The true story of these patches is that Mellanox split an initial big
->>> chunk [1] I gave into multiple patches.
->>>
->>> Maybe they missed that one patch did not actually compile.
->>>
->>> [1] https://patchwork.ozlabs.org/patch/394256/
->>>
->>> Now, it is done, there is nothing we can do.
->>>
->>> I'll let Mellanox comment, but it looks like your hardware does not like
->>> something.
->>>
->>> Have you tried to disable Blue Frame ?
->>>
->> 
->> Yep, looks the PF works fine. But the current FW I can't just enable the PF.
->> 
->> How to disable Blue Frame? I am not clear about this.
->> 
->Hi,
->
->Lets see that we're on the same page here:
->1. There was a compilation problem that you fixed (Yes, it was my fault
->- I just discovered it a minute after the code was applied).
->2. When you're using SR-IOV, during initialization, you get a CQE error
->with syndrome 0x2 on one of the probed VF's.
 
->From the log, seems yes.
+On 11/10/2014 04:26 PM, Cong Wang wrote:
+> On Mon, Nov 10, 2014 at 11:51 AM, Alexander Duyck
+> <alexander.h.duyck-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+>> This patch implements __netdev_alloc_pages and __netdev_alloc_page.  These
+>> are meant to replace the __skb_alloc_pages and __skb_alloc_page functions.
+>> The reason for doing this is that it occurred to me that __skb_alloc_page is
+>> supposed to be passed an sk_buff pointer, but it is NULL in all cases where
+>> it is used.  Worse is that in the case of ixgbe it is passed NULL via the
+>> sk_buff pointer in the rx_buffer info structure which means the compiler is
+>> not correctly stripping it out.
+> These netdev_*() have nothing related with struct net_device, please
+> find a better prefix. Also, they are in skbuff.h, you perhaps want to move them
+> to netdevice.h.
 
->3. Regarding the BlueFlame - I don't see how it is related to the issue
->that you see. But it is a very easy experiment. Issue: "ethtool
->--set-priv-flags eth1 blueflame off"
+The netdev_ prefix is really meant indicate where they are supposed to 
+be used, not so much the arguments being passed, and the fact that 
+historically this is what we had back in the kernel a couple years ago.  
+I suppose I could rename them to __dev_alloc_page(s) and 
+dev_alloc_page(s) since that seems to be the precedent for how this is 
+handled for skb's.  I'll submit something tomorrow if there aren't any 
+other name requests.
 
-I tried to use this after mlx4_en is loaded, still see the CQE error.
+I would prefer to keep them in skbuff.h since this is buffer allocation 
+that will later be handed off via either build_skb or skb_add_rx_frag to 
+an sk_buff.
 
->
->Please send me the module parameters you used when loading mlx4_core, a
->full dmesg with both mlx4_core and mlx4_en loading.
+Thanks,
 
-The command line I use is:
-	modprobe mlx4_core num_vfs=1 probe_vf=1 port_type_array=2,2
+Alex
 
-The log I sent in the first mail is the full log, including the CQE error, one
-warning in watchdog, and then print the CQE error periodicly. What else
-message you would like me to capture?
 
-And this error is reported from VF always. After the error, the other network
-interface seems can't function.
-
->
->Amir.
-
--- 
-Richard Yang
-Help you, Help me
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
