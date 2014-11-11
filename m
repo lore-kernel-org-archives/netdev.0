@@ -1,36 +1,71 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net-next v3] neigh: remove dynamic neigh table
- registration support
-Date: Tue, 11 Nov 2014 15:31:02 -0500 (EST)
-Message-ID: <20141111.153102.1989434431470303686.davem@davemloft.net>
-References: <1415663976-7507-1-git-send-email-xiyou.wangcong@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: xiyou.wangcong@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33220 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752453AbaKKUbF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2014 15:31:05 -0500
-In-Reply-To: <1415663976-7507-1-git-send-email-xiyou.wangcong@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Shuah Khan <shuahkh@osg.samsung.com>
+Subject: [PATCH v2 14/19] selftests/net: add install target to enable installing test
+Date: Tue, 11 Nov 2014 13:27:54 -0700
+Message-ID: <1170d5a224521d8d4840b3f54db60da4c50aa5cc.1415735831.git.shuahkh@osg.samsung.com>
+References: <cover.1415735831.git.shuahkh@osg.samsung.com>
+Cc: Shuah Khan <shuahkh@osg.samsung.com>, linux-kbuild@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-api@vger.kernel.org,
+	netdev@vger.kernel.org
+To: gregkh@linuxfoundation.org, akpm@linux-foundation.org,
+	mmarek@suse.cz, davem@davemloft.net, keescook@chromium.org,
+	tranmanphong@gmail.com, dh.herrmann@gmail.com, hughd@google.com,
+	bobby.prani@gmail.com, ebiederm@xmission.com,
+	serge.hallyn@ubuntu.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1415735831.git.shuahkh@osg.samsung.com>
+In-Reply-To: <cover.1415735831.git.shuahkh@osg.samsung.com>
+References: <cover.1415735831.git.shuahkh@osg.samsung.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Mon, 10 Nov 2014 15:59:36 -0800
+Add a new make target to enable installing test. This target
+installs test in the kselftest install location and add to the
+kselftest script to run the test. Install target can be run
+only from top level source dir.
 
-> Currently there are only three neigh tables in the whole kernel:
-> arp table, ndisc table and decnet neigh table. What's more,
-> we don't support registering multiple tables per family.
-> Therefore we can just make these tables statically built-in.
-> 
-> Cc: David S. Miller <davem@davemloft.net>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-> ---
-> v3: fix neigh_table_clear()
-> v2: remove useless #ifdef's
->     move the assignment to the end of neigh_table_init()
+Signed-off-by: Shuah Khan <shuahkh@osg.samsung.com>
+---
+ tools/testing/selftests/net/Makefile | 23 ++++++++++++++++++++---
+ 1 file changed, 20 insertions(+), 3 deletions(-)
 
-This looks a lot better, applied, thanks!
+diff --git a/tools/testing/selftests/net/Makefile b/tools/testing/selftests/net/Makefile
+index 62f22cc..16550eb 100644
+--- a/tools/testing/selftests/net/Makefile
++++ b/tools/testing/selftests/net/Makefile
+@@ -6,14 +6,31 @@ CFLAGS = -Wall -O2 -g
+ CFLAGS += -I../../../../usr/include/
+ 
+ NET_PROGS = socket psock_fanout psock_tpacket
++INSTALL_PROGS = run_netsocktests run_afpackettests test_bpf.sh $(NET_PROGS)
++NETSOCK_TEST_STR = /bin/sh ./run_netsocktests || echo sockettests: [FAIL]
++AFPKT_TEST_STR = /bin/sh ./run_afpackettests || echo afpackettests: [FAIL]
++BFP_TEST_STR = ./test_bpf.sh
+ 
+ all: $(NET_PROGS)
+ %: %.c
+ 	$(CC) $(CFLAGS) -o $@ $^
+ 
++install:
++ifdef INSTALL_KSFT_PATH
++	install $(INSTALL_PROGS) $(INSTALL_KSFT_PATH)
++	@echo echo Start net test .... >> $(KSELFTEST)
++	@echo "$(NETSOCK_TEST_STR)" >> $(KSELFTEST)
++	@echo "$(AFPKT_TEST_STR)" >> $(KSELFTEST)
++	@echo "$(BFP_TEST_STR)" >> $(KSELFTEST)
++	@echo echo End net test .... >> $(KSELFTEST)
++	@echo echo ============================== >> $(KSELFTEST)
++else
++	@echo Run make kselftest_install in top level source directory
++endif
++
+ run_tests: all
+-	@/bin/sh ./run_netsocktests || echo "sockettests: [FAIL]"
+-	@/bin/sh ./run_afpackettests || echo "afpackettests: [FAIL]"
+-	./test_bpf.sh
++	@$(NETSOCK_TEST_STR)
++	@$(AFPKT_TEST_STR)
++	@$(BFP_TEST_STR)
+ clean:
+ 	$(RM) $(NET_PROGS)
+-- 
+1.9.1
