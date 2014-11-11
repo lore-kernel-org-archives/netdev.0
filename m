@@ -1,54 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V2 net-next] net: Convert LIMIT_NETDEBUG to
- net_dbg_ratelimited
-Date: Tue, 11 Nov 2014 14:18:33 -0500 (EST)
-Message-ID: <20141111.141833.1514022968668773382.davem@davemloft.net>
-References: <1415560642.23530.43.camel@perches.com>
-	<20141111.133027.1109527863491750125.davem@davemloft.net>
-	<1415732357.16070.8.camel@perches.com>
+Subject: Re: [PATCH] stmmac: split to core library and probe drivers
+Date: Tue, 11 Nov 2014 14:35:22 -0500 (EST)
+Message-ID: <20141111.143522.487269670885392572.davem@davemloft.net>
+References: <1415615939-6671-1-git-send-email-andriy.shevchenko@linux.intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	courmisch@gmail.com, nicolas.dichtel@6wind.com
-To: joe@perches.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1415732357.16070.8.camel@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org,
+	hock.leong.kweh@intel.com, vbridgers2013@gmail.com
+To: andriy.shevchenko@linux.intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60862 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751669AbaKKTf0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2014 14:35:26 -0500
+In-Reply-To: <1415615939-6671-1-git-send-email-andriy.shevchenko@linux.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Tue, 11 Nov 2014 10:59:17 -0800
+From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Date: Mon, 10 Nov 2014 12:38:59 +0200
 
-> Use the more common dynamic_debug capable net_dbg_ratelimited
-> and remove the LIMIT_NETDEBUG macro.
+> Instead of registering the platform and PCI drivers in one module let's move
+> necessary bits to where it belongs. During this procedure we convert the module
+> registration part to use module_*_driver() macros which makes code simplier.
 > 
-> All messages are still ratelimited.
+> From now on the driver consists three parts: core library, PCI, and platform
+> drivers.
 > 
-> Some KERN_<LEVEL> uses are changed to KERN_DEBUG.
-> 
-> This may have some negative impact on messages that were
-> emitted at KERN_INFO that are not not enabled at all unless
-> DEBUG is defined or dynamic_debug is enabled.  Even so,
-> these messages are now _not_ emitted by default.
-> 
-> This also eliminates the use of the net_msg_warn sysctl
-> "/proc/sys/net/core/warnings".  For backward compatibility,
-> the sysctl is not removed, but it has no function.  The extern
-> declaration of net_msg_warn is removed from sock.h and made
-> static in net/core/sysctl_net_core.c
-> 
-> Miscellanea:
-> 
-> o Update the sysctl documentation
-> o Remove the embedded uses of pr_fmt
-> o Coalesce format fragments
-> o Realign arguments
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
-> ---
-> 
-> V2: Remove the EXPORT_SYMBOL for net_msg_warn and make
->     it a static in net/core/sysctl_net_core.c
+> Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
 
-Applied, thanks a lot Joe.
+Applied to net-next, thanks.
