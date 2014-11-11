@@ -1,42 +1,30 @@
-From: Shuah Khan <shuahkh@osg.samsung.com>
-Subject: [PATCH] selftests/net: psock_fanout seg faults in sock_fanout_read_ring()
-Date: Tue, 11 Nov 2014 10:04:13 -0700
-Message-ID: <1415725453-6549-1-git-send-email-shuahkh@osg.samsung.com>
-Cc: Shuah Khan <shuahkh@osg.samsung.com>, netdev@vger.kernel.org,
-	linux-api@vger.kernel.org, linux-kernel@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch net-next] net: remove netif_set_real_num_rx_queues()
+Date: Tue, 11 Nov 2014 09:07:29 -0800
+Message-ID: <CAM_iQpVu63Ri4vsSfs_8NAH_ZmqtmGoPU8vjk-GLOJ6uQ5oBjQ@mail.gmail.com>
+References: <1415648136-4167-1-git-send-email-xiyou.wangcong@gmail.com>
+	<54620AC0.9080509@solarflare.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Edward Cree <ecree@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f172.google.com ([209.85.214.172]:39282 "EHLO
+	mail-ob0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751089AbaKKRHa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2014 12:07:30 -0500
+Received: by mail-ob0-f172.google.com with SMTP id wp4so7793858obc.3
+        for <netdev@vger.kernel.org>; Tue, 11 Nov 2014 09:07:29 -0800 (PST)
+In-Reply-To: <54620AC0.9080509@solarflare.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The while loop in sock_fanout_read_ring() checks mmap region
-bounds after access, causing it to segfault. Fix it to check
-count before accessing header->tp_status. This problem can be
-reproduced consistently when the test in run as follows:
+On Tue, Nov 11, 2014 at 5:10 AM, Edward Cree <ecree@solarflare.com> wrote:
+>> -static inline int netif_copy_real_num_queues(struct net_device *to_dev,
+>> -                                          const struct net_device *from_dev)
+> Patch title says you're removing _set_ but body only removes _copy_.
+> Which one is right?
 
-    make -C tools/testing/selftests TARGETS=net run_tests
-    or
-    make run_tests from tools/testing/selftests
-    or
-    make run_test from tools/testing/selftests/net
-
-Signed-off-by: Shuah Khan <shuahkh@osg.samsung.com>
----
- tools/testing/selftests/net/psock_fanout.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/tools/testing/selftests/net/psock_fanout.c b/tools/testing/selftests/net/psock_fanout.c
-index 57b9c2b..6f67333 100644
---- a/tools/testing/selftests/net/psock_fanout.c
-+++ b/tools/testing/selftests/net/psock_fanout.c
-@@ -128,7 +128,7 @@ static int sock_fanout_read_ring(int fd, void *ring)
- 	struct tpacket2_hdr *header = ring;
- 	int count = 0;
- 
--	while (header->tp_status & TP_STATUS_USER && count < RING_NUM_FRAMES) {
-+	while (count < RING_NUM_FRAMES && header->tp_status & TP_STATUS_USER) {
- 		count++;
- 		header = ring + (count * getpagesize());
- 	}
--- 
-1.9.1
+Oops, my copy-n-paste error...
