@@ -1,7 +1,7 @@
 From: Shuah Khan <shuahkh@osg.samsung.com>
-Subject: [PATCH v2 10/19] selftests/memfd: add install target to enable installing test
-Date: Tue, 11 Nov 2014 13:27:50 -0700
-Message-ID: <27fd43900bb72444938011d47c4bd28b3a2de6b9.1415735831.git.shuahkh@osg.samsung.com>
+Subject: [PATCH v2 08/19] selftests/ipc: add install target to enable installing test
+Date: Tue, 11 Nov 2014 13:27:48 -0700
+Message-ID: <690a1a8414de13ddb63f79440012acbdfadacc1b.1415735831.git.shuahkh@osg.samsung.com>
 References: <cover.1415735831.git.shuahkh@osg.samsung.com>
 Cc: Shuah Khan <shuahkh@osg.samsung.com>, linux-kbuild@vger.kernel.org,
 	linux-kernel@vger.kernel.org, linux-api@vger.kernel.org,
@@ -11,12 +11,16 @@ To: gregkh@linuxfoundation.org, akpm@linux-foundation.org,
 	tranmanphong@gmail.com, dh.herrmann@gmail.com, hughd@google.com,
 	bobby.prani@gmail.com, ebiederm@xmission.com,
 	serge.hallyn@ubuntu.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailout.easymail.ca ([64.68.201.169]:48028 "EHLO
+	mailout.easymail.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751788AbaKKU2U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2014 15:28:20 -0500
 In-Reply-To: <cover.1415735831.git.shuahkh@osg.samsung.com>
 In-Reply-To: <cover.1415735831.git.shuahkh@osg.samsung.com>
 References: <cover.1415735831.git.shuahkh@osg.samsung.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Add a new make target to enable installing test. This target
 installs test in the kselftest install location and add to the
@@ -25,49 +29,49 @@ only from top level source dir.
 
 Signed-off-by: Shuah Khan <shuahkh@osg.samsung.com>
 ---
- tools/testing/selftests/memfd/Makefile | 20 +++++++++++++++++---
- 1 file changed, 17 insertions(+), 3 deletions(-)
+ tools/testing/selftests/ipc/Makefile | 22 +++++++++++++++++++++-
+ 1 file changed, 21 insertions(+), 1 deletion(-)
 
-diff --git a/tools/testing/selftests/memfd/Makefile b/tools/testing/selftests/memfd/Makefile
-index b80cd10..a9e06cc 100644
---- a/tools/testing/selftests/memfd/Makefile
-+++ b/tools/testing/selftests/memfd/Makefile
-@@ -2,19 +2,33 @@ CFLAGS += -D_FILE_OFFSET_BITS=64
- CFLAGS += -I../../../../include/uapi/
- CFLAGS += -I../../../../include/
+diff --git a/tools/testing/selftests/ipc/Makefile b/tools/testing/selftests/ipc/Makefile
+index 74bbefd..cd70f7c 100644
+--- a/tools/testing/selftests/ipc/Makefile
++++ b/tools/testing/selftests/ipc/Makefile
+@@ -11,6 +11,8 @@ endif
  
-+INSTALL_PROGS = memfd_test fuse_test run_fuse_test.sh
-+MEMFD_TEST_STR = ./memfd_test || echo memfd_test: [FAIL]
-+FUSE_TEST_STR = ./run_fuse_test.sh || echo fuse_test: [FAIL]
+ CFLAGS += -I../../../../usr/include/
+ 
++TEST_STR = ./msgque_test || echo ipc msgque test: [FAIL]
 +
  all:
- 	gcc $(CFLAGS) memfd_test.c -o memfd_test
+ ifeq ($(ARCH),x86)
+ 	gcc $(CFLAGS) msgque.c -o msgque_test
+@@ -18,8 +20,26 @@ else
+ 	echo "Not an x86 target, can't build msgque selftest"
+ endif
  
 +install:
 +ifdef INSTALL_KSFT_PATH
-+	install $(INSTALL_PROGS) $(INSTALL_KSFT_PATH)
-+	@echo echo Start memfd test .... >> $(KSELFTEST)
-+	@echo "$(MEMFD_TEST_STR)" >> $(KSELFTEST)
-+	@echo echo End memfd test .... >> $(KSELFTEST)
-+	@echo echo ============================== >> $(KSELFTEST)
++ifeq ($(ARCH),x86)
++	make all
++	install ./msgque_test $(INSTALL_KSFT_PATH)
++	@echo echo Start ipc msgque test .... >> $(KSELFTEST)
++	@echo "$(TEST_STR)" >> $(KSELFTEST)
++	@echo echo End msgque test .... >> $(KSELFTEST)
++	@echo "echo ============================== >> $(KSELFTEST)
++else
++	@echo Not an x86 target, unable to install ipc msgque selftests
++endif
 +else
 +	@echo Run make kselftest_install in top level source directory
 +endif
 +
  run_tests: all
--	gcc $(CFLAGS) memfd_test.c -o memfd_test
--	@./memfd_test || echo "memfd_test: [FAIL]"
-+	@$(MEMFD_TEST_STR)
- 
- build_fuse:
- 	gcc $(CFLAGS) fuse_mnt.c `pkg-config fuse --cflags --libs` -o fuse_mnt
- 	gcc $(CFLAGS) fuse_test.c -o fuse_test
- 
- run_fuse: build_fuse
--	@./run_fuse_test.sh || echo "fuse_test: [FAIL]"
-+	@$(FUSE_TEST_STR)
+-	./msgque_test
++ifeq ($(ARCH),x86)
++	@$(TEST_STR)
++endif
  
  clean:
- 	$(RM) memfd_test fuse_test
+ 	rm -fr ./msgque_test
 -- 
 1.9.1
