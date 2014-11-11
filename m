@@ -1,118 +1,120 @@
-From: Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH 2/2] linux-wireless:Added wiphy capability flag for offloading
- 4way handshake to driver
-Date: Tue, 11 Nov 2014 10:49:00 +0100
-Message-ID: <5461DB8C.2020201@broadcom.com>
-References: <DF163EE1A432BF4BBE6B2088220663A6743890@SJEXCHMB06.corp.ad.broadcom.com>
+From: David Buckley <isreal-netdev-at-vger.kernel.org@bucko.me.uk>
+Subject: [PATCH] ping mdev rounding issue
+Date: Tue, 11 Nov 2014 09:16:05 +0000
+Message-ID: <20141111091605.GA20540@cirno.bucko.me.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: "linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org" <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Jithu Jance <jithu-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Sreenath S <sreenats-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-To: "Gautam (Gautam Kumar) Shukla" <gautams-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	"linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <DF163EE1A432BF4BBE6B2088220663A6743890-HXj2mutaA2pmqaqore1TH5r/X4hKkxxPpWgKQ6/u3Fg@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed; boundary="fUYQa+Pmc3FrFX/N"
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kiraboshi.bucko.me.uk ([192.95.26.74]:54381 "EHLO kiraboshi"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752059AbaKKJvR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Nov 2014 04:51:17 -0500
+Received: from host81-129-56-167.range81-129.btcentralplus.com ([81.129.56.167] helo=cirno.fluorescence.co.uk)
+	by kiraboshi with esmtpsa (TLS1.2:RSA_AES_128_CBC_SHA1:128)
+	(Exim 4.80)
+	(envelope-from <isreal-localmail-from-bucko-at-cirno@bucko.me.uk>)
+	id 1Xo7Wc-0005E7-Iz
+	for netdev@vger.kernel.org; Tue, 11 Nov 2014 09:14:10 +0000
+Received: from bucko by cirno.fluorescence.co.uk with local (Exim 4.84)
+	(envelope-from <isreal-localmail-from-bucko-at-cirno@bucko.me.uk>)
+	id 1Xo7YT-0000eu-UT
+	for netdev@vger.kernel.org; Tue, 11 Nov 2014 09:16:05 +0000
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11-11-14 07:27, Gautam (Gautam Kumar) Shukla wrote:
-> 
-> For offloading 4 way handshake to driver , currently we don't have WIPHY capability flag to communicate same to supplicant.
-> I have added the flag NL80211_ATTR_4WAY_KEY_HANDSHAKE  and rest of the code for the same.
-> 
-> Tested on x86 linux machine
-> 
-> Signed-off-by: Gautam kumar shukla <gautams-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-> ---
->  include/net/cfg80211.h       | 4 ++++
->  include/uapi/linux/nl80211.h | 5 ++++-
->  net/wireless/nl80211.c       | 4 ++++
->  3 files changed, 12 insertions(+), 1 deletion(-)
-> 
-> diff --git a/include/net/cfg80211.h b/include/net/cfg80211.h
-> index 6f744e0..b37de0a 100644
-> --- a/include/net/cfg80211.h
-> +++ b/include/net/cfg80211.h
-> @@ -2629,7 +2629,10 @@ struct cfg80211_ops {
->   *	TSPEC sessions (TID aka TSID 0-7) with the NL80211_CMD_ADD_TX_TS
->   *	command. Standard IEEE 802.11 TSPEC setup is not yet supported, it
->   *	needs to be able to handle Block-Ack agreements and other things.
-> + *	@WIPHY_FLAG_SUPPORTS_4WAY_HANDHSHAKE:the device supports 4way handshake
 
-Indentation seems wrong here. Also add space after the colon sign.
+--fUYQa+Pmc3FrFX/N
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-> + *	in the driver/firmware.
->   */
-> +
->  enum wiphy_flags {
->  	WIPHY_FLAG_SUPPORTS_WMM_ADMISSION	= BIT(0),
->  	/* use hole at 1 */
-> @@ -2654,6 +2657,7 @@ enum wiphy_flags {
->  	WIPHY_FLAG_HAS_REMAIN_ON_CHANNEL	= BIT(21),
->  	WIPHY_FLAG_SUPPORTS_5_10_MHZ		= BIT(22),
->  	WIPHY_FLAG_HAS_CHANNEL_SWITCH		= BIT(23),
-> +	WIPHY_FLAG_SUPPORTS_4WAY_HANDSHAKE	= BIT(24),
->  };
->  
->  /**
-> diff --git a/include/uapi/linux/nl80211.h b/include/uapi/linux/nl80211.h
-> index b01d5dd..2c474a3 100644
-> --- a/include/uapi/linux/nl80211.h
-> +++ b/include/uapi/linux/nl80211.h
-> @@ -1640,9 +1640,11 @@ enum nl80211_commands {
->   *
->   *	@NL80211_ATTR_PSK: a PSK value (u8 attribute).This is 32-octet (256-bit)
->   *	PSK.
-> + * @NL80211_ATTR_4WAY_KEY_HANDSHAKE: Indicates whether the driver is capable
-> + * of 4way key handshake
+ping has a rounding issue in standard deviation computation.
 
-convention is to have a tab in the continuing line.
+It stores all values as integer micros, and computes standard deviation
+as:
 
->   *
->   *
-> - * @NL80211_ATTR_MAX: highest attribute number currently defined
-> + * * @NL80211_ATTR_MAX: highest attribute number currently defined
+sqrt(SUM(time*time)/count - (SUM(time)/count)*(SUM(time)/count))
 
-huh?
+Because the second 'count' divide is performed before the multiply, a
+rounding error results of the order O(sqrt(SUM(time)/count)).
 
->   * @__NL80211_ATTR_AFTER_LAST: internal use
->   */
->  enum nl80211_attrs {
-> @@ -1995,6 +1997,7 @@ enum nl80211_attrs {
->  	NL80211_ATTR_SMPS_MODE,
->  
->  	NL80211_ATTR_PSK,
-> +	NL80211_ATTR_4WAY_KEY_HANDSHAKE,
->  
->  	/* add attributes here, update the policy in nl80211.c */
->  
-> diff --git a/net/wireless/nl80211.c b/net/wireless/nl80211.c
-> index 91c24b1..5f85c41 100644
-> --- a/net/wireless/nl80211.c
-> +++ b/net/wireless/nl80211.c
-> @@ -396,6 +396,7 @@ static const struct nla_policy nl80211_policy[NL80211_ATTR_MAX+1] = {
->  	[NL80211_ATTR_ADMITTED_TIME] = { .type = NLA_U16 },
->  	[NL80211_ATTR_SMPS_MODE] = { .type = NLA_U8 },
->  	[NL80211_ATTR_PSK] = { .type = NLA_BINARY, .len = 32 },
-> +	[NL80211_ATTR_4WAY_KEY_HANDSHAKE] = { .type = NLA_FLAG },
->  };
->  
->  /* policy for the key attributes */
-> @@ -1303,6 +1304,9 @@ static int nl80211_send_wiphy(struct cfg80211_registered_device *rdev,
->  		if ((rdev->wiphy.flags & WIPHY_FLAG_SUPPORTS_FW_ROAM) &&
->  		    nla_put_flag(msg, NL80211_ATTR_ROAM_SUPPORT))
->  			goto nla_put_failure;
-> +		if ((rdev->wiphy.flags & WIPHY_FLAG_SUPPORTS_4WAY_HANDSHAKE) &&
-> +			nla_put_flag(msg,NL80211_ATTR_4WAY_KEY_HANDSHAKE))
-> +			goto nla_put_failure;
->  		if ((rdev->wiphy.flags & WIPHY_FLAG_SUPPORTS_TDLS) &&
->  		    nla_put_flag(msg, NL80211_ATTR_TDLS_SUPPORT))
->  			goto nla_put_failure;
-> 
+Example: I ping my server twice. One takes 1000us, the second takes
+1001us.
+
+Standard deviation computed by ping is:
+
+  sqrt((1000000+1002001)/2 - ((1000+1001)/2)*((1000+1001)/2))
+= sqrt(1001000 - 1000*1000) = sqrt(1000) = 31
+
+So we got a 1us difference and report a 31 us standard deviation.
+
+If the samples are 999 and 1001
+  sqrt((998001+1002001)/2 - ((999+1001)/2)*((999+1001)/2))
+= sqrt(1000001 - 1000*1000) = sqrt(1) = 0
+
+So more deviation makes for less /reported/ deviation.
+
+This is reduced slightly in this case by more samples (100*1000+1001
+reports deviation of 4us, for instance), but really it's caused by the
+rounding error ((float)SUM(time)/count) - (SUM(time)/count) being
+/multiplied/ by the average time. The expected error is of the order
+sqrt(mean).
+
+Example real-world bad computation:
+
+PING 74.125.230.238 (74.125.230.238) 56(84) bytes of data.
+64 bytes from 74.125.230.238: icmp_seq=1 ttl=51 time=16.1 ms
+64 bytes from 74.125.230.238: icmp_seq=2 ttl=51 time=16.1 ms
+64 bytes from 74.125.230.238: icmp_seq=3 ttl=51 time=16.2 ms
+64 bytes from 74.125.230.238: icmp_seq=4 ttl=51 time=16.1 ms
+^C
+--- google.com ping statistics ---
+4 packets transmitted, 4 received, 0% packet loss, time 3003ms
+rtt min/avg/max/mdev = 16.132/16.170/16.246/0.161 ms
+
+
+With patch (attached):
+
+PING 74.125.230.238 (74.125.230.238) 56(84) bytes of data.
+64 bytes from 74.125.230.238: icmp_seq=1 ttl=51 time=16.0 ms
+64 bytes from 74.125.230.238: icmp_seq=2 ttl=51 time=16.1 ms
+64 bytes from 74.125.230.238: icmp_seq=3 ttl=51 time=16.1 ms
+64 bytes from 74.125.230.238: icmp_seq=4 ttl=51 time=16.1 ms
+^C
+--- 74.125.230.238 ping statistics ---
+4 packets transmitted, 4 received, 0% packet loss, time 3003ms
+rtt min/avg/max/mdev = 16.045/16.128/16.197/0.054 ms
+
+-- 
+David Buckley
+
+--fUYQa+Pmc3FrFX/N
+Content-Type: text/x-diff; charset=us-ascii
+Content-Disposition: attachment; filename="fix_rounding.patch"
+
+--- a/ping_common.c	2014-11-11 00:02:07.000000000 +0000
++++ b/ping_common.c	2014-11-11 09:04:06.699021939 +0000
+@@ -1016,14 +1016,17 @@
+ 	}
+ 	putchar('\n');
+ 
+ 	if (nreceived && timing) {
+ 		long tmdev;
++		long count = nreceived + nrepeats;
+ 
+-		tsum /= nreceived + nrepeats;
+-		tsum2 /= nreceived + nrepeats;
+-		tmdev = llsqrt(tsum2 - tsum * tsum);
++		// mdev = sqrt((tsum2/count) - (tsum/count)*(tsum2/count))
++		// However, we must be careful about rounding!
++		tmdev = llsqrt((tsum2 * count - tsum * tsum) / (count * count));
++		tsum2 /= count;
++		tsum /= count;
+ 
+ 		printf("rtt min/avg/max/mdev = %ld.%03ld/%lu.%03ld/%ld.%03ld/%ld.%03ld ms",
+ 		       (long)tmin/1000, (long)tmin%1000,
+ 		       (unsigned long)(tsum/1000), (long)(tsum%1000),
+ 		       (long)tmax/1000, (long)tmax%1000,
+
+--fUYQa+Pmc3FrFX/N--
