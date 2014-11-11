@@ -1,7 +1,7 @@
 From: Shuah Khan <shuahkh@osg.samsung.com>
-Subject: [PATCH v2 05/19] selftests/cpu-hotplug: add install target to enable installing test
-Date: Tue, 11 Nov 2014 13:27:45 -0700
-Message-ID: <f0bc9155dac629eb8a70af3ed2588da4cbe7eb19.1415735831.git.shuahkh@osg.samsung.com>
+Subject: [PATCH v2 11/19] selftests/memory-hotplug: add install target to enable installing test
+Date: Tue, 11 Nov 2014 13:27:51 -0700
+Message-ID: <8cdb2abb6eaa794801548e04ee6b9f403778e126.1415735831.git.shuahkh@osg.samsung.com>
 References: <cover.1415735831.git.shuahkh@osg.samsung.com>
 Cc: Shuah Khan <shuahkh@osg.samsung.com>, linux-kbuild@vger.kernel.org,
 	linux-kernel@vger.kernel.org, linux-api@vger.kernel.org,
@@ -11,12 +11,16 @@ To: gregkh@linuxfoundation.org, akpm@linux-foundation.org,
 	tranmanphong@gmail.com, dh.herrmann@gmail.com, hughd@google.com,
 	bobby.prani@gmail.com, ebiederm@xmission.com,
 	serge.hallyn@ubuntu.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailout.easymail.ca ([64.68.201.169]:48097 "EHLO
+	mailout.easymail.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751899AbaKKU2Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2014 15:28:25 -0500
 In-Reply-To: <cover.1415735831.git.shuahkh@osg.samsung.com>
 In-Reply-To: <cover.1415735831.git.shuahkh@osg.samsung.com>
 References: <cover.1415735831.git.shuahkh@osg.samsung.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Add a new make target to enable installing test. This target
 installs test in the kselftest install location and add to the
@@ -25,48 +29,48 @@ only from top level source dir.
 
 Signed-off-by: Shuah Khan <shuahkh@osg.samsung.com>
 ---
- tools/testing/selftests/cpu-hotplug/Makefile       |  17 +-
- .../selftests/cpu-hotplug/cpu-on-off-test.sh       | 269 +++++++++++++++++++++
- tools/testing/selftests/cpu-hotplug/on-off-test.sh | 269 ---------------------
- 3 files changed, 284 insertions(+), 271 deletions(-)
- create mode 100644 tools/testing/selftests/cpu-hotplug/cpu-on-off-test.sh
- delete mode 100644 tools/testing/selftests/cpu-hotplug/on-off-test.sh
+ tools/testing/selftests/memory-hotplug/Makefile    |  17 +-
+ .../selftests/memory-hotplug/mem-on-off-test.sh    | 238 +++++++++++++++++++++
+ .../selftests/memory-hotplug/on-off-test.sh        | 238 ---------------------
+ 3 files changed, 253 insertions(+), 240 deletions(-)
+ create mode 100644 tools/testing/selftests/memory-hotplug/mem-on-off-test.sh
+ delete mode 100644 tools/testing/selftests/memory-hotplug/on-off-test.sh
 
-diff --git a/tools/testing/selftests/cpu-hotplug/Makefile b/tools/testing/selftests/cpu-hotplug/Makefile
-index e9c28d8..1bdcfc3 100644
---- a/tools/testing/selftests/cpu-hotplug/Makefile
-+++ b/tools/testing/selftests/cpu-hotplug/Makefile
+diff --git a/tools/testing/selftests/memory-hotplug/Makefile b/tools/testing/selftests/memory-hotplug/Makefile
+index d46b8d4..8921631 100644
+--- a/tools/testing/selftests/memory-hotplug/Makefile
++++ b/tools/testing/selftests/memory-hotplug/Makefile
 @@ -1,9 +1,22 @@
-+TEST_STR=/bin/bash ./cpu-on-off-test.sh || echo cpu-hotplug selftests: [FAIL]
++TEST_STR=/bin/bash ./mem-on-off-test.sh -r 2 || echo memory-hotplug selftests: [FAIL]
 +
  all:
  
 +install:
 +ifdef INSTALL_KSFT_PATH
-+	install ./cpu-on-off-test.sh $(INSTALL_KSFT_PATH)/cpu-on-off-test.sh
-+	@echo echo Start cpu hotplug test .... >> $(KSELFTEST)
-+	@echo "$(TEST_STR)" >> $(KSELFTEST)
-+	@echo echo End cpu hotplug test .... >> $(KSELFTEST)
++	install ./mem-on-off-test.sh $(INSTALL_KSFT_PATH)/mem-on-off-test.sh
++	@echo echo Start memory hotplug test .... >> $(KSELFTEST)
++	@echo "$(TEST_STR)" >> $(KSELFTEST) >> $(KSELFTEST)
++	@echo echo End memory hotplug test .... >> $(KSELFTEST)
 +	@echo echo ============================== >> $(KSELFTEST)
 +else
 +	@echo Run make kselftest_install in top level source directory
 +endif
 +
  run_tests:
--	@/bin/bash ./on-off-test.sh || echo "cpu-hotplug selftests: [FAIL]"
+-	@/bin/bash ./on-off-test.sh -r 2 || echo "memory-hotplug selftests: [FAIL]"
 +	@$(TEST_STR)
  
  run_full_test:
--	@/bin/bash ./on-off-test.sh -a || echo "cpu-hotplug selftests: [FAIL]"
-+	@/bin/bash ./cpu-on-off-test.sh -a || echo "cpu-hotplug selftests: [FAIL]"
+-	@/bin/bash ./on-off-test.sh || echo "memory-hotplug selftests: [FAIL]"
++	@/bin/bash ./mem-on-off-test.sh || echo "memory-hotplug selftests: [FAIL]"
  
  clean:
-diff --git a/tools/testing/selftests/cpu-hotplug/cpu-on-off-test.sh b/tools/testing/selftests/cpu-hotplug/cpu-on-off-test.sh
+diff --git a/tools/testing/selftests/memory-hotplug/mem-on-off-test.sh b/tools/testing/selftests/memory-hotplug/mem-on-off-test.sh
 new file mode 100644
-index 0000000..98b1d65
+index 0000000..6cddde0
 --- /dev/null
-+++ b/tools/testing/selftests/cpu-hotplug/cpu-on-off-test.sh
-@@ -0,0 +1,269 @@
++++ b/tools/testing/selftests/memory-hotplug/mem-on-off-test.sh
+@@ -0,0 +1,238 @@
 +#!/bin/bash
 +
 +SYSFS=
@@ -80,8 +84,6 @@ index 0000000..98b1d65
 +		exit 0
 +	fi
 +
-+	taskset -p 01 $$
-+
 +	SYSFS=`mount -t sysfs | head -1 | awk '{ print $3 }'`
 +
 +	if [ ! -d "$SYSFS" ]; then
@@ -89,137 +91,119 @@ index 0000000..98b1d65
 +		exit 0
 +	fi
 +
-+	if ! ls $SYSFS/devices/system/cpu/cpu* > /dev/null 2>&1; then
-+		echo $msg cpu hotplug is not supported >&2
++	if ! ls $SYSFS/devices/system/memory/memory* > /dev/null 2>&1; then
++		echo $msg memory hotplug is not supported >&2
 +		exit 0
 +	fi
-+
-+	echo "CPU online/offline summary:"
-+	online_cpus=`cat $SYSFS/devices/system/cpu/online`
-+	online_max=${online_cpus##*-}
-+	echo -e "\t Cpus in online state: $online_cpus"
-+
-+	offline_cpus=`cat $SYSFS/devices/system/cpu/offline`
-+	if [[ "a$offline_cpus" = "a" ]]; then
-+		offline_cpus=0
-+	else
-+		offline_max=${offline_cpus##*-}
-+	fi
-+	echo -e "\t Cpus in offline state: $offline_cpus"
 +}
 +
 +#
-+# list all hot-pluggable CPUs
++# list all hot-pluggable memory
 +#
-+hotpluggable_cpus()
++hotpluggable_memory()
 +{
 +	local state=${1:-.\*}
 +
-+	for cpu in $SYSFS/devices/system/cpu/cpu*; do
-+		if [ -f $cpu/online ] && grep -q $state $cpu/online; then
-+			echo ${cpu##/*/cpu}
++	for memory in $SYSFS/devices/system/memory/memory*; do
++		if grep -q 1 $memory/removable &&
++		   grep -q $state $memory/state; then
++			echo ${memory##/*/memory}
 +		fi
 +	done
 +}
 +
-+hotplaggable_offline_cpus()
++hotplaggable_offline_memory()
 +{
-+	hotpluggable_cpus 0
++	hotpluggable_memory offline
 +}
 +
-+hotpluggable_online_cpus()
++hotpluggable_online_memory()
 +{
-+	hotpluggable_cpus 1
++	hotpluggable_memory online
 +}
 +
-+cpu_is_online()
++memory_is_online()
 +{
-+	grep -q 1 $SYSFS/devices/system/cpu/cpu$1/online
++	grep -q online $SYSFS/devices/system/memory/memory$1/state
 +}
 +
-+cpu_is_offline()
++memory_is_offline()
 +{
-+	grep -q 0 $SYSFS/devices/system/cpu/cpu$1/online
++	grep -q offline $SYSFS/devices/system/memory/memory$1/state
 +}
 +
-+online_cpu()
++online_memory()
 +{
-+	echo 1 > $SYSFS/devices/system/cpu/cpu$1/online
++	echo online > $SYSFS/devices/system/memory/memory$1/state
 +}
 +
-+offline_cpu()
++offline_memory()
 +{
-+	echo 0 > $SYSFS/devices/system/cpu/cpu$1/online
++	echo offline > $SYSFS/devices/system/memory/memory$1/state
 +}
 +
-+online_cpu_expect_success()
++online_memory_expect_success()
 +{
-+	local cpu=$1
++	local memory=$1
 +
-+	if ! online_cpu $cpu; then
-+		echo $FUNCNAME $cpu: unexpected fail >&2
-+	elif ! cpu_is_online $cpu; then
-+		echo $FUNCNAME $cpu: unexpected offline >&2
++	if ! online_memory $memory; then
++		echo $FUNCNAME $memory: unexpected fail >&2
++	elif ! memory_is_online $memory; then
++		echo $FUNCNAME $memory: unexpected offline >&2
 +	fi
 +}
 +
-+online_cpu_expect_fail()
++online_memory_expect_fail()
 +{
-+	local cpu=$1
++	local memory=$1
 +
-+	if online_cpu $cpu 2> /dev/null; then
-+		echo $FUNCNAME $cpu: unexpected success >&2
-+	elif ! cpu_is_offline $cpu; then
-+		echo $FUNCNAME $cpu: unexpected online >&2
++	if online_memory $memory 2> /dev/null; then
++		echo $FUNCNAME $memory: unexpected success >&2
++	elif ! memory_is_offline $memory; then
++		echo $FUNCNAME $memory: unexpected online >&2
 +	fi
 +}
 +
-+offline_cpu_expect_success()
++offline_memory_expect_success()
 +{
-+	local cpu=$1
++	local memory=$1
 +
-+	if ! offline_cpu $cpu; then
-+		echo $FUNCNAME $cpu: unexpected fail >&2
-+	elif ! cpu_is_offline $cpu; then
-+		echo $FUNCNAME $cpu: unexpected offline >&2
++	if ! offline_memory $memory; then
++		echo $FUNCNAME $memory: unexpected fail >&2
++	elif ! memory_is_offline $memory; then
++		echo $FUNCNAME $memory: unexpected offline >&2
 +	fi
 +}
 +
-+offline_cpu_expect_fail()
++offline_memory_expect_fail()
 +{
-+	local cpu=$1
++	local memory=$1
 +
-+	if offline_cpu $cpu 2> /dev/null; then
-+		echo $FUNCNAME $cpu: unexpected success >&2
-+	elif ! cpu_is_online $cpu; then
-+		echo $FUNCNAME $cpu: unexpected offline >&2
++	if offline_memory $memory 2> /dev/null; then
++		echo $FUNCNAME $memory: unexpected success >&2
++	elif ! memory_is_online $memory; then
++		echo $FUNCNAME $memory: unexpected offline >&2
 +	fi
 +}
 +
 +error=-12
-+allcpus=0
 +priority=0
-+online_cpus=0
-+online_max=0
-+offline_cpus=0
-+offline_max=0
++ratio=10
 +
-+while getopts e:ahp: opt; do
++while getopts e:hp:r: opt; do
 +	case $opt in
 +	e)
 +		error=$OPTARG
 +		;;
-+	a)
-+		allcpus=1
-+		;;
 +	h)
-+		echo "Usage $0 [ -a ] [ -e errno ] [ -p notifier-priority ]"
-+		echo -e "\t default offline one cpu"
-+		echo -e "\t run with -a option to offline all cpus"
++		echo "Usage $0 [ -e errno ] [ -p notifier-priority ] [ -r percent-of-memory-to-offline ]"
 +		exit
 +		;;
 +	p)
 +		priority=$OPTARG
++		;;
++	r)
++		ratio=$OPTARG
 +		;;
 +	esac
 +done
@@ -231,63 +215,50 @@ index 0000000..98b1d65
 +
 +prerequisite
 +
-+#
-+# Safe test (default) - offline and online one cpu
-+#
-+if [ $allcpus -eq 0 ]; then
-+	echo "Limited scope test: one hotplug cpu"
-+	echo -e "\t (leaves cpu in the original state):"
-+	echo -e "\t online to offline to online: cpu $online_max"
-+	offline_cpu_expect_success $online_max
-+	online_cpu_expect_success $online_max
++echo "Test scope: $ratio% hotplug memory"
++echo -e "\t online all hotplug memory in offline state"
++echo -e "\t offline $ratio% hotplug memory in online state"
++echo -e "\t online all hotplug memory in offline state"
 +
-+	if [[ $offline_cpus -gt 0 ]]; then
-+		echo -e "\t offline to online to offline: cpu $offline_max"
-+		online_cpu_expect_success $offline_max
-+		offline_cpu_expect_success $offline_max
++#
++# Online all hot-pluggable memory
++#
++for memory in `hotplaggable_offline_memory`; do
++	echo offline-online $memory
++	online_memory_expect_success $memory
++done
++
++#
++# Offline $ratio percent of hot-pluggable memory
++#
++for memory in `hotpluggable_online_memory`; do
++	if [ $((RANDOM % 100)) -lt $ratio ]; then
++		echo online-offline $memory
++		offline_memory_expect_success $memory
 +	fi
-+	exit 0
-+else
-+	echo "Full scope test: all hotplug cpus"
-+	echo -e "\t online all offline cpus"
-+	echo -e "\t offline all online cpus"
-+	echo -e "\t online all offline cpus"
-+fi
-+
-+#
-+# Online all hot-pluggable CPUs
-+#
-+for cpu in `hotplaggable_offline_cpus`; do
-+	online_cpu_expect_success $cpu
 +done
 +
 +#
-+# Offline all hot-pluggable CPUs
++# Online all hot-pluggable memory again
 +#
-+for cpu in `hotpluggable_online_cpus`; do
-+	offline_cpu_expect_success $cpu
++for memory in `hotplaggable_offline_memory`; do
++	echo offline-online $memory
++	online_memory_expect_success $memory
 +done
 +
 +#
-+# Online all hot-pluggable CPUs again
-+#
-+for cpu in `hotplaggable_offline_cpus`; do
-+	online_cpu_expect_success $cpu
-+done
-+
-+#
-+# Test with cpu notifier error injection
++# Test with memory notifier error injection
 +#
 +
 +DEBUGFS=`mount -t debugfs | head -1 | awk '{ print $3 }'`
-+NOTIFIER_ERR_INJECT_DIR=$DEBUGFS/notifier-error-inject/cpu
++NOTIFIER_ERR_INJECT_DIR=$DEBUGFS/notifier-error-inject/memory
 +
 +prerequisite_extra()
 +{
 +	msg="skip extra tests:"
 +
-+	/sbin/modprobe -q -r cpu-notifier-error-inject
-+	/sbin/modprobe -q cpu-notifier-error-inject priority=$priority
++	/sbin/modprobe -q -r memory-notifier-error-inject
++	/sbin/modprobe -q memory-notifier-error-inject priority=$priority
 +
 +	if [ ! -d "$DEBUGFS" ]; then
 +		echo $msg debugfs is not mounted >&2
@@ -295,7 +266,7 @@ index 0000000..98b1d65
 +	fi
 +
 +	if [ ! -d $NOTIFIER_ERR_INJECT_DIR ]; then
-+		echo $msg cpu-notifier-error-inject module is not available >&2
++		echo $msg memory-notifier-error-inject module is not available >&2
 +		exit 0
 +	fi
 +}
@@ -303,45 +274,47 @@ index 0000000..98b1d65
 +prerequisite_extra
 +
 +#
-+# Offline all hot-pluggable CPUs
++# Offline $ratio percent of hot-pluggable memory
 +#
-+echo 0 > $NOTIFIER_ERR_INJECT_DIR/actions/CPU_DOWN_PREPARE/error
-+for cpu in `hotpluggable_online_cpus`; do
-+	offline_cpu_expect_success $cpu
++echo 0 > $NOTIFIER_ERR_INJECT_DIR/actions/MEM_GOING_OFFLINE/error
++for memory in `hotpluggable_online_memory`; do
++	if [ $((RANDOM % 100)) -lt $ratio ]; then
++		offline_memory_expect_success $memory
++	fi
 +done
 +
 +#
-+# Test CPU hot-add error handling (offline => online)
++# Test memory hot-add error handling (offline => online)
 +#
-+echo $error > $NOTIFIER_ERR_INJECT_DIR/actions/CPU_UP_PREPARE/error
-+for cpu in `hotplaggable_offline_cpus`; do
-+	online_cpu_expect_fail $cpu
++echo $error > $NOTIFIER_ERR_INJECT_DIR/actions/MEM_GOING_ONLINE/error
++for memory in `hotplaggable_offline_memory`; do
++	online_memory_expect_fail $memory
 +done
 +
 +#
-+# Online all hot-pluggable CPUs
++# Online all hot-pluggable memory
 +#
-+echo 0 > $NOTIFIER_ERR_INJECT_DIR/actions/CPU_UP_PREPARE/error
-+for cpu in `hotplaggable_offline_cpus`; do
-+	online_cpu_expect_success $cpu
++echo 0 > $NOTIFIER_ERR_INJECT_DIR/actions/MEM_GOING_ONLINE/error
++for memory in `hotplaggable_offline_memory`; do
++	online_memory_expect_success $memory
 +done
 +
 +#
-+# Test CPU hot-remove error handling (online => offline)
++# Test memory hot-remove error handling (online => offline)
 +#
-+echo $error > $NOTIFIER_ERR_INJECT_DIR/actions/CPU_DOWN_PREPARE/error
-+for cpu in `hotpluggable_online_cpus`; do
-+	offline_cpu_expect_fail $cpu
++echo $error > $NOTIFIER_ERR_INJECT_DIR/actions/MEM_GOING_OFFLINE/error
++for memory in `hotpluggable_online_memory`; do
++	offline_memory_expect_fail $memory
 +done
 +
-+echo 0 > $NOTIFIER_ERR_INJECT_DIR/actions/CPU_DOWN_PREPARE/error
-+/sbin/modprobe -q -r cpu-notifier-error-inject
-diff --git a/tools/testing/selftests/cpu-hotplug/on-off-test.sh b/tools/testing/selftests/cpu-hotplug/on-off-test.sh
++echo 0 > $NOTIFIER_ERR_INJECT_DIR/actions/MEM_GOING_OFFLINE/error
++/sbin/modprobe -q -r memory-notifier-error-inject
+diff --git a/tools/testing/selftests/memory-hotplug/on-off-test.sh b/tools/testing/selftests/memory-hotplug/on-off-test.sh
 deleted file mode 100644
-index 98b1d65..0000000
---- a/tools/testing/selftests/cpu-hotplug/on-off-test.sh
+index 6cddde0..0000000
+--- a/tools/testing/selftests/memory-hotplug/on-off-test.sh
 +++ /dev/null
-@@ -1,269 +0,0 @@
+@@ -1,238 +0,0 @@
 -#!/bin/bash
 -
 -SYSFS=
@@ -355,8 +328,6 @@ index 98b1d65..0000000
 -		exit 0
 -	fi
 -
--	taskset -p 01 $$
--
 -	SYSFS=`mount -t sysfs | head -1 | awk '{ print $3 }'`
 -
 -	if [ ! -d "$SYSFS" ]; then
@@ -364,137 +335,119 @@ index 98b1d65..0000000
 -		exit 0
 -	fi
 -
--	if ! ls $SYSFS/devices/system/cpu/cpu* > /dev/null 2>&1; then
--		echo $msg cpu hotplug is not supported >&2
+-	if ! ls $SYSFS/devices/system/memory/memory* > /dev/null 2>&1; then
+-		echo $msg memory hotplug is not supported >&2
 -		exit 0
 -	fi
--
--	echo "CPU online/offline summary:"
--	online_cpus=`cat $SYSFS/devices/system/cpu/online`
--	online_max=${online_cpus##*-}
--	echo -e "\t Cpus in online state: $online_cpus"
--
--	offline_cpus=`cat $SYSFS/devices/system/cpu/offline`
--	if [[ "a$offline_cpus" = "a" ]]; then
--		offline_cpus=0
--	else
--		offline_max=${offline_cpus##*-}
--	fi
--	echo -e "\t Cpus in offline state: $offline_cpus"
 -}
 -
 -#
--# list all hot-pluggable CPUs
+-# list all hot-pluggable memory
 -#
--hotpluggable_cpus()
+-hotpluggable_memory()
 -{
 -	local state=${1:-.\*}
 -
--	for cpu in $SYSFS/devices/system/cpu/cpu*; do
--		if [ -f $cpu/online ] && grep -q $state $cpu/online; then
--			echo ${cpu##/*/cpu}
+-	for memory in $SYSFS/devices/system/memory/memory*; do
+-		if grep -q 1 $memory/removable &&
+-		   grep -q $state $memory/state; then
+-			echo ${memory##/*/memory}
 -		fi
 -	done
 -}
 -
--hotplaggable_offline_cpus()
+-hotplaggable_offline_memory()
 -{
--	hotpluggable_cpus 0
+-	hotpluggable_memory offline
 -}
 -
--hotpluggable_online_cpus()
+-hotpluggable_online_memory()
 -{
--	hotpluggable_cpus 1
+-	hotpluggable_memory online
 -}
 -
--cpu_is_online()
+-memory_is_online()
 -{
--	grep -q 1 $SYSFS/devices/system/cpu/cpu$1/online
+-	grep -q online $SYSFS/devices/system/memory/memory$1/state
 -}
 -
--cpu_is_offline()
+-memory_is_offline()
 -{
--	grep -q 0 $SYSFS/devices/system/cpu/cpu$1/online
+-	grep -q offline $SYSFS/devices/system/memory/memory$1/state
 -}
 -
--online_cpu()
+-online_memory()
 -{
--	echo 1 > $SYSFS/devices/system/cpu/cpu$1/online
+-	echo online > $SYSFS/devices/system/memory/memory$1/state
 -}
 -
--offline_cpu()
+-offline_memory()
 -{
--	echo 0 > $SYSFS/devices/system/cpu/cpu$1/online
+-	echo offline > $SYSFS/devices/system/memory/memory$1/state
 -}
 -
--online_cpu_expect_success()
+-online_memory_expect_success()
 -{
--	local cpu=$1
+-	local memory=$1
 -
--	if ! online_cpu $cpu; then
--		echo $FUNCNAME $cpu: unexpected fail >&2
--	elif ! cpu_is_online $cpu; then
--		echo $FUNCNAME $cpu: unexpected offline >&2
+-	if ! online_memory $memory; then
+-		echo $FUNCNAME $memory: unexpected fail >&2
+-	elif ! memory_is_online $memory; then
+-		echo $FUNCNAME $memory: unexpected offline >&2
 -	fi
 -}
 -
--online_cpu_expect_fail()
+-online_memory_expect_fail()
 -{
--	local cpu=$1
+-	local memory=$1
 -
--	if online_cpu $cpu 2> /dev/null; then
--		echo $FUNCNAME $cpu: unexpected success >&2
--	elif ! cpu_is_offline $cpu; then
--		echo $FUNCNAME $cpu: unexpected online >&2
+-	if online_memory $memory 2> /dev/null; then
+-		echo $FUNCNAME $memory: unexpected success >&2
+-	elif ! memory_is_offline $memory; then
+-		echo $FUNCNAME $memory: unexpected online >&2
 -	fi
 -}
 -
--offline_cpu_expect_success()
+-offline_memory_expect_success()
 -{
--	local cpu=$1
+-	local memory=$1
 -
--	if ! offline_cpu $cpu; then
--		echo $FUNCNAME $cpu: unexpected fail >&2
--	elif ! cpu_is_offline $cpu; then
--		echo $FUNCNAME $cpu: unexpected offline >&2
+-	if ! offline_memory $memory; then
+-		echo $FUNCNAME $memory: unexpected fail >&2
+-	elif ! memory_is_offline $memory; then
+-		echo $FUNCNAME $memory: unexpected offline >&2
 -	fi
 -}
 -
--offline_cpu_expect_fail()
+-offline_memory_expect_fail()
 -{
--	local cpu=$1
+-	local memory=$1
 -
--	if offline_cpu $cpu 2> /dev/null; then
--		echo $FUNCNAME $cpu: unexpected success >&2
--	elif ! cpu_is_online $cpu; then
--		echo $FUNCNAME $cpu: unexpected offline >&2
+-	if offline_memory $memory 2> /dev/null; then
+-		echo $FUNCNAME $memory: unexpected success >&2
+-	elif ! memory_is_online $memory; then
+-		echo $FUNCNAME $memory: unexpected offline >&2
 -	fi
 -}
 -
 -error=-12
--allcpus=0
 -priority=0
--online_cpus=0
--online_max=0
--offline_cpus=0
--offline_max=0
+-ratio=10
 -
--while getopts e:ahp: opt; do
+-while getopts e:hp:r: opt; do
 -	case $opt in
 -	e)
 -		error=$OPTARG
 -		;;
--	a)
--		allcpus=1
--		;;
 -	h)
--		echo "Usage $0 [ -a ] [ -e errno ] [ -p notifier-priority ]"
--		echo -e "\t default offline one cpu"
--		echo -e "\t run with -a option to offline all cpus"
+-		echo "Usage $0 [ -e errno ] [ -p notifier-priority ] [ -r percent-of-memory-to-offline ]"
 -		exit
 -		;;
 -	p)
 -		priority=$OPTARG
+-		;;
+-	r)
+-		ratio=$OPTARG
 -		;;
 -	esac
 -done
@@ -506,63 +459,50 @@ index 98b1d65..0000000
 -
 -prerequisite
 -
--#
--# Safe test (default) - offline and online one cpu
--#
--if [ $allcpus -eq 0 ]; then
--	echo "Limited scope test: one hotplug cpu"
--	echo -e "\t (leaves cpu in the original state):"
--	echo -e "\t online to offline to online: cpu $online_max"
--	offline_cpu_expect_success $online_max
--	online_cpu_expect_success $online_max
+-echo "Test scope: $ratio% hotplug memory"
+-echo -e "\t online all hotplug memory in offline state"
+-echo -e "\t offline $ratio% hotplug memory in online state"
+-echo -e "\t online all hotplug memory in offline state"
 -
--	if [[ $offline_cpus -gt 0 ]]; then
--		echo -e "\t offline to online to offline: cpu $offline_max"
--		online_cpu_expect_success $offline_max
--		offline_cpu_expect_success $offline_max
+-#
+-# Online all hot-pluggable memory
+-#
+-for memory in `hotplaggable_offline_memory`; do
+-	echo offline-online $memory
+-	online_memory_expect_success $memory
+-done
+-
+-#
+-# Offline $ratio percent of hot-pluggable memory
+-#
+-for memory in `hotpluggable_online_memory`; do
+-	if [ $((RANDOM % 100)) -lt $ratio ]; then
+-		echo online-offline $memory
+-		offline_memory_expect_success $memory
 -	fi
--	exit 0
--else
--	echo "Full scope test: all hotplug cpus"
--	echo -e "\t online all offline cpus"
--	echo -e "\t offline all online cpus"
--	echo -e "\t online all offline cpus"
--fi
--
--#
--# Online all hot-pluggable CPUs
--#
--for cpu in `hotplaggable_offline_cpus`; do
--	online_cpu_expect_success $cpu
 -done
 -
 -#
--# Offline all hot-pluggable CPUs
+-# Online all hot-pluggable memory again
 -#
--for cpu in `hotpluggable_online_cpus`; do
--	offline_cpu_expect_success $cpu
+-for memory in `hotplaggable_offline_memory`; do
+-	echo offline-online $memory
+-	online_memory_expect_success $memory
 -done
 -
 -#
--# Online all hot-pluggable CPUs again
--#
--for cpu in `hotplaggable_offline_cpus`; do
--	online_cpu_expect_success $cpu
--done
--
--#
--# Test with cpu notifier error injection
+-# Test with memory notifier error injection
 -#
 -
 -DEBUGFS=`mount -t debugfs | head -1 | awk '{ print $3 }'`
--NOTIFIER_ERR_INJECT_DIR=$DEBUGFS/notifier-error-inject/cpu
+-NOTIFIER_ERR_INJECT_DIR=$DEBUGFS/notifier-error-inject/memory
 -
 -prerequisite_extra()
 -{
 -	msg="skip extra tests:"
 -
--	/sbin/modprobe -q -r cpu-notifier-error-inject
--	/sbin/modprobe -q cpu-notifier-error-inject priority=$priority
+-	/sbin/modprobe -q -r memory-notifier-error-inject
+-	/sbin/modprobe -q memory-notifier-error-inject priority=$priority
 -
 -	if [ ! -d "$DEBUGFS" ]; then
 -		echo $msg debugfs is not mounted >&2
@@ -570,7 +510,7 @@ index 98b1d65..0000000
 -	fi
 -
 -	if [ ! -d $NOTIFIER_ERR_INJECT_DIR ]; then
--		echo $msg cpu-notifier-error-inject module is not available >&2
+-		echo $msg memory-notifier-error-inject module is not available >&2
 -		exit 0
 -	fi
 -}
@@ -578,38 +518,40 @@ index 98b1d65..0000000
 -prerequisite_extra
 -
 -#
--# Offline all hot-pluggable CPUs
+-# Offline $ratio percent of hot-pluggable memory
 -#
--echo 0 > $NOTIFIER_ERR_INJECT_DIR/actions/CPU_DOWN_PREPARE/error
--for cpu in `hotpluggable_online_cpus`; do
--	offline_cpu_expect_success $cpu
+-echo 0 > $NOTIFIER_ERR_INJECT_DIR/actions/MEM_GOING_OFFLINE/error
+-for memory in `hotpluggable_online_memory`; do
+-	if [ $((RANDOM % 100)) -lt $ratio ]; then
+-		offline_memory_expect_success $memory
+-	fi
 -done
 -
 -#
--# Test CPU hot-add error handling (offline => online)
+-# Test memory hot-add error handling (offline => online)
 -#
--echo $error > $NOTIFIER_ERR_INJECT_DIR/actions/CPU_UP_PREPARE/error
--for cpu in `hotplaggable_offline_cpus`; do
--	online_cpu_expect_fail $cpu
+-echo $error > $NOTIFIER_ERR_INJECT_DIR/actions/MEM_GOING_ONLINE/error
+-for memory in `hotplaggable_offline_memory`; do
+-	online_memory_expect_fail $memory
 -done
 -
 -#
--# Online all hot-pluggable CPUs
+-# Online all hot-pluggable memory
 -#
--echo 0 > $NOTIFIER_ERR_INJECT_DIR/actions/CPU_UP_PREPARE/error
--for cpu in `hotplaggable_offline_cpus`; do
--	online_cpu_expect_success $cpu
+-echo 0 > $NOTIFIER_ERR_INJECT_DIR/actions/MEM_GOING_ONLINE/error
+-for memory in `hotplaggable_offline_memory`; do
+-	online_memory_expect_success $memory
 -done
 -
 -#
--# Test CPU hot-remove error handling (online => offline)
+-# Test memory hot-remove error handling (online => offline)
 -#
--echo $error > $NOTIFIER_ERR_INJECT_DIR/actions/CPU_DOWN_PREPARE/error
--for cpu in `hotpluggable_online_cpus`; do
--	offline_cpu_expect_fail $cpu
+-echo $error > $NOTIFIER_ERR_INJECT_DIR/actions/MEM_GOING_OFFLINE/error
+-for memory in `hotpluggable_online_memory`; do
+-	offline_memory_expect_fail $memory
 -done
 -
--echo 0 > $NOTIFIER_ERR_INJECT_DIR/actions/CPU_DOWN_PREPARE/error
--/sbin/modprobe -q -r cpu-notifier-error-inject
+-echo 0 > $NOTIFIER_ERR_INJECT_DIR/actions/MEM_GOING_OFFLINE/error
+-/sbin/modprobe -q -r memory-notifier-error-inject
 -- 
 1.9.1
