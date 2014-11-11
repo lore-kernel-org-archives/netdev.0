@@ -1,98 +1,51 @@
-From: Johan Hovold <johan@kernel.org>
-Subject: [PATCH 00/22] net: phy: refactoring and Micrel features
-Date: Tue, 11 Nov 2014 18:37:18 +0100
-Message-ID: <1415727460-20417-1-git-send-email-johan@kernel.org>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Johan Hovold <johan@kernel.org>,
-	Bruno Thomsen <bth@kamstrup.dk>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH v3 4/5] fm10k/igb/ixgbe: Replace
+ __skb_alloc_page with dev_alloc_page
+Date: Tue, 11 Nov 2014 12:48:26 -0500 (EST)
+Message-ID: <20141111.124826.2036471212277751765.davem@davemloft.net>
+References: <20141111172523.16460.16845.stgit@ahduyck-vm-fedora20>
+	<20141111172657.16460.60596.stgit@ahduyck-vm-fedora20>
+	<1415726904.2466.170.camel@jtkirshe-mobl>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: alexander.h.duyck@redhat.com, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org, leedom@chelsio.com,
+	hariprasad@chelsio.com, donald.c.skidmore@intel.com,
+	oliver@neukum.org, balbi@ti.com, matthew.vick@intel.com,
+	mgorman@suse.de
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:59617 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751152AbaKKRsd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2014 12:48:33 -0500
+In-Reply-To: <1415726904.2466.170.camel@jtkirshe-mobl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This series fixes a couple of minor issues, refactors phy-driver
-registration, adds device and device-type abstractions to the micrel
-driver, and adds support for broadcast disable, led-mode and
-RMII-reference clock selection for KSZ8081 and KSZ8091 devices.
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Tue, 11 Nov 2014 09:28:24 -0800
 
-While adding support for more features for the Micrel PHYs mentioned
-above, it became apparent that the configuration space is much too large
-and that adding type-specific callbacks will simply not scale. Instead I
-added a driver_data field to struct phy_device, which can be used to
-store static device type data that can be parsed and acted on in
-generic driver callbacks instead. This allows a lot of duplicated code
-to be removed, and should make it much easier to add new features or
-deal with device-type quirks in the future.
+> On Tue, 2014-11-11 at 09:26 -0800, Alexander Duyck wrote:
+>> The Intel drivers were pretty much just using the plain vanilla GFP
+>> flags
+>> in their calls to __skb_alloc_page so this change makes it so that
+>> they use
+>> dev_alloc_page which just uses GFP_ATOMIC for the gfp_flags value.
+>> 
+>> Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>> Cc: Matthew Vick <matthew.vick@intel.com>
+>> Cc: Don Skidmore <donald.c.skidmore@intel.com>
+>> Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
+>> ---
+>>  drivers/net/ethernet/intel/fm10k/fm10k_main.c |    2 +-
+>>  drivers/net/ethernet/intel/igb/igb_main.c     |    2 +-
+>>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    3 +--
+>>  3 files changed, 3 insertions(+), 4 deletions(-)
+> 
+> Thanks Alex, I will add the patch to my queue.
 
-This series has been tested on a dual KSZ8081 setup (which wasn't
-supported until now). Further testing on other Micrel PHYs would be much
-appreciated.
-
-Note that the final patch effectively reverts the recent commit
-a95a18afe4c8 ("phy/micrel: KSZ8031RNL RMII clock reconfiguration bug"),
-which claims that some KSZ8031 PHY  become unresponsive if the broadcast
-disable flag is set before configuring the clock mode, even though
-disabling the broadcast address is generally the first thing you want to
-do (e.g. to avoid unnecessary reconfigurations).
-
-Hopefully, the author of that commit (on CC) can confirm whether this is
-indeed the case, and if so the final patch can be dropped unless it can
-be worked around in a different way (which I suspect).
-
-Thanks,
-Johan
-
-
-Johan Hovold (22):
-  dt/bindings: fix documentation of ethernet-phy compatible property
-  net: phy: add module_phy_driver macro
-  net: phy: replace phy_driver_register calls
-  net: phy: replace phy_drivers_register calls
-  net: phy: micrel: fix config_intr error handling
-  net: phy: micrel: use BIT macro
-  net: phy: micrel: refactor broadcast disable
-  net: phy: micrel: disable broadcast for KSZ8081/KSZ8091
-  net: phy: micrel: add led-mode sanity check
-  net: phy: micrel: refactor led-mode error handling
-  net: phy: micrel: clean up led-mode setup
-  net: phy: micrel: enable led-mode for KSZ8081/KSZ8091
-  net: phy: add static data field to struct phy_driver
-  net: phy: micrel: add device-type abstraction
-  net: phy: micrel: parse of nodes at probe
-  net: phy: micrel: add has-broadcast-disable flag to type data
-  net: phy: micrel: add generic rmii-ref-clk-sel support
-  net: phy: micrel: add support for rmii_ref_clk_sel to KSZ8081/KSZ8091
-  dt/bindings: add micrel,rmii_ref_clk_sel_25_mhz to eth-phy binding
-  net: phy: micrel: refactor interrupt config
-  net: phy: micrel: add copyright entry
-  net: phy: micrel: use generic config_init for KSZ8021/KSZ8031
-
- Documentation/devicetree/bindings/net/micrel.txt |  11 +-
- Documentation/devicetree/bindings/net/phy.txt    |   3 +-
- drivers/net/phy/amd-xgbe-phy.c                   |  15 +-
- drivers/net/phy/amd.c                            |  17 +-
- drivers/net/phy/at803x.c                         |  14 +-
- drivers/net/phy/bcm63xx.c                        |  15 +-
- drivers/net/phy/bcm7xxx.c                        |  15 +-
- drivers/net/phy/bcm87xx.c                        |  14 +-
- drivers/net/phy/broadcom.c                       |  15 +-
- drivers/net/phy/cicada.c                         |  15 +-
- drivers/net/phy/davicom.c                        |  15 +-
- drivers/net/phy/et1011c.c                        |  17 +-
- drivers/net/phy/icplus.c                         |  15 +-
- drivers/net/phy/lxt.c                            |  15 +-
- drivers/net/phy/marvell.c                        |  15 +-
- drivers/net/phy/micrel.c                         | 346 ++++++++++++++---------
- drivers/net/phy/national.c                       |  17 +-
- drivers/net/phy/qsemi.c                          |  17 +-
- drivers/net/phy/realtek.c                        |  13 +-
- drivers/net/phy/smsc.c                           |  14 +-
- drivers/net/phy/ste10Xp.c                        |  15 +-
- drivers/net/phy/vitesse.c                        |  14 +-
- include/linux/micrel_phy.h                       |   1 -
- include/linux/phy.h                              |  26 ++
- 24 files changed, 278 insertions(+), 396 deletions(-)
-
--- 
-2.0.4
+I think this entire series will need to go via my tree, because the
+conversions are all required for patch #5 which removes the replaced
+interface altogether.
