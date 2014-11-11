@@ -1,7 +1,7 @@
 From: Johan Hovold <johan@kernel.org>
-Subject: [PATCH 5/9] net: phy: micrel: disable broadcast for KSZ8081/KSZ8091
-Date: Tue, 11 Nov 2014 20:00:11 +0100
-Message-ID: <1415732415-10363-6-git-send-email-johan@kernel.org>
+Subject: [PATCH 4/9] net: phy: micrel: refactor broadcast disable
+Date: Tue, 11 Nov 2014 20:00:10 +0100
+Message-ID: <1415732415-10363-5-git-send-email-johan@kernel.org>
 References: <1415732415-10363-1-git-send-email-johan@kernel.org>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
@@ -12,46 +12,69 @@ In-Reply-To: <1415732415-10363-1-git-send-email-johan@kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Disable PHY address 0 as the broadcast address, so that it can be used
-as a unique (non-broadcast) address on a shared bus.
+Refactor and clean up broadcast disable.
 
-Note that this can also be configured using the B-CAST_OFF pin on
-KSZ9091, but that KSZ8081 lacks this pin and is also limited to
-addresses 0 and 3.
+Some Micrel PHYs have a broadcast-off bit in the Operation Mode Strap
+Override register which can be used to disable PHY address 0 as the
+broadcast address, so that it can be used as a unique (non-broadcast)
+address on a shared bus.
 
-Specifically, this allows for dual KSZ8081 setups.
+Note that the KSZPHY_OMSO_RMII_OVERRIDE bit is set by default on
+KSZ8021/8031.
 
 Signed-off-by: Johan Hovold <johan@kernel.org>
 ---
- drivers/net/phy/micrel.c | 9 ++++++++-
- 1 file changed, 8 insertions(+), 1 deletion(-)
+ drivers/net/phy/micrel.c | 24 ++++++++++++++++++++++--
+ 1 file changed, 22 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
-index 21abe5ade3df..16135ac18bfe 100644
+index d962a2866bba..21abe5ade3df 100644
 --- a/drivers/net/phy/micrel.c
 +++ b/drivers/net/phy/micrel.c
-@@ -243,6 +243,13 @@ static int ks8051_config_init(struct phy_device *phydev)
+@@ -184,6 +184,25 @@ static int kszphy_setup_led(struct phy_device *phydev,
  	return rc < 0 ? rc : 0;
  }
  
-+static int ksz8081_config_init(struct phy_device *phydev)
++/* Disable PHY address 0 as the broadcast address, so that it can be used as a
++ * unique (non-broadcast) address on a shared bus.
++ */
++static int kszphy_broadcast_disable(struct phy_device *phydev)
 +{
-+	kszphy_broadcast_disable(phydev);
++	int ret;
 +
-+	return 0;
++	ret = phy_read(phydev, MII_KSZPHY_OMSO);
++	if (ret < 0)
++		goto out;
++
++	ret = phy_write(phydev, MII_KSZPHY_OMSO, ret | KSZPHY_OMSO_B_CAST_OFF);
++out:
++	if (ret)
++		dev_err(&phydev->dev, "failed to disable broadcast address\n");
++
++	return ret;
 +}
 +
- static int ksz9021_load_values_from_of(struct phy_device *phydev,
- 				       struct device_node *of_node, u16 reg,
- 				       char *field1, char *field2,
-@@ -605,7 +612,7 @@ static struct phy_driver ksphy_driver[] = {
- 	.phy_id_mask	= 0x00fffff0,
- 	.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause),
- 	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
--	.config_init	= kszphy_config_init,
-+	.config_init	= ksz8081_config_init,
- 	.config_aneg	= genphy_config_aneg,
- 	.read_status	= genphy_read_status,
- 	.ack_interrupt	= kszphy_ack_interrupt,
+ static int kszphy_config_init(struct phy_device *phydev)
+ {
+ 	return 0;
+@@ -197,7 +216,6 @@ static int kszphy_config_init_led8041(struct phy_device *phydev)
+ 
+ static int ksz8021_config_init(struct phy_device *phydev)
+ {
+-	const u16 val = KSZPHY_OMSO_B_CAST_OFF | KSZPHY_OMSO_RMII_OVERRIDE;
+ 	int rc;
+ 
+ 	rc = kszphy_setup_led(phydev, 0x1f, 4);
+@@ -207,7 +225,9 @@ static int ksz8021_config_init(struct phy_device *phydev)
+ 	rc = ksz_config_flags(phydev);
+ 	if (rc < 0)
+ 		return rc;
+-	rc = phy_write(phydev, MII_KSZPHY_OMSO, val);
++
++	rc = kszphy_broadcast_disable(phydev);
++
+ 	return rc < 0 ? rc : 0;
+ }
+ 
 -- 
 2.0.4
