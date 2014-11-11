@@ -1,70 +1,53 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next PATCH] ixgbe: Remove IXGBE_FLAG_IN_NETPOLL since it
- doesn't do anything
-Date: Tue, 11 Nov 2014 00:26:38 -0800
-Message-ID: <1415694398.2466.97.camel@jtkirshe-mobl>
-References: <20141110224922.7245.35078.stgit@ahduyck-vm-fedora20>
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: Re: [PATCH] net: s6gmac: remove driver
+Date: Tue, 11 Nov 2014 09:32:22 +0100
+Message-ID: <1415694742.16021.11.camel@x220>
+References: <1413672545-8535-1-git-send-email-dg@emlix.com>
+	 <20141019.124542.141206969262552652.davem@davemloft.net>
+	 <CAMo8BfJ-wvDoDmm+HLHvC3VRUshdqU4eJchOGYt_YJsUktap8Q@mail.gmail.com>
+	 <20141019.132801.424495087167944921.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-/7hdG8rPD/rNPsSs2pwo"
-Cc: netdev@vger.kernel.org, donald.c.skidmore@intel.com,
-	davem@davemloft.net
-To: Alexander Duyck <alexander.h.duyck@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Valentin Rothberg <valentinrothberg@gmail.com>, jcmvbkbc@gmail.com,
+	dg@emlix.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:1970 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752734AbaKKIbH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Nov 2014 03:31:07 -0500
-In-Reply-To: <20141110224922.7245.35078.stgit@ahduyck-vm-fedora20>
+Received: from cpsmtpb-ews05.kpnxchange.com ([213.75.39.8]:60015 "EHLO
+	cpsmtpb-ews05.kpnxchange.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751705AbaKKIcZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2014 03:32:25 -0500
+In-Reply-To: <20141019.132801.424495087167944921.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
---=-/7hdG8rPD/rNPsSs2pwo
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Mon, 2014-11-10 at 14:50 -0800, Alexander Duyck wrote:
-> This patch removes some dead code from the cleanup path for ixgbe.
+On Sun, 2014-10-19 at 13:28 -0400, David Miller wrote:
+> From: Max Filippov <jcmvbkbc@gmail.com>
+> Date: Sun, 19 Oct 2014 21:26:05 +0400
 >=20
-> Setting and clearing the flag doesn't do anything since all we are
-> doing is
-> setting the flag, scheduling napi, clearing the flag and then letting
-> netpoll do the polling cleanup.  As such it doesn't make much sense to
-> have
-> it there.
+> > On Sun, Oct 19, 2014 at 8:45 PM, David Miller <davem@davemloft.net>=
+ wrote:
+> >> From: Daniel Gl=C3=B6ckner <dg@emlix.com>
+> >> Date: Sun, 19 Oct 2014 00:49:05 +0200
+> >>
+> >>> The s6000 Xtensa support is removed from the kernel. There are no
+> >>> other chips using this driver.
+> >>
+> >> That's not what I see in Linus's current tree:
+> >=20
+> > David, s6000 removal is queued for 3.18.
 >=20
-> This patch also removes one minor white-space error.
->=20
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
-> ---
->  drivers/net/ethernet/intel/ixgbe/ixgbe.h      |    1 -
->  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   16 ++++------------
->  2 files changed, 4 insertions(+), 13 deletions(-)
+> Then there is zero reason for me to apply this to my networking
+> tree.
 
-Thanks Alex, I have added your patch to my queue.
+Commit 4006e565e150 ("xtensa: remove s6000 variant and s6105 platform")
+is included in linux-next as of next-20141111. So now we see:
+    $ git grep XTENSA_VARIANT_S6000 next-20141111
+    next-20141111:drivers/net/ethernet/Kconfig:     depends on XTENSA_V=
+ARIANT_S6000
 
---=-/7hdG8rPD/rNPsSs2pwo
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+Should Daniel resubmit, for net-next, perhaps with a commit explanation
+that references this commit?
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
 
-iQIcBAABCgAGBQJUYcg+AAoJEOVv75VaS+3Om6MQAKB80mgr9tw3BRpl2o7VAxpT
-dPmsryGYpRpBRXPp7KvylSHivABTQ6FjFDiTB4OxdoQrEVYva7a5t7MgNtQysWVo
-wC+cDmOQ3x/oIuh7SD+Vi9FE0CmrwUhMjyfch2v2D33kUitgkHZh0BppqESPaxKi
-CiUpmsUTc1j6Ql7KE72UDnrSsD9n2zfb2LDvGqpvX5cIE2UllZI2fNDUKHV1XWRN
-VTuJitrVx6zTM1SJVozsO6selPsTQbYChJLH99y7IMgdrz3T0lCUHiyCuGk2+h1c
-XYjuMKaqXM6oCv5//BdCKi4DAq2QBtDavJi3UKdS9CDpQ17oI0ZNDxGVPlQ5JQeg
-DGS8Ze1dmFRDCGpeGohDjPjr8ybC75CW2l+iZr6bv+ab6KgYljqp1eWtfdh9BpHR
-N1jYWf7rxkn9L+sxC5hu9SFzYKFVC2iFd9CNqBYA3I6Jfb0VSfA1Wh5P4u4w05y1
-UyGzMYewMtOzpY0J7dkfBOt5Kf1xdNqAJjy1zZI/N8YwCD3PNN1mepPevUB63RgU
-vAc5BNTYj6CGfy8yy5Vtrf6TNr0baxMNQjWTiOhyjNhlx6bX8ID9k/NEt4xG1MMx
-1vx0EK4xXW/vdV+6XDgtqKwXWLN8/GGEh0x03MB0kBrDE2cg7VYN79GnBGdK+if9
-kdjFym26S4z5H39tl+Jp
-=7bcL
------END PGP SIGNATURE-----
-
---=-/7hdG8rPD/rNPsSs2pwo--
+Paul Bolle
