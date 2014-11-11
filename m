@@ -1,8 +1,8 @@
 From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [net-next PATCH v2 2/5] cxgb4/cxgb4vf: Replace __skb_alloc_page
+Subject: [net-next PATCH v2 3/5] phonet: Replace calls to __skb_alloc_page
  with __netdev_alloc_page
-Date: Tue, 11 Nov 2014 09:11:01 -0800
-Message-ID: <20141111171101.15976.13139.stgit@ahduyck-vm-fedora20>
+Date: Tue, 11 Nov 2014 09:11:09 -0800
+Message-ID: <20141111171109.15976.13624.stgit@ahduyck-vm-fedora20>
 References: <20141111170711.15976.44062.stgit@ahduyck-vm-fedora20>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -13,86 +13,88 @@ Cc: leedom@chelsio.com, hariprasad@chelsio.com,
 	jeffrey.t.kirsher@intel.com
 To: netdev@vger.kernel.org, linux-usb@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60225 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:60314 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751407AbaKKRLP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Nov 2014 12:11:15 -0500
+	id S1751184AbaKKRL0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Nov 2014 12:11:26 -0500
 In-Reply-To: <20141111170711.15976.44062.stgit@ahduyck-vm-fedora20>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Drop the bloated use of __skb_alloc_page and replace it with
-__netdev_alloc_page.  In addition update the one other spot that is
-allocating a page so that it allocates with the correct flags.
+Replace the calls to __skb_alloc_page that are passed NULL with calls to
+__netdev_alloc_page.
 
-Cc: Hariprasad S <hariprasad@chelsio.com>
-Cc: Casey Leedom <leedom@chelsio.com>
+In addition remove __GFP_COLD flag from allocations as we only want it for
+the Rx buffer which is taken care of by __dev_alloc_skb, not for any
+secondary allocations such as the queue element transmit descriptors.
+
+Cc: Oliver Neukum <oliver@neukum.org>
+Cc: Felipe Balbi <balbi@ti.com>
 Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/sge.c   |    6 +++---
- drivers/net/ethernet/chelsio/cxgb4vf/sge.c |    7 ++++---
- 2 files changed, 7 insertions(+), 6 deletions(-)
+ drivers/net/usb/cdc-phonet.c           |    6 +++---
+ drivers/usb/gadget/function/f_phonet.c |    6 +++---
+ 2 files changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-index 5e1b314..20ee002 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-@@ -576,7 +576,7 @@ static unsigned int refill_fl(struct adapter *adap, struct sge_fl *q, int n,
- 	__be64 *d = &q->desc[q->pidx];
- 	struct rx_sw_desc *sd = &q->sdesc[q->pidx];
+diff --git a/drivers/net/usb/cdc-phonet.c b/drivers/net/usb/cdc-phonet.c
+index 2ec1500..415ce8b 100644
+--- a/drivers/net/usb/cdc-phonet.c
++++ b/drivers/net/usb/cdc-phonet.c
+@@ -130,7 +130,7 @@ static int rx_submit(struct usbpn_dev *pnd, struct urb *req, gfp_t gfp_flags)
+ 	struct page *page;
+ 	int err;
  
--	gfp |= __GFP_NOWARN | __GFP_COLD;
-+	gfp |= __GFP_NOWARN;
+-	page = __skb_alloc_page(gfp_flags | __GFP_NOMEMALLOC, NULL);
++	page = __dev_alloc_page(gfp_flags | __GFP_NOMEMALLOC);
+ 	if (!page)
+ 		return -ENOMEM;
  
- 	if (s->fl_pg_order == 0)
- 		goto alloc_small_pages;
-@@ -585,7 +585,7 @@ static unsigned int refill_fl(struct adapter *adap, struct sge_fl *q, int n,
- 	 * Prefer large buffers
- 	 */
- 	while (n) {
--		pg = alloc_pages(gfp | __GFP_COMP, s->fl_pg_order);
-+		pg = __dev_alloc_pages(gfp, s->fl_pg_order);
- 		if (unlikely(!pg)) {
- 			q->large_alloc_failed++;
- 			break;       /* fall back to single pages */
-@@ -615,7 +615,7 @@ static unsigned int refill_fl(struct adapter *adap, struct sge_fl *q, int n,
+@@ -212,7 +212,7 @@ resubmit:
+ 	if (page)
+ 		put_page(page);
+ 	if (req)
+-		rx_submit(pnd, req, GFP_ATOMIC | __GFP_COLD);
++		rx_submit(pnd, req, GFP_ATOMIC);
+ }
  
- alloc_small_pages:
- 	while (n--) {
--		pg = __skb_alloc_page(gfp, NULL);
-+		pg = __dev_alloc_page(gfp);
- 		if (unlikely(!pg)) {
- 			q->alloc_failed++;
- 			break;
-diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
-index 85036e6..9df40df 100644
---- a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
-@@ -602,6 +602,8 @@ static unsigned int refill_fl(struct adapter *adapter, struct sge_fl *fl,
- 	 */
- 	BUG_ON(fl->avail + n > fl->size - FL_PER_EQ_UNIT);
+ static int usbpn_close(struct net_device *dev);
+@@ -231,7 +231,7 @@ static int usbpn_open(struct net_device *dev)
+ 	for (i = 0; i < rxq_size; i++) {
+ 		struct urb *req = usb_alloc_urb(0, GFP_KERNEL);
  
-+	gfp |= __GFP_NOWARN;
-+
- 	/*
- 	 * If we support large pages, prefer large buffers and fail over to
- 	 * small pages if we can't allocate large pages to satisfy the refill.
-@@ -612,8 +614,7 @@ static unsigned int refill_fl(struct adapter *adapter, struct sge_fl *fl,
- 		goto alloc_small_pages;
+-		if (!req || rx_submit(pnd, req, GFP_KERNEL | __GFP_COLD)) {
++		if (!req || rx_submit(pnd, req, GFP_KERNEL)) {
+ 			usb_free_urb(req);
+ 			usbpn_close(dev);
+ 			return -ENOMEM;
+diff --git a/drivers/usb/gadget/function/f_phonet.c b/drivers/usb/gadget/function/f_phonet.c
+index b9cfc15..cde7397 100644
+--- a/drivers/usb/gadget/function/f_phonet.c
++++ b/drivers/usb/gadget/function/f_phonet.c
+@@ -303,7 +303,7 @@ pn_rx_submit(struct f_phonet *fp, struct usb_request *req, gfp_t gfp_flags)
+ 	struct page *page;
+ 	int err;
  
- 	while (n) {
--		page = alloc_pages(gfp | __GFP_COMP | __GFP_NOWARN,
--				   FL_PG_ORDER);
-+		page = __dev_alloc_pages(gfp, FL_PG_ORDER);
- 		if (unlikely(!page)) {
- 			/*
- 			 * We've failed inour attempt to allocate a "large
-@@ -657,7 +658,7 @@ static unsigned int refill_fl(struct adapter *adapter, struct sge_fl *fl,
+-	page = __skb_alloc_page(gfp_flags | __GFP_NOMEMALLOC, NULL);
++	page = __dev_alloc_page(gfp_flags | __GFP_NOMEMALLOC);
+ 	if (!page)
+ 		return -ENOMEM;
  
- alloc_small_pages:
- 	while (n--) {
--		page = __skb_alloc_page(gfp | __GFP_NOWARN, NULL);
-+		page = __dev_alloc_page(gfp);
- 		if (unlikely(!page)) {
- 			fl->alloc_failed++;
- 			break;
+@@ -377,7 +377,7 @@ static void pn_rx_complete(struct usb_ep *ep, struct usb_request *req)
+ 	if (page)
+ 		put_page(page);
+ 	if (req)
+-		pn_rx_submit(fp, req, GFP_ATOMIC | __GFP_COLD);
++		pn_rx_submit(fp, req, GFP_ATOMIC);
+ }
+ 
+ /*-------------------------------------------------------------------------*/
+@@ -437,7 +437,7 @@ static int pn_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
+ 
+ 			netif_carrier_on(dev);
+ 			for (i = 0; i < phonet_rxq_size; i++)
+-				pn_rx_submit(fp, fp->out_reqv[i], GFP_ATOMIC | __GFP_COLD);
++				pn_rx_submit(fp, fp->out_reqv[i], GFP_ATOMIC);
+ 		}
+ 		spin_unlock(&port->lock);
+ 		return 0;
