@@ -1,364 +1,268 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 4/4] sched: introduce vlan action
-Date: Wed, 12 Nov 2014 15:52:30 +0100
-Message-ID: <1415803950-9838-4-git-send-email-jiri@resnulli.us>
-References: <1415803950-9838-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, jhs@mojatatu.com, pshelar@nicira.com,
-	therbert@google.com, edumazet@google.com, willemb@google.com,
-	dborkman@redhat.com, mst@redhat.com, fw@strlen.de,
-	Paul.Durrant@citrix.com, tgraf@suug.ch
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f54.google.com ([74.125.82.54]:47209 "EHLO
-	mail-wg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752971AbaKLOwl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2014 09:52:41 -0500
-Received: by mail-wg0-f54.google.com with SMTP id n12so14337632wgh.13
-        for <netdev@vger.kernel.org>; Wed, 12 Nov 2014 06:52:40 -0800 (PST)
-In-Reply-To: <1415803950-9838-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andrey Panin <pazke@centrinvest.ru>
+Subject: Re: [PATCH v2] VNIC: Adding support for Cavium ThunderX network
+ controller
+Date: Wed, 12 Nov 2014 17:52:25 +0300
+Message-ID: <20141112145225.GD12592@pazechnik.unix.domaincib.ru>
+References: <1415596445-10061-1-git-send-email-rric@kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Robert Richter <rrichter@cavium.com>, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, Stephen Hemminger <stephen@networkplumber.org>,
+ Stefan Assmann <sassmann@redhat.com>, Sunil Goutham <sgoutham@cavium.com>,
+ "David S. Miller" <davem@davemloft.net>, linux-arm-kernel@lists.infradead.org
+To: Robert Richter <rric@kernel.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Disposition: inline
+In-Reply-To: <1415596445-10061-1-git-send-email-rric@kernel.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-This tc action allows to work with vlan tagged skbs. Two supported
-sub-actions are header pop and header push.
+On 313, 11 09, 2014 at 09:14:05PM -0800, Robert Richter wrote:
 
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
----
+I apologize for possibly repeated mail, my mailsystem was misconfigured :(
 
-v1->v2:
-- fixed protocol dumping in tcf_vlan_dump
+Some comments from quick look are below.
 
- include/net/tc_act/tc_vlan.h        |  27 +++++
- include/uapi/linux/tc_act/tc_vlan.h |  35 ++++++
- net/sched/Kconfig                   |  11 ++
- net/sched/Makefile                  |   1 +
- net/sched/act_vlan.c                | 207 ++++++++++++++++++++++++++++++++++++
- 5 files changed, 281 insertions(+)
- create mode 100644 include/net/tc_act/tc_vlan.h
- create mode 100644 include/uapi/linux/tc_act/tc_vlan.h
- create mode 100644 net/sched/act_vlan.c
 
-diff --git a/include/net/tc_act/tc_vlan.h b/include/net/tc_act/tc_vlan.h
-new file mode 100644
-index 0000000..c809c1d
---- /dev/null
-+++ b/include/net/tc_act/tc_vlan.h
-@@ -0,0 +1,27 @@
-+/*
-+ * Copyright (c) 2014 Jiri Pirko <jiri@resnulli.us>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
-+
-+#ifndef __NET_TC_VLAN_H
-+#define __NET_TC_VLAN_H
-+
-+#include <net/act_api.h>
-+
-+#define VLAN_F_POP		0x1
-+#define VLAN_F_PUSH		0x2
-+
-+struct tcf_vlan {
-+	struct tcf_common	common;
-+	int			tcfv_action;
-+	__be16			tcfv_push_vid;
-+	__be16			tcfv_push_proto;
-+};
-+#define to_vlan(a) \
-+	container_of(a->priv, struct tcf_vlan, common)
-+
-+#endif /* __NET_TC_VLAN_H */
-diff --git a/include/uapi/linux/tc_act/tc_vlan.h b/include/uapi/linux/tc_act/tc_vlan.h
-new file mode 100644
-index 0000000..f7b8d44
---- /dev/null
-+++ b/include/uapi/linux/tc_act/tc_vlan.h
-@@ -0,0 +1,35 @@
-+/*
-+ * Copyright (c) 2014 Jiri Pirko <jiri@resnulli.us>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
-+
-+#ifndef __LINUX_TC_VLAN_H
-+#define __LINUX_TC_VLAN_H
-+
-+#include <linux/pkt_cls.h>
-+
-+#define TCA_ACT_VLAN 12
-+
-+#define TCA_VLAN_ACT_POP	1
-+#define TCA_VLAN_ACT_PUSH	2
-+
-+struct tc_vlan {
-+	tc_gen;
-+	int v_action;
-+};
-+
-+enum {
-+	TCA_VLAN_UNSPEC,
-+	TCA_VLAN_TM,
-+	TCA_VLAN_PARMS,
-+	TCA_VLAN_PUSH_VLAN_ID,
-+	TCA_VLAN_PUSH_VLAN_PROTOCOL,
-+	__TCA_VLAN_MAX,
-+};
-+#define TCA_VLAN_MAX (__TCA_VLAN_MAX - 1)
-+
-+#endif
-diff --git a/net/sched/Kconfig b/net/sched/Kconfig
-index a1a8e29..88618f8 100644
---- a/net/sched/Kconfig
-+++ b/net/sched/Kconfig
-@@ -686,6 +686,17 @@ config NET_ACT_CSUM
- 	  To compile this code as a module, choose M here: the
- 	  module will be called act_csum.
- 
-+config NET_ACT_VLAN
-+        tristate "Vlan manipulation"
-+        depends on NET_CLS_ACT
-+        ---help---
-+	  Say Y here to push or pop vlan headers.
-+
-+	  If unsure, say N.
-+
-+	  To compile this code as a module, choose M here: the
-+	  module will be called act_vlan.
-+
- config NET_CLS_IND
- 	bool "Incoming device classification"
- 	depends on NET_CLS_U32 || NET_CLS_FW
-diff --git a/net/sched/Makefile b/net/sched/Makefile
-index 0a869a1..679f24a 100644
---- a/net/sched/Makefile
-+++ b/net/sched/Makefile
-@@ -16,6 +16,7 @@ obj-$(CONFIG_NET_ACT_PEDIT)	+= act_pedit.o
- obj-$(CONFIG_NET_ACT_SIMP)	+= act_simple.o
- obj-$(CONFIG_NET_ACT_SKBEDIT)	+= act_skbedit.o
- obj-$(CONFIG_NET_ACT_CSUM)	+= act_csum.o
-+obj-$(CONFIG_NET_ACT_VLAN)	+= act_vlan.o
- obj-$(CONFIG_NET_SCH_FIFO)	+= sch_fifo.o
- obj-$(CONFIG_NET_SCH_CBQ)	+= sch_cbq.o
- obj-$(CONFIG_NET_SCH_HTB)	+= sch_htb.o
-diff --git a/net/sched/act_vlan.c b/net/sched/act_vlan.c
-new file mode 100644
-index 0000000..d735ecf
---- /dev/null
-+++ b/net/sched/act_vlan.c
-@@ -0,0 +1,207 @@
-+/*
-+ * Copyright (c) 2014 Jiri Pirko <jiri@resnulli.us>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/init.h>
-+#include <linux/kernel.h>
-+#include <linux/skbuff.h>
-+#include <linux/rtnetlink.h>
-+#include <linux/if_vlan.h>
-+#include <net/netlink.h>
-+#include <net/pkt_sched.h>
-+
-+#include <linux/tc_act/tc_vlan.h>
-+#include <net/tc_act/tc_vlan.h>
-+
-+#define VLAN_TAB_MASK     15
-+
-+static int tcf_vlan(struct sk_buff *skb, const struct tc_action *a,
-+		    struct tcf_result *res)
-+{
-+	struct tcf_vlan *v = a->priv;
-+	int action;
-+	int err;
-+
-+	spin_lock(&v->tcf_lock);
-+	v->tcf_tm.lastuse = jiffies;
-+	bstats_update(&v->tcf_bstats, skb);
-+	action = v->tcf_action;
-+
-+	switch (v->tcfv_action) {
-+	case TCA_VLAN_ACT_POP:
-+		err = skb_vlan_pop(skb);
-+		if (err)
-+			goto drop;
-+		break;
-+	case TCA_VLAN_ACT_PUSH:
-+		err = skb_vlan_push(skb, v->tcfv_push_proto, v->tcfv_push_vid);
-+		if (err)
-+			goto drop;
-+		break;
-+	default:
-+		BUG();
-+	}
-+
-+	goto unlock;
-+
-+drop:
-+	action = TC_ACT_SHOT;
-+	v->tcf_qstats.drops++;
-+unlock:
-+	spin_unlock(&v->tcf_lock);
-+	return action;
-+}
-+
-+static const struct nla_policy vlan_policy[TCA_VLAN_MAX + 1] = {
-+	[TCA_VLAN_PARMS]		= { .len = sizeof(struct tc_vlan) },
-+	[TCA_VLAN_PUSH_VLAN_ID]		= { .type = NLA_U16 },
-+	[TCA_VLAN_PUSH_VLAN_PROTOCOL]	= { .type = NLA_U16 },
-+};
-+
-+static int tcf_vlan_init(struct net *net, struct nlattr *nla,
-+			 struct nlattr *est, struct tc_action *a,
-+			 int ovr, int bind)
-+{
-+	struct nlattr *tb[TCA_VLAN_MAX + 1];
-+	struct tc_vlan *parm;
-+	struct tcf_vlan *v;
-+	int action;
-+	__be16 push_vid = 0;
-+	__be16 push_proto = 0;
-+	int ret = 0;
-+	int err;
-+
-+	if (!nla)
-+		return -EINVAL;
-+
-+	err = nla_parse_nested(tb, TCA_VLAN_MAX, nla, vlan_policy);
-+	if (err < 0)
-+		return err;
-+
-+	if (!tb[TCA_VLAN_PARMS])
-+		return -EINVAL;
-+	parm = nla_data(tb[TCA_VLAN_PARMS]);
-+	switch (parm->v_action) {
-+	case TCA_VLAN_ACT_POP:
-+		break;
-+	case TCA_VLAN_ACT_PUSH:
-+		if (!tb[TCA_VLAN_PUSH_VLAN_ID])
-+			return -EINVAL;
-+		push_vid = nla_get_u16(tb[TCA_VLAN_PUSH_VLAN_ID]);
-+		if (push_vid >= VLAN_VID_MASK)
-+			return -ERANGE;
-+
-+		if (tb[TCA_VLAN_PUSH_VLAN_PROTOCOL]) {
-+			push_proto = nla_get_be16(tb[TCA_VLAN_PUSH_VLAN_PROTOCOL]);
-+			switch (push_proto) {
-+			case htons(ETH_P_8021Q):
-+			case htons(ETH_P_8021AD):
-+				break;
-+			default:
-+				return -EPROTONOSUPPORT;
-+			}
-+		} else {
-+			push_proto = htons(ETH_P_8021Q);
-+		}
-+		break;
-+	default:
-+		return -EINVAL;
-+	}
-+	action = parm->v_action;
-+
-+	if (!tcf_hash_check(parm->index, a, bind)) {
-+		ret = tcf_hash_create(parm->index, est, a, sizeof(*v), bind);
-+		if (ret)
-+			return ret;
-+
-+		ret = ACT_P_CREATED;
-+	} else {
-+		if (bind)
-+			return 0;
-+		tcf_hash_release(a, bind);
-+		if (!ovr)
-+			return -EEXIST;
-+	}
-+
-+	v = to_vlan(a);
-+
-+	spin_lock_bh(&v->tcf_lock);
-+
-+	v->tcfv_action = action;
-+	v->tcfv_push_vid = push_vid;
-+	v->tcfv_push_proto = push_proto;
-+
-+	v->tcf_action = parm->action;
-+
-+	spin_unlock_bh(&v->tcf_lock);
-+
-+	if (ret == ACT_P_CREATED)
-+		tcf_hash_insert(a);
-+	return ret;
-+}
-+
-+static int tcf_vlan_dump(struct sk_buff *skb, struct tc_action *a,
-+			 int bind, int ref)
-+{
-+	unsigned char *b = skb_tail_pointer(skb);
-+	struct tcf_vlan *v = a->priv;
-+	struct tc_vlan opt = {
-+		.index    = v->tcf_index,
-+		.refcnt   = v->tcf_refcnt - ref,
-+		.bindcnt  = v->tcf_bindcnt - bind,
-+		.action   = v->tcf_action,
-+		.v_action = v->tcfv_action,
-+	};
-+	struct tcf_t t;
-+
-+	if (nla_put(skb, TCA_VLAN_PARMS, sizeof(opt), &opt))
-+		goto nla_put_failure;
-+
-+	if (v->tcfv_action == TCA_VLAN_ACT_PUSH &&
-+	    (nla_put_u16(skb, TCA_VLAN_PUSH_VLAN_ID, v->tcfv_push_vid) ||
-+	     nla_put_be16(skb, TCA_VLAN_PUSH_VLAN_PROTOCOL, v->tcfv_push_proto)))
-+		goto nla_put_failure;
-+
-+	t.install = jiffies_to_clock_t(jiffies - v->tcf_tm.install);
-+	t.lastuse = jiffies_to_clock_t(jiffies - v->tcf_tm.lastuse);
-+	t.expires = jiffies_to_clock_t(v->tcf_tm.expires);
-+	if (nla_put(skb, TCA_VLAN_TM, sizeof(t), &t))
-+		goto nla_put_failure;
-+	return skb->len;
-+
-+nla_put_failure:
-+	nlmsg_trim(skb, b);
-+	return -1;
-+}
-+
-+static struct tc_action_ops act_vlan_ops = {
-+	.kind		=	"vlan",
-+	.type		=	TCA_ACT_VLAN,
-+	.owner		=	THIS_MODULE,
-+	.act		=	tcf_vlan,
-+	.dump		=	tcf_vlan_dump,
-+	.init		=	tcf_vlan_init,
-+};
-+
-+static int __init vlan_init_module(void)
-+{
-+	return tcf_register_action(&act_vlan_ops, VLAN_TAB_MASK);
-+}
-+
-+static void __exit vlan_cleanup_module(void)
-+{
-+	tcf_unregister_action(&act_vlan_ops);
-+}
-+
-+module_init(vlan_init_module);
-+module_exit(vlan_cleanup_module);
-+
-+MODULE_AUTHOR("Jiri Pirko <jiri@resnulli.us>");
-+MODULE_DESCRIPTION("vlan manipulation actions");
-+MODULE_LICENSE("GPL v2");
--- 
-1.9.3
+> +static int nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+> +{
+> +	struct device *dev = &pdev->dev;
+> +	struct net_device *netdev;
+> +	struct nicpf *nic;
+> +	int    err;
+> +
+> +	netdev = alloc_etherdev(sizeof(struct nicpf));
+> +	if (!netdev)
+> +		return -ENOMEM;
+> +
+> +	pci_set_drvdata(pdev, netdev);
+> +
+> +	SET_NETDEV_DEV(netdev, &pdev->dev);
+> +
+> +	nic = netdev_priv(netdev);
+> +	nic->netdev = netdev;
+> +	nic->pdev = pdev;
+> +
+> +	err = pci_enable_device(pdev);
+> +	if (err) {
+> +		dev_err(dev, "Failed to enable PCI device\n");
+> +		goto exit;
+
+Looks like you leaked netdev here.
+
+> +	}
+> +
+> +	err = pci_request_regions(pdev, DRV_NAME);
+> +	if (err) {
+> +		dev_err(dev, "PCI request regions failed 0x%x\n", err);
+> +		goto err_disable_device;
+> +	}
+> +
+> +	err = pci_set_dma_mask(pdev, DMA_BIT_MASK(48));
+> +	if (err) {
+> +		dev_err(dev, "Unable to get usable DMA configuration\n");
+> +		goto err_release_regions;
+> +	}
+> +
+> +	err = pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(48));
+> +	if (err) {
+> +		dev_err(dev, "unable to get 48-bit DMA for consistent allocations\n");
+> +		goto err_release_regions;
+> +	}
+> +
+> +	/* MAP PF's configuration registers */
+> +	nic->reg_base = (uint64_t)pci_ioremap_bar(pdev, PCI_CFG_REG_BAR_NUM);
+> +	if (!nic->reg_base) {
+> +		dev_err(dev, "Cannot map config register space, aborting\n");
+> +		err = -ENOMEM;
+> +		goto err_release_regions;
+> +	}
+> +	nic->node = NIC_NODE_ID(pci_resource_start(pdev, PCI_CFG_REG_BAR_NUM));
+> +
+> +	/* By default set NIC in TNS bypass mode */
+> +	nic->flags &= ~NIC_TNS_ENABLED;
+> +	nic_set_lmac_vf_mapping(nic);
+> +
+> +	/* Initialize hardware */
+> +	nic_init_hw(nic);
+> +
+> +	/* Set RSS TBL size for each VF */
+> +	nic->rss_ind_tbl_size = max((NIC_RSSI_COUNT / nic->num_vf_en),
+> +				    NIC_MAX_RSS_IDR_TBL_SIZE);
+> +	nic->rss_ind_tbl_size = rounddown_pow_of_two(nic->rss_ind_tbl_size);
+> +
+> +	/* Register interrupts */
+> +	if (nic_register_interrupts(nic))
+> +		goto err_unmap_resources;
+> +
+> +	/* Configure SRIOV */
+> +	if (!nic_sriov_init(pdev, nic))
+> +		goto err_unmap_resources;
+> +
+> +	goto exit;
+
+Why not simply return 0; ?
+
+> +
+> +err_unmap_resources:
+> +	if (nic->reg_base)
+
+This check looks unnecessary.
+
+> +		iounmap((void *)nic->reg_base);
+> +err_release_regions:
+> +	pci_release_regions(pdev);
+> +err_disable_device:
+> +	pci_disable_device(pdev);
+> +exit:
+> +	return err;
+> +}
+
+
+> +static int bgx_register_interrupts(struct bgx *bgx, uint8_t lmac)
+> +{
+> +	int irq, ret = 0;
+> +
+> +	/* Register only link interrupts now */
+> +	irq = SPUX_INT + (lmac * BGX_LMAC_VEC_OFFSET);
+> +	sprintf(bgx->irq_name[irq], "LMAC%d", lmac);
+> +	ret = request_irq(bgx->msix_entries[irq].vector,
+> +			  bgx_lmac_intr_handler, 0, bgx->irq_name[irq], bgx);
+> +	if (ret)
+> +		goto fail;
+> +	else
+
+This else just hurts readability.
+
+> +		bgx->irq_allocated[irq] = 1;
+> +
+> +	/* Enable link interrupt */
+> +	bgx_enable_link_intr(bgx, lmac);
+> +	return 0;
+> +
+> +fail:
+
+The code below copypasted from bgx_unregister_interrupts()
+Looks like good candidate for helper function.
+
+> +	dev_err(&bgx->pdev->dev, "Request irq failed\n");
+> +	for (irq = 0; irq < bgx->num_vec; irq++) {
+> +		if (bgx->irq_allocated[irq])
+> +			free_irq(bgx->msix_entries[irq].vector, bgx);
+> +		bgx->irq_allocated[irq] = 0;
+> +	}
+> +	return 1;
+> +}
+> +
+> +static void bgx_unregister_interrupts(struct bgx *bgx)
+> +{
+> +	int irq;
+> +	/* Free registered interrupts */
+> +	for (irq = 0; irq < bgx->num_vec; irq++) {
+> +		if (bgx->irq_allocated[irq])
+> +			free_irq(bgx->msix_entries[irq].vector, bgx);
+> +		bgx->irq_allocated[irq] = 0;
+> +	}
+> +	/* Disable MSI-X */
+> +	bgx_disable_msix(bgx);
+> +}
+> +
+
+> +void bgx_lmac_enable(struct bgx *bgx, int8_t lmac)
+> +{
+> +	uint64_t dmac_bcast = (1ULL << 48) - 1;
+> +
+> +	bgx_reg_write(bgx, lmac, BGX_CMRX_CFG,
+> +		      (1 << 15) | (1 << 14) | (1 << 13));
+> +
+> +	/* Register interrupts */
+> +	bgx_register_interrupts(bgx, lmac);
+
+bgx_register_interrupts() can fail (due to request_irq), but it's return
+value is not checked.
+
+> +
+> +	/* Add broadcast MAC into all LMAC's DMAC filters */
+> +	for (lmac = 0; lmac < bgx->lmac_count; lmac++)
+> +		bgx_add_dmac_addr(dmac_bcast, 0, bgx->bgx_id, lmac);
+> +}
+
+> +static int bgx_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+> +{
+> +	struct device *dev = &pdev->dev;
+> +	struct bgx *bgx;
+> +	int    err;
+> +	uint8_t lmac = 0;
+> +
+> +	bgx = kzalloc(sizeof(*bgx), GFP_KERNEL);
+
+kzalloc() return value not checked
+
+> +	bgx->pdev = pdev;
+> +
+> +	pci_set_drvdata(pdev, bgx);
+> +
+> +	err = pci_enable_device(pdev);
+> +	if (err) {
+> +		dev_err(dev, "Failed to enable PCI device\n");
+> +		goto exit;
+
+bgx is leaked here.
+
+> +	}
+> +
+> +	err = pci_request_regions(pdev, DRV_NAME);
+> +	if (err) {
+> +		dev_err(dev, "PCI request regions failed 0x%x\n", err);
+> +		goto err_disable_device;
+> +	}
+> +
+> +	/* MAP configuration registers */
+> +	bgx->reg_base = (uint64_t)pci_ioremap_bar(pdev, PCI_CFG_REG_BAR_NUM);
+> +	if (!bgx->reg_base) {
+> +		dev_err(dev, "BGX: Cannot map CSR memory space, aborting\n");
+> +		err = -ENOMEM;
+> +		goto err_release_regions;
+> +	}
+> +	bgx->bgx_id = (pci_resource_start(pdev, PCI_CFG_REG_BAR_NUM) >> 24) & 1;
+> +	bgx->bgx_id += NODE_ID(pci_resource_start(pdev, PCI_CFG_REG_BAR_NUM))
+> +							* MAX_BGX_PER_CN88XX;
+> +	bgx_vnic[bgx->bgx_id] = bgx;
+> +
+> +	/* Initialize BGX hardware */
+> +	bgx_init_hw(bgx);
+> +	/* Enable MSI-X */
+> +	if (!bgx_enable_msix(bgx))
+> +		return 1;
+
+Massive resource leak here.
+
+> +	/* Enable all LMACs */
+> +	for (lmac = 0; lmac < bgx->lmac_count; lmac++)
+> +		bgx_lmac_enable(bgx, lmac);
+
+See comment about bgx_lmac_enable() above.
+
+> +	goto exit;
+> +
+
+Lines below are unreachable.
+
+> +	if (bgx->reg_base)
+> +		iounmap((void *)bgx->reg_base);
+> +err_release_regions:
+> +	pci_release_regions(pdev);
+> +err_disable_device:
+> +	pci_disable_device(pdev);
+> +exit:
+> +	return err;
+> +}
