@@ -1,113 +1,126 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next v2 06/10] bridge: introduce fdb offloading via
- switchdev
-Date: Wed, 12 Nov 2014 14:43:21 +0100
-Message-ID: <20141112134321.GH1882@nanopsycho.orion>
+Subject: Re: [patch net-next v2 00/10] introduce rocker switch driver with
+ hardware accelerated datapath api - phase 1: bridge fdb offload
+Date: Wed, 12 Nov 2014 14:44:29 +0100
+Message-ID: <20141112134429.GI1882@nanopsycho.orion>
 References: <1415530280-9190-1-git-send-email-jiri@resnulli.us>
- <1415530280-9190-7-git-send-email-jiri@resnulli.us>
- <54603564.3070606@mojatatu.com>
- <20141110081552.GD1850@nanopsycho.orion>
- <20141110135100.GA19157@casper.infradead.org>
- <20141110173058.GA2002@gospo.home.greyhouse.net>
- <54610C0D.1050500@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Thomas Graf <tgraf@suug.ch>,
-	Jamal Hadi Salim <jhs@mojatatu.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
-	dborkman@redhat.com, ogerlitz@mellanox.com, jesse@nicira.com,
-	pshelar@nicira.com, azhou@nicira.com, ben@decadent.org.uk,
-	stephen@networkplumber.org, jeffrey.t.kirsher@intel.com,
-	vyasevic@redhat.com, xiyou.wangcong@gmail.com,
-	john.r.fastabend@intel.com, edumazet@google.com, sfeldma@gmail.com,
-	f.fainelli@gmail.com, linville@tuxdriver.com, jasowang@redhat.com,
-	ebiederm@xmission.com, nicolas.dichtel@6wind.com,
-	ryazanov.s.a@gmail.com, buytenh@wantstofly.org,
-	aviadr@mellanox.com, nbd@openwrt.org, alexei.starovoitov@gmail.com,
-	Neil.Jerram@metaswitch.com, ronye@mellanox.com,
-	simon.horman@netronome.com, alexander.h.duyck@redhat.com,
-	john.ronciak@intel.com, mleitner@redhat.com, shrij
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
+Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
+	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
+	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
+	ben@decadent.org.uk, stephen@networkplumber.org,
+	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
+	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
+	edumazet@google.com, jhs@mojatatu.com, sfeldma@gmail.com,
+	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
+	linville@tuxdriver.com, jasowang@redhat.com, ebiederm@xmission.com,
+	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
+	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
+	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
+	ronye@mellanox.com, simon.horman@netronome.com,
+	alexander.h.duyck@redhat.com, john.ronciak@intel.com,
+	mleitner@redhat.com, shrijeet@gmail.com, gospo@cumulusnetworks.com,
+	bcrl@kvack.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f171.google.com ([209.85.212.171]:59980 "EHLO
-	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753107AbaKLNnY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2014 08:43:24 -0500
-Received: by mail-wi0-f171.google.com with SMTP id r20so4943715wiv.4
-        for <netdev@vger.kernel.org>; Wed, 12 Nov 2014 05:43:23 -0800 (PST)
+Received: from mail-wi0-f169.google.com ([209.85.212.169]:56130 "EHLO
+	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753199AbaKLNob (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2014 08:44:31 -0500
+Received: by mail-wi0-f169.google.com with SMTP id n3so4948987wiv.4
+        for <netdev@vger.kernel.org>; Wed, 12 Nov 2014 05:44:30 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <54610C0D.1050500@cumulusnetworks.com>
+In-Reply-To: <1415530280-9190-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mon, Nov 10, 2014 at 08:03:41PM CET, roopa@cumulusnetworks.com wrote:
->On 11/10/14, 9:30 AM, Andy Gospodarek wrote:
->>On Mon, Nov 10, 2014 at 01:51:00PM +0000, Thomas Graf wrote:
->>>On 11/10/14 at 09:15am, Jiri Pirko wrote:
->>>>There are few problems in re-using this. It is netlink based so for calling
->>>>it from bridge code, we would have to construct netlink message. But
->>>>that could be probably changed.
->>>>As you can see from the list of parameters, this is no longer about fdb (addr,
->>>>vlanid) but this has been extended to something else. See vxlan code for
->>>>what this is used for. I believe that fdb_add/del should be renamed to
->>>>something else, perhaps l2neigh_add/del or something like that.
->>>>The other problem is that fdb_add/del is currently used by various
->>>>drivers for different purpose (adding macs to unicast list).
->>>Can you elaborate a bit on the intended semantic differences between
->>>the existing ndo_fdb_add() and ndo_sw_port_fdb_add()? I'm not sure we
->>>need the sw_ prefix for this specific ndo.
->>>
->>>I completely agree that relying on Netlink is wrong because we'll have
->>>in-kernel users of the API but I believe that existing ndo_fdb_add()
->>>implementations in i40e, ixgbe, qlcnic and macvlan could use the new
->>>API you propose.
->>I also think the same API could be used quite easily on the current
->>drivers that use it.
->>
->>I was looking at this earlier today and there are only 5 drivers
->>(outside the bridge code) that support ndo_fdb_add.  The 3 hardware
->>drivers and vxlan driver seem like they could use this new API.  The
->>macvlan code appears to simply set the uc and mc lists, which seems like
->>it could be done other ways -- confirmation from John Fastabend, Roopa,
->>and mst would be good.
->yes, that is correct. The macvlan code, when not set for passthru mode, seems
->to just program the uc-mc lists,
-
-If you look at how drivers implement this, they also only add addr into
-uc/mc list. And if the ndo fdb add is not implemented by the driver, core
-does it for you - see ndo_dflt_fdb_add.
+Going to post v3 with the suggested changes included next Tue/Wed.
+Thank you all for review!
 
 
-
-> which again get synched to the lowerdev (and possibly from lowerdev to hw in
->some cases).
+Sun, Nov 09, 2014 at 11:51:10AM CET, jiri@resnulli.us wrote:
+>Hi all.
 >
->I agree that it would be really nice if the existing api's can be made to
->work.
->>>How about we rename the existing ndo_fdb_add() to ndo_neigh_add() as
->>>you propose and convert vxlan over to it and have all others which don't
->>>even depend on the Netlink attributes being passed in (i40e, ixgbe,
->>>qlcnic, macvlan) use ndo_fdb_add() which would have the behaviour of your
->>>proposed ndo_sw_port_fdb_add()?
->>I would much rather see something like Thomas proposes here.  I know you
->>would like to see these patches get included (I'm anxious to see better
->>in-kernel offload support too!), but separate, possibly unnecessary
->>APIs like this can get painful for driver maintainers (upstream and
->>distro maintainers).
->>
->Ack!.
-
-
-I will think about this more and prepare something like Thomas proposes.
-Stay tuned, I will be out undil Monday so I will post v3 Tue/Wed next
-week.
-
-In the meantime, feel free to study the fdb_add code and feel free to
-give me some more thoughts/patches about this. Thanks!
-
-
->--
->To unsubscribe from this list: send the line "unsubscribe netdev" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>This patchset is just the first phase of switch and switch-ish device
+>support api in kernel. Note that the api will extend (our complete work
+>can be pulled from https://github.com/jpirko/net-next-rocker).
+>
+>So what this patchset includes:
+>- introduce switchdev api for implementing switch drivers (so far
+>  only linux bridge fdb offload is covered)
+>- introduce rocker switch driver which implements switchdev api
+>
+>As to the discussion if there is need to have specific class of device
+>representing the switch itself, so far we found no need to introduce that.
+>But we are generally ok with the idea and when the time comes and it will
+>be needed, it can be easily introduced without any disturbance.
+>
+>This patchset introduces switch id export through rtnetlink and sysfs,
+>which is similar to what we have for port id in SR-IOV. I will send iproute2
+>patchset for showing the switch id for port netdevs once this is applied.
+>
+>For detailed description, please see individual patches.
+>
+>v1->v2:
+>- addressed all DaveM's comments
+>
+>Jiri Pirko (5):
+>  net: rename netdev_phys_port_id to more generic name
+>  net: introduce generic switch devices support
+>  rtnl: expose physical switch id for particular device
+>  net-sysfs: expose physical switch id for particular device
+>  rocker: introduce rocker switch driver
+>
+>Scott Feldman (5):
+>  bridge: introduce fdb offloading via switchdev
+>  bridge: call netdev_sw_port_stp_update when bridge port STP status
+>    changes
+>  bridge: add API to notify bridge driver of learned FBD on offloaded
+>    device
+>  rocker: implement rocker ofdpa flow table manipulation
+>  rocker: implement L2 bridge offloading
+>
+> Documentation/networking/switchdev.txt           |   59 +
+> MAINTAINERS                                      |   14 +
+> drivers/net/ethernet/Kconfig                     |    1 +
+> drivers/net/ethernet/Makefile                    |    1 +
+> drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |    2 +-
+> drivers/net/ethernet/intel/i40e/i40e_main.c      |    2 +-
+> drivers/net/ethernet/mellanox/mlx4/en_netdev.c   |    2 +-
+> drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |    2 +-
+> drivers/net/ethernet/rocker/Kconfig              |   27 +
+> drivers/net/ethernet/rocker/Makefile             |    5 +
+> drivers/net/ethernet/rocker/rocker.c             | 4182 ++++++++++++++++++++++
+> drivers/net/ethernet/rocker/rocker.h             |  427 +++
+> include/linux/if_bridge.h                        |   18 +
+> include/linux/netdevice.h                        |   48 +-
+> include/net/switchdev.h                          |   53 +
+> include/uapi/linux/if_link.h                     |    1 +
+> net/Kconfig                                      |    1 +
+> net/Makefile                                     |    3 +
+> net/bridge/br_fdb.c                              |   94 +-
+> net/bridge/br_netlink.c                          |    2 +
+> net/bridge/br_stp.c                              |    4 +
+> net/bridge/br_stp_if.c                           |    3 +
+> net/bridge/br_stp_timer.c                        |    2 +
+> net/core/dev.c                                   |    2 +-
+> net/core/net-sysfs.c                             |   26 +-
+> net/core/rtnetlink.c                             |   30 +-
+> net/switchdev/Kconfig                            |   13 +
+> net/switchdev/Makefile                           |    5 +
+> net/switchdev/switchdev.c                        |   93 +
+> 29 files changed, 5104 insertions(+), 18 deletions(-)
+> create mode 100644 Documentation/networking/switchdev.txt
+> create mode 100644 drivers/net/ethernet/rocker/Kconfig
+> create mode 100644 drivers/net/ethernet/rocker/Makefile
+> create mode 100644 drivers/net/ethernet/rocker/rocker.c
+> create mode 100644 drivers/net/ethernet/rocker/rocker.h
+> create mode 100644 include/net/switchdev.h
+> create mode 100644 net/switchdev/Kconfig
+> create mode 100644 net/switchdev/Makefile
+> create mode 100644 net/switchdev/switchdev.c
+>
+>-- 
+>1.9.3
+>
