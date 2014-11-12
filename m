@@ -1,46 +1,31 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 1/1] ipvlan: Initial check-in of the IPVLAN
- driver.
-Date: Tue, 11 Nov 2014 18:29:56 -0800
-Message-ID: <1415759396.17262.5.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1415744984-25802-1-git-send-email-maheshb@google.com>
-	 <CAHA+R7OZxCLFYetGHONWkL7uzGur=xSc=ASBT4i5EEeS2Xzwog@mail.gmail.com>
-	 <1415748160.2292.8.camel@localhost>
-	 <CAHA+R7MgjOKuVY_egNz2SOWZG6X2rkFGfcaP0PiMKc_YVKAULA@mail.gmail.com>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: RE: [PATCH net-next 2/2] r8152: adjust rtl_start_rx
+Date: Wed, 12 Nov 2014 02:30:35 +0000
+Message-ID: <0835B3720019904CB8F7AA43166CEEB2ECE394@RTITMBSV03.realtek.com.tw>
+References: <1394712342-15778-90-Taiwan-albertk@realtek.com>
+	<20141107.113522.837502028522211960.davem@davemloft.net>
+	<0835B3720019904CB8F7AA43166CEEB2ECE337@RTITMBSV03.realtek.com.tw>
+ <20141111.211939.1875418281655170486.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Hannes Frederic Sowa <hannes@redhat.com>,
-	Mahesh Bandewar <maheshb@google.com>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Maciej Zenczykowski <maze@google.com>,
-	Laurent Chavey <chavey@google.com>,
-	Tim Hockin <thockin@google.com>,
-	David Miller <davem@davemloft.net>,
-	Brandon Philips <brandon.philips@coreos.com>,
-	Pavel Emelianov <xemul@parallels.com>
-To: Cong Wang <cwang@twopensource.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f182.google.com ([209.85.213.182]:35188 "EHLO
-	mail-ig0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933039AbaKLCaD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2014 21:30:03 -0500
-Received: by mail-ig0-f182.google.com with SMTP id hn18so2143674igb.9
-        for <netdev@vger.kernel.org>; Tue, 11 Nov 2014 18:30:01 -0800 (PST)
-In-Reply-To: <CAHA+R7MgjOKuVY_egNz2SOWZG6X2rkFGfcaP0PiMKc_YVKAULA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	nic_swsd <nic_swsd@realtek.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141111.211939.1875418281655170486.davem@davemloft.net>
+Content-Language: zh-TW
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2014-11-11 at 16:39 -0800, Cong Wang wrote:
+David Miller [mailto:davem@davemloft.net] 
+> Sent: Wednesday, November 12, 2014 10:20 AM
+[...]
+> I haven't had time to process your original reply, please be patient.
 
-> Sounds like over-kill to have a new device just for not worrying about mac.
-> Or you mean our neigh table doesn't scale?
-
-Some environments simply do not allow having multiple MAC, it is not a
-linux problem with neigh table.
-
-Linux hosts can be attached to switches with a very strict security
-policy : One (or few) mac address per port.
-
-http://en.wikipedia.org/wiki/CAM_Table
+I am sorry for bothering you, and thanks for your reply.
+ 
+Best Regards,
+Hayes
