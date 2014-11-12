@@ -1,317 +1,144 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch iproute2] tc: add support for vlan tc action
-Date: Wed, 12 Nov 2014 15:55:34 +0100
-Message-ID: <1415804134-9895-1-git-send-email-jiri@resnulli.us>
-References: <1415803950-9838-4-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, jhs@mojatatu.com, pshelar@nicira.com,
-	therbert@google.com, edumazet@google.com, willemb@google.com,
-	dborkman@redhat.com, mst@redhat.com, fw@strlen.de,
-	Paul.Durrant@citrix.com, tgraf@suug.ch
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f45.google.com ([74.125.82.45]:32791 "EHLO
-	mail-wg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752377AbaKLOzg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2014 09:55:36 -0500
-Received: by mail-wg0-f45.google.com with SMTP id x12so14389369wgg.32
-        for <netdev@vger.kernel.org>; Wed, 12 Nov 2014 06:55:35 -0800 (PST)
-In-Reply-To: <1415803950-9838-4-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Corey Minyard <minyard@acm.org>
+Subject: Re: [PATCH -next 2/2] seq_putc: Convert to
+ return void and convert uses too.
+Date: Wed, 12 Nov 2014 09:25:00 -0600
+Message-ID: <54637BCC.7040705@acm.org>
+References: <cover.1415645476.git.joe@perches.com>
+	<56c4c0d5ec721134cff4913e5e3f8923169c35ef.1415645477.git.joe@perches.com>
+Reply-To: minyard@acm.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>, netdev@vger.kernel.org,
+	James Morris <jmorris@namei.org>, Petr Mladek <pmladek@suse.cz>,
+	linux-kernel@vger.kernel.org, coreteam@netfilter.org,
+	netfilter-devel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	openipmi-developer@lists.sourceforge.net,
+	"David S. Miller" <davem@davemloft.net>
+To: Joe Perches <joe@perches.com>, Steven Rostedt <rostedt@goodmis.org>,
+	Alexander Viro <viro@zeniv.linux.org.uk>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Return-path: <openipmi-developer-bounces@lists.sourceforge.net>
+In-Reply-To: <56c4c0d5ec721134cff4913e5e3f8923169c35ef.1415645477.git.joe@perches.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/openipmi-developer>,
+	<mailto:openipmi-developer-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=openipmi-developer>
+List-Post: <mailto:openipmi-developer@lists.sourceforge.net>
+List-Help: <mailto:openipmi-developer-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/openipmi-developer>,
+	<mailto:openipmi-developer-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: openipmi-developer-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+Ok by me for the IPMI part.
 
-v1->v2:
-- included changes suggested by Jamal
+Reviewed-by: Corey Minyard <cminyard@mvista.com>
 
----
- include/linux/tc_act/tc_vlan.h |  35 +++++++
- tc/Makefile                    |   1 +
- tc/m_vlan.c                    | 221 +++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 257 insertions(+)
- create mode 100644 include/linux/tc_act/tc_vlan.h
- create mode 100644 tc/m_vlan.c
+On 11/10/2014 12:58 PM, Joe Perches wrote:
+> Using the return value of seq_putc is error-prone, so
+> make it return void instead.
+>
+> Reverse the logic in seq_putc to make it like seq_puts.
+>
+> Signed-off-by: Joe Perches <joe@perches.com>
+> ---
+>  drivers/char/ipmi/ipmi_msghandler.c                   |  4 +++-
+>  fs/seq_file.c                                         | 11 ++++++-----
+>  include/linux/seq_file.h                              |  2 +-
+>  net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c |  4 +++-
+>  net/netfilter/nf_conntrack_expect.c                   |  4 +++-
+>  5 files changed, 16 insertions(+), 9 deletions(-)
+>
+> diff --git a/drivers/char/ipmi/ipmi_msghandler.c b/drivers/char/ipmi/ipmi_msghandler.c
+> index f816211..c12fb30 100644
+> --- a/drivers/char/ipmi/ipmi_msghandler.c
+> +++ b/drivers/char/ipmi/ipmi_msghandler.c
+> @@ -1953,7 +1953,9 @@ static int smi_ipmb_proc_show(struct seq_file *m, void *v)
+>  	seq_printf(m, "%x", intf->channels[0].address);
+>  	for (i = 1; i < IPMI_MAX_CHANNELS; i++)
+>  		seq_printf(m, " %x", intf->channels[i].address);
+> -	return seq_putc(m, '\n');
+> +	seq_putc(m, '\n');
+> +
+> +	return 0;
+>  }
+>  
+>  static int smi_ipmb_proc_open(struct inode *inode, struct file *file)
+> diff --git a/fs/seq_file.c b/fs/seq_file.c
+> index e6be05a..5ca5af9 100644
+> --- a/fs/seq_file.c
+> +++ b/fs/seq_file.c
+> @@ -673,13 +673,14 @@ int seq_open_private(struct file *filp, const struct seq_operations *ops,
+>  }
+>  EXPORT_SYMBOL(seq_open_private);
+>  
+> -int seq_putc(struct seq_file *m, char c)
+> +void seq_putc(struct seq_file *m, char c)
+>  {
+> -	if (m->count < m->size) {
+> -		m->buf[m->count++] = c;
+> -		return 0;
+> +	if (m->count >= m->size) {
+> +		seq_set_overflow(m);
+> +		return;
+>  	}
+> -	return -1;
+> +
+> +	m->buf[m->count++] = c;
+>  }
+>  EXPORT_SYMBOL(seq_putc);
+>  
+> diff --git a/include/linux/seq_file.h b/include/linux/seq_file.h
+> index 9b02cb6..c1e47ff 100644
+> --- a/include/linux/seq_file.h
+> +++ b/include/linux/seq_file.h
+> @@ -115,7 +115,7 @@ ssize_t seq_read(struct file *, char __user *, size_t, loff_t *);
+>  loff_t seq_lseek(struct file *, loff_t, int);
+>  int seq_release(struct inode *, struct file *);
+>  int seq_escape(struct seq_file *, const char *, const char *);
+> -int seq_putc(struct seq_file *m, char c);
+> +void seq_putc(struct seq_file *m, char c);
+>  void seq_puts(struct seq_file *m, const char *s);
+>  int seq_write(struct seq_file *seq, const void *data, size_t len);
+>  
+> diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
+> index a460a87..f0dfe92 100644
+> --- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
+> +++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
+> @@ -300,7 +300,9 @@ static int exp_seq_show(struct seq_file *s, void *v)
+>  		    __nf_ct_l3proto_find(exp->tuple.src.l3num),
+>  		    __nf_ct_l4proto_find(exp->tuple.src.l3num,
+>  					 exp->tuple.dst.protonum));
+> -	return seq_putc(s, '\n');
+> +	seq_putc(s, '\n');
+> +
+> +	return 0;
+>  }
+>  
+>  static const struct seq_operations exp_seq_ops = {
+> diff --git a/net/netfilter/nf_conntrack_expect.c b/net/netfilter/nf_conntrack_expect.c
+> index 91a1837..7a17070 100644
+> --- a/net/netfilter/nf_conntrack_expect.c
+> +++ b/net/netfilter/nf_conntrack_expect.c
+> @@ -561,7 +561,9 @@ static int exp_seq_show(struct seq_file *s, void *v)
+>  				   helper->expect_policy[expect->class].name);
+>  	}
+>  
+> -	return seq_putc(s, '\n');
+> +	seq_putc(s, '\n');
+> +
+> +	return 0;
+>  }
+>  
+>  static const struct seq_operations exp_seq_ops = {
 
-diff --git a/include/linux/tc_act/tc_vlan.h b/include/linux/tc_act/tc_vlan.h
-new file mode 100644
-index 0000000..f7b8d44
---- /dev/null
-+++ b/include/linux/tc_act/tc_vlan.h
-@@ -0,0 +1,35 @@
-+/*
-+ * Copyright (c) 2014 Jiri Pirko <jiri@resnulli.us>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
-+
-+#ifndef __LINUX_TC_VLAN_H
-+#define __LINUX_TC_VLAN_H
-+
-+#include <linux/pkt_cls.h>
-+
-+#define TCA_ACT_VLAN 12
-+
-+#define TCA_VLAN_ACT_POP	1
-+#define TCA_VLAN_ACT_PUSH	2
-+
-+struct tc_vlan {
-+	tc_gen;
-+	int v_action;
-+};
-+
-+enum {
-+	TCA_VLAN_UNSPEC,
-+	TCA_VLAN_TM,
-+	TCA_VLAN_PARMS,
-+	TCA_VLAN_PUSH_VLAN_ID,
-+	TCA_VLAN_PUSH_VLAN_PROTOCOL,
-+	__TCA_VLAN_MAX,
-+};
-+#define TCA_VLAN_MAX (__TCA_VLAN_MAX - 1)
-+
-+#endif
-diff --git a/tc/Makefile b/tc/Makefile
-index 1ab36c6..830c97d 100644
---- a/tc/Makefile
-+++ b/tc/Makefile
-@@ -40,6 +40,7 @@ TCMODULES += m_pedit.o
- TCMODULES += m_skbedit.o
- TCMODULES += m_csum.o
- TCMODULES += m_simple.o
-+TCMODULES += m_vlan.o
- TCMODULES += p_ip.o
- TCMODULES += p_icmp.o
- TCMODULES += p_tcp.o
-diff --git a/tc/m_vlan.c b/tc/m_vlan.c
-new file mode 100644
-index 0000000..872bf72
---- /dev/null
-+++ b/tc/m_vlan.c
-@@ -0,0 +1,221 @@
-+/*
-+ * m_vlan.c		vlan manipulation module
-+ *
-+ *              This program is free software; you can redistribute it and/or
-+ *              modify it under the terms of the GNU General Public License
-+ *              as published by the Free Software Foundation; either version
-+ *              2 of the License, or (at your option) any later version.
-+ *
-+ * Authors:     Jiri Pirko <jiri@resnulli.us>
-+ */
-+
-+#include <stdio.h>
-+#include <stdlib.h>
-+#include <unistd.h>
-+#include <string.h>
-+#include <linux/if_ether.h>
-+#include "utils.h"
-+#include "rt_names.h"
-+#include "tc_util.h"
-+#include <linux/tc_act/tc_vlan.h>
-+
-+static void explain(void)
-+{
-+	fprintf(stderr, "Usage: vlan pop\n");
-+	fprintf(stderr, "       vlan push [ protocol VLANPROTO ] id VLANID\n");
-+	fprintf(stderr, "       VLANPROTO is one of 802.1Q or 802.1AD\n");
-+	fprintf(stderr, "            with default: 802.1Q\n");
-+}
-+
-+static void usage(void)
-+{
-+	explain();
-+	exit(-1);
-+}
-+
-+static int parse_vlan(struct action_util *a, int *argc_p, char ***argv_p,
-+		      int tca_id, struct nlmsghdr *n)
-+{
-+	int argc = *argc_p;
-+	char **argv = *argv_p;
-+	struct rtattr *tail;
-+	int action = 0;
-+	__u16 id;
-+	int id_set = 0;
-+	__u16 proto;
-+	int proto_set = 0;
-+	struct tc_vlan parm = { 0 };
-+
-+	if (matches(*argv, "vlan") != 0)
-+		return -1;
-+
-+	NEXT_ARG();
-+
-+	while (argc > 0) {
-+		if (matches(*argv, "pop") == 0) {
-+			if (action) {
-+				fprintf(stderr, "unexpexted \"%s\" - action already specified\n",
-+					*argv);
-+				explain();
-+				return -1;
-+			}
-+			action = TCA_VLAN_ACT_POP;
-+		} else if (matches(*argv, "push") == 0) {
-+			if (action) {
-+				fprintf(stderr, "unexpexted \"%s\" - action already specified\n",
-+					*argv);
-+				explain();
-+				return -1;
-+			}
-+			action = TCA_VLAN_ACT_PUSH;
-+		} else if (matches(*argv, "id") == 0) {
-+			if (action != TCA_VLAN_ACT_PUSH) {
-+				fprintf(stderr, "\"%s\" is only valid for push\n",
-+					*argv);
-+				explain();
-+				return -1;
-+			}
-+			NEXT_ARG();
-+			if (get_u16(&id, *argv, 0))
-+				invarg("id is invalid", *argv);
-+			id_set = 1;
-+		} else if (matches(*argv, "protocol") == 0) {
-+			if (action != TCA_VLAN_ACT_PUSH) {
-+				fprintf(stderr, "\"%s\" is only valid for push\n",
-+					*argv);
-+				explain();
-+				return -1;
-+			}
-+			NEXT_ARG();
-+			if (ll_proto_a2n(&proto, *argv))
-+				invarg("protocol is invalid", *argv);
-+			proto_set = 1;
-+		} else if (matches(*argv, "help") == 0) {
-+			usage();
-+		} else {
-+			break;
-+		}
-+		argc--;
-+		argv++;
-+	}
-+
-+	parm.action = TC_ACT_PIPE;
-+	if (argc) {
-+		if (matches(*argv, "reclassify") == 0) {
-+			parm.action = TC_ACT_RECLASSIFY;
-+			NEXT_ARG();
-+		} else if (matches(*argv, "pipe") == 0) {
-+			parm.action = TC_ACT_PIPE;
-+			NEXT_ARG();
-+		} else if (matches(*argv, "drop") == 0 ||
-+			   matches(*argv, "shot") == 0) {
-+			parm.action = TC_ACT_SHOT;
-+			NEXT_ARG();
-+		} else if (matches(*argv, "continue") == 0) {
-+			parm.action = TC_ACT_UNSPEC;
-+			NEXT_ARG();
-+		} else if (matches(*argv, "pass") == 0) {
-+			parm.action = TC_ACT_OK;
-+			NEXT_ARG();
-+		}
-+	}
-+
-+	if (argc) {
-+		if (matches(*argv, "index") == 0) {
-+			NEXT_ARG();
-+			if (get_u32(&parm.index, *argv, 10)) {
-+				fprintf(stderr, "vlan: Illegal \"index\"\n");
-+				return -1;
-+			}
-+			argc--;
-+			argv++;
-+		}
-+	}
-+
-+	if (action == TCA_VLAN_ACT_PUSH && !id_set) {
-+		fprintf(stderr, "id needs to be set for push\n");
-+		explain();
-+		return -1;
-+	}
-+
-+	parm.v_action = action;
-+	tail = NLMSG_TAIL(n);
-+	addattr_l(n, MAX_MSG, tca_id, NULL, 0);
-+	addattr_l(n, MAX_MSG, TCA_VLAN_PARMS, &parm, sizeof(parm));
-+	if (id_set)
-+		addattr_l(n, MAX_MSG, TCA_VLAN_PUSH_VLAN_ID, &id, 2);
-+	if (proto_set) {
-+		if (proto != htons(ETH_P_8021Q) &&
-+		    proto != htons(ETH_P_8021AD)) {
-+			fprintf(stderr, "protocol not supported\n");
-+			explain();
-+			return -1;
-+		}
-+
-+		addattr_l(n, MAX_MSG, TCA_VLAN_PUSH_VLAN_PROTOCOL, &proto, 2);
-+	}
-+	tail->rta_len = (char *)NLMSG_TAIL(n) - (char *)tail;
-+
-+	*argc_p = argc;
-+	*argv_p = argv;
-+	return 0;
-+}
-+
-+static int print_vlan(struct action_util *au, FILE *f, struct rtattr *arg)
-+{
-+	SPRINT_BUF(b1);
-+	struct rtattr *tb[TCA_VLAN_MAX + 1];
-+	__u16 val;
-+	struct tc_vlan *parm;
-+
-+	if (arg == NULL)
-+		return -1;
-+
-+	parse_rtattr_nested(tb, TCA_VLAN_MAX, arg);
-+
-+	if (!tb[TCA_VLAN_PARMS]) {
-+		fprintf(f, "[NULL vlan parameters]");
-+		return -1;
-+	}
-+	parm = RTA_DATA(tb[TCA_VLAN_PARMS]);
-+
-+	fprintf(f, " vlan");
-+
-+	switch(parm->v_action) {
-+	case TCA_VLAN_ACT_POP:
-+		fprintf(f, " pop");
-+		break;
-+	case TCA_VLAN_ACT_PUSH:
-+		fprintf(f, " push");
-+		if (tb[TCA_VLAN_PUSH_VLAN_ID]) {
-+			val = rta_getattr_u16(tb[TCA_VLAN_PUSH_VLAN_ID]);
-+			fprintf(f, " id %u", val);
-+		}
-+		if (tb[TCA_VLAN_PUSH_VLAN_PROTOCOL]) {
-+			fprintf(f, " protocol %s",
-+				ll_proto_n2a(rta_getattr_u16(tb[TCA_VLAN_PUSH_VLAN_PROTOCOL]),
-+					     b1, sizeof(b1)));
-+		}
-+		break;
-+	}
-+
-+	fprintf(f, "\n\t index %d ref %d bind %d", parm->index, parm->refcnt,
-+		parm->bindcnt);
-+
-+	if (show_stats) {
-+		if (tb[TCA_VLAN_TM]) {
-+			struct tcf_t *tm = RTA_DATA(tb[TCA_VLAN_TM]);
-+			print_tm(f, tm);
-+		}
-+	}
-+
-+	fprintf(f, "\n ");
-+
-+	return 0;
-+}
-+
-+struct action_util vlan_action_util = {
-+	.id = "vlan",
-+	.parse_aopt = parse_vlan,
-+	.print_aopt = print_vlan,
-+};
--- 
-1.9.3
+
+------------------------------------------------------------------------------
+Comprehensive Server Monitoring with Site24x7.
+Monitor 10 servers for $9/Month.
+Get alerted through email, SMS, voice calls or mobile push notifications.
+Take corrective actions from your mobile device.
+http://pubads.g.doubleclick.net/gampad/clk?id=154624111&iu=/4140/ostg.clktrk
