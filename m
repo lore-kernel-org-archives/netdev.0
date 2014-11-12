@@ -1,79 +1,110 @@
-From: "Stam, Michel [FINT]" <M.Stam@fugro.nl>
-Subject: RE: "asix: Don't reset PHY on if_up for ASIX 88772" breaks net on arndale platform
-Date: Wed, 12 Nov 2014 10:49:36 +0100
-Message-ID: <C89EFD3CD56F64468D3D206D683A8D2203A003FE@ldam-msx2.fugro-nl.local>
-References: <20141104072236.GA559@afflict.kos.to> <C89EFD3CD56F64468D3D206D683A8D2203985F49@ldam-msx2.fugro-nl.local> <20141104094336.GA3145@afflict.kos.to> <C89EFD3CD56F64468D3D206D683A8D2203985FA9@ldam-msx2.fugro-nl.local> <20141104200914.GN23178@opensource.wolfsonmicro.com> <1415751802.3398.107.camel@decadent.org.uk>
+From: Jianhua Xie <jianhua.xie@freescale.com>
+Subject: Re: [PATCH v1 net-next 1/2] bonding: Expand speed type bits of the
+ AD Port Key
+Date: Wed, 12 Nov 2014 17:53:41 +0800
+Message-ID: <54632E25.3000205@freescale.com>
+References: <1415603801-21285-1-git-send-email-Jianhua.Xie@freescale.com>
+ <1415603801-21285-2-git-send-email-Jianhua.Xie@freescale.com>
+ <20141111.135305.1647707440180670390.davem@davemloft.net>
+ <19882.1415735238@famine>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Riku Voipio" <riku.voipio@iki.fi>, <davem@davemloft.net>,
-	<linux-usb@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <linux-samsung-soc@vger.kernel.org>
-To: "Ben Hutchings" <ben@decadent.org.uk>,
-	"Charles Keepax" <ckeepax@opensource.wolfsonmicro.com>
-Return-path: <linux-samsung-soc-owner@vger.kernel.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <1415751802.3398.107.camel@decadent.org.uk>
-Sender: linux-samsung-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>, <vfalico@gmail.com>, <andy@greyhouse.net>
+To: Jay Vosburgh <jay.vosburgh@canonical.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn1on0115.outbound.protection.outlook.com ([157.56.110.115]:5409
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752016AbaKLJxb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Nov 2014 04:53:31 -0500
+In-Reply-To: <19882.1415735238@famine>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-SGVsbG8gQmVuLA0KDQpSZWdhcmRpbmcgdGhlIGNvZGUgc25pcHBldDsNCg0KR29vZCBxdWVzdGlv
-biwgVGhlIG9yaWdpbmFsIGNvZGUgZGlkbid0IGRvIHRoaXMgZWl0aGVyLCB3aGljaCBpcyB3aHkg
-SSBsZWZ0IGl0IGFzIGl0IGlzLiBJdCBjb3VsZCBjYXVzZSB1bmRlc2lyYWJsZSBiZWhhdmlvdXIs
-IGFncmVlZC4NCg0KQWZ0ZXIgYSBxdWljayBkcml2ZXIgZXhhbWluYXRpb246IEkgZG8gc2VlIHRo
-YXQgYXNpeF9zZXRfc3dfbWlpIGFuZCBhc2l4X3NldF9od19taWkgYXJlIGNhbGxlZCBwcmlvciB0
-byB0aGUgYWN0dWFsIHdyaXRlIChhc2l4X21kaW9fd3JpdGUpLCBpdCBtYXkgYmUgdGhhdCB0aGlz
-IHRha2VzIGNhcmUgb2YgZW5zdXJpbmcgZGF0YSBpcyB3cml0dGVuIHRvIHRoZSBjaGlwLCBhcyBh
-c2l4X3dyaXRlX2NtZCB3YWl0cyBmb3IgdXNibmV0X3dyaXRlX2NtZCB0byBzZW5kIChhbmQgYWNr
-bm93bGVkZ2UpIGEgVVNCIENPTlRST0wgTVNHLiBBIGxvY2sgdG8gdGhlIHBoeSBpcyBoZWxkIGR1
-cmluZyB0aGlzIHRpbWUuDQoNCklmIEkgcmVjYWxsIG15IFVTQiBrbm93bGVkZ2UsIGNvbnRyb2wg
-bWVzc2FnZXMgYXJlIGFja25vd2xlZGdlZCwgd2hpY2ggd291bGQgZW5zdXJlIGRhdGEgaXMgd3Jp
-dHRlbiB0byB0aGUgY2hpcC4gV2hldGhlciB0aGUgQVNJWCByZXF1aXJlcyBmdXJ0aGVyIGRlbGF5
-IEkgd291bGQgbm90IGtub3cuIEkgd291bGQgaGF2ZSB0byBkaXZlIGRlZXBlciBpbnRvIHRoZSB0
-aW1pbmdzIG9mIHRoZSBBU0lYIGNoaXAgYW5kIHRoZSBkcml2ZXIgYmVoYXZpb3VyIHRvIHNlZSBp
-ZiB0aGF0IHdvdWxkIGJlIHRoZSBjYXNlLg0KDQpLaW5kIHJlZ2FyZHMsDQoNCk1pY2hlbCBTdGFt
-DQotLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KRnJvbTogQmVuIEh1dGNoaW5ncyBbbWFpbHRv
-OmJlbkBkZWNhZGVudC5vcmcudWtdIA0KU2VudDogV2VkbmVzZGF5LCBOb3ZlbWJlciAxMiwgMjAx
-NCAxOjIzIEFNDQpUbzogQ2hhcmxlcyBLZWVwYXgNCkNjOiBTdGFtLCBNaWNoZWwgW0ZJTlRdOyBS
-aWt1IFZvaXBpbzsgZGF2ZW1AZGF2ZW1sb2Z0Lm5ldDsgbGludXgtdXNiQHZnZXIua2VybmVsLm9y
-ZzsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZzsg
-bGludXgtc2Ftc3VuZy1zb2NAdmdlci5rZXJuZWwub3JnDQpTdWJqZWN0OiBSZTogImFzaXg6IERv
-bid0IHJlc2V0IFBIWSBvbiBpZl91cCBmb3IgQVNJWCA4ODc3MiIgYnJlYWtzIG5ldCBvbiBhcm5k
-YWxlIHBsYXRmb3JtDQoNCk9uIFR1ZSwgMjAxNC0xMS0wNCBhdCAyMDowOSArMDAwMCwgQ2hhcmxl
-cyBLZWVwYXggd3JvdGU6DQo+IE9uIFR1ZSwgTm92IDA0LCAyMDE0IGF0IDExOjIzOjA2QU0gKzAx
-MDAsIFN0YW0sIE1pY2hlbCBbRklOVF0gd3JvdGU6DQo+ID4gSGVsbG8gUmlrdSwNCj4gPiANCj4g
-PiA+Rml4aW5nIGEgYnVnIChldGh0b29sIHN1cHBvcnQpIG11c3Qgbm90IGNhdXNlIGJyZWFrYWdl
-IGVsc2V3aGVyZSANCj4gPiA+KGluDQo+ID4gdGhpcyBjYXNlIG9uIGFybmRhbGUpLiBUaGlzIGlz
-IG5vdyBhIHJlZ3Jlc3Npb24gb2YgZnVuY3Rpb25hbGl0eSANCj4gPiBmcm9tIDMuMTcuDQo+ID4g
-Pg0KPiA+ID5JIHRoaW5rIGl0IHdvdWxkIGJldHRlciB0byByZXZlcnQgdGhlIGNoYW5nZSBub3cg
-YW5kIHdpdGggbGVzcyANCj4gPiA+aHVycnkNCj4gPiBpbnRyb2R1Y2UgYSBldGh0b29sIGZpeCB0
-aGF0IGRvZXNuJ3QgYnJlYWsgYXJuZGFsZS4NCj4gPiANCj4gPiBJIGRvbid0IGZ1bGx5IGFncmVl
-IGhlcmU7DQo+ID4gSSB3b3VsZCBsaWtlIHRvIHBvaW50IG91dCB0aGF0IHRoaXMgY29tbWl0IGlz
-IGEgcmV2ZXJ0IGl0c2VsZi4gDQo+ID4gRml4aW5nIHRoZSBhcm1kYWxlIHdpbGwgdGhlbiBjYXVz
-ZSBicmVha2FnZSBpbiBvdGhlciANCj4gPiBpbXBsZW1lbnRhdGlvbnMsIHN1Y2ggYXMgb3Vycy4g
-QmxhbmtseSByZXZlcnRpbmcgYnJlYWtzIG90aGVyIHBlb3BsZXMnIGltcGxlbWVudGF0aW9ucy4N
-Cj4gPiANCj4gPiBUaGUgUEhZIHJlc2V0IGlzIHRoZSB0aGluZyB0aGF0IGJyZWFrcyBldGh0b29s
-IHN1cHBvcnQsIHNvIGFueSBmaXggDQo+ID4gdGhhdCBhcHBlYXNlcyBhbGwgd291bGQgaGF2ZSB0
-byB0YWtlIGV4aXN0aW5nIFBIWSBzdGF0ZSBpbnRvIGFjY291bnQuDQpbLi4uXQ0KPiAtLS0gYS9k
-cml2ZXJzL25ldC91c2IvYXNpeF9kZXZpY2VzLmMNCj4gKysrIGIvZHJpdmVycy9uZXQvdXNiL2Fz
-aXhfZGV2aWNlcy5jDQo+IEBAIC0yOTksNiArMjk5LDcgQEAgc3RhdGljIGludCBheDg4NzcyX3Jl
-c2V0KHN0cnVjdCB1c2JuZXQgKmRldikgIHsNCj4gICAgICAgICBzdHJ1Y3QgYXNpeF9kYXRhICpk
-YXRhID0gKHN0cnVjdCBhc2l4X2RhdGEgKikmZGV2LT5kYXRhOw0KPiAgICAgICAgIGludCByZXQs
-IGVtYmRfcGh5Ow0KPiArICAgICAgIGludCByZWc7DQo+ICAgICAgICAgdTE2IHJ4X2N0bDsNCj4g
-DQo+ICAgICAgICAgcmV0ID0gYXNpeF93cml0ZV9ncGlvKGRldiwNCj4gQEAgLTM1OSw4ICszNjAs
-MTAgQEAgc3RhdGljIGludCBheDg4NzcyX3Jlc2V0KHN0cnVjdCB1c2JuZXQgKmRldikNCj4gICAg
-ICAgICBtc2xlZXAoMTUwKTsNCj4gDQo+ICAgICAgICAgYXNpeF9tZGlvX3dyaXRlKGRldi0+bmV0
-LCBkZXYtPm1paS5waHlfaWQsIE1JSV9CTUNSLCBCTUNSX1JFU0VUKTsNCj4gLSAgICAgICBhc2l4
-X21kaW9fd3JpdGUoZGV2LT5uZXQsIGRldi0+bWlpLnBoeV9pZCwgTUlJX0FEVkVSVElTRSwNCj4g
-LSAgICAgICAgICAgICAgICAgICAgICAgQURWRVJUSVNFX0FMTCB8IEFEVkVSVElTRV9DU01BKTsN
-Cj4gKyAgICAgICByZWcgPSBhc2l4X21kaW9fcmVhZChkZXYtPm5ldCwgZGV2LT5taWkucGh5X2lk
-LCBNSUlfQURWRVJUSVNFKTsNCj4gKyAgICAgICBpZiAoIXJlZykNCj4gKyAgICAgICAgICAgICAg
-IHJlZyA9IEFEVkVSVElTRV9BTEwgfCBBRFZFUlRJU0VfQ1NNQTsNCj4gKyAgICAgICBhc2l4X21k
-aW9fd3JpdGUoZGV2LT5uZXQsIGRldi0+bWlpLnBoeV9pZCwgTUlJX0FEVkVSVElTRSwgDQo+ICsg
-cmVnKTsNClsuLi5dDQoNCldoeSBpcyB0aGVyZSBubyBzbGVlcCBhZnRlciBzZXR0aW5nIHRoZSBS
-RVNFVCBiaXQ/ICBEb2Vzbid0IHRoYXQgbWFrZSB0aGUgZm9sbG93aW5nIHJlZ2lzdGVyIHdyaXRl
-cyB1bnJlbGlhYmxlPw0KDQpCZW4uDQoNCi0tDQpCZW4gSHV0Y2hpbmdzDQpFeHBlcmllbmNlIGlz
-IGRpcmVjdGx5IHByb3BvcnRpb25hbCB0byB0aGUgdmFsdWUgb2YgZXF1aXBtZW50IGRlc3Ryb3ll
-ZC4NCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgIC0gQ2Fyb2x5biBTY2hlcHBuZXINCg==
+Thanks you two for the valuable comments.
+
+If my understanding is right,  it is encouraged to use a counter
+rather than a bitmask for the speed field, right?
+
+if yes, how many bits are better to use for current speed and
+future speed (like 100Gbps/400Gbps and etc.)?  I am not sure
+that 5 bits are enough (2**5=3D32) or not. And I am clear to keep
+"the duplex bit in the key " in my mind.
+
+if not, what's your recommendation please?
+
+Thanks & Best Regards,
+Jianhua
+
+=E5=9C=A8 2014=E5=B9=B411=E6=9C=8812=E6=97=A5 03:47, Jay Vosburgh =E5=86=
+=99=E9=81=93:
+> David Miller <davem@davemloft.net> wrote:
+>
+>> From: Xie Jianhua <Jianhua.Xie@freescale.com>
+>> Date: Mon, 10 Nov 2014 15:16:40 +0800
+>>
+>>> From: Jianhua Xie <Jianhua.Xie@freescale.com>
+>>>
+>>> Port Key was determined as 16 bits according to the link speed,
+>>> duplex and user key (which is yet not supported), in which key
+>>> speed was 5 bits for 1Mbps/10Mbps/100Mbps/1Gbps/10Gbps as below:
+>>> --------------------------------------------------------------
+>>> Port key :|	User key	| Speed		|	Duplex|
+>>> --------------------------------------------------------------
+>>> 16			6		1		0
+>>> This patch is expanding speed type from 5 bits to 9 bits for other
+>>> speed 2.5Gbps/20Gbps/40Gbps/56Gbps and shrinking user key from 10
+>>> bits to 6 bits.  New Port Key looks like below:
+>>> --------------------------------------------------------------
+>>> Port key :|	User key	| Speed		|	Duplex|
+>>> --------------------------------------------------------------
+>>> 16			10		1		0
+>>>
+>> Do we determine the layout of this value all ourselves?
+> 	Yes, we do.  The precise format of the port key is not defined
+> by the standard; IEEE 802.1AX 5.3.5, "Capability identification":
+>
+> "A given Key value is meaningful only in the context of the System th=
+at
+> allocates it; there is no global significance to Key values."
+>
+> 	and
+>
+> "When a System assigns an operational Key value to a set of ports, it
+> signifies that, in the absence of other constraints, the current
+> operational state of the set of ports allows any subset of that set o=
+f
+> ports (including the entire set) to be aggregated together from the
+> perspective of the System making the assignment."
+>
+> 	So, basically, it's a magic cookie that indicates that all ports
+> on a particular system with the same key value are suitable to be
+> aggregated together.
+>
+>> If not, then is it exported to anything user-visible that we
+>> might be breaking?
+> 	The key values are not user-visible, and the "user" settable
+> portion of the key has never been implemented.
+>
+>> If it is private, it makes no sense to use a bitmask for the speed.
+>> We should instead change the field to be some numerically increasing
+>> value.
+>>
+>> Otherwise we'll run out of bits again and keep having to adjust the
+>> field layout more often than we really need to.
+> 	Agreed.
+>
+> 	Also note that there are some internal dependencies within
+> bonding on the format; in particular the duplex bit in the key is use=
+d
+> to determine if a port is LACP-capable, and that functionality needs =
+to
+> be preserved.
+>
+> 	-J
+>
+> ---
+> 	-Jay Vosburgh, jay.vosburgh@canonical.com
