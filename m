@@ -1,53 +1,78 @@
-From: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
-Subject: Re: [PATCH] brcmfmac: unlink URB when request timed out
-Date: Wed, 12 Nov 2014 08:00:44 +0100
-Message-ID: <1415775644.1761.1.camel@linux-0dmf.site>
-References: <545FAE05.2030701@gmail.com>
-	 <1415610506.16488.20.camel@linux-0dmf.site> <5462B1A3.9020401@gmail.com>
+From: Sascha Hauer <s.hauer@pengutronix.de>
+Subject: Re: [PATCH 19/22] dt/bindings: add micrel,rmii_ref_clk_sel_25_mhz to
+ eth-phy binding
+Date: Wed, 12 Nov 2014 08:01:27 +0100
+Message-ID: <20141112070127.GF30369@pengutronix.de>
+References: <1415727460-20417-1-git-send-email-johan@kernel.org>
+ <1415727460-20417-20-git-send-email-johan@kernel.org>
+ <20141111175741.GF25295@leverpostej>
+ <20141111181825.GH29789@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: brudley-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Franky Lin <frankyl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>, meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
-	John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, pieterpg-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, brcm80211-dev-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Mathy Vanhoef <vanhoefm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <5462B1A3.9020401-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Mark Rutland <mark.rutland@arm.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
+To: Johan Hovold <johan@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20141111181825.GH29789@localhost>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2014-11-11 at 20:02 -0500, Mathy Vanhoef wrote:
-> On 11/10/2014 04:08 AM, Oliver Neukum wrote:
-
-> > Which means that you are freeing memory that may still be used by DMA
-> > at this time.
-> > In addition you have no guarantee that the unlink is indeed finished
-> > by the time the URB is reused.
-> > If you wish to take this approach you better forget about this URB
-> > and allocate a new one and free the buffer from the callback.
+On Tue, Nov 11, 2014 at 07:18:25PM +0100, Johan Hovold wrote:
+> On Tue, Nov 11, 2014 at 05:57:42PM +0000, Mark Rutland wrote:
+> > On Tue, Nov 11, 2014 at 05:37:37PM +0000, Johan Hovold wrote:
+> > > Add "micrel,rmii_ref_clk_sel_25_mhz" to Micrel ethernet PHY binding
+> > > documentation.
+> > > 
+> > > Cc: devicetree@vger.kernel.org
+> > > Signed-off-by: Johan Hovold <johan@kernel.org>
+> > > ---
+> > >  Documentation/devicetree/bindings/net/micrel.txt | 5 +++++
+> > >  1 file changed, 5 insertions(+)
+> > > 
+> > > diff --git a/Documentation/devicetree/bindings/net/micrel.txt b/Documentation/devicetree/bindings/net/micrel.txt
+> > > index a1bab5eaae02..9b08dd6551dd 100644
+> > > --- a/Documentation/devicetree/bindings/net/micrel.txt
+> > > +++ b/Documentation/devicetree/bindings/net/micrel.txt
+> > > @@ -19,6 +19,11 @@ Optional properties:
+> > >  
+> > >                See the respective PHY datasheet for the mode values.
+> > >  
+> > > + - micrel,rmii_ref_clk_sel_25_mhz: rmii_ref_clk_sel bit selects 25 MHz mode
+> > > +
+> > > +		Whether 25 MHz (rather than 50 Mhz) clock mode is selected
+> > > +		when the rmii_ref_clk_sel bit is set.
+> > 
+> > s/_/-/ in property names please.
 > 
-> Hi Oliver,
+> Ouch, copied from variable name, sorry.
 > 
-> Good catch. I think the DMA issue is also present in the current driver: it
-> frees the buffer without unlinking/killing the URB at all. Can a malicious USB
-
-Yes, it is present.
-
-> device force a timeout to occur (i.e. delay the call to the completion
-> handler)? If so this might be a use-after-free vulnerability.
+> > That said, I don't follow the meaning. Does this cause the kernel to do
+> > something different, or is is simply that a 25MHz ref clock is wired up?
 > 
-> It seems using usb_kill_urb instead of usb_unlink_urb in the patch prevents any
-> possible use-after-free. Can someone double check?
+> Yes, the driver currently sets this configuration bit based on a common
+> clock binding.
+> 
+> However, it turns out the meaning of the bit is reversed on some PHY
+> variants. On most PHYs 50 MHz mode is selected by setting this bit,
+> whereas on the PHYs that need this new property, setting it selects 25
+> MHz mode instead.
 
-usb_kill_urb() will do the job.
+Maybe rename the property to something like rmii-ref-clk-25mhz-active-high
+then? Also you should probably make it more explicit that this is a
+hardware property and not for adjusting the clock.
 
-	Regards
-		Oliver
+It's not very nice from Micrel to create Phys with exactly the same
+device id but the meaning of this bit reversed.
 
+Sascha
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+Pengutronix e.K.                           |                             |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
