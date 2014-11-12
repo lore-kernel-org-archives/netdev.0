@@ -1,36 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: ptp: fix time stamp matching logic for VLAN
- packets.
-Date: Wed, 12 Nov 2014 15:06:41 -0500 (EST)
-Message-ID: <20141112.150641.2230107300980046135.davem@davemloft.net>
-References: <1415788432-21617-1-git-send-email-richardcochran@gmail.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH] ip_tunnel: Ops registration for secondary encap (fou, gue)
+Date: Wed, 12 Nov 2014 12:07:19 -0800
+Message-ID: <CA+mtBx9aXUxZZodQi=QcDx22EzeX+Ch2p1qnpT2w6F2jmou3GA@mail.gmail.com>
+References: <1415822049-24978-1-git-send-email-therbert@google.com>
+	<20141112.150349.1546991259336520485.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stefan.sorensen@spectralink.com
-To: richardcochran@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Netdev List <netdev@vger.kernel.org>, rdunlap@infradead.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46095 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753190AbaKLUGm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2014 15:06:42 -0500
-In-Reply-To: <1415788432-21617-1-git-send-email-richardcochran@gmail.com>
+Received: from mail-ie0-f174.google.com ([209.85.223.174]:55480 "EHLO
+	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753190AbaKLUHU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2014 15:07:20 -0500
+Received: by mail-ie0-f174.google.com with SMTP id x19so13928514ier.5
+        for <netdev@vger.kernel.org>; Wed, 12 Nov 2014 12:07:19 -0800 (PST)
+In-Reply-To: <20141112.150349.1546991259336520485.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Richard Cochran <richardcochran@gmail.com>
-Date: Wed, 12 Nov 2014 11:33:52 +0100
+On Wed, Nov 12, 2014 at 12:03 PM, David Miller <davem@davemloft.net> wrote:
+> From: Tom Herbert <therbert@google.com>
+> Date: Wed, 12 Nov 2014 11:54:09 -0800
+>
+>> Instead of calling fou and gue functions directly from ip_tunnel
+>> use ops for these that were previously registered. This patch adds the
+>> logic to add and remove encapsulation operations for ip_tunnel,
+>> and modified fou (and gue) to register with ip_tunnels.
+>>
+>> This patch also addresses a circular dependency between ip_tunnel
+>> and fou that was causing link errors when CONFIG_NET_IP_TUNNEL=y
+>> and CONFIG_NET_FOU=m. References to fou an gue have been removed from
+>> ip_tunnel.c
+>>
+>> Reported-by: Randy Dunlap <rdunlap@infradead.org>
+>> Signed-off-by: Tom Herbert <therbert@google.com>
+>
+> Applied, please in the future be explicit about the target tree by
+> saying "[PATCH net-next]" or similar in your Subj.
+>
+> I'm pretty sure this isn't the first time I've had to ask this of
+> you. :-/
+>
+I was unsure which branch to target since the bug was reported in
+linux-next. Is next-next appropriate in this case?
 
-> Commit ae5c6c6d "ptp: Classify ptp over ip over vlan packets" changed the
-> code in two drivers that matches time stamps with PTP frames, with the goal
-> of allowing VLAN tagged PTP packets to receive hardware time stamps.
-> 
-> However, that commit failed to account for the VLAN header when parsing
-> IPv4 packets. This patch fixes those two drivers to correctly match VLAN
-> tagged IPv4/UDP PTP messages with their time stamps.
-> 
-> This patch should also be applied to v3.17.
-> 
-> Signed-off-by: Richard Cochran <richardcochran@gmail.com>
+Thanks,
+Tom
 
-Applied and queued up for -stable, thanks Richard.
+> Thanks Tom.
