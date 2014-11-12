@@ -1,59 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] dev_disable_lro() improvements for
- stacked devices
-Date: Tue, 11 Nov 2014 21:47:52 -0500 (EST)
-Message-ID: <20141111.214752.266800170368088905.davem@davemloft.net>
-References: <cover.1415692212.git.mkubecek@suse.cz>
-	<20141111090522.GB20586@raspberrypi>
-	<20141111093457.GA30178@unicorn.suse.cz>
+Subject: Re: [PATCH net-next 2/2] r8152: adjust rtl_start_rx
+Date: Tue, 11 Nov 2014 21:50:56 -0500 (EST)
+Message-ID: <20141111.215056.2165761189796303933.davem@davemloft.net>
+References: <1394712342-15778-90-Taiwan-albertk@realtek.com>
+	<20141107.113522.837502028522211960.davem@davemloft.net>
+	<0835B3720019904CB8F7AA43166CEEB2ECE0A3@RTITMBSV03.realtek.com.tw>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: vfalico@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, j.vosburgh@gmail.com,
-	andy@greyhouse.net, jiri@resnulli.us
-To: mkubecek@suse.cz
+Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
+	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
+To: hayeswang@realtek.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141111093457.GA30178@unicorn.suse.cz>
+In-Reply-To: <0835B3720019904CB8F7AA43166CEEB2ECE0A3@RTITMBSV03.realtek.com.tw>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Michal Kubecek <mkubecek@suse.cz>
-Date: Tue, 11 Nov 2014 10:34:57 +0100
+From: Hayes Wang <hayeswang@realtek.com>
+Date: Mon, 10 Nov 2014 03:29:27 +0000
 
-> On Tue, Nov 11, 2014 at 10:05:22AM +0100, Veaceslav Falico wrote:
->> On Tue, Nov 11, 2014 at 09:21:30AM +0100, Michal Kubecek wrote:
->> >Large receive offloading is known to cause problems if received packets
->> >are passed to other host. Therefore the kernel disables it by calling
->> >dev_disable_lro() whenever a network device is enslaved in a bridge or
->> >forwarding is enabled for it (or globally). For virtual devices we need
->> >to disable LRO on the underlying physical device (which is actually
->> >receiving the packets).
->> >
->> >Current dev_disable_lro() code handles this propagation for a vlan
->> >(including 802.1ad nested vlan), macvlan or a vlan on top of a macvlan.
->> >This patch adds LRO disabling propagation for
->> >
->> > - macvlan on top of a vlan or any stacked combination of those
->> > - bonding
->> > - teaming
->> 
->> All of these drivers use the netdev_upper and friends, so why not make it
->> generic with netdev_for_each_all_lower() in dev_disable_lro()?
+> The behavior is different for PCI(e) and USB ethernet device.
+> The PCI nic could know the ring buffer by certain way, so
+> the device could fill the data into the buffer one by one
+> automatically. However, for usb nic, the driver has to
+> indicate (i.e. submit) each buffer for each data. The device
+> doesn't know what is the next buffer by itself. That is,
+> the driver determines the order by which the data would be
+> filled.
 > 
-> I wanted to preserve current approach where for vlan and macvlan, LRO is
-> disabled on the real device instead of the original one (rather than in
-> addition to it) as LRO is always disabled on them.
-> 
-> Handling all four uniformly would make the code nicer but would bring
-> unnecessary overhead of traversing the list and dev_disable_lro()
-> recursion. On the other hand, this operation is not time critical so it
-> might be acceptable after all.
+> Therefore, when I try to submit 10 rx buffers and some of
+> them fail, I could get the data depending on the order of
+> the successful ones. Besides, the driver has to submit the
+> buffer for next data continually, so the previous unsuccessful
+> ones could be tried again for the same time.
 
-Please do it generically.
+Ok, but if we are looping here in rtl_start_rx() and r8152_submit_rx()
+fails due to a memory allocation failure, there is nothing which is
+going to make such a memory allocation succeed in the next iteration
+of the loop.
 
-Having a special stanza for each layered device type in
-dev_disable_lro() is beyond stupid.  Especially when it
-can in fact be done cleanly.
-
-THanks.
+Unless you can prove that often it can succeed after an initial
+failure, this is just wasted work and in fact making it take longer
+for the system to reclaim memory when under pressure because these
+extra iterations are completely wasted cpu work.
