@@ -1,71 +1,39 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH net] net: ptp: fix time stamp matching logic for VLAN packets.
-Date: Wed, 12 Nov 2014 11:33:52 +0100
-Message-ID: <1415788432-21617-1-git-send-email-richardcochran@gmail.com>
-Cc: David Miller <davem@davemloft.net>,
-	=?UTF-8?q?Stefan=20S=C3=B8rensen?=
-	<stefan.sorensen@spectralink.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f180.google.com ([209.85.212.180]:64071 "EHLO
-	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752176AbaKLKeC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2014 05:34:02 -0500
-Received: by mail-wi0-f180.google.com with SMTP id hi2so4376274wib.1
-        for <netdev@vger.kernel.org>; Wed, 12 Nov 2014 02:34:00 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ming Liu <ming.liu@windriver.com>
+Subject: Re: [PATCH] crypto: aesni-intel - avoid IPsec re-ordering
+Date: Wed, 12 Nov 2014 18:41:30 +0800
+Message-ID: <5463395A.5040200@windriver.com>
+References: <1415771371-30774-1-git-send-email-ming.liu@windriver.com> <20141112084138.GL6390@secunet.com> <20141112085148.GA26268@gondor.apana.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Steffen Klassert <steffen.klassert@secunet.com>,
+	<davem@davemloft.net>, <ying.xue@windriver.com>,
+	<linux-crypto@vger.kernel.org>, <netdev@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <20141112085148.GA26268@gondor.apana.org.au>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Commit ae5c6c6d "ptp: Classify ptp over ip over vlan packets" changed the
-code in two drivers that matches time stamps with PTP frames, with the goal
-of allowing VLAN tagged PTP packets to receive hardware time stamps.
+On 11/12/2014 04:51 PM, Herbert Xu wrote:
+> On Wed, Nov 12, 2014 at 09:41:38AM +0100, Steffen Klassert wrote:
+>> Can't we just use cryptd unconditionally to fix this reordering problem?
+> I think the idea is that most of the time cryptd isn't required
+> so we want to stick with direct processing to lower latency.
+>
+> I think the simplest fix would be to punt to cryptd as long as
+> there are cryptd requests queued.
+I've tried that method when I started to think about the fix, but it 
+will cause 2 other issues per test while resolving the reordering one, 
+as follows:
+1 The work queue can not handle so many packets when the traffic is very 
+high(over 200M/S), and it would drop most of them when the queue length 
+is beyond CRYPTD_MAX_CPU_QLEN.
+2 Soft lockups are observed, per my analysis, the cause is: in some 
+extreme cases, all packets would be sent to the cryptd once there are 
+requests already in it, this will let the net poll functions return 
+pretty fast, and lead too many hw interrupts triggered in a certain period.
 
-However, that commit failed to account for the VLAN header when parsing
-IPv4 packets. This patch fixes those two drivers to correctly match VLAN
-tagged IPv4/UDP PTP messages with their time stamps.
-
-This patch should also be applied to v3.17.
-
-Signed-off-by: Richard Cochran <richardcochran@gmail.com>
----
- drivers/net/ethernet/ti/cpts.c |    2 +-
- drivers/net/phy/dp83640.c      |    4 ++--
- 2 files changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/ti/cpts.c b/drivers/net/ethernet/ti/cpts.c
-index ab92f67..4a4388b 100644
---- a/drivers/net/ethernet/ti/cpts.c
-+++ b/drivers/net/ethernet/ti/cpts.c
-@@ -264,7 +264,7 @@ static int cpts_match(struct sk_buff *skb, unsigned int ptp_class,
- 
- 	switch (ptp_class & PTP_CLASS_PMASK) {
- 	case PTP_CLASS_IPV4:
--		offset += ETH_HLEN + IPV4_HLEN(data) + UDP_HLEN;
-+		offset += ETH_HLEN + IPV4_HLEN(data + offset) + UDP_HLEN;
- 		break;
- 	case PTP_CLASS_IPV6:
- 		offset += ETH_HLEN + IP6_HLEN + UDP_HLEN;
-diff --git a/drivers/net/phy/dp83640.c b/drivers/net/phy/dp83640.c
-index 2954052..e22e602 100644
---- a/drivers/net/phy/dp83640.c
-+++ b/drivers/net/phy/dp83640.c
-@@ -791,7 +791,7 @@ static int match(struct sk_buff *skb, unsigned int type, struct rxts *rxts)
- 
- 	switch (type & PTP_CLASS_PMASK) {
- 	case PTP_CLASS_IPV4:
--		offset += ETH_HLEN + IPV4_HLEN(data) + UDP_HLEN;
-+		offset += ETH_HLEN + IPV4_HLEN(data + offset) + UDP_HLEN;
- 		break;
- 	case PTP_CLASS_IPV6:
- 		offset += ETH_HLEN + IP6_HLEN + UDP_HLEN;
-@@ -934,7 +934,7 @@ static int is_sync(struct sk_buff *skb, int type)
- 
- 	switch (type & PTP_CLASS_PMASK) {
- 	case PTP_CLASS_IPV4:
--		offset += ETH_HLEN + IPV4_HLEN(data) + UDP_HLEN;
-+		offset += ETH_HLEN + IPV4_HLEN(data + offset) + UDP_HLEN;
- 		break;
- 	case PTP_CLASS_IPV6:
- 		offset += ETH_HLEN + IP6_HLEN + UDP_HLEN;
--- 
-1.7.10.4
+//Ming Liu
+>
+> Cheers,
