@@ -1,44 +1,79 @@
-From: Johan Hovold <johan@kernel.org>
-Subject: Re: [PATCH 8/9] net: phy: micrel: clean up led-mode setup
-Date: Wed, 12 Nov 2014 10:29:52 +0100
-Message-ID: <20141112092952.GD15215@localhost>
-References: <1415732415-10363-1-git-send-email-johan@kernel.org>
- <1415732415-10363-9-git-send-email-johan@kernel.org>
- <5462828B.8090303@cogentembedded.com>
- <546282EA.7040508@gmail.com>
+From: "Stam, Michel [FINT]" <M.Stam@fugro.nl>
+Subject: RE: "asix: Don't reset PHY on if_up for ASIX 88772" breaks net on arndale platform
+Date: Wed, 12 Nov 2014 10:49:36 +0100
+Message-ID: <C89EFD3CD56F64468D3D206D683A8D2203A003FE@ldam-msx2.fugro-nl.local>
+References: <20141104072236.GA559@afflict.kos.to> <C89EFD3CD56F64468D3D206D683A8D2203985F49@ldam-msx2.fugro-nl.local> <20141104094336.GA3145@afflict.kos.to> <C89EFD3CD56F64468D3D206D683A8D2203985FA9@ldam-msx2.fugro-nl.local> <20141104200914.GN23178@opensource.wolfsonmicro.com> <1415751802.3398.107.camel@decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Johan Hovold <johan@kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <546282EA.7040508@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Riku Voipio" <riku.voipio@iki.fi>, <davem@davemloft.net>,
+	<linux-usb@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <linux-samsung-soc@vger.kernel.org>
+To: "Ben Hutchings" <ben@decadent.org.uk>,
+	"Charles Keepax" <ckeepax@opensource.wolfsonmicro.com>
+Return-path: <linux-samsung-soc-owner@vger.kernel.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <1415751802.3398.107.camel@decadent.org.uk>
+Sender: linux-samsung-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 11, 2014 at 01:43:06PM -0800, Florian Fainelli wrote:
-> On 11/11/2014 01:41 PM, Sergei Shtylyov wrote:
-> > Hello.
-> > 
-> > On 11/11/2014 10:00 PM, Johan Hovold wrote:
-> > 
-> >> Clean up led-mode setup by introducing proper defines for PHY Control
-> >> registers 1 and 2 and only passing the register to the setup function.
-> > 
-> >    Not sure that's really better that it was before (modulo naming).
-> 
-> We do have proper error handling in kszphy_setup_led() which is already
-> an improvement.
-
-This also means handling the led mode in one place rather than spreading
-it all over the driver, with multiple config functions providing one of
-the same two combinations of register and shift.
-
-It's usefulness will perhaps become more apparent if you look at the
-follow up patches, which does further refactoring and store the led-mode
-register in the type data.
-
-Johan
+SGVsbG8gQmVuLA0KDQpSZWdhcmRpbmcgdGhlIGNvZGUgc25pcHBldDsNCg0KR29vZCBxdWVzdGlv
+biwgVGhlIG9yaWdpbmFsIGNvZGUgZGlkbid0IGRvIHRoaXMgZWl0aGVyLCB3aGljaCBpcyB3aHkg
+SSBsZWZ0IGl0IGFzIGl0IGlzLiBJdCBjb3VsZCBjYXVzZSB1bmRlc2lyYWJsZSBiZWhhdmlvdXIs
+IGFncmVlZC4NCg0KQWZ0ZXIgYSBxdWljayBkcml2ZXIgZXhhbWluYXRpb246IEkgZG8gc2VlIHRo
+YXQgYXNpeF9zZXRfc3dfbWlpIGFuZCBhc2l4X3NldF9od19taWkgYXJlIGNhbGxlZCBwcmlvciB0
+byB0aGUgYWN0dWFsIHdyaXRlIChhc2l4X21kaW9fd3JpdGUpLCBpdCBtYXkgYmUgdGhhdCB0aGlz
+IHRha2VzIGNhcmUgb2YgZW5zdXJpbmcgZGF0YSBpcyB3cml0dGVuIHRvIHRoZSBjaGlwLCBhcyBh
+c2l4X3dyaXRlX2NtZCB3YWl0cyBmb3IgdXNibmV0X3dyaXRlX2NtZCB0byBzZW5kIChhbmQgYWNr
+bm93bGVkZ2UpIGEgVVNCIENPTlRST0wgTVNHLiBBIGxvY2sgdG8gdGhlIHBoeSBpcyBoZWxkIGR1
+cmluZyB0aGlzIHRpbWUuDQoNCklmIEkgcmVjYWxsIG15IFVTQiBrbm93bGVkZ2UsIGNvbnRyb2wg
+bWVzc2FnZXMgYXJlIGFja25vd2xlZGdlZCwgd2hpY2ggd291bGQgZW5zdXJlIGRhdGEgaXMgd3Jp
+dHRlbiB0byB0aGUgY2hpcC4gV2hldGhlciB0aGUgQVNJWCByZXF1aXJlcyBmdXJ0aGVyIGRlbGF5
+IEkgd291bGQgbm90IGtub3cuIEkgd291bGQgaGF2ZSB0byBkaXZlIGRlZXBlciBpbnRvIHRoZSB0
+aW1pbmdzIG9mIHRoZSBBU0lYIGNoaXAgYW5kIHRoZSBkcml2ZXIgYmVoYXZpb3VyIHRvIHNlZSBp
+ZiB0aGF0IHdvdWxkIGJlIHRoZSBjYXNlLg0KDQpLaW5kIHJlZ2FyZHMsDQoNCk1pY2hlbCBTdGFt
+DQotLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KRnJvbTogQmVuIEh1dGNoaW5ncyBbbWFpbHRv
+OmJlbkBkZWNhZGVudC5vcmcudWtdIA0KU2VudDogV2VkbmVzZGF5LCBOb3ZlbWJlciAxMiwgMjAx
+NCAxOjIzIEFNDQpUbzogQ2hhcmxlcyBLZWVwYXgNCkNjOiBTdGFtLCBNaWNoZWwgW0ZJTlRdOyBS
+aWt1IFZvaXBpbzsgZGF2ZW1AZGF2ZW1sb2Z0Lm5ldDsgbGludXgtdXNiQHZnZXIua2VybmVsLm9y
+ZzsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZzsg
+bGludXgtc2Ftc3VuZy1zb2NAdmdlci5rZXJuZWwub3JnDQpTdWJqZWN0OiBSZTogImFzaXg6IERv
+bid0IHJlc2V0IFBIWSBvbiBpZl91cCBmb3IgQVNJWCA4ODc3MiIgYnJlYWtzIG5ldCBvbiBhcm5k
+YWxlIHBsYXRmb3JtDQoNCk9uIFR1ZSwgMjAxNC0xMS0wNCBhdCAyMDowOSArMDAwMCwgQ2hhcmxl
+cyBLZWVwYXggd3JvdGU6DQo+IE9uIFR1ZSwgTm92IDA0LCAyMDE0IGF0IDExOjIzOjA2QU0gKzAx
+MDAsIFN0YW0sIE1pY2hlbCBbRklOVF0gd3JvdGU6DQo+ID4gSGVsbG8gUmlrdSwNCj4gPiANCj4g
+PiA+Rml4aW5nIGEgYnVnIChldGh0b29sIHN1cHBvcnQpIG11c3Qgbm90IGNhdXNlIGJyZWFrYWdl
+IGVsc2V3aGVyZSANCj4gPiA+KGluDQo+ID4gdGhpcyBjYXNlIG9uIGFybmRhbGUpLiBUaGlzIGlz
+IG5vdyBhIHJlZ3Jlc3Npb24gb2YgZnVuY3Rpb25hbGl0eSANCj4gPiBmcm9tIDMuMTcuDQo+ID4g
+Pg0KPiA+ID5JIHRoaW5rIGl0IHdvdWxkIGJldHRlciB0byByZXZlcnQgdGhlIGNoYW5nZSBub3cg
+YW5kIHdpdGggbGVzcyANCj4gPiA+aHVycnkNCj4gPiBpbnRyb2R1Y2UgYSBldGh0b29sIGZpeCB0
+aGF0IGRvZXNuJ3QgYnJlYWsgYXJuZGFsZS4NCj4gPiANCj4gPiBJIGRvbid0IGZ1bGx5IGFncmVl
+IGhlcmU7DQo+ID4gSSB3b3VsZCBsaWtlIHRvIHBvaW50IG91dCB0aGF0IHRoaXMgY29tbWl0IGlz
+IGEgcmV2ZXJ0IGl0c2VsZi4gDQo+ID4gRml4aW5nIHRoZSBhcm1kYWxlIHdpbGwgdGhlbiBjYXVz
+ZSBicmVha2FnZSBpbiBvdGhlciANCj4gPiBpbXBsZW1lbnRhdGlvbnMsIHN1Y2ggYXMgb3Vycy4g
+QmxhbmtseSByZXZlcnRpbmcgYnJlYWtzIG90aGVyIHBlb3BsZXMnIGltcGxlbWVudGF0aW9ucy4N
+Cj4gPiANCj4gPiBUaGUgUEhZIHJlc2V0IGlzIHRoZSB0aGluZyB0aGF0IGJyZWFrcyBldGh0b29s
+IHN1cHBvcnQsIHNvIGFueSBmaXggDQo+ID4gdGhhdCBhcHBlYXNlcyBhbGwgd291bGQgaGF2ZSB0
+byB0YWtlIGV4aXN0aW5nIFBIWSBzdGF0ZSBpbnRvIGFjY291bnQuDQpbLi4uXQ0KPiAtLS0gYS9k
+cml2ZXJzL25ldC91c2IvYXNpeF9kZXZpY2VzLmMNCj4gKysrIGIvZHJpdmVycy9uZXQvdXNiL2Fz
+aXhfZGV2aWNlcy5jDQo+IEBAIC0yOTksNiArMjk5LDcgQEAgc3RhdGljIGludCBheDg4NzcyX3Jl
+c2V0KHN0cnVjdCB1c2JuZXQgKmRldikgIHsNCj4gICAgICAgICBzdHJ1Y3QgYXNpeF9kYXRhICpk
+YXRhID0gKHN0cnVjdCBhc2l4X2RhdGEgKikmZGV2LT5kYXRhOw0KPiAgICAgICAgIGludCByZXQs
+IGVtYmRfcGh5Ow0KPiArICAgICAgIGludCByZWc7DQo+ICAgICAgICAgdTE2IHJ4X2N0bDsNCj4g
+DQo+ICAgICAgICAgcmV0ID0gYXNpeF93cml0ZV9ncGlvKGRldiwNCj4gQEAgLTM1OSw4ICszNjAs
+MTAgQEAgc3RhdGljIGludCBheDg4NzcyX3Jlc2V0KHN0cnVjdCB1c2JuZXQgKmRldikNCj4gICAg
+ICAgICBtc2xlZXAoMTUwKTsNCj4gDQo+ICAgICAgICAgYXNpeF9tZGlvX3dyaXRlKGRldi0+bmV0
+LCBkZXYtPm1paS5waHlfaWQsIE1JSV9CTUNSLCBCTUNSX1JFU0VUKTsNCj4gLSAgICAgICBhc2l4
+X21kaW9fd3JpdGUoZGV2LT5uZXQsIGRldi0+bWlpLnBoeV9pZCwgTUlJX0FEVkVSVElTRSwNCj4g
+LSAgICAgICAgICAgICAgICAgICAgICAgQURWRVJUSVNFX0FMTCB8IEFEVkVSVElTRV9DU01BKTsN
+Cj4gKyAgICAgICByZWcgPSBhc2l4X21kaW9fcmVhZChkZXYtPm5ldCwgZGV2LT5taWkucGh5X2lk
+LCBNSUlfQURWRVJUSVNFKTsNCj4gKyAgICAgICBpZiAoIXJlZykNCj4gKyAgICAgICAgICAgICAg
+IHJlZyA9IEFEVkVSVElTRV9BTEwgfCBBRFZFUlRJU0VfQ1NNQTsNCj4gKyAgICAgICBhc2l4X21k
+aW9fd3JpdGUoZGV2LT5uZXQsIGRldi0+bWlpLnBoeV9pZCwgTUlJX0FEVkVSVElTRSwgDQo+ICsg
+cmVnKTsNClsuLi5dDQoNCldoeSBpcyB0aGVyZSBubyBzbGVlcCBhZnRlciBzZXR0aW5nIHRoZSBS
+RVNFVCBiaXQ/ICBEb2Vzbid0IHRoYXQgbWFrZSB0aGUgZm9sbG93aW5nIHJlZ2lzdGVyIHdyaXRl
+cyB1bnJlbGlhYmxlPw0KDQpCZW4uDQoNCi0tDQpCZW4gSHV0Y2hpbmdzDQpFeHBlcmllbmNlIGlz
+IGRpcmVjdGx5IHByb3BvcnRpb25hbCB0byB0aGUgdmFsdWUgb2YgZXF1aXBtZW50IGRlc3Ryb3ll
+ZC4NCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgIC0gQ2Fyb2x5biBTY2hlcHBuZXINCg==
