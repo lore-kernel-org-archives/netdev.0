@@ -1,157 +1,245 @@
-From: Roger Quadros <rogerq@ti.com>
-Subject: [PATCH v5 6/8] net: can: c_can: Disable pins when CAN interface is
- down
-Date: Wed, 12 Nov 2014 16:16:48 +0200
-Message-ID: <54636BD0.2010208@ti.com>
-References: <1415371762-29885-1-git-send-email-rogerq@ti.com> <1415371762-29885-7-git-send-email-rogerq@ti.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <wsa@the-dreams.de>, <tony@atomide.com>, <tglx@linutronix.de>,
-	<mugunthanvnm@ti.com>, <george.cherian@ti.com>, <balbi@ti.com>,
-	<nsekhar@ti.com>, <nm@ti.com>,
-	<sergei.shtylyov@cogentembedded.com>, <linux-omap@vger.kernel.org>,
-	<linux-can@vger.kernel.org>, <netdev@vger.kernel.org>,
-	Roger Quadros <rogerq@ti.com>
-To: <wg@grandegger.com>, <mkl@pengutronix.de>
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <1415371762-29885-7-git-send-email-rogerq@ti.com>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next v2 3/4] net: move vlan pop/push functions into common code
+Date: Wed, 12 Nov 2014 15:52:29 +0100
+Message-ID: <1415803950-9838-3-git-send-email-jiri@resnulli.us>
+References: <1415803950-9838-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, jhs@mojatatu.com, pshelar@nicira.com,
+	therbert@google.com, edumazet@google.com, willemb@google.com,
+	dborkman@redhat.com, mst@redhat.com, fw@strlen.de,
+	Paul.Durrant@citrix.com, tgraf@suug.ch
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:34899 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752983AbaKLOwk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2014 09:52:40 -0500
+Received: by mail-wi0-f172.google.com with SMTP id bs8so5153955wib.11
+        for <netdev@vger.kernel.org>; Wed, 12 Nov 2014 06:52:39 -0800 (PST)
+In-Reply-To: <1415803950-9838-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-DRA7 CAN IP suffers from a problem which causes it to be prevented
-from fully turning OFF (i.e. stuck in transition) if the module was
-disabled while there was traffic on the CAN_RX line.
+So it can be used from out of openvswitch code.
+Did couple of cosmetic changes on the way, namely variable naming and
+adding support for 8021AD proto.
 
-To work around this issue we select the SLEEP pin state by default
-on probe and use the DEFAULT pin state on CAN up and back to the
-SLEEP pin state on CAN down.
-
-Signed-off-by: Roger Quadros <rogerq@ti.com>
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
- drivers/net/can/c_can/c_can.c          | 21 +++++++++++++++++++++
- drivers/net/can/c_can/c_can.h          |  1 +
- drivers/net/can/c_can/c_can_platform.c | 20 ++++++++++++++++++++
- 3 files changed, 42 insertions(+)
 
-diff --git a/drivers/net/can/c_can/c_can.c b/drivers/net/can/c_can/c_can.c
-index 8e78bb4..a950eea 100644
---- a/drivers/net/can/c_can/c_can.c
-+++ b/drivers/net/can/c_can/c_can.c
-@@ -35,6 +35,7 @@
- #include <linux/list.h>
- #include <linux/io.h>
- #include <linux/pm_runtime.h>
-+#include <linux/pinctrl/consumer.h>
+v1->v2:
+- adjusted to fix recent ovs changes
+- included change to use make_writable suggested by Eric
+
+ include/linux/skbuff.h    |  2 ++
+ net/core/skbuff.c         | 78 +++++++++++++++++++++++++++++++++++++++++++++
+ net/openvswitch/actions.c | 81 +++++------------------------------------------
+ 3 files changed, 88 insertions(+), 73 deletions(-)
+
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index e045516..78c299f 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -2679,6 +2679,8 @@ unsigned int skb_gso_transport_seglen(const struct sk_buff *skb);
+ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features);
+ struct sk_buff *skb_vlan_untag(struct sk_buff *skb);
+ int skb_ensure_writable(struct sk_buff *skb, int write_len);
++int skb_vlan_pop(struct sk_buff *skb);
++int skb_vlan_push(struct sk_buff *skb, __be16 vlan_proto, u16 vlan_tci);
  
- #include <linux/can.h>
- #include <linux/can/dev.h>
-@@ -587,6 +588,21 @@ static int c_can_chip_config(struct net_device *dev)
- 	return c_can_set_bittiming(dev);
+ struct skb_checksum_ops {
+ 	__wsum (*update)(const void *mem, int len, __wsum wsum);
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index d11bbe0..c7d3000 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -4163,6 +4163,84 @@ int skb_ensure_writable(struct sk_buff *skb, int write_len)
  }
+ EXPORT_SYMBOL(skb_ensure_writable);
  
-+/*
-+ * Selects the pinctrl state specified in the name.
-+ */
-+static void c_can_pinctrl_select_state(struct c_can_priv *priv,
-+				      const char *name)
++/* remove VLAN header from packet and update csum accordingly. */
++static int __skb_vlan_pop(struct sk_buff *skb, u16 *vlan_tci)
 +{
-+	if (!IS_ERR(priv->pinctrl)) {
-+		struct pinctrl_state *s;
++	struct vlan_hdr *vhdr;
++	int err;
 +
-+		s = pinctrl_lookup_state(priv->pinctrl, name);
-+		if (!IS_ERR(s))
-+			pinctrl_select_state(priv->pinctrl, s);
-+	}
++	err = skb_ensure_writable(skb, VLAN_ETH_HLEN);
++	if (unlikely(err))
++		return err;
++
++	skb_postpull_rcsum(skb, skb->data + (2 * ETH_ALEN), VLAN_HLEN);
++
++	vhdr = (struct vlan_hdr *)(skb->data + ETH_HLEN);
++	*vlan_tci = ntohs(vhdr->h_vlan_TCI);
++
++	memmove(skb->data + VLAN_HLEN, skb->data, 2 * ETH_ALEN);
++	__skb_pull(skb, VLAN_HLEN);
++
++	vlan_set_encap_proto(skb, vhdr);
++	skb->mac_header += VLAN_HLEN;
++	if (skb_network_offset(skb) < ETH_HLEN)
++		skb_set_network_header(skb, ETH_HLEN);
++	skb_reset_mac_len(skb);
++
++	return 0;
 +}
 +
- static int c_can_start(struct net_device *dev)
- {
- 	struct c_can_priv *priv = netdev_priv(dev);
-@@ -603,6 +619,8 @@ static int c_can_start(struct net_device *dev)
- 
- 	priv->can.state = CAN_STATE_ERROR_ACTIVE;
- 
-+	/* activate pins */
-+	c_can_pinctrl_select_state(priv, PINCTRL_STATE_DEFAULT);
++int skb_vlan_pop(struct sk_buff *skb)
++{
++	u16 vlan_tci;
++	__be16 vlan_proto;
++	int err;
++
++	if (likely(vlan_tx_tag_present(skb))) {
++		skb->vlan_tci = 0;
++	} else {
++		if (unlikely((skb->protocol != htons(ETH_P_8021Q) &&
++			      skb->protocol != htons(ETH_P_8021AD)) ||
++			     skb->len < VLAN_ETH_HLEN))
++			return 0;
++
++		err = __skb_vlan_pop(skb, &vlan_tci);
++		if (err)
++			return err;
++	}
++	/* move next vlan tag to hw accel tag */
++	if (likely((skb->protocol != htons(ETH_P_8021Q) &&
++		    skb->protocol != htons(ETH_P_8021AD)) ||
++		   skb->len < VLAN_ETH_HLEN))
++		return 0;
++
++	vlan_proto = skb->protocol;
++	err = __skb_vlan_pop(skb, &vlan_tci);
++	if (unlikely(err))
++		return err;
++
++	__vlan_hwaccel_put_tag(skb, vlan_proto, vlan_tci);
++	return 0;
++}
++EXPORT_SYMBOL(skb_vlan_pop);
++
++int skb_vlan_push(struct sk_buff *skb, __be16 vlan_proto, u16 vlan_tci)
++{
++	if (vlan_tx_tag_present(skb)) {
++		/* push down current VLAN tag */
++		if (!__vlan_put_tag(skb, skb->vlan_proto,
++				    vlan_tx_tag_get(skb)))
++			return -ENOMEM;
++
++		if (skb->ip_summed == CHECKSUM_COMPLETE)
++			skb->csum = csum_add(skb->csum, csum_partial(skb->data
++					+ (2 * ETH_ALEN), VLAN_HLEN, 0));
++	}
++	__vlan_hwaccel_put_tag(skb, vlan_proto, vlan_tci);
++	return 0;
++}
++EXPORT_SYMBOL(skb_vlan_push);
++
+ /**
+  * alloc_skb_with_frags - allocate skb with page frags
+  *
+diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
+index 04c9680..e1a5182 100644
+--- a/net/openvswitch/actions.c
++++ b/net/openvswitch/actions.c
+@@ -206,91 +206,26 @@ static int set_mpls(struct sk_buff *skb, struct sw_flow_key *key,
  	return 0;
  }
  
-@@ -611,6 +629,9 @@ static void c_can_stop(struct net_device *dev)
- 	struct c_can_priv *priv = netdev_priv(dev);
+-/* remove VLAN header from packet and update csum accordingly. */
+-static int __pop_vlan_tci(struct sk_buff *skb, __be16 *current_tci)
+-{
+-	struct vlan_hdr *vhdr;
+-	int err;
+-
+-	err = skb_ensure_writable(skb, VLAN_ETH_HLEN);
+-	if (unlikely(err))
+-		return err;
+-
+-	skb_postpull_rcsum(skb, skb->data + (2 * ETH_ALEN), VLAN_HLEN);
+-
+-	vhdr = (struct vlan_hdr *)(skb->data + ETH_HLEN);
+-	*current_tci = vhdr->h_vlan_TCI;
+-
+-	memmove(skb->data + VLAN_HLEN, skb->data, 2 * ETH_ALEN);
+-	__skb_pull(skb, VLAN_HLEN);
+-
+-	vlan_set_encap_proto(skb, vhdr);
+-	skb->mac_header += VLAN_HLEN;
+-
+-	if (skb_network_offset(skb) < ETH_HLEN)
+-		skb_set_network_header(skb, ETH_HLEN);
+-
+-	/* Update mac_len for subsequent MPLS actions */
+-	skb_reset_mac_len(skb);
+-	return 0;
+-}
+-
+ static int pop_vlan(struct sk_buff *skb, struct sw_flow_key *key)
+ {
+-	__be16 tci;
+ 	int err;
  
- 	c_can_irq_control(priv, false);
-+
-+	/* deactivate pins */
-+	c_can_pinctrl_select_state(priv, PINCTRL_STATE_SLEEP);
- 	priv->can.state = CAN_STATE_STOPPED;
+-	if (likely(vlan_tx_tag_present(skb))) {
+-		skb->vlan_tci = 0;
+-	} else {
+-		if (unlikely(skb->protocol != htons(ETH_P_8021Q) ||
+-			     skb->len < VLAN_ETH_HLEN))
+-			return 0;
+-
+-		err = __pop_vlan_tci(skb, &tci);
+-		if (err)
+-			return err;
+-	}
+-	/* move next vlan tag to hw accel tag */
+-	if (likely(skb->protocol != htons(ETH_P_8021Q) ||
+-		   skb->len < VLAN_ETH_HLEN)) {
++	err = skb_vlan_pop(skb);
++	if (vlan_tx_tag_present(skb))
++		invalidate_flow_key(key);
++	else
+ 		key->eth.tci = 0;
+-		return 0;
+-	}
+-
+-	invalidate_flow_key(key);
+-	err = __pop_vlan_tci(skb, &tci);
+-	if (unlikely(err))
+-		return err;
+-
+-	__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), ntohs(tci));
+-	return 0;
++	return err;
  }
  
-diff --git a/drivers/net/can/c_can/c_can.h b/drivers/net/can/c_can/c_can.h
-index c6715ca..3cedf48 100644
---- a/drivers/net/can/c_can/c_can.h
-+++ b/drivers/net/can/c_can/c_can.h
-@@ -210,6 +210,7 @@ struct c_can_priv {
- 	u32 comm_rcv_high;
- 	u32 rxmasked;
- 	u32 dlc[C_CAN_MSG_OBJ_TX_NUM];
-+	struct pinctrl *pinctrl;
- };
+ static int push_vlan(struct sk_buff *skb, struct sw_flow_key *key,
+ 		     const struct ovs_action_push_vlan *vlan)
+ {
+-	if (unlikely(vlan_tx_tag_present(skb))) {
+-		u16 current_tag;
+-
+-		/* push down current VLAN tag */
+-		current_tag = vlan_tx_tag_get(skb);
+-
+-		if (!__vlan_put_tag(skb, skb->vlan_proto, current_tag))
+-			return -ENOMEM;
+-		/* Update mac_len for subsequent MPLS actions */
+-		skb->mac_len += VLAN_HLEN;
+-
+-		if (skb->ip_summed == CHECKSUM_COMPLETE)
+-			skb->csum = csum_add(skb->csum, csum_partial(skb->data
+-					+ (2 * ETH_ALEN), VLAN_HLEN, 0));
+-
++	if (vlan_tx_tag_present(skb))
+ 		invalidate_flow_key(key);
+-	} else {
++	else
+ 		key->eth.tci = vlan->vlan_tci;
+-	}
+-	__vlan_hwaccel_put_tag(skb, vlan->vlan_tpid, ntohs(vlan->vlan_tci) & ~VLAN_TAG_PRESENT);
+-	return 0;
++	return skb_vlan_push(skb, vlan->vlan_tpid, ntohs(vlan->vlan_tci) & ~VLAN_TAG_PRESENT);
+ }
  
- struct net_device *alloc_c_can_dev(void);
-diff --git a/drivers/net/can/c_can/c_can_platform.c b/drivers/net/can/c_can/c_can_platform.c
-index b838c6b..71b9063 100644
---- a/drivers/net/can/c_can/c_can_platform.c
-+++ b/drivers/net/can/c_can/c_can_platform.c
-@@ -34,6 +34,7 @@
- #include <linux/of_device.h>
- #include <linux/mfd/syscon.h>
- #include <linux/regmap.h>
-+#include <linux/pinctrl/consumer.h>
- 
- #include <linux/can/dev.h>
- 
-@@ -230,6 +231,7 @@ static int c_can_plat_probe(struct platform_device *pdev)
- 	struct clk *clk;
- 	const struct c_can_driver_data *drvdata;
- 	struct device_node *np = pdev->dev.of_node;
-+	struct pinctrl *pinctrl;
- 
- 	match = of_match_device(c_can_of_table, &pdev->dev);
- 	if (match) {
-@@ -241,6 +243,23 @@ static int c_can_plat_probe(struct platform_device *pdev)
- 		return -ENODEV;
- 	}
- 
-+	pinctrl = devm_pinctrl_get(&pdev->dev);
-+	if (!IS_ERR(pinctrl)) {
-+		struct pinctrl_state *s;
-+
-+		/* Deactivate pins to prevent DRA7 DCAN IP from being
-+		 * stuck in transition when module is disabled.
-+		 * Pins are activated in c_can_start() and deactivated
-+		 * in c_can_stop()
-+		 */
-+		s = pinctrl_lookup_state(pinctrl, PINCTRL_STATE_SLEEP);
-+		if (!IS_ERR(s))
-+			pinctrl_select_state(pinctrl, s);
-+	} else {
-+		dev_warn(&pdev->dev,
-+			 "failed to get pinctrl\n");
-+	}
-+
- 	/* get the appropriate clk */
- 	clk = devm_clk_get(&pdev->dev, NULL);
- 	if (IS_ERR(clk)) {
-@@ -270,6 +289,7 @@ static int c_can_plat_probe(struct platform_device *pdev)
- 	}
- 
- 	priv = netdev_priv(dev);
-+	priv->pinctrl = pinctrl;
- 
- 	switch (drvdata->id) {
- 	case BOSCH_C_CAN:
+ static int set_eth_addr(struct sk_buff *skb, struct sw_flow_key *key,
 -- 
-1.8.3.2
-
-
+1.9.3
