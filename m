@@ -1,56 +1,283 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next] enic: fix work done in tx napi_poll
-Date: Wed, 12 Nov 2014 15:44:06 -0800
-Message-ID: <5463F0C6.80501@gmail.com>
-References: <1415832126-31901-1-git-send-email-_govind@gmx.com>
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: Re: [PATCH net-next 1/1] ipvlan: Initial check-in of the IPVLAN driver.
+Date: Wed, 12 Nov 2014 15:56:14 -0800
+Message-ID: <CAF2d9jgRFZzjtEkwVqo5Jw1rzbAS_9NC8LiOtO6xHgWqkVM2Zg@mail.gmail.com>
+References: <1415744984-25802-1-git-send-email-maheshb@google.com> <546386AF.9030300@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: ssujith@cisco.com,
-	"edumazet@google.com >> Eric Dumazet" <edumazet@google.com>
-To: Govindarajulu Varadarajan <_govind@gmx.com>, davem@davemloft.net,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Maciej Zenczykowski <maze@google.com>,
+	Laurent Chavey <chavey@google.com>,
+	Tim Hockin <thockin@google.com>,
+	David Miller <davem@davemloft.net>,
+	Brandon Philips <brandon.philips@coreos.com>
+To: Pavel Emelyanov <xemul@parallels.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:64456 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753550AbaKLXoQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2014 18:44:16 -0500
-Received: by mail-pa0-f49.google.com with SMTP id lj1so13905462pab.22
-        for <netdev@vger.kernel.org>; Wed, 12 Nov 2014 15:44:15 -0800 (PST)
-In-Reply-To: <1415832126-31901-1-git-send-email-_govind@gmx.com>
+Received: from mail-vc0-f175.google.com ([209.85.220.175]:55646 "EHLO
+	mail-vc0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752201AbaKLX4g convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2014 18:56:36 -0500
+Received: by mail-vc0-f175.google.com with SMTP id hy4so6088815vcb.20
+        for <netdev@vger.kernel.org>; Wed, 12 Nov 2014 15:56:35 -0800 (PST)
+In-Reply-To: <546386AF.9030300@parallels.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/12/2014 02:42 PM, Govindarajulu Varadarajan wrote:
-> With the commit d75b1ade567 ("net: less interrupt masking in NAPI") napi repoll
-> is done only when work_done == budget. In tx napi poll we always return 0.
-> So tx napi is not called again and we do not clean up the tx ring.
+On Wed, Nov 12, 2014 at 8:11 AM, Pavel Emelyanov <xemul@parallels.com> =
+wrote:
+> On 11/12/2014 02:29 AM, Mahesh Bandewar wrote:
+>> This driver is very similar to the macvlan driver except that it
+>> uses L3 on the frame to determine the logical interface while
+>> functioning as packet dispatcher. It inherits L2 of the master
+>> device hence the packets on wire will have the same L2 for all
+>> the packets originating from all virtual devices off of the same
+>> master device.
+>>
+>> This driver was developed keeping the namespace use-case in
+>> mind. Hence most of the examples given here take that as the
+>> base setup where main-device belongs to the default-ns and
+>> virtual devices are assigned to the additional namespaces.
+>>
+>> The device operates in two different modes and the difference
+>> in these two modes in primarily in the TX side.
+>>
+>> (a) L2 mode : In this mode, the device behaves as a L2 device.
+>> TX processing upto L2 happens on the stack of the virtual device
+>> associated with (namespace). Packets are switched after that
+>> into the main device (default-ns) and queued for xmit.
+>>
+>> RX processing is simple and all multicast, broadcast (if
+>> applicable), and unicast belonging to the address(es) are
+>> delivered to the virtual devices.
+>>
+>> (b) L3 mode : In this mode, the device behaves like a L3 device.
+>> TX processing upto L3 happens on the stack of the virtual device
+>> associated with (namespace). Packets are switched to the
+>> main-device (default-ns) for the L2 processing. Hence the routing
+>> table of the default-ns will be used in this mode.
+>>
+>> RX processins is somewhat similar to the L2 mode except that in
+>> this mode only Unicast packets are delivered to the virtual device
+>> while main-dev will handle all other packets.
+>>
+>> The devices can be added using the "ip" command from the iproute2
+>> package -
+>>
+>>       ip link add link <master> <virtual> type ipvlan mode [ l2 | l3=
+ ]
+>>
+>> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+>> Cc: Eric Dumazet <edumazet@google.com>
+>> Cc: Maciej =C5=BBenczykowski <maze@google.com>
+>> Cc: Laurent Chavey <chavey@google.com>
+>> Cc: Tim Hockin <thockin@google.com>
+>> Cc: Brandon Philips <brandon.philips@coreos.com>
+>> Cc: Pavel Emelianov <xemul@parallels.com>
+>
+> Acked-by: /me on the general idea. We use this device of type in Para=
+llels
+> heavily for several reasons -- not to generate too many MAC-s from on=
+e host
+> and to "enforce" the IP address for a container. I have a comment abo=
+ut the
+> latter below.
+>
+>
+>> +static void *ipvlan_get_L3_hdr(struct sk_buff *skb, int *type)
+>> +{
+>> +     void *lyr3h =3D NULL;
+>> +
+>> +     switch (skb->protocol) {
+>> +     case htons(ETH_P_ARP): {
+>> +             struct arphdr *arph;
+>> +
+>> +             if (unlikely(!pskb_may_pull(skb, sizeof(struct arphdr)=
+)))
+>> +                     return NULL;
+>> +
+>> +             arph =3D arp_hdr(skb);
+>> +             *type =3D IPVL_ARP;
+>> +             lyr3h =3D arph;
+>> +             break;
+>> +     }
+>> +
+>> +     case htons(ETH_P_IP): {
+>> +             u32 pktlen;
+>> +             struct iphdr *ip4h;
+>> +
+>> +             if (unlikely(!pskb_may_pull(skb, sizeof(struct iphdr))=
+))
+>> +                     return NULL;
+>> +
+>> +             ip4h =3D ip_hdr(skb);
+>> +             pktlen =3D ntohs(ip4h->tot_len);
+>> +             if (ip4h->ihl < 5 || ip4h->version !=3D 4)
+>> +                     return NULL;
+>> +             if (skb->len < pktlen || pktlen < (ip4h->ihl * 4))
+>> +                     return NULL;
+>> +
+>> +             *type =3D IPVL_IPV4;
+>> +             lyr3h =3D ip4h;
+>> +             break;
+>> +     }
+>> +     case htons(ETH_P_IPV6): {
+>> +             struct ipv6hdr *ip6h;
+>> +
+>> +             if (unlikely(!pskb_may_pull(skb, sizeof(struct iphdr))=
+))
+>
+> Misprint -- should be sizeof(struct ipv6hdr)
+>
+Good catch, will correct it!
 
-Good catch, I had exactly the same bug in bcmsysport.c, sounds like
-drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c could also need a fix.
+>> +static int ipvlan_link_new(struct net *src_net, struct net_device *=
+dev,
+>> +                        struct nlattr *tb[], struct nlattr *data[])
+>> +{
+>> +     struct ipvl_dev *ipvlan =3D netdev_priv(dev);
+>> +     struct ipvl_port *port;
+>> +     struct net_device *phy_dev;
+>> +     int err;
+>> +
+>> +     ipvlan_dbg(3, "%s[%d]: Entering...\n", __func__, __LINE__);
+>> +     if (!tb[IFLA_LINK]) {
+>> +             ipvlan_dbg(3, "%s[%d]: Returning -EINVAL...\n",
+>> +                        __func__, __LINE__);
+>> +             return -EINVAL;
+>> +     }
+>> +
+>> +     phy_dev =3D __dev_get_by_index(src_net, nla_get_u32(tb[IFLA_LI=
+NK]));
+>> +     if (phy_dev =3D=3D NULL) {
+>> +             ipvlan_dbg(3, "%s[%d]: Returning -ENODEV...\n",
+>> +                        __func__, __LINE__);
+>> +             return -ENODEV;
+>> +     }
+>> +
+>> +     /* TODO will someone try creating ipvlan-dev on an ipvlan-virt=
+ual dev?*/
+>> +     if (!ipvlan_dev_master(phy_dev)) {
+>> +             err =3D ipvlan_port_create(phy_dev);
+>> +             if (err < 0) {
+>> +                     ipvlan_dbg(3, "%s[%d]: Returning error (%d)...=
+\n",
+>> +                                __func__, __LINE__, err);
+>> +                     return err;
+>> +             }
+>> +     }
+>> +
+>> +     port =3D ipvlan_port_get_rtnl(phy_dev);
+>> +     /* Get the mode if specified. */
+>> +     if (data && data[IFLA_IPVLAN_MODE])
+>> +             port->mode =3D nla_get_u16(data[IFLA_IPVLAN_MODE]);
+>
+> Should the invalid value be checked here? There are places
+> where we BUG() in mode being "unknown".
+>
+Assuming the calls come over netlink, the ".validate" will be called
+before ".newlink", so that would be unnecessary, isn't it?
 
-Thanks!
+>> +
+>> +     ipvlan->phy_dev =3D phy_dev;
+>> +     ipvlan->dev =3D dev;
+>> +     ipvlan->port =3D port;
+>> +     ipvlan->sfeatures =3D IPVLAN_FEATURES;
+>> +     INIT_LIST_HEAD(&ipvlan->addrs);
+>> +     ipvlan->ipv4cnt =3D 0;
+>> +     ipvlan->ipv6cnt =3D 0;
+>
+>
+>> +static int ipvlan_device_event(struct notifier_block *unused,
+>> +                            unsigned long event, void *ptr)
+>> +{
+>> +     struct net_device *dev =3D netdev_notifier_info_to_dev(ptr);
+>> +     struct ipvl_dev *ipvlan, *next;
+>> +     struct ipvl_port *port;
+>> +     LIST_HEAD(lst_kill);
+>> +
+>> +     if (!ipvlan_dev_master(dev))
+>> +             return NOTIFY_DONE;
+>> +
+>> +     port =3D ipvlan_port_get_rtnl(dev);
+>> +
+>> +     switch (event) {
+>> +     case NETDEV_CHANGE:
+>> +             list_for_each_entry(ipvlan, &port->ipvlans, pnode)
+>> +                     netif_stacked_transfer_operstate(ipvlan->phy_d=
+ev,
+>> +                                                      ipvlan->dev);
+>> +             break;
+>> +
+>> +     case NETDEV_UNREGISTER:
+>> +             if (dev->reg_state !=3D NETREG_UNREGISTERING)
+>> +                     break;
+>> +
+>> +             list_for_each_entry_safe(ipvlan, next, &port->ipvlans,
+>> +                                      pnode)
+>> +                     ipvlan->dev->rtnl_link_ops->dellink(ipvlan->de=
+v,
+>> +                                                         &lst_kill)=
+;
+>> +             unregister_netdevice_many(&lst_kill);
+>> +             list_del(&lst_kill);
+>
+> This list_del seems to be excessive.
+>
+That is correct. Looks like unregister_netdevice_many() does it now.
+I'll remove it.
 
-> 
-> Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
-> ---
->  drivers/net/ethernet/cisco/enic/enic_main.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
-> index 73cf165..5afe360 100644
-> --- a/drivers/net/ethernet/cisco/enic/enic_main.c
-> +++ b/drivers/net/ethernet/cisco/enic/enic_main.c
-> @@ -1312,9 +1312,10 @@ static int enic_poll_msix_wq(struct napi_struct *napi, int budget)
->  	if (!wq_work_done) {
->  		napi_complete(napi);
->  		vnic_intr_unmask(&enic->intr[intr]);
-> +		return 0;
->  	}
->  
-> -	return 0;
-> +	return budget;
->  }
->  
->  static int enic_poll_msix_rq(struct napi_struct *napi, int budget)
-> 
+>> +             break;
+>> +
+>
+>> +static int ipvlan_addr4_event(struct notifier_block *unused,
+>> +                           unsigned long event, void *ptr)
+>> +{
+>> +     struct in_ifaddr *if4 =3D (struct in_ifaddr *)ptr;
+>> +     struct net_device *dev =3D (struct net_device *)if4->ifa_dev->=
+dev;
+>> +     struct ipvl_dev *ipvlan =3D netdev_priv(dev);
+>> +     struct in_addr ip4_addr;
+>> +
+>> +     ipvlan_dbg(3, "%s[%d]: Entering...\n", __func__, __LINE__);
+>> +     if (!ipvlan_dev_slave(dev))
+>> +             return NOTIFY_DONE;
+>> +
+>> +     if (!ipvlan || !ipvlan->port)
+>> +             return NOTIFY_DONE;
+>> +
+>> +     switch (event) {
+>> +     case NETDEV_UP:
+>
+> Can it be (in the future) somehow restricted so that net-namespace wo=
+uldn't
+> be able to assign arbitrary IP address here? One of the reasons for u=
+sing
+> such devices is to enforce the container to use the IP address given =
+from
+> the host.
+>
+Probably this could be a config (sysfs?) entry which would lockup the
+config coming from ns when set. So code could look like -
+          case NETDEV_UP:
+                         if (!restrict_ns_config) {
+                            ...
+                         }
+                         break;
+
+>> +             ip4_addr.s_addr =3D if4->ifa_address;
+>> +             if (ipvlan_add_addr4(ipvlan, &ip4_addr))
+>> +                     return NOTIFY_BAD;
+>> +             break;
+>> +
+>> +     case NETDEV_DOWN:
+>> +             ip4_addr.s_addr =3D if4->ifa_address;
+>> +             ipvlan_del_addr4(ipvlan, &ip4_addr);
+>> +             break;
+>> +     }
+>> +
+>> +     ipvlan_dbg(3, "%s[%d]: Leaving...\n", __func__, __LINE__);
+>> +     return NOTIFY_OK;
+>> +}
+>
