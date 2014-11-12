@@ -1,53 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ip_tunnel: Ops registration for secondary encap (fou,
- gue)
-Date: Wed, 12 Nov 2014 15:11:29 -0500 (EST)
-Message-ID: <20141112.151129.856876397234334953.davem@davemloft.net>
-References: <1415822049-24978-1-git-send-email-therbert@google.com>
-	<20141112.150349.1546991259336520485.davem@davemloft.net>
-	<CA+mtBx9aXUxZZodQi=QcDx22EzeX+Ch2p1qnpT2w6F2jmou3GA@mail.gmail.com>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: RE: [PATCH net-next] hyperv: Add processing of MTU reduced by the
+ host
+Date: Wed, 12 Nov 2014 20:31:17 +0000
+Message-ID: <c01728acfd564d779c1612539c65839e@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+References: <1415748472-27463-1-git-send-email-haiyangz@microsoft.com>
+	<20141112.144640.703336197189868183.davem@davemloft.net>
+	<ecc2fd8e646147fabb30d3120c889431@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+ <20141112.150423.1660890641226643870.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rdunlap@infradead.org
-To: therbert@google.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	KY Srinivasan <kys@microsoft.com>,
+	"olaf@aepfle.de" <olaf@aepfle.de>,
+	"jasowang@redhat.com" <jasowang@redhat.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"driverdev-devel@linuxdriverproject.org"
+	<driverdev-devel@linuxdriverproject.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46153 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753228AbaKLULb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2014 15:11:31 -0500
-In-Reply-To: <CA+mtBx9aXUxZZodQi=QcDx22EzeX+Ch2p1qnpT2w6F2jmou3GA@mail.gmail.com>
+Received: from na01-by1-obe.ptr.o365filtering.com ([64.4.22.94]:48476 "EHLO
+	na01-by1-obe.outbound.o365filtering.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753190AbaKLUbh convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Nov 2014 15:31:37 -0500
+In-Reply-To: <20141112.150423.1660890641226643870.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <therbert@google.com>
-Date: Wed, 12 Nov 2014 12:07:19 -0800
 
-> On Wed, Nov 12, 2014 at 12:03 PM, David Miller <davem@davemloft.net> wrote:
->> From: Tom Herbert <therbert@google.com>
->> Date: Wed, 12 Nov 2014 11:54:09 -0800
->>
->>> Instead of calling fou and gue functions directly from ip_tunnel
->>> use ops for these that were previously registered. This patch adds the
->>> logic to add and remove encapsulation operations for ip_tunnel,
->>> and modified fou (and gue) to register with ip_tunnels.
->>>
->>> This patch also addresses a circular dependency between ip_tunnel
->>> and fou that was causing link errors when CONFIG_NET_IP_TUNNEL=y
->>> and CONFIG_NET_FOU=m. References to fou an gue have been removed from
->>> ip_tunnel.c
->>>
->>> Reported-by: Randy Dunlap <rdunlap@infradead.org>
->>> Signed-off-by: Tom Herbert <therbert@google.com>
->>
->> Applied, please in the future be explicit about the target tree by
->> saying "[PATCH net-next]" or similar in your Subj.
->>
->> I'm pretty sure this isn't the first time I've had to ask this of
->> you. :-/
->>
-> I was unsure which branch to target since the bug was reported in
-> linux-next. Is next-next appropriate in this case?
 
-Tom, this code doesn't even exist in the 'net' tree, how could it
-possibly apply to anything other than 'net-next'?
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Wednesday, November 12, 2014 3:04 PM
+> To: Haiyang Zhang
+> Cc: netdev@vger.kernel.org; KY Srinivasan; olaf@aepfle.de;
+> jasowang@redhat.com; linux-kernel@vger.kernel.org; driverdev-
+> devel@linuxdriverproject.org
+> Subject: Re: [PATCH net-next] hyperv: Add processing of MTU reduced by
+> the host
+> 
+> From: Haiyang Zhang <haiyangz@microsoft.com>
+> Date: Wed, 12 Nov 2014 20:02:11 +0000
+> 
+> > The Hyper-V host doesn't support MTU below 1500. If we try setting MTU
+> to a
+> > value < 1500, the host will use 1500 automatically and return 1500 in
+> the
+> > RNDIS_OID_GEN_MAXIMUM_FRAME_SIZE query and guest will also use it.
+> That's
+> > why I set the lower limit to ETH_DATA_LEN.
+> >
+> > Are you suggesting that we keep the 68 as the lower limit, and let the
+> host
+> > auto-reset it to 1500 when we trying to set an MTU < 1500?
+> 
+> Then you need to add a comment, because without any information or
+> context that change looks wrong.
+
+I will add a comment.
+Thanks,
+- Haiyang
