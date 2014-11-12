@@ -1,48 +1,46 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [GIT PULL nf] IPVS Fixes for v3.18
-Date: Wed, 12 Nov 2014 11:24:07 +0900
-Message-ID: <20141112022407.GF11597@verge.net.au>
-References: <1414458334-22479-1-git-send-email-horms@verge.net.au>
- <20141104175717.GA25184@salvia>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 1/1] ipvlan: Initial check-in of the IPVLAN
+ driver.
+Date: Tue, 11 Nov 2014 18:29:56 -0800
+Message-ID: <1415759396.17262.5.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1415744984-25802-1-git-send-email-maheshb@google.com>
+	 <CAHA+R7OZxCLFYetGHONWkL7uzGur=xSc=ASBT4i5EEeS2Xzwog@mail.gmail.com>
+	 <1415748160.2292.8.camel@localhost>
+	 <CAHA+R7MgjOKuVY_egNz2SOWZG6X2rkFGfcaP0PiMKc_YVKAULA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20141104175717.GA25184@salvia>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Hannes Frederic Sowa <hannes@redhat.com>,
+	Mahesh Bandewar <maheshb@google.com>,
+	netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Maciej Zenczykowski <maze@google.com>,
+	Laurent Chavey <chavey@google.com>,
+	Tim Hockin <thockin@google.com>,
+	David Miller <davem@davemloft.net>,
+	Brandon Philips <brandon.philips@coreos.com>,
+	Pavel Emelianov <xemul@parallels.com>
+To: Cong Wang <cwang@twopensource.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f182.google.com ([209.85.213.182]:35188 "EHLO
+	mail-ig0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933039AbaKLCaD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2014 21:30:03 -0500
+Received: by mail-ig0-f182.google.com with SMTP id hn18so2143674igb.9
+        for <netdev@vger.kernel.org>; Tue, 11 Nov 2014 18:30:01 -0800 (PST)
+In-Reply-To: <CAHA+R7MgjOKuVY_egNz2SOWZG6X2rkFGfcaP0PiMKc_YVKAULA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 04, 2014 at 06:57:17PM +0100, Pablo Neira Ayuso wrote:
-> Hi Simon,
-> 
-> On Tue, Oct 28, 2014 at 10:05:33AM +0900, Simon Horman wrote:
-> > Hi Pablo,
-> > 
-> > please consider this fix for v3.18.
-> > 
-> > It fixes a null-pointer dereference that may occur when logging
-> > errors.
-> > 
-> > This problem was introduced by 4a4739d56b0 ("ipvs: Pull out
-> > crosses_local_route_boundary logic") in v3.17-rc5. As such I would
-> > also like it considered for 3.17-stable.
-> 
-> Regarding your request to pass this to 3.17-stable. According to git
-> am and my scripts:
-> 
-> 3d53666 ipvs: Avoid null-pointer deref in debug code
-> 
-> doesn't apply cleanly 3.17.x. Please re-check and send me a backport if
-> you want to see this in 3.17.x. Let me know, sorry.
+On Tue, 2014-11-11 at 16:39 -0800, Cong Wang wrote:
 
-Sorry for creating some confusion here and sorry for not
-cleaning it up earlier.
+> Sounds like over-kill to have a new device just for not worrying about mac.
+> Or you mean our neigh table doesn't scale?
 
-On further inspection I believe that 4a4739d56b0 was included
-in v3.18-rc1 rather than v3.17. So this fix is not relevant to
-v3.17 after all.
+Some environments simply do not allow having multiple MAC, it is not a
+linux problem with neigh table.
+
+Linux hosts can be attached to switches with a very strict security
+policy : One (or few) mac address per port.
+
+http://en.wikipedia.org/wiki/CAM_Table
