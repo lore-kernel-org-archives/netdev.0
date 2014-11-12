@@ -1,79 +1,105 @@
-From: Mathy Vanhoef <vanhoefm@gmail.com>
-Subject: Re: [PATCH] brcmfmac: unlink URB when request timed out
-Date: Tue, 11 Nov 2014 20:02:27 -0500
-Message-ID: <5462B1A3.9020401@gmail.com>
-References: <545FAE05.2030701@gmail.com> <1415610506.16488.20.camel@linux-0dmf.site>
+From: Shuah Khan <shuahkh@osg.samsung.com>
+Subject: Re: [PATCH v2 07/19] selftests/firmware: add install target to enable
+ installing test
+Date: Tue, 11 Nov 2014 18:06:43 -0700
+Message-ID: <5462B2A3.9000007@osg.samsung.com>
+References: <cover.1415735831.git.shuahkh@osg.samsung.com> <1d2d13556ddbbbbb13989cdcb08447909bc4afaf.1415735831.git.shuahkh@osg.samsung.com> <CAGXu5j+yLqH0xj=5N90LRmK9F1xPLVWBy+cyUCzjvKJH7gE7AA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: brudley@broadcom.com, Arend van Spriel <arend@broadcom.com>,
-	Franky Lin <frankyl@broadcom.com>, meuleman@broadcom.com,
-	John Linville <linville@tuxdriver.com>, pieterpg@broadcom.com,
-	linux-wireless@vger.kernel.org, brcm80211-dev-list@broadcom.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Oliver Neukum <oneukum@suse.de>
+Content-Transfer-Encoding: 8bit
+Cc: Greg KH <gregkh@linuxfoundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Michal Marek <mmarek@suse.cz>,
+	"David S. Miller" <davem@davemloft.net>,
+	Phong Tran <tranmanphong@gmail.com>,
+	David Herrmann <dh.herrmann@gmail.com>,
+	Hugh Dickins <hughd@google.com>,
+	pranith kumar <bobby.prani@gmail.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	"Serge E. Hallyn" <serge.hallyn@ubuntu.com>,
+	linux-kbuild <linux-kbuild@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Linux API <linux-api@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>
+To: Kees Cook <keescook@chromium.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1415610506.16488.20.camel@linux-0dmf.site>
+In-Reply-To: <CAGXu5j+yLqH0xj=5N90LRmK9F1xPLVWBy+cyUCzjvKJH7gE7AA@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11/10/2014 04:08 AM, Oliver Neukum wrote:
-> On Sun, 2014-11-09 at 13:10 -0500, Mathy Vanhoef wrote:
->> From: Mathy Vanhoef <vanhoefm@gmail.com>
->>
->> Unlink the submitted URB in brcmf_usb_dl_cmd if the request timed out. This
->> assures the URB is never submitted twice, preventing a driver crash.
->
+On 11/11/2014 02:29 PM, Kees Cook wrote:
 > Hi,
->
-> I am afrad this patch is no good. The diagnosis is good,
-> but the fix introduces serious problems.
->
->> diff --git a/drivers/net/wireless/brcm80211/brcmfmac/usb.c b/drivers/net/wireless/brcm80211/brcmfmac/usb.c
->> index 5265aa7..1bc7858 100644
->> --- a/drivers/net/wireless/brcm80211/brcmfmac/usb.c
->> +++ b/drivers/net/wireless/brcm80211/brcmfmac/usb.c
->> @@ -738,10 +738,12 @@ static int brcmf_usb_dl_cmd(struct brcmf_usbdev_info *devinfo, u8 cmd,
->>   goto finalize;
->>   }
->>  
->> - if (!brcmf_usb_ioctl_resp_wait(devinfo))
->> + if (!brcmf_usb_ioctl_resp_wait(devinfo)) {
->> + usb_unlink_urb(devinfo->ctl_urb);
->
-> This is the asynchronous unlink. You have no guarantee it is finished
-> after this point.
->
->>   ret = -ETIMEDOUT;
->> - else
->> + } else {
->>   memcpy(buffer, tmpbuf, buflen);
->> + }
->>  
->>  finalize:
->>   kfree(tmpbuf);
->
-> Which means that you are freeing memory that may still be used by DMA
-> at this time.
-> In addition you have no guarantee that the unlink is indeed finished
-> by the time the URB is reused.
-> If you wish to take this approach you better forget about this URB
-> and allocate a new one and free the buffer from the callback.
+> 
+> Sorry, I still really don't like this approach. While it is all in one
+> place (thank you for that), I think it isn't a form that is very
+> workable for the people maintaining the self tests. How about this,
+> instead of per-Makefile customization, why not define an execution
+> framework for these tests instead.
 
-Hi Oliver,
+If I understand correctly, sounds like you don't like the way
+install target is implemented in the individual test Makefiles
+and the changes I made to run_tests targets to address the code
+duplication concern.
 
-Good catch. I think the DMA issue is also present in the current driver: it
-frees the buffer without unlinking/killing the URB at all. Can a malicious USB
-device force a timeout to occur (i.e. delay the call to the completion
-handler)? If so this might be a use-after-free vulnerability.
+At the moment there is no duplicate code in this patch series
+between install and run_tests targets. This is a  first step
+towards standardizing the framework and a definite improvement
+over what we have currently. As I mentioned earlier, my goal
+is to make it easier for developers to install and run the
+existing tests and evolve the framework as we go.
 
-It seems using usb_kill_urb instead of usb_unlink_urb in the patch prevents any
-possible use-after-free. Can someone double check?
+Assuming my understanding is correct that:
 
-Kind regards,
-Mathy
+-- install and run_tests targets in individual tests can be
+   refined and automated with a common Makefile approach you
+   proposed.
+-- the rest of the user-interface kselftest_install and kselftest
+   are good.
 
->
-> Regards
-> Oliver
->
+I would like to propose that we get started with the current
+implementation and refine it based on the following ideas you
+suggested. The refinements you are recommending are confined
+to selftests and can be made after the kselftest_install
+gets added. Adding kselftest_install makes it easier to make
+the refinements as it defines overall UI.
+
+> 
+> For example, how about every test directory must have a Makefile with
+> the needed binary targets. A common makefile could be included that
+> defines the "run_tests" target that calls the script "run_tests.sh"
+> that is a shell script in the current directory. (For inspiration, see
+> how kernel modules can be built out of tree.)
+> 
+> The "run_tests.sh" scripts could all include a common shell script,
+> say "../common.sh" that provides any common variables, functions, etc
+> (e.g. things like "Start $name test ..." should be in common.sh
+> instead of repeated in every script, the installation logic can be in
+> once place instead of repeated).
+> 
+> Then along side common.sh could be "run_installed_tests.sh" or
+> something, used on the installed target, that would traverse each
+> directory, etc. From this, we can have a much more data-driven
+> framework, and a common approach to running tests.
+> 
+> As such, we should declare up front how tests should behave on
+> failure. And the top-level test runner can do things like count the
+> number of tests, failures, etc.
+> 
+> Then, instead of splitting up the patches by test directory, you can
+> split them up by logical changes (e.g. defining the common "run_tests"
+> target, and then removing the target from all the tests by including
+> the common makefile stub that defines it).
+> 
+
+These are good ideas and I am with on evolving the framework to make
+it easier to maintain individual tests. Patches are welcome.
+
+thanks,
+-- Shuah
+
+
+-- 
+Shuah Khan
+Sr. Linux Kernel Developer
+Samsung Research America (Silicon Valley)
+shuahkh@osg.samsung.com | (970) 217-8978
