@@ -1,35 +1,46 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [PATCH net-next] sunvnet: fix NULL pointer dereference
-Date: Wed, 12 Nov 2014 11:12:37 -0500
-Message-ID: <20141112161237.GB17946@oracle.com>
-References: <546383B7.2090106@oracle.com>
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Subject: [PATCH net-next] amd-xgbe: Fix sparse endian warnings
+Date: Wed, 12 Nov 2014 10:37:49 -0600
+Message-ID: <20141112163749.2808.95593.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: David L Stevens <david.stevens@oracle.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <dan.carpenter@oracle.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:44590 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752377AbaKLQMq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2014 11:12:46 -0500
-Content-Disposition: inline
-In-Reply-To: <546383B7.2090106@oracle.com>
+Received: from mail-by2on0128.outbound.protection.outlook.com ([207.46.100.128]:27616
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752898AbaKLQhy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Nov 2014 11:37:54 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On (11/12/14 10:58), David L Stevens wrote:
-> --- a/drivers/net/ethernet/sun/sunvnet.c
-> +++ b/drivers/net/ethernet/sun/sunvnet.c
-> @@ -958,6 +958,8 @@ vnet_select_queue(struct net_device *dev, struct sk_buff *skb,
->  	struct vnet *vp = netdev_priv(dev);
->  	struct vnet_port *port = __tx_port_find(vp, skb);
->  
-> +	if (port == NULL)
-> +		return 0;
->  	return port->q_index;
->  }
+Change the types of the descriptor entries in the xgbe_ring_desc struct
+from u32 to __le32 to fix endian warnings issued by sparse.
 
-Acked-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
+Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+---
+ drivers/net/ethernet/amd/xgbe/xgbe.h |    8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-Thanks!
-Sowmini
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe.h b/drivers/net/ethernet/amd/xgbe/xgbe.h
+index aa8da9f..901fb1f 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe.h
++++ b/drivers/net/ethernet/amd/xgbe/xgbe.h
+@@ -246,10 +246,10 @@ struct xgbe_packet_data {
+ 
+ /* Common Rx and Tx descriptor mapping */
+ struct xgbe_ring_desc {
+-	u32 desc0;
+-	u32 desc1;
+-	u32 desc2;
+-	u32 desc3;
++	__le32 desc0;
++	__le32 desc1;
++	__le32 desc2;
++	__le32 desc3;
+ };
+ 
+ /* Page allocation related values */
