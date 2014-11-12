@@ -1,66 +1,51 @@
-From: Bruno Thomsen <bth@kamstrup.dk>
-Subject: RE: phy/micrel: KSZ8031RNL RMII clock reconfiguration bug
-Date: Wed, 12 Nov 2014 12:17:57 +0000
-Message-ID: <915054555B5659448ACF8A70E114824D01704B9131@Exchange2010.kamstrup.dk>
-References: <1412866094-4972-1-git-send-email-bth@kamstrup.dk>
- <20141111194101.GI29789@localhost>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH -next 2/2] seq_putc: Convert to return void and convert
+ uses too.
+Date: Wed, 12 Nov 2014 13:29:00 +0100
+Message-ID: <20141112122900.GA1542@salvia>
+References: <cover.1415645476.git.joe@perches.com>
+ <56c4c0d5ec721134cff4913e5e3f8923169c35ef.1415645477.git.joe@perches.com>
+ <20141111134740.GB2567@pathway.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"f.fainelli@gmail.com" <f.fainelli@gmail.com>,
-	"s.hauer@pengutronix.de" <s.hauer@pengutronix.de>,
-	"bruno.thomsen@gmail.com" <bruno.thomsen@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Johan Hovold <johan@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kamstrup.com ([93.167.225.188]:40890 "EHLO
-	mail.kamstrup.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752177AbaKLMSC convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2014 07:18:02 -0500
-In-Reply-To: <20141111194101.GI29789@localhost>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Joe Perches <joe@perches.com>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Corey Minyard <minyard@acm.org>,
+	Alexander Viro <viro@zeniv.linux.org.uk>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	openipmi-developer@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org
+To: Petr Mladek <pmladek@suse.cz>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20141111134740.GB2567@pathway.suse.cz>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Johan,
-
-> As you may have seen by now, I've been working on refactoring the micrel phy driver to be able to use common initialisation code.
->
-> Specifically, I've added generic support for disabling the broadcast address, which is what the MII_KSZPHY_OMSO write above does.
->
-> Generally you want this to be the first thing you do in order to avoid unnecessary reconfigurations. If we ever were to allow concurrent probing this would also be a requirement.
->
-> Could you provide some detail about the setup were you find that the PHY becomes unresponsive without your patch? Do you have more than one PHY on the bus? Using what addresses? And using what clock modes (i.e. 25 MHz or 50 MHz)?
+On Tue, Nov 11, 2014 at 02:47:40PM +0100, Petr Mladek wrote:
+> On Mon 2014-11-10 10:58:57, Joe Perches wrote:
+> > Using the return value of seq_putc is error-prone, so
+> > make it return void instead.
+> > 
+> > Reverse the logic in seq_putc to make it like seq_puts.
+> > 
+> > Signed-off-by: Joe Perches <joe@perches.com>
 > 
-> Also, what exactly do you mean by "unresponsive"? Are you still able to read the PHY registers for example?
+> Reviewed-by: Petr Mladek <pmladek@suse.cz>
+> 
+> The changes are correct. The show() functions should return 0
+> even when there is an overflow. They are called by traverse()
+> from seq_read() that might increase the buffer size and try again.
 
-I think it sounds like a good idea to refactor the init code.
+Just in case you need this for the netfilter chunks:
 
-My setup:
-iMX28 processor with dual Ethernet MAC; FEC0 (enabled) and FEC1 (disabled).
-There is a single KSZ8031 PHY that receives 50MHz RMII clock from the MAC.
-I am unable to read PHY registers from both user-land tools and extra debug PHY reads in driver code.
+Acked-by: Pablo Neira Ayuso <pablo@netfilter.org>
 
-Boot trace:
-[   22.277785] fec 800f0000.ethernet eth0: Freescale FEC PHY driver [Micrel KSZ8031] (mii_bus:phy_addr=800f0000.etherne:00, irq=-1)
-[   22.292527] IPv6: ADDRCONF(NETDEV_UP): eth0: link is not ready
-[   24.276217] libphy: 800f0000.etherne:00 - Link is Up - 100/Full
-[   24.285094] IPv6: ADDRCONF(NETDEV_CHANGE): eth0: link becomes ready
-
-
-Venlig hilsen / Best regards
-
-Kamstrup A/S <http://www.kamstrup.dk> 
-Bruno Thomsen
-Development engineer
-Technology
-
-Kamstrup A/S
-Industrivej 28
-DK-8660 Skanderborg
-Tel:	 +45 89 93 10 00	 
-Fax:	 +45 89 93 10 01	 
-Dir:	 +45 89 93 13 94	 
-E-mail:	 bth@kamstrup.dk	 
-Web:	 www.kamstrup.dk
+Thanks.
