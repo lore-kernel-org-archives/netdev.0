@@ -1,39 +1,36 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next v3 2/3] r8152: clear the flag of SCHEDULE_TASKLET in tasklet
-Date: Wed, 12 Nov 2014 10:05:04 +0800
-Message-ID: <1394712342-15778-93-Taiwan-albertk@realtek.com>
-References: <1394712342-15778-79-Taiwan-albertk@realtek.com>
- <1394712342-15778-91-Taiwan-albertk@realtek.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 2/2] r8152: adjust rtl_start_rx
+Date: Tue, 11 Nov 2014 21:19:39 -0500 (EST)
+Message-ID: <20141111.211939.1875418281655170486.davem@davemloft.net>
+References: <1394712342-15778-90-Taiwan-albertk@realtek.com>
+	<20141107.113522.837502028522211960.davem@davemloft.net>
+	<0835B3720019904CB8F7AA43166CEEB2ECE337@RTITMBSV03.realtek.com.tw>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
-	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
-To: <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
+	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
+To: hayeswang@realtek.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394712342-15778-91-Taiwan-albertk@realtek.com>
+In-Reply-To: <0835B3720019904CB8F7AA43166CEEB2ECE337@RTITMBSV03.realtek.com.tw>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Clear the flag of SCHEDULE_TASKLET in bottom_half() to avoid
-re-schedule the tasklet again by workqueue.
+From: Hayes Wang <hayeswang@realtek.com>
+Date: Wed, 12 Nov 2014 01:45:08 +0000
 
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
----
- drivers/net/usb/r8152.c | 2 ++
- 1 file changed, 2 insertions(+)
+> David Miller [mailto:davem@davemloft.net] 
+>> Sent: Saturday, November 08, 2014 12:35 AM
+> [...]
+>> Does this even work?
+>> 
+>> If you leave a hole in the ring, the device is going to stop there
+>> anyways.
+>> 
+>> So better to replenish the next time you call into this function
+>> rather than leaving gaps in your receive ring.
+> 
+> Excuse me. Is this still unacceptable?
+> Should I remove this patch for keeping the original flow?
 
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index a300467..ad9dd7d 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -1797,6 +1797,8 @@ static void bottom_half(unsigned long data)
- 	if (!netif_carrier_ok(tp->netdev))
- 		return;
- 
-+	clear_bit(SCHEDULE_TASKLET, &tp->flags);
-+
- 	rx_bottom(tp);
- 	tx_bottom(tp);
- }
--- 
-1.9.3
+I haven't had time to process your original reply, please be patient.
