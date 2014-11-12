@@ -1,38 +1,51 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH] crypto: aesni-intel - avoid IPsec re-ordering
-Date: Wed, 12 Nov 2014 12:48:59 +0100
-Message-ID: <20141112114859.GO6390@secunet.com>
-References: <1415771371-30774-1-git-send-email-ming.liu@windriver.com>
- <20141112084138.GL6390@secunet.com>
- <54633958.2080705@windriver.com>
+From: Aleksander Morgado <aleksander@aleksander.es>
+Subject: Re: Understanding what's going on when using a Huawei E173 USB 3G
+ web-stick (UMTS/HSPA)
+Date: Wed, 12 Nov 2014 12:54:06 +0100
+Message-ID: <CAAP7ucKQ6Ta=yd0QRSNdOEdcvTR=0i5HLPZEaF33xYGjDtBxvQ@mail.gmail.com>
+References: <CA+icZUXgLhuVSs0aqxi_e=GLZh-zX3JPMhDF+03ctr7O-Ae2og@mail.gmail.com>
+	<1415120132.31049.11.camel@dcbw.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <herbert@gondor.apana.org.au>, <davem@davemloft.net>,
-	<ying.xue@windriver.com>, <linux-crypto@vger.kernel.org>,
-	<netdev@vger.kernel.org>
-To: Ming Liu <ming.liu@windriver.com>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <54633958.2080705@windriver.com>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: sedat.dilek@gmail.com, Greg KH <greg@kroah.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-usb@vger.kernel.org
+To: Dan Williams <dcbw@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f54.google.com ([209.85.218.54]:44814 "EHLO
+	mail-oi0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752193AbaKLLyG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2014 06:54:06 -0500
+Received: by mail-oi0-f54.google.com with SMTP id i138so992968oig.41
+        for <netdev@vger.kernel.org>; Wed, 12 Nov 2014 03:54:06 -0800 (PST)
+In-Reply-To: <1415120132.31049.11.camel@dcbw.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 12, 2014 at 06:41:28PM +0800, Ming Liu wrote:
-> On 11/12/2014 04:41 PM, Steffen Klassert wrote:
-> >On Wed, Nov 12, 2014 at 01:49:31PM +0800, Ming Liu wrote:
-> >>  }
-> >>@@ -147,11 +149,9 @@ static void cryptd_queue_worker(struct work_struct *work)
-> >>  	preempt_disable();
-> >>  	backlog = crypto_get_backlog(&cpu_queue->queue);
-> >>  	req = crypto_dequeue_request(&cpu_queue->queue);
-> >>-	preempt_enable();
-> >>-	local_bh_enable();
-> >Everything below the local_bh_enable() should not run in atomic context
-> >as the subsequent functions may set the CRYPTO_TFM_REQ_MAY_SLEEP flag.
-> If I turn off all the CRYPTO_TFM_REQ_MAY_SLEEP in cryptd.c, is that
-> going to work?
+>
+> NetworkManager uses ModemManager for all WWAN control, NM only handles
+> the configuration storage and IP addressing parts of the setup.
+> ModemManager handles modem hardware detection, capability detection,
+> WWAN registration and setup, signal strength reporting, network
+> connection initiation, and bearer IP addressing method determination.
+>
+> If you want more information from ModemManager, you can run "mmcli
+> --help" or "mmcli --set-logging=debug".
+>
 
-Well, this might make the cryptd function accessible in atomic context,
-but it does not solve the other problems with this approach. Also,
-cryptd can be used to move requests out of atomic context and I think
-it should stay as it is.
+That (mmcli) will only be available in ModemManager >= 1.x, BTW. And
+beware of --set-logging=debug, as syslog may limit those if MM sends
+too many too fast. In general I usually prefer to ask for --debug
+output just in case:
+http://www.freedesktop.org/wiki/Software/ModemManager/Debugging/
+
+I saw the reporter talk about Ubuntu Precise (12.04) and Trusty
+(14.04), so only in the latter mmcli will be available (if I'm not
+mistaken). For Precise, this Ubuntu page shows how to enable debug
+logs:
+https://wiki.ubuntu.com/DebuggingModemmanager
+
+-- 
+Aleksander
+https://aleksander.es
