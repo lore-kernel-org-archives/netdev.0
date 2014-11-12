@@ -1,110 +1,71 @@
-From: Jianhua Xie <jianhua.xie@freescale.com>
-Subject: Re: [PATCH v1 net-next 1/2] bonding: Expand speed type bits of the
- AD Port Key
-Date: Wed, 12 Nov 2014 17:53:41 +0800
-Message-ID: <54632E25.3000205@freescale.com>
-References: <1415603801-21285-1-git-send-email-Jianhua.Xie@freescale.com>
- <1415603801-21285-2-git-send-email-Jianhua.Xie@freescale.com>
- <20141111.135305.1647707440180670390.davem@davemloft.net>
- <19882.1415735238@famine>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>, <vfalico@gmail.com>, <andy@greyhouse.net>
-To: Jay Vosburgh <jay.vosburgh@canonical.com>,
-	David Miller <davem@davemloft.net>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: [PATCH net] net: ptp: fix time stamp matching logic for VLAN packets.
+Date: Wed, 12 Nov 2014 11:33:52 +0100
+Message-ID: <1415788432-21617-1-git-send-email-richardcochran@gmail.com>
+Cc: David Miller <davem@davemloft.net>,
+	=?UTF-8?q?Stefan=20S=C3=B8rensen?=
+	<stefan.sorensen@spectralink.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1on0115.outbound.protection.outlook.com ([157.56.110.115]:5409
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752016AbaKLJxb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Nov 2014 04:53:31 -0500
-In-Reply-To: <19882.1415735238@famine>
+Received: from mail-wi0-f180.google.com ([209.85.212.180]:64071 "EHLO
+	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752176AbaKLKeC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2014 05:34:02 -0500
+Received: by mail-wi0-f180.google.com with SMTP id hi2so4376274wib.1
+        for <netdev@vger.kernel.org>; Wed, 12 Nov 2014 02:34:00 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks you two for the valuable comments.
+Commit ae5c6c6d "ptp: Classify ptp over ip over vlan packets" changed the
+code in two drivers that matches time stamps with PTP frames, with the goal
+of allowing VLAN tagged PTP packets to receive hardware time stamps.
 
-If my understanding is right,  it is encouraged to use a counter
-rather than a bitmask for the speed field, right?
+However, that commit failed to account for the VLAN header when parsing
+IPv4 packets. This patch fixes those two drivers to correctly match VLAN
+tagged IPv4/UDP PTP messages with their time stamps.
 
-if yes, how many bits are better to use for current speed and
-future speed (like 100Gbps/400Gbps and etc.)?  I am not sure
-that 5 bits are enough (2**5=3D32) or not. And I am clear to keep
-"the duplex bit in the key " in my mind.
+This patch should also be applied to v3.17.
 
-if not, what's your recommendation please?
+Signed-off-by: Richard Cochran <richardcochran@gmail.com>
+---
+ drivers/net/ethernet/ti/cpts.c |    2 +-
+ drivers/net/phy/dp83640.c      |    4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
-Thanks & Best Regards,
-Jianhua
-
-=E5=9C=A8 2014=E5=B9=B411=E6=9C=8812=E6=97=A5 03:47, Jay Vosburgh =E5=86=
-=99=E9=81=93:
-> David Miller <davem@davemloft.net> wrote:
->
->> From: Xie Jianhua <Jianhua.Xie@freescale.com>
->> Date: Mon, 10 Nov 2014 15:16:40 +0800
->>
->>> From: Jianhua Xie <Jianhua.Xie@freescale.com>
->>>
->>> Port Key was determined as 16 bits according to the link speed,
->>> duplex and user key (which is yet not supported), in which key
->>> speed was 5 bits for 1Mbps/10Mbps/100Mbps/1Gbps/10Gbps as below:
->>> --------------------------------------------------------------
->>> Port key :|	User key	| Speed		|	Duplex|
->>> --------------------------------------------------------------
->>> 16			6		1		0
->>> This patch is expanding speed type from 5 bits to 9 bits for other
->>> speed 2.5Gbps/20Gbps/40Gbps/56Gbps and shrinking user key from 10
->>> bits to 6 bits.  New Port Key looks like below:
->>> --------------------------------------------------------------
->>> Port key :|	User key	| Speed		|	Duplex|
->>> --------------------------------------------------------------
->>> 16			10		1		0
->>>
->> Do we determine the layout of this value all ourselves?
-> 	Yes, we do.  The precise format of the port key is not defined
-> by the standard; IEEE 802.1AX 5.3.5, "Capability identification":
->
-> "A given Key value is meaningful only in the context of the System th=
-at
-> allocates it; there is no global significance to Key values."
->
-> 	and
->
-> "When a System assigns an operational Key value to a set of ports, it
-> signifies that, in the absence of other constraints, the current
-> operational state of the set of ports allows any subset of that set o=
-f
-> ports (including the entire set) to be aggregated together from the
-> perspective of the System making the assignment."
->
-> 	So, basically, it's a magic cookie that indicates that all ports
-> on a particular system with the same key value are suitable to be
-> aggregated together.
->
->> If not, then is it exported to anything user-visible that we
->> might be breaking?
-> 	The key values are not user-visible, and the "user" settable
-> portion of the key has never been implemented.
->
->> If it is private, it makes no sense to use a bitmask for the speed.
->> We should instead change the field to be some numerically increasing
->> value.
->>
->> Otherwise we'll run out of bits again and keep having to adjust the
->> field layout more often than we really need to.
-> 	Agreed.
->
-> 	Also note that there are some internal dependencies within
-> bonding on the format; in particular the duplex bit in the key is use=
-d
-> to determine if a port is LACP-capable, and that functionality needs =
-to
-> be preserved.
->
-> 	-J
->
-> ---
-> 	-Jay Vosburgh, jay.vosburgh@canonical.com
+diff --git a/drivers/net/ethernet/ti/cpts.c b/drivers/net/ethernet/ti/cpts.c
+index ab92f67..4a4388b 100644
+--- a/drivers/net/ethernet/ti/cpts.c
++++ b/drivers/net/ethernet/ti/cpts.c
+@@ -264,7 +264,7 @@ static int cpts_match(struct sk_buff *skb, unsigned int ptp_class,
+ 
+ 	switch (ptp_class & PTP_CLASS_PMASK) {
+ 	case PTP_CLASS_IPV4:
+-		offset += ETH_HLEN + IPV4_HLEN(data) + UDP_HLEN;
++		offset += ETH_HLEN + IPV4_HLEN(data + offset) + UDP_HLEN;
+ 		break;
+ 	case PTP_CLASS_IPV6:
+ 		offset += ETH_HLEN + IP6_HLEN + UDP_HLEN;
+diff --git a/drivers/net/phy/dp83640.c b/drivers/net/phy/dp83640.c
+index 2954052..e22e602 100644
+--- a/drivers/net/phy/dp83640.c
++++ b/drivers/net/phy/dp83640.c
+@@ -791,7 +791,7 @@ static int match(struct sk_buff *skb, unsigned int type, struct rxts *rxts)
+ 
+ 	switch (type & PTP_CLASS_PMASK) {
+ 	case PTP_CLASS_IPV4:
+-		offset += ETH_HLEN + IPV4_HLEN(data) + UDP_HLEN;
++		offset += ETH_HLEN + IPV4_HLEN(data + offset) + UDP_HLEN;
+ 		break;
+ 	case PTP_CLASS_IPV6:
+ 		offset += ETH_HLEN + IP6_HLEN + UDP_HLEN;
+@@ -934,7 +934,7 @@ static int is_sync(struct sk_buff *skb, int type)
+ 
+ 	switch (type & PTP_CLASS_PMASK) {
+ 	case PTP_CLASS_IPV4:
+-		offset += ETH_HLEN + IPV4_HLEN(data) + UDP_HLEN;
++		offset += ETH_HLEN + IPV4_HLEN(data + offset) + UDP_HLEN;
+ 		break;
+ 	case PTP_CLASS_IPV6:
+ 		offset += ETH_HLEN + IP6_HLEN + UDP_HLEN;
+-- 
+1.7.10.4
