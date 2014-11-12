@@ -1,41 +1,97 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH] crypto: aesni-intel - avoid IPsec re-ordering
-Date: Wed, 12 Nov 2014 10:12:16 +0100
-Message-ID: <20141112091216.GM6390@secunet.com>
-References: <1415771371-30774-1-git-send-email-ming.liu@windriver.com>
- <20141112084138.GL6390@secunet.com>
- <20141112085148.GA26268@gondor.apana.org.au>
+From: Johan Hovold <johan@kernel.org>
+Subject: Re: [PATCH 19/22] dt/bindings: add micrel,rmii_ref_clk_sel_25_mhz to
+ eth-phy binding
+Date: Wed, 12 Nov 2014 10:19:20 +0100
+Message-ID: <20141112091920.GC15215@localhost>
+References: <1415727460-20417-1-git-send-email-johan@kernel.org>
+ <1415727460-20417-20-git-send-email-johan@kernel.org>
+ <20141111175741.GF25295@leverpostej>
+ <20141111181825.GH29789@localhost>
+ <20141112070127.GF30369@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Ming Liu <ming.liu@windriver.com>, <davem@davemloft.net>,
-	<ying.xue@windriver.com>, <linux-crypto@vger.kernel.org>,
-	<netdev@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <linux-crypto-owner@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Johan Hovold <johan@kernel.org>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
+To: Sascha Hauer <s.hauer@pengutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20141112085148.GA26268@gondor.apana.org.au>
-Sender: linux-crypto-owner@vger.kernel.org
+In-Reply-To: <20141112070127.GF30369@pengutronix.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 12, 2014 at 04:51:48PM +0800, Herbert Xu wrote:
-> On Wed, Nov 12, 2014 at 09:41:38AM +0100, Steffen Klassert wrote:
-> >
-> > Can't we just use cryptd unconditionally to fix this reordering problem?
+On Wed, Nov 12, 2014 at 08:01:27AM +0100, Sascha Hauer wrote:
+> On Tue, Nov 11, 2014 at 07:18:25PM +0100, Johan Hovold wrote:
+> > On Tue, Nov 11, 2014 at 05:57:42PM +0000, Mark Rutland wrote:
+> > > On Tue, Nov 11, 2014 at 05:37:37PM +0000, Johan Hovold wrote:
+> > > > Add "micrel,rmii_ref_clk_sel_25_mhz" to Micrel ethernet PHY binding
+> > > > documentation.
+> > > > 
+> > > > Cc: devicetree@vger.kernel.org
+> > > > Signed-off-by: Johan Hovold <johan@kernel.org>
+> > > > ---
+> > > >  Documentation/devicetree/bindings/net/micrel.txt | 5 +++++
+> > > >  1 file changed, 5 insertions(+)
+> > > > 
+> > > > diff --git a/Documentation/devicetree/bindings/net/micrel.txt b/Documentation/devicetree/bindings/net/micrel.txt
+> > > > index a1bab5eaae02..9b08dd6551dd 100644
+> > > > --- a/Documentation/devicetree/bindings/net/micrel.txt
+> > > > +++ b/Documentation/devicetree/bindings/net/micrel.txt
+> > > > @@ -19,6 +19,11 @@ Optional properties:
+> > > >  
+> > > >                See the respective PHY datasheet for the mode values.
+> > > >  
+> > > > + - micrel,rmii_ref_clk_sel_25_mhz: rmii_ref_clk_sel bit selects 25 MHz mode
+> > > > +
+> > > > +		Whether 25 MHz (rather than 50 Mhz) clock mode is selected
+> > > > +		when the rmii_ref_clk_sel bit is set.
+> > > 
+> > > s/_/-/ in property names please.
+> > 
+> > Ouch, copied from variable name, sorry.
+> > 
+> > > That said, I don't follow the meaning. Does this cause the kernel to do
+> > > something different, or is is simply that a 25MHz ref clock is wired up?
+> > 
+> > Yes, the driver currently sets this configuration bit based on a common
+> > clock binding.
+> > 
+> > However, it turns out the meaning of the bit is reversed on some PHY
+> > variants. On most PHYs 50 MHz mode is selected by setting this bit,
+> > whereas on the PHYs that need this new property, setting it selects 25
+> > MHz mode instead.
 > 
-> I think the idea is that most of the time cryptd isn't required
-> so we want to stick with direct processing to lower latency.
+> Maybe rename the property to something like rmii-ref-clk-25mhz-active-high
+> then? Also you should probably make it more explicit that this is a
+> hardware property and not for adjusting the clock.
 
-Yes, I thought that. But is it really the case that doing it
-asynchronous increases the latency? I tried this some time
-ago and as far as I remember there was not too much difference
-between the direct and the asynchronous case. Might depend
-on the usecase of course.
+You're right, but how about calling it
 
-> 
-> I think the simplest fix would be to punt to cryptd as long as
-> there are cryptd requests queued.
+	micrel,rmii-reference-clock-select-inverted
 
-This would be the second option. We may need to adjust the
-maximum cryptd queue lenght then, as the networking receive
-softirq might enqueue a lot of packets before cryptd can
-process them.
+Then no one will set it believing it will change the clock mode and
+without reading the binding doc first.
+
+The description could then read something like
+
+	micrel,rmii-reference-clock-select-inverted: RMII Reference
+		Clock Select bit is inverted
+
+	The RMII Reference Clock Select bit is inverted so that setting
+	it selects 25 MHz rather than 50 MHz clock mode. 
+
+	Note that this is only needed for PHY variants that has this bit
+	inverted and that a clock reference ("rmii-ref" below) is always
+	needed to select the actual mode.
+
+> It's not very nice from Micrel to create Phys with exactly the same
+> device id but the meaning of this bit reversed.
+
+Not very nice at all.
+
+Thanks,
+Johan
