@@ -1,36 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 2/2] r8152: adjust rtl_start_rx
-Date: Tue, 11 Nov 2014 21:19:39 -0500 (EST)
-Message-ID: <20141111.211939.1875418281655170486.davem@davemloft.net>
-References: <1394712342-15778-90-Taiwan-albertk@realtek.com>
-	<20141107.113522.837502028522211960.davem@davemloft.net>
-	<0835B3720019904CB8F7AA43166CEEB2ECE337@RTITMBSV03.realtek.com.tw>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
-	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
-To: hayeswang@realtek.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <0835B3720019904CB8F7AA43166CEEB2ECE337@RTITMBSV03.realtek.com.tw>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Simon Horman <horms@verge.net.au>
+Subject: [GIT PULL nf] Second Round of IPVS Fixes for v3.18
+Date: Wed, 12 Nov 2014 11:21:59 +0900
+Message-ID: <1415758920-32578-1-git-send-email-horms@verge.net.au>
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>, Simon Horman <horms@verge.net.au>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kirsty.vergenet.net ([202.4.237.240]:47337 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932537AbaKLCWF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Nov 2014 21:22:05 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Hayes Wang <hayeswang@realtek.com>
-Date: Wed, 12 Nov 2014 01:45:08 +0000
+Hi Pablo,
 
-> David Miller [mailto:davem@davemloft.net] 
->> Sent: Saturday, November 08, 2014 12:35 AM
-> [...]
->> Does this even work?
->> 
->> If you leave a hole in the ring, the device is going to stop there
->> anyways.
->> 
->> So better to replenish the next time you call into this function
->> rather than leaving gaps in your receive ring.
-> 
-> Excuse me. Is this still unacceptable?
-> Should I remove this patch for keeping the original flow?
+please consider this fix for v3.18.
 
-I haven't had time to process your original reply, please be patient.
+It fixes handling of skb->sk which may cause incorrect handling
+of connections from a local process.
+
+This problem was introduced in its current form by 8052ba292559f907e
+("ipvs: support ipv4 in ipv6 and ipv6 in ipv4 tunnel forwarding") in
+v3.18-rc1.
+
+I believe it also exists in a different form in older kernels.
+No fix for that is available at this time.
+
+
+The following changes since commit 2196937e12b1b4ba139806d132647e1651d655df:
+
+  netfilter: ipset: small potential read beyond the end of buffer (2014-11-11 13:46:37 +0100)
+
+are available in the git repository at:
+
+  https://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs.git tags/ipvs-fixes2-for-v3.18
+
+for you to fetch changes up to 50656d9df63d69ce399c8be62d4473b039dac36a:
+
+  ipvs: Keep skb->sk when allocating headroom on tunnel xmit (2014-11-12 11:03:04 +0900)
+
+----------------------------------------------------------------
+Calvin Owens (1):
+      ipvs: Keep skb->sk when allocating headroom on tunnel xmit
+
+ net/netfilter/ipvs/ip_vs_xmit.c | 2 ++
+ 1 file changed, 2 insertions(+)
