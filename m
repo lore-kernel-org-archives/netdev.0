@@ -1,33 +1,94 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] netlink: Properly unbind in error conditions.
-Date: Wed, 12 Nov 2014 15:49:37 -0500 (EST)
-Message-ID: <20141112.154937.1480047832882312411.davem@davemloft.net>
-References: <20141113042410.013c5d044aa442a05832d6d9@gmail.com>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: [PATCH net-next, v2] hyperv: Add processing of MTU reduced by the host
+Date: Wed, 12 Nov 2014 14:07:44 -0800
+Message-ID: <1415830064-1440-1-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rgb@redhat.com
-To: shimoda.hiroaki@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46507 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753362AbaKLUtj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2014 15:49:39 -0500
-In-Reply-To: <20141113042410.013c5d044aa442a05832d6d9@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: olaf@aepfle.de, jasowang@redhat.com, driverdev-devel@linuxdriverproject.org,
+ linux-kernel@vger.kernel.org, haiyangz@microsoft.com
+To: davem@davemloft.net,
+	netdev@vger.kernel.org
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-From: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
-Date: Thu, 13 Nov 2014 04:24:10 +0900
+If the host uses packet encapsulation feature, the MTU may be reduced by the
+host due to headroom reservation for encapsulation. This patch handles this
+new MTU value.
 
-> Even if netlink_kernel_cfg::unbind is implemented the unbind() method is
-> not called, because cfg->unbind is omitted in __netlink_kernel_create().
-> And fix wrong argument of test_bit() and off by one problem.
-> 
-> At this point, no unbind() method is implemented, so there is no real
-> issue.
-> 
-> Fixes: 4f520900522f ("netlink: have netlink per-protocol bind function return an error code.")
-> Signed-off-by: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+---
+ drivers/net/hyperv/netvsc.c       |    3 ++-
+ drivers/net/hyperv/netvsc_drv.c   |    5 +++--
+ drivers/net/hyperv/rndis_filter.c |    9 +++++++++
+ 3 files changed, 14 insertions(+), 3 deletions(-)
 
-Applied and queued up for -stable, thanks.
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 7d76c95..6b46311 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -440,7 +440,8 @@ static int negotiate_nvsp_ver(struct hv_device *device,
+ 	/* NVSPv2 only: Send NDIS config */
+ 	memset(init_packet, 0, sizeof(struct nvsp_message));
+ 	init_packet->hdr.msg_type = NVSP_MSG2_TYPE_SEND_NDIS_CONFIG;
+-	init_packet->msg.v2_msg.send_ndis_config.mtu = net_device->ndev->mtu;
++	init_packet->msg.v2_msg.send_ndis_config.mtu = net_device->ndev->mtu +
++						       ETH_HLEN;
+ 	init_packet->msg.v2_msg.send_ndis_config.capability.ieee8021q = 1;
+ 
+ 	ret = vmbus_sendpacket(device->channel, init_packet,
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 3295e4e..15d82ed 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -699,9 +699,10 @@ static int netvsc_change_mtu(struct net_device *ndev, int mtu)
+ 		return -ENODEV;
+ 
+ 	if (nvdev->nvsp_version >= NVSP_PROTOCOL_VERSION_2)
+-		limit = NETVSC_MTU;
++		limit = NETVSC_MTU - ETH_HLEN;
+ 
+-	if (mtu < 68 || mtu > limit)
++	/* Hyper-V hosts don't support MTU < ETH_DATA_LEN (1500) */
++	if (mtu < ETH_DATA_LEN || mtu > limit)
+ 		return -EINVAL;
+ 
+ 	nvdev->start_remove = true;
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index ccce6f2..7b2c5d1 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -998,6 +998,7 @@ int rndis_filter_device_add(struct hv_device *dev,
+ 	int t;
+ 	struct ndis_recv_scale_cap rsscap;
+ 	u32 rsscap_size = sizeof(struct ndis_recv_scale_cap);
++	u32 mtu, size;
+ 
+ 	rndis_device = get_rndis_device();
+ 	if (!rndis_device)
+@@ -1029,6 +1030,14 @@ int rndis_filter_device_add(struct hv_device *dev,
+ 		return ret;
+ 	}
+ 
++	/* Get the MTU from the host */
++	size = sizeof(u32);
++	ret = rndis_filter_query_device(rndis_device,
++					RNDIS_OID_GEN_MAXIMUM_FRAME_SIZE,
++					&mtu, &size);
++	if (ret == 0 && size == sizeof(u32))
++		net_device->ndev->mtu = mtu;
++
+ 	/* Get the mac address */
+ 	ret = rndis_filter_query_device_mac(rndis_device);
+ 	if (ret != 0) {
+-- 
+1.7.1
