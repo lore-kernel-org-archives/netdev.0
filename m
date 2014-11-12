@@ -1,37 +1,34 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: RE: [PATCH net-next 2/2] r8152: adjust rtl_start_rx
-Date: Wed, 12 Nov 2014 01:45:08 +0000
-Message-ID: <0835B3720019904CB8F7AA43166CEEB2ECE337@RTITMBSV03.realtek.com.tw>
-References: <1394712342-15778-88-Taiwan-albertk@realtek.com>
-	<1394712342-15778-90-Taiwan-albertk@realtek.com>
- <20141107.113522.837502028522211960.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] selftests/net: psock_fanout seg faults in
+ sock_fanout_read_ring()
+Date: Tue, 11 Nov 2014 21:44:02 -0500 (EST)
+Message-ID: <20141111.214402.693686900755542775.davem@davemloft.net>
+References: <1415725453-6549-1-git-send-email-shuahkh@osg.samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	nic_swsd <nic_swsd@realtek.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-api@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: shuahkh@osg.samsung.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141107.113522.837502028522211960.davem@davemloft.net>
-Content-Language: zh-TW
+In-Reply-To: <1415725453-6549-1-git-send-email-shuahkh@osg.samsung.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller [mailto:davem@davemloft.net] 
-> Sent: Saturday, November 08, 2014 12:35 AM
-[...]
-> Does this even work?
-> 
-> If you leave a hole in the ring, the device is going to stop there
-> anyways.
-> 
-> So better to replenish the next time you call into this function
-> rather than leaving gaps in your receive ring.
+From: Shuah Khan <shuahkh@osg.samsung.com>
+Date: Tue, 11 Nov 2014 10:04:13 -0700
 
-Excuse me. Is this still unacceptable?
-Should I remove this patch for keeping the original flow?
- 
-Best Regards,
-Hayes
+> The while loop in sock_fanout_read_ring() checks mmap region
+> bounds after access, causing it to segfault. Fix it to check
+> count before accessing header->tp_status. This problem can be
+> reproduced consistently when the test in run as follows:
+> 
+>     make -C tools/testing/selftests TARGETS=net run_tests
+>     or
+>     make run_tests from tools/testing/selftests
+>     or
+>     make run_test from tools/testing/selftests/net
+> 
+> Signed-off-by: Shuah Khan <shuahkh@osg.samsung.com>
+
+Definitely looks correct to me, applied, thanks.
