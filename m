@@ -1,140 +1,38 @@
-From: Oliver Graute <oliver.graute@gmail.com>
-Subject: Device Tree Binding for Marvell DSA Switch on imx28 board over Mdio Interface
-Date: Wed, 12 Nov 2014 14:07:26 +0100
-Message-ID: <CA+KjHfYZdZ88ZFzFCPN-bGphh+mnSWy6i0WNzFYv=gOsafXA7g@mail.gmail.com>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: Re: [PATCH net-next 0/3] dev_disable_lro() improvements for stacked
+ devices
+Date: Wed, 12 Nov 2014 14:15:46 +0100
+Message-ID: <20141112131546.GA8745@unicorn.suse.cz>
+References: <cover.1415692212.git.mkubecek@suse.cz>
+ <20141111090522.GB20586@raspberrypi>
+ <20141111093457.GA30178@unicorn.suse.cz>
+ <20141111.214752.266800170368088905.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f172.google.com ([209.85.213.172]:38757 "EHLO
-	mail-ig0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752455AbaKLNH1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2014 08:07:27 -0500
-Received: by mail-ig0-f172.google.com with SMTP id a13so2870521igq.11
-        for <netdev@vger.kernel.org>; Wed, 12 Nov 2014 05:07:27 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: vfalico@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, j.vosburgh@gmail.com,
+	andy@greyhouse.net, jiri@resnulli.us
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20141111.214752.266800170368088905.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
+On Tue, Nov 11, 2014 at 09:47:52PM -0500, David Miller wrote:
+> 
+> Please do it generically.
+> 
+> Having a special stanza for each layered device type in
+> dev_disable_lro() is beyond stupid.  Especially when it
+> can in fact be done cleanly.
 
-how do I specify the DSA node and the MDIO node in the Device Tree
-Binding to integrate a Marvell 88e6071 switch with a imx28 board?
+I gave it some thought and I would like ask one question first:
 
-On my board the Marvell switch 88e6071 is connected via phy1 (on a
-imx28 PCB) to phy5 on the Marvell switch (on a Switch PCB). All phys
-are connected via the same MDIO Bus.
+Does the upper-lower relationship always mean that upper device receives
+packets through its lower device(s) so that LRO should always be
+disabled for lower devices whenever there are some? Or should it be
+limited only to an explicit list of device types (vlan, macvlan, bond,
+team)?
 
-I enabled the Marvell DSA Support Driver, Gianfar Ethernet Driver and
-Freescale PQ MDIO Driver in the Kernel (I' am not sure if this is the
-right choice for imx28 fec ethernet controller is it?)
-
-I already know that I need to adapt the DSA driver for this new
-switch. But currently I can't access the switch ports because my MDIO
-Bus is not configured correctly. It always ends with:
-
-dmesg | grep -E "mii|dsa|mdio"
-[    2.528900] libphy: fec_enet_mii_bus: probed
-[    3.028061] !!!!Enter dsa Probe!!!!!
-[    3.037640] !!!!!Enter dsa_of_probe!!!!!
-[    3.041736] !!!!before of_parse_phandle dsa,mii-bus!!!!!
-[    3.047123] !!!! mdio->name=ethernet-phy !!!!!
-[    3.051658] !!!!before of_mdio_find_bus!!!!!
-[    3.055950] !!!!!enter of_mdio_find_bus!!!!!
-[    3.074074] !!!!!enter of_mdio_bus_match!!!!!
-[    3.078451] !!!!!enter of_mdio_bus_match!!!!!
-[    3.088915] !!!!Leave of_mdio_find_bus !!!!!
-[    3.093268] !!!! return  of_mdio_find_bus =22 !!!!!
-[    3.098166] dsa_of_probe returns=-22
-[    3.101858] dsa: probe of dsa.5 failed with error -22
-[   19.169423] fec 800f0000.ethernet eth0: Freescale FEC PHY driver
-[Micrel KSZ8041] (mii_bus:phy_addr=800f0000.etherne:00, irq=-1)
-[   20.038786] fec 800f4000.ethernet eth1: Freescale FEC PHY driver
-[Micrel KSZ8041] (mii_bus:phy_addr=800f0000.etherne:01, irq=-1)
-
-because the method  of_mdio_find_bus returns with EINVAL
-
-I suspect that the problem is the fact that the Kernel is not getting
-connected to the MDIO bus.
-what is wrong here?
-
-dsa@0 {
-        compatible = "marvell,dsa";
-        #address-cells = <2>;
-        #size-cells = <0>;
-        interrupts = <10>;
-        dsa,ethernet = <&eth1>;
-         dsa,mii-bus = <&ethphy1>;
-
-        switch@0 {
-            #address-cells = <1>;
-            #size-cells = <0>;
-            reg = <5 0>;   /* MDIO address 5, switch 0 in tree */
-
-            port@0 {
-                reg = <0>;
-                label = "lan1";
-                phy-handle = <&ethphy1>;
-            };
-
-            port@1 {
-                reg = <1>;
-                label = "lan2";
-            };
-
-            port@2 {
-                reg = <2>;
-                label = "lan3";
-            };
-
-            port@3 {
-                reg = <3>;
-                label = "lan4";
-            };
-
-            port@4 {
-                reg = <4>;
-                label = "lan5";
-            };
-
-            port@5 {
-                reg = <5>;
-                label = "cpu";
-            };
-
-        };
-    };
-
-
-eth1: eth1 {
-    status = "okay";
-    ethernet1-port@1 {
-        phy-handle = <&ethphy1>;
-    };
-};
-
-
-mdio_bus: mdio {
-        #address-cells = <1>;
-        #size-cells = <0>;
-        device_type = "mdio";
-        //compatible = "fsl,gianfar-mdio";
-        compatible = "fsl,mpc875-fec-mdio", "fsl,pq1-fec-mdio";
-        reg = <0xe00 0x188>;
-        status = "okay";
-
-         ethphy0: ethernet-phy@0 {
-                 reg = <0>;
-
-         };
-
-         ethphy1: ethernet-phy@1 {
-                 reg = <1>;
-                };
-                 //reg = <0xff>; */ /* No PHY attached */
-                 //speed = <1000>;
-                 //duple = <1>;
-       };
-
-Best regards,
-
-Oliver Graute
+                                                         Michal Kubecek
