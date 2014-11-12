@@ -1,49 +1,53 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: RE: [PATCH net-next 2/2] r8152: adjust rtl_start_rx
-Date: Wed, 12 Nov 2014 06:29:46 +0000
-Message-ID: <0835B3720019904CB8F7AA43166CEEB2ECE46C@RTITMBSV03.realtek.com.tw>
-References: <0835B3720019904CB8F7AA43166CEEB2ECE429@RTITMBSV03.realtek.com.tw>
-	<20141112.001318.1905417679166281362.davem@davemloft.net>
-	<0835B3720019904CB8F7AA43166CEEB2ECE442@RTITMBSV03.realtek.com.tw>
- <20141112.004331.1112374574697663525.davem@davemloft.net>
+From: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
+Subject: Re: [PATCH] brcmfmac: unlink URB when request timed out
+Date: Wed, 12 Nov 2014 08:00:44 +0100
+Message-ID: <1415775644.1761.1.camel@linux-0dmf.site>
+References: <545FAE05.2030701@gmail.com>
+	 <1415610506.16488.20.camel@linux-0dmf.site> <5462B1A3.9020401@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	nic_swsd <nic_swsd@realtek.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtits2.realtek.com ([60.250.210.242]:35979 "EHLO
-	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752538AbaKLGcj convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2014 01:32:39 -0500
-In-Reply-To: <20141112.004331.1112374574697663525.davem@davemloft.net>
-Content-Language: zh-TW
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: brudley-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	Franky Lin <frankyl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>, meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
+	John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, pieterpg-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, brcm80211-dev-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Mathy Vanhoef <vanhoefm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <5462B1A3.9020401-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-David Miller [mailto:davem@davemloft.net] 
-> Sent: Wednesday, November 12, 2014 1:44 PM
-[...]
-> What do other USB network drivers do in similar situations?
+On Tue, 2014-11-11 at 20:02 -0500, Mathy Vanhoef wrote:
+> On 11/10/2014 04:08 AM, Oliver Neukum wrote:
 
-According to the usbnet.c, it would make sure to submit the
-number of min(10, RX_QLEN(dev)) rx buffers. If there are
-not enough rx buffers, it schedule a tasklet for next try.
+> > Which means that you are freeing memory that may still be used by DMA
+> > at this time.
+> > In addition you have no guarantee that the unlink is indeed finished
+> > by the time the URB is reused.
+> > If you wish to take this approach you better forget about this URB
+> > and allocate a new one and free the buffer from the callback.
+> 
+> Hi Oliver,
+> 
+> Good catch. I think the DMA issue is also present in the current driver: it
+> frees the buffer without unlinking/killing the URB at all. Can a malicious USB
 
-The brief flow is as following.
-1. Call open().
-   - schedule a tasklet.
-2. Tasklet is called.
-   if (dev->rxq.qlen < RX_QLEN(dev)) {
-	   - submit rx buffers util the number of
-	     min(10, RX_QLEN(dev)). If the error
-	     occurs, break the loop.
-	   - If the dev->rxq.qlen < RX_QLEN(dev),
-	     schedule the tasklet.
-   }
+Yes, it is present.
 
-Best Regards,
-Hayes
+> device force a timeout to occur (i.e. delay the call to the completion
+> handler)? If so this might be a use-after-free vulnerability.
+> 
+> It seems using usb_kill_urb instead of usb_unlink_urb in the patch prevents any
+> possible use-after-free. Can someone double check?
+
+usb_kill_urb() will do the job.
+
+	Regards
+		Oliver
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
