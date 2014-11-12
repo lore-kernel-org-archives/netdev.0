@@ -1,52 +1,41 @@
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: Re: [patch -next] amd-xgbe: fix ->rss_hash_type
-Date: Wed, 12 Nov 2014 09:45:40 -0600
-Message-ID: <546380A4.1030105@amd.com>
-References: <20141112083135.GA12795@mwanda>
+From: David L Stevens <david.stevens@oracle.com>
+Subject: [PATCH net-next] sunvnet: fix NULL pointer dereference
+Date: Wed, 12 Nov 2014 10:58:47 -0500
+Message-ID: <546383B7.2090106@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <kernel-janitors@vger.kernel.org>
-To: Dan Carpenter <dan.carpenter@oracle.com>
+Cc: netdev@vger.kernel.org,
+	Sowmini Varadhan <sowmini.varadhan@oracle.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [157.56.110.145] ([157.56.110.145]:41944 "EHLO
-	na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752686AbaKLPqK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Nov 2014 10:46:10 -0500
-In-Reply-To: <20141112083135.GA12795@mwanda>
+Received: from aserp1040.oracle.com ([141.146.126.69]:33895 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752858AbaKLP6x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2014 10:58:53 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/12/2014 02:31 AM, Dan Carpenter wrote:
-> There was a missing break statement so we set everything to
-> PKT_HASH_TYPE_L3 even when we intended to use PKT_HASH_TYPE_L4.
->
-> Fixes: 5b9dfe299e55 ('amd-xgbe: Provide support for receive side scaling')
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+This patch fixes a NULL pointer dereference when __tx_port_find() doesn't
+find a matching port.
 
-Acked-by: Tom Lendacky <thomas.lendacky@amd.com>
+Signed-off-by: David L Stevens <david.stevens@oracle.com>
+---
+ drivers/net/ethernet/sun/sunvnet.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-> ---
-> This driver has a lot of Sparse endian warnings.
-> http://lwn.net/Articles/205624/
-
-I'll send a patch to address the endian warnings.
-
-Thanks,
-Tom
-
->
-> diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-> index 7daa2cd..55ba1dc 100644
-> --- a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-> +++ b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-> @@ -1601,6 +1601,7 @@ static int xgbe_dev_read(struct xgbe_channel *channel)
->   		case RX_DESC3_L34T_IPV6_UDP:
->   			packet->rss_hash_type = PKT_HASH_TYPE_L4;
->
-> +			break;
->   		default:
->   			packet->rss_hash_type = PKT_HASH_TYPE_L3;
->   		}
->
+diff --git a/drivers/net/ethernet/sun/sunvnet.c b/drivers/net/ethernet/sun/sunvnet.c
+index 55d66c9..a556eba 100644
+--- a/drivers/net/ethernet/sun/sunvnet.c
++++ b/drivers/net/ethernet/sun/sunvnet.c
+@@ -958,6 +958,8 @@ vnet_select_queue(struct net_device *dev, struct sk_buff *skb,
+ 	struct vnet *vp = netdev_priv(dev);
+ 	struct vnet_port *port = __tx_port_find(vp, skb);
+ 
++	if (port == NULL)
++		return 0;
+ 	return port->q_index;
+ }
+ 
+-- 
+1.7.1
