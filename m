@@ -1,97 +1,39 @@
-From: Johan Hovold <johan@kernel.org>
-Subject: Re: [PATCH 19/22] dt/bindings: add micrel,rmii_ref_clk_sel_25_mhz to
- eth-phy binding
-Date: Wed, 12 Nov 2014 10:19:20 +0100
-Message-ID: <20141112091920.GC15215@localhost>
-References: <1415727460-20417-1-git-send-email-johan@kernel.org>
- <1415727460-20417-20-git-send-email-johan@kernel.org>
- <20141111175741.GF25295@leverpostej>
- <20141111181825.GH29789@localhost>
- <20141112070127.GF30369@pengutronix.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Johan Hovold <johan@kernel.org>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
-To: Sascha Hauer <s.hauer@pengutronix.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20141112070127.GF30369@pengutronix.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCH net-next] cxgb4: Fix static checker warning
+Date: Wed, 12 Nov 2014 15:01:06 +0530
+Message-ID: <1415784666-30224-1-git-send-email-hariprasad@chelsio.com>
+Cc: davem@davemloft.net, leedom@chelsio.com, anish@chelsio.com,
+	nirranjan@chelsio.com, kumaras@chelsio.com,
+	Hariprasad Shenai <hariprasad@chelsio.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:43985
+	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752555AbaKLJZZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2014 04:25:25 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 12, 2014 at 08:01:27AM +0100, Sascha Hauer wrote:
-> On Tue, Nov 11, 2014 at 07:18:25PM +0100, Johan Hovold wrote:
-> > On Tue, Nov 11, 2014 at 05:57:42PM +0000, Mark Rutland wrote:
-> > > On Tue, Nov 11, 2014 at 05:37:37PM +0000, Johan Hovold wrote:
-> > > > Add "micrel,rmii_ref_clk_sel_25_mhz" to Micrel ethernet PHY binding
-> > > > documentation.
-> > > > 
-> > > > Cc: devicetree@vger.kernel.org
-> > > > Signed-off-by: Johan Hovold <johan@kernel.org>
-> > > > ---
-> > > >  Documentation/devicetree/bindings/net/micrel.txt | 5 +++++
-> > > >  1 file changed, 5 insertions(+)
-> > > > 
-> > > > diff --git a/Documentation/devicetree/bindings/net/micrel.txt b/Documentation/devicetree/bindings/net/micrel.txt
-> > > > index a1bab5eaae02..9b08dd6551dd 100644
-> > > > --- a/Documentation/devicetree/bindings/net/micrel.txt
-> > > > +++ b/Documentation/devicetree/bindings/net/micrel.txt
-> > > > @@ -19,6 +19,11 @@ Optional properties:
-> > > >  
-> > > >                See the respective PHY datasheet for the mode values.
-> > > >  
-> > > > + - micrel,rmii_ref_clk_sel_25_mhz: rmii_ref_clk_sel bit selects 25 MHz mode
-> > > > +
-> > > > +		Whether 25 MHz (rather than 50 Mhz) clock mode is selected
-> > > > +		when the rmii_ref_clk_sel bit is set.
-> > > 
-> > > s/_/-/ in property names please.
-> > 
-> > Ouch, copied from variable name, sorry.
-> > 
-> > > That said, I don't follow the meaning. Does this cause the kernel to do
-> > > something different, or is is simply that a 25MHz ref clock is wired up?
-> > 
-> > Yes, the driver currently sets this configuration bit based on a common
-> > clock binding.
-> > 
-> > However, it turns out the meaning of the bit is reversed on some PHY
-> > variants. On most PHYs 50 MHz mode is selected by setting this bit,
-> > whereas on the PHYs that need this new property, setting it selects 25
-> > MHz mode instead.
-> 
-> Maybe rename the property to something like rmii-ref-clk-25mhz-active-high
-> then? Also you should probably make it more explicit that this is a
-> hardware property and not for adjusting the clock.
+Fix static checker warning that got introduced in commit e2ac9628959cc152
+("cxgb4: Cleanup macros so they follow the same style and look consistent, part
+2") due to accidental checkin of bogus line.
 
-You're right, but how about calling it
+Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
 
-	micrel,rmii-reference-clock-select-inverted
-
-Then no one will set it believing it will change the clock mode and
-without reading the binding doc first.
-
-The description could then read something like
-
-	micrel,rmii-reference-clock-select-inverted: RMII Reference
-		Clock Select bit is inverted
-
-	The RMII Reference Clock Select bit is inverted so that setting
-	it selects 25 MHz rather than 50 MHz clock mode. 
-
-	Note that this is only needed for PHY variants that has this bit
-	inverted and that a clock reference ("rmii-ref" below) is always
-	needed to select the actual mode.
-
-> It's not very nice from Micrel to create Phys with exactly the same
-> device id but the meaning of this bit reversed.
-
-Not very nice at all.
-
-Thanks,
-Johan
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index d13d36a..660bf0f 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -5752,7 +5752,6 @@ static int adap_init0(struct adapter *adap)
+ 					    "No Configuration File present "
+ 					    "on adapter. Using hard-wired "
+ 					    "configuration parameters.\n");
+-					goto bye;
+ 					ret = adap_init0_no_config(adap, reset);
+ 				}
+ 			}
+-- 
+1.7.1
