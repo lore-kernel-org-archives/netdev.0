@@ -1,259 +1,168 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [patch net-next v2 3/4] net: move vlan pop/push functions into
- common code
-Date: Wed, 12 Nov 2014 11:17:34 -0800
-Message-ID: <CALnjE+oF83a3CO93_yH47PuW_Ld9HiSwY_gnw2YkA6pPs_jiUw@mail.gmail.com>
-References: <1415803950-9838-1-git-send-email-jiri@resnulli.us>
-	<1415803950-9838-3-git-send-email-jiri@resnulli.us>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: Device Tree Binding for Marvell DSA Switch on imx28 board over
+ Mdio Interface
+Date: Wed, 12 Nov 2014 11:19:08 -0800
+Message-ID: <5463B2AC.6090904@gmail.com>
+References: <CA+KjHfYZdZ88ZFzFCPN-bGphh+mnSWy6i0WNzFYv=gOsafXA7g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Tom Herbert <therbert@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Willem de Bruijn <willemb@google.com>,
-	Daniel Borkmann <dborkman@redhat.com>, mst@redhat.com,
-	fw@strlen.de, Paul.Durrant@citrix.com, Thomas Graf <tgraf@suug.ch>
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: Oliver Graute <oliver.graute@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog132.obsmtp.com ([74.125.149.250]:45293 "HELO
-	na3sys009aog132.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753100AbaKLTRf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2014 14:17:35 -0500
-Received: by mail-ie0-f179.google.com with SMTP id rl12so14292396iec.38
-        for <netdev@vger.kernel.org>; Wed, 12 Nov 2014 11:17:34 -0800 (PST)
-In-Reply-To: <1415803950-9838-3-git-send-email-jiri@resnulli.us>
+Received: from mail-pd0-f182.google.com ([209.85.192.182]:42402 "EHLO
+	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753278AbaKLTTM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2014 14:19:12 -0500
+Received: by mail-pd0-f182.google.com with SMTP id fp1so12852040pdb.13
+        for <netdev@vger.kernel.org>; Wed, 12 Nov 2014 11:19:12 -0800 (PST)
+In-Reply-To: <CA+KjHfYZdZ88ZFzFCPN-bGphh+mnSWy6i0WNzFYv=gOsafXA7g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 12, 2014 at 6:52 AM, Jiri Pirko <jiri@resnulli.us> wrote:
-> So it can be used from out of openvswitch code.
-> Did couple of cosmetic changes on the way, namely variable naming and
-> adding support for 8021AD proto.
->
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-> ---
->
-> v1->v2:
-> - adjusted to fix recent ovs changes
-> - included change to use make_writable suggested by Eric
->
->  include/linux/skbuff.h    |  2 ++
->  net/core/skbuff.c         | 78 +++++++++++++++++++++++++++++++++++++++++++++
->  net/openvswitch/actions.c | 81 +++++------------------------------------------
->  3 files changed, 88 insertions(+), 73 deletions(-)
->
-> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> index e045516..78c299f 100644
-> --- a/include/linux/skbuff.h
-> +++ b/include/linux/skbuff.h
-> @@ -2679,6 +2679,8 @@ unsigned int skb_gso_transport_seglen(const struct sk_buff *skb);
->  struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features);
->  struct sk_buff *skb_vlan_untag(struct sk_buff *skb);
->  int skb_ensure_writable(struct sk_buff *skb, int write_len);
-> +int skb_vlan_pop(struct sk_buff *skb);
-> +int skb_vlan_push(struct sk_buff *skb, __be16 vlan_proto, u16 vlan_tci);
->
->  struct skb_checksum_ops {
->         __wsum (*update)(const void *mem, int len, __wsum wsum);
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index d11bbe0..c7d3000 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -4163,6 +4163,84 @@ int skb_ensure_writable(struct sk_buff *skb, int write_len)
->  }
->  EXPORT_SYMBOL(skb_ensure_writable);
->
-> +/* remove VLAN header from packet and update csum accordingly. */
-> +static int __skb_vlan_pop(struct sk_buff *skb, u16 *vlan_tci)
-> +{
-> +       struct vlan_hdr *vhdr;
-> +       int err;
-> +
-> +       err = skb_ensure_writable(skb, VLAN_ETH_HLEN);
-> +       if (unlikely(err))
-> +               return err;
-> +
-> +       skb_postpull_rcsum(skb, skb->data + (2 * ETH_ALEN), VLAN_HLEN);
-> +
-> +       vhdr = (struct vlan_hdr *)(skb->data + ETH_HLEN);
-> +       *vlan_tci = ntohs(vhdr->h_vlan_TCI);
-> +
-> +       memmove(skb->data + VLAN_HLEN, skb->data, 2 * ETH_ALEN);
-> +       __skb_pull(skb, VLAN_HLEN);
-> +
-> +       vlan_set_encap_proto(skb, vhdr);
-> +       skb->mac_header += VLAN_HLEN;
-> +       if (skb_network_offset(skb) < ETH_HLEN)
-> +               skb_set_network_header(skb, ETH_HLEN);
-> +       skb_reset_mac_len(skb);
-> +
-> +       return 0;
-> +}
-> +
-> +int skb_vlan_pop(struct sk_buff *skb)
-> +{
-> +       u16 vlan_tci;
-> +       __be16 vlan_proto;
-> +       int err;
-> +
-> +       if (likely(vlan_tx_tag_present(skb))) {
-> +               skb->vlan_tci = 0;
-> +       } else {
-> +               if (unlikely((skb->protocol != htons(ETH_P_8021Q) &&
-> +                             skb->protocol != htons(ETH_P_8021AD)) ||
-> +                            skb->len < VLAN_ETH_HLEN))
-> +                       return 0;
-> +
-> +               err = __skb_vlan_pop(skb, &vlan_tci);
-> +               if (err)
-> +                       return err;
-> +       }
-> +       /* move next vlan tag to hw accel tag */
-> +       if (likely((skb->protocol != htons(ETH_P_8021Q) &&
-> +                   skb->protocol != htons(ETH_P_8021AD)) ||
-> +                  skb->len < VLAN_ETH_HLEN))
-> +               return 0;
-> +
-> +       vlan_proto = skb->protocol;
-> +       err = __skb_vlan_pop(skb, &vlan_tci);
-> +       if (unlikely(err))
-> +               return err;
-> +
-> +       __vlan_hwaccel_put_tag(skb, vlan_proto, vlan_tci);
-> +       return 0;
-> +}
-> +EXPORT_SYMBOL(skb_vlan_pop);
-> +
-> +int skb_vlan_push(struct sk_buff *skb, __be16 vlan_proto, u16 vlan_tci)
-> +{
-> +       if (vlan_tx_tag_present(skb)) {
-> +               /* push down current VLAN tag */
-> +               if (!__vlan_put_tag(skb, skb->vlan_proto,
-> +                                   vlan_tx_tag_get(skb)))
-> +                       return -ENOMEM;
-> +
-> +               if (skb->ip_summed == CHECKSUM_COMPLETE)
-> +                       skb->csum = csum_add(skb->csum, csum_partial(skb->data
-> +                                       + (2 * ETH_ALEN), VLAN_HLEN, 0));
-> +       }
+On 11/12/2014 05:07 AM, Oliver Graute wrote:
+> Hello,
+> 
+> how do I specify the DSA node and the MDIO node in the Device Tree
+> Binding to integrate a Marvell 88e6071 switch with a imx28 board?
 
-Needs to update skb->mac_len.
+If you do not CC the people actively working on this, chances are that
+they will just miss your email.
 
+> 
+> On my board the Marvell switch 88e6071 is connected via phy1 (on a
+> imx28 PCB) to phy5 on the Marvell switch (on a Switch PCB). All phys
+> are connected via the same MDIO Bus.
+> 
+> I enabled the Marvell DSA Support Driver, Gianfar Ethernet Driver and
+> Freescale PQ MDIO Driver in the Kernel (I' am not sure if this is the
+> right choice for imx28 fec ethernet controller is it?)
+> 
+> I already know that I need to adapt the DSA driver for this new
+> switch. But currently I can't access the switch ports because my MDIO
+> Bus is not configured correctly. It always ends with:
+> 
+> dmesg | grep -E "mii|dsa|mdio"
+> [    2.528900] libphy: fec_enet_mii_bus: probed
+> [    3.028061] !!!!Enter dsa Probe!!!!!
+> [    3.037640] !!!!!Enter dsa_of_probe!!!!!
+> [    3.041736] !!!!before of_parse_phandle dsa,mii-bus!!!!!
+> [    3.047123] !!!! mdio->name=ethernet-phy !!!!!
+> [    3.051658] !!!!before of_mdio_find_bus!!!!!
+> [    3.055950] !!!!!enter of_mdio_find_bus!!!!!
+> [    3.074074] !!!!!enter of_mdio_bus_match!!!!!
+> [    3.078451] !!!!!enter of_mdio_bus_match!!!!!
+> [    3.088915] !!!!Leave of_mdio_find_bus !!!!!
+> [    3.093268] !!!! return  of_mdio_find_bus =22 !!!!!
+> [    3.098166] dsa_of_probe returns=-22
+> [    3.101858] dsa: probe of dsa.5 failed with error -22
+> [   19.169423] fec 800f0000.ethernet eth0: Freescale FEC PHY driver
+> [Micrel KSZ8041] (mii_bus:phy_addr=800f0000.etherne:00, irq=-1)
+> [   20.038786] fec 800f4000.ethernet eth1: Freescale FEC PHY driver
+> [Micrel KSZ8041] (mii_bus:phy_addr=800f0000.etherne:01, irq=-1)
+> 
+> because the method  of_mdio_find_bus returns with EINVAL
+> 
+> I suspect that the problem is the fact that the Kernel is not getting
+> connected to the MDIO bus.
+> what is wrong here?
+> 
+> dsa@0 {
+>         compatible = "marvell,dsa";
+>         #address-cells = <2>;
+>         #size-cells = <0>;
+>         interrupts = <10>;
+>         dsa,ethernet = <&eth1>;
+>          dsa,mii-bus = <&ethphy1>;
 
-> +       __vlan_hwaccel_put_tag(skb, vlan_proto, vlan_tci);
-> +       return 0;
-> +}
-> +EXPORT_SYMBOL(skb_vlan_push);
-> +
->  /**
->   * alloc_skb_with_frags - allocate skb with page frags
->   *
-> diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
-> index 04c9680..e1a5182 100644
-> --- a/net/openvswitch/actions.c
-> +++ b/net/openvswitch/actions.c
-> @@ -206,91 +206,26 @@ static int set_mpls(struct sk_buff *skb, struct sw_flow_key *key,
->         return 0;
->  }
->
-> -/* remove VLAN header from packet and update csum accordingly. */
-> -static int __pop_vlan_tci(struct sk_buff *skb, __be16 *current_tci)
-> -{
-> -       struct vlan_hdr *vhdr;
-> -       int err;
-> -
-> -       err = skb_ensure_writable(skb, VLAN_ETH_HLEN);
-> -       if (unlikely(err))
-> -               return err;
-> -
-> -       skb_postpull_rcsum(skb, skb->data + (2 * ETH_ALEN), VLAN_HLEN);
-> -
-> -       vhdr = (struct vlan_hdr *)(skb->data + ETH_HLEN);
-> -       *current_tci = vhdr->h_vlan_TCI;
-> -
-> -       memmove(skb->data + VLAN_HLEN, skb->data, 2 * ETH_ALEN);
-> -       __skb_pull(skb, VLAN_HLEN);
-> -
-> -       vlan_set_encap_proto(skb, vhdr);
-> -       skb->mac_header += VLAN_HLEN;
-> -
-> -       if (skb_network_offset(skb) < ETH_HLEN)
-> -               skb_set_network_header(skb, ETH_HLEN);
-> -
-> -       /* Update mac_len for subsequent MPLS actions */
-> -       skb_reset_mac_len(skb);
-> -       return 0;
-> -}
-> -
->  static int pop_vlan(struct sk_buff *skb, struct sw_flow_key *key)
->  {
-> -       __be16 tci;
->         int err;
->
-> -       if (likely(vlan_tx_tag_present(skb))) {
-> -               skb->vlan_tci = 0;
-> -       } else {
-> -               if (unlikely(skb->protocol != htons(ETH_P_8021Q) ||
-> -                            skb->len < VLAN_ETH_HLEN))
-> -                       return 0;
-> -
-> -               err = __pop_vlan_tci(skb, &tci);
-> -               if (err)
-> -                       return err;
-> -       }
-> -       /* move next vlan tag to hw accel tag */
-> -       if (likely(skb->protocol != htons(ETH_P_8021Q) ||
-> -                  skb->len < VLAN_ETH_HLEN)) {
-> +       err = skb_vlan_pop(skb);
-> +       if (vlan_tx_tag_present(skb))
-> +               invalidate_flow_key(key);
-> +       else
->                 key->eth.tci = 0;
-> -               return 0;
-> -       }
-> -
-> -       invalidate_flow_key(key);
-> -       err = __pop_vlan_tci(skb, &tci);
-> -       if (unlikely(err))
-> -               return err;
-> -
-> -       __vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), ntohs(tci));
-> -       return 0;
-> +       return err;
->  }
->
->  static int push_vlan(struct sk_buff *skb, struct sw_flow_key *key,
->                      const struct ovs_action_push_vlan *vlan)
->  {
-> -       if (unlikely(vlan_tx_tag_present(skb))) {
-> -               u16 current_tag;
-> -
-> -               /* push down current VLAN tag */
-> -               current_tag = vlan_tx_tag_get(skb);
-> -
-> -               if (!__vlan_put_tag(skb, skb->vlan_proto, current_tag))
-> -                       return -ENOMEM;
-> -               /* Update mac_len for subsequent MPLS actions */
-> -               skb->mac_len += VLAN_HLEN;
-> -
-> -               if (skb->ip_summed == CHECKSUM_COMPLETE)
-> -                       skb->csum = csum_add(skb->csum, csum_partial(skb->data
-> -                                       + (2 * ETH_ALEN), VLAN_HLEN, 0));
-> -
-> +       if (vlan_tx_tag_present(skb))
->                 invalidate_flow_key(key);
-> -       } else {
-> +       else
->                 key->eth.tci = vlan->vlan_tci;
-> -       }
-> -       __vlan_hwaccel_put_tag(skb, vlan->vlan_tpid, ntohs(vlan->vlan_tci) & ~VLAN_TAG_PRESENT);
-> -       return 0;
-> +       return skb_vlan_push(skb, vlan->vlan_tpid, ntohs(vlan->vlan_tci) & ~VLAN_TAG_PRESENT);
->  }
->
->  static int set_eth_addr(struct sk_buff *skb, struct sw_flow_key *key,
+This should be phandle to the MDIO bus controller, not a node within
+its, so in your case this should be dsa,mii-bus = <&mdio_bus>;
+
+> 
+>         switch@0 {
+>             #address-cells = <1>;
+>             #size-cells = <0>;
+>             reg = <5 0>;   /* MDIO address 5, switch 0 in tree */
+> 
+>             port@0 {
+>                 reg = <0>;
+>                 label = "lan1";
+>                 phy-handle = <&ethphy1>;
+>             };
+> 
+>             port@1 {
+>                 reg = <1>;
+>                 label = "lan2";
+>             };
+> 
+>             port@2 {
+>                 reg = <2>;
+>                 label = "lan3";
+>             };
+> 
+>             port@3 {
+>                 reg = <3>;
+>                 label = "lan4";
+>             };
+> 
+>             port@4 {
+>                 reg = <4>;
+>                 label = "lan5";
+>             };
+> 
+>             port@5 {
+>                 reg = <5>;
+>                 label = "cpu";
+>             };
+> 
+>         };
+>     };
+> 
+> 
+> eth1: eth1 {
+>     status = "okay";
+>     ethernet1-port@1 {
+>         phy-handle = <&ethphy1>;
+
+You probably want to use a fixed-link node here to provide a link status
+that is always UP as seen from the CPU Ethernet MAC perspective, so
+something like this:
+
+fixed-link {
+	speed = <1000>;
+	full-duplex;
+};
+
+>     };
+> };
+> 
+> 
+> mdio_bus: mdio {
+>         #address-cells = <1>;
+>         #size-cells = <0>;
+>         device_type = "mdio";
+>         //compatible = "fsl,gianfar-mdio";
+>         compatible = "fsl,mpc875-fec-mdio", "fsl,pq1-fec-mdio";
+>         reg = <0xe00 0x188>;
+>         status = "okay";
+> 
+>          ethphy0: ethernet-phy@0 {
+>                  reg = <0>;
+> 
+>          };
+> 
+>          ethphy1: ethernet-phy@1 {
+>                  reg = <1>;
+>                 };
+>                  //reg = <0xff>; */ /* No PHY attached */
+>                  //speed = <1000>;
+>                  //duple = <1>;
+>        };
+> 
+> Best regards,
+> 
+> Oliver Graute
 > --
-> 1.9.3
->
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
