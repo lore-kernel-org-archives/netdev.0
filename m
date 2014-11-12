@@ -1,39 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] hyperv: Add processing of MTU reduced by the host
-Date: Wed, 12 Nov 2014 15:04:23 -0500 (EST)
-Message-ID: <20141112.150423.1660890641226643870.davem@davemloft.net>
-References: <1415748472-27463-1-git-send-email-haiyangz@microsoft.com>
- <20141112.144640.703336197189868183.davem@davemloft.net>
- <ecc2fd8e646147fabb30d3120c889431@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+Subject: Re: [patch -next] amd-xgbe: fix ->rss_hash_type
+Date: Wed, 12 Nov 2014 15:04:59 -0500 (EST)
+Message-ID: <20141112.150459.233340605780805877.davem@davemloft.net>
+References: <20141112083135.GA12795@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
- driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org
-To: haiyangz@microsoft.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <ecc2fd8e646147fabb30d3120c889431@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: thomas.lendacky@amd.com, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: dan.carpenter@oracle.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46072 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753228AbaKLUFB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2014 15:05:01 -0500
+In-Reply-To: <20141112083135.GA12795@mwanda>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Date: Wed, 12 Nov 2014 20:02:11 +0000
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Wed, 12 Nov 2014 11:31:35 +0300
 
-> The Hyper-V host doesn't support MTU below 1500. If we try setting MTU to a 
-> value < 1500, the host will use 1500 automatically and return 1500 in the 
-> RNDIS_OID_GEN_MAXIMUM_FRAME_SIZE query and guest will also use it. That's 
-> why I set the lower limit to ETH_DATA_LEN.
+> There was a missing break statement so we set everything to
+> PKT_HASH_TYPE_L3 even when we intended to use PKT_HASH_TYPE_L4.
 > 
-> Are you suggesting that we keep the 68 as the lower limit, and let the host 
-> auto-reset it to 1500 when we trying to set an MTU < 1500?
+> Fixes: 5b9dfe299e55 ('amd-xgbe: Provide support for receive side scaling')
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> ---
+> This driver has a lot of Sparse endian warnings.
+> http://lwn.net/Articles/205624/
+> 
+> diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
+> index 7daa2cd..55ba1dc 100644
+> --- a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
+> +++ b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
+> @@ -1601,6 +1601,7 @@ static int xgbe_dev_read(struct xgbe_channel *channel)
+>  		case RX_DESC3_L34T_IPV6_UDP:
+>  			packet->rss_hash_type = PKT_HASH_TYPE_L4;
+>  
+> +			break;
 
-Then you need to add a comment, because without any information or
-context that change looks wrong.
+Please don't add this spurious empty line before the break;, thanks.
