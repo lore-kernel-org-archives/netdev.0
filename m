@@ -1,78 +1,120 @@
-From: Sascha Hauer <s.hauer@pengutronix.de>
-Subject: Re: [PATCH 19/22] dt/bindings: add micrel,rmii_ref_clk_sel_25_mhz to
- eth-phy binding
-Date: Wed, 12 Nov 2014 08:01:27 +0100
-Message-ID: <20141112070127.GF30369@pengutronix.de>
-References: <1415727460-20417-1-git-send-email-johan@kernel.org>
- <1415727460-20417-20-git-send-email-johan@kernel.org>
- <20141111175741.GF25295@leverpostej>
- <20141111181825.GH29789@localhost>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Mark Rutland <mark.rutland@arm.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
-To: Johan Hovold <johan@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20141111181825.GH29789@localhost>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Anish Bhatt <anish@chelsio.com>
+Subject: [PATCH net] cxgb4 : dcb open-lldp interop fixes
+Date: Tue, 11 Nov 2014 23:30:51 -0800
+Message-ID: <1415777451-14144-1-git-send-email-anish@chelsio.com>
+Cc: davem@davemloft.net, hariprasad@chelsio.com, leedom@chelsio.com,
+	Anish Bhatt <anish@chelsio.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:43646
+	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750895AbaKLHbT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2014 02:31:19 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 11, 2014 at 07:18:25PM +0100, Johan Hovold wrote:
-> On Tue, Nov 11, 2014 at 05:57:42PM +0000, Mark Rutland wrote:
-> > On Tue, Nov 11, 2014 at 05:37:37PM +0000, Johan Hovold wrote:
-> > > Add "micrel,rmii_ref_clk_sel_25_mhz" to Micrel ethernet PHY binding
-> > > documentation.
-> > > 
-> > > Cc: devicetree@vger.kernel.org
-> > > Signed-off-by: Johan Hovold <johan@kernel.org>
-> > > ---
-> > >  Documentation/devicetree/bindings/net/micrel.txt | 5 +++++
-> > >  1 file changed, 5 insertions(+)
-> > > 
-> > > diff --git a/Documentation/devicetree/bindings/net/micrel.txt b/Documentation/devicetree/bindings/net/micrel.txt
-> > > index a1bab5eaae02..9b08dd6551dd 100644
-> > > --- a/Documentation/devicetree/bindings/net/micrel.txt
-> > > +++ b/Documentation/devicetree/bindings/net/micrel.txt
-> > > @@ -19,6 +19,11 @@ Optional properties:
-> > >  
-> > >                See the respective PHY datasheet for the mode values.
-> > >  
-> > > + - micrel,rmii_ref_clk_sel_25_mhz: rmii_ref_clk_sel bit selects 25 MHz mode
-> > > +
-> > > +		Whether 25 MHz (rather than 50 Mhz) clock mode is selected
-> > > +		when the rmii_ref_clk_sel bit is set.
-> > 
-> > s/_/-/ in property names please.
-> 
-> Ouch, copied from variable name, sorry.
-> 
-> > That said, I don't follow the meaning. Does this cause the kernel to do
-> > something different, or is is simply that a 25MHz ref clock is wired up?
-> 
-> Yes, the driver currently sets this configuration bit based on a common
-> clock binding.
-> 
-> However, it turns out the meaning of the bit is reversed on some PHY
-> variants. On most PHYs 50 MHz mode is selected by setting this bit,
-> whereas on the PHYs that need this new property, setting it selects 25
-> MHz mode instead.
+* In LLD_MANAGED mode, traffic classes were being returned in reverse order to
+  lldp agent.
+* Priotype of strict is no longer the default returned.
+* Change behaviour of getdcbx() based on discussions on lldp-devel
 
-Maybe rename the property to something like rmii-ref-clk-25mhz-active-high
-then? Also you should probably make it more explicit that this is a
-hardware property and not for adjusting the clock.
+These were missed as there was no working fetch interface for open-lldp when
+running in LLD_MANAGED mode till now.
 
-It's not very nice from Micrel to create Phys with exactly the same
-device id but the meaning of this bit reversed.
+Fixes: 76bcb31efc06 ("cxgb4 : Add DCBx support codebase and dcbnl_ops")
 
-Sascha
+Signed-off-by: Anish Bhatt <anish@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c | 28 +++++++++++++++++---------
+ 1 file changed, 19 insertions(+), 9 deletions(-)
 
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c
+index b6fdb14..cca6049 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c
+@@ -123,7 +123,11 @@ void cxgb4_dcb_state_fsm(struct net_device *dev,
+ 		case CXGB4_DCB_INPUT_FW_ENABLED: {
+ 			/* we're going to use Firmware DCB */
+ 			dcb->state = CXGB4_DCB_STATE_FW_INCOMPLETE;
+-			dcb->supported = CXGB4_DCBX_FW_SUPPORT;
++			dcb->supported = DCB_CAP_DCBX_LLD_MANAGED;
++			if (dcb->dcb_version == FW_PORT_DCB_VER_IEEE)
++				dcb->supported |= DCB_CAP_DCBX_VER_IEEE;
++			else
++				dcb->supported |= DCB_CAP_DCBX_VER_CEE;
+ 			break;
+ 		}
+ 
+@@ -437,14 +441,17 @@ static void cxgb4_getpgtccfg(struct net_device *dev, int tc,
+ 	*up_tc_map = (1 << tc);
+ 
+ 	/* prio_type is link strict */
+-	*prio_type = 0x2;
++	if (*pgid != 0xF)
++		*prio_type = 0x2;
+ }
+ 
+ static void cxgb4_getpgtccfg_tx(struct net_device *dev, int tc,
+ 				u8 *prio_type, u8 *pgid, u8 *bw_per,
+ 				u8 *up_tc_map)
+ {
+-	return cxgb4_getpgtccfg(dev, tc, prio_type, pgid, bw_per, up_tc_map, 1);
++	/* tc 0 is written at MSB position */
++	return cxgb4_getpgtccfg(dev, (7 - tc), prio_type, pgid, bw_per,
++				up_tc_map, 1);
+ }
+ 
+ 
+@@ -452,7 +459,9 @@ static void cxgb4_getpgtccfg_rx(struct net_device *dev, int tc,
+ 				u8 *prio_type, u8 *pgid, u8 *bw_per,
+ 				u8 *up_tc_map)
+ {
+-	return cxgb4_getpgtccfg(dev, tc, prio_type, pgid, bw_per, up_tc_map, 0);
++	/* tc 0 is written at MSB position */
++	return cxgb4_getpgtccfg(dev, (7 - tc), prio_type, pgid, bw_per,
++				up_tc_map, 0);
+ }
+ 
+ static void cxgb4_setpgtccfg_tx(struct net_device *dev, int tc,
+@@ -462,6 +471,7 @@ static void cxgb4_setpgtccfg_tx(struct net_device *dev, int tc,
+ 	struct fw_port_cmd pcmd;
+ 	struct port_info *pi = netdev2pinfo(dev);
+ 	struct adapter *adap = pi->adapter;
++	int fw_tc = 7 - tc;
+ 	u32 _pgid;
+ 	int err;
+ 
+@@ -480,8 +490,8 @@ static void cxgb4_setpgtccfg_tx(struct net_device *dev, int tc,
+ 	}
+ 
+ 	_pgid = be32_to_cpu(pcmd.u.dcb.pgid.pgid);
+-	_pgid &= ~(0xF << (tc * 4));
+-	_pgid |= pgid << (tc * 4);
++	_pgid &= ~(0xF << (fw_tc * 4));
++	_pgid |= pgid << (fw_tc * 4);
+ 	pcmd.u.dcb.pgid.pgid = cpu_to_be32(_pgid);
+ 
+ 	INIT_PORT_DCB_WRITE_CMD(pcmd, pi->port_id);
+@@ -594,7 +604,7 @@ static void cxgb4_getpfccfg(struct net_device *dev, int priority, u8 *pfccfg)
+ 	    priority >= CXGB4_MAX_PRIORITY)
+ 		*pfccfg = 0;
+ 	else
+-		*pfccfg = (pi->dcb.pfcen >> priority) & 1;
++		*pfccfg = (pi->dcb.pfcen >> (7 - priority)) & 1;
+ }
+ 
+ /* Enable/disable Priority Pause Frames for the specified Traffic Class
+@@ -619,9 +629,9 @@ static void cxgb4_setpfccfg(struct net_device *dev, int priority, u8 pfccfg)
+ 	pcmd.u.dcb.pfc.pfcen = pi->dcb.pfcen;
+ 
+ 	if (pfccfg)
+-		pcmd.u.dcb.pfc.pfcen |= (1 << priority);
++		pcmd.u.dcb.pfc.pfcen |= (1 << (7 - priority));
+ 	else
+-		pcmd.u.dcb.pfc.pfcen &= (~(1 << priority));
++		pcmd.u.dcb.pfc.pfcen &= (~(1 << (7 - priority)));
+ 
+ 	err = t4_wr_mbox(adap, adap->mbox, &pcmd, sizeof(pcmd), &pcmd);
+ 	if (err != FW_PORT_DCB_CFG_SUCCESS) {
 -- 
-Pengutronix e.K.                           |                             |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
-Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
+2.1.3
