@@ -1,120 +1,112 @@
-From: Anish Bhatt <anish@chelsio.com>
-Subject: [PATCH net] cxgb4 : dcb open-lldp interop fixes
-Date: Tue, 11 Nov 2014 23:30:51 -0800
-Message-ID: <1415777451-14144-1-git-send-email-anish@chelsio.com>
-Cc: davem@davemloft.net, hariprasad@chelsio.com, leedom@chelsio.com,
-	Anish Bhatt <anish@chelsio.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:43646
-	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750895AbaKLHbT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2014 02:31:19 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH nf] netfilter: conntrack: fix race in
+ __nf_conntrack_confirm against get_next_corpse
+Date: Wed, 12 Nov 2014 08:35:00 +0100
+Message-ID: <20141112083500.5404e5f4@redhat.com>
+References: <012601cff7d1$7ce2d620$76a88260$@gmail.com>
+	<20141106133648.2534.1403.stgit@dragon>
+	<20141110165439.GA7788@salvia>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: programme110@gmail.com, netfilter-devel@vger.kernel.org,
+	Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
+	brouer@redhat.com, Patrick McHardy <kaber@trash.net>,
+	Joerg Marx <joerg.marx@secunet.com>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20141110165439.GA7788@salvia>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-* In LLD_MANAGED mode, traffic classes were being returned in reverse order to
-  lldp agent.
-* Priotype of strict is no longer the default returned.
-* Change behaviour of getdcbx() based on discussions on lldp-devel
+On Mon, 10 Nov 2014 17:54:39 +0100
+Pablo Neira Ayuso <pablo@netfilter.org> wrote:
 
-These were missed as there was no working fetch interface for open-lldp when
-running in LLD_MANAGED mode till now.
+> On Thu, Nov 06, 2014 at 02:36:48PM +0100, Jesper Dangaard Brouer wrote:
+> > From: bill bonaparte <programme110@gmail.com>
+> > 
+> > After removal of the central spinlock nf_conntrack_lock, in
+> > commit 93bb0ceb75be2 ("netfilter: conntrack: remove central
+> > spinlock nf_conntrack_lock"), it is possible to race against
+> > get_next_corpse().
+> > 
+> > The race is against the get_next_corpse() cleanup on
+> > the "unconfirmed" list (a per-cpu list with seperate locking),
+> > which set the DYING bit.
+> > 
+> > Fix this race, in __nf_conntrack_confirm(), by removing the CT
+> > from unconfirmed list before checking the DYING bit.  In case
+> > race occured, re-add the CT to the dying list.
+> 
+> This seems correct to me, some side comments.
+> 
+> > Fixes: 93bb0ceb75be2 ("netfilter: conntrack: remove central spinlock nf_conntrack_lock")
+> > Reported-by: bill bonaparte <programme110@gmail.com>
+> > Signed-off-by: bill bonaparte <programme110@gmail.com>
+> > Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+> > ---
+> > 
+> >  net/netfilter/nf_conntrack_core.c |    7 ++++---
+> >  1 files changed, 4 insertions(+), 3 deletions(-)
+> > 
+> > diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+> > index 5016a69..1072650 100644
+> > --- a/net/netfilter/nf_conntrack_core.c
+> > +++ b/net/netfilter/nf_conntrack_core.c
+> > @@ -611,12 +611,15 @@ __nf_conntrack_confirm(struct sk_buff *skb)
+> >  	 */
+> >  	NF_CT_ASSERT(!nf_ct_is_confirmed(ct));
+> >  	pr_debug("Confirming conntrack %p\n", ct);
+> > -	/* We have to check the DYING flag inside the lock to prevent
+> > +
+> > +	/* We have to check the DYING flag after unlink to prevent
+> >  	   a race against nf_ct_get_next_corpse() possibly called from
+> >  	   user context, else we insert an already 'dead' hash, blocking
+> >  	   further use of that particular connection -JM */
+> 
+> While at this, I think it would be good to fix comment style to:
+> 
+>         /* We have ...
+>          * ...
+>          */
+> 
+> I can fix this here, no need to resend, just let me know.
 
-Fixes: 76bcb31efc06 ("cxgb4 : Add DCBx support codebase and dcbnl_ops")
+Okay, I was just trying to keep the changes as minimal as possible, if
+this should go into a stable-kernel.  Your choice.
 
-Signed-off-by: Anish Bhatt <anish@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c | 28 +++++++++++++++++---------
- 1 file changed, 19 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c
-index b6fdb14..cca6049 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c
-@@ -123,7 +123,11 @@ void cxgb4_dcb_state_fsm(struct net_device *dev,
- 		case CXGB4_DCB_INPUT_FW_ENABLED: {
- 			/* we're going to use Firmware DCB */
- 			dcb->state = CXGB4_DCB_STATE_FW_INCOMPLETE;
--			dcb->supported = CXGB4_DCBX_FW_SUPPORT;
-+			dcb->supported = DCB_CAP_DCBX_LLD_MANAGED;
-+			if (dcb->dcb_version == FW_PORT_DCB_VER_IEEE)
-+				dcb->supported |= DCB_CAP_DCBX_VER_IEEE;
-+			else
-+				dcb->supported |= DCB_CAP_DCBX_VER_CEE;
- 			break;
- 		}
- 
-@@ -437,14 +441,17 @@ static void cxgb4_getpgtccfg(struct net_device *dev, int tc,
- 	*up_tc_map = (1 << tc);
- 
- 	/* prio_type is link strict */
--	*prio_type = 0x2;
-+	if (*pgid != 0xF)
-+		*prio_type = 0x2;
- }
- 
- static void cxgb4_getpgtccfg_tx(struct net_device *dev, int tc,
- 				u8 *prio_type, u8 *pgid, u8 *bw_per,
- 				u8 *up_tc_map)
- {
--	return cxgb4_getpgtccfg(dev, tc, prio_type, pgid, bw_per, up_tc_map, 1);
-+	/* tc 0 is written at MSB position */
-+	return cxgb4_getpgtccfg(dev, (7 - tc), prio_type, pgid, bw_per,
-+				up_tc_map, 1);
- }
- 
- 
-@@ -452,7 +459,9 @@ static void cxgb4_getpgtccfg_rx(struct net_device *dev, int tc,
- 				u8 *prio_type, u8 *pgid, u8 *bw_per,
- 				u8 *up_tc_map)
- {
--	return cxgb4_getpgtccfg(dev, tc, prio_type, pgid, bw_per, up_tc_map, 0);
-+	/* tc 0 is written at MSB position */
-+	return cxgb4_getpgtccfg(dev, (7 - tc), prio_type, pgid, bw_per,
-+				up_tc_map, 0);
- }
- 
- static void cxgb4_setpgtccfg_tx(struct net_device *dev, int tc,
-@@ -462,6 +471,7 @@ static void cxgb4_setpgtccfg_tx(struct net_device *dev, int tc,
- 	struct fw_port_cmd pcmd;
- 	struct port_info *pi = netdev2pinfo(dev);
- 	struct adapter *adap = pi->adapter;
-+	int fw_tc = 7 - tc;
- 	u32 _pgid;
- 	int err;
- 
-@@ -480,8 +490,8 @@ static void cxgb4_setpgtccfg_tx(struct net_device *dev, int tc,
- 	}
- 
- 	_pgid = be32_to_cpu(pcmd.u.dcb.pgid.pgid);
--	_pgid &= ~(0xF << (tc * 4));
--	_pgid |= pgid << (tc * 4);
-+	_pgid &= ~(0xF << (fw_tc * 4));
-+	_pgid |= pgid << (fw_tc * 4);
- 	pcmd.u.dcb.pgid.pgid = cpu_to_be32(_pgid);
- 
- 	INIT_PORT_DCB_WRITE_CMD(pcmd, pi->port_id);
-@@ -594,7 +604,7 @@ static void cxgb4_getpfccfg(struct net_device *dev, int priority, u8 *pfccfg)
- 	    priority >= CXGB4_MAX_PRIORITY)
- 		*pfccfg = 0;
- 	else
--		*pfccfg = (pi->dcb.pfcen >> priority) & 1;
-+		*pfccfg = (pi->dcb.pfcen >> (7 - priority)) & 1;
- }
- 
- /* Enable/disable Priority Pause Frames for the specified Traffic Class
-@@ -619,9 +629,9 @@ static void cxgb4_setpfccfg(struct net_device *dev, int priority, u8 pfccfg)
- 	pcmd.u.dcb.pfc.pfcen = pi->dcb.pfcen;
- 
- 	if (pfccfg)
--		pcmd.u.dcb.pfc.pfcen |= (1 << priority);
-+		pcmd.u.dcb.pfc.pfcen |= (1 << (7 - priority));
- 	else
--		pcmd.u.dcb.pfc.pfcen &= (~(1 << priority));
-+		pcmd.u.dcb.pfc.pfcen &= (~(1 << (7 - priority)));
- 
- 	err = t4_wr_mbox(adap, adap->mbox, &pcmd, sizeof(pcmd), &pcmd);
- 	if (err != FW_PORT_DCB_CFG_SUCCESS) {
+> > +	nf_ct_del_from_dying_or_unconfirmed_list(ct);
+> >  
+> >  	if (unlikely(nf_ct_is_dying(ct))) {
+> > +		nf_ct_add_to_dying_list(ct);
+> >  		nf_conntrack_double_unlock(hash, reply_hash);
+> >  		local_bh_enable();
+> >  		return NF_ACCEPT;
+> 
+> Not directly related to your patch, but I don't find a good reason why
+> we're accepting this packet.
+> 
+> If the conntrack from the unconfirmed list is dying, then the object
+> will be released by when the packet leaves the stack to its
+> destination. With stateful filtering depending in place, the follow up
+> packet in the reply direction will likely be considered invalid (if
+> tcp tracking is on). Fortunately for us, the origin will likely
+> retransmit the syn again, so the ct will be setup accordingly.
+> 
+> So, why should we allow this to go through?
+
+True, it also seems strange to me that we accept this packet.
+
+> This return verdict was introduced in: fc35077 ("netfilter:
+> nf_conntrack: fix a race in __nf_conntrack_confirm against
+> nf_ct_get_next_corpse()") btw.
+
+And the commit does not argue why NF_ACCEPT was chosen...
+
 -- 
-2.1.3
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
