@@ -1,80 +1,103 @@
-From: Paul Barker <paul@paulbarker.me.uk>
-Subject: Re: [ethtool][PATCH] Fix build with musl by using more common typedefs
-Date: Thu, 13 Nov 2014 11:22:01 +0000
-Message-ID: <CANyK_8cZ3oCnwrbX4RbY8W4gN4N-o_aFg68CpX0co0_GMcQR6A@mail.gmail.com>
-References: <1414323849-5739-1-git-send-email-paul@paulbarker.me.uk> <1414323849-5739-2-git-send-email-paul@paulbarker.me.uk>
+From: Lothar =?UTF-8?B?V2HDn21hbm4=?= <LW@KARO-electronics.de>
+Subject: Re: [PATCH] can: Fix bug in suspend/resume
+Date: Thu, 13 Nov 2014 12:32:18 +0100
+Message-ID: <20141113123218.79850236@ipc1.ka-ro>
+References: <a44efc1fb0144cca9d0c4851cc51db25@BL2FFO11FD024.protection.gbl>
+	<546484D9.4030005@pengutronix.de>
+	<54648BF4.60007@pengutronix.de>
+	<9455da2b86c74d5aafe9bf118edec7bb@BN1AFFO11FD045.protection.gbl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Paul Barker <paul@paulbarker.me.uk>,
-	John Spencer <maillist-linux@barfooze.de>
-To: Ben Hutchings <bwh@kernel.org>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f50.google.com ([209.85.192.50]:41058 "EHLO
-	mail-qg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932328AbaKMLWm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Nov 2014 06:22:42 -0500
-Received: by mail-qg0-f50.google.com with SMTP id a108so10420255qge.9
-        for <netdev@vger.kernel.org>; Thu, 13 Nov 2014 03:22:41 -0800 (PST)
-In-Reply-To: <1414323849-5739-2-git-send-email-paul@paulbarker.me.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Marc Kleine-Budde <mkl@pengutronix.de>,
+	"wg@grandegger.com" <wg@grandegger.com>,
+	Michal Simek <michals@xilinx.com>,
+	Soren Brinkmann <sorenb@xilinx.com>,
+	"grant.likely@linaro.org" <grant.likely@linaro.org>,
+	"robh+dt@kernel.org" <robh+dt@kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
+To: Appana Durga Kedareswara Rao <appana.durga.rao@xilinx.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <9455da2b86c74d5aafe9bf118edec7bb@BN1AFFO11FD045.protection.gbl>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 26 October 2014 11:44, Paul Barker <paul@paulbarker.me.uk> wrote:
-> When using musl as the standard C library, type names such as '__int32_t' are
-> not defined. Instead we must use the more commonly defined type names such as
-> 'int32_t', which are defined in <stdint.h>.
->
-> Signed-off-by: John Spencer <maillist-linux@barfooze.de>
-> Signed-off-by: Paul Barker <paul@paulbarker.me.uk>
-> ---
->  internal.h | 13 +++++++------
->  1 file changed, 7 insertions(+), 6 deletions(-)
->
-> diff --git a/internal.h b/internal.h
-> index a9dfae0..262a39f 100644
-> --- a/internal.h
-> +++ b/internal.h
-> @@ -7,6 +7,7 @@
->  #include "ethtool-config.h"
->  #endif
->  #include <stdio.h>
-> +#include <stdint.h>
->  #include <stdlib.h>
->  #include <string.h>
->  #include <sys/types.h>
-> @@ -17,16 +18,16 @@
->
->  /* ethtool.h expects these to be defined by <linux/types.h> */
->  #ifndef HAVE_BE_TYPES
-> -typedef __uint16_t __be16;
-> -typedef __uint32_t __be32;
-> +typedef uint16_t __be16;
-> +typedef uint32_t __be32;
->  typedef unsigned long long __be64;
->  #endif
->
->  typedef unsigned long long u64;
-> -typedef __uint32_t u32;
-> -typedef __uint16_t u16;
-> -typedef __uint8_t u8;
-> -typedef __int32_t s32;
-> +typedef uint32_t u32;
-> +typedef uint16_t u16;
-> +typedef uint8_t u8;
-> +typedef int32_t s32;
->
->  #include "ethtool-copy.h"
->  #include "net_tstamp-copy.h"
-> --
-> 2.1.2
->
+Hi,
 
-Ping. Could you let me know if this patch is acceptable or not?
+Appana Durga Kedareswara Rao wrote:
+> Hi Marc,
+>=20
+> -----Original Message-----
+> From: Marc Kleine-Budde [mailto:mkl@pengutronix.de]
+> Sent: Thursday, November 13, 2014 4:16 PM
+> To: Appana Durga Kedareswara Rao; wg@grandegger.com; Michal Simek; So=
+ren Brinkmann; grant.likely@linaro.org; robh+dt@kernel.org
+> Cc: linux-can@vger.kernel.org; netdev@vger.kernel.org; linux-arm-kern=
+el@lists.infradead.org; linux-kernel@vger.kernel.org; devicetree@vger.k=
+ernel.org; Appana Durga Kedareswara Rao
+> Subject: Re: [PATCH] can: Fix bug in suspend/resume
+>=20
+> On 11/13/2014 11:15 AM, Marc Kleine-Budde wrote:
+> > On 11/13/2014 07:58 AM, Kedareswara rao Appana wrote:
+> >> When accessing the priv structure use container_of instead of dev_=
+get_drvdata.
+> >
+> > Why?
+>=20
+> The drvdata here is the struct net_device, not the platform device.
+> Please state this in the commit message.
+>=20
+> If I understand the code correct, you can make use of the existing he=
+lper function to_platform_device():
+>=20
+> http://lxr.free-electrons.com/source/include/linux/platform_device.h#=
+L42
+>=20
+> Thanks for the suggestion.
+>  Will use this macro(to_platform_device)  .
+>=20
+> >
+> >> Enable the clocks in the suspend before accessing the registers of=
+ the CAN.
+> >>
+> >> Signed-off-by: Kedareswara rao Appana <appanad@xilinx.com>
+> >> ---
+> >>  drivers/net/can/xilinx_can.c |   20 ++++++++++++++++++--
+> >>  1 files changed, 18 insertions(+), 2 deletions(-)
+> >>
+> >> diff --git a/drivers/net/can/xilinx_can.c
+> >> b/drivers/net/can/xilinx_can.c index 5e8b560..63ef645 100644
+> >> --- a/drivers/net/can/xilinx_can.c
+> >> +++ b/drivers/net/can/xilinx_can.c
+> >> @@ -972,15 +972,30 @@ static const struct net_device_ops xcan_netd=
+ev_ops =3D {
+> >>   */
+> >>  static int __maybe_unused xcan_suspend(struct device *dev)  {
+> >> -    struct platform_device *pdev =3D dev_get_drvdata(dev);
+> >> +    struct platform_device *pdev =3D container_of(dev,
+> >> +                    struct platform_device, dev);
+> >>      struct net_device *ndev =3D platform_get_drvdata(pdev);
+> >>      struct xcan_priv *priv =3D netdev_priv(ndev);
+>
+Why not simply:
+	struct net_device *ndev =3D dev_get_drvdata(dev);
 
-Cheers,
+There is no need for a struct platform_device* at all.
 
--- 
-Paul Barker
 
-Email: paul@paulbarker.me.uk
-http://www.paulbarker.me.uk
+Lothar Wa=C3=9Fmann
+--=20
+___________________________________________________________
+
+Ka-Ro electronics GmbH | Pascalstra=C3=9Fe 22 | D - 52076 Aachen
+Phone: +49 2408 1402-0 | Fax: +49 2408 1402-10
+Gesch=C3=A4ftsf=C3=BChrer: Matthias Kaussen
+Handelsregistereintrag: Amtsgericht Aachen, HRB 4996
+
+www.karo-electronics.de | info@karo-electronics.de
+___________________________________________________________
