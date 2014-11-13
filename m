@@ -1,53 +1,47 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PULL] vhost: cleanups and fixes
-Date: Thu, 13 Nov 2014 23:22:10 +0200
-Message-ID: <20141113212210.GA15309@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 2/2] r8152: adjust rtl_start_rx
+Date: Thu, 13 Nov 2014 16:22:40 -0500 (EST)
+Message-ID: <20141113.162240.1823683928052355016.davem@davemloft.net>
+References: <20141112.144949.645590790916569141.davem@davemloft.net>
+	<0835B3720019904CB8F7AA43166CEEB2ECE8EF@RTITMBSV03.realtek.com.tw>
+	<20141112.223146.2221136950144767962.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, mst@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, tgraf@suug.ch
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
+	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
+To: hayeswang@realtek.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141112.223146.2221136950144767962.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The following changes since commit 206c5f60a3d902bc4b56dab2de3e88de5eb06108:
+From: David Miller <davem@davemloft.net>
+Date: Wed, 12 Nov 2014 22:31:46 -0500 (EST)
 
-  Linux 3.18-rc4 (2014-11-09 14:55:29 -0800)
+> From: Hayes Wang <hayeswang@realtek.com>
+> Date: Thu, 13 Nov 2014 02:31:14 +0000
+> 
+>> My last method which I mentioned yesterday is similar to
+>> this one. The difference is that I would re-use the rx
+>> buffers, so I have to add them to the list for re-submitting,
+>> not alwayes allocate new one.
+>> 
+>> Although one rx buffer could contain many packets, I don't
+>> think the whole size of the rx buffer is alwayes used.
+>> Therefore, I re-use the rx buffers to avoid allocating
+>> the 16K bytes rx buffer alwayes. This also makes sure that
+>> I always have the buffers to submit without allocating new
+>> one.
+>> 
+>> If you could accept this, I would modify this patch by
+>> this way.
+> 
+> I'll reread your original patch and think some more about this.
 
-are available in the git repository at:
+What if even the first r8152_submit_rx() fails?  What ever will cause
+any of these retries to trigger at all?
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git tags/for_linus
-
-for you to fetch changes up to 65eca3a20264a8999570c269406196bd1ae23be7:
-
-  virtio_console: move early VQ enablement (2014-11-13 09:53:26 +0200)
-
-It seems like a good idea to merge this bugfix now, as it's clearly
-a regression and several people complained.
-
-----------------------------------------------------------------
-virtio: bugfix for 3.18
-
-This fixes a crash in virtio console
-multi-channel mode that got introduced in -rc1.
-
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-
-----------------------------------------------------------------
-Cornelia Huck (1):
-      virtio_console: move early VQ enablement
-
- drivers/char/virtio_console.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+Second, why does your patch increment 'i' with 'i++;' in the error
+break path?  You should mark the first failed entry as unallocated
+with actual_length == 0 and place it on the rx_done queue.
