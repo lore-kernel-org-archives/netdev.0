@@ -1,81 +1,84 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [E1000-devel] [PATCH] ixgbe: make VLAN filter conditional in
- SR-IOV case
-Date: Thu, 13 Nov 2014 09:08:32 -0800
-Message-ID: <1415898512.2454.26.camel@jtkirshe-mobl>
-References: <7F861DC0615E0C47A872E6F3C5FCDDBD05D9D336@BPXM14GP.gisp.nec.co.jp>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] tcp: limit GSO packets to half cwnd
+Date: Thu, 13 Nov 2014 09:45:22 -0800
+Message-ID: <1415900722.17262.22.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-ztw/TBEd1Vw4sQECYlTr"
-Cc: "e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
-	Hayato Momma <h-momma@ce.jp.nec.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <7F861DC0615E0C47A872E6F3C5FCDDBD05D9D336@BPXM14GP.gisp.nec.co.jp>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-
---=-ztw/TBEd1Vw4sQECYlTr
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Thu, 2014-11-13 at 08:28 +0000, Hiroshi Shimamoto wrote:
-> From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
->=20
-> Disable hardware VLAN filtering if netdev->features VLAN flag is
-> dropped.
->=20
-> In SR-IOV case, there is a use case which needs to disable VLAN
-> filter.
-> For example, we need to make a network function with VF in virtualized
-> environment. That network function may be a software switch, a router
-> or etc. It means that that network function will be an end point which
-> terminates many VLANs.
->=20
-> In the current implementation, VLAN filtering always be turned on and
-> VF can receive only 63 VLANs. It means that only 63 VLANs can be used
-> and it's not enough at all for building a virtual router.
->=20
-> With this patch, if the user turns VLAN filtering off on the host, VF
-> can receive every VLAN packet.
-> The behavior is changed only if VLAN filtering is turned off by
-> ethtool.
->=20
-> Signed-off-by: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
-> CC: Choi, Sy Jong <sy.jong.choi@intel.com>
-> ---
->  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  | 10 ++++++++++
->  drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c |  4 ++++
->  2 files changed, 14 insertions(+)
-
-Thanks Hiroshi, I will add your patch to my queue.
-
---=-ztw/TBEd1Vw4sQECYlTr
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Neal Cardwell <ncardwell@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Nandita Dukkipati <nanditad@google.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f179.google.com ([209.85.213.179]:40086 "EHLO
+	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933428AbaKMRpZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Nov 2014 12:45:25 -0500
+Received: by mail-ig0-f179.google.com with SMTP id r10so85222igi.12
+        for <netdev@vger.kernel.org>; Thu, 13 Nov 2014 09:45:24 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+From: Eric Dumazet <edumazet@google.com>
 
-iQIcBAABCgAGBQJUZOWQAAoJEOVv75VaS+3O3uMP/1a2Lb2lIVsEZL0O8SstPVkf
-yBFd0Dr8kBIqy+fvnuZEO3BAhrXK7dxkL56PXTOQ+bbt+ObSzJFPSi82F/FpDmT0
-Zwnjq2nluRLugTdwd73OL96YL7NB5iBZe8SviSXCiiRnAjFHuXJz3NLEEYn/Vvwx
-trlTRnu/JSmttRLBxXXwHy/2GlOHaFtGKQ3vc0JYW5fooTsgWn7pe7/SIQ8EeWK7
-S8FvMFsEOylF+HELrXc6vqjWFOl42j+rsP+adFNS6c8YyIsq4OIwzCWec1By9CT0
-oMpaH0b4d5KHhjagd964a9YHvzf3g64sLvBSDREE7EM/Xa+Bjtdotmo6iLFfXuTe
-jrwdqF00AlGk1EW2HJ+8qr0abqQiacpES9d6sdf61iFAMT/3yBkNlY4ipRfpbQg0
-Gncr2sL5t86kvUbnjKxrcvd8tNXTL79gM13bI0Vu9sVxmkpLl4vseTXMSGQF0NRp
-F9dUU1vka1wUi3/cxiW3FUj/P4hKgmI3EqhzZuVraePSaazX8/dX+mbU75rfIGrT
-ln+ITBXzjv/0WBJWESkcb35+Y/jXSz9+0Sco/rlcvP1+v/kF55W/5fxE1pXYtMSB
-4wL5oNlYrATcwI6LpI+01C8tY9tsSW61aVdinzUCTRm+vI4xTXrLz5qvA9IeuqKc
-ePVfxWcyR9xmAnt72t7R
-=5iKA
------END PGP SIGNATURE-----
+In DC world, GSO packets initially cooked by tcp_sendmsg() are usually
+big, as sk_pacing_rate is high.
 
---=-ztw/TBEd1Vw4sQECYlTr--
+When network is congested, cwnd can be smaller than the GSO packets
+found in socket write queue. tcp_write_xmit() splits GSO packets
+using the available cwnd, and we end up sending a single GSO packet,
+consuming all available cwnd.
+
+With GRO aggregation on the receiver, we might handle a single GRO
+packet, sending back a single ACK.
+
+1) This single ACK might be lost
+   TLP or RTO are forced to attempt a retransmit.
+2) This ACK releases a full cwnd, sender sends another big GSO packet,
+   in a ping pong mode.
+
+This behavior does not fill the pipes in the best way, because of
+scheduling artifacts.
+
+Make sure we always have at least two GSO packets in flight.
+
+This allows us to safely increase GRO efficiency without risking
+spurious retransmits.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/ipv4/tcp_output.c |   12 ++++++++----
+ 1 file changed, 8 insertions(+), 4 deletions(-)
+
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 0b88158dd4a70d5007e79f0d8251fee2f7c6c7f8..eb73a1dccf56b823a45c0ca034e40dc50fc48068 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -1562,7 +1562,7 @@ static unsigned int tcp_mss_split_point(const struct sock *sk,
+ static inline unsigned int tcp_cwnd_test(const struct tcp_sock *tp,
+ 					 const struct sk_buff *skb)
+ {
+-	u32 in_flight, cwnd;
++	u32 in_flight, cwnd, halfcwnd;
+ 
+ 	/* Don't be strict about the congestion window for the final FIN.  */
+ 	if ((TCP_SKB_CB(skb)->tcp_flags & TCPHDR_FIN) &&
+@@ -1571,10 +1571,14 @@ static inline unsigned int tcp_cwnd_test(const struct tcp_sock *tp,
+ 
+ 	in_flight = tcp_packets_in_flight(tp);
+ 	cwnd = tp->snd_cwnd;
+-	if (in_flight < cwnd)
+-		return (cwnd - in_flight);
++	if (in_flight >= cwnd)
++		return 0;
+ 
+-	return 0;
++	/* For better scheduling, ensure we have at least
++	 * 2 GSO packets in flight.
++	 */
++	halfcwnd = max(cwnd >> 1, 1U);
++	return min(halfcwnd, cwnd - in_flight);
+ }
+ 
+ /* Initialize TSO state of a skb.
