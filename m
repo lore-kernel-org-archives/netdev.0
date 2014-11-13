@@ -1,41 +1,31 @@
-From: Andrey Ryabinin <a.ryabinin@samsung.com>
-Subject: [BUG] index is out of range for nfnl_group2type[]
-Date: Thu, 13 Nov 2014 12:00:43 +0300
-Message-ID: <5464733B.5060505@samsung.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [PATCH 0/2] xfrm: Do not hash socket policies
+Date: Thu, 13 Nov 2014 17:00:49 +0800
+Message-ID: <20141113090048.GA3120@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-kernel@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.apana.org.au ([209.40.204.226]:54677 "EHLO
+	helcar.apana.org.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932065AbaKMJA6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Nov 2014 04:00:58 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-FYI I've spotted this:
+Hi Steffen:
 
-[  180.202810] ================================================================================
-[  180.203600] UBSan: Undefined behaviour in ../net/netfilter/nfnetlink.c:467:28
-[  180.204249] index 9 is out of range for type 'int [9]'
-[  180.204697] CPU: 0 PID: 1771 Comm: trinity-main Not tainted 3.18.0-rc4-mm1+ #122
-[  180.205365] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS rel-1.7.5-0-ge51488c-20140602_164612-nilsson.home.kraxel.org 04/01/2014
-[  180.206498]  0000000000000018 0000000000000000 0000000000000009 ffff88007bdf7da8
-[  180.207220]  ffffffff82b0ef5f 0000000000000092 ffffffff845ae2e0 ffff88007bdf7db8
-[  180.207887]  ffffffff8199e489 ffff88007bdf7e18 ffffffff8199ea22 0000003900000000
-[  180.208639] Call Trace:
-[  180.208857] dump_stack (lib/dump_stack.c:52)
-[  180.209370] ubsan_epilogue (lib/ubsan.c:174)
-[  180.209849] __ubsan_handle_out_of_bounds (lib/ubsan.c:400)
-[  180.210512] nfnetlink_bind (net/netfilter/nfnetlink.c:467)
-[  180.210986] netlink_bind (net/netlink/af_netlink.c:1483)
-[  180.211495] SYSC_bind (net/socket.c:1541)
-[  180.211940] ? security_socket_setsockopt (security/security.c:1208)
-[  180.212541] ? SyS_setsockopt (net/socket.c:1920 net/socket.c:1900)
-[  180.213057] ? SyS_write (fs/read_write.c:276 fs/read_write.c:588 fs/read_write.c:577)
-[  180.213506] SyS_bind (net/socket.c:1527)
-[  180.213919] system_call_fastpath (arch/x86/kernel/entry_64.S:423)
-[  180.214479] ================================================================================
+I'm working on converting the xfrm policy hashing over to RCU
+due to performance complaints.  While doing this I noticed that
+we're needlessly hashing socket policies.
+
+Here are two patches to get rid of that and slightly clean things
+up.
+
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
