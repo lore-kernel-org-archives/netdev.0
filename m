@@ -1,8 +1,7 @@
 From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [PATCH 2/3] r8169: Use load_acquire() and store_release() to reduce
- memory barrier overhead
-Date: Thu, 13 Nov 2014 11:27:35 -0800
-Message-ID: <20141113192735.12579.22892.stgit@ahduyck-server>
+Subject: [PATCH 3/3] fm10k/igb/ixgbe: Use load_acquire on Rx descriptor
+Date: Thu, 13 Nov 2014 11:27:47 -0800
+Message-ID: <20141113192746.12579.91054.stgit@ahduyck-server>
 References: <20141113191250.12579.19694.stgit@ahduyck-server>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -19,107 +18,99 @@ Cc: mikey@neuling.org, tony.luck@intel.com,
 	mingo@kernel.org
 To: linux-arch@vger.kernel.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45345 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933528AbaKMT2p (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Nov 2014 14:28:45 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20141113191250.12579.19694.stgit@ahduyck-server>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The r8169 use a pair of wmb() calls when setting up the descriptor rings.
-The first is to synchronize the descriptor data with the descriptor status,
-and the second is to synchronize the descriptor status with the use of the
-MMIO doorbell to notify the device that descriptors are ready.  This can come
-at a heavy price on some systems, and is not really necessary on systems such
-as x86 as a simple barrier() would suffice to order store/store accesses.
+This change makes it so that load_acquire is used when reading the Rx
+descriptor.  The advantage of load_acquire is that it allows for a much
+lower cost barrier on x86, ia64, powerpc, arm64, and s390 architectures
+than a traditional memory barrier when dealing with reads that only have
+to synchronize to system memory.
 
-In addition the r8169 uses a rmb() however I believe it is placed incorrectly
-as I assume it supposed to be ordering descriptor reads after the check for
-ownership.  As such I believe this is actually an acquire access pattern so
-I have updated the code and removed the barrier using a load_acquire() call.
+In addition I have updated the code so that it just checks to see if any
+bits have been set instead of just the DD bit since the DD bit will always
+be set as a part of a descriptor write-back so we just need to check for a
+non-zero value being present at that memory location rather than just
+checking for any specific bit.  This allows the code itself to appear much
+cleaner and allows the compiler more room to optimize.
 
-Cc: Realtek linux nic maintainers <nic_swsd@realtek.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Matthew Vick <matthew.vick@intel.com>
+Cc: Don Skidmore <donald.c.skidmore@intel.com>
 Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
 ---
- drivers/net/ethernet/realtek/r8169.c |   23 +++++++++--------------
- 1 file changed, 9 insertions(+), 14 deletions(-)
+ drivers/net/ethernet/intel/fm10k/fm10k_main.c |    8 +++-----
+ drivers/net/ethernet/intel/igb/igb_main.c     |    8 +++-----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   11 ++++-------
+ 3 files changed, 10 insertions(+), 17 deletions(-)
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index cf154f7..42b4645 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -6601,14 +6601,13 @@ static inline void rtl8169_mark_to_asic(struct RxDesc *desc, u32 rx_buf_sz)
- {
- 	u32 eor = le32_to_cpu(desc->opts1) & RingEnd;
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_main.c b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
+index e645af4..2d4923c 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_main.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
+@@ -620,14 +620,12 @@ static bool fm10k_clean_rx_irq(struct fm10k_q_vector *q_vector,
  
--	desc->opts1 = cpu_to_le32(DescOwn | eor | rx_buf_sz);
-+	store_release(&desc->opts1, cpu_to_le32(DescOwn | eor | rx_buf_sz));
- }
+ 		rx_desc = FM10K_RX_DESC(rx_ring, rx_ring->next_to_clean);
  
- static inline void rtl8169_map_to_asic(struct RxDesc *desc, dma_addr_t mapping,
- 				       u32 rx_buf_sz)
- {
- 	desc->addr = cpu_to_le64(mapping);
--	wmb();
- 	rtl8169_mark_to_asic(desc, rx_buf_sz);
- }
- 
-@@ -7077,11 +7076,9 @@ static netdev_tx_t rtl8169_start_xmit(struct sk_buff *skb,
- 
- 	skb_tx_timestamp(skb);
- 
--	wmb();
+-		if (!fm10k_test_staterr(rx_desc, FM10K_RXD_STATUS_DD))
+-			break;
 -
- 	/* Anti gcc 2.95.3 bugware (sic) */
- 	status = opts[0] | len | (RingEnd * !((entry + 1) % NUM_TX_DESC));
--	txd->opts1 = cpu_to_le32(status);
-+	store_release(&txd->opts1, cpu_to_le32(status));
- 
- 	tp->cur_tx += frags + 1;
- 
-@@ -7183,16 +7180,15 @@ static void rtl_tx(struct net_device *dev, struct rtl8169_private *tp)
- 	while (tx_left > 0) {
- 		unsigned int entry = dirty_tx % NUM_TX_DESC;
- 		struct ring_info *tx_skb = tp->tx_skb + entry;
--		u32 status;
-+		__le32 status;
- 
+ 		/* This memory barrier is needed to keep us from reading
+ 		 * any other fields out of the rx_desc until we know the
+-		 * RXD_STATUS_DD bit is set
++		 * descriptor has been written back
+ 		 */
 -		rmb();
--		status = le32_to_cpu(tp->TxDescArray[entry].opts1);
--		if (status & DescOwn)
-+		status = load_acquire(&tp->TxDescArray[entry].opts1);
-+		if (status & cpu_to_le32(DescOwn))
- 			break;
++		if (!load_acquire(&rx_desc->d.staterr))
++			break;
  
- 		rtl8169_unmap_tx_skb(&tp->pci_dev->dev, tx_skb,
- 				     tp->TxDescArray + entry);
--		if (status & LastFrag) {
-+		if (status & cpu_to_le32(LastFrag)) {
- 			pkts_compl++;
- 			bytes_compl += tx_skb->skb->len;
- 			dev_kfree_skb_any(tx_skb->skb);
-@@ -7284,11 +7280,11 @@ static int rtl_rx(struct net_device *dev, struct rtl8169_private *tp, u32 budget
- 		struct RxDesc *desc = tp->RxDescArray + entry;
- 		u32 status;
+ 		/* retrieve a buffer from the ring */
+ 		skb = fm10k_fetch_rx_buffer(rx_ring, rx_desc, skb);
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index a2d72a8..a55cd54 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -6918,14 +6918,12 @@ static bool igb_clean_rx_irq(struct igb_q_vector *q_vector, const int budget)
  
--		rmb();
--		status = le32_to_cpu(desc->opts1) & tp->opts1_mask;
+ 		rx_desc = IGB_RX_DESC(rx_ring, rx_ring->next_to_clean);
+ 
+-		if (!igb_test_staterr(rx_desc, E1000_RXD_STAT_DD))
+-			break;
 -
-+		status = cpu_to_le32(load_acquire(&desc->opts1));
- 		if (status & DescOwn)
- 			break;
-+
-+		status &= tp->opts1_mask;
- 		if (unlikely(status & RxRES)) {
- 			netif_info(tp, rx_err, dev, "Rx ERROR. status = %08x\n",
- 				   status);
-@@ -7350,7 +7346,6 @@ process_pkt:
- 		}
- release_descriptor:
- 		desc->opts2 = 0;
--		wmb();
- 		rtl8169_mark_to_asic(desc, rx_buf_sz);
- 	}
+ 		/* This memory barrier is needed to keep us from reading
+ 		 * any other fields out of the rx_desc until we know the
+-		 * RXD_STAT_DD bit is set
++		 * descriptor has been written back
+ 		 */
+-		rmb();
++		if (!load_acquire(&rx_desc->wb.upper.status_error))
++			break;
  
+ 		/* retrieve a buffer from the ring */
+ 		skb = igb_fetch_rx_buffer(rx_ring, rx_desc, skb);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index d2df4e3..007f174 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -2003,15 +2003,12 @@ static int ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
+ 
+ 		rx_desc = IXGBE_RX_DESC(rx_ring, rx_ring->next_to_clean);
+ 
+-		if (!ixgbe_test_staterr(rx_desc, IXGBE_RXD_STAT_DD))
+-			break;
+-
+-		/*
+-		 * This memory barrier is needed to keep us from reading
++		/* This memory barrier is needed to keep us from reading
+ 		 * any other fields out of the rx_desc until we know the
+-		 * RXD_STAT_DD bit is set
++		 * descriptor has been written back
+ 		 */
+-		rmb();
++		if (!load_acquire(&rx_desc->wb.upper.status_error))
++			break;
+ 
+ 		/* retrieve a buffer from the ring */
+ 		skb = ixgbe_fetch_rx_buffer(rx_ring, rx_desc);
