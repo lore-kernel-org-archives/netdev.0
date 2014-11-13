@@ -1,98 +1,93 @@
-From: "Ronald" <ronathwala@outlook.com>
-Subject: Partnership Proposal
-Date: Thu, 13 Nov 2014 21:55:29 +1300 (NZDT)
-Message-ID: <64881.88.150.172.108.1415868929.squirrel@mail.orcon.net.nz>
-Reply-To: ronthwala@admin.in.th
+From: =?windows-1252?Q?J=F6rg_Marx?= <joerg.marx@secunet.com>
+Subject: Re: [PATCH nf] netfilter: conntrack: fix race in __nf_conntrack_confirm
+ against get_next_corpse
+Date: Thu, 13 Nov 2014 15:33:59 +0100
+Message-ID: <5464C157.7020901@secunet.com>
+References: <012601cff7d1$7ce2d620$76a88260$@gmail.com> <20141106133648.2534.1403.stgit@dragon> <20141110165439.GA7788@salvia> <20141112083500.5404e5f4@redhat.com> <54633D1B.5090404@secunet.com> <20141113120826.GA8224@salvia>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;boundary="----=_20141113215529_65717"
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.orcon.net.nz ([219.88.242.56]:44151 "EHLO
-	mail.orcon.net.nz" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S933074AbaKMOF5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Nov 2014 09:05:57 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+	<programme110@gmail.com>, <netfilter-devel@vger.kernel.org>,
+	Florian Westphal <fw@strlen.de>, <netdev@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20141113120826.GA8224@salvia>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-------=_20141113215529_65717
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: 8bit
+On 13.11.2014 13:08, Pablo Neira Ayuso wrote:
 
-Partnership Proposal: Please read attachment for details. If you are
-interested, reply me through this email: ronthwala@admin.in.th
-My regards,
-Mr. Ronald Thwala.
+>> For me there is little difference in choosing DROP or ACCEPT as verd=
+ict.
+>> > The packet/skb belongs to a formerly allowed connection, most like=
+ly
+>> > this connection is still allowed (but the conntrack hash entry is =
+about
+>> > to be removed due to userspace is flushing the conntrack table).
+> __nf_conntrack_confirm() is only called for the first packet that we
+> see in a flow. If you just invoked the flush command once (which
+> should be the common case), then this is likely to be the first packe=
+t
+> of the flow (unless you already called flush anytime soon in the
+> past).
+Yes, you are right. As far as I remember it was very hard to trigger
+that critical moment, when the first packet triggered the insertion int=
+o
+the hash table. But the test and production systems showed this strange
+behaviour, that no traffic was allowed to flow for exactly 600 seconds.
 
-------=_20141113215529_65717
-Content-Type: application/pdf; name="RONALD.pdf"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="RONALD.pdf"
+>=20
+>> > To minimize the impact (lost packets -> retransmit) I decided to a=
+llow
+>> > the skb in flight, so were is no lost packet at this place.
+> I understand your original motivation was to be conservative.
+Yes.
 
-JVBERi0xLjMKJeLjz9MKMiAwIG9iago8PAovUHJvZHVjZXIgKEJDTCBBTExQREYgQ29udmVydGVy
-IDMuMTEuNjIpCj4+CmVuZG9iagoKNyAwIG9iagpbCjc3OCAgNzc4ICA3NzggIDc3OCAgNzc4ICA3
-NzggIDc3OCAgNzc4ICA3NzggIDc3OCAgNzc4ICA3NzggIDc3OCAgNzc4ICA3NzggIDc3OCAKNzc4
-ICA3NzggIDc3OCAgNzc4ICA3NzggIDc3OCAgNzc4ICA3NzggIDc3OCAgNzc4ICA3NzggIDc3OCAg
-Nzc4ICA3NzggIDc3OCAgNzc4IAoyNTAgIDMzMyAgNDA4ICA1MDAgIDUwMCAgODMzICA3NzggIDE4
-MCAgMzMzICAzMzMgIDUwMCAgNTY0ICAyNTAgIDMzMyAgMjUwICAyNzggCjUwMCAgNTAwICA1MDAg
-IDUwMCAgNTAwICA1MDAgIDUwMCAgNTAwICA1MDAgIDUwMCAgMjc4ICAyNzggIDU2NCAgNTY0ICA1
-NjQgIDQ0NCAKOTIxICA3MjIgIDY2NyAgNjY3ICA3MjIgIDYxMSAgNTU2ICA3MjIgIDcyMiAgMzMz
-ICAzODkgIDcyMiAgNjExICA4ODkgIDcyMiAgNzIyIAo1NTYgIDcyMiAgNjY3ICA1NTYgIDYxMSAg
-NzIyICA3MjIgIDk0NCAgNzIyICA3MjIgIDYxMSAgMzMzICAyNzggIDMzMyAgNDY5ICA1MDAgCjMz
-MyAgNDQ0ICA1MDAgIDQ0NCAgNTAwICA0NDQgIDMzMyAgNTAwICA1MDAgIDI3OCAgMjc4ICA1MDAg
-IDI3OCAgNzc4ICA1MDAgIDUwMCAKNTAwICA1MDAgIDMzMyAgMzg5ICAyNzggIDUwMCAgNTAwICA3
-MjIgIDUwMCAgNTAwICA0NDQgIDQ4MCAgMjAwICA0ODAgIDU0MSAgNzc4IAo1MDAgIDc3OCAgMzMz
-ICA1MDAgIDQ0NCAgMTAwMCAgNTAwICA1MDAgIDMzMyAgMTAwMCAgNTU2ICAzMzMgIDg4OSAgNzc4
-ICA2MTEgIDc3OCAKNzc4ICAzMzMgIDMzMyAgNDQ0ICA0NDQgIDM1MCAgNTAwICAxMDAwICAzMzMg
-IDk4MCAgMzg5ICAzMzMgIDcyMiAgNzc4ICA0NDQgIDcyMiAKMjUwICAzMzMgIDUwMCAgNTAwICA1
-MDAgIDUwMCAgMjAwICA1MDAgIDMzMyAgNzYwICAyNzYgIDUwMCAgNTY0ICAzMzMgIDc2MCAgNTAw
-IAo0MDAgIDU0OSAgMzAwICAzMDAgIDMzMyAgNTc2ICA0NTMgIDMzMyAgMzMzICAzMDAgIDMxMCAg
-NTAwICA3NTAgIDc1MCAgNzUwICA0NDQgCjcyMiAgNzIyICA3MjIgIDcyMiAgNzIyICA3MjIgIDg4
-OSAgNjY3ICA2MTEgIDYxMSAgNjExICA2MTEgIDMzMyAgMzMzICAzMzMgIDMzMyAKNzIyICA3MjIg
-IDcyMiAgNzIyICA3MjIgIDcyMiAgNzIyICA1NjQgIDcyMiAgNzIyICA3MjIgIDcyMiAgNzIyICA3
-MjIgIDU1NiAgNTAwIAo0NDQgIDQ0NCAgNDQ0ICA0NDQgIDQ0NCAgNDQ0ICA2NjcgIDQ0NCAgNDQ0
-ICA0NDQgIDQ0NCAgNDQ0ICAyNzggIDI3OCAgMjc4ICAyNzggCjUwMCAgNTAwICA1MDAgIDUwMCAg
-NTAwICA1MDAgIDUwMCAgNTQ5ICA1MDAgIDUwMCAgNTAwICA1MDAgIDUwMCAgNTAwICA1MDAgIDUw
-MCAKXQplbmRvYmoKCjEgMCBvYmoKPDwKL0NvdW50IDAKPj4KZW5kb2JqCgozIDAgb2JqCjw8Ci9U
-eXBlIC9DYXRhbG9nCi9QYWdlcyA0IDAgUgovT3V0bGluZXMgMSAwIFIKPj4KZW5kb2JqCgo5IDAg
-b2JqCjw8Ci9MZW5ndGggMTI5MgovRmlsdGVyIC9GbGF0ZURlY29kZQo+PgpzdHJlYW0KeNqNVktv
-4zYQvudXzKEHCdioluQ4m176AFo0RXNp3EPR7YEWKYuwRAokVa//fech2c6uAxQLLBSZIr/XzPCn
-7d23v5QPUMK2vSvLYlU/lbDCf8vzYwWP5aooN7Ad7v7OfjV97/Nqk33I/4Htb3cruC+Lutrg9xp/
-fgY15FWVQX5fV9mQ1x8zdbBuD6mzefWYRRhVfl89ZCE5k9d1FmJnRxgDv8SNy2zk/6PqIXncplpn
-J34zgXUQE63cZLYhDAka7/L6MWutNq4xefWUFfRN+QWQI60ONhGS1iODIz7xz4SmzhwdAH4cfUiT
-s7RP4nNO/MM11dV6LVQRzYA/1/hd29rGIEXaUSUC8FGOtH0PO+aAZFe0EuwwGPrKxav3O0ZpUJL1
-Cskkor7zqcMPSDUhMcVC9HjOcf8ZOUs8P8NAi5VTe0MPAVhU63gJb+HdGUfqDPSGQOLH9TrTpM1O
-uUNeb9AmZHfTYKRMuzV8oPjCerOCKZzg1U+I+8eW/g62IWTV2RTHyPFoMg124rpyTcfirc/iPSMV
-xMRU9EWBZ9CW3ot0jf+X9cJdEDKuI2bXfsozctLIG39+yqBXgZHsRYeI4OuHWUQUZcCFSLB6x/JP
-2Z+U2ddvyrpYvzAzdNh6gu4+5SSaEqaaALA8gk4qwSVQTfOVarAzvXd7jiRSxeShOl4i6Qzh4oqb
-ZkNbTyrOrImG3TtoemscWZdicdO4lxO01qHLdMaeSwwCi21ERolBT3pvyCPxAuF1nBLwwe4pS+eV
-4I8U2HIJGiPmYF1VFtKdkLaNoNl0pQt45X0tFSyKz0nURnHa5eunJa50AC6ZDyCRruK+918V55nt
-AvoMghi+0bxTEXU3DrQnGR6vLHKaDBUIjg/ZeT13AnrX0SN+zqAaP9BJkqf2IkQ4qqCpjpueq9IO
-vIGY283LJ17vOC3n6gbVRw8cZxs55NQn5TS2hetn805GtWm4+lU0mkkeHMrIwXLmcyKND5RT0gRd
-lBgxAG7TnjsaWUK9AIJpfNDvROqVwvSUYet7xpMQ56XosO85Iw05Rqo5lE0UtK5lwefWpZL17iKt
-M0YzfC1qkXwkHfbiSxIX2fKl0OIHka5RDqGMwUSsBZ4PJz8BakB8OmOpshchvchY/R8Zd6a9qmXx
-bpHo+8uU+etNmY4cEyYt/UpmFs61UXoQ7zNPAa6rhkAGI2WHFYMc5jAllhWTPwYrttkko/FK84jB
-6c/YRDf663q4NkZPKA8ceTIhgvcKSC+jInXBT/tuaWxj8J9P1H+Wlt7CiaplHtFHP/Uaenswi388
-Ro+sTDjguVjmOAAfVm/7nMwTgSwTAl12Go3FRwfUuBpKpkqGPGWJ63m0yaRmtFcGxXSbmGqTCXCk
-UzvbdBwouSNIN4qdXFBIyvUymcWEjsYPCd1MUTI1eM2opCHybBI0lpMaQX2R1HP90znB8jzkZgyj
-XAGYRcMNSUKRcAQWmGpy7KqvjpjyhvJhVbqkCWzLkacZU839Dv24mXC+OtH+TRI10Zb1efxweMV5
-pjDPfW3x2ARmyNfVTNv2oLTm0rpSP34HwbvUHVWvflB6kFZRWFegjBiLYPY2Jk7JXC+n88ic3txc
-3rP3dk/63ftDztGgm1448q1CGvy5pSi5ZLDu3svr3RStM2hrMFxD2JdYPWlOUqWsCd5WKcTcJqWt
-Cebb9+GXUMAfuAfNVzRiy7y6ozQCNVP4eXv3Hyjj/ZAKZW5kc3RyZWFtCmVuZG9iagoKNiAwIG9i
-ago8PAovVHlwZSAvUGFnZQovUGFyZW50IDQgMCBSCi9NZWRpYUJveCBbIDAgMCA2MTIgNzkyIF0K
-L1Jlc291cmNlcyA8PAovRm9udCA1IDAgUgovUHJvY1NldCBbL1BERiAvVGV4dCAvSW1hZ2VCIC9J
-bWFnZUNdID4+Ci9Db250ZW50cyA5IDAgUgo+PgplbmRvYmoKCjQgMCBvYmoKPDwKL1R5cGUgL1Bh
-Z2VzCi9LaWRzIFsKNiAwIFIKXQovQ291bnQgMQo+PgplbmRvYmoKCjggMCBvYmoKPDwKL1R5cGUg
-L0ZvbnREZXNjcmlwdG9yCi9Bc2NlbnQgODkxCi9DYXBIZWlnaHQgNzg0Ci9EZXNjZW50IC0yMTYK
-L0ZsYWdzIDM0Ci9Gb250QkJveCBbMCAtMjE2IDI1NjggODkxXQovSXRhbGljQW5nbGUgMAovU3Rl
-bVYgMAovRm9udE5hbWUgL1RpbWVzTmV3Um9tYW5QU01UCj4+CmVuZG9iagoKNSAwIG9iago8PAov
-RjE1Cjw8Ci9UeXBlIC9Gb250Ci9TdWJ0eXBlIC9UcnVlVHlwZQovQmFzZUZvbnQgL1RpbWVzTmV3
-Um9tYW5QU01UCi9FbmNvZGluZyAvV2luQW5zaUVuY29kaW5nCi9GaXJzdENoYXIgMAovTGFzdENo
-YXIgMjU1Ci9Gb250RGVzY3JpcHRvciA4IDAgUgovV2lkdGhzIDcgMCBSCj4+Cj4+CmVuZG9iagoK
-eHJlZgowIDEwCjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMTM4MSAwMDAwMCBuIAowMDAwMDAw
-MDE1IDAwMDAwIG4gCjAwMDAwMDE0MTIgMDAwMDAgbiAKMDAwMDAwMzAwMSAwMDAwMCBuIAowMDAw
-MDAzMjM3IDAwMDAwIG4gCjAwMDAwMDI4NDQgMDAwMDAgbiAKMDAwMDAwMDA3OCAwMDAwMCBuIAow
-MDAwMDAzMDYxIDAwMDAwIG4gCjAwMDAwMDE0NzggMDAwMDAgbiAKdHJhaWxlcgo8PAovU2l6ZSAx
-MAovUm9vdCAzIDAgUgovSW5mbyAyIDAgUgovSURbPGYwNTJhYWIxNTI3OWE2ZTQ3ZDA4MGEyZjk1
-YWMxNjVmPjxmMDUyYWFiMTUyNzlhNmU0N2QwODBhMmY5NWFjMTY1Zj5dCj4+CnN0YXJ0eHJlZgoz
-NDIwCiUlRU9G
-------=_20141113215529_65717--
+>=20
+>> > When the connection is not allowed anymore (but was allowed up to =
+now,
+>> > because the hash entry exists), the impact is one last packet 'sli=
+pping
+>> > through'.
+=46eel free to change the verdict, IMHO it doesn't matter at all as lon=
+g
+as the hash table is in a consistent state. The higher protocol layers
+will deal with the missing packet.
+
+> The general policy in conntrack is to not drop packets, but in this
+> case we'll leave things in inconsistent state (ie. we will likely
+> receive a reply packet in response to the original packet that has no
+> conntrack yet).
+Under heavy load this can happen anyway I guess?
+
+Thanks and best regards
+J=F6rg
+
+--=20
+Dipl.-Inform.
+J=F6rg Marx
+Bereichsleiter
+Entwicklung Client- & Netzwerksicherheit
+Gesch=E4ftsbereich Public Sector
+secunet Security Networks AG
+Ammonstr. 74
+D-01067 Dresden, Germany=20
+Telefon +49 201 54 54-3517
+Telefax +49 201 54 54-1323
+joerg.marx@secunet.com
+www.secunet.com
+
+secunet Security Networks AG
+Kronprinzenstr. 30
+45128 Essen, Germany=20
+Amtsgericht Essen HRB 13615
+
+Vorstand: Dr. Rainer Baumgart (Vors.), Thomas Pleines
+Aufsichtsratsvorsitzender: Dr. Peter Zattler
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
