@@ -1,34 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: systemport: fix tx work done in TX napi
- poll
-Date: Wed, 12 Nov 2014 22:21:56 -0500 (EST)
-Message-ID: <20141112.222156.1637241639796486486.davem@davemloft.net>
-References: <1415835643-13767-1-git-send-email-f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next 2/2] r8152: adjust rtl_start_rx
+Date: Wed, 12 Nov 2014 22:31:46 -0500 (EST)
+Message-ID: <20141112.223146.2221136950144767962.davem@davemloft.net>
+References: <0835B3720019904CB8F7AA43166CEEB2ECE46C@RTITMBSV03.realtek.com.tw>
+	<20141112.144949.645590790916569141.davem@davemloft.net>
+	<0835B3720019904CB8F7AA43166CEEB2ECE8EF@RTITMBSV03.realtek.com.tw>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com
-To: f.fainelli@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49890 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753561AbaKMDV6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2014 22:21:58 -0500
-In-Reply-To: <1415835643-13767-1-git-send-email-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
+	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
+To: hayeswang@realtek.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <0835B3720019904CB8F7AA43166CEEB2ECE8EF@RTITMBSV03.realtek.com.tw>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Wed, 12 Nov 2014 15:40:43 -0800
+From: Hayes Wang <hayeswang@realtek.com>
+Date: Thu, 13 Nov 2014 02:31:14 +0000
 
-> With commit d75b1ade567 ("net: less interrupt masking in NAPI") napi
-> repoll is done only when work_done == budget. bcm_sysport_tx_poll()
-> always returns 0 whether or not we completed the poll quantum.
+> My last method which I mentioned yesterday is similar to
+> this one. The difference is that I would re-use the rx
+> buffers, so I have to add them to the list for re-submitting,
+> not alwayes allocate new one.
 > 
-> Fix this by returning either 0 when we did complete the TX ring reclaim,
-> or budget to trigger a repoll.
+> Although one rx buffer could contain many packets, I don't
+> think the whole size of the rx buffer is alwayes used.
+> Therefore, I re-use the rx buffers to avoid allocating
+> the 16K bytes rx buffer alwayes. This also makes sure that
+> I always have the buffers to submit without allocating new
+> one.
 > 
-> Fixes: d75b1ade567 ("net: less interrupt masking in NAPI")
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> If you could accept this, I would modify this patch by
+> this way.
 
-Applied, thanks.
+I'll reread your original patch and think some more about this.
+
+Thanks.
