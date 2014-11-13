@@ -1,55 +1,51 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 1/4] netlink: Move mutex_is_held under PROVE_LOCKING
-Date: Thu, 13 Nov 2014 18:11:18 +0800
-Message-ID: <E1XorN0-0000yw-5z@gondolin.me.apana.org.au>
+Subject: [PATCH 2/4] netfilter: Move mutex_is_held under PROVE_LOCKING
+Date: Thu, 13 Nov 2014 18:11:19 +0800
+Message-ID: <E1XorN1-0000zF-Fd@gondolin.me.apana.org.au>
 References: <20141113101025.GA3728@gondor.apana.org.au>
 To: netdev@vger.kernel.org, Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:56283 "EHLO
+Received: from helcar.apana.org.au ([209.40.204.226]:58499 "EHLO
 	helcar.apana.org.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932174AbaKMKLV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Nov 2014 05:11:21 -0500
+	with ESMTP id S932218AbaKMKLW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Nov 2014 05:11:22 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 The rhashtable function mutex_is_held is only used when PROVE_LOCKING
-is enabled.  This patch modifies netlink so that we can rhashtable.h
+is enabled.  This patch modifies netfilter so that we can rhashtable.h
 itself can later make mutex_is_held optional depending on PROVE_LOCKING.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- net/netlink/af_netlink.c |    6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+ net/netfilter/nft_hash.c |    4 ++++
+ 1 file changed, 4 insertions(+)
 
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 580b794..53b8ea7 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -114,14 +114,14 @@ static atomic_t nl_table_users = ATOMIC_INIT(0);
- DEFINE_MUTEX(nl_sk_hash_lock);
- EXPORT_SYMBOL_GPL(nl_sk_hash_lock);
+diff --git a/net/netfilter/nft_hash.c b/net/netfilter/nft_hash.c
+index 8892b7b..b86305c 100644
+--- a/net/netfilter/nft_hash.c
++++ b/net/netfilter/nft_hash.c
+@@ -153,10 +153,12 @@ static unsigned int nft_hash_privsize(const struct nlattr * const nla[])
+ 	return sizeof(struct rhashtable);
+ }
  
 +#ifdef CONFIG_PROVE_LOCKING
- static int lockdep_nl_sk_hash_is_held(void)
+ static int lockdep_nfnl_lock_is_held(void)
  {
--#ifdef CONFIG_LOCKDEP
- 	if (debug_locks)
- 		return lockdep_is_held(&nl_sk_hash_lock) || lockdep_is_held(&nl_table_lock);
--#endif
- 	return 1;
+ 	return lockdep_nfnl_is_held(NFNL_SUBSYS_NFTABLES);
  }
 +#endif
  
- static ATOMIC_NOTIFIER_HEAD(netlink_chain);
- 
-@@ -3133,7 +3133,9 @@ static int __init netlink_proto_init(void)
- 		.max_shift = 16, /* 64K */
+ static int nft_hash_init(const struct nft_set *set,
+ 			 const struct nft_set_desc *desc,
+@@ -171,7 +173,9 @@ static int nft_hash_init(const struct nft_set *set,
+ 		.hashfn = jhash,
  		.grow_decision = rht_grow_above_75,
  		.shrink_decision = rht_shrink_below_30,
 +#ifdef CONFIG_PROVE_LOCKING
- 		.mutex_is_held = lockdep_nl_sk_hash_is_held,
+ 		.mutex_is_held = lockdep_nfnl_lock_is_held,
 +#endif
  	};
  
- 	if (err != 0)
+ 	return rhashtable_init(priv, &params);
