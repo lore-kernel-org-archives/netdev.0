@@ -1,49 +1,110 @@
-From: Yoshihiro Kaneko <ykaneko0929@gmail.com>
-Subject: [PATCH] net: sh_eth: Add RMII mode setting in probe
-Date: Thu, 13 Nov 2014 15:54:05 +0900
-Message-ID: <1415861645-27685-1-git-send-email-ykaneko0929@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Simon Horman <horms@verge.net.au>,
-	Magnus Damm <magnus.damm@gmail.com>, linux-sh@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
-Sender: linux-sh-owner@vger.kernel.org
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: [PATCH net-next v2] net: generic dev_disable_lro() stacked device
+ handling
+Date: Thu, 13 Nov 2014 07:54:50 +0100 (CET)
+Message-ID: <20141113065450.1645FA0BEF@unicorn.suse.cz>
+References: <20141111.214752.266800170368088905.davem@davemloft.net>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Jay Vosburgh <j.vosburgh@gmail.com>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Jiri Pirko <jiri@resnulli.us>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141111.214752.266800170368088905.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Hisashi Nakamura <hisashi.nakamura.ak@renesas.com>
+Large receive offloading is known to cause problems if received packets
+are passed to other host. Therefore the kernel disables it by calling
+dev_disable_lro() whenever a network device is enslaved in a bridge or
+forwarding is enabled for it (or globally). For virtual devices we need
+to disable LRO on the underlying physical device (which is actually
+receiving the packets).
 
-When using RMMI mode, it is necessary to change in probe.
+Current dev_disable_lro() code handles this  propagation for a vlan
+(including 802.1ad nested vlan), macvlan or a vlan on top of a macvlan.
+It doesn't handle other stacked devices and their combinations, in
+particular propagation from a bond to its slaves which often causes
+problems in virtualization setups.
 
-Signed-off-by: Hisashi Nakamura <hisashi.nakamura.ak@renesas.com>
-Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+As we now have generic data structures describing the upper-lower device
+relationship, dev_disable_lro() can be generalized to disable LRO also
+for all lower devices (if any) once it is disabled for the device
+itself.
+
+For bonding and teaming devices, it is necessary to disable LRO not only
+on current slaves at the moment when dev_disable_lro() is called but
+also on any slave (port) added later.
+
+v2: use lower device links for all devices (including vlan and macvlan)
+
+Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
 ---
+ drivers/net/bonding/bond_main.c |  3 +++
+ drivers/net/team/team.c         |  3 +++
+ net/core/dev.c                  | 15 +++++----------
+ 3 files changed, 11 insertions(+), 10 deletions(-)
 
-This patch is based on net-next tree.
-
- drivers/net/ethernet/renesas/sh_eth.c | 4 ++++
- 1 file changed, 4 insertions(+)
-
-diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index dbe8606..1f79ed6 100644
---- a/drivers/net/ethernet/renesas/sh_eth.c
-+++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -1,5 +1,6 @@
- /*  SuperH Ethernet device driver
-  *
-+ *  Copyright (C) 2014  Renesas Electronics Corporation
-  *  Copyright (C) 2006-2012 Nobuhiro Iwamatsu
-  *  Copyright (C) 2008-2014 Renesas Solutions Corp.
-  *  Copyright (C) 2013-2014 Cogent Embedded, Inc.
-@@ -2883,6 +2884,9 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
- 		}
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index b9b3456..8575fee 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1526,6 +1526,9 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 	}
+ #endif
+ 
++	if (!(bond_dev->features & NETIF_F_LRO))
++		dev_disable_lro(slave_dev);
++
+ 	res = netdev_rx_handler_register(slave_dev, bond_handle_frame,
+ 					 new_slave);
+ 	if (res) {
+diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+index 2368395..93e2242 100644
+--- a/drivers/net/team/team.c
++++ b/drivers/net/team/team.c
+@@ -1179,6 +1179,9 @@ static int team_port_add(struct team *team, struct net_device *port_dev)
+ 		goto err_enable_netpoll;
  	}
  
-+	if (mdp->cd->rmiimode)
-+		sh_eth_write(ndev, 0x1, RMIIMODE);
++	if (!(dev->features & NETIF_F_LRO))
++		dev_disable_lro(port_dev);
 +
- 	/* MDIO bus init */
- 	ret = sh_mdio_init(mdp, pd);
- 	if (ret) {
+ 	err = netdev_rx_handler_register(port_dev, team_handle_frame,
+ 					 port);
+ 	if (err) {
+diff --git a/net/core/dev.c b/net/core/dev.c
+index bb09b03..1ab168e 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1437,22 +1437,17 @@ EXPORT_SYMBOL(dev_close);
+  */
+ void dev_disable_lro(struct net_device *dev)
+ {
+-	/*
+-	 * If we're trying to disable lro on a vlan device
+-	 * use the underlying physical device instead
+-	 */
+-	if (is_vlan_dev(dev))
+-		dev = vlan_dev_real_dev(dev);
+-
+-	/* the same for macvlan devices */
+-	if (netif_is_macvlan(dev))
+-		dev = macvlan_dev_real_dev(dev);
++	struct net_device *lower_dev;
++	struct list_head *iter;
+ 
+ 	dev->wanted_features &= ~NETIF_F_LRO;
+ 	netdev_update_features(dev);
+ 
+ 	if (unlikely(dev->features & NETIF_F_LRO))
+ 		netdev_WARN(dev, "failed to disable LRO!\n");
++
++	netdev_for_each_lower_dev(dev, lower_dev, iter)
++		dev_disable_lro(lower_dev);
+ }
+ EXPORT_SYMBOL(dev_disable_lro);
+ 
 -- 
-1.9.1
-
+1.8.4.5
