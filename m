@@ -1,105 +1,42 @@
-From: Enric Balletbo i Serra <eballetbo@iseebcn.com>
-Subject: [PATCHv2] smsc911x: power-up phydev before doing a software reset.
-Date: Thu, 13 Nov 2014 09:14:34 +0100
-Message-ID: <1415866474-11626-1-git-send-email-eballetbo@iseebcn.com>
-Cc: javier@dowhile0.org, ebutera@gmail.com, davem@davemloft.net,
-	Enric Balletbo i Serra <eballetbo@iseebcn.com>
-To: netdev@vger.kernel.org,
-	Steve Glendinning <steve.glendinning@shawell.net>
+From: Javier Martinez Canillas <javier@dowhile0.org>
+Subject: Re: [PATCH] smsc911x: power-up phydev before doing a software reset.
+Date: Thu, 13 Nov 2014 09:27:39 +0100
+Message-ID: <CABxcv=n0u2dvRyFr_dWXQaJpEMa2-9ZWGMSDaTYVr907SjX8ew@mail.gmail.com>
+References: <1415643789-5367-1-git-send-email-eballetbo@iseebcn.com>
+	<20141111.183042.469456165241690341.davem@davemloft.net>
+	<CAFqH_50cpvdvCgD-=HQDZ1OT9vmzWkExNHzoASNaruSKLnJZBA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Steve Glendinning <steve.glendinning@shawell.net>,
+	Enrico Butera <ebutera@gmail.com>
+To: Enric Balletbo Serra <eballetbo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f179.google.com ([209.85.212.179]:55618 "EHLO
-	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751636AbaKMIOq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Nov 2014 03:14:46 -0500
-Received: by mail-wi0-f179.google.com with SMTP id ex7so99012wid.6
-        for <netdev@vger.kernel.org>; Thu, 13 Nov 2014 00:14:45 -0800 (PST)
+Received: from mail-wg0-f41.google.com ([74.125.82.41]:55978 "EHLO
+	mail-wg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751013AbaKMI1l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Nov 2014 03:27:41 -0500
+Received: by mail-wg0-f41.google.com with SMTP id l18so737728wgh.14
+        for <netdev@vger.kernel.org>; Thu, 13 Nov 2014 00:27:39 -0800 (PST)
+In-Reply-To: <CAFqH_50cpvdvCgD-=HQDZ1OT9vmzWkExNHzoASNaruSKLnJZBA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-With commit be9dad1f9f26604fb ("net: phy: suspend phydev when going
-to HALTED"), the PHY device will be put in a low-power mode using
-BMCR_PDOWN if the the interface is set down. The smsc911x driver does
-a software_reset opening the device driver (ndo_open). In such case,
-the PHY must be powered-up before access to any register and before
-calling the software_reset function. Otherwise, as the PHY is powered
-down the software reset fails and the interface can not be enabled
-again.
+Hello Enric,
 
-This patch fixes this scenario that is easy to reproduce setting down
-the network interface and setting up again.
+On Thu, Nov 13, 2014 at 8:57 AM, Enric Balletbo Serra
+<eballetbo@gmail.com> wrote:
+>
+> Yes, I'm agree. I'll send version 2 of the patch changing this. Also
+> there are other places that use the mdelay family intead of
+> usleep_range() and can only be invoked from process context. Maybe
+> would be interesting send another patch changing this.
+>
 
-    $ ifconfig eth0 down
-    $ ifconfig eth0 up
-    ifconfig: SIOCSIFFLAGS: Input/output error
+Agreed, that could be a separate patch though.
 
-Signed-off-by: Enric Balletbo i Serra <eballetbo@iseebcn.com>
----
- drivers/net/ethernet/smsc/smsc911x.c | 46 ++++++++++++++++++++++++++++++++++++
- 1 file changed, 46 insertions(+)
+Also there is a mdelay(100) before enabling energy detect mode in
+smsc911x_phy_enable_energy_detect() which I believe can be removed.
 
-diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
-index affb29d..dc76df9 100644
---- a/drivers/net/ethernet/smsc/smsc911x.c
-+++ b/drivers/net/ethernet/smsc/smsc911x.c
-@@ -1342,6 +1342,42 @@ static void smsc911x_rx_multicast_update_workaround(struct smsc911x_data *pdata)
- 	spin_unlock(&pdata->mac_lock);
- }
- 
-+static int smsc911x_phy_general_power_up(struct smsc911x_data *pdata)
-+{
-+	int rc = 0;
-+
-+	if (!pdata->phy_dev)
-+		return rc;
-+
-+	/* If the internal PHY is in General Power-Down mode, all, except the
-+	 * management interface, is powered-down and stays in that condition as
-+	 * long as Phy register bit 0.11 is HIGH.
-+	 *
-+	 * In that case, clear the bit 0.11, so the PHY powers up and we can
-+	 * access to the phy registers.
-+	 */
-+	rc = phy_read(pdata->phy_dev, MII_BMCR);
-+	if (rc < 0) {
-+		SMSC_WARN(pdata, drv, "Failed reading PHY control reg");
-+		return rc;
-+	}
-+
-+	/* If the PHY general power-down bit is not set is not necessary to
-+	 * disable the general power down-mode.
-+	 */
-+	if (rc & BMCR_PDOWN) {
-+		rc = phy_write(pdata->phy_dev, MII_BMCR, rc & ~BMCR_PDOWN);
-+		if (rc < 0) {
-+			SMSC_WARN(pdata, drv, "Failed writing PHY control reg");
-+			return rc;
-+		}
-+
-+		usleep_range(1000, 1500);
-+	}
-+
-+	return 0;
-+}
-+
- static int smsc911x_phy_disable_energy_detect(struct smsc911x_data *pdata)
- {
- 	int rc = 0;
-@@ -1415,6 +1451,16 @@ static int smsc911x_soft_reset(struct smsc911x_data *pdata)
- 	int ret;
- 
- 	/*
-+	 * Make sure to power-up the PHY chip before doing a reset, otherwise
-+	 * the reset fails.
-+	 */
-+	ret = smsc911x_phy_general_power_up(pdata);
-+	if (ret) {
-+		SMSC_WARN(pdata, drv, "Failed to power-up the PHY chip");
-+		return ret;
-+	}
-+
-+	/*
- 	 * LAN9210/LAN9211/LAN9220/LAN9221 chips have an internal PHY that
- 	 * are initialized in a Energy Detect Power-Down mode that prevents
- 	 * the MAC chip to be software reseted. So we have to wakeup the PHY
--- 
-1.9.1
+Best regards,
+Javier
