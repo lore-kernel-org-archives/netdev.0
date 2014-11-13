@@ -1,165 +1,54 @@
-From: Oliver Graute <oliver.graute@gmail.com>
-Subject: Re: Device Tree Binding for Marvell DSA Switch on imx28 board over
- Mdio Interface
-Date: Thu, 13 Nov 2014 16:15:08 +0100
-Message-ID: <CA+KjHfbwtwPFXFEVDDijRNeTcHcSn0BZ4_yGuwcgyFfubNFCQA@mail.gmail.com>
-References: <CA+KjHfYZdZ88ZFzFCPN-bGphh+mnSWy6i0WNzFYv=gOsafXA7g@mail.gmail.com>
-	<5463B2AC.6090904@gmail.com>
+From: Vincent Benayoun <vincent.benayoun@trust-in-soft.com>
+Subject: [PATCH] inetdevice: fixed signed integer overflow
+Date: Thu, 13 Nov 2014 15:04:57 +0000
+Message-ID: <1e488fa546724140b55c8d4bd6b5a9d6@S1688.EX1688.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f181.google.com ([209.85.223.181]:61067 "EHLO
-	mail-ie0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932730AbaKMPPJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Nov 2014 10:15:09 -0500
-Received: by mail-ie0-f181.google.com with SMTP id rp18so15878950iec.12
-        for <netdev@vger.kernel.org>; Thu, 13 Nov 2014 07:15:08 -0800 (PST)
-In-Reply-To: <5463B2AC.6090904@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "\"David S. Miller\"" <davem@davemloft.net>,
+	Jiri Pirko <jiri@resnulli.us>, Julian Anastasov <ja@ssi.bg>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Language: fr-FR
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello Florian,
+>From f25ff0f2645f9763552147d480f86973b7041e26 Mon Sep 17 00:00:00 2001
+From: Vincent BENAYOUN <vincent.benayoun@trust-in-soft.com>
+Date: Thu, 13 Nov 2014 13:47:26 +0100
+Subject: [PATCH] inetdevice: fixed signed integer overflow
 
-On Wed, Nov 12, 2014 at 8:19 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
-> On 11/12/2014 05:07 AM, Oliver Graute wrote:
->> Hello,
->>
->> how do I specify the DSA node and the MDIO node in the Device Tree
->> Binding to integrate a Marvell 88e6071 switch with a imx28 board?
->>
->> On my board the Marvell switch 88e6071 is connected via phy1 (on a
->> imx28 PCB) to phy5 on the Marvell switch (on a Switch PCB). All phys
->> are connected via the same MDIO Bus.
->>
->> I enabled the Marvell DSA Support Driver, Gianfar Ethernet Driver and
->> Freescale PQ MDIO Driver in the Kernel (I' am not sure if this is the
->> right choice for imx28 fec ethernet controller is it?)
->>
+There could be a signed overflow in the following code.
 
-I changed my DeviceTree according to your proposal. Now I got a ENODEV 19
-in dsa_of_probe. Because  of_find_device_by_node(ethernet) is returning 0.
-Is my ethernet setting still wrong?
-
-dsa@0 {
-        compatible = "marvell,dsa";
-        #address-cells = <2>;
-        #size-cells = <0>;
-
-        interrupts = <10>;
-        dsa,ethernet = <&eth1>;
-        dsa,mii-bus = <&mdio_bus>;
-
-        switch@0 {
-            #address-cells = <1>;
-            #size-cells = <0>;
-            reg = <5 0>;   /* MDIO address 5, switch 0 in tree */
-
-            port@0 {
-                reg = <0>;
-                label = "lan1";
-                phy-handle = <&ethphy1>;
-            };
-
-            port@1 {
-                reg = <1>;
-                label = "lan2";
-            };
-
-            port@2 {
-                reg = <2>;
-                label = "lan3";
-            };
-
-            port@3 {
-                reg = <3>;
-                label = "lan4";
-            };
-
-            port@4 {
-                reg = <4>;
-                label = "lan5";
-            };
-
-            port@5 {
-                reg = <5>;
-                label = "cpu";
-            };
-
-        };
-    };
-
-eth1: eth1 {
-    status = "okay";
-    ethernet1-port@1 {
-        phy-handle = <&ethphy1>;
-
-        fixed-link {
-                speed = <1000>;
-                full-duplex;
-            };
-    };
-};
-
-mdio_bus: mdio@800f0040 {
-        #address-cells = <1>;
-        #size-cells = <0>;
-        device_type = "mdio";
-        //compatible = "fsl,gianfar-mdio";
-        compatible = "fsl,mpc875-fec-mdio", "fsl,pq1-fec-mdio";
-        reg = <0x800f0040 0x188>;
-        status = "okay";
-
-         ethphy0: ethernet-phy@0 {
-                compatible = "fsl,gianfar-mdio";
-                device_type = "network";
-                model = "FEC";
-                reg = <0x00>;
-
-         };
-
-         ethphy1: ethernet-phy@1 {
-                 compatible = "fsl,gianfar-mdio";
-                 device_type = "network";
-                 model = "FEC";
-                 reg = <0x01>;
-                };
-                 //reg = <0xff>; */ /* No PHY attached */
-                 //speed = <1000>;
-                 //duple = <1>;
-       };
-
-modprobe dsa_core
-[  151.720180] !!!!!enter dsa_init_module!!!!!
-[  151.724713] !!!!Enter dsa Probe!!!!!
-[  151.728321] Distributed Switch Architecture driver version 0.1
-[  151.739026] !!!!!Enter dsa_of_probe!!!!!
-[  151.744515] !!!!!mdio->name=mdio mdio->type=mdio
-mdio->full_name=/mdio@800f0040 !!!!!
-[  151.753559] !!!!!np->name=dsa np->type=<NULL> np->full_name=/dsa@0 !!!!!
-[  151.761419] !!!!before of_mdio_find_bus!!!!!
-[  151.765732] !!!!!enter of_mdio_find_bus!!!!!
-[  151.772418] !!!!!!enter class_find_device!!!!!
-[  151.776908] !!!!!!enter class_dev_iter_init!!!!!
-[  151.783512] !!!!!!iter->type->name=(null) !!!!!
-[  151.788085] !!!!!!leave class_dev_iter_init!!!!!
-[  151.794439] !!!!!enter of_mdio_bus_match!!!!!
-[  151.798845] !!!!!enter of_mdio_bus_match!!!!!
-[  151.804967] !!!!!enter of_mdio_bus_match!!!!!
-[  151.809381] !!!!!!leave class_find_device return dev=!!!!!
-[  151.816668] !!!!Leave of_mdio_find_bus !!!!!
-[  151.822057] !!!!before of_parse_phandle dsa,ethernet!!!!!
-[  151.827553] !!!!before of find_device_by_node!!!!!
-[  151.834819] !!!!!ethernet->name=eth1 ethernet->type=<NULL>
-ethernet->full_name=/eth1 !!!!!
-[  151.844540] !!!!! enter of_find_device_by_node !!!!!
-[  151.850692] !!!!! Leave of_find_device_by_node dev=0 !!!!!
-[  151.856221] !!!! return  of_find-device_by_node =19 !!!!!
-[  151.863419] dsa_of_probe returns=-19
-[  151.873509] !!!!!leave dsa_init_module!!!!!
-
+The expression, (32-logmask) is comprised between 0 and 31 included.
+It may be equal to 31.
+In such a case the left shift will produce a signed integer overflow.
+According to the C99 Standard, this is an undefined behavior.
+A simple fix is to replace the signed int 1 with the unsigned int 1U.
 
 Best Regards,
+Vincent Benayoun
+R&D engineer @ TrustInSoft
 
-Oliver
+Signed-off-by: Vincent BENAYOUN <vincent.benayoun@trust-in-soft.com>
+---
+ include/linux/inetdevice.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/include/linux/inetdevice.h b/include/linux/inetdevice.h
+index 0068708..0a21fbe 100644
+--- a/include/linux/inetdevice.h
++++ b/include/linux/inetdevice.h
+@@ -242,7 +242,7 @@ static inline void in_dev_put(struct in_device *idev)
+ static __inline__ __be32 inet_make_mask(int logmask)
+ {
+ 	if (logmask)
+-		return htonl(~((1<<(32-logmask))-1));
++		return htonl(~((1U<<(32-logmask))-1));
+ 	return 0;
+ }
+ 
+-- 
+1.9.1
