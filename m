@@ -1,7 +1,8 @@
 From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [net-next PATCH 3/4] ixgbe: Clean-up page reuse code
-Date: Thu, 13 Nov 2014 08:18:32 -0800
-Message-ID: <20141113161832.2790.5501.stgit@ahduyck-vm-fedora20>
+Subject: [net-next PATCH 4/4] ixgbe: Remove tail write abstraction and add
+ missing barrier
+Date: Thu, 13 Nov 2014 08:18:39 -0800
+Message-ID: <20141113161839.2790.51764.stgit@ahduyck-vm-fedora20>
 References: <20141113161148.2790.22082.stgit@ahduyck-vm-fedora20>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,223 +11,108 @@ Cc: Don Skidmore <donald.c.skidmore@intel.com>,
 	jeffrey.t.kirsher@intel.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56954 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:51252 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932539AbaKMQSi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Nov 2014 11:18:38 -0500
+	id S1753304AbaKMQSo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Nov 2014 11:18:44 -0500
 In-Reply-To: <20141113161148.2790.22082.stgit@ahduyck-vm-fedora20>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch cleans up the page reuse code getting it into a state where all
-the workarounds needed are in place as well as cleaning up a few minor
-oversights such as using __free_pages instead of put_page to drop a locally
-allocated page.
+This change cleans up the tail writes for the ixgbe descriptor queues.  The
+current implementation had me confused as I wasn't sure if it was still
+making use of the suprise remove logic or not.
 
-It also cleans up how we clear the descriptor status bits.  Previously they
-were zeroed as a part of clearing the hdr_addr.  However the hdr_addr is a
-64 bit field and 64 bit writes can be a bit more expensive on on 32 bit
-systems.  Since we are no longer using the header split feature the upper
-32 bits of the address no longer need to be cleared.  As a result we can
-just clear the status bits and leave the length and VLAN fields as-is which
-should provide more information in debugging.
-
+It also adds the mmiowb which is needed on ia64, mips, and a couple other
+architectures in order to synchronize the MMIO writes with the Tx queue
+_xmit_lock spinlock.
 
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Cc: Don Skidmore <donald.c.skidmore@intel.com>
 Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   78 ++++++++++++-------------
- 1 file changed, 36 insertions(+), 42 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h      |    5 ---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   40 +++++++++++++------------
+ 2 files changed, 20 insertions(+), 25 deletions(-)
 
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+index 5032a60..86fa607 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+@@ -553,11 +553,6 @@ static inline u16 ixgbe_desc_unused(struct ixgbe_ring *ring)
+ 	return ((ntc > ntu) ? 0 : ring->count) + ntc - ntu - 1;
+ }
+ 
+-static inline void ixgbe_write_tail(struct ixgbe_ring *ring, u32 value)
+-{
+-	writel(value, ring->tail);
+-}
+-
+ #define IXGBE_RX_DESC(R, i)	    \
+ 	(&(((union ixgbe_adv_rx_desc *)((R)->desc))[i]))
+ #define IXGBE_TX_DESC(R, i)	    \
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index f5fcba4..a72c852 100644
+index a72c852..6b29dfe 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -1436,20 +1436,17 @@ static bool ixgbe_alloc_mapped_page(struct ixgbe_ring *rx_ring,
+@@ -1416,22 +1416,6 @@ static inline void ixgbe_rx_checksum(struct ixgbe_ring *ring,
+ 	skb->ip_summed = CHECKSUM_UNNECESSARY;
+ }
+ 
+-static inline void ixgbe_release_rx_desc(struct ixgbe_ring *rx_ring, u32 val)
+-{
+-	rx_ring->next_to_use = val;
+-
+-	/* update next to alloc since we have filled the ring */
+-	rx_ring->next_to_alloc = val;
+-	/*
+-	 * Force memory writes to complete before letting h/w
+-	 * know there are new descriptors to fetch.  (Only
+-	 * applicable for weak-ordered memory model archs,
+-	 * such as IA-64).
+-	 */
+-	wmb();
+-	ixgbe_write_tail(rx_ring, val);
+-}
+-
+ static bool ixgbe_alloc_mapped_page(struct ixgbe_ring *rx_ring,
  				    struct ixgbe_rx_buffer *bi)
  {
- 	struct page *page = bi->page;
--	dma_addr_t dma = bi->dma;
-+	dma_addr_t dma;
+@@ -1517,8 +1501,20 @@ void ixgbe_alloc_rx_buffers(struct ixgbe_ring *rx_ring, u16 cleaned_count)
  
- 	/* since we are recycling buffers we should seldom need to alloc */
--	if (likely(dma))
-+	if (likely(page))
- 		return true;
+ 	i += rx_ring->count;
  
- 	/* alloc new page for storage */
--	if (likely(!page)) {
--		page = dev_alloc_pages(ixgbe_rx_pg_order(rx_ring));
--		if (unlikely(!page)) {
--			rx_ring->rx_stats.alloc_rx_page_failed++;
--			return false;
--		}
--		bi->page = page;
-+	page = dev_alloc_pages(ixgbe_rx_pg_order(rx_ring));
-+	if (unlikely(!page)) {
-+		rx_ring->rx_stats.alloc_rx_page_failed++;
-+		return false;
- 	}
- 
- 	/* map page for use */
-@@ -1462,13 +1459,13 @@ static bool ixgbe_alloc_mapped_page(struct ixgbe_ring *rx_ring,
- 	 */
- 	if (dma_mapping_error(rx_ring->dev, dma)) {
- 		__free_pages(page, ixgbe_rx_pg_order(rx_ring));
--		bi->page = NULL;
- 
- 		rx_ring->rx_stats.alloc_rx_page_failed++;
- 		return false;
- 	}
- 
- 	bi->dma = dma;
-+	bi->page = page;
- 	bi->page_offset = 0;
- 
- 	return true;
-@@ -1512,8 +1509,8 @@ void ixgbe_alloc_rx_buffers(struct ixgbe_ring *rx_ring, u16 cleaned_count)
- 			i -= rx_ring->count;
- 		}
- 
--		/* clear the hdr_addr for the next_to_use descriptor */
--		rx_desc->read.hdr_addr = 0;
-+		/* clear the status bits for the next_to_use descriptor */
-+		rx_desc->wb.upper.status_error = 0;
- 
- 		cleaned_count--;
- 	} while (cleaned_count);
-@@ -1798,9 +1795,7 @@ static void ixgbe_reuse_rx_page(struct ixgbe_ring *rx_ring,
- 	rx_ring->next_to_alloc = (nta < rx_ring->count) ? nta : 0;
- 
- 	/* transfer page from old buffer to new buffer */
--	new_buff->page = old_buff->page;
--	new_buff->dma = old_buff->dma;
--	new_buff->page_offset = old_buff->page_offset;
-+	*new_buff = *old_buff;
- 
- 	/* sync the buffer for use by the device */
- 	dma_sync_single_range_for_device(rx_ring->dev, new_buff->dma,
-@@ -1809,6 +1804,11 @@ static void ixgbe_reuse_rx_page(struct ixgbe_ring *rx_ring,
- 					 DMA_FROM_DEVICE);
+-	if (rx_ring->next_to_use != i)
+-		ixgbe_release_rx_desc(rx_ring, i);
++	if (rx_ring->next_to_use != i) {
++		rx_ring->next_to_use = i;
++
++		/* update next to alloc since we have filled the ring */
++		rx_ring->next_to_alloc = i;
++
++		/* Force memory writes to complete before letting h/w
++		 * know there are new descriptors to fetch.  (Only
++		 * applicable for weak-ordered memory model archs,
++		 * such as IA-64).
++		 */
++		wmb();
++		writel(i, rx_ring->tail);
++	}
  }
  
-+static inline bool ixgbe_page_is_reserved(struct page *page)
-+{
-+	return (page_to_nid(page) != numa_mem_id()) || page->pfmemalloc;
-+}
+ static void ixgbe_set_rsc_gso_size(struct ixgbe_ring *ring,
+@@ -6955,8 +6951,12 @@ static void ixgbe_tx_map(struct ixgbe_ring *tx_ring,
+ 	ixgbe_maybe_stop_tx(tx_ring, DESC_NEEDED);
+ 
+ 	if (netif_xmit_stopped(txring_txq(tx_ring)) || !skb->xmit_more) {
+-		/* notify HW of packet */
+-		ixgbe_write_tail(tx_ring, i);
++		writel(i, tx_ring->tail);
 +
- /**
-  * ixgbe_add_rx_frag - Add contents of Rx buffer to sk_buff
-  * @rx_ring: rx descriptor ring to transact packets on
-@@ -1844,12 +1844,12 @@ static bool ixgbe_add_rx_frag(struct ixgbe_ring *rx_ring,
- 
- 		memcpy(__skb_put(skb, size), va, ALIGN(size, sizeof(long)));
- 
--		/* we can reuse buffer as-is, just make sure it is local */
--		if (likely(page_to_nid(page) == numa_node_id()))
-+		/* page is not reserved, we can reuse buffer as-is */
-+		if (likely(!ixgbe_page_is_reserved(page)))
- 			return true;
- 
- 		/* this page cannot be reused so discard it */
--		put_page(page);
-+		__free_pages(page, ixgbe_rx_pg_order(rx_ring));
- 		return false;
++		/* we need this if more than one processor can write to our tail
++		 * at a time, it synchronizes IO on IA64/Altix systems
++		 */
++		mmiowb();
  	}
  
-@@ -1857,7 +1857,7 @@ static bool ixgbe_add_rx_frag(struct ixgbe_ring *rx_ring,
- 			rx_buffer->page_offset, size, truesize);
- 
- 	/* avoid re-using remote pages */
--	if (unlikely(page_to_nid(page) != numa_node_id()))
-+	if (unlikely(ixgbe_page_is_reserved(page)))
- 		return false;
- 
- #if (PAGE_SIZE < 8192)
-@@ -1867,22 +1867,19 @@ static bool ixgbe_add_rx_frag(struct ixgbe_ring *rx_ring,
- 
- 	/* flip page offset to other buffer */
- 	rx_buffer->page_offset ^= truesize;
--
--	/* Even if we own the page, we are not allowed to use atomic_set()
--	 * This would break get_page_unless_zero() users.
--	 */
--	atomic_inc(&page->_count);
- #else
- 	/* move offset up to the next cache line */
- 	rx_buffer->page_offset += truesize;
- 
- 	if (rx_buffer->page_offset > last_offset)
- 		return false;
--
--	/* bump ref count on page before it is given to the stack */
--	get_page(page);
- #endif
- 
-+	/* Even if we own the page, we are not allowed to use atomic_set()
-+	 * This would break get_page_unless_zero() users.
-+	 */
-+	atomic_inc(&page->_count);
-+
- 	return true;
- }
- 
-@@ -1945,6 +1942,8 @@ dma_sync:
- 					      rx_buffer->page_offset,
- 					      ixgbe_rx_bufsz(rx_ring),
- 					      DMA_FROM_DEVICE);
-+
-+		rx_buffer->skb = NULL;
- 	}
- 
- 	/* pull page into skb */
-@@ -1962,8 +1961,6 @@ dma_sync:
- 	}
- 
- 	/* clear contents of buffer_info */
--	rx_buffer->skb = NULL;
--	rx_buffer->dma = 0;
- 	rx_buffer->page = NULL;
- 
- 	return skb;
-@@ -4345,29 +4342,26 @@ static void ixgbe_clean_rx_ring(struct ixgbe_ring *rx_ring)
- 
- 	/* Free all the Rx ring sk_buffs */
- 	for (i = 0; i < rx_ring->count; i++) {
--		struct ixgbe_rx_buffer *rx_buffer;
-+		struct ixgbe_rx_buffer *rx_buffer = &rx_ring->rx_buffer_info[i];
- 
--		rx_buffer = &rx_ring->rx_buffer_info[i];
- 		if (rx_buffer->skb) {
- 			struct sk_buff *skb = rx_buffer->skb;
--			if (IXGBE_CB(skb)->page_released) {
-+			if (IXGBE_CB(skb)->page_released)
- 				dma_unmap_page(dev,
- 					       IXGBE_CB(skb)->dma,
- 					       ixgbe_rx_bufsz(rx_ring),
- 					       DMA_FROM_DEVICE);
--				IXGBE_CB(skb)->page_released = false;
--			}
- 			dev_kfree_skb(skb);
- 			rx_buffer->skb = NULL;
- 		}
--		if (rx_buffer->dma)
--			dma_unmap_page(dev, rx_buffer->dma,
--				       ixgbe_rx_pg_size(rx_ring),
--				       DMA_FROM_DEVICE);
--		rx_buffer->dma = 0;
--		if (rx_buffer->page)
--			__free_pages(rx_buffer->page,
--				     ixgbe_rx_pg_order(rx_ring));
-+
-+		if (!rx_buffer->page)
-+			continue;
-+
-+		dma_unmap_page(dev, rx_buffer->dma,
-+			       ixgbe_rx_pg_size(rx_ring), DMA_FROM_DEVICE);
-+		__free_pages(rx_buffer->page, ixgbe_rx_pg_order(rx_ring));
-+
- 		rx_buffer->page = NULL;
- 	}
- 
+ 	return;
