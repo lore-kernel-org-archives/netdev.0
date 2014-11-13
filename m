@@ -1,64 +1,43 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCHv2 net 1/2] fm10k: Check tunnel header length in encap
- offload
-Date: Thu, 13 Nov 2014 15:41:23 -0800
-Message-ID: <1415922083.2454.33.camel@jtkirshe-mobl>
+From: Joe Stringer <joestringer@nicira.com>
+Subject: Re: [PATCHv2 net 2/2] fm10k: Implement ndo_gso_check()
+Date: Thu, 13 Nov 2014 15:52:19 -0800
+Message-ID: <20141113235219.GA35957@gmail.com>
 References: <1415921801-10452-1-git-send-email-joestringer@nicira.com>
+ <1415921801-10452-2-git-send-email-joestringer@nicira.com>
+ <1415922116.2454.34.camel@jtkirshe-mobl>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-GuZpi5xbYnHsqPXICOTQ"
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, matthew.vick@intel.com,
 	linux.nics@intel.com, therbert@google.com, gerlitz.or@gmail.com,
 	alexander.duyck@gmail.com, linux-kernel@vger.kernel.org
-To: Joe Stringer <joestringer@nicira.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Shannon Nelson <shannon.nelson@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1415921801-10452-1-git-send-email-joestringer@nicira.com>
+Content-Disposition: inline
+In-Reply-To: <1415922116.2454.34.camel@jtkirshe-mobl>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Thu, Nov 13, 2014 at 03:41:56PM -0800, Jeff Kirsher wrote:
+> On Thu, 2014-11-13 at 15:36 -0800, Joe Stringer wrote:
+> > ndo_gso_check() was recently introduced to allow NICs to report the
+> > offloading support that they have on a per-skb basis. Add an
+> > implementation for this driver which checks for something that looks
+> > like VXLAN.
+> > 
+> > Signed-off-by: Joe Stringer <joestringer@nicira.com>
+> > ---
+> > v2: Reuse fm10k_tx_encap_offload().
+> > ---
+> >  drivers/net/ethernet/intel/fm10k/fm10k.h        |    1 +
+> >  drivers/net/ethernet/intel/fm10k/fm10k_main.c   |    2 +-
+> >  drivers/net/ethernet/intel/fm10k/fm10k_netdev.c |    8 ++++++++
+> >  3 files changed, 10 insertions(+), 1 deletion(-)
+> 
+> Same with this one as well, thanks Joe.
 
---=-GuZpi5xbYnHsqPXICOTQ
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Thanks Jeff.
 
-On Thu, 2014-11-13 at 15:36 -0800, Joe Stringer wrote:
-> fm10k supports up to 184 bytes of inner+outer headers. Add an initial
-> check to fail encap offload if these are too large.
->=20
-> Signed-off-by: Joe Stringer <joestringer@nicira.com>
-> ---
-> Matthew, I didn't see the equivalent patch on netdev so I went ahead
-> and
-> created it. If I've missed this somewhere, then please disregard.
->=20
-> v2: First post.
-> ---
->  drivers/net/ethernet/intel/fm10k/fm10k_main.c |    6 ++++++
->  1 file changed, 6 insertions(+)
-
-Thanks Joe, I will add your patch to my queue.
-
---=-GuZpi5xbYnHsqPXICOTQ
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJUZUGjAAoJEOVv75VaS+3OAFgQAJ6daVYXSbd2TWSe+vyooSPg
-vT0DbbSpA7FJr6WboB5kVCNiythgsT6A0jSA83i/Ppd8idHdxgT9mb9HFoRKqikb
-mW48LNjDfSxcMc2HVQRskJSOKPnhkSxe3rMN6Fdur6lNB8xrKDq7dkYMrpsIL6FR
-dTqoSW8XfBefg97tiVzCZdyUX4+PrHPBbTYEKQHon3n8rrYtv9eL6kcEBhrFPli+
-XH61dtsjKRxUZ44Fl0HPs224d5jItJcAOTwiGgrKyTNw1Wq3KMFLtHBirEZKlSdN
-ijS8C7XP7ygG+Qbu9ixT6rVzolKmFB68xrypv2+hmOEr0u+CJOALQq530zTf/QBl
-1arcPzC3kciYvZm2OOeO6QS6NaB4zJZY8YN3BNLkPTLsS5iTq+AmspMeFNxpi0VY
-ew4vydmhHi5ThRZvQzv4MvOQbzS8yosUVniImGLgCPXykldEucEdpyaLgderH8zF
-zcTKbhuhPF1fZ6pjEWGQzwLQnUfyhe4YIU9JkLdPYGzHxnxmN7ov4yMEfs58raXa
-PPAR7O+gBiB4inNTIZGzqSZsTHZGvNTG+2qNW2VR7T9MI2gIcpZcLfEK4tTY7tnn
-f5HbeB7shARjzhMJVig2QEfZ75xrSuq5kO2MkdxFhcemIi+iaTkqqnYFXo/aVNeC
-fBpo8Iwytsh75nS8fR4M
-=l1Y5
------END PGP SIGNATURE-----
-
---=-GuZpi5xbYnHsqPXICOTQ--
+Could you remind me, is the equivalent i40e patch on your queue or were
+we still waiting on further feedback from Shannon/Jesse?
