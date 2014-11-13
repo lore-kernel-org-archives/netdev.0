@@ -1,130 +1,296 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 7/7] net/mlx4_core: Support more than 64 VFs
-Date: Thu, 13 Nov 2014 14:45:33 +0200
-Message-ID: <1415882733-3084-8-git-send-email-ogerlitz@mellanox.com>
-References: <1415882733-3084-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org, Matan Barak <matanb@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:46655 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932969AbaKMMqG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Nov 2014 07:46:06 -0500
-In-Reply-To: <1415882733-3084-1-git-send-email-ogerlitz@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH net-next] rhashtable: Drop gfp_flags arg in insert/remove functions
+Date: Thu, 13 Nov 2014 13:45:46 +0100
+Message-ID: <17c3262027e643a0826c6ac5dd2d14cda0822a0b.1415879747.git.tgraf@suug.ch>
+Cc: linux-kernel@vger.kernel.org, ebiederm@xmission.com,
+	eric.dumazet@gmail.com
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Matan Barak <matanb@mellanox.com>
+Reallocation is only required for shrinking and expanding and both rely
+on a mutex for synchronization and callers of rhashtable_init() are in
+non atomic context. Therefore, no reason to continue passing allocation
+hints through the API.
 
-We now allow up to 126 VFs. Note though that certain firmware
-versions only allow up to 80 VFs. Moreover, old HCAs only support 64 VFs.
-In these cases, we limit the maximum number of VFs to 64.
+Instead, use GFP_KERNEL and add __GFP_NOWARN | __GFP_NORETRY to allow
+for silent fall back to vzalloc() without the OOM killer jumping in as
+pointed out by Eric Dumazet and Eric W. Biederman.
 
-Signed-off-by: Matan Barak <matanb@mellanox.com>
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
 ---
- drivers/net/ethernet/mellanox/mlx4/fw.c   |    5 ++++-
- drivers/net/ethernet/mellanox/mlx4/main.c |   24 ++++++++++++++++++++++++
- include/linux/mlx4/device.h               |    5 +++--
- 3 files changed, 31 insertions(+), 3 deletions(-)
+ include/linux/rhashtable.h | 10 +++++-----
+ lib/rhashtable.c           | 41 +++++++++++++++++------------------------
+ net/netfilter/nft_hash.c   |  4 ++--
+ net/netlink/af_netlink.c   |  4 ++--
+ 4 files changed, 26 insertions(+), 33 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
-index d2f594f..4251f81 100644
---- a/drivers/net/ethernet/mellanox/mlx4/fw.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
-@@ -143,7 +143,8 @@ static void dump_dev_cap_flags2(struct mlx4_dev *dev, u64 flags)
- 		[14] = "Ethernet protocol control support",
- 		[15] = "Ethernet Backplane autoneg support",
- 		[16] = "CONFIG DEV support",
--		[17] = "Asymmetric EQs support"
-+		[17] = "Asymmetric EQs support",
-+		[18] = "More than 80 VFs support"
- 	};
- 	int i;
+diff --git a/include/linux/rhashtable.h b/include/linux/rhashtable.h
+index fb298e9d..942fa44 100644
+--- a/include/linux/rhashtable.h
++++ b/include/linux/rhashtable.h
+@@ -96,16 +96,16 @@ int rhashtable_init(struct rhashtable *ht, struct rhashtable_params *params);
+ u32 rhashtable_hashfn(const struct rhashtable *ht, const void *key, u32 len);
+ u32 rhashtable_obj_hashfn(const struct rhashtable *ht, void *ptr);
  
-@@ -860,6 +861,8 @@ int mlx4_QUERY_DEV_CAP(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
- 		dev_cap->flags2 |= MLX4_DEV_CAP_FLAG2_VLAN_CONTROL;
- 	if (field32 & (1 << 20))
- 		dev_cap->flags2 |= MLX4_DEV_CAP_FLAG2_FSM;
-+	if (field32 & (1 << 21))
-+		dev_cap->flags2 |= MLX4_DEV_CAP_FLAG2_80_VFS;
+-void rhashtable_insert(struct rhashtable *ht, struct rhash_head *node, gfp_t);
+-bool rhashtable_remove(struct rhashtable *ht, struct rhash_head *node, gfp_t);
++void rhashtable_insert(struct rhashtable *ht, struct rhash_head *node);
++bool rhashtable_remove(struct rhashtable *ht, struct rhash_head *node);
+ void rhashtable_remove_pprev(struct rhashtable *ht, struct rhash_head *obj,
+-			     struct rhash_head __rcu **pprev, gfp_t flags);
++			     struct rhash_head __rcu **pprev);
  
- 	if (dev->flags & MLX4_FLAG_OLD_PORT_CMDS) {
- 		for (i = 1; i <= dev_cap->num_ports; ++i) {
-diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-index ebb2790..3044f9e 100644
---- a/drivers/net/ethernet/mellanox/mlx4/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-@@ -2373,6 +2373,24 @@ disable_sriov:
- 	return dev_flags & ~MLX4_FLAG_MASTER;
+ bool rht_grow_above_75(const struct rhashtable *ht, size_t new_size);
+ bool rht_shrink_below_30(const struct rhashtable *ht, size_t new_size);
+ 
+-int rhashtable_expand(struct rhashtable *ht, gfp_t flags);
+-int rhashtable_shrink(struct rhashtable *ht, gfp_t flags);
++int rhashtable_expand(struct rhashtable *ht);
++int rhashtable_shrink(struct rhashtable *ht);
+ 
+ void *rhashtable_lookup(const struct rhashtable *ht, const void *key);
+ void *rhashtable_lookup_compare(const struct rhashtable *ht, u32 hash,
+diff --git a/lib/rhashtable.c b/lib/rhashtable.c
+index 081be3b..088e7e5 100644
+--- a/lib/rhashtable.c
++++ b/lib/rhashtable.c
+@@ -107,13 +107,13 @@ static u32 head_hashfn(const struct rhashtable *ht,
+ 	return obj_hashfn(ht, rht_obj(ht, he), hsize);
  }
  
-+enum {
-+	MLX4_DEV_CAP_CHECK_NUM_VFS_ABOVE_64 = -1,
-+};
-+
-+static int mlx4_check_dev_cap(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap,
-+			      int *nvfs)
-+{
-+	int requested_vfs = nvfs[0] + nvfs[1] + nvfs[2];
-+	/* Checking for 64 VFs as a limitation of CX2 */
-+	if (!(dev_cap->flags2 & MLX4_DEV_CAP_FLAG2_80_VFS) &&
-+	    requested_vfs >= 64) {
-+		mlx4_err(dev, "Requested %d VFs, but FW does not support more than 64\n",
-+			 requested_vfs);
-+		return MLX4_DEV_CAP_CHECK_NUM_VFS_ABOVE_64;
-+	}
-+	return 0;
-+}
-+
- static int mlx4_load_one(struct pci_dev *pdev, int pci_dev_data,
- 			 int total_vfs, int *nvfs, struct mlx4_priv *priv)
+-static struct bucket_table *bucket_table_alloc(size_t nbuckets, gfp_t flags)
++static struct bucket_table *bucket_table_alloc(size_t nbuckets)
  {
-@@ -2484,6 +2502,9 @@ slave_start:
- 				goto err_fw;
- 			}
+ 	struct bucket_table *tbl;
+ 	size_t size;
  
-+			if (mlx4_check_dev_cap(dev, dev_cap, nvfs))
-+				goto err_fw;
-+
- 			if (!(dev_cap->flags2 & MLX4_DEV_CAP_FLAG2_SYS_EQS)) {
- 				u64 dev_flags = mlx4_enable_sriov(dev, pdev, total_vfs,
- 								  existing_vfs);
-@@ -2512,6 +2533,9 @@ slave_start:
- 				mlx4_err(dev, "QUERY_DEV_CAP command failed, aborting.\n");
- 				goto err_fw;
- 			}
-+
-+			if (mlx4_check_dev_cap(dev, dev_cap, nvfs))
-+				goto err_fw;
+ 	size = sizeof(*tbl) + nbuckets * sizeof(tbl->buckets[0]);
+-	tbl = kzalloc(size, flags);
++	tbl = kzalloc(size, GFP_KERNEL | __GFP_NOWARN);
+ 	if (tbl == NULL)
+ 		tbl = vzalloc(size);
+ 
+@@ -200,7 +200,6 @@ static void hashtable_chain_unzip(const struct rhashtable *ht,
+ /**
+  * rhashtable_expand - Expand hash table while allowing concurrent lookups
+  * @ht:		the hash table to expand
+- * @flags:	allocation flags
+  *
+  * A secondary bucket array is allocated and the hash entries are migrated
+  * while keeping them on both lists until the end of the RCU grace period.
+@@ -211,7 +210,7 @@ static void hashtable_chain_unzip(const struct rhashtable *ht,
+  * The caller must ensure that no concurrent table mutations take place.
+  * It is however valid to have concurrent lookups if they are RCU protected.
+  */
+-int rhashtable_expand(struct rhashtable *ht, gfp_t flags)
++int rhashtable_expand(struct rhashtable *ht)
+ {
+ 	struct bucket_table *new_tbl, *old_tbl = rht_dereference(ht->tbl, ht);
+ 	struct rhash_head *he;
+@@ -223,7 +222,7 @@ int rhashtable_expand(struct rhashtable *ht, gfp_t flags)
+ 	if (ht->p.max_shift && ht->shift >= ht->p.max_shift)
+ 		return 0;
+ 
+-	new_tbl = bucket_table_alloc(old_tbl->size * 2, flags);
++	new_tbl = bucket_table_alloc(old_tbl->size * 2);
+ 	if (new_tbl == NULL)
+ 		return -ENOMEM;
+ 
+@@ -281,7 +280,6 @@ EXPORT_SYMBOL_GPL(rhashtable_expand);
+ /**
+  * rhashtable_shrink - Shrink hash table while allowing concurrent lookups
+  * @ht:		the hash table to shrink
+- * @flags:	allocation flags
+  *
+  * This function may only be called in a context where it is safe to call
+  * synchronize_rcu(), e.g. not within a rcu_read_lock() section.
+@@ -289,7 +287,7 @@ EXPORT_SYMBOL_GPL(rhashtable_expand);
+  * The caller must ensure that no concurrent table mutations take place.
+  * It is however valid to have concurrent lookups if they are RCU protected.
+  */
+-int rhashtable_shrink(struct rhashtable *ht, gfp_t flags)
++int rhashtable_shrink(struct rhashtable *ht)
+ {
+ 	struct bucket_table *ntbl, *tbl = rht_dereference(ht->tbl, ht);
+ 	struct rhash_head __rcu **pprev;
+@@ -300,7 +298,7 @@ int rhashtable_shrink(struct rhashtable *ht, gfp_t flags)
+ 	if (ht->shift <= ht->p.min_shift)
+ 		return 0;
+ 
+-	ntbl = bucket_table_alloc(tbl->size / 2, flags);
++	ntbl = bucket_table_alloc(tbl->size / 2);
+ 	if (ntbl == NULL)
+ 		return -ENOMEM;
+ 
+@@ -341,7 +339,6 @@ EXPORT_SYMBOL_GPL(rhashtable_shrink);
+  * rhashtable_insert - insert object into hash hash table
+  * @ht:		hash table
+  * @obj:	pointer to hash head inside object
+- * @flags:	allocation flags (table expansion)
+  *
+  * Will automatically grow the table via rhashtable_expand() if the the
+  * grow_decision function specified at rhashtable_init() returns true.
+@@ -349,8 +346,7 @@ EXPORT_SYMBOL_GPL(rhashtable_shrink);
+  * The caller must ensure that no concurrent table mutations occur. It is
+  * however valid to have concurrent lookups if they are RCU protected.
+  */
+-void rhashtable_insert(struct rhashtable *ht, struct rhash_head *obj,
+-		       gfp_t flags)
++void rhashtable_insert(struct rhashtable *ht, struct rhash_head *obj)
+ {
+ 	struct bucket_table *tbl = rht_dereference(ht->tbl, ht);
+ 	u32 hash;
+@@ -363,7 +359,7 @@ void rhashtable_insert(struct rhashtable *ht, struct rhash_head *obj,
+ 	ht->nelems++;
+ 
+ 	if (ht->p.grow_decision && ht->p.grow_decision(ht, tbl->size))
+-		rhashtable_expand(ht, flags);
++		rhashtable_expand(ht);
+ }
+ EXPORT_SYMBOL_GPL(rhashtable_insert);
+ 
+@@ -372,14 +368,13 @@ EXPORT_SYMBOL_GPL(rhashtable_insert);
+  * @ht:		hash table
+  * @obj:	pointer to hash head inside object
+  * @pprev:	pointer to previous element
+- * @flags:	allocation flags (table expansion)
+  *
+  * Identical to rhashtable_remove() but caller is alreayd aware of the element
+  * in front of the element to be deleted. This is in particular useful for
+  * deletion when combined with walking or lookup.
+  */
+ void rhashtable_remove_pprev(struct rhashtable *ht, struct rhash_head *obj,
+-			     struct rhash_head __rcu **pprev, gfp_t flags)
++			     struct rhash_head __rcu **pprev)
+ {
+ 	struct bucket_table *tbl = rht_dereference(ht->tbl, ht);
+ 
+@@ -390,7 +385,7 @@ void rhashtable_remove_pprev(struct rhashtable *ht, struct rhash_head *obj,
+ 
+ 	if (ht->p.shrink_decision &&
+ 	    ht->p.shrink_decision(ht, tbl->size))
+-		rhashtable_shrink(ht, flags);
++		rhashtable_shrink(ht);
+ }
+ EXPORT_SYMBOL_GPL(rhashtable_remove_pprev);
+ 
+@@ -398,7 +393,6 @@ EXPORT_SYMBOL_GPL(rhashtable_remove_pprev);
+  * rhashtable_remove - remove object from hash table
+  * @ht:		hash table
+  * @obj:	pointer to hash head inside object
+- * @flags:	allocation flags (table expansion)
+  *
+  * Since the hash chain is single linked, the removal operation needs to
+  * walk the bucket chain upon removal. The removal operation is thus
+@@ -410,8 +404,7 @@ EXPORT_SYMBOL_GPL(rhashtable_remove_pprev);
+  * The caller must ensure that no concurrent table mutations occur. It is
+  * however valid to have concurrent lookups if they are RCU protected.
+  */
+-bool rhashtable_remove(struct rhashtable *ht, struct rhash_head *obj,
+-		       gfp_t flags)
++bool rhashtable_remove(struct rhashtable *ht, struct rhash_head *obj)
+ {
+ 	struct bucket_table *tbl = rht_dereference(ht->tbl, ht);
+ 	struct rhash_head __rcu **pprev;
+@@ -429,7 +422,7 @@ bool rhashtable_remove(struct rhashtable *ht, struct rhash_head *obj,
+ 			continue;
  		}
+ 
+-		rhashtable_remove_pprev(ht, he, pprev, flags);
++		rhashtable_remove_pprev(ht, he, pprev);
+ 		return true;
  	}
  
-diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
-index 1c560eb..cf09e65 100644
---- a/include/linux/mlx4/device.h
-+++ b/include/linux/mlx4/device.h
-@@ -95,7 +95,7 @@ enum {
+@@ -572,7 +565,7 @@ int rhashtable_init(struct rhashtable *ht, struct rhashtable_params *params)
+ 	if (params->nelem_hint)
+ 		size = rounded_hashtable_size(params);
  
- enum {
- 	MLX4_MAX_NUM_PF		= 16,
--	MLX4_MAX_NUM_VF		= 64,
-+	MLX4_MAX_NUM_VF		= 126,
- 	MLX4_MAX_NUM_VF_P_PORT  = 64,
- 	MLX4_MFUNC_MAX		= 80,
- 	MLX4_MAX_EQ_NUM		= 1024,
-@@ -190,7 +190,8 @@ enum {
- 	MLX4_DEV_CAP_FLAG2_ETH_PROT_CTRL        = 1LL <<  14,
- 	MLX4_DEV_CAP_FLAG2_ETH_BACKPL_AN_REP	= 1LL <<  15,
- 	MLX4_DEV_CAP_FLAG2_CONFIG_DEV		= 1LL <<  16,
--	MLX4_DEV_CAP_FLAG2_SYS_EQS		= 1LL <<  17
-+	MLX4_DEV_CAP_FLAG2_SYS_EQS		= 1LL <<  17,
-+	MLX4_DEV_CAP_FLAG2_80_VFS		= 1LL <<  18
- };
+-	tbl = bucket_table_alloc(size, GFP_KERNEL);
++	tbl = bucket_table_alloc(size);
+ 	if (tbl == NULL)
+ 		return -ENOMEM;
  
- enum {
+@@ -707,7 +700,7 @@ static int __init test_rhashtable(struct rhashtable *ht)
+ 		obj->ptr = TEST_PTR;
+ 		obj->value = i * 2;
+ 
+-		rhashtable_insert(ht, &obj->node, GFP_KERNEL);
++		rhashtable_insert(ht, &obj->node);
+ 	}
+ 
+ 	rcu_read_lock();
+@@ -718,7 +711,7 @@ static int __init test_rhashtable(struct rhashtable *ht)
+ 
+ 	for (i = 0; i < TEST_NEXPANDS; i++) {
+ 		pr_info("  Table expansion iteration %u...\n", i);
+-		rhashtable_expand(ht, GFP_KERNEL);
++		rhashtable_expand(ht);
+ 
+ 		rcu_read_lock();
+ 		pr_info("  Verifying lookups...\n");
+@@ -728,7 +721,7 @@ static int __init test_rhashtable(struct rhashtable *ht)
+ 
+ 	for (i = 0; i < TEST_NEXPANDS; i++) {
+ 		pr_info("  Table shrinkage iteration %u...\n", i);
+-		rhashtable_shrink(ht, GFP_KERNEL);
++		rhashtable_shrink(ht);
+ 
+ 		rcu_read_lock();
+ 		pr_info("  Verifying lookups...\n");
+@@ -743,7 +736,7 @@ static int __init test_rhashtable(struct rhashtable *ht)
+ 		obj = rhashtable_lookup(ht, &key);
+ 		BUG_ON(!obj);
+ 
+-		rhashtable_remove(ht, &obj->node, GFP_KERNEL);
++		rhashtable_remove(ht, &obj->node);
+ 		kfree(obj);
+ 	}
+ 
+diff --git a/net/netfilter/nft_hash.c b/net/netfilter/nft_hash.c
+index 8892b7b..2501187 100644
+--- a/net/netfilter/nft_hash.c
++++ b/net/netfilter/nft_hash.c
+@@ -65,7 +65,7 @@ static int nft_hash_insert(const struct nft_set *set,
+ 	if (set->flags & NFT_SET_MAP)
+ 		nft_data_copy(he->data, &elem->data);
+ 
+-	rhashtable_insert(priv, &he->node, GFP_KERNEL);
++	rhashtable_insert(priv, &he->node);
+ 
+ 	return 0;
+ }
+@@ -88,7 +88,7 @@ static void nft_hash_remove(const struct nft_set *set,
+ 	pprev = elem->cookie;
+ 	he = rht_dereference((*pprev), priv);
+ 
+-	rhashtable_remove_pprev(priv, he, pprev, GFP_KERNEL);
++	rhashtable_remove_pprev(priv, he, pprev);
+ 
+ 	synchronize_rcu();
+ 	kfree(he);
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 580b794..756fc14 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -1092,7 +1092,7 @@ static int netlink_insert(struct sock *sk, struct net *net, u32 portid)
+ 
+ 	nlk_sk(sk)->portid = portid;
+ 	sock_hold(sk);
+-	rhashtable_insert(&table->hash, &nlk_sk(sk)->node, GFP_KERNEL);
++	rhashtable_insert(&table->hash, &nlk_sk(sk)->node);
+ 	err = 0;
+ err:
+ 	mutex_unlock(&nl_sk_hash_lock);
+@@ -1105,7 +1105,7 @@ static void netlink_remove(struct sock *sk)
+ 
+ 	mutex_lock(&nl_sk_hash_lock);
+ 	table = &nl_table[sk->sk_protocol];
+-	if (rhashtable_remove(&table->hash, &nlk_sk(sk)->node, GFP_KERNEL)) {
++	if (rhashtable_remove(&table->hash, &nlk_sk(sk)->node)) {
+ 		WARN_ON(atomic_read(&sk->sk_refcnt) == 1);
+ 		__sock_put(sk);
+ 	}
 -- 
-1.7.1
+1.9.3
