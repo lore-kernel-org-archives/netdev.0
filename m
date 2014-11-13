@@ -1,105 +1,109 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH v4 3/8] net: can: c_can: Add RAMINIT register information
- to driver data
-Date: Thu, 13 Nov 2014 11:59:56 +0100
-Message-ID: <54648F2C.2060007@pengutronix.de>
-References: <1415371762-29885-1-git-send-email-rogerq@ti.com> <1415371762-29885-4-git-send-email-rogerq@ti.com>
+From: Appana Durga Kedareswara Rao <appana.durga.rao@xilinx.com>
+Subject: RE: [PATCH] can: Fix bug in suspend/resume
+Date: Thu, 13 Nov 2014 11:01:30 +0000
+Message-ID: <2abd0a7b76bd4c5fab3cda60b8e2f8d1@BN1AFFO11FD030.protection.gbl>
+References: <a44efc1fb0144cca9d0c4851cc51db25@BL2FFO11FD024.protection.gbl>
+ <546484D9.4030005@pengutronix.de> <54648BF4.60007@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="9pl5f1EE5GT8gskDJLf4AgEa6FEJ9C6Jm"
-Cc: wsa@the-dreams.de, tony@atomide.com, tglx@linutronix.de,
-	mugunthanvnm@ti.com, george.cherian@ti.com, balbi@ti.com,
-	nsekhar@ti.com, nm@ti.com, sergei.shtylyov@cogentembedded.com,
-	linux-omap@vger.kernel.org, linux-can@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Roger Quadros <rogerq@ti.com>, wg@grandegger.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:51950 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932694AbaKMLA3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Nov 2014 06:00:29 -0500
-In-Reply-To: <1415371762-29885-4-git-send-email-rogerq@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
+To: Marc Kleine-Budde <mkl@pengutronix.de>,
+	"wg@grandegger.com" <wg@grandegger.com>,
+	Michal Simek <michals@xilinx.com>,
+	Soren Brinkmann <sorenb@xilinx.com>,
+	"grant.likely@linaro.org" <grant.likely@linaro.org>,
+	"robh+dt@kernel.org" <robh+dt@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---9pl5f1EE5GT8gskDJLf4AgEa6FEJ9C6Jm
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-
-On 11/07/2014 03:49 PM, Roger Quadros wrote:
-> Some platforms (e.g. TI) need special RAMINIT register handling.
-> Provide a way to store RAMINIT register description in driver data.
->=20
-> Signed-off-by: Roger Quadros <rogerq@ti.com>
-> ---
->  drivers/net/can/c_can/c_can.h          | 6 ++++++
->  drivers/net/can/c_can/c_can_platform.c | 1 +
->  2 files changed, 7 insertions(+)
->=20
-> diff --git a/drivers/net/can/c_can/c_can.h b/drivers/net/can/c_can/c_ca=
-n.h
-> index 26c975d..3c305a1 100644
-> --- a/drivers/net/can/c_can/c_can.h
-> +++ b/drivers/net/can/c_can/c_can.h
-> @@ -171,6 +171,12 @@ enum c_can_dev_id {
-> =20
->  struct c_can_driver_data {
->  	enum c_can_dev_id id;
-> +
-> +	/* RAMINIT register description. Optional. */
-> +	u8 num_can;		/* Number of CAN instances on the SoC */
-> +	u8 *raminit_start_bits;	/* Array of START bit positions */
-> +	u8 *raminit_done_bits;	/* Array of DONE bit positions */
-> +	bool raminit_pulse;	/* If set, sets and clears START bit (pulse) */
->  };
-> =20
->  /* c_can private data structure */
-> diff --git a/drivers/net/can/c_can/c_can_platform.c b/drivers/net/can/c=
-_can/c_can_platform.c
-> index 1546c2b..20deb67 100644
-> --- a/drivers/net/can/c_can/c_can_platform.c
-> +++ b/drivers/net/can/c_can/c_can_platform.c
-> @@ -250,6 +250,7 @@ static int c_can_plat_probe(struct platform_device =
-*pdev)
->  	}
-> =20
->  	priv =3D netdev_priv(dev);
-> +
-
-Dropped this hunk while applying.
-
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---9pl5f1EE5GT8gskDJLf4AgEa6FEJ9C6Jm
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJUZI8sAAoJECte4hHFiupUsTIP/2o5V6D30laDDQFGvQEPlo9k
-7mQwj0PDoc+Ss0y3D3bJSsNafHyvqYRFT6i4kXiroofHsJNlTFaPjZ0oJ1X+K8ID
-UF8o2dm9oHr5jiJ2oE18gNkIACZQ07KNZqBj6DjJmgs2Am+zm+NN8+FnNA9VQ3P0
-dgBv+9pYTr2pjT+4NPExunen93EDsf1DNHK+1qRCo0eY9Q1YTJqDwfICUf+Tw3Z2
-8KnBHyioiXreOGArTTgAyVLgakoO5UFLUjtYhDZWKbeDFeFqFPhJujr4OOPSuSjc
-Bcmh+xkv0KxCxonzV65HHAuWQ2Gi9W8k6KVYWByDCNRGn4CwpcTSzD1p0fekGrQf
-pP1nPODqdvvuffvzNVF/SyJZuBK94fBn89ir7DyGu2xXE0WVzisRKVEtu31SVFNP
-f9oRRe3Rg4QqmVm2+GZVgFrQ/AV7rf6gp68eRrOq8wcIBCQau6ZzdMMri4m9fuVk
-nRUVS9Z4G5JVpoCwq3UCV9TAuQyGhWQQ2N3zYjJwclSamm+UQhwA0VFKLMhIRR26
-2BO7VUa5KhW9zc07li1SDHfiyrMujocWSUfWF+YXUtpbiD4IFUHGruobq2xF/9DO
-4CjEpCLMOzQYB95uSWa5J2TOzgMomVUM6Ia3+vhN65ZMB6DkcG0N1vpXRG99UYYa
-v5FvBrlnJCtL4vbD6+3C
-=sCMj
------END PGP SIGNATURE-----
-
---9pl5f1EE5GT8gskDJLf4AgEa6FEJ9C6Jm--
+SGkgTWFyYywNCg0KLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCkZyb206IEFwcGFuYSBEdXJn
+YSBLZWRhcmVzd2FyYSBSYW8NClNlbnQ6IFRodXJzZGF5LCBOb3ZlbWJlciAxMywgMjAxNCA0OjI4
+IFBNDQpUbzogJ01hcmMgS2xlaW5lLUJ1ZGRlJzsgd2dAZ3JhbmRlZ2dlci5jb207IE1pY2hhbCBT
+aW1lazsgU29yZW4gQnJpbmttYW5uOyBncmFudC5saWtlbHlAbGluYXJvLm9yZzsgcm9iaCtkdEBr
+ZXJuZWwub3JnDQpDYzogbGludXgtY2FuQHZnZXIua2VybmVsLm9yZzsgbmV0ZGV2QHZnZXIua2Vy
+bmVsLm9yZzsgbGludXgtYXJtLWtlcm5lbEBsaXN0cy5pbmZyYWRlYWQub3JnOyBsaW51eC1rZXJu
+ZWxAdmdlci5rZXJuZWwub3JnOyBkZXZpY2V0cmVlQHZnZXIua2VybmVsLm9yZw0KU3ViamVjdDog
+UkU6IFtQQVRDSF0gY2FuOiBGaXggYnVnIGluIHN1c3BlbmQvcmVzdW1lDQoNCkhpIE1hcmMsDQoN
+Ci0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQpGcm9tOiBNYXJjIEtsZWluZS1CdWRkZSBbbWFp
+bHRvOm1rbEBwZW5ndXRyb25peC5kZV0NClNlbnQ6IFRodXJzZGF5LCBOb3ZlbWJlciAxMywgMjAx
+NCA0OjE2IFBNDQpUbzogQXBwYW5hIER1cmdhIEtlZGFyZXN3YXJhIFJhbzsgd2dAZ3JhbmRlZ2dl
+ci5jb207IE1pY2hhbCBTaW1lazsgU29yZW4gQnJpbmttYW5uOyBncmFudC5saWtlbHlAbGluYXJv
+Lm9yZzsgcm9iaCtkdEBrZXJuZWwub3JnDQpDYzogbGludXgtY2FuQHZnZXIua2VybmVsLm9yZzsg
+bmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgbGludXgtYXJtLWtlcm5lbEBsaXN0cy5pbmZyYWRlYWQu
+b3JnOyBsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3JnOyBkZXZpY2V0cmVlQHZnZXIua2VybmVs
+Lm9yZzsgQXBwYW5hIER1cmdhIEtlZGFyZXN3YXJhIFJhbw0KU3ViamVjdDogUmU6IFtQQVRDSF0g
+Y2FuOiBGaXggYnVnIGluIHN1c3BlbmQvcmVzdW1lDQoNCk9uIDExLzEzLzIwMTQgMTE6MTUgQU0s
+IE1hcmMgS2xlaW5lLUJ1ZGRlIHdyb3RlOg0KPiBPbiAxMS8xMy8yMDE0IDA3OjU4IEFNLCBLZWRh
+cmVzd2FyYSByYW8gQXBwYW5hIHdyb3RlOg0KPj4gV2hlbiBhY2Nlc3NpbmcgdGhlIHByaXYgc3Ry
+dWN0dXJlIHVzZSBjb250YWluZXJfb2YgaW5zdGVhZCBvZiBkZXZfZ2V0X2RydmRhdGEuDQo+DQo+
+IFdoeT8NCg0KVGhlIGRydmRhdGEgaGVyZSBpcyB0aGUgc3RydWN0IG5ldF9kZXZpY2UsIG5vdCB0
+aGUgcGxhdGZvcm0gZGV2aWNlLg0KUGxlYXNlIHN0YXRlIHRoaXMgaW4gdGhlIGNvbW1pdCBtZXNz
+YWdlLg0KDQpJZiBJIHVuZGVyc3RhbmQgdGhlIGNvZGUgY29ycmVjdCwgeW91IGNhbiBtYWtlIHVz
+ZSBvZiB0aGUgZXhpc3RpbmcgaGVscGVyIGZ1bmN0aW9uIHRvX3BsYXRmb3JtX2RldmljZSgpOg0K
+DQpodHRwOi8vbHhyLmZyZWUtZWxlY3Ryb25zLmNvbS9zb3VyY2UvaW5jbHVkZS9saW51eC9wbGF0
+Zm9ybV9kZXZpY2UuaCNMNDINCg0KVGhhbmtzIGZvciB0aGUgc3VnZ2VzdGlvbi4NCiBXaWxsIHVz
+ZSB0aGlzIG1hY3JvKHRvX3BsYXRmb3JtX2RldmljZSkgIC4NCg0KPg0KPj4gRW5hYmxlIHRoZSBj
+bG9ja3MgaW4gdGhlIHN1c3BlbmQgYmVmb3JlIGFjY2Vzc2luZyB0aGUgcmVnaXN0ZXJzIG9mIHRo
+ZSBDQU4uDQo+Pg0KPj4gU2lnbmVkLW9mZi1ieTogS2VkYXJlc3dhcmEgcmFvIEFwcGFuYSA8YXBw
+YW5hZEB4aWxpbnguY29tPg0KPj4gLS0tDQo+PiAgZHJpdmVycy9uZXQvY2FuL3hpbGlueF9jYW4u
+YyB8ICAgMjAgKysrKysrKysrKysrKysrKysrLS0NCj4+ICAxIGZpbGVzIGNoYW5nZWQsIDE4IGlu
+c2VydGlvbnMoKyksIDIgZGVsZXRpb25zKC0pDQo+Pg0KPj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMv
+bmV0L2Nhbi94aWxpbnhfY2FuLmMNCj4+IGIvZHJpdmVycy9uZXQvY2FuL3hpbGlueF9jYW4uYyBp
+bmRleCA1ZThiNTYwLi42M2VmNjQ1IDEwMDY0NA0KPj4gLS0tIGEvZHJpdmVycy9uZXQvY2FuL3hp
+bGlueF9jYW4uYw0KPj4gKysrIGIvZHJpdmVycy9uZXQvY2FuL3hpbGlueF9jYW4uYw0KPj4gQEAg
+LTk3MiwxNSArOTcyLDMwIEBAIHN0YXRpYyBjb25zdCBzdHJ1Y3QgbmV0X2RldmljZV9vcHMgeGNh
+bl9uZXRkZXZfb3BzID0gew0KPj4gICAqLw0KPj4gIHN0YXRpYyBpbnQgX19tYXliZV91bnVzZWQg
+eGNhbl9zdXNwZW5kKHN0cnVjdCBkZXZpY2UgKmRldikgIHsNCj4+IC0gICAgc3RydWN0IHBsYXRm
+b3JtX2RldmljZSAqcGRldiA9IGRldl9nZXRfZHJ2ZGF0YShkZXYpOw0KPj4gKyAgICBzdHJ1Y3Qg
+cGxhdGZvcm1fZGV2aWNlICpwZGV2ID0gY29udGFpbmVyX29mKGRldiwNCj4+ICsgICAgICAgICAg
+ICAgICAgICAgIHN0cnVjdCBwbGF0Zm9ybV9kZXZpY2UsIGRldik7DQo+PiAgICAgIHN0cnVjdCBu
+ZXRfZGV2aWNlICpuZGV2ID0gcGxhdGZvcm1fZ2V0X2RydmRhdGEocGRldik7DQo+PiAgICAgIHN0
+cnVjdCB4Y2FuX3ByaXYgKnByaXYgPSBuZXRkZXZfcHJpdihuZGV2KTsNCj4+ICsgICAgaW50IHJl
+dDsNCj4+DQo+PiAgICAgIGlmIChuZXRpZl9ydW5uaW5nKG5kZXYpKSB7DQo+PiAgICAgICAgICAg
+ICAgbmV0aWZfc3RvcF9xdWV1ZShuZGV2KTsNCj4+ICAgICAgICAgICAgICBuZXRpZl9kZXZpY2Vf
+ZGV0YWNoKG5kZXYpOw0KPj4gICAgICB9DQo+Pg0KPj4gKyAgICByZXQgPSBjbGtfcHJlcGFyZV9l
+bmFibGUocHJpdi0+Y2FuX2Nsayk7DQo+PiArICAgIGlmIChyZXQpIHsNCj4+ICsgICAgICAgICAg
+ICBkZXZfZXJyKGRldiwgInVuYWJsZSB0byBlbmFibGUgZGV2aWNlIGNsb2NrXG4iKTsNCj4+ICsg
+ICAgICAgICAgICByZXR1cm4gcmV0Ow0KPj4gKyAgICB9DQo+PiArDQo+PiArICAgIHJldCA9IGNs
+a19wcmVwYXJlX2VuYWJsZShwcml2LT5idXNfY2xrKTsNCj4+ICsgICAgaWYgKHJldCkgew0KPj4g
+KyAgICAgICAgICAgIGRldl9lcnIoZGV2LCAidW5hYmxlIHRvIGVuYWJsZSBidXMgY2xvY2tcbiIp
+Ow0KPj4gKyAgICAgICAgICAgIGNsa19kaXNhYmxlX3VucHJlcGFyZShwcml2LT5jYW5fY2xrKTsN
+Cj4+ICsgICAgICAgICAgICByZXR1cm4gcmV0Ow0KPj4gKyAgICB9DQo+DQo+IE5vdyB5b3UgaGF2
+ZSBjbG9jayBpbWJhbGFuY2UuIFBlciBzdXNwZW5kL3Jlc3VtZSBjeWNsZSB0aGUgY2xvY2tzIGFy
+ZQ0KPiBlbmFibGVkIHR3aWNlLCBidXQgZGlzYWJsZWQgb25seSBvbmNlLg0KPg0KDQpUaGUgY2xv
+Y2tzIGFyZSBnZXR0aW5nIGRpc2FibGVkIGFuZCB1biBwcmVwYXJlZCBhdCB0aGUgZW5kIG9mIHRo
+ZSBwcm9iZS4NCkluIHRoZSByZXN1bWUgdGhlIGRyaXZlciBpcyBkb2luZyByZWdpc3RlciB3cml0
+ZS4NCg0KU29ycnkgc3BlbGwgbWlzdGFrZSBub3QgaW4gcmVzdW1lIGluIHRoZSBzdXNwZW5kIEkg
+YW0gZG9pbmcgYSByZWdpc3RlciB3cml0ZS4NCg0KSW4gb3JkZXIgdG8gZG8gdGhhdCByZWdpc3Rl
+ciB3cml0ZSBJIGhhdmUgdG8gYWdhaW4gZW5hYmxlIGFuZCBwcmVwYXJlIHRoZSBjbG9ja3MuDQoN
+Cg0KUmVnYXJkcywNCktlZGFyLg0KDQoNClJlZ2FyZHMsDQpLZWRhci4NCg0KPj4gKw0KPj4gICAg
+ICBwcml2LT53cml0ZV9yZWcocHJpdiwgWENBTl9NU1JfT0ZGU0VULCBYQ0FOX01TUl9TTEVFUF9N
+QVNLKTsNCj4+ICAgICAgcHJpdi0+Y2FuLnN0YXRlID0gQ0FOX1NUQVRFX1NMRUVQSU5HOw0KPj4N
+Cj4+IEBAIC05OTksNyArMTAxNCw4IEBAIHN0YXRpYyBpbnQgX19tYXliZV91bnVzZWQgeGNhbl9z
+dXNwZW5kKHN0cnVjdCBkZXZpY2UgKmRldikNCj4+ICAgKi8NCj4+ICBzdGF0aWMgaW50IF9fbWF5
+YmVfdW51c2VkIHhjYW5fcmVzdW1lKHN0cnVjdCBkZXZpY2UgKmRldikgIHsNCj4+IC0gICAgc3Ry
+dWN0IHBsYXRmb3JtX2RldmljZSAqcGRldiA9IGRldl9nZXRfZHJ2ZGF0YShkZXYpOw0KPj4gKyAg
+ICBzdHJ1Y3QgcGxhdGZvcm1fZGV2aWNlICpwZGV2ID0gY29udGFpbmVyX29mKGRldiwNCj4+ICsg
+ICAgICAgICAgICAgICAgICAgIHN0cnVjdCBwbGF0Zm9ybV9kZXZpY2UsIGRldik7DQo+PiAgICAg
+IHN0cnVjdCBuZXRfZGV2aWNlICpuZGV2ID0gcGxhdGZvcm1fZ2V0X2RydmRhdGEocGRldik7DQo+
+PiAgICAgIHN0cnVjdCB4Y2FuX3ByaXYgKnByaXYgPSBuZXRkZXZfcHJpdihuZGV2KTsNCj4+ICAg
+ICAgaW50IHJldDsNCg0KTWFyYw0KDQotLQ0KUGVuZ3V0cm9uaXggZS5LLiAgICAgICAgICAgICAg
+ICAgIHwgTWFyYyBLbGVpbmUtQnVkZGUgICAgICAgICAgIHwNCkluZHVzdHJpYWwgTGludXggU29s
+dXRpb25zICAgICAgICB8IFBob25lOiArNDktMjMxLTI4MjYtOTI0ICAgICB8DQpWZXJ0cmV0dW5n
+IFdlc3QvRG9ydG11bmQgICAgICAgICAgfCBGYXg6ICAgKzQ5LTUxMjEtMjA2OTE3LTU1NTUgfA0K
+QW10c2dlcmljaHQgSGlsZGVzaGVpbSwgSFJBIDI2ODYgIHwgaHR0cDovL3d3dy5wZW5ndXRyb25p
+eC5kZSAgIHwNCg0KDQoNClRoaXMgZW1haWwgYW5kIGFueSBhdHRhY2htZW50cyBhcmUgaW50ZW5k
+ZWQgZm9yIHRoZSBzb2xlIHVzZSBvZiB0aGUgbmFtZWQgcmVjaXBpZW50KHMpIGFuZCBjb250YWlu
+KHMpIGNvbmZpZGVudGlhbCBpbmZvcm1hdGlvbiB0aGF0IG1heSBiZSBwcm9wcmlldGFyeSwgcHJp
+dmlsZWdlZCBvciBjb3B5cmlnaHRlZCB1bmRlciBhcHBsaWNhYmxlIGxhdy4gSWYgeW91IGFyZSBu
+b3QgdGhlIGludGVuZGVkIHJlY2lwaWVudCwgZG8gbm90IHJlYWQsIGNvcHksIG9yIGZvcndhcmQg
+dGhpcyBlbWFpbCBtZXNzYWdlIG9yIGFueSBhdHRhY2htZW50cy4gRGVsZXRlIHRoaXMgZW1haWwg
+bWVzc2FnZSBhbmQgYW55IGF0dGFjaG1lbnRzIGltbWVkaWF0ZWx5Lg0KDQo=
