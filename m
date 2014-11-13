@@ -1,50 +1,41 @@
-From: Yuri Chislov <yuri.chislov@gmail.com>
-Subject: ip6_gre wccp header changed top ipv4, while should be changed to ipv6
-Date: Thu, 13 Nov 2014 08:13:30 +0200
-Message-ID: <CAAcAdL0vbwLfft5XT-DWvW_XB+XLgkko7V_sWm5D99F1KU-JSw@mail.gmail.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch v2 -next] amd-xgbe: fix ->rss_hash_type
+Date: Thu, 13 Nov 2014 09:19:06 +0300
+Message-ID: <20141113061905.GA1280@mwanda>
+References: <20141112.150459.233340605780805877.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Tom Lendacky <thomas.lendacky@amd.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f170.google.com ([209.85.213.170]:34142 "EHLO
-	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750751AbaKMGNb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Nov 2014 01:13:31 -0500
-Received: by mail-ig0-f170.google.com with SMTP id a13so631259igq.5
-        for <netdev@vger.kernel.org>; Wed, 12 Nov 2014 22:13:30 -0800 (PST)
+Received: from userp1040.oracle.com ([156.151.31.81]:40536 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751014AbaKMGTU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Nov 2014 01:19:20 -0500
+Content-Disposition: inline
+In-Reply-To: <20141112.150459.233340605780805877.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+There was a missing break statement so we set everything to
+PKT_HASH_TYPE_L3 even when we intended to use PKT_HASH_TYPE_L4.
 
-wccp v 2.01 forward gre packet with protocol type WCCP (0x883e) in gre header,
-that replaced with ETH_P_IP, while encapsulated ipv6 packet (ETH_P_IPV6).
+Fixes: 5b9dfe299e55 ('amd-xgbe: Provide support for receive side scaling')
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+---
+v2: remove blank line
 
- Tested on 3.14.23, the same code is in 3.17.2
-
-======================================
---- a/ip6_gre.c 2014-11-11 11:33:30.820695876 +0000
-+++ b/ip6_gre.c 2014-11-11 11:34:19.480694111 +0000
-@@ -512,7 +512,7 @@
-                 * - When dealing with WCCPv2, Skip extra 4 bytes in GRE header
-                 */
-                if (flags == 0 && gre_proto == htons(ETH_P_WCCP)) {
--                       skb->protocol = htons(ETH_P_IP);
-+                       skb->protocol = htons(ETH_P_IPV6);
-                        if ((*(h + offset) & 0xF0) != 0x40)
-                                offset += 4;
-                }
-======================================
-
- One more issue noted in ip6_gre.
-ipv4 gre interface configured to local any remote any
-receive(accept) all gre traffic.
-ipv6 gre interface should be configured explicit to exact remote and
-local addresses
-to receive traffic in gre interface, that a bit problematic due to
-multiply addresses
-assigned to interface. I will try to understand this issue, but possible someone
-have some ideas
-
-Thanks.
-Yuri.
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
+index 7daa2cd..f6014d3 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
+@@ -1600,7 +1600,7 @@ static int xgbe_dev_read(struct xgbe_channel *channel)
+ 		case RX_DESC3_L34T_IPV6_TCP:
+ 		case RX_DESC3_L34T_IPV6_UDP:
+ 			packet->rss_hash_type = PKT_HASH_TYPE_L4;
+-
++			break;
+ 		default:
+ 			packet->rss_hash_type = PKT_HASH_TYPE_L3;
+ 		}
