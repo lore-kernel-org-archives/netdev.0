@@ -1,30 +1,85 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: manual merge of the net-next tree with the net tree
-Date: Thu, 13 Nov 2014 16:14:05 -0500 (EST)
-Message-ID: <20141113.161405.1383394554354192003.davem@davemloft.net>
-References: <20141113113555.15117365@canb.auug.org.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: skb_fclone_busy() needs to detect orphaned skb
+Date: Thu, 13 Nov 2014 13:20:22 -0800
+Message-ID: <1415913622.17262.24.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1414690354.9028.9.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20141113191502.GC7095@hercules>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, hariprasad@chelsio.com,
-	alexander.h.duyck@redhat.com
-To: sfr@canb.auug.org.au
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20141113113555.15117365@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Neal Cardwell <ncardwell@google.com>,
+	Joseph Salisbury <joseph.salisbury@canonical.com>
+To: Luis Henriques <luis.henriques@canonical.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:37261 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934041AbaKMVUY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Nov 2014 16:20:24 -0500
+Received: by mail-pa0-f51.google.com with SMTP id kq14so16153132pab.38
+        for <netdev@vger.kernel.org>; Thu, 13 Nov 2014 13:20:23 -0800 (PST)
+In-Reply-To: <20141113191502.GC7095@hercules>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Thu, 13 Nov 2014 11:35:55 +1100
+On Thu, 2014-11-13 at 19:15 +0000, Luis Henriques wrote:
+> Hi Eric,
+>=20
+> On Thu, Oct 30, 2014 at 10:32:34AM -0700, Eric Dumazet wrote:
+> > From: Eric Dumazet <edumazet@google.com>
+> >=20
+> > Some drivers are unable to perform TX completions in a bound time.
+> > They instead call skb_orphan()
+> >=20
+> > Problem is skb_fclone_busy() has to detect this case, otherwise
+> > we block TCP retransmits and can freeze unlucky tcp sessions on
+> > mostly idle hosts.
+> >=20
+> > Signed-off-by: Eric Dumazet <edumazet@google.com>
+> > Fixes: 1f3279ae0c13 ("tcp: avoid retransmits of TCP packets hanging=
+ in host queues")
+> > ---
+> >  This is a stable candidate.
+> >  This problem is known to hurt users of linux-3.16 kernels used by =
+guests kernels.
+> >  David, I can provide backports if you want.
+> >  Thanks !
+> >=20
+>=20
+> We got a bug report[0] where a backport for 3.16 was provided.  Since
+> I couldn't find the original backport post, I'm not sure who's the
+> actual author.  Could you please confirm if this backport is correct?
+> (I'm copying the patch below).
+>=20
+> [0] https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1390604
+>=20
+> Cheers,
+> --
+> Lu=C3=ADs
+>=20
+>=20
 
-> Today's linux-next merge of the net-next tree got a conflict in
-> drivers/net/ethernet/chelsio/cxgb4vf/sge.c between commit 65f6ecc93e7c
-> ("cxgb4vf: Move fl_starv_thres into adapter->sge data structure") from
-> the net tree and commit aa9cd31c3f3e ("cxgb4/cxgb4vf: Replace
-> __skb_alloc_page with __dev_alloc_page") from the net-next tree.
-> 
-> I fixed it up (see below) and can carry the fix as necessary (no action
-> is required).
+Sure ! I provided this patch indeed, I am 'The Google engineer'
+mentioned in this bug report ;)
 
-This merge resolution looks perfect.
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+
+
+Thanks !
+
+> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+> index 4e4932b5079b..a8794367cd20 100644
+> --- a/net/ipv4/tcp_output.c
+> +++ b/net/ipv4/tcp_output.c
+> @@ -2082,7 +2082,8 @@ static bool skb_still_in_host_queue(const struc=
+t sock *sk,
+>  	const struct sk_buff *fclone =3D skb + 1;
+> =20
+>  	if (unlikely(skb->fclone =3D=3D SKB_FCLONE_ORIG &&
+> -		     fclone->fclone =3D=3D SKB_FCLONE_CLONE)) {
+> +		     fclone->fclone =3D=3D SKB_FCLONE_CLONE &&
+> +		     fclone->sk =3D=3D sk)) {
+>  		NET_INC_STATS_BH(sock_net(sk),
+>  				 LINUX_MIB_TCPSPURIOUS_RTX_HOSTQUEUES);
+>  		return true;
