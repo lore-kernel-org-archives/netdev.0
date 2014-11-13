@@ -1,93 +1,165 @@
-From: =?windows-1252?Q?J=F6rg_Marx?= <joerg.marx@secunet.com>
-Subject: Re: [PATCH nf] netfilter: conntrack: fix race in __nf_conntrack_confirm
- against get_next_corpse
-Date: Thu, 13 Nov 2014 15:33:59 +0100
-Message-ID: <5464C157.7020901@secunet.com>
-References: <012601cff7d1$7ce2d620$76a88260$@gmail.com> <20141106133648.2534.1403.stgit@dragon> <20141110165439.GA7788@salvia> <20141112083500.5404e5f4@redhat.com> <54633D1B.5090404@secunet.com> <20141113120826.GA8224@salvia>
+From: Oliver Graute <oliver.graute@gmail.com>
+Subject: Re: Device Tree Binding for Marvell DSA Switch on imx28 board over
+ Mdio Interface
+Date: Thu, 13 Nov 2014 16:15:08 +0100
+Message-ID: <CA+KjHfbwtwPFXFEVDDijRNeTcHcSn0BZ4_yGuwcgyFfubNFCQA@mail.gmail.com>
+References: <CA+KjHfYZdZ88ZFzFCPN-bGphh+mnSWy6i0WNzFYv=gOsafXA7g@mail.gmail.com>
+	<5463B2AC.6090904@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
-	<programme110@gmail.com>, <netfilter-devel@vger.kernel.org>,
-	Florian Westphal <fw@strlen.de>, <netdev@vger.kernel.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20141113120826.GA8224@salvia>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f181.google.com ([209.85.223.181]:61067 "EHLO
+	mail-ie0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932730AbaKMPPJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Nov 2014 10:15:09 -0500
+Received: by mail-ie0-f181.google.com with SMTP id rp18so15878950iec.12
+        for <netdev@vger.kernel.org>; Thu, 13 Nov 2014 07:15:08 -0800 (PST)
+In-Reply-To: <5463B2AC.6090904@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 13.11.2014 13:08, Pablo Neira Ayuso wrote:
+Hello Florian,
 
->> For me there is little difference in choosing DROP or ACCEPT as verd=
-ict.
->> > The packet/skb belongs to a formerly allowed connection, most like=
-ly
->> > this connection is still allowed (but the conntrack hash entry is =
-about
->> > to be removed due to userspace is flushing the conntrack table).
-> __nf_conntrack_confirm() is only called for the first packet that we
-> see in a flow. If you just invoked the flush command once (which
-> should be the common case), then this is likely to be the first packe=
-t
-> of the flow (unless you already called flush anytime soon in the
-> past).
-Yes, you are right. As far as I remember it was very hard to trigger
-that critical moment, when the first packet triggered the insertion int=
-o
-the hash table. But the test and production systems showed this strange
-behaviour, that no traffic was allowed to flow for exactly 600 seconds.
+On Wed, Nov 12, 2014 at 8:19 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+> On 11/12/2014 05:07 AM, Oliver Graute wrote:
+>> Hello,
+>>
+>> how do I specify the DSA node and the MDIO node in the Device Tree
+>> Binding to integrate a Marvell 88e6071 switch with a imx28 board?
+>>
+>> On my board the Marvell switch 88e6071 is connected via phy1 (on a
+>> imx28 PCB) to phy5 on the Marvell switch (on a Switch PCB). All phys
+>> are connected via the same MDIO Bus.
+>>
+>> I enabled the Marvell DSA Support Driver, Gianfar Ethernet Driver and
+>> Freescale PQ MDIO Driver in the Kernel (I' am not sure if this is the
+>> right choice for imx28 fec ethernet controller is it?)
+>>
 
->=20
->> > To minimize the impact (lost packets -> retransmit) I decided to a=
-llow
->> > the skb in flight, so were is no lost packet at this place.
-> I understand your original motivation was to be conservative.
-Yes.
+I changed my DeviceTree according to your proposal. Now I got a ENODEV 19
+in dsa_of_probe. Because  of_find_device_by_node(ethernet) is returning 0.
+Is my ethernet setting still wrong?
 
->=20
->> > When the connection is not allowed anymore (but was allowed up to =
-now,
->> > because the hash entry exists), the impact is one last packet 'sli=
-pping
->> > through'.
-=46eel free to change the verdict, IMHO it doesn't matter at all as lon=
-g
-as the hash table is in a consistent state. The higher protocol layers
-will deal with the missing packet.
+dsa@0 {
+        compatible = "marvell,dsa";
+        #address-cells = <2>;
+        #size-cells = <0>;
 
-> The general policy in conntrack is to not drop packets, but in this
-> case we'll leave things in inconsistent state (ie. we will likely
-> receive a reply packet in response to the original packet that has no
-> conntrack yet).
-Under heavy load this can happen anyway I guess?
+        interrupts = <10>;
+        dsa,ethernet = <&eth1>;
+        dsa,mii-bus = <&mdio_bus>;
 
-Thanks and best regards
-J=F6rg
+        switch@0 {
+            #address-cells = <1>;
+            #size-cells = <0>;
+            reg = <5 0>;   /* MDIO address 5, switch 0 in tree */
 
---=20
-Dipl.-Inform.
-J=F6rg Marx
-Bereichsleiter
-Entwicklung Client- & Netzwerksicherheit
-Gesch=E4ftsbereich Public Sector
-secunet Security Networks AG
-Ammonstr. 74
-D-01067 Dresden, Germany=20
-Telefon +49 201 54 54-3517
-Telefax +49 201 54 54-1323
-joerg.marx@secunet.com
-www.secunet.com
+            port@0 {
+                reg = <0>;
+                label = "lan1";
+                phy-handle = <&ethphy1>;
+            };
 
-secunet Security Networks AG
-Kronprinzenstr. 30
-45128 Essen, Germany=20
-Amtsgericht Essen HRB 13615
+            port@1 {
+                reg = <1>;
+                label = "lan2";
+            };
 
-Vorstand: Dr. Rainer Baumgart (Vors.), Thomas Pleines
-Aufsichtsratsvorsitzender: Dr. Peter Zattler
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+            port@2 {
+                reg = <2>;
+                label = "lan3";
+            };
+
+            port@3 {
+                reg = <3>;
+                label = "lan4";
+            };
+
+            port@4 {
+                reg = <4>;
+                label = "lan5";
+            };
+
+            port@5 {
+                reg = <5>;
+                label = "cpu";
+            };
+
+        };
+    };
+
+eth1: eth1 {
+    status = "okay";
+    ethernet1-port@1 {
+        phy-handle = <&ethphy1>;
+
+        fixed-link {
+                speed = <1000>;
+                full-duplex;
+            };
+    };
+};
+
+mdio_bus: mdio@800f0040 {
+        #address-cells = <1>;
+        #size-cells = <0>;
+        device_type = "mdio";
+        //compatible = "fsl,gianfar-mdio";
+        compatible = "fsl,mpc875-fec-mdio", "fsl,pq1-fec-mdio";
+        reg = <0x800f0040 0x188>;
+        status = "okay";
+
+         ethphy0: ethernet-phy@0 {
+                compatible = "fsl,gianfar-mdio";
+                device_type = "network";
+                model = "FEC";
+                reg = <0x00>;
+
+         };
+
+         ethphy1: ethernet-phy@1 {
+                 compatible = "fsl,gianfar-mdio";
+                 device_type = "network";
+                 model = "FEC";
+                 reg = <0x01>;
+                };
+                 //reg = <0xff>; */ /* No PHY attached */
+                 //speed = <1000>;
+                 //duple = <1>;
+       };
+
+modprobe dsa_core
+[  151.720180] !!!!!enter dsa_init_module!!!!!
+[  151.724713] !!!!Enter dsa Probe!!!!!
+[  151.728321] Distributed Switch Architecture driver version 0.1
+[  151.739026] !!!!!Enter dsa_of_probe!!!!!
+[  151.744515] !!!!!mdio->name=mdio mdio->type=mdio
+mdio->full_name=/mdio@800f0040 !!!!!
+[  151.753559] !!!!!np->name=dsa np->type=<NULL> np->full_name=/dsa@0 !!!!!
+[  151.761419] !!!!before of_mdio_find_bus!!!!!
+[  151.765732] !!!!!enter of_mdio_find_bus!!!!!
+[  151.772418] !!!!!!enter class_find_device!!!!!
+[  151.776908] !!!!!!enter class_dev_iter_init!!!!!
+[  151.783512] !!!!!!iter->type->name=(null) !!!!!
+[  151.788085] !!!!!!leave class_dev_iter_init!!!!!
+[  151.794439] !!!!!enter of_mdio_bus_match!!!!!
+[  151.798845] !!!!!enter of_mdio_bus_match!!!!!
+[  151.804967] !!!!!enter of_mdio_bus_match!!!!!
+[  151.809381] !!!!!!leave class_find_device return dev=!!!!!
+[  151.816668] !!!!Leave of_mdio_find_bus !!!!!
+[  151.822057] !!!!before of_parse_phandle dsa,ethernet!!!!!
+[  151.827553] !!!!before of find_device_by_node!!!!!
+[  151.834819] !!!!!ethernet->name=eth1 ethernet->type=<NULL>
+ethernet->full_name=/eth1 !!!!!
+[  151.844540] !!!!! enter of_find_device_by_node !!!!!
+[  151.850692] !!!!! Leave of_find_device_by_node dev=0 !!!!!
+[  151.856221] !!!! return  of_find-device_by_node =19 !!!!!
+[  151.863419] dsa_of_probe returns=-19
+[  151.873509] !!!!!leave dsa_init_module!!!!!
+
+
+Best Regards,
+
+Oliver
