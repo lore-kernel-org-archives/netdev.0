@@ -1,41 +1,53 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [GIT PULL nf] Second Round of IPVS Fixes for v3.18
-Date: Thu, 13 Nov 2014 12:38:18 +0100
-Message-ID: <20141113113818.GA7570@salvia>
-References: <1415758920-32578-1-git-send-email-horms@verge.net.au>
+Subject: Re: arm64 allmodconfig failures in nft_reject_bridge.c
+Date: Thu, 13 Nov 2014 12:43:57 +0100
+Message-ID: <20141113114357.GA7857@salvia>
+References: <E1Xm8gR-0005nT-PY@debutante> <20141106104616.GU8509@sirena.org.uk>
+	<20141112233738.GB3815@sirena.org.uk>
+	<20141113113320.GF3815@sirena.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:59671 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932328AbaKMLgV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Nov 2014 06:36:21 -0500
+Content-Transfer-Encoding: quoted-printable
+Cc: linaro-kernel@lists.linaro.org, kernel-build-reports@lists.linaro.org,
+	netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	Patrick McHardy <kaber@trash.net>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	coreteam@netfilter.org, netfilter-devel@vger.kernel.org,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>, Guenter Roeck <linux@roeck-us.net>
+To: Mark Brown <broonie@kernel.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <1415758920-32578-1-git-send-email-horms@verge.net.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20141113113320.GF3815@sirena.org.uk>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 12, 2014 at 11:21:59AM +0900, Simon Horman wrote:
-> Hi Pablo,
-> 
-> please consider this fix for v3.18.
-> 
-> It fixes handling of skb->sk which may cause incorrect handling
-> of connections from a local process.
-> 
-> This problem was introduced in its current form by 8052ba292559f907e
-> ("ipvs: support ipv4 in ipv6 and ipv6 in ipv4 tunnel forwarding") in
-> v3.18-rc1.
+On Thu, Nov 13, 2014 at 11:33:20AM +0000, Mark Brown wrote:
+> Since about -rc3 we've been seeing build failures in Linus' tree on
+> arm64 allmodconfig due to:
+>=20
+> > 	arm64-allmodconfig
+> > ../net/bridge/netfilter/nft_reject_bridge.c:240:3: error: implicit decl=
+aration of function 'csum_ipv6_magic' [-Werror=3Dimplicit-function-declarat=
+ion]
+>=20
+> By the time I looked into this it was fixed in -next by c1207c049b204b0
+> (netfilter: nft_reject_bridge: Fix powerpc build error) from Guenter but
+> that doesn't seem to have made it into -rc4 so I just wanted to check
+> that this fix was intended to go to Linus before v3.18?
 
-Pulled, thanks Simon.
+I can see this in David's tree:
 
-> I believe it also exists in a different form in older kernels.
-> No fix for that is available at this time.
+http://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/?id=3Dc120=
+7c049b204b0a96535dc5416aee331b51e0e1
 
-AFAIK -stable also accepts backports if there's a clear relation
-between this original patch in mainstream and the backported version.
+I think this was reported by when -rc4 was already out, so you'll see
+this by -rc5.
