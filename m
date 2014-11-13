@@ -1,237 +1,98 @@
-From: Roger Quadros <rogerq@ti.com>
-Subject: Re: [PATCH v4 4/8] net: can: c_can: Add syscon/regmap RAMINIT mechanism
-Date: Thu, 13 Nov 2014 15:07:44 +0200
-Message-ID: <5464AD20.3080005@ti.com>
-References: <1415371762-29885-1-git-send-email-rogerq@ti.com> <1415371762-29885-5-git-send-email-rogerq@ti.com> <5464A79F.1070304@pengutronix.de>
+From: "Ronald" <ronathwala@outlook.com>
+Subject: Partnership Proposal
+Date: Thu, 13 Nov 2014 21:55:29 +1300 (NZDT)
+Message-ID: <64881.88.150.172.108.1415868929.squirrel@mail.orcon.net.nz>
+Reply-To: ronthwala@admin.in.th
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <wsa@the-dreams.de>, <tony@atomide.com>, <tglx@linutronix.de>,
-	<mugunthanvnm@ti.com>, <george.cherian@ti.com>, <balbi@ti.com>,
-	<nsekhar@ti.com>, <nm@ti.com>,
-	<sergei.shtylyov@cogentembedded.com>, <linux-omap@vger.kernel.org>,
-	<linux-can@vger.kernel.org>, <netdev@vger.kernel.org>
-To: Marc Kleine-Budde <mkl@pengutronix.de>, <wg@grandegger.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <5464A79F.1070304@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed;boundary="----=_20141113215529_65717"
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.orcon.net.nz ([219.88.242.56]:44151 "EHLO
+	mail.orcon.net.nz" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S933074AbaKMOF5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Nov 2014 09:05:57 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/13/2014 02:44 PM, Marc Kleine-Budde wrote:
-> On 11/07/2014 03:49 PM, Roger Quadros wrote:
->> Some TI SoCs like DRA7 have a RAMINIT register specification
->> different from the other AMxx SoCs and as expected by the
->> existing driver.
->>
->> To add more insanity, this register is shared with other
->> IPs like DSS, PCIe and PWM.
->>
->> Provides a more generic mechanism to specify the RAMINIT
->> register location and START/DONE bit position and use the
->> syscon/regmap framework to access the register.
->>
->> Signed-off-by: Roger Quadros <rogerq@ti.com>
->> ---
->>  .../devicetree/bindings/net/can/c_can.txt          |   3 +
->>  drivers/net/can/c_can/c_can.h                      |  11 +-
->>  drivers/net/can/c_can/c_can_platform.c             | 112 ++++++++++++++-------
->>  3 files changed, 86 insertions(+), 40 deletions(-)
->>
->> diff --git a/Documentation/devicetree/bindings/net/can/c_can.txt b/Documentation/devicetree/bindings/net/can/c_can.txt
->> index 8f1ae81..a3ca3ee 100644
->> --- a/Documentation/devicetree/bindings/net/can/c_can.txt
->> +++ b/Documentation/devicetree/bindings/net/can/c_can.txt
->> @@ -12,6 +12,9 @@ Required properties:
->>  Optional properties:
->>  - ti,hwmods		: Must be "d_can<n>" or "c_can<n>", n being the
->>  			  instance number
->> +- syscon-raminit	: Handle to system control region that contains the
->> +			  RAMINIT register, register offset to the RAMINIT
->> +			  register and the CAN instance number (0 offset).
->>  
->>  Note: "ti,hwmods" field is used to fetch the base address and irq
->>  resources from TI, omap hwmod data base during device registration.
->> diff --git a/drivers/net/can/c_can/c_can.h b/drivers/net/can/c_can/c_can.h
->> index 3c305a1..0e17c7b 100644
->> --- a/drivers/net/can/c_can/c_can.h
->> +++ b/drivers/net/can/c_can/c_can.h
->> @@ -179,6 +179,14 @@ struct c_can_driver_data {
->>  	bool raminit_pulse;	/* If set, sets and clears START bit (pulse) */
->>  };
->>  
->> +/* Out of band RAMINIT register access via syscon regmap */
->> +struct c_can_raminit {
->> +	struct regmap *syscon;	/* for raminit ctrl. reg. access */
->> +	unsigned int reg;	/* register index within syscon */
->> +	u8 start_bit;
->> +	u8 done_bit;
->> +};
->> +
->>  /* c_can private data structure */
->>  struct c_can_priv {
->>  	struct can_priv can;	/* must be the first member */
->> @@ -196,8 +204,7 @@ struct c_can_priv {
->>  	const u16 *regs;
->>  	void *priv;		/* for board-specific data */
->>  	enum c_can_dev_id type;
->> -	u32 __iomem *raminit_ctrlreg;
->> -	int instance;
->> +	struct c_can_raminit raminit_sys;	/* RAMINIT via syscon regmap */
->>  	void (*raminit) (const struct c_can_priv *priv, bool enable);
->>  	u32 comm_rcv_high;
->>  	u32 rxmasked;
->> diff --git a/drivers/net/can/c_can/c_can_platform.c b/drivers/net/can/c_can/c_can_platform.c
->> index 20deb67..3776483 100644
->> --- a/drivers/net/can/c_can/c_can_platform.c
->> +++ b/drivers/net/can/c_can/c_can_platform.c
->> @@ -32,14 +32,13 @@
->>  #include <linux/clk.h>
->>  #include <linux/of.h>
->>  #include <linux/of_device.h>
->> +#include <linux/mfd/syscon.h>
->> +#include <linux/regmap.h>
->>  
->>  #include <linux/can/dev.h>
->>  
->>  #include "c_can.h"
->>  
->> -#define CAN_RAMINIT_START_MASK(i)	(0x001 << (i))
->> -#define CAN_RAMINIT_DONE_MASK(i)	(0x100 << (i))
->> -#define CAN_RAMINIT_ALL_MASK(i)		(0x101 << (i))
->>  #define DCAN_RAM_INIT_BIT		(1 << 3)
->>  static DEFINE_SPINLOCK(raminit_lock);
->>  /*
->> @@ -72,47 +71,61 @@ static void c_can_plat_write_reg_aligned_to_32bit(const struct c_can_priv *priv,
->>  	writew(val, priv->base + 2 * priv->regs[index]);
->>  }
->>  
->> -static void c_can_hw_raminit_wait_ti(const struct c_can_priv *priv, u32 mask,
->> -				  u32 val)
->> +static void c_can_hw_raminit_wait_syscon(const struct c_can_priv *priv,
->> +					 u32 mask, u32 val)
->>  {
->>  	int timeout = 0;
->> +	const struct c_can_raminit *raminit = &priv->raminit_sys;
->> +	u32 ctrl;
->> +
->>  	/* We look only at the bits of our instance. */
->>  	val &= mask;
->> -	while ((readl(priv->raminit_ctrlreg) & mask) != val) {
->> +	do {
->>  		udelay(1);
->>  		timeout++;
->>  
->> +		regmap_read(raminit->syscon, raminit->reg, &ctrl);
->>  		if (timeout == 1000) {
->>  			dev_err(&priv->dev->dev, "%s: time out\n", __func__);
->>  			break;
->>  		}
->> -	}
->> +	} while ((ctrl & mask) != val);
->>  }
->>  
->> -static void c_can_hw_raminit_ti(const struct c_can_priv *priv, bool enable)
->> +static void c_can_hw_raminit_syscon(const struct c_can_priv *priv, bool enable)
->>  {
->> -	u32 mask = CAN_RAMINIT_ALL_MASK(priv->instance);
->> +	u32 mask;
->>  	u32 ctrl;
->> +	const struct c_can_raminit *raminit = &priv->raminit_sys;
->> +	u8 start_bit, done_bit;
->> +
->> +	start_bit = raminit->start_bit;
->> +	done_bit = raminit->done_bit;
->>  
->>  	spin_lock(&raminit_lock);
->>  
->> -	ctrl = readl(priv->raminit_ctrlreg);
->> +	mask = 1 << start_bit | 1 << done_bit;
->> +	regmap_read(raminit->syscon, raminit->reg, &ctrl);
->> +
->>  	/* We clear the done and start bit first. The start bit is
->>  	 * looking at the 0 -> transition, but is not self clearing;
->>  	 * And we clear the init done bit as well.
->> +	 * NOTE: DONE must be written with 1 to clear it.
->>  	 */
->> -	ctrl &= ~CAN_RAMINIT_START_MASK(priv->instance);
->> -	ctrl |= CAN_RAMINIT_DONE_MASK(priv->instance);
->> -	writel(ctrl, priv->raminit_ctrlreg);
->> -	ctrl &= ~CAN_RAMINIT_DONE_MASK(priv->instance);
->> -	c_can_hw_raminit_wait_ti(priv, mask, ctrl);
->> +	ctrl &= ~(1 << start_bit);
->> +	ctrl |= 1 << done_bit;
->> +	regmap_write(raminit->syscon, raminit->reg, ctrl);
->> +
->> +	ctrl &= ~(1 << done_bit);
->> +	c_can_hw_raminit_wait_syscon(priv, mask, ctrl);
->>  
->>  	if (enable) {
->>  		/* Set start bit and wait for the done bit. */
->> -		ctrl |= CAN_RAMINIT_START_MASK(priv->instance);
->> -		writel(ctrl, priv->raminit_ctrlreg);
->> -		ctrl |= CAN_RAMINIT_DONE_MASK(priv->instance);
->> -		c_can_hw_raminit_wait_ti(priv, mask, ctrl);
->> +		ctrl |= 1 << start_bit;
->> +		regmap_write(raminit->syscon, raminit->reg, ctrl);
->> +
->> +		ctrl |= 1 << done_bit;
->> +		c_can_hw_raminit_wait_syscon(priv, mask, ctrl);
->>  	}
->>  	spin_unlock(&raminit_lock);
->>  }
->> @@ -206,10 +219,11 @@ static int c_can_plat_probe(struct platform_device *pdev)
->>  	struct net_device *dev;
->>  	struct c_can_priv *priv;
->>  	const struct of_device_id *match;
->> -	struct resource *mem, *res;
->> +	struct resource *mem;
->>  	int irq;
->>  	struct clk *clk;
->>  	const struct c_can_driver_data *drvdata;
->> +	struct device_node *np = pdev->dev.of_node;
->>  
->>  	match = of_match_device(c_can_of_table, &pdev->dev);
->>  	if (match) {
->> @@ -278,27 +292,49 @@ static int c_can_plat_probe(struct platform_device *pdev)
->>  		priv->read_reg32 = d_can_plat_read_reg32;
->>  		priv->write_reg32 = d_can_plat_write_reg32;
->>  
->> -		if (pdev->dev.of_node)
->> -			priv->instance = of_alias_get_id(pdev->dev.of_node, "d_can");
->> -		else
->> -			priv->instance = pdev->id;
->> -
->> -		res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
->> -		/* Not all D_CAN modules have a separate register for the D_CAN
->> -		 * RAM initialization. Use default RAM init bit in D_CAN module
->> -		 * if not specified in DT.
->> +		/* Check if we need custom RAMINIT via syscon. Mostly for TI
->> +		 * platforms. Only supported with DT boot.
->>  		 */
->> -		if (!res) {
->> +		if (np && of_property_read_bool(np, "syscon-raminit")) {
->> +			u32 id;
->> +			struct c_can_raminit *raminit = &priv->raminit_sys;
->> +
->> +			ret = -EINVAL;
->> +			raminit->syscon = syscon_regmap_lookup_by_phandle(np,
->> +									  "syscon-raminit");
-> 
-> You should return PTR_ERR() here, as it it might be -EPROBE_DEFER
+------=_20141113215529_65717
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8bit
 
-Good catch.
+Partnership Proposal: Please read attachment for details. If you are
+interested, reply me through this email: ronthwala@admin.in.th
+My regards,
+Mr. Ronald Thwala.
 
-> 
->> +			if (IS_ERR(raminit->syscon)) {
->> +				dev_err(&pdev->dev,
->> +					"couldn't get syscon regmap for RAMINIT\n");
->> +				goto exit_free_device;
->> +			}
-> 
-> ...and maybe remove this error message completely.
+------=_20141113215529_65717
+Content-Type: application/pdf; name="RONALD.pdf"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="RONALD.pdf"
 
-OK.
-
-cheers,
--roger
-
+JVBERi0xLjMKJeLjz9MKMiAwIG9iago8PAovUHJvZHVjZXIgKEJDTCBBTExQREYgQ29udmVydGVy
+IDMuMTEuNjIpCj4+CmVuZG9iagoKNyAwIG9iagpbCjc3OCAgNzc4ICA3NzggIDc3OCAgNzc4ICA3
+NzggIDc3OCAgNzc4ICA3NzggIDc3OCAgNzc4ICA3NzggIDc3OCAgNzc4ICA3NzggIDc3OCAKNzc4
+ICA3NzggIDc3OCAgNzc4ICA3NzggIDc3OCAgNzc4ICA3NzggIDc3OCAgNzc4ICA3NzggIDc3OCAg
+Nzc4ICA3NzggIDc3OCAgNzc4IAoyNTAgIDMzMyAgNDA4ICA1MDAgIDUwMCAgODMzICA3NzggIDE4
+MCAgMzMzICAzMzMgIDUwMCAgNTY0ICAyNTAgIDMzMyAgMjUwICAyNzggCjUwMCAgNTAwICA1MDAg
+IDUwMCAgNTAwICA1MDAgIDUwMCAgNTAwICA1MDAgIDUwMCAgMjc4ICAyNzggIDU2NCAgNTY0ICA1
+NjQgIDQ0NCAKOTIxICA3MjIgIDY2NyAgNjY3ICA3MjIgIDYxMSAgNTU2ICA3MjIgIDcyMiAgMzMz
+ICAzODkgIDcyMiAgNjExICA4ODkgIDcyMiAgNzIyIAo1NTYgIDcyMiAgNjY3ICA1NTYgIDYxMSAg
+NzIyICA3MjIgIDk0NCAgNzIyICA3MjIgIDYxMSAgMzMzICAyNzggIDMzMyAgNDY5ICA1MDAgCjMz
+MyAgNDQ0ICA1MDAgIDQ0NCAgNTAwICA0NDQgIDMzMyAgNTAwICA1MDAgIDI3OCAgMjc4ICA1MDAg
+IDI3OCAgNzc4ICA1MDAgIDUwMCAKNTAwICA1MDAgIDMzMyAgMzg5ICAyNzggIDUwMCAgNTAwICA3
+MjIgIDUwMCAgNTAwICA0NDQgIDQ4MCAgMjAwICA0ODAgIDU0MSAgNzc4IAo1MDAgIDc3OCAgMzMz
+ICA1MDAgIDQ0NCAgMTAwMCAgNTAwICA1MDAgIDMzMyAgMTAwMCAgNTU2ICAzMzMgIDg4OSAgNzc4
+ICA2MTEgIDc3OCAKNzc4ICAzMzMgIDMzMyAgNDQ0ICA0NDQgIDM1MCAgNTAwICAxMDAwICAzMzMg
+IDk4MCAgMzg5ICAzMzMgIDcyMiAgNzc4ICA0NDQgIDcyMiAKMjUwICAzMzMgIDUwMCAgNTAwICA1
+MDAgIDUwMCAgMjAwICA1MDAgIDMzMyAgNzYwICAyNzYgIDUwMCAgNTY0ICAzMzMgIDc2MCAgNTAw
+IAo0MDAgIDU0OSAgMzAwICAzMDAgIDMzMyAgNTc2ICA0NTMgIDMzMyAgMzMzICAzMDAgIDMxMCAg
+NTAwICA3NTAgIDc1MCAgNzUwICA0NDQgCjcyMiAgNzIyICA3MjIgIDcyMiAgNzIyICA3MjIgIDg4
+OSAgNjY3ICA2MTEgIDYxMSAgNjExICA2MTEgIDMzMyAgMzMzICAzMzMgIDMzMyAKNzIyICA3MjIg
+IDcyMiAgNzIyICA3MjIgIDcyMiAgNzIyICA1NjQgIDcyMiAgNzIyICA3MjIgIDcyMiAgNzIyICA3
+MjIgIDU1NiAgNTAwIAo0NDQgIDQ0NCAgNDQ0ICA0NDQgIDQ0NCAgNDQ0ICA2NjcgIDQ0NCAgNDQ0
+ICA0NDQgIDQ0NCAgNDQ0ICAyNzggIDI3OCAgMjc4ICAyNzggCjUwMCAgNTAwICA1MDAgIDUwMCAg
+NTAwICA1MDAgIDUwMCAgNTQ5ICA1MDAgIDUwMCAgNTAwICA1MDAgIDUwMCAgNTAwICA1MDAgIDUw
+MCAKXQplbmRvYmoKCjEgMCBvYmoKPDwKL0NvdW50IDAKPj4KZW5kb2JqCgozIDAgb2JqCjw8Ci9U
+eXBlIC9DYXRhbG9nCi9QYWdlcyA0IDAgUgovT3V0bGluZXMgMSAwIFIKPj4KZW5kb2JqCgo5IDAg
+b2JqCjw8Ci9MZW5ndGggMTI5MgovRmlsdGVyIC9GbGF0ZURlY29kZQo+PgpzdHJlYW0KeNqNVktv
+4zYQvudXzKEHCdioluQ4m176AFo0RXNp3EPR7YEWKYuwRAokVa//fech2c6uAxQLLBSZIr/XzPCn
+7d23v5QPUMK2vSvLYlU/lbDCf8vzYwWP5aooN7Ad7v7OfjV97/Nqk33I/4Htb3cruC+Lutrg9xp/
+fgY15FWVQX5fV9mQ1x8zdbBuD6mzefWYRRhVfl89ZCE5k9d1FmJnRxgDv8SNy2zk/6PqIXncplpn
+J34zgXUQE63cZLYhDAka7/L6MWutNq4xefWUFfRN+QWQI60ONhGS1iODIz7xz4SmzhwdAH4cfUiT
+s7RP4nNO/MM11dV6LVQRzYA/1/hd29rGIEXaUSUC8FGOtH0PO+aAZFe0EuwwGPrKxav3O0ZpUJL1
+Cskkor7zqcMPSDUhMcVC9HjOcf8ZOUs8P8NAi5VTe0MPAVhU63gJb+HdGUfqDPSGQOLH9TrTpM1O
+uUNeb9AmZHfTYKRMuzV8oPjCerOCKZzg1U+I+8eW/g62IWTV2RTHyPFoMg124rpyTcfirc/iPSMV
+xMRU9EWBZ9CW3ot0jf+X9cJdEDKuI2bXfsozctLIG39+yqBXgZHsRYeI4OuHWUQUZcCFSLB6x/JP
+2Z+U2ddvyrpYvzAzdNh6gu4+5SSaEqaaALA8gk4qwSVQTfOVarAzvXd7jiRSxeShOl4i6Qzh4oqb
+ZkNbTyrOrImG3TtoemscWZdicdO4lxO01qHLdMaeSwwCi21ERolBT3pvyCPxAuF1nBLwwe4pS+eV
+4I8U2HIJGiPmYF1VFtKdkLaNoNl0pQt45X0tFSyKz0nURnHa5eunJa50AC6ZDyCRruK+918V55nt
+AvoMghi+0bxTEXU3DrQnGR6vLHKaDBUIjg/ZeT13AnrX0SN+zqAaP9BJkqf2IkQ4qqCpjpueq9IO
+vIGY283LJ17vOC3n6gbVRw8cZxs55NQn5TS2hetn805GtWm4+lU0mkkeHMrIwXLmcyKND5RT0gRd
+lBgxAG7TnjsaWUK9AIJpfNDvROqVwvSUYet7xpMQ56XosO85Iw05Rqo5lE0UtK5lwefWpZL17iKt
+M0YzfC1qkXwkHfbiSxIX2fKl0OIHka5RDqGMwUSsBZ4PJz8BakB8OmOpshchvchY/R8Zd6a9qmXx
+bpHo+8uU+etNmY4cEyYt/UpmFs61UXoQ7zNPAa6rhkAGI2WHFYMc5jAllhWTPwYrttkko/FK84jB
+6c/YRDf663q4NkZPKA8ceTIhgvcKSC+jInXBT/tuaWxj8J9P1H+Wlt7CiaplHtFHP/Uaenswi388
+Ro+sTDjguVjmOAAfVm/7nMwTgSwTAl12Go3FRwfUuBpKpkqGPGWJ63m0yaRmtFcGxXSbmGqTCXCk
+UzvbdBwouSNIN4qdXFBIyvUymcWEjsYPCd1MUTI1eM2opCHybBI0lpMaQX2R1HP90znB8jzkZgyj
+XAGYRcMNSUKRcAQWmGpy7KqvjpjyhvJhVbqkCWzLkacZU839Dv24mXC+OtH+TRI10Zb1efxweMV5
+pjDPfW3x2ARmyNfVTNv2oLTm0rpSP34HwbvUHVWvflB6kFZRWFegjBiLYPY2Jk7JXC+n88ic3txc
+3rP3dk/63ftDztGgm1448q1CGvy5pSi5ZLDu3svr3RStM2hrMFxD2JdYPWlOUqWsCd5WKcTcJqWt
+Cebb9+GXUMAfuAfNVzRiy7y6ozQCNVP4eXv3Hyjj/ZAKZW5kc3RyZWFtCmVuZG9iagoKNiAwIG9i
+ago8PAovVHlwZSAvUGFnZQovUGFyZW50IDQgMCBSCi9NZWRpYUJveCBbIDAgMCA2MTIgNzkyIF0K
+L1Jlc291cmNlcyA8PAovRm9udCA1IDAgUgovUHJvY1NldCBbL1BERiAvVGV4dCAvSW1hZ2VCIC9J
+bWFnZUNdID4+Ci9Db250ZW50cyA5IDAgUgo+PgplbmRvYmoKCjQgMCBvYmoKPDwKL1R5cGUgL1Bh
+Z2VzCi9LaWRzIFsKNiAwIFIKXQovQ291bnQgMQo+PgplbmRvYmoKCjggMCBvYmoKPDwKL1R5cGUg
+L0ZvbnREZXNjcmlwdG9yCi9Bc2NlbnQgODkxCi9DYXBIZWlnaHQgNzg0Ci9EZXNjZW50IC0yMTYK
+L0ZsYWdzIDM0Ci9Gb250QkJveCBbMCAtMjE2IDI1NjggODkxXQovSXRhbGljQW5nbGUgMAovU3Rl
+bVYgMAovRm9udE5hbWUgL1RpbWVzTmV3Um9tYW5QU01UCj4+CmVuZG9iagoKNSAwIG9iago8PAov
+RjE1Cjw8Ci9UeXBlIC9Gb250Ci9TdWJ0eXBlIC9UcnVlVHlwZQovQmFzZUZvbnQgL1RpbWVzTmV3
+Um9tYW5QU01UCi9FbmNvZGluZyAvV2luQW5zaUVuY29kaW5nCi9GaXJzdENoYXIgMAovTGFzdENo
+YXIgMjU1Ci9Gb250RGVzY3JpcHRvciA4IDAgUgovV2lkdGhzIDcgMCBSCj4+Cj4+CmVuZG9iagoK
+eHJlZgowIDEwCjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMTM4MSAwMDAwMCBuIAowMDAwMDAw
+MDE1IDAwMDAwIG4gCjAwMDAwMDE0MTIgMDAwMDAgbiAKMDAwMDAwMzAwMSAwMDAwMCBuIAowMDAw
+MDAzMjM3IDAwMDAwIG4gCjAwMDAwMDI4NDQgMDAwMDAgbiAKMDAwMDAwMDA3OCAwMDAwMCBuIAow
+MDAwMDAzMDYxIDAwMDAwIG4gCjAwMDAwMDE0NzggMDAwMDAgbiAKdHJhaWxlcgo8PAovU2l6ZSAx
+MAovUm9vdCAzIDAgUgovSW5mbyAyIDAgUgovSURbPGYwNTJhYWIxNTI3OWE2ZTQ3ZDA4MGEyZjk1
+YWMxNjVmPjxmMDUyYWFiMTUyNzlhNmU0N2QwODBhMmY5NWFjMTY1Zj5dCj4+CnN0YXJ0eHJlZgoz
+NDIwCiUlRU9G
+------=_20141113215529_65717--
