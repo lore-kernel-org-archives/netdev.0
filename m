@@ -1,102 +1,74 @@
-From: Luis Henriques <luis.henriques@canonical.com>
-Subject: Re: [PATCH] net: skb_fclone_busy() needs to detect orphaned skb
-Date: Thu, 13 Nov 2014 22:32:41 +0000
-Message-ID: <20141113223241.GA4867@hercules>
-References: <1414690354.9028.9.camel@edumazet-glaptop2.roam.corp.google.com>
- <20141113191502.GC7095@hercules>
- <1415913622.17262.24.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 1/2] sh_eth: Fix sleeping function called from invalid
+ context
+Date: Fri, 14 Nov 2014 01:33:58 +0300
+Message-ID: <546531D6.3090009@cogentembedded.com>
+References: <1415862135-27972-1-git-send-email-ykaneko0929@gmail.com> <1415862135-27972-2-git-send-email-ykaneko0929@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Neal Cardwell <ncardwell@google.com>,
-	Joseph Salisbury <joseph.salisbury@canonical.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:45112 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933065AbaKMWcu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Nov 2014 17:32:50 -0500
-Content-Disposition: inline
-In-Reply-To: <1415913622.17262.24.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Simon Horman <horms@verge.net.au>,
+	Magnus Damm <magnus.damm@gmail.com>, linux-sh@vger.kernel.org
+To: Yoshihiro Kaneko <ykaneko0929@gmail.com>, netdev@vger.kernel.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <1415862135-27972-2-git-send-email-ykaneko0929@gmail.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 13, 2014 at 01:20:22PM -0800, Eric Dumazet wrote:
-> On Thu, 2014-11-13 at 19:15 +0000, Luis Henriques wrote:
-> > Hi Eric,
-> >=20
-> > On Thu, Oct 30, 2014 at 10:32:34AM -0700, Eric Dumazet wrote:
-> > > From: Eric Dumazet <edumazet@google.com>
-> > >=20
-> > > Some drivers are unable to perform TX completions in a bound time=
-=2E
-> > > They instead call skb_orphan()
-> > >=20
-> > > Problem is skb_fclone_busy() has to detect this case, otherwise
-> > > we block TCP retransmits and can freeze unlucky tcp sessions on
-> > > mostly idle hosts.
-> > >=20
-> > > Signed-off-by: Eric Dumazet <edumazet@google.com>
-> > > Fixes: 1f3279ae0c13 ("tcp: avoid retransmits of TCP packets hangi=
-ng in host queues")
-> > > ---
-> > >  This is a stable candidate.
-> > >  This problem is known to hurt users of linux-3.16 kernels used b=
-y guests kernels.
-> > >  David, I can provide backports if you want.
-> > >  Thanks !
-> > >=20
-> >=20
-> > We got a bug report[0] where a backport for 3.16 was provided.  Sin=
-ce
-> > I couldn't find the original backport post, I'm not sure who's the
-> > actual author.  Could you please confirm if this backport is correc=
-t?
-> > (I'm copying the patch below).
-> >=20
-> > [0] https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1390604
-> >=20
-> > Cheers,
-> > --
-> > Lu=EDs
-> >=20
-> >=20
->=20
-> Sure ! I provided this patch indeed, I am 'The Google engineer'
-> mentioned in this bug report ;)
->=20
+On 11/13/2014 10:02 AM, Yoshihiro Kaneko wrote:
 
-Awesome, Thanks!  I'll queue it for the 3.16 kernel.  Since I couldn't
-find the original patch, I could only guess who 'The Google engineer'
-was :-)
+> From: Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>
 
-Cheers,
---
-Lu=EDs
+> Fix the bug as follows:
 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
->=20
->=20
-> Thanks !
->=20
-> > diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-> > index 4e4932b5079b..a8794367cd20 100644
-> > --- a/net/ipv4/tcp_output.c
-> > +++ b/net/ipv4/tcp_output.c
-> > @@ -2082,7 +2082,8 @@ static bool skb_still_in_host_queue(const str=
-uct sock *sk,
-> >  	const struct sk_buff *fclone =3D skb + 1;
-> > =20
-> >  	if (unlikely(skb->fclone =3D=3D SKB_FCLONE_ORIG &&
-> > -		     fclone->fclone =3D=3D SKB_FCLONE_CLONE)) {
-> > +		     fclone->fclone =3D=3D SKB_FCLONE_CLONE &&
-> > +		     fclone->sk =3D=3D sk)) {
-> >  		NET_INC_STATS_BH(sock_net(sk),
-> >  				 LINUX_MIB_TCPSPURIOUS_RTX_HOSTQUEUES);
-> >  		return true;
->=20
->=20
->=20
->=20
+> ----
+> [ 1238.161349] BUG: sleeping function called from invalid context at drivers/base/power/runtime.c:952
+> [ 1238.188279] in_atomic(): 1, irqs_disabled(): 0, pid: 1388, name: cat
+> [ 1238.207425] CPU: 0 PID: 1388 Comm: cat Not tainted 3.10.31-ltsi-00046-gefa0b46 #1087
+> [ 1238.230737] Backtrace:
+> [ 1238.238123] [<c0012e64>] (dump_backtrace+0x0/0x10c) from [<c0013000>] (show_stack+0x18/0x1c)
+> [ 1238.263499]  r6:000003b8 r5:c06160c0 r4:c0669e00 r3:00404000
+> [ 1238.280583] [<c0012fe8>] (show_stack+0x0/0x1c) from [<c04515a4>] (dump_stack+0x20/0x28)
+> [ 1238.304631] [<c0451584>] (dump_stack+0x0/0x28) from [<c004970c>] (__might_sleep+0xf8/0x118)
+> [ 1238.329734] [<c0049614>] (__might_sleep+0x0/0x118) from [<c02465ac>] (__pm_runtime_resume+0x38/0x90)
+> [ 1238.357170]  r7:d616f000 r6:c049c458 r5:00000004 r4:d6a17210
+> [ 1238.374251] [<c0246574>] (__pm_runtime_resume+0x0/0x90) from [<c029b1c4>] (sh_eth_get_stats+0x44/0x280)
+> [ 1238.402468]  r7:d616f000 r6:c049c458 r5:d5c21000 r4:d5c21000
+> [ 1238.419552] [<c029b180>] (sh_eth_get_stats+0x0/0x280) from [<c03ae39c>] (dev_get_stats+0x54/0x88)
+> [ 1238.446204]  r5:d5c21000 r4:d5ed7e08
+> [ 1238.456980] [<c03ae348>] (dev_get_stats+0x0/0x88) from [<c03c677c>] (netstat_show.isra.15+0x54/0x9c)
+> [ 1238.484413]  r6:d5c21000 r5:d5c21238 r4:00000028 r3:00000001
+> [ 1238.501495] [<c03c6728>] (netstat_show.isra.15+0x0/0x9c) from [<c03c69b8>] (show_tx_errors+0x18/0x1c)
+> [ 1238.529196]  r7:d5f945d8 r6:d5f945c0 r5:c049716c r4:c0650e7c
+> [ 1238.546279] [<c03c69a0>] (show_tx_errors+0x0/0x1c) from [<c023963c>] (dev_attr_show+0x24/0x50)
+> [ 1238.572157] [<c0239618>] (dev_attr_show+0x0/0x50) from [<c010c148>] (sysfs_read_file+0xb0/0x140)
+> [ 1238.598554]  r5:c049716c r4:d5c21240
+> [ 1238.609326] [<c010c098>] (sysfs_read_file+0x0/0x140) from [<c00b9ee4>] (vfs_read+0xb0/0x13c)
+> [ 1238.634679] [<c00b9e34>] (vfs_read+0x0/0x13c) from [<c00ba0ac>] (SyS_read+0x44/0x74)
+> [ 1238.657944]  r8:bef45bf0 r7:00000000 r6:d6ac0600 r5:00000000 r4:00000000
+> [ 1238.678172] [<c00ba068>] (SyS_read+0x0/0x74) from [<c000eec0>] (ret_fast_syscall+0x0/0x30)
+> ----
+
+    How to reproduce this?
+
+> Signed-off-by: Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>
+> Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+
+[...]
+
+> diff --git a/drivers/net/ethernet/renesas/sh_eth.h b/drivers/net/ethernet/renesas/sh_eth.h
+> index b37c427..9a1c550 100644
+> --- a/drivers/net/ethernet/renesas/sh_eth.h
+> +++ b/drivers/net/ethernet/renesas/sh_eth.h
+> @@ -508,6 +508,7 @@ struct sh_eth_private {
+>   	u32 rx_buf_sz;			/* Based on MTU+slack. */
+>   	int edmac_endian;
+>   	struct napi_struct napi;
+> +	bool is_opened;
+
+    Placing it after 'vlan_num_ids' (and making it a bitfield?) would probably 
+allow to save some space.
+
+WBR, Sergei
+
