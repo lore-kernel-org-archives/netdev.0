@@ -1,41 +1,56 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch v2 -next] amd-xgbe: fix ->rss_hash_type
-Date: Thu, 13 Nov 2014 09:19:06 +0300
-Message-ID: <20141113061905.GA1280@mwanda>
-References: <20141112.150459.233340605780805877.davem@davemloft.net>
+From: Yuri Chislov <YChislov@trustwave.com>
+Subject: ip6_gre wccp header changed top ipv4, while should be changed to
+ ipv6
+Date: Thu, 13 Nov 2014 06:08:15 +0000
+Message-ID: <A1EED8F96500564EA7E8F2BFA79D279E4A521941@SKYMB1.trustwave.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Tom Lendacky <thomas.lendacky@amd.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:40536 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751014AbaKMGTU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Nov 2014 01:19:20 -0500
-Content-Disposition: inline
-In-Reply-To: <20141112.150459.233340605780805877.davem@davemloft.net>
+Received: from seg-node-elk-02.trustwave.com ([204.13.202.189]:11375 "EHLO
+	seg-node-elk-02.trustwave.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753626AbaKMGXV convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Nov 2014 01:23:21 -0500
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There was a missing break statement so we set everything to
-PKT_HASH_TYPE_L3 even when we intended to use PKT_HASH_TYPE_L4.
+Hi,
 
-Fixes: 5b9dfe299e55 ('amd-xgbe: Provide support for receive side scaling')
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
----
-v2: remove blank line
+ wccp v 2.01 forward gre packet with protocol type WCCP (0x883e) in gre header,
+that replaced with ETH_P_IP, while encapsulated ipv6 packet (ETH_P_IPV6).
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-index 7daa2cd..f6014d3 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-@@ -1600,7 +1600,7 @@ static int xgbe_dev_read(struct xgbe_channel *channel)
- 		case RX_DESC3_L34T_IPV6_TCP:
- 		case RX_DESC3_L34T_IPV6_UDP:
- 			packet->rss_hash_type = PKT_HASH_TYPE_L4;
--
-+			break;
- 		default:
- 			packet->rss_hash_type = PKT_HASH_TYPE_L3;
- 		}
+ Tested on 3.14.23, the same code is in 3.17.2
+
+======================================
+--- a/ip6_gre.c 2014-11-11 11:33:30.820695876 +0000
++++ b/ip6_gre.c 2014-11-11 11:34:19.480694111 +0000
+@@ -512,7 +512,7 @@
+                 * - When dealing with WCCPv2, Skip extra 4 bytes in GRE header
+                 */
+                if (flags == 0 && gre_proto == htons(ETH_P_WCCP)) {
+-                       skb->protocol = htons(ETH_P_IP);
++                       skb->protocol = htons(ETH_P_IPV6);
+                        if ((*(h + offset) & 0xF0) != 0x40)
+                                offset += 4;
+                }
+======================================
+
+ One more issue noted in ip6_gre.
+ipv4 gre interface configured to local any remote any
+receive(accept) all gre traffic.
+ipv6 gre interface should be configured explicit to exact remote and
+local addresses
+to receive traffic in gre interface, that a bit problematic due to
+multiply addresses
+assigned to interface. I will try to understand this issue, but possible someone
+have some ideas
+
+Thanks.
+Yuri.
+
+________________________________
+
+This transmission may contain information that is privileged, confidential, and/or exempt from disclosure under applicable law. If you are not the intended recipient, you are hereby notified that any disclosure, copying, distribution, or use of the information contained herein (including any reliance thereon) is strictly prohibited. If you received this transmission in error, please immediately contact the sender and destroy the material in its entirety, whether in electronic or hard copy format.
