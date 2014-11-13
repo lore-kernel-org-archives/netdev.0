@@ -1,80 +1,93 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH] can: Fix bug in suspend/resume
-Date: Thu, 13 Nov 2014 13:03:22 +0100
-Message-ID: <54649E0A.7030607@pengutronix.de>
-References: <a44efc1fb0144cca9d0c4851cc51db25@BL2FFO11FD024.protection.gbl>	<546484D9.4030005@pengutronix.de>	<54648BF4.60007@pengutronix.de>	<9455da2b86c74d5aafe9bf118edec7bb@BN1AFFO11FD045.protection.gbl> <20141113123218.79850236@ipc1.ka-ro>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH nf] netfilter: conntrack: fix race in
+ __nf_conntrack_confirm against get_next_corpse
+Date: Thu, 13 Nov 2014 13:08:26 +0100
+Message-ID: <20141113120826.GA8224@salvia>
+References: <012601cff7d1$7ce2d620$76a88260$@gmail.com>
+ <20141106133648.2534.1403.stgit@dragon>
+ <20141110165439.GA7788@salvia>
+ <20141112083500.5404e5f4@redhat.com>
+ <54633D1B.5090404@secunet.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="4wE7Jg7KguPfsGsbBXRRgDfE747xg132x"
-Cc: "wg@grandegger.com" <wg@grandegger.com>,
-	Michal Simek <michals@xilinx.com>,
-	Soren Brinkmann <sorenb@xilinx.com>,
-	"grant.likely@linaro.org" <grant.likely@linaro.org>,
-	"robh+dt@kernel.org" <robh+dt@kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
-To: =?UTF-8?B?TG90aGFyIFdhw59tYW5u?= <LW@KARO-electronics.de>,
-	Appana Durga Kedareswara Rao <appana.durga.rao@xilinx.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <20141113123218.79850236@ipc1.ka-ro>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>, programme110@gmail.com,
+	netfilter-devel@vger.kernel.org, Florian Westphal <fw@strlen.de>,
+	netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
+To: =?iso-8859-1?Q?J=F6rg?= Marx <joerg.marx@secunet.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:42233 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932419AbaKMMGa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Nov 2014 07:06:30 -0500
+Content-Disposition: inline
+In-Reply-To: <54633D1B.5090404@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---4wE7Jg7KguPfsGsbBXRRgDfE747xg132x
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-
-On 11/13/2014 12:32 PM, Lothar Wa=C3=9Fmann wrote:
->>>>  static int __maybe_unused xcan_suspend(struct device *dev)  {
->>>> -    struct platform_device *pdev =3D dev_get_drvdata(dev);
->>>> +    struct platform_device *pdev =3D container_of(dev,
->>>> +                    struct platform_device, dev);
->>>>      struct net_device *ndev =3D platform_get_drvdata(pdev);
->>>>      struct xcan_priv *priv =3D netdev_priv(ndev);
->>
-> Why not simply:
-> 	struct net_device *ndev =3D dev_get_drvdata(dev);
+On Wed, Nov 12, 2014 at 11:57:31AM +0100, J=F6rg Marx wrote:
+> On 12.11.2014 08:35, Jesper Dangaard Brouer wrote:
 >=20
-> There is no need for a struct platform_device* at all.
+> Hi,
+>=20
+> I wrote the patch in 2010, so find some arguments below:
+>=20
+> >>> > > +	nf_ct_del_from_dying_or_unconfirmed_list(ct);
+> >>> > > =20
+> >>> > >  	if (unlikely(nf_ct_is_dying(ct))) {
+> >>> > > +		nf_ct_add_to_dying_list(ct);
+> >>> > >  		nf_conntrack_double_unlock(hash, reply_hash);
+> >>> > >  		local_bh_enable();
+> >>> > >  		return NF_ACCEPT;
+> >> >=20
+> >> > Not directly related to your patch, but I don't find a good reas=
+on why
+> >> > we're accepting this packet.
+> >> >=20
+> >> > If the conntrack from the unconfirmed list is dying, then the ob=
+ject
+> >> > will be released by when the packet leaves the stack to its
+> >> > destination. With stateful filtering depending in place, the fol=
+low up
+> >> > packet in the reply direction will likely be considered invalid =
+(if
+> >> > tcp tracking is on). Fortunately for us, the origin will likely
+> >> > retransmit the syn again, so the ct will be setup accordingly.
+> >> >=20
+> >> > So, why should we allow this to go through?
+> > True, it also seems strange to me that we accept this packet.
+>=20
+> The raise was triggered in a scenario when we tested high-load IPsec
+> tunnels and flushed the conntrack hashs from userspace.
+>=20
+> For me there is little difference in choosing DROP or ACCEPT as verdi=
+ct.
+> The packet/skb belongs to a formerly allowed connection, most likely
+> this connection is still allowed (but the conntrack hash entry is abo=
+ut
+> to be removed due to userspace is flushing the conntrack table).
 
-ACK
+__nf_conntrack_confirm() is only called for the first packet that we
+see in a flow. If you just invoked the flush command once (which
+should be the common case), then this is likely to be the first packet
+of the flow (unless you already called flush anytime soon in the
+past).
 
-Marc
+> To minimize the impact (lost packets -> retransmit) I decided to allo=
+w
+> the skb in flight, so were is no lost packet at this place.
 
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+I understand your original motivation was to be conservative.
 
+> When the connection is not allowed anymore (but was allowed up to now=
+,
+> because the hash entry exists), the impact is one last packet 'slippi=
+ng
+> through'.
 
---4wE7Jg7KguPfsGsbBXRRgDfE747xg132x
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+The general policy in conntrack is to not drop packets, but in this
+case we'll leave things in inconsistent state (ie. we will likely
+receive a reply packet in response to the original packet that has no
+conntrack yet).
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJUZJ4KAAoJECte4hHFiupU718P/jAARGmiFL2vp3iAHwiDcj4V
-e81t+DyNqBn2blQBvT61+XA6e8iAf9f5tsAzIyvAYMZiBi74b4S1cIl6AG3Re8Pq
-QyDNkngyEWkxG7W+PdxDY6KBcHXJMCRH4Y3G3jYjIdk95QFrH3t1b0G4/Sq8tKqP
-whI4hikmXzt2zG09Opc0D5zn/9Yv1PB1r+J0q0yM767F7FaI0lT2Bwwjb0b0tVbN
-d+QJcGnj1OMapHFiAUSwRc8VqMGqCpguDEwbMjJJutIgpp0dcSL4Gk8j6iUwo2yF
-MIqL2Rc1Hz5K5s3qJ7GJB5UU67SFkBwqUl4NgbNmdc7tOj2TmtsNtNHLGLBzqatC
-cQgVz5AdVH1QsfNg+BgCUEJBfDcoRygDofTpnGLMWleVZ4CWJN9MWxAQc75k8HC+
-E2eqs7vv2Gd0IJj/c1r7BvRK9BhlZXGa07YBSnbEGQ7706mk6fBw29MWvKOG5zmA
-F/UScHHsBuKCmzLTuYhfJviZw5e1UTc1LBB7LBy7wKBWcb28ZmR1WZ2oPDk4OK2p
-xusP7v6WeumzOzNLCpRGj2LCnrYht4ncV6+Jbu2cdFO8cdiszzCZDB8drlOI8sPC
-Iagmfra7+/bA7B4t9YO0AOcE1e7KlmbVdeBQ0zVTH2Pacd5Z6coAsHyvmy+O57Cq
-RRb5GEu/rOoc61v9T1SJ
-=G+o9
------END PGP SIGNATURE-----
-
---4wE7Jg7KguPfsGsbBXRRgDfE747xg132x--
+Thanks.
