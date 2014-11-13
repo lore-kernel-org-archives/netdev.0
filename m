@@ -1,28 +1,65 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] FOU: Fix no return statement warning for
- !CONFIG_NET_FOU_IP_TUNNELS
-Date: Thu, 13 Nov 2014 14:32:22 -0500 (EST)
-Message-ID: <20141113.143222.391822191941346577.davem@davemloft.net>
-References: <8cf12c98c1a9606f2bd69dd9c108d76f444ab79e.1415879256.git.tgraf@suug.ch>
+Subject: Re: arm64 allmodconfig failures in nft_reject_bridge.c
+Date: Thu, 13 Nov 2014 14:35:13 -0500 (EST)
+Message-ID: <20141113.143513.785778562781935404.davem@davemloft.net>
+References: <20141112233738.GB3815@sirena.org.uk>
+	<20141113113320.GF3815@sirena.org.uk>
+	<20141113114357.GA7857@salvia>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, therbert@google.com
-To: tgraf@suug.ch
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58633 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934059AbaKMTcb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Nov 2014 14:32:31 -0500
-In-Reply-To: <8cf12c98c1a9606f2bd69dd9c108d76f444ab79e.1415879256.git.tgraf@suug.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linaro-kernel@lists.linaro.org, coreteam@netfilter.org,
+	kernel-build-reports@lists.linaro.org, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, stephen@networkplumber.org,
+	broonie@kernel.org, netfilter-devel@vger.kernel.org,
+	kadlec@blackhole.kfki.hu, kaber@trash.net, linux@roeck-us.net
+To: pablo@netfilter.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20141113114357.GA7857@salvia>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogVGhvbWFzIEdyYWYgPHRncmFmQHN1dWcuY2g+DQpEYXRlOiBUaHUsIDEzIE5vdiAyMDE0
-IDEyOjQ4OjIxICswMTAwDQoNCj4gbmV0L2lwdjQvZm91LmM6IEluIGZ1bmN0aW9uIKFpcF90dW5u
-ZWxfZW5jYXBfZGVsX2ZvdV9vcHOiOg0KPiBuZXQvaXB2NC9mb3UuYzo4NjE6MTogd2FybmluZzog
-bm8gcmV0dXJuIHN0YXRlbWVudCBpbiBmdW5jdGlvbiByZXR1cm5pbmcgbm9uLXZvaWQgWy1XcmV0
-dXJuLXR5cGVdDQo+IA0KPiBGaXhlczogYThjNWY5MGZiNSAoImlwX3R1bm5lbDogT3BzIHJlZ2lz
-dHJhdGlvbiBmb3Igc2Vjb25kYXJ5IGVuY2FwIChmb3UsIGd1ZSkiKQ0KPiBTaWduZWQtb2ZmLWJ5
-OiBUaG9tYXMgR3JhZiA8dGdyYWZAc3V1Zy5jaD4NCg0KQXBwbGllZCwgdGhhbmtzIFRob21hcy4N
-Cg==
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Thu, 13 Nov 2014 12:43:57 +0100
+
+> On Thu, Nov 13, 2014 at 11:33:20AM +0000, Mark Brown wrote:
+>> Since about -rc3 we've been seeing build failures in Linus' tree on
+>> arm64 allmodconfig due to:
+>> 
+>> > 	arm64-allmodconfig
+>> > ../net/bridge/netfilter/nft_reject_bridge.c:240:3: error: implicit declaration of function 'csum_ipv6_magic' [-Werror=implicit-function-declaration]
+>> 
+>> By the time I looked into this it was fixed in -next by c1207c049b204b0
+>> (netfilter: nft_reject_bridge: Fix powerpc build error) from Guenter but
+>> that doesn't seem to have made it into -rc4 so I just wanted to check
+>> that this fix was intended to go to Linus before v3.18?
+> 
+> I can see this in David's tree:
+> 
+> http://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/?id=c1207c049b204b0a96535dc5416aee331b51e0e1
+> 
+> I think this was reported by when -rc4 was already out, so you'll see
+> this by -rc5.
+
+I hold changes in my tree for a week or more, because I want them to
+"cook" there before they go to Linus.
+
+So if it takes a week or two for a bug fix like this to propagate into
+Linus's tree, that's just what sometimes happens.
+
+In the mean time you can apply the fix locally if you absolutely have
+to have it right at this moment, that is the freedom that everyone
+has.
+
+FWIW, I plan to push my tree to Linus some time today, so this will be
+resolved in the next day or so.
+
+Thanks.
