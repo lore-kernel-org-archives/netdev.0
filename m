@@ -1,283 +1,73 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: Re: [PATCH net-next 1/1] ipvlan: Initial check-in of the IPVLAN driver.
-Date: Wed, 12 Nov 2014 15:56:14 -0800
-Message-ID: <CAF2d9jgRFZzjtEkwVqo5Jw1rzbAS_9NC8LiOtO6xHgWqkVM2Zg@mail.gmail.com>
-References: <1415744984-25802-1-git-send-email-maheshb@google.com> <546386AF.9030300@parallels.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the net tree
+Date: Thu, 13 Nov 2014 11:35:55 +1100
+Message-ID: <20141113113555.15117365@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Maciej Zenczykowski <maze@google.com>,
-	Laurent Chavey <chavey@google.com>,
-	Tim Hockin <thockin@google.com>,
-	David Miller <davem@davemloft.net>,
-	Brandon Philips <brandon.philips@coreos.com>
-To: Pavel Emelyanov <xemul@parallels.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f175.google.com ([209.85.220.175]:55646 "EHLO
-	mail-vc0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752201AbaKLX4g convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2014 18:56:36 -0500
-Received: by mail-vc0-f175.google.com with SMTP id hy4so6088815vcb.20
-        for <netdev@vger.kernel.org>; Wed, 12 Nov 2014 15:56:35 -0800 (PST)
-In-Reply-To: <546386AF.9030300@parallels.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ boundary="Sig_/6fVwv1pMQtxv3BlPgR=FAad"; protocol="application/pgp-signature"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Hariprasad Shenai <hariprasad@chelsio.com>,
+	Alexander Duyck <alexander.h.duyck@redhat.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 12, 2014 at 8:11 AM, Pavel Emelyanov <xemul@parallels.com> =
-wrote:
-> On 11/12/2014 02:29 AM, Mahesh Bandewar wrote:
->> This driver is very similar to the macvlan driver except that it
->> uses L3 on the frame to determine the logical interface while
->> functioning as packet dispatcher. It inherits L2 of the master
->> device hence the packets on wire will have the same L2 for all
->> the packets originating from all virtual devices off of the same
->> master device.
->>
->> This driver was developed keeping the namespace use-case in
->> mind. Hence most of the examples given here take that as the
->> base setup where main-device belongs to the default-ns and
->> virtual devices are assigned to the additional namespaces.
->>
->> The device operates in two different modes and the difference
->> in these two modes in primarily in the TX side.
->>
->> (a) L2 mode : In this mode, the device behaves as a L2 device.
->> TX processing upto L2 happens on the stack of the virtual device
->> associated with (namespace). Packets are switched after that
->> into the main device (default-ns) and queued for xmit.
->>
->> RX processing is simple and all multicast, broadcast (if
->> applicable), and unicast belonging to the address(es) are
->> delivered to the virtual devices.
->>
->> (b) L3 mode : In this mode, the device behaves like a L3 device.
->> TX processing upto L3 happens on the stack of the virtual device
->> associated with (namespace). Packets are switched to the
->> main-device (default-ns) for the L2 processing. Hence the routing
->> table of the default-ns will be used in this mode.
->>
->> RX processins is somewhat similar to the L2 mode except that in
->> this mode only Unicast packets are delivered to the virtual device
->> while main-dev will handle all other packets.
->>
->> The devices can be added using the "ip" command from the iproute2
->> package -
->>
->>       ip link add link <master> <virtual> type ipvlan mode [ l2 | l3=
- ]
->>
->> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
->> Cc: Eric Dumazet <edumazet@google.com>
->> Cc: Maciej =C5=BBenczykowski <maze@google.com>
->> Cc: Laurent Chavey <chavey@google.com>
->> Cc: Tim Hockin <thockin@google.com>
->> Cc: Brandon Philips <brandon.philips@coreos.com>
->> Cc: Pavel Emelianov <xemul@parallels.com>
->
-> Acked-by: /me on the general idea. We use this device of type in Para=
-llels
-> heavily for several reasons -- not to generate too many MAC-s from on=
-e host
-> and to "enforce" the IP address for a container. I have a comment abo=
-ut the
-> latter below.
->
->
->> +static void *ipvlan_get_L3_hdr(struct sk_buff *skb, int *type)
->> +{
->> +     void *lyr3h =3D NULL;
->> +
->> +     switch (skb->protocol) {
->> +     case htons(ETH_P_ARP): {
->> +             struct arphdr *arph;
->> +
->> +             if (unlikely(!pskb_may_pull(skb, sizeof(struct arphdr)=
-)))
->> +                     return NULL;
->> +
->> +             arph =3D arp_hdr(skb);
->> +             *type =3D IPVL_ARP;
->> +             lyr3h =3D arph;
->> +             break;
->> +     }
->> +
->> +     case htons(ETH_P_IP): {
->> +             u32 pktlen;
->> +             struct iphdr *ip4h;
->> +
->> +             if (unlikely(!pskb_may_pull(skb, sizeof(struct iphdr))=
-))
->> +                     return NULL;
->> +
->> +             ip4h =3D ip_hdr(skb);
->> +             pktlen =3D ntohs(ip4h->tot_len);
->> +             if (ip4h->ihl < 5 || ip4h->version !=3D 4)
->> +                     return NULL;
->> +             if (skb->len < pktlen || pktlen < (ip4h->ihl * 4))
->> +                     return NULL;
->> +
->> +             *type =3D IPVL_IPV4;
->> +             lyr3h =3D ip4h;
->> +             break;
->> +     }
->> +     case htons(ETH_P_IPV6): {
->> +             struct ipv6hdr *ip6h;
->> +
->> +             if (unlikely(!pskb_may_pull(skb, sizeof(struct iphdr))=
-))
->
-> Misprint -- should be sizeof(struct ipv6hdr)
->
-Good catch, will correct it!
+--Sig_/6fVwv1pMQtxv3BlPgR=FAad
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
->> +static int ipvlan_link_new(struct net *src_net, struct net_device *=
-dev,
->> +                        struct nlattr *tb[], struct nlattr *data[])
->> +{
->> +     struct ipvl_dev *ipvlan =3D netdev_priv(dev);
->> +     struct ipvl_port *port;
->> +     struct net_device *phy_dev;
->> +     int err;
->> +
->> +     ipvlan_dbg(3, "%s[%d]: Entering...\n", __func__, __LINE__);
->> +     if (!tb[IFLA_LINK]) {
->> +             ipvlan_dbg(3, "%s[%d]: Returning -EINVAL...\n",
->> +                        __func__, __LINE__);
->> +             return -EINVAL;
->> +     }
->> +
->> +     phy_dev =3D __dev_get_by_index(src_net, nla_get_u32(tb[IFLA_LI=
-NK]));
->> +     if (phy_dev =3D=3D NULL) {
->> +             ipvlan_dbg(3, "%s[%d]: Returning -ENODEV...\n",
->> +                        __func__, __LINE__);
->> +             return -ENODEV;
->> +     }
->> +
->> +     /* TODO will someone try creating ipvlan-dev on an ipvlan-virt=
-ual dev?*/
->> +     if (!ipvlan_dev_master(phy_dev)) {
->> +             err =3D ipvlan_port_create(phy_dev);
->> +             if (err < 0) {
->> +                     ipvlan_dbg(3, "%s[%d]: Returning error (%d)...=
-\n",
->> +                                __func__, __LINE__, err);
->> +                     return err;
->> +             }
->> +     }
->> +
->> +     port =3D ipvlan_port_get_rtnl(phy_dev);
->> +     /* Get the mode if specified. */
->> +     if (data && data[IFLA_IPVLAN_MODE])
->> +             port->mode =3D nla_get_u16(data[IFLA_IPVLAN_MODE]);
->
-> Should the invalid value be checked here? There are places
-> where we BUG() in mode being "unknown".
->
-Assuming the calls come over netlink, the ".validate" will be called
-before ".newlink", so that would be unnecessary, isn't it?
+Hi all,
 
->> +
->> +     ipvlan->phy_dev =3D phy_dev;
->> +     ipvlan->dev =3D dev;
->> +     ipvlan->port =3D port;
->> +     ipvlan->sfeatures =3D IPVLAN_FEATURES;
->> +     INIT_LIST_HEAD(&ipvlan->addrs);
->> +     ipvlan->ipv4cnt =3D 0;
->> +     ipvlan->ipv6cnt =3D 0;
->
->
->> +static int ipvlan_device_event(struct notifier_block *unused,
->> +                            unsigned long event, void *ptr)
->> +{
->> +     struct net_device *dev =3D netdev_notifier_info_to_dev(ptr);
->> +     struct ipvl_dev *ipvlan, *next;
->> +     struct ipvl_port *port;
->> +     LIST_HEAD(lst_kill);
->> +
->> +     if (!ipvlan_dev_master(dev))
->> +             return NOTIFY_DONE;
->> +
->> +     port =3D ipvlan_port_get_rtnl(dev);
->> +
->> +     switch (event) {
->> +     case NETDEV_CHANGE:
->> +             list_for_each_entry(ipvlan, &port->ipvlans, pnode)
->> +                     netif_stacked_transfer_operstate(ipvlan->phy_d=
-ev,
->> +                                                      ipvlan->dev);
->> +             break;
->> +
->> +     case NETDEV_UNREGISTER:
->> +             if (dev->reg_state !=3D NETREG_UNREGISTERING)
->> +                     break;
->> +
->> +             list_for_each_entry_safe(ipvlan, next, &port->ipvlans,
->> +                                      pnode)
->> +                     ipvlan->dev->rtnl_link_ops->dellink(ipvlan->de=
-v,
->> +                                                         &lst_kill)=
-;
->> +             unregister_netdevice_many(&lst_kill);
->> +             list_del(&lst_kill);
->
-> This list_del seems to be excessive.
->
-That is correct. Looks like unregister_netdevice_many() does it now.
-I'll remove it.
+Today's linux-next merge of the net-next tree got a conflict in
+drivers/net/ethernet/chelsio/cxgb4vf/sge.c between commit 65f6ecc93e7c
+("cxgb4vf: Move fl_starv_thres into adapter->sge data structure") from
+the net tree and commit aa9cd31c3f3e ("cxgb4/cxgb4vf: Replace
+__skb_alloc_page with __dev_alloc_page") from the net-next tree.
 
->> +             break;
->> +
->
->> +static int ipvlan_addr4_event(struct notifier_block *unused,
->> +                           unsigned long event, void *ptr)
->> +{
->> +     struct in_ifaddr *if4 =3D (struct in_ifaddr *)ptr;
->> +     struct net_device *dev =3D (struct net_device *)if4->ifa_dev->=
-dev;
->> +     struct ipvl_dev *ipvlan =3D netdev_priv(dev);
->> +     struct in_addr ip4_addr;
->> +
->> +     ipvlan_dbg(3, "%s[%d]: Entering...\n", __func__, __LINE__);
->> +     if (!ipvlan_dev_slave(dev))
->> +             return NOTIFY_DONE;
->> +
->> +     if (!ipvlan || !ipvlan->port)
->> +             return NOTIFY_DONE;
->> +
->> +     switch (event) {
->> +     case NETDEV_UP:
->
-> Can it be (in the future) somehow restricted so that net-namespace wo=
-uldn't
-> be able to assign arbitrary IP address here? One of the reasons for u=
-sing
-> such devices is to enforce the container to use the IP address given =
-from
-> the host.
->
-Probably this could be a config (sysfs?) entry which would lockup the
-config coming from ns when set. So code could look like -
-          case NETDEV_UP:
-                         if (!restrict_ns_config) {
-                            ...
-                         }
-                         break;
+I fixed it up (see below) and can carry the fix as necessary (no action
+is required).
 
->> +             ip4_addr.s_addr =3D if4->ifa_address;
->> +             if (ipvlan_add_addr4(ipvlan, &ip4_addr))
->> +                     return NOTIFY_BAD;
->> +             break;
->> +
->> +     case NETDEV_DOWN:
->> +             ip4_addr.s_addr =3D if4->ifa_address;
->> +             ipvlan_del_addr4(ipvlan, &ip4_addr);
->> +             break;
->> +     }
->> +
->> +     ipvlan_dbg(3, "%s[%d]: Leaving...\n", __func__, __LINE__);
->> +     return NOTIFY_OK;
->> +}
->
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+diff --cc drivers/net/ethernet/chelsio/cxgb4vf/sge.c
+index fdd078d7d82c,cd538afa40dd..000000000000
+--- a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
+@@@ -608,8 -614,7 +610,7 @@@ static unsigned int refill_fl(struct ad
+  		goto alloc_small_pages;
+ =20
+  	while (n) {
+- 		page =3D alloc_pages(gfp | __GFP_COMP | __GFP_NOWARN,
+- 				   s->fl_pg_order);
+ -		page =3D __dev_alloc_pages(gfp, FL_PG_ORDER);
+++		page =3D __dev_alloc_pages(gfp, s->fl_pg_order);
+  		if (unlikely(!page)) {
+  			/*
+  			 * We've failed inour attempt to allocate a "large
+
+--Sig_/6fVwv1pMQtxv3BlPgR=FAad
+Content-Type: application/pgp-signature
+Content-Description: OpenPGP digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCAAGBQJUY/z2AAoJEMDTa8Ir7ZwVopcP/RoOjZWEtE0FN0k7u08FM4Vr
+B5RSIAXNctLg1RomUFjOY/UANA8VdjiiEe+0BtF6cDyAEAVUWQmBNg1DvfOmmSi7
+rUXPAdnjHFh2uC+djYoyHlOydhlGjlxzPaEQKKw6Ry6Y/brLV21XuXIYlinfbBZW
+3IGJxW4ohKceAel3flabj+NIYASZJ/9PPhuyTASWxVupJ+Fm1v5UhQq7HxPKsGDb
+47WA2+Zw/TCPdatyyDKBi6KyOfoIHc2ByLdOXybC5msuo5ONxFocNERthaEdWtMB
+cW/n35/FXHi9+4FqI8I4Y4RI7x1e9b+nQrY6C2WIViqeOXFQAucdFXkpsvIRRZMe
+JP8Q/FV1nZs9WAgwJ6N2MFl9UQOewbAyZDoh5+KTfd+LRF2haS9bKTQTZSCJVy6P
+/Vat8+7WRMjw15pAXm5R4gRG+3hZ68dPK4D1TYjbmsnvjGl3tRs2HA5SvnwVoZVx
+AsfpNhxUKxIfgw1TeY3JpJ1kTx+9134IfENBD1Vh0cv9q9BqkOU0OX9ABx3zuzum
+ATjxyB8VrwzGs9HvZsl0Je6ixPQ+Q8EPx4VIufZYWvqcAoBqH70I1uv3e0Wfl77T
+aiAB4mjgJIuYdT0bMVuRXxRydB9ogtFwVGHSot491mZ4ikDw1XiIFi/bsVc8jO68
+f/6LIQvgK4Jy/bzHMnwc
+=j0ei
+-----END PGP SIGNATURE-----
+
+--Sig_/6fVwv1pMQtxv3BlPgR=FAad--
