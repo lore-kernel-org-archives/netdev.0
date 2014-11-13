@@ -1,181 +1,110 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 1/2] xfrm: Do not hash socket policies
-Date: Thu, 13 Nov 2014 17:09:49 +0800
-Message-ID: <E1XoqPV-0000rg-6h@gondolin.me.apana.org.au>
-References: <20141113090811.GA3280@gondor.apana.org.au>
-To: Steffen Klassert <steffen.klassert@secunet.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:41315 "EHLO
-	helcar.apana.org.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932118AbaKMJJ4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Nov 2014 04:09:56 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH 1/2] virito: introduce methods of fixing device features
+Date: Thu, 13 Nov 2014 17:11:30 +0800
+Message-ID: <546475C2.50606@redhat.com>
+References: <1415857974-23326-1-git-send-email-jasowang@redhat.com>
+	<20141113094604.1f248c3d.cornelia.huck@de.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, mst@redhat.com
+To: Cornelia Huck <cornelia.huck@de.ibm.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20141113094604.1f248c3d.cornelia.huck@de.ibm.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Back in 2003 when I added policy expiration, I half-heartedly
-did a clean-up and renamed xfrm_sk_policy_link/xfrm_sk_policy_unlink
-to __xfrm_policy_link/__xfrm_policy_unlink, because the latter
-could be reused for all policies.  I never actually got around
-to using __xfrm_policy_link for non-socket policies.
+On 11/13/2014 04:46 PM, Cornelia Huck wrote:
+> On Thu, 13 Nov 2014 13:52:53 +0800
+> Jason Wang <jasowang@redhat.com> wrote:
+>
+> typo in subject-prefix: s/virito/virtio/
+>
 
-Later on hashing was added to all xfrm policies, including socket
-policies.  In fact, we don't need hashing on socket policies at
-all since they're always looked up via a linked list.
+Will correct this.
+>> Buggy host may advertised buggy host features (a usual case is that host
+>> advertise a feature whose dependencies were missed). In this case, driver
+>> should detect and disable the buggy features by itself.
+>>
+>> This patch introduces driver specific fix_features() method which is called
+>> just before features finalizing to detect and disable buggy features
+>> advertised by host.
+> So the basic problem this patch fixes is that an individual driver may
+> only specify a static set of features but cannot specify any
+> dependencies, right?
 
-This patch restores xfrm_sk_policy_link/xfrm_sk_policy_unlink
-as wrappers around __xfrm_policy_link/__xfrm_policy_unlink so
-that it's obvious we're dealing with socket policies.
+Right, and what even worse is qemu could not handle dependencies as
+well. So we need fix both sides.
+>  Adding a sanitizer step makes sense, I guess.
+>
+>> Virtio-net will be the first user.
+>>
+>> Cc: Rusty Russell <rusty@rustcorp.com.au>
+>> Cc: Michael S. Tsirkin <mst@redhat.com>
+>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+>> ---
+>>  drivers/virtio/virtio.c       |  4 ++++
+>>  include/linux/virtio.h        |  1 +
+>>  include/linux/virtio_config.h | 12 ++++++++++++
+>>  3 files changed, 17 insertions(+)
+>>
+>> diff --git a/drivers/virtio/virtio.c b/drivers/virtio/virtio.c
+>> index df598dd..7001d6e 100644
+>> --- a/drivers/virtio/virtio.c
+>> +++ b/drivers/virtio/virtio.c
+>> @@ -181,6 +181,10 @@ static int virtio_dev_probe(struct device *_d)
+>>  		if (device_features & (1 << i))
+>>  			set_bit(i, dev->features);
+>>
+>> +	/* Fix buggy features advertised by host */
+>> +	if (drv->fix_features)
+>> +		drv->fix_features(dev);
+> I'd probably call this "sanitize_features" instead.
 
-This patch also removes hashing from __xfrm_policy_link as for
-now it's only used by socket policies which do not need to be
-hashed.  Ironically this will in fact allow us to use this helper
-for non-socket policies which I shall do later.
+Ok.
+>> +
+>>  	dev->config->finalize_features(dev);
+>>
+>>  	err = drv->probe(dev);
+>> diff --git a/include/linux/virtio_config.h b/include/linux/virtio_config.h
+>> index 7f4ef66..7bd89ea 100644
+>> --- a/include/linux/virtio_config.h
+>> +++ b/include/linux/virtio_config.h
+>> @@ -96,6 +96,18 @@ static inline bool virtio_has_feature(const struct virtio_device *vdev,
+>>  	return test_bit(fbit, vdev->features);
+>>  }
+>>
+>> +static inline void virtio_disable_feature(struct virtio_device *vdev,
+>> +                                          unsigned int fbit)
+>> +{
+>> +	BUG_ON(fbit >= VIRTIO_TRANSPORT_F_START);
+>> +	BUG_ON(vdev->config->get_status(vdev) &
+>> +	       ~(VIRTIO_CONFIG_S_ACKNOWLEDGE | VIRTIO_CONFIG_S_DRIVER));
+> When we add virtio-1 support, we can add a check for FEATURES_OK here,
+> so we're really on the safe side.
+>
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
----
+If I read the spec correctly, FEATURES_OK was set only after writing the
+features bits to device. But we want to sanitize the them before.
+>> +
+>> +	virtio_check_driver_offered_feature(vdev, fbit);
+>> +
+>> +	clear_bit(fbit, vdev->features);
+>> +}
+>> +
+>>  static inline
+>>  struct virtqueue *virtio_find_single_vq(struct virtio_device *vdev,
+>>  					vq_callback_t *c, const char *n)
+> The approach looks good to me.
+>
 
- include/net/netns/xfrm.h |    4 ++--
- net/xfrm/xfrm_policy.c   |   44 ++++++++++++++++++++++++++------------------
- 2 files changed, 28 insertions(+), 20 deletions(-)
-
-diff --git a/include/net/netns/xfrm.h b/include/net/netns/xfrm.h
-index 9da7982..730d82a 100644
---- a/include/net/netns/xfrm.h
-+++ b/include/net/netns/xfrm.h
-@@ -50,8 +50,8 @@ struct netns_xfrm {
- 	struct list_head	policy_all;
- 	struct hlist_head	*policy_byidx;
- 	unsigned int		policy_idx_hmask;
--	struct hlist_head	policy_inexact[XFRM_POLICY_MAX * 2];
--	struct xfrm_policy_hash	policy_bydst[XFRM_POLICY_MAX * 2];
-+	struct hlist_head	policy_inexact[XFRM_POLICY_MAX];
-+	struct xfrm_policy_hash	policy_bydst[XFRM_POLICY_MAX];
- 	unsigned int		policy_count[XFRM_POLICY_MAX * 2];
- 	struct work_struct	policy_hash_work;
- 	struct xfrm_policy_hthresh policy_hthresh;
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 88bf289..3e015ac 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -561,7 +561,7 @@ static void xfrm_hash_resize(struct work_struct *work)
- 	mutex_lock(&hash_resize_mutex);
- 
- 	total = 0;
--	for (dir = 0; dir < XFRM_POLICY_MAX * 2; dir++) {
-+	for (dir = 0; dir < XFRM_POLICY_MAX; dir++) {
- 		if (xfrm_bydst_should_resize(net, dir, &total))
- 			xfrm_bydst_resize(net, dir);
- 	}
-@@ -601,7 +601,7 @@ static void xfrm_hash_rebuild(struct work_struct *work)
- 	write_lock_bh(&net->xfrm.xfrm_policy_lock);
- 
- 	/* reset the bydst and inexact table in all directions */
--	for (dir = 0; dir < XFRM_POLICY_MAX * 2; dir++) {
-+	for (dir = 0; dir < XFRM_POLICY_MAX; dir++) {
- 		INIT_HLIST_HEAD(&net->xfrm.policy_inexact[dir]);
- 		hmask = net->xfrm.policy_bydst[dir].hmask;
- 		odst = net->xfrm.policy_bydst[dir].table;
-@@ -1247,17 +1247,10 @@ out:
- static void __xfrm_policy_link(struct xfrm_policy *pol, int dir)
- {
- 	struct net *net = xp_net(pol);
--	struct hlist_head *chain = policy_hash_bysel(net, &pol->selector,
--						     pol->family, dir);
- 
- 	list_add(&pol->walk.all, &net->xfrm.policy_all);
--	hlist_add_head(&pol->bydst, chain);
--	hlist_add_head(&pol->byidx, net->xfrm.policy_byidx+idx_hash(net, pol->index));
- 	net->xfrm.policy_count[dir]++;
- 	xfrm_pol_hold(pol);
--
--	if (xfrm_bydst_should_resize(net, dir, NULL))
--		schedule_work(&net->xfrm.policy_hash_work);
- }
- 
- static struct xfrm_policy *__xfrm_policy_unlink(struct xfrm_policy *pol,
-@@ -1265,17 +1258,31 @@ static struct xfrm_policy *__xfrm_policy_unlink(struct xfrm_policy *pol,
- {
- 	struct net *net = xp_net(pol);
- 
--	if (hlist_unhashed(&pol->bydst))
-+	if (list_empty(&pol->walk.all))
- 		return NULL;
- 
--	hlist_del_init(&pol->bydst);
--	hlist_del(&pol->byidx);
--	list_del(&pol->walk.all);
-+	/* Socket policies are not hashed. */
-+	if (!hlist_unhashed(&pol->bydst)) {
-+		hlist_del(&pol->bydst);
-+		hlist_del(&pol->byidx);
-+	}
-+
-+	list_del_init(&pol->walk.all);
- 	net->xfrm.policy_count[dir]--;
- 
- 	return pol;
- }
- 
-+static void xfrm_sk_policy_link(struct xfrm_policy *pol, int dir)
-+{
-+	__xfrm_policy_link(pol, XFRM_POLICY_MAX + dir);
-+}
-+
-+static void xfrm_sk_policy_unlink(struct xfrm_policy *pol, int dir)
-+{
-+	__xfrm_policy_unlink(pol, XFRM_POLICY_MAX + dir);
-+}
-+
- int xfrm_policy_delete(struct xfrm_policy *pol, int dir)
- {
- 	struct net *net = xp_net(pol);
-@@ -1307,7 +1314,7 @@ int xfrm_sk_policy_insert(struct sock *sk, int dir, struct xfrm_policy *pol)
- 	if (pol) {
- 		pol->curlft.add_time = get_seconds();
- 		pol->index = xfrm_gen_index(net, XFRM_POLICY_MAX+dir, 0);
--		__xfrm_policy_link(pol, XFRM_POLICY_MAX+dir);
-+		xfrm_sk_policy_link(pol, dir);
- 	}
- 	if (old_pol) {
- 		if (pol)
-@@ -1316,7 +1323,7 @@ int xfrm_sk_policy_insert(struct sock *sk, int dir, struct xfrm_policy *pol)
- 		/* Unlinking succeeds always. This is the only function
- 		 * allowed to delete or replace socket policy.
- 		 */
--		__xfrm_policy_unlink(old_pol, XFRM_POLICY_MAX+dir);
-+		xfrm_sk_policy_unlink(old_pol, dir);
- 	}
- 	write_unlock_bh(&net->xfrm.xfrm_policy_lock);
- 
-@@ -1349,7 +1356,7 @@ static struct xfrm_policy *clone_policy(const struct xfrm_policy *old, int dir)
- 		memcpy(newp->xfrm_vec, old->xfrm_vec,
- 		       newp->xfrm_nr*sizeof(struct xfrm_tmpl));
- 		write_lock_bh(&net->xfrm.xfrm_policy_lock);
--		__xfrm_policy_link(newp, XFRM_POLICY_MAX+dir);
-+		xfrm_sk_policy_link(newp, dir);
- 		write_unlock_bh(&net->xfrm.xfrm_policy_lock);
- 		xfrm_pol_put(newp);
- 	}
-@@ -2966,10 +2973,11 @@ static int __net_init xfrm_policy_init(struct net *net)
- 		goto out_byidx;
- 	net->xfrm.policy_idx_hmask = hmask;
- 
--	for (dir = 0; dir < XFRM_POLICY_MAX * 2; dir++) {
-+	for (dir = 0; dir < XFRM_POLICY_MAX; dir++) {
- 		struct xfrm_policy_hash *htab;
- 
- 		net->xfrm.policy_count[dir] = 0;
-+		net->xfrm.policy_count[XFRM_POLICY_MAX + dir] = 0;
- 		INIT_HLIST_HEAD(&net->xfrm.policy_inexact[dir]);
- 
- 		htab = &net->xfrm.policy_bydst[dir];
-@@ -3021,7 +3029,7 @@ static void xfrm_policy_fini(struct net *net)
- 
- 	WARN_ON(!list_empty(&net->xfrm.policy_all));
- 
--	for (dir = 0; dir < XFRM_POLICY_MAX * 2; dir++) {
-+	for (dir = 0; dir < XFRM_POLICY_MAX; dir++) {
- 		struct xfrm_policy_hash *htab;
- 
- 		WARN_ON(!hlist_empty(&net->xfrm.policy_inexact[dir]));
+Thanks for the review.
