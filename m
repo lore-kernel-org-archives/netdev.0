@@ -1,49 +1,36 @@
-From: Mathy Vanhoef <vanhoefm@gmail.com>
-Subject: [PATCH] brcmfmac: kill URB when request timed out
-Date: Wed, 12 Nov 2014 21:33:34 -0500
-Message-ID: <5464187E.5060208@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] irda: Fix build failures after IRDA_DEBUG->pr_debug
+Date: Wed, 12 Nov 2014 22:01:48 -0500 (EST)
+Message-ID: <20141112.220148.424378481460202126.davem@davemloft.net>
+References: <20141112.135719.707307878615480184.davem@davemloft.net>
+	<1415840172.4269.1.camel@perches.com>
+	<1415844947.4269.5.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: brudley@broadcom.com, arend@broadcom.com, frankyl@broadcom.com,
-	meuleman@broadcom.com, John Linville <linville@tuxdriver.com>,
-	pieterpg@broadcom.com, linux-wireless@vger.kernel.org,
-	brcm80211-dev-list@broadcom.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: samuel@sortiz.org, netdev@vger.kernel.org, fengguang.wu@intel.com
+To: joe@perches.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49763 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753635AbaKMDBv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Nov 2014 22:01:51 -0500
+In-Reply-To: <1415844947.4269.5.camel@perches.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Kill the submitted URB in brcmf_usb_dl_cmd if the request timed out. This
-assures the URB is never submitted twice. It also prevents a possible
-use-after-free of the URB transfer buffer if a timeout occurs.
+From: Joe Perches <joe@perches.com>
+Date: Wed, 12 Nov 2014 18:15:47 -0800
 
-Signed-off-by: Mathy Vanhoef <vanhoefm@gmail.com>
----
-For a discussion about this patch and the underlying problem, see the mails
-with as subject "[PATCH] brcmfmac: unlink URB when request timed out".
+> Fix the build failures that result from the use of pr_debug
+> without the referenced char * arrays being defined.
+> 
+> Signed-off-by: Joe Perches <joe@perches.com>
+ ...
+> Let me know if you want this as a a patch or a
+> reversion followed by a consolidated new version.
 
- drivers/net/wireless/brcm80211/brcmfmac/usb.c |    6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+I'll just apply this patch, it's the cleanest thing to do at this
+point.
 
-diff --git a/drivers/net/wireless/brcm80211/brcmfmac/usb.c b/drivers/net/wireless/brcm80211/brcmfmac/usb.c
-index 5265aa7..4572def 100644
---- a/drivers/net/wireless/brcm80211/brcmfmac/usb.c
-+++ b/drivers/net/wireless/brcm80211/brcmfmac/usb.c
-@@ -738,10 +738,12 @@ static int brcmf_usb_dl_cmd(struct brcmf_usbdev_info *devinfo, u8 cmd,
- 		goto finalize;
- 	}
- 
--	if (!brcmf_usb_ioctl_resp_wait(devinfo))
-+	if (!brcmf_usb_ioctl_resp_wait(devinfo)) {
-+		usb_kill_urb(devinfo->ctl_urb);
- 		ret = -ETIMEDOUT;
--	else
-+	} else {
- 		memcpy(buffer, tmpbuf, buflen);
-+	}
- 
- finalize:
- 	kfree(tmpbuf);
--- 
-1.7.10.4
+Thanks.
