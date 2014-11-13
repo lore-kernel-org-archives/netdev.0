@@ -1,249 +1,138 @@
-From: raj@tardy.usa.hp.com (Rick Jones)
-Subject: [PATCH net-next] icmp: Remove some spurious dropped packet profile hits from the ICMP path
-Date: Thu, 13 Nov 2014 14:54:57 -0800 (PST)
-Message-ID: <20141113225457.A3E502900805@tardy>
-Cc: <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g2t1383g.austin.hp.com ([15.217.136.92]:31547 "EHLO
-	g2t1383g.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933065AbaKMWzB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Nov 2014 17:55:01 -0500
-Received: from g6t1526.atlanta.hp.com (g6t1526.atlanta.hp.com [15.193.200.69])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by g2t1383g.austin.hp.com (Postfix) with ESMTPS id 69434514
-	for <netdev@vger.kernel.org>; Thu, 13 Nov 2014 22:55:00 +0000 (UTC)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 3/3] sh_eth: Fix dma mapping issue
+Date: Fri, 14 Nov 2014 02:05:44 +0300
+Message-ID: <54653948.5070606@cogentembedded.com>
+References: <1415862301-28032-1-git-send-email-ykaneko0929@gmail.com> <1415862301-28032-4-git-send-email-ykaneko0929@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Simon Horman <horms@verge.net.au>,
+	Magnus Damm <magnus.damm@gmail.com>, linux-sh@vger.kernel.org
+To: Yoshihiro Kaneko <ykaneko0929@gmail.com>, netdev@vger.kernel.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <1415862301-28032-4-git-send-email-ykaneko0929@gmail.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Rick Jones <rick.jones2@hp.com>
+On 11/13/2014 10:05 AM, Yoshihiro Kaneko wrote:
 
-If icmp_rcv() has successfully processed the incoming ICMP datagram, we
-should use consume_skb() rather than kfree_skb() because a hit on the likes
-of perf -e skb:kfree_skb is not called-for.
+> From: Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>
 
-Signed-off-by: Rick Jones <rick.jones2@hp.com>
+> When CONFIG_DMA_API_DEBUG=y, many DMA error messages reports.
+> In order to use DMA debug, This patch fix following issues.
 
----
+> Issue 1:
+> If dma_mapping_error function is not called appropriately after
+> DMA mapping, DMA debug will report error message when DMA unmap
+> function is called.
 
-A test system hit with a flood ping hits on perf top -e ksb:kfre_skb before
-the change and none after for the normal/success path.  The IPv6 path would
-be somewhat more ugly.  For the time being, just deal with the overlap on
-ping_rcv() between the two to avoid a possible double free of an skb.
+> Issue 2:
+> If skb_reserve function is called after DMA mapping, the relationship
+> between mapping addr and mapping size will be broken.
+> In this case, DMA debug will report error messages when DMA sync
+> function and DMA unmap function are called.
 
-diff --git a/include/net/ping.h b/include/net/ping.h
-index 026479b..f074060 100644
---- a/include/net/ping.h
-+++ b/include/net/ping.h
-@@ -82,7 +82,7 @@ int  ping_common_sendmsg(int family, struct msghdr *msg, size_t len,
- int  ping_v6_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 		     size_t len);
- int  ping_queue_rcv_skb(struct sock *sk, struct sk_buff *skb);
--void ping_rcv(struct sk_buff *skb);
-+bool ping_rcv(struct sk_buff *skb);
- 
- #ifdef CONFIG_PROC_FS
- struct ping_seq_afinfo {
-diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
-index 36b7bfa..b9f3653 100644
---- a/net/ipv4/icmp.c
-+++ b/net/ipv4/icmp.c
-@@ -190,7 +190,7 @@ EXPORT_SYMBOL(icmp_err_convert);
-  */
- 
- struct icmp_control {
--	void (*handler)(struct sk_buff *skb);
-+	bool (*handler)(struct sk_buff *skb);
- 	short   error;		/* This ICMP is classed as an error message */
- };
- 
-@@ -746,7 +746,7 @@ static bool icmp_tag_validation(int proto)
-  *	ICMP_PARAMETERPROB.
-  */
- 
--static void icmp_unreach(struct sk_buff *skb)
-+static bool icmp_unreach(struct sk_buff *skb)
- {
- 	const struct iphdr *iph;
- 	struct icmphdr *icmph;
-@@ -839,10 +839,11 @@ static void icmp_unreach(struct sk_buff *skb)
- 	icmp_socket_deliver(skb, info);
- 
- out:
--	return;
-+	return true;
- out_err:
- 	ICMP_INC_STATS_BH(net, ICMP_MIB_INERRORS);
--	goto out;
-+	kfree_skb(skb);
-+	return false;
- }
- 
- 
-@@ -850,17 +851,22 @@ out_err:
-  *	Handle ICMP_REDIRECT.
-  */
- 
--static void icmp_redirect(struct sk_buff *skb)
-+static bool icmp_redirect(struct sk_buff *skb)
- {
- 	if (skb->len < sizeof(struct iphdr)) {
- 		ICMP_INC_STATS_BH(dev_net(skb->dev), ICMP_MIB_INERRORS);
--		return;
-+		kfree_skb(skb);
-+		return false;
- 	}
- 
--	if (!pskb_may_pull(skb, sizeof(struct iphdr)))
--		return;
-+	if (!pskb_may_pull(skb, sizeof(struct iphdr))) {
-+		/* there aught to be a stat */
-+		kfree_skb(skb);
-+		return false;
-+	}
- 
- 	icmp_socket_deliver(skb, icmp_hdr(skb)->un.gateway);
-+	return true;
- }
- 
- /*
-@@ -875,7 +881,7 @@ static void icmp_redirect(struct sk_buff *skb)
-  *	See also WRT handling of options once they are done and working.
-  */
- 
--static void icmp_echo(struct sk_buff *skb)
-+static bool icmp_echo(struct sk_buff *skb)
- {
- 	struct net *net;
- 
-@@ -891,6 +897,8 @@ static void icmp_echo(struct sk_buff *skb)
- 		icmp_param.head_len	   = sizeof(struct icmphdr);
- 		icmp_reply(&icmp_param, skb);
- 	}
-+	/* should there be an ICMP stat for ignored echos? */
-+	return true;
- }
- 
- /*
-@@ -900,7 +908,7 @@ static void icmp_echo(struct sk_buff *skb)
-  *		  MUST be accurate to a few minutes.
-  *		  MUST be updated at least at 15Hz.
-  */
--static void icmp_timestamp(struct sk_buff *skb)
-+static bool icmp_timestamp(struct sk_buff *skb)
- {
- 	struct timespec tv;
- 	struct icmp_bxm icmp_param;
-@@ -927,15 +935,18 @@ static void icmp_timestamp(struct sk_buff *skb)
- 	icmp_param.data_len	   = 0;
- 	icmp_param.head_len	   = sizeof(struct icmphdr) + 12;
- 	icmp_reply(&icmp_param, skb);
--out:
--	return;
-+	return true;
-+
- out_err:
- 	ICMP_INC_STATS_BH(dev_net(skb_dst(skb)->dev), ICMP_MIB_INERRORS);
--	goto out;
-+	kfree_skb(skb);
-+	return false;
- }
- 
--static void icmp_discard(struct sk_buff *skb)
-+static bool icmp_discard(struct sk_buff *skb)
- {
-+	/* pretend it was a success */
-+	return true;
- }
- 
- /*
-@@ -946,6 +957,7 @@ int icmp_rcv(struct sk_buff *skb)
- 	struct icmphdr *icmph;
- 	struct rtable *rt = skb_rtable(skb);
- 	struct net *net = dev_net(rt->dst.dev);
-+	bool success;
- 
- 	if (!xfrm4_policy_check(NULL, XFRM_POLICY_IN, skb)) {
- 		struct sec_path *sp = skb_sec_path(skb);
-@@ -1012,7 +1024,12 @@ int icmp_rcv(struct sk_buff *skb)
- 		}
- 	}
- 
--	icmp_pointers[icmph->type].handler(skb);
-+	success = icmp_pointers[icmph->type].handler(skb);
-+
-+	if (success) 
-+		consume_skb(skb);
-+
-+	return 0;
- 
- drop:
- 	kfree_skb(skb);
-diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
-index 736236c..7d54eed 100644
---- a/net/ipv4/ping.c
-+++ b/net/ipv4/ping.c
-@@ -955,7 +955,7 @@ EXPORT_SYMBOL_GPL(ping_queue_rcv_skb);
-  *	All we need to do is get the socket.
-  */
- 
--void ping_rcv(struct sk_buff *skb)
-+bool ping_rcv(struct sk_buff *skb)
- {
- 	struct sock *sk;
- 	struct net *net = dev_net(skb->dev);
-@@ -974,11 +974,13 @@ void ping_rcv(struct sk_buff *skb)
- 		pr_debug("rcv on socket %p\n", sk);
- 		ping_queue_rcv_skb(sk, skb_get(skb));
- 		sock_put(sk);
--		return;
-+		return true;
- 	}
- 	pr_debug("no socket, dropping\n");
- 
--	/* We're called from icmp_rcv(). kfree_skb() is done there. */
-+	/* Do the kfree_skb() here to get a better drop profile */
-+	kfree_skb(skb);
-+	return false;
- }
- EXPORT_SYMBOL_GPL(ping_rcv);
- 
-diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
-index 0929340..6c0f805 100644
---- a/net/ipv6/icmp.c
-+++ b/net/ipv6/icmp.c
-@@ -679,6 +679,7 @@ static int icmpv6_rcv(struct sk_buff *skb)
- 	const struct in6_addr *saddr, *daddr;
- 	struct icmp6hdr *hdr;
- 	u8 type;
-+	bool success = true;
- 
- 	if (!xfrm6_policy_check(NULL, XFRM_POLICY_IN, skb)) {
- 		struct sec_path *sp = skb_sec_path(skb);
-@@ -726,7 +727,7 @@ static int icmpv6_rcv(struct sk_buff *skb)
- 		break;
- 
- 	case ICMPV6_ECHO_REPLY:
--		ping_rcv(skb);
-+		success = ping_rcv(skb);
- 		break;
- 
- 	case ICMPV6_PKT_TOOBIG:
-@@ -790,7 +791,15 @@ static int icmpv6_rcv(struct sk_buff *skb)
- 		icmpv6_notify(skb, type, hdr->icmp6_code, hdr->icmp6_mtu);
- 	}
- 
--	kfree_skb(skb);
-+	/* until the v6 path can be better sorted we may still need
-+	 * to kfree_sbk() here but want to avoid a double free from
-+	 * the ping_rcv() path, which shares code with IPv4. assume
-+	 * success and preserve the status quo behaviour for the rest
-+	 * of the paths to here
-+	 */
-+	if (success)
-+		kfree_skb(skb);
-+
- 	return 0;
- 
- csum_error:
+> Issue 3:
+> If the size of frame data is less than ETH_ZLEN, the size is resized
+> to ETH_ZLEN after DMA map function is called.
+> In the TX skb freeing function, dma unmap function is called with that
+> resized value. So, unmap size error will reported.
+
+> Issue 4:
+> In the rx function, DMA map function is called without DMA unmap function
+> is called for RX skb reallocating.
+> It will case the DMA debug error that number of debug entry is full and
+> DMA debug logic is stopped.
+
+    The rule of thumb is "fix one issue per patch". Please split accordingly.
+
+> Signed-off-by: Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>
+> Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+
+    Thanks for beating me to it. Fixing these issues has been on my agenda for 
+a long time... :-)
+
+> ---
+>   drivers/net/ethernet/renesas/sh_eth.c | 26 +++++++++++++++++++++++---
+>   1 file changed, 23 insertions(+), 3 deletions(-)
+
+> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+> index 0e4a407..23318cf 100644
+> --- a/drivers/net/ethernet/renesas/sh_eth.c
+> +++ b/drivers/net/ethernet/renesas/sh_eth.c
+> @@ -1136,6 +1136,11 @@ static void sh_eth_ring_format(struct net_device *ndev)
+>   		dma_map_single(&ndev->dev, skb->data, rxdesc->buffer_length,
+>   			       DMA_FROM_DEVICE);
+>   		rxdesc->addr = virt_to_phys(skb->data);
+
+    Can't we get rid of these bogus virt_to_phys() calls, while at it? 
+dma_map_single() returns a DMA address, no?
+
+> +		if (dma_mapping_error(&ndev->dev, rxdesc->addr)) {
+> +			dev_kfree_skb(mdp->rx_skbuff[i]);
+> +			mdp->rx_skbuff[i] = NULL;
+> +			break;
+> +		}
+>   		rxdesc->status = cpu_to_edmac(mdp, RD_RACT | RD_RFP);
+>
+>   		/* Rx descriptor address set */
+> @@ -1364,7 +1369,7 @@ static int sh_eth_txfree(struct net_device *ndev)
+>   		if (mdp->tx_skbuff[entry]) {
+>   			dma_unmap_single(&ndev->dev, txdesc->addr,
+>   					 txdesc->buffer_length, DMA_TO_DEVICE);
+> -			dev_kfree_skb_irq(mdp->tx_skbuff[entry]);
+> +			dev_kfree_skb_any(mdp->tx_skbuff[entry]);
+
+    Hm, I'm not sure where is this described in the changelog...
+
+>   			mdp->tx_skbuff[entry] = NULL;
+>   			free_num++;
+>   		}
+> @@ -1466,11 +1471,19 @@ static int sh_eth_rx(struct net_device *ndev, u32 intr_status, int *quota)
+>   			if (skb == NULL)
+>   				break;	/* Better luck next round. */
+>   			sh_eth_set_receive_align(skb);
+> +			dma_unmap_single(&ndev->dev, rxdesc->addr,
+> +					 rxdesc->buffer_length,
+> +					 DMA_FROM_DEVICE);
+>   			dma_map_single(&ndev->dev, skb->data,
+>   				       rxdesc->buffer_length, DMA_FROM_DEVICE);
+>
+>   			skb_checksum_none_assert(skb);
+>   			rxdesc->addr = virt_to_phys(skb->data);
+
+    Likewise, can we get rid of this bogu?
+
+> +			if (dma_mapping_error(&ndev->dev, rxdesc->addr)) {
+> +				dev_kfree_skb_any(mdp->rx_skbuff[entry]);
+> +				mdp->rx_skbuff[entry] = NULL;
+> +				break;
+> +			}
+>   		}
+>   		if (entry >= mdp->num_rx_ring - 1)
+>   			rxdesc->status |=
+> @@ -2104,12 +2117,18 @@ static int sh_eth_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+>   	if (!mdp->cd->hw_swap)
+>   		sh_eth_soft_swap(phys_to_virt(ALIGN(txdesc->addr, 4)),
+>   				 skb->len + 2);
+> -	txdesc->addr = dma_map_single(&ndev->dev, skb->data, skb->len,
+> -				      DMA_TO_DEVICE);
+>   	if (skb->len < ETH_ZLEN)
+>   		txdesc->buffer_length = ETH_ZLEN;
+>   	else
+>   		txdesc->buffer_length = skb->len;
+> +	txdesc->addr = dma_map_single(&ndev->dev, skb->data,
+> +				      txdesc->buffer_length,
+> +				      DMA_TO_DEVICE);
+> +	if (dma_mapping_error(&ndev->dev, txdesc->addr)) {
+> +		dev_kfree_skb_any(mdp->tx_skbuff[entry]);
+> +		mdp->tx_skbuff[entry] = NULL;
+> +		goto out;
+
+    Why not just *return*?!
+
+[...]
+
+WBR, Sergei
+
