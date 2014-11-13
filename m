@@ -1,62 +1,81 @@
-From: Yoshihiro Kaneko <ykaneko0929@gmail.com>
-Subject: [PATCH] net: sh_eth: Add r8a7793 support
-Date: Thu, 13 Nov 2014 15:59:07 +0900
-Message-ID: <1415861947-27867-1-git-send-email-ykaneko0929@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Simon Horman <horms@verge.net.au>,
-	Magnus Damm <magnus.damm@gmail.com>, linux-sh@vger.kernel.org,
-	Grant Likely <grant.likely@linaro.org>
-To: netdev@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
-Sender: linux-sh-owner@vger.kernel.org
+From: Kedareswara rao Appana <appana.durga.rao@xilinx.com>
+Subject: [PATCH] can: Fix bug in suspend/resume
+Date: Thu, 13 Nov 2014 12:28:11 +0530
+Message-ID: <a44efc1fb0144cca9d0c4851cc51db25@BL2FFO11FD024.protection.gbl>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devicetree@vger.kernel.org, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, linux-can@vger.kernel.org,
+ Kedareswara rao Appana <appanad@xilinx.com>,
+ linux-arm-kernel@lists.infradead.org
+To: <wg@grandegger.com>, <mkl@pengutronix.de>, <michal.simek@xilinx.com>,
+ <soren.brinkmann@xilinx.com>, <grant.likely@linaro.org>, <robh+dt@kernel.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-From: Hisashi Nakamura <hisashi.nakamura.ak@renesas.com>
+When accessing the priv structure use container_of instead of dev_get_drvdata.
+Enable the clocks in the suspend before accessing the registers of the CAN.
 
-The device tree probing for R-Car M2N (r8a7793) is added.
-
-Signed-off-by: Hisashi Nakamura <hisashi.nakamura.ak@renesas.com>
-Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+Signed-off-by: Kedareswara rao Appana <appanad@xilinx.com>
 ---
+ drivers/net/can/xilinx_can.c |   20 ++++++++++++++++++--
+ 1 files changed, 18 insertions(+), 2 deletions(-)
 
-This patch is based on net-next tree.
-
- Documentation/devicetree/bindings/net/sh_eth.txt | 1 +
- drivers/net/ethernet/renesas/sh_eth.c            | 2 ++
- 2 files changed, 3 insertions(+)
-
-diff --git a/Documentation/devicetree/bindings/net/sh_eth.txt b/Documentation/devicetree/bindings/net/sh_eth.txt
-index 34d4db1..2f6ec85 100644
---- a/Documentation/devicetree/bindings/net/sh_eth.txt
-+++ b/Documentation/devicetree/bindings/net/sh_eth.txt
-@@ -9,6 +9,7 @@ Required properties:
- 	      "renesas,ether-r8a7779"  if the device is a part of R8A7779 SoC.
- 	      "renesas,ether-r8a7790"  if the device is a part of R8A7790 SoC.
- 	      "renesas,ether-r8a7791"  if the device is a part of R8A7791 SoC.
-+	      "renesas,ether-r8a7793"  if the device is a part of R8A7793 SoC.
- 	      "renesas,ether-r8a7794"  if the device is a part of R8A7794 SoC.
- 	      "renesas,ether-r7s72100" if the device is a part of R7S72100 SoC.
- - reg: offset and length of (1) the E-DMAC/feLic register block (required),
-diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index dbe8606..1ba057b 100644
---- a/drivers/net/ethernet/renesas/sh_eth.c
-+++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -2746,6 +2746,7 @@ static const struct of_device_id sh_eth_match_table[] = {
- 	{ .compatible = "renesas,ether-r8a7779", .data = &r8a777x_data },
- 	{ .compatible = "renesas,ether-r8a7790", .data = &r8a779x_data },
- 	{ .compatible = "renesas,ether-r8a7791", .data = &r8a779x_data },
-+	{ .compatible = "renesas,ether-r8a7793", .data = &r8a779x_data },
- 	{ .compatible = "renesas,ether-r8a7794", .data = &r8a779x_data },
- 	{ .compatible = "renesas,ether-r7s72100", .data = &r7s72100_data },
- 	{ }
-@@ -2969,6 +2970,7 @@ static struct platform_device_id sh_eth_id_table[] = {
- 	{ "r8a777x-ether", (kernel_ulong_t)&r8a777x_data },
- 	{ "r8a7790-ether", (kernel_ulong_t)&r8a779x_data },
- 	{ "r8a7791-ether", (kernel_ulong_t)&r8a779x_data },
-+	{ "r8a7793-ether", (kernel_ulong_t)&r8a779x_data },
- 	{ "r8a7794-ether", (kernel_ulong_t)&r8a779x_data },
- 	{ }
- };
+diff --git a/drivers/net/can/xilinx_can.c b/drivers/net/can/xilinx_can.c
+index 5e8b560..63ef645 100644
+--- a/drivers/net/can/xilinx_can.c
++++ b/drivers/net/can/xilinx_can.c
+@@ -972,15 +972,30 @@ static const struct net_device_ops xcan_netdev_ops = {
+  */
+ static int __maybe_unused xcan_suspend(struct device *dev)
+ {
+-	struct platform_device *pdev = dev_get_drvdata(dev);
++	struct platform_device *pdev = container_of(dev,
++			struct platform_device, dev);
+ 	struct net_device *ndev = platform_get_drvdata(pdev);
+ 	struct xcan_priv *priv = netdev_priv(ndev);
++	int ret;
+ 
+ 	if (netif_running(ndev)) {
+ 		netif_stop_queue(ndev);
+ 		netif_device_detach(ndev);
+ 	}
+ 
++	ret = clk_prepare_enable(priv->can_clk);
++	if (ret) {
++		dev_err(dev, "unable to enable device clock\n");
++		return ret;
++	}
++
++	ret = clk_prepare_enable(priv->bus_clk);
++	if (ret) {
++		dev_err(dev, "unable to enable bus clock\n");
++		clk_disable_unprepare(priv->can_clk);
++		return ret;
++	}
++
+ 	priv->write_reg(priv, XCAN_MSR_OFFSET, XCAN_MSR_SLEEP_MASK);
+ 	priv->can.state = CAN_STATE_SLEEPING;
+ 
+@@ -999,7 +1014,8 @@ static int __maybe_unused xcan_suspend(struct device *dev)
+  */
+ static int __maybe_unused xcan_resume(struct device *dev)
+ {
+-	struct platform_device *pdev = dev_get_drvdata(dev);
++	struct platform_device *pdev = container_of(dev,
++			struct platform_device, dev);
+ 	struct net_device *ndev = platform_get_drvdata(pdev);
+ 	struct xcan_priv *priv = netdev_priv(ndev);
+ 	int ret;
 -- 
-1.9.1
-
+1.7.4
