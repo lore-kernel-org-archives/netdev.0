@@ -1,42 +1,101 @@
-From: Javier Martinez Canillas <javier@dowhile0.org>
-Subject: Re: [PATCH] smsc911x: power-up phydev before doing a software reset.
-Date: Thu, 13 Nov 2014 09:27:39 +0100
-Message-ID: <CABxcv=n0u2dvRyFr_dWXQaJpEMa2-9ZWGMSDaTYVr907SjX8ew@mail.gmail.com>
-References: <1415643789-5367-1-git-send-email-eballetbo@iseebcn.com>
-	<20141111.183042.469456165241690341.davem@davemloft.net>
-	<CAFqH_50cpvdvCgD-=HQDZ1OT9vmzWkExNHzoASNaruSKLnJZBA@mail.gmail.com>
+From: Cornelia Huck <cornelia.huck@de.ibm.com>
+Subject: Re: [PATCH 1/2] virito: introduce methods of fixing device features
+Date: Thu, 13 Nov 2014 09:46:04 +0100
+Message-ID: <20141113094604.1f248c3d.cornelia.huck@de.ibm.com>
+References: <1415857974-23326-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Steve Glendinning <steve.glendinning@shawell.net>,
-	Enrico Butera <ebutera@gmail.com>
-To: Enric Balletbo Serra <eballetbo@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f41.google.com ([74.125.82.41]:55978 "EHLO
-	mail-wg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751013AbaKMI1l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Nov 2014 03:27:41 -0500
-Received: by mail-wg0-f41.google.com with SMTP id l18so737728wgh.14
-        for <netdev@vger.kernel.org>; Thu, 13 Nov 2014 00:27:39 -0800 (PST)
-In-Reply-To: <CAFqH_50cpvdvCgD-=HQDZ1OT9vmzWkExNHzoASNaruSKLnJZBA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, mst@redhat.com
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1415857974-23326-1-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Hello Enric,
+On Thu, 13 Nov 2014 13:52:53 +0800
+Jason Wang <jasowang@redhat.com> wrote:
 
-On Thu, Nov 13, 2014 at 8:57 AM, Enric Balletbo Serra
-<eballetbo@gmail.com> wrote:
->
-> Yes, I'm agree. I'll send version 2 of the patch changing this. Also
-> there are other places that use the mdelay family intead of
-> usleep_range() and can only be invoked from process context. Maybe
-> would be interesting send another patch changing this.
->
+typo in subject-prefix: s/virito/virtio/
 
-Agreed, that could be a separate patch though.
+> Buggy host may advertised buggy host features (a usual case is that host
+> advertise a feature whose dependencies were missed). In this case, driver
+> should detect and disable the buggy features by itself.
+> 
+> This patch introduces driver specific fix_features() method which is called
+> just before features finalizing to detect and disable buggy features
+> advertised by host.
 
-Also there is a mdelay(100) before enabling energy detect mode in
-smsc911x_phy_enable_energy_detect() which I believe can be removed.
+So the basic problem this patch fixes is that an individual driver may
+only specify a static set of features but cannot specify any
+dependencies, right? Adding a sanitizer step makes sense, I guess.
 
-Best regards,
-Javier
+> 
+> Virtio-net will be the first user.
+> 
+> Cc: Rusty Russell <rusty@rustcorp.com.au>
+> Cc: Michael S. Tsirkin <mst@redhat.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> ---
+>  drivers/virtio/virtio.c       |  4 ++++
+>  include/linux/virtio.h        |  1 +
+>  include/linux/virtio_config.h | 12 ++++++++++++
+>  3 files changed, 17 insertions(+)
+> 
+> diff --git a/drivers/virtio/virtio.c b/drivers/virtio/virtio.c
+> index df598dd..7001d6e 100644
+> --- a/drivers/virtio/virtio.c
+> +++ b/drivers/virtio/virtio.c
+> @@ -181,6 +181,10 @@ static int virtio_dev_probe(struct device *_d)
+>  		if (device_features & (1 << i))
+>  			set_bit(i, dev->features);
+> 
+> +	/* Fix buggy features advertised by host */
+> +	if (drv->fix_features)
+> +		drv->fix_features(dev);
+
+I'd probably call this "sanitize_features" instead.
+
+> +
+>  	dev->config->finalize_features(dev);
+> 
+>  	err = drv->probe(dev);
+
+> diff --git a/include/linux/virtio_config.h b/include/linux/virtio_config.h
+> index 7f4ef66..7bd89ea 100644
+> --- a/include/linux/virtio_config.h
+> +++ b/include/linux/virtio_config.h
+> @@ -96,6 +96,18 @@ static inline bool virtio_has_feature(const struct virtio_device *vdev,
+>  	return test_bit(fbit, vdev->features);
+>  }
+> 
+> +static inline void virtio_disable_feature(struct virtio_device *vdev,
+> +                                          unsigned int fbit)
+> +{
+> +	BUG_ON(fbit >= VIRTIO_TRANSPORT_F_START);
+> +	BUG_ON(vdev->config->get_status(vdev) &
+> +	       ~(VIRTIO_CONFIG_S_ACKNOWLEDGE | VIRTIO_CONFIG_S_DRIVER));
+
+When we add virtio-1 support, we can add a check for FEATURES_OK here,
+so we're really on the safe side.
+
+> +
+> +	virtio_check_driver_offered_feature(vdev, fbit);
+> +
+> +	clear_bit(fbit, vdev->features);
+> +}
+> +
+>  static inline
+>  struct virtqueue *virtio_find_single_vq(struct virtio_device *vdev,
+>  					vq_callback_t *c, const char *n)
+
+The approach looks good to me.
