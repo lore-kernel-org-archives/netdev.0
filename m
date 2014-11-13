@@ -1,82 +1,26 @@
-From: Sathya Perla <Sathya.Perla@Emulex.Com>
-Subject: RE: [PATCH 0/4] move pci_assivned_vfs() check (while disabling VFs)
- to pci sub-system
-Date: Thu, 13 Nov 2014 07:04:35 +0000
-Message-ID: <CF9D1877D81D214CB0CA0669EFAE020C68CD95E1@CMEXMB1.ad.emulex.com>
-References: <1415620410-4937-1-git-send-email-sathya.perla@emulex.com>
-	 <54625EE8.1050509@redhat.com> <1415738372.16601.335.camel@ul30vt.home>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"ariel.elior@qlogic.com" <ariel.elior@qlogic.com>,
-	"linux.nics@intel.com" <linux.nics@intel.com>,
-	"shahed.shaikh@qlogic.com" <shahed.shaikh@qlogic.com>
-To: Alex Williamson <alex.williamson@redhat.com>,
-	Don Dutile <ddutile@redhat.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <1415738372.16601.335.camel@ul30vt.home>
-Content-Language: en-US
-Sender: linux-pci-owner@vger.kernel.org
+From: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+Subject: [PATCH 0/3] sh_eth: Remove redundant alignment adjustment
+Date: Thu, 13 Nov 2014 16:04:58 +0900
+Message-ID: <1415862301-28032-1-git-send-email-ykaneko0929@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Simon Horman <horms@verge.net.au>,
+	Magnus Damm <magnus.damm@gmail.com>, linux-sh@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBBbGV4IFdpbGxpYW1zb24gW21h
-aWx0bzphbGV4LndpbGxpYW1zb25AcmVkaGF0LmNvbV0NCj4gDQo+IE9uIFR1ZSwgMjAxNC0xMS0x
-MSBhdCAxNDowOSAtMDUwMCwgRG9uIER1dGlsZSB3cm90ZToNCj4gPiBPbiAxMS8xMC8yMDE0IDA2
-OjUzIEFNLCBTYXRoeWEgUGVybGEgd3JvdGU6DQo+ID4gPiBBIHVzZXIgbXVzdCBub3QgYmUgYWxs
-b3dlZCB0byBkaXNhYmxlIFZGcyB3aGlsZSB0aGV5IGFyZSBhbHJlYWR5IGFzc2lnbmVkDQo+IHRv
-DQo+ID4gPiBhIGd1ZXN0LiBUaGlzIGNoZWNrIGlzIGJlaW5nIG1hZGUgaW4gZWFjaCBpbmRpdmlk
-dWFsIGRyaXZlciB0aGF0DQo+IGltcGxlbWVudHMNCj4gPiA+IHRoZSBzcmlvdl9jb25maWd1cmUg
-UENJIG1ldGhvZC4NCj4gPiA+IFRoaXMgcGF0Y2gtc2V0IGZpeGVzIHRoaXMgY29kZSBkdXBsaWNh
-dGlvbiBieSBtb3ZpbmcgdGhpcyBjaGVjayBmcm9tDQo+ID4gPiBkcml2ZXJzIHRvIHRoZSBzcmlv
-dl9udXZmc19zdG9yZSgpIHJvdXRpbmUganVzdCBiZWZvcmUgaW52b2tpbmcNCj4gPiA+IHNyaW92
-X2NvbmZpZ3VyZSgpIHdoZW4gbnVtX3ZmcyBpcyBlcXVhbCB0byAwLg0KPiA+ID4NCj4gPiA+IFZh
-c3VuZGhhcmEgVm9sYW0gKDQpOg0KPiA+ID4gICAgcGNpOiBtb3ZlIHBjaV9hc3Npdm5lZF92ZnMo
-KSBjaGVjayB3aGlsZSBkaXNhYmxpbmcgVkZzIHRvIHBjaQ0KPiA+ID4gICAgICBzdWItc3lzdGVt
-DQo+ID4gPiAgICBibngyeDogcmVtb3ZlIHBjaV9hc3NpZ25lZF92ZnMoKSBjaGVjayB3aGlsZSBk
-aXNhYmxpbmcgVkZzDQo+ID4gPiAgICBpNDBlOiByZW1vdmUgcGNpX2Fzc2lnbmVkX3ZmcygpIGNo
-ZWNrIHdoaWxlIGRpc2FibGluZyBWRnMNCj4gPiA+ICAgIHFsY25pYzogcmVtb3ZlIHBjaV9hc3Np
-Z25lZF92ZnMoKSBjaGVjayB3aGlsZSBkaXNhYmxpbmcgVkZzDQo+ID4gPg0KPiA+ID4gICBkcml2
-ZXJzL25ldC9ldGhlcm5ldC9icm9hZGNvbS9ibngyeC9ibngyeF9zcmlvdi5jICB8ICAgIDIgKy0N
-Cj4gPiA+ICAgZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaTQwZS9pNDBlX3ZpcnRjaG5sX3Bm
-LmMgfCAgICA3ICstLS0tLS0NCj4gPiA+ICAgLi4uL25ldC9ldGhlcm5ldC9xbG9naWMvcWxjbmlj
-L3FsY25pY19zcmlvdl9wZi5jICAgfCAgIDEwIC0tLS0tLS0tLS0NCj4gPiA+ICAgZHJpdmVycy9w
-Y2kvcGNpLXN5c2ZzLmMgICAgICAgICAgICAgICAgICAgICAgICAgICAgfCAgICA1ICsrKysrDQo+
-ID4gPiAgIDQgZmlsZXMgY2hhbmdlZCwgNyBpbnNlcnRpb25zKCspLCAxNyBkZWxldGlvbnMoLSkN
-Cj4gPiA+DQo+ID4gSSBoYXZlIGhhZCBhIHNpZGUgY29udmVyc2F0aW9uIHdpdGggQWxleCBXaWxs
-aWFtc29uLCBWRklPIGF1dGhvci4NCj4gPg0KPiA+IFZGSU8gaXMgdGhlIHVwc3RyZWFtIG1ldGhv
-ZCB0aGF0IGRldmljZS1hc3NpZ25tZW50IGlzIG1hbmFnZWQvaGFuZGxlZA0KPiBvbiBrdm0gbm93
-Lg0KPiA+IEl0IGRvZXMgbm90IHNldCB0aGUgUENJX0RFVl9GTEFHU19BU1NJR05FRCBwY2kgZGV2
-LWZsYWdzLCBhbmQgdGh1cywNCj4gPiB0aGlzIGNoZWNrIHdpbGwgbm90IHdvcmsgd2hlbiBWRklP
-IGlzIHVzZWQuDQo+ID4NCj4gPiBUaGlzIHBhdGNoIHNldCB3aWxsIG9ubHkgd29yayBmb3IgdGhl
-IGZvcm1lciwga3ZtLW1hbmFnZWQsIGRldmljZS0NCj4gYXNzaWdubWVudCBtZXRob2QsDQo+ID4g
-d2hpY2ggaXMgY3VycmVudGx5IGJlaW5nIGRlcHJlY2F0ZWQgaW4gcWVtdSBhcyB3ZWxsLg0KPiA+
-DQo+ID4gU28sIHllcywgaXQgd29ya3MgZm9yIGt2bSBtYW5hZ2VkIGRldmljZS1hc3NpZ25tZW50
-LCBidXQgbm90IHRoZQ0KPiA+IG5ld2VyLCBWRklPLWJhc2VkIGRldmljZS1hc3NpZ25tZW50Lg0K
-PiA+DQo+ID4gTm90ZSwgYWxzbywgdGhhdCB0aGUgcGNpX2Fzc2lnbmVkX3ZmcygpIGNoZWNrIGlu
-IHRoZSBkcml2ZXJzIHdpbGwNCj4gPiBhbHdheXMgcmV0dXJuIDAgd2hlbiBWRklPIGlzIHVzZWQg
-Zm9yIGRldmljZSBhc3NpZ25tZW50LCBzbyBrZWVwaW5nDQo+ID4gdGhlc2UgY2hlY2tzIGluIHRo
-ZSBkcml2ZXJzIGRvZXNuJ3QgZG8gd2hhdCB0aGV5IGltcGx5IGVpdGhlci4NCj4gPg0KPiA+IFNv
-LCB0YWtpbmcgaW4gdGhlIHBhdGNoIHNvbHZlcyBvbGQsIGt2bS1tYW5hZ2VkLCBkZXZpY2UgYXNz
-aWdubWVudCwNCj4gPiBidXQgYSBuZXcgbWV0aG9kIGlzIG5lZWRlZCB3aGVuIFZGSU8gaXMgaW52
-b2x2ZWQuDQo+ID4NCj4gPiAtIERvbg0KPiA+DQo+ID4gcHMgLS0gTm90ZToganVzdCBhZGRpbmcg
-dGhlIGZsYWcgc2V0dGluZyBpbiB2ZmlvLXBjaSBkb2VzIG5vdCBuZWNlc3NhcmlseQ0KPiA+ICAg
-ICAgICBzb2x2ZSB0aGlzIHByb2JsZW0uICBWRklPIGRvZXMgbm90IGtub3cgaWYgYSBkZXZpY2Ug
-aXMgYXNzaWduZWQgdG8gYQ0KPiBndWVzdDsNCj4gPiAgICAgICAgaXQgb25seSBrbm93cyBhIGNh
-bGxlciBvZiB0aGUgaW9jdGwgcmVxdWVzdGluZyB0aGUgZGV2aWNlIHRvIGJlIGFzc2lnbmVkDQo+
-ID4gICAgICAgIHRvIHZmaW8sIGFuZCB0byBiZSBkbWEtbWFwcGVkIGZvciBhIHJlZ2lvbiBvZiBt
-ZW1vcnksIGhhcyBiZWVuDQo+IHJlcXVlc3RlZC4NCj4gPiAgICAgICAgU28sIGEgbmV3IFBGPC0+
-VkYgbWVjaGFuaXNtIG5lZWRzIHRvIGJlIHB1dCBpbiBwbGFjZSB0bw0KPiA+ICAgICAgICBkZXRl
-cm1pbmUgdGhlIGVxdWl2YWxlbnQgaW5mb3JtYXRpb24uDQo+IA0KPiBwcHMgLS0gTm90ZTogdGVz
-dGluZyBwY2lfYXNzaXZuZWRfdmZzKCkgaXMgcmFjeSwgbm90aGluZyBwcmV2ZW50cyB0aGUgZmxh
-Zw0KPiAJYmVpbmcgYWRkZWQgdG8gYSBkZXZpY2UgYmV0d2VlbiB5b3VyIGNoZWNrIGFuZCByZW1v
-dmluZyB0aGUgVkYNCj4gZGV2aWNlLg0KPiAJVGhpcyBpcyBvbmUgb2YgdGhlIHJlYXNvbnMgdGhh
-dCB2ZmlvLXBjaSBkb2Vzbid0IHVzZSBpdCBhbmQgdGhhdCB0aGlzDQo+IAlpbnRlcmZhY2Ugc2hv
-dWxkIGJlIGRpc2NvdXJhZ2VkIGluIHRoZSBrZXJuZWwuDQoNCkFsZXgvRG9uLCBJIGFncmVlIHdp
-dGggdGhlIHBvaW50cyB5b3UndmUgcmFpc2VkLg0KQnV0LCBJJ2QgbGlrZSB0byBrbm93IHdoZXRo
-ZXIgeW91IHRoaW5rIHRoaXMgcGF0Y2gtc2V0IHNob3VsZCBiZSBhY2NlcHRlZCBvciBub3QuDQpF
-dmVuIHRob3VnaCB0aGlzIHBhdGNoLXNldCBkb2Vzbid0IGZpeCBhbnkgb2YgdGhlIHBlbmRpbmcg
-aXNzdWVzIHJhaXNlZCBoZXJlLA0KaXQncyBhIHNtYWxsIHN0ZXAgZm9yd2FyZCBhcyBpdCByZWR1
-Y2VzIHRoZSBudW1iZXIgb2YgaW52b2NhdGlvbnMgb2YgcGNpX2Fzc2lnbmVkX3ZmcygpDQpjaGVj
-ayB3aGljaCBpcyBhIGdvb2QgdGhpbmcuDQoNCnRoYW5rcywNCi1TYXRoeWENCg==
+This series is based on net tree.
+
+Mitsuhiro Kimura (3):
+  sh_eth: Remove redundant alignment adjustment
+  sh_eth: Fix skb alloc size and alignment adjust rule.
+  sh_eth: Fix dma mapping issue
+
+ drivers/net/ethernet/renesas/sh_eth.c | 65 +++++++++++++++++++++--------------
+ drivers/net/ethernet/renesas/sh_eth.h |  2 ++
+ 2 files changed, 41 insertions(+), 26 deletions(-)
+
+-- 
+1.9.1
+
