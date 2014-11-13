@@ -1,80 +1,51 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH 2/3] r8169: Use load_acquire() and store_release() to
- reduce memory barrier overhead
-Date: Thu, 13 Nov 2014 22:30:49 +0100
-Message-ID: <20141113213049.GA12297@electric-eye.fr.zoreil.com>
-References: <20141113191250.12579.19694.stgit@ahduyck-server>
- <20141113192735.12579.22892.stgit@ahduyck-server>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-arch@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mikey@neuling.org,
-	tony.luck@intel.com, mathieu.desnoyers@polymtl.ca,
-	donald.c.skidmore@intel.com, peterz@infradead.org,
-	benh@kernel.crashing.org, heiko.carstens@de.ibm.com,
-	oleg@redhat.com, will.deacon@arm.com, davem@davemloft.net,
-	michael@ellerman.id.au, matthew.vick@intel.com,
-	nic_swsd@realtek.com, geert@linux-m68k.org,
-	jeffrey.t.kirsher@intel.com, fweisbec@gmail.com,
-	schwidefsky@de.ibm.com, linux@arm.linux.org.uk,
-	paulmck@linux.vnet.ibm.com, torvalds@linux-foundation.org,
-	mingo@kernel.org
-To: Alexander Duyck <alexander.h.duyck@redhat.com>
+From: Pieter Smith <pieter@boesman.nl>
+Subject: [PATCH 49/56] net/socket: support compiling out splice
+Date: Thu, 13 Nov 2014 22:23:26 +0100
+Message-ID: <1415913813-362-50-git-send-email-pieter@boesman.nl>
+References: <pieter@boesman.nl>
+ <1415913813-362-1-git-send-email-pieter@boesman.nl>
+Cc: Josh Triplett <josh@joshtriplett.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev@vger.kernel.org (open list:NETWORKING [GENERAL]),
+	linux-kernel@vger.kernel.org (open list)
+To: pieter@boesman.nl
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20141113192735.12579.22892.stgit@ahduyck-server>
+In-Reply-To: <1415913813-362-1-git-send-email-pieter@boesman.nl>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Alexander Duyck <alexander.h.duyck@redhat.com> :
-[...]
-> In addition the r8169 uses a rmb() however I believe it is placed incorrectly
-> as I assume it supposed to be ordering descriptor reads after the check for
-> ownership.
+Compile out splice support from socket when the splice-family of syscalls is not
+supported by the system (i.e. CONFIG_SYSCALL_SPLICE is undefined).
 
-Not exactly. It's a barrier against compiler optimization from 2004.
-It should not matter.
+Signed-off-by: Pieter Smith <pieter@boesman.nl>
+---
+ net/socket.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-However I disagree with the change below:
-
-> @@ -7284,11 +7280,11 @@ static int rtl_rx(struct net_device *dev, struct rtl8169_private *tp, u32 budget
->  		struct RxDesc *desc = tp->RxDescArray + entry;
->  		u32 status;
->  
-> -		rmb();
-> -		status = le32_to_cpu(desc->opts1) & tp->opts1_mask;
-> -
-> +		status = cpu_to_le32(load_acquire(&desc->opts1));
->  		if (status & DescOwn)
->  			break;
-> +
-> +		status &= tp->opts1_mask;
-
--> tp->opts1_mask is not __le32 tainted.
-
-Btw, should I consider the sketch above as a skeleton in my r8169 closet ?
-
-           NIC                      CPU0                      CPU1
-| CPU | NIC | CPU | CPU | 
-
-                          | CPU | NIC | CPU | CPU |
-                                         ^ tx_dirty
-
-                                [start_xmit...
-
-| CPU | CPU | CPU | CPU |
-   (NIC did it's job)
-                                                           [rtl_tx...
-                          | ... | ... | NIC | NIC |
-                                  (ring update)
-                              (tx_dirty increases)
-
-                                                     | CPU | CPU | ??? | ??? |
-                                                           tx_dirty ?
-                                                     reaping about-to-be-sent
-                                                     buffers on some platforms ?
-                                ...start_xmit]
-
-
+diff --git a/net/socket.c b/net/socket.c
+index 95ee7d8..5cb347a 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -155,8 +155,8 @@ static const struct file_operations socket_file_ops = {
+ 	.release =	sock_close,
+ 	.fasync =	sock_fasync,
+ 	.sendpage =	sock_sendpage,
+-	.splice_write = generic_splice_sendpage,
+-	.splice_read =	sock_splice_read,
++	SPLICE_WRITE_INIT(generic_splice_sendpage)
++	SPLICE_READ_INIT(sock_splice_read)
+ };
+ 
+ /*
+@@ -881,7 +881,8 @@ static ssize_t sock_sendpage(struct file *file, struct page *page,
+ 	return kernel_sendpage(sock, page, offset, size, flags);
+ }
+ 
+-static ssize_t sock_splice_read(struct file *file, loff_t *ppos,
++static ssize_t __maybe_unused sock_splice_read(
++				struct file *file, loff_t *ppos,
+ 				struct pipe_inode_info *pipe, size_t len,
+ 				unsigned int flags)
+ {
 -- 
-Ueimor
+1.9.1
