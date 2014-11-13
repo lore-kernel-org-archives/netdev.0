@@ -1,7 +1,7 @@
 From: Yoshihiro Kaneko <ykaneko0929@gmail.com>
-Subject: [PATCH] sh_eth: Optimization for RX excess judgement
-Date: Thu, 13 Nov 2014 16:00:31 +0900
-Message-ID: <1415862031-27925-1-git-send-email-ykaneko0929@gmail.com>
+Subject: [PATCH 0/2] Fix sleeping function called from invalid context
+Date: Thu, 13 Nov 2014 16:02:13 +0900
+Message-ID: <1415862135-27972-1-git-send-email-ykaneko0929@gmail.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Simon Horman <horms@verge.net.au>,
 	Magnus Damm <magnus.damm@gmail.com>, linux-sh@vger.kernel.org
@@ -10,65 +10,16 @@ Return-path: <linux-sh-owner@vger.kernel.org>
 Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>
+This series is based on net tree.
 
-Both of 'boguscnt' and 'quota' have nearly meaning as the condition of
-the reception loop.
-In order to cut down redundant processing, this patch changes excess judgement.
+Mitsuhiro Kimura (2):
+  sh_eth: Fix sleeping function called from invalid context
+  sh_eth: Fix asynchronous external abort
 
-Signed-off-by: Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>
-Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
----
+ drivers/net/ethernet/renesas/sh_eth.c | 70 ++++++++++++++++++++---------------
+ drivers/net/ethernet/renesas/sh_eth.h |  1 +
+ 2 files changed, 42 insertions(+), 29 deletions(-)
 
-This patch is based on net tree.
-
- drivers/net/ethernet/renesas/sh_eth.c | 15 +++++++++------
- 1 file changed, 9 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index 60e9c2c..7d46326 100644
---- a/drivers/net/ethernet/renesas/sh_eth.c
-+++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -1394,10 +1394,15 @@ static int sh_eth_rx(struct net_device *ndev, u32 intr_status, int *quota)
- 
- 	int entry = mdp->cur_rx % mdp->num_rx_ring;
- 	int boguscnt = (mdp->dirty_rx + mdp->num_rx_ring) - mdp->cur_rx;
-+	int limit = boguscnt;
- 	struct sk_buff *skb;
- 	u16 pkt_len = 0;
- 	u32 desc_status;
- 
-+	if (quota) {
-+		boguscnt = min(boguscnt, *quota);
-+		limit = boguscnt;
-+	}
- 	rxdesc = &mdp->rx_ring[entry];
- 	while (!(rxdesc->status & cpu_to_edmac(mdp, RD_RACT))) {
- 		desc_status = edmac_to_cpu(mdp, rxdesc->status);
-@@ -1406,11 +1411,6 @@ static int sh_eth_rx(struct net_device *ndev, u32 intr_status, int *quota)
- 		if (--boguscnt < 0)
- 			break;
- 
--		if (*quota <= 0)
--			break;
--
--		(*quota)--;
--
- 		if (!(desc_status & RDFEND))
- 			ndev->stats.rx_length_errors++;
- 
-@@ -1501,7 +1501,10 @@ static int sh_eth_rx(struct net_device *ndev, u32 intr_status, int *quota)
- 		sh_eth_write(ndev, EDRRR_R, EDRRR);
- 	}
- 
--	return *quota <= 0;
-+	if (quota)
-+		*quota -= limit - (++boguscnt);
-+
-+	return (boguscnt <= 0);
- }
- 
- static void sh_eth_rcv_snd_disable(struct net_device *ndev)
 -- 
 1.9.1
 
