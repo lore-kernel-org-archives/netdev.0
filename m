@@ -1,102 +1,125 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH 2/3] r8169: Use load_acquire() and store_release() to
- reduce memory barrier overhead
-Date: Thu, 13 Nov 2014 15:11:59 -0800
-Message-ID: <54653ABF.3080400@gmail.com>
-References: <20141113191250.12579.19694.stgit@ahduyck-server> <20141113192735.12579.22892.stgit@ahduyck-server> <20141113213049.GA12297@electric-eye.fr.zoreil.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH net-next 1/1] ipvlan: Initial check-in of the IPVLAN driver.
+Date: Thu, 13 Nov 2014 15:25:02 -0800
+Message-ID: <CAADnVQJn4+0pCOeSu3oT0fvaJ=CtvD3wmczm4Jn6KjWgZoFrLQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linux-arch@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mikey@neuling.org,
-	tony.luck@intel.com, mathieu.desnoyers@polymtl.ca,
-	donald.c.skidmore@intel.com, peterz@infradead.org,
-	benh@kernel.crashing.org, heiko.carstens@de.ibm.com,
-	oleg@redhat.com, will.deacon@arm.com, davem@davemloft.net,
-	michael@ellerman.id.au, matthew.vick@intel.com,
-	nic_swsd@realtek.com, geert@linux-m68k.org,
-	jeffrey.t.kirsher@intel.com, fweisbec@gmail.com,
-	schwidefsky@de.ibm.com, linux@arm.linux.org.uk,
-	paulmck@linux.vnet.ibm.com, torvalds@linux-foundation.org,
-	mingo@kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>,
-	Alexander Duyck <alexander.h.duyck@redhat.com>
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <20141113213049.GA12297@electric-eye.fr.zoreil.com>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Maciej Zenczykowski <maze@google.com>,
+	Laurent Chavey <chavey@google.com>,
+	Tim Hockin <thockin@google.com>,
+	David Miller <davem@davemloft.net>,
+	Brandon Philips <brandon.philips@coreos.com>,
+	Pavel Emelianov <xemul@parallels.com>
+To: Mahesh Bandewar <maheshb@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f51.google.com ([209.85.192.51]:43436 "EHLO
+	mail-qg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934023AbaKMXZD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Nov 2014 18:25:03 -0500
+Received: by mail-qg0-f51.google.com with SMTP id j5so11012069qga.38
+        for <netdev@vger.kernel.org>; Thu, 13 Nov 2014 15:25:02 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/13/2014 01:30 PM, Francois Romieu wrote:
-> Alexander Duyck <alexander.h.duyck@redhat.com> :
-> [...]
->> In addition the r8169 uses a rmb() however I believe it is placed incorrectly
->> as I assume it supposed to be ordering descriptor reads after the check for
->> ownership.
-> Not exactly. It's a barrier against compiler optimization from 2004.
-> It should not matter.
-
-Okay.  Do you recall the kind of problem it was you were seeing?
-
-The origin of the rmb() for the Intel drivers was a PowerPC issue in
-which it was fetching the length of a buffer before it checked the DD
-bit (equivalent of DescOwn).  I'm wondering if the issue you were seeing
-was something similar where it had reordered reads in the descriptor to
-cause that type of result.
-
-> However I disagree with the change below:
+On Tue, Nov 11, 2014 at 2:29 PM, Mahesh Bandewar <maheshb@google.com> wrote:
+> The device operates in two different modes and the difference
+> in these two modes in primarily in the TX side.
 >
->> @@ -7284,11 +7280,11 @@ static int rtl_rx(struct net_device *dev, struct rtl8169_private *tp, u32 budget
->>  		struct RxDesc *desc = tp->RxDescArray + entry;
->>  		u32 status;
->>  
->> -		rmb();
->> -		status = le32_to_cpu(desc->opts1) & tp->opts1_mask;
->> -
->> +		status = cpu_to_le32(load_acquire(&desc->opts1));
->>  		if (status & DescOwn)
->>  			break;
->> +
->> +		status &= tp->opts1_mask;
-> -> tp->opts1_mask is not __le32 tainted.
-
-Sorry I just noticed I got my byte ordering messed up on that.  It
-should have been le32_to_cpu.  desc->opts is le32, and status should be
-CPU ordered.  I will have that updated for v2.
-
-> Btw, should I consider the sketch above as a skeleton in my r8169 closet ?
+> (a) L2 mode : In this mode, the device behaves as a L2 device.
+> TX processing upto L2 happens on the stack of the virtual device
+> associated with (namespace). Packets are switched after that
+> into the main device (default-ns) and queued for xmit.
 >
->            NIC                      CPU0                      CPU1
-> | CPU | NIC | CPU | CPU | 
+> RX processing is simple and all multicast, broadcast (if
+> applicable), and unicast belonging to the address(es) are
+> delivered to the virtual devices.
 >
->                           | CPU | NIC | CPU | CPU |
->                                          ^ tx_dirty
+> (b) L3 mode : In this mode, the device behaves like a L3 device.
+> TX processing upto L3 happens on the stack of the virtual device
+> associated with (namespace). Packets are switched to the
+> main-device (default-ns) for the L2 processing. Hence the routing
+> table of the default-ns will be used in this mode.
 >
->                                 [start_xmit...
->
-> | CPU | CPU | CPU | CPU |
->    (NIC did it's job)
->                                                            [rtl_tx...
->                           | ... | ... | NIC | NIC |
->                                   (ring update)
->                               (tx_dirty increases)
->
->                                                      | CPU | CPU | ??? | ??? |
->                                                            tx_dirty ?
->                                                      reaping about-to-be-sent
->                                                      buffers on some platforms ?
->                                 ...start_xmit]
+> RX processins is somewhat similar to the L2 mode except that in
+> this mode only Unicast packets are delivered to the virtual device
+> while main-dev will handle all other packets.
 
-Actually it looks like that could be due to the placement of tp->cur_tx
-update and the txd->opts1 being updated in the same spot in start_xmit
-with no barrier to separate them.  As such the compiler is free to
-update tp->cur_tx first, and then update the desc->opts to set the
-DescOwn bit.
+great stuff. would be interesting to see a 'typical use'
+scenario of l2 vs l3 mode. Why users would pick one
+or another?
+I can only think of different default ip in different ns
+would force l2. Anything else?
 
-I will move the update of tp->cur_tx down a few lines past where the
-second wmb is/was.  That should provide enough buffer to guarantee that
-cur_tx update is only visible after the descriptors have been updated so
-the reaping should only occur if the CPU has written back.
+Few comments:
 
-Thanks,
+> +++ b/drivers/net/ipvlan/ipvlan.h
+...
+> +#include <linux/kernel.h>
+> +#include <linux/types.h>
+> +#include <linux/module.h>
+> +#include <linux/init.h>
+> +#include <linux/errno.h>
+> +#include <linux/slab.h>
+> +#include <linux/string.h>
+> +#include <linux/rculist.h>
+> +#include <linux/notifier.h>
+> +#include <linux/netdevice.h>
+> +#include <linux/etherdevice.h>
+> +#include <linux/ethtool.h>
+> +#include <linux/if_arp.h>
+> +#include <linux/if_link.h>
+> +#include <linux/atomic.h>
+> +#include <linux/if_vlan.h>
+> +#include <linux/inet.h>
+> +#include <linux/hash.h>
+> +#include <linux/ip.h>
+> +#include <linux/inetdevice.h>
+> +#include <net/rtnetlink.h>
+> +#include <net/gre.h>
+> +#include <net/route.h>
+> +#include <net/addrconf.h>
 
-Alex
+I don't think it's a good style to put all headers that all
+.c need into common .h
+Rather put them into individual .c
+
+> +static void *ipvlan_get_L3_hdr(struct sk_buff *skb, int *type)
+> +{
+> +       void *lyr3h = NULL;
+> +
+> +       switch (skb->protocol) {
+> +       case htons(ETH_P_ARP): {
+> +               struct arphdr *arph;
+> +
+> +               if (unlikely(!pskb_may_pull(skb, sizeof(struct arphdr))))
+> +                       return NULL;
+> +
+> +               arph = arp_hdr(skb);
+> +               *type = IPVL_ARP;
+> +               lyr3h = arph;
+> +               break;
+> +       }
+...
+
+> +static struct ipvl_addr *ipvlan_addr_lookup(struct ipvl_port *port,
+> +                                           void *lyr3h, int addr_type,
+> +                                           bool use_dest)
+> +{
+> +       struct ipvl_addr *addr = NULL;
+> +
+> +       if (addr_type == IPVL_IPV6) {
+> +               struct ipv6hdr *ip6h = NULL;
+> +               struct in6_addr *i6addr;
+> +
+> +               ip6h = (struct ipv6hdr *)lyr3h;
+> +               i6addr = use_dest ? &ip6h->daddr : &ip6h->saddr;
+> +               addr = ipvlan_ht_addr_lookup(port, i6addr, true);
+
+imo it looks very artificial to split logically single
+lookup function into two: get() that returns 'type'/
+'void * lyr3h' and lookup() that uses them.
+It feels error prone.
+Also everywhere lookup() follows get() immediately.
+I think single lookup() would be much cleaner.
