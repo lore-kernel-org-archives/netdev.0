@@ -1,45 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v3] vxlan: Do not reuse sockets for a different
- address family
-Date: Thu, 13 Nov 2014 15:20:25 -0500 (EST)
-Message-ID: <20141113.152025.1790925339761299005.davem@davemloft.net>
-References: <54ab998424b7b06d892eec6df6a8ec38db3cb2bb.1415896616.git.mleitner@redhat.com>
+Subject: Re: [PATCH net-next] tcp: limit GSO packets to half cwnd
+Date: Thu, 13 Nov 2014 15:22:02 -0500 (EST)
+Message-ID: <20141113.152202.1381528737325236329.davem@davemloft.net>
+References: <1415900722.17262.22.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
-	sergei.shtylyov@cogentembedded.com
-To: mleitner@redhat.com
+Cc: netdev@vger.kernel.org, ncardwell@google.com, ycheng@google.com,
+	nanditad@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59227 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:59243 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933988AbaKMUU2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Nov 2014 15:20:28 -0500
-In-Reply-To: <54ab998424b7b06d892eec6df6a8ec38db3cb2bb.1415896616.git.mleitner@redhat.com>
+	with ESMTP id S933852AbaKMUWE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Nov 2014 15:22:04 -0500
+In-Reply-To: <1415900722.17262.22.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marcelo Ricardo Leitner <mleitner@redhat.com>
-Date: Thu, 13 Nov 2014 14:43:08 -0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 13 Nov 2014 09:45:22 -0800
 
-> Currently, we only match against local port number in order to reuse
-> socket. But if this new vxlan wants an IPv6 socket and a IPv4 one bound
-> to that port, vxlan will reuse an IPv4 socket as IPv6 and a panic will
-> follow. The following steps reproduce it:
+> From: Eric Dumazet <edumazet@google.com>
 > 
->    # ip link add vxlan6 type vxlan id 42 group 229.10.10.10 \
->        srcport 5000 6000 dev eth0
->    # ip link add vxlan7 type vxlan id 43 group ff0e::110 \
->        srcport 5000 6000 dev eth0
->    # ip link set vxlan6 up
->    # ip link set vxlan7 up
->    <panic>
- ...
-> So address family must also match in order to reuse a socket.
+> In DC world, GSO packets initially cooked by tcp_sendmsg() are usually
+> big, as sk_pacing_rate is high.
 > 
-> Reported-by: Jean-Tsung Hsiao <jhsiao@redhat.com>
-> Signed-off-by: Marcelo Ricardo Leitner <mleitner@redhat.com>
+> When network is congested, cwnd can be smaller than the GSO packets
+> found in socket write queue. tcp_write_xmit() splits GSO packets
+> using the available cwnd, and we end up sending a single GSO packet,
+> consuming all available cwnd.
+> 
+> With GRO aggregation on the receiver, we might handle a single GRO
+> packet, sending back a single ACK.
+> 
+> 1) This single ACK might be lost
+>    TLP or RTO are forced to attempt a retransmit.
+> 2) This ACK releases a full cwnd, sender sends another big GSO packet,
+>    in a ping pong mode.
+> 
+> This behavior does not fill the pipes in the best way, because of
+> scheduling artifacts.
+> 
+> Make sure we always have at least two GSO packets in flight.
+> 
+> This allows us to safely increase GRO efficiency without risking
+> spurious retransmits.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Hey, this one actually compiles :-)
-
-Applied and queued up for -stable, thanks!
+This looks fantastic, applied, thanks Eric!
