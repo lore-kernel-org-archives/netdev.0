@@ -1,125 +1,152 @@
 From: Yoshihiro Kaneko <ykaneko0929@gmail.com>
-Subject: [PATCH 3/3] sh_eth: Fix dma mapping issue
-Date: Thu, 13 Nov 2014 16:05:01 +0900
-Message-ID: <1415862301-28032-4-git-send-email-ykaneko0929@gmail.com>
+Subject: [PATCH 2/3] sh_eth: Fix skb alloc size and alignment adjust rule.
+Date: Thu, 13 Nov 2014 16:05:00 +0900
+Message-ID: <1415862301-28032-3-git-send-email-ykaneko0929@gmail.com>
 References: <1415862301-28032-1-git-send-email-ykaneko0929@gmail.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Simon Horman <horms@verge.net.au>,
 	Magnus Damm <magnus.damm@gmail.com>, linux-sh@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:36007 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753861AbaKMHFf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Nov 2014 02:05:35 -0500
 In-Reply-To: <1415862301-28032-1-git-send-email-ykaneko0929@gmail.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>
 
-When CONFIG_DMA_API_DEBUG=y, many DMA error messages reports.
-In order to use DMA debug, This patch fix following issues.
-
-Issue 1:
-If dma_mapping_error function is not called appropriately after
-DMA mapping, DMA debug will report error message when DMA unmap
-function is called.
-
-Issue 2:
-If skb_reserve function is called after DMA mapping, the relationship
-between mapping addr and mapping size will be broken.
-In this case, DMA debug will report error messages when DMA sync
-function and DMA unmap function are called.
-
-Issue 3:
-If the size of frame data is less than ETH_ZLEN, the size is resized
-to ETH_ZLEN after DMA map function is called.
-In the TX skb freeing function, dma unmap function is called with that
-resized value. So, unmap size error will reported.
-
-Issue 4:
-In the rx function, DMA map function is called without DMA unmap function
-is called for RX skb reallocating.
-It will case the DMA debug error that number of debug entry is full and
-DMA debug logic is stopped.
+In the current driver, allocation size of skb does not care the alignment
+adjust after allocation.
+And also, in the current implementation, buffer alignment method by
+sh_eth_set_receive_align function has a bug that this function displace
+buffer start address forcedly when the alignment is corrected.
+In the result, tail of the skb will exceed allocated area and kernel panic
+will be occurred.
+This patch fix this issue.
 
 Signed-off-by: Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>
 Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
 ---
- drivers/net/ethernet/renesas/sh_eth.c | 26 +++++++++++++++++++++++---
- 1 file changed, 23 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/renesas/sh_eth.c | 35 ++++++++++++++---------------------
+ drivers/net/ethernet/renesas/sh_eth.h |  2 ++
+ 2 files changed, 16 insertions(+), 21 deletions(-)
 
 diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index 0e4a407..23318cf 100644
+index 49e963e..0e4a407 100644
 --- a/drivers/net/ethernet/renesas/sh_eth.c
 +++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -1136,6 +1136,11 @@ static void sh_eth_ring_format(struct net_device *ndev)
- 		dma_map_single(&ndev->dev, skb->data, rxdesc->buffer_length,
- 			       DMA_FROM_DEVICE);
+@@ -917,21 +917,12 @@ static int sh_eth_reset(struct net_device *ndev)
+ 	return ret;
+ }
+ 
+-#if defined(CONFIG_CPU_SH4) || defined(CONFIG_ARCH_SHMOBILE)
+ static void sh_eth_set_receive_align(struct sk_buff *skb)
+ {
+-	int reserve;
+-
+-	reserve = SH4_SKB_RX_ALIGN - ((u32)skb->data & (SH4_SKB_RX_ALIGN - 1));
++	u32 reserve = (u32)skb->data & (SH_ETH_RX_ALIGN - 1);
+ 	if (reserve)
+-		skb_reserve(skb, reserve);
+-}
+-#else
+-static void sh_eth_set_receive_align(struct sk_buff *skb)
+-{
+-	skb_reserve(skb, SH2_SH3_SKB_RX_ALIGN);
++		skb_reserve(skb, SH_ETH_RX_ALIGN - reserve);
+ }
+-#endif
+ 
+ 
+ /* CPU <-> EDMAC endian convert */
+@@ -1119,6 +1110,7 @@ static void sh_eth_ring_format(struct net_device *ndev)
+ 	struct sh_eth_txdesc *txdesc = NULL;
+ 	int rx_ringsize = sizeof(*rxdesc) * mdp->num_rx_ring;
+ 	int tx_ringsize = sizeof(*txdesc) * mdp->num_tx_ring;
++	int skbuff_size = mdp->rx_buf_sz + SH_ETH_RX_ALIGN - 1;
+ 
+ 	mdp->cur_rx = 0;
+ 	mdp->cur_tx = 0;
+@@ -1131,21 +1123,21 @@ static void sh_eth_ring_format(struct net_device *ndev)
+ 	for (i = 0; i < mdp->num_rx_ring; i++) {
+ 		/* skb */
+ 		mdp->rx_skbuff[i] = NULL;
+-		skb = netdev_alloc_skb(ndev, mdp->rx_buf_sz);
++		skb = netdev_alloc_skb(ndev, skbuff_size);
+ 		mdp->rx_skbuff[i] = skb;
+ 		if (skb == NULL)
+ 			break;
+-		dma_map_single(&ndev->dev, skb->data, mdp->rx_buf_sz,
+-			       DMA_FROM_DEVICE);
+ 		sh_eth_set_receive_align(skb);
+ 
+ 		/* RX descriptor */
+ 		rxdesc = &mdp->rx_ring[i];
++		/* The size of the buffer is 16 byte boundary. */
++		rxdesc->buffer_length = ALIGN(mdp->rx_buf_sz, 16);
++		dma_map_single(&ndev->dev, skb->data, rxdesc->buffer_length,
++			       DMA_FROM_DEVICE);
  		rxdesc->addr = virt_to_phys(skb->data);
-+		if (dma_mapping_error(&ndev->dev, rxdesc->addr)) {
-+			dev_kfree_skb(mdp->rx_skbuff[i]);
-+			mdp->rx_skbuff[i] = NULL;
-+			break;
-+		}
  		rxdesc->status = cpu_to_edmac(mdp, RD_RACT | RD_RFP);
  
+-		/* The size of the buffer is 16 byte boundary. */
+-		rxdesc->buffer_length = ALIGN(mdp->rx_buf_sz, 16);
  		/* Rx descriptor address set */
-@@ -1364,7 +1369,7 @@ static int sh_eth_txfree(struct net_device *ndev)
- 		if (mdp->tx_skbuff[entry]) {
- 			dma_unmap_single(&ndev->dev, txdesc->addr,
- 					 txdesc->buffer_length, DMA_TO_DEVICE);
--			dev_kfree_skb_irq(mdp->tx_skbuff[entry]);
-+			dev_kfree_skb_any(mdp->tx_skbuff[entry]);
- 			mdp->tx_skbuff[entry] = NULL;
- 			free_num++;
- 		}
-@@ -1466,11 +1471,19 @@ static int sh_eth_rx(struct net_device *ndev, u32 intr_status, int *quota)
+ 		if (i == 0) {
+ 			sh_eth_write(ndev, mdp->rx_desc_dma, RDLAR);
+@@ -1397,6 +1389,7 @@ static int sh_eth_rx(struct net_device *ndev, u32 intr_status, int *quota)
+ 	struct sk_buff *skb;
+ 	u16 pkt_len = 0;
+ 	u32 desc_status;
++	int skbuff_size = mdp->rx_buf_sz + SH_ETH_RX_ALIGN - 1;
+ 
+ 	rxdesc = &mdp->rx_ring[entry];
+ 	while (!(rxdesc->status & cpu_to_edmac(mdp, RD_RACT))) {
+@@ -1448,8 +1441,8 @@ static int sh_eth_rx(struct net_device *ndev, u32 intr_status, int *quota)
+ 			if (mdp->cd->rpadir)
+ 				skb_reserve(skb, NET_IP_ALIGN);
+ 			dma_sync_single_for_cpu(&ndev->dev, rxdesc->addr,
+-						mdp->rx_buf_sz,
+-						DMA_FROM_DEVICE);
++					ALIGN(mdp->rx_buf_sz, 16),
++					DMA_FROM_DEVICE);
+ 			skb_put(skb, pkt_len);
+ 			skb->protocol = eth_type_trans(skb, ndev);
+ 			netif_receive_skb(skb);
+@@ -1468,13 +1461,13 @@ static int sh_eth_rx(struct net_device *ndev, u32 intr_status, int *quota)
+ 		rxdesc->buffer_length = ALIGN(mdp->rx_buf_sz, 16);
+ 
+ 		if (mdp->rx_skbuff[entry] == NULL) {
+-			skb = netdev_alloc_skb(ndev, mdp->rx_buf_sz);
++			skb = netdev_alloc_skb(ndev, skbuff_size);
+ 			mdp->rx_skbuff[entry] = skb;
  			if (skb == NULL)
  				break;	/* Better luck next round. */
+-			dma_map_single(&ndev->dev, skb->data, mdp->rx_buf_sz,
+-				       DMA_FROM_DEVICE);
  			sh_eth_set_receive_align(skb);
-+			dma_unmap_single(&ndev->dev, rxdesc->addr,
-+					 rxdesc->buffer_length,
-+					 DMA_FROM_DEVICE);
- 			dma_map_single(&ndev->dev, skb->data,
- 				       rxdesc->buffer_length, DMA_FROM_DEVICE);
++			dma_map_single(&ndev->dev, skb->data,
++				       rxdesc->buffer_length, DMA_FROM_DEVICE);
  
  			skb_checksum_none_assert(skb);
  			rxdesc->addr = virt_to_phys(skb->data);
-+			if (dma_mapping_error(&ndev->dev, rxdesc->addr)) {
-+				dev_kfree_skb_any(mdp->rx_skbuff[entry]);
-+				mdp->rx_skbuff[entry] = NULL;
-+				break;
-+			}
- 		}
- 		if (entry >= mdp->num_rx_ring - 1)
- 			rxdesc->status |=
-@@ -2104,12 +2117,18 @@ static int sh_eth_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 	if (!mdp->cd->hw_swap)
- 		sh_eth_soft_swap(phys_to_virt(ALIGN(txdesc->addr, 4)),
- 				 skb->len + 2);
--	txdesc->addr = dma_map_single(&ndev->dev, skb->data, skb->len,
--				      DMA_TO_DEVICE);
- 	if (skb->len < ETH_ZLEN)
- 		txdesc->buffer_length = ETH_ZLEN;
- 	else
- 		txdesc->buffer_length = skb->len;
-+	txdesc->addr = dma_map_single(&ndev->dev, skb->data,
-+				      txdesc->buffer_length,
-+				      DMA_TO_DEVICE);
-+	if (dma_mapping_error(&ndev->dev, txdesc->addr)) {
-+		dev_kfree_skb_any(mdp->tx_skbuff[entry]);
-+		mdp->tx_skbuff[entry] = NULL;
-+		goto out;
-+	}
+diff --git a/drivers/net/ethernet/renesas/sh_eth.h b/drivers/net/ethernet/renesas/sh_eth.h
+index b37c427..d138ebe 100644
+--- a/drivers/net/ethernet/renesas/sh_eth.h
++++ b/drivers/net/ethernet/renesas/sh_eth.h
+@@ -163,8 +163,10 @@ enum {
+ /* Driver's parameters */
+ #if defined(CONFIG_CPU_SH4) || defined(CONFIG_ARCH_SHMOBILE)
+ #define SH4_SKB_RX_ALIGN	32
++#define SH_ETH_RX_ALIGN		(SH4_SKB_RX_ALIGN)
+ #else
+ #define SH2_SH3_SKB_RX_ALIGN	2
++#define SH_ETH_RX_ALIGN		(SH2_SH3_SKB_RX_ALIGN)
+ #endif
  
- 	if (entry >= mdp->num_tx_ring - 1)
- 		txdesc->status |= cpu_to_edmac(mdp, TD_TACT | TD_TDLE);
-@@ -2121,6 +2140,7 @@ static int sh_eth_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 	if (!(sh_eth_read(ndev, EDTRR) & sh_eth_get_edtrr_trns(mdp)))
- 		sh_eth_write(ndev, sh_eth_get_edtrr_trns(mdp), EDTRR);
- 
-+out:
- 	return NETDEV_TX_OK;
- }
- 
+ /* Register's bits
 -- 
 1.9.1
-
