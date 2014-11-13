@@ -1,165 +1,249 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 2/3] sh_eth: Fix skb alloc size and alignment adjust rule.
-Date: Fri, 14 Nov 2014 01:48:39 +0300
-Message-ID: <54653547.9050207@cogentembedded.com>
-References: <1415862301-28032-1-git-send-email-ykaneko0929@gmail.com> <1415862301-28032-3-git-send-email-ykaneko0929@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Simon Horman <horms@verge.net.au>,
-	Magnus Damm <magnus.damm@gmail.com>, linux-sh@vger.kernel.org
-To: Yoshihiro Kaneko <ykaneko0929@gmail.com>, netdev@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <1415862301-28032-3-git-send-email-ykaneko0929@gmail.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: raj@tardy.usa.hp.com (Rick Jones)
+Subject: [PATCH net-next] icmp: Remove some spurious dropped packet profile hits from the ICMP path
+Date: Thu, 13 Nov 2014 14:54:57 -0800 (PST)
+Message-ID: <20141113225457.A3E502900805@tardy>
+Cc: <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g2t1383g.austin.hp.com ([15.217.136.92]:31547 "EHLO
+	g2t1383g.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933065AbaKMWzB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Nov 2014 17:55:01 -0500
+Received: from g6t1526.atlanta.hp.com (g6t1526.atlanta.hp.com [15.193.200.69])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by g2t1383g.austin.hp.com (Postfix) with ESMTPS id 69434514
+	for <netdev@vger.kernel.org>; Thu, 13 Nov 2014 22:55:00 +0000 (UTC)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/13/2014 10:05 AM, Yoshihiro Kaneko wrote:
+From: Rick Jones <rick.jones2@hp.com>
 
-> From: Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>
+If icmp_rcv() has successfully processed the incoming ICMP datagram, we
+should use consume_skb() rather than kfree_skb() because a hit on the likes
+of perf -e skb:kfree_skb is not called-for.
 
-> In the current driver, allocation size of skb does not care the alignment
-> adjust after allocation.
-> And also, in the current implementation, buffer alignment method by
-> sh_eth_set_receive_align function has a bug that this function displace
-> buffer start address forcedly when the alignment is corrected.
-> In the result, tail of the skb will exceed allocated area and kernel panic
-> will be occurred.
+Signed-off-by: Rick Jones <rick.jones2@hp.com>
 
-    Oh, have never seen panic but Geert has reported WARNINGs from the DMA 
-debug code...
+---
 
-> This patch fix this issue.
+A test system hit with a flood ping hits on perf top -e ksb:kfre_skb before
+the change and none after for the normal/success path.  The IPv6 path would
+be somewhat more ugly.  For the time being, just deal with the overlap on
+ping_rcv() between the two to avoid a possible double free of an skb.
 
-> Signed-off-by: Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>
-> Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
-> ---
->   drivers/net/ethernet/renesas/sh_eth.c | 35 ++++++++++++++---------------------
->   drivers/net/ethernet/renesas/sh_eth.h |  2 ++
->   2 files changed, 16 insertions(+), 21 deletions(-)
-
-> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-> index 49e963e..0e4a407 100644
-> --- a/drivers/net/ethernet/renesas/sh_eth.c
-> +++ b/drivers/net/ethernet/renesas/sh_eth.c
-> @@ -917,21 +917,12 @@ static int sh_eth_reset(struct net_device *ndev)
->   	return ret;
->   }
->
-> -#if defined(CONFIG_CPU_SH4) || defined(CONFIG_ARCH_SHMOBILE)
->   static void sh_eth_set_receive_align(struct sk_buff *skb)
->   {
-> -	int reserve;
-> -
-> -	reserve = SH4_SKB_RX_ALIGN - ((u32)skb->data & (SH4_SKB_RX_ALIGN - 1));
-> +	u32 reserve = (u32)skb->data & (SH_ETH_RX_ALIGN - 1);
-
-    Please keep an empty line after declaration, as it was before this patch.
-
->   	if (reserve)
-> -		skb_reserve(skb, reserve);
-> -}
-> -#else
-> -static void sh_eth_set_receive_align(struct sk_buff *skb)
-> -{
-> -	skb_reserve(skb, SH2_SH3_SKB_RX_ALIGN);
-> +		skb_reserve(skb, SH_ETH_RX_ALIGN - reserve);
->   }
-> -#endif
->
->
->   /* CPU <-> EDMAC endian convert */
-> @@ -1119,6 +1110,7 @@ static void sh_eth_ring_format(struct net_device *ndev)
->   	struct sh_eth_txdesc *txdesc = NULL;
->   	int rx_ringsize = sizeof(*rxdesc) * mdp->num_rx_ring;
->   	int tx_ringsize = sizeof(*txdesc) * mdp->num_tx_ring;
-> +	int skbuff_size = mdp->rx_buf_sz + SH_ETH_RX_ALIGN - 1;
->
->   	mdp->cur_rx = 0;
->   	mdp->cur_tx = 0;
-> @@ -1131,21 +1123,21 @@ static void sh_eth_ring_format(struct net_device *ndev)
->   	for (i = 0; i < mdp->num_rx_ring; i++) {
->   		/* skb */
->   		mdp->rx_skbuff[i] = NULL;
-> -		skb = netdev_alloc_skb(ndev, mdp->rx_buf_sz);
-> +		skb = netdev_alloc_skb(ndev, skbuff_size);
->   		mdp->rx_skbuff[i] = skb;
->   		if (skb == NULL)
->   			break;
-> -		dma_map_single(&ndev->dev, skb->data, mdp->rx_buf_sz,
-> -			       DMA_FROM_DEVICE);
->   		sh_eth_set_receive_align(skb);
->
->   		/* RX descriptor */
->   		rxdesc = &mdp->rx_ring[i];
-> +		/* The size of the buffer is 16 byte boundary. */
-
-    Is *on* 16 byte boundary, you mean?
-
-> +		rxdesc->buffer_length = ALIGN(mdp->rx_buf_sz, 16);
-> +		dma_map_single(&ndev->dev, skb->data, rxdesc->buffer_length,
-> +			       DMA_FROM_DEVICE);
->   		rxdesc->addr = virt_to_phys(skb->data);
->   		rxdesc->status = cpu_to_edmac(mdp, RD_RACT | RD_RFP);
->
-> -		/* The size of the buffer is 16 byte boundary. */
-
-    Ah, you're just copying an existent comment... well, seems a good time to 
-fix it then. :-)
-
-[...]
-> @@ -1448,8 +1441,8 @@ static int sh_eth_rx(struct net_device *ndev, u32 intr_status, int *quota)
->   			if (mdp->cd->rpadir)
->   				skb_reserve(skb, NET_IP_ALIGN);
->   			dma_sync_single_for_cpu(&ndev->dev, rxdesc->addr,
-> -						mdp->rx_buf_sz,
-> -						DMA_FROM_DEVICE);
-> +					ALIGN(mdp->rx_buf_sz, 16),
-> +					DMA_FROM_DEVICE);
-
-    Please keep the original alignment of the continuation lines.
-
->   			skb_put(skb, pkt_len);
->   			skb->protocol = eth_type_trans(skb, ndev);
->   			netif_receive_skb(skb);
-> @@ -1468,13 +1461,13 @@ static int sh_eth_rx(struct net_device *ndev, u32 intr_status, int *quota)
->   		rxdesc->buffer_length = ALIGN(mdp->rx_buf_sz, 16);
->
->   		if (mdp->rx_skbuff[entry] == NULL) {
-> -			skb = netdev_alloc_skb(ndev, mdp->rx_buf_sz);
-> +			skb = netdev_alloc_skb(ndev, skbuff_size);
->   			mdp->rx_skbuff[entry] = skb;
->   			if (skb == NULL)
->   				break;	/* Better luck next round. */
-> -			dma_map_single(&ndev->dev, skb->data, mdp->rx_buf_sz,
-> -				       DMA_FROM_DEVICE);
->   			sh_eth_set_receive_align(skb);
-> +			dma_map_single(&ndev->dev, skb->data,
-> +				       rxdesc->buffer_length, DMA_FROM_DEVICE);
->
->   			skb_checksum_none_assert(skb);
->   			rxdesc->addr = virt_to_phys(skb->data);
-> diff --git a/drivers/net/ethernet/renesas/sh_eth.h b/drivers/net/ethernet/renesas/sh_eth.h
-> index b37c427..d138ebe 100644
-> --- a/drivers/net/ethernet/renesas/sh_eth.h
-> +++ b/drivers/net/ethernet/renesas/sh_eth.h
-> @@ -163,8 +163,10 @@ enum {
->   /* Driver's parameters */
->   #if defined(CONFIG_CPU_SH4) || defined(CONFIG_ARCH_SHMOBILE)
->   #define SH4_SKB_RX_ALIGN	32
-> +#define SH_ETH_RX_ALIGN		(SH4_SKB_RX_ALIGN)
-
-    () not needed.
-
->   #else
->   #define SH2_SH3_SKB_RX_ALIGN	2
-> +#define SH_ETH_RX_ALIGN		(SH2_SH3_SKB_RX_ALIGN)
-
-    Likewise.
-    And I don't think we still need {SH2_SH3|SH4}_SKB_RX_ALIGN after this patch.
-
-[...]
-
-WBR, Sergei
-
+diff --git a/include/net/ping.h b/include/net/ping.h
+index 026479b..f074060 100644
+--- a/include/net/ping.h
++++ b/include/net/ping.h
+@@ -82,7 +82,7 @@ int  ping_common_sendmsg(int family, struct msghdr *msg, size_t len,
+ int  ping_v6_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 		     size_t len);
+ int  ping_queue_rcv_skb(struct sock *sk, struct sk_buff *skb);
+-void ping_rcv(struct sk_buff *skb);
++bool ping_rcv(struct sk_buff *skb);
+ 
+ #ifdef CONFIG_PROC_FS
+ struct ping_seq_afinfo {
+diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
+index 36b7bfa..b9f3653 100644
+--- a/net/ipv4/icmp.c
++++ b/net/ipv4/icmp.c
+@@ -190,7 +190,7 @@ EXPORT_SYMBOL(icmp_err_convert);
+  */
+ 
+ struct icmp_control {
+-	void (*handler)(struct sk_buff *skb);
++	bool (*handler)(struct sk_buff *skb);
+ 	short   error;		/* This ICMP is classed as an error message */
+ };
+ 
+@@ -746,7 +746,7 @@ static bool icmp_tag_validation(int proto)
+  *	ICMP_PARAMETERPROB.
+  */
+ 
+-static void icmp_unreach(struct sk_buff *skb)
++static bool icmp_unreach(struct sk_buff *skb)
+ {
+ 	const struct iphdr *iph;
+ 	struct icmphdr *icmph;
+@@ -839,10 +839,11 @@ static void icmp_unreach(struct sk_buff *skb)
+ 	icmp_socket_deliver(skb, info);
+ 
+ out:
+-	return;
++	return true;
+ out_err:
+ 	ICMP_INC_STATS_BH(net, ICMP_MIB_INERRORS);
+-	goto out;
++	kfree_skb(skb);
++	return false;
+ }
+ 
+ 
+@@ -850,17 +851,22 @@ out_err:
+  *	Handle ICMP_REDIRECT.
+  */
+ 
+-static void icmp_redirect(struct sk_buff *skb)
++static bool icmp_redirect(struct sk_buff *skb)
+ {
+ 	if (skb->len < sizeof(struct iphdr)) {
+ 		ICMP_INC_STATS_BH(dev_net(skb->dev), ICMP_MIB_INERRORS);
+-		return;
++		kfree_skb(skb);
++		return false;
+ 	}
+ 
+-	if (!pskb_may_pull(skb, sizeof(struct iphdr)))
+-		return;
++	if (!pskb_may_pull(skb, sizeof(struct iphdr))) {
++		/* there aught to be a stat */
++		kfree_skb(skb);
++		return false;
++	}
+ 
+ 	icmp_socket_deliver(skb, icmp_hdr(skb)->un.gateway);
++	return true;
+ }
+ 
+ /*
+@@ -875,7 +881,7 @@ static void icmp_redirect(struct sk_buff *skb)
+  *	See also WRT handling of options once they are done and working.
+  */
+ 
+-static void icmp_echo(struct sk_buff *skb)
++static bool icmp_echo(struct sk_buff *skb)
+ {
+ 	struct net *net;
+ 
+@@ -891,6 +897,8 @@ static void icmp_echo(struct sk_buff *skb)
+ 		icmp_param.head_len	   = sizeof(struct icmphdr);
+ 		icmp_reply(&icmp_param, skb);
+ 	}
++	/* should there be an ICMP stat for ignored echos? */
++	return true;
+ }
+ 
+ /*
+@@ -900,7 +908,7 @@ static void icmp_echo(struct sk_buff *skb)
+  *		  MUST be accurate to a few minutes.
+  *		  MUST be updated at least at 15Hz.
+  */
+-static void icmp_timestamp(struct sk_buff *skb)
++static bool icmp_timestamp(struct sk_buff *skb)
+ {
+ 	struct timespec tv;
+ 	struct icmp_bxm icmp_param;
+@@ -927,15 +935,18 @@ static void icmp_timestamp(struct sk_buff *skb)
+ 	icmp_param.data_len	   = 0;
+ 	icmp_param.head_len	   = sizeof(struct icmphdr) + 12;
+ 	icmp_reply(&icmp_param, skb);
+-out:
+-	return;
++	return true;
++
+ out_err:
+ 	ICMP_INC_STATS_BH(dev_net(skb_dst(skb)->dev), ICMP_MIB_INERRORS);
+-	goto out;
++	kfree_skb(skb);
++	return false;
+ }
+ 
+-static void icmp_discard(struct sk_buff *skb)
++static bool icmp_discard(struct sk_buff *skb)
+ {
++	/* pretend it was a success */
++	return true;
+ }
+ 
+ /*
+@@ -946,6 +957,7 @@ int icmp_rcv(struct sk_buff *skb)
+ 	struct icmphdr *icmph;
+ 	struct rtable *rt = skb_rtable(skb);
+ 	struct net *net = dev_net(rt->dst.dev);
++	bool success;
+ 
+ 	if (!xfrm4_policy_check(NULL, XFRM_POLICY_IN, skb)) {
+ 		struct sec_path *sp = skb_sec_path(skb);
+@@ -1012,7 +1024,12 @@ int icmp_rcv(struct sk_buff *skb)
+ 		}
+ 	}
+ 
+-	icmp_pointers[icmph->type].handler(skb);
++	success = icmp_pointers[icmph->type].handler(skb);
++
++	if (success) 
++		consume_skb(skb);
++
++	return 0;
+ 
+ drop:
+ 	kfree_skb(skb);
+diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
+index 736236c..7d54eed 100644
+--- a/net/ipv4/ping.c
++++ b/net/ipv4/ping.c
+@@ -955,7 +955,7 @@ EXPORT_SYMBOL_GPL(ping_queue_rcv_skb);
+  *	All we need to do is get the socket.
+  */
+ 
+-void ping_rcv(struct sk_buff *skb)
++bool ping_rcv(struct sk_buff *skb)
+ {
+ 	struct sock *sk;
+ 	struct net *net = dev_net(skb->dev);
+@@ -974,11 +974,13 @@ void ping_rcv(struct sk_buff *skb)
+ 		pr_debug("rcv on socket %p\n", sk);
+ 		ping_queue_rcv_skb(sk, skb_get(skb));
+ 		sock_put(sk);
+-		return;
++		return true;
+ 	}
+ 	pr_debug("no socket, dropping\n");
+ 
+-	/* We're called from icmp_rcv(). kfree_skb() is done there. */
++	/* Do the kfree_skb() here to get a better drop profile */
++	kfree_skb(skb);
++	return false;
+ }
+ EXPORT_SYMBOL_GPL(ping_rcv);
+ 
+diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
+index 0929340..6c0f805 100644
+--- a/net/ipv6/icmp.c
++++ b/net/ipv6/icmp.c
+@@ -679,6 +679,7 @@ static int icmpv6_rcv(struct sk_buff *skb)
+ 	const struct in6_addr *saddr, *daddr;
+ 	struct icmp6hdr *hdr;
+ 	u8 type;
++	bool success = true;
+ 
+ 	if (!xfrm6_policy_check(NULL, XFRM_POLICY_IN, skb)) {
+ 		struct sec_path *sp = skb_sec_path(skb);
+@@ -726,7 +727,7 @@ static int icmpv6_rcv(struct sk_buff *skb)
+ 		break;
+ 
+ 	case ICMPV6_ECHO_REPLY:
+-		ping_rcv(skb);
++		success = ping_rcv(skb);
+ 		break;
+ 
+ 	case ICMPV6_PKT_TOOBIG:
+@@ -790,7 +791,15 @@ static int icmpv6_rcv(struct sk_buff *skb)
+ 		icmpv6_notify(skb, type, hdr->icmp6_code, hdr->icmp6_mtu);
+ 	}
+ 
+-	kfree_skb(skb);
++	/* until the v6 path can be better sorted we may still need
++	 * to kfree_sbk() here but want to avoid a double free from
++	 * the ping_rcv() path, which shares code with IPv4. assume
++	 * success and preserve the status quo behaviour for the rest
++	 * of the paths to here
++	 */
++	if (success)
++		kfree_skb(skb);
++
+ 	return 0;
+ 
+ csum_error:
