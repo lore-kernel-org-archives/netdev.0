@@ -1,43 +1,66 @@
-From: Joe Stringer <joestringer@nicira.com>
-Subject: Re: [PATCHv2 net 2/2] fm10k: Implement ndo_gso_check()
-Date: Thu, 13 Nov 2014 15:52:19 -0800
-Message-ID: <20141113235219.GA35957@gmail.com>
-References: <1415921801-10452-1-git-send-email-joestringer@nicira.com>
- <1415921801-10452-2-git-send-email-joestringer@nicira.com>
- <1415922116.2454.34.camel@jtkirshe-mobl>
+From: Mark Brown <broonie@kernel.org>
+Subject: Re: arm64 allmodconfig failures in nft_reject_bridge.c
+Date: Thu, 13 Nov 2014 23:51:52 +0000
+Message-ID: <20141113235152.GR3815@sirena.org.uk>
+References: <20141113114357.GA7857@salvia>
+ <20141113.143513.785778562781935404.davem@davemloft.net>
+ <20141113194752.GQ3815@sirena.org.uk>
+ <20141113.152353.548265176661091467.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, matthew.vick@intel.com,
-	linux.nics@intel.com, therbert@google.com, gerlitz.or@gmail.com,
-	alexander.duyck@gmail.com, linux-kernel@vger.kernel.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Shannon Nelson <shannon.nelson@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="ZAr10/UugL07XvY7"
+Cc: pablo@netfilter.org, linux@roeck-us.net, kaber@trash.net,
+	kadlec@blackhole.kfki.hu, stephen@networkplumber.org,
+	linaro-kernel@lists.linaro.org,
+	kernel-build-reports@lists.linaro.org,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	bridge@lists.linux-foundation.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mezzanine.sirena.org.uk ([106.187.55.193]:37373 "EHLO
+	mezzanine.sirena.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934400AbaKMXxk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Nov 2014 18:53:40 -0500
 Content-Disposition: inline
-In-Reply-To: <1415922116.2454.34.camel@jtkirshe-mobl>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20141113.152353.548265176661091467.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 13, 2014 at 03:41:56PM -0800, Jeff Kirsher wrote:
-> On Thu, 2014-11-13 at 15:36 -0800, Joe Stringer wrote:
-> > ndo_gso_check() was recently introduced to allow NICs to report the
-> > offloading support that they have on a per-skb basis. Add an
-> > implementation for this driver which checks for something that looks
-> > like VXLAN.
-> > 
-> > Signed-off-by: Joe Stringer <joestringer@nicira.com>
-> > ---
-> > v2: Reuse fm10k_tx_encap_offload().
-> > ---
-> >  drivers/net/ethernet/intel/fm10k/fm10k.h        |    1 +
-> >  drivers/net/ethernet/intel/fm10k/fm10k_main.c   |    2 +-
-> >  drivers/net/ethernet/intel/fm10k/fm10k_netdev.c |    8 ++++++++
-> >  3 files changed, 10 insertions(+), 1 deletion(-)
-> 
-> Same with this one as well, thanks Joe.
 
-Thanks Jeff.
+--ZAr10/UugL07XvY7
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Could you remind me, is the equivalent i40e patch on your queue or were
-we still waiting on further feedback from Shannon/Jesse?
+On Thu, Nov 13, 2014 at 03:23:53PM -0500, David Miller wrote:
+> Date: Thu, 13 Nov 2014 19:47:52 +0000
+
+> > On Thu, Nov 13, 2014 at 02:35:13PM -0500, David Miller wrote:
+
+> >> I hold changes in my tree for a week or more, because I want them to
+> >> "cook" there before they go to Linus.
+
+> > Hrm.  Guess there must've been some other change in -next that pulled
+> > the header in implicitly here :(
+
+> -next pulls in my 'net' tree, so got the fix.
+
+Right, but we didn't see the problem before you sent the tree with the
+problematic patch to Linus - we didn't detect it in -next.
+
+--ZAr10/UugL07XvY7
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQEcBAEBAgAGBQJUZUQXAAoJECTWi3JdVIfQ3OcH/Ax8XGlpjGf74neFu7BW2r8p
+FE38FVlrw1l6w0HpbyhgSgk+peB8yPlyMAmhhiOrPOt8YsN05t6fzixqENZUdrfN
+a+eY2HIxkgoWY4DbofrFG2Fmg7exkfrUs5QHh9wrSIpFyXKz8gMbhEZyX0a64yxZ
+zfIFu1XaWBZdTS+kpY/yxXsQoa84tCJlXG1CkpHc/V81Q6Ieiwxn5ARb4UNnja1y
+cSdvaSkrMVydhgRFngqPc3H11/bb8BoWTgwassfFxUCX5OocGGGQBsaHY2PwPRI1
+mY/jdgmhPu946qelwGWO2mqvEpZVpNO3ZiFcaDNwWZi4QwUlwu6cp4vsIzjELUA=
+=dbJv
+-----END PGP SIGNATURE-----
+
+--ZAr10/UugL07XvY7--
