@@ -1,103 +1,63 @@
-From: Lothar =?UTF-8?B?V2HDn21hbm4=?= <LW@KARO-electronics.de>
-Subject: Re: [PATCH] can: Fix bug in suspend/resume
-Date: Thu, 13 Nov 2014 12:32:18 +0100
-Message-ID: <20141113123218.79850236@ipc1.ka-ro>
-References: <a44efc1fb0144cca9d0c4851cc51db25@BL2FFO11FD024.protection.gbl>
-	<546484D9.4030005@pengutronix.de>
-	<54648BF4.60007@pengutronix.de>
-	<9455da2b86c74d5aafe9bf118edec7bb@BN1AFFO11FD045.protection.gbl>
+From: Mark Brown <broonie@kernel.org>
+Subject: Re: arm64 allmodconfig failures in nft_reject_bridge.c
+Date: Thu, 13 Nov 2014 11:33:20 +0000
+Message-ID: <20141113113320.GF3815@sirena.org.uk>
+References: <E1Xm8gR-0005nT-PY@debutante>
+ <20141106104616.GU8509@sirena.org.uk>
+ <20141112233738.GB3815@sirena.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Marc Kleine-Budde <mkl@pengutronix.de>,
-	"wg@grandegger.com" <wg@grandegger.com>,
-	Michal Simek <michals@xilinx.com>,
-	Soren Brinkmann <sorenb@xilinx.com>,
-	"grant.likely@linaro.org" <grant.likely@linaro.org>,
-	"robh+dt@kernel.org" <robh+dt@kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
-To: Appana Durga Kedareswara Rao <appana.durga.rao@xilinx.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <9455da2b86c74d5aafe9bf118edec7bb@BN1AFFO11FD045.protection.gbl>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-Hi,
-
-Appana Durga Kedareswara Rao wrote:
-> Hi Marc,
->=20
-> -----Original Message-----
-> From: Marc Kleine-Budde [mailto:mkl@pengutronix.de]
-> Sent: Thursday, November 13, 2014 4:16 PM
-> To: Appana Durga Kedareswara Rao; wg@grandegger.com; Michal Simek; So=
-ren Brinkmann; grant.likely@linaro.org; robh+dt@kernel.org
-> Cc: linux-can@vger.kernel.org; netdev@vger.kernel.org; linux-arm-kern=
-el@lists.infradead.org; linux-kernel@vger.kernel.org; devicetree@vger.k=
-ernel.org; Appana Durga Kedareswara Rao
-> Subject: Re: [PATCH] can: Fix bug in suspend/resume
->=20
-> On 11/13/2014 11:15 AM, Marc Kleine-Budde wrote:
-> > On 11/13/2014 07:58 AM, Kedareswara rao Appana wrote:
-> >> When accessing the priv structure use container_of instead of dev_=
-get_drvdata.
-> >
-> > Why?
->=20
-> The drvdata here is the struct net_device, not the platform device.
-> Please state this in the commit message.
->=20
-> If I understand the code correct, you can make use of the existing he=
-lper function to_platform_device():
->=20
-> http://lxr.free-electrons.com/source/include/linux/platform_device.h#=
-L42
->=20
-> Thanks for the suggestion.
->  Will use this macro(to_platform_device)  .
->=20
-> >
-> >> Enable the clocks in the suspend before accessing the registers of=
- the CAN.
-> >>
-> >> Signed-off-by: Kedareswara rao Appana <appanad@xilinx.com>
-> >> ---
-> >>  drivers/net/can/xilinx_can.c |   20 ++++++++++++++++++--
-> >>  1 files changed, 18 insertions(+), 2 deletions(-)
-> >>
-> >> diff --git a/drivers/net/can/xilinx_can.c
-> >> b/drivers/net/can/xilinx_can.c index 5e8b560..63ef645 100644
-> >> --- a/drivers/net/can/xilinx_can.c
-> >> +++ b/drivers/net/can/xilinx_can.c
-> >> @@ -972,15 +972,30 @@ static const struct net_device_ops xcan_netd=
-ev_ops =3D {
-> >>   */
-> >>  static int __maybe_unused xcan_suspend(struct device *dev)  {
-> >> -    struct platform_device *pdev =3D dev_get_drvdata(dev);
-> >> +    struct platform_device *pdev =3D container_of(dev,
-> >> +                    struct platform_device, dev);
-> >>      struct net_device *ndev =3D platform_get_drvdata(pdev);
-> >>      struct xcan_priv *priv =3D netdev_priv(ndev);
->
-Why not simply:
-	struct net_device *ndev =3D dev_get_drvdata(dev);
-
-There is no need for a struct platform_device* at all.
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="13Npr3Skz9EA5hx0"
+Cc: linaro-kernel@lists.linaro.org,
+	kernel-build-reports@lists.linaro.org,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	bridge@lists.linux-foundation.org, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	Guenter Roeck <linux@roeck-us.net>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mezzanine.sirena.org.uk ([106.187.55.193]:36221 "EHLO
+	mezzanine.sirena.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932328AbaKMLfo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Nov 2014 06:35:44 -0500
+Content-Disposition: inline
+In-Reply-To: <20141112233738.GB3815@sirena.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-Lothar Wa=C3=9Fmann
---=20
-___________________________________________________________
+--13Npr3Skz9EA5hx0
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Ka-Ro electronics GmbH | Pascalstra=C3=9Fe 22 | D - 52076 Aachen
-Phone: +49 2408 1402-0 | Fax: +49 2408 1402-10
-Gesch=C3=A4ftsf=C3=BChrer: Matthias Kaussen
-Handelsregistereintrag: Amtsgericht Aachen, HRB 4996
+Since about -rc3 we've been seeing build failures in Linus' tree on
+arm64 allmodconfig due to:
 
-www.karo-electronics.de | info@karo-electronics.de
-___________________________________________________________
+> 	arm64-allmodconfig
+> ../net/bridge/netfilter/nft_reject_bridge.c:240:3: error: implicit declaration of function 'csum_ipv6_magic' [-Werror=implicit-function-declaration]
+
+By the time I looked into this it was fixed in -next by c1207c049b204b0
+(netfilter: nft_reject_bridge: Fix powerpc build error) from Guenter but
+that doesn't seem to have made it into -rc4 so I just wanted to check
+that this fix was intended to go to Linus before v3.18?
+
+--13Npr3Skz9EA5hx0
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQEcBAEBAgAGBQJUZJb/AAoJECTWi3JdVIfQxH4H/18dBwydBc9XYHTRlOuHwRt1
+/joz1Sg1TIbFh9G5KZ4MXBTWn7x3zR+ZuyjlPG3QYNvQso/S0HNhFZlCEfv15FK0
+kosBfUnNr5jMS4+VCqXiJlmYYSGSsK8AKyuUJB5hUBO+aOMPZNgAERVACsnhuzaT
+OOoLTOG3cLZ1SQ/f8LefwUzdKo4RdK3fo0N5Xdwf0TtPh9xn74g8cqVcIGyQVD1R
+i0mwDbs5Mo2FKWUz9V1sNBPeUKbs0bwwIiP8neIPIZmFqeP9srh3u6FvDF5Salib
+0ZoiNOUzf07vcOqG+KGqwxPqPB87NGeeLhk197qEkhDwCmi3qxCTIOLJ80USpaQ=
+=tleq
+-----END PGP SIGNATURE-----
+
+--13Npr3Skz9EA5hx0--
