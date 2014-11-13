@@ -1,74 +1,80 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH v4 4/8] net: can: c_can: Add syscon/regmap RAMINIT mechanism
-Date: Thu, 13 Nov 2014 12:09:07 +0100
-Message-ID: <54649153.409@pengutronix.de>
-References: <1415371762-29885-1-git-send-email-rogerq@ti.com> <1415371762-29885-5-git-send-email-rogerq@ti.com>
+From: Paul Barker <paul@paulbarker.me.uk>
+Subject: Re: [ethtool][PATCH] Fix build with musl by using more common typedefs
+Date: Thu, 13 Nov 2014 11:22:01 +0000
+Message-ID: <CANyK_8cZ3oCnwrbX4RbY8W4gN4N-o_aFg68CpX0co0_GMcQR6A@mail.gmail.com>
+References: <1414323849-5739-1-git-send-email-paul@paulbarker.me.uk> <1414323849-5739-2-git-send-email-paul@paulbarker.me.uk>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="AVSbkhbQHi8SEJNsH8CKnsSxRmoLxRP7O"
-Cc: wsa@the-dreams.de, tony@atomide.com, tglx@linutronix.de,
-	mugunthanvnm@ti.com, george.cherian@ti.com, balbi@ti.com,
-	nsekhar@ti.com, nm@ti.com, sergei.shtylyov@cogentembedded.com,
-	linux-omap@vger.kernel.org, linux-can@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Roger Quadros <rogerq@ti.com>, wg@grandegger.com
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1415371762-29885-5-git-send-email-rogerq@ti.com>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---AVSbkhbQHi8SEJNsH8CKnsSxRmoLxRP7O
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+Cc: Paul Barker <paul@paulbarker.me.uk>,
+	John Spencer <maillist-linux@barfooze.de>
+To: Ben Hutchings <bwh@kernel.org>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f50.google.com ([209.85.192.50]:41058 "EHLO
+	mail-qg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932328AbaKMLWm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Nov 2014 06:22:42 -0500
+Received: by mail-qg0-f50.google.com with SMTP id a108so10420255qge.9
+        for <netdev@vger.kernel.org>; Thu, 13 Nov 2014 03:22:41 -0800 (PST)
+In-Reply-To: <1414323849-5739-2-git-send-email-paul@paulbarker.me.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/07/2014 03:49 PM, Roger Quadros wrote:
-> Some TI SoCs like DRA7 have a RAMINIT register specification
-> different from the other AMxx SoCs and as expected by the
-> existing driver.
->=20
-> To add more insanity, this register is shared with other
-> IPs like DSS, PCIe and PWM.
->=20
-> Provides a more generic mechanism to specify the RAMINIT
-> register location and START/DONE bit position and use the
-> syscon/regmap framework to access the register.
+On 26 October 2014 11:44, Paul Barker <paul@paulbarker.me.uk> wrote:
+> When using musl as the standard C library, type names such as '__int32_t' are
+> not defined. Instead we must use the more commonly defined type names such as
+> 'int32_t', which are defined in <stdint.h>.
+>
+> Signed-off-by: John Spencer <maillist-linux@barfooze.de>
+> Signed-off-by: Paul Barker <paul@paulbarker.me.uk>
+> ---
+>  internal.h | 13 +++++++------
+>  1 file changed, 7 insertions(+), 6 deletions(-)
+>
+> diff --git a/internal.h b/internal.h
+> index a9dfae0..262a39f 100644
+> --- a/internal.h
+> +++ b/internal.h
+> @@ -7,6 +7,7 @@
+>  #include "ethtool-config.h"
+>  #endif
+>  #include <stdio.h>
+> +#include <stdint.h>
+>  #include <stdlib.h>
+>  #include <string.h>
+>  #include <sys/types.h>
+> @@ -17,16 +18,16 @@
+>
+>  /* ethtool.h expects these to be defined by <linux/types.h> */
+>  #ifndef HAVE_BE_TYPES
+> -typedef __uint16_t __be16;
+> -typedef __uint32_t __be32;
+> +typedef uint16_t __be16;
+> +typedef uint32_t __be32;
+>  typedef unsigned long long __be64;
+>  #endif
+>
+>  typedef unsigned long long u64;
+> -typedef __uint32_t u32;
+> -typedef __uint16_t u16;
+> -typedef __uint8_t u8;
+> -typedef __int32_t s32;
+> +typedef uint32_t u32;
+> +typedef uint16_t u16;
+> +typedef uint8_t u8;
+> +typedef int32_t s32;
+>
+>  #include "ethtool-copy.h"
+>  #include "net_tstamp-copy.h"
+> --
+> 2.1.2
+>
 
-What about the existing device trees that don't have the syscon-raminit
-phandle? We can either keep the existing init routines or create regmap
-in the platform driver an use the new ones.
+Ping. Could you let me know if this patch is acceptable or not?
 
-Marc
+Cheers,
 
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+-- 
+Paul Barker
 
-
---AVSbkhbQHi8SEJNsH8CKnsSxRmoLxRP7O
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJUZJFTAAoJECte4hHFiupUwokQAI0H4xlC3GWl+lFFavvt1zQG
-NFz/6gTXaH1Pb9CmnCEShIj/nZs5i/Y814T8rheOKSSQLzmt7mYTIqYevNXAIcjM
-k+xWK2ZXp/9yVB3dYG1DDBV9StK7PJzJamlQ39paRHNYYX/eKgXYP6DkL4lEiGBO
-inC9OiJFn1b3L4I9y+0OHZ21XFAfNGV65ITFolJuJaQL1aRy8XWFBFCD7X2MArch
-EVSMv8CvSd0eLeOkSmgkdiEuRUXCv2z5Pe0oPldwXsLd48mqi8A9JAa0fwHnf3jQ
-4amO/AZPYl8prLKajpY9oWaWEJ+CS7xEEtwLRZhZSIr5/rqFqrXBEHkmvk3JY/f2
-7c7qfBocWSzLQ/ilTFlSX4DqC4KC+hcrzgyWXOmUlUu/WgFq8rJabndZSuLqSDJ1
-OobADoSOPxCrgaj9xlQPlX+zNivkMlCYB6Kuep+SO4vCtSOnn8Ypv23MoELs8bXl
-lxVUr4S+NZu+ulsFA+dhMg5/WKcIg39moND+4qgugArp4RAfSLDcVFdGtLgnu/yH
-nXfFdKDqHPRDC6zerg7n2jgbi96CogN5QzDJXmY02oLtJieKo/UYUaPNDfsuotRK
-Tgv3aoCayfQaK/VC/02nQv3bUO3MQdVhcpnvqHNr6CfnA4vmcgtmLAcQ2Gz6KitJ
-ACcAuPlPf591cMti/0/3
-=8lWb
------END PGP SIGNATURE-----
-
---AVSbkhbQHi8SEJNsH8CKnsSxRmoLxRP7O--
+Email: paul@paulbarker.me.uk
+http://www.paulbarker.me.uk
