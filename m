@@ -1,18 +1,13 @@
 From: Pranith Kumar <bobby.prani@gmail.com>
-Subject: [PATCH 15/16] netfilter: Replace smp_read_barrier_depends() with lockless_dereference()
-Date: Thu, 13 Nov 2014 14:24:21 -0500
-Message-ID: <1415906662-4576-16-git-send-email-bobby.prani@gmail.com>
+Subject: [PATCH 16/16] rxrpc: Replace smp_read_barrier_depends() with lockless_dereference()
+Date: Thu, 13 Nov 2014 14:24:22 -0500
+Message-ID: <1415906662-4576-17-git-send-email-bobby.prani@gmail.com>
 References: <1415906662-4576-1-git-send-email-bobby.prani@gmail.com>
 Cc: paulmck@linux.vnet.ibm.com
-To: Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org (open list:NETWORKING [IPv4/...),
+To: "David S. Miller" <davem@davemloft.net>,
+	David Howells <dhowells@redhat.com>,
+	Dan Carpenter <dan.carpenter@oracle.com>,
+	netdev@vger.kernel.org (open list:NETWORKING [GENERAL]),
 	linux-kernel@vger.kernel.org (open list)
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1415906662-4576-1-git-send-email-bobby.prani@gmail.com>
@@ -24,65 +19,76 @@ hard-coding smp_read_barrier_depends(). The following PATCH makes the change.
 
 Signed-off-by: Pranith Kumar <bobby.prani@gmail.com>
 ---
- net/ipv4/netfilter/arp_tables.c | 3 +--
- net/ipv4/netfilter/ip_tables.c  | 3 +--
- net/ipv6/netfilter/ip6_tables.c | 3 +--
- 3 files changed, 3 insertions(+), 6 deletions(-)
+ net/rxrpc/ar-ack.c | 22 +++++++++-------------
+ 1 file changed, 9 insertions(+), 13 deletions(-)
 
-diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
-index f95b6f9..fc7533d 100644
---- a/net/ipv4/netfilter/arp_tables.c
-+++ b/net/ipv4/netfilter/arp_tables.c
-@@ -270,12 +270,11 @@ unsigned int arpt_do_table(struct sk_buff *skb,
+diff --git a/net/rxrpc/ar-ack.c b/net/rxrpc/ar-ack.c
+index c6be17a..9237448 100644
+--- a/net/rxrpc/ar-ack.c
++++ b/net/rxrpc/ar-ack.c
+@@ -234,8 +234,7 @@ static void rxrpc_resend(struct rxrpc_call *call)
+ 	     loop != call->acks_head || stop;
+ 	     loop = (loop + 1) &  (call->acks_winsz - 1)
+ 	     ) {
+-		p_txb = call->acks_window + loop;
+-		smp_read_barrier_depends();
++		p_txb = lockless_dereference(call)->acks_window + loop;
+ 		if (*p_txb & 1)
+ 			continue;
  
- 	local_bh_disable();
- 	addend = xt_write_recseq_begin();
--	private = table->private;
- 	/*
- 	 * Ensure we load private-> members after we've fetched the base
- 	 * pointer.
- 	 */
--	smp_read_barrier_depends();
-+	private = lockless_dereference(table->private);
- 	table_base = private->entries[smp_processor_id()];
+@@ -303,8 +302,7 @@ static void rxrpc_resend_timer(struct rxrpc_call *call)
+ 	     loop != call->acks_head;
+ 	     loop = (loop + 1) &  (call->acks_winsz - 1)
+ 	     ) {
+-		p_txb = call->acks_window + loop;
+-		smp_read_barrier_depends();
++		p_txb = lockless_dereference(call)->acks_window + loop;
+ 		txb = (struct sk_buff *) (*p_txb & ~1);
+ 		sp = rxrpc_skb(txb);
  
- 	e = get_entry(table_base, private->hook_entry[hook]);
-diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
-index 99e810f..e0fd044 100644
---- a/net/ipv4/netfilter/ip_tables.c
-+++ b/net/ipv4/netfilter/ip_tables.c
-@@ -325,13 +325,12 @@ ipt_do_table(struct sk_buff *skb,
- 	IP_NF_ASSERT(table->valid_hooks & (1 << hook));
- 	local_bh_disable();
- 	addend = xt_write_recseq_begin();
--	private = table->private;
- 	cpu        = smp_processor_id();
- 	/*
- 	 * Ensure we load private-> members after we've fetched the base
- 	 * pointer.
- 	 */
--	smp_read_barrier_depends();
-+	private = lockless_dereference(table->private);
- 	table_base = private->entries[cpu];
- 	jumpstack  = (struct ipt_entry **)private->jumpstack[cpu];
- 	stackptr   = per_cpu_ptr(private->stackptr, cpu);
-diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
-index e080fbb..0459d6a 100644
---- a/net/ipv6/netfilter/ip6_tables.c
-+++ b/net/ipv6/netfilter/ip6_tables.c
-@@ -348,12 +348,11 @@ ip6t_do_table(struct sk_buff *skb,
+@@ -354,9 +352,10 @@ static int rxrpc_process_soft_ACKs(struct rxrpc_call *call,
+ 	resend = 0;
+ 	resend_at = 0;
+ 	for (loop = 0; loop < ack->nAcks; loop++) {
+-		p_txb = call->acks_window;
+-		p_txb += (call->acks_tail + loop) & (call->acks_winsz - 1);
+-		smp_read_barrier_depends();
++		struct rxrpc_call *callp = lockless_dereference(call);
++
++		p_txb = callp->acks_window;
++		p_txb += (callp->acks_tail + loop) & (callp->acks_winsz - 1);
+ 		txb = (struct sk_buff *) (*p_txb & ~1);
+ 		sp = rxrpc_skb(txb);
  
- 	local_bh_disable();
- 	addend = xt_write_recseq_begin();
--	private = table->private;
- 	/*
- 	 * Ensure we load private-> members after we've fetched the base
- 	 * pointer.
- 	 */
--	smp_read_barrier_depends();
-+	private = lockless_dereference(table->private);
- 	cpu        = smp_processor_id();
- 	table_base = private->entries[cpu];
- 	jumpstack  = (struct ip6t_entry **)private->jumpstack[cpu];
+@@ -385,8 +384,7 @@ static int rxrpc_process_soft_ACKs(struct rxrpc_call *call,
+ 	     loop != call->acks_head;
+ 	     loop = (loop + 1) &  (call->acks_winsz - 1)
+ 	     ) {
+-		p_txb = call->acks_window + loop;
+-		smp_read_barrier_depends();
++		p_txb = lockless_dereference(call)->acks_window + loop;
+ 		txb = (struct sk_buff *) (*p_txb & ~1);
+ 		sp = rxrpc_skb(txb);
+ 
+@@ -432,8 +430,7 @@ static void rxrpc_rotate_tx_window(struct rxrpc_call *call, u32 hard)
+ 	ASSERTCMP(hard - call->acks_hard, <=, win);
+ 
+ 	while (call->acks_hard < hard) {
+-		smp_read_barrier_depends();
+-		_skb = call->acks_window[tail] & ~1;
++		_skb = lockless_dereference(call)->acks_window[tail] & ~1;
+ 		rxrpc_free_skb((struct sk_buff *) _skb);
+ 		old_tail = tail;
+ 		tail = (tail + 1) & (call->acks_winsz - 1);
+@@ -577,8 +574,7 @@ static void rxrpc_zap_tx_window(struct rxrpc_call *call)
+ 	call->acks_window = NULL;
+ 
+ 	while (CIRC_CNT(call->acks_head, call->acks_tail, winsz) > 0) {
+-		tail = call->acks_tail;
+-		smp_read_barrier_depends();
++		tail = lockless_dereference(call)->acks_tail;
+ 		_skb = acks_window[tail] & ~1;
+ 		smp_mb();
+ 		call->acks_tail = (call->acks_tail + 1) & (winsz - 1);
 -- 
 1.9.1
