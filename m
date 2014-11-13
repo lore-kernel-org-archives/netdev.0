@@ -1,152 +1,120 @@
-From: Yoshihiro Kaneko <ykaneko0929@gmail.com>
-Subject: [PATCH 2/3] sh_eth: Fix skb alloc size and alignment adjust rule.
-Date: Thu, 13 Nov 2014 16:05:00 +0900
-Message-ID: <1415862301-28032-3-git-send-email-ykaneko0929@gmail.com>
-References: <1415862301-28032-1-git-send-email-ykaneko0929@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Simon Horman <horms@verge.net.au>,
-	Magnus Damm <magnus.damm@gmail.com>, linux-sh@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:36007 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753861AbaKMHFf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Nov 2014 02:05:35 -0500
-In-Reply-To: <1415862301-28032-1-git-send-email-ykaneko0929@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Veaceslav Falico <vfalico@gmail.com>
+Subject: Re: [PATCH net-next v2] net: generic dev_disable_lro() stacked
+ device handling
+Date: Thu, 13 Nov 2014 08:15:55 +0100
+Message-ID: <20141113071555.GA28547@raspberrypi>
+References: <20141111.214752.266800170368088905.davem@davemloft.net>
+ <20141113065450.1645FA0BEF@unicorn.suse.cz>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Jay Vosburgh <j.vosburgh@gmail.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Jiri Pirko <jiri@resnulli.us>
+To: Michal Kubecek <mkubecek@suse.cz>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20141113065450.1645FA0BEF@unicorn.suse.cz>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>
+On Thu, Nov 13, 2014 at 07:54:50AM +0100, Michal Kubecek wrote:
+>Large receive offloading is known to cause problems if received packets
+>are passed to other host. Therefore the kernel disables it by calling
+>dev_disable_lro() whenever a network device is enslaved in a bridge or
+>forwarding is enabled for it (or globally). For virtual devices we need
+>to disable LRO on the underlying physical device (which is actually
+>receiving the packets).
+>
+>Current dev_disable_lro() code handles this  propagation for a vlan
+>(including 802.1ad nested vlan), macvlan or a vlan on top of a macvlan.
+>It doesn't handle other stacked devices and their combinations, in
+>particular propagation from a bond to its slaves which often causes
+>problems in virtualization setups.
+>
+>As we now have generic data structures describing the upper-lower device
+>relationship, dev_disable_lro() can be generalized to disable LRO also
+>for all lower devices (if any) once it is disabled for the device
+>itself.
+>
+>For bonding and teaming devices, it is necessary to disable LRO not only
+>on current slaves at the moment when dev_disable_lro() is called but
+>also on any slave (port) added later.
+>
+>v2: use lower device links for all devices (including vlan and macvlan)
+>
+>Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
 
-In the current driver, allocation size of skb does not care the alignment
-adjust after allocation.
-And also, in the current implementation, buffer alignment method by
-sh_eth_set_receive_align function has a bug that this function displace
-buffer start address forcedly when the alignment is corrected.
-In the result, tail of the skb will exceed allocated area and kernel panic
-will be occurred.
-This patch fix this issue.
+Seems ok to me.
 
-Signed-off-by: Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>
-Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
----
- drivers/net/ethernet/renesas/sh_eth.c | 35 ++++++++++++++---------------------
- drivers/net/ethernet/renesas/sh_eth.h |  2 ++
- 2 files changed, 16 insertions(+), 21 deletions(-)
+Acked-by: Veaceslav Falico <vfalico@gmail.com>
 
-diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index 49e963e..0e4a407 100644
---- a/drivers/net/ethernet/renesas/sh_eth.c
-+++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -917,21 +917,12 @@ static int sh_eth_reset(struct net_device *ndev)
- 	return ret;
- }
- 
--#if defined(CONFIG_CPU_SH4) || defined(CONFIG_ARCH_SHMOBILE)
- static void sh_eth_set_receive_align(struct sk_buff *skb)
- {
--	int reserve;
--
--	reserve = SH4_SKB_RX_ALIGN - ((u32)skb->data & (SH4_SKB_RX_ALIGN - 1));
-+	u32 reserve = (u32)skb->data & (SH_ETH_RX_ALIGN - 1);
- 	if (reserve)
--		skb_reserve(skb, reserve);
--}
--#else
--static void sh_eth_set_receive_align(struct sk_buff *skb)
--{
--	skb_reserve(skb, SH2_SH3_SKB_RX_ALIGN);
-+		skb_reserve(skb, SH_ETH_RX_ALIGN - reserve);
- }
--#endif
- 
- 
- /* CPU <-> EDMAC endian convert */
-@@ -1119,6 +1110,7 @@ static void sh_eth_ring_format(struct net_device *ndev)
- 	struct sh_eth_txdesc *txdesc = NULL;
- 	int rx_ringsize = sizeof(*rxdesc) * mdp->num_rx_ring;
- 	int tx_ringsize = sizeof(*txdesc) * mdp->num_tx_ring;
-+	int skbuff_size = mdp->rx_buf_sz + SH_ETH_RX_ALIGN - 1;
- 
- 	mdp->cur_rx = 0;
- 	mdp->cur_tx = 0;
-@@ -1131,21 +1123,21 @@ static void sh_eth_ring_format(struct net_device *ndev)
- 	for (i = 0; i < mdp->num_rx_ring; i++) {
- 		/* skb */
- 		mdp->rx_skbuff[i] = NULL;
--		skb = netdev_alloc_skb(ndev, mdp->rx_buf_sz);
-+		skb = netdev_alloc_skb(ndev, skbuff_size);
- 		mdp->rx_skbuff[i] = skb;
- 		if (skb == NULL)
- 			break;
--		dma_map_single(&ndev->dev, skb->data, mdp->rx_buf_sz,
--			       DMA_FROM_DEVICE);
- 		sh_eth_set_receive_align(skb);
- 
- 		/* RX descriptor */
- 		rxdesc = &mdp->rx_ring[i];
-+		/* The size of the buffer is 16 byte boundary. */
-+		rxdesc->buffer_length = ALIGN(mdp->rx_buf_sz, 16);
-+		dma_map_single(&ndev->dev, skb->data, rxdesc->buffer_length,
-+			       DMA_FROM_DEVICE);
- 		rxdesc->addr = virt_to_phys(skb->data);
- 		rxdesc->status = cpu_to_edmac(mdp, RD_RACT | RD_RFP);
- 
--		/* The size of the buffer is 16 byte boundary. */
--		rxdesc->buffer_length = ALIGN(mdp->rx_buf_sz, 16);
- 		/* Rx descriptor address set */
- 		if (i == 0) {
- 			sh_eth_write(ndev, mdp->rx_desc_dma, RDLAR);
-@@ -1397,6 +1389,7 @@ static int sh_eth_rx(struct net_device *ndev, u32 intr_status, int *quota)
- 	struct sk_buff *skb;
- 	u16 pkt_len = 0;
- 	u32 desc_status;
-+	int skbuff_size = mdp->rx_buf_sz + SH_ETH_RX_ALIGN - 1;
- 
- 	rxdesc = &mdp->rx_ring[entry];
- 	while (!(rxdesc->status & cpu_to_edmac(mdp, RD_RACT))) {
-@@ -1448,8 +1441,8 @@ static int sh_eth_rx(struct net_device *ndev, u32 intr_status, int *quota)
- 			if (mdp->cd->rpadir)
- 				skb_reserve(skb, NET_IP_ALIGN);
- 			dma_sync_single_for_cpu(&ndev->dev, rxdesc->addr,
--						mdp->rx_buf_sz,
--						DMA_FROM_DEVICE);
-+					ALIGN(mdp->rx_buf_sz, 16),
-+					DMA_FROM_DEVICE);
- 			skb_put(skb, pkt_len);
- 			skb->protocol = eth_type_trans(skb, ndev);
- 			netif_receive_skb(skb);
-@@ -1468,13 +1461,13 @@ static int sh_eth_rx(struct net_device *ndev, u32 intr_status, int *quota)
- 		rxdesc->buffer_length = ALIGN(mdp->rx_buf_sz, 16);
- 
- 		if (mdp->rx_skbuff[entry] == NULL) {
--			skb = netdev_alloc_skb(ndev, mdp->rx_buf_sz);
-+			skb = netdev_alloc_skb(ndev, skbuff_size);
- 			mdp->rx_skbuff[entry] = skb;
- 			if (skb == NULL)
- 				break;	/* Better luck next round. */
--			dma_map_single(&ndev->dev, skb->data, mdp->rx_buf_sz,
--				       DMA_FROM_DEVICE);
- 			sh_eth_set_receive_align(skb);
-+			dma_map_single(&ndev->dev, skb->data,
-+				       rxdesc->buffer_length, DMA_FROM_DEVICE);
- 
- 			skb_checksum_none_assert(skb);
- 			rxdesc->addr = virt_to_phys(skb->data);
-diff --git a/drivers/net/ethernet/renesas/sh_eth.h b/drivers/net/ethernet/renesas/sh_eth.h
-index b37c427..d138ebe 100644
---- a/drivers/net/ethernet/renesas/sh_eth.h
-+++ b/drivers/net/ethernet/renesas/sh_eth.h
-@@ -163,8 +163,10 @@ enum {
- /* Driver's parameters */
- #if defined(CONFIG_CPU_SH4) || defined(CONFIG_ARCH_SHMOBILE)
- #define SH4_SKB_RX_ALIGN	32
-+#define SH_ETH_RX_ALIGN		(SH4_SKB_RX_ALIGN)
- #else
- #define SH2_SH3_SKB_RX_ALIGN	2
-+#define SH_ETH_RX_ALIGN		(SH2_SH3_SKB_RX_ALIGN)
- #endif
- 
- /* Register's bits
--- 
-1.9.1
+>---
+> drivers/net/bonding/bond_main.c |  3 +++
+> drivers/net/team/team.c         |  3 +++
+> net/core/dev.c                  | 15 +++++----------
+> 3 files changed, 11 insertions(+), 10 deletions(-)
+>
+>diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>index b9b3456..8575fee 100644
+>--- a/drivers/net/bonding/bond_main.c
+>+++ b/drivers/net/bonding/bond_main.c
+>@@ -1526,6 +1526,9 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+> 	}
+> #endif
+>
+>+	if (!(bond_dev->features & NETIF_F_LRO))
+>+		dev_disable_lro(slave_dev);
+>+
+> 	res = netdev_rx_handler_register(slave_dev, bond_handle_frame,
+> 					 new_slave);
+> 	if (res) {
+>diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+>index 2368395..93e2242 100644
+>--- a/drivers/net/team/team.c
+>+++ b/drivers/net/team/team.c
+>@@ -1179,6 +1179,9 @@ static int team_port_add(struct team *team, struct net_device *port_dev)
+> 		goto err_enable_netpoll;
+> 	}
+>
+>+	if (!(dev->features & NETIF_F_LRO))
+>+		dev_disable_lro(port_dev);
+>+
+> 	err = netdev_rx_handler_register(port_dev, team_handle_frame,
+> 					 port);
+> 	if (err) {
+>diff --git a/net/core/dev.c b/net/core/dev.c
+>index bb09b03..1ab168e 100644
+>--- a/net/core/dev.c
+>+++ b/net/core/dev.c
+>@@ -1437,22 +1437,17 @@ EXPORT_SYMBOL(dev_close);
+>  */
+> void dev_disable_lro(struct net_device *dev)
+> {
+>-	/*
+>-	 * If we're trying to disable lro on a vlan device
+>-	 * use the underlying physical device instead
+>-	 */
+>-	if (is_vlan_dev(dev))
+>-		dev = vlan_dev_real_dev(dev);
+>-
+>-	/* the same for macvlan devices */
+>-	if (netif_is_macvlan(dev))
+>-		dev = macvlan_dev_real_dev(dev);
+>+	struct net_device *lower_dev;
+>+	struct list_head *iter;
+>
+> 	dev->wanted_features &= ~NETIF_F_LRO;
+> 	netdev_update_features(dev);
+>
+> 	if (unlikely(dev->features & NETIF_F_LRO))
+> 		netdev_WARN(dev, "failed to disable LRO!\n");
+>+
+>+	netdev_for_each_lower_dev(dev, lower_dev, iter)
+>+		dev_disable_lro(lower_dev);
+> }
+> EXPORT_SYMBOL(dev_disable_lro);
+>
+>-- 
+>1.8.4.5
+>
