@@ -1,51 +1,34 @@
-From: Dmitry Torokhov <dtor@chromium.org>
-Subject: [PATCH] brcmfmac: fix error handling of irq_of_parse_and_map
-Date: Fri, 14 Nov 2014 14:12:21 -0800
-Message-ID: <20141114221221.GA35541@dtor-ws>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHv2 net 0/4] Implement ndo_gso_check() for vxlan nics
+Date: Fri, 14 Nov 2014 17:13:21 -0500 (EST)
+Message-ID: <20141114.171321.696698672872443302.davem@davemloft.net>
+References: <1415925495-59312-1-git-send-email-joestringer@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Brett Rudley <brudley@broadcom.com>,
-	Arend van Spriel <arend@broadcom.com>,
-	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
-	Hante Meuleman <meuleman@broadcom.com>,
-	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
-	linux-wireless@vger.kernel.org, brcm80211-dev-list@broadcom.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "John W. Linville" <linville@tuxdriver.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, sathya.perla@emulex.com,
+	shahed.shaikh@qlogic.com, amirv@mellanox.com,
+	Dept-GELinuxNICDev@qlogic.com, therbert@google.com,
+	gerlitz.or@gmail.com, linux-kernel@vger.kernel.org
+To: joestringer@nicira.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
+In-Reply-To: <1415925495-59312-1-git-send-email-joestringer@nicira.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Return value of irq_of_parse_and_map() is unsigned int, with 0
-indicating failure, so testing for negative result never works.
+From: Joe Stringer <joestringer@nicira.com>
+Date: Thu, 13 Nov 2014 16:38:11 -0800
 
-Signed-off-by: Dmitry Torokhov <dtor@chromium.org>
----
+> Most NICs that report NETIF_F_GSO_UDP_TUNNEL support VXLAN, and not other
+> UDP-based encapsulation protocols where the format and size of the header may
+> differ. This patch series implements a generic ndo_gso_check() for detecting
+> VXLAN, then reuses it for these NICs.
+> 
+> Implementation shamelessly stolen from Tom Herbert (with minor fixups):
+> http://thread.gmane.org/gmane.linux.network/332428/focus=333111
+> 
+> v2: Drop i40e/fm10k patches (code diverged; handling separately).
+>     Refactor common code into vxlan_gso_check() helper.
+>     Minor style fixes.
 
-Not tested, found by casual code inspection.
-
- drivers/net/wireless/brcm80211/brcmfmac/of.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/wireless/brcm80211/brcmfmac/of.c b/drivers/net/wireless/brcm80211/brcmfmac/of.c
-index eb3fce82..c824570 100644
---- a/drivers/net/wireless/brcm80211/brcmfmac/of.c
-+++ b/drivers/net/wireless/brcm80211/brcmfmac/of.c
-@@ -40,8 +40,8 @@ void brcmf_of_probe(struct brcmf_sdio_dev *sdiodev)
- 		return;
- 
- 	irq = irq_of_parse_and_map(np, 0);
--	if (irq < 0) {
--		brcmf_err("interrupt could not be mapped: err=%d\n", irq);
-+	if (!irq) {
-+		brcmf_err("interrupt could not be mapped\n");
- 		devm_kfree(dev, sdiodev->pdata);
- 		return;
- 	}
--- 
-2.1.0.rc2.206.gedb03e5
-
-
--- 
-Dmitry
+Series applied, thanks Joe.
