@@ -1,56 +1,91 @@
-From: John Ogness <john.ogness@linutronix.de>
-Subject: [PATCH 1/1] drivers: net: cpsw: Fix TX_IN_SEL offset
-Date: Fri, 14 Nov 2014 15:42:52 +0100
-Message-ID: <87sihlj11v.fsf@linutronix.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] fast_hash: clobber registers correctly for
+ inline function use
+Date: Fri, 14 Nov 2014 06:50:56 -0800
+Message-ID: <1415976656.17262.41.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <4086c7bc9f7f9e8e2de9656c9e27ef1e71bb6423.1415973706.git.hannes@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Cc: mugunthanvnm@ti.com
-Cc: balbi@ti.com
-Cc: george.cherian@ti.com
-Cc: jhovold@gmail.com
-Cc: mpa@pengutronix.de
-Cc: bhutchings@solarflare.com
-Cc: zonque@gmail.com
-Cc: tklauser@distanz.ch
-Cc: netdev@vger.kernel.org
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com, pshelar@nicira.com,
+	jesse@nicira.com, jay.vosburgh@canonical.com,
+	discuss@openvswitch.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f175.google.com ([209.85.213.175]:41493 "EHLO
+	mail-ig0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964875AbaKNOvA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Nov 2014 09:51:00 -0500
+Received: by mail-ig0-f175.google.com with SMTP id h15so1621329igd.2
+        for <netdev@vger.kernel.org>; Fri, 14 Nov 2014 06:50:59 -0800 (PST)
+In-Reply-To: <4086c7bc9f7f9e8e2de9656c9e27ef1e71bb6423.1415973706.git.hannes@stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The TX_IN_SEL offset for the CPSW_PORT/TX_IN_CTL register was
-incorrect. This caused the Dual MAC mode to never get set when
-it should. It also caused possible unintentional setting of a
-bit in the CPSW_PORT/TX_BLKS_REM register.
+On Fri, 2014-11-14 at 15:06 +0100, Hannes Frederic Sowa wrote:
+> In case the arch_fast_hash call gets inlined we need to tell gcc which
+> registers are clobbered with. Most callers where fine, as rhashtable
+> used arch_fast_hash via function pointer and thus the compiler took care
+> of that. In case of openvswitch the call got inlined and arch_fast_hash
+> touched registeres which gcc didn't know about.
+> 
+> Also don't use conditional compilation inside arguments, as this confuses
+> sparse.
+> 
 
-The purpose of setting the Dual MAC mode for this register is to:
+Please add a 
+Fixes: 12-sha1 ("patch title")
 
-    "... allow packets from both ethernet ports to be written into
-     the FIFO without one port starving the other port."
-					- AM335x ARM TRM
+> Reported-by: Jay Vosburgh <jay.vosburgh@canonical.com>
+> Cc: Pravin Shelar <pshelar@nicira.com>
+> Cc: Jesse Gross <jesse@nicira.com>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> ---
+>  arch/x86/include/asm/hash.h | 18 ++++++++++++------
+>  1 file changed, 12 insertions(+), 6 deletions(-)
+> 
+> diff --git a/arch/x86/include/asm/hash.h b/arch/x86/include/asm/hash.h
+> index a881d78..771cee0 100644
+> --- a/arch/x86/include/asm/hash.h
+> +++ b/arch/x86/include/asm/hash.h
+> @@ -23,11 +23,14 @@ static inline u32 arch_fast_hash(const void *data, u32 len, u32 seed)
+>  {
+>  	u32 hash;
+>  
+> -	alternative_call(__jhash, __intel_crc4_2_hash, X86_FEATURE_XMM4_2,
+>  #ifdef CONFIG_X86_64
+> -			 "=a" (hash), "D" (data), "S" (len), "d" (seed));
+> +	alternative_call(__jhash, __intel_crc4_2_hash, X86_FEATURE_XMM4_2,
+> +			 "=a" (hash), "D" (data), "S" (len), "d" (seed)
+> +			 : "rcx", "r8", "r9", "r10", "r11", "cc", "memory");
+>  #else
 
-Signed-off-by: John Ogness <john.ogness@linutronix.de>
----
- drivers/net/ethernet/ti/cpsw.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index d879448..c560f9a 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -129,9 +129,9 @@ do {								\
- #define CPSW_VLAN_AWARE		BIT(1)
- #define CPSW_ALE_VLAN_AWARE	1
- 
--#define CPSW_FIFO_NORMAL_MODE		(0 << 15)
--#define CPSW_FIFO_DUAL_MAC_MODE		(1 << 15)
--#define CPSW_FIFO_RATE_LIMIT_MODE	(2 << 15)
-+#define CPSW_FIFO_NORMAL_MODE		(0 << 16)
-+#define CPSW_FIFO_DUAL_MAC_MODE		(1 << 16)
-+#define CPSW_FIFO_RATE_LIMIT_MODE	(2 << 16)
- 
- #define CPSW_INTPACEEN		(0x3f << 16)
- #define CPSW_INTPRESCALE_MASK	(0x7FF << 0)
--- 
-1.7.10.4
+
+
+> -			 "=a" (hash), "a" (data), "d" (len), "c" (seed));
+> +	alternative_call(__jhash, __intel_crc4_2_hash, X86_FEATURE_XMM4_2,
+> +			 "=a" (hash), "a" (data), "d" (len), "c" (seed)
+> +			 : "cc", "memory");
+>  #endif
+>  	return hash;
+>  }
+> @@ -36,11 +39,14 @@ static inline u32 arch_fast_hash2(const u32 *data, u32 len, u32 seed)
+>  {
+>  	u32 hash;
+>  
+> -	alternative_call(__jhash2, __intel_crc4_2_hash2, X86_FEATURE_XMM4_2,
+>  #ifdef CONFIG_X86_64
+> -			 "=a" (hash), "D" (data), "S" (len), "d" (seed));
+> +	alternative_call(__jhash2, __intel_crc4_2_hash2, X86_FEATURE_XMM4_2,
+> +			 "=a" (hash), "D" (data), "S" (len), "d" (seed)
+> +			 : "rcx", "r8", "r9", "r10", "r11", "cc", "memory");
+
+
+Thats a lot of clobbers.
+
+Alternative would be to use an assembly trampoline to save/restore them
+before calling __jhash2
+
+__intel_crc4_2_hash2 can probably be written in assembly, it is quite
+simple.
