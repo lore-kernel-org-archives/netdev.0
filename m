@@ -1,7 +1,7 @@
 From: Joe Stringer <joestringer@nicira.com>
-Subject: [PATCHv2 net 1/4] net: Add vxlan_gso_check() helper
-Date: Thu, 13 Nov 2014 16:38:12 -0800
-Message-ID: <1415925495-59312-2-git-send-email-joestringer@nicira.com>
+Subject: [PATCHv2 net 3/4] net/mlx4_en: Implement ndo_gso_check()
+Date: Thu, 13 Nov 2014 16:38:14 -0800
+Message-ID: <1415925495-59312-4-git-send-email-joestringer@nicira.com>
 References: <1415925495-59312-1-git-send-email-joestringer@nicira.com>
 Cc: sathya.perla@emulex.com, shahed.shaikh@qlogic.com,
 	amirv@mellanox.com, Dept-GELinuxNICDev@qlogic.com,
@@ -13,61 +13,38 @@ In-Reply-To: <1415925495-59312-1-git-send-email-joestringer@nicira.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Most NICs that report NETIF_F_GSO_UDP_TUNNEL support VXLAN, and not
-other UDP-based encapsulation protocols where the format and size of the
-header differs. This patch implements a generic ndo_gso_check() for
-VXLAN which will only advertise GSO support when the skb looks like it
-contains VXLAN (or no UDP tunnelling at all).
-
-Implementation shamelessly stolen from Tom Herbert:
-http://thread.gmane.org/gmane.linux.network/332428/focus=333111
+Use vxlan_gso_check() to advertise offload support for this NIC.
 
 Signed-off-by: Joe Stringer <joestringer@nicira.com>
 ---
-v2: Merge helpers for be2net, mlx4, qlcnic
-    Use (sizeof(struct udphdr) + sizeof(struct vxlanhdr))
-v1: Initial post
+v2: Refactor out vxlan helper.
 ---
- drivers/net/vxlan.c |   13 +++++++++++++
- include/net/vxlan.h |    2 ++
- 2 files changed, 15 insertions(+)
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c |    6 ++++++
+ 1 file changed, 6 insertions(+)
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index fa9dc45..6b65863 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1571,6 +1571,19 @@ static bool route_shortcircuit(struct net_device *dev, struct sk_buff *skb)
- 	return false;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index 02266e3..c5fcc56 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -2355,6 +2355,11 @@ static void mlx4_en_del_vxlan_port(struct  net_device *dev,
+ 
+ 	queue_work(priv->mdev->workqueue, &priv->vxlan_del_task);
  }
- 
-+bool vxlan_gso_check(struct sk_buff *skb)
++
++static bool mlx4_en_gso_check(struct sk_buff *skb, struct net_device *dev)
 +{
-+	if ((skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL) &&
-+	    (skb->inner_protocol_type != ENCAP_TYPE_ETHER ||
-+	     skb->inner_protocol != htons(ETH_P_TEB) ||
-+	     (skb_inner_mac_header(skb) - skb_transport_header(skb) !=
-+	      sizeof(struct udphdr) + sizeof(struct vxlanhdr))))
-+		return false;
-+
-+	return true;
++	return vxlan_gso_check(skb);
 +}
-+EXPORT_SYMBOL_GPL(vxlan_gso_check);
-+
- #if IS_ENABLED(CONFIG_IPV6)
- static int vxlan6_xmit_skb(struct vxlan_sock *vs,
- 			   struct dst_entry *dst, struct sk_buff *skb,
-diff --git a/include/net/vxlan.h b/include/net/vxlan.h
-index d5f59f3..afadf8e 100644
---- a/include/net/vxlan.h
-+++ b/include/net/vxlan.h
-@@ -45,6 +45,8 @@ int vxlan_xmit_skb(struct vxlan_sock *vs,
- 		   __be32 src, __be32 dst, __u8 tos, __u8 ttl, __be16 df,
- 		   __be16 src_port, __be16 dst_port, __be32 vni, bool xnet);
+ #endif
  
-+bool vxlan_gso_check(struct sk_buff *skb);
-+
- /* IP header + UDP + VXLAN + Ethernet header */
- #define VXLAN_HEADROOM (20 + 8 + 8 + 14)
- /* IPv6 header + UDP + VXLAN + Ethernet header */
+ static const struct net_device_ops mlx4_netdev_ops = {
+@@ -2386,6 +2391,7 @@ static const struct net_device_ops mlx4_netdev_ops = {
+ #ifdef CONFIG_MLX4_EN_VXLAN
+ 	.ndo_add_vxlan_port	= mlx4_en_add_vxlan_port,
+ 	.ndo_del_vxlan_port	= mlx4_en_del_vxlan_port,
++	.ndo_gso_check		= mlx4_en_gso_check,
+ #endif
+ };
+ 
 -- 
 1.7.10.4
