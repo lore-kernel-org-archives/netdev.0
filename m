@@ -1,69 +1,92 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 1/1 net-next] net: dsa: replace count*size kmalloc by
- kmalloc_array
-Date: Fri, 14 Nov 2014 11:42:11 -0800
-Message-ID: <1415994131.5912.25.camel@perches.com>
-References: <1415990202-28673-1-git-send-email-fabf@skynet.be>
-	 <1415990835.5912.20.camel@perches.com>
-	 <2104595537.56209.1415991758726.open-xchange@webmail.nmp.skynet.be>
-	 <1415992486.5912.23.camel@perches.com>
-	 <47990659.56515.1415993549555.open-xchange@webmail.nmp.skynet.be>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH net-next] net: introduce SO_INCOMING_CPU
+Date: Fri, 14 Nov 2014 11:52:00 -0800
+Message-ID: <CA+mtBx_DyUCxE6BqL_xXcqKPUDu7b3jLShV+AL6L+gCzJLriPg@mail.gmail.com>
+References: <1415393472.13896.119.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CAHO5Pa0OGtgbUp4R287jbK2SFSpVUoXWCJybvHTFsGyCLynqLg@mail.gmail.com>
+	<CALCETrXmCWSoeQLC3WCqMf_sehGVE9KTbTGmsA77ZN84B-V24Q@mail.gmail.com>
+	<1415993614.17262.55.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Fabian Frederick <fabf@skynet.be>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <47990659.56515.1415993549555.open-xchange@webmail.nmp.skynet.be>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Andy Lutomirski <luto@amacapital.net>,
+	Michael Kerrisk <mtk.manpages@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, Ying Cai <ycai@google.com>,
+	Willem de Bruijn <willemb@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Linux API <linux-api@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f176.google.com ([209.85.213.176]:42719 "EHLO
+	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754219AbaKNTwC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Nov 2014 14:52:02 -0500
+Received: by mail-ig0-f176.google.com with SMTP id l13so308604iga.15
+        for <netdev@vger.kernel.org>; Fri, 14 Nov 2014 11:52:00 -0800 (PST)
+In-Reply-To: <1415993614.17262.55.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-11-14 at 20:32 +0100, Fabian Frederick wrote:
-> On 14 November 2014 at 20:14 Joe Perches <joe@perches.com> wrote:
-> > On Fri, 2014-11-14 at 20:02 +0100, Fabian Frederick wrote:
-> > > On 14 November 2014 at 19:47 Joe Perches <joe@perches.com> wrote:
-> > > > On Fri, 2014-11-14 at 19:36 +0100, Fabian Frederick wrote:
-> > > > > kmalloc_array manages count*sizeof overflow.
-> > > >
-> > > > Fundamentally correct, but is this necessary or useful?
-> > > > sizeof(s8) isn't often going to be anything other than 1.
-> > > Absolutely, I thought it was a struct :)
-> > >
-> > > There must be a reason for so many cases though ...
-> >
-> > Some might be style symmetry for other sizeof(othertype)
-> > uses in the same paths, but most of them are just overkill
-> > or maybe lack of understanding.
-> 95% comes from drivers tree. I guess one patch to Greg would be enough.
+On Fri, Nov 14, 2014 at 11:33 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Fri, 2014-11-14 at 09:17 -0800, Andy Lutomirski wrote:
+>
+>> As a heavy user of RFS (and finder of bugs in it, too), here's my
+>> question about this API:
+>>
+>> How does an application tell whether the socket represents a
+>> non-actively-steered flow?  If the flow is subject to RFS, then moving
+>> the application handling to the socket's CPU seems problematic, as the
+>> socket's CPU might move as well.  The current implementation in this
+>> patch seems to tell me which CPU the most recent packet came in on,
+>> which is not necessarily very useful.
+>
+> Its the cpu that hit the TCP stack, bringing dozens of cache lines in
+> its cache. This is all that matters,
+>
+>>
+>> Some possibilities:
+>>
+>> 1. Let SO_INCOMING_CPU fail if RFS or RPS are in play.
+>
+> Well, idea is to not use RFS at all. Otherwise, it is useless.
+>
+Bear in mind this is only an interface to report RX CPU and in itself
+doesn't provide any functionality for changing scheduling, there is
+obviously logic needed in user space that would need to do something.
 
-I think it'd be better to send patches through the
-appropriate various maintainers
+If we track the interrupting CPU in skb, the interface could be easily
+extended to provide the interrupting CPU, the RPS CPU (calculated at
+reported time), and the CPU processing transport (post steering which
+is what is currently returned). That would provide the complete
+picture to control scheduling a flow from userspace, and an interface
+to selectively turn off RFS for a socket would make sense then.
 
-Likely just using the 2nd level directory would be
-good enough
-
-$ git grep -E --name-only "\*\s*sizeof\s*\(\s*[us]8\s*\)" | \
-  cut -f1-2 -d"/" | uniq
-arch/arm
-drivers/acpi
-drivers/char
-drivers/gpu
-drivers/iio
-drivers/infiniband
-drivers/input
-drivers/md
-drivers/media
-drivers/mtd
-drivers/net
-drivers/power
-drivers/rtc
-drivers/thermal
-fs/compat_ioctl.c
-net/dsa
-
-> Are you interested in those patches or can I do them with some "Suggested-by" ?
-
-Not really and no need.
-
-cheers, Joe
+> RFS is the other way around : You want the flow to follow your thread.
+>
+> RPS wont be a problem if you have sensible RPS settings.
+>
+>>
+>> 2. Change the interface a bit to report the socket's preferred CPU
+>> (where it would go without RFS, for example) and then let the
+>> application use setsockopt to tell the socket to stay put (i.e. turn
+>> off RFS and RPS for that flow).
+>>
+>> 3. Report the preferred CPU as in (2) but let the application ask for
+>> something different.
+>>
+>> For example, I have flows for which I know which CPU I want.  A nice
+>> API to put the flow there would be quite useful.
+>>
+>>
+>> Also, it may be worth changing the naming to indicate that these are
+>> about the rx cpu (they are, right?).  For some applications (sparse,
+>> low-latency flows, for example), it can be useful to keep the tx
+>> completion handling on a different CPU.
+>
+> SO_INCOMING_CPU is rx, like incoming ;)
+>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
