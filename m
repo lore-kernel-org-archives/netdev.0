@@ -1,86 +1,59 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] ixgbe: Look up MAC address in Open Firmware
-Date: Fri, 14 Nov 2014 23:07:34 +0300
-Message-ID: <54666106.9000609@cogentembedded.com>
-References: <yq1r3x5vbh9.fsf@sermon.lab.mkp.net>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next] fast_hash: clobber registers correctly for
+ inline function use
+Date: Fri, 14 Nov 2014 21:10:36 +0100
+Message-ID: <1415995836.15154.55.camel@localhost>
+References: <1415978022.15154.31.camel@localhost>
+	 <1415979181.17262.45.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1415979978.15154.41.camel@localhost>
+	 <20141114.133829.1437047454714311242.davem@davemloft.net>
+	 <1415995451.15154.54.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux.nics@intel.com
-To: "Martin K. Petersen" <martin.petersen@oracle.com>,
-	netdev@vger.kernel.org
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	ogerlitz@mellanox.com, pshelar@nicira.com, jesse@nicira.com,
+	jay.vosburgh@canonical.com, discuss@openvswitch.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f170.google.com ([209.85.217.170]:39730 "EHLO
-	mail-lb0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161750AbaKNUHi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Nov 2014 15:07:38 -0500
-Received: by mail-lb0-f170.google.com with SMTP id w7so4763388lbi.15
-        for <netdev@vger.kernel.org>; Fri, 14 Nov 2014 12:07:37 -0800 (PST)
-In-Reply-To: <yq1r3x5vbh9.fsf@sermon.lab.mkp.net>
+Received: from out3-smtp.messagingengine.com ([66.111.4.27]:34563 "EHLO
+	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754317AbaKNUKj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Nov 2014 15:10:39 -0500
+Received: from compute6.internal (compute6.nyi.internal [10.202.2.46])
+	by mailout.nyi.internal (Postfix) with ESMTP id 8F5DC20D16
+	for <netdev@vger.kernel.org>; Fri, 14 Nov 2014 15:10:38 -0500 (EST)
+In-Reply-To: <1415995451.15154.54.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On Fr, 2014-11-14 at 21:04 +0100, Hannes Frederic Sowa wrote:
+> On Fr, 2014-11-14 at 13:38 -0500, David Miller wrote:
+> > From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> > Date: Fri, 14 Nov 2014 16:46:18 +0100
+> > 
+> > > I would still like to see the current proposed fix getting applied and
+> > > we can do this on-top. The inline call after this patch reassembles a
+> > > direct function call, so besides the long list of clobbers, it should
+> > > still be pretty fast.
+> > 
+> > I would rather revert the change entirely until it is implemented
+> > properly.
+> > 
+> > Also, I am strongly of the opinion that this is a mis-use of the
+> > alternative call interface.  It was never intended to be used for
+> > things that can make real function calls.
+> 
+> I tend to disagree. Grepping e.g. shows
+> 
+>         alternative_call_2(copy_user_generic_unrolled,
+>                          copy_user_generic_string,
+>                          X86_FEATURE_REP_GOOD,
+>                          copy_user_enhanced_fast_string,
+>                          X86_FEATURE_ERMS,
+>                          ASM_OUTPUT2("=a" (ret), "=D" (to), "=S" (from),
+>                                      "=d" (len)),
+>                          "1" (to), "2" (from), "3" (len)
+>                          : "memory", "rcx", "r8", "r9", "r10", "r11");
 
-On 11/14/2014 10:16 PM, Martin K. Petersen wrote:
-
-> Attempt to look up the MAC address in Open Firmware on systems that
-> support it. If the "local-mac-address" property is not valid resort to
-> using the IDPROM value.
-
-> Signed-off-by: Martin K. Petersen <martin.petersen@oracle.com>
-
-> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> index d2df4e3d1032..365924124fab 100644
-> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-[...]
-> @@ -7959,6 +7964,31 @@ int ixgbe_wol_supported(struct ixgbe_adapter *adapter, u16 device_id,
->   	return is_wol_supported;
->   }
->
-> +#ifdef CONFIG_OF
-> +/**
-> + * ixgbe_of_mac_addr - Look up MAC address in Open Firmware
-> + * @adapter: Pointer to adapter struct
-> + */
-> +static void ixgbe_of_mac_addr(struct ixgbe_adapter *adapter)
-> +{
-> +	struct device_node *dp = pci_device_to_OF_node(adapter->pdev);
-> +	struct ixgbe_hw *hw = &adapter->hw;
-> +	const unsigned char *addr;
-> +	int len;
-> +
-> +	addr = of_get_property(dp, "local-mac-address", &len);
-> +	if (addr && len == 6) {
-> +		e_dev_info("Using OpenPROM MAC address\n");
-> +		memcpy(hw->mac.perm_addr, addr, 6);
-> +	}
-> +
-> +	if (!is_valid_ether_addr(hw->mac.perm_addr)) {
-> +		e_dev_info("Using IDPROM MAC address\n");
-> +		memcpy(hw->mac.perm_addr, idprom->id_ethaddr, 6);
-> +	}
-> +}
-> +#endif
-> +
->   /**
->    * ixgbe_probe - Device Initialization Routine
->    * @pdev: PCI device information struct
-> @@ -8223,6 +8253,10 @@ skip_sriov:
->   		goto err_sw_init;
->   	}
->
-> +#ifdef CONFIG_OF
-> +	ixgbe_of_mac_addr(adapter);
-> +#endif
-
-    Eww... why not define the following above instead:
-
-#else
-static inline void ixgbe_of_mac_addr(struct ixgbe_adapter *adapter) {}
-#endif
-
-    This is closer to what Documentation/SubmittingPatches suggests.
-
-WBR, Sergei
+Oh, I need to take this back, These are actually assembler functions.
