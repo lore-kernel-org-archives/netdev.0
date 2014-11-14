@@ -1,40 +1,55 @@
-From: Roger Quadros <rogerq@ti.com>
-Subject: Re: [PATCH v7 6/8] net: can: c_can: Disable pins when CAN interface
- is down
-Date: Fri, 14 Nov 2014 18:04:47 +0200
-Message-ID: <5466281F.3020609@ti.com>
-References: <1415371762-29885-1-git-send-email-rogerq@ti.com> <1415371762-29885-7-git-send-email-rogerq@ti.com> <5464CCFF.5010004@ti.com> <5466225D.2070202@ti.com> <54662493.5040002@pengutronix.de>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH v2 net-next 1/7] bpf: add 'flags' attribute to
+ BPF_MAP_UPDATE_ELEM command
+Date: Fri, 14 Nov 2014 17:06:43 +0100
+Message-ID: <1415981203.15154.45.camel@localhost>
+References: <1415929010-9361-1-git-send-email-ast@plumgrid.com>
+	 <1415929010-9361-2-git-send-email-ast@plumgrid.com>
+	 <1415967071.15154.9.camel@localhost>
+	 <CAMEtUux2vuN3iNaAsxybyFwzfMRVe1+BOW-JvnvYYh+=-vpELw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <wsa@the-dreams.de>, <tony@atomide.com>, <tglx@linutronix.de>,
-	<mugunthanvnm@ti.com>, <george.cherian@ti.com>, <balbi@ti.com>,
-	<nsekhar@ti.com>, <nm@ti.com>,
-	<sergei.shtylyov@cogentembedded.com>, <linux-omap@vger.kernel.org>,
-	<linux-can@vger.kernel.org>, <netdev@vger.kernel.org>
-To: Marc Kleine-Budde <mkl@pengutronix.de>, <wg@grandegger.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <54662493.5040002@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ingo Molnar <mingo@kernel.org>,
+	Andy Lutomirski <luto@amacapital.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Linux API <linux-api@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Alexei Starovoitov <ast@plumgrid.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAMEtUux2vuN3iNaAsxybyFwzfMRVe1+BOW-JvnvYYh+=-vpELw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11/14/2014 05:49 PM, Marc Kleine-Budde wrote:
-> On 11/14/2014 04:40 PM, Roger Quadros wrote:
->> DRA7 CAN IP suffers from a problem which causes it to be prevented
->> from fully turning OFF (i.e. stuck in transition) if the module was
->> disabled while there was traffic on the CAN_RX line.
->>
->> To work around this issue we select the SLEEP pin state by default
->> on probe and use the DEFAULT pin state on CAN up and back to the
->> SLEEP pin state on CAN down.
->>
->> Signed-off-by: Roger Quadros <rogerq@ti.com>
+On Fr, 2014-11-14 at 07:33 -0800, Alexei Starovoitov wrote:
+> On Fri, Nov 14, 2014 at 4:11 AM, Hannes Frederic Sowa
+> <hannes@stressinduktion.org> wrote:
+> > On Do, 2014-11-13 at 17:36 -0800, Alexei Starovoitov wrote:
+> >> the current meaning of BPF_MAP_UPDATE_ELEM syscall command is:
+> >> either update existing map element or create a new one.
+> >> Initially the plan was to add a new command to handle the case of
+> >> 'create new element if it didn't exist', but 'flags' style looks
+> >> cleaner and overall diff is much smaller (more code reused), so add 'flags'
+> >> attribute to BPF_MAP_UPDATE_ELEM command with the following meaning:
+> >>  #define BPF_ANY      0 /* create new element or update existing */
+> >>  #define BPF_NOEXIST  1 /* create new element if it didn't exist */
+> >>  #define BPF_EXIST    2 /* update existing element */
+> >
+> > Would a cmpxchg-alike function be handy here?
 > 
-> Wow! Some interations later this patch got quite nice and shiny :)
-> Applied all to can-next/master.
+> you mean cmpxchg command in addition to
+> update() command ?
+> May be... it will have an extra 'value' argument
+> (key, old_value, new_value)
+> I don't have a use case for it yet though.
 
-Thanks Marc :)
+I don't neither. ;)
 
-cheers,
--roger
+I just wanted to bring this up before user space api might get public
+and the additional argument might make problems.
 
+Bye,
+Hannes
