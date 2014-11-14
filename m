@@ -1,76 +1,73 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] ixgbe: Look up MAC address in Open Firmware
-Date: Fri, 14 Nov 2014 14:23:25 -0800
-Message-ID: <546680DD.7030708@gmail.com>
-References: <yq1r3x5vbh9.fsf@sermon.lab.mkp.net>
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next] net: introduce SO_INCOMING_CPU
+Date: Fri, 14 Nov 2014 14:24:43 -0800
+Message-ID: <1416003883.17262.72.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1415393472.13896.119.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAHO5Pa0OGtgbUp4R287jbK2SFSpVUoXWCJybvHTFsGyCLynqLg@mail.gmail.com>
+	 <CALCETrXmCWSoeQLC3WCqMf_sehGVE9KTbTGmsA77ZN84B-V24Q@mail.gmail.com>
+	 <1415993614.17262.55.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+mtBx_DyUCxE6BqL_xXcqKPUDu7b3jLShV+AL6L+gCzJLriPg@mail.gmail.com>
+	 <CALCETrUuChgxXcNrKjYzpe1ry0hx3kf19EfAbY1N1YnG7NFZUw@mail.gmail.com>
+	 <CA+mtBx_tNW_Bz0hovZ90XxcLK6pL8d6RX=v5Rg8utfKkaFoJ+Q@mail.gmail.com>
+	 <CALCETrWYrR2X9u7CAr5xkSg8kLH_O=sdk=JF+ZW+FxCTNTFBZg@mail.gmail.com>
+	 <CA+mtBx9dSNOD5Z8GinU8F1mj_PgU0sTC5g8S9vRuSnSUzAoD=g@mail.gmail.com>
+	 <CALCETrXf8j52nmpw-A2+bQt0yoz-fiD-4GP4Qf-afwH6UjCVnw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux.nics@intel.com
-To: "Martin K. Petersen" <martin.petersen@oracle.com>,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:40921 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161814AbaKNWXg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Nov 2014 17:23:36 -0500
-Received: by mail-pa0-f50.google.com with SMTP id eu11so18346767pac.37
-        for <netdev@vger.kernel.org>; Fri, 14 Nov 2014 14:23:36 -0800 (PST)
-In-Reply-To: <yq1r3x5vbh9.fsf@sermon.lab.mkp.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Tom Herbert <therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Ying Cai <ycai-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Neal Cardwell <ncardwell-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CALCETrXf8j52nmpw-A2+bQt0yoz-fiD-4GP4Qf-afwH6UjCVnw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 11/14/2014 11:16 AM, Martin K. Petersen wrote:
+On Fri, 2014-11-14 at 14:10 -0800, Andy Lutomirski wrote:
 
-[snip]
-
-> +#ifdef CONFIG_OF
-> +/**
-> + * ixgbe_of_mac_addr - Look up MAC address in Open Firmware
-> + * @adapter: Pointer to adapter struct
-> + */
-> +static void ixgbe_of_mac_addr(struct ixgbe_adapter *adapter)
-> +{
-> +	struct device_node *dp = pci_device_to_OF_node(adapter->pdev);
-> +	struct ixgbe_hw *hw = &adapter->hw;
-> +	const unsigned char *addr;
-> +	int len;
-> +
-> +	addr = of_get_property(dp, "local-mac-address", &len);
-> +	if (addr && len == 6) {
-> +		e_dev_info("Using OpenPROM MAC address\n");
-> +		memcpy(hw->mac.perm_addr, addr, 6);
-> +	}
-
-Cannot you use of_get_mac_address() here which does iterate through all
-the OF standard ways to specify a MAC address: mac-address,
-local-mac-address and address? Benefit is that this will work for all
-DT-enabled platforms.
-
-> +
-> +	if (!is_valid_ether_addr(hw->mac.perm_addr)) {
-> +		e_dev_info("Using IDPROM MAC address\n");
-> +		memcpy(hw->mac.perm_addr, idprom->id_ethaddr, 6);
-> +	}
-> +}
-> +#endif
-> +
->  /**
->   * ixgbe_probe - Device Initialization Routine
->   * @pdev: PCI device information struct
-> @@ -8223,6 +8253,10 @@ skip_sriov:
->  		goto err_sw_init;
->  	}
->  
-> +#ifdef CONFIG_OF
-> +	ixgbe_of_mac_addr(adapter);
-> +#endif
-> +
->  	memcpy(netdev->dev_addr, hw->mac.perm_addr, netdev->addr_len);
->  
->  	if (!is_valid_ether_addr(netdev->dev_addr)) {
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> I have a bunch of threads that are pinned to various CPUs or groups of
+> CPUs.  Each thread is responsible for a fixed set of flows.  I'd like
+> those flows to go to those CPUs.
 > 
+> RFS will eventually do it, but it would be nice if I could
+> deterministically ask for a flow to be routed to the right CPU.  Also,
+> if my thread bounces temporarily to another CPU, I don't really need
+> the flow to follow it -- I'd like it to stay put.
+> 
+> This has a significant benefit over using automatic steering: with
+> automatic steering, I have to make all of the hash tables have a size
+> around the square of the total number of the flows in order to make it
+> reliable.
+> 
+> Something like SO_STEER_TO_THIS_CPU would be fine, as long as it
+> reported whether it worked (for my diagnostics).
+
+This requires some kind of hardware support, and unfortunately this is
+not generic.
+
+With SO_INCOMING_CPU, you simply can pass fd of sockets around threads,
+so that a dumb RSS multiqueue NIC is OK (assuming you are not using some
+encapsulation that NIC is not able to parse to find L4 information)
+
+Steering is a dream, I really think its easier to build flows so that
+their RX queue matches your requirements.
+
+We usually can pick at least one element of the 4-tuple, so its actually
+possible to get this before connect().
+
+
+Two cases :
+
+1) Passive connections.
+
+   After accept(), get SO_INCOMING_CPU, then pass the fd to appropriate
+thread of your pool.
+
+2) Active connections .
+   find a proper 4-tuple, bind() then connect(). Eventually check
+SO_INCOMING_CPU to verify your expectations.
