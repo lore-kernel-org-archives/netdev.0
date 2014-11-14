@@ -1,34 +1,46 @@
-From: Fabian Frederick <fabf@skynet.be>
-Subject: [PATCH 1/1 net-next] net: dsa: replace count*size kmalloc by kmalloc_array
-Date: Fri, 14 Nov 2014 19:36:42 +0100
-Message-ID: <1415990202-28673-1-git-send-email-fabf@skynet.be>
-Cc: Fabian Frederick <fabf@skynet.be>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] fast_hash: clobber registers correctly for
+ inline function use
+Date: Fri, 14 Nov 2014 13:38:29 -0500 (EST)
+Message-ID: <20141114.133829.1437047454714311242.davem@davemloft.net>
+References: <1415978022.15154.31.camel@localhost>
+	<1415979181.17262.45.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1415979978.15154.41.camel@localhost>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	ogerlitz@mellanox.com, pshelar@nicira.com, jesse@nicira.com,
+	jay.vosburgh@canonical.com, discuss@openvswitch.org
+To: hannes@stressinduktion.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43398 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754655AbaKNSid (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Nov 2014 13:38:33 -0500
+In-Reply-To: <1415979978.15154.41.camel@localhost>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-kmalloc_array manages count*sizeof overflow.
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Fri, 14 Nov 2014 16:46:18 +0100
 
-Signed-off-by: Fabian Frederick <fabf@skynet.be>
----
- net/dsa/dsa.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+> I would still like to see the current proposed fix getting applied and
+> we can do this on-top. The inline call after this patch reassembles a
+> direct function call, so besides the long list of clobbers, it should
+> still be pretty fast.
 
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index 4648f12..c00cca3 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -526,7 +526,8 @@ static int dsa_of_setup_routing_table(struct dsa_platform_data *pd,
- 
- 	/* First time routing table allocation */
- 	if (!cd->rtable) {
--		cd->rtable = kmalloc(pd->nr_chips * sizeof(s8), GFP_KERNEL);
-+		cd->rtable = kmalloc_array(pd->nr_chips, sizeof(s8),
-+					   GFP_KERNEL);
- 		if (!cd->rtable)
- 			return -ENOMEM;
- 
--- 
-1.9.3
+I would rather revert the change entirely until it is implemented
+properly.
+
+Also, I am strongly of the opinion that this is a mis-use of the
+alternative call interface.  It was never intended to be used for
+things that can make real function calls.
+
+You can add a million clobbers, or a trampoline, it's still using a
+facility in a manner for which it was not designed.
+
+This means a new interface with a new name and with capabilities
+explicitly supporting this case are in order.
+
+Thanks.
