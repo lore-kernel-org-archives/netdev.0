@@ -1,52 +1,75 @@
-From: Jay Vosburgh <jay.vosburgh@canonical.com>
-Subject: Re: net-next panic in ovs call to arch_fast_hash2 since e5a2c899
-Date: Thu, 13 Nov 2014 21:04:04 -0800
-Message-ID: <12872.1415941444@famine>
-References: <12086.1415931332@famine> <20141113.214549.1520205472319716774.davem@davemloft.net>
-Cc: netdev@vger.kernel.org, discuss@openvswitch.org,
-	pshelar@nicira.com, ogerlitz@mellanox.com,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:46646 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751308AbaKNFEP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Nov 2014 00:04:15 -0500
-In-reply-to: <20141113.214549.1520205472319716774.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+Subject: RE: [PATCHv2 net 4/4] qlcnic: Implement ndo_gso_check()
+Date: Fri, 14 Nov 2014 05:08:40 +0000
+Message-ID: <262CB373A6D1F14F9B81E82F74F77D5A470A126E@avmb2.qlogic.org>
+References: <1415925495-59312-1-git-send-email-joestringer@nicira.com>
+ <1415925495-59312-5-git-send-email-joestringer@nicira.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "sathya.perla@emulex.com" <sathya.perla@emulex.com>,
+	"amirv@mellanox.com" <amirv@mellanox.com>,
+	Dept-GE Linux NIC Dev <Dept-GELinuxNICDev@qlogic.com>,
+	"Tom Herbert (Partner - google)" <therbert@google.com>,
+	"gerlitz.or@gmail.com" <gerlitz.or@gmail.com>,
+	"alexander.duyck@gmail.com" <alexander.duyck@gmail.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>
+To: Joe Stringer <joestringer@nicira.com>,
+	netdev <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1415925495-59312-5-git-send-email-joestringer@nicira.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+> -----Original Message-----
+> From: Joe Stringer [mailto:joestringer@nicira.com]
+> Sent: Friday, November 14, 2014 6:08 AM
+> To: netdev
+> Cc: sathya.perla@emulex.com; Shahed Shaikh; amirv@mellanox.com; Dept-
+> GE Linux NIC Dev; Tom Herbert (Partner - google); gerlitz.or@gmail.com;
+> alexander.duyck@gmail.com; linux-kernel
+> Subject: [PATCHv2 net 4/4] qlcnic: Implement ndo_gso_check()
+> 
+> Use vxlan_gso_check() to advertise offload support for this NIC.
+> 
+> Signed-off-by: Joe Stringer <joestringer@nicira.com>
+> ---
+> v2: Refactor out vxlan helper.
+> ---
+>  drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |    6 ++++++
+>  1 file changed, 6 insertions(+)
 
-	[ adding Hannes to Cc, which I should've done initially ]
+Acked-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
 
-David Miller <davem@davemloft.net> wrote:
+Thanks Joe.
 
->From: Jay Vosburgh <jay.vosburgh@canonical.com>
->Date: Thu, 13 Nov 2014 18:15:32 -0800
->
->> 	The "have feature" function, __intel_crc4_2_hash2, does not
->> clobber %r8, and so the call does not panic on a system with
->> X86_FEATURE_XMM4_2, although I'm not sure if that's a deliberate
->> compiler action or just happenstance because __intel_crc4_2_hash2 uses
->> fewer registers than __jhash2.
->
->Perhaps alternative calls can only be used with assembler routines
->that use specific calling conventions, and they therefore generally
->don't work with C functions?
-
-	I don't know the answer to that, but a quick search suggests
-that arch_fast_hash and arch_fast_hash2 (both added by commit e5a2c899)
-may be the only cases of alternative calls that aren't supplying either
-single instructions or assembly language functions.
-
-	From looking at how the alternative calls are implemented (code
-patching at boot or module load time from a table stored in a special
-section of the object file), I'm skeptical that the compiler could know
-what's the right thing to do.
-
-	Hannes, can you shed any light on this?
-
-	-J
-
----
-	-Jay Vosburgh, jay.vosburgh@canonical.com
+-Shahed
+> 
+> diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+> b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+> index f5e29f7..a913b3a 100644
+> --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+> +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+> @@ -503,6 +503,11 @@ static void qlcnic_del_vxlan_port(struct net_device
+> *netdev,
+> 
+>  	adapter->flags |= QLCNIC_DEL_VXLAN_PORT;  }
+> +
+> +static bool qlcnic_gso_check(struct sk_buff *skb, struct net_device
+> +*dev) {
+> +	return vxlan_gso_check(skb);
+> +}
+>  #endif
+> 
+>  static const struct net_device_ops qlcnic_netdev_ops = { @@ -526,6 +531,7
+> @@ static const struct net_device_ops qlcnic_netdev_ops = {  #ifdef
+> CONFIG_QLCNIC_VXLAN
+>  	.ndo_add_vxlan_port	= qlcnic_add_vxlan_port,
+>  	.ndo_del_vxlan_port	= qlcnic_del_vxlan_port,
+> +	.ndo_gso_check		= qlcnic_gso_check,
+>  #endif
+>  #ifdef CONFIG_NET_POLL_CONTROLLER
+>  	.ndo_poll_controller = qlcnic_poll_controller,
+> --
+> 1.7.10.4
