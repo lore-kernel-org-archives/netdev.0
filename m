@@ -1,67 +1,69 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next] net: introduce SO_INCOMING_CPU
-Date: Fri, 14 Nov 2014 11:33:34 -0800
-Message-ID: <1415993614.17262.55.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1415393472.13896.119.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAHO5Pa0OGtgbUp4R287jbK2SFSpVUoXWCJybvHTFsGyCLynqLg@mail.gmail.com>
-	 <CALCETrXmCWSoeQLC3WCqMf_sehGVE9KTbTGmsA77ZN84B-V24Q@mail.gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 1/1 net-next] net: dsa: replace count*size kmalloc by
+ kmalloc_array
+Date: Fri, 14 Nov 2014 11:42:11 -0800
+Message-ID: <1415994131.5912.25.camel@perches.com>
+References: <1415990202-28673-1-git-send-email-fabf@skynet.be>
+	 <1415990835.5912.20.camel@perches.com>
+	 <2104595537.56209.1415991758726.open-xchange@webmail.nmp.skynet.be>
+	 <1415992486.5912.23.camel@perches.com>
+	 <47990659.56515.1415993549555.open-xchange@webmail.nmp.skynet.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Ying Cai <ycai-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Neal Cardwell <ncardwell-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CALCETrXmCWSoeQLC3WCqMf_sehGVE9KTbTGmsA77ZN84B-V24Q-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Fabian Frederick <fabf@skynet.be>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <47990659.56515.1415993549555.open-xchange@webmail.nmp.skynet.be>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2014-11-14 at 09:17 -0800, Andy Lutomirski wrote:
+On Fri, 2014-11-14 at 20:32 +0100, Fabian Frederick wrote:
+> On 14 November 2014 at 20:14 Joe Perches <joe@perches.com> wrote:
+> > On Fri, 2014-11-14 at 20:02 +0100, Fabian Frederick wrote:
+> > > On 14 November 2014 at 19:47 Joe Perches <joe@perches.com> wrote:
+> > > > On Fri, 2014-11-14 at 19:36 +0100, Fabian Frederick wrote:
+> > > > > kmalloc_array manages count*sizeof overflow.
+> > > >
+> > > > Fundamentally correct, but is this necessary or useful?
+> > > > sizeof(s8) isn't often going to be anything other than 1.
+> > > Absolutely, I thought it was a struct :)
+> > >
+> > > There must be a reason for so many cases though ...
+> >
+> > Some might be style symmetry for other sizeof(othertype)
+> > uses in the same paths, but most of them are just overkill
+> > or maybe lack of understanding.
+> 95% comes from drivers tree. I guess one patch to Greg would be enough.
 
-> As a heavy user of RFS (and finder of bugs in it, too), here's my
-> question about this API:
-> 
-> How does an application tell whether the socket represents a
-> non-actively-steered flow?  If the flow is subject to RFS, then moving
-> the application handling to the socket's CPU seems problematic, as the
-> socket's CPU might move as well.  The current implementation in this
-> patch seems to tell me which CPU the most recent packet came in on,
-> which is not necessarily very useful.
+I think it'd be better to send patches through the
+appropriate various maintainers
 
-Its the cpu that hit the TCP stack, bringing dozens of cache lines in
-its cache. This is all that matters,
+Likely just using the 2nd level directory would be
+good enough
 
-> 
-> Some possibilities:
-> 
-> 1. Let SO_INCOMING_CPU fail if RFS or RPS are in play.
+$ git grep -E --name-only "\*\s*sizeof\s*\(\s*[us]8\s*\)" | \
+  cut -f1-2 -d"/" | uniq
+arch/arm
+drivers/acpi
+drivers/char
+drivers/gpu
+drivers/iio
+drivers/infiniband
+drivers/input
+drivers/md
+drivers/media
+drivers/mtd
+drivers/net
+drivers/power
+drivers/rtc
+drivers/thermal
+fs/compat_ioctl.c
+net/dsa
 
-Well, idea is to not use RFS at all. Otherwise, it is useless.
+> Are you interested in those patches or can I do them with some "Suggested-by" ?
 
-RFS is the other way around : You want the flow to follow your thread.
+Not really and no need.
 
-RPS wont be a problem if you have sensible RPS settings.
-
-> 
-> 2. Change the interface a bit to report the socket's preferred CPU
-> (where it would go without RFS, for example) and then let the
-> application use setsockopt to tell the socket to stay put (i.e. turn
-> off RFS and RPS for that flow).
-> 
-> 3. Report the preferred CPU as in (2) but let the application ask for
-> something different.
-> 
-> For example, I have flows for which I know which CPU I want.  A nice
-> API to put the flow there would be quite useful.
-> 
-> 
-> Also, it may be worth changing the naming to indicate that these are
-> about the rx cpu (they are, right?).  For some applications (sparse,
-> low-latency flows, for example), it can be useful to keep the tx
-> completion handling on a different CPU.
-
-SO_INCOMING_CPU is rx, like incoming ;)
+cheers, Joe
