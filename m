@@ -1,55 +1,43 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH v2 net-next 1/7] bpf: add 'flags' attribute to
- BPF_MAP_UPDATE_ELEM command
-Date: Fri, 14 Nov 2014 17:06:43 +0100
-Message-ID: <1415981203.15154.45.camel@localhost>
-References: <1415929010-9361-1-git-send-email-ast@plumgrid.com>
-	 <1415929010-9361-2-git-send-email-ast@plumgrid.com>
-	 <1415967071.15154.9.camel@localhost>
-	 <CAMEtUux2vuN3iNaAsxybyFwzfMRVe1+BOW-JvnvYYh+=-vpELw@mail.gmail.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH net-next] icmp: Remove some spurious dropped packet profile
+ hits from the ICMP path
+Date: Fri, 14 Nov 2014 08:16:57 -0800
+Message-ID: <54662AF9.4050002@hp.com>
+References: <20141113225457.A3E502900805@tardy> <1415931471.17262.27.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Ingo Molnar <mingo@kernel.org>,
-	Andy Lutomirski <luto@amacapital.net>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Linux API <linux-api@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAMEtUux2vuN3iNaAsxybyFwzfMRVe1+BOW-JvnvYYh+=-vpELw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Rick Jones <raj@tardy.usa.hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g2t1383g.austin.hp.com ([15.217.136.92]:21692 "EHLO
+	g2t1383g.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161009AbaKNQRA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Nov 2014 11:17:00 -0500
+Received: from g5t1626.atlanta.hp.com (g5t1626.atlanta.hp.com [15.192.137.9])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by g2t1383g.austin.hp.com (Postfix) with ESMTPS id 195FA3EF5
+	for <netdev@vger.kernel.org>; Fri, 14 Nov 2014 16:17:00 +0000 (UTC)
+In-Reply-To: <1415931471.17262.27.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fr, 2014-11-14 at 07:33 -0800, Alexei Starovoitov wrote:
-> On Fri, Nov 14, 2014 at 4:11 AM, Hannes Frederic Sowa
-> <hannes@stressinduktion.org> wrote:
-> > On Do, 2014-11-13 at 17:36 -0800, Alexei Starovoitov wrote:
-> >> the current meaning of BPF_MAP_UPDATE_ELEM syscall command is:
-> >> either update existing map element or create a new one.
-> >> Initially the plan was to add a new command to handle the case of
-> >> 'create new element if it didn't exist', but 'flags' style looks
-> >> cleaner and overall diff is much smaller (more code reused), so add 'flags'
-> >> attribute to BPF_MAP_UPDATE_ELEM command with the following meaning:
-> >>  #define BPF_ANY      0 /* create new element or update existing */
-> >>  #define BPF_NOEXIST  1 /* create new element if it didn't exist */
-> >>  #define BPF_EXIST    2 /* update existing element */
-> >
-> > Would a cmpxchg-alike function be handy here?
-> 
-> you mean cmpxchg command in addition to
-> update() command ?
-> May be... it will have an extra 'value' argument
-> (key, old_value, new_value)
-> I don't have a use case for it yet though.
+>
+> This looks quite complicated to me.
+>
+> Why are you adding kfree_skb() everywhere instead of :
+>
+> 	bool to_consume = icmp_pointers[icmph->type].handler(skb);
+> 	if (ro_consume)
+> 		consume_skb(skb);
+> 	else
+> 		kfree_skb(skb);
 
-I don't neither. ;)
+I thought the point of the drop profiling was to show where the drops 
+were happening.  Leaving the kfree_skb() up in icmp_rcv() does not 
+improve showing where the drops happened.  That is why I've pushed it 
+down into the routines called by icmp_rcv().
 
-I just wanted to bring this up before user space api might get public
-and the additional argument might make problems.
-
-Bye,
-Hannes
+rick
