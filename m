@@ -1,73 +1,44 @@
-From: =?utf-8?B?U8O2cmVu?= Brinkmann <soren.brinkmann@xilinx.com>
-Subject: Re: [PATCH v2] can: Fix bug in suspend/resume
-Date: Fri, 14 Nov 2014 07:20:23 -0800
-Message-ID: <8d29d376aa02429dabd754b505fb336d@BN1BFFO11FD041.protection.gbl>
-References: <e7070431858e49e29cd03d76fd7a66c3@BN1AFFO11FD055.protection.gbl>
- <5465C34D.4030805@pengutronix.de>
- <e5f5913b51a54222aa1bb0680a77e56d@BN1AFFO11FD055.protection.gbl>
- <54661B2F.2000704@pengutronix.de>
+From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH v2 net-next 1/7] bpf: add 'flags' attribute to
+ BPF_MAP_UPDATE_ELEM command
+Date: Fri, 14 Nov 2014 07:33:00 -0800
+Message-ID: <CAMEtUux2vuN3iNaAsxybyFwzfMRVe1+BOW-JvnvYYh+=-vpELw@mail.gmail.com>
+References: <1415929010-9361-1-git-send-email-ast@plumgrid.com>
+	<1415929010-9361-2-git-send-email-ast@plumgrid.com>
+	<1415967071.15154.9.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Kedareswara rao Appana <appana.durga.rao@xilinx.com>,
-	<wg@grandegger.com>, <michal.simek@xilinx.com>,
-	<grant.likely@linaro.org>, <robh+dt@kernel.org>,
-	<linux-can@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>,
-	<linux-kernel@vger.kernel.org>, <devicetree@vger.kernel.org>,
-	Kedareswara rao Appana <appanad@xilinx.com>
-To: Marc Kleine-Budde <mkl@pengutronix.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <54661B2F.2000704@pengutronix.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+	Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1415967071.15154.9.camel@localhost>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2014-11-14 at 04:09PM +0100, Marc Kleine-Budde wrote:
-> On 11/14/2014 04:05 PM, S=C3=B6ren Brinkmann wrote:
-> > On Fri, 2014-11-14 at 09:54AM +0100, Marc Kleine-Budde wrote:
-> >> On 11/14/2014 09:16 AM, Kedareswara rao Appana wrote:
-> >>> The drvdata in the suspend/resume is of type struct net_device,
-> >>> not the platform device.Enable the clocks in the suspend before
-> >>> accessing the registers of the CAN.
-> >>>
-> >>> Signed-off-by: Kedareswara rao Appana <appanad@xilinx.com>
-> >>> ---
-> >>> Changes for v2:
-> >>>   - Removed the struct platform_device* from suspend/resume
-> >>>     as suggest by Lothar.
-> >>>   - The clocks are getting disabled and un prepared at the end of=
- the probe.=20
-> >>>     In the suspend the driver is doing a register write.In order
-> >>>     To do that register write we have to again enable and prepare=
- the clocks.
-> >>
-> >> Please look the at suspend/resume code and count the
-> >> clock_enable/disable manually. After a suspend/resume cycle, you h=
-ave
-> >> enabled the clock twice, but disabled it once.
-> >>
-> >> I think you have to abstract the clock handling behind runtime PM.=
- I
-> >> haven't done this myself yet, but the strong feeling that this is =
-a
-> >> possible solution to your problem. These links might help:
-> >=20
-> > I agree, the clock handling looks weird. Also the clk_disable calls=
- in
-> > xcan_get_berr_counter() look suspicious to me, but I might be wrong=
-=2E
-> > I think you can take a look at gpio-zynq for an example for runtime=
-_pm
-> > usage. I think the usage model in that driver is similar to here.
->=20
-> The xcan_get_berr_counter() function is correct, when doing manual (i=
-=2Ee.
-> non runtime-pm) clock handling. This function might be called if the
-> interface is down, this means clocks are disabled.
+On Fri, Nov 14, 2014 at 4:11 AM, Hannes Frederic Sowa
+<hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org> wrote:
+> On Do, 2014-11-13 at 17:36 -0800, Alexei Starovoitov wrote:
+>> the current meaning of BPF_MAP_UPDATE_ELEM syscall command is:
+>> either update existing map element or create a new one.
+>> Initially the plan was to add a new command to handle the case of
+>> 'create new element if it didn't exist', but 'flags' style looks
+>> cleaner and overall diff is much smaller (more code reused), so add 'flags'
+>> attribute to BPF_MAP_UPDATE_ELEM command with the following meaning:
+>>  #define BPF_ANY      0 /* create new element or update existing */
+>>  #define BPF_NOEXIST  1 /* create new element if it didn't exist */
+>>  #define BPF_EXIST    2 /* update existing element */
+>
+> Would a cmpxchg-alike function be handy here?
 
-I see, thanks for the clarification. Guess that should become
-pm_runtime_get_sync() and pm_runtime_put() when converting to
-runtime_pm.
-
-	S=C3=B6ren
+you mean cmpxchg command in addition to
+update() command ?
+May be... it will have an extra 'value' argument
+(key, old_value, new_value)
+I don't have a use case for it yet though.
