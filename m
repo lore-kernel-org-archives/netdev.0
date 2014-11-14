@@ -1,118 +1,134 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH v4 3/8] net: can: c_can: Add RAMINIT register information
- to driver data
-Date: Fri, 14 Nov 2014 18:55:30 +0100
-Message-ID: <54664212.8080206@pengutronix.de>
-References: <1415371762-29885-1-git-send-email-rogerq@ti.com> <1415371762-29885-4-git-send-email-rogerq@ti.com>
+From: Jay Vosburgh <jay.vosburgh@canonical.com>
+Subject: Re: [PATCH net-next v3] fast_hash: clobber registers correctly for inline function use
+Date: Fri, 14 Nov 2014 09:57:27 -0800
+Message-ID: <15618.1415987847@famine>
+References: <1415976656.17262.41.camel@edumazet-glaptop2.roam.corp.google.com> <6751d6af4301f283134a419385f65dfcf92a44ab.1415978153.git.hannes@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="ub8ulLvilUfPbnqmGk77AvWG8K6NX3WWp"
-Cc: wsa@the-dreams.de, tony@atomide.com, tglx@linutronix.de,
-	mugunthanvnm@ti.com, george.cherian@ti.com, balbi@ti.com,
-	nsekhar@ti.com, nm@ti.com, sergei.shtylyov@cogentembedded.com,
-	linux-omap@vger.kernel.org, linux-can@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Roger Quadros <rogerq@ti.com>, wg@grandegger.com
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <1415371762-29885-4-git-send-email-rogerq@ti.com>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com, pshelar@nicira.com,
+	jesse@nicira.com, discuss@openvswitch.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from youngberry.canonical.com ([91.189.89.112]:50328 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161632AbaKNR5f convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Nov 2014 12:57:35 -0500
+In-reply-to: <6751d6af4301f283134a419385f65dfcf92a44ab.1415978153.git.hannes@stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---ub8ulLvilUfPbnqmGk77AvWG8K6NX3WWp
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
 
-On 11/07/2014 03:49 PM, Roger Quadros wrote:
-> Some platforms (e.g. TI) need special RAMINIT register handling.
-> Provide a way to store RAMINIT register description in driver data.
+>In case the arch_fast_hash call gets inlined we need to tell gcc which
+>registers are clobbered with. rhashtable was fine, because it used
+>arch_fast_hash via function pointer and thus the compiler took care of
+>that. In case of openvswitch the call got inlined and arch_fast_hash
+>touched registeres which gcc didn't know about.
+>
+>Also don't use conditional compilation inside arguments, as this confu=
+ses
+>sparse.
+>
+>Fixes: e5a2c899957659c ("fast_hash: avoid indirect function calls")
+>Reported-by: Jay Vosburgh <jay.vosburgh@canonical.com>
+>Cc: Pravin Shelar <pshelar@nicira.com>
+>Cc: Jesse Gross <jesse@nicira.com>
+>Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+>---
+>
+>
+>v2)
+>After studying gcc documentation again, it occured to me that I need t=
+o
+>specificy all input operands in the clobber section, too. Otherwise gc=
+c
+>can expect that the inline assembler section won't modify the inputs,
+>which is not true.
+>
+>v3)
+>added Fixes tag
+
+	This patch does not compile for me when applied to today's
+net-next:
+
+  CC [M]  fs/nfsd/nfs4state.o
+In file included from ./arch/x86/include/asm/bitops.h:16:0,
+                 from include/linux/bitops.h:33,
+                 from include/linux/kernel.h:10,
+                 from include/linux/list.h:8,
+                 from include/linux/wait.h:6,
+                 from include/linux/fs.h:6,
+                 from fs/nfsd/nfs4state.c:36:
+fs/nfsd/nfs4state.c: In function =E2=80=98nfsd4_cb_recall_prepare=E2=80=
+=99:
+=2E/arch/x86/include/asm/alternative.h:185:2: error: =E2=80=98asm=E2=80=
+=99 operand has impossible constraints
+  asm volatile (ALTERNATIVE("call %P[old]", "call %P[new]", feature) \
+  ^
+=2E/arch/x86/include/asm/hash.h:27:2: note: in expansion of macro =E2=80=
+=98alternative_call=E2=80=99
+  alternative_call(__jhash, __intel_crc4_2_hash, X86_FEATURE_XMM4_2,
+  ^
+make[2]: *** [fs/nfsd/nfs4state.o] Error 1
+make[1]: *** [fs/nfsd] Error 2
+make: *** [fs] Error 2
+
+	-J
+
+
+>Bye,
+>Hannes
+>
+> arch/x86/include/asm/hash.h | 20 ++++++++++++++------
+> 1 file changed, 14 insertions(+), 6 deletions(-)
+>
+>diff --git a/arch/x86/include/asm/hash.h b/arch/x86/include/asm/hash.h
+>index a881d78..a25c45a 100644
+>--- a/arch/x86/include/asm/hash.h
+>+++ b/arch/x86/include/asm/hash.h
+>@@ -23,11 +23,15 @@ static inline u32 arch_fast_hash(const void *data,=
+ u32 len, u32 seed)
+> {
+> 	u32 hash;
 >=20
-> Signed-off-by: Roger Quadros <rogerq@ti.com>
-> ---
->  drivers/net/can/c_can/c_can.h          | 6 ++++++
->  drivers/net/can/c_can/c_can_platform.c | 1 +
->  2 files changed, 7 insertions(+)
+>-	alternative_call(__jhash, __intel_crc4_2_hash, X86_FEATURE_XMM4_2,
+> #ifdef CONFIG_X86_64
+>-			 "=3Da" (hash), "D" (data), "S" (len), "d" (seed));
+>+	alternative_call(__jhash, __intel_crc4_2_hash, X86_FEATURE_XMM4_2,
+>+			 "=3Da" (hash), "D" (data), "S" (len), "d" (seed)
+>+			 : "rdi", "rsi", "rdx", "rcx", "r8", "r9", "r10", "r11",
+>+			   "cc", "memory");
+> #else
+>-			 "=3Da" (hash), "a" (data), "d" (len), "c" (seed));
+>+	alternative_call(__jhash, __intel_crc4_2_hash, X86_FEATURE_XMM4_2,
+>+			 "=3Da" (hash), "a" (data), "d" (len), "c" (seed)
+>+			 : "edx", "ecx", "cc", "memory");
+> #endif
+> 	return hash;
+> }
+>@@ -36,11 +40,15 @@ static inline u32 arch_fast_hash2(const u32 *data,=
+ u32 len, u32 seed)
+> {
+> 	u32 hash;
 >=20
-> diff --git a/drivers/net/can/c_can/c_can.h b/drivers/net/can/c_can/c_ca=
-n.h
-> index 26c975d..3c305a1 100644
-> --- a/drivers/net/can/c_can/c_can.h
-> +++ b/drivers/net/can/c_can/c_can.h
-> @@ -171,6 +171,12 @@ enum c_can_dev_id {
-> =20
->  struct c_can_driver_data {
->  	enum c_can_dev_id id;
-> +
-> +	/* RAMINIT register description. Optional. */
-> +	u8 num_can;		/* Number of CAN instances on the SoC */
-> +	u8 *raminit_start_bits;	/* Array of START bit positions */
-> +	u8 *raminit_done_bits;	/* Array of DONE bit positions */
+>-	alternative_call(__jhash2, __intel_crc4_2_hash2, X86_FEATURE_XMM4_2,
+> #ifdef CONFIG_X86_64
+>-			 "=3Da" (hash), "D" (data), "S" (len), "d" (seed));
+>+	alternative_call(__jhash2, __intel_crc4_2_hash2, X86_FEATURE_XMM4_2,
+>+			 "=3Da" (hash), "D" (data), "S" (len), "d" (seed)
+>+			 : "rdi", "rsi", "rdx", "rcx", "r8", "r9", "r10", "r11",
+>+			   "cc", "memory");
+> #else
+>-			 "=3Da" (hash), "a" (data), "d" (len), "c" (seed));
+>+	alternative_call(__jhash2, __intel_crc4_2_hash2, X86_FEATURE_XMM4_2,
+>+			 "=3Da" (hash), "a" (data), "d" (len), "c" (seed)
+>+			 : "edx", "ecx", "cc", "memory");
+> #endif
+> 	return hash;
+> }
+>--=20
+>1.9.3
 
-What do you think about making this a struct:
-
-+struct raminit_bits {
-+       u8 start;
-+       u8 done;
-+};
-
- struct c_can_driver_data {
-        enum c_can_dev_id id;
-+
-+       /* RAMINIT register description. Optional. */
-+       const struct raminit_bits *raminit_bits; /* Array of START/DONE b=
-it positions */
-+       u8 raminit_num;         /* Number of CAN instances on the SoC */
-+       bool raminit_pulse;     /* If set, sets and clears START bit (pul=
-se) */
- };
-
-The driver data looks like this:
-
-+static const struct raminit_bits dra7_raminit_bits[] =3D {
-+       [0] =3D { .start =3D 3, .done =3D 1, },
-+       [1] =3D { .start =3D 5, .done =3D 2, },
-+};
-+
-+static const struct c_can_driver_data dra7_dcan_drvdata =3D {
-+       .id =3D BOSCH_D_CAN,
-+       .raminit_num =3D ARRAY_SIZE(dra7_raminit_bits),
-+       .raminit_bits =3D dra7_raminit_bits,
-+       .raminit_pulse =3D true,
-+};
-
-I'll send an updated series.
-
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---ub8ulLvilUfPbnqmGk77AvWG8K6NX3WWp
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJUZkISAAoJECte4hHFiupUeZoQAJIc5VIEoRwFAkPnG9wdV5Pw
-X2ccOjItaQzTfE07WuyLjNhparwtLKJ6IfU1VRpDAgoUbeqq3UZHoK/X/kPCBUiH
-mFKAGrY6z8tPiXPJ7hEmQMuX/tREqWc7iV1LaMUATd6zhQZbmUyDZWluGuos+vsS
-l23rxv7gVRMadw4AjXgxvAc5hwabxti0hFEGZtsHT6YZgLrT3bd4ahZBn1R4hgds
-U9+owpMB52H7RgR7NpJ1lanOqGI99USZU+Jjn1Neloe3/RHZyXEvxDU6rVy6Cu64
-2qTt9IXOgfZ02htATS4v4bGDSbG9K/ZBTs7elQlUWI5YooYxLEyOxud/hv0yOoHu
-2ucGIzEgG0b7lnQ9fKbyTQ/jF7jKcHZV29kh7xNrJMvTwPc0MfbUIvIbXBYIwgd3
-asnLbYTdfaFNORVuQVwGDbgHUuDLG5bxiXHMqtPw/3E8hqLUiqgpnYM6IKSAsd71
-bl961PWfOTp1viwA39gfUT59n9SLAuPdLGf5CgrBpRa1hI6Lel8MVxcDFeLMJ9lm
-tvXU/u3an3qq2UwexPGPF/yPJNMeFkbQ7xP5UiBm6jeNi+sh15z2QJdvyZPru9bI
-xCcpfbhIzXx2FaaJk6ly6NdeDNaJW7CVx7b0XstOAlV/BMkltuemGKJV0T5arqij
-OC3n5HflP25rvSvlqySw
-=aVHL
------END PGP SIGNATURE-----
-
---ub8ulLvilUfPbnqmGk77AvWG8K6NX3WWp--
+---
+	-Jay Vosburgh, jay.vosburgh@canonical.com
