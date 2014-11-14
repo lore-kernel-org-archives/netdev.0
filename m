@@ -1,38 +1,79 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: Re: [PATCH Iproute2 next] ip link: Add ipvlan support to the
- iproute2/ip util
-Date: Fri, 14 Nov 2014 11:09:59 +0100
-Message-ID: <20141114100959.GA19965@unicorn.suse.cz>
-References: <1415948212-28927-1-git-send-email-maheshb@google.com>
+From: Will Deacon <will.deacon@arm.com>
+Subject: Re: [PATCH 1/3] arch: Introduce load_acquire() and store_release()
+Date: Fri, 14 Nov 2014 10:19:02 +0000
+Message-ID: <20141114101902.GA27963@arm.com>
+References: <20141113191250.12579.19694.stgit@ahduyck-server>
+ <20141113192723.12579.25343.stgit@ahduyck-server>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Maciej Zenczykowski <maze@google.com>,
-	Laurent Chavey <chavey@google.com>,
-	Tim Hockin <thockin@google.com>,
-	David Miller <davem@davemloft.net>,
-	Brandon Philips <brandon.philips@coreos.com>,
-	Pavel Emelianov <xemul@parallels.com>
-To: Mahesh Bandewar <maheshb@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:56454 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754899AbaKNKKD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Nov 2014 05:10:03 -0500
+Cc: "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"mikey@neuling.org" <mikey@neuling.org>,
+	"tony.luck@intel.com" <tony.luck@intel.com>,
+	"mathieu.desnoyers@polymtl.ca" <mathieu.desnoyers@polymtl.ca>,
+	"donald.c.skidmore@intel.com" <donald.c.skidmore@intel.com>,
+	"peterz@infradead.org" <peterz@infradead.org>,
+	"benh@kernel.crashing.org" <benh@kernel.crashing.org>,
+	"heiko.carstens@de.ibm.com" <heiko.carstens@de.ibm.com>,
+	"oleg@redhat.com" <oleg@redhat.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"michael@ellerman.id.au" <michael@ellerman.id.au>,
+	"matthew.vick@intel.com" <matthew.vick@intel.com>,
+	"nic_swsd@realtek.com" <nic_swsd@realtek.com>,
+	"geert@linux-m68k.org" <geert@linux-m68k.org>,
+	"jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
+To: Alexander Duyck <alexander.h.duyck@redhat.com>
+Return-path: <linux-arch-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1415948212-28927-1-git-send-email-maheshb@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20141113192723.12579.25343.stgit@ahduyck-server>
+Sender: linux-arch-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 13, 2014 at 10:56:51PM -0800, Mahesh Bandewar wrote:
-> Adding basic support to create virtual devices using 'ip'
-> utility. Following is the syntax -
+Hi Alex,
+
+On Thu, Nov 13, 2014 at 07:27:23PM +0000, Alexander Duyck wrote:
+> It is common for device drivers to make use of acquire/release semantics
+> when dealing with descriptors stored in device memory.  On reviewing the
+> documentation and code for smp_load_acquire() and smp_store_release() as
+> well as reviewing an IBM website that goes over the use of PowerPC barriers
+> at http://www.ibm.com/developerworks/systems/articles/powerpc.html it
+> occurred to me that the same code could likely be applied to device drivers.
 > 
-> 	ip link add link <master> <virtual> mode [ l2 | l3 ]
-> 	e.g. ip link add link eth0 ipvl0 mode l3
+> As a result this patch introduces load_acquire() and store_release().  The
+> load_acquire() function can be used in the place of situations where a test
+> for ownership must be followed by a memory barrier.  The below example is
+> from ixgbe:
+> 
+>         if (!rx_desc->wb.upper.status_error)
+>                 break;
+> 
+>         /* This memory barrier is needed to keep us from reading
+>          * any other fields out of the rx_desc until we know the
+>          * descriptor has been written back
+>          */
+>         rmb();
+> 
+> With load_acquire() this can be changed to:
+> 
+>         if (!load_acquire(&rx_desc->wb.upper.status_error))
+>                 break;
 
-I suppose "type ipvlan" is missing on both lines.
+I still don't think this is a good idea for the specific use-case you're
+highlighting.
 
-Michal Kubecek
+On ARM, an mb() can be *significantly* more expensive than an rmb() (since
+we may have to drain store buffers on an outer L2 cache) and on arm64 it's
+not at all clear that an LDAR is more efficient than an LDR; DMB LD
+sequence. I can certainly imagine implementations where the latter would
+be preferred.
+
+So, whilst I'm perfectly fine to go along with mandatory acquire/release
+macros (we should probably add a check to barf on __iomem pointers), I
+don't agree with using them in preference to finer-grained read/write
+barriers. Doing so will have a real impact on I/O performance.
+
+Finally, do you know of any architectures where load_acquire/store_release
+aren't implemented the same way as the smp_* variants on SMP kernels?
+
+Will
