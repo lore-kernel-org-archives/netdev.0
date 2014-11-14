@@ -1,31 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ixgbe: Look up MAC address in Open Firmware
-Date: Fri, 14 Nov 2014 16:25:14 -0500 (EST)
-Message-ID: <20141114.162514.65504859624082054.davem@davemloft.net>
-References: <yq1r3x5vbh9.fsf@sermon.lab.mkp.net>
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: Re: [PATCH Iproute2 next] ip link: Add ipvlan support to the
+ iproute2/ip util
+Date: Fri, 14 Nov 2014 13:25:32 -0800
+Message-ID: <CAF2d9jhGrGxr4YmH3vOXHV_xQpu+_JyRfbDmDVFiLsp5LV5wYg@mail.gmail.com>
+References: <1415948212-28927-1-git-send-email-maheshb@google.com> <20141114100959.GA19965@unicorn.suse.cz>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux.nics@intel.com
-To: martin.petersen@oracle.com
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev <netdev@vger.kernel.org>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Maciej Zenczykowski <maze@google.com>,
+	Laurent Chavey <chavey@google.com>,
+	Tim Hockin <thockin@google.com>,
+	David Miller <davem@davemloft.net>,
+	Brandon Philips <brandon.philips@coreos.com>,
+	Pavel Emelianov <xemul@parallels.com>
+To: Michal Kubecek <mkubecek@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44982 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161796AbaKNVZT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Nov 2014 16:25:19 -0500
-In-Reply-To: <yq1r3x5vbh9.fsf@sermon.lab.mkp.net>
+Received: from mail-vc0-f174.google.com ([209.85.220.174]:50778 "EHLO
+	mail-vc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161796AbaKNVZx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Nov 2014 16:25:53 -0500
+Received: by mail-vc0-f174.google.com with SMTP id la4so5492981vcb.33
+        for <netdev@vger.kernel.org>; Fri, 14 Nov 2014 13:25:52 -0800 (PST)
+In-Reply-To: <20141114100959.GA19965@unicorn.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Martin K. Petersen" <martin.petersen@oracle.com>
-Date: Fri, 14 Nov 2014 14:16:50 -0500
+On Fri, Nov 14, 2014 at 2:09 AM, Michal Kubecek <mkubecek@suse.cz> wrote:
+> On Thu, Nov 13, 2014 at 10:56:51PM -0800, Mahesh Bandewar wrote:
+>> Adding basic support to create virtual devices using 'ip'
+>> utility. Following is the syntax -
+>>
+>>       ip link add link <master> <virtual> mode [ l2 | l3 ]
+>>       e.g. ip link add link eth0 ipvl0 mode l3
+>
+> I suppose "type ipvlan" is missing on both lines.
+>
+yes it does, damn!
 
-> +#ifdef CONFIG_OF
-> +#include <asm/idprom.h>
-> +#include <asm/prom.h>
-> +#endif
-
-CONFIG_OF doesn't imply the presence of idprom.
-
-idprom is completely sparc/m68k specific, whereas OF exists on many
-platforms other than sparc/m68k.
+> Michal Kubecek
+>
