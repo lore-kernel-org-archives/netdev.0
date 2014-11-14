@@ -1,7 +1,7 @@
 From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH v2 net-next 3/7] bpf: add array type of eBPF maps
-Date: Thu, 13 Nov 2014 17:36:46 -0800
-Message-ID: <1415929010-9361-4-git-send-email-ast@plumgrid.com>
+Subject: [PATCH v2 net-next 2/7] bpf: add hashtable type of eBPF maps
+Date: Thu, 13 Nov 2014 17:36:45 -0800
+Message-ID: <1415929010-9361-3-git-send-email-ast@plumgrid.com>
 References: <1415929010-9361-1-git-send-email-ast@plumgrid.com>
 Cc: Ingo Molnar <mingo@kernel.org>,
 	Andy Lutomirski <luto@amacapital.net>,
@@ -15,120 +15,68 @@ In-Reply-To: <1415929010-9361-1-git-send-email-ast@plumgrid.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-add new map type BPF_MAP_TYPE_ARRAY and its implementation
+add new map type BPF_MAP_TYPE_HASH and its implementation
 
-- optimized for fastest possible lookup()
-  . in the future verifier/JIT may recognize lookup() with constant key
-    and optimize it into constant pointer. Can optimize non-constant
-    key into direct pointer arithmetic as well, since pointers and
-    value_size are constant for the life of the eBPF program.
-    In other words array_map_lookup_elem() may be 'inlined' by verifier/JIT
-    while preserving concurrent access to this map from user space
+- maps are created/destroyed by userspace. Both userspace and eBPF programs
+  can lookup/update/delete elements from the map
 
-- two main use cases for array type:
-  . 'global' eBPF variables: array of 1 element with key=0 and value is a
-    collection of 'global' variables which programs can use to keep the state
-    between events
-  . aggregation of tracing events into fixed set of buckets
+- eBPF programs can be called in_irq(), so use spin_lock_irqsave() mechanism
+  for concurrent updates
 
-- all array elements pre-allocated and zero initialized at init time
+- key/value are opaque range of bytes (aligned to 8 bytes)
 
-- key as an index in array and can only be 4 byte
+- user space provides 3 configuration attributes via BPF syscall:
+  key_size, value_size, max_entries
 
-- map_delete_elem() returns EINVAL, since elements cannot be deleted
+- map takes care of allocating/freeing key/value pairs
 
-- map_update_elem() replaces elements in an non-atomic way
-  (for atomic updates hashtable type should be used instead)
+- map_update_elem() must fail to insert new element when max_entries
+  limit is reached to make sure that eBPF programs cannot exhaust memory
+
+- map_update_elem() replaces elements in an atomic way
+
+- optimized for speed of lookup() which can be called multiple times from
+  eBPF program which itself is triggered by high volume of events
+  . in the future JIT compiler may recognize lookup() call and optimize it
+    further, since key_size is constant for life of eBPF program
 
 Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
 ---
-
-Note, from eBPF program and from user space, all map types are accessed
-through the same API.
-
-Example of using array type for 'global' variables from eBPF program:
-struct globals {
-    u64 lat_ave;
-    u64 lat_sum;
-    u64 missed;
-    u64 max_lat;
-    int num_samples;
-};
-
-struct bpf_map_def SEC("maps") global_map = {
-    .type = BPF_MAP_TYPE_ARRAY,
-    .key_size = sizeof(int),
-    .value_size = sizeof(struct globals),
-    .max_entries = 1,
-};
-
-int bpf_prog(struct bpf_context *ctx)
-{
-    ...
-    int ind = 0;
-    struct globals *g = bpf_map_lookup_elem(&global_map, &ind);
-    if (!g)
-            return 0;
-    if (g->lat_ave == 0) {
-            g->num_samples++;
-            g->lat_sum += delta;
-            if (g->num_samples >= 100) {
-                    g->lat_ave = g->lat_sum / g->num_samples;
-    ...
-
-The future verifier/JIT optimization will replace bpf_map_lookup_elem()
-call inside eBPF program with const pointer to element value of key=0,
-so that eBPF program will have no penalty whatsoever to access such
-'global' variables.
-At the same time user space can access this 'globals' via common map API.
-
-Full example of both kernel and user side follows in later patches.
-
-The array map is like C array of structures. Nothing protects concurrent access.
-It's used in the cases where accuracy is not needed or when there is no
-concurrent access. To compute a histogram of events in tracing the array
-of integers is used. Every integer is a counter. Program increments it
-(may be without using xadd) and user space periodically reads it back.
-map_update_elem() is called by userspace once to initialize it if zero-init
-is not enough. Programs do lookup() and modify the values.
-For array type update() method is used rarely, delete() is never used and
-get_next() is needed for completeness to browse maps through common map API.
-
  include/uapi/linux/bpf.h |    1 +
  kernel/bpf/Makefile      |    2 +-
- kernel/bpf/arraymap.c    |  151 ++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 153 insertions(+), 1 deletion(-)
- create mode 100644 kernel/bpf/arraymap.c
+ kernel/bpf/hashtab.c     |  362 ++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 364 insertions(+), 1 deletion(-)
+ create mode 100644 kernel/bpf/hashtab.c
 
 diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index 03a01fd609aa..0d662fe75df5 100644
+index 3e9e1b77f29d..03a01fd609aa 100644
 --- a/include/uapi/linux/bpf.h
 +++ b/include/uapi/linux/bpf.h
-@@ -112,6 +112,7 @@ enum bpf_cmd {
+@@ -111,6 +111,7 @@ enum bpf_cmd {
+ 
  enum bpf_map_type {
  	BPF_MAP_TYPE_UNSPEC,
- 	BPF_MAP_TYPE_HASH,
-+	BPF_MAP_TYPE_ARRAY,
++	BPF_MAP_TYPE_HASH,
  };
  
  enum bpf_prog_type {
 diff --git a/kernel/bpf/Makefile b/kernel/bpf/Makefile
-index 2c0ec7f9da78..72ec98ba2d42 100644
+index 0daf7f6ae7df..2c0ec7f9da78 100644
 --- a/kernel/bpf/Makefile
 +++ b/kernel/bpf/Makefile
 @@ -1,5 +1,5 @@
  obj-y := core.o
--obj-$(CONFIG_BPF_SYSCALL) += syscall.o verifier.o hashtab.o
-+obj-$(CONFIG_BPF_SYSCALL) += syscall.o verifier.o hashtab.o arraymap.o
+-obj-$(CONFIG_BPF_SYSCALL) += syscall.o verifier.o
++obj-$(CONFIG_BPF_SYSCALL) += syscall.o verifier.o hashtab.o
  ifdef CONFIG_TEST_BPF
  obj-$(CONFIG_BPF_SYSCALL) += test_stub.o
  endif
-diff --git a/kernel/bpf/arraymap.c b/kernel/bpf/arraymap.c
+diff --git a/kernel/bpf/hashtab.c b/kernel/bpf/hashtab.c
 new file mode 100644
-index 000000000000..f4f6965f86cb
+index 000000000000..d234a012f046
 --- /dev/null
-+++ b/kernel/bpf/arraymap.c
-@@ -0,0 +1,151 @@
++++ b/kernel/bpf/hashtab.c
+@@ -0,0 +1,362 @@
 +/* Copyright (c) 2011-2014 PLUMgrid, http://plumgrid.com
 + *
 + * This program is free software; you can redistribute it and/or
@@ -141,144 +89,355 @@ index 000000000000..f4f6965f86cb
 + * General Public License for more details.
 + */
 +#include <linux/bpf.h>
-+#include <linux/err.h>
++#include <linux/jhash.h>
++#include <linux/filter.h>
 +#include <linux/vmalloc.h>
-+#include <linux/slab.h>
-+#include <linux/mm.h>
 +
-+struct bpf_array {
++struct bpf_htab {
 +	struct bpf_map map;
-+	u32 elem_size;
-+	char value[0] __aligned(8);
++	struct hlist_head *buckets;
++	spinlock_t lock;
++	u32 count;	/* number of elements in this hashtable */
++	u32 n_buckets;	/* number of hash buckets */
++	u32 elem_size;	/* size of each element in bytes */
++};
++
++/* each htab element is struct htab_elem + key + value */
++struct htab_elem {
++	struct hlist_node hash_node;
++	struct rcu_head rcu;
++	u32 hash;
++	char key[0] __aligned(8);
 +};
 +
 +/* Called from syscall */
-+static struct bpf_map *array_map_alloc(union bpf_attr *attr)
++static struct bpf_map *htab_map_alloc(union bpf_attr *attr)
 +{
-+	struct bpf_array *array;
-+	u32 elem_size;
++	struct bpf_htab *htab;
++	int err, i;
 +
-+	/* check sanity of attributes */
-+	if (attr->max_entries == 0 || attr->key_size != 4 ||
-+	    attr->value_size == 0)
-+		return ERR_PTR(-EINVAL);
++	htab = kzalloc(sizeof(*htab), GFP_USER);
++	if (!htab)
++		return ERR_PTR(-ENOMEM);
 +
-+	elem_size = round_up(attr->value_size, 8);
++	/* mandatory map attributes */
++	htab->map.key_size = attr->key_size;
++	htab->map.value_size = attr->value_size;
++	htab->map.max_entries = attr->max_entries;
 +
-+	/* allocate all map elements and zero-initialize them */
-+	array = kzalloc(sizeof(*array) + attr->max_entries * elem_size,
-+			GFP_USER | __GFP_NOWARN);
-+	if (!array) {
-+		array = vzalloc(array->map.max_entries * array->elem_size);
-+		if (!array)
-+			return ERR_PTR(-ENOMEM);
++	/* check sanity of attributes.
++	 * value_size == 0 may be allowed in the future to use map as a set
++	 */
++	err = -EINVAL;
++	if (htab->map.max_entries == 0 || htab->map.key_size == 0 ||
++	    htab->map.value_size == 0)
++		goto free_htab;
++
++	/* hash table size must be power of 2 */
++	htab->n_buckets = roundup_pow_of_two(htab->map.max_entries);
++
++	err = -E2BIG;
++	if (htab->map.key_size > MAX_BPF_STACK)
++		/* eBPF programs initialize keys on stack, so they cannot be
++		 * larger than max stack size
++		 */
++		goto free_htab;
++
++	err = -ENOMEM;
++	htab->buckets = kmalloc_array(htab->n_buckets, sizeof(struct hlist_head),
++				      GFP_USER | __GFP_NOWARN);
++
++	if (!htab->buckets) {
++		htab->buckets = vmalloc(htab->n_buckets * sizeof(struct hlist_head));
++		if (!htab->buckets)
++			goto free_htab;
 +	}
 +
-+	/* copy mandatory map attributes */
-+	array->map.key_size = attr->key_size;
-+	array->map.value_size = attr->value_size;
-+	array->map.max_entries = attr->max_entries;
++	for (i = 0; i < htab->n_buckets; i++)
++		INIT_HLIST_HEAD(&htab->buckets[i]);
 +
-+	array->elem_size = elem_size;
++	spin_lock_init(&htab->lock);
++	htab->count = 0;
 +
-+	return &array->map;
++	htab->elem_size = sizeof(struct htab_elem) +
++			  round_up(htab->map.key_size, 8) +
++			  htab->map.value_size;
++	return &htab->map;
 +
++free_htab:
++	kfree(htab);
++	return ERR_PTR(err);
++}
++
++static inline u32 htab_map_hash(const void *key, u32 key_len)
++{
++	return jhash(key, key_len, 0);
++}
++
++static inline struct hlist_head *select_bucket(struct bpf_htab *htab, u32 hash)
++{
++	return &htab->buckets[hash & (htab->n_buckets - 1)];
++}
++
++static struct htab_elem *lookup_elem_raw(struct hlist_head *head, u32 hash,
++					 void *key, u32 key_size)
++{
++	struct htab_elem *l;
++
++	hlist_for_each_entry_rcu(l, head, hash_node)
++		if (l->hash == hash && !memcmp(&l->key, key, key_size))
++			return l;
++
++	return NULL;
 +}
 +
 +/* Called from syscall or from eBPF program */
-+static void *array_map_lookup_elem(struct bpf_map *map, void *key)
++static void *htab_map_lookup_elem(struct bpf_map *map, void *key)
 +{
-+	struct bpf_array *array = container_of(map, struct bpf_array, map);
-+	u32 index = *(u32 *)key;
++	struct bpf_htab *htab = container_of(map, struct bpf_htab, map);
++	struct hlist_head *head;
++	struct htab_elem *l;
++	u32 hash, key_size;
 +
-+	if (index >= array->map.max_entries)
-+		return NULL;
++	/* Must be called with rcu_read_lock. */
++	WARN_ON_ONCE(!rcu_read_lock_held());
 +
-+	return array->value + array->elem_size * index;
++	key_size = map->key_size;
++
++	hash = htab_map_hash(key, key_size);
++
++	head = select_bucket(htab, hash);
++
++	l = lookup_elem_raw(head, hash, key, key_size);
++
++	if (l)
++		return l->key + round_up(map->key_size, 8);
++
++	return NULL;
 +}
 +
 +/* Called from syscall */
-+static int array_map_get_next_key(struct bpf_map *map, void *key, void *next_key)
++static int htab_map_get_next_key(struct bpf_map *map, void *key, void *next_key)
 +{
-+	struct bpf_array *array = container_of(map, struct bpf_array, map);
-+	u32 index = *(u32 *)key;
-+	u32 *next = (u32 *)next_key;
++	struct bpf_htab *htab = container_of(map, struct bpf_htab, map);
++	struct hlist_head *head;
++	struct htab_elem *l, *next_l;
++	u32 hash, key_size;
++	int i;
 +
-+	if (index >= array->map.max_entries) {
-+		*next = 0;
++	WARN_ON_ONCE(!rcu_read_lock_held());
++
++	key_size = map->key_size;
++
++	hash = htab_map_hash(key, key_size);
++
++	head = select_bucket(htab, hash);
++
++	/* lookup the key */
++	l = lookup_elem_raw(head, hash, key, key_size);
++
++	if (!l) {
++		i = 0;
++		goto find_first_elem;
++	}
++
++	/* key was found, get next key in the same bucket */
++	next_l = hlist_entry_safe(rcu_dereference_raw(hlist_next_rcu(&l->hash_node)),
++				  struct htab_elem, hash_node);
++
++	if (next_l) {
++		/* if next elem in this hash list is non-zero, just return it */
++		memcpy(next_key, next_l->key, key_size);
 +		return 0;
 +	}
 +
-+	if (index == array->map.max_entries - 1)
-+		return -ENOENT;
++	/* no more elements in this hash list, go to the next bucket */
++	i = hash & (htab->n_buckets - 1);
++	i++;
 +
-+	*next = index + 1;
-+	return 0;
++find_first_elem:
++	/* iterate over buckets */
++	for (; i < htab->n_buckets; i++) {
++		head = select_bucket(htab, i);
++
++		/* pick first element in the bucket */
++		next_l = hlist_entry_safe(rcu_dereference_raw(hlist_first_rcu(head)),
++					  struct htab_elem, hash_node);
++		if (next_l) {
++			/* if it's not empty, just return it */
++			memcpy(next_key, next_l->key, key_size);
++			return 0;
++		}
++	}
++
++	/* itereated over all buckets and all elements */
++	return -ENOENT;
 +}
 +
 +/* Called from syscall or from eBPF program */
-+static int array_map_update_elem(struct bpf_map *map, void *key, void *value,
-+				 u64 map_flags)
++static int htab_map_update_elem(struct bpf_map *map, void *key, void *value,
++				u64 map_flags)
 +{
-+	struct bpf_array *array = container_of(map, struct bpf_array, map);
-+	u32 index = *(u32 *)key;
++	struct bpf_htab *htab = container_of(map, struct bpf_htab, map);
++	struct htab_elem *l_new, *l_old;
++	struct hlist_head *head;
++	unsigned long flags;
++	u32 key_size;
++	int ret;
 +
 +	if (map_flags > BPF_EXIST)
 +		/* unknown flags */
 +		return -EINVAL;
 +
-+	if (index >= array->map.max_entries)
-+		/* all elements were pre-allocated, cannot insert a new one */
-+		return -E2BIG;
-+	
-+	if (map_flags == BPF_NOEXIST)
-+		/* all elemenets already exist */
-+		return -EEXIST;
++	WARN_ON_ONCE(!rcu_read_lock_held());
 +
-+	memcpy(array->value + array->elem_size * index, value, array->elem_size);
++	/* allocate new element outside of lock */
++	l_new = kmalloc(htab->elem_size, GFP_ATOMIC);
++	if (!l_new)
++		return -ENOMEM;
++
++	key_size = map->key_size;
++
++	memcpy(l_new->key, key, key_size);
++	memcpy(l_new->key + round_up(key_size, 8), value, map->value_size);
++
++	l_new->hash = htab_map_hash(l_new->key, key_size);
++
++	/* bpf_map_update_elem() can be called in_irq() */
++	spin_lock_irqsave(&htab->lock, flags);
++
++	head = select_bucket(htab, l_new->hash);
++
++	l_old = lookup_elem_raw(head, l_new->hash, key, key_size);
++
++	if (!l_old && unlikely(htab->count >= map->max_entries)) {
++		/* if elem with this 'key' doesn't exist and we've reached
++		 * max_entries limit, fail insertion of new elem
++		 */
++		ret = -E2BIG;
++		goto err;
++	}
++
++	if (l_old && map_flags == BPF_NOEXIST) {
++		/* elem already exists */
++		ret = -EEXIST;
++		goto err;
++	}
++
++	if (!l_old && map_flags == BPF_EXIST) {
++		/* elem doesn't exist, cannot update it */
++		ret = -ENOENT;
++		goto err;
++	}
++
++	/* add new element to the head of the list, so that concurrent
++	 * search will find it before old elem
++	 */
++	hlist_add_head_rcu(&l_new->hash_node, head);
++	if (l_old) {
++		hlist_del_rcu(&l_old->hash_node);
++		kfree_rcu(l_old, rcu);
++	} else {
++		htab->count++;
++	}
++	spin_unlock_irqrestore(&htab->lock, flags);
++
 +	return 0;
++err:
++	spin_unlock_irqrestore(&htab->lock, flags);
++	kfree(l_new);
++	return ret;
 +}
 +
 +/* Called from syscall or from eBPF program */
-+static int array_map_delete_elem(struct bpf_map *map, void *key)
++static int htab_map_delete_elem(struct bpf_map *map, void *key)
 +{
-+	return -EINVAL;
++	struct bpf_htab *htab = container_of(map, struct bpf_htab, map);
++	struct hlist_head *head;
++	struct htab_elem *l;
++	unsigned long flags;
++	u32 hash, key_size;
++	int ret = -ENOENT;
++
++	WARN_ON_ONCE(!rcu_read_lock_held());
++
++	key_size = map->key_size;
++
++	hash = htab_map_hash(key, key_size);
++
++	spin_lock_irqsave(&htab->lock, flags);
++
++	head = select_bucket(htab, hash);
++
++	l = lookup_elem_raw(head, hash, key, key_size);
++
++	if (l) {
++		hlist_del_rcu(&l->hash_node);
++		htab->count--;
++		kfree_rcu(l, rcu);
++		ret = 0;
++	}
++
++	spin_unlock_irqrestore(&htab->lock, flags);
++	return ret;
++}
++
++static void delete_all_elements(struct bpf_htab *htab)
++{
++	int i;
++
++	for (i = 0; i < htab->n_buckets; i++) {
++		struct hlist_head *head = select_bucket(htab, i);
++		struct hlist_node *n;
++		struct htab_elem *l;
++
++		hlist_for_each_entry_safe(l, n, head, hash_node) {
++			hlist_del_rcu(&l->hash_node);
++			htab->count--;
++			kfree(l);
++		}
++	}
 +}
 +
 +/* Called when map->refcnt goes to zero, either from workqueue or from syscall */
-+static void array_map_free(struct bpf_map *map)
++static void htab_map_free(struct bpf_map *map)
 +{
-+	struct bpf_array *array = container_of(map, struct bpf_array, map);
++	struct bpf_htab *htab = container_of(map, struct bpf_htab, map);
 +
 +	/* at this point bpf_prog->aux->refcnt == 0 and this map->refcnt == 0,
 +	 * so the programs (can be more than one that used this map) were
-+	 * disconnected from events. Wait for outstanding programs to complete
-+	 * and free the array
++	 * disconnected from events. Wait for outstanding critical sections in
++	 * these programs to complete
 +	 */
 +	synchronize_rcu();
 +
-+	kvfree(array);
++	/* some of kfree_rcu() callbacks for elements of this map may not have
++	 * executed. It's ok. Proceed to free residual elements and map itself
++	 */
++	delete_all_elements(htab);
++	kvfree(htab->buckets);
++	kfree(htab);
 +}
 +
-+static struct bpf_map_ops array_ops = {
-+	.map_alloc = array_map_alloc,
-+	.map_free = array_map_free,
-+	.map_get_next_key = array_map_get_next_key,
-+	.map_lookup_elem = array_map_lookup_elem,
-+	.map_update_elem = array_map_update_elem,
-+	.map_delete_elem = array_map_delete_elem,
++static struct bpf_map_ops htab_ops = {
++	.map_alloc = htab_map_alloc,
++	.map_free = htab_map_free,
++	.map_get_next_key = htab_map_get_next_key,
++	.map_lookup_elem = htab_map_lookup_elem,
++	.map_update_elem = htab_map_update_elem,
++	.map_delete_elem = htab_map_delete_elem,
 +};
 +
 +static struct bpf_map_type_list tl = {
-+	.ops = &array_ops,
-+	.type = BPF_MAP_TYPE_ARRAY,
++	.ops = &htab_ops,
++	.type = BPF_MAP_TYPE_HASH,
 +};
 +
-+static int __init register_array_map(void)
++static int __init register_htab_map(void)
 +{
 +	bpf_register_map_type(&tl);
 +	return 0;
 +}
-+late_initcall(register_array_map);
++late_initcall(register_htab_map);
 -- 
 1.7.9.5
