@@ -1,143 +1,80 @@
-From: Jeremiah Mahler <jmmahler@gmail.com>
-Subject: linux-next: ath9k: build failure, ath_cmn_process_fft() redefinition
-Date: Thu, 13 Nov 2014 16:07:47 -0800
-Message-ID: <20141114000747.GA6865@hudson.localdomain>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCHv2 net 2/2] fm10k: Implement ndo_gso_check()
+Date: Thu, 13 Nov 2014 16:12:39 -0800
+Message-ID: <1415923959.2454.44.camel@jtkirshe-mobl>
+References: <1415921801-10452-1-git-send-email-joestringer@nicira.com>
+	 <1415921801-10452-2-git-send-email-joestringer@nicira.com>
+	 <1415922116.2454.34.camel@jtkirshe-mobl> <20141113235219.GA35957@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jeremiah Mahler <jmmahler@gmail.com>, linux-kernel@vger.kernel.org,
-	ath9k-devel@qca.qualcomm.com, linville@tuxdriver.com,
-	linux-wireless@vger.kernel.org, ath9k-devel@lists.ath9k.org,
-	netdev@vger.kernel.org
-To: Oleksij Rempel <linux@rempel-privat.de>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-WW/k0d8CzdPP1tEpE+zI"
+Cc: Shannon Nelson <shannon.nelson@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org, matthew.vick@intel.com,
+	linux.nics@intel.com, therbert@google.com, gerlitz.or@gmail.com,
+	alexander.duyck@gmail.com, linux-kernel@vger.kernel.org
+To: Joe Stringer <joestringer@nicira.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
+In-Reply-To: <20141113235219.GA35957@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-In version 20141113 of the linux-next kernel, if it is compiled with
-CONFIG_ATH9K_DEBUGFS unset, an error about ath_cmn_process_fft() being
-redefined will be produced.
+--=-WW/k0d8CzdPP1tEpE+zI
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-  make
-  ...
-    LD [M]  drivers/net/wireless/ath/ath9k/ath9k_hw.o
-    CC [M]  drivers/net/wireless/ath/ath9k/common-spectral.o
-    CC      lib/debug_locks.o
-    CC      lib/random32.o
-  drivers/net/wireless/ath/ath9k/common-spectral.c:40:5: error:
-  redefinition of =E2=80=98ath_cmn_process_fft=E2=80=99
-   int ath_cmn_process_fft(struct ath_spec_scan_priv *spec_priv, struct
-  ieee80211_hdr *hdr,
-       ^
-  In file included from drivers/net/wireless/ath/ath9k/common.h:27:0,
-                   from drivers/net/wireless/ath/ath9k/ath9k.h:27,
-                   from
-  drivers/net/wireless/ath/ath9k/common-spectral.c:18:
-  drivers/net/wireless/ath/ath9k/common-spectral.h:146:19: note: previo=
-us
-  definition of =E2=80=98ath_cmn_process_fft=E2=80=99 was here
-   static inline int ath_cmn_process_fft(struct ath_spec_scan_priv
-  *spec_priv,
-                     ^
-  scripts/Makefile.build:257: recipe for target
-  'drivers/net/wireless/ath/ath9k/common-spectral.o' failed
-  make[5]: *** [drivers/net/wireless/ath/ath9k/common-spectral.o] Error=
- 1
-  scripts/Makefile.build:402: recipe for target
-  'drivers/net/wireless/ath/ath9k' failed
-  make[4]: *** [drivers/net/wireless/ath/ath9k] Error 2
-  scripts/Makefile.build:402: recipe for target 'drivers/net/wireless/a=
-th'
-  failed
-  make[3]: *** [drivers/net/wireless/ath] Error 2
-  scripts/Makefile.build:402: recipe for target 'drivers/net/wireless'
-  failed
-  make[2]: *** [drivers/net/wireless] Error 2
-  scripts/Makefile.build:402: recipe for target 'drivers/net' failed
-  make[1]: *** [drivers/net] Error 2
-  Makefile:953: recipe for target 'drivers' failed
-  make: *** [drivers] Error 2
-  make: *** Waiting for unfinished jobs....
-    CC      lib/bust_spinlocks.o
-  ...
+On Thu, 2014-11-13 at 15:52 -0800, Joe Stringer wrote:
+> On Thu, Nov 13, 2014 at 03:41:56PM -0800, Jeff Kirsher wrote:
+> > On Thu, 2014-11-13 at 15:36 -0800, Joe Stringer wrote:
+> > > ndo_gso_check() was recently introduced to allow NICs to report
+> the
+> > > offloading support that they have on a per-skb basis. Add an
+> > > implementation for this driver which checks for something that
+> looks
+> > > like VXLAN.
+> > >=20
+> > > Signed-off-by: Joe Stringer <joestringer@nicira.com>
+> > > ---
+> > > v2: Reuse fm10k_tx_encap_offload().
+> > > ---
+> > >  drivers/net/ethernet/intel/fm10k/fm10k.h        |    1 +
+> > >  drivers/net/ethernet/intel/fm10k/fm10k_main.c   |    2 +-
+> > >  drivers/net/ethernet/intel/fm10k/fm10k_netdev.c |    8 ++++++++
+> > >  3 files changed, 10 insertions(+), 1 deletion(-)
+> >=20
+> > Same with this one as well, thanks Joe.
+>=20
+> Thanks Jeff.
+>=20
+> Could you remind me, is the equivalent i40e patch on your queue or
+> were
+> we still waiting on further feedback from Shannon/Jesse?
 
-Bisecting the kernel found that the following patch was the cause.
+Actually, looks like I dropped the patch due to community feedback and
+was expecting a v2.  Was I incorrect in doing so?
 
-  commit 67dc74f15f147b9f88702de2952d2951e3e000ec
-  Author: Oleksij Rempel <linux@rempel-privat.de>
-  Date:   Thu Nov 6 08:53:30 2014 +0100
- =20
-      ath9k: move spectral.* to common-spectral.*
-     =20
-      and rename exports from ath9k_spectral_* to ath9k_cmn_spectral_*
-     =20
-      Signed-off-by: Oleksij Rempel <linux@rempel-privat.de>
-      Signed-off-by: John W. Linville <linville@tuxdriver.com>
+--=-WW/k0d8CzdPP1tEpE+zI
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
-This patch mostly consists of renaming functions and moving code but
-there was a functional change to the Makefile.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
 
-common-spectral.h uses CONFIG_ATH9K_DEBUGFS to conditionally provide a
-prototype of ath_cmn_process_fft() when set or to define it as a noop
-when it is unset.  The Makefile was changed so that CONFIG_ATH9K_DEBUGF=
-S
-no longer applied to common-spectral and this will result in two
-definitions of ath_cmn_process_fft().
+iQIcBAABCgAGBQJUZUj3AAoJEOVv75VaS+3ORHgP/0Unb9RBX7bIJWuGJPV9eKNp
+6DNoBxL6SQh8PkI39uXDIAKK9tTrJLZLAecw+8Xy/sq6ssFvLV6gZNVMMR7o0XsT
+JHezHXe/NhOiFr/vksqog4f04/3rNChYPVkuW/tz7VD/rN6+rNC3hkoDZ4EkBsn+
+2O0mDS6T4d9Qgb4jeAEYsC2qQU0Q3vGhOaBrFrzJRkiPfLEpIfvZAjeusXaGdedS
+rzBa6X1SF0WFl9fdJjFDLkOw94uBKtlQpPptehrPSF/GxO/O3NFCxVvoRxj3fo4y
+05al/j2tm6MSmgvgTTE6xOo+e3MVPGF8e7vMl5QqyidtkwEbwiNLlzIYAtgL49vP
+qJ6+ceN7QVofaLO6rSRyYKl99pD0Vwv2j4n9i1v3HANNZpUuuEa/gSnM0qBpeaMZ
+oy/c6j03OlOTHqSbwFnk0FoQgmYQH1PDAAXVI0uR7JKvTXptC+qf5C/28TBOF4uE
+5V+L55V9Gg/G2jXZCtsJQ+Y1hdN2nTXTr8I21ON9A4FGi17vBR+wUfxUSXoIRz2M
+4QPaf8xsMczenr6DNTOK0gu36+7QsBqOEjA4lRMG2DX3UczQzFez+CkvkIvOw6es
+PpZ1UlWRj5j6PsZSFSMWH6FDqhxTXBdTUctXjfhFaU3qPaWOiWwNCIvPrCtpSiyB
+Ur6iWyRCzdY4LiCEGwDk
+=yT5g
+-----END PGP SIGNATURE-----
 
-  > --- a/drivers/net/wireless/ath/ath9k/Makefile
-  > +++ b/drivers/net/wireless/ath/ath9k/Makefile
-  > @@ -16,8 +16,7 @@ ath9k-$(CONFIG_ATH9K_DFS_CERTIFIED) +=3D dfs.o
-  >  ath9k-$(CONFIG_ATH9K_TX99) +=3D tx99.o
-  >  ath9k-$(CONFIG_ATH9K_WOW) +=3D wow.o
-  >
-  > -ath9k-$(CONFIG_ATH9K_DEBUGFS) +=3D debug.o \
-  > -                                spectral.o
-  > +ath9k-$(CONFIG_ATH9K_DEBUGFS) +=3D debug.o
-  >
-  >  ath9k-$(CONFIG_ATH9K_STATION_STATISTICS) +=3D debug_sta.o
-  >
-  > @@ -59,7 +58,8 @@ obj-$(CONFIG_ATH9K_COMMON) +=3D ath9k_common.o
-  >  ath9k_common-y:=3D       common.o \
-  >                         common-init.o \
-  >                         common-beacon.o \
-  > -                       common-debug.o
-  > +                       common-debug.o \
-  > +                       common-spectral.o
-
-Reverting the patch solves one error, but then a new one is produced.
-
-  make
-  ...
-    MODPOST 185 modules
-    CC      arch/x86/boot/edd.o
-    VOFFSET arch/x86/boot/voffset.h
-  ERROR: "ath9k_cmn_spectral_scan_trigger"
-  [drivers/net/wireless/ath/ath9k/ath9k.ko] undefined!
-  scripts/Makefile.modpost:90: recipe for target '__modpost' failed
-  make[1]: *** [__modpost] Error 1
-  ...
-
-This error is caused by the patch before it.
-
-  commit f00a422cc81ef665f5098c0bc43cb0c616e55a9b
-  Author: Oleksij Rempel <linux@rempel-privat.de>
-  Date:   Thu Nov 6 08:53:29 2014 +0100
- =20
-      ath9k: move ath9k_spectral_scan_ from main.c to spectral.c
-     =20
-      Now we should be ready to make this code common.
-     =20
-      Signed-off-by: Oleksij Rempel <linux@rempel-privat.de>
-      Signed-off-by: John W. Linville <linville@tuxdriver.com>
-
-Since the code was moved from main.c to spectral.c, it is now involved
-with CONFIG_ATH9K_DEBUGFS, which causes it to break.
-
-Reverting both the above patches resolves the build errors.
-
---=20
-Jeremiah Mahler
-jmmahler@gmail.com
-http://github.com/jmahler
+--=-WW/k0d8CzdPP1tEpE+zI--
