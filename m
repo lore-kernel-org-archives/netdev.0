@@ -1,50 +1,92 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net] reciprocal_div: objects with exported symbols should be obj-y rather than lib-y
-Date: Fri, 14 Nov 2014 15:16:47 +0100
-Message-ID: <85de478df37362b703cb5db64cbfc48d4d4439f5.1415974584.git.hannes@stressinduktion.org>
-Cc: jim.epost@gmail.com
+Subject: [PATCH net-next v2] fast_hash: clobber registers correctly for inline function use
+Date: Fri, 14 Nov 2014 15:40:43 +0100
+Message-ID: <87f7d01be7175e1fc6dabbb2540e1de13fb293f6.1415975954.git.hannes@stressinduktion.org>
+References: <4086c7bc9f7f9e8e2de9656c9e27ef1e71bb6423.1415973706.git.hannes@stressinduktion.org>
+Cc: ogerlitz@mellanox.com, pshelar@nicira.com, jesse@nicira.com,
+	jay.vosburgh@canonical.com, discuss@openvswitch.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3-smtp.messagingengine.com ([66.111.4.27]:43678 "EHLO
+Received: from out3-smtp.messagingengine.com ([66.111.4.27]:35874 "EHLO
 	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754655AbaKNOQx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Nov 2014 09:16:53 -0500
-Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
-	by mailout.nyi.internal (Postfix) with ESMTP id 2110A20CE9
-	for <netdev@vger.kernel.org>; Fri, 14 Nov 2014 09:16:53 -0500 (EST)
+	by vger.kernel.org with ESMTP id S964832AbaKNOku (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Nov 2014 09:40:50 -0500
+Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
+	by mailout.nyi.internal (Postfix) with ESMTP id 0AFB320BDF
+	for <netdev@vger.kernel.org>; Fri, 14 Nov 2014 09:40:50 -0500 (EST)
+In-Reply-To: <4086c7bc9f7f9e8e2de9656c9e27ef1e71bb6423.1415973706.git.hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Otherwise the exported symbols might be discarded because of no users
-in vmlinux.
+In case the arch_fast_hash call gets inlined we need to tell gcc which
+registers are clobbered with. rhashtable was fine, because it used
+arch_fast_hash via function pointer and thus the compiler took care of
+that. In case of openvswitch the call got inlined and arch_fast_hash
+touched registeres which gcc didn't know about.
 
-Reported-by: Jim Davis <jim.epost@gmail.com>
+Also don't use conditional compilation inside arguments, as this confuses
+sparse.
+
+Reported-by: Jay Vosburgh <jay.vosburgh@canonical.com>
+Cc: Pravin Shelar <pshelar@nicira.com>
+Cc: Jesse Gross <jesse@nicira.com>
 Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- lib/Makefile | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/lib/Makefile b/lib/Makefile
-index 04e53dd..4b9baa4 100644
---- a/lib/Makefile
-+++ b/lib/Makefile
-@@ -10,7 +10,7 @@ endif
- lib-y := ctype.o string.o vsprintf.o cmdline.o \
- 	 rbtree.o radix-tree.o dump_stack.o timerqueue.o\
- 	 idr.o int_sqrt.o extable.o \
--	 sha1.o md5.o irq_regs.o reciprocal_div.o argv_split.o \
-+	 sha1.o md5.o irq_regs.o argv_split.o \
- 	 proportions.o flex_proportions.o ratelimit.o show_mem.o \
- 	 is_single_threaded.o plist.o decompress.o kobject_uevent.o \
- 	 earlycpio.o
-@@ -26,7 +26,7 @@ obj-y += bcd.o div64.o sort.o parser.o halfmd4.o debug_locks.o random32.o \
- 	 bust_spinlocks.o hexdump.o kasprintf.o bitmap.o scatterlist.o \
- 	 gcd.o lcm.o list_sort.o uuid.o flex_array.o iovec.o clz_ctz.o \
- 	 bsearch.o find_last_bit.o find_next_bit.o llist.o memweight.o kfifo.o \
--	 percpu-refcount.o percpu_ida.o rhashtable.o
-+	 percpu-refcount.o percpu_ida.o rhashtable.o reciprocal_div.o
- obj-y += string_helpers.o
- obj-$(CONFIG_TEST_STRING_HELPERS) += test-string_helpers.o
- obj-y += kstrtox.o
+v2)
+After studying gcc documentation again, it occured to me that I need to
+specificy all input operands in the clobber section, too. Otherwise gcc
+can expect that the inline assembler section won't modify the inputs,
+which is not true.
+
+Bye,
+Hannes
+
+
+ arch/x86/include/asm/hash.h | 20 ++++++++++++++------
+ 1 file changed, 14 insertions(+), 6 deletions(-)
+
+diff --git a/arch/x86/include/asm/hash.h b/arch/x86/include/asm/hash.h
+index a881d78..a25c45a 100644
+--- a/arch/x86/include/asm/hash.h
++++ b/arch/x86/include/asm/hash.h
+@@ -23,11 +23,15 @@ static inline u32 arch_fast_hash(const void *data, u32 len, u32 seed)
+ {
+ 	u32 hash;
+ 
+-	alternative_call(__jhash, __intel_crc4_2_hash, X86_FEATURE_XMM4_2,
+ #ifdef CONFIG_X86_64
+-			 "=a" (hash), "D" (data), "S" (len), "d" (seed));
++	alternative_call(__jhash, __intel_crc4_2_hash, X86_FEATURE_XMM4_2,
++			 "=a" (hash), "D" (data), "S" (len), "d" (seed)
++			 : "rdi", "rsi", "rdx", "rcx", "r8", "r9", "r10", "r11",
++			   "cc", "memory");
+ #else
+-			 "=a" (hash), "a" (data), "d" (len), "c" (seed));
++	alternative_call(__jhash, __intel_crc4_2_hash, X86_FEATURE_XMM4_2,
++			 "=a" (hash), "a" (data), "d" (len), "c" (seed)
++			 : "edx", "ecx", "cc", "memory");
+ #endif
+ 	return hash;
+ }
+@@ -36,11 +40,15 @@ static inline u32 arch_fast_hash2(const u32 *data, u32 len, u32 seed)
+ {
+ 	u32 hash;
+ 
+-	alternative_call(__jhash2, __intel_crc4_2_hash2, X86_FEATURE_XMM4_2,
+ #ifdef CONFIG_X86_64
+-			 "=a" (hash), "D" (data), "S" (len), "d" (seed));
++	alternative_call(__jhash2, __intel_crc4_2_hash2, X86_FEATURE_XMM4_2,
++			 "=a" (hash), "D" (data), "S" (len), "d" (seed)
++			 : "rdi", "rsi", "rdx", "rcx", "r8", "r9", "r10", "r11",
++			   "cc", "memory");
+ #else
+-			 "=a" (hash), "a" (data), "d" (len), "c" (seed));
++	alternative_call(__jhash2, __intel_crc4_2_hash2, X86_FEATURE_XMM4_2,
++			 "=a" (hash), "a" (data), "d" (len), "c" (seed)
++			 : "edx", "ecx", "cc", "memory");
+ #endif
+ 	return hash;
+ }
 -- 
 1.9.3
