@@ -1,37 +1,37 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH 0/2] xfrm: Do not hash socket policies
-Date: Fri, 14 Nov 2014 12:36:59 +0100
-Message-ID: <20141114113659.GP6390@secunet.com>
-References: <20141113090048.GA3120@gondor.apana.org.au>
- <20141113090811.GA3280@gondor.apana.org.au>
+From: Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
+Subject: Re: [PATCH v2 net-next 1/7] bpf: add 'flags' attribute to
+ BPF_MAP_UPDATE_ELEM command
+Date: Fri, 14 Nov 2014 13:11:11 +0100
+Message-ID: <1415967071.15154.9.camel@localhost>
+References: <1415929010-9361-1-git-send-email-ast@plumgrid.com>
+	 <1415929010-9361-2-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:45372 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933506AbaKNLhK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Nov 2014 06:37:10 -0500
-Content-Disposition: inline
-In-Reply-To: <20141113090811.GA3280@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+	Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1415929010-9361-2-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 13, 2014 at 05:08:11PM +0800, Herbert Xu wrote:
-> On Thu, Nov 13, 2014 at 05:00:48PM +0800, Herbert Xu wrote:
-> > Hi Steffen:
-> > 
-> > I'm working on converting the xfrm policy hashing over to RCU
-> > due to performance complaints.  While doing this I noticed that
-> > we're needlessly hashing socket policies.
-> > 
-> > Here are two patches to get rid of that and slightly clean things
-> > up.
-> 
-> Oops that didn't work very well as I left out some rather important
-> bits :)
-> 
-> Here is a second revision.
+On Do, 2014-11-13 at 17:36 -0800, Alexei Starovoitov wrote:
+> the current meaning of BPF_MAP_UPDATE_ELEM syscall command is:
+> either update existing map element or create a new one.
+> Initially the plan was to add a new command to handle the case of
+> 'create new element if it didn't exist', but 'flags' style looks
+> cleaner and overall diff is much smaller (more code reused), so add 'flags'
+> attribute to BPF_MAP_UPDATE_ELEM command with the following meaning:
+>  #define BPF_ANY	0 /* create new element or update existing */
+>  #define BPF_NOEXIST	1 /* create new element if it didn't exist */
+>  #define BPF_EXIST	2 /* update existing element */
 
-Both applied to ipsec-next, thanks Herbert!
+Would a cmpxchg-alike function be handy here?
+
+Bye,
+Hannes
