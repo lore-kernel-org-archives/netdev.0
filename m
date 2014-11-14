@@ -1,53 +1,44 @@
-From: "Wang, Yalin" <Yalin.Wang@sonymobile.com>
-Subject: [PATCH] carl9170: Convert byte_rev_table uses to bitrev8
-Date: Fri, 14 Nov 2014 13:16:44 +0800
-Message-ID: <35FD53F367049845BC99AC72306C23D103E010D1829D@CNBJMBX05.corpusers.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] carl9170: Convert byte_rev_table uses to bitrev8
+Date: Thu, 13 Nov 2014 21:32:44 -0800
+Message-ID: <1415943164.5912.4.camel@perches.com>
+References: <35FD53F367049845BC99AC72306C23D103E010D1829D@CNBJMBX05.corpusers.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: "'chunkeey@googlemail.com'" <chunkeey@googlemail.com>,
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "'chunkeey@googlemail.com'" <chunkeey@googlemail.com>,
 	"'linville@tuxdriver.com'" <linville@tuxdriver.com>,
 	"'linux-wireless@vger.kernel.org'" <linux-wireless@vger.kernel.org>,
 	"'netdev@vger.kernel.org'" <netdev@vger.kernel.org>,
-	"'linux-kernel@vger.kernel.org'" <linux-kernel@vger.kernel.org>,
-	"'joe@perches.com'" <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	"'linux-kernel@vger.kernel.org'" <linux-kernel@vger.kernel.org>
+To: "Wang, Yalin" <Yalin.Wang@sonymobile.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay0217.hostedemail.com ([216.40.44.217]:53733 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751258AbaKNFcr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Nov 2014 00:32:47 -0500
+In-Reply-To: <35FD53F367049845BC99AC72306C23D103E010D1829D@CNBJMBX05.corpusers.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use the inline function instead of directly indexing the array.
+On Fri, 2014-11-14 at 13:16 +0800, Wang, Yalin wrote:
+> Use the inline function instead of directly indexing the array.
+> 
+> This allows some architectures with hardware instructions for bit
+> reversals to eliminate the array.
 
-This allows some architectures with hardware instructions for bit
-reversals to eliminate the array.
+This one is already in -next
 
-Signed-off-by: Joe Perches <joe@perches.com>
-Signed-off-by: Yalin Wang <yalin.wang@sonymobile.com>
----
- drivers/net/wireless/ath/carl9170/phy.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+commit 7a1283d8f5298437a454ec477384dcd9f9f88bac
+Author: Joe Perches <joe@perches.com>
+Date:   Tue Oct 28 14:18:58 2014 -0700
 
-diff --git a/drivers/net/wireless/ath/carl9170/phy.c b/drivers/net/wireless/ath/carl9170/phy.c
-index b80b213..dca6df1 100644
---- a/drivers/net/wireless/ath/carl9170/phy.c
-+++ b/drivers/net/wireless/ath/carl9170/phy.c
-@@ -994,7 +994,7 @@ static int carl9170_init_rf_bank4_pwr(struct ar9170 *ar, bool band5ghz,
- 			refsel0 = 0;
- 			refsel1 = 1;
- 		}
--		chansel = byte_rev_table[chansel];
-+		chansel = bitrev8(chansel);
- 	} else {
- 		if (freq == 2484) {
- 			chansel = 10 + (freq - 2274) / 5;
-@@ -1002,7 +1002,7 @@ static int carl9170_init_rf_bank4_pwr(struct ar9170 *ar, bool band5ghz,
- 		} else
- 			chansel = 16 + (freq - 2272) / 5;
- 		chansel *= 4;
--		chansel = byte_rev_table[chansel];
-+		chansel = bitrev8(chansel);
- 	}
- 
- 	d1 =	chansel;
--- 
-2.1.1
+    carl9170: Convert byte_rev_table uses to bitrev8
+    
+    Use the inline function instead of directly indexing the array.
+    
+    This allows some architectures with hardware instructions
+    for bit reversals to eliminate the array.
+    
+    Signed-off-by: Joe Perches <joe@perches.com>
+    Signed-off-by: John W. Linville <linville@tuxdriver.com>
