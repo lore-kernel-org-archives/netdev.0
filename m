@@ -1,123 +1,105 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next] fast_hash: clobber registers correctly for
- inline function use
-Date: Fri, 14 Nov 2014 23:37:42 +0100
-Message-ID: <1416004662.15154.76.camel@localhost>
-References: <1415978022.15154.31.camel@localhost>
-	 <1415979181.17262.45.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1415979978.15154.41.camel@localhost>
-	 <20141114.133829.1437047454714311242.davem@davemloft.net>
-	 <1415995451.15154.54.camel@localhost> <17658.1415996115@famine>
-	 <1415997309.15154.59.camel@localhost> <18948.1416003002@famine>
+From: Vinson Lee <vlee@twopensource.com>
+Subject: tcp_mark_head_lost warning in Linux kernel 3.10
+Date: Fri, 14 Nov 2014 14:39:54 -0800
+Message-ID: <CAHTgTXXqaVzVOyGuVWpdQokY8RmYRMriaLhBecLzfg=HF6V8dQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org, ogerlitz@mellanox.com, pshelar@nicira.com,
-	jesse@nicira.com, discuss@openvswitch.org
-To: Jay Vosburgh <jay.vosburgh@canonical.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:54103 "EHLO
-	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754838AbaKNWhp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Nov 2014 17:37:45 -0500
-Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
-	by mailout.nyi.internal (Postfix) with ESMTP id 77F9620BB8
-	for <netdev@vger.kernel.org>; Fri, 14 Nov 2014 17:37:44 -0500 (EST)
-In-Reply-To: <18948.1416003002@famine>
+Received: from mail-qc0-f169.google.com ([209.85.216.169]:56073 "EHLO
+	mail-qc0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754637AbaKNWjz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Nov 2014 17:39:55 -0500
+Received: by mail-qc0-f169.google.com with SMTP id w7so364435qcr.14
+        for <netdev@vger.kernel.org>; Fri, 14 Nov 2014 14:39:54 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Jay,
+Hi.
 
-On Fr, 2014-11-14 at 14:10 -0800, Jay Vosburgh wrote:
-> Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
-> [...]
-> >I created it via the function calling convention documented in
-> >arch/x86/include/asm/calling.h, so I specified each register which a
-> >function is allowed to clobber with.
-> >
-> >I currently cannot see how I can resolve the invalid constraints error
-> >easily. :(
-> >
-> >So either go with my first patch, which I puts the alternative_call
-> >switch point into its own function without ever inlining or the patch
-> >needs to be reverted. :/
-> 
-> 	As a data point, I tested the first patch as well, and the
-> system does not panic with it in place.  Inspection shows that it's
-> using %r14 in place of %r8 in the prior (crashing) implementation.
+We hit this networking tcp_mark_head_lost warning in Linux kernel 3.10.
 
-Yes, I also could reproduce your oops and the first unoffical patch  and
-the first offical one both fixed it. After that, I thought that just
-adding more clobbers cannot introduce bugs, so I only did compile
-testing until I hit a window where gcc got mad with the excessive use of
-clobbered registers but haven't tested the inline call sites that much
-(sorry). :(
+------------[ cut here ]------------
+WARNING: at net/ipv4/tcp_input.c:2262 tcp_mark_head_lost+0x1aa/0x1dd()
+Modules linked in: netconsole configfs xt_DSCP iptable_mangle
+cpufreq_ondemand ipv6 ppdev parport_pc lp parport tcp_diag inet_diag
+ipmi_si ipmi_devintf ipmi_msghandler iTCO_wdt iTCO_vendor_support
+acpi_cpufreq freq_table mperf coretemp kvm_intel kvm crc32c_intel
+ghash_clmulni_intel microcode serio_raw i2c_i801 lpc_ich mfd_core igb
+i2c_algo_bit i2c_core ptp pps_core ioatdma dca wmi
+CPU: 1 PID: 16561 Not tainted 3.10.50 #1
+ 0000000000000000 ffff88085fc23948 ffffffff814a4094 ffff88085fc23980
+ ffffffff8103cbf9 0000000000000000 ffff8807b644b200 0000000000000001
+ ffff880764e1ca40 000000004e9c4970 ffff88085fc23990 ffffffff8103ccbf
+Call Trace:
+ <IRQ>  [<ffffffff814a4094>] dump_stack+0x19/0x1b
+ [<ffffffff8103cbf9>] warn_slowpath_common+0x65/0x7d
+ [<ffffffff8103ccbf>] warn_slowpath_null+0x1a/0x1c
+ [<ffffffff81434c61>] tcp_mark_head_lost+0x1aa/0x1dd
+ [<ffffffff814367fc>] tcp_update_scoreboard+0x4f/0x13f
+ [<ffffffff81438beb>] tcp_fastretrans_alert+0x736/0x7be
+ [<ffffffff81439644>] tcp_ack+0x95e/0xb47
+ [<ffffffff81439be6>] tcp_rcv_established+0xde/0x442
+ [<ffffffff81442cab>] tcp_v4_do_rcv+0x1e6/0x3e8
+ [<ffffffff8144371e>] tcp_v4_rcv+0x293/0x52c
+ [<ffffffff81425e6a>] ? NF_HOOK_THRESH.constprop.11+0x53/0x53
+ [<ffffffff8142d562>] ? __inet_lookup_listener+0xfa/0x17f
+ [<ffffffff81425f4a>] ip_local_deliver_finish+0xe0/0x155
+ [<ffffffff81425e6a>] ? NF_HOOK_THRESH.constprop.11+0x53/0x53
+ [<ffffffff81425e48>] NF_HOOK_THRESH.constprop.11+0x31/0x53
+ [<ffffffff814260ef>] ip_local_deliver+0x40/0x52
+ [<ffffffff81425d50>] ip_rcv_finish+0x274/0x2b6
+ [<ffffffff81425adc>] ? inet_del_offload+0x3d/0x3d
+ [<ffffffff81425e48>] NF_HOOK_THRESH.constprop.11+0x31/0x53
+ [<ffffffff81426324>] ip_rcv+0x223/0x267
+ [<ffffffff813f76b4>] __netif_receive_skb_core+0x435/0x4a7
+ [<ffffffff8107bab8>] ? timekeeping_get_ns.constprop.10+0x11/0x36
+ [<ffffffff813f773e>] __netif_receive_skb+0x18/0x5a
+ [<ffffffff813f8813>] netif_receive_skb+0x40/0x75
+ [<ffffffff813f8f94>] napi_gro_receive+0x3e/0x80
+ [<ffffffffa004a097>] igb_clean_rx_irq+0x67e/0x69e [igb]
+ [<ffffffffa004a425>] igb_poll+0x36e/0x5b0 [igb]
+ [<ffffffff813ea49a>] ? __sk_mem_reclaim+0x2f/0x84
+ [<ffffffff8143ef76>] ? tcp_delack_timer_handler+0x2e/0x19c
+ [<ffffffff813f8a61>] net_rx_action+0xcf/0x196
+ [<ffffffff8106870c>] ? sched_clock_cpu+0x42/0xc7
+ [<ffffffff8104371d>] __do_softirq+0xd5/0x1f4
+ [<ffffffff814b01bc>] call_softirq+0x1c/0x30
+ [<ffffffff81003ecd>] do_softirq+0x33/0x6e
+ [<ffffffff81043931>] irq_exit+0x51/0x93
+ [<ffffffff814b086e>] do_IRQ+0x8e/0xa5
+ [<ffffffff814a85aa>] common_interrupt+0x6a/0x6a
+ <EOI>
+---[ end trace 8b2ed2c5c443e39d ]---
 
-> 	Disassembly of the call site (on the non-sse4_1 system) in
-> ovs_flow_tbl_insert with the first patch applied looks like this:
-> 
-> 0xffffffffa00b6bb9 <ovs_flow_tbl_insert+0xb9>:	mov    %r15,0x348(%r14)
-> 0xffffffffa00b6bc0 <ovs_flow_tbl_insert+0xc0>:	movzwl 0x28(%r15),%ecx
-> 0xffffffffa00b6bc5 <ovs_flow_tbl_insert+0xc5>:	movzwl 0x2a(%r15),%esi
-> 0xffffffffa00b6bca <ovs_flow_tbl_insert+0xca>:	movzwl %cx,%eax
-> 0xffffffffa00b6bcd <ovs_flow_tbl_insert+0xcd>:	sub    %ecx,%esi
-> 0xffffffffa00b6bcf <ovs_flow_tbl_insert+0xcf>:	lea    0x38(%r14,%rax,1),%rdi
-> 0xffffffffa00b6bd4 <ovs_flow_tbl_insert+0xd4>:	sar    $0x2,%esi
-> 0xffffffffa00b6bd7 <ovs_flow_tbl_insert+0xd7>:	callq  0xffffffff813a7810 <__jhash2>
-> 0xffffffffa00b6bdc <ovs_flow_tbl_insert+0xdc>:	mov    %eax,0x30(%r14)
-> 0xffffffffa00b6be0 <ovs_flow_tbl_insert+0xe0>:	mov    (%rbx),%r13
-> 0xffffffffa00b6be3 <ovs_flow_tbl_insert+0xe3>:	mov    %r14,%rsi
-> 0xffffffffa00b6be6 <ovs_flow_tbl_insert+0xe6>:	mov    %r13,%rdi
-> 0xffffffffa00b6be9 <ovs_flow_tbl_insert+0xe9>:	callq  0xffffffffa00b61a0 <table_instance_insert>
-> 
-> 	Compared to the panicking version's function:
-> 
-> 0xffffffffa01a55c9 <ovs_flow_tbl_insert+0xb9>:  mov    %r15,0x348(%r8)
-> 0xffffffffa01a55d0 <ovs_flow_tbl_insert+0xc0>:  movzwl 0x28(%r15),%ecx
-> 0xffffffffa01a55d5 <ovs_flow_tbl_insert+0xc5>:  movzwl 0x2a(%r15),%esi
-> 0xffffffffa01a55da <ovs_flow_tbl_insert+0xca>:  movzwl %cx,%eax
-> 0xffffffffa01a55dd <ovs_flow_tbl_insert+0xcd>:  sub    %ecx,%esi
-> 0xffffffffa01a55df <ovs_flow_tbl_insert+0xcf>:  lea    0x38(%r8,%rax,1),%rdi
-> 0xffffffffa01a55e4 <ovs_flow_tbl_insert+0xd4>:  sar    $0x2,%esi
-> 0xffffffffa01a55e7 <ovs_flow_tbl_insert+0xd7>:  callq  0xffffffff813a75c0 <__jhash2>
-> 0xffffffffa01a55ec <ovs_flow_tbl_insert+0xdc>:  mov    %eax,0x30(%r8)
-> 0xffffffffa01a55f0 <ovs_flow_tbl_insert+0xe0>:  mov    (%rbx),%r13
-> 0xffffffffa01a55f3 <ovs_flow_tbl_insert+0xe3>:  mov    %r8,%rsi
-> 0xffffffffa01a55f6 <ovs_flow_tbl_insert+0xe6>:  mov    %r13,%rdi
-> 0xffffffffa01a55f9 <ovs_flow_tbl_insert+0xe9>:  callq  0xffffffffa01a4ba0 <table_instance_insert>
-> 
-> 	It appears to generate the same instructions, but allocates
-> registers differently (using %r14 instead of %r8).
 
-Exactly and that makes sense. While %r8 must be available for the callee
-to be clobbered with, %r14 must be saved by the callee and restored
-before returning. So you pass the responsibility down to the other
-functions, which tries not to touch %r14 because it knows it will have
-to generate code for saving and restoring.
+net/ipv4/tcp_input.c
+  2200  /* Detect loss in event "A" above by marking head of queue up as lost.
+  2201   * For FACK or non-SACK(Reno) senders, the first "packets"
+number of segments
+  2202   * are considered lost. For RFC3517 SACK, a segment is
+considered lost if it
+  2203   * has at least tp->reordering SACKed seqments above it;
+"packets" refers to
+  2204   * the maximum SACKed segments to pass before reaching this limit.
+  2205   */
+  2206  static void tcp_mark_head_lost(struct sock *sk, int packets,
+int mark_head)
+  2207  {
+[...]
+  2262          tcp_verify_left_out(tp);
+  2263  }
 
-That's the reason why I actually like the the static inline clobbering
-approach so much, it gives gcc possibilities to move around the
-save/restore cycles and decide itself just by aligning which registers
-to use.
+include/net/tcp.h
+   936  /* Use define here intentionally to get WARN_ON location shown
+at the caller */
+   937  #define tcp_verify_left_out(tp) WARN_ON(tcp_left_out(tp) >
+tp->packets_out)
 
-Also the first version does work flawlessly (which I didn't send as a
-patch but only as a diff in the mail). Here gcc synthesizes a full
-function call which has the same effect as the long clobber list, only
-it does chain two calls right behind each other.
-
-> 	The __jhash2 disassembly appears to be unchanged between the two
-> versions.
-
-Thanks for looking into this!
-
-It is actually pretty hairy to come up with a good solution for this,
-because with the alternative interface you are only allowed to alter one
-instruction. jump_tables also don't work because I currently have the
-opinion that they do the switch way too late. I absolutely don't want to
-have inserts into a hashtable with different hashing functions depending
-how early during boot they took place.
-
-Bye,
-Hannes
+Cheers,
+Vinson
