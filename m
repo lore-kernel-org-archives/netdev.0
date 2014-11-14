@@ -1,82 +1,58 @@
-From: "Martin K. Petersen" <martin.petersen@oracle.com>
-Subject: [PATCH] ixgbe: Look up MAC address in Open Firmware
-Date: Fri, 14 Nov 2014 14:16:50 -0500
-Message-ID: <yq1r3x5vbh9.fsf@sermon.lab.mkp.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [linux-nics] [PATCH] ixgbe: Look up MAC address in Open Firmware
+Date: Fri, 14 Nov 2014 11:26:29 -0800
+Message-ID: <1415993189.2478.0.camel@jtkirshe-mobl>
+References: <yq1r3x5vbh9.fsf@sermon.lab.mkp.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: linux.nics@intel.com
-To: netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-mPGjXDaG6lvL1v0DvvjU"
+Cc: netdev@vger.kernel.org, linux.nics@intel.com
+To: "Martin K. Petersen" <martin.petersen@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:31227 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965580AbaKNTQ4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Nov 2014 14:16:56 -0500
+Received: from mga01.intel.com ([192.55.52.88]:59243 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965598AbaKNT0r (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Nov 2014 14:26:47 -0500
+In-Reply-To: <yq1r3x5vbh9.fsf@sermon.lab.mkp.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Attempt to look up the MAC address in Open Firmware on systems that
-support it. If the "local-mac-address" property is not valid resort to
-using the IDPROM value.
+--=-mPGjXDaG6lvL1v0DvvjU
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Martin K. Petersen <martin.petersen@oracle.com>
+On Fri, 2014-11-14 at 14:16 -0500, Martin K. Petersen wrote:
+>=20
+> Attempt to look up the MAC address in Open Firmware on systems that
+> support it. If the "local-mac-address" property is not valid resort to
+> using the IDPROM value.
+>=20
+> Signed-off-by: Martin K. Petersen <martin.petersen@oracle.com>
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index d2df4e3d1032..365924124fab 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -50,6 +50,11 @@
- #include <linux/prefetch.h>
- #include <scsi/fc/fc_fcoe.h>
- 
-+#ifdef CONFIG_OF
-+#include <asm/idprom.h>
-+#include <asm/prom.h>
-+#endif
-+
- #include "ixgbe.h"
- #include "ixgbe_common.h"
- #include "ixgbe_dcb_82599.h"
-@@ -7959,6 +7964,31 @@ int ixgbe_wol_supported(struct ixgbe_adapter *adapter, u16 device_id,
- 	return is_wol_supported;
- }
- 
-+#ifdef CONFIG_OF
-+/**
-+ * ixgbe_of_mac_addr - Look up MAC address in Open Firmware
-+ * @adapter: Pointer to adapter struct
-+ */
-+static void ixgbe_of_mac_addr(struct ixgbe_adapter *adapter)
-+{
-+	struct device_node *dp = pci_device_to_OF_node(adapter->pdev);
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	const unsigned char *addr;
-+	int len;
-+
-+	addr = of_get_property(dp, "local-mac-address", &len);
-+	if (addr && len == 6) {
-+		e_dev_info("Using OpenPROM MAC address\n");
-+		memcpy(hw->mac.perm_addr, addr, 6);
-+	}
-+
-+	if (!is_valid_ether_addr(hw->mac.perm_addr)) {
-+		e_dev_info("Using IDPROM MAC address\n");
-+		memcpy(hw->mac.perm_addr, idprom->id_ethaddr, 6);
-+	}
-+}
-+#endif
-+
- /**
-  * ixgbe_probe - Device Initialization Routine
-  * @pdev: PCI device information struct
-@@ -8223,6 +8253,10 @@ skip_sriov:
- 		goto err_sw_init;
- 	}
- 
-+#ifdef CONFIG_OF
-+	ixgbe_of_mac_addr(adapter);
-+#endif
-+
- 	memcpy(netdev->dev_addr, hw->mac.perm_addr, netdev->addr_len);
- 
- 	if (!is_valid_ether_addr(netdev->dev_addr)) {
+Thanks Martin, I will add your patch to my queue.
+
+--=-mPGjXDaG6lvL1v0DvvjU
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABCgAGBQJUZldlAAoJEOVv75VaS+3OmoMP/A6buGc2cCYv5BAADRdCpwnf
+rhUnVSGyJYjMyVM8K7V2lJ1r9hxVis46eTZ5KlBGaQQ2ECLYJBhcpJcUr0rwcTo6
+COCB6sXhGIUj8/SxNllm3dXXarFjRQDDOhKiBKbtEzpCmNEuhCiQHBqW5d/qBd6g
+PjEgDxV1OQjSZ/Yo40u2Ue4LCDRCuwqLVLwDFIOhJnXet3GeSAENJRpcOxRib0pU
+cRFzgnh2H4E+o8XvGlqpU8hIcXN/qWY3m4f5m9Vgh06iMoqvZ3yrHRrNxbSQGkp6
+PYBrRp+lgdNEq8B1X75DMSFWHqfZLmj2VL4LS9KSEJTudP/Ig3yasm77nI50zA0Q
+gVy7+KpATH8PHEIqyiFU/2vGJKPy0z6E73LFI7FgdrOQxHSWHlEaH7STk5caJpH7
+L/0qpLjQFXJ4nQt+SOERYxeYSYFe1bwuMC0RN7QbWIp27POCOt343E39QXyUwPhu
+UnEgjb7Lvgul9z9Ii1fnZbqfNDyVqX855m9HbRBepaHg/gRsgDnvqVs1+PwTJdIe
+mWWwoXWgUtp+j4KJWgP/bdpiTOeXXMiiwGnu4VJFQVdCCCjwD2SI9QdR0mLpCVNb
+JdYvhVk0V5oaA9GWkrazyoSUzphaS6znnoDC+yq1i98JaqoceAB4gKX3+ZhUsXue
+ZbWtPwkgFoztL363nOGv
+=wuoe
+-----END PGP SIGNATURE-----
+
+--=-mPGjXDaG6lvL1v0DvvjU--
