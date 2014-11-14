@@ -1,82 +1,45 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 1/1 net-next] net: dsa: replace count*size kmalloc by
- kmalloc_array
-Date: Fri, 14 Nov 2014 10:47:15 -0800
-Message-ID: <1415990835.5912.20.camel@perches.com>
-References: <1415990202-28673-1-git-send-email-fabf@skynet.be>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [PATCH net-next] fast_hash: clobber registers correctly for
+ inline function use
+Date: Fri, 14 Nov 2014 11:02:28 -0800
+Message-ID: <CAHA+R7NKrwE7F4k4wiaZRJ67QAhB9bUe8SdyuT8Ky3-wAou6cA@mail.gmail.com>
+References: <1415978022.15154.31.camel@localhost>
+	<1415979181.17262.45.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1415979978.15154.41.camel@localhost>
+	<20141114.133829.1437047454714311242.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Fabian Frederick <fabf@skynet.be>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1415990202-28673-1-git-send-email-fabf@skynet.be>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Jesse Gross <jesse@nicira.com>, jay.vosburgh@canonical.com,
+	discuss@openvswitch.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qc0-f169.google.com ([209.85.216.169]:51311 "EHLO
+	mail-qc0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965567AbaKNTC3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Nov 2014 14:02:29 -0500
+Received: by mail-qc0-f169.google.com with SMTP id w7so79149qcr.0
+        for <netdev@vger.kernel.org>; Fri, 14 Nov 2014 11:02:29 -0800 (PST)
+In-Reply-To: <20141114.133829.1437047454714311242.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-11-14 at 19:36 +0100, Fabian Frederick wrote:
-> kmalloc_array manages count*sizeof overflow.
+On Fri, Nov 14, 2014 at 10:38 AM, David Miller <davem@davemloft.net> wrote:
+>
+> Also, I am strongly of the opinion that this is a mis-use of the
+> alternative call interface.  It was never intended to be used for
+> things that can make real function calls.
+>
+> You can add a million clobbers, or a trampoline, it's still using a
+> facility in a manner for which it was not designed.
+>
+> This means a new interface with a new name and with capabilities
+> explicitly supporting this case are in order.
+>
 
-Fundamentally correct, but is this necessary or useful?
-sizeof(s8) isn't often going to be anything other than 1.
-
-Would the kernel even work without that assumption?
-
-
-> diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-[]
-> @@ -526,7 +526,8 @@ static int dsa_of_setup_routing_table(struct dsa_platform_data *pd,
->  
->  	/* First time routing table allocation */
->  	if (!cd->rtable) {
-> -		cd->rtable = kmalloc(pd->nr_chips * sizeof(s8), GFP_KERNEL);
-> +		cd->rtable = kmalloc_array(pd->nr_chips, sizeof(s8),
-> +					   GFP_KERNEL);
->  		if (!cd->rtable)
->  			return -ENOMEM;
->  
-
-Maybe all of these could be simplified
-
-$ git grep -E "\*\s*sizeof\s*\(\s*[us]8\s*\)"
-arch/arm/common/edma.c:                                   (edma_cc->num_tc + 1) * sizeof(s8),
-drivers/acpi/utils.c:                               (element->buffer.length * sizeof(u8));
-drivers/acpi/utils.c:                           tail += element->buffer.length * sizeof(u8);
-drivers/char/tpm/tpm_i2c_stm_st33.c:        kmalloc(TPM_BUFSIZE * sizeof(u8), GFP_KERNEL);
-drivers/char/tpm/tpm_i2c_stm_st33.c:        kmalloc(TPM_BUFSIZE * sizeof(u8), GFP_KERNEL);
-drivers/gpu/drm/r128/r128_state.c:      mask_size = depth->n * sizeof(u8);
-drivers/gpu/drm/r128/r128_state.c:              mask_size = depth->n * sizeof(u8);
-drivers/iio/common/st_sensors/st_sensors_spi.c: memcpy(data, tb->rx_buf, len*sizeof(u8));
-drivers/infiniband/hw/amso1100/c2_mq.h: u8 pad[64 - sizeof(u16) - 2 * sizeof(u8) - sizeof(u32) - sizeof(u16)];
-drivers/input/tablet/aiptek.c:  const int sizeof_buf = 3 * sizeof(u8);
-drivers/input/tablet/aiptek.c:  const int sizeof_buf = 3 * sizeof(u8);
-drivers/md/dm-crypt.c:  memset(&cc->key, 0, cc->key_size * sizeof(u8));
-drivers/md/dm-crypt.c:  cc = kzalloc(sizeof(*cc) + key_size * sizeof(u8), GFP_KERNEL);
-drivers/media/dvb-frontends/dib7000p.c: tx = kzalloc(2*sizeof(u8), GFP_KERNEL);
-drivers/media/dvb-frontends/dib7000p.c: rx = kzalloc(2*sizeof(u8), GFP_KERNEL);
-drivers/media/dvb-frontends/dib8000.c:  client.i2c_write_buffer = kzalloc(4 * sizeof(u8), GFP_KERNEL);
-drivers/media/dvb-frontends/dib8000.c:  client.i2c_read_buffer = kzalloc(4 * sizeof(u8), GFP_KERNEL);
-drivers/media/dvb-frontends/dib9000.c:  client.i2c_write_buffer = kzalloc(4 * sizeof(u8), GFP_KERNEL);
-drivers/media/dvb-frontends/dib9000.c:  client.i2c_read_buffer = kzalloc(4 * sizeof(u8), GFP_KERNEL);
-drivers/media/pci/ttpci/av7110_ipack.c: if (!(p->buf = vmalloc(size*sizeof(u8)))) {
-drivers/mtd/inftlmount.c:                               s->nb_blocks * sizeof(u8));
-drivers/net/wireless/ath/ath10k/htt.h:   *  b) num_chars * sizeof(u8) aligned to 4bytes */
-drivers/net/wireless/b43/ppr.c: BUILD_BUG_ON(sizeof(struct b43_ppr) != B43_PPR_RATES_NUM * sizeof(u8));
-drivers/net/wireless/iwlwifi/pcie/trans.c:                     trans_pcie->n_no_reclaim_cmds * sizeof(u8));
-drivers/net/wireless/rtlwifi/efuse.c:   memset(data, 0xff, PGPKT_DATA_SIZE * sizeof(u8));
-drivers/net/wireless/rtlwifi/efuse.c:   memset(tmpdata, 0xff, PGPKT_DATA_SIZE * sizeof(u8));
-drivers/net/wireless/rtlwifi/efuse.c:   u8 originaldata[8 * sizeof(u8)];
-drivers/net/wireless/rtlwifi/efuse.c:   u8 originaldata[8 * sizeof(u8)];
-drivers/net/wireless/rtlwifi/efuse.c:           memset(originaldata, 0xff,  8 * sizeof(u8));
-drivers/net/wireless/rtlwifi/efuse.c:   memset(target_pkt.data, 0xFF,  8 * sizeof(u8));
-drivers/power/ds2781_battery.c: ret = w1_ds2781_read(dev_info, val, DS2781_VOLT_MSB, 2 * sizeof(u8));
-drivers/power/ds2781_battery.c: ret = w1_ds2781_read(dev_info, val, DS2781_TEMP_MSB, 2 * sizeof(u8));
-drivers/rtc/rtc-pcf2123.c:      ret = spi_write(spi, txbuf, 2 * sizeof(u8));
-drivers/rtc/rtc-pcf2123.c:      ret = spi_write(spi, txbuf, 2 * sizeof(u8));
-drivers/rtc/rtc-pcf2123.c:      ret = spi_write_then_read(spi, txbuf, 1 * sizeof(u8),
-drivers/rtc/rtc-pcf2123.c:                                      rxbuf, 2 * sizeof(u8));
-drivers/thermal/x86_pkg_temp_thermal.c:                 (max_phy_id+1) * sizeof(u8), GFP_ATOMIC);
-fs/compat_ioctl.c:      if (__copy_in_user(&tdata->read_write, &udata->read_write, 2 * sizeof(u8)))
-net/dsa/dsa.c:          cd->rtable = kmalloc(pd->nr_chips * sizeof(s8), GFP_KERNEL);
-net/dsa/dsa.c:          memset(cd->rtable, -1, pd->nr_chips * sizeof(s8));
+I am wondering, compare with alternative call, how slower is just testing
+cpu_has_xmm4_2?
