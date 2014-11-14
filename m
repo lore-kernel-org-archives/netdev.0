@@ -1,118 +1,82 @@
-From: Fabian Frederick <fabf@skynet.be>
-Subject: [PATCH 1/1 net-next] wireless: remove unnecessary sizeof(u8)
-Date: Fri, 14 Nov 2014 21:55:53 +0100
-Message-ID: <1415998553-12636-1-git-send-email-fabf@skynet.be>
-Cc: Fabian Frederick <fabf@skynet.be>,
-	Stefano Brivio <stefano.brivio@polimi.it>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Johannes Berg <johannes.berg@intel.com>,
-	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
-	Intel Linux Wireless <ilw@linux.intel.com>,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	Chaoming Li <chaoming_li@realsil.com.cn>,
-	linux-wireless@vger.kernel.org, b43-dev@lists.infradead.org,
-	netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Subject: Re: [PATCH] ixgbe: Look up MAC address in Open Firmware
+Date: Fri, 14 Nov 2014 13:11:43 -0800
+Message-ID: <20141114131143.00002271@unknown>
+References: <yq1r3x5vbh9.fsf@sermon.lab.mkp.net>
+	<54666106.9000609@cogentembedded.com>
+	<yq1mw7tv8jq.fsf@sermon.lab.mkp.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	<netdev@vger.kernel.org>, <linux.nics@intel.com>,
+	jesse.brandeburg@intel.com
+To: "Martin K. Petersen" <martin.petersen@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:42947 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754335AbaKNVLo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Nov 2014 16:11:44 -0500
+In-Reply-To: <yq1mw7tv8jq.fsf@sermon.lab.mkp.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-sizeof(u8) is always 1.
+On Fri, 14 Nov 2014 15:20:09 -0500
+"Martin K. Petersen" <martin.petersen@oracle.com> wrote:
+> commit 01e25f145972563ee87ebf85b7cb02a4ff8fce3b
+> Author: Martin K. Petersen <martin.petersen@oracle.com>
+> Date:   Wed Nov 12 20:47:42 2014 -0500
+> 
+>     ixgbe: Look up MAC address in Open Firmware
+>     
+>     Attempt to look up the MAC address in Open Firmware on systems that
+>     support it. If the "local-mac-address" property is not valid resort to
+>     using the IDPROM value.
+>     
+>     Signed-off-by: Martin K. Petersen <martin.petersen@oracle.com>
 
-Signed-off-by: Fabian Frederick <fabf@skynet.be>
----
- drivers/net/wireless/b43/ppr.c            |  2 +-
- drivers/net/wireless/iwlwifi/pcie/trans.c |  2 +-
- drivers/net/wireless/rtlwifi/efuse.c      | 16 ++++++++--------
- 3 files changed, 10 insertions(+), 10 deletions(-)
+seems fine, but see below...
 
-diff --git a/drivers/net/wireless/b43/ppr.c b/drivers/net/wireless/b43/ppr.c
-index 9a77027..6bc1c6f 100644
---- a/drivers/net/wireless/b43/ppr.c
-+++ b/drivers/net/wireless/b43/ppr.c
-@@ -28,7 +28,7 @@ void b43_ppr_clear(struct b43_wldev *dev, struct b43_ppr *ppr)
- 	memset(ppr, 0, sizeof(*ppr));
- 
- 	/* Compile-time PPR check */
--	BUILD_BUG_ON(sizeof(struct b43_ppr) != B43_PPR_RATES_NUM * sizeof(u8));
-+	BUILD_BUG_ON(sizeof(struct b43_ppr) != B43_PPR_RATES_NUM);
- }
- 
- void b43_ppr_add(struct b43_wldev *dev, struct b43_ppr *ppr, int diff)
-diff --git a/drivers/net/wireless/iwlwifi/pcie/trans.c b/drivers/net/wireless/iwlwifi/pcie/trans.c
-index 836725e..f016824 100644
---- a/drivers/net/wireless/iwlwifi/pcie/trans.c
-+++ b/drivers/net/wireless/iwlwifi/pcie/trans.c
-@@ -1157,7 +1157,7 @@ static void iwl_trans_pcie_configure(struct iwl_trans *trans,
- 		trans_pcie->n_no_reclaim_cmds = trans_cfg->n_no_reclaim_cmds;
- 	if (trans_pcie->n_no_reclaim_cmds)
- 		memcpy(trans_pcie->no_reclaim_cmds, trans_cfg->no_reclaim_cmds,
--		       trans_pcie->n_no_reclaim_cmds * sizeof(u8));
-+		       trans_pcie->n_no_reclaim_cmds);
- 
- 	trans_pcie->rx_buf_size_8k = trans_cfg->rx_buf_size_8k;
- 	if (trans_pcie->rx_buf_size_8k)
-diff --git a/drivers/net/wireless/rtlwifi/efuse.c b/drivers/net/wireless/rtlwifi/efuse.c
-index 0b4082c..a3135c5 100644
---- a/drivers/net/wireless/rtlwifi/efuse.c
-+++ b/drivers/net/wireless/rtlwifi/efuse.c
-@@ -251,8 +251,8 @@ void read_efuse(struct ieee80211_hw *hw, u16 _offset, u16 _size_byte, u8 *pbuf)
- 	}
- 
- 	/* allocate memory for efuse_tbl and efuse_word */
--	efuse_tbl = kzalloc(rtlpriv->cfg->maps[EFUSE_HWSET_MAX_SIZE] *
--			    sizeof(u8), GFP_ATOMIC);
-+	efuse_tbl = kzalloc(rtlpriv->cfg->maps[EFUSE_HWSET_MAX_SIZE],
-+			    GFP_ATOMIC);
- 	if (!efuse_tbl)
- 		return;
- 	efuse_word = kzalloc(EFUSE_MAX_WORD_UNIT * sizeof(u16 *), GFP_ATOMIC);
-@@ -733,8 +733,8 @@ static int efuse_pg_packet_read(struct ieee80211_hw *hw, u8 offset, u8 *data)
- 	if (offset > 15)
- 		return false;
- 
--	memset(data, 0xff, PGPKT_DATA_SIZE * sizeof(u8));
--	memset(tmpdata, 0xff, PGPKT_DATA_SIZE * sizeof(u8));
-+	memset(data, 0xff, PGPKT_DATA_SIZE);
-+	memset(tmpdata, 0xff, PGPKT_DATA_SIZE);
- 
- 	while (continual && (efuse_addr < EFUSE_MAX_SIZE)) {
- 		if (readstate & PG_STATE_HEADER) {
-@@ -772,7 +772,7 @@ static void efuse_write_data_case1(struct ieee80211_hw *hw, u16 *efuse_addr,
- 	struct rtl_priv *rtlpriv = rtl_priv(hw);
- 	struct pgpkt_struct tmp_pkt;
- 	int dataempty = true;
--	u8 originaldata[8 * sizeof(u8)];
-+	u8 originaldata[8];
- 	u8 badworden = 0x0F;
- 	u8 match_word_en, tmp_word_en;
- 	u8 tmpindex;
-@@ -881,7 +881,7 @@ static void efuse_write_data_case2(struct ieee80211_hw *hw, u16 *efuse_addr,
- 	struct pgpkt_struct tmp_pkt;
- 	u8 pg_header;
- 	u8 tmp_header;
--	u8 originaldata[8 * sizeof(u8)];
-+	u8 originaldata[8];
- 	u8 tmp_word_cnts;
- 	u8 badworden = 0x0F;
- 
-@@ -904,7 +904,7 @@ static void efuse_write_data_case2(struct ieee80211_hw *hw, u16 *efuse_addr,
- 
- 		tmp_word_cnts = efuse_calculate_word_cnts(tmp_pkt.word_en);
- 
--		memset(originaldata, 0xff,  8 * sizeof(u8));
-+		memset(originaldata, 0xff,  8);
- 
- 		if (efuse_pg_packet_read(hw, tmp_pkt.offset, originaldata)) {
- 			badworden = enable_efuse_data_write(hw,
-@@ -962,7 +962,7 @@ static int efuse_pg_packet_write(struct ieee80211_hw *hw,
- 	target_pkt.offset = offset;
- 	target_pkt.word_en = word_en;
- 
--	memset(target_pkt.data, 0xFF,  8 * sizeof(u8));
-+	memset(target_pkt.data, 0xFF,  8);
- 
- 	efuse_word_enable_data_read(word_en, data, target_pkt.data);
- 	target_word_cnts = efuse_calculate_word_cnts(target_pkt.word_en);
--- 
-1.9.3
+> 
+> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> index d2df4e3d1032..0e45a43172eb 100644
+> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> @@ -50,6 +50,11 @@
+>  #include <linux/prefetch.h>
+>  #include <scsi/fc/fc_fcoe.h>
+>  
+> +#ifdef CONFIG_OF
+> +#include <asm/idprom.h>
+> +#include <asm/prom.h>
+> +#endif
+> +
+>  #include "ixgbe.h"
+>  #include "ixgbe_common.h"
+>  #include "ixgbe_dcb_82599.h"
+> @@ -7960,6 +7965,31 @@ int ixgbe_wol_supported(struct ixgbe_adapter *adapter, u16 device_id,
+>  }
+>  
+>  /**
+> + * ixgbe_of_mac_addr - Look up MAC address in Open Firmware
+> + * @adapter: Pointer to adapter struct
+> + */
+> +static void ixgbe_of_mac_addr(struct ixgbe_adapter *adapter)
+> +{
+> +#ifdef CONFIG_OF
+> +	struct device_node *dp = pci_device_to_OF_node(adapter->pdev);
+> +	struct ixgbe_hw *hw = &adapter->hw;
+> +	const unsigned char *addr;
+> +	int len;
+> +
+> +	addr = of_get_property(dp, "local-mac-address", &len);
+> +	if (addr && len == 6) {
+> +		e_dev_info("Using OpenPROM MAC address\n");
+> +		memcpy(hw->mac.perm_addr, addr, 6);
+> +	}
+> +
+> +	if (!is_valid_ether_addr(hw->mac.perm_addr)) {
+> +		e_dev_info("Using IDPROM MAC address\n");
+
+There really isn't much point to print this message, just delete this
+e_dev_info line.
