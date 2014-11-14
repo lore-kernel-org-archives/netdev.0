@@ -1,7 +1,7 @@
 From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH v2 net-next 7/7] bpf: remove test map scaffolding and user proper types
-Date: Thu, 13 Nov 2014 17:36:50 -0800
-Message-ID: <1415929010-9361-8-git-send-email-ast@plumgrid.com>
+Subject: [PATCH v2 net-next 6/7] bpf: allow eBPF programs to use maps
+Date: Thu, 13 Nov 2014 17:36:49 -0800
+Message-ID: <1415929010-9361-7-git-send-email-ast@plumgrid.com>
 References: <1415929010-9361-1-git-send-email-ast@plumgrid.com>
 Cc: Ingo Molnar <mingo@kernel.org>,
 	Andy Lutomirski <luto@amacapital.net>,
@@ -15,160 +15,154 @@ In-Reply-To: <1415929010-9361-1-git-send-email-ast@plumgrid.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-proper types and function helpers are ready. Use them in verifier testsuite.
-Remove temporary stubs
+expose bpf_map_lookup_elem(), bpf_map_update_elem(), bpf_map_delete_elem()
+map accessors to eBPF programs
 
 Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
 ---
- kernel/bpf/test_stub.c      |   56 +++++++------------------------------------
- samples/bpf/test_verifier.c |   14 +++++------
- 2 files changed, 16 insertions(+), 54 deletions(-)
+Note, these helpers are exposed as '.gpl_only = false', so non-GPL eBPF programs
+can use them. That was requested by AndyL and DavidL before.
 
-diff --git a/kernel/bpf/test_stub.c b/kernel/bpf/test_stub.c
-index fcaddff4003e..0ceae1e6e8b5 100644
---- a/kernel/bpf/test_stub.c
-+++ b/kernel/bpf/test_stub.c
-@@ -18,26 +18,18 @@ struct bpf_context {
- 	u64 arg2;
+ include/linux/bpf.h      |    5 +++
+ include/uapi/linux/bpf.h |    3 ++
+ kernel/bpf/Makefile      |    2 +-
+ kernel/bpf/helpers.c     |   89 ++++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 98 insertions(+), 1 deletion(-)
+ create mode 100644 kernel/bpf/helpers.c
+
+diff --git a/include/linux/bpf.h b/include/linux/bpf.h
+index 51e9242e4803..75e94eaa228b 100644
+--- a/include/linux/bpf.h
++++ b/include/linux/bpf.h
+@@ -133,4 +133,9 @@ struct bpf_prog *bpf_prog_get(u32 ufd);
+ /* verify correctness of eBPF program */
+ int bpf_check(struct bpf_prog *fp, union bpf_attr *attr);
+ 
++/* verifier prototypes for helper functions called from eBPF programs */
++extern struct bpf_func_proto bpf_map_lookup_elem_proto;
++extern struct bpf_func_proto bpf_map_update_elem_proto;
++extern struct bpf_func_proto bpf_map_delete_elem_proto;
++
+ #endif /* _LINUX_BPF_H */
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index 0d662fe75df5..4a3d0f84f178 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -158,6 +158,9 @@ union bpf_attr {
+  */
+ enum bpf_func_id {
+ 	BPF_FUNC_unspec,
++	BPF_FUNC_map_lookup_elem, /* void *map_lookup_elem(&map, &key) */
++	BPF_FUNC_map_update_elem, /* int map_update_elem(&map, &key, &value, flags) */
++	BPF_FUNC_map_delete_elem, /* int map_delete_elem(&map, &key) */
+ 	__BPF_FUNC_MAX_ID,
  };
  
--static u64 test_func(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
--{
--	return 0;
--}
--
--static struct bpf_func_proto test_funcs[] = {
--	[BPF_FUNC_unspec] = {
--		.func = test_func,
--		.gpl_only = true,
--		.ret_type = RET_PTR_TO_MAP_VALUE_OR_NULL,
--		.arg1_type = ARG_CONST_MAP_PTR,
--		.arg2_type = ARG_PTR_TO_MAP_KEY,
--	},
--};
--
- static const struct bpf_func_proto *test_func_proto(enum bpf_func_id func_id)
- {
--	if (func_id < 0 || func_id >= ARRAY_SIZE(test_funcs))
-+	switch (func_id) {
-+	case BPF_FUNC_map_lookup_elem:
-+		return &bpf_map_lookup_elem_proto;
-+	case BPF_FUNC_map_update_elem:
-+		return &bpf_map_update_elem_proto;
-+	case BPF_FUNC_map_delete_elem:
-+		return &bpf_map_delete_elem_proto;
-+	default:
- 		return NULL;
--	return &test_funcs[func_id];
-+	}
- }
- 
- static const struct bpf_context_access {
-@@ -78,38 +70,8 @@ static struct bpf_prog_type_list tl_prog = {
- 	.type = BPF_PROG_TYPE_UNSPEC,
- };
- 
--static struct bpf_map *test_map_alloc(union bpf_attr *attr)
--{
--	struct bpf_map *map;
--
--	map = kzalloc(sizeof(*map), GFP_USER);
--	if (!map)
--		return ERR_PTR(-ENOMEM);
--
--	map->key_size = attr->key_size;
--	map->value_size = attr->value_size;
--	map->max_entries = attr->max_entries;
--	return map;
--}
--
--static void test_map_free(struct bpf_map *map)
--{
--	kfree(map);
--}
--
--static struct bpf_map_ops test_map_ops = {
--	.map_alloc = test_map_alloc,
--	.map_free = test_map_free,
--};
--
--static struct bpf_map_type_list tl_map = {
--	.ops = &test_map_ops,
--	.type = BPF_MAP_TYPE_UNSPEC,
--};
--
- static int __init register_test_ops(void)
- {
--	bpf_register_map_type(&tl_map);
- 	bpf_register_prog_type(&tl_prog);
- 	return 0;
- }
-diff --git a/samples/bpf/test_verifier.c b/samples/bpf/test_verifier.c
-index 63402742345e..b96175e90363 100644
---- a/samples/bpf/test_verifier.c
-+++ b/samples/bpf/test_verifier.c
-@@ -261,7 +261,7 @@ static struct bpf_test tests[] = {
- 			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
- 			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8),
- 			BPF_LD_MAP_FD(BPF_REG_1, 0),
--			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_unspec),
-+			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_map_lookup_elem),
- 			BPF_EXIT_INSN(),
- 		},
- 		.fixup = {2},
-@@ -417,7 +417,7 @@ static struct bpf_test tests[] = {
- 			BPF_ALU64_REG(BPF_MOV, BPF_REG_2, BPF_REG_10),
- 			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8),
- 			BPF_LD_MAP_FD(BPF_REG_1, 0),
--			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_unspec),
-+			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_map_delete_elem),
- 			BPF_EXIT_INSN(),
- 		},
- 		.errstr = "fd 0 is not pointing to valid bpf_map",
-@@ -430,7 +430,7 @@ static struct bpf_test tests[] = {
- 			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
- 			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8),
- 			BPF_LD_MAP_FD(BPF_REG_1, 0),
--			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_unspec),
-+			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_map_lookup_elem),
- 			BPF_ST_MEM(BPF_DW, BPF_REG_0, 0, 0),
- 			BPF_EXIT_INSN(),
- 		},
-@@ -445,7 +445,7 @@ static struct bpf_test tests[] = {
- 			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
- 			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8),
- 			BPF_LD_MAP_FD(BPF_REG_1, 0),
--			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_unspec),
-+			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_map_lookup_elem),
- 			BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 1),
- 			BPF_ST_MEM(BPF_DW, BPF_REG_0, 4, 0),
- 			BPF_EXIT_INSN(),
-@@ -461,7 +461,7 @@ static struct bpf_test tests[] = {
- 			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
- 			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8),
- 			BPF_LD_MAP_FD(BPF_REG_1, 0),
--			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_unspec),
-+			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_map_lookup_elem),
- 			BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 2),
- 			BPF_ST_MEM(BPF_DW, BPF_REG_0, 0, 0),
- 			BPF_EXIT_INSN(),
-@@ -548,7 +548,7 @@ static struct bpf_test tests[] = {
- 			BPF_ST_MEM(BPF_DW, BPF_REG_2, -56, 0),
- 			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -56),
- 			BPF_LD_MAP_FD(BPF_REG_1, 0),
--			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_unspec),
-+			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_map_delete_elem),
- 			BPF_EXIT_INSN(),
- 		},
- 		.fixup = {24},
-@@ -659,7 +659,7 @@ static int create_map(void)
- 	long long key, value = 0;
- 	int map_fd;
- 
--	map_fd = bpf_create_map(BPF_MAP_TYPE_UNSPEC, sizeof(key), sizeof(value), 1024);
-+	map_fd = bpf_create_map(BPF_MAP_TYPE_HASH, sizeof(key), sizeof(value), 1024);
- 	if (map_fd < 0) {
- 		printf("failed to create map '%s'\n", strerror(errno));
- 	}
+diff --git a/kernel/bpf/Makefile b/kernel/bpf/Makefile
+index 72ec98ba2d42..a5ae60f0b0a2 100644
+--- a/kernel/bpf/Makefile
++++ b/kernel/bpf/Makefile
+@@ -1,5 +1,5 @@
+ obj-y := core.o
+-obj-$(CONFIG_BPF_SYSCALL) += syscall.o verifier.o hashtab.o arraymap.o
++obj-$(CONFIG_BPF_SYSCALL) += syscall.o verifier.o hashtab.o arraymap.o helpers.o
+ ifdef CONFIG_TEST_BPF
+ obj-$(CONFIG_BPF_SYSCALL) += test_stub.o
+ endif
+diff --git a/kernel/bpf/helpers.c b/kernel/bpf/helpers.c
+new file mode 100644
+index 000000000000..9e3414d85459
+--- /dev/null
++++ b/kernel/bpf/helpers.c
+@@ -0,0 +1,89 @@
++/* Copyright (c) 2011-2014 PLUMgrid, http://plumgrid.com
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
++ * General Public License for more details.
++ */
++#include <linux/bpf.h>
++#include <linux/rcupdate.h>
++
++/* If kernel subsystem is allowing eBPF programs to call this function,
++ * inside its own verifier_ops->get_func_proto() callback it should return
++ * bpf_map_lookup_elem_proto, so that verifier can properly check the arguments
++ *
++ * Different map implementations will rely on rcu in map methods
++ * lookup/update/delete, therefore eBPF programs must run under rcu lock
++ * if program is allowed to access maps, so check rcu_read_lock_held in
++ * all three functions.
++ */
++static u64 bpf_map_lookup_elem(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
++{
++	/* verifier checked that R1 contains a valid pointer to bpf_map
++	 * and R2 points to a program stack and map->key_size bytes were
++	 * initialized
++	 */
++	struct bpf_map *map = (struct bpf_map *) (unsigned long) r1;
++	void *key = (void *) (unsigned long) r2;
++	void *value;
++
++	WARN_ON_ONCE(!rcu_read_lock_held());
++
++	value = map->ops->map_lookup_elem(map, key);
++
++	/* lookup() returns either pointer to element value or NULL
++	 * which is the meaning of PTR_TO_MAP_VALUE_OR_NULL type
++	 */
++	return (unsigned long) value;
++}
++
++struct bpf_func_proto bpf_map_lookup_elem_proto = {
++	.func = bpf_map_lookup_elem,
++	.gpl_only = false,
++	.ret_type = RET_PTR_TO_MAP_VALUE_OR_NULL,
++	.arg1_type = ARG_CONST_MAP_PTR,
++	.arg2_type = ARG_PTR_TO_MAP_KEY,
++};
++
++static u64 bpf_map_update_elem(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
++{
++	struct bpf_map *map = (struct bpf_map *) (unsigned long) r1;
++	void *key = (void *) (unsigned long) r2;
++	void *value = (void *) (unsigned long) r3;
++
++	WARN_ON_ONCE(!rcu_read_lock_held());
++
++	return map->ops->map_update_elem(map, key, value, r4);
++}
++
++struct bpf_func_proto bpf_map_update_elem_proto = {
++	.func = bpf_map_update_elem,
++	.gpl_only = false,
++	.ret_type = RET_INTEGER,
++	.arg1_type = ARG_CONST_MAP_PTR,
++	.arg2_type = ARG_PTR_TO_MAP_KEY,
++	.arg3_type = ARG_PTR_TO_MAP_VALUE,
++	.arg4_type = ARG_ANYTHING,
++};
++
++static u64 bpf_map_delete_elem(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
++{
++	struct bpf_map *map = (struct bpf_map *) (unsigned long) r1;
++	void *key = (void *) (unsigned long) r2;
++
++	WARN_ON_ONCE(!rcu_read_lock_held());
++
++	return map->ops->map_delete_elem(map, key);
++}
++
++struct bpf_func_proto bpf_map_delete_elem_proto = {
++	.func = bpf_map_delete_elem,
++	.gpl_only = false,
++	.ret_type = RET_INTEGER,
++	.arg1_type = ARG_CONST_MAP_PTR,
++	.arg2_type = ARG_PTR_TO_MAP_KEY,
++};
 -- 
 1.7.9.5
