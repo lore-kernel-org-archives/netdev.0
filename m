@@ -1,57 +1,35 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next] Revert "fast_hash: avoid indirect function
- calls"
-Date: Fri, 14 Nov 2014 22:43:02 +0100
-Message-ID: <1416001382.15154.64.camel@localhost>
-References: <1415978022.15154.31.camel@localhost>
-	 <1415979181.17262.45.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1415979978.15154.41.camel@localhost>
-	 <20141114.133829.1437047454714311242.davem@davemloft.net>
-	 <16481.1415991906@famine>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] inetdevice: fixed signed integer overflow
+Date: Fri, 14 Nov 2014 17:09:41 -0500 (EST)
+Message-ID: <20141114.170941.444338853371717833.davem@davemloft.net>
+References: <1e488fa546724140b55c8d4bd6b5a9d6@S1688.EX1688.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org, ogerlitz@mellanox.com, pshelar@nicira.com,
-	jesse@nicira.com, discuss@openvswitch.org
-To: Jay Vosburgh <jay.vosburgh@canonical.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:49217 "EHLO
-	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1161966AbaKNVnG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Nov 2014 16:43:06 -0500
-Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
-	by mailout.nyi.internal (Postfix) with ESMTP id 7FFF220768
-	for <netdev@vger.kernel.org>; Fri, 14 Nov 2014 16:43:04 -0500 (EST)
-In-Reply-To: <16481.1415991906@famine>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jiri@resnulli.us, ja@ssi.bg, nicolas.dichtel@6wind.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: vincent.benayoun@trust-in-soft.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1e488fa546724140b55c8d4bd6b5a9d6@S1688.EX1688.lan>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fr, 2014-11-14 at 11:05 -0800, Jay Vosburgh wrote:
-> This reverts commit e5a2c899957659cd1a9f789bc462f9c0b35f5150.
-> 
-> 	Commit e5a2c899 introduced an alternative_call, arch_fast_hash2,
-> that selects between __jhash2 and __intel_crc4_2_hash based on the
-> X86_FEATURE_XMM4_2.
-> 
-> 	Unfortunately, the alternative_call system does not appear to be
-> suitable for use with C functions, as register usage is not handled
-> properly for the called functions.  The __jhash2 function in particular
-> clobbers registers that are not preserved when called via
-> alternative_call, resulting in a panic for direct callers of
-> arch_fast_hash2 on older CPUs lacking sse4_2.  It is possible that
-> __intel_crc4_2_hash works merely by chance because it uses fewer
-> registers.
-> 
-> 	This commit was suggested as the source of the problem by Jesse
-> Gross <jesse@nicira.com>.
-> 
-> Signed-off-by: Jay Vosburgh <jay.vosburgh@canonical.com>
+From: Vincent Benayoun <vincent.benayoun@trust-in-soft.com>
+Date: Thu, 13 Nov 2014 15:04:57 +0000
 
-I am totally fine to revert this and try to come up with a better
-solution.
+> From f25ff0f2645f9763552147d480f86973b7041e26 Mon Sep 17 00:00:00 2001
+> From: Vincent BENAYOUN <vincent.benayoun@trust-in-soft.com>
+> Date: Thu, 13 Nov 2014 13:47:26 +0100
+> Subject: [PATCH] inetdevice: fixed signed integer overflow
+> 
+> There could be a signed overflow in the following code.
+> 
+> The expression, (32-logmask) is comprised between 0 and 31 included.
+> It may be equal to 31.
+> In such a case the left shift will produce a signed integer overflow.
+> According to the C99 Standard, this is an undefined behavior.
+> A simple fix is to replace the signed int 1 with the unsigned int 1U.
+> 
+> Signed-off-by: Vincent BENAYOUN <vincent.benayoun@trust-in-soft.com>
 
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-
-Bye,
-Hannes
+Applied, thanks.
