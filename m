@@ -1,85 +1,74 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next] fast_hash: clobber registers correctly for
- inline function use
-Date: Fri, 14 Nov 2014 16:46:18 +0100
-Message-ID: <1415979978.15154.41.camel@localhost>
-References: <4086c7bc9f7f9e8e2de9656c9e27ef1e71bb6423.1415973706.git.hannes@stressinduktion.org>
-	 <1415976656.17262.41.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1415978022.15154.31.camel@localhost>
-	 <1415979181.17262.45.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH v7 6/8] net: can: c_can: Disable pins when CAN interface
+ is down
+Date: Fri, 14 Nov 2014 16:49:39 +0100
+Message-ID: <54662493.5040002@pengutronix.de>
+References: <1415371762-29885-1-git-send-email-rogerq@ti.com> <1415371762-29885-7-git-send-email-rogerq@ti.com> <5464CCFF.5010004@ti.com> <5466225D.2070202@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com, pshelar@nicira.com,
-	jesse@nicira.com, jay.vosburgh@canonical.com,
-	discuss@openvswitch.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3-smtp.messagingengine.com ([66.111.4.27]:60996 "EHLO
-	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S965555AbaKNPqV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Nov 2014 10:46:21 -0500
-Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
-	by mailout.nyi.internal (Postfix) with ESMTP id F1DDC20B42
-	for <netdev@vger.kernel.org>; Fri, 14 Nov 2014 10:46:20 -0500 (EST)
-In-Reply-To: <1415979181.17262.45.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="3Qgtn8RItDe8Fhuq77fVU0j5cItNRjJXn"
+Cc: wsa@the-dreams.de, tony@atomide.com, tglx@linutronix.de,
+	mugunthanvnm@ti.com, george.cherian@ti.com, balbi@ti.com,
+	nsekhar@ti.com, nm@ti.com, sergei.shtylyov@cogentembedded.com,
+	linux-omap@vger.kernel.org, linux-can@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Roger Quadros <rogerq@ti.com>, wg@grandegger.com
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <5466225D.2070202@ti.com>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fr, 2014-11-14 at 07:33 -0800, Eric Dumazet wrote:
-> On Fri, 2014-11-14 at 16:13 +0100, Hannes Frederic Sowa wrote:
-> > > 
-> > > 
-> > > Thats a lot of clobbers.
-> > 
-> > Yes, those are basically all callee-clobbered registers for the
-> > particular architecture. I didn't look at the generated code for jhash
-> > and crc_hash because I want this code to always be safe, independent of
-> > the version and optimization levels of gcc.
-> > 
-> > > Alternative would be to use an assembly trampoline to save/restore them
-> > > before calling __jhash2
-> > 
-> > This version provides the best hints on how to allocate registers to the
-> > optimizers. E.g. it could avoid using callee-clobbered registers but use
-> > callee-saved ones. If we build a trampoline, we need to save and reload
-> > all registers all the time. This version just lets gcc decide how to do
-> > that.
-> > 
-> > > __intel_crc4_2_hash2 can probably be written in assembly, it is quite
-> > > simple.
-> > 
-> > Sure, but all the pre and postconditions must hold for both, jhash and
-> > intel_crc4_2_hash and I don't want to rewrite jhash in assembler.
-> 
-> We write optimized code for current cpus.
-> 
-> With current generation of cpus, we have crc32 support.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--3Qgtn8RItDe8Fhuq77fVU0j5cItNRjJXn
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-__intel_crc4_2_hash(2) does already make use of crc32 instruction. I'll
-have a closer look at what gcc generates.
+On 11/14/2014 04:40 PM, Roger Quadros wrote:
+> DRA7 CAN IP suffers from a problem which causes it to be prevented
+> from fully turning OFF (i.e. stuck in transition) if the module was
+> disabled while there was traffic on the CAN_RX line.
+>=20
+> To work around this issue we select the SLEEP pin state by default
+> on probe and use the DEFAULT pin state on CAN up and back to the
+> SLEEP pin state on CAN down.
+>=20
+> Signed-off-by: Roger Quadros <rogerq@ti.com>
 
-> The fallback having to save/restore few registers, we don't care, as the
-> fallback has huge cost anyway.
-> 
-> You don't have to write jhash() in assembler, you misunderstood me.
-
-Ok, understood, so we only clobber the registers needed in the
-crc32_hash implementation and only if we branch to jhash we save all the
-other ones in a trampoline directly before jhash.
-
-> We only have to provide a trampoline in assembler, with maybe 10
-> instructions.
-> 
-> Then gcc will know that we do not clobber registers for the optimized
-> case.
-
-Yes, makes sense.
-
-I would still like to see the current proposed fix getting applied and
-we can do this on-top. The inline call after this patch reassembles a
-direct function call, so besides the long list of clobbers, it should
-still be pretty fast.
+Wow! Some interations later this patch got quite nice and shiny :)
+Applied all to can-next/master.
 
 Thanks,
-Hannes
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--3Qgtn8RItDe8Fhuq77fVU0j5cItNRjJXn
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJUZiSTAAoJECte4hHFiupUOkgQAIG3AwYUQAZhTkEDORjuX51J
+i1Ilmgv69uErfPAyjgg4AOTdengrsEHH0Jz6CoItBZtMNB1rY/yy0B7GvmCRF9mU
+4xbp58h6Ii3Vy50q5GDWzKmdgJE6IU30pj5D6BP2F10Ei3JmRL+XRc1R+kbz5mm+
+BTPO38nvFMBU9UOvb4In/hg9NXnZeAXC15LvQWnY/1ldLWevnT/50Qaj0HsSZzsy
+oALJMnKl0z5Gkm+nKfYlcggoj3B7RwZJ29+OS1W7jNNmyV9Wy8ezSos0IqI9ngDy
+HWWOrDUaXxZEIszDdDMzVpllr0ilAmLC64Xlv3qvcE3sbXX46+XrsnXRtbDO17NJ
+MsYlCfVWdam3Qm3SSrQFtbDATbjTMfjsgoaWimiVDgfee7EPR6cH1vNCZ7C5VFGQ
+04DX+idu634zuZKgWug5/5VMoLksRBv5Yp5PFh28QA3UT58EWzD7oYTk04debeoF
+lh1saxGZmsyGjiwsb77zhGS4NoeDa2rUgAnePrM0wV6YA9rx6gJkVUSB40WdZvne
+5iz+j3B6sNe91vfvCP9FSlAyuS+iBoUS4CS7yZaM4XXOzxT8hDPyQDfXHz5sRuyz
+LY6H+194bWu1pzHGU1sqL8ML5TwPJ4b37arfsWLhu0GIjgXjxuDq0212hfPD1e2F
+C5GxZyNV6AyH6+x2J/Wd
+=glMb
+-----END PGP SIGNATURE-----
+
+--3Qgtn8RItDe8Fhuq77fVU0j5cItNRjJXn--
