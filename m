@@ -1,58 +1,45 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [linux-nics] [PATCH] ixgbe: Look up MAC address in Open Firmware
-Date: Fri, 14 Nov 2014 11:26:29 -0800
-Message-ID: <1415993189.2478.0.camel@jtkirshe-mobl>
-References: <yq1r3x5vbh9.fsf@sermon.lab.mkp.net>
+From: Fabian Frederick <fabf@skynet.be>
+Subject: Re: [PATCH 1/1 net-next] net: dsa: replace count*size kmalloc by
+ kmalloc_array
+Date: Fri, 14 Nov 2014 20:32:29 +0100 (CET)
+Message-ID: <47990659.56515.1415993549555.open-xchange@webmail.nmp.skynet.be>
+References: <1415990202-28673-1-git-send-email-fabf@skynet.be> <1415990835.5912.20.camel@perches.com> <2104595537.56209.1415991758726.open-xchange@webmail.nmp.skynet.be> <1415992486.5912.23.camel@perches.com>
+Reply-To: Fabian Frederick <fabf@skynet.be>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-mPGjXDaG6lvL1v0DvvjU"
-Cc: netdev@vger.kernel.org, linux.nics@intel.com
-To: "Martin K. Petersen" <martin.petersen@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:59243 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965598AbaKNT0r (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Nov 2014 14:26:47 -0500
-In-Reply-To: <yq1r3x5vbh9.fsf@sermon.lab.mkp.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-
---=-mPGjXDaG6lvL1v0DvvjU
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Fri, 2014-11-14 at 14:16 -0500, Martin K. Petersen wrote:
->=20
-> Attempt to look up the MAC address in Open Firmware on systems that
-> support it. If the "local-mac-address" property is not valid resort to
-> using the IDPROM value.
->=20
-> Signed-off-by: Martin K. Petersen <martin.petersen@oracle.com>
-
-Thanks Martin, I will add your patch to my queue.
-
---=-mPGjXDaG6lvL1v0DvvjU
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1415992486.5912.23.camel@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
 
-iQIcBAABCgAGBQJUZldlAAoJEOVv75VaS+3OmoMP/A6buGc2cCYv5BAADRdCpwnf
-rhUnVSGyJYjMyVM8K7V2lJ1r9hxVis46eTZ5KlBGaQQ2ECLYJBhcpJcUr0rwcTo6
-COCB6sXhGIUj8/SxNllm3dXXarFjRQDDOhKiBKbtEzpCmNEuhCiQHBqW5d/qBd6g
-PjEgDxV1OQjSZ/Yo40u2Ue4LCDRCuwqLVLwDFIOhJnXet3GeSAENJRpcOxRib0pU
-cRFzgnh2H4E+o8XvGlqpU8hIcXN/qWY3m4f5m9Vgh06iMoqvZ3yrHRrNxbSQGkp6
-PYBrRp+lgdNEq8B1X75DMSFWHqfZLmj2VL4LS9KSEJTudP/Ig3yasm77nI50zA0Q
-gVy7+KpATH8PHEIqyiFU/2vGJKPy0z6E73LFI7FgdrOQxHSWHlEaH7STk5caJpH7
-L/0qpLjQFXJ4nQt+SOERYxeYSYFe1bwuMC0RN7QbWIp27POCOt343E39QXyUwPhu
-UnEgjb7Lvgul9z9Ii1fnZbqfNDyVqX855m9HbRBepaHg/gRsgDnvqVs1+PwTJdIe
-mWWwoXWgUtp+j4KJWgP/bdpiTOeXXMiiwGnu4VJFQVdCCCjwD2SI9QdR0mLpCVNb
-JdYvhVk0V5oaA9GWkrazyoSUzphaS6znnoDC+yq1i98JaqoceAB4gKX3+ZhUsXue
-ZbWtPwkgFoztL363nOGv
-=wuoe
------END PGP SIGNATURE-----
 
---=-mPGjXDaG6lvL1v0DvvjU--
+> On 14 November 2014 at 20:14 Joe Perches <joe@perches.com> wrote:
+>
+>
+> On Fri, 2014-11-14 at 20:02 +0100, Fabian Frederick wrote:
+> > On 14 November 2014 at 19:47 Joe Perches <joe@perches.com> wrote:
+> > > On Fri, 2014-11-14 at 19:36 +0100, Fabian Frederick wrote:
+> > > > kmalloc_array manages count*sizeof overflow.
+> > >
+> > > Fundamentally correct, but is this necessary or useful?
+> > > sizeof(s8) isn't often going to be anything other than 1.
+> > Absolutely, I thought it was a struct :)
+> >
+> > There must be a reason for so many cases though ...
+>
+> Some might be style symmetry for other sizeof(othertype)
+> uses in the same paths, but most of them are just overkill
+> or maybe lack of understanding.
+>
+> s8 is char so by definition it has to be 1.
+>
+> I doubt any of the code dates from PDP-8/TOPS-10 days.
+>
+>
+95% comes from drivers tree. I guess one patch to Greg would be enough.
+Are you interested in those patches or can I do them with some "Suggested-by" ?
