@@ -1,134 +1,60 @@
-From: Jay Vosburgh <jay.vosburgh@canonical.com>
-Subject: Re: [PATCH net-next v3] fast_hash: clobber registers correctly for inline function use
-Date: Fri, 14 Nov 2014 09:57:27 -0800
-Message-ID: <15618.1415987847@famine>
-References: <1415976656.17262.41.camel@edumazet-glaptop2.roam.corp.google.com> <6751d6af4301f283134a419385f65dfcf92a44ab.1415978153.git.hannes@stressinduktion.org>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [PATCH] e100: fix typo in MDI/MDI-X eeprom check in e100_phy_init
+Date: Fri, 14 Nov 2014 12:58:28 -0500
+Message-ID: <20141114175828.GD1893@tuxdriver.com>
+References: <1415980770-5467-1-git-send-email-linville@tuxdriver.com>
+ <CAL3LdT5yEg1MqDyigzFpfPkpFv8ST09uPYSEwqaKAypEvDwHeQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com, pshelar@nicira.com,
-	jesse@nicira.com, discuss@openvswitch.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>, Dave Miller <davem@davemloft.net>,
+	Auke Kok <auke-jan.h.kok@intel.com>,
+	Malli Chilakala <mallikarjuna.chilakala@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:50328 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161632AbaKNR5f convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Nov 2014 12:57:35 -0500
-In-reply-to: <6751d6af4301f283134a419385f65dfcf92a44ab.1415978153.git.hannes@stressinduktion.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:33994 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161460AbaKNSAN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Nov 2014 13:00:13 -0500
+Content-Disposition: inline
+In-Reply-To: <CAL3LdT5yEg1MqDyigzFpfPkpFv8ST09uPYSEwqaKAypEvDwHeQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
+On Fri, Nov 14, 2014 at 09:17:39AM -0800, Jeff Kirsher wrote:
+> On Fri, Nov 14, 2014 at 7:59 AM, John W. Linville
+> <linville@tuxdriver.com> wrote:
+> > Although it doesn't explicitly say so, commit 60ffa478759f39a2 ("e100:
+> > Fix MDIO/MDIO-X") appears to be intended to revert the earlier commit
+> > 648951451e6d2d53 ("e100: fixed e100 MDI/MDI-X issues").  However,
+> > careful examination reveals that the attempted revert actually
+> > _inverted_ the test for eeprom_mdix_enabled.  That is bound to program
+> > a few PHYs incorrectly...
+> >
+> > https://bugzilla.redhat.com/show_bug.cgi?id=1156417
+> >
+> > Signed-off-by: John W. Linville <linville@tuxdriver.com>
+> > Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> > Cc: Auke Kok <auke-jan.h.kok@intel.com>
+> > Cc: Malli Chilakala <mallikarjuna.chilakala@intel.com>
+> > ---
+> > Wow, an 8 year old bug in e100 -- woohoo!! :-)
+> >
+> > This was causing some serious flakiness for a large cash register
+> > deployment in Europe.  Testing with this one-line (really,
+> > one-character) patch seems to have resolved the issue.
+> >
+> >  drivers/net/ethernet/intel/e100.c | 2 +-
+> >  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> Weird, I did not get this mail.  Anyway, thanks John, I have added
+> your patch to my queue.
 
->In case the arch_fast_hash call gets inlined we need to tell gcc which
->registers are clobbered with. rhashtable was fine, because it used
->arch_fast_hash via function pointer and thus the compiler took care of
->that. In case of openvswitch the call got inlined and arch_fast_hash
->touched registeres which gcc didn't know about.
->
->Also don't use conditional compilation inside arguments, as this confu=
-ses
->sparse.
->
->Fixes: e5a2c899957659c ("fast_hash: avoid indirect function calls")
->Reported-by: Jay Vosburgh <jay.vosburgh@canonical.com>
->Cc: Pravin Shelar <pshelar@nicira.com>
->Cc: Jesse Gross <jesse@nicira.com>
->Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
->---
->
->
->v2)
->After studying gcc documentation again, it occured to me that I need t=
-o
->specificy all input operands in the clobber section, too. Otherwise gc=
-c
->can expect that the inline assembler section won't modify the inputs,
->which is not true.
->
->v3)
->added Fixes tag
+I got a "no such address" bounce on all the @intel.com addresses,
+but they all seem OK to me -- not sure what the issue is...?
 
-	This patch does not compile for me when applied to today's
-net-next:
+Anyway, glad you got it! :-)
 
-  CC [M]  fs/nfsd/nfs4state.o
-In file included from ./arch/x86/include/asm/bitops.h:16:0,
-                 from include/linux/bitops.h:33,
-                 from include/linux/kernel.h:10,
-                 from include/linux/list.h:8,
-                 from include/linux/wait.h:6,
-                 from include/linux/fs.h:6,
-                 from fs/nfsd/nfs4state.c:36:
-fs/nfsd/nfs4state.c: In function =E2=80=98nfsd4_cb_recall_prepare=E2=80=
-=99:
-=2E/arch/x86/include/asm/alternative.h:185:2: error: =E2=80=98asm=E2=80=
-=99 operand has impossible constraints
-  asm volatile (ALTERNATIVE("call %P[old]", "call %P[new]", feature) \
-  ^
-=2E/arch/x86/include/asm/hash.h:27:2: note: in expansion of macro =E2=80=
-=98alternative_call=E2=80=99
-  alternative_call(__jhash, __intel_crc4_2_hash, X86_FEATURE_XMM4_2,
-  ^
-make[2]: *** [fs/nfsd/nfs4state.o] Error 1
-make[1]: *** [fs/nfsd] Error 2
-make: *** [fs] Error 2
-
-	-J
-
-
->Bye,
->Hannes
->
-> arch/x86/include/asm/hash.h | 20 ++++++++++++++------
-> 1 file changed, 14 insertions(+), 6 deletions(-)
->
->diff --git a/arch/x86/include/asm/hash.h b/arch/x86/include/asm/hash.h
->index a881d78..a25c45a 100644
->--- a/arch/x86/include/asm/hash.h
->+++ b/arch/x86/include/asm/hash.h
->@@ -23,11 +23,15 @@ static inline u32 arch_fast_hash(const void *data,=
- u32 len, u32 seed)
-> {
-> 	u32 hash;
->=20
->-	alternative_call(__jhash, __intel_crc4_2_hash, X86_FEATURE_XMM4_2,
-> #ifdef CONFIG_X86_64
->-			 "=3Da" (hash), "D" (data), "S" (len), "d" (seed));
->+	alternative_call(__jhash, __intel_crc4_2_hash, X86_FEATURE_XMM4_2,
->+			 "=3Da" (hash), "D" (data), "S" (len), "d" (seed)
->+			 : "rdi", "rsi", "rdx", "rcx", "r8", "r9", "r10", "r11",
->+			   "cc", "memory");
-> #else
->-			 "=3Da" (hash), "a" (data), "d" (len), "c" (seed));
->+	alternative_call(__jhash, __intel_crc4_2_hash, X86_FEATURE_XMM4_2,
->+			 "=3Da" (hash), "a" (data), "d" (len), "c" (seed)
->+			 : "edx", "ecx", "cc", "memory");
-> #endif
-> 	return hash;
-> }
->@@ -36,11 +40,15 @@ static inline u32 arch_fast_hash2(const u32 *data,=
- u32 len, u32 seed)
-> {
-> 	u32 hash;
->=20
->-	alternative_call(__jhash2, __intel_crc4_2_hash2, X86_FEATURE_XMM4_2,
-> #ifdef CONFIG_X86_64
->-			 "=3Da" (hash), "D" (data), "S" (len), "d" (seed));
->+	alternative_call(__jhash2, __intel_crc4_2_hash2, X86_FEATURE_XMM4_2,
->+			 "=3Da" (hash), "D" (data), "S" (len), "d" (seed)
->+			 : "rdi", "rsi", "rdx", "rcx", "r8", "r9", "r10", "r11",
->+			   "cc", "memory");
-> #else
->-			 "=3Da" (hash), "a" (data), "d" (len), "c" (seed));
->+	alternative_call(__jhash2, __intel_crc4_2_hash2, X86_FEATURE_XMM4_2,
->+			 "=3Da" (hash), "a" (data), "d" (len), "c" (seed)
->+			 : "edx", "ecx", "cc", "memory");
-> #endif
-> 	return hash;
-> }
->--=20
->1.9.3
-
----
-	-Jay Vosburgh, jay.vosburgh@canonical.com
+John
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
