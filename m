@@ -1,88 +1,105 @@
-From: Jay Vosburgh <jay.vosburgh@canonical.com>
-Subject: Re: [PATCH net-next] fast_hash: clobber registers correctly for inline function use
-Date: Fri, 14 Nov 2014 12:15:15 -0800
-Message-ID: <17658.1415996115@famine>
-References: <1415978022.15154.31.camel@localhost> <1415979181.17262.45.camel@edumazet-glaptop2.roam.corp.google.com> <1415979978.15154.41.camel@localhost> <20141114.133829.1437047454714311242.davem@davemloft.net> <1415995451.15154.54.camel@localhost>
-Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org, ogerlitz@mellanox.com, pshelar@nicira.com,
-	jesse@nicira.com, discuss@openvswitch.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:50889 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161184AbaKNUP2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Nov 2014 15:15:28 -0500
-In-reply-to: <1415995451.15154.54.camel@localhost>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
+Subject: Re: [PATCH net-next] net: introduce SO_INCOMING_CPU
+Date: Fri, 14 Nov 2014 12:16:18 -0800
+Message-ID: <CALCETrUuChgxXcNrKjYzpe1ry0hx3kf19EfAbY1N1YnG7NFZUw@mail.gmail.com>
+References: <1415393472.13896.119.camel@edumazet-glaptop2.roam.corp.google.com>
+ <CAHO5Pa0OGtgbUp4R287jbK2SFSpVUoXWCJybvHTFsGyCLynqLg@mail.gmail.com>
+ <CALCETrXmCWSoeQLC3WCqMf_sehGVE9KTbTGmsA77ZN84B-V24Q@mail.gmail.com>
+ <1415993614.17262.55.camel@edumazet-glaptop2.roam.corp.google.com> <CA+mtBx_DyUCxE6BqL_xXcqKPUDu7b3jLShV+AL6L+gCzJLriPg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Ying Cai <ycai-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Neal Cardwell <ncardwell-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Tom Herbert <therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CA+mtBx_DyUCxE6BqL_xXcqKPUDu7b3jLShV+AL6L+gCzJLriPg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
+On Fri, Nov 14, 2014 at 11:52 AM, Tom Herbert <therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org> wrote:
+> On Fri, Nov 14, 2014 at 11:33 AM, Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+>> On Fri, 2014-11-14 at 09:17 -0800, Andy Lutomirski wrote:
+>>
+>>> As a heavy user of RFS (and finder of bugs in it, too), here's my
+>>> question about this API:
+>>>
+>>> How does an application tell whether the socket represents a
+>>> non-actively-steered flow?  If the flow is subject to RFS, then moving
+>>> the application handling to the socket's CPU seems problematic, as the
+>>> socket's CPU might move as well.  The current implementation in this
+>>> patch seems to tell me which CPU the most recent packet came in on,
+>>> which is not necessarily very useful.
+>>
+>> Its the cpu that hit the TCP stack, bringing dozens of cache lines in
+>> its cache. This is all that matters,
+>>
+>>>
+>>> Some possibilities:
+>>>
+>>> 1. Let SO_INCOMING_CPU fail if RFS or RPS are in play.
+>>
+>> Well, idea is to not use RFS at all. Otherwise, it is useless.
 
->On Fr, 2014-11-14 at 13:38 -0500, David Miller wrote:
->> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
->> Date: Fri, 14 Nov 2014 16:46:18 +0100
->> 
->> > I would still like to see the current proposed fix getting applied and
->> > we can do this on-top. The inline call after this patch reassembles a
->> > direct function call, so besides the long list of clobbers, it should
->> > still be pretty fast.
->> 
->> I would rather revert the change entirely until it is implemented
->> properly.
->> 
->> Also, I am strongly of the opinion that this is a mis-use of the
->> alternative call interface.  It was never intended to be used for
->> things that can make real function calls.
->
->I tend to disagree. Grepping e.g. shows
->
->        alternative_call_2(copy_user_generic_unrolled,
->                         copy_user_generic_string,
->                         X86_FEATURE_REP_GOOD,
->                         copy_user_enhanced_fast_string,
->                         X86_FEATURE_ERMS,
->                         ASM_OUTPUT2("=a" (ret), "=D" (to), "=S" (from),
->                                     "=d" (len)),
->                         "1" (to), "2" (from), "3" (len)
->                         : "memory", "rcx", "r8", "r9", "r10", "r11");
->
->
->(it has a few less clobbers because it has more output operands)
+Sure, but how do I know that it'll be the same CPU next time?
 
-	As those functions (copy_user_generic_unrolled, et al) are all
-in assembly language, presumably the list of clobbered registers can be
-had via inspection.
+>>
+> Bear in mind this is only an interface to report RX CPU and in itself
+> doesn't provide any functionality for changing scheduling, there is
+> obviously logic needed in user space that would need to do something.
+>
+> If we track the interrupting CPU in skb, the interface could be easily
+> extended to provide the interrupting CPU, the RPS CPU (calculated at
+> reported time), and the CPU processing transport (post steering which
+> is what is currently returned). That would provide the complete
+> picture to control scheduling a flow from userspace, and an interface
+> to selectively turn off RFS for a socket would make sense then.
 
-	For the arch_fast_hash2 case, the functions (__intel_crc4_2_hash
-and __jash2) are both written in C, so how would the clobber list be
-created?
+I think that a turn-off-RFS interface would also want a way to figure
+out where the flow would go without RFS.  Can the network stack do
+that (e.g. evaluate the rx indirection hash or whatever happens these
+days)?
 
-	-J
+>
+>> RFS is the other way around : You want the flow to follow your thread.
+>>
+>> RPS wont be a problem if you have sensible RPS settings.
+>>
+>>>
+>>> 2. Change the interface a bit to report the socket's preferred CPU
+>>> (where it would go without RFS, for example) and then let the
+>>> application use setsockopt to tell the socket to stay put (i.e. turn
+>>> off RFS and RPS for that flow).
+>>>
+>>> 3. Report the preferred CPU as in (2) but let the application ask for
+>>> something different.
+>>>
+>>> For example, I have flows for which I know which CPU I want.  A nice
+>>> API to put the flow there would be quite useful.
+>>>
+>>>
+>>> Also, it may be worth changing the naming to indicate that these are
+>>> about the rx cpu (they are, right?).  For some applications (sparse,
+>>> low-latency flows, for example), it can be useful to keep the tx
+>>> completion handling on a different CPU.
+>>
+>> SO_INCOMING_CPU is rx, like incoming ;)
+>>
+>>
 
->I just tried to come up with some macros which lets you abstract away
->the clobber list, but in the end it somehow has to look exactly like
->that. The double-colon syntax also makes it difficult to come up with
->something that let's us use varargs for that.
->
->> You can add a million clobbers, or a trampoline, it's still using a
->> facility in a manner for which it was not designed.
->
->The full clobber list for a function call which would always clear
->registers like we would have in a normal non-inlined function call would
->look like this:
->
->#define FUNC_CLOBBER LIST "memory", "cc", "rax", "rdi", "rsi", "rdx", "rcx", "r8", "r9", "r10", "r11"
->
->(reference in arch/x86/include/asm/calling.h).
->
->> This means a new interface with a new name and with capabilities
->> explicitly supporting this case are in order.
->
->It try to implicitly embed the clobber list, would something like that
->be ok?
->
->Thanks,
->Hannes
+Duh :)
 
----
-	-Jay Vosburgh, jay.vosburgh@canonical.com
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
+
+-- 
+Andy Lutomirski
+AMA Capital Management, LLC
