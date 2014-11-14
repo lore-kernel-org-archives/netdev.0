@@ -1,80 +1,60 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCHv2 net 2/2] fm10k: Implement ndo_gso_check()
-Date: Thu, 13 Nov 2014 16:12:39 -0800
-Message-ID: <1415923959.2454.44.camel@jtkirshe-mobl>
-References: <1415921801-10452-1-git-send-email-joestringer@nicira.com>
-	 <1415921801-10452-2-git-send-email-joestringer@nicira.com>
-	 <1415922116.2454.34.camel@jtkirshe-mobl> <20141113235219.GA35957@gmail.com>
+From: =?utf-8?B?SGFjZXIgU2VsYW1vxJ9sdSDDh2HEn2xheWFu?=
+	<hacer.caglayan@csb.gov.tr>
+Subject: My Private Email: liliane.hbettencourt@yahoo.fr
+Date: Fri, 14 Nov 2014 00:10:13 +0000
+Message-ID: <62653B9F17E9244D9025DCAF43E7B16D924A28DD@MSX06S0.csb.local>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-WW/k0d8CzdPP1tEpE+zI"
-Cc: Shannon Nelson <shannon.nelson@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org, matthew.vick@intel.com,
-	linux.nics@intel.com, therbert@google.com, gerlitz.or@gmail.com,
-	alexander.duyck@gmail.com, linux-kernel@vger.kernel.org
-To: Joe Stringer <joestringer@nicira.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141113235219.GA35957@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.csb.gov.tr ([212.174.24.14]:51655 "EHLO HUB06S02.csb.local"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753163AbaKNAQP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Nov 2014 19:16:15 -0500
+Content-Language: tr-TR
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
---=-WW/k0d8CzdPP1tEpE+zI
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Thu, 2014-11-13 at 15:52 -0800, Joe Stringer wrote:
-> On Thu, Nov 13, 2014 at 03:41:56PM -0800, Jeff Kirsher wrote:
-> > On Thu, 2014-11-13 at 15:36 -0800, Joe Stringer wrote:
-> > > ndo_gso_check() was recently introduced to allow NICs to report
-> the
-> > > offloading support that they have on a per-skb basis. Add an
-> > > implementation for this driver which checks for something that
-> looks
-> > > like VXLAN.
-> > >=20
-> > > Signed-off-by: Joe Stringer <joestringer@nicira.com>
-> > > ---
-> > > v2: Reuse fm10k_tx_encap_offload().
-> > > ---
-> > >  drivers/net/ethernet/intel/fm10k/fm10k.h        |    1 +
-> > >  drivers/net/ethernet/intel/fm10k/fm10k_main.c   |    2 +-
-> > >  drivers/net/ethernet/intel/fm10k/fm10k_netdev.c |    8 ++++++++
-> > >  3 files changed, 10 insertions(+), 1 deletion(-)
-> >=20
-> > Same with this one as well, thanks Joe.
->=20
-> Thanks Jeff.
->=20
-> Could you remind me, is the equivalent i40e patch on your queue or
-> were
-> we still waiting on further feedback from Shannon/Jesse?
-
-Actually, looks like I dropped the patch due to community feedback and
-was expecting a v2.  Was I incorrect in doing so?
-
---=-WW/k0d8CzdPP1tEpE+zI
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJUZUj3AAoJEOVv75VaS+3ORHgP/0Unb9RBX7bIJWuGJPV9eKNp
-6DNoBxL6SQh8PkI39uXDIAKK9tTrJLZLAecw+8Xy/sq6ssFvLV6gZNVMMR7o0XsT
-JHezHXe/NhOiFr/vksqog4f04/3rNChYPVkuW/tz7VD/rN6+rNC3hkoDZ4EkBsn+
-2O0mDS6T4d9Qgb4jeAEYsC2qQU0Q3vGhOaBrFrzJRkiPfLEpIfvZAjeusXaGdedS
-rzBa6X1SF0WFl9fdJjFDLkOw94uBKtlQpPptehrPSF/GxO/O3NFCxVvoRxj3fo4y
-05al/j2tm6MSmgvgTTE6xOo+e3MVPGF8e7vMl5QqyidtkwEbwiNLlzIYAtgL49vP
-qJ6+ceN7QVofaLO6rSRyYKl99pD0Vwv2j4n9i1v3HANNZpUuuEa/gSnM0qBpeaMZ
-oy/c6j03OlOTHqSbwFnk0FoQgmYQH1PDAAXVI0uR7JKvTXptC+qf5C/28TBOF4uE
-5V+L55V9Gg/G2jXZCtsJQ+Y1hdN2nTXTr8I21ON9A4FGi17vBR+wUfxUSXoIRz2M
-4QPaf8xsMczenr6DNTOK0gu36+7QsBqOEjA4lRMG2DX3UczQzFez+CkvkIvOw6es
-PpZ1UlWRj5j6PsZSFSMWH6FDqhxTXBdTUctXjfhFaU3qPaWOiWwNCIvPrCtpSiyB
-Ur6iWyRCzdY4LiCEGwDk
-=yT5g
------END PGP SIGNATURE-----
-
---=-WW/k0d8CzdPP1tEpE+zI--
+DQoNCiBJLCBMaWxpYW5lIGF1dGhlbnRpY2F0ZSB0aGlzIGVtYWlsLCB5b3UgY2FuIHJlYWQgYWJv
+dXQgbWUgb246IGh0dHA6Ly9lbi53aWtpcGVkaWEub3JnL3dpa2kvTGlsaWFuZV9CZXR0ZW5jb3Vy
+dCAgSSB3cml0ZSB0byB5b3UgYmVjYXVzZSBJIGludGVuZCB0byBnaXZlIHlvdSBhIHBvcnRpb24g
+b2YgIG15IE5ldC13b3J0aCB3aGljaCBJIGhhdmUgYmVlbiBiYW5raW5nLiBJIHdhbnQgdG8gY2Vk
+ZSBpdCBvdXQgYXMgZ2lmdCBob3BpbmcgaXQgd291bGQgYmUgb2YgaGVscCB0byB5b3UgYW5kIG90
+aGVycyB0b28uIFJlc3BvbmQgZm9yIGNvbmZpcm1hdGlvbi4NCg0KTXkgUHJpdmF0ZSBFbWFpbDog
+bGlsaWFuZS5oYmV0dGVuY291cnRAeWFob28uZnINCg0KV2l0aCBsb3ZlLA0KTGlsaWFuZSBIIEJl
+dHRlbmNvdXJ0DQoNCg0KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18NCktpxZ9peWUg
+w7Z6ZWwgYnUgbWVzYWogdmUgacOnZXJpxJ9pbmRla2kgYmlsZ2lsZXIgZ2l6bGlkaXIuIE1lc2Fq
+IGnDp2VyacSfaW5kZSBidWx1bmFuIGJpbGdpLCBmaWtpciB2ZSB5b3J1bWxhciwgc2FkZWNlIGfD
+tm5kZXJpY2l5ZSBhaXR0aXIuIFQuQy4gw4dldnJlIHZlIMWeZWhpcmNpbGlrIEJha2FubMSxxJ/E
+sSBidSBtZXNhasSxbiBpw6dlcmnEn2kgdmUgZWtsZXJpIGlsZSBpbGdpbGkgb2xhcmFrIGh1a3Vr
+c2FsIGhpw6diaXIgc29ydW1sdWx1ayBrYWJ1bCBldG1lei4gWWV0a2lsaSBhbMSxY8SxbGFyZGFu
+IGJpcmkgZGXEn2lsc2VuaXosIGJ1IG1lc2FqxLFuIGhlcmhhbmdpIGJpciDFn2VraWxkZSBpZsWf
+YSBlZGlsbWVzaSwga3VsbGFuxLFsbWFzxLEsIGtvcHlhbGFubWFzxLEsIHlhecSxbG1hc8SxIHZl
+eWEgbWVzYWpkYSB5ZXIgYWxhbiBodXN1c2xhcmxhIGlsZ2lsaSBvbGFyYWsgaGVyaGFuZ2kgYmly
+IGnFn2xlbSB5YXDEsWxtYXPEsW7EsW4ga2VzaW5saWtsZSB5YXNhayBvbGR1xJ91bnUgYmlsZGly
+aXJpei4gQsO2eWxlIGJpciBkdXJ1bWRhIGzDvHRmZW4gaGVtZW4gbWVzYWrEsW4gZ8O2bmRlcmlj
+aXNpbmkgYmlsZ2lsZW5kaXJpbml6IHZlIG1lc2FqxLEgc2lzdGVtaW5pemRlbiBzaWxpbml6LiDE
+sG50ZXJuZXQgb3J0YW3EsW5kYSBnw7ZuZGVyaWxlbiBlLXBvc3RhIG1lc2FqbGFyxLFuZGFraSBo
+YXRhIHZlL3ZleWEgZWtzaWtsaWtsZXJkZW4gdmV5YSB2aXLDvHNsZXJkZW4gZG9sYXnEsSBtZXNh
+asSxbiBnw7ZuZGVyaWNpc2kgaGVyaGFuZ2kgYmlyIHNvcnVtbHVsdWsga2FidWwgZXRtZW1la3Rl
+ZGlyLg0KVGXFn2Vra8O8ciBlZGVyaXouDQoNCioqKiBCdSBtYWlsIHphcmFybMSxIGnDp2VyacSf
+ZSBrYXLFn8SxLCBULkMuIMOHZXZyZSB2ZSDFnmVoaXJjaWxpayBCYWthbmzEscSfxLEgQW50aXZp
+cnVzIFNpc3RlbWxlcmkgdGFyYWbEsW5kYW4gdGFyYW5txLHFn3TEsXIuICoqKg0KDQpUaGUgaW5m
+b3JtYXRpb24gY29udGFpbmVkIGluIHRoaXMgY29tbXVuaWNhdGlvbiBtYXkgY29udGFpbiBjb25m
+aWRlbnRpYWwgb3IgbGVnYWxseSBwcml2aWxlZ2VkIGluZm9ybWF0aW9uLiBSZXNwb25zaWJpbGl0
+eSBhYm91dCBzZW50IGNvbnRlbnRzIGJlbG9uZ3MgdG8gdGhlIHNlbmRlci4gVGhlIE1pbmlzdHJ5
+IG9mIEVudmlyb25tZW50IGFuZCBVcmJhbmlzbSBkb2Vzbid0IGFjY2VwdCBhbnkgbGVnYWwgcmVz
+cG9uc2liaWxpdHkgZm9yIHRoZSBjb250ZW50cyBhbmQgYXR0YWNobWVudHMgb2YgdGhpcyBtZXNz
+YWdlLiBJZiB5b3UgYXJlIG5vdCB0aGUgaW50ZW5kZWQgcmVjaXBpZW50IHlvdSBhcmUgaGVyZWJ5
+IG5vdGlmaWVkIHRoYXQgYW55IGRpc2Nsb3N1cmUsIHVzZSwgY29weWluZywgZGlzdHJpYnV0aW9u
+IG9yIHRha2luZyBhbnkgYWN0aW9uIGluIHJlbGlhbmNlIG9uIHRoZSBjb250ZW50cyBvZiB0aGlz
+IGluZm9ybWF0aW9uIGlzIHN0cmljdGx5IHByb2hpYml0ZWQuIElmIHlvdSBoYXZlIHJlY2VpdmVk
+IHRoaXMgY29tbXVuaWNhdGlvbiBpbiBlcnJvciwgcGxlYXNlIG5vdGlmeSB0aGUgc2VuZGVyIGlt
+bWVkaWF0ZWx5IGJ5IHJlc3BvbmRpbmcgdG8gdGhpcyBlLW1haWwgYW5kIHRoZW4gZGVsZXRlIGl0
+IGZyb20geW91ciBzeXN0ZW0uIFRoZSBzZW5kZXIgZG9lcyBub3QgYWNjZXB0IGFueSBsaWFiaWxp
+dHkgZm9yIGFueSBlcnJvcnMgb3Igb21pc3Npb25zIG9yIGFueSB2aXJ1c2VzIGluIHRoZSBjb250
+ZXh0IG9mIHRoaXMgbWVzc2FnZSB3aGljaCBhcmlzZSBhcyBhIHJlc3VsdCBvZiBpbnRlcm5ldCB0
+cmFuc21pc3Npb24uDQpUaGFuayB5b3UuDQoNCioqKiBUaGlzIG1haWwgd2FzIHNjYW5uZWQgZm9y
+IGtub3duIHZpcnVzZXMgYnkgVGhlIE1pbmlzdHJ5IG9mIEVudmlyb25tZW50IGFuZCBVcmJhbmlz
+bSBBbnRpdmlydXMgc3lzdGVtcy4gKioqDQo=
