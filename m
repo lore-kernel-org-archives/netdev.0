@@ -1,66 +1,143 @@
-From: Mark Brown <broonie@kernel.org>
-Subject: Re: arm64 allmodconfig failures in nft_reject_bridge.c
-Date: Thu, 13 Nov 2014 23:51:52 +0000
-Message-ID: <20141113235152.GR3815@sirena.org.uk>
-References: <20141113114357.GA7857@salvia>
- <20141113.143513.785778562781935404.davem@davemloft.net>
- <20141113194752.GQ3815@sirena.org.uk>
- <20141113.152353.548265176661091467.davem@davemloft.net>
+From: Jeremiah Mahler <jmmahler@gmail.com>
+Subject: linux-next: ath9k: build failure, ath_cmn_process_fft() redefinition
+Date: Thu, 13 Nov 2014 16:07:47 -0800
+Message-ID: <20141114000747.GA6865@hudson.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="ZAr10/UugL07XvY7"
-Cc: pablo@netfilter.org, linux@roeck-us.net, kaber@trash.net,
-	kadlec@blackhole.kfki.hu, stephen@networkplumber.org,
-	linaro-kernel@lists.linaro.org,
-	kernel-build-reports@lists.linaro.org,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	bridge@lists.linux-foundation.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mezzanine.sirena.org.uk ([106.187.55.193]:37373 "EHLO
-	mezzanine.sirena.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934400AbaKMXxk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Nov 2014 18:53:40 -0500
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jeremiah Mahler <jmmahler@gmail.com>, linux-kernel@vger.kernel.org,
+	ath9k-devel@qca.qualcomm.com, linville@tuxdriver.com,
+	linux-wireless@vger.kernel.org, ath9k-devel@lists.ath9k.org,
+	netdev@vger.kernel.org
+To: Oleksij Rempel <linux@rempel-privat.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20141113.152353.548265176661091467.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
---ZAr10/UugL07XvY7
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+In version 20141113 of the linux-next kernel, if it is compiled with
+CONFIG_ATH9K_DEBUGFS unset, an error about ath_cmn_process_fft() being
+redefined will be produced.
 
-On Thu, Nov 13, 2014 at 03:23:53PM -0500, David Miller wrote:
-> Date: Thu, 13 Nov 2014 19:47:52 +0000
+  make
+  ...
+    LD [M]  drivers/net/wireless/ath/ath9k/ath9k_hw.o
+    CC [M]  drivers/net/wireless/ath/ath9k/common-spectral.o
+    CC      lib/debug_locks.o
+    CC      lib/random32.o
+  drivers/net/wireless/ath/ath9k/common-spectral.c:40:5: error:
+  redefinition of =E2=80=98ath_cmn_process_fft=E2=80=99
+   int ath_cmn_process_fft(struct ath_spec_scan_priv *spec_priv, struct
+  ieee80211_hdr *hdr,
+       ^
+  In file included from drivers/net/wireless/ath/ath9k/common.h:27:0,
+                   from drivers/net/wireless/ath/ath9k/ath9k.h:27,
+                   from
+  drivers/net/wireless/ath/ath9k/common-spectral.c:18:
+  drivers/net/wireless/ath/ath9k/common-spectral.h:146:19: note: previo=
+us
+  definition of =E2=80=98ath_cmn_process_fft=E2=80=99 was here
+   static inline int ath_cmn_process_fft(struct ath_spec_scan_priv
+  *spec_priv,
+                     ^
+  scripts/Makefile.build:257: recipe for target
+  'drivers/net/wireless/ath/ath9k/common-spectral.o' failed
+  make[5]: *** [drivers/net/wireless/ath/ath9k/common-spectral.o] Error=
+ 1
+  scripts/Makefile.build:402: recipe for target
+  'drivers/net/wireless/ath/ath9k' failed
+  make[4]: *** [drivers/net/wireless/ath/ath9k] Error 2
+  scripts/Makefile.build:402: recipe for target 'drivers/net/wireless/a=
+th'
+  failed
+  make[3]: *** [drivers/net/wireless/ath] Error 2
+  scripts/Makefile.build:402: recipe for target 'drivers/net/wireless'
+  failed
+  make[2]: *** [drivers/net/wireless] Error 2
+  scripts/Makefile.build:402: recipe for target 'drivers/net' failed
+  make[1]: *** [drivers/net] Error 2
+  Makefile:953: recipe for target 'drivers' failed
+  make: *** [drivers] Error 2
+  make: *** Waiting for unfinished jobs....
+    CC      lib/bust_spinlocks.o
+  ...
 
-> > On Thu, Nov 13, 2014 at 02:35:13PM -0500, David Miller wrote:
+Bisecting the kernel found that the following patch was the cause.
 
-> >> I hold changes in my tree for a week or more, because I want them to
-> >> "cook" there before they go to Linus.
+  commit 67dc74f15f147b9f88702de2952d2951e3e000ec
+  Author: Oleksij Rempel <linux@rempel-privat.de>
+  Date:   Thu Nov 6 08:53:30 2014 +0100
+ =20
+      ath9k: move spectral.* to common-spectral.*
+     =20
+      and rename exports from ath9k_spectral_* to ath9k_cmn_spectral_*
+     =20
+      Signed-off-by: Oleksij Rempel <linux@rempel-privat.de>
+      Signed-off-by: John W. Linville <linville@tuxdriver.com>
 
-> > Hrm.  Guess there must've been some other change in -next that pulled
-> > the header in implicitly here :(
+This patch mostly consists of renaming functions and moving code but
+there was a functional change to the Makefile.
 
-> -next pulls in my 'net' tree, so got the fix.
+common-spectral.h uses CONFIG_ATH9K_DEBUGFS to conditionally provide a
+prototype of ath_cmn_process_fft() when set or to define it as a noop
+when it is unset.  The Makefile was changed so that CONFIG_ATH9K_DEBUGF=
+S
+no longer applied to common-spectral and this will result in two
+definitions of ath_cmn_process_fft().
 
-Right, but we didn't see the problem before you sent the tree with the
-problematic patch to Linus - we didn't detect it in -next.
+  > --- a/drivers/net/wireless/ath/ath9k/Makefile
+  > +++ b/drivers/net/wireless/ath/ath9k/Makefile
+  > @@ -16,8 +16,7 @@ ath9k-$(CONFIG_ATH9K_DFS_CERTIFIED) +=3D dfs.o
+  >  ath9k-$(CONFIG_ATH9K_TX99) +=3D tx99.o
+  >  ath9k-$(CONFIG_ATH9K_WOW) +=3D wow.o
+  >
+  > -ath9k-$(CONFIG_ATH9K_DEBUGFS) +=3D debug.o \
+  > -                                spectral.o
+  > +ath9k-$(CONFIG_ATH9K_DEBUGFS) +=3D debug.o
+  >
+  >  ath9k-$(CONFIG_ATH9K_STATION_STATISTICS) +=3D debug_sta.o
+  >
+  > @@ -59,7 +58,8 @@ obj-$(CONFIG_ATH9K_COMMON) +=3D ath9k_common.o
+  >  ath9k_common-y:=3D       common.o \
+  >                         common-init.o \
+  >                         common-beacon.o \
+  > -                       common-debug.o
+  > +                       common-debug.o \
+  > +                       common-spectral.o
 
---ZAr10/UugL07XvY7
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
+Reverting the patch solves one error, but then a new one is produced.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+  make
+  ...
+    MODPOST 185 modules
+    CC      arch/x86/boot/edd.o
+    VOFFSET arch/x86/boot/voffset.h
+  ERROR: "ath9k_cmn_spectral_scan_trigger"
+  [drivers/net/wireless/ath/ath9k/ath9k.ko] undefined!
+  scripts/Makefile.modpost:90: recipe for target '__modpost' failed
+  make[1]: *** [__modpost] Error 1
+  ...
 
-iQEcBAEBAgAGBQJUZUQXAAoJECTWi3JdVIfQ3OcH/Ax8XGlpjGf74neFu7BW2r8p
-FE38FVlrw1l6w0HpbyhgSgk+peB8yPlyMAmhhiOrPOt8YsN05t6fzixqENZUdrfN
-a+eY2HIxkgoWY4DbofrFG2Fmg7exkfrUs5QHh9wrSIpFyXKz8gMbhEZyX0a64yxZ
-zfIFu1XaWBZdTS+kpY/yxXsQoa84tCJlXG1CkpHc/V81Q6Ieiwxn5ARb4UNnja1y
-cSdvaSkrMVydhgRFngqPc3H11/bb8BoWTgwassfFxUCX5OocGGGQBsaHY2PwPRI1
-mY/jdgmhPu946qelwGWO2mqvEpZVpNO3ZiFcaDNwWZi4QwUlwu6cp4vsIzjELUA=
-=dbJv
------END PGP SIGNATURE-----
+This error is caused by the patch before it.
 
---ZAr10/UugL07XvY7--
+  commit f00a422cc81ef665f5098c0bc43cb0c616e55a9b
+  Author: Oleksij Rempel <linux@rempel-privat.de>
+  Date:   Thu Nov 6 08:53:29 2014 +0100
+ =20
+      ath9k: move ath9k_spectral_scan_ from main.c to spectral.c
+     =20
+      Now we should be ready to make this code common.
+     =20
+      Signed-off-by: Oleksij Rempel <linux@rempel-privat.de>
+      Signed-off-by: John W. Linville <linville@tuxdriver.com>
+
+Since the code was moved from main.c to spectral.c, it is now involved
+with CONFIG_ATH9K_DEBUGFS, which causes it to break.
+
+Reverting both the above patches resolves the build errors.
+
+--=20
+Jeremiah Mahler
+jmmahler@gmail.com
+http://github.com/jmahler
