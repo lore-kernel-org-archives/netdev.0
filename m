@@ -1,156 +1,184 @@
-From: Sedat Dilek <sedat.dilek-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: Understanding what's going on when using a Huawei E173 USB 3G
- web-stick (UMTS/HSPA)
-Date: Fri, 14 Nov 2014 11:56:36 +0100
-Message-ID: <CA+icZUX6caBKnjMv6V_26y_-VNfDqkeXFXKJhDdQpZy7W4oofw@mail.gmail.com>
-References: <CA+icZUXgLhuVSs0aqxi_e=GLZh-zX3JPMhDF+03ctr7O-Ae2og@mail.gmail.com>
-	<1415120132.31049.11.camel@dcbw.local>
-	<CA+icZUW2iRkoAK10ayJ9PFuFGWBQzKdFe+8mfd=8oKkAp1txtg@mail.gmail.com>
-Reply-To: sedat.dilek-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: net-next panic in ovs call to arch_fast_hash2 since e5a2c899
+Date: Fri, 14 Nov 2014 12:10:15 +0100
+Message-ID: <1415963415.15154.6.camel@localhost>
+References: <12086.1415931332@famine>
+	 <20141113.214549.1520205472319716774.davem@davemloft.net>
+	 <12872.1415941444@famine>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Aleksander Morgado <aleksander-Dvg4H30XQSRVIjRurl1/8g@public.gmane.org>
-To: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CA+icZUW2iRkoAK10ayJ9PFuFGWBQzKdFe+8mfd=8oKkAp1txtg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	discuss@openvswitch.org, pshelar@nicira.com, ogerlitz@mellanox.com
+To: Jay Vosburgh <jay.vosburgh@canonical.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out3-smtp.messagingengine.com ([66.111.4.27]:59868 "EHLO
+	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S934378AbaKNLKS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Nov 2014 06:10:18 -0500
+Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
+	by mailout.nyi.internal (Postfix) with ESMTP id 8405B209B1
+	for <netdev@vger.kernel.org>; Fri, 14 Nov 2014 06:10:17 -0500 (EST)
+In-Reply-To: <12872.1415941444@famine>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 12, 2014 at 2:21 PM, Sedat Dilek <sedat.dilek-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> On Tue, Nov 4, 2014 at 5:55 PM, Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
->> On Tue, 2014-11-04 at 16:11 +0100, Sedat Dilek wrote:
->>> Hi,
->>>
->>> I wanted to understand what is going on the kernel-side when
->>> connecting to the Internet via a Huawei E173 USB web-stick (3rd
->>> Generation: UMTS / HSPA).
->>>
->>> Especially the correlation between the diverse USB/NET kernel-drivers
->>> and how the networking is setup.
->>
->
-> [ Sitting in front of a foreign Windows machine ]
->
-> [ CC Aleksander ]
->
-> Hi Dan,
->
-> sorry for the late (and short) response.
->
-> AFAICS you have given a "skeleton" for a "usb-wwan-networking"
-> documentation :-).
->
-> Personally, I would like to take into account some kernel-config
-> options and some more things.
->
+Hi Jay,
 
-I started with documenting...
+On Do, 2014-11-13 at 21:04 -0800, Jay Vosburgh wrote:
+> 	[ adding Hannes to Cc, which I should've done initially ]
+> 
+> David Miller <davem@davemloft.net> wrote:
+> 
+> >From: Jay Vosburgh <jay.vosburgh@canonical.com>
+> >Date: Thu, 13 Nov 2014 18:15:32 -0800
+> >
+> >> 	The "have feature" function, __intel_crc4_2_hash2, does not
+> >> clobber %r8, and so the call does not panic on a system with
+> >> X86_FEATURE_XMM4_2, although I'm not sure if that's a deliberate
+> >> compiler action or just happenstance because __intel_crc4_2_hash2 uses
+> >> fewer registers than __jhash2.
+> >
+> >Perhaps alternative calls can only be used with assembler routines
+> >that use specific calling conventions, and they therefore generally
+> >don't work with C functions?
+> 
+> 	I don't know the answer to that, but a quick search suggests
+> that arch_fast_hash and arch_fast_hash2 (both added by commit e5a2c899)
+> may be the only cases of alternative calls that aren't supplying either
+> single instructions or assembly language functions.
+> 
+> 	From looking at how the alternative calls are implemented (code
+> patching at boot or module load time from a table stored in a special
+> section of the object file), I'm skeptical that the compiler could know
+> what's the right thing to do.
+> 
+> 	Hannes, can you shed any light on this?
 
-I have still some difficulties in understanding USB WWAN Networking.
-So, this is what I revealed...
+Unfortunately I only tested this code with rhashtable, which itself
+takes a function pointer to arch_fast_hash and thus doesn't need to care
+about clobbering so much. As a first step, I am currently testing this
+patch as a first step and check thoroughly. Thanks for the report:
 
-##### USB: HUAWEI E173 3G/UMTS/HSPA INTERNET STICK
-
-### USB-NETWORKING AND WWAN SETUP
-CONFIG_USB_USBNET=m        <--- usb networking
-CONFIG_USB_NET_CDCETHER=m  <--- usb-wwan (net) configuration
-CONFIG_USB_SERIAL_WWAN=m   <--- usb-wwan (serial) configuration
-CONFIG_USB_SERIAL_OPTION=m <--- usb-serial driver called "option"
-
-### PPP OPTIONS
-CONFIG_PPP=y
-CONFIG_PPP_BSDCOMP=m
-CONFIG_PPP_DEFLATE=m
-CONFIG_PPP_FILTER=y
-CONFIG_PPP_MULTILINK=y
-CONFIG_PPP_ASYNC=m
-
-Beyond the PPP options, I wanted to understand what
-CONFIG_USB_NET_CDCETHER does and why I need it.
-Can someone help?
-
-Thanks.
-
-- Sedat -
-
-[1] http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/drivers/net/usb/Kconfig#n189
-
-P.S.: cdc_ether Kconfig option and checking my logs
-
->From [1]...
-...
-config USB_NET_CDCETHER
-tristate "CDC Ethernet support (smart devices such as cable modems)"
-depends on USB_USBNET
-default y
-help
- This option supports devices conforming to the Communication Device
- Class (CDC) Ethernet Control Model, a specification that's easy to
- implement in device firmware.  The CDC specifications are available
- from <http://www.usb.org/>.
-
- CDC Ethernet is an implementation option for DOCSIS cable modems
- that support USB connectivity, used for non-Microsoft USB hosts.
- The Linux-USB CDC Ethernet Gadget driver is an open implementation.
-   This driver should work with at least the following devices:
-
-   * Dell Wireless 5530 HSPA
-     * Ericsson PipeRider (all variants)
-   * Ericsson Mobile Broadband Module (all variants)
-     * Motorola (DM100 and SB4100)
-     * Broadcom Cable Modem (reference design)
-   * Toshiba (PCX1100U and F3507g/F3607gw)
-   * ...
-
- This driver creates an interface named "ethX", where X depends on
- what other networking devices you have in use.  However, if the
- IEEE 802 "local assignment" bit is set in the address, a "usbX"
- name is used instead.
-...
-
->From my logs...
-
-$ dmesg | egrep -i 'option|wwan|ppp|3-1.2|huawei|gsm|modem'
-[    0.000000] please try 'cgroup_disable=memory' option if you don't
-want memory cgroups
-[    0.549498] PPP generic driver version 2.4.2
-[    1.299059] usb 3-1.2: new high-speed USB device number 3 using ehci-pci
-[    1.394084] usb 3-1.2: New USB device found, idVendor=12d1, idProduct=1436
-[    1.394095] usb 3-1.2: New USB device strings: Mfr=4, Product=3,
-SerialNumber=0
-[    1.394100] usb 3-1.2: Product: HUAWEI Mobile
-[    1.394103] usb 3-1.2: Manufacturer: HUAWEI Technology
-[    2.115424] usb-storage 3-1.2:1.0: USB Mass Storage device detected
-[    2.125026] usb-storage 3-1.2:1.1: USB Mass Storage device detected
-[    2.125607] usb-storage 3-1.2:1.2: USB Mass Storage device detected
-[    2.125888] usb-storage 3-1.2:1.3: USB Mass Storage device detected
-[    2.126187] usb-storage 3-1.2:1.4: USB Mass Storage device detected
-[    2.126461] usb-storage 3-1.2:1.5: USB Mass Storage device detected
-[    2.127098] scsi host11: usb-storage 3-1.2:1.5
-[    2.129370] usb-storage 3-1.2:1.6: USB Mass Storage device detected
-[    2.131685] scsi host12: usb-storage 3-1.2:1.6
-[    3.127317] scsi 11:0:0:0: CD-ROM            HUAWEI   Mass Storage
-   2.31 PQ: 0 ANSI: 2
-[    3.137589] scsi 12:0:0:0: Direct-Access     HUAWEI   SD Storage
-   2.31 PQ: 0 ANSI: 2
-[   13.500302] cdc_ether 3-1.2:1.1 wwan0: register 'cdc_ether' at
-usb-0000:00:1a.0-1.2, Mobile Broadband Network Device,
-02:50:f3:00:00:00
-[   14.160221] usbcore: registered new interface driver option
-[   14.160820] usbserial: USB Serial support registered for GSM modem (1-port)
-[   14.160940] option 3-1.2:1.0: GSM modem (1-port) converter detected
-[   14.163032] usb 3-1.2: GSM modem (1-port) converter now attached to ttyUSB0
-[   14.163305] option 3-1.2:1.3: GSM modem (1-port) converter detected
-[   14.163676] usb 3-1.2: GSM modem (1-port) converter now attached to ttyUSB1
-[   14.163742] option 3-1.2:1.4: GSM modem (1-port) converter detected
-[   14.165227] usb 3-1.2: GSM modem (1-port) converter now attached to ttyUSB2
-[   72.877065] PPP BSD Compression module registered
-[   72.881701] PPP Deflate Compression module registered
-- EOT -
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/arch/x86/include/asm/hash.h b/arch/x86/include/asm/hash.h
+index a881d78..1b32c82 100644
+--- a/arch/x86/include/asm/hash.h
++++ b/arch/x86/include/asm/hash.h
+@@ -4,45 +4,12 @@
+ #include <linux/cpufeature.h>
+ #include <asm/alternative.h>
+ 
+-u32 __intel_crc4_2_hash(const void *data, u32 len, u32 seed);
+-u32 __intel_crc4_2_hash2(const u32 *data, u32 len, u32 seed);
+-
+-/*
+- * non-inline versions of jhash so gcc does not need to generate
+- * duplicate code in every object file
+- */
+-u32 __jhash(const void *data, u32 len, u32 seed);
+-u32 __jhash2(const u32 *data, u32 len, u32 seed);
+-
+ /*
+  * for documentation of these functions please look into
+  * <include/asm-generic/hash.h>
+  */
+ 
+-static inline u32 arch_fast_hash(const void *data, u32 len, u32 seed)
+-{
+-       u32 hash;
+-
+-       alternative_call(__jhash, __intel_crc4_2_hash, X86_FEATURE_XMM4_2,
+-#ifdef CONFIG_X86_64
+-                        "=a" (hash), "D" (data), "S" (len), "d" (seed));
+-#else
+-                        "=a" (hash), "a" (data), "d" (len), "c" (seed));
+-#endif
+-       return hash;
+-}
+-
+-static inline u32 arch_fast_hash2(const u32 *data, u32 len, u32 seed)
+-{
+-       u32 hash;
+-
+-       alternative_call(__jhash2, __intel_crc4_2_hash2, X86_FEATURE_XMM4_2,
+-#ifdef CONFIG_X86_64
+-                        "=a" (hash), "D" (data), "S" (len), "d" (seed));
+-#else
+-                        "=a" (hash), "a" (data), "d" (len), "c" (seed));
+-#endif
+-       return hash;
+-}
++u32 arch_fast_hash(const void *data, u32 len, u32 seed);
++u32 arch_fast_hash2(const u32 *data, u32 len, u32 seed);
+ 
+ #endif /* __ASM_X86_HASH_H */
+diff --git a/arch/x86/lib/hash.c b/arch/x86/lib/hash.c
+index e143271..a0a7a7e 100644
+--- a/arch/x86/lib/hash.c
++++ b/arch/x86/lib/hash.c
+@@ -38,7 +38,7 @@
+ #include <linux/hash.h>
+ #include <linux/jhash.h>
+ 
+-static inline u32 crc32_u32(u32 crc, u32 val)
++static u32 crc32_u32(u32 crc, u32 val)
+ {
+ #ifdef CONFIG_AS_CRC32
+        asm ("crc32l %1,%0\n" : "+r" (crc) : "rm" (val));
+@@ -71,7 +71,6 @@ u32 __intel_crc4_2_hash(const void *data, u32 len, u32 seed)
+ 
+        return seed;
+ }
+-EXPORT_SYMBOL(__intel_crc4_2_hash);
+ 
+ u32 __intel_crc4_2_hash2(const u32 *data, u32 len, u32 seed)
+ {
+@@ -82,16 +81,45 @@ u32 __intel_crc4_2_hash2(const u32 *data, u32 len, u32 seed)
+ 
+        return seed;
+ }
+-EXPORT_SYMBOL(__intel_crc4_2_hash2);
+ 
+ u32 __jhash(const void *data, u32 len, u32 seed)
+ {
+        return jhash(data, len, seed);
+ }
+-EXPORT_SYMBOL(__jhash);
+ 
+ u32 __jhash2(const u32 *data, u32 len, u32 seed)
+ {
+        return jhash2(data, len, seed);
+ }
+-EXPORT_SYMBOL(__jhash2);
++
++noinline u32 arch_fast_hash(const void *data, u32 len, u32 seed)
++{
++       u32 hash;
++
++
++#ifdef CONFIG_X86_64
++       alternative_call(__jhash, __intel_crc4_2_hash, X86_FEATURE_XMM4_2,
++                        "=a" (hash), "D" (data), "S" (len), "d" (seed));
++#else
++       alternative_call(__jhash, __intel_crc4_2_hash, X86_FEATURE_XMM4_2,
++                        "=a" (hash), "a" (data), "d" (len), "c" (seed));
++#endif
++       return hash;
++}
++EXPORT_SYMBOL(arch_fast_hash);
++
++noinline u32 arch_fast_hash2(const u32 *data, u32 len, u32 seed)
++{
++       u32 hash;
++
++
++#ifdef CONFIG_X86_64
++       alternative_call(__jhash2, __intel_crc4_2_hash2, X86_FEATURE_XMM4_2,
++                        "=a" (hash), "D" (data), "S" (len), "d" (seed));
++#else
++       alternative_call(__jhash2, __intel_crc4_2_hash2, X86_FEATURE_XMM4_2,
++                        "=a" (hash), "a" (data), "d" (len), "c" (seed));
++#endif
++       return hash;
++}
++EXPORT_SYMBOL(arch_fast_hash2);
