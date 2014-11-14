@@ -1,36 +1,46 @@
 From: Fabian Frederick <fabf@skynet.be>
-Subject: [PATCH 1/1 net-next] openvswitch: use PTR_ERR_OR_ZERO
-Date: Fri, 14 Nov 2014 19:32:58 +0100
-Message-ID: <1415989978-28559-1-git-send-email-fabf@skynet.be>
+Subject: [PATCH 1/1 net-next] Bluetooth: hidp: replace kzalloc/copy_from_user by memdup_user
+Date: Fri, 14 Nov 2014 19:35:05 +0100
+Message-ID: <1415990105-28609-1-git-send-email-fabf@skynet.be>
 Cc: Fabian Frederick <fabf@skynet.be>,
-	Pravin Shelar <pshelar@nicira.com>,
-	"David S. Miller" <davem@davemloft.net>, dev@openvswitch.org,
-	netdev@vger.kernel.org
+	Marcel Holtmann <marcel@holtmann.org>,
+	Gustavo Padovan <gustavo@padovan.org>,
+	Johan Hedberg <johan.hedberg@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+use memdup_user for rd_data import.
+
 Signed-off-by: Fabian Frederick <fabf@skynet.be>
 ---
- net/openvswitch/flow_netlink.c | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
+ net/bluetooth/hidp/core.c | 10 +++-------
+ 1 file changed, 3 insertions(+), 7 deletions(-)
 
-diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
-index c0d066d..c8fccdd 100644
---- a/net/openvswitch/flow_netlink.c
-+++ b/net/openvswitch/flow_netlink.c
-@@ -1425,10 +1425,8 @@ static int add_action(struct sw_flow_actions **sfa, int attrtype,
- 	struct nlattr *a;
+diff --git a/net/bluetooth/hidp/core.c b/net/bluetooth/hidp/core.c
+index 1b7d605..cc25d0b 100644
+--- a/net/bluetooth/hidp/core.c
++++ b/net/bluetooth/hidp/core.c
+@@ -736,14 +736,10 @@ static int hidp_setup_hid(struct hidp_session *session,
+ 	struct hid_device *hid;
+ 	int err;
  
- 	a = __add_action(sfa, attrtype, data, len, log);
--	if (IS_ERR(a))
--		return PTR_ERR(a);
+-	session->rd_data = kzalloc(req->rd_size, GFP_KERNEL);
+-	if (!session->rd_data)
+-		return -ENOMEM;
++	session->rd_data = memdup_user(req->rd_data, req->rd_size);
++	if (IS_ERR(session->rd_data))
++		return PTR_ERR(session->rd_data);
  
--	return 0;
-+	return PTR_ERR_OR_ZERO(a);
- }
+-	if (copy_from_user(session->rd_data, req->rd_data, req->rd_size)) {
+-		err = -EFAULT;
+-		goto fault;
+-	}
+ 	session->rd_size = req->rd_size;
  
- static inline int add_nested_action_start(struct sw_flow_actions **sfa,
+ 	hid = hid_allocate_device();
 -- 
 1.9.3
