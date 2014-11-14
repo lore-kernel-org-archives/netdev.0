@@ -1,75 +1,52 @@
-From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Subject: RE: [PATCHv2 net 4/4] qlcnic: Implement ndo_gso_check()
-Date: Fri, 14 Nov 2014 05:08:40 +0000
-Message-ID: <262CB373A6D1F14F9B81E82F74F77D5A470A126E@avmb2.qlogic.org>
-References: <1415925495-59312-1-git-send-email-joestringer@nicira.com>
- <1415925495-59312-5-git-send-email-joestringer@nicira.com>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: RE: [PATCH net-next 2/2] r8152: adjust rtl_start_rx
+Date: Fri, 14 Nov 2014 05:14:36 +0000
+Message-ID: <0835B3720019904CB8F7AA43166CEEB2ED1624@RTITMBSV03.realtek.com.tw>
+References: <20141112.144949.645590790916569141.davem@davemloft.net>
+	<0835B3720019904CB8F7AA43166CEEB2ECE8EF@RTITMBSV03.realtek.com.tw>
+	<20141112.223146.2221136950144767962.davem@davemloft.net>
+ <20141113.162240.1823683928052355016.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
-Cc: "sathya.perla@emulex.com" <sathya.perla@emulex.com>,
-	"amirv@mellanox.com" <amirv@mellanox.com>,
-	Dept-GE Linux NIC Dev <Dept-GELinuxNICDev@qlogic.com>,
-	"Tom Herbert (Partner - google)" <therbert@google.com>,
-	"gerlitz.or@gmail.com" <gerlitz.or@gmail.com>,
-	"alexander.duyck@gmail.com" <alexander.duyck@gmail.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>
-To: Joe Stringer <joestringer@nicira.com>,
-	netdev <netdev@vger.kernel.org>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	nic_swsd <nic_swsd@realtek.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1415925495-59312-5-git-send-email-joestringer@nicira.com>
-Content-Language: en-US
+In-Reply-To: <20141113.162240.1823683928052355016.davem@davemloft.net>
+Content-Language: zh-TW
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Joe Stringer [mailto:joestringer@nicira.com]
-> Sent: Friday, November 14, 2014 6:08 AM
-> To: netdev
-> Cc: sathya.perla@emulex.com; Shahed Shaikh; amirv@mellanox.com; Dept-
-> GE Linux NIC Dev; Tom Herbert (Partner - google); gerlitz.or@gmail.com;
-> alexander.duyck@gmail.com; linux-kernel
-> Subject: [PATCHv2 net 4/4] qlcnic: Implement ndo_gso_check()
-> 
-> Use vxlan_gso_check() to advertise offload support for this NIC.
-> 
-> Signed-off-by: Joe Stringer <joestringer@nicira.com>
-> ---
-> v2: Refactor out vxlan helper.
-> ---
->  drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |    6 ++++++
->  1 file changed, 6 insertions(+)
+David Miller [mailto:davem@davemloft.net] 
+> Sent: Friday, November 14, 2014 5:23 AM
+[...]
+> What if even the first r8152_submit_rx() fails?  What ever will cause
+> any of these retries to trigger at all?
 
-Acked-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
+According to the patch #1 "adjust r8152_submit_rx", the
+r8152_submit_rx() would add the rx to the list and schedule
+the tasklet, when the error occurs. Each time the tasklet is
+called, the rx_bottom() would deal with all the rx in the
+list. If the actual_length isn't vaild, the rx buffer would be
+submitted directly. By this way, the retries would be done.
+That is, the retries would be triggered when the tasklet
+is called. Therefore, any tx, rx, and tasklet scheduling
+would result in the retries.
 
-Thanks Joe.
+> Second, why does your patch increment 'i' with 'i++;' in the error
+> break path?  You should mark the first failed entry as unallocated
+> with actual_length == 0 and place it on the rx_done queue.
 
--Shahed
-> 
-> diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-> b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-> index f5e29f7..a913b3a 100644
-> --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-> +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-> @@ -503,6 +503,11 @@ static void qlcnic_del_vxlan_port(struct net_device
-> *netdev,
-> 
->  	adapter->flags |= QLCNIC_DEL_VXLAN_PORT;  }
-> +
-> +static bool qlcnic_gso_check(struct sk_buff *skb, struct net_device
-> +*dev) {
-> +	return vxlan_gso_check(skb);
-> +}
->  #endif
-> 
->  static const struct net_device_ops qlcnic_netdev_ops = { @@ -526,6 +531,7
-> @@ static const struct net_device_ops qlcnic_netdev_ops = {  #ifdef
-> CONFIG_QLCNIC_VXLAN
->  	.ndo_add_vxlan_port	= qlcnic_add_vxlan_port,
->  	.ndo_del_vxlan_port	= qlcnic_del_vxlan_port,
-> +	.ndo_gso_check		= qlcnic_gso_check,
->  #endif
->  #ifdef CONFIG_NET_POLL_CONTROLLER
->  	.ndo_poll_controller = qlcnic_poll_controller,
-> --
-> 1.7.10.4
+Because the r8152_submit_rx() would add the failed rx to
+the list, I only have to deal with the remaining ones. That
+is why I increase the "i", otherwise the failed one would
+be added twice.
+
+I remember the usb_submit_urb() would set actual_length
+to 0, so I skip the step. I would check it again.
+ 
+Best Regards,
+Hayes
