@@ -1,58 +1,38 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 1/8] netfilter: nft_masq: fix uninitialized range in nft_masq_{ipv4, ipv6}_eval
-Date: Fri, 14 Nov 2014 17:58:42 +0100
-Message-ID: <1415984329-5569-3-git-send-email-pablo@netfilter.org>
-References: <1415984329-5569-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] icmp: Remove some spurious dropped packet
+ profile hits from the ICMP path
+Date: Fri, 14 Nov 2014 08:58:49 -0800
+Message-ID: <1415984329.17262.47.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20141113225457.A3E502900805@tardy>
+	 <1415931471.17262.27.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <54662AF9.4050002@hp.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Rick Jones <raj@tardy.usa.hp.com>, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:40365 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161175AbaKNQ5Q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Nov 2014 11:57:16 -0500
-In-Reply-To: <1415984329-5569-1-git-send-email-pablo@netfilter.org>
+Received: from mail-ie0-f172.google.com ([209.85.223.172]:35629 "EHLO
+	mail-ie0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161207AbaKNQ6z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Nov 2014 11:58:55 -0500
+Received: by mail-ie0-f172.google.com with SMTP id ar1so3572252iec.3
+        for <netdev@vger.kernel.org>; Fri, 14 Nov 2014 08:58:54 -0800 (PST)
+In-Reply-To: <54662AF9.4050002@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <dborkman@redhat.com>
+On Fri, 2014-11-14 at 08:16 -0800, Rick Jones wrote:
 
-When transferring from the original range in nf_nat_masquerade_{ipv4,ipv6}()
-we copy over values from stack in from min_proto/max_proto due to uninitialized
-range variable in both, nft_masq_{ipv4,ipv6}_eval. As we only initialize
-flags at this time from nft_masq struct, just zero out the rest.
+> I thought the point of the drop profiling was to show where the drops 
+> were happening.  Leaving the kfree_skb() up in icmp_rcv() does not 
+> improve showing where the drops happened.  That is why I've pushed it 
+> down into the routines called by icmp_rcv().
 
-Fixes: 9ba1f726bec09 ("netfilter: nf_tables: add new nft_masq expression")
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-Acked-by: Arturo Borrero Gonzalez <arturo.borrero.glez@gmail.com>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/ipv4/netfilter/nft_masq_ipv4.c |    1 +
- net/ipv6/netfilter/nft_masq_ipv6.c |    1 +
- 2 files changed, 2 insertions(+)
+OK, but we drop an icmp message, and that really should be enough.
 
-diff --git a/net/ipv4/netfilter/nft_masq_ipv4.c b/net/ipv4/netfilter/nft_masq_ipv4.c
-index c1023c4..665de06 100644
---- a/net/ipv4/netfilter/nft_masq_ipv4.c
-+++ b/net/ipv4/netfilter/nft_masq_ipv4.c
-@@ -24,6 +24,7 @@ static void nft_masq_ipv4_eval(const struct nft_expr *expr,
- 	struct nf_nat_range range;
- 	unsigned int verdict;
- 
-+	memset(&range, 0, sizeof(range));
- 	range.flags = priv->flags;
- 
- 	verdict = nf_nat_masquerade_ipv4(pkt->skb, pkt->ops->hooknum,
-diff --git a/net/ipv6/netfilter/nft_masq_ipv6.c b/net/ipv6/netfilter/nft_masq_ipv6.c
-index 8a7ac68..529c119 100644
---- a/net/ipv6/netfilter/nft_masq_ipv6.c
-+++ b/net/ipv6/netfilter/nft_masq_ipv6.c
-@@ -25,6 +25,7 @@ static void nft_masq_ipv6_eval(const struct nft_expr *expr,
- 	struct nf_nat_range range;
- 	unsigned int verdict;
- 
-+	memset(&range, 0, sizeof(range));
- 	range.flags = priv->flags;
- 
- 	verdict = nf_nat_masquerade_ipv6(pkt->skb, &range, pkt->out);
--- 
-1.7.10.4
+The point is that most normal icmp messages wont be dropped, but
+consumed.
+
+I am not sure we want to bloat the kernel for such minor problem.
