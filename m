@@ -1,70 +1,38 @@
-From: Sathya Perla <Sathya.Perla@Emulex.Com>
-Subject: RE: [PATCHv2 net 2/4] be2net: Implement ndo_gso_check()
-Date: Fri, 14 Nov 2014 09:43:52 +0000
-Message-ID: <CF9D1877D81D214CB0CA0669EFAE020C68CDD3A1@CMEXMB1.ad.emulex.com>
-References: <1415925495-59312-1-git-send-email-joestringer@nicira.com>
- <1415925495-59312-3-git-send-email-joestringer@nicira.com>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: Re: [PATCH Iproute2 next] ip link: Add ipvlan support to the
+ iproute2/ip util
+Date: Fri, 14 Nov 2014 11:09:59 +0100
+Message-ID: <20141114100959.GA19965@unicorn.suse.cz>
+References: <1415948212-28927-1-git-send-email-maheshb@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "shahed.shaikh@qlogic.com" <shahed.shaikh@qlogic.com>,
-	"amirv@mellanox.com" <amirv@mellanox.com>,
-	"Dept-GELinuxNICDev@qlogic.com" <Dept-GELinuxNICDev@qlogic.com>,
-	"therbert@google.com" <therbert@google.com>,
-	"gerlitz.or@gmail.com" <gerlitz.or@gmail.com>,
-	"alexander.duyck@gmail.com" <alexander.duyck@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Joe Stringer <joestringer@nicira.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1415925495-59312-3-git-send-email-joestringer@nicira.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Maciej Zenczykowski <maze@google.com>,
+	Laurent Chavey <chavey@google.com>,
+	Tim Hockin <thockin@google.com>,
+	David Miller <davem@davemloft.net>,
+	Brandon Philips <brandon.philips@coreos.com>,
+	Pavel Emelianov <xemul@parallels.com>
+To: Mahesh Bandewar <maheshb@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor2.suse.de ([195.135.220.15]:56454 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754899AbaKNKKD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Nov 2014 05:10:03 -0500
+Content-Disposition: inline
+In-Reply-To: <1415948212-28927-1-git-send-email-maheshb@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Joe Stringer [mailto:joestringer@nicira.com]
+On Thu, Nov 13, 2014 at 10:56:51PM -0800, Mahesh Bandewar wrote:
+> Adding basic support to create virtual devices using 'ip'
+> utility. Following is the syntax -
 > 
-> Use vxlan_gso_check() to advertise offload support for this NIC.
-> 
-> Signed-off-by: Joe Stringer <joestringer@nicira.com>
+> 	ip link add link <master> <virtual> mode [ l2 | l3 ]
+> 	e.g. ip link add link eth0 ipvl0 mode l3
 
-Acked-by: Sathya Perla <sperla@emulex.com>
+I suppose "type ipvlan" is missing on both lines.
 
-Thanks!
-
-> ---
-> v2: Refactor out vxlan helper.
-> ---
->  drivers/net/ethernet/emulex/benet/be_main.c |    6 ++++++
->  1 file changed, 6 insertions(+)
-> 
-> diff --git a/drivers/net/ethernet/emulex/benet/be_main.c
-> b/drivers/net/ethernet/emulex/benet/be_main.c
-> index 9a18e79..3e8475c 100644
-> --- a/drivers/net/ethernet/emulex/benet/be_main.c
-> +++ b/drivers/net/ethernet/emulex/benet/be_main.c
-> @@ -4421,6 +4421,11 @@ static void be_del_vxlan_port(struct net_device
-> *netdev, sa_family_t sa_family,
->  		 "Disabled VxLAN offloads for UDP port %d\n",
->  		 be16_to_cpu(port));
->  }
-> +
-> +static bool be_gso_check(struct sk_buff *skb, struct net_device *dev)
-> +{
-> +	return vxlan_gso_check(skb);
-> +}
->  #endif
-> 
->  static const struct net_device_ops be_netdev_ops = {
-> @@ -4450,6 +4455,7 @@ static const struct net_device_ops be_netdev_ops
-> = {
->  #ifdef CONFIG_BE2NET_VXLAN
->  	.ndo_add_vxlan_port	= be_add_vxlan_port,
->  	.ndo_del_vxlan_port	= be_del_vxlan_port,
-> +	.ndo_gso_check		= be_gso_check,
->  #endif
->  };
-> 
-> --
-> 1.7.10.4
+Michal Kubecek
