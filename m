@@ -1,199 +1,160 @@
-From: Oleksij Rempel <linux@rempel-privat.de>
-Subject: Re: linux-next: ath9k: build failure,
-	ath_cmn_process_fft() redefinition
-Date: Fri, 14 Nov 2014 13:30:49 +0100
-Message-ID: <5465F5F9.6090400@rempel-privat.de>
-References: <20141114000747.GA6865@hudson.localdomain>
+From: Roger Quadros <rogerq@ti.com>
+Subject: Re: [PATCH v5 6/8] net: can: c_can: Disable pins when CAN interface
+ is down
+Date: Fri, 14 Nov 2014 15:43:16 +0200
+Message-ID: <546606F4.6020102@ti.com>
+References: <1415371762-29885-1-git-send-email-rogerq@ti.com> <1415371762-29885-7-git-send-email-rogerq@ti.com> <5464CCFF.5010004@ti.com> <5464D661.7080505@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============1010553220=="
-To: Jeremiah Mahler <jmmahler@gmail.com>, linux-kernel@vger.kernel.org,
-	ath9k-devel@qca.qualcomm.com, linville@tuxdriver.com,
-	linux-wireless@vger.kernel.org, ath9k-devel@lists.ath9k.org,
-	netdev@vger.kernel.org
-Return-path: <ath9k-devel-bounces@lists.ath9k.org>
-In-Reply-To: <20141114000747.GA6865@hudson.localdomain>
-List-Unsubscribe: <https://lists.ath9k.org/mailman/listinfo/ath9k-devel>,
-	<mailto:ath9k-devel-request@lists.ath9k.org?subject=unsubscribe>
-List-Archive: <http://lists.ath9k.org/pipermail/ath9k-devel>
-List-Post: <mailto:ath9k-devel@lists.ath9k.org>
-List-Help: <mailto:ath9k-devel-request@lists.ath9k.org?subject=help>
-List-Subscribe: <https://lists.ath9k.org/mailman/listinfo/ath9k-devel>,
-	<mailto:ath9k-devel-request@lists.ath9k.org?subject=subscribe>
-Mime-version: 1.0
-Sender: ath9k-devel-bounces@lists.ath9k.org
-Errors-To: ath9k-devel-bounces@lists.ath9k.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <wsa@the-dreams.de>, <tony@atomide.com>, <tglx@linutronix.de>,
+	<mugunthanvnm@ti.com>, <george.cherian@ti.com>, <balbi@ti.com>,
+	<nsekhar@ti.com>, <nm@ti.com>,
+	<sergei.shtylyov@cogentembedded.com>, <linux-omap@vger.kernel.org>,
+	<linux-can@vger.kernel.org>, <netdev@vger.kernel.org>
+To: Marc Kleine-Budde <mkl@pengutronix.de>, <wg@grandegger.com>,
+	Linus Walleij <linus.walleij@linaro.org>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <5464D661.7080505@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---===============1010553220==
-Content-Type: multipart/signed; micalg=pgp-sha256;
- protocol="application/pgp-signature";
- boundary="LTETF3nOOcrehvvp45PAplhPTpjP9GI7e"
+On 11/13/2014 06:03 PM, Marc Kleine-Budde wrote:
+> On 11/13/2014 04:23 PM, Roger Quadros wrote:
+>> DRA7 CAN IP suffers from a problem which causes it to be prevented
+>> from fully turning OFF (i.e. stuck in transition) if the module was
+>> disabled while there was traffic on the CAN_RX line.
+>>
+>> To work around this issue we select the SLEEP pin state by default
+>> on probe and use the DEFAULT pin state on CAN up and back to the
+>> SLEEP pin state on CAN down.
+>>
+>> Signed-off-by: Roger Quadros <rogerq@ti.com>
+>> ---
+>>  drivers/net/can/c_can/c_can.c | 37 +++++++++++++++++++++++++++++++++++++
+>>  drivers/net/can/c_can/c_can.h |  1 +
+>>  2 files changed, 38 insertions(+)
+>>
+>> diff --git a/drivers/net/can/c_can/c_can.c b/drivers/net/can/c_can/c_can.c
+>> index 8e78bb4..c80cb3d 100644
+>> --- a/drivers/net/can/c_can/c_can.c
+>> +++ b/drivers/net/can/c_can/c_can.c
+>> @@ -35,6 +35,7 @@
+>>  #include <linux/list.h>
+>>  #include <linux/io.h>
+>>  #include <linux/pm_runtime.h>
+>> +#include <linux/pinctrl/consumer.h>
+>>  
+>>  #include <linux/can.h>
+>>  #include <linux/can/dev.h>
+>> @@ -587,6 +588,21 @@ static int c_can_chip_config(struct net_device *dev)
+>>  	return c_can_set_bittiming(dev);
+>>  }
+>>  
+>> +/*
+>> + * Selects the pinctrl state specified in the name.
+>> + */
+>> +static void c_can_pinctrl_select_state(struct c_can_priv *priv,
+>> +				      const char *name)
+>> +{
+>> +	if (!IS_ERR(priv->pinctrl)) {
+>> +		struct pinctrl_state *s;
+>> +
+>> +		s = pinctrl_lookup_state(priv->pinctrl, name);
+>> +		if (!IS_ERR(s))
+>> +			pinctrl_select_state(priv->pinctrl, s);
+>> +	}
+>> +}
+>> +
+>>  static int c_can_start(struct net_device *dev)
+>>  {
+>>  	struct c_can_priv *priv = netdev_priv(dev);
+>> @@ -603,6 +619,8 @@ static int c_can_start(struct net_device *dev)
+>>  
+>>  	priv->can.state = CAN_STATE_ERROR_ACTIVE;
+>>  
+>> +	/* activate pins */
+>> +	c_can_pinctrl_select_state(priv, PINCTRL_STATE_DEFAULT);
+>>  	return 0;
+>>  }
+>>  
+>> @@ -611,6 +629,9 @@ static void c_can_stop(struct net_device *dev)
+>>  	struct c_can_priv *priv = netdev_priv(dev);
+>>  
+>>  	c_can_irq_control(priv, false);
+>> +
+>> +	/* deactivate pins */
+>> +	c_can_pinctrl_select_state(priv, PINCTRL_STATE_SLEEP);
+>>  	priv->can.state = CAN_STATE_STOPPED;
+>>  }
+>>  
+>> @@ -1244,6 +1265,22 @@ int register_c_can_dev(struct net_device *dev)
+>>  	struct c_can_priv *priv = netdev_priv(dev);
+>>  	int err;
+>>  
+>> +	priv->pinctrl = devm_pinctrl_get(dev->dev.parent);
+> 
+> What's dev->dev.parent?
+> Ah, this is set by SET_NETDEV_DEV(dev, &pdev->dev); Good work!
+> 
+> I thought we had to set priv->pinctrl in the platform.c.
+> 
+>> +	if (!IS_ERR(priv->pinctrl)) {
+>> +		struct pinctrl_state *s;
+>> +
+>> +		/* Deactivate pins to prevent DRA7 DCAN IP from being
+>> +		 * stuck in transition when module is disabled.
+>> +		 * Pins are activated in c_can_start() and deactivated
+>> +		 * in c_can_stop()
+>> +		 */
+>> +		s = pinctrl_lookup_state(priv->pinctrl, PINCTRL_STATE_SLEEP);
+>> +		if (!IS_ERR(s))
+>> +			pinctrl_select_state(priv->pinctrl, s);
+>> +	} else {
+>> +		netdev_dbg(dev, "failed to get pinctrl\n");
+>> +	}
+>> +
+> The above can be replace by this?
+> 
+> 	c_can_pinctrl_select_state(priv, PINCTRL_STATE_SLEEP)
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---LTETF3nOOcrehvvp45PAplhPTpjP9GI7e
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+Yes, indeed.
 
-Thank you,
+> 
+> Then we don't have the worrying looking error message if there isn't any
+> pinctrl, e.g. for the PCI driver with pinctrl enabled in the Kernel.
+> 
+> I just stumbled over pinctrl_pm_select_sleep_state(), is it possible to
+> integrate this into runtime pm?
+> 
+> http://lxr.free-electrons.com/source/drivers/pinctrl/core.c#L1282
 
-fixes are queued for review.
+I think those functions are there for the same reason but not sure why aren't 
+they used in runtime pm core.
 
-Am 14.11.2014 um 01:07 schrieb Jeremiah Mahler:
->=20
-> In version 20141113 of the linux-next kernel, if it is compiled with
-> CONFIG_ATH9K_DEBUGFS unset, an error about ath_cmn_process_fft() being
-> redefined will be produced.
->=20
->   make
->   ...
->     LD [M]  drivers/net/wireless/ath/ath9k/ath9k_hw.o
->     CC [M]  drivers/net/wireless/ath/ath9k/common-spectral.o
->     CC      lib/debug_locks.o
->     CC      lib/random32.o
->   drivers/net/wireless/ath/ath9k/common-spectral.c:40:5: error:
->   redefinition of =E2=80=98ath_cmn_process_fft=E2=80=99
->    int ath_cmn_process_fft(struct ath_spec_scan_priv *spec_priv, struct=
+Linus W. any hints?
 
->   ieee80211_hdr *hdr,
->        ^
->   In file included from drivers/net/wireless/ath/ath9k/common.h:27:0,
->                    from drivers/net/wireless/ath/ath9k/ath9k.h:27,
->                    from
->   drivers/net/wireless/ath/ath9k/common-spectral.c:18:
->   drivers/net/wireless/ath/ath9k/common-spectral.h:146:19: note: previo=
-us
->   definition of =E2=80=98ath_cmn_process_fft=E2=80=99 was here
->    static inline int ath_cmn_process_fft(struct ath_spec_scan_priv
->   *spec_priv,
->                      ^
->   scripts/Makefile.build:257: recipe for target
->   'drivers/net/wireless/ath/ath9k/common-spectral.o' failed
->   make[5]: *** [drivers/net/wireless/ath/ath9k/common-spectral.o] Error=
- 1
->   scripts/Makefile.build:402: recipe for target
->   'drivers/net/wireless/ath/ath9k' failed
->   make[4]: *** [drivers/net/wireless/ath/ath9k] Error 2
->   scripts/Makefile.build:402: recipe for target 'drivers/net/wireless/a=
-th'
->   failed
->   make[3]: *** [drivers/net/wireless/ath] Error 2
->   scripts/Makefile.build:402: recipe for target 'drivers/net/wireless'
->   failed
->   make[2]: *** [drivers/net/wireless] Error 2
->   scripts/Makefile.build:402: recipe for target 'drivers/net' failed
->   make[1]: *** [drivers/net] Error 2
->   Makefile:953: recipe for target 'drivers' failed
->   make: *** [drivers] Error 2
->   make: *** Waiting for unfinished jobs....
->     CC      lib/bust_spinlocks.o
->   ...
->=20
-> Bisecting the kernel found that the following patch was the cause.
->=20
->   commit 67dc74f15f147b9f88702de2952d2951e3e000ec
->   Author: Oleksij Rempel <linux@rempel-privat.de>
->   Date:   Thu Nov 6 08:53:30 2014 +0100
->  =20
->       ath9k: move spectral.* to common-spectral.*
->      =20
->       and rename exports from ath9k_spectral_* to ath9k_cmn_spectral_*
->      =20
->       Signed-off-by: Oleksij Rempel <linux@rempel-privat.de>
->       Signed-off-by: John W. Linville <linville@tuxdriver.com>
->=20
-> This patch mostly consists of renaming functions and moving code but
-> there was a functional change to the Makefile.
->=20
-> common-spectral.h uses CONFIG_ATH9K_DEBUGFS to conditionally provide a
-> prototype of ath_cmn_process_fft() when set or to define it as a noop
-> when it is unset.  The Makefile was changed so that CONFIG_ATH9K_DEBUGF=
-S
-> no longer applied to common-spectral and this will result in two
-> definitions of ath_cmn_process_fft().
->=20
->   > --- a/drivers/net/wireless/ath/ath9k/Makefile
->   > +++ b/drivers/net/wireless/ath/ath9k/Makefile
->   > @@ -16,8 +16,7 @@ ath9k-$(CONFIG_ATH9K_DFS_CERTIFIED) +=3D dfs.o
->   >  ath9k-$(CONFIG_ATH9K_TX99) +=3D tx99.o
->   >  ath9k-$(CONFIG_ATH9K_WOW) +=3D wow.o
->   >
->   > -ath9k-$(CONFIG_ATH9K_DEBUGFS) +=3D debug.o \
->   > -                                spectral.o
->   > +ath9k-$(CONFIG_ATH9K_DEBUGFS) +=3D debug.o
->   >
->   >  ath9k-$(CONFIG_ATH9K_STATION_STATISTICS) +=3D debug_sta.o
->   >
->   > @@ -59,7 +58,8 @@ obj-$(CONFIG_ATH9K_COMMON) +=3D ath9k_common.o
->   >  ath9k_common-y:=3D       common.o \
->   >                         common-init.o \
->   >                         common-beacon.o \
->   > -                       common-debug.o
->   > +                       common-debug.o \
->   > +                       common-spectral.o
->=20
-> Reverting the patch solves one error, but then a new one is produced.
->=20
->   make
->   ...
->     MODPOST 185 modules
->     CC      arch/x86/boot/edd.o
->     VOFFSET arch/x86/boot/voffset.h
->   ERROR: "ath9k_cmn_spectral_scan_trigger"
->   [drivers/net/wireless/ath/ath9k/ath9k.ko] undefined!
->   scripts/Makefile.modpost:90: recipe for target '__modpost' failed
->   make[1]: *** [__modpost] Error 1
->   ...
->=20
-> This error is caused by the patch before it.
->=20
->   commit f00a422cc81ef665f5098c0bc43cb0c616e55a9b
->   Author: Oleksij Rempel <linux@rempel-privat.de>
->   Date:   Thu Nov 6 08:53:29 2014 +0100
->  =20
->       ath9k: move ath9k_spectral_scan_ from main.c to spectral.c
->      =20
->       Now we should be ready to make this code common.
->      =20
->       Signed-off-by: Oleksij Rempel <linux@rempel-privat.de>
->       Signed-off-by: John W. Linville <linville@tuxdriver.com>
->=20
-> Since the code was moved from main.c to spectral.c, it is now involved
-> with CONFIG_ATH9K_DEBUGFS, which causes it to break.
->=20
-> Reverting both the above patches resolves the build errors.
->=20
+cheers,
+-roger
 
+> 
+>>  	c_can_pm_runtime_enable(priv);
+>>  
+>>  	dev->flags |= IFF_ECHO;	/* we support local echo */
+>> diff --git a/drivers/net/can/c_can/c_can.h b/drivers/net/can/c_can/c_can.h
+>> index c6715ca..3cedf48 100644
+>> --- a/drivers/net/can/c_can/c_can.h
+>> +++ b/drivers/net/can/c_can/c_can.h
+>> @@ -210,6 +210,7 @@ struct c_can_priv {
+>>  	u32 comm_rcv_high;
+>>  	u32 rxmasked;
+>>  	u32 dlc[C_CAN_MSG_OBJ_TX_NUM];
+>> +	struct pinctrl *pinctrl;
+>>  };
+>>  
+>>  struct net_device *alloc_c_can_dev(void);
+>>
+> 
+> Marc
+> 
 
---=20
-Regards,
-Oleksij
-
-
---LTETF3nOOcrehvvp45PAplhPTpjP9GI7e
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iF0EAREIAAYFAlRl9fkACgkQHwImuRkmbWn0YwD+ONsG63yEhjyEpA6Av36bWngf
-VLcF2NxzSnERt5ptfLIA91bk+bNoCTlvjBablD7CmuOpSrb9sALHN6jF6ttZ4/E=
-=2ivf
------END PGP SIGNATURE-----
-
---LTETF3nOOcrehvvp45PAplhPTpjP9GI7e--
-
---===============1010553220==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-ath9k-devel mailing list
-ath9k-devel@lists.ath9k.org
-https://lists.ath9k.org/mailman/listinfo/ath9k-devel
-
---===============1010553220==--
