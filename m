@@ -1,58 +1,54 @@
-From: Alexey Khoroshilov <khoroshilov@ispras.ru>
-Subject: [PATCH] ieee802154: fix error handling in ieee802154fake_probe()
-Date: Sat, 15 Nov 2014 02:11:59 +0300
-Message-ID: <1416006719-3450-1-git-send-email-khoroshilov@ispras.ru>
-Cc: Alexey Khoroshilov <khoroshilov@ispras.ru>,
-	linux-wpan@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
-To: Alexander Aring <alex.aring@gmail.com>,
-	"David S . Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next] net: introduce SO_INCOMING_CPU
+Date: Fri, 14 Nov 2014 15:32:26 -0800
+Message-ID: <1416007946.17262.84.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1415393472.13896.119.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAHO5Pa0OGtgbUp4R287jbK2SFSpVUoXWCJybvHTFsGyCLynqLg@mail.gmail.com>
+	 <CALCETrXmCWSoeQLC3WCqMf_sehGVE9KTbTGmsA77ZN84B-V24Q@mail.gmail.com>
+	 <1415993614.17262.55.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+mtBx_DyUCxE6BqL_xXcqKPUDu7b3jLShV+AL6L+gCzJLriPg@mail.gmail.com>
+	 <CALCETrUuChgxXcNrKjYzpe1ry0hx3kf19EfAbY1N1YnG7NFZUw@mail.gmail.com>
+	 <CA+mtBx_tNW_Bz0hovZ90XxcLK6pL8d6RX=v5Rg8utfKkaFoJ+Q@mail.gmail.com>
+	 <CALCETrWYrR2X9u7CAr5xkSg8kLH_O=sdk=JF+ZW+FxCTNTFBZg@mail.gmail.com>
+	 <CA+mtBx9dSNOD5Z8GinU8F1mj_PgU0sTC5g8S9vRuSnSUzAoD=g@mail.gmail.com>
+	 <CALCETrXf8j52nmpw-A2+bQt0yoz-fiD-4GP4Qf-afwH6UjCVnw@mail.gmail.com>
+	 <1416003883.17262.72.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CALCETrWhsj+byMeT=WHb9eLR_vgsUe58Li8JDLaTvsSPWp1DKQ@mail.gmail.com>
+	 <1416005912.17262.76.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CALCETrUAd50g2mYEOKT-5pEqMvwSstfQcgU8=7GRsO1XcKBSFA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Tom Herbert <therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Ying Cai <ycai-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Neal Cardwell <ncardwell-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CALCETrUAd50g2mYEOKT-5pEqMvwSstfQcgU8=7GRsO1XcKBSFA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-In case of any failure ieee802154fake_probe() just calls unregister_netdev().
-But it does not look safe to unregister netdevice before it was registered.
+On Fri, 2014-11-14 at 15:03 -0800, Andy Lutomirski wrote:
 
-The patch implements straightforward resource deallocation in case of
-failure in ieee802154fake_probe().
+> If the kernel had an API for this, I'd be all for using it.
 
-Found by Linux Driver Verification project (linuxtesting.org).
+It would be user land code, not kernel.
 
-Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
----
- drivers/net/ieee802154/fakehard.c | 13 ++++++++-----
- 1 file changed, 8 insertions(+), 5 deletions(-)
+Why doing a system call when you can avoid it ? ;)
 
-diff --git a/drivers/net/ieee802154/fakehard.c b/drivers/net/ieee802154/fakehard.c
-index 9ce854f43917..6cbc56ad9ff4 100644
---- a/drivers/net/ieee802154/fakehard.c
-+++ b/drivers/net/ieee802154/fakehard.c
-@@ -377,17 +377,20 @@ static int ieee802154fake_probe(struct platform_device *pdev)
- 
- 	err = wpan_phy_register(phy);
- 	if (err)
--		goto out;
-+		goto err_phy_reg;
- 
- 	err = register_netdev(dev);
--	if (err < 0)
--		goto out;
-+	if (err)
-+		goto err_netdev_reg;
- 
- 	dev_info(&pdev->dev, "Added ieee802154 HardMAC hardware\n");
- 	return 0;
- 
--out:
--	unregister_netdev(dev);
-+err_netdev_reg:
-+	wpan_phy_unregister(phy);
-+err_phy_reg:
-+	free_netdev(dev);
-+	wpan_phy_free(phy);
- 	return err;
- }
- 
--- 
-1.9.1
+Doing it in the kernel would be quite complex actually.
+
+In userland, you can even implement this by machine learning.
+
+For every connection you made, you get the 4-tuple and INCOMING_CPU,
+then you store it in a cache.
+
+Next time you need to connect to same remote peer, you can lookup in the
+cache to find a good candidate.
+
+It would actually be good if we could do in a single socket verb a
+bind_and_connect(fd, &source, &destination)
