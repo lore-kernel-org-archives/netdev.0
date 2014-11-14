@@ -1,52 +1,53 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: RE: [PATCH net-next 2/2] r8152: adjust rtl_start_rx
-Date: Fri, 14 Nov 2014 05:14:36 +0000
-Message-ID: <0835B3720019904CB8F7AA43166CEEB2ED1624@RTITMBSV03.realtek.com.tw>
-References: <20141112.144949.645590790916569141.davem@davemloft.net>
-	<0835B3720019904CB8F7AA43166CEEB2ECE8EF@RTITMBSV03.realtek.com.tw>
-	<20141112.223146.2221136950144767962.davem@davemloft.net>
- <20141113.162240.1823683928052355016.davem@davemloft.net>
+From: "Wang, Yalin" <Yalin.Wang@sonymobile.com>
+Subject: [PATCH] carl9170: Convert byte_rev_table uses to bitrev8
+Date: Fri, 14 Nov 2014 13:16:44 +0800
+Message-ID: <35FD53F367049845BC99AC72306C23D103E010D1829D@CNBJMBX05.corpusers.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	nic_swsd <nic_swsd@realtek.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+To: "'chunkeey@googlemail.com'" <chunkeey@googlemail.com>,
+	"'linville@tuxdriver.com'" <linville@tuxdriver.com>,
+	"'linux-wireless@vger.kernel.org'" <linux-wireless@vger.kernel.org>,
+	"'netdev@vger.kernel.org'" <netdev@vger.kernel.org>,
+	"'linux-kernel@vger.kernel.org'" <linux-kernel@vger.kernel.org>,
+	"'joe@perches.com'" <joe@perches.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141113.162240.1823683928052355016.davem@davemloft.net>
-Content-Language: zh-TW
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller [mailto:davem@davemloft.net] 
-> Sent: Friday, November 14, 2014 5:23 AM
-[...]
-> What if even the first r8152_submit_rx() fails?  What ever will cause
-> any of these retries to trigger at all?
+Use the inline function instead of directly indexing the array.
 
-According to the patch #1 "adjust r8152_submit_rx", the
-r8152_submit_rx() would add the rx to the list and schedule
-the tasklet, when the error occurs. Each time the tasklet is
-called, the rx_bottom() would deal with all the rx in the
-list. If the actual_length isn't vaild, the rx buffer would be
-submitted directly. By this way, the retries would be done.
-That is, the retries would be triggered when the tasklet
-is called. Therefore, any tx, rx, and tasklet scheduling
-would result in the retries.
+This allows some architectures with hardware instructions for bit
+reversals to eliminate the array.
 
-> Second, why does your patch increment 'i' with 'i++;' in the error
-> break path?  You should mark the first failed entry as unallocated
-> with actual_length == 0 and place it on the rx_done queue.
+Signed-off-by: Joe Perches <joe@perches.com>
+Signed-off-by: Yalin Wang <yalin.wang@sonymobile.com>
+---
+ drivers/net/wireless/ath/carl9170/phy.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Because the r8152_submit_rx() would add the failed rx to
-the list, I only have to deal with the remaining ones. That
-is why I increase the "i", otherwise the failed one would
-be added twice.
-
-I remember the usb_submit_urb() would set actual_length
-to 0, so I skip the step. I would check it again.
+diff --git a/drivers/net/wireless/ath/carl9170/phy.c b/drivers/net/wireless/ath/carl9170/phy.c
+index b80b213..dca6df1 100644
+--- a/drivers/net/wireless/ath/carl9170/phy.c
++++ b/drivers/net/wireless/ath/carl9170/phy.c
+@@ -994,7 +994,7 @@ static int carl9170_init_rf_bank4_pwr(struct ar9170 *ar, bool band5ghz,
+ 			refsel0 = 0;
+ 			refsel1 = 1;
+ 		}
+-		chansel = byte_rev_table[chansel];
++		chansel = bitrev8(chansel);
+ 	} else {
+ 		if (freq == 2484) {
+ 			chansel = 10 + (freq - 2274) / 5;
+@@ -1002,7 +1002,7 @@ static int carl9170_init_rf_bank4_pwr(struct ar9170 *ar, bool band5ghz,
+ 		} else
+ 			chansel = 16 + (freq - 2272) / 5;
+ 		chansel *= 4;
+-		chansel = byte_rev_table[chansel];
++		chansel = bitrev8(chansel);
+ 	}
  
-Best Regards,
-Hayes
+ 	d1 =	chansel;
+-- 
+2.1.1
