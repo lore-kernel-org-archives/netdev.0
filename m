@@ -1,44 +1,65 @@
-From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH v2 net-next 1/7] bpf: add 'flags' attribute to
- BPF_MAP_UPDATE_ELEM command
-Date: Fri, 14 Nov 2014 07:33:00 -0800
-Message-ID: <CAMEtUux2vuN3iNaAsxybyFwzfMRVe1+BOW-JvnvYYh+=-vpELw@mail.gmail.com>
-References: <1415929010-9361-1-git-send-email-ast@plumgrid.com>
-	<1415929010-9361-2-git-send-email-ast@plumgrid.com>
-	<1415967071.15154.9.camel@localhost>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] fast_hash: clobber registers correctly for
+ inline function use
+Date: Fri, 14 Nov 2014 07:33:01 -0800
+Message-ID: <1415979181.17262.45.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <4086c7bc9f7f9e8e2de9656c9e27ef1e71bb6423.1415973706.git.hannes@stressinduktion.org>
+	 <1415976656.17262.41.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1415978022.15154.31.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
-	Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1415967071.15154.9.camel@localhost>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com, pshelar@nicira.com,
+	jesse@nicira.com, jay.vosburgh@canonical.com,
+	discuss@openvswitch.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f180.google.com ([209.85.223.180]:59075 "EHLO
+	mail-ie0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965892AbaKNPdE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Nov 2014 10:33:04 -0500
+Received: by mail-ie0-f180.google.com with SMTP id rl12so2614157iec.25
+        for <netdev@vger.kernel.org>; Fri, 14 Nov 2014 07:33:03 -0800 (PST)
+In-Reply-To: <1415978022.15154.31.camel@localhost>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 14, 2014 at 4:11 AM, Hannes Frederic Sowa
-<hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org> wrote:
-> On Do, 2014-11-13 at 17:36 -0800, Alexei Starovoitov wrote:
->> the current meaning of BPF_MAP_UPDATE_ELEM syscall command is:
->> either update existing map element or create a new one.
->> Initially the plan was to add a new command to handle the case of
->> 'create new element if it didn't exist', but 'flags' style looks
->> cleaner and overall diff is much smaller (more code reused), so add 'flags'
->> attribute to BPF_MAP_UPDATE_ELEM command with the following meaning:
->>  #define BPF_ANY      0 /* create new element or update existing */
->>  #define BPF_NOEXIST  1 /* create new element if it didn't exist */
->>  #define BPF_EXIST    2 /* update existing element */
->
-> Would a cmpxchg-alike function be handy here?
+On Fri, 2014-11-14 at 16:13 +0100, Hannes Frederic Sowa wrote:
+> > 
+> > 
+> > Thats a lot of clobbers.
+> 
+> Yes, those are basically all callee-clobbered registers for the
+> particular architecture. I didn't look at the generated code for jhash
+> and crc_hash because I want this code to always be safe, independent of
+> the version and optimization levels of gcc.
+> 
+> > Alternative would be to use an assembly trampoline to save/restore them
+> > before calling __jhash2
+> 
+> This version provides the best hints on how to allocate registers to the
+> optimizers. E.g. it could avoid using callee-clobbered registers but use
+> callee-saved ones. If we build a trampoline, we need to save and reload
+> all registers all the time. This version just lets gcc decide how to do
+> that.
+> 
+> > __intel_crc4_2_hash2 can probably be written in assembly, it is quite
+> > simple.
+> 
+> Sure, but all the pre and postconditions must hold for both, jhash and
+> intel_crc4_2_hash and I don't want to rewrite jhash in assembler.
 
-you mean cmpxchg command in addition to
-update() command ?
-May be... it will have an extra 'value' argument
-(key, old_value, new_value)
-I don't have a use case for it yet though.
+We write optimized code for current cpus.
+
+With current generation of cpus, we have crc32 support.
+
+The fallback having to save/restore few registers, we don't care, as the
+fallback has huge cost anyway.
+
+You don't have to write jhash() in assembler, you misunderstood me.
+
+We only have to provide a trampoline in assembler, with maybe 10
+instructions.
+
+Then gcc will know that we do not clobber registers for the optimized
+case.
