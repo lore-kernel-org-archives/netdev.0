@@ -1,50 +1,37 @@
-From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH net 5/5] openvswitch: Validate IPv6 flow key and mask values.
-Date: Fri, 14 Nov 2014 17:38:08 -0800
-Message-ID: <1416015488-1667-1-git-send-email-pshelar@nicira.com>
-Cc: netdev@vger.kernel.org, Jarno Rajahalme <jrajahalme@nicira.com>,
-	Pravin B Shelar <pshelar@nicira.com>
-To: davem@davemloft.net
+From: Vinson Lee <vlee@twopensource.com>
+Subject: Re: tcp_mark_head_lost warning in Linux kernel 3.10
+Date: Fri, 14 Nov 2014 17:48:47 -0800
+Message-ID: <CAHTgTXWG5wF26V_w2K=3uxOPx=WCA7XZkpthy+cVSr+=+wW3CA@mail.gmail.com>
+References: <CAHTgTXXqaVzVOyGuVWpdQokY8RmYRMriaLhBecLzfg=HF6V8dQ@mail.gmail.com>
+	<1416006022.17262.77.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CADVnQymD96k6pBmkYHb5G5MAWcRywdgEb2jo-BnNttWeii0u2Q@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Netdev <netdev@vger.kernel.org>
+To: Neal Cardwell <ncardwell@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog104.obsmtp.com ([74.125.149.73]:55967 "HELO
-	na3sys009aog104.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S965255AbaKOBiL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Nov 2014 20:38:11 -0500
-Received: by mail-pd0-f171.google.com with SMTP id r10so17690571pdi.16
-        for <netdev@vger.kernel.org>; Fri, 14 Nov 2014 17:38:10 -0800 (PST)
+Received: from mail-qg0-f52.google.com ([209.85.192.52]:42157 "EHLO
+	mail-qg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755232AbaKOBsr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Nov 2014 20:48:47 -0500
+Received: by mail-qg0-f52.google.com with SMTP id a108so1291848qge.11
+        for <netdev@vger.kernel.org>; Fri, 14 Nov 2014 17:48:47 -0800 (PST)
+In-Reply-To: <CADVnQymD96k6pBmkYHb5G5MAWcRywdgEb2jo-BnNttWeii0u2Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jarno Rajahalme <jrajahalme@nicira.com>
+On Fri, Nov 14, 2014 at 5:36 PM, Neal Cardwell <ncardwell@google.com> wrote:
+> Thanks, Vinson. The theory I'm working on involves SACK reneging. What do
+> you get from:
+>
+>   nstat -a -z | grep TcpExtTCPSACKReneging
+>
 
-Reject flow label key and mask values with invalid bits set.
-Introduced by commit 3fdbd1ce11e5 ("openvswitch: add ipv6 'set'
-action").
-
-Signed-off-by: Jarno Rajahalme <jrajahalme@nicira.com>
-Acked-by: Jesse Gross <jesse@nicira.com>
-Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
----
- net/openvswitch/flow_netlink.c | 7 +++++++
- 1 file changed, 7 insertions(+)
-
-diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
-index dda040e..fa4ec2e 100644
---- a/net/openvswitch/flow_netlink.c
-+++ b/net/openvswitch/flow_netlink.c
-@@ -689,6 +689,13 @@ static int ovs_key_from_nlattrs(struct sw_flow_match *match, u64 attrs,
- 				ipv6_key->ipv6_frag, OVS_FRAG_TYPE_MAX);
- 			return -EINVAL;
- 		}
-+
-+		if (ipv6_key->ipv6_label & htonl(0xFFF00000)) {
-+			OVS_NLERR("IPv6 flow label %x is out of range (max=%x).\n",
-+				  ntohl(ipv6_key->ipv6_label), (1 << 20) - 1);
-+			return -EINVAL;
-+		}
-+
- 		SW_FLOW_KEY_PUT(match, ipv6.label,
- 				ipv6_key->ipv6_label, is_mask);
- 		SW_FLOW_KEY_PUT(match, ip.proto,
--- 
-1.9.3
+$ nstat -a -z | grep TcpExtTCPSACKReneging
+TcpExtTCPSACKReneging           184357             0.0
