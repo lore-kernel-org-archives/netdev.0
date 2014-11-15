@@ -1,58 +1,46 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH v3] ixgbe: Look up MAC address in Open Firmware or IDPROM
-Date: Fri, 14 Nov 2014 22:21:26 -0800
-Message-ID: <1416032486.2478.17.camel@jtkirshe-mobl>
-References: <yq17fyxus1y.fsf@sermon.lab.mkp.net>
+From: Alexander Aring <alex.aring@gmail.com>
+Subject: Re: [PATCH] ieee802154: fix error handling in ieee802154fake_probe()
+Date: Sat, 15 Nov 2014 08:16:06 +0100
+Message-ID: <20141115071603.GA3481@omega>
+References: <1416006719-3450-1-git-send-email-khoroshilov@ispras.ru>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-dt3AKX66qzJRKq7l23ud"
-Cc: netdev@vger.kernel.org, linux.nics@intel.com
-To: "Martin K. Petersen" <mkp@mkp.net>
+Content-Type: text/plain; charset=utf-8
+Cc: "David S . Miller" <davem@davemloft.net>,
+	linux-wpan@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
+To: Alexey Khoroshilov <khoroshilov@ispras.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:46753 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751030AbaKOGV2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 15 Nov 2014 01:21:28 -0500
-In-Reply-To: <yq17fyxus1y.fsf@sermon.lab.mkp.net>
+Received: from mail-wi0-f171.google.com ([209.85.212.171]:35647 "EHLO
+	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752003AbaKOHQO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 15 Nov 2014 02:16:14 -0500
+Content-Disposition: inline
+In-Reply-To: <1416006719-3450-1-git-send-email-khoroshilov@ispras.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi,
 
---=-dt3AKX66qzJRKq7l23ud
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+On Sat, Nov 15, 2014 at 02:11:59AM +0300, Alexey Khoroshilov wrote:
+> In case of any failure ieee802154fake_probe() just calls unregister_netdev().
+> But it does not look safe to unregister netdevice before it was registered.
+> 
+> The patch implements straightforward resource deallocation in case of
+> failure in ieee802154fake_probe().
+> 
+> Found by Linux Driver Verification project (linuxtesting.org).
+> 
 
-On Fri, 2014-11-14 at 21:16 -0500, Martin K. Petersen wrote:
->=20
-> Attempt to look up the MAC address in Open Firmware on systems that
-> support it. On SPARC resort to using the IDPROM if no OF address is
-> found.
->=20
-> Signed-off-by: Martin K. Petersen <martin.petersen@oracle.com>
+Thanks for the patch! But I already delete the whole fakehard driver.
+The patch to remove this driver is already in net-next.
 
-Thanks Martin, I will add your patch to my queue.
+There was too many issues with the fake hardMAC drivers and we don't
+really supported a "real" hardMAC transceiver. For my rework to grab the
+good things from wireless implementation and put 802.15.4 functionality
+on it I simple delete the whole driver and _maybe_ add a new one with
+the new introduced interfaces for possible hardMAC functionality.
 
---=-dt3AKX66qzJRKq7l23ud
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+This patch could go into bluetooth(net)/stable but I don't think that
+there are many users for this driver.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJUZvDmAAoJEOVv75VaS+3OUgoP/3aGuLlD0o8qEhRQ/Ex5jRZy
-BV+MBCKKDFq5KNsQSwyDfp20Sbsjy0hL6ylRBj7GHU9GV9weytPi8DmVR7ZeAtIB
-5YkTjxOH5sK+ztpRmPJQ9z6wVkbVBOYNl7qwPRIKdPmFzwzTrDLM/1EBJGkAGP2g
-DH1Llg/0Pc0RB+57iRDgjPbZwze/KabTTjtN1B3+UO8fNj+MrdKlCq7VMpAn1Fwd
-oF0d+VMJP82kZjBZguqc0aicEQ8VDmNeFHYVM0uagiqFBeMIcUGAOz/QopMV2uUa
-AZFekR92UyiQD+eTCodTy6SJlsWQA9BCfomqFwI5ON4JXgbjrUTDXu4cBg9CGOPx
-vE/lXisuyx+u1DFme6kGzVkd2FvWe+QLFV4dRguEQwHxwM5BvjHC4auPS5K/T1Ck
-8HvA/E3MpGiGZY7eC6RCfjLrGgBXm9Rcjv5JmYM5pprXTRMGpuR0ddPsIMmNwIra
-MulVdAeKiFFlNr1juX89NlTq66mbjlOAPiQsSQGgN5UsFwb8am++4W2Y/FZw6s5y
-xCuWqJOyHyUgWKfO5ZVgg0Hz4nX+8vY9SUGU76Ou9bj7aXdEwb2jqm29gHAry7rb
-mqyKm/ZIhxtgfUYwxdDmrRMM/NjGefrGE72C8LsEgnQI7L6oXSBUJzsow3/x6wJ1
-6w9oUFG8+RqXF66oIyGg
-=XBev
------END PGP SIGNATURE-----
-
---=-dt3AKX66qzJRKq7l23ud--
+- Alex
