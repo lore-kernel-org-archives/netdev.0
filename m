@@ -1,74 +1,151 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 02/12] i40e: re-enable VFLR interrupt sooner
-Date: Fri, 14 Nov 2014 22:08:25 -0800
-Message-ID: <1416031715-32498-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 09/12] i40e: Modify Tx disable wait flow in case of DCB reconfiguration
+Date: Fri, 14 Nov 2014 22:08:32 -0800
+Message-ID: <1416031715-32498-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1416031715-32498-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mitch Williams <mitch.a.williams@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Neerav Parikh <neerav.parikh@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:4893 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:35240 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751190AbaKOGIi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 15 Nov 2014 01:08:38 -0500
+	id S1752717AbaKOGIn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 15 Nov 2014 01:08:43 -0500
 In-Reply-To: <1416031715-32498-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mitch Williams <mitch.a.williams@intel.com>
+From: Neerav Parikh <neerav.parikh@intel.com>
 
-VF interrupt processing takes a looooong time, and it's possible that we
-could lose a VFLR event if it happens while we're processing a VFLR on
-another VF. This would leave the VF in a semi-permanent reset state,
-which would not be cleared until yet another VF experiences a VFLR.
+When DCB TC configuration changes the firmware suspends the port's Tx.
+Now, as DCB TCs may have changed the PF driver tries to reconfigure the
+TC configuration of the VSIs it manages. As part of this process it disables
+the VSI queues but the Tx queue disable will not complete as the port's
+Tx has been suspended. So, waiting for Tx queues to go to disable state
+in this flow may lead to detection of Tx queue disable timeout errors.
 
-To correct this situation, we enable the VFLR interrupt cause before we
-begin processing any pending resets. This means that any VFLR that
-occurs during reset processing will generate another interrupt and this
-routine will get called again.
+Hence, this patch adds a new PF state so that if a port's Tx is in
+suspended state the Tx queue disable flow would just put the request for
+the queue to be disabled and return without waiting for the queue to be
+actually disabled.
+Once the VSI(s) TC reconfiguration has been done and driver has called
+firmware AQC "Resume PF Traffic" the driver checks the Tx queues requested
+to be disabled are actually disabled before re-enabling them again.
 
-This change may cause a spurious interrupt when multiple VFLRs occur
-very close together in time. If this happens, then this routine will be
-called again and it will detect no outstanding VFLR events and do
-nothing. No harm, no foul.
-
-Change-ID: Id0451f3e6e73a2cf6db1668296c71e129b59dc19
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Change-ID: If3e03ce4813a4e342dbd5a1eb1d2861e952b7544
+Signed-off-by: Neerav Parikh <neerav.parikh@intel.com>
+Tested-By: Jack Morgan <jack.morgan@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e.h      |  1 +
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 60 +++++++++++++++++++++++++++++
+ 2 files changed, 61 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index fff3c27..668d860 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -1869,6 +1869,12 @@ int i40e_vc_process_vflr_event(struct i40e_pf *pf)
- 	if (!test_bit(__I40E_VFLR_EVENT_PENDING, &pf->state))
- 		return 0;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index b7a807b..464342a 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -146,6 +146,7 @@ enum i40e_state_t {
+ 	__I40E_DOWN_REQUESTED,
+ 	__I40E_FD_FLUSH_REQUESTED,
+ 	__I40E_RESET_FAILED,
++	__I40E_PORT_TX_SUSPENDED,
+ };
  
-+	/* re-enable vflr interrupt cause */
-+	reg = rd32(hw, I40E_PFINT_ICR0_ENA);
-+	reg |= I40E_PFINT_ICR0_ENA_VFLR_MASK;
-+	wr32(hw, I40E_PFINT_ICR0_ENA, reg);
-+	i40e_flush(hw);
-+
- 	clear_bit(__I40E_VFLR_EVENT_PENDING, &pf->state);
- 	for (vf_id = 0; vf_id < pf->num_alloc_vfs; vf_id++) {
- 		reg_idx = (hw->func_caps.vf_base_id + vf_id) / 32;
-@@ -1885,12 +1891,6 @@ int i40e_vc_process_vflr_event(struct i40e_pf *pf)
+ enum i40e_interrupt_policy {
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 1fcbf35..9660889 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -3492,6 +3492,9 @@ static int i40e_vsi_control_tx(struct i40e_vsi *vsi, bool enable)
  		}
- 	}
  
--	/* re-enable vflr interrupt cause */
--	reg = rd32(hw, I40E_PFINT_ICR0_ENA);
--	reg |= I40E_PFINT_ICR0_ENA_VFLR_MASK;
--	wr32(hw, I40E_PFINT_ICR0_ENA, reg);
--	i40e_flush(hw);
--
- 	return 0;
+ 		wr32(hw, I40E_QTX_ENA(pf_q), tx_reg);
++		/* No waiting for the Tx queue to disable */
++		if (!enable && test_bit(__I40E_PORT_TX_SUSPENDED, &pf->state))
++			continue;
+ 
+ 		/* wait for the change to finish */
+ 		ret = i40e_pf_txq_wait(pf, pf_q, enable);
+@@ -3911,6 +3914,56 @@ static void i40e_pf_unquiesce_all_vsi(struct i40e_pf *pf)
+ 	}
  }
  
++#ifdef CONFIG_I40E_DCB
++/**
++ * i40e_vsi_wait_txq_disabled - Wait for VSI's queues to be disabled
++ * @vsi: the VSI being configured
++ *
++ * This function waits for the given VSI's Tx queues to be disabled.
++ **/
++static int i40e_vsi_wait_txq_disabled(struct i40e_vsi *vsi)
++{
++	struct i40e_pf *pf = vsi->back;
++	int i, pf_q, ret;
++
++	pf_q = vsi->base_queue;
++	for (i = 0; i < vsi->num_queue_pairs; i++, pf_q++) {
++		/* Check and wait for the disable status of the queue */
++		ret = i40e_pf_txq_wait(pf, pf_q, false);
++		if (ret) {
++			dev_info(&pf->pdev->dev,
++				 "%s: VSI seid %d Tx ring %d disable timeout\n",
++				 __func__, vsi->seid, pf_q);
++			return ret;
++		}
++	}
++
++	return 0;
++}
++
++/**
++ * i40e_pf_wait_txq_disabled - Wait for all queues of PF VSIs to be disabled
++ * @pf: the PF
++ *
++ * This function waits for the Tx queues to be in disabled state for all the
++ * VSIs that are managed by this PF.
++ **/
++static int i40e_pf_wait_txq_disabled(struct i40e_pf *pf)
++{
++	int v, ret = 0;
++
++	for (v = 0; v < pf->hw.func_caps.num_vsis; v++) {
++		if (pf->vsi[v]) {
++			ret = i40e_vsi_wait_txq_disabled(pf->vsi[v]);
++			if (ret)
++				break;
++		}
++	}
++
++	return ret;
++}
++
++#endif
+ /**
+  * i40e_dcb_get_num_tc -  Get the number of TCs from DCBx config
+  * @dcbcfg: the corresponding DCBx configuration structure
+@@ -5102,6 +5155,7 @@ static int i40e_handle_lldp_event(struct i40e_pf *pf,
+ 	else
+ 		pf->flags &= ~I40E_FLAG_DCB_ENABLED;
+ 
++	set_bit(__I40E_PORT_TX_SUSPENDED, &pf->state);
+ 	/* Reconfiguration needed quiesce all VSIs */
+ 	i40e_pf_quiesce_all_vsi(pf);
+ 
+@@ -5110,7 +5164,13 @@ static int i40e_handle_lldp_event(struct i40e_pf *pf,
+ 
+ 	ret = i40e_resume_port_tx(pf);
+ 
++	clear_bit(__I40E_PORT_TX_SUSPENDED, &pf->state);
+ 	/* In case of error no point in resuming VSIs */
++	if (ret)
++		goto exit;
++
++	/* Wait for the PF's Tx queues to be disabled */
++	ret = i40e_pf_wait_txq_disabled(pf);
+ 	if (!ret)
+ 		i40e_pf_unquiesce_all_vsi(pf);
+ exit:
 -- 
 1.9.3
