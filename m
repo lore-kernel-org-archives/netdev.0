@@ -1,94 +1,134 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 12/12] i40e: Set XPS bit mask to zero in DCB mode
-Date: Fri, 14 Nov 2014 22:08:35 -0800
-Message-ID: <1416031715-32498-13-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 05/12] i40e: Resume Port Tx after DCB event
+Date: Fri, 14 Nov 2014 22:08:28 -0800
+Message-ID: <1416031715-32498-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1416031715-32498-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Neerav Parikh <neerav.parikh@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:35240 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:42056 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754504AbaKOGIp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 15 Nov 2014 01:08:45 -0500
+	id S1751980AbaKOGIl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 15 Nov 2014 01:08:41 -0500
 In-Reply-To: <1416031715-32498-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Neerav Parikh <neerav.parikh@intel.com>
 
-Due to DCBX configuration change if the VSI needs to use more than 1 TC;
-it needs to disable the XPS maps that were set when operating in 1 TC mode.
-Without disabling XPS the netdev layer will select queues based on those
-settings and not use the TC queue mapping to make the queue selection.
+When there are DCB configuration changes based on DCBX the firmware suspends
+the port's Tx and generates an event to the PF. The PF is then responsible
+to reconfigure the PF VSIs and switching topology as per the updated DCB
+configuration and then resume the port's Tx by calling the "Resume Port Tx"
+AQ command.
 
-This patch allows the driver to enable/disable the XPS based on the number
-of TCs being enabled for the given VSI.
+This patch adds this call to the flow that handles DCB re-configuration in
+the PF.
 
-Change-ID: Idc4dec47a672d2a509f6d7fe11ed1ee65b4f0e08
+Change-ID: I5b860ad48abfbf379b003143c4d3453e2ed5cc1c
 Signed-off-by: Neerav Parikh <neerav.parikh@intel.com>
 Tested-By: Jack Morgan <jack.morgan@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 38 +++++++++++++++++++++++------
- 1 file changed, 31 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_common.c    | 20 +++++++++++++++
+ drivers/net/ethernet/intel/i40e/i40e_main.c      | 31 +++++++++++++++++++++++-
+ drivers/net/ethernet/intel/i40e/i40e_prototype.h |  2 ++
+ 3 files changed, 52 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 7651925..9c68236 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -2382,6 +2382,35 @@ static void i40e_vsi_free_rx_resources(struct i40e_vsi *vsi)
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
+index c49416c..76735d5 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_common.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
+@@ -3217,6 +3217,26 @@ i40e_status i40e_aq_add_rem_control_packet_filter(struct i40e_hw *hw,
  }
  
  /**
-+ * i40e_config_xps_tx_ring - Configure XPS for a Tx ring
-+ * @ring: The Tx ring to configure
++ * i40e_aq_resume_port_tx
++ * @hw: pointer to the hardware structure
++ * @cmd_details: pointer to command details structure or NULL
 + *
-+ * This enables/disables XPS for a given Tx descriptor ring
-+ * based on the TCs enabled for the VSI that ring belongs to.
++ * Resume port's Tx traffic
 + **/
-+static void i40e_config_xps_tx_ring(struct i40e_ring *ring)
++i40e_status i40e_aq_resume_port_tx(struct i40e_hw *hw,
++				   struct i40e_asq_cmd_details *cmd_details)
 +{
-+	struct i40e_vsi *vsi = ring->vsi;
-+	cpumask_var_t mask;
++	struct i40e_aq_desc desc;
++	i40e_status status;
 +
-+	if (ring->q_vector && ring->netdev) {
-+		/* Single TC mode enable XPS */
-+		if (vsi->tc_config.numtc <= 1 &&
-+		    !test_and_set_bit(__I40E_TX_XPS_INIT_DONE, &ring->state)) {
-+			netif_set_xps_queue(ring->netdev,
-+					    &ring->q_vector->affinity_mask,
-+					    ring->queue_index);
-+		} else if (alloc_cpumask_var(&mask, GFP_KERNEL)) {
-+			/* Disable XPS to allow selection based on TC */
-+			bitmap_zero(cpumask_bits(mask), nr_cpumask_bits);
-+			netif_set_xps_queue(ring->netdev, mask,
-+					    ring->queue_index);
-+			free_cpumask_var(mask);
-+		}
-+	}
++	i40e_fill_default_direct_cmd_desc(&desc, i40e_aqc_opc_resume_port_tx);
++
++	status = i40e_asq_send_command(hw, &desc, NULL, 0, cmd_details);
++
++	return status;
 +}
 +
 +/**
-  * i40e_configure_tx_ring - Configure a transmit ring context and rest
-  * @ring: The Tx ring to configure
+  * i40e_set_pci_config_data - store PCI bus info
+  * @hw: pointer to hardware structure
+  * @link_status: the link status word from PCI config space
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 6608289..1423040 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -4382,6 +4382,31 @@ static void i40e_dcb_reconfigure(struct i40e_pf *pf)
+ }
+ 
+ /**
++ * i40e_resume_port_tx - Resume port Tx
++ * @pf: PF struct
++ *
++ * Resume a port's Tx and issue a PF reset in case of failure to
++ * resume.
++ **/
++static int i40e_resume_port_tx(struct i40e_pf *pf)
++{
++	struct i40e_hw *hw = &pf->hw;
++	int ret;
++
++	ret = i40e_aq_resume_port_tx(hw, NULL);
++	if (ret) {
++		dev_info(&pf->pdev->dev,
++			 "AQ command Resume Port Tx failed = %d\n",
++			  pf->hw.aq.asq_last_status);
++		/* Schedule PF reset to recover */
++		set_bit(__I40E_PF_RESET_REQUESTED, &pf->state);
++		i40e_service_event_schedule(pf);
++	}
++
++	return ret;
++}
++
++/**
+  * i40e_init_pf_dcb - Initialize DCB configuration
+  * @pf: PF being configured
   *
-@@ -2404,13 +2433,8 @@ static int i40e_configure_tx_ring(struct i40e_ring *ring)
- 		ring->atr_sample_rate = 0;
- 	}
+@@ -5075,7 +5100,11 @@ static int i40e_handle_lldp_event(struct i40e_pf *pf,
+ 	/* Changes in configuration update VEB/VSI */
+ 	i40e_dcb_reconfigure(pf);
  
--	/* initialize XPS */
--	if (ring->q_vector && ring->netdev &&
--	    vsi->tc_config.numtc <= 1 &&
--	    !test_and_set_bit(__I40E_TX_XPS_INIT_DONE, &ring->state))
--		netif_set_xps_queue(ring->netdev,
--				    &ring->q_vector->affinity_mask,
--				    ring->queue_index);
-+	/* configure XPS */
-+	i40e_config_xps_tx_ring(ring);
- 
- 	/* clear the context structure first */
- 	memset(&tx_ctx, 0, sizeof(tx_ctx));
+-	i40e_pf_unquiesce_all_vsi(pf);
++	ret = i40e_resume_port_tx(pf);
++
++	/* In case of error no point in resuming VSIs */
++	if (!ret)
++		i40e_pf_unquiesce_all_vsi(pf);
+ exit:
+ 	return ret;
+ }
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_prototype.h b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
+index 246c278..98a735c 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_prototype.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
+@@ -230,6 +230,8 @@ i40e_status i40e_aq_query_switch_comp_bw_config(struct i40e_hw *hw,
+ 		u16 seid,
+ 		struct i40e_aqc_query_switching_comp_bw_config_resp *bw_data,
+ 		struct i40e_asq_cmd_details *cmd_details);
++i40e_status i40e_aq_resume_port_tx(struct i40e_hw *hw,
++				   struct i40e_asq_cmd_details *cmd_details);
+ /* i40e_common */
+ i40e_status i40e_init_shared_code(struct i40e_hw *hw);
+ i40e_status i40e_pf_reset(struct i40e_hw *hw);
 -- 
 1.9.3
