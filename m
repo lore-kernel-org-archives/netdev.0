@@ -1,39 +1,54 @@
-From: Dammy Lugg <snnuu1001@gmail.com>
-Subject: =?UTF-8?B?0JLRiyDQstGL0LjQs9GA0LDQu9C4INC70L7RgtC10YDQtdGOINCe0YDQs9Cw0L3QuNC3?=
-	=?UTF-8?B?0LDRhtC40Y8g0J7QsdGK0LXQtNC40L3QtdC90L3Ri9GFINCd0LDRhtC40Lkg0LIg0YDQsNC30LzQtdGA?=
-	=?UTF-8?B?0LUgMSwyINC80LvQvS4g0LTQvtC70LvQsNGA0L7QsiDQodCo0JA=?=
-Date: Sat, 15 Nov 2014 08:36:39 +0100
-Message-ID: <CANnUNsQ58qQVzJ+NOdAXz9BHu=kaj5H-mxTtjEaybeJwujHLtQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: base64
-To: Dammy Lugg <snnuu1001@gmail.com>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH] ieee802154: fix error handling in ieee802154fake_probe()
+Date: Sat, 15 Nov 2014 16:58:28 +0900
+Message-ID: <B1D43522-B042-4D92-8F8A-D2AD89A3F0F9@holtmann.org>
+References: <1416006719-3450-1-git-send-email-khoroshilov@ispras.ru> <20141115071603.GA3481@omega>
+Mime-Version: 1.0 (Mac OS X Mail 8.0 \(1990.1\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: Alexey Khoroshilov <khoroshilov@ispras.ru>,
+	linux-wpan@vger.kernel.org,
+	Network Development <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	ldv-project@linuxtesting.org
+To: Alexander Aring <alex.aring@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f66.google.com ([209.85.220.66]:39318 "EHLO
-	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752675AbaKOHgk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 15 Nov 2014 02:36:40 -0500
-Received: by mail-pa0-f66.google.com with SMTP id rd3so2229325pab.9
-        for <netdev@vger.kernel.org>; Fri, 14 Nov 2014 23:36:39 -0800 (PST)
+Received: from senator.holtmann.net ([87.106.208.187]:52082 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751120AbaKOH6g convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 15 Nov 2014 02:58:36 -0500
+In-Reply-To: <20141115071603.GA3481@omega>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-0KPQstCw0LbQsNC10LzRi9C1INGN0LvQtdC60YLRgNC+0L3QvdC+0Lkg0L/QvtGH0YLRiyDQvdCw
-INC/0YDQtdC00YrRj9Cy0LjRgtC10LvRjywNCg0K0LvRjtCx0LXQt9C90L4g0L/RgNC40YHQu9Cw
-0YLRjCDQuNC90YTQvtGA0LzQsNGG0LjRjiDQstC80LXRgdGC0LUg0YEg0L/QuNC9LdC60L7QtCDQ
-vdCwINGN0YLQviDQv9C40YHRjNC80L46DQp1bml0ZWRuYXRpb25uc3NAZXhjaXRlLmNvLnVrIDsN
-Cg0K0JXQtNC40L3QvtCy0YDQtdC80LXQvdC90L4g0LIg0YDQsNC30LzQtdGA0LUgMSwyINC80LvQ
-vS4g0LTQvtC70LsuINCh0KjQkCAo0L7QtNC40L0g0LzQuNC70LvQuNC+0L0g0LTQstC10YHRgtC4
-INGC0YvRgdGP0YcNCtC00L7Qu9C70LDRgNC+0LIg0KHQqNCQKSDQsdGL0LvQuCDQt9Cw0YfQuNGB
-0LvQtdC90Ysg0L3QsCDQktCw0Ygg0LDQtNGA0LXRgSDRjdC70LXQutGC0YDQvtC90L3QvtC5INC/
-0L7Rh9GC0Ysg0L7RgiDQu9C+0YLQtdGA0LXQuA0K0J7RgNCz0LDQvdC40LfQsNGG0LjQuCDQntCx
-0YrQtdC00LjQvdC10L3QvdGL0YUg0J3QsNGG0LjQuS4g0J/QvtC30LTRgNCw0LLQu9GP0Y4uINCS
-0LDRiCDQs9GA0LDQvdGCINC60L7QvdGC0LDQutGC0L3Ri9C5INC90L7QvNC10YANCihVTk8tMTU0
-LzQ0NTYvMDExKS4g0J/QvtC00YLQstC10YDQtNC40YLQtSDQv9C+0LvRg9GH0LXQvdC40LUg0YHQ
-stGP0LfQsNCy0YjQuNGB0YwgRHIuIEphbWVzINCv0L3QszoNCnVuaXRlZG5hdGlvbm5zc0BleGNp
-dGUuY28udWsgOyDRh9GC0L7QsdGLINC+0YLQv9GA0LDQstC40YLRjCDQstCw0YjRgyDQu9C40YfQ
-vdGD0Y4g0LjQvdGE0L7RgNC80LDRhtC40Y4NCtGBINC90LjQvC4NCg0K0JjQvNGPOg0K0JDQtNGA
-0LXRgToNCtCS0L7Qt9GA0LDRgdGCOg0K0J/QvtC7Og0K0KLQtdC70LXRhNC+0L06DQrQoNC+0LQg
-0LfQsNC90Y/RgtC40Lk6DQrQodGC0YDQsNC90LA6DQoNCtChINGD0LLQsNC20LXQvdC40LXQvCwN
-CtCTLdC20LAg0KHRjtC30LDQvSDQpNC40LvQuNC/0L/QsC4NCtCe0YDQs9Cw0L3QuNC30LDRhtC4
-0Lgg0J7QsdGK0LXQtNC40L3QtdC90L3Ri9GFINCd0LDRhtC40LkuDQo=
+Hi Alex,
+
+>> In case of any failure ieee802154fake_probe() just calls unregister_netdev().
+>> But it does not look safe to unregister netdevice before it was registered.
+>> 
+>> The patch implements straightforward resource deallocation in case of
+>> failure in ieee802154fake_probe().
+>> 
+>> Found by Linux Driver Verification project (linuxtesting.org).
+>> 
+> 
+> Thanks for the patch! But I already delete the whole fakehard driver.
+> The patch to remove this driver is already in net-next.
+> 
+> There was too many issues with the fake hardMAC drivers and we don't
+> really supported a "real" hardMAC transceiver. For my rework to grab the
+> good things from wireless implementation and put 802.15.4 functionality
+> on it I simple delete the whole driver and _maybe_ add a new one with
+> the new introduced interfaces for possible hardMAC functionality.
+> 
+> This patch could go into bluetooth(net)/stable but I don't think that
+> there are many users for this driver.
+
+I am not sure that this is worth it then.
+
+Dave, do you want to just take it via net-stable tree? We currently have no urgent bluetooth-stable tree patches pending.
+
+Regards
+
+Marcel
