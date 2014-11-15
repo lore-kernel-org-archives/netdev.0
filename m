@@ -1,51 +1,56 @@
 From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH net 3/5] openvswitch: Fix NDP flow mask validation
-Date: Fri, 14 Nov 2014 17:37:41 -0800
-Message-ID: <1416015461-1606-1-git-send-email-pshelar@nicira.com>
-Cc: netdev@vger.kernel.org,
-	Daniele Di Proietto <ddiproietto@vmware.com>,
-	Pravin B Shelar <pshelar@nicira.com>
+Subject: [GIT net] Open vSwitch
+Date: Fri, 14 Nov 2014 17:37:24 -0800
+Message-ID: <1416015444-1519-1-git-send-email-pshelar@nicira.com>
+Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog105.obsmtp.com ([74.125.149.75]:55033 "HELO
-	na3sys009aog105.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1755233AbaKOBho (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Nov 2014 20:37:44 -0500
-Received: by mail-pa0-f41.google.com with SMTP id rd3so4048399pab.14
-        for <netdev@vger.kernel.org>; Fri, 14 Nov 2014 17:37:43 -0800 (PST)
+Received: from na3sys009aog118.obsmtp.com ([74.125.149.244]:38998 "HELO
+	na3sys009aog118.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754848AbaKOBh2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Nov 2014 20:37:28 -0500
+Received: by mail-pd0-f178.google.com with SMTP id y13so2579370pdi.23
+        for <netdev@vger.kernel.org>; Fri, 14 Nov 2014 17:37:27 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniele Di Proietto <ddiproietto@vmware.com>
+Following fixes are accumulated in ovs-repo.
+Three of them are related to protocol processing, one is
+related to memory leak in case of error and one is to
+fix race.
+Patch "Validate IPv6 flow key and mask values" has conflicts
+with net-next, Let me know if you want me to send the patch
+for net-next.
 
-match_validate() enforce that a mask matching on NDP attributes has also an
-exact match on ICMPv6 type.
-The ICMPv6 type, which is 8-bit wide, is stored in the 'tp.src' field of
-'struct sw_flow_key', which is 16-bit wide.
-Therefore, an exact match on ICMPv6 type should only check the first 8 bits.
+----------------------------------------------------------------
+The following changes since commit b23dc5a7cc6ebc9a0d57351da7a0e8454c9ffea3:
 
-This commit fixes a bug that prevented flows with an exact match on NDP field
-from being installed
-Introduced by commit 03f0d916aa03 ("openvswitch: Mega flow implementation").
+  Merge tag 'for_linus' of git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost (2014-11-13 18:07:52 -0800)
 
-Signed-off-by: Daniele Di Proietto <ddiproietto@vmware.com>
-Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
----
- net/openvswitch/flow_netlink.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+are available in the git repository at:
 
-diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
-index 939bcb3..dda040e 100644
---- a/net/openvswitch/flow_netlink.c
-+++ b/net/openvswitch/flow_netlink.c
-@@ -145,7 +145,7 @@ static bool match_validate(const struct sw_flow_match *match,
- 	if (match->key->eth.type == htons(ETH_P_ARP)
- 			|| match->key->eth.type == htons(ETH_P_RARP)) {
- 		key_expected |= 1 << OVS_KEY_ATTR_ARP;
--		if (match->mask && (match->mask->key.eth.type == htons(0xffff)))
-+		if (match->mask && (match->mask->key.tp.src == htons(0xff)))
- 			mask_allowed |= 1 << OVS_KEY_ATTR_ARP;
- 	}
- 
--- 
-1.9.3
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pshelar/openvswitch.git net_ovs
+
+for you to fetch changes up to fecaef85f7188ad1822210e2c7a7625c9a32a8e4:
+
+  openvswitch: Validate IPv6 flow key and mask values. (2014-11-14 15:13:26 -0800)
+
+----------------------------------------------------------------
+Daniele Di Proietto (1):
+      openvswitch: Fix NDP flow mask validation
+
+Jarno Rajahalme (1):
+      openvswitch: Validate IPv6 flow key and mask values.
+
+Jesse Gross (1):
+      openvswitch: Fix checksum calculation when modifying ICMPv6 packets.
+
+Pravin B Shelar (2):
+      openvswitch: Fix memory leak.
+      openvswitch: Convert dp rcu read operation to locked operations
+
+ net/openvswitch/actions.c      | 10 ++++++----
+ net/openvswitch/datapath.c     | 14 +++++++-------
+ net/openvswitch/flow_netlink.c |  9 ++++++++-
+ 3 files changed, 21 insertions(+), 12 deletions(-)
