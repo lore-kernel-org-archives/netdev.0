@@ -1,64 +1,76 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH 2/3] r8169: Use load_acquire() and store_release() to
- reduce memory barrier overhead
-Date: Sat, 15 Nov 2014 22:13:50 +0100
-Message-ID: <20141115211350.GA24817@electric-eye.fr.zoreil.com>
-References: <20141113191250.12579.19694.stgit@ahduyck-server>
- <20141113192735.12579.22892.stgit@ahduyck-server>
- <20141113213049.GA12297@electric-eye.fr.zoreil.com>
- <54653ABF.3080400@gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [net-next 01/12] i40e: only warn once of PTP nonsupport in 100Mbit
+ speed
+Date: Sat, 15 Nov 2014 13:20:58 -0800
+Message-ID: <5467C3BA.6090003@gmail.com>
+References: <1416031715-32498-1-git-send-email-jeffrey.t.kirsher@intel.com> <1416031715-32498-2-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexander Duyck <alexander.h.duyck@redhat.com>,
-	linux-arch@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mikey@neuling.org,
-	tony.luck@intel.com, mathieu.desnoyers@polymtl.ca,
-	donald.c.skidmore@intel.com, peterz@infradead.org,
-	benh@kernel.crashing.org, heiko.carstens@de.ibm.com,
-	oleg@redhat.com, will.deacon@arm.com, davem@davemloft.net,
-	michael@ellerman.id.au, matthew.vick@intel.com,
-	nic_swsd@realtek.com, geert@linux-m68k.org,
-	jeffrey.t.kirsher@intel.com, fweisbec@gmail.com,
-	schwidefsky@de.ibm.com, linux@arm.linux.org.uk,
-	paulmck@linux.vnet.ibm.com, torvalds@linux-foundation.org,
-	mingo@kernel.org, Adam Nielsen <a.nielsen@shikadi.net>
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <linux-arch-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <54653ABF.3080400@gmail.com>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	joe@perches.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f52.google.com ([209.85.218.52]:47121 "EHLO
+	mail-oi0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754604AbaKOVVA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 15 Nov 2014 16:21:00 -0500
+Received: by mail-oi0-f52.google.com with SMTP id h136so121779oig.25
+        for <netdev@vger.kernel.org>; Sat, 15 Nov 2014 13:21:00 -0800 (PST)
+In-Reply-To: <1416031715-32498-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Alexander Duyck <alexander.duyck@gmail.com> :
-> On 11/13/2014 01:30 PM, Francois Romieu wrote:
-> > Alexander Duyck <alexander.h.duyck@redhat.com> :
-> > [...]
-> >> In addition the r8169 uses a rmb() however I believe it is placed incorrectly
-> >> as I assume it supposed to be ordering descriptor reads after the check for
-> >> ownership.
-> > Not exactly. It's a barrier against compiler optimization from 2004.
-> > It should not matter.
-> 
-> Okay.  Do you recall the kind of problem it was you were seeing ?
+Le 14/11/2014 22:08, Jeff Kirsher a =E9crit :
+> From: Shannon Nelson <shannon.nelson@intel.com>
+>
+> Only warn once that PTP is not supported when linked at 100Mbit.
+>
+> Yes, using a static this way means that this once-only message is not
+> port specific, but once only for the life of the driver, regardless o=
+f
+> the number of ports.  That should be plenty.
+>
+> Change-ID: Ie6476530056df408452e195ef06afd4f57caa4b2
+> Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> ---
+>   drivers/net/ethernet/intel/i40e/i40e_ptp.c | 12 +++++++++---
+>   1 file changed, 9 insertions(+), 3 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/intel/i40e/i40e_ptp.c b/drivers/net=
+/ethernet/intel/i40e/i40e_ptp.c
+> index 537b621..f9151037 100644
+> --- a/drivers/net/ethernet/intel/i40e/i40e_ptp.c
+> +++ b/drivers/net/ethernet/intel/i40e/i40e_ptp.c
+> @@ -382,11 +382,17 @@ void i40e_ptp_set_increment(struct i40e_pf *pf)
+>   		incval =3D I40E_PTP_1GB_INCVAL;
+>   		break;
+>   	case I40E_LINK_SPEED_100MB:
+> -		dev_warn(&pf->pdev->dev,
+> -			 "%s: 1588 functionality is not supported at 100 Mbps. Stopping t=
+he PHC.\n",
+> -			 __func__);
+> +	{
+> +		static int warn_once;
+> +
+> +		if (!warn_once) {
+> +			dev_warn(&pf->pdev->dev,
+> +				 "1588 functionality is not supported at 100 Mbps. Stopping the =
+PHC.\n");
+> +			warn_once++;
+> +		}
 
-Mildly, I had to grep the local archives.
+I am sure Joe could come up with dev_warn_once() and others pretty=20
+easily. As a temporary change you could use pr_warn_once("%s: ...\n",=20
+dev_name(&pf->pdev->dev) which is almost identical?
 
-The relevant code used to be included in the irq handler at that time
-(napi support for this driver took place in may 2004). One did not want
-a runaway loop in the Tx reaper.
-
-Compiler optimization was suggested by Manfred Spraul in the thread below:
-http://marc.info/?l=linux-kernel&m=108096868119004
-
-> The origin of the rmb() for the Intel drivers was a PowerPC issue in
-> which it was fetching the length of a buffer before it checked the DD
-> bit (equivalent of DescOwn).  I'm wondering if the issue you were seeing
-> was something similar where it had reordered reads in the descriptor to
-> cause that type of result.
-
-The problem was only reported on Intel 32 bit + slackware + gcc 3.2.3.
-
-Adam Nielsen - Cc: added - did not return for this bug.
-
--- 
-Ueimor
+>   		incval =3D 0;
+>   		break;
+> +	}
+>   	case I40E_LINK_SPEED_40GB:
+>   	default:
+>   		incval =3D I40E_PTP_40GB_INCVAL;
+>
