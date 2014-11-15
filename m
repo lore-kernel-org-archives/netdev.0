@@ -1,44 +1,43 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] crypto: aesni-intel - avoid IPsec re-ordering
-Date: Sat, 15 Nov 2014 11:15:50 +0800
-Message-ID: <20141115031549.GA19208@gondor.apana.org.au>
-References: <1415771371-30774-1-git-send-email-ming.liu@windriver.com>
- <20141112084138.GL6390@secunet.com>
+Subject: Re: [PATCH 4/4] rhashtable: Add parent argument to mutex_is_held
+Date: Sat, 15 Nov 2014 11:25:12 +0800
+Message-ID: <20141115032512.GA19299@gondor.apana.org.au>
+References: <20141113101025.GA3728@gondor.apana.org.au>
+ <E1XorN4-0000zn-0H@gondolin.me.apana.org.au>
+ <20141113103723.GO19157@casper.infradead.org>
+ <20141113103834.GA4024@gondor.apana.org.au>
+ <20141113104124.GA24379@casper.infradead.org>
+ <20141113104343.GA4112@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Ming Liu <ming.liu@windriver.com>, davem@davemloft.net,
-	ying.xue@windriver.com, linux-crypto@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>
-Return-path: <linux-crypto-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org
+To: Thomas Graf <tgraf@suug.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.apana.org.au ([209.40.204.226]:44038 "EHLO
+	helcar.apana.org.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934378AbaKODZT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Nov 2014 22:25:19 -0500
 Content-Disposition: inline
-In-Reply-To: <20141112084138.GL6390@secunet.com>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20141113104343.GA4112@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 12, 2014 at 09:41:38AM +0100, Steffen Klassert wrote:
->
-> Everything below the local_bh_enable() should not run in atomic context
-> as the subsequent functions may set the CRYPTO_TFM_REQ_MAY_SLEEP flag.
+On Thu, Nov 13, 2014 at 06:43:43PM +0800, Herbert Xu wrote:
+> On Thu, Nov 13, 2014 at 10:41:24AM +0000, Thomas Graf wrote:
+> >
+> > Never mind. You did fix it. I looked at the wrong patch.
+> 
+> OK.  Now comes the fun part of shoehorning the xfrm_policy bydst
+> hash into rhashtable :)
 
-Actually I'm thinking of doing exactly that (disabling softirq in
-cryptd) to fix the reordering problem.
+Thomas, it appears that rhashtable as it stands cannot handle
+changing the random seed because of the way it constructs the
+new hash table without degrading into a linked list.  Is there
+something I'm missing?
 
-Most threads do not use the FPU/SIMD so cryptd is only ever needed
-when we have a user-space app that touches the FPU/SIMD which then
-gets an interrupt to perform crypto in softirq.  So forcing cryptd
-on everyone just because some apps touch the FPU/SIMD is a non-
-starter.
-
-The most straightforward solution is to always defer to cryptd once
-it gets started.  This is bad because if a rarely used app that
-touches FPU/SIMD runs then we'll end up stuck in cryptd long after
-the app goes away.
-
-So what I'm thinking of is to have the softirq path forcibly regain
-control from cryptd where possible.  This is tricky because cryptd
-might be in the middle of processing a request.  So that's why I'd
-like to disable softirqs while we're processing a request.
+FWIW my hashtable in net/bridge/br_multicast.c handles rehashing
+correctly.  Any objections to me converting rhashtable to use my
+scheme instead?
 
 Cheers,
 -- 
