@@ -1,91 +1,64 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: Understanding what's going on when using a Huawei E173 USB 3G
- web-stick (UMTS/HSPA)
-Date: Sat, 15 Nov 2014 12:07:11 -0800
-Message-ID: <20141115200711.GA24643@kroah.com>
-References: <CA+icZUXgLhuVSs0aqxi_e=GLZh-zX3JPMhDF+03ctr7O-Ae2og@mail.gmail.com>
- <1415120132.31049.11.camel@dcbw.local>
- <CA+icZUW2iRkoAK10ayJ9PFuFGWBQzKdFe+8mfd=8oKkAp1txtg@mail.gmail.com>
- <CA+icZUX6caBKnjMv6V_26y_-VNfDqkeXFXKJhDdQpZy7W4oofw@mail.gmail.com>
- <1415981880.22965.28.camel@dcbw.local>
- <CA+icZUUWK8R0zFLBHfvfE6zmZ7=+yP_FJgkkeELVbwdhPUYfRA@mail.gmail.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH 2/3] r8169: Use load_acquire() and store_release() to
+ reduce memory barrier overhead
+Date: Sat, 15 Nov 2014 22:13:50 +0100
+Message-ID: <20141115211350.GA24817@electric-eye.fr.zoreil.com>
+References: <20141113191250.12579.19694.stgit@ahduyck-server>
+ <20141113192735.12579.22892.stgit@ahduyck-server>
+ <20141113213049.GA12297@electric-eye.fr.zoreil.com>
+ <54653ABF.3080400@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Dan Williams <dcbw@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-usb@vger.kernel.org,
-	Aleksander Morgado <aleksander@aleksander.es>
-To: Sedat Dilek <sedat.dilek@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:46525 "EHLO
-	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754436AbaKOUHO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 15 Nov 2014 15:07:14 -0500
-Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
-	by mailout.nyi.internal (Postfix) with ESMTP id 0FD13208BB
-	for <netdev@vger.kernel.org>; Sat, 15 Nov 2014 15:07:13 -0500 (EST)
+Cc: Alexander Duyck <alexander.h.duyck@redhat.com>,
+	linux-arch@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mikey@neuling.org,
+	tony.luck@intel.com, mathieu.desnoyers@polymtl.ca,
+	donald.c.skidmore@intel.com, peterz@infradead.org,
+	benh@kernel.crashing.org, heiko.carstens@de.ibm.com,
+	oleg@redhat.com, will.deacon@arm.com, davem@davemloft.net,
+	michael@ellerman.id.au, matthew.vick@intel.com,
+	nic_swsd@realtek.com, geert@linux-m68k.org,
+	jeffrey.t.kirsher@intel.com, fweisbec@gmail.com,
+	schwidefsky@de.ibm.com, linux@arm.linux.org.uk,
+	paulmck@linux.vnet.ibm.com, torvalds@linux-foundation.org,
+	mingo@kernel.org, Adam Nielsen <a.nielsen@shikadi.net>
+To: Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <linux-arch-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <CA+icZUUWK8R0zFLBHfvfE6zmZ7=+yP_FJgkkeELVbwdhPUYfRA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <54653ABF.3080400@gmail.com>
+Sender: linux-arch-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Nov 15, 2014 at 10:23:55AM +0100, Sedat Dilek wrote:
-> On Fri, Nov 14, 2014 at 5:18 PM, Dan Williams <dcbw@redhat.com> wrote:
-> > On Fri, 2014-11-14 at 11:56 +0100, Sedat Dilek wrote:
-> >> On Wed, Nov 12, 2014 at 2:21 PM, Sedat Dilek <sedat.dilek@gmail.com> wrote:
-> >> > On Tue, Nov 4, 2014 at 5:55 PM, Dan Williams <dcbw@redhat.com> wrote:
-> >> >> On Tue, 2014-11-04 at 16:11 +0100, Sedat Dilek wrote:
-> >> >>> Hi,
-> >> >>>
-> >> >>> I wanted to understand what is going on the kernel-side when
-> >> >>> connecting to the Internet via a Huawei E173 USB web-stick (3rd
-> >> >>> Generation: UMTS / HSPA).
-> >> >>>
-> >> >>> Especially the correlation between the diverse USB/NET kernel-drivers
-> >> >>> and how the networking is setup.
-> >> >>
-> >> >
-> >> > [ Sitting in front of a foreign Windows machine ]
-> >> >
-> >> > [ CC Aleksander ]
-> >> >
-> >> > Hi Dan,
-> >> >
-> >> > sorry for the late (and short) response.
-> >> >
-> >> > AFAICS you have given a "skeleton" for a "usb-wwan-networking"
-> >> > documentation :-).
-> >> >
-> >> > Personally, I would like to take into account some kernel-config
-> >> > options and some more things.
-> >> >
-> >>
-> >> I started with documenting...
-> >>
-> >> I have still some difficulties in understanding USB WWAN Networking.
-> >> So, this is what I revealed...
-> >>
-> >> ##### USB: HUAWEI E173 3G/UMTS/HSPA INTERNET STICK
-> >>
-> >> ### USB-NETWORKING AND WWAN SETUP
-> >> CONFIG_USB_USBNET=m        <--- usb networking
-> >> CONFIG_USB_NET_CDCETHER=m  <--- usb-wwan (net) configuration
-> >> CONFIG_USB_SERIAL_WWAN=m   <--- usb-wwan (serial) configuration
-> >> CONFIG_USB_SERIAL_OPTION=m <--- usb-serial driver called "option"
-> >
-> > Most WWAN devices actually require option, because most WWAN devices
-> > have "serial" ports (even if they aren't used for PPP), and 'option' is
-> > the driver that handles this.  The 'option' name is historic, but the
-> > driver should really be called something like 'wwan-serial-generic' or
-> > something like that.
-> >
+Alexander Duyck <alexander.duyck@gmail.com> :
+> On 11/13/2014 01:30 PM, Francois Romieu wrote:
+> > Alexander Duyck <alexander.h.duyck@redhat.com> :
+> > [...]
+> >> In addition the r8169 uses a rmb() however I believe it is placed incorrectly
+> >> as I assume it supposed to be ordering descriptor reads after the check for
+> >> ownership.
+> > Not exactly. It's a barrier against compiler optimization from 2004.
+> > It should not matter.
 > 
-> Is there sth. against renaming the "option" driver to "wwan-serial-generic"?
+> Okay.  Do you recall the kind of problem it was you were seeing ?
 
-Yes, people's scripts might break that are hard-coded to use the
-"option" driver.
+Mildly, I had to grep the local archives.
 
-thanks,
+The relevant code used to be included in the irq handler at that time
+(napi support for this driver took place in may 2004). One did not want
+a runaway loop in the Tx reaper.
 
-greg "here, have a vowel, they are cheap" k-h
+Compiler optimization was suggested by Manfred Spraul in the thread below:
+http://marc.info/?l=linux-kernel&m=108096868119004
+
+> The origin of the rmb() for the Intel drivers was a PowerPC issue in
+> which it was fetching the length of a buffer before it checked the DD
+> bit (equivalent of DescOwn).  I'm wondering if the issue you were seeing
+> was something similar where it had reordered reads in the descriptor to
+> cause that type of result.
+
+The problem was only reported on Intel 32 bit + slackware + gcc 3.2.3.
+
+Adam Nielsen - Cc: added - did not return for this bug.
+
+-- 
+Ueimor
