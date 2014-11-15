@@ -1,69 +1,72 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 4/4] rhashtable: Add parent argument to mutex_is_held
-Date: Sat, 15 Nov 2014 19:23:13 +0800
-Message-ID: <20141115112313.GA20970@gondor.apana.org.au>
-References: <20141113101025.GA3728@gondor.apana.org.au>
- <E1XorN4-0000zn-0H@gondolin.me.apana.org.au>
- <20141113103723.GO19157@casper.infradead.org>
- <20141113103834.GA4024@gondor.apana.org.au>
- <20141113104124.GA24379@casper.infradead.org>
- <20141113104343.GA4112@gondor.apana.org.au>
- <20141115032512.GA19299@gondor.apana.org.au>
- <20141115111626.GP19157@casper.infradead.org>
+From: Johan Hovold <johan@kernel.org>
+Subject: Re: phy/micrel: KSZ8031RNL RMII clock reconfiguration bug
+Date: Sat, 15 Nov 2014 15:18:04 +0100
+Message-ID: <20141115141804.GA24633@localhost>
+References: <1412866094-4972-1-git-send-email-bth@kamstrup.dk>
+ <20141111194101.GI29789@localhost>
+ <915054555B5659448ACF8A70E114824D01704B9131@Exchange2010.kamstrup.dk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
-	paulmck@linux.vnet.ibm.com, josh@joshtriplett.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:38191 "EHLO
-	helcar.apana.org.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752215AbaKOLZC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 15 Nov 2014 06:25:02 -0500
+Cc: Johan Hovold <johan@kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"f.fainelli@gmail.com" <f.fainelli@gmail.com>,
+	"s.hauer@pengutronix.de" <s.hauer@pengutronix.de>,
+	"bruno.thomsen@gmail.com" <bruno.thomsen@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Bruno Thomsen <bth@kamstrup.dk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20141115111626.GP19157@casper.infradead.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <915054555B5659448ACF8A70E114824D01704B9131@Exchange2010.kamstrup.dk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Nov 15, 2014 at 11:16:26AM +0000, Thomas Graf wrote:
->
-> > Thomas, it appears that rhashtable as it stands cannot handle
-> > changing the random seed because of the way it constructs the
-> > new hash table without degrading into a linked list.  Is there
-> > something I'm missing?
+On Wed, Nov 12, 2014 at 12:17:57PM +0000, Bruno Thomsen wrote:
+> Hi Johan,
+> 
+> > As you may have seen by now, I've been working on refactoring the
+> > micrel phy driver to be able to use common initialisation code.
+> >
+> > Specifically, I've added generic support for disabling the broadcast
+> > address, which is what the MII_KSZPHY_OMSO write above does.
+> >
+> > Generally you want this to be the first thing you do in order to
+> > avoid unnecessary reconfigurations. If we ever were to allow
+> > concurrent probing this would also be a requirement.
+> >
+> > Could you provide some detail about the setup were you find that the
+> > PHY becomes unresponsive without your patch? Do you have more than
+> > one PHY on the bus? Using what addresses? And using what clock modes
+> > (i.e. 25 MHz or 50 MHz)?
 > > 
-> > FWIW my hashtable in net/bridge/br_multicast.c handles rehashing
-> > correctly.  Any objections to me converting rhashtable to use my
-> > scheme instead?
+> > Also, what exactly do you mean by "unresponsive"? Are you still able
+> > to read the PHY registers for example?
+>  
+> I think it sounds like a good idea to refactor the init code.
 > 
-> Can you elaborate a bit?
-> 
-> The point of rhashtable is to not require two sets of linked list
-> pointers as done by MDB or OVS flow tables to work around the
-> increased cache footprint of that approach. The difference of the
-> two algos is dicussed in this paper [0].
-> 
-> The disadvantage of rhashtable is that, AFAIK, the hash function
-> cannot change while resizing as it would break the mutual linked
-> lists.
+> My setup:
+> iMX28 processor with dual Ethernet MAC; FEC0 (enabled) and FEC1 (disabled).
+> There is a single KSZ8031 PHY that receives 50MHz RMII clock from the MAC.
+> I am unable to read PHY registers from both user-land tools and extra
+> debug PHY reads in driver code.
 
-Well it doesn't break so much as degenerate into a linked list (I'm
-talking about the concept rather than what the current code does).
+Did you specify a led-mode as well, or was the Operation Mode Strap
+Override (OMSO) write the first access after the soft reset?
 
-This is I think a show-stopper because for anything that can be
-influenced by remote parties we have to reseed and therefore
-be able to cope with hashes changing on the fly.  Since most
-hash tables in the network stack can be influenced by remote
-entities (including the xfrm policy bydst hash that I am currently
-working on), this is something rhashtable must be able to support
-if it is to be used throughout the network stack.
+Did you try any other workarounds besides setting the clock mode before
+doing the OMSO write?
 
-Unless there is a better solution then I think keeping two lists
-will have to do.
+And REF_CLK (pin 16) is not connected? 
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> Boot trace:
+> [   22.277785] fec 800f0000.ethernet eth0: Freescale FEC PHY driver [Micrel KSZ8031] (mii_bus:phy_addr=800f0000.etherne:00, irq=-1)
+> [   22.292527] IPv6: ADDRCONF(NETDEV_UP): eth0: link is not ready
+> [   24.276217] libphy: 800f0000.etherne:00 - Link is Up - 100/Full
+> [   24.285094] IPv6: ADDRCONF(NETDEV_CHANGE): eth0: link becomes ready
+
+Ok, so you use a single PHY strapped to address 0. 
+
+Would you able to test my series on your setup, and possibly a couple of
+diagnostic patches on top?
+
+Thanks,
+Johan
