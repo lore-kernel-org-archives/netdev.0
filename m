@@ -1,248 +1,244 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: /proc/net/sockstat invalid memory accounting or memory leak in
- latest kernels? (trying to debug)
-Date: Sun, 16 Nov 2014 12:16:01 -0800
-Message-ID: <1416168961.17262.96.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <40bc2b5fcda47d790f1fd247bc409041@visp.net.lb>
-	 <1405597918.10255.76.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <37e25a5815a18a2da507a5b20b58427d@visp.net.lb>
-	 <1405604568.10255.80.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <a927787503c2f0d71c330b879303b14f@visp.net.lb>
-	 <1405672897.10255.95.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1405676214.10255.96.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <0b0b74ab8d2222fa85b23e06c6e992ec@visp.net.lb>
-	 <1405849675.10255.100.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <6fc086a122bc3ac728a7aec9e812310f@visp.net.lb>
-	 <1406016045.10255.122.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <3f463c3912608f7959481edaa6d7668d@visp.net.lb>
-	 <1406194817.3363.70.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <8f138d88e3b850130eb9bb15e3e27069@visp.net.lb>
-	 <2adbf5346b4dd2bebe1915096c1c567c@visp.net.lb>
-	 <1415813254.17262.7.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <64ef227cf22945d373cb06271fe6e051@visp.net.lb>
-	 <1416161495.17262.90.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <8d9b6a2c313db242c1afb3bcd6a12c51@visp.net.lb>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [patch iproute2] tc: add support for vlan tc action
+Date: Sun, 16 Nov 2014 15:19:34 -0500
+Message-ID: <546906D6.7040400@mojatatu.com>
+References: <1415803950-9838-4-git-send-email-jiri@resnulli.us> <1415804134-9895-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Neal Cardwell <ncardwell@google.com>,
-	Yuchung Cheng <ycheng@google.com>, netdev@vger.kernel.org
-To: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
+Cc: davem@davemloft.net, pshelar@nicira.com, therbert@google.com,
+	edumazet@google.com, willemb@google.com, dborkman@redhat.com,
+	mst@redhat.com, fw@strlen.de, Paul.Durrant@citrix.com,
+	tgraf@suug.ch
+To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f182.google.com ([209.85.223.182]:55794 "EHLO
-	mail-ie0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750741AbaKPUQC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Nov 2014 15:16:02 -0500
-Received: by mail-ie0-f182.google.com with SMTP id rd18so20795411iec.27
-        for <netdev@vger.kernel.org>; Sun, 16 Nov 2014 12:16:00 -0800 (PST)
-In-Reply-To: <8d9b6a2c313db242c1afb3bcd6a12c51@visp.net.lb>
+Received: from mail-ig0-f181.google.com ([209.85.213.181]:47446 "EHLO
+	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750716AbaKPUTn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Nov 2014 15:19:43 -0500
+Received: by mail-ig0-f181.google.com with SMTP id l13so4479595iga.8
+        for <netdev@vger.kernel.org>; Sun, 16 Nov 2014 12:19:42 -0800 (PST)
+In-Reply-To: <1415804134-9895-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2014-11-16 at 21:05 +0200, Denys Fedoryshchenko wrote:
-> On 2014-11-16 20:11, Eric Dumazet wrote:
-> > On Sun, 2014-11-16 at 10:54 +0200, Denys Fedoryshchenko wrote:
-> >> As latest findings, when servers are going crazy because of tcp memory
-> >> invalid accounting.
-> >> First of all i upgraded kernel to latest version 3.17.3 and added also
-> >> patch from upcoming kernel,
-> >> "12) Don't call sock_kfree_s() with NULL pointers, this function also
-> >> has the side effect of adjusting
-> >> the socket memory usage.  From Cong Wang.", but it didnt helped.
-> >> 
-> >> I added printk_ratelimited to places where suspicious values might
-> >> appear, and got some more information.
-> >> First, is not very suspicious, no idea if it is a problem:
-> >> [ 1413.031622] sk ffff8817184d8680 sk_mem_charge negative -10752 by 
-> >> 4352
-> >> [ 1413.032027] sk ffff8817184d8680 sk_mem_charge negative -15104 by 
-> >> 4352
-> >> [ 1415.768465] sk ffff881666842d80 sk_mem_charge negative -9984 by 
-> >> 4352
-> >> [ 1415.768868] sk ffff881666842d80 sk_mem_charge negative -14336 by 
-> >> 4352
-> >> [ 1415.769268] sk ffff881666842d80 sk_mem_charge negative -18688 by 
-> >> 4352
-> >> [ 1415.769681] sk ffff881666842d80 sk_mem_charge negative -9088 by 
-> >> 4352
-> >> [ 1418.933799] sk ffff8816dd640000 sk_mem_charge negative -9984 by 
-> >> 4352
-> >> [ 1418.934205] sk ffff8816dd640000 sk_mem_charge negative -14336 by 
-> >> 4352
-> >> [ 1418.934604] sk ffff8816dd640000 sk_mem_charge negative -18688 by 
-> >> 4352
-> >> [ 1427.131310] sk ffff881731801a00 sk_mem_charge negative -11776 by 
-> >> 4352
-> >> [ 1428.564640] sk ffff881731801a00 sk_mem_charge negative -11008 by 
-> >> 4352
-> >> [ 1429.134279] sk ffff881731801a00 sk_mem_charge negative -11776 by 
-> >> 4352
-> >> [ 1429.134691] sk ffff881731801a00 sk_mem_charge negative -16128 by 
-> >> 4352
-> >> [ 1430.666541] sk ffff881731801a00 sk_mem_charge negative -10496 by 
-> >> 4352
-> >> [ 1431.395099] sk ffff881731801a00 sk_mem_charge negative -12032 by 
-> >> 4352
-> >> [ 1431.395506] sk ffff881731801a00 sk_mem_charge negative -16384 by 
-> >> 4352
-> >> [ 1431.877862] sk ffff881731801a00 sk_mem_charge negative -11648 by 
-> >> 4352
-> >> Second is always linked with crashes, it is sk_mem_uncharge and
-> >> sk_forward_alloc goes negative. Patch to show message
-> >> for sk_mem_uncharge in sock.h is very simple:
-> >> 
-> >>   static inline void sk_mem_uncharge(struct sock *sk, int size)
-> >> @@ -1480,6 +1485,8 @@
-> >>          if (!sk_has_account(sk))
-> >>                  return;
-> >>          sk->sk_forward_alloc += size;
-> >> +       if (sk->sk_forward_alloc < -8192)
-> >> +           printk_ratelimited(KERN_WARNING"sk %p sk_mem_uncharge
-> >> negative %d by %d\n", sk, sk->sk_forward_alloc, size);
-> >>   }
-> >> 
-> > 
-> > 
-> > Could you describe your hardware setup and networking setup ?
-> This problem are happening on multiple different units that i am using 
-> as https balancers, and all of them very different (except it is all 
-> Intel CPU's, but even in that - different generations and models). Such 
-> problem seems happens on all of them, and seems doesn't depend on 
-> hardware (networking - igb, e1000e, broadcom stuff - all affected). But 
-> if it is important:
-> S2600GZ motherboard, one E5-2620 Xeon
-> networking - onboard igb, 2 ports used
-> 100GB RAM
-> This particular one has bonding (but it seems crashes with or without 
-> it).
-> 
-> System are custom, running on USB flash, busybox+glibc based setup, 
-> similar OS working for other purposes for NAT, PPPoE termination without 
-> any issues.
-> 
-> What is common between failing units:
-> 
-> I am using haproxy-based HTTPS balancer(Also as i remember haproxy doing 
-> a lot of setsockopt stuff), that is handling right now:
->      454444 connections established
-> Bandwidth passing thru is around 1Gbps.
-> 
-> I'm disabling tso/gso/gro on all interfaces.
-> 
-> The way i am forwarding transparent traffic to haproxy:
-> iptables -t mangle -A PREROUTING -p tcp --sport 443 -j MARK --set-mark 
-> 0x1
-> iptables -t mangle -A PREROUTING -p tcp --dport 443 -j MARK --set-mark 
-> 0x1
-> ip rule add fwmark 0x1 lookup 100
-> ip route add local 0.0.0.0/0 dev lo table 100
-> 
-> "Typical" setup is
-> 
-> backend ssl_passthru
->          mode tcp
->          option transparent
->          source 0.0.0.0 usesrc clientip
-> 
-> frontend ssl-in
->          mode tcp
->          bind    :443 transparent
->          default_backend ssl_passthru
->          option tcp-smart-accept
-> 
-> I hope i didnt missed something important. I can provide remote ssh 
-> access to it.
-> I will keep sending info, just with hope that some of info maybe will 
-> give idea, what i should patch or test.
-> 
-> P.S. Just got an idea now, that -2147483648 hinting that somewhere is 
-> happening integer overflow from very large positive value, to negative. 
-> I will try to set triggers also to that now.
-> 
-> If required i can provide image with such system. I am not sure you are 
-> interested in this problem and if it can be reproduced on synthetic 
-> setup, but as i remember this memory leak happened with me once also on 
-> normal server with torrents (i left some image unattended for 2 weeks, 
-> with a lot of requests, and it crashed at the end), so it might affect 
-> also other use cases.
-> I am trying to limit now socket buffers, to see if it will decrease 
-> frequency of crashes.
-> Also i tried to put "canary" values inside structure, near 
-> sk_forward_alloc , to see if there is any sort of memory corruption 
-> occuring on sk_forward_alloc, but seems there is no corruption.
-> I will try also going back to stable kernels 3.2.64, to see if it will 
-> fix this problem, but testing takes sometimes almost 1 day, depends on 
-> luck.
+On 11/12/14 09:55, Jiri Pirko wrote:
+> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>
 
-Thanks Denys !
+Latest patches work great. If you want you can
+include these notes in the iproute2 commit log.
 
-Could you try following patch ?
+There is only one small doubt when i add two vlan
+tags(Q followed by QandQ). Look at the very end
+of the text i have below...
 
-Thanks !
+cheers,
+jamal
 
- net/ipv4/tcp_output.c |   33 +++++++++++----------------------
- 1 file changed, 11 insertions(+), 22 deletions(-)
+---
+export TC=/media/MT1/other-gits/iproute2-jiri/tc/tc
+export ETH=eth0
+#index supplied by kernel
+sudo $TC actions add action vlan pop
+#explicit add with our index
+sudo $TC actions add action vlan pop index 10
+sudo $TC actions add action vlan push id 123
+sudo $TC actions add action vlan push id 456 protocol 802.1Q
+sudo $TC actions add action vlan push id 789 protocol 802.1ad
 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index a3d453b94747..877eb4aa05a6 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2998,7 +2998,7 @@ static int tcp_send_syn_data(struct sock *sk, struct sk_buff *syn)
- {
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	struct tcp_fastopen_request *fo = tp->fastopen_req;
--	int syn_loss = 0, space, i, err = 0, iovlen = fo->data->msg_iovlen;
-+	int syn_loss = 0, space, err = 0;
- 	struct sk_buff *syn_data = NULL, *data;
- 	unsigned long last_syn_loss = 0;
- 
-@@ -3031,25 +3031,17 @@ static int tcp_send_syn_data(struct sock *sk, struct sk_buff *syn)
- 	/* limit to order-0 allocations */
- 	space = min_t(size_t, space, SKB_MAX_HEAD(MAX_TCP_HEADER));
- 
--	syn_data = skb_copy_expand(syn, MAX_TCP_HEADER, space,
--				   sk->sk_allocation);
--	if (syn_data == NULL)
-+	syn_data = sk_stream_alloc_skb(sk, space, sk->sk_allocation);
-+	if (!syn_data)
- 		goto fallback;
- 
--	for (i = 0; i < iovlen && syn_data->len < space; ++i) {
--		struct iovec *iov = &fo->data->msg_iov[i];
--		unsigned char __user *from = iov->iov_base;
--		int len = iov->iov_len;
--
--		if (syn_data->len + len > space)
--			len = space - syn_data->len;
--		else if (i + 1 == iovlen)
--			/* No more data pending in inet_wait_for_connect() */
--			fo->data = NULL;
-+	memcpy(syn_data->cb, syn->cb, sizeof(syn->cb));
-+	if (memcpy_fromiovec(skb_put(syn_data, space), fo->data->msg_iov, space))
-+		goto fallback;
- 
--		if (skb_add_data(syn_data, from, len))
--			goto fallback;
--	}
-+	/* No more data pending in inet_wait_for_connect() */
-+	if (space == fo->size)
-+		fo->data = NULL;
- 
- 	/* Queue a data-only packet after the regular SYN for retransmission */
- 	data = pskb_copy(syn_data, sk->sk_allocation);
-@@ -3101,13 +3093,10 @@ int tcp_connect(struct sock *sk)
- 		return 0;
- 	}
- 
--	buff = alloc_skb_fclone(MAX_TCP_HEADER + 15, sk->sk_allocation);
--	if (unlikely(buff == NULL))
-+	buff = sk_stream_alloc_skb(sk, 0, sk->sk_allocation);
-+	if (unlikely(!buff))
- 		return -ENOBUFS;
- 
--	/* Reserve space for headers. */
--	skb_reserve(buff, MAX_TCP_HEADER);
--
- 	tcp_init_nondata_skb(buff, tp->write_seq++, TCPHDR_SYN);
- 	tp->retrans_stamp = tcp_time_stamp;
- 	tcp_connect_queue_skb(sk, buff);
+sudo $TC actions ls action vlan
+------ expect something like ----
+         action order 0:  vlan pop
+          index 1 ref 1 bind 0
+
+         action order 1:  vlan push id 123 protocol 802.1Q
+          index 2 ref 1 bind 0
+
+         action order 2:  vlan push id 456 protocol 802.1Q
+          index 3 ref 1 bind 0
+
+         action order 3:  vlan push id 789 protocol 802.1ad
+          index 4 ref 1 bind 0
+
+         action order 4:  vlan pop
+          index 10 ref 1 bind 0
+-------
+#show stats
+sudo $TC -s actions ls action vlan
+
+-------
+         action order 0:  vlan pop
+          index 1 ref 1 bind 0 installed 78 sec used 78 sec
+         Action statistics:
+         Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+         backlog 0b 0p requeues 0
+
+         action order 1:  vlan push id 123 protocol 802.1Q
+          index 2 ref 1 bind 0 installed 44 sec used 44 sec
+         Action statistics:
+         Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+         backlog 0b 0p requeues 0
+
+         action order 2:  vlan push id 456 protocol 802.1Q
+          index 3 ref 1 bind 0 installed 42 sec used 42 sec
+         Action statistics:
+         Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+         backlog 0b 0p requeues 0
+
+         action order 3:  vlan push id 789 protocol 802.1ad
+          index 4 ref 1 bind 0 installed 39 sec used 39 sec
+         Action statistics:
+         Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+         backlog 0b 0p requeues 0
+
+         action order 4:  vlan pop
+          index 10 ref 1 bind 0 installed 47 sec used 47 sec
+         Action statistics:
+         Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+         backlog 0b 0p requeues 0
+-----
+
+sudo $TC actions flush action vlan
+#expect all actions to be gone..
+sudo $TC actions ls action vlan
+
+#lets bind actions to filters...
+sudo ip li add dev dummy0 type dummy
+sudo ifconfig dummy0 up
+#
+sudo tc qdisc del dev $ETH ingress
+sudo tc qdisc add dev $ETH ingress
+#
+sudo $TC filter add dev $ETH parent ffff: pref 11 protocol ip \
+u32 match ip src 10.0.0.1 flowid 1:1 \
+action  vlan  push id 123 \
+action mirred egress redirect dev dummy0
+
+window 1> sudo tcpdump -n -i dummy0 -e -X
+window 2> ping -c 1 10.0.0.1
+
+Expect something like:
+52:54:00:c3:4b:c5 > 02:00:00:22:01:01, ethertype 802.1Q (0x8100), length 
+102: vlan 123, p 0, ethertype IPv4, ...
+#now look at the stats..
+sudo $TC -s filter ls dev $ETH parent ffff: protocol ip
+#
+sudo $TC filter add dev $ETH parent ffff: pref 12 protocol ip \
+u32 match ip src 10.0.0.2 flowid 1:2 \
+action vlan push id 456 protocol 802.1Q \
+action mirred egress redirect dev dummy0
+
+sudo tcpdump -n -i dummy0 -X -e
+ping -c 1 10.0.0.2
+#look at the stats..
+sudo $TC -s filter ls dev $ETH parent ffff: protocol ip
+#
+sudo $TC filter add dev $ETH parent ffff: pref 13 protocol ip \
+u32 match ip src 10.0.0.13 flowid 1:13 \
+action vlan push id 789 protocol 802.1ad \
+action mirred egress redirect dev dummy0
+ping -c 1 10.0.0.2
+
+sudo tcpdump -n -i dummy0 -X -e
+Expect ...
+52:54:00:c3:4b:c5 > 02:00:00:22:01:01, ethertype 802.1Q-QinQ (0x88a8), 
+length 102: vlan 789, p 0, ethertype IPv4,,,
+#
+sudo $TC -s filter ls dev $ETH parent 1: protocol ip
+#
+# Speaking in New Brunswickian:
+#             For shits and giggles lets add two vlans ...
+# match all pings this time...
+#
+sudo $TC filter add dev $ETH parent ffff: pref 11 protocol ip u32 \
+match ip protocol 1 0xff flowid 1:1 \
+action  vlan  push id 123 \
+action vlan push id 789 protocol 802.1ad \
+action mirred egress redirect dev dummy0
+
+sudo $TC -s filter ls dev $ETH parent ffff: protocol ip
+------
+filter pref 11 u32
+filter pref 11 u32 fh 800: ht divisor 1
+filter pref 11 u32 fh 800::800 order 2048 key ht 800 bkt 0 flowid 1:1 
+(rule hit 2 success 0)
+   match 00010000/00ff0000 at 8 (success 0 )
+         action order 1:  vlan push id 123 protocol 802.1Q
+          index 13 ref 1 bind 1 installed 6 sec used 6 sec
+         Action statistics:
+         Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+         backlog 0b 0p requeues 0
+
+         action order 2:  vlan push id 789 protocol 802.1ad
+          index 14 ref 1 bind 1 installed 6 sec used 6 sec
+         Action statistics:
+         Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+         backlog 0b 0p requeues 0
+
+         action order 3: mirred (Egress Redirect to device dummy0) stolen
+         index 9 ref 1 bind 1 installed 6 sec used 6 sec
+         Action statistics:
+         Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+         backlog 0b 0p requeues 0
+----
+
+Send 10 pings to 192.168.100.1
+ping 192.168.100.1 -c 10
+
+sudo $TC -s filter ls dev $ETH parent ffff: protocol ip
+------
+filter pref 11 u32
+filter pref 11 u32 fh 800: ht divisor 1
+filter pref 11 u32 fh 800::800 order 2048 key ht 800 bkt 0 flowid 1:1 
+(rule hit 24 success 10)
+   match 00010000/00ff0000 at 8 (success 10 )
+         action order 1:  vlan push id 123 protocol 802.1Q
+          index 13 ref 1 bind 1 installed 143 sec used 60 sec
+         Action statistics:
+         Sent 840 bytes 10 pkt (dropped 0, overlimits 0 requeues 0)
+         backlog 0b 0p requeues 0
+
+         action order 2:  vlan push id 789 protocol 802.1ad
+          index 14 ref 1 bind 1 installed 143 sec used 60 sec
+         Action statistics:
+         Sent 840 bytes 10 pkt (dropped 0, overlimits 0 requeues 0)
+         backlog 0b 0p requeues 0
+
+         action order 3: mirred (Egress Redirect to device dummy0) stolen
+         index 9 ref 1 bind 1 installed 143 sec used 60 sec
+         Action statistics:
+         Sent 840 bytes 10 pkt (dropped 0, overlimits 0 requeues 0)
+         backlog 0b 0p requeues 0
+--------
+
+As can be seen, the two vlan tags were supposedly added. I am
+not sure how well it worked. I see 4 more bytes added. tcpdump doesnt do
+a good job telling me if it worked...
+
+17:58:31.636816 00:22:01:01:52:54 > 00:00:00:00:02:00, ethertype 
+802.1Q-QinQ (0x88a8), length 106: vlan 789, p 0, LLC, dsap Unknown 
+(0x44) Group, ssap Null (0x00) Command, ctrl 0x5400: Information, send 
+seq 0, rcv seq 42, Flags [Command], length 88
+         0x0000:  0000 0000 0200 0022 0101 5254 88a8 0315
+         0x0010:  00c3 4500 0054 c06b 0000 4001 704c 8100
+         0x0020:  007b c0a8 6401 c0a8 649f 0000 24b8 027c
+         0x0030:  000a c7e5 6854 0000 0000 e0b4 0900 0000
+         0x0040:  0000 1011 1213 1415 1617 1819 1a1b 1c1d
+         0x0050:  1e1f 2021 2223 2425 2627 2829 2a2b 2c2d
+         0x0060:  2e2f 3031 3233 3435 3637
+
+Here it is with just 802.1q tag...
+17:53:38.198323 52:54:00:c3:4b:c5 > 02:00:00:22:01:01, ethertype 802.1Q 
+(0x8100), length 102: vlan 456, p 0, ethertype IPv4, 192.168.100.1 > 
+192.168.100.159: ICMP echo reply, id 620, seq 1, length 64
+         0x0000:  0200 0022 0101 5254 00c3 4bc5 8100 01c8
+         0x0010:  0800 4500 0054 c052 0000 4001 7065 c0a8
+         0x0020:  6401 c0a8 649f 0000 6482 026c 0001 a2e4
+         0x0030:  6854 0000 0000 cc04 0300 0000 0000 1011
+         0x0040:  1213 1415 1617 1819 1a1b 1c1d 1e1f 2021
+         0x0050:  2223 2425 2627 2829 2a2b 2c2d 2e2f 3031
+         0x0060:  3233 3435 3637
+
+------------
