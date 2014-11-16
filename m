@@ -1,32 +1,41 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH] qmi_wwan: Add support for HP lt4112 LTE/HSPA+ Gobi 4G Modem
-Date: Sun, 16 Nov 2014 19:31:12 +0100
-Message-ID: <871tp3gfpr.fsf@nemi.mork.no>
-References: <20141116000322.GA22833@gmx.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net/at91_ether: fix loading when macb is compiled as a
+ module
+Date: Sun, 16 Nov 2014 13:53:02 -0500 (EST)
+Message-ID: <20141116.135302.1339801219762777528.davem@davemloft.net>
+References: <1416161106-27498-1-git-send-email-gilles.chanteperdrix@xenomai.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Martin Hauke <mardnh@gmx.de>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: nicolas.ferre@atmel.com, netdev@vger.kernel.org
+To: gilles.chanteperdrix@xenomai.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:43786 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751282AbaKPSbR convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Nov 2014 13:31:17 -0500
-In-Reply-To: <20141116000322.GA22833@gmx.de> (Martin Hauke's message of "Sun,
-	16 Nov 2014 01:03:22 +0100")
+Received: from shards.monkeyblade.net ([149.20.54.216]:37557 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751152AbaKPSxH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Nov 2014 13:53:07 -0500
+In-Reply-To: <1416161106-27498-1-git-send-email-gilles.chanteperdrix@xenomai.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Martin Hauke <mardnh@gmx.de> writes:
+From: Gilles Chanteperdrix <gilles.chanteperdrix@xenomai.org>
+Date: Sun, 16 Nov 2014 19:05:06 +0100
 
-> Added the USB VID/PID for the HP lt4112 LTE/HSPA+ Gobi 4G Modem (Huaw=
-ei me906e)
+> The at91_ether driver depends on symbols defined in the macb driver.
+> 
+> Currently, when compiling both at91_ether and macb as module, starting
+> the at91_ether module fails, because the macb module can not be loaded
+> with a macb interface.
+> 
+> Avoid this issue by getting the macb module initialization routine to
+> always return 0, even when no macb device is detected.
+> 
+> Signed-off-by: Gilles Chanteperdrix <gilles.chanteperdrix@xenomai.org>
 
-Thanks.  But you forgot the Signed-off-by line on both patches. Please
-resubmit with it.  See
-https://www.kernel.org/doc/Documentation/SubmittingPatches
+This is not acceptable, sorry.
 
+This means the module stays in memory even if nobody has a real use
+for it.
 
-
-Bj=C3=B8rn
+You'll need to find another solution, and I'll say in passing that this
+was very poorly designed and that's why the problem exists.
