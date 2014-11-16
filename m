@@ -1,39 +1,28 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] qmi_wwan: Add support for HP lt4112 LTE/HSPA+ Gobi 4G
- Modem
-Date: Sun, 16 Nov 2014 16:05:04 -0500 (EST)
-Message-ID: <20141116.160504.1335548183183585395.davem@davemloft.net>
-References: <871tp3gfpr.fsf@nemi.mork.no>
-	<20141116185525.GA19989@gmx.de>
-	<87ppcneyy2.fsf@nemi.mork.no>
+From: Michal Soltys <soltys@ziu.info>
+Subject: Re: pkt_sched: Fix qdisc len in qdisc_peek_dequeued() [61c9eaf9008]
+ - question
+Date: Sun, 16 Nov 2014 22:09:21 +0100
+Message-ID: <54691281.5020002@ziu.info>
+References: <5468A0C5.9010409@ziu.info> <1416161725.17262.92.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: mardnh@gmx.de, netdev@vger.kernel.org
-To: bjorn@mork.no
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38498 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750713AbaKPVFG convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Nov 2014 16:05:06 -0500
-In-Reply-To: <87ppcneyy2.fsf@nemi.mork.no>
+Received: from drutsystem.com ([84.10.39.251]:4000 "EHLO drutsystem.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750741AbaKPVRt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 16 Nov 2014 16:17:49 -0500
+In-Reply-To: <1416161725.17262.92.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Bj=F8rn Mork <bjorn@mork.no>
-Date: Sun, 16 Nov 2014 20:18:45 +0100
+Actually, now that I analyzed it more carefully - not having that patch 
+would cause obvious issues (e.g. hfsc trying to activate already active 
+leaf in certain scenarios).
 
-> Martin Hauke <mardnh@gmx.de> writes:
->=20
->> Added the USB VID/PID for the HP lt4112 LTE/HSPA+ Gobi 4G Modem (Hua=
-wei me906e)
->>
->> Signed-off-by: Martin Hauke <mardnh@gmx.de>
->=20
-> Acked-by: Bj=F8rn Mork <bjorn@mork.no>
->=20
-> Dave, please add this to the netdev stable queue as well.
+So, sorry for the noise.
 
-Ok, applied and queued up for -stable.
-
-Thanks.
+PS.
+Removed Jarek from CC, as that email is no longer valid.
