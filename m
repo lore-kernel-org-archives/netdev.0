@@ -1,41 +1,44 @@
-From: Martin Hauke <mardnh@gmx.de>
-Subject: [PATCH] qmi_wwan: Add support for HP lt4112 LTE/HSPA+ Gobi 4G Modem
-Date: Sun, 16 Nov 2014 19:55:25 +0100
-Message-ID: <20141116185525.GA19989@gmx.de>
-References: <20141116000322.GA22833@gmx.de>
- <871tp3gfpr.fsf@nemi.mork.no>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH v2 net-next 6/7] bpf: allow eBPF programs to use maps
+Date: Sun, 16 Nov 2014 14:04:22 -0500 (EST)
+Message-ID: <20141116.140422.570375628237589645.davem@davemloft.net>
+References: <1415929010-9361-1-git-send-email-ast@plumgrid.com>
+	<1415929010-9361-7-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: =?iso-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.15.19]:55521 "EHLO mout.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751448AbaKPSzf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 16 Nov 2014 13:55:35 -0500
-Content-Disposition: inline
-In-Reply-To: <871tp3gfpr.fsf@nemi.mork.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org, dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1415929010-9361-7-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Added the USB VID/PID for the HP lt4112 LTE/HSPA+ Gobi 4G Modem (Huawei me906e)
+From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Date: Thu, 13 Nov 2014 17:36:49 -0800
 
-Signed-off-by: Martin Hauke <mardnh@gmx.de>
----
- drivers/net/usb/qmi_wwan.c | 1 +
- 1 file changed, 1 insertion(+)
+> +static u64 bpf_map_lookup_elem(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
+> +{
+> +	/* verifier checked that R1 contains a valid pointer to bpf_map
+> +	 * and R2 points to a program stack and map->key_size bytes were
+> +	 * initialized
+> +	 */
+> +	struct bpf_map *map = (struct bpf_map *) (unsigned long) r1;
+> +	void *key = (void *) (unsigned long) r2;
+> +	void *value;
+> +
+> +	WARN_ON_ONCE(!rcu_read_lock_held());
+> +
+> +	value = map->ops->map_lookup_elem(map, key);
+> +
+> +	/* lookup() returns either pointer to element value or NULL
+> +	 * which is the meaning of PTR_TO_MAP_VALUE_OR_NULL type
+> +	 */
+> +	return (unsigned long) value;
+> +}
 
-diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
-index 22756db..b8a82b8 100644
---- a/drivers/net/usb/qmi_wwan.c
-+++ b/drivers/net/usb/qmi_wwan.c
-@@ -780,6 +780,7 @@ static const struct usb_device_id products[] = {
- 	{QMI_FIXED_INTF(0x413c, 0x81a4, 8)},	/* Dell Wireless 5570e HSPA+ (42Mbps) Mobile Broadband Card */
- 	{QMI_FIXED_INTF(0x413c, 0x81a8, 8)},	/* Dell Wireless 5808 Gobi(TM) 4G LTE Mobile Broadband Card */
- 	{QMI_FIXED_INTF(0x413c, 0x81a9, 8)},	/* Dell Wireless 5808e Gobi(TM) 4G LTE Mobile Broadband Card */
-+	{QMI_FIXED_INTF(0x03f0, 0x581d, 4)},	/* HP lt4112 LTE/HSPA+ Gobi 4G Module (Huawei me906e) */
- 
- 	/* 4. Gobi 1000 devices */
- 	{QMI_GOBI1K_DEVICE(0x05c6, 0x9212)},	/* Acer Gobi Modem Device */
--- 
-2.1.2
+You should translate this into a true boolean '1' or '0' value so that
+kernel pointers don't propagate to the user or his eBPF programs.
