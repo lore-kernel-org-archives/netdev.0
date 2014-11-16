@@ -1,151 +1,103 @@
-From: Julian Calaby <julian.calaby@gmail.com>
-Subject: Re: [PATCH 1/1 net-next] wireless: remove unnecessary sizeof(u8)
-Date: Mon, 17 Nov 2014 09:33:35 +1100
-Message-ID: <CAGRGNgWqjsDu_mQK=_agBWjOequb4b7ffgCuxRH=9d72grDYtQ@mail.gmail.com>
-References: <1415998553-12636-1-git-send-email-fabf@skynet.be>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Stefano Brivio <stefano.brivio@polimi.it>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Johannes Berg <johannes.berg@intel.com>,
-	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
-	Intel Linux Wireless <ilw@linux.intel.com>,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	Chaoming Li <chaoming_li@realsil.com.cn>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	b43-dev <b43-dev@lists.infradead.org>,
-	netdev <netdev@vger.kernel.org>
-To: Fabian Frederick <fabf@skynet.be>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1415998553-12636-1-git-send-email-fabf@skynet.be>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Govindarajulu Varadarajan <_govind@gmx.com>
+Subject: [PATCH net-next] enic: support skb->xmit_more
+Date: Mon, 17 Nov 2014 04:34:02 +0530
+Message-ID: <1416179042-1858-1-git-send-email-_govind@gmx.com>
+Cc: Govindarajulu Varadarajan <_govind@gmx.com>
+To: davem@davemloft.net, netdev@vger.kernel.org, ssujith@cisco.com,
+	benve@cisco.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.gmx.net ([212.227.15.18]:55079 "EHLO mout.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751489AbaKPXET (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 16 Nov 2014 18:04:19 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Fabian,
+Update posted_index only when skb->xmit_more is 0 or tx queue is full.
 
-On Sat, Nov 15, 2014 at 7:55 AM, Fabian Frederick <fabf@skynet.be> wrote:
-> sizeof(u8) is always 1.
+Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
+---
+ drivers/net/ethernet/cisco/enic/enic_main.c |  8 ++++++--
+ drivers/net/ethernet/cisco/enic/vnic_wq.h   | 20 +++++++++++---------
+ 2 files changed, 17 insertions(+), 11 deletions(-)
 
-I thought that sizeof(*variable) was preferred over sizeof(type), so
-shouldn't these be switched to that format instead?
-
-(I know that this is all no-op, but it should reduce the potential for
-highly unlikely bugs in the future. Also, the extra processing is
-compile-time not run-time.)
-
-Thanks,
-
-Julian Calaby
-
-
-> Signed-off-by: Fabian Frederick <fabf@skynet.be>
-> ---
->  drivers/net/wireless/b43/ppr.c            |  2 +-
->  drivers/net/wireless/iwlwifi/pcie/trans.c |  2 +-
->  drivers/net/wireless/rtlwifi/efuse.c      | 16 ++++++++--------
->  3 files changed, 10 insertions(+), 10 deletions(-)
->
-> diff --git a/drivers/net/wireless/b43/ppr.c b/drivers/net/wireless/b43/ppr.c
-> index 9a77027..6bc1c6f 100644
-> --- a/drivers/net/wireless/b43/ppr.c
-> +++ b/drivers/net/wireless/b43/ppr.c
-> @@ -28,7 +28,7 @@ void b43_ppr_clear(struct b43_wldev *dev, struct b43_ppr *ppr)
->         memset(ppr, 0, sizeof(*ppr));
->
->         /* Compile-time PPR check */
-> -       BUILD_BUG_ON(sizeof(struct b43_ppr) != B43_PPR_RATES_NUM * sizeof(u8));
-> +       BUILD_BUG_ON(sizeof(struct b43_ppr) != B43_PPR_RATES_NUM);
->  }
->
->  void b43_ppr_add(struct b43_wldev *dev, struct b43_ppr *ppr, int diff)
-> diff --git a/drivers/net/wireless/iwlwifi/pcie/trans.c b/drivers/net/wireless/iwlwifi/pcie/trans.c
-> index 836725e..f016824 100644
-> --- a/drivers/net/wireless/iwlwifi/pcie/trans.c
-> +++ b/drivers/net/wireless/iwlwifi/pcie/trans.c
-> @@ -1157,7 +1157,7 @@ static void iwl_trans_pcie_configure(struct iwl_trans *trans,
->                 trans_pcie->n_no_reclaim_cmds = trans_cfg->n_no_reclaim_cmds;
->         if (trans_pcie->n_no_reclaim_cmds)
->                 memcpy(trans_pcie->no_reclaim_cmds, trans_cfg->no_reclaim_cmds,
-> -                      trans_pcie->n_no_reclaim_cmds * sizeof(u8));
-> +                      trans_pcie->n_no_reclaim_cmds);
->
->         trans_pcie->rx_buf_size_8k = trans_cfg->rx_buf_size_8k;
->         if (trans_pcie->rx_buf_size_8k)
-> diff --git a/drivers/net/wireless/rtlwifi/efuse.c b/drivers/net/wireless/rtlwifi/efuse.c
-> index 0b4082c..a3135c5 100644
-> --- a/drivers/net/wireless/rtlwifi/efuse.c
-> +++ b/drivers/net/wireless/rtlwifi/efuse.c
-> @@ -251,8 +251,8 @@ void read_efuse(struct ieee80211_hw *hw, u16 _offset, u16 _size_byte, u8 *pbuf)
->         }
->
->         /* allocate memory for efuse_tbl and efuse_word */
-> -       efuse_tbl = kzalloc(rtlpriv->cfg->maps[EFUSE_HWSET_MAX_SIZE] *
-> -                           sizeof(u8), GFP_ATOMIC);
-> +       efuse_tbl = kzalloc(rtlpriv->cfg->maps[EFUSE_HWSET_MAX_SIZE],
-> +                           GFP_ATOMIC);
->         if (!efuse_tbl)
->                 return;
->         efuse_word = kzalloc(EFUSE_MAX_WORD_UNIT * sizeof(u16 *), GFP_ATOMIC);
-> @@ -733,8 +733,8 @@ static int efuse_pg_packet_read(struct ieee80211_hw *hw, u8 offset, u8 *data)
->         if (offset > 15)
->                 return false;
->
-> -       memset(data, 0xff, PGPKT_DATA_SIZE * sizeof(u8));
-> -       memset(tmpdata, 0xff, PGPKT_DATA_SIZE * sizeof(u8));
-> +       memset(data, 0xff, PGPKT_DATA_SIZE);
-> +       memset(tmpdata, 0xff, PGPKT_DATA_SIZE);
->
->         while (continual && (efuse_addr < EFUSE_MAX_SIZE)) {
->                 if (readstate & PG_STATE_HEADER) {
-> @@ -772,7 +772,7 @@ static void efuse_write_data_case1(struct ieee80211_hw *hw, u16 *efuse_addr,
->         struct rtl_priv *rtlpriv = rtl_priv(hw);
->         struct pgpkt_struct tmp_pkt;
->         int dataempty = true;
-> -       u8 originaldata[8 * sizeof(u8)];
-> +       u8 originaldata[8];
->         u8 badworden = 0x0F;
->         u8 match_word_en, tmp_word_en;
->         u8 tmpindex;
-> @@ -881,7 +881,7 @@ static void efuse_write_data_case2(struct ieee80211_hw *hw, u16 *efuse_addr,
->         struct pgpkt_struct tmp_pkt;
->         u8 pg_header;
->         u8 tmp_header;
-> -       u8 originaldata[8 * sizeof(u8)];
-> +       u8 originaldata[8];
->         u8 tmp_word_cnts;
->         u8 badworden = 0x0F;
->
-> @@ -904,7 +904,7 @@ static void efuse_write_data_case2(struct ieee80211_hw *hw, u16 *efuse_addr,
->
->                 tmp_word_cnts = efuse_calculate_word_cnts(tmp_pkt.word_en);
->
-> -               memset(originaldata, 0xff,  8 * sizeof(u8));
-> +               memset(originaldata, 0xff,  8);
->
->                 if (efuse_pg_packet_read(hw, tmp_pkt.offset, originaldata)) {
->                         badworden = enable_efuse_data_write(hw,
-> @@ -962,7 +962,7 @@ static int efuse_pg_packet_write(struct ieee80211_hw *hw,
->         target_pkt.offset = offset;
->         target_pkt.word_en = word_en;
->
-> -       memset(target_pkt.data, 0xFF,  8 * sizeof(u8));
-> +       memset(target_pkt.data, 0xFF,  8);
->
->         efuse_word_enable_data_read(word_en, data, target_pkt.data);
->         target_word_cnts = efuse_calculate_word_cnts(target_pkt.word_en);
-> --
-> 1.9.3
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-
-
+diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
+index 5afe360..52bccfd 100644
+--- a/drivers/net/ethernet/cisco/enic/enic_main.c
++++ b/drivers/net/ethernet/cisco/enic/enic_main.c
+@@ -533,6 +533,7 @@ static netdev_tx_t enic_hard_start_xmit(struct sk_buff *skb,
+ 	struct vnic_wq *wq;
+ 	unsigned long flags;
+ 	unsigned int txq_map;
++	struct netdev_queue *txq;
+ 
+ 	if (skb->len <= 0) {
+ 		dev_kfree_skb_any(skb);
+@@ -541,6 +542,7 @@ static netdev_tx_t enic_hard_start_xmit(struct sk_buff *skb,
+ 
+ 	txq_map = skb_get_queue_mapping(skb) % enic->wq_count;
+ 	wq = &enic->wq[txq_map];
++	txq = netdev_get_tx_queue(netdev, skb_get_queue_mapping(skb));
+ 
+ 	/* Non-TSO sends must fit within ENIC_NON_TSO_MAX_DESC descs,
+ 	 * which is very likely.  In the off chance it's going to take
+@@ -558,7 +560,7 @@ static netdev_tx_t enic_hard_start_xmit(struct sk_buff *skb,
+ 
+ 	if (vnic_wq_desc_avail(wq) <
+ 	    skb_shinfo(skb)->nr_frags + ENIC_DESC_MAX_SPLITS) {
+-		netif_tx_stop_queue(netdev_get_tx_queue(netdev, txq_map));
++		netif_tx_stop_queue(txq);
+ 		/* This is a hard error, log it */
+ 		netdev_err(netdev, "BUG! Tx ring full when queue awake!\n");
+ 		spin_unlock_irqrestore(&enic->wq_lock[txq_map], flags);
+@@ -568,7 +570,9 @@ static netdev_tx_t enic_hard_start_xmit(struct sk_buff *skb,
+ 	enic_queue_wq_skb(enic, wq, skb);
+ 
+ 	if (vnic_wq_desc_avail(wq) < MAX_SKB_FRAGS + ENIC_DESC_MAX_SPLITS)
+-		netif_tx_stop_queue(netdev_get_tx_queue(netdev, txq_map));
++		netif_tx_stop_queue(txq);
++	if (!skb->xmit_more || netif_xmit_stopped(txq))
++		vnic_wq_doorbell(wq);
+ 
+ 	spin_unlock_irqrestore(&enic->wq_lock[txq_map], flags);
+ 
+diff --git a/drivers/net/ethernet/cisco/enic/vnic_wq.h b/drivers/net/ethernet/cisco/enic/vnic_wq.h
+index 2c6c708..816f1ad 100644
+--- a/drivers/net/ethernet/cisco/enic/vnic_wq.h
++++ b/drivers/net/ethernet/cisco/enic/vnic_wq.h
+@@ -104,6 +104,17 @@ static inline void *vnic_wq_next_desc(struct vnic_wq *wq)
+ 	return wq->to_use->desc;
+ }
+ 
++static inline void vnic_wq_doorbell(struct vnic_wq *wq)
++{
++	/* Adding write memory barrier prevents compiler and/or CPU
++	 * reordering, thus avoiding descriptor posting before
++	 * descriptor is initialized. Otherwise, hardware can read
++	 * stale descriptor fields.
++	 */
++	wmb();
++	iowrite32(wq->to_use->index, &wq->ctrl->posted_index);
++}
++
+ static inline void vnic_wq_post(struct vnic_wq *wq,
+ 	void *os_buf, dma_addr_t dma_addr,
+ 	unsigned int len, int sop, int eop,
+@@ -122,15 +133,6 @@ static inline void vnic_wq_post(struct vnic_wq *wq,
+ 	buf->wr_id = wrid;
+ 
+ 	buf = buf->next;
+-	if (eop) {
+-		/* Adding write memory barrier prevents compiler and/or CPU
+-		 * reordering, thus avoiding descriptor posting before
+-		 * descriptor is initialized. Otherwise, hardware can read
+-		 * stale descriptor fields.
+-		 */
+-		wmb();
+-		iowrite32(buf->index, &wq->ctrl->posted_index);
+-	}
+ 	wq->to_use = buf;
+ 
+ 	wq->ring.desc_avail -= desc_skip_cnt;
 -- 
-Julian Calaby
-
-Email: julian.calaby@gmail.com
-Profile: http://www.google.com/profiles/julian.calaby/
+2.1.3
