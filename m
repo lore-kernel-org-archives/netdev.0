@@ -1,32 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] device: Add dev_<level>_once variants
-Date: Sun, 16 Nov 2014 15:49:23 -0500 (EST)
-Message-ID: <20141116.154923.1364136096942964102.davem@davemloft.net>
-References: <1416031715-32498-2-git-send-email-jeffrey.t.kirsher@intel.com>
-	<5467C3BA.6090003@gmail.com>
-	<1416091109.5912.32.camel@perches.com>
+Subject: Re: [PATCH net-next 00/14] net: provide common RSS key
+ infrastructure
+Date: Sun, 16 Nov 2014 16:03:39 -0500 (EST)
+Message-ID: <20141116.160339.237379782878143946.davem@davemloft.net>
+References: <1416147798-16561-1-git-send-email-edumazet@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, jeffrey.t.kirsher@intel.com,
-	shannon.nelson@intel.com, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
-To: joe@perches.com
+Cc: netdev@vger.kernel.org, Thomas.Lendacky@amd.com,
+	ariel.elior@qlogic.com, mchan@broadcom.com, prashant@broadcom.com,
+	rasesh.mody@qlogic.com, sathya.perla@emulex.com,
+	subbu.seetharaman@emulex.com, ajit.khaparde@emulex.com,
+	jesse.brandeburg@intel.com, jeffrey.t.kirsher@intel.com,
+	amirv@mellanox.com, sshah@solarflare.com, sbhatewara@vmware.com
+To: edumazet@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38388 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38488 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750735AbaKPUt0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Nov 2014 15:49:26 -0500
-In-Reply-To: <1416091109.5912.32.camel@perches.com>
+	with ESMTP id S1750713AbaKPVDs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Nov 2014 16:03:48 -0500
+In-Reply-To: <1416147798-16561-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Sat, 15 Nov 2014 14:38:29 -0800
+From: Eric Dumazet <edumazet@google.com>
+Date: Sun, 16 Nov 2014 06:23:04 -0800
 
-> Add the equivalents to pr_<level>_once.
+> RSS (Receive Side Scaling) uses a 40 bytes key to provide hash for incoming
+> packets to select appropriate incoming queue on NIC.
 > 
-> Suggested-by: Florian Fainelli <f.fainelli@gmail.com>
-> Signed-off-by: Joe Perches <joe@perches.com>
+> Hash algo (Toeplitz) is also well known and documented by Microsoft
+> (search for "Verifying the RSS Hash Calculation")
+> 
+> Problem is that some drivers use a well known key.
+> It makes very easy for attackers to target one particular RX queue,
+> knowing that number of RX queues is a power of two, or at least some
+> small number.
+> 
+> Other drivers use a random value per port, making difficult
+> tuning on bonding setups.
+> 
+> Lets add a common infrastructure, so that host gets an unique
+> RSS key, and drivers do not have to worry about this.
 
-This probably should go via the device layer core, thanks thus Greg KH.
+Looks good, series applied, thanks Eric.
