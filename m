@@ -1,34 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT net] Open vSwitch
-Date: Sun, 16 Nov 2014 15:02:11 -0500 (EST)
-Message-ID: <20141116.150211.1398831881975864743.davem@davemloft.net>
-References: <1416015444-1519-1-git-send-email-pshelar@nicira.com>
+Subject: Re: [net-next 00/12][pull request] Intel Wired LAN Driver Updates
+ 2014-11-14
+Date: Sun, 16 Nov 2014 15:04:26 -0500 (EST)
+Message-ID: <20141116.150426.1513510283700264522.davem@davemloft.net>
+References: <1416031715-32498-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: pshelar@nicira.com
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38104 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38110 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751632AbaKPUCN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Nov 2014 15:02:13 -0500
-In-Reply-To: <1416015444-1519-1-git-send-email-pshelar@nicira.com>
+	with ESMTP id S1751632AbaKPUEa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Nov 2014 15:04:30 -0500
+In-Reply-To: <1416031715-32498-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pravin B Shelar <pshelar@nicira.com>
-Date: Fri, 14 Nov 2014 17:37:24 -0800
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Fri, 14 Nov 2014 22:08:23 -0800
 
-> Following fixes are accumulated in ovs-repo.
-> Three of them are related to protocol processing, one is
-> related to memory leak in case of error and one is to
-> fix race.
-> Patch "Validate IPv6 flow key and mask values" has conflicts
-> with net-next, Let me know if you want me to send the patch
-> for net-next.
+> This series contains updates to i40e only.
 
-Pulled, thanks a lot.
-
-I'll sort out the merge conflicts next time I merge net into
-net-next, thanks for offering.
+Patch #3 needs to be updated to do error handling for the case where
+skb_linearize() fails, as pointed out by Eric Dumazet.
