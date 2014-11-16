@@ -1,67 +1,59 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCHv2 net 1/4] net: Add vxlan_gso_check() helper
-Date: Sun, 16 Nov 2014 11:35:52 +0200
-Message-ID: <CAJ3xEMhwq2Cuiw8sjY3DHFBEdmgKieNZgxWhGsfZ=Rtz41KhTQ@mail.gmail.com>
-References: <1415925495-59312-1-git-send-email-joestringer@nicira.com>
-	<1415925495-59312-2-git-send-email-joestringer@nicira.com>
+From: Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH] brcmfmac: fix error handling of irq_of_parse_and_map
+Date: Sun, 16 Nov 2014 14:02:14 +0100
+Message-ID: <5468A056.9030200@broadcom.com>
+References: <20141114221221.GA35541@dtor-ws>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: Joe Stringer <joestringer@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f46.google.com ([209.85.218.46]:53757 "EHLO
-	mail-oi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754485AbaKPJfx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Nov 2014 04:35:53 -0500
-Received: by mail-oi0-f46.google.com with SMTP id h136so847623oig.5
-        for <netdev@vger.kernel.org>; Sun, 16 Nov 2014 01:35:53 -0800 (PST)
-In-Reply-To: <1415925495-59312-2-git-send-email-joestringer@nicira.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Brett Rudley <brudley-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	"Franky (Zhenhui) Lin" <frankyl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	Hante Meuleman <meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	Pieter-Paul Giesberts <pieterpg-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	<linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<brcm80211-dev-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Hans de Goede <hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+To: Dmitry Torokhov <dtor-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20141114221221.GA35541@dtor-ws>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 14, 2014 at 2:38 AM, Joe Stringer <joestringer@nicira.com> wrote:
-> Most NICs that report NETIF_F_GSO_UDP_TUNNEL support VXLAN, and not
-> other UDP-based encapsulation protocols where the format and size of the
-> header differs. This patch implements a generic ndo_gso_check() for
-> VXLAN which will only advertise GSO support when the skb looks like it
-> contains VXLAN (or no UDP tunnelling at all).
->
-> Implementation shamelessly stolen from Tom Herbert:
-> http://thread.gmane.org/gmane.linux.network/332428/focus=333111
->
-> Signed-off-by: Joe Stringer <joestringer@nicira.com>
+On 11/14/14 23:12, Dmitry Torokhov wrote:
+> Return value of irq_of_parse_and_map() is unsigned int, with 0
+> indicating failure, so testing for negative result never works.
+
+Whoops, that is bad. Thanks for catching this. It probably needs to go 
+to stable as well for 3.17 kernel.
+
++Cc: stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org # v3.17
++Acked-by: Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+> Signed-off-by: Dmitry Torokhov<dtor-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
 > ---
-> v2: Merge helpers for be2net, mlx4, qlcnic
->     Use (sizeof(struct udphdr) + sizeof(struct vxlanhdr))
-> v1: Initial post
-> ---
->  drivers/net/vxlan.c |   13 +++++++++++++
->  include/net/vxlan.h |    2 ++
->  2 files changed, 15 insertions(+)
 >
-> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-> index fa9dc45..6b65863 100644
-> --- a/drivers/net/vxlan.c
-> +++ b/drivers/net/vxlan.c
-> @@ -1571,6 +1571,19 @@ static bool route_shortcircuit(struct net_device *dev, struct sk_buff *skb)
->         return false;
->  }
+> Not tested, found by casual code inspection.
 >
-> +bool vxlan_gso_check(struct sk_buff *skb)
-> +{
-> +       if ((skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL) &&
-> +           (skb->inner_protocol_type != ENCAP_TYPE_ETHER ||
-> +            skb->inner_protocol != htons(ETH_P_TEB) ||
-> +            (skb_inner_mac_header(skb) - skb_transport_header(skb) !=
-> +             sizeof(struct udphdr) + sizeof(struct vxlanhdr))))
-> +               return false;
-> +
-> +       return true;
-> +}
-> +EXPORT_SYMBOL_GPL(vxlan_gso_check);
+>   drivers/net/wireless/brcm80211/brcmfmac/of.c | 4 ++--
+>   1 file changed, 2 insertions(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/wireless/brcm80211/brcmfmac/of.c b/drivers/net/wireless/brcm80211/brcmfmac/of.c
+> index eb3fce82..c824570 100644
+> --- a/drivers/net/wireless/brcm80211/brcmfmac/of.c
+> +++ b/drivers/net/wireless/brcm80211/brcmfmac/of.c
+> @@ -40,8 +40,8 @@ void brcmf_of_probe(struct brcmf_sdio_dev *sdiodev)
+>   		return;
+>
+>   	irq = irq_of_parse_and_map(np, 0);
+> -	if (irq<  0) {
+> -		brcmf_err("interrupt could not be mapped: err=%d\n", irq);
+> +	if (!irq) {
+> +		brcmf_err("interrupt could not be mapped\n");
+>   		devm_kfree(dev, sdiodev->pdata);
+>   		return;
+>   	}
 
-Joe, any chance you can make the extra step and inline that in
-vxlan.h? this is fast path call... you will only need to move struct
-vxlanhdr there too.
-
-Or.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
