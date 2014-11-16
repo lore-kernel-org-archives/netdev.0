@@ -1,61 +1,29 @@
-From: Gilles Chanteperdrix <gilles.chanteperdrix@xenomai.org>
-Subject: Re: [PATCH] net/at91_ether: fix loading when macb is compiled as a
- module
-Date: Sun, 16 Nov 2014 21:32:38 +0100
-Message-ID: <20141116203238.GL4656@sisyphus.hd.free.fr>
-References: <1416161106-27498-1-git-send-email-gilles.chanteperdrix@xenomai.org>
- <20141116.135302.1339801219762777528.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/3] Add temperature reading and registers dump to
+ mv88e6171
+Date: Sun, 16 Nov 2014 15:48:24 -0500 (EST)
+Message-ID: <20141116.154824.1141288177115607505.davem@davemloft.net>
+References: <1416086694-15790-1-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: nicolas.ferre@atmel.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux@roeck-us.net
+To: andrew@lunn.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sd-51317.dedibox.fr ([62.210.215.82]:38287 "EHLO
-	sd-51317.dedibox.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750722AbaKPUcp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Nov 2014 15:32:45 -0500
-Content-Disposition: inline
-In-Reply-To: <20141116.135302.1339801219762777528.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38378 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750743AbaKPUsa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Nov 2014 15:48:30 -0500
+In-Reply-To: <1416086694-15790-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Nov 16, 2014 at 01:53:02PM -0500, David Miller wrote:
-> From: Gilles Chanteperdrix <gilles.chanteperdrix@xenomai.org>
-> Date: Sun, 16 Nov 2014 19:05:06 +0100
-> 
-> > The at91_ether driver depends on symbols defined in the macb driver.
-> > 
-> > Currently, when compiling both at91_ether and macb as module, starting
-> > the at91_ether module fails, because the macb module can not be loaded
-> > with a macb interface.
-> > 
-> > Avoid this issue by getting the macb module initialization routine to
-> > always return 0, even when no macb device is detected.
-> > 
-> > Signed-off-by: Gilles Chanteperdrix <gilles.chanteperdrix@xenomai.org>
-> 
-> This is not acceptable, sorry.
-> 
-> This means the module stays in memory even if nobody has a real use
-> for it.
-> 
-> You'll need to find another solution, and I'll say in passing that this
-> was very poorly designed and that's why the problem exists.
-> 
+From: Andrew Lunn <andrew@lunn.ch>
+Date: Sat, 15 Nov 2014 22:24:50 +0100
 
-Ok, I see multiple possible other fixes:
-- inline the shared functions in the macb.h driver or move them to a
-library, this effectively means duplication, but who is going to
-enable both drivers anyway?
-- when both drivers are compiled as module, make one module
-containing both drivers say at91+macb.ko
-- modify the code I posted so that it only keeps the macb driver
-loaded without macb device if IS_ENABLED(CONFIG_ARM_AT91_ETHER)
-and probably many others I do not see.
+> These patches centralize the temperature sensor reading code, and then
+> make use of it with the mv88e6171 which has a compatible
+> sensor. Additionally, support is added for reading the mv88e6171 via
+> ethtool.
 
-I just do not know which one you would find acceptable.
-
-Regards.
-
--- 
-					    Gilles.
+Series applied to net-next, thanks.
