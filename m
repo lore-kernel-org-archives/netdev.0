@@ -1,49 +1,56 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: pkt_sched: Fix qdisc len in qdisc_peek_dequeued() [61c9eaf9008]
- - question
-Date: Sun, 16 Nov 2014 10:15:25 -0800
-Message-ID: <1416161725.17262.92.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <5468A0C5.9010409@ziu.info>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jarek Poplawski <jarkao2@gmail.com>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Michal Soltys <soltys@ziu.info>
+From: Gilles Chanteperdrix <gilles.chanteperdrix@xenomai.org>
+Subject: [PATCH] net/at91_ether: fix loading when macb is compiled as a module
+Date: Sun, 16 Nov 2014 19:05:06 +0100
+Message-ID: <1416161106-27498-1-git-send-email-gilles.chanteperdrix@xenomai.org>
+Cc: Gilles Chanteperdrix <gilles.chanteperdrix@xenomai.org>
+To: Nicolas Ferre <nicolas.ferre@atmel.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f181.google.com ([209.85.223.181]:37673 "EHLO
-	mail-ie0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751635AbaKPSPY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Nov 2014 13:15:24 -0500
-Received: by mail-ie0-f181.google.com with SMTP id tp5so1166205ieb.12
-        for <netdev@vger.kernel.org>; Sun, 16 Nov 2014 10:15:23 -0800 (PST)
-In-Reply-To: <5468A0C5.9010409@ziu.info>
+Received: from sd-51317.dedibox.fr ([62.210.215.82]:36242 "EHLO
+	sd-51317.dedibox.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751282AbaKPSV3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Nov 2014 13:21:29 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2014-11-16 at 14:04 +0100, Michal Soltys wrote:
-> Hi,
-> 
-> I was wondering (probably missing some subtleties) about that particular 
-> patch, namely:
-> 
-> 61c9eaf90081cbe6dc4f389e0056bff76eca19ec
-> 
-> Why would that qlen++ change be necessary ? As far as peeked qdisc sees 
-> things, the packet is already deqeued and gone - so not really part of 
-> the queue anymore in this context (not ever requeued either). More 
-> advanced qdiscs such as say fq_codel - if for example they decide to 
-> drop head during further enqueue operation - obviously won't even 
-> consider the peeked packet.
+The at91_ether driver depends on symbols defined in the macb driver.
 
-peeked packet has not to be considered by qdisc : Their dequeue()
-methods is called only when there is no more peeked packet.
+Currently, when compiling both at91_ether and macb as module, starting
+the at91_ether module fails, because the macb module can not be loaded
+with a macb interface.
 
-> 
-> Increasing qlen from what I can see artificially shortens queue by 1. 
-> For some classful schedulers (say like hfsc that instantly peeks next 
-> packet length after dequeuing), child qdiscs will be almost all the time 
-> formally operating at queue size decreased by 1.
+Avoid this issue by getting the macb module initialization routine to
+always return 0, even when no macb device is detected.
 
-Well, the peeked packet is part of the queue, as it is not yet
-transmitted.
+Signed-off-by: Gilles Chanteperdrix <gilles.chanteperdrix@xenomai.org>
+---
+ drivers/net/ethernet/cadence/macb.c |   15 ++++++++++++++-
+ 1 file changed, 14 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index 4d9fc05..f70228c 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -2327,7 +2327,20 @@ static struct platform_driver macb_driver = {
+ 	},
+ };
+ 
+-module_platform_driver_probe(macb_driver, macb_probe);
++static bool found;
++static int __init macb_driver_init(void)
++{
++	found = platform_driver_probe(&macb_driver, macb_probe) == 0;
++	return 0;
++}
++module_init(macb_driver_init);
++
++static void __exit macb_driver_exit(void)
++{
++	if (found)
++		platform_driver_unregister(&macb_driver);
++}
++module_exit(macb_driver_exit);
+ 
+ MODULE_LICENSE("GPL");
+ MODULE_DESCRIPTION("Cadence MACB/GEM Ethernet driver");
+-- 
+1.7.10.4
