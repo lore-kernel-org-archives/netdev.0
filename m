@@ -1,207 +1,53 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: [PATCH Iproute2 next v1] ip link: Add ipvlan support to the iproute2/ip util
-Date: Sun, 16 Nov 2014 22:27:57 -0800
-Message-ID: <1416205677-26706-1-git-send-email-maheshb@google.com>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH net-next 01/14] net: provide a per host RSS key generic infrastructure
+Date: Sun, 16 Nov 2014 22:46:43 -0800
+Message-ID: <87wq6uiass.fsf@tassilo.jf.intel.com>
+References: <1416147798-16561-1-git-send-email-edumazet@google.com>
+	<1416147798-16561-2-git-send-email-edumazet@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <edumazet@google.com>,
-	Maciej Zenczykowski <maze@google.com>,
-	Laurent Chavey <chavey@google.com>,
-	Tim Hockin <thockin@google.com>,
-	David Miller <davem@davemloft.net>,
-	Brandon Philips <brandon.philips@coreos.com>,
-	Pavel Emelianov <xemul@parallels.com>,
-	Mahesh Bandewar <maheshb@google.com>
-To: netdev <netdev@vger.kernel.org>,
-	Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Thomas Lendacky <Thomas.Lendacky@amd.com>,
+	Ariel Elior <ariel.elior@qlogic.com>,
+	Michael Chan <mchan@broadcom.com>,
+	Prashant Sreedharan <prashant@broadcom.com>,
+	Rasesh Mody <rasesh.mody@qlogic.com>,
+	Sathya Perla <sathya.perla@emulex.com>,
+	Subbu Seetharaman <subbu.seetharaman@emulex.com>,
+	Ajit Khaparde <ajit.khaparde@emulex.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Shradha Shah <sshah@solarflare.com>,
+	Shreyas Bhatewara <sbhatewara@vmware.com>
+To: Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f73.google.com ([209.85.218.73]:48742 "EHLO
-	mail-oi0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751053AbaKQG16 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Nov 2014 01:27:58 -0500
-Received: by mail-oi0-f73.google.com with SMTP id a141so651299oig.4
-        for <netdev@vger.kernel.org>; Sun, 16 Nov 2014 22:27:57 -0800 (PST)
+Received: from mga11.intel.com ([192.55.52.93]:2615 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750997AbaKQGrT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Nov 2014 01:47:19 -0500
+In-Reply-To: <1416147798-16561-2-git-send-email-edumazet@google.com> (Eric
+	Dumazet's message of "Sun, 16 Nov 2014 06:23:05 -0800")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adding basic support to create virtual devices using 'ip'
-utility. Following is the syntax -
+Eric Dumazet <edumazet@google.com> writes:
 
-	ip link add link <master> <virtual> type ipvlan mode [ l2 | l3 ]
-	e.g. ip link add link eth0 ipvl0 type ipvlan mode l3
+> Some drivers use a constant (and well known key), some drivers use a random
+> key per port, making bonding setups hard to tune. Well known keys increase
+> attack surface, considering that number of queues is usually a power of two.
 
-Signed-off-by: Mahesh Bandewar <maheshb@google.com>
-Cc: Stephen Hemminger <stephen@networkplumber.org>
-Cc: Eric Dumazet <edumazet@google.com>
-Cc: Maciej =C5=BBenczykowski <maze@google.com>
-Cc: Laurent Chavey <chavey@google.com>
-Cc: Tim Hockin <thockin@google.com>
-Cc: Brandon Philips <brandon.philips@coreos.com>
-Cc: Pavel Emelianov <xemul@parallels.com>
----
- include/linux/if_link.h | 14 ++++++++
- ip/Makefile             |  2 +-
- ip/iplink.c             |  2 +-
- ip/iplink_ipvlan.c      | 85 +++++++++++++++++++++++++++++++++++++++++=
-++++++++
- 4 files changed, 101 insertions(+), 2 deletions(-)
- create mode 100644 ip/iplink_ipvlan.c
+Wouldn't it be better to have some kernel facility to query on what
+port a given mapping would end up rather than exporting
+the key? Similar to querying the rounting table.
+That would be more abstract.
 
-diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-index 47320636361c..ef1e9f73fb15 100644
---- a/include/linux/if_link.h
-+++ b/include/linux/if_link.h
-@@ -325,6 +325,20 @@ enum macvlan_macaddr_mode {
- 	MACVLAN_MACADDR_SET,
- };
-=20
-+/* IPVLAN section */
-+enum {
-+	IFLA_IPVLAN_UNSPEC,
-+	IFLA_IPVLAN_MODE,
-+	__IFLA_IPVLAN_MAX,
-+};
-+
-+#define IFLA_IPVLAN_MAX (__IFLA_IPVLAN_MAX - 1)
-+
-+enum ipvlan_mode {
-+	IPVLAN_MODE_L2 =3D 0, /* Process packets all the way upto L2 */
-+	IPVLAN_MODE_L3 =3D 1, /* Process Packets all the way upto L3 */
-+};
-+
- #define MACVLAN_FLAG_NOPROMISC	1
-=20
- /* VXLAN section */
-diff --git a/ip/Makefile b/ip/Makefile
-index fdc82f7286a0..01901bc8571c 100644
---- a/ip/Makefile
-+++ b/ip/Makefile
-@@ -6,7 +6,7 @@ IPOBJ=3Dip.o ipaddress.o ipaddrlabel.o iproute.o iprule=
-=2Eo ipnetns.o \
-     iplink_macvlan.o iplink_macvtap.o ipl2tp.o link_vti.o link_vti6.o =
-\
-     iplink_vxlan.o tcp_metrics.o iplink_ipoib.o ipnetconf.o link_ip6tn=
-l.o \
-     link_iptnl.o link_gre6.o iplink_bond.o iplink_bond_slave.o iplink_=
-hsr.o \
--    iplink_bridge.o iplink_bridge_slave.o ipfou.o
-+    iplink_bridge.o iplink_bridge_slave.o ipfou.o iplink_ipvlan.o
-=20
- RTMONOBJ=3Drtmon.o
-=20
-diff --git a/ip/iplink.c b/ip/iplink.c
-index 43b26f4cea08..2fc7fa2b47c8 100644
---- a/ip/iplink.c
-+++ b/ip/iplink.c
-@@ -90,7 +90,7 @@ void iplink_usage(void)
- 		fprintf(stderr, "TYPE :=3D { vlan | veth | vcan | dummy | ifb | macv=
-lan | macvtap |\n");
- 		fprintf(stderr, "          bridge | bond | ipoib | ip6tnl | ipip | s=
-it | vxlan |\n");
- 		fprintf(stderr, "          gre | gretap | ip6gre | ip6gretap | vti |=
- nlmon |\n");
--		fprintf(stderr, "          bond_slave }\n");
-+		fprintf(stderr, "          bond_slave | ipvlan }\n");
- 	}
- 	exit(-1);
- }
-diff --git a/ip/iplink_ipvlan.c b/ip/iplink_ipvlan.c
-new file mode 100644
-index 000000000000..6712fdb92fd4
---- /dev/null
-+++ b/ip/iplink_ipvlan.c
-@@ -0,0 +1,85 @@
-+/* iplink_ipvlan.c	IPVLAN device support
-+ *
-+ *              This program is free software; you can redistribute it=
- and/or
-+ *              modify it under the terms of the GNU General Public Li=
-cense
-+ *              as published by the Free Software Foundation; either v=
-ersion
-+ *              2 of the License, or (at your option) any later versio=
-n.
-+ *
-+ * Authors:     Mahesh Bandewar <maheshb@google.com>
-+ */
-+
-+#include <stdio.h>
-+#include <stdlib.h>
-+#include <string.h>
-+#include <sys/socket.h>
-+#include <linux/if_link.h>
-+
-+#include "rt_names.h"
-+#include "utils.h"
-+#include "ip_common.h"
-+
-+static void explain(void)
-+{
-+	fprintf(stderr, "Usage: ... ipvlan [ mode { l2 | l3 } ]\n");
-+}
-+
-+static int mode_arg(void)
-+{
-+	fprintf(stderr, "Error: argument of \"mode\" must be either \"l2\", "
-+		"or \"l3\"\n");
-+        return -1;
-+}
-+
-+static int ipvlan_parse_opt(struct link_util *lu, int argc, char **arg=
-v,
-+			  struct nlmsghdr *n)
-+{
-+	while (argc > 0) {
-+	    if (matches(*argv, "mode") =3D=3D 0) {
-+			__u16 mode =3D 0;
-+			NEXT_ARG();
-+
-+			if (strcmp(*argv, "l2") =3D=3D 0)
-+				mode =3D IPVLAN_MODE_L2;
-+			else if (strcmp(*argv, "l3") =3D=3D 0)
-+				mode =3D IPVLAN_MODE_L3;
-+			else
-+				mode_arg();
-+
-+			addattr16(n, 1024, IFLA_IPVLAN_MODE, mode);
-+		} else if (matches(*argv, "help") =3D=3D 0) {
-+			explain();
-+			return -1;
-+		} else {
-+			fprintf(stderr, "ipvlan: unknown option \"%s\"?\n", *argv);
-+			explain();
-+			return -1;
-+		}
-+		argc--, argv++;
-+	}
-+
-+	return 0;
-+}
-+
-+static void ipvlan_print_opt(struct link_util *lu, FILE *f, struct rta=
-ttr *tb[])
-+{
-+
-+	if (!tb)
-+		return;
-+
-+	if (tb[IFLA_IPVLAN_MODE]) {
-+		if (RTA_PAYLOAD(tb[IFLA_IPVLAN_MODE]) =3D=3D sizeof(__u16)) {
-+			__u16 mode =3D rta_getattr_u16(tb[IFLA_IPVLAN_MODE]);
-+
-+			fprintf(f, " mode %s ",
-+				mode =3D=3D IPVLAN_MODE_L2 ? "l2"
-+				: mode =3D=3D IPVLAN_MODE_L3 ? "l3" : "unknown");
-+		}
-+	}
-+}
-+
-+struct link_util ipvlan_link_util =3D {
-+	.id		=3D "ipvlan",
-+	.maxattr	=3D IFLA_IPVLAN_MAX,
-+	.parse_opt	=3D ipvlan_parse_opt,
-+	.print_opt	=3D ipvlan_print_opt,
-+};
---=20
-2.1.0.rc2.206.gedb03e5
+> +	{
+> +		.procname	= "netdev_rss_key",
+> +		.data		= &netdev_rss_key,
+> +		.maxlen		= sizeof(int),
+> +		.mode		= 0444,
+
+Surely 0400 ? After all it's a kind a "secret"
+
+-Andi
