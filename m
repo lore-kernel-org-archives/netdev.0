@@ -1,39 +1,54 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next 03/12] i40e: Handle a single mss packet with more
- than 8 frags
-Date: Mon, 17 Nov 2014 08:52:31 -0800
-Message-ID: <1416243151.5102.20.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1416031715-32498-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1416031715-32498-4-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1416075695.17262.86.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <FC41C24E35F18A40888AACA1A36F3E418AD8F543@fmsmsx115.amr.corp.intel.com>
-	 <063D6719AE5E284EB5DD2968C1650D6D1C9F1F9F@AcuExch.aculab.com>
+From: Oliver Graute <oliver.graute@gmail.com>
+Subject: Re: Device Tree Binding for Marvell DSA Switch on imx28 board over
+ Mdio Interface
+Date: Mon, 17 Nov 2014 17:54:01 +0100
+Message-ID: <CA+KjHfaKhQL6J3FZjZrs-eh3URBL5geDWV9adpcvo-6SU-9aRg@mail.gmail.com>
+References: <CA+KjHfYZdZ88ZFzFCPN-bGphh+mnSWy6i0WNzFYv=gOsafXA7g@mail.gmail.com>
+	<5463B2AC.6090904@gmail.com>
+	<CA+KjHfbwtwPFXFEVDDijRNeTcHcSn0BZ4_yGuwcgyFfubNFCQA@mail.gmail.com>
+	<CAOMZO5Crue+NFEEkhzG3YYVQfq-Yu6s-+gZUyRQh3LawhbD8iQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "'Nelson, Shannon'" <shannon.nelson@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"Kong, Serey" <serey.kong@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"nhorman@redhat.com" <nhorman@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	"jogreene@redhat.com" <jogreene@redhat.com>
-To: David Laight <David.Laight@ACULAB.COM>
+Content-Type: text/plain; charset=UTF-8
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Fabio Estevam <festevam@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f170.google.com ([209.85.223.170]:63340 "EHLO
-	mail-ie0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750806AbaKQQw1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Nov 2014 11:52:27 -0500
-Received: by mail-ie0-f170.google.com with SMTP id tr6so3274279ieb.15
-        for <netdev@vger.kernel.org>; Mon, 17 Nov 2014 08:52:27 -0800 (PST)
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1C9F1F9F@AcuExch.aculab.com>
+Received: from mail-ie0-f169.google.com ([209.85.223.169]:53809 "EHLO
+	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752505AbaKQQyD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Nov 2014 11:54:03 -0500
+Received: by mail-ie0-f169.google.com with SMTP id y20so5436299ier.0
+        for <netdev@vger.kernel.org>; Mon, 17 Nov 2014 08:54:02 -0800 (PST)
+In-Reply-To: <CAOMZO5Crue+NFEEkhzG3YYVQfq-Yu6s-+gZUyRQh3LawhbD8iQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-11-17 at 16:16 +0000, David Laight wrote:
+Hello Fabio,
 
-> Except that a TSO packet is likely to be just under 64k and comprise of
-> a small header and 16 other fragments - most of which will be a complete 4k page.
+and what's the correct one for the imx28 CPU?
 
-This is the code dealing with non TSO packets.
+Best Regards,
+
+Oliver
+
+
+On Mon, Nov 17, 2014 at 5:45 PM, Fabio Estevam <festevam@gmail.com> wrote:
+> On Thu, Nov 13, 2014 at 1:15 PM, Oliver Graute <oliver.graute@gmail.com> wrote:
+>
+>
+>> mdio_bus: mdio@800f0040 {
+>>         #address-cells = <1>;
+>>         #size-cells = <0>;
+>>         device_type = "mdio";
+>>         //compatible = "fsl,gianfar-mdio";
+>>         compatible = "fsl,mpc875-fec-mdio", "fsl,pq1-fec-mdio";
+>
+> These compatible strings are for PowerQuicc devices, not for mx28.
+>
+>>         reg = <0x800f0040 0x188>;
+>>         status = "okay";
+>>
+>>          ethphy0: ethernet-phy@0 {
+>>                 compatible = "fsl,gianfar-mdio";
+>
+> Same here.
