@@ -1,57 +1,39 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next 03/12] i40e: Handle a single mss packet with more
- than 8 frags
-Date: Mon, 17 Nov 2014 06:55:50 -0800
-Message-ID: <1416236150.5102.8.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1416031715-32498-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1416031715-32498-4-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1416075695.17262.86.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <063D6719AE5E284EB5DD2968C1650D6D1C9F1E54@AcuExch.aculab.com>
-	 <1416234687.5102.2.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <063D6719AE5E284EB5DD2968C1650D6D1C9F1E87@AcuExch.aculab.com>
+From: Bruno Thomsen <bth@kamstrup.dk>
+Subject: RE: phy/micrel: KSZ8031RNL RMII clock reconfiguration bug
+Date: Mon, 17 Nov 2014 14:56:45 +0000
+Message-ID: <915054555B5659448ACF8A70E114824D01704BD71E@Exchange2010.kamstrup.dk>
+References: <1412866094-4972-1-git-send-email-bth@kamstrup.dk>
+ <20141111194101.GI29789@localhost>
+ <915054555B5659448ACF8A70E114824D01704B9131@Exchange2010.kamstrup.dk>
+ <20141115141804.GA24633@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	Serey Kong <serey.kong@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"nhorman@redhat.com" <nhorman@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	"jogreene@redhat.com" <jogreene@redhat.com>,
-	Shannon Nelson <shannon.nelson@intel.com>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f170.google.com ([209.85.223.170]:38916 "EHLO
-	mail-ie0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753039AbaKQOzq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Nov 2014 09:55:46 -0500
-Received: by mail-ie0-f170.google.com with SMTP id tr6so3019082ieb.29
-        for <netdev@vger.kernel.org>; Mon, 17 Nov 2014 06:55:46 -0800 (PST)
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1C9F1E87@AcuExch.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"f.fainelli@gmail.com" <f.fainelli@gmail.com>,
+	"s.hauer@pengutronix.de" <s.hauer@pengutronix.de>,
+	"bruno.thomsen@gmail.com" <bruno.thomsen@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Johan Hovold <johan@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141115141804.GA24633@localhost>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2014-11-17 at 14:40 +0000, David Laight wrote:
 
-> Not that one.
-> IIRC is was done to reduce the number of fragments through xennet.
-> 
-> You really want to try to keep some of the old fragments, just adding
-> new ones to merge short sections.
-> 
-> OTOH 8 fragments isn't enough if the MAC supports TSO (dunno if it does).
+> Did you specify a led-mode as well, or was the Operation Mode Strap Override (OMSO) write the first access after the soft reset?
+No led-mode was specified so OMSO was the first write.
 
-I40 is a 40Gb NIC, it supports TSO, obviously.
+> Did you try any other workarounds besides setting the clock mode before doing the OMSO write?
+I spend around 2 weeks hunting down the bug.
+During which I tried many things in both the Freescale FEC MAC driver and the Micrel PHY driver.
+Changing the init and the probe flow as well as adding a lot of extra debug traces.
 
-> The skb_linearize() is only likely to fail for TSO anyway.
-> Or rather, if it can't allocate a 4k page you are already stuffed.
+> And REF_CLK (pin 16) is not connected? 
+Yes, pin 16 is floating.
 
-So far, nobody wrote the code for this.
+> Would you able to test my series on your setup, and possibly a couple of diagnostic patches on top?
+Sure, I can try later this week.
 
-Page frag are allocated from pages, so if you cannot allocate a 4k page,
-this function has no guarantee to succeed no matter how hard you tried.
-
-alloc_skb_with_frags() was already _much_ better than a single
-allocation of order-5 page. But if you feel you can do better, why don't
-you provide the code ?
+/Bruno
