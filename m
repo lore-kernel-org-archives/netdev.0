@@ -1,31 +1,32 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH 2/4] arch: Add lightweight memory barriers fast_rmb()
- and fast_wmb()
-Date: Tue, 18 Nov 2014 07:04:47 +1100
-Message-ID: <1416254687.18381.3.camel@kernel.crashing.org>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH 2/4] arch: Add lightweight memory barriers fast_rmb() and
+ fast_wmb()
+Date: Mon, 17 Nov 2014 12:18:23 -0800
+Message-ID: <20141117201823.GD5050@linux.vnet.ibm.com>
 References: <20141117171005.22333.96544.stgit@ahduyck-server>
-	 <20141117171812.22333.90395.stgit@ahduyck-server>
+ <20141117171812.22333.90395.stgit@ahduyck-server>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: linux-arch@vger.kernel.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, mathieu.desnoyers@polymtl.ca,
-	peterz@infradead.org, heiko.carstens@de.ibm.com, mingo@kernel.org,
-	mikey@neuling.org, linux@arm.linux.org.uk,
-	donald.c.skidmore@intel.com, matthew.vick@intel.com,
-	geert@linux-m68k.org, jeffrey.t.kirsher@intel.com,
-	romieu@fr.zoreil.com, paulmck@linux.vnet.ibm.com,
+	peterz@infradead.org, benh@kernel.crashing.org,
+	heiko.carstens@de.ibm.com, mingo@kernel.org, mikey@neuling.org,
+	linux@arm.linux.org.uk, donald.c.skidmore@intel.com,
+	matthew.vick@intel.com, geert@linux-m68k.org,
+	jeffrey.t.kirsher@intel.com, romieu@fr.zoreil.com,
 	nic_swsd@realtek.com, will.deacon@arm.com, michael@ellerman.id.au,
 	tony.luck@intel.com, torvalds@linux-foundation.org,
 	oleg@redhat.com, schwidefsky@de.ibm.com, fweisbec@gmail.com,
 	davem@davemloft.net
 To: Alexander Duyck <alexander.h.duyck@redhat.com>
-Return-path: <linux-arch-owner@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
 In-Reply-To: <20141117171812.22333.90395.stgit@ahduyck-server>
-Sender: linux-arch-owner@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2014-11-17 at 09:18 -0800, Alexander Duyck wrote:
+On Mon, Nov 17, 2014 at 09:18:13AM -0800, Alexander Duyck wrote:
 > There are a number of situations where the mandatory barriers rmb() and
 > wmb() are used to order memory/memory operations in the device drivers
 > and those barriers are much heavier than they actually need to be.  For
@@ -33,10 +34,8 @@ On Mon, 2014-11-17 at 09:18 -0800, Alexander Duyck wrote:
 > instruction when for memory/memory operations all that is really needed is
 > an lsync or eieio instruction.
 
-So essentially those are the same as the smp_* variants but not nop'ed
-out on !CONFIG_SMP right ? 
-
-Ben.
+Is this still the case if one of the memory operations is MMIO?  Last
+I knew, it was not.
 
 > This commit adds a fast (and loose) version of the mandatory memory
 > barriers rmb() and wmb().  The prefix to the name is actually based on the
@@ -55,7 +54,13 @@ Ben.
 > barrier quickly and so they usually resorted to an mb() for their smp_mb
 > call.  As such there no point in adding a fast_mb() function if it is going
 > to map to mb() for all architectures anyway.
-> 
+
+I must confess that I still don't entirely understand the motivation.
+
+Some problems in PowerPC barrier.h called out below.
+
+							Thanx, Paul
+
 > Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 > Cc: Frederic Weisbecker <fweisbec@gmail.com>
 > Cc: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
@@ -94,7 +99,7 @@ Ben.
 > +++ b/Documentation/memory-barriers.txt
 > @@ -1615,6 +1615,47 @@ There are some more advanced barrier functions:
 >       operations" subsection for information on where to use these.
->  
+> 
 > 
 > + (*) fast_wmb();
 > + (*) fast_rmb();
@@ -139,7 +144,7 @@ Ben.
 > +
 >  MMIO WRITE BARRIER
 >  ------------------
->  
+> 
 > diff --git a/arch/arm/include/asm/barrier.h b/arch/arm/include/asm/barrier.h
 > index c6a3e73..c57903c 100644
 > --- a/arch/arm/include/asm/barrier.h
@@ -157,7 +162,7 @@ Ben.
 > +#define fast_rmb()	barrier()
 > +#define fast_wmb()	barrier()
 >  #endif
->  
+> 
 >  #ifndef CONFIG_SMP
 > diff --git a/arch/arm64/include/asm/barrier.h b/arch/arm64/include/asm/barrier.h
 > index 6389d60..3ca1a15 100644
@@ -166,7 +171,7 @@ Ben.
 > @@ -32,6 +32,9 @@
 >  #define rmb()		dsb(ld)
 >  #define wmb()		dsb(st)
->  
+> 
 > +#define fast_rmb()	dmb(ld)
 > +#define fast_wmb()	dmb(st)
 > +
@@ -180,7 +185,7 @@ Ben.
 > @@ -39,6 +39,9 @@
 >  #define rmb()		mb()
 >  #define wmb()		mb()
->  
+> 
 > +#define fast_rmb()	mb()
 > +#define fast_wmb()	mb()
 > +
@@ -193,17 +198,17 @@ Ben.
 > +++ b/arch/metag/include/asm/barrier.h
 > @@ -4,8 +4,6 @@
 >  #include <asm/metag_mem.h>
->  
+> 
 >  #define nop()		asm volatile ("NOP")
 > -#define mb()		wmb()
 > -#define rmb()		barrier()
->  
+> 
 >  #ifdef CONFIG_METAG_META21
->  
+> 
 > @@ -41,11 +39,13 @@ static inline void wr_fence(void)
->  
+> 
 >  #endif /* !CONFIG_METAG_META21 */
->  
+> 
 > -static inline void wmb(void)
 > -{
 > -	/* flush writes through the write combiner */
@@ -216,7 +221,7 @@ Ben.
 > +
 > +#define fast_rmb()	rmb()
 > +#define fast_wmb()	wmb()
->  
+> 
 >  #ifndef CONFIG_SMP
 >  #define fence()		do { } while (0)
 > diff --git a/arch/powerpc/include/asm/barrier.h b/arch/powerpc/include/asm/barrier.h
@@ -224,9 +229,9 @@ Ben.
 > --- a/arch/powerpc/include/asm/barrier.h
 > +++ b/arch/powerpc/include/asm/barrier.h
 > @@ -36,22 +36,20 @@
->  
+> 
 >  #define set_mb(var, value)	do { var = value; mb(); } while (0)
->  
+> 
 > -#ifdef CONFIG_SMP
 > -
 >  #ifdef __SUBARCH_HAS_LWSYNC
@@ -234,11 +239,11 @@ Ben.
 >  #else
 >  #    define SMPWMB      eieio
 >  #endif
->  
+> 
 > -#define __lwsync()	__asm__ __volatile__ (stringify_in_c(LWSYNC) : : :"memory")
 > +#define fast_rmb()	__asm__ __volatile__ (stringify_in_c(LWSYNC) : : :"memory")
 > +#define fast_wmb()	__asm__ __volatile__ (stringify_in_c(SMPWMB) : : :"memory")
->  
+> 
 > +#ifdef CONFIG_SMP
 >  #define smp_mb()	mb()
 > -#define smp_rmb()	__lwsync()
@@ -254,7 +259,7 @@ Ben.
 > @@ -69,10 +67,16 @@
 >  #define data_barrier(x)	\
 >  	asm volatile("twi 0,%0,0; isync" : : "r" (x) : "memory");
->  
+> 
 > +/*
 > + * The use of smp_rmb() in these functions are actually meant to map from
 > + * smp_rmb()->fast_rmb()->LWSYNC.  This way if smp is disabled then
@@ -266,9 +271,18 @@ Ben.
 >  	compiletime_assert_atomic_type(*p);				\
 > -	__lwsync();							\
 > +	smp_rmb();							\
+
+This is not good at all.  For smp_store_release(), we absolutely
+must order prior loads and stores against the assignment on the following
+line.  This is not something that smp_rmb() does, nor is it something
+that smp_wmb() does.  Yes, it might happen to now, but this could easily
+break in the future -- plus this change is extremely misleading.
+
+The original __lwsync() is much more clear.
+
 >  	ACCESS_ONCE(*p) = (v);						\
 >  } while (0)
->  
+> 
 > @@ -80,7 +84,7 @@ do {									\
 >  ({									\
 >  	typeof(*p) ___p1 = ACCESS_ONCE(*p);				\
@@ -277,13 +291,13 @@ Ben.
 > +	smp_rmb();							\
 >  	___p1;								\
 >  })
->  
+> 
 > diff --git a/arch/s390/include/asm/barrier.h b/arch/s390/include/asm/barrier.h
 > index 33d191d..9a31301 100644
 > --- a/arch/s390/include/asm/barrier.h
 > +++ b/arch/s390/include/asm/barrier.h
 > @@ -24,6 +24,8 @@
->  
+> 
 >  #define rmb()				mb()
 >  #define wmb()				mb()
 > +#define fast_rmb()			rmb()
@@ -298,13 +312,13 @@ Ben.
 > @@ -37,6 +37,9 @@ do {	__asm__ __volatile__("ba,pt	%%xcc, 1f\n\t" \
 >  #define rmb()	__asm__ __volatile__("":::"memory")
 >  #define wmb()	__asm__ __volatile__("":::"memory")
->  
+> 
 > +#define fast_rmb()	rmb()
 > +#define fast_wmb()	wmb()
 > +
 >  #define set_mb(__var, __value) \
 >  	do { __var = __value; membar_safe("#StoreLoad"); } while(0)
->  
+> 
 > diff --git a/arch/x86/include/asm/barrier.h b/arch/x86/include/asm/barrier.h
 > index 5238000..cf440e7 100644
 > --- a/arch/x86/include/asm/barrier.h
@@ -312,7 +326,7 @@ Ben.
 > @@ -24,13 +24,16 @@
 >  #define wmb()	asm volatile("sfence" ::: "memory")
 >  #endif
->  
+> 
 > -#ifdef CONFIG_SMP
 > -#define smp_mb()	mb()
 >  #ifdef CONFIG_X86_PPRO_FENCE
@@ -335,9 +349,9 @@ Ben.
 > --- a/arch/x86/um/asm/barrier.h
 > +++ b/arch/x86/um/asm/barrier.h
 > @@ -29,17 +29,18 @@
->  
+> 
 >  #endif /* CONFIG_X86_32 */
->  
+> 
 > -#ifdef CONFIG_SMP
 > -
 > -#define smp_mb()	mb()
@@ -349,15 +363,15 @@ Ben.
 > +#define fast_rmb()	barrier()
 >  #endif /* CONFIG_X86_PPRO_FENCE */
 > +#define fast_wmb()	barrier()
->  
+> 
 > -#define smp_wmb()	barrier()
 > +#ifdef CONFIG_SMP
->  
+> 
 > +#define smp_mb()	mb()
 > +#define smp_rmb()	fast_rmb()
 > +#define smp_wmb()	fast_wmb()
 >  #define set_mb(var, value) do { (void)xchg(&var, value); } while (0)
->  
+> 
 >  #else /* CONFIG_SMP */
 > diff --git a/include/asm-generic/barrier.h b/include/asm-generic/barrier.h
 > index 1402fa8..c1d60b9 100644
@@ -366,7 +380,7 @@ Ben.
 > @@ -42,6 +42,14 @@
 >  #define wmb()	mb()
 >  #endif
->  
+> 
 > +#ifndef fast_rmb
 > +#define fast_rmb()	rmb()
 > +#endif
@@ -379,8 +393,3 @@ Ben.
 >  #define read_barrier_depends()		do { } while (0)
 >  #endif
 > 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
