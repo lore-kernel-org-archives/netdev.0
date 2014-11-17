@@ -1,131 +1,36 @@
-From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
-Subject: Re: /proc/net/sockstat invalid memory accounting or memory leak in
- latest =?UTF-8?Q?kernels=3F=20=28trying=20to=20debug=29?=
-Date: Mon, 17 Nov 2014 12:22:54 +0200
-Message-ID: <9056c6967a870d9fbee54776cf950e48@visp.net.lb>
-References: <40bc2b5fcda47d790f1fd247bc409041@visp.net.lb>
- <1405597918.10255.76.camel@edumazet-glaptop2.roam.corp.google.com>
- <37e25a5815a18a2da507a5b20b58427d@visp.net.lb>
- <1405604568.10255.80.camel@edumazet-glaptop2.roam.corp.google.com>
- <a927787503c2f0d71c330b879303b14f@visp.net.lb>
- <1405672897.10255.95.camel@edumazet-glaptop2.roam.corp.google.com>
- <1405676214.10255.96.camel@edumazet-glaptop2.roam.corp.google.com>
- <0b0b74ab8d2222fa85b23e06c6e992ec@visp.net.lb>
- <1405849675.10255.100.camel@edumazet-glaptop2.roam.corp.google.com>
- <6fc086a122bc3ac728a7aec9e812310f@visp.net.lb>
- <1406016045.10255.122.camel@edumazet-glaptop2.roam.corp.google.com>
- <3f463c3912608f7959481edaa6d7668d@visp.net.lb>
- <1406194817.3363.70.camel@edumazet-glaptop2.roam.corp.google.com>
- <8f138d88e3b850130eb9bb15e3e27069@visp.net.lb>
- <2adbf5346b4dd2bebe1915096c1c567c@visp.net.lb>
- <1415813254.17262.7.camel@edumazet-glaptop2.roam.corp.google.com>
- <64ef227cf22945d373cb06271fe6e051@visp.net.lb>
- <1416161495.17262.90.camel@edumazet-glaptop2.roam.corp.google.com>
- <8d9b6a2c313db242c1afb3bcd6a12c51@visp.net.lb>
- <1416168961.17262.96.camel@edumazet-glaptop2.roam.corp.google.com>
- <1416200496.24093.5.camel@edumazet-glaptop2.roam.corp.google.com>
+From: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
+Subject: RE: [PATCH 0/8] net: fec: assorted cleanup patches
+Date: Mon, 17 Nov 2014 10:52:40 +0000
+Message-ID: <fa87847d44234f0a9e54153b8019ccee@BLUPR03MB373.namprd03.prod.outlook.com>
+References: <1416217884-20911-1-git-send-email-LW@KARO-electronics.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
- format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Neal Cardwell <ncardwell@google.com>,
-	Yuchung Cheng <ycheng@google.com>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Frank.Li@freescale.com" <Frank.Li@freescale.com>,
+	Russell King <rmk+kernel@arm.linux.org.uk>
+To: =?utf-8?B?TG90aGFyIFdhw59tYW5u?= <LW@KARO-electronics.de>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hosting.visp.net.lb ([194.146.153.11]:34914 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751791AbaKQKW6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Nov 2014 05:22:58 -0500
-Received: from hosting.visp.net.lb (localhost [127.0.0.1])
-	by hosting.visp.net.lb (Postfix) with ESMTP id AC9F7480184
-	for <netdev@vger.kernel.org>; Mon, 17 Nov 2014 12:22:54 +0200 (EET)
-In-Reply-To: <1416200496.24093.5.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-bn1bon0110.outbound.protection.outlook.com ([157.56.111.110]:11584
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751547AbaKQKwo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Nov 2014 05:52:44 -0500
+In-Reply-To: <1416217884-20911-1-git-send-email-LW@KARO-electronics.de>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2014-11-17 07:01, Eric Dumazet wrote:
-> On Sun, 2014-11-16 at 12:16 -0800, Eric Dumazet wrote:
-> 
->> Thanks Denys !
->> 
->> Could you try following patch ?
->> 
->> Thanks !
-> 
-> Hmm.... I have an updated patch, sorry.
-> 
-> (A memcpy_fromiovec() has to be memcpy_fromiovecend() )
-> 
-> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-> index a3d453b94747..c2bbfcd9c0db 100644
-> --- a/net/ipv4/tcp_output.c
-> +++ b/net/ipv4/tcp_output.c
-> @@ -2998,7 +2998,7 @@ static int tcp_send_syn_data(struct sock *sk,
-> struct sk_buff *syn)
->  {
->  	struct tcp_sock *tp = tcp_sk(sk);
->  	struct tcp_fastopen_request *fo = tp->fastopen_req;
-> -	int syn_loss = 0, space, i, err = 0, iovlen = fo->data->msg_iovlen;
-> +	int syn_loss = 0, space, err = 0;
->  	struct sk_buff *syn_data = NULL, *data;
->  	unsigned long last_syn_loss = 0;
-> 
-> @@ -3031,25 +3031,19 @@ static int tcp_send_syn_data(struct sock *sk,
-> struct sk_buff *syn)
->  	/* limit to order-0 allocations */
->  	space = min_t(size_t, space, SKB_MAX_HEAD(MAX_TCP_HEADER));
-> 
-> -	syn_data = skb_copy_expand(syn, MAX_TCP_HEADER, space,
-> -				   sk->sk_allocation);
-> -	if (syn_data == NULL)
-> +	syn_data = sk_stream_alloc_skb(sk, space, sk->sk_allocation);
-> +	if (!syn_data)
->  		goto fallback;
-> 
-> -	for (i = 0; i < iovlen && syn_data->len < space; ++i) {
-> -		struct iovec *iov = &fo->data->msg_iov[i];
-> -		unsigned char __user *from = iov->iov_base;
-> -		int len = iov->iov_len;
-> -
-> -		if (syn_data->len + len > space)
-> -			len = space - syn_data->len;
-> -		else if (i + 1 == iovlen)
-> -			/* No more data pending in inet_wait_for_connect() */
-> -			fo->data = NULL;
-> +	syn_data->ip_summed = CHECKSUM_PARTIAL;
-> +	memcpy(syn_data->cb, syn->cb, sizeof(syn->cb));
-> +	if (memcpy_fromiovecend(skb_put(syn_data, space),
-> +				fo->data->msg_iov, 0, space))
-> +		goto fallback;
-> 
-> -		if (skb_add_data(syn_data, from, len))
-> -			goto fallback;
-> -	}
-> +	/* No more data pending in inet_wait_for_connect() */
-> +	if (space == fo->size)
-> +		fo->data = NULL;
-> 
->  	/* Queue a data-only packet after the regular SYN for retransmission 
-> */
->  	data = pskb_copy(syn_data, sk->sk_allocation);
-> @@ -3101,13 +3095,10 @@ int tcp_connect(struct sock *sk)
->  		return 0;
->  	}
-> 
-> -	buff = alloc_skb_fclone(MAX_TCP_HEADER + 15, sk->sk_allocation);
-> -	if (unlikely(buff == NULL))
-> +	buff = sk_stream_alloc_skb(sk, 0, sk->sk_allocation);
-> +	if (unlikely(!buff))
->  		return -ENOBUFS;
-> 
-> -	/* Reserve space for headers. */
-> -	skb_reserve(buff, MAX_TCP_HEADER);
-> -
->  	tcp_init_nondata_skb(buff, tp->write_seq++, TCPHDR_SYN);
->  	tp->retrans_stamp = tcp_time_stamp;
->  	tcp_connect_queue_skb(sk, buff);
-
-Installed patch, but will have to wait a while (usually at least 
-24hours), to be sure if it is stable.
-
-Thanks a lot!
+RnJvbTogTG90aGFyIFdhw59tYW5uIDxMV0BLQVJPLWVsZWN0cm9uaWNzLmRlPiBTZW50OiBNb25k
+YXksIE5vdmVtYmVyIDE3LCAyMDE0IDU6NTEgUE0NCj5UbzogRGF2aWQgUy4gTWlsbGVyDQo+Q2M6
+IExvdGhhciBXYcOfbWFubjsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgTGkgRnJhbmstQjIwNTk2
+OyBEdWFuIEZ1Z2FuZy0NCj5CMzg2MTE7IFJ1c3NlbGwgS2luZw0KPlN1YmplY3Q6IFtQQVRDSCAw
+LzhdIG5ldDogZmVjOiBhc3NvcnRlZCBjbGVhbnVwIHBhdGNoZXMNCj4NCj5UaGlzIHBhdGNoIHNl
+cmllcyBpcyBhIGZvbGxvd3VwIHRvOg0KPjwxNDE1MzUwOTY3LTIyMzgtMS1naXQtc2VuZC1lbWFp
+bC1MV0BLQVJPLWVsZWN0cm9uaWNzLmRlPg0KPltQQVRDSHY0IDEvMV0gbmV0OiBmZWM6IGZpeCBy
+ZWdyZXNzaW9uIG9uIGkuTVgyOCBpbnRyb2R1Y2VkIGJ5DQo+cnhfY29weWJyZWFrIHN1cHBvcnQg
+dG8gYXBwbHkgdGhlIGNsZWFudXAgcGF0Y2hlcyB0aGF0IHdlcmUgb3JpZ2luYWxseQ0KPnNlbnQg
+YWxvbmcgd2l0aCB0aGUgYnVnZml4IHBhdGNoLg0KDQpUaGFua3MgZm9yIHlvdXIgY29kZSBjbGVh
+biENCg0KQWNrZWQtYnk6IEZ1Z2FuZyBEdWFuIDxCMzg2MTFAZnJlZXNjYWxlLmNvbT4NCg0KUmVn
+YXJkcywNCkFuZHkNCg==
