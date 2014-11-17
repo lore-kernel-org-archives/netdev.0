@@ -1,76 +1,68 @@
-From: Sathya Perla <Sathya.Perla@Emulex.Com>
-Subject: RE: [PATCH Iproute2 next v1] ip link: Add ipvlan support to the
- iproute2/ip util
-Date: Mon, 17 Nov 2014 06:57:49 +0000
-Message-ID: <CF9D1877D81D214CB0CA0669EFAE020C68CEC1DB@CMEXMB1.ad.emulex.com>
-References: <1416205677-26706-1-git-send-email-maheshb@google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 01/14] net: provide a per host RSS key generic
+ infrastructure
+Date: Sun, 16 Nov 2014 22:58:41 -0800
+Message-ID: <1416207521.31801.3.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1416147798-16561-1-git-send-email-edumazet@google.com>
+	 <1416147798-16561-2-git-send-email-edumazet@google.com>
+	 <87wq6uiass.fsf@tassilo.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
 Cc: Eric Dumazet <edumazet@google.com>,
-	Maciej Zenczykowski <maze@google.com>,
-	Laurent Chavey <chavey@google.com>,
-	Tim Hockin <thockin@google.com>,
-	"David Miller" <davem@davemloft.net>,
-	Brandon Philips <brandon.philips@coreos.com>,
-	Pavel Emelianov <xemul@parallels.com>
-To: Mahesh Bandewar <maheshb@google.com>,
-	netdev <netdev@vger.kernel.org>,
-	Stephen Hemminger <stephen@networkplumber.org>
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Thomas Lendacky <Thomas.Lendacky@amd.com>,
+	Ariel Elior <ariel.elior@qlogic.com>,
+	Michael Chan <mchan@broadcom.com>,
+	Prashant Sreedharan <prashant@broadcom.com>,
+	Rasesh Mody <rasesh.mody@qlogic.com>,
+	Sathya Perla <sathya.perla@emulex.com>,
+	Subbu Seetharaman <subbu.seetharaman@emulex.com>,
+	Ajit Khaparde <ajit.khaparde@emulex.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Shradha Shah <sshah@solarflare.com>,
+	Shreyas Bhatewara <sbhatewara@vmware.com>
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge1.emulex.com ([138.239.224.99]:8915 "EHLO
-	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750943AbaKQG6Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Nov 2014 01:58:16 -0500
-In-Reply-To: <1416205677-26706-1-git-send-email-maheshb@google.com>
-Content-Language: en-US
+Received: from mail-ie0-f171.google.com ([209.85.223.171]:44879 "EHLO
+	mail-ie0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750997AbaKQG6j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Nov 2014 01:58:39 -0500
+Received: by mail-ie0-f171.google.com with SMTP id rl12so834763iec.30
+        for <netdev@vger.kernel.org>; Sun, 16 Nov 2014 22:58:38 -0800 (PST)
+In-Reply-To: <87wq6uiass.fsf@tassilo.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
-ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LQ0KPiANCj4gQWRkaW5nIGJhc2ljIHN1cHBvcnQgdG8g
-Y3JlYXRlIHZpcnR1YWwgZGV2aWNlcyB1c2luZyAnaXAnDQo+IHV0aWxpdHkuIEZvbGxvd2luZyBp
-cyB0aGUgc3ludGF4IC0NCj4gDQo+IAlpcCBsaW5rIGFkZCBsaW5rIDxtYXN0ZXI+IDx2aXJ0dWFs
-PiB0eXBlIGlwdmxhbiBtb2RlIFsgbDIgfCBsMyBdDQo+IAllLmcuIGlwIGxpbmsgYWRkIGxpbmsg
-ZXRoMCBpcHZsMCB0eXBlIGlwdmxhbiBtb2RlIGwzDQo+IA0KLi4NCj4gLS0tDQo+ICBpbmNsdWRl
-L2xpbnV4L2lmX2xpbmsuaCB8IDE0ICsrKysrKysrDQo+ICBpcC9NYWtlZmlsZSAgICAgICAgICAg
-ICB8ICAyICstDQo+ICBpcC9pcGxpbmsuYyAgICAgICAgICAgICB8ICAyICstDQo+ICBpcC9pcGxp
-bmtfaXB2bGFuLmMgICAgICB8IDg1DQo+ICsrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysr
-KysrKysrKysrKysrKysrKysNCj4gIDQgZmlsZXMgY2hhbmdlZCwgMTAxIGluc2VydGlvbnMoKyks
-IDIgZGVsZXRpb25zKC0pDQo+ICBjcmVhdGUgbW9kZSAxMDA2NDQgaXAvaXBsaW5rX2lwdmxhbi5j
-DQo+IA0KPiBkaWZmIC0tZ2l0IGEvaW5jbHVkZS9saW51eC9pZl9saW5rLmggYi9pbmNsdWRlL2xp
-bnV4L2lmX2xpbmsuaA0KPiBpbmRleCA0NzMyMDYzNjM2MWMuLmVmMWU5ZjczZmIxNSAxMDA2NDQN
-Cj4gLS0tIGEvaW5jbHVkZS9saW51eC9pZl9saW5rLmgNCj4gKysrIGIvaW5jbHVkZS9saW51eC9p
-Zl9saW5rLmgNCj4gQEAgLTMyNSw2ICszMjUsMjAgQEAgZW51bSBtYWN2bGFuX21hY2FkZHJfbW9k
-ZSB7DQo+ICAJTUFDVkxBTl9NQUNBRERSX1NFVCwNCj4gIH07DQo+IA0KPiArLyogSVBWTEFOIHNl
-Y3Rpb24gKi8NCj4gK2VudW0gew0KPiArCUlGTEFfSVBWTEFOX1VOU1BFQywNCj4gKwlJRkxBX0lQ
-VkxBTl9NT0RFLA0KPiArCV9fSUZMQV9JUFZMQU5fTUFYLA0KPiArfTsNCj4gKw0KPiArI2RlZmlu
-ZSBJRkxBX0lQVkxBTl9NQVggKF9fSUZMQV9JUFZMQU5fTUFYIC0gMSkNCj4gKw0KPiArZW51bSBp
-cHZsYW5fbW9kZSB7DQo+ICsJSVBWTEFOX01PREVfTDIgPSAwLCAvKiBQcm9jZXNzIHBhY2tldHMg
-YWxsIHRoZSB3YXkgdXB0byBMMiAqLw0KPiArCUlQVkxBTl9NT0RFX0wzID0gMSwgLyogUHJvY2Vz
-cyBQYWNrZXRzIGFsbCB0aGUgd2F5IHVwdG8gTDMgKi8NCj4gK307DQo+ICsNCj4gICNkZWZpbmUg
-TUFDVkxBTl9GTEFHX05PUFJPTUlTQwkxDQo+IA0KPi4uLiArDQo+ICsjaW5jbHVkZSA8c3RkaW8u
-aD4NCj4gKyNpbmNsdWRlIDxzdGRsaWIuaD4NCj4gKyNpbmNsdWRlIDxzdHJpbmcuaD4NCj4gKyNp
-bmNsdWRlIDxzeXMvc29ja2V0Lmg+DQo+ICsjaW5jbHVkZSA8bGludXgvaWZfbGluay5oPg0KPiAr
-DQo+ICsjaW5jbHVkZSAicnRfbmFtZXMuaCINCj4gKyNpbmNsdWRlICJ1dGlscy5oIg0KPiArI2lu
-Y2x1ZGUgImlwX2NvbW1vbi5oIg0KPiArDQo+ICtzdGF0aWMgdm9pZCBleHBsYWluKHZvaWQpDQo+
-ICt7DQo+ICsJZnByaW50ZihzdGRlcnIsICJVc2FnZTogLi4uIGlwdmxhbiBbIG1vZGUgeyBsMiB8
-IGwzIH0gXVxuIik7DQo+ICt9DQo+ICsNCj4gK3N0YXRpYyBpbnQgbW9kZV9hcmcodm9pZCkNCj4g
-K3sNCj4gKwlmcHJpbnRmKHN0ZGVyciwgIkVycm9yOiBhcmd1bWVudCBvZiBcIm1vZGVcIiBtdXN0
-IGJlIGVpdGhlciBcImwyXCIsICINCj4gKwkJIm9yIFwibDNcIlxuIik7DQo+ICsgICAgICAgIHJl
-dHVybiAtMTsNCkkgZ3Vlc3MgeW91IHdhbnRlZCB0byAicmV0dXJuIC0xIiBmcm9tIHRoZSBjYWxs
-ZXIgcm91dGluZSBpcHZsYW5fcGFyc2Vfb3B0KCkNCmFuZCBub3QgZnJvbSB0aGlzIHJvdXRpbmUu
-DQoNCj4gK30NCj4gKw0KPiArc3RhdGljIGludCBpcHZsYW5fcGFyc2Vfb3B0KHN0cnVjdCBsaW5r
-X3V0aWwgKmx1LCBpbnQgYXJnYywgY2hhciAqKmFyZ3YsDQo+ICsJCQkgIHN0cnVjdCBubG1zZ2hk
-ciAqbikNCj4gK3sNCj4gKwl3aGlsZSAoYXJnYyA+IDApIHsNCj4gKwkgICAgaWYgKG1hdGNoZXMo
-KmFyZ3YsICJtb2RlIikgPT0gMCkgew0KPiArCQkJX191MTYgbW9kZSA9IDA7DQo+ICsJCQlORVhU
-X0FSRygpOw0KPiArDQo+ICsJCQlpZiAoc3RyY21wKCphcmd2LCAibDIiKSA9PSAwKQ0KPiArCQkJ
-CW1vZGUgPSBJUFZMQU5fTU9ERV9MMjsNCj4gKwkJCWVsc2UgaWYgKHN0cmNtcCgqYXJndiwgImwz
-IikgPT0gMCkNCj4gKwkJCQltb2RlID0gSVBWTEFOX01PREVfTDM7DQo+ICsJCQllbHNlDQo+ICsJ
-CQkJbW9kZV9hcmcoKTsNCj4gKw0KPiArCQkJYWRkYXR0cjE2KG4sIDEwMjQsIElGTEFfSVBWTEFO
-X01PREUsIG1vZGUpOw0KPiArCQl9IGVsc2UgaWYgKG1hdGNoZXMoKmFyZ3YsICJoZWxwIikgPT0g
-MCkgew0KPiArCQkJZXhwbGFpbigpOw0KPiArCQkJcmV0dXJuIC0xOw0KPiArCQl9IGVsc2Ugew0K
-PiArCQkJZnByaW50ZihzdGRlcnIsICJpcHZsYW46IHVua25vd24gb3B0aW9uIFwiJXNcIj9cbiIs
-DQo+ICphcmd2KTsNCj4gKwkJCWV4cGxhaW4oKTsNCj4gKwkJCXJldHVybiAtMTsNCj4gKwkJfQ0K
-PiArCQlhcmdjLS0sIGFyZ3YrKzsNCj4gKwl9DQo+ICsNCj4gKwlyZXR1cm4gMDsNCj4gK30NCj4g
-Kw0K
+On Sun, 2014-11-16 at 22:46 -0800, Andi Kleen wrote:
+
+> Wouldn't it be better to have some kernel facility to query on what
+> port a given mapping would end up rather than exporting
+> the key? Similar to querying the rounting table.
+> That would be more abstract.
+
+It is already there, few drivers implement
+
+ethtool -x eth0
+
+And all users can read rss key :
+
+$ ethtool -x eth0
+RX flow hash indirection table for eth0 with 8 RX ring(s):
+    0:      0     1     2     3     4     5     6     7
+RSS hash key:
+d9:73:69:1e:c5:74:73:38:67:a4:a9:98:78:b1:e2:b6:39:1c:02:f9:30:57:79:84:02:b7:48:90:63:95:10:85:51:bb:f2:9e:f2:c5:85:27
+
+> 
+> > +	{
+> > +		.procname	= "netdev_rss_key",
+> > +		.data		= &netdev_rss_key,
+> > +		.maxlen		= sizeof(int),
+> > +		.mode		= 0444,
+> 
+> Surely 0400 ? After all it's a kind a "secret"
+
+Not really. Toeplitz is not cryptographic. A local program can easily
+rebuild the key even if kept 'secret' by networking stack.
