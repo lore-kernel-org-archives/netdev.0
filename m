@@ -1,38 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/1 net-next] net/core: include linux/types.h instead of
- asm/types.h
-Date: Mon, 17 Nov 2014 13:22:56 -0800
-Message-ID: <1416259376.18588.8.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1416258502-9001-1-git-send-email-fabf@skynet.be>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
+From: Fabian Frederick <fabf@skynet.be>
+Subject: [PATCH 1/1 net-next] dev_ioctl: use sizeof(x) instead of sizeof x
+Date: Mon, 17 Nov 2014 22:23:17 +0100
+Message-ID: <1416259397-10954-1-git-send-email-fabf@skynet.be>
+Cc: Fabian Frederick <fabf@skynet.be>,
 	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Fabian Frederick <fabf@skynet.be>
+To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1416258502-9001-1-git-send-email-fabf@skynet.be>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2014-11-17 at 22:08 +0100, Fabian Frederick wrote:
-> Signed-off-by: Fabian Frederick <fabf@skynet.be>
-> ---
->  net/core/link_watch.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/net/core/link_watch.c b/net/core/link_watch.c
-> index bd0767e..49a9e3e 100644
-> --- a/net/core/link_watch.c
-> +++ b/net/core/link_watch.c
-> @@ -21,7 +21,7 @@
->  #include <linux/spinlock.h>
->  #include <linux/workqueue.h>
->  #include <linux/bitops.h>
-> -#include <asm/types.h>
-> +#include <linux/types.h>
->  
+Also remove spaces after cast.
 
-We have 99 such occurrences in net/
+Signed-off-by: Fabian Frederick <fabf@skynet.be>
+---
+ net/core/dev_ioctl.c | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
 
-Are you going to send 99 patches ?
+diff --git a/net/core/dev_ioctl.c b/net/core/dev_ioctl.c
+index 72e899a..b94b1d2 100644
+--- a/net/core/dev_ioctl.c
++++ b/net/core/dev_ioctl.c
+@@ -142,10 +142,12 @@ static int dev_ifsioc_locked(struct net *net, struct ifreq *ifr, unsigned int cm
+ 
+ 	case SIOCGIFHWADDR:
+ 		if (!dev->addr_len)
+-			memset(ifr->ifr_hwaddr.sa_data, 0, sizeof ifr->ifr_hwaddr.sa_data);
++			memset(ifr->ifr_hwaddr.sa_data, 0,
++			       sizeof(ifr->ifr_hwaddr.sa_data));
+ 		else
+ 			memcpy(ifr->ifr_hwaddr.sa_data, dev->dev_addr,
+-			       min(sizeof ifr->ifr_hwaddr.sa_data, (size_t) dev->addr_len));
++			       min(sizeof(ifr->ifr_hwaddr.sa_data),
++				   (size_t)dev->addr_len));
+ 		ifr->ifr_hwaddr.sa_family = dev->type;
+ 		return 0;
+ 
+@@ -265,7 +267,8 @@ static int dev_ifsioc(struct net *net, struct ifreq *ifr, unsigned int cmd)
+ 		if (ifr->ifr_hwaddr.sa_family != dev->type)
+ 			return -EINVAL;
+ 		memcpy(dev->broadcast, ifr->ifr_hwaddr.sa_data,
+-		       min(sizeof ifr->ifr_hwaddr.sa_data, (size_t) dev->addr_len));
++		       min(sizeof(ifr->ifr_hwaddr.sa_data),
++			   (size_t)dev->addr_len));
+ 		call_netdevice_notifiers(NETDEV_CHANGEADDR, dev);
+ 		return 0;
+ 
+-- 
+1.9.3
