@@ -1,59 +1,47 @@
-From: Fabian Frederick <fabf@skynet.be>
-Subject: Re: [PATCH 1/1 net-next] wireless: remove unnecessary sizeof(u8)
-Date: Mon, 17 Nov 2014 06:56:27 +0100 (CET)
-Message-ID: <828430032.148603.1416203787175.open-xchange@webmail.nmp.skynet.be>
-References: <1415998553-12636-1-git-send-email-fabf@skynet.be> <CAGRGNgWqjsDu_mQK=_agBWjOequb4b7ffgCuxRH=9d72grDYtQ@mail.gmail.com>
-Reply-To: Fabian Frederick <fabf@skynet.be>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] bridge: fix netfilter/NF_BR_LOCAL_OUT for own,
+ locally generated queries
+Date: Mon, 17 Nov 2014 01:12:44 -0500 (EST)
+Message-ID: <20141117.011244.411942491718443458.davem@davemloft.net>
+References: <1411342364-4791-1-git-send-email-linus.luessing@web.de>
+	<20141102220145.GA25604@gondor.apana.org.au>
+	<20141117020816.GD2469@odroid>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Johannes Berg <johannes.berg@intel.com>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	Chaoming Li <chaoming_li@realsil.com.cn>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
-	b43-dev <b43-dev@lists.infradead.org>,
-	Stefano Brivio <stefano.brivio@polimi.it>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Intel Linux Wireless <ilw@linux.intel.com>
-To: Julian Calaby <julian.calaby@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAGRGNgWqjsDu_mQK=_agBWjOequb4b7ffgCuxRH=9d72grDYtQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, herbert@gondor.apana.org.au,
+	linux-kernel@vger.kernel.org
+To: linus.luessing@c0d3.blue
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20141117020816.GD2469@odroid>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
+From: Linus L=FCssing <linus.luessing@c0d3.blue>
+Date: Mon, 17 Nov 2014 03:08:16 +0100
 
+> On Mon, Nov 03, 2014 at 06:01:46AM +0800, Herbert Xu wrote:
+>> On Mon, Sep 22, 2014 at 01:32:44AM +0200, Linus L=FCssing wrote:
+>> > Signed-off-by: Linus L=FCssing <linus.luessing@web.de>
+>> =
 
-> On 16 November 2014 at 23:33 Julian Calaby <julian.calaby@gmail.com> wrote:
->
->
-> Hi Fabian,
->
-> On Sat, Nov 15, 2014 at 7:55 AM, Fabian Frederick <fabf@skynet.be> wrote:
-> > sizeof(u8) is always 1.
->
-> I thought that sizeof(*variable) was preferred over sizeof(type), so
-> shouldn't these be switched to that format instead?
->
-> (I know that this is all no-op, but it should reduce the potential for
-> highly unlikely bugs in the future. Also, the extra processing is
-> compile-time not run-time.)
->
-> Thanks,
+>> Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+> =
 
-Hi Julian,
+> Hi David,
+> =
 
-Of course but char/u8/s8... allocations never use it and result would be the
-same:
-factor 1 multiplication.
+> are there any unanswered questions left?
 
-Those rare occurrences (+- 30 in the whole kernel) where we have
-sizeof(u8/s8) is ambiguous.
-
-Having a patch removing it gives a pointer...
-If the developer meant something else, he will be able to fix it.
-
-Regards,
-Fabian
+I expect to get this from the netfilter folks, since it is a
+netfilter change.  So you should submit it to the netfilter
+maintainers.
