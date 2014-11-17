@@ -1,41 +1,81 @@
-From: "Mrs.Suzanne Mubarak" <info@mail.com>
-Subject: Investment and Management
-Date: Mon, 17 Nov 2014 07:49:10 -0200
-Message-ID: <20141117074910.97265x0xrixrd40m@webmail.aerobello.com.br>
-Reply-To: famsuz_mubarak@draze.com
+From: Roger Quadros <rogerq@ti.com>
+Subject: Re: [PATCH v4 3/8] net: can: c_can: Add RAMINIT register information
+ to driver data
+Date: Mon, 17 Nov 2014 13:17:56 +0200
+Message-ID: <5469D964.8020804@ti.com>
+References: <1415371762-29885-1-git-send-email-rogerq@ti.com> <1415371762-29885-4-git-send-email-rogerq@ti.com> <54664212.8080206@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=ISO-8859-1;
- DelSp="Yes";
- format="flowed"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from host.hosttoyou.com.br ([174.136.1.64]:8585 "EHLO
-	host.hosttoyou.com.br" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751734AbaKQLF6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Nov 2014 06:05:58 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <wsa@the-dreams.de>, <tony@atomide.com>, <tglx@linutronix.de>,
+	<mugunthanvnm@ti.com>, <george.cherian@ti.com>, <balbi@ti.com>,
+	<nsekhar@ti.com>, <nm@ti.com>,
+	<sergei.shtylyov@cogentembedded.com>, <linux-omap@vger.kernel.org>,
+	<linux-can@vger.kernel.org>, <netdev@vger.kernel.org>
+To: Marc Kleine-Budde <mkl@pengutronix.de>, <wg@grandegger.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <54664212.8080206@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On 11/14/2014 07:55 PM, Marc Kleine-Budde wrote:
+> On 11/07/2014 03:49 PM, Roger Quadros wrote:
+>> Some platforms (e.g. TI) need special RAMINIT register handling.
+>> Provide a way to store RAMINIT register description in driver data.
+>>
+>> Signed-off-by: Roger Quadros <rogerq@ti.com>
+>> ---
+>>  drivers/net/can/c_can/c_can.h          | 6 ++++++
+>>  drivers/net/can/c_can/c_can_platform.c | 1 +
+>>  2 files changed, 7 insertions(+)
+>>
+>> diff --git a/drivers/net/can/c_can/c_can.h b/drivers/net/can/c_can/c_can.h
+>> index 26c975d..3c305a1 100644
+>> --- a/drivers/net/can/c_can/c_can.h
+>> +++ b/drivers/net/can/c_can/c_can.h
+>> @@ -171,6 +171,12 @@ enum c_can_dev_id {
+>>  
+>>  struct c_can_driver_data {
+>>  	enum c_can_dev_id id;
+>> +
+>> +	/* RAMINIT register description. Optional. */
+>> +	u8 num_can;		/* Number of CAN instances on the SoC */
+>> +	u8 *raminit_start_bits;	/* Array of START bit positions */
+>> +	u8 *raminit_done_bits;	/* Array of DONE bit positions */
+> 
+> What do you think about making this a struct:
+> 
+> +struct raminit_bits {
+> +       u8 start;
+> +       u8 done;
+> +};
+> 
+>  struct c_can_driver_data {
+>         enum c_can_dev_id id;
+> +
+> +       /* RAMINIT register description. Optional. */
+> +       const struct raminit_bits *raminit_bits; /* Array of START/DONE bit positions */
+> +       u8 raminit_num;         /* Number of CAN instances on the SoC */
+> +       bool raminit_pulse;     /* If set, sets and clears START bit (pulse) */
+>  };
+> 
+> The driver data looks like this:
+> 
+> +static const struct raminit_bits dra7_raminit_bits[] = {
+> +       [0] = { .start = 3, .done = 1, },
+> +       [1] = { .start = 5, .done = 2, },
+> +};
+> +
+> +static const struct c_can_driver_data dra7_dcan_drvdata = {
+> +       .id = BOSCH_D_CAN,
+> +       .raminit_num = ARRAY_SIZE(dra7_raminit_bits),
+> +       .raminit_bits = dra7_raminit_bits,
+> +       .raminit_pulse = true,
+> +};
+> 
+> I'll send an updated series.
 
-Mrs.Suzanne Mubarak
-Email: famsuz_mubarak@draze.com
-Address:34, Misr Helwan
-Maadi,Cairo Egypt
+Looks better. Thanks.
 
-http://www.bbc.co.uk/news/world-africa-13398644
-http://www.bbc.co.uk/news/world-middle-east-25446660
-http://www.bbc.co.uk/news/world-middle-east-23801010
-
-Re: Investment and Management of 25 million united states.for my  
-family in Abroad
-
-N.B. All you need to do is to send your details-telephone,Full name  
-and fax number to my lawyer Barrister Alex Thomas on email:
-barralexthomas@outlook.com or telephone number+17862540754. He will be  
-the one to give you details on the procedure to follow.
-
-Yours faithfully,
-MRS SUZANNE MUBARAK
+cheers,
+-roger
