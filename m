@@ -1,62 +1,74 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [PATCH 2/4] arch: Add lightweight memory barriers fast_rmb() and fast_wmb()
-Date: Mon, 17 Nov 2014 12:52:17 -0800
-Message-ID: <CA+55aFxZ9dhB074p3OAQLyQ53TuRjVOo33h6OOda1soh-9xxnQ@mail.gmail.com>
-References: <20141117171005.22333.96544.stgit@ahduyck-server>
-	<20141117171812.22333.90395.stgit@ahduyck-server>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Heiko Carstens <heiko.carstens@de.ibm.com>,
-	Ingo Molnar <mingo@kernel.org>,
-	Michael Neuling <mikey@neuling.org>,
-	Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	donald.c.skidmore@intel.com, matthew.vick@intel.com,
-	Geert Uytterhoeven <geert@linux-m68k.org>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Paul McKenney <paulmck@linux.vnet.ibm.com>,
-	nic_swsd@realtek.com, Will Deacon <will.deacon@arm.com>,
-	Michael Ellerman <michael@ellerman.id.au>,
-	Tony Luck <tony.luck@intel.com>,
-	Oleg Nesterov <oleg@redhat.com>,
-	Martin Schwidefsky <
-To: Alexander Duyck <alexander.h.duyck@redhat.com>
+From: Fabian Frederick <fabf@skynet.be>
+Subject: [PATCH 1/1 net-next] dccp: remove blank lines between function/EXPORT_SYMBOL
+Date: Mon, 17 Nov 2014 21:54:58 +0100
+Message-ID: <1416257698-5889-1-git-send-email-fabf@skynet.be>
+Cc: Fabian Frederick <fabf@skynet.be>,
+	Gerrit Renker <gerrit@erg.abdn.ac.uk>,
+	"David S. Miller" <davem@davemloft.net>, dccp@vger.kernel.org,
+	netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141117171812.22333.90395.stgit@ahduyck-server>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 17, 2014 at 9:18 AM, Alexander Duyck
-<alexander.h.duyck@redhat.com> wrote:
-> There are a number of situations where the mandatory barriers rmb() and
-> wmb() are used to order memory/memory operations in the device drivers
-> and those barriers are much heavier than they actually need to be.
+See Documentation/CodingStyle chapter 6.
 
-Ugh. I absolutely despise the name.
+Signed-off-by: Fabian Frederick <fabf@skynet.be>
+---
+ net/dccp/ipv4.c | 6 ------
+ 1 file changed, 6 deletions(-)
 
-It's not "fast". It's just limited. It's the same as "smp_*mb()", in
-that it works on cacheable memory, but it actually stays around even
-for non-SMP builds.
-
-So I think the name is actively misleading.
-
-Naming should be about what it does, not about some kind of PR thing
-that confuses people into thinking it's "better".
-
-Maybe "dma_*mb()" would be acceptable, and ends up having the same
-naming convention as "smb_*mb()", and explains what it's about.
-
-And yes, in the same spirit, it would probably be good to try to
-eventually get rid of the plain "*mb()" functions, and perhaps call
-them "mmio_*mb()" to clarify that they are about ordering memory wrt
-mmio.
-
-Hmm?
-
-                        Linus
+diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
+index 6ca645c..e45b968 100644
+--- a/net/dccp/ipv4.c
++++ b/net/dccp/ipv4.c
+@@ -140,7 +140,6 @@ failure:
+ 	inet->inet_dport = 0;
+ 	goto out;
+ }
+-
+ EXPORT_SYMBOL_GPL(dccp_v4_connect);
+ 
+ /*
+@@ -376,7 +375,6 @@ void dccp_v4_send_check(struct sock *sk, struct sk_buff *skb)
+ 						 inet->inet_saddr,
+ 						 inet->inet_daddr);
+ }
+-
+ EXPORT_SYMBOL_GPL(dccp_v4_send_check);
+ 
+ static inline u64 dccp_v4_init_sequence(const struct sk_buff *skb)
+@@ -444,7 +442,6 @@ put_and_exit:
+ 	dccp_done(newsk);
+ 	goto exit;
+ }
+-
+ EXPORT_SYMBOL_GPL(dccp_v4_request_recv_sock);
+ 
+ static struct sock *dccp_v4_hnd_req(struct sock *sk, struct sk_buff *skb)
+@@ -670,7 +667,6 @@ drop:
+ 	DCCP_INC_STATS_BH(DCCP_MIB_ATTEMPTFAILS);
+ 	return -1;
+ }
+-
+ EXPORT_SYMBOL_GPL(dccp_v4_conn_request);
+ 
+ int dccp_v4_do_rcv(struct sock *sk, struct sk_buff *skb)
+@@ -729,7 +725,6 @@ discard:
+ 	kfree_skb(skb);
+ 	return 0;
+ }
+-
+ EXPORT_SYMBOL_GPL(dccp_v4_do_rcv);
+ 
+ /**
+@@ -802,7 +797,6 @@ int dccp_invalid_packet(struct sk_buff *skb)
+ 
+ 	return 0;
+ }
+-
+ EXPORT_SYMBOL_GPL(dccp_invalid_packet);
+ 
+ /* this is called when real data arrives */
+-- 
+1.9.3
