@@ -1,127 +1,243 @@
-From: Alexander Wetzel <alexander.wetzel@web.de>
-Subject: ipip6 - integer underrun when handlince icmpv4 unreachable messages
-Date: Mon, 17 Nov 2014 22:52:04 +0100
-Message-ID: <546A6E04.30603@web.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: roque@di.fc.ul.p, kuznet@ms2.inr.ac.ru, r.venning@telstra.com,
-	nate@thebog.net
-To: netdev@vger.kernel.org
+From: raj@tardy.usa.hp.com (Rick Jones)
+Subject: [PATCH v2 net-next] icmp: Remove some spurious dropped packet profile hits from the ICMP path
+Date: Mon, 17 Nov 2014 14:04:29 -0800 (PST)
+Message-ID: <20141117220429.B000D29003AD@tardy>
+Cc: <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo4-p05-ob.smtp.rzone.de ([81.169.146.182]:51144 "EHLO
-	mo4-p05-ob.smtp.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751820AbaKQV6I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Nov 2014 16:58:08 -0500
+Received: from g2t1383g.austin.hp.com ([15.217.136.92]:53280 "EHLO
+	g2t1383g.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751499AbaKQWEd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Nov 2014 17:04:33 -0500
+Received: from g5t1626.atlanta.hp.com (g5t1626.atlanta.hp.com [15.192.137.9])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by g2t1383g.austin.hp.com (Postfix) with ESMTPS id 74F8A3928
+	for <netdev@vger.kernel.org>; Mon, 17 Nov 2014 22:04:32 +0000 (UTC)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello netdev,
+From: Rick Jones <rick.jones2@hp.com>
 
-the current code to translate icmpv4 "destination unreachable" packets
-to icmpv6 is later generating an integer underrun when calling
-icmpv6_send, by later calling skb_network_header_len and subtracting a
-bigger number from a lower one.
+If icmp_rcv() has successfully processed the incoming ICMP datagram, we
+should use consume_skb() rather than kfree_skb() because a hit on the likes
+of perf -e skb:kfree_skb is not called-for.
 
-The issue is not visible for vanilla kernels and works correctly from
-a user perspective, but a kernel with the PAX patches and enabled
-"size overflow protection" will panic immediately when it's getting an
-icmpv4 destination unreachable packet back for an encapsulated ipv6
-packet. (Remote tunnel endpoint not reachable.)
+Signed-off-by: Rick Jones <rick.jones2@hp.com>
 
-I think I've tracked the issue down and can show you the problem with
-the code... as I understand it as non-programmer greping the sources
-and googeling functions. I was even able to find a fix which passes
-the functionality test, but I'm unqualified to rate the correctness of
-it and so are reaching out to you for that.
+---
 
-What happens (output of printk's) with transport_header and
-network_header around "skb_reset_network_header" is described below
-the function.
-
-Near the end of the mail there are two links to the gentoo bug tracker
-and pax forum, suggesting to put this forward to the lkml/netdev for
-review, also including more details on the panics.
-
-So here the function "ipip6_err_gen_icmpv6_unreach" from
-net/ipv6/sit.c with some remarks and one new line which seems to fix
-the problem:
-
-************************************************************************
-static int ipip6_err_gen_icmpv6_unreach(struct sk_buff *skb)
-{
-        int ihl = ((const struct iphdr *)skb->data)->ihl*4;
-        struct rt6_info *rt;
-        struct sk_buff *skb2;
-
-        if (!pskb_may_pull(skb, ihl + sizeof(struct ipv6hdr) + 8))
-                return 1;
-
-// we clone the ipv4 skb in skb2 to prepare the icmpv6 packet
-        skb2 = skb_clone(skb, GFP_ATOMIC);
-
-        if (!skb2)
-                return 1;
-
-// we clean up the cloned skb2
-        skb_dst_drop(skb2);
-        skb_pull(skb2, ihl);
-// The network header is reset
-        skb_reset_network_header(skb2);
-
-//THE PROPOSED FIX: The following line is NOT in the current code
-        skb_reset_transport_header(skb2);
-
-        rt = rt6_lookup(dev_net(skb->dev), &ipv6_hdr(skb2)->saddr,
-NULL, 0, 0);
-
-        if (rt && rt->dst.dev)
-                skb2->dev = rt->dst.dev;
-
-        icmpv6_send(skb2, ICMPV6_DEST_UNREACH, ICMPV6_ADDR_UNREACH, 0);
-
-        if (rt)
-                ip6_rt_put(rt);
-
-        kfree_skb(skb2);
-
-        return 0;
-
-************************************************************************
-
-With debug printk's prior to "skb_reset_network_header(skb2);" I get
-the following values when the code is used:
-	sk2b->transport_header: 62
-	skb2->network_header  : 4e
-
-After "skb_reset_network_header(skb2);" it reads:
-	sk2b->transport_header: 62
-	skb2->network_header  : 7e
-
-That are the same values which are later causing the integer underrun
-(and with PAX a kernel panic) in "skb_network_header_len"
-
-Adding "skb_reset_network_header(skb2);" prevents that, the transport
-header size is extended:
-	sk2b->transport_header: 7e
-	skb2->network_header  : 7e
+A test system hit with a flood ping hits on perf top -e ksb:kfre_skb before
+the change and none after for the normal/success path.  The IPv6 path would
+be somewhat more ugly.  For the time being, just deal with the overlap on
+ping_rcv() between the two to avoid a possible double free of an skb.
 
 
-Some more details on the error, a clean diff for the proposed patch
-(without the comments) and  the full debugging can be fond here:
-
-https://forums.grsecurity.net/viewtopic.php?t=4083
-https://bugs.gentoo.org/show_bug.cgi?id=529352
-
-Can you please verify if this is the correct way to fix it and include
-the correct fix - if any - in future kernel releases?
-Or do you think that the PAX patch is wrong and an integer underrun is
-acceptable here?
-
-I'll check the mailing list archives from time to time for replies,
-but I'm not subscribed and if you need me for more information or
-tests please add me on CC.
-
-Cheers,
-
-Alexander Wetzel
+diff --git a/include/net/ping.h b/include/net/ping.h
+index 026479b..f074060 100644
+--- a/include/net/ping.h
++++ b/include/net/ping.h
+@@ -82,7 +82,7 @@ int  ping_common_sendmsg(int family, struct msghdr *msg, size_t len,
+ int  ping_v6_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 		     size_t len);
+ int  ping_queue_rcv_skb(struct sock *sk, struct sk_buff *skb);
+-void ping_rcv(struct sk_buff *skb);
++bool ping_rcv(struct sk_buff *skb);
+ 
+ #ifdef CONFIG_PROC_FS
+ struct ping_seq_afinfo {
+diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
+index 36b7bfa..36f5584 100644
+--- a/net/ipv4/icmp.c
++++ b/net/ipv4/icmp.c
+@@ -190,7 +190,7 @@ EXPORT_SYMBOL(icmp_err_convert);
+  */
+ 
+ struct icmp_control {
+-	void (*handler)(struct sk_buff *skb);
++	bool (*handler)(struct sk_buff *skb);
+ 	short   error;		/* This ICMP is classed as an error message */
+ };
+ 
+@@ -746,7 +746,7 @@ static bool icmp_tag_validation(int proto)
+  *	ICMP_PARAMETERPROB.
+  */
+ 
+-static void icmp_unreach(struct sk_buff *skb)
++static bool icmp_unreach(struct sk_buff *skb)
+ {
+ 	const struct iphdr *iph;
+ 	struct icmphdr *icmph;
+@@ -839,10 +839,10 @@ static void icmp_unreach(struct sk_buff *skb)
+ 	icmp_socket_deliver(skb, info);
+ 
+ out:
+-	return;
++	return true;
+ out_err:
+ 	ICMP_INC_STATS_BH(net, ICMP_MIB_INERRORS);
+-	goto out;
++	return false;
+ }
+ 
+ 
+@@ -850,17 +850,20 @@ out_err:
+  *	Handle ICMP_REDIRECT.
+  */
+ 
+-static void icmp_redirect(struct sk_buff *skb)
++static bool icmp_redirect(struct sk_buff *skb)
+ {
+ 	if (skb->len < sizeof(struct iphdr)) {
+ 		ICMP_INC_STATS_BH(dev_net(skb->dev), ICMP_MIB_INERRORS);
+-		return;
++		return false;
+ 	}
+ 
+-	if (!pskb_may_pull(skb, sizeof(struct iphdr)))
+-		return;
++	if (!pskb_may_pull(skb, sizeof(struct iphdr))) {
++		/* there aught to be a stat */
++		return false;
++	}
+ 
+ 	icmp_socket_deliver(skb, icmp_hdr(skb)->un.gateway);
++	return true;
+ }
+ 
+ /*
+@@ -875,7 +878,7 @@ static void icmp_redirect(struct sk_buff *skb)
+  *	See also WRT handling of options once they are done and working.
+  */
+ 
+-static void icmp_echo(struct sk_buff *skb)
++static bool icmp_echo(struct sk_buff *skb)
+ {
+ 	struct net *net;
+ 
+@@ -891,6 +894,8 @@ static void icmp_echo(struct sk_buff *skb)
+ 		icmp_param.head_len	   = sizeof(struct icmphdr);
+ 		icmp_reply(&icmp_param, skb);
+ 	}
++	/* should there be an ICMP stat for ignored echos? */
++	return true;
+ }
+ 
+ /*
+@@ -900,7 +905,7 @@ static void icmp_echo(struct sk_buff *skb)
+  *		  MUST be accurate to a few minutes.
+  *		  MUST be updated at least at 15Hz.
+  */
+-static void icmp_timestamp(struct sk_buff *skb)
++static bool icmp_timestamp(struct sk_buff *skb)
+ {
+ 	struct timespec tv;
+ 	struct icmp_bxm icmp_param;
+@@ -927,15 +932,17 @@ static void icmp_timestamp(struct sk_buff *skb)
+ 	icmp_param.data_len	   = 0;
+ 	icmp_param.head_len	   = sizeof(struct icmphdr) + 12;
+ 	icmp_reply(&icmp_param, skb);
+-out:
+-	return;
++	return true;
++
+ out_err:
+ 	ICMP_INC_STATS_BH(dev_net(skb_dst(skb)->dev), ICMP_MIB_INERRORS);
+-	goto out;
++	return false;
+ }
+ 
+-static void icmp_discard(struct sk_buff *skb)
++static bool icmp_discard(struct sk_buff *skb)
+ {
++	/* pretend it was a success */
++	return true;
+ }
+ 
+ /*
+@@ -946,6 +953,7 @@ int icmp_rcv(struct sk_buff *skb)
+ 	struct icmphdr *icmph;
+ 	struct rtable *rt = skb_rtable(skb);
+ 	struct net *net = dev_net(rt->dst.dev);
++	bool success;
+ 
+ 	if (!xfrm4_policy_check(NULL, XFRM_POLICY_IN, skb)) {
+ 		struct sec_path *sp = skb_sec_path(skb);
+@@ -1012,7 +1020,12 @@ int icmp_rcv(struct sk_buff *skb)
+ 		}
+ 	}
+ 
+-	icmp_pointers[icmph->type].handler(skb);
++	success = icmp_pointers[icmph->type].handler(skb);
++
++	if (success)  {
++		consume_skb(skb);
++		return 0;
++	}
+ 
+ drop:
+ 	kfree_skb(skb);
+diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
+index 736236c..ce2920f 100644
+--- a/net/ipv4/ping.c
++++ b/net/ipv4/ping.c
+@@ -955,7 +955,7 @@ EXPORT_SYMBOL_GPL(ping_queue_rcv_skb);
+  *	All we need to do is get the socket.
+  */
+ 
+-void ping_rcv(struct sk_buff *skb)
++bool ping_rcv(struct sk_buff *skb)
+ {
+ 	struct sock *sk;
+ 	struct net *net = dev_net(skb->dev);
+@@ -974,11 +974,11 @@ void ping_rcv(struct sk_buff *skb)
+ 		pr_debug("rcv on socket %p\n", sk);
+ 		ping_queue_rcv_skb(sk, skb_get(skb));
+ 		sock_put(sk);
+-		return;
++		return true;
+ 	}
+ 	pr_debug("no socket, dropping\n");
+ 
+-	/* We're called from icmp_rcv(). kfree_skb() is done there. */
++	return false;
+ }
+ EXPORT_SYMBOL_GPL(ping_rcv);
+ 
+diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
+index 0929340..39b3ff9 100644
+--- a/net/ipv6/icmp.c
++++ b/net/ipv6/icmp.c
+@@ -679,6 +679,7 @@ static int icmpv6_rcv(struct sk_buff *skb)
+ 	const struct in6_addr *saddr, *daddr;
+ 	struct icmp6hdr *hdr;
+ 	u8 type;
++	bool success = false;
+ 
+ 	if (!xfrm6_policy_check(NULL, XFRM_POLICY_IN, skb)) {
+ 		struct sec_path *sp = skb_sec_path(skb);
+@@ -726,7 +727,7 @@ static int icmpv6_rcv(struct sk_buff *skb)
+ 		break;
+ 
+ 	case ICMPV6_ECHO_REPLY:
+-		ping_rcv(skb);
++		success = ping_rcv(skb);
+ 		break;
+ 
+ 	case ICMPV6_PKT_TOOBIG:
+@@ -790,7 +791,14 @@ static int icmpv6_rcv(struct sk_buff *skb)
+ 		icmpv6_notify(skb, type, hdr->icmp6_code, hdr->icmp6_mtu);
+ 	}
+ 
+-	kfree_skb(skb);
++	/* until the v6 path can be better sorted assume failure and
++	 * preserve the status quo behaviour for the rest of the paths to here
++	 */
++	if (success)
++		consume_skb(skb);
++	else
++		kfree_skb(skb);
++
+ 	return 0;
+ 
+ csum_error:
