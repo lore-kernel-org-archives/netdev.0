@@ -1,77 +1,127 @@
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: Re: [PATCH 2/4] arch: Add lightweight memory barriers fast_rmb()
- and fast_wmb()
-Date: Mon, 17 Nov 2014 13:54:58 -0800
-Message-ID: <546A6EB2.6020304@redhat.com>
-References: <20141117171005.22333.96544.stgit@ahduyck-server>	<20141117171812.22333.90395.stgit@ahduyck-server> <CA+55aFxZ9dhB074p3OAQLyQ53TuRjVOo33h6OOda1soh-9xxnQ@mail.gmail.com>
+From: Alexander Wetzel <alexander.wetzel@web.de>
+Subject: ipip6 - integer underrun when handlince icmpv4 unreachable messages
+Date: Mon, 17 Nov 2014 22:52:04 +0100
+Message-ID: <546A6E04.30603@web.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Heiko Carstens <heiko.carstens@de.ibm.com>,
-	Ingo Molnar <mingo@kernel.org>,
-	Michael Neuling <mikey@neuling.org>,
-	Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	donald.c.skidmore@intel.com, matthew.vick@intel.com,
-	Geert Uytterhoeven <geert@linux-m68k.org>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Paul McKenney <paulmck@linux.vnet.ibm.com>,
-	nic_swsd@realtek.com, Will Deacon <will.deacon@arm.com>,
-	Michael Ellerman <michael@ellerman.id.au>,
-	Tony Luck <tony.luck@intel.com>,
-	Oleg Nesterov <oleg@redhat.com>,
-	Martin Schwidefsky <
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <CA+55aFxZ9dhB074p3OAQLyQ53TuRjVOo33h6OOda1soh-9xxnQ@mail.gmail.com>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: roque@di.fc.ul.p, kuznet@ms2.inr.ac.ru, r.venning@telstra.com,
+	nate@thebog.net
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mo4-p05-ob.smtp.rzone.de ([81.169.146.182]:51144 "EHLO
+	mo4-p05-ob.smtp.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751820AbaKQV6I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Nov 2014 16:58:08 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+Hello netdev,
+
+the current code to translate icmpv4 "destination unreachable" packets
+to icmpv6 is later generating an integer underrun when calling
+icmpv6_send, by later calling skb_network_header_len and subtracting a
+bigger number from a lower one.
+
+The issue is not visible for vanilla kernels and works correctly from
+a user perspective, but a kernel with the PAX patches and enabled
+"size overflow protection" will panic immediately when it's getting an
+icmpv4 destination unreachable packet back for an encapsulated ipv6
+packet. (Remote tunnel endpoint not reachable.)
+
+I think I've tracked the issue down and can show you the problem with
+the code... as I understand it as non-programmer greping the sources
+and googeling functions. I was even able to find a fix which passes
+the functionality test, but I'm unqualified to rate the correctness of
+it and so are reaching out to you for that.
+
+What happens (output of printk's) with transport_header and
+network_header around "skb_reset_network_header" is described below
+the function.
+
+Near the end of the mail there are two links to the gentoo bug tracker
+and pax forum, suggesting to put this forward to the lkml/netdev for
+review, also including more details on the panics.
+
+So here the function "ipip6_err_gen_icmpv6_unreach" from
+net/ipv6/sit.c with some remarks and one new line which seems to fix
+the problem:
+
+************************************************************************
+static int ipip6_err_gen_icmpv6_unreach(struct sk_buff *skb)
+{
+        int ihl = ((const struct iphdr *)skb->data)->ihl*4;
+        struct rt6_info *rt;
+        struct sk_buff *skb2;
+
+        if (!pskb_may_pull(skb, ihl + sizeof(struct ipv6hdr) + 8))
+                return 1;
+
+// we clone the ipv4 skb in skb2 to prepare the icmpv6 packet
+        skb2 = skb_clone(skb, GFP_ATOMIC);
+
+        if (!skb2)
+                return 1;
+
+// we clean up the cloned skb2
+        skb_dst_drop(skb2);
+        skb_pull(skb2, ihl);
+// The network header is reset
+        skb_reset_network_header(skb2);
+
+//THE PROPOSED FIX: The following line is NOT in the current code
+        skb_reset_transport_header(skb2);
+
+        rt = rt6_lookup(dev_net(skb->dev), &ipv6_hdr(skb2)->saddr,
+NULL, 0, 0);
+
+        if (rt && rt->dst.dev)
+                skb2->dev = rt->dst.dev;
+
+        icmpv6_send(skb2, ICMPV6_DEST_UNREACH, ICMPV6_ADDR_UNREACH, 0);
+
+        if (rt)
+                ip6_rt_put(rt);
+
+        kfree_skb(skb2);
+
+        return 0;
+
+************************************************************************
+
+With debug printk's prior to "skb_reset_network_header(skb2);" I get
+the following values when the code is used:
+	sk2b->transport_header: 62
+	skb2->network_header  : 4e
+
+After "skb_reset_network_header(skb2);" it reads:
+	sk2b->transport_header: 62
+	skb2->network_header  : 7e
+
+That are the same values which are later causing the integer underrun
+(and with PAX a kernel panic) in "skb_network_header_len"
+
+Adding "skb_reset_network_header(skb2);" prevents that, the transport
+header size is extended:
+	sk2b->transport_header: 7e
+	skb2->network_header  : 7e
 
 
-On 11/17/2014 12:52 PM, Linus Torvalds wrote:
-> On Mon, Nov 17, 2014 at 9:18 AM, Alexander Duyck
-> <alexander.h.duyck@redhat.com> wrote:
->> There are a number of situations where the mandatory barriers rmb() and
->> wmb() are used to order memory/memory operations in the device drivers
->> and those barriers are much heavier than they actually need to be.
-> Ugh. I absolutely despise the name.
->
-> It's not "fast". It's just limited. It's the same as "smp_*mb()", in
-> that it works on cacheable memory, but it actually stays around even
-> for non-SMP builds.
->
-> So I think the name is actively misleading.
->
-> Naming should be about what it does, not about some kind of PR thing
-> that confuses people into thinking it's "better".
->
-> Maybe "dma_*mb()" would be acceptable, and ends up having the same
-> naming convention as "smb_*mb()", and explains what it's about.
+Some more details on the error, a clean diff for the proposed patch
+(without the comments) and  the full debugging can be fond here:
 
-What would you think of the name "coherent_*mb()"?  I would prefer to 
-avoid dma in the name since, at least in my mind, that implies MMIO.
+https://forums.grsecurity.net/viewtopic.php?t=4083
+https://bugs.gentoo.org/show_bug.cgi?id=529352
 
-It also ties in well with dma_alloc_coherent/dma_free_coherent which is 
-what would typically be used to allocate the memory we would be using 
-the barrier to protect anyway.
+Can you please verify if this is the correct way to fix it and include
+the correct fix - if any - in future kernel releases?
+Or do you think that the PAX patch is wrong and an integer underrun is
+acceptable here?
 
-> And yes, in the same spirit, it would probably be good to try to
-> eventually get rid of the plain "*mb()" functions, and perhaps call
-> them "mmio_*mb()" to clarify that they are about ordering memory wrt
-> mmio.
->
-> Hmm?
->
->                          Linus
+I'll check the mailing list archives from time to time for replies,
+but I'm not subscribed and if you need me for more information or
+tests please add me on CC.
 
-I will work on pulling all of the coherent barrier cases out of using 
-the plain "*mb()" calls first.  We need to sort that out before we could 
-look at renaming the plain barrier functions.
+Cheers,
 
-- Alex
+Alexander Wetzel
