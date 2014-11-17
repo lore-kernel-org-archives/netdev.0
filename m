@@ -1,73 +1,65 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH net-next 0/4] igb: auxiliary PHC functions for the i210.
-Date: Mon, 17 Nov 2014 15:15:18 -0800
-Message-ID: <1416266118.2983.3.camel@jtkirshe-mobl.jf.intel.com>
+From: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Subject: Re: [PATCH net-next 2/4] igb: do not clobber the TSAUXC bits on
+ reset.
+Date: Mon, 17 Nov 2014 23:22:02 +0000
+Message-ID: <1416266522.21363.47.camel@jekeller-desk1.amr.corp.intel.com>
 References: <cover.1416265321.git.richardcochran@gmail.com>
+	 <5c892a6a13d120193fdbd2dd62e9604ae0d5d404.1416265321.git.richardcochran@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-6WQeffX+6PdBSP7XQot2"
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	bruce.w.allan@intel.com, Jacob Keller <jacob.e.keller@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Matthew Vick <matthew.vick@intel.com>
-To: Richard Cochran <richardcochran@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Vick, Matthew" <matthew.vick@intel.com>
+To: "richardcochran@gmail.com" <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:15269 "EHLO mga02.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:8462 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752612AbaKQXPZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Nov 2014 18:15:25 -0500
-In-Reply-To: <cover.1416265321.git.richardcochran@gmail.com>
+	id S1751499AbaKQXWD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Nov 2014 18:22:03 -0500
+In-Reply-To: <5c892a6a13d120193fdbd2dd62e9604ae0d5d404.1416265321.git.richardcochran@gmail.com>
+Content-Language: en-US
+Content-ID: <425BD946DDBC35438AE12ED052B1BD73@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
---=-6WQeffX+6PdBSP7XQot2
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Tue, 2014-11-18 at 00:06 +0100, Richard Cochran wrote:
-> This patch series adds three features: time stamping external events,
-> producing a periodic output signal, and an internal PPS event. The
-> i210 PCIe card has a 6 pin header with SDP0-3, making it easy to try
-> out this new functionality.
->=20
-> An earlier version of this series was posted way back in May, 2013,
-> but that version lacked a good way to assign functions to the pins. In
-> the mean time, the PHC core has a standard method to configure the
-> pins, and this series makes use of it.
->=20
-> Thanks,
-> Richard
->=20
-> Richard Cochran (4):
->   igb: refactor time sync interrupt handling
->   igb: do not clobber the TSAUXC bits on reset.
->   igb: enable internal PPS for the i210.
->   igb: enable auxiliary PHC functions for the i210.
-
-Thanks Richard, I have added your series of igb patches to my queue.
-
---=-6WQeffX+6PdBSP7XQot2
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJUaoGHAAoJEOVv75VaS+3OjZ0P/1TFt++zXoM/nw0Qj+dTFZmO
-GGvGmhzo3Pe2UMSwT25/Fr/lybxU+ukIJpt/1f6/BbWaaCT4Q3/H/A/EYXnmzIk5
-iX894wZJyiZIbAQycpl4LZ/3kU/V6XFJ8+Owayu7g6cDGmQPoXdQSBO3M4dA9vQY
-wj/LgkB7f7nq6NWW1ux05hXdUKKzqFGJn8YgEE9OrfpbfaixRvuOQ8YPw01upPbG
-mw5ttyTSwro4DUF+4nTL6MtahmhyKDq2pVu1R4uQ82oJdK1/cw6k4mQu6fjCUxLY
-3JaWqdJPUY3YS3q85v+5fNnvPS51EaB0JdbOGr2/5aRRHd4Esc5wamJ6x+x5O77X
-cMpx8KBiWlUlHKKrTOI8KDrGTTgMn/HTULFoJm00HtOScZQFUfmQ5kkHj06Ee4zW
-T0nvfKfZteNe8gFu8Fp3EWCz7SzWDtzRBY61U6Piytqa5QrP00zfAm5QnPxvESj0
-rQLn+dTrqlwQ7nKiftpIvDhcQiRoOUFVMLnE0MAyAUda7gzJlDYoSQ2Fp1w8Bdnc
-48gWTgISiajA5OqYfPf5NBweTMR0rP/U11Pr/FN6UAlUDQ/eJITyoN9vSQo3KNNt
-RSt8bB6Zqlz6DIXIHp9+zwZ4m9SjwKsiJwdRrtJH9rLVwSPTM4aftHm1b/fSOUAI
-xiqoba7w2E4ntKVZnmzK
-=aRKV
------END PGP SIGNATURE-----
-
---=-6WQeffX+6PdBSP7XQot2--
+T24gVHVlLCAyMDE0LTExLTE4IGF0IDAwOjA2ICswMTAwLCBSaWNoYXJkIENvY2hyYW4gd3JvdGU6
+DQo+IFRoZSBUU0FVWEMgcmVnaXN0ZXIgaGFzIGEgbnVtYmVyIG9mIGRpZmZlcmVudCBiaXRzLCBv
+bmUgb2Ygd2hpY2ggZGlzYWJsZXMNCj4gdGhlIG1haW4gY2xvY2sgZnVuY3Rpb24uIFByZXZpb3Vz
+bHksIHRoZSBjbG9jayB3YXMgcmUtZW5hYmxlZCBieSBjbGVhcmluZw0KPiB0aGUgZW50aXJlIHJl
+Z2lzdGVyLiBUaGlzIHBhdGNoIGNoYW5nZXMgdGhlIGNvZGUgdG8gcHJlc2VydmUgdGhlIHZhbHVl
+cw0KPiBvZiB0aGUgb3RoZXIgYml0cyBpbiB0aGF0IHJlZ2lzdGVyLg0KPiANCg0KVGhpcyBpcyBh
+IHN0ZXAgaW4gdGhlIHJpZ2h0IGRpcmVjdGlvbiwgYnV0IHdvbid0IGZ1bGx5IHdvcmsgZHVlIHRv
+IHRoaXMNCmJlaW5nIGNhbGxlZCBhZnRlciBhIE1BQyByZXNldC4NCg0KPiBTaWduZWQtb2ZmLWJ5
+OiBSaWNoYXJkIENvY2hyYW4gPHJpY2hhcmRjb2NocmFuQGdtYWlsLmNvbT4NCj4gLS0tDQo+ICBk
+cml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pZ2IvaWdiX3B0cC5jIHwgICAgOCArKysrKysrLQ0K
+PiAgMSBmaWxlIGNoYW5nZWQsIDcgaW5zZXJ0aW9ucygrKSwgMSBkZWxldGlvbigtKQ0KPiANCj4g
+ZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2lnYi9pZ2JfcHRwLmMgYi9k
+cml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pZ2IvaWdiX3B0cC5jDQo+IGluZGV4IDc5NGMxMzku
+LmNlNTcxMjggMTAwNjQ0DQo+IC0tLSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2lnYi9p
+Z2JfcHRwLmMNCj4gKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaWdiL2lnYl9wdHAu
+Yw0KPiBAQCAtOTA1LDYgKzkwNSw4IEBAIHZvaWQgaWdiX3B0cF9zdG9wKHN0cnVjdCBpZ2JfYWRh
+cHRlciAqYWRhcHRlcikNCj4gIHZvaWQgaWdiX3B0cF9yZXNldChzdHJ1Y3QgaWdiX2FkYXB0ZXIg
+KmFkYXB0ZXIpDQo+ICB7DQo+ICAJc3RydWN0IGUxMDAwX2h3ICpodyA9ICZhZGFwdGVyLT5odzsN
+Cj4gKwl1bnNpZ25lZCBsb25nIGZsYWdzOw0KPiArCXUzMiB0c2F1eGM7DQo+ICANCj4gIAlpZiAo
+IShhZGFwdGVyLT5mbGFncyAmIElHQl9GTEFHX1BUUCkpDQo+ICAJCXJldHVybjsNCj4gQEAgLTky
+Myw3ICs5MjUsMTEgQEAgdm9pZCBpZ2JfcHRwX3Jlc2V0KHN0cnVjdCBpZ2JfYWRhcHRlciAqYWRh
+cHRlcikNCj4gIAljYXNlIGUxMDAwX2kyMTA6DQo+ICAJY2FzZSBlMTAwMF9pMjExOg0KPiAgCQkv
+KiBFbmFibGUgdGhlIHRpbWVyIGZ1bmN0aW9ucyBhbmQgaW50ZXJydXB0cy4gKi8NCj4gLQkJd3Iz
+MihFMTAwMF9UU0FVWEMsIDB4MCk7DQo+ICsJCXNwaW5fbG9ja19pcnFzYXZlKCZhZGFwdGVyLT50
+bXJlZ19sb2NrLCBmbGFncyk7DQo+ICsJCXRzYXV4YyA9IHJkMzIoRTEwMDBfVFNBVVhDKTsNCj4g
+KwkJdHNhdXhjICY9IH5UU0FVWENfRElTQUJMRTsNCj4gKwkJd3IzMihFMTAwMF9UU0FVWEMsIHRz
+YXV4Yyk7DQo+ICsJCXNwaW5fdW5sb2NrX2lycXJlc3RvcmUoJmFkYXB0ZXItPnRtcmVnX2xvY2ss
+IGZsYWdzKTsNCg0KVGhpcyB3b24ndCB3b3JrLiBXZSBjYWxsIGlnYl9wdHBfcmVzZXQgZGlyZWN0
+bHkgYWZ0ZXIgYSBIVyByZXNldCAoTUFDDQpyZXNldCkuIFRTQVVYQyBkYXRhIGlzIG5vdCBtYWlu
+dGFpbmVkLiBXZSBwcm9iYWJseSBuZWVkIHRvIHN0b3JlIGRyaXZlcg0Kc3RhdGUgb2YgdGhlIFRT
+QVVYQyBiaXRzLCBhbmQgdGhlbiByZS1lbmFibGUgdGhlbSBpbiB0aGlzIHJlc2V0IHBhdGguDQpU
+aGlzIGNvZGUgdG9kYXkgaXMgZmluZSwgYmVjYXVzZSB0aGVyZSB3YXMgbm8gb3RoZXIgc3RhdGUg
+d2UgY2FyZWQgYWJvdXQNCmluIHRoZSBwYXRoLg0KDQpUaGF0IGJlaW5nIHNhaWQsIEkgZG9uJ3Qg
+dGhpbmsgdGhpcyBjaGFuZ2UgYnJlYWtzIGFueXRoaW5nLiBJIGp1c3QgdGhpbmsNCml0IHdpbGwg
+bm90IHNvbHZlIHRoZSBwcm9ibGVtLg0KDQpUaGFua3MsDQpKYWtlDQoNCj4gIAkJd3IzMihFMTAw
+MF9UU0lNLCBUU1lOQ19JTlRFUlJVUFRTKTsNCj4gIAkJd3IzMihFMTAwMF9JTVMsIEUxMDAwX0lN
+U19UUyk7DQo+ICAJCWJyZWFrOw0KDQoNCg==
