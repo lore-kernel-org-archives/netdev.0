@@ -1,134 +1,77 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: Re: [PATCH Iproute2 next v1] ip link: Add ipvlan support to the
- iproute2/ip util
-Date: Mon, 17 Nov 2014 13:54:43 -0800
-Message-ID: <CAF2d9jgRE1K7We9wxfeofPhL8Lui7=TQgt+YCdi1pnkZ_cF7Kg@mail.gmail.com>
-References: <1416205677-26706-1-git-send-email-maheshb@google.com> <CF9D1877D81D214CB0CA0669EFAE020C68CEC1DB@CMEXMB1.ad.emulex.com>
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Subject: Re: [PATCH 2/4] arch: Add lightweight memory barriers fast_rmb()
+ and fast_wmb()
+Date: Mon, 17 Nov 2014 13:54:58 -0800
+Message-ID: <546A6EB2.6020304@redhat.com>
+References: <20141117171005.22333.96544.stgit@ahduyck-server>	<20141117171812.22333.90395.stgit@ahduyck-server> <CA+55aFxZ9dhB074p3OAQLyQ53TuRjVOo33h6OOda1soh-9xxnQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev <netdev@vger.kernel.org>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Maciej Zenczykowski <maze@google.com>,
-	Laurent Chavey <chavey@google.com>,
-	Tim Hockin <thockin@google.com>,
-	David Miller <davem@davemloft.net>,
-	Brandon Philips <brandon.philips@coreos.com>,
-	Pavel Emelianov <xemul@parallels.com>
-To: Sathya Perla <Sathya.Perla@emulex.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f175.google.com ([209.85.220.175]:65062 "EHLO
-	mail-vc0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751464AbaKQVzG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Nov 2014 16:55:06 -0500
-Received: by mail-vc0-f175.google.com with SMTP id hy10so3839481vcb.34
-        for <netdev@vger.kernel.org>; Mon, 17 Nov 2014 13:55:04 -0800 (PST)
-In-Reply-To: <CF9D1877D81D214CB0CA0669EFAE020C68CEC1DB@CMEXMB1.ad.emulex.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Heiko Carstens <heiko.carstens@de.ibm.com>,
+	Ingo Molnar <mingo@kernel.org>,
+	Michael Neuling <mikey@neuling.org>,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	donald.c.skidmore@intel.com, matthew.vick@intel.com,
+	Geert Uytterhoeven <geert@linux-m68k.org>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Paul McKenney <paulmck@linux.vnet.ibm.com>,
+	nic_swsd@realtek.com, Will Deacon <will.deacon@arm.com>,
+	Michael Ellerman <michael@ellerman.id.au>,
+	Tony Luck <tony.luck@intel.com>,
+	Oleg Nesterov <oleg@redhat.com>,
+	Martin Schwidefsky <
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <linux-arch-owner@vger.kernel.org>
+In-Reply-To: <CA+55aFxZ9dhB074p3OAQLyQ53TuRjVOo33h6OOda1soh-9xxnQ@mail.gmail.com>
+Sender: linux-arch-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Nov 16, 2014 at 10:57 PM, Sathya Perla <Sathya.Perla@emulex.com> wrote:
+
+On 11/17/2014 12:52 PM, Linus Torvalds wrote:
+> On Mon, Nov 17, 2014 at 9:18 AM, Alexander Duyck
+> <alexander.h.duyck@redhat.com> wrote:
+>> There are a number of situations where the mandatory barriers rmb() and
+>> wmb() are used to order memory/memory operations in the device drivers
+>> and those barriers are much heavier than they actually need to be.
+> Ugh. I absolutely despise the name.
 >
-> > -----Original Message-----
-> > From: netdev-owner@vger.kernel.org [mailto:netdev-
-> >
-> > Adding basic support to create virtual devices using 'ip'
-> > utility. Following is the syntax -
-> >
-> >       ip link add link <master> <virtual> type ipvlan mode [ l2 | l3 ]
-> >       e.g. ip link add link eth0 ipvl0 type ipvlan mode l3
-> >
-> ..
-> > ---
-> >  include/linux/if_link.h | 14 ++++++++
-> >  ip/Makefile             |  2 +-
-> >  ip/iplink.c             |  2 +-
-> >  ip/iplink_ipvlan.c      | 85
-> > +++++++++++++++++++++++++++++++++++++++++++++++++
-> >  4 files changed, 101 insertions(+), 2 deletions(-)
-> >  create mode 100644 ip/iplink_ipvlan.c
-> >
-> > diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-> > index 47320636361c..ef1e9f73fb15 100644
-> > --- a/include/linux/if_link.h
-> > +++ b/include/linux/if_link.h
-> > @@ -325,6 +325,20 @@ enum macvlan_macaddr_mode {
-> >       MACVLAN_MACADDR_SET,
-> >  };
-> >
-> > +/* IPVLAN section */
-> > +enum {
-> > +     IFLA_IPVLAN_UNSPEC,
-> > +     IFLA_IPVLAN_MODE,
-> > +     __IFLA_IPVLAN_MAX,
-> > +};
-> > +
-> > +#define IFLA_IPVLAN_MAX (__IFLA_IPVLAN_MAX - 1)
-> > +
-> > +enum ipvlan_mode {
-> > +     IPVLAN_MODE_L2 = 0, /* Process packets all the way upto L2 */
-> > +     IPVLAN_MODE_L3 = 1, /* Process Packets all the way upto L3 */
-> > +};
-> > +
-> >  #define MACVLAN_FLAG_NOPROMISC       1
-> >
-> >... +
-> > +#include <stdio.h>
-> > +#include <stdlib.h>
-> > +#include <string.h>
-> > +#include <sys/socket.h>
-> > +#include <linux/if_link.h>
-> > +
-> > +#include "rt_names.h"
-> > +#include "utils.h"
-> > +#include "ip_common.h"
-> > +
-> > +static void explain(void)
-> > +{
-> > +     fprintf(stderr, "Usage: ... ipvlan [ mode { l2 | l3 } ]\n");
-> > +}
-> > +
-> > +static int mode_arg(void)
-> > +{
-> > +     fprintf(stderr, "Error: argument of \"mode\" must be either \"l2\", "
-> > +             "or \"l3\"\n");
-> > +        return -1;
-> I guess you wanted to "return -1" from the caller routine ipvlan_parse_opt()
-> and not from this routine.
+> It's not "fast". It's just limited. It's the same as "smp_*mb()", in
+> that it works on cacheable memory, but it actually stays around even
+> for non-SMP builds.
 >
-Hmmm, that caught another error where I intended it to be "return
-mode_arg()" instead of just "mode_arg" in the caller. This is clearly
-wrong! Thanks for catching it.
-> > +}
-> > +
-> > +static int ipvlan_parse_opt(struct link_util *lu, int argc, char **argv,
-> > +                       struct nlmsghdr *n)
-> > +{
-> > +     while (argc > 0) {
-> > +         if (matches(*argv, "mode") == 0) {
-> > +                     __u16 mode = 0;
-> > +                     NEXT_ARG();
-> > +
-> > +                     if (strcmp(*argv, "l2") == 0)
-> > +                             mode = IPVLAN_MODE_L2;
-> > +                     else if (strcmp(*argv, "l3") == 0)
-> > +                             mode = IPVLAN_MODE_L3;
-> > +                     else
-> > +                             mode_arg();
-> > +
-> > +                     addattr16(n, 1024, IFLA_IPVLAN_MODE, mode);
-> > +             } else if (matches(*argv, "help") == 0) {
-> > +                     explain();
-> > +                     return -1;
-> > +             } else {
-> > +                     fprintf(stderr, "ipvlan: unknown option \"%s\"?\n",
-> > *argv);
-> > +                     explain();
-> > +                     return -1;
-> > +             }
-> > +             argc--, argv++;
-> > +     }
-> > +
-> > +     return 0;
-> > +}
-> > +
+> So I think the name is actively misleading.
+>
+> Naming should be about what it does, not about some kind of PR thing
+> that confuses people into thinking it's "better".
+>
+> Maybe "dma_*mb()" would be acceptable, and ends up having the same
+> naming convention as "smb_*mb()", and explains what it's about.
+
+What would you think of the name "coherent_*mb()"?  I would prefer to 
+avoid dma in the name since, at least in my mind, that implies MMIO.
+
+It also ties in well with dma_alloc_coherent/dma_free_coherent which is 
+what would typically be used to allocate the memory we would be using 
+the barrier to protect anyway.
+
+> And yes, in the same spirit, it would probably be good to try to
+> eventually get rid of the plain "*mb()" functions, and perhaps call
+> them "mmio_*mb()" to clarify that they are about ordering memory wrt
+> mmio.
+>
+> Hmm?
+>
+>                          Linus
+
+I will work on pulling all of the coherent barrier cases out of using 
+the plain "*mb()" calls first.  We need to sort that out before we could 
+look at renaming the plain barrier functions.
+
+- Alex
