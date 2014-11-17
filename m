@@ -1,73 +1,71 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the tiny tree with the net-next tree
-Date: Mon, 17 Nov 2014 16:35:03 +1100
-Message-ID: <20141117163503.6543cd21@canb.auug.org.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] enic: support skb->xmit_more
+Date: Sun, 16 Nov 2014 21:40:23 -0800
+Message-ID: <1416202823.24093.8.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1416179042-1858-1-git-send-email-_govind@gmx.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/=opbwh43E4VXRfXcWrR.9.O"; protocol="application/pgp-signature"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Iulia Manda <iulia.manda21@gmail.com>,
-	Pravin B Shelar <pshelar@nicira.com>
-To: Josh Triplett <josh@joshtriplett.org>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org, ssujith@cisco.com,
+	benve@cisco.com
+To: Govindarajulu Varadarajan <_govind@gmx.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f180.google.com ([209.85.213.180]:41396 "EHLO
+	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751044AbaKQFkU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Nov 2014 00:40:20 -0500
+Received: by mail-ig0-f180.google.com with SMTP id h15so4597237igd.7
+        for <netdev@vger.kernel.org>; Sun, 16 Nov 2014 21:40:19 -0800 (PST)
+In-Reply-To: <1416179042-1858-1-git-send-email-_govind@gmx.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Sig_/=opbwh43E4VXRfXcWrR.9.O
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+On Mon, 2014-11-17 at 04:34 +0530, Govindarajulu Varadarajan wrote:
+> Update posted_index only when skb->xmit_more is 0 or tx queue is full.
+> 
+> Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
+> ---
+>  drivers/net/ethernet/cisco/enic/enic_main.c |  8 ++++++--
+>  drivers/net/ethernet/cisco/enic/vnic_wq.h   | 20 +++++++++++---------
+>  2 files changed, 17 insertions(+), 11 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
+> index 5afe360..52bccfd 100644
+> --- a/drivers/net/ethernet/cisco/enic/enic_main.c
+> +++ b/drivers/net/ethernet/cisco/enic/enic_main.c
+> @@ -533,6 +533,7 @@ static netdev_tx_t enic_hard_start_xmit(struct sk_buff *skb,
+>  	struct vnic_wq *wq;
+>  	unsigned long flags;
+>  	unsigned int txq_map;
+> +	struct netdev_queue *txq;
+>  
+>  	if (skb->len <= 0) {
+>  		dev_kfree_skb_any(skb);
+> @@ -541,6 +542,7 @@ static netdev_tx_t enic_hard_start_xmit(struct sk_buff *skb,
+>  
+>  	txq_map = skb_get_queue_mapping(skb) % enic->wq_count;
+>  	wq = &enic->wq[txq_map];
+> +	txq = netdev_get_tx_queue(netdev, skb_get_queue_mapping(skb));
+>  
 
-Hi Josh,
+This is strange.
 
-Today's linux-next merge of the tiny tree got a conflict in
-net/openvswitch/Kconfig between commit 8cd4313aa775 ("openvswitch: Fix
-build failure") from the net-next tree and commit b043d487e255 ("lib:
-Conditionally compile flex_array") from the tiny tree.
+Why dont you use instead :
 
-I fixed it up (see below) and can carry the fix as necessary (no action
-is required).
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+txq = netdev_get_tx_queue(netdev, txq_map);
 
-diff --cc net/openvswitch/Kconfig
-index b7d818c59423,1d979cecd66e..000000000000
---- a/net/openvswitch/Kconfig
-+++ b/net/openvswitch/Kconfig
-@@@ -4,9 -4,8 +4,10 @@@
- =20
-  config OPENVSWITCH
-  	tristate "Open vSwitch"
- +	depends on INET
-  	select LIBCRC32C
- +	select NET_MPLS_GSO
-+ 	select FLEX_ARRAY
-  	---help---
-  	  Open vSwitch is a multilayer Ethernet switch targeted at virtualized
-  	  environments.  In addition to supporting a variety of features
 
---Sig_/=opbwh43E4VXRfXcWrR.9.O
-Content-Type: application/pgp-signature
-Content-Description: OpenPGP digital signature
+>  	/* Non-TSO sends must fit within ENIC_NON_TSO_MAX_DESC descs,
+>  	 * which is very likely.  In the off chance it's going to take
+> @@ -558,7 +560,7 @@ static netdev_tx_t enic_hard_start_xmit(struct sk_buff *skb,
+>  
+>  	if (vnic_wq_desc_avail(wq) <
+>  	    skb_shinfo(skb)->nr_frags + ENIC_DESC_MAX_SPLITS) {
+> -		netif_tx_stop_queue(netdev_get_tx_queue(netdev, txq_map));
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+See here ? Its not equivalent to previous code.
 
-iQIcBAEBCAAGBQJUaYkMAAoJEMDTa8Ir7ZwV3KsP+wfcHz8/VAXm2NvJOQWtueMF
-M816cN6KUtpXVGhYvr+ou/KS5nXpYARkshfmvKDI4X9Flq1EbkMtlltbqtCBUd6v
-4NvWrxjv0sCIyc3loCa26Du40Oft4QlpOTiu+AABspOSOk0sWf3gviK0cPajYSFV
-7NW0UEwmuCnkwz7WQTK2f1e9bUawI3lmXnT/wHPz9OV5vqIPbwmN5MinyI8lNOuW
-QMOqhCf3tQlbwniKCxnrwCSWij32SVSrl81stz4+9eZJIJ+v7DK5G3bB6Ol2eSQf
-HxmGNWqRHqGmzzxrfw5HaqJjheRJ9x0irGrUtCP1imFvBBGNyNP7NRiyUuB21X1J
-rNm9KXUERSfVLEBVAgJGPMsiHByn43RCMwIyqNApU4cw1V9r9bhNgMcUkzvAbaG0
-HMf7seuhlI9aQEQnXteivuRqizFPaEr6I4jktiOnvKzEV7Pix7Aijb6qAM5k7P1i
-S3wZjBFly+Cc41gBZDecrwFnBTOpl/SA+gb4bbG9JcOreFn3ehqltNXLhI3lt4vp
-asbjF1dO86poiGsQh+YkiRM0E0SunR2YF1PIxh8JmjpcUezU0fvFwmLawQqpDPn5
-AmM4diskEeR/0AGiz9N1uGaTBdIafgd1eF96n3O2+dLN+VBja0slh6uexM2CKgnX
-UwTBujbkcEErjzPo+Jx/
-=4LfU
------END PGP SIGNATURE-----
-
---Sig_/=opbwh43E4VXRfXcWrR.9.O--
+> +		netif_tx_stop_queue(txq);
+>  		/* This is a hard error, log it */
+>  		netdev_err(netdev, "BUG! Tx ring full when queue awake!\n");
