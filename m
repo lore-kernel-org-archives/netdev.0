@@ -1,111 +1,46 @@
-From: Maximilian Engelhardt <maxi@daemonizer.de>
-Subject: Re: BCM4313 & brcmsmac & 3.12: only semi-working?
-Date: Mon, 17 Nov 2014 23:36:26 +0100
-Message-ID: <3543341.FmUQFH9nrl@eisbaer>
-References: <53FDACD1.8090805@msgid.tls.msk.ru> <54363ED0.605@broadcom.com> <CACna6rw3XgdJz0uKkAuas8RTzozTdFp2mgF5g1uo7LHJVSMt4g@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="nextPart4049149.2qD9Hqy0xl"; micalg="pgp-sha512"; protocol="application/pgp-signature"
-Cc: Michael Tokarev <mjt@tls.msk.ru>,
-	Seth Forshee <seth.forshee@canonical.com>,
-	brcm80211 development <brcm80211-dev-list@broadcom.com>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>
-To: =?utf-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
-	Arend van Spriel <arend@broadcom.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: [PATCH net-next 0/4] igb: auxiliary PHC functions for the i210.
+Date: Tue, 18 Nov 2014 00:06:21 +0100
+Message-ID: <cover.1416265321.git.richardcochran@gmail.com>
+Cc: David Miller <davem@davemloft.net>, <bruce.w.allan@intel.com>,
+	Jacob Keller <jacob.e.keller@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Matthew Vick <matthew.vick@intel.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from daemonizer.de ([87.230.18.164]:52781 "EHLO daemonizer.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752368AbaKQWoc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Nov 2014 17:44:32 -0500
-In-Reply-To: <CACna6rw3XgdJz0uKkAuas8RTzozTdFp2mgF5g1uo7LHJVSMt4g@mail.gmail.com>
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:53160 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753160AbaKQXGa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Nov 2014 18:06:30 -0500
+Received: by mail-wi0-f178.google.com with SMTP id hi2so2180914wib.11
+        for <netdev@vger.kernel.org>; Mon, 17 Nov 2014 15:06:29 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This patch series adds three features: time stamping external events,
+producing a periodic output signal, and an internal PPS event. The
+i210 PCIe card has a 6 pin header with SDP0-3, making it easy to try
+out this new functionality.
 
---nextPart4049149.2qD9Hqy0xl
-Content-Transfer-Encoding: quoted-printable
-Content-Type: text/plain; charset="utf-8"
+An earlier version of this series was posted way back in May, 2013,
+but that version lacked a good way to assign functions to the pins. In
+the mean time, the PHC core has a standard method to configure the
+pins, and this series makes use of it.
 
-On Thursday 09 October 2014 10:21:12 Rafa=C5=82 Mi=C5=82ecki wrote:
-> On 9 October 2014 09:52, Arend van Spriel <arend@broadcom.com> wrote:=
+Thanks,
+Richard
 
-> > I have been staring at differences brcmsmac and our internal driver=
- (which
-> > wl is derived from as well). Would you be able to make an mmiotrace=
+Richard Cochran (4):
+  igb: refactor time sync interrupt handling
+  igb: do not clobber the TSAUXC bits on reset.
+  igb: enable internal PPS for the i210.
+  igb: enable auxiliary PHC functions for the i210.
 
-> > loading
-> > wl and brcmsmac.
->=20
-> Arend,
->=20
-> As you noticed earlier, this is a WiFi card with BT. I've checked
-> siutils.c from SDK 7.14.43.7 (got it from Netgear R8000) and it has
-> three BCM4313 workarounds:
->=20
->=20
-> 1) si_doattach
-> SI_MSG(("Applying 4313 WARs\n"));
-> si_pmu_chipcontrol(sih, 0, CCTRL_4313_12MA_LED_DRIVE,
-> CCTRL_4313_12MA_LED_DRIVE);
->=20
-> It's already implemented in bcma, see driver_chipcommon_pmu.c
->=20
->=20
-> 2) si_epa_4313war
-> /* EPA Fix */
-> W_REG(sii->osh, &cc->gpiocontrol,
-> R_REG(sii->osh, &cc->gpiocontrol) | GPIO_CTRL_EPA_EN_MASK);
->=20
-> This is what you already implement in ai_epa_4313war
->=20
->=20
-> 3) si_pmu_synth_pwrsw_4313_war
-> I don't think it's implemented.
->=20
->=20
-> 4) si_btcombo_p250_4313_war
-> I also don't think it's implemented
->=20
->=20
-> The last one (si_btcombo_p250_4313_war) looks promising, the comment
-> above the function says:
-> /** WL/BT control for 4313 btcombo boards >=3D P250 */
-> I guess you need to re-implement this function and call it somewhere
-> in brcmsmac.
+ drivers/net/ethernet/intel/igb/igb.h      |    9 ++
+ drivers/net/ethernet/intel/igb/igb_main.c |  100 ++++++++----
+ drivers/net/ethernet/intel/igb/igb_ptp.c  |  251 ++++++++++++++++++++++++++++-
+ 3 files changed, 326 insertions(+), 34 deletions(-)
 
-Hi,
-
-I just wanted to ask if there is any progress on this issue since I hav=
-en't=20
-heard anything for a month. Please let me know if you need any addition=
-al=20
-information.
-
-Greetings,
-Maxi
-
-
---nextPart4049149.2qD9Hqy0xl
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part.
-Content-Transfer-Encoding: 7Bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJUanhtAAoJEIHqZH0kK9IVtkMP/0Pu2H09VBPIdeCHQ5xgOo4b
-Plbo9R2ql0L1yvr8XPbXk2zBjaRbdCGMucN8ayZg9I5UPH3nIZ7PbZhq/Wtr7jUe
-V3gip4ct9IKFtwPXdAXB1Q0i8kIu2TKi6G8MYbZq1RAB1tulUI/XMsFB6egC07jQ
-njJnN08aFYbT2KbHl2l3/rhl4qTLsZFCSf9T9VlJKRNoBkH335Ssktcgt/L/F8Ji
-gfwoJVSBTTlPRfaxNioN+MbhHL2JmY7YBckZUY5lKHJGo3o8YlNeJMGDvtIdApSB
-uq15+0o1VvJ524FOMAUAAcTHhH5eZ65V616YTEY6BbDoi4f/2Dy2yu//UiJH2vjb
-XFaHFAG2tpaqm7LqfG8O10sX/tqIN/2buBPs7rQyETdZx1nSIi+HA5/xHXuUrnWa
-8KOrJdJqN7kYGjcDQyK+1OSytGPaVdDur6cjwbeRnMtBpHatN6i0euHikLi90sZO
-QgpQdVqXfMiL6LKJewDOwcFVirfktNWnHPyf3g9ifArnMqHyPY7PVnHa9yn21BoI
-s2OKC7WtHBCWutmMKQLvtT0EIvEmSJCKCHM8qgSANst0/yxSoscxR1wdZ2zZ6SK0
-31/K8i7vb8LJ65B83s2OOBuheuhCrFnYoXHk7KWRmhj3gOpf7K+54/48FzUI0m3j
-kL7psCPKUMrYjrY/LTAb
-=9StG
------END PGP SIGNATURE-----
-
---nextPart4049149.2qD9Hqy0xl--
+-- 
+1.7.10.4
