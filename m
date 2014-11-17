@@ -1,8 +1,8 @@
 From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [PATCH 0/4] Add lightweight memory barriers fast_rmb() and
- fast_wmb()
-Date: Mon, 17 Nov 2014 09:17:42 -0800
-Message-ID: <20141117171005.22333.96544.stgit@ahduyck-server>
+Subject: [PATCH 3/4] r8169: Use fast_rmb() and fast_wmb() for DescOwn checks
+Date: Mon, 17 Nov 2014 09:18:26 -0800
+Message-ID: <20141117171825.22333.1998.stgit@ahduyck-server>
+References: <20141117171005.22333.96544.stgit@ahduyck-server>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -19,79 +19,122 @@ Cc: mathieu.desnoyers@polymtl.ca, peterz@infradead.org,
 To: linux-arch@vger.kernel.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141117171005.22333.96544.stgit@ahduyck-server>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-These patches introduce two new primitives for synchronizing cache-enabled
-memory writes and reads.  These two new primitives are:
+The r8169 use a pair of wmb() calls when setting up the descriptor rings.
+The first is to synchronize the descriptor data with the descriptor status,
+and the second is to synchronize the descriptor status with the use of the
+MMIO doorbell to notify the device that descriptors are ready.  This can come
+at a heavy price on some systems, and is not really necessary on systems such
+as x86 as a simple barrier() would suffice to order store/store accesses.
+As such we can replace the first memory barrier with fast_wmb() to reduce
+the cost for these accesses.
 
-	fast_rmb()
-	fast_wmb()
+In addition the r8169 uses a rmb() to prevent compiler optimization in the
+cleanup paths, however by moving the barrier down a few lines and
+replacing with with a fast_rmb() we should be able to use it to guarantee
+descriptor accesses do not occur until the device has updated the DescOwn
+bit from its end.
 
-The first patch cleans up some unnecessary overhead related to the
-definition of read_barrier_depends, smp_read_barrier_depends, and comments
-related to read_barrier_depends.
+One last change I made is to move the update of cur_tx in the xmit path to
+after the wmb.  This way we can guarantee the device and all CPUs should
+see the DescOwn update before they see the cur_tx value update.
 
-The second patch adds the primitives for the applicable architectures and
-asm-generic.  The names for the new primitives are based on the names of
-similar primitives that already exist in the mips and tile trees.
-
-The third patch adds the barriers to r8169 which turns out to be a good
-example of where the new barriers might be useful as they have full
-rmb()/wmb() barriers ordering accesses to the descriptors and the DescOwn
-bit.
-
-The fourth patch adds support for fast_rmb() to the Intel fm10k, igb, and
-ixgbe drivers.  Testing with the ixgbe driver has shown a processing
-time reduction of at least 7ns per 64B frame on a Core i7-4930K.
-
-This patch series is essentially the v3 for:
-	arch: Introduce load_acquire() and store_release()
-		or
-	arch: Introduce read_acquire()
-
-The key changes in this patch series versus the earlier patches are:
-v3:
-	- Added cleanup of read_barrier_depends
-	- Focus on rmb()/wmb() instead of acquire()/store()
-	- Added update to documentation with code example
-	- Added change in r8169 to fix cur_tx/DescOwn ordering
-	- Simplified changes to just replacing/moving barriers in r8169
-v2:
-	- Renamed read_acquire() to be consistent with smp_load_acquire()
-	- Changed barrier used to be consistent with smp_load_acquire()
-	- Updated PowerPC code to use __lwsync based on IBM article
-	- Added store_release() as this is a viable use case for drivers
-	- Added r8169 patch which is able to fully use primitives
-	- Added fm10k/igb/ixgbe patch which is able to test performance
-
+Cc: Realtek linux nic maintainers <nic_swsd@realtek.com>
+Cc: Francois Romieu <romieu@fr.zoreil.com>
+Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
 ---
+ drivers/net/ethernet/realtek/r8169.c |   29 +++++++++++++++++++++--------
+ 1 file changed, 21 insertions(+), 8 deletions(-)
 
-Alexander Duyck (4):
-      arch: Cleanup read_barrier_depends() and comments
-      arch: Add lightweight memory barriers fast_rmb() and fast_wmb()
-      r8169: Use fast_rmb() and fast_wmb() for DescOwn checks
-      fm10k/igb/ixgbe: Use fast_rmb on Rx descriptor reads
-
-
- Documentation/memory-barriers.txt             |   41 +++++++++++++++
- arch/alpha/include/asm/barrier.h              |   51 ++++++++++++++++++
- arch/arm/include/asm/barrier.h                |    4 +
- arch/arm64/include/asm/barrier.h              |    3 +
- arch/blackfin/include/asm/barrier.h           |   51 ++++++++++++++++++
- arch/ia64/include/asm/barrier.h               |   25 ++++-----
- arch/metag/include/asm/barrier.h              |   19 ++++---
- arch/mips/include/asm/barrier.h               |   52 -------------------
- arch/powerpc/include/asm/barrier.h            |   28 ++++++----
- arch/s390/include/asm/barrier.h               |    7 ++-
- arch/sparc/include/asm/barrier_64.h           |    7 ++-
- arch/x86/include/asm/barrier.h                |   70 ++++---------------------
- arch/x86/um/asm/barrier.h                     |   20 ++++---
- drivers/net/ethernet/intel/fm10k/fm10k_main.c |    6 +-
- drivers/net/ethernet/intel/igb/igb_main.c     |    6 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    9 +--
- drivers/net/ethernet/realtek/r8169.c          |   29 ++++++++--
- include/asm-generic/barrier.h                 |    8 +++
- 18 files changed, 257 insertions(+), 179 deletions(-)
-
---
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index cf154f7..be79447 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -6601,6 +6601,9 @@ static inline void rtl8169_mark_to_asic(struct RxDesc *desc, u32 rx_buf_sz)
+ {
+ 	u32 eor = le32_to_cpu(desc->opts1) & RingEnd;
+ 
++	/* Force memory writes to complete before releasing descriptor */
++	fast_wmb();
++
+ 	desc->opts1 = cpu_to_le32(DescOwn | eor | rx_buf_sz);
+ }
+ 
+@@ -6608,7 +6611,6 @@ static inline void rtl8169_map_to_asic(struct RxDesc *desc, dma_addr_t mapping,
+ 				       u32 rx_buf_sz)
+ {
+ 	desc->addr = cpu_to_le64(mapping);
+-	wmb();
+ 	rtl8169_mark_to_asic(desc, rx_buf_sz);
+ }
+ 
+@@ -7077,16 +7079,18 @@ static netdev_tx_t rtl8169_start_xmit(struct sk_buff *skb,
+ 
+ 	skb_tx_timestamp(skb);
+ 
+-	wmb();
++	/* Force memory writes to complete before releasing descriptor */
++	fast_wmb();
+ 
+ 	/* Anti gcc 2.95.3 bugware (sic) */
+ 	status = opts[0] | len | (RingEnd * !((entry + 1) % NUM_TX_DESC));
+ 	txd->opts1 = cpu_to_le32(status);
+ 
+-	tp->cur_tx += frags + 1;
+-
++	/* Force all memory writes to complete before notifying device */
+ 	wmb();
+ 
++	tp->cur_tx += frags + 1;
++
+ 	RTL_W8(TxPoll, NPQ);
+ 
+ 	mmiowb();
+@@ -7185,11 +7189,16 @@ static void rtl_tx(struct net_device *dev, struct rtl8169_private *tp)
+ 		struct ring_info *tx_skb = tp->tx_skb + entry;
+ 		u32 status;
+ 
+-		rmb();
+ 		status = le32_to_cpu(tp->TxDescArray[entry].opts1);
+ 		if (status & DescOwn)
+ 			break;
+ 
++		/* This barrier is needed to keep us from reading
++		 * any other fields out of the Tx descriptor until
++		 * we know the status of DescOwn
++		 */
++		fast_rmb();
++
+ 		rtl8169_unmap_tx_skb(&tp->pci_dev->dev, tx_skb,
+ 				     tp->TxDescArray + entry);
+ 		if (status & LastFrag) {
+@@ -7284,11 +7293,16 @@ static int rtl_rx(struct net_device *dev, struct rtl8169_private *tp, u32 budget
+ 		struct RxDesc *desc = tp->RxDescArray + entry;
+ 		u32 status;
+ 
+-		rmb();
+ 		status = le32_to_cpu(desc->opts1) & tp->opts1_mask;
+-
+ 		if (status & DescOwn)
+ 			break;
++
++		/* This barrier is needed to keep us from reading
++		 * any other fields out of the Rx descriptor until
++		 * we know the status of DescOwn
++		 */
++		fast_rmb();
++
+ 		if (unlikely(status & RxRES)) {
+ 			netif_info(tp, rx_err, dev, "Rx ERROR. status = %08x\n",
+ 				   status);
+@@ -7350,7 +7364,6 @@ process_pkt:
+ 		}
+ release_descriptor:
+ 		desc->opts2 = 0;
+-		wmb();
+ 		rtl8169_mark_to_asic(desc, rx_buf_sz);
+ 	}
+ 
