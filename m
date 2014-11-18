@@ -1,90 +1,53 @@
-From: Will Deacon <will.deacon@arm.com>
-Subject: Re: [PATCH 2/4] arch: Add lightweight memory barriers fast_rmb() and
- fast_wmb()
-Date: Tue, 18 Nov 2014 11:58:36 +0000
-Message-ID: <20141118115836.GL18842@arm.com>
-References: <20141117171005.22333.96544.stgit@ahduyck-server>
- <20141117171812.22333.90395.stgit@ahduyck-server>
- <1416254687.18381.3.camel@kernel.crashing.org>
- <546A5968.1090201@gmail.com>
- <1416271167.18381.16.camel@kernel.crashing.org>
- <546AB959.1020602@redhat.com>
+From: Dong Aisheng <b29396@freescale.com>
+Subject: [PATCH V5 1/2] can: m_can: fix not set can_dlc for remote frame
+Date: Tue, 18 Nov 2014 19:00:54 +0800
+Message-ID: <1416308455-29134-1-git-send-email-b29396@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	"linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"mathieu.desnoyers@polymtl.ca" <mathieu.desnoyers@polymtl.ca>,
-	"peterz@infradead.org" <peterz@infradead.org>,
-	"heiko.carstens@de.ibm.com" <heiko.carstens@de.ibm.com>,
-	"mingo@kernel.org" <mingo@kernel.org>,
-	"mikey@neuling.org" <mikey@neuling.org>,
-	"linux@arm.linux.org.uk" <linux@arm.linux.org.uk>,
-	"donald.c.skidmore@intel.com" <donald.c.skidmore@intel.com>,
-	"matthew.vick@intel.com" <matthew.vick@intel.com>,
-	"geert@linux-m68k.org" <geert@linux-m68k.org>,
-	"jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
-	"romieu@fr.zoreil.com" <romieu@fr.zoreil.com>,
-	"paulmck@linux.vnet.ibm.com" <paulmck@linux.vn
-To: Alexander Duyck <alexander.h.duyck@redhat.com>
-Return-path: <linux-arch-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <546AB959.1020602@redhat.com>
-Sender: linux-arch-owner@vger.kernel.org
+Content-Type: text/plain
+Cc: <mkl@pengutronix.de>, <wg@grandegger.com>,
+	<varkabhadram@gmail.com>, <netdev@vger.kernel.org>,
+	<socketcan@hartkopp.net>, <b29396@freescale.com>,
+	<linux-arm-kernel@lists.infradead.org>
+To: <linux-can@vger.kernel.org>
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 18, 2014 at 03:13:29AM +0000, Alexander Duyck wrote:
-> On 11/17/2014 04:39 PM, Benjamin Herrenschmidt wrote:
-> > On Mon, 2014-11-17 at 12:24 -0800, Alexander Duyck wrote:
-> >> Yes and no.  So for example on ARM I used the dmb() operation, however
-> >> I
-> >> have to use the barrier at the system level instead of just the inner
-> >> shared domain.  However on many other architectures they are just the
-> >> same as the smp_* variants.
-> >>
-> >> Basically the resultant code is somewhere between the smp and non-smp
-> >> barriers in terms of what they cover.
-> > There I don't quite follow you. You need to explain better especially in
-> > the documentation because otherwise people will get it wrong...
-> >
-> > If it's ordering in the coherent domain, I fail to see how a DMA agent
-> > is different than another processor when it comes to barriers, so I fail
-> > to see the difference with smp_*
-> >
-> > I understand the MMIO vs. memory issue, we do have the same on powerpc,
-> > but that other aspect eludes me.
-> >
-> 
-> ARM adds some funky things.  They have two different types of 
-> primitives, a dmb() which is a data memory barrier, and a dsb() which is 
-> a data synchronization barrier.  Then with each of those they have the 
-> "domains" the barriers are effective within.
-> 
-> So for example on ARM a rmb() is dsb(sy) which means it is a system wide 
-> synchronization barrier which stops execution on the CPU core until the 
-> read completes.  However the smp_rmb() is a dmb(ish) which means it is 
-> only a barrier as far as the inner shareable domain which I believe only 
-> goes as far as the local shared cache hierarchy and only guarantees read 
-> ordering without necessarily halting the CPU or stopping in-order 
-> speculative reads.  So what a coherent_rmb() would be in my setup is 
-> dmb(sy) which means the barrier runs all the way out to memory, and it 
-> is allowed to speculative read as long as it does it in order.
-> 
-> If it is still unclear you might check out Will Deacon's talk on the 
-> topic at https://www.youtube.com/watch?v=6ORn6_35kKo, at about 7:00 in 
-> he explains the whole domains thing, and at 13:30 he explains dmb()/dsb().
+The original code missed to set the cf->can_dlc in the RTR case, so add it.
 
-So actually, this is an interesting case where the barrier would like to
-know whether the memory returned by dma_alloc_coherent is h/w coherent
-(normal, cacheable) or s/w coherent (normal, non-cacheable). I think Ben
-is thinking of the h/w coherent case (i.e. actual snooping into the CPU
-caches by the DMA master).
+Signed-off-by: Dong Aisheng <b29396@freescale.com>
+---
+ drivers/net/can/m_can/m_can.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-For the former, we could use inner-shareable barriers. For the latter, we'd
-need to use outer-shareable barriers.
+diff --git a/drivers/net/can/m_can/m_can.c b/drivers/net/can/m_can/m_can.c
+index 06541f1..2f61676 100644
+--- a/drivers/net/can/m_can/m_can.c
++++ b/drivers/net/can/m_can/m_can.c
+@@ -331,7 +331,7 @@ static void m_can_read_fifo(const struct net_device *dev, struct can_frame *cf,
+ 			    u32 rxfs)
+ {
+ 	struct m_can_priv *priv = netdev_priv(dev);
+-	u32 id, fgi;
++	u32 id, fgi, dlc;
+ 
+ 	/* calculate the fifo get index for where to read data */
+ 	fgi = (rxfs & RXFS_FGI_MASK) >> RXFS_FGI_OFF;
+@@ -341,11 +341,12 @@ static void m_can_read_fifo(const struct net_device *dev, struct can_frame *cf,
+ 	else
+ 		cf->can_id = (id >> 18) & CAN_SFF_MASK;
+ 
++	dlc = m_can_fifo_read(priv, fgi, M_CAN_FIFO_DLC);
++	cf->can_dlc = get_can_dlc((dlc >> 16) & 0x0F);
++
+ 	if (id & RX_BUF_RTR) {
+ 		cf->can_id |= CAN_RTR_FLAG;
+ 	} else {
+-		id = m_can_fifo_read(priv, fgi, M_CAN_FIFO_DLC);
+-		cf->can_dlc = get_can_dlc((id >> 16) & 0x0F);
+ 		*(u32 *)(cf->data + 0) = m_can_fifo_read(priv, fgi,
+ 							 M_CAN_FIFO_DATA(0));
+ 		*(u32 *)(cf->data + 4) = m_can_fifo_read(priv, fgi,
+-- 
+1.9.1
 
-If we can't tell, then these should be dmb(osh), which will work for both.
-
-Will
