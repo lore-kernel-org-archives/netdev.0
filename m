@@ -1,44 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] PPC: bpf_jit_comp: Unify BPF_MOD | BPF_X and
- BPF_DIV | BPF_X
-Date: Tue, 18 Nov 2014 13:20:42 -0500 (EST)
-Message-ID: <20141118.132042.1805477418902433426.davem@davemloft.net>
-References: <1416275444.1107.4.camel@concordia>
-	<CAOJe8K0_u51QkKmVoVmFuGaDtKfcHP6tSWx_fgJM_erRRoQfUA@mail.gmail.com>
-	<CAADnVQ+w9=aezS9uCursLS4Q40S4jcyn=5vNhoc-n5qcyrF0wQ@mail.gmail.com>
+From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+Subject: [ANN] Kernel integration now merged on backports
+Date: Tue, 18 Nov 2014 10:21:05 -0800
+Message-ID: <CAB=NE6Wwec_sq4muj7kshhyLJttcf1CytTPWkjc_+Ub3dqn0tw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kda@linux-powerpc.org, mpe@ellerman.id.au, netdev@vger.kernel.org,
-	felix@linux.vnet.ibm.com, linuxppc-dev@ozlabs.org,
-	dborkman@redhat.com
-To: alexei.starovoitov@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55289 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753848AbaKRSUs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Nov 2014 13:20:48 -0500
-In-Reply-To: <CAADnVQ+w9=aezS9uCursLS4Q40S4jcyn=5vNhoc-n5qcyrF0wQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	linux-media@vger.kernel.org,
+	linux-bluetooth <linux-bluetooth@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-wpan@vger.kernel.org
+To: "backports@vger.kernel.org" <backports@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Date: Tue, 18 Nov 2014 07:37:21 -0800
+Full kernel integration is now merged as part of Linux
+backports-20141114. I've written a bit about it [0] [1], what we need
+now are users and developer to give this a good spin as we wind down
+for the v3.19 release, which will be the first release that will
+support kernel integration down to any kernel >= 3.0 -- for now you
+can use the backports-20141114 tag which uses as base supported
+drivers from next-20141114. What this will mean is that you can opt in
+to integrate any device driver we support from any future backports
+release into any of >= 3.0 kernel with full kconfig support, enabling
+you to build everything as built-in. For all this you won't be using
+the packaged releases [2], instead you'll use the git tree directly as
+documented.
 
-> On Mon, Nov 17, 2014 at 10:58 PM, Denis Kirjanov <kda@linux-powerpc.org> wrote:
->> Hi Michael,
->>
->> This patch added no new functionality so I haven't put the test
->> results (of course I ran the test suite to check the patch).
->>
->> The output :
->> [  650.198958] test_bpf: Summary: 60 PASSED, 0 FAILED
-> 
-> Acked-by: Alexei Starovoitov <ast@plumgrid.com>
+[0] http://www.do-not-panic.com/2014/11/automating-backport-kernel-integration.html
+[1] https://backports.wiki.kernel.org/index.php/Documentation/integration
+[2] https://backports.wiki.kernel.org/index.php/Documentation/packaging
 
-Applied, thanks everyone.
-
-> btw, please don't top post.
-
-Seriously, it's my biggest pet peeve.  It's like going to a dinner party
-and eating with your feet.
+  Luis
