@@ -1,48 +1,38 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH 1/1] net: sched: Deletion of an unnecessary check before the
- function call "kfree"
-Date: Tue, 18 Nov 2014 21:26:59 +0100
-Message-ID: <546BAB93.4010406@users.sourceforge.net>
-References: <5307CAA2.8060406@users.sourceforge.net> <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6> <530A086E.8010901@users.sourceforge.net> <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6> <530A72AA.3000601@users.sourceforge.net> <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6> <530B5FB6.6010207@users.sourceforge.net> <alpine.DEB.2.10.1402241710370.2074@hadrien> <530C5E18.1020800@users.sourceforge.net> <alpine.DEB.2.10.1402251014170.2080@hadrien> <530CD2C4.4050903@users.sourceforge.net> <alpine.DEB.2.10.1402251840450.7035@hadrien> <530CF8FF.8080600@users.sourceforge.net> <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6> <530DD06F.4090703@users.sourceforge.net> <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6> <5317A59D.4@users.so
- urceforge.net>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [PATCH net-next 1/4] net: allow large number of rx queues
+Date: Tue, 18 Nov 2014 12:29:15 -0800
+Message-ID: <CAHA+R7MnLy=8uL_hSnx=BN2QTs2kvempTxtmSO6hjcS+E0yRwg@mail.gmail.com>
+References: <1416327778-17716-1-git-send-email-pagupta@redhat.com>
+	<1416327778-17716-2-git-send-email-pagupta@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org, Coccinelle <cocci@systeme.lip6.fr>
-To: "David S. Miller" <davem@davemloft.net>,
-	Jamal Hadi Salim <jhs@mojatatu.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Jason Wang <jasowang@redhat.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>, dgibson@redhat.com,
+	vfalico@gmail.com, Eric Dumazet <edumazet@google.com>,
+	Vladislav Yasevich <vyasevic@redhat.com>,
+	Jerry Chu <hkchu@google.com>,
+	wuzhy@linux.vnet.ibm.com.pnq.redhat.com,
+	Pavel Emelyanov <xemul@parallels.com>,
+	Tom Herbert <therbert@google.com>, bhutchings@solarflare.com,
+	xii@google.com, Stephen Hemminger <stephen@networkplumber.org>,
+	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	sergei.shtylyov@cogentembedded.com
+To: Pankaj Gupta <pagupta@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5317A59D.4@users.sourceforge.net>
+In-Reply-To: <1416327778-17716-2-git-send-email-pagupta@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Tue, 18 Nov 2014 21:21:16 +0100
+On Tue, Nov 18, 2014 at 8:22 AM, Pankaj Gupta <pagupta@redhat.com> wrote:
+>
+> As vmalloc() adds overhead on a critical network path,
+> __GFP_REPEAT flag is used with kzalloc() to do this fallback
+> only when really needed.
+>
 
-The kfree() function tests whether its argument is NULL and then
-returns immediately. Thus the test around the call is not needed.
-
-This issue was detected by using the Coccinelle software.
-
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
----
- net/sched/cls_bpf.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
-
-diff --git a/net/sched/cls_bpf.c b/net/sched/cls_bpf.c
-index 0e30d58..f323944 100644
---- a/net/sched/cls_bpf.c
-+++ b/net/sched/cls_bpf.c
-@@ -212,8 +212,7 @@ static int cls_bpf_modify_existing(struct net *net, struct tcf_proto *tp,
- 
- 	if (fp_old)
- 		bpf_prog_destroy(fp_old);
--	if (bpf_old)
--		kfree(bpf_old);
-+	kfree(bpf_old);
- 
- 	return 0;
- 
--- 
-2.1.3
+Are you sure we need __GFP_REPEAT? We have vmalloc() as
+fallback of kmalloc() in many places of networking (grep kvfree),
+none of those I checked has this flag set.
