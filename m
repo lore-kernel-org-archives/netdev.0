@@ -1,7 +1,7 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH 13/17] can: m_can: fix possible sleep in napi poll
-Date: Tue, 18 Nov 2014 21:37:43 +0100
-Message-ID: <1416343067-9810-14-git-send-email-mkl@pengutronix.de>
+Subject: [PATCH 16/17] can: m_can: fix incorrect error messages
+Date: Tue, 18 Nov 2014 21:37:46 +0100
+Message-ID: <1416343067-9810-17-git-send-email-mkl@pengutronix.de>
 References: <1416343067-9810-1-git-send-email-mkl@pengutronix.de>
 Cc: davem@davemloft.net, linux-can@vger.kernel.org,
 	kernel@pengutronix.de, Dong Aisheng <b29396@freescale.com>,
@@ -14,104 +14,44 @@ List-Id: netdev.vger.kernel.org
 
 From: Dong Aisheng <b29396@freescale.com>
 
-The m_can_get_berr_counter function can sleep and it may be called in napi poll
-function. Rework it to fix the following warning.
-
-root@imx6qdlsolo:~# cangen can0 -f -L 12 -D 112233445566778899001122
-[ 1846.017565] m_can 20e8000.can can0: entered error warning state
-[ 1846.023551] ------------[ cut here ]------------
-[ 1846.028216] WARNING: CPU: 0 PID: 560 at kernel/locking/mutex.c:867 mutex_trylock+0x218/0x23c()
-[ 1846.036889] DEBUG_LOCKS_WARN_ON(in_interrupt())
-[ 1846.041263] Modules linked in:
-[ 1846.044594] CPU: 0 PID: 560 Comm: cangen Not tainted 3.17.0-rc4-next-20140915-00010-g032d018-dirty #477
-[ 1846.054033] Backtrace:
-[ 1846.056557] [<80012448>] (dump_backtrace) from [<80012728>] (show_stack+0x18/0x1c)
-[ 1846.064180]  r6:809a07ec r5:809a07ec r4:00000000 r3:00000000
-[ 1846.069966] [<80012710>] (show_stack) from [<806c9ee0>] (dump_stack+0x8c/0xa4)
-[ 1846.077264] [<806c9e54>] (dump_stack) from [<8002aa78>] (warn_slowpath_common+0x70/0x94)
-[ 1846.085403]  r6:806cd1b0 r5:00000009 r4:be1d5c20 r3:be07b0c0
-[ 1846.091204] [<8002aa08>] (warn_slowpath_common) from [<8002aad4>] (warn_slowpath_fmt+0x38/0x40)
-[ 1846.099951]  r8:8119106c r7:80515aa4 r6:be027000 r5:00000001 r4:809d1df4
-[ 1846.106830] [<8002aaa0>] (warn_slowpath_fmt) from [<806cd1b0>] (mutex_trylock+0x218/0x23c)
-[ 1846.115141]  r3:80851c88 r2:8084fb74
-[ 1846.118804] [<806ccf98>] (mutex_trylock) from [<80515aa4>] (clk_prepare_lock+0x14/0xf4)
-[ 1846.126859]  r8:00000040 r7:be1d5cec r6:be027000 r5:be255800 r4:be027000
-[ 1846.133737] [<80515a90>] (clk_prepare_lock) from [<80517660>] (clk_prepare+0x14/0x2c)
-[ 1846.141583]  r5:be255800 r4:be027000
-[ 1846.145272] [<8051764c>] (clk_prepare) from [<8041ff14>] (m_can_get_berr_counter+0x20/0xd4)
-[ 1846.153672]  r4:be255800 r3:be07b0c0
-[ 1846.157325] [<8041fef4>] (m_can_get_berr_counter) from [<80420428>] (m_can_poll+0x310/0x8fc)
-[ 1846.165809]  r7:bd4dc540 r6:00000744 r5:11300000 r4:be255800
-[ 1846.171590] [<80420118>] (m_can_poll) from [<8056a468>] (net_rx_action+0xcc/0x1b4)
-[ 1846.179204]  r10:00000101 r9:be255ebc r8:00000040 r7:be7c3208 r6:8097c100 r5:be7c3200
-[ 1846.187192]  r4:0000012c
-[ 1846.189779] [<8056a39c>] (net_rx_action) from [<8002deec>] (__do_softirq+0xfc/0x2c4)
-[ 1846.197568]  r10:00000101 r9:8097c088 r8:00000003 r7:8097c080 r6:40000001 r5:8097c08c
-[ 1846.205559]  r4:00000020
-[ 1846.208144] [<8002ddf0>] (__do_softirq) from [<8002e194>] (do_softirq+0x7c/0x88)
-[ 1846.215588]  r10:00000000 r9:bd516a60 r8:be18ce00 r7:00000000 r6:be255800 r5:8056c0ec
-[ 1846.223578]  r4:60000093
-[ 1846.226163] [<8002e118>] (do_softirq) from [<8002e288>] (__local_bh_enable_ip+0xe8/0x10c)
-[ 1846.234386]  r4:00000200 r3:be1d4000
-[ 1846.238036] [<8002e1a0>] (__local_bh_enable_ip) from [<8056c108>] (__dev_queue_xmit+0x314/0x6b0)
-[ 1846.246868]  r6:be255800 r5:bd516a00 r4:00000000 r3:be07b0c0
-[ 1846.252645] [<8056bdf4>] (__dev_queue_xmit) from [<8056c4b8>] (dev_queue_xmit+0x14/0x18)
+Fix a few error messages.
 
 Signed-off-by: Dong Aisheng <b29396@freescale.com>
 Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
- drivers/net/can/m_can/m_can.c | 20 +++++++++++++++-----
- 1 file changed, 15 insertions(+), 5 deletions(-)
+ drivers/net/can/m_can/m_can.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/can/m_can/m_can.c b/drivers/net/can/m_can/m_can.c
-index 268ad5064c47..214160b4c314 100644
+index 3ad7d88720b7..2f61676b3a97 100644
 --- a/drivers/net/can/m_can/m_can.c
 +++ b/drivers/net/can/m_can/m_can.c
-@@ -481,11 +481,23 @@ static int m_can_handle_lec_err(struct net_device *dev,
- 	return 1;
- }
+@@ -608,14 +608,14 @@ static int m_can_handle_state_errors(struct net_device *dev, u32 psr)
  
-+static int __m_can_get_berr_counter(const struct net_device *dev,
-+				    struct can_berr_counter *bec)
-+{
-+	struct m_can_priv *priv = netdev_priv(dev);
-+	unsigned int ecr;
-+
-+	ecr = m_can_read(priv, M_CAN_ECR);
-+	bec->rxerr = (ecr & ECR_REC_MASK) >> ECR_REC_SHIFT;
-+	bec->txerr = ecr & ECR_TEC_MASK;
-+
-+	return 0;
-+}
-+
- static int m_can_get_berr_counter(const struct net_device *dev,
- 				  struct can_berr_counter *bec)
- {
- 	struct m_can_priv *priv = netdev_priv(dev);
--	unsigned int ecr;
- 	int err;
- 
- 	err = clk_prepare_enable(priv->hclk);
-@@ -498,9 +510,7 @@ static int m_can_get_berr_counter(const struct net_device *dev,
- 		return err;
+ 	if ((psr & PSR_EP) &&
+ 	    (priv->can.state != CAN_STATE_ERROR_PASSIVE)) {
+-		netdev_dbg(dev, "entered error warning state\n");
++		netdev_dbg(dev, "entered error passive state\n");
+ 		work_done += m_can_handle_state_change(dev,
+ 						       CAN_STATE_ERROR_PASSIVE);
  	}
  
--	ecr = m_can_read(priv, M_CAN_ECR);
--	bec->rxerr = (ecr & ECR_REC_MASK) >> ECR_REC_SHIFT;
--	bec->txerr = ecr & ECR_TEC_MASK;
-+	__m_can_get_berr_counter(dev, bec);
- 
- 	clk_disable_unprepare(priv->cclk);
- 	clk_disable_unprepare(priv->hclk);
-@@ -544,7 +554,7 @@ static int m_can_handle_state_change(struct net_device *dev,
- 	if (unlikely(!skb))
- 		return 0;
- 
--	m_can_get_berr_counter(dev, &bec);
-+	__m_can_get_berr_counter(dev, &bec);
- 
- 	switch (new_state) {
- 	case CAN_STATE_ERROR_ACTIVE:
+ 	if ((psr & PSR_BO) &&
+ 	    (priv->can.state != CAN_STATE_BUS_OFF)) {
+-		netdev_dbg(dev, "entered error warning state\n");
++		netdev_dbg(dev, "entered error bus off state\n");
+ 		work_done += m_can_handle_state_change(dev,
+ 						       CAN_STATE_BUS_OFF);
+ 	}
+@@ -627,7 +627,7 @@ static void m_can_handle_other_err(struct net_device *dev, u32 irqstatus)
+ {
+ 	if (irqstatus & IR_WDI)
+ 		netdev_err(dev, "Message RAM Watchdog event due to missing READY\n");
+-	if (irqstatus & IR_BEU)
++	if (irqstatus & IR_ELO)
+ 		netdev_err(dev, "Error Logging Overflow\n");
+ 	if (irqstatus & IR_BEU)
+ 		netdev_err(dev, "Bit Error Uncorrected\n");
 -- 
 2.1.3
 
