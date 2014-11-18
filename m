@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 09/11] i40e: Do not disable/enable FCoE VSI with DCB reconfig
-Date: Tue, 18 Nov 2014 01:25:29 -0800
-Message-ID: <1416302731-11327-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 11/11] i40e: Set XPS bit mask to zero in DCB mode
+Date: Tue, 18 Nov 2014 01:25:31 -0800
+Message-ID: <1416302731-11327-12-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1416302731-11327-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Neerav Parikh <neerav.parikh@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
@@ -10,7 +10,7 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:11632 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753957AbaKRJZ6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753963AbaKRJZ6 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 18 Nov 2014 04:25:58 -0500
 In-Reply-To: <1416302731-11327-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,50 +18,77 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Neerav Parikh <neerav.parikh@intel.com>
 
-FCoE VSI Tx queue disable times out when reconfiguring as a result of
-DCB TC configuration change event.
+Due to DCBX configuration change if the VSI needs to use more than 1 TC;
+it needs to disable the XPS maps that were set when operating in 1 TC mode.
+Without disabling XPS the netdev layer will select queues based on those
+settings and not use the TC queue mapping to make the queue selection.
 
-The hardware allows us to skip disabling and enabling of Tx queues for
-VSIs with single TC enabled. As FCoE VSI is configured to have only
-single TC we skip it from disable/enable flow.
+This patch allows the driver to enable/disable the XPS based on the number
+of TCs being enabled for the given VSI.
 
-Change-ID: Ia73ff3df8785ba2aa3db91e6f2c9005e61ebaec2
+Change-ID: Idc4dec47a672d2a509f6d7fe11ed1ee65b4f0e08
 Signed-off-by: Neerav Parikh <neerav.parikh@intel.com>
 Tested-By: Jack Morgan <jack.morgan@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 12 +++++++++++-
- 1 file changed, 11 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 38 +++++++++++++++++++++++------
+ 1 file changed, 31 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 3e55cef..c3107dc 100644
+index c3107dc..c998d82 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -3862,6 +3862,15 @@ static void i40e_quiesce_vsi(struct i40e_vsi *vsi)
- 	if (test_bit(__I40E_DOWN, &vsi->state))
- 		return;
+@@ -2382,6 +2382,35 @@ static void i40e_vsi_free_rx_resources(struct i40e_vsi *vsi)
+ }
  
-+	/* No need to disable FCoE VSI when Tx suspended */
-+	if ((test_bit(__I40E_PORT_TX_SUSPENDED, &vsi->back->state)) &&
-+	    vsi->type == I40E_VSI_FCOE) {
-+		dev_dbg(&vsi->back->pdev->dev,
-+			"%s: VSI seid %d skipping FCoE VSI disable\n",
-+			 __func__, vsi->seid);
-+		return;
-+	}
+ /**
++ * i40e_config_xps_tx_ring - Configure XPS for a Tx ring
++ * @ring: The Tx ring to configure
++ *
++ * This enables/disables XPS for a given Tx descriptor ring
++ * based on the TCs enabled for the VSI that ring belongs to.
++ **/
++static void i40e_config_xps_tx_ring(struct i40e_ring *ring)
++{
++	struct i40e_vsi *vsi = ring->vsi;
++	cpumask_var_t mask;
 +
- 	set_bit(__I40E_NEEDS_RESTART, &vsi->state);
- 	if (vsi->netdev && netif_running(vsi->netdev)) {
- 		vsi->netdev->netdev_ops->ndo_stop(vsi->netdev);
-@@ -3953,7 +3962,8 @@ static int i40e_pf_wait_txq_disabled(struct i40e_pf *pf)
- 	int v, ret = 0;
++	if (ring->q_vector && ring->netdev) {
++		/* Single TC mode enable XPS */
++		if (vsi->tc_config.numtc <= 1 &&
++		    !test_and_set_bit(__I40E_TX_XPS_INIT_DONE, &ring->state)) {
++			netif_set_xps_queue(ring->netdev,
++					    &ring->q_vector->affinity_mask,
++					    ring->queue_index);
++		} else if (alloc_cpumask_var(&mask, GFP_KERNEL)) {
++			/* Disable XPS to allow selection based on TC */
++			bitmap_zero(cpumask_bits(mask), nr_cpumask_bits);
++			netif_set_xps_queue(ring->netdev, mask,
++					    ring->queue_index);
++			free_cpumask_var(mask);
++		}
++	}
++}
++
++/**
+  * i40e_configure_tx_ring - Configure a transmit ring context and rest
+  * @ring: The Tx ring to configure
+  *
+@@ -2404,13 +2433,8 @@ static int i40e_configure_tx_ring(struct i40e_ring *ring)
+ 		ring->atr_sample_rate = 0;
+ 	}
  
- 	for (v = 0; v < pf->hw.func_caps.num_vsis; v++) {
--		if (pf->vsi[v]) {
-+		/* No need to wait for FCoE VSI queues */
-+		if (pf->vsi[v] && pf->vsi[v]->type != I40E_VSI_FCOE) {
- 			ret = i40e_vsi_wait_txq_disabled(pf->vsi[v]);
- 			if (ret)
- 				break;
+-	/* initialize XPS */
+-	if (ring->q_vector && ring->netdev &&
+-	    vsi->tc_config.numtc <= 1 &&
+-	    !test_and_set_bit(__I40E_TX_XPS_INIT_DONE, &ring->state))
+-		netif_set_xps_queue(ring->netdev,
+-				    &ring->q_vector->affinity_mask,
+-				    ring->queue_index);
++	/* configure XPS */
++	i40e_config_xps_tx_ring(ring);
+ 
+ 	/* clear the context structure first */
+ 	memset(&tx_ctx, 0, sizeof(tx_ctx));
 -- 
 1.9.3
