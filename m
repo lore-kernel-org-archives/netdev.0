@@ -1,123 +1,91 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: pull-request: can 2014-11-18
-Date: Tue, 18 Nov 2014 21:37:30 +0100
-Message-ID: <1416343067-9810-1-git-send-email-mkl@pengutronix.de>
+Subject: [PATCH 01/17] can: dev: avoid calling kfree_skb() from interrupt context
+Date: Tue, 18 Nov 2014 21:37:31 +0100
+Message-ID: <1416343067-9810-2-git-send-email-mkl@pengutronix.de>
+References: <1416343067-9810-1-git-send-email-mkl@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: davem@davemloft.net, linux-can@vger.kernel.org,
-	kernel@pengutronix.de
+	kernel@pengutronix.de,
+	=?UTF-8?q?Thomas=20K=C3=B6rper?= <thomas.koerper@esd.eu>,
+	linux-stable <stable@vger.kernel.org>,
+	Marc Kleine-Budde <mkl@pengutronix.de>
 To: netdev@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:47267 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754558AbaKRUhz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Nov 2014 15:37:55 -0500
+In-Reply-To: <1416343067-9810-1-git-send-email-mkl@pengutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello David,
+=46rom: Thomas K=C3=B6rper <thomas.koerper@esd.eu>
 
-this is a pull request of 17 patches for net/master for the v3.18 relea=
-se
-cycle.
+ikfree_skb() is Called in can_free_echo_skb(), which might be called fr=
+om (TX
+Error) interrupt, which triggers the folloing warning:
 
-The last patch of this pull request ("can: m_can: update to support CAN=
- FD
-features") adds, as the description says, a new feature to the m_can dr=
-iver. As
-the m_can driver has been added in v3.18 there is no risk of causing a
-regression. Give me a note if this is not okay and I'll create a new pu=
-ll
-request without it.
+[ 1153.360705] ------------[ cut here ]------------
+[ 1153.360715] WARNING: CPU: 0 PID: 31 at net/core/skbuff.c:563 skb_rel=
+ease_head_state+0xb9/0xd0()
+[ 1153.360772] Call Trace:
+[ 1153.360778]  [<c167906f>] dump_stack+0x41/0x52
+[ 1153.360782]  [<c105bb7e>] warn_slowpath_common+0x7e/0xa0
+[ 1153.360784]  [<c158b909>] ? skb_release_head_state+0xb9/0xd0
+[ 1153.360786]  [<c158b909>] ? skb_release_head_state+0xb9/0xd0
+[ 1153.360788]  [<c105bc42>] warn_slowpath_null+0x22/0x30
+[ 1153.360791]  [<c158b909>] skb_release_head_state+0xb9/0xd0
+[ 1153.360793]  [<c158be90>] skb_release_all+0x10/0x30
+[ 1153.360795]  [<c158bf06>] kfree_skb+0x36/0x80
+[ 1153.360799]  [<f8486938>] ? can_free_echo_skb+0x28/0x40 [can_dev]
+[ 1153.360802]  [<f8486938>] can_free_echo_skb+0x28/0x40 [can_dev]
+[ 1153.360805]  [<f849a12c>] esd_pci402_interrupt+0x34c/0x57a [esd402]
+[ 1153.360809]  [<c10a75b5>] handle_irq_event_percpu+0x35/0x180
+[ 1153.360811]  [<c10a7623>] ? handle_irq_event_percpu+0xa3/0x180
+[ 1153.360813]  [<c10a7731>] handle_irq_event+0x31/0x50
+[ 1153.360816]  [<c10a9c7f>] handle_fasteoi_irq+0x6f/0x120
+[ 1153.360818]  [<c10a9c10>] ? handle_edge_irq+0x110/0x110
+[ 1153.360822]  [<c1011b61>] handle_irq+0x71/0x90
+[ 1153.360823]  <IRQ>  [<c168152c>] do_IRQ+0x3c/0xd0
+[ 1153.360829]  [<c1680b6c>] common_interrupt+0x2c/0x34
+[ 1153.360834]  [<c107d277>] ? finish_task_switch+0x47/0xf0
+[ 1153.360836]  [<c167c27b>] __schedule+0x35b/0x7e0
+[ 1153.360839]  [<c10a5334>] ? console_unlock+0x2c4/0x4d0
+[ 1153.360842]  [<c13df500>] ? n_tty_receive_buf_common+0x890/0x890
+[ 1153.360845]  [<c10707b6>] ? process_one_work+0x196/0x370
+[ 1153.360847]  [<c167c723>] schedule+0x23/0x60
+[ 1153.360849]  [<c1070de1>] worker_thread+0x161/0x460
+[ 1153.360852]  [<c1090fcf>] ? __wake_up_locked+0x1f/0x30
+[ 1153.360854]  [<c1070c80>] ? rescuer_thread+0x2f0/0x2f0
+[ 1153.360856]  [<c1074f01>] kthread+0xa1/0xc0
+[ 1153.360859]  [<c1680401>] ret_from_kernel_thread+0x21/0x30
+[ 1153.360861]  [<c1074e60>] ? kthread_create_on_node+0x110/0x110
+[ 1153.360863] ---[ end trace 5ff83639cbb74b35 ]---
 
-There is a patch for the CAN infrastructure by Thomas K=C3=B6rper which=
- fixes
-calling kfree_skb() from interrupt context. Roman Fietze fixes a typo a=
-lso in
-the infrastructure. A patch by Dong Aisheng adds a generic helper funct=
-ion to
-tell if a skb is normal CAN or CAN-FD frame. Alexey Khoroshilov of the =
-Linux
-Driver Verification project fixes a memory leak in the esd_usb2 driver.=
- Two
-patches by Sudip Mukherjee remove unused variables and fixe the signess=
- of a
-variable. Three patches by me add the missing .ndo_change_mtu callback =
-to the
-xilinx_can, rcar_can and gs_usb driver.
+This patch replaces the kfree_skb() by dev_kfree_skb_any().
 
-The remaining patches improve the m_can driver: David Cohen adds the mi=
-ssing
-CONFIG_HAS_IOMEM dependency. Dong Aisheng provides 6 bugfix patches (mo=
-st
-important: missing RAM init, sleep in NAPI poll, dlc in RTR). While the=
- last of
-his patches adds CAN FD support to the driver.
-
-regards,
-Marc
-
+Signed-off-by: Thomas K=C3=B6rper <thomas.koerper@esd.eu>
+Cc: linux-stable <stable@vger.kernel.org>
+Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
+ drivers/net/can/dev.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-The following changes since commit feb91a02ccb09661507f170b2a444aec94f3=
-07f9:
-
-  ipv6: mld: fix add_grhead skb_over_panic for devs with large MTUs (20=
-14-11-16 16:55:06 -0500)
-
-are available in the git repository at:
-
-  git://gitorious.org/linux-can/linux-can.git tags/linux-can-fixes-for-=
-3.18-20141118
-
-for you to fetch changes up to 80646733f11c2e9de3b6339f7e635047e6087280=
-:
-
-  can: m_can: update to support CAN FD features (2014-11-18 21:35:06 +0=
-100)
-
-----------------------------------------------------------------
-linux-can-fixes-for-3.18-20141118
-
-----------------------------------------------------------------
-Alexey Khoroshilov (1):
-      can: esd_usb2: fix memory leak on disconnect
-
-David Cohen (1):
-      can: m_can: add CONFIG_HAS_IOMEM dependence
-
-Dong Aisheng (8):
-      can: dev: add can_is_canfd_skb() API
-      can: m_can: add .ndo_change_mtu function
-      can: m_can: add missing message RAM initialization
-      can: m_can: fix possible sleep in napi poll
-      can: m_can: fix not set can_dlc for remote frame
-      can: m_can: add missing delay after setting CCCR_INIT bit
-      can: m_can: fix incorrect error messages
-      can: m_can: update to support CAN FD features
-
-Marc Kleine-Budde (3):
-      can: xilinx_can: add .ndo_change_mtu function
-      can: rcar_can: add .ndo_change_mtu function
-      can: gs_usb: add .ndo_change_mtu function
-
-Roman Fietze (1):
-      can: dev: fix typo CIA -> CiA, CAN in Automation
-
-Sudip Mukherjee (2):
-      can: remove unused variable
-      can: xilinx_can: fix comparison of unsigned variable
-
-Thomas K=C3=B6rper (1):
-      can: dev: avoid calling kfree_skb() from interrupt context
-
- drivers/net/can/dev.c                |   4 +-
- drivers/net/can/m_can/Kconfig        |   1 +
- drivers/net/can/m_can/m_can.c        | 219 ++++++++++++++++++++++++++-=
---------
- drivers/net/can/rcar_can.c           |   1 +
- drivers/net/can/sja1000/kvaser_pci.c |   5 +-
- drivers/net/can/usb/ems_usb.c        |   3 +-
- drivers/net/can/usb/esd_usb2.c       |   3 +-
- drivers/net/can/usb/gs_usb.c         |   1 +
- drivers/net/can/xilinx_can.c         |   4 +-
- include/linux/can/dev.h              |   6 +
- 10 files changed, 183 insertions(+), 64 deletions(-)
-
+diff --git a/drivers/net/can/dev.c b/drivers/net/can/dev.c
+index 02492d241e4c..509d5e063d8c 100644
+--- a/drivers/net/can/dev.c
++++ b/drivers/net/can/dev.c
+@@ -382,7 +382,7 @@ void can_free_echo_skb(struct net_device *dev, unsi=
+gned int idx)
+ 	BUG_ON(idx >=3D priv->echo_skb_max);
+=20
+ 	if (priv->echo_skb[idx]) {
+-		kfree_skb(priv->echo_skb[idx]);
++		dev_kfree_skb_any(priv->echo_skb[idx]);
+ 		priv->echo_skb[idx] =3D NULL;
+ 	}
+ }
+--=20
+2.1.3
