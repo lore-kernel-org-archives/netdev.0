@@ -1,7 +1,7 @@
 From: Pankaj Gupta <pagupta@redhat.com>
-Subject: [PATCH net-next 4/4] tuntap: Increase the number of queues in tun.
-Date: Tue, 18 Nov 2014 21:52:58 +0530
-Message-ID: <1416327778-17716-5-git-send-email-pagupta@redhat.com>
+Subject: [PATCH net-next 1/4] net: allow large number of rx queues
+Date: Tue, 18 Nov 2014 21:52:55 +0530
+Message-ID: <1416327778-17716-2-git-send-email-pagupta@redhat.com>
 References: <1416327778-17716-1-git-send-email-pagupta@redhat.com>
 Cc: davem@davemloft.net, jasowang@redhat.com, mst@redhat.com,
 	dgibson@redhat.com, vfalico@gmail.com, edumazet@google.com,
@@ -12,49 +12,82 @@ Cc: davem@davemloft.net, jasowang@redhat.com, mst@redhat.com,
 	sergei.shtylyov@cogentembedded.com,
 	Pankaj Gupta <pagupta@redhat.com>
 To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [114.143.50.60] ([114.143.50.60]:19052 "EHLO
+	dhcp223-82.pnq.redhat.com" rhost-flags-FAIL-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754390AbaKRSJr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Nov 2014 13:09:47 -0500
 In-Reply-To: <1416327778-17716-1-git-send-email-pagupta@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Networking under kvm works best if we allocate a per-vCPU RX and TX
-queue in a virtual NIC. This requires a per-vCPU queue on the host side.
+netif_alloc_rx_queues() uses kcalloc() to allocate memory
+for "struct netdev_queue *_rx" array.
+If we are doing large rx queue allocation kcalloc() might
+fail, so this patch does a fallback to vzalloc().
+Similar implementation is done for tx queue allocation in
+netif_alloc_netdev_queues().
 
-It is now safe to increase the maximum number of queues.
-Preceding patches:
-        net: allow large number of rx queues
-        tuntap: Reduce the size of tun_struct by using flex array
-        tuntap: Accepts tuntap max queue length as net sysctl parameter
+We avoid failure of high order memory allocation
+with the help of vzalloc(), this allows us to do large
+rx and tx queue allocation which in turn helps us to
+increase the number of queues in tun.
 
-        made sure this won't cause failures due to high order memory
-allocations. Increase it to 256: this is the max number of vCPUs
-KVM supports.
+As vmalloc() adds overhead on a critical network path,
+__GFP_REPEAT flag is used with kzalloc() to do this fallback
+only when really needed.
 
 Signed-off-by: Pankaj Gupta <pagupta@redhat.com>
+Reviewed-by: Michael S. Tsirkin <mst@redhat.com>
 Reviewed-by: David Gibson <dgibson@redhat.com>
 ---
- drivers/net/tun.c | 9 +++++----
- 1 file changed, 5 insertions(+), 4 deletions(-)
+ net/core/dev.c | 19 +++++++++++++------
+ 1 file changed, 13 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index a9b3eb4..2fb31b7 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -115,10 +115,11 @@ struct tap_filter {
- 	unsigned char	addr[FLT_EXACT_COUNT][ETH_ALEN];
- };
+diff --git a/net/core/dev.c b/net/core/dev.c
+index e916ba8..abe9560 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -6059,17 +6059,25 @@ void netif_stacked_transfer_operstate(const struct net_device *rootdev,
+ EXPORT_SYMBOL(netif_stacked_transfer_operstate);
  
--/* DEFAULT_MAX_NUM_RSS_QUEUES were chosen to let the rx/tx queues allocated for
-- * the netdevice to be fit in one page. So we can make sure the success of
-- * memory allocation. TODO: increase the limit. */
--#define MAX_TAP_QUEUES DEFAULT_MAX_NUM_RSS_QUEUES
-+/* MAX_TAP_QUEUES 256 is chosen to allow rx/tx queues to be equal
-+ * to max number of vCPUS in guest. Also, we are making sure here
-+ * queue memory allocation do not fail.
-+ */
-+#define MAX_TAP_QUEUES 256
- #define MIN_TAP_QUEUES 1
- #define MAX_TAP_FLOWS  4096
+ #ifdef CONFIG_SYSFS
++static void netif_free_rx_queues(struct net_device *dev)
++{
++	kvfree(dev->_rx);
++}
++
+ static int netif_alloc_rx_queues(struct net_device *dev)
+ {
+ 	unsigned int i, count = dev->num_rx_queues;
+ 	struct netdev_rx_queue *rx;
++	size_t sz = count * sizeof(*rx);
  
+ 	BUG_ON(count < 1);
+ 
+-	rx = kcalloc(count, sizeof(struct netdev_rx_queue), GFP_KERNEL);
+-	if (!rx)
+-		return -ENOMEM;
+-
++	rx = kzalloc(sz, GFP_KERNEL | __GFP_NOWARN | __GFP_REPEAT);
++	if (!rx) {
++		rx = vzalloc(sz);
++		if (!rx)
++			return -ENOMEM;
++	}
+ 	dev->_rx = rx;
+ 
+ 	for (i = 0; i < count; i++)
+@@ -6698,9 +6706,8 @@ void free_netdev(struct net_device *dev)
+ 
+ 	netif_free_tx_queues(dev);
+ #ifdef CONFIG_SYSFS
+-	kfree(dev->_rx);
++	netif_free_rx_queues(dev);
+ #endif
+-
+ 	kfree(rcu_dereference_protected(dev->ingress_queue, 1));
+ 
+ 	/* Flush device addresses */
 -- 
 1.8.3.1
