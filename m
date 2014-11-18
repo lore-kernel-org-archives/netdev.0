@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v3 7/9] net: move make_writable helper into common code
-Date: Tue, 18 Nov 2014 22:37:42 +0100
-Message-ID: <1416346664-9290-8-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v3 9/9] sched: introduce vlan action
+Date: Tue, 18 Nov 2014 22:37:44 +0100
+Message-ID: <1416346664-9290-10-git-send-email-jiri@resnulli.us>
 References: <1416346664-9290-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, pshelar@nicira.com,
 	therbert@google.com, edumazet@google.com, willemb@google.com,
@@ -9,182 +9,356 @@ Cc: davem@davemloft.net, jhs@mojatatu.com, pshelar@nicira.com,
 	Paul.Durrant@citrix.com, tgraf@suug.ch, cwang@twopensource.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f169.google.com ([209.85.212.169]:37932 "EHLO
-	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755163AbaKRVhz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Nov 2014 16:37:55 -0500
-Received: by mail-wi0-f169.google.com with SMTP id r20so7073629wiv.4
-        for <netdev@vger.kernel.org>; Tue, 18 Nov 2014 13:37:53 -0800 (PST)
+Received: from mail-wi0-f171.google.com ([209.85.212.171]:55758 "EHLO
+	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754787AbaKRVh5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Nov 2014 16:37:57 -0500
+Received: by mail-wi0-f171.google.com with SMTP id bs8so3396216wib.4
+        for <netdev@vger.kernel.org>; Tue, 18 Nov 2014 13:37:55 -0800 (PST)
 In-Reply-To: <1416346664-9290-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-note that skb_make_writable already exists in net/netfilter/core.c
-but does something slightly different.
+This tc action allows to work with vlan tagged skbs. Two supported
+sub-actions are header pop and header push.
 
-Suggested-by: Eric Dumazet <eric.dumazet@gmail.com>
 Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-Acked-by: Pravin B Shelar <pshelar@nicira.com>
+Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
 ---
- include/linux/skbuff.h    |  1 +
- net/core/skbuff.c         | 12 ++++++++++++
- net/openvswitch/actions.c | 39 ++++++++++++++-------------------------
- 3 files changed, 27 insertions(+), 25 deletions(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 73c370e..e045516 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -2678,6 +2678,7 @@ void skb_scrub_packet(struct sk_buff *skb, bool xnet);
- unsigned int skb_gso_transport_seglen(const struct sk_buff *skb);
- struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features);
- struct sk_buff *skb_vlan_untag(struct sk_buff *skb);
-+int skb_ensure_writable(struct sk_buff *skb, int write_len);
+v1->v2:
+- fixed protocol dumping in tcf_vlan_dump
+
+ include/net/tc_act/tc_vlan.h        |  27 +++++
+ include/uapi/linux/tc_act/tc_vlan.h |  35 ++++++
+ net/sched/Kconfig                   |  11 ++
+ net/sched/Makefile                  |   1 +
+ net/sched/act_vlan.c                | 207 ++++++++++++++++++++++++++++++++++++
+ 5 files changed, 281 insertions(+)
+ create mode 100644 include/net/tc_act/tc_vlan.h
+ create mode 100644 include/uapi/linux/tc_act/tc_vlan.h
+ create mode 100644 net/sched/act_vlan.c
+
+diff --git a/include/net/tc_act/tc_vlan.h b/include/net/tc_act/tc_vlan.h
+new file mode 100644
+index 0000000..c809c1d
+--- /dev/null
++++ b/include/net/tc_act/tc_vlan.h
+@@ -0,0 +1,27 @@
++/*
++ * Copyright (c) 2014 Jiri Pirko <jiri@resnulli.us>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++#ifndef __NET_TC_VLAN_H
++#define __NET_TC_VLAN_H
++
++#include <net/act_api.h>
++
++#define VLAN_F_POP		0x1
++#define VLAN_F_PUSH		0x2
++
++struct tcf_vlan {
++	struct tcf_common	common;
++	int			tcfv_action;
++	__be16			tcfv_push_vid;
++	__be16			tcfv_push_proto;
++};
++#define to_vlan(a) \
++	container_of(a->priv, struct tcf_vlan, common)
++
++#endif /* __NET_TC_VLAN_H */
+diff --git a/include/uapi/linux/tc_act/tc_vlan.h b/include/uapi/linux/tc_act/tc_vlan.h
+new file mode 100644
+index 0000000..f7b8d44
+--- /dev/null
++++ b/include/uapi/linux/tc_act/tc_vlan.h
+@@ -0,0 +1,35 @@
++/*
++ * Copyright (c) 2014 Jiri Pirko <jiri@resnulli.us>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++#ifndef __LINUX_TC_VLAN_H
++#define __LINUX_TC_VLAN_H
++
++#include <linux/pkt_cls.h>
++
++#define TCA_ACT_VLAN 12
++
++#define TCA_VLAN_ACT_POP	1
++#define TCA_VLAN_ACT_PUSH	2
++
++struct tc_vlan {
++	tc_gen;
++	int v_action;
++};
++
++enum {
++	TCA_VLAN_UNSPEC,
++	TCA_VLAN_TM,
++	TCA_VLAN_PARMS,
++	TCA_VLAN_PUSH_VLAN_ID,
++	TCA_VLAN_PUSH_VLAN_PROTOCOL,
++	__TCA_VLAN_MAX,
++};
++#define TCA_VLAN_MAX (__TCA_VLAN_MAX - 1)
++
++#endif
+diff --git a/net/sched/Kconfig b/net/sched/Kconfig
+index a1a8e29..88618f8 100644
+--- a/net/sched/Kconfig
++++ b/net/sched/Kconfig
+@@ -686,6 +686,17 @@ config NET_ACT_CSUM
+ 	  To compile this code as a module, choose M here: the
+ 	  module will be called act_csum.
  
- struct skb_checksum_ops {
- 	__wsum (*update)(const void *mem, int len, __wsum wsum);
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 7001896..d11bbe0 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -4151,6 +4151,18 @@ err_free:
- }
- EXPORT_SYMBOL(skb_vlan_untag);
- 
-+int skb_ensure_writable(struct sk_buff *skb, int write_len)
++config NET_ACT_VLAN
++        tristate "Vlan manipulation"
++        depends on NET_CLS_ACT
++        ---help---
++	  Say Y here to push or pop vlan headers.
++
++	  If unsure, say N.
++
++	  To compile this code as a module, choose M here: the
++	  module will be called act_vlan.
++
+ config NET_CLS_IND
+ 	bool "Incoming device classification"
+ 	depends on NET_CLS_U32 || NET_CLS_FW
+diff --git a/net/sched/Makefile b/net/sched/Makefile
+index 0a869a1..679f24a 100644
+--- a/net/sched/Makefile
++++ b/net/sched/Makefile
+@@ -16,6 +16,7 @@ obj-$(CONFIG_NET_ACT_PEDIT)	+= act_pedit.o
+ obj-$(CONFIG_NET_ACT_SIMP)	+= act_simple.o
+ obj-$(CONFIG_NET_ACT_SKBEDIT)	+= act_skbedit.o
+ obj-$(CONFIG_NET_ACT_CSUM)	+= act_csum.o
++obj-$(CONFIG_NET_ACT_VLAN)	+= act_vlan.o
+ obj-$(CONFIG_NET_SCH_FIFO)	+= sch_fifo.o
+ obj-$(CONFIG_NET_SCH_CBQ)	+= sch_cbq.o
+ obj-$(CONFIG_NET_SCH_HTB)	+= sch_htb.o
+diff --git a/net/sched/act_vlan.c b/net/sched/act_vlan.c
+new file mode 100644
+index 0000000..d735ecf
+--- /dev/null
++++ b/net/sched/act_vlan.c
+@@ -0,0 +1,207 @@
++/*
++ * Copyright (c) 2014 Jiri Pirko <jiri@resnulli.us>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++#include <linux/module.h>
++#include <linux/init.h>
++#include <linux/kernel.h>
++#include <linux/skbuff.h>
++#include <linux/rtnetlink.h>
++#include <linux/if_vlan.h>
++#include <net/netlink.h>
++#include <net/pkt_sched.h>
++
++#include <linux/tc_act/tc_vlan.h>
++#include <net/tc_act/tc_vlan.h>
++
++#define VLAN_TAB_MASK     15
++
++static int tcf_vlan(struct sk_buff *skb, const struct tc_action *a,
++		    struct tcf_result *res)
 +{
-+	if (!pskb_may_pull(skb, write_len))
-+		return -ENOMEM;
++	struct tcf_vlan *v = a->priv;
++	int action;
++	int err;
 +
-+	if (!skb_cloned(skb) || skb_clone_writable(skb, write_len))
-+		return 0;
++	spin_lock(&v->tcf_lock);
++	v->tcf_tm.lastuse = jiffies;
++	bstats_update(&v->tcf_bstats, skb);
++	action = v->tcf_action;
 +
-+	return pskb_expand_head(skb, 0, 0, GFP_ATOMIC);
++	switch (v->tcfv_action) {
++	case TCA_VLAN_ACT_POP:
++		err = skb_vlan_pop(skb);
++		if (err)
++			goto drop;
++		break;
++	case TCA_VLAN_ACT_PUSH:
++		err = skb_vlan_push(skb, v->tcfv_push_proto, v->tcfv_push_vid);
++		if (err)
++			goto drop;
++		break;
++	default:
++		BUG();
++	}
++
++	goto unlock;
++
++drop:
++	action = TC_ACT_SHOT;
++	v->tcf_qstats.drops++;
++unlock:
++	spin_unlock(&v->tcf_lock);
++	return action;
 +}
-+EXPORT_SYMBOL(skb_ensure_writable);
 +
- /**
-  * alloc_skb_with_frags - allocate skb with page frags
-  *
-diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
-index 426b913..7ffa377 100644
---- a/net/openvswitch/actions.c
-+++ b/net/openvswitch/actions.c
-@@ -119,17 +119,6 @@ static bool is_flow_key_valid(const struct sw_flow_key *key)
- 	return !!key->eth.type;
- }
- 
--static int make_writable(struct sk_buff *skb, int write_len)
--{
--	if (!pskb_may_pull(skb, write_len))
--		return -ENOMEM;
--
--	if (!skb_cloned(skb) || skb_clone_writable(skb, write_len))
--		return 0;
--
--	return pskb_expand_head(skb, 0, 0, GFP_ATOMIC);
--}
--
- static int push_mpls(struct sk_buff *skb, struct sw_flow_key *key,
- 		     const struct ovs_action_push_mpls *mpls)
- {
-@@ -171,7 +160,7 @@ static int pop_mpls(struct sk_buff *skb, struct sw_flow_key *key,
- 	struct ethhdr *hdr;
- 	int err;
- 
--	err = make_writable(skb, skb->mac_len + MPLS_HLEN);
-+	err = skb_ensure_writable(skb, skb->mac_len + MPLS_HLEN);
- 	if (unlikely(err))
- 		return err;
- 
-@@ -201,7 +190,7 @@ static int set_mpls(struct sk_buff *skb, struct sw_flow_key *key,
- 	__be32 *stack;
- 	int err;
- 
--	err = make_writable(skb, skb->mac_len + MPLS_HLEN);
-+	err = skb_ensure_writable(skb, skb->mac_len + MPLS_HLEN);
- 	if (unlikely(err))
- 		return err;
- 
-@@ -223,7 +212,7 @@ static int __pop_vlan_tci(struct sk_buff *skb, __be16 *current_tci)
- 	struct vlan_hdr *vhdr;
- 	int err;
- 
--	err = make_writable(skb, VLAN_ETH_HLEN);
-+	err = skb_ensure_writable(skb, VLAN_ETH_HLEN);
- 	if (unlikely(err))
- 		return err;
- 
-@@ -310,7 +299,7 @@ static int set_eth_addr(struct sk_buff *skb, struct sw_flow_key *key,
- 			const struct ovs_key_ethernet *eth_key)
- {
- 	int err;
--	err = make_writable(skb, ETH_HLEN);
-+	err = skb_ensure_writable(skb, ETH_HLEN);
- 	if (unlikely(err))
- 		return err;
- 
-@@ -412,8 +401,8 @@ static int set_ipv4(struct sk_buff *skb, struct sw_flow_key *key,
- 	struct iphdr *nh;
- 	int err;
- 
--	err = make_writable(skb, skb_network_offset(skb) +
--				 sizeof(struct iphdr));
-+	err = skb_ensure_writable(skb, skb_network_offset(skb) +
-+				  sizeof(struct iphdr));
- 	if (unlikely(err))
- 		return err;
- 
-@@ -450,8 +439,8 @@ static int set_ipv6(struct sk_buff *skb, struct sw_flow_key *key,
- 	__be32 *saddr;
- 	__be32 *daddr;
- 
--	err = make_writable(skb, skb_network_offset(skb) +
--			    sizeof(struct ipv6hdr));
-+	err = skb_ensure_writable(skb, skb_network_offset(skb) +
-+				  sizeof(struct ipv6hdr));
- 	if (unlikely(err))
- 		return err;
- 
-@@ -493,7 +482,7 @@ static int set_ipv6(struct sk_buff *skb, struct sw_flow_key *key,
- 	return 0;
- }
- 
--/* Must follow make_writable() since that can move the skb data. */
-+/* Must follow skb_ensure_writable() since that can move the skb data. */
- static void set_tp_port(struct sk_buff *skb, __be16 *port,
- 			 __be16 new_port, __sum16 *check)
- {
-@@ -523,8 +512,8 @@ static int set_udp(struct sk_buff *skb, struct sw_flow_key *key,
- 	struct udphdr *uh;
- 	int err;
- 
--	err = make_writable(skb, skb_transport_offset(skb) +
--				 sizeof(struct udphdr));
-+	err = skb_ensure_writable(skb, skb_transport_offset(skb) +
-+				  sizeof(struct udphdr));
- 	if (unlikely(err))
- 		return err;
- 
-@@ -548,8 +537,8 @@ static int set_tcp(struct sk_buff *skb, struct sw_flow_key *key,
- 	struct tcphdr *th;
- 	int err;
- 
--	err = make_writable(skb, skb_transport_offset(skb) +
--				 sizeof(struct tcphdr));
-+	err = skb_ensure_writable(skb, skb_transport_offset(skb) +
-+				  sizeof(struct tcphdr));
- 	if (unlikely(err))
- 		return err;
- 
-@@ -574,7 +563,7 @@ static int set_sctp(struct sk_buff *skb, struct sw_flow_key *key,
- 	int err;
- 	unsigned int sctphoff = skb_transport_offset(skb);
- 
--	err = make_writable(skb, sctphoff + sizeof(struct sctphdr));
-+	err = skb_ensure_writable(skb, sctphoff + sizeof(struct sctphdr));
- 	if (unlikely(err))
- 		return err;
- 
++static const struct nla_policy vlan_policy[TCA_VLAN_MAX + 1] = {
++	[TCA_VLAN_PARMS]		= { .len = sizeof(struct tc_vlan) },
++	[TCA_VLAN_PUSH_VLAN_ID]		= { .type = NLA_U16 },
++	[TCA_VLAN_PUSH_VLAN_PROTOCOL]	= { .type = NLA_U16 },
++};
++
++static int tcf_vlan_init(struct net *net, struct nlattr *nla,
++			 struct nlattr *est, struct tc_action *a,
++			 int ovr, int bind)
++{
++	struct nlattr *tb[TCA_VLAN_MAX + 1];
++	struct tc_vlan *parm;
++	struct tcf_vlan *v;
++	int action;
++	__be16 push_vid = 0;
++	__be16 push_proto = 0;
++	int ret = 0;
++	int err;
++
++	if (!nla)
++		return -EINVAL;
++
++	err = nla_parse_nested(tb, TCA_VLAN_MAX, nla, vlan_policy);
++	if (err < 0)
++		return err;
++
++	if (!tb[TCA_VLAN_PARMS])
++		return -EINVAL;
++	parm = nla_data(tb[TCA_VLAN_PARMS]);
++	switch (parm->v_action) {
++	case TCA_VLAN_ACT_POP:
++		break;
++	case TCA_VLAN_ACT_PUSH:
++		if (!tb[TCA_VLAN_PUSH_VLAN_ID])
++			return -EINVAL;
++		push_vid = nla_get_u16(tb[TCA_VLAN_PUSH_VLAN_ID]);
++		if (push_vid >= VLAN_VID_MASK)
++			return -ERANGE;
++
++		if (tb[TCA_VLAN_PUSH_VLAN_PROTOCOL]) {
++			push_proto = nla_get_be16(tb[TCA_VLAN_PUSH_VLAN_PROTOCOL]);
++			switch (push_proto) {
++			case htons(ETH_P_8021Q):
++			case htons(ETH_P_8021AD):
++				break;
++			default:
++				return -EPROTONOSUPPORT;
++			}
++		} else {
++			push_proto = htons(ETH_P_8021Q);
++		}
++		break;
++	default:
++		return -EINVAL;
++	}
++	action = parm->v_action;
++
++	if (!tcf_hash_check(parm->index, a, bind)) {
++		ret = tcf_hash_create(parm->index, est, a, sizeof(*v), bind);
++		if (ret)
++			return ret;
++
++		ret = ACT_P_CREATED;
++	} else {
++		if (bind)
++			return 0;
++		tcf_hash_release(a, bind);
++		if (!ovr)
++			return -EEXIST;
++	}
++
++	v = to_vlan(a);
++
++	spin_lock_bh(&v->tcf_lock);
++
++	v->tcfv_action = action;
++	v->tcfv_push_vid = push_vid;
++	v->tcfv_push_proto = push_proto;
++
++	v->tcf_action = parm->action;
++
++	spin_unlock_bh(&v->tcf_lock);
++
++	if (ret == ACT_P_CREATED)
++		tcf_hash_insert(a);
++	return ret;
++}
++
++static int tcf_vlan_dump(struct sk_buff *skb, struct tc_action *a,
++			 int bind, int ref)
++{
++	unsigned char *b = skb_tail_pointer(skb);
++	struct tcf_vlan *v = a->priv;
++	struct tc_vlan opt = {
++		.index    = v->tcf_index,
++		.refcnt   = v->tcf_refcnt - ref,
++		.bindcnt  = v->tcf_bindcnt - bind,
++		.action   = v->tcf_action,
++		.v_action = v->tcfv_action,
++	};
++	struct tcf_t t;
++
++	if (nla_put(skb, TCA_VLAN_PARMS, sizeof(opt), &opt))
++		goto nla_put_failure;
++
++	if (v->tcfv_action == TCA_VLAN_ACT_PUSH &&
++	    (nla_put_u16(skb, TCA_VLAN_PUSH_VLAN_ID, v->tcfv_push_vid) ||
++	     nla_put_be16(skb, TCA_VLAN_PUSH_VLAN_PROTOCOL, v->tcfv_push_proto)))
++		goto nla_put_failure;
++
++	t.install = jiffies_to_clock_t(jiffies - v->tcf_tm.install);
++	t.lastuse = jiffies_to_clock_t(jiffies - v->tcf_tm.lastuse);
++	t.expires = jiffies_to_clock_t(v->tcf_tm.expires);
++	if (nla_put(skb, TCA_VLAN_TM, sizeof(t), &t))
++		goto nla_put_failure;
++	return skb->len;
++
++nla_put_failure:
++	nlmsg_trim(skb, b);
++	return -1;
++}
++
++static struct tc_action_ops act_vlan_ops = {
++	.kind		=	"vlan",
++	.type		=	TCA_ACT_VLAN,
++	.owner		=	THIS_MODULE,
++	.act		=	tcf_vlan,
++	.dump		=	tcf_vlan_dump,
++	.init		=	tcf_vlan_init,
++};
++
++static int __init vlan_init_module(void)
++{
++	return tcf_register_action(&act_vlan_ops, VLAN_TAB_MASK);
++}
++
++static void __exit vlan_cleanup_module(void)
++{
++	tcf_unregister_action(&act_vlan_ops);
++}
++
++module_init(vlan_init_module);
++module_exit(vlan_cleanup_module);
++
++MODULE_AUTHOR("Jiri Pirko <jiri@resnulli.us>");
++MODULE_DESCRIPTION("vlan manipulation actions");
++MODULE_LICENSE("GPL v2");
 -- 
 1.9.3
