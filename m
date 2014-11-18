@@ -1,106 +1,54 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next v2 01/11] i40e: only warn once of PTP nonsupport in
- 100Mbit speed
-Date: Tue, 18 Nov 2014 01:33:40 -0800
-Message-ID: <1416303220.2295.19.camel@jtkirshe-mobl>
-References: <1416302731-11327-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1416302731-11327-2-git-send-email-jeffrey.t.kirsher@intel.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [net-next 03/12] i40e: Handle a single mss packet with more
+ than 8 frags
+Date: Tue, 18 Nov 2014 09:46:58 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1C9F290B@AcuExch.aculab.com>
+References: <1416031715-32498-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1416031715-32498-4-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1416075695.17262.86.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <FC41C24E35F18A40888AACA1A36F3E418AD8F543@fmsmsx115.amr.corp.intel.com>
+	 <063D6719AE5E284EB5DD2968C1650D6D1C9F1F9F@AcuExch.aculab.com>
+ <1416243484.5102.21.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-b7o8nJZbJAOTqWKkwE4H"
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
-To: davem@davemloft.net, Joe Perches <josephx.perches@intel.com>,
-	Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "'Nelson, Shannon'" <shannon.nelson@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"Kong, Serey" <serey.kong@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"nhorman@redhat.com" <nhorman@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	"jogreene@redhat.com" <jogreene@redhat.com>
+To: 'Eric Dumazet' <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:39157 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753140AbaKRJdm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Nov 2014 04:33:42 -0500
-In-Reply-To: <1416302731-11327-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mx0.aculab.com ([213.249.233.131]:44841 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752432AbaKRJrl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Nov 2014 04:47:41 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 01393-07 for <netdev@vger.kernel.org>;
+ Tue, 18 Nov 2014 09:47:30 +0000 (GMT)
+In-Reply-To: <1416243484.5102.21.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
---=-b7o8nJZbJAOTqWKkwE4H
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Tue, 2014-11-18 at 01:25 -0800, Jeff Kirsher wrote:
-> From: Shannon Nelson <shannon.nelson@intel.com>
->=20
-> Only warn once that PTP is not supported when linked at 100Mbit.
->=20
-> Yes, using a static this way means that this once-only message is not
-> port specific, but once only for the life of the driver, regardless of
-> the number of ports.  That should be plenty.
->=20
-> Change-ID: Ie6476530056df408452e195ef06afd4f57caa4b2
-> Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
->  drivers/net/ethernet/intel/i40e/i40e_ptp.c | 12 +++++++++---
->  1 file changed, 9 insertions(+), 3 deletions(-)
-
-Florian/Joe-
-
-Since your patch to update the dev_level_once() function is going
-through Greg KH's tree, we will stick with this patch until it gets
-accepted and merged into Dave's tree.  Then we will provide a patch to
-update the driver.
-
->=20
-> diff --git a/drivers/net/ethernet/intel/i40e/i40e_ptp.c b/drivers/net/eth=
-ernet/intel/i40e/i40e_ptp.c
-> index 537b621..f9151037 100644
-> --- a/drivers/net/ethernet/intel/i40e/i40e_ptp.c
-> +++ b/drivers/net/ethernet/intel/i40e/i40e_ptp.c
-> @@ -382,11 +382,17 @@ void i40e_ptp_set_increment(struct i40e_pf *pf)
->  		incval =3D I40E_PTP_1GB_INCVAL;
->  		break;
->  	case I40E_LINK_SPEED_100MB:
-> -		dev_warn(&pf->pdev->dev,
-> -			 "%s: 1588 functionality is not supported at 100 Mbps. Stopping the P=
-HC.\n",
-> -			 __func__);
-> +	{
-> +		static int warn_once;
-> +
-> +		if (!warn_once) {
-> +			dev_warn(&pf->pdev->dev,
-> +				 "1588 functionality is not supported at 100 Mbps. Stopping the PHC.=
-\n");
-> +			warn_once++;
-> +		}
->  		incval =3D 0;
->  		break;
-> +	}
->  	case I40E_LINK_SPEED_40GB:
->  	default:
->  		incval =3D I40E_PTP_40GB_INCVAL;
-
-
---=-b7o8nJZbJAOTqWKkwE4H
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJUaxJ0AAoJEOVv75VaS+3OeuUP/il7asLkH+8Z6NJuuDpSBZCl
-j7huW/fPAZB/WBl8veschHUfutqDGQKxwGpfuzCeaHYYOgLfQxevwlOmh6IwenbE
-WmD8MPznFFWPAr+IUWVs1N1AuGe8obQ9eojeBPH+2agGRBdk1P9Yesx+urpRmN1F
-ba8vPhHMQ0QR1xODOKRVzIFUfEHgWjBPfHD0aNfFB/jJVTMOPfJGQX4px6iSlcO2
-IbkXoOxCwvLt65pw/NpyngwwJ5KA8PJAQcRoptsZ4kP9MgcmOLaVrvrjrd9cY9LZ
-sslresB3M2LhkZbX6k/WbzDgLVTkhV2PcqoFTXZa0UKxThdwy3oN06lz27/A99Re
-mEn1jv9yJPnLoyq1p7nGuctBV0oXvcnntzivB3TZEFEUpTi93aY3o3Knaco1iiJw
-xqEI9D/zTFualuyvHtQaStxKV0jA9F+hJlC0x0XL2Ur8bEU/CCblpLciZ97VSeat
-9P3KdKLp/E3flpZub5eiCJqYKsp3d+LUGH0XDp2pTQ7SiyG+LbjPvsp20BlFM9vu
-8yp5KuLUu+236xHVdG2+AYNbXtw3g3dJOin84VqQl1SuN5RO2aBpltSfb8f2XWeg
-ZMGHNso94fXnlIe9xfsejlLehHuihQ1M3Up7zC/4IghxZL0wuy95YpeFKCYgs5hq
-6h/uwWWtJRdxBXbF9d6X
-=agC+
------END PGP SIGNATURE-----
-
---=-b7o8nJZbJAOTqWKkwE4H--
+RnJvbTogRXJpYyBEdW1hemV0DQo+IE9uIE1vbiwgMjAxNC0xMS0xNyBhdCAxNjoxNiArMDAwMCwg
+RGF2aWQgTGFpZ2h0IHdyb3RlOg0KPiANCj4gPiBFeGNlcHQgdGhhdCBhIFRTTyBwYWNrZXQgaXMg
+bGlrZWx5IHRvIGJlIGp1c3QgdW5kZXIgNjRrIGFuZCBjb21wcmlzZSBvZg0KPiA+IGEgc21hbGwg
+aGVhZGVyIGFuZCAxNiBvdGhlciBmcmFnbWVudHMgLSBtb3N0IG9mIHdoaWNoIHdpbGwgYmUgYSBj
+b21wbGV0ZSA0ayBwYWdlLg0KPiA+DQo+IA0KPiBUaGlzIGlzIHRoZSBzZWN0aW9uIG9mIHRoZSBj
+b2RlIHNlbmRpbmcgYSBfbm9uXyBUU08gcGFja2V0Lg0KDQpUaGF0IGlzbid0IGVudGlyZWx5IGNs
+ZWFyIGZyb20gdGhlIHBhdGNoIGNvbnRleHQuDQoNCkZvciBhIG5vbi1UU08gcGFja2V0IHRoZSBz
+a2Jfc2VyaWFsaXplKCkgaXMgbGVzcyBsaWtlbHkgdG8gZmFpbA0Kc2luY2UgaXQgZG9lc24ndCBu
+ZWVkIGNvbnRpZ3VvdXMgcGFnZXMuDQooVW5sZXNzIHlvdSBhcmUgc2VuZGluZyA5ayBqdW1ibyBm
+cmFtZXMpLg0KDQpBY3R1YWxseSBtYW55IG9mIHRoZSBvbGRlciBldGhlcm5ldCBkZXZpY2VzIHdp
+bGwgc3VmZmVyIGJ1ZmZlciB1bmRlcnJ1bg0KaWYgZ2l2ZW4gdG9vIG1hbnkgc21hbGwgZnJhZ21l
+bnRzIGR1ZSB0byBsYWNrIG9mIGJ1cyBiYW5kd2lkdGguDQpUaGUgaGlnaCBsYXRlbmNpZXMgb2Yg
+UENJZSB3aWxsIG1ha2UgdGhhdCB3b3JzZSAtIGVzcGVjaWFsbHkgYXQgaGlnaCBzcGVlZHMuDQoN
+ClByZXN1bWFibHkgdGhlc2UgZGV2aWNlcyB1c2UgJ3N0b3JlIGFuZCBmb3J3YXJkJyB3aGVuIGRv
+aW5nIFRTTyAob3INCm1heWJlIGV2ZW4gd2hlbiBqdXN0IGFkZGluZyBhIGNoZWNrc3VtKSByZW1v
+dmluZyBhbnkgcmVhbCBwcm9ibGVtcw0KY2F1c2VkIGJ5IFBDSWUgbGF0ZW5jeT8NCg0KCURhdmlk
+DQoNCg==
