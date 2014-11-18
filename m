@@ -1,92 +1,54 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v3 2/9] vlan: make __vlan_hwaccel_put_tag return void
-Date: Tue, 18 Nov 2014 22:37:37 +0100
-Message-ID: <1416346664-9290-3-git-send-email-jiri@resnulli.us>
-References: <1416346664-9290-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, jhs@mojatatu.com, pshelar@nicira.com,
-	therbert@google.com, edumazet@google.com, willemb@google.com,
-	dborkman@redhat.com, mst@redhat.com, fw@strlen.de,
-	Paul.Durrant@citrix.com, tgraf@suug.ch, cwang@twopensource.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f181.google.com ([209.85.212.181]:44855 "EHLO
-	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754178AbaKRVht (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Nov 2014 16:37:49 -0500
-Received: by mail-wi0-f181.google.com with SMTP id r20so7755133wiv.14
-        for <netdev@vger.kernel.org>; Tue, 18 Nov 2014 13:37:48 -0800 (PST)
-In-Reply-To: <1416346664-9290-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [RFC] situation with csum_and_copy_... API
+Date: Tue, 18 Nov 2014 13:39:26 -0800
+Message-ID: <CA+55aFzFPrJLE8qWpefBqWJJWqqv1Sn+p1oFde3gVYAd1YqJAA@mail.gmail.com>
+References: <20141118084745.GT7996@ZenIV.linux.org.uk>
+	<CA+55aFxK0wj2LLp0WmhRsBZch8XfoYbzmbEeJaMpt=SDh5GBvw@mail.gmail.com>
+	<20141118212307.GU7996@ZenIV.linux.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Network Development <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Al Viro <viro@zeniv.linux.org.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141118212307.GU7996@ZenIV.linux.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Always returns the same skb it gets, so change to void.
+On Tue, Nov 18, 2014 at 1:23 PM, Al Viro <viro@zeniv.linux.org.uk> wrote:
+>
+> OK...  If netdev folks can live with that for now, I've no problem with
+> dropping 3/5.  However, I really think we need a variant of csum-and-copy
+> that would _not_ bother with access_ok() longer term.  That can wait, though...
 
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
----
- drivers/scsi/fcoe/fcoe.c | 6 ++----
- include/linux/if_vlan.h  | 9 ++++-----
- net/8021q/vlan_dev.c     | 2 +-
- 3 files changed, 7 insertions(+), 10 deletions(-)
+iirc,access_ok() ends up being something like three or four
+instructions. It's generally not very painful.
 
-diff --git a/drivers/scsi/fcoe/fcoe.c b/drivers/scsi/fcoe/fcoe.c
-index 4a8ac7d..73a8cc4 100644
---- a/drivers/scsi/fcoe/fcoe.c
-+++ b/drivers/scsi/fcoe/fcoe.c
-@@ -1669,10 +1669,8 @@ static int fcoe_xmit(struct fc_lport *lport, struct fc_frame *fp)
- 	    fcoe->realdev->features & NETIF_F_HW_VLAN_CTAG_TX) {
- 		/* must set skb->dev before calling vlan_put_tag */
- 		skb->dev = fcoe->realdev;
--		skb = __vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q),
--					     vlan_dev_vlan_id(fcoe->netdev));
--		if (!skb)
--			return -ENOMEM;
-+		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q),
-+				       vlan_dev_vlan_id(fcoe->netdev));
- 	} else
- 		skb->dev = fcoe->netdev;
- 
-diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
-index d69f057..1b5dbc2 100644
---- a/include/linux/if_vlan.h
-+++ b/include/linux/if_vlan.h
-@@ -347,13 +347,11 @@ static inline struct sk_buff *__vlan_put_tag(struct sk_buff *skb,
-  *
-  * Puts the VLAN TCI in @skb->vlan_tci and lets the device do the rest
-  */
--static inline struct sk_buff *__vlan_hwaccel_put_tag(struct sk_buff *skb,
--						     __be16 vlan_proto,
--						     u16 vlan_tci)
-+static inline void __vlan_hwaccel_put_tag(struct sk_buff *skb,
-+					  __be16 vlan_proto, u16 vlan_tci)
- {
- 	skb->vlan_proto = vlan_proto;
- 	skb->vlan_tci = VLAN_TAG_PRESENT | vlan_tci;
--	return skb;
- }
- 
- /**
-@@ -368,7 +366,8 @@ static inline struct sk_buff *vlan_put_tag(struct sk_buff *skb,
- 					   __be16 vlan_proto, u16 vlan_tci)
- {
- 	if (vlan_hw_offload_capable(skb->dev->features, vlan_proto)) {
--		return __vlan_hwaccel_put_tag(skb, vlan_proto, vlan_tci);
-+		__vlan_hwaccel_put_tag(skb, vlan_proto, vlan_tci);
-+		return skb;
- 	} else {
- 		return __vlan_put_tag(skb, vlan_proto, vlan_tci);
- 	}
-diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index 0d441ec..d6524b2 100644
---- a/net/8021q/vlan_dev.c
-+++ b/net/8021q/vlan_dev.c
-@@ -150,7 +150,7 @@ static netdev_tx_t vlan_dev_hard_start_xmit(struct sk_buff *skb,
- 		u16 vlan_tci;
- 		vlan_tci = vlan->vlan_id;
- 		vlan_tci |= vlan_dev_get_egress_qos_mask(dev, skb->priority);
--		skb = __vlan_hwaccel_put_tag(skb, vlan->vlan_proto, vlan_tci);
-+		__vlan_hwaccel_put_tag(skb, vlan->vlan_proto, vlan_tci);
- 	}
- 
- 	skb->dev = vlan->real_dev;
--- 
-1.9.3
+The main reason to ever use the "__" functions is for __get_user() or
+__put_user() in a loop (or when doing multiple ones when
+loading/storing a struct or a signal stack frame or whatever), and
+then the real issue ends up being that the __get_user() is really
+often just a single instruction, while "get_user()" is a function call
+that does that access_ok().
+
+So then moving the access_ok() outside the loop, or to above the
+structure load, can make a *big* deal.  But removing the access_ok()
+entirely tends to not be a huge issue - it's just that you want to do
+it *once*, instead of doing it over-and-over.
+
+There might be some case you really want to remove it from the
+function entirely so that the "access_ok()" is no longer close to the
+accesses it checks, but I really think you want to have a goof
+performance case for it, and a comment about it.
+
+And no, we haven't really always followed those rules.
+
+Btw, these days, on x86, we actually have a bigger issue with the
+whole STAC/CLAC thing:  it's a good safety measure, but doing
+STAC/CLAC for each access is painful. So "__get_user()" and
+"__put_user()" sadly aren't the single-instruction things they used to
+be any more. The code sequences that really want tight code (think the
+'struct stat' copying and the like) sadly cannot get it as it is..
+
+                   Linus
