@@ -1,54 +1,318 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [RFC] situation with csum_and_copy_... API
-Date: Tue, 18 Nov 2014 13:39:26 -0800
-Message-ID: <CA+55aFzFPrJLE8qWpefBqWJJWqqv1Sn+p1oFde3gVYAd1YqJAA@mail.gmail.com>
-References: <20141118084745.GT7996@ZenIV.linux.org.uk>
-	<CA+55aFxK0wj2LLp0WmhRsBZch8XfoYbzmbEeJaMpt=SDh5GBvw@mail.gmail.com>
-	<20141118212307.GU7996@ZenIV.linux.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Network Development <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Al Viro <viro@zeniv.linux.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141118212307.GU7996@ZenIV.linux.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch iproute2 v3] tc: add support for vlan tc action
+Date: Tue, 18 Nov 2014 22:39:51 +0100
+Message-ID: <1416346791-9383-1-git-send-email-jiri@resnulli.us>
+References: <1416346664-9290-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, jhs@mojatatu.com, pshelar@nicira.com,
+	therbert@google.com, edumazet@google.com, willemb@google.com,
+	dborkman@redhat.com, mst@redhat.com, fw@strlen.de,
+	Paul.Durrant@citrix.com, tgraf@suug.ch, cwang@twopensource.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f169.google.com ([209.85.212.169]:50578 "EHLO
+	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932274AbaKRVjx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Nov 2014 16:39:53 -0500
+Received: by mail-wi0-f169.google.com with SMTP id r20so7078364wiv.4
+        for <netdev@vger.kernel.org>; Tue, 18 Nov 2014 13:39:52 -0800 (PST)
+In-Reply-To: <1416346664-9290-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 18, 2014 at 1:23 PM, Al Viro <viro@zeniv.linux.org.uk> wrote:
->
-> OK...  If netdev folks can live with that for now, I've no problem with
-> dropping 3/5.  However, I really think we need a variant of csum-and-copy
-> that would _not_ bother with access_ok() longer term.  That can wait, though...
+Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+Reviewed-by: Cong Wang <cwang@twopensource.com>
+---
 
-iirc,access_ok() ends up being something like three or four
-instructions. It's generally not very painful.
+v1->v2:
+- included changes suggested by Jamal
 
-The main reason to ever use the "__" functions is for __get_user() or
-__put_user() in a loop (or when doing multiple ones when
-loading/storing a struct or a signal stack frame or whatever), and
-then the real issue ends up being that the __get_user() is really
-often just a single instruction, while "get_user()" is a function call
-that does that access_ok().
+ include/linux/tc_act/tc_vlan.h |  35 +++++++
+ tc/Makefile                    |   1 +
+ tc/m_vlan.c                    | 221 +++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 257 insertions(+)
+ create mode 100644 include/linux/tc_act/tc_vlan.h
+ create mode 100644 tc/m_vlan.c
 
-So then moving the access_ok() outside the loop, or to above the
-structure load, can make a *big* deal.  But removing the access_ok()
-entirely tends to not be a huge issue - it's just that you want to do
-it *once*, instead of doing it over-and-over.
-
-There might be some case you really want to remove it from the
-function entirely so that the "access_ok()" is no longer close to the
-accesses it checks, but I really think you want to have a goof
-performance case for it, and a comment about it.
-
-And no, we haven't really always followed those rules.
-
-Btw, these days, on x86, we actually have a bigger issue with the
-whole STAC/CLAC thing:  it's a good safety measure, but doing
-STAC/CLAC for each access is painful. So "__get_user()" and
-"__put_user()" sadly aren't the single-instruction things they used to
-be any more. The code sequences that really want tight code (think the
-'struct stat' copying and the like) sadly cannot get it as it is..
-
-                   Linus
+diff --git a/include/linux/tc_act/tc_vlan.h b/include/linux/tc_act/tc_vlan.h
+new file mode 100644
+index 0000000..f7b8d44
+--- /dev/null
++++ b/include/linux/tc_act/tc_vlan.h
+@@ -0,0 +1,35 @@
++/*
++ * Copyright (c) 2014 Jiri Pirko <jiri@resnulli.us>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++#ifndef __LINUX_TC_VLAN_H
++#define __LINUX_TC_VLAN_H
++
++#include <linux/pkt_cls.h>
++
++#define TCA_ACT_VLAN 12
++
++#define TCA_VLAN_ACT_POP	1
++#define TCA_VLAN_ACT_PUSH	2
++
++struct tc_vlan {
++	tc_gen;
++	int v_action;
++};
++
++enum {
++	TCA_VLAN_UNSPEC,
++	TCA_VLAN_TM,
++	TCA_VLAN_PARMS,
++	TCA_VLAN_PUSH_VLAN_ID,
++	TCA_VLAN_PUSH_VLAN_PROTOCOL,
++	__TCA_VLAN_MAX,
++};
++#define TCA_VLAN_MAX (__TCA_VLAN_MAX - 1)
++
++#endif
+diff --git a/tc/Makefile b/tc/Makefile
+index 1ab36c6..830c97d 100644
+--- a/tc/Makefile
++++ b/tc/Makefile
+@@ -40,6 +40,7 @@ TCMODULES += m_pedit.o
+ TCMODULES += m_skbedit.o
+ TCMODULES += m_csum.o
+ TCMODULES += m_simple.o
++TCMODULES += m_vlan.o
+ TCMODULES += p_ip.o
+ TCMODULES += p_icmp.o
+ TCMODULES += p_tcp.o
+diff --git a/tc/m_vlan.c b/tc/m_vlan.c
+new file mode 100644
+index 0000000..872bf72
+--- /dev/null
++++ b/tc/m_vlan.c
+@@ -0,0 +1,221 @@
++/*
++ * m_vlan.c		vlan manipulation module
++ *
++ *              This program is free software; you can redistribute it and/or
++ *              modify it under the terms of the GNU General Public License
++ *              as published by the Free Software Foundation; either version
++ *              2 of the License, or (at your option) any later version.
++ *
++ * Authors:     Jiri Pirko <jiri@resnulli.us>
++ */
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <unistd.h>
++#include <string.h>
++#include <linux/if_ether.h>
++#include "utils.h"
++#include "rt_names.h"
++#include "tc_util.h"
++#include <linux/tc_act/tc_vlan.h>
++
++static void explain(void)
++{
++	fprintf(stderr, "Usage: vlan pop\n");
++	fprintf(stderr, "       vlan push [ protocol VLANPROTO ] id VLANID\n");
++	fprintf(stderr, "       VLANPROTO is one of 802.1Q or 802.1AD\n");
++	fprintf(stderr, "            with default: 802.1Q\n");
++}
++
++static void usage(void)
++{
++	explain();
++	exit(-1);
++}
++
++static int parse_vlan(struct action_util *a, int *argc_p, char ***argv_p,
++		      int tca_id, struct nlmsghdr *n)
++{
++	int argc = *argc_p;
++	char **argv = *argv_p;
++	struct rtattr *tail;
++	int action = 0;
++	__u16 id;
++	int id_set = 0;
++	__u16 proto;
++	int proto_set = 0;
++	struct tc_vlan parm = { 0 };
++
++	if (matches(*argv, "vlan") != 0)
++		return -1;
++
++	NEXT_ARG();
++
++	while (argc > 0) {
++		if (matches(*argv, "pop") == 0) {
++			if (action) {
++				fprintf(stderr, "unexpexted \"%s\" - action already specified\n",
++					*argv);
++				explain();
++				return -1;
++			}
++			action = TCA_VLAN_ACT_POP;
++		} else if (matches(*argv, "push") == 0) {
++			if (action) {
++				fprintf(stderr, "unexpexted \"%s\" - action already specified\n",
++					*argv);
++				explain();
++				return -1;
++			}
++			action = TCA_VLAN_ACT_PUSH;
++		} else if (matches(*argv, "id") == 0) {
++			if (action != TCA_VLAN_ACT_PUSH) {
++				fprintf(stderr, "\"%s\" is only valid for push\n",
++					*argv);
++				explain();
++				return -1;
++			}
++			NEXT_ARG();
++			if (get_u16(&id, *argv, 0))
++				invarg("id is invalid", *argv);
++			id_set = 1;
++		} else if (matches(*argv, "protocol") == 0) {
++			if (action != TCA_VLAN_ACT_PUSH) {
++				fprintf(stderr, "\"%s\" is only valid for push\n",
++					*argv);
++				explain();
++				return -1;
++			}
++			NEXT_ARG();
++			if (ll_proto_a2n(&proto, *argv))
++				invarg("protocol is invalid", *argv);
++			proto_set = 1;
++		} else if (matches(*argv, "help") == 0) {
++			usage();
++		} else {
++			break;
++		}
++		argc--;
++		argv++;
++	}
++
++	parm.action = TC_ACT_PIPE;
++	if (argc) {
++		if (matches(*argv, "reclassify") == 0) {
++			parm.action = TC_ACT_RECLASSIFY;
++			NEXT_ARG();
++		} else if (matches(*argv, "pipe") == 0) {
++			parm.action = TC_ACT_PIPE;
++			NEXT_ARG();
++		} else if (matches(*argv, "drop") == 0 ||
++			   matches(*argv, "shot") == 0) {
++			parm.action = TC_ACT_SHOT;
++			NEXT_ARG();
++		} else if (matches(*argv, "continue") == 0) {
++			parm.action = TC_ACT_UNSPEC;
++			NEXT_ARG();
++		} else if (matches(*argv, "pass") == 0) {
++			parm.action = TC_ACT_OK;
++			NEXT_ARG();
++		}
++	}
++
++	if (argc) {
++		if (matches(*argv, "index") == 0) {
++			NEXT_ARG();
++			if (get_u32(&parm.index, *argv, 10)) {
++				fprintf(stderr, "vlan: Illegal \"index\"\n");
++				return -1;
++			}
++			argc--;
++			argv++;
++		}
++	}
++
++	if (action == TCA_VLAN_ACT_PUSH && !id_set) {
++		fprintf(stderr, "id needs to be set for push\n");
++		explain();
++		return -1;
++	}
++
++	parm.v_action = action;
++	tail = NLMSG_TAIL(n);
++	addattr_l(n, MAX_MSG, tca_id, NULL, 0);
++	addattr_l(n, MAX_MSG, TCA_VLAN_PARMS, &parm, sizeof(parm));
++	if (id_set)
++		addattr_l(n, MAX_MSG, TCA_VLAN_PUSH_VLAN_ID, &id, 2);
++	if (proto_set) {
++		if (proto != htons(ETH_P_8021Q) &&
++		    proto != htons(ETH_P_8021AD)) {
++			fprintf(stderr, "protocol not supported\n");
++			explain();
++			return -1;
++		}
++
++		addattr_l(n, MAX_MSG, TCA_VLAN_PUSH_VLAN_PROTOCOL, &proto, 2);
++	}
++	tail->rta_len = (char *)NLMSG_TAIL(n) - (char *)tail;
++
++	*argc_p = argc;
++	*argv_p = argv;
++	return 0;
++}
++
++static int print_vlan(struct action_util *au, FILE *f, struct rtattr *arg)
++{
++	SPRINT_BUF(b1);
++	struct rtattr *tb[TCA_VLAN_MAX + 1];
++	__u16 val;
++	struct tc_vlan *parm;
++
++	if (arg == NULL)
++		return -1;
++
++	parse_rtattr_nested(tb, TCA_VLAN_MAX, arg);
++
++	if (!tb[TCA_VLAN_PARMS]) {
++		fprintf(f, "[NULL vlan parameters]");
++		return -1;
++	}
++	parm = RTA_DATA(tb[TCA_VLAN_PARMS]);
++
++	fprintf(f, " vlan");
++
++	switch(parm->v_action) {
++	case TCA_VLAN_ACT_POP:
++		fprintf(f, " pop");
++		break;
++	case TCA_VLAN_ACT_PUSH:
++		fprintf(f, " push");
++		if (tb[TCA_VLAN_PUSH_VLAN_ID]) {
++			val = rta_getattr_u16(tb[TCA_VLAN_PUSH_VLAN_ID]);
++			fprintf(f, " id %u", val);
++		}
++		if (tb[TCA_VLAN_PUSH_VLAN_PROTOCOL]) {
++			fprintf(f, " protocol %s",
++				ll_proto_n2a(rta_getattr_u16(tb[TCA_VLAN_PUSH_VLAN_PROTOCOL]),
++					     b1, sizeof(b1)));
++		}
++		break;
++	}
++
++	fprintf(f, "\n\t index %d ref %d bind %d", parm->index, parm->refcnt,
++		parm->bindcnt);
++
++	if (show_stats) {
++		if (tb[TCA_VLAN_TM]) {
++			struct tcf_t *tm = RTA_DATA(tb[TCA_VLAN_TM]);
++			print_tm(f, tm);
++		}
++	}
++
++	fprintf(f, "\n ");
++
++	return 0;
++}
++
++struct action_util vlan_action_util = {
++	.id = "vlan",
++	.parse_aopt = parse_vlan,
++	.print_aopt = print_vlan,
++};
+-- 
+1.9.3
