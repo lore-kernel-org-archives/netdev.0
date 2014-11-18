@@ -1,38 +1,65 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net-next] PPC: bpf_jit_comp: Unify BPF_MOD | BPF_X and
- BPF_DIV | BPF_X
-Date: Tue, 18 Nov 2014 07:37:21 -0800
-Message-ID: <CAADnVQ+w9=aezS9uCursLS4Q40S4jcyn=5vNhoc-n5qcyrF0wQ@mail.gmail.com>
-References: <1416254861-3879-1-git-send-email-kda@linux-powerpc.org>
-	<1416275444.1107.4.camel@concordia>
-	<CAOJe8K0_u51QkKmVoVmFuGaDtKfcHP6tSWx_fgJM_erRRoQfUA@mail.gmail.com>
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Subject: Re: [PATCH 0/4] Add lightweight memory barriers fast_rmb() and fast_wmb()
+Date: Tue, 18 Nov 2014 07:44:13 -0800
+Message-ID: <546B694D.3080604@redhat.com>
+References: <20141117171005.22333.96544.stgit@ahduyck-server> <063D6719AE5E284EB5DD2968C1650D6D1C9F2930@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Michael Ellerman <mpe@ellerman.id.au>,
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "mathieu.desnoyers@polymtl.ca" <mathieu.desnoyers@polymtl.ca>,
+	"peterz@infradead.org" <peterz@infradead.org>,
+	"benh@kernel.crashing.org" <benh@kernel.crashing.org>,
+	"heiko.carstens@de.ibm.com" <heiko.carstens@de.ibm.com>,
+	"mingo@kernel.org" <mingo@kernel.org>,
+	"mikey@neuling.org" <mikey@neuling.org>,
+	"linux@arm.linux.org.uk" <linux@arm.linux.org.uk>,
+	"donald.c.skidmore@intel.com" <donald.c.skidmore@intel.com>,
+	"matthew.vick@intel.com" <matthew.vick@intel.com>,
+	"geert@linux-m68k.org" <geert@linux-m68k.org>,
+	"jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
+	"romieu@fr.zoreil.com" <romieu@fr.zoreil.com>,
+	"paulmck@linux.vnet.ibm.com" <paulmck@linux.vnet.ibm.com>,
+	"nic_swsd@realtek.com" <nic_swsd@realtek.com>,
+	"will.deacon@arm.com" <will.deacon@arm.com>,
+	"michael@ellerman.id.au" <michael@ellerman.id.au>,
+	"tony.luck@intel.com" <tony.luck@intel.com>,
+	"torvalds@li
+To: David Laight <David.Laight@ACULAB.COM>,
+	"linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Philippe Bergheaud <felix@linux.vnet.ibm.com>,
-	linuxppc-dev@ozlabs.org, Daniel Borkmann <dborkman@redhat.com>
-To: Denis Kirjanov <kda@linux-powerpc.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f175.google.com ([209.85.216.175]:42623 "EHLO
-	mail-qc0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754707AbaKRPhY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Nov 2014 10:37:24 -0500
-Received: by mail-qc0-f175.google.com with SMTP id b13so20118150qcw.34
-        for <netdev@vger.kernel.org>; Tue, 18 Nov 2014 07:37:22 -0800 (PST)
-In-Reply-To: <CAOJe8K0_u51QkKmVoVmFuGaDtKfcHP6tSWx_fgJM_erRRoQfUA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1C9F2930@AcuExch.aculab.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 17, 2014 at 10:58 PM, Denis Kirjanov <kda@linux-powerpc.org> wrote:
-> Hi Michael,
+
+On 11/18/2014 01:57 AM, David Laight wrote:
+> From: Alexander Duyck
+>> These patches introduce two new primitives for synchronizing cache-enabled
+>> memory writes and reads.  These two new primitives are:
+>>
+>> 	fast_rmb()
+>> 	fast_wmb()
+> Not sure I like the names.
+> If the aim is to sync data into the local cache so that hardware
+> that is doing cache-snooping accesses sees the data then maybe
+> 	local_rmb() and local_wmb()
+
+Yeah, that is the general consensus.  I am planning to change them to 
+coherent_rmb() and coherent_wmb().
+
+> IIRC read_barrier_depends() is a nop on everything except alpha.
+> Maybe add the default if it isn't defined by the MD file?
 >
-> This patch added no new functionality so I haven't put the test
-> results (of course I ran the test suite to check the patch).
->
-> The output :
-> [  650.198958] test_bpf: Summary: 60 PASSED, 0 FAILED
+> 	David
+>   
 
-Acked-by: Alexei Starovoitov <ast@plumgrid.com>
+ From my patch the only two I saw define it were alpha and blackfin. It 
+is already defined in asm-generic, the rest is just clean-up since I 
+suspect some of the arch tree barrier.h calls just borrowed from 
+asm-generic without sorting out what became redundancies.
 
-btw, please don't top post.
+Thanks,
+
+Alex
