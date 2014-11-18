@@ -1,60 +1,66 @@
-From: Michal Simek <michal.simek@xilinx.com>
-Subject: Re: [PATCH 2/2] net: can: comparison of unsigned variable
-Date: Tue, 18 Nov 2014 17:47:02 +0100
-Message-ID: <67e24b2a43564b55960a31c62e5d44ca@BY2FFO11FD055.protection.gbl>
-References: <1416318427-28676-1-git-send-email-sudipm.mukherjee@gmail.com>
- <1416318427-28676-2-git-send-email-sudipm.mukherjee@gmail.com>
+From: Will Deacon <will.deacon@arm.com>
+Subject: Re: [PATCH 2/4] arch: Add lightweight memory barriers fast_rmb() and
+ fast_wmb()
+Date: Tue, 18 Nov 2014 16:48:27 +0000
+Message-ID: <20141118164827.GR18842@arm.com>
+References: <20141117171005.22333.96544.stgit@ahduyck-server>
+ <20141117171812.22333.90395.stgit@ahduyck-server>
+ <1416254687.18381.3.camel@kernel.crashing.org>
+ <546A5968.1090201@gmail.com>
+ <1416271167.18381.16.camel@kernel.crashing.org>
+ <546AB959.1020602@redhat.com>
+ <20141118115836.GL18842@arm.com>
+ <546B71DE.4050506@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
- linux-arm-kernel@lists.infradead.org, linux-can@vger.kernel.org
-To: Sudip Mukherjee <sudipm.mukherjee@gmail.com>, Wolfgang Grandegger
- <wg@grandegger.com>, Marc Kleine-Budde <mkl@pengutronix.de>, Michal Simek
- <michal.simek@xilinx.com>, =?windows-1252?Q?S=F6ren_Brinkmann?=
- <soren.brinkmann@xilinx.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1416318427-28676-2-git-send-email-sudipm.mukherjee@gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	"linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"mathieu.desnoyers@polymtl.ca" <mathieu.desnoyers@polymtl.ca>,
+	"peterz@infradead.org" <peterz@infradead.org>,
+	"heiko.carstens@de.ibm.com" <heiko.carstens@de.ibm.com>,
+	"mingo@kernel.org" <mingo@kernel.org>,
+	"mikey@neuling.org" <mikey@neuling.org>,
+	"linux@arm.linux.org.uk" <linux@arm.linux.org.uk>,
+	"donald.c.skidmore@intel.com" <donald.c.skidmore@intel.com>,
+	"matthew.vick@intel.com" <matthew.vick@intel.com>,
+	"geert@linux-m68k.org" <geert@linux-m68k.org>,
+	"jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
+	"romieu@fr.zoreil.com" <romieu@fr.zoreil.com>,
+	"paulmck@linux.vnet.ibm.com" <paulmck@linux.vn
+To: Alexander Duyck <alexander.h.duyck@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <546B71DE.4050506@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11/18/2014 02:47 PM, Sudip Mukherjee wrote:
-> err was of the type u32. it was being compared with < 0, and being
-> an unsigned variable the comparison would have been always false.
+On Tue, Nov 18, 2014 at 04:20:46PM +0000, Alexander Duyck wrote:
+> On 11/18/2014 03:58 AM, Will Deacon wrote:
+> > So actually, this is an interesting case where the barrier would like to
+> > know whether the memory returned by dma_alloc_coherent is h/w coherent
+> > (normal, cacheable) or s/w coherent (normal, non-cacheable). I think Ben
+> > is thinking of the h/w coherent case (i.e. actual snooping into the CPU
+> > caches by the DMA master).
+> >
+> > For the former, we could use inner-shareable barriers. For the latter, we'd
+> > need to use outer-shareable barriers.
+> >
+> > If we can't tell, then these should be dmb(osh), which will work for both.
+> >
 > 
-> moreover, err was getting the return value from set_reset_mode()
-> and xcan_set_bittiming(), and both are returning int.
-> 
-> Signed-off-by: Sudip Mukherjee <sudip@vectorindia.org>
-> ---
->  drivers/net/can/xilinx_can.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/can/xilinx_can.c b/drivers/net/can/xilinx_can.c
-> index 72fe96f..67c2dd4 100644
-> --- a/drivers/net/can/xilinx_can.c
-> +++ b/drivers/net/can/xilinx_can.c
-> @@ -300,7 +300,8 @@ static int xcan_set_bittiming(struct net_device *ndev)
->  static int xcan_chip_start(struct net_device *ndev)
->  {
->  	struct xcan_priv *priv = netdev_priv(ndev);
-> -	u32 err, reg_msr, reg_sr_mask;
-> +	u32 reg_msr, reg_sr_mask;
-> +	int err;
->  	unsigned long timeout;
->  
->  	/* Check if it is in reset mode */
-> 
+> Okay, so I will update the ARM portion of my patches to use osh and 
+> oshst then since it sounds like I was using too strong of barriers.
 
-Reviewed-by: Michal Simek <michal.simek@xilinx.com>
+Sounds good. Another reason this is interesting is because the native
+acquire/release instructions on ARMv8 actually take into account the
+shareability domain of the virtual address, so using them would give you
+the shareability domain you want but slightly stronger ordering guarantees
+within that domain.
 
-Thanks,
-Michal
+Still, either of them will be a damn sight better than the dsb we currently
+have courtesy of the mandatory barriers.
+
+Will
