@@ -1,7 +1,8 @@
 From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: [PATCH 1/5] separate kernel- and userland-side msghdr
-Date: Tue, 18 Nov 2014 19:41:34 +0000
-Message-ID: <20141118194134.GB14641@ZenIV.linux.org.uk>
+Subject: [PATCH 2/5] {compat_,}verify_iovec(): switch to generic copying of
+ iovecs
+Date: Tue, 18 Nov 2014 19:42:06 +0000
+Message-ID: <20141118194206.GC14641@ZenIV.linux.org.uk>
 References: <20141118084745.GT7996@ZenIV.linux.org.uk>
  <20141118194053.GA14641@ZenIV.linux.org.uk>
 Mime-Version: 1.0
@@ -16,275 +17,237 @@ In-Reply-To: <20141118194053.GA14641@ZenIV.linux.org.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Kernel-side struct msghdr is (currently) using the same layout as
-userland one, but it's not a one-to-one copy - even without considering
-32bit compat issues, we have msg_iov, msg_name and msg_control copied
-to kernel[1].  It's fairly localized, so we get away with a few functions
-where that knowledge is needed (and we could shrink that set even
-more).  Pretty much everything deals with the kernel-side variant and
-the few places that want userland one just use a bunch of force-casts
-to paper over the differences.
-
-The thing is, kernel-side definition of struct msghdr is *not* exposed
-in include/uapi - libc doesn't see it, etc.  So we can add struct user_msghdr,
-with proper annotations and let the few places that ever deal with those
-beasts use it for userland pointers.  Saner typechecking aside, that will
-allow to change the layout of kernel-side msghdr - e.g. replace
-msg_iov/msg_iovlen there with struct iov_iter, getting rid of the need
-to modify the iovec as we copy data to/from it, etc.
-
-We could introduce kernel_msghdr instead, but that would create much more
-noise - the absolute majority of the instances would need to have the
-type switched to kernel_msghdr and definition of struct msghdr in
-include/linux/socket.h is not going to be seen by userland anyway.
-
-This commit just introduces user_msghdr and switches the few places that
-are dealing with userland-side msghdr to it.
-
-[1] actually, it's even trickier than that - we copy msg_control for
-sendmsg, but keep the userland address on recvmsg.
+use {compat_,}rw_copy_check_uvector().  As the result, we are
+guaranteed that all iovecs seen in ->msg_iov by ->sendmsg()
+and ->recvmsg() will pass access_ok().  The next commit removes
+now redundant checks in callees...
 
 Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
 ---
- arch/arm/kernel/sys_oabi-compat.c |    4 ++--
- include/linux/socket.h            |   16 +++++++++++++---
- include/linux/syscalls.h          |    6 +++---
- net/compat.c                      |    4 ++--
- net/socket.c                      |   29 ++++++++++++++++-------------
- 5 files changed, 36 insertions(+), 23 deletions(-)
+ net/compat.c     |   51 +++++++++++++++------------------------------------
+ net/core/iovec.c |   37 ++++++++++++++-----------------------
+ net/socket.c     |   38 ++++++++------------------------------
+ 3 files changed, 37 insertions(+), 89 deletions(-)
 
-diff --git a/arch/arm/kernel/sys_oabi-compat.c b/arch/arm/kernel/sys_oabi-compat.c
-index e90a314..b83f3b7 100644
---- a/arch/arm/kernel/sys_oabi-compat.c
-+++ b/arch/arm/kernel/sys_oabi-compat.c
-@@ -400,7 +400,7 @@ asmlinkage long sys_oabi_sendto(int fd, void __user *buff,
- 	return sys_sendto(fd, buff, len, flags, addr, addrlen);
- }
- 
--asmlinkage long sys_oabi_sendmsg(int fd, struct msghdr __user *msg, unsigned flags)
-+asmlinkage long sys_oabi_sendmsg(int fd, struct user_msghdr __user *msg, unsigned flags)
- {
- 	struct sockaddr __user *addr;
- 	int msg_namelen;
-@@ -446,7 +446,7 @@ asmlinkage long sys_oabi_socketcall(int call, unsigned long __user *args)
- 		break;
- 	case SYS_SENDMSG:
- 		if (copy_from_user(a, args, 3 * sizeof(long)) == 0)
--			r = sys_oabi_sendmsg(a[0], (struct msghdr __user *)a[1], a[2]);
-+			r = sys_oabi_sendmsg(a[0], (struct user_msghdr __user *)a[1], a[2]);
- 		break;
- 	default:
- 		r = sys_socketcall(call, args);
-diff --git a/include/linux/socket.h b/include/linux/socket.h
-index bb9b836..51bd666 100644
---- a/include/linux/socket.h
-+++ b/include/linux/socket.h
-@@ -53,10 +53,20 @@ struct msghdr {
- 	__kernel_size_t	msg_controllen;	/* ancillary data buffer length */
- 	unsigned int	msg_flags;	/* flags on received message */
- };
-+ 
-+struct user_msghdr {
-+	void		__user *msg_name;	/* ptr to socket address structure */
-+	int		msg_namelen;		/* size of socket address structure */
-+	struct iovec	__user *msg_iov;	/* scatter/gather array */
-+	__kernel_size_t	msg_iovlen;		/* # elements in msg_iov */
-+	void		__user *msg_control;	/* ancillary data */
-+	__kernel_size_t	msg_controllen;		/* ancillary data buffer length */
-+	unsigned int	msg_flags;		/* flags on received message */
-+};
- 
- /* For recvmmsg/sendmmsg */
- struct mmsghdr {
--	struct msghdr   msg_hdr;
-+	struct user_msghdr  msg_hdr;
- 	unsigned int        msg_len;
- };
- 
-@@ -319,8 +329,8 @@ extern int put_cmsg(struct msghdr*, int level, int type, int len, void *data);
- struct timespec;
- 
- /* The __sys_...msg variants allow MSG_CMSG_COMPAT */
--extern long __sys_recvmsg(int fd, struct msghdr __user *msg, unsigned flags);
--extern long __sys_sendmsg(int fd, struct msghdr __user *msg, unsigned flags);
-+extern long __sys_recvmsg(int fd, struct user_msghdr __user *msg, unsigned flags);
-+extern long __sys_sendmsg(int fd, struct user_msghdr __user *msg, unsigned flags);
- extern int __sys_recvmmsg(int fd, struct mmsghdr __user *mmsg, unsigned int vlen,
- 			  unsigned int flags, struct timespec *timeout);
- extern int __sys_sendmmsg(int fd, struct mmsghdr __user *mmsg,
-diff --git a/include/linux/syscalls.h b/include/linux/syscalls.h
-index bda9b81..c9afdc7 100644
---- a/include/linux/syscalls.h
-+++ b/include/linux/syscalls.h
-@@ -25,7 +25,7 @@ struct linux_dirent64;
- struct list_head;
- struct mmap_arg_struct;
- struct msgbuf;
--struct msghdr;
-+struct user_msghdr;
- struct mmsghdr;
- struct msqid_ds;
- struct new_utsname;
-@@ -601,13 +601,13 @@ asmlinkage long sys_getpeername(int, struct sockaddr __user *, int __user *);
- asmlinkage long sys_send(int, void __user *, size_t, unsigned);
- asmlinkage long sys_sendto(int, void __user *, size_t, unsigned,
- 				struct sockaddr __user *, int);
--asmlinkage long sys_sendmsg(int fd, struct msghdr __user *msg, unsigned flags);
-+asmlinkage long sys_sendmsg(int fd, struct user_msghdr __user *msg, unsigned flags);
- asmlinkage long sys_sendmmsg(int fd, struct mmsghdr __user *msg,
- 			     unsigned int vlen, unsigned flags);
- asmlinkage long sys_recv(int, void __user *, size_t, unsigned);
- asmlinkage long sys_recvfrom(int, void __user *, size_t, unsigned,
- 				struct sockaddr __user *, int __user *);
--asmlinkage long sys_recvmsg(int fd, struct msghdr __user *msg, unsigned flags);
-+asmlinkage long sys_recvmsg(int fd, struct user_msghdr __user *msg, unsigned flags);
- asmlinkage long sys_recvmmsg(int fd, struct mmsghdr __user *msg,
- 			     unsigned int vlen, unsigned flags,
- 			     struct timespec __user *timeout);
 diff --git a/net/compat.c b/net/compat.c
-index bc8aeef..562e920 100644
+index 562e920..7b4b6ad 100644
 --- a/net/compat.c
 +++ b/net/compat.c
-@@ -740,7 +740,7 @@ COMPAT_SYSCALL_DEFINE3(sendmsg, int, fd, struct compat_msghdr __user *, msg, uns
+@@ -31,33 +31,6 @@
+ #include <asm/uaccess.h>
+ #include <net/compat.h>
+ 
+-static inline int iov_from_user_compat_to_kern(struct iovec *kiov,
+-					  struct compat_iovec __user *uiov32,
+-					  int niov)
+-{
+-	int tot_len = 0;
+-
+-	while (niov > 0) {
+-		compat_uptr_t buf;
+-		compat_size_t len;
+-
+-		if (get_user(len, &uiov32->iov_len) ||
+-		    get_user(buf, &uiov32->iov_base))
+-			return -EFAULT;
+-
+-		if (len > INT_MAX - tot_len)
+-			len = INT_MAX - tot_len;
+-
+-		tot_len += len;
+-		kiov->iov_base = compat_ptr(buf);
+-		kiov->iov_len = (__kernel_size_t) len;
+-		uiov32++;
+-		kiov++;
+-		niov--;
+-	}
+-	return tot_len;
+-}
+-
+ int get_compat_msghdr(struct msghdr *kmsg, struct compat_msghdr __user *umsg)
  {
- 	if (flags & MSG_CMSG_COMPAT)
- 		return -EINVAL;
--	return __sys_sendmsg(fd, (struct msghdr __user *)msg, flags | MSG_CMSG_COMPAT);
-+	return __sys_sendmsg(fd, (struct user_msghdr __user *)msg, flags | MSG_CMSG_COMPAT);
+ 	compat_uptr_t tmp1, tmp2, tmp3;
+@@ -80,13 +53,15 @@ int get_compat_msghdr(struct msghdr *kmsg, struct compat_msghdr __user *umsg)
  }
  
- COMPAT_SYSCALL_DEFINE4(sendmmsg, int, fd, struct compat_mmsghdr __user *, mmsg,
-@@ -756,7 +756,7 @@ COMPAT_SYSCALL_DEFINE3(recvmsg, int, fd, struct compat_msghdr __user *, msg, uns
+ /* I've named the args so it is easy to tell whose space the pointers are in. */
+-int verify_compat_iovec(struct msghdr *kern_msg, struct iovec *kern_iov,
++int verify_compat_iovec(struct msghdr *kern_msg, struct iovec *iov,
+ 		   struct sockaddr_storage *kern_address, int mode)
  {
- 	if (flags & MSG_CMSG_COMPAT)
- 		return -EINVAL;
--	return __sys_recvmsg(fd, (struct msghdr __user *)msg, flags | MSG_CMSG_COMPAT);
-+	return __sys_recvmsg(fd, (struct user_msghdr __user *)msg, flags | MSG_CMSG_COMPAT);
+-	int tot_len;
++	struct compat_iovec __user *p;
++	struct iovec *res;
++	int err;
+ 
+ 	if (kern_msg->msg_name && kern_msg->msg_namelen) {
+-		if (mode == VERIFY_READ) {
++		if (mode == WRITE) {
+ 			int err = move_addr_to_kernel(kern_msg->msg_name,
+ 						      kern_msg->msg_namelen,
+ 						      kern_address);
+@@ -99,13 +74,17 @@ int verify_compat_iovec(struct msghdr *kern_msg, struct iovec *kern_iov,
+ 		kern_msg->msg_namelen = 0;
+ 	}
+ 
+-	tot_len = iov_from_user_compat_to_kern(kern_iov,
+-					  (struct compat_iovec __user *)kern_msg->msg_iov,
+-					  kern_msg->msg_iovlen);
+-	if (tot_len >= 0)
+-		kern_msg->msg_iov = kern_iov;
++	if (kern_msg->msg_iovlen > UIO_MAXIOV)
++		return -EMSGSIZE;
+ 
+-	return tot_len;
++	p = (struct compat_iovec __user *)kern_msg->msg_iov;
++	err = compat_rw_copy_check_uvector(mode, p, kern_msg->msg_iovlen,
++					   UIO_FASTIOV, iov, &res);
++	if (err >= 0)
++		kern_msg->msg_iov = res;
++	else if (res != iov)
++		kfree(res);
++	return err;
  }
  
- COMPAT_SYSCALL_DEFINE4(recv, int, fd, void __user *, buf, compat_size_t, len, unsigned int, flags)
+ /* Bleech... */
+diff --git a/net/core/iovec.c b/net/core/iovec.c
+index e1ec45a..86beeea 100644
+--- a/net/core/iovec.c
++++ b/net/core/iovec.c
+@@ -37,13 +37,13 @@
+ 
+ int verify_iovec(struct msghdr *m, struct iovec *iov, struct sockaddr_storage *address, int mode)
+ {
+-	int size, ct, err;
++	struct iovec *res;
++	int err;
+ 
+ 	if (m->msg_name && m->msg_namelen) {
+-		if (mode == VERIFY_READ) {
+-			void __user *namep;
+-			namep = (void __user __force *) m->msg_name;
+-			err = move_addr_to_kernel(namep, m->msg_namelen,
++		if (mode == WRITE) {
++			void __user *namep = (void __user __force *)m->msg_name;
++			int err = move_addr_to_kernel(namep, m->msg_namelen,
+ 						  address);
+ 			if (err < 0)
+ 				return err;
+@@ -53,24 +53,15 @@ int verify_iovec(struct msghdr *m, struct iovec *iov, struct sockaddr_storage *a
+ 		m->msg_name = NULL;
+ 		m->msg_namelen = 0;
+ 	}
+-
+-	size = m->msg_iovlen * sizeof(struct iovec);
+-	if (copy_from_user(iov, (void __user __force *) m->msg_iov, size))
+-		return -EFAULT;
+-
+-	m->msg_iov = iov;
+-	err = 0;
+-
+-	for (ct = 0; ct < m->msg_iovlen; ct++) {
+-		size_t len = iov[ct].iov_len;
+-
+-		if (len > INT_MAX - err) {
+-			len = INT_MAX - err;
+-			iov[ct].iov_len = len;
+-		}
+-		err += len;
+-	}
+-
++	if (m->msg_iovlen > UIO_MAXIOV)
++		return -EMSGSIZE;
++
++	err = rw_copy_check_uvector(mode, (void __user __force *)m->msg_iov,
++				    m->msg_iovlen, UIO_FASTIOV, iov, &res);
++	if (err >= 0)
++		m->msg_iov = res;
++	else if (res != iov)
++		kfree(res);
+ 	return err;
+ }
+ 
 diff --git a/net/socket.c b/net/socket.c
-index fe20c31..0ae8147 100644
+index 0ae8147..59020f0 100644
 --- a/net/socket.c
 +++ b/net/socket.c
-@@ -1989,8 +1989,11 @@ struct used_address {
- };
+@@ -2032,24 +2032,14 @@ static int ___sys_sendmsg(struct socket *sock, struct user_msghdr __user *msg,
+ 			return err;
+ 	}
  
- static int copy_msghdr_from_user(struct msghdr *kmsg,
--				 struct msghdr __user *umsg)
-+				 struct user_msghdr __user *umsg)
- {
-+	/* We are relying on the (currently) identical layouts.  Once
-+	 * the kernel-side changes, this place will need to be updated
-+	 */
- 	if (copy_from_user(kmsg, umsg, sizeof(struct msghdr)))
- 		return -EFAULT;
+-	if (msg_sys->msg_iovlen > UIO_FASTIOV) {
+-		err = -EMSGSIZE;
+-		if (msg_sys->msg_iovlen > UIO_MAXIOV)
+-			goto out;
+-		err = -ENOMEM;
+-		iov = kmalloc(msg_sys->msg_iovlen * sizeof(struct iovec),
+-			      GFP_KERNEL);
+-		if (!iov)
+-			goto out;
+-	}
+-
+ 	/* This will also move the address data into kernel space */
+-	if (MSG_CMSG_COMPAT & flags) {
+-		err = verify_compat_iovec(msg_sys, iov, &address, VERIFY_READ);
+-	} else
+-		err = verify_iovec(msg_sys, iov, &address, VERIFY_READ);
++	if (MSG_CMSG_COMPAT & flags)
++		err = verify_compat_iovec(msg_sys, iovstack, &address, WRITE);
++	else
++		err = verify_iovec(msg_sys, iovstack, &address, WRITE);
+ 	if (err < 0)
+ 		goto out_freeiov;
++	iov = msg_sys->msg_iov;
+ 	total_len = err;
  
-@@ -2005,7 +2008,7 @@ static int copy_msghdr_from_user(struct msghdr *kmsg,
- 	return 0;
- }
- 
--static int ___sys_sendmsg(struct socket *sock, struct msghdr __user *msg,
-+static int ___sys_sendmsg(struct socket *sock, struct user_msghdr __user *msg,
- 			 struct msghdr *msg_sys, unsigned int flags,
- 			 struct used_address *used_address)
- {
-@@ -2123,7 +2126,7 @@ out:
-  *	BSD sendmsg interface
-  */
- 
--long __sys_sendmsg(int fd, struct msghdr __user *msg, unsigned flags)
-+long __sys_sendmsg(int fd, struct user_msghdr __user *msg, unsigned flags)
- {
- 	int fput_needed, err;
- 	struct msghdr msg_sys;
-@@ -2140,7 +2143,7 @@ out:
+ 	err = -ENOBUFS;
+@@ -2118,7 +2108,6 @@ out_freectl:
+ out_freeiov:
+ 	if (iov != iovstack)
+ 		kfree(iov);
+-out:
  	return err;
  }
  
--SYSCALL_DEFINE3(sendmsg, int, fd, struct msghdr __user *, msg, unsigned int, flags)
-+SYSCALL_DEFINE3(sendmsg, int, fd, struct user_msghdr __user *, msg, unsigned int, flags)
- {
- 	if (flags & MSG_CMSG_COMPAT)
- 		return -EINVAL;
-@@ -2177,7 +2180,7 @@ int __sys_sendmmsg(int fd, struct mmsghdr __user *mmsg, unsigned int vlen,
+@@ -2244,28 +2233,18 @@ static int ___sys_recvmsg(struct socket *sock, struct user_msghdr __user *msg,
+ 			return err;
+ 	}
  
- 	while (datagrams < vlen) {
- 		if (MSG_CMSG_COMPAT & flags) {
--			err = ___sys_sendmsg(sock, (struct msghdr __user *)compat_entry,
-+			err = ___sys_sendmsg(sock, (struct user_msghdr __user *)compat_entry,
- 					     &msg_sys, flags, &used_address);
- 			if (err < 0)
- 				break;
-@@ -2185,7 +2188,7 @@ int __sys_sendmmsg(int fd, struct mmsghdr __user *mmsg, unsigned int vlen,
- 			++compat_entry;
- 		} else {
- 			err = ___sys_sendmsg(sock,
--					     (struct msghdr __user *)entry,
-+					     (struct user_msghdr __user *)entry,
- 					     &msg_sys, flags, &used_address);
- 			if (err < 0)
- 				break;
-@@ -2215,7 +2218,7 @@ SYSCALL_DEFINE4(sendmmsg, int, fd, struct mmsghdr __user *, mmsg,
- 	return __sys_sendmmsg(fd, mmsg, vlen, flags);
- }
+-	if (msg_sys->msg_iovlen > UIO_FASTIOV) {
+-		err = -EMSGSIZE;
+-		if (msg_sys->msg_iovlen > UIO_MAXIOV)
+-			goto out;
+-		err = -ENOMEM;
+-		iov = kmalloc(msg_sys->msg_iovlen * sizeof(struct iovec),
+-			      GFP_KERNEL);
+-		if (!iov)
+-			goto out;
+-	}
+-
+ 	/* Save the user-mode address (verify_iovec will change the
+ 	 * kernel msghdr to use the kernel address space)
+ 	 */
+ 	uaddr = (__force void __user *)msg_sys->msg_name;
+ 	uaddr_len = COMPAT_NAMELEN(msg);
+ 	if (MSG_CMSG_COMPAT & flags)
+-		err = verify_compat_iovec(msg_sys, iov, &addr, VERIFY_WRITE);
++		err = verify_compat_iovec(msg_sys, iovstack, &addr, READ);
+ 	else
+-		err = verify_iovec(msg_sys, iov, &addr, VERIFY_WRITE);
++		err = verify_iovec(msg_sys, iovstack, &addr, READ);
+ 	if (err < 0)
+ 		goto out_freeiov;
++	iov = msg_sys->msg_iov;
+ 	total_len = err;
  
--static int ___sys_recvmsg(struct socket *sock, struct msghdr __user *msg,
-+static int ___sys_recvmsg(struct socket *sock, struct user_msghdr __user *msg,
- 			 struct msghdr *msg_sys, unsigned int flags, int nosec)
- {
- 	struct compat_msghdr __user *msg_compat =
-@@ -2311,7 +2314,7 @@ out:
-  *	BSD recvmsg interface
-  */
- 
--long __sys_recvmsg(int fd, struct msghdr __user *msg, unsigned flags)
-+long __sys_recvmsg(int fd, struct user_msghdr __user *msg, unsigned flags)
- {
- 	int fput_needed, err;
- 	struct msghdr msg_sys;
-@@ -2328,7 +2331,7 @@ out:
+ 	cmsg_ptr = (unsigned long)msg_sys->msg_control;
+@@ -2306,7 +2285,6 @@ static int ___sys_recvmsg(struct socket *sock, struct user_msghdr __user *msg,
+ out_freeiov:
+ 	if (iov != iovstack)
+ 		kfree(iov);
+-out:
  	return err;
  }
  
--SYSCALL_DEFINE3(recvmsg, int, fd, struct msghdr __user *, msg,
-+SYSCALL_DEFINE3(recvmsg, int, fd, struct user_msghdr __user *, msg,
- 		unsigned int, flags)
- {
- 	if (flags & MSG_CMSG_COMPAT)
-@@ -2373,7 +2376,7 @@ int __sys_recvmmsg(int fd, struct mmsghdr __user *mmsg, unsigned int vlen,
- 		 * No need to ask LSM for more than the first datagram.
- 		 */
- 		if (MSG_CMSG_COMPAT & flags) {
--			err = ___sys_recvmsg(sock, (struct msghdr __user *)compat_entry,
-+			err = ___sys_recvmsg(sock, (struct user_msghdr __user *)compat_entry,
- 					     &msg_sys, flags & ~MSG_WAITFORONE,
- 					     datagrams);
- 			if (err < 0)
-@@ -2382,7 +2385,7 @@ int __sys_recvmmsg(int fd, struct mmsghdr __user *mmsg, unsigned int vlen,
- 			++compat_entry;
- 		} else {
- 			err = ___sys_recvmsg(sock,
--					     (struct msghdr __user *)entry,
-+					     (struct user_msghdr __user *)entry,
- 					     &msg_sys, flags & ~MSG_WAITFORONE,
- 					     datagrams);
- 			if (err < 0)
-@@ -2571,13 +2574,13 @@ SYSCALL_DEFINE2(socketcall, int, call, unsigned long __user *, args)
- 				   (int __user *)a[4]);
- 		break;
- 	case SYS_SENDMSG:
--		err = sys_sendmsg(a0, (struct msghdr __user *)a1, a[2]);
-+		err = sys_sendmsg(a0, (struct user_msghdr __user *)a1, a[2]);
- 		break;
- 	case SYS_SENDMMSG:
- 		err = sys_sendmmsg(a0, (struct mmsghdr __user *)a1, a[2], a[3]);
- 		break;
- 	case SYS_RECVMSG:
--		err = sys_recvmsg(a0, (struct msghdr __user *)a1, a[2]);
-+		err = sys_recvmsg(a0, (struct user_msghdr __user *)a1, a[2]);
- 		break;
- 	case SYS_RECVMMSG:
- 		err = sys_recvmmsg(a0, (struct mmsghdr __user *)a1, a[2], a[3],
 -- 
 1.7.10.4
