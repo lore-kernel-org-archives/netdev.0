@@ -1,65 +1,46 @@
-From: Joe Stringer <joestringer-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH net] openvswitch: Fix mask generation for IPv6
-	labels.
-Date: Tue, 18 Nov 2014 10:54:17 -0800
-Message-ID: <1416336857-61405-1-git-send-email-joestringer@nicira.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [PATCH] ipv6: delete protocol when cleanup
+Date: Tue, 18 Nov 2014 10:56:40 -0800
+Message-ID: <CAHA+R7PNmac7KQpSK-vO9zVd3+926f6n_GpaGrbpBnSn98xiyQ@mail.gmail.com>
+References: <546B20F8.6010806@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f41.google.com ([209.85.192.41]:38324 "EHLO
+	mail-qg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754884AbaKRS4m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Nov 2014 13:56:42 -0500
+Received: by mail-qg0-f41.google.com with SMTP id j5so3139613qga.0
+        for <netdev@vger.kernel.org>; Tue, 18 Nov 2014 10:56:42 -0800 (PST)
+In-Reply-To: <546B20F8.6010806@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-V2hlbiB1c2Vyc3BhY2UgZG9lc24ndCBwcm92aWRlIGEgbWFzaywgT1ZTIGRhdGFwYXRoIGdlbmVy
-YXRlcyBhIGZ1bGx5CnVud2lsZGNhcmRlZCBtYXNrIGZvciB0aGUgZmxvdy4gVGhpcyBpcyBkb25l
-IGJ5IHRha2luZyBhIGNvcHkgb2YgdGhlCmZsb3cga2V5LCB0aGVuIGl0ZXJhdGluZyBhY3Jvc3Mg
-aXRzIGF0dHJpYnV0ZXMsIHNldHRpbmcgYWxsIHZhbHVlcyB0bwoweGZmLiBUaGlzIHdvcmtzIGZv
-ciBtb3N0IGF0dHJpYnV0ZXMsIGFzIHRoZSBsZW5ndGggb2YgdGhlIG5ldGxpbmsKYXR0cmlidXRl
-IHR5cGljYWxseSBtYXRjaGVzIHRoZSBsZW5ndGggb2YgdGhlIHZhbHVlLiBIb3dldmVyLCBJUHY2
-CmxhYmVscyBvbmx5IHVzZSB0aGUgbG93ZXIgMjAgYml0cyBvZiB0aGUgZmllbGQuIFRoaXMgcGF0
-Y2ggbWFrZXMgYQpzcGVjaWFsIGNhc2UgdG8gaGFuZGxlIHRoaXMuCgpUaGlzIGZpeGVzIHRoZSBm
-b2xsb3dpbmcgZXJyb3Igc2VlbiB3aGVuIGluc3RhbGxpbmcgSVB2NiBmbG93cyB3aXRob3V0IGEg
-bWFzazoKCm9wZW52c3dpdGNoOiBuZXRsaW5rOiBJbnZhbGlkIElQdjYgZmxvdyBsYWJlbCB2YWx1
-ZSAodmFsdWU9ZmZmZmZmZmYsIG1heD1mZmZmZikKClNpZ25lZC1vZmYtYnk6IEpvZSBTdHJpbmdl
-ciA8am9lc3RyaW5nZXJAbmljaXJhLmNvbT4KLS0tCiBuZXQvb3BlbnZzd2l0Y2gvZmxvd19uZXRs
-aW5rLmMgfCAgIDIyICsrKysrKysrKysrKy0tLS0tLS0tLS0KIDEgZmlsZSBjaGFuZ2VkLCAxMiBp
-bnNlcnRpb25zKCspLCAxMCBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQgYS9uZXQvb3BlbnZzd2l0
-Y2gvZmxvd19uZXRsaW5rLmMgYi9uZXQvb3BlbnZzd2l0Y2gvZmxvd19uZXRsaW5rLmMKaW5kZXgg
-ZmE0ZWMyZS4uN2E1YjI4ZiAxMDA2NDQKLS0tIGEvbmV0L29wZW52c3dpdGNoL2Zsb3dfbmV0bGlu
-ay5jCisrKyBiL25ldC9vcGVudnN3aXRjaC9mbG93X25ldGxpbmsuYwpAQCAtODI1LDcgKzgyNSw3
-IEBAIHN0YXRpYyBpbnQgb3ZzX2tleV9mcm9tX25sYXR0cnMoc3RydWN0IHN3X2Zsb3dfbWF0Y2gg
-Km1hdGNoLCB1NjQgYXR0cnMsCiAJcmV0dXJuIDA7CiB9CiAKLXN0YXRpYyB2b2lkIG5sYXR0cl9z
-ZXQoc3RydWN0IG5sYXR0ciAqYXR0ciwgdTggdmFsLCBib29sIGlzX2F0dHJfbWFza19rZXkpCitz
-dGF0aWMgdm9pZCBtYXNrX3NldF9ubGF0dHIoc3RydWN0IG5sYXR0ciAqYXR0cikKIHsKIAlzdHJ1
-Y3QgbmxhdHRyICpubGE7CiAJaW50IHJlbTsKQEAgLTgzNSwxNiArODM1LDE4IEBAIHN0YXRpYyB2
-b2lkIG5sYXR0cl9zZXQoc3RydWN0IG5sYXR0ciAqYXR0ciwgdTggdmFsLCBib29sIGlzX2F0dHJf
-bWFza19rZXkpCiAJCS8qIFdlIGFzc3VtZSB0aGF0IG92c19rZXlfbGVuc1t0eXBlXSA9PSAtMSBt
-ZWFucyB0aGF0IHR5cGUgaXMgYQogCQkgKiBuZXN0ZWQgYXR0cmlidXRlCiAJCSAqLwotCQlpZiAo
-aXNfYXR0cl9tYXNrX2tleSAmJiBvdnNfa2V5X2xlbnNbbmxhX3R5cGUobmxhKV0gPT0gLTEpCi0J
-CQlubGF0dHJfc2V0KG5sYSwgdmFsLCBmYWxzZSk7CisJCWlmIChvdnNfa2V5X2xlbnNbbmxhX3R5
-cGUobmxhKV0gPT0gLTEpCisJCQlubGFfZm9yX2VhY2hfbmVzdGVkKG5sYSwgYXR0ciwgcmVtKQor
-CQkJCW1lbXNldChubGFfZGF0YShubGEpLCAweGZmLCBubGFfbGVuKG5sYSkpOwogCQllbHNlCi0J
-CQltZW1zZXQobmxhX2RhdGEobmxhKSwgdmFsLCBubGFfbGVuKG5sYSkpOwotCX0KLX0KKwkJCW1l
-bXNldChubGFfZGF0YShubGEpLCAweGZmLCBubGFfbGVuKG5sYSkpOwogCi1zdGF0aWMgdm9pZCBt
-YXNrX3NldF9ubGF0dHIoc3RydWN0IG5sYXR0ciAqYXR0ciwgdTggdmFsKQotewotCW5sYXR0cl9z
-ZXQoYXR0ciwgdmFsLCB0cnVlKTsKKwkJaWYgKG5sYV90eXBlKG5sYSkgPT0gT1ZTX0tFWV9BVFRS
-X0lQVjYpIHsKKwkJCXN0cnVjdCBvdnNfa2V5X2lwdjYgKmlwdjZfa2V5ID0gbmxhX2RhdGEobmxh
-KTsKKworCQkJaXB2Nl9rZXktPmlwdjZfbGFiZWwgJj0gaHRvbmwoMHgwMDBGRkZGRik7CisJCX0K
-Kwl9CiB9CiAKIC8qKgpAQCAtOTI2LDcgKzkyOCw3IEBAIGludCBvdnNfbmxhX2dldF9tYXRjaChz
-dHJ1Y3Qgc3dfZmxvd19tYXRjaCAqbWF0Y2gsCiAJCWlmICghbmV3bWFzaykKIAkJCXJldHVybiAt
-RU5PTUVNOwogCi0JCW1hc2tfc2V0X25sYXR0cihuZXdtYXNrLCAweGZmKTsKKwkJbWFza19zZXRf
-bmxhdHRyKG5ld21hc2spOwogCiAJCS8qIFRoZSB1c2Vyc3BhY2UgZG9lcyBub3Qgc2VuZCB0dW5u
-ZWwgYXR0cmlidXRlcyB0aGF0IGFyZSAwLAogCQkgKiBidXQgd2Ugc2hvdWxkIG5vdCB3aWxkY2Fy
-ZCB0aGVtIG5vbmV0aGVsZXNzLgotLSAKMS43LjEwLjQKCl9fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNo
-Lm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
+On Tue, Nov 18, 2014 at 2:35 AM, Duan Jiong <duanj.fnst@cn.fujitsu.com> wrote:
+>
+> pim6_protocol was added when initiation, but it not deleted.
+>
+> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+> ---
+>  net/ipv6/ip6mr.c | 3 +++
+>  1 file changed, 3 insertions(+)
+>
+> diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
+> index 0171f08..6dcdecd 100644
+> --- a/net/ipv6/ip6mr.c
+> +++ b/net/ipv6/ip6mr.c
+> @@ -1439,6 +1439,9 @@ reg_pernet_fail:
+>
+>  void ip6_mr_cleanup(void)
+>  {
+> +#ifdef CONFIG_IPV6_PIMSM_V2
+> +       inet6_del_protocol(&pim6_protocol, IPPROTO_PIM);
+> +#endif
+>         unregister_netdevice_notifier(&ip6_mr_notifier);
+>         unregister_pernet_subsys(&ip6mr_net_ops);
+>         kmem_cache_destroy(mrt_cachep);
+
+
+Looks like rtnl_unregister() is missing as well.
