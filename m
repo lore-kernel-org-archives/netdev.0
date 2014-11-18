@@ -1,64 +1,62 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net] net/mlx4_en: Add VXLAN ndo calls to the PF net device ops too
-Date: Tue, 18 Nov 2014 17:51:27 +0200
-Message-ID: <1416325887-14704-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org, Florian Westphal <fw@strlen.de>,
-	Amir Vadai <amirv@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Petko Manolov <petkan@nucleusys.com>
+Subject: Re: [PATCH] usbnet: rtl8150: remove unused variable
+Date: Tue, 18 Nov 2014 17:30:42 +0200
+Message-ID: <20141118153042.GB18659@vm-taos-petkan.jnpr.net>
+References: <1416315599-16939-1-git-send-email-sudipm.mukherjee@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:40538 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753627AbaKRPvc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Nov 2014 10:51:32 -0500
+Received: from lan.nucleusys.com ([92.247.61.126]:48767 "EHLO
+	zztop.nucleusys.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755650AbaKRQFc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Nov 2014 11:05:32 -0500
+Content-Disposition: inline
+In-Reply-To: <1416315599-16939-1-git-send-email-sudipm.mukherjee@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is currently missing, which results in a crash when one attempts
-to set VXLAN tunnel over the mlx4_en when acting as PF.
+On 14-11-18 18:29:59, Sudip Mukherjee wrote:
+> we were just returning the initial value of res, instead now
+> we are returning the value directly.
 
-	[ 2408.785472] BUG: unable to handle kernel NULL pointer dereference at (null)
-	[...]
-	[ 2408.994104] Call Trace:
-	[ 2408.996584]  [<ffffffffa021f7f5>] ? vxlan_get_rx_port+0xd6/0x103 [vxlan]
-	[ 2409.003316]  [<ffffffffa021f71f>] ? vxlan_lowerdev_event+0xf2/0xf2 [vxlan]
-	[ 2409.010225]  [<ffffffffa0630358>] mlx4_en_start_port+0x862/0x96a [mlx4_en]
-	[ 2409.017132]  [<ffffffffa063070f>] mlx4_en_open+0x17f/0x1b8 [mlx4_en]
+Looks OK, but could you please fix the wording of the commit message to something like:
 
-While here, make sure to invoke vxlan_get_rx_port() only when VXLAN
-offloads are actually enabled and not when they are only supported.
+	Remove unused variable.
 
-Reported-by: Ido Shamay <idos@mellanox.com>
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c |    7 ++++++-
- 1 files changed, 6 insertions(+), 1 deletions(-)
+This is a tiny patch and the code speaks for itself.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index c5fcc56..4d69e38 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -1693,7 +1693,7 @@ int mlx4_en_start_port(struct net_device *dev)
- 	mlx4_set_stats_bitmap(mdev->dev, &priv->stats_bitmap);
- 
- #ifdef CONFIG_MLX4_EN_VXLAN
--	if (priv->mdev->dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_VXLAN_OFFLOADS)
-+	if (priv->mdev->dev->caps.tunnel_offload_mode == MLX4_TUNNEL_OFFLOAD_MODE_VXLAN)
- 		vxlan_get_rx_port(dev);
- #endif
- 	priv->port_up = true;
-@@ -2422,6 +2422,11 @@ static const struct net_device_ops mlx4_netdev_ops_master = {
- 	.ndo_rx_flow_steer	= mlx4_en_filter_rfs,
- #endif
- 	.ndo_get_phys_port_id	= mlx4_en_get_phys_port_id,
-+#ifdef CONFIG_MLX4_EN_VXLAN
-+	.ndo_add_vxlan_port	= mlx4_en_add_vxlan_port,
-+	.ndo_del_vxlan_port	= mlx4_en_del_vxlan_port,
-+	.ndo_gso_check		= mlx4_en_gso_check,
-+#endif
- };
- 
- int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
--- 
-1.7.1
+
+		Petko
+
+
+> Signed-off-by: Sudip Mukherjee <sudip@vectorindia.org>
+> ---
+>  drivers/net/usb/rtl8150.c | 3 +--
+>  1 file changed, 1 insertion(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/usb/rtl8150.c b/drivers/net/usb/rtl8150.c
+> index 6e87e57..d37b7dc 100644
+> --- a/drivers/net/usb/rtl8150.c
+> +++ b/drivers/net/usb/rtl8150.c
+> @@ -753,14 +753,13 @@ static int rtl8150_open(struct net_device *netdev)
+>  static int rtl8150_close(struct net_device *netdev)
+>  {
+>  	rtl8150_t *dev = netdev_priv(netdev);
+> -	int res = 0;
+>  
+>  	netif_stop_queue(netdev);
+>  	if (!test_bit(RTL8150_UNPLUG, &dev->flags))
+>  		disable_net_traffic(dev);
+>  	unlink_all_urbs(dev);
+>  
+> -	return res;
+> +	return 0;
+>  }
+>  
+>  static void rtl8150_get_drvinfo(struct net_device *netdev, struct ethtool_drvinfo *info)
+> -- 
+> 1.8.1.2
+> 
