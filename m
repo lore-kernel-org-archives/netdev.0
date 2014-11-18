@@ -1,105 +1,67 @@
-From: Jiri Bohac <jbohac@suse.cz>
-Subject: [PATCH v2] ipx: fix locking regression in ipx_sendmsg and ipx_recvmsg
-Date: Tue, 18 Nov 2014 23:24:58 +0100
-Message-ID: <20141118222458.GA14454@midget.suse.cz>
-References: <20141117013448.GA26743@midget.suse.cz>
- <8698539.evYG7fs8jS@wuerfel>
- <20141118221057.GA13473@midget.suse.cz>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH 2/4] arch: Add lightweight memory barriers fast_rmb()
+ and fast_wmb()
+Date: Wed, 19 Nov 2014 08:07:53 +1100
+Message-ID: <1416344873.5704.12.camel@kernel.crashing.org>
+References: <20141117171005.22333.96544.stgit@ahduyck-server>
+	 <20141117171812.22333.90395.stgit@ahduyck-server>
+	 <1416254687.18381.3.camel@kernel.crashing.org> <546A5968.1090201@gmail.com>
+	 <1416271167.18381.16.camel@kernel.crashing.org>
+	 <546AB959.1020602@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jbohac@suse.cz, Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:42211 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754199AbaKRWZA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Nov 2014 17:25:00 -0500
-Content-Disposition: inline
-In-Reply-To: <20141118221057.GA13473@midget.suse.cz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Alexander Duyck <alexander.duyck@gmail.com>,
+	linux-arch@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mathieu.desnoyers@polymtl.ca,
+	peterz@infradead.org, heiko.carstens@de.ibm.com, mingo@kernel.org,
+	mikey@neuling.org, linux@arm.linux.org.uk,
+	donald.c.skidmore@intel.com, matthew.vick@intel.com,
+	geert@linux-m68k.org, jeffrey.t.kirsher@intel.com,
+	romieu@fr.zoreil.com, paulmck@linux.vnet.ibm.com,
+	nic_swsd@realtek.com, will.deacon@arm.com, michael@ellerman.id.au,
+	tony.luck@intel.com, torvalds@linux-foundation.org,
+	oleg@redhat.com, schwidefsky@de.ibm.com, fweisbec@gmail.com,
+	davem@davemloft.net
+To: Alexander Duyck <alexander.h.duyck@redhat.com>
+Return-path: <linux-arch-owner@vger.kernel.org>
+In-Reply-To: <546AB959.1020602@redhat.com>
+Sender: linux-arch-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This fixes an old regression introduced by commit
-b0d0d915 (ipx: remove the BKL).
+On Mon, 2014-11-17 at 19:13 -0800, Alexander Duyck wrote:
+> 
+> ARM adds some funky things.  They have two different types of 
+> primitives, a dmb() which is a data memory barrier, and a dsb() which is 
+> a data synchronization barrier.  Then with each of those they have the 
+> "domains" the barriers are effective within.
+> 
+> So for example on ARM a rmb() is dsb(sy) which means it is a system wide 
+> synchronization barrier which stops execution on the CPU core until the 
+> read completes.  
 
-When a recvmsg syscall blocks waiting for new data, no data can be sent on the
-same socket with sendmsg because ipx_recvmsg() sleeps with the socket locked.
+That's amazingly heavy handed ... I can see that being useful for MMIO,
+we do something similar in our MMIO accessors by using a special variant
+of trap instruction that never traps to make the core thing the load
+value has been consumed. But that's typically only needed to guarantee
+MMIO timings.
 
-This breaks mars-nwe (NetWare emulator):
-- the ncpserv process reads the request using recvmsg
-- ncpserv forks and spawns nwconn
-- ncpserv calls a (blocking) recvmsg and waits for new requests
-- nwconn deadlocks in sendmsg on the same socket 
+> However the smp_rmb() is a dmb(ish) which means it is 
+> only a barrier as far as the inner shareable domain which I believe only 
+> goes as far as the local shared cache hierarchy and only guarantees read 
+> ordering without necessarily halting the CPU or stopping in-order 
+> speculative reads.  So what a coherent_rmb() would be in my setup is 
+> dmb(sy) which means the barrier runs all the way out to memory, and it 
+> is allowed to speculative read as long as it does it in order.
 
-Commit b0d0d915 has simply replaced BKL locking with
-lock_sock/release_sock. Unlike now, BKL got unlocked while
-sleeping, so a blocking recvmsg did not block a concurrent
-sendmsg.
+Correct, which is thus the same as smp_rmb() ... which was my original
+point, or am I missing something else ?
 
-Only keep the socket locked while actually working with the socket data and
-release it prior to calling skb_recv_datagram(). 
+> If it is still unclear you might check out Will Deacon's talk on the 
+> topic at https://www.youtube.com/watch?v=6ORn6_35kKo, at about 7:00 in 
+> he explains the whole domains thing, and at 13:30 he explains dmb()/dsb().
 
+Ok, I'll try to watch that when I get a chance.
 
-Signed-off-by: Jiri Bohac <jbohac@suse.cz>
-
-diff --git a/net/ipx/af_ipx.c b/net/ipx/af_ipx.c
-index 91729b8..1e0d796 100644
---- a/net/ipx/af_ipx.c
-+++ b/net/ipx/af_ipx.c
-@@ -1776,20 +1780,21 @@ static int ipx_recvmsg(struct kiocb *iocb, struct socket *sock,
- #ifdef CONFIG_IPX_INTERN
- 		rc = -ENETDOWN;
- 		if (!ipxs->intrfc)
--			goto out; /* Someone zonked the iface */
-+			goto out_release; /* Someone zonked the iface */
- 		memcpy(uaddr.sipx_node, ipxs->intrfc->if_node, IPX_NODE_LEN);
- #endif	/* CONFIG_IPX_INTERN */
- 
- 		rc = __ipx_bind(sock, (struct sockaddr *)&uaddr,
- 			      sizeof(struct sockaddr_ipx));
- 		if (rc)
--			goto out;
-+			goto out_release;
- 	}
- 
- 	rc = -ENOTCONN;
- 	if (sock_flag(sk, SOCK_ZAPPED))
--		goto out;
-+		goto out_release;
- 
-+	release_sock(sk);
- 	skb = skb_recv_datagram(sk, flags & ~MSG_DONTWAIT,
- 				flags & MSG_DONTWAIT, &rc);
- 	if (!skb) {
-@@ -1807,8 +1812,10 @@ static int ipx_recvmsg(struct kiocb *iocb, struct socket *sock,
- 
- 	rc = skb_copy_datagram_iovec(skb, sizeof(struct ipxhdr), msg->msg_iov,
- 				     copied);
--	if (rc)
--		goto out_free;
-+	if (rc) {
-+		skb_free_datagram(sk, skb);
-+		goto out;
-+	}
- 	if (skb->tstamp.tv64)
- 		sk->sk_stamp = skb->tstamp;
- 
-@@ -1822,11 +1829,11 @@ static int ipx_recvmsg(struct kiocb *iocb, struct socket *sock,
- 		msg->msg_namelen	= sizeof(*sipx);
- 	}
- 	rc = copied;
-+	goto out;
- 
--out_free:
--	skb_free_datagram(sk, skb);
--out:
-+out_release:
- 	release_sock(sk);
-+out:
- 	return rc;
- }
- 
--- 
-Jiri Bohac <jbohac@suse.cz>
-SUSE Labs, SUSE CZ
+Cheers,
+Ben.
