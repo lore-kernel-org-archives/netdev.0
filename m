@@ -1,47 +1,29 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH 1/1] netlink: Deletion of an unnecessary check before the
- function call "__module_get"
-Date: Tue, 18 Nov 2014 21:08:39 +0100
-Message-ID: <546BA747.6000703@users.sourceforge.net>
-References: <5307CAA2.8060406@users.sourceforge.net> <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6> <530A086E.8010901@users.sourceforge.net> <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6> <530A72AA.3000601@users.sourceforge.net> <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6> <530B5FB6.6010207@users.sourceforge.net> <alpine.DEB.2.10.1402241710370.2074@hadrien> <530C5E18.1020800@users.sourceforge.net> <alpine.DEB.2.10.1402251014170.2080@hadrien> <530CD2C4.4050903@users.sourceforge.net> <alpine.DEB.2.10.1402251840450.7035@hadrien> <530CF8FF.8080600@users.sourceforge.net> <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6> <530DD06F.4090703@users.sourceforge.net> <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6> <5317A59D.4@users.so
- urceforge.net>
+From: rapier <rapier@psc.edu>
+Subject: Question about Patch Submissions
+Date: Tue, 18 Nov 2014 14:13:09 -0500
+Message-ID: <546B9A45.9040509@psc.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org, Coccinelle <cocci@systeme.lip6.fr>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5317A59D.4@users.sourceforge.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailer1.psc.edu ([128.182.58.100]:56937 "EHLO mailer1.psc.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753867AbaKRURO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Nov 2014 15:17:14 -0500
+Received: from iztli.psc.edu (iztli.psc.edu [128.182.160.106])
+	(authenticated bits=0)
+	by mailer1.psc.edu (8.13.8/8.13.8) with ESMTP id sAIJD9Nk010969
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES128-SHA bits=128 verify=NO)
+	for <netdev@vger.kernel.org>; Tue, 18 Nov 2014 14:13:09 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Tue, 18 Nov 2014 21:03:13 +0100
+I've read the documentation I've been able to find on the patch 
+submission process. I was hoping to clarify one thing though. When 
+submitting a patch that spans multiple files and functions is it better 
+to break the submission down by function or by file?
 
-The __module_get() function tests whether its argument is NULL and then
-returns immediately. Thus the test around the call is not needed.
+Thanks for your time,
 
-This issue was detected by using the Coccinelle software.
-
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
----
- net/netlink/af_netlink.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
-
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index f1de72d..0317b91 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -142,8 +142,7 @@ int netlink_add_tap(struct netlink_tap *nt)
- 	list_add_rcu(&nt->list, &netlink_tap_all);
- 	spin_unlock(&netlink_tap_lock);
- 
--	if (nt->module)
--		__module_get(nt->module);
-+	__module_get(nt->module);
- 
- 	return 0;
- }
--- 
-2.1.3
+Chris
