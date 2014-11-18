@@ -1,8 +1,7 @@
 From: Pankaj Gupta <pagupta@redhat.com>
-Subject: [PATCH net-next 1/4] net: allow large number of rx queues
-Date: Tue, 18 Nov 2014 21:52:55 +0530
-Message-ID: <1416327778-17716-2-git-send-email-pagupta@redhat.com>
-References: <1416327778-17716-1-git-send-email-pagupta@redhat.com>
+Subject: [PATCH net-net 0/4] Increase the limit of tuntap queues
+Date: Tue, 18 Nov 2014 21:52:54 +0530
+Message-ID: <1416327778-17716-1-git-send-email-pagupta@redhat.com>
 Cc: davem@davemloft.net, jasowang@redhat.com, mst@redhat.com,
 	dgibson@redhat.com, vfalico@gmail.com, edumazet@google.com,
 	vyasevic@redhat.com, hkchu@google.com,
@@ -12,82 +11,68 @@ Cc: davem@davemloft.net, jasowang@redhat.com, mst@redhat.com,
 	sergei.shtylyov@cogentembedded.com,
 	Pankaj Gupta <pagupta@redhat.com>
 To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [114.143.50.60] ([114.143.50.60]:19052 "EHLO
-	dhcp223-82.pnq.redhat.com" rhost-flags-FAIL-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754390AbaKRSJr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Nov 2014 13:09:47 -0500
-In-Reply-To: <1416327778-17716-1-git-send-email-pagupta@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-netif_alloc_rx_queues() uses kcalloc() to allocate memory
-for "struct netdev_queue *_rx" array.
-If we are doing large rx queue allocation kcalloc() might
-fail, so this patch does a fallback to vzalloc().
-Similar implementation is done for tx queue allocation in
-netif_alloc_netdev_queues().
+This patch series is followup to the RFC posted as:
+https://lkml.org/lkml/2014/8/18/392
 
-We avoid failure of high order memory allocation
-with the help of vzalloc(), this allows us to do large
-rx and tx queue allocation which in turn helps us to
-increase the number of queues in tun.
+Changes from RFC are:
+PATCH 1: Sergei Shtylyov - Add an empty line after declarations.
+PATCH 2: Jiri Pirko - Do not introduce new module paramaters.
+	 Michael.S.Tsirkin - We can use sysctl for limiting max number
+                             of queues.
 
-As vmalloc() adds overhead on a critical network path,
-__GFP_REPEAT flag is used with kzalloc() to do this fallback
-only when really needed.
+Networking under KVM works best if we allocate a per-vCPU rx and tx
+queue in a virtual NIC. This requires a per-vCPU queue on the host side.
+Modern physical NICs have multiqueue support for large number of queues.
+To scale vNIC to run multiple queues parallel to maximum number of vCPU's
+we need to increase number of queues support in tuntap.   
 
-Signed-off-by: Pankaj Gupta <pagupta@redhat.com>
-Reviewed-by: Michael S. Tsirkin <mst@redhat.com>
-Reviewed-by: David Gibson <dgibson@redhat.com>
----
- net/core/dev.c | 19 +++++++++++++------
- 1 file changed, 13 insertions(+), 6 deletions(-)
+This series is to increase the limit of tuntap queues. Original work is being 
+done by 'jasowang@redhat.com'. I am taking this 'https://lkml.org/lkml/2013/6/19/29' 
+patch series as a reference. As per discussion in the patch series:
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index e916ba8..abe9560 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -6059,17 +6059,25 @@ void netif_stacked_transfer_operstate(const struct net_device *rootdev,
- EXPORT_SYMBOL(netif_stacked_transfer_operstate);
- 
- #ifdef CONFIG_SYSFS
-+static void netif_free_rx_queues(struct net_device *dev)
-+{
-+	kvfree(dev->_rx);
-+}
-+
- static int netif_alloc_rx_queues(struct net_device *dev)
- {
- 	unsigned int i, count = dev->num_rx_queues;
- 	struct netdev_rx_queue *rx;
-+	size_t sz = count * sizeof(*rx);
- 
- 	BUG_ON(count < 1);
- 
--	rx = kcalloc(count, sizeof(struct netdev_rx_queue), GFP_KERNEL);
--	if (!rx)
--		return -ENOMEM;
--
-+	rx = kzalloc(sz, GFP_KERNEL | __GFP_NOWARN | __GFP_REPEAT);
-+	if (!rx) {
-+		rx = vzalloc(sz);
-+		if (!rx)
-+			return -ENOMEM;
-+	}
- 	dev->_rx = rx;
- 
- 	for (i = 0; i < count; i++)
-@@ -6698,9 +6706,8 @@ void free_netdev(struct net_device *dev)
- 
- 	netif_free_tx_queues(dev);
- #ifdef CONFIG_SYSFS
--	kfree(dev->_rx);
-+	netif_free_rx_queues(dev);
- #endif
--
- 	kfree(rcu_dereference_protected(dev->ingress_queue, 1));
- 
- 	/* Flush device addresses */
--- 
-1.8.3.1
+There were two reasons which prevented us from increasing number of tun queues:
+
+- The netdev_queue array in netdevice were allocated through kmalloc, which may 
+  cause a high order memory allocation too when we have several queues. 
+  E.g. sizeof(netdev_queue) is 320, which means a high order allocation would 
+  happens when the device has more than 16 queues.
+
+- We store the hash buckets in tun_struct which results a very large size of
+  tun_struct, this high order memory allocation fail easily when the memory is
+  fragmented.
+
+The patch 60877a32bce00041528576e6b8df5abe9251fa73 increases the number of tx 
+queues. Memory allocation fallback to vzalloc() when kmalloc() fails.
+
+This series tries to address following issues:
+
+- Increase the number of netdev_queue queues for rx similarly its done for tx 
+  queues by falling back to vzalloc() when memory allocation with kmalloc() fails.
+
+- Switches to use flex array to implement the flow caches to avoid higher order 
+  allocations.
+
+- Accept maximum number of queues as sysctl param so that any user space 
+  application like libvirt can use this value to limit number of queues. Also
+  Administrators can specify maximum number of queues by updating this sysctl
+  entry.
+
+- Increase number of queues to 256, maximum number is equal to maximum number 
+  of vCPUS allowed in a guest.
+
+I have done some testing to find out any regression and with sample program
+ which creates tun/tap for single queue / multiqueue device and it seems to be 
+ working fine. I will also post the performance numbers.
+
+  tuntap: Increase the number of queues in tun
+  tuntap: Reduce the size of tun_struct by using flex array
+  tuntap: Accept tuntap max queue length as sysctl entry
+  net: allow large number of rx queues
+
+ drivers/net/tun.c |   91 +++++++++++++++++++++++++++++++++++---------
+ net/core/dev.c    |   19 ++++++---
+ 2 files changed, 86 insertions(+), 24 deletions(-)
