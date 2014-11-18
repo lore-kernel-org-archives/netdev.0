@@ -1,41 +1,52 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net-next] tun: return NET_XMIT_DROP for dropped packets
-Date: Tue, 18 Nov 2014 13:20:41 +0800
-Message-ID: <1416288041-30921-1-git-send-email-jasowang@redhat.com>
-Cc: Jason Wang <jasowang@redhat.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Denis Kirjanov <kda@linux-powerpc.org>
+Subject: Re: [PATCH net-next] PPC: bpf_jit_comp: Unify BPF_MOD | BPF_X and
+ BPF_DIV | BPF_X
+Date: Tue, 18 Nov 2014 10:58:20 +0400
+Message-ID: <CAOJe8K0_u51QkKmVoVmFuGaDtKfcHP6tSWx_fgJM_erRRoQfUA@mail.gmail.com>
+References: <1416254861-3879-1-git-send-email-kda@linux-powerpc.org>
+	<1416275444.1107.4.camel@concordia>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org,
+	Philippe Bergheaud <felix@linux.vnet.ibm.com>,
+	linuxppc-dev@ozlabs.org, Daniel Borkmann <dborkman@redhat.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>
+To: Michael Ellerman <mpe@ellerman.id.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yk0-f177.google.com ([209.85.160.177]:64523 "EHLO
+	mail-yk0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752437AbaKRG6V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Nov 2014 01:58:21 -0500
+Received: by mail-yk0-f177.google.com with SMTP id 9so4711245ykp.8
+        for <netdev@vger.kernel.org>; Mon, 17 Nov 2014 22:58:21 -0800 (PST)
+In-Reply-To: <1416275444.1107.4.camel@concordia>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-After commit 5d097109257c03a71845729f8db6b5770c4bbedc
-("tun: only queue packets on device"), NETDEV_TX_OK was returned for
-dropped packets. This will confuse pktgen since dropped packets were
-counted as sent ones.
+Hi Michael,
 
-Fixing this by returning NET_XMIT_DROP to let pktgen count it as error
-packet.
+This patch added no new functionality so I haven't put the test
+results (of course I ran the test suite to check the patch).
 
-Cc: Michael S. Tsirkin <mst@redhat.com>
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
- drivers/net/tun.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+The output :
+[  650.198958] test_bpf: Summary: 60 PASSED, 0 FAILED
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index e3fa65a..ac53a73 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -819,7 +819,7 @@ drop:
- 	skb_tx_error(skb);
- 	kfree_skb(skb);
- 	rcu_read_unlock();
--	return NETDEV_TX_OK;
-+	return NET_XMIT_DROP;
- }
- 
- static void tun_net_mclist(struct net_device *dev)
--- 
-1.9.1
+On 11/18/14, Michael Ellerman <mpe@ellerman.id.au> wrote:
+> On Mon, 2014-11-17 at 23:07 +0300, Denis Kirjanov wrote:
+>> Reduce duplicated code by unifying
+>> BPF_ALU | BPF_MOD | BPF_X and BPF_ALU | BPF_DIV | BPF_X
+>>
+>> CC: Alexei Starovoitov<alexei.starovoitov@gmail.com>
+>> CC: Daniel Borkmann<dborkman@redhat.com>
+>> CC: Philippe Bergheaud<felix@linux.vnet.ibm.com>
+>> Signed-off-by: Denis Kirjanov <kda@linux-powerpc.org>
+>
+> Please include the output of the test suite.
+>
+> Assuming that's OK I'm happy for it to go in.
+>
+> cheers
+>
+>
+>
+>
