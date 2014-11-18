@@ -1,63 +1,46 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH 1/2] net: can: remove unused variable
-Date: Tue, 18 Nov 2014 21:39:00 +0100
-Message-ID: <546BAE64.7030406@pengutronix.de>
-References: <1416318427-28676-1-git-send-email-sudipm.mukherjee@gmail.com>
+From: rapier <rapier@psc.edu>
+Subject: Re: Question about Patch Submissions
+Date: Tue, 18 Nov 2014 15:39:17 -0500
+Message-ID: <546BAE75.7080802@psc.edu>
+References: <546B9A45.9040509@psc.edu> <CAHA+R7P-G4P-AzTM248FqNEm=dcuQOB_fwdM0Us3gsQgSeY0UQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="2SIFd2A4enKJhnqeVUJotQIuriOILaqj9"
-Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Sudip Mukherjee <sudipm.mukherjee@gmail.com>,
-	Wolfgang Grandegger <wg@grandegger.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1416318427-28676-1-git-send-email-sudipm.mukherjee@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Cong Wang <cwang@twopensource.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailer1.psc.edu ([128.182.58.100]:57185 "EHLO mailer1.psc.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932426AbaKRUjT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Nov 2014 15:39:19 -0500
+In-Reply-To: <CAHA+R7P-G4P-AzTM248FqNEm=dcuQOB_fwdM0Us3gsQgSeY0UQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---2SIFd2A4enKJhnqeVUJotQIuriOILaqj9
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+Cong,
 
-On 11/18/2014 02:47 PM, Sudip Mukherjee wrote:
-> these variable were only assigned some values, but then never
-> reused again.
-> so they are safe to be removed.
+Thanks for the response.
 
-Thanks, I've applied both patches.
+It's a pretty extensive patch set and we're trying to make sure it makes 
+sense in context. It touches quite a few files and they're mostly 
+interdependent. That's why we're having problems trying to figure out 
+how to break this down for presentation. We can make sure each section 
+of the patch applies cleanly but the entirety of the patch set would 
+have to be applied for it to compile.
 
-Marc
+Chris
 
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---2SIFd2A4enKJhnqeVUJotQIuriOILaqj9
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJUa65kAAoJECte4hHFiupU4k0P/iJTMIH/d2Shj0PibwHfTbz/
-oz5DalefJNoxkaMcmbpOMHRn27KwJijCbn+G5Dgy5HA7kKp1Y2fkITqjlqlwS5AE
-z5jH4zXDW4IzzsloZhy1XSLzVW56UIh1H8lcd2fyLNn8Qa+QQ25/QxRTLtokKXXx
-TBwrK03yjt3R9Mj1pvaoc7yUSYxLChjvoYl9i9bVh9xEeQLj3wBP0KdJmjxWnd1Z
-Sq6AmuZXrIi2crNeBoQCCJZwYEPr60UCDKFpltjHjcWk3eZKHNE4kkEj2jef39dn
-jBmclYsPh5UINByZK4Xu+nDo0cFioMXyd7CcjghRfqYOfrueWOsnDT99UrWpd5XR
-2TDHSOF0qFxN09+RdPBHe70e0ONfiTJHIQvBNEG3AVyFJxrkFqAfDZYzTVmB4re4
-xe8L4S0U+yyuOmwadrHHnPpJXHazABBmv9Va2uFOU2bigSnWWLU82rlHFLgyqlse
-qxhve57jq/t2VR01q/5HjbUQvuJ9VL1FJPo5lt9r9aA4GufZ1ZLRnKnFYe0G4LJ1
-xpo43iWuuxt6xOYl8WXCmQOc7mvmuFsKAPOkw+ojO8uOq5WewuTgEbNpJjbDE9Pw
-Eq6xYsCs9Dc643wlSxS7JAY0/VvItDeXwAWWCSaL58zIQOIUFleOxodFrTsKv4Cx
-Xb8jeYEoQiPVB4snH/2t
-=NaXV
------END PGP SIGNATURE-----
-
---2SIFd2A4enKJhnqeVUJotQIuriOILaqj9--
+On 11/18/14, 3:21 PM, Cong Wang wrote:
+> On Tue, Nov 18, 2014 at 11:13 AM, rapier <rapier@psc.edu> wrote:
+>> I've read the documentation I've been able to find on the patch submission
+>> process. I was hoping to clarify one thing though. When submitting a patch
+>> that spans multiple files and functions is it better to break the submission
+>> down by function or by file?
+>>
+>
+> It depends on what you change, if your patch is trivial, say just cleaning up
+> whitespaces, or a big single patch doesn't harm review, it is okay not
+> to split it.
+> Otherwise, probably you need to split it logically, each of which needs to at
+> least compile.
+>
