@@ -1,80 +1,95 @@
-From: "Roland Kletzing" <devzero@web.de>
-Subject: [PATCH RESEND] fix #51791 - bug? mac 00:00:00:00:00:00 with natsemi
- DP83815 after driver load
-Date: Tue, 18 Nov 2014 22:51:23 +0100
-Message-ID: <trinity-a7b6eb2e-598a-4ad0-9df5-7567cb544671-1416347483688@3capp-webde-bs54>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [patch net-next v3 0/9] sched: introduce vlan action
+Date: Tue, 18 Nov 2014 23:54:05 +0200
+Message-ID: <CAJ3xEMhX0RnykPKJ3VHdn8oez=RHnOWTOFpRaMEYJtr96_AMNA@mail.gmail.com>
+References: <1416346664-9290-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Pravin Shelar <pshelar@nicira.com>,
+	Tom Herbert <therbert@google.com>,
+	Eric Dumazet <edumazet@google.com>, willemb@google.com,
+	Daniel Borkmann <dborkman@redhat.com>,
+	"Michael S. Tsirkin <mst@redhat.com> (mst@redhat.com)"
+	<mst@redhat.com>, Florian Westphal <fw@strlen.de>,
+	Paul.Durrant@citrix.com, Thomas Graf <tgraf@suug.ch>,
+	Cong Wang <cwang@twopensource.com>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.web.de ([212.227.15.14]:51248 "EHLO mout.web.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755163AbaKRVv3 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Nov 2014 16:51:29 -0500
+Received: from mail-ob0-f178.google.com ([209.85.214.178]:38018 "EHLO
+	mail-ob0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755256AbaKRVyF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Nov 2014 16:54:05 -0500
+Received: by mail-ob0-f178.google.com with SMTP id gq1so4773638obb.37
+        for <netdev@vger.kernel.org>; Tue, 18 Nov 2014 13:54:05 -0800 (PST)
+In-Reply-To: <1416346664-9290-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This one should fix Bugzilla #51791=20
+On Tue, Nov 18, 2014 at 11:37 PM, Jiri Pirko <jiri@resnulli.us> wrote:
 
-Natsemi driver does not read MAC correctly from eeprom, while natsemi-d=
-iag
-from nictools-pci does. Apparently, it`s a timing issue in the kernel d=
-river.
+Hi Jiri (WB from your vacation),
 
-According to ftp://ftp.gwdg.de/pub/linux/misc/donald.becker/diag/natsem=
-i-diag.c
-, eeprom_delay(ee_addr) is defined as follows:
+Sorry for the a bit of cold shower, but empty cover letter and no sign for
 
-/* Delay between EEPROM clock transitions.
-This flushes the write buffer to prevent quick double-writes.
-*/
-#define eeprom_delay(ee_addr) inl(ee_addr); inl(ee_addr)
+V2 --> V3
+[...]
 
-while in the natsemi linux kernel driver, the delay is done this way :
+V1 --> V2
+[...]
 
-#define eeprom_delay(ee_addr) readl(ee_addr)
-
-, which results in the MAC being all zero`s.
-
-So i simply added a second readl() to increase delay (instead of turnin=
-g into=20
-inl() as proposed before). This may look a little bit ugly, but it`s fi=
-xing the
-problem for me.
-
-I=C2=B4m not sure how many natsemi users being left on this planet (pro=
-bably few),
-but i guess this change does not do any harm on platforms where the dri=
-ver does
-not behave buggy, so please consider adding it to mainline/stable/longt=
-erm.
-
-regards
-Roland
+V0 --> V1
+[...]
 
 
-Signed-off-by: Roland Kletzing <devzero@web.de>
+tracking in the 0/N patch, doesn't allow for proper review, I would say...
 
----
-drivers/net/ethernet/natsemi/natsemi.c | 2 +-
-1 file changed, 1 insertion(+), 1 deletion(-)
+Or.
 
-diff --git a/drivers/net/ethernet/natsemi/natsemi.c b/drivers/net/ether=
-net/natsemi/natsemi.c
-index b83f7c0..96f0029 100644
---- a/drivers/net/ethernet/natsemi/natsemi.c
-+++ b/drivers/net/ethernet/natsemi/natsemi.c
-@@ -987,7 +987,7 @@ static int natsemi_probe1(struct pci_dev *pdev, con=
-st struct pci_device_id *ent)
-    The old method of using an ISA access as a delay, __SLOW_DOWN_IO__,=
- is
-    deprecated.
- */
--#define eeprom_delay(ee_addr)  readl(ee_addr)
-+#define eeprom_delay(ee_addr)  readl(ee_addr);  readl(ee_addr)
-
- #define EE_Write0 (EE_ChipSelect)
- #define EE_Write1 (EE_ChipSelect | EE_DataIn)
---
+> Jiri Pirko (9):
+>   openvswitch: actions: use skb_postpull_rcsum when possible
+>   vlan: make __vlan_hwaccel_put_tag return void
+>   vlan: kill vlan_put_tag helper
+>   vlan: rename __vlan_put_tag to vlan_insert_tag_set_proto
+>   vlan: introduce *vlan_hwaccel_push_inside helpers
+>   vlan: introduce __vlan_insert_tag helper which does not free skb
+>   net: move make_writable helper into common code
+>   net: move vlan pop/push functions into common code
+>   sched: introduce vlan action
+>
+>  drivers/net/bonding/bond_alb.c              |  17 +--
+>  drivers/net/bonding/bond_main.c             |  12 +-
+>  drivers/net/ethernet/emulex/benet/be_main.c |   6 +-
+>  drivers/net/usb/cdc_mbim.c                  |   2 +-
+>  drivers/net/vxlan.c                         |  22 +--
+>  drivers/scsi/fcoe/fcoe.c                    |   6 +-
+>  include/linux/if_vlan.h                     | 107 +++++++++-----
+>  include/linux/skbuff.h                      |   3 +
+>  include/net/tc_act/tc_vlan.h                |  27 ++++
+>  include/uapi/linux/tc_act/tc_vlan.h         |  35 +++++
+>  net/8021q/vlan_dev.c                        |   2 +-
+>  net/bridge/br_vlan.c                        |   4 +-
+>  net/core/dev.c                              |   8 +-
+>  net/core/netpoll.c                          |   4 +-
+>  net/core/skbuff.c                           | 107 ++++++++++++++
+>  net/ipv4/geneve.c                           |  12 +-
+>  net/openvswitch/actions.c                   | 130 ++++-------------
+>  net/openvswitch/datapath.c                  |   5 +-
+>  net/openvswitch/vport-gre.c                 |  12 +-
+>  net/sched/Kconfig                           |  11 ++
+>  net/sched/Makefile                          |   1 +
+>  net/sched/act_vlan.c                        | 207 ++++++++++++++++++++++++++++
+>  22 files changed, 525 insertions(+), 215 deletions(-)
+>  create mode 100644 include/net/tc_act/tc_vlan.h
+>  create mode 100644 include/uapi/linux/tc_act/tc_vlan.h
+>  create mode 100644 net/sched/act_vlan.c
+>
+> --
+> 1.9.3
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
