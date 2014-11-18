@@ -1,47 +1,59 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH 1/1] net: pktgen: Deletion of an unnecessary check before
- the function call "proc_remove"
-Date: Tue, 18 Nov 2014 20:16:05 +0100
-Message-ID: <546B9AF5.9050809@users.sourceforge.net>
-References: <5307CAA2.8060406@users.sourceforge.net> <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6> <530A086E.8010901@users.sourceforge.net> <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6> <530A72AA.3000601@users.sourceforge.net> <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6> <530B5FB6.6010207@users.sourceforge.net> <alpine.DEB.2.10.1402241710370.2074@hadrien> <530C5E18.1020800@users.sourceforge.net> <alpine.DEB.2.10.1402251014170.2080@hadrien> <530CD2C4.4050903@users.sourceforge.net> <alpine.DEB.2.10.1402251840450.7035@hadrien> <530CF8FF.8080600@users.sourceforge.net> <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6> <530DD06F.4090703@users.sourceforge.net> <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6> <5317A59D.4@users.so
- urceforge.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org, Coccinelle <cocci@systeme.lip6.fr>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5317A59D.4@users.sourceforge.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Vladislav Yasevich <vyasevich@gmail.com>
+Subject: [PATCH] ixgbe: Correctly disable vlan filter in promiscuous mode
+Date: Tue, 18 Nov 2014 14:28:17 -0500
+Message-ID: <1416338897-13007-1-git-send-email-vyasevic@redhat.com>
+Cc: Vladislav Yasevich <vyasevic@redhat.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jacob Keller <jacob.e.keller@intel.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f53.google.com ([209.85.192.53]:38037 "EHLO
+	mail-qg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753903AbaKRT22 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Nov 2014 14:28:28 -0500
+Received: by mail-qg0-f53.google.com with SMTP id z107so17414907qgd.26
+        for <netdev@vger.kernel.org>; Tue, 18 Nov 2014 11:28:27 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Tue, 18 Nov 2014 20:10:34 +0100
+IXGBE adapater seems to require that vlan filtering be enabled if
+VMDQ
+or SRIOV are enabled.  When those functions are disabled,
+vlan filtering may be disabled in promiscuous mode.
 
-The proc_remove() function tests whether its argument is NULL and then
-returns immediately. Thus the test around the call is not needed.
+Prior to commit a9b8943ee129e11045862d6d6e25c5b63c95403c
+    ixgbe: remove vlan_filter_disable and enable functions
 
-This issue was detected by using the Coccinelle software.
+the logic was correct.  However, after the commit the logic
+got reversed and vlan filtered in now turned on when VMDQ/SRIOV
+is disabled.
 
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+This patch changes the condition to enable hw vlan filtered
+when VMDQ or SRIOV is enabled.
+
+Fixes: a9b8943ee129e11045862d6d6e25c5b63c95403c (ixgbe: remove
+vlan_filter_disable and enable functions)
+CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+CC: Jacob Keller <jacob.e.keller@intel.com>
+Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
 ---
- net/core/pktgen.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index 8b849dd..35046a8 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -3698,8 +3698,7 @@ static int pktgen_remove_device(struct pktgen_thread *t,
- 	/* Remove proc before if_list entry, because add_device uses
- 	 * list to determine if interface already exist, avoid race
- 	 * with proc_create_data() */
--	if (pkt_dev->entry)
--		proc_remove(pkt_dev->entry);
-+	proc_remove(pkt_dev->entry);
- 
- 	/* And update the thread if_list */
- 	_rem_dev_from_if_list(t, pkt_dev);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index d2df4e3..3f81c7a 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -3936,8 +3936,8 @@ void ixgbe_set_rx_mode(struct net_device *netdev)
+ 		 * if SR-IOV and VMDQ are disabled - otherwise ensure
+ 		 * that hardware VLAN filters remain enabled.
+ 		 */
+-		if (!(adapter->flags & (IXGBE_FLAG_VMDQ_ENABLED |
+-					IXGBE_FLAG_SRIOV_ENABLED)))
++		if (adapter->flags & (IXGBE_FLAG_VMDQ_ENABLED |
++				      IXGBE_FLAG_SRIOV_ENABLED))
+ 			vlnctrl |= (IXGBE_VLNCTRL_VFE | IXGBE_VLNCTRL_CFIEN);
+ 	} else {
+ 		if (netdev->flags & IFF_ALLMULTI) {
 -- 
-2.1.3
+1.9.3
