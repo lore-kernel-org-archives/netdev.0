@@ -1,124 +1,70 @@
-From: Jay Vosburgh <jay.vosburgh@canonical.com>
-Subject: Re: [PATCH] [bonding]: clear header_ops when last slave detached
-Date: Mon, 17 Nov 2014 18:58:27 -0800
-Message-ID: <1780.1416279507@famine>
-References: <1415845156-15461-1-git-send-email-wen.gang.wang@oracle.com> <54694D09.4080304@oracle.com> <866.1416274729@famine> <546AA746.8090008@oracle.com> <1416277163.18588.33.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Subject: Re: [PATCH 2/4] arch: Add lightweight memory barriers fast_rmb()
+ and fast_wmb()
+Date: Mon, 17 Nov 2014 19:13:29 -0800
+Message-ID: <546AB959.1020602@redhat.com>
+References: <20141117171005.22333.96544.stgit@ahduyck-server>	 <20141117171812.22333.90395.stgit@ahduyck-server>	 <1416254687.18381.3.camel@kernel.crashing.org> <546A5968.1090201@gmail.com> <1416271167.18381.16.camel@kernel.crashing.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Wengang <wen.gang.wang@oracle.com>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:41308 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751547AbaKRC6d convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Nov 2014 21:58:33 -0500
-In-reply-to: <1416277163.18588.33.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-arch@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mathieu.desnoyers@polymtl.ca,
+	peterz@infradead.org, heiko.carstens@de.ibm.com, mingo@kernel.org,
+	mikey@neuling.org, linux@arm.linux.org.uk,
+	donald.c.skidmore@intel.com, matthew.vick@intel.com,
+	geert@linux-m68k.org, jeffrey.t.kirsher@intel.com,
+	romieu@fr.zoreil.com, paulmck@linux.vnet.ibm.com,
+	nic_swsd@realtek.com, will.deacon@arm.com, michael@ellerman.id.au,
+	tony.luck@intel.com, torvalds@linux-foundation.org,
+	oleg@redhat.com, schwidefsky@de.ibm.com, fweisbec@gmail.com,
+	davem@davemloft.net
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1416271167.18381.16.camel@kernel.crashing.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
->On Tue, 2014-11-18 at 09:56 +0800, Wengang wrote:
->> Hi Jay,
->>=20
->> =E4=BA=8E 2014=E5=B9=B411=E6=9C=8818=E6=97=A5 09:38, Jay Vosburgh =E5=
-=86=99=E9=81=93:
->> > Wengang <wen.gang.wang@oracle.com> wrote:
->> >
->> >> Hi,
->> >>
->> >> Could anybody please review this patch?
->> > 	I don't see that the original of this ever came through netdev.
->>=20
->> Oh, that' bad. I sent this to netdev@vger.kernel.org. The mail addre=
-ss=20
->> is wrong?
->>=20
->> >> thanks,
->> >> wengang
->> >>
->> >> =E4=BA=8E 2014=E5=B9=B411=E6=9C=8813=E6=97=A5 10:19, Wengang Wang=
- =E5=86=99=E9=81=93:
->> >>> When last slave of a bonding master is removed, the bonding then=
- does not work.
->> >>> When packet_snd is called against with a master net_device, it a=
-ccesses
->> >>> header_ops. In case the header_ops is not valid any longer(say m=
-odule unloaded)
->> >>> it will then access an invalid memory address.
->> >>> This patch try to fix this issue by clearing header_ops when las=
-t slave
->> >>> detached.
->> > 	Am I correct in presuming that this behavior is limited to ipoib
->> > slaves only?  I don't see that this could occur with ethernet slav=
-es, as
->> > eth_header_ops isn't part of a module.  This needs to be mentioned=
- in
->> > the commit log.
->> Yes, the problem is found with ipoib slaves.
->> >>> Signed-off-by: Wengang Wang <wen.gang.wang@oracle.com>
->> >>> ---
->> >>>    drivers/net/bonding/bond_main.c | 2 ++
->> >>>    1 file changed, 2 insertions(+)
->> >>>
->> >>> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bondi=
-ng/bond_main.c
->> >>> index c9ac06c..84a34fc 100644
->> >>> --- a/drivers/net/bonding/bond_main.c
->> >>> +++ b/drivers/net/bonding/bond_main.c
->> >>> @@ -1728,6 +1728,8 @@ static int __bond_release_one(struct net_d=
-evice *bond_dev,
->> >>>    	unblock_netpoll_tx();
->> >>>    	synchronize_rcu();
->> >>>    	bond->slave_cnt--;
->> >>> +	if (!bond->slave_cnt)
->> >>> +		bond->dev->header_ops =3D NULL;
->> >>>      	if (!bond_has_slaves(bond)) {
->> >>>    		call_netdevice_notifiers(NETDEV_CHANGEADDR, bond->dev);
->> > 	I believe your addition could be moved into the block for the
->> > next if, as "!bond->slave_cnt" is essentially "!bond_has_slaves()"=
-=2E
->>=20
->> Yes, Agree.
->> I will send the second prompt soon with commit message mentioning ip=
-oib.
+On 11/17/2014 04:39 PM, Benjamin Herrenschmidt wrote:
+> On Mon, 2014-11-17 at 12:24 -0800, Alexander Duyck wrote:
+>> Yes and no.  So for example on ARM I used the dmb() operation, however
+>> I
+>> have to use the barrier at the system level instead of just the inner
+>> shared domain.  However on many other architectures they are just the
+>> same as the smp_* variants.
+>>
+>> Basically the resultant code is somewhere between the smp and non-smp
+>> barriers in terms of what they cover.
+> There I don't quite follow you. You need to explain better especially in
+> the documentation because otherwise people will get it wrong...
 >
->I really don't like this patch. Its quite racy.
+> If it's ordering in the coherent domain, I fail to see how a DMA agent
+> is different than another processor when it comes to barriers, so I fail
+> to see the difference with smp_*
 >
->bond_setup_by_slave() kind of assume slave_dev->header_ops is always
->present.=20
-
-	Isn't the ipoib header_ops implicitly gated by the presence or
-absence of the module itself?  An ipoib device can't be enslaved unless
-ipoib is loaded, and if ipoib is loaded, the ops are present.  And ipoi=
-b
-can't be removed while there are interfaces enslaved to bonding.
-
-	I'm not saying it's not ugly, but I'm not seeing why it won't
-work or what the race would be.
-
->No rcu protection, no module refcount protection for struct header_ops
+> I understand the MMIO vs. memory issue, we do have the same on powerpc,
+> but that other aspect eludes me.
 >
->Considering ipoib_hard_header() is quite small, you might instead move
->ipoib_hard_header() and ipoib_header_ops in static vmlinux, like we do
->for eth_header_ops.
+> Ben.
 
-	Won't this require including all of the functions referenced by
-the ops?  The problem here is that packet_snd will call dev_hard_header=
-,
-which wants to call header_ops->create.
+ARM adds some funky things.  They have two different types of 
+primitives, a dmb() which is a data memory barrier, and a dsb() which is 
+a data synchronization barrier.  Then with each of those they have the 
+"domains" the barriers are effective within.
 
-	Ok, now that I check, there's only one op in ipoib_header_ops,
-->create, and it's fairly simple.
+So for example on ARM a rmb() is dsb(sy) which means it is a system wide 
+synchronization barrier which stops execution on the CPU core until the 
+read completes.  However the smp_rmb() is a dmb(ish) which means it is 
+only a barrier as far as the inner shareable domain which I believe only 
+goes as far as the local shared cache hierarchy and only guarantees read 
+ordering without necessarily halting the CPU or stopping in-order 
+speculative reads.  So what a coherent_rmb() would be in my setup is 
+dmb(sy) which means the barrier runs all the way out to memory, and it 
+is allowed to speculative read as long as it does it in order.
 
-	There was a similar chicken and egg problem with bonding and
-ipoib a while back related to the master device having a dangling
-pointer into ipoib somewhere; that might have been the header_ops as
-well, so there may be a hack or two that could be removed if the ops
-cannot disappear.
+If it is still unclear you might check out Will Deacon's talk on the 
+topic at https://www.youtube.com/watch?v=6ORn6_35kKo, at about 7:00 in 
+he explains the whole domains thing, and at 13:30 he explains dmb()/dsb().
 
-	-J
-
----
-	-Jay Vosburgh, jay.vosburgh@canonical.com
+- Alex
