@@ -1,63 +1,124 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH (sent originally to netdev)] device: Add
- dev_<level>_once variants
-Date: Mon, 17 Nov 2014 18:23:44 -0800
-Message-ID: <1416277424.2295.1.camel@jtkirshe-mobl>
-References: <1416031715-32498-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1416031715-32498-2-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <5467C3BA.6090003@gmail.com> <1416277102.29010.14.camel@perches.com>
+From: Jay Vosburgh <jay.vosburgh@canonical.com>
+Subject: Re: [PATCH] [bonding]: clear header_ops when last slave detached
+Date: Mon, 17 Nov 2014 18:58:27 -0800
+Message-ID: <1780.1416279507@famine>
+References: <1415845156-15461-1-git-send-email-wen.gang.wang@oracle.com> <54694D09.4080304@oracle.com> <866.1416274729@famine> <546AA746.8090008@oracle.com> <1416277163.18588.33.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-nuj0z72yUvFcRP5VA+FK"
-Cc: Greg KH <gregkh@linuxfoundation.org>, davem@davemloft.net,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1416277102.29010.14.camel@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Wengang <wen.gang.wang@oracle.com>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from youngberry.canonical.com ([91.189.89.112]:41308 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751547AbaKRC6d convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Nov 2014 21:58:33 -0500
+In-reply-to: <1416277163.18588.33.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
---=-nuj0z72yUvFcRP5VA+FK
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+>On Tue, 2014-11-18 at 09:56 +0800, Wengang wrote:
+>> Hi Jay,
+>>=20
+>> =E4=BA=8E 2014=E5=B9=B411=E6=9C=8818=E6=97=A5 09:38, Jay Vosburgh =E5=
+=86=99=E9=81=93:
+>> > Wengang <wen.gang.wang@oracle.com> wrote:
+>> >
+>> >> Hi,
+>> >>
+>> >> Could anybody please review this patch?
+>> > 	I don't see that the original of this ever came through netdev.
+>>=20
+>> Oh, that' bad. I sent this to netdev@vger.kernel.org. The mail addre=
+ss=20
+>> is wrong?
+>>=20
+>> >> thanks,
+>> >> wengang
+>> >>
+>> >> =E4=BA=8E 2014=E5=B9=B411=E6=9C=8813=E6=97=A5 10:19, Wengang Wang=
+ =E5=86=99=E9=81=93:
+>> >>> When last slave of a bonding master is removed, the bonding then=
+ does not work.
+>> >>> When packet_snd is called against with a master net_device, it a=
+ccesses
+>> >>> header_ops. In case the header_ops is not valid any longer(say m=
+odule unloaded)
+>> >>> it will then access an invalid memory address.
+>> >>> This patch try to fix this issue by clearing header_ops when las=
+t slave
+>> >>> detached.
+>> > 	Am I correct in presuming that this behavior is limited to ipoib
+>> > slaves only?  I don't see that this could occur with ethernet slav=
+es, as
+>> > eth_header_ops isn't part of a module.  This needs to be mentioned=
+ in
+>> > the commit log.
+>> Yes, the problem is found with ipoib slaves.
+>> >>> Signed-off-by: Wengang Wang <wen.gang.wang@oracle.com>
+>> >>> ---
+>> >>>    drivers/net/bonding/bond_main.c | 2 ++
+>> >>>    1 file changed, 2 insertions(+)
+>> >>>
+>> >>> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bondi=
+ng/bond_main.c
+>> >>> index c9ac06c..84a34fc 100644
+>> >>> --- a/drivers/net/bonding/bond_main.c
+>> >>> +++ b/drivers/net/bonding/bond_main.c
+>> >>> @@ -1728,6 +1728,8 @@ static int __bond_release_one(struct net_d=
+evice *bond_dev,
+>> >>>    	unblock_netpoll_tx();
+>> >>>    	synchronize_rcu();
+>> >>>    	bond->slave_cnt--;
+>> >>> +	if (!bond->slave_cnt)
+>> >>> +		bond->dev->header_ops =3D NULL;
+>> >>>      	if (!bond_has_slaves(bond)) {
+>> >>>    		call_netdevice_notifiers(NETDEV_CHANGEADDR, bond->dev);
+>> > 	I believe your addition could be moved into the block for the
+>> > next if, as "!bond->slave_cnt" is essentially "!bond_has_slaves()"=
+=2E
+>>=20
+>> Yes, Agree.
+>> I will send the second prompt soon with commit message mentioning ip=
+oib.
+>
+>I really don't like this patch. Its quite racy.
+>
+>bond_setup_by_slave() kind of assume slave_dev->header_ops is always
+>present.=20
 
-On Mon, 2014-11-17 at 18:18 -0800, Joe Perches wrote:
-> Add the equivalents to pr_<level>_once.
->=20
-> Suggested-by: Florian Fainelli <f.fainelli@gmail.com>
-> Signed-off-by: Joe Perches <joe@perches.com>
+	Isn't the ipoib header_ops implicitly gated by the presence or
+absence of the module itself?  An ipoib device can't be enslaved unless
+ipoib is loaded, and if ipoib is loaded, the ops are present.  And ipoi=
+b
+can't be removed while there are interfaces enslaved to bonding.
 
-Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+	I'm not saying it's not ugly, but I'm not seeing why it won't
+work or what the race would be.
 
-> ---
->  include/linux/device.h | 35 +++++++++++++++++++++++++++++++++++
->  1 file changed, 35 insertions(+)
+>No rcu protection, no module refcount protection for struct header_ops
+>
+>Considering ipoib_hard_header() is quite small, you might instead move
+>ipoib_hard_header() and ipoib_header_ops in static vmlinux, like we do
+>for eth_header_ops.
 
+	Won't this require including all of the functions referenced by
+the ops?  The problem here is that packet_snd will call dev_hard_header=
+,
+which wants to call header_ops->create.
 
+	Ok, now that I check, there's only one op in ipoib_header_ops,
+->create, and it's fairly simple.
 
---=-nuj0z72yUvFcRP5VA+FK
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+	There was a similar chicken and egg problem with bonding and
+ipoib a while back related to the master device having a dangling
+pointer into ipoib somewhere; that might have been the header_ops as
+well, so there may be a hack or two that could be removed if the ops
+cannot disappear.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+	-J
 
-iQIcBAABCgAGBQJUaq2wAAoJEOVv75VaS+3ODrYP/1nksBh55gk473t8nrZaUxYh
-ENxbIQudN3Fj4uwM0sA2aErLlbebHADwWf4YeNT6dkx/xZOElpIi1DrHTB4gVXko
-ii9a6w9/4Q/E86pQBZJ0rF3qr7GrvZZv8ZHbk1IPEpLbdIsUrfVnREkAIwzVqb1g
-b/kaWEl/I7XFnn0SoKdTB+0KmDNGyzAWdo1kqF78z05k1m4Icyf1JpaYUIx4y/ct
-cIe0IbSeBs89vS3mi7hykhPAr8pH0hCsaJ/3e7EgID8t5DUCND/T6LHNhAK3h9M/
-QHswGg0OCocimGBG+yHAXQIz6uKQKdUN2KW165OnBhpMhoSiTzzF/1akhwrCDrGk
-oTGhzzb4X/pGc31JRkzzFPiSoCnm5BowG4AzH67gVuahoinyya3qMQajy8cyoHwh
-Xvx5w36ZZxI6mLnkwfHchM3XT1qvO0Rg6EdwyFuGc8dobgzHZ6gBteCREhPoPmr8
-Y6BKT0aNzkkYYY41VT+IArZYUUB1WiNyIH80tsuFX7rT/yUOvpc2+Z+ENLR8TwKA
-Yj5xccbu+B1nuSMjeinSxQX/by05WUZu82gxyVmswfNx+8ioQTEs/3+UCgpbVRq/
-dsLj88P0I8CQAwNpMHc3fJsSHg52KkGbUjY6imF7N48ucmpooiCggl96o3iVt3+W
-x0tBSVyKhSpDdQlkcTyw
-=LTym
------END PGP SIGNATURE-----
-
---=-nuj0z72yUvFcRP5VA+FK--
+---
+	-Jay Vosburgh, jay.vosburgh@canonical.com
