@@ -1,65 +1,64 @@
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: Re: [PATCH 0/4] Add lightweight memory barriers fast_rmb() and fast_wmb()
-Date: Tue, 18 Nov 2014 07:44:13 -0800
-Message-ID: <546B694D.3080604@redhat.com>
-References: <20141117171005.22333.96544.stgit@ahduyck-server> <063D6719AE5E284EB5DD2968C1650D6D1C9F2930@AcuExch.aculab.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "mathieu.desnoyers@polymtl.ca" <mathieu.desnoyers@polymtl.ca>,
-	"peterz@infradead.org" <peterz@infradead.org>,
-	"benh@kernel.crashing.org" <benh@kernel.crashing.org>,
-	"heiko.carstens@de.ibm.com" <heiko.carstens@de.ibm.com>,
-	"mingo@kernel.org" <mingo@kernel.org>,
-	"mikey@neuling.org" <mikey@neuling.org>,
-	"linux@arm.linux.org.uk" <linux@arm.linux.org.uk>,
-	"donald.c.skidmore@intel.com" <donald.c.skidmore@intel.com>,
-	"matthew.vick@intel.com" <matthew.vick@intel.com>,
-	"geert@linux-m68k.org" <geert@linux-m68k.org>,
-	"jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
-	"romieu@fr.zoreil.com" <romieu@fr.zoreil.com>,
-	"paulmck@linux.vnet.ibm.com" <paulmck@linux.vnet.ibm.com>,
-	"nic_swsd@realtek.com" <nic_swsd@realtek.com>,
-	"will.deacon@arm.com" <will.deacon@arm.com>,
-	"michael@ellerman.id.au" <michael@ellerman.id.au>,
-	"tony.luck@intel.com" <tony.luck@intel.com>,
-	"torvalds@li
-To: David Laight <David.Laight@ACULAB.COM>,
-	"linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1C9F2930@AcuExch.aculab.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net] net/mlx4_en: Add VXLAN ndo calls to the PF net device ops too
+Date: Tue, 18 Nov 2014 17:51:27 +0200
+Message-ID: <1416325887-14704-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, Florian Westphal <fw@strlen.de>,
+	Amir Vadai <amirv@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailp.voltaire.com ([193.47.165.129]:40538 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753627AbaKRPvc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Nov 2014 10:51:32 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+This is currently missing, which results in a crash when one attempts
+to set VXLAN tunnel over the mlx4_en when acting as PF.
 
-On 11/18/2014 01:57 AM, David Laight wrote:
-> From: Alexander Duyck
->> These patches introduce two new primitives for synchronizing cache-enabled
->> memory writes and reads.  These two new primitives are:
->>
->> 	fast_rmb()
->> 	fast_wmb()
-> Not sure I like the names.
-> If the aim is to sync data into the local cache so that hardware
-> that is doing cache-snooping accesses sees the data then maybe
-> 	local_rmb() and local_wmb()
+	[ 2408.785472] BUG: unable to handle kernel NULL pointer dereference at (null)
+	[...]
+	[ 2408.994104] Call Trace:
+	[ 2408.996584]  [<ffffffffa021f7f5>] ? vxlan_get_rx_port+0xd6/0x103 [vxlan]
+	[ 2409.003316]  [<ffffffffa021f71f>] ? vxlan_lowerdev_event+0xf2/0xf2 [vxlan]
+	[ 2409.010225]  [<ffffffffa0630358>] mlx4_en_start_port+0x862/0x96a [mlx4_en]
+	[ 2409.017132]  [<ffffffffa063070f>] mlx4_en_open+0x17f/0x1b8 [mlx4_en]
 
-Yeah, that is the general consensus.  I am planning to change them to 
-coherent_rmb() and coherent_wmb().
+While here, make sure to invoke vxlan_get_rx_port() only when VXLAN
+offloads are actually enabled and not when they are only supported.
 
-> IIRC read_barrier_depends() is a nop on everything except alpha.
-> Maybe add the default if it isn't defined by the MD file?
->
-> 	David
->   
+Reported-by: Ido Shamay <idos@mellanox.com>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c |    7 ++++++-
+ 1 files changed, 6 insertions(+), 1 deletions(-)
 
- From my patch the only two I saw define it were alpha and blackfin. It 
-is already defined in asm-generic, the rest is just clean-up since I 
-suspect some of the arch tree barrier.h calls just borrowed from 
-asm-generic without sorting out what became redundancies.
-
-Thanks,
-
-Alex
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index c5fcc56..4d69e38 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -1693,7 +1693,7 @@ int mlx4_en_start_port(struct net_device *dev)
+ 	mlx4_set_stats_bitmap(mdev->dev, &priv->stats_bitmap);
+ 
+ #ifdef CONFIG_MLX4_EN_VXLAN
+-	if (priv->mdev->dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_VXLAN_OFFLOADS)
++	if (priv->mdev->dev->caps.tunnel_offload_mode == MLX4_TUNNEL_OFFLOAD_MODE_VXLAN)
+ 		vxlan_get_rx_port(dev);
+ #endif
+ 	priv->port_up = true;
+@@ -2422,6 +2422,11 @@ static const struct net_device_ops mlx4_netdev_ops_master = {
+ 	.ndo_rx_flow_steer	= mlx4_en_filter_rfs,
+ #endif
+ 	.ndo_get_phys_port_id	= mlx4_en_get_phys_port_id,
++#ifdef CONFIG_MLX4_EN_VXLAN
++	.ndo_add_vxlan_port	= mlx4_en_add_vxlan_port,
++	.ndo_del_vxlan_port	= mlx4_en_del_vxlan_port,
++	.ndo_gso_check		= mlx4_en_gso_check,
++#endif
+ };
+ 
+ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
+-- 
+1.7.1
