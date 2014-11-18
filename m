@@ -1,59 +1,59 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v3 0/9] sched: introduce vlan action
-Date: Tue, 18 Nov 2014 22:37:35 +0100
-Message-ID: <1416346664-9290-1-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v3 1/9] openvswitch: actions: use skb_postpull_rcsum when possible
+Date: Tue, 18 Nov 2014 22:37:36 +0100
+Message-ID: <1416346664-9290-2-git-send-email-jiri@resnulli.us>
+References: <1416346664-9290-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, pshelar@nicira.com,
 	therbert@google.com, edumazet@google.com, willemb@google.com,
 	dborkman@redhat.com, mst@redhat.com, fw@strlen.de,
 	Paul.Durrant@citrix.com, tgraf@suug.ch, cwang@twopensource.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f41.google.com ([74.125.82.41]:38569 "EHLO
-	mail-wg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754178AbaKRVhr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Nov 2014 16:37:47 -0500
-Received: by mail-wg0-f41.google.com with SMTP id y19so9717303wgg.28
-        for <netdev@vger.kernel.org>; Tue, 18 Nov 2014 13:37:46 -0800 (PST)
+Received: from mail-wg0-f50.google.com ([74.125.82.50]:47828 "EHLO
+	mail-wg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754796AbaKRVhs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Nov 2014 16:37:48 -0500
+Received: by mail-wg0-f50.google.com with SMTP id k14so10814731wgh.37
+        for <netdev@vger.kernel.org>; Tue, 18 Nov 2014 13:37:47 -0800 (PST)
+In-Reply-To: <1416346664-9290-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jiri Pirko (9):
-  openvswitch: actions: use skb_postpull_rcsum when possible
-  vlan: make __vlan_hwaccel_put_tag return void
-  vlan: kill vlan_put_tag helper
-  vlan: rename __vlan_put_tag to vlan_insert_tag_set_proto
-  vlan: introduce *vlan_hwaccel_push_inside helpers
-  vlan: introduce __vlan_insert_tag helper which does not free skb
-  net: move make_writable helper into common code
-  net: move vlan pop/push functions into common code
-  sched: introduce vlan action
+Replace duplicated code by calling skb_postpull_rcsum
 
- drivers/net/bonding/bond_alb.c              |  17 +--
- drivers/net/bonding/bond_main.c             |  12 +-
- drivers/net/ethernet/emulex/benet/be_main.c |   6 +-
- drivers/net/usb/cdc_mbim.c                  |   2 +-
- drivers/net/vxlan.c                         |  22 +--
- drivers/scsi/fcoe/fcoe.c                    |   6 +-
- include/linux/if_vlan.h                     | 107 +++++++++-----
- include/linux/skbuff.h                      |   3 +
- include/net/tc_act/tc_vlan.h                |  27 ++++
- include/uapi/linux/tc_act/tc_vlan.h         |  35 +++++
- net/8021q/vlan_dev.c                        |   2 +-
- net/bridge/br_vlan.c                        |   4 +-
- net/core/dev.c                              |   8 +-
- net/core/netpoll.c                          |   4 +-
- net/core/skbuff.c                           | 107 ++++++++++++++
- net/ipv4/geneve.c                           |  12 +-
- net/openvswitch/actions.c                   | 130 ++++-------------
- net/openvswitch/datapath.c                  |   5 +-
- net/openvswitch/vport-gre.c                 |  12 +-
- net/sched/Kconfig                           |  11 ++
- net/sched/Makefile                          |   1 +
- net/sched/act_vlan.c                        | 207 ++++++++++++++++++++++++++++
- 22 files changed, 525 insertions(+), 215 deletions(-)
- create mode 100644 include/net/tc_act/tc_vlan.h
- create mode 100644 include/uapi/linux/tc_act/tc_vlan.h
- create mode 100644 net/sched/act_vlan.c
+Suggested-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+Acked-by: Pravin B Shelar <pshelar@nicira.com>
+---
+ net/openvswitch/actions.c | 9 ++-------
+ 1 file changed, 2 insertions(+), 7 deletions(-)
 
+diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
+index 394efa6..749a301 100644
+--- a/net/openvswitch/actions.c
++++ b/net/openvswitch/actions.c
+@@ -175,10 +175,7 @@ static int pop_mpls(struct sk_buff *skb, struct sw_flow_key *key,
+ 	if (unlikely(err))
+ 		return err;
+ 
+-	if (skb->ip_summed == CHECKSUM_COMPLETE)
+-		skb->csum = csum_sub(skb->csum,
+-				     csum_partial(skb_mpls_header(skb),
+-						  MPLS_HLEN, 0));
++	skb_postpull_rcsum(skb, skb_mpls_header(skb), MPLS_HLEN);
+ 
+ 	memmove(skb_mac_header(skb) + MPLS_HLEN, skb_mac_header(skb),
+ 		skb->mac_len);
+@@ -230,9 +227,7 @@ static int __pop_vlan_tci(struct sk_buff *skb, __be16 *current_tci)
+ 	if (unlikely(err))
+ 		return err;
+ 
+-	if (skb->ip_summed == CHECKSUM_COMPLETE)
+-		skb->csum = csum_sub(skb->csum, csum_partial(skb->data
+-					+ (2 * ETH_ALEN), VLAN_HLEN, 0));
++	skb_postpull_rcsum(skb, skb->data + (2 * ETH_ALEN), VLAN_HLEN);
+ 
+ 	vhdr = (struct vlan_hdr *)(skb->data + ETH_HLEN);
+ 	*current_tci = vhdr->h_vlan_TCI;
 -- 
 1.9.3
