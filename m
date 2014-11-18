@@ -1,163 +1,609 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: [RFC] situation with csum_and_copy_... API
-Date: Tue, 18 Nov 2014 08:47:45 +0000
-Message-ID: <20141118084745.GT7996@ZenIV.linux.org.uk>
+From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Subject: [net-next.git 3/3] stmmac: review driver when run kernel-doc
+Date: Tue, 18 Nov 2014 09:47:01 +0100
+Message-ID: <1416300421-25500-4-git-send-email-peppe.cavallaro@st.com>
+References: <1416300421-25500-1-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx08-00178001.pphosted.com ([91.207.212.93]:40215 "EHLO
+	mx08-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752937AbaKRJDZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Nov 2014 04:03:25 -0500
+Received: from pps.filterd (m0046661.ppops.net [127.0.0.1])
+	by mx08-00178001.pphosted.com (8.14.5/8.14.5) with SMTP id sAI8xaEi019495
+	for <netdev@vger.kernel.org>; Tue, 18 Nov 2014 10:03:24 +0100
+Received: from beta.dmz-eu.st.com (beta.dmz-eu.st.com [164.129.1.35])
+	by mx08-00178001.pphosted.com with ESMTP id 1qp503cj86-1
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NOT)
+	for <netdev@vger.kernel.org>; Tue, 18 Nov 2014 10:03:24 +0100
+Received: from zeta.dmz-eu.st.com (zeta.dmz-eu.st.com [164.129.230.9])
+	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 2168686
+	for <netdev@vger.kernel.org>; Tue, 18 Nov 2014 09:02:52 +0000 (GMT)
+Received: from Webmail-eu.st.com (Safex1hubcas21.st.com [10.75.90.44])
+	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 23E252C9E0
+	for <netdev@vger.kernel.org>; Tue, 18 Nov 2014 09:03:22 +0000 (GMT)
+In-Reply-To: <1416300421-25500-1-git-send-email-peppe.cavallaro@st.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-I've spent the last weekend crawling through the copy-and-calculate-csum
-primitives on all architectures.  It came up during iov_iter work; below
-are the results of that review and, in the end, several questions about
-the short-term tactics of a change that needs to be done for iov_iter-net.
+When run ./scripts/kernel-doc several warnings are reported
+so this patch fix them.
+Also it reviews many comments and adds new ones.
 
-The API apparently consists of 3 functions - present and exported on all
-architectures:
-	1) csum_and_copy_from_user()
-	2) csum_and_copy_to_user()
-	3) csum_partial_copy_nocheck().
-There are very few places _using_ those, all but one in net stack (the only
-exception is in drivers/net).
-The minimal implementations would be
+Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c    |   15 +--
+ drivers/net/ethernet/stmicro/stmmac/dwmac-sunxi.c  |    2 +-
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |  151 +++++++++++++-------
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |   43 +++++-
+ 4 files changed, 142 insertions(+), 69 deletions(-)
 
-__wsum csum_and_copy_from_user(const void __user *src, void *dst, int len,
-			       __wsum sum, int *err_ptr)
-{
-	if (unlikely(copy_from_user(dst, src, len) < 0)) {
-		*err_ptr = -EFAULT;
-		return <whatever>;
-	}
-	return csum_partial(dst, len, sum);
-}
-
-__wsum csum_and_copy_to_user(const void *src, void __user *dst, int len,
-			     __wsum sum, int *err_ptr)
-{
-	sum = csum_partial(src, len, sum);
-	if (unlikely(copy_to_user(dst, src, len) < 0)) {
-		*err_ptr = -EFAULT;
-		return <whatever>;
-	}
-	return sum;
-}
-
-__wsum csum_partial_copy_nocheck(const void *src, void *dst, int len,
-				 __wsum sum)
-{
-	memcpy(dst, src, len);
-	return csum_partial(dst, len, sum);
-}
-
-Note that we are *not* guaranteed that *err_ptr is touched in case of success
-- not all architectures zero it in that case.  Callers must (and do) zero it
-before the call of csum_and_copy_{from,to}_user().  Furthermore, return value
-in case of error is undefined.  On the "from" side result is really "anything
-whatsoever", on the "to" side most of the architectures end up returning ~0U.
-However, even that is not guaranteed - e.g. avr32 and xtensa might return 0
-in that case.  All existing callers discard the return value in case of error -
-most of them by jumping out of the scope of variable it's assigned to.  The
-only exception is skb_copy_and_csum_datagram(); in that case return value is
-discarded by caller of skb_copy_and_csum_datagram() itself (also by jumping
-out of scope of the variable it had been put into).
-
-Generally, error in copying from userland ends up zeroing the rest of
-destination.  However, there are exceptions (which might be considered bugs)
-*and* callers discard all the copied data in case of error anyway.  There
-are several call chains:
-	1) from skb_add_data(): calls skb_trim() immediately after the failure.
-	2) from skb_do_copy_data_nocache() called from skb_add_data_nocache():
-__skb_trim() in skb_add_data_nocache()
-	3) from skb_do_copy_data_nocache() called from
-skb_copy_to_page_nocache(): we do not increase skb->len until after successful
-copying.
-	4) from skb_copy_to_page(): we do not increase skb->len until after
-successful copying.
-	5) from csum_partial_copy_fromiovecend() from ip_generic_getfrag()
-or ping_getfrag(): those are passed as getfrag callback to ip_make_skb(),
-ip_append_data() or ip6_append_data().  ip_make_skb() and ip_append_data()
-just pass it to __ip_append_data(), so we are left with two fairly similar
-functions to analyse.
-	* __ip_append_data() has 3 places where getfrag() is called directly and
-one where it's passed to ip_ufo_append_data().  Direct ones either free skb, or
-do __skb_trim() or do not increment skb->len on error.  ip_ufo_append_data()
-passes it further to skb_append_datato_frags(), where we do not increment skb->len
-and friends in case of getfrag() failure.
-	* ip6_append_data() the situation is identical, with ip6_ufo_append_data()
-in place of ip_ufo_append_data().
-
-So for all in-tree users of that sucker we are guaranteed to discard the whole
-thing in case of error and this zeroing the tail is pointless.
-
-Note also that the order of src and dest is opposite to normal for memcpy-like
-functions.  Compared to the rest of the ugliness it's trivial, but it's still
-not nice.
-
-IMO the calling conventions are atrocious.
-
-And then there are architecture-specific warts.  A relatively minor one is that
-csum_partial_copy_nocheck() has a slightly saner name on some architectures -
-there it's called csum_partial_copy().  Of course, those architectures have
-#define csum_partial_copy_nocheck csum_partial_copy...  Worse ones are related
-to csum_and_copy_from_user() - on everything other than ppc64 it is an
-inlined wrapper around csum_partial_copy_from_user(), which is what's actually
-exported.  On ppc64 csum_partial_copy_from_user() simply doesn't exist.
-The _only_ difference between it and csum_and_copy_from_user() is that the
-wrapper does access_ok() check.  However, some architectures repeat that
-access_ok() in csum_partial_copy_from_user() (and on x86 we have
-#define csum_and_copy_from_user csum_partial_copy_from_user, with no
-access_ok() in the wrapper).  As it is, it's architecture-dependent whether
-csum_partial_copy_from_user() does or does not access_ok(); on
-alpha, frv, m32r, mn10300, parisc, s390, score and x86 it does, on the
-rest it doesn't.
-
-To make it even more fun, converting verify_iovec() and its compat equivalent
-to use of {,compat_}rw_copy_check_uvector() would guarantee that all those
-access_ok() are redundant to start with, both on send and receive side of
-things.  Note, BTW, that for read()/write()/readv()/writev() it's already
-redundant.  Moreover, we have a very good reason to do that anyway - conversion
-of sendmsg/recvmsg to iov_iter primitives would pretty much require that,
-since copy_{to,from}_iter() assume that iovec behind the iov_iter has been
-validated wrt access_ok().
-
-I do have a patch doing just that; the question is what to do with csum-and-copy
-primitives.  Originally I planned to simply strip those access_ok() from those
-(both the explicit calls and use of copy_from_user() where we ought to use
-__copy_from_user(), etc.), but that's not nice to potential out-of-tree callers
-of those suckers.  If any of those exist and manage to cope with the wonderful
-calling conventions, that is.  As it is, we have the total of 4 callers of
-csum_and_copy_from_user() and 2 callers of csum_and_copy_to_user(), all in
-networking code.  Do we care about potential out-of-tree users existing and
-getting screwed by such change?  Davem, Linus?
-
-Alternatively, we could introduce __csum_and_copy_{from,to}_user() that would
-_not_ do access_ok() (and wouldn't be required to do zeroing the tail, etc.),
-convert the existing callers to that and leave csum_and_copy_{to,from}_user()
-as architecture-independent wrappers around those - "do access_ok(),
-then try to call __csum_and... variant, then fall back to dumb implementation
-if that fails".  For almost all architectures csum_and_partial_copy_from_user()
-would get stripped of access_ok() and renamed to __csum_and_copy_from_user();
-for ppc64 we'd define __csum_and_copy_from_user(src,dst,len,sum,errp) as
-csum_and_partial_copy_generic(src,dst,len,sum,errp,NULL) - they already
-have that kind of code structure.  This variant still buggers the out-of-tree
-code using csum_and_partial_copy_from_user() directly, but users of
-csum_and_copy_{from,to}_user() are left intact, such modules were already
-broken on ppc64 *and* breakage is of obvious "it won't link" kind.
-
-Comments, suggestions?
-
-PS: there are some really amusing brainos - e.g. mn10300 csum_and_copy_to_user()
-starts with this:
-	missing = copy_to_user(dst, src, len);
-	if (missing) {
-		memset(dst + len - missing, 0, missing);
-		*err_ptr = -EFAULT;
-	}
-that's right, if copy_to_user() has returned non-zero, try to do
-memset() on userland addresses it has failed to write into...
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c
+index ea40692..0e13775 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c
+@@ -1,4 +1,4 @@
+-/**
++/*
+  * dwmac-sti.c - STMicroelectronics DWMAC Specific Glue layer
+  *
+  * Copyright (C) 2003-2014 STMicroelectronics (R&D) Limited
+@@ -37,9 +37,8 @@
+ #define IS_PHY_IF_MODE_GBIT(iface)	(IS_PHY_IF_MODE_RGMII(iface) || \
+ 					 iface == PHY_INTERFACE_MODE_GMII)
+ 
+-/* STiH4xx register definitions (STiH415/STiH416/STiH407/STiH410 families) */
+-
+-/**
++/* STiH4xx register definitions (STiH415/STiH416/STiH407/STiH410 families)
++ *
+  * Below table summarizes the clock requirement and clock sources for
+  * supported phy interface modes with link speeds.
+  * ________________________________________________
+@@ -78,9 +77,7 @@
+ #define STIH4XX_ETH_SEL_INTERNAL_NOTEXT_PHYCLK	BIT(7)
+ #define STIH4XX_ETH_SEL_TXCLK_NOT_CLK125	BIT(6)
+ 
+-/* STiD127 register definitions */
+-
+-/**
++/* STiD127 register definitions
+  *-----------------------
+  * src	 |BIT(6)| BIT(7)|
+  *-----------------------
+@@ -106,13 +103,13 @@
+ #define EN_MASK		GENMASK(1, 1)
+ #define EN		BIT(1)
+ 
+-/**
++/*
+  * 3 bits [4:2]
+  *	000-GMII/MII
+  *	001-RGMII
+  *	010-SGMII
+  *	100-RMII
+-*/
++ */
+ #define MII_PHY_SEL_MASK	GENMASK(4, 2)
+ #define ETH_PHY_SEL_RMII	BIT(4)
+ #define ETH_PHY_SEL_SGMII	BIT(3)
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-sunxi.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-sunxi.c
+index a26bda2..c5ea9ab 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac-sunxi.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-sunxi.c
+@@ -1,4 +1,4 @@
+-/**
++/*
+  * dwmac-sunxi.c - Allwinner sunxi DWMAC specific glue layer
+  *
+  * Copyright (C) 2013 Chen-Yu Tsai
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 0f1c146..118a427 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -125,8 +125,8 @@ static void stmmac_exit_fs(void);
+ 
+ /**
+  * stmmac_verify_args - verify the driver parameters.
+- * Description: it verifies if some wrong parameter is passed to the driver.
+- * Note that wrong parameters are replaced with the default values.
++ * Description: it checks the driver parameters and set a default in case of
++ * errors.
+  */
+ static void stmmac_verify_args(void)
+ {
+@@ -204,7 +204,7 @@ static inline u32 stmmac_tx_avail(struct stmmac_priv *priv)
+ }
+ 
+ /**
+- * stmmac_hw_fix_mac_speed: callback for speed selection
++ * stmmac_hw_fix_mac_speed - callback for speed selection
+  * @priv: driver private structure
+  * Description: on some platforms (e.g. ST), some HW system configuraton
+  * registers have to be set according to the link speed negotiated.
+@@ -218,9 +218,10 @@ static inline void stmmac_hw_fix_mac_speed(struct stmmac_priv *priv)
+ }
+ 
+ /**
+- * stmmac_enable_eee_mode: Check and enter in LPI mode
++ * stmmac_enable_eee_mode - check and enter in LPI mode
+  * @priv: driver private structure
+- * Description: this function is to verify and enter in LPI mode for EEE.
++ * Description: this function is to verify and enter in LPI mode in case of
++ * EEE.
+  */
+ static void stmmac_enable_eee_mode(struct stmmac_priv *priv)
+ {
+@@ -231,7 +232,7 @@ static void stmmac_enable_eee_mode(struct stmmac_priv *priv)
+ }
+ 
+ /**
+- * stmmac_disable_eee_mode: disable/exit from EEE
++ * stmmac_disable_eee_mode - disable and exit from LPI mode
+  * @priv: driver private structure
+  * Description: this function is to exit and disable EEE in case of
+  * LPI state is true. This is called by the xmit.
+@@ -244,7 +245,7 @@ void stmmac_disable_eee_mode(struct stmmac_priv *priv)
+ }
+ 
+ /**
+- * stmmac_eee_ctrl_timer: EEE TX SW timer.
++ * stmmac_eee_ctrl_timer - EEE TX SW timer.
+  * @arg : data hook
+  * Description:
+  *  if there is no data transfer and if we are not in LPI state,
+@@ -259,13 +260,12 @@ static void stmmac_eee_ctrl_timer(unsigned long arg)
+ }
+ 
+ /**
+- * stmmac_eee_init: init EEE
++ * stmmac_eee_init - init EEE
+  * @priv: driver private structure
+  * Description:
+- *  If the EEE support has been enabled while configuring the driver,
+- *  if the GMAC actually supports the EEE (from the HW cap reg) and the
+- *  phy can also manage EEE, so enable the LPI state and start the timer
+- *  to verify if the tx path can enter in LPI state.
++ *  if the GMAC supports the EEE (from the HW cap reg) and the phy device
++ *  can also manage EEE, this function enable the LPI state and start related
++ *  timer.
+  */
+ bool stmmac_eee_init(struct stmmac_priv *priv)
+ {
+@@ -332,7 +332,7 @@ out:
+ 	return ret;
+ }
+ 
+-/* stmmac_get_tx_hwtstamp: get HW TX timestamps
++/* stmmac_get_tx_hwtstamp - get HW TX timestamps
+  * @priv: driver private structure
+  * @entry : descriptor index to be used.
+  * @skb : the socket buffer
+@@ -374,7 +374,7 @@ static void stmmac_get_tx_hwtstamp(struct stmmac_priv *priv,
+ 	return;
+ }
+ 
+-/* stmmac_get_rx_hwtstamp: get HW RX timestamps
++/* stmmac_get_rx_hwtstamp - get HW RX timestamps
+  * @priv: driver private structure
+  * @entry : descriptor index to be used.
+  * @skb : the socket buffer
+@@ -630,11 +630,11 @@ static int stmmac_hwtstamp_ioctl(struct net_device *dev, struct ifreq *ifr)
+ }
+ 
+ /**
+- * stmmac_init_ptp: init PTP
++ * stmmac_init_ptp - init PTP
+  * @priv: driver private structure
+- * Description: this is to verify if the HW supports the PTPv1 or v2.
++ * Description: this is to verify if the HW supports the PTPv1 or PTPv2.
+  * This is done by looking at the HW cap. register.
+- * Also it registers the ptp driver.
++ * This function also registers the ptp driver.
+  */
+ static int stmmac_init_ptp(struct stmmac_priv *priv)
+ {
+@@ -676,9 +676,13 @@ static void stmmac_release_ptp(struct stmmac_priv *priv)
+ }
+ 
+ /**
+- * stmmac_adjust_link
++ * stmmac_adjust_link - adjusts the link parameters
+  * @dev: net device structure
+- * Description: it adjusts the link parameters.
++ * Description: this is the helper called by the physical abstraction layer
++ * drivers to communicate the phy link status. According the speed and duplex
++ * this driver can invoke registered glue-logic as well.
++ * It also invoke the eee initialization because it could happen when switch
++ * on different networks (that are eee capable).
+  */
+ static void stmmac_adjust_link(struct net_device *dev)
+ {
+@@ -768,7 +772,7 @@ static void stmmac_adjust_link(struct net_device *dev)
+ }
+ 
+ /**
+- * stmmac_check_pcs_mode: verify if RGMII/SGMII is supported
++ * stmmac_check_pcs_mode - verify if RGMII/SGMII is supported
+  * @priv: driver private structure
+  * Description: this is to verify if the HW supports the PCS.
+  * Physical Coding Sublayer (PCS) interface that can be used when the MAC is
+@@ -857,7 +861,7 @@ static int stmmac_init_phy(struct net_device *dev)
+ }
+ 
+ /**
+- * stmmac_display_ring: display ring
++ * stmmac_display_ring - display ring
+  * @head: pointer to the head of the ring passed.
+  * @size: size of the ring.
+  * @extend_desc: to verify if extended descriptors are used.
+@@ -925,7 +929,7 @@ static int stmmac_set_bfsize(int mtu, int bufsize)
+ }
+ 
+ /**
+- * stmmac_clear_descriptors: clear descriptors
++ * stmmac_clear_descriptors - clear descriptors
+  * @priv: driver private structure
+  * Description: this function is called to clear the tx and rx descriptors
+  * in case of both basic and extended descriptors are used.
+@@ -957,6 +961,15 @@ static void stmmac_clear_descriptors(struct stmmac_priv *priv)
+ 						     (i == txsize - 1));
+ }
+ 
++/**
++ * stmmac_init_rx_buffers - init the RX descriptor buffer.
++ * @priv: driver private structure
++ * @p: descriptor pointer
++ * @i: descriptor index
++ * @flags: gfp flag.
++ * Description: this function is called to allocate a receive buffer, perform
++ * the DMA mapping and init the descriptor.
++ */
+ static int stmmac_init_rx_buffers(struct stmmac_priv *priv, struct dma_desc *p,
+ 				  int i, gfp_t flags)
+ {
+@@ -1001,7 +1014,8 @@ static void stmmac_free_rx_buffers(struct stmmac_priv *priv, int i)
+ /**
+  * init_dma_desc_rings - init the RX/TX descriptor rings
+  * @dev: net device structure
+- * Description:  this function initializes the DMA RX/TX descriptors
++ * @flags: gfp flag.
++ * Description: this function initializes the DMA RX/TX descriptors
+  * and allocates the socket buffers. It suppors the chained and ring
+  * modes.
+  */
+@@ -1138,6 +1152,14 @@ static void dma_free_tx_skbufs(struct stmmac_priv *priv)
+ 	}
+ }
+ 
++/**
++ * alloc_dma_desc_resources - alloc TX/RX resources.
++ * @priv: private structure
++ * Description: according to which descriptor can be used (extend or basic)
++ * this function allocates the resources for TX and RX paths. In case of
++ * reception, for example, it pre-allocated the RX socket buffer in order to
++ * allow zero-copy mechanism.
++ */
+ static int alloc_dma_desc_resources(struct stmmac_priv *priv)
+ {
+ 	unsigned int txsize = priv->dma_tx_size;
+@@ -1249,8 +1271,8 @@ static void free_dma_desc_resources(struct stmmac_priv *priv)
+ /**
+  *  stmmac_dma_operation_mode - HW DMA operation mode
+  *  @priv: driver private structure
+- *  Description: it sets the DMA operation mode: tx/rx DMA thresholds
+- *  or Store-And-Forward capability.
++ *  Description: it is used for configuring the DMA operation mode register in
++ *  order to program the tx/rx DMA thresholds or Store-And-Forward mode.
+  */
+ static void stmmac_dma_operation_mode(struct stmmac_priv *priv)
+ {
+@@ -1271,9 +1293,9 @@ static void stmmac_dma_operation_mode(struct stmmac_priv *priv)
+ }
+ 
+ /**
+- * stmmac_tx_clean:
++ * stmmac_tx_clean - to manage the transmission completion
+  * @priv: driver private structure
+- * Description: it reclaims resources after transmission completes.
++ * Description: it reclaims the transmit resources after transmission completes.
+  */
+ static void stmmac_tx_clean(struct stmmac_priv *priv)
+ {
+@@ -1372,10 +1394,10 @@ static inline void stmmac_disable_dma_irq(struct stmmac_priv *priv)
+ }
+ 
+ /**
+- * stmmac_tx_err: irq tx error mng function
++ * stmmac_tx_err - to manage the tx error
+  * @priv: driver private structure
+  * Description: it cleans the descriptors and restarts the transmission
+- * in case of errors.
++ * in case of transmission errors.
+  */
+ static void stmmac_tx_err(struct stmmac_priv *priv)
+ {
+@@ -1403,12 +1425,11 @@ static void stmmac_tx_err(struct stmmac_priv *priv)
+ }
+ 
+ /**
+- * stmmac_dma_interrupt: DMA ISR
++ * stmmac_dma_interrupt - DMA ISR
+  * @priv: driver private structure
+  * Description: this is the DMA ISR. It is called by the main ISR.
+- * It calls the dwmac dma routine to understand which type of interrupt
+- * happened. In case of there is a Normal interrupt and either TX or RX
+- * interrupt happened so the NAPI is scheduled.
++ * It calls the dwmac dma routine and schedule poll method in case of some
++ * work can be done.
+  */
+ static void stmmac_dma_interrupt(struct stmmac_priv *priv)
+ {
+@@ -1451,6 +1472,12 @@ static void stmmac_mmc_setup(struct stmmac_priv *priv)
+ 		pr_info(" No MAC Management Counters available\n");
+ }
+ 
++/**
++ * stmmac_get_synopsys_id - return the SYINID.
++ * @priv: driver private structure
++ * Description: this simple function is to decode and return the SYINID
++ * starting from the HW core register.
++ */
+ static u32 stmmac_get_synopsys_id(struct stmmac_priv *priv)
+ {
+ 	u32 hwid = priv->hw->synopsys_uid;
+@@ -1469,11 +1496,11 @@ static u32 stmmac_get_synopsys_id(struct stmmac_priv *priv)
+ }
+ 
+ /**
+- * stmmac_selec_desc_mode: to select among: normal/alternate/extend descriptors
++ * stmmac_selec_desc_mode - to select among: normal/alternate/extend descriptors
+  * @priv: driver private structure
+  * Description: select the Enhanced/Alternate or Normal descriptors.
+- * In case of Enhanced/Alternate, it looks at the extended descriptors are
+- * supported by the HW cap. register.
++ * In case of Enhanced/Alternate, it checks if the extended descriptors are
++ * supported by the HW capability register.
+  */
+ static void stmmac_selec_desc_mode(struct stmmac_priv *priv)
+ {
+@@ -1495,7 +1522,7 @@ static void stmmac_selec_desc_mode(struct stmmac_priv *priv)
+ }
+ 
+ /**
+- * stmmac_get_hw_features: get MAC capabilities from the HW cap. register.
++ * stmmac_get_hw_features - get MAC capabilities from the HW cap. register.
+  * @priv: driver private structure
+  * Description:
+  *  new GMAC chip generations have a new register to indicate the
+@@ -1553,7 +1580,7 @@ static int stmmac_get_hw_features(struct stmmac_priv *priv)
+ }
+ 
+ /**
+- * stmmac_check_ether_addr: check if the MAC addr is valid
++ * stmmac_check_ether_addr - check if the MAC addr is valid
+  * @priv: driver private structure
+  * Description:
+  * it is to verify if the MAC address is valid, in case of failures it
+@@ -1572,7 +1599,7 @@ static void stmmac_check_ether_addr(struct stmmac_priv *priv)
+ }
+ 
+ /**
+- * stmmac_init_dma_engine: DMA init.
++ * stmmac_init_dma_engine - DMA init.
+  * @priv: driver private structure
+  * Description:
+  * It inits the DMA invoking the specific MAC/GMAC callback.
+@@ -1601,7 +1628,7 @@ static int stmmac_init_dma_engine(struct stmmac_priv *priv)
+ }
+ 
+ /**
+- * stmmac_tx_timer: mitigation sw timer for tx.
++ * stmmac_tx_timer - mitigation sw timer for tx.
+  * @data: data pointer
+  * Description:
+  * This is the timer handler to directly invoke the stmmac_tx_clean.
+@@ -1614,7 +1641,7 @@ static void stmmac_tx_timer(unsigned long data)
+ }
+ 
+ /**
+- * stmmac_init_tx_coalesce: init tx mitigation options.
++ * stmmac_init_tx_coalesce - init tx mitigation options.
+  * @priv: driver private structure
+  * Description:
+  * This inits the transmit coalesce parameters: i.e. timer rate,
+@@ -1633,10 +1660,13 @@ static void stmmac_init_tx_coalesce(struct stmmac_priv *priv)
+ }
+ 
+ /**
+- * stmmac_hw_setup: setup mac in a usable state.
++ * stmmac_hw_setup - setup mac in a usable state.
+  *  @dev : pointer to the device structure.
+  *  Description:
+- *  This function sets up the ip in a usable state.
++ *  this is the main function to setup the HW in a usable state because the
++ *  dma engine is reset, the core registers are configured (e.g. AXI,
++ *  Checksum features, timers). The DMA is ready to start receiving and
++ *  transmitting.
+  *  Return value:
+  *  0 on success and an appropriate (-)ve integer as defined in errno.h
+  *  file on failure.
+@@ -1874,7 +1904,7 @@ static int stmmac_release(struct net_device *dev)
+ }
+ 
+ /**
+- *  stmmac_xmit: Tx entry point of the driver
++ *  stmmac_xmit - Tx entry point of the driver
+  *  @skb : the socket buffer
+  *  @dev : device pointer
+  *  Description : this is the tx entry point of the driver.
+@@ -2049,7 +2079,7 @@ static void stmmac_rx_vlan(struct net_device *dev, struct sk_buff *skb)
+ 
+ 
+ /**
+- * stmmac_rx_refill: refill used skb preallocated buffers
++ * stmmac_rx_refill - refill used skb preallocated buffers
+  * @priv: driver private structure
+  * Description : this is to reallocate the skb for the reception process
+  * that is based on zero-copy.
+@@ -2100,7 +2130,7 @@ static inline void stmmac_rx_refill(struct stmmac_priv *priv)
+ }
+ 
+ /**
+- * stmmac_rx_refill: refill used skb preallocated buffers
++ * stmmac_rx - manage the receive process
+  * @priv: driver private structure
+  * @limit: napi bugget.
+  * Description :  this the function called by the napi poll method.
+@@ -2369,8 +2399,11 @@ static int stmmac_set_features(struct net_device *netdev,
+  *  @irq: interrupt number.
+  *  @dev_id: to pass the net device pointer.
+  *  Description: this is the main driver interrupt service routine.
+- *  It calls the DMA ISR and also the core ISR to manage PMT, MMC, LPI
+- *  interrupts.
++ *  It can call:
++ *  o DMA service routine (to manage incoming frame reception and transmission
++ *    status)
++ *  o Core interrupts to manage: remote wake-up, management counter, LPI
++ *    interrupts.
+  */
+ static irqreturn_t stmmac_interrupt(int irq, void *dev_id)
+ {
+@@ -2657,11 +2690,10 @@ static const struct net_device_ops stmmac_netdev_ops = {
+ /**
+  *  stmmac_hw_init - Init the MAC device
+  *  @priv: driver private structure
+- *  Description: this function detects which MAC device
+- *  (GMAC/MAC10-100) has to attached, checks the HW capability
+- *  (if supported) and sets the driver's features (for example
+- *  to use the ring or chaine mode or support the normal/enh
+- *  descriptor structure).
++ *  Description: this function is to configure the MAC device according to
++ *  some platform parameters or the HW capability register. It prepares the
++ *  driver to use either ring or chain modes and to setup either enhanced or
++ *  normal descriptors.
+  */
+ static int stmmac_hw_init(struct stmmac_priv *priv)
+ {
+@@ -2917,6 +2949,13 @@ int stmmac_dvr_remove(struct net_device *ndev)
+ }
+ EXPORT_SYMBOL_GPL(stmmac_dvr_remove);
+ 
++/**
++ * stmmac_suspend - suspend callback
++ * @ndev: net device pointer
++ * Description: this is the function to suspend the device and it is called
++ * by the platform driver to stop the network queue, release the resources,
++ * program the PMT register (for WoL), clean and release driver resources.
++ */
+ int stmmac_suspend(struct net_device *ndev)
+ {
+ 	struct stmmac_priv *priv = netdev_priv(ndev);
+@@ -2960,6 +2999,12 @@ int stmmac_suspend(struct net_device *ndev)
+ }
+ EXPORT_SYMBOL_GPL(stmmac_suspend);
+ 
++/**
++ * stmmac_resume - resume callback
++ * @ndev: net device pointer
++ * Description: when resume this function is invoked to setup the DMA and CORE
++ * in a usable state.
++ */
+ int stmmac_resume(struct net_device *ndev)
+ {
+ 	struct stmmac_priv *priv = netdev_priv(ndev);
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+index e22a960..15814b7 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+@@ -51,7 +51,11 @@ MODULE_DEVICE_TABLE(of, stmmac_dt_ids);
+ 
+ #ifdef CONFIG_OF
+ 
+-/* This function validates the number of Multicast filtering bins specified
++/**
++ * dwmac1000_validate_mcast_bins - validates the number of Multicast filter bins
++ * @mcast_bins: Multicast filtering bins
++ * Description:
++ * this function validates the number of Multicast filtering bins specified
+  * by the configuration through the device tree. The Synopsys GMAC supports
+  * 64 bins, 128 bins, or 256 bins. "bins" refer to the division of CRC
+  * number space. 64 bins correspond to 6 bits of the CRC, 128 corresponds
+@@ -77,7 +81,11 @@ static int dwmac1000_validate_mcast_bins(int mcast_bins)
+ 	return x;
+ }
+ 
+-/* This function validates the number of Unicast address entries supported
++/**
++ * dwmac1000_validate_ucast_entries - validate the Unicast address entries
++ * @ucast_entries: number of Unicast address entries
++ * Description:
++ * This function validates the number of Unicast address entries supported
+  * by a particular Synopsys 10/100/1000 controller. The Synopsys controller
+  * supports 1, 32, 64, or 128 Unicast filter entries for it's Unicast filter
+  * logic. This function validates a valid, supported configuration is
+@@ -103,6 +111,15 @@ static int dwmac1000_validate_ucast_entries(int ucast_entries)
+ 	return x;
+ }
+ 
++/**
++ * stmmac_probe_config_dt - parse device-tree driver parameters
++ * @pdev: platform_device structure
++ * @plat: driver data platform structure
++ * @mac: MAC address to use
++ * Description:
++ * this function is to read the driver parameters from device-tree and
++ * set some private fields that will be used by the main at runtime.
++ */
+ static int stmmac_probe_config_dt(struct platform_device *pdev,
+ 				  struct plat_stmmacenet_data *plat,
+ 				  const char **mac)
+@@ -242,11 +259,11 @@ static int stmmac_probe_config_dt(struct platform_device *pdev,
+ #endif /* CONFIG_OF */
+ 
+ /**
+- * stmmac_pltfr_probe
++ * stmmac_pltfr_probe - platform driver probe.
+  * @pdev: platform device pointer
+- * Description: platform_device probe function. It allocates
+- * the necessary resources and invokes the main to init
+- * the net device, register the mdio bus etc.
++ * Description: platform_device probe function. It is to allocate
++ * the necessary platform resources, invoke custom helper (if required) and
++ * invoke the main probe function.
+  */
+ static int stmmac_pltfr_probe(struct platform_device *pdev)
+ {
+@@ -363,6 +380,13 @@ static int stmmac_pltfr_remove(struct platform_device *pdev)
+ }
+ 
+ #ifdef CONFIG_PM_SLEEP
++/**
++ * stmmac_pltfr_suspend
++ * @dev: device pointer
++ * Description: this function is invoked when suspend the driver and it direcly
++ * call the main suspend function and then, if required, on some platform, it
++ * can call an exit helper.
++ */
+ static int stmmac_pltfr_suspend(struct device *dev)
+ {
+ 	int ret;
+@@ -377,6 +401,13 @@ static int stmmac_pltfr_suspend(struct device *dev)
+ 	return ret;
+ }
+ 
++/**
++ * stmmac_pltfr_resume
++ * @dev: device pointer
++ * Description: this function is invoked when resume the driver before calling
++ * the main resume function, on some platforms, it can call own init helper
++ * if required.
++ */
+ static int stmmac_pltfr_resume(struct device *dev)
+ {
+ 	struct net_device *ndev = dev_get_drvdata(dev);
+-- 
+1.7.4.4
