@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 10/11] i40e: Prevent link flow control settings when PFC is enabled
-Date: Tue, 18 Nov 2014 01:25:30 -0800
-Message-ID: <1416302731-11327-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 08/11] i40e: Modify Tx disable wait flow in case of DCB reconfiguration
+Date: Tue, 18 Nov 2014 01:25:28 -0800
+Message-ID: <1416302731-11327-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1416302731-11327-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Neerav Parikh <neerav.parikh@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
@@ -10,7 +10,7 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:10813 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753962AbaKRJZ6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753894AbaKRJZ6 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 18 Nov 2014 04:25:58 -0500
 In-Reply-To: <1416302731-11327-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,61 +18,134 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Neerav Parikh <neerav.parikh@intel.com>
 
-When PFC is enabled we should not proceed with setting the link flow control
-parameters.  Also, always report the link flow Tx/Rx settings as off when
-PFC is enabled.
+When DCB TC configuration changes the firmware suspends the port's Tx.
+Now, as DCB TCs may have changed the PF driver tries to reconfigure the
+TC configuration of the VSIs it manages. As part of this process it disables
+the VSI queues but the Tx queue disable will not complete as the port's
+Tx has been suspended. So, waiting for Tx queues to go to disable state
+in this flow may lead to detection of Tx queue disable timeout errors.
 
-Change-ID: Ib09ec58afdf0b2e587ac9d8851a5c80ad58206c4
+Hence, this patch adds a new PF state so that if a port's Tx is in
+suspended state the Tx queue disable flow would just put the request for
+the queue to be disabled and return without waiting for the queue to be
+actually disabled.
+Once the VSI(s) TC reconfiguration has been done and driver has called
+firmware AQC "Resume PF Traffic" the driver checks the Tx queues requested
+to be disabled are actually disabled before re-enabling them again.
+
+Change-ID: If3e03ce4813a4e342dbd5a1eb1d2861e952b7544
 Signed-off-by: Neerav Parikh <neerav.parikh@intel.com>
 Tested-By: Jack Morgan <jack.morgan@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 14 ++++++++++++--
- 1 file changed, 12 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e.h      |  1 +
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 60 +++++++++++++++++++++++++++++
+ 2 files changed, 61 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index afad5aa..bb1698a 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -644,11 +644,19 @@ static void i40e_get_pauseparam(struct net_device *netdev,
- 	struct i40e_pf *pf = np->vsi->back;
- 	struct i40e_hw *hw = &pf->hw;
- 	struct i40e_link_status *hw_link_info = &hw->phy.link_info;
-+	struct i40e_dcbx_config *dcbx_cfg = &hw->local_dcbx_config;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index b7a807b..464342a 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -146,6 +146,7 @@ enum i40e_state_t {
+ 	__I40E_DOWN_REQUESTED,
+ 	__I40E_FD_FLUSH_REQUESTED,
+ 	__I40E_RESET_FAILED,
++	__I40E_PORT_TX_SUSPENDED,
+ };
  
- 	pause->autoneg =
- 		((hw_link_info->an_info & I40E_AQ_AN_COMPLETED) ?
- 		  AUTONEG_ENABLE : AUTONEG_DISABLE);
+ enum i40e_interrupt_policy {
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 71ab327..3e55cef 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -3492,6 +3492,9 @@ static int i40e_vsi_control_tx(struct i40e_vsi *vsi, bool enable)
+ 		}
  
-+	/* PFC enabled so report LFC as off */
-+	if (dcbx_cfg->pfc.pfcenable) {
-+		pause->rx_pause = 0;
-+		pause->tx_pause = 0;
-+		return;
+ 		wr32(hw, I40E_QTX_ENA(pf_q), tx_reg);
++		/* No waiting for the Tx queue to disable */
++		if (!enable && test_bit(__I40E_PORT_TX_SUSPENDED, &pf->state))
++			continue;
+ 
+ 		/* wait for the change to finish */
+ 		ret = i40e_pf_txq_wait(pf, pf_q, enable);
+@@ -3911,6 +3914,56 @@ static void i40e_pf_unquiesce_all_vsi(struct i40e_pf *pf)
+ 	}
+ }
+ 
++#ifdef CONFIG_I40E_DCB
++/**
++ * i40e_vsi_wait_txq_disabled - Wait for VSI's queues to be disabled
++ * @vsi: the VSI being configured
++ *
++ * This function waits for the given VSI's Tx queues to be disabled.
++ **/
++static int i40e_vsi_wait_txq_disabled(struct i40e_vsi *vsi)
++{
++	struct i40e_pf *pf = vsi->back;
++	int i, pf_q, ret;
++
++	pf_q = vsi->base_queue;
++	for (i = 0; i < vsi->num_queue_pairs; i++, pf_q++) {
++		/* Check and wait for the disable status of the queue */
++		ret = i40e_pf_txq_wait(pf, pf_q, false);
++		if (ret) {
++			dev_info(&pf->pdev->dev,
++				 "%s: VSI seid %d Tx ring %d disable timeout\n",
++				 __func__, vsi->seid, pf_q);
++			return ret;
++		}
 +	}
 +
- 	if (hw->fc.current_mode == I40E_FC_RX_PAUSE) {
- 		pause->rx_pause = 1;
- 	} else if (hw->fc.current_mode == I40E_FC_TX_PAUSE) {
-@@ -672,6 +680,7 @@ static int i40e_set_pauseparam(struct net_device *netdev,
- 	struct i40e_vsi *vsi = np->vsi;
- 	struct i40e_hw *hw = &pf->hw;
- 	struct i40e_link_status *hw_link_info = &hw->phy.link_info;
-+	struct i40e_dcbx_config *dcbx_cfg = &hw->local_dcbx_config;
- 	bool link_up = hw_link_info->link_info & I40E_AQ_LINK_UP;
- 	i40e_status status;
- 	u8 aq_failures;
-@@ -693,8 +702,9 @@ static int i40e_set_pauseparam(struct net_device *netdev,
- 		netdev_info(netdev, "Autoneg did not complete so changing settings may not result in an actual change.\n");
- 	}
++	return 0;
++}
++
++/**
++ * i40e_pf_wait_txq_disabled - Wait for all queues of PF VSIs to be disabled
++ * @pf: the PF
++ *
++ * This function waits for the Tx queues to be in disabled state for all the
++ * VSIs that are managed by this PF.
++ **/
++static int i40e_pf_wait_txq_disabled(struct i40e_pf *pf)
++{
++	int v, ret = 0;
++
++	for (v = 0; v < pf->hw.func_caps.num_vsis; v++) {
++		if (pf->vsi[v]) {
++			ret = i40e_vsi_wait_txq_disabled(pf->vsi[v]);
++			if (ret)
++				break;
++		}
++	}
++
++	return ret;
++}
++
++#endif
+ /**
+  * i40e_dcb_get_num_tc -  Get the number of TCs from DCBx config
+  * @dcbcfg: the corresponding DCBx configuration structure
+@@ -5102,6 +5155,7 @@ static int i40e_handle_lldp_event(struct i40e_pf *pf,
+ 	else
+ 		pf->flags &= ~I40E_FLAG_DCB_ENABLED;
  
--	if (hw->fc.current_mode == I40E_FC_PFC) {
--		netdev_info(netdev, "Priority flow control enabled. Cannot set link flow control.\n");
-+	if (dcbx_cfg->pfc.pfcenable) {
-+		netdev_info(netdev,
-+			    "Priority flow control enabled. Cannot set link flow control.\n");
- 		return -EOPNOTSUPP;
- 	}
++	set_bit(__I40E_PORT_TX_SUSPENDED, &pf->state);
+ 	/* Reconfiguration needed quiesce all VSIs */
+ 	i40e_pf_quiesce_all_vsi(pf);
  
+@@ -5110,7 +5164,13 @@ static int i40e_handle_lldp_event(struct i40e_pf *pf,
+ 
+ 	ret = i40e_resume_port_tx(pf);
+ 
++	clear_bit(__I40E_PORT_TX_SUSPENDED, &pf->state);
+ 	/* In case of error no point in resuming VSIs */
++	if (ret)
++		goto exit;
++
++	/* Wait for the PF's Tx queues to be disabled */
++	ret = i40e_pf_wait_txq_disabled(pf);
+ 	if (!ret)
+ 		i40e_pf_unquiesce_all_vsi(pf);
+ exit:
 -- 
 1.9.3
