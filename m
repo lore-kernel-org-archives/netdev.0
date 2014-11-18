@@ -1,94 +1,125 @@
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: Re: [PATCH 2/4] arch: Add lightweight memory barriers fast_rmb()
- and fast_wmb()
-Date: Tue, 18 Nov 2014 08:20:46 -0800
-Message-ID: <546B71DE.4050506@redhat.com>
-References: <20141117171005.22333.96544.stgit@ahduyck-server> <20141117171812.22333.90395.stgit@ahduyck-server> <1416254687.18381.3.camel@kernel.crashing.org> <546A5968.1090201@gmail.com> <1416271167.18381.16.camel@kernel.crashing.org> <546AB959.1020602@redhat.com> <20141118115836.GL18842@arm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	"linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"mathieu.desnoyers@polymtl.ca" <mathieu.desnoyers@polymtl.ca>,
-	"peterz@infradead.org" <peterz@infradead.org>,
-	"heiko.carstens@de.ibm.com" <heiko.carstens@de.ibm.com>,
-	"mingo@kernel.org" <mingo@kernel.org>,
-	"mikey@neuling.org" <mikey@neuling.org>,
-	"linux@arm.linux.org.uk" <linux@arm.linux.org.uk>,
-	"donald.c.skidmore@intel.com" <donald.c.skidmore@intel.com>,
-	"matthew.vick@intel.com" <matthew.vick@intel.com>,
-	"geert@linux-m68k.org" <geert@linux-m68k.org>,
-	"jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
-	"romieu@fr.zoreil.com" <romieu@fr.zoreil.com>,
-	"paulmck@linux.vnet.ibm.com" <paulmck@linux.vn
-To: Will Deacon <will.deacon@arm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45140 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932100AbaKRQ3Y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Nov 2014 11:29:24 -0500
-In-Reply-To: <20141118115836.GL18842@arm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pankaj Gupta <pagupta@redhat.com>
+Subject: [PATCH net-next 2/4] tuntap: Accept tuntap maximum number of queues as sysctl
+Date: Tue, 18 Nov 2014 21:52:56 +0530
+Message-ID: <1416327778-17716-3-git-send-email-pagupta@redhat.com>
+References: <1416327778-17716-1-git-send-email-pagupta@redhat.com>
+Cc: davem@davemloft.net, jasowang@redhat.com, mst@redhat.com,
+	dgibson@redhat.com, vfalico@gmail.com, edumazet@google.com,
+	vyasevic@redhat.com, hkchu@google.com,
+	wuzhy@linux.vnet.ibm.com.pnq.redhat.com, xemul@parallels.com,
+	therbert@google.com, bhutchings@solarflare.com, xii@google.com,
+	stephen@networkplumber.org, jiri@resnulli.us,
+	sergei.shtylyov@cogentembedded.com,
+	Pankaj Gupta <pagupta@redhat.com>
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1416327778-17716-1-git-send-email-pagupta@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+ This patch accepts maximum number of tun/tap queues allocated as
+ sysctl entry which a user space application like libvirt
+ can make use of to limit maximum number of tuntap queues. 
+ Value of sysctl entry is writable dynamically.
+ 
+ If no value is set for sysctl entry 'net.tuntap.max_queues' 
+ a default value 256 is used which is equal to maximum number 
+ of vCPUS allowed by KVM.
 
-On 11/18/2014 03:58 AM, Will Deacon wrote:
-> On Tue, Nov 18, 2014 at 03:13:29AM +0000, Alexander Duyck wrote:
->> On 11/17/2014 04:39 PM, Benjamin Herrenschmidt wrote:
->>> On Mon, 2014-11-17 at 12:24 -0800, Alexander Duyck wrote:
->>>> Yes and no.  So for example on ARM I used the dmb() operation, however
->>>> I
->>>> have to use the barrier at the system level instead of just the inner
->>>> shared domain.  However on many other architectures they are just the
->>>> same as the smp_* variants.
->>>>
->>>> Basically the resultant code is somewhere between the smp and non-smp
->>>> barriers in terms of what they cover.
->>> There I don't quite follow you. You need to explain better especially in
->>> the documentation because otherwise people will get it wrong...
->>>
->>> If it's ordering in the coherent domain, I fail to see how a DMA agent
->>> is different than another processor when it comes to barriers, so I fail
->>> to see the difference with smp_*
->>>
->>> I understand the MMIO vs. memory issue, we do have the same on powerpc,
->>> but that other aspect eludes me.
->>>
->> ARM adds some funky things.  They have two different types of
->> primitives, a dmb() which is a data memory barrier, and a dsb() which is
->> a data synchronization barrier.  Then with each of those they have the
->> "domains" the barriers are effective within.
->>
->> So for example on ARM a rmb() is dsb(sy) which means it is a system wide
->> synchronization barrier which stops execution on the CPU core until the
->> read completes.  However the smp_rmb() is a dmb(ish) which means it is
->> only a barrier as far as the inner shareable domain which I believe only
->> goes as far as the local shared cache hierarchy and only guarantees read
->> ordering without necessarily halting the CPU or stopping in-order
->> speculative reads.  So what a coherent_rmb() would be in my setup is
->> dmb(sy) which means the barrier runs all the way out to memory, and it
->> is allowed to speculative read as long as it does it in order.
->>
->> If it is still unclear you might check out Will Deacon's talk on the
->> topic at https://www.youtube.com/watch?v=6ORn6_35kKo, at about 7:00 in
->> he explains the whole domains thing, and at 13:30 he explains dmb()/dsb().
-> So actually, this is an interesting case where the barrier would like to
-> know whether the memory returned by dma_alloc_coherent is h/w coherent
-> (normal, cacheable) or s/w coherent (normal, non-cacheable). I think Ben
-> is thinking of the h/w coherent case (i.e. actual snooping into the CPU
-> caches by the DMA master).
->
-> For the former, we could use inner-shareable barriers. For the latter, we'd
-> need to use outer-shareable barriers.
->
-> If we can't tell, then these should be dmb(osh), which will work for both.
->
-> Will
+Signed-off-by: Pankaj Gupta <pagupta@redhat.com>
+---
+ drivers/net/tun.c | 33 +++++++++++++++++++++++++++++++--
+ 1 file changed, 31 insertions(+), 2 deletions(-)
 
-Okay, so I will update the ARM portion of my patches to use osh and 
-oshst then since it sounds like I was using too strong of barriers.
-
-- Alex
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index e3fa65a..b03a745 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -71,6 +71,7 @@
+ #include <net/rtnetlink.h>
+ #include <net/sock.h>
+ #include <linux/seq_file.h>
++#include <linux/sysctl.h>
+ #include <linux/uio.h>
+ 
+ #include <asm/uaccess.h>
+@@ -117,10 +118,16 @@ struct tap_filter {
+  * the netdevice to be fit in one page. So we can make sure the success of
+  * memory allocation. TODO: increase the limit. */
+ #define MAX_TAP_QUEUES DEFAULT_MAX_NUM_RSS_QUEUES
++#define MIN_TAP_QUEUES 1
+ #define MAX_TAP_FLOWS  4096
+ 
+ #define TUN_FLOW_EXPIRE (3 * HZ)
+ 
++static struct ctl_table_header *tun_sysctl_header;
++static int tun_queues = MAX_TAP_QUEUES;
++static int min_queues = MIN_TAP_QUEUES;
++static int max_queues = MAX_TAP_QUEUES;
++
+ /* A tun_file connects an open character device to a tuntap netdevice. It
+  * also contains all socket related structures (except sock_fprog and tap_filter)
+  * to serve as one transmit queue for tuntap device. The sock_fprog and
+@@ -197,6 +204,19 @@ struct tun_struct {
+ 	u32 flow_count;
+ };
+ 
++static struct ctl_table tun_ctl_table[] = {
++	{
++		.procname       = "tun_max_queues",
++		.data           = &tun_queues,
++		.maxlen         = sizeof(int),
++		.mode           = 0644,
++		.proc_handler   = proc_dointvec_minmax,
++		.extra1         = &min_queues,
++		.extra2         = &max_queues
++	},
++	{  }
++};
++
+ static inline u32 tun_hashfn(u32 rxhash)
+ {
+ 	return rxhash & 0x3ff;
+@@ -547,7 +567,7 @@ static int tun_attach(struct tun_struct *tun, struct file *file, bool skip_filte
+ 
+ 	err = -E2BIG;
+ 	if (!tfile->detached &&
+-	    tun->numqueues + tun->numdisabled == MAX_TAP_QUEUES)
++	    tun->numqueues + tun->numdisabled == tun_queues)
+ 		goto out;
+ 
+ 	err = 0;
+@@ -1624,7 +1644,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+ 		char *name;
+ 		unsigned long flags = 0;
+ 		int queues = ifr->ifr_flags & IFF_MULTI_QUEUE ?
+-			     MAX_TAP_QUEUES : 1;
++			     tun_queues : 1;
+ 
+ 		if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
+ 			return -EPERM;
+@@ -2335,6 +2355,13 @@ static int __init tun_init(void)
+ 	pr_info("%s, %s\n", DRV_DESCRIPTION, DRV_VERSION);
+ 	pr_info("%s\n", DRV_COPYRIGHT);
+ 
++	tun_sysctl_header = register_net_sysctl(&init_net, "net/tuntap",
++						tun_ctl_table);
++
++	if (!tun_sysctl_header)
++		pr_err("Can't register tun_ctl_table. Tun device queue"
++		       "setting to default value : %d queues.\n", tun_queues);
++
+ 	ret = rtnl_link_register(&tun_link_ops);
+ 	if (ret) {
+ 		pr_err("Can't register link_ops\n");
+@@ -2357,6 +2384,8 @@ static void tun_cleanup(void)
+ {
+ 	misc_deregister(&tun_miscdev);
+ 	rtnl_link_unregister(&tun_link_ops);
++	if (tun_sysctl_header)
++		unregister_net_sysctl_table(tun_sysctl_header);
+ }
+ 
+ /* Get an underlying socket object from tun file.  Returns error unless file is
+-- 
+1.8.3.1
