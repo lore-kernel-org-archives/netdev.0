@@ -1,7 +1,7 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH 16/17] can: m_can: fix incorrect error messages
-Date: Tue, 18 Nov 2014 21:37:46 +0100
-Message-ID: <1416343067-9810-17-git-send-email-mkl@pengutronix.de>
+Subject: [PATCH 14/17] can: m_can: fix not set can_dlc for remote frame
+Date: Tue, 18 Nov 2014 21:37:44 +0100
+Message-ID: <1416343067-9810-15-git-send-email-mkl@pengutronix.de>
 References: <1416343067-9810-1-git-send-email-mkl@pengutronix.de>
 Cc: davem@davemloft.net, linux-can@vger.kernel.org,
 	kernel@pengutronix.de, Dong Aisheng <b29396@freescale.com>,
@@ -14,44 +14,42 @@ List-Id: netdev.vger.kernel.org
 
 From: Dong Aisheng <b29396@freescale.com>
 
-Fix a few error messages.
+The original code missed to set the cf->can_dlc in the RTR case, so add it.
 
 Signed-off-by: Dong Aisheng <b29396@freescale.com>
 Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
- drivers/net/can/m_can/m_can.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/can/m_can/m_can.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/can/m_can/m_can.c b/drivers/net/can/m_can/m_can.c
-index 3ad7d88720b7..2f61676b3a97 100644
+index 214160b4c314..98f7e0ea7f6a 100644
 --- a/drivers/net/can/m_can/m_can.c
 +++ b/drivers/net/can/m_can/m_can.c
-@@ -608,14 +608,14 @@ static int m_can_handle_state_errors(struct net_device *dev, u32 psr)
- 
- 	if ((psr & PSR_EP) &&
- 	    (priv->can.state != CAN_STATE_ERROR_PASSIVE)) {
--		netdev_dbg(dev, "entered error warning state\n");
-+		netdev_dbg(dev, "entered error passive state\n");
- 		work_done += m_can_handle_state_change(dev,
- 						       CAN_STATE_ERROR_PASSIVE);
- 	}
- 
- 	if ((psr & PSR_BO) &&
- 	    (priv->can.state != CAN_STATE_BUS_OFF)) {
--		netdev_dbg(dev, "entered error warning state\n");
-+		netdev_dbg(dev, "entered error bus off state\n");
- 		work_done += m_can_handle_state_change(dev,
- 						       CAN_STATE_BUS_OFF);
- 	}
-@@ -627,7 +627,7 @@ static void m_can_handle_other_err(struct net_device *dev, u32 irqstatus)
+@@ -330,7 +330,7 @@ static void m_can_read_fifo(const struct net_device *dev, struct can_frame *cf,
+ 			    u32 rxfs)
  {
- 	if (irqstatus & IR_WDI)
- 		netdev_err(dev, "Message RAM Watchdog event due to missing READY\n");
--	if (irqstatus & IR_BEU)
-+	if (irqstatus & IR_ELO)
- 		netdev_err(dev, "Error Logging Overflow\n");
- 	if (irqstatus & IR_BEU)
- 		netdev_err(dev, "Bit Error Uncorrected\n");
+ 	struct m_can_priv *priv = netdev_priv(dev);
+-	u32 id, fgi;
++	u32 id, fgi, dlc;
+ 
+ 	/* calculate the fifo get index for where to read data */
+ 	fgi = (rxfs & RXFS_FGI_MASK) >> RXFS_FGI_OFF;
+@@ -340,11 +340,12 @@ static void m_can_read_fifo(const struct net_device *dev, struct can_frame *cf,
+ 	else
+ 		cf->can_id = (id >> 18) & CAN_SFF_MASK;
+ 
++	dlc = m_can_fifo_read(priv, fgi, M_CAN_FIFO_DLC);
++	cf->can_dlc = get_can_dlc((dlc >> 16) & 0x0F);
++
+ 	if (id & RX_BUF_RTR) {
+ 		cf->can_id |= CAN_RTR_FLAG;
+ 	} else {
+-		id = m_can_fifo_read(priv, fgi, M_CAN_FIFO_DLC);
+-		cf->can_dlc = get_can_dlc((id >> 16) & 0x0F);
+ 		*(u32 *)(cf->data + 0) = m_can_fifo_read(priv, fgi,
+ 							 M_CAN_FIFO_DATA(0));
+ 		*(u32 *)(cf->data + 4) = m_can_fifo_read(priv, fgi,
 -- 
 2.1.3
 
