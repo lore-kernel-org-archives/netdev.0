@@ -1,80 +1,105 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [PATCH] [net]ip_tunnel: the lack of vti_link_ops' dellink() cause
- kernel panic
-Date: Tue, 18 Nov 2014 14:12:47 -0800
-Message-ID: <CAHA+R7NKdS_j2MC+-Bcw=hFERODiMw1Z6ju6yw5TvXXHbTXK5A@mail.gmail.com>
-References: <1416307059-32732-1-git-send-email-lucien.xin@gmail.com>
+From: Jiri Bohac <jbohac@suse.cz>
+Subject: [PATCH v2] ipx: fix locking regression in ipx_sendmsg and ipx_recvmsg
+Date: Tue, 18 Nov 2014 23:24:58 +0100
+Message-ID: <20141118222458.GA14454@midget.suse.cz>
+References: <20141117013448.GA26743@midget.suse.cz>
+ <8698539.evYG7fs8jS@wuerfel>
+ <20141118221057.GA13473@midget.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: network dev <netdev@vger.kernel.org>
-To: Xin Long <lucien.xin@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: jbohac@suse.cz, Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f181.google.com ([209.85.216.181]:61275 "EHLO
-	mail-qc0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753796AbaKRWMs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Nov 2014 17:12:48 -0500
-Received: by mail-qc0-f181.google.com with SMTP id m20so6575641qcx.40
-        for <netdev@vger.kernel.org>; Tue, 18 Nov 2014 14:12:47 -0800 (PST)
-In-Reply-To: <1416307059-32732-1-git-send-email-lucien.xin@gmail.com>
+Received: from cantor2.suse.de ([195.135.220.15]:42211 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754199AbaKRWZA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Nov 2014 17:25:00 -0500
+Content-Disposition: inline
+In-Reply-To: <20141118221057.GA13473@midget.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 18, 2014 at 2:37 AM, Xin Long <lucien.xin@gmail.com> wrote:
-> Now the vti_link_ops do not point the .dellink, rtnl_newlink will invoke
-> the default function, unregister_netdevice_queue, which will cause the
-> dev to unregister later. so when we delete a vti device, the net_device
-> will be removed, but the tunnel still in the tunnel list. then, we add
-> a new vti, in ip_tunnel_find():
->
->         hlist_for_each_entry_rcu(t, head, hash_node) {
->                 if (local == t->parms.iph.saddr &&
->                     remote == t->parms.iph.daddr &&
->                     link == t->parms.link &&
->                     type == t->dev->type &&
->                     ip_tunnel_key_match(&t->parms, flags, key))
->                         break;
->         }
->
-> the dev of ip_tunnel *t may be null because of unregister_netdevice_queue
-> motioned above. so the panic will happen:
+This fixes an old regression introduced by commit
+b0d0d915 (ipx: remove the BKL).
+
+When a recvmsg syscall blocks waiting for new data, no data can be sent on the
+same socket with sendmsg because ipx_recvmsg() sleeps with the socket locked.
+
+This breaks mars-nwe (NetWare emulator):
+- the ncpserv process reads the request using recvmsg
+- ncpserv forks and spawns nwconn
+- ncpserv calls a (blocking) recvmsg and waits for new requests
+- nwconn deadlocks in sendmsg on the same socket 
+
+Commit b0d0d915 has simply replaced BKL locking with
+lock_sock/release_sock. Unlike now, BKL got unlocked while
+sleeping, so a blocking recvmsg did not block a concurrent
+sendmsg.
+
+Only keep the socket locked while actually working with the socket data and
+release it prior to calling skb_recv_datagram(). 
 
 
-Are you sure? We call ->ndo_uninit() in unregister path, and vti tunnel
-has ip_tunnel_uninit() which removes non-fb tunnel from that list.
+Signed-off-by: Jiri Bohac <jbohac@suse.cz>
 
->
-> [ 3835.072977] IP: [<ffffffffa04103fd>] ip_tunnel_find+0x9d/0xc0 [ip_tunnel]
-> [ 3835.073008] PGD b2c21067 PUD b7277067 PMD 0
-> [ 3835.073008] Oops: 0000 [#1] SMP
-> .....
-> [ 3835.073008] Stack:
-> [ 3835.073008]  ffff8800b72d77f0 ffffffffa0411924 ffff8800bb956000 ffff8800b72d78e0
-> [ 3835.073008]  ffff8800b72d78a0 0000000000000000 ffffffffa040d100 ffff8800b72d7858
-> [ 3835.073008]  ffffffffa040b2e3 0000000000000000 0000000000000000 0000000000000000
-> [ 3835.073008] Call Trace:
-> [ 3835.073008]  [<ffffffffa0411924>] ip_tunnel_newlink+0x64/0x160 [ip_tunnel]
-> [ 3835.073008]  [<ffffffffa040b2e3>] vti_newlink+0x43/0x70 [ip_vti]
-> [ 3835.073008]  [<ffffffff8150d4da>] rtnl_newlink+0x4fa/0x5f0
-> [ 3835.073008]  [<ffffffff812f68bb>] ? nla_strlcpy+0x5b/0x70
-> [ 3835.073008]  [<ffffffff81508fb0>] ? rtnl_link_ops_get+0x40/0x60
-> [ 3835.073008]  [<ffffffff8150d11f>] ? rtnl_newlink+0x13f/0x5f0
-> [ 3835.073008]  [<ffffffff81509cf4>] rtnetlink_rcv_msg+0xa4/0x270
-> [ 3835.073008]  [<ffffffff8126adf5>] ? sock_has_perm+0x75/0x90
-> [ 3835.073008]  [<ffffffff81509c50>] ? rtnetlink_rcv+0x30/0x30
-> [ 3835.073008]  [<ffffffff81529e39>] netlink_rcv_skb+0xa9/0xc0
-> [ 3835.073008]  [<ffffffff81509c48>] rtnetlink_rcv+0x28/0x30
-> ....
->
-> the reproduction can be like this:
->
-> modprobe ip_vti
-> ip link del ip_vti0 type vti
-> ip link add ip_vti0 type vti
-> rmmod ip_vti
->
-> do that one or more time, kernel will panic.
-
-
->From your reproducer, I suspect the problem is we might miss
-some clean up for the fb device ip_vti0, not for every vti tunnel.
-Or maybe some race condition. Still digging.
+diff --git a/net/ipx/af_ipx.c b/net/ipx/af_ipx.c
+index 91729b8..1e0d796 100644
+--- a/net/ipx/af_ipx.c
++++ b/net/ipx/af_ipx.c
+@@ -1776,20 +1780,21 @@ static int ipx_recvmsg(struct kiocb *iocb, struct socket *sock,
+ #ifdef CONFIG_IPX_INTERN
+ 		rc = -ENETDOWN;
+ 		if (!ipxs->intrfc)
+-			goto out; /* Someone zonked the iface */
++			goto out_release; /* Someone zonked the iface */
+ 		memcpy(uaddr.sipx_node, ipxs->intrfc->if_node, IPX_NODE_LEN);
+ #endif	/* CONFIG_IPX_INTERN */
+ 
+ 		rc = __ipx_bind(sock, (struct sockaddr *)&uaddr,
+ 			      sizeof(struct sockaddr_ipx));
+ 		if (rc)
+-			goto out;
++			goto out_release;
+ 	}
+ 
+ 	rc = -ENOTCONN;
+ 	if (sock_flag(sk, SOCK_ZAPPED))
+-		goto out;
++		goto out_release;
+ 
++	release_sock(sk);
+ 	skb = skb_recv_datagram(sk, flags & ~MSG_DONTWAIT,
+ 				flags & MSG_DONTWAIT, &rc);
+ 	if (!skb) {
+@@ -1807,8 +1812,10 @@ static int ipx_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 
+ 	rc = skb_copy_datagram_iovec(skb, sizeof(struct ipxhdr), msg->msg_iov,
+ 				     copied);
+-	if (rc)
+-		goto out_free;
++	if (rc) {
++		skb_free_datagram(sk, skb);
++		goto out;
++	}
+ 	if (skb->tstamp.tv64)
+ 		sk->sk_stamp = skb->tstamp;
+ 
+@@ -1822,11 +1829,11 @@ static int ipx_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 		msg->msg_namelen	= sizeof(*sipx);
+ 	}
+ 	rc = copied;
++	goto out;
+ 
+-out_free:
+-	skb_free_datagram(sk, skb);
+-out:
++out_release:
+ 	release_sock(sk);
++out:
+ 	return rc;
+ }
+ 
+-- 
+Jiri Bohac <jbohac@suse.cz>
+SUSE Labs, SUSE CZ
