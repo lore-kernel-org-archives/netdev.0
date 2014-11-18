@@ -1,62 +1,72 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] fix #51791 - bug? mac 00:00:00:00:00:00 with natsemi
- DP83815 after driver load
-Date: Tue, 18 Nov 2014 15:49:17 -0500 (EST)
-Message-ID: <20141118.154917.171051693633411092.davem@davemloft.net>
-References: <trinity-1cec0308-6242-413f-a63f-b09cded30a4f-1416096326518@3capp-webde-bs03>
-	<trinity-9c3b63ff-f474-4d99-84d8-29034921bb3c-1416183467662@3capp-webde-bs06>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [RFC] situation with csum_and_copy_... API
+Date: Tue, 18 Nov 2014 12:49:13 -0800
+Message-ID: <CA+55aFxK0wj2LLp0WmhRsBZch8XfoYbzmbEeJaMpt=SDh5GBvw@mail.gmail.com>
+References: <20141118084745.GT7996@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: devzero@web.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56752 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755312AbaKRUtT convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Nov 2014 15:49:19 -0500
-In-Reply-To: <trinity-9c3b63ff-f474-4d99-84d8-29034921bb3c-1416183467662@3capp-webde-bs06>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Network Development <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Al Viro <viro@zeniv.linux.org.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141118084745.GT7996@ZenIV.linux.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: "Roland Kletzing" <devzero@web.de>
-Date: Mon, 17 Nov 2014 01:17:47 +0100
+On Tue, Nov 18, 2014 at 12:47 AM, Al Viro <viro@zeniv.linux.org.uk> wrote:
+> The minimal implementations would be
+>
+> __wsum csum_and_copy_from_user(const void __user *src, void *dst, int len,
+>                                __wsum sum, int *err_ptr)
+> {
+>         if (unlikely(copy_from_user(dst, src, len) < 0)) {
 
-> This one should fix Bugzilla #51791 (details below).=20
->=20
-> Natsemi driver does not read MAC correctly from eeprom, while natsemi=
--diag from nictools-pci does. Apparently, tt`s a timing issue in the ke=
-rnel driver.
->=20
-> According to ftp://ftp.gwdg.de/pub/linux/misc/donald.becker/diag/nats=
-emi-diag.c , eeprom_delay(ee_addr) is defined as follows:
->=20
-> /* Delay between EEPROM clock transitions.
->    This flushes the write buffer to prevent quick double-writes.
-> */
-> #define eeprom_delay(ee_addr) 	inl(ee_addr); inl(ee_addr)
->=20
-> while in the natsemi linux kernel driver, the delay is done this way =
-:
->=20
-> #define eeprom_delay(ee_addr)   readl(ee_addr)
->=20
-> , which results in the MAC being all zero`s.
->=20
-> So i simply added a second readl() to increase delay (instead of turn=
-ing into inl() as proposed before). This may look a little bit ugly, bu=
-t it`s fixing the problem for me.
->=20
-> I=B4m not sure how many natsemi users being left on this planet (prob=
-ably few), but i guess this change does not do any harm on platforms wh=
-ere the driver does not behave buggy, so please consider adding it to m=
-ainline/stable/longterm.
->=20
-> Signed-off-by: Roland Kletzing <devzero@web.de>
+No. That "< 0" should be "!= 0". The user copy functions return a
+positive value of how many bytes they *failed* to copy.
 
-Please post your patch as a clean new email, without quoting things
-after your signoff etc.
+> Note that we are *not* guaranteed that *err_ptr is touched in case of success
+> - not all architectures zero it in that case.  Callers must (and do) zero it
+> before the call of csum_and_copy_{from,to}_user().  Furthermore, return value
+> in case of error is undefined.
 
-Also, please break your lines up to 80 columns max.
+Yeah, easy to misuse.
 
-Thanks.
+> IMO the calling conventions are atrocious.
+
+Yeah, not pretty. At the same time, the pain of changing what seems to
+work might not be worth it.
+
+And quite frankly, I *detest* your patch 3/5.
+
+"access_ok()" isn't that expensive, and removing them as unnecessary
+is fraught with errors. We've had several cases of "oops, we used
+__get_user() in a loop, because it generates much better code, but
+we'd forgotten to do access_ok(), so now people can read kernel data".
+
+I really think that
+
+ (a) using "__get_user/__put_user/__memcpy_from/to_user" should be
+avoided unless there is a clear and present performance issue
+
+ (b) when that performance issue is clear and unmistakable, you should
+generally have the "access_ok()" check *locally* to the use of unsafe
+ops, so that you can *locally* see that it's safe.
+
+ (c) if there is some upper-level check (ie the normal read/write
+paths that make *sure* the addresses are fine), and there is some huge
+performance issue that means that the local checks would be a problem,
+then we should have a big comment about exactly where the checks are
+done.
+
+Your 3/5 violates pretty much all of these, imho.
+
+The rest of the patches I have nothing against. I'm a bit worried that
+this is stuff that can easily get stupid thinkos (ie exactly due to
+things like the argument order thing), and I wonder how much it buys
+us, but at least it seems to generally remove more lines than it adds,
+and cleans some stuff up, so I'm not against it.
+
+                    Linus
+
+                 Linus
