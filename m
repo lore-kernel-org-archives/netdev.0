@@ -1,46 +1,44 @@
-From: rapier <rapier@psc.edu>
-Subject: Re: Question about Patch Submissions
-Date: Tue, 18 Nov 2014 15:39:17 -0500
-Message-ID: <546BAE75.7080802@psc.edu>
-References: <546B9A45.9040509@psc.edu> <CAHA+R7P-G4P-AzTM248FqNEm=dcuQOB_fwdM0Us3gsQgSeY0UQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Cong Wang <cwang@twopensource.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer1.psc.edu ([128.182.58.100]:57185 "EHLO mailer1.psc.edu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932426AbaKRUjT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Nov 2014 15:39:19 -0500
-In-Reply-To: <CAHA+R7P-G4P-AzTM248FqNEm=dcuQOB_fwdM0Us3gsQgSeY0UQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: [PATCH 02/17] can: dev: fix typo CIA -> CiA, CAN in Automation
+Date: Tue, 18 Nov 2014 21:37:32 +0100
+Message-ID: <1416343067-9810-3-git-send-email-mkl@pengutronix.de>
+References: <1416343067-9810-1-git-send-email-mkl@pengutronix.de>
+Cc: davem@davemloft.net, linux-can@vger.kernel.org,
+	kernel@pengutronix.de, Roman Fietze <roman.fietze@telemotive.de>,
+	Marc Kleine-Budde <mkl@pengutronix.de>
+To: netdev@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1416343067-9810-1-git-send-email-mkl@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Cong,
+From: Roman Fietze <roman.fietze@telemotive.de>
 
-Thanks for the response.
+This patch fixes a typo in CAN's dev.c:
 
-It's a pretty extensive patch set and we're trying to make sure it makes 
-sense in context. It touches quite a few files and they're mostly 
-interdependent. That's why we're having problems trying to figure out 
-how to break this down for presentation. We can make sure each section 
-of the patch applies cleanly but the entirety of the patch set would 
-have to be applied for it to compile.
+    CIA -> CiA
 
-Chris
+which stands for CAN in Automation.
 
-On 11/18/14, 3:21 PM, Cong Wang wrote:
-> On Tue, Nov 18, 2014 at 11:13 AM, rapier <rapier@psc.edu> wrote:
->> I've read the documentation I've been able to find on the patch submission
->> process. I was hoping to clarify one thing though. When submitting a patch
->> that spans multiple files and functions is it better to break the submission
->> down by function or by file?
->>
->
-> It depends on what you change, if your patch is trivial, say just cleaning up
-> whitespaces, or a big single patch doesn't harm review, it is okay not
-> to split it.
-> Otherwise, probably you need to split it logically, each of which needs to at
-> least compile.
->
+Signed-off-by: Roman Fietze <roman.fietze@telemotive.de>
+Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+---
+ drivers/net/can/dev.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/can/dev.c b/drivers/net/can/dev.c
+index 509d5e063d8c..2cfe5012e4e5 100644
+--- a/drivers/net/can/dev.c
++++ b/drivers/net/can/dev.c
+@@ -110,7 +110,7 @@ static int can_calc_bittiming(struct net_device *dev, struct can_bittiming *bt,
+ 	long rate;
+ 	u64 v64;
+ 
+-	/* Use CIA recommended sample points */
++	/* Use CiA recommended sample points */
+ 	if (bt->sample_point) {
+ 		sampl_pt = bt->sample_point;
+ 	} else {
+-- 
+2.1.3
+
