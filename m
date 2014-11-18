@@ -1,94 +1,115 @@
-From: Amos Kong <akong@redhat.com>
-Subject: Re: [PATCH net-next] tun: return NET_XMIT_DROP for dropped packets
-Date: Wed, 19 Nov 2014 00:53:59 +0800
-Message-ID: <20141118165359.GA18636@air.redhat.com>
-References: <1416288041-30921-1-git-send-email-jasowang@redhat.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH] [net]ip_tunnel: the lack of vti_link_ops' dellink() cause
+ kernel panic
+Date: Tue, 18 Nov 2014 18:23:31 +0100
+Message-ID: <546B8093.4080507@6wind.com>
+References: <1416307059-32732-1-git-send-email-lucien.xin@gmail.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="4Ckj6UjgE2iN1+kY"
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1416288041-30921-1-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Steffen Klassert <steffen.klassert@secunet.com>
+To: Xin Long <lucien.xin@gmail.com>,
+	network dev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f170.google.com ([209.85.212.170]:35722 "EHLO
+	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932092AbaKRRXe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Nov 2014 12:23:34 -0500
+Received: by mail-wi0-f170.google.com with SMTP id bs8so7000655wib.5
+        for <netdev@vger.kernel.org>; Tue, 18 Nov 2014 09:23:33 -0800 (PST)
+In-Reply-To: <1416307059-32732-1-git-send-email-lucien.xin@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Le 18/11/2014 11:37, Xin Long a =C3=A9crit :
+> Now the vti_link_ops do not point the .dellink, rtnl_newlink will inv=
+oke
+> the default function, unregister_netdevice_queue, which will cause th=
+e
+> dev to unregister later. so when we delete a vti device, the net_devi=
+ce
+> will be removed, but the tunnel still in the tunnel list. then, we ad=
+d
+> a new vti, in ip_tunnel_find():
+>
+>          hlist_for_each_entry_rcu(t, head, hash_node) {
+>                  if (local =3D=3D t->parms.iph.saddr &&
+>                      remote =3D=3D t->parms.iph.daddr &&
+>                      link =3D=3D t->parms.link &&
+>                      type =3D=3D t->dev->type &&
+>                      ip_tunnel_key_match(&t->parms, flags, key))
+>                          break;
+>          }
+>
+> the dev of ip_tunnel *t may be null because of unregister_netdevice_q=
+ueue
+> motioned above. so the panic will happen:
+>
+> [ 3835.072977] IP: [<ffffffffa04103fd>] ip_tunnel_find+0x9d/0xc0 [ip_=
+tunnel]
+> [ 3835.073008] PGD b2c21067 PUD b7277067 PMD 0
+> [ 3835.073008] Oops: 0000 [#1] SMP
+> .....
+> [ 3835.073008] Stack:
+> [ 3835.073008]  ffff8800b72d77f0 ffffffffa0411924 ffff8800bb956000 ff=
+ff8800b72d78e0
+> [ 3835.073008]  ffff8800b72d78a0 0000000000000000 ffffffffa040d100 ff=
+ff8800b72d7858
+> [ 3835.073008]  ffffffffa040b2e3 0000000000000000 0000000000000000 00=
+00000000000000
+> [ 3835.073008] Call Trace:
+> [ 3835.073008]  [<ffffffffa0411924>] ip_tunnel_newlink+0x64/0x160 [ip=
+_tunnel]
+> [ 3835.073008]  [<ffffffffa040b2e3>] vti_newlink+0x43/0x70 [ip_vti]
+> [ 3835.073008]  [<ffffffff8150d4da>] rtnl_newlink+0x4fa/0x5f0
+> [ 3835.073008]  [<ffffffff812f68bb>] ? nla_strlcpy+0x5b/0x70
+> [ 3835.073008]  [<ffffffff81508fb0>] ? rtnl_link_ops_get+0x40/0x60
+> [ 3835.073008]  [<ffffffff8150d11f>] ? rtnl_newlink+0x13f/0x5f0
+> [ 3835.073008]  [<ffffffff81509cf4>] rtnetlink_rcv_msg+0xa4/0x270
+> [ 3835.073008]  [<ffffffff8126adf5>] ? sock_has_perm+0x75/0x90
+> [ 3835.073008]  [<ffffffff81509c50>] ? rtnetlink_rcv+0x30/0x30
+> [ 3835.073008]  [<ffffffff81529e39>] netlink_rcv_skb+0xa9/0xc0
+> [ 3835.073008]  [<ffffffff81509c48>] rtnetlink_rcv+0x28/0x30
+> ....
+>
+> the reproduction can be like this:
+>
+> modprobe ip_vti
+> ip link del ip_vti0 type vti
+> ip link add ip_vti0 type vti
+> rmmod ip_vti
+>
+> do that one or more time, kernel will panic.
+>
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+A quick look at the ipv6 side seems to show that there is the same prob=
+lem. Can
+you provide the IPv6 patch too?
 
---4Ckj6UjgE2iN1+kY
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Note also that the maintainer of this module is Steffen Klassert, pleas=
+e don't
+forget to CC him.
 
-On Tue, Nov 18, 2014 at 01:20:41PM +0800, Jason Wang wrote:
-> After commit 5d097109257c03a71845729f8db6b5770c4bbedc
-> ("tun: only queue packets on device"), NETDEV_TX_OK was returned for
-> dropped packets. This will confuse pktgen since dropped packets were
-> counted as sent ones.
->=20
-> Fixing this by returning NET_XMIT_DROP to let pktgen count it as error
-> packet.
->=20
-> Cc: Michael S. Tsirkin <mst@redhat.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
 > ---
->  drivers/net/tun.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->=20
-> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> index e3fa65a..ac53a73 100644
-> --- a/drivers/net/tun.c
-> +++ b/drivers/net/tun.c
-> @@ -819,7 +819,7 @@ drop:
->  	skb_tx_error(skb);
->  	kfree_skb(skb);
->  	rcu_read_unlock();
-> -	return NETDEV_TX_OK;
-> +	return NET_XMIT_DROP;
+>   net/ipv4/ip_vti.c | 1 +
+>   1 file changed, 1 insertion(+)
+>
+> diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
+> index 3e86101..1a7e979 100644
+> --- a/net/ipv4/ip_vti.c
+> +++ b/net/ipv4/ip_vti.c
+> @@ -528,6 +528,7 @@ static struct rtnl_link_ops vti_link_ops __read_m=
+ostly =3D {
+>   	.validate	=3D vti_tunnel_validate,
+>   	.newlink	=3D vti_newlink,
+>   	.changelink	=3D vti_changelink,
+> +	.dellink        =3D ip_tunnel_dellink,
+Nitpicking: other lines into this struct uses tabs to align the '=3D', =
+but
+the one you add uses spaces.
 
-Quoted from linux/drivers/firewire/net.c:
 
-  /*
-   * FIXME: According to a patch from 2003-02-26, "returning non-zero
-   * causes serious problems" here, allegedly.  Before that patch,
-   * -ERRNO was returned which is not appropriate under Linux 2.6.
-   * Perhaps more needs to be done?  Stop the queue in serious
-   * conditions and restart it elsewhere?
-   */
-
-I saw many drivers return NETDEV_TX_OK in xmit for drop packets, eg: virtio=
-_net.c
-
->  }
-> =20
->  static void tun_net_mclist(struct net_device *dev)
-> --=20
-> 1.9.1
-
---=20
-			Amos.
-
---4Ckj6UjgE2iN1+kY
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJUa3mnAAoJELxSv6I5vP9jNM8P/1xRnuF/aufE6HbA/VcK0X1x
-AK/SIhc9b/vZ7UxU19kBHXMuvEEmyKhhQEqOYxIPIEXfaKuVBOq0rqfIIknFbQiK
-V1Km99ltlk+nq2mBbadGLm/l2Y3ZiACGShlbZisWhQL1QkR8gC3OGZGfJ0I/5QWd
-f4woJQD1w3K033Re6YG8WUCf0+NOXPF1VfT8emD38KktuhPIO5rpIP3kVxI/7uVJ
-s/ZxFYIIs6w6vrU9gaf2NZrNPuAjjtuAPRmk6yDjaBWQvjxgMKuQ0Nw0jh47kkdm
-IXYAlagvxRbbe2StduayjpuSFZbWJhfBs0ubC+nKeOV2Cr+QWSQcSTddareDWYFk
-SKEUcNjdSPOOCdPut1c/4g+jbdhKhhIliZV981DOu133/wUGhH7uCMO6rqlFw24I
-O6BGccl9YovTGcNbQMG+SQx6giB3zw5kLS5inmfjJHh4vlbuBSEMbfArIm7tzRwD
-UDdqpla50XUT/U7SVD29hjcLNP1jtZgM7yI9qXkoQ8o1SqrWWiDd1DNnpeU1ris/
-SoiNxf7jzREPIFfsVcAihc6U+HrraS9XyEY9JrHBjMRXIrcnmZ0sZwQ1csutyn1c
-r9mU3y2Heh8G4wmuQYIhz15KlzAwUO7PELUpjz15IGbZIihQuUD4YovCGU+nEdgu
-zSEFdXhurBLxpc9iF9zM
-=MFYZ
------END PGP SIGNATURE-----
-
---4Ckj6UjgE2iN1+kY--
+Thank you,
+Nicolas
