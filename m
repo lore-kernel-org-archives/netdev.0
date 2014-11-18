@@ -1,60 +1,74 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 01/11] i40e: only warn once of PTP nonsupport in 100Mbit speed
-Date: Tue, 18 Nov 2014 01:25:21 -0800
-Message-ID: <1416302731-11327-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 02/11] i40e: re-enable VFLR interrupt sooner
+Date: Tue, 18 Nov 2014 01:25:22 -0800
+Message-ID: <1416302731-11327-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1416302731-11327-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:62412 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:62411 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753818AbaKRJZf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753892AbaKRJZf (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 18 Nov 2014 04:25:35 -0500
 In-Reply-To: <1416302731-11327-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-Only warn once that PTP is not supported when linked at 100Mbit.
+VF interrupt processing takes a looooong time, and it's possible that we
+could lose a VFLR event if it happens while we're processing a VFLR on
+another VF. This would leave the VF in a semi-permanent reset state,
+which would not be cleared until yet another VF experiences a VFLR.
 
-Yes, using a static this way means that this once-only message is not
-port specific, but once only for the life of the driver, regardless of
-the number of ports.  That should be plenty.
+To correct this situation, we enable the VFLR interrupt cause before we
+begin processing any pending resets. This means that any VFLR that
+occurs during reset processing will generate another interrupt and this
+routine will get called again.
 
-Change-ID: Ie6476530056df408452e195ef06afd4f57caa4b2
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+This change may cause a spurious interrupt when multiple VFLRs occur
+very close together in time. If this happens, then this routine will be
+called again and it will detect no outstanding VFLR events and do
+nothing. No harm, no foul.
+
+Change-ID: Id0451f3e6e73a2cf6db1668296c71e129b59dc19
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_ptp.c | 12 +++++++++---
- 1 file changed, 9 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ptp.c b/drivers/net/ethernet/intel/i40e/i40e_ptp.c
-index 537b621..f9151037 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ptp.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ptp.c
-@@ -382,11 +382,17 @@ void i40e_ptp_set_increment(struct i40e_pf *pf)
- 		incval = I40E_PTP_1GB_INCVAL;
- 		break;
- 	case I40E_LINK_SPEED_100MB:
--		dev_warn(&pf->pdev->dev,
--			 "%s: 1588 functionality is not supported at 100 Mbps. Stopping the PHC.\n",
--			 __func__);
-+	{
-+		static int warn_once;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index fff3c27..668d860 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -1869,6 +1869,12 @@ int i40e_vc_process_vflr_event(struct i40e_pf *pf)
+ 	if (!test_bit(__I40E_VFLR_EVENT_PENDING, &pf->state))
+ 		return 0;
+ 
++	/* re-enable vflr interrupt cause */
++	reg = rd32(hw, I40E_PFINT_ICR0_ENA);
++	reg |= I40E_PFINT_ICR0_ENA_VFLR_MASK;
++	wr32(hw, I40E_PFINT_ICR0_ENA, reg);
++	i40e_flush(hw);
 +
-+		if (!warn_once) {
-+			dev_warn(&pf->pdev->dev,
-+				 "1588 functionality is not supported at 100 Mbps. Stopping the PHC.\n");
-+			warn_once++;
-+		}
- 		incval = 0;
- 		break;
-+	}
- 	case I40E_LINK_SPEED_40GB:
- 	default:
- 		incval = I40E_PTP_40GB_INCVAL;
+ 	clear_bit(__I40E_VFLR_EVENT_PENDING, &pf->state);
+ 	for (vf_id = 0; vf_id < pf->num_alloc_vfs; vf_id++) {
+ 		reg_idx = (hw->func_caps.vf_base_id + vf_id) / 32;
+@@ -1885,12 +1891,6 @@ int i40e_vc_process_vflr_event(struct i40e_pf *pf)
+ 		}
+ 	}
+ 
+-	/* re-enable vflr interrupt cause */
+-	reg = rd32(hw, I40E_PFINT_ICR0_ENA);
+-	reg |= I40E_PFINT_ICR0_ENA_VFLR_MASK;
+-	wr32(hw, I40E_PFINT_ICR0_ENA, reg);
+-	i40e_flush(hw);
+-
+ 	return 0;
+ }
+ 
 -- 
 1.9.3
