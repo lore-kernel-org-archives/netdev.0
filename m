@@ -1,63 +1,65 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next v2 00/11][pull request] Intel Wired LAN Driver
- Updates 2014-11-18
-Date: Tue, 18 Nov 2014 13:38:29 -0500 (EST)
-Message-ID: <20141118.133829.2246481313976384106.davem@davemloft.net>
-References: <1416302731-11327-1-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Joe Stringer <joestringer-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH net] openvswitch: Fix mask generation for IPv6
+	labels.
+Date: Tue, 18 Nov 2014 10:54:17 -0800
+Message-ID: <1416336857-61405-1-git-send-email-joestringer@nicira.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55447 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754460AbaKRSif (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Nov 2014 13:38:35 -0500
-In-Reply-To: <1416302731-11327-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Tue, 18 Nov 2014 01:25:20 -0800
-
-> This series contains updates to i40e only.
-> 
-> Shannon provides a patch to clean up the driver to only warn once that
-> PTP is not supported when linked at 100Mbps.
-> 
-> Mitch provides a fix for i40e where the VF interrupt processing takes
-> a long time and it is possible that we could lose a VFLR event if it
-> happens while processing a VFLR on another VF.  To correct this situation,
-> we enable the VFLR interrupt cause before we begin processing any pending
-> resets.
-> 
-> Neerav provides several patches to update DCB support in i40e.  When
-> there are DCB configuration changes based on DCBx, the firmware suspends
-> the port's Tx and generates an event to the PF.  The PF is then
-> responsible to reconfigure the PF VSIs and switching topology as per the
-> updated DCB configuration and then resume the port's Tx by calling the
-> "Resume Port Tx" AQ command, so add this call to the flow that handles
-> DCB re-configuration in the PF.  Allow the driver to query and use DCB
-> configuration from firmware when firmware DCBx agent is in CEE mode.
-> Add a check whether LLDP Agent's default AdminStatus is enabled or
-> disabled on a given port, and sets DCBx status to disabled if the
-> status is disabled.  Fix an issue when the port TC configuration
-> changes as a result of DCBx and the driver modifies the enabled TCs for
-> the VEBs it manages but does not update the enabled_tc value that 
-> was cached on a per VEB basis.  Add a new PF state so that if a port's
-> Tx is in suspended state the Tx queue disable flow would just put the
-> request for the queue to be disabled and return without waiting for the
-> queue to be actually disabled.  Allows the driver to enable/disable
-> the XPS based on the number of TCs being enabled for the given VSI.
-
-Pulled, thanks Jeff.
-
-> v2: Dropped patch "i40e: Handle a single mss packet with more than 8 frags"
->     while we rework the patch after we test a bit more based on feedback from 
->     Eric Dumazet.
-
-Since, as Eric showed, it's easy to hang the card with a simple
-netperf command line due to this issue, you might want to consider
-sending that fix to 'net' instead.
+V2hlbiB1c2Vyc3BhY2UgZG9lc24ndCBwcm92aWRlIGEgbWFzaywgT1ZTIGRhdGFwYXRoIGdlbmVy
+YXRlcyBhIGZ1bGx5CnVud2lsZGNhcmRlZCBtYXNrIGZvciB0aGUgZmxvdy4gVGhpcyBpcyBkb25l
+IGJ5IHRha2luZyBhIGNvcHkgb2YgdGhlCmZsb3cga2V5LCB0aGVuIGl0ZXJhdGluZyBhY3Jvc3Mg
+aXRzIGF0dHJpYnV0ZXMsIHNldHRpbmcgYWxsIHZhbHVlcyB0bwoweGZmLiBUaGlzIHdvcmtzIGZv
+ciBtb3N0IGF0dHJpYnV0ZXMsIGFzIHRoZSBsZW5ndGggb2YgdGhlIG5ldGxpbmsKYXR0cmlidXRl
+IHR5cGljYWxseSBtYXRjaGVzIHRoZSBsZW5ndGggb2YgdGhlIHZhbHVlLiBIb3dldmVyLCBJUHY2
+CmxhYmVscyBvbmx5IHVzZSB0aGUgbG93ZXIgMjAgYml0cyBvZiB0aGUgZmllbGQuIFRoaXMgcGF0
+Y2ggbWFrZXMgYQpzcGVjaWFsIGNhc2UgdG8gaGFuZGxlIHRoaXMuCgpUaGlzIGZpeGVzIHRoZSBm
+b2xsb3dpbmcgZXJyb3Igc2VlbiB3aGVuIGluc3RhbGxpbmcgSVB2NiBmbG93cyB3aXRob3V0IGEg
+bWFzazoKCm9wZW52c3dpdGNoOiBuZXRsaW5rOiBJbnZhbGlkIElQdjYgZmxvdyBsYWJlbCB2YWx1
+ZSAodmFsdWU9ZmZmZmZmZmYsIG1heD1mZmZmZikKClNpZ25lZC1vZmYtYnk6IEpvZSBTdHJpbmdl
+ciA8am9lc3RyaW5nZXJAbmljaXJhLmNvbT4KLS0tCiBuZXQvb3BlbnZzd2l0Y2gvZmxvd19uZXRs
+aW5rLmMgfCAgIDIyICsrKysrKysrKysrKy0tLS0tLS0tLS0KIDEgZmlsZSBjaGFuZ2VkLCAxMiBp
+bnNlcnRpb25zKCspLCAxMCBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQgYS9uZXQvb3BlbnZzd2l0
+Y2gvZmxvd19uZXRsaW5rLmMgYi9uZXQvb3BlbnZzd2l0Y2gvZmxvd19uZXRsaW5rLmMKaW5kZXgg
+ZmE0ZWMyZS4uN2E1YjI4ZiAxMDA2NDQKLS0tIGEvbmV0L29wZW52c3dpdGNoL2Zsb3dfbmV0bGlu
+ay5jCisrKyBiL25ldC9vcGVudnN3aXRjaC9mbG93X25ldGxpbmsuYwpAQCAtODI1LDcgKzgyNSw3
+IEBAIHN0YXRpYyBpbnQgb3ZzX2tleV9mcm9tX25sYXR0cnMoc3RydWN0IHN3X2Zsb3dfbWF0Y2gg
+Km1hdGNoLCB1NjQgYXR0cnMsCiAJcmV0dXJuIDA7CiB9CiAKLXN0YXRpYyB2b2lkIG5sYXR0cl9z
+ZXQoc3RydWN0IG5sYXR0ciAqYXR0ciwgdTggdmFsLCBib29sIGlzX2F0dHJfbWFza19rZXkpCitz
+dGF0aWMgdm9pZCBtYXNrX3NldF9ubGF0dHIoc3RydWN0IG5sYXR0ciAqYXR0cikKIHsKIAlzdHJ1
+Y3QgbmxhdHRyICpubGE7CiAJaW50IHJlbTsKQEAgLTgzNSwxNiArODM1LDE4IEBAIHN0YXRpYyB2
+b2lkIG5sYXR0cl9zZXQoc3RydWN0IG5sYXR0ciAqYXR0ciwgdTggdmFsLCBib29sIGlzX2F0dHJf
+bWFza19rZXkpCiAJCS8qIFdlIGFzc3VtZSB0aGF0IG92c19rZXlfbGVuc1t0eXBlXSA9PSAtMSBt
+ZWFucyB0aGF0IHR5cGUgaXMgYQogCQkgKiBuZXN0ZWQgYXR0cmlidXRlCiAJCSAqLwotCQlpZiAo
+aXNfYXR0cl9tYXNrX2tleSAmJiBvdnNfa2V5X2xlbnNbbmxhX3R5cGUobmxhKV0gPT0gLTEpCi0J
+CQlubGF0dHJfc2V0KG5sYSwgdmFsLCBmYWxzZSk7CisJCWlmIChvdnNfa2V5X2xlbnNbbmxhX3R5
+cGUobmxhKV0gPT0gLTEpCisJCQlubGFfZm9yX2VhY2hfbmVzdGVkKG5sYSwgYXR0ciwgcmVtKQor
+CQkJCW1lbXNldChubGFfZGF0YShubGEpLCAweGZmLCBubGFfbGVuKG5sYSkpOwogCQllbHNlCi0J
+CQltZW1zZXQobmxhX2RhdGEobmxhKSwgdmFsLCBubGFfbGVuKG5sYSkpOwotCX0KLX0KKwkJCW1l
+bXNldChubGFfZGF0YShubGEpLCAweGZmLCBubGFfbGVuKG5sYSkpOwogCi1zdGF0aWMgdm9pZCBt
+YXNrX3NldF9ubGF0dHIoc3RydWN0IG5sYXR0ciAqYXR0ciwgdTggdmFsKQotewotCW5sYXR0cl9z
+ZXQoYXR0ciwgdmFsLCB0cnVlKTsKKwkJaWYgKG5sYV90eXBlKG5sYSkgPT0gT1ZTX0tFWV9BVFRS
+X0lQVjYpIHsKKwkJCXN0cnVjdCBvdnNfa2V5X2lwdjYgKmlwdjZfa2V5ID0gbmxhX2RhdGEobmxh
+KTsKKworCQkJaXB2Nl9rZXktPmlwdjZfbGFiZWwgJj0gaHRvbmwoMHgwMDBGRkZGRik7CisJCX0K
+Kwl9CiB9CiAKIC8qKgpAQCAtOTI2LDcgKzkyOCw3IEBAIGludCBvdnNfbmxhX2dldF9tYXRjaChz
+dHJ1Y3Qgc3dfZmxvd19tYXRjaCAqbWF0Y2gsCiAJCWlmICghbmV3bWFzaykKIAkJCXJldHVybiAt
+RU5PTUVNOwogCi0JCW1hc2tfc2V0X25sYXR0cihuZXdtYXNrLCAweGZmKTsKKwkJbWFza19zZXRf
+bmxhdHRyKG5ld21hc2spOwogCiAJCS8qIFRoZSB1c2Vyc3BhY2UgZG9lcyBub3Qgc2VuZCB0dW5u
+ZWwgYXR0cmlidXRlcyB0aGF0IGFyZSAwLAogCQkgKiBidXQgd2Ugc2hvdWxkIG5vdCB3aWxkY2Fy
+ZCB0aGVtIG5vbmV0aGVsZXNzLgotLSAKMS43LjEwLjQKCl9fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNo
+Lm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
