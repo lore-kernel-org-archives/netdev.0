@@ -1,43 +1,117 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [PATCH] ipv6: delete protocol when cleanup
-Date: Tue, 18 Nov 2014 11:46:30 -0800
-Message-ID: <CAHA+R7OUBqy+vE9my4XFnk6S7gYjDrK+5Cmx9H8G=UvLXtL6HA@mail.gmail.com>
-References: <546B20F8.6010806@cn.fujitsu.com>
-	<CAHA+R7PNmac7KQpSK-vO9zVd3+926f6n_GpaGrbpBnSn98xiyQ@mail.gmail.com>
-	<1416338055.14060.24.camel@edumazet-glaptop2.roam.corp.google.com>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: [PATCH 1/1] netfilter: Deletion of unnecessary checks before two
+ function calls
+Date: Tue, 18 Nov 2014 20:47:31 +0100
+Message-ID: <546BA253.6030100@users.sourceforge.net>
+References: <5307CAA2.8060406@users.sourceforge.net> <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6> <530A086E.8010901@users.sourceforge.net> <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6> <530A72AA.3000601@users.sourceforge.net> <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6> <530B5FB6.6010207@users.sourceforge.net> <alpine.DEB.2.10.1402241710370.2074@hadrien> <530C5E18.1020800@users.sourceforge.net> <alpine.DEB.2.10.1402251014170.2080@hadrien> <530CD2C4.4050903@users.sourceforge.net> <alpine.DEB.2.10.1402251840450.7035@hadrien> <530CF8FF.8080600@users.sourceforge.net> <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6> <530DD06F.4090703@users.sourceforge.net> <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6> <5317A59D.4@users.so
+ urceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Duan Jiong <duanj.fnst@cn.fujitsu.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f172.google.com ([209.85.216.172]:59306 "EHLO
-	mail-qc0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932132AbaKRTqb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Nov 2014 14:46:31 -0500
-Received: by mail-qc0-f172.google.com with SMTP id m20so5346184qcx.17
-        for <netdev@vger.kernel.org>; Tue, 18 Nov 2014 11:46:30 -0800 (PST)
-In-Reply-To: <1416338055.14060.24.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org, Coccinelle <cocci@systeme.lip6.fr>
+To: "David S. Miller" <davem@davemloft.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	Julian Anastasov <ja@ssi.bg>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Simon Horman <horms@verge.net.au>,
+	Wensong Zhang <wensong@linux-vs.org>, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	coreteam@netfilter.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <5317A59D.4@users.sourceforge.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 18, 2014 at 11:14 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Tue, 2014-11-18 at 10:56 -0800, Cong Wang wrote:
->> On Tue, Nov 18, 2014 at 2:35 AM, Duan Jiong <duanj.fnst@cn.fujitsu.com> wrote:
->> >
->> > pim6_protocol was added when initiation, but it not deleted.
->> >
->> > Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
->
-> ...
->
->> Looks like rtnl_unregister() is missing as well.
->
-> Is it really worth bothering ?
->
-> May I remind you we took the decision one year ago to not bother about
-> removing ipv6 module.
->
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Tue, 18 Nov 2014 20:37:05 +0100
 
-It is still called in error path of init, so just for completeness.
+The functions free_percpu() and module_put() test whether their argument
+is NULL and then return immediately. Thus the test around the call is
+not needed.
+
+This issue was detected by using the Coccinelle software.
+
+Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+---
+ net/netfilter/ipvs/ip_vs_ctl.c   | 3 +--
+ net/netfilter/ipvs/ip_vs_pe.c    | 3 +--
+ net/netfilter/ipvs/ip_vs_sched.c | 3 +--
+ net/netfilter/ipvs/ip_vs_sync.c  | 3 +--
+ net/netfilter/nf_tables_api.c    | 3 +--
+ 5 files changed, 5 insertions(+), 10 deletions(-)
+
+diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+index fd3f444..7c5e40a 100644
+--- a/net/netfilter/ipvs/ip_vs_ctl.c
++++ b/net/netfilter/ipvs/ip_vs_ctl.c
+@@ -465,8 +465,7 @@ __ip_vs_bind_svc(struct ip_vs_dest *dest, struct ip_vs_service *svc)
+ 
+ static void ip_vs_service_free(struct ip_vs_service *svc)
+ {
+-	if (svc->stats.cpustats)
+-		free_percpu(svc->stats.cpustats);
++	free_percpu(svc->stats.cpustats);
+ 	kfree(svc);
+ }
+ 
+diff --git a/net/netfilter/ipvs/ip_vs_pe.c b/net/netfilter/ipvs/ip_vs_pe.c
+index 1a82b29..0df17ca 100644
+--- a/net/netfilter/ipvs/ip_vs_pe.c
++++ b/net/netfilter/ipvs/ip_vs_pe.c
+@@ -37,8 +37,7 @@ struct ip_vs_pe *__ip_vs_pe_getbyname(const char *pe_name)
+ 			rcu_read_unlock();
+ 			return pe;
+ 		}
+-		if (pe->module)
+-			module_put(pe->module);
++		module_put(pe->module);
+ 	}
+ 	rcu_read_unlock();
+ 
+diff --git a/net/netfilter/ipvs/ip_vs_sched.c b/net/netfilter/ipvs/ip_vs_sched.c
+index 4dbcda6..199760c 100644
+--- a/net/netfilter/ipvs/ip_vs_sched.c
++++ b/net/netfilter/ipvs/ip_vs_sched.c
+@@ -104,8 +104,7 @@ static struct ip_vs_scheduler *ip_vs_sched_getbyname(const char *sched_name)
+ 			mutex_unlock(&ip_vs_sched_mutex);
+ 			return sched;
+ 		}
+-		if (sched->module)
+-			module_put(sched->module);
++		module_put(sched->module);
+ 	}
+ 
+ 	mutex_unlock(&ip_vs_sched_mutex);
+diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
+index eadffb2..cafe28d 100644
+--- a/net/netfilter/ipvs/ip_vs_sync.c
++++ b/net/netfilter/ipvs/ip_vs_sync.c
+@@ -820,8 +820,7 @@ ip_vs_conn_fill_param_sync(struct net *net, int af, union ip_vs_sync_conn *sc,
+ 
+ 		p->pe_data = kmemdup(pe_data, pe_data_len, GFP_ATOMIC);
+ 		if (!p->pe_data) {
+-			if (p->pe->module)
+-				module_put(p->pe->module);
++			module_put(p->pe->module);
+ 			return -ENOMEM;
+ 		}
+ 		p->pe_data_len = pe_data_len;
+diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
+index deeb95f..b115f54 100644
+--- a/net/netfilter/nf_tables_api.c
++++ b/net/netfilter/nf_tables_api.c
+@@ -3472,8 +3472,7 @@ static int nf_tables_abort(struct sk_buff *skb)
+ 			break;
+ 		case NFT_MSG_NEWCHAIN:
+ 			if (nft_trans_chain_update(trans)) {
+-				if (nft_trans_chain_stats(trans))
+-					free_percpu(nft_trans_chain_stats(trans));
++				free_percpu(nft_trans_chain_stats(trans));
+ 
+ 				nft_trans_destroy(trans);
+ 			} else {
+-- 
+2.1.3
+
