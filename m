@@ -1,67 +1,73 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH 2/4] arch: Add lightweight memory barriers fast_rmb()
- and fast_wmb()
-Date: Wed, 19 Nov 2014 08:07:53 +1100
-Message-ID: <1416344873.5704.12.camel@kernel.crashing.org>
-References: <20141117171005.22333.96544.stgit@ahduyck-server>
-	 <20141117171812.22333.90395.stgit@ahduyck-server>
-	 <1416254687.18381.3.camel@kernel.crashing.org> <546A5968.1090201@gmail.com>
-	 <1416271167.18381.16.camel@kernel.crashing.org>
-	 <546AB959.1020602@redhat.com>
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Subject: Re: [PATCH v4 0/4] Add lightweight memory barriers for coherent memory
+ access
+Date: Tue, 18 Nov 2014 14:47:15 -0800
+Message-ID: <546BCC73.3050903@redhat.com>
+References: <20141118172644.26303.37688.stgit@ahduyck-server> <CA+55aFw3ygP8UEF1vidWdjBUEkqXOELCPkpjLMD-X=vXXQEGOQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Alexander Duyck <alexander.duyck@gmail.com>,
-	linux-arch@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mathieu.desnoyers@polymtl.ca,
-	peterz@infradead.org, heiko.carstens@de.ibm.com, mingo@kernel.org,
-	mikey@neuling.org, linux@arm.linux.org.uk,
+Cc: "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Heiko Carstens <heiko.carstens@de.ibm.com>,
+	Ingo Molnar <mingo@kernel.org>,
+	Michael Neuling <mikey@neuling.org>,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>,
 	donald.c.skidmore@intel.com, matthew.vick@intel.com,
-	geert@linux-m68k.org, jeffrey.t.kirsher@intel.com,
-	romieu@fr.zoreil.com, paulmck@linux.vnet.ibm.com,
-	nic_swsd@realtek.com, will.deacon@arm.com, michael@ellerman.id.au,
-	tony.luck@intel.com, torvalds@linux-foundation.org,
-	oleg@redhat.com, schwidefsky@de.ibm.com, fweisbec@gmail.com,
-	davem@davemloft.net
-To: Alexander Duyck <alexander.h.duyck@redhat.com>
+	Geert Uytterhoeven <geert@linux-m68k.org>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Paul McKenney <paulmck@linux.vnet.ibm.com>,
+	nic_swsd@realtek.com, Will Deacon <will.deacon@arm.com>,
+	Michael Ellerman <michael@ellerman.id.au>,
+	Tony Luck <tony.luck@intel.com>,
+	Oleg Nesterov <oleg@redhat.com>,
+	Martin Schwidefsky <
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <546AB959.1020602@redhat.com>
+In-Reply-To: <CA+55aFw3ygP8UEF1vidWdjBUEkqXOELCPkpjLMD-X=vXXQEGOQ@mail.gmail.com>
 Sender: linux-arch-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2014-11-17 at 19:13 -0800, Alexander Duyck wrote:
-> 
-> ARM adds some funky things.  They have two different types of 
-> primitives, a dmb() which is a data memory barrier, and a dsb() which is 
-> a data synchronization barrier.  Then with each of those they have the 
-> "domains" the barriers are effective within.
-> 
-> So for example on ARM a rmb() is dsb(sy) which means it is a system wide 
-> synchronization barrier which stops execution on the CPU core until the 
-> read completes.  
+On 11/18/2014 12:53 PM, Linus Torvalds wrote:
+> On Tue, Nov 18, 2014 at 9:28 AM, Alexander Duyck
+> <alexander.h.duyck@redhat.com> wrote:
+>> These patches introduce two new primitives for synchronizing cache coherent
+>> memory writes and reads.  These two new primitives are:
+>>
+>>          coherent_rmb()
+>>          coherent_wmb()
+>
+> So I'm still not convinced about the name. I don't hate it, but if you
+> ever want to do "read_acquire", then that whole "coherent_" thing does
+> make for a big mouthful. I don't see why "dma" isn't simpler and more
+> to the point, and has the advantage of lining up (in documentation
+> etc) with "smp".
 
-That's amazingly heavy handed ... I can see that being useful for MMIO,
-we do something similar in our MMIO accessors by using a special variant
-of trap instruction that never traps to make the core thing the load
-value has been consumed. But that's typically only needed to guarantee
-MMIO timings.
+The problem is DMA is a broad brush.  There are multiple cases I can 
+think of where DMA does not represent coherent memory.
 
-> However the smp_rmb() is a dmb(ish) which means it is 
-> only a barrier as far as the inner shareable domain which I believe only 
-> goes as far as the local shared cache hierarchy and only guarantees read 
-> ordering without necessarily halting the CPU or stopping in-order 
-> speculative reads.  So what a coherent_rmb() would be in my setup is 
-> dmb(sy) which means the barrier runs all the way out to memory, and it 
-> is allowed to speculative read as long as it does it in order.
+> Why would you ever use "coherent_xyz()" on something that isn't about
+> dma? If it's cache-coherent memory without DMA, you'd use "smp_xyz()",
+> so I really do prefer that whole "dma-vs-smp" issue, because it talks
+> about what is actually the important issue. All sane memory is
+> coherent, after all (and if it isn't, you have other issues than
+> memory ordering).
+>
+>                    Linus
 
-Correct, which is thus the same as smp_rmb() ... which was my original
-point, or am I missing something else ?
+This barrier only applies to a subset of DMA memory types.  So yes, 
+"coherent_xyz()" only applies to DMA, but not all DMA memory is coherent 
+as it could be a non-coherent or streaming DMA mapping.
 
-> If it is still unclear you might check out Will Deacon's talk on the 
-> topic at https://www.youtube.com/watch?v=6ORn6_35kKo, at about 7:00 in 
-> he explains the whole domains thing, and at 13:30 he explains dmb()/dsb().
+One spot where the name makes sense is in the headers themselves.  To 
+avoid duplication of definitions in several spots if CONFIG_SMP was 
+defined I simply defined smp_xyz() as coherent_xyz().  Defining it as 
+dma_xyz() might have made that more difficult to read in terms of what 
+was going on.
 
-Ok, I'll try to watch that when I get a chance.
-
-Cheers,
-Ben.
+- Alex
