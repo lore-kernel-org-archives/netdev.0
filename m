@@ -1,97 +1,63 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] [bonding]: clear header_ops when last slave detached
-Date: Mon, 17 Nov 2014 18:19:23 -0800
-Message-ID: <1416277163.18588.33.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1415845156-15461-1-git-send-email-wen.gang.wang@oracle.com>
-	 <54694D09.4080304@oracle.com> <866.1416274729@famine>
-	 <546AA746.8090008@oracle.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH (sent originally to netdev)] device: Add
+ dev_<level>_once variants
+Date: Mon, 17 Nov 2014 18:23:44 -0800
+Message-ID: <1416277424.2295.1.camel@jtkirshe-mobl>
+References: <1416031715-32498-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1416031715-32498-2-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <5467C3BA.6090003@gmail.com> <1416277102.29010.14.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jay Vosburgh <jay.vosburgh@canonical.com>, netdev@vger.kernel.org
-To: Wengang <wen.gang.wang@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f175.google.com ([209.85.192.175]:47392 "EHLO
-	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751515AbaKRCT0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Nov 2014 21:19:26 -0500
-Received: by mail-pd0-f175.google.com with SMTP id y10so3625231pdj.34
-        for <netdev@vger.kernel.org>; Mon, 17 Nov 2014 18:19:26 -0800 (PST)
-In-Reply-To: <546AA746.8090008@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-nuj0z72yUvFcRP5VA+FK"
+Cc: Greg KH <gregkh@linuxfoundation.org>, davem@davemloft.net,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1416277102.29010.14.camel@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2014-11-18 at 09:56 +0800, Wengang wrote:
-> Hi Jay,
+
+--=-nuj0z72yUvFcRP5VA+FK
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Mon, 2014-11-17 at 18:18 -0800, Joe Perches wrote:
+> Add the equivalents to pr_<level>_once.
 >=20
-> =E4=BA=8E 2014=E5=B9=B411=E6=9C=8818=E6=97=A5 09:38, Jay Vosburgh =E5=
-=86=99=E9=81=93:
-> > Wengang <wen.gang.wang@oracle.com> wrote:
-> >
-> >> Hi,
-> >>
-> >> Could anybody please review this patch?
-> > 	I don't see that the original of this ever came through netdev.
->=20
-> Oh, that' bad. I sent this to netdev@vger.kernel.org. The mail addres=
-s=20
-> is wrong?
->=20
-> >> thanks,
-> >> wengang
-> >>
-> >> =E4=BA=8E 2014=E5=B9=B411=E6=9C=8813=E6=97=A5 10:19, Wengang Wang =
-=E5=86=99=E9=81=93:
-> >>> When last slave of a bonding master is removed, the bonding then =
-does not work.
-> >>> When packet_snd is called against with a master net_device, it ac=
-cesses
-> >>> header_ops. In case the header_ops is not valid any longer(say mo=
-dule unloaded)
-> >>> it will then access an invalid memory address.
-> >>> This patch try to fix this issue by clearing header_ops when last=
- slave
-> >>> detached.
-> > 	Am I correct in presuming that this behavior is limited to ipoib
-> > slaves only?  I don't see that this could occur with ethernet slave=
-s, as
-> > eth_header_ops isn't part of a module.  This needs to be mentioned =
-in
-> > the commit log.
-> Yes, the problem is found with ipoib slaves.
-> >>> Signed-off-by: Wengang Wang <wen.gang.wang@oracle.com>
-> >>> ---
-> >>>    drivers/net/bonding/bond_main.c | 2 ++
-> >>>    1 file changed, 2 insertions(+)
-> >>>
-> >>> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bondin=
-g/bond_main.c
-> >>> index c9ac06c..84a34fc 100644
-> >>> --- a/drivers/net/bonding/bond_main.c
-> >>> +++ b/drivers/net/bonding/bond_main.c
-> >>> @@ -1728,6 +1728,8 @@ static int __bond_release_one(struct net_de=
-vice *bond_dev,
-> >>>    	unblock_netpoll_tx();
-> >>>    	synchronize_rcu();
-> >>>    	bond->slave_cnt--;
-> >>> +	if (!bond->slave_cnt)
-> >>> +		bond->dev->header_ops =3D NULL;
-> >>>      	if (!bond_has_slaves(bond)) {
-> >>>    		call_netdevice_notifiers(NETDEV_CHANGEADDR, bond->dev);
-> > 	I believe your addition could be moved into the block for the
-> > next if, as "!bond->slave_cnt" is essentially "!bond_has_slaves()".
->=20
-> Yes, Agree.
-> I will send the second prompt soon with commit message mentioning ipo=
-ib.
+> Suggested-by: Florian Fainelli <f.fainelli@gmail.com>
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-I really don't like this patch. Its quite racy.
+Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-bond_setup_by_slave() kind of assume slave_dev->header_ops is always
-present.=20
+> ---
+>  include/linux/device.h | 35 +++++++++++++++++++++++++++++++++++
+>  1 file changed, 35 insertions(+)
 
-No rcu protection, no module refcount protection for struct header_ops
 
-Considering ipoib_hard_header() is quite small, you might instead move
-ipoib_hard_header() and ipoib_header_ops in static vmlinux, like we do
-for eth_header_ops.
+
+--=-nuj0z72yUvFcRP5VA+FK
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABCgAGBQJUaq2wAAoJEOVv75VaS+3ODrYP/1nksBh55gk473t8nrZaUxYh
+ENxbIQudN3Fj4uwM0sA2aErLlbebHADwWf4YeNT6dkx/xZOElpIi1DrHTB4gVXko
+ii9a6w9/4Q/E86pQBZJ0rF3qr7GrvZZv8ZHbk1IPEpLbdIsUrfVnREkAIwzVqb1g
+b/kaWEl/I7XFnn0SoKdTB+0KmDNGyzAWdo1kqF78z05k1m4Icyf1JpaYUIx4y/ct
+cIe0IbSeBs89vS3mi7hykhPAr8pH0hCsaJ/3e7EgID8t5DUCND/T6LHNhAK3h9M/
+QHswGg0OCocimGBG+yHAXQIz6uKQKdUN2KW165OnBhpMhoSiTzzF/1akhwrCDrGk
+oTGhzzb4X/pGc31JRkzzFPiSoCnm5BowG4AzH67gVuahoinyya3qMQajy8cyoHwh
+Xvx5w36ZZxI6mLnkwfHchM3XT1qvO0Rg6EdwyFuGc8dobgzHZ6gBteCREhPoPmr8
+Y6BKT0aNzkkYYY41VT+IArZYUUB1WiNyIH80tsuFX7rT/yUOvpc2+Z+ENLR8TwKA
+Yj5xccbu+B1nuSMjeinSxQX/by05WUZu82gxyVmswfNx+8ioQTEs/3+UCgpbVRq/
+dsLj88P0I8CQAwNpMHc3fJsSHg52KkGbUjY6imF7N48ucmpooiCggl96o3iVt3+W
+x0tBSVyKhSpDdQlkcTyw
+=LTym
+-----END PGP SIGNATURE-----
+
+--=-nuj0z72yUvFcRP5VA+FK--
