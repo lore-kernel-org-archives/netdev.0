@@ -1,48 +1,45 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH 04/17] can: esd_usb2: fix memory leak on disconnect
-Date: Tue, 18 Nov 2014 21:37:34 +0100
-Message-ID: <1416343067-9810-5-git-send-email-mkl@pengutronix.de>
+Subject: [PATCH 15/17] can: m_can: add missing delay after setting CCCR_INIT bit
+Date: Tue, 18 Nov 2014 21:37:45 +0100
+Message-ID: <1416343067-9810-16-git-send-email-mkl@pengutronix.de>
 References: <1416343067-9810-1-git-send-email-mkl@pengutronix.de>
 Cc: davem@davemloft.net, linux-can@vger.kernel.org,
-	kernel@pengutronix.de, Alexey Khoroshilov <khoroshilov@ispras.ru>,
-	linux-stable <stable@vger.kernel.org>,
+	kernel@pengutronix.de, Dong Aisheng <b29396@freescale.com>,
 	Marc Kleine-Budde <mkl@pengutronix.de>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:47278 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932088AbaKRUh6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Nov 2014 15:37:58 -0500
+Return-path: <linux-can-owner@vger.kernel.org>
 In-Reply-To: <1416343067-9810-1-git-send-email-mkl@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexey Khoroshilov <khoroshilov@ispras.ru>
+From: Dong Aisheng <b29396@freescale.com>
 
-It seems struct esd_usb2 dev is not deallocated on disconnect. The patch adds
-the missing deallocation.
+The spec mentions there may be a delay until the value written to INIT can be
+read back due to the synchronization mechanism between the two clock domains.
+But it does not indicate the exact clock cycles needed. The 5us delay is a
+test value and seems ok.
 
-Found by Linux Driver Verification project (linuxtesting.org).
+Without the delay, CCCR.CCE bit may fail to be set and then the initialization
+fail sometimes when do repeatly up and down.
 
-Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
-Acked-by: Matthias Fuchs <matthias.fuchs@esd.eu>
-Cc: linux-stable <stable@vger.kernel.org>
+Signed-off-by: Dong Aisheng <b29396@freescale.com>
 Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
- drivers/net/can/usb/esd_usb2.c | 1 +
+ drivers/net/can/m_can/m_can.c | 1 +
  1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/can/usb/esd_usb2.c b/drivers/net/can/usb/esd_usb2.c
-index b7c9e8b11460..7a90075529c3 100644
---- a/drivers/net/can/usb/esd_usb2.c
-+++ b/drivers/net/can/usb/esd_usb2.c
-@@ -1143,6 +1143,7 @@ static void esd_usb2_disconnect(struct usb_interface *intf)
- 			}
- 		}
- 		unlink_all_urbs(dev);
-+		kfree(dev);
- 	}
- }
- 
+diff --git a/drivers/net/can/m_can/m_can.c b/drivers/net/can/m_can/m_can.c
+index 98f7e0ea7f6a..3ad7d88720b7 100644
+--- a/drivers/net/can/m_can/m_can.c
++++ b/drivers/net/can/m_can/m_can.c
+@@ -296,6 +296,7 @@ static inline void m_can_config_endisable(const struct m_can_priv *priv,
+ 	if (enable) {
+ 		/* enable m_can configuration */
+ 		m_can_write(priv, M_CAN_CCCR, cccr | CCCR_INIT);
++		udelay(5);
+ 		/* CCCR.CCE can only be set/reset while CCCR.INIT = '1' */
+ 		m_can_write(priv, M_CAN_CCCR, cccr | CCCR_INIT | CCCR_CCE);
+ 	} else {
 -- 
 2.1.3
+
