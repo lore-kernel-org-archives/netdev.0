@@ -1,48 +1,92 @@
 From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
-Subject: [PATCH 2/2] net: can: comparison of unsigned variable
-Date: Tue, 18 Nov 2014 19:17:07 +0530
-Message-ID: <1416318427-28676-2-git-send-email-sudipm.mukherjee@gmail.com>
-References: <1416318427-28676-1-git-send-email-sudipm.mukherjee@gmail.com>
+Subject: [PATCH 1/2] net: can: remove unused variable
+Date: Tue, 18 Nov 2014 19:17:06 +0530
+Message-ID: <1416318427-28676-1-git-send-email-sudipm.mukherjee@gmail.com>
 Cc: Sudip Mukherjee <sudipm.mukherjee@gmail.com>,
 	linux-can@vger.kernel.org, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+	linux-kernel@vger.kernel.org
 To: Wolfgang Grandegger <wg@grandegger.com>,
-	Marc Kleine-Budde <mkl@pengutronix.de>,
-	Michal Simek <michal.simek@xilinx.com>,
-	=?UTF-8?q?S=C3=B6ren=20Brinkmann?= <soren.brinkmann@xilinx.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:46029 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754561AbaKRNrV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Nov 2014 08:47:21 -0500
-In-Reply-To: <1416318427-28676-1-git-send-email-sudipm.mukherjee@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	Marc Kleine-Budde <mkl@pengutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-err was of the type u32. it was being compared with < 0, and being
-an unsigned variable the comparison would have been always false.
-
-moreover, err was getting the return value from set_reset_mode()
-and xcan_set_bittiming(), and both are returning int.
+these variable were only assigned some values, but then never
+reused again.
+so they are safe to be removed.
 
 Signed-off-by: Sudip Mukherjee <sudip@vectorindia.org>
 ---
- drivers/net/can/xilinx_can.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/can/sja1000/kvaser_pci.c | 5 +----
+ drivers/net/can/usb/ems_usb.c        | 3 +--
+ drivers/net/can/usb/esd_usb2.c       | 2 --
+ 3 files changed, 2 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/can/xilinx_can.c b/drivers/net/can/xilinx_can.c
-index 72fe96f..67c2dd4 100644
---- a/drivers/net/can/xilinx_can.c
-+++ b/drivers/net/can/xilinx_can.c
-@@ -300,7 +300,8 @@ static int xcan_set_bittiming(struct net_device *ndev)
- static int xcan_chip_start(struct net_device *ndev)
- {
- 	struct xcan_priv *priv = netdev_priv(ndev);
--	u32 err, reg_msr, reg_sr_mask;
-+	u32 reg_msr, reg_sr_mask;
+diff --git a/drivers/net/can/sja1000/kvaser_pci.c b/drivers/net/can/sja1000/kvaser_pci.c
+index 8ff3424..15c00fa 100644
+--- a/drivers/net/can/sja1000/kvaser_pci.c
++++ b/drivers/net/can/sja1000/kvaser_pci.c
+@@ -214,7 +214,7 @@ static int kvaser_pci_add_chan(struct pci_dev *pdev, int channel,
+ 	struct net_device *dev;
+ 	struct sja1000_priv *priv;
+ 	struct kvaser_pci *board;
+-	int err, init_step;
 +	int err;
- 	unsigned long timeout;
  
- 	/* Check if it is in reset mode */
+ 	dev = alloc_sja1000dev(sizeof(struct kvaser_pci));
+ 	if (dev == NULL)
+@@ -235,7 +235,6 @@ static int kvaser_pci_add_chan(struct pci_dev *pdev, int channel,
+ 	if (channel == 0) {
+ 		board->xilinx_ver =
+ 			ioread8(board->res_addr + XILINX_VERINT) >> 4;
+-		init_step = 2;
+ 
+ 		/* Assert PTADR# - we're in passive mode so the other bits are
+ 		   not important */
+@@ -264,8 +263,6 @@ static int kvaser_pci_add_chan(struct pci_dev *pdev, int channel,
+ 	priv->irq_flags = IRQF_SHARED;
+ 	dev->irq = pdev->irq;
+ 
+-	init_step = 4;
+-
+ 	dev_info(&pdev->dev, "reg_base=%p conf_addr=%p irq=%d\n",
+ 		 priv->reg_base, board->conf_addr, dev->irq);
+ 
+diff --git a/drivers/net/can/usb/ems_usb.c b/drivers/net/can/usb/ems_usb.c
+index 00f2534..29d3f09 100644
+--- a/drivers/net/can/usb/ems_usb.c
++++ b/drivers/net/can/usb/ems_usb.c
+@@ -434,10 +434,9 @@ static void ems_usb_read_bulk_callback(struct urb *urb)
+ 	if (urb->actual_length > CPC_HEADER_SIZE) {
+ 		struct ems_cpc_msg *msg;
+ 		u8 *ibuf = urb->transfer_buffer;
+-		u8 msg_count, again, start;
++		u8 msg_count, start;
+ 
+ 		msg_count = ibuf[0] & ~0x80;
+-		again = ibuf[0] & 0x80;
+ 
+ 		start = CPC_HEADER_SIZE;
+ 
+diff --git a/drivers/net/can/usb/esd_usb2.c b/drivers/net/can/usb/esd_usb2.c
+index b7c9e8b..d25e88f 100644
+--- a/drivers/net/can/usb/esd_usb2.c
++++ b/drivers/net/can/usb/esd_usb2.c
+@@ -464,7 +464,6 @@ static void esd_usb2_write_bulk_callback(struct urb *urb)
+ {
+ 	struct esd_tx_urb_context *context = urb->context;
+ 	struct esd_usb2_net_priv *priv;
+-	struct esd_usb2 *dev;
+ 	struct net_device *netdev;
+ 	size_t size = sizeof(struct esd_usb2_msg);
+ 
+@@ -472,7 +471,6 @@ static void esd_usb2_write_bulk_callback(struct urb *urb)
+ 
+ 	priv = context->priv;
+ 	netdev = priv->netdev;
+-	dev = priv->usb2;
+ 
+ 	/* free up our allocated buffer */
+ 	usb_free_coherent(urb->dev, size,
 -- 
 1.8.1.2
