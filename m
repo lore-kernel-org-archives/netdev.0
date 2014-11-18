@@ -1,8 +1,8 @@
 From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [PATCH v4 4/4] fm10k/igb/ixgbe: Use coherent_rmb on Rx descriptor
- reads
-Date: Tue, 18 Nov 2014 09:29:37 -0800
-Message-ID: <20141118172936.26303.66000.stgit@ahduyck-server>
+Subject: [PATCH v4 2/4] arch: Add lightweight memory barriers coherent_rmb()
+ and coherent_wmb()
+Date: Tue, 18 Nov 2014 09:29:12 -0800
+Message-ID: <20141118172912.26303.82882.stgit@ahduyck-server>
 References: <20141118172644.26303.37688.stgit@ahduyck-server>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -24,94 +24,379 @@ In-Reply-To: <20141118172644.26303.37688.stgit@ahduyck-server>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This change makes it so that coherent_rmb is used when reading the Rx
-descriptor.  The advantage of coherent_rmb is that it allows for a much
-lower cost barrier on x86, powerpc, arm, and arm64 architectures than a
-traditional memory barrier when dealing with reads that only have to
-synchronize to coherent memory.
+There are a number of situations where the mandatory barriers rmb() and
+wmb() are used to order memory/memory operations in the device drivers
+and those barriers are much heavier than they actually need to be.  For
+example in the case of PowerPC wmb() calls the heavy-weight sync
+instruction when for coherent memory operations all that is really needed
+is an lsync or eieio instruction.
 
-In addition I have updated the code so that it just checks to see if any
-bits have been set instead of just the DD bit since the DD bit will always
-be set as a part of a descriptor write-back so we just need to check for a
-non-zero value being present at that memory location rather than just
-checking for any specific bit.  This allows the code itself to appear much
-cleaner and allows the compiler more room to optimize.
+This commit adds a coherent only version of the mandatory memory barriers
+rmb() and wmb().  In most cases this should result in the barrier being the
+same as the SMP barriers for the SMP case, however in some cases we use a
+barrier that is somewhere in between rmb() and smp_rmb().  For example on
+ARM the rmb barriers break down as follows:
 
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Cc: Matthew Vick <matthew.vick@intel.com>
-Cc: Don Skidmore <donald.c.skidmore@intel.com>
+  Barrier        Call     Explanation
+  -------------- -------- ----------------------------------
+  rmb()          dsb()    Data synchronization barrier - system
+  coherent_rmb() dmb(osh) data memory barrier - outer sharable
+  smp_rmb()      dmb(ish) data memory barrier - inner sharable
+
+These new barriers are not as safe as the standard rmb() and wmb().
+Specifically they do not guarantee ordering between coherent and incoherent
+memories.  The primary use case for these would be to enforce ordering of
+reads and writes when accessing coherent memory that is shared between the
+CPU and a device.
+
+It may also be noted that there is no coherent_mb().  Most architectures
+don't provide a good mechanism for performing a coherent only full barrier
+without resorting to the same mechanism used in mb().  As such there isn't
+much to be gained in trying to define such a function.
+
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Cc: Frederic Weisbecker <fweisbec@gmail.com>
+Cc: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
+Cc: Michael Ellerman <michael@ellerman.id.au>
+Cc: Michael Neuling <mikey@neuling.org>
+Cc: Russell King <linux@arm.linux.org.uk>
+Cc: Geert Uytterhoeven <geert@linux-m68k.org>
+Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
+Cc: Linus Torvalds <torvalds@linux-foundation.org>
+Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Oleg Nesterov <oleg@redhat.com>
+Cc: Will Deacon <will.deacon@arm.com>
+Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Cc: Peter Zijlstra <peterz@infradead.org>
+Cc: Ingo Molnar <mingo@kernel.org>
+Cc: David Miller <davem@davemloft.net>
 Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
 ---
- drivers/net/ethernet/intel/fm10k/fm10k_main.c |    6 +++---
- drivers/net/ethernet/intel/igb/igb_main.c     |    6 +++---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    9 ++++-----
- 3 files changed, 10 insertions(+), 11 deletions(-)
+ Documentation/memory-barriers.txt   |   41 +++++++++++++++++++++++++++++++++++
+ arch/arm/include/asm/barrier.h      |    4 +++
+ arch/arm64/include/asm/barrier.h    |    3 +++
+ arch/ia64/include/asm/barrier.h     |    3 +++
+ arch/metag/include/asm/barrier.h    |   14 ++++++------
+ arch/mips/include/asm/barrier.h     |    9 ++++----
+ arch/powerpc/include/asm/barrier.h  |   17 +++++++++------
+ arch/s390/include/asm/barrier.h     |    2 ++
+ arch/sparc/include/asm/barrier_64.h |    3 +++
+ arch/x86/include/asm/barrier.h      |   11 ++++++---
+ arch/x86/um/asm/barrier.h           |   13 ++++++-----
+ include/asm-generic/barrier.h       |    8 +++++++
+ 12 files changed, 100 insertions(+), 28 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_main.c b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-index e645af4..1819311 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-@@ -620,14 +620,14 @@ static bool fm10k_clean_rx_irq(struct fm10k_q_vector *q_vector,
+diff --git a/Documentation/memory-barriers.txt b/Documentation/memory-barriers.txt
+index 22a969c..d86cdc2 100644
+--- a/Documentation/memory-barriers.txt
++++ b/Documentation/memory-barriers.txt
+@@ -1615,6 +1615,47 @@ There are some more advanced barrier functions:
+      operations" subsection for information on where to use these.
  
- 		rx_desc = FM10K_RX_DESC(rx_ring, rx_ring->next_to_clean);
  
--		if (!fm10k_test_staterr(rx_desc, FM10K_RXD_STATUS_DD))
-+		if (!rx_desc->d.staterr)
- 			break;
- 
- 		/* This memory barrier is needed to keep us from reading
- 		 * any other fields out of the rx_desc until we know the
--		 * RXD_STATUS_DD bit is set
-+		 * descriptor has been written back
- 		 */
--		rmb();
++ (*) coherent_wmb();
++ (*) coherent_rmb();
++
++     These are for use with memory based device I/O to guarantee the ordering
++     of cache coherent writes or reads with respect to other writes or reads
++     to cache coherent memory.
++
++     For example, consider a device driver that shares memory with a device
++     and uses a descriptor status value to indicate if the descriptor belongs
++     to the device or the CPU, and a doorbell to notify it when new
++     descriptors are available:
++
++	if (desc->status != DEVICE_OWN) {
++		/* do not read data until we own descriptor */
 +		coherent_rmb();
++
++		/* read/modify data */
++		read_data = desc->data;
++		desc->data = write_data;
++
++		/* flush modifications before status update */
++		coherent_wmb();
++
++		/* assign ownership */
++		desc->status = DEVICE_OWN;
++
++		/* force memory to sync before notifying device via MMIO */
++		wmb();
++
++		/* notify device of new descriptors */
++		writel(DESC_NOTIFY, doorbell);
++	}
++
++     The coherent_rmb() allows us guarantee the device has released ownership
++     before we read the data from the descriptor, and he coherent_wmb() allows
++     us to guarantee the data is written to the descriptor before the device
++     can see it now has ownership.  The wmb() is needed to guarantee that the
++     cache coherent memory writes have completed before attempting a write to
++     the cache incoherent MMIO region.
++
++
+ MMIO WRITE BARRIER
+ ------------------
  
- 		/* retrieve a buffer from the ring */
- 		skb = fm10k_fetch_rx_buffer(rx_ring, rx_desc, skb);
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index a2d72a8..51cda23 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -6918,14 +6918,14 @@ static bool igb_clean_rx_irq(struct igb_q_vector *q_vector, const int budget)
+diff --git a/arch/arm/include/asm/barrier.h b/arch/arm/include/asm/barrier.h
+index c6a3e73..8d33c9e 100644
+--- a/arch/arm/include/asm/barrier.h
++++ b/arch/arm/include/asm/barrier.h
+@@ -43,10 +43,14 @@
+ #define mb()		do { dsb(); outer_sync(); } while (0)
+ #define rmb()		dsb()
+ #define wmb()		do { dsb(st); outer_sync(); } while (0)
++#define coherent_rmb()	dmb(osh)
++#define coherent_wmb()	dmb(oshst)
+ #else
+ #define mb()		barrier()
+ #define rmb()		barrier()
+ #define wmb()		barrier()
++#define coherent_rmb()	barrier()
++#define coherent_wmb()	barrier()
+ #endif
  
- 		rx_desc = IGB_RX_DESC(rx_ring, rx_ring->next_to_clean);
+ #ifndef CONFIG_SMP
+diff --git a/arch/arm64/include/asm/barrier.h b/arch/arm64/include/asm/barrier.h
+index 6389d60..d250ac4 100644
+--- a/arch/arm64/include/asm/barrier.h
++++ b/arch/arm64/include/asm/barrier.h
+@@ -32,6 +32,9 @@
+ #define rmb()		dsb(ld)
+ #define wmb()		dsb(st)
  
--		if (!igb_test_staterr(rx_desc, E1000_RXD_STAT_DD))
-+		if (!rx_desc->wb.upper.status_error)
- 			break;
++#define coherent_rmb()	dmb(oshld)
++#define coherent_wmb()	dmb(oshst)
++
+ #ifndef CONFIG_SMP
+ #define smp_mb()	barrier()
+ #define smp_rmb()	barrier()
+diff --git a/arch/ia64/include/asm/barrier.h b/arch/ia64/include/asm/barrier.h
+index e8fffb0..ec4e652 100644
+--- a/arch/ia64/include/asm/barrier.h
++++ b/arch/ia64/include/asm/barrier.h
+@@ -39,6 +39,9 @@
+ #define rmb()		mb()
+ #define wmb()		mb()
  
- 		/* This memory barrier is needed to keep us from reading
- 		 * any other fields out of the rx_desc until we know the
--		 * RXD_STAT_DD bit is set
-+		 * descriptor has been written back
- 		 */
--		rmb();
-+		coherent_rmb();
++#define coherent_rmb()	mb()
++#define coherent_wmb()	mb()
++
+ #ifdef CONFIG_SMP
+ # define smp_mb()	mb()
+ #else
+diff --git a/arch/metag/include/asm/barrier.h b/arch/metag/include/asm/barrier.h
+index 6d8b8c9..56999f3 100644
+--- a/arch/metag/include/asm/barrier.h
++++ b/arch/metag/include/asm/barrier.h
+@@ -4,8 +4,6 @@
+ #include <asm/metag_mem.h>
  
- 		/* retrieve a buffer from the ring */
- 		skb = igb_fetch_rx_buffer(rx_ring, rx_desc, skb);
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index d2df4e3..fdb49c0 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -2003,15 +2003,14 @@ static int ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
+ #define nop()		asm volatile ("NOP")
+-#define mb()		wmb()
+-#define rmb()		barrier()
  
- 		rx_desc = IXGBE_RX_DESC(rx_ring, rx_ring->next_to_clean);
+ #ifdef CONFIG_METAG_META21
  
--		if (!ixgbe_test_staterr(rx_desc, IXGBE_RXD_STAT_DD))
-+		if (!rx_desc->wb.upper.status_error)
- 			break;
+@@ -41,11 +39,13 @@ static inline void wr_fence(void)
  
--		/*
--		 * This memory barrier is needed to keep us from reading
-+		/* This memory barrier is needed to keep us from reading
- 		 * any other fields out of the rx_desc until we know the
--		 * RXD_STAT_DD bit is set
-+		 * descriptor has been written back
- 		 */
--		rmb();
-+		coherent_rmb();
+ #endif /* !CONFIG_METAG_META21 */
  
- 		/* retrieve a buffer from the ring */
- 		skb = ixgbe_fetch_rx_buffer(rx_ring, rx_desc);
+-static inline void wmb(void)
+-{
+-	/* flush writes through the write combiner */
+-	wr_fence();
+-}
++/* flush writes through the write combiner */
++#define mb()		wr_fence()
++#define rmb()		barrier()
++#define wmb()		mb()
++
++#define coherent_rmb()	rmb()
++#define coherent_wmb()	wmb()
+ 
+ #ifndef CONFIG_SMP
+ #define fence()		do { } while (0)
+diff --git a/arch/mips/include/asm/barrier.h b/arch/mips/include/asm/barrier.h
+index 3d69aa8..2d54df7 100644
+--- a/arch/mips/include/asm/barrier.h
++++ b/arch/mips/include/asm/barrier.h
+@@ -75,20 +75,21 @@
+ 
+ #include <asm/wbflush.h>
+ 
+-#define wmb()		fast_wmb()
+-#define rmb()		fast_rmb()
+ #define mb()		wbflush()
+ #define iob()		wbflush()
+ 
+ #else /* !CONFIG_CPU_HAS_WB */
+ 
+-#define wmb()		fast_wmb()
+-#define rmb()		fast_rmb()
+ #define mb()		fast_mb()
+ #define iob()		fast_iob()
+ 
+ #endif /* !CONFIG_CPU_HAS_WB */
+ 
++#define wmb()		fast_wmb()
++#define rmb()		fast_rmb()
++#define coherent_wmb()	fast_wmb()
++#define coherent_rmb()	fast_rmb()
++
+ #if defined(CONFIG_WEAK_ORDERING) && defined(CONFIG_SMP)
+ # ifdef CONFIG_CPU_CAVIUM_OCTEON
+ #  define smp_mb()	__sync()
+diff --git a/arch/powerpc/include/asm/barrier.h b/arch/powerpc/include/asm/barrier.h
+index cb6d66c..40c668b 100644
+--- a/arch/powerpc/include/asm/barrier.h
++++ b/arch/powerpc/include/asm/barrier.h
+@@ -36,8 +36,6 @@
+ 
+ #define set_mb(var, value)	do { var = value; mb(); } while (0)
+ 
+-#ifdef CONFIG_SMP
+-
+ #ifdef __SUBARCH_HAS_LWSYNC
+ #    define SMPWMB      LWSYNC
+ #else
+@@ -45,12 +43,17 @@
+ #endif
+ 
+ #define __lwsync()	__asm__ __volatile__ (stringify_in_c(LWSYNC) : : :"memory")
++#define coherent_rmb()	__lwsync()
++#define coherent_wmb()	__asm__ __volatile__ (stringify_in_c(SMPWMB) : : :"memory")
++
++#ifdef CONFIG_SMP
++#define smp_lwsync()	__lwsync()
+ 
+ #define smp_mb()	mb()
+-#define smp_rmb()	__lwsync()
+-#define smp_wmb()	__asm__ __volatile__ (stringify_in_c(SMPWMB) : : :"memory")
++#define smp_rmb()	coherent_rmb()
++#define smp_wmb()	coherent_wmb()
+ #else
+-#define __lwsync()	barrier()
++#define smp_lwsync()	barrier()
+ 
+ #define smp_mb()	barrier()
+ #define smp_rmb()	barrier()
+@@ -72,7 +75,7 @@
+ #define smp_store_release(p, v)						\
+ do {									\
+ 	compiletime_assert_atomic_type(*p);				\
+-	__lwsync();							\
++	smp_lwsync();							\
+ 	ACCESS_ONCE(*p) = (v);						\
+ } while (0)
+ 
+@@ -80,7 +83,7 @@ do {									\
+ ({									\
+ 	typeof(*p) ___p1 = ACCESS_ONCE(*p);				\
+ 	compiletime_assert_atomic_type(*p);				\
+-	__lwsync();							\
++	smp_lwsync();							\
+ 	___p1;								\
+ })
+ 
+diff --git a/arch/s390/include/asm/barrier.h b/arch/s390/include/asm/barrier.h
+index 33d191d..a50117d 100644
+--- a/arch/s390/include/asm/barrier.h
++++ b/arch/s390/include/asm/barrier.h
+@@ -24,6 +24,8 @@
+ 
+ #define rmb()				mb()
+ #define wmb()				mb()
++#define coherent_rmb()			rmb()
++#define coherent_wmb()			wmb()
+ #define smp_mb()			mb()
+ #define smp_rmb()			rmb()
+ #define smp_wmb()			wmb()
+diff --git a/arch/sparc/include/asm/barrier_64.h b/arch/sparc/include/asm/barrier_64.h
+index 6c974c0..97bdcd4 100644
+--- a/arch/sparc/include/asm/barrier_64.h
++++ b/arch/sparc/include/asm/barrier_64.h
+@@ -37,6 +37,9 @@ do {	__asm__ __volatile__("ba,pt	%%xcc, 1f\n\t" \
+ #define rmb()	__asm__ __volatile__("":::"memory")
+ #define wmb()	__asm__ __volatile__("":::"memory")
+ 
++#define coherent_rmb()	rmb()
++#define coherent_wmb()	wmb()
++
+ #define set_mb(__var, __value) \
+ 	do { __var = __value; membar_safe("#StoreLoad"); } while(0)
+ 
+diff --git a/arch/x86/include/asm/barrier.h b/arch/x86/include/asm/barrier.h
+index 5238000..340a7fe 100644
+--- a/arch/x86/include/asm/barrier.h
++++ b/arch/x86/include/asm/barrier.h
+@@ -24,13 +24,16 @@
+ #define wmb()	asm volatile("sfence" ::: "memory")
+ #endif
+ 
+-#ifdef CONFIG_SMP
+-#define smp_mb()	mb()
+ #ifdef CONFIG_X86_PPRO_FENCE
+-# define smp_rmb()	rmb()
++#define coherent_rmb()	rmb()
+ #else
+-# define smp_rmb()	barrier()
++#define coherent_rmb()	barrier()
+ #endif
++#define coherent_wmb()	barrier()
++
++#ifdef CONFIG_SMP
++#define smp_mb()	mb()
++#define smp_rmb()	coherent_rmb()
+ #define smp_wmb()	barrier()
+ #define set_mb(var, value) do { (void)xchg(&var, value); } while (0)
+ #else /* !SMP */
+diff --git a/arch/x86/um/asm/barrier.h b/arch/x86/um/asm/barrier.h
+index d6511d9..d4952e0 100644
+--- a/arch/x86/um/asm/barrier.h
++++ b/arch/x86/um/asm/barrier.h
+@@ -29,17 +29,18 @@
+ 
+ #endif /* CONFIG_X86_32 */
+ 
+-#ifdef CONFIG_SMP
+-
+-#define smp_mb()	mb()
+ #ifdef CONFIG_X86_PPRO_FENCE
+-#define smp_rmb()	rmb()
++#define coherent_rmb()	rmb()
+ #else /* CONFIG_X86_PPRO_FENCE */
+-#define smp_rmb()	barrier()
++#define coherent_rmb()	barrier()
+ #endif /* CONFIG_X86_PPRO_FENCE */
++#define coherent_wmb()	barrier()
+ 
+-#define smp_wmb()	barrier()
++#ifdef CONFIG_SMP
+ 
++#define smp_mb()	mb()
++#define smp_rmb()	coherent_rmb()
++#define smp_wmb()	coherent_wmb()
+ #define set_mb(var, value) do { (void)xchg(&var, value); } while (0)
+ 
+ #else /* CONFIG_SMP */
+diff --git a/include/asm-generic/barrier.h b/include/asm-generic/barrier.h
+index 1402fa8..52a9a71 100644
+--- a/include/asm-generic/barrier.h
++++ b/include/asm-generic/barrier.h
+@@ -42,6 +42,14 @@
+ #define wmb()	mb()
+ #endif
+ 
++#ifndef coherent_rmb
++#define coherent_rmb()	rmb()
++#endif
++
++#ifndef coherent_wmb
++#define coherent_wmb()	wmb()
++#endif
++
+ #ifndef read_barrier_depends
+ #define read_barrier_depends()		do { } while (0)
+ #endif
