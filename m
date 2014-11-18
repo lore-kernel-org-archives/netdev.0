@@ -1,94 +1,56 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 11/11] i40e: Set XPS bit mask to zero in DCB mode
-Date: Tue, 18 Nov 2014 01:25:31 -0800
-Message-ID: <1416302731-11327-12-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 07/11] i40e: Update VEB's enabled_tc after reconfiguration
+Date: Tue, 18 Nov 2014 01:25:27 -0800
+Message-ID: <1416302731-11327-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1416302731-11327-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Neerav Parikh <neerav.parikh@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:11632 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:10813 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753963AbaKRJZ6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Nov 2014 04:25:58 -0500
+	id S1753776AbaKRJZ5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Nov 2014 04:25:57 -0500
 In-Reply-To: <1416302731-11327-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Neerav Parikh <neerav.parikh@intel.com>
 
-Due to DCBX configuration change if the VSI needs to use more than 1 TC;
-it needs to disable the XPS maps that were set when operating in 1 TC mode.
-Without disabling XPS the netdev layer will select queues based on those
-settings and not use the TC queue mapping to make the queue selection.
+When the port TC configuration changes as a result of DCBx the driver
+modifies the enabled TCs for the VEBs it manages. But, in the process
+it did not update the enabled_tc value that it caches on a per VEB basis.
 
-This patch allows the driver to enable/disable the XPS based on the number
-of TCs being enabled for the given VSI.
+So, when the next reconfiguration event occurs where the number of TC
+value is same as the value cached in enabled_tc for a given VEB; driver
+does not modify it's TC configuration by calling appropriate AQ command
+believing it is running with the same configuration as requested.
+Now, as the VEB is not actually enabled for the TCs that are there any
+TC configuration command for VSI attached to that VEB with TCs that are
+not enabled for the VEB fails.
 
-Change-ID: Idc4dec47a672d2a509f6d7fe11ed1ee65b4f0e08
+This patch fixes this issue.
+
+Change-ID: Ife5694469b05494228e0d850429ea1734738cf29
 Signed-off-by: Neerav Parikh <neerav.parikh@intel.com>
 Tested-By: Jack Morgan <jack.morgan@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 38 +++++++++++++++++++++++------
- 1 file changed, 31 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 1 +
+ 1 file changed, 1 insertion(+)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index c3107dc..c998d82 100644
+index 99b985c..71ab327 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -2382,6 +2382,35 @@ static void i40e_vsi_free_rx_resources(struct i40e_vsi *vsi)
- }
- 
- /**
-+ * i40e_config_xps_tx_ring - Configure XPS for a Tx ring
-+ * @ring: The Tx ring to configure
-+ *
-+ * This enables/disables XPS for a given Tx descriptor ring
-+ * based on the TCs enabled for the VSI that ring belongs to.
-+ **/
-+static void i40e_config_xps_tx_ring(struct i40e_ring *ring)
-+{
-+	struct i40e_vsi *vsi = ring->vsi;
-+	cpumask_var_t mask;
-+
-+	if (ring->q_vector && ring->netdev) {
-+		/* Single TC mode enable XPS */
-+		if (vsi->tc_config.numtc <= 1 &&
-+		    !test_and_set_bit(__I40E_TX_XPS_INIT_DONE, &ring->state)) {
-+			netif_set_xps_queue(ring->netdev,
-+					    &ring->q_vector->affinity_mask,
-+					    ring->queue_index);
-+		} else if (alloc_cpumask_var(&mask, GFP_KERNEL)) {
-+			/* Disable XPS to allow selection based on TC */
-+			bitmap_zero(cpumask_bits(mask), nr_cpumask_bits);
-+			netif_set_xps_queue(ring->netdev, mask,
-+					    ring->queue_index);
-+			free_cpumask_var(mask);
-+		}
-+	}
-+}
-+
-+/**
-  * i40e_configure_tx_ring - Configure a transmit ring context and rest
-  * @ring: The Tx ring to configure
-  *
-@@ -2404,13 +2433,8 @@ static int i40e_configure_tx_ring(struct i40e_ring *ring)
- 		ring->atr_sample_rate = 0;
- 	}
- 
--	/* initialize XPS */
--	if (ring->q_vector && ring->netdev &&
--	    vsi->tc_config.numtc <= 1 &&
--	    !test_and_set_bit(__I40E_TX_XPS_INIT_DONE, &ring->state))
--		netif_set_xps_queue(ring->netdev,
--				    &ring->q_vector->affinity_mask,
--				    ring->queue_index);
-+	/* configure XPS */
-+	i40e_config_xps_tx_ring(ring);
- 
- 	/* clear the context structure first */
- 	memset(&tx_ctx, 0, sizeof(tx_ctx));
+@@ -8279,6 +8279,7 @@ static int i40e_veb_get_bw_info(struct i40e_veb *veb)
+ 	veb->bw_limit = le16_to_cpu(ets_data.port_bw_limit);
+ 	veb->bw_max_quanta = ets_data.tc_bw_max;
+ 	veb->is_abs_credits = bw_data.absolute_credits_enable;
++	veb->enabled_tc = ets_data.tc_valid_bits;
+ 	tc_bw_max = le16_to_cpu(bw_data.tc_bw_max[0]) |
+ 		    (le16_to_cpu(bw_data.tc_bw_max[1]) << 16);
+ 	for (i = 0; i < I40E_MAX_TRAFFIC_CLASS; i++) {
 -- 
 1.9.3
