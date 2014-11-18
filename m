@@ -1,77 +1,76 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH 2/4] arch: Add lightweight memory barriers fast_rmb()
- and fast_wmb()
-Date: Tue, 18 Nov 2014 11:43:32 +1100
-Message-ID: <1416271412.18381.20.camel@kernel.crashing.org>
-References: <20141117171005.22333.96544.stgit@ahduyck-server>
-	 <20141117171812.22333.90395.stgit@ahduyck-server>
-	 <CA+55aFxZ9dhB074p3OAQLyQ53TuRjVOo33h6OOda1soh-9xxnQ@mail.gmail.com>
-	 <546A6EB2.6020304@redhat.com>
+From: Jay Vosburgh <jay.vosburgh@canonical.com>
+Subject: Re: [PATCH] [bonding]: clear header_ops when last slave detached
+Date: Mon, 17 Nov 2014 17:38:49 -0800
+Message-ID: <866.1416274729@famine>
+References: <1415845156-15461-1-git-send-email-wen.gang.wang@oracle.com> <54694D09.4080304@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	"linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Heiko Carstens <heiko.carstens@de.ibm.com>,
-	Ingo Molnar <mingo@kernel.org>,
-	Michael Neuling <mikey@neuling.org>,
-	Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	donald.c.skidmore@intel.com, matthew.vick@intel.com,
-	Geert Uytterhoeven <geert@linux-m68k.org>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Paul McKenney <paulmck@linux.vnet.ibm.com>,
-	nic_swsd@realtek.com, Will Deacon <will.deacon@arm.com>,
-	Michael Ellerman <michael@ellerman.id.au>,
-	Tony Luck <tony.luck@intel.com>,
-	Oleg Nesterov <oleg@redhat.com>,
-	Martin Schwidefsky <sch
-To: Alexander Duyck <alexander.h.duyck@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <546A6EB2.6020304@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Wengang <wen.gang.wang@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from youngberry.canonical.com ([91.189.89.112]:41010 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751359AbaKRBiz convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Nov 2014 20:38:55 -0500
+In-reply-to: <54694D09.4080304@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-11-17 at 13:54 -0800, Alexander Duyck wrote:
+Wengang <wen.gang.wang@oracle.com> wrote:
 
-> What would you think of the name "coherent_*mb()"?  I would prefer to 
-> avoid dma in the name since, at least in my mind, that implies MMIO.
+>Hi,
+>
+>Could anybody please review this patch?
 
-I'm lazy, I like typing less, so I like dma_* but I don't object to
-coherent_* if at least one more person thinks it makes the semantics
-clearer :)
+	I don't see that the original of this ever came through netdev.
 
-> It also ties in well with dma_alloc_coherent/dma_free_coherent which is 
-> what would typically be used to allocate the memory we would be using 
-> the barrier to protect anyway.
+>thanks,
+>wengang
+>
+>=E4=BA=8E 2014=E5=B9=B411=E6=9C=8813=E6=97=A5 10:19, Wengang Wang =E5=86=
+=99=E9=81=93:
+>> When last slave of a bonding master is removed, the bonding then doe=
+s not work.
+>> When packet_snd is called against with a master net_device, it acces=
+ses
+>> header_ops. In case the header_ops is not valid any longer(say modul=
+e unloaded)
+>> it will then access an invalid memory address.
+>> This patch try to fix this issue by clearing header_ops when last sl=
+ave
+>> detached.
 
-Agreed.
+	Am I correct in presuming that this behavior is limited to ipoib
+slaves only?  I don't see that this could occur with ethernet slaves, a=
+s
+eth_header_ops isn't part of a module.  This needs to be mentioned in
+the commit log.
 
-> > And yes, in the same spirit, it would probably be good to try to
-> > eventually get rid of the plain "*mb()" functions, and perhaps call
-> > them "mmio_*mb()" to clarify that they are about ordering memory wrt
-> > mmio.
-> >
-> > Hmm?
-> >
-> >                          Linus
-> 
-> I will work on pulling all of the coherent barrier cases out of using 
-> the plain "*mb()" calls first.  We need to sort that out before we could 
-> look at renaming the plain barrier functions.
+>> Signed-off-by: Wengang Wang <wen.gang.wang@oracle.com>
+>> ---
+>>   drivers/net/bonding/bond_main.c | 2 ++
+>>   1 file changed, 2 insertions(+)
+>>
+>> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/b=
+ond_main.c
+>> index c9ac06c..84a34fc 100644
+>> --- a/drivers/net/bonding/bond_main.c
+>> +++ b/drivers/net/bonding/bond_main.c
+>> @@ -1728,6 +1728,8 @@ static int __bond_release_one(struct net_devic=
+e *bond_dev,
+>>   	unblock_netpoll_tx();
+>>   	synchronize_rcu();
+>>   	bond->slave_cnt--;
+>> +	if (!bond->slave_cnt)
+>> +		bond->dev->header_ops =3D NULL;
+>>     	if (!bond_has_slaves(bond)) {
+>>   		call_netdevice_notifiers(NETDEV_CHANGEADDR, bond->dev);
 
-Makes sense.
+	I believe your addition could be moved into the block for the
+next if, as "!bond->slave_cnt" is essentially "!bond_has_slaves()".
 
-Cheers,
-Ben.
+	-J
 
-> - Alex
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+---
+	-Jay Vosburgh, jay.vosburgh@canonical.com
