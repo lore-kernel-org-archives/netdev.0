@@ -1,66 +1,39 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next] tun: return NET_XMIT_DROP for dropped packets
-Date: Wed, 19 Nov 2014 11:09:33 +0800
-Message-ID: <546C09ED.8000004@redhat.com>
-References: <1416288041-30921-1-git-send-email-jasowang@redhat.com> <20141118165359.GA18636@air.redhat.com>
+From: =?utf-8?Q?Loans_Engine=C2=AE?= <mmtorres@uem.br>
+Subject: {Spam?} Goedemorgen
+Date: Wed, 19 Nov 2014 00:33:02 -0200 (BRST)
+Message-ID: <26636962.19321081416364382776.JavaMail.root@Sakhir.uem.br>
+Reply-To: =?utf-8?Q?Loans_Engine=C2=AE?= <loan.engine@outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>
-To: Amos Kong <akong@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141118165359.GA18636@air.redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Barcelona.uem.br ([186.233.154.14]:53351 "EHLO barcelona.uem.br"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754435AbaKSDJu convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Nov 2014 22:09:50 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/19/2014 12:53 AM, Amos Kong wrote:
-> On Tue, Nov 18, 2014 at 01:20:41PM +0800, Jason Wang wrote:
->> After commit 5d097109257c03a71845729f8db6b5770c4bbedc
->> ("tun: only queue packets on device"), NETDEV_TX_OK was returned for
->> dropped packets. This will confuse pktgen since dropped packets were
->> counted as sent ones.
->>
->> Fixing this by returning NET_XMIT_DROP to let pktgen count it as error
->> packet.
->>
->> Cc: Michael S. Tsirkin <mst@redhat.com>
->> Signed-off-by: Jason Wang <jasowang@redhat.com>
->> ---
->>  drivers/net/tun.c | 2 +-
->>  1 file changed, 1 insertion(+), 1 deletion(-)
->>
->> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
->> index e3fa65a..ac53a73 100644
->> --- a/drivers/net/tun.c
->> +++ b/drivers/net/tun.c
->> @@ -819,7 +819,7 @@ drop:
->>  	skb_tx_error(skb);
->>  	kfree_skb(skb);
->>  	rcu_read_unlock();
->> -	return NETDEV_TX_OK;
->> +	return NET_XMIT_DROP;
-> Quoted from linux/drivers/firewire/net.c:
->
->   /*
->    * FIXME: According to a patch from 2003-02-26, "returning non-zero
->    * causes serious problems" here, allegedly.  Before that patch,
->    * -ERRNO was returned which is not appropriate under Linux 2.6.
->    * Perhaps more needs to be done?  Stop the queue in serious
->    * conditions and restart it elsewhere?
->    */
->
-> I saw many drivers return NETDEV_TX_OK in xmit for drop packets, eg: virtio_net.c
 
-Well, I think you miss some thing:
 
-- Virtio-net only drop packets when there's a bug in either driver or
-hypervisor. Other drivers only drop the bad packets. For pktgen, we can
-make sure the packet is good.
-- Most of the drivers (included virtio-net but not tun) will stop txq
-before the ring is full, this could be detected by pktgen
-- Tun keep accepting packets and dropping them even if the socket
-receive queue is full.
+Goedemorgen
+Een lening krijgen op 3% op zowel korte als lange termijn. Leningen mot=
+or is een globale leningen groep die werd opgericht om te voorzien in d=
+e behoeften van economisch depressief cli=C3=ABnten. Wij werken in alle=
+ categorie=C3=ABn van leningen. Voer de volgende gegevens als u ge=C3=AF=
+nteresseerd bent.
+Volledige naam:
+Geslacht:
+Land:
+Het vereiste bedrag:
+Duur:
+Missie:
+We moeten deze volledige informatie voor lening verwerking.
+E-mail ons: loan.engine@outlook.com
+Hartelijke groeten
+Ana wit
 
-So we really need NET_XMIT_DROP here to let pktgen know the packets were
-not sent correctly.
+--=20
+Esta mensagem foi verificada pelo sistema de antivirus e
+ acredita-se estar livre de perigo.
