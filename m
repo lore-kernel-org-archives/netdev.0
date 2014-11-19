@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v4 7/9] net: move make_writable helper into common code
-Date: Wed, 19 Nov 2014 14:05:01 +0100
-Message-ID: <1416402303-25341-8-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v4 2/9] vlan: make __vlan_hwaccel_put_tag return void
+Date: Wed, 19 Nov 2014 14:04:56 +0100
+Message-ID: <1416402303-25341-3-git-send-email-jiri@resnulli.us>
 References: <1416402303-25341-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, pshelar@nicira.com,
 	therbert@google.com, edumazet@google.com, willemb@google.com,
@@ -9,182 +9,85 @@ Cc: davem@davemloft.net, jhs@mojatatu.com, pshelar@nicira.com,
 	Paul.Durrant@citrix.com, tgraf@suug.ch, cwang@twopensource.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f173.google.com ([209.85.212.173]:45408 "EHLO
-	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754962AbaKSNFN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 08:05:13 -0500
-Received: by mail-wi0-f173.google.com with SMTP id r20so5274935wiv.6
-        for <netdev@vger.kernel.org>; Wed, 19 Nov 2014 05:05:12 -0800 (PST)
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:35529 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754897AbaKSNFI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 08:05:08 -0500
+Received: by mail-wi0-f178.google.com with SMTP id hi2so1760240wib.11
+        for <netdev@vger.kernel.org>; Wed, 19 Nov 2014 05:05:07 -0800 (PST)
 In-Reply-To: <1416402303-25341-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-note that skb_make_writable already exists in net/netfilter/core.c
-but does something slightly different.
+Always returns the same skb it gets, so change to void.
 
-Suggested-by: Eric Dumazet <eric.dumazet@gmail.com>
 Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 Acked-by: Pravin B Shelar <pshelar@nicira.com>
 ---
- include/linux/skbuff.h    |  1 +
- net/core/skbuff.c         | 12 ++++++++++++
- net/openvswitch/actions.c | 39 ++++++++++++++-------------------------
- 3 files changed, 27 insertions(+), 25 deletions(-)
+ drivers/scsi/fcoe/fcoe.c | 6 ++----
+ include/linux/if_vlan.h  | 9 ++++-----
+ net/8021q/vlan_dev.c     | 2 +-
+ 3 files changed, 7 insertions(+), 10 deletions(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 73c370e..e045516 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -2678,6 +2678,7 @@ void skb_scrub_packet(struct sk_buff *skb, bool xnet);
- unsigned int skb_gso_transport_seglen(const struct sk_buff *skb);
- struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features);
- struct sk_buff *skb_vlan_untag(struct sk_buff *skb);
-+int skb_ensure_writable(struct sk_buff *skb, int write_len);
+diff --git a/drivers/scsi/fcoe/fcoe.c b/drivers/scsi/fcoe/fcoe.c
+index 4a8ac7d..73a8cc4 100644
+--- a/drivers/scsi/fcoe/fcoe.c
++++ b/drivers/scsi/fcoe/fcoe.c
+@@ -1669,10 +1669,8 @@ static int fcoe_xmit(struct fc_lport *lport, struct fc_frame *fp)
+ 	    fcoe->realdev->features & NETIF_F_HW_VLAN_CTAG_TX) {
+ 		/* must set skb->dev before calling vlan_put_tag */
+ 		skb->dev = fcoe->realdev;
+-		skb = __vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q),
+-					     vlan_dev_vlan_id(fcoe->netdev));
+-		if (!skb)
+-			return -ENOMEM;
++		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q),
++				       vlan_dev_vlan_id(fcoe->netdev));
+ 	} else
+ 		skb->dev = fcoe->netdev;
  
- struct skb_checksum_ops {
- 	__wsum (*update)(const void *mem, int len, __wsum wsum);
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 7001896..d11bbe0 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -4151,6 +4151,18 @@ err_free:
- }
- EXPORT_SYMBOL(skb_vlan_untag);
- 
-+int skb_ensure_writable(struct sk_buff *skb, int write_len)
-+{
-+	if (!pskb_may_pull(skb, write_len))
-+		return -ENOMEM;
-+
-+	if (!skb_cloned(skb) || skb_clone_writable(skb, write_len))
-+		return 0;
-+
-+	return pskb_expand_head(skb, 0, 0, GFP_ATOMIC);
-+}
-+EXPORT_SYMBOL(skb_ensure_writable);
-+
- /**
-  * alloc_skb_with_frags - allocate skb with page frags
+diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
+index d69f057..1b5dbc2 100644
+--- a/include/linux/if_vlan.h
++++ b/include/linux/if_vlan.h
+@@ -347,13 +347,11 @@ static inline struct sk_buff *__vlan_put_tag(struct sk_buff *skb,
   *
-diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
-index 426b913..7ffa377 100644
---- a/net/openvswitch/actions.c
-+++ b/net/openvswitch/actions.c
-@@ -119,17 +119,6 @@ static bool is_flow_key_valid(const struct sw_flow_key *key)
- 	return !!key->eth.type;
+  * Puts the VLAN TCI in @skb->vlan_tci and lets the device do the rest
+  */
+-static inline struct sk_buff *__vlan_hwaccel_put_tag(struct sk_buff *skb,
+-						     __be16 vlan_proto,
+-						     u16 vlan_tci)
++static inline void __vlan_hwaccel_put_tag(struct sk_buff *skb,
++					  __be16 vlan_proto, u16 vlan_tci)
+ {
+ 	skb->vlan_proto = vlan_proto;
+ 	skb->vlan_tci = VLAN_TAG_PRESENT | vlan_tci;
+-	return skb;
  }
  
--static int make_writable(struct sk_buff *skb, int write_len)
--{
--	if (!pskb_may_pull(skb, write_len))
--		return -ENOMEM;
--
--	if (!skb_cloned(skb) || skb_clone_writable(skb, write_len))
--		return 0;
--
--	return pskb_expand_head(skb, 0, 0, GFP_ATOMIC);
--}
--
- static int push_mpls(struct sk_buff *skb, struct sw_flow_key *key,
- 		     const struct ovs_action_push_mpls *mpls)
+ /**
+@@ -368,7 +366,8 @@ static inline struct sk_buff *vlan_put_tag(struct sk_buff *skb,
+ 					   __be16 vlan_proto, u16 vlan_tci)
  {
-@@ -171,7 +160,7 @@ static int pop_mpls(struct sk_buff *skb, struct sw_flow_key *key,
- 	struct ethhdr *hdr;
- 	int err;
+ 	if (vlan_hw_offload_capable(skb->dev->features, vlan_proto)) {
+-		return __vlan_hwaccel_put_tag(skb, vlan_proto, vlan_tci);
++		__vlan_hwaccel_put_tag(skb, vlan_proto, vlan_tci);
++		return skb;
+ 	} else {
+ 		return __vlan_put_tag(skb, vlan_proto, vlan_tci);
+ 	}
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index 0d441ec..d6524b2 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -150,7 +150,7 @@ static netdev_tx_t vlan_dev_hard_start_xmit(struct sk_buff *skb,
+ 		u16 vlan_tci;
+ 		vlan_tci = vlan->vlan_id;
+ 		vlan_tci |= vlan_dev_get_egress_qos_mask(dev, skb->priority);
+-		skb = __vlan_hwaccel_put_tag(skb, vlan->vlan_proto, vlan_tci);
++		__vlan_hwaccel_put_tag(skb, vlan->vlan_proto, vlan_tci);
+ 	}
  
--	err = make_writable(skb, skb->mac_len + MPLS_HLEN);
-+	err = skb_ensure_writable(skb, skb->mac_len + MPLS_HLEN);
- 	if (unlikely(err))
- 		return err;
- 
-@@ -201,7 +190,7 @@ static int set_mpls(struct sk_buff *skb, struct sw_flow_key *key,
- 	__be32 *stack;
- 	int err;
- 
--	err = make_writable(skb, skb->mac_len + MPLS_HLEN);
-+	err = skb_ensure_writable(skb, skb->mac_len + MPLS_HLEN);
- 	if (unlikely(err))
- 		return err;
- 
-@@ -223,7 +212,7 @@ static int __pop_vlan_tci(struct sk_buff *skb, __be16 *current_tci)
- 	struct vlan_hdr *vhdr;
- 	int err;
- 
--	err = make_writable(skb, VLAN_ETH_HLEN);
-+	err = skb_ensure_writable(skb, VLAN_ETH_HLEN);
- 	if (unlikely(err))
- 		return err;
- 
-@@ -310,7 +299,7 @@ static int set_eth_addr(struct sk_buff *skb, struct sw_flow_key *key,
- 			const struct ovs_key_ethernet *eth_key)
- {
- 	int err;
--	err = make_writable(skb, ETH_HLEN);
-+	err = skb_ensure_writable(skb, ETH_HLEN);
- 	if (unlikely(err))
- 		return err;
- 
-@@ -412,8 +401,8 @@ static int set_ipv4(struct sk_buff *skb, struct sw_flow_key *key,
- 	struct iphdr *nh;
- 	int err;
- 
--	err = make_writable(skb, skb_network_offset(skb) +
--				 sizeof(struct iphdr));
-+	err = skb_ensure_writable(skb, skb_network_offset(skb) +
-+				  sizeof(struct iphdr));
- 	if (unlikely(err))
- 		return err;
- 
-@@ -450,8 +439,8 @@ static int set_ipv6(struct sk_buff *skb, struct sw_flow_key *key,
- 	__be32 *saddr;
- 	__be32 *daddr;
- 
--	err = make_writable(skb, skb_network_offset(skb) +
--			    sizeof(struct ipv6hdr));
-+	err = skb_ensure_writable(skb, skb_network_offset(skb) +
-+				  sizeof(struct ipv6hdr));
- 	if (unlikely(err))
- 		return err;
- 
-@@ -493,7 +482,7 @@ static int set_ipv6(struct sk_buff *skb, struct sw_flow_key *key,
- 	return 0;
- }
- 
--/* Must follow make_writable() since that can move the skb data. */
-+/* Must follow skb_ensure_writable() since that can move the skb data. */
- static void set_tp_port(struct sk_buff *skb, __be16 *port,
- 			 __be16 new_port, __sum16 *check)
- {
-@@ -523,8 +512,8 @@ static int set_udp(struct sk_buff *skb, struct sw_flow_key *key,
- 	struct udphdr *uh;
- 	int err;
- 
--	err = make_writable(skb, skb_transport_offset(skb) +
--				 sizeof(struct udphdr));
-+	err = skb_ensure_writable(skb, skb_transport_offset(skb) +
-+				  sizeof(struct udphdr));
- 	if (unlikely(err))
- 		return err;
- 
-@@ -548,8 +537,8 @@ static int set_tcp(struct sk_buff *skb, struct sw_flow_key *key,
- 	struct tcphdr *th;
- 	int err;
- 
--	err = make_writable(skb, skb_transport_offset(skb) +
--				 sizeof(struct tcphdr));
-+	err = skb_ensure_writable(skb, skb_transport_offset(skb) +
-+				  sizeof(struct tcphdr));
- 	if (unlikely(err))
- 		return err;
- 
-@@ -574,7 +563,7 @@ static int set_sctp(struct sk_buff *skb, struct sw_flow_key *key,
- 	int err;
- 	unsigned int sctphoff = skb_transport_offset(skb);
- 
--	err = make_writable(skb, sctphoff + sizeof(struct sctphdr));
-+	err = skb_ensure_writable(skb, sctphoff + sizeof(struct sctphdr));
- 	if (unlikely(err))
- 		return err;
- 
+ 	skb->dev = vlan->real_dev;
 -- 
 1.9.3
