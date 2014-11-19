@@ -1,150 +1,50 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH V2 net] virtio-net: validate features during probe
-Date: Wed, 19 Nov 2014 15:21:29 +0800
-Message-ID: <1416381689-2025-1-git-send-email-jasowang@redhat.com>
+From: Joe Stringer <joestringer-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH net] openvswitch: Fix mask generation for IPv6
+	labels.
+Date: Tue, 18 Nov 2014 23:25:10 -0800
+Message-ID: <CAOftzPgYBBFTfNZunf4oGSmECzjOKF0=dnQ9EkTDFsDi+9jfNw@mail.gmail.com>
+References: <1416336857-61405-1-git-send-email-joestringer@nicira.com>
+ <CALnjE+qrkw92tZ-wgpGOPtbuMJVVCfo--7w6PAGO6OW4skiGQQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: rusty@rustcorp.com.au, mst@redhat.com,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <CALnjE+qrkw92tZ-wgpGOPtbuMJVVCfo--7w6PAGO6OW4skiGQQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-This patch validates feature dependencies during probe and fail the probing
-if a dependency is missed. This fixes the issues of hitting BUG()
-when qemu fails to advertise features correctly. One example is booting
-guest with ctrl_vq=off through qemu.
-
-Cc: Rusty Russell <rusty@rustcorp.com.au>
-Cc: Michael S. Tsirkin <mst@redhat.com>
-Cc: Cornelia Huck <cornelia.huck@de.ibm.com>
-Cc: Wanlong Gao <gaowanlong@cn.fujitsu.com>
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
-Changes from V1:
-- Drop VIRTIO_NET_F_*_UFO from the checklist, since it was disabled
----
- drivers/net/virtio_net.c | 91 ++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 91 insertions(+)
-
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index ec2a8b4..b16a761 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -1673,6 +1673,93 @@ static const struct attribute_group virtio_net_mrg_rx_group = {
- };
- #endif
- 
-+static int virtnet_validate_features(struct virtio_device *dev,
-+				     unsigned int *table,
-+				     int table_size,
-+				     unsigned int feature)
-+{
-+	int i;
-+
-+	if (!virtio_has_feature(dev, feature)) {
-+		for (i = 0; i < table_size; i++) {
-+			unsigned int f = table[i];
-+
-+			if (virtio_has_feature(dev, f)) {
-+				dev_err(&dev->dev,
-+					"buggy hyperviser: feature 0x%x was advertised but its dependency 0x%x was not",
-+					f, feature);
-+				return -EINVAL;
-+			}
-+		}
-+	}
-+
-+	return 0;
-+}
-+
-+static int virtnet_check_features(struct virtio_device *dev)
-+{
-+	unsigned int features_for_ctrl_vq[] = {
-+		VIRTIO_NET_F_CTRL_RX,
-+		VIRTIO_NET_F_CTRL_VLAN,
-+		VIRTIO_NET_F_GUEST_ANNOUNCE,
-+		VIRTIO_NET_F_MQ,
-+		VIRTIO_NET_F_CTRL_MAC_ADDR
-+	};
-+	unsigned int features_for_guest_csum[] = {
-+		VIRTIO_NET_F_GUEST_TSO4,
-+		VIRTIO_NET_F_GUEST_TSO6,
-+		VIRTIO_NET_F_GUEST_ECN,
-+	};
-+	unsigned int features_for_host_csum[] = {
-+		VIRTIO_NET_F_HOST_TSO4,
-+		VIRTIO_NET_F_HOST_TSO6,
-+		VIRTIO_NET_F_HOST_ECN,
-+	};
-+	int err;
-+
-+	err = virtnet_validate_features(dev, features_for_ctrl_vq,
-+					ARRAY_SIZE(features_for_ctrl_vq),
-+					VIRTIO_NET_F_CTRL_VQ);
-+	if (err)
-+		return err;
-+
-+	err = virtnet_validate_features(dev, features_for_guest_csum,
-+					ARRAY_SIZE(features_for_guest_csum),
-+					VIRTIO_NET_F_GUEST_CSUM);
-+	if (err)
-+		return err;
-+
-+	err = virtnet_validate_features(dev, features_for_host_csum,
-+					ARRAY_SIZE(features_for_host_csum),
-+					VIRTIO_NET_F_CSUM);
-+	if (err)
-+		return err;
-+
-+	if (virtio_has_feature(dev, VIRTIO_NET_F_GUEST_ECN) &&
-+	    (!virtio_has_feature(dev, VIRTIO_NET_F_GUEST_TSO4) ||
-+	     !virtio_has_feature(dev, VIRTIO_NET_F_GUEST_TSO6))) {
-+		dev_err(&dev->dev,
-+			"buggy hyperviser: feature 0x%x was advertised but its dependency 0x%x or 0x%x was not",
-+			VIRTIO_NET_F_GUEST_ECN,
-+			VIRTIO_NET_F_GUEST_TSO4,
-+			VIRTIO_NET_F_GUEST_TSO6);
-+		return -EINVAL;
-+	}
-+
-+	if (virtio_has_feature(dev, VIRTIO_NET_F_HOST_ECN) &&
-+	    (!virtio_has_feature(dev, VIRTIO_NET_F_HOST_TSO4) ||
-+	     !virtio_has_feature(dev, VIRTIO_NET_F_HOST_TSO6))) {
-+		dev_err(&dev->dev,
-+			"buggy hyperviser: feature 0x%x was advertised but its dependency 0x%x or 0x%x was not",
-+			VIRTIO_NET_F_HOST_ECN,
-+			VIRTIO_NET_F_HOST_TSO4,
-+			VIRTIO_NET_F_HOST_TSO6);
-+		return -EINVAL;
-+	}
-+
-+	return 0;
-+}
-+
- static int virtnet_probe(struct virtio_device *vdev)
- {
- 	int i, err;
-@@ -1680,6 +1767,10 @@ static int virtnet_probe(struct virtio_device *vdev)
- 	struct virtnet_info *vi;
- 	u16 max_queue_pairs;
- 
-+	err = virtnet_check_features(vdev);
-+	if (err)
-+		return -EINVAL;
-+
- 	/* Find if host supports multiqueue virtio_net device */
- 	err = virtio_cread_feature(vdev, VIRTIO_NET_F_MQ,
- 				   struct virtio_net_config,
--- 
-1.9.1
+T24gMTggTm92ZW1iZXIgMjAxNCAyMjowOSwgUHJhdmluIFNoZWxhciA8cHNoZWxhckBuaWNpcmEu
+Y29tPiB3cm90ZToKCj4gT24gVHVlLCBOb3YgMTgsIDIwMTQgYXQgMTA6NTQgQU0sIEpvZSBTdHJp
+bmdlciA8am9lc3RyaW5nZXJAbmljaXJhLmNvbT4KPiB3cm90ZToKPiA+IFdoZW4gdXNlcnNwYWNl
+IGRvZXNuJ3QgcHJvdmlkZSBhIG1hc2ssIE9WUyBkYXRhcGF0aCBnZW5lcmF0ZXMgYSBmdWxseQo+
+ID4gdW53aWxkY2FyZGVkIG1hc2sgZm9yIHRoZSBmbG93LiBUaGlzIGlzIGRvbmUgYnkgdGFraW5n
+IGEgY29weSBvZiB0aGUKPiA+IGZsb3cga2V5LCB0aGVuIGl0ZXJhdGluZyBhY3Jvc3MgaXRzIGF0
+dHJpYnV0ZXMsIHNldHRpbmcgYWxsIHZhbHVlcyB0bwo+ID4gMHhmZi4gVGhpcyB3b3JrcyBmb3Ig
+bW9zdCBhdHRyaWJ1dGVzLCBhcyB0aGUgbGVuZ3RoIG9mIHRoZSBuZXRsaW5rCj4gPiBhdHRyaWJ1
+dGUgdHlwaWNhbGx5IG1hdGNoZXMgdGhlIGxlbmd0aCBvZiB0aGUgdmFsdWUuIEhvd2V2ZXIsIElQ
+djYKPiA+IGxhYmVscyBvbmx5IHVzZSB0aGUgbG93ZXIgMjAgYml0cyBvZiB0aGUgZmllbGQuIFRo
+aXMgcGF0Y2ggbWFrZXMgYQo+ID4gc3BlY2lhbCBjYXNlIHRvIGhhbmRsZSB0aGlzLgo+ID4KPiA+
+IFRoaXMgZml4ZXMgdGhlIGZvbGxvd2luZyBlcnJvciBzZWVuIHdoZW4gaW5zdGFsbGluZyBJUHY2
+IGZsb3dzIHdpdGhvdXQgYQo+IG1hc2s6Cj4gPgo+ID4gb3BlbnZzd2l0Y2g6IG5ldGxpbms6IElu
+dmFsaWQgSVB2NiBmbG93IGxhYmVsIHZhbHVlICh2YWx1ZT1mZmZmZmZmZiwKPiBtYXg9ZmZmZmYp
+Cj4gPgo+IFdlIHNob3VsZCBhbGxvdyBleGFjdCBtYXRjaCBtYXNrIGhlcmUgcmF0aGVyIHRoYW4g
+Z2VuZXJhdGluZwo+IHdpbGRjYXJkZWQgbWFzay4gU28gdGhhdCBvdnMgY2FuIGNhdGNoIGludmFs
+aWQgaXB2Ni5sYWJlbC4KCgpJIGRvbid0IHF1aXRlIGZvbGxvdywgSSB0aG91Z2h0IHRoaXMgd2Fz
+IGV4YWN0LW1hdGNoPyAoVGhlIGV4aXN0aW5nCmZ1bmN0aW9uIHNldHMgYWxsIGJpdHMgdG8gMSkK
+CkluIHRoaXMgY2FzZSwgdXNlcnNwYWNlIGhhcyBub3Qgc3BlY2lmaWVkIGEgbWFzaywgYnV0IHRo
+ZSBrZXJuZWwgY29tcGxhaW5zCmFib3V0IGEgbWFzayB0aGF0IGlzIHRvbyB3aWRlIChiZWNhdXNl
+IGl0IGdlbmVyYXRlZCBhIG1hc2sgdGhhdCdzIHRvbwp3aWRlKS4gRG8geW91IGhhdmUgYW4gYWx0
+ZXJuYXRpdmUgZml4IGluIG1pbmQ/Cl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8v
+b3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
