@@ -1,246 +1,41 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next v3 5/9] vlan: introduce
- *vlan_hwaccel_push_inside helpers
-Date: Wed, 19 Nov 2014 09:38:47 +0100
-Message-ID: <20141119083847.GA1926@nanopsycho.orion>
-References: <1416346664-9290-1-git-send-email-jiri@resnulli.us>
- <1416346664-9290-6-git-send-email-jiri@resnulli.us>
- <CALnjE+qp2SiKPFaRQDWcBxR-kiryfnsttT902iUnTi7=DZT6JQ@mail.gmail.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: [PATCH 1/1] net: xfrm: Deletion of an unnecessary check before
+ the function call "ipcomp_free_tfms"
+Date: Wed, 19 Nov 2014 11:45:42 +0300
+Message-ID: <20141119084542.GK4905@mwanda>
+References: <530C5E18.1020800@users.sourceforge.net>
+ <alpine.DEB.2.10.1402251014170.2080@hadrien>
+ <530CD2C4.4050903@users.sourceforge.net>
+ <alpine.DEB.2.10.1402251840450.7035@hadrien>
+ <530CF8FF.8080600@users.sourceforge.net>
+ <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6>
+ <530DD06F.4090703@users.sourceforge.net>
+ <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>
+ <5317A59D.4@users.sourceforge.net>
+ <546BAFF5.5020603@users.sourceforge.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Tom Herbert <therbert@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Willem de Bruijn <willemb@google.com>,
-	Daniel Borkmann <dborkman@redhat.com>, mst@redhat.com,
-	fw@strlen.de, Paul.Durrant@citrix.com, Thomas Graf <tgraf@suug.ch>,
-	Cong Wang <cwang@twopensource.com>
-To: Pravin Shelar <pshelar@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:59106 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751265AbaKSIiu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 03:38:50 -0500
-Received: by mail-wi0-f178.google.com with SMTP id hi2so981658wib.11
-        for <netdev@vger.kernel.org>; Wed, 19 Nov 2014 00:38:48 -0800 (PST)
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org, Coccinelle <cocci@systeme.lip6.fr>
+To: SF Markus Elfring <elfring@users.sourceforge.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <CALnjE+qp2SiKPFaRQDWcBxR-kiryfnsttT902iUnTi7=DZT6JQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <546BAFF5.5020603@users.sourceforge.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Wed, Nov 19, 2014 at 09:05:34AM CET, pshelar@nicira.com wrote:
->On Tue, Nov 18, 2014 at 1:37 PM, Jiri Pirko <jiri@resnulli.us> wrote:
->> Use them to push skb->vlan_tci into the payload and avoid code
->> duplication.
->>
->> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
->> ---
->>  drivers/net/vxlan.c         | 22 ++++++----------------
->>  include/linux/if_vlan.h     | 34 ++++++++++++++++++++++++++++++++++
->>  net/core/dev.c              |  8 ++------
->>  net/core/netpoll.c          |  4 +---
->>  net/ipv4/geneve.c           | 11 +++--------
->>  net/openvswitch/datapath.c  |  6 +-----
->>  net/openvswitch/vport-gre.c | 12 ++++--------
->>  7 files changed, 51 insertions(+), 46 deletions(-)
->>
->> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
->> index bb8fbab..64d45fa 100644
->> --- a/drivers/net/vxlan.c
->> +++ b/drivers/net/vxlan.c
->> @@ -1599,14 +1599,9 @@ static int vxlan6_xmit_skb(struct vxlan_sock *vs,
->>         if (unlikely(err))
->>                 return err;
->>
->> -       if (vlan_tx_tag_present(skb)) {
->> -               skb = vlan_insert_tag_set_proto(skb, skb->vlan_proto,
->> -                                               vlan_tx_tag_get(skb));
->> -               if (WARN_ON(!skb))
->> -                       return -ENOMEM;
->> -
->> -               skb->vlan_tci = 0;
->> -       }
->> +       skb = vlan_hwaccel_push_inside(skb);
->> +       if (WARN_ON(!skb))
->> +               return -ENOMEM;
->>
->>         vxh = (struct vxlanhdr *) __skb_push(skb, sizeof(*vxh));
->>         vxh->vx_flags = htonl(VXLAN_FLAGS);
->> @@ -1643,14 +1638,9 @@ int vxlan_xmit_skb(struct vxlan_sock *vs,
->>         if (unlikely(err))
->>                 return err;
->>
->> -       if (vlan_tx_tag_present(skb)) {
->> -               skb = vlan_insert_tag_set_proto(skb, skb->vlan_proto,
->> -                                               vlan_tx_tag_get(skb));
->> -               if (WARN_ON(!skb))
->> -                       return -ENOMEM;
->> -
->> -               skb->vlan_tci = 0;
->> -       }
->> +       skb = vlan_hwaccel_push_inside(skb);
->> +       if (WARN_ON(!skb))
->> +               return -ENOMEM;
->>
->>         vxh = (struct vxlanhdr *) __skb_push(skb, sizeof(*vxh));
->>         vxh->vx_flags = htonl(VXLAN_FLAGS);
->> diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
->> index 46e4a15..291e670 100644
->> --- a/include/linux/if_vlan.h
->> +++ b/include/linux/if_vlan.h
->> @@ -341,6 +341,40 @@ static inline struct sk_buff *vlan_insert_tag_set_proto(struct sk_buff *skb,
->>         return skb;
->>  }
->>
->> +/*
->> + * __vlan_hwaccel_push_inside - pushes vlan tag to the payload
->> + * @skb: skbuff to tag
->> + *
->> + * Pushes the VLAN tag from @skb->vlan_tci inside to the payload.
->> + *
->> + * Following the skb_unshare() example, in case of error, the calling function
->> + * doesn't have to worry about freeing the original skb.
->> + */
->> +static inline struct sk_buff *__vlan_hwaccel_push_inside(struct sk_buff *skb)
->> +{
->> +       skb = vlan_insert_tag_set_proto(skb, skb->vlan_proto,
->> +                                       vlan_tx_tag_get(skb));
->> +       if (likely(skb))
->> +               skb->vlan_tci = 0;
->> +       return skb;
->> +}
->> +/*
->> + * vlan_hwaccel_push_inside - pushes vlan tag to the payload
->> + * @skb: skbuff to tag
->> + *
->> + * Checks is tag is present in @skb->vlan_tci and if it is, it pushes the
->> + * VLAN tag from @skb->vlan_tci inside to the payload.
->> + *
->> + * Following the skb_unshare() example, in case of error, the calling function
->> + * doesn't have to worry about freeing the original skb.
->> + */
->> +static inline struct sk_buff *vlan_hwaccel_push_inside(struct sk_buff *skb)
->> +{
->> +       if (vlan_tx_tag_present(skb))
->> +               skb = __vlan_hwaccel_push_inside(skb);
->> +       return skb;
->> +}
->> +
->>  /**
->>   * __vlan_hwaccel_put_tag - hardware accelerated VLAN inserting
->>   * @skb: skbuff to tag
->> diff --git a/net/core/dev.c b/net/core/dev.c
->> index 3611e60..ac48362 100644
->> --- a/net/core/dev.c
->> +++ b/net/core/dev.c
->> @@ -2644,12 +2644,8 @@ static struct sk_buff *validate_xmit_vlan(struct sk_buff *skb,
->>                                           netdev_features_t features)
->>  {
->>         if (vlan_tx_tag_present(skb) &&
->> -           !vlan_hw_offload_capable(features, skb->vlan_proto)) {
->> -               skb = vlan_insert_tag_set_proto(skb, skb->vlan_proto,
->> -                                               vlan_tx_tag_get(skb));
->> -               if (skb)
->> -                       skb->vlan_tci = 0;
->> -       }
->> +           !vlan_hw_offload_capable(features, skb->vlan_proto))
->> +               skb = __vlan_hwaccel_push_inside(skb);
->>         return skb;
->>  }
->>
->> diff --git a/net/core/netpoll.c b/net/core/netpoll.c
->> index 65d3723..e0ad5d1 100644
->> --- a/net/core/netpoll.c
->> +++ b/net/core/netpoll.c
->> @@ -79,8 +79,7 @@ static int netpoll_start_xmit(struct sk_buff *skb, struct net_device *dev,
->>
->>         if (vlan_tx_tag_present(skb) &&
->>             !vlan_hw_offload_capable(features, skb->vlan_proto)) {
->> -               skb = vlan_insert_tag_set_proto(skb, skb->vlan_proto,
->> -                                               vlan_tx_tag_get(skb));
->> +               skb = __vlan_hwaccel_push_inside(skb);
->>                 if (unlikely(!skb)) {
->>                         /* This is actually a packet drop, but we
->>                          * don't want the code that calls this
->> @@ -88,7 +87,6 @@ static int netpoll_start_xmit(struct sk_buff *skb, struct net_device *dev,
->>                          */
->>                         goto out;
->>                 }
->> -               skb->vlan_tci = 0;
->>         }
->>
->>         status = netdev_start_xmit(skb, dev, txq, false);
->> diff --git a/net/ipv4/geneve.c b/net/ipv4/geneve.c
->> index fd430a6..a457232 100644
->> --- a/net/ipv4/geneve.c
->> +++ b/net/ipv4/geneve.c
->> @@ -131,14 +131,9 @@ int geneve_xmit_skb(struct geneve_sock *gs, struct rtable *rt,
->>         if (unlikely(err))
->>                 return err;
->>
->> -       if (vlan_tx_tag_present(skb)) {
->> -               skb = vlan_insert_tag_set_proto(skb, skb->vlan_proto,
->> -                                               vlan_tx_tag_get(skb));
->> -               if (unlikely(!skb)
->> -                       return -ENOMEM;
->> -
->> -               skb->vlan_tci = 0;
->> -       }
->> +       skb = vlan_hwaccel_push_inside(skb);
->> +       if (unlikely(!skb))
->> +               return -ENOMEM;
->>
->>         gnvh = (struct genevehdr *)__skb_push(skb, sizeof(*gnvh) + opt_len);
->>         geneve_build_header(gnvh, tun_flags, vni, opt_len, opt);
->> diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
->> index c63e60e..0cb9d4f 100644
->> --- a/net/openvswitch/datapath.c
->> +++ b/net/openvswitch/datapath.c
->> @@ -425,12 +425,8 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
->>                 if (!nskb)
->>                         return -ENOMEM;
->>
->> -               nskb = vlan_insert_tag_set_proto(nskb, nskb->vlan_proto,
->> -                                                vlan_tx_tag_get(nskb));
->> -               if (!nskb)
->> -                       return -ENOMEM;
->> +               nskb = __vlan_hwaccel_push_inside(nskb);
->>
->> -               nskb->vlan_tci = 0;
->
->Need to check for returned nskb for NULL case.
+On Tue, Nov 18, 2014 at 09:45:41PM +0100, SF Markus Elfring wrote:
+> From: Markus Elfring <elfring@users.sourceforge.net>
+> Date: Tue, 18 Nov 2014 21:41:26 +0100
+> 
+> The ipcomp_free_tfms() function tests whether its argument is NULL and then
+> returns immediately. Thus the test around the call is not needed.
+> 
 
-Oops, Fixed. Thanks.
+It doesn't though...
 
->
->>                 skb = nskb;
->>         }
->>
->> diff --git a/net/openvswitch/vport-gre.c b/net/openvswitch/vport-gre.c
->> index 777cd8c..6b69df5 100644
->> --- a/net/openvswitch/vport-gre.c
->> +++ b/net/openvswitch/vport-gre.c
->> @@ -175,14 +175,10 @@ static int gre_tnl_send(struct vport *vport, struct sk_buff *skb)
->>                         goto err_free_rt;
->>         }
->>
->> -       if (vlan_tx_tag_present(skb)) {
->> -               skb = vlan_insert_tag_set_proto(skb, skb->vlan_proto,
->> -                                               vlan_tx_tag_get(skb));
->> -               if (unlikely(!skb) {
->> -                       err = -ENOMEM;
->> -                       goto err_free_rt;
->> -               }
->> -               skb->vlan_tci = 0;
->> +       skb = vlan_hwaccel_push_inside(skb);
->> +       if (unlikely(!skb)) {
->> +               err = -ENOMEM;
->> +               goto err_free_rt;
->>         }
->>
->>         /* Push Tunnel header. */
->> --
->> 1.9.3
->>
+regards,
+dan carpenter
