@@ -1,67 +1,76 @@
-From: Joe Stringer <joestringer-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCHv2 net] openvswitch: Fix mask generation for IPv6
-	labels.
-Date: Wed, 19 Nov 2014 13:20:01 -0800
-Message-ID: <1416432001-35678-1-git-send-email-joestringer@nicira.com>
+From: Joe Stringer <joestringer@nicira.com>
+Subject: Re: [ovs-dev] [PATCH net] openvswitch: Fix mask generation for IPv6 labels.
+Date: Wed, 19 Nov 2014 12:49:10 -0800
+Message-ID: <201411191249.10553.joestringer@nicira.com>
+References: <1416336857-61405-1-git-send-email-joestringer@nicira.com> <201411191151.40064.joestringer@nicira.com> <CALnjE+otirroKNXE7qbUHfoTifipp8LJ6g8yNsLz0dBjm3PUsQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: Text/Plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Pravin Shelar <pshelar@nicira.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CALnjE+otirroKNXE7qbUHfoTifipp8LJ6g8yNsLz0dBjm3PUsQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-V2hlbiB1c2Vyc3BhY2UgZG9lc24ndCBwcm92aWRlIGEgbWFzaywgT1ZTIGRhdGFwYXRoIGdlbmVy
-YXRlcyBhIGZ1bGx5CnVud2lsZGNhcmRlZCBtYXNrIGZvciB0aGUgZmxvdy4gVGhpcyBpcyBkb25l
-IGJ5IHRha2luZyBhIGNvcHkgb2YgdGhlCmZsb3cga2V5LCB0aGVuIGl0ZXJhdGluZyBhY3Jvc3Mg
-aXRzIGF0dHJpYnV0ZXMsIHNldHRpbmcgYWxsIHZhbHVlcyB0bwoweGZmLiBUaGlzIHdvcmtzIGZv
-ciBtb3N0IGF0dHJpYnV0ZXMsIGFzIHRoZSBsZW5ndGggb2YgdGhlIG5ldGxpbmsKYXR0cmlidXRl
-IHR5cGljYWxseSBtYXRjaGVzIHRoZSBsZW5ndGggb2YgdGhlIHZhbHVlLiBIb3dldmVyLCBJUHY2
-CmxhYmVscyBvbmx5IHVzZSB0aGUgbG93ZXIgMjAgYml0cyBvZiB0aGUgZmllbGQuIFRoaXMgcGF0
-Y2ggbWFrZXMgYQpzcGVjaWFsIGNhc2UgdG8gaGFuZGxlIHRoaXMuCgpUaGlzIGZpeGVzIHRoZSBm
-b2xsb3dpbmcgZXJyb3Igc2VlbiB3aGVuIGluc3RhbGxpbmcgSVB2NiBmbG93cyB3aXRob3V0IGEg
-bWFzazoKCm9wZW52c3dpdGNoOiBuZXRsaW5rOiBJbnZhbGlkIElQdjYgZmxvdyBsYWJlbCB2YWx1
-ZSAodmFsdWU9ZmZmZmZmZmYsIG1heD1mZmZmZikKClNpZ25lZC1vZmYtYnk6IEpvZSBTdHJpbmdl
-ciA8am9lc3RyaW5nZXJAbmljaXJhLmNvbT4KLS0tCnYyOiBPUiBsb3dlciAyMCBiaXRzICh1cHBl
-ciAxMiBiaXRzIHJlbWFpbiBmcm9tIGVhcmxpZXIgbWVtZHVwKQotLS0KIG5ldC9vcGVudnN3aXRj
-aC9mbG93X25ldGxpbmsuYyB8ICAgMjIgKysrKysrKysrKysrLS0tLS0tLS0tLQogMSBmaWxlIGNo
-YW5nZWQsIDEyIGluc2VydGlvbnMoKyksIDEwIGRlbGV0aW9ucygtKQoKZGlmZiAtLWdpdCBhL25l
-dC9vcGVudnN3aXRjaC9mbG93X25ldGxpbmsuYyBiL25ldC9vcGVudnN3aXRjaC9mbG93X25ldGxp
-bmsuYwppbmRleCBmYTRlYzJlLi5lNTMwMDI1IDEwMDY0NAotLS0gYS9uZXQvb3BlbnZzd2l0Y2gv
-Zmxvd19uZXRsaW5rLmMKKysrIGIvbmV0L29wZW52c3dpdGNoL2Zsb3dfbmV0bGluay5jCkBAIC04
-MjUsNyArODI1LDcgQEAgc3RhdGljIGludCBvdnNfa2V5X2Zyb21fbmxhdHRycyhzdHJ1Y3Qgc3df
-Zmxvd19tYXRjaCAqbWF0Y2gsIHU2NCBhdHRycywKIAlyZXR1cm4gMDsKIH0KIAotc3RhdGljIHZv
-aWQgbmxhdHRyX3NldChzdHJ1Y3QgbmxhdHRyICphdHRyLCB1OCB2YWwsIGJvb2wgaXNfYXR0cl9t
-YXNrX2tleSkKK3N0YXRpYyB2b2lkIG1hc2tfc2V0X25sYXR0cihzdHJ1Y3QgbmxhdHRyICphdHRy
-KQogewogCXN0cnVjdCBubGF0dHIgKm5sYTsKIAlpbnQgcmVtOwpAQCAtODM1LDE2ICs4MzUsMTgg
-QEAgc3RhdGljIHZvaWQgbmxhdHRyX3NldChzdHJ1Y3QgbmxhdHRyICphdHRyLCB1OCB2YWwsIGJv
-b2wgaXNfYXR0cl9tYXNrX2tleSkKIAkJLyogV2UgYXNzdW1lIHRoYXQgb3ZzX2tleV9sZW5zW3R5
-cGVdID09IC0xIG1lYW5zIHRoYXQgdHlwZSBpcyBhCiAJCSAqIG5lc3RlZCBhdHRyaWJ1dGUKIAkJ
-ICovCi0JCWlmIChpc19hdHRyX21hc2tfa2V5ICYmIG92c19rZXlfbGVuc1tubGFfdHlwZShubGEp
-XSA9PSAtMSkKLQkJCW5sYXR0cl9zZXQobmxhLCB2YWwsIGZhbHNlKTsKKwkJaWYgKG92c19rZXlf
-bGVuc1tubGFfdHlwZShubGEpXSA9PSAtMSkKKwkJCW5sYV9mb3JfZWFjaF9uZXN0ZWQobmxhLCBh
-dHRyLCByZW0pCisJCQkJbWVtc2V0KG5sYV9kYXRhKG5sYSksIDB4ZmYsIG5sYV9sZW4obmxhKSk7
-CiAJCWVsc2UKLQkJCW1lbXNldChubGFfZGF0YShubGEpLCB2YWwsIG5sYV9sZW4obmxhKSk7Ci0J
-fQotfQorCQkJbWVtc2V0KG5sYV9kYXRhKG5sYSksIDB4ZmYsIG5sYV9sZW4obmxhKSk7CiAKLXN0
-YXRpYyB2b2lkIG1hc2tfc2V0X25sYXR0cihzdHJ1Y3QgbmxhdHRyICphdHRyLCB1OCB2YWwpCi17
-Ci0JbmxhdHRyX3NldChhdHRyLCB2YWwsIHRydWUpOworCQlpZiAobmxhX3R5cGUobmxhKSA9PSBP
-VlNfS0VZX0FUVFJfSVBWNikgeworCQkJc3RydWN0IG92c19rZXlfaXB2NiAqaXB2Nl9rZXkgPSBu
-bGFfZGF0YShubGEpOworCisJCQlpcHY2X2tleS0+aXB2Nl9sYWJlbCB8PSBodG9ubCgweDAwMEZG
-RkZGKTsKKwkJfQorCX0KIH0KIAogLyoqCkBAIC05MjYsNyArOTI4LDcgQEAgaW50IG92c19ubGFf
-Z2V0X21hdGNoKHN0cnVjdCBzd19mbG93X21hdGNoICptYXRjaCwKIAkJaWYgKCFuZXdtYXNrKQog
-CQkJcmV0dXJuIC1FTk9NRU07CiAKLQkJbWFza19zZXRfbmxhdHRyKG5ld21hc2ssIDB4ZmYpOwor
-CQltYXNrX3NldF9ubGF0dHIobmV3bWFzayk7CiAKIAkJLyogVGhlIHVzZXJzcGFjZSBkb2VzIG5v
-dCBzZW5kIHR1bm5lbCBhdHRyaWJ1dGVzIHRoYXQgYXJlIDAsCiAJCSAqIGJ1dCB3ZSBzaG91bGQg
-bm90IHdpbGRjYXJkIHRoZW0gbm9uZXRoZWxlc3MuCi0tIAoxLjcuMTAuNAoKX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZA
-b3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9k
-ZXYK
+On Wednesday, November 19, 2014 12:33:10 Pravin Shelar wrote:
+> On Wed, Nov 19, 2014 at 11:51 AM, Joe Stringer <joestringer@nicira.com> 
+wrote:
+> > On Wednesday, November 19, 2014 11:08:35 Pravin Shelar wrote:
+> >> On Wed, Nov 19, 2014 at 9:48 AM, Joe Stringer <joestringer@nicira.com>
+> > 
+> > wrote:
+> >> > On Wednesday, November 19, 2014 00:11:01 Pravin Shelar wrote:
+> >> >> On Tue, Nov 18, 2014 at 11:25 PM, Joe Stringer
+> >> >> <joestringer@nicira.com>
+> >> > 
+> >> > wrote:
+> >> >> > On 18 November 2014 22:09, Pravin Shelar <pshelar@nicira.com> wrote:
+> >> >> >> On Tue, Nov 18, 2014 at 10:54 AM, Joe Stringer
+> >> >> >> <joestringer@nicira.com>
+> >> >> >> 
+> >> >> >> wrote:
+> >> >> >> > When userspace doesn't provide a mask, OVS datapath generates a
+> >> >> >> > fully unwildcarded mask for the flow. This is done by taking a
+> >> >> >> > copy of the flow key, then iterating across its attributes,
+> >> >> >> > setting all values to 0xff. This works for most attributes, as
+> >> >> >> > the length of the netlink attribute typically matches the
+> >> >> >> > length of the value. However, IPv6 labels only use the lower 20
+> >> >> >> > bits of the field. This patch makes a special case to handle
+> >> >> >> > this.
+> >> >> >> > 
+> >> >> >> > This fixes the following error seen when installing IPv6 flows
+> >> >> >> > without a mask:
+> >> >> >> > 
+> >> >> >> > openvswitch: netlink: Invalid IPv6 flow label value
+> >> >> >> > (value=ffffffff, max=fffff)
+> >> >> >> 
+> >> >> >> We should allow exact match mask here rather than generating
+> >> >> >> wildcarded mask. So that ovs can catch invalid ipv6.label.
+> >> >> > 
+> >> >> > I don't quite follow, I thought this was exact-match? (The existing
+> >> >> > function sets all bits to 1)
+> >> >> 
+> >> >> With 0xffffffff value we can exact match on all ipv6.lable bits.
+> >> > 
+> >> > The label field is only 20 bits. The other bits in the same word of
+> >> > the IPv6 header are for version (fixed) and traffic class (handled
+> >> > separately). We don't do anything with the other bits.
+> >> 
+> >> This is just to make sure that we do not use those field for any thing
+> >> else. Masking those extra bits can hide incorrect ipv6 key extraction.
+> > 
+> > Oh, I see. I meant something more like:
+> > 
+> > ipv6_key->ipv6_label &= htonl(0xFFF00000);
+> > ipv6_key->ipv6_label |= htonl(0x000FFFFF);
+> > 
+> > (Which would propagate the invalid bits from the flow key, but actually
+> > produce an exact match).
+> 
+> yes, it can wildcard unused bits.
+
+I'll send a v2.
