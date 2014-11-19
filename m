@@ -1,86 +1,27 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: [PATCH net-next v2] packet: make packet_snd fail on len smaller than l2 header
-Date: Wed, 19 Nov 2014 13:10:16 -0500
-Message-ID: <1416420616-5029-1-git-send-email-willemb@google.com>
-Cc: davem@davemloft.net, eric.dumazet@gmail.com, dborkman@redhat.com,
-	Willem de Bruijn <willemb@google.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f53.google.com ([209.85.213.53]:61266 "EHLO
-	mail-yh0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754998AbaKSSKS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 13:10:18 -0500
-Received: by mail-yh0-f53.google.com with SMTP id i57so525853yha.26
-        for <netdev@vger.kernel.org>; Wed, 19 Nov 2014 10:10:18 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: net: xfrm: Deletion of an unnecessary check before the
+ function call "ipcomp_free_tfms"
+Date: Wed, 19 Nov 2014 13:19:33 -0500 (EST)
+Message-ID: <20141119.131933.594403961160605240.davem@davemloft.net>
+References: <20141119084542.GK4905@mwanda>
+	<546C6823.50900@users.sourceforge.net>
+	<20141119101003.GL4905@mwanda>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: elfring@users.sourceforge.net, herbert@gondor.apana.org.au,
+	steffen.klassert@secunet.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
+	julia.lawall@lip6.fr
+To: dan.carpenter@oracle.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141119101003.GL4905@mwanda>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Willem de Bruijn <willemb@google.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Wed, 19 Nov 2014 13:10:03 +0300
 
-When sending packets out with PF_PACKET, SOCK_RAW, ensure that the
-packet is at least as long as the device's expected link layer header.
-This check already exists in tpacket_snd, but not in packet_snd.
-Also rate limit the warning in tpacket_snd.
+> I have come to view you as a very clever troll.
 
-Signed-off-by: Willem de Bruijn <willemb@google.com>
----
- net/packet/af_packet.c | 29 +++++++++++++++++++++--------
- 1 file changed, 21 insertions(+), 8 deletions(-)
-
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 4cd13d8..58af5802 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -2095,6 +2095,18 @@ static void tpacket_destruct_skb(struct sk_buff *skb)
- 	sock_wfree(skb);
- }
- 
-+static bool ll_header_truncated(const struct net_device *dev, int len)
-+{
-+	/* net device doesn't like empty head */
-+	if (unlikely(len <= dev->hard_header_len)) {
-+		net_warn_ratelimited("%s: packet size is too short (%d < %d)\n",
-+				     current->comm, len, dev->hard_header_len);
-+		return true;
-+	}
-+
-+	return false;
-+}
-+
- static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
- 		void *frame, struct net_device *dev, int size_max,
- 		__be16 proto, unsigned char *addr, int hlen)
-@@ -2170,12 +2182,8 @@ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
- 		if (unlikely(err < 0))
- 			return -EINVAL;
- 	} else if (dev->hard_header_len) {
--		/* net device doesn't like empty head */
--		if (unlikely(tp_len <= dev->hard_header_len)) {
--			pr_err("packet size is too short (%d < %d)\n",
--			       tp_len, dev->hard_header_len);
-+		if (ll_header_truncated(dev, tp_len))
- 			return -EINVAL;
--		}
- 
- 		skb_push(skb, dev->hard_header_len);
- 		err = skb_store_bits(skb, 0, data,
-@@ -2500,9 +2508,14 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
- 	skb_set_network_header(skb, reserve);
- 
- 	err = -EINVAL;
--	if (sock->type == SOCK_DGRAM &&
--	    (offset = dev_hard_header(skb, dev, ntohs(proto), addr, NULL, len)) < 0)
--		goto out_free;
-+	if (sock->type == SOCK_DGRAM) {
-+		offset = dev_hard_header(skb, dev, ntohs(proto), addr, NULL, len);
-+		if (unlikely(offset) < 0)
-+			goto out_free;
-+	} else {
-+		if (ll_header_truncated(dev, len))
-+			goto out_free;
-+	}
- 
- 	/* Returns -EFAULT on error */
- 	err = skb_copy_datagram_from_iovec(skb, offset, msg->msg_iov, 0, len);
--- 
-2.1.0.rc2.206.gedb03e5
++1
