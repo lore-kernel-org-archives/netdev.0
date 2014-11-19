@@ -1,45 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RESEND] fix #51791 - bug? mac 00:00:00:00:00:00 with
- natsemi DP83815 after driver load
-Date: Wed, 19 Nov 2014 15:35:28 -0500 (EST)
-Message-ID: <20141119.153528.1764287151701305293.davem@davemloft.net>
-References: <trinity-a7b6eb2e-598a-4ad0-9df5-7567cb544671-1416347483688@3capp-webde-bs54>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [RFC] situation with csum_and_copy_... API
+Date: Wed, 19 Nov 2014 12:40:53 -0800
+Message-ID: <CA+55aFyQR2gOzEDROcWFcQzLvTjOxyJRjFJXJ03JB5knd-Gsgg@mail.gmail.com>
+References: <20141118084745.GT7996@ZenIV.linux.org.uk>
+	<CA+55aFxK0wj2LLp0WmhRsBZch8XfoYbzmbEeJaMpt=SDh5GBvw@mail.gmail.com>
+	<20141118212307.GU7996@ZenIV.linux.org.uk>
+	<20141119.153136.867017618826698045.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: devzero@web.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38498 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932096AbaKSUfb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 15:35:31 -0500
-In-Reply-To: <trinity-a7b6eb2e-598a-4ad0-9df5-7567cb544671-1416347483688@3capp-webde-bs54>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Al Viro <viro@zeniv.linux.org.uk>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141119.153136.867017618826698045.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Roland Kletzing" <devzero@web.de>
-Date: Tue, 18 Nov 2014 22:51:23 +0100
+On Wed, Nov 19, 2014 at 12:31 PM, David Miller <davem@davemloft.net> wrote:
+>
+> But that is just my opinion, and yes I do acknowledge that we've had
+> serious holes in this area in the past.
 
-> This one should fix Bugzilla #51791 
+The serious holes have generally been exactly in the "upper layers
+already check" camp, and then it turns out that some odd ioctl or
+other thing ends up doing something odd and interesting.
 
-I'm sorry for being a pain, but I want to teach you how to properly
-submit clean patches so that I don't need to go back and forth with
-you in the future about these issues.
+If Al has actual performance profiles showing that the access_ok() is
+a real problem, then fine. As a low-level optimization, I agree with
+it. But not as a "let's just drop them, and make the security rules be
+non-local and subtle, and require people to know the details of the
+whole call-chain".
 
-Your subject line needs adjusting.
+Seeing a "__get_user()" and just being able to glance up in the same
+function and seeing the "access_ok()" is just a good safety net. And
+means that people don't have to waste time thinking about or looking
+for where the hell the security net really is.
 
-After the [PATCH ...], there should be a properly subsystem prefix
-followed by a colon character, which in this case could be "natsemi: "
-
-Then, your subject line should be succinct and contain all of the
-context necessary to understand exactly what the bug is about.
-
-This means that the bug ID number doesn't belong there.  It's
-completely ambiguous as to what bug repository that ID is for,
-and such information belongs in the commit message body.
-
-So when you mention bug IDs in the commit message body, say where
-it's from.  If it's the main kernel bugzilla, say so.
-
-Thanks.
+                    Linus
