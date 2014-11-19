@@ -1,99 +1,47 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: Re: [PATCH net-next v2] ipvlan: Initial check-in of the IPVLAN driver.
-Date: Tue, 18 Nov 2014 21:27:48 -0800
-Message-ID: <CAF2d9jjrN4cDmtN_yKTe0BS+cAqE=hqgsT_6mOEBuMTTPOaPRg@mail.gmail.com>
-References: <1416205634-26611-1-git-send-email-maheshb@google.com> <20141118.155437.1582768084232091503.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] bonding: clear header_ops when last slave detached (v2)
+Date: Tue, 18 Nov 2014 21:39:25 -0800
+Message-ID: <1416375565.14060.43.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1416374292-10993-1-git-send-email-wen.gang.wang@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: linux-netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	=?ISO-8859-2?Q?Maciej_=AFenczykowski?= <maze@google.com>,
-	Laurent Chavey <chavey@google.com>,
-	Tim Hockin <thockin@google.com>, brandon.philips@coreos.com,
-	xemul@parallels.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: wwgwork@gmail.com, netdev@vger.kernel.org
+To: Wengang Wang <wen.gang.wang@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f181.google.com ([209.85.220.181]:39591 "EHLO
-	mail-vc0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754664AbaKSF2J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 00:28:09 -0500
-Received: by mail-vc0-f181.google.com with SMTP id le20so6769696vcb.12
-        for <netdev@vger.kernel.org>; Tue, 18 Nov 2014 21:28:08 -0800 (PST)
-In-Reply-To: <20141118.155437.1582768084232091503.davem@davemloft.net>
+Received: from mail-ig0-f181.google.com ([209.85.213.181]:58583 "EHLO
+	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750771AbaKSFj1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 00:39:27 -0500
+Received: by mail-ig0-f181.google.com with SMTP id l13so418606iga.14
+        for <netdev@vger.kernel.org>; Tue, 18 Nov 2014 21:39:26 -0800 (PST)
+In-Reply-To: <1416374292-10993-1-git-send-email-wen.gang.wang@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 18, 2014 at 12:54 PM, David Miller <davem@davemloft.net> wrote:
->
-> From: Mahesh Bandewar <maheshb@google.com>
-> Date: Sun, 16 Nov 2014 22:27:14 -0800
->
-> > +/* Define IPVL_DEBUG and set the appropriate dbg_level for debugging. */
-> > +#ifdef       IPVL_DEBUG
-> > +/*
-> > + * 1 : non-datapath debugging
-> > + * 2 : Custom
-> > + * 3 : function enters and exists.
-> > + * 4 : printk in data path (be careful!)
-> > + */
-> > +#define IPVL_DBG_LEVEL 1
-> > +#define ipvlan_dbg(level, msg...)    do { \
-> > +                                             if (level <= IPVL_DBG_LEVEL) \
-> > +                                             printk(KERN_DEBUG msg); \
-> > +                                     } while (0)
-> > +#else
-> > +#define ipvlan_dbg(level, msg...) do { ; } while (0)
-> > +#endif
->
-> The day of having code use custom local debug logging facilities is long
-> gone, please use a standard mechanism for this rather than home cooked
-> reimplementations.
->
-Do you mean pr_err() / pr_warn() / pr_debug() etc.? or something else?
+On Wed, 2014-11-19 at 13:18 +0800, Wengang Wang wrote:
+> When last slave of a bonding master is removed, the bonding then does not work.
+> When packet_snd is called against with a master net_device, it accesses
+> header_ops. In case the header_ops is not valid any longer(say ipoib module
+> unloaded), it will then access an invalid memory address.
+> This patch try to fix this issue by clearing header_ops when last slave
+> detached.
+> 
+> Signed-off-by: Wengang Wang <wen.gang.wang@oracle.com>
+> ---
+>  drivers/net/bonding/bond_main.c | 1 +
+>  1 file changed, 1 insertion(+)
 
-> > +/* ---- Prototype declarations ---- */
-> > +/* ---- ipvlan_main.c ---- */
->
-> Everone knows these are prototype declarations by virtue of them being
-> functions declarations in a header file.
->
-> Anyone who wants to know where these are defined can run grep.
->
-> So these comments are superfluous, please remove them across this
-> entire submission.
->
-> > +     const struct in_addr *ip4_addr = iaddr;
-> > +     return jhash_1word(ip4_addr->s_addr, ipvlan_jhash_secret)
-> > +            & IPVLAN_HASH_MASK;
->
-> When an expression spans multiple lines, lines end rather than begin
-> with an operator.
->
-> > +             if (is_v6 && addr->atype == IPVL_IPV6 &&
-> > +                     ipv6_addr_equal(&addr->ip6addr, iaddr))
->
-> For multi-line if() statements, the second line and subsequent lines
-> must begine exactly at the first column after the openning parenthesis
-> of the first line.
->
-> If you are purely using TAB characters to indent, you are likely doing
-> it wrong.
-> > +             if ((is_v6 && addr->atype == IPVL_IPV6 &&
-> > +                  ipv6_addr_equal(&addr->ip6addr, iaddr))
-> > +                || (!is_v6 && addr->atype == IPVL_IPV4 &&
-> > +                   addr->ip4addr.s_addr == ((struct in_addr *)iaddr)->s_addr)
->
-> Lines end, not begin, with operators.
->
-> > --- /dev/null
-> > +++ b/drivers/net/ipvlan/ipvlan_sysfs.c
->
-> Please do not add sysfs configuration knobs, netlink is sufficient.
+It seems you basically ignored my feedback.
 
-Having it does neither add complexity nor too much code, wo why not?
-May be I'm missing something! But I was think that this might provide
-foundation for adding other things like config locking from master's
-namespace etc. (discussed in the thread) in the future.
 
-Thanks,
---mahesh..
+
+Some code is doing :
+
+[A] if (dev->header_ops) {
+    ...
+[B]    dev->header_ops->XXX()
+
+
+
+Nothing prevents you doing the clear after [A] , and before [B]
