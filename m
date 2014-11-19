@@ -1,32 +1,150 @@
-From: lucien xin <lucien.xin@gmail.com>
-Subject: Re: [PATCH] [net]ip_tunnel: the lack of vti_link_ops' dellink() cause
- kernel panic
-Date: Wed, 19 Nov 2014 15:10:18 +0800
-Message-ID: <CADvbK_cjHr51gvTcrkTmVvB0Q8jME3BZGs2xO46dLatvfP=m2Q@mail.gmail.com>
-References: <1416307059-32732-1-git-send-email-lucien.xin@gmail.com>
-	<CAHA+R7NKdS_j2MC+-Bcw=hFERODiMw1Z6ju6yw5TvXXHbTXK5A@mail.gmail.com>
-	<CAHA+R7N7x5eMKFtyWpOcM_FGJ+9h-K+wLEwzpZya1kiztUo8RQ@mail.gmail.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: [PATCH V2 net] virtio-net: validate features during probe
+Date: Wed, 19 Nov 2014 15:21:29 +0800
+Message-ID: <1416381689-2025-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: network dev <netdev@vger.kernel.org>
-To: Cong Wang <cwang@twopensource.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f180.google.com ([209.85.212.180]:40752 "EHLO
-	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932091AbaKSHKU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 02:10:20 -0500
-Received: by mail-wi0-f180.google.com with SMTP id n3so788957wiv.1
-        for <netdev@vger.kernel.org>; Tue, 18 Nov 2014 23:10:18 -0800 (PST)
-In-Reply-To: <CAHA+R7N7x5eMKFtyWpOcM_FGJ+9h-K+wLEwzpZya1kiztUo8RQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: rusty@rustcorp.com.au, mst@redhat.com,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
->>
->
-> Hmm, your fix is correct, but the description is wrong, we should just skip
-> the unregister of fb tunnel device like other tunnels. Without ->dellink()
-> the fb device is still removed from the global netdev list, this needs to skip,
-> otherwise ip_vti0 will disappear from your system.
+This patch validates feature dependencies during probe and fail the probing
+if a dependency is missed. This fixes the issues of hitting BUG()
+when qemu fails to advertise features correctly. One example is booting
+guest with ctrl_vq=off through qemu.
 
-yes, you are right. the issue only exist in the fb tunnel device, I will change
-the description.
+Cc: Rusty Russell <rusty@rustcorp.com.au>
+Cc: Michael S. Tsirkin <mst@redhat.com>
+Cc: Cornelia Huck <cornelia.huck@de.ibm.com>
+Cc: Wanlong Gao <gaowanlong@cn.fujitsu.com>
+Signed-off-by: Jason Wang <jasowang@redhat.com>
+---
+Changes from V1:
+- Drop VIRTIO_NET_F_*_UFO from the checklist, since it was disabled
+---
+ drivers/net/virtio_net.c | 91 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 91 insertions(+)
+
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index ec2a8b4..b16a761 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -1673,6 +1673,93 @@ static const struct attribute_group virtio_net_mrg_rx_group = {
+ };
+ #endif
+ 
++static int virtnet_validate_features(struct virtio_device *dev,
++				     unsigned int *table,
++				     int table_size,
++				     unsigned int feature)
++{
++	int i;
++
++	if (!virtio_has_feature(dev, feature)) {
++		for (i = 0; i < table_size; i++) {
++			unsigned int f = table[i];
++
++			if (virtio_has_feature(dev, f)) {
++				dev_err(&dev->dev,
++					"buggy hyperviser: feature 0x%x was advertised but its dependency 0x%x was not",
++					f, feature);
++				return -EINVAL;
++			}
++		}
++	}
++
++	return 0;
++}
++
++static int virtnet_check_features(struct virtio_device *dev)
++{
++	unsigned int features_for_ctrl_vq[] = {
++		VIRTIO_NET_F_CTRL_RX,
++		VIRTIO_NET_F_CTRL_VLAN,
++		VIRTIO_NET_F_GUEST_ANNOUNCE,
++		VIRTIO_NET_F_MQ,
++		VIRTIO_NET_F_CTRL_MAC_ADDR
++	};
++	unsigned int features_for_guest_csum[] = {
++		VIRTIO_NET_F_GUEST_TSO4,
++		VIRTIO_NET_F_GUEST_TSO6,
++		VIRTIO_NET_F_GUEST_ECN,
++	};
++	unsigned int features_for_host_csum[] = {
++		VIRTIO_NET_F_HOST_TSO4,
++		VIRTIO_NET_F_HOST_TSO6,
++		VIRTIO_NET_F_HOST_ECN,
++	};
++	int err;
++
++	err = virtnet_validate_features(dev, features_for_ctrl_vq,
++					ARRAY_SIZE(features_for_ctrl_vq),
++					VIRTIO_NET_F_CTRL_VQ);
++	if (err)
++		return err;
++
++	err = virtnet_validate_features(dev, features_for_guest_csum,
++					ARRAY_SIZE(features_for_guest_csum),
++					VIRTIO_NET_F_GUEST_CSUM);
++	if (err)
++		return err;
++
++	err = virtnet_validate_features(dev, features_for_host_csum,
++					ARRAY_SIZE(features_for_host_csum),
++					VIRTIO_NET_F_CSUM);
++	if (err)
++		return err;
++
++	if (virtio_has_feature(dev, VIRTIO_NET_F_GUEST_ECN) &&
++	    (!virtio_has_feature(dev, VIRTIO_NET_F_GUEST_TSO4) ||
++	     !virtio_has_feature(dev, VIRTIO_NET_F_GUEST_TSO6))) {
++		dev_err(&dev->dev,
++			"buggy hyperviser: feature 0x%x was advertised but its dependency 0x%x or 0x%x was not",
++			VIRTIO_NET_F_GUEST_ECN,
++			VIRTIO_NET_F_GUEST_TSO4,
++			VIRTIO_NET_F_GUEST_TSO6);
++		return -EINVAL;
++	}
++
++	if (virtio_has_feature(dev, VIRTIO_NET_F_HOST_ECN) &&
++	    (!virtio_has_feature(dev, VIRTIO_NET_F_HOST_TSO4) ||
++	     !virtio_has_feature(dev, VIRTIO_NET_F_HOST_TSO6))) {
++		dev_err(&dev->dev,
++			"buggy hyperviser: feature 0x%x was advertised but its dependency 0x%x or 0x%x was not",
++			VIRTIO_NET_F_HOST_ECN,
++			VIRTIO_NET_F_HOST_TSO4,
++			VIRTIO_NET_F_HOST_TSO6);
++		return -EINVAL;
++	}
++
++	return 0;
++}
++
+ static int virtnet_probe(struct virtio_device *vdev)
+ {
+ 	int i, err;
+@@ -1680,6 +1767,10 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 	struct virtnet_info *vi;
+ 	u16 max_queue_pairs;
+ 
++	err = virtnet_check_features(vdev);
++	if (err)
++		return -EINVAL;
++
+ 	/* Find if host supports multiqueue virtio_net device */
+ 	err = virtio_cread_feature(vdev, VIRTIO_NET_F_MQ,
+ 				   struct virtio_net_config,
+-- 
+1.9.1
