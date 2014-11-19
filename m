@@ -1,41 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] situation with csum_and_copy_... API
-Date: Wed, 19 Nov 2014 15:31:36 -0500 (EST)
-Message-ID: <20141119.153136.867017618826698045.davem@davemloft.net>
-References: <20141118084745.GT7996@ZenIV.linux.org.uk>
-	<CA+55aFxK0wj2LLp0WmhRsBZch8XfoYbzmbEeJaMpt=SDh5GBvw@mail.gmail.com>
-	<20141118212307.GU7996@ZenIV.linux.org.uk>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [patch net-next v3 8/9] net: move vlan pop/push functions into
+ common code
+Date: Wed, 19 Nov 2014 12:32:07 -0800
+Message-ID: <CALnjE+pFp+3gBgufV9ySewCDpuLQvVqxWT-7xM3oshtpuxaKuQ@mail.gmail.com>
+References: <1416346664-9290-1-git-send-email-jiri@resnulli.us>
+	<1416346664-9290-9-git-send-email-jiri@resnulli.us>
+	<CALnjE+rJEtyL-QDrp0x+N_pCxDuR6soHkaY-OrswWrdZwfE2sQ@mail.gmail.com>
+	<20141119140357.5f9d0594@griffin>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: torvalds@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: viro@ZenIV.linux.org.uk
+Content-Type: text/plain; charset=UTF-8
+Cc: Jiri Pirko <jiri@resnulli.us>, netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Tom Herbert <therbert@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Willem de Bruijn <willemb@google.com>,
+	Daniel Borkmann <dborkman@redhat.com>, mst@redhat.com,
+	fw@strlen.de, Paul.Durrant@citrix.com, Thomas Graf <tgraf@suug.ch>,
+	Cong Wang <cwang@twopensource.com>
+To: Jiri Benc <jbenc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38453 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756542AbaKSUbi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 15:31:38 -0500
-In-Reply-To: <20141118212307.GU7996@ZenIV.linux.org.uk>
+Received: from na3sys009aog131.obsmtp.com ([74.125.149.247]:32965 "HELO
+	na3sys009aog131.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1756208AbaKSUcI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 15:32:08 -0500
+Received: by mail-ie0-f172.google.com with SMTP id ar1so1369403iec.17
+        for <netdev@vger.kernel.org>; Wed, 19 Nov 2014 12:32:07 -0800 (PST)
+In-Reply-To: <20141119140357.5f9d0594@griffin>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Date: Tue, 18 Nov 2014 21:23:07 +0000
+On Wed, Nov 19, 2014 at 5:03 AM, Jiri Benc <jbenc@redhat.com> wrote:
+> On Wed, 19 Nov 2014 00:06:19 -0800, Pravin Shelar wrote:
+>> skb_reset_mac_len() sets length according to ethernet and network
+>> offsets, but mpls expects mac-length to be offset to mpls header (ref.
+>> skb_mpls_header()). Therefore rather than reset we need to subtract
+>> VLAN_HLEN from mac_len. Same goes for vlan-push(), we can add
+>> VLAN_HLEN.
+>
+> Subtracting VLAN_HLEN from mac_len would break the common vlan cases,
+> where skb->protocol is ETH_P_8021Q and skb->mac_len is 14 on input to
+> __skb_vlan_pop. After __skb_vlan_pop pops the vlan header, it changes
+> skb->protocol to the protocol of the actual frame and has to leave
+> skb->mac_len at 14.
+>
 
-> On Tue, Nov 18, 2014 at 12:49:13PM -0800, Linus Torvalds wrote:
->> "access_ok()" isn't that expensive, and removing them as unnecessary
->> is fraught with errors. We've had several cases of "oops, we used
->> __get_user() in a loop, because it generates much better code, but
->> we'd forgotten to do access_ok(), so now people can read kernel data".
-> 
-> OK...  If netdev folks can live with that for now, I've no problem with
-> dropping 3/5.  However, I really think we need a variant of csum-and-copy
-> that would _not_ bother with access_ok() longer term.  That can wait, though...
+MPLS API depends on mac-length to point to start of MPLS. OVS takes
+care of this by setting mac-length of every packet it process
+accordingly.  If that is not in common path then we can not move this
+API to common path, Since that will break OVS MPLS action.
 
-I think because of the way Al verifies things at the top level, and
-how we structure access to these msg->msg_iov so strictly, these cases
-of access_ok() really can safely go.
 
-But that is just my opinion, and yes I do acknowledge that we've had
-serious holes in this area in the past.
+> You'll need something more sophisticated to support MPLS here, I'm
+> afraid.
+>
+>  Jiri
+>
+> --
+> Jiri Benc
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
