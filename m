@@ -1,40 +1,67 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next] tun: return NET_XMIT_DROP for dropped packets
-Date: Wed, 19 Nov 2014 11:15:36 +0800
-Message-ID: <546C0B58.5030402@redhat.com>
-References: <1416288041-30921-1-git-send-email-jasowang@redhat.com> <CAHA+R7O=vCtLwUPnkVpymxc9kp+a8ChS2MHAJahfJUNUdLX89A@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Michael S. Tsirkin" <mst@redhat.com>
-To: Cong Wang <cwang@twopensource.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAHA+R7O=vCtLwUPnkVpymxc9kp+a8ChS2MHAJahfJUNUdLX89A@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Tom Herbert <therbert@google.com>
+Subject: [PATCH RFC] net: Pass full skb hash to ndo_rx_flow_steer
+Date: Tue, 18 Nov 2014 20:08:57 -0800
+Message-ID: <1416370137-2512-1-git-send-email-therbert@google.com>
+To: luto@amacapital.net, ben@decadent.org.uk, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f172.google.com ([209.85.213.172]:41943 "EHLO
+	mail-ig0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753791AbaKSEJJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Nov 2014 23:09:09 -0500
+Received: by mail-ig0-f172.google.com with SMTP id hl2so2250148igb.11
+        for <netdev@vger.kernel.org>; Tue, 18 Nov 2014 20:09:08 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/19/2014 03:53 AM, Cong Wang wrote:
-> On Mon, Nov 17, 2014 at 9:20 PM, Jason Wang <jasowang@redhat.com> wrote:
->> > After commit 5d097109257c03a71845729f8db6b5770c4bbedc
->> > ("tun: only queue packets on device"), NETDEV_TX_OK was returned for
->> > dropped packets. This will confuse pktgen since dropped packets were
->> > counted as sent ones.
->> >
->> > Fixing this by returning NET_XMIT_DROP to let pktgen count it as error
->> > packet.
-> pktgen is suspicious, it sends out packets directly without going through
-> qdisc, so it should not care about NET_XMIT_* qdisc error code?
+Currently, for aRFS the index into the flow table is passed to
+ndo_rx_flow_steer as the flow ID of a connection. This is the skb->hash
+& the table mask. It looks like the backend can accept the full
+skb->hash as the flow ID which should reduce the number of collisions
+in the hardware tables.
 
-Well, NET_XMIT_DROP has been used by some devices. I don't see any side
-effect of using this especially consider that pktgen can recognize them.
-> Looks like NETDEV_TX_OK doesn't have to mean TX is successful,
-> the comment says driver takes care of the packet, can be either dropped
-> or sent out. We might need a new code to distinguish success or failure.
+This patch provides the skb->hash to the driver for flow steering.
+Expiration of HW steered flows was also updated.
 
-Most drivers only drop bad packets when they return NETDEV_TX_OK and
-they will stop the txq before tx ring is full. This is not the case of
-tun, it never stop txq and keep accepting packets and dropping them when
-socket receive queue is full.
+With a hash collision in RFS, ndo_rx_flow_steer will continue to be
+called with different CPUs, but now with different flow_ids. If this
+is still too much device interaction, then it might make sense for the
+driver to do its own lookup in its structure to see if a matching
+filter is already installed for a given flow_id, an if it is just
+refresh a timestamp to avoid expiration (based on looking at sfc
+driver).
+
+I don't currently have any HW to test this, if someone could try this
+on hardware with aRFS and provide feedback that would be appreciated.
+
+Signed-off-by: Tom Herbert <therbert@google.com>
+---
+ net/core/dev.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 1ab168e..cb1e06d 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3057,7 +3057,8 @@ set_rps_cpu(struct net_device *dev, struct sk_buff *skb,
+ 			goto out;
+ 		flow_id = skb_get_hash(skb) & flow_table->mask;
+ 		rc = dev->netdev_ops->ndo_rx_flow_steer(dev, skb,
+-							rxq_index, flow_id);
++							rxq_index,
++							skb_get_hash(skb));
+ 		if (rc < 0)
+ 			goto out;
+ 		old_rflow = rflow;
+@@ -3195,8 +3196,8 @@ bool rps_may_expire_flow(struct net_device *dev, u16 rxq_index,
+ 
+ 	rcu_read_lock();
+ 	flow_table = rcu_dereference(rxqueue->rps_flow_table);
+-	if (flow_table && flow_id <= flow_table->mask) {
+-		rflow = &flow_table->flows[flow_id];
++	if (flow_table) {
++		rflow = &flow_table->flows[flow_id & flow_table->mask];
+ 		cpu = ACCESS_ONCE(rflow->cpu);
+ 		if (rflow->filter == filter_id && cpu != RPS_NO_CPU &&
+ 		    ((int)(per_cpu(softnet_data, cpu).input_queue_head -
+-- 
+2.1.0.rc2.206.gedb03e5
