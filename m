@@ -1,52 +1,47 @@
-From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Subject: Re: [PATCH] ipv6: delete protocol when cleanup
-Date: Wed, 19 Nov 2014 09:10:56 +0800
-Message-ID: <546BEE20.6060907@cn.fujitsu.com>
-References: <546B20F8.6010806@cn.fujitsu.com> <CAHA+R7PNmac7KQpSK-vO9zVd3+926f6n_GpaGrbpBnSn98xiyQ@mail.gmail.com>
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: Missed stable line commit (upstream
+ 859828c0ea476b42f3a93d69d117aaba90994b6f)
+Date: Tue, 18 Nov 2014 17:19:33 -0800
+Message-ID: <20141119011933.GA22731@kroah.com>
+References: <CAKTPYJQQprPnN1bUPxy32YREb8WARQztQYWL9-Qfhm6wLqbD0A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Cong Wang <cwang@twopensource.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([59.151.112.132]:54484 "EHLO
-	heian.cn.fujitsu.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753660AbaKSBNW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Nov 2014 20:13:22 -0500
-In-Reply-To: <CAHA+R7PNmac7KQpSK-vO9zVd3+926f6n_GpaGrbpBnSn98xiyQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	stable@vger.kernel.org
+To: Andrew Collins <bsderandrew@gmail.com>
+Return-path: <stable-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAKTPYJQQprPnN1bUPxy32YREb8WARQztQYWL9-Qfhm6wLqbD0A@mail.gmail.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 11/19/2014 02:56 AM, Cong Wang wrote:
-> On Tue, Nov 18, 2014 at 2:35 AM, Duan Jiong <duanj.fnst@cn.fujitsu.com> wrote:
->>
->> pim6_protocol was added when initiation, but it not deleted.
->>
->> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
->> ---
->>  net/ipv6/ip6mr.c | 3 +++
->>  1 file changed, 3 insertions(+)
->>
->> diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
->> index 0171f08..6dcdecd 100644
->> --- a/net/ipv6/ip6mr.c
->> +++ b/net/ipv6/ip6mr.c
->> @@ -1439,6 +1439,9 @@ reg_pernet_fail:
->>
->>  void ip6_mr_cleanup(void)
->>  {
->> +#ifdef CONFIG_IPV6_PIMSM_V2
->> +       inet6_del_protocol(&pim6_protocol, IPPROTO_PIM);
->> +#endif
->>         unregister_netdevice_notifier(&ip6_mr_notifier);
->>         unregister_pernet_subsys(&ip6mr_net_ops);
->>         kmem_cache_destroy(mrt_cachep);
+On Mon, Nov 03, 2014 at 03:11:01PM -0700, Andrew Collins wrote:
+> I ran into an issue today on latest 3.10 stable line that looks to
+> have been resolved upstream and tagged for stable:
 > 
+> commit 859828c0ea476b42f3a93d69d117aaba90994b6f
+> Author: Jiri Pirko <jiri@resnulli.us>
+> Date:   Thu Dec 5 16:27:37 2013 +0100
 > 
-> Looks like rtnl_unregister() is missing as well.
+>     br: fix use of ->rx_handler_data in code executed on non-rx_handler path
+>     ...
+>     Please apply to stable trees as well. Thanks.
 > 
+> The commit did make it into the 3.12 stable line, but seems to have
+> been missed in 3.10.  The commit that causes the issue *did* make it
+> into 3.10.16 so 3.10 is exposed to the issue:
+> 
+> commit 960b8e5018a552f62cfbc0dfe94be7b6ba178f13
+> Author: Hong Zhiguo <zhiguohong@tencent.com>
+> Date:   Sat Sep 14 22:42:28 2013 +0800
+> 
+>     bridge: fix NULL pointer deref of br_port_get_rcu
+> 
+>     [ Upstream commit 716ec052d2280d511e10e90ad54a86f5b5d4dcc2 ]
+> 
+> Any chance 859828c0ea476b42f3a93d69d117aaba90994b6f could be pulled
+> into the next 3.10 stable?
 
-Thanks for pointing this, i will send v2.
+Now queued up, thanks.
 
-Thanks,
-  Duan
+greg k-h
