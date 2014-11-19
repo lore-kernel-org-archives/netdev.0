@@ -1,111 +1,99 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next v2 1/2] r8152: adjust r8152_submit_rx
-Date: Wed, 19 Nov 2014 13:20:41 +0800
-Message-ID: <1394712342-15778-96-Taiwan-albertk@realtek.com>
-References: <1394712342-15778-88-Taiwan-albertk@realtek.com>
- <1394712342-15778-95-Taiwan-albertk@realtek.com>
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: Re: [PATCH net-next v2] ipvlan: Initial check-in of the IPVLAN driver.
+Date: Tue, 18 Nov 2014 21:27:48 -0800
+Message-ID: <CAF2d9jjrN4cDmtN_yKTe0BS+cAqE=hqgsT_6mOEBuMTTPOaPRg@mail.gmail.com>
+References: <1416205634-26611-1-git-send-email-maheshb@google.com> <20141118.155437.1582768084232091503.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
-	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394712342-15778-95-Taiwan-albertk@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: linux-netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	=?ISO-8859-2?Q?Maciej_=AFenczykowski?= <maze@google.com>,
+	Laurent Chavey <chavey@google.com>,
+	Tim Hockin <thockin@google.com>, brandon.philips@coreos.com,
+	xemul@parallels.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vc0-f181.google.com ([209.85.220.181]:39591 "EHLO
+	mail-vc0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754664AbaKSF2J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 00:28:09 -0500
+Received: by mail-vc0-f181.google.com with SMTP id le20so6769696vcb.12
+        for <netdev@vger.kernel.org>; Tue, 18 Nov 2014 21:28:08 -0800 (PST)
+In-Reply-To: <20141118.155437.1582768084232091503.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The behavior of handling the returned status from r8152_submit_rx()
-is almost same, so let r8152_submit_rx() deal with the error
-directly. This could avoid the duplicate code.
+On Tue, Nov 18, 2014 at 12:54 PM, David Miller <davem@davemloft.net> wrote:
+>
+> From: Mahesh Bandewar <maheshb@google.com>
+> Date: Sun, 16 Nov 2014 22:27:14 -0800
+>
+> > +/* Define IPVL_DEBUG and set the appropriate dbg_level for debugging. */
+> > +#ifdef       IPVL_DEBUG
+> > +/*
+> > + * 1 : non-datapath debugging
+> > + * 2 : Custom
+> > + * 3 : function enters and exists.
+> > + * 4 : printk in data path (be careful!)
+> > + */
+> > +#define IPVL_DBG_LEVEL 1
+> > +#define ipvlan_dbg(level, msg...)    do { \
+> > +                                             if (level <= IPVL_DBG_LEVEL) \
+> > +                                             printk(KERN_DEBUG msg); \
+> > +                                     } while (0)
+> > +#else
+> > +#define ipvlan_dbg(level, msg...) do { ; } while (0)
+> > +#endif
+>
+> The day of having code use custom local debug logging facilities is long
+> gone, please use a standard mechanism for this rather than home cooked
+> reimplementations.
+>
+Do you mean pr_err() / pr_warn() / pr_debug() etc.? or something else?
 
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
----
- drivers/net/usb/r8152.c | 41 +++++++++++++++++++++--------------------
- 1 file changed, 21 insertions(+), 20 deletions(-)
+> > +/* ---- Prototype declarations ---- */
+> > +/* ---- ipvlan_main.c ---- */
+>
+> Everone knows these are prototype declarations by virtue of them being
+> functions declarations in a header file.
+>
+> Anyone who wants to know where these are defined can run grep.
+>
+> So these comments are superfluous, please remove them across this
+> entire submission.
+>
+> > +     const struct in_addr *ip4_addr = iaddr;
+> > +     return jhash_1word(ip4_addr->s_addr, ipvlan_jhash_secret)
+> > +            & IPVLAN_HASH_MASK;
+>
+> When an expression spans multiple lines, lines end rather than begin
+> with an operator.
+>
+> > +             if (is_v6 && addr->atype == IPVL_IPV6 &&
+> > +                     ipv6_addr_equal(&addr->ip6addr, iaddr))
+>
+> For multi-line if() statements, the second line and subsequent lines
+> must begine exactly at the first column after the openning parenthesis
+> of the first line.
+>
+> If you are purely using TAB characters to indent, you are likely doing
+> it wrong.
+> > +             if ((is_v6 && addr->atype == IPVL_IPV6 &&
+> > +                  ipv6_addr_equal(&addr->ip6addr, iaddr))
+> > +                || (!is_v6 && addr->atype == IPVL_IPV4 &&
+> > +                   addr->ip4addr.s_addr == ((struct in_addr *)iaddr)->s_addr)
+>
+> Lines end, not begin, with operators.
+>
+> > --- /dev/null
+> > +++ b/drivers/net/ipvlan/ipvlan_sysfs.c
+>
+> Please do not add sysfs configuration knobs, netlink is sufficient.
 
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index 0a30fd3..df0868b 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -1032,7 +1032,6 @@ static void read_bulk_callback(struct urb *urb)
- 	int status = urb->status;
- 	struct rx_agg *agg;
- 	struct r8152 *tp;
--	int result;
- 
- 	agg = urb->context;
- 	if (!agg)
-@@ -1083,16 +1082,7 @@ static void read_bulk_callback(struct urb *urb)
- 		break;
- 	}
- 
--	result = r8152_submit_rx(tp, agg, GFP_ATOMIC);
--	if (result == -ENODEV) {
--		set_bit(RTL8152_UNPLUG, &tp->flags);
--		netif_device_detach(tp->netdev);
--	} else if (result) {
--		spin_lock(&tp->rx_lock);
--		list_add_tail(&agg->list, &tp->rx_done);
--		spin_unlock(&tp->rx_lock);
--		tasklet_schedule(&tp->tl);
--	}
-+	r8152_submit_rx(tp, agg, GFP_ATOMIC);
- }
- 
- static void write_bulk_callback(struct urb *urb)
-@@ -1680,7 +1670,6 @@ static void rx_bottom(struct r8152 *tp)
- 		int len_used = 0;
- 		struct urb *urb;
- 		u8 *rx_data;
--		int ret;
- 
- 		list_del_init(cursor);
- 
-@@ -1733,13 +1722,7 @@ find_next_rx:
- 		}
- 
- submit:
--		ret = r8152_submit_rx(tp, agg, GFP_ATOMIC);
--		if (ret && ret != -ENODEV) {
--			spin_lock_irqsave(&tp->rx_lock, flags);
--			list_add_tail(&agg->list, &tp->rx_done);
--			spin_unlock_irqrestore(&tp->rx_lock, flags);
--			tasklet_schedule(&tp->tl);
--		}
-+		r8152_submit_rx(tp, agg, GFP_ATOMIC);
- 	}
- }
- 
-@@ -1806,11 +1789,29 @@ static void bottom_half(unsigned long data)
- static
- int r8152_submit_rx(struct r8152 *tp, struct rx_agg *agg, gfp_t mem_flags)
- {
-+	int ret = 0;
-+
- 	usb_fill_bulk_urb(agg->urb, tp->udev, usb_rcvbulkpipe(tp->udev, 1),
- 			  agg->head, agg_buf_sz,
- 			  (usb_complete_t)read_bulk_callback, agg);
- 
--	return usb_submit_urb(agg->urb, mem_flags);
-+	ret = usb_submit_urb(agg->urb, mem_flags);
-+
-+	if (ret == -ENODEV) {
-+		set_bit(RTL8152_UNPLUG, &tp->flags);
-+		netif_device_detach(tp->netdev);
-+	} else if (ret) {
-+		struct urb *urb = agg->urb;
-+		unsigned long flags;
-+
-+		urb->actual_length = 0;
-+		spin_lock_irqsave(&tp->rx_lock, flags);
-+		list_add_tail(&agg->list, &tp->rx_done);
-+		spin_unlock_irqrestore(&tp->rx_lock, flags);
-+		tasklet_schedule(&tp->tl);
-+	}
-+
-+	return ret;
- }
- 
- static void rtl_drop_queued_tx(struct r8152 *tp)
--- 
-1.9.3
+Having it does neither add complexity nor too much code, wo why not?
+May be I'm missing something! But I was think that this might provide
+foundation for adding other things like config locking from master's
+namespace etc. (discussed in the thread) in the future.
+
+Thanks,
+--mahesh..
