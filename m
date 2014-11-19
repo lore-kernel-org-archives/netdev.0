@@ -1,198 +1,86 @@
-From: Peter Griffin <peter.griffin@linaro.org>
-Subject: [PATCH 2/7] phy: miphy365x: Pass sysconfig register offsets via
- syscfg dt property.
-Date: Wed, 19 Nov 2014 08:27:07 +0000
-Message-ID: <1416385632-5832-3-git-send-email-peter.griffin@linaro.org>
-References: <1416385632-5832-1-git-send-email-peter.griffin@linaro.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: ipx: fix locking regression in ipx_sendmsg and ipx_recvmsg
+Date: Wed, 19 Nov 2014 09:32:54 +0100
+Message-ID: <1609909.1jJeqOzgZ8@wuerfel>
+References: <20141117013448.GA26743@midget.suse.cz> <8698539.evYG7fs8jS@wuerfel> <20141118221057.GA13473@midget.suse.cz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: peter.griffin@linaro.org, netdev@vger.kernel.org, lee.jones@linaro.org,
- alexandre.torgue@st.com, devicetree@vger.kernel.org
-To: linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
- srinivas.kandagatla@gmail.com, maxime.coquelin@st.com,
- patrice.chotard@st.com, peppe.cavallaro@st.com, kishon@ti.com,
- arnd@arndb.de
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1416385632-5832-1-git-send-email-peter.griffin@linaro.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7Bit
+Cc: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Jiri Bohac <jbohac@suse.cz>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.kundenserver.de ([212.227.17.10]:59833 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750712AbaKSIdJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 03:33:09 -0500
+In-Reply-To: <20141118221057.GA13473@midget.suse.cz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Based on Arnds review comments here https://lkml.org/lkml/2014/11/13/161, update
-the miphy365 phy driver to access sysconfig register offsets via syscfg dt property.
+On Tuesday 18 November 2014 23:10:57 Jiri Bohac wrote:
+> On Tue, Nov 18, 2014 at 02:37:26PM +0100, Arnd Bergmann wrote:
+> > Does ipxrtr_route_packet() actually sleep while waiting for the network,
+> > or is it possible that you only need to change the recvmsg path?
+> 
+> You're right. 
+> In fact, it can sleep in sock_alloc_send_skb(), but my patch does
+> not fix this - it releases the lock after that.
+> So let's ignore that for now, I'll send a V2 modifying only
+> ipx_recvmsg().
 
-This is because the reg property should not be mixing address spaces like it does
-currently for miphy365. This change then also aligns us to how other platforms such
-as keystone and bcm7445 pass there syscon offsets via DT.
+Ok.
 
-This patch breaks DT compatibility, but this platform is considered WIP, and is only
-used by a few developers who are upstreaming support for it. This change has been done
-as a single atomic commit to ensure it is bisectable.
+> > >  	if (sock_flag(sk, SOCK_ZAPPED))
+> > > -		goto out;
+> > > +		goto out_release;
+> > >  
+> > > +	release_sock(sk);
+> > >  	skb = skb_recv_datagram(sk, flags & ~MSG_DONTWAIT,
+> > >  				flags & MSG_DONTWAIT, &rc);
+> > >  	if (!skb) {
+> > 
+> > Same thing here: I think your patch could be simplified if you just
+> > release the socket lock before calling skb_recv_datagram and get
+> > it back afterwards, 
+> 
+> It would simplify the code a little to just get the lock again.
+> But do we really want to optimize for source code size at the cost of
+> taking locks that are not necessarry?
 
-Signed-off-by: Peter Griffin <peter.griffin@linaro.org>
----
- .../devicetree/bindings/phy/phy-miphy365x.txt      | 15 +++++------
- arch/arm/boot/dts/stih416.dtsi                     | 10 ++++----
- drivers/phy/phy-miphy365x.c                        | 29 ++++++++--------------
- 3 files changed, 23 insertions(+), 31 deletions(-)
+I'm more interested in the code structure, in particular this bit
 
-diff --git a/Documentation/devicetree/bindings/phy/phy-miphy365x.txt b/Documentation/devicetree/bindings/phy/phy-miphy365x.txt
-index 42c8808..9802d5d 100644
---- a/Documentation/devicetree/bindings/phy/phy-miphy365x.txt
-+++ b/Documentation/devicetree/bindings/phy/phy-miphy365x.txt
-@@ -6,8 +6,10 @@ for SATA and PCIe.
+@@ -1807,8 +1812,10 @@ static int ipx_recvmsg(struct kiocb *iocb, struct socket *sock,
  
- Required properties (controller (parent) node):
- - compatible    : Should be "st,miphy365x-phy"
--- st,syscfg     : Should be a phandle of the system configuration register group
--		  which contain the SATA, PCIe mode setting bits
-+- st,syscfg     : Phandle / integer array property. Phandle of sysconfig group
-+		  containing the miphy registers and integer array should contain
-+		  an entry for each port sub-node, specifying the control
-+		  register offset inside the sysconfig group.
- 
- Required nodes	:  A sub-node is required for each channel the controller
- 		   provides. Address range information including the usual
-@@ -26,7 +28,6 @@ Required properties (port (child) node):
- 		  registers filled in "reg":
- 			- sata:   For SATA devices
- 			- pcie:   For PCIe devices
--			- syscfg: To specify the syscfg based config register
- 
- Optional properties (port (child) node):
- - st,sata-gen	     :	Generation of locally attached SATA IP. Expected values
-@@ -39,20 +40,20 @@ Example:
- 
- 	miphy365x_phy: miphy365x@fe382000 {
- 		compatible      = "st,miphy365x-phy";
--		st,syscfg  	= <&syscfg_rear>;
-+		st,syscfg  	= <&syscfg_rear 0x824 0x828>;
- 		#address-cells	= <1>;
- 		#size-cells	= <1>;
- 		ranges;
- 
- 		phy_port0: port@fe382000 {
--			reg = <0xfe382000 0x100>, <0xfe394000 0x100>, <0x824 0x4>;
--			reg-names = "sata", "pcie", "syscfg";
-+			reg = <0xfe382000 0x100>, <0xfe394000 0x100>;
-+			reg-names = "sata", "pcie";
- 			#phy-cells = <1>;
- 			st,sata-gen = <3>;
- 		};
- 
- 		phy_port1: port@fe38a000 {
--			reg = <0xfe38a000 0x100>, <0xfe804000 0x100>, <0x828 0x4>;;
-+			reg = <0xfe38a000 0x100>, <0xfe804000 0x100>;;
- 			reg-names = "sata", "pcie", "syscfg";
- 			#phy-cells = <1>;
- 			st,pcie-tx-pol-inv;
-diff --git a/arch/arm/boot/dts/stih416.dtsi b/arch/arm/boot/dts/stih416.dtsi
-index fad9073..6fbde39 100644
---- a/arch/arm/boot/dts/stih416.dtsi
-+++ b/arch/arm/boot/dts/stih416.dtsi
-@@ -283,21 +283,21 @@
- 
- 		miphy365x_phy: phy@fe382000 {
- 			compatible      = "st,miphy365x-phy";
--			st,syscfg  	= <&syscfg_rear>;
-+			st,syscfg  	= <&syscfg_rear 0x824 0x828>;
- 			#address-cells	= <1>;
- 			#size-cells	= <1>;
- 			ranges;
- 
- 			phy_port0: port@fe382000 {
- 				#phy-cells = <1>;
--				reg = <0xfe382000 0x100>, <0xfe394000 0x100>, <0x824 0x4>;
--				reg-names = "sata", "pcie", "syscfg";
-+				reg = <0xfe382000 0x100>, <0xfe394000 0x100>;
-+				reg-names = "sata", "pcie";
- 			};
- 
- 			phy_port1: port@fe38a000 {
- 				#phy-cells = <1>;
--				reg = <0xfe38a000 0x100>, <0xfe804000 0x100>, <0x828 0x4>;
--				reg-names = "sata", "pcie", "syscfg";
-+				reg = <0xfe38a000 0x100>, <0xfe804000 0x100>;
-+				reg-names = "sata", "pcie";
- 			};
- 		};
- 
-diff --git a/drivers/phy/phy-miphy365x.c b/drivers/phy/phy-miphy365x.c
-index 801afaf..7308afe 100644
---- a/drivers/phy/phy-miphy365x.c
-+++ b/drivers/phy/phy-miphy365x.c
-@@ -141,7 +141,7 @@ struct miphy365x_phy {
- 	bool pcie_tx_pol_inv;
- 	bool sata_tx_pol_inv;
- 	u32 sata_gen;
--	u64 ctrlreg;
-+	u32 ctrlreg;
- 	u8 type;
- };
- 
-@@ -179,7 +179,7 @@ static int miphy365x_set_path(struct miphy365x_phy *miphy_phy,
- 	bool sata = (miphy_phy->type == MIPHY_TYPE_SATA);
- 
- 	return regmap_update_bits(miphy_dev->regmap,
--				  (unsigned int)miphy_phy->ctrlreg,
-+				  miphy_phy->ctrlreg,
- 				  SYSCFG_SELECT_SATA_MASK,
- 				  sata << SYSCFG_SELECT_SATA_POS);
- }
-@@ -445,7 +445,6 @@ int miphy365x_get_addr(struct device *dev, struct miphy365x_phy *miphy_phy,
- {
- 	struct device_node *phynode = miphy_phy->phy->dev.of_node;
- 	const char *name;
--	const __be32 *taddr;
- 	int type = miphy_phy->type;
- 	int ret;
- 
-@@ -455,22 +454,6 @@ int miphy365x_get_addr(struct device *dev, struct miphy365x_phy *miphy_phy,
- 		return ret;
- 	}
- 
--	if (!strncmp(name, "syscfg", 6)) {
--		taddr = of_get_address(phynode, index, NULL, NULL);
--		if (!taddr) {
--			dev_err(dev, "failed to fetch syscfg address\n");
--			return -EINVAL;
--		}
--
--		miphy_phy->ctrlreg = of_translate_address(phynode, taddr);
--		if (miphy_phy->ctrlreg == OF_BAD_ADDR) {
--			dev_err(dev, "failed to translate syscfg address\n");
--			return -EINVAL;
--		}
--
--		return 0;
--	}
--
- 	if (!((!strncmp(name, "sata", 4) && type == MIPHY_TYPE_SATA) ||
- 	      (!strncmp(name, "pcie", 4) && type == MIPHY_TYPE_PCIE)))
- 		return 0;
-@@ -606,7 +589,15 @@ static int miphy365x_probe(struct platform_device *pdev)
- 			return ret;
- 
- 		phy_set_drvdata(phy, miphy_dev->phys[port]);
-+
- 		port++;
-+		/*sysconfig offsets are not indexed from zero */
-+		ret = of_property_read_u32_index(np, "st,syscfg", port,
-+					&miphy_phy->ctrlreg);
-+		if (ret) {
-+			dev_err(&pdev->dev, "No sysconfig offset found\n");
-+			return ret;
-+		}
- 	}
- 
- 	provider = devm_of_phy_provider_register(&pdev->dev, miphy365x_xlate);
--- 
-1.9.1
+        rc = skb_copy_datagram_iovec(skb, sizeof(struct ipxhdr), msg->msg_iov,
+                                     copied);
+-       if (rc)
+-               goto out_free;
++       if (rc) {
++               skb_free_datagram(sk, skb);
++               goto out;
++       }
+
+
+after your change mixes coding styles: in some failure cases you just goto
+a cleanup part, in other cases you do the cleanup before the goto.
+
+If I'm reading the patch correctly, this change has introduced a leak
+because you no longer call skb_free_datagram() in the success case.
+Changing the locking only around the skb_recv_datagram() call would
+have avoided this problem or at least (if I'm reading it wrong and
+the patch is indeed correct) have made it easier to review what the
+new code flow and what the change is.
+
+> > and it would be much simpler if you could show that the lock is
+> > not needed at all.
+> 
+> At least the ipxitf_insert_socket() inside __ipx_bind() looks
+> like it must be protected not to corrupt the intrfc->if_sklist.
+> I am not familiar with the code, so there may be other things.
+
+Ok. Better to do just a less invasive change then. Clearly this code
+is not getting much testing, so leaving the locking in place (aside
+from fixing the bug) seems the better choice.
+
+	Arnd
