@@ -1,108 +1,50 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH] ixgbe: Correctly disable vlan filter in promiscuous mode
-Date: Wed, 19 Nov 2014 14:41:12 -0500
-Message-ID: <546CF258.9050205@gmail.com>
-References: <1416338897-13007-1-git-send-email-vyasevic@redhat.com> <87618083B2453E4A8714035B62D679925019F38A@FMSMSX105.amr.corp.intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] tun: return NET_XMIT_DROP for dropped packets
+Date: Wed, 19 Nov 2014 14:46:04 -0500 (EST)
+Message-ID: <20141119.144604.269852847904624488.davem@davemloft.net>
+References: <1416288041-30921-1-git-send-email-jasowang@redhat.com>
+	<CAHA+R7O=vCtLwUPnkVpymxc9kp+a8ChS2MHAJahfJUNUdLX89A@mail.gmail.com>
+	<546C0B58.5030402@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Keller, Jacob E" <jacob.e.keller@intel.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>
-To: "Tantilov, Emil S" <emil.s.tantilov@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f47.google.com ([209.85.216.47]:65387 "EHLO
-	mail-qa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754554AbaKSTlU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 14:41:20 -0500
-Received: by mail-qa0-f47.google.com with SMTP id s7so902181qap.6
-        for <netdev@vger.kernel.org>; Wed, 19 Nov 2014 11:41:19 -0800 (PST)
-In-Reply-To: <87618083B2453E4A8714035B62D679925019F38A@FMSMSX105.amr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: cwang@twopensource.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mst@redhat.com
+To: jasowang@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <546C0B58.5030402@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 11/18/2014 03:24 PM, Tantilov, Emil S wrote:
->> -----Original Message-----
->> From: netdev-owner@vger.kernel.org [mailto:netdev-
->> owner@vger.kernel.org] On Behalf Of Vladislav Yasevich
->> Sent: Tuesday, November 18, 2014 11:28 AM
->> To: netdev@vger.kernel.org
->> Cc: Vladislav Yasevich; Kirsher, Jeffrey T; Keller, Jacob E
->> Subject: [PATCH] ixgbe: Correctly disable vlan filter in promiscuous mode
->>
->> IXGBE adapater seems to require that vlan filtering be enabled if VMDQ
->> or SRIOV are enabled.  When those functions are disabled,
->> vlan filtering may be disabled in promiscuous mode.
->>
->> Prior to commit a9b8943ee129e11045862d6d6e25c5b63c95403c
->>    ixgbe: remove vlan_filter_disable and enable functions
->>
->> the logic was correct.  However, after the commit the logic
->> got reversed and vlan filtered in now turned on when VMDQ/SRIOV
->> is disabled.
->>
->> This patch changes the condition to enable hw vlan filtered
->> when VMDQ or SRIOV is enabled.
->>
->> Fixes: a9b8943ee129e11045862d6d6e25c5b63c95403c (ixgbe:
->> remove
->> vlan_filter_disable and enable functions)
->> CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->> CC: Jacob Keller <jacob.e.keller@intel.com>
->> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
->> ---
->> drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 4 ++--
->> 1 file changed, 2 insertions(+), 2 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
->> b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
->> index d2df4e3..3f81c7a 100644
->> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
->> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
->> @@ -3936,8 +3936,8 @@ void ixgbe_set_rx_mode(struct
->> net_device *netdev)
->> 		 * if SR-IOV and VMDQ are disabled - otherwise ensure
->> 		 * that hardware VLAN filters remain enabled.
->> 		 */
->> -		if (!(adapter->flags & (IXGBE_FLAG_VMDQ_ENABLED |
->> -					IXGBE_FLAG_SRIOV_ENABLED)))
->> +		if (adapter->flags & (IXGBE_FLAG_VMDQ_ENABLED |
->> +				      IXGBE_FLAG_SRIOV_ENABLED))
->> 			vlnctrl |= (IXGBE_VLNCTRL_VFE |
->> IXGBE_VLNCTRL_CFIEN);
->> 	} else {
->> 		if (netdev->flags & IFF_ALLMULTI) {
+From: Jason Wang <jasowang@redhat.com>
+Date: Wed, 19 Nov 2014 11:15:36 +0800
+
+> On 11/19/2014 03:53 AM, Cong Wang wrote:
+>> On Mon, Nov 17, 2014 at 9:20 PM, Jason Wang <jasowang@redhat.com> wrote:
+>>> > After commit 5d097109257c03a71845729f8db6b5770c4bbedc
+>>> > ("tun: only queue packets on device"), NETDEV_TX_OK was returned for
+>>> > dropped packets. This will confuse pktgen since dropped packets were
+>>> > counted as sent ones.
+>>> >
+>>> > Fixing this by returning NET_XMIT_DROP to let pktgen count it as error
+>>> > packet.
+>> pktgen is suspicious, it sends out packets directly without going through
+>> qdisc, so it should not care about NET_XMIT_* qdisc error code?
 > 
-> The current logic is correct and it's like this on purpose as it should be obvious by the comment preceding this check. 
-
-Actually the comment right now does not match what the code is doing.
-
-The comment states:
-                /* Only disable hardware filter vlans in promiscuous mode
-                 * if SR-IOV and VMDQ are disabled - otherwise ensure
-                 * that hardware VLAN filters remain enabled.
-                 */
-
-However, the code currently will _enable_ vlan filtering if VMDQ/SRIOV
-is _disabled_ in promiscuous mode.
-
-
-> The reason for not disabling the vlan filters in promisc mode is because this can break VLAN isolation between VMs which is considered a security risk.
-
-But VLAN isolation between VMs isn't enforced if you have a simple bridged
-setup without VMDQs or SRIOV enabled.  Bridge makes all devices promiscuous
-and should receive all VLANs.
-
--vlad
-
+> Well, NET_XMIT_DROP has been used by some devices. I don't see any side
+> effect of using this especially consider that pktgen can recognize them.
+>> Looks like NETDEV_TX_OK doesn't have to mean TX is successful,
+>> the comment says driver takes care of the packet, can be either dropped
+>> or sent out. We might need a new code to distinguish success or failure.
 > 
-> There is another patch that was proposed:
-> http://marc.info/?l=linux-netdev&m=141586938625969
-> 
-> which should do what you want using an ethtool toggle.
-> 
-> Thanks,
-> Emil
-> 
-> 
+> Most drivers only drop bad packets when they return NETDEV_TX_OK and
+> they will stop the txq before tx ring is full. This is not the case of
+> tun, it never stop txq and keep accepting packets and dropping them when
+> socket receive queue is full.
+
+Agreed.
+
+Often the issue with TX return values is lack of clear documentation
+and use cases.
+
+I've applied this patch, thanks Jason.
