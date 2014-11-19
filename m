@@ -1,18 +1,17 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH v2 net 1/2] drivers/net: Disable UFO through virtio
-Date: Wed, 19 Nov 2014 11:14:55 +0200
-Message-ID: <20141119091455.GA26036@redhat.com>
-References: <1414693592.16849.61.camel@decadent.org.uk>
-	<1414693632.16849.62.camel@decadent.org.uk>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH V2 net] virtio-net: validate features during probe
+Date: Wed, 19 Nov 2014 17:21:46 +0800
+Message-ID: <546C612A.4080807@redhat.com>
+References: <1416381689-2025-1-git-send-email-jasowang@redhat.com>
+	<20141119095445.32d94d5d.cornelia.huck@de.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Hannes Frederic Sowa <hannes@stressinduktion.org>,
+Cc: mst@redhat.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	virtualization@lists.linux-foundation.org
-To: Ben Hutchings <ben@decadent.org.uk>
+To: Cornelia Huck <cornelia.huck@de.ibm.com>
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1414693632.16849.62.camel@decadent.org.uk>
+In-Reply-To: <20141119095445.32d94d5d.cornelia.huck@de.ibm.com>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
@@ -24,248 +23,153 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 30, 2014 at 06:27:12PM +0000, Ben Hutchings wrote:
-> IPv6 does not allow fragmentation by routers, so there is no
-> fragmentation ID in the fixed header.  UFO for IPv6 requires the ID to
-> be passed separately, but there is no provision for this in the virtio
-> net protocol.
-> 
-> Until recently our software implementation of UFO/IPv6 generated a new
-> ID, but this was a bug.  Now we will use ID=0 for any UFO/IPv6 packet
-> passed through a tap, which is even worse.
-> 
-> Unfortunately there is no distinction between UFO/IPv4 and v6
-> features, so disable UFO on taps and virtio_net completely until we
-> have a proper solution.
-> 
-> We cannot depend on VM managers respecting the tap feature flags, so
-> keep accepting UFO packets but log a warning the first time we do
-> this.
-> 
-> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
-> Fixes: 916e4cf46d02 ("ipv6: reuse ip6_frag_id from ip6_ufo_append_data")
+On 11/19/2014 04:54 PM, Cornelia Huck wrote:
+> On Wed, 19 Nov 2014 15:21:29 +0800
+> Jason Wang <jasowang@redhat.com> wrote:
+>
+>> This patch validates feature dependencies during probe and fail the probing
+>> if a dependency is missed. This fixes the issues of hitting BUG()
+>> when qemu fails to advertise features correctly. One example is booting
+>> guest with ctrl_vq=off through qemu.
+>>
+>> Cc: Rusty Russell <rusty@rustcorp.com.au>
+>> Cc: Michael S. Tsirkin <mst@redhat.com>
+>> Cc: Cornelia Huck <cornelia.huck@de.ibm.com>
+>> Cc: Wanlong Gao <gaowanlong@cn.fujitsu.com>
+>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+>> ---
+>> Changes from V1:
+>> - Drop VIRTIO_NET_F_*_UFO from the checklist, since it was disabled
+>> ---
+>>  drivers/net/virtio_net.c | 91 ++++++++++++++++++++++++++++++++++++++++++++++++
+>>  1 file changed, 91 insertions(+)
+>>
+>> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+>> index ec2a8b4..b16a761 100644
+>> --- a/drivers/net/virtio_net.c
+>> +++ b/drivers/net/virtio_net.c
+>> @@ -1673,6 +1673,93 @@ static const struct attribute_group virtio_net_mrg_rx_group = {
+>>  };
+>>  #endif
+>>
+>> +static int virtnet_validate_features(struct virtio_device *dev,
+>> +				     unsigned int *table,
+>> +				     int table_size,
+>> +				     unsigned int feature)
+>> +{
+>> +	int i;
+>> +
+>> +	if (!virtio_has_feature(dev, feature)) {
+> Do an early return, get rid of one indentation level?
 
+This sounds good.
+>> +		for (i = 0; i < table_size; i++) {
+>> +			unsigned int f = table[i];
+>> +
+>> +			if (virtio_has_feature(dev, f)) {
+>> +				dev_err(&dev->dev,
+>> +					"buggy hyperviser: feature 0x%x was advertised but its dependency 0x%x was not",
+> s/hyperviser/hypervisor/ (also below)
 
-There's something I don't understand here. I see:
+Yes, thanks for the catching.
+>
+>> +					f, feature);
+>> +				return -EINVAL;
+>> +			}
+>> +		}
+>> +	}
+>> +
+>> +	return 0;
+>> +}
+>> +
+>> +static int virtnet_check_features(struct virtio_device *dev)
+>> +{
+>> +	unsigned int features_for_ctrl_vq[] = {
+>> +		VIRTIO_NET_F_CTRL_RX,
+>> +		VIRTIO_NET_F_CTRL_VLAN,
+>> +		VIRTIO_NET_F_GUEST_ANNOUNCE,
+>> +		VIRTIO_NET_F_MQ,
+>> +		VIRTIO_NET_F_CTRL_MAC_ADDR
+>> +	};
+>> +	unsigned int features_for_guest_csum[] = {
+>> +		VIRTIO_NET_F_GUEST_TSO4,
+>> +		VIRTIO_NET_F_GUEST_TSO6,
+>> +		VIRTIO_NET_F_GUEST_ECN,
+>> +	};
+>> +	unsigned int features_for_host_csum[] = {
+>> +		VIRTIO_NET_F_HOST_TSO4,
+>> +		VIRTIO_NET_F_HOST_TSO6,
+>> +		VIRTIO_NET_F_HOST_ECN,
+>> +	};
+> I'm wondering whether it would be easier to read if you listed all
+> prereqs per feature instead of all features that depend on a feature?
+> It would still be hard to express the v4/v6 or conditions below in
+> tables, though.
 
-        NETIF_F_UFO_BIT,                /* ... UDPv4 fragmentation */
+For v4 and v6, we could use something like
 
-this comment is wrong then?
+unsigned int feature_for_host_tso6[] = {
+VIRTIO_NET_F_HOST_ECN,
+};
 
-The patches drastically regress performance for UDPv4 for VMs only, but
-isn't it likely many other devices based their code on this comment?
+unsigned int feature_for_host_tso4[] = {
+VIRTIO_NET_F_HOST_ECN,
+}
 
-How about we disable UFO for IPv6 globally, and put the
-flag back in?
-We can then gradually add NETIF_F_UFO6_BIT for devices that
-actually support UFO for IPv6.
+To avoid the following open-coding for ECN. And probably we need another
+device specific dependency table and let virtio core do this instead.
+>
+> Or call the arrays features_depending_on_foo?
 
-Thoughts?
+Yes.
+>
+>> +	int err;
+>> +
+>> +	err = virtnet_validate_features(dev, features_for_ctrl_vq,
+>> +					ARRAY_SIZE(features_for_ctrl_vq),
+>> +					VIRTIO_NET_F_CTRL_VQ);
+>> +	if (err)
+>> +		return err;
+> If you already print a message that a user may use to fix their
+> hypervisor (or bug someone about it), would it make sense to check all
+> dependencies and print a full list of everything that is broken in the
+> advertised feature bits? I usually hate it if I fix one thing only to
+> hit the next bug when the program could have already told me about
+> everything I need to fix :)
+>
 
+Right this sounds good.
+>> +
+>> +	err = virtnet_validate_features(dev, features_for_guest_csum,
+>> +					ARRAY_SIZE(features_for_guest_csum),
+>> +					VIRTIO_NET_F_GUEST_CSUM);
+>> +	if (err)
+>> +		return err;
+>> +
+>> +	err = virtnet_validate_features(dev, features_for_host_csum,
+>> +					ARRAY_SIZE(features_for_host_csum),
+>> +					VIRTIO_NET_F_CSUM);
+>> +	if (err)
+>> +		return err;
+>> +
+>> +	if (virtio_has_feature(dev, VIRTIO_NET_F_GUEST_ECN) &&
+>> +	    (!virtio_has_feature(dev, VIRTIO_NET_F_GUEST_TSO4) ||
+>> +	     !virtio_has_feature(dev, VIRTIO_NET_F_GUEST_TSO6))) {
+>> +		dev_err(&dev->dev,
+>> +			"buggy hyperviser: feature 0x%x was advertised but its dependency 0x%x or 0x%x was not",
+>> +			VIRTIO_NET_F_GUEST_ECN,
+>> +			VIRTIO_NET_F_GUEST_TSO4,
+>> +			VIRTIO_NET_F_GUEST_TSO6);
+>> +		return -EINVAL;
+>> +	}
+>> +
+>> +	if (virtio_has_feature(dev, VIRTIO_NET_F_HOST_ECN) &&
+>> +	    (!virtio_has_feature(dev, VIRTIO_NET_F_HOST_TSO4) ||
+>> +	     !virtio_has_feature(dev, VIRTIO_NET_F_HOST_TSO6))) {
+>> +		dev_err(&dev->dev,
+>> +			"buggy hyperviser: feature 0x%x was advertised but its dependency 0x%x or 0x%x was not",
+> "Hypervisor bug: advertised feature <foo> but not <bar> or <baz>"
+>
+> ?
 
-
-> ---
->  drivers/net/macvtap.c    | 13 +++++--------
->  drivers/net/tun.c        | 19 +++++++++++--------
->  drivers/net/virtio_net.c | 24 ++++++++++++++----------
->  3 files changed, 30 insertions(+), 26 deletions(-)
-> 
-> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-> index 65e2892..2aeaa61 100644
-> --- a/drivers/net/macvtap.c
-> +++ b/drivers/net/macvtap.c
-> @@ -65,7 +65,7 @@ static struct cdev macvtap_cdev;
->  static const struct proto_ops macvtap_socket_ops;
->  
->  #define TUN_OFFLOADS (NETIF_F_HW_CSUM | NETIF_F_TSO_ECN | NETIF_F_TSO | \
-> -		      NETIF_F_TSO6 | NETIF_F_UFO)
-> +		      NETIF_F_TSO6)
->  #define RX_OFFLOADS (NETIF_F_GRO | NETIF_F_LRO)
->  #define TAP_FEATURES (NETIF_F_GSO | NETIF_F_SG)
->  
-> @@ -569,6 +569,8 @@ static int macvtap_skb_from_vnet_hdr(struct sk_buff *skb,
->  			gso_type = SKB_GSO_TCPV6;
->  			break;
->  		case VIRTIO_NET_HDR_GSO_UDP:
-> +			pr_warn_once("macvtap: %s: using disabled UFO feature; please fix this program\n",
-> +				     current->comm);
->  			gso_type = SKB_GSO_UDP;
->  			break;
->  		default:
-> @@ -614,8 +616,6 @@ static void macvtap_skb_to_vnet_hdr(const struct sk_buff *skb,
->  			vnet_hdr->gso_type = VIRTIO_NET_HDR_GSO_TCPV4;
->  		else if (sinfo->gso_type & SKB_GSO_TCPV6)
->  			vnet_hdr->gso_type = VIRTIO_NET_HDR_GSO_TCPV6;
-> -		else if (sinfo->gso_type & SKB_GSO_UDP)
-> -			vnet_hdr->gso_type = VIRTIO_NET_HDR_GSO_UDP;
->  		else
->  			BUG();
->  		if (sinfo->gso_type & SKB_GSO_TCP_ECN)
-> @@ -950,9 +950,6 @@ static int set_offload(struct macvtap_queue *q, unsigned long arg)
->  			if (arg & TUN_F_TSO6)
->  				feature_mask |= NETIF_F_TSO6;
->  		}
-> -
-> -		if (arg & TUN_F_UFO)
-> -			feature_mask |= NETIF_F_UFO;
->  	}
->  
->  	/* tun/tap driver inverts the usage for TSO offloads, where
-> @@ -963,7 +960,7 @@ static int set_offload(struct macvtap_queue *q, unsigned long arg)
->  	 * When user space turns off TSO, we turn off GSO/LRO so that
->  	 * user-space will not receive TSO frames.
->  	 */
-> -	if (feature_mask & (NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_UFO))
-> +	if (feature_mask & (NETIF_F_TSO | NETIF_F_TSO6))
->  		features |= RX_OFFLOADS;
->  	else
->  		features &= ~RX_OFFLOADS;
-> @@ -1064,7 +1061,7 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
->  	case TUNSETOFFLOAD:
->  		/* let the user check for future flags */
->  		if (arg & ~(TUN_F_CSUM | TUN_F_TSO4 | TUN_F_TSO6 |
-> -			    TUN_F_TSO_ECN | TUN_F_UFO))
-> +			    TUN_F_TSO_ECN))
->  			return -EINVAL;
->  
->  		rtnl_lock();
-> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> index 186ce54..280d3d2 100644
-> --- a/drivers/net/tun.c
-> +++ b/drivers/net/tun.c
-> @@ -174,7 +174,7 @@ struct tun_struct {
->  	struct net_device	*dev;
->  	netdev_features_t	set_features;
->  #define TUN_USER_FEATURES (NETIF_F_HW_CSUM|NETIF_F_TSO_ECN|NETIF_F_TSO| \
-> -			  NETIF_F_TSO6|NETIF_F_UFO)
-> +			  NETIF_F_TSO6)
->  
->  	int			vnet_hdr_sz;
->  	int			sndbuf;
-> @@ -1149,8 +1149,18 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
->  			skb_shinfo(skb)->gso_type = SKB_GSO_TCPV6;
->  			break;
->  		case VIRTIO_NET_HDR_GSO_UDP:
-> +		{
-> +			static bool warned;
-> +
-> +			if (!warned) {
-> +				warned = true;
-> +				netdev_warn(tun->dev,
-> +					    "%s: using disabled UFO feature; please fix this program\n",
-> +					    current->comm);
-> +			}
->  			skb_shinfo(skb)->gso_type = SKB_GSO_UDP;
->  			break;
-> +		}
->  		default:
->  			tun->dev->stats.rx_frame_errors++;
->  			kfree_skb(skb);
-> @@ -1251,8 +1261,6 @@ static ssize_t tun_put_user(struct tun_struct *tun,
->  				gso.gso_type = VIRTIO_NET_HDR_GSO_TCPV4;
->  			else if (sinfo->gso_type & SKB_GSO_TCPV6)
->  				gso.gso_type = VIRTIO_NET_HDR_GSO_TCPV6;
-> -			else if (sinfo->gso_type & SKB_GSO_UDP)
-> -				gso.gso_type = VIRTIO_NET_HDR_GSO_UDP;
->  			else {
->  				pr_err("unexpected GSO type: "
->  				       "0x%x, gso_size %d, hdr_len %d\n",
-> @@ -1762,11 +1770,6 @@ static int set_offload(struct tun_struct *tun, unsigned long arg)
->  				features |= NETIF_F_TSO6;
->  			arg &= ~(TUN_F_TSO4|TUN_F_TSO6);
->  		}
-> -
-> -		if (arg & TUN_F_UFO) {
-> -			features |= NETIF_F_UFO;
-> -			arg &= ~TUN_F_UFO;
-> -		}
->  	}
->  
->  	/* This gives the user a way to test for new features in future by
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index d75256bd..ec2a8b4 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -491,8 +491,17 @@ static void receive_buf(struct receive_queue *rq, void *buf, unsigned int len)
->  			skb_shinfo(skb)->gso_type = SKB_GSO_TCPV4;
->  			break;
->  		case VIRTIO_NET_HDR_GSO_UDP:
-> +		{
-> +			static bool warned;
-> +
-> +			if (!warned) {
-> +				warned = true;
-> +				netdev_warn(dev,
-> +					    "host using disabled UFO feature; please fix it\n");
-> +			}
->  			skb_shinfo(skb)->gso_type = SKB_GSO_UDP;
->  			break;
-> +		}
->  		case VIRTIO_NET_HDR_GSO_TCPV6:
->  			skb_shinfo(skb)->gso_type = SKB_GSO_TCPV6;
->  			break;
-> @@ -881,8 +890,6 @@ static int xmit_skb(struct send_queue *sq, struct sk_buff *skb)
->  			hdr->hdr.gso_type = VIRTIO_NET_HDR_GSO_TCPV4;
->  		else if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6)
->  			hdr->hdr.gso_type = VIRTIO_NET_HDR_GSO_TCPV6;
-> -		else if (skb_shinfo(skb)->gso_type & SKB_GSO_UDP)
-> -			hdr->hdr.gso_type = VIRTIO_NET_HDR_GSO_UDP;
->  		else
->  			BUG();
->  		if (skb_shinfo(skb)->gso_type & SKB_GSO_TCP_ECN)
-> @@ -1705,7 +1712,7 @@ static int virtnet_probe(struct virtio_device *vdev)
->  			dev->features |= NETIF_F_HW_CSUM|NETIF_F_SG|NETIF_F_FRAGLIST;
->  
->  		if (virtio_has_feature(vdev, VIRTIO_NET_F_GSO)) {
-> -			dev->hw_features |= NETIF_F_TSO | NETIF_F_UFO
-> +			dev->hw_features |= NETIF_F_TSO
->  				| NETIF_F_TSO_ECN | NETIF_F_TSO6;
->  		}
->  		/* Individual feature bits: what can host handle? */
-> @@ -1715,11 +1722,9 @@ static int virtnet_probe(struct virtio_device *vdev)
->  			dev->hw_features |= NETIF_F_TSO6;
->  		if (virtio_has_feature(vdev, VIRTIO_NET_F_HOST_ECN))
->  			dev->hw_features |= NETIF_F_TSO_ECN;
-> -		if (virtio_has_feature(vdev, VIRTIO_NET_F_HOST_UFO))
-> -			dev->hw_features |= NETIF_F_UFO;
->  
->  		if (gso)
-> -			dev->features |= dev->hw_features & (NETIF_F_ALL_TSO|NETIF_F_UFO);
-> +			dev->features |= dev->hw_features & NETIF_F_ALL_TSO;
->  		/* (!csum && gso) case will be fixed by register_netdev() */
->  	}
->  	if (virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_CSUM))
-> @@ -1757,8 +1762,7 @@ static int virtnet_probe(struct virtio_device *vdev)
->  	/* If we can receive ANY GSO packets, we must allocate large ones. */
->  	if (virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_TSO4) ||
->  	    virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_TSO6) ||
-> -	    virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_ECN) ||
-> -	    virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_UFO))
-> +	    virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_ECN))
->  		vi->big_packets = true;
->  
->  	if (virtio_has_feature(vdev, VIRTIO_NET_F_MRG_RXBUF))
-> @@ -1952,9 +1956,9 @@ static struct virtio_device_id id_table[] = {
->  static unsigned int features[] = {
->  	VIRTIO_NET_F_CSUM, VIRTIO_NET_F_GUEST_CSUM,
->  	VIRTIO_NET_F_GSO, VIRTIO_NET_F_MAC,
-> -	VIRTIO_NET_F_HOST_TSO4, VIRTIO_NET_F_HOST_UFO, VIRTIO_NET_F_HOST_TSO6,
-> +	VIRTIO_NET_F_HOST_TSO4, VIRTIO_NET_F_HOST_TSO6,
->  	VIRTIO_NET_F_HOST_ECN, VIRTIO_NET_F_GUEST_TSO4, VIRTIO_NET_F_GUEST_TSO6,
-> -	VIRTIO_NET_F_GUEST_ECN, VIRTIO_NET_F_GUEST_UFO,
-> +	VIRTIO_NET_F_GUEST_ECN,
->  	VIRTIO_NET_F_MRG_RXBUF, VIRTIO_NET_F_STATUS, VIRTIO_NET_F_CTRL_VQ,
->  	VIRTIO_NET_F_CTRL_RX, VIRTIO_NET_F_CTRL_VLAN,
->  	VIRTIO_NET_F_GUEST_ANNOUNCE, VIRTIO_NET_F_MQ,
-> 
-> 
-> -- 
-> Ben Hutchings
-> The program is absolutely right; therefore, the computer must be wrong.
-
-
-
-> _______________________________________________
-> Virtualization mailing list
-> Virtualization@lists.linux-foundation.org
-> https://lists.linuxfoundation.org/mailman/listinfo/virtualization
+More compact, looks good. Thanks
