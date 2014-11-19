@@ -1,50 +1,106 @@
-From: Joe Stringer <joestringer-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH net] openvswitch: Fix mask generation for IPv6
-	labels.
-Date: Tue, 18 Nov 2014 23:25:10 -0800
-Message-ID: <CAOftzPgYBBFTfNZunf4oGSmECzjOKF0=dnQ9EkTDFsDi+9jfNw@mail.gmail.com>
-References: <1416336857-61405-1-git-send-email-joestringer@nicira.com>
- <CALnjE+qrkw92tZ-wgpGOPtbuMJVVCfo--7w6PAGO6OW4skiGQQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <CALnjE+qrkw92tZ-wgpGOPtbuMJVVCfo--7w6PAGO6OW4skiGQQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+From: Govindarajulu Varadarajan <_govind@gmx.com>
+Subject: [PATCH net-next v2] enic: support skb->xmit_more
+Date: Wed, 19 Nov 2014 12:59:32 +0530
+Message-ID: <1416382172-28775-1-git-send-email-_govind@gmx.com>
+Cc: ssujith@cisco.com, benve@cisco.com, eric.dumazet@gmail.com,
+	Govindarajulu Varadarajan <_govind@gmx.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.gmx.net ([212.227.17.22]:58200 "EHLO mout.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932113AbaKSH3v (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Nov 2014 02:29:51 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gMTggTm92ZW1iZXIgMjAxNCAyMjowOSwgUHJhdmluIFNoZWxhciA8cHNoZWxhckBuaWNpcmEu
-Y29tPiB3cm90ZToKCj4gT24gVHVlLCBOb3YgMTgsIDIwMTQgYXQgMTA6NTQgQU0sIEpvZSBTdHJp
-bmdlciA8am9lc3RyaW5nZXJAbmljaXJhLmNvbT4KPiB3cm90ZToKPiA+IFdoZW4gdXNlcnNwYWNl
-IGRvZXNuJ3QgcHJvdmlkZSBhIG1hc2ssIE9WUyBkYXRhcGF0aCBnZW5lcmF0ZXMgYSBmdWxseQo+
-ID4gdW53aWxkY2FyZGVkIG1hc2sgZm9yIHRoZSBmbG93LiBUaGlzIGlzIGRvbmUgYnkgdGFraW5n
-IGEgY29weSBvZiB0aGUKPiA+IGZsb3cga2V5LCB0aGVuIGl0ZXJhdGluZyBhY3Jvc3MgaXRzIGF0
-dHJpYnV0ZXMsIHNldHRpbmcgYWxsIHZhbHVlcyB0bwo+ID4gMHhmZi4gVGhpcyB3b3JrcyBmb3Ig
-bW9zdCBhdHRyaWJ1dGVzLCBhcyB0aGUgbGVuZ3RoIG9mIHRoZSBuZXRsaW5rCj4gPiBhdHRyaWJ1
-dGUgdHlwaWNhbGx5IG1hdGNoZXMgdGhlIGxlbmd0aCBvZiB0aGUgdmFsdWUuIEhvd2V2ZXIsIElQ
-djYKPiA+IGxhYmVscyBvbmx5IHVzZSB0aGUgbG93ZXIgMjAgYml0cyBvZiB0aGUgZmllbGQuIFRo
-aXMgcGF0Y2ggbWFrZXMgYQo+ID4gc3BlY2lhbCBjYXNlIHRvIGhhbmRsZSB0aGlzLgo+ID4KPiA+
-IFRoaXMgZml4ZXMgdGhlIGZvbGxvd2luZyBlcnJvciBzZWVuIHdoZW4gaW5zdGFsbGluZyBJUHY2
-IGZsb3dzIHdpdGhvdXQgYQo+IG1hc2s6Cj4gPgo+ID4gb3BlbnZzd2l0Y2g6IG5ldGxpbms6IElu
-dmFsaWQgSVB2NiBmbG93IGxhYmVsIHZhbHVlICh2YWx1ZT1mZmZmZmZmZiwKPiBtYXg9ZmZmZmYp
-Cj4gPgo+IFdlIHNob3VsZCBhbGxvdyBleGFjdCBtYXRjaCBtYXNrIGhlcmUgcmF0aGVyIHRoYW4g
-Z2VuZXJhdGluZwo+IHdpbGRjYXJkZWQgbWFzay4gU28gdGhhdCBvdnMgY2FuIGNhdGNoIGludmFs
-aWQgaXB2Ni5sYWJlbC4KCgpJIGRvbid0IHF1aXRlIGZvbGxvdywgSSB0aG91Z2h0IHRoaXMgd2Fz
-IGV4YWN0LW1hdGNoPyAoVGhlIGV4aXN0aW5nCmZ1bmN0aW9uIHNldHMgYWxsIGJpdHMgdG8gMSkK
-CkluIHRoaXMgY2FzZSwgdXNlcnNwYWNlIGhhcyBub3Qgc3BlY2lmaWVkIGEgbWFzaywgYnV0IHRo
-ZSBrZXJuZWwgY29tcGxhaW5zCmFib3V0IGEgbWFzayB0aGF0IGlzIHRvbyB3aWRlIChiZWNhdXNl
-IGl0IGdlbmVyYXRlZCBhIG1hc2sgdGhhdCdzIHRvbwp3aWRlKS4gRG8geW91IGhhdmUgYW4gYWx0
-ZXJuYXRpdmUgZml4IGluIG1pbmQ/Cl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8v
-b3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
+Check and update posted_index only when skb->xmit_more is 0 or tx queue is full.
+
+v2:
+use txq_map instead of skb_get_queue_mapping(skb)
+
+Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
+---
+ drivers/net/ethernet/cisco/enic/enic_main.c |  8 ++++++--
+ drivers/net/ethernet/cisco/enic/vnic_wq.h   | 20 +++++++++++---------
+ 2 files changed, 17 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
+index 5afe360..b9cda2f 100644
+--- a/drivers/net/ethernet/cisco/enic/enic_main.c
++++ b/drivers/net/ethernet/cisco/enic/enic_main.c
+@@ -533,6 +533,7 @@ static netdev_tx_t enic_hard_start_xmit(struct sk_buff *skb,
+ 	struct vnic_wq *wq;
+ 	unsigned long flags;
+ 	unsigned int txq_map;
++	struct netdev_queue *txq;
+ 
+ 	if (skb->len <= 0) {
+ 		dev_kfree_skb_any(skb);
+@@ -541,6 +542,7 @@ static netdev_tx_t enic_hard_start_xmit(struct sk_buff *skb,
+ 
+ 	txq_map = skb_get_queue_mapping(skb) % enic->wq_count;
+ 	wq = &enic->wq[txq_map];
++	txq = netdev_get_tx_queue(netdev, txq_map);
+ 
+ 	/* Non-TSO sends must fit within ENIC_NON_TSO_MAX_DESC descs,
+ 	 * which is very likely.  In the off chance it's going to take
+@@ -558,7 +560,7 @@ static netdev_tx_t enic_hard_start_xmit(struct sk_buff *skb,
+ 
+ 	if (vnic_wq_desc_avail(wq) <
+ 	    skb_shinfo(skb)->nr_frags + ENIC_DESC_MAX_SPLITS) {
+-		netif_tx_stop_queue(netdev_get_tx_queue(netdev, txq_map));
++		netif_tx_stop_queue(txq);
+ 		/* This is a hard error, log it */
+ 		netdev_err(netdev, "BUG! Tx ring full when queue awake!\n");
+ 		spin_unlock_irqrestore(&enic->wq_lock[txq_map], flags);
+@@ -568,7 +570,9 @@ static netdev_tx_t enic_hard_start_xmit(struct sk_buff *skb,
+ 	enic_queue_wq_skb(enic, wq, skb);
+ 
+ 	if (vnic_wq_desc_avail(wq) < MAX_SKB_FRAGS + ENIC_DESC_MAX_SPLITS)
+-		netif_tx_stop_queue(netdev_get_tx_queue(netdev, txq_map));
++		netif_tx_stop_queue(txq);
++	if (!skb->xmit_more || netif_xmit_stopped(txq))
++		vnic_wq_doorbell(wq);
+ 
+ 	spin_unlock_irqrestore(&enic->wq_lock[txq_map], flags);
+ 
+diff --git a/drivers/net/ethernet/cisco/enic/vnic_wq.h b/drivers/net/ethernet/cisco/enic/vnic_wq.h
+index 2c6c708..816f1ad 100644
+--- a/drivers/net/ethernet/cisco/enic/vnic_wq.h
++++ b/drivers/net/ethernet/cisco/enic/vnic_wq.h
+@@ -104,6 +104,17 @@ static inline void *vnic_wq_next_desc(struct vnic_wq *wq)
+ 	return wq->to_use->desc;
+ }
+ 
++static inline void vnic_wq_doorbell(struct vnic_wq *wq)
++{
++	/* Adding write memory barrier prevents compiler and/or CPU
++	 * reordering, thus avoiding descriptor posting before
++	 * descriptor is initialized. Otherwise, hardware can read
++	 * stale descriptor fields.
++	 */
++	wmb();
++	iowrite32(wq->to_use->index, &wq->ctrl->posted_index);
++}
++
+ static inline void vnic_wq_post(struct vnic_wq *wq,
+ 	void *os_buf, dma_addr_t dma_addr,
+ 	unsigned int len, int sop, int eop,
+@@ -122,15 +133,6 @@ static inline void vnic_wq_post(struct vnic_wq *wq,
+ 	buf->wr_id = wrid;
+ 
+ 	buf = buf->next;
+-	if (eop) {
+-		/* Adding write memory barrier prevents compiler and/or CPU
+-		 * reordering, thus avoiding descriptor posting before
+-		 * descriptor is initialized. Otherwise, hardware can read
+-		 * stale descriptor fields.
+-		 */
+-		wmb();
+-		iowrite32(buf->index, &wq->ctrl->posted_index);
+-	}
+ 	wq->to_use = buf;
+ 
+ 	wq->ring.desc_avail -= desc_skip_cnt;
+-- 
+2.1.3
