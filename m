@@ -1,30 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] cxgb4i : Don't block unload/cxgb4 unload when
- remote closes TCP connection
-Date: Wed, 19 Nov 2014 16:59:50 -0500 (EST)
-Message-ID: <20141119.165950.2141251288119010411.davem@davemloft.net>
-References: <1416366591-9699-1-git-send-email-anish@chelsio.com>
+Subject: Re: [PATCH net-next v2] enic: support skb->xmit_more
+Date: Wed, 19 Nov 2014 17:02:59 -0500 (EST)
+Message-ID: <20141119.170259.796632085538407303.davem@davemloft.net>
+References: <1416382172-28775-1-git-send-email-_govind@gmx.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
-	hch@infradead.org, jbottomley@parallels.com, kxie@chelsio.com,
-	manojmalviya@chelsio.com
-To: anish@chelsio.com
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <1416366591-9699-1-git-send-email-anish@chelsio.com>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, ssujith@cisco.com, benve@cisco.com,
+	eric.dumazet@gmail.com
+To: _govind@gmx.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39272 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932735AbaKSWDD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 17:03:03 -0500
+In-Reply-To: <1416382172-28775-1-git-send-email-_govind@gmx.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Anish Bhatt <anish@chelsio.com>
-Date: Tue, 18 Nov 2014 19:09:51 -0800
+From: Govindarajulu Varadarajan <_govind@gmx.com>
+Date: Wed, 19 Nov 2014 12:59:32 +0530
 
-> cxgb4i was returning wrong error and not releasing module reference if remote
-> end abruptly closed TCP connection. This prevents the cxgb4 network module from
-> being unloaded, further affecting other network drivers dependent on cxgb4
+> Check and update posted_index only when skb->xmit_more is 0 or tx queue is full.
 > 
-> Sending to net as this affects all cxgb4 based network drivers.
+> v2:
+> use txq_map instead of skb_get_queue_mapping(skb)
 > 
-> Signed-off-by: Anish Bhatt <anish@chelsio.com>
+> Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
 
-Applied, thank you.
+Applied, thanks.
