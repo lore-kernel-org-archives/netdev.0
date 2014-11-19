@@ -1,7 +1,8 @@
 From: Johan Hovold <johan@kernel.org>
-Subject: [PATCH 00/10] net: phy: add device-type abstraction
-Date: Wed, 19 Nov 2014 12:59:13 +0100
-Message-ID: <1416398363-32306-1-git-send-email-johan@kernel.org>
+Subject: [PATCH 03/10] net: phy: micrel: parse of nodes at probe
+Date: Wed, 19 Nov 2014 12:59:16 +0100
+Message-ID: <1416398363-32306-4-git-send-email-johan@kernel.org>
+References: <1416398363-32306-1-git-send-email-johan@kernel.org>
 Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, Bruno Thomsen <bth@kamstrup.dk>,
 	Sascha Hauer <s.hauer@pengutronix.de>,
@@ -9,56 +10,100 @@ Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	Johan Hovold <johan@kernel.org>
 To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1416398363-32306-1-git-send-email-johan@kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This series adds device and device-type abstractions to the micrel
-driver, and enables support for RMII-reference clock selection for
-KSZ8081 and KSZ8091 devices.
+Parse the "micrel,led-mode" property at probe, rather than at config_init
+time in the led-setup helper itself.
 
-While adding support for more features for the Micrel PHYs mentioned
-above, it became apparent that the configuration space is much too large
-and that adding type-specific callbacks will simply not scale. Instead I
-added a driver_data field to struct phy_device, which can be used to
-store static device type data that can be parsed and acted on in
-generic driver callbacks. This allows a lot of duplicated code to be
-removed, and should make it much easier to add new features or deal with
-device-type quirks in the future.
+Note that the bogus parent->of_node bit is removed.
 
-The series has been tested on a dual KSZ8081 setup. Further testing on
-other Micrel PHYs would be much appreciated.
+Signed-off-by: Johan Hovold <johan@kernel.org>
+---
+ drivers/net/phy/micrel.c | 39 +++++++++++++++++++++------------------
+ 1 file changed, 21 insertions(+), 18 deletions(-)
 
-The recent commit a95a18afe4c8 ("phy/micrel: KSZ8031RNL RMII clock
-reconfiguration bug") currently prevents KSZ8031 PHYs from using the
-generic config-init. Bruno, who is the author of that patch, has agreed
-to test this series and some follow-up diagnostic patches to determine
-how best to incorporate these devices as well. I intend to send a
-follow-up patch that removes the custom 8031 config-init and documents
-this quirk, but the current series can be applied meanwhile.
-
-These patches are against net-next which contains some already merged
-prerequisite patches to the driver.
-
-Johan
-
-
-Johan Hovold (10):
-  net: phy: add static data field to struct phy_driver
-  net: phy: micrel: add device-type abstraction
-  net: phy: micrel: parse of nodes at probe
-  net: phy: micrel: add has-broadcast-disable flag to type data
-  net: phy: micrel: add generic clock-mode-select support
-  net: phy: micrel: add support for clock-mode select to KSZ8081/KSZ8091
-  dt/bindings: reformat micrel eth-phy documentation
-  dt/bindings: add clock-select function property to micrel phy binding
-  net: phy: micrel: refactor interrupt config
-  net: phy: micrel: add copyright entry
-
- Documentation/devicetree/bindings/net/micrel.txt |  37 ++--
- drivers/net/phy/micrel.c                         | 262 ++++++++++++++---------
- include/linux/micrel_phy.h                       |   1 -
- include/linux/phy.h                              |   2 +
- 4 files changed, 184 insertions(+), 118 deletions(-)
-
+diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+index 1b528137afd9..6a81aaca5b1c 100644
+--- a/drivers/net/phy/micrel.c
++++ b/drivers/net/phy/micrel.c
+@@ -79,6 +79,7 @@ struct kszphy_type {
+ 
+ struct kszphy_priv {
+ 	const struct kszphy_type *type;
++	int led_mode;
+ };
+ 
+ static const struct kszphy_type ksz8021_type = {
+@@ -186,24 +187,9 @@ static int ks8737_config_intr(struct phy_device *phydev)
+ 	return rc < 0 ? rc : 0;
+ }
+ 
+-static int kszphy_setup_led(struct phy_device *phydev, u32 reg)
++static int kszphy_setup_led(struct phy_device *phydev, u32 reg, int val)
+ {
+-
+-	struct device *dev = &phydev->dev;
+-	struct device_node *of_node = dev->of_node;
+ 	int rc, temp, shift;
+-	u32 val;
+-
+-	if (!of_node && dev->parent->of_node)
+-		of_node = dev->parent->of_node;
+-
+-	if (of_property_read_u32(of_node, "micrel,led-mode", &val))
+-		return 0;
+-
+-	if (val > 3) {
+-		dev_err(&phydev->dev, "invalid led mode: 0x%02x\n", val);
+-		return -EINVAL;
+-	}
+ 
+ 	switch (reg) {
+ 	case MII_KSZPHY_CTRL_1:
+@@ -261,8 +247,8 @@ static int kszphy_config_init(struct phy_device *phydev)
+ 
+ 	type = priv->type;
+ 
+-	if (type->led_mode_reg)
+-		kszphy_setup_led(phydev, type->led_mode_reg);
++	if (priv->led_mode >= 0)
++		kszphy_setup_led(phydev, type->led_mode_reg, priv->led_mode);
+ 
+ 	return 0;
+ }
+@@ -531,7 +517,9 @@ ksz9021_wr_mmd_phyreg(struct phy_device *phydev, int ptrad, int devnum,
+ static int kszphy_probe(struct phy_device *phydev)
+ {
+ 	const struct kszphy_type *type = phydev->drv->driver_data;
++	struct device_node *np = phydev->dev.of_node;
+ 	struct kszphy_priv *priv;
++	int ret;
+ 
+ 	priv = devm_kzalloc(&phydev->dev, sizeof(*priv), GFP_KERNEL);
+ 	if (!priv)
+@@ -541,6 +529,21 @@ static int kszphy_probe(struct phy_device *phydev)
+ 
+ 	priv->type = type;
+ 
++	if (type->led_mode_reg) {
++		ret = of_property_read_u32(np, "micrel,led-mode",
++				&priv->led_mode);
++		if (ret)
++			priv->led_mode = -1;
++
++		if (priv->led_mode > 3) {
++			dev_err(&phydev->dev, "invalid led mode: 0x%02x\n",
++					priv->led_mode);
++			priv->led_mode = -1;
++		}
++	} else {
++		priv->led_mode = -1;
++	}
++
+ 	return 0;
+ }
+ 
 -- 
 2.0.4
