@@ -1,66 +1,48 @@
-From: Ian Morris <ipm@chirality.org.uk>
-Subject: [PATCH net-next] sky2: use new netdev_rss_key_fill() helper
-Date: Wed, 19 Nov 2014 09:06:51 +0000
-Message-ID: <1416388011-10491-1-git-send-email-ipm@chirality.org.uk>
-Cc: Ian Morris <ipm@chirality.org.uk>,
-	Mirko Lindner <mlindner@marvell.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Eric Dumazet <edumazet@google.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from inet-gw.chirality.org.uk ([88.97.209.22]:38172 "EHLO
-	oak.chirality.org.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750853AbaKSJOg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 04:14:36 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Cornelia Huck <cornelia.huck@de.ibm.com>
+Subject: Re: [PATCH net] virtio-net: validate features during probe
+Date: Wed, 19 Nov 2014 10:14:36 +0100
+Message-ID: <20141119101436.3b72989c.cornelia.huck@de.ibm.com>
+References: <1416378939-28821-1-git-send-email-jasowang@redhat.com>
+	<20141119085939.GB24827@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20141119085939.GB24827@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Switch to a random RSS key rather than a fixed one.
-Using netdev_rss_key_fill helper also ensures that all ports share
-a common key.
+On Wed, 19 Nov 2014 10:59:39 +0200
+"Michael S. Tsirkin" <mst@redhat.com> wrote:
 
-See also commit 960fb622f85180f36d3aff82af53e2be3db2f888.
 
-Signed-off-by: Ian Morris <ipm@chirality.org.uk>
-Cc: Mirko Lindner <mlindner@marvell.com>
-Cc: Stephen Hemminger <stephen@networkplumber.org>
-Cc: Eric Dumazet <edumazet@google.com>
----
- drivers/net/ethernet/marvell/sky2.c | 13 ++++---------
- 1 file changed, 4 insertions(+), 9 deletions(-)
+> +bool __virtnet_fail_on_feature(struct virtio_device *vdev, unsigned int fbit,
+> +			       const char *fname)
+> +{
+> +	if (!virtio_has_feature(vdev, fbit))
+> +		return false;
+> +
+> +        dev_err(&dev->dev, "missing requirements for feature bit %d: %s\n",
+> +		fbit, fname);
 
-diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
-index bd33662..53a1cc5 100644
---- a/drivers/net/ethernet/marvell/sky2.c
-+++ b/drivers/net/ethernet/marvell/sky2.c
-@@ -1290,14 +1290,6 @@ static void rx_set_checksum(struct sky2_port *sky2)
- 		     ? BMU_ENA_RX_CHKSUM : BMU_DIS_RX_CHKSUM);
- }
- 
--/*
-- * Fixed initial key as seed to RSS.
-- */
--static const uint32_t rss_init_key[10] = {
--	0x7c3351da, 0x51c5cf4e,	0x44adbdd1, 0xe8d38d18,	0x48897c43,
--	0xb1d60e7e, 0x6a3dd760, 0x01a2e453, 0x16f46f13, 0x1a0e7b30
--};
--
- /* Enable/disable receive hash calculation (RSS) */
- static void rx_set_rss(struct net_device *dev, netdev_features_t features)
- {
-@@ -1313,9 +1305,12 @@ static void rx_set_rss(struct net_device *dev, netdev_features_t features)
- 
- 	/* Program RSS initial values */
- 	if (features & NETIF_F_RXHASH) {
-+		u32 rss_key[10];
-+
-+		netdev_rss_key_fill(rss_key, sizeof(rss_key));
- 		for (i = 0; i < nkeys; i++)
- 			sky2_write32(hw, SK_REG(sky2->port, RSS_KEY + i * 4),
--				     rss_init_key[i]);
-+				     rss_key[i]);
- 
- 		/* Need to turn on (undocumented) flag to make hashing work  */
- 		sky2_write32(hw, SK_REG(sky2->port, RX_GMF_CTRL_T),
--- 
-1.9.1
+I'd like the message to point out that this is a hypervisor problem: I
+can imagine that a user would be stumped about what to do about this.
+And printing what requirements are missing would probably be helpful to
+someone trying to fix the hypervisor.
+
+> +
+> +	return true;
+> +}
+> +
+>
