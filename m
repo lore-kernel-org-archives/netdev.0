@@ -1,56 +1,80 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCHv3 net] openvswitch: Don't validate IPv6 label masks.
-Date: Wed, 19 Nov 2014 14:05:09 -0800
-Message-ID: <CALnjE+rtJG+o_jwQtCaWJkjiGOeNA7fWNbDhgFnx-_v4kpA5hA@mail.gmail.com>
-References: <1416434089-47062-1-git-send-email-joestringer@nicira.com>
+From: Jiri Bohac <jbohac@suse.cz>
+Subject: [PATCH v4] ipx: fix locking regression in ipx_sendmsg and ipx_recvmsg
+Date: Wed, 19 Nov 2014 23:05:49 +0100
+Message-ID: <20141119220549.GA26133@midget.suse.cz>
+References: <1609909.1jJeqOzgZ8@wuerfel>
+ <20141119103413.GA19092@midget.suse.cz>
+ <20141119103814.GB19092@midget.suse.cz>
+ <20141119.154400.1045032776950540216.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	"dev@openvswitch.org" <dev@openvswitch.org>
-To: Joe Stringer <joestringer@nicira.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1416434089-47062-1-git-send-email-joestringer@nicira.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: jbohac@suse.cz, arnd@arndb.de, acme@ghostprotocols.net,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor2.suse.de ([195.135.220.15]:42199 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756504AbaKSWFw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Nov 2014 17:05:52 -0500
+Content-Disposition: inline
+In-Reply-To: <20141119.154400.1045032776950540216.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 19, 2014 at 1:54 PM, Joe Stringer <joestringer@nicira.com> wrote:
-> When userspace doesn't provide a mask, OVS datapath generates a fully
-> unwildcarded mask for the flow by copying the flow and setting all bits
-> in all fields. For IPv6 label, this creates a mask that matches on the
-> upper 12 bits, causing the following error:
->
-> openvswitch: netlink: Invalid IPv6 flow label value (value=ffffffff, max=fffff)
->
-> This patch ignores the label validation check for masks, avoiding this
-> error.
->
-> Signed-off-by: Joe Stringer <joestringer@nicira.com>
+This fixes an old regression introduced by commit
+b0d0d915 (ipx: remove the BKL).
 
-Thanks for the fix.
-Acked-by: Pravin B Shelar <pshelar@nicira.com>
+When a recvmsg syscall blocks waiting for new data, no data can be sent on the
+same socket with sendmsg because ipx_recvmsg() sleeps with the socket locked.
 
-> ---
-> v3: Alternative approach.
->     Was "openvswitch: Fix mask generation for IPv6 labels."
-> v2: OR lower 20 bits (upper 12 bits remain from earlier memdup)
-> ---
->  net/openvswitch/flow_netlink.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
-> index fa4ec2e..089b195 100644
-> --- a/net/openvswitch/flow_netlink.c
-> +++ b/net/openvswitch/flow_netlink.c
-> @@ -690,7 +690,7 @@ static int ovs_key_from_nlattrs(struct sw_flow_match *match, u64 attrs,
->                         return -EINVAL;
->                 }
->
-> -               if (ipv6_key->ipv6_label & htonl(0xFFF00000)) {
-> +               if (!is_mask && ipv6_key->ipv6_label & htonl(0xFFF00000)) {
->                         OVS_NLERR("IPv6 flow label %x is out of range (max=%x).\n",
->                                   ntohl(ipv6_key->ipv6_label), (1 << 20) - 1);
->                         return -EINVAL;
-> --
-> 1.7.10.4
->
+This breaks mars-nwe (NetWare emulator):
+- the ncpserv process reads the request using recvmsg
+- ncpserv forks and spawns nwconn
+- ncpserv calls a (blocking) recvmsg and waits for new requests
+- nwconn deadlocks in sendmsg on the same socket 
+
+Commit b0d0d915 has simply replaced BKL locking with
+lock_sock/release_sock. Unlike now, BKL got unlocked while
+sleeping, so a blocking recvmsg did not block a concurrent
+sendmsg.
+
+Only keep the socket locked while actually working with the socket data and
+release it prior to calling skb_recv_datagram(). 
+
+
+Signed-off-by: Jiri Bohac <jbohac@suse.cz>
+
+diff --git a/net/ipx/af_ipx.c b/net/ipx/af_ipx.c
+index a0c7536..d0725d9 100644
+--- a/net/ipx/af_ipx.c
++++ b/net/ipx/af_ipx.c
+@@ -1764,6 +1764,7 @@ static int ipx_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 	struct ipxhdr *ipx = NULL;
+ 	struct sk_buff *skb;
+ 	int copied, rc;
++	bool locked = true;
+ 
+ 	lock_sock(sk);
+ 	/* put the autobinding in */
+@@ -1790,6 +1791,8 @@ static int ipx_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 	if (sock_flag(sk, SOCK_ZAPPED))
+ 		goto out;
+ 
++	release_sock(sk);
++	locked = false;
+ 	skb = skb_recv_datagram(sk, flags & ~MSG_DONTWAIT,
+ 				flags & MSG_DONTWAIT, &rc);
+ 	if (!skb) {
+@@ -1825,7 +1828,8 @@ static int ipx_recvmsg(struct kiocb *iocb, struct socket *sock,
+ out_free:
+ 	skb_free_datagram(sk, skb);
+ out:
+-	release_sock(sk);
++	if (locked)
++		release_sock(sk);
+ 	return rc;
+ }
+ 
+-- 
+Jiri Bohac <jbohac@suse.cz>
+SUSE Labs, SUSE CZ
