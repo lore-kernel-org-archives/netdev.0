@@ -1,42 +1,39 @@
-From: Julia Lawall <julia.lawall@lip6.fr>
-Subject: Re: net: xfrm: Deletion of an unnecessary check before the function
- call "ipcomp_free_tfms"
-Date: Wed, 19 Nov 2014 10:58:01 +0100 (CET)
-Message-ID: <alpine.DEB.2.10.1411191054410.2363@hadrien>
-References: <530C5E18.1020800@users.sourceforge.net> <alpine.DEB.2.10.1402251014170.2080@hadrien> <530CD2C4.4050903@users.sourceforge.net> <alpine.DEB.2.10.1402251840450.7035@hadrien> <530CF8FF.8080600@users.sourceforge.net> <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6>
- <530DD06F.4090703@users.sourceforge.net> <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6> <5317A59D.4@users.sourceforge.net> <546BAFF5.5020603@users.sourceforge.net> <20141119084542.GK4905@mwanda> <546C6823.50900@users.sourceforge.net>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Dan Carpenter <dan.carpenter@oracle.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org
-To: SF Markus Elfring <elfring@users.sourceforge.net>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <546C6823.50900@users.sourceforge.net>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Govindarajulu Varadarajan <_govind@gmx.com>
+Subject: [PATCH net-next] net: use skb_get_hash_raw instead of skb_get_hash in set_rps_cpu
+Date: Wed, 19 Nov 2014 15:30:44 +0530
+Message-ID: <1416391244-27390-1-git-send-email-_govind@gmx.com>
+Cc: Govindarajulu Varadarajan <_govind@gmx.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.gmx.net ([212.227.17.20]:60560 "EHLO mout.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754130AbaKSKA4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Nov 2014 05:00:56 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+In set_rps_cpu, we call skb_get_hash to get the hash of skb. The caller
+get_rps_cpu has already determined the hash of skb by calling skb_get_hash.
 
+Since get_rps_cpu is the only caller of set_rps_cpu, we can use skb_get_hash_raw
 
-On Wed, 19 Nov 2014, SF Markus Elfring wrote:
+Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
+---
+ net/core/dev.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-> >> The ipcomp_free_tfms() function tests whether its argument is NULL and then
-> >> returns immediately. Thus the test around the call is not needed.
-> >
-> > It doesn't though...
->
-> You are right that this function implementation does a bit more before
-> returning because of a detected null pointer.
-> https://git.kernel.org/cgit/linux/kernel/git/stable/linux-stable.git/tree/net/xfrm/xfrm_ipcomp.c?id=394efd19d5fcae936261bd48e5b33b21897aacf8#n247
->
-> Can you agree that input parameter validation is also performed there?
-> Do you want that I resend my patch with a corrected commit message?
-
-This is completely crazy.  The function performs a side effect on a data
-structure.  If the call site doesn't want that done in a certain case,
-then it should not be done.
-
-julia
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 1ab168e..b4ad4d1 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3055,7 +3055,7 @@ set_rps_cpu(struct net_device *dev, struct sk_buff *skb,
+ 		flow_table = rcu_dereference(rxqueue->rps_flow_table);
+ 		if (!flow_table)
+ 			goto out;
+-		flow_id = skb_get_hash(skb) & flow_table->mask;
++		flow_id = skb_get_hash_raw(skb) & flow_table->mask;
+ 		rc = dev->netdev_ops->ndo_rx_flow_steer(dev, skb,
+ 							rxq_index, flow_id);
+ 		if (rc < 0)
+-- 
+2.1.0
