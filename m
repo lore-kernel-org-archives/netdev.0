@@ -1,134 +1,89 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net] bonding: fix curr_active_slave/carrier with loadbalance
- arp monitoring
-Date: Wed, 19 Nov 2014 14:20:06 +0800
-Message-ID: <546C3696.1020008@huawei.com>
-References: <1416320084-25339-1-git-send-email-nikolay@redhat.com> <20141118143727.GA2643@raspberrypi> <20141118152847.GB2002@gospo.home.greyhouse.net>
+From: Rui Xiang <rui.xiang@huawei.com>
+Subject: Re: [BNX2] A Netdev Watchdog with kernel stable 3.4
+Date: Wed, 19 Nov 2014 14:28:27 +0800
+Message-ID: <546C388B.2050603@huawei.com>
+References: <5469ED24.7010008@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Nikolay Aleksandrov <nikolay@redhat.com>, <netdev@vger.kernel.org>,
-	<davem@davemloft.net>, Jay Vosburgh <j.vosburgh@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Veaceslav Falico <vfalico@gmail.com>
+Cc: <netdev@vger.kernel.org>
+To: Michael Chan <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:32298 "EHLO
+Received: from szxga03-in.huawei.com ([119.145.14.66]:38137 "EHLO
 	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750728AbaKSGUt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 01:20:49 -0500
-In-Reply-To: <20141118152847.GB2002@gospo.home.greyhouse.net>
+	with ESMTP id S1751191AbaKSG2u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 01:28:50 -0500
+In-Reply-To: <5469ED24.7010008@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2014/11/18 23:28, Andy Gospodarek wrote:
-> On Tue, Nov 18, 2014 at 03:37:27PM +0100, Veaceslav Falico wrote:
->> On Tue, Nov 18, 2014 at 03:14:44PM +0100, Nikolay Aleksandrov wrote:
->>> Since commit 6fde8f037e60 ("bonding: fix locking in
->>> bond_loadbalance_arp_mon()") we can have a stale bond carrier state and
->>> stale curr_active_slave when using arp monitoring in loadbalance modes. The
->>> reason is that in bond_loadbalance_arp_mon() we can't have
->>> do_failover == true but slave_state_changed == false, whenever do_failover
->>> is true then slave_state_changed is also true. Then the following piece
->> >from bond_loadbalance_arp_mon():
->>>               if (slave_state_changed) {
->>>                       bond_slave_state_change(bond);
->>>                       if (BOND_MODE(bond) == BOND_MODE_XOR)
->>>                               bond_update_slave_arr(bond, NULL);
->>>               } else if (do_failover) {
->>
->> Ouch, must have been a big PITA to track :).
-> 
-> Agreed!
-> 
->>
->>>                       block_netpoll_tx();
->>>                       bond_select_active_slave(bond);
->>>                       unblock_netpoll_tx();
->>>               }
->>>
->>> will execute only the first branch, always and regardless of do_failover.
->>> Since these two events aren't related in such way, we need to decouple and
->>> consider them separately.
->>>
->>> For example this issue could lead to the following result:
->>> Bonding Mode: load balancing (round-robin)
->>> *MII Status: down*
->>> MII Polling Interval (ms): 0
->>> Up Delay (ms): 0
->>> Down Delay (ms): 0
->>> ARP Polling Interval (ms): 100
->>> ARP IP target/s (n.n.n.n form): 192.168.9.2
->>>
->>> Slave Interface: ens12
->>> *MII Status: up*
->>> Speed: 10000 Mbps
->>> Duplex: full
->>> Link Failure Count: 2
->>> Permanent HW addr: 00:0f:53:01:42:2c
->>> Slave queue ID: 0
->>>
->>> Slave Interface: eth1
->>> *MII Status: up*
->>> Speed: Unknown
->>> Duplex: Unknown
->>> Link Failure Count: 70
->>> Permanent HW addr: 52:54:00:2f:0f:8e
->>> Slave queue ID: 0
->>>
->>> Since some interfaces are up, then the status of the bond should also be
->>> up, but it will never change unless something invokes bond_set_carrier()
->>> (i.e. enslave, bond_select_active_slave etc). Now, if I force the
->>> calling of bond_select_active_slave via for example changing
->>> primary_reselect (it can change in any mode), then the MII status goes to
->>> "up" because it calls bond_select_active_slave() which should've been done
->> >from bond_loadbalance_arp_mon() itself.
->>>
->>> CC: Veaceslav Falico <vfalico@gmail.com>
->>
->> Acked-by: Veaceslav Falico <vfalico@gmail.com>
-> 
-> Acked-by: Andy Gospodarek <gospo@cumulusnetworks.com>
-> 
-Acked-by: Ding Tianhong <dingtianhong@huawei.com>
+ping...
 
->>
->>> CC: Jay Vosburgh <j.vosburgh@gmail.com>
->>> CC: Andy Gospodarek <andy@greyhouse.net>
->>> CC: Ding Tianhong <dingtianhong@huawei.com>
->>>
->>> Fixes: 6fde8f037e60 ("bonding: fix locking in bond_loadbalance_arp_mon()")
->>> Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
->>> ---
->>> Note: I left the parent if() the same even though we can shorten it. I think
->>>     it's better this way since it shows that any of the two events can cause
->>>     it to enter even though currently we can't have do_failover without
->>>     slave_state_changed, that may also change in the future.
->>>
->>> drivers/net/bonding/bond_main.c | 3 ++-
->>> 1 file changed, 2 insertions(+), 1 deletion(-)
->>>
->>> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->>> index c9ac06cfe6b7..a5115fb7cf33 100644
->>> --- a/drivers/net/bonding/bond_main.c
->>> +++ b/drivers/net/bonding/bond_main.c
->>> @@ -2471,7 +2471,8 @@ static void bond_loadbalance_arp_mon(struct work_struct *work)
->>> 			bond_slave_state_change(bond);
->>> 			if (BOND_MODE(bond) == BOND_MODE_XOR)
->>> 				bond_update_slave_arr(bond, NULL);
->>> -		} else if (do_failover) {
->>> +		}
->>> +		if (do_failover) {
->>> 			block_netpoll_tx();
->>> 			bond_select_active_slave(bond);
->>> 			unblock_netpoll_tx();
->>> -- 
->>> 1.9.3
->>>
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On 2014/11/17 20:42, Rui Xiang wrote:
+> Hi Michael,
 > 
-> .
+> On a system that was running stable 3.4.87, I got the below stack.
+> That was a NETDEV WATCHDOG. And we could also see watchdog timeouts with the 
+> BNX2. (After the stack, an oops occurred while running ifconfig. I think it 
+> would be related to this timeout.)
+> 
+> Otherwises, the bnx2_dump_state and bnx2_dump_mcp_state have printed the states. 
+> Through these states info, can we got the real situation of NIC1.
+> Or can we see what resulted the WATCHDOG, a bnx2 device fault or other reasons.
+> 
+> Thanks.
+> 
+> 
+> *The stack*:
+> 
+>  WARNING: at /usr/src/packages/BUILD/kernel-default-3.4.87/linux-3.4/net/sched/sch_generic.c:256 dev_watchdog+0x256/0x260()
+>  NETDEV WATCHDOG: NIC1 (bnx2): transmit queue 3 timed out
+>  Modules linked in: smb3_failover(O) smb2(O) smb(O) smb_manager(O) nfs(O) nfs_acl(O) nfsd(O) lockd(O) nal(O) auth_rpcgss(O) 
+> scsi_dh_hp_sw scsi_dh_alua scsi_dh_emc scsi_dh_rdac scsi_dh scsi_mod [last unloaded: ipmi_msghandler]
+>  Pid: 0, comm: swapper/0 Tainted: P        W  O 3.4.87-default #1
+>  Call Trace:
+>   <IRQ>  [<ffffffff8103fcea>] warn_slowpath_common+0x7a/0xb0
+>   [<ffffffff8103fdc1>] warn_slowpath_fmt+0x41/0x50
+>   [<ffffffff81047749>] ? raise_softirq_irqoff+0x9/0x30
+>   [<ffffffff813ae0f6>] dev_watchdog+0x256/0x260
+>   [<ffffffff813adea0>] ? dev_deactivate_queue.constprop.30+0x70/0x70
+>   [<ffffffff8104edc7>] run_timer_softirq+0x147/0x340
+>   [<ffffffff810470d8>] __do_softirq+0xc8/0x1e0
+>   [<ffffffff8109250f>] ? tick_program_event+0x1f/0x30
+>   [<ffffffff81460a6c>] call_softirq+0x1c/0x30
+>   [<ffffffff8100417d>] do_softirq+0x9d/0xd0
+>   [<ffffffff810474a5>] irq_exit+0xb5/0xc0
+>   [<ffffffff81021b49>] smp_apic_timer_interrupt+0x69/0xa0
+>   [<ffffffff8146006f>] apic_timer_interrupt+0x6f/0x80
+>   <EOI>  [<ffffffff81457bdd>] ? retint_restore_args+0x13/0x13
+>   [<ffffffff81360149>] ? poll_idle+0x49/0x90
+>   [<ffffffff8136011f>] ? poll_idle+0x1f/0x90
+>   [<ffffffff8135fcc9>] cpuidle_enter+0x19/0x20
+>   [<ffffffff813602f2>] cpuidle_idle_call+0xa2/0x250
+>   [<ffffffff8100b08f>] cpu_idle+0x6f/0xe0
+>   [<ffffffff81915960>] ? rawsock_init+0x12/0x12
+>   [<ffffffff814331c9>] rest_init+0x6d/0x74
+>   [<ffffffff818d3be5>] start_kernel+0x3a2/0x3af
+>   [<ffffffff818d3642>] ? repair_env_string+0x5e/0x5e
+>   [<ffffffff818d332a>] x86_64_start_reservations+0x131/0x135
+>   [<ffffffff818d342e>] x86_64_start_kernel+0x100/0x10f
+>  ---[ end trace 497e24e681e0c02d ]---
+>  bnx2 0000:05:00.1: NIC1: DEBUG: intr_sem[0] PCI_CMD[00100002]
+>  bnx2 0000:05:00.1: NIC1: DEBUG: PCI_PM[19002008] PCI_MISC_CFG[92000088]
+>  bnx2 0000:05:00.1: NIC1: DEBUG: EMAC_TX_STATUS[00000008] EMAC_RX_STATUS[00000000]
+>  bnx2 0000:05:00.1: NIC1: DEBUG: RPM_MGMT_PKT_CTRL[40000088]
+>  bnx2 0000:05:00.1: NIC1: DEBUG: HC_STATS_INTERRUPT_STATUS[01ff0000]
+>  bnx2 0000:05:00.1: NIC1: DEBUG: PBA[00000000]
+>  bnx2 0000:05:00.1: NIC1: <--- start MCP states dump --->
+>  bnx2 0000:05:00.1: NIC1: DEBUG: MCP_STATE_P0[0003e10e] MCP_STATE_P1[0003e10e]
+>  bnx2 0000:05:00.1: NIC1: DEBUG: MCP mode[0000b800] state[80008000] evt_mask[00000500]
+>  bnx2 0000:05:00.1: NIC1: DEBUG: pc[08008f60] pc[0800d21c] instr[00051080]
+>  bnx2 0000:05:00.1: NIC1: DEBUG: shmem states:
+>  bnx2 0000:05:00.1: NIC1: DEBUG: drv_mb[01030003] fw_mb[00000003] link_status[0000006f] drv_pulse_mb[0000073d]
+>  bnx2 0000:05:00.1: NIC1: DEBUG: dev_info_signature[44564907] reset_type[01005254] condition[0003e10e]
+>  bnx2 0000:05:00.1: NIC1: DEBUG: 000003cc: 00000000 00000000 00000000 00000000
+>  bnx2 0000:05:00.1: NIC1: DEBUG: 000003dc: 00000000 00000000 00000000 00000000
+>  bnx2 0000:05:00.1: NIC1: DEBUG: 000003ec: 00000000 00000000 00000000 00000000
+>  bnx2 0000:05:00.1: NIC1: DEBUG: 0x3fc[00000000]
+>  bnx2 0000:05:00.1: NIC1: <--- end MCP states dump --->
 > 
