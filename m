@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
 Subject: Re: [PATCH] net: team: expose sysfs attributes for each team option
-Date: Wed, 19 Nov 2014 13:40:43 +0100
-Message-ID: <20141119124043.GC1926@nanopsycho.orion>
+Date: Wed, 19 Nov 2014 13:41:49 +0100
+Message-ID: <20141119124149.GD1926@nanopsycho.orion>
 References: <93856491220bda9aede41a9571fb1ac1.squirrel@www.codeaurora.org>
  <20141117130201.GB1872@nanopsycho.orion>
  <03067d01f18e264b30f86d0307d11b07.squirrel@www.codeaurora.org>
@@ -10,12 +10,12 @@ Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
 To: Hamad Kadmany <hkadmany@codeaurora.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f170.google.com ([209.85.212.170]:47546 "EHLO
-	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754175AbaKSMkp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 07:40:45 -0500
-Received: by mail-wi0-f170.google.com with SMTP id bs8so9326343wib.3
-        for <netdev@vger.kernel.org>; Wed, 19 Nov 2014 04:40:44 -0800 (PST)
+Received: from mail-wi0-f182.google.com ([209.85.212.182]:61328 "EHLO
+	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754717AbaKSMlw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 07:41:52 -0500
+Received: by mail-wi0-f182.google.com with SMTP id h11so1698892wiw.3
+        for <netdev@vger.kernel.org>; Wed, 19 Nov 2014 04:41:51 -0800 (PST)
 Content-Disposition: inline
 In-Reply-To: <03067d01f18e264b30f86d0307d11b07.squirrel@www.codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
@@ -31,16 +31,12 @@ Wed, Nov 19, 2014 at 01:28:19PM CET, hkadmany@codeaurora.org wrote:
 >> deal with things. Sysfs for this use-case is not. Please, use netlink api.
 >
 >Using team driver requires using libnl3. In Android based platforms, libnl3 is not supported, and libnl3 license poses constraints in Android's user-space.
+
+btw how about libteam? Does that poses the same constraints?
+
+
 >
 >This is the reason for the this change, to have at least the team options exposed through sysfs.
-
-No, that is certainly not the reason. If libnl3 does not suit you, use a
-different lib. It is in my opinion unacceptaptable to work around
-certain licence issues by adding parallel sysfs api (not to mention that
-sysfs is totally unsuitable for that).
-
-You should use existing Netlink API. That's it.
-
 >
 >
 >>
