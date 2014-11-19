@@ -1,87 +1,45 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: [PATCH net-next] packet: make packet_snd fail on len smaller than l2 header
-Date: Wed, 19 Nov 2014 11:56:05 -0500
-Message-ID: <1416416165-24697-1-git-send-email-willemb@google.com>
-Cc: davem@davemloft.net, eric.dumazet@gmail.com, dborkman@redhat.com,
-	Willem de Bruijn <willemb@google.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f43.google.com ([209.85.213.43]:42718 "EHLO
-	mail-yh0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754910AbaKSQ4J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 11:56:09 -0500
-Received: by mail-yh0-f43.google.com with SMTP id z6so458537yhz.2
-        for <netdev@vger.kernel.org>; Wed, 19 Nov 2014 08:56:08 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH 1/1] net: sched: Deletion of an unnecessary check before
+ the function call "kfree"
+Date: Wed, 19 Nov 2014 18:00:14 +0100
+Message-ID: <546CCC9E.7090905@redhat.com>
+References: <5307CAA2.8060406@users.sourceforge.net> <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6> <530A086E.8010901@users.sourceforge.net> <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6> <530A72AA.3000601@users.sourceforge.net> <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6> <530B5FB6.6010207@users.sourceforge.net> <alpine.DEB.2.10.1402241710370.2074@hadrien> <530C5E18.1020800@users.sourceforge.net> <alpine.DEB.2.10.1402251014170.2080@hadrien> <530CD2C4.4050903@users.sourceforge.net> <alpine.DEB.2.10.1402251840450.7035@hadrien> <530CF8FF.8080600@users.sourceforge.net> <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6> <530DD06F.4090703@users.sourceforge.net> <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6> <5317A59D.4@users.so
+ urceforge.net> <546BAB93.4010406@users.sourceforge.net> <546CC9B3.5060405@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: SF Markus Elfring <elfring@users.sourceforge.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jamal Hadi Salim <jhs@mojatatu.com>, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org, Coccinelle <cocci@systeme.lip6.fr>
+To: John Fastabend <john.fastabend@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <546CC9B3.5060405@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Willem de Bruijn <willemb@google.com>
+On 11/19/2014 05:47 PM, John Fastabend wrote:
+> On 11/18/2014 12:26 PM, SF Markus Elfring wrote:
+>> From: Markus Elfring <elfring@users.sourceforge.net>
+...
+>>       if (fp_old)
+>>           bpf_prog_destroy(fp_old);
+>> -    if (bpf_old)
+>> -        kfree(bpf_old);
+>> +    kfree(bpf_old);
+>>
+>>       return 0;
+>>
+>
+> Maybe I need some coffee but I can't figure out what this
+> patch is against...
+>
+> # grep bpf_old ./net/sched/cls_bpf.c
+> #
 
-When sending packets out with PF_PACKET, SOCK_RAW, ensure that the
-packet is at least as long as the device's expected link layer header.
-This check already exists in tpacket_snd, but not in packet_snd.
-Also rate limit the warning in tpacket_snd.
+Coffee is always good. :)
 
-Signed-off-by: Willem de Bruijn <willemb@google.com>
----
- net/packet/af_packet.c | 30 ++++++++++++++++++++++--------
- 1 file changed, 22 insertions(+), 8 deletions(-)
-
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 4cd13d8..0d3cb44 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -2095,6 +2095,18 @@ static void tpacket_destruct_skb(struct sk_buff *skb)
- 	sock_wfree(skb);
- }
- 
-+static bool ll_header_truncated(int len, struct net_device *dev)
-+{
-+	/* net device doesn't like empty head */
-+	if (unlikely(len <= dev->hard_header_len)) {
-+		net_warn_ratelimited("%s: packet size is too short (%d < %d)\n",
-+				     current->comm, len, dev->hard_header_len);
-+		return true;
-+	}
-+
-+	return false;
-+}
-+
- static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
- 		void *frame, struct net_device *dev, int size_max,
- 		__be16 proto, unsigned char *addr, int hlen)
-@@ -2170,12 +2182,8 @@ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
- 		if (unlikely(err < 0))
- 			return -EINVAL;
- 	} else if (dev->hard_header_len) {
--		/* net device doesn't like empty head */
--		if (unlikely(tp_len <= dev->hard_header_len)) {
--			pr_err("packet size is too short (%d < %d)\n",
--			       tp_len, dev->hard_header_len);
-+		if (ll_header_truncated(tp_len, dev))
- 			return -EINVAL;
--		}
- 
- 		skb_push(skb, dev->hard_header_len);
- 		err = skb_store_bits(skb, 0, data,
-@@ -2500,9 +2508,15 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
- 	skb_set_network_header(skb, reserve);
- 
- 	err = -EINVAL;
--	if (sock->type == SOCK_DGRAM &&
--	    (offset = dev_hard_header(skb, dev, ntohs(proto), addr, NULL, len)) < 0)
--		goto out_free;
-+	if (sock->type == SOCK_DGRAM) {
-+		offset = dev_hard_header(skb, dev, ntohs(proto), addr, NULL,
-+					 len);
-+		if (unlikely(offset) < 0)
-+			goto out_free;
-+	} else {
-+		if (ll_header_truncated(len, dev))
-+			goto out_free;
-+	}
- 
- 	/* Returns -EFAULT on error */
- 	err = skb_copy_datagram_from_iovec(skb, offset, msg->msg_iov, 0, len);
--- 
-2.1.0.rc2.206.gedb03e5
+Yeah, you actually removed this in commit 1f947bf151e90ec ("net:
+sched: rcu'ify cls_bpf"), so looks like Markus's tree is not
+up to date ...
