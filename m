@@ -1,46 +1,79 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH v4] ipx: fix locking regression in ipx_sendmsg and ipx_recvmsg
-Date: Wed, 19 Nov 2014 23:12:21 +0100
-Message-ID: <3682315.1qi3iAkNAF@wuerfel>
-References: <1609909.1jJeqOzgZ8@wuerfel> <20141119.154400.1045032776950540216.davem@davemloft.net> <20141119220549.GA26133@midget.suse.cz>
+From: "Roland Kletzing" <devzero@web.de>
+Subject: [PATCH RESEND] natsemi: fix timing issue for reading mac from
+ eeprom via dp8381x
+Date: Wed, 19 Nov 2014 23:26:11 +0100
+Message-ID: <trinity-d8a7b1cb-ed12-4c9d-ab97-aeb44e03addf-1416435970952@3capp-webde-bs23>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: David Miller <davem@davemloft.net>, acme@ghostprotocols.net,
-	netdev@vger.kernel.org
-To: Jiri Bohac <jbohac@suse.cz>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.17.24]:51306 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933287AbaKSWMj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 17:12:39 -0500
-In-Reply-To: <20141119220549.GA26133@midget.suse.cz>
+Received: from mout.web.de ([212.227.17.11]:53712 "EHLO mout.web.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757269AbaKSW0O convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 17:26:14 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 19 November 2014 23:05:49 Jiri Bohac wrote:
-> This fixes an old regression introduced by commit
-> b0d0d915 (ipx: remove the BKL).
-> 
-> When a recvmsg syscall blocks waiting for new data, no data can be sent on the
-> same socket with sendmsg because ipx_recvmsg() sleeps with the socket locked.
-> 
-> This breaks mars-nwe (NetWare emulator):
-> - the ncpserv process reads the request using recvmsg
-> - ncpserv forks and spawns nwconn
-> - ncpserv calls a (blocking) recvmsg and waits for new requests
-> - nwconn deadlocks in sendmsg on the same socket 
-> 
-> Commit b0d0d915 has simply replaced BKL locking with
-> lock_sock/release_sock. Unlike now, BKL got unlocked while
-> sleeping, so a blocking recvmsg did not block a concurrent
-> sendmsg.
-> 
-> Only keep the socket locked while actually working with the socket data and
-> release it prior to calling skb_recv_datagram(). 
-> 
-> 
-> Signed-off-by: Jiri Bohac <jbohac@suse.cz>
-> 
+Natsemi driver does not read MAC correctly from eeprom, while natsemi-d=
+iag
+from nictools-pci does. Apparently, it`s a timing issue in the kernel d=
+river.
 
-Reviewed-by: Arnd Bergmann <arnd@arndb.de>
+According to ftp://ftp.gwdg.de/pub/linux/misc/donald.becker/diag/natsem=
+i-diag.c
+, eeprom_delay(ee_addr) is defined as follows:
+
+/* Delay between EEPROM clock transitions.
+This flushes the write buffer to prevent quick double-writes.
+*/
+#define eeprom_delay(ee_addr) inl(ee_addr); inl(ee_addr)
+
+while in the natsemi linux kernel driver, the delay is done this way :
+
+#define eeprom_delay(ee_addr) readl(ee_addr)
+
+, which results in the MAC being all zero`s on my systems (old Geode GX=
+1 board=20
+like being used in Compaq Evo T20 or Wyse WT3235LE Thin Clients).
+
+So i simply added a second readl() to increase delay (instead of turnin=
+g into=20
+inl() as proposed before). This may look a little bit ugly, but it`s fi=
+xing the
+problem for me.
+
+I=C2=B4m not sure how many natsemi users being left on this planet (pro=
+bably few),
+but i guess this change does not do any harm on platforms where the dri=
+ver does
+not behave buggy, so please consider adding it to mainline/stable/longt=
+erm.
+
+
+BugLink: https://bugzilla.kernel.org/show_bug.cgi?id=3D51791
+Reported-by: Roland Kletzing <devzero@web.de>
+Signed-off-by: Roland Kletzing <devzero@web.de>
+
+---
+drivers/net/ethernet/natsemi/natsemi.c | 2 +-
+1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/natsemi/natsemi.c b/drivers/net/ether=
+net/natsemi/natsemi.c
+index b83f7c0..96f0029 100644
+--- a/drivers/net/ethernet/natsemi/natsemi.c
++++ b/drivers/net/ethernet/natsemi/natsemi.c
+@@ -987,7 +987,7 @@ static int natsemi_probe1(struct pci_dev *pdev, con=
+st struct pci_device_id *ent)
+    The old method of using an ISA access as a delay, __SLOW_DOWN_IO__,=
+ is
+    deprecated.
+ */
+-#define eeprom_delay(ee_addr)  readl(ee_addr)
++#define eeprom_delay(ee_addr)  readl(ee_addr);  readl(ee_addr)
+
+ #define EE_Write0 (EE_ChipSelect)
+ #define EE_Write1 (EE_ChipSelect | EE_DataIn)
+--
