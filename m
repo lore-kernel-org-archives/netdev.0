@@ -1,158 +1,45 @@
-From: Arend van Spriel <arend@broadcom.com>
-Subject: Re: BCM4313 & brcmsmac & 3.12: only semi-working?
-Date: Wed, 19 Nov 2014 18:54:21 +0100
-Message-ID: <546CD94D.9060509@broadcom.com>
-References: <53FDACD1.8090805@msgid.tls.msk.ru> <54363ED0.605@broadcom.com> <CACna6rw3XgdJz0uKkAuas8RTzozTdFp2mgF5g1uo7LHJVSMt4g@mail.gmail.com> <3543341.FmUQFH9nrl@eisbaer> <546C5D1F.108@msgid.tls.msk.ru>
+From: Willem de Bruijn <willemb@google.com>
+Subject: Re: [PATCH net-next] packet: make packet_snd fail on len smaller than
+ l2 header
+Date: Wed, 19 Nov 2014 13:07:08 -0500
+Message-ID: <CA+FuTSdmTrBoWJoDmuGhSVRRp9cmZC2GEK-Scqac26W+sSBA6A@mail.gmail.com>
+References: <1416416165-24697-1-git-send-email-willemb@google.com> <546CD087.9070003@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="------------050002020006070408060304"
-Cc: Maximilian Engelhardt <maxi@daemonizer.de>,
-	=?UTF-8?B?UmFmYcWCIE1pxYJl?= =?UTF-8?B?Y2tp?= <zajec5@gmail.com>,
-	Seth Forshee <seth.forshee@canonical.com>,
-	brcm80211 development <brcm80211-dev-list@broadcom.com>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>
-To: Michael Tokarev <mjt@tls.msk.ru>
+Content-Type: text/plain; charset=UTF-8
+Cc: Network Development <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:54412 "EHLO
-	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756366AbaKSRyZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 12:54:25 -0500
-In-Reply-To: <546C5D1F.108@msgid.tls.msk.ru>
+Received: from mail-qa0-f45.google.com ([209.85.216.45]:38028 "EHLO
+	mail-qa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755911AbaKSSHj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 13:07:39 -0500
+Received: by mail-qa0-f45.google.com with SMTP id x12so771142qac.32
+        for <netdev@vger.kernel.org>; Wed, 19 Nov 2014 10:07:39 -0800 (PST)
+In-Reply-To: <546CD087.9070003@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---------------050002020006070408060304
-Content-Type: text/plain; charset="UTF-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-
-On 11/19/14 10:04, Michael Tokarev wrote:
-> 18.11.2014 01:36, Maximilian Engelhardt wrote:
-> []
->> I just wanted to ask if there is any progress on this issue since I haven't
->> heard anything for a month. Please let me know if you need any additional
->> information.
+>> ---
+>>   net/packet/af_packet.c | 30 ++++++++++++++++++++++--------
+>>   1 file changed, 22 insertions(+), 8 deletions(-)
+>>
+>> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+>> index 4cd13d8..0d3cb44 100644
+>> --- a/net/packet/af_packet.c
+>> +++ b/net/packet/af_packet.c
+>> @@ -2095,6 +2095,18 @@ static void tpacket_destruct_skb(struct sk_buff
+>> *skb)
+>>         sock_wfree(skb);
+>>   }
+>>
+>> +static bool ll_header_truncated(int len, struct net_device *dev)
+>> +{
 >
-> I've no idea if there's any progress.  Meanwhile I've an easy way of
-> testing of my brcm4313 card in a mini-itx board with mini-PCIe slot.
-> It works rather nicely and the stalls are easy to trigger.
-> Running 3.16 kernel right now, tried to d/load a file from the
-> AP, -- boom, it stalled after 77Kb.
 >
-> Since the previous discussion apparently ended prematurely and no patches
-> to try emerged, I don't have anything to try on it...
+> const struct net_device *dev
+>
+> [ if at it, I'd perhaps also swap the arg order ]
 
-In our last email exchange I got the impression you switch to Intel 
-board and did not want to keep replacing cards for testing. Nice to hear 
-you have an alternative setup for this and I assume are willing to do 
-some testing.
-
-I submitted two patches upstream and additionally I have attached two 
-other that are still under review. Could you try these patches and sent 
-me the content of the two debugfs files 'macstat' and 'hardware' after a 
-stall has occurred.
-
-Regards,
-Arend
-
---------------050002020006070408060304
-Content-Type: text/plain;
-	name="0001-brcmutil-add-helper-function-to-format-board-revisio.patch"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment;
-	filename*0="0001-brcmutil-add-helper-function-to-format-board-revisio.pa";
-	filename*1="tch"
-
-RnJvbSBkYmM2OWY5NzY5YjkyZjNjZTExNWZhYmY4ODBmNzY3ZDZiZDRjNDM2IE1vbiBTZXAg
-MTcgMDA6MDA6MDAgMjAwMQpGcm9tOiBBcmVuZCB2YW4gU3ByaWVsIDxhcmVuZEBicm9hZGNv
-bS5jb20+CkRhdGU6IFRodSwgMTMgTm92IDIwMTQgMTQ6MTY6MzQgKzAxMDAKU3ViamVjdDog
-W1BBVENIIDEvMl0gYnJjbXV0aWw6IGFkZCBoZWxwZXIgZnVuY3Rpb24gdG8gZm9ybWF0IGJv
-YXJkIHJldmlzaW9uCgpUaGUgYm9hcmQgcmV2aXNpb24gdGhhdCBpcyBhdmFpbGFibGUgaW4g
-aGFyZHdhcmUgY2FuIGJlIHRyYW5zbGF0ZWQKc28gaXQgbWF0Y2hlcyB0aGUgbGFiZWxsaW5n
-IG9uIHRoZSBib2FyZC4gVGhpcyBpcyBhY2NvbXBsaXNoZWQgYnkKdGhpcyBoZWxwZXIgZnVu
-Y3Rpb24uCgpSZXZpZXdlZC1ieTogSGFudGUgTWV1bGVtYW4gPG1ldWxlbWFuQGJyb2FkY29t
-LmNvbT4KUmV2aWV3ZWQtYnk6IFBpZXRlci1QYXVsIEdpZXNiZXJ0cyA8cGlldGVycGdAYnJv
-YWRjb20uY29tPgpTaWduZWQtb2ZmLWJ5OiBBcmVuZCB2YW4gU3ByaWVsIDxhcmVuZEBicm9h
-ZGNvbS5jb20+Ci0tLQogZHJpdmVycy9uZXQvd2lyZWxlc3MvYnJjbTgwMjExL2JyY211dGls
-L3V0aWxzLmMgICAgICB8IDE2ICsrKysrKysrKysrKysrKysKIGRyaXZlcnMvbmV0L3dpcmVs
-ZXNzL2JyY204MDIxMS9pbmNsdWRlL2JyY211X3V0aWxzLmggfCAgMiArKwogMiBmaWxlcyBj
-aGFuZ2VkLCAxOCBpbnNlcnRpb25zKCspCgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvd2ly
-ZWxlc3MvYnJjbTgwMjExL2JyY211dGlsL3V0aWxzLmMgYi9kcml2ZXJzL25ldC93aXJlbGVz
-cy9icmNtODAyMTEvYnJjbXV0aWwvdXRpbHMuYwppbmRleCAwZjdlMWM3Li4xNTc1YTFkIDEw
-MDY0NAotLS0gYS9kcml2ZXJzL25ldC93aXJlbGVzcy9icmNtODAyMTEvYnJjbXV0aWwvdXRp
-bHMuYworKysgYi9kcml2ZXJzL25ldC93aXJlbGVzcy9icmNtODAyMTEvYnJjbXV0aWwvdXRp
-bHMuYwpAQCAtMjkyLDQgKzI5MiwyMCBAQCB2b2lkIGJyY211X2RiZ19oZXhfZHVtcChjb25z
-dCB2b2lkICpkYXRhLCBzaXplX3Qgc2l6ZSwgY29uc3QgY2hhciAqZm10LCAuLi4pCiAJcHJp
-bnRfaGV4X2R1bXBfYnl0ZXMoIiIsIERVTVBfUFJFRklYX09GRlNFVCwgZGF0YSwgc2l6ZSk7
-CiB9CiBFWFBPUlRfU1lNQk9MKGJyY211X2RiZ19oZXhfZHVtcCk7CisKKy8qIFByb2R1Y2Ug
-YSBodW1hbi1yZWFkYWJsZSBzdHJpbmcgZm9yIGJvYXJkcmV2ICovCitjaGFyICpicmNtdV9i
-b2FyZHJldl9zdHIodTMyIGJyZXYsIGNoYXIgKmJ1ZikKK3sKKwljaGFyIGM7CisKKwlpZiAo
-YnJldiA8IDB4MTAwKSB7CisJCXNucHJpbnRmKGJ1ZiwgOCwgIiVkLiVkIiwgKGJyZXYgJiAw
-eGYwKSA+PiA0LCBicmV2ICYgMHhmKTsKKwl9IGVsc2UgeworCQljID0gKGJyZXYgJiAweGYw
-MDApID09IDB4MTAwMCA/ICdQJyA6ICdBJzsKKwkJc25wcmludGYoYnVmLCA4LCAiJWMlMDN4
-IiwgYywgYnJldiAmIDB4ZmZmKTsKKwl9CisJcmV0dXJuIChidWYpOworfQorRVhQT1JUX1NZ
-TUJPTChicmNtdV9ib2FyZHJldl9zdHIpOworCiAjZW5kaWYJCQkJLyogZGVmaW5lZChERUJV
-RykgKi8KZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L3dpcmVsZXNzL2JyY204MDIxMS9pbmNs
-dWRlL2JyY211X3V0aWxzLmggYi9kcml2ZXJzL25ldC93aXJlbGVzcy9icmNtODAyMTEvaW5j
-bHVkZS9icmNtdV91dGlscy5oCmluZGV4IDhiYTQ0NWIuLmEwNDNlMjkgMTAwNjQ0Ci0tLSBh
-L2RyaXZlcnMvbmV0L3dpcmVsZXNzL2JyY204MDIxMS9pbmNsdWRlL2JyY211X3V0aWxzLmgK
-KysrIGIvZHJpdmVycy9uZXQvd2lyZWxlc3MvYnJjbTgwMjExL2luY2x1ZGUvYnJjbXVfdXRp
-bHMuaApAQCAtMjE4LDQgKzIxOCw2IEBAIHZvaWQgYnJjbXVfZGJnX2hleF9kdW1wKGNvbnN0
-IHZvaWQgKmRhdGEsIHNpemVfdCBzaXplLCBjb25zdCBjaGFyICpmbXQsIC4uLikKIH0KICNl
-bmRpZgogCitjaGFyICpicmNtdV9ib2FyZHJldl9zdHIodTMyIGJyZXYsIGNoYXIgKmJ1Zik7
-CisKICNlbmRpZgkJCQkvKiBfQlJDTVVfVVRJTFNfSF8gKi8KLS0gCjEuOS4xCgo=
---------------050002020006070408060304
-Content-Type: text/plain;
-	name="0002-brcmsmac-extend-hardware-info-shown-in-debugfs.patch"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment;
-	filename="0002-brcmsmac-extend-hardware-info-shown-in-debugfs.patch"
-
-RnJvbSBhMTk3Y2Y0NGVmMDU4OTQyOTI4YjQ4MjIzZmNlOWQzZjExMmJlOWQwIE1vbiBTZXAg
-MTcgMDA6MDA6MDAgMjAwMQpGcm9tOiBBcmVuZCB2YW4gU3ByaWVsIDxhcmVuZEBicm9hZGNv
-bS5jb20+CkRhdGU6IFRodSwgMTMgTm92IDIwMTQgMTQ6MTk6NDkgKzAxMDAKU3ViamVjdDog
-W1BBVENIIDIvMl0gYnJjbXNtYWM6IGV4dGVuZCBoYXJkd2FyZSBpbmZvIHNob3duIGluIGRl
-YnVnZnMKClRoZSBoYXJkd2FyZSBpbmZvIG5vdyBhbHNvIGluY2x1ZGUgcmFkaW8gYW5kIHBo
-eSBpbmZvcm1hdGlvbiwgd2hpY2gKY2FuIGJlIGhlbHBmdWwgaW4gZGVidWdnaW5nIGlzc3Vl
-cy4KClJldmlld2VkLWJ5OiBIYW50ZSBNZXVsZW1hbiA8bWV1bGVtYW5AYnJvYWRjb20uY29t
-PgpSZXZpZXdlZC1ieTogUGlldGVyLVBhdWwgR2llc2JlcnRzIDxwaWV0ZXJwZ0Bicm9hZGNv
-bS5jb20+ClNpZ25lZC1vZmYtYnk6IEFyZW5kIHZhbiBTcHJpZWwgPGFyZW5kQGJyb2FkY29t
-LmNvbT4KLS0tCiBkcml2ZXJzL25ldC93aXJlbGVzcy9icmNtODAyMTEvYnJjbXNtYWMvZGVi
-dWcuYyB8IDQwICsrKysrKysrKysrKysrKysrLS0tLS0tLS0KIDEgZmlsZSBjaGFuZ2VkLCAy
-NyBpbnNlcnRpb25zKCspLCAxMyBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQgYS9kcml2ZXJz
-L25ldC93aXJlbGVzcy9icmNtODAyMTEvYnJjbXNtYWMvZGVidWcuYyBiL2RyaXZlcnMvbmV0
-L3dpcmVsZXNzL2JyY204MDIxMS9icmNtc21hYy9kZWJ1Zy5jCmluZGV4IDE5NzQwYzEuLmM5
-YThiOTMgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0L3dpcmVsZXNzL2JyY204MDIxMS9icmNt
-c21hYy9kZWJ1Zy5jCisrKyBiL2RyaXZlcnMvbmV0L3dpcmVsZXNzL2JyY204MDIxMS9icmNt
-c21hYy9kZWJ1Zy5jCkBAIC0zMCw2ICszMCw3IEBACiAjaW5jbHVkZSAibWFpbi5oIgogI2lu
-Y2x1ZGUgImRlYnVnLmgiCiAjaW5jbHVkZSAiYnJjbXNfdHJhY2VfZXZlbnRzLmgiCisjaW5j
-bHVkZSAicGh5L3BoeV9pbnQuaCIKIAogc3RhdGljIHN0cnVjdCBkZW50cnkgKnJvb3RfZm9s
-ZGVyOwogCkBAIC03NCwyMCArNzUsMzMgQEAgc3RhdGljCiBpbnQgYnJjbXNfZGVidWdmc19o
-YXJkd2FyZV9yZWFkKHN0cnVjdCBzZXFfZmlsZSAqcywgdm9pZCAqZGF0YSkKIHsKIAlzdHJ1
-Y3QgYnJjbXNfcHViICpkcnZyID0gcy0+cHJpdmF0ZTsKKwlzdHJ1Y3QgYnJjbXNfaGFyZHdh
-cmUgKmh3ID0gZHJ2ci0+d2xjLT5odzsKKwlzdHJ1Y3QgYmNtYV9kZXZpY2UgKmNvcmUgPSBo
-dy0+ZDExY29yZTsKKwlzdHJ1Y3QgYmNtYV9idXMgKmJ1cyA9IGNvcmUtPmJ1czsKKwljaGFy
-IGJvYXJkcmV2WzEwXTsKIAotCXNlcV9wcmludGYocywgImJvYXJkIHZlbmRvcjogJXhcbiIK
-LQkJICAgImJvYXJkIHR5cGU6ICV4XG4iCi0JCSAgICJib2FyZCByZXZpc2lvbjogJXhcbiIK
-LQkJICAgImJvYXJkIGZsYWdzOiAleFxuIgotCQkgICAiYm9hcmQgZmxhZ3MyOiAleFxuIgot
-CQkgICAiZmlybXdhcmUgcmV2aXNpb246ICV4XG4iLAotCQkgICBkcnZyLT53bGMtPmh3LT5k
-MTFjb3JlLT5idXMtPmJvYXJkaW5mby52ZW5kb3IsCi0JCSAgIGRydnItPndsYy0+aHctPmQx
-MWNvcmUtPmJ1cy0+Ym9hcmRpbmZvLnR5cGUsCi0JCSAgIGRydnItPndsYy0+aHctPmJvYXJk
-cmV2LAotCQkgICBkcnZyLT53bGMtPmh3LT5ib2FyZGZsYWdzLAotCQkgICBkcnZyLT53bGMt
-Pmh3LT5ib2FyZGZsYWdzMiwKLQkJICAgZHJ2ci0+d2xjLT51Y29kZV9yZXYpOwotCisJc2Vx
-X3ByaW50ZihzLCAiY2hpcG51bSAweCV4XG4iCisJCSAgICJjaGlwcmV2IDB4JXhcbiIKKwkJ
-ICAgImNoaXBwYWNrYWdlIDB4JXhcbiIKKwkJICAgImNvcmVyZXYgMHgleFxuIgorCQkgICAi
-Ym9hcmRpZCAweCV4XG4iCisJCSAgICJib2FyZHZlbmRvciAweCV4XG4iCisJCSAgICJib2Fy
-ZHJldiAlc1xuIgorCQkgICAiYm9hcmRmbGFncyAweCV4XG4iCisJCSAgICJib2FyZGZsYWdz
-MiAweCV4XG4iCisJCSAgICJ1Y29kZXJldiAweCV4XG4iCisJCSAgICJyYWRpb3JldiAweCV4
-XG4iCisJCSAgICJwaHl0eXBlIDB4JXhcbiIKKwkJICAgInBoeXJldiAweCV4XG4iCisJCSAg
-ICJhbmFyZXYgMHgleFxuIgorCQkgICAibnZyYW1yZXYgJWRcbiIsCisJCSAgIGJ1cy0+Y2hp
-cGluZm8uaWQsIGJ1cy0+Y2hpcGluZm8ucmV2LCBidXMtPmNoaXBpbmZvLnBrZywKKwkJICAg
-Y29yZS0+aWQucmV2LCBidXMtPmJvYXJkaW5mby50eXBlLCBidXMtPmJvYXJkaW5mby52ZW5k
-b3IsCisJCSAgIGJyY211X2JvYXJkcmV2X3N0cihody0+Ym9hcmRyZXYsIGJvYXJkcmV2KSwK
-KwkJICAgZHJ2ci0+d2xjLT5ody0+Ym9hcmRmbGFncywgZHJ2ci0+d2xjLT5ody0+Ym9hcmRm
-bGFnczIsCisJCSAgIGRydnItPndsYy0+dWNvZGVfcmV2LCBody0+YmFuZC0+cmFkaW9yZXYs
-CisJCSAgIGh3LT5iYW5kLT5waHl0eXBlLCBody0+YmFuZC0+cGh5cmV2LCBody0+YmFuZC0+
-cGktPmFuYV9yZXYsCisJCSAgIGh3LT5zcm9tcmV2KTsKIAlyZXR1cm4gMDsKIH0KIAotLSAK
-MS45LjEKCg==
---------------050002020006070408060304--
+Thanks, Daniel. I'll resubmit with both changes.
