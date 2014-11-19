@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 06/15] ixgbevf: Update Rx next to clean in real time
-Date: Tue, 18 Nov 2014 20:10:47 -0800
-Message-ID: <1416370256-16834-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 03/15] ixgbevf: Combine the logic for post Rx processing into single function
+Date: Tue, 18 Nov 2014 20:10:44 -0800
+Message-ID: <1416370256-16834-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1416370256-16834-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
@@ -9,152 +9,159 @@ Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:39897 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:64747 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754480AbaKSELH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Nov 2014 23:11:07 -0500
+	id S1754218AbaKSELF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Nov 2014 23:11:05 -0500
 In-Reply-To: <1416370256-16834-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-Since the next_to_clean value is only accessed by the Rx interrupt handler
-we can save on stack space by just storing our updated values back in
-next_to_clean instead of using the stack variable i.  This should help to
-reduce stack space and we can further collapse the size of the function.
-
-Also removed  non_eop_descs counter as it was never shown in the stats.
+This patch cleans up ixgbevf_clean_rx_irq() by merging several similar
+operations into a new function - ixgbevf_process_skb_fields().
 
 CC: Alexander Duyck <alexander.h.duyck@redhat.com>
 Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |  2 -
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 55 +++++++++++++++--------
- 2 files changed, 36 insertions(+), 21 deletions(-)
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |  4 +-
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 68 ++++++++++++-----------
+ 2 files changed, 38 insertions(+), 34 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
-index 90d5751..72a354b 100644
+index 5f7d2f3..90d5751 100644
 --- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
 +++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
-@@ -79,7 +79,6 @@ struct ixgbevf_tx_queue_stats {
- };
+@@ -346,8 +346,10 @@ static inline void ixgbevf_write_tail(struct ixgbevf_ring *ring, u32 value)
  
- struct ixgbevf_rx_queue_stats {
--	u64 non_eop_descs;
- 	u64 alloc_rx_page_failed;
- 	u64 alloc_rx_buff_failed;
- 	u64 csum_err;
-@@ -372,7 +371,6 @@ struct ixgbevf_adapter {
- 	struct ixgbevf_ring *rx_ring[MAX_TX_QUEUES]; /* One per active queue */
- 	u64 hw_csum_rx_error;
- 	u64 hw_rx_no_dma_resources;
--	u64 non_eop_descs;
- 	int num_msix_vectors;
- 	u32 alloc_rx_page_failed;
- 	u32 alloc_rx_buff_failed;
+ /* board specific private data structure */
+ struct ixgbevf_adapter {
+-	struct timer_list watchdog_timer;
++	/* this field must be first, see ixgbevf_process_skb_fields */
+ 	unsigned long active_vlans[BITS_TO_LONGS(VLAN_N_VID)];
++
++	struct timer_list watchdog_timer;
+ 	struct work_struct reset_task;
+ 	struct ixgbevf_q_vector *q_vector[MAX_MSIX_Q_VECTORS];
+ 
 diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index 2206992..20bebd2 100644
+index 19062dc..36b005e 100644
 --- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
 +++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -410,6 +410,35 @@ static void ixgbevf_process_skb_fields(struct ixgbevf_ring *rx_ring,
- 	skb->protocol = eth_type_trans(skb, rx_ring->netdev);
+@@ -328,37 +328,12 @@ static bool ixgbevf_clean_tx_irq(struct ixgbevf_q_vector *q_vector,
  }
  
-+/**
-+ * ixgbevf_is_non_eop - process handling of non-EOP buffers
-+ * @rx_ring: Rx ring being processed
-+ * @rx_desc: Rx descriptor for current buffer
-+ * @skb: current socket buffer containing buffer in progress
+ /**
+- * ixgbevf_receive_skb - Send a completed packet up the stack
+- * @q_vector: structure containing interrupt and ring information
+- * @skb: packet to send up
+- * @rx_desc: rx descriptor
+- **/
+-static void ixgbevf_receive_skb(struct ixgbevf_q_vector *q_vector,
+-				struct sk_buff *skb,
+-				union ixgbe_adv_rx_desc *rx_desc)
+-{
+-	struct ixgbevf_adapter *adapter = q_vector->adapter;
+-	bool is_vlan = !!ixgbevf_test_staterr(rx_desc, IXGBE_RXD_STAT_VP);
+-	u16 tag = le16_to_cpu(rx_desc->wb.upper.vlan);
+-
+-	if (is_vlan && test_bit(tag & VLAN_VID_MASK, adapter->active_vlans))
+-		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), tag);
+-
+-	if (!(adapter->flags & IXGBE_FLAG_IN_NETPOLL))
+-		napi_gro_receive(&q_vector->napi, skb);
+-	else
+-		netif_rx(skb);
+-}
+-
+-/**
+  * ixgbevf_rx_skb - Helper function to determine proper Rx method
+  * @q_vector: structure containing interrupt and ring information
+  * @skb: packet to send up
+- * @rx_desc: rx descriptor
+  **/
+ static void ixgbevf_rx_skb(struct ixgbevf_q_vector *q_vector,
+-			   struct sk_buff *skb,
+-			   union ixgbe_adv_rx_desc *rx_desc)
++			   struct sk_buff *skb)
+ {
+ #ifdef CONFIG_NET_RX_BUSY_POLL
+ 	skb_mark_napi_id(skb, &q_vector->napi);
+@@ -369,8 +344,10 @@ static void ixgbevf_rx_skb(struct ixgbevf_q_vector *q_vector,
+ 		return;
+ 	}
+ #endif /* CONFIG_NET_RX_BUSY_POLL */
+-
+-	ixgbevf_receive_skb(q_vector, skb, rx_desc);
++	if (!(q_vector->adapter->flags & IXGBE_FLAG_IN_NETPOLL))
++		napi_gro_receive(&q_vector->napi, skb);
++	else
++		netif_rx(skb);
+ }
+ 
+ /* ixgbevf_rx_checksum - indicate in skb if hw indicated a good cksum
+@@ -407,6 +384,32 @@ static inline void ixgbevf_rx_checksum(struct ixgbevf_ring *ring,
+ 	skb->ip_summed = CHECKSUM_UNNECESSARY;
+ }
+ 
++/* ixgbevf_process_skb_fields - Populate skb header fields from Rx descriptor
++ * @rx_ring: rx descriptor ring packet is being transacted on
++ * @rx_desc: pointer to the EOP Rx descriptor
++ * @skb: pointer to current skb being populated
 + *
-+ * This function updates next to clean.  If the buffer is an EOP buffer
-+ * this function exits returning false, otherwise it will place the
-+ * sk_buff in the next buffer to be chained and return true indicating
-+ * that this is in fact a non-EOP buffer.
-+ **/
-+static bool ixgbevf_is_non_eop(struct ixgbevf_ring *rx_ring,
-+			       union ixgbe_adv_rx_desc *rx_desc,
-+			       struct sk_buff *skb)
++ * This function checks the ring, descriptor, and packet information in
++ * order to populate the checksum, VLAN, protocol, and other fields within
++ * the skb.
++ */
++static void ixgbevf_process_skb_fields(struct ixgbevf_ring *rx_ring,
++				       union ixgbe_adv_rx_desc *rx_desc,
++				       struct sk_buff *skb)
 +{
-+	u32 ntc = rx_ring->next_to_clean + 1;
++	ixgbevf_rx_checksum(rx_ring, rx_desc, skb);
 +
-+	/* fetch, update, and store next to clean */
-+	ntc = (ntc < rx_ring->count) ? ntc : 0;
-+	rx_ring->next_to_clean = ntc;
++	if (ixgbevf_test_staterr(rx_desc, IXGBE_RXD_STAT_VP)) {
++		u16 vid = le16_to_cpu(rx_desc->wb.upper.vlan);
++		unsigned long *active_vlans = netdev_priv(rx_ring->netdev);
 +
-+	prefetch(IXGBEVF_RX_DESC(rx_ring, ntc));
++		if (test_bit(vid & VLAN_VID_MASK, active_vlans))
++			__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), vid);
++	}
 +
-+	if (likely(ixgbevf_test_staterr(rx_desc, IXGBE_RXD_STAT_EOP)))
-+		return false;
-+
-+	return true;
++	skb->protocol = eth_type_trans(skb, rx_ring->netdev);
 +}
 +
  static bool ixgbevf_alloc_mapped_skb(struct ixgbevf_ring *rx_ring,
  				     struct ixgbevf_rx_buffer *bi)
  {
-@@ -517,16 +546,14 @@ static int ixgbevf_clean_rx_irq(struct ixgbevf_q_vector *q_vector,
- 				struct ixgbevf_ring *rx_ring,
- 				int budget)
- {
--	unsigned int i;
- 	unsigned int total_rx_bytes = 0, total_rx_packets = 0;
- 	u16 cleaned_count = ixgbevf_desc_unused(rx_ring);
- 
--	i = rx_ring->next_to_clean;
--
- 	do {
--		union ixgbe_adv_rx_desc *rx_desc, *next_rxd;
-+		union ixgbe_adv_rx_desc *rx_desc;
- 		struct ixgbevf_rx_buffer *rx_buffer;
- 		struct sk_buff *skb;
-+		u16 ntc;
- 
- 		/* return some buffers to hardware, one at a time is too slow */
- 		if (cleaned_count >= IXGBEVF_RX_BUFFER_WRITE) {
-@@ -534,8 +561,9 @@ static int ixgbevf_clean_rx_irq(struct ixgbevf_q_vector *q_vector,
- 			cleaned_count = 0;
+@@ -576,14 +579,10 @@ static int ixgbevf_clean_rx_irq(struct ixgbevf_q_vector *q_vector,
+ 			goto next_desc;
  		}
  
--		rx_desc = IXGBEVF_RX_DESC(rx_ring, i);
--		rx_buffer = &rx_ring->rx_buffer_info[i];
-+		ntc = rx_ring->next_to_clean;
-+		rx_desc = IXGBEVF_RX_DESC(rx_ring, ntc);
-+		rx_buffer = &rx_ring->rx_buffer_info[ntc];
- 
- 		if (!ixgbevf_test_staterr(rx_desc, IXGBE_RXD_STAT_DD))
- 			break;
-@@ -562,19 +590,9 @@ static int ixgbevf_clean_rx_irq(struct ixgbevf_q_vector *q_vector,
- 
- 		cleaned_count++;
- 
--		i++;
--		if (i == rx_ring->count)
--			i = 0;
+-		ixgbevf_rx_checksum(rx_ring, rx_desc, skb);
 -
--		next_rxd = IXGBEVF_RX_DESC(rx_ring, i);
--		prefetch(next_rxd);
+ 		/* probably a little skewed due to removing CRC */
+ 		total_rx_bytes += skb->len;
+ 		total_rx_packets++;
+ 
+-		skb->protocol = eth_type_trans(skb, rx_ring->netdev);
 -
--		if (!(ixgbevf_test_staterr(rx_desc, IXGBE_RXD_STAT_EOP))) {
--			skb->next = rx_ring->rx_buffer_info[i].skb;
--			IXGBE_CB(skb->next)->prev = skb;
--			rx_ring->rx_stats.non_eop_descs++;
-+		/* place incomplete frames back on ring for completion */
-+		if (ixgbevf_is_non_eop(rx_ring, rx_desc, skb))
- 			continue;
--		}
+ 		/* Workaround hardware that can't do proper VEPA multicast
+ 		 * source pruning.
+ 		 */
+@@ -595,7 +594,10 @@ static int ixgbevf_clean_rx_irq(struct ixgbevf_q_vector *q_vector,
+ 			goto next_desc;
+ 		}
  
- 		/* we should not be chaining buffers, if we did drop the skb */
- 		if (IXGBE_CB(skb)->prev) {
-@@ -617,7 +635,6 @@ static int ixgbevf_clean_rx_irq(struct ixgbevf_q_vector *q_vector,
- 		budget--;
- 	} while (likely(budget));
+-		ixgbevf_rx_skb(q_vector, skb, rx_desc);
++		/* populate checksum, VLAN, and protocol */
++		ixgbevf_process_skb_fields(rx_ring, rx_desc, skb);
++
++		ixgbevf_rx_skb(q_vector, skb);
  
--	rx_ring->next_to_clean = i;
- 	u64_stats_update_begin(&rx_ring->syncp);
- 	rx_ring->stats.packets += total_rx_packets;
- 	rx_ring->stats.bytes += total_rx_bytes;
+ next_desc:
+ 		/* return some buffers to hardware, one at a time is too slow */
 -- 
 1.9.3
