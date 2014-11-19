@@ -1,36 +1,104 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH 3.10] ipv6: reallocate addrconf router for ipv6 address,
- when lo device up
-Date: Tue, 18 Nov 2014 17:22:50 -0800
-Message-ID: <20141119012250.GD22731@kroah.com>
-References: <53EA004A.9020300@huawei.com>
- <20141119012155.GC22731@kroah.com>
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Subject: [PATCH v5 0/4] arch: Add lightweight memory barriers for coherent
+ memory access
+Date: Tue, 18 Nov 2014 17:23:28 -0800
+Message-ID: <20141119012205.9563.95544.stgit@ahduyck-server>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, stable@vger.kernel.org,
-	Sabrina Dubroca <sd@queasysnail.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Gao feng <gaofeng@cn.fujitsu.com>,
-	Li Zefan <lizefan@huawei.com>
-To: chenweilong <chenweilong@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.linuxfoundation.org ([140.211.169.12]:38760 "EHLO
-	mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754751AbaKSBWv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Nov 2014 20:22:51 -0500
-Content-Disposition: inline
-In-Reply-To: <20141119012155.GC22731@kroah.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: mathieu.desnoyers@polymtl.ca, peterz@infradead.org,
+	benh@kernel.crashing.org, heiko.carstens@de.ibm.com,
+	mingo@kernel.org, mikey@neuling.org, linux@arm.linux.org.uk,
+	donald.c.skidmore@intel.com, matthew.vick@intel.com,
+	geert@linux-m68k.org, jeffrey.t.kirsher@intel.com,
+	romieu@fr.zoreil.com, paulmck@linux.vnet.ibm.com,
+	nic_swsd@realtek.com, will.deacon@arm.com, michael@ellerman.id.au,
+	tony.luck@intel.com, torvalds@linux-foundation.org,
+	oleg@redhat.com, schwidefsky@de.ibm.com, fweisbec@gmail.com,
+	davem@davemloft.net
+To: linux-arch@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-arch-owner@vger.kernel.org>
+Sender: linux-arch-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 18, 2014 at 05:21:55PM -0800, Greg Kroah-Hartman wrote:
-> On Tue, Aug 12, 2014 at 07:53:46PM +0800, chenweilong wrote:
-> > Hi,
-> > 
-> > Please queue this patch for stable 3.10 kernels.
-> 
-> It does not apply, sorry :(
-> 
+These patches introduce two new primitives for synchronizing cache coherent
+memory writes and reads.  These two new primitives are:
 
-Because it's already applied, sorry for the noise...
+	dma_rmb()
+	dma_wmb()
+
+The first patch cleans up some unnecessary overhead related to the
+definition of read_barrier_depends, smp_read_barrier_depends, and comments
+related to the barrier.
+
+The second patch adds the primitives for the applicable architectures and
+asm-generic.
+
+The third patch adds the barriers to r8169 which turns out to be a good
+example of where the new barriers might be useful as they have full
+rmb()/wmb() barriers ordering accesses to the descriptors and the DescOwn
+bit.
+
+The fourth patch adds support for coherent_rmb() to the Intel fm10k, igb,
+and ixgbe drivers.  Testing with the ixgbe driver has shown a processing
+time reduction of at least 7ns per 64B frame on a Core i7-4930K.
+
+This patch series is essentially the v4 for:
+v4:	Add lightweight memory barriers for coherent memory access
+v3:	Add lightweight memory barriers fast_rmb() and fast_wmb()
+v2:	Introduce load_acquire() and store_release()
+v1:	Introduce read_acquire()
+
+The key changes in this patch series versus the earlier patches are:
+v5:
+	- Renamed barriers dma_rmb and dma_wmb
+	- Undid smp_wmb changes in x86 and PowerPC
+	- Defined smp_rmb as __lwsync for SMP case on PowerPC
+v4:
+	- Renamed barriers coherent_rmb and coherent_wmb
+	- Added smp_lwsync for use in smp_load_acquire/smp_store_release
+v3:
+	- Moved away from acquire()/store() and instead focused on barriers
+	- Added cleanup of read_barrier_depends
+	- Added change in r8169 to fix cur_tx/DescOwn ordering
+	- Simplified changes to just replacing/moving barriers in r8169
+	- Added update to documentation with code example
+v2:
+	- Renamed read_acquire() to be consistent with smp_load_acquire()
+	- Changed barrier used to be consistent with smp_load_acquire()
+	- Updated PowerPC code to use __lwsync based on IBM article
+	- Added store_release() as this is a viable use case for drivers
+	- Added r8169 patch which is able to fully use primitives
+	- Added fm10k/igb/ixgbe patch which is able to test performance
+
+---
+
+Alexander Duyck (4):
+      arch: Cleanup read_barrier_depends() and comments
+      arch: Add lightweight memory barriers dma_rmb() and dma_wmb()
+      r8169: Use dma_rmb() and dma_wmb() for DescOwn checks
+      fm10k/igb/ixgbe: Use dma_rmb on Rx descriptor reads
+
+
+ Documentation/memory-barriers.txt             |   41 +++++++++++++++
+ arch/alpha/include/asm/barrier.h              |   51 ++++++++++++++++++
+ arch/arm/include/asm/barrier.h                |    4 +
+ arch/arm64/include/asm/barrier.h              |    3 +
+ arch/blackfin/include/asm/barrier.h           |   51 ++++++++++++++++++
+ arch/ia64/include/asm/barrier.h               |   25 ++++-----
+ arch/metag/include/asm/barrier.h              |   19 ++++---
+ arch/mips/include/asm/barrier.h               |   61 ++--------------------
+ arch/powerpc/include/asm/barrier.h            |   19 ++++---
+ arch/s390/include/asm/barrier.h               |    7 ++-
+ arch/sparc/include/asm/barrier_64.h           |    7 ++-
+ arch/x86/include/asm/barrier.h                |   70 ++++---------------------
+ arch/x86/um/asm/barrier.h                     |   20 ++++---
+ drivers/net/ethernet/intel/fm10k/fm10k_main.c |    6 +-
+ drivers/net/ethernet/intel/igb/igb_main.c     |    6 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    9 +--
+ drivers/net/ethernet/realtek/r8169.c          |   29 ++++++++--
+ include/asm-generic/barrier.h                 |    8 +++
+ 18 files changed, 257 insertions(+), 179 deletions(-)
+
+--
