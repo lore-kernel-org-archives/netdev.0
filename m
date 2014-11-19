@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v4 4/9] vlan: rename __vlan_put_tag to vlan_insert_tag_set_proto
-Date: Wed, 19 Nov 2014 14:04:58 +0100
-Message-ID: <1416402303-25341-5-git-send-email-jiri@resnulli.us>
+Subject: [patch iproute2 v4] tc: add support for vlan tc action
+Date: Wed, 19 Nov 2014 14:08:26 +0100
+Message-ID: <1416402506-31852-1-git-send-email-jiri@resnulli.us>
 References: <1416402303-25341-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, pshelar@nicira.com,
 	therbert@google.com, edumazet@google.com, willemb@google.com,
@@ -9,243 +9,310 @@ Cc: davem@davemloft.net, jhs@mojatatu.com, pshelar@nicira.com,
 	Paul.Durrant@citrix.com, tgraf@suug.ch, cwang@twopensource.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f50.google.com ([74.125.82.50]:52477 "EHLO
-	mail-wg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754910AbaKSNFK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 08:05:10 -0500
-Received: by mail-wg0-f50.google.com with SMTP id k14so774559wgh.23
-        for <netdev@vger.kernel.org>; Wed, 19 Nov 2014 05:05:09 -0800 (PST)
+Received: from mail-wi0-f182.google.com ([209.85.212.182]:55489 "EHLO
+	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754368AbaKSNIi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 08:08:38 -0500
+Received: by mail-wi0-f182.google.com with SMTP id h11so1772541wiw.9
+        for <netdev@vger.kernel.org>; Wed, 19 Nov 2014 05:08:37 -0800 (PST)
 In-Reply-To: <1416402303-25341-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Name fits better. Plus there's going to be introduced
-__vlan_insert_tag later on.
-
+Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
 Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-Acked-by: Pravin B Shelar <pshelar@nicira.com>
+Reviewed-by: Cong Wang <cwang@twopensource.com>
 ---
- drivers/net/bonding/bond_main.c             |  4 ++--
- drivers/net/ethernet/emulex/benet/be_main.c |  6 ++++--
- drivers/net/vxlan.c                         | 12 ++++++------
- include/linux/if_vlan.h                     |  8 +++++---
- net/bridge/br_vlan.c                        |  4 ++--
- net/core/dev.c                              |  4 ++--
- net/core/netpoll.c                          |  4 ++--
- net/ipv4/geneve.c                           | 11 +++++------
- net/openvswitch/actions.c                   |  4 +++-
- net/openvswitch/datapath.c                  |  3 ++-
- net/openvswitch/vport-gre.c                 |  6 +++---
- 11 files changed, 36 insertions(+), 30 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index e26c682..c1d7da4 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -2146,8 +2146,8 @@ static void bond_arp_send(struct net_device *slave_dev, int arp_op,
- 
- 		netdev_dbg(slave_dev, "inner tag: proto %X vid %X\n",
- 			   ntohs(outer_tag->vlan_proto), tags->vlan_id);
--		skb = __vlan_put_tag(skb, tags->vlan_proto,
--				     tags->vlan_id);
-+		skb = vlan_insert_tag_set_proto(skb, tags->vlan_proto,
-+						tags->vlan_id);
- 		if (!skb) {
- 			net_err_ratelimited("failed to insert inner VLAN tag\n");
- 			return;
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 54160cc..d02fbc7 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -887,7 +887,8 @@ static struct sk_buff *be_insert_vlan_in_pkt(struct be_adapter *adapter,
- 	}
- 
- 	if (vlan_tag) {
--		skb = __vlan_put_tag(skb, htons(ETH_P_8021Q), vlan_tag);
-+		skb = vlan_insert_tag_set_proto(skb, htons(ETH_P_8021Q),
-+						vlan_tag);
- 		if (unlikely(!skb))
- 			return skb;
- 		skb->vlan_tci = 0;
-@@ -896,7 +897,8 @@ static struct sk_buff *be_insert_vlan_in_pkt(struct be_adapter *adapter,
- 	/* Insert the outer VLAN, if any */
- 	if (adapter->qnq_vid) {
- 		vlan_tag = adapter->qnq_vid;
--		skb = __vlan_put_tag(skb, htons(ETH_P_8021Q), vlan_tag);
-+		skb = vlan_insert_tag_set_proto(skb, htons(ETH_P_8021Q),
-+						vlan_tag);
- 		if (unlikely(!skb))
- 			return skb;
- 		if (skip_hw_vlan)
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 23b1e8c..bb8fbab 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1600,9 +1600,9 @@ static int vxlan6_xmit_skb(struct vxlan_sock *vs,
- 		return err;
- 
- 	if (vlan_tx_tag_present(skb)) {
--		if (WARN_ON(!__vlan_put_tag(skb,
--					    skb->vlan_proto,
--					    vlan_tx_tag_get(skb))))
-+		skb = vlan_insert_tag_set_proto(skb, skb->vlan_proto,
-+						vlan_tx_tag_get(skb));
-+		if (WARN_ON(!skb))
- 			return -ENOMEM;
- 
- 		skb->vlan_tci = 0;
-@@ -1644,9 +1644,9 @@ int vxlan_xmit_skb(struct vxlan_sock *vs,
- 		return err;
- 
- 	if (vlan_tx_tag_present(skb)) {
--		if (WARN_ON(!__vlan_put_tag(skb,
--					    skb->vlan_proto,
--					    vlan_tx_tag_get(skb))))
-+		skb = vlan_insert_tag_set_proto(skb, skb->vlan_proto,
-+						vlan_tx_tag_get(skb));
-+		if (WARN_ON(!skb))
- 			return -ENOMEM;
- 
- 		skb->vlan_tci = 0;
-diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
-index 75b70a5..46e4a15 100644
---- a/include/linux/if_vlan.h
-+++ b/include/linux/if_vlan.h
-@@ -320,8 +320,9 @@ static inline struct sk_buff *vlan_insert_tag(struct sk_buff *skb,
- }
- 
- /**
-- * __vlan_put_tag - regular VLAN tag inserting
-+ * vlan_insert_tag_set_proto - regular VLAN tag inserting
-  * @skb: skbuff to tag
-+ * @vlan_proto: VLAN encapsulation protocol
-  * @vlan_tci: VLAN TCI to insert
-  *
-  * Inserts the VLAN tag into @skb as part of the payload
-@@ -330,8 +331,9 @@ static inline struct sk_buff *vlan_insert_tag(struct sk_buff *skb,
-  * Following the skb_unshare() example, in case of error, the calling function
-  * doesn't have to worry about freeing the original skb.
-  */
--static inline struct sk_buff *__vlan_put_tag(struct sk_buff *skb,
--					     __be16 vlan_proto, u16 vlan_tci)
-+static inline struct sk_buff *vlan_insert_tag_set_proto(struct sk_buff *skb,
-+							__be16 vlan_proto,
-+							u16 vlan_tci)
- {
- 	skb = vlan_insert_tag(skb, vlan_proto, vlan_tci);
- 	if (skb)
-diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
-index 150048f..97b8ddf 100644
---- a/net/bridge/br_vlan.c
-+++ b/net/bridge/br_vlan.c
-@@ -199,8 +199,8 @@ bool br_allowed_ingress(struct net_bridge *br, struct net_port_vlans *v,
- 		if (skb->vlan_proto != proto) {
- 			/* Protocol-mismatch, empty out vlan_tci for new tag */
- 			skb_push(skb, ETH_HLEN);
--			skb = __vlan_put_tag(skb, skb->vlan_proto,
--					     vlan_tx_tag_get(skb));
-+			skb = vlan_insert_tag_set_proto(skb, skb->vlan_proto,
-+							vlan_tx_tag_get(skb));
- 			if (unlikely(!skb))
- 				return false;
- 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 1ab168e..3611e60 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2645,8 +2645,8 @@ static struct sk_buff *validate_xmit_vlan(struct sk_buff *skb,
- {
- 	if (vlan_tx_tag_present(skb) &&
- 	    !vlan_hw_offload_capable(features, skb->vlan_proto)) {
--		skb = __vlan_put_tag(skb, skb->vlan_proto,
--				     vlan_tx_tag_get(skb));
-+		skb = vlan_insert_tag_set_proto(skb, skb->vlan_proto,
-+						vlan_tx_tag_get(skb));
- 		if (skb)
- 			skb->vlan_tci = 0;
- 	}
-diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index e6645b4..65d3723 100644
---- a/net/core/netpoll.c
-+++ b/net/core/netpoll.c
-@@ -79,8 +79,8 @@ static int netpoll_start_xmit(struct sk_buff *skb, struct net_device *dev,
- 
- 	if (vlan_tx_tag_present(skb) &&
- 	    !vlan_hw_offload_capable(features, skb->vlan_proto)) {
--		skb = __vlan_put_tag(skb, skb->vlan_proto,
--				     vlan_tx_tag_get(skb));
-+		skb = vlan_insert_tag_set_proto(skb, skb->vlan_proto,
-+						vlan_tx_tag_get(skb));
- 		if (unlikely(!skb)) {
- 			/* This is actually a packet drop, but we
- 			 * don't want the code that calls this
-diff --git a/net/ipv4/geneve.c b/net/ipv4/geneve.c
-index 31802af..fd430a6 100644
---- a/net/ipv4/geneve.c
-+++ b/net/ipv4/geneve.c
-@@ -132,12 +132,11 @@ int geneve_xmit_skb(struct geneve_sock *gs, struct rtable *rt,
- 		return err;
- 
- 	if (vlan_tx_tag_present(skb)) {
--		if (unlikely(!__vlan_put_tag(skb,
--					     skb->vlan_proto,
--					     vlan_tx_tag_get(skb)))) {
--			err = -ENOMEM;
--			return err;
--		}
-+		skb = vlan_insert_tag_set_proto(skb, skb->vlan_proto,
-+						vlan_tx_tag_get(skb));
-+		if (unlikely(!skb)
-+			return -ENOMEM;
+v1->v2:
+- included changes suggested by Jamal
+
+ include/linux/tc_act/tc_vlan.h |  35 +++++++
+ tc/Makefile                    |   1 +
+ tc/m_vlan.c                    | 221 +++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 257 insertions(+)
+ create mode 100644 include/linux/tc_act/tc_vlan.h
+ create mode 100644 tc/m_vlan.c
+
+diff --git a/include/linux/tc_act/tc_vlan.h b/include/linux/tc_act/tc_vlan.h
+new file mode 100644
+index 0000000..f7b8d44
+--- /dev/null
++++ b/include/linux/tc_act/tc_vlan.h
+@@ -0,0 +1,35 @@
++/*
++ * Copyright (c) 2014 Jiri Pirko <jiri@resnulli.us>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
 +
- 		skb->vlan_tci = 0;
- 	}
- 
-diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
-index 749a301..426b913 100644
---- a/net/openvswitch/actions.c
-+++ b/net/openvswitch/actions.c
-@@ -287,7 +287,9 @@ static int push_vlan(struct sk_buff *skb, struct sw_flow_key *key,
- 		/* push down current VLAN tag */
- 		current_tag = vlan_tx_tag_get(skb);
- 
--		if (!__vlan_put_tag(skb, skb->vlan_proto, current_tag))
-+		skb = vlan_insert_tag_set_proto(skb, skb->vlan_proto,
-+						current_tag);
-+		if (!skb)
- 			return -ENOMEM;
- 		/* Update mac_len for subsequent MPLS actions */
- 		skb->mac_len += VLAN_HLEN;
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index ab141d4..c63e60e 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -425,7 +425,8 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
- 		if (!nskb)
- 			return -ENOMEM;
- 
--		nskb = __vlan_put_tag(nskb, nskb->vlan_proto, vlan_tx_tag_get(nskb));
-+		nskb = vlan_insert_tag_set_proto(nskb, nskb->vlan_proto,
-+						 vlan_tx_tag_get(nskb));
- 		if (!nskb)
- 			return -ENOMEM;
- 
-diff --git a/net/openvswitch/vport-gre.c b/net/openvswitch/vport-gre.c
-index 8e61a5c..777cd8c 100644
---- a/net/openvswitch/vport-gre.c
-+++ b/net/openvswitch/vport-gre.c
-@@ -176,9 +176,9 @@ static int gre_tnl_send(struct vport *vport, struct sk_buff *skb)
- 	}
- 
- 	if (vlan_tx_tag_present(skb)) {
--		if (unlikely(!__vlan_put_tag(skb,
--					     skb->vlan_proto,
--					     vlan_tx_tag_get(skb)))) {
-+		skb = vlan_insert_tag_set_proto(skb, skb->vlan_proto,
-+						vlan_tx_tag_get(skb));
-+		if (unlikely(!skb) {
- 			err = -ENOMEM;
- 			goto err_free_rt;
- 		}
++#ifndef __LINUX_TC_VLAN_H
++#define __LINUX_TC_VLAN_H
++
++#include <linux/pkt_cls.h>
++
++#define TCA_ACT_VLAN 12
++
++#define TCA_VLAN_ACT_POP	1
++#define TCA_VLAN_ACT_PUSH	2
++
++struct tc_vlan {
++	tc_gen;
++	int v_action;
++};
++
++enum {
++	TCA_VLAN_UNSPEC,
++	TCA_VLAN_TM,
++	TCA_VLAN_PARMS,
++	TCA_VLAN_PUSH_VLAN_ID,
++	TCA_VLAN_PUSH_VLAN_PROTOCOL,
++	__TCA_VLAN_MAX,
++};
++#define TCA_VLAN_MAX (__TCA_VLAN_MAX - 1)
++
++#endif
+diff --git a/tc/Makefile b/tc/Makefile
+index 1ab36c6..830c97d 100644
+--- a/tc/Makefile
++++ b/tc/Makefile
+@@ -40,6 +40,7 @@ TCMODULES += m_pedit.o
+ TCMODULES += m_skbedit.o
+ TCMODULES += m_csum.o
+ TCMODULES += m_simple.o
++TCMODULES += m_vlan.o
+ TCMODULES += p_ip.o
+ TCMODULES += p_icmp.o
+ TCMODULES += p_tcp.o
+diff --git a/tc/m_vlan.c b/tc/m_vlan.c
+new file mode 100644
+index 0000000..872bf72
+--- /dev/null
++++ b/tc/m_vlan.c
+@@ -0,0 +1,221 @@
++/*
++ * m_vlan.c		vlan manipulation module
++ *
++ *              This program is free software; you can redistribute it and/or
++ *              modify it under the terms of the GNU General Public License
++ *              as published by the Free Software Foundation; either version
++ *              2 of the License, or (at your option) any later version.
++ *
++ * Authors:     Jiri Pirko <jiri@resnulli.us>
++ */
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <unistd.h>
++#include <string.h>
++#include <linux/if_ether.h>
++#include "utils.h"
++#include "rt_names.h"
++#include "tc_util.h"
++#include <linux/tc_act/tc_vlan.h>
++
++static void explain(void)
++{
++	fprintf(stderr, "Usage: vlan pop\n");
++	fprintf(stderr, "       vlan push [ protocol VLANPROTO ] id VLANID\n");
++	fprintf(stderr, "       VLANPROTO is one of 802.1Q or 802.1AD\n");
++	fprintf(stderr, "            with default: 802.1Q\n");
++}
++
++static void usage(void)
++{
++	explain();
++	exit(-1);
++}
++
++static int parse_vlan(struct action_util *a, int *argc_p, char ***argv_p,
++		      int tca_id, struct nlmsghdr *n)
++{
++	int argc = *argc_p;
++	char **argv = *argv_p;
++	struct rtattr *tail;
++	int action = 0;
++	__u16 id;
++	int id_set = 0;
++	__u16 proto;
++	int proto_set = 0;
++	struct tc_vlan parm = { 0 };
++
++	if (matches(*argv, "vlan") != 0)
++		return -1;
++
++	NEXT_ARG();
++
++	while (argc > 0) {
++		if (matches(*argv, "pop") == 0) {
++			if (action) {
++				fprintf(stderr, "unexpexted \"%s\" - action already specified\n",
++					*argv);
++				explain();
++				return -1;
++			}
++			action = TCA_VLAN_ACT_POP;
++		} else if (matches(*argv, "push") == 0) {
++			if (action) {
++				fprintf(stderr, "unexpexted \"%s\" - action already specified\n",
++					*argv);
++				explain();
++				return -1;
++			}
++			action = TCA_VLAN_ACT_PUSH;
++		} else if (matches(*argv, "id") == 0) {
++			if (action != TCA_VLAN_ACT_PUSH) {
++				fprintf(stderr, "\"%s\" is only valid for push\n",
++					*argv);
++				explain();
++				return -1;
++			}
++			NEXT_ARG();
++			if (get_u16(&id, *argv, 0))
++				invarg("id is invalid", *argv);
++			id_set = 1;
++		} else if (matches(*argv, "protocol") == 0) {
++			if (action != TCA_VLAN_ACT_PUSH) {
++				fprintf(stderr, "\"%s\" is only valid for push\n",
++					*argv);
++				explain();
++				return -1;
++			}
++			NEXT_ARG();
++			if (ll_proto_a2n(&proto, *argv))
++				invarg("protocol is invalid", *argv);
++			proto_set = 1;
++		} else if (matches(*argv, "help") == 0) {
++			usage();
++		} else {
++			break;
++		}
++		argc--;
++		argv++;
++	}
++
++	parm.action = TC_ACT_PIPE;
++	if (argc) {
++		if (matches(*argv, "reclassify") == 0) {
++			parm.action = TC_ACT_RECLASSIFY;
++			NEXT_ARG();
++		} else if (matches(*argv, "pipe") == 0) {
++			parm.action = TC_ACT_PIPE;
++			NEXT_ARG();
++		} else if (matches(*argv, "drop") == 0 ||
++			   matches(*argv, "shot") == 0) {
++			parm.action = TC_ACT_SHOT;
++			NEXT_ARG();
++		} else if (matches(*argv, "continue") == 0) {
++			parm.action = TC_ACT_UNSPEC;
++			NEXT_ARG();
++		} else if (matches(*argv, "pass") == 0) {
++			parm.action = TC_ACT_OK;
++			NEXT_ARG();
++		}
++	}
++
++	if (argc) {
++		if (matches(*argv, "index") == 0) {
++			NEXT_ARG();
++			if (get_u32(&parm.index, *argv, 10)) {
++				fprintf(stderr, "vlan: Illegal \"index\"\n");
++				return -1;
++			}
++			argc--;
++			argv++;
++		}
++	}
++
++	if (action == TCA_VLAN_ACT_PUSH && !id_set) {
++		fprintf(stderr, "id needs to be set for push\n");
++		explain();
++		return -1;
++	}
++
++	parm.v_action = action;
++	tail = NLMSG_TAIL(n);
++	addattr_l(n, MAX_MSG, tca_id, NULL, 0);
++	addattr_l(n, MAX_MSG, TCA_VLAN_PARMS, &parm, sizeof(parm));
++	if (id_set)
++		addattr_l(n, MAX_MSG, TCA_VLAN_PUSH_VLAN_ID, &id, 2);
++	if (proto_set) {
++		if (proto != htons(ETH_P_8021Q) &&
++		    proto != htons(ETH_P_8021AD)) {
++			fprintf(stderr, "protocol not supported\n");
++			explain();
++			return -1;
++		}
++
++		addattr_l(n, MAX_MSG, TCA_VLAN_PUSH_VLAN_PROTOCOL, &proto, 2);
++	}
++	tail->rta_len = (char *)NLMSG_TAIL(n) - (char *)tail;
++
++	*argc_p = argc;
++	*argv_p = argv;
++	return 0;
++}
++
++static int print_vlan(struct action_util *au, FILE *f, struct rtattr *arg)
++{
++	SPRINT_BUF(b1);
++	struct rtattr *tb[TCA_VLAN_MAX + 1];
++	__u16 val;
++	struct tc_vlan *parm;
++
++	if (arg == NULL)
++		return -1;
++
++	parse_rtattr_nested(tb, TCA_VLAN_MAX, arg);
++
++	if (!tb[TCA_VLAN_PARMS]) {
++		fprintf(f, "[NULL vlan parameters]");
++		return -1;
++	}
++	parm = RTA_DATA(tb[TCA_VLAN_PARMS]);
++
++	fprintf(f, " vlan");
++
++	switch(parm->v_action) {
++	case TCA_VLAN_ACT_POP:
++		fprintf(f, " pop");
++		break;
++	case TCA_VLAN_ACT_PUSH:
++		fprintf(f, " push");
++		if (tb[TCA_VLAN_PUSH_VLAN_ID]) {
++			val = rta_getattr_u16(tb[TCA_VLAN_PUSH_VLAN_ID]);
++			fprintf(f, " id %u", val);
++		}
++		if (tb[TCA_VLAN_PUSH_VLAN_PROTOCOL]) {
++			fprintf(f, " protocol %s",
++				ll_proto_n2a(rta_getattr_u16(tb[TCA_VLAN_PUSH_VLAN_PROTOCOL]),
++					     b1, sizeof(b1)));
++		}
++		break;
++	}
++
++	fprintf(f, "\n\t index %d ref %d bind %d", parm->index, parm->refcnt,
++		parm->bindcnt);
++
++	if (show_stats) {
++		if (tb[TCA_VLAN_TM]) {
++			struct tcf_t *tm = RTA_DATA(tb[TCA_VLAN_TM]);
++			print_tm(f, tm);
++		}
++	}
++
++	fprintf(f, "\n ");
++
++	return 0;
++}
++
++struct action_util vlan_action_util = {
++	.id = "vlan",
++	.parse_aopt = parse_vlan,
++	.print_aopt = print_vlan,
++};
 -- 
 1.9.3
