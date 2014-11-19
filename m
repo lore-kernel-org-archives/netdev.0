@@ -1,7 +1,7 @@
 From: Johan Hovold <johan@kernel.org>
-Subject: [PATCH 04/10] net: phy: micrel: add has-broadcast-disable flag to type data
-Date: Wed, 19 Nov 2014 12:59:17 +0100
-Message-ID: <1416398363-32306-5-git-send-email-johan@kernel.org>
+Subject: [PATCH 06/10] net: phy: micrel: add support for clock-mode select to KSZ8081/KSZ8091
+Date: Wed, 19 Nov 2014 12:59:19 +0100
+Message-ID: <1416398363-32306-7-git-send-email-johan@kernel.org>
 References: <1416398363-32306-1-git-send-email-johan@kernel.org>
 Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, Bruno Thomsen <bth@kamstrup.dk>,
@@ -9,79 +9,70 @@ Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	Mark Rutland <mark.rutland@arm.com>,
 	Johan Hovold <johan@kernel.org>
 To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f43.google.com ([209.85.215.43]:54447 "EHLO
-	mail-la0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753133AbaKSL7t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 06:59:49 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1416398363-32306-1-git-send-email-johan@kernel.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Add has_broadcast_disable flag to type-data and generic config_init.
+Micrel KSZ8081 and KSZ8091 PHYs have the RMII Reference Clock Select
+bit, which is used to select 25 or 50 MHz clock mode.
 
-This allows us to remove the ksz8081 config_init callback.
-
-Note that ksz8021_config_init is kept for now due to a95a18afe4c8
-("phy/micrel: KSZ8031RNL RMII clock reconfiguration bug").
+Note that on some revisions of the PHY (e.g. KSZ8081RND) the function of
+this bit is inverted so that setting it enables 25 rather than 50 MHz
+mode. Add a new device-tree property
+"micrel,rmii-reference-clock-select-25-mhz" to describe this.
 
 Signed-off-by: Johan Hovold <johan@kernel.org>
 ---
- drivers/net/phy/micrel.c | 14 ++++++--------
- 1 file changed, 6 insertions(+), 8 deletions(-)
+ Documentation/devicetree/bindings/net/micrel.txt |  4 ++--
+ drivers/net/phy/micrel.c                         | 11 ++++++-----
+ 2 files changed, 8 insertions(+), 7 deletions(-)
 
+diff --git a/Documentation/devicetree/bindings/net/micrel.txt b/Documentation/devicetree/bindings/net/micrel.txt
+index 30062fae5623..a1bab5eaae02 100644
+--- a/Documentation/devicetree/bindings/net/micrel.txt
++++ b/Documentation/devicetree/bindings/net/micrel.txt
+@@ -22,5 +22,5 @@ Optional properties:
+  - clocks, clock-names: contains clocks according to the common clock bindings.
+ 
+               supported clocks:
+-	      - KSZ8021, KSZ8031: "rmii-ref": The RMII refence input clock. Used
+-		to determine the XI input clock.
++	      - KSZ8021, KSZ8031, KSZ8081, KSZ8091: "rmii-ref": The RMII
++		refence input clock. Used to determine the XI input clock.
 diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
-index 6a81aaca5b1c..a0e944099020 100644
+index d2e790cd3651..04fbee846b66 100644
 --- a/drivers/net/phy/micrel.c
 +++ b/drivers/net/phy/micrel.c
-@@ -75,6 +75,7 @@
- 
- struct kszphy_type {
- 	u32 led_mode_reg;
-+	bool has_broadcast_disable;
- };
- 
- struct kszphy_priv {
-@@ -96,6 +97,7 @@ static const struct kszphy_type ksz8051_type = {
- 
+@@ -102,6 +102,7 @@ static const struct kszphy_type ksz8051_type = {
  static const struct kszphy_type ksz8081_type = {
  	.led_mode_reg		= MII_KSZPHY_CTRL_2,
-+	.has_broadcast_disable	= true,
+ 	.has_broadcast_disable	= true,
++	.has_rmii_ref_clk_sel	= true,
  };
  
- static int ksz_config_flags(struct phy_device *phydev)
-@@ -247,6 +249,9 @@ static int kszphy_config_init(struct phy_device *phydev)
+ static int kszphy_extended_write(struct phy_device *phydev,
+@@ -548,16 +549,16 @@ static int kszphy_probe(struct phy_device *phydev)
+ 	clk = devm_clk_get(&phydev->dev, "rmii-ref");
+ 	if (!IS_ERR(clk)) {
+ 		unsigned long rate = clk_get_rate(clk);
++		bool rmii_ref_clk_sel_25_mhz;
  
- 	type = priv->type;
+ 		priv->rmii_ref_clk_sel = type->has_rmii_ref_clk_sel;
++		rmii_ref_clk_sel_25_mhz = of_property_read_bool(np,
++				"micrel,rmii-reference-clock-select-25-mhz");
  
-+	if (type->has_broadcast_disable)
-+		kszphy_broadcast_disable(phydev);
-+
- 	if (priv->led_mode >= 0)
- 		kszphy_setup_led(phydev, type->led_mode_reg, priv->led_mode);
- 
-@@ -278,13 +283,6 @@ static int ks8051_config_init(struct phy_device *phydev)
- 	return rc < 0 ? rc : 0;
- }
- 
--static int ksz8081_config_init(struct phy_device *phydev)
--{
--	kszphy_broadcast_disable(phydev);
--
--	return kszphy_config_init(phydev);
--}
--
- static int ksz9021_load_values_from_of(struct phy_device *phydev,
- 				       struct device_node *of_node, u16 reg,
- 				       char *field1, char *field2,
-@@ -692,7 +690,7 @@ static struct phy_driver ksphy_driver[] = {
- 	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
- 	.driver_data	= &ksz8081_type,
- 	.probe		= kszphy_probe,
--	.config_init	= ksz8081_config_init,
-+	.config_init	= kszphy_config_init,
- 	.config_aneg	= genphy_config_aneg,
- 	.read_status	= genphy_read_status,
- 	.ack_interrupt	= kszphy_ack_interrupt,
+-		/* FIXME: add support for PHY revisions that have this bit
+-		 * inverted (e.g. through new property or based on PHY ID).
+-		 */
+ 		if (rate > 24500000 && rate < 25500000) {
+-			priv->rmii_ref_clk_sel_val = false;
++			priv->rmii_ref_clk_sel_val = rmii_ref_clk_sel_25_mhz;
+ 		} else if (rate > 49500000 && rate < 50500000) {
+-			priv->rmii_ref_clk_sel_val = true;
++			priv->rmii_ref_clk_sel_val = !rmii_ref_clk_sel_25_mhz;
+ 		} else {
+ 			dev_err(&phydev->dev, "Clock rate out of range: %ld\n", rate);
+ 			return -EINVAL;
 -- 
 2.0.4
