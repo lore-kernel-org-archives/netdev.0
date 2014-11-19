@@ -1,81 +1,93 @@
-From: Jiri Bohac <jbohac@suse.cz>
-Subject: [PATCH v3] fix locking regression in ipx_sendmsg and ipx_recvmsg
-Date: Wed, 19 Nov 2014 11:38:14 +0100
-Message-ID: <20141119103814.GB19092@midget.suse.cz>
-References: <20141117013448.GA26743@midget.suse.cz>
- <8698539.evYG7fs8jS@wuerfel>
- <20141118221057.GA13473@midget.suse.cz>
- <1609909.1jJeqOzgZ8@wuerfel>
- <20141119103413.GA19092@midget.suse.cz>
+From: Lee Jones <lee.jones@linaro.org>
+Subject: Re: [PATCH 2/7] phy: miphy365x: Pass sysconfig register offsets via
+ syscfg dt property.
+Date: Wed, 19 Nov 2014 10:42:55 +0000
+Message-ID: <20141119104255.GI13959@x1>
+References: <1416385632-5832-1-git-send-email-peter.griffin@linaro.org>
+ <1416385632-5832-3-git-send-email-peter.griffin@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jbohac@suse.cz, Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Arnd Bergmann <arnd@arndb.de>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+	srinivas.kandagatla@gmail.com, maxime.coquelin@st.com,
+	patrice.chotard@st.com, peppe.cavallaro@st.com, kishon@ti.com,
+	arnd@arndb.de, netdev@vger.kernel.org, devicetree@vger.kernel.org,
+	alexandre.torgue@st.com
+To: Peter Griffin <peter.griffin@linaro.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:51775 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754652AbaKSKiQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Nov 2014 05:38:16 -0500
+Received: from mail-ig0-f180.google.com ([209.85.213.180]:36134 "EHLO
+	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755964AbaKSKnD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 05:43:03 -0500
+Received: by mail-ig0-f180.google.com with SMTP id h15so760223igd.1
+        for <netdev@vger.kernel.org>; Wed, 19 Nov 2014 02:43:01 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <20141119103413.GA19092@midget.suse.cz>
+In-Reply-To: <1416385632-5832-3-git-send-email-peter.griffin@linaro.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This fixes an old regression introduced by commit
-b0d0d915 (ipx: remove the BKL).
+On Wed, 19 Nov 2014, Peter Griffin wrote:
 
-When a recvmsg syscall blocks waiting for new data, no data can be sent on the
-same socket with sendmsg because ipx_recvmsg() sleeps with the socket locked.
+> Based on Arnds review comments here https://lkml.org/lkml/2014/11/13/=
+161, update
+> the miphy365 phy driver to access sysconfig register offsets via sysc=
+fg dt property.
+>=20
+> This is because the reg property should not be mixing address spaces =
+like it does
+> currently for miphy365. This change then also aligns us to how other =
+platforms such
+> as keystone and bcm7445 pass there syscon offsets via DT.
+>=20
+> This patch breaks DT compatibility, but this platform is considered W=
+IP, and is only
+> used by a few developers who are upstreaming support for it. This cha=
+nge has been done
+> as a single atomic commit to ensure it is bisectable.
 
-This breaks mars-nwe (NetWare emulator):
-- the ncpserv process reads the request using recvmsg
-- ncpserv forks and spawns nwconn
-- ncpserv calls a (blocking) recvmsg and waits for new requests
-- nwconn deadlocks in sendmsg on the same socket 
+You should wrap your lines sooner (70-75 chars).
 
-Commit b0d0d915 has simply replaced BKL locking with
-lock_sock/release_sock. Unlike now, BKL got unlocked while
-sleeping, so a blocking recvmsg did not block a concurrent
-sendmsg.
+> Signed-off-by: Peter Griffin <peter.griffin@linaro.org>
+> ---
+>  .../devicetree/bindings/phy/phy-miphy365x.txt      | 15 +++++------
+>  arch/arm/boot/dts/stih416.dtsi                     | 10 ++++----
+>  drivers/phy/phy-miphy365x.c                        | 29 ++++++++----=
+----------
+>  3 files changed, 23 insertions(+), 31 deletions(-)
 
-Only keep the socket locked while actually working with the socket data and
-release it prior to calling skb_recv_datagram(). 
+[...]
 
+> diff --git a/drivers/phy/phy-miphy365x.c b/drivers/phy/phy-miphy365x.=
+c
+> index 801afaf..7308afe 100644
+> --- a/drivers/phy/phy-miphy365x.c
+> +++ b/drivers/phy/phy-miphy365x.c
 
-Signed-off-by: Jiri Bohac <jbohac@suse.cz>
+[...]
 
-diff --git a/net/ipx/af_ipx.c b/net/ipx/af_ipx.c
-index a0c7536..d0725d9 100644
---- a/net/ipx/af_ipx.c
-+++ b/net/ipx/af_ipx.c
-@@ -1764,6 +1764,7 @@ static int ipx_recvmsg(struct kiocb *iocb, struct socket *sock,
- 	struct ipxhdr *ipx = NULL;
- 	struct sk_buff *skb;
- 	int copied, rc;
-+	int locked = 1;
- 
- 	lock_sock(sk);
- 	/* put the autobinding in */
-@@ -1790,6 +1791,8 @@ static int ipx_recvmsg(struct kiocb *iocb, struct socket *sock,
- 	if (sock_flag(sk, SOCK_ZAPPED))
- 		goto out;
- 
-+	release_sock(sk);
-+	locked = 0;
- 	skb = skb_recv_datagram(sk, flags & ~MSG_DONTWAIT,
- 				flags & MSG_DONTWAIT, &rc);
- 	if (!skb) {
-@@ -1825,7 +1828,8 @@ static int ipx_recvmsg(struct kiocb *iocb, struct socket *sock,
- out_free:
- 	skb_free_datagram(sk, skb);
- out:
--	release_sock(sk);
-+	if (locked)
-+		release_sock(sk);
- 	return rc;
- }
- 
--- 
-Jiri Bohac <jbohac@suse.cz>
-SUSE Labs, SUSE CZ
+>  		phy_set_drvdata(phy, miphy_dev->phys[port]);
+> +
+>  		port++;
+> +		/*sysconfig offsets are not indexed from zero */
+
+You're missing a ' ' afrer '/*'.
+
+Probably better do say what they _are_ indexed from, rather than what
+they're not.
+
+> +		ret =3D of_property_read_u32_index(np, "st,syscfg", port,
+> +					&miphy_phy->ctrlreg);
+> +		if (ret) {
+> +			dev_err(&pdev->dev, "No sysconfig offset found\n");
+> +			return ret;
+> +		}
+>  	}
+> =20
+>  	provider =3D devm_of_phy_provider_register(&pdev->dev, miphy365x_xl=
+ate);
+
+--=20
+Lee Jones
+Linaro STMicroelectronics Landing Team Lead
+Linaro.org =E2=94=82 Open source software for ARM SoCs
+=46ollow Linaro: Facebook | Twitter | Blog
