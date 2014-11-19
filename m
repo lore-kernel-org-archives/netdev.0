@@ -1,53 +1,64 @@
-From: CENTRAL TRUST LOAN LIMITED <mmtorres@uem.br>
-Subject: =?utf-8?Q?l=C3=A5netilbud?=
-Date: Wed, 19 Nov 2014 12:24:54 -0200 (BRST)
-Message-ID: <11220162.19424281416407094848.JavaMail.root@Sakhir.uem.br>
-Reply-To: "centraltrust_ltd@webadicta.org" <centraltrust_ltd@webadicta.org>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v3] fix locking regression in ipx_sendmsg and ipx_recvmsg
+Date: Wed, 19 Nov 2014 17:38:13 +0300
+Message-ID: <546CAB55.7030102@cogentembedded.com>
+References: <20141117013448.GA26743@midget.suse.cz> <8698539.evYG7fs8jS@wuerfel> <20141118221057.GA13473@midget.suse.cz> <1609909.1jJeqOzgZ8@wuerfel> <20141119103413.GA19092@midget.suse.cz> <20141119103814.GB19092@midget.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Jiri Bohac <jbohac@suse.cz>, Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Barcelona.uem.br ([186.233.154.14]:55102 "EHLO barcelona.uem.br"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752736AbaKSOgk convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 09:36:40 -0500
+Received: from mail-la0-f54.google.com ([209.85.215.54]:49396 "EHLO
+	mail-la0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754004AbaKSOiQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 09:38:16 -0500
+Received: by mail-la0-f54.google.com with SMTP id gf13so583509lab.41
+        for <netdev@vger.kernel.org>; Wed, 19 Nov 2014 06:38:14 -0800 (PST)
+In-Reply-To: <20141119103814.GB19092@midget.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hello.
+
+On 11/19/2014 1:38 PM, Jiri Bohac wrote:
+
+> This fixes an old regression introduced by commit
+> b0d0d915 (ipx: remove the BKL).
+
+> When a recvmsg syscall blocks waiting for new data, no data can be sent on the
+> same socket with sendmsg because ipx_recvmsg() sleeps with the socket locked.
+
+> This breaks mars-nwe (NetWare emulator):
+> - the ncpserv process reads the request using recvmsg
+> - ncpserv forks and spawns nwconn
+> - ncpserv calls a (blocking) recvmsg and waits for new requests
+> - nwconn deadlocks in sendmsg on the same socket
+
+> Commit b0d0d915 has simply replaced BKL locking with
+> lock_sock/release_sock. Unlike now, BKL got unlocked while
+> sleeping, so a blocking recvmsg did not block a concurrent
+> sendmsg.
+
+> Only keep the socket locked while actually working with the socket data and
+> release it prior to calling skb_recv_datagram().
 
 
-Vi er et selskap med =C3=B8konomisk bistand. Vi l=C3=A5ne penger ut til=
- individer trenger =C3=B8konomisk hjelp, som har en d=C3=A5rlig kreditt=
- posten eller behov for penger til =C3=A5 betale regninger, =C3=A5 inve=
-stere p=C3=A5 forretningsreise. Jeg vil bruke dette mediet til =C3=A5 i=
-nformere deg om at vi gjengi p=C3=A5litelig Betalingsmottakers hjelp so=
-m jeg vil gjerne tilby deg et l=C3=A5n p=C3=A5 3% s=C3=A5 ikke n=C3=B8l=
- med =C3=A5 s=C3=B8ke om et l=C3=A5n fordi vi skal gi deg best av v=C3=A5=
-r tjeneste.
+> Signed-off-by: Jiri Bohac <jbohac@suse.cz>
 
-S=C3=98KERINFORMASJON
+> diff --git a/net/ipx/af_ipx.c b/net/ipx/af_ipx.c
+> index a0c7536..d0725d9 100644
+> --- a/net/ipx/af_ipx.c
+> +++ b/net/ipx/af_ipx.c
+> @@ -1764,6 +1764,7 @@ static int ipx_recvmsg(struct kiocb *iocb, struct socket *sock,
+>   	struct ipxhdr *ipx = NULL;
+>   	struct sk_buff *skb;
+>   	int copied, rc;
+> +	int locked = 1;
 
-* Navn p=C3=A5 s=C3=B8keren:
-* Adressen til s=C3=B8keren:
-* By:
-* Land:
-* Kj=C3=B8nn:
-* Sivilstand:
-* Alder:
-* M=C3=A5nedlig inntekt:
-* Yrke:
-* Tel :/ Mobil:
-* Bel=C3=B8p:
-* L=C3=A5n varighet:
-* E-post:
+    Why not *bool*?
 
-Du kan kontakte oss via v=C3=A5r e-postadresse: (centraltrust_ltd@webad=
-icta.org)
-TEL: +447053866981
-Vi venter p=C3=A5 ditt svar.
-David Donald
+[...]
 
---=20
-Esta mensagem foi verificada pelo sistema de antivirus e
- acredita-se estar livre de perigo.
+WBR, Sergei
