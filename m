@@ -1,60 +1,41 @@
-From: Wengang <wen.gang.wang@oracle.com>
-Subject: Re: [PATCH] bonding: clear header_ops when last slave detached (v2)
-Date: Wed, 19 Nov 2014 15:00:50 +0800
-Message-ID: <546C4022.5010509@oracle.com>
-References: <1416374292-10993-1-git-send-email-wen.gang.wang@oracle.com> <1416375565.14060.43.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net] virtio-net: validate features during probe
+Date: Wed, 19 Nov 2014 15:07:17 +0800
+Message-ID: <546C41A5.6090306@redhat.com>
+References: <1416378939-28821-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:24496 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932091AbaKSG71 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 01:59:27 -0500
-In-Reply-To: <1416375565.14060.43.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: rusty@rustcorp.com.au, mst@redhat.com,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1416378939-28821-1-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Hi Eric,
+On 11/19/2014 02:35 PM, Jason Wang wrote:
+> This patch validates feature dependencies during probe and fail the probing
+> if a dependency is missed. This fixes the issues of hitting BUG()
+> when qemu fails to advertise features correctly. One example is booting
+> guest with ctrl_vq=off through qemu.
+>
+> Cc: Rusty Russell <rusty@rustcorp.com.au>
+> Cc: Michael S. Tsirkin <mst@redhat.com>
+> Cc: Cornelia Huck <cornelia.huck@de.ibm.com>
+> Cc: Wanlong Gao <gaowanlong@cn.fujitsu.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> ---
 
-=E4=BA=8E 2014=E5=B9=B411=E6=9C=8819=E6=97=A5 13:39, Eric Dumazet =E5=86=
-=99=E9=81=93:
-> On Wed, 2014-11-19 at 13:18 +0800, Wengang Wang wrote:
->> When last slave of a bonding master is removed, the bonding then doe=
-s not work.
->> When packet_snd is called against with a master net_device, it acces=
-ses
->> header_ops. In case the header_ops is not valid any longer(say ipoib=
- module
->> unloaded), it will then access an invalid memory address.
->> This patch try to fix this issue by clearing header_ops when last sl=
-ave
->> detached.
->>
->> Signed-off-by: Wengang Wang <wen.gang.wang@oracle.com>
->> ---
->>   drivers/net/bonding/bond_main.c | 1 +
->>   1 file changed, 1 insertion(+)
-> It seems you basically ignored my feedback.
->
->
->
-> Some code is doing :
->
-> [A] if (dev->header_ops) {
->      ...
-> [B]    dev->header_ops->XXX()
->
->
->
-> Nothing prevents you doing the clear after [A] , and before [B]
->
-
-Yes, that's true. So the simplest way is move ipoib_header_ops to vmlin=
-ux.
-
-thanks for review.
-wengang
+Just notice UFO has been disabled after
+3d0ad09412ffe00c9afa201d01effdb6023d09b4 "drivers/net: Disable UFO
+through virtio". Will post V2 and drop VIRTIO_NET_F_*_UFO from the
+checklist.
