@@ -1,72 +1,94 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next] net: sctp: keep owned chunk in destructor_arg instead of skb->cb
-Date: Thu, 20 Nov 2014 00:21:06 +0100
-Message-ID: <1416439266-11396-1-git-send-email-dborkman@redhat.com>
-Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Subject: [net-next PATCH v2] ixgbe: Remove IXGBE_FLAG_IN_NETPOLL since it
+ doesn't do anything
+Date: Wed, 19 Nov 2014 15:28:01 -0800
+Message-ID: <20141119232710.19544.20012.stgit@ahduyck-vm-fedora20>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: donald.c.skidmore@intel.com, jeffrey.t.kirsher@intel.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46689 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:49807 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756738AbaKSXVJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Nov 2014 18:21:09 -0500
+	id S932472AbaKSX2E (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Nov 2014 18:28:04 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It's just silly to hold the skb destructor argument around inside
-skb->cb[] as we currently do in SCTP.
+This patch removes some dead code from the cleanup path for ixgbe.
 
-Though this has been around forever, I'm inclined to say that prior
-to 4c3a5bdae293 ("sctp: Don't charge for data in sndbuf again when
-transmitting packet") this may well have caused issues as doing so
-violates the cb[] usage accross layers; before 4c3a5bdae293-times,
-we have charged twice for data, and when destructor kicks in, cb[]
-could have been overwritten already by someone else.
+Setting and clearing the flag doesn't do anything since all we are doing is
+setting the flag, scheduling napi, clearing the flag and then letting
+netpoll do the polling cleanup.  As such it doesn't make much sense to have
+it there.
 
-Nowadays, we're sort of cheating on data accounting in the sense
-that due to commit 4c3a5bdae293, we orphan the skb already in the
-SCTP output path, and use a different destructor only to make sure
-the sk doesn't vanish on skb destruction time. Thus, cb[] is still
-valid here as we operate within the SCTP layer. It's actually a big
-candidate for future rework, imho.
+This patch also removes one minor white-space error.
 
-Anyhow, lets keep the chunk in destructor_arg, as this is the actual
-purpose for it so that in future, we don't run into trouble.
-
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
 ---
- net/sctp/socket.c | 12 ++++--------
- 1 file changed, 4 insertions(+), 8 deletions(-)
 
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index 2120292..85e0b65 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -162,7 +162,7 @@ static inline void sctp_set_owner_w(struct sctp_chunk *chunk)
- 
- 	chunk->skb->destructor = sctp_wfree;
- 	/* Save the chunk pointer in skb for sctp_wfree to use later.  */
--	*((struct sctp_chunk **)(chunk->skb->cb)) = chunk;
-+	skb_shinfo(chunk->skb)->destructor_arg = chunk;
- 
- 	asoc->sndbuf_used += SCTP_DATA_SNDSIZE(chunk) +
- 				sizeof(struct sk_buff) +
-@@ -6870,14 +6870,10 @@ static void sctp_wake_up_waiters(struct sock *sk,
-  */
- static void sctp_wfree(struct sk_buff *skb)
+v2: Fixed an unused variable warning for adapter in ixgbe_rx_skb
+
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h      |    1 -
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   18 ++++--------------
+ 2 files changed, 4 insertions(+), 15 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+index 86fa607..f7d46b3 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+@@ -610,7 +610,6 @@ struct ixgbe_adapter {
+ #define IXGBE_FLAG_RX_1BUF_CAPABLE              (u32)(1 << 4)
+ #define IXGBE_FLAG_RX_PS_CAPABLE                (u32)(1 << 5)
+ #define IXGBE_FLAG_RX_PS_ENABLED                (u32)(1 << 6)
+-#define IXGBE_FLAG_IN_NETPOLL                   (u32)(1 << 7)
+ #define IXGBE_FLAG_DCA_ENABLED                  (u32)(1 << 8)
+ #define IXGBE_FLAG_DCA_CAPABLE                  (u32)(1 << 9)
+ #define IXGBE_FLAG_IMIR_ENABLED                 (u32)(1 << 10)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 7c4d3b3..3dfec61 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -1583,14 +1583,10 @@ static void ixgbe_process_skb_fields(struct ixgbe_ring *rx_ring,
+ static void ixgbe_rx_skb(struct ixgbe_q_vector *q_vector,
+ 			 struct sk_buff *skb)
  {
--	struct sctp_association *asoc;
--	struct sctp_chunk *chunk;
--	struct sock *sk;
-+	struct sctp_chunk *chunk = skb_shinfo(skb)->destructor_arg;
-+	struct sctp_association *asoc = chunk->asoc;
-+	struct sock *sk = asoc->base.sk;
+-	struct ixgbe_adapter *adapter = q_vector->adapter;
+-
+ 	if (ixgbe_qv_busy_polling(q_vector))
+ 		netif_receive_skb(skb);
+-	else if (!(adapter->flags & IXGBE_FLAG_IN_NETPOLL))
+-		napi_gro_receive(&q_vector->napi, skb);
+ 	else
+-		netif_rx(skb);
++		napi_gro_receive(&q_vector->napi, skb);
+ }
  
--	/* Get the saved chunk pointer.  */
--	chunk = *((struct sctp_chunk **)(skb->cb));
--	asoc = chunk->asoc;
--	sk = asoc->base.sk;
- 	asoc->sndbuf_used -= SCTP_DATA_SNDSIZE(chunk) +
- 				sizeof(struct sk_buff) +
- 				sizeof(struct sctp_chunk);
--- 
-1.7.11.7
+ /**
+@@ -6064,7 +6060,6 @@ static void ixgbe_check_hang_subtask(struct ixgbe_adapter *adapter)
+ 
+ 	/* Cause software interrupt to ensure rings are cleaned */
+ 	ixgbe_irq_rearm_queues(adapter, eics);
+-
+ }
+ 
+ /**
+@@ -7397,14 +7392,9 @@ static void ixgbe_netpoll(struct net_device *netdev)
+ 	if (test_bit(__IXGBE_DOWN, &adapter->state))
+ 		return;
+ 
+-	adapter->flags |= IXGBE_FLAG_IN_NETPOLL;
+-	if (adapter->flags & IXGBE_FLAG_MSIX_ENABLED) {
+-		for (i = 0; i < adapter->num_q_vectors; i++)
+-			ixgbe_msix_clean_rings(0, adapter->q_vector[i]);
+-	} else {
+-		ixgbe_intr(adapter->pdev->irq, netdev);
+-	}
+-	adapter->flags &= ~IXGBE_FLAG_IN_NETPOLL;
++	/* loop through and schedule all active queues */
++	for (i = 0; i < adapter->num_q_vectors; i++)
++		ixgbe_msix_clean_rings(0, adapter->q_vector[i]);
+ }
+ 
+ #endif
