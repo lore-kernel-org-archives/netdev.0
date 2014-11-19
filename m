@@ -1,318 +1,309 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch iproute2 v4] tc: add support for vlan tc action
-Date: Wed, 19 Nov 2014 14:08:26 +0100
-Message-ID: <1416402506-31852-1-git-send-email-jiri@resnulli.us>
-References: <1416402303-25341-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, jhs@mojatatu.com, pshelar@nicira.com,
-	therbert@google.com, edumazet@google.com, willemb@google.com,
-	dborkman@redhat.com, mst@redhat.com, fw@strlen.de,
-	Paul.Durrant@citrix.com, tgraf@suug.ch, cwang@twopensource.com
-To: netdev@vger.kernel.org
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [patch net-next v2 02/10] net: introduce generic switch devices
+ support
+Date: Wed, 19 Nov 2014 05:28:10 -0800
+Message-ID: <546C9AEA.2020209@cumulusnetworks.com>
+References: <1415530280-9190-1-git-send-email-jiri@resnulli.us> <1415530280-9190-3-git-send-email-jiri@resnulli.us>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
+	andy@greyhouse.net, tgraf@suug.ch, dborkman@redhat.com,
+	ogerlitz@mellanox.com, jesse@nicira.com, pshelar@nicira.com,
+	azhou@nicira.com, ben@decadent.org.uk, stephen@networkplumber.org,
+	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
+	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
+	edumazet@google.com, jhs@mojatatu.com, sfeldma@gmail.com,
+	f.fainelli@gmail.com, linville@tuxdriver.com, jasowang@redhat.com,
+	ebiederm@xmission.com, nicolas.dichtel@6wind.com,
+	ryazanov.s.a@gmail.com, buytenh@wantstofly.org,
+	aviadr@mellanox.com, nbd@openwrt.org, alexei.starovoitov@gmail.com,
+	Neil.Jerram@metaswitch.com, ronye@mellanox.com,
+	simon.horman@netronome.com, alexander.h.duyck@redhat.com,
+	john.ronciak@intel.com, mleitner@redhat.com, shrijeet@gmail.com,
+	gospo@cumulusnetworks.com, bcrl@kvack.org
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f182.google.com ([209.85.212.182]:55489 "EHLO
-	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754368AbaKSNIi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 08:08:38 -0500
-Received: by mail-wi0-f182.google.com with SMTP id h11so1772541wiw.9
-        for <netdev@vger.kernel.org>; Wed, 19 Nov 2014 05:08:37 -0800 (PST)
-In-Reply-To: <1416402303-25341-1-git-send-email-jiri@resnulli.us>
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:33186 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750759AbaKSN2X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 08:28:23 -0500
+In-Reply-To: <1415530280-9190-3-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-Reviewed-by: Cong Wang <cwang@twopensource.com>
----
+On 11/9/14, 2:51 AM, Jiri Pirko wrote:
+> The goal of this is to provide a possibility to support various switch
+> chips. Drivers should implement relevant ndos to do so. Now there is
+> only one ndo defined:
+> - for getting physical switch id is in place.
+>
+> Note that user can use random port netdevice to access the switch.
+>
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> ---
+>   Documentation/networking/switchdev.txt | 59 ++++++++++++++++++++++++++++++++++
+>   MAINTAINERS                            |  7 ++++
+>   include/linux/netdevice.h              | 10 ++++++
+>   include/net/switchdev.h                | 30 +++++++++++++++++
+>   net/Kconfig                            |  1 +
+>   net/Makefile                           |  3 ++
+>   net/switchdev/Kconfig                  | 13 ++++++++
+>   net/switchdev/Makefile                 |  5 +++
+>   net/switchdev/switchdev.c              | 33 +++++++++++++++++++
+>   9 files changed, 161 insertions(+)
+>   create mode 100644 Documentation/networking/switchdev.txt
+>   create mode 100644 include/net/switchdev.h
+>   create mode 100644 net/switchdev/Kconfig
+>   create mode 100644 net/switchdev/Makefile
+>   create mode 100644 net/switchdev/switchdev.c
+>
+> diff --git a/Documentation/networking/switchdev.txt b/Documentation/networking/switchdev.txt
+> new file mode 100644
+> index 0000000..98be76c
+> --- /dev/null
+> +++ b/Documentation/networking/switchdev.txt
+> @@ -0,0 +1,59 @@
+> +Switch (and switch-ish) device drivers HOWTO
+> +===========================
+> +
+> +Please note that the word "switch" is here used in very generic meaning.
+> +This include devices supporting L2/L3 but also various flow offloading chips,
+> +including switches embedded into SR-IOV NICs.
+> +
+> +Lets describe a topology a bit. Imagine the following example:
+> +
+> +       +----------------------------+    +---------------+
+> +       |     SOME switch chip       |    |      CPU      |
+> +       +----------------------------+    +---------------+
+> +       port1 port2 port3 port4 MNGMNT    |     PCI-E     |
+> +         |     |     |     |     |       +---------------+
+> +        PHY   PHY    |     |     |         |  NIC0 NIC1
+> +                     |     |     |         |   |    |
+> +                     |     |     +- PCI-E -+   |    |
+> +                     |     +------- MII -------+    |
+> +                     +------------- MII ------------+
+> +
+> +In this example, there are two independent lines between the switch silicon
+> +and CPU. NIC0 and NIC1 drivers are not aware of a switch presence. They are
+> +separate from the switch driver. SOME switch chip is by managed by a driver
+> +via PCI-E device MNGMNT. Note that MNGMNT device, NIC0 and NIC1 may be
+> +connected to some other type of bus.
+> +
+> +Now, for the previous example show the representation in kernel:
+> +
+> +       +----------------------------+    +---------------+
+> +       |     SOME switch chip       |    |      CPU      |
+> +       +----------------------------+    +---------------+
+> +       sw0p0 sw0p1 sw0p2 sw0p3 MNGMNT    |     PCI-E     |
+> +         |     |     |     |     |       +---------------+
+> +        PHY   PHY    |     |     |         |  eth0 eth1
+> +                     |     |     |         |   |    |
+> +                     |     |     +- PCI-E -+   |    |
+> +                     |     +------- MII -------+    |
+> +                     +------------- MII ------------+
+> +
+> +Lets call the example switch driver for SOME switch chip "SOMEswitch". This
+> +driver takes care of PCI-E device MNGMNT. There is a netdevice instance sw0pX
+> +created for each port of a switch. These netdevices are instances
+> +of "SOMEswitch" driver. sw0pX netdevices serve as a "representation"
+> +of the switch chip. eth0 and eth1 are instances of some other existing driver.
+> +
+> +The only difference of the switch-port netdevice from the ordinary netdevice
+> +is that is implements couple more NDOs:
+> +
+> +	ndo_sw_parent_get_id - This returns the same ID for two port netdevices
+> +			       of the same physical switch chip. This is
+> +			       mandatory to be implemented by all switch drivers
+> +			       and serves the caller for recognition of a port
+> +			       netdevice.
+> +	ndo_sw_parent_* - Functions that serve for a manipulation of the switch
+> +			  chip itself (it can be though of as a "parent" of the
+> +			  port, therefore the name). They are not port-specific.
+> +			  Caller might use arbitrary port netdevice of the same
+> +			  switch and it will make no difference.
+> +	ndo_sw_port_* - Functions that serve for a port-specific manipulation.
+> diff --git a/MAINTAINERS b/MAINTAINERS
+> index 3a41fb0..776e078 100644
+> --- a/MAINTAINERS
+> +++ b/MAINTAINERS
+> @@ -9003,6 +9003,13 @@ F:	lib/swiotlb.c
+>   F:	arch/*/kernel/pci-swiotlb.c
+>   F:	include/linux/swiotlb.h
+>   
+> +SWITCHDEV
+> +M:	Jiri Pirko <jiri@resnulli.us>
+> +L:	netdev@vger.kernel.org
+> +S:	Supported
+> +F:	net/switchdev/
+> +F:	include/net/switchdev.h
+> +
+>   SYNOPSYS ARC ARCHITECTURE
+>   M:	Vineet Gupta <vgupta@synopsys.com>
+>   S:	Supported
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index 71922e0..97eade9 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -1017,6 +1017,12 @@ typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
+>    *	performing GSO on a packet. The device returns true if it is
+>    *	able to GSO the packet, false otherwise. If the return value is
+>    *	false the stack will do software GSO.
+> + *
+> + * int (*ndo_sw_parent_id_get)(struct net_device *dev,
+> + *			       struct netdev_phys_item_id *psid);
+> + *	Called to get an ID of the switch chip this port is part of.
+> + *	If driver implements this, it indicates that it represents a port
+> + *	of a switch chip.
+>    */
+>   struct net_device_ops {
+>   	int			(*ndo_init)(struct net_device *dev);
+> @@ -1168,6 +1174,10 @@ struct net_device_ops {
+>   	int			(*ndo_get_lock_subclass)(struct net_device *dev);
+>   	bool			(*ndo_gso_check) (struct sk_buff *skb,
+>   						  struct net_device *dev);
+> +#ifdef CONFIG_NET_SWITCHDEV
+> +	int			(*ndo_sw_parent_id_get)(struct net_device *dev,
+> +							struct netdev_phys_item_id *psid);
+Can we keep the name generic and not include "sw" which implies switch 
+here ?.
+I understand that it is under CONFIG_NET_SWITCHDEV but we might find use 
+for them in other offload scenarios in the future.
+This particular ndo can be just ndo_parent_id_get().
+And the others that do specific offloads can have "offload" in them if 
+required..?.
 
-v1->v2:
-- included changes suggested by Jamal
 
- include/linux/tc_act/tc_vlan.h |  35 +++++++
- tc/Makefile                    |   1 +
- tc/m_vlan.c                    | 221 +++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 257 insertions(+)
- create mode 100644 include/linux/tc_act/tc_vlan.h
- create mode 100644 tc/m_vlan.c
 
-diff --git a/include/linux/tc_act/tc_vlan.h b/include/linux/tc_act/tc_vlan.h
-new file mode 100644
-index 0000000..f7b8d44
---- /dev/null
-+++ b/include/linux/tc_act/tc_vlan.h
-@@ -0,0 +1,35 @@
-+/*
-+ * Copyright (c) 2014 Jiri Pirko <jiri@resnulli.us>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
-+
-+#ifndef __LINUX_TC_VLAN_H
-+#define __LINUX_TC_VLAN_H
-+
-+#include <linux/pkt_cls.h>
-+
-+#define TCA_ACT_VLAN 12
-+
-+#define TCA_VLAN_ACT_POP	1
-+#define TCA_VLAN_ACT_PUSH	2
-+
-+struct tc_vlan {
-+	tc_gen;
-+	int v_action;
-+};
-+
-+enum {
-+	TCA_VLAN_UNSPEC,
-+	TCA_VLAN_TM,
-+	TCA_VLAN_PARMS,
-+	TCA_VLAN_PUSH_VLAN_ID,
-+	TCA_VLAN_PUSH_VLAN_PROTOCOL,
-+	__TCA_VLAN_MAX,
-+};
-+#define TCA_VLAN_MAX (__TCA_VLAN_MAX - 1)
-+
-+#endif
-diff --git a/tc/Makefile b/tc/Makefile
-index 1ab36c6..830c97d 100644
---- a/tc/Makefile
-+++ b/tc/Makefile
-@@ -40,6 +40,7 @@ TCMODULES += m_pedit.o
- TCMODULES += m_skbedit.o
- TCMODULES += m_csum.o
- TCMODULES += m_simple.o
-+TCMODULES += m_vlan.o
- TCMODULES += p_ip.o
- TCMODULES += p_icmp.o
- TCMODULES += p_tcp.o
-diff --git a/tc/m_vlan.c b/tc/m_vlan.c
-new file mode 100644
-index 0000000..872bf72
---- /dev/null
-+++ b/tc/m_vlan.c
-@@ -0,0 +1,221 @@
-+/*
-+ * m_vlan.c		vlan manipulation module
-+ *
-+ *              This program is free software; you can redistribute it and/or
-+ *              modify it under the terms of the GNU General Public License
-+ *              as published by the Free Software Foundation; either version
-+ *              2 of the License, or (at your option) any later version.
-+ *
-+ * Authors:     Jiri Pirko <jiri@resnulli.us>
-+ */
-+
-+#include <stdio.h>
-+#include <stdlib.h>
-+#include <unistd.h>
-+#include <string.h>
-+#include <linux/if_ether.h>
-+#include "utils.h"
-+#include "rt_names.h"
-+#include "tc_util.h"
-+#include <linux/tc_act/tc_vlan.h>
-+
-+static void explain(void)
-+{
-+	fprintf(stderr, "Usage: vlan pop\n");
-+	fprintf(stderr, "       vlan push [ protocol VLANPROTO ] id VLANID\n");
-+	fprintf(stderr, "       VLANPROTO is one of 802.1Q or 802.1AD\n");
-+	fprintf(stderr, "            with default: 802.1Q\n");
-+}
-+
-+static void usage(void)
-+{
-+	explain();
-+	exit(-1);
-+}
-+
-+static int parse_vlan(struct action_util *a, int *argc_p, char ***argv_p,
-+		      int tca_id, struct nlmsghdr *n)
-+{
-+	int argc = *argc_p;
-+	char **argv = *argv_p;
-+	struct rtattr *tail;
-+	int action = 0;
-+	__u16 id;
-+	int id_set = 0;
-+	__u16 proto;
-+	int proto_set = 0;
-+	struct tc_vlan parm = { 0 };
-+
-+	if (matches(*argv, "vlan") != 0)
-+		return -1;
-+
-+	NEXT_ARG();
-+
-+	while (argc > 0) {
-+		if (matches(*argv, "pop") == 0) {
-+			if (action) {
-+				fprintf(stderr, "unexpexted \"%s\" - action already specified\n",
-+					*argv);
-+				explain();
-+				return -1;
-+			}
-+			action = TCA_VLAN_ACT_POP;
-+		} else if (matches(*argv, "push") == 0) {
-+			if (action) {
-+				fprintf(stderr, "unexpexted \"%s\" - action already specified\n",
-+					*argv);
-+				explain();
-+				return -1;
-+			}
-+			action = TCA_VLAN_ACT_PUSH;
-+		} else if (matches(*argv, "id") == 0) {
-+			if (action != TCA_VLAN_ACT_PUSH) {
-+				fprintf(stderr, "\"%s\" is only valid for push\n",
-+					*argv);
-+				explain();
-+				return -1;
-+			}
-+			NEXT_ARG();
-+			if (get_u16(&id, *argv, 0))
-+				invarg("id is invalid", *argv);
-+			id_set = 1;
-+		} else if (matches(*argv, "protocol") == 0) {
-+			if (action != TCA_VLAN_ACT_PUSH) {
-+				fprintf(stderr, "\"%s\" is only valid for push\n",
-+					*argv);
-+				explain();
-+				return -1;
-+			}
-+			NEXT_ARG();
-+			if (ll_proto_a2n(&proto, *argv))
-+				invarg("protocol is invalid", *argv);
-+			proto_set = 1;
-+		} else if (matches(*argv, "help") == 0) {
-+			usage();
-+		} else {
-+			break;
-+		}
-+		argc--;
-+		argv++;
-+	}
-+
-+	parm.action = TC_ACT_PIPE;
-+	if (argc) {
-+		if (matches(*argv, "reclassify") == 0) {
-+			parm.action = TC_ACT_RECLASSIFY;
-+			NEXT_ARG();
-+		} else if (matches(*argv, "pipe") == 0) {
-+			parm.action = TC_ACT_PIPE;
-+			NEXT_ARG();
-+		} else if (matches(*argv, "drop") == 0 ||
-+			   matches(*argv, "shot") == 0) {
-+			parm.action = TC_ACT_SHOT;
-+			NEXT_ARG();
-+		} else if (matches(*argv, "continue") == 0) {
-+			parm.action = TC_ACT_UNSPEC;
-+			NEXT_ARG();
-+		} else if (matches(*argv, "pass") == 0) {
-+			parm.action = TC_ACT_OK;
-+			NEXT_ARG();
-+		}
-+	}
-+
-+	if (argc) {
-+		if (matches(*argv, "index") == 0) {
-+			NEXT_ARG();
-+			if (get_u32(&parm.index, *argv, 10)) {
-+				fprintf(stderr, "vlan: Illegal \"index\"\n");
-+				return -1;
-+			}
-+			argc--;
-+			argv++;
-+		}
-+	}
-+
-+	if (action == TCA_VLAN_ACT_PUSH && !id_set) {
-+		fprintf(stderr, "id needs to be set for push\n");
-+		explain();
-+		return -1;
-+	}
-+
-+	parm.v_action = action;
-+	tail = NLMSG_TAIL(n);
-+	addattr_l(n, MAX_MSG, tca_id, NULL, 0);
-+	addattr_l(n, MAX_MSG, TCA_VLAN_PARMS, &parm, sizeof(parm));
-+	if (id_set)
-+		addattr_l(n, MAX_MSG, TCA_VLAN_PUSH_VLAN_ID, &id, 2);
-+	if (proto_set) {
-+		if (proto != htons(ETH_P_8021Q) &&
-+		    proto != htons(ETH_P_8021AD)) {
-+			fprintf(stderr, "protocol not supported\n");
-+			explain();
-+			return -1;
-+		}
-+
-+		addattr_l(n, MAX_MSG, TCA_VLAN_PUSH_VLAN_PROTOCOL, &proto, 2);
-+	}
-+	tail->rta_len = (char *)NLMSG_TAIL(n) - (char *)tail;
-+
-+	*argc_p = argc;
-+	*argv_p = argv;
-+	return 0;
-+}
-+
-+static int print_vlan(struct action_util *au, FILE *f, struct rtattr *arg)
-+{
-+	SPRINT_BUF(b1);
-+	struct rtattr *tb[TCA_VLAN_MAX + 1];
-+	__u16 val;
-+	struct tc_vlan *parm;
-+
-+	if (arg == NULL)
-+		return -1;
-+
-+	parse_rtattr_nested(tb, TCA_VLAN_MAX, arg);
-+
-+	if (!tb[TCA_VLAN_PARMS]) {
-+		fprintf(f, "[NULL vlan parameters]");
-+		return -1;
-+	}
-+	parm = RTA_DATA(tb[TCA_VLAN_PARMS]);
-+
-+	fprintf(f, " vlan");
-+
-+	switch(parm->v_action) {
-+	case TCA_VLAN_ACT_POP:
-+		fprintf(f, " pop");
-+		break;
-+	case TCA_VLAN_ACT_PUSH:
-+		fprintf(f, " push");
-+		if (tb[TCA_VLAN_PUSH_VLAN_ID]) {
-+			val = rta_getattr_u16(tb[TCA_VLAN_PUSH_VLAN_ID]);
-+			fprintf(f, " id %u", val);
-+		}
-+		if (tb[TCA_VLAN_PUSH_VLAN_PROTOCOL]) {
-+			fprintf(f, " protocol %s",
-+				ll_proto_n2a(rta_getattr_u16(tb[TCA_VLAN_PUSH_VLAN_PROTOCOL]),
-+					     b1, sizeof(b1)));
-+		}
-+		break;
-+	}
-+
-+	fprintf(f, "\n\t index %d ref %d bind %d", parm->index, parm->refcnt,
-+		parm->bindcnt);
-+
-+	if (show_stats) {
-+		if (tb[TCA_VLAN_TM]) {
-+			struct tcf_t *tm = RTA_DATA(tb[TCA_VLAN_TM]);
-+			print_tm(f, tm);
-+		}
-+	}
-+
-+	fprintf(f, "\n ");
-+
-+	return 0;
-+}
-+
-+struct action_util vlan_action_util = {
-+	.id = "vlan",
-+	.parse_aopt = parse_vlan,
-+	.print_aopt = print_vlan,
-+};
--- 
-1.9.3
+> +#endif
+>   };
+>   
+>   /**
+> diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+> new file mode 100644
+> index 0000000..79bf9bd
+> --- /dev/null
+> +++ b/include/net/switchdev.h
+> @@ -0,0 +1,30 @@
+> +/*
+> + * include/net/switchdev.h - Switch device API
+> + * Copyright (c) 2014 Jiri Pirko <jiri@resnulli.us>
+> + *
+> + * This program is free software; you can redistribute it and/or modify
+> + * it under the terms of the GNU General Public License as published by
+> + * the Free Software Foundation; either version 2 of the License, or
+> + * (at your option) any later version.
+> + */
+> +#ifndef _LINUX_SWITCHDEV_H_
+> +#define _LINUX_SWITCHDEV_H_
+> +
+> +#include <linux/netdevice.h>
+> +
+> +#ifdef CONFIG_NET_SWITCHDEV
+> +
+> +int netdev_sw_parent_id_get(struct net_device *dev,
+> +			    struct netdev_phys_item_id *psid);
+> +
+> +#else
+> +
+> +static inline int netdev_sw_parent_id_get(struct net_device *dev,
+> +					  struct netdev_phys_item_id *psid)
+> +{
+> +	return -EOPNOTSUPP;
+> +}
+> +
+> +#endif
+> +
+> +#endif /* _LINUX_SWITCHDEV_H_ */
+> diff --git a/net/Kconfig b/net/Kconfig
+> index 99815b5..ff9ffc1 100644
+> --- a/net/Kconfig
+> +++ b/net/Kconfig
+> @@ -228,6 +228,7 @@ source "net/vmw_vsock/Kconfig"
+>   source "net/netlink/Kconfig"
+>   source "net/mpls/Kconfig"
+>   source "net/hsr/Kconfig"
+> +source "net/switchdev/Kconfig"
+>   
+>   config RPS
+>   	boolean
+> diff --git a/net/Makefile b/net/Makefile
+> index 7ed1970..95fc694 100644
+> --- a/net/Makefile
+> +++ b/net/Makefile
+> @@ -73,3 +73,6 @@ obj-$(CONFIG_OPENVSWITCH)	+= openvswitch/
+>   obj-$(CONFIG_VSOCKETS)	+= vmw_vsock/
+>   obj-$(CONFIG_NET_MPLS_GSO)	+= mpls/
+>   obj-$(CONFIG_HSR)		+= hsr/
+> +ifneq ($(CONFIG_NET_SWITCHDEV),)
+> +obj-y				+= switchdev/
+> +endif
+> diff --git a/net/switchdev/Kconfig b/net/switchdev/Kconfig
+> new file mode 100644
+> index 0000000..1557545
+> --- /dev/null
+> +++ b/net/switchdev/Kconfig
+> @@ -0,0 +1,13 @@
+> +#
+> +# Configuration for Switch device support
+> +#
+> +
+> +config NET_SWITCHDEV
+> +	boolean "Switch (and switch-ish) device support (EXPERIMENTAL)"
+> +	depends on INET
+> +	---help---
+> +	  This module provides glue between core networking code and device
+> +	  drivers in order to support hardware switch chips in very generic
+> +	  meaning of the word "switch". This include devices supporting L2/L3 but
+> +	  also various flow offloading chips, including switches embedded into
+> +	  SR-IOV NICs.
+> diff --git a/net/switchdev/Makefile b/net/switchdev/Makefile
+> new file mode 100644
+> index 0000000..5ed63ed
+> --- /dev/null
+> +++ b/net/switchdev/Makefile
+> @@ -0,0 +1,5 @@
+> +#
+> +# Makefile for the Switch device API
+> +#
+> +
+> +obj-$(CONFIG_NET_SWITCHDEV) += switchdev.o
+> diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+> new file mode 100644
+> index 0000000..5010f646
+> --- /dev/null
+> +++ b/net/switchdev/switchdev.c
+> @@ -0,0 +1,33 @@
+> +/*
+> + * net/switchdev/switchdev.c - Switch device API
+> + * Copyright (c) 2014 Jiri Pirko <jiri@resnulli.us>
+> + *
+> + * This program is free software; you can redistribute it and/or modify
+> + * it under the terms of the GNU General Public License as published by
+> + * the Free Software Foundation; either version 2 of the License, or
+> + * (at your option) any later version.
+> + */
+> +
+> +#include <linux/kernel.h>
+> +#include <linux/types.h>
+> +#include <linux/init.h>
+> +#include <linux/netdevice.h>
+> +#include <net/switchdev.h>
+> +
+> +/**
+> + *	netdev_sw_parent_id_get - Get ID of a switch
+> + *	@dev: port device
+> + *	@psid: switch ID
+> + *
+> + *	Get ID of a switch this port is part of.
+> + */
+> +int netdev_sw_parent_id_get(struct net_device *dev,
+> +			    struct netdev_phys_item_id *psid)
+> +{
+> +	const struct net_device_ops *ops = dev->netdev_ops;
+> +
+> +	if (!ops->ndo_sw_parent_id_get)
+> +		return -EOPNOTSUPP;
+> +	return ops->ndo_sw_parent_id_get(dev, psid);
+> +}
+> +EXPORT_SYMBOL(netdev_sw_parent_id_get);
