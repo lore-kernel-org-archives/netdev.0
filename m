@@ -1,40 +1,50 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: net: xfrm: Deletion of an unnecessary check before the function
- call "ipcomp_free_tfms"
-Date: Wed, 19 Nov 2014 13:10:03 +0300
-Message-ID: <20141119101003.GL4905@mwanda>
-References: <530CD2C4.4050903@users.sourceforge.net>
- <alpine.DEB.2.10.1402251840450.7035@hadrien>
- <530CF8FF.8080600@users.sourceforge.net>
- <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6>
- <530DD06F.4090703@users.sourceforge.net>
- <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>
- <5317A59D.4@users.sourceforge.net>
- <546BAFF5.5020603@users.sourceforge.net>
- <20141119084542.GK4905@mwanda>
- <546C6823.50900@users.sourceforge.net>
+From: Jiri Bohac <jbohac@suse.cz>
+Subject: Re: ipx: fix locking regression in ipx_sendmsg and ipx_recvmsg
+Date: Wed, 19 Nov 2014 11:34:13 +0100
+Message-ID: <20141119103413.GA19092@midget.suse.cz>
+References: <20141117013448.GA26743@midget.suse.cz>
+ <8698539.evYG7fs8jS@wuerfel>
+ <20141118221057.GA13473@midget.suse.cz>
+ <1609909.1jJeqOzgZ8@wuerfel>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: SF Markus Elfring <elfring@users.sourceforge.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Jiri Bohac <jbohac@suse.cz>,
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor2.suse.de ([195.135.220.15]:51714 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753650AbaKSKeQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Nov 2014 05:34:16 -0500
 Content-Disposition: inline
-In-Reply-To: <546C6823.50900@users.sourceforge.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1609909.1jJeqOzgZ8@wuerfel>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-I have come to view you as a very clever troll.  You will say
-infuriating things like "That is an interesting background information
-but the function implementation update suggestion is correct" and
-pretend to not see the bug for nine emails.  Then you'll say something
-"Ha ha, I audited all the call trees and it can't actually be NULL so
-you were getting angry for no reason."  Except you'll say it in a
-more obfuscated way than that.  This is what you did last time.
+On Wed, Nov 19, 2014 at 09:32:54AM +0100, Arnd Bergmann wrote:
+> I'm more interested in the code structure, in particular this bit
+> 
+> @@ -1807,8 +1812,10 @@ static int ipx_recvmsg(struct kiocb *iocb, struct socket *sock,
+>  
+>         rc = skb_copy_datagram_iovec(skb, sizeof(struct ipxhdr), msg->msg_iov,
+>                                      copied);
+> -       if (rc)
+> -               goto out_free;
+> +       if (rc) {
+> +               skb_free_datagram(sk, skb);
+> +               goto out;
+> +       }
+> 
+> 
+> after your change mixes coding styles: in some failure cases you just goto
+> a cleanup part, in other cases you do the cleanup before the goto.
+> 
+> If I'm reading the patch correctly, this change has introduced a leak
 
-regards,
-dan carpenter
+Very lame of me - thanks so much for spotitng this!
+Sending a restructured v3.
+
+-- 
+Jiri Bohac <jbohac@suse.cz>
+SUSE Labs, SUSE CZ
