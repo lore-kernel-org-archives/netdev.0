@@ -1,51 +1,109 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: [RFC] situation with csum_and_copy_... API
-Date: Wed, 19 Nov 2014 21:30:07 +0000
-Message-ID: <20141119213006.GE7996@ZenIV.linux.org.uk>
-References: <20141118212307.GU7996@ZenIV.linux.org.uk>
- <20141119.153136.867017618826698045.davem@davemloft.net>
- <CA+55aFyQR2gOzEDROcWFcQzLvTjOxyJRjFJXJ03JB5knd-Gsgg@mail.gmail.com>
- <20141119.161744.1661940121298888832.davem@davemloft.net>
+From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Subject: RE: [PATCH] ixgbe: Correctly disable vlan filter in promiscuous mode
+Date: Wed, 19 Nov 2014 21:50:56 +0000
+Message-ID: <87618083B2453E4A8714035B62D67992501A1011@FMSMSX105.amr.corp.intel.com>
+References: <1416338897-13007-1-git-send-email-vyasevic@redhat.com>
+ <87618083B2453E4A8714035B62D679925019F38A@FMSMSX105.amr.corp.intel.com>
+ <546CF258.9050205@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: torvalds@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20141119.161744.1661940121298888832.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Keller, Jacob E" <jacob.e.keller@intel.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>
+To: Vlad Yasevich <vyasevich@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:39072 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932693AbaKSVu6 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 16:50:58 -0500
+In-Reply-To: <546CF258.9050205@gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 19, 2014 at 04:17:44PM -0500, David Miller wrote:
-> > Seeing a "__get_user()" and just being able to glance up in the same
-> > function and seeing the "access_ok()" is just a good safety net. And
-> > means that people don't have to waste time thinking about or looking
-> > for where the hell the security net really is.
-> 
-> Fair enough.
+>-----Original Message-----
+>From: Vlad Yasevich [mailto:vyasevich@gmail.com]
+>Sent: Wednesday, November 19, 2014 11:41 AM
+>To: Tantilov, Emil S; netdev@vger.kernel.org
+>Cc: Kirsher, Jeffrey T; Keller, Jacob E; Skidmore, Donald C
+>Subject: Re: [PATCH] ixgbe: Correctly disable vlan filter in
+>promiscuous mode
+>
+>On 11/18/2014 03:24 PM, Tantilov, Emil S wrote:
+>>> -----Original Message-----
+>>> From: netdev-owner@vger.kernel.org [mailto:netdev-
+>>> owner@vger.kernel.org] On Behalf Of Vladislav Yasevich
+>>> Sent: Tuesday, November 18, 2014 11:28 AM
+>>> To: netdev@vger.kernel.org
+>>> Cc: Vladislav Yasevich; Kirsher, Jeffrey T; Keller, Jacob E
+>>> Subject: [PATCH] ixgbe: Correctly disable vlan filter in promiscuous mode
+>>>
+>>> IXGBE adapater seems to require that vlan filtering be enabled if VMDQ
+>>> or SRIOV are enabled.  When those functions are disabled,
+>>> vlan filtering may be disabled in promiscuous mode.
+>>>
+>>> Prior to commit a9b8943ee129e11045862d6d6e25c5b63c95403c
+>>>    ixgbe: remove vlan_filter_disable and enable functions
+>>>
+>>> the logic was correct.  However, after the commit the logic
+>>> got reversed and vlan filtered in now turned on when VMDQ/SRIOV
+>>> is disabled.
+>>>
+>>> This patch changes the condition to enable hw vlan filtered
+>>> when VMDQ or SRIOV is enabled.
+>>>
+>>> Fixes: a9b8943ee129e11045862d6d6e25c5b63c95403c (ixgbe:
+>>> remove
+>>> vlan_filter_disable and enable functions)
+>>> CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>>> CC: Jacob Keller <jacob.e.keller@intel.com>
+>>> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
+>>> ---
+>>> drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 4 ++--
+>>> 1 file changed, 2 insertions(+), 2 deletions(-)
+>>>
+>>> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+>>> b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+>>> index d2df4e3..3f81c7a 100644
+>>> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+>>> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+>>> @@ -3936,8 +3936,8 @@ void ixgbe_set_rx_mode(struct
+>>> net_device *netdev)
+>>> 		 * if SR-IOV and VMDQ are disabled - otherwise ensure
+>>> 		 * that hardware VLAN filters remain enabled.
+>>> 		 */
+>>> -		if (!(adapter->flags & (IXGBE_FLAG_VMDQ_ENABLED |
+>>> -					IXGBE_FLAG_SRIOV_ENABLED)))
+>>> +		if (adapter->flags & (IXGBE_FLAG_VMDQ_ENABLED |
+>>> +				      IXGBE_FLAG_SRIOV_ENABLED))
+>>> 			vlnctrl |= (IXGBE_VLNCTRL_VFE |
+>>> IXGBE_VLNCTRL_CFIEN);
+>>> 	} else {
+>>> 		if (netdev->flags & IFF_ALLMULTI) {
+>>
+>> The current logic is correct and it's like this on purpose
+>> as it should be obvious by the comment preceding this check.
+>
+>Actually the comment right now does not match what the code
+>is doing.
+>
+>The comment states:
+>                /* Only disable hardware filter vlans in promiscuous mode
+>                 * if SR-IOV and VMDQ are disabled - otherwise ensure
+>                 * that hardware VLAN filters remain enabled.
+>                 */
+>
+>However, the code currently will _enable_ vlan filtering if VMDQ/SRIOV
+>is _disabled_ in promiscuous mode.
 
-OK, with 3/5 dropped 4/5 get a trivial conflict (removal of function in 4/5
-vs. change in it in 3/5).  With that dealt with, the sucker is in
-git://git.kernel.org/pub/scm/linux/kernel/git/viro/vfs.git for-davem
+Actually you're right. Sorry - I misread the patch initially.
+This is indeed a bug in the code.
 
-Shortlog:
-Al Viro (4):
-      separate kernel- and userland-side msghdr
-      {compat_,}verify_iovec(): switch to generic copying of iovecs
-      fold verify_iovec() into copy_msghdr_from_user()
-      bury skb_copy_to_page()
+Acked-by: Emil Tantilov <emil.s.tantilov@intel.com>
 
-Diffstat:
- arch/arm/kernel/sys_oabi-compat.c |    4 +--
- include/linux/socket.h            |   17 +++++++---
- include/linux/syscalls.h          |    6 ++--
- include/net/compat.h              |    5 ++-
- include/net/sock.h                |   23 -------------
- net/compat.c                      |   83 +++++++++++++++-------------------------------
- net/core/iovec.c                  |   47 --------------------------
- net/socket.c                      |  140 +++++++++++++++++++++++++++++++++++++-----------------------------------------
- 8 files changed, 114 insertions(+), 211 deletions(-)
+Jeff should pick it up.
 
-I'll post more for review after I finally get some sleep - up for bloody 27
-hours by now ;-/
+Thanks,
+Emil
