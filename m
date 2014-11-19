@@ -1,40 +1,41 @@
-From: Joe Stringer <joestringer@nicira.com>
-Subject: Re: [PATCHv2 net] openvswitch: Fix mask generation for IPv6 labels.
-Date: Wed, 19 Nov 2014 13:52:31 -0800
-Message-ID: <201411191352.31914.joestringer@nicira.com>
-References: <1416432001-35678-1-git-send-email-joestringer@nicira.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC] situation with csum_and_copy_... API
+Date: Wed, 19 Nov 2014 16:53:40 -0500 (EST)
+Message-ID: <20141119.165340.2162829993279387495.davem@davemloft.net>
+References: <CA+55aFyQR2gOzEDROcWFcQzLvTjOxyJRjFJXJ03JB5knd-Gsgg@mail.gmail.com>
+	<20141119.161744.1661940121298888832.davem@davemloft.net>
+	<20141119213006.GE7996@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-15"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, pshelar@nicira.com,
-	dev@openvswitch.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog101.obsmtp.com ([74.125.149.67]:35952 "HELO
-	na3sys009aog101.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1757747AbaKSVwf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 16:52:35 -0500
-Received: by mail-pa0-f52.google.com with SMTP id eu11so1081255pac.39
-        for <netdev@vger.kernel.org>; Wed, 19 Nov 2014 13:52:34 -0800 (PST)
-In-Reply-To: <1416432001-35678-1-git-send-email-joestringer@nicira.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: torvalds@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: viro@ZenIV.linux.org.uk
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141119213006.GE7996@ZenIV.linux.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wednesday, November 19, 2014 13:20:01 Joe Stringer wrote:
-> When userspace doesn't provide a mask, OVS datapath generates a fully
-> unwildcarded mask for the flow. This is done by taking a copy of the
-> flow key, then iterating across its attributes, setting all values to
-> 0xff. This works for most attributes, as the length of the netlink
-> attribute typically matches the length of the value. However, IPv6
-> labels only use the lower 20 bits of the field. This patch makes a
-> special case to handle this.
-> 
-> This fixes the following error seen when installing IPv6 flows without a
-> mask:
-> 
-> openvswitch: netlink: Invalid IPv6 flow label value (value=ffffffff,
-> max=fffff)
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Date: Wed, 19 Nov 2014 21:30:07 +0000
 
-Based on offlist discussion with Pravin, I'll send a patch for an alternative 
-approach.
+> On Wed, Nov 19, 2014 at 04:17:44PM -0500, David Miller wrote:
+>> > Seeing a "__get_user()" and just being able to glance up in the same
+>> > function and seeing the "access_ok()" is just a good safety net. And
+>> > means that people don't have to waste time thinking about or looking
+>> > for where the hell the security net really is.
+>> 
+>> Fair enough.
+> 
+> OK, with 3/5 dropped 4/5 get a trivial conflict (removal of function in 4/5
+> vs. change in it in 3/5).  With that dealt with, the sucker is in
+> git://git.kernel.org/pub/scm/linux/kernel/git/viro/vfs.git for-davem
+> 
+> Shortlog:
+> Al Viro (4):
+>       separate kernel- and userland-side msghdr
+>       {compat_,}verify_iovec(): switch to generic copying of iovecs
+>       fold verify_iovec() into copy_msghdr_from_user()
+>       bury skb_copy_to_page()
+
+Pulled, thanks Al.
