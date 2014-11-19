@@ -1,45 +1,48 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH 1/1] net: sched: Deletion of an unnecessary check before
- the function call "kfree"
-Date: Wed, 19 Nov 2014 18:00:14 +0100
-Message-ID: <546CCC9E.7090905@redhat.com>
-References: <5307CAA2.8060406@users.sourceforge.net> <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6> <530A086E.8010901@users.sourceforge.net> <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6> <530A72AA.3000601@users.sourceforge.net> <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6> <530B5FB6.6010207@users.sourceforge.net> <alpine.DEB.2.10.1402241710370.2074@hadrien> <530C5E18.1020800@users.sourceforge.net> <alpine.DEB.2.10.1402251014170.2080@hadrien> <530CD2C4.4050903@users.sourceforge.net> <alpine.DEB.2.10.1402251840450.7035@hadrien> <530CF8FF.8080600@users.sourceforge.net> <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6> <530DD06F.4090703@users.sourceforge.net> <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6> <5317A59D.4@users.so
- urceforge.net> <546BAB93.4010406@users.sourceforge.net> <546CC9B3.5060405@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: SF Markus Elfring <elfring@users.sourceforge.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jamal Hadi Salim <jhs@mojatatu.com>, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org, Coccinelle <cocci@systeme.lip6.fr>
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <546CC9B3.5060405@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Mathias Krause <minipli@googlemail.com>
+Subject: [PATCH net] pptp: fix stack info leak in pptp_getname()
+Date: Wed, 19 Nov 2014 18:05:26 +0100
+Message-ID: <1416416726-11886-1-git-send-email-minipli@googlemail.com>
+Cc: netdev@vger.kernel.org, Mathias Krause <minipli@googlemail.com>,
+	Dmitry Kozlov <xeb@mail.ru>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f180.google.com ([209.85.212.180]:55183 "EHLO
+	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752950AbaKSRFl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 12:05:41 -0500
+Received: by mail-wi0-f180.google.com with SMTP id n3so2640974wiv.1
+        for <netdev@vger.kernel.org>; Wed, 19 Nov 2014 09:05:40 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/19/2014 05:47 PM, John Fastabend wrote:
-> On 11/18/2014 12:26 PM, SF Markus Elfring wrote:
->> From: Markus Elfring <elfring@users.sourceforge.net>
-...
->>       if (fp_old)
->>           bpf_prog_destroy(fp_old);
->> -    if (bpf_old)
->> -        kfree(bpf_old);
->> +    kfree(bpf_old);
->>
->>       return 0;
->>
->
-> Maybe I need some coffee but I can't figure out what this
-> patch is against...
->
-> # grep bpf_old ./net/sched/cls_bpf.c
-> #
+pptp_getname() only partially initializes the stack variable sa,
+particularly only fills the pptp part of the sa_addr union. The code
+thereby discloses 16 bytes of kernel stack memory via getsockname().
 
-Coffee is always good. :)
+Fix this by memset(0)'ing the union before.
 
-Yeah, you actually removed this in commit 1f947bf151e90ec ("net:
-sched: rcu'ify cls_bpf"), so looks like Markus's tree is not
-up to date ...
+Cc: Dmitry Kozlov <xeb@mail.ru>
+Signed-off-by: Mathias Krause <minipli@googlemail.com>
+---
+Probably material for stable, too -- v2.6.37+.
+
+ drivers/net/ppp/pptp.c |    4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ppp/pptp.c b/drivers/net/ppp/pptp.c
+index 1aff970be33e..1dc628ffce2b 100644
+--- a/drivers/net/ppp/pptp.c
++++ b/drivers/net/ppp/pptp.c
+@@ -506,7 +506,9 @@ static int pptp_getname(struct socket *sock, struct sockaddr *uaddr,
+ 	int len = sizeof(struct sockaddr_pppox);
+ 	struct sockaddr_pppox sp;
+ 
+-	sp.sa_family	  = AF_PPPOX;
++	memset(&sp.sa_addr, 0, sizeof(sp.sa_addr));
++
++	sp.sa_family    = AF_PPPOX;
+ 	sp.sa_protocol  = PX_PROTO_PPTP;
+ 	sp.sa_addr.pptp = pppox_sk(sock->sk)->proto.pptp.src_addr;
+ 
+-- 
+1.7.10.4
