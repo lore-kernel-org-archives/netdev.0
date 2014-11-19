@@ -1,58 +1,105 @@
-From: Oliver Graute <oliver.graute@gmail.com>
-Subject: Re: Device Tree Binding for Marvell DSA Switch on imx28 board over
- Mdio Interface
-Date: Wed, 19 Nov 2014 08:49:50 +0100
-Message-ID: <CA+KjHfaHxkSY6py31ErXmerp=T68oGdz7D7pC+sXqRmkWEktcA@mail.gmail.com>
-References: <CA+KjHfYZdZ88ZFzFCPN-bGphh+mnSWy6i0WNzFYv=gOsafXA7g@mail.gmail.com>
-	<5463B2AC.6090904@gmail.com>
-	<CA+KjHfbwtwPFXFEVDDijRNeTcHcSn0BZ4_yGuwcgyFfubNFCQA@mail.gmail.com>
-	<54650E9C.7080708@gmail.com>
-	<CA+KjHfZSeM=CPxbpoTAjbC3S5EKw+M59hii3t2zY4HePmFGZYg@mail.gmail.com>
-	<CA+KjHfa=Tqs=CWe6TT+rbmc9UaFZghqW1OtigPm9wOyXgN2AOQ@mail.gmail.com>
-	<CA+KjHfY13ynH4Zr5Cerhswo3eucj3DMwq0tZ5CQquT3yuxKv-Q@mail.gmail.com>
-	<20141117160934.GR2001@lunn.ch>
-	<CA+KjHfauqO=BxOogexO3azW27cb1gHqEL5Mh-c+qxfUMYvf_mw@mail.gmail.com>
-	<546B8E92.7080000@gmail.com>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [patch net-next v3 2/9] vlan: make __vlan_hwaccel_put_tag return void
+Date: Wed, 19 Nov 2014 00:05:13 -0800
+Message-ID: <CALnjE+opfnL4t3sGvbJrvxh6nniYtzUPPiSupDvdYz__ajLenw@mail.gmail.com>
+References: <1416346664-9290-1-git-send-email-jiri@resnulli.us>
+	<1416346664-9290-3-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Andrew Lunn <andrew@lunn.ch>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	buytenh@wantstofly.org
-To: Florian Fainelli <f.fainelli@gmail.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Tom Herbert <therbert@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Willem de Bruijn <willemb@google.com>,
+	Daniel Borkmann <dborkman@redhat.com>, mst@redhat.com,
+	fw@strlen.de, Paul.Durrant@citrix.com, Thomas Graf <tgraf@suug.ch>,
+	Cong Wang <cwang@twopensource.com>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f178.google.com ([209.85.213.178]:43663 "EHLO
-	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755171AbaKSHtv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 02:49:51 -0500
-Received: by mail-ig0-f178.google.com with SMTP id hl2so509417igb.11
-        for <netdev@vger.kernel.org>; Tue, 18 Nov 2014 23:49:50 -0800 (PST)
-In-Reply-To: <546B8E92.7080000@gmail.com>
+Received: from na3sys009aog109.obsmtp.com ([74.125.149.201]:39799 "HELO
+	na3sys009aog109.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1755050AbaKSIFO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 03:05:14 -0500
+Received: by mail-ie0-f176.google.com with SMTP id ar1so56513iec.7
+        for <netdev@vger.kernel.org>; Wed, 19 Nov 2014 00:05:13 -0800 (PST)
+In-Reply-To: <1416346664-9290-3-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 18, 2014 at 7:23 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
-> On 11/18/2014 12:30 AM, Oliver Graute wrote:
->>> Hi Oliver
->>>
->>> How do you have the strapping pins on the switch set? They determine
->>> what address on the mdio bus the chip responds to.
->>
->> On the circuit diagram the PIN 54  (P5_IND1/P5ID1) is set to
->> "Configuration Address: 0101"
->> P5_MODE[3:0]=0111 = Single RMII MAC Mode (100Mbps FD with 50 MHz clock input)
->> PIN 59 R1_LED/NO_CPU Configuration: CPU is attached SMI address is 0x10 to 0x1F
->>
->> But what is the mdio address of the whole switch? or can I only
->> address individual phy ports?
+On Tue, Nov 18, 2014 at 1:37 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+> Always returns the same skb it gets, so change to void.
 >
-> You should specify in the Device Tree the switch pseudo-PHY address,
-> typically 16 for Marvell switches. You can still access the individual
-> ports' PHY addresses using address 0 through N.
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+
+Acked-by: Pravin B Shelar <pshelar@nicira.com>
+
+> ---
+>  drivers/scsi/fcoe/fcoe.c | 6 ++----
+>  include/linux/if_vlan.h  | 9 ++++-----
+>  net/8021q/vlan_dev.c     | 2 +-
+>  3 files changed, 7 insertions(+), 10 deletions(-)
 >
-
-How do I do that exactly? do you have an example Device Tree Snippet?
-
-
-Best regards,
-
-Oliver
+> diff --git a/drivers/scsi/fcoe/fcoe.c b/drivers/scsi/fcoe/fcoe.c
+> index 4a8ac7d..73a8cc4 100644
+> --- a/drivers/scsi/fcoe/fcoe.c
+> +++ b/drivers/scsi/fcoe/fcoe.c
+> @@ -1669,10 +1669,8 @@ static int fcoe_xmit(struct fc_lport *lport, struct fc_frame *fp)
+>             fcoe->realdev->features & NETIF_F_HW_VLAN_CTAG_TX) {
+>                 /* must set skb->dev before calling vlan_put_tag */
+>                 skb->dev = fcoe->realdev;
+> -               skb = __vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q),
+> -                                            vlan_dev_vlan_id(fcoe->netdev));
+> -               if (!skb)
+> -                       return -ENOMEM;
+> +               __vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q),
+> +                                      vlan_dev_vlan_id(fcoe->netdev));
+>         } else
+>                 skb->dev = fcoe->netdev;
+>
+> diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
+> index d69f057..1b5dbc2 100644
+> --- a/include/linux/if_vlan.h
+> +++ b/include/linux/if_vlan.h
+> @@ -347,13 +347,11 @@ static inline struct sk_buff *__vlan_put_tag(struct sk_buff *skb,
+>   *
+>   * Puts the VLAN TCI in @skb->vlan_tci and lets the device do the rest
+>   */
+> -static inline struct sk_buff *__vlan_hwaccel_put_tag(struct sk_buff *skb,
+> -                                                    __be16 vlan_proto,
+> -                                                    u16 vlan_tci)
+> +static inline void __vlan_hwaccel_put_tag(struct sk_buff *skb,
+> +                                         __be16 vlan_proto, u16 vlan_tci)
+>  {
+>         skb->vlan_proto = vlan_proto;
+>         skb->vlan_tci = VLAN_TAG_PRESENT | vlan_tci;
+> -       return skb;
+>  }
+>
+>  /**
+> @@ -368,7 +366,8 @@ static inline struct sk_buff *vlan_put_tag(struct sk_buff *skb,
+>                                            __be16 vlan_proto, u16 vlan_tci)
+>  {
+>         if (vlan_hw_offload_capable(skb->dev->features, vlan_proto)) {
+> -               return __vlan_hwaccel_put_tag(skb, vlan_proto, vlan_tci);
+> +               __vlan_hwaccel_put_tag(skb, vlan_proto, vlan_tci);
+> +               return skb;
+>         } else {
+>                 return __vlan_put_tag(skb, vlan_proto, vlan_tci);
+>         }
+> diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+> index 0d441ec..d6524b2 100644
+> --- a/net/8021q/vlan_dev.c
+> +++ b/net/8021q/vlan_dev.c
+> @@ -150,7 +150,7 @@ static netdev_tx_t vlan_dev_hard_start_xmit(struct sk_buff *skb,
+>                 u16 vlan_tci;
+>                 vlan_tci = vlan->vlan_id;
+>                 vlan_tci |= vlan_dev_get_egress_qos_mask(dev, skb->priority);
+> -               skb = __vlan_hwaccel_put_tag(skb, vlan->vlan_proto, vlan_tci);
+> +               __vlan_hwaccel_put_tag(skb, vlan->vlan_proto, vlan_tci);
+>         }
+>
+>         skb->dev = vlan->real_dev;
+> --
+> 1.9.3
+>
