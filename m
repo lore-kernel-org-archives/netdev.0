@@ -1,41 +1,32 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net] virtio-net: validate features during probe
-Date: Wed, 19 Nov 2014 15:07:17 +0800
-Message-ID: <546C41A5.6090306@redhat.com>
-References: <1416378939-28821-1-git-send-email-jasowang@redhat.com>
+From: lucien xin <lucien.xin@gmail.com>
+Subject: Re: [PATCH] [net]ip_tunnel: the lack of vti_link_ops' dellink() cause
+ kernel panic
+Date: Wed, 19 Nov 2014 15:10:18 +0800
+Message-ID: <CADvbK_cjHr51gvTcrkTmVvB0Q8jME3BZGs2xO46dLatvfP=m2Q@mail.gmail.com>
+References: <1416307059-32732-1-git-send-email-lucien.xin@gmail.com>
+	<CAHA+R7NKdS_j2MC+-Bcw=hFERODiMw1Z6ju6yw5TvXXHbTXK5A@mail.gmail.com>
+	<CAHA+R7N7x5eMKFtyWpOcM_FGJ+9h-K+wLEwzpZya1kiztUo8RQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: rusty@rustcorp.com.au, mst@redhat.com,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1416378939-28821-1-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: network dev <netdev@vger.kernel.org>
+To: Cong Wang <cwang@twopensource.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f180.google.com ([209.85.212.180]:40752 "EHLO
+	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932091AbaKSHKU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 02:10:20 -0500
+Received: by mail-wi0-f180.google.com with SMTP id n3so788957wiv.1
+        for <netdev@vger.kernel.org>; Tue, 18 Nov 2014 23:10:18 -0800 (PST)
+In-Reply-To: <CAHA+R7N7x5eMKFtyWpOcM_FGJ+9h-K+wLEwzpZya1kiztUo8RQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/19/2014 02:35 PM, Jason Wang wrote:
-> This patch validates feature dependencies during probe and fail the probing
-> if a dependency is missed. This fixes the issues of hitting BUG()
-> when qemu fails to advertise features correctly. One example is booting
-> guest with ctrl_vq=off through qemu.
+>>
 >
-> Cc: Rusty Russell <rusty@rustcorp.com.au>
-> Cc: Michael S. Tsirkin <mst@redhat.com>
-> Cc: Cornelia Huck <cornelia.huck@de.ibm.com>
-> Cc: Wanlong Gao <gaowanlong@cn.fujitsu.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> ---
+> Hmm, your fix is correct, but the description is wrong, we should just skip
+> the unregister of fb tunnel device like other tunnels. Without ->dellink()
+> the fb device is still removed from the global netdev list, this needs to skip,
+> otherwise ip_vti0 will disappear from your system.
 
-Just notice UFO has been disabled after
-3d0ad09412ffe00c9afa201d01effdb6023d09b4 "drivers/net: Disable UFO
-through virtio". Will post V2 and drop VIRTIO_NET_F_*_UFO from the
-checklist.
+yes, you are right. the issue only exist in the fb tunnel device, I will change
+the description.
