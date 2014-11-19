@@ -1,53 +1,40 @@
-From: Anish Bhatt <anish@chelsio.com>
-Subject: [PATCH net] cxgb4i : Don't block unload/cxgb4 unload when remote closes TCP connection
-Date: Tue, 18 Nov 2014 19:09:51 -0800
-Message-ID: <1416366591-9699-1-git-send-email-anish@chelsio.com>
-Cc: linux-scsi@vger.kernel.org, davem@davemloft.net, hch@infradead.org,
-	jbottomley@parallels.com, kxie@chelsio.com,
-	manojmalviya@chelsio.com, Anish Bhatt <anish@chelsio.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-scsi-owner@vger.kernel.org>
-Sender: linux-scsi-owner@vger.kernel.org
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next] tun: return NET_XMIT_DROP for dropped packets
+Date: Wed, 19 Nov 2014 11:15:36 +0800
+Message-ID: <546C0B58.5030402@redhat.com>
+References: <1416288041-30921-1-git-send-email-jasowang@redhat.com> <CAHA+R7O=vCtLwUPnkVpymxc9kp+a8ChS2MHAJahfJUNUdLX89A@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"Michael S. Tsirkin" <mst@redhat.com>
+To: Cong Wang <cwang@twopensource.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAHA+R7O=vCtLwUPnkVpymxc9kp+a8ChS2MHAJahfJUNUdLX89A@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-cxgb4i was returning wrong error and not releasing module reference if remote
-end abruptly closed TCP connection. This prevents the cxgb4 network module from
-being unloaded, further affecting other network drivers dependent on cxgb4
+On 11/19/2014 03:53 AM, Cong Wang wrote:
+> On Mon, Nov 17, 2014 at 9:20 PM, Jason Wang <jasowang@redhat.com> wrote:
+>> > After commit 5d097109257c03a71845729f8db6b5770c4bbedc
+>> > ("tun: only queue packets on device"), NETDEV_TX_OK was returned for
+>> > dropped packets. This will confuse pktgen since dropped packets were
+>> > counted as sent ones.
+>> >
+>> > Fixing this by returning NET_XMIT_DROP to let pktgen count it as error
+>> > packet.
+> pktgen is suspicious, it sends out packets directly without going through
+> qdisc, so it should not care about NET_XMIT_* qdisc error code?
 
-Sending to net as this affects all cxgb4 based network drivers.
+Well, NET_XMIT_DROP has been used by some devices. I don't see any side
+effect of using this especially consider that pktgen can recognize them.
+> Looks like NETDEV_TX_OK doesn't have to mean TX is successful,
+> the comment says driver takes care of the packet, can be either dropped
+> or sent out. We might need a new code to distinguish success or failure.
 
-Signed-off-by: Anish Bhatt <anish@chelsio.com>
----
- drivers/scsi/cxgbi/cxgb4i/cxgb4i.c | 2 ++
- drivers/scsi/cxgbi/libcxgbi.c      | 2 +-
- 2 files changed, 3 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-index 3e0a0d3..f48f40ce 100644
---- a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-+++ b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-@@ -828,6 +828,8 @@ static void do_act_open_rpl(struct cxgbi_device *cdev, struct sk_buff *skb)
- 	if (status == CPL_ERR_RTX_NEG_ADVICE)
- 		goto rel_skb;
- 
-+	module_put(THIS_MODULE);
-+
- 	if (status && status != CPL_ERR_TCAM_FULL &&
- 	    status != CPL_ERR_CONN_EXIST &&
- 	    status != CPL_ERR_ARP_MISS)
-diff --git a/drivers/scsi/cxgbi/libcxgbi.c b/drivers/scsi/cxgbi/libcxgbi.c
-index 674d498..9d63853 100644
---- a/drivers/scsi/cxgbi/libcxgbi.c
-+++ b/drivers/scsi/cxgbi/libcxgbi.c
-@@ -816,7 +816,7 @@ static void cxgbi_inform_iscsi_conn_closing(struct cxgbi_sock *csk)
- 		read_lock_bh(&csk->callback_lock);
- 		if (csk->user_data)
- 			iscsi_conn_failure(csk->user_data,
--					ISCSI_ERR_CONN_FAILED);
-+					ISCSI_ERR_TCP_CONN_CLOSE);
- 		read_unlock_bh(&csk->callback_lock);
- 	}
- }
--- 
-2.1.3
-
+Most drivers only drop bad packets when they return NETDEV_TX_OK and
+they will stop the txq before tx ring is full. This is not the case of
+tun, it never stop txq and keep accepting packets and dropping them when
+socket receive queue is full.
