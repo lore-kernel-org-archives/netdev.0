@@ -1,36 +1,32 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next v2] packet: make packet_snd fail on len smaller
- than l2 header
-Date: Wed, 19 Nov 2014 10:25:06 -0800
-Message-ID: <1416421506.14060.58.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1416420616-5029-1-git-send-email-willemb@google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: team: expose sysfs attributes for each team option
+Date: Wed, 19 Nov 2014 13:26:06 -0500 (EST)
+Message-ID: <20141119.132606.1227813907717315973.davem@davemloft.net>
+References: <20141117130201.GB1872@nanopsycho.orion>
+	<03067d01f18e264b30f86d0307d11b07.squirrel@www.codeaurora.org>
+	<20141119124043.GC1926@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, dborkman@redhat.com
-To: Willem de Bruijn <willemb@google.com>
+Cc: hkadmany@codeaurora.org, netdev@vger.kernel.org
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f175.google.com ([209.85.213.175]:45678 "EHLO
-	mail-ig0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754554AbaKSSZI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 13:25:08 -0500
-Received: by mail-ig0-f175.google.com with SMTP id h15so3437404igd.2
-        for <netdev@vger.kernel.org>; Wed, 19 Nov 2014 10:25:08 -0800 (PST)
-In-Reply-To: <1416420616-5029-1-git-send-email-willemb@google.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37325 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755911AbaKSS0J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 13:26:09 -0500
+In-Reply-To: <20141119124043.GC1926@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-11-19 at 13:10 -0500, Willem de Bruijn wrote:
-> From: Willem de Bruijn <willemb@google.com>
-> 
-> When sending packets out with PF_PACKET, SOCK_RAW, ensure that the
-> packet is at least as long as the device's expected link layer header.
-> This check already exists in tpacket_snd, but not in packet_snd.
-> Also rate limit the warning in tpacket_snd.
-> 
-> Signed-off-by: Willem de Bruijn <willemb@google.com>
-> ---
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Wed, 19 Nov 2014 13:40:43 +0100
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+> No, that is certainly not the reason. If libnl3 does not suit you, use a
+> different lib. It is in my opinion unacceptaptable to work around
+> certain licence issues by adding parallel sysfs api (not to mention that
+> sysfs is totally unsuitable for that).
+> 
+> You should use existing Netlink API. That's it.
 
-Thanks Willem
++1, these arguments for adding sysfs attributes are unacceptable.
