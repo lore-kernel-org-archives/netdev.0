@@ -1,60 +1,37 @@
 From: Johan Hovold <johan@kernel.org>
-Subject: [PATCH 08/10] dt/bindings: add clock-select function property to micrel phy binding
-Date: Wed, 19 Nov 2014 12:59:21 +0100
-Message-ID: <1416398363-32306-9-git-send-email-johan@kernel.org>
+Subject: [PATCH 10/10] net: phy: micrel: add copyright entry
+Date: Wed, 19 Nov 2014 12:59:23 +0100
+Message-ID: <1416398363-32306-11-git-send-email-johan@kernel.org>
 References: <1416398363-32306-1-git-send-email-johan@kernel.org>
 Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, Bruno Thomsen <bth@kamstrup.dk>,
 	Sascha Hauer <s.hauer@pengutronix.de>,
 	Mark Rutland <mark.rutland@arm.com>,
-	Johan Hovold <johan@kernel.org>, devicetree@vger.kernel.org
+	Johan Hovold <johan@kernel.org>
 To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f45.google.com ([209.85.215.45]:48320 "EHLO
-	mail-la0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750960AbaKSL7u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 06:59:50 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1416398363-32306-1-git-send-email-johan@kernel.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Add "micrel,rmii-reference-clock-select-25-mhz" to Micrel ethernet PHY
-binding documentation.
+Add myself to the list of copyright holders.
 
-This property is needed to properly describe some revisions of Micrel
-PHYs which has the function of this configuration bit inverted so that
-setting it enables 25 MHz rather than 50 MHz clock mode.
-
-Note that a clock reference ("rmii-ref") is still needed to actually
-select either mode.
-
-Cc: devicetree@vger.kernel.org
 Signed-off-by: Johan Hovold <johan@kernel.org>
 ---
- Documentation/devicetree/bindings/net/micrel.txt | 11 +++++++++++
- 1 file changed, 11 insertions(+)
+ drivers/net/phy/micrel.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/Documentation/devicetree/bindings/net/micrel.txt b/Documentation/devicetree/bindings/net/micrel.txt
-index 20a6cac7abc6..87496a8c64ab 100644
---- a/Documentation/devicetree/bindings/net/micrel.txt
-+++ b/Documentation/devicetree/bindings/net/micrel.txt
-@@ -19,6 +19,17 @@ Optional properties:
- 
- 	See the respective PHY datasheet for the mode values.
- 
-+ - micrel,rmii-reference-clock-select-25-mhz: RMII Reference Clock Select
-+						bit selects 25 MHz mode
-+
-+	Setting the RMII Reference Clock Select bit enables 25 MHz rather
-+	than 50 MHz clock mode.
-+
-+	Note that this option in only needed for certain PHY revisions with a
-+	non-standard, inverted function of this configuration bit.
-+	Specifically, a clock reference ("rmii-ref" below) is always needed to
-+	actually select a mode.
-+
-  - clocks, clock-names: contains clocks according to the common clock bindings.
- 
- 	supported clocks:
+diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+index d7eb7b0e6d4e..c530de1e63f5 100644
+--- a/drivers/net/phy/micrel.c
++++ b/drivers/net/phy/micrel.c
+@@ -6,6 +6,7 @@
+  * Author: David J. Choi
+  *
+  * Copyright (c) 2010-2013 Micrel, Inc.
++ * Copyright (c) 2014 Johan Hovold <johan@kernel.org>
+  *
+  * This program is free software; you can redistribute  it and/or modify it
+  * under  the terms of  the GNU General  Public License as published by the
 -- 
 2.0.4
