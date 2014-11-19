@@ -1,53 +1,67 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] tcp: make connect() mem charging friendly
-Date: Wed, 19 Nov 2014 14:57:41 -0500 (EST)
-Message-ID: <20141119.145741.1905980604994551607.davem@davemloft.net>
-References: <1416268176.18588.26.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1416294380.14060.6.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAK6E8=dUvde2s7VuUS9rHiA2fU0ZT2bS=ronjM+9BOA=0u-rVw@mail.gmail.com>
+From: Michael Tokarev <mjt@tls.msk.ru>
+Subject: Re: BCM4313 & brcmsmac & 3.12: only semi-working?
+Date: Wed, 19 Nov 2014 22:58:34 +0300
+Message-ID: <546CF66A.3000207@msgid.tls.msk.ru>
+References: <53FDACD1.8090805@msgid.tls.msk.ru> <54363ED0.605@broadcom.com> <CACna6rw3XgdJz0uKkAuas8RTzozTdFp2mgF5g1uo7LHJVSMt4g@mail.gmail.com> <3543341.FmUQFH9nrl@eisbaer> <546C5D1F.108@msgid.tls.msk.ru> <546CD94D.9060509@broadcom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, nuclearcat@nuclearcat.com,
-	netdev@vger.kernel.org, ncardwell@google.com
-To: ycheng@google.com
+Cc: Maximilian Engelhardt <maxi@daemonizer.de>,
+	=?UTF-8?B?UmFmYcWCIE1pxYJl?= =?UTF-8?B?Y2tp?= <zajec5@gmail.com>,
+	Seth Forshee <seth.forshee@canonical.com>,
+	brcm80211 development <brcm80211-dev-list@broadcom.com>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>
+To: Arend van Spriel <arend@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38109 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755182AbaKST5o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 14:57:44 -0500
-In-Reply-To: <CAK6E8=dUvde2s7VuUS9rHiA2fU0ZT2bS=ronjM+9BOA=0u-rVw@mail.gmail.com>
+Received: from isrv.corpit.ru ([86.62.121.231]:34376 "EHLO isrv.corpit.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756426AbaKST6h (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Nov 2014 14:58:37 -0500
+In-Reply-To: <546CD94D.9060509@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yuchung Cheng <ycheng@google.com>
-Date: Wed, 19 Nov 2014 14:10:42 +0800
+19.11.2014 20:54, Arend van Spriel wrote:
+[]
+> In our last email exchange I got the impression you switch to Intel board and did not want to keep replacing cards for testing.
 
-> On Tue, Nov 18, 2014 at 3:06 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> From: Eric Dumazet <edumazet@google.com>
->>
->> While working on sk_forward_alloc problems reported by Denys
->> Fedoryshchenko, we found that tcp connect() (and fastopen) do not call
->> sk_wmem_schedule() for SYN packet (and/or SYN/DATA packet), so
->> sk_forward_alloc is negative while connect is in progress.
->>
->> We can fix this by calling regular sk_stream_alloc_skb() both for the
->> SYN packet (in tcp_connect()) and the syn_data packet in
->> tcp_send_syn_data()
->>
->> Then, tcp_send_syn_data() can avoid copying syn_data as we simply
->> can manipulate syn_data->cb[] to remove SYN flag (and increment seq)
->>
->> Instead of open coding memcpy_fromiovecend(), simply use this helper.
->>
->> This leaves in socket write queue clean fast clone skbs.
->>
->> This was tested against our fastopen packetdrill tests.
->>
->> Reported-by: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
->> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Acked-by: Yuchung Cheng <ycheng@google.com>
+I especially wrote that I have several days to try things out and
+if you'll be quick it will be possible for me to test things.
+You never replied before now (which is some more months later).
+
+>   Nice to hear you have an alternative setup for this and I assume are willing to do some testing.
 > 
-> Thanks! this simplifies the code a lot.
+> I submitted two patches upstream and additionally I have attached two other that are still under review. Could you try these patches and sent me the content of the two debugfs files 'macstat' and 'hardware' after a stall has occurred.
 
-Agreed, applied, thanks everyone!
+You didn't tell which kernel it is based on.  So I tried it on 3.16,
+ofcourse the patches didn't apply so I hand-edited the debug
+printf in drivers/net/wireless/brcm80211/brcmsmac/debug.c (in
+3.16 it didn't use seq_printf yet).  So now I have a `hardware'
+file (in brcmsmac/bcma0:0/ subdir in debugfs), but not
+macstat.  Here's the contents `hardware' one:
+
+chipnum 0x4313
+chiprev 0x1
+chippackage 0x8
+corerev 0x18
+boardid 0x1795
+boardvendor 0x103c
+boardrev P107
+boardflags 0x402201
+boardflags2 0x884
+ucoderev 0x262032c
+radiorev 0x1
+phytype 0x8
+phyrev 0x1
+anarev 0xa
+nvramrev 8
+
+
+Since there's no macstats, I guess it is not very useful,
+so before digging for too deep, I ask which kernel do you
+want me to try here.
+
+Thanks,
+
+/mjt
