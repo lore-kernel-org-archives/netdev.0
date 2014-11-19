@@ -1,85 +1,160 @@
-From: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH 1/3] tun: move internal flag defines out of uapi
-Date: Wed, 19 Nov 2014 18:18:30 +0200
-Message-ID: <1416413891-29562-2-git-send-email-mst@redhat.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH 2/3] tun: reuse IFF_ flags internally
+Date: Wed, 19 Nov 2014 18:18:36 +0200
+Message-ID: <1416413891-29562-3-git-send-email-mst@redhat.com>
 References: <1416413891-29562-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: rusty-8n+1lVoiYb80n/F98K4Iww@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	Jason Wang <jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Zhi Yong Wu <wuzhy-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
-	Tom Herbert <therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>,
-	Masatake YAMATO <yamato-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Xi Wang <xii-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: rusty@rustcorp.com.au, davem@davemloft.net,
+	Jason Wang <jasowang@redhat.com>,
+	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	Tom Herbert <therbert@google.com>,
+	Masatake YAMATO <yamato@redhat.com>, Xi Wang <xii@google.com>,
+	netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1416413891-29562-1-git-send-email-mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <1416413891-29562-1-git-send-email-mst@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-TUN_ flags are internal and never exposed
-to userspace. Any application using it is almost
-certainly buggy.
+By reusing IFF_ flags for internal tun device flags,
+we can get rid of a bunch of code translating back
+and forth.
 
-Move them out to tun.c, we'll remove them in follow-up patches.
+This cleanup exposes a bug: TUNGETFEATURES reports IFF_TUN and IFF_TAP
+which aren't legal for TUNSETFEATURES (but, correctly, doesn't report
+IFF_PERSIST which also isn't legal there).
 
-Signed-off-by: Michael S. Tsirkin <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+I'm not fixing this bug at the moment, just in case some weird
+userspace depends on it, using TUNGETFEATURES to check device type.
+
+Follow-up patches will get rid of some of TUN_ macros,
+using IFF_ directly instead.
+
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
- include/uapi/linux/if_tun.h | 14 --------------
- drivers/net/tun.c           | 14 ++++++++++++++
- 2 files changed, 14 insertions(+), 14 deletions(-)
+ drivers/net/tun.c | 83 +++++++++++++++----------------------------------------
+ 1 file changed, 22 insertions(+), 61 deletions(-)
 
-diff --git a/include/uapi/linux/if_tun.h b/include/uapi/linux/if_tun.h
-index e9502dd..b82c276 100644
---- a/include/uapi/linux/if_tun.h
-+++ b/include/uapi/linux/if_tun.h
-@@ -23,20 +23,6 @@
- /* Read queue size */
- #define TUN_READQ_SIZE	500
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 81735f5..e4bd542 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -104,19 +104,23 @@ do {								\
+ #endif
  
--/* TUN device flags */
--#define TUN_TUN_DEV 	0x0001	
+ /* TUN device flags */
+-#define TUN_TUN_DEV 	0x0001
 -#define TUN_TAP_DEV	0x0002
 -#define TUN_TYPE_MASK   0x000f
--
++#define TUN_TUN_DEV 	IFF_TUN
++#define TUN_TAP_DEV	IFF_TAP
++#define TUN_TYPE_MASK   (IFF_TUN | IFF_TAP)
+ 
 -#define TUN_FASYNC	0x0010
 -#define TUN_NOCHECKSUM	0x0020
 -#define TUN_NO_PI	0x0040
--/* This flag has no real effect */
++/* IFF_ATTACH_QUEUE is never stored in device flags,
++ * overload it to mean fasync when stored there.
++ */
++#define TUN_FASYNC	IFF_ATTACH_QUEUE
++#define TUN_NO_PI	IFF_NO_PI
+ /* This flag has no real effect */
 -#define TUN_ONE_QUEUE	0x0080
--#define TUN_PERSIST 	0x0100	
+-#define TUN_PERSIST 	0x0100
 -#define TUN_VNET_HDR 	0x0200
 -#define TUN_TAP_MQ      0x0400
--
- /* Ioctl defines */
- #define TUNSETNOCSUM  _IOW('T', 200, int) 
- #define TUNSETDEBUG   _IOW('T', 201, int) 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 2e18ddd..81735f5 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -103,6 +103,20 @@ do {								\
- } while (0)
- #endif
++#define TUN_ONE_QUEUE	IFF_ONE_QUEUE
++#define TUN_PERSIST 	IFF_PERSIST
++#define TUN_VNET_HDR 	IFF_VNET_HDR
++#define TUN_TAP_MQ      IFF_MULTI_QUEUE
  
-+/* TUN device flags */
-+#define TUN_TUN_DEV 	0x0001
-+#define TUN_TAP_DEV	0x0002
-+#define TUN_TYPE_MASK   0x000f
-+
-+#define TUN_FASYNC	0x0010
-+#define TUN_NOCHECKSUM	0x0020
-+#define TUN_NO_PI	0x0040
-+/* This flag has no real effect */
-+#define TUN_ONE_QUEUE	0x0080
-+#define TUN_PERSIST 	0x0100
-+#define TUN_VNET_HDR 	0x0200
-+#define TUN_TAP_MQ      0x0400
-+
++#define TUN_FEATURES (IFF_NO_PI | IFF_ONE_QUEUE | IFF_VNET_HDR | \
++		      IFF_MULTI_QUEUE)
  #define GOODCOPY_LEN 128
  
  #define FLT_EXACT_COUNT 8
+@@ -1529,32 +1533,7 @@ static struct proto tun_proto = {
+ 
+ static int tun_flags(struct tun_struct *tun)
+ {
+-	int flags = 0;
+-
+-	if (tun->flags & TUN_TUN_DEV)
+-		flags |= IFF_TUN;
+-	else
+-		flags |= IFF_TAP;
+-
+-	if (tun->flags & TUN_NO_PI)
+-		flags |= IFF_NO_PI;
+-
+-	/* This flag has no real effect.  We track the value for backwards
+-	 * compatibility.
+-	 */
+-	if (tun->flags & TUN_ONE_QUEUE)
+-		flags |= IFF_ONE_QUEUE;
+-
+-	if (tun->flags & TUN_VNET_HDR)
+-		flags |= IFF_VNET_HDR;
+-
+-	if (tun->flags & TUN_TAP_MQ)
+-		flags |= IFF_MULTI_QUEUE;
+-
+-	if (tun->flags & TUN_PERSIST)
+-		flags |= IFF_PERSIST;
+-
+-	return flags;
++	return tun->flags & (TUN_FEATURES | IFF_PERSIST | IFF_TUN | IFF_TAP);
+ }
+ 
+ static ssize_t tun_show_flags(struct device *dev, struct device_attribute *attr,
+@@ -1714,28 +1693,8 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+ 
+ 	tun_debug(KERN_INFO, tun, "tun_set_iff\n");
+ 
+-	if (ifr->ifr_flags & IFF_NO_PI)
+-		tun->flags |= TUN_NO_PI;
+-	else
+-		tun->flags &= ~TUN_NO_PI;
+-
+-	/* This flag has no real effect.  We track the value for backwards
+-	 * compatibility.
+-	 */
+-	if (ifr->ifr_flags & IFF_ONE_QUEUE)
+-		tun->flags |= TUN_ONE_QUEUE;
+-	else
+-		tun->flags &= ~TUN_ONE_QUEUE;
+-
+-	if (ifr->ifr_flags & IFF_VNET_HDR)
+-		tun->flags |= TUN_VNET_HDR;
+-	else
+-		tun->flags &= ~TUN_VNET_HDR;
+-
+-	if (ifr->ifr_flags & IFF_MULTI_QUEUE)
+-		tun->flags |= TUN_TAP_MQ;
+-	else
+-		tun->flags &= ~TUN_TAP_MQ;
++	tun->flags = (tun->flags & ~TUN_FEATURES) |
++		(ifr->ifr_flags & TUN_FEATURES);
+ 
+ 	/* Make sure persistent devices do not get stuck in
+ 	 * xoff state.
+@@ -1898,9 +1857,11 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
+ 	if (cmd == TUNGETFEATURES) {
+ 		/* Currently this just means: "what IFF flags are valid?".
+ 		 * This is needed because we never checked for invalid flags on
+-		 * TUNSETIFF. */
+-		return put_user(IFF_TUN | IFF_TAP | IFF_NO_PI | IFF_ONE_QUEUE |
+-				IFF_VNET_HDR | IFF_MULTI_QUEUE,
++		 * TUNSETIFF.  Why do we report IFF_TUN and IFF_TAP which are
++		 * not legal for TUNSETIFF here?  It's probably a bug, but it
++		 * doesn't seem to be worth fixing.
++		 */
++		return put_user(IFF_TUN | IFF_TAP | TUN_FEATURES,
+ 				(unsigned int __user*)argp);
+ 	} else if (cmd == TUNSETQUEUE)
+ 		return tun_set_queue(file, &ifr);
 -- 
 MST
