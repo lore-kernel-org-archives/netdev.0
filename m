@@ -1,54 +1,92 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Subject: Re: [PATCH net-next 3/4] igb: enable internal PPS for the i210.
-Date: Wed, 19 Nov 2014 21:06:19 +0000
-Message-ID: <1416431178.15933.38.camel@jekeller-desk1.amr.corp.intel.com>
-References: <cover.1416265321.git.richardcochran@gmail.com>
-	 <e5b4ef7c56119e2d86e42f5680b1b82c9ec1a38e.1416265321.git.richardcochran@gmail.com>
-	 <20141119063724.GB4109@localhost.localdomain>
-	 <1416425553.15933.32.camel@jekeller-desk1.amr.corp.intel.com>
-	 <20141119202604.GA22213@localhost.localdomain>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: [RFC] situation with csum_and_copy_... API
+Date: Wed, 19 Nov 2014 21:17:13 +0000
+Message-ID: <20141119211712.GD7996@ZenIV.linux.org.uk>
+References: <20141118084745.GT7996@ZenIV.linux.org.uk>
+ <CA+55aFxK0wj2LLp0WmhRsBZch8XfoYbzmbEeJaMpt=SDh5GBvw@mail.gmail.com>
+ <20141118212307.GU7996@ZenIV.linux.org.uk>
+ <20141119.153136.867017618826698045.davem@davemloft.net>
+ <CA+55aFyQR2gOzEDROcWFcQzLvTjOxyJRjFJXJ03JB5knd-Gsgg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Vick, Matthew" <matthew.vick@intel.com>
-To: "richardcochran@gmail.com" <richardcochran@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:11520 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932517AbaKSVGY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Nov 2014 16:06:24 -0500
-In-Reply-To: <20141119202604.GA22213@localhost.localdomain>
-Content-Language: en-US
-Content-ID: <BB66AA4C398D1A40B092ED3F7BAA50CB@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CA+55aFyQR2gOzEDROcWFcQzLvTjOxyJRjFJXJ03JB5knd-Gsgg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-T24gV2VkLCAyMDE0LTExLTE5IGF0IDIxOjI2ICswMTAwLCBSaWNoYXJkIENvY2hyYW4gd3JvdGU6
-DQo+IE9uIFdlZCwgTm92IDE5LCAyMDE0IGF0IDA3OjMyOjMzUE0gKzAwMDAsIEtlbGxlciwgSmFj
-b2IgRSB3cm90ZToNCj4gPiBHb29kIGNhdGNoIDopDQo+IA0KPiAoV2VsbCwgbXkgWCBzZXNzaW9u
-IHN1ZGRlbmx5IGRpc2FwcGVhcmVkLCBhbmQgYSBrZXJuZWwgb29wcyBhcHBlYXJlZCBpbg0KPiB0
-aGUgY29uc29sZS4uLiBoYXJkIHRvIG92ZXJsb29rIDteKQ0KPiAgDQo+ID4gRGlkIHlvdSBzZWUg
-bXkgY29uY2VybiBhYm91dCB0aGUgcmVzZXQgcGF0aCBuZWVkaW5nIHRvIGZ1bGx5IHJlc3RvcmUg
-dGhlDQo+ID4gc3RhdGUgc2luY2UgaXQgaXMgY2FsbGVkIGFmdGVyIGEgaGFyZHdhcmUgTUFDIHJl
-c2V0IHdoaWNoIGhhcyBjbGVhcmVkDQo+ID4gYWxsIHRoZXNlIHJlZ2lzdGVycz8NCj4gDQo+IFll
-cywgYW5kIHRoYXQgYml0IEkgY29waWVkIGZyb20gdGhlIGZpcnN0IHNlcmllcyBhIHllYXIgYWdv
-LiBJIGRvbid0DQo+IHJlbWVtYmVyIHdoeSwgYnV0IElJUkMgdGhhdCB3YXMgbmVjZXNzYXJ5IHRv
-IGxldCB0aGUgU0RQIHN0dWZmIHdvcmsgYXQNCj4gYWxsLiBNYXliZSB0aGUgcmVzZXQgZnVuY3Rp
-b24gd2FzIGNhbGxlZCB1bmRlciBkaWZmZXJlbnQgY2lyY3Vtc3RhbmNlcw0KPiBiYWNrIHRoZW4u
-IEknbGwgdGFrZSBhbm90aGVyIGxvb2suDQo+IA0KPiBJIGZpbmQgaXQgYSBiaXQgd2VpcmQgdGhh
-dCB0aGUgYXV4aWxpYXJ5IGZ1bmN0aW9ucyBkb24ndCB3b3JrIHdoZW4gdGhlDQo+IGludGVyZmFj
-ZSBvciB0aGUgbGluayBpcyBkb3duLg0KPiANCj4gVGhhbmtzLA0KPiBSaWNoYXJkDQoNCkkgdGhp
-bmsgeW91IG5lZWQgc29tZXRoaW5nIGhlcmUsIGJ1dCBpdCBzaG91bGQgYmUgY2xlYXJpbmcgdGhh
-dCByZWdpc3Rlcg0KYWZ0ZXIgYSBNQUMgcmVzZXQsIHNvIGl0IG5lZWRzIHRvIGJlIHJlLWluaXRp
-YWxpemVkLiBJJ20gbm90IHN1cmUgaWYNCnRoYXQgcmVzZXQgcGF0aCB3YXMgdXNlZCBpbiB0aGUg
-c2FtZSBwbGFjZSBpbiB0aGUgcGFzdC4NCg0KV2VsbCwgSSB0aGluayBpZ2IgYW5kIGl4Z2JlIGRl
-c3Ryb3kgdGhlIHB0cCBkZXZpY2Ugd2hlbiB0aGUgaW50ZXJmYWNlDQpnb2VzIGRvd24sIGFuZCBy
-ZXN0b3JlIGl0IHdoZW4gaXQgY29tZXMgdXAuIFByb2JhYmx5IHdlIHNob3VsZCBpbnN0ZWFkDQpo
-YW5kbGUgc29tZSB0aGluZ3MgaW4gcmVzZXQgcGF0aCBhbmQgYWxsb3cgdGhlIHB0cCBkZXZpY2Ug
-dG8gcmVtYWluLg0KDQpJdCdzIHBhcnRseSBkdWUgdG8gdGhlIGNsb2NrIHNwZWVkIGNoYW5naW5n
-IGJhc2VkIG9uIGxpbmsgc3BlZWQuDQoNClJlZ2FyZHMsDQpKYWtlDQo=
+On Wed, Nov 19, 2014 at 12:40:53PM -0800, Linus Torvalds wrote:
+> On Wed, Nov 19, 2014 at 12:31 PM, David Miller <davem@davemloft.net> wrote:
+> >
+> > But that is just my opinion, and yes I do acknowledge that we've had
+> > serious holes in this area in the past.
+> 
+> The serious holes have generally been exactly in the "upper layers
+> already check" camp, and then it turns out that some odd ioctl or
+> other thing ends up doing something odd and interesting.
+> 
+> If Al has actual performance profiles showing that the access_ok() is
+> a real problem, then fine. As a low-level optimization, I agree with
+> it. But not as a "let's just drop them, and make the security rules be
+> non-local and subtle, and require people to know the details of the
+> whole call-chain".
+> 
+> Seeing a "__get_user()" and just being able to glance up in the same
+> function and seeing the "access_ok()" is just a good safety net. And
+> means that people don't have to waste time thinking about or looking
+> for where the hell the security net really is.
+
+Umm...  It's not quite that bad - the thing is, for iov_iter-net series
+we'll need copy_and_csum_{to,from}_iter() anyway and for iovec-backed
+iov_iter instances we already ask the iovec to be validated wrt access_ok().
+And this validation (already done by rw_copy_check_uvector()) is going to
+be next to iov_iter_init() setting the iov_iter up.
+
+Moreover, I'm planning to take iov_iter_init() into rw_copy_check_uvector().
+That way setting ->iov is done from the same function that has just checked
+all ranges.  If you look at the callers, you'll see that almost all of them
+are directly followed by iov_iter_init() and folding it in is a fairly
+obvious cleanup.
+
+The thing is, with ..._iter() variants added we are left with no other
+in-tree callers of csum_and_copy_{to,from}_user().  I agree that dropping
+those access_ok() is too early at this point - the analysis of paths
+by which a range can reach them is scary right now.  Moreover, it mostly
+parallels the changes later in the series - ones that propagate a pointer
+to iov_iter put into msdghdr in place of ->msg_iov/->msg_iovlen down to
+the new primitives.  _After_ those steps the analysis (see the horrors in
+commit message of 3/5) becomes trivial.
+
+So whether we end up removing those access_ok() or not, this is not the
+time to do so.  It still might make sense in the end, but not right now.
+
+Frankly, my preference would be to provide __csum_and_copy_...() that do
+not bother with access_ok() (and do so consistently between the architectures),
+and do not bother with zeroing or trying to do an accurate csum in case of
+error.  With uniform implementation of csum_and_copy_...() that does
+access_ok(), tries to call __csum_... variant and, in case of failure,
+does __copy_..._user(), zeroes the tail in the "from" one and calculates
+the csum by source of destination - whichever's kernel-side.  I.e. do what
+ppc64 is doing.  That way we get obviously safe csum_and_copy_.._user(),
+and consistent __ counterparts directly used by ..._iter() primitives.
+Quite a bit of complexity becomes possible to remove from asm code,
+while we are at it - zeroing isn't the worst of it, contortions needed to
+calculate the csum accurately in error case are often nastier.  So much
+that e.g. arm doesn't even bother trying.
+
+Again, this is a separate work - I agree with you regarding the overhead
+being a non-issue for existing callers, and if somebody tries e.g. to send
+64K from 32K-element vector of 2-byte ranges they'll have a _lot_ of other
+overhead that will drown that of those access_ok().  In normal cases the
+price of copying the data itself is going to swamp that of access_ok(),
+of course.
+
+IOW, consider the access_ok() changes withdrawn for now.  It's too early
+in the series for them and the only reason to pull them that high in
+ordering had been the fear of overhead.  Which is very unlikely to be
+an issue.  They won't come back (if they come back at all) until the
+proof of correctness becomes absolutely trivial.
