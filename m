@@ -1,86 +1,110 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH v5 4/4] fm10k/igb/ixgbe: Use dma_rmb on Rx descriptor
- reads
-Date: Tue, 18 Nov 2014 17:28:48 -0800
-Message-ID: <1416360528.2295.43.camel@jtkirshe-mobl>
-References: <20141119012205.9563.95544.stgit@ahduyck-server>
-	 <20141119012430.9563.58999.stgit@ahduyck-server>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-NZN48hSAI1ItKPhBN68o"
-Cc: linux-arch@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mathieu.desnoyers@polymtl.ca,
-	peterz@infradead.org, benh@kernel.crashing.org,
-	heiko.carstens@de.ibm.com, mingo@kernel.org, mikey@neuling.org,
-	linux@arm.linux.org.uk, donald.c.skidmore@intel.com,
-	matthew.vick@intel.com, geert@linux-m68k.org, romieu@fr.zoreil.com,
-	paulmck@linux.vnet.ibm.com, nic_swsd@realtek.com,
-	will.deacon@arm.com, michael@ellerman.id.au, tony.luck@intel.com,
-	torvalds@linux-foundation.org, oleg@redhat.com,
-	schwidefsky@de.ibm.com, fweisbec@gmail.com, davem@davemloft.net
-To: Alexander Duyck <alexander.h.duyck@redhat.com>
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <20141119012430.9563.58999.stgit@ahduyck-server>
-Sender: linux-arch-owner@vger.kernel.org
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: [PATCH net-next] bpf: fix arraymap NULL deref and missing overflow and zero size checks
+Date: Tue, 18 Nov 2014 17:32:16 -0800
+Message-ID: <1416360736-9531-1-git-send-email-ast@plumgrid.com>
+Cc: Fengguang Wu <fengguang.wu@intel.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Daniel Borkmann <dborkman@redhat.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+- fix NULL pointer dereference:
+kernel/bpf/arraymap.c:41 array_map_alloc() error: potential null dereference 'array'.  (kzalloc returns null)
+kernel/bpf/arraymap.c:41 array_map_alloc() error: we previously assumed 'array' could be null (see line 40)
 
---=-NZN48hSAI1ItKPhBN68o
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+- integer overflow check was missing in arraymap
+(hashmap checks for overflow via kmalloc_array())
 
-On Tue, 2014-11-18 at 17:24 -0800, Alexander Duyck wrote:
-> This change makes it so that dma_rmb is used when reading the Rx
-> descriptor.  The advantage of dma_rmb is that it allows for a much
-> lower cost barrier on x86, powerpc, arm, and arm64 architectures than
-> a
-> traditional memory barrier when dealing with reads that only have to
-> synchronize to coherent memory.
->=20
-> In addition I have updated the code so that it just checks to see if
-> any
-> bits have been set instead of just the DD bit since the DD bit will
-> always
-> be set as a part of a descriptor write-back so we just need to check
-> for a
-> non-zero value being present at that memory location rather than just
-> checking for any specific bit.  This allows the code itself to appear
-> much
-> cleaner and allows the compiler more room to optimize.
->=20
-> Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> Cc: Matthew Vick <matthew.vick@intel.com>
-> Cc: Don Skidmore <donald.c.skidmore@intel.com>
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
-> ---
->  drivers/net/ethernet/intel/fm10k/fm10k_main.c |    6 +++---
->  drivers/net/ethernet/intel/igb/igb_main.c     |    6 +++---
->  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    9 ++++-----
->  3 files changed, 10 insertions(+), 11 deletions(-)
+- arraymap can round_up(value_size, 8) to zero. check was missing.
 
-Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+- hashmap was missing zero size check as well, since roundup_pow_of_two() can
+truncate into zero
 
---=-NZN48hSAI1ItKPhBN68o
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+- found a typo in the arraymap comment and unnecessary empty line
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+Fix all of these issues and make both overflow checks explicit U32 in size.
 
-iQIcBAABCgAGBQJUa/JQAAoJEOVv75VaS+3Oz6IP/0oQ5zvlI81ZVcuheTYjcuXp
-NNZaHboQLelF6+SnZWjepLRedcCGtJmfXBydPAl/hji8uyRts2GA8yZEAb+cQoZK
-N08QkrguBBFZK+g8eiKczNBrSSvnv52z7/TnZI44npTjL6NQElrliKtsg06NG0e9
-f2CFAPnjX4A51IPXvMmkZTbN6QKaD6r73kDePb/xHtKvd/xequqsFfgS8+0MiWfU
-ktbmahiTQtbHXXH3V0DdMef3hmRBBaAzgNHnIoKpX0V3NAbt6ydDMZ74a68jUOd4
-txT4Wl69haF2OPrSrI1p8lUFDbTS4Ej7OsHDmS4cAgSkBFEApRj42eQyDdgIJBhl
-vMXyUUF9Wkr+gMNtZ6F0kxo1NmckBwaBulRszvTfKHkF2IeuVTusLzy2AXgxkVKd
-+/bEQ5K7PR3WeFw7IFCRFm+qqR9DXHwxUeGcBHrIOGxbdKPjzYBBrRot9WCU2zmH
-428kQjFz1s/FKPFle9n+foK90OGL0x9WzgRTfawLWvNwojGV6hQZbEHtRhIv0aS0
-M6ot1m7TIBDBGu7nCZ5E1bQ9Oc/vJswRiyqyYHinFEO7GfQVM9XevB2A+R3NOn9v
-Dux6Qtp8YknW01T/60MLKwc6Q4diucYfT2iZ4hVOWT1GIh8y3uK3TkgFk9RQlT3o
-sPCtuR+ICeN2DIHqamv+
-=d/US
------END PGP SIGNATURE-----
+Reported-by: kbuild test robot <fengguang.wu@intel.com>
+Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+---
+This silly NULL deref bug and missing overflow check was an oversight when
+I refactored the code from two allocations (kmalloc for struct bpf_array and
+kcalloc for array of elements) in the first implementation of arraymap
+into one allocation which is this code.
 
---=-NZN48hSAI1ItKPhBN68o--
+ kernel/bpf/arraymap.c |   17 +++++++++++------
+ kernel/bpf/hashtab.c  |    5 +++++
+ 2 files changed, 16 insertions(+), 6 deletions(-)
+
+diff --git a/kernel/bpf/arraymap.c b/kernel/bpf/arraymap.c
+index 58b80c137afd..9eb4d8a7cd87 100644
+--- a/kernel/bpf/arraymap.c
++++ b/kernel/bpf/arraymap.c
+@@ -25,7 +25,7 @@ struct bpf_array {
+ static struct bpf_map *array_map_alloc(union bpf_attr *attr)
+ {
+ 	struct bpf_array *array;
+-	u32 elem_size;
++	u32 elem_size, array_size;
+ 
+ 	/* check sanity of attributes */
+ 	if (attr->max_entries == 0 || attr->key_size != 4 ||
+@@ -34,11 +34,17 @@ static struct bpf_map *array_map_alloc(union bpf_attr *attr)
+ 
+ 	elem_size = round_up(attr->value_size, 8);
+ 
++	/* check round_up into zero and u32 overflow */
++	if (elem_size == 0 ||
++	    attr->max_entries > (U32_MAX - sizeof(*array)) / elem_size)
++		return ERR_PTR(-ENOMEM);
++
++	array_size = sizeof(*array) + attr->max_entries * elem_size;
++
+ 	/* allocate all map elements and zero-initialize them */
+-	array = kzalloc(sizeof(*array) + attr->max_entries * elem_size,
+-			GFP_USER | __GFP_NOWARN);
++	array = kzalloc(array_size, GFP_USER | __GFP_NOWARN);
+ 	if (!array) {
+-		array = vzalloc(array->map.max_entries * array->elem_size);
++		array = vzalloc(array_size);
+ 		if (!array)
+ 			return ERR_PTR(-ENOMEM);
+ 	}
+@@ -51,7 +57,6 @@ static struct bpf_map *array_map_alloc(union bpf_attr *attr)
+ 	array->elem_size = elem_size;
+ 
+ 	return &array->map;
+-
+ }
+ 
+ /* Called from syscall or from eBPF program */
+@@ -101,7 +106,7 @@ static int array_map_update_elem(struct bpf_map *map, void *key, void *value,
+ 		return -E2BIG;
+ 
+ 	if (map_flags == BPF_NOEXIST)
+-		/* all elemenets already exist */
++		/* all elements already exist */
+ 		return -EEXIST;
+ 
+ 	memcpy(array->value + array->elem_size * index, value, array->elem_size);
+diff --git a/kernel/bpf/hashtab.c b/kernel/bpf/hashtab.c
+index d234a012f046..b3ba43674310 100644
+--- a/kernel/bpf/hashtab.c
++++ b/kernel/bpf/hashtab.c
+@@ -65,6 +65,11 @@ static struct bpf_map *htab_map_alloc(union bpf_attr *attr)
+ 		goto free_htab;
+ 
+ 	err = -ENOMEM;
++	/* prevent zero size kmalloc and check for u32 overflow */
++	if (htab->n_buckets == 0 ||
++	    htab->n_buckets > U32_MAX / sizeof(struct hlist_head))
++		goto free_htab;
++
+ 	htab->buckets = kmalloc_array(htab->n_buckets, sizeof(struct hlist_head),
+ 				      GFP_USER | __GFP_NOWARN);
+ 
+-- 
+1.7.9.5
