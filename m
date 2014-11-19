@@ -1,67 +1,92 @@
-From: Tom Herbert <therbert@google.com>
-Subject: [PATCH RFC] net: Pass full skb hash to ndo_rx_flow_steer
-Date: Tue, 18 Nov 2014 20:08:57 -0800
-Message-ID: <1416370137-2512-1-git-send-email-therbert@google.com>
-To: luto@amacapital.net, ben@decadent.org.uk, netdev@vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/15][pull request] Intel Wired LAN Driver Updates 2014-11-18
+Date: Tue, 18 Nov 2014 20:10:41 -0800
+Message-ID: <1416370256-16834-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f172.google.com ([209.85.213.172]:41943 "EHLO
-	mail-ig0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753791AbaKSEJJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Nov 2014 23:09:09 -0500
-Received: by mail-ig0-f172.google.com with SMTP id hl2so2250148igb.11
-        for <netdev@vger.kernel.org>; Tue, 18 Nov 2014 20:09:08 -0800 (PST)
+Received: from mga02.intel.com ([134.134.136.20]:29654 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753791AbaKSELB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Nov 2014 23:11:01 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, for aRFS the index into the flow table is passed to
-ndo_rx_flow_steer as the flow ID of a connection. This is the skb->hash
-& the table mask. It looks like the backend can accept the full
-skb->hash as the flow ID which should reduce the number of collisions
-in the hardware tables.
+This series contains updates to ixgbevf, i40e and i40evf.
 
-This patch provides the skb->hash to the driver for flow steering.
-Expiration of HW steered flows was also updated.
+Emil updates ixgbevf with much of the work that Alex Duyck did while at
+Intel.  First updates the driver to clear the status bits on allocation
+instead of in the cleanup routine, this way we can leave the recieve
+descriptor rings as a read only memory block until we actually have
+buffers to give back to the hardware.  Clean up ixgbevf_clean_rx_irq()
+by creating ixgbevf_process_skb_field() to merge several similar
+operations into this new function.  Cleanup temporary variables within
+the receive hot-path and reducing the scope of variables that do not
+need to exist outside the main loop.  Save on stack space by just
+storing our updated values back in next_to_clean instead of using
+a stack variable, which also collapses the size the function.  Improve
+performace on IOMMU enabled systems and reduce cache misses by changing
+the basic receive patch for ixgbevf so that instead of receiving the
+data into an skb, it is received into a double buffered page.  Add
+netpoll support by creating ixgbevf_netpoll(), which is a callback for
+.ndo_poll_controller to allow for the VF interface to be used with
+netconsole.
 
-With a hash collision in RFS, ndo_rx_flow_steer will continue to be
-called with different CPUs, but now with different flow_ids. If this
-is still too much device interaction, then it might make sense for the
-driver to do its own lookup in its structure to see if a matching
-filter is already installed for a given flow_id, an if it is just
-refresh a timestamp to avoid expiration (based on looking at sfc
-driver).
+Mitch provides several cleanups and trivial fixes for i40e and i40evf.
+First is a fix the overloading of the msg_size field in the
+arq_event_info struct by splitting the field into two and renaming to
+indicate the actual function of each field.  Updates code comments
+to match the actual function.  Cleanup several checkpatch.pl warnings
+by adding or removing blank lines, aligning function parameters, and
+correcting over-long lines (which makes the code more readable).
 
-I don't currently have any HW to test this, if someone could try this
-on hardware with aRFS and provide feedback that would be appreciated.
+Shannon provides a patch for i40e to write the extra bits that will
+turn off the ITR wait for the interrupt, since we want the SW INT to
+go off as soon as possible.
 
-Signed-off-by: Tom Herbert <therbert@google.com>
----
- net/core/dev.c | 7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+The following are changes since commit e3e3217029a35c579bf100998b43976d0b1cb8d7:
+  icmp: Remove some spurious dropped packet profile hits from the ICMP path
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 1ab168e..cb1e06d 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3057,7 +3057,8 @@ set_rps_cpu(struct net_device *dev, struct sk_buff *skb,
- 			goto out;
- 		flow_id = skb_get_hash(skb) & flow_table->mask;
- 		rc = dev->netdev_ops->ndo_rx_flow_steer(dev, skb,
--							rxq_index, flow_id);
-+							rxq_index,
-+							skb_get_hash(skb));
- 		if (rc < 0)
- 			goto out;
- 		old_rflow = rflow;
-@@ -3195,8 +3196,8 @@ bool rps_may_expire_flow(struct net_device *dev, u16 rxq_index,
- 
- 	rcu_read_lock();
- 	flow_table = rcu_dereference(rxqueue->rps_flow_table);
--	if (flow_table && flow_id <= flow_table->mask) {
--		rflow = &flow_table->flows[flow_id];
-+	if (flow_table) {
-+		rflow = &flow_table->flows[flow_id & flow_table->mask];
- 		cpu = ACCESS_ONCE(rflow->cpu);
- 		if (rflow->filter == filter_id && cpu != RPS_NO_CPU &&
- 		    ((int)(per_cpu(softnet_data, cpu).input_queue_head -
+Emil Tantilov (9):
+  ixgbevf: Update ixgbevf_alloc_rx_buffers to handle clearing of status
+    bits
+  ixgbevf: Test Rx status bits directly out of the descriptor
+  ixgbevf: Combine the logic for post Rx processing into single function
+  ixgbevf: Cleanup variable usage, improve stack performance
+  ixgbevf: reorder main loop in ixgbe_clean_rx_irq to allow for
+    do/while/continue
+  ixgbevf: Update Rx next to clean in real time
+  ixgbevf: Change receive model to use double buffered page based
+    receives
+  ixgbevf: compare total_rx_packets and budget in ixgbevf_clean_rx_irq
+  ixgbevf: add netpoll support
+
+Mitch Williams (5):
+  i40e: don't overload fields
+  i40evf: update header comments
+  i40evf: make checkpatch happy
+  i40evf: make comparisons consistent
+  i40evf: remove unnecessary else
+
+Shannon Nelson (1):
+  i40e: trigger SW INT with no ITR wait
+
+ drivers/net/ethernet/intel/i40e/i40e_adminq.c      |   6 +-
+ drivers/net/ethernet/intel/i40e/i40e_adminq.h      |   3 +-
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c     |   5 +-
+ drivers/net/ethernet/intel/i40e/i40e_main.c        |  17 +-
+ drivers/net/ethernet/intel/i40evf/i40e_adminq.c    |   6 +-
+ drivers/net/ethernet/intel/i40evf/i40e_adminq.h    |   3 +-
+ drivers/net/ethernet/intel/i40evf/i40evf.h         |   2 +-
+ drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c |  14 +-
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c    |  71 +-
+ .../net/ethernet/intel/i40evf/i40evf_virtchnl.c    |  23 +-
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf.h       |  39 +-
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c  | 728 ++++++++++++++-------
+ 12 files changed, 592 insertions(+), 325 deletions(-)
+
 -- 
-2.1.0.rc2.206.gedb03e5
+1.9.3
