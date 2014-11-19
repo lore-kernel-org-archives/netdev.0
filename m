@@ -1,36 +1,29 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [PATCH] net: team: expose sysfs attributes for each team option
-Date: Wed, 19 Nov 2014 10:45:28 -0800
-Message-ID: <CAHA+R7OOnSfSP1uHrg=osH=+=sb-0Zj-=yYx8HXmpO95v+Dhyg@mail.gmail.com>
-References: <93856491220bda9aede41a9571fb1ac1.squirrel@www.codeaurora.org>
-	<20141117130201.GB1872@nanopsycho.orion>
-	<03067d01f18e264b30f86d0307d11b07.squirrel@www.codeaurora.org>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: Re: net: sched: Deletion of an unnecessary check before the function
+ call "kfree"
+Date: Wed, 19 Nov 2014 19:49:52 +0100
+Message-ID: <546CE650.6080205@users.sourceforge.net>
+References: <5307CAA2.8060406@users.sourceforge.net> <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6> <530A086E.8010901@users.sourceforge.net> <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6> <530A72AA.3000601@users.sourceforge.net> <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6> <530B5FB6.6010207@users.sourceforge.net> <alpine.DEB.2.10.1402241710370.2074@hadrien> <530C5E18.1020800@users.sourceforge.net> <alpine.DEB.2.10.1402251014170.2080@hadrien> <530CD2C4.4050903@users.sourceforge.net> <alpine.DEB.2.10.1402251840450.7035@hadrien> <530CF8FF.8080600@users.sourceforge.net> <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6> <530DD06F.4090703@users.sourceforge.net> <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6> <5317A59D.4@users.so
+ urceforge.net> <546BAB93.4010406@users.sourceforge.net> <546CC9B3.5060405@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jiri Pirko <jiri@resnulli.us>, netdev <netdev@vger.kernel.org>
-To: Hamad Kadmany <hkadmany@codeaurora.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f49.google.com ([209.85.216.49]:33721 "EHLO
-	mail-qa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754559AbaKSSp3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 13:45:29 -0500
-Received: by mail-qa0-f49.google.com with SMTP id s7so812095qap.8
-        for <netdev@vger.kernel.org>; Wed, 19 Nov 2014 10:45:28 -0800 (PST)
-In-Reply-To: <03067d01f18e264b30f86d0307d11b07.squirrel@www.codeaurora.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Jamal Hadi Salim <jhs@mojatatu.com>, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org
+To: John Fastabend <john.fastabend@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <546CC9B3.5060405@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 19, 2014 at 4:28 AM, Hamad Kadmany <hkadmany@codeaurora.org> wrote:
-> On Mon, November 17, 2014 1:02 pm, Jiri Pirko wrote:
->>
->> Nak.
->>
->> I don't like this patch. The plan for team was keep things simple and to
->> have single userspace api using netlink, as that is the correct way to
->> deal with things. Sysfs for this use-case is not. Please, use netlink api.
->
-> Using team driver requires using libnl3. In Android based platforms, libnl3 is not supported, and libnl3 license poses constraints in Android's user-space.
->
+> Marcus, what tree are you looking at?
 
-Check if libmnl fits your license:
-http://www.netfilter.org/projects/libmnl/
+I dared to base this update suggestion on the source files
+for Linux 3.17.3. Are newer software developments relevant here?
+
+https://git.kernel.org/cgit/linux/kernel/git/next/linux-next.git/log/net/sched/
+
+Regards,
+Markus
