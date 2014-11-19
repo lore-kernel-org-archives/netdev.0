@@ -1,47 +1,34 @@
-From: Joe Stringer <joestringer-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCHv3 net] openvswitch: Don't validate IPv6 label
-	masks.
-Date: Wed, 19 Nov 2014 13:54:49 -0800
-Message-ID: <1416434089-47062-1-git-send-email-joestringer@nicira.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] ipv6: delete protocol and unregister rtnetlink when
+ cleanup
+Date: Wed, 19 Nov 2014 16:55:44 -0500 (EST)
+Message-ID: <20141119.165544.2020739689487881127.davem@davemloft.net>
+References: <546B20F8.6010806@cn.fujitsu.com>
+	<CAHA+R7PNmac7KQpSK-vO9zVd3+926f6n_GpaGrbpBnSn98xiyQ@mail.gmail.com>
+	<546BF3EB.1080603@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: cwang@twopensource.com, netdev@vger.kernel.org,
+	eric.dumazet@gmail.com
+To: duanj.fnst@cn.fujitsu.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39195 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932684AbaKSVzr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 16:55:47 -0500
+In-Reply-To: <546BF3EB.1080603@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-V2hlbiB1c2Vyc3BhY2UgZG9lc24ndCBwcm92aWRlIGEgbWFzaywgT1ZTIGRhdGFwYXRoIGdlbmVy
-YXRlcyBhIGZ1bGx5CnVud2lsZGNhcmRlZCBtYXNrIGZvciB0aGUgZmxvdyBieSBjb3B5aW5nIHRo
-ZSBmbG93IGFuZCBzZXR0aW5nIGFsbCBiaXRzCmluIGFsbCBmaWVsZHMuIEZvciBJUHY2IGxhYmVs
-LCB0aGlzIGNyZWF0ZXMgYSBtYXNrIHRoYXQgbWF0Y2hlcyBvbiB0aGUKdXBwZXIgMTIgYml0cywg
-Y2F1c2luZyB0aGUgZm9sbG93aW5nIGVycm9yOgoKb3BlbnZzd2l0Y2g6IG5ldGxpbms6IEludmFs
-aWQgSVB2NiBmbG93IGxhYmVsIHZhbHVlICh2YWx1ZT1mZmZmZmZmZiwgbWF4PWZmZmZmKQoKVGhp
-cyBwYXRjaCBpZ25vcmVzIHRoZSBsYWJlbCB2YWxpZGF0aW9uIGNoZWNrIGZvciBtYXNrcywgYXZv
-aWRpbmcgdGhpcwplcnJvci4KClNpZ25lZC1vZmYtYnk6IEpvZSBTdHJpbmdlciA8am9lc3RyaW5n
-ZXJAbmljaXJhLmNvbT4KLS0tCnYzOiBBbHRlcm5hdGl2ZSBhcHByb2FjaC4KICAgIFdhcyAib3Bl
-bnZzd2l0Y2g6IEZpeCBtYXNrIGdlbmVyYXRpb24gZm9yIElQdjYgbGFiZWxzLiIKdjI6IE9SIGxv
-d2VyIDIwIGJpdHMgKHVwcGVyIDEyIGJpdHMgcmVtYWluIGZyb20gZWFybGllciBtZW1kdXApCi0t
-LQogbmV0L29wZW52c3dpdGNoL2Zsb3dfbmV0bGluay5jIHwgICAgMiArLQogMSBmaWxlIGNoYW5n
-ZWQsIDEgaW5zZXJ0aW9uKCspLCAxIGRlbGV0aW9uKC0pCgpkaWZmIC0tZ2l0IGEvbmV0L29wZW52
-c3dpdGNoL2Zsb3dfbmV0bGluay5jIGIvbmV0L29wZW52c3dpdGNoL2Zsb3dfbmV0bGluay5jCmlu
-ZGV4IGZhNGVjMmUuLjA4OWIxOTUgMTAwNjQ0Ci0tLSBhL25ldC9vcGVudnN3aXRjaC9mbG93X25l
-dGxpbmsuYworKysgYi9uZXQvb3BlbnZzd2l0Y2gvZmxvd19uZXRsaW5rLmMKQEAgLTY5MCw3ICs2
-OTAsNyBAQCBzdGF0aWMgaW50IG92c19rZXlfZnJvbV9ubGF0dHJzKHN0cnVjdCBzd19mbG93X21h
-dGNoICptYXRjaCwgdTY0IGF0dHJzLAogCQkJcmV0dXJuIC1FSU5WQUw7CiAJCX0KIAotCQlpZiAo
-aXB2Nl9rZXktPmlwdjZfbGFiZWwgJiBodG9ubCgweEZGRjAwMDAwKSkgeworCQlpZiAoIWlzX21h
-c2sgJiYgaXB2Nl9rZXktPmlwdjZfbGFiZWwgJiBodG9ubCgweEZGRjAwMDAwKSkgewogCQkJT1ZT
-X05MRVJSKCJJUHY2IGZsb3cgbGFiZWwgJXggaXMgb3V0IG9mIHJhbmdlIChtYXg9JXgpLlxuIiwK
-IAkJCQkgIG50b2hsKGlwdjZfa2V5LT5pcHY2X2xhYmVsKSwgKDEgPDwgMjApIC0gMSk7CiAJCQly
-ZXR1cm4gLUVJTlZBTDsKLS0gCjEuNy4xMC40CgpfX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcK
-aHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
+From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Date: Wed, 19 Nov 2014 09:35:39 +0800
+
+> pim6_protocol was added when initiation, but it not deleted.
+> Similarly, unregister RTNL_FAMILY_IP6MR rtnetlink.
+> 
+> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+> ---
+> v2: add missing rtnl_unregister()
+
+Applied, thanks.
