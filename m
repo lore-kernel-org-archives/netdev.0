@@ -1,49 +1,29 @@
-From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Subject: [PATCH v2] ipv6: delete protocol and unregister rtnetlink when cleanup
-Date: Wed, 19 Nov 2014 09:35:39 +0800
-Message-ID: <546BF3EB.1080603@cn.fujitsu.com>
-References: <546B20F8.6010806@cn.fujitsu.com> <CAHA+R7PNmac7KQpSK-vO9zVd3+926f6n_GpaGrbpBnSn98xiyQ@mail.gmail.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: Question about Patch Submissions
+Date: Tue, 18 Nov 2014 17:38:58 -0800
+Message-ID: <CAADnVQ+1_Ct3hhmZrCqpxcT=-XS4OXrpRbrHHHyOKQOuoDc06g@mail.gmail.com>
+References: <546B9A45.9040509@psc.edu>
+	<CAHA+R7P-G4P-AzTM248FqNEm=dcuQOB_fwdM0Us3gsQgSeY0UQ@mail.gmail.com>
+	<546BAE75.7080802@psc.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <cwang@twopensource.com>,
-	netdev <netdev@vger.kernel.org>, <eric.dumazet@gmail.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Cong Wang <cwang@twopensource.com>, netdev <netdev@vger.kernel.org>
+To: rapier <rapier@psc.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([59.151.112.132]:51555 "EHLO
-	heian.cn.fujitsu.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755213AbaKSBiE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Nov 2014 20:38:04 -0500
-In-Reply-To: <CAHA+R7PNmac7KQpSK-vO9zVd3+926f6n_GpaGrbpBnSn98xiyQ@mail.gmail.com>
+Received: from mail-qc0-f170.google.com ([209.85.216.170]:37338 "EHLO
+	mail-qc0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754004AbaKSBjA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Nov 2014 20:39:00 -0500
+Received: by mail-qc0-f170.google.com with SMTP id x3so5055505qcv.1
+        for <netdev@vger.kernel.org>; Tue, 18 Nov 2014 17:38:59 -0800 (PST)
+In-Reply-To: <546BAE75.7080802@psc.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, Nov 18, 2014 at 12:39 PM, rapier <rapier@psc.edu> wrote:
+> break this down for presentation. We can make sure each section of the patch
+> applies cleanly but the entirety of the patch set would have to be applied
+> for it to compile.
 
-
-pim6_protocol was added when initiation, but it not deleted.
-Similarly, unregister RTNL_FAMILY_IP6MR rtnetlink.
-
-Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
----
-v2: add missing rtnl_unregister()
-
- net/ipv6/ip6mr.c | 4 ++++
- 1 file changed, 4 insertions(+)
-
-diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
-index 0171f08..1a01d79 100644
---- a/net/ipv6/ip6mr.c
-+++ b/net/ipv6/ip6mr.c
-@@ -1439,6 +1439,10 @@ reg_pernet_fail:
- 
- void ip6_mr_cleanup(void)
- {
-+	rtnl_unregister(RTNL_FAMILY_IP6MR, RTM_GETROUTE);
-+#ifdef CONFIG_IPV6_PIMSM_V2
-+	inet6_del_protocol(&pim6_protocol, IPPROTO_PIM);
-+#endif
- 	unregister_netdevice_notifier(&ip6_mr_notifier);
- 	unregister_pernet_subsys(&ip6mr_net_ops);
- 	kmem_cache_destroy(mrt_cachep);
--- 
-1.8.3.1
+all patches need to compile cleanly on all architectures,
+otherwise bisect will be broken.
