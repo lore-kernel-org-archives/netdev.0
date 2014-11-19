@@ -1,41 +1,42 @@
 From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: net: sched: Deletion of an unnecessary check before the function
- call "kfree"
-Date: Wed, 19 Nov 2014 20:09:25 +0100
-Message-ID: <546CEAE5.9000305@redhat.com>
-References: <5307CAA2.8060406@users.sourceforge.net> <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6> <530A086E.8010901@users.sourceforge.net> <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6> <530A72AA.3000601@users.sourceforge.net> <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6> <530B5FB6.6010207@users.sourceforge.net> <alpine.DEB.2.10.1402241710370.2074@hadrien> <530C5E18.1020800@users.sourceforge.net> <alpine.DEB.2.10.1402251014170.2080@hadrien> <530CD2C4.4050903@users.sourceforge.net> <alpine.DEB.2.10.1402251840450.7035@hadrien> <530CF8FF.8080600@users.sourceforge.net> <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6> <530DD06F.4090703@users.sourceforge.net> <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6> <5317A59D.4@users.so
- urceforge.net> <546BAB93.4010406@users.sourceforge.net> <546CC9B3.5060405@gmail.com> <546CE650.6080205@users.sourceforge.net>
+Subject: Re: [PATCH] net: team: expose sysfs attributes for each team option
+Date: Wed, 19 Nov 2014 20:17:01 +0100
+Message-ID: <546CECAD.1040402@redhat.com>
+References: <93856491220bda9aede41a9571fb1ac1.squirrel@www.codeaurora.org> <20141117130201.GB1872@nanopsycho.orion> <03067d01f18e264b30f86d0307d11b07.squirrel@www.codeaurora.org> <CAHA+R7OOnSfSP1uHrg=osH=+=sb-0Zj-=yYx8HXmpO95v+Dhyg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: John Fastabend <john.fastabend@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jamal Hadi Salim <jhs@mojatatu.com>, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org
-To: SF Markus Elfring <elfring@users.sourceforge.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <546CE650.6080205@users.sourceforge.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Hamad Kadmany <hkadmany@codeaurora.org>,
+	Jiri Pirko <jiri@resnulli.us>, netdev <netdev@vger.kernel.org>,
+	tgraf@suug.ch
+To: Cong Wang <cwang@twopensource.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:50504 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756021AbaKSTRd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Nov 2014 14:17:33 -0500
+In-Reply-To: <CAHA+R7OOnSfSP1uHrg=osH=+=sb-0Zj-=yYx8HXmpO95v+Dhyg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/19/2014 07:49 PM, SF Markus Elfring wrote:
->> Marcus, what tree are you looking at?
->
-> I dared to base this update suggestion on the source files
-> for Linux 3.17.3. Are newer software developments relevant here?
->
-> https://git.kernel.org/cgit/linux/kernel/git/next/linux-next.git/log/net/sched/
+On 11/19/2014 07:45 PM, Cong Wang wrote:
+> On Wed, Nov 19, 2014 at 4:28 AM, Hamad Kadmany <hkadmany@codeaurora.org> wrote:
+>> On Mon, November 17, 2014 1:02 pm, Jiri Pirko wrote:
+>>>
+>>> Nak.
+>>>
+>>> I don't like this patch. The plan for team was keep things simple and to
+>>> have single userspace api using netlink, as that is the correct way to
+>>> deal with things. Sysfs for this use-case is not. Please, use netlink api.
 
-Pointing to linux-next and saying you based your changes on 3.17.3
-is confusing, please look correctly when you provide a link ...
++1
 
-Again, John's commit 1f947bf151e90ec0b removed the relevant part in
-cls_bpf_modify_existing() that you're trying to modify:
+>> Using team driver requires using libnl3. In Android based platforms, libnl3
+ >> is not supported, and libnl3 license poses constraints in Android's user-space.
 
-$ git grep -n bpf_old net/sched/cls_bpf.c
-$
+Constraints?! libnl3 is LGPL ...
 
-Therefore, this patch is not needed.
+> Check if libmnl fits your license:
+> http://www.netfilter.org/projects/libmnl/
 
-Thanks !
+... and this one, too.
