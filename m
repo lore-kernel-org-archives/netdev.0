@@ -1,53 +1,89 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH net-next 3/4] igb: enable internal PPS for the i210.
-Date: Wed, 19 Nov 2014 07:37:24 +0100
-Message-ID: <20141119063724.GB4109@localhost.localdomain>
-References: <cover.1416265321.git.richardcochran@gmail.com>
- <e5b4ef7c56119e2d86e42f5680b1b82c9ec1a38e.1416265321.git.richardcochran@gmail.com>
+From: Jon Maxwell <jmaxwell37@gmail.com>
+Subject: [PATCH net] tcp: fix connect() invalid -EADDRNOTAVAIL error
+Date: Wed, 19 Nov 2014 17:37:40 +1100
+Message-ID: <1416379060-15685-1-git-send-email-jmaxwell37@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, bruce.w.allan@intel.com,
-	Jacob Keller <jacob.e.keller@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Matthew Vick <matthew.vick@intel.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f169.google.com ([209.85.212.169]:43842 "EHLO
-	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754005AbaKSGha (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 01:37:30 -0500
-Received: by mail-wi0-f169.google.com with SMTP id r20so7877366wiv.2
-        for <netdev@vger.kernel.org>; Tue, 18 Nov 2014 22:37:28 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <e5b4ef7c56119e2d86e42f5680b1b82c9ec1a38e.1416265321.git.richardcochran@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, jmaxwell@redhat.com,
+	Jon Maxwell <jmaxwell37@gmail.com>
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 18, 2014 at 12:06:24AM +0100, Richard Cochran wrote:
-> --- a/drivers/net/ethernet/intel/igb/igb_main.c
-> +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-> @@ -5386,8 +5386,14 @@ void igb_update_stats(struct igb_adapter *adapter,
->  static void igb_tsync_interrupt(struct igb_adapter *adapter)
->  {
->  	struct e1000_hw *hw = &adapter->hw;
-> +	struct ptp_clock_event event;
->  	u32 tsicr = rd32(E1000_TSICR);
->  
-> +	if (tsicr & TSINTR_SYS_WRAP) {
-> +		event.type = PTP_CLOCK_PPS;
-> +		ptp_clock_event(adapter->ptp_clock, &event);
+The connect() routine returns -EADDRNOTAVAIL without doing a 4=20
+tuple check when the hash buckets were previously allocated by=20
+bind() and all local ports are used.
 
-This causes a BUG for the 82580. When you enable E1000_TSICR_TXTS, it
-seems that TSINTR_SYS_WRAP is also automatically enabled. Because the
-82580 variant has no pps device enabled, the driver then dereferences
-a null pointer.
+The bind() routine creates the local port hash buckets in=20
+inet_csk_get_port(). Depending on the socket options it sets=20
+tb->fastreuse and tb->fastreuseport to 0 or 1 in the bucket.
 
-So we need to make the call to ptp_clock_event() conditional based on
-whether pps is enabled. I'll fix this in V2.
+However the __inet_hash_connect() routine initializes the hash=20
+buckets differently and sets these to -1. The end result is=20
+that connect() calling into __inet_hash_connect() will=20
+subsequently ignore the check_established() routine if, here
 
-> +	}
-> +
+__inet_hash_connect()
+=2E
+=2E
+if (tb->fastreuse >=3D 0 ||=E2=86=A9
+    tb->fastreuseport >=3D 0)=E2=86=A9
+    goto next_port;
 
-Thanks,
-Richard
+and cycle through all local ports until it returns -EADDRNOTAVAIL.=20
+The 4 tuple check is in check_established() so connect() can fail=20
+unnecessarily.
+
+Prerequisites for this to happen:
+1) The local tcp port range must be exhausted.
+2) A process must have called bind() followed by connect() for all=20
+local ports.
+3) A different process calls connect() only which returns -EADDRNOTAVAI=
+L.=20
+4) The system more than 1 interface configured.
+
+If a system has 2 IP Addresses and all local tcp ports are in use
+for connection from IP Address (1). Connecting to the same ports=20
+via IP Address (2) should work based on the 4 tuple rule. But it=20
+fails under this condition.=20
+
+To fix this make __inet_hash_connect() honour inet_csk_get_port()'s
+tb->fastreuse* variables.
+
+Signed-off-by: Jon Maxwell <jmaxwell37@gmail.com>
+---
+ net/ipv4/inet_hashtables.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
+index 9111a4e..b39e89e 100644
+--- a/net/ipv4/inet_hashtables.c
++++ b/net/ipv4/inet_hashtables.c
+@@ -513,8 +513,8 @@ int __inet_hash_connect(struct inet_timewait_death_=
+row *death_row,
+ 			inet_bind_bucket_for_each(tb, &head->chain) {
+ 				if (net_eq(ib_net(tb), net) &&
+ 				    tb->port =3D=3D port) {
+-					if (tb->fastreuse >=3D 0 ||
+-					    tb->fastreuseport >=3D 0)
++					if (tb->fastreuse > 0 ||
++					    tb->fastreuseport > 0)
+ 						goto next_port;
+ 					WARN_ON(hlist_empty(&tb->owners));
+ 					if (!check_established(death_row, sk,
+@@ -530,8 +530,6 @@ int __inet_hash_connect(struct inet_timewait_death_=
+row *death_row,
+ 				spin_unlock(&head->lock);
+ 				break;
+ 			}
+-			tb->fastreuse =3D -1;
+-			tb->fastreuseport =3D -1;
+ 			goto ok;
+=20
+ 		next_port:
+--=20
+1.8.3.1
