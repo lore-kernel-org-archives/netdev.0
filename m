@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 12/15] i40evf: make checkpatch happy
-Date: Tue, 18 Nov 2014 20:10:53 -0800
-Message-ID: <1416370256-16834-13-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 11/15] i40evf: update header comments
+Date: Tue, 18 Nov 2014 20:10:52 -0800
+Message-ID: <1416370256-16834-12-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1416370256-16834-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Mitch Williams <mitch.a.williams@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
@@ -10,383 +10,44 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([134.134.136.65]:41461 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754507AbaKSELK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Nov 2014 23:11:10 -0500
+	id S1754490AbaKSELH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Nov 2014 23:11:07 -0500
 In-Reply-To: <1416370256-16834-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Mitch Williams <mitch.a.williams@intel.com>
 
-This patch is the result of running checkpatch on the i40evf driver with
-the --strict option. The vast majority of changes are adding/removing
-blank lines, aligning function parameters, and correcting over-long
-lines.
+No code changes. Update comments to match actual function declarations.
 
-The only possible functional change is changing the flags member of the
-adapter structure to be non-volatile. However, according to the kernel
-documentation, this is not necessary and the volatile should be removed.
-
-Change-ID: Ie8c6414800924f529bef831e8845292b970fe2ed
+Change-ID: Ib830d2f154ee917a104955c0914267fc98f3d2c8
 Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40evf/i40evf.h         |  2 +-
- drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c | 10 +++--
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    | 48 ++++++++++++----------
- .../net/ethernet/intel/i40evf/i40evf_virtchnl.c    | 12 +++---
- 4 files changed, 39 insertions(+), 33 deletions(-)
+ drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf.h b/drivers/net/ethernet/intel/i40evf/i40evf.h
-index 1113f8a..9812247 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf.h
-@@ -244,7 +244,7 @@ struct i40evf_adapter {
- 	struct i40e_hw hw; /* defined in i40e_type.h */
- 
- 	enum i40evf_state_t state;
--	volatile unsigned long crit_section;
-+	unsigned long crit_section;
- 
- 	struct work_struct watchdog_task;
- 	bool netdev_registered;
 diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
-index b2cd9ea..69a269b 100644
+index 876411c..b2cd9ea 100644
 --- a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
 +++ b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
-@@ -58,7 +58,7 @@ static const struct i40evf_stats i40evf_gstrings_stats[] = {
- 
- #define I40EVF_GLOBAL_STATS_LEN ARRAY_SIZE(i40evf_gstrings_stats)
- #define I40EVF_QUEUE_STATS_LEN(_dev) \
--	(((struct i40evf_adapter *) \
-+	(((struct i40evf_adapter *)\
- 		netdev_priv(_dev))->num_active_queues \
- 		  * 2 * (sizeof(struct i40e_queue_stats) / sizeof(u64)))
- #define I40EVF_STATS_LEN(_dev) \
-@@ -175,6 +175,7 @@ static void i40evf_get_strings(struct net_device *netdev, u32 sset, u8 *data)
- static u32 i40evf_get_msglevel(struct net_device *netdev)
- {
- 	struct i40evf_adapter *adapter = netdev_priv(netdev);
-+
- 	return adapter->msg_enable;
- }
- 
-@@ -189,6 +190,7 @@ static u32 i40evf_get_msglevel(struct net_device *netdev)
- static void i40evf_set_msglevel(struct net_device *netdev, u32 data)
- {
- 	struct i40evf_adapter *adapter = netdev_priv(netdev);
-+
- 	adapter->msg_enable = data;
- }
- 
-@@ -219,7 +221,7 @@ static void i40evf_get_drvinfo(struct net_device *netdev,
-  * but the number of rings is not reported.
+@@ -621,7 +621,7 @@ static u32 i40evf_get_rxfh_indir_size(struct net_device *netdev)
+  * i40evf_get_rxfh - get the rx flow hash indirection table
+  * @netdev: network interface device structure
+  * @indir: indirection table
+- * @key: hash key (will be %NULL until get_rxfh_key_size is implemented)
++ * @key: hash key
+  *
+  * Reads the indirection table directly from the hardware. Always returns 0.
   **/
- static void i40evf_get_ringparam(struct net_device *netdev,
--				  struct ethtool_ringparam *ring)
-+				 struct ethtool_ringparam *ring)
- {
- 	struct i40evf_adapter *adapter = netdev_priv(netdev);
- 
-@@ -280,7 +282,7 @@ static int i40evf_set_ringparam(struct net_device *netdev,
-  * this functionality.
-  **/
- static int i40evf_get_coalesce(struct net_device *netdev,
--			     struct ethtool_coalesce *ec)
-+			       struct ethtool_coalesce *ec)
- {
- 	struct i40evf_adapter *adapter = netdev_priv(netdev);
- 	struct i40e_vsi *vsi = &adapter->vsi;
-@@ -308,7 +310,7 @@ static int i40evf_get_coalesce(struct net_device *netdev,
-  * Change current coalescing settings.
-  **/
- static int i40evf_set_coalesce(struct net_device *netdev,
--			     struct ethtool_coalesce *ec)
-+			       struct ethtool_coalesce *ec)
- {
- 	struct i40evf_adapter *adapter = netdev_priv(netdev);
- 	struct i40e_hw *hw = &adapter->hw;
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index d378e13..777d3a5 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -185,6 +185,7 @@ static void i40evf_tx_timeout(struct net_device *netdev)
- static void i40evf_misc_irq_disable(struct i40evf_adapter *adapter)
- {
- 	struct i40e_hw *hw = &adapter->hw;
-+
- 	wr32(hw, I40E_VFINT_DYN_CTL01, 0);
- 
- 	/* read flush */
-@@ -200,6 +201,7 @@ static void i40evf_misc_irq_disable(struct i40evf_adapter *adapter)
- static void i40evf_misc_irq_enable(struct i40evf_adapter *adapter)
- {
- 	struct i40e_hw *hw = &adapter->hw;
-+
- 	wr32(hw, I40E_VFINT_DYN_CTL01, I40E_VFINT_DYN_CTL01_INTENA_MASK |
- 				       I40E_VFINT_DYN_CTL01_ITR_INDX_MASK);
- 	wr32(hw, I40E_VFINT_ICR0_ENA1, I40E_VFINT_ICR0_ENA_ADMINQ_MASK);
-@@ -226,7 +228,6 @@ static void i40evf_irq_disable(struct i40evf_adapter *adapter)
- 	}
- 	/* read flush */
- 	rd32(hw, I40E_VFGEN_RSTAT);
--
- }
- 
- /**
-@@ -253,8 +254,7 @@ void i40evf_irq_enable_queues(struct i40evf_adapter *adapter, u32 mask)
-  * @adapter: board private structure
-  * @mask: bitmap of vectors to trigger
-  **/
--static void i40evf_fire_sw_int(struct i40evf_adapter *adapter,
--					    u32 mask)
-+static void i40evf_fire_sw_int(struct i40evf_adapter *adapter, u32 mask)
- {
- 	struct i40e_hw *hw = &adapter->hw;
- 	int i;
-@@ -551,6 +551,7 @@ static void i40evf_free_traffic_irqs(struct i40evf_adapter *adapter)
- {
- 	int i;
- 	int q_vectors;
-+
- 	q_vectors = adapter->num_msix_vectors - NONQ_VECS;
- 
- 	for (i = 0; i < q_vectors; i++) {
-@@ -584,6 +585,7 @@ static void i40evf_configure_tx(struct i40evf_adapter *adapter)
- {
- 	struct i40e_hw *hw = &adapter->hw;
- 	int i;
-+
- 	for (i = 0; i < adapter->num_active_queues; i++)
- 		adapter->tx_rings[i]->tail = hw->hw_addr + I40E_QTX_TAIL1(i);
- }
-@@ -705,7 +707,7 @@ static void i40evf_del_vlan(struct i40evf_adapter *adapter, u16 vlan)
-  * @vid: VLAN tag
-  **/
- static int i40evf_vlan_rx_add_vid(struct net_device *netdev,
--			 __always_unused __be16 proto, u16 vid)
-+				  __always_unused __be16 proto, u16 vid)
- {
- 	struct i40evf_adapter *adapter = netdev_priv(netdev);
- 
-@@ -720,7 +722,7 @@ static int i40evf_vlan_rx_add_vid(struct net_device *netdev,
-  * @vid: VLAN tag
-  **/
- static int i40evf_vlan_rx_kill_vid(struct net_device *netdev,
--			  __always_unused __be16 proto, u16 vid)
-+				   __always_unused __be16 proto, u16 vid)
- {
- 	struct i40evf_adapter *adapter = netdev_priv(netdev);
- 
-@@ -881,6 +883,7 @@ static void i40evf_napi_enable_all(struct i40evf_adapter *adapter)
- 
- 	for (q_idx = 0; q_idx < q_vectors; q_idx++) {
- 		struct napi_struct *napi;
-+
- 		q_vector = adapter->q_vector[q_idx];
- 		napi = &q_vector->napi;
- 		napi_enable(napi);
-@@ -920,6 +923,7 @@ static void i40evf_configure(struct i40evf_adapter *adapter)
- 
- 	for (i = 0; i < adapter->num_active_queues; i++) {
- 		struct i40e_ring *ring = adapter->rx_rings[i];
-+
- 		i40evf_alloc_rx_buffers(ring, ring->count);
- 		ring->next_to_use = ring->count - 1;
- 		writel(ring->next_to_use, ring->tail);
-@@ -1088,7 +1092,7 @@ static int i40evf_alloc_queues(struct i40evf_adapter *adapter)
- 		struct i40e_ring *tx_ring;
- 		struct i40e_ring *rx_ring;
- 
--		tx_ring = kzalloc(sizeof(struct i40e_ring) * 2, GFP_KERNEL);
-+		tx_ring = kzalloc(sizeof(*tx_ring) * 2, GFP_KERNEL);
- 		if (!tx_ring)
- 			goto err_out;
- 
-@@ -1172,14 +1176,14 @@ static int i40evf_alloc_q_vectors(struct i40evf_adapter *adapter)
- 	num_q_vectors = adapter->num_msix_vectors - NONQ_VECS;
- 
- 	for (q_idx = 0; q_idx < num_q_vectors; q_idx++) {
--		q_vector = kzalloc(sizeof(struct i40e_q_vector), GFP_KERNEL);
-+		q_vector = kzalloc(sizeof(*q_vector), GFP_KERNEL);
- 		if (!q_vector)
- 			goto err_out;
- 		q_vector->adapter = adapter;
- 		q_vector->vsi = &adapter->vsi;
- 		q_vector->v_idx = q_idx;
- 		netif_napi_add(adapter->netdev, &q_vector->napi,
--				       i40evf_napi_poll, NAPI_POLL_WEIGHT);
-+			       i40evf_napi_poll, NAPI_POLL_WEIGHT);
- 		adapter->q_vector[q_idx] = q_vector;
- 	}
- 
-@@ -1265,8 +1269,8 @@ int i40evf_init_interrupt_scheme(struct i40evf_adapter *adapter)
- 	}
- 
- 	dev_info(&adapter->pdev->dev, "Multiqueue %s: Queue pair count = %u",
--		(adapter->num_active_queues > 1) ? "Enabled" :
--		"Disabled", adapter->num_active_queues);
-+		 (adapter->num_active_queues > 1) ? "Enabled" : "Disabled",
-+		 adapter->num_active_queues);
- 
- 	return 0;
- err_alloc_queues:
-@@ -1284,6 +1288,7 @@ err_set_interrupt:
- static void i40evf_watchdog_timer(unsigned long data)
- {
- 	struct i40evf_adapter *adapter = (struct i40evf_adapter *)data;
-+
- 	schedule_work(&adapter->watchdog_task);
- 	/* timer will be rescheduled in watchdog task */
- }
-@@ -1295,8 +1300,8 @@ static void i40evf_watchdog_timer(unsigned long data)
- static void i40evf_watchdog_task(struct work_struct *work)
- {
- 	struct i40evf_adapter *adapter = container_of(work,
--					  struct i40evf_adapter,
--					  watchdog_task);
-+						      struct i40evf_adapter,
-+						      watchdog_task);
- 	struct i40e_hw *hw = &adapter->hw;
- 	uint32_t rstat_val;
- 
-@@ -1334,7 +1339,7 @@ static void i40evf_watchdog_task(struct work_struct *work)
- 
- 	/* check for reset */
- 	rstat_val = rd32(hw, I40E_VFGEN_RSTAT) &
--			    I40E_VFGEN_RSTAT_VFR_STATE_MASK;
-+		    I40E_VFGEN_RSTAT_VFR_STATE_MASK;
- 	if (!(adapter->flags & I40EVF_FLAG_RESET_PENDING) &&
- 	    (rstat_val != I40E_VFR_VFACTIVE) &&
- 	    (rstat_val != I40E_VFR_COMPLETED)) {
-@@ -1575,12 +1580,12 @@ continue_reset:
- 	/* kill and reinit the admin queue */
- 	if (i40evf_shutdown_adminq(hw))
- 		dev_warn(&adapter->pdev->dev,
--			"%s: Failed to destroy the Admin Queue resources\n",
--			__func__);
-+			 "%s: Failed to destroy the Admin Queue resources\n",
-+			 __func__);
- 	err = i40evf_init_adminq(hw);
- 	if (err)
- 		dev_info(&adapter->pdev->dev, "%s: init_adminq failed: %d\n",
--			__func__, err);
-+			 __func__, err);
- 
- 	adapter->aq_pending = 0;
- 	adapter->aq_required = 0;
-@@ -1646,9 +1651,8 @@ static void i40evf_adminq_task(struct work_struct *work)
- 		i40evf_virtchnl_completion(adapter, v_msg->v_opcode,
- 					   v_msg->v_retval, event.msg_buf,
- 					   event.msg_len);
--		if (pending != 0) {
-+		if (pending != 0)
- 			memset(event.msg_buf, 0, I40EVF_MAX_AQ_BUF_SIZE);
--		}
- 	} while (pending);
- 
- 	/* check for error indications */
-@@ -1705,7 +1709,6 @@ static void i40evf_free_all_tx_resources(struct i40evf_adapter *adapter)
- 	for (i = 0; i < adapter->num_active_queues; i++)
- 		if (adapter->tx_rings[i]->desc)
- 			i40evf_free_tx_resources(adapter->tx_rings[i]);
--
- }
- 
- /**
-@@ -2019,7 +2022,7 @@ static void i40evf_init_task(struct work_struct *work)
- 		err = i40evf_check_reset_complete(hw);
- 		if (err) {
- 			dev_info(&pdev->dev, "Device is still in reset (%d), retrying\n",
--				err);
-+				 err);
- 			goto err;
- 		}
- 		hw->aq.num_arq_entries = I40EVF_AQ_LEN;
-@@ -2051,7 +2054,7 @@ static void i40evf_init_task(struct work_struct *work)
- 		err = i40evf_verify_api_ver(adapter);
- 		if (err) {
- 			dev_info(&pdev->dev, "Unable to verify API version (%d), retrying\n",
--				err);
-+				 err);
- 			if (err == I40E_ERR_ADMIN_QUEUE_NO_WORK) {
- 				dev_info(&pdev->dev, "Resending request\n");
- 				err = i40evf_send_api_ver(adapter);
-@@ -2500,8 +2503,9 @@ static struct pci_driver i40evf_driver = {
- static int __init i40evf_init_module(void)
- {
- 	int ret;
-+
- 	pr_info("i40evf: %s - version %s\n", i40evf_driver_string,
--	       i40evf_driver_version);
-+		i40evf_driver_version);
- 
- 	pr_info("%s\n", i40evf_copyright);
- 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-index 422dd2d..07c13b0 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-@@ -395,7 +395,7 @@ void i40evf_add_ether_addrs(struct i40evf_adapter *adapter)
- 	      (count * sizeof(struct i40e_virtchnl_ether_addr));
- 	if (len > I40EVF_MAX_AQ_BUF_SIZE) {
- 		dev_warn(&adapter->pdev->dev, "%s: Too many MAC address changes in one request\n",
--			__func__);
-+			 __func__);
- 		count = (I40EVF_MAX_AQ_BUF_SIZE -
- 			 sizeof(struct i40e_virtchnl_ether_addr_list)) /
- 			sizeof(struct i40e_virtchnl_ether_addr);
-@@ -456,7 +456,7 @@ void i40evf_del_ether_addrs(struct i40evf_adapter *adapter)
- 	      (count * sizeof(struct i40e_virtchnl_ether_addr));
- 	if (len > I40EVF_MAX_AQ_BUF_SIZE) {
- 		dev_warn(&adapter->pdev->dev, "%s: Too many MAC address changes in one request\n",
--			__func__);
-+			 __func__);
- 		count = (I40EVF_MAX_AQ_BUF_SIZE -
- 			 sizeof(struct i40e_virtchnl_ether_addr_list)) /
- 			sizeof(struct i40e_virtchnl_ether_addr);
-@@ -518,7 +518,7 @@ void i40evf_add_vlans(struct i40evf_adapter *adapter)
- 	      (count * sizeof(u16));
- 	if (len > I40EVF_MAX_AQ_BUF_SIZE) {
- 		dev_warn(&adapter->pdev->dev, "%s: Too many VLAN changes in one request\n",
--			__func__);
-+			 __func__);
- 		count = (I40EVF_MAX_AQ_BUF_SIZE -
- 			 sizeof(struct i40e_virtchnl_vlan_filter_list)) /
- 			sizeof(u16);
-@@ -578,7 +578,7 @@ void i40evf_del_vlans(struct i40evf_adapter *adapter)
- 	      (count * sizeof(u16));
- 	if (len > I40EVF_MAX_AQ_BUF_SIZE) {
- 		dev_warn(&adapter->pdev->dev, "%s: Too many VLAN changes in one request\n",
--			__func__);
-+			 __func__);
- 		count = (I40EVF_MAX_AQ_BUF_SIZE -
- 			 sizeof(struct i40e_virtchnl_vlan_filter_list)) /
- 			sizeof(u16);
-@@ -637,6 +637,7 @@ void i40evf_set_promiscuous(struct i40evf_adapter *adapter, int flags)
- void i40evf_request_stats(struct i40evf_adapter *adapter)
- {
- 	struct i40e_virtchnl_queue_select vqs;
-+
- 	if (adapter->current_op != I40E_VIRTCHNL_OP_UNKNOWN) {
- 		/* no error message, this isn't crucial */
- 		return;
-@@ -711,7 +712,6 @@ void i40evf_virtchnl_completion(struct i40evf_adapter *adapter,
- 				"%s: Unknown event %d from pf\n",
- 				__func__, vpe->event);
- 			break;
--
- 		}
- 		return;
- 	}
-@@ -776,7 +776,7 @@ void i40evf_virtchnl_completion(struct i40evf_adapter *adapter,
- 		break;
- 	default:
- 		dev_warn(&adapter->pdev->dev, "%s: Received unexpected message %d from PF\n",
--			__func__, v_opcode);
-+			 __func__, v_opcode);
- 		break;
- 	} /* switch v_opcode */
- 	adapter->current_op = I40E_VIRTCHNL_OP_UNKNOWN;
+@@ -646,7 +646,7 @@ static int i40evf_get_rxfh(struct net_device *netdev, u32 *indir, u8 *key)
+  * i40evf_set_rxfh - set the rx flow hash indirection table
+  * @netdev: network interface device structure
+  * @indir: indirection table
+- * @key: hash key (will be %NULL until get_rxfh_key_size is implemented)
++ * @key: hash key
+  *
+  * Returns -EINVAL if the table specifies an inavlid queue id, otherwise
+  * returns 0 after programming the table.
 -- 
 1.9.3
