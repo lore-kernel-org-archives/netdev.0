@@ -1,42 +1,67 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] situation with csum_and_copy_... API
-Date: Wed, 19 Nov 2014 16:17:44 -0500 (EST)
-Message-ID: <20141119.161744.1661940121298888832.davem@davemloft.net>
-References: <20141118212307.GU7996@ZenIV.linux.org.uk>
-	<20141119.153136.867017618826698045.davem@davemloft.net>
-	<CA+55aFyQR2gOzEDROcWFcQzLvTjOxyJRjFJXJ03JB5knd-Gsgg@mail.gmail.com>
+From: Joe Stringer <joestringer-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCHv2 net] openvswitch: Fix mask generation for IPv6
+	labels.
+Date: Wed, 19 Nov 2014 13:20:01 -0800
+Message-ID: <1416432001-35678-1-git-send-email-joestringer@nicira.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: viro@zeniv.linux.org.uk, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+55aFyQR2gOzEDROcWFcQzLvTjOxyJRjFJXJ03JB5knd-Gsgg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Date: Wed, 19 Nov 2014 12:40:53 -0800
-
-> On Wed, Nov 19, 2014 at 12:31 PM, David Miller <davem@davemloft.net> wrote:
->>
->> But that is just my opinion, and yes I do acknowledge that we've had
->> serious holes in this area in the past.
-> 
-> The serious holes have generally been exactly in the "upper layers
-> already check" camp, and then it turns out that some odd ioctl or
-> other thing ends up doing something odd and interesting.
-> 
-> If Al has actual performance profiles showing that the access_ok() is
-> a real problem, then fine. As a low-level optimization, I agree with
-> it. But not as a "let's just drop them, and make the security rules be
-> non-local and subtle, and require people to know the details of the
-> whole call-chain".
-> 
-> Seeing a "__get_user()" and just being able to glance up in the same
-> function and seeing the "access_ok()" is just a good safety net. And
-> means that people don't have to waste time thinking about or looking
-> for where the hell the security net really is.
-
-Fair enough.
+V2hlbiB1c2Vyc3BhY2UgZG9lc24ndCBwcm92aWRlIGEgbWFzaywgT1ZTIGRhdGFwYXRoIGdlbmVy
+YXRlcyBhIGZ1bGx5CnVud2lsZGNhcmRlZCBtYXNrIGZvciB0aGUgZmxvdy4gVGhpcyBpcyBkb25l
+IGJ5IHRha2luZyBhIGNvcHkgb2YgdGhlCmZsb3cga2V5LCB0aGVuIGl0ZXJhdGluZyBhY3Jvc3Mg
+aXRzIGF0dHJpYnV0ZXMsIHNldHRpbmcgYWxsIHZhbHVlcyB0bwoweGZmLiBUaGlzIHdvcmtzIGZv
+ciBtb3N0IGF0dHJpYnV0ZXMsIGFzIHRoZSBsZW5ndGggb2YgdGhlIG5ldGxpbmsKYXR0cmlidXRl
+IHR5cGljYWxseSBtYXRjaGVzIHRoZSBsZW5ndGggb2YgdGhlIHZhbHVlLiBIb3dldmVyLCBJUHY2
+CmxhYmVscyBvbmx5IHVzZSB0aGUgbG93ZXIgMjAgYml0cyBvZiB0aGUgZmllbGQuIFRoaXMgcGF0
+Y2ggbWFrZXMgYQpzcGVjaWFsIGNhc2UgdG8gaGFuZGxlIHRoaXMuCgpUaGlzIGZpeGVzIHRoZSBm
+b2xsb3dpbmcgZXJyb3Igc2VlbiB3aGVuIGluc3RhbGxpbmcgSVB2NiBmbG93cyB3aXRob3V0IGEg
+bWFzazoKCm9wZW52c3dpdGNoOiBuZXRsaW5rOiBJbnZhbGlkIElQdjYgZmxvdyBsYWJlbCB2YWx1
+ZSAodmFsdWU9ZmZmZmZmZmYsIG1heD1mZmZmZikKClNpZ25lZC1vZmYtYnk6IEpvZSBTdHJpbmdl
+ciA8am9lc3RyaW5nZXJAbmljaXJhLmNvbT4KLS0tCnYyOiBPUiBsb3dlciAyMCBiaXRzICh1cHBl
+ciAxMiBiaXRzIHJlbWFpbiBmcm9tIGVhcmxpZXIgbWVtZHVwKQotLS0KIG5ldC9vcGVudnN3aXRj
+aC9mbG93X25ldGxpbmsuYyB8ICAgMjIgKysrKysrKysrKysrLS0tLS0tLS0tLQogMSBmaWxlIGNo
+YW5nZWQsIDEyIGluc2VydGlvbnMoKyksIDEwIGRlbGV0aW9ucygtKQoKZGlmZiAtLWdpdCBhL25l
+dC9vcGVudnN3aXRjaC9mbG93X25ldGxpbmsuYyBiL25ldC9vcGVudnN3aXRjaC9mbG93X25ldGxp
+bmsuYwppbmRleCBmYTRlYzJlLi5lNTMwMDI1IDEwMDY0NAotLS0gYS9uZXQvb3BlbnZzd2l0Y2gv
+Zmxvd19uZXRsaW5rLmMKKysrIGIvbmV0L29wZW52c3dpdGNoL2Zsb3dfbmV0bGluay5jCkBAIC04
+MjUsNyArODI1LDcgQEAgc3RhdGljIGludCBvdnNfa2V5X2Zyb21fbmxhdHRycyhzdHJ1Y3Qgc3df
+Zmxvd19tYXRjaCAqbWF0Y2gsIHU2NCBhdHRycywKIAlyZXR1cm4gMDsKIH0KIAotc3RhdGljIHZv
+aWQgbmxhdHRyX3NldChzdHJ1Y3QgbmxhdHRyICphdHRyLCB1OCB2YWwsIGJvb2wgaXNfYXR0cl9t
+YXNrX2tleSkKK3N0YXRpYyB2b2lkIG1hc2tfc2V0X25sYXR0cihzdHJ1Y3QgbmxhdHRyICphdHRy
+KQogewogCXN0cnVjdCBubGF0dHIgKm5sYTsKIAlpbnQgcmVtOwpAQCAtODM1LDE2ICs4MzUsMTgg
+QEAgc3RhdGljIHZvaWQgbmxhdHRyX3NldChzdHJ1Y3QgbmxhdHRyICphdHRyLCB1OCB2YWwsIGJv
+b2wgaXNfYXR0cl9tYXNrX2tleSkKIAkJLyogV2UgYXNzdW1lIHRoYXQgb3ZzX2tleV9sZW5zW3R5
+cGVdID09IC0xIG1lYW5zIHRoYXQgdHlwZSBpcyBhCiAJCSAqIG5lc3RlZCBhdHRyaWJ1dGUKIAkJ
+ICovCi0JCWlmIChpc19hdHRyX21hc2tfa2V5ICYmIG92c19rZXlfbGVuc1tubGFfdHlwZShubGEp
+XSA9PSAtMSkKLQkJCW5sYXR0cl9zZXQobmxhLCB2YWwsIGZhbHNlKTsKKwkJaWYgKG92c19rZXlf
+bGVuc1tubGFfdHlwZShubGEpXSA9PSAtMSkKKwkJCW5sYV9mb3JfZWFjaF9uZXN0ZWQobmxhLCBh
+dHRyLCByZW0pCisJCQkJbWVtc2V0KG5sYV9kYXRhKG5sYSksIDB4ZmYsIG5sYV9sZW4obmxhKSk7
+CiAJCWVsc2UKLQkJCW1lbXNldChubGFfZGF0YShubGEpLCB2YWwsIG5sYV9sZW4obmxhKSk7Ci0J
+fQotfQorCQkJbWVtc2V0KG5sYV9kYXRhKG5sYSksIDB4ZmYsIG5sYV9sZW4obmxhKSk7CiAKLXN0
+YXRpYyB2b2lkIG1hc2tfc2V0X25sYXR0cihzdHJ1Y3QgbmxhdHRyICphdHRyLCB1OCB2YWwpCi17
+Ci0JbmxhdHRyX3NldChhdHRyLCB2YWwsIHRydWUpOworCQlpZiAobmxhX3R5cGUobmxhKSA9PSBP
+VlNfS0VZX0FUVFJfSVBWNikgeworCQkJc3RydWN0IG92c19rZXlfaXB2NiAqaXB2Nl9rZXkgPSBu
+bGFfZGF0YShubGEpOworCisJCQlpcHY2X2tleS0+aXB2Nl9sYWJlbCB8PSBodG9ubCgweDAwMEZG
+RkZGKTsKKwkJfQorCX0KIH0KIAogLyoqCkBAIC05MjYsNyArOTI4LDcgQEAgaW50IG92c19ubGFf
+Z2V0X21hdGNoKHN0cnVjdCBzd19mbG93X21hdGNoICptYXRjaCwKIAkJaWYgKCFuZXdtYXNrKQog
+CQkJcmV0dXJuIC1FTk9NRU07CiAKLQkJbWFza19zZXRfbmxhdHRyKG5ld21hc2ssIDB4ZmYpOwor
+CQltYXNrX3NldF9ubGF0dHIobmV3bWFzayk7CiAKIAkJLyogVGhlIHVzZXJzcGFjZSBkb2VzIG5v
+dCBzZW5kIHR1bm5lbCBhdHRyaWJ1dGVzIHRoYXQgYXJlIDAsCiAJCSAqIGJ1dCB3ZSBzaG91bGQg
+bm90IHdpbGRjYXJkIHRoZW0gbm9uZXRoZWxlc3MuCi0tIAoxLjcuMTAuNAoKX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZA
+b3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9k
+ZXYK
