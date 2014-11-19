@@ -1,31 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] enic: support skb->xmit_more
-Date: Wed, 19 Nov 2014 17:02:59 -0500 (EST)
-Message-ID: <20141119.170259.796632085538407303.davem@davemloft.net>
-References: <1416382172-28775-1-git-send-email-_govind@gmx.com>
+Subject: Re: [PATCH net-next] sky2: use new netdev_rss_key_fill() helper
+Date: Wed, 19 Nov 2014 17:04:35 -0500 (EST)
+Message-ID: <20141119.170435.1585388668029078505.davem@davemloft.net>
+References: <1416388011-10491-1-git-send-email-ipm@chirality.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ssujith@cisco.com, benve@cisco.com,
-	eric.dumazet@gmail.com
-To: _govind@gmx.com
+Cc: netdev@vger.kernel.org, mlindner@marvell.com,
+	stephen@networkplumber.org, edumazet@google.com
+To: ipm@chirality.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39272 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39309 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932735AbaKSWDD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 17:03:03 -0500
-In-Reply-To: <1416382172-28775-1-git-send-email-_govind@gmx.com>
+	with ESMTP id S934117AbaKSWEi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 17:04:38 -0500
+In-Reply-To: <1416388011-10491-1-git-send-email-ipm@chirality.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Govindarajulu Varadarajan <_govind@gmx.com>
-Date: Wed, 19 Nov 2014 12:59:32 +0530
+From: Ian Morris <ipm@chirality.org.uk>
+Date: Wed, 19 Nov 2014 09:06:51 +0000
 
-> Check and update posted_index only when skb->xmit_more is 0 or tx queue is full.
+> Switch to a random RSS key rather than a fixed one.
+> Using netdev_rss_key_fill helper also ensures that all ports share
+> a common key.
 > 
-> v2:
-> use txq_map instead of skb_get_queue_mapping(skb)
+> See also commit 960fb622f85180f36d3aff82af53e2be3db2f888.
 > 
-> Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
+> Signed-off-by: Ian Morris <ipm@chirality.org.uk>
 
-Applied, thanks.
+Applied, thank you.
