@@ -1,50 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tun: return NET_XMIT_DROP for dropped packets
-Date: Wed, 19 Nov 2014 14:46:04 -0500 (EST)
-Message-ID: <20141119.144604.269852847904624488.davem@davemloft.net>
-References: <1416288041-30921-1-git-send-email-jasowang@redhat.com>
-	<CAHA+R7O=vCtLwUPnkVpymxc9kp+a8ChS2MHAJahfJUNUdLX89A@mail.gmail.com>
-	<546C0B58.5030402@redhat.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [PATCH v2] ipv6: delete protocol and unregister rtnetlink when cleanup
+Date: Wed, 19 Nov 2014 11:46:55 -0800
+Message-ID: <CAHA+R7OtQVgFwUjMPszW6ze3ts6FiWWCHQZ=3ad8U3AuJxqDtA@mail.gmail.com>
+References: <546B20F8.6010806@cn.fujitsu.com>
+	<CAHA+R7PNmac7KQpSK-vO9zVd3+926f6n_GpaGrbpBnSn98xiyQ@mail.gmail.com>
+	<546BF3EB.1080603@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: cwang@twopensource.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mst@redhat.com
-To: jasowang@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <546C0B58.5030402@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qa0-f47.google.com ([209.85.216.47]:50242 "EHLO
+	mail-qa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755279AbaKSTq4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 14:46:56 -0500
+Received: by mail-qa0-f47.google.com with SMTP id s7so913637qap.34
+        for <netdev@vger.kernel.org>; Wed, 19 Nov 2014 11:46:56 -0800 (PST)
+In-Reply-To: <546BF3EB.1080603@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jason Wang <jasowang@redhat.com>
-Date: Wed, 19 Nov 2014 11:15:36 +0800
+On Tue, Nov 18, 2014 at 5:35 PM, Duan Jiong <duanj.fnst@cn.fujitsu.com> wrote:
+>
+>
+> pim6_protocol was added when initiation, but it not deleted.
+> Similarly, unregister RTNL_FAMILY_IP6MR rtnetlink.
+>
+> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+> ---
+> v2: add missing rtnl_unregister()
 
-> On 11/19/2014 03:53 AM, Cong Wang wrote:
->> On Mon, Nov 17, 2014 at 9:20 PM, Jason Wang <jasowang@redhat.com> wrote:
->>> > After commit 5d097109257c03a71845729f8db6b5770c4bbedc
->>> > ("tun: only queue packets on device"), NETDEV_TX_OK was returned for
->>> > dropped packets. This will confuse pktgen since dropped packets were
->>> > counted as sent ones.
->>> >
->>> > Fixing this by returning NET_XMIT_DROP to let pktgen count it as error
->>> > packet.
->> pktgen is suspicious, it sends out packets directly without going through
->> qdisc, so it should not care about NET_XMIT_* qdisc error code?
-> 
-> Well, NET_XMIT_DROP has been used by some devices. I don't see any side
-> effect of using this especially consider that pktgen can recognize them.
->> Looks like NETDEV_TX_OK doesn't have to mean TX is successful,
->> the comment says driver takes care of the packet, can be either dropped
->> or sent out. We might need a new code to distinguish success or failure.
-> 
-> Most drivers only drop bad packets when they return NETDEV_TX_OK and
-> they will stop the txq before tx ring is full. This is not the case of
-> tun, it never stop txq and keep accepting packets and dropping them when
-> socket receive queue is full.
-
-Agreed.
-
-Often the issue with TX return values is lack of clear documentation
-and use cases.
-
-I've applied this patch, thanks Jason.
+Reviewed-by: Cong Wang <cwang@twopensource.com>
