@@ -1,34 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] ipv6: delete protocol and unregister rtnetlink when
- cleanup
-Date: Wed, 19 Nov 2014 16:55:44 -0500 (EST)
-Message-ID: <20141119.165544.2020739689487881127.davem@davemloft.net>
-References: <546B20F8.6010806@cn.fujitsu.com>
-	<CAHA+R7PNmac7KQpSK-vO9zVd3+926f6n_GpaGrbpBnSn98xiyQ@mail.gmail.com>
-	<546BF3EB.1080603@cn.fujitsu.com>
+Subject: Re: [PATCH net-next] bpf: fix arraymap NULL deref and missing
+ overflow and zero size checks
+Date: Wed, 19 Nov 2014 16:55:57 -0500 (EST)
+Message-ID: <20141119.165557.1477971698958867828.davem@davemloft.net>
+References: <1416360736-9531-1-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: cwang@twopensource.com, netdev@vger.kernel.org,
-	eric.dumazet@gmail.com
-To: duanj.fnst@cn.fujitsu.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39195 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932684AbaKSVzr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 16:55:47 -0500
-In-Reply-To: <546BF3EB.1080603@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: fengguang.wu@intel.com, hannes@stressinduktion.org,
+	dborkman@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: ast@plumgrid.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1416360736-9531-1-git-send-email-ast@plumgrid.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Date: Wed, 19 Nov 2014 09:35:39 +0800
+From: Alexei Starovoitov <ast@plumgrid.com>
+Date: Tue, 18 Nov 2014 17:32:16 -0800
 
-> pim6_protocol was added when initiation, but it not deleted.
-> Similarly, unregister RTNL_FAMILY_IP6MR rtnetlink.
+> - fix NULL pointer dereference:
+> kernel/bpf/arraymap.c:41 array_map_alloc() error: potential null dereference 'array'.  (kzalloc returns null)
+> kernel/bpf/arraymap.c:41 array_map_alloc() error: we previously assumed 'array' could be null (see line 40)
 > 
-> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+> - integer overflow check was missing in arraymap
+> (hashmap checks for overflow via kmalloc_array())
+> 
+> - arraymap can round_up(value_size, 8) to zero. check was missing.
+> 
+> - hashmap was missing zero size check as well, since roundup_pow_of_two() can
+> truncate into zero
+> 
+> - found a typo in the arraymap comment and unnecessary empty line
+> 
+> Fix all of these issues and make both overflow checks explicit U32 in size.
+> 
+> Reported-by: kbuild test robot <fengguang.wu@intel.com>
+> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
 > ---
-> v2: add missing rtnl_unregister()
+> This silly NULL deref bug and missing overflow check was an oversight when
+> I refactored the code from two allocations (kmalloc for struct bpf_array and
+> kcalloc for array of elements) in the first implementation of arraymap
+> into one allocation which is this code.
 
 Applied, thanks.
