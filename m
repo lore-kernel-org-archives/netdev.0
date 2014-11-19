@@ -1,47 +1,60 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] bonding: clear header_ops when last slave detached (v2)
-Date: Tue, 18 Nov 2014 21:39:25 -0800
-Message-ID: <1416375565.14060.43.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1416374292-10993-1-git-send-email-wen.gang.wang@oracle.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2] ipvlan: Initial check-in of the IPVLAN
+ driver.
+Date: Wed, 19 Nov 2014 00:48:23 -0500 (EST)
+Message-ID: <20141119.004823.1741757230646192765.davem@davemloft.net>
+References: <1416205634-26611-1-git-send-email-maheshb@google.com>
+	<20141118.155437.1582768084232091503.davem@davemloft.net>
+	<CAF2d9jjrN4cDmtN_yKTe0BS+cAqE=hqgsT_6mOEBuMTTPOaPRg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: wwgwork@gmail.com, netdev@vger.kernel.org
-To: Wengang Wang <wen.gang.wang@oracle.com>
+Cc: netdev@vger.kernel.org, edumazet@google.com, maze@google.com,
+	chavey@google.com, thockin@google.com, brandon.philips@coreos.com,
+	xemul@parallels.com
+To: maheshb@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f181.google.com ([209.85.213.181]:58583 "EHLO
-	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750771AbaKSFj1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 00:39:27 -0500
-Received: by mail-ig0-f181.google.com with SMTP id l13so418606iga.14
-        for <netdev@vger.kernel.org>; Tue, 18 Nov 2014 21:39:26 -0800 (PST)
-In-Reply-To: <1416374292-10993-1-git-send-email-wen.gang.wang@oracle.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60544 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750771AbaKSFsZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 00:48:25 -0500
+In-Reply-To: <CAF2d9jjrN4cDmtN_yKTe0BS+cAqE=hqgsT_6mOEBuMTTPOaPRg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-11-19 at 13:18 +0800, Wengang Wang wrote:
-> When last slave of a bonding master is removed, the bonding then does not work.
-> When packet_snd is called against with a master net_device, it accesses
-> header_ops. In case the header_ops is not valid any longer(say ipoib module
-> unloaded), it will then access an invalid memory address.
-> This patch try to fix this issue by clearing header_ops when last slave
-> detached.
-> 
-> Signed-off-by: Wengang Wang <wen.gang.wang@oracle.com>
-> ---
->  drivers/net/bonding/bond_main.c | 1 +
->  1 file changed, 1 insertion(+)
+From: Mahesh Bandewar <maheshb@google.com>
+Date: Tue, 18 Nov 2014 21:27:48 -0800
 
-It seems you basically ignored my feedback.
+> On Tue, Nov 18, 2014 at 12:54 PM, David Miller <davem@davemloft.net> wrote:
+>>
+>> From: Mahesh Bandewar <maheshb@google.com>
+>> Date: Sun, 16 Nov 2014 22:27:14 -0800
+>>
+>> > +/* Define IPVL_DEBUG and set the appropriate dbg_level for debugging. */
+>> > +#ifdef       IPVL_DEBUG
+>> > +/*
+>> > + * 1 : non-datapath debugging
+>> > + * 2 : Custom
+>> > + * 3 : function enters and exists.
+>> > + * 4 : printk in data path (be careful!)
+>> > + */
+>> > +#define IPVL_DBG_LEVEL 1
+>> > +#define ipvlan_dbg(level, msg...)    do { \
+>> > +                                             if (level <= IPVL_DBG_LEVEL) \
+>> > +                                             printk(KERN_DEBUG msg); \
+>> > +                                     } while (0)
+>> > +#else
+>> > +#define ipvlan_dbg(level, msg...) do { ; } while (0)
+>> > +#endif
+>>
+>> The day of having code use custom local debug logging facilities is long
+>> gone, please use a standard mechanism for this rather than home cooked
+>> reimplementations.
+>>
+> Do you mean pr_err() / pr_warn() / pr_debug() etc.? or something else?
 
+And netdev_dbg(), etc.
 
-
-Some code is doing :
-
-[A] if (dev->header_ops) {
-    ...
-[B]    dev->header_ops->XXX()
-
-
-
-Nothing prevents you doing the clear after [A] , and before [B]
+And about sysfs, we're not having two ways to do the same exact
+thing.  Whatever functionality you want to provide, implement it
+via netlink and that's the end of it.
