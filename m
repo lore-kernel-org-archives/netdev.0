@@ -1,63 +1,35 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH net-next 0/4] igb: auxiliary PHC functions for the i210.
-Date: Wed, 19 Nov 2014 00:43:01 -0800
-Message-ID: <1416386581.2295.51.camel@jtkirshe-mobl>
-References: <cover.1416265321.git.richardcochran@gmail.com>
-	 <1416266118.2983.3.camel@jtkirshe-mobl.jf.intel.com>
-	 <20141119063103.GA4109@localhost.localdomain>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: Re: net: xfrm: Deletion of an unnecessary check before the function
+ call "ipcomp_free_tfms"
+Date: Wed, 19 Nov 2014 10:51:31 +0100
+Message-ID: <546C6823.50900@users.sourceforge.net>
+References: <530C5E18.1020800@users.sourceforge.net> <alpine.DEB.2.10.1402251014170.2080@hadrien> <530CD2C4.4050903@users.sourceforge.net> <alpine.DEB.2.10.1402251840450.7035@hadrien> <530CF8FF.8080600@users.sourceforge.net> <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6> <530DD06F.4090703@users.sourceforge.net> <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6> <5317A59D.4@users.sourceforge.net> <546BAFF5.5020603@users.sourceforge.net> <20141119084542.GK4905@mwanda>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-1zVQyoCYYsz65DQOCaMr"
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	bruce.w.allan@intel.com, Jacob Keller <jacob.e.keller@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Matthew Vick <matthew.vick@intel.com>
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:28919 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753748AbaKSJtg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Nov 2014 04:49:36 -0500
-In-Reply-To: <20141119063103.GA4109@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-
---=-1zVQyoCYYsz65DQOCaMr
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Wed, 2014-11-19 at 07:31 +0100, Richard Cochran wrote:
-> On Mon, Nov 17, 2014 at 03:15:18PM -0800, Jeff Kirsher wrote:
-> > Thanks Richard, I have added your series of igb patches to my queue.
->=20
-> Jeff, please hold off on these. I found a bug in the PPS code. I will
-> re-submit with a fix.
-
-Ok, I will drop the series that I currently have in my queue and will
-await your v2 series.
-
---=-1zVQyoCYYsz65DQOCaMr
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: Dan Carpenter <dan.carpenter@oracle.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141119084542.GK4905@mwanda>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+>> The ipcomp_free_tfms() function tests whether its argument is NULL and then
+>> returns immediately. Thus the test around the call is not needed.
+> 
+> It doesn't though...
 
-iQIcBAABCgAGBQJUbFgVAAoJEOVv75VaS+3OjyMQAJt3vR72vfeLxTR9/GnGa7lW
-7ujVH9vQD/E5l001r2F/QfQ4FZwjH0KRdU/8/Xa5SnHSnc/L1ribLtqT4/IyEppO
-D5DHpg8mvZl7nWb6Yv94k+jKWAWY6Kr2ecB+PhTPr7IZcSCujT8jaD5xurrhdieY
-RFHGhnw5RQV/fIaw+o++aiS60Uxb6ADc3MuZcEMZTha5U9gqRWcDtktGMxv7hT5J
-EYxaCNzebmM4vnHgYS/qneNK3eSoqkm6Cs0JNWzeXudAw7E5x7VosZhZh9aHcSpg
-cQrE1EkvibCaqwJpzvP5uv3i5AWgvIq1cgjHQTdmnVxN5fWwYHJUWIvBer9Ogvpp
-PkP6dP5zEX5KmKcKcspt7iH0kMMas79bd5ebpVXzP/hWrkweyhKgWPFsZIofGXde
-D1a81dp5r2fbLcpbU5anRK/RzVAwF/5jS5qH0mXdDXnIsKe7TNfnvDzJcl+8vome
-GxJkiLz/WhLNq45+17pOfjEwNDu2e8VDV29vYTKzcZLTwl2LgXx3ELdSqDL/yvPU
-NzCnDfYQf0EYQp8LrV8OkYiYhq2FS8Zg1ogjxuxELqJ+mayAO6HXWrbVQlljVMcU
-FEUNi2x/uwkiv+JB31dnmQuJMWB9v7JzCu+BdtVtRXvq/XQcUWzidCVWGGBgpcRq
-dPK7ukLYwc9szWXOyDjg
-=ZZ4D
------END PGP SIGNATURE-----
+You are right that this function implementation does a bit more before
+returning because of a detected null pointer.
+https://git.kernel.org/cgit/linux/kernel/git/stable/linux-stable.git/tree/net/xfrm/xfrm_ipcomp.c?id=394efd19d5fcae936261bd48e5b33b21897aacf8#n247
 
---=-1zVQyoCYYsz65DQOCaMr--
+Can you agree that input parameter validation is also performed there?
+Do you want that I resend my patch with a corrected commit message?
+
+Regards,
+Markus
