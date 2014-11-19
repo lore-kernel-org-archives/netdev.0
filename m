@@ -1,70 +1,45 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [ovs-dev] [PATCH net] openvswitch: Fix mask generation for IPv6 labels.
-Date: Wed, 19 Nov 2014 12:33:10 -0800
-Message-ID: <CALnjE+otirroKNXE7qbUHfoTifipp8LJ6g8yNsLz0dBjm3PUsQ@mail.gmail.com>
-References: <1416336857-61405-1-git-send-email-joestringer@nicira.com>
-	<201411190948.11857.joestringer@nicira.com>
-	<CALnjE+pQnUGiiuWPGt7fNnBetwdn7SQReDqCHDforX7ykQQR8Q@mail.gmail.com>
-	<201411191151.40064.joestringer@nicira.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH RESEND] fix #51791 - bug? mac 00:00:00:00:00:00 with
+ natsemi DP83815 after driver load
+Date: Wed, 19 Nov 2014 15:35:28 -0500 (EST)
+Message-ID: <20141119.153528.1764287151701305293.davem@davemloft.net>
+References: <trinity-a7b6eb2e-598a-4ad0-9df5-7567cb544671-1416347483688@3capp-webde-bs54>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Joe Stringer <joestringer@nicira.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201411191151.40064.joestringer@nicira.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: devzero@web.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38498 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932096AbaKSUfb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 15:35:31 -0500
+In-Reply-To: <trinity-a7b6eb2e-598a-4ad0-9df5-7567cb544671-1416347483688@3capp-webde-bs54>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 19, 2014 at 11:51 AM, Joe Stringer <joestringer@nicira.com> wrote:
-> On Wednesday, November 19, 2014 11:08:35 Pravin Shelar wrote:
->> On Wed, Nov 19, 2014 at 9:48 AM, Joe Stringer <joestringer@nicira.com>
-> wrote:
->> > On Wednesday, November 19, 2014 00:11:01 Pravin Shelar wrote:
->> >> On Tue, Nov 18, 2014 at 11:25 PM, Joe Stringer <joestringer@nicira.com>
->> >
->> > wrote:
->> >> > On 18 November 2014 22:09, Pravin Shelar <pshelar@nicira.com> wrote:
->> >> >> On Tue, Nov 18, 2014 at 10:54 AM, Joe Stringer
->> >> >> <joestringer@nicira.com>
->> >> >>
->> >> >> wrote:
->> >> >> > When userspace doesn't provide a mask, OVS datapath generates a
->> >> >> > fully unwildcarded mask for the flow. This is done by taking a
->> >> >> > copy of the flow key, then iterating across its attributes,
->> >> >> > setting all values to 0xff. This works for most attributes, as the
->> >> >> > length of the netlink attribute typically matches the length of
->> >> >> > the value. However, IPv6 labels only use the lower 20 bits of the
->> >> >> > field. This patch makes a special case to handle this.
->> >> >> >
->> >> >> > This fixes the following error seen when installing IPv6 flows
->> >> >> > without a mask:
->> >> >> >
->> >> >> > openvswitch: netlink: Invalid IPv6 flow label value
->> >> >> > (value=ffffffff, max=fffff)
->> >> >>
->> >> >> We should allow exact match mask here rather than generating
->> >> >> wildcarded mask. So that ovs can catch invalid ipv6.label.
->> >> >
->> >> > I don't quite follow, I thought this was exact-match? (The existing
->> >> > function sets all bits to 1)
->> >>
->> >> With 0xffffffff value we can exact match on all ipv6.lable bits.
->> >
->> > The label field is only 20 bits. The other bits in the same word of the
->> > IPv6 header are for version (fixed) and traffic class (handled
->> > separately). We don't do anything with the other bits.
->>
->> This is just to make sure that we do not use those field for any thing
->> else. Masking those extra bits can hide incorrect ipv6 key extraction.
->
-> Oh, I see. I meant something more like:
->
-> ipv6_key->ipv6_label &= htonl(0xFFF00000);
-> ipv6_key->ipv6_label |= htonl(0x000FFFFF);
->
-> (Which would propagate the invalid bits from the flow key, but actually produce
-> an exact match).
+From: "Roland Kletzing" <devzero@web.de>
+Date: Tue, 18 Nov 2014 22:51:23 +0100
 
-yes, it can wildcard unused bits.
+> This one should fix Bugzilla #51791 
+
+I'm sorry for being a pain, but I want to teach you how to properly
+submit clean patches so that I don't need to go back and forth with
+you in the future about these issues.
+
+Your subject line needs adjusting.
+
+After the [PATCH ...], there should be a properly subsystem prefix
+followed by a colon character, which in this case could be "natsemi: "
+
+Then, your subject line should be succinct and contain all of the
+context necessary to understand exactly what the bug is about.
+
+This means that the bug ID number doesn't belong there.  It's
+completely ambiguous as to what bug repository that ID is for,
+and such information belongs in the commit message body.
+
+So when you mention bug IDs in the commit message body, say where
+it's from.  If it's the main kernel bugzilla, say so.
+
+Thanks.
