@@ -1,48 +1,106 @@
-From: Mathias Krause <minipli@googlemail.com>
-Subject: [PATCH net] pptp: fix stack info leak in pptp_getname()
-Date: Wed, 19 Nov 2014 18:05:26 +0100
-Message-ID: <1416416726-11886-1-git-send-email-minipli@googlemail.com>
-Cc: netdev@vger.kernel.org, Mathias Krause <minipli@googlemail.com>,
-	Dmitry Kozlov <xeb@mail.ru>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f180.google.com ([209.85.212.180]:55183 "EHLO
-	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752950AbaKSRFl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 12:05:41 -0500
-Received: by mail-wi0-f180.google.com with SMTP id n3so2640974wiv.1
-        for <netdev@vger.kernel.org>; Wed, 19 Nov 2014 09:05:40 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 1/3] tun: move internal flag defines out of uapi
+Date: Wed, 19 Nov 2014 19:08:35 +0200
+Message-ID: <20141119170835.GA29928@redhat.com>
+References: <1416413891-29562-1-git-send-email-mst@redhat.com>
+ <1416413891-29562-2-git-send-email-mst@redhat.com>
+ <1416415634.4763.9.camel@dcbw.local>
+ <20141119165017.GA29759@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, rusty-8n+1lVoiYb80n/F98K4Iww@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, Jason Wang <jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Zhi Yong Wu <wuzhy-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
+	Tom Herbert <therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>,
+	Masatake YAMATO <yamato-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Xi Wang <xii-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20141119165017.GA29759-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-pptp_getname() only partially initializes the stack variable sa,
-particularly only fills the pptp part of the sa_addr union. The code
-thereby discloses 16 bytes of kernel stack memory via getsockname().
+On Wed, Nov 19, 2014 at 06:50:17PM +0200, Michael S. Tsirkin wrote:
+> On Wed, Nov 19, 2014 at 10:47:14AM -0600, Dan Williams wrote:
+> > On Wed, 2014-11-19 at 18:18 +0200, Michael S. Tsirkin wrote:
+> > > TUN_ flags are internal and never exposed
+> > > to userspace. Any application using it is almost
+> > > certainly buggy.
+> > 
+> > Except for TUN_TUN_DEV and TUN_TAP_DEV and TUN_TYPE_MASK...  which we're
+> > using (for some reason) in NetworkManager, though I'll happily convert
+> > those to IFF_* instead.  It might be worth #defining those to their
+> > IFF_* equivalents since their usage is not technically broken.
+> > 
+> > Dan
+> 
+> Hmm you are right, they happen to have the same value.
+> I'll send v2 leaving these in place.
+> 
 
-Fix this by memset(0)'ing the union before.
+Though I do think userspace shouldn't depend on them generally,
+so it might be a good idea to stop using them, even though
+I'll fix up my patches to avoid breaking this usecase.
 
-Cc: Dmitry Kozlov <xeb@mail.ru>
-Signed-off-by: Mathias Krause <minipli@googlemail.com>
----
-Probably material for stable, too -- v2.6.37+.
 
- drivers/net/ppp/pptp.c |    4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ppp/pptp.c b/drivers/net/ppp/pptp.c
-index 1aff970be33e..1dc628ffce2b 100644
---- a/drivers/net/ppp/pptp.c
-+++ b/drivers/net/ppp/pptp.c
-@@ -506,7 +506,9 @@ static int pptp_getname(struct socket *sock, struct sockaddr *uaddr,
- 	int len = sizeof(struct sockaddr_pppox);
- 	struct sockaddr_pppox sp;
- 
--	sp.sa_family	  = AF_PPPOX;
-+	memset(&sp.sa_addr, 0, sizeof(sp.sa_addr));
-+
-+	sp.sa_family    = AF_PPPOX;
- 	sp.sa_protocol  = PX_PROTO_PPTP;
- 	sp.sa_addr.pptp = pppox_sk(sock->sk)->proto.pptp.src_addr;
- 
--- 
-1.7.10.4
+> > > Move them out to tun.c, we'll remove them in follow-up patches.
+> > > Signed-off-by: Michael S. Tsirkin <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+> > > ---
+> > >  include/uapi/linux/if_tun.h | 14 --------------
+> > >  drivers/net/tun.c           | 14 ++++++++++++++
+> > >  2 files changed, 14 insertions(+), 14 deletions(-)
+> > > 
+> > > diff --git a/include/uapi/linux/if_tun.h b/include/uapi/linux/if_tun.h
+> > > index e9502dd..b82c276 100644
+> > > --- a/include/uapi/linux/if_tun.h
+> > > +++ b/include/uapi/linux/if_tun.h
+> > > @@ -23,20 +23,6 @@
+> > >  /* Read queue size */
+> > >  #define TUN_READQ_SIZE	500
+> > >  
+> > > -/* TUN device flags */
+> > > -#define TUN_TUN_DEV 	0x0001	
+> > > -#define TUN_TAP_DEV	0x0002
+> > > -#define TUN_TYPE_MASK   0x000f
+> > > -
+> > > -#define TUN_FASYNC	0x0010
+> > > -#define TUN_NOCHECKSUM	0x0020
+> > > -#define TUN_NO_PI	0x0040
+> > > -/* This flag has no real effect */
+> > > -#define TUN_ONE_QUEUE	0x0080
+> > > -#define TUN_PERSIST 	0x0100	
+> > > -#define TUN_VNET_HDR 	0x0200
+> > > -#define TUN_TAP_MQ      0x0400
+> > > -
+> > >  /* Ioctl defines */
+> > >  #define TUNSETNOCSUM  _IOW('T', 200, int) 
+> > >  #define TUNSETDEBUG   _IOW('T', 201, int) 
+> > > diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> > > index 2e18ddd..81735f5 100644
+> > > --- a/drivers/net/tun.c
+> > > +++ b/drivers/net/tun.c
+> > > @@ -103,6 +103,20 @@ do {								\
+> > >  } while (0)
+> > >  #endif
+> > >  
+> > > +/* TUN device flags */
+> > > +#define TUN_TUN_DEV 	0x0001
+> > > +#define TUN_TAP_DEV	0x0002
+> > > +#define TUN_TYPE_MASK   0x000f
+> > > +
+> > > +#define TUN_FASYNC	0x0010
+> > > +#define TUN_NOCHECKSUM	0x0020
+> > > +#define TUN_NO_PI	0x0040
+> > > +/* This flag has no real effect */
+> > > +#define TUN_ONE_QUEUE	0x0080
+> > > +#define TUN_PERSIST 	0x0100
+> > > +#define TUN_VNET_HDR 	0x0200
+> > > +#define TUN_TAP_MQ      0x0400
+> > > +
+> > >  #define GOODCOPY_LEN 128
+> > >  
+> > >  #define FLT_EXACT_COUNT 8
+> > 
