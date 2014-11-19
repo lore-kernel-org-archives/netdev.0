@@ -1,149 +1,53 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net] virtio-net: validate features during probe
-Date: Wed, 19 Nov 2014 14:35:39 +0800
-Message-ID: <1416378939-28821-1-git-send-email-jasowang@redhat.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH net-next 3/4] igb: enable internal PPS for the i210.
+Date: Wed, 19 Nov 2014 07:37:24 +0100
+Message-ID: <20141119063724.GB4109@localhost.localdomain>
+References: <cover.1416265321.git.richardcochran@gmail.com>
+ <e5b4ef7c56119e2d86e42f5680b1b82c9ec1a38e.1416265321.git.richardcochran@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: rusty@rustcorp.com.au, mst@redhat.com,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, bruce.w.allan@intel.com,
+	Jacob Keller <jacob.e.keller@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Matthew Vick <matthew.vick@intel.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f169.google.com ([209.85.212.169]:43842 "EHLO
+	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754005AbaKSGha (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 01:37:30 -0500
+Received: by mail-wi0-f169.google.com with SMTP id r20so7877366wiv.2
+        for <netdev@vger.kernel.org>; Tue, 18 Nov 2014 22:37:28 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <e5b4ef7c56119e2d86e42f5680b1b82c9ec1a38e.1416265321.git.richardcochran@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch validates feature dependencies during probe and fail the probing
-if a dependency is missed. This fixes the issues of hitting BUG()
-when qemu fails to advertise features correctly. One example is booting
-guest with ctrl_vq=off through qemu.
+On Tue, Nov 18, 2014 at 12:06:24AM +0100, Richard Cochran wrote:
+> --- a/drivers/net/ethernet/intel/igb/igb_main.c
+> +++ b/drivers/net/ethernet/intel/igb/igb_main.c
+> @@ -5386,8 +5386,14 @@ void igb_update_stats(struct igb_adapter *adapter,
+>  static void igb_tsync_interrupt(struct igb_adapter *adapter)
+>  {
+>  	struct e1000_hw *hw = &adapter->hw;
+> +	struct ptp_clock_event event;
+>  	u32 tsicr = rd32(E1000_TSICR);
+>  
+> +	if (tsicr & TSINTR_SYS_WRAP) {
+> +		event.type = PTP_CLOCK_PPS;
+> +		ptp_clock_event(adapter->ptp_clock, &event);
 
-Cc: Rusty Russell <rusty@rustcorp.com.au>
-Cc: Michael S. Tsirkin <mst@redhat.com>
-Cc: Cornelia Huck <cornelia.huck@de.ibm.com>
-Cc: Wanlong Gao <gaowanlong@cn.fujitsu.com>
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
- drivers/net/virtio_net.c | 93 ++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 93 insertions(+)
+This causes a BUG for the 82580. When you enable E1000_TSICR_TXTS, it
+seems that TSINTR_SYS_WRAP is also automatically enabled. Because the
+82580 variant has no pps device enabled, the driver then dereferences
+a null pointer.
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index ec2a8b4..4a0ad46 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -1673,6 +1673,95 @@ static const struct attribute_group virtio_net_mrg_rx_group = {
- };
- #endif
- 
-+static int virtnet_validate_features(struct virtio_device *dev,
-+				     unsigned int *table,
-+				     int table_size,
-+				     unsigned int feature)
-+{
-+	int i;
-+
-+	if (!virtio_has_feature(dev, feature)) {
-+		for (i = 0; i < table_size; i++) {
-+			unsigned int f = table[i];
-+
-+			if (virtio_has_feature(dev, f)) {
-+				dev_err(&dev->dev,
-+					"buggy hyperviser: feature 0x%x was advertised but its dependency 0x%x was not",
-+					f, feature);
-+				return -EINVAL;
-+			}
-+		}
-+	}
-+
-+	return 0;
-+}
-+
-+static int virtnet_check_features(struct virtio_device *dev)
-+{
-+	unsigned int features_for_ctrl_vq[] = {
-+		VIRTIO_NET_F_CTRL_RX,
-+		VIRTIO_NET_F_CTRL_VLAN,
-+		VIRTIO_NET_F_GUEST_ANNOUNCE,
-+		VIRTIO_NET_F_MQ,
-+		VIRTIO_NET_F_CTRL_MAC_ADDR
-+	};
-+	unsigned int features_for_guest_csum[] = {
-+		VIRTIO_NET_F_GUEST_TSO4,
-+		VIRTIO_NET_F_GUEST_TSO6,
-+		VIRTIO_NET_F_GUEST_ECN,
-+		VIRTIO_NET_F_GUEST_UFO,
-+	};
-+	unsigned int features_for_host_csum[] = {
-+		VIRTIO_NET_F_HOST_TSO4,
-+		VIRTIO_NET_F_HOST_TSO6,
-+		VIRTIO_NET_F_HOST_ECN,
-+		VIRTIO_NET_F_HOST_UFO,
-+	};
-+	int err;
-+
-+	err = virtnet_validate_features(dev, features_for_ctrl_vq,
-+					ARRAY_SIZE(features_for_ctrl_vq),
-+					VIRTIO_NET_F_CTRL_VQ);
-+	if (err)
-+		return err;
-+
-+	err = virtnet_validate_features(dev, features_for_guest_csum,
-+					ARRAY_SIZE(features_for_guest_csum),
-+					VIRTIO_NET_F_GUEST_CSUM);
-+	if (err)
-+		return err;
-+
-+	err = virtnet_validate_features(dev, features_for_host_csum,
-+					ARRAY_SIZE(features_for_host_csum),
-+					VIRTIO_NET_F_CSUM);
-+	if (err)
-+		return err;
-+
-+	if (virtio_has_feature(dev, VIRTIO_NET_F_GUEST_ECN) &&
-+	    (!virtio_has_feature(dev, VIRTIO_NET_F_GUEST_TSO4) ||
-+	     !virtio_has_feature(dev, VIRTIO_NET_F_GUEST_TSO6))) {
-+		dev_err(&dev->dev,
-+			"buggy hyperviser: feature 0x%x was advertised but its dependency 0x%x or 0x%x was not",
-+			VIRTIO_NET_F_GUEST_ECN,
-+			VIRTIO_NET_F_GUEST_TSO4,
-+			VIRTIO_NET_F_GUEST_TSO6);
-+		return -EINVAL;
-+	}
-+
-+	if (virtio_has_feature(dev, VIRTIO_NET_F_HOST_ECN) &&
-+	    (!virtio_has_feature(dev, VIRTIO_NET_F_HOST_TSO4) ||
-+	     !virtio_has_feature(dev, VIRTIO_NET_F_HOST_TSO6))) {
-+		dev_err(&dev->dev,
-+			"buggy hyperviser: feature 0x%x was advertised but its dependency 0x%x or 0x%x was not",
-+			VIRTIO_NET_F_HOST_ECN,
-+			VIRTIO_NET_F_HOST_TSO4,
-+			VIRTIO_NET_F_HOST_TSO6);
-+		return -EINVAL;
-+	}
-+
-+	return 0;
-+}
-+
- static int virtnet_probe(struct virtio_device *vdev)
- {
- 	int i, err;
-@@ -1680,6 +1769,10 @@ static int virtnet_probe(struct virtio_device *vdev)
- 	struct virtnet_info *vi;
- 	u16 max_queue_pairs;
- 
-+	err = virtnet_check_features(vdev);
-+	if (err)
-+		return -EINVAL;
-+
- 	/* Find if host supports multiqueue virtio_net device */
- 	err = virtio_cread_feature(vdev, VIRTIO_NET_F_MQ,
- 				   struct virtio_net_config,
--- 
-1.9.1
+So we need to make the call to ptp_clock_event() conditional based on
+whether pps is enabled. I'll fix this in V2.
+
+> +	}
+> +
+
+Thanks,
+Richard
