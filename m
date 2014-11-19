@@ -1,50 +1,61 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [patch net-next v3 8/9] net: move vlan pop/push functions into
- common code
-Date: Wed, 19 Nov 2014 14:03:57 +0100
-Message-ID: <20141119140357.5f9d0594@griffin>
-References: <1416346664-9290-1-git-send-email-jiri@resnulli.us>
-	<1416346664-9290-9-git-send-email-jiri@resnulli.us>
-	<CALnjE+rJEtyL-QDrp0x+N_pCxDuR6soHkaY-OrswWrdZwfE2sQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jiri@resnulli.us>, netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Tom Herbert <therbert@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Willem de Bruijn <willemb@google.com>,
-	Daniel Borkmann <dborkman@redhat.com>, mst@redhat.com,
-	fw@strlen.de, Paul.Durrant@citrix.com, Thomas Graf <tgraf@suug.ch>,
-	Cong Wang <cwang@twopensource.com>
-To: Pravin Shelar <pshelar@nicira.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next v4 0/9] sched: introduce vlan action
+Date: Wed, 19 Nov 2014 14:04:54 +0100
+Message-ID: <1416402303-25341-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, jhs@mojatatu.com, pshelar@nicira.com,
+	therbert@google.com, edumazet@google.com, willemb@google.com,
+	dborkman@redhat.com, mst@redhat.com, fw@strlen.de,
+	Paul.Durrant@citrix.com, tgraf@suug.ch, cwang@twopensource.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60199 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752065AbaKSNEt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Nov 2014 08:04:49 -0500
-In-Reply-To: <CALnjE+rJEtyL-QDrp0x+N_pCxDuR6soHkaY-OrswWrdZwfE2sQ@mail.gmail.com>
+Received: from mail-wg0-f43.google.com ([74.125.82.43]:37845 "EHLO
+	mail-wg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753964AbaKSNFG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 08:05:06 -0500
+Received: by mail-wg0-f43.google.com with SMTP id l18so775834wgh.30
+        for <netdev@vger.kernel.org>; Wed, 19 Nov 2014 05:05:05 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 19 Nov 2014 00:06:19 -0800, Pravin Shelar wrote:
-> skb_reset_mac_len() sets length according to ethernet and network
-> offsets, but mpls expects mac-length to be offset to mpls header (ref.
-> skb_mpls_header()). Therefore rather than reset we need to subtract
-> VLAN_HLEN from mac_len. Same goes for vlan-push(), we can add
-> VLAN_HLEN.
+Please see the individual patches for info
 
-Subtracting VLAN_HLEN from mac_len would break the common vlan cases,
-where skb->protocol is ETH_P_8021Q and skb->mac_len is 14 on input to
-__skb_vlan_pop. After __skb_vlan_pop pops the vlan header, it changes
-skb->protocol to the protocol of the actual frame and has to leave
-skb->mac_len at 14.
+Jiri Pirko (9):
+  openvswitch: actions: use skb_postpull_rcsum when possible
+  vlan: make __vlan_hwaccel_put_tag return void
+  vlan: kill vlan_put_tag helper
+  vlan: rename __vlan_put_tag to vlan_insert_tag_set_proto
+  vlan: introduce *vlan_hwaccel_push_inside helpers
+  vlan: introduce __vlan_insert_tag helper which does not free skb
+  net: move make_writable helper into common code
+  net: move vlan pop/push functions into common code
+  sched: introduce vlan action
 
-You'll need something more sophisticated to support MPLS here, I'm
-afraid.
-
- Jiri
+ drivers/net/bonding/bond_alb.c              |  17 +--
+ drivers/net/bonding/bond_main.c             |  12 +-
+ drivers/net/ethernet/emulex/benet/be_main.c |   6 +-
+ drivers/net/usb/cdc_mbim.c                  |   2 +-
+ drivers/net/vxlan.c                         |  22 +--
+ drivers/scsi/fcoe/fcoe.c                    |   6 +-
+ include/linux/if_vlan.h                     | 107 +++++++++-----
+ include/linux/skbuff.h                      |   3 +
+ include/net/tc_act/tc_vlan.h                |  27 ++++
+ include/uapi/linux/tc_act/tc_vlan.h         |  35 +++++
+ net/8021q/vlan_dev.c                        |   2 +-
+ net/bridge/br_vlan.c                        |   4 +-
+ net/core/dev.c                              |   8 +-
+ net/core/netpoll.c                          |   4 +-
+ net/core/skbuff.c                           | 107 ++++++++++++++
+ net/ipv4/geneve.c                           |  12 +-
+ net/openvswitch/actions.c                   | 128 ++++-------------
+ net/openvswitch/datapath.c                  |   3 +-
+ net/openvswitch/vport-gre.c                 |  12 +-
+ net/sched/Kconfig                           |  11 ++
+ net/sched/Makefile                          |   1 +
+ net/sched/act_vlan.c                        | 207 ++++++++++++++++++++++++++++
+ 22 files changed, 522 insertions(+), 214 deletions(-)
+ create mode 100644 include/net/tc_act/tc_vlan.h
+ create mode 100644 include/uapi/linux/tc_act/tc_vlan.h
+ create mode 100644 net/sched/act_vlan.c
 
 -- 
-Jiri Benc
+1.9.3
