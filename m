@@ -1,35 +1,66 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [PATCH v2] ipv6: delete protocol and unregister rtnetlink when cleanup
-Date: Wed, 19 Nov 2014 11:46:55 -0800
-Message-ID: <CAHA+R7OtQVgFwUjMPszW6ze3ts6FiWWCHQZ=3ad8U3AuJxqDtA@mail.gmail.com>
-References: <546B20F8.6010806@cn.fujitsu.com>
-	<CAHA+R7PNmac7KQpSK-vO9zVd3+926f6n_GpaGrbpBnSn98xiyQ@mail.gmail.com>
-	<546BF3EB.1080603@cn.fujitsu.com>
+From: Joe Stringer <joestringer@nicira.com>
+Subject: Re: [ovs-dev] [PATCH net] openvswitch: Fix mask generation for IPv6 labels.
+Date: Wed, 19 Nov 2014 11:51:39 -0800
+Message-ID: <201411191151.40064.joestringer@nicira.com>
+References: <1416336857-61405-1-git-send-email-joestringer@nicira.com> <201411190948.11857.joestringer@nicira.com> <CALnjE+pQnUGiiuWPGt7fNnBetwdn7SQReDqCHDforX7ykQQR8Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
+Content-Type: Text/Plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
 	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f47.google.com ([209.85.216.47]:50242 "EHLO
-	mail-qa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755279AbaKSTq4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 14:46:56 -0500
-Received: by mail-qa0-f47.google.com with SMTP id s7so913637qap.34
-        for <netdev@vger.kernel.org>; Wed, 19 Nov 2014 11:46:56 -0800 (PST)
-In-Reply-To: <546BF3EB.1080603@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	LKML <linux-kernel@vger.kernel.org>
+To: Pravin Shelar <pshelar@nicira.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CALnjE+pQnUGiiuWPGt7fNnBetwdn7SQReDqCHDforX7ykQQR8Q@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 18, 2014 at 5:35 PM, Duan Jiong <duanj.fnst@cn.fujitsu.com> wrote:
->
->
-> pim6_protocol was added when initiation, but it not deleted.
-> Similarly, unregister RTNL_FAMILY_IP6MR rtnetlink.
->
-> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-> ---
-> v2: add missing rtnl_unregister()
+On Wednesday, November 19, 2014 11:08:35 Pravin Shelar wrote:
+> On Wed, Nov 19, 2014 at 9:48 AM, Joe Stringer <joestringer@nicira.com> 
+wrote:
+> > On Wednesday, November 19, 2014 00:11:01 Pravin Shelar wrote:
+> >> On Tue, Nov 18, 2014 at 11:25 PM, Joe Stringer <joestringer@nicira.com>
+> > 
+> > wrote:
+> >> > On 18 November 2014 22:09, Pravin Shelar <pshelar@nicira.com> wrote:
+> >> >> On Tue, Nov 18, 2014 at 10:54 AM, Joe Stringer
+> >> >> <joestringer@nicira.com>
+> >> >> 
+> >> >> wrote:
+> >> >> > When userspace doesn't provide a mask, OVS datapath generates a
+> >> >> > fully unwildcarded mask for the flow. This is done by taking a
+> >> >> > copy of the flow key, then iterating across its attributes,
+> >> >> > setting all values to 0xff. This works for most attributes, as the
+> >> >> > length of the netlink attribute typically matches the length of
+> >> >> > the value. However, IPv6 labels only use the lower 20 bits of the
+> >> >> > field. This patch makes a special case to handle this.
+> >> >> > 
+> >> >> > This fixes the following error seen when installing IPv6 flows
+> >> >> > without a mask:
+> >> >> > 
+> >> >> > openvswitch: netlink: Invalid IPv6 flow label value
+> >> >> > (value=ffffffff, max=fffff)
+> >> >> 
+> >> >> We should allow exact match mask here rather than generating
+> >> >> wildcarded mask. So that ovs can catch invalid ipv6.label.
+> >> > 
+> >> > I don't quite follow, I thought this was exact-match? (The existing
+> >> > function sets all bits to 1)
+> >> 
+> >> With 0xffffffff value we can exact match on all ipv6.lable bits.
+> > 
+> > The label field is only 20 bits. The other bits in the same word of the
+> > IPv6 header are for version (fixed) and traffic class (handled
+> > separately). We don't do anything with the other bits.
+> 
+> This is just to make sure that we do not use those field for any thing
+> else. Masking those extra bits can hide incorrect ipv6 key extraction.
 
-Reviewed-by: Cong Wang <cwang@twopensource.com>
+Oh, I see. I meant something more like:
+
+ipv6_key->ipv6_label &= htonl(0xFFF00000);
+ipv6_key->ipv6_label |= htonl(0x000FFFFF);
+
+(Which would propagate the invalid bits from the flow key, but actually produce 
+an exact match).
