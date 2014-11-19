@@ -1,106 +1,97 @@
-From: Govindarajulu Varadarajan <_govind@gmx.com>
-Subject: [PATCH net-next v2] enic: support skb->xmit_more
-Date: Wed, 19 Nov 2014 12:59:32 +0530
-Message-ID: <1416382172-28775-1-git-send-email-_govind@gmx.com>
-Cc: ssujith@cisco.com, benve@cisco.com, eric.dumazet@gmail.com,
-	Govindarajulu Varadarajan <_govind@gmx.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: lucien xin <lucien.xin@gmail.com>
+Subject: Re: [PATCH] [net]ip_tunnel: the lack of vti_link_ops' dellink() cause
+ kernel panic
+Date: Wed, 19 Nov 2014 15:44:34 +0800
+Message-ID: <CADvbK_cRRhNN23Cf-3Ar+aiheb+5tBWv2R0ooQe6t1mb=Xei0Q@mail.gmail.com>
+References: <1416307059-32732-1-git-send-email-lucien.xin@gmail.com>
+	<546B8093.4080507@6wind.com>
+	<CAHA+R7NjO+bDhN5QX95d8V0VqvbacxCzoHWT5NpDaDn3YCtCeg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	network dev <netdev@vger.kernel.org>,
+	Steffen Klassert <steffen.klassert@secunet.com>
+To: Cong Wang <cwang@twopensource.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.17.22]:58200 "EHLO mout.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932113AbaKSH3v (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Nov 2014 02:29:51 -0500
+Received: from mail-wg0-f48.google.com ([74.125.82.48]:34961 "EHLO
+	mail-wg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754771AbaKSHog (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 02:44:36 -0500
+Received: by mail-wg0-f48.google.com with SMTP id y19so63663wgg.7
+        for <netdev@vger.kernel.org>; Tue, 18 Nov 2014 23:44:34 -0800 (PST)
+In-Reply-To: <CAHA+R7NjO+bDhN5QX95d8V0VqvbacxCzoHWT5NpDaDn3YCtCeg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Check and update posted_index only when skb->xmit_more is 0 or tx queue is full.
+On Wed, Nov 19, 2014 at 7:25 AM, Cong Wang <cwang@twopensource.com> wrote:
+> On Tue, Nov 18, 2014 at 9:23 AM, Nicolas Dichtel
+> <nicolas.dichtel@6wind.com> wrote:
+>>
+>> A quick look at the ipv6 side seems to show that there is the same problem.
+>> Can
+>> you provide the IPv6 patch too?
+>>
+>
+> IPv6 doesn't use ip_tunnel library, so needs to provide its own implementation:
+>
+> diff --git a/net/ipv6/ip6_vti.c b/net/ipv6/ip6_vti.c
+> index ec84d03..3ae094b 100644
+> --- a/net/ipv6/ip6_vti.c
+> +++ b/net/ipv6/ip6_vti.c
+> @@ -911,6 +911,16 @@ static int vti6_newlink(struct net *src_net,
+> struct net_device *dev,
+>         return vti6_tnl_create2(dev);
+>  }
+>
+> +static void vti6_dellink(struct net_device *dev, struct list_head *head)
+> +{
+> +       struct net *net = dev_net(dev);
+> +       struct vti6_net *ip6n = net_generic(net, vti6_net_id);
+> +
+> +       if (dev != ip6n->fb_tnl_dev)
+> +               unregister_netdevice_queue(dev, head);
+> +}
+> +
+> +
+>  static int vti6_changelink(struct net_device *dev, struct nlattr *tb[],
+>                            struct nlattr *data[])
+>  {
+> @@ -986,6 +996,7 @@ static struct rtnl_link_ops vti6_link_ops __read_mostly = {
+>         .setup          = vti6_dev_setup,
+>         .validate       = vti6_validate,
+>         .newlink        = vti6_newlink,
+> +       .dellink        = vti6_dellink,
+>         .changelink     = vti6_changelink,
+>         .get_size       = vti6_get_size,
+>         .fill_info      = vti6_fill_info,
 
-v2:
-use txq_map instead of skb_get_queue_mapping(skb)
+the issue do not exist in ip6_vti. cause vti6_init_net() complete the
+device ip6_vti0 initialization,
+ in which dev->rtnl_link_ops never be pointed.  so the ip6_vti0's
+rtnl_link_ops is null, which lead
+ to the  dellink() will never be invoked in rtnl_dellink():
 
-Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
----
- drivers/net/ethernet/cisco/enic/enic_main.c |  8 ++++++--
- drivers/net/ethernet/cisco/enic/vnic_wq.h   | 20 +++++++++++---------
- 2 files changed, 17 insertions(+), 11 deletions(-)
+        if (!ops || !ops->dellink)
+                return -EOPNOTSUPP;
 
-diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
-index 5afe360..b9cda2f 100644
---- a/drivers/net/ethernet/cisco/enic/enic_main.c
-+++ b/drivers/net/ethernet/cisco/enic/enic_main.c
-@@ -533,6 +533,7 @@ static netdev_tx_t enic_hard_start_xmit(struct sk_buff *skb,
- 	struct vnic_wq *wq;
- 	unsigned long flags;
- 	unsigned int txq_map;
-+	struct netdev_queue *txq;
- 
- 	if (skb->len <= 0) {
- 		dev_kfree_skb_any(skb);
-@@ -541,6 +542,7 @@ static netdev_tx_t enic_hard_start_xmit(struct sk_buff *skb,
- 
- 	txq_map = skb_get_queue_mapping(skb) % enic->wq_count;
- 	wq = &enic->wq[txq_map];
-+	txq = netdev_get_tx_queue(netdev, txq_map);
- 
- 	/* Non-TSO sends must fit within ENIC_NON_TSO_MAX_DESC descs,
- 	 * which is very likely.  In the off chance it's going to take
-@@ -558,7 +560,7 @@ static netdev_tx_t enic_hard_start_xmit(struct sk_buff *skb,
- 
- 	if (vnic_wq_desc_avail(wq) <
- 	    skb_shinfo(skb)->nr_frags + ENIC_DESC_MAX_SPLITS) {
--		netif_tx_stop_queue(netdev_get_tx_queue(netdev, txq_map));
-+		netif_tx_stop_queue(txq);
- 		/* This is a hard error, log it */
- 		netdev_err(netdev, "BUG! Tx ring full when queue awake!\n");
- 		spin_unlock_irqrestore(&enic->wq_lock[txq_map], flags);
-@@ -568,7 +570,9 @@ static netdev_tx_t enic_hard_start_xmit(struct sk_buff *skb,
- 	enic_queue_wq_skb(enic, wq, skb);
- 
- 	if (vnic_wq_desc_avail(wq) < MAX_SKB_FRAGS + ENIC_DESC_MAX_SPLITS)
--		netif_tx_stop_queue(netdev_get_tx_queue(netdev, txq_map));
-+		netif_tx_stop_queue(txq);
-+	if (!skb->xmit_more || netif_xmit_stopped(txq))
-+		vnic_wq_doorbell(wq);
- 
- 	spin_unlock_irqrestore(&enic->wq_lock[txq_map], flags);
- 
-diff --git a/drivers/net/ethernet/cisco/enic/vnic_wq.h b/drivers/net/ethernet/cisco/enic/vnic_wq.h
-index 2c6c708..816f1ad 100644
---- a/drivers/net/ethernet/cisco/enic/vnic_wq.h
-+++ b/drivers/net/ethernet/cisco/enic/vnic_wq.h
-@@ -104,6 +104,17 @@ static inline void *vnic_wq_next_desc(struct vnic_wq *wq)
- 	return wq->to_use->desc;
- }
- 
-+static inline void vnic_wq_doorbell(struct vnic_wq *wq)
-+{
-+	/* Adding write memory barrier prevents compiler and/or CPU
-+	 * reordering, thus avoiding descriptor posting before
-+	 * descriptor is initialized. Otherwise, hardware can read
-+	 * stale descriptor fields.
-+	 */
-+	wmb();
-+	iowrite32(wq->to_use->index, &wq->ctrl->posted_index);
-+}
-+
- static inline void vnic_wq_post(struct vnic_wq *wq,
- 	void *os_buf, dma_addr_t dma_addr,
- 	unsigned int len, int sop, int eop,
-@@ -122,15 +133,6 @@ static inline void vnic_wq_post(struct vnic_wq *wq,
- 	buf->wr_id = wrid;
- 
- 	buf = buf->next;
--	if (eop) {
--		/* Adding write memory barrier prevents compiler and/or CPU
--		 * reordering, thus avoiding descriptor posting before
--		 * descriptor is initialized. Otherwise, hardware can read
--		 * stale descriptor fields.
--		 */
--		wmb();
--		iowrite32(buf->index, &wq->ctrl->posted_index);
--	}
- 	wq->to_use = buf;
- 
- 	wq->ring.desc_avail -= desc_skip_cnt;
--- 
-2.1.3
+        ops->dellink(dev, &list_kill);
+        unregister_netdevice_many(&list_kill);
+
+instead, "ip link del ip6_vti0" wil return:
+RTNETLINK answers: Operation not supported
+
+if this patch for ip6 is to be consistent with ipv4 vti. I suggest we
+should also add the below code
+to init ip6_vti0's rtnl_link_ops when the ip6_vti0 is inited:
+diff --git a/net/ipv6/ip6_vti.c b/net/ipv6/ip6_vti.c
+index 31089d1..e68c099 100644
+--- a/net/ipv6/ip6_vti.c
++++ b/net/ipv6/ip6_vti.c
+@@ -1020,6 +1020,7 @@ static int __net_init vti6_init_net(struct net *net)
+        if (!ip6n->fb_tnl_dev)
+                goto err_alloc_dev;
+        dev_net_set(ip6n->fb_tnl_dev, net);
++       ip6n->fb_tnl_dev->rtnl_link_ops = &vti6_link_ops;
+
+        err = vti6_fb_tnl_dev_init(ip6n->fb_tnl_dev);
+        if (err < 0)
