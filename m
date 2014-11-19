@@ -1,51 +1,126 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [ovs-dev] [PATCH net] openvswitch: Fix mask generation for IPv6 labels.
-Date: Wed, 19 Nov 2014 00:11:01 -0800
-Message-ID: <CALnjE+rr2tFdvD+X=BbAza_5ad4DYs6viwvZWHCebQYmpvKU3Q@mail.gmail.com>
-References: <1416336857-61405-1-git-send-email-joestringer@nicira.com>
-	<CALnjE+qrkw92tZ-wgpGOPtbuMJVVCfo--7w6PAGO6OW4skiGQQ@mail.gmail.com>
-	<CAOftzPgYBBFTfNZunf4oGSmECzjOKF0=dnQ9EkTDFsDi+9jfNw@mail.gmail.com>
+From: Rui Xiang <rui.xiang@huawei.com>
+Subject: Re: [BNX2] A Netdev Watchdog with kernel stable 3.4
+Date: Wed, 19 Nov 2014 16:21:47 +0800
+Message-ID: <546C531B.1020609@huawei.com>
+References: <5469ED24.7010008@huawei.com>  <546C388B.2050603@huawei.com> <1416380319.6396.15.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Joe Stringer <joestringer@nicira.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAOftzPgYBBFTfNZunf4oGSmECzjOKF0=dnQ9EkTDFsDi+9jfNw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: Michael Chan <mchan@broadcom.com>, <sony.chacko@qlogic.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:60008 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755050AbaKSIV5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 03:21:57 -0500
+In-Reply-To: <1416380319.6396.15.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 18, 2014 at 11:25 PM, Joe Stringer <joestringer@nicira.com> wrote:
-> On 18 November 2014 22:09, Pravin Shelar <pshelar@nicira.com> wrote:
+Thank you for your comments and attention, Michael.
+And welcome Sony's advise. :)
+
+On 2014/11/19 14:58, Michael Chan wrote:
+> Copying the current maintainer Sony.  The PCI command register looks
+> strange.  Please see below.
+> 
+> On Wed, 2014-11-19 at 14:28 +0800, Rui Xiang wrote: 
+>> ping...
 >>
->> On Tue, Nov 18, 2014 at 10:54 AM, Joe Stringer <joestringer@nicira.com>
->> wrote:
->> > When userspace doesn't provide a mask, OVS datapath generates a fully
->> > unwildcarded mask for the flow. This is done by taking a copy of the
->> > flow key, then iterating across its attributes, setting all values to
->> > 0xff. This works for most attributes, as the length of the netlink
->> > attribute typically matches the length of the value. However, IPv6
->> > labels only use the lower 20 bits of the field. This patch makes a
->> > special case to handle this.
->> >
->> > This fixes the following error seen when installing IPv6 flows without a
->> > mask:
->> >
->> > openvswitch: netlink: Invalid IPv6 flow label value (value=ffffffff,
->> > max=fffff)
->> >
->> We should allow exact match mask here rather than generating
->> wildcarded mask. So that ovs can catch invalid ipv6.label.
->
->
-> I don't quite follow, I thought this was exact-match? (The existing function
-> sets all bits to 1)
->
-With 0xffffffff value we can exact match on all ipv6.lable bits.
+>> On 2014/11/17 20:42, Rui Xiang wrote:
+>>> Hi Michael,
+>>>
+>>> On a system that was running stable 3.4.87, I got the below stack.
+>>> That was a NETDEV WATCHDOG. And we could also see watchdog timeouts with the 
+>>> BNX2. (After the stack, an oops occurred while running ifconfig. I think it 
+>>> would be related to this timeout.)
+>>>
+>>> Otherwises, the bnx2_dump_state and bnx2_dump_mcp_state have printed the states. 
+>>> Through these states info, can we got the real situation of NIC1.
+>>> Or can we see what resulted the WATCHDOG, a bnx2 device fault or other reasons.
+>>>
+>>> Thanks.
+>>>
+>>>
+>>> *The stack*:
+>>>
+>>>  WARNING: at /usr/src/packages/BUILD/kernel-default-3.4.87/linux-3.4/net/sched/sch_generic.c:256 dev_watchdog+0x256/0x260()
+>>>  NETDEV WATCHDOG: NIC1 (bnx2): transmit queue 3 timed out
+>>>  Modules linked in: smb3_failover(O) smb2(O) smb(O) smb_manager(O) nfs(O) nfs_acl(O) nfsd(O) lockd(O) nal(O) auth_rpcgss(O) 
+>>> scsi_dh_hp_sw scsi_dh_alua scsi_dh_emc scsi_dh_rdac scsi_dh scsi_mod [last unloaded: ipmi_msghandler]
+>>>  Pid: 0, comm: swapper/0 Tainted: P        W  O 3.4.87-default #1
+>>>  Call Trace:
+>>>   <IRQ>  [<ffffffff8103fcea>] warn_slowpath_common+0x7a/0xb0
+>>>   [<ffffffff8103fdc1>] warn_slowpath_fmt+0x41/0x50
+>>>   [<ffffffff81047749>] ? raise_softirq_irqoff+0x9/0x30
+>>>   [<ffffffff813ae0f6>] dev_watchdog+0x256/0x260
+>>>   [<ffffffff813adea0>] ? dev_deactivate_queue.constprop.30+0x70/0x70
+>>>   [<ffffffff8104edc7>] run_timer_softirq+0x147/0x340
+>>>   [<ffffffff810470d8>] __do_softirq+0xc8/0x1e0
+>>>   [<ffffffff8109250f>] ? tick_program_event+0x1f/0x30
+>>>   [<ffffffff81460a6c>] call_softirq+0x1c/0x30
+>>>   [<ffffffff8100417d>] do_softirq+0x9d/0xd0
+>>>   [<ffffffff810474a5>] irq_exit+0xb5/0xc0
+>>>   [<ffffffff81021b49>] smp_apic_timer_interrupt+0x69/0xa0
+>>>   [<ffffffff8146006f>] apic_timer_interrupt+0x6f/0x80
+>>>   <EOI>  [<ffffffff81457bdd>] ? retint_restore_args+0x13/0x13
+>>>   [<ffffffff81360149>] ? poll_idle+0x49/0x90
+>>>   [<ffffffff8136011f>] ? poll_idle+0x1f/0x90
+>>>   [<ffffffff8135fcc9>] cpuidle_enter+0x19/0x20
+>>>   [<ffffffff813602f2>] cpuidle_idle_call+0xa2/0x250
+>>>   [<ffffffff8100b08f>] cpu_idle+0x6f/0xe0
+>>>   [<ffffffff81915960>] ? rawsock_init+0x12/0x12
+>>>   [<ffffffff814331c9>] rest_init+0x6d/0x74
+>>>   [<ffffffff818d3be5>] start_kernel+0x3a2/0x3af
+>>>   [<ffffffff818d3642>] ? repair_env_string+0x5e/0x5e
+>>>   [<ffffffff818d332a>] x86_64_start_reservations+0x131/0x135
+>>>   [<ffffffff818d342e>] x86_64_start_kernel+0x100/0x10f
+>>>  ---[ end trace 497e24e681e0c02d ]---
+>>>  bnx2 0000:05:00.1: NIC1: DEBUG: intr_sem[0] PCI_CMD[00100002]
+> 
+> The memory bit in PCI_CMD is set, but the bus master bit is not set.
+> DMA won't work if the bus master bit is not set.  What was happening
+> before the timeout?  Was it working fine for a while and it suddenly
+> stopped?
+> 
 
-> In this case, userspace has not specified a mask, but the kernel complains
-> about a mask that is too wide (because it generated a mask that's too wide).
-> Do you have an alternative fix in mind?
+>From the dmesg, I think it should be stopped suddenly. Because before this timeout, It seems
+that nic1 can handle packages naturally.
 
-We can avoid the sanity check ipv6.lable for mask key.
+[ 1882.809865] IPv4: martian source 93.93.255.255 from 93.93.41.1, on dev NIC1
+[ 1882.809871] ll header: 00000000: ff ff ff ff ff ff 04 f9 38 85 c7 a6 08 00        ........8.....
+
+After about 10 seconds, the timeout happens. And during the 10 seconds, there is no other exception.
+
+[ 1892.991286] NETDEV WATCHDOG: NIC1 (bnx2): transmit queue 3 timed out
+
+So from your experience, which pathes could result in the bus master bit not set, or an hardware error?
+
+
+Thanks.
+
+>>>  bnx2 0000:05:00.1: NIC1: DEBUG: PCI_PM[19002008] PCI_MISC_CFG[92000088]
+>>>  bnx2 0000:05:00.1: NIC1: DEBUG: EMAC_TX_STATUS[00000008] EMAC_RX_STATUS[00000000]
+>>>  bnx2 0000:05:00.1: NIC1: DEBUG: RPM_MGMT_PKT_CTRL[40000088]
+>>>  bnx2 0000:05:00.1: NIC1: DEBUG: HC_STATS_INTERRUPT_STATUS[01ff0000]
+>>>  bnx2 0000:05:00.1: NIC1: DEBUG: PBA[00000000]
+>>>  bnx2 0000:05:00.1: NIC1: <--- start MCP states dump --->
+>>>  bnx2 0000:05:00.1: NIC1: DEBUG: MCP_STATE_P0[0003e10e] MCP_STATE_P1[0003e10e]
+>>>  bnx2 0000:05:00.1: NIC1: DEBUG: MCP mode[0000b800] state[80008000] evt_mask[00000500]
+>>>  bnx2 0000:05:00.1: NIC1: DEBUG: pc[08008f60] pc[0800d21c] instr[00051080]
+>>>  bnx2 0000:05:00.1: NIC1: DEBUG: shmem states:
+>>>  bnx2 0000:05:00.1: NIC1: DEBUG: drv_mb[01030003] fw_mb[00000003] link_status[0000006f] drv_pulse_mb[0000073d]
+>>>  bnx2 0000:05:00.1: NIC1: DEBUG: dev_info_signature[44564907] reset_type[01005254] condition[0003e10e]
+>>>  bnx2 0000:05:00.1: NIC1: DEBUG: 000003cc: 00000000 00000000 00000000 00000000
+>>>  bnx2 0000:05:00.1: NIC1: DEBUG: 000003dc: 00000000 00000000 00000000 00000000
+>>>  bnx2 0000:05:00.1: NIC1: DEBUG: 000003ec: 00000000 00000000 00000000 00000000
+>>>  bnx2 0000:05:00.1: NIC1: DEBUG: 0x3fc[00000000]
+>>>  bnx2 0000:05:00.1: NIC1: <--- end MCP states dump --->
+>>>
+>>
+>>
+> 
+> 
+> 
+> .
+> 
