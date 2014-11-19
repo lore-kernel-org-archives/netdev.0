@@ -1,64 +1,100 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [PATCH] [net]ip_tunnel: the lack of vti_link_ops' dellink() cause
- kernel panic
-Date: Tue, 18 Nov 2014 15:25:38 -0800
-Message-ID: <CAHA+R7NjO+bDhN5QX95d8V0VqvbacxCzoHWT5NpDaDn3YCtCeg@mail.gmail.com>
-References: <1416307059-32732-1-git-send-email-lucien.xin@gmail.com>
-	<546B8093.4080507@6wind.com>
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Subject: Re: [PATCH v4 0/4] Add lightweight memory barriers for coherent memory
+ access
+Date: Tue, 18 Nov 2014 16:07:59 -0800
+Message-ID: <546BDF5F.2040400@redhat.com>
+References: <20141118172644.26303.37688.stgit@ahduyck-server>	<CA+55aFw3ygP8UEF1vidWdjBUEkqXOELCPkpjLMD-X=vXXQEGOQ@mail.gmail.com>	<546BCC73.3050903@redhat.com> <CA+55aFwHUQv+zBxyN41Y4MDyRXbQ84H8zc01O6O_eg9ZvoqYiQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Xin Long <lucien.xin@gmail.com>,
-	network dev <netdev@vger.kernel.org>,
-	Steffen Klassert <steffen.klassert@secunet.com>
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f175.google.com ([209.85.216.175]:61668 "EHLO
-	mail-qc0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932401AbaKRXZj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Nov 2014 18:25:39 -0500
-Received: by mail-qc0-f175.google.com with SMTP id b13so21331740qcw.34
-        for <netdev@vger.kernel.org>; Tue, 18 Nov 2014 15:25:38 -0800 (PST)
-In-Reply-To: <546B8093.4080507@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Heiko Carstens <heiko.carstens@de.ibm.com>,
+	Ingo Molnar <mingo@kernel.org>,
+	Michael Neuling <mikey@neuling.org>,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	donald.c.skidmore@intel.com, matthew.vick@intel.com,
+	Geert Uytterhoeven <geert@linux-m68k.org>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Paul McKenney <paulmck@linux.vnet.ibm.com>,
+	nic_swsd@realtek.com, Will Deacon <will.deacon@arm.com>,
+	Michael Ellerman <michael@ellerman.id.au>,
+	Tony Luck <tony.luck@intel.com>,
+	Oleg Nesterov <oleg@redhat.com>,
+	Martin Schwidefsky <
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <linux-arch-owner@vger.kernel.org>
+In-Reply-To: <CA+55aFwHUQv+zBxyN41Y4MDyRXbQ84H8zc01O6O_eg9ZvoqYiQ@mail.gmail.com>
+Sender: linux-arch-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 18, 2014 at 9:23 AM, Nicolas Dichtel
-<nicolas.dichtel@6wind.com> wrote:
+
+
+On 11/18/2014 03:06 PM, Linus Torvalds wrote:
+> On Tue, Nov 18, 2014 at 2:47 PM, Alexander Duyck
+> <alexander.h.duyck@redhat.com> wrote:
+>>
+>> The problem is DMA is a broad brush.  There are multiple cases I can think
+>> of where DMA does not represent coherent memory.
 >
-> A quick look at the ipv6 side seems to show that there is the same problem.
-> Can
-> you provide the IPv6 patch too?
+> .. and I already addressed that, in the thing you even included:
 >
+>>> about what is actually the important issue. All sane memory is
+>>> coherent, after all (and if it isn't, you have other issues than
+>>> memory ordering).
+>
+> The thing is, if the DMA isn't coherent, nobody is going to care about
+> the memory barriers anyway. You have bigger issues.
+>
+> And your argument is that "dma" is bigger than this issue. *MY*
+> argument is that "coherent" is bigger than this issue. There's tons of
+> coherent memory that is not about DMA, the same way that there is DMA
+> memory that isn't coherent.
+>
+> See? The two are 100% equivalent. Except "dma" is just three letters,
+> and matches "smp" both visually and in use (SMP memory is "coherent"
+> too - yes, you can - and crap architectures do - have incoherent
+> caches due to virtual aliases etc, but exactly as with DMA, if you
+> have incoherent SMP, you have bigger issues than the barriers).
 
-IPv6 doesn't use ip_tunnel library, so needs to provide its own implementation:
+Actually if anything maybe the crap architectures are a good reason for 
+changing the name.  If they can't even do coherent SMP memory then the 
+coherent_*mb() could be misleading since they would just be full 
+barriers anyway.
 
-diff --git a/net/ipv6/ip6_vti.c b/net/ipv6/ip6_vti.c
-index ec84d03..3ae094b 100644
---- a/net/ipv6/ip6_vti.c
-+++ b/net/ipv6/ip6_vti.c
-@@ -911,6 +911,16 @@ static int vti6_newlink(struct net *src_net,
-struct net_device *dev,
-        return vti6_tnl_create2(dev);
- }
+> And yes, you could call it "coherent_dma_read_memory_barrier()", and
+> it would be very descriptive. It would also drive everybody crazy.
 
-+static void vti6_dellink(struct net_device *dev, struct list_head *head)
-+{
-+       struct net *net = dev_net(dev);
-+       struct vti6_net *ip6n = net_generic(net, vti6_net_id);
-+
-+       if (dev != ip6n->fb_tnl_dev)
-+               unregister_netdevice_queue(dev, head);
-+}
-+
-+
- static int vti6_changelink(struct net_device *dev, struct nlattr *tb[],
-                           struct nlattr *data[])
- {
-@@ -986,6 +996,7 @@ static struct rtnl_link_ops vti6_link_ops __read_mostly = {
-        .setup          = vti6_dev_setup,
-        .validate       = vti6_validate,
-        .newlink        = vti6_newlink,
-+       .dellink        = vti6_dellink,
-        .changelink     = vti6_changelink,
-        .get_size       = vti6_get_size,
-        .fill_info      = vti6_fill_info,
+No, I think "dma_wmb__before_coherent_write" would have been much more 
+descriptive.  You have to squeeze in that extra underscore somewhere. ;-)
+
+> So I argue for "dma_mb()" pairing with "smp_mb()" from a naming
+> standpoint. It just *describes* the problem better. Look at the
+> drivers, it's very much about the devices doing DMA to memory, and our
+> ordering.
+>
+> To be even more clear: nobody sane cares about the "coherent" part,
+> because only insane horrible crap architectures have incoherent memory
+> in the first place, and sane people run away screaming from that
+> steaming pile of sh*t.
+
+I think that is part of my reluctance.  I didn't even want it implied 
+that the barriers could be used with that kind of stuff.
+
+> Just look at some of the drivers you actually *use* this in. They are
+> for intel hardware, they presumably would never even work in the first
+> place without cache-coherent DMA. Why do you think that "coherent" is
+> so important?
+>
+>                         Linus
+
+v5 should be up shortly after a quick pass with sed to do the 
+find/replace, clean up any whitespace issues, and a quick run through 
+some cross compiling scripts just to make sure I didn't screw anything up.
+
+- Alex
