@@ -1,32 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: team: expose sysfs attributes for each team option
-Date: Wed, 19 Nov 2014 13:26:06 -0500 (EST)
-Message-ID: <20141119.132606.1227813907717315973.davem@davemloft.net>
-References: <20141117130201.GB1872@nanopsycho.orion>
-	<03067d01f18e264b30f86d0307d11b07.squirrel@www.codeaurora.org>
-	<20141119124043.GC1926@nanopsycho.orion>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: hkadmany@codeaurora.org, netdev@vger.kernel.org
-To: jiri@resnulli.us
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next 0/2] net: systemport & bcmgenet instrumenting
+Date: Wed, 19 Nov 2014 10:29:54 -0800
+Message-ID: <1416421796-27657-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37325 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755911AbaKSS0J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 13:26:09 -0500
-In-Reply-To: <20141119124043.GC1926@nanopsycho.orion>
+Received: from mail-pd0-f169.google.com ([209.85.192.169]:59828 "EHLO
+	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756327AbaKSSaJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 13:30:09 -0500
+Received: by mail-pd0-f169.google.com with SMTP id fp1so1336823pdb.28
+        for <netdev@vger.kernel.org>; Wed, 19 Nov 2014 10:30:09 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Wed, 19 Nov 2014 13:40:43 +0100
+Hi David,
 
-> No, that is certainly not the reason. If libnl3 does not suit you, use a
-> different lib. It is in my opinion unacceptaptable to work around
-> certain licence issues by adding parallel sysfs api (not to mention that
-> sysfs is totally unsuitable for that).
-> 
-> You should use existing Netlink API. That's it.
+These two patches add similar instrumenting in the driver by logging RX SKB
+allocation failures as well as RX & TX DMA mapping failures in order to help
+troubleshoot heavy memory pressure conditions.
 
-+1, these arguments for adding sysfs attributes are unacceptable.
+Thanks!
+
+Florian Fainelli (2):
+  net: systemport: log RX buffer allocation and RX/TX DMA failures
+  net: bcmgenet: log RX buffer allocation and RX/TX dma failures
+
+ drivers/net/ethernet/broadcom/bcmsysport.c     | 10 +++++++++-
+ drivers/net/ethernet/broadcom/bcmsysport.h     |  3 +++
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c | 10 +++++++++-
+ drivers/net/ethernet/broadcom/genet/bcmgenet.h |  3 +++
+ 4 files changed, 24 insertions(+), 2 deletions(-)
+
+-- 
+1.9.1
