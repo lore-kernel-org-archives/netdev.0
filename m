@@ -1,76 +1,81 @@
-From: Shuah Khan <shuahkh@osg.samsung.com>
-Subject: Re: [PATCH v2 02/19] kbuild: kselftest_install - add a new make target
- to install selftests
-Date: Wed, 19 Nov 2014 08:59:59 -0700
-Message-ID: <546CBE7F.2090905@osg.samsung.com>
-References: <cover.1415735831.git.shuahkh@osg.samsung.com> <a2344d4df903d673afe1631118f40917f773cc9a.1415735831.git.shuahkh@osg.samsung.com>
+From: Shuah Khan <shuahkh-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
+Subject: Re: [PATCH v2 07/19] selftests/firmware: add install target to enable
+ installing test
+Date: Wed, 19 Nov 2014 09:13:43 -0700
+Message-ID: <546CC1B7.70600@osg.samsung.com>
+References: <cover.1415735831.git.shuahkh@osg.samsung.com> <1d2d13556ddbbbbb13989cdcb08447909bc4afaf.1415735831.git.shuahkh@osg.samsung.com> <CAGXu5j+yLqH0xj=5N90LRmK9F1xPLVWBy+cyUCzjvKJH7gE7AA@mail.gmail.com> <5462B2A3.9000007@osg.samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: gregkh@linuxfoundation.org, akpm@linux-foundation.org,
-	davem@davemloft.net, keescook@chromium.org, tranmanphong@gmail.com,
-	dh.herrmann@gmail.com, hughd@google.com, bobby.prani@gmail.com,
-	linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-api@vger.kernel.org, netdev@vger.kernel.org
-To: mmarek@suse.cz, ebiederm@xmission.com, serge.hallyn@ubuntu.com
-Return-path: <linux-kbuild-owner@vger.kernel.org>
-In-Reply-To: <a2344d4df903d673afe1631118f40917f773cc9a.1415735831.git.shuahkh@osg.samsung.com>
-Sender: linux-kbuild-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Greg KH <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Michal Marek <mmarek-AlSwsSmVLrQ@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Phong Tran <tranmanphong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	David Herrmann <dh.herrmann-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Hugh Dickins <hughd-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	pranith kumar <bobby.prani-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
+	"Serge E. Hallyn" <serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org>,
+	linux-kbuild <linux-kbuild-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <5462B2A3.9000007-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 11/11/2014 01:27 PM, Shuah Khan wrote:
-> Add a new make target to install to install kernel selftests.
-> This new target will build and install selftests. kselftest
-> target now depends on kselftest_install and runs the generated
-> kselftest script to reduce duplicate work and for common look
-> and feel when running tests.
+On 11/11/2014 06:06 PM, Shuah Khan wrote:
+> On 11/11/2014 02:29 PM, Kees Cook wrote:
+>> Hi,
+>>
+>> Sorry, I still really don't like this approach. While it is all in one
+>> place (thank you for that), I think it isn't a form that is very
+>> workable for the people maintaining the self tests. How about this,
+>> instead of per-Makefile customization, why not define an execution
+>> framework for these tests instead.
 > 
-> Approach:
+> If I understand correctly, sounds like you don't like the way
+> install target is implemented in the individual test Makefiles
+> and the changes I made to run_tests targets to address the code
+> duplication concern.
 > 
-> make kselftest_target:
-> -- exports kselftest INSTALL_KSFT_PATH
->    default $(INSTALL_MOD_PATH)/lib/kselftest/$(KERNELRELEASE)
-> -- exports path for ksefltest.sh
-> -- runs selftests make install target:
+> At the moment there is no duplicate code in this patch series
+> between install and run_tests targets. This is a  first step
+> towards standardizing the framework and a definite improvement
+> over what we have currently. As I mentioned earlier, my goal
+> is to make it easier for developers to install and run the
+> existing tests and evolve the framework as we go.
 > 
-> selftests make install target
-> -- creates kselftest.sh script in install install dir
-> -- runs install targets for all INSTALL_TARGETS
->    (Note: ftrace and powerpc aren't included in INSTALL_TARGETS,
->           to not add more content to patch v1 series. This work
->           will happen soon. In this series these two targets are
->           run after running the generated kselftest script, without
->           any regression in the way these tests are run with
->           "make kselftest" prior to this work.)
-> -- install target can be run only from top level source dir.
+> Assuming my understanding is correct that:
 > 
-> Individual test make install targets:
-> -- install test programs and/or scripts in install dir
-> -- append to the ksefltest.sh file to add commands to run test
-> -- install target can be run only from top level source dir.
+> -- install and run_tests targets in individual tests can be
+>    refined and automated with a common Makefile approach you
+>    proposed.
+> -- the rest of the user-interface kselftest_install and kselftest
+>    are good.
 > 
-> Adds the following new ways to initiate selftests:
-> -- Installing and running kselftest from install directory
->    by running  "make kselftest"
-> -- Running kselftest script from install directory
+> I would like to propose that we get started with the current
+> implementation and refine it based on the following ideas you
+> suggested. The refinements you are recommending are confined
+> to selftests and can be made after the kselftest_install
+> gets added. Adding kselftest_install makes it easier to make
+> the refinements as it defines overall UI.
 > 
-> Maintains the following ways to run tests:
-> -- make -C tools/testing/selftests run_tests
-> -- make -C tools/testing/selftests TARGETS=target run_tests
->    Ability specify targets: e.g TARGETS=net
-> -- make run_tests from tools/testing/selftests
-> -- make run_tests from individual test directories:
->    e.g: make run_tests in tools/testing/selftests/breakpoints
-> 
-> Signed-off-by: Shuah Khan <shuahkh@osg.samsung.com>
-> ---
->  Makefile | 21 +++++++++++++++++++--
->  1 file changed, 19 insertions(+), 2 deletions(-)
 
-Hi Marek,
+Hi Kees,
 
-Did you get a chance to take a look at this patch?
+Are you ok with the above proposal? I understand this approach
+might not be perfect, however it is a step in the right direction
+to enable and make it easier to run them. I would like to get some
+initial work in for 3.19 if at all possible.
 
+I plan to evolve the back-end to make it easier to write and
+maintain for developers writing tests going forward.
+
+thanks,
 -- Shuah
 
 
@@ -78,4 +83,4 @@ Did you get a chance to take a look at this patch?
 Shuah Khan
 Sr. Linux Kernel Developer
 Samsung Research America (Silicon Valley)
-shuahkh@osg.samsung.com | (970) 217-8978
+shuahkh-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org | (970) 217-8978
