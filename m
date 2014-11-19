@@ -1,40 +1,64 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [RFC] situation with csum_and_copy_... API
-Date: Wed, 19 Nov 2014 12:40:53 -0800
-Message-ID: <CA+55aFyQR2gOzEDROcWFcQzLvTjOxyJRjFJXJ03JB5knd-Gsgg@mail.gmail.com>
-References: <20141118084745.GT7996@ZenIV.linux.org.uk>
-	<CA+55aFxK0wj2LLp0WmhRsBZch8XfoYbzmbEeJaMpt=SDh5GBvw@mail.gmail.com>
-	<20141118212307.GU7996@ZenIV.linux.org.uk>
-	<20141119.153136.867017618826698045.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3] fix locking regression in ipx_sendmsg and
+ ipx_recvmsg
+Date: Wed, 19 Nov 2014 15:44:00 -0500 (EST)
+Message-ID: <20141119.154400.1045032776950540216.davem@davemloft.net>
+References: <1609909.1jJeqOzgZ8@wuerfel>
+	<20141119103413.GA19092@midget.suse.cz>
+	<20141119103814.GB19092@midget.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Al Viro <viro@zeniv.linux.org.uk>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141119.153136.867017618826698045.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: arnd@arndb.de, acme@ghostprotocols.net, netdev@vger.kernel.org
+To: jbohac@suse.cz
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38590 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756483AbaKSUoD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 15:44:03 -0500
+In-Reply-To: <20141119103814.GB19092@midget.suse.cz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 19, 2014 at 12:31 PM, David Miller <davem@davemloft.net> wrote:
->
-> But that is just my opinion, and yes I do acknowledge that we've had
-> serious holes in this area in the past.
+From: Jiri Bohac <jbohac@suse.cz>
+Date: Wed, 19 Nov 2014 11:38:14 +0100
 
-The serious holes have generally been exactly in the "upper layers
-already check" camp, and then it turns out that some odd ioctl or
-other thing ends up doing something odd and interesting.
+> This fixes an old regression introduced by commit
+> b0d0d915 (ipx: remove the BKL).
+> 
+> When a recvmsg syscall blocks waiting for new data, no data can be sent on the
+> same socket with sendmsg because ipx_recvmsg() sleeps with the socket locked.
+> 
+> This breaks mars-nwe (NetWare emulator):
+> - the ncpserv process reads the request using recvmsg
+> - ncpserv forks and spawns nwconn
+> - ncpserv calls a (blocking) recvmsg and waits for new requests
+> - nwconn deadlocks in sendmsg on the same socket 
+> 
+> Commit b0d0d915 has simply replaced BKL locking with
+> lock_sock/release_sock. Unlike now, BKL got unlocked while
+> sleeping, so a blocking recvmsg did not block a concurrent
+> sendmsg.
+> 
+> Only keep the socket locked while actually working with the socket data and
+> release it prior to calling skb_recv_datagram(). 
+> 
+> 
+> Signed-off-by: Jiri Bohac <jbohac@suse.cz>
 
-If Al has actual performance profiles showing that the access_ok() is
-a real problem, then fine. As a low-level optimization, I agree with
-it. But not as a "let's just drop them, and make the security rules be
-non-local and subtle, and require people to know the details of the
-whole call-chain".
+Please fix your Subject line to have a proper subsystem prefix, in this
+case "ipx: " is sufficient.
 
-Seeing a "__get_user()" and just being able to glance up in the same
-function and seeing the "access_ok()" is just a good safety net. And
-means that people don't have to waste time thinking about or looking
-for where the hell the security net really is.
+In fact, I think your previous versions has the subject line setup
+correctly wrt. this, why did you break it? :-)
 
-                    Linus
+> @@ -1764,6 +1764,7 @@ static int ipx_recvmsg(struct kiocb *iocb, struct socket *sock,
+>  	struct ipxhdr *ipx = NULL;
+>  	struct sk_buff *skb;
+>  	int copied, rc;
+> +	int locked = 1;
+>  
+>  	lock_sock(sk);
+>  	/* put the autobinding in */
+
+Please use 'bool' and true/false.
