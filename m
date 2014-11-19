@@ -1,54 +1,35 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] sky2: use new netdev_rss_key_fill() helper
-Date: Wed, 19 Nov 2014 07:28:06 -0800
-Message-ID: <1416410886.14060.48.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1416388011-10491-1-git-send-email-ipm@chirality.org.uk>
+Subject: Re: [PATCH net-next v2] enic: support skb->xmit_more
+Date: Wed, 19 Nov 2014 07:33:56 -0800
+Message-ID: <1416411236.14060.49.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1416382172-28775-1-git-send-email-_govind@gmx.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Mirko Lindner <mlindner@marvell.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Eric Dumazet <edumazet@google.com>
-To: Ian Morris <ipm@chirality.org.uk>
+Cc: davem@davemloft.net, netdev@vger.kernel.org, ssujith@cisco.com,
+	benve@cisco.com
+To: Govindarajulu Varadarajan <_govind@gmx.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:37059 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753865AbaKSP2I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 10:28:08 -0500
-Received: by mail-pa0-f54.google.com with SMTP id fb1so449978pad.13
-        for <netdev@vger.kernel.org>; Wed, 19 Nov 2014 07:28:08 -0800 (PST)
-In-Reply-To: <1416388011-10491-1-git-send-email-ipm@chirality.org.uk>
+Received: from mail-pd0-f169.google.com ([209.85.192.169]:57484 "EHLO
+	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754351AbaKSPd6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 10:33:58 -0500
+Received: by mail-pd0-f169.google.com with SMTP id fp1so1076534pdb.0
+        for <netdev@vger.kernel.org>; Wed, 19 Nov 2014 07:33:58 -0800 (PST)
+In-Reply-To: <1416382172-28775-1-git-send-email-_govind@gmx.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-11-19 at 09:06 +0000, Ian Morris wrote:
-> Switch to a random RSS key rather than a fixed one.
-> Using netdev_rss_key_fill helper also ensures that all ports share
-> a common key.
+On Wed, 2014-11-19 at 12:59 +0530, Govindarajulu Varadarajan wrote:
+> Check and update posted_index only when skb->xmit_more is 0 or tx queue is full.
 > 
-> See also commit 960fb622f85180f36d3aff82af53e2be3db2f888.
+> v2:
+> use txq_map instead of skb_get_queue_mapping(skb)
 > 
-> Signed-off-by: Ian Morris <ipm@chirality.org.uk>
-> Cc: Mirko Lindner <mlindner@marvell.com>
-> Cc: Stephen Hemminger <stephen@networkplumber.org>
-> Cc: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
 > ---
->  drivers/net/ethernet/marvell/sky2.c | 13 ++++---------
->  1 file changed, 4 insertions(+), 9 deletions(-)
-
-Nice catch, this one escaped from my scan ;)
-
-(Another one is in drivers/net/ethernet/cisco/enic/enic_main.c )
+>  drivers/net/ethernet/cisco/enic/enic_main.c |  8 ++++++--
+>  drivers/net/ethernet/cisco/enic/vnic_wq.h   | 20 +++++++++++---------
+>  2 files changed, 17 insertions(+), 11 deletions(-)
 
 Acked-by: Eric Dumazet <edumazet@google.com>
-
-Nit : When referring a commit, use 12 digit sha1 followed by patch
-title.
-In this particular case you could have say :
-
-See also commit 960fb622f851 ("net: provide a per host RSS key generic
-infrastructure").
-
-Or something like that.
-
-Thanks Ian !
