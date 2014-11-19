@@ -1,72 +1,57 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 08/15] ixgbevf: compare total_rx_packets and budget in ixgbevf_clean_rx_irq
-Date: Tue, 18 Nov 2014 20:10:49 -0800
-Message-ID: <1416370256-16834-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 14/15] i40evf: remove unnecessary else
+Date: Tue, 18 Nov 2014 20:10:55 -0800
+Message-ID: <1416370256-16834-15-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1416370256-16834-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Alexander Duyck <alexander.h.duyck@redhat.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:58731 "EHLO mga02.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:25520 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754537AbaKSELJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Nov 2014 23:11:09 -0500
+	id S1754574AbaKSELK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Nov 2014 23:11:10 -0500
 In-Reply-To: <1416370256-16834-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Emil Tantilov <emil.s.tantilov@intel.com>
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-total_rx_packets is the number of packets we had cleaned, and budget is
-the total number of packets that we could clean per poll. Instead of
-altering both of these values we can save ourselves one write to memory by
-just comparing total_rx_packets to the budget and as long as we are less
-than budget we continue cleaning.
+Since the if part of this statement contains a break, there's no reason
+for the else. Clean up the code and make it more obvious that the delay
+happens each time through the loop.
 
-Also change the do{}while logic to while{} in order to avoid processing
-packets when budget is 0.
-
-CC: Alexander Duyck <alexander.h.duyck@redhat.com>
-Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Change-ID: I9292eaf7dd687688bdc401b8bd8d1d14f6944460
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 7 +++----
- 1 file changed, 3 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index 2ca7c96..dcc50cd 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -806,7 +806,7 @@ static int ixgbevf_clean_rx_irq(struct ixgbevf_q_vector *q_vector,
- 	u16 cleaned_count = ixgbevf_desc_unused(rx_ring);
- 	struct sk_buff *skb = rx_ring->skb;
- 
--	do {
-+	while (likely(total_rx_packets < budget)) {
- 		union ixgbe_adv_rx_desc *rx_desc;
- 
- 		/* return some buffers to hardware, one at a time is too slow */
-@@ -847,7 +847,6 @@ static int ixgbevf_clean_rx_irq(struct ixgbevf_q_vector *q_vector,
- 
- 		/* probably a little skewed due to removing CRC */
- 		total_rx_bytes += skb->len;
--		total_rx_packets++;
- 
- 		/* Workaround hardware that can't do proper VEPA multicast
- 		 * source pruning.
-@@ -869,8 +868,8 @@ static int ixgbevf_clean_rx_irq(struct ixgbevf_q_vector *q_vector,
- 		skb = NULL;
- 
- 		/* update budget accounting */
--		budget--;
--	} while (likely(budget));
-+		total_rx_packets++;
-+	}
- 
- 	/* place incomplete frames back on ring for completion */
- 	rx_ring->skb = skb;
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index 233710c..8e01009 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -1513,8 +1513,7 @@ static void i40evf_reset_task(struct work_struct *work)
+ 		if ((rstat_val != I40E_VFR_VFACTIVE) &&
+ 		    (rstat_val != I40E_VFR_COMPLETED))
+ 			break;
+-		else
+-			msleep(I40EVF_RESET_WAIT_MS);
++		msleep(I40EVF_RESET_WAIT_MS);
+ 	}
+ 	if (i == I40EVF_RESET_WAIT_COUNT) {
+ 		adapter->flags &= ~I40EVF_FLAG_RESET_PENDING;
+@@ -1528,8 +1527,7 @@ static void i40evf_reset_task(struct work_struct *work)
+ 		if ((rstat_val == I40E_VFR_VFACTIVE) ||
+ 		    (rstat_val == I40E_VFR_COMPLETED))
+ 			break;
+-		else
+-			msleep(I40EVF_RESET_WAIT_MS);
++		msleep(I40EVF_RESET_WAIT_MS);
+ 	}
+ 	if (i == I40EVF_RESET_WAIT_COUNT) {
+ 		struct i40evf_mac_filter *f, *ftmp;
 -- 
 1.9.3
