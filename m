@@ -1,33 +1,50 @@
-From: Alexander Couzens <lynxis@fe80.eu>
-Subject: [PATCH] l2tp_eth: allow to set a specific mac address
-Date: Wed, 19 Nov 2014 13:24:39 +0100
-Message-ID: <1416399879-3164-1-git-send-email-lynxis@fe80.eu>
-Cc: Alexander Couzens <lynxis@fe80.eu>
-To: netdev@vger.kernel.org
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [patch net-next v3 8/9] net: move vlan pop/push functions into
+ common code
+Date: Wed, 19 Nov 2014 14:03:57 +0100
+Message-ID: <20141119140357.5f9d0594@griffin>
+References: <1416346664-9290-1-git-send-email-jiri@resnulli.us>
+	<1416346664-9290-9-git-send-email-jiri@resnulli.us>
+	<CALnjE+rJEtyL-QDrp0x+N_pCxDuR6soHkaY-OrswWrdZwfE2sQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Pirko <jiri@resnulli.us>, netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Tom Herbert <therbert@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Willem de Bruijn <willemb@google.com>,
+	Daniel Borkmann <dborkman@redhat.com>, mst@redhat.com,
+	fw@strlen.de, Paul.Durrant@citrix.com, Thomas Graf <tgraf@suug.ch>,
+	Cong Wang <cwang@twopensource.com>
+To: Pravin Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.base45.de ([80.241.61.77]:43750 "EHLO mail.base45.de"
+Received: from mx1.redhat.com ([209.132.183.28]:60199 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750759AbaKSMsL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Nov 2014 07:48:11 -0500
+	id S1752065AbaKSNEt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Nov 2014 08:04:49 -0500
+In-Reply-To: <CALnjE+rJEtyL-QDrp0x+N_pCxDuR6soHkaY-OrswWrdZwfE2sQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Alexander Couzens <lynxis@fe80.eu>
----
- net/l2tp/l2tp_eth.c | 1 +
- 1 file changed, 1 insertion(+)
+On Wed, 19 Nov 2014 00:06:19 -0800, Pravin Shelar wrote:
+> skb_reset_mac_len() sets length according to ethernet and network
+> offsets, but mpls expects mac-length to be offset to mpls header (ref.
+> skb_mpls_header()). Therefore rather than reset we need to subtract
+> VLAN_HLEN from mac_len. Same goes for vlan-push(), we can add
+> VLAN_HLEN.
 
-diff --git a/net/l2tp/l2tp_eth.c b/net/l2tp/l2tp_eth.c
-index edb78e6..781b3a2 100644
---- a/net/l2tp/l2tp_eth.c
-+++ b/net/l2tp/l2tp_eth.c
-@@ -126,6 +126,7 @@ static struct net_device_ops l2tp_eth_netdev_ops = {
- 	.ndo_uninit		= l2tp_eth_dev_uninit,
- 	.ndo_start_xmit		= l2tp_eth_dev_xmit,
- 	.ndo_get_stats64	= l2tp_eth_get_stats64,
-+	.ndo_set_mac_address	= eth_mac_addr,
- };
- 
- static void l2tp_eth_dev_setup(struct net_device *dev)
+Subtracting VLAN_HLEN from mac_len would break the common vlan cases,
+where skb->protocol is ETH_P_8021Q and skb->mac_len is 14 on input to
+__skb_vlan_pop. After __skb_vlan_pop pops the vlan header, it changes
+skb->protocol to the protocol of the actual frame and has to leave
+skb->mac_len at 14.
+
+You'll need something more sophisticated to support MPLS here, I'm
+afraid.
+
+ Jiri
+
 -- 
-2.1.3
+Jiri Benc
