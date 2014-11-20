@@ -1,8 +1,8 @@
 From: <richard.alpe@ericsson.com>
-Subject: [PATCH v3 net-next 04/14] tipc: add sock dump to
-	new netlink api
-Date: Thu, 20 Nov 2014 10:29:10 +0100
-Message-ID: <1416475760-18914-5-git-send-email-richard.alpe@ericsson.com>
+Subject: [PATCH v3 net-next 01/14] tipc: add bearer
+	disable/enable to new netlink api
+Date: Thu, 20 Nov 2014 10:29:07 +0100
+Message-ID: <1416475760-18914-2-git-send-email-richard.alpe@ericsson.com>
 References: <1416475760-18914-1-git-send-email-richard.alpe@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,257 +23,543 @@ List-Id: netdev.vger.kernel.org
 
 From: Richard Alpe <richard.alpe@ericsson.com>
 
-Add TIPC_NL_SOCK_GET command to the new tipc netlink API.
+A new netlink API for tipc that can disable or enable a tipc bearer.
 
-This command supports dumping of all available sockets with their
-associated connection or publication(s). It could be extended to reply
-with a single socket if the NLM_F_DUMP isn't set.
+The new API is separated from the old API because of a bug in the
+user space client (tipc-config). The problem is that older versions
+of tipc-config has a very low receive limit and adding commands to
+the legacy genl_opts struct causes the ctrl_getfamily() response
+message to grow, subsequently breaking the tool.
 
-The information about a socket includes reference, address, connection
-information / publication information.
+The new API utilizes netlink policies for input validation. Where the
+top-level netlink attributes are tipc-logical entities, like bearer.
+The top level entities then contain nested attributes. In this case
+a name, nested link properties and a domain.
 
-Netlink logical layout of response message:
--> socket
-    -> reference
-    -> address
+Netlink commands implemented in this patch:
+TIPC_NL_BEARER_ENABLE
+TIPC_NL_BEARER_DISABLE
+
+Netlink logical layout of bearer enable message:
+-> bearer
+    -> name
+    [ -> domain ]
     [
-    -> connection
-        -> node
-        -> socket
-        [
-        -> connected flag
-        -> type
-        -> instance
-        ]
+    -> properties
+        -> priority
     ]
-    [
-    -> publication flag
-    ]
+
+Netlink logical layout of bearer disable message:
+-> bearer
+    -> name
 
 Signed-off-by: Richard Alpe <richard.alpe@ericsson.com>
 Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
 Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
 Acked-by: Ying Xue <ying.xue@windriver.com>
 ---
- include/uapi/linux/tipc_netlink.h |   28 ++++++++++
- net/tipc/netlink.c                |    7 +++
- net/tipc/socket.c                 |  101 +++++++++++++++++++++++++++++++++++++
- net/tipc/socket.h                 |    2 +
- 4 files changed, 138 insertions(+)
+ include/uapi/linux/tipc_netlink.h |   83 +++++++++++++++++++++++++++++++
+ net/tipc/bearer.c                 |   99 ++++++++++++++++++++++++++++++++++++-
+ net/tipc/bearer.h                 |    7 ++-
+ net/tipc/core.h                   |    1 +
+ net/tipc/link.c                   |   47 ++++++++++++++++++
+ net/tipc/link.h                   |    3 ++
+ net/tipc/netlink.c                |   42 +++++++++++++++-
+ net/tipc/netlink.h                |   41 +++++++++++++++
+ 8 files changed, 320 insertions(+), 3 deletions(-)
+ create mode 100644 include/uapi/linux/tipc_netlink.h
+ create mode 100644 net/tipc/netlink.h
 
 diff --git a/include/uapi/linux/tipc_netlink.h b/include/uapi/linux/tipc_netlink.h
-index f446fba..8c87e24 100644
---- a/include/uapi/linux/tipc_netlink.h
+new file mode 100644
+index 0000000..b9b710f
+--- /dev/null
 +++ b/include/uapi/linux/tipc_netlink.h
-@@ -45,6 +45,7 @@ enum {
- 	TIPC_NL_BEARER_ENABLE,
- 	TIPC_NL_BEARER_GET,
- 	TIPC_NL_BEARER_SET,
-+	TIPC_NL_SOCK_GET,
+@@ -0,0 +1,83 @@
++/*
++ * Copyright (c) 2014, Ericsson AB
++ * All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ * 3. Neither the names of the copyright holders nor the names of its
++ *    contributors may be used to endorse or promote products derived from
++ *    this software without specific prior written permission.
++ *
++ * Alternatively, this software may be distributed under the terms of the
++ * GNU General Public License ("GPL") version 2 as published by the Free
++ * Software Foundation.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
++ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
++ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
++ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
++ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
++ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
++ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
++ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
++ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
++ * POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#ifndef _LINUX_TIPC_NETLINK_H_
++#define _LINUX_TIPC_NETLINK_H_
++
++#define TIPC_GENL_V2_NAME      "TIPCv2"
++#define TIPC_GENL_V2_VERSION   0x1
++
++/* Netlink commands */
++enum {
++	TIPC_NL_UNSPEC,
++	TIPC_NL_LEGACY,
++	TIPC_NL_BEARER_DISABLE,
++	TIPC_NL_BEARER_ENABLE,
++
++	__TIPC_NL_CMD_MAX,
++	TIPC_NL_CMD_MAX = __TIPC_NL_CMD_MAX - 1
++};
++
++/* Top level netlink attributes */
++enum {
++	TIPC_NLA_UNSPEC,
++	TIPC_NLA_BEARER,		/* nest */
++
++	__TIPC_NLA_MAX,
++	TIPC_NLA_MAX = __TIPC_NLA_MAX - 1
++};
++
++/* Bearer info */
++enum {
++	TIPC_NLA_BEARER_UNSPEC,
++	TIPC_NLA_BEARER_NAME,		/* string */
++	TIPC_NLA_BEARER_PROP,		/* nest */
++	TIPC_NLA_BEARER_DOMAIN,		/* u32 */
++
++	__TIPC_NLA_BEARER_MAX,
++	TIPC_NLA_BEARER_MAX = __TIPC_NLA_BEARER_MAX - 1
++};
++
++/* Nest, link propreties. Valid for link, media and bearer */
++enum {
++	TIPC_NLA_PROP_UNSPEC,
++
++	TIPC_NLA_PROP_PRIO,		/* u32 */
++	TIPC_NLA_PROP_TOL,		/* u32 */
++	TIPC_NLA_PROP_WIN,		/* u32 */
++
++	__TIPC_NLA_PROP_MAX,
++	TIPC_NLA_PROP_MAX = __TIPC_NLA_PROP_MAX - 1
++};
++
++#endif
+diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
+index 2644743..59815be 100644
+--- a/net/tipc/bearer.c
++++ b/net/tipc/bearer.c
+@@ -1,7 +1,7 @@
+ /*
+  * net/tipc/bearer.c: TIPC bearer code
+  *
+- * Copyright (c) 1996-2006, 2013, Ericsson AB
++ * Copyright (c) 1996-2006, 2013-2014, Ericsson AB
+  * Copyright (c) 2004-2006, 2010-2013, Wind River Systems
+  * All rights reserved.
+  *
+@@ -37,6 +37,7 @@
+ #include "core.h"
+ #include "config.h"
+ #include "bearer.h"
++#include "link.h"
+ #include "discover.h"
  
- 	__TIPC_NL_CMD_MAX,
- 	TIPC_NL_CMD_MAX = __TIPC_NL_CMD_MAX - 1
-@@ -54,6 +55,7 @@ enum {
- enum {
- 	TIPC_NLA_UNSPEC,
- 	TIPC_NLA_BEARER,		/* nest */
-+	TIPC_NLA_SOCK,			/* nest */
- 
- 	__TIPC_NLA_MAX,
- 	TIPC_NLA_MAX = __TIPC_NLA_MAX - 1
-@@ -70,6 +72,32 @@ enum {
- 	TIPC_NLA_BEARER_MAX = __TIPC_NLA_BEARER_MAX - 1
+ #define MAX_ADDR_STR 60
+@@ -49,6 +50,17 @@ static struct tipc_media * const media_info_array[] = {
+ 	NULL
  };
  
-+/* Socket info */
-+enum {
-+	TIPC_NLA_SOCK_UNSPEC,
-+	TIPC_NLA_SOCK_ADDR,		/* u32 */
-+	TIPC_NLA_SOCK_REF,		/* u32 */
-+	TIPC_NLA_SOCK_CON,		/* nest */
-+	TIPC_NLA_SOCK_HAS_PUBL,		/* flag */
-+
-+	__TIPC_NLA_SOCK_MAX,
-+	TIPC_NLA_SOCK_MAX = __TIPC_NLA_SOCK_MAX - 1
++static const struct nla_policy
++tipc_nl_bearer_policy[TIPC_NLA_BEARER_MAX + 1]	= {
++	[TIPC_NLA_BEARER_UNSPEC]		= { .type = NLA_UNSPEC },
++	[TIPC_NLA_BEARER_NAME] = {
++		.type = NLA_STRING,
++		.len = TIPC_MAX_BEARER_NAME
++	},
++	[TIPC_NLA_BEARER_PROP]			= { .type = NLA_NESTED },
++	[TIPC_NLA_BEARER_DOMAIN]		= { .type = NLA_U32 }
 +};
 +
-+/* Nest, connection info */
-+enum {
-+	TIPC_NLA_CON_UNSPEC,
+ struct tipc_bearer __rcu *bearer_list[MAX_BEARERS + 1];
+ 
+ static void bearer_disable(struct tipc_bearer *b_ptr, bool shutting_down);
+@@ -627,3 +639,88 @@ void tipc_bearer_stop(void)
+ 		}
+ 	}
+ }
 +
-+	TIPC_NLA_CON_FLAG,		/* flag */
-+	TIPC_NLA_CON_NODE,		/* u32 */
-+	TIPC_NLA_CON_SOCK,		/* u32 */
-+	TIPC_NLA_CON_TYPE,		/* u32 */
-+	TIPC_NLA_CON_INST,		/* u32 */
++int tipc_nl_bearer_disable(struct sk_buff *skb, struct genl_info *info)
++{
++	int err;
++	char *name;
++	struct tipc_bearer *bearer;
++	struct nlattr *attrs[TIPC_NLA_BEARER_MAX + 1];
 +
-+	__TIPC_NLA_CON_MAX,
-+	TIPC_NLA_CON_MAX = __TIPC_NLA_CON_MAX - 1
++	if (!info->attrs[TIPC_NLA_BEARER])
++		return -EINVAL;
++
++	err = nla_parse_nested(attrs, TIPC_NLA_BEARER_MAX,
++			       info->attrs[TIPC_NLA_BEARER],
++			       tipc_nl_bearer_policy);
++	if (err)
++		return err;
++
++	if (!attrs[TIPC_NLA_BEARER_NAME])
++		return -EINVAL;
++
++	name = nla_data(attrs[TIPC_NLA_BEARER_NAME]);
++
++	rtnl_lock();
++	bearer = tipc_bearer_find(name);
++	if (!bearer) {
++		rtnl_unlock();
++		return -EINVAL;
++	}
++
++	bearer_disable(bearer, false);
++	rtnl_unlock();
++
++	return 0;
++}
++
++int tipc_nl_bearer_enable(struct sk_buff *skb, struct genl_info *info)
++{
++	int err;
++	char *bearer;
++	struct nlattr *attrs[TIPC_NLA_BEARER_MAX + 1];
++	u32 domain;
++	u32 prio;
++
++	prio = TIPC_MEDIA_LINK_PRI;
++	domain = tipc_own_addr & TIPC_CLUSTER_MASK;
++
++	if (!info->attrs[TIPC_NLA_BEARER])
++		return -EINVAL;
++
++	err = nla_parse_nested(attrs, TIPC_NLA_BEARER_MAX,
++			       info->attrs[TIPC_NLA_BEARER],
++			       tipc_nl_bearer_policy);
++	if (err)
++		return err;
++
++	if (!attrs[TIPC_NLA_BEARER_NAME])
++		return -EINVAL;
++
++	bearer = nla_data(attrs[TIPC_NLA_BEARER_NAME]);
++
++	if (attrs[TIPC_NLA_BEARER_DOMAIN])
++		domain = nla_get_u32(attrs[TIPC_NLA_BEARER_DOMAIN]);
++
++	if (attrs[TIPC_NLA_BEARER_PROP]) {
++		struct nlattr *props[TIPC_NLA_PROP_MAX + 1];
++
++		err = tipc_nl_parse_link_prop(attrs[TIPC_NLA_BEARER_PROP],
++					      props);
++		if (err)
++			return err;
++
++		if (props[TIPC_NLA_PROP_PRIO])
++			prio = nla_get_u32(props[TIPC_NLA_PROP_PRIO]);
++	}
++
++	rtnl_lock();
++	err = tipc_enable_bearer(bearer, domain, prio);
++	if (err) {
++		rtnl_unlock();
++		return err;
++	}
++	rtnl_unlock();
++
++	return 0;
++}
+diff --git a/net/tipc/bearer.h b/net/tipc/bearer.h
+index 78fccc4..a87e8c7 100644
+--- a/net/tipc/bearer.h
++++ b/net/tipc/bearer.h
+@@ -1,7 +1,7 @@
+ /*
+  * net/tipc/bearer.h: Include file for TIPC bearer code
+  *
+- * Copyright (c) 1996-2006, 2013, Ericsson AB
++ * Copyright (c) 1996-2006, 2013-2014, Ericsson AB
+  * Copyright (c) 2005, 2010-2011, Wind River Systems
+  * All rights reserved.
+  *
+@@ -38,6 +38,8 @@
+ #define _TIPC_BEARER_H
+ 
+ #include "bcast.h"
++#include "netlink.h"
++#include <net/genetlink.h>
+ 
+ #define MAX_BEARERS	2
+ #define MAX_MEDIA	2
+@@ -176,6 +178,9 @@ extern struct tipc_media eth_media_info;
+ extern struct tipc_media ib_media_info;
+ #endif
+ 
++int tipc_nl_bearer_disable(struct sk_buff *skb, struct genl_info *info);
++int tipc_nl_bearer_enable(struct sk_buff *skb, struct genl_info *info);
++
+ int tipc_media_set_priority(const char *name, u32 new_value);
+ int tipc_media_set_window(const char *name, u32 new_value);
+ void tipc_media_addr_printf(char *buf, int len, struct tipc_media_addr *a);
+diff --git a/net/tipc/core.h b/net/tipc/core.h
+index f773b14..b578b10 100644
+--- a/net/tipc/core.h
++++ b/net/tipc/core.h
+@@ -41,6 +41,7 @@
+ 
+ #include <linux/tipc.h>
+ #include <linux/tipc_config.h>
++#include <linux/tipc_netlink.h>
+ #include <linux/types.h>
+ #include <linux/kernel.h>
+ #include <linux/errno.h>
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index 7cf8004..e7f3650 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -40,6 +40,7 @@
+ #include "name_distr.h"
+ #include "discover.h"
+ #include "config.h"
++#include "netlink.h"
+ 
+ #include <linux/pkt_sched.h>
+ 
+@@ -50,6 +51,14 @@ static const char *link_co_err = "Link changeover error, ";
+ static const char *link_rst_msg = "Resetting link ";
+ static const char *link_unk_evt = "Unknown link event ";
+ 
++/* Properties valid for media, bearar and link */
++static const struct nla_policy tipc_nl_prop_policy[TIPC_NLA_PROP_MAX + 1] = {
++	[TIPC_NLA_PROP_UNSPEC]		= { .type = NLA_UNSPEC },
++	[TIPC_NLA_PROP_PRIO]		= { .type = NLA_U32 },
++	[TIPC_NLA_PROP_TOL]		= { .type = NLA_U32 },
++	[TIPC_NLA_PROP_WIN]		= { .type = NLA_U32 }
 +};
 +
- /* Nest, link propreties. Valid for link, media and bearer */
- enum {
- 	TIPC_NLA_PROP_UNSPEC,
+ /*
+  * Out-of-range value for link session numbers
+  */
+@@ -2376,3 +2385,41 @@ static void link_print(struct tipc_link *l_ptr, const char *str)
+ 	else
+ 		pr_cont("\n");
+ }
++
++/* Parse and validate nested (link) properties valid for media, bearer and link
++ */
++int tipc_nl_parse_link_prop(struct nlattr *prop, struct nlattr *props[])
++{
++	int err;
++
++	err = nla_parse_nested(props, TIPC_NLA_PROP_MAX, prop,
++			       tipc_nl_prop_policy);
++	if (err)
++		return err;
++
++	if (props[TIPC_NLA_PROP_PRIO]) {
++		u32 prio;
++
++		prio = nla_get_u32(props[TIPC_NLA_PROP_PRIO]);
++		if (prio > TIPC_MAX_LINK_PRI)
++			return -EINVAL;
++	}
++
++	if (props[TIPC_NLA_PROP_TOL]) {
++		u32 tol;
++
++		tol = nla_get_u32(props[TIPC_NLA_PROP_TOL]);
++		if ((tol < TIPC_MIN_LINK_TOL) || (tol > TIPC_MAX_LINK_TOL))
++			return -EINVAL;
++	}
++
++	if (props[TIPC_NLA_PROP_WIN]) {
++		u32 win;
++
++		win = nla_get_u32(props[TIPC_NLA_PROP_WIN]);
++		if ((win < TIPC_MIN_LINK_WIN) || (win > TIPC_MAX_LINK_WIN))
++			return -EINVAL;
++	}
++
++	return 0;
++}
+diff --git a/net/tipc/link.h b/net/tipc/link.h
+index b567a34..4338294 100644
+--- a/net/tipc/link.h
++++ b/net/tipc/link.h
+@@ -37,6 +37,7 @@
+ #ifndef _TIPC_LINK_H
+ #define _TIPC_LINK_H
+ 
++#include <net/genetlink.h>
+ #include "msg.h"
+ #include "node.h"
+ 
+@@ -239,6 +240,8 @@ void tipc_link_set_queue_limits(struct tipc_link *l_ptr, u32 window);
+ void tipc_link_retransmit(struct tipc_link *l_ptr,
+ 			  struct sk_buff *start, u32 retransmits);
+ 
++int tipc_nl_parse_link_prop(struct nlattr *prop, struct nlattr *props[]);
++
+ /*
+  * Link sequence number manipulation routines (uses modulo 2**16 arithmetic)
+  */
 diff --git a/net/tipc/netlink.c b/net/tipc/netlink.c
-index a529131..951fabe 100644
+index ad844d3..af506ae 100644
 --- a/net/tipc/netlink.c
 +++ b/net/tipc/netlink.c
+@@ -1,7 +1,7 @@
+ /*
+  * net/tipc/netlink.c: TIPC configuration handling
+  *
+- * Copyright (c) 2005-2006, Ericsson AB
++ * Copyright (c) 2005-2006, 2014, Ericsson AB
+  * Copyright (c) 2005-2007, Wind River Systems
+  * All rights reserved.
+  *
 @@ -36,6 +36,7 @@
  
  #include "core.h"
  #include "config.h"
-+#include "socket.h"
- #include "bearer.h"
++#include "bearer.h"
  #include <net/genetlink.h>
  
-@@ -72,6 +73,7 @@ static int handle_cmd(struct sk_buff *skb, struct genl_info *info)
- static const struct nla_policy tipc_nl_policy[TIPC_NLA_MAX + 1] = {
- 	[TIPC_NLA_UNSPEC]	= { .type = NLA_UNSPEC, },
- 	[TIPC_NLA_BEARER]	= { .type = NLA_NESTED, },
-+	[TIPC_NLA_SOCK]		= { .type = NLA_NESTED, },
+ static int handle_cmd(struct sk_buff *skb, struct genl_info *info)
+@@ -68,6 +69,12 @@ static int handle_cmd(struct sk_buff *skb, struct genl_info *info)
+ 	return 0;
+ }
+ 
++static const struct nla_policy tipc_nl_policy[TIPC_NLA_MAX + 1] = {
++	[TIPC_NLA_UNSPEC]	= { .type = NLA_UNSPEC, },
++	[TIPC_NLA_BEARER]	= { .type = NLA_NESTED, },
++};
++
++/* Legacy ASCII API */
+ static struct genl_family tipc_genl_family = {
+ 	.id		= GENL_ID_GENERATE,
+ 	.name		= TIPC_GENL_NAME,
+@@ -76,6 +83,7 @@ static struct genl_family tipc_genl_family = {
+ 	.maxattr	= 0,
  };
  
- /* Legacy ASCII API */
-@@ -123,6 +125,11 @@ static const struct genl_ops tipc_genl_v2_ops[] = {
- 		.cmd	= TIPC_NL_BEARER_SET,
- 		.doit	= tipc_nl_bearer_set,
- 		.policy = tipc_nl_policy,
++/* Legacy ASCII API */
+ static struct genl_ops tipc_genl_ops[] = {
+ 	{
+ 		.cmd		= TIPC_GENL_CMD,
+@@ -83,12 +91,43 @@ static struct genl_ops tipc_genl_ops[] = {
+ 	},
+ };
+ 
++/* Users of the legacy API (tipc-config) can't handle that we add operations,
++ * so we have a separate genl handling for the new API.
++ */
++struct genl_family tipc_genl_v2_family = {
++	.id		= GENL_ID_GENERATE,
++	.name		= TIPC_GENL_V2_NAME,
++	.version	= TIPC_GENL_V2_VERSION,
++	.hdrsize	= 0,
++	.maxattr	= TIPC_NLA_MAX,
++};
++
++static const struct genl_ops tipc_genl_v2_ops[] = {
++	{
++		.cmd	= TIPC_NL_BEARER_DISABLE,
++		.doit	= tipc_nl_bearer_disable,
++		.policy = tipc_nl_policy,
 +	},
 +	{
-+		.cmd	= TIPC_NL_SOCK_GET,
-+		.dumpit	= tipc_nl_sk_dump,
++		.cmd	= TIPC_NL_BEARER_ENABLE,
++		.doit	= tipc_nl_bearer_enable,
 +		.policy = tipc_nl_policy,
++	}
++};
++
+ int tipc_netlink_start(void)
+ {
+ 	int res;
+ 
+ 	res = genl_register_family_with_ops(&tipc_genl_family, tipc_genl_ops);
+ 	if (res) {
++		pr_err("Failed to register legacy interface\n");
++		return res;
++	}
++
++	res = genl_register_family_with_ops(&tipc_genl_v2_family,
++					    tipc_genl_v2_ops);
++	if (res) {
+ 		pr_err("Failed to register netlink interface\n");
+ 		return res;
  	}
- };
- 
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index 591bbfa..9e95c1e 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -2801,3 +2801,104 @@ void tipc_socket_stop(void)
- 	sock_unregister(tipc_family_ops.family);
- 	proto_unregister(&tipc_proto);
+@@ -98,4 +137,5 @@ int tipc_netlink_start(void)
+ void tipc_netlink_stop(void)
+ {
+ 	genl_unregister_family(&tipc_genl_family);
++	genl_unregister_family(&tipc_genl_v2_family);
  }
+diff --git a/net/tipc/netlink.h b/net/tipc/netlink.h
+new file mode 100644
+index 0000000..e9980c0
+--- /dev/null
++++ b/net/tipc/netlink.h
+@@ -0,0 +1,41 @@
++/*
++ * net/tipc/netlink.h: Include file for TIPC netlink code
++ *
++ * Copyright (c) 2014, Ericsson AB
++ * All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ * 3. Neither the names of the copyright holders nor the names of its
++ *    contributors may be used to endorse or promote products derived from
++ *    this software without specific prior written permission.
++ *
++ * Alternatively, this software may be distributed under the terms of the
++ * GNU General Public License ("GPL") version 2 as published by the Free
++ * Software Foundation.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
++ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
++ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
++ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
++ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
++ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
++ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
++ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
++ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
++ * POSSIBILITY OF SUCH DAMAGE.
++ */
 +
-+/* Caller should hold socket lock for the passed tipc socket. */
-+int __tipc_nl_add_sk_con(struct sk_buff *skb, struct tipc_sock *tsk)
-+{
-+	u32 peer_node;
-+	u32 peer_port;
-+	struct nlattr *nest;
++#ifndef _TIPC_NETLINK_H
++#define _TIPC_NETLINK_H
 +
-+	peer_node = tsk_peer_node(tsk);
-+	peer_port = tsk_peer_port(tsk);
++extern struct genl_family tipc_genl_v2_family;
 +
-+	nest = nla_nest_start(skb, TIPC_NLA_SOCK_CON);
-+
-+	if (nla_put_u32(skb, TIPC_NLA_CON_NODE, peer_node))
-+		goto msg_full;
-+	if (nla_put_u32(skb, TIPC_NLA_CON_SOCK, peer_port))
-+		goto msg_full;
-+
-+	if (tsk->conn_type != 0) {
-+		if (nla_put_flag(skb, TIPC_NLA_CON_FLAG))
-+			goto msg_full;
-+		if (nla_put_u32(skb, TIPC_NLA_CON_TYPE, tsk->conn_type))
-+			goto msg_full;
-+		if (nla_put_u32(skb, TIPC_NLA_CON_INST, tsk->conn_instance))
-+			goto msg_full;
-+	}
-+	nla_nest_end(skb, nest);
-+
-+	return 0;
-+
-+msg_full:
-+	nla_nest_cancel(skb, nest);
-+
-+	return -EMSGSIZE;
-+}
-+
-+/* Caller should hold socket lock for the passed tipc socket. */
-+int __tipc_nl_add_sk(struct sk_buff *skb, struct netlink_callback *cb,
-+		     struct tipc_sock *tsk)
-+{
-+	int err;
-+	void *hdr;
-+	struct nlattr *attrs;
-+
-+	hdr = genlmsg_put(skb, NETLINK_CB(cb->skb).portid, cb->nlh->nlmsg_seq,
-+			  &tipc_genl_v2_family, NLM_F_MULTI, TIPC_NL_SOCK_GET);
-+	if (!hdr)
-+		goto msg_cancel;
-+
-+	attrs = nla_nest_start(skb, TIPC_NLA_SOCK);
-+	if (!attrs)
-+		goto genlmsg_cancel;
-+	if (nla_put_u32(skb, TIPC_NLA_SOCK_REF, tsk->ref))
-+		goto attr_msg_cancel;
-+	if (nla_put_u32(skb, TIPC_NLA_SOCK_ADDR, tipc_own_addr))
-+		goto attr_msg_cancel;
-+
-+	if (tsk->connected) {
-+		err = __tipc_nl_add_sk_con(skb, tsk);
-+		if (err)
-+			goto attr_msg_cancel;
-+	} else if (!list_empty(&tsk->publications)) {
-+		if (nla_put_flag(skb, TIPC_NLA_SOCK_HAS_PUBL))
-+			goto attr_msg_cancel;
-+	}
-+	nla_nest_end(skb, attrs);
-+	genlmsg_end(skb, hdr);
-+
-+	return 0;
-+
-+attr_msg_cancel:
-+	nla_nest_cancel(skb, attrs);
-+genlmsg_cancel:
-+	genlmsg_cancel(skb, hdr);
-+msg_cancel:
-+	return -EMSGSIZE;
-+}
-+
-+int tipc_nl_sk_dump(struct sk_buff *skb, struct netlink_callback *cb)
-+{
-+	int err;
-+	struct tipc_sock *tsk;
-+	u32 prev_ref = cb->args[0];
-+	u32 ref = prev_ref;
-+
-+	tsk = tipc_sk_get_next(&ref);
-+	for (; tsk; tsk = tipc_sk_get_next(&ref)) {
-+		lock_sock(&tsk->sk);
-+		err = __tipc_nl_add_sk(skb, cb, tsk);
-+		release_sock(&tsk->sk);
-+		tipc_sk_put(tsk);
-+		if (err)
-+			break;
-+
-+		prev_ref = ref;
-+	}
-+
-+	cb->args[0] = prev_ref;
-+
-+	return skb->len;
-+}
-diff --git a/net/tipc/socket.h b/net/tipc/socket.h
-index baa43d0..16dfd62 100644
---- a/net/tipc/socket.h
-+++ b/net/tipc/socket.h
-@@ -36,6 +36,7 @@
- #define _TIPC_SOCK_H
- 
- #include <net/sock.h>
-+#include <net/genetlink.h>
- 
- #define TIPC_CONNACK_INTV         256
- #define TIPC_FLOWCTRL_WIN        (TIPC_CONNACK_INTV * 2)
-@@ -47,5 +48,6 @@ void tipc_sk_mcast_rcv(struct sk_buff *buf);
- void tipc_sk_reinit(void);
- int tipc_sk_ref_table_init(u32 requested_size, u32 start);
- void tipc_sk_ref_table_stop(void);
-+int tipc_nl_sk_dump(struct sk_buff *skb, struct netlink_callback *cb);
- 
- #endif
++#endif
 -- 
 1.7.10.4
 
