@@ -1,7 +1,8 @@
 From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next v1 6/8] amd-xgbe: Remove unused variable
-Date: Thu, 20 Nov 2014 11:03:56 -0600
-Message-ID: <20141120170356.15397.43120.stgit@tlendack-t1.amdoffice.net>
+Subject: [PATCH net-next v1 7/8] amd-xgbe: Perform Tx coalescing on a packet
+ basis
+Date: Thu, 20 Nov 2014 11:04:02 -0600
+Message-ID: <20141120170402.15397.62300.stgit@tlendack-t1.amdoffice.net>
 References: <20141120170320.15397.10583.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -9,45 +10,115 @@ Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1on0114.outbound.protection.outlook.com ([157.56.110.114]:60544
+Received: from mail-bn1bon0144.outbound.protection.outlook.com ([157.56.111.144]:63360
 	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932175AbaKTREC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Nov 2014 12:04:02 -0500
+	id S1758000AbaKTREK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Nov 2014 12:04:10 -0500
 In-Reply-To: <20141120170320.15397.10583.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The tso_header variable in the xgbe_tx_ring_data structure is not used,
-remove it.
+The current form of Tx coalescing works on a descriptor basis instead
+of on a packet basis and doesn't take into account TSO packets. Update
+the Tx coalescing support to work on a packet basis, taking into
+account the number of packets associated with a TSO transmit. Also,
+only activate the Tx timer if a timer value is set.
 
 Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 ---
- drivers/net/ethernet/amd/xgbe/xgbe-desc.c |    1 -
- drivers/net/ethernet/amd/xgbe/xgbe.h      |    1 -
- 2 files changed, 2 deletions(-)
+ drivers/net/ethernet/amd/xgbe/xgbe-dev.c |   46 +++++++++++++++++-------------
+ 1 file changed, 26 insertions(+), 20 deletions(-)
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-desc.c b/drivers/net/ethernet/amd/xgbe/xgbe-desc.c
-index 3c7c386..62cb4d3 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-desc.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-desc.c
-@@ -532,7 +532,6 @@ static int xgbe_map_tx_skb(struct xgbe_channel *channel, struct sk_buff *skb)
- 		}
- 		rdata->skb_dma = skb_dma;
- 		rdata->skb_dma_len = packet->header_len;
--		rdata->tx.tso_header = 1;
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
+index 78db5a6..b3d2433 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
+@@ -1334,7 +1334,7 @@ static void xgbe_dev_xmit(struct xgbe_channel *channel)
+ 	struct xgbe_packet_data *packet = &ring->packet_data;
+ 	unsigned int csum, tso, vlan;
+ 	unsigned int tso_context, vlan_context;
+-	unsigned int tx_coalesce, tx_frames;
++	unsigned int tx_set_ic;
+ 	int start_index = ring->cur;
+ 	int i;
  
- 		offset = packet->header_len;
+@@ -1357,10 +1357,26 @@ static void xgbe_dev_xmit(struct xgbe_channel *channel)
+ 	else
+ 		vlan_context = 0;
  
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe.h b/drivers/net/ethernet/amd/xgbe/xgbe.h
-index 98504f1..ec0d37a 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe.h
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe.h
-@@ -276,7 +276,6 @@ struct xgbe_buffer_data {
+-	tx_coalesce = (pdata->tx_usecs || pdata->tx_frames) ? 1 : 0;
+-	tx_frames = pdata->tx_frames;
+-	if (tx_coalesce && !channel->tx_timer_active)
+-		ring->coalesce_count = 0;
++	/* Determine if an interrupt should be generated for this Tx:
++	 *   Interrupt:
++	 *     - Tx frame count exceeds the frame count setting
++	 *     - Addition of Tx frame count to the frame count since the
++	 *       last interrupt was set exceeds the frame count setting
++	 *   No interrupt:
++	 *     - No frame count setting specified (ethtool -C ethX tx-frames 0)
++	 *     - Addition of Tx frame count to the frame count since the
++	 *       last interrupt was set does not exceed the frame count setting
++	 */
++	ring->coalesce_count += packet->tx_packets;
++	if (!pdata->tx_frames)
++		tx_set_ic = 0;
++	else if (packet->tx_packets > pdata->tx_frames)
++		tx_set_ic = 1;
++	else if ((ring->coalesce_count % pdata->tx_frames) <
++		 packet->tx_packets)
++		tx_set_ic = 1;
++	else
++		tx_set_ic = 0;
  
- /* Tx-related ring data */
- struct xgbe_tx_ring_data {
--	unsigned int tso_header;	/* TSO header indicator */
- 	unsigned int packets;		/* BQL packet count */
- 	unsigned int bytes;		/* BQL byte count */
- };
+ 	rdata = XGBE_GET_DESC_DATA(ring, ring->cur);
+ 	rdesc = rdata->rdesc;
+@@ -1427,13 +1443,6 @@ static void xgbe_dev_xmit(struct xgbe_channel *channel)
+ 	if (XGMAC_GET_BITS(packet->attributes, TX_PACKET_ATTRIBUTES, PTP))
+ 		XGMAC_SET_BITS_LE(rdesc->desc2, TX_NORMAL_DESC2, TTSE, 1);
+ 
+-	/* Set IC bit based on Tx coalescing settings */
+-	XGMAC_SET_BITS_LE(rdesc->desc2, TX_NORMAL_DESC2, IC, 1);
+-	if (tx_coalesce && (!tx_frames ||
+-			    (++ring->coalesce_count % tx_frames)))
+-		/* Clear IC bit */
+-		XGMAC_SET_BITS_LE(rdesc->desc2, TX_NORMAL_DESC2, IC, 0);
+-
+ 	/* Mark it as First Descriptor */
+ 	XGMAC_SET_BITS_LE(rdesc->desc3, TX_NORMAL_DESC3, FD, 1);
+ 
+@@ -1478,13 +1487,6 @@ static void xgbe_dev_xmit(struct xgbe_channel *channel)
+ 		XGMAC_SET_BITS_LE(rdesc->desc2, TX_NORMAL_DESC2, HL_B1L,
+ 				  rdata->skb_dma_len);
+ 
+-		/* Set IC bit based on Tx coalescing settings */
+-		XGMAC_SET_BITS_LE(rdesc->desc2, TX_NORMAL_DESC2, IC, 1);
+-		if (tx_coalesce && (!tx_frames ||
+-				    (++ring->coalesce_count % tx_frames)))
+-			/* Clear IC bit */
+-			XGMAC_SET_BITS_LE(rdesc->desc2, TX_NORMAL_DESC2, IC, 0);
+-
+ 		/* Set OWN bit */
+ 		XGMAC_SET_BITS_LE(rdesc->desc3, TX_NORMAL_DESC3, OWN, 1);
+ 
+@@ -1500,6 +1502,10 @@ static void xgbe_dev_xmit(struct xgbe_channel *channel)
+ 	/* Set LAST bit for the last descriptor */
+ 	XGMAC_SET_BITS_LE(rdesc->desc3, TX_NORMAL_DESC3, LD, 1);
+ 
++	/* Set IC bit based on Tx coalescing settings */
++	if (tx_set_ic)
++		XGMAC_SET_BITS_LE(rdesc->desc2, TX_NORMAL_DESC2, IC, 1);
++
+ 	/* Save the Tx info to report back during cleanup */
+ 	rdata->tx.packets = packet->tx_packets;
+ 	rdata->tx.bytes = packet->tx_bytes;
+@@ -1530,7 +1536,7 @@ static void xgbe_dev_xmit(struct xgbe_channel *channel)
+ 			  lower_32_bits(rdata->rdesc_dma));
+ 
+ 	/* Start the Tx coalescing timer */
+-	if (tx_coalesce && !channel->tx_timer_active) {
++	if (pdata->tx_usecs && !channel->tx_timer_active) {
+ 		channel->tx_timer_active = 1;
+ 		hrtimer_start(&channel->tx_timer,
+ 			      ktime_set(0, pdata->tx_usecs * NSEC_PER_USEC),
