@@ -1,43 +1,41 @@
-From: Julia Lawall <julia.lawall@lip6.fr>
-Subject: Re: net: sched: Deletion of an unnecessary check before the function
- call "kfree"
-Date: Thu, 20 Nov 2014 09:47:53 +0100 (CET)
-Message-ID: <alpine.DEB.2.10.1411200947320.2447@hadrien>
-References: <5307CAA2.8060406@users.sourceforge.net> <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6> <530A086E.8010901@users.sourceforge.net> <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6> <530A72AA.3000601@users.sourceforge.net>
- <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6> <530B5FB6.6010207@users.sourceforge.net> <alpine.DEB.2.10.1402241710370.2074@hadrien> <530C5E18.1020800@users.sourceforge.net> <alpine.DEB.2.10.1402251014170.2080@hadrien> <530CD2C4.4050903@users.sourceforge.net>
- <alpine.DEB.2.10.1402251840450.7035@hadrien> <530CF8FF.8080600@users.sourceforge.net> <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6> <530DD06F.4090703@users.sourceforge.net> <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>
- <5317A59D.4@users.sourceforge.net> <546BAB93.4010406@users.sourceforge.net> <546CC9B3.5060405@gmail.com> <546CE650.6080205@users.sourceforge.net>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next] macvtap: advance iov iterator when needed in
+ macvtap_put_user()
+Date: Thu, 20 Nov 2014 16:53:35 +0800
+Message-ID: <546DAC0F.90206@redhat.com>
+References: <1416472265-10151-1-git-send-email-jasowang@redhat.com> <20141120083426.GA30001@gondor.apana.org.au> <20141120084152.GL7996@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: John Fastabend <john.fastabend@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jamal Hadi Salim <jhs@mojatatu.com>, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org
-To: SF Markus Elfring <elfring@users.sourceforge.net>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Al Viro <viro@ZenIV.linux.org.uk>,
+	Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <546CE650.6080205@users.sourceforge.net>
+In-Reply-To: <20141120084152.GL7996@ZenIV.linux.org.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 19 Nov 2014, SF Markus Elfring wrote:
+On 11/20/2014 04:41 PM, Al Viro wrote:
+> On Thu, Nov 20, 2014 at 04:34:26PM +0800, Herbert Xu wrote:
+>> On Thu, Nov 20, 2014 at 04:31:05PM +0800, Jason Wang wrote:
+>>> When mergeable buffer is used, vnet_hdr_sz is greater than sizeof struct
+>>> virtio_net_hdr. So we need advance the iov iterators in this case.
+>>>
+>>> Fixes 6c36d2e26cda1ad3e2c4b90dd843825fc62fe5b4 ("macvtap: Use iovec iterators")
+>>> Cc: Herbert Xu <herbert@gondor.apana.org.au>
+>>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+>> Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+> I'm not sure it's a good behaviour, actually - should we just leave an
+> unmodified gap in userland buffer there, with whatever garbage it might
+> have contained?
 
-> > Marcus, what tree are you looking at?
->
-> I dared to base this update suggestion on the source files
-> for Linux 3.17.3. Are newer software developments relevant here?
+Anyway it's the users(qemu or vhost_net) responsibility to fill the gap
+here.
+> I do realize that this is what we used to do, but it might end up a source
+> of hard to debug userland bugs...  Perhaps that iov_iter_advance(iter, size)
+> would better be replaced with iov_iter_zero(size, iter)?
 
-You should always use linux-next.  You should update it every day.
-
-julia
-
-> https://git.kernel.org/cgit/linux/kernel/git/next/linux-next.git/log/net/sched/
->
-> Regards,
-> Markus
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe kernel-janitors" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+Not sure, macvtap or tun behave like this in the past. It's easy to dump
+the header in guest for debugging. Zero the gap probably only help the
+case that the gap was forgot to be filled which looks rare.
