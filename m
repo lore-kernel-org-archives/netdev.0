@@ -1,26 +1,36 @@
 From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: Query about Dynamic Right Sizing implementation in linux-kernel
-Date: Thu, 20 Nov 2014 10:18:14 +0100
-Message-ID: <546DB1D6.6060206@redhat.com>
-References: <1264093102.132748.1416470440737.JavaMail.root@mail.cse.iitm.ac.in>
+Subject: Re: net: sched: Deletion of an unnecessary check before the function
+ call "kfree"
+Date: Thu, 20 Nov 2014 10:22:48 +0100
+Message-ID: <546DB2E8.10809@redhat.com>
+References: <5307CAA2.8060406@users.sourceforge.net> <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6> <530A086E.8010901@users.sourceforge.net> <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6> <530A72AA.3000601@users.sourceforge.net> <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6> <530B5FB6.6010207@users.sourceforge.net> <alpine.DEB.2.10.1402241710370.2074@hadrien> <530C5E18.1020800@users.sourceforge.net> <alpine.DEB.2.10.1402251014170.2080@hadrien> <530CD2C4.4050903@users.sourceforge.net> <alpine.DEB.2.10.1402251840450.7035@hadrien> <530CF8FF.8080600@users.sourceforge.net> <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6> <530DD06F.4090703@users.sourceforge.net> <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6> <5317A59D.4@users.so
+ urceforge.net> <546BAB93.4010406@users.sourceforge.net> <546CC9B3.5060405@gmail.com> <546CE650.6080205@users.sourceforge.net> <alpine.DEB.2.10.1411200947320.2447@hadrien>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
-To: cprasad@cse.iitm.ac.in
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45382 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756731AbaKTJSg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Nov 2014 04:18:36 -0500
-In-Reply-To: <1264093102.132748.1416470440737.JavaMail.root@mail.cse.iitm.ac.in>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: SF Markus Elfring <elfring@users.sourceforge.net>,
+	John Fastabend <john.fastabend@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jamal Hadi Salim <jhs@mojatatu.com>, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org
+To: Julia Lawall <julia.lawall@lip6.fr>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.10.1411200947320.2447@hadrien>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 11/20/2014 09:00 AM, cprasad@cse.iitm.ac.in wrote:
-...
-> Could you please tell how can i get access to the logs prior to Linux-2.6.12-rc2. I had already gone through the git logs. This was the last line in the logs.
+On 11/20/2014 09:47 AM, Julia Lawall wrote:
+> On Wed, 19 Nov 2014, SF Markus Elfring wrote:
+>
+>>> Marcus, what tree are you looking at?
+>>
+>> I dared to base this update suggestion on the source files
+>> for Linux 3.17.3. Are newer software developments relevant here?
+>
+> You should always use linux-next.  You should update it every day.
 
-Have a look at Thomas' history tree:
+Well, if you send in cleanups to netdev, you should always target
+the net-next tree:
 
-https://git.kernel.org/cgit/linux/kernel/git/tglx/history.git/
+   git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git
