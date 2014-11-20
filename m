@@ -1,8 +1,8 @@
 From: <richard.alpe@ericsson.com>
-Subject: [PATCH v3 net-next 10/14] tipc: add media set to
+Subject: [PATCH v3 net-next 12/14] tipc: add net dump to
 	new netlink api
-Date: Thu, 20 Nov 2014 10:29:16 +0100
-Message-ID: <1416475760-18914-11-git-send-email-richard.alpe@ericsson.com>
+Date: Thu, 20 Nov 2014 10:29:18 +0100
+Message-ID: <1416475760-18914-13-git-send-email-richard.alpe@ericsson.com>
 References: <1416475760-18914-1-git-send-email-richard.alpe@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,121 +23,191 @@ List-Id: netdev.vger.kernel.org
 
 From: Richard Alpe <richard.alpe@ericsson.com>
 
-Add TIPC_NL_MEDIA_SET command to the new tipc netlink API.
+Add TIPC_NL_NET_GET command to the new tipc netlink API.
 
-This command can set one or more link properties for a particular
-media.
+This command dumps the network id of the node.
 
-Netlink logical layout of bearer set message:
--> media
-    -> name
-    -> link properties
-        [ -> tolerance ]
-        [ -> priority ]
-        [ -> window ]
+Netlink logical layout of returned network data:
+-> net
+    -> id
 
 Signed-off-by: Richard Alpe <richard.alpe@ericsson.com>
 Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
 Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
 Acked-by: Ying Xue <ying.xue@windriver.com>
 ---
- include/uapi/linux/tipc_netlink.h |    1 +
- net/tipc/bearer.c                 |   47 +++++++++++++++++++++++++++++++++++++
- net/tipc/bearer.h                 |    1 +
- net/tipc/netlink.c                |    5 ++++
- 4 files changed, 54 insertions(+)
+ include/uapi/linux/tipc_netlink.h |   11 +++++++
+ net/tipc/net.c                    |   59 +++++++++++++++++++++++++++++++++++++
+ net/tipc/net.h                    |    7 ++++-
+ net/tipc/netlink.c                |    9 +++++-
+ 4 files changed, 84 insertions(+), 2 deletions(-)
 
 diff --git a/include/uapi/linux/tipc_netlink.h b/include/uapi/linux/tipc_netlink.h
-index 4101b70..43beef2 100644
+index 08a7933..dcfd420 100644
 --- a/include/uapi/linux/tipc_netlink.h
 +++ b/include/uapi/linux/tipc_netlink.h
-@@ -51,6 +51,7 @@ enum {
- 	TIPC_NL_LINK_SET,
- 	TIPC_NL_LINK_RESET_STATS,
+@@ -53,6 +53,7 @@ enum {
  	TIPC_NL_MEDIA_GET,
-+	TIPC_NL_MEDIA_SET,
+ 	TIPC_NL_MEDIA_SET,
+ 	TIPC_NL_NODE_GET,
++	TIPC_NL_NET_GET,
  
  	__TIPC_NL_CMD_MAX,
  	TIPC_NL_CMD_MAX = __TIPC_NL_CMD_MAX - 1
-diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
-index 26630a5..5f6f323 100644
---- a/net/tipc/bearer.c
-+++ b/net/tipc/bearer.c
-@@ -1023,3 +1023,50 @@ err_out:
+@@ -67,6 +68,7 @@ enum {
+ 	TIPC_NLA_LINK,			/* nest */
+ 	TIPC_NLA_MEDIA,			/* nest */
+ 	TIPC_NLA_NODE,			/* nest */
++	TIPC_NLA_NET,			/* nest */
  
- 	return err;
+ 	__TIPC_NLA_MAX,
+ 	TIPC_NLA_MAX = __TIPC_NLA_MAX - 1
+@@ -133,6 +135,15 @@ enum {
+ 	TIPC_NLA_NODE_MAX = __TIPC_NLA_NODE_MAX - 1
+ };
+ 
++/* Net info */
++enum {
++	TIPC_NLA_NET_UNSPEC,
++	TIPC_NLA_NET_ID,		/* u32 */
++
++	__TIPC_NLA_NET_MAX,
++	TIPC_NLA_NET_MAX = __TIPC_NLA_NET_MAX - 1
++};
++
+ /* Publication info */
+ enum {
+ 	TIPC_NLA_PUBL_UNSPEC,
+diff --git a/net/tipc/net.c b/net/tipc/net.c
+index 93b9944..d9e666a 100644
+--- a/net/tipc/net.c
++++ b/net/tipc/net.c
+@@ -42,6 +42,11 @@
+ #include "node.h"
+ #include "config.h"
+ 
++static const struct nla_policy tipc_nl_net_policy[TIPC_NLA_NET_MAX + 1] = {
++	[TIPC_NLA_NET_UNSPEC]	= { .type = NLA_UNSPEC },
++	[TIPC_NLA_NET_ID]	= { .type = NLA_U32 }
++};
++
+ /*
+  * The TIPC locking policy is designed to ensure a very fine locking
+  * granularity, permitting complete parallel access to individual
+@@ -138,3 +143,57 @@ void tipc_net_stop(void)
+ 
+ 	pr_info("Left network mode\n");
  }
 +
-+int tipc_nl_media_set(struct sk_buff *skb, struct genl_info *info)
++static int __tipc_nl_add_net(struct tipc_nl_msg *msg)
 +{
-+	int err;
-+	char *name;
-+	struct tipc_media *m;
-+	struct nlattr *attrs[TIPC_NLA_BEARER_MAX + 1];
++	void *hdr;
++	struct nlattr *attrs;
 +
-+	if (!info->attrs[TIPC_NLA_MEDIA])
-+		return -EINVAL;
++	hdr = genlmsg_put(msg->skb, msg->portid, msg->seq, &tipc_genl_v2_family,
++			  NLM_F_MULTI, TIPC_NL_NET_GET);
++	if (!hdr)
++		return -EMSGSIZE;
 +
-+	err = nla_parse_nested(attrs, TIPC_NLA_MEDIA_MAX,
-+			       info->attrs[TIPC_NLA_MEDIA],
-+			       tipc_nl_media_policy);
++	attrs = nla_nest_start(msg->skb, TIPC_NLA_NET);
++	if (!attrs)
++		goto msg_full;
 +
-+	if (!attrs[TIPC_NLA_MEDIA_NAME])
-+		return -EINVAL;
-+	name = nla_data(attrs[TIPC_NLA_MEDIA_NAME]);
++	if (nla_put_u32(msg->skb, TIPC_NLA_NET_ID, tipc_net_id))
++		goto attr_msg_full;
 +
-+	rtnl_lock();
-+	m = tipc_media_find(name);
-+	if (!m) {
-+		rtnl_unlock();
-+		return -EINVAL;
-+	}
-+
-+	if (attrs[TIPC_NLA_MEDIA_PROP]) {
-+		struct nlattr *props[TIPC_NLA_PROP_MAX + 1];
-+
-+		err = tipc_nl_parse_link_prop(attrs[TIPC_NLA_MEDIA_PROP],
-+					      props);
-+		if (err) {
-+			rtnl_unlock();
-+			return err;
-+		}
-+
-+		if (props[TIPC_NLA_PROP_TOL])
-+			m->tolerance = nla_get_u32(props[TIPC_NLA_PROP_TOL]);
-+		if (props[TIPC_NLA_PROP_PRIO])
-+			m->priority = nla_get_u32(props[TIPC_NLA_PROP_PRIO]);
-+		if (props[TIPC_NLA_PROP_WIN])
-+			m->window = nla_get_u32(props[TIPC_NLA_PROP_WIN]);
-+	}
-+	rtnl_unlock();
++	nla_nest_end(msg->skb, attrs);
++	genlmsg_end(msg->skb, hdr);
 +
 +	return 0;
++
++attr_msg_full:
++	nla_nest_cancel(msg->skb, attrs);
++msg_full:
++	genlmsg_cancel(msg->skb, hdr);
++
++	return -EMSGSIZE;
 +}
-diff --git a/net/tipc/bearer.h b/net/tipc/bearer.h
-index bacd225..b1d9052 100644
---- a/net/tipc/bearer.h
-+++ b/net/tipc/bearer.h
-@@ -186,6 +186,7 @@ int tipc_nl_bearer_set(struct sk_buff *skb, struct genl_info *info);
++
++int tipc_nl_net_dump(struct sk_buff *skb, struct netlink_callback *cb)
++{
++	int err;
++	int done = cb->args[0];
++	struct tipc_nl_msg msg;
++
++	if (done)
++		return 0;
++
++	msg.skb = skb;
++	msg.portid = NETLINK_CB(cb->skb).portid;
++	msg.seq = cb->nlh->nlmsg_seq;
++
++	err = __tipc_nl_add_net(&msg);
++	if (err)
++		goto out;
++
++	done = 1;
++out:
++	cb->args[0] = done;
++
++	return skb->len;
++}
+diff --git a/net/tipc/net.h b/net/tipc/net.h
+index 59ef338..60dc22f 100644
+--- a/net/tipc/net.h
++++ b/net/tipc/net.h
+@@ -1,7 +1,7 @@
+ /*
+  * net/tipc/net.h: Include file for TIPC network routing code
+  *
+- * Copyright (c) 1995-2006, Ericsson AB
++ * Copyright (c) 1995-2006, 2014, Ericsson AB
+  * Copyright (c) 2005, 2010-2011, Wind River Systems
+  * All rights reserved.
+  *
+@@ -37,7 +37,12 @@
+ #ifndef _TIPC_NET_H
+ #define _TIPC_NET_H
  
- int tipc_nl_media_dump(struct sk_buff *skb, struct netlink_callback *cb);
- int tipc_nl_media_get(struct sk_buff *skb, struct genl_info *info);
-+int tipc_nl_media_set(struct sk_buff *skb, struct genl_info *info);
++#include <net/genetlink.h>
++
+ int tipc_net_start(u32 addr);
++
+ void tipc_net_stop(void);
  
- int tipc_media_set_priority(const char *name, u32 new_value);
- int tipc_media_set_window(const char *name, u32 new_value);
++int tipc_nl_net_dump(struct sk_buff *skb, struct netlink_callback *cb);
++
+ #endif
 diff --git a/net/tipc/netlink.c b/net/tipc/netlink.c
-index 742e51a..8673e37 100644
+index 5b0e3c8..c143f9c 100644
 --- a/net/tipc/netlink.c
 +++ b/net/tipc/netlink.c
-@@ -161,6 +161,11 @@ static const struct genl_ops tipc_genl_v2_ops[] = {
- 		.doit	= tipc_nl_media_get,
- 		.dumpit	= tipc_nl_media_dump,
+@@ -40,6 +40,7 @@
+ #include "bearer.h"
+ #include "link.h"
+ #include "node.h"
++#include "net.h"
+ #include <net/genetlink.h>
+ 
+ static int handle_cmd(struct sk_buff *skb, struct genl_info *info)
+@@ -79,7 +80,8 @@ static const struct nla_policy tipc_nl_policy[TIPC_NLA_MAX + 1] = {
+ 	[TIPC_NLA_PUBL]		= { .type = NLA_NESTED, },
+ 	[TIPC_NLA_LINK]		= { .type = NLA_NESTED, },
+ 	[TIPC_NLA_MEDIA]	= { .type = NLA_NESTED, },
+-	[TIPC_NLA_NODE]		= { .type = NLA_NESTED, }
++	[TIPC_NLA_NODE]		= { .type = NLA_NESTED, },
++	[TIPC_NLA_NET]		= { .type = NLA_NESTED, }
+ };
+ 
+ /* Legacy ASCII API */
+@@ -173,6 +175,11 @@ static const struct genl_ops tipc_genl_v2_ops[] = {
+ 		.cmd	= TIPC_NL_NODE_GET,
+ 		.dumpit	= tipc_nl_node_dump,
  		.policy = tipc_nl_policy,
 +	},
 +	{
-+		.cmd	= TIPC_NL_MEDIA_SET,
-+		.doit	= tipc_nl_media_set,
++		.cmd	= TIPC_NL_NET_GET,
++		.dumpit	= tipc_nl_net_dump,
 +		.policy = tipc_nl_policy,
  	}
  };
