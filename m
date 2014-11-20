@@ -1,8 +1,8 @@
 From: <richard.alpe@ericsson.com>
-Subject: [PATCH v3 net-next 07/14] tipc: add link set to
+Subject: [PATCH v3 net-next 03/14] tipc: add bearer set to
 	new netlink api
-Date: Thu, 20 Nov 2014 10:29:13 +0100
-Message-ID: <1416475760-18914-8-git-send-email-richard.alpe@ericsson.com>
+Date: Thu, 20 Nov 2014 10:29:09 +0100
+Message-ID: <1416475760-18914-4-git-send-email-richard.alpe@ericsson.com>
 References: <1416475760-18914-1-git-send-email-richard.alpe@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,15 +23,15 @@ List-Id: netdev.vger.kernel.org
 
 From: Richard Alpe <richard.alpe@ericsson.com>
 
-Add TIPC_NL_LINK_SET to the new tipc netlink API.
+Add TIPC_NL_BEARER_SET command to the new tipc netlink API.
 
 This command can set one or more link properties for a particular
-link.
+bearer.
 
-Netlink logical layout of link set message:
--> link
+Netlink logical layout of bearer set message:
+-> bearer
     -> name
-    -> properties
+    -> link properties
         [ -> tolerance ]
         [ -> priority ]
         [ -> window ]
@@ -42,131 +42,104 @@ Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
 Acked-by: Ying Xue <ying.xue@windriver.com>
 ---
  include/uapi/linux/tipc_netlink.h |    1 +
- net/tipc/link.c                   |   73 +++++++++++++++++++++++++++++++++++++
- net/tipc/link.h                   |    1 +
- net/tipc/netlink.c                |    5 +++
- 4 files changed, 80 insertions(+)
+ net/tipc/bearer.c                 |   49 +++++++++++++++++++++++++++++++++++++
+ net/tipc/bearer.h                 |    1 +
+ net/tipc/netlink.c                |    5 ++++
+ 4 files changed, 56 insertions(+)
 
 diff --git a/include/uapi/linux/tipc_netlink.h b/include/uapi/linux/tipc_netlink.h
-index 1034fb4..2deb7fd 100644
+index 249ec7e..f446fba 100644
 --- a/include/uapi/linux/tipc_netlink.h
 +++ b/include/uapi/linux/tipc_netlink.h
-@@ -48,6 +48,7 @@ enum {
- 	TIPC_NL_SOCK_GET,
- 	TIPC_NL_PUBL_GET,
- 	TIPC_NL_LINK_GET,
-+	TIPC_NL_LINK_SET,
+@@ -44,6 +44,7 @@ enum {
+ 	TIPC_NL_BEARER_DISABLE,
+ 	TIPC_NL_BEARER_ENABLE,
+ 	TIPC_NL_BEARER_GET,
++	TIPC_NL_BEARER_SET,
  
  	__TIPC_NL_CMD_MAX,
  	TIPC_NL_CMD_MAX = __TIPC_NL_CMD_MAX - 1
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index bdc4b5e..6785dcf 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -2441,6 +2441,79 @@ int tipc_nl_parse_link_prop(struct nlattr *prop, struct nlattr *props[])
+diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
+index d49b8c2..6d547d0 100644
+--- a/net/tipc/bearer.c
++++ b/net/tipc/bearer.c
+@@ -849,3 +849,52 @@ int tipc_nl_bearer_enable(struct sk_buff *skb, struct genl_info *info)
+ 
  	return 0;
  }
- 
-+int tipc_nl_link_set(struct sk_buff *skb, struct genl_info *info)
++
++int tipc_nl_bearer_set(struct sk_buff *skb, struct genl_info *info)
 +{
 +	int err;
-+	int res = 0;
-+	int bearer_id;
 +	char *name;
-+	struct tipc_link *link;
-+	struct tipc_node *node;
-+	struct nlattr *attrs[TIPC_NLA_LINK_MAX + 1];
++	struct tipc_bearer *b;
++	struct nlattr *attrs[TIPC_NLA_BEARER_MAX + 1];
 +
-+	if (!info->attrs[TIPC_NLA_LINK])
++	if (!info->attrs[TIPC_NLA_BEARER])
 +		return -EINVAL;
 +
-+	err = nla_parse_nested(attrs, TIPC_NLA_LINK_MAX,
-+			       info->attrs[TIPC_NLA_LINK],
-+			       tipc_nl_link_policy);
++	err = nla_parse_nested(attrs, TIPC_NLA_BEARER_MAX,
++			       info->attrs[TIPC_NLA_BEARER],
++			       tipc_nl_bearer_policy);
 +	if (err)
 +		return err;
 +
-+	if (!attrs[TIPC_NLA_LINK_NAME])
++	if (!attrs[TIPC_NLA_BEARER_NAME])
 +		return -EINVAL;
++	name = nla_data(attrs[TIPC_NLA_BEARER_NAME]);
 +
-+	name = nla_data(attrs[TIPC_NLA_LINK_NAME]);
-+
-+	node = tipc_link_find_owner(name, &bearer_id);
-+	if (!node)
++	rtnl_lock();
++	b = tipc_bearer_find(name);
++	if (!b) {
++		rtnl_unlock();
 +		return -EINVAL;
-+
-+	tipc_node_lock(node);
-+
-+	link = node->links[bearer_id];
-+	if (!link) {
-+		res = -EINVAL;
-+		goto out;
 +	}
 +
-+	if (attrs[TIPC_NLA_LINK_PROP]) {
++	if (attrs[TIPC_NLA_BEARER_PROP]) {
 +		struct nlattr *props[TIPC_NLA_PROP_MAX + 1];
 +
-+		err = tipc_nl_parse_link_prop(attrs[TIPC_NLA_LINK_PROP],
++		err = tipc_nl_parse_link_prop(attrs[TIPC_NLA_BEARER_PROP],
 +					      props);
 +		if (err) {
-+			res = err;
-+			goto out;
++			rtnl_unlock();
++			return err;
 +		}
 +
-+		if (props[TIPC_NLA_PROP_TOL]) {
-+			u32 tol;
-+
-+			tol = nla_get_u32(props[TIPC_NLA_PROP_TOL]);
-+			link_set_supervision_props(link, tol);
-+			tipc_link_proto_xmit(link, STATE_MSG, 0, 0, tol, 0, 0);
-+		}
-+		if (props[TIPC_NLA_PROP_PRIO]) {
-+			u32 prio;
-+
-+			prio = nla_get_u32(props[TIPC_NLA_PROP_PRIO]);
-+			link->priority = prio;
-+			tipc_link_proto_xmit(link, STATE_MSG, 0, 0, 0, prio, 0);
-+		}
-+		if (props[TIPC_NLA_PROP_WIN]) {
-+			u32 win;
-+
-+			win = nla_get_u32(props[TIPC_NLA_PROP_WIN]);
-+			tipc_link_set_queue_limits(link, win);
-+		}
++		if (props[TIPC_NLA_PROP_TOL])
++			b->tolerance = nla_get_u32(props[TIPC_NLA_PROP_TOL]);
++		if (props[TIPC_NLA_PROP_PRIO])
++			b->priority = nla_get_u32(props[TIPC_NLA_PROP_PRIO]);
++		if (props[TIPC_NLA_PROP_WIN])
++			b->window = nla_get_u32(props[TIPC_NLA_PROP_WIN]);
 +	}
++	rtnl_unlock();
 +
-+out:
-+	tipc_node_unlock(node);
-+
-+	return res;
++	return 0;
 +}
- int __tipc_nl_add_stats(struct sk_buff *skb, struct tipc_stats *s)
- {
- 	int i;
-diff --git a/net/tipc/link.h b/net/tipc/link.h
-index 8e3542a..3738ba1 100644
---- a/net/tipc/link.h
-+++ b/net/tipc/link.h
-@@ -242,6 +242,7 @@ void tipc_link_retransmit(struct tipc_link *l_ptr,
+diff --git a/net/tipc/bearer.h b/net/tipc/bearer.h
+index 2d07e35..c6cf9df 100644
+--- a/net/tipc/bearer.h
++++ b/net/tipc/bearer.h
+@@ -182,6 +182,7 @@ int tipc_nl_bearer_disable(struct sk_buff *skb, struct genl_info *info);
+ int tipc_nl_bearer_enable(struct sk_buff *skb, struct genl_info *info);
+ int tipc_nl_bearer_dump(struct sk_buff *skb, struct netlink_callback *cb);
+ int tipc_nl_bearer_get(struct sk_buff *skb, struct genl_info *info);
++int tipc_nl_bearer_set(struct sk_buff *skb, struct genl_info *info);
  
- int tipc_nl_link_dump(struct sk_buff *skb, struct netlink_callback *cb);
- int tipc_nl_link_get(struct sk_buff *skb, struct genl_info *info);
-+int tipc_nl_link_set(struct sk_buff *skb, struct genl_info *info);
- int tipc_nl_parse_link_prop(struct nlattr *prop, struct nlattr *props[]);
- 
- /*
+ int tipc_media_set_priority(const char *name, u32 new_value);
+ int tipc_media_set_window(const char *name, u32 new_value);
 diff --git a/net/tipc/netlink.c b/net/tipc/netlink.c
-index ea168b8..d4444e5 100644
+index 0c00422..a529131 100644
 --- a/net/tipc/netlink.c
 +++ b/net/tipc/netlink.c
-@@ -144,6 +144,11 @@ static const struct genl_ops tipc_genl_v2_ops[] = {
- 		.doit   = tipc_nl_link_get,
- 		.dumpit	= tipc_nl_link_dump,
+@@ -118,6 +118,11 @@ static const struct genl_ops tipc_genl_v2_ops[] = {
+ 		.doit	= tipc_nl_bearer_get,
+ 		.dumpit	= tipc_nl_bearer_dump,
  		.policy = tipc_nl_policy,
 +	},
 +	{
-+		.cmd	= TIPC_NL_LINK_SET,
-+		.doit	= tipc_nl_link_set,
++		.cmd	= TIPC_NL_BEARER_SET,
++		.doit	= tipc_nl_bearer_set,
 +		.policy = tipc_nl_policy,
  	}
  };
