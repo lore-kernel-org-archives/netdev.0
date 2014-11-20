@@ -1,83 +1,98 @@
-From: Zhu Yanjun <zyjzyj2000@gmail.com>
-Subject: [PATCH 1/1] sctp: not send SCTP_PEER_ADDR_CHANGE notifications with failed probe
-Date: Thu, 20 Nov 2014 14:04:40 +0800
-Message-ID: <1416463480-29036-1-git-send-email-Yanjun.Zhu@windriver.com>
-Cc: Zhu Yanjun <Yanjun.Zhu@windriver.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org, w@1wt.eu, zyjzyj2000@gmail.com,
-	khandelwal.deepak.1987@gmail.com, vyasevich@gmail.com,
-	tuexen@fh-muenster.de, dborkman@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f180.google.com ([209.85.192.180]:57997 "EHLO
-	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750752AbaKTGFB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2014 01:05:01 -0500
-Received: by mail-pd0-f180.google.com with SMTP id p10so2399327pdj.25
-        for <netdev@vger.kernel.org>; Wed, 19 Nov 2014 22:05:00 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jason Wang <jasowang@redhat.com>
+Subject: [PATCH net V3] virtio-net: validate features during probe
+Date: Thu, 20 Nov 2014 14:10:35 +0800
+Message-ID: <1416463835-7364-1-git-send-email-jasowang@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: rusty@rustcorp.com.au, mst@redhat.com,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-2.6.x kernels require a similar logic change as commit 2c0d6ac894a
-[sctp: not send SCTP_PEER_ADDR_CHANGE notifications with failed probe] 
-introduces for newer kernels.
+We currently trigger BUG when VIRTIO_NET_F_CTRL_VQ
+is not set but one of features depending on it is.
+That's not a friendly way to report errors to
+hypervisors.
+Let's check, and fail probe instead.
 
-Since the transport has always been in state SCTP_UNCONFIRMED, it
-therefore wasn't active before and hasn't been used before, and it
-always has been, so it is unnecessary to bug the user with a
-notification.
-
-Reported-by: Deepak Khandelwal <khandelwal.deepak.1987@gmail.com>
-Suggested-by: Vlad Yasevich <vyasevich@gmail.com>
-Suggested-by: Michael Tuexen <tuexen@fh-muenster.de>
-Suggested-by: Daniel Borkmann <dborkman@redhat.com>
-Signed-off-by: Zhu Yanjun <Yanjun.Zhu@windriver.com>
-Acked-by: Vlad Yasevich <vyasevich@gmail.com>
-Acked-by: Daniel Borkmann <dborkman@redhat.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
-
+Cc: Rusty Russell <rusty@rustcorp.com.au>
+Cc: Cornelia Huck <cornelia.huck@de.ibm.com>
+Cc: Wanlong Gao <gaowanlong@cn.fujitsu.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- net/sctp/associola.c | 14 +++++++++-----
- 1 file changed, 9 insertions(+), 5 deletions(-)
+Changes from V2:
+- only check the features for ctrl vq (this fix the real bug)
+- better error message and simplify API
+---
+ drivers/net/virtio_net.c | 37 +++++++++++++++++++++++++++++++++++++
+ 1 file changed, 37 insertions(+)
 
-diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-index 7eed77a..0f63396 100644
---- a/net/sctp/associola.c
-+++ b/net/sctp/associola.c
-@@ -824,6 +824,7 @@ void sctp_assoc_control_transport(struct sctp_association *asoc,
- 	struct sctp_ulpevent *event;
- 	struct sockaddr_storage addr;
- 	int spc_state = 0;
-+	bool ulp_notify = true;
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index ec2a8b4..a6bcfce 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -1673,6 +1673,40 @@ static const struct attribute_group virtio_net_mrg_rx_group = {
+ };
+ #endif
  
- 	/* Record the transition on the transport.  */
- 	switch (command) {
-@@ -850,6 +851,7 @@ void sctp_assoc_control_transport(struct sctp_association *asoc,
- 		else {
- 			dst_release(transport->dst);
- 			transport->dst = NULL;
-+			ulp_notify = false;
- 		}
- 
- 		spc_state = SCTP_ADDR_UNREACHABLE;
-@@ -862,12 +864,14 @@ void sctp_assoc_control_transport(struct sctp_association *asoc,
- 	/* Generate and send a SCTP_PEER_ADDR_CHANGE notification to the
- 	 * user.
- 	 */
--	memset(&addr, 0, sizeof(struct sockaddr_storage));
--	memcpy(&addr, &transport->ipaddr, transport->af_specific->sockaddr_len);
--	event = sctp_ulpevent_make_peer_addr_change(asoc, &addr,
-+	if (ulp_notify) {
-+		memset(&addr, 0, sizeof(struct sockaddr_storage));
-+		memcpy(&addr, &transport->ipaddr, transport->af_specific->sockaddr_len);
-+		event = sctp_ulpevent_make_peer_addr_change(asoc, &addr,
- 				0, spc_state, error, GFP_ATOMIC);
--	if (event)
--		sctp_ulpq_tail_event(&asoc->ulpq, event);
-+		if (event)
-+			sctp_ulpq_tail_event(&asoc->ulpq, event);
++static bool virtnet_fail_on_feature(struct virtio_device *vdev,
++				    unsigned int fbit,
++				    const char *fname, const char *dname)
++{
++	if (!virtio_has_feature(vdev, fbit))
++		return false;
++
++	dev_err(&vdev->dev, "Hypervisor bug: advertise feature %s but not %s",
++		fname, dname);
++
++	return true;
++}
++
++#define VIRTNET_FAIL_ON(vdev, fbit, dbit)			\
++	virtnet_fail_on_feature(vdev, fbit, #fbit, #dbit)
++
++static bool virtnet_validate_features(struct virtio_device *vdev)
++{
++	if (!virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_VQ) &&
++	    (VIRTNET_FAIL_ON(vdev, VIRTIO_NET_F_CTRL_RX,
++			     VIRTIO_NET_F_CTRL_VQ) ||
++	     VIRTNET_FAIL_ON(vdev, VIRTIO_NET_F_CTRL_VLAN,
++			     VIRTIO_NET_F_CTRL_VQ) ||
++	     VIRTNET_FAIL_ON(vdev, VIRTIO_NET_F_GUEST_ANNOUNCE,
++			     VIRTIO_NET_F_TRL_VQ) ||
++	     VIRTNET_FAIL_ON(vdev, VIRTIO_NET_F_MQ, VIRTIO_NET_F_CTRL_VQ) ||
++	     VIRTNET_FAIL_ON(vdev, VIRTIO_NET_F_CTRL_MAC_ADDR,
++			     VIRTIO_NET_F_CTRL_VQ))) {
++		return false;
 +	}
++
++	return true;
++}
++
+ static int virtnet_probe(struct virtio_device *vdev)
+ {
+ 	int i, err;
+@@ -1680,6 +1714,9 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 	struct virtnet_info *vi;
+ 	u16 max_queue_pairs;
  
- 	/* Select new active and retran paths. */
- 
++	if (!virtnet_validate_features(vdev))
++		return -EINVAL;
++
+ 	/* Find if host supports multiqueue virtio_net device */
+ 	err = virtio_cread_feature(vdev, VIRTIO_NET_F_MQ,
+ 				   struct virtio_net_config,
 -- 
 1.9.1
