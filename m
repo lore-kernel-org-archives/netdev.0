@@ -1,34 +1,44 @@
-From: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: Re: mlx5: don't duplicate kvfree()
-Date: Thu, 20 Nov 2014 19:09:31 +0200
-Message-ID: <546E204B.5080106@mellanox.com>
-References: <20141120081357.GI7996@ZenIV.linux.org.uk> <20141120081726.GK7996@ZenIV.linux.org.uk>
+From: =?utf-8?B?U8O2cmVu?= Brinkmann <soren.brinkmann@xilinx.com>
+Subject: Re: [PATCH 1/1] net: Xilinx: Deletion of unnecessary checks before
+ two function calls
+Date: Thu, 20 Nov 2014 09:29:08 -0800
+Message-ID: <7b7454272cd247c18f32966e78b1b00b@BY2FFO11FD037.protection.gbl>
+References: <530C5E18.1020800@users.sourceforge.net>
+ <alpine.DEB.2.10.1402251014170.2080@hadrien>
+ <530CD2C4.4050903@users.sourceforge.net>
+ <alpine.DEB.2.10.1402251840450.7035@hadrien>
+ <530CF8FF.8080600@users.sourceforge.net>
+ <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6>
+ <530DD06F.4090703@users.sourceforge.net>
+ <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>
+ <5317A59D.4@users.sourceforge.net> <546DF1A2.8090208@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Al Viro <viro-3bDd1+5oDREiFSDQTTA3OLVCufUGDwFn@public.gmane.org>, Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20141120081726.GK7996-3bDd1+5oDREiFSDQTTA3OLVCufUGDwFn@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Michal Simek <michal.simek@xilinx.com>, <netdev@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	<kernel-janitors@vger.kernel.org>,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: SF Markus Elfring <elfring@users.sourceforge.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <546DF1A2.8090208@users.sourceforge.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11/20/2014 10:17 AM, Al Viro wrote:
-> On Thu, Nov 20, 2014 at 08:13:57AM +0000, Al Viro wrote:
->> >  9 files changed, 21 insertions(+), 35 deletions(-)
-> grr... 8 files changed, actually - that was from the diff that included mlx4
-> bits.  Patch split correctly and sent in two pieces, summary left as is ;-/
-> Sorry about the confusion it might cause...
-Al,
+On Thu, 2014-11-20 at 02:50PM +0100, SF Markus Elfring wrote:
+> From: Markus Elfring <elfring@users.sourceforge.net>
+> Date: Thu, 20 Nov 2014 14:47:12 +0100
+>=20
+> The functions kfree() and of_node_put() test whether their argument i=
+s NULL
+> and then return immediately. Thus the test around the call is not nee=
+ded.
+>=20
+> This issue was detected by using the Coccinelle software.
+>=20
+> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+Reviewed-by: Soren Brinkmann <soren.brinkmann@xilinx.com>
 
-I think the best way to proceed here is to come up with mlx4 and mlx5 
-patches and get both of them in through netdev / net-nexttree, don't 
-worry about each of these drivers have a part which is also under 
-drivers/infiniband/hw -- it doesn't justify splitting in this case
-
-Or.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+	S=C3=B6ren
