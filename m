@@ -1,44 +1,26 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: mlx4: don't duplicate kvfree()
-Date: Thu, 20 Nov 2014 08:15:38 +0000
-Message-ID: <20141120081538.GJ7996@ZenIV.linux.org.uk>
+From: Al Viro <viro-3bDd1+5oDREiFSDQTTA3OLVCufUGDwFn@public.gmane.org>
+Subject: Re: mlx5: don't duplicate kvfree()
+Date: Thu, 20 Nov 2014 08:17:26 +0000
+Message-ID: <20141120081726.GK7996@ZenIV.linux.org.uk>
+References: <20141120081357.GI7996@ZenIV.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Amir Vadai <amirv@mellanox.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20141120081357.GI7996-3bDd1+5oDREiFSDQTTA3OLVCufUGDwFn@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
----
+On Thu, Nov 20, 2014 at 08:13:57AM +0000, Al Viro wrote:
+>  9 files changed, 21 insertions(+), 35 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mr.c b/drivers/net/ethernet/mellanox/mlx4/mr.c
-index 193a6ad..d6f5496 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mr.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/mr.c
-@@ -130,10 +130,7 @@ static int mlx4_buddy_init(struct mlx4_buddy *buddy, int max_order)
- 
- err_out_free:
- 	for (i = 0; i <= buddy->max_order; ++i)
--		if (buddy->bits[i] && is_vmalloc_addr(buddy->bits[i]))
--			vfree(buddy->bits[i]);
--		else
--			kfree(buddy->bits[i]);
-+		kvfree(buddy->bits[i]);
- 
- err_out:
- 	kfree(buddy->bits);
-@@ -147,10 +144,7 @@ static void mlx4_buddy_cleanup(struct mlx4_buddy *buddy)
- 	int i;
- 
- 	for (i = 0; i <= buddy->max_order; ++i)
--		if (is_vmalloc_addr(buddy->bits[i]))
--			vfree(buddy->bits[i]);
--		else
--			kfree(buddy->bits[i]);
-+		kvfree(buddy->bits[i]);
- 
- 	kfree(buddy->bits);
- 	kfree(buddy->num_free);
+grr... 8 files changed, actually - that was from the diff that included mlx4
+bits.  Patch split correctly and sent in two pieces, summary left as is ;-/
+Sorry about the confusion it might cause...
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
