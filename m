@@ -1,116 +1,147 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net V5] virtio-net: validate features during probe
-Date: Thu, 20 Nov 2014 14:44:58 +0200
-Message-ID: <20141120124458.GC4973@redhat.com>
-References: <1416474185-10981-1-git-send-email-jasowang@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	David Miller <davem@davemloft.net>
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1416474185-10981-1-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next] i40e: remove dead fdb code
+Date: Thu, 20 Nov 2014 14:10:29 +0100
+Message-ID: <1416489029-1929-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, jeffrey.t.kirsher@intel.com,
+	jesse.brandeburg@intel.com, bruce.w.allan@intel.com,
+	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
+	gregory.v.rose@intel.com, matthew.vick@intel.com,
+	john.ronciak@intel.com, mitch.a.williams@intel.com,
+	linux.nics@intel.com, e1000-devel@lists.sourceforge.net
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f46.google.com ([74.125.82.46]:47854 "EHLO
+	mail-wg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751103AbaKTNKd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2014 08:10:33 -0500
+Received: by mail-wg0-f46.google.com with SMTP id x12so3656826wgg.19
+        for <netdev@vger.kernel.org>; Thu, 20 Nov 2014 05:10:31 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 20, 2014 at 05:03:05PM +0800, Jason Wang wrote:
-> We currently trigger BUG when VIRTIO_NET_F_CTRL_VQ
-> is not set but one of features depending on it is.
-> That's not a friendly way to report errors to
-> hypervisors.
-> Let's check, and fail probe instead.
-> 
-> Cc: Rusty Russell <rusty@rustcorp.com.au>
-> Cc: Cornelia Huck <cornelia.huck@de.ibm.com>
-> Cc: Wanlong Gao <gaowanlong@cn.fujitsu.com>
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+This code is not used now and also it contains some weird ifdefs. So
+remove it for now. It can be added when needed.
 
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+---
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 98 -----------------------------
+ 1 file changed, 98 deletions(-)
 
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
-
-Cc DaveM to pick up the patch.
-
-> ---
-> Changes from V1:
-> - Drop NETIF_F_*_UFO from checklist
-> Changes from V2:
-> - only check the features for ctrl vq (this fix the real bug)
-> - better error message and simplify API
-> Changes from V3:
-> - pass dbit directly and even better error message
-> - typo fix
-> Changes from v4:
-> - add "device" before "advertise"
-> ---
->  drivers/net/virtio_net.c | 37 +++++++++++++++++++++++++++++++++++++
->  1 file changed, 37 insertions(+)
-> 
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index ec2a8b4..b0bc8ea 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -1673,6 +1673,40 @@ static const struct attribute_group virtio_net_mrg_rx_group = {
->  };
->  #endif
->  
-> +static bool virtnet_fail_on_feature(struct virtio_device *vdev,
-> +				    unsigned int fbit,
-> +				    const char *fname, const char *dname)
-> +{
-> +	if (!virtio_has_feature(vdev, fbit))
-> +		return false;
-> +
-> +	dev_err(&vdev->dev, "device advertises feature %s but not %s",
-> +		fname, dname);
-> +
-> +	return true;
-> +}
-> +
-> +#define VIRTNET_FAIL_ON(vdev, fbit, dbit)			\
-> +	virtnet_fail_on_feature(vdev, fbit, #fbit, dbit)
-> +
-> +static bool virtnet_validate_features(struct virtio_device *vdev)
-> +{
-> +	if (!virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_VQ) &&
-> +	    (VIRTNET_FAIL_ON(vdev, VIRTIO_NET_F_CTRL_RX,
-> +			     "VIRTIO_NET_F_CTRL_VQ") ||
-> +	     VIRTNET_FAIL_ON(vdev, VIRTIO_NET_F_CTRL_VLAN,
-> +			     "VIRTIO_NET_F_CTRL_VQ") ||
-> +	     VIRTNET_FAIL_ON(vdev, VIRTIO_NET_F_GUEST_ANNOUNCE,
-> +			     "VIRTIO_NET_F_CTRL_VQ") ||
-> +	     VIRTNET_FAIL_ON(vdev, VIRTIO_NET_F_MQ, "VIRTIO_NET_F_CTRL_VQ") ||
-> +	     VIRTNET_FAIL_ON(vdev, VIRTIO_NET_F_CTRL_MAC_ADDR,
-> +			     "VIRTIO_NET_F_CTRL_VQ"))) {
-> +		return false;
-> +	}
-> +
-> +	return true;
-> +}
-> +
->  static int virtnet_probe(struct virtio_device *vdev)
->  {
->  	int i, err;
-> @@ -1680,6 +1714,9 @@ static int virtnet_probe(struct virtio_device *vdev)
->  	struct virtnet_info *vi;
->  	u16 max_queue_pairs;
->  
-> +	if (!virtnet_validate_features(vdev))
-> +		return -EINVAL;
-> +
->  	/* Find if host supports multiqueue virtio_net device */
->  	err = virtio_cread_feature(vdev, VIRTIO_NET_F_MQ,
->  				   struct virtio_net_config,
-> -- 
-> 1.9.1
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index c998d82..3368bf8 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -7521,97 +7521,6 @@ static int i40e_get_phys_port_id(struct net_device *netdev,
+ 	return 0;
+ }
+ 
+-#ifdef HAVE_FDB_OPS
+-#ifdef USE_CONST_DEV_UC_CHAR
+-static int i40e_ndo_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
+-			    struct net_device *dev,
+-			    const unsigned char *addr,
+-			    u16 flags)
+-#else
+-static int i40e_ndo_fdb_add(struct ndmsg *ndm,
+-			    struct net_device *dev,
+-			    unsigned char *addr,
+-			    u16 flags)
+-#endif
+-{
+-	struct i40e_netdev_priv *np = netdev_priv(dev);
+-	struct i40e_pf *pf = np->vsi->back;
+-	int err = 0;
+-
+-	if (!(pf->flags & I40E_FLAG_SRIOV_ENABLED))
+-		return -EOPNOTSUPP;
+-
+-	/* Hardware does not support aging addresses so if a
+-	 * ndm_state is given only allow permanent addresses
+-	 */
+-	if (ndm->ndm_state && !(ndm->ndm_state & NUD_PERMANENT)) {
+-		netdev_info(dev, "FDB only supports static addresses\n");
+-		return -EINVAL;
+-	}
+-
+-	if (is_unicast_ether_addr(addr) || is_link_local_ether_addr(addr))
+-		err = dev_uc_add_excl(dev, addr);
+-	else if (is_multicast_ether_addr(addr))
+-		err = dev_mc_add_excl(dev, addr);
+-	else
+-		err = -EINVAL;
+-
+-	/* Only return duplicate errors if NLM_F_EXCL is set */
+-	if (err == -EEXIST && !(flags & NLM_F_EXCL))
+-		err = 0;
+-
+-	return err;
+-}
+-
+-#ifndef USE_DEFAULT_FDB_DEL_DUMP
+-#ifdef USE_CONST_DEV_UC_CHAR
+-static int i40e_ndo_fdb_del(struct ndmsg *ndm,
+-			    struct net_device *dev,
+-			    const unsigned char *addr)
+-#else
+-static int i40e_ndo_fdb_del(struct ndmsg *ndm,
+-			    struct net_device *dev,
+-			    unsigned char *addr)
+-#endif
+-{
+-	struct i40e_netdev_priv *np = netdev_priv(dev);
+-	struct i40e_pf *pf = np->vsi->back;
+-	int err = -EOPNOTSUPP;
+-
+-	if (ndm->ndm_state & NUD_PERMANENT) {
+-		netdev_info(dev, "FDB only supports static addresses\n");
+-		return -EINVAL;
+-	}
+-
+-	if (pf->flags & I40E_FLAG_SRIOV_ENABLED) {
+-		if (is_unicast_ether_addr(addr))
+-			err = dev_uc_del(dev, addr);
+-		else if (is_multicast_ether_addr(addr))
+-			err = dev_mc_del(dev, addr);
+-		else
+-			err = -EINVAL;
+-	}
+-
+-	return err;
+-}
+-
+-static int i40e_ndo_fdb_dump(struct sk_buff *skb,
+-			     struct netlink_callback *cb,
+-			     struct net_device *dev,
+-			     struct net_device *filter_dev,
+-			     int idx)
+-{
+-	struct i40e_netdev_priv *np = netdev_priv(dev);
+-	struct i40e_pf *pf = np->vsi->back;
+-
+-	if (pf->flags & I40E_FLAG_SRIOV_ENABLED)
+-		idx = ndo_dflt_fdb_dump(skb, cb, dev, filter_dev, idx);
+-
+-	return idx;
+-}
+-
+-#endif /* USE_DEFAULT_FDB_DEL_DUMP */
+-#endif /* HAVE_FDB_OPS */
+ static const struct net_device_ops i40e_netdev_ops = {
+ 	.ndo_open		= i40e_open,
+ 	.ndo_stop		= i40e_close,
+@@ -7645,13 +7554,6 @@ static const struct net_device_ops i40e_netdev_ops = {
+ 	.ndo_del_vxlan_port	= i40e_del_vxlan_port,
+ #endif
+ 	.ndo_get_phys_port_id	= i40e_get_phys_port_id,
+-#ifdef HAVE_FDB_OPS
+-	.ndo_fdb_add		= i40e_ndo_fdb_add,
+-#ifndef USE_DEFAULT_FDB_DEL_DUMP
+-	.ndo_fdb_del		= i40e_ndo_fdb_del,
+-	.ndo_fdb_dump		= i40e_ndo_fdb_dump,
+-#endif
+-#endif
+ };
+ 
+ /**
+-- 
+1.9.3
