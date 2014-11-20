@@ -1,112 +1,143 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH RFC] net: Pass full skb hash to ndo_rx_flow_steer
-Date: Wed, 19 Nov 2014 17:04:56 -0800
-Message-ID: <CA+mtBx9_c4FrMuK+-B4k9xY3nAtWM-ZmgthQmMDffpmZZKRANg@mail.gmail.com>
-References: <1416370137-2512-1-git-send-email-therbert@google.com>
-	<CALCETrU9QXUy5EK5JjmqXo50ZqdHRRbsz3eJzLuCJgadN2jPHw@mail.gmail.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH 1/1] netfilter: Deletion of unnecessary checks before two
+ function calls
+Date: Thu, 20 Nov 2014 10:13:59 +0900
+Message-ID: <20141120011359.GJ5065@verge.net.au>
+References: <alpine.DEB.2.10.1402251014170.2080@hadrien>
+ <530CD2C4.4050903@users.sourceforge.net>
+ <alpine.DEB.2.10.1402251840450.7035@hadrien>
+ <530CF8FF.8080600@users.sourceforge.net>
+ <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6>
+ <530DD06F.4090703@users.sourceforge.net>
+ <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>
+ <5317A59D.4@users.sourceforge.net>
+ <546BA253.6030100@users.sourceforge.net>
+ <alpine.LFD.2.11.1411200024280.6497@ja.home.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Ben Hutchings <ben@decadent.org.uk>,
-	Network Development <netdev@vger.kernel.org>
-To: Andy Lutomirski <luto@amacapital.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f173.google.com ([209.85.223.173]:59278 "EHLO
-	mail-ie0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754183AbaKTBE5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 20:04:57 -0500
-Received: by mail-ie0-f173.google.com with SMTP id y20so1806305ier.32
-        for <netdev@vger.kernel.org>; Wed, 19 Nov 2014 17:04:57 -0800 (PST)
-In-Reply-To: <CALCETrU9QXUy5EK5JjmqXo50ZqdHRRbsz3eJzLuCJgadN2jPHw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: SF Markus Elfring <elfring@users.sourceforge.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Wensong Zhang <wensong@linux-vs.org>, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	coreteam@netfilter.org, LKML <linux-kernel@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org, Coccinelle <cocci@systeme.lip6.fr>
+To: Julian Anastasov <ja@ssi.bg>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.2.11.1411200024280.6497@ja.home.ssi.bg>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 19, 2014 at 4:21 PM, Andy Lutomirski <luto@amacapital.net> wrote:
-> On Tue, Nov 18, 2014 at 8:08 PM, Tom Herbert <therbert@google.com> wrote:
->> Currently, for aRFS the index into the flow table is passed to
->> ndo_rx_flow_steer as the flow ID of a connection. This is the skb->hash
->> & the table mask. It looks like the backend can accept the full
->> skb->hash as the flow ID which should reduce the number of collisions
->> in the hardware tables.
->>
->> This patch provides the skb->hash to the driver for flow steering.
->> Expiration of HW steered flows was also updated.
->>
->> With a hash collision in RFS, ndo_rx_flow_steer will continue to be
->> called with different CPUs, but now with different flow_ids. If this
->> is still too much device interaction, then it might make sense for the
->> driver to do its own lookup in its structure to see if a matching
->> filter is already installed for a given flow_id, an if it is just
->> refresh a timestamp to avoid expiration (based on looking at sfc
->> driver).
->>
->> I don't currently have any HW to test this, if someone could try this
->> on hardware with aRFS and provide feedback that would be appreciated.
->>
->> Signed-off-by: Tom Herbert <therbert@google.com>
->> ---
->>  net/core/dev.c | 7 ++++---
->>  1 file changed, 4 insertions(+), 3 deletions(-)
->>
->> diff --git a/net/core/dev.c b/net/core/dev.c
->> index 1ab168e..cb1e06d 100644
->> --- a/net/core/dev.c
->> +++ b/net/core/dev.c
->> @@ -3057,7 +3057,8 @@ set_rps_cpu(struct net_device *dev, struct sk_buff *skb,
->>                         goto out;
->>                 flow_id = skb_get_hash(skb) & flow_table->mask;
->>                 rc = dev->netdev_ops->ndo_rx_flow_steer(dev, skb,
->> -                                                       rxq_index, flow_id);
->> +                                                       rxq_index,
->> +                                                       skb_get_hash(skb));
->
-> Can gcc CSE this?  Not that it matters that much.
->
->>                 if (rc < 0)
->>                         goto out;
->>                 old_rflow = rflow;
->> @@ -3195,8 +3196,8 @@ bool rps_may_expire_flow(struct net_device *dev, u16 rxq_index,
->>
->>         rcu_read_lock();
->>         flow_table = rcu_dereference(rxqueue->rps_flow_table);
->> -       if (flow_table && flow_id <= flow_table->mask) {
->> -               rflow = &flow_table->flows[flow_id];
->> +       if (flow_table) {
->> +               rflow = &flow_table->flows[flow_id & flow_table->mask];
->
-> I think this is nicer, but why will it help?  If there's a collision
-> in the low bits of the hash, we'll still think that the flow is
-> expired.
->
-> Is there a real LRU-ish hash table that could be subbed in easily?
+On Thu, Nov 20, 2014 at 12:26:56AM +0200, Julian Anastasov wrote:
+> 
+> 	Hello,
+> 
+> On Tue, 18 Nov 2014, SF Markus Elfring wrote:
+> 
+> > From: Markus Elfring <elfring@users.sourceforge.net>
+> > Date: Tue, 18 Nov 2014 20:37:05 +0100
+> > 
+> > The functions free_percpu() and module_put() test whether their argument
+> > is NULL and then return immediately. Thus the test around the call is
+> > not needed.
+> > 
+> > This issue was detected by using the Coccinelle software.
+> > 
+> > Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+> 
+> 	Pablo, the IPVS parts look ok to me,
+> 
+> Acked-by: Julian Anastasov <ja@ssi.bg>
 
-I think this does exist in sfc, or at least could potentially be
-updated to do it. When a filter is being inserted, there is a lookup
-on the spec to see if a matching filter already exists. If it is
-found, -EBUSY is returned. I "think" that instead of returning -EBUSY,
-the filter index could be returned and a timestamp in the soft data
-structure could be refreshed. In the driver expiration code, the
-timestamp could be checked before deciding to call
-rps_may_expire_flow. In the case of a collision in the RPS flow table,
-ndo_rx_flow_steer would be alternately called for the flows which
-should continuously refresh the timestamps of the filters for each
-flow. This should keep both flow filters active in the device, without
-needing to whack the device for each call to ndo_rx_flow_steer.
+Acked-by: Simon Horman <horms@verge.net.au>
 
-> There ought to be a data structure that's barely more complicated than
-> this kind of hash table but that gives much better behavior when the
-> number of flows is smaller than the table size.
->
-> --Andy
->
->>                 cpu = ACCESS_ONCE(rflow->cpu);
->>                 if (rflow->filter == filter_id && cpu != RPS_NO_CPU &&
->>                     ((int)(per_cpu(softnet_data, cpu).input_queue_head -
->> --
->> 2.1.0.rc2.206.gedb03e5
->>
->
->
->
+> 
+> > ---
+> >  net/netfilter/ipvs/ip_vs_ctl.c   | 3 +--
+> >  net/netfilter/ipvs/ip_vs_pe.c    | 3 +--
+> >  net/netfilter/ipvs/ip_vs_sched.c | 3 +--
+> >  net/netfilter/ipvs/ip_vs_sync.c  | 3 +--
+> >  net/netfilter/nf_tables_api.c    | 3 +--
+> >  5 files changed, 5 insertions(+), 10 deletions(-)
+> > 
+> > diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+> > index fd3f444..7c5e40a 100644
+> > --- a/net/netfilter/ipvs/ip_vs_ctl.c
+> > +++ b/net/netfilter/ipvs/ip_vs_ctl.c
+> > @@ -465,8 +465,7 @@ __ip_vs_bind_svc(struct ip_vs_dest *dest, struct ip_vs_service *svc)
+> >  
+> >  static void ip_vs_service_free(struct ip_vs_service *svc)
+> >  {
+> > -	if (svc->stats.cpustats)
+> > -		free_percpu(svc->stats.cpustats);
+> > +	free_percpu(svc->stats.cpustats);
+> >  	kfree(svc);
+> >  }
+> >  
+> > diff --git a/net/netfilter/ipvs/ip_vs_pe.c b/net/netfilter/ipvs/ip_vs_pe.c
+> > index 1a82b29..0df17ca 100644
+> > --- a/net/netfilter/ipvs/ip_vs_pe.c
+> > +++ b/net/netfilter/ipvs/ip_vs_pe.c
+> > @@ -37,8 +37,7 @@ struct ip_vs_pe *__ip_vs_pe_getbyname(const char *pe_name)
+> >  			rcu_read_unlock();
+> >  			return pe;
+> >  		}
+> > -		if (pe->module)
+> > -			module_put(pe->module);
+> > +		module_put(pe->module);
+> >  	}
+> >  	rcu_read_unlock();
+> >  
+> > diff --git a/net/netfilter/ipvs/ip_vs_sched.c b/net/netfilter/ipvs/ip_vs_sched.c
+> > index 4dbcda6..199760c 100644
+> > --- a/net/netfilter/ipvs/ip_vs_sched.c
+> > +++ b/net/netfilter/ipvs/ip_vs_sched.c
+> > @@ -104,8 +104,7 @@ static struct ip_vs_scheduler *ip_vs_sched_getbyname(const char *sched_name)
+> >  			mutex_unlock(&ip_vs_sched_mutex);
+> >  			return sched;
+> >  		}
+> > -		if (sched->module)
+> > -			module_put(sched->module);
+> > +		module_put(sched->module);
+> >  	}
+> >  
+> >  	mutex_unlock(&ip_vs_sched_mutex);
+> > diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
+> > index eadffb2..cafe28d 100644
+> > --- a/net/netfilter/ipvs/ip_vs_sync.c
+> > +++ b/net/netfilter/ipvs/ip_vs_sync.c
+> > @@ -820,8 +820,7 @@ ip_vs_conn_fill_param_sync(struct net *net, int af, union ip_vs_sync_conn *sc,
+> >  
+> >  		p->pe_data = kmemdup(pe_data, pe_data_len, GFP_ATOMIC);
+> >  		if (!p->pe_data) {
+> > -			if (p->pe->module)
+> > -				module_put(p->pe->module);
+> > +			module_put(p->pe->module);
+> >  			return -ENOMEM;
+> >  		}
+> >  		p->pe_data_len = pe_data_len;
+> > diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
+> > index deeb95f..b115f54 100644
+> > --- a/net/netfilter/nf_tables_api.c
+> > +++ b/net/netfilter/nf_tables_api.c
+> > @@ -3472,8 +3472,7 @@ static int nf_tables_abort(struct sk_buff *skb)
+> >  			break;
+> >  		case NFT_MSG_NEWCHAIN:
+> >  			if (nft_trans_chain_update(trans)) {
+> > -				if (nft_trans_chain_stats(trans))
+> > -					free_percpu(nft_trans_chain_stats(trans));
+> > +				free_percpu(nft_trans_chain_stats(trans));
+> >  
+> >  				nft_trans_destroy(trans);
+> >  			} else {
+> > -- 
+> > 2.1.3
+> 
+> Regards
+> 
 > --
-> Andy Lutomirski
-> AMA Capital Management, LLC
+> Julian Anastasov <ja@ssi.bg>
+> 
