@@ -1,74 +1,112 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next v2] net: sctp: keep owned chunk in destructor_arg instead of skb->cb
-Date: Thu, 20 Nov 2014 01:54:48 +0100
-Message-ID: <1416444888-12778-1-git-send-email-dborkman@redhat.com>
-Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH RFC] net: Pass full skb hash to ndo_rx_flow_steer
+Date: Wed, 19 Nov 2014 17:04:56 -0800
+Message-ID: <CA+mtBx9_c4FrMuK+-B4k9xY3nAtWM-ZmgthQmMDffpmZZKRANg@mail.gmail.com>
+References: <1416370137-2512-1-git-send-email-therbert@google.com>
+	<CALCETrU9QXUy5EK5JjmqXo50ZqdHRRbsz3eJzLuCJgadN2jPHw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Ben Hutchings <ben@decadent.org.uk>,
+	Network Development <netdev@vger.kernel.org>
+To: Andy Lutomirski <luto@amacapital.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:52533 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755145AbaKTAyw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Nov 2014 19:54:52 -0500
+Received: from mail-ie0-f173.google.com ([209.85.223.173]:59278 "EHLO
+	mail-ie0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754183AbaKTBE5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 20:04:57 -0500
+Received: by mail-ie0-f173.google.com with SMTP id y20so1806305ier.32
+        for <netdev@vger.kernel.org>; Wed, 19 Nov 2014 17:04:57 -0800 (PST)
+In-Reply-To: <CALCETrU9QXUy5EK5JjmqXo50ZqdHRRbsz3eJzLuCJgadN2jPHw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It's just silly to hold the skb destructor argument around inside
-skb->cb[] as we currently do in SCTP.
+On Wed, Nov 19, 2014 at 4:21 PM, Andy Lutomirski <luto@amacapital.net> wrote:
+> On Tue, Nov 18, 2014 at 8:08 PM, Tom Herbert <therbert@google.com> wrote:
+>> Currently, for aRFS the index into the flow table is passed to
+>> ndo_rx_flow_steer as the flow ID of a connection. This is the skb->hash
+>> & the table mask. It looks like the backend can accept the full
+>> skb->hash as the flow ID which should reduce the number of collisions
+>> in the hardware tables.
+>>
+>> This patch provides the skb->hash to the driver for flow steering.
+>> Expiration of HW steered flows was also updated.
+>>
+>> With a hash collision in RFS, ndo_rx_flow_steer will continue to be
+>> called with different CPUs, but now with different flow_ids. If this
+>> is still too much device interaction, then it might make sense for the
+>> driver to do its own lookup in its structure to see if a matching
+>> filter is already installed for a given flow_id, an if it is just
+>> refresh a timestamp to avoid expiration (based on looking at sfc
+>> driver).
+>>
+>> I don't currently have any HW to test this, if someone could try this
+>> on hardware with aRFS and provide feedback that would be appreciated.
+>>
+>> Signed-off-by: Tom Herbert <therbert@google.com>
+>> ---
+>>  net/core/dev.c | 7 ++++---
+>>  1 file changed, 4 insertions(+), 3 deletions(-)
+>>
+>> diff --git a/net/core/dev.c b/net/core/dev.c
+>> index 1ab168e..cb1e06d 100644
+>> --- a/net/core/dev.c
+>> +++ b/net/core/dev.c
+>> @@ -3057,7 +3057,8 @@ set_rps_cpu(struct net_device *dev, struct sk_buff *skb,
+>>                         goto out;
+>>                 flow_id = skb_get_hash(skb) & flow_table->mask;
+>>                 rc = dev->netdev_ops->ndo_rx_flow_steer(dev, skb,
+>> -                                                       rxq_index, flow_id);
+>> +                                                       rxq_index,
+>> +                                                       skb_get_hash(skb));
+>
+> Can gcc CSE this?  Not that it matters that much.
+>
+>>                 if (rc < 0)
+>>                         goto out;
+>>                 old_rflow = rflow;
+>> @@ -3195,8 +3196,8 @@ bool rps_may_expire_flow(struct net_device *dev, u16 rxq_index,
+>>
+>>         rcu_read_lock();
+>>         flow_table = rcu_dereference(rxqueue->rps_flow_table);
+>> -       if (flow_table && flow_id <= flow_table->mask) {
+>> -               rflow = &flow_table->flows[flow_id];
+>> +       if (flow_table) {
+>> +               rflow = &flow_table->flows[flow_id & flow_table->mask];
+>
+> I think this is nicer, but why will it help?  If there's a collision
+> in the low bits of the hash, we'll still think that the flow is
+> expired.
+>
+> Is there a real LRU-ish hash table that could be subbed in easily?
 
-Nowadays, we're sort of cheating on data accounting in the sense
-that due to commit 4c3a5bdae293 ("sctp: Don't charge for data in
-sndbuf again when transmitting packet"), we orphan the skb already
-in the SCTP output path, i.e. giving back charged data memory, and
-use a different destructor only to make sure the sk doesn't vanish
-on skb destruction time. Thus, cb[] is still valid here as we
-operate within the SCTP layer. (It's generally actually a big
-candidate for future rework, imho.)
+I think this does exist in sfc, or at least could potentially be
+updated to do it. When a filter is being inserted, there is a lookup
+on the spec to see if a matching filter already exists. If it is
+found, -EBUSY is returned. I "think" that instead of returning -EBUSY,
+the filter index could be returned and a timestamp in the soft data
+structure could be refreshed. In the driver expiration code, the
+timestamp could be checked before deciding to call
+rps_may_expire_flow. In the case of a collision in the RPS flow table,
+ndo_rx_flow_steer would be alternately called for the flows which
+should continuously refresh the timestamps of the filters for each
+flow. This should keep both flow filters active in the device, without
+needing to whack the device for each call to ndo_rx_flow_steer.
 
-However, storing the destructor in the cb[] can easily cause issues
-should an non sctp_packet_set_owner_w()'ed skb ever escape the SCTP
-layer, since cb[] may get overwritten by lower layers and thus can
-corrupt the chunk pointer. There are no such issues at present,
-but lets keep the chunk in destructor_arg, as this is the actual
-purpose for it.
-
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
----
- v1->v2:
-  - Only reworded commit message to make it more clear
-
- net/sctp/socket.c | 12 ++++--------
- 1 file changed, 4 insertions(+), 8 deletions(-)
-
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index 2120292..85e0b65 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -162,7 +162,7 @@ static inline void sctp_set_owner_w(struct sctp_chunk *chunk)
- 
- 	chunk->skb->destructor = sctp_wfree;
- 	/* Save the chunk pointer in skb for sctp_wfree to use later.  */
--	*((struct sctp_chunk **)(chunk->skb->cb)) = chunk;
-+	skb_shinfo(chunk->skb)->destructor_arg = chunk;
- 
- 	asoc->sndbuf_used += SCTP_DATA_SNDSIZE(chunk) +
- 				sizeof(struct sk_buff) +
-@@ -6870,14 +6870,10 @@ static void sctp_wake_up_waiters(struct sock *sk,
-  */
- static void sctp_wfree(struct sk_buff *skb)
- {
--	struct sctp_association *asoc;
--	struct sctp_chunk *chunk;
--	struct sock *sk;
-+	struct sctp_chunk *chunk = skb_shinfo(skb)->destructor_arg;
-+	struct sctp_association *asoc = chunk->asoc;
-+	struct sock *sk = asoc->base.sk;
- 
--	/* Get the saved chunk pointer.  */
--	chunk = *((struct sctp_chunk **)(skb->cb));
--	asoc = chunk->asoc;
--	sk = asoc->base.sk;
- 	asoc->sndbuf_used -= SCTP_DATA_SNDSIZE(chunk) +
- 				sizeof(struct sk_buff) +
- 				sizeof(struct sctp_chunk);
--- 
-1.7.11.7
+> There ought to be a data structure that's barely more complicated than
+> this kind of hash table but that gives much better behavior when the
+> number of flows is smaller than the table size.
+>
+> --Andy
+>
+>>                 cpu = ACCESS_ONCE(rflow->cpu);
+>>                 if (rflow->filter == filter_id && cpu != RPS_NO_CPU &&
+>>                     ((int)(per_cpu(softnet_data, cpu).input_queue_head -
+>> --
+>> 2.1.0.rc2.206.gedb03e5
+>>
+>
+>
+>
+> --
+> Andy Lutomirski
+> AMA Capital Management, LLC
