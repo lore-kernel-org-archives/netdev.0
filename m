@@ -1,57 +1,87 @@
-From: Joe Stringer <joestringer@nicira.com>
-Subject: Re: [PATCH net 2/5] i40e: Implement ndo_gso_check()
-Date: Thu, 20 Nov 2014 11:16:03 -0800
-Message-ID: <201411201116.04406.joestringer@nicira.com>
-References: <1415138202-1197-1-git-send-email-joestringer@nicira.com> <1415138202-1197-3-git-send-email-joestringer@nicira.com> <CAEP_g=8rbJF5z92LV_c14KooU=i3x=9WpikocctcEUOdw5-oLA@mail.gmail.com>
+From: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>
+Subject: i40e/i40e_ethtool.c weirdness?
+Date: Thu, 20 Nov 2014 14:21:47 -0500
+Message-ID: <51793.1416511307@turing-police.cc.vt.edu>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="utf-8"
+Content-Type: multipart/signed; boundary="==_Exmh_1416511307_39511P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	linux.nics@intel.com, Tom Herbert <therbert@google.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+Cc: Catherine Sullivan <catherine.sullivan@intel.com>,
 	Shannon Nelson <shannon.nelson@intel.com>,
-	jesse.brandeburg@intel.com
-To: Jesse Gross <jesse@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog132.obsmtp.com ([74.125.149.250]:43675 "HELO
-	na3sys009aog132.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1757829AbaKTTQI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2014 14:16:08 -0500
-Received: by mail-pd0-f169.google.com with SMTP id fp1so3581446pdb.28
-        for <netdev@vger.kernel.org>; Thu, 20 Nov 2014 11:16:08 -0800 (PST)
-In-Reply-To: <CAEP_g=8rbJF5z92LV_c14KooU=i3x=9WpikocctcEUOdw5-oLA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Mitch Williams <mitch.a.williams@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tuesday, November 04, 2014 15:45:22 Jesse Gross wrote:
-> On Tue, Nov 4, 2014 at 1:56 PM, Joe Stringer <joestringer@nicira.com> wrote:
-> > diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c
-> > b/drivers/net/ethernet/intel/i40e/i40e_main.c index c3a7f4a..21829b5
-> > 100644
-> > --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-> > +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-> > +static bool i40e_gso_check(struct sk_buff *skb, struct net_device *dev)
-> > +{
-> > +       if ((skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL) &&
-> > +           (skb->inner_protocol_type != ENCAP_TYPE_ETHER ||
-> > +            skb->inner_protocol != htons(ETH_P_TEB) ||
-> > +            skb_inner_mac_header(skb) - skb_transport_header(skb) > 64))
-> > +               return false;
-> 
-> I think it may be possible to even support a few more things here.
-> According to the datasheet here:
-> http://www.intel.com/content/dam/www/public/us/en/documents/datasheets/xl71
-> 0-10-40-controller-datasheet.pdf
-> 
-> This can actually support 64 bytes beyond the tunnel header, which
-> would make for a total of 80 bytes. It looks like it can also support
-> IPv4 or IPv6 beyond just Ethernet as the encapsulated protocol.
-> 
-> Intel guys, can you confirm that this is correct?
+--==_Exmh_1416511307_39511P
+Content-Type: text/plain; charset=us-ascii
 
-I'm just respinning this for v4/6 beyond GRE/UDP tunnel and IPIP, and I found 
-the description of max protocol parsing size of 480B (with individual header 
-limit of 255B). I couldn't find where you get this 64/80 number or which 
-headers it maps to. Could you (or one of the intel guys) expand on this?
+(spotted while looking at a 'git bisect visualize' for something else)
+
+After this commit:
+
+Author: Mitch Williams <mitch.a.williams@intel.com>  2014-09-13 03:40:47
+Committer: Jeff Kirsher <jeffrey.t.kirsher@intel.com>  2014-10-23 23:38:04
+
+    i40e: Add 10GBaseT support
+
+    Add driver support for 10GBaseT device.
+
+we have the following chunk of code in i40e_ethtool.c:
+
+        case I40E_PHY_TYPE_10GBASE_SFPP_CU:
+                ecmd->supported = SUPPORTED_10000baseT_Full;
+                break;
+        case I40E_PHY_TYPE_1000BASE_KX:
+        case I40E_PHY_TYPE_1000BASE_T:
+                ecmd->supported = SUPPORTED_Autoneg |
+                                  SUPPORTED_10000baseT_Full |
+                                  SUPPORTED_1000baseT_Full |
+                                  SUPPORTED_100baseT_Full;
+                ecmd->advertising = ADVERTISED_Autoneg |
+                                    ADVERTISED_10000baseT_Full |
+                                    ADVERTISED_1000baseT_Full |
+                                    ADVERTISED_100baseT_Full;
+                break;
+        case I40E_PHY_TYPE_100BASE_TX:
+                ecmd->supported = SUPPORTED_Autoneg |
+                                  SUPPORTED_10000baseT_Full |
+                                  SUPPORTED_1000baseT_Full |
+                                  SUPPORTED_100baseT_Full;
+                ecmd->advertising = ADVERTISED_Autoneg |
+                                    ADVERTISED_10000baseT_Full |
+                                    ADVERTISED_1000baseT_Full |
+                                    ADVERTISED_100baseT_Full;
+                break;
+        case I40E_PHY_TYPE_SGMII:
+                ecmd->supported = SUPPORTED_Autoneg |
+
+I'm confused by the fact that 2 cases that by name are 100M and 1G parts
+got bits saying that 10G is "supported" - was that intentional?
+
+
+--==_Exmh_1416511307_39511P
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+Comment: Exmh version 2.5 07/13/2001
+
+iQIVAwUBVG4/SwdmEQWDXROgAQLgjQ/+L2qhxanGR07/AnEpt6AgcW5jTmlYe7A1
+24yIsR/BSsQBhnY2Du7OmlP5BFfMRONU+gEpVRha+ydhNyhJdfBFgy/9hWjATH/M
+Zu/C2H74shG7aXS8LsuOpgPOXndgMukYtwsBNCH/5h7I8ndVbjBGIUbcmd0auA5K
+lCT7JTrUX4m+QQzyuR06Irwl+XcyhVTuqtjWmtWBmjVqVeMJ4rJG4eoZCHd0FT/c
+AE6C+CoaesLQ2cM5QAQX8HInuHBFdT7dllHe3SumjiBzkUKkr2QWWUDIzc0FJXTe
+Qs8fizKEgobqZ9IeMpnoXY32hKzrQGon4yLERGZX+VOMHZKqIKimVZ38ujpvfvib
+9ocX8oWYdeCfyLgZy5TZag7oqjctMA/TIcfvWuu7A1XSMJsgMU7nZXRiBm5GUV56
+qJm1t1/l3pbEhKN9YxKJJPoeH/BufnFkgo6zNuMacg8foSwtfhY8HZFBHNf2fDgP
+Z7BB54e/v+0ZzZd8NZ8btYdfpAsJtqNPws97vASHO+EH2lAKWiNxFbcsM8BcG18M
+GjBBhE/mi/dL4dkLEtebBoIQ67kfkw5Hg/xCDaB8lZ3+t2x3FPTC5hofQty6q5a8
+px7SY8wF7IXWWeEjEr4XE+MVO37+uW0UZRHzgdqnKTkVT64NnKbx7QCheQ1fCgD9
+mRi6ms7KPms=
+=oct8
+-----END PGP SIGNATURE-----
+
+--==_Exmh_1416511307_39511P--
