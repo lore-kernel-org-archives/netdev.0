@@ -1,31 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Query about Dynamic Right Sizing implementation in linux-kernel
-Date: Thu, 20 Nov 2014 00:15:23 -0800
-Message-ID: <1416471323.8629.16.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1264093102.132748.1416470440737.JavaMail.root@mail.cse.iitm.ac.in>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: mlx4: don't duplicate kvfree()
+Date: Thu, 20 Nov 2014 08:15:38 +0000
+Message-ID: <20141120081538.GJ7996@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: cprasad@cse.iitm.ac.in
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f177.google.com ([209.85.213.177]:43372 "EHLO
-	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755069AbaKTIPZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2014 03:15:25 -0500
-Received: by mail-ig0-f177.google.com with SMTP id uq10so2404460igb.16
-        for <netdev@vger.kernel.org>; Thu, 20 Nov 2014 00:15:25 -0800 (PST)
-In-Reply-To: <1264093102.132748.1416470440737.JavaMail.root@mail.cse.iitm.ac.in>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Amir Vadai <amirv@mellanox.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2014-11-20 at 13:30 +0530, cprasad@cse.iitm.ac.in wrote:
-> Hi,
-> 
-> Could you please tell how can i get access to the logs prior to Linux-2.6.12-rc2. I had already gone through the git logs. This was the last line in the logs. 
+Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+---
 
-I did a Google search with "linux git history"
-
-And found this :
-
-https://archive.org/details/git-history-of-linux
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mr.c b/drivers/net/ethernet/mellanox/mlx4/mr.c
+index 193a6ad..d6f5496 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mr.c
++++ b/drivers/net/ethernet/mellanox/mlx4/mr.c
+@@ -130,10 +130,7 @@ static int mlx4_buddy_init(struct mlx4_buddy *buddy, int max_order)
+ 
+ err_out_free:
+ 	for (i = 0; i <= buddy->max_order; ++i)
+-		if (buddy->bits[i] && is_vmalloc_addr(buddy->bits[i]))
+-			vfree(buddy->bits[i]);
+-		else
+-			kfree(buddy->bits[i]);
++		kvfree(buddy->bits[i]);
+ 
+ err_out:
+ 	kfree(buddy->bits);
+@@ -147,10 +144,7 @@ static void mlx4_buddy_cleanup(struct mlx4_buddy *buddy)
+ 	int i;
+ 
+ 	for (i = 0; i <= buddy->max_order; ++i)
+-		if (is_vmalloc_addr(buddy->bits[i]))
+-			vfree(buddy->bits[i]);
+-		else
+-			kfree(buddy->bits[i]);
++		kvfree(buddy->bits[i]);
+ 
+ 	kfree(buddy->bits);
+ 	kfree(buddy->num_free);
