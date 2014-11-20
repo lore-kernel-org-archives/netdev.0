@@ -1,89 +1,54 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Subject: Re: [PATCH net-next 3/4] igb: enable internal PPS for the i210.
-Date: Thu, 20 Nov 2014 21:28:26 +0000
-Message-ID: <1416518906.21611.8.camel@jekeller-desk1.amr.corp.intel.com>
-References: <cover.1416265321.git.richardcochran@gmail.com>
-	 <e5b4ef7c56119e2d86e42f5680b1b82c9ec1a38e.1416265321.git.richardcochran@gmail.com>
-	 <20141119063724.GB4109@localhost.localdomain>
-	 <1416425553.15933.32.camel@jekeller-desk1.amr.corp.intel.com>
-	 <20141119202604.GA22213@localhost.localdomain>
-	 <1416431178.15933.38.camel@jekeller-desk1.amr.corp.intel.com>
-	 <20141120091804.GA4587@localhost.localdomain>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: [RFC] net: ipv4: drop unicast encapsulated in L2 multicast
+Date: Thu, 20 Nov 2014 22:31:14 +0100
+Message-ID: <1416519074.8557.15.camel@sipsolutions.net>
+References: <1408641747-22199-1-git-send-email-johannes@sipsolutions.net>
+	 <alpine.LFD.2.11.1408212119510.1896@ja.home.ssi.bg>
+	 <20140822.105405.1982870131653082781.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Vick, Matthew" <matthew.vick@intel.com>
-To: "richardcochran@gmail.com" <richardcochran@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:18574 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758182AbaKTV3N (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Nov 2014 16:29:13 -0500
-In-Reply-To: <20141120091804.GA4587@localhost.localdomain>
-Content-Language: en-US
-Content-ID: <89892A2B99843041BDE40567D731755B@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: ja-FgGsKACvmQM@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20140822.105405.1982870131653082781.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-T24gVGh1LCAyMDE0LTExLTIwIGF0IDEwOjE4ICswMTAwLCBSaWNoYXJkIENvY2hyYW4gd3JvdGU6
-DQo+IE9uIFdlZCwgTm92IDE5LCAyMDE0IGF0IDA5OjA2OjE5UE0gKzAwMDAsIEtlbGxlciwgSmFj
-b2IgRSB3cm90ZToNCj4gPiBPbiBXZWQsIDIwMTQtMTEtMTkgYXQgMjE6MjYgKzAxMDAsIFJpY2hh
-cmQgQ29jaHJhbiB3cm90ZToNCj4gPiA+IE9uIFdlZCwgTm92IDE5LCAyMDE0IGF0IDA3OjMyOjMz
-UE0gKzAwMDAsIEtlbGxlciwgSmFjb2IgRSB3cm90ZToNCj4gPiA+ID4gR29vZCBjYXRjaCA6KQ0K
-PiANCj4gSSBoYXZlIG5vdCBiZWVuIGFibGUgdG8gcmVwcm9kdWNlIHRoZSBjcmFzaCwgYW5kIHNv
-IHRoZSBjYXVzZSBpcyBub3QNCj4gd2hhdCBJIHRob3VnaHQgaXQgd2FzLiBNYXliZSBpdCB3YXMg
-bXkgcGF0Y2ggdGhhdCBwcmVzZXJ2ZWQgdGhlDQo+IGVuYWJsZWQgaW50ZXJydXB0cyBpbiBpZ2Jf
-cHRwX3Jlc2V0KCkuIEkgZGlkbid0IG5vdGljZSB0aGF0IHRoZSBkcml2ZXINCj4gZnJlZXMgYW5k
-IHJlYWxsb2NhdGVzIHRoZSBwdHBfY2xvY2suIEkgd291bGQgbmV2ZXIgZG8gdGhhdCwgbXlzZWxm
-Lg0KPiANCg0KWWVhLCBJIHRoaW5rIHRoYXQgd2FzIGEgZGVzaWduIEkgdHJpZWQgaW4gdGhlIGl4
-Z2JlIGRyaXZlciwgYnV0IGl0DQpyZWFsbHkgaXNuJ3QgZ29vZC4NCg0KPiA+IEkgdGhpbmsgeW91
-IG5lZWQgc29tZXRoaW5nIGhlcmUsIGJ1dCBpdCBzaG91bGQgYmUgY2xlYXJpbmcgdGhhdCByZWdp
-c3Rlcg0KPiA+IGFmdGVyIGEgTUFDIHJlc2V0LCBzbyBpdCBuZWVkcyB0byBiZSByZS1pbml0aWFs
-aXplZC4gSSdtIG5vdCBzdXJlIGlmDQo+ID4gdGhhdCByZXNldCBwYXRoIHdhcyB1c2VkIGluIHRo
-ZSBzYW1lIHBsYWNlIGluIHRoZSBwYXN0Lg0KPiANCj4gT2theSwgbGV0cyBmaWd1cmUgdGhpcyBv
-dXQuIFdoeSBpcyB0aGVyZSBhIFBUUCByZXNldCBmdW5jdGlvbiBhdCBhbGw/DQo+IEkgZG9uJ3Qg
-a25vdywgbGV0cyBzZWUgd2hvIGNhbGxzIGl0Li4uDQo+IA0KPiAgIEZpbmRpbmcgZnVuY3Rpb25z
-IGNhbGxpbmc6IGlnYl9wdHBfcmVzZXQNCj4gICAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tDQo+ICAgKioqIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2lnYi9pZ2Jf
-bWFpbi5jOg0KPiAgIGlnYl9yZXNldFsyMDMzXSAgICAgICAgICAgICAgICBpZ2JfcHRwX3Jlc2V0
-KGFkYXB0ZXIpOw0KPiANCj4gRWFzeSBlbm91Z2ggdG8gdW5kZXJzdGFuZC4gQnV0IHdobyBpcyBj
-YWxsaW5nIGlnYl9yZXNldD8NCj4gDQo+ICAgRmluZGluZyBmdW5jdGlvbnMgY2FsbGluZzogaWdi
-X3Jlc2V0DQo+ICAgLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tDQo+ICAgKioq
-IGRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2lnYi9pZ2JfZXRodG9vbC5jOg0KPiAgIGlnYl9z
-ZXRfc2V0dGluZ3NbMzQ1XSAgICAgICAgICBpZ2JfcmVzZXQoYWRhcHRlcik7DQo+ICAgaWdiX3Nl
-dF9wYXVzZXBhcmFtWzQwOV0gICAgICAgIGlnYl9yZXNldChhZGFwdGVyKTsNCj4gICBpZ2JfZGlh
-Z190ZXN0WzIwMTZdICAgICAgICAgICAgaWdiX3Jlc2V0KGFkYXB0ZXIpOw0KPiAgIGlnYl9zZXRf
-ZWVlWzI3MjldICAgICAgICAgICAgICBpZ2JfcmVzZXQoYWRhcHRlcik7DQo+ICAgKioqIGRyaXZl
-cnMvbmV0L2V0aGVybmV0L2ludGVsL2lnYi9pZ2JfbWFpbi5jOg0KPiAgIGlnYl9kb3duWzE4MTRd
-ICAgICAgICAgICAgICAgICBpZ2JfcmVzZXQoYWRhcHRlcik7DQo+ICAgaWdiX3NldF9mZWF0dXJl
-c1syMDY5XSAgICAgICAgIGlnYl9yZXNldChhZGFwdGVyKTsNCj4gICBpZ2JfcHJvYmVbMjUyNl0g
-ICAgICAgICAgICAgICAgaWdiX3Jlc2V0KGFkYXB0ZXIpOw0KPiAgIF9faWdiX29wZW5bMzExMF0g
-ICAgICAgICAgICAgICBpZ2JfcmVzZXQoYWRhcHRlcik7DQo+ICAgaWdiX3dhdGNoZG9nX3Rhc2tb
-NDIzMV0gICAgICAgIGlnYl9yZXNldChhZGFwdGVyKTsNCj4gICBpZ2JfY2hhbmdlX210dVs1MTg5
-XSAgICAgICAgICAgaWdiX3Jlc2V0KGFkYXB0ZXIpOw0KPiAgIGlnYl9yZXN1bWVbNzQ2MF0gICAg
-ICAgICAgICAgICBpZ2JfcmVzZXQoYWRhcHRlcik7DQo+ICAgaWdiX3NyaW92X3JlaW5pdFs3NTQ1
-XSAgICAgICAgIGlnYl9yZXNldChhZGFwdGVyKTsNCj4gICBpZ2JfaW9fc2xvdF9yZXNldFs3Njc4
-XSAgICAgICAgaWdiX3Jlc2V0KGFkYXB0ZXIpOw0KPiANCj4gV293LCB0aGF0IGlzIHF1aXRlIG11
-Y2guIFNvLCB3aGVuZXZlciBhbnkgcmFuZG9tIHBhcmFtZXRlciBpcyBjaGFuZ2VkLA0KPiB3ZSBy
-ZXNldCB0aGUgUFRQIGNsb2NrLiBHcmVhdC4NCg0KSGVyZSBpcyB0aGUgcHJvYmxlbS4gSW4gaWdi
-X3Jlc2V0LCB3ZSBjYWxsIGUxMDAwX3Jlc2V0X2h3KCkgd2hpY2ggd2lsbA0KZXZlbnR1YWxseSBw
-ZXJmb3JtIGEgaGFyZHdhcmUgTUFDIHJlc2V0LiBZZXMgbWF5YmUgd2Ugc2hvdWxkbid0IGJlDQpj
-YWxsaW5nIGlnYl9yZXNldCBldmVyeXdoZXJlLi4gSSBjYW5ub3QgYW5zd2VyIHRoYXQsIGhvd2V2
-ZXIuLi4NCg0KPiANCj4gUmVhbGx5LCB3b3VsZG4ndCBiZXR0ZXIgdG8gcmVzZXQgdGhlIGNsb2Nr
-IGZ1bmN0aW9ucyBvbmx5IHdoZW4NCj4gYWJzb2x1dGVseSBuZWNlc3Nhcnk/DQo+IA0KDQpXZSAq
-YXJlKi4gSWYgZTEwMDBfcmVzZXRfaHcoaHcpIGlzIGNhbGxlZCwgdGhlIE1BQyByZWdpc3RlcnMg
-d2lsbCBiZQ0KcmVzZXQgdG8gdGhlaXIgaW5pdGlhbCB2YWx1ZXMsIHdoaWNoIGluY2x1ZGVzIG5v
-dCBoYXZpbmcgU1lTVElNRSBzZXR1cCwNCmFuZCBub3QgaGF2aW5nIHRoZSBvdXRwdXRzIGNvbmZp
-Z3VyZWQuIFRoZXJlIGlzIG5vdCBtdWNoIHRoYXQgY2FuIGJlDQpkb25lIHRvIGF2b2lkIHRoYXQg
-YmVzaWRlcyBtYWpvciByZWZhY3RvcmluZyBvZiB0aGUgaWdiIGRyaXZlciB0byBhdm9pZA0KcmVz
-ZXR0aW5nIGFzIG11Y2ggYXMgaXQgZG9lcy4gSW4gbW9zdCBvZiB0aG9zZSBjYXNlcywgSSB0aGlu
-ayB0aGUgcmVzZXQNCmlzIGZpbmUsIGFuZCB3ZSBhY3R1YWxseSBhcmVuJ3QgZ29pbmcgdG8gcmVz
-ZXQgdGhhdCBtYW55IHRpbWVzIGR1cmluZw0Kbm9taW5hbCBvcGVyYXRpb24uDQoNClNvbWUgb2Yg
-dGhlIGV0aHRvb2wgc2V0dGluZ3MgbWF5YmUgY291bGQgYXZvaWQgcmVzZXRzLCBidXQgSSBhbSBu
-b3QNCmNlcnRhaW4gZHVyaW5nIGV4YWN0bHkgd2hpY2ggcGF0aCB0aGV5IGVuZCB1cCBjYWxsaW5n
-IHJlc2V0cy4NCg0KUmVnYXJkcywNCkpha2UNCg0KPiBUaGFua3MsDQo+IFJpY2hhcmQNCg0KDQo=
+On Fri, 2014-08-22 at 10:54 -0700, David Miller wrote:
+
+> >>  	if (res.type == RTN_BROADCAST)
+> >>  		goto brd_input;
+> > 
+> > 	Is this place better, after checking for RTN_BROADCAST?
+> > 
+> > 	/* ARP link-layer broadcasts are acceptable here */
+> > 	if ((skb->pkt_type == PACKET_BROADCAST ||
+> > 	     skb->pkt_type == PACKET_MULTICAST) &&
+> > 	    skb->protocol == htons(ETH_P_IP))
+> > 		goto e_inval;
+> 
+> Indeed, this would make ARP happier, but that still leaves open the
+> issue of CLUSTERIP.
+
+I'm back looking at this, but must admit I'm completely confused now :-)
+
+I could add an IPv4 sysctl to control this behaviour:
+  0 - off
+  1 - RFC 1122 "SHOULD"
+  2 - also drop unicast-in-multicast (for wireless)
+
+But I guess due to cluster-IP it would have to default to 0.
+
+
+However, talk about ip_local_deliver_finish() in this thread has me
+wondering if we could just implement it using iptables? I guess
+ipt_addrtype and ip6t_addrtype would let me do that?
+
+johannes
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
