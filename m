@@ -1,7 +1,8 @@
 From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next v1 5/8] amd-xgbe: Add BQL support
-Date: Thu, 20 Nov 2014 11:03:50 -0600
-Message-ID: <20141120170350.15397.41042.stgit@tlendack-t1.amdoffice.net>
+Subject: [PATCH net-next v1 4/8] amd-xgbe: Separate Tx/Rx ring data fields
+ into new structs
+Date: Thu, 20 Nov 2014 11:03:44 -0600
+Message-ID: <20141120170344.15397.21644.stgit@tlendack-t1.amdoffice.net>
 References: <20141120170320.15397.10583.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -9,194 +10,240 @@ Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bn0106.outbound.protection.outlook.com ([157.56.110.106]:28192
+Received: from mail-bn1on0119.outbound.protection.outlook.com ([157.56.110.119]:50912
 	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1758000AbaKTRDz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Nov 2014 12:03:55 -0500
+	id S1758000AbaKTRDw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Nov 2014 12:03:52 -0500
 In-Reply-To: <20141120170320.15397.10583.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Call the appropriate BQL functions to track the number of bytes queued
-during Tx processing and to track the number of packets and bytes
-that have been transmitted during Tx complete processing.
+Move the Tx and Rx related fields within the xgbe_ring_data struct into
+their own structs in order to more easily see what fields are used for
+each operation.
 
 Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 ---
- drivers/net/ethernet/amd/xgbe/xgbe-dev.c |    4 +++
- drivers/net/ethernet/amd/xgbe/xgbe-drv.c |   43 +++++++++++++++++++++++++++++-
- drivers/net/ethernet/amd/xgbe/xgbe.h     |    5 +++
- 3 files changed, 51 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/amd/xgbe/xgbe-desc.c |   36 ++++++++++++++---------------
+ drivers/net/ethernet/amd/xgbe/xgbe-dev.c  |   14 ++++++-----
+ drivers/net/ethernet/amd/xgbe/xgbe-drv.c  |   28 +++++++++++------------
+ drivers/net/ethernet/amd/xgbe/xgbe.h      |   22 +++++++++++++-----
+ 4 files changed, 54 insertions(+), 46 deletions(-)
 
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-desc.c b/drivers/net/ethernet/amd/xgbe/xgbe-desc.c
+index e6b9f54..3c7c386 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-desc.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-desc.c
+@@ -335,11 +335,11 @@ static int xgbe_map_rx_buffer(struct xgbe_prv_data *pdata,
+ 	}
+ 
+ 	/* Set up the header page info */
+-	xgbe_set_buffer_data(&rdata->rx_hdr, &ring->rx_hdr_pa,
++	xgbe_set_buffer_data(&rdata->rx.hdr, &ring->rx_hdr_pa,
+ 			     XGBE_SKB_ALLOC_SIZE);
+ 
+ 	/* Set up the buffer page info */
+-	xgbe_set_buffer_data(&rdata->rx_buf, &ring->rx_buf_pa,
++	xgbe_set_buffer_data(&rdata->rx.buf, &ring->rx_buf_pa,
+ 			     pdata->rx_buf_size);
+ 
+ 	return 0;
+@@ -451,31 +451,29 @@ static void xgbe_unmap_rdata(struct xgbe_prv_data *pdata,
+ 		rdata->skb = NULL;
+ 	}
+ 
+-	if (rdata->rx_hdr.pa.pages)
+-		put_page(rdata->rx_hdr.pa.pages);
++	if (rdata->rx.hdr.pa.pages)
++		put_page(rdata->rx.hdr.pa.pages);
+ 
+-	if (rdata->rx_hdr.pa_unmap.pages) {
+-		dma_unmap_page(pdata->dev, rdata->rx_hdr.pa_unmap.pages_dma,
+-			       rdata->rx_hdr.pa_unmap.pages_len,
++	if (rdata->rx.hdr.pa_unmap.pages) {
++		dma_unmap_page(pdata->dev, rdata->rx.hdr.pa_unmap.pages_dma,
++			       rdata->rx.hdr.pa_unmap.pages_len,
+ 			       DMA_FROM_DEVICE);
+-		put_page(rdata->rx_hdr.pa_unmap.pages);
++		put_page(rdata->rx.hdr.pa_unmap.pages);
+ 	}
+ 
+-	if (rdata->rx_buf.pa.pages)
+-		put_page(rdata->rx_buf.pa.pages);
++	if (rdata->rx.buf.pa.pages)
++		put_page(rdata->rx.buf.pa.pages);
+ 
+-	if (rdata->rx_buf.pa_unmap.pages) {
+-		dma_unmap_page(pdata->dev, rdata->rx_buf.pa_unmap.pages_dma,
+-			       rdata->rx_buf.pa_unmap.pages_len,
++	if (rdata->rx.buf.pa_unmap.pages) {
++		dma_unmap_page(pdata->dev, rdata->rx.buf.pa_unmap.pages_dma,
++			       rdata->rx.buf.pa_unmap.pages_len,
+ 			       DMA_FROM_DEVICE);
+-		put_page(rdata->rx_buf.pa_unmap.pages);
++		put_page(rdata->rx.buf.pa_unmap.pages);
+ 	}
+ 
+-	memset(&rdata->rx_hdr, 0, sizeof(rdata->rx_hdr));
+-	memset(&rdata->rx_buf, 0, sizeof(rdata->rx_buf));
++	memset(&rdata->tx, 0, sizeof(rdata->tx));
++	memset(&rdata->rx, 0, sizeof(rdata->rx));
+ 
+-	rdata->tso_header = 0;
+-	rdata->len = 0;
+ 	rdata->interrupt = 0;
+ 	rdata->mapped_as_page = 0;
+ 
+@@ -534,7 +532,7 @@ static int xgbe_map_tx_skb(struct xgbe_channel *channel, struct sk_buff *skb)
+ 		}
+ 		rdata->skb_dma = skb_dma;
+ 		rdata->skb_dma_len = packet->header_len;
+-		rdata->tso_header = 1;
++		rdata->tx.tso_header = 1;
+ 
+ 		offset = packet->header_len;
+ 
 diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-index 2908ad1..78db5a6 100644
+index 72425ff..2908ad1 100644
 --- a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
 +++ b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-@@ -1500,6 +1500,10 @@ static void xgbe_dev_xmit(struct xgbe_channel *channel)
- 	/* Set LAST bit for the last descriptor */
- 	XGMAC_SET_BITS_LE(rdesc->desc3, TX_NORMAL_DESC3, LD, 1);
+@@ -1085,10 +1085,10 @@ static void xgbe_rx_desc_reset(struct xgbe_ring_data *rdata)
+ 	 *   Set buffer 2 (hi) address to buffer dma address (hi) and
+ 	 *     set control bits OWN and INTE
+ 	 */
+-	rdesc->desc0 = cpu_to_le32(lower_32_bits(rdata->rx_hdr.dma));
+-	rdesc->desc1 = cpu_to_le32(upper_32_bits(rdata->rx_hdr.dma));
+-	rdesc->desc2 = cpu_to_le32(lower_32_bits(rdata->rx_buf.dma));
+-	rdesc->desc3 = cpu_to_le32(upper_32_bits(rdata->rx_buf.dma));
++	rdesc->desc0 = cpu_to_le32(lower_32_bits(rdata->rx.hdr.dma));
++	rdesc->desc1 = cpu_to_le32(upper_32_bits(rdata->rx.hdr.dma));
++	rdesc->desc2 = cpu_to_le32(lower_32_bits(rdata->rx.buf.dma));
++	rdesc->desc3 = cpu_to_le32(upper_32_bits(rdata->rx.buf.dma));
  
-+	/* Save the Tx info to report back during cleanup */
-+	rdata->tx.packets = packet->tx_packets;
-+	rdata->tx.bytes = packet->tx_bytes;
-+
- 	/* In case the Tx DMA engine is running, make sure everything
- 	 * is written to the descriptor(s) before setting the OWN bit
- 	 * for the first descriptor
+ 	XGMAC_SET_BITS_LE(rdesc->desc3, RX_NORMAL_DESC3, INTE,
+ 			  rdata->interrupt ? 1 : 0);
+@@ -1586,8 +1586,8 @@ static int xgbe_dev_read(struct xgbe_channel *channel)
+ 
+ 	/* Get the header length */
+ 	if (XGMAC_GET_BITS_LE(rdesc->desc3, RX_NORMAL_DESC3, FD))
+-		rdata->hdr_len = XGMAC_GET_BITS_LE(rdesc->desc2,
+-						   RX_NORMAL_DESC2, HL);
++		rdata->rx.hdr_len = XGMAC_GET_BITS_LE(rdesc->desc2,
++						      RX_NORMAL_DESC2, HL);
+ 
+ 	/* Get the RSS hash */
+ 	if (XGMAC_GET_BITS_LE(rdesc->desc3, RX_NORMAL_DESC3, RSV)) {
+@@ -1610,7 +1610,7 @@ static int xgbe_dev_read(struct xgbe_channel *channel)
+ 	}
+ 
+ 	/* Get the packet length */
+-	rdata->len = XGMAC_GET_BITS_LE(rdesc->desc3, RX_NORMAL_DESC3, PL);
++	rdata->rx.len = XGMAC_GET_BITS_LE(rdesc->desc3, RX_NORMAL_DESC3, PL);
+ 
+ 	if (!XGMAC_GET_BITS_LE(rdesc->desc3, RX_NORMAL_DESC3, LD)) {
+ 		/* Not all the data has been transferred for this packet */
 diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-index 46ea423..f963528 100644
+index eebb787..46ea423 100644
 --- a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
 +++ b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-@@ -876,7 +876,10 @@ static int xgbe_start(struct xgbe_prv_data *pdata)
- static void xgbe_stop(struct xgbe_prv_data *pdata)
- {
- 	struct xgbe_hw_if *hw_if = &pdata->hw_if;
-+	struct xgbe_channel *channel;
- 	struct net_device *netdev = pdata->netdev;
-+	struct netdev_queue *txq;
-+	unsigned int i;
+@@ -1747,14 +1747,14 @@ static struct sk_buff *xgbe_create_skb(struct xgbe_prv_data *pdata,
+ 	u8 *packet;
+ 	unsigned int copy_len;
  
- 	DBGPR("-->xgbe_stop\n");
+-	skb = netdev_alloc_skb_ip_align(netdev, rdata->rx_hdr.dma_len);
++	skb = netdev_alloc_skb_ip_align(netdev, rdata->rx.hdr.dma_len);
+ 	if (!skb)
+ 		return NULL;
  
-@@ -890,6 +893,15 @@ static void xgbe_stop(struct xgbe_prv_data *pdata)
- 	hw_if->disable_tx(pdata);
- 	hw_if->disable_rx(pdata);
+-	packet = page_address(rdata->rx_hdr.pa.pages) +
+-		 rdata->rx_hdr.pa.pages_offset;
+-	copy_len = (rdata->hdr_len) ? rdata->hdr_len : *len;
+-	copy_len = min(rdata->rx_hdr.dma_len, copy_len);
++	packet = page_address(rdata->rx.hdr.pa.pages) +
++		 rdata->rx.hdr.pa.pages_offset;
++	copy_len = (rdata->rx.hdr_len) ? rdata->rx.hdr_len : *len;
++	copy_len = min(rdata->rx.hdr.dma_len, copy_len);
+ 	skb_copy_to_linear_data(skb, packet, copy_len);
+ 	skb_put(skb, copy_len);
  
-+	channel = pdata->channel;
-+	for (i = 0; i < pdata->channel_count; i++, channel++) {
-+		if (!channel->tx_ring)
-+			continue;
-+
-+		txq = netdev_get_tx_queue(netdev, channel->queue_index);
-+		netdev_tx_reset_queue(txq);
-+	}
-+
- 	DBGPR("<--xgbe_stop\n");
- }
+@@ -1900,13 +1900,13 @@ read_again:
+ 		}
  
-@@ -1156,6 +1168,12 @@ static int xgbe_prep_tso(struct sk_buff *skb, struct xgbe_packet_data *packet)
- 	      packet->tcp_header_len, packet->tcp_payload_len);
- 	DBGPR("  packet->mss=%u\n", packet->mss);
+ 		if (!context) {
+-			put_len = rdata->len - len;
++			put_len = rdata->rx.len - len;
+ 			len += put_len;
  
-+	/* Update the number of packets that will ultimately be transmitted
-+	 * along with the extra bytes for each extra packet
-+	 */
-+	packet->tx_packets = skb_shinfo(skb)->gso_segs;
-+	packet->tx_bytes += (packet->tx_packets - 1) * packet->header_len;
-+
- 	return 0;
- }
+ 			if (!skb) {
+ 				dma_sync_single_for_cpu(pdata->dev,
+-							rdata->rx_hdr.dma,
+-							rdata->rx_hdr.dma_len,
++							rdata->rx.hdr.dma,
++							rdata->rx.hdr.dma_len,
+ 							DMA_FROM_DEVICE);
  
-@@ -1184,6 +1202,9 @@ static void xgbe_packet_info(struct xgbe_prv_data *pdata,
- 	context_desc = 0;
- 	packet->rdesc_count = 0;
+ 				skb = xgbe_create_skb(pdata, rdata, &put_len);
+@@ -1918,15 +1918,15 @@ read_again:
  
-+	packet->tx_packets = 1;
-+	packet->tx_bytes = skb->len;
-+
- 	if (xgbe_is_tso(skb)) {
- 		/* TSO requires an extra descriptor if mss is different */
- 		if (skb_shinfo(skb)->gso_size != ring->tx.cur_mss) {
-@@ -1400,12 +1421,14 @@ static int xgbe_xmit(struct sk_buff *skb, struct net_device *netdev)
- 	struct xgbe_channel *channel;
- 	struct xgbe_ring *ring;
- 	struct xgbe_packet_data *packet;
-+	struct netdev_queue *txq;
- 	unsigned long flags;
- 	int ret;
+ 			if (put_len) {
+ 				dma_sync_single_for_cpu(pdata->dev,
+-							rdata->rx_buf.dma,
+-							rdata->rx_buf.dma_len,
++							rdata->rx.buf.dma,
++							rdata->rx.buf.dma_len,
+ 							DMA_FROM_DEVICE);
  
- 	DBGPR("-->xgbe_xmit: skb->len = %d\n", skb->len);
+ 				skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags,
+-						rdata->rx_buf.pa.pages,
+-						rdata->rx_buf.pa.pages_offset,
+-						put_len, rdata->rx_buf.dma_len);
+-				rdata->rx_buf.pa.pages = NULL;
++						rdata->rx.buf.pa.pages,
++						rdata->rx.buf.pa.pages_offset,
++						put_len, rdata->rx.buf.dma_len);
++				rdata->rx.buf.pa.pages = NULL;
+ 			}
+ 		}
  
- 	channel = pdata->channel + skb->queue_mapping;
-+	txq = netdev_get_tx_queue(netdev, channel->queue_index);
- 	ring = channel->tx_ring;
- 	packet = &ring->packet_data;
- 
-@@ -1447,6 +1470,9 @@ static int xgbe_xmit(struct sk_buff *skb, struct net_device *netdev)
- 
- 	xgbe_prep_tx_tstamp(pdata, skb, packet);
- 
-+	/* Report on the actual number of bytes (to be) sent */
-+	netdev_tx_sent_queue(txq, packet->tx_bytes);
-+
- 	/* Configure required descriptor fields for transmission */
- 	hw_if->dev_xmit(channel);
- 
-@@ -1772,8 +1798,10 @@ static int xgbe_tx_poll(struct xgbe_channel *channel)
- 	struct xgbe_ring_data *rdata;
- 	struct xgbe_ring_desc *rdesc;
- 	struct net_device *netdev = pdata->netdev;
-+	struct netdev_queue *txq;
- 	unsigned long flags;
- 	int processed = 0;
-+	unsigned int tx_packets = 0, tx_bytes = 0;
- 
- 	DBGPR("-->xgbe_tx_poll\n");
- 
-@@ -1781,6 +1809,8 @@ static int xgbe_tx_poll(struct xgbe_channel *channel)
- 	if (!ring)
- 		return 0;
- 
-+	txq = netdev_get_tx_queue(netdev, channel->queue_index);
-+
- 	spin_lock_irqsave(&ring->lock, flags);
- 
- 	while ((processed < XGBE_TX_DESC_MAX_PROC) &&
-@@ -1799,6 +1829,11 @@ static int xgbe_tx_poll(struct xgbe_channel *channel)
- 		xgbe_dump_tx_desc(ring, ring->dirty, 1, 0);
- #endif
- 
-+		if (hw_if->is_last_desc(rdesc)) {
-+			tx_packets += rdata->tx.packets;
-+			tx_bytes += rdata->tx.bytes;
-+		}
-+
- 		/* Free the SKB and reset the descriptor for re-use */
- 		desc_if->unmap_rdata(pdata, rdata);
- 		hw_if->tx_desc_reset(rdata);
-@@ -1807,14 +1842,20 @@ static int xgbe_tx_poll(struct xgbe_channel *channel)
- 		ring->dirty++;
- 	}
- 
-+	if (!processed)
-+		goto unlock;
-+
-+	netdev_tx_completed_queue(txq, tx_packets, tx_bytes);
-+
- 	if ((ring->tx.queue_stopped == 1) &&
- 	    (xgbe_tx_avail_desc(ring) > XGBE_TX_DESC_MIN_FREE)) {
- 		ring->tx.queue_stopped = 0;
--		netif_wake_subqueue(netdev, channel->queue_index);
-+		netif_tx_wake_queue(txq);
- 	}
- 
- 	DBGPR("<--xgbe_tx_poll: processed=%d\n", processed);
- 
-+unlock:
- 	spin_unlock_irqrestore(&ring->lock, flags);
- 
- 	return processed;
 diff --git a/drivers/net/ethernet/amd/xgbe/xgbe.h b/drivers/net/ethernet/amd/xgbe/xgbe.h
-index 41ce6e3..98504f1 100644
+index 46ce544..41ce6e3 100644
 --- a/drivers/net/ethernet/amd/xgbe/xgbe.h
 +++ b/drivers/net/ethernet/amd/xgbe/xgbe.h
-@@ -243,6 +243,9 @@ struct xgbe_packet_data {
+@@ -271,6 +271,20 @@ struct xgbe_buffer_data {
+ 	unsigned int dma_len;
+ };
  
- 	u32 rss_hash;
- 	enum pkt_hash_types rss_hash_type;
++/* Tx-related ring data */
++struct xgbe_tx_ring_data {
++	unsigned int tso_header;	/* TSO header indicator */
++};
 +
-+	unsigned int tx_packets;
-+	unsigned int tx_bytes;
- };
++/* Rx-related ring data */
++struct xgbe_rx_ring_data {
++	struct xgbe_buffer_data hdr;	/* Header locations */
++	struct xgbe_buffer_data buf;	/* Payload locations */
++
++	unsigned short hdr_len;		/* Length of received header */
++	unsigned short len;		/* Length of received packet */
++};
++
+ /* Structure used to hold information related to the descriptor
+  * and the packet associated with the descriptor (always use
+  * use the XGBE_GET_DESC_DATA macro to access this data from the ring)
+@@ -282,13 +296,9 @@ struct xgbe_ring_data {
+ 	struct sk_buff *skb;		/* Virtual address of SKB */
+ 	dma_addr_t skb_dma;		/* DMA address of SKB data */
+ 	unsigned int skb_dma_len;	/* Length of SKB DMA area */
+-	unsigned int tso_header;        /* TSO header indicator */
  
- /* Common Rx and Tx descriptor mapping */
-@@ -274,6 +277,8 @@ struct xgbe_buffer_data {
- /* Tx-related ring data */
- struct xgbe_tx_ring_data {
- 	unsigned int tso_header;	/* TSO header indicator */
-+	unsigned int packets;		/* BQL packet count */
-+	unsigned int bytes;		/* BQL byte count */
- };
+-	struct xgbe_buffer_data rx_hdr;	/* Header locations */
+-	struct xgbe_buffer_data rx_buf; /* Payload locations */
+-
+-	unsigned short hdr_len;		/* Length of received header */
+-	unsigned short len;		/* Length of received Rx packet */
++	struct xgbe_tx_ring_data tx;	/* Tx-related data */
++	struct xgbe_rx_ring_data rx;	/* Rx-related data */
  
- /* Rx-related ring data */
+ 	unsigned int interrupt;		/* Interrupt indicator */
+ 
