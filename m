@@ -1,52 +1,72 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH] net: team: expose sysfs attributes for each team option
-Date: Thu, 20 Nov 2014 16:05:23 +0000
-Message-ID: <20141120160523.GB11458@casper.infradead.org>
-References: <93856491220bda9aede41a9571fb1ac1.squirrel@www.codeaurora.org>
- <20141117130201.GB1872@nanopsycho.orion>
- <03067d01f18e264b30f86d0307d11b07.squirrel@www.codeaurora.org>
- <CAHA+R7OOnSfSP1uHrg=osH=+=sb-0Zj-=yYx8HXmpO95v+Dhyg@mail.gmail.com>
- <546CECAD.1040402@redhat.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH 00/10] net: phy: add device-type abstraction
+Date: Thu, 20 Nov 2014 08:18:47 -0800
+Message-ID: <546E1467.9090607@gmail.com>
+References: <1416398363-32306-1-git-send-email-johan@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Cong Wang <cwang@twopensource.com>,
-	Hamad Kadmany <hkadmany@codeaurora.org>,
-	Jiri Pirko <jiri@resnulli.us>, netdev <netdev@vger.kernel.org>,
-	Daniel Borkmann <dborkman@redhat.com>
-To: Hamad Kadmany <hkadmany@codeaurora.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:50897 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751418AbaKTQF1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2014 11:05:27 -0500
-Content-Disposition: inline
-In-Reply-To: <546CECAD.1040402@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Bruno Thomsen <bth@kamstrup.dk>,
+	Sascha Hauer <s.hauer@pengutronix.de>,
+	Mark Rutland <mark.rutland@arm.com>
+To: Johan Hovold <johan@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1416398363-32306-1-git-send-email-johan@kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 11/19/14 at 08:17pm, Daniel Borkmann wrote:
-> On 11/19/2014 07:45 PM, Cong Wang wrote:
-> >On Wed, Nov 19, 2014 at 4:28 AM, Hamad Kadmany <hkadmany@codeaurora.org> wrote:
-> >>On Mon, November 17, 2014 1:02 pm, Jiri Pirko wrote:
-> >>>
-> >>>Nak.
-> >>>
-> >>>I don't like this patch. The plan for team was keep things simple and to
-> >>>have single userspace api using netlink, as that is the correct way to
-> >>>deal with things. Sysfs for this use-case is not. Please, use netlink api.
+On 11/19/2014 03:59 AM, Johan Hovold wrote:
+> This series adds device and device-type abstractions to the micrel
+> driver, and enables support for RMII-reference clock selection for
+> KSZ8081 and KSZ8091 devices.
 > 
-> +1
+> While adding support for more features for the Micrel PHYs mentioned
+> above, it became apparent that the configuration space is much too large
+> and that adding type-specific callbacks will simply not scale. Instead I
+> added a driver_data field to struct phy_device, which can be used to
+> store static device type data that can be parsed and acted on in
+> generic driver callbacks. This allows a lot of duplicated code to be
+> removed, and should make it much easier to add new features or deal with
+> device-type quirks in the future.
 > 
-> >>Using team driver requires using libnl3. In Android based platforms, libnl3
-> >> is not supported, and libnl3 license poses constraints in Android's user-space.
+> The series has been tested on a dual KSZ8081 setup. Further testing on
+> other Micrel PHYs would be much appreciated.
 > 
-> Constraints?! libnl3 is LGPL ...
+> The recent commit a95a18afe4c8 ("phy/micrel: KSZ8031RNL RMII clock
+> reconfiguration bug") currently prevents KSZ8031 PHYs from using the
+> generic config-init. Bruno, who is the author of that patch, has agreed
+> to test this series and some follow-up diagnostic patches to determine
+> how best to incorporate these devices as well. I intend to send a
+> follow-up patch that removes the custom 8031 config-init and documents
+> this quirk, but the current series can be applied meanwhile.
+> 
+> These patches are against net-next which contains some already merged
+> prerequisite patches to the driver.
 
-The behaviour on this particular topic is disappointing. Instead of
-working with the community and using an existing library such as
-libmnl or libnl Android chose to fork libnl3 and disregard the
-community a couple of years ago.
+LGTM, thanks Johan!
 
-The reasoning in this thread is the next episode of the same story.
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 
-Very disappointing.
+> 
+> Johan
+> 
+> 
+> Johan Hovold (10):
+>   net: phy: add static data field to struct phy_driver
+>   net: phy: micrel: add device-type abstraction
+>   net: phy: micrel: parse of nodes at probe
+>   net: phy: micrel: add has-broadcast-disable flag to type data
+>   net: phy: micrel: add generic clock-mode-select support
+>   net: phy: micrel: add support for clock-mode select to KSZ8081/KSZ8091
+>   dt/bindings: reformat micrel eth-phy documentation
+>   dt/bindings: add clock-select function property to micrel phy binding
+>   net: phy: micrel: refactor interrupt config
+>   net: phy: micrel: add copyright entry
+> 
+>  Documentation/devicetree/bindings/net/micrel.txt |  37 ++--
+>  drivers/net/phy/micrel.c                         | 262 ++++++++++++++---------
+>  include/linux/micrel_phy.h                       |   1 -
+>  include/linux/phy.h                              |   2 +
+>  4 files changed, 184 insertions(+), 118 deletions(-)
+> 
