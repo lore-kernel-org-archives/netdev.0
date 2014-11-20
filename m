@@ -1,69 +1,51 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC] situation with csum_and_copy_... API
-Date: Thu, 20 Nov 2014 14:53:55 -0800
-Message-ID: <1416524035.8629.54.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CA+55aFyQR2gOzEDROcWFcQzLvTjOxyJRjFJXJ03JB5knd-Gsgg@mail.gmail.com>
-	 <20141119.161744.1661940121298888832.davem@davemloft.net>
-	 <20141119213006.GE7996@ZenIV.linux.org.uk>
-	 <20141119.165340.2162829993279387495.davem@davemloft.net>
-	 <20141120214753.GR7996@ZenIV.linux.org.uk>
-	 <1416520542.8629.46.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20141120222506.GS7996@ZenIV.linux.org.uk>
+Subject: Re: [PATCH net-next] tcp: remove from tcp_sendmsg() some fastopen
+ code
+Date: Thu, 20 Nov 2014 15:05:00 -0800
+Message-ID: <1416524700.8629.58.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1416268176.18588.26.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1416294380.14060.6.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAK6E8=dUvde2s7VuUS9rHiA2fU0ZT2bS=ronjM+9BOA=0u-rVw@mail.gmail.com>
+	 <20141119.145741.1905980604994551607.davem@davemloft.net>
+	 <1416497628.8629.24.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1416500634.8629.31.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, torvalds@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	target-devel@vger.kernel.org,
-	"Nicholas A. Bellinger" <nab@linux-iscsi.org>,
-	Christoph Hellwig <hch@infradead.org>
-To: Al Viro <viro@ZenIV.linux.org.uk>
-Return-path: <target-devel-owner@vger.kernel.org>
-In-Reply-To: <20141120222506.GS7996@ZenIV.linux.org.uk>
-Sender: target-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: ycheng@google.com, nuclearcat@nuclearcat.com,
+	netdev@vger.kernel.org, ncardwell@google.com
+To: David Miller <davem@davemloft.net>,
+	Al Viro <viro@ZenIV.linux.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f180.google.com ([209.85.192.180]:62905 "EHLO
+	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756500AbaKTXFB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2014 18:05:01 -0500
+Received: by mail-pd0-f180.google.com with SMTP id p10so3975483pdj.11
+        for <netdev@vger.kernel.org>; Thu, 20 Nov 2014 15:05:01 -0800 (PST)
+In-Reply-To: <1416500634.8629.31.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-11-20 at 22:25 +0000, Al Viro wrote:
-
-> Yes, it is.  You are breaking several _other_ kernel_sendmsg() users.
-> They are already slightly broken, but that'll make breakage much more
-> common.
+On Thu, 2014-11-20 at 08:23 -0800, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Please, don't - the right thing to do is to have iov_iter in msghdr
-> (we already have the kernel and userland ones with different types and
-> we do not assume their layouts to be identical - currently they are,
-> but it's easy to change), keep iovec constant in all cases and advance
-> ->msg_iter.  Also in all cases.
+> If we consume iovec bytes in tcp_send_syn_data(), we can remove
+> annoying fastopen code in tcp_sendmsg() skipping over the already
+> consumed bytes.
 > 
-> Note that direct manipulations of what's currently in ->msg_iov are
-> wrong - all those loops over vector elements, etc., belong in low-level
-> primitives.  The main missing ones right now are csum_and_copy_{from,to}_iter()
-> - I have those in local queue, but I'm still trying to get a reasonably
-> clean mm/iov_iter.c without ridiculous amounts of boilerplating.  A bit more
-> massage is needed there...
+> Also add an unlikely(flags & MSG_FASTOPEN), as most TCP sendmsg() do not
+> ask for FASTOPEN.
 > 
-> Seriously, take a look at vfs.git#iov_iter-net; it's preparations for the
-> one that'll introduce ->msg_iter.  Right now that branch has local iov_iter
-> declared and initialized in several ->sendmsg() and ->recvmsg() instances and
-> fed to primitives that work with it; after the conversion it'll be in
-> msg->msg_iter and it will be initialized by sock_sendmsg()/sock_recvmsg().
+> Tested:
+>  Ran our 125 packetdrill fastopen tests
 > 
-> The tricky part is how to get through that without temporary breaking the
-> existing sendmsg/recvmsg users in the kernel *and* without a patch size from
-> hell.  I more or less see how to carve the remaining steps into
-> reasonably-sized chunks; iscsi is one of the tricky ones and it, AFAICS,
-> is genuinely broken in mainline and will need fixes that can go into -stable.
-> 
-> And no, your solution doesn't work.  Sorry.  You'll break e.g. smb_send_kvec()
-> that way.  ceph_tcp_sendmsg() as well, IIRC.
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> ---
 
-Nowhere in tcp_sendmsg() the iov had const qualifier.
+Please disregard this patch, Al Viro said sendmsg() was apparently not
+allowed to change iovec.
 
-If it was declared as const, this discussion would not happen,
-we would know we are not allowed to modify it.
+Some callers depend on it staying constant.
 
-iov_iter is nice, but not a single time it is used in net/ 
-
-Please make sure to add const where appropriate.
-
-Thanks.
+Not clear why memcpy_fromiovec() even exists.
