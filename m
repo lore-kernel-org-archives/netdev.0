@@ -1,67 +1,81 @@
-From: Sascha Hauer <s.hauer@pengutronix.de>
-Subject: Re: [PATCH 08/10] dt/bindings: add clock-select function property to
- micrel phy binding
-Date: Thu, 20 Nov 2014 10:08:40 +0100
-Message-ID: <20141120090840.GI30369@pengutronix.de>
-References: <1416398363-32306-1-git-send-email-johan@kernel.org>
- <1416398363-32306-9-git-send-email-johan@kernel.org>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH net-next 3/4] igb: enable internal PPS for the i210.
+Date: Thu, 20 Nov 2014 10:18:04 +0100
+Message-ID: <20141120091804.GA4587@localhost.localdomain>
+References: <cover.1416265321.git.richardcochran@gmail.com>
+ <e5b4ef7c56119e2d86e42f5680b1b82c9ec1a38e.1416265321.git.richardcochran@gmail.com>
+ <20141119063724.GB4109@localhost.localdomain>
+ <1416425553.15933.32.camel@jekeller-desk1.amr.corp.intel.com>
+ <20141119202604.GA22213@localhost.localdomain>
+ <1416431178.15933.38.camel@jekeller-desk1.amr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Bruno Thomsen <bth@kamstrup.dk>,
-	Mark Rutland <mark.rutland@arm.com>, devicetree@vger.kernel.org
-To: Johan Hovold <johan@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Vick, Matthew" <matthew.vick@intel.com>
+To: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f52.google.com ([74.125.82.52]:51130 "EHLO
+	mail-wg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754574AbaKTJSK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2014 04:18:10 -0500
+Received: by mail-wg0-f52.google.com with SMTP id a1so3116878wgh.11
+        for <netdev@vger.kernel.org>; Thu, 20 Nov 2014 01:18:08 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <1416398363-32306-9-git-send-email-johan@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1416431178.15933.38.camel@jekeller-desk1.amr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 19, 2014 at 12:59:21PM +0100, Johan Hovold wrote:
-> Add "micrel,rmii-reference-clock-select-25-mhz" to Micrel ethernet PHY
-> binding documentation.
-> 
-> This property is needed to properly describe some revisions of Micrel
-> PHYs which has the function of this configuration bit inverted so that
-> setting it enables 25 MHz rather than 50 MHz clock mode.
-> 
-> Note that a clock reference ("rmii-ref") is still needed to actually
-> select either mode.
-> 
-> Cc: devicetree@vger.kernel.org
-> Signed-off-by: Johan Hovold <johan@kernel.org>
-> ---
->  Documentation/devicetree/bindings/net/micrel.txt | 11 +++++++++++
->  1 file changed, 11 insertions(+)
-> 
-> diff --git a/Documentation/devicetree/bindings/net/micrel.txt b/Documentation/devicetree/bindings/net/micrel.txt
-> index 20a6cac7abc6..87496a8c64ab 100644
-> --- a/Documentation/devicetree/bindings/net/micrel.txt
-> +++ b/Documentation/devicetree/bindings/net/micrel.txt
-> @@ -19,6 +19,17 @@ Optional properties:
->  
->  	See the respective PHY datasheet for the mode values.
->  
-> + - micrel,rmii-reference-clock-select-25-mhz: RMII Reference Clock Select
-> +						bit selects 25 MHz mode
-> +
-> +	Setting the RMII Reference Clock Select bit enables 25 MHz rather
-> +	than 50 MHz clock mode.
-> +
-> +	Note that this option in only needed for certain PHY revisions with a
-> +	non-standard, inverted function of this configuration bit.
-> +	Specifically, a clock reference ("rmii-ref" below) is always needed to
-> +	actually select a mode.
+On Wed, Nov 19, 2014 at 09:06:19PM +0000, Keller, Jacob E wrote:
+> On Wed, 2014-11-19 at 21:26 +0100, Richard Cochran wrote:
+> > On Wed, Nov 19, 2014 at 07:32:33PM +0000, Keller, Jacob E wrote:
+> > > Good catch :)
 
-Nice, that should be clear.
+I have not been able to reproduce the crash, and so the cause is not
+what I thought it was. Maybe it was my patch that preserved the
+enabled interrupts in igb_ptp_reset(). I didn't notice that the driver
+frees and reallocates the ptp_clock. I would never do that, myself.
 
-Acked-by: Sascha Hauer <s.hauer@pengutronix.de>
+> I think you need something here, but it should be clearing that register
+> after a MAC reset, so it needs to be re-initialized. I'm not sure if
+> that reset path was used in the same place in the past.
 
-Sascha
+Okay, lets figure this out. Why is there a PTP reset function at all?
+I don't know, lets see who calls it...
 
--- 
-Pengutronix e.K.                           |                             |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
-Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
+  Finding functions calling: igb_ptp_reset
+  ----------------------------------------
+  *** drivers/net/ethernet/intel/igb/igb_main.c:
+  igb_reset[2033]                igb_ptp_reset(adapter);
+
+Easy enough to understand. But who is calling igb_reset?
+
+  Finding functions calling: igb_reset
+  ------------------------------------
+  *** drivers/net/ethernet/intel/igb/igb_ethtool.c:
+  igb_set_settings[345]          igb_reset(adapter);
+  igb_set_pauseparam[409]        igb_reset(adapter);
+  igb_diag_test[2016]            igb_reset(adapter);
+  igb_set_eee[2729]              igb_reset(adapter);
+  *** drivers/net/ethernet/intel/igb/igb_main.c:
+  igb_down[1814]                 igb_reset(adapter);
+  igb_set_features[2069]         igb_reset(adapter);
+  igb_probe[2526]                igb_reset(adapter);
+  __igb_open[3110]               igb_reset(adapter);
+  igb_watchdog_task[4231]        igb_reset(adapter);
+  igb_change_mtu[5189]           igb_reset(adapter);
+  igb_resume[7460]               igb_reset(adapter);
+  igb_sriov_reinit[7545]         igb_reset(adapter);
+  igb_io_slot_reset[7678]        igb_reset(adapter);
+
+Wow, that is quite much. So, whenever any random parameter is changed,
+we reset the PTP clock. Great.
+
+Really, wouldn't better to reset the clock functions only when
+absolutely necessary?
+
+Thanks,
+Richard
