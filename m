@@ -1,147 +1,91 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next] i40e: remove dead fdb code
-Date: Thu, 20 Nov 2014 14:10:29 +0100
-Message-ID: <1416489029-1929-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, jeffrey.t.kirsher@intel.com,
-	jesse.brandeburg@intel.com, bruce.w.allan@intel.com,
-	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
-	gregory.v.rose@intel.com, matthew.vick@intel.com,
-	john.ronciak@intel.com, mitch.a.williams@intel.com,
-	linux.nics@intel.com, e1000-devel@lists.sourceforge.net
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: [PATCH 1/1] IBM-EMAC: Deletion of unnecessary checks before the function
+ call "of_dev_put"
+Date: Thu, 20 Nov 2014 14:28:25 +0100
+Message-ID: <546DEC79.9050807@users.sourceforge.net>
+References: <5307CAA2.8060406@users.sourceforge.net> <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6> <530A086E.8010901@users.sourceforge.net> <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6> <530A72AA.3000601@users.sourceforge.net> <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6> <530B5FB6.6010207@users.sourceforge.net> <alpine.DEB.2.10.1402241710370.2074@hadrien> <530C5E18.1020800@users.sourceforge.net> <alpine.DEB.2.10.1402251014170.2080@hadrien> <530CD2C4.4050903@users.sourceforge.net> <alpine.DEB.2.10.1402251840450.7035@hadrien> <530CF8FF.8080600@users.sourceforge.net> <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6> <530DD06F.4090703@users.sourceforge.net> <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6> <5317A59D.4@users.so
+ urceforge.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org,
+	Julia Lawall <julia.lawall@lip6.fr>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f46.google.com ([74.125.82.46]:47854 "EHLO
-	mail-wg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751103AbaKTNKd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2014 08:10:33 -0500
-Received: by mail-wg0-f46.google.com with SMTP id x12so3656826wgg.19
-        for <netdev@vger.kernel.org>; Thu, 20 Nov 2014 05:10:31 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <5317A59D.4@users.sourceforge.net>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This code is not used now and also it contains some weird ifdefs. So
-remove it for now. It can be added when needed.
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Thu, 20 Nov 2014 14:22:47 +0100
 
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+The of_dev_put() function tests whether its argument is NULL and then
+returns immediately. Thus the test around the call is not needed.
+
+This issue was detected by using the Coccinelle software.
+
+Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 98 -----------------------------
- 1 file changed, 98 deletions(-)
+ drivers/net/ethernet/ibm/emac/core.c | 24 ++++++++----------------
+ 1 file changed, 8 insertions(+), 16 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index c998d82..3368bf8 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -7521,97 +7521,6 @@ static int i40e_get_phys_port_id(struct net_device *netdev,
- 	return 0;
+diff --git a/drivers/net/ethernet/ibm/emac/core.c b/drivers/net/ethernet/ibm/emac/core.c
+index 87bd953..3f3fba9 100644
+--- a/drivers/net/ethernet/ibm/emac/core.c
++++ b/drivers/net/ethernet/ibm/emac/core.c
+@@ -2323,16 +2323,11 @@ static int emac_check_deps(struct emac_instance *dev,
+ 
+ static void emac_put_deps(struct emac_instance *dev)
+ {
+-	if (dev->mal_dev)
+-		of_dev_put(dev->mal_dev);
+-	if (dev->zmii_dev)
+-		of_dev_put(dev->zmii_dev);
+-	if (dev->rgmii_dev)
+-		of_dev_put(dev->rgmii_dev);
+-	if (dev->mdio_dev)
+-		of_dev_put(dev->mdio_dev);
+-	if (dev->tah_dev)
+-		of_dev_put(dev->tah_dev);
++	of_dev_put(dev->mal_dev);
++	of_dev_put(dev->zmii_dev);
++	of_dev_put(dev->rgmii_dev);
++	of_dev_put(dev->mdio_dev);
++	of_dev_put(dev->tah_dev);
  }
  
--#ifdef HAVE_FDB_OPS
--#ifdef USE_CONST_DEV_UC_CHAR
--static int i40e_ndo_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
--			    struct net_device *dev,
--			    const unsigned char *addr,
--			    u16 flags)
--#else
--static int i40e_ndo_fdb_add(struct ndmsg *ndm,
--			    struct net_device *dev,
--			    unsigned char *addr,
--			    u16 flags)
--#endif
--{
--	struct i40e_netdev_priv *np = netdev_priv(dev);
--	struct i40e_pf *pf = np->vsi->back;
--	int err = 0;
--
--	if (!(pf->flags & I40E_FLAG_SRIOV_ENABLED))
--		return -EOPNOTSUPP;
--
--	/* Hardware does not support aging addresses so if a
--	 * ndm_state is given only allow permanent addresses
--	 */
--	if (ndm->ndm_state && !(ndm->ndm_state & NUD_PERMANENT)) {
--		netdev_info(dev, "FDB only supports static addresses\n");
--		return -EINVAL;
--	}
--
--	if (is_unicast_ether_addr(addr) || is_link_local_ether_addr(addr))
--		err = dev_uc_add_excl(dev, addr);
--	else if (is_multicast_ether_addr(addr))
--		err = dev_mc_add_excl(dev, addr);
--	else
--		err = -EINVAL;
--
--	/* Only return duplicate errors if NLM_F_EXCL is set */
--	if (err == -EEXIST && !(flags & NLM_F_EXCL))
--		err = 0;
--
--	return err;
--}
--
--#ifndef USE_DEFAULT_FDB_DEL_DUMP
--#ifdef USE_CONST_DEV_UC_CHAR
--static int i40e_ndo_fdb_del(struct ndmsg *ndm,
--			    struct net_device *dev,
--			    const unsigned char *addr)
--#else
--static int i40e_ndo_fdb_del(struct ndmsg *ndm,
--			    struct net_device *dev,
--			    unsigned char *addr)
--#endif
--{
--	struct i40e_netdev_priv *np = netdev_priv(dev);
--	struct i40e_pf *pf = np->vsi->back;
--	int err = -EOPNOTSUPP;
--
--	if (ndm->ndm_state & NUD_PERMANENT) {
--		netdev_info(dev, "FDB only supports static addresses\n");
--		return -EINVAL;
--	}
--
--	if (pf->flags & I40E_FLAG_SRIOV_ENABLED) {
--		if (is_unicast_ether_addr(addr))
--			err = dev_uc_del(dev, addr);
--		else if (is_multicast_ether_addr(addr))
--			err = dev_mc_del(dev, addr);
--		else
--			err = -EINVAL;
--	}
--
--	return err;
--}
--
--static int i40e_ndo_fdb_dump(struct sk_buff *skb,
--			     struct netlink_callback *cb,
--			     struct net_device *dev,
--			     struct net_device *filter_dev,
--			     int idx)
--{
--	struct i40e_netdev_priv *np = netdev_priv(dev);
--	struct i40e_pf *pf = np->vsi->back;
--
--	if (pf->flags & I40E_FLAG_SRIOV_ENABLED)
--		idx = ndo_dflt_fdb_dump(skb, cb, dev, filter_dev, idx);
--
--	return idx;
--}
--
--#endif /* USE_DEFAULT_FDB_DEL_DUMP */
--#endif /* HAVE_FDB_OPS */
- static const struct net_device_ops i40e_netdev_ops = {
- 	.ndo_open		= i40e_open,
- 	.ndo_stop		= i40e_close,
-@@ -7645,13 +7554,6 @@ static const struct net_device_ops i40e_netdev_ops = {
- 	.ndo_del_vxlan_port	= i40e_del_vxlan_port,
- #endif
- 	.ndo_get_phys_port_id	= i40e_get_phys_port_id,
--#ifdef HAVE_FDB_OPS
--	.ndo_fdb_add		= i40e_ndo_fdb_add,
--#ifndef USE_DEFAULT_FDB_DEL_DUMP
--	.ndo_fdb_del		= i40e_ndo_fdb_del,
--	.ndo_fdb_dump		= i40e_ndo_fdb_dump,
--#endif
--#endif
- };
+ static int emac_of_bus_notify(struct notifier_block *nb, unsigned long action,
+@@ -2371,8 +2366,7 @@ static int emac_wait_deps(struct emac_instance *dev)
+ 	bus_unregister_notifier(&platform_bus_type, &emac_of_bus_notifier);
+ 	err = emac_check_deps(dev, deps) ? 0 : -ENODEV;
+ 	for (i = 0; i < EMAC_DEP_COUNT; i++) {
+-		if (deps[i].node)
+-			of_node_put(deps[i].node);
++		of_node_put(deps[i].node);
+ 		if (err && deps[i].ofdev)
+ 			of_dev_put(deps[i].ofdev);
+ 	}
+@@ -2383,8 +2377,7 @@ static int emac_wait_deps(struct emac_instance *dev)
+ 		dev->tah_dev = deps[EMAC_DEP_TAH_IDX].ofdev;
+ 		dev->mdio_dev = deps[EMAC_DEP_MDIO_IDX].ofdev;
+ 	}
+-	if (deps[EMAC_DEP_PREV_IDX].ofdev)
+-		of_dev_put(deps[EMAC_DEP_PREV_IDX].ofdev);
++	of_dev_put(deps[EMAC_DEP_PREV_IDX].ofdev);
+ 	return err;
+ }
  
- /**
+@@ -3113,8 +3106,7 @@ static void __exit emac_exit(void)
+ 
+ 	/* Destroy EMAC boot list */
+ 	for (i = 0; i < EMAC_BOOT_LIST_SIZE; i++)
+-		if (emac_boot_list[i])
+-			of_node_put(emac_boot_list[i]);
++		of_node_put(emac_boot_list[i]);
+ }
+ 
+ module_init(emac_init);
 -- 
-1.9.3
+2.1.3
+
