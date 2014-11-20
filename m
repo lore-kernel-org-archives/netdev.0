@@ -1,50 +1,53 @@
-From: Anish Bhatt <anish@chelsio.com>
-Subject: [PATCH net] cxgb4 : Fix DCB priority groups being returned in wrong order
-Date: Thu, 20 Nov 2014 14:46:04 -0800
-Message-ID: <1416523564-28126-1-git-send-email-anish@chelsio.com>
-Cc: davem@davemloft.net, hariprasad@chelsio.com,
-	Anish Bhatt <anish@chelsio.com>
-To: netdev@vger.kernel.org
+From: Jay Vosburgh <jay.vosburgh@canonical.com>
+Subject: Re: [PATCH] bonding: clear header_ops when last slave detached (v2)
+Date: Thu, 20 Nov 2014 14:53:05 -0800
+Message-ID: <23563.1416523985@famine>
+References: <1416374292-10993-1-git-send-email-wen.gang.wang@oracle.com> <1416375565.14060.43.camel@edumazet-glaptop2.roam.corp.google.com> <546C4022.5010509@oracle.com> <CAHA+R7OyA_V149bpE8qUgG9epU-5UG8cf=zOgh5ZXVB3ZFZHUw@mail.gmail.com> <1416465685.8629.15.camel@edumazet-glaptop2.roam.corp.google.com> <CAHA+R7PKRbBNwfUWRAsVHQreKsGXBc8CHorZRuyCfvwL4O=y+g@mail.gmail.com> <1416516104.8629.39.camel@edumazet-glaptop2.roam.corp.google.com> <CAHA+R7Me4zPdGpeQVHFLLGVq=4cVar09jQFyjA81nxF_Fmuppw@mail.gmail.com> <1416521035.8629.49.camel@edumazet-glaptop2.roam.corp.google.com> <CAHA+R7P9XhGQZXFy6frxOyZJ4rX_MdVgY3kAPE1_wDNcvYd_yA@mail.gmail.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Wengang <wen.gang.wang@oracle.com>,
+	netdev <netdev@vger.kernel.org>
+To: Cong Wang <cwang@twopensource.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:33089
-	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1757076AbaKTWqO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2014 17:46:14 -0500
+Received: from youngberry.canonical.com ([91.189.89.112]:59282 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756236AbaKTWxL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2014 17:53:11 -0500
+In-reply-to: <CAHA+R7P9XhGQZXFy6frxOyZJ4rX_MdVgY3kAPE1_wDNcvYd_yA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Peer priority groups were being reversed, but this was missed in the previous
-fix sent out for this issue.
+Cong Wang <cwang@twopensource.com> wrote:
 
-Fixes :	ee7bc3cdc270 ('cxgb4 : dcb open-lldp interop fixes')
+>Also, no one seems to care about my previous question:
+>why only bonding has the problem?
 
-Signed-off-by: Anish Bhatt <anish@chelsio.com>
+	Bonding has the problem because it stashes a pointer to a data
+structure (the header_ops) from another module, and when that module is
+unloaded the dangling pointer may be dereferenced if it's not either
+cleared or made to never go away.
+
+	Setting the bonding->header_ops to NULL (to avoid the current
+problem with pktgen) has a race in dev_hard_header between where the
+header_ops pointer is checked and where the ->create function is called.
+
+	This pointer business is the main reason the bonding path for
+"not ARPHRD_ETHER" (i.e., ipoib) has extra complexity in the open/close
+path, e.g.,
+
+bond_slave_netdev_event():
+[...]
+        switch (event) {
+        case NETDEV_UNREGISTER:
+                if (bond_dev->type != ARPHRD_ETHER)
+                        bond_release_and_destroy(bond_dev, slave_dev);
+                else
+                        bond_release(bond_dev, slave_dev);
+
+	If the ipoib ops were static in vmlinux, that would resolve the
+pktgen problem, and also may eliminate the need for some of the ugly
+bits like what I've pasted in above.
+
+	-J
+
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c
-index cca6049..d8e60b3 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c
-@@ -1082,7 +1082,7 @@ static int cxgb4_cee_peer_getpg(struct net_device *dev, struct cee_pg *pg)
- 	pgid = be32_to_cpu(pcmd.u.dcb.pgid.pgid);
- 
- 	for (i = 0; i < CXGB4_MAX_PRIORITY; i++)
--		pg->prio_pg[i] = (pgid >> (i * 4)) & 0xF;
-+		pg->prio_pg[7 - i] = (pgid >> (i * 4)) & 0xF;
- 
- 	INIT_PORT_DCB_READ_PEER_CMD(pcmd, pi->port_id);
- 	pcmd.u.dcb.pgrate.type = FW_PORT_DCB_TYPE_PGRATE;
-@@ -1094,7 +1094,8 @@ static int cxgb4_cee_peer_getpg(struct net_device *dev, struct cee_pg *pg)
- 	}
- 
- 	for (i = 0; i < CXGB4_MAX_PRIORITY; i++)
--		pg->pg_bw[i] = pcmd.u.dcb.pgrate.pgrate[i];
-+		pg->pg_bw[7 - i] = pcmd.u.dcb.pgrate.pgrate[
-+			(pgid >> (i * 4)) & 0xF];
- 
- 	return 0;
- }
--- 
-2.1.3
+	-Jay Vosburgh, jay.vosburgh@canonical.com
