@@ -1,232 +1,95 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 01/15] ixgbevf: Update ixgbevf_alloc_rx_buffers to handle clearing of status bits
-Date: Thu, 20 Nov 2014 15:08:59 -0800
-Message-ID: <1416524953-15161-2-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1416524953-15161-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Alexander Duyck <alexander.h.duyck@redhat.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Calvin Owens <calvinowens@fb.com>
+Subject: [PATCH] tcp: Restore RFC5961-compliant behavior for SYN packets
+Date: Thu, 20 Nov 2014 15:09:53 -0800
+Message-ID: <1416524993-26228-1-git-send-email-calvinowens@fb.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <kernel-team@fb.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, Calvin Owens <calvinowens@fb.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:43162 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756779AbaKTXJT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Nov 2014 18:09:19 -0500
-In-Reply-To: <1416524953-15161-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:56303 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757874AbaKTXKr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2014 18:10:47 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Emil Tantilov <emil.s.tantilov@intel.com>
+Commit c3ae62af8e755 ("tcp: should drop incoming frames without ACK
+flag set") was created to mitigate a security vulnerability in which a
+local attacker is able to inject data into locally-opened sockets by
+using TCP protocol statistics in procfs to quickly find the correct
+sequence number.
 
-Instead of clearing the status bits in the cleanup it makes more sense to
-just clear the status bits on allocation.  This way we can leave the Rx
-descriptor rings as a read only memory block until we actually have buffers
-to give back to the hardware.
+This broke the RFC5961 requirement to send a challenge ACK in response
+to spurious RST packets, which was subsequently fixed by commit
+7b514a886ba50 ("tcp: accept RST without ACK flag").
 
-CC: Alexander Duyck <alexander.h.duyck@redhat.com>
-Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Unfortunately, the RFC5961 requirement that spurious SYN packets be
+handled in a similar manner remains broken.
+
+RFC5961 section 4 states that:
+
+   ... the handling of the SYN in the synchronized state SHOULD be
+   performed as follows:
+
+   1) If the SYN bit is set, irrespective of the sequence number, TCP
+      MUST send an ACK (also referred to as challenge ACK) to the remote
+      peer:
+
+      <SEQ=SND.NXT><ACK=RCV.NXT><CTL=ACK>
+
+      After sending the acknowledgment, TCP MUST drop the unacceptable
+      segment and stop processing further.
+
+   By sending an ACK, the remote peer is challenged to confirm the loss
+   of the previous connection and the request to start a new connection.
+   A legitimate peer, after restart, would not have a TCB in the
+   synchronized state.  Thus, when the ACK arrives, the peer should send
+   a RST segment back with the sequence number derived from the ACK
+   field that caused the RST.
+
+   This RST will confirm that the remote peer has indeed closed the
+   previous connection.  Upon receipt of a valid RST, the local TCP
+   endpoint MUST terminate its connection.  The local TCP endpoint
+   should then rely on SYN retransmission from the remote end to
+   re-establish the connection.
+
+This patch lets SYN packets through the discard added in c3ae62af8e755,
+so that spurious SYN packets are properly dealt with as per the RFC.
+
+The challenge ACK is sent unconditionally and is rate-limited, so the
+original vulnerability is not reintroduced by this patch.
+
+Signed-off-by: Calvin Owens <calvinowens@fb.com>
 ---
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 132 +++++++++++++---------
- 1 file changed, 80 insertions(+), 52 deletions(-)
+ net/ipv4/tcp_input.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index 030a219..deda74d 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -143,21 +143,6 @@ u32 ixgbevf_read_reg(struct ixgbe_hw *hw, u32 reg)
- 	return value;
- }
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 88fa2d1..d107ee2 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -5231,7 +5231,7 @@ slow_path:
+ 	if (len < (th->doff << 2) || tcp_checksum_complete_user(sk, skb))
+ 		goto csum_error;
  
--static inline void ixgbevf_release_rx_desc(struct ixgbevf_ring *rx_ring,
--					   u32 val)
--{
--	rx_ring->next_to_use = val;
--
--	/*
--	 * Force memory writes to complete before letting h/w
--	 * know there are new descriptors to fetch.  (Only
--	 * applicable for weak-ordered memory model archs,
--	 * such as IA-64).
--	 */
--	wmb();
--	ixgbevf_write_tail(rx_ring, val);
--}
--
- /**
-  * ixgbevf_set_ivar - set IVAR registers - maps interrupt causes to vectors
-  * @adapter: pointer to adapter struct
-@@ -424,52 +409,99 @@ static inline void ixgbevf_rx_checksum(struct ixgbevf_ring *ring,
- 	skb->ip_summed = CHECKSUM_UNNECESSARY;
- }
+-	if (!th->ack && !th->rst)
++	if (!th->ack && !th->rst && !th->syn)
+ 		goto discard;
  
-+static bool ixgbevf_alloc_mapped_skb(struct ixgbevf_ring *rx_ring,
-+				     struct ixgbevf_rx_buffer *bi)
-+{
-+	struct sk_buff *skb = bi->skb;
-+	dma_addr_t dma = bi->dma;
-+
-+	if (unlikely(skb))
-+		return true;
-+
-+	skb = netdev_alloc_skb_ip_align(rx_ring->netdev,
-+					rx_ring->rx_buf_len);
-+	if (unlikely(!skb)) {
-+		rx_ring->rx_stats.alloc_rx_buff_failed++;
-+		return false;
-+	}
-+
-+	dma = dma_map_single(rx_ring->dev, skb->data,
-+			     rx_ring->rx_buf_len, DMA_FROM_DEVICE);
-+
-+	/* if mapping failed free memory back to system since
-+	 * there isn't much point in holding memory we can't use
-+	 */
-+	if (dma_mapping_error(rx_ring->dev, dma)) {
-+		dev_kfree_skb_any(skb);
-+
-+		rx_ring->rx_stats.alloc_rx_buff_failed++;
-+		return false;
-+	}
-+
-+	bi->skb = skb;
-+	bi->dma = dma;
-+
-+	return true;
-+}
-+
- /**
-  * ixgbevf_alloc_rx_buffers - Replace used receive buffers; packet split
-  * @rx_ring: rx descriptor ring (for a specific queue) to setup buffers on
-+ * @cleaned_count: number of buffers to replace
-  **/
- static void ixgbevf_alloc_rx_buffers(struct ixgbevf_ring *rx_ring,
--				     int cleaned_count)
-+				     u16 cleaned_count)
- {
- 	union ixgbe_adv_rx_desc *rx_desc;
- 	struct ixgbevf_rx_buffer *bi;
- 	unsigned int i = rx_ring->next_to_use;
- 
--	while (cleaned_count--) {
--		rx_desc = IXGBEVF_RX_DESC(rx_ring, i);
--		bi = &rx_ring->rx_buffer_info[i];
--
--		if (!bi->skb) {
--			struct sk_buff *skb;
-+	/* nothing to do or no valid netdev defined */
-+	if (!cleaned_count || !rx_ring->netdev)
-+		return;
- 
--			skb = netdev_alloc_skb_ip_align(rx_ring->netdev,
--							rx_ring->rx_buf_len);
--			if (!skb)
--				goto no_buffers;
-+	rx_desc = IXGBEVF_RX_DESC(rx_ring, i);
-+	bi = &rx_ring->rx_buffer_info[i];
-+	i -= rx_ring->count;
- 
--			bi->skb = skb;
-+	do {
-+		if (!ixgbevf_alloc_mapped_skb(rx_ring, bi))
-+			break;
- 
--			bi->dma = dma_map_single(rx_ring->dev, skb->data,
--						 rx_ring->rx_buf_len,
--						 DMA_FROM_DEVICE);
--			if (dma_mapping_error(rx_ring->dev, bi->dma)) {
--				dev_kfree_skb(skb);
--				bi->skb = NULL;
--				dev_err(rx_ring->dev, "Rx DMA map failed\n");
--				break;
--			}
--		}
-+		/* Refresh the desc even if pkt_addr didn't change
-+		 * because each write-back erases this info.
-+		 */
- 		rx_desc->read.pkt_addr = cpu_to_le64(bi->dma);
- 
-+		rx_desc++;
-+		bi++;
- 		i++;
--		if (i == rx_ring->count)
--			i = 0;
--	}
-+		if (unlikely(!i)) {
-+			rx_desc = IXGBEVF_RX_DESC(rx_ring, 0);
-+			bi = rx_ring->rx_buffer_info;
-+			i -= rx_ring->count;
-+		}
-+
-+		/* clear the hdr_addr for the next_to_use descriptor */
-+		rx_desc->read.hdr_addr = 0;
-+
-+		cleaned_count--;
-+	} while (cleaned_count);
- 
--no_buffers:
--	rx_ring->rx_stats.alloc_rx_buff_failed++;
--	if (rx_ring->next_to_use != i)
--		ixgbevf_release_rx_desc(rx_ring, i);
-+	i += rx_ring->count;
-+
-+	if (rx_ring->next_to_use != i) {
-+		/* record the next descriptor to use */
-+		rx_ring->next_to_use = i;
-+
-+		/* Force memory writes to complete before letting h/w
-+		 * know there are new descriptors to fetch.  (Only
-+		 * applicable for weak-ordered memory model archs,
-+		 * such as IA-64).
-+		 */
-+		wmb();
-+		ixgbevf_write_tail(rx_ring, i);
-+	}
- }
- 
- static inline void ixgbevf_irq_enable_queues(struct ixgbevf_adapter *adapter,
-@@ -489,8 +521,8 @@ static int ixgbevf_clean_rx_irq(struct ixgbevf_q_vector *q_vector,
- 	struct sk_buff *skb;
- 	unsigned int i;
- 	u32 len, staterr;
--	int cleaned_count = 0;
- 	unsigned int total_rx_bytes = 0, total_rx_packets = 0;
-+	u16 cleaned_count = ixgbevf_desc_unused(rx_ring);
- 
- 	i = rx_ring->next_to_clean;
- 	rx_desc = IXGBEVF_RX_DESC(rx_ring, i);
-@@ -571,8 +603,6 @@ static int ixgbevf_clean_rx_irq(struct ixgbevf_q_vector *q_vector,
- 		ixgbevf_rx_skb(q_vector, skb, staterr, rx_desc);
- 
- next_desc:
--		rx_desc->wb.upper.status_error = 0;
--
- 		/* return some buffers to hardware, one at a time is too slow */
- 		if (cleaned_count >= IXGBEVF_RX_BUFFER_WRITE) {
- 			ixgbevf_alloc_rx_buffers(rx_ring, cleaned_count);
-@@ -587,11 +617,6 @@ next_desc:
+ 	/*
+@@ -5650,7 +5650,7 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
+ 			goto discard;
  	}
  
- 	rx_ring->next_to_clean = i;
--	cleaned_count = ixgbevf_desc_unused(rx_ring);
--
--	if (cleaned_count)
--		ixgbevf_alloc_rx_buffers(rx_ring, cleaned_count);
--
- 	u64_stats_update_begin(&rx_ring->syncp);
- 	rx_ring->stats.packets += total_rx_packets;
- 	rx_ring->stats.bytes += total_rx_bytes;
-@@ -599,6 +624,9 @@ next_desc:
- 	q_vector->rx.total_packets += total_rx_packets;
- 	q_vector->rx.total_bytes += total_rx_bytes;
+-	if (!th->ack && !th->rst)
++	if (!th->ack && !th->rst && !th->syn)
+ 		goto discard;
  
-+	if (cleaned_count)
-+		ixgbevf_alloc_rx_buffers(rx_ring, cleaned_count);
-+
- 	return total_rx_packets;
- }
- 
+ 	if (!tcp_validate_incoming(sk, skb, th, 0))
 -- 
-1.9.3
+2.1.1
