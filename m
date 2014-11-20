@@ -1,39 +1,57 @@
 From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next v3 0/2] r8152: adjust rx functions
-Date: Thu, 20 Nov 2014 10:29:04 +0800
-Message-ID: <1394712342-15778-98-Taiwan-albertk@realtek.com>
+Subject: [PATCH net-next v3 2/2] r8152: adjust rtl_start_rx
+Date: Thu, 20 Nov 2014 10:29:06 +0800
+Message-ID: <1394712342-15778-100-Taiwan-albertk@realtek.com>
 References: <1394712342-15778-88-Taiwan-albertk@realtek.com>
+ <1394712342-15778-98-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
 	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
 To: <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394712342-15778-88-Taiwan-albertk@realtek.com>
+In-Reply-To: <1394712342-15778-98-Taiwan-albertk@realtek.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-v3:
-For patch #1, remove unnecessary initialization for ret and
-unnecessary blank line in r8152_submit_rx().
+If there is a error for r8152_submit_rx(), add the remaining rx
+buffers to the list. Then the remaining rx buffers could be
+submitted later.
 
-v2:
-For patch #1, set actual_length to 0 before adding the rx to the
-list, when a error occurs.
+Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+---
+ drivers/net/usb/r8152.c | 19 +++++++++++++++++++
+ 1 file changed, 19 insertions(+)
 
-For patch #2, change the flow. Stop submitting the rx if a error
-occurs, and add the remaining rx to the list for submitting later.
-
-v1:
-Adjust some flows and codes which are relative to r8152_submit_rx()
-and rtl_start_rx().
-
-Hayes Wang (2):
-  r8152: adjust r8152_submit_rx
-  r8152: adjust rtl_start_rx
-
- drivers/net/usb/r8152.c | 60 ++++++++++++++++++++++++++++++++-----------------
- 1 file changed, 40 insertions(+), 20 deletions(-)
-
---
+diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+index 3b89229..4a9ece0 100644
+--- a/drivers/net/usb/r8152.c
++++ b/drivers/net/usb/r8152.c
+@@ -2001,6 +2001,25 @@ static int rtl_start_rx(struct r8152 *tp)
+ 			break;
+ 	}
+ 
++	if (ret && ++i < RTL8152_MAX_RX) {
++		struct list_head rx_queue;
++		unsigned long flags;
++
++		INIT_LIST_HEAD(&rx_queue);
++
++		do {
++			struct rx_agg *agg = &tp->rx_info[i++];
++			struct urb *urb = agg->urb;
++
++			urb->actual_length = 0;
++			list_add_tail(&agg->list, &rx_queue);
++		} while (i < RTL8152_MAX_RX);
++
++		spin_lock_irqsave(&tp->rx_lock, flags);
++		list_splice_tail(&rx_queue, &tp->rx_done);
++		spin_unlock_irqrestore(&tp->rx_lock, flags);
++	}
++
+ 	return ret;
+ }
+ 
+-- 
 1.9.3
