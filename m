@@ -1,43 +1,43 @@
-From: Daniel Baluta <daniel.baluta@gmail.com>
-Subject: Re: Query about Dynamic Right Sizing implementation in linux-kernel
-Date: Thu, 20 Nov 2014 10:43:08 +0200
-Message-ID: <CAEnQRZDdbTHEFaYjbDTth-7QthiExtdVRCiehMVR1xZGa+q66A@mail.gmail.com>
-References: <1416410264.14060.45.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1264093102.132748.1416470440737.JavaMail.root@mail.cse.iitm.ac.in>
+From: Julia Lawall <julia.lawall@lip6.fr>
+Subject: Re: net: sched: Deletion of an unnecessary check before the function
+ call "kfree"
+Date: Thu, 20 Nov 2014 09:47:53 +0100 (CET)
+Message-ID: <alpine.DEB.2.10.1411200947320.2447@hadrien>
+References: <5307CAA2.8060406@users.sourceforge.net> <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6> <530A086E.8010901@users.sourceforge.net> <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6> <530A72AA.3000601@users.sourceforge.net>
+ <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6> <530B5FB6.6010207@users.sourceforge.net> <alpine.DEB.2.10.1402241710370.2074@hadrien> <530C5E18.1020800@users.sourceforge.net> <alpine.DEB.2.10.1402251014170.2080@hadrien> <530CD2C4.4050903@users.sourceforge.net>
+ <alpine.DEB.2.10.1402251840450.7035@hadrien> <530CF8FF.8080600@users.sourceforge.net> <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6> <530DD06F.4090703@users.sourceforge.net> <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>
+ <5317A59D.4@users.sourceforge.net> <546BAB93.4010406@users.sourceforge.net> <546CC9B3.5060405@gmail.com> <546CE650.6080205@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: cprasad@cse.iitm.ac.in
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f170.google.com ([209.85.212.170]:40409 "EHLO
-	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750838AbaKTInK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2014 03:43:10 -0500
-Received: by mail-wi0-f170.google.com with SMTP id bs8so11829898wib.1
-        for <netdev@vger.kernel.org>; Thu, 20 Nov 2014 00:43:09 -0800 (PST)
-In-Reply-To: <1264093102.132748.1416470440737.JavaMail.root@mail.cse.iitm.ac.in>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: John Fastabend <john.fastabend@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jamal Hadi Salim <jhs@mojatatu.com>, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org
+To: SF Markus Elfring <elfring@users.sourceforge.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <546CE650.6080205@users.sourceforge.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 20, 2014 at 10:00 AM,  <cprasad@cse.iitm.ac.in> wrote:
-> Hi,
->
-> Could you please tell how can i get access to the logs prior to Linux-2.6.12-rc2. I had already gone through the git logs. This was the last line in the logs.
->
-> Linux-2.6.12-rc2
->
->     Initial git repository build. I'm not bothering with the full history,
->     even though we have it. We can create a separate "historical" git
->     archive of that later if we want to, and in the meantime it's about
->     3.2GB when imported into git - space that would just make the early
->     git days unnecessarily complicated, when we don't have a lot of good
->     infrastructure for it.
->
->     Let it rip!
+On Wed, 19 Nov 2014, SF Markus Elfring wrote:
 
-Try this:
+> > Marcus, what tree are you looking at?
+>
+> I dared to base this update suggestion on the source files
+> for Linux 3.17.3. Are newer software developments relevant here?
 
-https://git.kernel.org/cgit/linux/kernel/git/tglx/history.git/
+You should always use linux-next.  You should update it every day.
 
-Daniel.
+julia
+
+> https://git.kernel.org/cgit/linux/kernel/git/next/linux-next.git/log/net/sched/
+>
+> Regards,
+> Markus
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe kernel-janitors" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
