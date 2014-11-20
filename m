@@ -1,64 +1,88 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH 1/1] net: Xilinx: Deletion of unnecessary checks before two
- function calls
-Date: Thu, 20 Nov 2014 14:50:26 +0100
-Message-ID: <546DF1A2.8090208@users.sourceforge.net>
-References: <5307CAA2.8060406@users.sourceforge.net> <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6> <530A086E.8010901@users.sourceforge.net> <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6> <530A72AA.3000601@users.sourceforge.net> <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6> <530B5FB6.6010207@users.sourceforge.net> <alpine.DEB.2.10.1402241710370.2074@hadrien> <530C5E18.1020800@users.sourceforge.net> <alpine.DEB.2.10.1402251014170.2080@hadrien> <530CD2C4.4050903@users.sourceforge.net> <alpine.DEB.2.10.1402251840450.7035@hadrien> <530CF8FF.8080600@users.sourceforge.net> <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6> <530DD06F.4090703@users.sourceforge.net> <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6> <5317A59D.4@users.so
- urceforge.net>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH net-next] net: sctp: keep owned chunk in destructor_arg
+ instead of skb->cb
+Date: Thu, 20 Nov 2014 09:06:58 -0500
+Message-ID: <20141120140658.GB2609@hmsreliant.think-freely.org>
+References: <1416439266-11396-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: Michal Simek <michal.simek@xilinx.com>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5317A59D.4@users.sourceforge.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, linux-sctp@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:33894 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752008AbaKTOHH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2014 09:07:07 -0500
+Content-Disposition: inline
+In-Reply-To: <1416439266-11396-1-git-send-email-dborkman@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Thu, 20 Nov 2014 14:47:12 +0100
-
-The functions kfree() and of_node_put() test whether their argument is NULL
-and then return immediately. Thus the test around the call is not needed.
-
-This issue was detected by using the Coccinelle software.
-
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
----
- drivers/net/ethernet/xilinx/ll_temac_main.c   | 3 +--
- drivers/net/ethernet/xilinx/xilinx_emaclite.c | 3 +--
- 2 files changed, 2 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/xilinx/ll_temac_main.c b/drivers/net/ethernet/xilinx/ll_temac_main.c
-index fda5891..af60867 100644
---- a/drivers/net/ethernet/xilinx/ll_temac_main.c
-+++ b/drivers/net/ethernet/xilinx/ll_temac_main.c
-@@ -224,8 +224,7 @@ static void temac_dma_bd_release(struct net_device *ndev)
- 		dma_free_coherent(ndev->dev.parent,
- 				sizeof(*lp->tx_bd_v) * TX_BD_NUM,
- 				lp->tx_bd_v, lp->tx_bd_p);
--	if (lp->rx_skb)
--		kfree(lp->rx_skb);
-+	kfree(lp->rx_skb);
- }
- 
- /**
-diff --git a/drivers/net/ethernet/xilinx/xilinx_emaclite.c b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
-index 28dbbdc..2485879 100644
---- a/drivers/net/ethernet/xilinx/xilinx_emaclite.c
-+++ b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
-@@ -1200,8 +1200,7 @@ static int xemaclite_of_remove(struct platform_device *of_dev)
- 
- 	unregister_netdev(ndev);
- 
--	if (lp->phy_node)
--		of_node_put(lp->phy_node);
-+	of_node_put(lp->phy_node);
- 	lp->phy_node = NULL;
- 
- 	xemaclite_remove_ndev(ndev);
--- 
-2.1.3
+On Thu, Nov 20, 2014 at 12:21:06AM +0100, Daniel Borkmann wrote:
+> It's just silly to hold the skb destructor argument around inside
+> skb->cb[] as we currently do in SCTP.
+> 
+> Though this has been around forever, I'm inclined to say that prior
+> to 4c3a5bdae293 ("sctp: Don't charge for data in sndbuf again when
+> transmitting packet") this may well have caused issues as doing so
+> violates the cb[] usage accross layers; before 4c3a5bdae293-times,
+> we have charged twice for data, and when destructor kicks in, cb[]
+> could have been overwritten already by someone else.
+> 
+> Nowadays, we're sort of cheating on data accounting in the sense
+> that due to commit 4c3a5bdae293, we orphan the skb already in the
+> SCTP output path, and use a different destructor only to make sure
+> the sk doesn't vanish on skb destruction time. Thus, cb[] is still
+> valid here as we operate within the SCTP layer. It's actually a big
+> candidate for future rework, imho.
+> 
+> Anyhow, lets keep the chunk in destructor_arg, as this is the actual
+> purpose for it so that in future, we don't run into trouble.
+> 
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> ---
+>  net/sctp/socket.c | 12 ++++--------
+>  1 file changed, 4 insertions(+), 8 deletions(-)
+> 
+> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+> index 2120292..85e0b65 100644
+> --- a/net/sctp/socket.c
+> +++ b/net/sctp/socket.c
+> @@ -162,7 +162,7 @@ static inline void sctp_set_owner_w(struct sctp_chunk *chunk)
+>  
+>  	chunk->skb->destructor = sctp_wfree;
+>  	/* Save the chunk pointer in skb for sctp_wfree to use later.  */
+> -	*((struct sctp_chunk **)(chunk->skb->cb)) = chunk;
+> +	skb_shinfo(chunk->skb)->destructor_arg = chunk;
+>  
+>  	asoc->sndbuf_used += SCTP_DATA_SNDSIZE(chunk) +
+>  				sizeof(struct sk_buff) +
+> @@ -6870,14 +6870,10 @@ static void sctp_wake_up_waiters(struct sock *sk,
+>   */
+>  static void sctp_wfree(struct sk_buff *skb)
+>  {
+> -	struct sctp_association *asoc;
+> -	struct sctp_chunk *chunk;
+> -	struct sock *sk;
+> +	struct sctp_chunk *chunk = skb_shinfo(skb)->destructor_arg;
+> +	struct sctp_association *asoc = chunk->asoc;
+> +	struct sock *sk = asoc->base.sk;
+>  
+> -	/* Get the saved chunk pointer.  */
+> -	chunk = *((struct sctp_chunk **)(skb->cb));
+> -	asoc = chunk->asoc;
+> -	sk = asoc->base.sk;
+>  	asoc->sndbuf_used -= SCTP_DATA_SNDSIZE(chunk) +
+>  				sizeof(struct sk_buff) +
+>  				sizeof(struct sctp_chunk);
+> -- 
+> 1.7.11.7
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+Seems reasonable
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
