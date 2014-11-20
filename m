@@ -1,41 +1,33 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next] macvtap: advance iov iterator when needed in
- macvtap_put_user()
-Date: Thu, 20 Nov 2014 16:53:35 +0800
-Message-ID: <546DAC0F.90206@redhat.com>
-References: <1416472265-10151-1-git-send-email-jasowang@redhat.com> <20141120083426.GA30001@gondor.apana.org.au> <20141120084152.GL7996@ZenIV.linux.org.uk>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: very odd check in caif_seqpkt_sendmsg()
+Date: Thu, 20 Nov 2014 08:54:25 +0000
+Message-ID: <20141120085425.GM7996@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Al Viro <viro@ZenIV.linux.org.uk>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141120084152.GL7996@ZenIV.linux.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Dmitry Tarnyagin <dmitry.tarnyagin@lockless.no>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zeniv.linux.org.uk ([195.92.253.2]:58369 "EHLO
+	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755849AbaKTIy0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2014 03:54:26 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/20/2014 04:41 PM, Al Viro wrote:
-> On Thu, Nov 20, 2014 at 04:34:26PM +0800, Herbert Xu wrote:
->> On Thu, Nov 20, 2014 at 04:31:05PM +0800, Jason Wang wrote:
->>> When mergeable buffer is used, vnet_hdr_sz is greater than sizeof struct
->>> virtio_net_hdr. So we need advance the iov iterators in this case.
->>>
->>> Fixes 6c36d2e26cda1ad3e2c4b90dd843825fc62fe5b4 ("macvtap: Use iovec iterators")
->>> Cc: Herbert Xu <herbert@gondor.apana.org.au>
->>> Signed-off-by: Jason Wang <jasowang@redhat.com>
->> Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
-> I'm not sure it's a good behaviour, actually - should we just leave an
-> unmodified gap in userland buffer there, with whatever garbage it might
-> have contained?
+This check is very odd:
+        if (unlikely(msg->msg_iov->iov_base == NULL))
+                goto err;
+What happens if we get call it with msg_iovlen being 0?  verify_iovec()
+(or rw_copy_check_uvector(), for that matter) is just fine with that -
+sendmsg() purely for msg_control is normal on e.g. AF_UNIX sockets.
+And we end with ->msg_iov pointing to iovstack[], with iovstack[0] being
+uninitialized.  So at the very least your check is going to yield random
+results in that case.
 
-Anyway it's the users(qemu or vhost_net) responsibility to fill the gap
-here.
-> I do realize that this is what we used to do, but it might end up a source
-> of hard to debug userland bugs...  Perhaps that iov_iter_advance(iter, size)
-> would better be replaced with iov_iter_zero(size, iter)?
+What is it supposed to check for?  Note that memcpy_fromiovec() won't blow
+up on NULL ->iov_base - with zero len it won't even look there and with
+non-zero it'll fail with -EFAULT.
 
-Not sure, macvtap or tun behave like this in the past. It's easy to dump
-the header in guest for debugging. Zero the gap probably only help the
-case that the gap was forgot to be filled which looks rare.
+Was that intended to be if (unlikely(!len)) fail with EINVAL?  Something
+entirely different?
