@@ -1,182 +1,83 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net] virtio-net: validate features during probe
-Date: Thu, 20 Nov 2014 13:28:59 +0800
-Message-ID: <546D7C1B.7040502@redhat.com>
-References: <1416378939-28821-1-git-send-email-jasowang@redhat.com>
-	<20141119085939.GB24827@redhat.com> <546C63E6.7040600@redhat.com>
-	<20141119093901.GB26119@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20141119093901.GB26119@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Zhu Yanjun <zyjzyj2000@gmail.com>
+Subject: [PATCH 1/1] sctp: not send SCTP_PEER_ADDR_CHANGE notifications with failed probe
+Date: Thu, 20 Nov 2014 14:04:40 +0800
+Message-ID: <1416463480-29036-1-git-send-email-Yanjun.Zhu@windriver.com>
+Cc: Zhu Yanjun <Yanjun.Zhu@windriver.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org, w@1wt.eu, zyjzyj2000@gmail.com,
+	khandelwal.deepak.1987@gmail.com, vyasevich@gmail.com,
+	tuexen@fh-muenster.de, dborkman@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f180.google.com ([209.85.192.180]:57997 "EHLO
+	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750752AbaKTGFB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2014 01:05:01 -0500
+Received: by mail-pd0-f180.google.com with SMTP id p10so2399327pdj.25
+        for <netdev@vger.kernel.org>; Wed, 19 Nov 2014 22:05:00 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/19/2014 05:39 PM, Michael S. Tsirkin wrote:
-> On Wed, Nov 19, 2014 at 05:33:26PM +0800, Jason Wang wrote:
->> On 11/19/2014 04:59 PM, Michael S. Tsirkin wrote:
->>> On Wed, Nov 19, 2014 at 02:35:39PM +0800, Jason Wang wrote:
->>>> This patch validates feature dependencies during probe and fail the probing
->>>> if a dependency is missed. This fixes the issues of hitting BUG()
->>>> when qemu fails to advertise features correctly. One example is booting
->>>> guest with ctrl_vq=off through qemu.
->>>>
->>>> Cc: Rusty Russell <rusty@rustcorp.com.au>
->>>> Cc: Michael S. Tsirkin <mst@redhat.com>
->>>> Cc: Cornelia Huck <cornelia.huck@de.ibm.com>
->>>> Cc: Wanlong Gao <gaowanlong@cn.fujitsu.com>
->>>> Signed-off-by: Jason Wang <jasowang@redhat.com>
->>>> ---
->>>>  drivers/net/virtio_net.c | 93 ++++++++++++++++++++++++++++++++++++++++++++++++
->>>>  1 file changed, 93 insertions(+)
->>>>
->>>> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
->>>> index ec2a8b4..4a0ad46 100644
->>>> --- a/drivers/net/virtio_net.c
->>>> +++ b/drivers/net/virtio_net.c
->>>> @@ -1673,6 +1673,95 @@ static const struct attribute_group virtio_net_mrg_rx_group = {
->>>>  };
->>>>  #endif
->>>>  
->>>> +static int virtnet_validate_features(struct virtio_device *dev,
->>>> +				     unsigned int *table,
->>>> +				     int table_size,
->>>> +				     unsigned int feature)
->>>> +{
->>>> +	int i;
->>>> +
->>>> +	if (!virtio_has_feature(dev, feature)) {
->>>> +		for (i = 0; i < table_size; i++) {
->>>> +			unsigned int f = table[i];
->>>> +
->>>> +			if (virtio_has_feature(dev, f)) {
->>>> +				dev_err(&dev->dev,
->>>> +					"buggy hyperviser: feature 0x%x was advertised but its dependency 0x%x was not",
->>> This line's way too long.
->> Yes. (Anyway it pass checkpatch.pl since it forbids quoted string to be
->> split)
-[...]
->>>> +
->>>>  static int virtnet_probe(struct virtio_device *vdev)
->>>>  {
->>>>  	int i, err;
->>>> @@ -1680,6 +1769,10 @@ static int virtnet_probe(struct virtio_device *vdev)
->>>>  	struct virtnet_info *vi;
->>>>  	u16 max_queue_pairs;
->>>>  
->>>> +	err = virtnet_check_features(vdev);
->>>> +	if (err)
->>>> +		return -EINVAL;
->>>> +
->>>>  	/* Find if host supports multiqueue virtio_net device */
->>>>  	err = virtio_cread_feature(vdev, VIRTIO_NET_F_MQ,
->>>>  				   struct virtio_net_config,
->>> The API seems too complex, and you still had to open-code ECN logic.
->>> Just open-code most of it. 
->> Yes, the ECN could be done through the same way as ctrl_vq did.
->>
->> How about move those checking into virtio core by just letting device
->> export its dependency table?
-> So far we only have this for net, let's not add
-> one-off APIs.
->
->>>  You can use a helper macro to output a
->>> friendly message without code duplication.
->>> For example like the below (completely untested)?
->>>
->>>
->>> I would also like to split things: dependencies on
->>> VIRTIO_NET_F_CTRL_VQ might go into this kernel,
->>> since they help fix BUG.
->>>
->>> Others should wait since they don't fix any crashes, and there's a small
->>> chance of a regression for some hypervisor in the field.
->> Probably ok but not sure, since the rest features are all related to
->> csum and offloading, we are in fact depends on network core to fix them.
-> Well it does fix them so ... there's no bug, is there?
->
+2.6.x kernels require a similar logic change as commit 2c0d6ac894a
+[sctp: not send SCTP_PEER_ADDR_CHANGE notifications with failed probe] 
+introduces for newer kernels.
 
-No.
->>> -->
->>>
->>> virtio-net: friendlier handling of misconfigured hypervisors
->>>
->>> We currently trigger BUG when VIRTIO_NET_F_CTRL_VQ
->>> is not set but one of features depending on it is.
->>> That's not a friendly way to report errors to
->>> hypervisors.
->>> Let's check, and fail probe instead.
->>>
->>> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
->>>
->>> ---
->>>
->>> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
->>> index 26e1330..7a7d1a3 100644
->>> --- a/drivers/net/virtio_net.c
->>> +++ b/drivers/net/virtio_net.c
->>> @@ -1673,6 +1673,21 @@ static const struct attribute_group virtio_net_mrg_rx_group = {
->>>  };
->>>  #endif
->>>  
->>> +bool __virtnet_fail_on_feature(struct virtio_device *vdev, unsigned int fbit,
->>> +			       const char *fname)
->>> +{
->>> +	if (!virtio_has_feature(vdev, fbit))
->>> +		return false;
->>> +
->>> +        dev_err(&dev->dev, "missing requirements for feature bit %d: %s\n",
->>> +		fbit, fname);
->>> +
->>> +	return true;
->>> +}
->>> +
->>> +#define VIRTNET_FAIL_ON(vdev, fbit) \
->>> +	__virtnet_fail_on_feature(vdev, fbit, #fbit)
->>> +
->>>  static int virtnet_probe(struct virtio_device *vdev)
->>>  {
->>>  	int i, err;
->>> @@ -1680,6 +1695,14 @@ static int virtnet_probe(struct virtio_device *vdev)
->>>  	struct virtnet_info *vi;
->>>  	u16 max_queue_pairs;
->>>  
->>> +	if (!virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_VQ) &&
->>> +		(VIRTNET_FAIL_ON(vdev, VIRTIO_NET_F_CTRL_RX) ||
->>> +		 VIRTNET_FAIL_ON(vdev, VIRTIO_NET_F_CTRL_VLAN) ||
->>> +		 VIRTNET_FAIL_ON(vdev, VIRTIO_NET_F_GUEST_ANNOUNCE) ||
->>> +		 VIRTNET_FAIL_ON(vdev, VIRTIO_NET_F_MQ) ||
->>> +		 VIRTNET_FAIL_ON(vdev, VIRTIO_NET_F_CTRL_MAC_ADDR)))
->>> +		return -EINVAL;
->>> +
->>>  	/* Find if host supports multiqueue virtio_net device */
->>>  	err = virtio_cread_feature(vdev, VIRTIO_NET_F_MQ,
->>>  				   struct virtio_net_config,
->>>
->> Patch looks good, but consider we may check more dependencies in the
->> future, may need a helper instead. Or just use this and switch to
->> dependency table in 3.19. 
-> Pls note this is just pseudo-code - I didn't even compile it.
-> If you want something like this merged, go ahead and
-> post it, probably addressing Cornelia's request to
-> print the dependency too. Maybe:
+Since the transport has always been in state SCTP_UNCONFIRMED, it
+therefore wasn't active before and hasn't been used before, and it
+always has been, so it is unnecessary to bug the user with a
+notification.
 
-Ok, will post v3.
->
->>> 		(VIRTNET_FAIL_ON(vdev, VIRTIO_NET_F_CTRL_RX, "ctrl_vq") ||
->>> 		 VIRTNET_FAIL_ON(vdev, VIRTIO_NET_F_CTRL_VLAN, "ctrl_vq") ||
->>> 		 VIRTNET_FAIL_ON(vdev, VIRTIO_NET_F_GUEST_ANNOUNCE, "ctrl_vq") ||
->>> 		 VIRTNET_FAIL_ON(vdev, VIRTIO_NET_F_MQ, "ctrl_vq") ||
->>> 		 VIRTNET_FAIL_ON(vdev, VIRTIO_NET_F_CTRL_MAC_ADDR, "ctrl_vq")))
+Reported-by: Deepak Khandelwal <khandelwal.deepak.1987@gmail.com>
+Suggested-by: Vlad Yasevich <vyasevich@gmail.com>
+Suggested-by: Michael Tuexen <tuexen@fh-muenster.de>
+Suggested-by: Daniel Borkmann <dborkman@redhat.com>
+Signed-off-by: Zhu Yanjun <Yanjun.Zhu@windriver.com>
+Acked-by: Vlad Yasevich <vyasevich@gmail.com>
+Acked-by: Daniel Borkmann <dborkman@redhat.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+
+---
+ net/sctp/associola.c | 14 +++++++++-----
+ 1 file changed, 9 insertions(+), 5 deletions(-)
+
+diff --git a/net/sctp/associola.c b/net/sctp/associola.c
+index 7eed77a..0f63396 100644
+--- a/net/sctp/associola.c
++++ b/net/sctp/associola.c
+@@ -824,6 +824,7 @@ void sctp_assoc_control_transport(struct sctp_association *asoc,
+ 	struct sctp_ulpevent *event;
+ 	struct sockaddr_storage addr;
+ 	int spc_state = 0;
++	bool ulp_notify = true;
+ 
+ 	/* Record the transition on the transport.  */
+ 	switch (command) {
+@@ -850,6 +851,7 @@ void sctp_assoc_control_transport(struct sctp_association *asoc,
+ 		else {
+ 			dst_release(transport->dst);
+ 			transport->dst = NULL;
++			ulp_notify = false;
+ 		}
+ 
+ 		spc_state = SCTP_ADDR_UNREACHABLE;
+@@ -862,12 +864,14 @@ void sctp_assoc_control_transport(struct sctp_association *asoc,
+ 	/* Generate and send a SCTP_PEER_ADDR_CHANGE notification to the
+ 	 * user.
+ 	 */
+-	memset(&addr, 0, sizeof(struct sockaddr_storage));
+-	memcpy(&addr, &transport->ipaddr, transport->af_specific->sockaddr_len);
+-	event = sctp_ulpevent_make_peer_addr_change(asoc, &addr,
++	if (ulp_notify) {
++		memset(&addr, 0, sizeof(struct sockaddr_storage));
++		memcpy(&addr, &transport->ipaddr, transport->af_specific->sockaddr_len);
++		event = sctp_ulpevent_make_peer_addr_change(asoc, &addr,
+ 				0, spc_state, error, GFP_ATOMIC);
+-	if (event)
+-		sctp_ulpq_tail_event(&asoc->ulpq, event);
++		if (event)
++			sctp_ulpq_tail_event(&asoc->ulpq, event);
++	}
+ 
+ 	/* Select new active and retran paths. */
+ 
+-- 
+1.9.1
