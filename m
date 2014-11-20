@@ -1,47 +1,49 @@
 From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net-next] net: sctp: keep owned chunk in destructor_arg
- instead of skb->cb
-Date: Thu, 20 Nov 2014 09:06:58 -0500
-Message-ID: <20141120140658.GB2609@hmsreliant.think-freely.org>
-References: <1416439266-11396-1-git-send-email-dborkman@redhat.com>
+Subject: Re: [PATCH net-next v2] net: sctp: keep owned chunk in
+ destructor_arg instead of skb->cb
+Date: Thu, 20 Nov 2014 09:07:51 -0500
+Message-ID: <20141120140751.GC2609@hmsreliant.think-freely.org>
+References: <1416444888-12778-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: davem@davemloft.net, linux-sctp@vger.kernel.org,
 	netdev@vger.kernel.org
 To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:33894 "EHLO
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:33939 "EHLO
 	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752008AbaKTOHH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2014 09:07:07 -0500
+	with ESMTP id S1751007AbaKTOH4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2014 09:07:56 -0500
 Content-Disposition: inline
-In-Reply-To: <1416439266-11396-1-git-send-email-dborkman@redhat.com>
+In-Reply-To: <1416444888-12778-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 20, 2014 at 12:21:06AM +0100, Daniel Borkmann wrote:
+On Thu, Nov 20, 2014 at 01:54:48AM +0100, Daniel Borkmann wrote:
 > It's just silly to hold the skb destructor argument around inside
 > skb->cb[] as we currently do in SCTP.
 > 
-> Though this has been around forever, I'm inclined to say that prior
-> to 4c3a5bdae293 ("sctp: Don't charge for data in sndbuf again when
-> transmitting packet") this may well have caused issues as doing so
-> violates the cb[] usage accross layers; before 4c3a5bdae293-times,
-> we have charged twice for data, and when destructor kicks in, cb[]
-> could have been overwritten already by someone else.
-> 
 > Nowadays, we're sort of cheating on data accounting in the sense
-> that due to commit 4c3a5bdae293, we orphan the skb already in the
-> SCTP output path, and use a different destructor only to make sure
-> the sk doesn't vanish on skb destruction time. Thus, cb[] is still
-> valid here as we operate within the SCTP layer. It's actually a big
-> candidate for future rework, imho.
+> that due to commit 4c3a5bdae293 ("sctp: Don't charge for data in
+> sndbuf again when transmitting packet"), we orphan the skb already
+> in the SCTP output path, i.e. giving back charged data memory, and
+> use a different destructor only to make sure the sk doesn't vanish
+> on skb destruction time. Thus, cb[] is still valid here as we
+> operate within the SCTP layer. (It's generally actually a big
+> candidate for future rework, imho.)
 > 
-> Anyhow, lets keep the chunk in destructor_arg, as this is the actual
-> purpose for it so that in future, we don't run into trouble.
+> However, storing the destructor in the cb[] can easily cause issues
+> should an non sctp_packet_set_owner_w()'ed skb ever escape the SCTP
+> layer, since cb[] may get overwritten by lower layers and thus can
+> corrupt the chunk pointer. There are no such issues at present,
+> but lets keep the chunk in destructor_arg, as this is the actual
+> purpose for it.
 > 
 > Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 > ---
+>  v1->v2:
+>   - Only reworded commit message to make it more clear
+> 
 >  net/sctp/socket.c | 12 ++++--------
 >  1 file changed, 4 insertions(+), 8 deletions(-)
 > 
@@ -84,5 +86,4 @@ On Thu, Nov 20, 2014 at 12:21:06AM +0100, Daniel Borkmann wrote:
 > the body of a message to majordomo@vger.kernel.org
 > More majordomo info at  http://vger.kernel.org/majordomo-info.html
 > 
-Seems reasonable
 Acked-by: Neil Horman <nhorman@tuxdriver.com>
