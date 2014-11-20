@@ -1,8 +1,8 @@
 From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next v1 7/8] amd-xgbe: Perform Tx coalescing on a packet
- basis
-Date: Thu, 20 Nov 2014 11:04:02 -0600
-Message-ID: <20141120170402.15397.62300.stgit@tlendack-t1.amdoffice.net>
+Subject: [PATCH net-next v1 8/8] amd-xgbe: Add support for the
+ skb->xmit_more flag
+Date: Thu, 20 Nov 2014 11:04:08 -0600
+Message-ID: <20141120170408.15397.42416.stgit@tlendack-t1.amdoffice.net>
 References: <20141120170320.15397.10583.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,115 +10,232 @@ Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bon0144.outbound.protection.outlook.com ([157.56.111.144]:63360
+Received: from mail-bn1bon0146.outbound.protection.outlook.com ([157.56.111.146]:37625
 	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1758000AbaKTREK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Nov 2014 12:04:10 -0500
+	id S1758000AbaKTREQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Nov 2014 12:04:16 -0500
 In-Reply-To: <20141120170320.15397.10583.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The current form of Tx coalescing works on a descriptor basis instead
-of on a packet basis and doesn't take into account TSO packets. Update
-the Tx coalescing support to work on a packet basis, taking into
-account the number of packets associated with a TSO transmit. Also,
-only activate the Tx timer if a timer value is set.
+Add support to delay telling the hardware about data that is ready to
+be transmitted if the skb->xmit_more flag is set.
 
 Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 ---
- drivers/net/ethernet/amd/xgbe/xgbe-dev.c |   46 +++++++++++++++++-------------
- 1 file changed, 26 insertions(+), 20 deletions(-)
+ drivers/net/ethernet/amd/xgbe/xgbe-desc.c |    5 +--
+ drivers/net/ethernet/amd/xgbe/xgbe-dev.c  |   43 ++++++++++++++++++++---------
+ drivers/net/ethernet/amd/xgbe/xgbe-drv.c  |   37 +++++++++++++++++++++----
+ drivers/net/ethernet/amd/xgbe/xgbe.h      |   15 ++++++++++
+ 4 files changed, 78 insertions(+), 22 deletions(-)
 
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-desc.c b/drivers/net/ethernet/amd/xgbe/xgbe-desc.c
+index 62cb4d3..51b68d1 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-desc.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-desc.c
+@@ -378,7 +378,7 @@ static void xgbe_wrapper_tx_descriptor_init(struct xgbe_prv_data *pdata)
+ 
+ 		ring->cur = 0;
+ 		ring->dirty = 0;
+-		ring->tx.queue_stopped = 0;
++		memset(&ring->tx, 0, sizeof(ring->tx));
+ 
+ 		hw_if->tx_desc_init(channel);
+ 	}
+@@ -422,8 +422,7 @@ static void xgbe_wrapper_rx_descriptor_init(struct xgbe_prv_data *pdata)
+ 
+ 		ring->cur = 0;
+ 		ring->dirty = 0;
+-		ring->rx.realloc_index = 0;
+-		ring->rx.realloc_threshold = 0;
++		memset(&ring->rx, 0, sizeof(ring->rx));
+ 
+ 		hw_if->rx_desc_init(channel);
+ 	}
 diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-index 78db5a6..b3d2433 100644
+index b3d2433..53f5f66 100644
 --- a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
 +++ b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-@@ -1334,7 +1334,7 @@ static void xgbe_dev_xmit(struct xgbe_channel *channel)
- 	struct xgbe_packet_data *packet = &ring->packet_data;
- 	unsigned int csum, tso, vlan;
- 	unsigned int tso_context, vlan_context;
--	unsigned int tx_coalesce, tx_frames;
-+	unsigned int tx_set_ic;
- 	int start_index = ring->cur;
- 	int i;
+@@ -1325,6 +1325,29 @@ static void xgbe_config_dcb_pfc(struct xgbe_prv_data *pdata)
+ 	xgbe_config_flow_control(pdata);
+ }
  
-@@ -1357,10 +1357,26 @@ static void xgbe_dev_xmit(struct xgbe_channel *channel)
- 	else
- 		vlan_context = 0;
- 
--	tx_coalesce = (pdata->tx_usecs || pdata->tx_frames) ? 1 : 0;
--	tx_frames = pdata->tx_frames;
--	if (tx_coalesce && !channel->tx_timer_active)
--		ring->coalesce_count = 0;
-+	/* Determine if an interrupt should be generated for this Tx:
-+	 *   Interrupt:
-+	 *     - Tx frame count exceeds the frame count setting
-+	 *     - Addition of Tx frame count to the frame count since the
-+	 *       last interrupt was set exceeds the frame count setting
-+	 *   No interrupt:
-+	 *     - No frame count setting specified (ethtool -C ethX tx-frames 0)
-+	 *     - Addition of Tx frame count to the frame count since the
-+	 *       last interrupt was set does not exceed the frame count setting
-+	 */
-+	ring->coalesce_count += packet->tx_packets;
-+	if (!pdata->tx_frames)
-+		tx_set_ic = 0;
-+	else if (packet->tx_packets > pdata->tx_frames)
-+		tx_set_ic = 1;
-+	else if ((ring->coalesce_count % pdata->tx_frames) <
-+		 packet->tx_packets)
-+		tx_set_ic = 1;
-+	else
-+		tx_set_ic = 0;
- 
- 	rdata = XGBE_GET_DESC_DATA(ring, ring->cur);
- 	rdesc = rdata->rdesc;
-@@ -1427,13 +1443,6 @@ static void xgbe_dev_xmit(struct xgbe_channel *channel)
- 	if (XGMAC_GET_BITS(packet->attributes, TX_PACKET_ATTRIBUTES, PTP))
- 		XGMAC_SET_BITS_LE(rdesc->desc2, TX_NORMAL_DESC2, TTSE, 1);
- 
--	/* Set IC bit based on Tx coalescing settings */
--	XGMAC_SET_BITS_LE(rdesc->desc2, TX_NORMAL_DESC2, IC, 1);
--	if (tx_coalesce && (!tx_frames ||
--			    (++ring->coalesce_count % tx_frames)))
--		/* Clear IC bit */
--		XGMAC_SET_BITS_LE(rdesc->desc2, TX_NORMAL_DESC2, IC, 0);
--
- 	/* Mark it as First Descriptor */
- 	XGMAC_SET_BITS_LE(rdesc->desc3, TX_NORMAL_DESC3, FD, 1);
- 
-@@ -1478,13 +1487,6 @@ static void xgbe_dev_xmit(struct xgbe_channel *channel)
- 		XGMAC_SET_BITS_LE(rdesc->desc2, TX_NORMAL_DESC2, HL_B1L,
- 				  rdata->skb_dma_len);
- 
--		/* Set IC bit based on Tx coalescing settings */
--		XGMAC_SET_BITS_LE(rdesc->desc2, TX_NORMAL_DESC2, IC, 1);
--		if (tx_coalesce && (!tx_frames ||
--				    (++ring->coalesce_count % tx_frames)))
--			/* Clear IC bit */
--			XGMAC_SET_BITS_LE(rdesc->desc2, TX_NORMAL_DESC2, IC, 0);
--
- 		/* Set OWN bit */
- 		XGMAC_SET_BITS_LE(rdesc->desc3, TX_NORMAL_DESC3, OWN, 1);
- 
-@@ -1500,6 +1502,10 @@ static void xgbe_dev_xmit(struct xgbe_channel *channel)
- 	/* Set LAST bit for the last descriptor */
- 	XGMAC_SET_BITS_LE(rdesc->desc3, TX_NORMAL_DESC3, LD, 1);
- 
-+	/* Set IC bit based on Tx coalescing settings */
-+	if (tx_set_ic)
-+		XGMAC_SET_BITS_LE(rdesc->desc2, TX_NORMAL_DESC2, IC, 1);
++static void xgbe_tx_start_xmit(struct xgbe_channel *channel,
++			       struct xgbe_ring *ring)
++{
++	struct xgbe_prv_data *pdata = channel->pdata;
++	struct xgbe_ring_data *rdata;
 +
- 	/* Save the Tx info to report back during cleanup */
- 	rdata->tx.packets = packet->tx_packets;
- 	rdata->tx.bytes = packet->tx_bytes;
-@@ -1530,7 +1536,7 @@ static void xgbe_dev_xmit(struct xgbe_channel *channel)
- 			  lower_32_bits(rdata->rdesc_dma));
- 
- 	/* Start the Tx coalescing timer */
--	if (tx_coalesce && !channel->tx_timer_active) {
++	/* Issue a poll command to Tx DMA by writing address
++	 * of next immediate free descriptor */
++	rdata = XGBE_GET_DESC_DATA(ring, ring->cur);
++	XGMAC_DMA_IOWRITE(channel, DMA_CH_TDTR_LO,
++			  lower_32_bits(rdata->rdesc_dma));
++
++	/* Start the Tx coalescing timer */
 +	if (pdata->tx_usecs && !channel->tx_timer_active) {
- 		channel->tx_timer_active = 1;
- 		hrtimer_start(&channel->tx_timer,
- 			      ktime_set(0, pdata->tx_usecs * NSEC_PER_USEC),
++		channel->tx_timer_active = 1;
++		hrtimer_start(&channel->tx_timer,
++			      ktime_set(0, pdata->tx_usecs * NSEC_PER_USEC),
++			      HRTIMER_MODE_REL);
++	}
++
++	ring->tx.xmit_more = 0;
++}
++
+ static void xgbe_dev_xmit(struct xgbe_channel *channel)
+ {
+ 	struct xgbe_prv_data *pdata = channel->pdata;
+@@ -1528,20 +1551,13 @@ static void xgbe_dev_xmit(struct xgbe_channel *channel)
+ 	/* Make sure ownership is written to the descriptor */
+ 	wmb();
+ 
+-	/* Issue a poll command to Tx DMA by writing address
+-	 * of next immediate free descriptor */
+ 	ring->cur++;
+-	rdata = XGBE_GET_DESC_DATA(ring, ring->cur);
+-	XGMAC_DMA_IOWRITE(channel, DMA_CH_TDTR_LO,
+-			  lower_32_bits(rdata->rdesc_dma));
+-
+-	/* Start the Tx coalescing timer */
+-	if (pdata->tx_usecs && !channel->tx_timer_active) {
+-		channel->tx_timer_active = 1;
+-		hrtimer_start(&channel->tx_timer,
+-			      ktime_set(0, pdata->tx_usecs * NSEC_PER_USEC),
+-			      HRTIMER_MODE_REL);
+-	}
++	if (!packet->skb->xmit_more ||
++	    netif_xmit_stopped(netdev_get_tx_queue(pdata->netdev,
++						   channel->queue_index)))
++		xgbe_tx_start_xmit(channel, ring);
++	else
++		ring->tx.xmit_more = 1;
+ 
+ 	DBGPR("  %s: descriptors %u to %u written\n",
+ 	      channel->name, start_index & (ring->rdesc_count - 1),
+@@ -2802,6 +2818,7 @@ void xgbe_init_function_ptrs_dev(struct xgbe_hw_if *hw_if)
+ 	hw_if->rx_desc_reset = xgbe_rx_desc_reset;
+ 	hw_if->is_last_desc = xgbe_is_last_desc;
+ 	hw_if->is_context_desc = xgbe_is_context_desc;
++	hw_if->tx_start_xmit = xgbe_tx_start_xmit;
+ 
+ 	/* For FLOW ctrl */
+ 	hw_if->config_tx_flow_control = xgbe_config_tx_flow_control;
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
+index f963528..02c104d 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
+@@ -225,6 +225,28 @@ static inline unsigned int xgbe_tx_avail_desc(struct xgbe_ring *ring)
+ 	return (ring->rdesc_count - (ring->cur - ring->dirty));
+ }
+ 
++static int xgbe_maybe_stop_tx_queue(struct xgbe_channel *channel,
++				    struct xgbe_ring *ring, unsigned int count)
++{
++	struct xgbe_prv_data *pdata = channel->pdata;
++
++	if (count > xgbe_tx_avail_desc(ring)) {
++		DBGPR("  Tx queue stopped, not enough descriptors available\n");
++		netif_stop_subqueue(pdata->netdev, channel->queue_index);
++		ring->tx.queue_stopped = 1;
++
++		/* If we haven't notified the hardware because of xmit_more
++		 * support, tell it now
++		 */
++		if (ring->tx.xmit_more)
++			pdata->hw_if.tx_start_xmit(channel, ring);
++
++		return NETDEV_TX_BUSY;
++	}
++
++	return 0;
++}
++
+ static int xgbe_calc_rx_buf_size(struct net_device *netdev, unsigned int mtu)
+ {
+ 	unsigned int rx_buf_size;
+@@ -1199,6 +1221,8 @@ static void xgbe_packet_info(struct xgbe_prv_data *pdata,
+ 	unsigned int len;
+ 	unsigned int i;
+ 
++	packet->skb = skb;
++
+ 	context_desc = 0;
+ 	packet->rdesc_count = 0;
+ 
+@@ -1447,13 +1471,9 @@ static int xgbe_xmit(struct sk_buff *skb, struct net_device *netdev)
+ 	xgbe_packet_info(pdata, ring, skb, packet);
+ 
+ 	/* Check that there are enough descriptors available */
+-	if (packet->rdesc_count > xgbe_tx_avail_desc(ring)) {
+-		DBGPR("  Tx queue stopped, not enough descriptors available\n");
+-		netif_stop_subqueue(netdev, channel->queue_index);
+-		ring->tx.queue_stopped = 1;
+-		ret = NETDEV_TX_BUSY;
++	ret = xgbe_maybe_stop_tx_queue(channel, ring, packet->rdesc_count);
++	if (ret)
+ 		goto tx_netdev_return;
+-	}
+ 
+ 	ret = xgbe_prep_tso(skb, packet);
+ 	if (ret) {
+@@ -1480,6 +1500,11 @@ static int xgbe_xmit(struct sk_buff *skb, struct net_device *netdev)
+ 	xgbe_print_pkt(netdev, skb, true);
+ #endif
+ 
++	/* Stop the queue in advance if there may not be enough descriptors */
++	xgbe_maybe_stop_tx_queue(channel, ring, XGBE_TX_MAX_DESCS);
++
++	ret = NETDEV_TX_OK;
++
+ tx_netdev_return:
+ 	spin_unlock_irqrestore(&ring->lock, flags);
+ 
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe.h b/drivers/net/ethernet/amd/xgbe/xgbe.h
+index ec0d37a..eb33873 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe.h
++++ b/drivers/net/ethernet/amd/xgbe/xgbe.h
+@@ -140,6 +140,17 @@
+ 
+ #define XGBE_TX_MAX_BUF_SIZE	(0x3fff & ~(64 - 1))
+ 
++/* Descriptors required for maximum contigous TSO/GSO packet */
++#define XGBE_TX_MAX_SPLIT	((GSO_MAX_SIZE / XGBE_TX_MAX_BUF_SIZE) + 1)
++
++/* Maximum possible descriptors needed for an SKB:
++ * - Maximum number of SKB frags
++ * - Maximum descriptors for contiguous TSO/GSO packet
++ * - Possible context descriptor
++ * - Possible TSO header descriptor
++ */
++#define XGBE_TX_MAX_DESCS	(MAX_SKB_FRAGS + XGBE_TX_MAX_SPLIT + 2)
++
+ #define XGBE_RX_MIN_BUF_SIZE	(ETH_FRAME_LEN + ETH_FCS_LEN + VLAN_HLEN)
+ #define XGBE_RX_BUF_ALIGN	64
+ #define XGBE_SKB_ALLOC_SIZE	256
+@@ -225,6 +236,8 @@
+ struct xgbe_prv_data;
+ 
+ struct xgbe_packet_data {
++	struct sk_buff *skb;
++
+ 	unsigned int attributes;
+ 
+ 	unsigned int errors;
+@@ -360,6 +373,7 @@ struct xgbe_ring {
+ 	union {
+ 		struct {
+ 			unsigned int queue_stopped;
++			unsigned int xmit_more;
+ 			unsigned short cur_mss;
+ 			unsigned short cur_vlan_ctag;
+ 		} tx;
+@@ -523,6 +537,7 @@ struct xgbe_hw_if {
+ 	void (*tx_desc_reset)(struct xgbe_ring_data *);
+ 	int (*is_last_desc)(struct xgbe_ring_desc *);
+ 	int (*is_context_desc)(struct xgbe_ring_desc *);
++	void (*tx_start_xmit)(struct xgbe_channel *, struct xgbe_ring *);
+ 
+ 	/* For FLOW ctrl */
+ 	int (*config_tx_flow_control)(struct xgbe_prv_data *);
