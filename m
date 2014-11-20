@@ -1,53 +1,73 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 11/15] i40evf: update header comments
-Date: Thu, 20 Nov 2014 15:09:09 -0800
-Message-ID: <1416524953-15161-12-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 15/15] i40e: trigger SW INT with no ITR wait
+Date: Thu, 20 Nov 2014 15:09:13 -0800
+Message-ID: <1416524953-15161-16-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1416524953-15161-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mitch Williams <mitch.a.williams@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:43162 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:10076 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756745AbaKTXJV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Nov 2014 18:09:21 -0500
+	id S1757669AbaKTXJZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Nov 2014 18:09:25 -0500
 In-Reply-To: <1416524953-15161-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mitch Williams <mitch.a.williams@intel.com>
+From: Shannon Nelson <shannon.nelson@intel.com>
 
-No code changes. Update comments to match actual function declarations.
+Since we want the SW INT to go off as soon as possible, write the
+extra bits that will turn off the ITR wait for the interrupt.
 
-Change-ID: Ib830d2f154ee917a104955c0914267fc98f3d2c8
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Change-ID: I6d5382ba60840fa32abb7dea17c839eb4b5f68f7
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c |  5 ++++-
+ drivers/net/ethernet/intel/i40e/i40e_main.c    | 10 ++++++++--
+ 2 files changed, 12 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
-index 876411c..b2cd9ea 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
-@@ -621,7 +621,7 @@ static u32 i40evf_get_rxfh_indir_size(struct net_device *netdev)
-  * i40evf_get_rxfh - get the rx flow hash indirection table
-  * @netdev: network interface device structure
-  * @indir: indirection table
-- * @key: hash key (will be %NULL until get_rxfh_key_size is implemented)
-+ * @key: hash key
-  *
-  * Reads the indirection table directly from the hardware. Always returns 0.
-  **/
-@@ -646,7 +646,7 @@ static int i40evf_get_rxfh(struct net_device *netdev, u32 *indir, u8 *key)
-  * i40evf_set_rxfh - set the rx flow hash indirection table
-  * @netdev: network interface device structure
-  * @indir: indirection table
-- * @key: hash key (will be %NULL until get_rxfh_key_size is implemented)
-+ * @key: hash key
-  *
-  * Returns -EINVAL if the table specifies an inavlid queue id, otherwise
-  * returns 0 after programming the table.
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index bb1698a..b2402851 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -1400,7 +1400,10 @@ static int i40e_intr_test(struct net_device *netdev, u64 *data)
+ 	netif_info(pf, hw, netdev, "interrupt test\n");
+ 	wr32(&pf->hw, I40E_PFINT_DYN_CTL0,
+ 	     (I40E_PFINT_DYN_CTL0_INTENA_MASK |
+-	      I40E_PFINT_DYN_CTL0_SWINT_TRIG_MASK));
++	      I40E_PFINT_DYN_CTL0_SWINT_TRIG_MASK |
++	      I40E_PFINT_DYN_CTL0_ITR_INDX_MASK |
++	      I40E_PFINT_DYN_CTL0_SW_ITR_INDX_ENA_MASK |
++	      I40E_PFINT_DYN_CTL0_SW_ITR_INDX_MASK));
+ 	usleep_range(1000, 2000);
+ 	*data = (swc_old == pf->sw_int_count);
+ 
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 3ebab03..3913329 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -5565,11 +5565,17 @@ static void i40e_check_hang_subtask(struct i40e_pf *pf)
+ 			if (!(pf->flags & I40E_FLAG_MSIX_ENABLED)) {
+ 				wr32(&vsi->back->hw, I40E_PFINT_DYN_CTL0,
+ 				     (I40E_PFINT_DYN_CTL0_INTENA_MASK |
+-				      I40E_PFINT_DYN_CTL0_SWINT_TRIG_MASK));
++				      I40E_PFINT_DYN_CTL0_SWINT_TRIG_MASK |
++				      I40E_PFINT_DYN_CTL0_ITR_INDX_MASK |
++				      I40E_PFINT_DYN_CTL0_SW_ITR_INDX_ENA_MASK |
++				      I40E_PFINT_DYN_CTL0_SW_ITR_INDX_MASK));
+ 			} else {
+ 				u16 vec = vsi->base_vector - 1;
+ 				u32 val = (I40E_PFINT_DYN_CTLN_INTENA_MASK |
+-					   I40E_PFINT_DYN_CTLN_SWINT_TRIG_MASK);
++				      I40E_PFINT_DYN_CTLN_SWINT_TRIG_MASK |
++				      I40E_PFINT_DYN_CTLN_ITR_INDX_MASK |
++				      I40E_PFINT_DYN_CTLN_SW_ITR_INDX_ENA_MASK |
++				      I40E_PFINT_DYN_CTLN_SW_ITR_INDX_MASK);
+ 				for (i = 0; i < vsi->num_q_vectors; i++, vec++)
+ 					wr32(&vsi->back->hw,
+ 					     I40E_PFINT_DYN_CTLN(vec), val);
 -- 
 1.9.3
