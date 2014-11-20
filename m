@@ -1,85 +1,30 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 2/2] bridge: fix netfilter/NF_BR_LOCAL_OUT for own, locally generated queries
-Date: Thu, 20 Nov 2014 13:30:51 +0100
-Message-ID: <1416486651-12271-3-git-send-email-pablo@netfilter.org>
-References: <1416486651-12271-1-git-send-email-pablo@netfilter.org>
+From: James Yonan <james@openvpn.net>
+Subject: Question on bulk dequeue support in virtual drivers
+Date: Thu, 20 Nov 2014 05:39:44 -0700
+Message-ID: <546DE110.8060607@openvpn.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1416486651-12271-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Linux Netdev List <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.yonan.net ([54.244.116.145]:58441 "EHLO mail.yonan.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751894AbaKTMjp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Nov 2014 07:39:45 -0500
+Received: from Moab.local (c-67-166-32-18.hsd1.co.comcast.net [67.166.32.18])
+	(using TLSv1 with cipher ECDHE-RSA-AES128-SHA (128/128 bits))
+	(No client certificate requested)
+	by mail.yonan.net (Postfix) with ESMTPSA id 211EAC0E5D
+	for <netdev@vger.kernel.org>; Thu, 20 Nov 2014 05:39:45 -0700 (MST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Linus L=C3=BCssing <linus.luessing@web.de>
+Consider a tunneling driver that receives packets in ndo_start_xmit, 
+encapsulates them in UDP, and forwards via ip_local_out.  The 
+ndo_start_xmit implementation can implement bulking by looking at 
+skb->xmit_more.  But then how to efficiently transmit the resulting 
+bulked list of encapsulated packets via UDP, so that the packets both 
+enter and leave the driver in bulked form?  Is there an ip_local_out 
+alternative for bulked skb lists?
 
-Ebtables on the OUTPUT chain (NF_BR_LOCAL_OUT) would not work as expect=
-ed
-for both locally generated IGMP and MLD queries. The IP header specific
-filter options are off by 14 Bytes for netfilter (actual output on
-interfaces is fine).
-
-NF_HOOK()=E2=80=AFexpects the skb->data to point to the IP header, not =
-the
-ethernet one (while dev_queue_xmit()=E2=80=AFdoes not). Luckily there i=
-s an
-br_dev_queue_push_xmit() helper function already - let's just use that.
-
-Introduced by eb1d16414339a6e113d89e2cca2556005d7ce919
-("bridge: Add core IGMP snooping support")
-
-Ebtables example:
-
-$ ebtables -I OUTPUT -p IPv6 -o eth1 --logical-out br0 \
-	--log --log-level 6 --log-ip6 --log-prefix=3D"~EBT: " -j DROP
-
-before (broken):
-
-~EBT:  IN=3D OUT=3Deth1 MAC source =3D 02:04:64:a4:39:c2 \
-	MAC dest =3D 33:33:00:00:00:01 proto =3D 0x86dd IPv6 \
-	SRC=3D64a4:39c2:86dd:6000:0000:0020:0001:fe80 IPv6 \
-	DST=3D0000:0000:0000:0004:64ff:fea4:39c2:ff02, \
-	IPv6 priority=3D0x3, Next Header=3D2
-
-after (working):
-
-~EBT:  IN=3D OUT=3Deth1 MAC source =3D 02:04:64:a4:39:c2 \
-	MAC dest =3D 33:33:00:00:00:01 proto =3D 0x86dd IPv6 \
-	SRC=3Dfe80:0000:0000:0000:0004:64ff:fea4:39c2 IPv6 \
-	DST=3Dff02:0000:0000:0000:0000:0000:0000:0001, \
-	IPv6 priority=3D0x0, Next Header=3D0
-
-Signed-off-by: Linus L=C3=BCssing <linus.luessing@web.de>
-Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/bridge/br_multicast.c |    3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
-
-diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-index 648d79c..c465876 100644
---- a/net/bridge/br_multicast.c
-+++ b/net/bridge/br_multicast.c
-@@ -813,10 +813,9 @@ static void __br_multicast_send_query(struct net_b=
-ridge *br,
- 		return;
-=20
- 	if (port) {
--		__skb_push(skb, sizeof(struct ethhdr));
- 		skb->dev =3D port->dev;
- 		NF_HOOK(NFPROTO_BRIDGE, NF_BR_LOCAL_OUT, skb, NULL, skb->dev,
--			dev_queue_xmit);
-+			br_dev_queue_push_xmit);
- 	} else {
- 		br_multicast_select_own_querier(br, ip, skb);
- 		netif_rx(skb);
---=20
-1.7.10.4
-
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+James
