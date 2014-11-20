@@ -1,340 +1,60 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCHv10 ovs 12/15] datapath: Add support for unique flow identifiers.
-Date: Wed, 19 Nov 2014 16:39:20 -0800
-Message-ID: <CALnjE+qwnKa-s1GoZRvh-RgjRO5eKvrf+XnvD_meGES1L=fe0w@mail.gmail.com>
-References: <1415906275-3172-1-git-send-email-joestringer@nicira.com>
-	<1415906275-3172-13-git-send-email-joestringer@nicira.com>
-	<CALnjE+owCheaKK8=JBmW0whpC1_iP67XfnaGCghi4jSWYaDfkg@mail.gmail.com>
-	<201411191620.32217.joestringer@nicira.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH net-next] net: use skb_get_hash_raw instead of
+ skb_get_hash in set_rps_cpu
+Date: Wed, 19 Nov 2014 16:51:40 -0800
+Message-ID: <CA+mtBx9K61KmguzQBWNbnmesCvWtzh_SjjbjedkgxN6p4Oay4Q@mail.gmail.com>
+References: <1416391244-27390-1-git-send-email-_govind@gmx.com>
+	<20141119.191610.1447608233879904907.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
-	netdev <netdev@vger.kernel.org>
-To: Joe Stringer <joestringer@nicira.com>
+Cc: _govind@gmx.com, Linux Netdev List <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog126.obsmtp.com ([74.125.149.155]:37089 "HELO
-	na3sys009aog126.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1756504AbaKTAjV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 19:39:21 -0500
-Received: by mail-ie0-f182.google.com with SMTP id x19so1779259ier.27
-        for <netdev@vger.kernel.org>; Wed, 19 Nov 2014 16:39:20 -0800 (PST)
-In-Reply-To: <201411191620.32217.joestringer@nicira.com>
+Received: from mail-ig0-f179.google.com ([209.85.213.179]:55712 "EHLO
+	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754183AbaKTAvl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 19:51:41 -0500
+Received: by mail-ig0-f179.google.com with SMTP id r2so1989377igi.0
+        for <netdev@vger.kernel.org>; Wed, 19 Nov 2014 16:51:41 -0800 (PST)
+In-Reply-To: <20141119.191610.1447608233879904907.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 19, 2014 at 4:20 PM, Joe Stringer <joestringer@nicira.com> wrote:
-> On Wednesday, November 19, 2014 15:34:24 Pravin Shelar wrote:
->> On Thu, Nov 13, 2014 at 11:17 AM, Joe Stringer <joestringer@nicira.com>
-> wrote:
->> > @@ -684,33 +691,43 @@ static size_t ovs_flow_cmd_msg_size(const struct
->> > sw_flow_actions *acts)
->> >
->> >  /* Called with ovs_mutex or RCU read lock. */
->> >  static int ovs_flow_cmd_fill_match(const struct sw_flow *flow,
->> >
->> > -                                  struct sk_buff *skb)
->> > +                                  struct sk_buff *skb, u32 ufid_flags)
->> >
->> >  {
->> >
->> >         struct nlattr *nla;
->> >         int err;
->> >
->> > -       /* Fill flow key. */
->> > -       nla = nla_nest_start(skb, OVS_FLOW_ATTR_KEY);
->> > -       if (!nla)
->> > -               return -EMSGSIZE;
->> > -
->> > -       err = ovs_nla_put_flow(&flow->unmasked_key, &flow->unmasked_key,
->> > skb, -                              false);
->> > -       if (err)
->> > -               return err;
->> > -
->> > -       nla_nest_end(skb, nla);
->> > +       /* Fill flow key. If userspace didn't specify a UFID, then ignore
->> > the +        * OMIT_KEY flag. */
->> > +       if (!(ufid_flags & OVS_UFID_F_OMIT_KEY) ||
->> > +           !flow->index_by_ufid) {
+On Wed, Nov 19, 2014 at 4:16 PM, David Miller <davem@davemloft.net> wrote:
+> From: Govindarajulu Varadarajan <_govind@gmx.com>
+> Date: Wed, 19 Nov 2014 15:30:44 +0530
+>
+>> In set_rps_cpu, we call skb_get_hash to get the hash of skb. The caller
+>> get_rps_cpu has already determined the hash of skb by calling skb_get_hash.
 >>
->> I am not sure about this check, userspace needs to send atleast ufid
->> or the unmasked key as id for flow. otherwise we shld flag error. Here
->> we can serialize flow->key.
->> There could be another function which takes care of flow-id
->> serialization where we serialize use ufid or unmasked key as flow id.
->> Lets group ufid and unmasked key together rather than masked key and
->> unmasked key which are not related.
+>> Since get_rps_cpu is the only caller of set_rps_cpu, we can use skb_get_hash_raw
+>>
+>> Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
 >
-> Right, at flow setup time the flow key is always required, but the UFID is
-> optional. For most other cases, one of the two most be specified. For flow dump,
-> neither is required from userspace, but OMIT_KEY flag may be raised. That's the
-> particular case that this logic is trying to catch (dump all flows, including
-> those that were set up without UFID - in which case the OMIT_KEY flag doesn't
-> make sense, so treat the flag like a request rather than a command).
+> Tom, please review.  And if you agree with this change, you'll need to
+> be spinning your flow_id change relative to this I guess since it overlaps.
 >
+We should probably pass hash as an argument in set_rps_cpu. It's only
+called from once place and the rflow is specifically chosen based on
+hash computed by caller-- don't want any ambiguity there.
 
-How do you handle overlapping flows without the flow id in dump operation?
-
-> Happy to split the key/identifier out from the mask.
->
->> > @@ -740,6 +757,32 @@ static int ovs_flow_cmd_fill_stats(const struct
->> > sw_flow *flow,
->> >
->> >  }
->> >
->> >  /* Called with ovs_mutex or RCU read lock. */
->> >
->> > +static int ovs_flow_cmd_fill_ufid(const struct sw_flow *flow,
->> > +                                 struct sk_buff *skb)
->> > +{
->> > +       struct nlattr *start;
->> > +       const struct sw_flow_id *sfid;
->> > +
->> > +       if (!flow->index_by_ufid)
->> > +               return 0;
->> > +
->> > +       sfid = &flow->index.ufid;
->> > +       start = nla_nest_start(skb, OVS_FLOW_ATTR_UFID);
->> > +       if (start) {
->> > +               int err;
->> > +
->> > +               err = nla_put(skb, OVS_UFID_ATTR_ID, sfid->ufid_len,
->> > +                             sfid->ufid);
->> > +               if (err)
->> > +                       return err;
->> > +               nla_nest_end(skb, start);
->> > +       } else
->> > +               return -EMSGSIZE;
->> > +
->> > +       return 0;
->> > +}
->> > +
+>> ---
+>>  net/core/dev.c | 2 +-
+>>  1 file changed, 1 insertion(+), 1 deletion(-)
 >>
->> Can you change this function according to comments above?
->
-> OK.
->
->> > @@ -795,18 +838,24 @@ static int ovs_flow_cmd_fill_info(const struct
->> > sw_flow *flow, int dp_ifindex,
->> >
->> >         ovs_header->dp_ifindex = dp_ifindex;
->> >
->> > -       err = ovs_flow_cmd_fill_match(flow, skb);
->> > +       err = ovs_flow_cmd_fill_match(flow, skb, ufid_flags);
->> >
->> >         if (err)
->> >
->> >                 goto error;
->> >
->> > -       err = ovs_flow_cmd_fill_stats(flow, skb);
->> > +       err = ovs_flow_cmd_fill_ufid(flow, skb);
->> >
->> >         if (err)
->> >
->> >                 goto error;
+>> diff --git a/net/core/dev.c b/net/core/dev.c
+>> index 1ab168e..b4ad4d1 100644
+>> --- a/net/core/dev.c
+>> +++ b/net/core/dev.c
+>> @@ -3055,7 +3055,7 @@ set_rps_cpu(struct net_device *dev, struct sk_buff *skb,
+>>               flow_table = rcu_dereference(rxqueue->rps_flow_table);
+>>               if (!flow_table)
+>>                       goto out;
+>> -             flow_id = skb_get_hash(skb) & flow_table->mask;
+>> +             flow_id = skb_get_hash_raw(skb) & flow_table->mask;
+>>               rc = dev->netdev_ops->ndo_rx_flow_steer(dev, skb,
+>>                                                       rxq_index, flow_id);
+>>               if (rc < 0)
+>> --
+>> 2.1.0
 >>
->> Flow ID should go first in the netlink msg.
->
-> OK.
->
->> > @@ -915,8 +980,9 @@ static int ovs_flow_cmd_new(struct sk_buff *skb,
->> > struct genl_info *info)
->> >
->> >                 error = -ENODEV;
->> >                 goto err_unlock_ovs;
->> >
->> >         }
->> >
->> > +
->> >
->> >         /* Check if this is a duplicate flow */
->> >
->> > -       flow = ovs_flow_tbl_lookup(&dp->table, &new_flow->unmasked_key);
->> > +       flow = ovs_flow_tbl_lookup(&dp->table, &new_flow->key);
->>
->> Need to check for ufid table to find duplicate ufid entry here.
->
-> OK.
->
->> > diff --git a/datapath/flow.h b/datapath/flow.h
->> > index 2bbf789..736e0eb 100644
->> > --- a/datapath/flow.h
->> > +++ b/datapath/flow.h
->> > @@ -196,6 +196,13 @@ struct sw_flow_match {
->> >
->> >         struct sw_flow_mask *mask;
->> >
->> >  };
->> >
->> > +struct sw_flow_id {
->> > +       struct hlist_node node[2];
->> > +       u32 hash;
->> > +       u8 *ufid;
->> > +       u8 ufid_len;
->> > +};
->> > +
->>
->> Lets make ufid array of size 256, we can reject any key greater than
->> this. current patch does not support key greater than 256 anyways.
->
-> Ok, that sounds reasonable.
->
->> >  struct sw_flow_actions {
->> >
->> >         struct rcu_head rcu;
->> >         u32 actions_len;
->> >
->> > @@ -212,13 +219,20 @@ struct flow_stats {
->> >
->> >  struct sw_flow {
->> >
->> >         struct rcu_head rcu;
->> >
->> > -       struct hlist_node hash_node[2];
->> > -       u32 hash;
->> > +       struct {
->> > +               struct hlist_node node[2];
->> > +               u32 hash;
->> > +       } flow_hash;
->>
->> This change does not look related to this work.
->
-> Right, this is unnecessary leftover from earlier iteration.
->
->
->> >         int stats_last_writer;          /* NUMA-node id of the last
->> >         writer on
->> >
->> >                                          * 'stats[0]'.
->> >                                          */
->> >
->> >         struct sw_flow_key key;
->> >
->> > -       struct sw_flow_key unmasked_key;
->> > +       bool index_by_ufid;             /* Which of the below that
->> > userspace +                                          uses to index this
->> > flow. */ +       union {
->> > +               struct sw_flow_key unmasked_key;
->> > +               struct sw_flow_id ufid;
->> > +       } index;
->>
->> Rather than storing ufid or unmasked key inside struct flow we can
->> keep pointer to these objects, that will save some memory.
->
-> OK. Do you still care about the union being there?
->
-Lets keep both pointer so that we can get rid of the index_by_fid flag.
-
-
->> > @@ -818,31 +914,65 @@ static int flow_mask_insert(struct flow_table *tbl,
->> > struct sw_flow *flow,
->> >
->> >  int ovs_flow_tbl_insert(struct flow_table *table, struct sw_flow *flow,
->> >
->> >                         const struct sw_flow_mask *mask)
->> >
->> >  {
->> >
->> > -       struct table_instance *new_ti = NULL;
->> > -       struct table_instance *ti;
->> > +       struct table_instance *new_ti = NULL, *new_ufid_ti = NULL;
->> > +       struct table_instance *ti, *ufid_ti = NULL;
->> >
->> >         int err;
->> >
->> >         err = flow_mask_insert(table, flow, mask);
->> >         if (err)
->> >
->> >                 return err;
->> >
->> > -       flow->hash = flow_hash(&flow->key, flow->mask->range.start,
->> > -                       flow->mask->range.end);
->> > +       flow->flow_hash.hash = flow_hash(&flow->key,
->> > flow->mask->range.start, +
->> > flow->mask->range.end);
->> >
->> >         ti = ovsl_dereference(table->ti);
->> >         table_instance_insert(ti, flow);
->> >         table->count++;
->> >
->> > +       if (flow->index_by_ufid) {
->> > +               flow->index.ufid.hash = ufid_hash(&flow->index.ufid);
->> > +               ufid_ti = ovsl_dereference(table->ufid_ti);
->> > +               ufid_table_instance_insert(ufid_ti, flow);
->> > +               table->ufid_count++;
->> > +       }
->> >
->> >         /* Expand table, if necessary, to make room. */
->> >         if (table->count > ti->n_buckets)
->> >
->> > -               new_ti = table_instance_expand(ti);
->> > +               new_ti = flow_table_expand(ti, false);
->> >
->> >         else if (time_after(jiffies, table->last_rehash +
->> >         REHASH_INTERVAL))
->> >
->> > -               new_ti = table_instance_rehash(ti, ti->n_buckets);
->> > +               new_ti = flow_table_rehash(ti, ti->n_buckets, false);
->> > +       if (ufid_ti && table->ufid_count > ufid_ti->n_buckets)
->> > +               new_ufid_ti = flow_table_expand(ufid_ti, true);
->> >
->> >         if (new_ti) {
->> >
->> >                 rcu_assign_pointer(table->ti, new_ti);
->> >
->> > -               table_instance_destroy(ti, true);
->> > +               call_rcu(&ti->rcu, flow_tbl_destroy_rcu_cb);
->> >
->> >                 table->last_rehash = jiffies;
->> >
->> >         }
->> >
->> > +       if (new_ufid_ti) {
->> > +               rcu_assign_pointer(table->ufid_ti, new_ufid_ti);
->> > +               call_rcu(&ufid_ti->rcu, flow_tbl_destroy_rcu_cb);
->> > +       }
->> > +       return 0;
->> > +}
->>
->> Insert function can be simplified by first updating flow-table and
->> then updating ufid table.
->
-> Sure.
->
->
->> >  #define OVS_FLOW_ATTR_MAX (__OVS_FLOW_ATTR_MAX - 1)
->> >
->> >  /**
->> >
->> > + * enum ovs_ufid_attr - Unique identifier types.
->> > + *
->> > + * @OVS_UFID_ATTR_FLAGS: A 32-bit value specifying changes to the
->> > behaviour of + * the current %OVS_FLOW_CMD_* request. Optional for all
->> > requests. + * @OVS_UFID_ATTR_ID: A unique identifier for a flow.
->> > + */
->> > +enum ovs_ufid_attr {
->> > +       OVS_UFID_ATTR_UNSPEC,
->> > +       OVS_UFID_ATTR_FLAGS,     /* u32 of OVS_UFID_F_* */
->> > +       OVS_UFID_ATTR_ID,        /* variable length identifier. */
->> > +       __OVS_UFID_ATTR_MAX
->> > +};
->> > +
->> > +#define OVS_UFID_ATTR_MAX (__OVS_UFID_ATTR_MAX - 1)
->> > +
->> > +/**
->> > + * Omit attributes for notifications.
->> > + *
->> > + * If a datapath request contains an OVS_UFID_F_OMIT_* flag, then the
->> > datapath + * may omit the corresponding 'ovs_flow_attr' from the
->> > response. + */
->> > +#define OVS_UFID_F_OMIT_KEY      (1 << 0)
->> > +#define OVS_UFID_F_OMIT_MASK     (1 << 1)
->> > +#define OVS_UFID_F_OMIT_ACTIONS  (1 << 2)
->> > +
->>
->> These flags are related to flow operations. So OVS_UFID_ATTR_FLAGS
->> should be part of enum ovs_flow_attr.
->> This way we do not need to make UFID nested attr.
->
-> OK, I'll shift it out.
->
-> Thanks for the review, I'll work on a fresh revision.
