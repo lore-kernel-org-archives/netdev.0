@@ -1,64 +1,42 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] tcp: fix connect() invalid -EADDRNOTAVAIL error
-Date: Wed, 19 Nov 2014 22:33:09 -0800
-Message-ID: <1416465189.8629.11.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1416379060-15685-1-git-send-email-jmaxwell37@gmail.com>
-	 <1416417120.14060.55.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAGHK07BrUmWxbNA3FzYtEqUOji_qn816=dmi_J40S_CKE3kMnA@mail.gmail.com>
+Subject: Re: [PATCH] bonding: clear header_ops when last slave detached (v2)
+Date: Wed, 19 Nov 2014 22:41:25 -0800
+Message-ID: <1416465685.8629.15.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1416374292-10993-1-git-send-email-wen.gang.wang@oracle.com>
+	 <1416375565.14060.43.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <546C4022.5010509@oracle.com>
+	 <CAHA+R7OyA_V149bpE8qUgG9epU-5UG8cf=zOgh5ZXVB3ZFZHUw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, kuznet <kuznet@ms2.inr.ac.ru>,
-	jmorris <jmorris@namei.org>, yoshfuji <yoshfuji@linux-ipv6.org>,
-	kaber <kaber@trash.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Jon Maxwell <jmaxwell@redhat.com>
-To: Jonathan Maxwell <jmaxwell37@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAGHK07BrUmWxbNA3FzYtEqUOji_qn816=dmi_J40S_CKE3kMnA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Wengang <wen.gang.wang@oracle.com>, netdev <netdev@vger.kernel.org>
+To: Cong Wang <cwang@twopensource.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f173.google.com ([209.85.223.173]:44373 "EHLO
+	mail-ie0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751137AbaKTGl1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2014 01:41:27 -0500
+Received: by mail-ie0-f173.google.com with SMTP id y20so2174543ier.18
+        for <netdev@vger.kernel.org>; Wed, 19 Nov 2014 22:41:27 -0800 (PST)
+In-Reply-To: <CAHA+R7OyA_V149bpE8qUgG9epU-5UG8cf=zOgh5ZXVB3ZFZHUw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-11-20 at 14:44 +1100, Jonathan Maxwell wrote:
-> > > Prerequisites for this to happen:
-> > > 1) The local tcp port range must be exhausted.
-> > > 2) A process must have called bind() followed by connect() for all
-> > > local ports.
-> > 
-> > How the bind() is done exactly ? How SO_REUSEADDR is used ?
+On Wed, 2014-11-19 at 14:26 -0800, Cong Wang wrote:
+> On Tue, Nov 18, 2014 at 11:00 PM, Wengang <wen.gang.wang@oracle.com> wrote:
+> >
+> > Yes, that's true. So the simplest way is move ipoib_header_ops to vmlinux.
+> >
 > 
-> It fails regardless. I tried both with and without for the client and
-> server programs.
-> 
+> That is not an option. Perhaps you need RCU to protect the dev->header_ops
+> pointer.
 
-This is the missing part from the programs.
+This _is_ a reasonable option, especially for stable kernels
 
-By not using SO_REUSEADDR, programs basically do not allow another
-programs to use same port.
+ipoib_hard_header() is 100 bytes or less. Adding infrastructure all over
+the kernel to be able to use RCU or module refcounting will cost much
+more.
 
-> But removing the bind() and just calling connect() from the initial
-> program
-> then a subsequent connect() from a separate program succeeds. It seems
-> that 
-> this is inconsistent behaviour. The proposed fix makes it behave the
-> same for
-> 
-> both cases.
-
-This not consistent behavior is well known and somehow expected by some
-applications.
-
-bind() requests the kernel that this socket has a reserved port.
-
-It means the socket can later disconnect from the target, and reconnect
-to another, using _same_ source port, or chose to listen() on this port.
-
-That is why kernel is so picky, otherwise the listen() might fail
-later...
-
-This is part of BSD socket semantic.
-
-You have to use SO_REUSEADDR on both programs to relax these
-constraints.
-
-Your change might break existing programs, really expecting kernel
-to behave as requested.
+Tell me why it is ok for eth_header_ops() being static (while its _much_
+bigger), and not for ipoib_header_ops. This looks pretty arbitrary to
+me.
