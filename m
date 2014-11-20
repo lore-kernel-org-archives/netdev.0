@@ -1,26 +1,28 @@
 From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: ANNOUNCE: Netdev 0.1 conference
-Date: Wed, 19 Nov 2014 21:47:35 -0500
-Message-ID: <546D5647.30903@mojatatu.com>
+Subject: Resend - ANNOUNCE: Netdev 0.1 conference
+Date: Wed, 19 Nov 2014 21:53:56 -0500
+Message-ID: <546D57C4.8020800@mojatatu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: info@netdev01.info, David Miller <davem@davemloft.net>,
-	Stephen Jaworski <jaws@mojatatu.com>,
-	Richard Guy Briggs <rgb@tricolour.net>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Cc: info@netdev01.info, davem@davemloft.net, jaws@mojatatu.com,
+	rgb@tricolour.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f176.google.com ([209.85.213.176]:65465 "EHLO
-	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754289AbaKTCrj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 21:47:39 -0500
-Received: by mail-ig0-f176.google.com with SMTP id l13so4353555iga.9
-        for <netdev@vger.kernel.org>; Wed, 19 Nov 2014 18:47:39 -0800 (PST)
+Received: from mail-ie0-f173.google.com ([209.85.223.173]:63830 "EHLO
+	mail-ie0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754658AbaKTCx7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 21:53:59 -0500
+Received: by mail-ie0-f173.google.com with SMTP id y20so1944180ier.32
+        for <netdev@vger.kernel.org>; Wed, 19 Nov 2014 18:53:59 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
 Please forward to all places you think are relevant.
+[original email i sent had the wrong contact info at the
+bottom should be:  info@netdev01.info]
+
 
 Netdev 0.1 (year 0, conference 1) is a community-driven conference
 geared towards Linux netheads. Linux kernel networking and user
@@ -98,4 +100,4 @@ wasting resources.
 
 contact:
 --------
-info@netdev.info
+info@netdev01.info
