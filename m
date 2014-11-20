@@ -1,36 +1,57 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH net-next] macvtap: advance iov iterator when needed in
- macvtap_put_user()
-Date: Thu, 20 Nov 2014 16:34:26 +0800
-Message-ID: <20141120083426.GA30001@gondor.apana.org.au>
-References: <1416472265-10151-1-git-send-email-jasowang@redhat.com>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: Re: mlx4: don't duplicate kvfree()
+Date: Thu, 20 Nov 2014 10:38:10 +0200
+Message-ID: <CAPcc5Pjb7Nd3OFBdf4nCPTKPYZBU8gJp8WJB9VdPxJtPV+NE_Q@mail.gmail.com>
+References: <20141120081538.GJ7996@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:35364 "EHLO
-	helcar.apana.org.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751161AbaKTIed (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2014 03:34:33 -0500
-Content-Disposition: inline
-In-Reply-To: <1416472265-10151-1-git-send-email-jasowang@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Amir Vadai <amirv@mellanox.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Al Viro <viro@zeniv.linux.org.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141120081538.GJ7996@ZenIV.linux.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 20, 2014 at 04:31:05PM +0800, Jason Wang wrote:
-> When mergeable buffer is used, vnet_hdr_sz is greater than sizeof struct
-> virtio_net_hdr. So we need advance the iov iterators in this case.
-> 
-> Fixes 6c36d2e26cda1ad3e2c4b90dd843825fc62fe5b4 ("macvtap: Use iovec iterators")
-> Cc: Herbert Xu <herbert@gondor.apana.org.au>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+On Thu, Nov 20, 2014 at 10:15 AM, Al Viro <viro@zeniv.linux.org.uk> wrote:
+> Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+> ---
+>
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/mr.c b/drivers/net/ethernet/mellanox/mlx4/mr.c
+> index 193a6ad..d6f5496 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/mr.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/mr.c
+> @@ -130,10 +130,7 @@ static int mlx4_buddy_init(struct mlx4_buddy *buddy, int max_order)
+>
+>  err_out_free:
+>         for (i = 0; i <= buddy->max_order; ++i)
+> -               if (buddy->bits[i] && is_vmalloc_addr(buddy->bits[i]))
+> -                       vfree(buddy->bits[i]);
+> -               else
+> -                       kfree(buddy->bits[i]);
+> +               kvfree(buddy->bits[i]);
+>
+>  err_out:
+>         kfree(buddy->bits);
+> @@ -147,10 +144,7 @@ static void mlx4_buddy_cleanup(struct mlx4_buddy *buddy)
+>         int i;
+>
+>         for (i = 0; i <= buddy->max_order; ++i)
+> -               if (is_vmalloc_addr(buddy->bits[i]))
+> -                       vfree(buddy->bits[i]);
+> -               else
+> -                       kfree(buddy->bits[i]);
+> +               kvfree(buddy->bits[i]);
+>
+>         kfree(buddy->bits);
+>         kfree(buddy->num_free);
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
 
-Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+Thanks Al
 
-Thanks,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Acked-by: Amir Vadai <amirv@mellanox.com>
