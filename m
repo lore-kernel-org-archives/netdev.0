@@ -1,47 +1,62 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH net-next] tcp: Remove some spurious dropped packet profile
- hits from the passive connection accept path
-Date: Thu, 20 Nov 2014 13:31:27 -0800
-Message-ID: <546E5DAF.5090907@hp.com>
-References: <20141120185829.986CB290095D@tardy> <1416516423.8629.43.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net-next] filter: add bpf_optimize_div()
+Date: Thu, 20 Nov 2014 22:32:25 +0100
+Message-ID: <546E5DE9.3050602@redhat.com>
+References: <1416512551-22252-1-git-send-email-kda@linux-powerpc.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Rick Jones <raj@tardy.usa.hp.com>
+Cc: netdev@vger.kernel.org, Alexei Starovoitov <ast@plumgrid.com>
+To: Denis Kirjanov <kda@linux-powerpc.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t3427.houston.hp.com ([15.201.208.55]:45837 "EHLO
-	g4t3427.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758182AbaKTVb2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2014 16:31:28 -0500
-In-Reply-To: <1416516423.8629.43.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mx1.redhat.com ([209.132.183.28]:40040 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755788AbaKTVci (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Nov 2014 16:32:38 -0500
+In-Reply-To: <1416512551-22252-1-git-send-email-kda@linux-powerpc.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/20/2014 12:47 PM, Eric Dumazet wrote:
-> On Thu, 2014-11-20 at 10:58 -0800, Rick Jones wrote:
->> From: Rick Jones <rick.jones2@hp.com>
->>
->> When a system is the passive accepter of many connections, for example
->> when the target of a netperf TCP_CC or TCP_CRR test, or as say a web
->> server, the discard of the skb containing the TCP SYN being processed
->> for the LISTEN endpoint should be a consume_skb() rather than a kfree_skb()
->> to avoid cluttering a dropped packet profile.
->>
->> Signed-off-by: Rick Jones <rick.jones2@hp.com>
->>
->> ---
+On 11/20/2014 08:42 PM, Denis Kirjanov wrote:
+> optimize_div() found in  mips bpf jit is really usefull
+> for other arches. So let's put it in filter.h
 >
-> So what happens if we really drop the packet ?
+> CC: Alexei Starovoitov <ast@plumgrid.com>
+> Signed-off-by: Denis Kirjanov <kda@linux-powerpc.org>
 
-Do you mean when there is actually data in the SYN?
+NAK
 
-rick
+1) There's no user of this function (you name MIPS JIT, but
+    don't remove it from there) ...
 
+2) It's not really specific or tied to the BPF API in particular,
+    so doesn't really belong here, rather some more generic kernel
+    header, iff anything.
+
+> ---
+>   include/linux/filter.h | 11 +++++++++++
+>   1 file changed, 11 insertions(+)
 >
-> TCP stack at this point owns the packet, it is possible to mark a bit in
-> it to either call consume_skb() or kfree_skb()
+> diff --git a/include/linux/filter.h b/include/linux/filter.h
+> index ca95abd..b385637 100644
+> --- a/include/linux/filter.h
+> +++ b/include/linux/filter.h
+> @@ -414,6 +414,17 @@ static inline void bpf_jit_dump(unsigned int flen, unsigned int proglen,
+>   		print_hex_dump(KERN_ERR, "JIT code: ", DUMP_PREFIX_OFFSET,
+>   			       16, 1, image, proglen, false);
+>   }
+> +
+> +static inline int bpf_optimize_div(u32 *k)
+> +{
+> +	/* power of 2 divides can be implemented with right shift */
+> +	if (!(*k & (*k-1))) {
+> +		*k = ilog2(*k);
+> +		return 1;
+> +	}
+> +
+> +	return 0;
+> +}
+>   #else
+>   static inline void bpf_jit_compile(struct bpf_prog *fp)
+>   {
 >
-> I attempted this once but gave up because it was a quite intrusive
-> patch...
