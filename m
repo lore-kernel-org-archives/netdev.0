@@ -1,43 +1,50 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [PATCH] bonding: clear header_ops when last slave detached (v2)
-Date: Thu, 20 Nov 2014 14:13:16 -0800
-Message-ID: <CAHA+R7P9XhGQZXFy6frxOyZJ4rX_MdVgY3kAPE1_wDNcvYd_yA@mail.gmail.com>
-References: <1416374292-10993-1-git-send-email-wen.gang.wang@oracle.com>
-	<1416375565.14060.43.camel@edumazet-glaptop2.roam.corp.google.com>
-	<546C4022.5010509@oracle.com>
-	<CAHA+R7OyA_V149bpE8qUgG9epU-5UG8cf=zOgh5ZXVB3ZFZHUw@mail.gmail.com>
-	<1416465685.8629.15.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAHA+R7PKRbBNwfUWRAsVHQreKsGXBc8CHorZRuyCfvwL4O=y+g@mail.gmail.com>
-	<1416516104.8629.39.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAHA+R7Me4zPdGpeQVHFLLGVq=4cVar09jQFyjA81nxF_Fmuppw@mail.gmail.com>
-	<1416521035.8629.49.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Bjorn Helgaas <bhelgaas@google.com>
+Subject: Re: [PATCH 0/4] move pci_assivned_vfs() check (while disabling VFs)
+ to pci sub-system
+Date: Thu, 20 Nov 2014 15:21:27 -0700
+Message-ID: <20141120222127.GB7987@google.com>
+References: <1415620410-4937-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Wengang <wen.gang.wang@oracle.com>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f171.google.com ([209.85.212.171]:41228 "EHLO
-	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756409AbaKTWNR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2014 17:13:17 -0500
-Received: by mail-wi0-f171.google.com with SMTP id bs8so10184947wib.16
-        for <netdev@vger.kernel.org>; Thu, 20 Nov 2014 14:13:16 -0800 (PST)
-In-Reply-To: <1416521035.8629.49.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-pci@vger.kernel.org, netdev@vger.kernel.org,
+	ariel.elior@qlogic.com, linux.nics@intel.com,
+	shahed.shaikh@qlogic.com, ddutile@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: Sathya Perla <sathya.perla@emulex.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1415620410-4937-1-git-send-email-sathya.perla@emulex.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 20, 2014 at 2:03 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->
-> Provide a patch, please.
->
->
+[+cc Jeff]
 
-Don't blame me.
+On Mon, Nov 10, 2014 at 05:23:26PM +0530, Sathya Perla wrote:
+> A user must not be allowed to disable VFs while they are already assigned to
+> a guest. This check is being made in each individual driver that implements
+> the sriov_configure PCI method.
+> This patch-set fixes this code duplication by moving this check from
+> drivers to the sriov_nuvfs_store() routine just before invoking
+> sriov_configure() when num_vfs is equal to 0.
+> 
+> Vasundhara Volam (4):
+>   pci: move pci_assivned_vfs() check while disabling VFs to pci
+>     sub-system
+>   bnx2x: remove pci_assigned_vfs() check while disabling VFs
+>   i40e: remove pci_assigned_vfs() check while disabling VFs
+>   qlcnic: remove pci_assigned_vfs() check while disabling VFs
+> 
+>  drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c  |    2 +-
+>  drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |    7 +------
+>  .../net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c   |   10 ----------
+>  drivers/pci/pci-sysfs.c                            |    5 +++++
+>  4 files changed, 7 insertions(+), 17 deletions(-)
 
-I want to provide a real fix, you want a minimum fix for stable.
-We agree that we disagree on this point, right? What's
-more, according to your rule, I should yield to you when I
-touch something you want to touch.
+I'm dropping these for the reasons Don & Alex outlined -- they don't fix
+the problem for VFIO, so this amounts to shuffling around code that's known
+to be broken, which seems more confusing than worthwhile.
 
-Also, no one seems to care about my previous question:
-why only bonding has the problem?
+Jeff, if I were you I would drop the i40e patch.  I don't think it makes
+sense to remove the check from i40e before adding it to the PCI core.
+
+Bjorn
