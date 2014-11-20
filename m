@@ -1,53 +1,69 @@
-From: Jay Vosburgh <jay.vosburgh@canonical.com>
-Subject: Re: [PATCH] bonding: clear header_ops when last slave detached (v2)
-Date: Thu, 20 Nov 2014 14:53:05 -0800
-Message-ID: <23563.1416523985@famine>
-References: <1416374292-10993-1-git-send-email-wen.gang.wang@oracle.com> <1416375565.14060.43.camel@edumazet-glaptop2.roam.corp.google.com> <546C4022.5010509@oracle.com> <CAHA+R7OyA_V149bpE8qUgG9epU-5UG8cf=zOgh5ZXVB3ZFZHUw@mail.gmail.com> <1416465685.8629.15.camel@edumazet-glaptop2.roam.corp.google.com> <CAHA+R7PKRbBNwfUWRAsVHQreKsGXBc8CHorZRuyCfvwL4O=y+g@mail.gmail.com> <1416516104.8629.39.camel@edumazet-glaptop2.roam.corp.google.com> <CAHA+R7Me4zPdGpeQVHFLLGVq=4cVar09jQFyjA81nxF_Fmuppw@mail.gmail.com> <1416521035.8629.49.camel@edumazet-glaptop2.roam.corp.google.com> <CAHA+R7P9XhGQZXFy6frxOyZJ4rX_MdVgY3kAPE1_wDNcvYd_yA@mail.gmail.com>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Wengang <wen.gang.wang@oracle.com>,
-	netdev <netdev@vger.kernel.org>
-To: Cong Wang <cwang@twopensource.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:59282 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756236AbaKTWxL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2014 17:53:11 -0500
-In-reply-to: <CAHA+R7P9XhGQZXFy6frxOyZJ4rX_MdVgY3kAPE1_wDNcvYd_yA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] situation with csum_and_copy_... API
+Date: Thu, 20 Nov 2014 14:53:55 -0800
+Message-ID: <1416524035.8629.54.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CA+55aFyQR2gOzEDROcWFcQzLvTjOxyJRjFJXJ03JB5knd-Gsgg@mail.gmail.com>
+	 <20141119.161744.1661940121298888832.davem@davemloft.net>
+	 <20141119213006.GE7996@ZenIV.linux.org.uk>
+	 <20141119.165340.2162829993279387495.davem@davemloft.net>
+	 <20141120214753.GR7996@ZenIV.linux.org.uk>
+	 <1416520542.8629.46.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20141120222506.GS7996@ZenIV.linux.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, torvalds@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	target-devel@vger.kernel.org,
+	"Nicholas A. Bellinger" <nab@linux-iscsi.org>,
+	Christoph Hellwig <hch@infradead.org>
+To: Al Viro <viro@ZenIV.linux.org.uk>
+Return-path: <target-devel-owner@vger.kernel.org>
+In-Reply-To: <20141120222506.GS7996@ZenIV.linux.org.uk>
+Sender: target-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Cong Wang <cwang@twopensource.com> wrote:
+On Thu, 2014-11-20 at 22:25 +0000, Al Viro wrote:
 
->Also, no one seems to care about my previous question:
->why only bonding has the problem?
+> Yes, it is.  You are breaking several _other_ kernel_sendmsg() users.
+> They are already slightly broken, but that'll make breakage much more
+> common.
+> 
+> Please, don't - the right thing to do is to have iov_iter in msghdr
+> (we already have the kernel and userland ones with different types and
+> we do not assume their layouts to be identical - currently they are,
+> but it's easy to change), keep iovec constant in all cases and advance
+> ->msg_iter.  Also in all cases.
+> 
+> Note that direct manipulations of what's currently in ->msg_iov are
+> wrong - all those loops over vector elements, etc., belong in low-level
+> primitives.  The main missing ones right now are csum_and_copy_{from,to}_iter()
+> - I have those in local queue, but I'm still trying to get a reasonably
+> clean mm/iov_iter.c without ridiculous amounts of boilerplating.  A bit more
+> massage is needed there...
+> 
+> Seriously, take a look at vfs.git#iov_iter-net; it's preparations for the
+> one that'll introduce ->msg_iter.  Right now that branch has local iov_iter
+> declared and initialized in several ->sendmsg() and ->recvmsg() instances and
+> fed to primitives that work with it; after the conversion it'll be in
+> msg->msg_iter and it will be initialized by sock_sendmsg()/sock_recvmsg().
+> 
+> The tricky part is how to get through that without temporary breaking the
+> existing sendmsg/recvmsg users in the kernel *and* without a patch size from
+> hell.  I more or less see how to carve the remaining steps into
+> reasonably-sized chunks; iscsi is one of the tricky ones and it, AFAICS,
+> is genuinely broken in mainline and will need fixes that can go into -stable.
+> 
+> And no, your solution doesn't work.  Sorry.  You'll break e.g. smb_send_kvec()
+> that way.  ceph_tcp_sendmsg() as well, IIRC.
 
-	Bonding has the problem because it stashes a pointer to a data
-structure (the header_ops) from another module, and when that module is
-unloaded the dangling pointer may be dereferenced if it's not either
-cleared or made to never go away.
+Nowhere in tcp_sendmsg() the iov had const qualifier.
 
-	Setting the bonding->header_ops to NULL (to avoid the current
-problem with pktgen) has a race in dev_hard_header between where the
-header_ops pointer is checked and where the ->create function is called.
+If it was declared as const, this discussion would not happen,
+we would know we are not allowed to modify it.
 
-	This pointer business is the main reason the bonding path for
-"not ARPHRD_ETHER" (i.e., ipoib) has extra complexity in the open/close
-path, e.g.,
+iov_iter is nice, but not a single time it is used in net/ 
 
-bond_slave_netdev_event():
-[...]
-        switch (event) {
-        case NETDEV_UNREGISTER:
-                if (bond_dev->type != ARPHRD_ETHER)
-                        bond_release_and_destroy(bond_dev, slave_dev);
-                else
-                        bond_release(bond_dev, slave_dev);
+Please make sure to add const where appropriate.
 
-	If the ipoib ops were static in vmlinux, that would resolve the
-pktgen problem, and also may eliminate the need for some of the ugly
-bits like what I've pasted in above.
-
-	-J
-
----
-	-Jay Vosburgh, jay.vosburgh@canonical.com
+Thanks.
