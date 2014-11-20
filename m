@@ -1,52 +1,55 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [PATCH] bonding: clear header_ops when last slave detached (v2)
-Date: Thu, 20 Nov 2014 09:34:26 -0800
-Message-ID: <CAHA+R7PKRbBNwfUWRAsVHQreKsGXBc8CHorZRuyCfvwL4O=y+g@mail.gmail.com>
-References: <1416374292-10993-1-git-send-email-wen.gang.wang@oracle.com>
-	<1416375565.14060.43.camel@edumazet-glaptop2.roam.corp.google.com>
-	<546C4022.5010509@oracle.com>
-	<CAHA+R7OyA_V149bpE8qUgG9epU-5UG8cf=zOgh5ZXVB3ZFZHUw@mail.gmail.com>
-	<1416465685.8629.15.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Subject: Re: [patch net-next] i40e: remove dead fdb code
+Date: Thu, 20 Nov 2014 09:39:46 -0800
+Message-ID: <20141120093946.00000d30@unknown>
+References: <1416489029-1929-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Wengang <wen.gang.wang@oracle.com>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f46.google.com ([209.85.192.46]:59291 "EHLO
-	mail-qg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751911AbaKTRe1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2014 12:34:27 -0500
-Received: by mail-qg0-f46.google.com with SMTP id z107so882501qgd.19
-        for <netdev@vger.kernel.org>; Thu, 20 Nov 2014 09:34:26 -0800 (PST)
-In-Reply-To: <1416465685.8629.15.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linux.nics@intel.com, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, bruce.w.allan@intel.com,
+	john.ronciak@intel.com, davem@davemloft.net
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1416489029-1929-1-git-send-email-jiri@resnulli.us>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 19, 2014 at 10:41 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Wed, 2014-11-19 at 14:26 -0800, Cong Wang wrote:
->> On Tue, Nov 18, 2014 at 11:00 PM, Wengang <wen.gang.wang@oracle.com> wrote:
->> >
->> > Yes, that's true. So the simplest way is move ipoib_header_ops to vmlinux.
->> >
->>
->> That is not an option. Perhaps you need RCU to protect the dev->header_ops
->> pointer.
->
-> This _is_ a reasonable option, especially for stable kernels
->
-> ipoib_hard_header() is 100 bytes or less. Adding infrastructure all over
-> the kernel to be able to use RCU or module refcounting will cost much
-> more.
+On Thu, 20 Nov 2014 14:10:29 +0100
+Jiri Pirko <jiri@resnulli.us> wrote:
 
-I didn't look into ipoib_header_ops, thought it might have some dependency
-on symbols. So _generally_ speaking, we can't do that, the dependency
-chain could be very long. It could be an exception and good luck
-to play with module symbols.
+> This code is not used now and also it contains some weird ifdefs. So
+> remove it for now. It can be added when needed.
+> 
 
->
-> Tell me why it is ok for eth_header_ops() being static (while its _much_
-> bigger), and not for ipoib_header_ops. This looks pretty arbitrary to
-> me.
->
+First, thanks for looking at our code.
 
-Simple, eth_* is kinda of a builtin library now, too many drivers use them.
+but, NAK, the code just needs to have the #ifdefs removed.
+
+In addition the fdb_del and fdb_dump functions are un-necessary and
+were submitted by mistake.
+
+I will draft up a patch today and send it (and Jeff can take it through
+Jeff Kirsher's i40e tree, if thats okay with DaveM)
+
+Thanks, 
+ Jesse
+
+------------------------------------------------------------------------------
+Download BIRT iHub F-Type - The Free Enterprise-Grade BIRT Server
+from Actuate! Instantly Supercharge Your Business Reports and Dashboards
+with Interactivity, Sharing, Native Excel Exports, App Integration & more
+Get technology previously reserved for billion-dollar corporations, FREE
+http://pubads.g.doubleclick.net/gampad/clk?id=157005751&iu=/4140/ostg.clktrk
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
