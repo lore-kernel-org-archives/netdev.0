@@ -1,50 +1,66 @@
-From: Bjorn Helgaas <bhelgaas@google.com>
-Subject: Re: [PATCH 0/4] move pci_assivned_vfs() check (while disabling VFs)
- to pci sub-system
-Date: Thu, 20 Nov 2014 15:21:27 -0700
-Message-ID: <20141120222127.GB7987@google.com>
-References: <1415620410-4937-1-git-send-email-sathya.perla@emulex.com>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: [RFC] situation with csum_and_copy_... API
+Date: Thu, 20 Nov 2014 22:25:06 +0000
+Message-ID: <20141120222506.GS7996@ZenIV.linux.org.uk>
+References: <CA+55aFyQR2gOzEDROcWFcQzLvTjOxyJRjFJXJ03JB5knd-Gsgg@mail.gmail.com>
+ <20141119.161744.1661940121298888832.davem@davemloft.net>
+ <20141119213006.GE7996@ZenIV.linux.org.uk>
+ <20141119.165340.2162829993279387495.davem@davemloft.net>
+ <20141120214753.GR7996@ZenIV.linux.org.uk>
+ <1416520542.8629.46.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-pci@vger.kernel.org, netdev@vger.kernel.org,
-	ariel.elior@qlogic.com, linux.nics@intel.com,
-	shahed.shaikh@qlogic.com, ddutile@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: Sathya Perla <sathya.perla@emulex.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, torvalds@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	target-devel@vger.kernel.org,
+	"Nicholas A. Bellinger" <nab@linux-iscsi.org>,
+	Christoph Hellwig <hch@infradead.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1415620410-4937-1-git-send-email-sathya.perla@emulex.com>
-Sender: linux-pci-owner@vger.kernel.org
+In-Reply-To: <1416520542.8629.46.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[+cc Jeff]
-
-On Mon, Nov 10, 2014 at 05:23:26PM +0530, Sathya Perla wrote:
-> A user must not be allowed to disable VFs while they are already assigned to
-> a guest. This check is being made in each individual driver that implements
-> the sriov_configure PCI method.
-> This patch-set fixes this code duplication by moving this check from
-> drivers to the sriov_nuvfs_store() routine just before invoking
-> sriov_configure() when num_vfs is equal to 0.
+On Thu, Nov 20, 2014 at 01:55:42PM -0800, Eric Dumazet wrote:
+> On Thu, 2014-11-20 at 21:47 +0000, Al Viro wrote:
 > 
-> Vasundhara Volam (4):
->   pci: move pci_assivned_vfs() check while disabling VFs to pci
->     sub-system
->   bnx2x: remove pci_assigned_vfs() check while disabling VFs
->   i40e: remove pci_assigned_vfs() check while disabling VFs
->   qlcnic: remove pci_assigned_vfs() check while disabling VFs
+> > As far as I can see, these retries on the send side are simply broken -
+> > normally we are talking to TCP sockets there and tcp_sendmsg() does *not*
+> > modify iovec in normal case. 
 > 
->  drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c  |    2 +-
->  drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |    7 +------
->  .../net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c   |   10 ----------
->  drivers/pci/pci-sysfs.c                            |    5 +++++
->  4 files changed, 7 insertions(+), 17 deletions(-)
+> Arg... I sent this morning something doing this (against net-next tree)
+> 
+> Is it a problem ?
 
-I'm dropping these for the reasons Don & Alex outlined -- they don't fix
-the problem for VFIO, so this amounts to shuffling around code that's known
-to be broken, which seems more confusing than worthwhile.
+Yes, it is.  You are breaking several _other_ kernel_sendmsg() users.
+They are already slightly broken, but that'll make breakage much more
+common.
 
-Jeff, if I were you I would drop the i40e patch.  I don't think it makes
-sense to remove the check from i40e before adding it to the PCI core.
+Please, don't - the right thing to do is to have iov_iter in msghdr
+(we already have the kernel and userland ones with different types and
+we do not assume their layouts to be identical - currently they are,
+but it's easy to change), keep iovec constant in all cases and advance
+->msg_iter.  Also in all cases.
 
-Bjorn
+Note that direct manipulations of what's currently in ->msg_iov are
+wrong - all those loops over vector elements, etc., belong in low-level
+primitives.  The main missing ones right now are csum_and_copy_{from,to}_iter()
+- I have those in local queue, but I'm still trying to get a reasonably
+clean mm/iov_iter.c without ridiculous amounts of boilerplating.  A bit more
+massage is needed there...
+
+Seriously, take a look at vfs.git#iov_iter-net; it's preparations for the
+one that'll introduce ->msg_iter.  Right now that branch has local iov_iter
+declared and initialized in several ->sendmsg() and ->recvmsg() instances and
+fed to primitives that work with it; after the conversion it'll be in
+msg->msg_iter and it will be initialized by sock_sendmsg()/sock_recvmsg().
+
+The tricky part is how to get through that without temporary breaking the
+existing sendmsg/recvmsg users in the kernel *and* without a patch size from
+hell.  I more or less see how to carve the remaining steps into
+reasonably-sized chunks; iscsi is one of the tricky ones and it, AFAICS,
+is genuinely broken in mainline and will need fixes that can go into -stable.
+
+And no, your solution doesn't work.  Sorry.  You'll break e.g. smb_send_kvec()
+that way.  ceph_tcp_sendmsg() as well, IIRC.
