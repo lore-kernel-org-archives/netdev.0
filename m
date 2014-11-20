@@ -1,57 +1,85 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: RE: [PATCH 1/1] net: Hyper-V: Deletion of an unnecessary check before
- the function call "vfree"
-Date: Thu, 20 Nov 2014 18:58:22 +0000
-Message-ID: <f8c8e81a61634b02b8e1f562588e1ced@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
-References: <5307CAA2.8060406@users.sourceforge.net>
- <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6>
- <530A086E.8010901@users.sourceforge.net>
- <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6>
- <530A72AA.3000601@users.sourceforge.net>
- <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6>
- <530B5FB6.6010207@users.sourceforge.net>
- <alpine.DEB.2.10.1402241710370.2074@hadrien>
- <530C5E18.1020800@users.sourceforge.net>
- <alpine.DEB.2.10.1402251014170.2080@hadrien>
- <530CD2C4.4050903@users.sourceforge.net>
- <alpine.DEB.2.10.1402251840450.7035@hadrien>
- <530CF8FF.8080600@users.sourceforge.net>
- <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6>
- <530DD06F.4090703@users.sourceforge.net>
- <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>
- <5317A59D.4@users.sourceforge.net> <546DF9D7.6080801@users.sourceforge.net>
+From: Joe Stringer <joestringer@nicira.com>
+Subject: Re: [PATCHv10 ovs 12/15] datapath: Add support for unique flow identifiers.
+Date: Thu, 20 Nov 2014 10:57:34 -0800
+Message-ID: <201411201057.35003.joestringer@nicira.com>
+References: <1415906275-3172-1-git-send-email-joestringer@nicira.com> <201411191620.32217.joestringer@nicira.com> <CALnjE+qwnKa-s1GoZRvh-RgjRO5eKvrf+XnvD_meGES1L=fe0w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: SF Markus Elfring <elfring@users.sourceforge.net>,
-	KY Srinivasan <kys@microsoft.com>,
-	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
+	netdev <netdev@vger.kernel.org>
+To: Pravin Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na01-sn2-obe.ptr.o365filtering.com ([157.55.158.28]:22132 "EHLO
-	na01-sn2-obe.outbound.o365filtering.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757858AbaKTS6h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2014 13:58:37 -0500
-In-Reply-To: <546DF9D7.6080801@users.sourceforge.net>
-Content-Language: en-US
+Received: from na3sys009aog103.obsmtp.com ([74.125.149.71]:51903 "HELO
+	na3sys009aog103.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752077AbaKTTFa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2014 14:05:30 -0500
+Received: by mail-pa0-f46.google.com with SMTP id lj1so3094940pab.19
+        for <netdev@vger.kernel.org>; Thu, 20 Nov 2014 11:05:30 -0800 (PST)
+In-Reply-To: <CALnjE+qwnKa-s1GoZRvh-RgjRO5eKvrf+XnvD_meGES1L=fe0w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogU0YgTWFya3VzIEVsZnJp
-bmcgW21haWx0bzplbGZyaW5nQHVzZXJzLnNvdXJjZWZvcmdlLm5ldF0NCj4gU2VudDogVGh1cnNk
-YXksIE5vdmVtYmVyIDIwLCAyMDE0IDk6MjUgQU0NCj4gVG86IEhhaXlhbmcgWmhhbmc7IEtZIFNy
-aW5pdmFzYW47IGRldmVsQGxpbnV4ZHJpdmVycHJvamVjdC5vcmc7DQo+IG5ldGRldkB2Z2VyLmtl
-cm5lbC5vcmcNCj4gQ2M6IExLTUw7IGtlcm5lbC1qYW5pdG9yc0B2Z2VyLmtlcm5lbC5vcmc7IEp1
-bGlhIExhd2FsbA0KPiBTdWJqZWN0OiBbUEFUQ0ggMS8xXSBuZXQ6IEh5cGVyLVY6IERlbGV0aW9u
-IG9mIGFuIHVubmVjZXNzYXJ5IGNoZWNrDQo+IGJlZm9yZSB0aGUgZnVuY3Rpb24gY2FsbCAidmZy
-ZWUiDQo+IA0KPiBGcm9tOiBNYXJrdXMgRWxmcmluZyA8ZWxmcmluZ0B1c2Vycy5zb3VyY2Vmb3Jn
-ZS5uZXQ+DQo+IERhdGU6IFRodSwgMjAgTm92IDIwMTQgMTU6MTU6MjEgKzAxMDANCj4gDQo+IFRo
-ZSB2ZnJlZSgpIGZ1bmN0aW9uIHBlcmZvcm1zIGFsc28gaW5wdXQgcGFyYW1ldGVyIHZhbGlkYXRp
-b24uIFRodXMgdGhlDQo+IHRlc3QNCj4gYXJvdW5kIHRoZSBjYWxsIGlzIG5vdCBuZWVkZWQuDQo+
-IA0KPiBUaGlzIGlzc3VlIHdhcyBkZXRlY3RlZCBieSB1c2luZyB0aGUgQ29jY2luZWxsZSBzb2Z0
-d2FyZS4NCj4gDQo+IFNpZ25lZC1vZmYtYnk6IE1hcmt1cyBFbGZyaW5nIDxlbGZyaW5nQHVzZXJz
-LnNvdXJjZWZvcmdlLm5ldD4NCg0KU2lnbmVkLW9mZi1ieTogSGFpeWFuZyBaaGFuZyA8aGFpeWFu
-Z3pAbWljcm9zb2Z0LmNvbT4NCg0KVGhhbmtzIQ0KDQo=
+On Wednesday, November 19, 2014 16:39:20 Pravin Shelar wrote:
+> On Wed, Nov 19, 2014 at 4:20 PM, Joe Stringer <joestringer@nicira.com> 
+wrote:
+> > On Wednesday, November 19, 2014 15:34:24 Pravin Shelar wrote:
+> >> On Thu, Nov 13, 2014 at 11:17 AM, Joe Stringer <joestringer@nicira.com>
+> > 
+> > wrote:
+> >> > @@ -684,33 +691,43 @@ static size_t ovs_flow_cmd_msg_size(const struct
+> >> > sw_flow_actions *acts)
+> >> > 
+> >> >  /* Called with ovs_mutex or RCU read lock. */
+> >> >  static int ovs_flow_cmd_fill_match(const struct sw_flow *flow,
+> >> > 
+> >> > -                                  struct sk_buff *skb)
+> >> > +                                  struct sk_buff *skb, u32
+> >> > ufid_flags)
+> >> > 
+> >> >  {
+> >> >  
+> >> >         struct nlattr *nla;
+> >> >         int err;
+> >> > 
+> >> > -       /* Fill flow key. */
+> >> > -       nla = nla_nest_start(skb, OVS_FLOW_ATTR_KEY);
+> >> > -       if (!nla)
+> >> > -               return -EMSGSIZE;
+> >> > -
+> >> > -       err = ovs_nla_put_flow(&flow->unmasked_key,
+> >> > &flow->unmasked_key, skb, -                              false);
+> >> > -       if (err)
+> >> > -               return err;
+> >> > -
+> >> > -       nla_nest_end(skb, nla);
+> >> > +       /* Fill flow key. If userspace didn't specify a UFID, then
+> >> > ignore the +        * OMIT_KEY flag. */
+> >> > +       if (!(ufid_flags & OVS_UFID_F_OMIT_KEY) ||
+> >> > +           !flow->index_by_ufid) {
+> >> 
+> >> I am not sure about this check, userspace needs to send atleast ufid
+> >> or the unmasked key as id for flow. otherwise we shld flag error. Here
+> >> we can serialize flow->key.
+> >> There could be another function which takes care of flow-id
+> >> serialization where we serialize use ufid or unmasked key as flow id.
+> >> Lets group ufid and unmasked key together rather than masked key and
+> >> unmasked key which are not related.
+> > 
+> > Right, at flow setup time the flow key is always required, but the UFID
+> > is optional. For most other cases, one of the two most be specified. For
+> > flow dump, neither is required from userspace, but OMIT_KEY flag may be
+> > raised. That's the particular case that this logic is trying to catch
+> > (dump all flows, including those that were set up without UFID - in
+> > which case the OMIT_KEY flag doesn't make sense, so treat the flag like
+> > a request rather than a command).
+> 
+> How do you handle overlapping flows without the flow id in dump operation?
+
+In userspace? revalidators will dump flows, then if the flow-key is exactly the 
+same as another flow then they will be hashed to the same udpif_key and the 
+second flow will be ignored each dump. So, stats may get messed up. If they 
+differ but overlap, they will hash to different udpif_keys and stats tracked 
+separately. Revalidator won't check the validity of overlapping flows until the 
+next change to ofproto-dpif.
