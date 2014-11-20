@@ -1,44 +1,52 @@
-From: =?utf-8?B?U8O2cmVu?= Brinkmann <soren.brinkmann@xilinx.com>
-Subject: Re: [PATCH 1/1] net: Xilinx: Deletion of unnecessary checks before
- two function calls
-Date: Thu, 20 Nov 2014 09:29:08 -0800
-Message-ID: <7b7454272cd247c18f32966e78b1b00b@BY2FFO11FD037.protection.gbl>
-References: <530C5E18.1020800@users.sourceforge.net>
- <alpine.DEB.2.10.1402251014170.2080@hadrien>
- <530CD2C4.4050903@users.sourceforge.net>
- <alpine.DEB.2.10.1402251840450.7035@hadrien>
- <530CF8FF.8080600@users.sourceforge.net>
- <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6>
- <530DD06F.4090703@users.sourceforge.net>
- <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>
- <5317A59D.4@users.sourceforge.net> <546DF1A2.8090208@users.sourceforge.net>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [PATCH] bonding: clear header_ops when last slave detached (v2)
+Date: Thu, 20 Nov 2014 09:34:26 -0800
+Message-ID: <CAHA+R7PKRbBNwfUWRAsVHQreKsGXBc8CHorZRuyCfvwL4O=y+g@mail.gmail.com>
+References: <1416374292-10993-1-git-send-email-wen.gang.wang@oracle.com>
+	<1416375565.14060.43.camel@edumazet-glaptop2.roam.corp.google.com>
+	<546C4022.5010509@oracle.com>
+	<CAHA+R7OyA_V149bpE8qUgG9epU-5UG8cf=zOgh5ZXVB3ZFZHUw@mail.gmail.com>
+	<1416465685.8629.15.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Michal Simek <michal.simek@xilinx.com>, <netdev@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	<kernel-janitors@vger.kernel.org>,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: SF Markus Elfring <elfring@users.sourceforge.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <546DF1A2.8090208@users.sourceforge.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Wengang <wen.gang.wang@oracle.com>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f46.google.com ([209.85.192.46]:59291 "EHLO
+	mail-qg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751911AbaKTRe1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2014 12:34:27 -0500
+Received: by mail-qg0-f46.google.com with SMTP id z107so882501qgd.19
+        for <netdev@vger.kernel.org>; Thu, 20 Nov 2014 09:34:26 -0800 (PST)
+In-Reply-To: <1416465685.8629.15.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-11-20 at 02:50PM +0100, SF Markus Elfring wrote:
-> From: Markus Elfring <elfring@users.sourceforge.net>
-> Date: Thu, 20 Nov 2014 14:47:12 +0100
->=20
-> The functions kfree() and of_node_put() test whether their argument i=
-s NULL
-> and then return immediately. Thus the test around the call is not nee=
-ded.
->=20
-> This issue was detected by using the Coccinelle software.
->=20
-> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
-Reviewed-by: Soren Brinkmann <soren.brinkmann@xilinx.com>
+On Wed, Nov 19, 2014 at 10:41 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Wed, 2014-11-19 at 14:26 -0800, Cong Wang wrote:
+>> On Tue, Nov 18, 2014 at 11:00 PM, Wengang <wen.gang.wang@oracle.com> wrote:
+>> >
+>> > Yes, that's true. So the simplest way is move ipoib_header_ops to vmlinux.
+>> >
+>>
+>> That is not an option. Perhaps you need RCU to protect the dev->header_ops
+>> pointer.
+>
+> This _is_ a reasonable option, especially for stable kernels
+>
+> ipoib_hard_header() is 100 bytes or less. Adding infrastructure all over
+> the kernel to be able to use RCU or module refcounting will cost much
+> more.
 
-	S=C3=B6ren
+I didn't look into ipoib_header_ops, thought it might have some dependency
+on symbols. So _generally_ speaking, we can't do that, the dependency
+chain could be very long. It could be an exception and good luck
+to play with module symbols.
+
+>
+> Tell me why it is ok for eth_header_ops() being static (while its _much_
+> bigger), and not for ipoib_header_ops. This looks pretty arbitrary to
+> me.
+>
+
+Simple, eth_* is kinda of a builtin library now, too many drivers use them.
