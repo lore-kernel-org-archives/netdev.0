@@ -1,62 +1,56 @@
 From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next v1 1/8] amd-xgbe: Add a read memory barrier to
- Tx/Rx path
-Date: Thu, 20 Nov 2014 11:03:26 -0600
-Message-ID: <20141120170326.15397.96332.stgit@tlendack-t1.amdoffice.net>
-References: <20141120170320.15397.10583.stgit@tlendack-t1.amdoffice.net>
+Subject: [PATCH net-next v1 0/8] amd-xgbe: AMD XGBE driver updates 2014-11-20
+Date: Thu, 20 Nov 2014 11:03:20 -0600
+Message-ID: <20141120170320.15397.10583.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1on0132.outbound.protection.outlook.com ([157.56.110.132]:8096
+Received: from mail-bn1bbn0103.outbound.protection.outlook.com ([157.56.111.103]:48928
 	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756934AbaKTRDd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Nov 2014 12:03:33 -0500
-In-Reply-To: <20141120170320.15397.10583.stgit@tlendack-t1.amdoffice.net>
+	id S1756934AbaKTRD1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Nov 2014 12:03:27 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a read memory barrier to the Tx and Rx paths where the ownership
-bit is checked to be sure that all descriptor fields are read after
-having read the ownership bit for the descriptor.
+The following series of patches includes functional updates to the
+driver as well as some trivial changes.
 
-This has not been an issue to date, but it's a good safe-guard to have.
+- Add a read memory barrier in the Tx and Rx path after checking the
+  descriptor ownership bit
+- Wait for the Tx engine to stop/suspend before issuing a stop command
+- Implement a smatch tool suggestion to simplify an if statement
+- Separate out Tx and Rx ring data fields into their own structures
+- Add BQL support
+- Remove an unused variable
+- Change Tx coalescing support to operate on packet basis instead of
+  a descriptor basis
+- Add support for the skb->xmit_more flag
 
-Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
+This patch series is based on net-next.
+
 ---
- drivers/net/ethernet/amd/xgbe/xgbe-dev.c |    3 +++
- drivers/net/ethernet/amd/xgbe/xgbe-drv.c |    4 ++++
- 2 files changed, 7 insertions(+)
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-index f6014d3..9b1d9fa 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-@@ -1558,6 +1558,9 @@ static int xgbe_dev_read(struct xgbe_channel *channel)
- 	if (XGMAC_GET_BITS_LE(rdesc->desc3, RX_NORMAL_DESC3, OWN))
- 		return 1;
- 
-+	/* Make sure descriptor fields are read after reading the OWN bit */
-+	rmb();
-+
- #ifdef XGMAC_ENABLE_RX_DESC_DUMP
- 	xgbe_dump_rx_desc(ring, rdesc, ring->cur);
- #endif
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-index 0544931..eebb787 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-@@ -1791,6 +1791,10 @@ static int xgbe_tx_poll(struct xgbe_channel *channel)
- 		if (!hw_if->tx_complete(rdesc))
- 			break;
- 
-+		/* Make sure descriptor fields are read after reading the OWN
-+		 * bit */
-+		rmb();
-+
- #ifdef XGMAC_ENABLE_TX_DESC_DUMP
- 		xgbe_dump_tx_desc(ring, ring->dirty, 1, 0);
- #endif
+Tom Lendacky (8):
+      amd-xgbe: Add a read memory barrier to Tx/Rx path
+      amd-xgbe: Tx engine must not be active before stopping it
+      amd-xgbe: Incorporate Smatch coding suggestion
+      amd-xgbe: Separate Tx/Rx ring data fields into new structs
+      amd-xgbe: Add BQL support
+      amd-xgbe: Remove unused variable
+      amd-xgbe: Perform Tx coalescing on a packet basis
+      amd-xgbe: Add support for the skb->xmit_more flag
+
+
+ drivers/net/ethernet/amd/xgbe/xgbe-common.h |   21 ++-
+ drivers/net/ethernet/amd/xgbe/xgbe-desc.c   |   40 +++---
+ drivers/net/ethernet/amd/xgbe/xgbe-dev.c    |  170 +++++++++++++++++++++------
+ drivers/net/ethernet/amd/xgbe/xgbe-drv.c    |  112 ++++++++++++++----
+ drivers/net/ethernet/amd/xgbe/xgbe.h        |   42 ++++++-
+ 5 files changed, 289 insertions(+), 96 deletions(-)
+
+-- 
+Tom Lendacky
