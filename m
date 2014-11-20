@@ -1,62 +1,49 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net-next] filter: add bpf_optimize_div()
-Date: Thu, 20 Nov 2014 22:32:25 +0100
-Message-ID: <546E5DE9.3050602@redhat.com>
-References: <1416512551-22252-1-git-send-email-kda@linux-powerpc.org>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: [RFC] situation with csum_and_copy_... API
+Date: Thu, 20 Nov 2014 21:47:53 +0000
+Message-ID: <20141120214753.GR7996@ZenIV.linux.org.uk>
+References: <CA+55aFyQR2gOzEDROcWFcQzLvTjOxyJRjFJXJ03JB5knd-Gsgg@mail.gmail.com>
+ <20141119.161744.1661940121298888832.davem@davemloft.net>
+ <20141119213006.GE7996@ZenIV.linux.org.uk>
+ <20141119.165340.2162829993279387495.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Alexei Starovoitov <ast@plumgrid.com>
-To: Denis Kirjanov <kda@linux-powerpc.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40040 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755788AbaKTVci (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Nov 2014 16:32:38 -0500
-In-Reply-To: <1416512551-22252-1-git-send-email-kda@linux-powerpc.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: torvalds@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, target-devel@vger.kernel.org,
+	"Nicholas A. Bellinger" <nab@linux-iscsi.org>,
+	Christoph Hellwig <hch@infradead.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20141119.165340.2162829993279387495.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 11/20/2014 08:42 PM, Denis Kirjanov wrote:
-> optimize_div() found in  mips bpf jit is really usefull
-> for other arches. So let's put it in filter.h
->
-> CC: Alexei Starovoitov <ast@plumgrid.com>
-> Signed-off-by: Denis Kirjanov <kda@linux-powerpc.org>
+On Wed, Nov 19, 2014 at 04:53:40PM -0500, David Miller wrote:
 
-NAK
+> Pulled, thanks Al.
 
-1) There's no user of this function (you name MIPS JIT, but
-    don't remove it from there) ...
+Umm...  Not in net-next.git#master...  Anyway, the next portion is in
+vfs.git#iov_iter-net right now; I'll post it on netdev once I get some
+sleep.
 
-2) It's not really specific or tied to the BPF API in particular,
-    so doesn't really belong here, rather some more generic kernel
-    header, iff anything.
+It's getting close to really interesting parts.  Right now the main obstacle
+is in iscsit_do_rx_data/iscsit_do_tx_data; what happens there is reuse of
+iovec if kernel_sendmsg() gives a short write - it tries to send again, with
+the same iovec and decremented length.  Ditto on RX side (with kernel_recvmsg(),
+obviously).
 
-> ---
->   include/linux/filter.h | 11 +++++++++++
->   1 file changed, 11 insertions(+)
->
-> diff --git a/include/linux/filter.h b/include/linux/filter.h
-> index ca95abd..b385637 100644
-> --- a/include/linux/filter.h
-> +++ b/include/linux/filter.h
-> @@ -414,6 +414,17 @@ static inline void bpf_jit_dump(unsigned int flen, unsigned int proglen,
->   		print_hex_dump(KERN_ERR, "JIT code: ", DUMP_PREFIX_OFFSET,
->   			       16, 1, image, proglen, false);
->   }
-> +
-> +static inline int bpf_optimize_div(u32 *k)
-> +{
-> +	/* power of 2 divides can be implemented with right shift */
-> +	if (!(*k & (*k-1))) {
-> +		*k = ilog2(*k);
-> +		return 1;
-> +	}
-> +
-> +	return 0;
-> +}
->   #else
->   static inline void bpf_jit_compile(struct bpf_prog *fp)
->   {
->
+As far as I can see, these retries on the send side are simply broken -
+normally we are talking to TCP sockets there and tcp_sendmsg() does *not*
+modify iovec in normal case.  IOW, if you get 8K sent out of 80K, the next
+time it'll try to send 72K - already sent piece + 64K following it, etc.
+
+Could target-devel folks tell how realistic those resends are, in the
+first place?  Both with TX and RX sides...  Is there any sane limit on
+iovec size there, etc.
+
+Note that while conversion to iov_iter will provide a very simple solution
+(iovec remains unchanged, iterator advances and we just need to avoid
+reinitializing it for subsequent iterations in those loops), it won't solve
+the problem in older kernels; that code had been there since 2011 and
+iov_iter conversion is far too invasive for -stable.
