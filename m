@@ -1,48 +1,130 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next] net/mlx4_en: mlx4_en_set_settings() always fails when autoneg is set
-Date: Thu, 20 Nov 2014 14:19:44 +0200
-Message-ID: <1416485984-5029-1-git-send-email-amirv@mellanox.com>
-Cc: Or Gerlitz <ogerlitz@mellanox.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:59821 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750776AbaKTMWT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Nov 2014 07:22:19 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Rojhalat Ibrahim <imr@rtschenk.de>
+Subject: [PATCH] mdio-mux-gpio: Use GPIO descriptor interface and new gpiod_set_array function
+Date: Thu, 20 Nov 2014 13:24:44 +0100
+Message-ID: <6441674.xrJo8HXDvD@pcimr>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: "linux-gpio@vger.kernel.org" <linux-gpio@vger.kernel.org>,
+	Linus Walleij <linus.walleij@linaro.org>,
+	Alexandre Courbot <acourbot@nvidia.com>
+To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
+	David Daney <david.daney@cavium.com>
+Return-path: <linux-gpio-owner@vger.kernel.org>
+Sender: linux-gpio-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Saeed Mahameed <saeedm@mellanox.com>
+Convert mdio-mux-gpio to the GPIO descriptor interface and use the new
+gpiod_set_array function to set all output signals simultaneously.
 
-Fix ethtool set settings to not check AUTONEG_ENABLE
+Signed-off-by: Rojhalat Ibrahim <imr@rtschenk.de>
+--
+This patch depends on the gpiod_set_array function, which is available in
+the linux-gpio devel tree.
 
-mlx4_en_set_settings should not check if cmd->autoneg == AUTONEG_ENABLE,
-cmd->autoneg can be enabled by default and this check will fail other settings requests.
-mlx4_en driver doesn't support changing autoneg value, but shouldn't fail the request
-in case cmd->autoneg was set.
+ drivers/net/phy/mdio-mux-gpio.c |   35 +++++++++++++++--------------------
+ 1 file changed, 15 insertions(+), 20 deletions(-)
 
-Fixes: d48b3ab ("net/mlx4_en: Use PTYS register to set ethtool settings (Speed)")
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/en_ethtool.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-index 710cf30..bdff834 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-@@ -756,7 +756,7 @@ static int mlx4_en_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 	       speed, cmd->advertising, cmd->autoneg, cmd->duplex);
+diff --git a/drivers/net/phy/mdio-mux-gpio.c b/drivers/net/phy/mdio-mux-gpio.c
+index 0966951..3fdea96 100644
+--- a/drivers/net/phy/mdio-mux-gpio.c
++++ b/drivers/net/phy/mdio-mux-gpio.c
+@@ -14,13 +14,13 @@
+ #include <linux/mdio-mux.h>
+ #include <linux/of_gpio.h>
  
- 	if (!(priv->mdev->dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_ETH_PROT_CTRL) ||
--	    (cmd->autoneg == AUTONEG_ENABLE) || (cmd->duplex == DUPLEX_HALF))
-+	    (cmd->duplex == DUPLEX_HALF))
- 		return -EINVAL;
+-#define DRV_VERSION "1.0"
++#define DRV_VERSION "1.1"
+ #define DRV_DESCRIPTION "GPIO controlled MDIO bus multiplexer driver"
  
- 	memset(&ptys_reg, 0, sizeof(ptys_reg));
--- 
-1.8.3.4
+ #define MDIO_MUX_GPIO_MAX_BITS 8
+ 
+ struct mdio_mux_gpio_state {
+-	int gpio[MDIO_MUX_GPIO_MAX_BITS];
++	struct gpio_desc *gpio[MDIO_MUX_GPIO_MAX_BITS];
+ 	unsigned int num_gpios;
+ 	void *mux_handle;
+ };
+@@ -28,29 +28,23 @@ struct mdio_mux_gpio_state {
+ static int mdio_mux_gpio_switch_fn(int current_child, int desired_child,
+ 				   void *data)
+ {
+-	int change;
++	int values[MDIO_MUX_GPIO_MAX_BITS];
+ 	unsigned int n;
+ 	struct mdio_mux_gpio_state *s = data;
+ 
+ 	if (current_child == desired_child)
+ 		return 0;
+ 
+-	change = current_child == -1 ? -1 : current_child ^ desired_child;
+-
+ 	for (n = 0; n < s->num_gpios; n++) {
+-		if (change & 1)
+-			gpio_set_value_cansleep(s->gpio[n],
+-						(desired_child & 1) != 0);
+-		change >>= 1;
+-		desired_child >>= 1;
++		values[n] = (desired_child >> n) & 1;
+ 	}
++	gpiod_set_array_cansleep(s->num_gpios, s->gpio, values);
+ 
+ 	return 0;
+ }
+ 
+ static int mdio_mux_gpio_probe(struct platform_device *pdev)
+ {
+-	enum of_gpio_flags f;
+ 	struct mdio_mux_gpio_state *s;
+ 	int num_gpios;
+ 	unsigned int n;
+@@ -70,20 +64,17 @@ static int mdio_mux_gpio_probe(struct platform_device *pdev)
+ 	s->num_gpios = num_gpios;
+ 
+ 	for (n = 0; n < num_gpios; ) {
+-		int gpio = of_get_gpio_flags(pdev->dev.of_node, n, &f);
+-		if (gpio < 0) {
+-			r = (gpio == -ENODEV) ? -EPROBE_DEFER : gpio;
++		struct gpio_desc *gpio = gpiod_get_index(&pdev->dev,
++							 "mdio-mux-gpio", n);
++		if (IS_ERR(gpio)) {
++			r = PTR_ERR(gpio);
+ 			goto err;
+ 		}
+ 		s->gpio[n] = gpio;
+ 
+ 		n++;
+ 
+-		r = gpio_request(gpio, "mdio_mux_gpio");
+-		if (r)
+-			goto err;
+-
+-		r = gpio_direction_output(gpio, 0);
++		r = gpiod_direction_output(gpio, 0);
+ 		if (r)
+ 			goto err;
+ 	}
+@@ -98,15 +89,19 @@ static int mdio_mux_gpio_probe(struct platform_device *pdev)
+ err:
+ 	while (n) {
+ 		n--;
+-		gpio_free(s->gpio[n]);
++		gpiod_put(s->gpio[n]);
+ 	}
+ 	return r;
+ }
+ 
+ static int mdio_mux_gpio_remove(struct platform_device *pdev)
+ {
++	unsigned int n;
+ 	struct mdio_mux_gpio_state *s = dev_get_platdata(&pdev->dev);
+ 	mdio_mux_uninit(s->mux_handle);
++	for (n = 0; n < s->num_gpios; n++) {
++		gpiod_put(s->gpio[n]);
++	}
+ 	return 0;
+ }
+ 
+--
+2.0.4
+
