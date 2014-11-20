@@ -1,26 +1,103 @@
-From: Al Viro <viro-3bDd1+5oDREiFSDQTTA3OLVCufUGDwFn@public.gmane.org>
-Subject: Re: mlx5: don't duplicate kvfree()
-Date: Thu, 20 Nov 2014 08:17:26 +0000
-Message-ID: <20141120081726.GK7996@ZenIV.linux.org.uk>
-References: <20141120081357.GI7996@ZenIV.linux.org.uk>
+From: Jason Wang <jasowang@redhat.com>
+Subject: [PATCH v4 net] virtio-net: validate features during probe
+Date: Thu, 20 Nov 2014 16:27:23 +0800
+Message-ID: <1416472043-9875-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20141120081357.GI7996-3bDd1+5oDREiFSDQTTA3OLVCufUGDwFn@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: rusty@rustcorp.com.au, mst@redhat.com,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 20, 2014 at 08:13:57AM +0000, Al Viro wrote:
->  9 files changed, 21 insertions(+), 35 deletions(-)
+We currently trigger BUG when VIRTIO_NET_F_CTRL_VQ
+is not set but one of features depending on it is.
+That's not a friendly way to report errors to
+hypervisors.
+Let's check, and fail probe instead.
 
-grr... 8 files changed, actually - that was from the diff that included mlx4
-bits.  Patch split correctly and sent in two pieces, summary left as is ;-/
-Sorry about the confusion it might cause...
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Cc: Rusty Russell <rusty@rustcorp.com.au>
+Cc: Cornelia Huck <cornelia.huck@de.ibm.com>
+Cc: Wanlong Gao <gaowanlong@cn.fujitsu.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+Signed-off-by: Jason Wang <jasowang@redhat.com>
+---
+Changes from V1:
+- Drop NETIF_F_*_UFO from checklist
+Changes from V2:
+- only check the features for ctrl vq (this fix the real bug)
+- better error message and simplify API
+Changes from V3:
+- pass dbit directly and even better error message
+- typo fix
+---
+ drivers/net/virtio_net.c | 37 +++++++++++++++++++++++++++++++++++++
+ 1 file changed, 37 insertions(+)
+
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index ec2a8b4..cc53ff1 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -1673,6 +1673,40 @@ static const struct attribute_group virtio_net_mrg_rx_group = {
+ };
+ #endif
+ 
++static bool virtnet_fail_on_feature(struct virtio_device *vdev,
++				    unsigned int fbit,
++				    const char *fname, const char *dname)
++{
++	if (!virtio_has_feature(vdev, fbit))
++		return false;
++
++	dev_err(&vdev->dev, "advertise feature %s but not %s",
++		fname, dname);
++
++	return true;
++}
++
++#define VIRTNET_FAIL_ON(vdev, fbit, dbit)			\
++	virtnet_fail_on_feature(vdev, fbit, #fbit, dbit)
++
++static bool virtnet_validate_features(struct virtio_device *vdev)
++{
++	if (!virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_VQ) &&
++	    (VIRTNET_FAIL_ON(vdev, VIRTIO_NET_F_CTRL_RX,
++			     "VIRTIO_NET_F_CTRL_VQ") ||
++	     VIRTNET_FAIL_ON(vdev, VIRTIO_NET_F_CTRL_VLAN,
++			     "VIRTIO_NET_F_CTRL_VQ") ||
++	     VIRTNET_FAIL_ON(vdev, VIRTIO_NET_F_GUEST_ANNOUNCE,
++			     "VIRTIO_NET_F_CTRL_VQ") ||
++	     VIRTNET_FAIL_ON(vdev, VIRTIO_NET_F_MQ, "VIRTIO_NET_F_CTRL_VQ") ||
++	     VIRTNET_FAIL_ON(vdev, VIRTIO_NET_F_CTRL_MAC_ADDR,
++			     "VIRTIO_NET_F_CTRL_VQ"))) {
++		return false;
++	}
++
++	return true;
++}
++
+ static int virtnet_probe(struct virtio_device *vdev)
+ {
+ 	int i, err;
+@@ -1680,6 +1714,9 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 	struct virtnet_info *vi;
+ 	u16 max_queue_pairs;
+ 
++	if (!virtnet_validate_features(vdev))
++		return -EINVAL;
++
+ 	/* Find if host supports multiqueue virtio_net device */
+ 	err = virtio_cread_feature(vdev, VIRTIO_NET_F_MQ,
+ 				   struct virtio_net_config,
+-- 
+1.9.1
