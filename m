@@ -1,97 +1,100 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net-next] tcp: make connect() mem charging friendly
-Date: Thu, 20 Nov 2014 07:33:48 -0800
-Message-ID: <1416497628.8629.24.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1416268176.18588.26.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1416294380.14060.6.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAK6E8=dUvde2s7VuUS9rHiA2fU0ZT2bS=ronjM+9BOA=0u-rVw@mail.gmail.com>
-	 <20141119.145741.1905980604994551607.davem@davemloft.net>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: [PATCH 1/1] net: brcm80211: Deletion of unnecessary checks before
+ two function calls
+Date: Thu, 20 Nov 2014 16:50:32 +0100
+Message-ID: <546E0DC8.3050906@users.sourceforge.net>
+References: <5307CAA2.8060406@users.sourceforge.net> <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6> <530A086E.8010901@users.sourceforge.net> <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6> <530A72AA.3000601@users.sourceforge.net> <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6> <530B5FB6.6010207@users.sourceforge.net> <alpine.DEB.2.10.1402241710370.2074@hadrien> <530C5E18.1020800@users.sourceforge.net> <alpine.DEB.2.10.1402251014170.2080@hadrien> <530CD2C4.4050903@users.sourceforge.net> <alpine.DEB.2.10.1402251840450.7035@hadrien> <530CF8FF.8080600@users.sourceforge.net> <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6> <530DD06F.4090703@users.sourceforge.net> <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6> <5317A59D.4@users.so
+ urceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: ycheng@google.com, nuclearcat@nuclearcat.com,
-	netdev@vger.kernel.org, ncardwell@google.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f173.google.com ([209.85.213.173]:39299 "EHLO
-	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755212AbaKTPdv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2014 10:33:51 -0500
-Received: by mail-ig0-f173.google.com with SMTP id r2so4942691igi.12
-        for <netdev@vger.kernel.org>; Thu, 20 Nov 2014 07:33:50 -0800 (PST)
-In-Reply-To: <20141119.145741.1905980604994551607.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: Arend van Spriel <arend@broadcom.com>,
+	Brett Rudley <brudley@broadcom.com>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
+	Hante Meuleman <meuleman@broadcom.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, brcm80211-dev-list@broadcom.com,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5317A59D.4@users.sourceforge.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2014-11-19 at 14:57 -0500, David Miller wrote:
-> From: Yuchung Cheng <ycheng@google.com>
-> > 
-> > Thanks! this simplifies the code a lot.
-> 
-> Agreed, applied, thanks everyone!
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Thu, 20 Nov 2014 16:42:51 +0100
 
-BTW, unless I am mistaken, it seems we can probably replace
-memcpy_fromiovecend() by memcpy_fromiovec() and delete from
-tcp_sendmsg() the annoying code skipping over the already consumed
-bytes.
+The functions brcmu_pkt_buf_free_skb() and release_firmware() test whether
+their argument is NULL and then return immediately. Thus the test around
+the call is not needed.
 
-Something like this untested patch :
+This issue was detected by using the Coccinelle software.
 
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index c239f4740d10b10b67ef4fa44c831851fb9e1dcf..227540eef9d0870721258f9ddbace27b417c619e 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -1089,20 +1089,19 @@ int tcp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	struct sk_buff *skb;
- 	int iovlen, flags, err, copied = 0;
--	int mss_now = 0, size_goal, copied_syn = 0, offset = 0;
-+	int mss_now = 0, size_goal, copied_syn = 0;
- 	bool sg;
- 	long timeo;
+Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+---
+ drivers/net/wireless/brcm80211/brcmfmac/dhd_sdio.c | 3 +--
+ drivers/net/wireless/brcm80211/brcmfmac/firmware.c | 3 +--
+ drivers/net/wireless/brcm80211/brcmfmac/msgbuf.c   | 3 +--
+ drivers/net/wireless/brcm80211/brcmsmac/main.c     | 3 +--
+ 4 files changed, 4 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/wireless/brcm80211/brcmfmac/dhd_sdio.c b/drivers/net/wireless/brcm80211/brcmfmac/dhd_sdio.c
+index f55f625..8ff7037 100644
+--- a/drivers/net/wireless/brcm80211/brcmfmac/dhd_sdio.c
++++ b/drivers/net/wireless/brcm80211/brcmfmac/dhd_sdio.c
+@@ -2539,8 +2539,7 @@ static void brcmf_sdio_bus_stop(struct device *dev)
+ 	brcmu_pktq_flush(&bus->txq, true, NULL, NULL);
  
- 	lock_sock(sk);
+ 	/* Clear any held glomming stuff */
+-	if (bus->glomd)
+-		brcmu_pkt_buf_free_skb(bus->glomd);
++	brcmu_pkt_buf_free_skb(bus->glomd);
+ 	brcmf_sdio_free_glom(bus);
  
- 	flags = msg->msg_flags;
--	if (flags & MSG_FASTOPEN) {
-+	if (unlikely(flags & MSG_FASTOPEN)) {
- 		err = tcp_sendmsg_fastopen(sk, msg, &copied_syn, size);
- 		if (err == -EINPROGRESS && copied_syn > 0)
- 			goto out;
- 		else if (err)
- 			goto out_err;
--		offset = copied_syn;
+ 	/* Clear rx control and wake any waiters */
+diff --git a/drivers/net/wireless/brcm80211/brcmfmac/firmware.c b/drivers/net/wireless/brcm80211/brcmfmac/firmware.c
+index 8ea9f28..3a2d014 100644
+--- a/drivers/net/wireless/brcm80211/brcmfmac/firmware.c
++++ b/drivers/net/wireless/brcm80211/brcmfmac/firmware.c
+@@ -262,8 +262,7 @@ static void brcmf_fw_request_nvram_done(const struct firmware *fw, void *ctx)
+ 
+ fail:
+ 	brcmf_dbg(TRACE, "failed: dev=%s\n", dev_name(fwctx->dev));
+-	if (fwctx->code)
+-		release_firmware(fwctx->code);
++	release_firmware(fwctx->code);
+ 	device_release_driver(fwctx->dev);
+ 	kfree(fwctx);
+ }
+diff --git a/drivers/net/wireless/brcm80211/brcmfmac/msgbuf.c b/drivers/net/wireless/brcm80211/brcmfmac/msgbuf.c
+index 8f8b937..0cb00dc 100644
+--- a/drivers/net/wireless/brcm80211/brcmfmac/msgbuf.c
++++ b/drivers/net/wireless/brcm80211/brcmfmac/msgbuf.c
+@@ -506,8 +506,7 @@ static int brcmf_msgbuf_query_dcmd(struct brcmf_pub *drvr, int ifidx,
+ 		memcpy(buf, skb->data, (len < msgbuf->ioctl_resp_ret_len) ?
+ 				       len : msgbuf->ioctl_resp_ret_len);
+ 	}
+-	if (skb)
+-		brcmu_pkt_buf_free_skb(skb);
++	brcmu_pkt_buf_free_skb(skb);
+ 
+ 	return msgbuf->ioctl_resp_status;
+ }
+diff --git a/drivers/net/wireless/brcm80211/brcmsmac/main.c b/drivers/net/wireless/brcm80211/brcmsmac/main.c
+index 1b47482..ce538a1 100644
+--- a/drivers/net/wireless/brcm80211/brcmsmac/main.c
++++ b/drivers/net/wireless/brcm80211/brcmsmac/main.c
+@@ -1009,8 +1009,7 @@ brcms_c_dotxstatus(struct brcms_c_info *wlc, struct tx_status *txs)
+ 		if (txh)
+ 			trace_brcms_txdesc(&wlc->hw->d11core->dev, txh,
+ 					   sizeof(*txh));
+-		if (p)
+-			brcmu_pkt_buf_free_skb(p);
++		brcmu_pkt_buf_free_skb(p);
  	}
  
- 	timeo = sock_sndtimeo(sk, flags & MSG_DONTWAIT);
-@@ -1151,15 +1150,6 @@ int tcp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 		unsigned char __user *from = iov->iov_base;
- 
- 		iov++;
--		if (unlikely(offset > 0)) {  /* Skip bytes copied in SYN */
--			if (offset >= seglen) {
--				offset -= seglen;
--				continue;
--			}
--			seglen -= offset;
--			from += offset;
--			offset = 0;
--		}
- 
- 		while (seglen > 0) {
- 			int copy = 0;
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index f5bd4bd3f7e669b3fd48a843d55e7313a30a3409..524e5b657e881a348f11def3f48f29a76f54fbab 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -3049,8 +3049,8 @@ static int tcp_send_syn_data(struct sock *sk, struct sk_buff *syn)
- 		goto fallback;
- 	syn_data->ip_summed = CHECKSUM_PARTIAL;
- 	memcpy(syn_data->cb, syn->cb, sizeof(syn->cb));
--	if (unlikely(memcpy_fromiovecend(skb_put(syn_data, space),
--					 fo->data->msg_iov, 0, space))) {
-+	if (unlikely(memcpy_fromiovec(skb_put(syn_data, space),
-+				      fo->data->msg_iov, space))) {
- 		kfree_skb(syn_data);
- 		goto fallback;
- 	}
+ 	if (dma && queue < NFIFO) {
+-- 
+2.1.3
