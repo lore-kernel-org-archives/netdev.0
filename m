@@ -1,42 +1,51 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: Re: [PATCH net-next V1 0/2] ethtool, net/mlx4_en: RSS hash function selection
-Date: Thu, 20 Nov 2014 16:34:20 +0200
-Message-ID: <CAPcc5Pgx728vJqXSUEapD61REYsSzpZ8YTSqJRkp3976_Xw7NQ@mail.gmail.com>
-References: <1416493610-8966-1-git-send-email-amirv@mellanox.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH 1/2] net/am2150: fix nmclan_cs.c shared interrupt handling
+Date: Thu, 20 Nov 2014 16:11:14 +0100
+Message-ID: <4353896.15JnC91eLO@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>
-To: Amir Vadai <amirv@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f173.google.com ([209.85.212.173]:55725 "EHLO
-	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751257AbaKTOeV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2014 09:34:21 -0500
-Received: by mail-wi0-f173.google.com with SMTP id r20so8918202wiv.0
-        for <netdev@vger.kernel.org>; Thu, 20 Nov 2014 06:34:20 -0800 (PST)
-In-Reply-To: <1416493610-8966-1-git-send-email-amirv@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Roger Pao <rpao@paonet.org>, linux-kernel@vger.kernel.org,
+	linux-pcmcia@lists.infradead.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 20, 2014 at 4:26 PM, Amir Vadai <amirv@mellanox.com> wrote:
-> Hi,
->
-> This patchset by Eyal adds support in set/get of RSS hash function. Current
-> supported functions are Toeplitz and XOR. The API is design to enable adding
-> new hash functions without breaking backward compatibility.
-> Userspace patch will be sent after API is available in kernel.
->
-> The patchset was applied and tested over commit 7b909bb ("Merge branches
-> 'core', 'cxgb4', 'iser', 'mlx5' and 'ocrdma' into for-next")
-Should be commit daaf427 ("bpf: fix arraymap NULL deref and missing
-overflow and zero size checks")
+A recent patch tried to work around a valid warning for the use of a
+deprecated interface by blindly changing from the old
+pcmcia_request_exclusive_irq() interface to pcmcia_request_irq().
 
->
-> Amir
->
+This driver has an interrupt handler that is not currently aware
+of shared interrupts, but can be easily converted to be.
+At the moment, the driver reads the interrupt status register
+repeatedly until it contains only zeroes in the interesting bits,
+and handles each bit individually.
 
-[...]
+This patch adds the missing part of returning IRQ_NONE in case none
+of the bits are set to start with, so we can move on to the next
+interrupt source.
+
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Fixes: 5f5316fcd08ef7 ("am2150: Update nmclan_cs.c to use update PCMCIA API")
+---
+I had this patch in my queue of things to submit and noticed that
+the warning had gone away upstream but my patch was still there.
+
+For all I can tell, the driver is broken without this, although it
+would rarely be a problem.
+
+diff --git a/drivers/net/ethernet/amd/nmclan_cs.c b/drivers/net/ethernet/amd/nmclan_cs.c
+index 5b22764ba88d..27245efe9f50 100644
+--- a/drivers/net/ethernet/amd/nmclan_cs.c
++++ b/drivers/net/ethernet/amd/nmclan_cs.c
+@@ -952,6 +952,8 @@ static irqreturn_t mace_interrupt(int irq, void *dev_id)
+   do {
+     /* WARNING: MACE_IR is a READ/CLEAR port! */
+     status = inb(ioaddr + AM2150_MACE_BASE + MACE_IR);
++    if (!(status & ~MACE_IMR_DEFAULT) && IntrCnt == MACE_MAX_IR_ITERATIONS)
++      return IRQ_NONE;
+ 
+     pr_debug("mace_interrupt: irq 0x%X status 0x%X.\n", irq, status);
+ 
