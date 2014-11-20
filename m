@@ -1,105 +1,67 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net V5] virtio-net: validate features during probe
-Date: Thu, 20 Nov 2014 17:03:05 +0800
-Message-ID: <1416474185-10981-1-git-send-email-jasowang@redhat.com>
+From: Sascha Hauer <s.hauer@pengutronix.de>
+Subject: Re: [PATCH 08/10] dt/bindings: add clock-select function property to
+ micrel phy binding
+Date: Thu, 20 Nov 2014 10:08:40 +0100
+Message-ID: <20141120090840.GI30369@pengutronix.de>
+References: <1416398363-32306-1-git-send-email-johan@kernel.org>
+ <1416398363-32306-9-git-send-email-johan@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: rusty@rustcorp.com.au, mst@redhat.com,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Bruno Thomsen <bth@kamstrup.dk>,
+	Mark Rutland <mark.rutland@arm.com>, devicetree@vger.kernel.org
+To: Johan Hovold <johan@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1416398363-32306-9-git-send-email-johan@kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We currently trigger BUG when VIRTIO_NET_F_CTRL_VQ
-is not set but one of features depending on it is.
-That's not a friendly way to report errors to
-hypervisors.
-Let's check, and fail probe instead.
+On Wed, Nov 19, 2014 at 12:59:21PM +0100, Johan Hovold wrote:
+> Add "micrel,rmii-reference-clock-select-25-mhz" to Micrel ethernet PHY
+> binding documentation.
+> 
+> This property is needed to properly describe some revisions of Micrel
+> PHYs which has the function of this configuration bit inverted so that
+> setting it enables 25 MHz rather than 50 MHz clock mode.
+> 
+> Note that a clock reference ("rmii-ref") is still needed to actually
+> select either mode.
+> 
+> Cc: devicetree@vger.kernel.org
+> Signed-off-by: Johan Hovold <johan@kernel.org>
+> ---
+>  Documentation/devicetree/bindings/net/micrel.txt | 11 +++++++++++
+>  1 file changed, 11 insertions(+)
+> 
+> diff --git a/Documentation/devicetree/bindings/net/micrel.txt b/Documentation/devicetree/bindings/net/micrel.txt
+> index 20a6cac7abc6..87496a8c64ab 100644
+> --- a/Documentation/devicetree/bindings/net/micrel.txt
+> +++ b/Documentation/devicetree/bindings/net/micrel.txt
+> @@ -19,6 +19,17 @@ Optional properties:
+>  
+>  	See the respective PHY datasheet for the mode values.
+>  
+> + - micrel,rmii-reference-clock-select-25-mhz: RMII Reference Clock Select
+> +						bit selects 25 MHz mode
+> +
+> +	Setting the RMII Reference Clock Select bit enables 25 MHz rather
+> +	than 50 MHz clock mode.
+> +
+> +	Note that this option in only needed for certain PHY revisions with a
+> +	non-standard, inverted function of this configuration bit.
+> +	Specifically, a clock reference ("rmii-ref" below) is always needed to
+> +	actually select a mode.
 
-Cc: Rusty Russell <rusty@rustcorp.com.au>
-Cc: Cornelia Huck <cornelia.huck@de.ibm.com>
-Cc: Wanlong Gao <gaowanlong@cn.fujitsu.com>
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
-Changes from V1:
-- Drop NETIF_F_*_UFO from checklist
-Changes from V2:
-- only check the features for ctrl vq (this fix the real bug)
-- better error message and simplify API
-Changes from V3:
-- pass dbit directly and even better error message
-- typo fix
-Changes from v4:
-- add "device" before "advertise"
----
- drivers/net/virtio_net.c | 37 +++++++++++++++++++++++++++++++++++++
- 1 file changed, 37 insertions(+)
+Nice, that should be clear.
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index ec2a8b4..b0bc8ea 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -1673,6 +1673,40 @@ static const struct attribute_group virtio_net_mrg_rx_group = {
- };
- #endif
- 
-+static bool virtnet_fail_on_feature(struct virtio_device *vdev,
-+				    unsigned int fbit,
-+				    const char *fname, const char *dname)
-+{
-+	if (!virtio_has_feature(vdev, fbit))
-+		return false;
-+
-+	dev_err(&vdev->dev, "device advertises feature %s but not %s",
-+		fname, dname);
-+
-+	return true;
-+}
-+
-+#define VIRTNET_FAIL_ON(vdev, fbit, dbit)			\
-+	virtnet_fail_on_feature(vdev, fbit, #fbit, dbit)
-+
-+static bool virtnet_validate_features(struct virtio_device *vdev)
-+{
-+	if (!virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_VQ) &&
-+	    (VIRTNET_FAIL_ON(vdev, VIRTIO_NET_F_CTRL_RX,
-+			     "VIRTIO_NET_F_CTRL_VQ") ||
-+	     VIRTNET_FAIL_ON(vdev, VIRTIO_NET_F_CTRL_VLAN,
-+			     "VIRTIO_NET_F_CTRL_VQ") ||
-+	     VIRTNET_FAIL_ON(vdev, VIRTIO_NET_F_GUEST_ANNOUNCE,
-+			     "VIRTIO_NET_F_CTRL_VQ") ||
-+	     VIRTNET_FAIL_ON(vdev, VIRTIO_NET_F_MQ, "VIRTIO_NET_F_CTRL_VQ") ||
-+	     VIRTNET_FAIL_ON(vdev, VIRTIO_NET_F_CTRL_MAC_ADDR,
-+			     "VIRTIO_NET_F_CTRL_VQ"))) {
-+		return false;
-+	}
-+
-+	return true;
-+}
-+
- static int virtnet_probe(struct virtio_device *vdev)
- {
- 	int i, err;
-@@ -1680,6 +1714,9 @@ static int virtnet_probe(struct virtio_device *vdev)
- 	struct virtnet_info *vi;
- 	u16 max_queue_pairs;
- 
-+	if (!virtnet_validate_features(vdev))
-+		return -EINVAL;
-+
- 	/* Find if host supports multiqueue virtio_net device */
- 	err = virtio_cread_feature(vdev, VIRTIO_NET_F_MQ,
- 				   struct virtio_net_config,
+Acked-by: Sascha Hauer <s.hauer@pengutronix.de>
+
+Sascha
+
 -- 
-1.9.1
+Pengutronix e.K.                           |                             |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
