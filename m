@@ -1,54 +1,47 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: [RFC] net: ipv4: drop unicast encapsulated in L2 multicast
-Date: Thu, 20 Nov 2014 22:31:14 +0100
-Message-ID: <1416519074.8557.15.camel@sipsolutions.net>
-References: <1408641747-22199-1-git-send-email-johannes@sipsolutions.net>
-	 <alpine.LFD.2.11.1408212119510.1896@ja.home.ssi.bg>
-	 <20140822.105405.1982870131653082781.davem@davemloft.net>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH net-next] tcp: Remove some spurious dropped packet profile
+ hits from the passive connection accept path
+Date: Thu, 20 Nov 2014 13:31:27 -0800
+Message-ID: <546E5DAF.5090907@hp.com>
+References: <20141120185829.986CB290095D@tardy> <1416516423.8629.43.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: ja-FgGsKACvmQM@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20140822.105405.1982870131653082781.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Rick Jones <raj@tardy.usa.hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g4t3427.houston.hp.com ([15.201.208.55]:45837 "EHLO
+	g4t3427.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758182AbaKTVb2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2014 16:31:28 -0500
+In-Reply-To: <1416516423.8629.43.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-08-22 at 10:54 -0700, David Miller wrote:
+On 11/20/2014 12:47 PM, Eric Dumazet wrote:
+> On Thu, 2014-11-20 at 10:58 -0800, Rick Jones wrote:
+>> From: Rick Jones <rick.jones2@hp.com>
+>>
+>> When a system is the passive accepter of many connections, for example
+>> when the target of a netperf TCP_CC or TCP_CRR test, or as say a web
+>> server, the discard of the skb containing the TCP SYN being processed
+>> for the LISTEN endpoint should be a consume_skb() rather than a kfree_skb()
+>> to avoid cluttering a dropped packet profile.
+>>
+>> Signed-off-by: Rick Jones <rick.jones2@hp.com>
+>>
+>> ---
+>
+> So what happens if we really drop the packet ?
 
-> >>  	if (res.type == RTN_BROADCAST)
-> >>  		goto brd_input;
-> > 
-> > 	Is this place better, after checking for RTN_BROADCAST?
-> > 
-> > 	/* ARP link-layer broadcasts are acceptable here */
-> > 	if ((skb->pkt_type == PACKET_BROADCAST ||
-> > 	     skb->pkt_type == PACKET_MULTICAST) &&
-> > 	    skb->protocol == htons(ETH_P_IP))
-> > 		goto e_inval;
-> 
-> Indeed, this would make ARP happier, but that still leaves open the
-> issue of CLUSTERIP.
+Do you mean when there is actually data in the SYN?
 
-I'm back looking at this, but must admit I'm completely confused now :-)
+rick
 
-I could add an IPv4 sysctl to control this behaviour:
-  0 - off
-  1 - RFC 1122 "SHOULD"
-  2 - also drop unicast-in-multicast (for wireless)
-
-But I guess due to cluster-IP it would have to default to 0.
-
-
-However, talk about ip_local_deliver_finish() in this thread has me
-wondering if we could just implement it using iptables? I guess
-ipt_addrtype and ip6t_addrtype would let me do that?
-
-johannes
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+> TCP stack at this point owns the packet, it is possible to mark a bit in
+> it to either call consume_skb() or kfree_skb()
+>
+> I attempted this once but gave up because it was a quite intrusive
+> patch...
