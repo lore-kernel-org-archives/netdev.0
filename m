@@ -1,57 +1,24 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: Re: mlx4: don't duplicate kvfree()
-Date: Thu, 20 Nov 2014 10:38:10 +0200
-Message-ID: <CAPcc5Pjb7Nd3OFBdf4nCPTKPYZBU8gJp8WJB9VdPxJtPV+NE_Q@mail.gmail.com>
-References: <20141120081538.GJ7996@ZenIV.linux.org.uk>
+From: Eli Cohen <eli@dev.mellanox.co.il>
+Subject: Re: mlx5: don't duplicate kvfree()
+Date: Thu, 20 Nov 2014 10:41:16 +0200
+Message-ID: <20141120084116.GA20471@mtldesk30>
+References: <20141120081357.GI7996@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Amir Vadai <amirv@mellanox.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Al Viro <viro@zeniv.linux.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141120081538.GJ7996@ZenIV.linux.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, linux-rdma@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Al Viro <viro@ZenIV.linux.org.uk>, roland@purestorage.com,
+	davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f169.google.com ([209.85.212.169]:36973 "EHLO
+	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757055AbaKTIlU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2014 03:41:20 -0500
+Received: by mail-wi0-f169.google.com with SMTP id r20so11216109wiv.4
+        for <netdev@vger.kernel.org>; Thu, 20 Nov 2014 00:41:18 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20141120081357.GI7996@ZenIV.linux.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 20, 2014 at 10:15 AM, Al Viro <viro@zeniv.linux.org.uk> wrote:
-> Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
-> ---
->
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/mr.c b/drivers/net/ethernet/mellanox/mlx4/mr.c
-> index 193a6ad..d6f5496 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/mr.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/mr.c
-> @@ -130,10 +130,7 @@ static int mlx4_buddy_init(struct mlx4_buddy *buddy, int max_order)
->
->  err_out_free:
->         for (i = 0; i <= buddy->max_order; ++i)
-> -               if (buddy->bits[i] && is_vmalloc_addr(buddy->bits[i]))
-> -                       vfree(buddy->bits[i]);
-> -               else
-> -                       kfree(buddy->bits[i]);
-> +               kvfree(buddy->bits[i]);
->
->  err_out:
->         kfree(buddy->bits);
-> @@ -147,10 +144,7 @@ static void mlx4_buddy_cleanup(struct mlx4_buddy *buddy)
->         int i;
->
->         for (i = 0; i <= buddy->max_order; ++i)
-> -               if (is_vmalloc_addr(buddy->bits[i]))
-> -                       vfree(buddy->bits[i]);
-> -               else
-> -                       kfree(buddy->bits[i]);
-> +               kvfree(buddy->bits[i]);
->
->         kfree(buddy->bits);
->         kfree(buddy->num_free);
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
-
-Thanks Al
-
-Acked-by: Amir Vadai <amirv@mellanox.com>
+Acked-by: Eli Cohen <eli@mellanox.com>
