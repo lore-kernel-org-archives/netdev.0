@@ -1,103 +1,87 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Resend - ANNOUNCE: Netdev 0.1 conference
-Date: Wed, 19 Nov 2014 21:53:56 -0500
-Message-ID: <546D57C4.8020800@mojatatu.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH net-next v2] net: sctp: keep owned chunk in destructor_arg
+ instead of skb->cb
+Date: Wed, 19 Nov 2014 22:02:00 -0500
+Message-ID: <546D59A8.4090704@gmail.com>
+References: <1416444888-12778-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: info@netdev01.info, davem@davemloft.net, jaws@mojatatu.com,
-	rgb@tricolour.net
-To: netdev@vger.kernel.org
+Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f173.google.com ([209.85.223.173]:63830 "EHLO
-	mail-ie0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754658AbaKTCx7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 21:53:59 -0500
-Received: by mail-ie0-f173.google.com with SMTP id y20so1944180ier.32
-        for <netdev@vger.kernel.org>; Wed, 19 Nov 2014 18:53:59 -0800 (PST)
+Received: from mail-qg0-f54.google.com ([209.85.192.54]:56965 "EHLO
+	mail-qg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755666AbaKTDCH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Nov 2014 22:02:07 -0500
+In-Reply-To: <1416444888-12778-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 11/19/2014 07:54 PM, Daniel Borkmann wrote:
+> It's just silly to hold the skb destructor argument around inside
+> skb->cb[] as we currently do in SCTP.
+> 
+> Nowadays, we're sort of cheating on data accounting in the sense
+> that due to commit 4c3a5bdae293 ("sctp: Don't charge for data in
+> sndbuf again when transmitting packet"), we orphan the skb already
+> in the SCTP output path, i.e. giving back charged data memory, and
+> use a different destructor only to make sure the sk doesn't vanish
+> on skb destruction time. Thus, cb[] is still valid here as we
+> operate within the SCTP layer. (It's generally actually a big
+> candidate for future rework, imho.)
+> 
+> However, storing the destructor in the cb[] can easily cause issues
+> should an non sctp_packet_set_owner_w()'ed skb ever escape the SCTP
+> layer, since cb[] may get overwritten by lower layers and thus can
+> corrupt the chunk pointer. There are no such issues at present,
+> but lets keep the chunk in destructor_arg, as this is the actual
+> purpose for it.
+> 
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 
-Please forward to all places you think are relevant.
-[original email i sent had the wrong contact info at the
-bottom should be:  info@netdev01.info]
+Good clean-up.
 
+Acked-by: Vlad Yasevich <vyasevich@gmail.com>
 
-Netdev 0.1 (year 0, conference 1) is a community-driven conference
-geared towards Linux netheads. Linux kernel networking and user
-space utilization of the interfaces to the Linux kernel networking
-subsystem are the focus.
-If you are using Linux as a boot system for proprietary networking,
-then this conference _may not be for you_.
+-vlad
 
-The netdev conference this year is structured to be 50/50
-by-invitation and talk submission. We are making sure that we
-reach out to speakers who have interesting relevant topics because
-we recognize most of these folks would typically not be submitting
-papers to a conference. The invitation will be made by the technical
-committee to the individual speakers both for paper and tutorial
-sessions.
-
-The call for papers is for the 50% submission portion of the
-conference for both paper submission as well as tutorials.
-We *highly discourage* submission of recycled talks.
-
-Current topics include
-- wireless
-- performance analysis and improvement
-- networking hardware and offload
-- netfilter
-- traffic control
-- different networking layers (L2/3, etc)
-- internet of things
-- security
-- additional topics can be suggested
-
-We encourage submission of papers and tutorials. Unlike other
-conferences, we are going to try and accommodate as many submissions
-as possible - but please stay within the relevant topic focus and
-tie to Linux networking to make it easier for the technical committee
-to provide quick feedback. In order to give a talk you must be
-registered. If your proposal is accepted you will not be charged
-a conference fee or your conference fee will be refunded to you
-when your talk gets accepted.
-We will be posting more updates on how to submit in the near future.
-
-We expect about 3-4 parallel tracks both during tutorials and main
-talks. Tutorials will be on the first day and talks on subsequent days.
-
-Why you should register
------------------------
-If you yearn for the old community tech driven conferences where
-you mingle with fellow geeks (only these would be Linux networking
-geeks) then this would be it. There will be no marketing flashy
-openings. There will just be a pure feed of Linux networking.
-netdev 0.1 will be held back to back with netconf 2015, the
-by-invite Linux kernel networking workshop
-(http://vger.kernel.org/netconf2015.html).
-So gurus of all sorts will be there mingling and giving talks.
-While there will be heavy Linux kernel influence we expect a lot
-of user space presence as well.
-
-Location:
----------
-Downtown Ottawa, Canada. Exact location to be announced.
-www.netdev01.org
-
-Important Dates:
-----------------
-November 26, 2014               Call for Papers opens
-December 10, 2014               Registration opens
-January 10, 2015                Call for sessions deadline
-January 20, 2015                Conference schedule announced
-February 14-17, 2015            Conference days
-
-Please register as soon as registration opens up on December 10.
-Registering helps us plan properly for numbers of attendees,
-ensuring venue sizes and supplies are appropriate without
-wasting resources.
-
-contact:
---------
-info@netdev01.info
+> ---
+>  v1->v2:
+>   - Only reworded commit message to make it more clear
+> 
+>  net/sctp/socket.c | 12 ++++--------
+>  1 file changed, 4 insertions(+), 8 deletions(-)
+> 
+> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+> index 2120292..85e0b65 100644
+> --- a/net/sctp/socket.c
+> +++ b/net/sctp/socket.c
+> @@ -162,7 +162,7 @@ static inline void sctp_set_owner_w(struct sctp_chunk *chunk)
+>  
+>  	chunk->skb->destructor = sctp_wfree;
+>  	/* Save the chunk pointer in skb for sctp_wfree to use later.  */
+> -	*((struct sctp_chunk **)(chunk->skb->cb)) = chunk;
+> +	skb_shinfo(chunk->skb)->destructor_arg = chunk;
+>  
+>  	asoc->sndbuf_used += SCTP_DATA_SNDSIZE(chunk) +
+>  				sizeof(struct sk_buff) +
+> @@ -6870,14 +6870,10 @@ static void sctp_wake_up_waiters(struct sock *sk,
+>   */
+>  static void sctp_wfree(struct sk_buff *skb)
+>  {
+> -	struct sctp_association *asoc;
+> -	struct sctp_chunk *chunk;
+> -	struct sock *sk;
+> +	struct sctp_chunk *chunk = skb_shinfo(skb)->destructor_arg;
+> +	struct sctp_association *asoc = chunk->asoc;
+> +	struct sock *sk = asoc->base.sk;
+>  
+> -	/* Get the saved chunk pointer.  */
+> -	chunk = *((struct sctp_chunk **)(skb->cb));
+> -	asoc = chunk->asoc;
+> -	sk = asoc->base.sk;
+>  	asoc->sndbuf_used -= SCTP_DATA_SNDSIZE(chunk) +
+>  				sizeof(struct sk_buff) +
+>  				sizeof(struct sctp_chunk);
+> 
