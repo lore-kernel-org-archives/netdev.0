@@ -1,84 +1,88 @@
-From: roopa@cumulusnetworks.com
-Subject: [RFC PATCH 3/4] swdevice: new generic op to set bridge port attr
-Date: Fri, 21 Nov 2014 14:49:29 -0800
-Message-ID: <1416610170-21224-4-git-send-email-roopa@cumulusnetworks.com>
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	shrijeet@cumulusnetworks.com, gospo@cumulusnetworks.com,
-	Roopa Prabhu <roopa@cumulusnetworks.com>
-To: jiri@resnulli.us, sfeldma@gmail.com, jhs@mojatatu.com,
-	bcrl@kvack.org, tgraf@suug.ch, john.fastabend@gmail.com,
-	stephen@networkplumber.org, linville@tuxdriver.com,
-	nhorman@tuxdriver.com, nicolas.dichtel@6wind.com,
-	vyasevic@redhat.com, f.fainelli@gmail.com, buytenh@wantstofly.org,
-	aviadr@mellanox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:36880 "EHLO
-	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752667AbaKUWtk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2014 17:49:40 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexey Khoroshilov <khoroshilov@ispras.ru>
+Subject: [PATCH] xen-netback: do not report success if xenvif_alloc() fails
+Date: Sat, 22 Nov 2014 01:56:28 +0300
+Message-ID: <1416610588-19816-1-git-send-email-khoroshilov@ispras.ru>
+Cc: Alexey Khoroshilov <khoroshilov@ispras.ru>,
+	xen-devel@lists.xenproject.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
+To: Ian Campbell <ian.campbell@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
+If xenvif_alloc() failes, netback_probe() reports success as well as
+"online" uevent is emitted. It does not make any sense, but it just
+misleads users.
 
-A generic switch device op to offload any type of bridge port attribute.
+The patch implements propagation of error code if xenvif creation fails.
 
-(This is still TBD)
+Found by Linux Driver Verification project (linuxtesting.org).
+
+Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
 ---
- include/net/switchdev.h   |    8 +++++++-
- net/switchdev/switchdev.c |   17 +++++++++++++++++
- 2 files changed, 24 insertions(+), 1 deletion(-)
+ drivers/net/xen-netback/xenbus.c | 15 +++++++++------
+ 1 file changed, 9 insertions(+), 6 deletions(-)
 
-diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-index a9ccfa4..c97994d 100644
---- a/include/net/switchdev.h
-+++ b/include/net/switchdev.h
-@@ -145,7 +145,8 @@ int netdev_sw_parent_flow_insert(struct net_device *dev,
- 				 const struct swdev_flow *flow);
- int netdev_sw_parent_flow_remove(struct net_device *dev,
- 				 const struct swdev_flow *flow);
--
-+int netdev_sw_port_set_attr(struct net_device *dev, int attrtype,
-+                            void *attrval);
- #else
+diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
+index 4e56a27f9689..fab0d4b42f58 100644
+--- a/drivers/net/xen-netback/xenbus.c
++++ b/drivers/net/xen-netback/xenbus.c
+@@ -39,7 +39,7 @@ struct backend_info {
+ static int connect_rings(struct backend_info *be, struct xenvif_queue *queue);
+ static void connect(struct backend_info *be);
+ static int read_xenbus_vif_flags(struct backend_info *be);
+-static void backend_create_xenvif(struct backend_info *be);
++static int backend_create_xenvif(struct backend_info *be);
+ static void unregister_hotplug_status_watch(struct backend_info *be);
+ static void set_backend_state(struct backend_info *be,
+ 			      enum xenbus_state state);
+@@ -352,7 +352,9 @@ static int netback_probe(struct xenbus_device *dev,
+ 	be->state = XenbusStateInitWait;
  
- static inline int netdev_sw_parent_id_get(struct net_device *dev,
-@@ -202,6 +203,11 @@ static inline int netdev_sw_parent_flow_remove(struct net_device *dev,
- 	return -EOPNOTSUPP;
+ 	/* This kicks hotplug scripts, so do it immediately. */
+-	backend_create_xenvif(be);
++	err = backend_create_xenvif(be);
++	if (err)
++		goto fail;
+ 
+ 	return 0;
+ 
+@@ -397,19 +399,19 @@ static int netback_uevent(struct xenbus_device *xdev,
  }
  
-+static int netdev_sw_port_set_attr(struct net_device *dev, int attrtype,
-+                                   void *attrval)
-+{
-+	return -EOPNOTSUPP;
-+}
- #endif
  
- #endif /* _LINUX_SWITCHDEV_H_ */
-diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-index dc8e769..48f451b 100644
---- a/net/switchdev/switchdev.c
-+++ b/net/switchdev/switchdev.c
-@@ -314,3 +314,20 @@ int netdev_sw_parent_flow_remove(struct net_device *dev,
- 	return ops->ndo_sw_parent_flow_remove(dev, flow);
- }
- EXPORT_SYMBOL(netdev_sw_parent_flow_remove);
-+
-+/**
-+ *	netdev_sw_port_set_attr - set a port attr
-+ *	@dev: port device
-+ *	@attrttype: netlink attribute
-+ *	@attrval: attribute value
-+ *
-+ *	Set switch port attribute
-+ */
-+int netdev_sw_port_set_attr(struct net_device *dev,
-+					int attrttype, void *attrval)
-+{
-+	/* XXX: yet to be implemented */
-+
+-static void backend_create_xenvif(struct backend_info *be)
++static int backend_create_xenvif(struct backend_info *be)
+ {
+ 	int err;
+ 	long handle;
+ 	struct xenbus_device *dev = be->dev;
+ 
+ 	if (be->vif != NULL)
+-		return;
++		return 0;
+ 
+ 	err = xenbus_scanf(XBT_NIL, dev->nodename, "handle", "%li", &handle);
+ 	if (err != 1) {
+ 		xenbus_dev_fatal(dev, err, "reading handle");
+-		return;
++		return (err < 0) ? err : -EINVAL;
+ 	}
+ 
+ 	be->vif = xenvif_alloc(&dev->dev, dev->otherend_id, handle);
+@@ -417,10 +419,11 @@ static void backend_create_xenvif(struct backend_info *be)
+ 		err = PTR_ERR(be->vif);
+ 		be->vif = NULL;
+ 		xenbus_dev_fatal(dev, err, "creating interface");
+-		return;
++		return err;
+ 	}
+ 
+ 	kobject_uevent(&dev->dev.kobj, KOBJ_ONLINE);
 +	return 0;
-+}
-+EXPORT_SYMBOL(netdev_sw_port_set_attr);
+ }
+ 
+ static void backend_disconnect(struct backend_info *be)
 -- 
-1.7.10.4
+1.9.1
