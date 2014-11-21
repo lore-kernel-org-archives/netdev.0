@@ -1,7 +1,7 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next 2/5] RDMA/cxgb4/csiostor: Cleansup FW related macros/register defines for PF/VF and LDST
-Date: Fri, 21 Nov 2014 12:52:02 +0530
-Message-ID: <1416554525-11844-3-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCH net-next 3/5] cxgb4/cxgb4vf/csiostor: Cleanup macros/register defines related to queues
+Date: Fri, 21 Nov 2014 12:52:03 +0530
+Message-ID: <1416554525-11844-4-git-send-email-hariprasad@chelsio.com>
 References: <1416554525-11844-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, roland@purestorage.com,
 	JBottomley@parallels.com, hch@infradead.org,
@@ -11,1002 +11,1343 @@ Cc: davem@davemloft.net, roland@purestorage.com,
 To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
 	linux-scsi@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:33690
+Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:33695
 	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752436AbaKUHRX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2014 02:17:23 -0500
+	by vger.kernel.org with ESMTP id S1752436AbaKUHR2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2014 02:17:28 -0500
 In-Reply-To: <1416554525-11844-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch cleanups PF/VF and LDST related macros/register defines that are
-defined in t4fw_api.h and the affected files.
+This patch cleanups all queue related macros/register defines that are defined
+in t4fw_api.h and the affected files.
 
 Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 ---
- drivers/infiniband/hw/cxgb4/cm.c                   |    2 +-
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    |   61 +++--
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c         |   78 +++---
- drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h      |  270 +++++++++++++-------
- .../net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c    |   10 +-
- drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c     |   72 +++---
- drivers/scsi/csiostor/csio_hw.c                    |   20 +-
- drivers/scsi/csiostor/csio_mb.c                    |   30 +-
- drivers/scsi/csiostor/csio_mb.h                    |   12 +-
- 9 files changed, 327 insertions(+), 228 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/sge.c       |  115 ++--
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c     |   32 +-
+ drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h  |  690 ++++++++++++++++++------
+ drivers/net/ethernet/chelsio/cxgb4vf/sge.c     |   63 ++--
+ drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c |    8 +-
+ drivers/scsi/csiostor/csio_mb.c                |  119 ++--
+ 6 files changed, 684 insertions(+), 343 deletions(-)
 
-diff --git a/drivers/infiniband/hw/cxgb4/cm.c b/drivers/infiniband/hw/cxgb4/cm.c
-index 0ad8e2a..4b8c611 100644
---- a/drivers/infiniband/hw/cxgb4/cm.c
-+++ b/drivers/infiniband/hw/cxgb4/cm.c
-@@ -478,7 +478,7 @@ static void send_flowc(struct c4iw_ep *ep, struct sk_buff *skb)
- 					  16)) | FW_WR_FLOWID_V(ep->hwtid));
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+index 5cc5e19..433560b 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+@@ -2299,18 +2299,18 @@ int t4_sge_alloc_rxq(struct adapter *adap, struct sge_rspq *iq, bool fwevtq,
+ 	memset(&c, 0, sizeof(c));
+ 	c.op_to_vfn = htonl(FW_CMD_OP_V(FW_IQ_CMD) | FW_CMD_REQUEST_F |
+ 			    FW_CMD_WRITE_F | FW_CMD_EXEC_F |
+-			    FW_IQ_CMD_PFN(adap->fn) | FW_IQ_CMD_VFN(0));
+-	c.alloc_to_len16 = htonl(FW_IQ_CMD_ALLOC | FW_IQ_CMD_IQSTART(1) |
++			    FW_IQ_CMD_PFN_V(adap->fn) | FW_IQ_CMD_VFN_V(0));
++	c.alloc_to_len16 = htonl(FW_IQ_CMD_ALLOC_F | FW_IQ_CMD_IQSTART_F |
+ 				 FW_LEN16(c));
+-	c.type_to_iqandstindex = htonl(FW_IQ_CMD_TYPE(FW_IQ_TYPE_FL_INT_CAP) |
+-		FW_IQ_CMD_IQASYNCH(fwevtq) | FW_IQ_CMD_VIID(pi->viid) |
+-		FW_IQ_CMD_IQANDST(intr_idx < 0) | FW_IQ_CMD_IQANUD(1) |
+-		FW_IQ_CMD_IQANDSTINDEX(intr_idx >= 0 ? intr_idx :
++	c.type_to_iqandstindex = htonl(FW_IQ_CMD_TYPE_V(FW_IQ_TYPE_FL_INT_CAP) |
++		FW_IQ_CMD_IQASYNCH_V(fwevtq) | FW_IQ_CMD_VIID_V(pi->viid) |
++		FW_IQ_CMD_IQANDST_V(intr_idx < 0) | FW_IQ_CMD_IQANUD_V(1) |
++		FW_IQ_CMD_IQANDSTINDEX_V(intr_idx >= 0 ? intr_idx :
+ 							-intr_idx - 1));
+-	c.iqdroprss_to_iqesize = htons(FW_IQ_CMD_IQPCIECH(pi->tx_chan) |
+-		FW_IQ_CMD_IQGTSMODE |
+-		FW_IQ_CMD_IQINTCNTTHRESH(iq->pktcnt_idx) |
+-		FW_IQ_CMD_IQESIZE(ilog2(iq->iqe_len) - 4));
++	c.iqdroprss_to_iqesize = htons(FW_IQ_CMD_IQPCIECH_V(pi->tx_chan) |
++		FW_IQ_CMD_IQGTSMODE_F |
++		FW_IQ_CMD_IQINTCNTTHRESH_V(iq->pktcnt_idx) |
++		FW_IQ_CMD_IQESIZE_V(ilog2(iq->iqe_len) - 4));
+ 	c.iqsize = htons(iq->size);
+ 	c.iqaddr = cpu_to_be64(iq->phys_addr);
  
- 	flowc->mnemval[0].mnemonic = FW_FLOWC_MNEM_PFNVFN;
--	flowc->mnemval[0].val = cpu_to_be32(FW_PFVF_CMD_PFN
-+	flowc->mnemval[0].val = cpu_to_be32(FW_PFVF_CMD_PFN_V
- 					    (ep->com.dev->rdev.lldi.pf));
- 	flowc->mnemval[1].mnemonic = FW_FLOWC_MNEM_CH;
- 	flowc->mnemval[1].val = cpu_to_be32(ep->tx_chan);
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 6b6d7e1..4caec41 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -141,7 +141,7 @@ static unsigned int pfvfres_pmask(struct adapter *adapter,
- 	 * Give PF's access to all of the ports.
- 	 */
- 	if (vf == 0)
--		return FW_PFVF_CMD_PMASK_MASK;
-+		return FW_PFVF_CMD_PMASK_M;
+@@ -2323,12 +2323,12 @@ int t4_sge_alloc_rxq(struct adapter *adap, struct sge_rspq *iq, bool fwevtq,
+ 			goto fl_nomem;
  
- 	/*
- 	 * For VFs, we'll assign them access to the ports based purely on the
-@@ -512,9 +512,10 @@ static void dcb_tx_queue_prio_enable(struct net_device *dev, int enable)
- 		u32 name, value;
- 		int err;
+ 		flsz = fl->size / 8 + s->stat_len / sizeof(struct tx_desc);
+-		c.iqns_to_fl0congen = htonl(FW_IQ_CMD_FL0PACKEN(1) |
+-					    FW_IQ_CMD_FL0FETCHRO(1) |
+-					    FW_IQ_CMD_FL0DATARO(1) |
+-					    FW_IQ_CMD_FL0PADEN(1));
+-		c.fl0dcaen_to_fl0cidxfthresh = htons(FW_IQ_CMD_FL0FBMIN(2) |
+-				FW_IQ_CMD_FL0FBMAX(3));
++		c.iqns_to_fl0congen = htonl(FW_IQ_CMD_FL0PACKEN_F |
++					    FW_IQ_CMD_FL0FETCHRO_F |
++					    FW_IQ_CMD_FL0DATARO_F |
++					    FW_IQ_CMD_FL0PADEN_F);
++		c.fl0dcaen_to_fl0cidxfthresh = htons(FW_IQ_CMD_FL0FBMIN_V(2) |
++				FW_IQ_CMD_FL0FBMAX_V(3));
+ 		c.fl0size = htons(flsz);
+ 		c.fl0addr = cpu_to_be64(fl->addr);
+ 	}
+@@ -2425,19 +2425,20 @@ int t4_sge_alloc_eth_txq(struct adapter *adap, struct sge_eth_txq *txq,
+ 	memset(&c, 0, sizeof(c));
+ 	c.op_to_vfn = htonl(FW_CMD_OP_V(FW_EQ_ETH_CMD) | FW_CMD_REQUEST_F |
+ 			    FW_CMD_WRITE_F | FW_CMD_EXEC_F |
+-			    FW_EQ_ETH_CMD_PFN(adap->fn) | FW_EQ_ETH_CMD_VFN(0));
+-	c.alloc_to_len16 = htonl(FW_EQ_ETH_CMD_ALLOC |
+-				 FW_EQ_ETH_CMD_EQSTART | FW_LEN16(c));
+-	c.viid_pkd = htonl(FW_EQ_ETH_CMD_AUTOEQUEQE |
+-			   FW_EQ_ETH_CMD_VIID(pi->viid));
+-	c.fetchszm_to_iqid = htonl(FW_EQ_ETH_CMD_HOSTFCMODE(2) |
+-				   FW_EQ_ETH_CMD_PCIECHN(pi->tx_chan) |
+-				   FW_EQ_ETH_CMD_FETCHRO(1) |
+-				   FW_EQ_ETH_CMD_IQID(iqid));
+-	c.dcaen_to_eqsize = htonl(FW_EQ_ETH_CMD_FBMIN(2) |
+-				  FW_EQ_ETH_CMD_FBMAX(3) |
+-				  FW_EQ_ETH_CMD_CIDXFTHRESH(5) |
+-				  FW_EQ_ETH_CMD_EQSIZE(nentries));
++			    FW_EQ_ETH_CMD_PFN_V(adap->fn) |
++			    FW_EQ_ETH_CMD_VFN_V(0));
++	c.alloc_to_len16 = htonl(FW_EQ_ETH_CMD_ALLOC_F |
++				 FW_EQ_ETH_CMD_EQSTART_F | FW_LEN16(c));
++	c.viid_pkd = htonl(FW_EQ_ETH_CMD_AUTOEQUEQE_F |
++			   FW_EQ_ETH_CMD_VIID_V(pi->viid));
++	c.fetchszm_to_iqid = htonl(FW_EQ_ETH_CMD_HOSTFCMODE_V(2) |
++				   FW_EQ_ETH_CMD_PCIECHN_V(pi->tx_chan) |
++				   FW_EQ_ETH_CMD_FETCHRO_V(1) |
++				   FW_EQ_ETH_CMD_IQID_V(iqid));
++	c.dcaen_to_eqsize = htonl(FW_EQ_ETH_CMD_FBMIN_V(2) |
++				  FW_EQ_ETH_CMD_FBMAX_V(3) |
++				  FW_EQ_ETH_CMD_CIDXFTHRESH_V(5) |
++				  FW_EQ_ETH_CMD_EQSIZE_V(nentries));
+ 	c.eqaddr = cpu_to_be64(txq->q.phys_addr);
  
--		name = (FW_PARAMS_MNEM(FW_PARAMS_MNEM_DMAQ) |
--			FW_PARAMS_PARAM_X(FW_PARAMS_PARAM_DMAQ_EQ_DCBPRIO_ETH) |
--			FW_PARAMS_PARAM_YZ(txq->q.cntxt_id));
-+		name = (FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_DMAQ) |
-+			FW_PARAMS_PARAM_X_V(
-+				FW_PARAMS_PARAM_DMAQ_EQ_DCBPRIO_ETH) |
-+			FW_PARAMS_PARAM_YZ_V(txq->q.cntxt_id));
- 		value = enable ? i : 0xffffffff;
+ 	ret = t4_wr_mbox(adap, adap->fn, &c, sizeof(c), &c);
+@@ -2451,7 +2452,7 @@ int t4_sge_alloc_eth_txq(struct adapter *adap, struct sge_eth_txq *txq,
+ 		return ret;
+ 	}
  
- 		/* Since we can be called while atomic (from "interrupt
-@@ -2717,9 +2718,10 @@ static int set_rspq_intr_params(struct sge_rspq *q,
- 		new_idx = closest_thres(&adap->sge, cnt);
- 		if (q->desc && q->pktcnt_idx != new_idx) {
- 			/* the queue has already been created, update it */
--			v = FW_PARAMS_MNEM(FW_PARAMS_MNEM_DMAQ) |
--			    FW_PARAMS_PARAM_X(FW_PARAMS_PARAM_DMAQ_IQ_INTCNTTHRESH) |
--			    FW_PARAMS_PARAM_YZ(q->cntxt_id);
-+			v = FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_DMAQ) |
-+			    FW_PARAMS_PARAM_X_V(
-+					FW_PARAMS_PARAM_DMAQ_IQ_INTCNTTHRESH) |
-+			    FW_PARAMS_PARAM_YZ_V(q->cntxt_id);
- 			err = t4_set_params(adap, adap->fn, adap->fn, 0, 1, &v,
- 					    &new_idx);
- 			if (err)
-@@ -4870,11 +4872,11 @@ static u32 t4_read_pcie_cfg4(struct adapter *adap, int reg)
- 		htonl(FW_CMD_OP_V(FW_LDST_CMD) |
- 		      FW_CMD_REQUEST_F |
- 		      FW_CMD_READ_F |
--		      FW_LDST_CMD_ADDRSPACE(FW_LDST_ADDRSPC_FUNC_PCIE));
-+		      FW_LDST_CMD_ADDRSPACE_V(FW_LDST_ADDRSPC_FUNC_PCIE));
- 	ldst_cmd.cycles_to_len16 = htonl(FW_LEN16(ldst_cmd));
--	ldst_cmd.u.pcie.select_naccess = FW_LDST_CMD_NACCESS(1);
-+	ldst_cmd.u.pcie.select_naccess = FW_LDST_CMD_NACCESS_V(1);
- 	ldst_cmd.u.pcie.ctrl_to_fn =
--		(FW_LDST_CMD_LC | FW_LDST_CMD_FN(adap->fn));
-+		(FW_LDST_CMD_LC_F | FW_LDST_CMD_FN_V(adap->fn));
- 	ldst_cmd.u.pcie.r = reg;
- 	ret = t4_wr_mbox(adap, adap->mbox, &ldst_cmd, sizeof(ldst_cmd),
- 			 &ldst_cmd);
-@@ -5148,8 +5150,8 @@ static int adap_init0_config(struct adapter *adapter, int reset)
- 		if (cf->size >= FLASH_CFG_MAX_SIZE)
- 			ret = -ENOMEM;
- 		else {
--			params[0] = (FW_PARAMS_MNEM(FW_PARAMS_MNEM_DEV) |
--			     FW_PARAMS_PARAM_X(FW_PARAMS_PARAM_DEV_CF));
-+			params[0] = (FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_DEV) |
-+			     FW_PARAMS_PARAM_X_V(FW_PARAMS_PARAM_DEV_CF));
- 			ret = t4_query_params(adapter, adapter->mbox,
- 					      adapter->fn, 0, 1, params, val);
- 			if (ret == 0) {
-@@ -5167,8 +5169,8 @@ static int adap_init0_config(struct adapter *adapter, int reset)
- 				size_t size = cf->size & ~0x3;
- 				__be32 *data = (__be32 *)cf->data;
+-	init_txq(adap, &txq->q, FW_EQ_ETH_CMD_EQID_GET(ntohl(c.eqid_pkd)));
++	init_txq(adap, &txq->q, FW_EQ_ETH_CMD_EQID_G(ntohl(c.eqid_pkd)));
+ 	txq->txq = netdevq;
+ 	txq->tso = txq->tx_cso = txq->vlan_ins = 0;
+ 	txq->mapping_err = 0;
+@@ -2478,20 +2479,20 @@ int t4_sge_alloc_ctrl_txq(struct adapter *adap, struct sge_ctrl_txq *txq,
  
--				mtype = FW_PARAMS_PARAM_Y_GET(val[0]);
--				maddr = FW_PARAMS_PARAM_Z_GET(val[0]) << 16;
-+				mtype = FW_PARAMS_PARAM_Y_G(val[0]);
-+				maddr = FW_PARAMS_PARAM_Z_G(val[0]) << 16;
+ 	c.op_to_vfn = htonl(FW_CMD_OP_V(FW_EQ_CTRL_CMD) | FW_CMD_REQUEST_F |
+ 			    FW_CMD_WRITE_F | FW_CMD_EXEC_F |
+-			    FW_EQ_CTRL_CMD_PFN(adap->fn) |
+-			    FW_EQ_CTRL_CMD_VFN(0));
+-	c.alloc_to_len16 = htonl(FW_EQ_CTRL_CMD_ALLOC |
+-				 FW_EQ_CTRL_CMD_EQSTART | FW_LEN16(c));
+-	c.cmpliqid_eqid = htonl(FW_EQ_CTRL_CMD_CMPLIQID(cmplqid));
++			    FW_EQ_CTRL_CMD_PFN_V(adap->fn) |
++			    FW_EQ_CTRL_CMD_VFN_V(0));
++	c.alloc_to_len16 = htonl(FW_EQ_CTRL_CMD_ALLOC_F |
++				 FW_EQ_CTRL_CMD_EQSTART_F | FW_LEN16(c));
++	c.cmpliqid_eqid = htonl(FW_EQ_CTRL_CMD_CMPLIQID_V(cmplqid));
+ 	c.physeqid_pkd = htonl(0);
+-	c.fetchszm_to_iqid = htonl(FW_EQ_CTRL_CMD_HOSTFCMODE(2) |
+-				   FW_EQ_CTRL_CMD_PCIECHN(pi->tx_chan) |
+-				   FW_EQ_CTRL_CMD_FETCHRO |
+-				   FW_EQ_CTRL_CMD_IQID(iqid));
+-	c.dcaen_to_eqsize = htonl(FW_EQ_CTRL_CMD_FBMIN(2) |
+-				  FW_EQ_CTRL_CMD_FBMAX(3) |
+-				  FW_EQ_CTRL_CMD_CIDXFTHRESH(5) |
+-				  FW_EQ_CTRL_CMD_EQSIZE(nentries));
++	c.fetchszm_to_iqid = htonl(FW_EQ_CTRL_CMD_HOSTFCMODE_V(2) |
++				   FW_EQ_CTRL_CMD_PCIECHN_V(pi->tx_chan) |
++				   FW_EQ_CTRL_CMD_FETCHRO_F |
++				   FW_EQ_CTRL_CMD_IQID_V(iqid));
++	c.dcaen_to_eqsize = htonl(FW_EQ_CTRL_CMD_FBMIN_V(2) |
++				  FW_EQ_CTRL_CMD_FBMAX_V(3) |
++				  FW_EQ_CTRL_CMD_CIDXFTHRESH_V(5) |
++				  FW_EQ_CTRL_CMD_EQSIZE_V(nentries));
+ 	c.eqaddr = cpu_to_be64(txq->q.phys_addr);
  
- 				spin_lock(&adapter->win0_lock);
- 				ret = t4_memory_rw(adapter, 0, mtype, maddr,
-@@ -5209,9 +5211,9 @@ static int adap_init0_config(struct adapter *adapter, int reset)
- 		      FW_CMD_REQUEST_F |
- 		      FW_CMD_READ_F);
- 	caps_cmd.cfvalid_to_len16 =
--		htonl(FW_CAPS_CONFIG_CMD_CFVALID |
--		      FW_CAPS_CONFIG_CMD_MEMTYPE_CF(mtype) |
--		      FW_CAPS_CONFIG_CMD_MEMADDR64K_CF(maddr >> 16) |
-+		htonl(FW_CAPS_CONFIG_CMD_CFVALID_F |
-+		      FW_CAPS_CONFIG_CMD_MEMTYPE_CF_V(mtype) |
-+		      FW_CAPS_CONFIG_CMD_MEMADDR64K_CF_V(maddr >> 16) |
- 		      FW_LEN16(caps_cmd));
- 	ret = t4_wr_mbox(adapter, adapter->mbox, &caps_cmd, sizeof(caps_cmd),
- 			 &caps_cmd);
-@@ -5377,7 +5379,7 @@ static int adap_init0_no_config(struct adapter *adapter, int reset)
- 			  PFRES_NEQ, PFRES_NETHCTRL,
- 			  PFRES_NIQFLINT, PFRES_NIQ,
- 			  PFRES_TC, PFRES_NVI,
--			  FW_PFVF_CMD_CMASK_MASK,
-+			  FW_PFVF_CMD_CMASK_M,
- 			  pfvfres_pmask(adapter, adapter->fn, 0),
- 			  PFRES_NEXACTF,
- 			  PFRES_R_CAPS, PFRES_WX_CAPS);
-@@ -5422,7 +5424,7 @@ static int adap_init0_no_config(struct adapter *adapter, int reset)
- 						  VFRES_NEQ, VFRES_NETHCTRL,
- 						  VFRES_NIQFLINT, VFRES_NIQ,
- 						  VFRES_TC, VFRES_NVI,
--						  FW_PFVF_CMD_CMASK_MASK,
-+						  FW_PFVF_CMD_CMASK_M,
- 						  pfvfres_pmask(
- 						  adapter, pf, vf),
- 						  VFRES_NEXACTF,
-@@ -5686,8 +5688,8 @@ static int adap_init0(struct adapter *adap)
- 	 * and portvec ...
- 	 */
- 	v =
--	    FW_PARAMS_MNEM(FW_PARAMS_MNEM_DEV) |
--	    FW_PARAMS_PARAM_X(FW_PARAMS_PARAM_DEV_PORTVEC);
-+	    FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_DEV) |
-+	    FW_PARAMS_PARAM_X_V(FW_PARAMS_PARAM_DEV_PORTVEC);
- 	ret = t4_query_params(adap, adap->mbox, adap->fn, 0, 1, &v, &port_vec);
- 	if (ret < 0)
- 		goto bye;
-@@ -5723,8 +5725,9 @@ static int adap_init0(struct adapter *adap)
- 			 * Find out whether we're dealing with a version of
- 			 * the firmware which has configuration file support.
- 			 */
--			params[0] = (FW_PARAMS_MNEM(FW_PARAMS_MNEM_DEV) |
--				     FW_PARAMS_PARAM_X(FW_PARAMS_PARAM_DEV_CF));
-+			params[0] = (FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_DEV) |
-+				     FW_PARAMS_PARAM_X_V(
-+					     FW_PARAMS_PARAM_DEV_CF));
- 			ret = t4_query_params(adap, adap->mbox, adap->fn, 0, 1,
- 					      params, val);
+ 	ret = t4_wr_mbox(adap, adap->fn, &c, sizeof(c), &c);
+@@ -2503,7 +2504,7 @@ int t4_sge_alloc_ctrl_txq(struct adapter *adap, struct sge_ctrl_txq *txq,
+ 		return ret;
+ 	}
  
-@@ -5784,14 +5787,14 @@ static int adap_init0(struct adapter *adap)
- 	 * Grab some of our basic fundamental operating parameters.
- 	 */
- #define FW_PARAM_DEV(param) \
--	(FW_PARAMS_MNEM(FW_PARAMS_MNEM_DEV) | \
--	FW_PARAMS_PARAM_X(FW_PARAMS_PARAM_DEV_##param))
-+	(FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_DEV) | \
-+	FW_PARAMS_PARAM_X_V(FW_PARAMS_PARAM_DEV_##param))
+-	init_txq(adap, &txq->q, FW_EQ_CTRL_CMD_EQID_GET(ntohl(c.cmpliqid_eqid)));
++	init_txq(adap, &txq->q, FW_EQ_CTRL_CMD_EQID_G(ntohl(c.cmpliqid_eqid)));
+ 	txq->adap = adap;
+ 	skb_queue_head_init(&txq->sendq);
+ 	tasklet_init(&txq->qresume_tsk, restart_ctrlq, (unsigned long)txq);
+@@ -2532,18 +2533,18 @@ int t4_sge_alloc_ofld_txq(struct adapter *adap, struct sge_ofld_txq *txq,
+ 	memset(&c, 0, sizeof(c));
+ 	c.op_to_vfn = htonl(FW_CMD_OP_V(FW_EQ_OFLD_CMD) | FW_CMD_REQUEST_F |
+ 			    FW_CMD_WRITE_F | FW_CMD_EXEC_F |
+-			    FW_EQ_OFLD_CMD_PFN(adap->fn) |
+-			    FW_EQ_OFLD_CMD_VFN(0));
+-	c.alloc_to_len16 = htonl(FW_EQ_OFLD_CMD_ALLOC |
+-				 FW_EQ_OFLD_CMD_EQSTART | FW_LEN16(c));
+-	c.fetchszm_to_iqid = htonl(FW_EQ_OFLD_CMD_HOSTFCMODE(2) |
+-				   FW_EQ_OFLD_CMD_PCIECHN(pi->tx_chan) |
+-				   FW_EQ_OFLD_CMD_FETCHRO(1) |
+-				   FW_EQ_OFLD_CMD_IQID(iqid));
+-	c.dcaen_to_eqsize = htonl(FW_EQ_OFLD_CMD_FBMIN(2) |
+-				  FW_EQ_OFLD_CMD_FBMAX(3) |
+-				  FW_EQ_OFLD_CMD_CIDXFTHRESH(5) |
+-				  FW_EQ_OFLD_CMD_EQSIZE(nentries));
++			    FW_EQ_OFLD_CMD_PFN_V(adap->fn) |
++			    FW_EQ_OFLD_CMD_VFN_V(0));
++	c.alloc_to_len16 = htonl(FW_EQ_OFLD_CMD_ALLOC_F |
++				 FW_EQ_OFLD_CMD_EQSTART_F | FW_LEN16(c));
++	c.fetchszm_to_iqid = htonl(FW_EQ_OFLD_CMD_HOSTFCMODE_V(2) |
++				   FW_EQ_OFLD_CMD_PCIECHN_V(pi->tx_chan) |
++				   FW_EQ_OFLD_CMD_FETCHRO_F |
++				   FW_EQ_OFLD_CMD_IQID_V(iqid));
++	c.dcaen_to_eqsize = htonl(FW_EQ_OFLD_CMD_FBMIN_V(2) |
++				  FW_EQ_OFLD_CMD_FBMAX_V(3) |
++				  FW_EQ_OFLD_CMD_CIDXFTHRESH_V(5) |
++				  FW_EQ_OFLD_CMD_EQSIZE_V(nentries));
+ 	c.eqaddr = cpu_to_be64(txq->q.phys_addr);
  
- #define FW_PARAM_PFVF(param) \
--	FW_PARAMS_MNEM(FW_PARAMS_MNEM_PFVF) | \
--	FW_PARAMS_PARAM_X(FW_PARAMS_PARAM_PFVF_##param)|  \
--	FW_PARAMS_PARAM_Y(0) | \
--	FW_PARAMS_PARAM_Z(0)
-+	FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_PFVF) | \
-+	FW_PARAMS_PARAM_X_V(FW_PARAMS_PARAM_PFVF_##param)|  \
-+	FW_PARAMS_PARAM_Y_V(0) | \
-+	FW_PARAMS_PARAM_Z_V(0)
+ 	ret = t4_wr_mbox(adap, adap->fn, &c, sizeof(c), &c);
+@@ -2557,7 +2558,7 @@ int t4_sge_alloc_ofld_txq(struct adapter *adap, struct sge_ofld_txq *txq,
+ 		return ret;
+ 	}
  
- 	params[0] = FW_PARAM_PFVF(EQ_START);
- 	params[1] = FW_PARAM_PFVF(L2T_START);
+-	init_txq(adap, &txq->q, FW_EQ_OFLD_CMD_EQID_GET(ntohl(c.eqid_pkd)));
++	init_txq(adap, &txq->q, FW_EQ_OFLD_CMD_EQID_G(ntohl(c.eqid_pkd)));
+ 	txq->adap = adap;
+ 	skb_queue_head_init(&txq->sendq);
+ 	tasklet_init(&txq->qresume_tsk, restart_ofldq, (unsigned long)txq);
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-index 0c78be3..9f1b304 100644
+index 9f1b304..da72814 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-@@ -711,8 +711,8 @@ int get_vpd_params(struct adapter *adapter, struct vpd_params *p)
- 	 * Ask firmware for the Core Clock since it knows how to translate the
- 	 * Reference Clock ('V2') VPD field into a Core Clock value ...
- 	 */
--	cclk_param = (FW_PARAMS_MNEM(FW_PARAMS_MNEM_DEV) |
--		      FW_PARAMS_PARAM_X(FW_PARAMS_PARAM_DEV_CCLK));
-+	cclk_param = (FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_DEV) |
-+		      FW_PARAMS_PARAM_X_V(FW_PARAMS_PARAM_DEV_CCLK));
- 	ret = t4_query_params(adapter, adapter->mbox, 0, 0,
- 			      1, &cclk_param, &cclk_val);
- 
-@@ -2577,7 +2577,7 @@ int t4_fwaddrspace_write(struct adapter *adap, unsigned int mbox,
- 	memset(&c, 0, sizeof(c));
- 	c.op_to_addrspace = htonl(FW_CMD_OP_V(FW_LDST_CMD) | FW_CMD_REQUEST_F |
- 			    FW_CMD_WRITE_F |
--			    FW_LDST_CMD_ADDRSPACE(FW_LDST_ADDRSPC_FIRMWARE));
-+			    FW_LDST_CMD_ADDRSPACE_V(FW_LDST_ADDRSPC_FIRMWARE));
- 	c.cycles_to_len16 = htonl(FW_LEN16(c));
- 	c.u.addrval.addr = htonl(addr);
- 	c.u.addrval.val = htonl(val);
-@@ -2604,10 +2604,10 @@ int t4_mdio_rd(struct adapter *adap, unsigned int mbox, unsigned int phy_addr,
+@@ -3715,10 +3715,10 @@ int t4_iq_free(struct adapter *adap, unsigned int mbox, unsigned int pf,
  
  	memset(&c, 0, sizeof(c));
- 	c.op_to_addrspace = htonl(FW_CMD_OP_V(FW_LDST_CMD) | FW_CMD_REQUEST_F |
--		FW_CMD_READ_F | FW_LDST_CMD_ADDRSPACE(FW_LDST_ADDRSPC_MDIO));
-+		FW_CMD_READ_F | FW_LDST_CMD_ADDRSPACE_V(FW_LDST_ADDRSPC_MDIO));
- 	c.cycles_to_len16 = htonl(FW_LEN16(c));
--	c.u.mdio.paddr_mmd = htons(FW_LDST_CMD_PADDR(phy_addr) |
--				   FW_LDST_CMD_MMD(mmd));
-+	c.u.mdio.paddr_mmd = htons(FW_LDST_CMD_PADDR_V(phy_addr) |
-+				   FW_LDST_CMD_MMD_V(mmd));
- 	c.u.mdio.raddr = htons(reg);
- 
- 	ret = t4_wr_mbox(adap, mbox, &c, sizeof(c), &c);
-@@ -2634,10 +2634,10 @@ int t4_mdio_wr(struct adapter *adap, unsigned int mbox, unsigned int phy_addr,
- 
- 	memset(&c, 0, sizeof(c));
- 	c.op_to_addrspace = htonl(FW_CMD_OP_V(FW_LDST_CMD) | FW_CMD_REQUEST_F |
--		FW_CMD_WRITE_F | FW_LDST_CMD_ADDRSPACE(FW_LDST_ADDRSPC_MDIO));
-+		FW_CMD_WRITE_F | FW_LDST_CMD_ADDRSPACE_V(FW_LDST_ADDRSPC_MDIO));
- 	c.cycles_to_len16 = htonl(FW_LEN16(c));
--	c.u.mdio.paddr_mmd = htons(FW_LDST_CMD_PADDR(phy_addr) |
--				   FW_LDST_CMD_MMD(mmd));
-+	c.u.mdio.paddr_mmd = htons(FW_LDST_CMD_PADDR_V(phy_addr) |
-+				   FW_LDST_CMD_MMD_V(mmd));
- 	c.u.mdio.raddr = htons(reg);
- 	c.u.mdio.rval = htons(val);
- 
-@@ -2774,13 +2774,13 @@ retry:
- 	memset(&c, 0, sizeof(c));
- 	INIT_CMD(c, HELLO, WRITE);
- 	c.err_to_clearinit = htonl(
--		FW_HELLO_CMD_MASTERDIS(master == MASTER_CANT) |
--		FW_HELLO_CMD_MASTERFORCE(master == MASTER_MUST) |
--		FW_HELLO_CMD_MBMASTER(master == MASTER_MUST ? mbox :
--				      FW_HELLO_CMD_MBMASTER_MASK) |
--		FW_HELLO_CMD_MBASYNCNOT(evt_mbox) |
--		FW_HELLO_CMD_STAGE(fw_hello_cmd_stage_os) |
--		FW_HELLO_CMD_CLEARINIT);
-+		FW_HELLO_CMD_MASTERDIS_V(master == MASTER_CANT) |
-+		FW_HELLO_CMD_MASTERFORCE_V(master == MASTER_MUST) |
-+		FW_HELLO_CMD_MBMASTER_V(master == MASTER_MUST ? mbox :
-+				      FW_HELLO_CMD_MBMASTER_M) |
-+		FW_HELLO_CMD_MBASYNCNOT_V(evt_mbox) |
-+		FW_HELLO_CMD_STAGE_V(fw_hello_cmd_stage_os) |
-+		FW_HELLO_CMD_CLEARINIT_F);
- 
- 	/*
- 	 * Issue the HELLO command to the firmware.  If it's not successful
-@@ -2799,11 +2799,11 @@ retry:
- 	}
- 
- 	v = ntohl(c.err_to_clearinit);
--	master_mbox = FW_HELLO_CMD_MBMASTER_GET(v);
-+	master_mbox = FW_HELLO_CMD_MBMASTER_G(v);
- 	if (state) {
--		if (v & FW_HELLO_CMD_ERR)
-+		if (v & FW_HELLO_CMD_ERR_F)
- 			*state = DEV_STATE_ERR;
--		else if (v & FW_HELLO_CMD_INIT)
-+		else if (v & FW_HELLO_CMD_INIT_F)
- 			*state = DEV_STATE_INIT;
- 		else
- 			*state = DEV_STATE_UNINIT;
-@@ -2820,7 +2820,7 @@ retry:
- 	 * this case, the Master PF returned by the firmware will be
- 	 * FW_PCIE_FW_MASTER_MASK so the test below will work ...
- 	 */
--	if ((v & (FW_HELLO_CMD_ERR|FW_HELLO_CMD_INIT)) == 0 &&
-+	if ((v & (FW_HELLO_CMD_ERR_F|FW_HELLO_CMD_INIT_F)) == 0 &&
- 	    master_mbox != mbox) {
- 		int waiting = FW_CMD_HELLO_TIMEOUT;
- 
-@@ -2961,7 +2961,7 @@ static int t4_fw_halt(struct adapter *adap, unsigned int mbox, int force)
- 		memset(&c, 0, sizeof(c));
- 		INIT_CMD(c, RESET, WRITE);
- 		c.val = htonl(PIORST | PIORSTMODE);
--		c.halt_pkd = htonl(FW_RESET_CMD_HALT(1U));
-+		c.halt_pkd = htonl(FW_RESET_CMD_HALT_F);
- 		ret = t4_wr_mbox(adap, mbox, &c, sizeof(c), NULL);
- 	}
- 
-@@ -3252,8 +3252,8 @@ int t4_query_params(struct adapter *adap, unsigned int mbox, unsigned int pf,
+ 	c.op_to_vfn = htonl(FW_CMD_OP_V(FW_IQ_CMD) | FW_CMD_REQUEST_F |
+-			    FW_CMD_EXEC_F | FW_IQ_CMD_PFN(pf) |
+-			    FW_IQ_CMD_VFN(vf));
+-	c.alloc_to_len16 = htonl(FW_IQ_CMD_FREE | FW_LEN16(c));
+-	c.type_to_iqandstindex = htonl(FW_IQ_CMD_TYPE(iqtype));
++			    FW_CMD_EXEC_F | FW_IQ_CMD_PFN_V(pf) |
++			    FW_IQ_CMD_VFN_V(vf));
++	c.alloc_to_len16 = htonl(FW_IQ_CMD_FREE_F | FW_LEN16(c));
++	c.type_to_iqandstindex = htonl(FW_IQ_CMD_TYPE_V(iqtype));
+ 	c.iqid = htons(iqid);
+ 	c.fl0id = htons(fl0id);
+ 	c.fl1id = htons(fl1id);
+@@ -3742,10 +3742,10 @@ int t4_eth_eq_free(struct adapter *adap, unsigned int mbox, unsigned int pf,
  
  	memset(&c, 0, sizeof(c));
- 	c.op_to_vfn = htonl(FW_CMD_OP_V(FW_PARAMS_CMD) | FW_CMD_REQUEST_F |
--			    FW_CMD_READ_F | FW_PARAMS_CMD_PFN(pf) |
--			    FW_PARAMS_CMD_VFN(vf));
-+			    FW_CMD_READ_F | FW_PARAMS_CMD_PFN_V(pf) |
-+			    FW_PARAMS_CMD_VFN_V(vf));
- 	c.retval_len16 = htonl(FW_LEN16(c));
- 	for (i = 0; i < nparams; i++, p += 2)
- 		*p = htonl(*params++);
-@@ -3293,8 +3293,8 @@ int t4_set_params_nosleep(struct adapter *adap, unsigned int mbox,
- 	memset(&c, 0, sizeof(c));
- 	c.op_to_vfn = cpu_to_be32(FW_CMD_OP_V(FW_PARAMS_CMD) |
- 				FW_CMD_REQUEST_F | FW_CMD_WRITE_F |
--				FW_PARAMS_CMD_PFN(pf) |
--				FW_PARAMS_CMD_VFN(vf));
-+				FW_PARAMS_CMD_PFN_V(pf) |
-+				FW_PARAMS_CMD_VFN_V(vf));
- 	c.retval_len16 = cpu_to_be32(FW_LEN16(c));
+ 	c.op_to_vfn = htonl(FW_CMD_OP_V(FW_EQ_ETH_CMD) | FW_CMD_REQUEST_F |
+-			    FW_CMD_EXEC_F | FW_EQ_ETH_CMD_PFN(pf) |
+-			    FW_EQ_ETH_CMD_VFN(vf));
+-	c.alloc_to_len16 = htonl(FW_EQ_ETH_CMD_FREE | FW_LEN16(c));
+-	c.eqid_pkd = htonl(FW_EQ_ETH_CMD_EQID(eqid));
++			    FW_CMD_EXEC_F | FW_EQ_ETH_CMD_PFN_V(pf) |
++			    FW_EQ_ETH_CMD_VFN_V(vf));
++	c.alloc_to_len16 = htonl(FW_EQ_ETH_CMD_FREE_F | FW_LEN16(c));
++	c.eqid_pkd = htonl(FW_EQ_ETH_CMD_EQID_V(eqid));
+ 	return t4_wr_mbox(adap, mbox, &c, sizeof(c), NULL);
+ }
  
- 	while (nparams--) {
-@@ -3330,8 +3330,8 @@ int t4_set_params(struct adapter *adap, unsigned int mbox, unsigned int pf,
+@@ -3766,10 +3766,10 @@ int t4_ctrl_eq_free(struct adapter *adap, unsigned int mbox, unsigned int pf,
  
  	memset(&c, 0, sizeof(c));
- 	c.op_to_vfn = htonl(FW_CMD_OP_V(FW_PARAMS_CMD) | FW_CMD_REQUEST_F |
--			    FW_CMD_WRITE_F | FW_PARAMS_CMD_PFN(pf) |
--			    FW_PARAMS_CMD_VFN(vf));
-+			    FW_CMD_WRITE_F | FW_PARAMS_CMD_PFN_V(pf) |
-+			    FW_PARAMS_CMD_VFN_V(vf));
- 	c.retval_len16 = htonl(FW_LEN16(c));
- 	while (nparams--) {
- 		*p++ = htonl(*params++);
-@@ -3372,19 +3372,19 @@ int t4_cfg_pfvf(struct adapter *adap, unsigned int mbox, unsigned int pf,
+ 	c.op_to_vfn = htonl(FW_CMD_OP_V(FW_EQ_CTRL_CMD) | FW_CMD_REQUEST_F |
+-			    FW_CMD_EXEC_F | FW_EQ_CTRL_CMD_PFN(pf) |
+-			    FW_EQ_CTRL_CMD_VFN(vf));
+-	c.alloc_to_len16 = htonl(FW_EQ_CTRL_CMD_FREE | FW_LEN16(c));
+-	c.cmpliqid_eqid = htonl(FW_EQ_CTRL_CMD_EQID(eqid));
++			    FW_CMD_EXEC_F | FW_EQ_CTRL_CMD_PFN_V(pf) |
++			    FW_EQ_CTRL_CMD_VFN_V(vf));
++	c.alloc_to_len16 = htonl(FW_EQ_CTRL_CMD_FREE_F | FW_LEN16(c));
++	c.cmpliqid_eqid = htonl(FW_EQ_CTRL_CMD_EQID_V(eqid));
+ 	return t4_wr_mbox(adap, mbox, &c, sizeof(c), NULL);
+ }
+ 
+@@ -3790,10 +3790,10 @@ int t4_ofld_eq_free(struct adapter *adap, unsigned int mbox, unsigned int pf,
  
  	memset(&c, 0, sizeof(c));
- 	c.op_to_vfn = htonl(FW_CMD_OP_V(FW_PFVF_CMD) | FW_CMD_REQUEST_F |
--			    FW_CMD_WRITE_F | FW_PFVF_CMD_PFN(pf) |
--			    FW_PFVF_CMD_VFN(vf));
-+			    FW_CMD_WRITE_F | FW_PFVF_CMD_PFN_V(pf) |
-+			    FW_PFVF_CMD_VFN_V(vf));
- 	c.retval_len16 = htonl(FW_LEN16(c));
--	c.niqflint_niq = htonl(FW_PFVF_CMD_NIQFLINT(rxqi) |
--			       FW_PFVF_CMD_NIQ(rxq));
--	c.type_to_neq = htonl(FW_PFVF_CMD_CMASK(cmask) |
--			       FW_PFVF_CMD_PMASK(pmask) |
--			       FW_PFVF_CMD_NEQ(txq));
--	c.tc_to_nexactf = htonl(FW_PFVF_CMD_TC(tc) | FW_PFVF_CMD_NVI(vi) |
--				FW_PFVF_CMD_NEXACTF(nexact));
--	c.r_caps_to_nethctrl = htonl(FW_PFVF_CMD_R_CAPS(rcaps) |
--				     FW_PFVF_CMD_WX_CAPS(wxcaps) |
--				     FW_PFVF_CMD_NETHCTRL(txq_eth_ctrl));
-+	c.niqflint_niq = htonl(FW_PFVF_CMD_NIQFLINT_V(rxqi) |
-+			       FW_PFVF_CMD_NIQ_V(rxq));
-+	c.type_to_neq = htonl(FW_PFVF_CMD_CMASK_V(cmask) |
-+			       FW_PFVF_CMD_PMASK_V(pmask) |
-+			       FW_PFVF_CMD_NEQ_V(txq));
-+	c.tc_to_nexactf = htonl(FW_PFVF_CMD_TC_V(tc) | FW_PFVF_CMD_NVI_V(vi) |
-+				FW_PFVF_CMD_NEXACTF_V(nexact));
-+	c.r_caps_to_nethctrl = htonl(FW_PFVF_CMD_R_CAPS_V(rcaps) |
-+				     FW_PFVF_CMD_WX_CAPS_V(wxcaps) |
-+				     FW_PFVF_CMD_NETHCTRL_V(txq_eth_ctrl));
+ 	c.op_to_vfn = htonl(FW_CMD_OP_V(FW_EQ_OFLD_CMD) | FW_CMD_REQUEST_F |
+-			    FW_CMD_EXEC_F | FW_EQ_OFLD_CMD_PFN(pf) |
+-			    FW_EQ_OFLD_CMD_VFN(vf));
+-	c.alloc_to_len16 = htonl(FW_EQ_OFLD_CMD_FREE | FW_LEN16(c));
+-	c.eqid_pkd = htonl(FW_EQ_OFLD_CMD_EQID(eqid));
++			    FW_CMD_EXEC_F | FW_EQ_OFLD_CMD_PFN_V(pf) |
++			    FW_EQ_OFLD_CMD_VFN_V(vf));
++	c.alloc_to_len16 = htonl(FW_EQ_OFLD_CMD_FREE_F | FW_LEN16(c));
++	c.eqid_pkd = htonl(FW_EQ_OFLD_CMD_EQID_V(eqid));
  	return t4_wr_mbox(adap, mbox, &c, sizeof(c), NULL);
  }
  
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
-index 3bc5bdb..5839b80 100644
+index 5839b80..92a0df5 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
 +++ b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
-@@ -761,7 +761,8 @@ enum fw_ldst_func_mod_index {
- 
- struct fw_ldst_cmd {
- 	__be32 op_to_addrspace;
--#define FW_LDST_CMD_ADDRSPACE(x) ((x) << 0)
-+#define FW_LDST_CMD_ADDRSPACE_S		0
-+#define FW_LDST_CMD_ADDRSPACE_V(x)	((x) << FW_LDST_CMD_ADDRSPACE_S)
- 	__be32 cycles_to_len16;
- 	union fw_ldst {
- 		struct fw_ldst_addrval {
-@@ -817,15 +818,33 @@ struct fw_ldst_cmd {
- 	} u;
+@@ -1274,85 +1274,239 @@ struct fw_iq_cmd {
+ 	__be64 fl1addr;
  };
  
--#define FW_LDST_CMD_MSG(x)	((x) << 31)
--#define FW_LDST_CMD_PADDR(x)	((x) << 8)
--#define FW_LDST_CMD_MMD(x)	((x) << 0)
--#define FW_LDST_CMD_FID(x)	((x) << 15)
--#define FW_LDST_CMD_CTL(x)	((x) << 0)
--#define FW_LDST_CMD_RPLCPF(x)	((x) << 0)
--#define FW_LDST_CMD_LC		(1U << 4)
--#define FW_LDST_CMD_NACCESS(x)	((x) << 0)
--#define FW_LDST_CMD_FN(x)	((x) << 0)
-+#define FW_LDST_CMD_MSG_S       31
-+#define FW_LDST_CMD_MSG_V(x)	((x) << FW_LDST_CMD_MSG_S)
+-#define FW_IQ_CMD_PFN(x) ((x) << 8)
+-#define FW_IQ_CMD_VFN(x) ((x) << 0)
+-
+-#define FW_IQ_CMD_ALLOC (1U << 31)
+-#define FW_IQ_CMD_FREE (1U << 30)
+-#define FW_IQ_CMD_MODIFY (1U << 29)
+-#define FW_IQ_CMD_IQSTART(x) ((x) << 28)
+-#define FW_IQ_CMD_IQSTOP(x) ((x) << 27)
+-
+-#define FW_IQ_CMD_TYPE(x) ((x) << 29)
+-#define FW_IQ_CMD_IQASYNCH(x) ((x) << 28)
+-#define FW_IQ_CMD_VIID(x) ((x) << 16)
+-#define FW_IQ_CMD_IQANDST(x) ((x) << 15)
+-#define FW_IQ_CMD_IQANUS(x) ((x) << 14)
+-#define FW_IQ_CMD_IQANUD(x) ((x) << 12)
+-#define FW_IQ_CMD_IQANDSTINDEX(x) ((x) << 0)
+-
+-#define FW_IQ_CMD_IQDROPRSS (1U << 15)
+-#define FW_IQ_CMD_IQGTSMODE (1U << 14)
+-#define FW_IQ_CMD_IQPCIECH(x) ((x) << 12)
+-#define FW_IQ_CMD_IQDCAEN(x) ((x) << 11)
+-#define FW_IQ_CMD_IQDCACPU(x) ((x) << 6)
+-#define FW_IQ_CMD_IQINTCNTTHRESH(x) ((x) << 4)
+-#define FW_IQ_CMD_IQO (1U << 3)
+-#define FW_IQ_CMD_IQCPRIO(x) ((x) << 2)
+-#define FW_IQ_CMD_IQESIZE(x) ((x) << 0)
+-
+-#define FW_IQ_CMD_IQNS(x) ((x) << 31)
+-#define FW_IQ_CMD_IQRO(x) ((x) << 30)
+-#define FW_IQ_CMD_IQFLINTIQHSEN(x) ((x) << 28)
+-#define FW_IQ_CMD_IQFLINTCONGEN(x) ((x) << 27)
+-#define FW_IQ_CMD_IQFLINTISCSIC(x) ((x) << 26)
+-#define FW_IQ_CMD_FL0CNGCHMAP(x) ((x) << 20)
+-#define FW_IQ_CMD_FL0CACHELOCK(x) ((x) << 15)
+-#define FW_IQ_CMD_FL0DBP(x) ((x) << 14)
+-#define FW_IQ_CMD_FL0DATANS(x) ((x) << 13)
+-#define FW_IQ_CMD_FL0DATARO(x) ((x) << 12)
+-#define FW_IQ_CMD_FL0CONGCIF(x) ((x) << 11)
+-#define FW_IQ_CMD_FL0ONCHIP(x) ((x) << 10)
+-#define FW_IQ_CMD_FL0STATUSPGNS(x) ((x) << 9)
+-#define FW_IQ_CMD_FL0STATUSPGRO(x) ((x) << 8)
+-#define FW_IQ_CMD_FL0FETCHNS(x) ((x) << 7)
+-#define FW_IQ_CMD_FL0FETCHRO(x) ((x) << 6)
+-#define FW_IQ_CMD_FL0HOSTFCMODE(x) ((x) << 4)
+-#define FW_IQ_CMD_FL0CPRIO(x) ((x) << 3)
+-#define FW_IQ_CMD_FL0PADEN(x) ((x) << 2)
+-#define FW_IQ_CMD_FL0PACKEN(x) ((x) << 1)
+-#define FW_IQ_CMD_FL0CONGEN (1U << 0)
+-
+-#define FW_IQ_CMD_FL0DCAEN(x) ((x) << 15)
+-#define FW_IQ_CMD_FL0DCACPU(x) ((x) << 10)
+-#define FW_IQ_CMD_FL0FBMIN(x) ((x) << 7)
+-#define FW_IQ_CMD_FL0FBMAX(x) ((x) << 4)
+-#define FW_IQ_CMD_FL0CIDXFTHRESHO (1U << 3)
+-#define FW_IQ_CMD_FL0CIDXFTHRESH(x) ((x) << 0)
+-
+-#define FW_IQ_CMD_FL1CNGCHMAP(x) ((x) << 20)
+-#define FW_IQ_CMD_FL1CACHELOCK(x) ((x) << 15)
+-#define FW_IQ_CMD_FL1DBP(x) ((x) << 14)
+-#define FW_IQ_CMD_FL1DATANS(x) ((x) << 13)
+-#define FW_IQ_CMD_FL1DATARO(x) ((x) << 12)
+-#define FW_IQ_CMD_FL1CONGCIF(x) ((x) << 11)
+-#define FW_IQ_CMD_FL1ONCHIP(x) ((x) << 10)
+-#define FW_IQ_CMD_FL1STATUSPGNS(x) ((x) << 9)
+-#define FW_IQ_CMD_FL1STATUSPGRO(x) ((x) << 8)
+-#define FW_IQ_CMD_FL1FETCHNS(x) ((x) << 7)
+-#define FW_IQ_CMD_FL1FETCHRO(x) ((x) << 6)
+-#define FW_IQ_CMD_FL1HOSTFCMODE(x) ((x) << 4)
+-#define FW_IQ_CMD_FL1CPRIO(x) ((x) << 3)
+-#define FW_IQ_CMD_FL1PADEN (1U << 2)
+-#define FW_IQ_CMD_FL1PACKEN (1U << 1)
+-#define FW_IQ_CMD_FL1CONGEN (1U << 0)
+-
+-#define FW_IQ_CMD_FL1DCAEN(x) ((x) << 15)
+-#define FW_IQ_CMD_FL1DCACPU(x) ((x) << 10)
+-#define FW_IQ_CMD_FL1FBMIN(x) ((x) << 7)
+-#define FW_IQ_CMD_FL1FBMAX(x) ((x) << 4)
+-#define FW_IQ_CMD_FL1CIDXFTHRESHO (1U << 3)
+-#define FW_IQ_CMD_FL1CIDXFTHRESH(x) ((x) << 0)
++#define FW_IQ_CMD_PFN_S		8
++#define FW_IQ_CMD_PFN_V(x)	((x) << FW_IQ_CMD_PFN_S)
 +
-+#define FW_LDST_CMD_PADDR_S     8
-+#define FW_LDST_CMD_PADDR_V(x)	((x) << FW_LDST_CMD_PADDR_S)
++#define FW_IQ_CMD_VFN_S		0
++#define FW_IQ_CMD_VFN_V(x)	((x) << FW_IQ_CMD_VFN_S)
 +
-+#define FW_LDST_CMD_MMD_S       0
-+#define FW_LDST_CMD_MMD_V(x)	((x) << FW_LDST_CMD_MMD_S)
++#define FW_IQ_CMD_ALLOC_S	31
++#define FW_IQ_CMD_ALLOC_V(x)	((x) << FW_IQ_CMD_ALLOC_S)
++#define FW_IQ_CMD_ALLOC_F	FW_IQ_CMD_ALLOC_V(1U)
 +
-+#define FW_LDST_CMD_FID_S       15
-+#define FW_LDST_CMD_FID_V(x)	((x) << FW_LDST_CMD_FID_S)
++#define FW_IQ_CMD_FREE_S	30
++#define FW_IQ_CMD_FREE_V(x)	((x) << FW_IQ_CMD_FREE_S)
++#define FW_IQ_CMD_FREE_F	FW_IQ_CMD_FREE_V(1U)
 +
-+#define FW_LDST_CMD_CTL_S       0
-+#define FW_LDST_CMD_CTL_V(x)	((x) << FW_LDST_CMD_CTL_S)
++#define FW_IQ_CMD_MODIFY_S	29
++#define FW_IQ_CMD_MODIFY_V(x)	((x) << FW_IQ_CMD_MODIFY_S)
++#define FW_IQ_CMD_MODIFY_F	FW_IQ_CMD_MODIFY_V(1U)
 +
-+#define FW_LDST_CMD_RPLCPF_S    0
-+#define FW_LDST_CMD_RPLCPF_V(x)	((x) << FW_LDST_CMD_RPLCPF_S)
++#define FW_IQ_CMD_IQSTART_S	28
++#define FW_IQ_CMD_IQSTART_V(x)	((x) << FW_IQ_CMD_IQSTART_S)
++#define FW_IQ_CMD_IQSTART_F	FW_IQ_CMD_IQSTART_V(1U)
 +
-+#define FW_LDST_CMD_LC_S        4
-+#define FW_LDST_CMD_LC_V(x)     ((x) << FW_LDST_CMD_LC_S)
-+#define FW_LDST_CMD_LC_F	FW_LDST_CMD_LC_V(1U)
++#define FW_IQ_CMD_IQSTOP_S	27
++#define FW_IQ_CMD_IQSTOP_V(x)	((x) << FW_IQ_CMD_IQSTOP_S)
++#define FW_IQ_CMD_IQSTOP_F	FW_IQ_CMD_IQSTOP_V(1U)
 +
-+#define FW_LDST_CMD_FN_S        0
-+#define FW_LDST_CMD_FN_V(x)	((x) << FW_LDST_CMD_FN_S)
++#define FW_IQ_CMD_TYPE_S	29
++#define FW_IQ_CMD_TYPE_V(x)	((x) << FW_IQ_CMD_TYPE_S)
 +
-+#define FW_LDST_CMD_NACCESS_S           0
-+#define FW_LDST_CMD_NACCESS_V(x)	((x) << FW_LDST_CMD_NACCESS_S)
++#define FW_IQ_CMD_IQASYNCH_S	28
++#define FW_IQ_CMD_IQASYNCH_V(x)	((x) << FW_IQ_CMD_IQASYNCH_S)
++
++#define FW_IQ_CMD_VIID_S	16
++#define FW_IQ_CMD_VIID_V(x)	((x) << FW_IQ_CMD_VIID_S)
++
++#define FW_IQ_CMD_IQANDST_S	15
++#define FW_IQ_CMD_IQANDST_V(x)	((x) << FW_IQ_CMD_IQANDST_S)
++
++#define FW_IQ_CMD_IQANUS_S	14
++#define FW_IQ_CMD_IQANUS_V(x)	((x) << FW_IQ_CMD_IQANUS_S)
++
++#define FW_IQ_CMD_IQANUD_S	12
++#define FW_IQ_CMD_IQANUD_V(x)	((x) << FW_IQ_CMD_IQANUD_S)
++
++#define FW_IQ_CMD_IQANDSTINDEX_S	0
++#define FW_IQ_CMD_IQANDSTINDEX_V(x)	((x) << FW_IQ_CMD_IQANDSTINDEX_S)
++
++#define FW_IQ_CMD_IQDROPRSS_S		15
++#define FW_IQ_CMD_IQDROPRSS_V(x)	((x) << FW_IQ_CMD_IQDROPRSS_S)
++#define FW_IQ_CMD_IQDROPRSS_F	FW_IQ_CMD_IQDROPRSS_V(1U)
++
++#define FW_IQ_CMD_IQGTSMODE_S		14
++#define FW_IQ_CMD_IQGTSMODE_V(x)	((x) << FW_IQ_CMD_IQGTSMODE_S)
++#define FW_IQ_CMD_IQGTSMODE_F		FW_IQ_CMD_IQGTSMODE_V(1U)
++
++#define FW_IQ_CMD_IQPCIECH_S	12
++#define FW_IQ_CMD_IQPCIECH_V(x)	((x) << FW_IQ_CMD_IQPCIECH_S)
++
++#define FW_IQ_CMD_IQDCAEN_S	11
++#define FW_IQ_CMD_IQDCAEN_V(x)	((x) << FW_IQ_CMD_IQDCAEN_S)
++
++#define FW_IQ_CMD_IQDCACPU_S	6
++#define FW_IQ_CMD_IQDCACPU_V(x)	((x) << FW_IQ_CMD_IQDCACPU_S)
++
++#define FW_IQ_CMD_IQINTCNTTHRESH_S	4
++#define FW_IQ_CMD_IQINTCNTTHRESH_V(x)	((x) << FW_IQ_CMD_IQINTCNTTHRESH_S)
++
++#define FW_IQ_CMD_IQO_S		3
++#define FW_IQ_CMD_IQO_V(x)	((x) << FW_IQ_CMD_IQO_S)
++#define FW_IQ_CMD_IQO_F		FW_IQ_CMD_IQO_V(1U)
++
++#define FW_IQ_CMD_IQCPRIO_S	2
++#define FW_IQ_CMD_IQCPRIO_V(x)	((x) << FW_IQ_CMD_IQCPRIO_S)
++
++#define FW_IQ_CMD_IQESIZE_S	0
++#define FW_IQ_CMD_IQESIZE_V(x)	((x) << FW_IQ_CMD_IQESIZE_S)
++
++#define FW_IQ_CMD_IQNS_S	31
++#define FW_IQ_CMD_IQNS_V(x)	((x) << FW_IQ_CMD_IQNS_S)
++
++#define FW_IQ_CMD_IQRO_S	30
++#define FW_IQ_CMD_IQRO_V(x)	((x) << FW_IQ_CMD_IQRO_S)
++
++#define FW_IQ_CMD_IQFLINTIQHSEN_S	28
++#define FW_IQ_CMD_IQFLINTIQHSEN_V(x)	((x) << FW_IQ_CMD_IQFLINTIQHSEN_S)
++
++#define FW_IQ_CMD_IQFLINTCONGEN_S	27
++#define FW_IQ_CMD_IQFLINTCONGEN_V(x)	((x) << FW_IQ_CMD_IQFLINTCONGEN_S)
++
++#define FW_IQ_CMD_IQFLINTISCSIC_S	26
++#define FW_IQ_CMD_IQFLINTISCSIC_V(x)	((x) << FW_IQ_CMD_IQFLINTISCSIC_S)
++
++#define FW_IQ_CMD_FL0CNGCHMAP_S		20
++#define FW_IQ_CMD_FL0CNGCHMAP_V(x)	((x) << FW_IQ_CMD_FL0CNGCHMAP_S)
++
++#define FW_IQ_CMD_FL0CACHELOCK_S	15
++#define FW_IQ_CMD_FL0CACHELOCK_V(x)	((x) << FW_IQ_CMD_FL0CACHELOCK_S)
++
++#define FW_IQ_CMD_FL0DBP_S	14
++#define FW_IQ_CMD_FL0DBP_V(x)	((x) << FW_IQ_CMD_FL0DBP_S)
++
++#define FW_IQ_CMD_FL0DATANS_S		13
++#define FW_IQ_CMD_FL0DATANS_V(x)	((x) << FW_IQ_CMD_FL0DATANS_S)
++
++#define FW_IQ_CMD_FL0DATARO_S		12
++#define FW_IQ_CMD_FL0DATARO_V(x)	((x) << FW_IQ_CMD_FL0DATARO_S)
++#define FW_IQ_CMD_FL0DATARO_F		FW_IQ_CMD_FL0DATARO_V(1U)
++
++#define FW_IQ_CMD_FL0CONGCIF_S		11
++#define FW_IQ_CMD_FL0CONGCIF_V(x)	((x) << FW_IQ_CMD_FL0CONGCIF_S)
++
++#define FW_IQ_CMD_FL0ONCHIP_S		10
++#define FW_IQ_CMD_FL0ONCHIP_V(x)	((x) << FW_IQ_CMD_FL0ONCHIP_S)
++
++#define FW_IQ_CMD_FL0STATUSPGNS_S	9
++#define FW_IQ_CMD_FL0STATUSPGNS_V(x)	((x) << FW_IQ_CMD_FL0STATUSPGNS_S)
++
++#define FW_IQ_CMD_FL0STATUSPGRO_S	8
++#define FW_IQ_CMD_FL0STATUSPGRO_V(x)	((x) << FW_IQ_CMD_FL0STATUSPGRO_S)
++
++#define FW_IQ_CMD_FL0FETCHNS_S		7
++#define FW_IQ_CMD_FL0FETCHNS_V(x)	((x) << FW_IQ_CMD_FL0FETCHNS_S)
++
++#define FW_IQ_CMD_FL0FETCHRO_S		6
++#define FW_IQ_CMD_FL0FETCHRO_V(x)	((x) << FW_IQ_CMD_FL0FETCHRO_S)
++#define FW_IQ_CMD_FL0FETCHRO_F		FW_IQ_CMD_FL0FETCHRO_V(1U)
++
++#define FW_IQ_CMD_FL0HOSTFCMODE_S	4
++#define FW_IQ_CMD_FL0HOSTFCMODE_V(x)	((x) << FW_IQ_CMD_FL0HOSTFCMODE_S)
++
++#define FW_IQ_CMD_FL0CPRIO_S	3
++#define FW_IQ_CMD_FL0CPRIO_V(x)	((x) << FW_IQ_CMD_FL0CPRIO_S)
++
++#define FW_IQ_CMD_FL0PADEN_S	2
++#define FW_IQ_CMD_FL0PADEN_V(x)	((x) << FW_IQ_CMD_FL0PADEN_S)
++#define FW_IQ_CMD_FL0PADEN_F	FW_IQ_CMD_FL0PADEN_V(1U)
++
++#define FW_IQ_CMD_FL0PACKEN_S		1
++#define FW_IQ_CMD_FL0PACKEN_V(x)	((x) << FW_IQ_CMD_FL0PACKEN_S)
++#define FW_IQ_CMD_FL0PACKEN_F		FW_IQ_CMD_FL0PACKEN_V(1U)
++
++#define FW_IQ_CMD_FL0CONGEN_S		0
++#define FW_IQ_CMD_FL0CONGEN_V(x)	((x) << FW_IQ_CMD_FL0CONGEN_S)
++#define FW_IQ_CMD_FL0CONGEN_F		FW_IQ_CMD_FL0CONGEN_V(1U)
++
++#define FW_IQ_CMD_FL0DCAEN_S	15
++#define FW_IQ_CMD_FL0DCAEN_V(x)	((x) << FW_IQ_CMD_FL0DCAEN_S)
++
++#define FW_IQ_CMD_FL0DCACPU_S		10
++#define FW_IQ_CMD_FL0DCACPU_V(x)	((x) << FW_IQ_CMD_FL0DCACPU_S)
++
++#define FW_IQ_CMD_FL0FBMIN_S	7
++#define FW_IQ_CMD_FL0FBMIN_V(x)	((x) << FW_IQ_CMD_FL0FBMIN_S)
++
++#define FW_IQ_CMD_FL0FBMAX_S	4
++#define FW_IQ_CMD_FL0FBMAX_V(x)	((x) << FW_IQ_CMD_FL0FBMAX_S)
++
++#define FW_IQ_CMD_FL0CIDXFTHRESHO_S	3
++#define FW_IQ_CMD_FL0CIDXFTHRESHO_V(x)	((x) << FW_IQ_CMD_FL0CIDXFTHRESHO_S)
++#define FW_IQ_CMD_FL0CIDXFTHRESHO_F	FW_IQ_CMD_FL0CIDXFTHRESHO_V(1U)
++
++#define FW_IQ_CMD_FL0CIDXFTHRESH_S	0
++#define FW_IQ_CMD_FL0CIDXFTHRESH_V(x)	((x) << FW_IQ_CMD_FL0CIDXFTHRESH_S)
++
++#define FW_IQ_CMD_FL1CNGCHMAP_S		20
++#define FW_IQ_CMD_FL1CNGCHMAP_V(x)	((x) << FW_IQ_CMD_FL1CNGCHMAP_S)
++
++#define FW_IQ_CMD_FL1CACHELOCK_S	15
++#define FW_IQ_CMD_FL1CACHELOCK_V(x)	((x) << FW_IQ_CMD_FL1CACHELOCK_S)
++
++#define FW_IQ_CMD_FL1DBP_S	14
++#define FW_IQ_CMD_FL1DBP_V(x)	((x) << FW_IQ_CMD_FL1DBP_S)
++
++#define FW_IQ_CMD_FL1DATANS_S		13
++#define FW_IQ_CMD_FL1DATANS_V(x)	((x) << FW_IQ_CMD_FL1DATANS_S)
++
++#define FW_IQ_CMD_FL1DATARO_S		12
++#define FW_IQ_CMD_FL1DATARO_V(x)	((x) << FW_IQ_CMD_FL1DATARO_S)
++
++#define FW_IQ_CMD_FL1CONGCIF_S		11
++#define FW_IQ_CMD_FL1CONGCIF_V(x)	((x) << FW_IQ_CMD_FL1CONGCIF_S)
++
++#define FW_IQ_CMD_FL1ONCHIP_S		10
++#define FW_IQ_CMD_FL1ONCHIP_V(x)	((x) << FW_IQ_CMD_FL1ONCHIP_S)
++
++#define FW_IQ_CMD_FL1STATUSPGNS_S	9
++#define FW_IQ_CMD_FL1STATUSPGNS_V(x)	((x) << FW_IQ_CMD_FL1STATUSPGNS_S)
++
++#define FW_IQ_CMD_FL1STATUSPGRO_S	8
++#define FW_IQ_CMD_FL1STATUSPGRO_V(x)	((x) << FW_IQ_CMD_FL1STATUSPGRO_S)
++
++#define FW_IQ_CMD_FL1FETCHNS_S		7
++#define FW_IQ_CMD_FL1FETCHNS_V(x)	((x) << FW_IQ_CMD_FL1FETCHNS_S)
++
++#define FW_IQ_CMD_FL1FETCHRO_S		6
++#define FW_IQ_CMD_FL1FETCHRO_V(x)	((x) << FW_IQ_CMD_FL1FETCHRO_S)
++
++#define FW_IQ_CMD_FL1HOSTFCMODE_S	4
++#define FW_IQ_CMD_FL1HOSTFCMODE_V(x)	((x) << FW_IQ_CMD_FL1HOSTFCMODE_S)
++
++#define FW_IQ_CMD_FL1CPRIO_S	3
++#define FW_IQ_CMD_FL1CPRIO_V(x)	((x) << FW_IQ_CMD_FL1CPRIO_S)
++
++#define FW_IQ_CMD_FL1PADEN_S	2
++#define FW_IQ_CMD_FL1PADEN_V(x)	((x) << FW_IQ_CMD_FL1PADEN_S)
++#define FW_IQ_CMD_FL1PADEN_F	FW_IQ_CMD_FL1PADEN_V(1U)
++
++#define FW_IQ_CMD_FL1PACKEN_S		1
++#define FW_IQ_CMD_FL1PACKEN_V(x)	((x) << FW_IQ_CMD_FL1PACKEN_S)
++#define FW_IQ_CMD_FL1PACKEN_F	FW_IQ_CMD_FL1PACKEN_V(1U)
++
++#define FW_IQ_CMD_FL1CONGEN_S		0
++#define FW_IQ_CMD_FL1CONGEN_V(x)	((x) << FW_IQ_CMD_FL1CONGEN_S)
++#define FW_IQ_CMD_FL1CONGEN_F	FW_IQ_CMD_FL1CONGEN_V(1U)
++
++#define FW_IQ_CMD_FL1DCAEN_S	15
++#define FW_IQ_CMD_FL1DCAEN_V(x)	((x) << FW_IQ_CMD_FL1DCAEN_S)
++
++#define FW_IQ_CMD_FL1DCACPU_S		10
++#define FW_IQ_CMD_FL1DCACPU_V(x)	((x) << FW_IQ_CMD_FL1DCACPU_S)
++
++#define FW_IQ_CMD_FL1FBMIN_S	7
++#define FW_IQ_CMD_FL1FBMIN_V(x)	((x) << FW_IQ_CMD_FL1FBMIN_S)
++
++#define FW_IQ_CMD_FL1FBMAX_S	4
++#define FW_IQ_CMD_FL1FBMAX_V(x)	((x) << FW_IQ_CMD_FL1FBMAX_S)
++
++#define FW_IQ_CMD_FL1CIDXFTHRESHO_S	3
++#define FW_IQ_CMD_FL1CIDXFTHRESHO_V(x)	((x) << FW_IQ_CMD_FL1CIDXFTHRESHO_S)
++#define FW_IQ_CMD_FL1CIDXFTHRESHO_F	FW_IQ_CMD_FL1CIDXFTHRESHO_V(1U)
++
++#define FW_IQ_CMD_FL1CIDXFTHRESH_S	0
++#define FW_IQ_CMD_FL1CIDXFTHRESH_V(x)	((x) << FW_IQ_CMD_FL1CIDXFTHRESH_S)
  
- struct fw_reset_cmd {
- 	__be32 op_to_write;
-@@ -834,11 +853,12 @@ struct fw_reset_cmd {
- 	__be32 halt_pkd;
+ struct fw_eq_eth_cmd {
+ 	__be32 op_to_vfn;
+@@ -1367,40 +1521,102 @@ struct fw_eq_eth_cmd {
+ 	__be64 r9;
  };
  
--#define FW_RESET_CMD_HALT_SHIFT    31
--#define FW_RESET_CMD_HALT_MASK     0x1
--#define FW_RESET_CMD_HALT(x)       ((x) << FW_RESET_CMD_HALT_SHIFT)
--#define FW_RESET_CMD_HALT_GET(x)  \
--	(((x) >> FW_RESET_CMD_HALT_SHIFT) & FW_RESET_CMD_HALT_MASK)
-+#define FW_RESET_CMD_HALT_S	31
-+#define FW_RESET_CMD_HALT_M     0x1
-+#define FW_RESET_CMD_HALT_V(x)	((x) << FW_RESET_CMD_HALT_S)
-+#define FW_RESET_CMD_HALT_G(x)  \
-+	(((x) >> FW_RESET_CMD_HALT_S) & FW_RESET_CMD_HALT_M)
-+#define FW_RESET_CMD_HALT_F	FW_RESET_CMD_HALT_V(1U)
+-#define FW_EQ_ETH_CMD_PFN(x) ((x) << 8)
+-#define FW_EQ_ETH_CMD_VFN(x) ((x) << 0)
+-#define FW_EQ_ETH_CMD_ALLOC (1U << 31)
+-#define FW_EQ_ETH_CMD_FREE (1U << 30)
+-#define FW_EQ_ETH_CMD_MODIFY (1U << 29)
+-#define FW_EQ_ETH_CMD_EQSTART (1U << 28)
+-#define FW_EQ_ETH_CMD_EQSTOP (1U << 27)
+-
+-#define FW_EQ_ETH_CMD_EQID(x) ((x) << 0)
+-#define FW_EQ_ETH_CMD_EQID_GET(x) (((x) >> 0) & 0xfffff)
+-#define FW_EQ_ETH_CMD_PHYSEQID(x) ((x) << 0)
+-#define FW_EQ_ETH_CMD_PHYSEQID_GET(x) (((x) >> 0) & 0xfffff)
+-
+-#define FW_EQ_ETH_CMD_FETCHSZM(x) ((x) << 26)
+-#define FW_EQ_ETH_CMD_STATUSPGNS(x) ((x) << 25)
+-#define FW_EQ_ETH_CMD_STATUSPGRO(x) ((x) << 24)
+-#define FW_EQ_ETH_CMD_FETCHNS(x) ((x) << 23)
+-#define FW_EQ_ETH_CMD_FETCHRO(x) ((x) << 22)
+-#define FW_EQ_ETH_CMD_HOSTFCMODE(x) ((x) << 20)
+-#define FW_EQ_ETH_CMD_CPRIO(x) ((x) << 19)
+-#define FW_EQ_ETH_CMD_ONCHIP(x) ((x) << 18)
+-#define FW_EQ_ETH_CMD_PCIECHN(x) ((x) << 16)
+-#define FW_EQ_ETH_CMD_IQID(x) ((x) << 0)
+-
+-#define FW_EQ_ETH_CMD_DCAEN(x) ((x) << 31)
+-#define FW_EQ_ETH_CMD_DCACPU(x) ((x) << 26)
+-#define FW_EQ_ETH_CMD_FBMIN(x) ((x) << 23)
+-#define FW_EQ_ETH_CMD_FBMAX(x) ((x) << 20)
+-#define FW_EQ_ETH_CMD_CIDXFTHRESHO(x) ((x) << 19)
+-#define FW_EQ_ETH_CMD_CIDXFTHRESH(x) ((x) << 16)
+-#define FW_EQ_ETH_CMD_EQSIZE(x) ((x) << 0)
+-
+-#define FW_EQ_ETH_CMD_AUTOEQUEQE (1U << 30)
+-#define FW_EQ_ETH_CMD_VIID(x) ((x) << 16)
++#define FW_EQ_ETH_CMD_PFN_S	8
++#define FW_EQ_ETH_CMD_PFN_V(x)	((x) << FW_EQ_ETH_CMD_PFN_S)
++
++#define FW_EQ_ETH_CMD_VFN_S	0
++#define FW_EQ_ETH_CMD_VFN_V(x)	((x) << FW_EQ_ETH_CMD_VFN_S)
++
++#define FW_EQ_ETH_CMD_ALLOC_S		31
++#define FW_EQ_ETH_CMD_ALLOC_V(x)	((x) << FW_EQ_ETH_CMD_ALLOC_S)
++#define FW_EQ_ETH_CMD_ALLOC_F	FW_EQ_ETH_CMD_ALLOC_V(1U)
++
++#define FW_EQ_ETH_CMD_FREE_S	30
++#define FW_EQ_ETH_CMD_FREE_V(x)	((x) << FW_EQ_ETH_CMD_FREE_S)
++#define FW_EQ_ETH_CMD_FREE_F	FW_EQ_ETH_CMD_FREE_V(1U)
++
++#define FW_EQ_ETH_CMD_MODIFY_S		29
++#define FW_EQ_ETH_CMD_MODIFY_V(x)	((x) << FW_EQ_ETH_CMD_MODIFY_S)
++#define FW_EQ_ETH_CMD_MODIFY_F	FW_EQ_ETH_CMD_MODIFY_V(1U)
++
++#define FW_EQ_ETH_CMD_EQSTART_S		28
++#define FW_EQ_ETH_CMD_EQSTART_V(x)	((x) << FW_EQ_ETH_CMD_EQSTART_S)
++#define FW_EQ_ETH_CMD_EQSTART_F	FW_EQ_ETH_CMD_EQSTART_V(1U)
++
++#define FW_EQ_ETH_CMD_EQSTOP_S		27
++#define FW_EQ_ETH_CMD_EQSTOP_V(x)	((x) << FW_EQ_ETH_CMD_EQSTOP_S)
++#define FW_EQ_ETH_CMD_EQSTOP_F	FW_EQ_ETH_CMD_EQSTOP_V(1U)
++
++#define FW_EQ_ETH_CMD_EQID_S	0
++#define FW_EQ_ETH_CMD_EQID_M	0xfffff
++#define FW_EQ_ETH_CMD_EQID_V(x)	((x) << FW_EQ_ETH_CMD_EQID_S)
++#define FW_EQ_ETH_CMD_EQID_G(x)	\
++	(((x) >> FW_EQ_ETH_CMD_EQID_S) & FW_EQ_ETH_CMD_EQID_M)
++
++#define FW_EQ_ETH_CMD_PHYSEQID_S	0
++#define FW_EQ_ETH_CMD_PHYSEQID_M	0xfffff
++#define FW_EQ_ETH_CMD_PHYSEQID_V(x)	((x) << FW_EQ_ETH_CMD_PHYSEQID_S)
++#define FW_EQ_ETH_CMD_PHYSEQID_G(x)	\
++	(((x) >> FW_EQ_ETH_CMD_PHYSEQID_S) & FW_EQ_ETH_CMD_PHYSEQID_M)
++
++#define FW_EQ_ETH_CMD_FETCHSZM_S	26
++#define FW_EQ_ETH_CMD_FETCHSZM_V(x)	((x) << FW_EQ_ETH_CMD_FETCHSZM_S)
++#define FW_EQ_ETH_CMD_FETCHSZM_F	FW_EQ_ETH_CMD_FETCHSZM_V(1U)
++
++#define FW_EQ_ETH_CMD_STATUSPGNS_S	25
++#define FW_EQ_ETH_CMD_STATUSPGNS_V(x)	((x) << FW_EQ_ETH_CMD_STATUSPGNS_S)
++
++#define FW_EQ_ETH_CMD_STATUSPGRO_S	24
++#define FW_EQ_ETH_CMD_STATUSPGRO_V(x)	((x) << FW_EQ_ETH_CMD_STATUSPGRO_S)
++
++#define FW_EQ_ETH_CMD_FETCHNS_S		23
++#define FW_EQ_ETH_CMD_FETCHNS_V(x)	((x) << FW_EQ_ETH_CMD_FETCHNS_S)
++
++#define FW_EQ_ETH_CMD_FETCHRO_S		22
++#define FW_EQ_ETH_CMD_FETCHRO_V(x)	((x) << FW_EQ_ETH_CMD_FETCHRO_S)
++
++#define FW_EQ_ETH_CMD_HOSTFCMODE_S	20
++#define FW_EQ_ETH_CMD_HOSTFCMODE_V(x)	((x) << FW_EQ_ETH_CMD_HOSTFCMODE_S)
++
++#define FW_EQ_ETH_CMD_CPRIO_S		19
++#define FW_EQ_ETH_CMD_CPRIO_V(x)	((x) << FW_EQ_ETH_CMD_CPRIO_S)
++
++#define FW_EQ_ETH_CMD_ONCHIP_S		18
++#define FW_EQ_ETH_CMD_ONCHIP_V(x)	((x) << FW_EQ_ETH_CMD_ONCHIP_S)
++
++#define FW_EQ_ETH_CMD_PCIECHN_S		16
++#define FW_EQ_ETH_CMD_PCIECHN_V(x)	((x) << FW_EQ_ETH_CMD_PCIECHN_S)
++
++#define FW_EQ_ETH_CMD_IQID_S	0
++#define FW_EQ_ETH_CMD_IQID_V(x)	((x) << FW_EQ_ETH_CMD_IQID_S)
++
++#define FW_EQ_ETH_CMD_DCAEN_S		31
++#define FW_EQ_ETH_CMD_DCAEN_V(x)	((x) << FW_EQ_ETH_CMD_DCAEN_S)
++
++#define FW_EQ_ETH_CMD_DCACPU_S		26
++#define FW_EQ_ETH_CMD_DCACPU_V(x)	((x) << FW_EQ_ETH_CMD_DCACPU_S)
++
++#define FW_EQ_ETH_CMD_FBMIN_S		23
++#define FW_EQ_ETH_CMD_FBMIN_V(x)	((x) << FW_EQ_ETH_CMD_FBMIN_S)
++
++#define FW_EQ_ETH_CMD_FBMAX_S		20
++#define FW_EQ_ETH_CMD_FBMAX_V(x)	((x) << FW_EQ_ETH_CMD_FBMAX_S)
++
++#define FW_EQ_ETH_CMD_CIDXFTHRESHO_S	19
++#define FW_EQ_ETH_CMD_CIDXFTHRESHO_V(x)	((x) << FW_EQ_ETH_CMD_CIDXFTHRESHO_S)
++
++#define FW_EQ_ETH_CMD_CIDXFTHRESH_S	16
++#define FW_EQ_ETH_CMD_CIDXFTHRESH_V(x)	((x) << FW_EQ_ETH_CMD_CIDXFTHRESH_S)
++
++#define FW_EQ_ETH_CMD_EQSIZE_S		0
++#define FW_EQ_ETH_CMD_EQSIZE_V(x)	((x) << FW_EQ_ETH_CMD_EQSIZE_S)
++
++#define FW_EQ_ETH_CMD_AUTOEQUEQE_S	30
++#define FW_EQ_ETH_CMD_AUTOEQUEQE_V(x)	((x) << FW_EQ_ETH_CMD_AUTOEQUEQE_S)
++#define FW_EQ_ETH_CMD_AUTOEQUEQE_F	FW_EQ_ETH_CMD_AUTOEQUEQE_V(1U)
++
++#define FW_EQ_ETH_CMD_VIID_S	16
++#define FW_EQ_ETH_CMD_VIID_V(x)	((x) << FW_EQ_ETH_CMD_VIID_S)
  
- enum fw_hellow_cmd {
- 	fw_hello_cmd_stage_os		= 0x0
-@@ -848,22 +868,42 @@ struct fw_hello_cmd {
- 	__be32 op_to_write;
- 	__be32 retval_len16;
- 	__be32 err_to_clearinit;
--#define FW_HELLO_CMD_ERR	    (1U << 31)
--#define FW_HELLO_CMD_INIT	    (1U << 30)
--#define FW_HELLO_CMD_MASTERDIS(x)   ((x) << 29)
--#define FW_HELLO_CMD_MASTERFORCE(x) ((x) << 28)
--#define FW_HELLO_CMD_MBMASTER_MASK   0xfU
--#define FW_HELLO_CMD_MBMASTER_SHIFT  24
--#define FW_HELLO_CMD_MBMASTER(x)     ((x) << FW_HELLO_CMD_MBMASTER_SHIFT)
--#define FW_HELLO_CMD_MBMASTER_GET(x) \
--	(((x) >> FW_HELLO_CMD_MBMASTER_SHIFT) & FW_HELLO_CMD_MBMASTER_MASK)
--#define FW_HELLO_CMD_MBASYNCNOTINT(x)	((x) << 23)
--#define FW_HELLO_CMD_MBASYNCNOT(x)  ((x) << 20)
--#define FW_HELLO_CMD_STAGE(x)       ((x) << 17)
--#define FW_HELLO_CMD_CLEARINIT      (1U << 16)
- 	__be32 fwrev;
+ struct fw_eq_ctrl_cmd {
+ 	__be32 op_to_vfn;
+@@ -1412,38 +1628,102 @@ struct fw_eq_ctrl_cmd {
+ 	__be64 eqaddr;
  };
  
-+#define FW_HELLO_CMD_ERR_S      31
-+#define FW_HELLO_CMD_ERR_V(x)   ((x) << FW_HELLO_CMD_ERR_S)
-+#define FW_HELLO_CMD_ERR_F	FW_HELLO_CMD_ERR_V(1U)
+-#define FW_EQ_CTRL_CMD_PFN(x) ((x) << 8)
+-#define FW_EQ_CTRL_CMD_VFN(x) ((x) << 0)
+-
+-#define FW_EQ_CTRL_CMD_ALLOC (1U << 31)
+-#define FW_EQ_CTRL_CMD_FREE (1U << 30)
+-#define FW_EQ_CTRL_CMD_MODIFY (1U << 29)
+-#define FW_EQ_CTRL_CMD_EQSTART (1U << 28)
+-#define FW_EQ_CTRL_CMD_EQSTOP (1U << 27)
+-
+-#define FW_EQ_CTRL_CMD_CMPLIQID(x) ((x) << 20)
+-#define FW_EQ_CTRL_CMD_EQID(x) ((x) << 0)
+-#define FW_EQ_CTRL_CMD_EQID_GET(x) (((x) >> 0) & 0xfffff)
+-#define FW_EQ_CTRL_CMD_PHYSEQID_GET(x) (((x) >> 0) & 0xfffff)
+-
+-#define FW_EQ_CTRL_CMD_FETCHSZM (1U << 26)
+-#define FW_EQ_CTRL_CMD_STATUSPGNS (1U << 25)
+-#define FW_EQ_CTRL_CMD_STATUSPGRO (1U << 24)
+-#define FW_EQ_CTRL_CMD_FETCHNS (1U << 23)
+-#define FW_EQ_CTRL_CMD_FETCHRO (1U << 22)
+-#define FW_EQ_CTRL_CMD_HOSTFCMODE(x) ((x) << 20)
+-#define FW_EQ_CTRL_CMD_CPRIO(x) ((x) << 19)
+-#define FW_EQ_CTRL_CMD_ONCHIP(x) ((x) << 18)
+-#define FW_EQ_CTRL_CMD_PCIECHN(x) ((x) << 16)
+-#define FW_EQ_CTRL_CMD_IQID(x) ((x) << 0)
+-
+-#define FW_EQ_CTRL_CMD_DCAEN(x) ((x) << 31)
+-#define FW_EQ_CTRL_CMD_DCACPU(x) ((x) << 26)
+-#define FW_EQ_CTRL_CMD_FBMIN(x) ((x) << 23)
+-#define FW_EQ_CTRL_CMD_FBMAX(x) ((x) << 20)
+-#define FW_EQ_CTRL_CMD_CIDXFTHRESHO(x) ((x) << 19)
+-#define FW_EQ_CTRL_CMD_CIDXFTHRESH(x) ((x) << 16)
+-#define FW_EQ_CTRL_CMD_EQSIZE(x) ((x) << 0)
++#define FW_EQ_CTRL_CMD_PFN_S	8
++#define FW_EQ_CTRL_CMD_PFN_V(x)	((x) << FW_EQ_CTRL_CMD_PFN_S)
 +
-+#define FW_HELLO_CMD_INIT_S     30
-+#define FW_HELLO_CMD_INIT_V(x)  ((x) << FW_HELLO_CMD_INIT_S)
-+#define FW_HELLO_CMD_INIT_F	FW_HELLO_CMD_INIT_V(1U)
++#define FW_EQ_CTRL_CMD_VFN_S	0
++#define FW_EQ_CTRL_CMD_VFN_V(x)	((x) << FW_EQ_CTRL_CMD_VFN_S)
 +
-+#define FW_HELLO_CMD_MASTERDIS_S	29
-+#define FW_HELLO_CMD_MASTERDIS_V(x)	((x) << FW_HELLO_CMD_MASTERDIS_S)
++#define FW_EQ_CTRL_CMD_ALLOC_S		31
++#define FW_EQ_CTRL_CMD_ALLOC_V(x)	((x) << FW_EQ_CTRL_CMD_ALLOC_S)
++#define FW_EQ_CTRL_CMD_ALLOC_F		FW_EQ_CTRL_CMD_ALLOC_V(1U)
 +
-+#define FW_HELLO_CMD_MASTERFORCE_S      28
-+#define FW_HELLO_CMD_MASTERFORCE_V(x)	((x) << FW_HELLO_CMD_MASTERFORCE_S)
++#define FW_EQ_CTRL_CMD_FREE_S		30
++#define FW_EQ_CTRL_CMD_FREE_V(x)	((x) << FW_EQ_CTRL_CMD_FREE_S)
++#define FW_EQ_CTRL_CMD_FREE_F		FW_EQ_CTRL_CMD_FREE_V(1U)
 +
-+#define FW_HELLO_CMD_MBMASTER_S		24
-+#define FW_HELLO_CMD_MBMASTER_M		0xfU
-+#define FW_HELLO_CMD_MBMASTER_V(x)	((x) << FW_HELLO_CMD_MBMASTER_S)
-+#define FW_HELLO_CMD_MBMASTER_G(x)	\
-+	(((x) >> FW_HELLO_CMD_MBMASTER_S) & FW_HELLO_CMD_MBMASTER_M)
++#define FW_EQ_CTRL_CMD_MODIFY_S		29
++#define FW_EQ_CTRL_CMD_MODIFY_V(x)	((x) << FW_EQ_CTRL_CMD_MODIFY_S)
++#define FW_EQ_CTRL_CMD_MODIFY_F		FW_EQ_CTRL_CMD_MODIFY_V(1U)
 +
-+#define FW_HELLO_CMD_MBASYNCNOTINT_S    23
-+#define FW_HELLO_CMD_MBASYNCNOTINT_V(x)	((x) << FW_HELLO_CMD_MBASYNCNOTINT_S)
++#define FW_EQ_CTRL_CMD_EQSTART_S	28
++#define FW_EQ_CTRL_CMD_EQSTART_V(x)	((x) << FW_EQ_CTRL_CMD_EQSTART_S)
++#define FW_EQ_CTRL_CMD_EQSTART_F	FW_EQ_CTRL_CMD_EQSTART_V(1U)
 +
-+#define FW_HELLO_CMD_MBASYNCNOT_S       20
-+#define FW_HELLO_CMD_MBASYNCNOT_V(x)	((x) << FW_HELLO_CMD_MBASYNCNOT_S)
++#define FW_EQ_CTRL_CMD_EQSTOP_S		27
++#define FW_EQ_CTRL_CMD_EQSTOP_V(x)	((x) << FW_EQ_CTRL_CMD_EQSTOP_S)
++#define FW_EQ_CTRL_CMD_EQSTOP_F		FW_EQ_CTRL_CMD_EQSTOP_V(1U)
 +
-+#define FW_HELLO_CMD_STAGE_S		17
-+#define FW_HELLO_CMD_STAGE_V(x)		((x) << FW_HELLO_CMD_STAGE_S)
++#define FW_EQ_CTRL_CMD_CMPLIQID_S	20
++#define FW_EQ_CTRL_CMD_CMPLIQID_V(x)	((x) << FW_EQ_CTRL_CMD_CMPLIQID_S)
 +
-+#define FW_HELLO_CMD_CLEARINIT_S        16
-+#define FW_HELLO_CMD_CLEARINIT_V(x)     ((x) << FW_HELLO_CMD_CLEARINIT_S)
-+#define FW_HELLO_CMD_CLEARINIT_F	FW_HELLO_CMD_CLEARINIT_V(1U)
++#define FW_EQ_CTRL_CMD_EQID_S		0
++#define FW_EQ_CTRL_CMD_EQID_M		0xfffff
++#define FW_EQ_CTRL_CMD_EQID_V(x)	((x) << FW_EQ_CTRL_CMD_EQID_S)
++#define FW_EQ_CTRL_CMD_EQID_G(x)	\
++	(((x) >> FW_EQ_CTRL_CMD_EQID_S) & FW_EQ_CTRL_CMD_EQID_M)
 +
- struct fw_bye_cmd {
- 	__be32 op_to_write;
- 	__be32 retval_len16;
-@@ -974,9 +1014,17 @@ struct fw_caps_config_cmd {
- 	__be32 finicsum;
++#define FW_EQ_CTRL_CMD_PHYSEQID_S	0
++#define FW_EQ_CTRL_CMD_PHYSEQID_M	0xfffff
++#define FW_EQ_CTRL_CMD_PHYSEQID_G(x)	\
++	(((x) >> FW_EQ_CTRL_CMD_PHYSEQID_S) & FW_EQ_CTRL_CMD_PHYSEQID_M)
++
++#define FW_EQ_CTRL_CMD_FETCHSZM_S	26
++#define FW_EQ_CTRL_CMD_FETCHSZM_V(x)	((x) << FW_EQ_CTRL_CMD_FETCHSZM_S)
++#define FW_EQ_CTRL_CMD_FETCHSZM_F	FW_EQ_CTRL_CMD_FETCHSZM_V(1U)
++
++#define FW_EQ_CTRL_CMD_STATUSPGNS_S	25
++#define FW_EQ_CTRL_CMD_STATUSPGNS_V(x)	((x) << FW_EQ_CTRL_CMD_STATUSPGNS_S)
++#define FW_EQ_CTRL_CMD_STATUSPGNS_F	FW_EQ_CTRL_CMD_STATUSPGNS_V(1U)
++
++#define FW_EQ_CTRL_CMD_STATUSPGRO_S	24
++#define FW_EQ_CTRL_CMD_STATUSPGRO_V(x)	((x) << FW_EQ_CTRL_CMD_STATUSPGRO_S)
++#define FW_EQ_CTRL_CMD_STATUSPGRO_F	FW_EQ_CTRL_CMD_STATUSPGRO_V(1U)
++
++#define FW_EQ_CTRL_CMD_FETCHNS_S	23
++#define FW_EQ_CTRL_CMD_FETCHNS_V(x)	((x) << FW_EQ_CTRL_CMD_FETCHNS_S)
++#define FW_EQ_CTRL_CMD_FETCHNS_F	FW_EQ_CTRL_CMD_FETCHNS_V(1U)
++
++#define FW_EQ_CTRL_CMD_FETCHRO_S	22
++#define FW_EQ_CTRL_CMD_FETCHRO_V(x)	((x) << FW_EQ_CTRL_CMD_FETCHRO_S)
++#define FW_EQ_CTRL_CMD_FETCHRO_F	FW_EQ_CTRL_CMD_FETCHRO_V(1U)
++
++#define FW_EQ_CTRL_CMD_HOSTFCMODE_S	20
++#define FW_EQ_CTRL_CMD_HOSTFCMODE_V(x)	((x) << FW_EQ_CTRL_CMD_HOSTFCMODE_S)
++
++#define FW_EQ_CTRL_CMD_CPRIO_S		19
++#define FW_EQ_CTRL_CMD_CPRIO_V(x)	((x) << FW_EQ_CTRL_CMD_CPRIO_S)
++
++#define FW_EQ_CTRL_CMD_ONCHIP_S		18
++#define FW_EQ_CTRL_CMD_ONCHIP_V(x)	((x) << FW_EQ_CTRL_CMD_ONCHIP_S)
++
++#define FW_EQ_CTRL_CMD_PCIECHN_S	16
++#define FW_EQ_CTRL_CMD_PCIECHN_V(x)	((x) << FW_EQ_CTRL_CMD_PCIECHN_S)
++
++#define FW_EQ_CTRL_CMD_IQID_S		0
++#define FW_EQ_CTRL_CMD_IQID_V(x)	((x) << FW_EQ_CTRL_CMD_IQID_S)
++
++#define FW_EQ_CTRL_CMD_DCAEN_S		31
++#define FW_EQ_CTRL_CMD_DCAEN_V(x)	((x) << FW_EQ_CTRL_CMD_DCAEN_S)
++
++#define FW_EQ_CTRL_CMD_DCACPU_S		26
++#define FW_EQ_CTRL_CMD_DCACPU_V(x)	((x) << FW_EQ_CTRL_CMD_DCACPU_S)
++
++#define FW_EQ_CTRL_CMD_FBMIN_S		23
++#define FW_EQ_CTRL_CMD_FBMIN_V(x)	((x) << FW_EQ_CTRL_CMD_FBMIN_S)
++
++#define FW_EQ_CTRL_CMD_FBMAX_S		20
++#define FW_EQ_CTRL_CMD_FBMAX_V(x)	((x) << FW_EQ_CTRL_CMD_FBMAX_S)
++
++#define FW_EQ_CTRL_CMD_CIDXFTHRESHO_S		19
++#define FW_EQ_CTRL_CMD_CIDXFTHRESHO_V(x)	\
++	((x) << FW_EQ_CTRL_CMD_CIDXFTHRESHO_S)
++
++#define FW_EQ_CTRL_CMD_CIDXFTHRESH_S	16
++#define FW_EQ_CTRL_CMD_CIDXFTHRESH_V(x)	((x) << FW_EQ_CTRL_CMD_CIDXFTHRESH_S)
++
++#define FW_EQ_CTRL_CMD_EQSIZE_S		0
++#define FW_EQ_CTRL_CMD_EQSIZE_V(x)	((x) << FW_EQ_CTRL_CMD_EQSIZE_S)
+ 
+ struct fw_eq_ofld_cmd {
+ 	__be32 op_to_vfn;
+@@ -1455,37 +1735,95 @@ struct fw_eq_ofld_cmd {
+ 	__be64 eqaddr;
  };
  
--#define FW_CAPS_CONFIG_CMD_CFVALID          (1U << 27)
--#define FW_CAPS_CONFIG_CMD_MEMTYPE_CF(x)    ((x) << 24)
--#define FW_CAPS_CONFIG_CMD_MEMADDR64K_CF(x) ((x) << 16)
-+#define FW_CAPS_CONFIG_CMD_CFVALID_S    27
-+#define FW_CAPS_CONFIG_CMD_CFVALID_V(x) ((x) << FW_CAPS_CONFIG_CMD_CFVALID_S)
-+#define FW_CAPS_CONFIG_CMD_CFVALID_F    FW_CAPS_CONFIG_CMD_CFVALID_V(1U)
+-#define FW_EQ_OFLD_CMD_PFN(x) ((x) << 8)
+-#define FW_EQ_OFLD_CMD_VFN(x) ((x) << 0)
+-
+-#define FW_EQ_OFLD_CMD_ALLOC (1U << 31)
+-#define FW_EQ_OFLD_CMD_FREE (1U << 30)
+-#define FW_EQ_OFLD_CMD_MODIFY (1U << 29)
+-#define FW_EQ_OFLD_CMD_EQSTART (1U << 28)
+-#define FW_EQ_OFLD_CMD_EQSTOP (1U << 27)
+-
+-#define FW_EQ_OFLD_CMD_EQID(x) ((x) << 0)
+-#define FW_EQ_OFLD_CMD_EQID_GET(x) (((x) >> 0) & 0xfffff)
+-#define FW_EQ_OFLD_CMD_PHYSEQID_GET(x) (((x) >> 0) & 0xfffff)
+-
+-#define FW_EQ_OFLD_CMD_FETCHSZM(x) ((x) << 26)
+-#define FW_EQ_OFLD_CMD_STATUSPGNS(x) ((x) << 25)
+-#define FW_EQ_OFLD_CMD_STATUSPGRO(x) ((x) << 24)
+-#define FW_EQ_OFLD_CMD_FETCHNS(x) ((x) << 23)
+-#define FW_EQ_OFLD_CMD_FETCHRO(x) ((x) << 22)
+-#define FW_EQ_OFLD_CMD_HOSTFCMODE(x) ((x) << 20)
+-#define FW_EQ_OFLD_CMD_CPRIO(x) ((x) << 19)
+-#define FW_EQ_OFLD_CMD_ONCHIP(x) ((x) << 18)
+-#define FW_EQ_OFLD_CMD_PCIECHN(x) ((x) << 16)
+-#define FW_EQ_OFLD_CMD_IQID(x) ((x) << 0)
+-
+-#define FW_EQ_OFLD_CMD_DCAEN(x) ((x) << 31)
+-#define FW_EQ_OFLD_CMD_DCACPU(x) ((x) << 26)
+-#define FW_EQ_OFLD_CMD_FBMIN(x) ((x) << 23)
+-#define FW_EQ_OFLD_CMD_FBMAX(x) ((x) << 20)
+-#define FW_EQ_OFLD_CMD_CIDXFTHRESHO(x) ((x) << 19)
+-#define FW_EQ_OFLD_CMD_CIDXFTHRESH(x) ((x) << 16)
+-#define FW_EQ_OFLD_CMD_EQSIZE(x) ((x) << 0)
++#define FW_EQ_OFLD_CMD_PFN_S	8
++#define FW_EQ_OFLD_CMD_PFN_V(x)	((x) << FW_EQ_OFLD_CMD_PFN_S)
 +
-+#define FW_CAPS_CONFIG_CMD_MEMTYPE_CF_S		24
-+#define FW_CAPS_CONFIG_CMD_MEMTYPE_CF_V(x)	\
-+	((x) << FW_CAPS_CONFIG_CMD_MEMTYPE_CF_S)
++#define FW_EQ_OFLD_CMD_VFN_S	0
++#define FW_EQ_OFLD_CMD_VFN_V(x)	((x) << FW_EQ_OFLD_CMD_VFN_S)
 +
-+#define FW_CAPS_CONFIG_CMD_MEMADDR64K_CF_S      16
-+#define FW_CAPS_CONFIG_CMD_MEMADDR64K_CF_V(x)	\
-+	((x) << FW_CAPS_CONFIG_CMD_MEMADDR64K_CF_S)
++#define FW_EQ_OFLD_CMD_ALLOC_S		31
++#define FW_EQ_OFLD_CMD_ALLOC_V(x)	((x) << FW_EQ_OFLD_CMD_ALLOC_S)
++#define FW_EQ_OFLD_CMD_ALLOC_F		FW_EQ_OFLD_CMD_ALLOC_V(1U)
++
++#define FW_EQ_OFLD_CMD_FREE_S		30
++#define FW_EQ_OFLD_CMD_FREE_V(x)	((x) << FW_EQ_OFLD_CMD_FREE_S)
++#define FW_EQ_OFLD_CMD_FREE_F		FW_EQ_OFLD_CMD_FREE_V(1U)
++
++#define FW_EQ_OFLD_CMD_MODIFY_S		29
++#define FW_EQ_OFLD_CMD_MODIFY_V(x)	((x) << FW_EQ_OFLD_CMD_MODIFY_S)
++#define FW_EQ_OFLD_CMD_MODIFY_F		FW_EQ_OFLD_CMD_MODIFY_V(1U)
++
++#define FW_EQ_OFLD_CMD_EQSTART_S	28
++#define FW_EQ_OFLD_CMD_EQSTART_V(x)	((x) << FW_EQ_OFLD_CMD_EQSTART_S)
++#define FW_EQ_OFLD_CMD_EQSTART_F	FW_EQ_OFLD_CMD_EQSTART_V(1U)
++
++#define FW_EQ_OFLD_CMD_EQSTOP_S		27
++#define FW_EQ_OFLD_CMD_EQSTOP_V(x)	((x) << FW_EQ_OFLD_CMD_EQSTOP_S)
++#define FW_EQ_OFLD_CMD_EQSTOP_F		FW_EQ_OFLD_CMD_EQSTOP_V(1U)
++
++#define FW_EQ_OFLD_CMD_EQID_S		0
++#define FW_EQ_OFLD_CMD_EQID_M		0xfffff
++#define FW_EQ_OFLD_CMD_EQID_V(x)	((x) << FW_EQ_OFLD_CMD_EQID_S)
++#define FW_EQ_OFLD_CMD_EQID_G(x)	\
++	(((x) >> FW_EQ_OFLD_CMD_EQID_S) & FW_EQ_OFLD_CMD_EQID_M)
++
++#define FW_EQ_OFLD_CMD_PHYSEQID_S	0
++#define FW_EQ_OFLD_CMD_PHYSEQID_M	0xfffff
++#define FW_EQ_OFLD_CMD_PHYSEQID_G(x)	\
++	(((x) >> FW_EQ_OFLD_CMD_PHYSEQID_S) & FW_EQ_OFLD_CMD_PHYSEQID_M)
++
++#define FW_EQ_OFLD_CMD_FETCHSZM_S	26
++#define FW_EQ_OFLD_CMD_FETCHSZM_V(x)	((x) << FW_EQ_OFLD_CMD_FETCHSZM_S)
++
++#define FW_EQ_OFLD_CMD_STATUSPGNS_S	25
++#define FW_EQ_OFLD_CMD_STATUSPGNS_V(x)	((x) << FW_EQ_OFLD_CMD_STATUSPGNS_S)
++
++#define FW_EQ_OFLD_CMD_STATUSPGRO_S	24
++#define FW_EQ_OFLD_CMD_STATUSPGRO_V(x)	((x) << FW_EQ_OFLD_CMD_STATUSPGRO_S)
++
++#define FW_EQ_OFLD_CMD_FETCHNS_S	23
++#define FW_EQ_OFLD_CMD_FETCHNS_V(x)	((x) << FW_EQ_OFLD_CMD_FETCHNS_S)
++
++#define FW_EQ_OFLD_CMD_FETCHRO_S	22
++#define FW_EQ_OFLD_CMD_FETCHRO_V(x)	((x) << FW_EQ_OFLD_CMD_FETCHRO_S)
++#define FW_EQ_OFLD_CMD_FETCHRO_F	FW_EQ_OFLD_CMD_FETCHRO_V(1U)
++
++#define FW_EQ_OFLD_CMD_HOSTFCMODE_S	20
++#define FW_EQ_OFLD_CMD_HOSTFCMODE_V(x)	((x) << FW_EQ_OFLD_CMD_HOSTFCMODE_S)
++
++#define FW_EQ_OFLD_CMD_CPRIO_S		19
++#define FW_EQ_OFLD_CMD_CPRIO_V(x)	((x) << FW_EQ_OFLD_CMD_CPRIO_S)
++
++#define FW_EQ_OFLD_CMD_ONCHIP_S		18
++#define FW_EQ_OFLD_CMD_ONCHIP_V(x)	((x) << FW_EQ_OFLD_CMD_ONCHIP_S)
++
++#define FW_EQ_OFLD_CMD_PCIECHN_S	16
++#define FW_EQ_OFLD_CMD_PCIECHN_V(x)	((x) << FW_EQ_OFLD_CMD_PCIECHN_S)
++
++#define FW_EQ_OFLD_CMD_IQID_S		0
++#define FW_EQ_OFLD_CMD_IQID_V(x)	((x) << FW_EQ_OFLD_CMD_IQID_S)
++
++#define FW_EQ_OFLD_CMD_DCAEN_S		31
++#define FW_EQ_OFLD_CMD_DCAEN_V(x)	((x) << FW_EQ_OFLD_CMD_DCAEN_S)
++
++#define FW_EQ_OFLD_CMD_DCACPU_S		26
++#define FW_EQ_OFLD_CMD_DCACPU_V(x)	((x) << FW_EQ_OFLD_CMD_DCACPU_S)
++
++#define FW_EQ_OFLD_CMD_FBMIN_S		23
++#define FW_EQ_OFLD_CMD_FBMIN_V(x)	((x) << FW_EQ_OFLD_CMD_FBMIN_S)
++
++#define FW_EQ_OFLD_CMD_FBMAX_S		20
++#define FW_EQ_OFLD_CMD_FBMAX_V(x)	((x) << FW_EQ_OFLD_CMD_FBMAX_S)
++
++#define FW_EQ_OFLD_CMD_CIDXFTHRESHO_S		19
++#define FW_EQ_OFLD_CMD_CIDXFTHRESHO_V(x)	\
++	((x) << FW_EQ_OFLD_CMD_CIDXFTHRESHO_S)
++
++#define FW_EQ_OFLD_CMD_CIDXFTHRESH_S	16
++#define FW_EQ_OFLD_CMD_CIDXFTHRESH_V(x)	((x) << FW_EQ_OFLD_CMD_CIDXFTHRESH_S)
++
++#define FW_EQ_OFLD_CMD_EQSIZE_S		0
++#define FW_EQ_OFLD_CMD_EQSIZE_V(x)	((x) << FW_EQ_OFLD_CMD_EQSIZE_S)
  
  /*
-  * params command mnemonics
-@@ -1072,20 +1120,29 @@ enum fw_params_param_dmaq {
- 	FW_PARAMS_PARAM_DMAQ_EQ_DCBPRIO_ETH = 0x13,
- };
+  * Macros for VIID parsing:
+diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
+index 50b1b34..045301d 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
+@@ -2092,22 +2092,22 @@ int t4vf_sge_alloc_rxq(struct adapter *adapter, struct sge_rspq *rspq,
+ 				    FW_CMD_REQUEST_F |
+ 				    FW_CMD_WRITE_F |
+ 				    FW_CMD_EXEC_F);
+-	cmd.alloc_to_len16 = cpu_to_be32(FW_IQ_CMD_ALLOC |
+-					 FW_IQ_CMD_IQSTART(1) |
++	cmd.alloc_to_len16 = cpu_to_be32(FW_IQ_CMD_ALLOC_F |
++					 FW_IQ_CMD_IQSTART_F |
+ 					 FW_LEN16(cmd));
+ 	cmd.type_to_iqandstindex =
+-		cpu_to_be32(FW_IQ_CMD_TYPE(FW_IQ_TYPE_FL_INT_CAP) |
+-			    FW_IQ_CMD_IQASYNCH(iqasynch) |
+-			    FW_IQ_CMD_VIID(pi->viid) |
+-			    FW_IQ_CMD_IQANDST(iqandst) |
+-			    FW_IQ_CMD_IQANUS(1) |
+-			    FW_IQ_CMD_IQANUD(SGE_UPDATEDEL_INTR) |
+-			    FW_IQ_CMD_IQANDSTINDEX(intr_dest));
++		cpu_to_be32(FW_IQ_CMD_TYPE_V(FW_IQ_TYPE_FL_INT_CAP) |
++			    FW_IQ_CMD_IQASYNCH_V(iqasynch) |
++			    FW_IQ_CMD_VIID_V(pi->viid) |
++			    FW_IQ_CMD_IQANDST_V(iqandst) |
++			    FW_IQ_CMD_IQANUS_V(1) |
++			    FW_IQ_CMD_IQANUD_V(SGE_UPDATEDEL_INTR) |
++			    FW_IQ_CMD_IQANDSTINDEX_V(intr_dest));
+ 	cmd.iqdroprss_to_iqesize =
+-		cpu_to_be16(FW_IQ_CMD_IQPCIECH(pi->port_id) |
+-			    FW_IQ_CMD_IQGTSMODE |
+-			    FW_IQ_CMD_IQINTCNTTHRESH(rspq->pktcnt_idx) |
+-			    FW_IQ_CMD_IQESIZE(ilog2(rspq->iqe_len) - 4));
++		cpu_to_be16(FW_IQ_CMD_IQPCIECH_V(pi->port_id) |
++			    FW_IQ_CMD_IQGTSMODE_F |
++			    FW_IQ_CMD_IQINTCNTTHRESH_V(rspq->pktcnt_idx) |
++			    FW_IQ_CMD_IQESIZE_V(ilog2(rspq->iqe_len) - 4));
+ 	cmd.iqsize = cpu_to_be16(rspq->size);
+ 	cmd.iqaddr = cpu_to_be64(rspq->phys_addr);
  
--#define FW_PARAMS_MNEM(x)      ((x) << 24)
--#define FW_PARAMS_PARAM_X(x)   ((x) << 16)
--#define FW_PARAMS_PARAM_Y_SHIFT  8
--#define FW_PARAMS_PARAM_Y_MASK   0xffU
--#define FW_PARAMS_PARAM_Y(x)     ((x) << FW_PARAMS_PARAM_Y_SHIFT)
--#define FW_PARAMS_PARAM_Y_GET(x) (((x) >> FW_PARAMS_PARAM_Y_SHIFT) &\
--		FW_PARAMS_PARAM_Y_MASK)
--#define FW_PARAMS_PARAM_Z_SHIFT  0
--#define FW_PARAMS_PARAM_Z_MASK   0xffu
--#define FW_PARAMS_PARAM_Z(x)     ((x) << FW_PARAMS_PARAM_Z_SHIFT)
--#define FW_PARAMS_PARAM_Z_GET(x) (((x) >> FW_PARAMS_PARAM_Z_SHIFT) &\
--		FW_PARAMS_PARAM_Z_MASK)
--#define FW_PARAMS_PARAM_XYZ(x) ((x) << 0)
--#define FW_PARAMS_PARAM_YZ(x)  ((x) << 0)
-+#define FW_PARAMS_MNEM_S	24
-+#define FW_PARAMS_MNEM_V(x)	((x) << FW_PARAMS_MNEM_S)
-+
-+#define FW_PARAMS_PARAM_X_S     16
-+#define FW_PARAMS_PARAM_X_V(x)	((x) << FW_PARAMS_PARAM_X_S)
-+
-+#define FW_PARAMS_PARAM_Y_S	8
-+#define FW_PARAMS_PARAM_Y_M	0xffU
-+#define FW_PARAMS_PARAM_Y_V(x)	((x) << FW_PARAMS_PARAM_Y_S)
-+#define FW_PARAMS_PARAM_Y_G(x)	(((x) >> FW_PARAMS_PARAM_Y_S) &\
-+		FW_PARAMS_PARAM_Y_M)
-+
-+#define FW_PARAMS_PARAM_Z_S	0
-+#define FW_PARAMS_PARAM_Z_M	0xffu
-+#define FW_PARAMS_PARAM_Z_V(x)	((x) << FW_PARAMS_PARAM_Z_S)
-+#define FW_PARAMS_PARAM_Z_G(x)	(((x) >> FW_PARAMS_PARAM_Z_S) &\
-+		FW_PARAMS_PARAM_Z_M)
-+
-+#define FW_PARAMS_PARAM_XYZ_S		0
-+#define FW_PARAMS_PARAM_XYZ_V(x)	((x) << FW_PARAMS_PARAM_XYZ_S)
-+
-+#define FW_PARAMS_PARAM_YZ_S		0
-+#define FW_PARAMS_PARAM_YZ_V(x)		((x) << FW_PARAMS_PARAM_YZ_S)
+@@ -2141,13 +2141,13 @@ int t4vf_sge_alloc_rxq(struct adapter *adapter, struct sge_rspq *rspq,
+ 		 */
+ 		cmd.iqns_to_fl0congen =
+ 			cpu_to_be32(
+-				FW_IQ_CMD_FL0HOSTFCMODE(SGE_HOSTFCMODE_NONE) |
+-				FW_IQ_CMD_FL0PACKEN(1) |
+-				FW_IQ_CMD_FL0PADEN(1));
++				FW_IQ_CMD_FL0HOSTFCMODE_V(SGE_HOSTFCMODE_NONE) |
++				FW_IQ_CMD_FL0PACKEN_F |
++				FW_IQ_CMD_FL0PADEN_F);
+ 		cmd.fl0dcaen_to_fl0cidxfthresh =
+ 			cpu_to_be16(
+-				FW_IQ_CMD_FL0FBMIN(SGE_FETCHBURSTMIN_64B) |
+-				FW_IQ_CMD_FL0FBMAX(SGE_FETCHBURSTMAX_512B));
++				FW_IQ_CMD_FL0FBMIN_V(SGE_FETCHBURSTMIN_64B) |
++				FW_IQ_CMD_FL0FBMAX_V(SGE_FETCHBURSTMAX_512B));
+ 		cmd.fl0size = cpu_to_be16(flsz);
+ 		cmd.fl0addr = cpu_to_be64(fl->addr);
+ 	}
+@@ -2255,20 +2255,21 @@ int t4vf_sge_alloc_eth_txq(struct adapter *adapter, struct sge_eth_txq *txq,
+ 				    FW_CMD_REQUEST_F |
+ 				    FW_CMD_WRITE_F |
+ 				    FW_CMD_EXEC_F);
+-	cmd.alloc_to_len16 = cpu_to_be32(FW_EQ_ETH_CMD_ALLOC |
+-					 FW_EQ_ETH_CMD_EQSTART |
++	cmd.alloc_to_len16 = cpu_to_be32(FW_EQ_ETH_CMD_ALLOC_F |
++					 FW_EQ_ETH_CMD_EQSTART_F |
+ 					 FW_LEN16(cmd));
+-	cmd.viid_pkd = cpu_to_be32(FW_EQ_ETH_CMD_AUTOEQUEQE |
+-				   FW_EQ_ETH_CMD_VIID(pi->viid));
++	cmd.viid_pkd = cpu_to_be32(FW_EQ_ETH_CMD_AUTOEQUEQE_F |
++				   FW_EQ_ETH_CMD_VIID_V(pi->viid));
+ 	cmd.fetchszm_to_iqid =
+-		cpu_to_be32(FW_EQ_ETH_CMD_HOSTFCMODE(SGE_HOSTFCMODE_STPG) |
+-			    FW_EQ_ETH_CMD_PCIECHN(pi->port_id) |
+-			    FW_EQ_ETH_CMD_IQID(iqid));
++		cpu_to_be32(FW_EQ_ETH_CMD_HOSTFCMODE_V(SGE_HOSTFCMODE_STPG) |
++			    FW_EQ_ETH_CMD_PCIECHN_V(pi->port_id) |
++			    FW_EQ_ETH_CMD_IQID_V(iqid));
+ 	cmd.dcaen_to_eqsize =
+-		cpu_to_be32(FW_EQ_ETH_CMD_FBMIN(SGE_FETCHBURSTMIN_64B) |
+-			    FW_EQ_ETH_CMD_FBMAX(SGE_FETCHBURSTMAX_512B) |
+-			    FW_EQ_ETH_CMD_CIDXFTHRESH(SGE_CIDXFLUSHTHRESH_32) |
+-			    FW_EQ_ETH_CMD_EQSIZE(nentries));
++		cpu_to_be32(FW_EQ_ETH_CMD_FBMIN_V(SGE_FETCHBURSTMIN_64B) |
++			    FW_EQ_ETH_CMD_FBMAX_V(SGE_FETCHBURSTMAX_512B) |
++			    FW_EQ_ETH_CMD_CIDXFTHRESH_V(
++						SGE_CIDXFLUSHTHRESH_32) |
++			    FW_EQ_ETH_CMD_EQSIZE_V(nentries));
+ 	cmd.eqaddr = cpu_to_be64(txq->q.phys_addr);
  
- struct fw_params_cmd {
- 	__be32 op_to_vfn;
-@@ -1096,8 +1153,11 @@ struct fw_params_cmd {
- 	} param[7];
- };
- 
--#define FW_PARAMS_CMD_PFN(x) ((x) << 8)
--#define FW_PARAMS_CMD_VFN(x) ((x) << 0)
-+#define FW_PARAMS_CMD_PFN_S     8
-+#define FW_PARAMS_CMD_PFN_V(x)	((x) << FW_PARAMS_CMD_PFN_S)
-+
-+#define FW_PARAMS_CMD_VFN_S     0
-+#define FW_PARAMS_CMD_VFN_V(x)	((x) << FW_PARAMS_CMD_VFN_S)
- 
- struct fw_pfvf_cmd {
- 	__be32 op_to_vfn;
-@@ -1111,46 +1171,82 @@ struct fw_pfvf_cmd {
- 	__be32 r4;
- };
- 
--#define FW_PFVF_CMD_PFN(x) ((x) << 8)
--#define FW_PFVF_CMD_VFN(x) ((x) << 0)
--
--#define FW_PFVF_CMD_NIQFLINT(x) ((x) << 20)
--#define FW_PFVF_CMD_NIQFLINT_GET(x) (((x) >> 20) & 0xfff)
--
--#define FW_PFVF_CMD_NIQ(x) ((x) << 0)
--#define FW_PFVF_CMD_NIQ_GET(x) (((x) >> 0) & 0xfffff)
--
--#define FW_PFVF_CMD_TYPE (1 << 31)
--#define FW_PFVF_CMD_TYPE_GET(x) (((x) >> 31) & 0x1)
--
--#define FW_PFVF_CMD_CMASK(x) ((x) << 24)
--#define FW_PFVF_CMD_CMASK_MASK 0xf
--#define FW_PFVF_CMD_CMASK_GET(x) (((x) >> 24) & FW_PFVF_CMD_CMASK_MASK)
--
--#define FW_PFVF_CMD_PMASK(x) ((x) << 20)
--#define FW_PFVF_CMD_PMASK_MASK 0xf
--#define FW_PFVF_CMD_PMASK_GET(x) (((x) >> 20) & FW_PFVF_CMD_PMASK_MASK)
--
--#define FW_PFVF_CMD_NEQ(x) ((x) << 0)
--#define FW_PFVF_CMD_NEQ_GET(x) (((x) >> 0) & 0xfffff)
--
--#define FW_PFVF_CMD_TC(x) ((x) << 24)
--#define FW_PFVF_CMD_TC_GET(x) (((x) >> 24) & 0xff)
--
--#define FW_PFVF_CMD_NVI(x) ((x) << 16)
--#define FW_PFVF_CMD_NVI_GET(x) (((x) >> 16) & 0xff)
--
--#define FW_PFVF_CMD_NEXACTF(x) ((x) << 0)
--#define FW_PFVF_CMD_NEXACTF_GET(x) (((x) >> 0) & 0xffff)
--
--#define FW_PFVF_CMD_R_CAPS(x) ((x) << 24)
--#define FW_PFVF_CMD_R_CAPS_GET(x) (((x) >> 24) & 0xff)
--
--#define FW_PFVF_CMD_WX_CAPS(x) ((x) << 16)
--#define FW_PFVF_CMD_WX_CAPS_GET(x) (((x) >> 16) & 0xff)
--
--#define FW_PFVF_CMD_NETHCTRL(x) ((x) << 0)
--#define FW_PFVF_CMD_NETHCTRL_GET(x) (((x) >> 0) & 0xffff)
-+#define FW_PFVF_CMD_PFN_S	8
-+#define FW_PFVF_CMD_PFN_V(x)	((x) << FW_PFVF_CMD_PFN_S)
-+
-+#define FW_PFVF_CMD_VFN_S       0
-+#define FW_PFVF_CMD_VFN_V(x)	((x) << FW_PFVF_CMD_VFN_S)
-+
-+#define FW_PFVF_CMD_NIQFLINT_S          20
-+#define FW_PFVF_CMD_NIQFLINT_M          0xfff
-+#define FW_PFVF_CMD_NIQFLINT_V(x)	((x) << FW_PFVF_CMD_NIQFLINT_S)
-+#define FW_PFVF_CMD_NIQFLINT_G(x)	\
-+	(((x) >> FW_PFVF_CMD_NIQFLINT_S) & FW_PFVF_CMD_NIQFLINT_M)
-+
-+#define FW_PFVF_CMD_NIQ_S       0
-+#define FW_PFVF_CMD_NIQ_M       0xfffff
-+#define FW_PFVF_CMD_NIQ_V(x)	((x) << FW_PFVF_CMD_NIQ_S)
-+#define FW_PFVF_CMD_NIQ_G(x)	\
-+	(((x) >> FW_PFVF_CMD_NIQ_S) & FW_PFVF_CMD_NIQ_M)
-+
-+#define FW_PFVF_CMD_TYPE_S      31
-+#define FW_PFVF_CMD_TYPE_M      0x1
-+#define FW_PFVF_CMD_TYPE_V(x)   ((x) << FW_PFVF_CMD_TYPE_S)
-+#define FW_PFVF_CMD_TYPE_G(x)	\
-+	(((x) >> FW_PFVF_CMD_TYPE_S) & FW_PFVF_CMD_TYPE_M)
-+#define FW_PFVF_CMD_TYPE_F      FW_PFVF_CMD_TYPE_V(1U)
-+
-+#define FW_PFVF_CMD_CMASK_S     24
-+#define FW_PFVF_CMD_CMASK_M	0xf
-+#define FW_PFVF_CMD_CMASK_V(x)	((x) << FW_PFVF_CMD_CMASK_S)
-+#define FW_PFVF_CMD_CMASK_G(x)	\
-+	(((x) >> FW_PFVF_CMD_CMASK_S) & FW_PFVF_CMD_CMASK_M)
-+
-+#define FW_PFVF_CMD_PMASK_S     20
-+#define FW_PFVF_CMD_PMASK_M	0xf
-+#define FW_PFVF_CMD_PMASK_V(x)	((x) << FW_PFVF_CMD_PMASK_S)
-+#define FW_PFVF_CMD_PMASK_G(x) \
-+	(((x) >> FW_PFVF_CMD_PMASK_S) & FW_PFVF_CMD_PMASK_M)
-+
-+#define FW_PFVF_CMD_NEQ_S       0
-+#define FW_PFVF_CMD_NEQ_M       0xfffff
-+#define FW_PFVF_CMD_NEQ_V(x)	((x) << FW_PFVF_CMD_NEQ_S)
-+#define FW_PFVF_CMD_NEQ_G(x)	\
-+	(((x) >> FW_PFVF_CMD_NEQ_S) & FW_PFVF_CMD_NEQ_M)
-+
-+#define FW_PFVF_CMD_TC_S        24
-+#define FW_PFVF_CMD_TC_M        0xff
-+#define FW_PFVF_CMD_TC_V(x)	((x) << FW_PFVF_CMD_TC_S)
-+#define FW_PFVF_CMD_TC_G(x)	(((x) >> FW_PFVF_CMD_TC_S) & FW_PFVF_CMD_TC_M)
-+
-+#define FW_PFVF_CMD_NVI_S       16
-+#define FW_PFVF_CMD_NVI_M       0xff
-+#define FW_PFVF_CMD_NVI_V(x)	((x) << FW_PFVF_CMD_NVI_S)
-+#define FW_PFVF_CMD_NVI_G(x)	(((x) >> FW_PFVF_CMD_NVI_S) & FW_PFVF_CMD_NVI_M)
-+
-+#define FW_PFVF_CMD_NEXACTF_S           0
-+#define FW_PFVF_CMD_NEXACTF_M           0xffff
-+#define FW_PFVF_CMD_NEXACTF_V(x)	((x) << FW_PFVF_CMD_NEXACTF_S)
-+#define FW_PFVF_CMD_NEXACTF_G(x)	\
-+	(((x) >> FW_PFVF_CMD_NEXACTF_S) & FW_PFVF_CMD_NEXACTF_M)
-+
-+#define FW_PFVF_CMD_R_CAPS_S    24
-+#define FW_PFVF_CMD_R_CAPS_M    0xff
-+#define FW_PFVF_CMD_R_CAPS_V(x) ((x) << FW_PFVF_CMD_R_CAPS_S)
-+#define FW_PFVF_CMD_R_CAPS_G(x) \
-+	(((x) >> FW_PFVF_CMD_R_CAPS_S) & FW_PFVF_CMD_R_CAPS_M)
-+
-+#define FW_PFVF_CMD_WX_CAPS_S           16
-+#define FW_PFVF_CMD_WX_CAPS_M           0xff
-+#define FW_PFVF_CMD_WX_CAPS_V(x)	((x) << FW_PFVF_CMD_WX_CAPS_S)
-+#define FW_PFVF_CMD_WX_CAPS_G(x)	\
-+	(((x) >> FW_PFVF_CMD_WX_CAPS_S) & FW_PFVF_CMD_WX_CAPS_M)
-+
-+#define FW_PFVF_CMD_NETHCTRL_S          0
-+#define FW_PFVF_CMD_NETHCTRL_M          0xffff
-+#define FW_PFVF_CMD_NETHCTRL_V(x)	((x) << FW_PFVF_CMD_NETHCTRL_S)
-+#define FW_PFVF_CMD_NETHCTRL_G(x)	\
-+	(((x) >> FW_PFVF_CMD_NETHCTRL_S) & FW_PFVF_CMD_NETHCTRL_M)
- 
- enum fw_iq_type {
- 	FW_IQ_TYPE_FL_INT_CAP,
-diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-index 0b42bdd..7c24b50 100644
---- a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-@@ -1030,10 +1030,10 @@ static int set_rxq_intr_params(struct adapter *adapter, struct sge_rspq *rspq,
- 
- 		pktcnt_idx = closest_thres(&adapter->sge, cnt);
- 		if (rspq->desc && rspq->pktcnt_idx != pktcnt_idx) {
--			v = FW_PARAMS_MNEM(FW_PARAMS_MNEM_DMAQ) |
--			    FW_PARAMS_PARAM_X(
-+			v = FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_DMAQ) |
-+			    FW_PARAMS_PARAM_X_V(
- 					FW_PARAMS_PARAM_DMAQ_IQ_INTCNTTHRESH) |
--			    FW_PARAMS_PARAM_YZ(rspq->cntxt_id);
-+			    FW_PARAMS_PARAM_YZ_V(rspq->cntxt_id);
- 			err = t4vf_set_params(adapter, 1, &v, &pktcnt_idx);
- 			if (err)
- 				return err;
-@@ -2184,8 +2184,8 @@ static int adap_init0(struct adapter *adapter)
- 	 * firmware won't understand this and we'll just get
- 	 * unencapsulated messages ...
- 	 */
--	param = FW_PARAMS_MNEM(FW_PARAMS_MNEM_PFVF) |
--		FW_PARAMS_PARAM_X(FW_PARAMS_PARAM_PFVF_CPLFW4MSG_ENCAP);
-+	param = FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_PFVF) |
-+		FW_PARAMS_PARAM_X_V(FW_PARAMS_PARAM_PFVF_CPLFW4MSG_ENCAP);
- 	val = 1;
- 	(void) t4vf_set_params(adapter, 1, &param, &val);
- 
+ 	/*
+@@ -2294,9 +2295,9 @@ int t4vf_sge_alloc_eth_txq(struct adapter *adapter, struct sge_eth_txq *txq,
+ 	txq->q.cidx = 0;
+ 	txq->q.pidx = 0;
+ 	txq->q.stat = (void *)&txq->q.desc[txq->q.size];
+-	txq->q.cntxt_id = FW_EQ_ETH_CMD_EQID_GET(be32_to_cpu(rpl.eqid_pkd));
++	txq->q.cntxt_id = FW_EQ_ETH_CMD_EQID_G(be32_to_cpu(rpl.eqid_pkd));
+ 	txq->q.abs_id =
+-		FW_EQ_ETH_CMD_PHYSEQID_GET(be32_to_cpu(rpl.physeqid_pkd));
++		FW_EQ_ETH_CMD_PHYSEQID_G(be32_to_cpu(rpl.physeqid_pkd));
+ 	txq->txq = devq;
+ 	txq->tso = 0;
+ 	txq->tx_cso = 0;
 diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
-index fae0c95..f2087eb 100644
+index f2087eb..5d3bd8d 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
-@@ -443,20 +443,20 @@ int t4vf_get_sge_params(struct adapter *adapter)
- 	u32 params[7], vals[7];
- 	int v;
+@@ -1302,10 +1302,10 @@ int t4vf_iq_free(struct adapter *adapter, unsigned int iqtype,
+ 	cmd.op_to_vfn = cpu_to_be32(FW_CMD_OP_V(FW_IQ_CMD) |
+ 				    FW_CMD_REQUEST_F |
+ 				    FW_CMD_EXEC_F);
+-	cmd.alloc_to_len16 = cpu_to_be32(FW_IQ_CMD_FREE |
++	cmd.alloc_to_len16 = cpu_to_be32(FW_IQ_CMD_FREE_F |
+ 					 FW_LEN16(cmd));
+ 	cmd.type_to_iqandstindex =
+-		cpu_to_be32(FW_IQ_CMD_TYPE(iqtype));
++		cpu_to_be32(FW_IQ_CMD_TYPE_V(iqtype));
  
--	params[0] = (FW_PARAMS_MNEM(FW_PARAMS_MNEM_REG) |
--		     FW_PARAMS_PARAM_XYZ(SGE_CONTROL));
--	params[1] = (FW_PARAMS_MNEM(FW_PARAMS_MNEM_REG) |
--		     FW_PARAMS_PARAM_XYZ(SGE_HOST_PAGE_SIZE));
--	params[2] = (FW_PARAMS_MNEM(FW_PARAMS_MNEM_REG) |
--		     FW_PARAMS_PARAM_XYZ(SGE_FL_BUFFER_SIZE0));
--	params[3] = (FW_PARAMS_MNEM(FW_PARAMS_MNEM_REG) |
--		     FW_PARAMS_PARAM_XYZ(SGE_FL_BUFFER_SIZE1));
--	params[4] = (FW_PARAMS_MNEM(FW_PARAMS_MNEM_REG) |
--		     FW_PARAMS_PARAM_XYZ(SGE_TIMER_VALUE_0_AND_1));
--	params[5] = (FW_PARAMS_MNEM(FW_PARAMS_MNEM_REG) |
--		     FW_PARAMS_PARAM_XYZ(SGE_TIMER_VALUE_2_AND_3));
--	params[6] = (FW_PARAMS_MNEM(FW_PARAMS_MNEM_REG) |
--		     FW_PARAMS_PARAM_XYZ(SGE_TIMER_VALUE_4_AND_5));
-+	params[0] = (FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_REG) |
-+		     FW_PARAMS_PARAM_XYZ_V(SGE_CONTROL));
-+	params[1] = (FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_REG) |
-+		     FW_PARAMS_PARAM_XYZ_V(SGE_HOST_PAGE_SIZE));
-+	params[2] = (FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_REG) |
-+		     FW_PARAMS_PARAM_XYZ_V(SGE_FL_BUFFER_SIZE0));
-+	params[3] = (FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_REG) |
-+		     FW_PARAMS_PARAM_XYZ_V(SGE_FL_BUFFER_SIZE1));
-+	params[4] = (FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_REG) |
-+		     FW_PARAMS_PARAM_XYZ_V(SGE_TIMER_VALUE_0_AND_1));
-+	params[5] = (FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_REG) |
-+		     FW_PARAMS_PARAM_XYZ_V(SGE_TIMER_VALUE_2_AND_3));
-+	params[6] = (FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_REG) |
-+		     FW_PARAMS_PARAM_XYZ_V(SGE_TIMER_VALUE_4_AND_5));
- 	v = t4vf_query_params(adapter, 7, params, vals);
- 	if (v)
- 		return v;
-@@ -479,8 +479,8 @@ int t4vf_get_sge_params(struct adapter *adapter)
- 	 * right value.
- 	 */
- 	if (!is_t4(adapter->params.chip)) {
--		params[0] = (FW_PARAMS_MNEM(FW_PARAMS_MNEM_REG) |
--			     FW_PARAMS_PARAM_XYZ(SGE_CONTROL2_A));
-+		params[0] = (FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_REG) |
-+			     FW_PARAMS_PARAM_XYZ_V(SGE_CONTROL2_A));
- 		v = t4vf_query_params(adapter, 1, params, vals);
- 		if (v != FW_SUCCESS) {
- 			dev_err(adapter->pdev_dev,
-@@ -491,10 +491,10 @@ int t4vf_get_sge_params(struct adapter *adapter)
- 		sge_params->sge_control2 = vals[0];
- 	}
- 
--	params[0] = (FW_PARAMS_MNEM(FW_PARAMS_MNEM_REG) |
--		     FW_PARAMS_PARAM_XYZ(SGE_INGRESS_RX_THRESHOLD));
--	params[1] = (FW_PARAMS_MNEM(FW_PARAMS_MNEM_REG) |
--		     FW_PARAMS_PARAM_XYZ(SGE_CONM_CTRL));
-+	params[0] = (FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_REG) |
-+		     FW_PARAMS_PARAM_XYZ_V(SGE_INGRESS_RX_THRESHOLD));
-+	params[1] = (FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_REG) |
-+		     FW_PARAMS_PARAM_XYZ_V(SGE_CONM_CTRL));
- 	v = t4vf_query_params(adapter, 2, params, vals);
- 	if (v)
- 		return v;
-@@ -517,8 +517,8 @@ int t4vf_get_vpd_params(struct adapter *adapter)
- 	u32 params[7], vals[7];
- 	int v;
- 
--	params[0] = (FW_PARAMS_MNEM(FW_PARAMS_MNEM_DEV) |
--		     FW_PARAMS_PARAM_X(FW_PARAMS_PARAM_DEV_CCLK));
-+	params[0] = (FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_DEV) |
-+		     FW_PARAMS_PARAM_X_V(FW_PARAMS_PARAM_DEV_CCLK));
- 	v = t4vf_query_params(adapter, 1, params, vals);
- 	if (v)
- 		return v;
-@@ -540,10 +540,10 @@ int t4vf_get_dev_params(struct adapter *adapter)
- 	u32 params[7], vals[7];
- 	int v;
- 
--	params[0] = (FW_PARAMS_MNEM(FW_PARAMS_MNEM_DEV) |
--		     FW_PARAMS_PARAM_X(FW_PARAMS_PARAM_DEV_FWREV));
--	params[1] = (FW_PARAMS_MNEM(FW_PARAMS_MNEM_DEV) |
--		     FW_PARAMS_PARAM_X(FW_PARAMS_PARAM_DEV_TPREV));
-+	params[0] = (FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_DEV) |
-+		     FW_PARAMS_PARAM_X_V(FW_PARAMS_PARAM_DEV_FWREV));
-+	params[1] = (FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_DEV) |
-+		     FW_PARAMS_PARAM_X_V(FW_PARAMS_PARAM_DEV_TPREV));
- 	v = t4vf_query_params(adapter, 2, params, vals);
- 	if (v)
- 		return v;
-@@ -659,22 +659,22 @@ int t4vf_get_vfres(struct adapter *adapter)
- 	 * Extract VF resource limits and return success.
- 	 */
- 	word = be32_to_cpu(rpl.niqflint_niq);
--	vfres->niqflint = FW_PFVF_CMD_NIQFLINT_GET(word);
--	vfres->niq = FW_PFVF_CMD_NIQ_GET(word);
-+	vfres->niqflint = FW_PFVF_CMD_NIQFLINT_G(word);
-+	vfres->niq = FW_PFVF_CMD_NIQ_G(word);
- 
- 	word = be32_to_cpu(rpl.type_to_neq);
--	vfres->neq = FW_PFVF_CMD_NEQ_GET(word);
--	vfres->pmask = FW_PFVF_CMD_PMASK_GET(word);
-+	vfres->neq = FW_PFVF_CMD_NEQ_G(word);
-+	vfres->pmask = FW_PFVF_CMD_PMASK_G(word);
- 
- 	word = be32_to_cpu(rpl.tc_to_nexactf);
--	vfres->tc = FW_PFVF_CMD_TC_GET(word);
--	vfres->nvi = FW_PFVF_CMD_NVI_GET(word);
--	vfres->nexactf = FW_PFVF_CMD_NEXACTF_GET(word);
-+	vfres->tc = FW_PFVF_CMD_TC_G(word);
-+	vfres->nvi = FW_PFVF_CMD_NVI_G(word);
-+	vfres->nexactf = FW_PFVF_CMD_NEXACTF_G(word);
- 
- 	word = be32_to_cpu(rpl.r_caps_to_nethctrl);
--	vfres->r_caps = FW_PFVF_CMD_R_CAPS_GET(word);
--	vfres->wx_caps = FW_PFVF_CMD_WX_CAPS_GET(word);
--	vfres->nethctrl = FW_PFVF_CMD_NETHCTRL_GET(word);
-+	vfres->r_caps = FW_PFVF_CMD_R_CAPS_G(word);
-+	vfres->wx_caps = FW_PFVF_CMD_WX_CAPS_G(word);
-+	vfres->nethctrl = FW_PFVF_CMD_NETHCTRL_G(word);
- 
- 	return 0;
+ 	cmd.iqid = cpu_to_be16(iqid);
+ 	cmd.fl0id = cpu_to_be16(fl0id);
+@@ -1328,9 +1328,9 @@ int t4vf_eth_eq_free(struct adapter *adapter, unsigned int eqid)
+ 	cmd.op_to_vfn = cpu_to_be32(FW_CMD_OP_V(FW_EQ_ETH_CMD) |
+ 				    FW_CMD_REQUEST_F |
+ 				    FW_CMD_EXEC_F);
+-	cmd.alloc_to_len16 = cpu_to_be32(FW_EQ_ETH_CMD_FREE |
++	cmd.alloc_to_len16 = cpu_to_be32(FW_EQ_ETH_CMD_FREE_F |
+ 					 FW_LEN16(cmd));
+-	cmd.eqid_pkd = cpu_to_be32(FW_EQ_ETH_CMD_EQID(eqid));
++	cmd.eqid_pkd = cpu_to_be32(FW_EQ_ETH_CMD_EQID_V(eqid));
+ 	return t4vf_wr_mbox(adapter, &cmd, sizeof(cmd), NULL);
  }
-diff --git a/drivers/scsi/csiostor/csio_hw.c b/drivers/scsi/csiostor/csio_hw.c
-index 5f06877..80ad9c5 100644
---- a/drivers/scsi/csiostor/csio_hw.c
-+++ b/drivers/scsi/csiostor/csio_hw.c
-@@ -1170,7 +1170,7 @@ csio_hw_fw_halt(struct csio_hw *hw, uint32_t mbox, int32_t force)
- 		}
- 
- 		csio_mb_reset(hw, mbp, CSIO_MB_DEFAULT_TMO,
--			      PIORSTMODE | PIORST, FW_RESET_CMD_HALT(1),
-+			      PIORSTMODE | PIORST, FW_RESET_CMD_HALT_F,
- 			      NULL);
- 
- 		if (csio_mb_issue(hw, mbp)) {
-@@ -1374,9 +1374,9 @@ csio_hw_fw_config_file(struct csio_hw *hw,
- 		      FW_CMD_REQUEST_F |
- 		      FW_CMD_READ_F);
- 	caps_cmd->cfvalid_to_len16 =
--		htonl(FW_CAPS_CONFIG_CMD_CFVALID |
--		      FW_CAPS_CONFIG_CMD_MEMTYPE_CF(mtype) |
--		      FW_CAPS_CONFIG_CMD_MEMADDR64K_CF(maddr >> 16) |
-+		htonl(FW_CAPS_CONFIG_CMD_CFVALID_F |
-+		      FW_CAPS_CONFIG_CMD_MEMTYPE_CF_V(mtype) |
-+		      FW_CAPS_CONFIG_CMD_MEMADDR64K_CF_V(maddr >> 16) |
- 		      FW_LEN16(*caps_cmd));
- 
- 	if (csio_mb_issue(hw, mbp)) {
-@@ -1723,8 +1723,8 @@ csio_hw_check_fwconfig(struct csio_hw *hw, u32 *param)
- 	 * Find out whether we're dealing with a version of
- 	 * the firmware which has configuration file support.
- 	 */
--	_param[0] = (FW_PARAMS_MNEM(FW_PARAMS_MNEM_DEV) |
--		     FW_PARAMS_PARAM_X(FW_PARAMS_PARAM_DEV_CF));
-+	_param[0] = (FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_DEV) |
-+		     FW_PARAMS_PARAM_X_V(FW_PARAMS_PARAM_DEV_CF));
- 
- 	csio_mb_params(hw, mbp, CSIO_MB_DEFAULT_TMO, hw->pfn, 0,
- 		       ARRAY_SIZE(_param), _param, NULL, false, NULL);
-@@ -1781,8 +1781,8 @@ csio_hw_flash_config(struct csio_hw *hw, u32 *fw_cfg_param, char *path)
- 		goto leave;
- 	}
- 
--	mtype = FW_PARAMS_PARAM_Y_GET(*fw_cfg_param);
--	maddr = FW_PARAMS_PARAM_Z_GET(*fw_cfg_param) << 16;
-+	mtype = FW_PARAMS_PARAM_Y_G(*fw_cfg_param);
-+	maddr = FW_PARAMS_PARAM_Z_G(*fw_cfg_param) << 16;
- 
- 	ret = csio_memory_write(hw, mtype, maddr,
- 				cf->size + value_to_add, cfg_data);
-@@ -1871,8 +1871,8 @@ csio_hw_use_fwconfig(struct csio_hw *hw, int reset, u32 *fw_cfg_param)
- 			goto bye;
- 		}
- 	} else {
--		mtype = FW_PARAMS_PARAM_Y_GET(*fw_cfg_param);
--		maddr = FW_PARAMS_PARAM_Z_GET(*fw_cfg_param) << 16;
-+		mtype = FW_PARAMS_PARAM_Y_G(*fw_cfg_param);
-+		maddr = FW_PARAMS_PARAM_Z_G(*fw_cfg_param) << 16;
- 		using_flash = 0;
- 	}
  
 diff --git a/drivers/scsi/csiostor/csio_mb.c b/drivers/scsi/csiostor/csio_mb.c
-index ffa8489..a1e0568 100644
+index a1e0568..5a514b6 100644
 --- a/drivers/scsi/csiostor/csio_mb.c
 +++ b/drivers/scsi/csiostor/csio_mb.c
-@@ -85,13 +85,13 @@ csio_mb_hello(struct csio_hw *hw, struct csio_mb *mbp, uint32_t tmo,
- 				       FW_CMD_REQUEST_F | FW_CMD_WRITE_F);
- 	cmdp->retval_len16 = htonl(FW_CMD_LEN16_V(sizeof(*cmdp) / 16));
- 	cmdp->err_to_clearinit = htonl(
--		FW_HELLO_CMD_MASTERDIS(master == CSIO_MASTER_CANT)	|
--		FW_HELLO_CMD_MASTERFORCE(master == CSIO_MASTER_MUST)	|
--		FW_HELLO_CMD_MBMASTER(master == CSIO_MASTER_MUST ?
--				m_mbox : FW_HELLO_CMD_MBMASTER_MASK)	|
--		FW_HELLO_CMD_MBASYNCNOT(a_mbox) |
--		FW_HELLO_CMD_STAGE(fw_hello_cmd_stage_os) |
--		FW_HELLO_CMD_CLEARINIT);
-+		FW_HELLO_CMD_MASTERDIS_V(master == CSIO_MASTER_CANT)	|
-+		FW_HELLO_CMD_MASTERFORCE_V(master == CSIO_MASTER_MUST)	|
-+		FW_HELLO_CMD_MBMASTER_V(master == CSIO_MASTER_MUST ?
-+				m_mbox : FW_HELLO_CMD_MBMASTER_M)	|
-+		FW_HELLO_CMD_MBASYNCNOT_V(a_mbox) |
-+		FW_HELLO_CMD_STAGE_V(fw_hello_cmd_stage_os) |
-+		FW_HELLO_CMD_CLEARINIT_F);
+@@ -445,16 +445,16 @@ csio_mb_iq_alloc(struct csio_hw *hw, struct csio_mb *mbp, void *priv,
  
- }
+ 	cmdp->op_to_vfn = htonl(FW_CMD_OP_V(FW_IQ_CMD)		|
+ 				FW_CMD_REQUEST_F | FW_CMD_EXEC_F	|
+-				FW_IQ_CMD_PFN(iq_params->pfn)	|
+-				FW_IQ_CMD_VFN(iq_params->vfn));
++				FW_IQ_CMD_PFN_V(iq_params->pfn)	|
++				FW_IQ_CMD_VFN_V(iq_params->vfn));
  
-@@ -118,11 +118,11 @@ csio_mb_process_hello_rsp(struct csio_hw *hw, struct csio_mb *mbp,
- 		hw->fwrev = ntohl(rsp->fwrev);
+-	cmdp->alloc_to_len16 = htonl(FW_IQ_CMD_ALLOC		|
++	cmdp->alloc_to_len16 = htonl(FW_IQ_CMD_ALLOC_F		|
+ 				FW_CMD_LEN16_V(sizeof(*cmdp) / 16));
  
- 		value = ntohl(rsp->err_to_clearinit);
--		*mpfn = FW_HELLO_CMD_MBMASTER_GET(value);
-+		*mpfn = FW_HELLO_CMD_MBMASTER_G(value);
+ 	cmdp->type_to_iqandstindex = htonl(
+-				FW_IQ_CMD_VIID(iq_params->viid)	|
+-				FW_IQ_CMD_TYPE(iq_params->type)	|
+-				FW_IQ_CMD_IQASYNCH(iq_params->iqasynch));
++				FW_IQ_CMD_VIID_V(iq_params->viid)	|
++				FW_IQ_CMD_TYPE_V(iq_params->type)	|
++				FW_IQ_CMD_IQASYNCH_V(iq_params->iqasynch));
  
--		if (value & FW_HELLO_CMD_INIT)
-+		if (value & FW_HELLO_CMD_INIT_F)
- 			*state = CSIO_DEV_STATE_INIT;
--		else if (value & FW_HELLO_CMD_ERR)
-+		else if (value & FW_HELLO_CMD_ERR_F)
- 			*state = CSIO_DEV_STATE_ERR;
- 		else
- 			*state = CSIO_DEV_STATE_UNINIT;
-@@ -205,8 +205,8 @@ csio_mb_params(struct csio_hw *hw, struct csio_mb *mbp, uint32_t tmo,
- 	cmdp->op_to_vfn = htonl(FW_CMD_OP_V(FW_PARAMS_CMD)		|
- 				FW_CMD_REQUEST_F			|
- 				(wr ? FW_CMD_WRITE_F : FW_CMD_READ_F)	|
--				FW_PARAMS_CMD_PFN(pf)			|
--				FW_PARAMS_CMD_VFN(vf));
-+				FW_PARAMS_CMD_PFN_V(pf)			|
-+				FW_PARAMS_CMD_VFN_V(vf));
- 	cmdp->retval_len16 = htonl(FW_CMD_LEN16_V(sizeof(*cmdp) / 16));
+ 	cmdp->fl0size = htons(iq_params->fl0size);
+ 	cmdp->fl0size = htons(iq_params->fl1size);
+@@ -488,8 +488,8 @@ csio_mb_iq_write(struct csio_hw *hw, struct csio_mb *mbp, void *priv,
+ 	struct fw_iq_cmd *cmdp = (struct fw_iq_cmd *)(mbp->mb);
  
- 	/* Write Params */
-@@ -274,11 +274,11 @@ csio_mb_ldst(struct csio_hw *hw, struct csio_mb *mbp, uint32_t tmo, int reg)
- 			htonl(FW_CMD_OP_V(FW_LDST_CMD)	|
- 			FW_CMD_REQUEST_F			|
- 			FW_CMD_READ_F			|
--			FW_LDST_CMD_ADDRSPACE(FW_LDST_ADDRSPC_FUNC_PCIE));
-+			FW_LDST_CMD_ADDRSPACE_V(FW_LDST_ADDRSPC_FUNC_PCIE));
- 	ldst_cmd->cycles_to_len16 = htonl(FW_LEN16(struct fw_ldst_cmd));
--	ldst_cmd->u.pcie.select_naccess = FW_LDST_CMD_NACCESS(1);
-+	ldst_cmd->u.pcie.select_naccess = FW_LDST_CMD_NACCESS_V(1);
- 	ldst_cmd->u.pcie.ctrl_to_fn =
--		(FW_LDST_CMD_LC | FW_LDST_CMD_FN(hw->pfn));
-+		(FW_LDST_CMD_LC_F | FW_LDST_CMD_FN_V(hw->pfn));
- 	ldst_cmd->u.pcie.r = (uint8_t)reg;
- }
+ 	uint32_t iq_start_stop = (iq_params->iq_start)	?
+-					FW_IQ_CMD_IQSTART(1) :
+-					FW_IQ_CMD_IQSTOP(1);
++					FW_IQ_CMD_IQSTART_F :
++					FW_IQ_CMD_IQSTOP_F;
  
-diff --git a/drivers/scsi/csiostor/csio_mb.h b/drivers/scsi/csiostor/csio_mb.h
-index a84179e..1bc82d0 100644
---- a/drivers/scsi/csiostor/csio_mb.h
-+++ b/drivers/scsi/csiostor/csio_mb.h
-@@ -79,14 +79,14 @@ enum csio_dev_state {
- };
+ 	/*
+ 	 * If this IQ write is cascaded with IQ alloc request, do not
+@@ -501,49 +501,49 @@ csio_mb_iq_write(struct csio_hw *hw, struct csio_mb *mbp, void *priv,
  
- #define FW_PARAM_DEV(param) \
--	(FW_PARAMS_MNEM(FW_PARAMS_MNEM_DEV) | \
--	 FW_PARAMS_PARAM_X(FW_PARAMS_PARAM_DEV_##param))
-+	(FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_DEV) | \
-+	 FW_PARAMS_PARAM_X_V(FW_PARAMS_PARAM_DEV_##param))
+ 	cmdp->op_to_vfn |= htonl(FW_CMD_OP_V(FW_IQ_CMD)		|
+ 				FW_CMD_REQUEST_F | FW_CMD_WRITE_F	|
+-				FW_IQ_CMD_PFN(iq_params->pfn)	|
+-				FW_IQ_CMD_VFN(iq_params->vfn));
++				FW_IQ_CMD_PFN_V(iq_params->pfn)	|
++				FW_IQ_CMD_VFN_V(iq_params->vfn));
+ 	cmdp->alloc_to_len16 |= htonl(iq_start_stop |
+ 				FW_CMD_LEN16_V(sizeof(*cmdp) / 16));
+ 	cmdp->iqid |= htons(iq_params->iqid);
+ 	cmdp->fl0id |= htons(iq_params->fl0id);
+ 	cmdp->fl1id |= htons(iq_params->fl1id);
+ 	cmdp->type_to_iqandstindex |= htonl(
+-			FW_IQ_CMD_IQANDST(iq_params->iqandst)	|
+-			FW_IQ_CMD_IQANUS(iq_params->iqanus)	|
+-			FW_IQ_CMD_IQANUD(iq_params->iqanud)	|
+-			FW_IQ_CMD_IQANDSTINDEX(iq_params->iqandstindex));
++			FW_IQ_CMD_IQANDST_V(iq_params->iqandst)	|
++			FW_IQ_CMD_IQANUS_V(iq_params->iqanus)	|
++			FW_IQ_CMD_IQANUD_V(iq_params->iqanud)	|
++			FW_IQ_CMD_IQANDSTINDEX_V(iq_params->iqandstindex));
+ 	cmdp->iqdroprss_to_iqesize |= htons(
+-			FW_IQ_CMD_IQPCIECH(iq_params->iqpciech)		|
+-			FW_IQ_CMD_IQDCAEN(iq_params->iqdcaen)		|
+-			FW_IQ_CMD_IQDCACPU(iq_params->iqdcacpu)		|
+-			FW_IQ_CMD_IQINTCNTTHRESH(iq_params->iqintcntthresh) |
+-			FW_IQ_CMD_IQCPRIO(iq_params->iqcprio)		|
+-			FW_IQ_CMD_IQESIZE(iq_params->iqesize));
++			FW_IQ_CMD_IQPCIECH_V(iq_params->iqpciech)	|
++			FW_IQ_CMD_IQDCAEN_V(iq_params->iqdcaen)		|
++			FW_IQ_CMD_IQDCACPU_V(iq_params->iqdcacpu)	|
++			FW_IQ_CMD_IQINTCNTTHRESH_V(iq_params->iqintcntthresh) |
++			FW_IQ_CMD_IQCPRIO_V(iq_params->iqcprio)		|
++			FW_IQ_CMD_IQESIZE_V(iq_params->iqesize));
  
- #define FW_PARAM_PFVF(param) \
--	(FW_PARAMS_MNEM(FW_PARAMS_MNEM_PFVF) | \
--	 FW_PARAMS_PARAM_X(FW_PARAMS_PARAM_PFVF_##param)|  \
--	 FW_PARAMS_PARAM_Y(0) | \
--	 FW_PARAMS_PARAM_Z(0))
-+	(FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_PFVF) | \
-+	 FW_PARAMS_PARAM_X_V(FW_PARAMS_PARAM_PFVF_##param)|  \
-+	 FW_PARAMS_PARAM_Y_V(0) | \
-+	 FW_PARAMS_PARAM_Z_V(0))
+ 	cmdp->iqsize |= htons(iq_params->iqsize);
+ 	cmdp->iqaddr |= cpu_to_be64(iq_params->iqaddr);
  
- enum {
- 	PAUSE_RX      = 1 << 0,
+ 	if (iq_params->type == 0) {
+ 		cmdp->iqns_to_fl0congen |= htonl(
+-			FW_IQ_CMD_IQFLINTIQHSEN(iq_params->iqflintiqhsen)|
+-			FW_IQ_CMD_IQFLINTCONGEN(iq_params->iqflintcongen));
++			FW_IQ_CMD_IQFLINTIQHSEN_V(iq_params->iqflintiqhsen)|
++			FW_IQ_CMD_IQFLINTCONGEN_V(iq_params->iqflintcongen));
+ 	}
+ 
+ 	if (iq_params->fl0size && iq_params->fl0addr &&
+ 	    (iq_params->fl0id != 0xFFFF)) {
+ 
+ 		cmdp->iqns_to_fl0congen |= htonl(
+-			FW_IQ_CMD_FL0HOSTFCMODE(iq_params->fl0hostfcmode)|
+-			FW_IQ_CMD_FL0CPRIO(iq_params->fl0cprio)		|
+-			FW_IQ_CMD_FL0PADEN(iq_params->fl0paden)		|
+-			FW_IQ_CMD_FL0PACKEN(iq_params->fl0packen));
++			FW_IQ_CMD_FL0HOSTFCMODE_V(iq_params->fl0hostfcmode)|
++			FW_IQ_CMD_FL0CPRIO_V(iq_params->fl0cprio)	|
++			FW_IQ_CMD_FL0PADEN_V(iq_params->fl0paden)	|
++			FW_IQ_CMD_FL0PACKEN_V(iq_params->fl0packen));
+ 		cmdp->fl0dcaen_to_fl0cidxfthresh |= htons(
+-			FW_IQ_CMD_FL0DCAEN(iq_params->fl0dcaen)		|
+-			FW_IQ_CMD_FL0DCACPU(iq_params->fl0dcacpu)	|
+-			FW_IQ_CMD_FL0FBMIN(iq_params->fl0fbmin)		|
+-			FW_IQ_CMD_FL0FBMAX(iq_params->fl0fbmax)		|
+-			FW_IQ_CMD_FL0CIDXFTHRESH(iq_params->fl0cidxfthresh));
++			FW_IQ_CMD_FL0DCAEN_V(iq_params->fl0dcaen)	|
++			FW_IQ_CMD_FL0DCACPU_V(iq_params->fl0dcacpu)	|
++			FW_IQ_CMD_FL0FBMIN_V(iq_params->fl0fbmin)	|
++			FW_IQ_CMD_FL0FBMAX_V(iq_params->fl0fbmax)	|
++			FW_IQ_CMD_FL0CIDXFTHRESH_V(iq_params->fl0cidxfthresh));
+ 		cmdp->fl0size |= htons(iq_params->fl0size);
+ 		cmdp->fl0addr |= cpu_to_be64(iq_params->fl0addr);
+ 	}
+@@ -624,11 +624,11 @@ csio_mb_iq_free(struct csio_hw *hw, struct csio_mb *mbp, void *priv,
+ 
+ 	cmdp->op_to_vfn = htonl(FW_CMD_OP_V(FW_IQ_CMD)		|
+ 				FW_CMD_REQUEST_F | FW_CMD_EXEC_F	|
+-				FW_IQ_CMD_PFN(iq_params->pfn)	|
+-				FW_IQ_CMD_VFN(iq_params->vfn));
+-	cmdp->alloc_to_len16 = htonl(FW_IQ_CMD_FREE		|
++				FW_IQ_CMD_PFN_V(iq_params->pfn)	|
++				FW_IQ_CMD_VFN_V(iq_params->vfn));
++	cmdp->alloc_to_len16 = htonl(FW_IQ_CMD_FREE_F		|
+ 				FW_CMD_LEN16_V(sizeof(*cmdp) / 16));
+-	cmdp->type_to_iqandstindex = htonl(FW_IQ_CMD_TYPE(iq_params->type));
++	cmdp->type_to_iqandstindex = htonl(FW_IQ_CMD_TYPE_V(iq_params->type));
+ 
+ 	cmdp->iqid = htons(iq_params->iqid);
+ 	cmdp->fl0id = htons(iq_params->fl0id);
+@@ -659,9 +659,9 @@ csio_mb_eq_ofld_alloc(struct csio_hw *hw, struct csio_mb *mbp, void *priv,
+ 	CSIO_INIT_MBP(mbp, cmdp, mb_tmo, priv, cbfn, 1);
+ 	cmdp->op_to_vfn = htonl(FW_CMD_OP_V(FW_EQ_OFLD_CMD)		|
+ 				FW_CMD_REQUEST_F | FW_CMD_EXEC_F	|
+-				FW_EQ_OFLD_CMD_PFN(eq_ofld_params->pfn) |
+-				FW_EQ_OFLD_CMD_VFN(eq_ofld_params->vfn));
+-	cmdp->alloc_to_len16 = htonl(FW_EQ_OFLD_CMD_ALLOC	|
++				FW_EQ_OFLD_CMD_PFN_V(eq_ofld_params->pfn) |
++				FW_EQ_OFLD_CMD_VFN_V(eq_ofld_params->vfn));
++	cmdp->alloc_to_len16 = htonl(FW_EQ_OFLD_CMD_ALLOC_F	|
+ 				FW_CMD_LEN16_V(sizeof(*cmdp) / 16));
+ 
+ } /* csio_mb_eq_ofld_alloc */
+@@ -694,7 +694,8 @@ csio_mb_eq_ofld_write(struct csio_hw *hw, struct csio_mb *mbp, void *priv,
+ 	struct fw_eq_ofld_cmd *cmdp = (struct fw_eq_ofld_cmd *)(mbp->mb);
+ 
+ 	uint32_t eq_start_stop = (eq_ofld_params->eqstart)	?
+-				FW_EQ_OFLD_CMD_EQSTART	: FW_EQ_OFLD_CMD_EQSTOP;
++				FW_EQ_OFLD_CMD_EQSTART_F :
++				FW_EQ_OFLD_CMD_EQSTOP_F;
+ 
+ 	/*
+ 	 * If this EQ write is cascaded with EQ alloc request, do not
+@@ -706,27 +707,27 @@ csio_mb_eq_ofld_write(struct csio_hw *hw, struct csio_mb *mbp, void *priv,
+ 
+ 	cmdp->op_to_vfn |= htonl(FW_CMD_OP_V(FW_EQ_OFLD_CMD)	|
+ 				FW_CMD_REQUEST_F | FW_CMD_WRITE_F	|
+-				FW_EQ_OFLD_CMD_PFN(eq_ofld_params->pfn) |
+-				FW_EQ_OFLD_CMD_VFN(eq_ofld_params->vfn));
++				FW_EQ_OFLD_CMD_PFN_V(eq_ofld_params->pfn) |
++				FW_EQ_OFLD_CMD_VFN_V(eq_ofld_params->vfn));
+ 	cmdp->alloc_to_len16 |= htonl(eq_start_stop		|
+ 				      FW_CMD_LEN16_V(sizeof(*cmdp) / 16));
+ 
+-	cmdp->eqid_pkd |= htonl(FW_EQ_OFLD_CMD_EQID(eq_ofld_params->eqid));
++	cmdp->eqid_pkd |= htonl(FW_EQ_OFLD_CMD_EQID_V(eq_ofld_params->eqid));
+ 
+ 	cmdp->fetchszm_to_iqid |= htonl(
+-		FW_EQ_OFLD_CMD_HOSTFCMODE(eq_ofld_params->hostfcmode)	|
+-		FW_EQ_OFLD_CMD_CPRIO(eq_ofld_params->cprio)		|
+-		FW_EQ_OFLD_CMD_PCIECHN(eq_ofld_params->pciechn)		|
+-		FW_EQ_OFLD_CMD_IQID(eq_ofld_params->iqid));
++		FW_EQ_OFLD_CMD_HOSTFCMODE_V(eq_ofld_params->hostfcmode)	|
++		FW_EQ_OFLD_CMD_CPRIO_V(eq_ofld_params->cprio)		|
++		FW_EQ_OFLD_CMD_PCIECHN_V(eq_ofld_params->pciechn)	|
++		FW_EQ_OFLD_CMD_IQID_V(eq_ofld_params->iqid));
+ 
+ 	cmdp->dcaen_to_eqsize |= htonl(
+-		FW_EQ_OFLD_CMD_DCAEN(eq_ofld_params->dcaen)		|
+-		FW_EQ_OFLD_CMD_DCACPU(eq_ofld_params->dcacpu)		|
+-		FW_EQ_OFLD_CMD_FBMIN(eq_ofld_params->fbmin)		|
+-		FW_EQ_OFLD_CMD_FBMAX(eq_ofld_params->fbmax)		|
+-		FW_EQ_OFLD_CMD_CIDXFTHRESHO(eq_ofld_params->cidxfthresho) |
+-		FW_EQ_OFLD_CMD_CIDXFTHRESH(eq_ofld_params->cidxfthresh) |
+-		FW_EQ_OFLD_CMD_EQSIZE(eq_ofld_params->eqsize));
++		FW_EQ_OFLD_CMD_DCAEN_V(eq_ofld_params->dcaen)		|
++		FW_EQ_OFLD_CMD_DCACPU_V(eq_ofld_params->dcacpu)		|
++		FW_EQ_OFLD_CMD_FBMIN_V(eq_ofld_params->fbmin)		|
++		FW_EQ_OFLD_CMD_FBMAX_V(eq_ofld_params->fbmax)		|
++		FW_EQ_OFLD_CMD_CIDXFTHRESHO_V(eq_ofld_params->cidxfthresho) |
++		FW_EQ_OFLD_CMD_CIDXFTHRESH_V(eq_ofld_params->cidxfthresh) |
++		FW_EQ_OFLD_CMD_EQSIZE_V(eq_ofld_params->eqsize));
+ 
+ 	cmdp->eqaddr |= cpu_to_be64(eq_ofld_params->eqaddr);
+ 
+@@ -776,9 +777,9 @@ csio_mb_eq_ofld_alloc_write_rsp(struct csio_hw *hw,
+ 	*ret_val = FW_CMD_RETVAL_G(ntohl(rsp->alloc_to_len16));
+ 
+ 	if (*ret_val == FW_SUCCESS) {
+-		eq_ofld_params->eqid = FW_EQ_OFLD_CMD_EQID_GET(
++		eq_ofld_params->eqid = FW_EQ_OFLD_CMD_EQID_G(
+ 						ntohl(rsp->eqid_pkd));
+-		eq_ofld_params->physeqid = FW_EQ_OFLD_CMD_PHYSEQID_GET(
++		eq_ofld_params->physeqid = FW_EQ_OFLD_CMD_PHYSEQID_G(
+ 						ntohl(rsp->physeqid_pkd));
+ 	} else
+ 		eq_ofld_params->eqid = 0;
+@@ -809,11 +810,11 @@ csio_mb_eq_ofld_free(struct csio_hw *hw, struct csio_mb *mbp, void *priv,
+ 
+ 	cmdp->op_to_vfn = htonl(FW_CMD_OP_V(FW_EQ_OFLD_CMD)	|
+ 				FW_CMD_REQUEST_F | FW_CMD_EXEC_F	|
+-				FW_EQ_OFLD_CMD_PFN(eq_ofld_params->pfn) |
+-				FW_EQ_OFLD_CMD_VFN(eq_ofld_params->vfn));
+-	cmdp->alloc_to_len16 = htonl(FW_EQ_OFLD_CMD_FREE |
++				FW_EQ_OFLD_CMD_PFN_V(eq_ofld_params->pfn) |
++				FW_EQ_OFLD_CMD_VFN_V(eq_ofld_params->vfn));
++	cmdp->alloc_to_len16 = htonl(FW_EQ_OFLD_CMD_FREE_F |
+ 				FW_CMD_LEN16_V(sizeof(*cmdp) / 16));
+-	cmdp->eqid_pkd = htonl(FW_EQ_OFLD_CMD_EQID(eq_ofld_params->eqid));
++	cmdp->eqid_pkd = htonl(FW_EQ_OFLD_CMD_EQID_V(eq_ofld_params->eqid));
+ 
+ } /* csio_mb_eq_ofld_free */
+ 
 -- 
 1.7.1
