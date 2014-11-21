@@ -1,60 +1,40 @@
-From: Chris Mason <clm@fb.com>
-Subject: Re: [PATCH net] net: Revert "net: avoid one atomic operation in
- skb_clone()"
-Date: Fri, 21 Nov 2014 14:39:34 -0500
-Message-ID: <1416598774.24312.9@mail.thefacebook.com>
-References: <20141121160937.GA32608@ret.masoncoding.com>
-	<1416587469.8629.106.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1416589451.8629.119.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20141121180510.GA22112@kria>
-	<1416598161.8629.120.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [RFC] situation with csum_and_copy_... API
+Date: Fri, 21 Nov 2014 11:40:49 -0800
+Message-ID: <CA+55aFy4d1uii5078NxT7E9cTCbHfpgMitA4goHJadRGM8pshg@mail.gmail.com>
+References: <CA+55aFyQR2gOzEDROcWFcQzLvTjOxyJRjFJXJ03JB5knd-Gsgg@mail.gmail.com>
+	<20141119.161744.1661940121298888832.davem@davemloft.net>
+	<20141119213006.GE7996@ZenIV.linux.org.uk>
+	<20141119.165340.2162829993279387495.davem@davemloft.net>
+	<20141120214753.GR7996@ZenIV.linux.org.uk>
+	<1416520542.8629.46.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20141120222506.GS7996@ZenIV.linux.org.uk>
+	<1416524035.8629.54.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20141121084956.GT7996@ZenIV.linux.org.uk>
+	<063D6719AE5E284EB5DD2968C1650D6D1C9F6930@AcuExch.aculab.com>
+	<20141121193911.GU7996@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Cc: Sabrina Dubroca <sd@queasysnail.net>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:14075 "EHLO
-	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751915AbaKUTjq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2014 14:39:46 -0500
-In-Reply-To: <1416598161.8629.120.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Laight <David.Laight@aculab.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"target-devel@vger.kernel.org" <target-devel@vger.kernel.org>,
+	"Nicholas A. Bellinger" <nab@linux-iscsi.org>,
+	Christoph Hellwig <hch@infradead.org>
+To: Al Viro <viro@zeniv.linux.org.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141121193911.GU7996@ZenIV.linux.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 21, 2014 at 2:29 PM, Eric Dumazet <eric.dumazet@gmail.com> 
-wrote:
-> On Fri, 2014-11-21 at 19:05 +0100, Sabrina Dubroca wrote:
->>  Hello Eric,
->> 
->>  >
->>  > diff --git a/net/core/skbuff.c b/net/core/skbuff.c
->>  > index c16615bfb61e..be4c7deed971 100644
->>  > --- a/net/core/skbuff.c
->>  > +++ b/net/core/skbuff.c
->>  > @@ -552,20 +552,13 @@ static void kfree_skbmem(struct sk_buff 
->> *skb)
->>  >  	case SKB_FCLONE_CLONE:
->>  >  		fclones = container_of(skb, struct sk_buff_fclones, skb2);
->>  >
->>  > -		/* Warning : We must perform the atomic_dec_and_test() before
->>  > -		 * setting skb->fclone back to SKB_FCLONE_FREE, otherwise
->>  > -		 * skb_clone() could set clone_ref to 2 before our decrement.
->>  > -		 * Anyway, if we are going to free the structure, no need to
->>  > -		 * rewrite skb->fclone.
->>  > +		/* The clone portion is available for
->>  > +		 * fast-cloning again.
->>  >  		 */
->>  > -		if (atomic_dec_and_test(&fclones->fclone_ref)) {
->>  > +		skb->fclone = SKB_FCLONE_UNAVAILABLE;
->> 
->>  Shouldn't that be SKB_FCLONE_FREE ?
-> 
-> Absolutely :(
-> 
-> I'll send a v2, thanks !
+On Fri, Nov 21, 2014 at 11:39 AM, Al Viro <viro@zeniv.linux.org.uk> wrote:
+>
+> I'm not at all sure that _anything_ has valid reasons for draining iovecs.
+> Maintaining a struct iov_iter and modifying it is easy and actually faster...
 
-v1 made it through the first pass here.  I'll switch to SKB_FCLONE_FREE 
-and restart.
+For new code, I agree. But the whole "draining iovec's" is a fairly
+common old model.
 
--chris
+                  Linus
