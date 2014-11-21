@@ -1,7 +1,8 @@
 From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Subject: [PATCH 0/3] [RFC] net: implement SMC-R solution
-Date: Fri, 21 Nov 2014 21:08:01 +0100
-Message-ID: <1416600484-55631-1-git-send-email-ubraun@linux.vnet.ibm.com>
+Subject: [PATCH 2/3] [RFC] net: introduce socket family constants
+Date: Fri, 21 Nov 2014 21:08:03 +0100
+Message-ID: <1416600484-55631-3-git-send-email-ubraun@linux.vnet.ibm.com>
+References: <1416600484-55631-1-git-send-email-ubraun@linux.vnet.ibm.com>
 Cc: linux-s390@vger.kernel.org, davem@davemloft.net,
 	utz.bacher@de.ibm.com, ogerlitz@mellanox.com, monis@mellanox.com,
 	fowlerja@us.ibm.com, heiko.carstens@de.ibm.com,
@@ -9,103 +10,89 @@ Cc: linux-s390@vger.kernel.org, davem@davemloft.net,
 	ubraun@linux.vnet.ibm.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp17.uk.ibm.com ([195.75.94.113]:37995 "EHLO
+Received: from e06smtp17.uk.ibm.com ([195.75.94.113]:37998 "EHLO
 	e06smtp17.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752300AbaKUUIP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2014 15:08:15 -0500
+	with ESMTP id S1752503AbaKUUIQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2014 15:08:16 -0500
 Received: from /spool/local
 	by e06smtp17.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
 	for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
-	Fri, 21 Nov 2014 20:08:13 -0000
+	Fri, 21 Nov 2014 20:08:15 -0000
+In-Reply-To: <1416600484-55631-1-git-send-email-ubraun@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ursula Braun <ursula.braun@de.ibm.com>
 
-A connection using SMC-R starts out setting up a connection using the
-TCP/IP protocol [2]. Thus an internal smc-managed TCP socket is established,
-whose traffic flows across an interface belonging to the same Converged
-Ethernet fabric, defined by a so-called "pnet table" [1].
+The new socket family is assigned the next available address / protocol family
+constant 41.
 
-As part of the connection setup, flags indicating the support
-for SMC-R will be used to negotiate SMC-R usage. If any of the two parties
-involved does not support SMC-R, the connection will fall back to plain TCP/IP
-usage. If both parties support SMC-R, the TCP/IP connection will be used to
-exchange the necessary connection data for setup of an Infiniband (IB)
-connection in the so-called {\em rendezvous handshake}.
+In addition some extra setsockopt handling is needed, which requires definition
+of SMC-specific setsockopt level 281.
 
-The code implements also the link management of the SMC-R protocol forming link
-groups for each remote host and provide for
-- dynamic addition of further RoCE Host Channel Adapters (HCAs) to form a
-  so-called link group
-- seamless failover, moving existing connections from a failed HCA
-  to the remaining HCAs in a link group
-- load balancing of connections across the links in a link group
-
-SMC-R design defines memory areas for data transport through RDMA called
-RDMA Memory Buffer (RMB) split up into several RMB Elements (RMBEs) assigned to
-single connections. This initial Linux implementation requires real contiguous
-storage for these RMBs and uses a separate RMB with just 1 RMBE for every
-connection. Its size is derived from:
-- a system wide default minimum SMC receive buffer size (tailorable by
-  /proc/net/smc/rcvbuf
-- if given, the socket specific SETSOCKOPT SO_RCVBUF configuration
-- the size of the tcp socket receive buffer determined from the system wide tcp
-  socket receive buffer configuration
-- the amount of available contiguous storage
-In the Linux implementation an equivalent concept exists for the socket send
-buffers [1].
-
-The patch provided does not yet cover:
-- IPv6 support
-- Tracing
-- Statistic hooks
-These items are on our list of things to do.
-
-References:
-[1] SMC-R Overview and Reference Materials:
-    http://www-01.ibm.com/software/network/commserver/SMCR/ 
-[2] SMC-R Informational RFC:
-    http://datatracker.ietf.org/doc/draft-fox-tcpm-shared-memory-rdma-05/
-
-Prerequiste for proper VLAN handling is this recent patch in
-drivers/infiniband/core/verbs.c:
-	https://patchwork.kernel.org/patch/5335641/
+To support socket call splice_read in AF_SMC, exporting symbol splice_to_pipe
+is needed.
 
 Signed-off-by: Ursula Braun <ubraun@linux.vnet.ibm.com>
+---
+ fs/splice.c            | 1 +
+ include/linux/socket.h | 5 ++++-
+ net/Makefile           | 1 +
+ 3 files changed, 6 insertions(+), 1 deletion(-)
 
-Ursula Braun (3):
-  [RFC] tcp: introduce TCP experimental option for SMC
-  [RFC] net: introduce socket family constants
-  [RFC] smc: introduce socket family AF_SMC
-
- fs/splice.c                |    1 +
- include/linux/socket.h     |    5 +-
- include/linux/tcp.h        |    5 +-
- include/net/request_sock.h |    3 +-
- include/net/tcp.h          |    4 +
- net/Kconfig                |    1 +
- net/Makefile               |    1 +
- net/ipv4/tcp_input.c       |   41 +-
- net/ipv4/tcp_minisocks.c   |    4 +
- net/ipv4/tcp_output.c      |   26 +
- net/smc/Kconfig            |    9 +
- net/smc/Makefile           |    3 +
- net/smc/af_smc.c           | 2905 +++++++++++++++++++++++++++++++++++++++++
- net/smc/af_smc.h           |  669 ++++++++++
- net/smc/smc_core.c         | 3112 ++++++++++++++++++++++++++++++++++++++++++++
- net/smc/smc_llc.c          | 1472 +++++++++++++++++++++
- net/smc/smc_llc.h          |  192 +++
- net/smc/smc_proc.c         |  829 ++++++++++++
- 18 files changed, 9266 insertions(+), 16 deletions(-)
- create mode 100644 net/smc/Kconfig
- create mode 100644 net/smc/Makefile
- create mode 100644 net/smc/af_smc.c
- create mode 100644 net/smc/af_smc.h
- create mode 100644 net/smc/smc_core.c
- create mode 100644 net/smc/smc_llc.c
- create mode 100644 net/smc/smc_llc.h
- create mode 100644 net/smc/smc_proc.c
-
+diff --git a/fs/splice.c b/fs/splice.c
+index 75c6058..d09d843 100644
+--- a/fs/splice.c
++++ b/fs/splice.c
+@@ -262,6 +262,7 @@ ssize_t splice_to_pipe(struct pipe_inode_info *pipe,
+ 
+ 	return ret;
+ }
++EXPORT_SYMBOL(splice_to_pipe);
+ 
+ void spd_release_page(struct splice_pipe_desc *spd, unsigned int i)
+ {
+diff --git a/include/linux/socket.h b/include/linux/socket.h
+index bb9b836..eb887ef 100644
+--- a/include/linux/socket.h
++++ b/include/linux/socket.h
+@@ -180,7 +180,8 @@ struct ucred {
+ #define AF_ALG		38	/* Algorithm sockets		*/
+ #define AF_NFC		39	/* NFC sockets			*/
+ #define AF_VSOCK	40	/* vSockets			*/
+-#define AF_MAX		41	/* For now.. */
++#define AF_SMC		41	/* smc sockets			*/
++#define AF_MAX		42	/* For now.. */
+ 
+ /* Protocol families, same as address families. */
+ #define PF_UNSPEC	AF_UNSPEC
+@@ -225,6 +226,7 @@ struct ucred {
+ #define PF_ALG		AF_ALG
+ #define PF_NFC		AF_NFC
+ #define PF_VSOCK	AF_VSOCK
++#define PF_SMC		AF_SMC
+ #define PF_MAX		AF_MAX
+ 
+ /* Maximum queue length specifiable by listen.  */
+@@ -301,6 +303,7 @@ struct ucred {
+ #define SOL_CAIF	278
+ #define SOL_ALG		279
+ #define SOL_NFC		280
++#define SOL_SMC		281
+ 
+ /* IPX options */
+ #define IPX_TYPE	1
+diff --git a/net/Makefile b/net/Makefile
+index 7ed1970..851b1ce 100644
+--- a/net/Makefile
++++ b/net/Makefile
+@@ -51,6 +51,7 @@ obj-$(CONFIG_MAC80211)		+= mac80211/
+ obj-$(CONFIG_TIPC)		+= tipc/
+ obj-$(CONFIG_NETLABEL)		+= netlabel/
+ obj-$(CONFIG_IUCV)		+= iucv/
++obj-$(CONFIG_AFSMC)		+= smc/
+ obj-$(CONFIG_RFKILL)		+= rfkill/
+ obj-$(CONFIG_NET_9P)		+= 9p/
+ obj-$(CONFIG_CAIF)		+= caif/
 -- 
 1.8.5.5
