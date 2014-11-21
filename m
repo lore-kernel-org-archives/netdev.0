@@ -1,41 +1,50 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [net-next] i40e: enable fdb add code, remove unused code
-Date: Fri, 21 Nov 2014 08:50:46 +0100
-Message-ID: <20141121075046.GC1872@nanopsycho.orion>
-References: <1416529802-16055-1-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next 1/5] RDMA/cxgb4: Cleanup Filter related
+ macros/register defines
+Date: Thu, 20 Nov 2014 23:55:54 -0800
+Message-ID: <1416556554.6651.35.camel@perches.com>
+References: <1416554525-11844-1-git-send-email-hariprasad@chelsio.com>
+	 <1416554525-11844-2-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
+	linux-scsi@vger.kernel.org, davem@davemloft.net,
+	roland@purestorage.com, JBottomley@parallels.com,
+	hch@infradead.org, swise@opengridcomputing.com, leedom@chelsio.com,
+	anish@chelsio.com, nirranjan@chelsio.com, kumaras@chelsio.com,
+	praveen@chelsio.com, varun@chelsio.com
+To: Hariprasad Shenai <hariprasad@chelsio.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f51.google.com ([74.125.82.51]:63265 "EHLO
-	mail-wg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751079AbaKUHuu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2014 02:50:50 -0500
-Received: by mail-wg0-f51.google.com with SMTP id k14so5694684wgh.38
-        for <netdev@vger.kernel.org>; Thu, 20 Nov 2014 23:50:49 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1416529802-16055-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from smtprelay0186.hostedemail.com ([216.40.44.186]:47294 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752098AbaKUHz7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2014 02:55:59 -0500
+In-Reply-To: <1416554525-11844-2-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fri, Nov 21, 2014 at 01:30:02AM CET, jeffrey.t.kirsher@intel.com wrote:
->From: Jesse Brandeburg <jesse.brandeburg@intel.com>
->
->The original FDB code submission wasn't correct and the code
->wasn't enabled.  This removes some dead code (can use the common kernel
->code for fdb_del and fdb_dump) and correctly enables the fdb_add
->function pointer.
->
->The fdb_add functionality is important to i40e because it is needed
->for a workaround to allow bridges to work correctly on the i40e
->hardware.
->
->Reported-by: Jiri Pirko <jiri@resnulli.us>
->Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
->Acked-by: Greg Rose <gregory.v.rose@intel.com>
->Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+On Fri, 2014-11-21 at 12:52 +0530, Hariprasad Shenai wrote:
+> This patch cleanups all filter related macros/register defines that are defined
+> in t4fw_api.h and the affected files.
 
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+Is there any real value in the FW_FILTER_WR_ prefix?
+Does it need to be so long?
+
+Perhaps it'd be nicer to read if
+_S was _SHIFT
+_M was _MASK
+_V was whatever it's supposed to represent (_SET?)
+and
+_G was _GET
+
+> +#define FW_FILTER_WR_TID_S      12
+> +#define FW_FILTER_WR_TID_M      0xfffff
+> +#define FW_FILTER_WR_TID_V(x)   ((x) << FW_FILTER_WR_TID_S)
+> +#define FW_FILTER_WR_TID_G(x)   \
+> +	(((x) >> FW_FILTER_WR_TID_S) & FW_FILTER_WR_TID_M)
+
+Why aren't the _V defines masked then shifted?
+
+#define FW_FILTER_WR_<foo>_V(x)				\
+	(((x) & FW_FILTER_<foo>_M) << FW_FILTER_<foo>_S)
