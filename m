@@ -1,93 +1,71 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH 1/2] 8139too: Allow setting MTU larger than 1500
-Date: Fri, 21 Nov 2014 18:51:51 +0000
-Message-ID: <1416595911.7215.23.camel@decadent.org.uk>
-References: <1415447316-12424-1-git-send-email-albeu@free.fr>
-	 <1416530074.7215.11.camel@decadent.org.uk> <20141121145853.1be898de@tock>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-Z6GLiCLOxGVy0PWC4A1f"
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Bjorn Helgaas <bhelgaas@google.com>,
-	Benoit Taine <benoit.taine@lip6.fr>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Alban <albeu@free.fr>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20141121145853.1be898de@tock>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jay Vosburgh <jay.vosburgh@canonical.com>
+Subject: Re: [PATCH] bonding: clear header_ops when last slave detached (v2)
+Date: Fri, 21 Nov 2014 10:54:11 -0800
+Message-ID: <29850.1416596051@famine>
+References: <1416374292-10993-1-git-send-email-wen.gang.wang@oracle.com> <1416375565.14060.43.camel@edumazet-glaptop2.roam.corp.google.com> <546C4022.5010509@oracle.com> <CAHA+R7OyA_V149bpE8qUgG9epU-5UG8cf=zOgh5ZXVB3ZFZHUw@mail.gmail.com> <1416465685.8629.15.camel@edumazet-glaptop2.roam.corp.google.com> <CAHA+R7PKRbBNwfUWRAsVHQreKsGXBc8CHorZRuyCfvwL4O=y+g@mail.gmail.com> <1416516104.8629.39.camel@edumazet-glaptop2.roam.corp.google.com> <CAHA+R7Me4zPdGpeQVHFLLGVq=4cVar09jQFyjA81nxF_Fmuppw@mail.gmail.com> <1416521035.8629.49.camel@edumazet-glaptop2.roam.corp.google.com> <CAHA+R7P9XhGQZXFy6frxOyZJ4rX_MdVgY3kAPE1_wDNcvYd_yA@mail.gmail.com> <23563.1416523985@famine> <CAHA+R7Pnn4TxRQcR4KBRrZV8mqsm-YznMMvXVasji07caY9b1g@mail.gmail.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Wengang <wen.gang.wang@oracle.com>,
+	netdev <netdev@vger.kernel.org>
+To: Cong Wang <cwang@twopensource.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from youngberry.canonical.com ([91.189.89.112]:36021 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751038AbaKUSyR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2014 13:54:17 -0500
+In-reply-to: <CAHA+R7Pnn4TxRQcR4KBRrZV8mqsm-YznMMvXVasji07caY9b1g@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Cong Wang <cwang@twopensource.com> wrote:
 
---=-Z6GLiCLOxGVy0PWC4A1f
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+>On Thu, Nov 20, 2014 at 2:53 PM, Jay Vosburgh
+><jay.vosburgh@canonical.com> wrote:
+>> Cong Wang <cwang@twopensource.com> wrote:
+>>
+>>>Also, no one seems to care about my previous question:
+>>>why only bonding has the problem?
+>>
+>>         Bonding has the problem because it stashes a pointer to a data
+>> structure (the header_ops) from another module, and when that module is
+>> unloaded the dangling pointer may be dereferenced if it's not either
+>> cleared or made to never go away.
+>
+>I knew, please re-read my question, I was asking why ONLY bonding
+>has the problem, i.e. why not neigh or whatever else calling
+>header_ops->foo()? :)
+>
+>As I said, I may miss some try_get_module() somewhere of course.
+>Needs more digging.
 
-On Fri, 2014-11-21 at 14:58 +0100, Alban wrote:
-> On Fri, 21 Nov 2014 00:34:34 +0000
-> Ben Hutchings <ben@decadent.org.uk> wrote:
->=20
-> > On Sat, 2014-11-08 at 12:48 +0100, Alban Bedel wrote:
-> > > Replace the default ndo_change_mtu callback with one that allow
-> > > setting MTU that the driver can handle.
-> > >=20
-> > > Signed-off-by: Alban Bedel <albeu@free.fr>
-> > > ---
-> > >  drivers/net/ethernet/realtek/8139too.c | 13 ++++++++++++-
-> > >  1 file changed, 12 insertions(+), 1 deletion(-)
-> > >=20
-> > > diff --git a/drivers/net/ethernet/realtek/8139too.c
-> > > b/drivers/net/ethernet/realtek/8139too.c index 007b38c..8387de9
-> > > 100644 --- a/drivers/net/ethernet/realtek/8139too.c
-> > > +++ b/drivers/net/ethernet/realtek/8139too.c
-> > > @@ -185,6 +185,9 @@ static int debug =3D -1;
-> > >  /* max supported ethernet frame size -- must be at least
-> > > (dev->mtu+14+4).*/ #define MAX_ETH_FRAME_SIZE	1536
-> > > =20
-> > > +/* max supported payload size */
-> > > +#define MAX_ETH_DATA_SIZE	(MAX_ETH_FRAME_SIZE - ETH_HLEN -
-> > > ETH_FCS_LEN)
-> > [...]
-> >=20
-> > Does this maximum still allow for VLAN tags, or should it use
-> > VLAN_ETH_HLEN instead of ETH_HLEN?
->=20
-> That might well be as the VLAN code seems to assume that the physical
-> device can handle frames of MTU + VLAN_HLEN bytes. I can fix it, but to
-> me it seems like the VLAN code should be fixed to respect the physical
-> device MTU.
+	My explanation is why only bonding has the problem; it's keeping
+a pointer (in bond_dev->header_ops) that is copied from the slave
+device's ->header_ops, and clearing that stashed pointer is (a) not
+correctly synchronized with the removal of the slave device, and (b)
+trying to simply clear the pointer has a check then use race in
+dev_hard_header.
 
-Drivers that support VLANs have to allow for at least one VLAN tag when
-validating the MTU.  This is obviously broken for multiple layers of
-VLAN tags, but those are the semantics we're stuck with.
+	8021q, for example, uses a "passthru" header_ops to call the
+underlying device's header_ops, but 8021q is only for ethernet, and the
+eth_header_ops are static in vmlinux, so it won't see these problems.
 
-Ben.
+	Actually, now that I think about it, when the last ipoib slave
+is released, the bonding master device is theoretically supposed to be
+removed to avoid the sort of problem we're discussing here.
 
---=20
-Ben Hutchings
-Beware of bugs in the above code;
-I have only proved it correct, not tried it. - Donald Knuth
+	That apparently isn't happening, unless Wengang is running
+pktgen and simultaneously removing the ipoib module (racing the transmit
+against the removal), or maybe something else is going on (perhaps
+pktgen holds a reference to the bonding master, preventing its removal).
 
---=-Z6GLiCLOxGVy0PWC4A1f
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+	Also, curiously, looking at pkgten, pktgen_setup_dev appears to
+only accept devices of type ARPHRD_ETHER, but bonding with an ipoib
+slave would be ARPHRD_INFINIBAND.  I'm therefore not sure how Wengang
+configured pktgen over an ipoib bond.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+	Wengang, what kernel are you using, and is your kernel modified
+to change pktgen_setup_dev?
 
-iQIVAwUAVG+Jx+e/yOyVhhEJAQqU9A/9EhLgpP5fWbXomzhApckFCNnMkkpg007E
-Sw9MwWTseFLXPSmatLD6Ceiz5CWj/BmvpFH7/zs9ibWxt5Ma0oTmXOp80V+ADdI6
-Mj547YqeoEdReVo6bl2vQqpHxB8yQhkDJY8xiVdva1HrPk+iSmBBMdrxAgQoF0rZ
-/gDqGHxidlSFrDVh/T9QZmsFd7o886/XdKEh/NlmtLPj38wQlGaajjNK8Q5SS0Ct
-9Cs51H5f/t1yATCe7VlJJIYe8spnZlzzXeZuXeqxaTVG90VM4z4WEQjeNBp9TywS
-lHJhm9LSq+nIYEMHCEi04L2rHqUlAqp3L1nLCCyWlPW36monXVLx160gSBjB9aZS
-x+xbvAF33n3wXm25kYpq21zYJ0CY2eBuBzXYGWnuew8RnVw+sDbF0nAV/d4Hs6Or
-c2Jk3eQfsS5d3aVIv6rqj8Lzpb645rR0Ouz77LewrCndBSwYJtseboE7zXPgnduT
-OQ0huLNB84v71M11/bME99de05PYRhSB4ZrApswbjPMnd5wCEhuTUeifE//SMm5j
-hVbCBUnl7711LGGUwFs/mdzslBwABmd7P7B3a2Z/EfqtpZv3o1G7Dab0UHJeTIb9
-VqZCkMIU6+hAp90/y3maA6x62q8m5crouJ7I3RdwPEIK+E80GSkIWhrDPm5gsOtf
-vuDtO03wxNQ=
-=V4we
------END PGP SIGNATURE-----
+	-J
 
---=-Z6GLiCLOxGVy0PWC4A1f--
+---
+	-Jay Vosburgh, jay.vosburgh@canonical.com
