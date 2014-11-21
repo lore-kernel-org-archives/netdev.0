@@ -1,81 +1,52 @@
 From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH net-next v2] ipvlan: Initial check-in of the IPVLAN
- driver.
-Date: Fri, 21 Nov 2014 01:20:36 +0000
-Message-ID: <1416532836.7215.13.camel@decadent.org.uk>
-References: <1416205634-26611-1-git-send-email-maheshb@google.com>
-	 <20141118.155437.1582768084232091503.davem@davemloft.net>
-	 <CAF2d9jjrN4cDmtN_yKTe0BS+cAqE=hqgsT_6mOEBuMTTPOaPRg@mail.gmail.com>
+Subject: Re: [PATCH] ixgbe: make VLAN filter conditional in SR-IOV case
+Date: Fri, 21 Nov 2014 01:28:19 +0000
+Message-ID: <1416533299.7215.17.camel@decadent.org.uk>
+References: <7F861DC0615E0C47A872E6F3C5FCDDBD05D9D336@BPXM14GP.gisp.nec.co.jp>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-o58o+A7NmxNd/vmGU8av"
-Cc: David Miller <davem@davemloft.net>,
-	linux-netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Maciej =?UTF-8?Q?=C5=BBenczykowski?= <maze@google.com>,
-	Laurent Chavey <chavey@google.com>,
-	Tim Hockin <thockin@google.com>, brandon.philips@coreos.com,
-	xemul@parallels.com
-To: Mahesh Bandewar <maheshb@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:33592 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757536AbaKUBUu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2014 20:20:50 -0500
-In-Reply-To: <CAF2d9jjrN4cDmtN_yKTe0BS+cAqE=hqgsT_6mOEBuMTTPOaPRg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	protocol="application/pgp-signature"; boundary="=-7axfqq2RjRK3lAtmm77X"
+Cc: "e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	Hayato Momma <h-momma@ce.jp.nec.com>,
+	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <7F861DC0615E0C47A872E6F3C5FCDDBD05D9D336@BPXM14GP.gisp.nec.co.jp>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
---=-o58o+A7NmxNd/vmGU8av
+--=-7axfqq2RjRK3lAtmm77X
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Tue, 2014-11-18 at 21:27 -0800, Mahesh Bandewar wrote:
-> On Tue, Nov 18, 2014 at 12:54 PM, David Miller <davem@davemloft.net> wrot=
-e:
-> >
-> > From: Mahesh Bandewar <maheshb@google.com>
-> > Date: Sun, 16 Nov 2014 22:27:14 -0800
-> >
-> > > +/* Define IPVL_DEBUG and set the appropriate dbg_level for debugging=
-. */
-> > > +#ifdef       IPVL_DEBUG
-> > > +/*
-> > > + * 1 : non-datapath debugging
-> > > + * 2 : Custom
-> > > + * 3 : function enters and exists.
-> > > + * 4 : printk in data path (be careful!)
-> > > + */
-> > > +#define IPVL_DBG_LEVEL 1
-> > > +#define ipvlan_dbg(level, msg...)    do { \
-> > > +                                             if (level <=3D IPVL_DBG=
-_LEVEL) \
-> > > +                                             printk(KERN_DEBUG msg);=
- \
-> > > +                                     } while (0)
-> > > +#else
-> > > +#define ipvlan_dbg(level, msg...) do { ; } while (0)
-> > > +#endif
-> >
-> > The day of having code use custom local debug logging facilities is lon=
-g
-> > gone, please use a standard mechanism for this rather than home cooked
-> > reimplementations.
-> >
-> Do you mean pr_err() / pr_warn() / pr_debug() etc.? or something else?
+On Thu, 2014-11-13 at 08:28 +0000, Hiroshi Shimamoto wrote:
+> From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+>=20
+> Disable hardware VLAN filtering if netdev->features VLAN flag is dropped.
+>=20
+> In SR-IOV case, there is a use case which needs to disable VLAN filter.
+> For example, we need to make a network function with VF in virtualized
+> environment. That network function may be a software switch, a router
+> or etc. It means that that network function will be an end point which
+> terminates many VLANs.
+>=20
+> In the current implementation, VLAN filtering always be turned on and
+> VF can receive only 63 VLANs. It means that only 63 VLANs can be used
+> and it's not enough at all for building a virtual router.
+>=20
+> With this patch, if the user turns VLAN filtering off on the host, VF
+> can receive every VLAN packet.
+> The behavior is changed only if VLAN filtering is turned off by ethtool.
 [...]
 
-There are also netdev_err() etc. for logging with a net device as
-context.
-
-You can use the netif_err(), netif_dbg() etc. functions and implement
-the ethtool {get,set}_msglevel operations to allow turning on and off
-broad classes of log messages.
-
-Finally, if CONFIG_DYNAMIC_DEBUG is enabled then debug logging messages
-can be turned on and off at run-time (individually or by function, file
-or module).
+What happens when VLAN filtering is turned back on and a VF uses too
+many VLANs?  It seems like that should either be prevented (you can't
+turn it back on) or the driver should log a message saying the VF is now
+broken.
 
 Ben.
 
@@ -84,26 +55,26 @@ Ben Hutchings
 Beware of bugs in the above code;
 I have only proved it correct, not tried it. - Donald Knuth
 
---=-o58o+A7NmxNd/vmGU8av
+--=-7axfqq2RjRK3lAtmm77X
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v2
 
-iQIVAwUAVG6Taue/yOyVhhEJAQrXGQ/9GaZbVnSrO8OREvN31ufBf/Uc5Jykbp0x
-kmSoRAs3UeZ3lhm+euIvN2+XZWhj7EuUzrewKkkabvFYq3ZkmiyazmTF1r3PHKWC
-XMxqMhwA7EwcWD7Ck6x/Z8y/OcOgGtJzsFUS6OlpsV6mZVSlAHLX1qCGefwSicX9
-RaDem/hdvN3zqQDaNEx2iGj23IjYjH68k9wMTyS10+9Syn2PKZaZzL1f5KheHv+p
-a7KIUTn9+8SHiRd8fFSGxI4IPj8ghAWeS5lZXQZio7FaAUzR6GZ21HT6pdw5yTnn
-4a9ok8N6WhKLcL8rg4EDlzkQupZQlTqwHsRkq8OBP+bs2UMZ/YT3TXGHFghke1y/
-l1g8+K+pRMCze1ZkoaERfbodFLwMAq8986jIuNIyvvDqCJ4a+3+EVhOCW4i6uVAc
-ubbYLLmMsMzHzDUkBdQnnBnMJxPNpvhP1Gw7cbguTO+69HhGojemGyiuUYUv2Rcq
-V/baAL9RxLs5V9xjTPD+THkhRssMLduwd4OIkTNTbo+XV3A4dZ8AYAEzzPE/X7f/
-p+ToqS1+HXsu9Ws39+7ICrBoAZNyHO873P4avtkJe+S8tQj6uMzygpMWnbRaQf6i
-3xPKZwqZ0D5dBtIwVUxuuZ+JHjVkSBWH6zRhukdllaVxxEIRvXBYXm6hIS5JH/ND
-kwrK1bQMpq0=
-=UpW2
+iQIVAwUAVG6VPee/yOyVhhEJAQoqBhAAmpUy80xu2SpV/gjvI8y9zpTefOgUPUgG
+MVRTUEoJVaQfeKZvN1tzrLxz7OXukAQ/ZWjvktZghjW/hj+aMqJ+nE/NkzDLszU2
+117RHcnF6oy1Ts8+Dkbf2dDLpfZSJ3x5LByLrZ/Tnh9FduNp/AVdChJCDOBy4Ku9
+2t54hO6wZzx/u+HEVlueHrtxtLZv9d83bSUYKSkl7ZdmCUOEiyc6M5weWWPtjbQV
+YhXEHjnq/F+wRSWx54Fw7FBEMENeTe1K8snfHazLAjm2yENGbRG7vzLjAAqy096a
+GSXtKJQNv0yhbwe52NRV3O9gb+6u/JsDsnlbVb1YuqwVIjBGlvHA25oNVqHqbXZF
+weXj8om847lw7e4S3LyLFwLCbJNfYZIIDdhMqOTcucYgjshA93ezCcB2CndB7EUa
+vHN7D7KH8X+gfBKxknSLK+92OMSfoWUtmQ8eG2ydQjtmF8/k360RhKTKUrwm97mD
+MI5jFsNTF8FjH+KSTDQoxndaR2Uq8gsQBgkQJj28kP9stTrXQyGRS5LMYwDDJK5c
+5GUcoMB1jctjypE4f/Fg4dsnhtg7rSeZU2HnaVTIZ1sxkcprSki1toDzYf99h1SC
+S/6KbSKvTlz7E8IuNlMla1Mdr38mkWou2KUt+hGLMPS8fgzzir5G9jm+c0TDIxbb
+l+2/MgtHHw8=
+=y4ZZ
 -----END PGP SIGNATURE-----
 
---=-o58o+A7NmxNd/vmGU8av--
+--=-7axfqq2RjRK3lAtmm77X--
