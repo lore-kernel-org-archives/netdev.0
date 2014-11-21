@@ -1,36 +1,43 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [net-next] i40e: enable fdb add code, remove unused code
-Date: Fri, 21 Nov 2014 06:50:50 +0200
-Message-ID: <CAJ3xEMhRw=NLQOYAQ1X6UUm9nvpaJxcuVt_DTNiybAbDJG=qJw@mail.gmail.com>
-References: <1416529802-16055-1-git-send-email-jeffrey.t.kirsher@intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request: wireless 2014-11-20
+Date: Fri, 21 Nov 2014 00:08:18 -0500 (EST)
+Message-ID: <20141121.000818.597514678074429997.davem@davemloft.net>
+References: <20141120210030.GD31881@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f50.google.com ([209.85.218.50]:61955 "EHLO
-	mail-oi0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756976AbaKUEuv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Nov 2014 23:50:51 -0500
-Received: by mail-oi0-f50.google.com with SMTP id a141so3091239oig.23
-        for <netdev@vger.kernel.org>; Thu, 20 Nov 2014 20:50:50 -0800 (PST)
-In-Reply-To: <1416529802-16055-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: linville@tuxdriver.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20141120210030.GD31881@tuxdriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 21, 2014 at 2:30 AM, Jeff Kirsher
-<jeffrey.t.kirsher@intel.com> wrote:
-> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Thu, 20 Nov 2014 16:00:30 -0500
 
-> The fdb_add functionality is important to i40e because it is needed
-> for a workaround to allow bridges to work correctly on the i40e
-> hardware.
+> Please full this little batch of fixes intended for the 3.18 stream!
+> 
+> For the mac80211 patch, Johannes says:
+> 
+> "Here's another last minute fix, for minstrel HT crashing
+> depending on the value of some uninitialised stack."
+> 
+> On top of that...
+> 
+> Ben Greear fixes an ath9k regression in which a BSSID mask is
+> miscalculated.
+> 
+> Dmitry Torokhov corrects an error handling routing in brcmfmac which
+> was checking an unsigned variable for a negative value.
+> 
+> Johannes Berg avoids a build problem in brcmfmac for arches where
+> linux/unaligned/access_ok.h and asm/unaligned.h conflict.
+> 
+> Mathy Vanhoef addresses another brcmfmac issue so as to eliminate a
+> use-after-free of the URB transfer buffer if a timeout occurs.
+> 
+> Please let me know if there are problems!
 
-Can you please shed more light on the precise problem and solution? I
-wonder if one or two of them are generic... so might can/need land
-somewhere upper...
-
-Or.
+Pulled, thanks John.
