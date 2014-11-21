@@ -1,32 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next v2 00/15][pull request] Intel Wired LAN Driver
- Updates 2014-11-20
-Date: Fri, 21 Nov 2014 15:24:54 -0500 (EST)
-Message-ID: <20141121.152454.2281103973757875892.davem@davemloft.net>
-References: <1416524953-15161-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH v2 net] net: Revert "net: avoid one atomic operation in
+ skb_clone()"
+Date: Fri, 21 Nov 2014 15:27:07 -0500 (EST)
+Message-ID: <20141121.152707.1184550321197091769.davem@davemloft.net>
+References: <20141121180510.GA22112@kria>
+	<1416598161.8629.120.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1416599236.8629.124.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com
-To: jeffrey.t.kirsher@intel.com
+Cc: sd@queasysnail.net, clm@fb.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38591 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38612 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752138AbaKUUY6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2014 15:24:58 -0500
-In-Reply-To: <1416524953-15161-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	with ESMTP id S1750939AbaKUU1K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2014 15:27:10 -0500
+In-Reply-To: <1416599236.8629.124.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Thu, 20 Nov 2014 15:08:58 -0800
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 21 Nov 2014 11:47:16 -0800
 
-> This series contains updates to ixgbevf, i40e and i40evf.
-...
-> The following are changes since commit daaf427c6ab392bedcd018e326b2ffa1e1110cd6:
->   bpf: fix arraymap NULL deref and missing overflow and zero size checks
-> and are available in the git repository at:
->   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> Not sure what I was thinking, but doing anything after
+> releasing a refcount is suicidal or/and embarrassing.
+> 
+> By the time we set skb->fclone to SKB_FCLONE_FREE, another cpu
+> could have released last reference and freed whole skb.
+> 
+> We potentially corrupt memory or trap if CONFIG_DEBUG_PAGEALLOC is set.
+> 
+> Reported-by: Chris Mason <clm@fb.com>
+> Fixes: ce1a4ea3f1258 ("net: avoid one atomic operation in skb_clone()")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Sabrina Dubroca <sd@queasysnail.net>
+> ---
+> v2: the revert went wrong, as SKB_FCLONE_UNAVAILABLE
+>     was later replaced by SKB_FCLONE_FREE, spotted by Sabrina Dubroca
 
-Pulled, thanks Jeff.
+Applied, thanks Eric.
