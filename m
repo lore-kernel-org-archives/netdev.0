@@ -1,71 +1,67 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH] tcp: Restore RFC5961-compliant behavior for SYN packets
-Date: Fri, 21 Nov 2014 13:55:12 -0500
-Message-ID: <CADVnQy=X2EihoNSQoDS0Ebviq9RZSNgaiJx7UHu+UZWhp-SuAQ@mail.gmail.com>
-References: <1416524993-26228-1-git-send-email-calvinowens@fb.com>
+From: Alban <albeu@free.fr>
+Subject: Re: [PATCH 1/2] 8139too: Allow setting MTU larger than 1500
+Date: Fri, 21 Nov 2014 19:57:38 +0100
+Message-ID: <20141121195738.038d2cc2@tock>
+References: <1415447316-12424-1-git-send-email-albeu@free.fr>
+	<1416530074.7215.11.camel@decadent.org.uk>
+	<20141121145853.1be898de@tock>
+	<1416595911.7215.23.camel@decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Eric Dumazet <edumazet@google.com>, kernel-team@fb.com,
-	Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Calvin Owens <calvinowens@fb.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Aban Bedel <albeu@free.fr>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Bjorn Helgaas <bhelgaas@google.com>,
+	Benoit Taine <benoit.taine@lip6.fr>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Ben Hutchings <ben@decadent.org.uk>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1416524993-26228-1-git-send-email-calvinowens@fb.com>
+In-Reply-To: <1416595911.7215.23.camel@decadent.org.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 20, 2014 at 6:09 PM, Calvin Owens <calvinowens@fb.com> wrote:
-> Commit c3ae62af8e755 ("tcp: should drop incoming frames without ACK
-> flag set") was created to mitigate a security vulnerability in which a
-> local attacker is able to inject data into locally-opened sockets by
-> using TCP protocol statistics in procfs to quickly find the correct
-> sequence number.
->
-> This broke the RFC5961 requirement to send a challenge ACK in response
-> to spurious RST packets, which was subsequently fixed by commit
-> 7b514a886ba50 ("tcp: accept RST without ACK flag").
->
-> Unfortunately, the RFC5961 requirement that spurious SYN packets be
-> handled in a similar manner remains broken.
->
-> RFC5961 section 4 states that:
->
->    ... the handling of the SYN in the synchronized state SHOULD be
->    performed as follows:
->
->    1) If the SYN bit is set, irrespective of the sequence number, TCP
->       MUST send an ACK (also referred to as challenge ACK) to the remote
->       peer:
->
->       <SEQ=SND.NXT><ACK=RCV.NXT><CTL=ACK>
->
->       After sending the acknowledgment, TCP MUST drop the unacceptable
->       segment and stop processing further.
->
->    By sending an ACK, the remote peer is challenged to confirm the loss
->    of the previous connection and the request to start a new connection.
->    A legitimate peer, after restart, would not have a TCB in the
->    synchronized state.  Thus, when the ACK arrives, the peer should send
->    a RST segment back with the sequence number derived from the ACK
->    field that caused the RST.
->
->    This RST will confirm that the remote peer has indeed closed the
->    previous connection.  Upon receipt of a valid RST, the local TCP
->    endpoint MUST terminate its connection.  The local TCP endpoint
->    should then rely on SYN retransmission from the remote end to
->    re-establish the connection.
->
-> This patch lets SYN packets through the discard added in c3ae62af8e755,
-> so that spurious SYN packets are properly dealt with as per the RFC.
->
-> The challenge ACK is sent unconditionally and is rate-limited, so the
-> original vulnerability is not reintroduced by this patch.
->
-> Signed-off-by: Calvin Owens <calvinowens@fb.com>
+On Fri, 21 Nov 2014 18:51:51 +0000
+Ben Hutchings <ben@decadent.org.uk> wrote:
 
-Acked-by: Neal Cardwell <ncardwell@google.com>
+> On Fri, 2014-11-21 at 14:58 +0100, Alban wrote:
+> > On Fri, 21 Nov 2014 00:34:34 +0000
+> > Ben Hutchings <ben@decadent.org.uk> wrote:
+> > 
+> > > On Sat, 2014-11-08 at 12:48 +0100, Alban Bedel wrote:
+> > > > Replace the default ndo_change_mtu callback with one that allow
+> > > > setting MTU that the driver can handle.
+> > > > 
+> > > > Signed-off-by: Alban Bedel <albeu@free.fr>
+> > > > ---
+> > > >  drivers/net/ethernet/realtek/8139too.c | 13 ++++++++++++-
+> > > >  1 file changed, 12 insertions(+), 1 deletion(-)
+> > > > 
+> > > > diff --git a/drivers/net/ethernet/realtek/8139too.c
+> > > > b/drivers/net/ethernet/realtek/8139too.c index 007b38c..8387de9
+> > > > 100644 --- a/drivers/net/ethernet/realtek/8139too.c
+> > > > +++ b/drivers/net/ethernet/realtek/8139too.c
+> > > > @@ -185,6 +185,9 @@ static int debug = -1;
+> > > >  /* max supported ethernet frame size -- must be at least
+> > > > (dev->mtu+14+4).*/ #define MAX_ETH_FRAME_SIZE	1536
+> > > >  
+> > > > +/* max supported payload size */
+> > > > +#define MAX_ETH_DATA_SIZE	(MAX_ETH_FRAME_SIZE -
+> > > > ETH_HLEN - ETH_FCS_LEN)
+> > > [...]
+> > > 
+> > > Does this maximum still allow for VLAN tags, or should it use
+> > > VLAN_ETH_HLEN instead of ETH_HLEN?
+> > 
+> > That might well be as the VLAN code seems to assume that the
+> > physical device can handle frames of MTU + VLAN_HLEN bytes. I can
+> > fix it, but to me it seems like the VLAN code should be fixed to
+> > respect the physical device MTU.
+> 
+> Drivers that support VLANs have to allow for at least one VLAN tag
+> when validating the MTU.  This is obviously broken for multiple
+> layers of VLAN tags, but those are the semantics we're stuck with.
 
-neal
+Ok, I see. Should a I send a fix patch or redo a new version of this
+patch?
+
+Alban
