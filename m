@@ -1,80 +1,53 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH] ixgbe: make VLAN filter conditional in SR-IOV case
-Date: Fri, 21 Nov 2014 01:28:19 +0000
-Message-ID: <1416533299.7215.17.camel@decadent.org.uk>
-References: <7F861DC0615E0C47A872E6F3C5FCDDBD05D9D336@BPXM14GP.gisp.nec.co.jp>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH v2 net 1/2] drivers/net: Disable UFO through virtio
+Date: Fri, 21 Nov 2014 09:47:18 +0800
+Message-ID: <546E99A6.5090803@redhat.com>
+References: <1414693592.16849.61.camel@decadent.org.uk>	<1414693632.16849.62.camel@decadent.org.uk>
+	<20141119091455.GA26036@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-7axfqq2RjRK3lAtmm77X"
-Cc: "e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	Hayato Momma <h-momma@ce.jp.nec.com>,
-	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <7F861DC0615E0C47A872E6F3C5FCDDBD05D9D336@BPXM14GP.gisp.nec.co.jp>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	virtualization@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>, Ben Hutchings <ben@decadent.org.uk>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20141119091455.GA26036@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
+On 11/19/2014 05:14 PM, Michael S. Tsirkin wrote:
+> On Thu, Oct 30, 2014 at 06:27:12PM +0000, Ben Hutchings wrote:
+>> > IPv6 does not allow fragmentation by routers, so there is no
+>> > fragmentation ID in the fixed header.  UFO for IPv6 requires the ID to
+>> > be passed separately, but there is no provision for this in the virtio
+>> > net protocol.
+>> > 
+>> > Until recently our software implementation of UFO/IPv6 generated a new
+>> > ID, but this was a bug.  Now we will use ID=0 for any UFO/IPv6 packet
+>> > passed through a tap, which is even worse.
+>> > 
+>> > Unfortunately there is no distinction between UFO/IPv4 and v6
+>> > features, so disable UFO on taps and virtio_net completely until we
+>> > have a proper solution.
+>> > 
+>> > We cannot depend on VM managers respecting the tap feature flags, so
+>> > keep accepting UFO packets but log a warning the first time we do
+>> > this.
+>> > 
+>> > Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+>> > Fixes: 916e4cf46d02 ("ipv6: reuse ip6_frag_id from ip6_ufo_append_data")
+> There's something I don't understand here. I see:
+>
+>         NETIF_F_UFO_BIT,                /* ... UDPv4 fragmentation */
+>
+> this comment is wrong then?
 
---=-7axfqq2RjRK3lAtmm77X
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Thu, 2014-11-13 at 08:28 +0000, Hiroshi Shimamoto wrote:
-> From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
->=20
-> Disable hardware VLAN filtering if netdev->features VLAN flag is dropped.
->=20
-> In SR-IOV case, there is a use case which needs to disable VLAN filter.
-> For example, we need to make a network function with VF in virtualized
-> environment. That network function may be a software switch, a router
-> or etc. It means that that network function will be an end point which
-> terminates many VLANs.
->=20
-> In the current implementation, VLAN filtering always be turned on and
-> VF can receive only 63 VLANs. It means that only 63 VLANs can be used
-> and it's not enough at all for building a virtual router.
->=20
-> With this patch, if the user turns VLAN filtering off on the host, VF
-> can receive every VLAN packet.
-> The behavior is changed only if VLAN filtering is turned off by ethtool.
-[...]
-
-What happens when VLAN filtering is turned back on and a VF uses too
-many VLANs?  It seems like that should either be prevented (you can't
-turn it back on) or the driver should log a message saying the VF is now
-broken.
-
-Ben.
-
---=20
-Ben Hutchings
-Beware of bugs in the above code;
-I have only proved it correct, not tried it. - Donald Knuth
-
---=-7axfqq2RjRK3lAtmm77X
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIVAwUAVG6VPee/yOyVhhEJAQoqBhAAmpUy80xu2SpV/gjvI8y9zpTefOgUPUgG
-MVRTUEoJVaQfeKZvN1tzrLxz7OXukAQ/ZWjvktZghjW/hj+aMqJ+nE/NkzDLszU2
-117RHcnF6oy1Ts8+Dkbf2dDLpfZSJ3x5LByLrZ/Tnh9FduNp/AVdChJCDOBy4Ku9
-2t54hO6wZzx/u+HEVlueHrtxtLZv9d83bSUYKSkl7ZdmCUOEiyc6M5weWWPtjbQV
-YhXEHjnq/F+wRSWx54Fw7FBEMENeTe1K8snfHazLAjm2yENGbRG7vzLjAAqy096a
-GSXtKJQNv0yhbwe52NRV3O9gb+6u/JsDsnlbVb1YuqwVIjBGlvHA25oNVqHqbXZF
-weXj8om847lw7e4S3LyLFwLCbJNfYZIIDdhMqOTcucYgjshA93ezCcB2CndB7EUa
-vHN7D7KH8X+gfBKxknSLK+92OMSfoWUtmQ8eG2ydQjtmF8/k360RhKTKUrwm97mD
-MI5jFsNTF8FjH+KSTDQoxndaR2Uq8gsQBgkQJj28kP9stTrXQyGRS5LMYwDDJK5c
-5GUcoMB1jctjypE4f/Fg4dsnhtg7rSeZU2HnaVTIZ1sxkcprSki1toDzYf99h1SC
-S/6KbSKvTlz7E8IuNlMla1Mdr38mkWou2KUt+hGLMPS8fgzzir5G9jm+c0TDIxbb
-l+2/MgtHHw8=
-=y4ZZ
------END PGP SIGNATURE-----
-
---=-7axfqq2RjRK3lAtmm77X--
+Looks wrong, at least ufo6 depends check this bit in ip6_output.c
