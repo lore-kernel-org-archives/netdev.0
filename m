@@ -1,30 +1,28 @@
-From: cprasad@cse.iitm.ac.in
-Subject: Clarification regarding TCP advertised window
-Date: Fri, 21 Nov 2014 11:37:06 +0530 (IST)
-Message-ID: <1768979683.134536.1416550026650.JavaMail.root@mail.cse.iitm.ac.in>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Clarification regarding TCP advertised window
+Date: Thu, 20 Nov 2014 22:20:23 -0800
+Message-ID: <1416550823.8629.92.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1768979683.134536.1416550026650.JavaMail.root@mail.cse.iitm.ac.in>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>
+Cc: netdev <netdev@vger.kernel.org>
+To: cprasad@cse.iitm.ac.in
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from iitmpg.iitm.ac.in ([203.199.213.28]:42081 "EHLO
-	mail.cse.iitm.ac.in" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1750763AbaKUGIh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2014 01:08:37 -0500
-Received: from localhost (localhost.localdomain [127.0.0.1])
-	by mail.cse.iitm.ac.in (Postfix) with ESMTP id C9C26F7812D
-	for <netdev@vger.kernel.org>; Fri, 21 Nov 2014 11:37:12 +0530 (IST)
-Received: from mail.cse.iitm.ac.in ([127.0.0.1])
-	by localhost (mail.cse.iitm.ac.in [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id smBOVb8dOvI8 for <netdev@vger.kernel.org>;
-	Fri, 21 Nov 2014 11:37:06 +0530 (IST)
-Received: from mail.cse.iitm.ac.in (mail.cse.iitm.ac.in [10.6.5.215])
-	by mail.cse.iitm.ac.in (Postfix) with ESMTP id B00DEF78136
-	for <netdev@vger.kernel.org>; Fri, 21 Nov 2014 11:37:06 +0530 (IST)
+Received: from mail-ie0-f170.google.com ([209.85.223.170]:33848 "EHLO
+	mail-ie0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750766AbaKUGUZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Nov 2014 01:20:25 -0500
+Received: by mail-ie0-f170.google.com with SMTP id rd18so4375499iec.1
+        for <netdev@vger.kernel.org>; Thu, 20 Nov 2014 22:20:25 -0800 (PST)
+In-Reply-To: <1768979683.134536.1416550026650.JavaMail.root@mail.cse.iitm.ac.in>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-I was looking at TCP packets on wireshark and I found that during a download the advertised window in an ack packet was exceeding the max value of tcp_rmem parameter. What could be the reason for that?
+On Fri, 2014-11-21 at 11:37 +0530, cprasad@cse.iitm.ac.in wrote:
+> Hi,
+> I was looking at TCP packets on wireshark and I found that during a
+> download the advertised window in an ack packet was exceeding the max
+> value of tcp_rmem parameter. What could be the reason for that?
 
-Thanks
+What about you provide exact values ?
